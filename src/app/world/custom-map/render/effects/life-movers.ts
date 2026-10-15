@@ -1,11 +1,10 @@
 import { Group, InstancedMesh, type Material, Matrix4, Quaternion, Vector3 } from 'three';
 import type { MapLifeArea } from '../../map-document';
-import { areaDensity, centroid, DEFAULT_BOAT, lifeSeed, lifeRandom, loopInside } from '../../map-life';
+import { areaDensity, centroid, DEFAULT_BOAT, lifeSeed, lifeRandom, loopInside, MOVER_LANE, routeLoop } from '../../map-life';
 import { addHeightFog } from '../environment/height-fog';
 import type { HeightField } from '../height-field';
 import type { MapAssetLibrary } from '../map-asset-library';
 import { mapToScene } from '../map-coords';
-import { routeLoop } from './life-areas';
 
 /**
  * Things of the life areas (map-life.ts) that go round: boats (kind `boats`)
@@ -23,7 +22,7 @@ import { routeLoop } from './life-areas';
 /** Per kind: how many an area and a route hold at density 1, the most of one area, speeds (m/s, times a mover's own speed share), how far a route's two lanes lie apart */
 const KINDS = {
   boats: { area: 4, route: 3, most: 24, areaSpeed: [0.5, 1.2], routeSpeed: [1.5, 2.5], lane: 4 },
-  movers: { area: 3, route: 2, most: 16, areaSpeed: [0.8, 1.2], routeSpeed: [0.9, 1.1], lane: 2.5 },
+  movers: { area: 3, route: 2, most: 16, areaSpeed: [0.8, 1.2], routeSpeed: [0.9, 1.1], lane: MOVER_LANE },
 } as const;
 /** Points of each loop */
 const LOOP_SAMPLES = 64;

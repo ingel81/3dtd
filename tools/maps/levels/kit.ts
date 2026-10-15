@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { CatalogIndex, normalizeCatalog } from '../../../src/app/editor/catalog/asset-catalog';
 import { MapKit } from '../../../src/app/editor/ops/map-kit';
 import { createMapDocument } from '../../../src/app/world/custom-map/map-create';
-import type { CustomMapDocument } from '../../../src/app/world/custom-map/map-document';
+import type { CustomMapDocument, MapPoint } from '../../../src/app/world/custom-map/map-document';
 
 export { facing } from '../../../src/app/editor/ops/map-kit';
 
@@ -75,7 +75,46 @@ export class LevelKit extends MapKit {
     super(doc, levelCatalog(), { name: spec.id, seed: spec.seed, maxLayers: LEVEL_LAYERS });
   }
 
-  /** The finished document; throws on the editor check's errors and on objects or water in the air (object-floating, water-floating) */
+  /**
+   * Ejecta round a crater: blocks of rock strewn along its real rim (the
+   * highest ground on each ray out from `center` within `reach` metres), in
+   * clumps with gaps between them, big and close at the rim, smaller and
+   * sparser further out; never a closed ring. `rocks` from largest to
+   * smallest; one block per `spacing` metres of rim
+   */
+  ejecta(center: MapPoint, reach: number, rocks: readonly string[], o: { spacing?: number; spread?: number } = {}): void {
+    const rays = 72;
+    const rim: number[] = [];
+    for (let i = 0; i < rays; i++) {
+      const a = (i / rays) * Math.PI * 2;
+      let best = reach * 0.3;
+      let top = -Infinity;
+      for (let d = reach * 0.3; d <= reach; d += 1) {
+        const h = this.h(center.x + Math.cos(a) * d, center.y + Math.sin(a) * d);
+        if (h > top) [top, best] = [h, d];
+      }
+      rim.push(best);
+    }
+    const mean = rim.reduce((s, d) => s + d, 0) / rays;
+    const n = Math.round((Math.PI * 2 * mean) / (o.spacing ?? 6));
+    const spread = o.spread ?? 0.35;
+    // Clumps: a slow wave round the rim with a random phase; blocks fall only where it stands high
+    const phase = this.noise.hash(center.x, center.y, 1) * Math.PI * 2;
+    const lobes = 2 + Math.floor(this.noise.hash(center.x, center.y, 2) * 3);
+    for (let i = 0; i < n; i++) {
+      const a = this.noise.hash(center.x + i, center.y, 3) * Math.PI * 2;
+      if (0.5 + 0.5 * Math.sin(a * lobes + phase) < this.noise.hash(center.x, center.y + i, 4) * 0.9) continue;
+      // Most land at the rim, a few thrown far out
+      const out = Math.pow(this.noise.hash(i, center.x, 5), 2.5);
+      const d = rim[Math.floor((a / (Math.PI * 2)) * rays) % rays] * (0.97 + spread * out);
+      const p = { x: center.x + Math.cos(a) * d, y: center.y + Math.sin(a) * d };
+      const size = Math.min(rocks.length - 1, Math.floor(out * rocks.length + this.noise.hash(i, center.y, 6) * 1.6));
+      if (!this.free(p.x, p.y, 2)) continue;
+      this.place(rocks[size], p.x, p.y, { rotation: this.noise.hash(p.x, p.y, 7) * Math.PI * 2, scale: (1.25 - 0.5 * out) * (0.7 + 0.5 * this.noise.hash(p.y, p.x, 8)) });
+    }
+  }
+
+  /** The finished document; throws on the editor check's errors, on objects or water in the air (object-floating, water-floating) and on objects in a mover route's way */
   finish(): CustomMapDocument {
     this.settleRocks();
     const issues = this.issues();
@@ -83,8 +122,8 @@ export class LevelKit extends MapKit {
     if (process.env['LEVEL_LOG']) {
       console.log(this.spec.id, { lanes: this.lanes(), objects: this.doc.objects.length, leftOut: [...this.leftOut], warnings: issues.map((i) => `${i.message}${i.target && 'id' in i.target ? ` [${i.target.id}]` : ''}${i.focus ? ` at ${Math.round(i.focus.x)},${Math.round(i.focus.y)}` : ''}`) });
     }
-    // A shipped level has nothing hanging in the air: the check's warnings stop it here
-    const errors = issues.filter((i) => i.severity === 'error' || i.code === 'object-floating' || i.code === 'water-floating');
+    // A shipped level has nothing hanging in the air and nothing a rover drives through: the check's warnings stop it here
+    const errors = issues.filter((i) => i.severity === 'error' || i.code === 'object-floating' || i.code === 'water-floating' || i.code === 'object-on-mover-route');
     if (errors.length) throw new Error(`${this.spec.id}: ${errors.map((e) => `${e.message}${e.focus ? ` (at ${Math.round(e.focus.x)}, ${Math.round(e.focus.y)})` : ''}`).join('; ')}`);
     return this.doc;
   }

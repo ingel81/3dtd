@@ -138,7 +138,7 @@
       "spawns": 3,
       "biome": "moon",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "bd154186f6aeb7972d56e0bae02aeaaaeaa1891b0c423d1fe98a0efe6ee19fca"
+      "contentHash": "df0e140e1be3d1179d5e9b60fe19c47ed26702ce9142f29cdb321b61e8ef0b51"
     },
     {
       "id": "mars-canyon",
@@ -152,7 +152,7 @@
       "spawns": 3,
       "biome": "mars",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "bf2324dad95c7a8d62f83393f708dfd4b1bd319769ff8987721477b7e2956ef5"
+      "contentHash": "f2fff4c7343eb402b646b4d79181b006ce3a43513422fd09336a3c48f91837f4"
     },
     {
       "id": "ruined-city",
@@ -180,7 +180,7 @@
       "spawns": 3,
       "biome": "city",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "2cbdb81b5e81ce3d2101c8b041651ea53147704caa3a1fd066b90bc806720f91"
+      "contentHash": "6283ad45f7d294bca8a276cc2edee396fbab36c9ed2f9d927bb156ca59ea25dc"
     }
   ]
 }
