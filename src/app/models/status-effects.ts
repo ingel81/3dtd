@@ -6,8 +6,10 @@
  * the same enemy: freeze wins.
  * stun: the same halt, electric: its own look (sparks), and a source can
  * tell the two apart.
+ * seal: Phasing (immuneToSlow) is lifted for its duration, a slow takes hold
+ * (the Magic tower's Binding Sigil path); `value` is unused.
  */
-export type StatusEffectType = 'slow' | 'freeze' | 'stun' | 'burn' | 'poison';
+export type StatusEffectType = 'slow' | 'freeze' | 'stun' | 'burn' | 'poison' | 'seal';
 
 /**
  * Represents an active status effect on an enemy

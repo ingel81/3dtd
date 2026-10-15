@@ -281,14 +281,16 @@ export class CombatEffectService {
 
   /**
    * What the path of the shot's tower adds to its direct hit (configs/tower-paths.config.ts): a burn of
-   * `burnShare` of the shot's damage.
+   * `burnShare` of the shot's damage, a seal of `sealMs`.
    */
   private applyPathHit(projectile: Projectile, enemy: Enemy): void {
     const path = getTowerPath(projectile.pathId);
     if (!path || !enemy.alive) return;
-    if (path.burnShare) this.statusEffectService.applyBurn(
-      enemy, projectile.damage * path.burnShare, GAME_BALANCE.effects.burn.duration, projectile.sourceTowerId,
-    );
+    if (path.burnShare) {
+      const dps = projectile.damage * path.burnShare;
+      this.statusEffectService.applyBurn(enemy, dps, GAME_BALANCE.effects.burn.duration, projectile.sourceTowerId);
+    }
+    if (path.sealMs) this.statusEffectService.applySeal(enemy, path.sealMs, projectile.sourceTowerId);
   }
 
   /**

@@ -142,7 +142,7 @@ Gebaut sind diese Eigenschaften je Gegnertyp (`EnemyTypeConfig` in
 | Split | `splitOnDeath` | ein Kill (kein Leck) teilt den Gegner | Skeleton (2 Minions), Ooze (bis zu 20 Slime Clumps mit 3/10 ihrer HP) |
 | Kette | `chain` | ein Spawn bringt einen Wurm aus Segmenten | Skarnax |
 | Regen | `regenPerSecond` | heilt je Sekunde einen Anteil der max. HP, in Schritten von 0,5 s Spielzeit, nie solange er brennt | Mammoth 1 %, Slime Clump 2 % |
-| Phasing | `immuneToSlow` | ein Slow greift nicht; Freeze und Stun schon | Wraith |
+| Phasing | `immuneToSlow` | ein Slow greift nicht; Freeze und Stun schon; ein Siegel (Magic, Pfad Binding Sigil) hebt es 4 s auf | Wraith |
 | Wut | `traits.rage` | unter einem Anteil der HP schneller und nimmt weniger Turmschaden, rot | Herbert (50 %), Golem King (40 %), Dragon Matriarch (50 %) |
 | Eigenes Leck | `leakDamage` | kostet im HQ diesen Wert statt dem aus den HP | Skarnax 150 |
 | Elite | (je Welle, `ELITE_SHARE`) | etwa jeder 20. einer Art ab zehn, 4,5-fache HP, gold, ein Viertel größer | alle außer Bossen, Wurm und Ooze |
@@ -235,6 +235,8 @@ in §12.3.
 ### 3.7 Magic: Magic
 - Stärkster Ethereal-Counter (2.0×), zweiter Konter gegen Fortified (1.3×, Runen gegen Stein).
 - Schwach gegen Light (0.5×): flinke Ziele weichen den Geschossen aus.
+- Pfad Binding Sigil (Forschung Binding Sigils ab W15, Pfad 250, seit 2026-10-15): jeder Treffer hebt Phasing
+  4 s auf, der Slow der Ice greift dann auch an Wraiths (§2.5).
 
 ### 3.8 Ice: Ice
 - **Air + Ground** ab Basis. Niedriger DPS, starker Slow.
@@ -537,10 +539,8 @@ den Text aus `description`.
 
 ### 6.3 Tech-Tree (Forschungsbaum)
 
-Frei wählbar mit Voraussetzungen, 24 Knoten in vier Kategorien
-(`research-tree.config.ts`), zusammen 180.620 Credits (bis 2026-10-01 19.670).
-Frei wählbar mit Voraussetzungen, 22 Knoten in vier Kategorien
-(`research-tree.config.ts`), zusammen 178.120 Credits (bis 2026-10-01 19.670).
+Frei wählbar mit Voraussetzungen, 26 Knoten in vier Kategorien
+(`research-tree.config.ts`), zusammen 184.120 Credits (bis 2026-10-01 19.670).
 
 **Tempo (seit 2026-10-02):** Eine Forschung kann eine Mindestwelle haben
 (`minWave`). Sie öffnet in der Bauphase vor dieser Welle (`researchWave`: die
@@ -592,6 +592,7 @@ Jede öffnet einen Tower-Pfad (`unlock-path`), den danach jeder Tower des Typs e
 | `scouting` | Scouting | 3.000 | 25 s | 16 | Advanced Weaponry | Archer: Scout |
 | `incendiary-arrows` | Incendiary Arrows | 2.000 | 20 s | 10 | Fire Alchemy | Archer: Fire Arrows |
 | `multirole-warheads` | Multirole Warheads | 1.500 | 20 s | 9 | Rocketry | Rocket: Multirole |
+| `binding-sigils` | Binding Sigils | 2.500 | 25 s | 15 | Arcane Studies | Magic: Binding Sigil |
 
 #### Upgrade-Tier-Freischaltungen
 

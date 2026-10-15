@@ -7,7 +7,7 @@
 import type { TowerTypeId } from './tower-types.config';
 import type { ResearchId } from './research/research.types';
 
-export type TowerPathId = 'scout' | 'incendiary' | 'multirole';
+export type TowerPathId = 'scout' | 'incendiary' | 'multirole' | 'seal';
 
 export interface TowerPath {
   readonly id: TowerPathId;
@@ -35,6 +35,8 @@ export interface TowerPath {
    * to air targets while it has one (Tower.prefersAir); absent for none
    */
   readonly groundDamageShare?: number;
+  /** Game ms a direct hit lifts its target's Phasing for (StatusEffectService.applySeal), absent for none */
+  readonly sealMs?: number;
   /** What the tower wears with it: a model in the tower model's own units, hung under its mesh */
   readonly attachment?: {
     readonly modelUrl: string;
@@ -79,6 +81,18 @@ export const TOWER_PATHS: Readonly<Record<TowerPathId, TowerPath>> = {
     groundDamageShare: 0.5,
     // tools/blender/path_attachments.py
     attachment: { modelUrl: 'assets/models/towers/attachments/multirole.glb', sweepNode: 'multirole_radar' },
+  },
+  seal: {
+    id: 'seal',
+    towerId: 'magic',
+    name: 'Binding Sigil',
+    description: 'Each hit binds its target for 4 s: Phasing is lifted, ice slows take hold of wraiths.',
+    cost: 250,
+    research: 'binding-sigils',
+    // Magic fires 1.5 a second: its target stays sealed while it is on it and 4 s after (docs/TOWER_CREATION.md, Pfade)
+    sealMs: 4000,
+    // tools/blender/path_attachments.py
+    attachment: { modelUrl: 'assets/models/towers/attachments/seal.glb', sweepNode: 'seal_rings' },
   },
 };
 

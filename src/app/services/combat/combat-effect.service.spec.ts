@@ -454,6 +454,14 @@ describe('CombatEffectService tower paths', () => {
     expect(applyDamage.mock.calls.map((c) => (c[1] as { id: string }).id)).toEqual(['dragon', 'bat']);
   });
 
+  it('a Binding Sigil hit seals its target', () => {
+    const applySeal = vi.fn();
+    (mockInjections['StatusEffectService'] as Record<string, unknown>)['applySeal'] = applySeal;
+    const target = enemyAt('wraith', 0);
+    hit('magic', 'seal', target);
+    expect(applySeal.mock.calls).toEqual([[target, TOWER_PATHS.seal.sealMs, 't-1']]);
+  });
+
   it('an archer without the path burns nothing', () => {
     hit('archer', null);
     hit('archer', 'scout');

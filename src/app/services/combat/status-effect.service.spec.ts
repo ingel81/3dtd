@@ -92,6 +92,24 @@ describe('StatusEffectService', () => {
       expect(wraith.movement.statusEffects.map((e) => e.type)).toEqual(['freeze']);
     });
 
+    it('a seal lifts Phasing while it lasts: a slow takes hold, after it no longer (TODO E101)', () => {
+      service.setGameClockProvider(() => clock);
+      const wraith = makeEnemy({ immuneToSlow: ENEMY_TYPES['wraith'].immuneToSlow });
+      service.applySeal(wraith as never, 4000, 'magic-1');
+      expect(wraith.movement.statusEffects.map((e) => e.type)).toEqual(['seal']);
+      clock = 3999;
+      service.applySlow(wraith as never, 0.5, 3000, 'ice-1');
+      expect(wraith.movement.statusEffects.map((e) => e.type)).toEqual(['seal', 'slow']);
+      clock = 4000;
+      service.applySlow(wraith as never, 0.5, 3000, 'ice-2');
+      expect(wraith.movement.statusEffects).toHaveLength(2);
+    });
+
+    it('applySeal leaves a type without Phasing alone', () => {
+      service.applySeal(enemy as never, 4000, 'magic-1');
+      expect(enemy.movement.statusEffects).toHaveLength(0);
+    });
+
     it('applyPoison forwards a poison effect with the DoT value', () => {
       service.applyPoison(enemy as never, 12, 3000, 'poison-tower');
       expect(enemy.movement.statusEffects[0]).toMatchObject({

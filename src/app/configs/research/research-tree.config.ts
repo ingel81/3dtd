@@ -274,6 +274,22 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     effects: [{ kind: 'unlock-path', pathId: 'multirole' }],
   },
 
+  // Out of the magic line, before the first wraiths (W17): lifts their
+  // Phasing, so the ice tower's slow works on them again
+  'binding-sigils': {
+    id: 'binding-sigils',
+    name: 'Binding Sigils',
+    description: 'Magic towers can take the Binding Sigil path: each hit lifts Phasing, slows take hold again',
+    category: 'global-perk',
+    branch: 'arcane',
+    icon: 'sparkle',
+    cost: 2500,
+    duration: 25,
+    prerequisites: ['arcane-studies'],
+    minWave: 15,
+    effects: [{ kind: 'unlock-path', pathId: 'seal' }],
+  },
+
   'nuclear-strike': {
     id: 'nuclear-strike',
     name: 'Nuclear Strike',

@@ -371,6 +371,7 @@ Pfad ändert Schüsse in der Luft nicht. Die Verteidigungsanalyse des Wellenplan
 | Archer | Scout | Scouting (W16, 3000) | 250 | Ausguck (`tools/blender/scout_lookout.py`), entdeckt getarnte Gegner im Umkreis von 35 m für alle Tower ([ENEMY_CREATION.md](ENEMY_CREATION.md), Camo) | Camo-Konter |
 | Archer | Fire Arrows | Incendiary Arrows (W10, 2000, nach Fire Alchemy) | 250 | jeder direkte Treffer setzt einen Brand: 25 % des Pfeilschadens je Sekunde als Feuer, 3 s, ein Brand je Tower, der nächste Treffer erneuert ihn; ein brennender Gegner regeneriert nicht | Regen-Konter in der Ballistik-Linie, mehr Schaden gegen Weiches |
 | Rocket | Multirole | Multirole Warheads (W9, 1500, nach Rocketry) | 300 | schießt auch auf Boden, dort mit 50 % (Treffer und Splash); solange ein Flieger Kandidat ist, nimmt sie den, und von einem Bodenziel schaut sie beim periodischen Sichtcheck (bis 3/s) nach Fliegern | die Rocket steht in Bodenwellen nicht mehr still |
+| Magic | Binding Sigil | Binding Sigils (W15, 2500, nach Arcane Studies) | 250 | jeder direkte Treffer versiegelt sein Ziel 4 s (Status `seal`, einer je Gegner, ein neuer erneuert ihn): Phasing (`immuneToSlow`) ist aufgehoben, ein Slow greift; der Slow läuft danach seine eigene Dauer aus | Ice wirkt wieder auf Wraiths (ab W17) |
 
 Bodenziele per Pfad: `canTargetGroundEffective` und `groundDamageShareOf` in `entities/tower-targeting.util.ts`
 gelten für Zielwahl (`Tower.canTargetGround`, `prefersAir`), Splash, Sicht (`TowerLos` fragt die Bodensicht an,
@@ -381,6 +382,12 @@ Rechnung Fire Arrows (Archer L0, 30 Physical je Sekunde, Brand 7,5 Fire je Sekun
 Brand wächst mit dem Damage-Track. Dieselben +37 % gegen Unarmored kosten über den Damage-Track ab L0 etwa 6,5 Stufen
 (etwa 400 Gold), ab L5 etwa 1.200 Gold: der Pfad ist ein billiger Kauf für Archer, die schon ausgebaut sind, wie der
 Scout ein Einmalkauf.
+
+Rechnung Binding Sigil: der Slow der Ice (50 %, 3 s) verdoppelt die Zeit eines Wraiths (Basis 8 m/s) im Feuer
+aller Tower, solange er hält. Die Magic (1,5 Schuss/s) versiegelt jedes Ziel, das sie trifft, und hält es, bis es
+stirbt oder die Reichweite verlässt; jedes Siegel läuft 4 s nach ihrem letzten Treffer weiter. Ohne Ice in
+derselben Strecke bringt der Pfad nichts. Der Wellenplaner kennt Slows nicht (wie bisher), das Siegel zählt dort
+nicht.
 
 Rechnung Multirole (Rocket L0 60 Siege alle 2 s, Splash 5 m bis 5 Ziele): am Boden 30 je Schuss, 15 DPS vor Splash,
 gegen Heavy 26 (Matrix 1,75). Eine Cannon L0 (150 Gold) bringt gegen Heavy 48 vor Splash (55 × 0,5/s × 1,75): die

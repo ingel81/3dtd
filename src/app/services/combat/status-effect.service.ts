@@ -20,12 +20,28 @@ export class StatusEffectService {
     this.gameClockProvider = provider;
   }
 
-  /** Nothing on a type with Phasing (immuneToSlow) */
+  /** Nothing on a type with Phasing (immuneToSlow), unless a seal lifts it (applySeal) */
   applySlow(enemy: Enemy, slowAmount: number, duration: number, sourceId: string): void {
-    if (enemy.typeConfig.immuneToSlow) return;
+    if (enemy.typeConfig.immuneToSlow && !this.hasActiveEffect(enemy, 'seal')) return;
     enemy.movement.applyStatusEffect({
       type: 'slow',
       value: slowAmount,
+      duration,
+      startTime: this.gameClockProvider(),
+      sourceId,
+    });
+  }
+
+  /**
+   * Seal: Phasing (immuneToSlow) lifted for `duration` game ms, a slow takes hold meanwhile and runs its own
+   * course. One seal at a time, a new one refreshes it. Only for a type with Phasing; on any other it would
+   * change nothing.
+   */
+  applySeal(enemy: Enemy, duration: number, sourceId: string): void {
+    if (!enemy.typeConfig.immuneToSlow) return;
+    enemy.movement.applyStatusEffect({
+      type: 'seal',
+      value: 1,
       duration,
       startTime: this.gameClockProvider(),
       sourceId,

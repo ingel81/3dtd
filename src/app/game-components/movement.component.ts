@@ -325,7 +325,7 @@ export class MovementComponent extends Component {
   /**
    * Apply a status effect to this entity.
    *
-   * Slow and poison don't stack: one of each can be active, and any new one
+   * Slow, poison and seal don't stack: one of each can be active, and any new one
    * replaces it regardless of source. Every other type (burn, freeze) is kept
    * per source: the same source refreshes its entry, another source adds one.
    * A replaced entry hands its DoT tick phase to the new one.
@@ -368,7 +368,7 @@ export class MovementComponent extends Component {
 
   /** Index of the entry a new effect of `type` from `sourceId` refreshes, or -1. */
   private findEffectSlot(type: StatusEffectType, sourceId: string | undefined): number {
-    const bySource = type !== 'slow' && type !== 'poison';
+    const bySource = type !== 'slow' && type !== 'poison' && type !== 'seal';
     for (let i = 0; i < this.statusEffects.length; i++) {
       const e = this.statusEffects[i];
       if (e.type === type && (!bySource || e.sourceId === sourceId)) return i;

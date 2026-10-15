@@ -13,9 +13,13 @@ Das Status-Effekt-System ermöglicht es Towern, temporäre Effekte auf Enemies a
 **Aktuell implementiert:**
 - **Slow** (Verlangsamung): Ice Tower, Splash
 - **Poison** (DoT): Poison Tower, Splash
-- **Burn** (DoT): Fire Tower, jeder Gegner im Flammenkegel
+- **Burn** (DoT): Fire Tower, jeder Gegner im Flammenkegel; Archer mit Pfad Fire Arrows, das direkt getroffene Ziel
 - **Freeze** (Stopp): Frostbombe (Fähigkeit, [ABILITIES.md](ABILITIES.md))
 - **Stun** (Stopp, elektrisch): EMP (Fähigkeit, [ABILITIES.md](ABILITIES.md))
+- **Seal** (hebt Phasing auf): Magic Tower mit Pfad Binding Sigil, das direkt getroffene Ziel
+
+Die Effekte der Tower-Pfade hängen am Pfad des Towers, den das Projektil beim Abschuss mitnimmt
+(`Projectile.pathId`, `CombatEffectService.applyPathHit`, [TOWER_CREATION.md](TOWER_CREATION.md#pfade-2026-10-03-todo-e101)).
 
 Status-Effekte hängen am Projektiltyp (`ice-shard`, `poison-glob`) bzw. am Fire-Beam, nicht am
 Schadenstyp. Der Chaos Tower (Schadenstyp `chaos`, 1,0 gegen jede Rüstung) legt keinen Effekt.
@@ -313,6 +317,16 @@ this.statusEffectService.applyFreeze(enemy, 3000, 'ability:frost-bomb');
 **Status:** seit 2026-09-14. Quelle: das EMP (Quelle `ability:emp`; Maschinen 6 s, Bosse 0,75 s, sonst 1,5 s).
 
 Derselbe Stopp wie Freeze (`isHalted()`, Multiplikator 0, kein Laufzyklus, kein Gehen/Rennen-Wechsel), als eigener Typ, damit Darstellung und Quelle ihn auseinanderhalten: `isStunned()`, `applyStun(enemy, durationMs, sourceId)`, pro Quelle geführt. Ein Gegner kann gleichzeitig eingefroren und betäubt sein; er steht, bis beides abgelaufen ist.
+
+## Seal (Phasing aufgehoben)
+
+**Status:** seit 2026-10-15. Quelle: der Magic Tower mit dem Pfad Binding Sigil, je direktem Treffer 4 s.
+
+Solange ein Siegel läuft, greift ein Slow auch an einem Typ mit Phasing (`immuneToSlow`, der Wraith):
+`StatusEffectService.applySlow` fragt `hasActiveEffect(enemy, 'seal')`. Ein Slow, der so gegriffen hat, läuft seine
+eigene Dauer aus, auch wenn das Siegel vorher endet. Ein Siegel je Gegner wie beim Slow (nicht pro Quelle), ein neuer
+Treffer erneuert es; auf einen Typ ohne Phasing legt `applySeal` nichts. `value` wird nicht gelesen. Keine eigene
+Darstellung: sichtbar wird es am Frost des Slows.
 
 ---
 

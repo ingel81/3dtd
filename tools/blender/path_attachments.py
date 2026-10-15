@@ -7,6 +7,7 @@ path, built in its tower model's own units, so the game hangs it under the tower
 Writes public/assets/models/towers/attachments/<name>.glb. Names:
     incendiary  Archer, Fire Arrows: an iron fire basket with embers on the platform, a quiver of pitch arrows
     multirole   Rocket, Multirole: a mast with a turning radar dish (`multirole_radar`), a crate of ground shells
+    seal        Magic, Binding Sigil: two rings of glowing runes about the orb, turning (`seal_rings`)
 """
 import math
 import os
@@ -171,9 +172,47 @@ def build_multirole():
     return [mast, head, crate]
 
 
+# ---------------------------------------------------------------- seal (magic)
+
+# Magic model units: the orb on the spire's top, centre near z 0.82, radius about 0.13
+ORB_AT = Vector((0.0, 0.0, 0.82))
+
+
+def build_seal():
+    gold = material('seal_gold', (0.85, 0.65, 0.20), metallic=0.9, roughness=0.3)
+    glyph = material('seal_glyph', (0.75, 0.55, 1.0), emission=(0.70, 0.45, 1.0), strength=5.0)
+
+    # Two tilted rings of runes about the orb; they turn slowly together (sweepNode)
+    parts = []
+    for radius, tilt, spin, count in ((0.22, 22, 0, 8), (0.19, -30, 50, 6)):
+        rot = Euler((math.radians(tilt), 0, math.radians(spin)))
+        bpy.ops.mesh.primitive_torus_add(major_radius=radius, minor_radius=0.006, major_segments=32,
+                                         minor_segments=6, location=ORB_AT, rotation=rot)
+        ring = bpy.context.active_object
+        ring.data.materials.append(gold)
+        parts.append(ring)
+        for k in range(count):
+            a = k * math.tau / count
+            at = Vector((math.cos(a) * radius, math.sin(a) * radius, 0))
+            at.rotate(rot)
+            bpy.ops.mesh.primitive_cube_add(size=0.022, location=ORB_AT + at, rotation=(rot.x, rot.y, a + rot.z))
+            rune = bpy.context.active_object
+            rune.scale = (0.5, 1.0, 1.4)
+            rune.data.materials.append(glyph)
+            parts.append(rune)
+    rings = join('seal_rings', parts)
+    bpy.context.scene.cursor.location = ORB_AT
+    bpy.ops.object.select_all(action='DESELECT')
+    rings.select_set(True)
+    bpy.context.view_layer.objects.active = rings
+    bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
+    return [rings]
+
+
 BUILDS = {
     'incendiary': ('archer.glb', build_incendiary, (1.1, -1.1, 0.9), (0.05, 0.05, 0.1)),
     'multirole': ('rocket.glb', build_multirole, (-2.6, -1.4, 1.8), (-0.2, 0.0, -0.2)),
+    'seal': ('magic.glb', build_seal, (1.2, -1.2, 1.3), (0.0, 0.0, 0.55)),
 }
 
 
