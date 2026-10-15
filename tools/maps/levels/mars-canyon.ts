@@ -120,7 +120,7 @@ export function buildMarsCanyon(): CustomMapDocument {
   if (k.free(pad.x, pad.y, 8)) {
     k.place('landing-pad', pad.x, pad.y);
     // The lander that brought the colony, standing on its pad as the landmark of the base
-    k.place('lander', pad.x + 1, pad.y, { rotation: 2.2, scale: 1.6 });
+    k.place('mars-lander', pad.x + 1, pad.y, { rotation: 2.2 });
   }
   // A greenhouse farm on the basin's edge, rovers on their way out to it
   for (const p of around(54, 6, 0.5)) if (p.y < hq.y - 10 && k.free(p.x, p.y, 9)) k.place('greenhouse-dome', p.x, p.y, { rotation: facing(p, hq) });
@@ -155,8 +155,21 @@ export function buildMarsCanyon(): CustomMapDocument {
     if (k.free(x, y, 8)) k.place(a, x, y, { scale: sc, rotation: x * 0.01 });
   }
 
-  // TODO(E190): dust devils on the plain, the mission flag in the wind, the antenna blinking, a rover driving, sand
-  // blowing over the canyon edges
+  // ---- The mission flag: banners by the hub and round the pad, their cloth in the wind; a blinking mast at the hub
+  for (const [x, y, a] of [[hq.x - 8, hq.y - 30, 'banner-red'], [hq.x + 2, hq.y - 32, 'banner-blue'], [pad.x - 12, pad.y + 10, 'banner-red'], [pad.x + 12, pad.y - 10, 'banner-blue']] as const) {
+    if (k.free(x, y, 1)) k.place(a, x, y, { rotation: facing({ x, y }, hq), scale: 1.3 });
+  }
+  if (k.free(hq.x - 24, hq.y + 20, 2)) k.place('antenna-mast', hq.x - 24, hq.y + 20);
+
+  // ---- Life: dust devils on the plain and in the basin, a rover driving between the colony and the basin, the wind
+  k.lifeArea('dust', [{ x: -240, y: 150 }, { x: -110, y: 230 }, { x: 20, y: 240 }, { x: -60, y: 120 }, { x: -230, y: 90 }]);
+  k.lifeArea('dust', [{ x: 150, y: 20 }, { x: 240, y: 20 }, { x: 240, y: 180 }, { x: 160, y: 170 }], { density: 0.8 });
+  k.lifeArea('dust', [{ x: -240, y: -160 }, { x: -60, y: -190 }, { x: -60, y: -245 }, { x: -240, y: -245 }], { density: 0.8 });
+  k.lifeArea('dust', [{ x: -40, y: -50 }, { x: 40, y: -50 }, { x: 40, y: 10 }, { x: -40, y: 10 }], { density: 0.5 });
+  k.lifeRoute('movers', [{ x: hq.x - 20, y: hq.y + 26 }, { x: -20, y: -60 }, { x: -35, y: -30 }, { x: -60, y: -20 }], { asset: 'rover', speed: 2 });
+  for (const line of [westCanyon, northCanyon]) k.lifeRoute('sound', line, { sound: 'wind', volume: 0.45 });
+  k.lifeSettings({ flags: true, ambience: { sound: 'biome', volume: 0.45 } });
+
   k.trimLayers(7);
   // Butterscotch sky, the sun low in the dust
   k.environment({ biome: 'mars', sky: 'day', sunAzimuth: 230, sunElevation: 30, fogDensity: 0.0012, tint: '#fff0e2' });
