@@ -382,12 +382,12 @@ const float FLOW_PERIOD = 6.0;
 
 // Waves moved along a baked velocity (m/s) in two phases half a cycle apart: each slides for a cycle
 // and starts again where the other is at its strongest, so the surface flows on without stretching
-vec3 flowNormal(vec2 p, vec2 vel, vec2 drift, float strength) {
+vec3 flowNormal(vec2 p, vec2 vel, vec2 drift, float strength, float fine) {
   float t = uTime / FLOW_PERIOD;
   float ph0 = fract(t);
   float ph1 = fract(t + 0.5);
-  vec3 a = waveNormal(p - vel * ph0 * FLOW_PERIOD, drift, strength);
-  vec3 b = waveNormal(p - vel * ph1 * FLOW_PERIOD + vec2(7.3, 3.1), drift, strength);
+  vec3 a = waveNormal(p - vel * ph0 * FLOW_PERIOD, drift, strength, fine);
+  vec3 b = waveNormal(p - vel * ph1 * FLOW_PERIOD + vec2(7.3, 3.1), drift, strength, fine);
   return normalize(mix(b, a, 1.0 - abs(2.0 * ph0 - 1.0)));
 }
 
@@ -570,11 +570,15 @@ void main() {
   #else
   float waveStrength = 1.0;
   #endif
+  // Gusts: patches of rougher and calmer water drifting over the surface (the foam's break-up below)
+  float foamBreak = texture2D(uWaves, vWorldPos.xz / 17.0 - uTime * 0.01).y;
+  waveStrength *= mix(0.6, 1.3, smoothstep(0.3, 0.7, foamBreak));
+  float fine = 1.0 - smoothstep(30.0, 160.0, length(cameraPosition - vWorldPos));
   #if RIVER == 1
-  vec3 n = flowNormal(vWorldPos.xz, vel, flow, waveStrength);
+  vec3 n = flowNormal(vWorldPos.xz, vel, flow, waveStrength, fine);
   #else
   // Lakes and seas: a slow drift, and along their baked current where they have one
-  vec3 n = uHasFlow > 0.5 && !outside ? flowNormal(vWorldPos.xz, vel, flow * 0.3, waveStrength) : waveNormal(vWorldPos.xz, flow, waveStrength);
+  vec3 n = uHasFlow > 0.5 && !outside ? flowNormal(vWorldPos.xz, vel, flow * 0.3, waveStrength, fine) : waveNormal(vWorldPos.xz, flow, waveStrength, fine);
   #endif
   #ifdef SEA_WAVES
   // The swell tilts the surface; the small waves ride on it
@@ -598,6 +602,31 @@ void main() {
   body = mix(body, bodyLuma * sunHue / max(dot(sunHue, vec3(0.2126, 0.7152, 0.0722)), 0.05), warm * 0.35);
   // In shade the bright sky reflection reads a little darker too (the eye compares it with the shaded bank)
   sky *= mix(0.8, 1.0, sunShade);
+  #ifdef WATER_DETAIL
+  // The body shaded by its waves: slopes towards the sun a little lighter, the others darker, so the
+  // surface reads as moving water rather than one flat tint
+  vec2 sunFlat = normalize(uSunDir.xz + vec2(1e-4));
+  vec2 viewFlat = normalize(v.xz + vec2(1e-4));
+  body *= 1.0 + clamp(dot(n.xz, sunFlat) * 2.5, -0.2, 0.2) * sunShade;
+  // Deep water darker still: the middle of a lake or a deep channel reads deeper than its shelf
+  body *= mix(1.0, 0.72, smoothstep(2.0, 10.0, depth));
+  // The land in the reflection: the reflected ray, followed over the terrain's heights 1.5, 4.5, 13.5 and
+  // 40.5 m out, runs into a bank, a cliff or the hills beyond the shore; there the water mirrors a dark tone
+  // of the land instead of the sky, hazier the farther the land (terrain only, not trees or houses)
+  vec2 rayMap = normalize(vec2(-r.x, r.z) + vec2(1e-4));
+  float rise = r.y / max(length(r.xz), 1e-3);
+  float land = 0.0;
+  float landFar = 0.0;
+  float probe = 1.5;
+  for (int k = 0; k < 4; k++) {
+    float hit = smoothstep(-0.2, 0.8, terrainHeightNear(m + rayMap * probe) - vMapPos.y - probe * rise);
+    landFar += (1.0 - land) * hit * smoothstep(5.0, 45.0, probe);
+    land = max(land, hit);
+    probe *= 3.0;
+  }
+  vec3 landTone = mix(mix(uDeep * 0.55, uHorizon * 0.22, 0.5), uHorizon * 0.6, landFar / max(land, 1e-3)) * mix(0.7, 1.0, sunShade);
+  sky = mix(sky, landTone, land * 0.85);
+  #endif
   #if KIND == 4
   color = mix(body, sky, fresnel * 0.4 + 0.02);
   // Algae and duckweed in patches along the banks, where the water is shallow and still; the open
@@ -610,26 +639,52 @@ void main() {
   #else
   color = mix(body, sky, fresnel * 0.9 + 0.05);
   #endif
+  // The sharp part of the sun glint sparkles: small facets of a fine, fast wave layer catch the sun and let
+  // go of it
+  float sparkle = texture2D(uWaves, vWorldPos.xz / 0.9 + uTime * vec2(0.13, -0.11)).x;
   #ifdef REFRACT
   // The ground behind, bent by the waves and tinted by what the water absorbs on the way through
   vec3 behind = sceneBehind((n.xz - vec2(0.0)) * 0.03 * min(depth, 2.0));
   vec3 through = behind * absorbed;
+    #ifdef WATER_DETAIL
+  // Light the waves focus on the shallow bed (the fine wave layer as caustics), where the sun reaches it
+  through *= 1.0 + smoothstep(0.52, 0.8, sparkle) * 0.9 * see * sunShade;
+    #endif
   color = mix(mix(through, body, 1.0 - see), sky, fresnel * 0.9 + 0.05);
   #endif
   // Sun glint, weaker in the shallows: there the surface is calm and flat, and a flat mirror against the
   // sun drew white streaks along every shore
-  // The sharp part sparkles: small facets of a fine, fast wave layer catch the sun and let go of it
-  float sparkle = texture2D(uWaves, vWorldPos.xz / 0.9 + uTime * vec2(0.13, -0.11)).x;
   float spec = (pow(max(dot(r, uSunDir), 0.0), 320.0) * 3.0 * (0.3 + 1.7 * smoothstep(0.55, 0.85, sparkle)) + pow(max(dot(r, uSunDir), 0.0), 40.0) * 0.2) * smoothstep(0.1, 1.5, depth);
   #if KIND == 4
   spec *= 0.3;
   #endif
   color += uSunColor * spec * sunShade;
+  #ifdef WATER_DETAIL
+  // Light through the waves: looking towards a low sun, the slopes facing the viewer glow in the shallow
+  // colour where the water is deep enough to carry it
+  float against = max(dot(-viewFlat, sunFlat), 0.0);
+  float facing = clamp(dot(n.xz, viewFlat) * 6.0, 0.0, 1.0);
+  float scatter = against * against * facing * (1.0 - 0.6 * uSunDir.y) * smoothstep(0.3, 1.5, depth);
+    #if KIND == 4
+  scatter *= 0.3;
+    #endif
+  color += uShallow * vec3(0.7, 1.15, 1.0) * uSunColor * scatter * 0.3 * sunShade;
+  #endif
   color += pointGlints(n, v);
-  // Foam where it gets shallow, broken up by the waves
+  // Foam where it gets shallow, broken up by the waves. It lies a little off the waterline and thins out
+  // towards it; at a mask's edge it goes with the water. Where the shallow strip is only a few pixels wide
+  // (a steep bank, or far away) it would draw a hard white line along the shore: there it fades, by the
+  // depth's change per pixel
+  #if RIVER == 1 && defined(WATER_DETAIL)
+  // On a river the same lookup, stretched along the current and running down it: streaks of foam
+  vec2 fd = normalize(vFlow + vec2(1e-4));
+  float foamNoise = texture2D(uWaves, vec2(dot(vWorldPos.xz, vec2(-fd.y, fd.x)) / 1.1, (dot(vWorldPos.xz, fd) - uTime * 0.9) / 5.0)).x;
+  #else
   float foamNoise = texture2D(uWaves, vWorldPos.xz / 2.3 + uTime * 0.03).x;
-  float foamBreak = texture2D(uWaves, vWorldPos.xz / 17.0 - uTime * 0.01).y;
-  float foam = smoothstep(0.25, 0.0, depth) * smoothstep(0.45, 0.75, foamNoise * 0.6 + foamBreak * 0.6 - depth);
+  #endif
+  float foam = smoothstep(0.3, 0.06, depth) * smoothstep(0.0, 0.05, depth) * edge
+    * smoothstep(0.45, 0.75, foamNoise * 0.6 + foamBreak * 0.6 - depth);
+  foam *= 1.0 - smoothstep(0.04, 0.12, fwidth(depth));
   #ifdef SHORE_DENSITY
   // Bands of foam that come in from the open water and run up to the shore (shore-waves.ts). They follow
   // the blurred distance to the shore, so they round the bank's corners instead of tracing its cells,
@@ -656,6 +711,10 @@ void main() {
   #if RIVER == 1
   // Ripples where the river runs fast and shallow
   foam = max(foam, smoothstep(0.7, 0.95, foamNoise) * smoothstep(1.2, 0.3, depth) * min(length(vFlow), 1.0));
+    #ifdef WATER_DETAIL
+  // Rapids: the streaks also over depth where the river runs fast
+  foam = max(foam, smoothstep(0.72, 0.95, foamNoise) * smoothstep(1.0, 3.0, length(vFlow)) * 0.5);
+    #endif
   #endif
   color = mix(color, vec3(0.85, 0.88, 0.86) * uLight, foam * 0.65);
   #if KIND == 4
@@ -670,7 +729,7 @@ void main() {
   alpha = 1.0;
   #endif
   // A soft seam where the terrain cuts the surface
-  alpha *= smoothstep(0.0, 0.06, depth) * edge;
+  alpha *= smoothstep(0.0, 0.12, depth) * edge;
 #endif
 #if KIND == 1 || KIND == 2
   // Opaque bodies: the mask edge cuts, rounded by the bilinear mask

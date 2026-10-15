@@ -212,7 +212,22 @@ Lava spiegeln sich).
 `kind` je Körper:
 
 - **Tiefe**: Absorption nach Beer-Lambert aus der Tiefe je Pixel (Rot zuerst, dann Grün): flaches Wasser wird
-  grünblau, bevor die Körperfarbe übernimmt, und lässt den Grund durchscheinen (Deckkraft 0,5 bis 0,96)
+  grünblau, bevor die Körperfarbe übernimmt, und lässt den Grund durchscheinen (Deckkraft 0,5 bis 0,96). Der Saum, an
+  dem das Gelände den Spiegel schneidet, ist 12 cm Tiefe weich
+- **Wellen**: drei Lagen der gekachelten Normalentextur; die feinste blendet zwischen 30 und 160 m Abstand aus (dort
+  war sie nur Körnung), Böen (die großräumige Aufbruch-Textur, 17 m) machen Flecken rauer und ruhiger
+- **Detail ab Medium** (`waterDetail` der Stufe, kein Schalter; Wasser, Meer, Sumpf): tiefes Wasser dunkler (bis
+  28 % zwischen 2 und 10 m), der Körper von den Wellen schattiert (Hänge zur Sonne heller, ±20 %), Licht durch die
+  Wellen (gegen eine tiefe Sonne leuchten die zum Betrachter gewandten Hänge im Flachwasserton), das Land in der
+  Spiegelung (der gespiegelte Strahl wird 1,5, 4,5, 13,5 und 40,5 m weit über die Höhentextur verfolgt, je ein
+  Zugriff auf das nächste Sample, `terrainHeightNear`; trifft er Ufer, Klippe oder Hügel, spiegelt das Wasser dort
+  einen dunklen Landton statt des Himmels, ferne Hügel dunstiger; nur das Gelände, keine Bäume und Häuser), mit
+  Brechung Lichtnetze auf dem flachen Grund (die feine Glitzerlage), auf Flüssen Schaumstreifen längs der Strömung
+  (derselbe Zugriff gestreckt und stromab laufend, über schnellem Wasser auch im Tiefen). Low zeichnet ohne sie.
+  Kosten: vier Zugriffe mehr je Wasserpixel (Höhen, ein Texel; vorher 14 bis 17 je nach Gewässer), sonst Arithmetik,
+  kein zusätzlicher Pass. Auf einer RTX 5080 nicht vom Rauschen zu trennen (GPU-Median je Bild in neun Wasser- und
+  Lava-Ansichten auf fünf Karten, zwei Läufe je Fassung: Median der Unterschiede je Stufe -0,09 bis +0,02 ms, einzelne
+  Ansichten streuen bis 0,5 ms in beide Richtungen, so weit wie zwei Läufe derselben Fassung; Draw Calls gleich)
 - **Schaltbare Effekte** (`map-effects.ts`, Ansichtsoption `effects`, `setEffects`, Vorschau `?effects=…`, alle aus
   ohne Angabe): `refraction` (Wasser und Meer zeigen den Grund dahinter, von den Wellen verbogen und nach Tiefe
   getönt; eine Kopie des Bildes nach dem undurchsichtigen Teil, `SceneCopy`, ein Blit je Frame; GPU +0,03 bis 0,06 ms
@@ -230,7 +245,9 @@ Lava spiegeln sich).
   ([RENDER_QUALITY.md](RENDER_QUALITY.md#eigene-teile-je-welt-e156))
 - `water` (Standard): klar am Ufer, Kartenfarbe in der Tiefe, Wellen, Spiegelung des Himmels mit Fresnel, Sonnenglanz
   (der scharfe Teil funkelt: feine, schnelle Wellenfacetten fangen die Sonne),
-  Schaum im Flachen. Der Wasserkörper nimmt bei warmem, tiefem Licht den Farbton der Sonne an (bis 35 % zur eigenen
+  Schaum im Flachen (etwas vom Ufer abgerückt, zur Wasserlinie dünner, an der Maskenkante mit dem Wasser aus; wo der
+  flache Streifen nur wenige Pixel breit ist, an steilem Ufer oder in der Ferne, blendet er nach der Tiefenänderung je
+  Pixel aus, statt eine harte weiße Linie zu ziehen). Der Wasserkörper nimmt bei warmem, tiefem Licht den Farbton der Sonne an (bis 35 % zur eigenen
   Helligkeit im Sonnenton, nur wenn Rot über Blau liegt): bei Dämmerung von oben gedämpft und warm wie die Spiegelung
   aus der Nähe, statt kräftig blau; Tag und Nacht bleiben unverändert (gilt für Wasser, Meer und Sumpf)
 - **Strömung** (`flow-map.ts`): jedes Flächengewässer bekommt beim Laden und bei jedem `set` eine gebackene

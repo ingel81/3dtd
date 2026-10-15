@@ -7,7 +7,8 @@ import { uploadRect, type TexelRect } from './texture-ranges';
  * height under a point (water depth per pixel, grass blades). Read with
  * `terrainHeightAt` (TERRAIN_HEIGHT_GLSL): four texel fetches interpolated
  * on the same two triangles per cell as the mesh and `HeightField`, so a
- * shader sees exactly the drawn surface.
+ * shader sees exactly the drawn surface; `terrainHeightNear` reads the
+ * nearest sample, one fetch.
  */
 export class HeightTexture {
   readonly texture: DataTexture;
@@ -64,5 +65,12 @@ float terrainHeightAt(vec2 m) {
     return f.x >= f.y ? h00 + f.x * (h10 - h00) + f.y * (h11 - h10) : h00 + f.y * (h01 - h00) + f.x * (h11 - h01);
   }
   return f.x + f.y <= 1.0 ? h00 + f.x * (h10 - h00) + f.y * (h01 - h00) : h11 + (1.0 - f.x) * (h01 - h11) + (1.0 - f.y) * (h10 - h11);
+}
+
+// Terrain height at the grid sample nearest map point m: one fetch, for coarse tests (the land a water
+// reflection meets)
+float terrainHeightNear(vec2 m) {
+  vec2 g = clamp((m - uTerrainGrid.xy) / uTerrainGrid.z + 0.5, vec2(0.0), uTerrainGridSize - 1.0);
+  return texelFetch(uTerrainHeights, ivec2(g), 0).r;
 }
 `;
