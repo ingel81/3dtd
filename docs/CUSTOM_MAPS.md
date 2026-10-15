@@ -498,8 +498,8 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   voll, darüber hinaus über 70 m leiser (`AREA_REACH`, quadratisch), aus der Seite, auf der er liegt (Stereo-Panner,
   voll seitlich erst 30 m außerhalb); ein Bach entlang einer Linie, Brandung entlang einer Küste, Feuer in einem Hof
 - Von oben leiser: bis 80 m über dem Boden voll, ab 600 m ein Drittel (`lift`)
-- Klänge (`AMBIENT_SOUNDS`): `wind`, `birdsong`, `night-insects`, `stream`, `surf`, `swamp`, `lava`, `fire`, `city`, je mit
-  eigenem Pegel. Heute synthetische Platzhalter aus `tools/ambient/make_placeholders.py` (Rauschen im Frequenzraum über
+- Klänge (`AMBIENT_SOUNDS`): `wind`, `birdsong`, `night-insects`, `stream`, `surf`, `swamp`, `lava`, `fire`, `city`,
+  `gulls`, `crows`, `radio-hiss`, je mit eigenem Pegel. Heute synthetische Platzhalter aus `tools/ambient/make_placeholders.py` (Rauschen im Frequenzraum über
   die ganze Schleife gefiltert, Rufe und Hüllkurven laufen über das Ende herum, daher ohne Naht); die Datei trägt
   0,1 s der Schleife davor und danach (`LOOP_PAD`), gespielt wird dazwischen, so verschluckt der MP3-Versatz nichts.
   Echte Aufnahmen ersetzen später die Dateien unter denselben Ids. Eine unbekannte Id spielt nichts (eine Karte aus

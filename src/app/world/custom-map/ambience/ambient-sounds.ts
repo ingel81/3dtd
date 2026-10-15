@@ -4,8 +4,9 @@ import type { MapBiome } from '../map-document';
  * Ambient sounds of custom maps (TODO E190): loops a map plays over the
  * whole map (its biome's or one it names, `life.ambience`) or in a life
  * area of kind `sound`. Today synthesised placeholders
- * (tools/ambient/make_placeholders.py); recordings replace the files under
- * the same ids (tmp/plan/AMBIENT_SOUNDS_2026-10-15.md). Each file holds its
+ * (tools/ambient/make_placeholders.py); generated loops replace the files
+ * under the same ids (the sound audition's `amb_<id>`, its install pads them
+ * as below). Each file holds its
  * loop with LOOP_PAD seconds of it repeated before and after (soundscape.ts).
  */
 
@@ -27,6 +28,9 @@ export const AMBIENT_SOUNDS: Readonly<Record<string, AmbientSound>> = {
   lava: { label: 'Lava rumbling', file: 'assets/sounds/ambient/lava.mp3', gain: 0.8 },
   fire: { label: 'Crackling fire', file: 'assets/sounds/ambient/fire.mp3', gain: 0.6 },
   city: { label: 'City hum', file: 'assets/sounds/ambient/city.mp3', gain: 0.5 },
+  gulls: { label: 'Gulls', file: 'assets/sounds/ambient/gulls.mp3', gain: 0.55 },
+  crows: { label: 'Crows and ravens', file: 'assets/sounds/ambient/crows.mp3', gain: 0.5 },
+  'radio-hiss': { label: 'Radio hiss', file: 'assets/sounds/ambient/radio-hiss.mp3', gain: 0.4 },
 };
 
 /** `life.ambience.sound` for the biome's own bed */

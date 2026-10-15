@@ -727,7 +727,7 @@ vollständig). Hintergrundmusik liegt separat unter `public/assets/music/`:
 public/assets/sounds/
 ├── ambient/                           # Umgebungston eigener Karten: synthetische Platzhalter (tools/ambient/make_placeholders.py)
 │   ├── wind.mp3, birdsong.mp3, night-insects.mp3, stream.mp3, surf.mp3
-│   └── swamp.mp3, lava.mp3, fire.mp3, city.mp3   # je 16 s Schleife plus 0,1 s davor und danach
+│   └── swamp.mp3, lava.mp3, fire.mp3, city.mp3, gulls.mp3, crows.mp3, radio-hiss.mp3   # je 16 s Schleife plus 0,1 s davor und danach
 ├── towers/
 │   ├── archer/shoot.mp3               # Pfeil-Schuss-Sound
 │   ├── gatling/shoot.mp3              # Gatling-Schuss-Sound
