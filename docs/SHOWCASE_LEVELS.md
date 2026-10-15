@@ -122,7 +122,10 @@ Landscape-Werkzeug); Morgennebel nur als wenige kleine Nebelfelder, größere wi
 steht die Burg auf einem Felssporn: die Krone 7 m über dem alten Hügel, steile Flanken mit Klippenfelsen
 (`cliffRocks`, vor dem Bewuchs gesetzt, der Pinsel hält Abstand zu anderen Objekten), der Torweg als Rampe durch die
 Südflanke; ein Wassergraben fünf Meter um die Mauern, offen am Torweg; Feuerschalen, Lagerfeuer, Fackeln und Banner in
-Burghof und Tor; eine Windmühle auf einem Hügel östlich mit Feld; mehr Nebel in den Senken, Raben über dem Wald.
+Burghof und Tor; eine Windmühle auf einem Hügel östlich mit Feld; Rotwild am Waldrand (ein Hirsch, Grasende).
+Leben als Lebensbereiche: Morgennebel in acht Senken, fallendes Laub über den Wäldern, Krähen über beiden Waldseiten,
+wehende Banner (`life.flags`); Vogelgesang am Tag, Grillen nachts, Feuerknistern im Burghof. Offen: beleuchtete
+Fenster an Bergfried und Türmen.
 
 Biom Laubwald mit Herbstfarben, Look `day` warm. Eine Burgruine auf einem Hügel, Mauerreste, Bergfried-Ruine, ein
 Torhaus. Drei Wege kommen aus den Wäldern und treffen sich vor dem Tor; das HQ steht im Burghof. Laubhaufen, Efeu,
