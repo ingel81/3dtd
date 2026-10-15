@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  MAX_MAP_DATA_MEASURES, MAP_DATA_CACHE, dropOldMapData, mapDataFetch, mapDataUrl, onMapDataProgress, resetMapDataProgress, setMapDataBase,
+  MAX_MAP_DATA_MEASURES, MAP_DATA_CACHE, dropOldMapData, mapDataFetch, mapDataUrl, onMapDataProgress, resetMapDataProgress, setMapDataBase, setMapDataFresh,
   type MapDataProgress,
 } from './map-data';
 import { mapDataLine } from '../../components/main-menu/loading/loading-plate';
@@ -42,6 +42,7 @@ describe('map data (TODO E134)', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     setMapDataBase(null);
+    setMapDataFresh(false);
   });
 
   it('resolves the map files against the site runtime-config names, else beside the page', () => {
@@ -94,6 +95,17 @@ describe('map data (TODO E134)', () => {
     expect(await (await mapDataFetch(index)).text()).toBe(`body of ${index}`);
     await mapDataFetch('https://data.example.test/maps/missing.3dtdmap');
     expect(cache.stores.get(MAP_DATA_CACHE)!.has('https://data.example.test/maps/missing.3dtdmap')).toBe(false);
+  });
+
+  it('asks the network first for every file on the dev server, so a changed catalogue is never stale', async () => {
+    setMapDataFresh(true);
+    const catalog = 'https://data.example.test/maps/assets/catalog.json';
+    await mapDataFetch(catalog);
+    await mapDataFetch(catalog);
+    expect(net).toHaveBeenCalledTimes(2);
+    expect(net.mock.calls[1][1]).toMatchObject({ cache: 'no-cache' });
+    net.mockRejectedValueOnce(new TypeError('offline'));
+    expect(await (await mapDataFetch(catalog)).text()).toBe(`body of ${catalog}`);
   });
 
   it('works without Cache Storage', async () => {

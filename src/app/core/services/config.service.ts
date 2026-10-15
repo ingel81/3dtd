@@ -1,5 +1,5 @@
-import { computed, Injectable, signal } from '@angular/core';
-import { dropOldMapData, setMapDataBase } from '../../world/custom-map/map-data';
+import { computed, Injectable, isDevMode, signal } from '@angular/core';
+import { dropOldMapData, setMapDataBase, setMapDataFresh } from '../../world/custom-map/map-data';
 import { environment } from '../../../environments/environment';
 import { readJson, removeKey, writeJson } from '../../utils/storage';
 import { parseOwnTilesets, type OwnTileset } from '../../world/tileset/own-tileset';
@@ -79,6 +79,8 @@ export class ConfigService {
    * blank page.
    */
   async load(): Promise<void> {
+    // The dev server keeps one version while the map assets change: no stale catalogue or models
+    setMapDataFresh(isDevMode());
     await this.applyRuntimeConfigFile();
     if (ConfigService.withoutBuildKeys()) {
       this.cesiumIonToken.set('');

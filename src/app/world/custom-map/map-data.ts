@@ -112,10 +112,24 @@ async function openCache(): Promise<Cache | null> {
   }
 }
 
-/** Whether a URL is asked of the network first: the index, which names what is current */
-function networkFirst(url: string): boolean {
-  return /\/maps\/index\.json(\?|$)/.test(url);
+/**
+ * Every file asked of the network first, the cache only offline: the dev
+ * server's build keeps the package version while the catalogue and the
+ * models change under it, and a cache kept by version would serve them stale
+ */
+let alwaysFresh = false;
+
+/** Ask every map file of the network first (the dev server), or only the index (a release) */
+export function setMapDataFresh(on: boolean): void {
+  alwaysFresh = on;
 }
+
+/** Whether a URL is asked of the network first: the index, which names what is current, or all in dev */
+function networkFirst(url: string): boolean {
+  return alwaysFresh || INDEX.test(url);
+}
+
+const INDEX = /\/maps\/index\.json(\?|$)/;
 
 /**
  * Fetch a map file: from the cache when it is there, else from the network,
@@ -139,7 +153,9 @@ export async function mapDataFetch(input: RequestInfo | URL, init?: RequestInit)
       }
     }
     try {
-      const response = await fetch(url, networkFirst(url) ? { ...init, cache: 'no-store' } : init);
+      // The index past every cache; in dev the browser's cache may answer after asking the server (304)
+      const isIndex = INDEX.test(url);
+      const response = await fetch(url, isIndex ? { ...init, cache: 'no-store' } : alwaysFresh ? { ...init, cache: 'no-cache' } : init);
       let bytes: number | null = null;
       if (response.ok) {
         const body = await response.clone().arrayBuffer();
