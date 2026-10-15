@@ -115,6 +115,11 @@ eigenen Karten, Coop-Protokoll 5). Vier Worker-Branches darauf laufen (Abschnitt
         und je Welt ein eigener Hintergrund hinter dem Menü statt immer des echten Globus, etwa ein eigener Globus oder
         eine Kartenwelt für die Custom Maps, damit sichtbar ist, dass es mechanisch dasselbe Spiel in anderer Welt ist;
         der Wechsel nahtlos, ohne Klick-und-Neuladen
+      - Idee (User, 2026-10-15 abends): Neuladen landet heute immer gleich in der Echtwelt (Tiles laden). Stattdessen
+        zum Start drei Globen nebeneinander: echte 3D-Tiles (ausgegraut ohne Token, mit dem Weg zum Token), ein
+        schematischer Globus für die OSM-Welt, ein comichafter in Engine-Grafik für die mitgelieferten und eigenen
+        Karten. Ein Klick holt den Globus groß nach vorn (wie heute der Menü-Globus), geladen wird erst mit Start im
+        Menü. Klick-Dummy dazu: `tmp/plan/mockups/world-globes/`
       Vorgehen: alle heutigen Wege aufnehmen (Startmenü-Reiter, New game, Pausemenü, Game over, Editor-Kopf, Testfenster,
       Spielstände, Links, Desktop), Brüche und Neuladen benennen, ein durchgängiges Modell vorschlagen (Plan-Doku),
       mit dem User per Baukasten/Entwürfen abstimmen, dann bauen.
@@ -135,6 +140,9 @@ eigenen Karten, Coop-Protokoll 5). Vier Worker-Branches darauf laufen (Abschnitt
 - [ ] **E201 Bauverbot um Gebäude als Kreis** (2026-10-15, Befund fx-osm4): Bauverbot und Sitzhöhe rechnen mit
       footprint × Skala als Kreis; lange Gebäude sperren über die Straße hinaus (Schule 46 m: 21 m Radius). Grundriss
       als Rechteck nehmen.
+- [ ] **E202 Ferne Berge am Kartenrand besser texturieren** (User, 2026-10-15, Moon Base): das unerreichbare Gebirge
+      ringsum (Schürze, `terrain-apron.ts`, Farbe aus `apron-paint.ts`) wirkt flach und grob; mehr Struktur (Fels an
+      Steilhängen, Detail- oder Makrotextur, Schattierung nach Hangneigung), für alle Karten.
 - [ ] **E194 Erde am Mondhimmel sieht zu schlecht aus** (User, 2026-10-15, Bild Moon Base mit der Erde über dem
       Nordrand): Planet-Einstellung (`environment.planet`, `sky-dome.ts`) zeichnet die Erde zu grob. Besser: echte
       Erdtextur (Kontinente, Wolken, Ozeanglanz), Tag-Nacht-Grenze passend zur Sonne, Atmosphärensaum, scharf bei der
