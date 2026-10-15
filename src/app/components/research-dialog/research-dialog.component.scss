@@ -4,6 +4,8 @@
 // well is the only thing that scrolls. State and strand colours are data
 // (--td-node-*, --td-branch-*); everything else comes from the td-* classes.
 
+@use '../../styles/game-ui' as ui;
+
 :host {
   display: block;
   height: 100%;
@@ -255,6 +257,35 @@
 .td-rd-qx {
   width: 24px;
   height: 28px;
+}
+
+// Dragging a queue row (cdk drag-drop): the grip takes the pointer, the row
+// lifts as a lit plate, a well holds its place, the others slide aside
+.td-rd-qgrip {
+  display: flex;
+  flex: none;
+  margin-left: -6px;
+  color: var(--td-text-dim);
+  cursor: grab;
+  touch-action: none;
+
+  &:hover {
+    color: var(--td-brass-light);
+  }
+}
+
+.td-rd-qrow.cdk-drag-preview {
+  @include ui.selected-plate;
+  cursor: grabbing;
+}
+
+.td-rd-qslot {
+  min-height: var(--td-h-row);
+}
+
+.cdk-drop-list-dragging .td-rd-qrow:not(.cdk-drag-placeholder),
+.td-rd-qslot.cdk-drag-animating {
+  transition: transform var(--td-dur-fast) var(--td-ease-out);
 }
 
 // Detail panel

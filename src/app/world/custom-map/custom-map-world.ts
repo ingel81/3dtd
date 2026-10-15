@@ -32,6 +32,8 @@ import { MapStore } from './map-store';
 import type { MapAssetLibrary } from './render/map-asset-library';
 import type { CustomMapView } from './render/custom-map-view';
 import type { CustomMapQuality, QualityKnobs } from '../../three-engine/render-quality';
+import { Soundscape } from './ambience/soundscape';
+import { sceneToMap } from './render/map-coords';
 
 /** A map of its own: no real place, nothing streams, no credentials, nothing to roll again */
 export const CUSTOM_MAP_CAPABILITIES: WorldCapabilities = {
@@ -191,6 +193,12 @@ export class CustomMapWorld implements WorldProvider {
   /** The lanes the player opened before wave 1, null: the map's first (TODO E130) */
   private chosenLanes: string[] | null = null;
   private highest: number | null = null;
+  /** The map's ambient sound (ambience/soundscape.ts), with the game's audio; null without */
+  private soundscape: Soundscape | null = null;
+  private soundVolume: () => number = () => 0;
+  private readonly cameraRight = new Vector3();
+  private readonly listenerScene = new Vector3();
+  private readonly listenerAt = { x: 0, y: 0 };
 
   constructor(
     private readonly map: LoadedCustomMap,
@@ -272,6 +280,13 @@ export class CustomMapWorld implements WorldProvider {
       console.warn('[CustomMap] no catalogue, objects do not block building', err);
     }
 
+    // The map's ambient sound, through the game's master bus
+    if (ctx.audio) {
+      this.soundscape = new Soundscape(ctx.audio);
+      this.soundscape.setMap(this.doc);
+      this.soundVolume = ctx.audio.volume;
+    }
+
     // Streets, spawns and routes go on while the map's textures and models load and its shaders compile
     void this.prepare(ctx, view);
   }
@@ -328,6 +343,21 @@ export class CustomMapWorld implements WorldProvider {
     // not around the camera in the air, where no tree cast and every shadow went at once
     if (!this.surface.groundAlong(this.focus, this.lookDirection, this.focus)) this.surface.groundAhead(this.focus, this.lookDirection, this.focus);
     this.view.update(dt, camera, this.focus);
+    this.hear(dt, camera);
+  }
+
+  /** The soundscape heard from the ground the camera looks at */
+  private hear(dt: number, camera: PerspectiveCamera): void {
+    const sound = this.soundscape;
+    const view = this.view;
+    if (!sound || !view) return;
+    sound.setVolume(this.soundVolume());
+    const height = camera.position.y - this.focus.y;
+    sceneToMap(view.group.worldToLocal(this.listenerScene.copy(this.focus)), this.listenerAt);
+    // The camera's right in the map's frame: scene x is minus map x
+    this.cameraRight.setFromMatrixColumn(camera.matrixWorld, 0);
+    const len = Math.hypot(this.cameraRight.x, this.cameraRight.z) || 1;
+    sound.update(dt, { at: this.listenerAt, height, right: { x: -this.cameraRight.x / len, y: this.cameraRight.z / len }, darkness: view.environment.darkness });
   }
 
   resize(_camera: PerspectiveCamera, _renderer: WebGLRenderer): void {
@@ -571,6 +601,8 @@ export class CustomMapWorld implements WorldProvider {
     if (this.view && !this.assets) this.view.assets.dispose();
     this.view?.dispose();
     this.view = null;
+    this.soundscape?.dispose();
+    this.soundscape = null;
     this.stage = null;
     this.minimapPicture = null;
   }

@@ -419,6 +419,12 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   readonly losLegendCanGround = computed(() => {
     const typeId = this.activeLosTowerTypeId();
     if (!typeId) return false;
+    // A selected tower's path can give it the ground (the Multirole rocket)
+    const tower = this.buildMode() ? null : this.store.selectedTower();
+    if (tower) {
+      this.store.selectedTowerRevision();
+      return tower.canTargetGround;
+    }
     // canTargetGround ist optional und defaultet auf true (siehe Tower-Config).
     return TOWER_TYPES[typeId]?.canTargetGround ?? true;
   });

@@ -1,6 +1,7 @@
 import { Color, Vector3, type WebGLRenderer } from 'three';
 import { describe, expect, it } from 'vitest';
 import { CustomMapEnvironment } from './map-environment';
+import { HEIGHT_FOG_UNIFORMS } from './height-fog';
 import { SHADOW_PARTS } from './shadow-parts';
 import { SkyDome } from './sky-dome';
 import { chooseSkyImage, SKY_IMAGES } from './sky-images';
@@ -311,5 +312,40 @@ describe('image skies (TODO E172)', () => {
     expect(unknown.skyDome.uniforms['uCover'].value).toBe(plain.skyDome.uniforms['uCover'].value);
     plain.dispose();
     unknown.dispose();
+  });
+});
+
+describe('the moon', () => {
+  it('shows the Earth where the map sets it, the look default without, none at size 0 or on other looks', () => {
+    const e = new CustomMapEnvironment({ ...env, biome: 'moon' });
+    const u = e.skyDome.uniforms;
+    // The look's Earth: north-east, a third up, 4 degrees across
+    expect(u['uPlanet'].value).toBeCloseTo((4 * Math.PI) / 360, 6);
+    const dir = u['uPlanetDir'].value as Vector3;
+    expect(dir.y).toBeCloseTo(Math.sin((33 * Math.PI) / 180), 5);
+    // Due north and low, 10 degrees across: scene z is north
+    e.set({ ...env, biome: 'moon', planet: { azimuth: 0, elevation: 15, size: 10 } });
+    expect(u['uPlanet'].value).toBeCloseTo((10 * Math.PI) / 360, 6);
+    expect(dir.x).toBeCloseTo(0, 5);
+    expect(dir.z).toBeGreaterThan(0.9);
+    e.set({ ...env, biome: 'moon', planet: { azimuth: 0, elevation: 15, size: 0 } });
+    expect(u['uPlanet'].value).toBe(0);
+    // Another look shows a planet only when the map asks for one
+    e.set({ ...env, biome: 'mars' });
+    expect(u['uPlanet'].value).toBe(0);
+    e.set({ ...env, biome: 'mars', planet: { azimuth: 90, elevation: 20, size: 3 } });
+    expect(u['uPlanet'].value).toBeGreaterThan(0);
+    e.dispose();
+  });
+
+  it('lets the map lights matter by day under the black sky, and the land beyond the border show', () => {
+    const e = new CustomMapEnvironment({ ...env, biome: 'moon' });
+    expect(e.darkness).toBe(0.5);
+    // No air: the backdrop range would sink into the black haze
+    expect(HEIGHT_FOG_UNIFORMS.uFogBeyond.value).toBeLessThan(0.97);
+    e.set({ ...env, biome: 'temperate' });
+    expect(e.darkness).toBe(0);
+    expect(HEIGHT_FOG_UNIFORMS.uFogBeyond.value).toBe(0.97);
+    e.dispose();
   });
 });

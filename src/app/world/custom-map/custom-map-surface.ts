@@ -11,6 +11,9 @@ import { HeightField } from './render/height-field';
 import { type BridgeDeck, bridgeDecks, deckHeightAt } from './bridge-decks';
 import { FALLEN_SCALE } from './custom-map-destruction';
 
+/** Farthest a bridge deck lies over the ground where a walker off the bridge still steps onto it, metres (walkHeightAtMap) */
+const DECK_STEP_M = 0.5;
+
 /** A map column's LOD: nothing streams, so the finest there is; the route grid never samples a cell again */
 const MAP_LOD = { depth: 99, geometricError: 0 } as const;
 
@@ -100,10 +103,19 @@ export class CustomMapSurface implements WorldSurface {
     return this.field.heightAt(x, y);
   }
 
-  /** The height a walker has at a map point: a bridge deck where one spans it, else the terrain */
+  /**
+   * The height a walker off a bridge way has at a map point: the terrain,
+   * also under a deck (a road under a bridge); a deck only where it lies
+   * within DECK_STEP_M of the ground, at a bridge end, so nobody sinks under
+   * its edge there. A walker on the bridge way takes the deck through its
+   * street surface (`bridge`, streetHeightAt), as on the real places, where
+   * the route under another way is cut and runs between portals on the
+   * ground (UnderpassIndex)
+   */
   walkHeightAtMap(x: number, y: number): number {
+    const ground = this.field.heightAt(x, y);
     const deck = deckHeightAt(this.bridges, x, y);
-    return Number.isNaN(deck) ? this.field.heightAt(x, y) : deck;
+    return !Number.isNaN(deck) && deck >= ground && deck - ground <= DECK_STEP_M ? deck : ground;
   }
 
   getTerrainHeightAtGeo(lat: number, lon: number): number | null {
@@ -119,7 +131,7 @@ export class CustomMapSurface implements WorldSurface {
     return streetHeightAt(this.streetGround, lat, lon, prevLat, prevLon, nextLat, nextLon, surface);
   }
 
-  /** Nothing stands beside a map's roads to rule out: the walking height at the point */
+  /** Nothing stands beside a map's roads to rule out: the walking height off a bridge way at the point */
   getGroundHeightEstimate(lat: number, lon: number): number | null {
     return this.walkHeightAtMap(lon * MAP_METERS_PER_DEGREE, lat * MAP_METERS_PER_DEGREE);
   }

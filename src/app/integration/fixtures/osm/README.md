@@ -58,5 +58,18 @@ Heights: `cells` where reported, a synthetic ground on the real line elsewhere; 
 OSM changes; these files do not. Fetching again gives other node ids and points, so tests read the files, never
 the live API.
 
+## OSM worlds
+
+Frozen probes for the OSM world importer (`world/osm`, docs/OSM_WORLD_PLAN.md), read by
+`world/osm/import-osm.spec.ts`. Gzipped JSON:
+
+| File | What |
+|---|---|
+| `world-miltenberg.overpass.json.gz` | The answer of `osmWorldQuery` for a 1.2 km square (plus 100 m) around 49.7036, 9.2647 (Miltenberg, Marktplatz), fetched 2026-10-15 from overpass.openstreetmap.fr; `place`, `source` (server, date, `osm_base`, the query), `elements` as they came, each without its `bounds` |
+| `world-miltenberg.dem.json.gz` | Mapterhorn heights at zoom 14 (512 px tiles) cut to the query's box plus 4 pixels: `left`, `top` (world pixels), `columns`, `rows`, `heights` as base64 Int16 little endian in decimetres (`unit` 0.1) |
+
+The probe square is half the side of a real OSM world (2.4 km), to keep the files small (230 and 170 kB); the
+importer takes the side as an option.
+
 Map data (c) OpenStreetMap contributors, available under the Open Database License (ODbL) 1.0,
 https://www.openstreetmap.org/copyright.

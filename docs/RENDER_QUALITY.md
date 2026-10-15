@@ -37,6 +37,7 @@ Abschnitt mit dem, was dort wirklich wirkt, und zuletzt „Everywhere“:
 | Gras | eigene Karten | aus | 35 000 Halme bis 90 m | 70 000 bis 140 m | 100 000 bis 180 m |
 | Partikel der Karte | eigene Karten | 40 % | 70 % | 100 % | 100 % |
 | Punktlichter nachts | eigene Karten | 2 | 4 | 6 | 6 |
+| Leben der Karte (Lebensbereiche, treibende Boote, wehende Banner, Funken über Lava) | eigene Karten | aus | 70 %, ohne Bereiche „High“ | 100 % | 100 % |
 | Boden billiger ab (eine Schicht / nur Mittelwerte) | eigene Karten | 80 / 220 m | 110 / 300 m | 150 / 400 m | 220 / 600 m |
 | Brechung im Wasser (`refraction`) | eigene Karten | aus | aus | an | an |
 | Dünung auf dem Meer (`seaWaves`) | eigene Karten | aus | an | an | an |

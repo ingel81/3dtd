@@ -8,7 +8,7 @@
 import type { MapPoint } from '../../../world/custom-map/map-document';
 import { sampleRectAround, sampleX, sampleY, type GridRect } from '../../model/grid';
 import { brushWeight, type BrushSettings } from '../brush';
-import { nearestOnPolyline } from '../path-graph';
+import { nearestOnPolyline, polylineLength } from '../path-graph';
 import { HEIGHT_LIMITS } from '../terrain-ops';
 import { smooth } from './landscape-noise';
 import type { LandscapeStroke } from './landscape-stroke';
@@ -152,6 +152,72 @@ export function cliffAlong(stroke: LandscapeStroke, line: readonly MapPoint[], h
       const base = stroke.baseHeight(i, j);
       const keep = stroke.roadKeep(x, y);
       g.heights[k] = base + height * up * fade * keep * (0.85 + 0.15 * n.fbm(x, y, 30, 2));
+    }
+  }
+  return rect;
+}
+
+export interface CoastOptions {
+  /** Height of the cliff's top, metres */
+  top: number;
+  /** Sea floor at its foot, metres */
+  bed: number;
+  /** Metres of land at the top's height behind the edge */
+  shelf: number;
+  /** Metres per metre the land behind the shelf, and the sea floor before the foot, fall back to their own height */
+  grade: number;
+  /** Metres from the line the coast reaches at most (the work's bounds) */
+  reach: number;
+}
+
+/**
+ * A rocky coast along a drawn line: the land left of the drawing direction
+ * rises to at least `top` with a steep, ragged face at the line, a shelf
+ * behind it falling back to the land's own height; the sea floor before it
+ * sinks to `bed` and rises back to its own depth. Only raises the land and
+ * only deepens the sea, so it follows a shore that was there; roads keep
+ * their ground, the ends taper into the shore as it was.
+ */
+export function coastAlong(stroke: LandscapeStroke, line: readonly MapPoint[], o: CoastOptions): GridRect | null {
+  if (line.length < 2) return null;
+  const t = stroke.doc.terrain;
+  const g = t.grid;
+  const cell = g.cellSize;
+  const xs = line.map((p) => p.x);
+  const ys = line.map((p) => p.y);
+  const rect: GridRect = {
+    i0: Math.max(0, Math.floor((Math.min(...xs) - o.reach + t.width / 2) / cell)),
+    i1: Math.min(g.columns - 1, Math.ceil((Math.max(...xs) + o.reach + t.width / 2) / cell)),
+    j0: Math.max(0, Math.floor((Math.min(...ys) - o.reach + t.depth / 2) / cell)),
+    j1: Math.min(g.rows - 1, Math.ceil((Math.max(...ys) + o.reach + t.depth / 2) / cell)),
+  };
+  stroke.touchHeights(rect);
+  const n = stroke.noise;
+  const length = polylineLength(line);
+  const taper = Math.min(16, length / 3);
+  for (let j = rect.j0; j <= rect.j1; j++) {
+    const y = sampleY(t, j);
+    for (let i = rect.i0; i <= rect.i1; i++) {
+      const x = sampleX(t, i);
+      const hit = nearestOnPolyline(line, { x, y });
+      if (!hit || hit.dist > o.reach) continue;
+      const ends = smooth(0, taper, hit.along) * smooth(0, taper, length - hit.along);
+      const keep = stroke.roadKeep(x, y);
+      if (ends <= 0 || keep <= 0) continue;
+      const a = line[hit.segment];
+      const b = line[hit.segment + 1];
+      const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+      // Signed distance, positive on the land; the face wanders in bays and spurs a few metres either way of it
+      const side = ((b.x - a.x) * (y - a.y) - (b.y - a.y) * (x - a.x)) / len;
+      const face = side + n.fbm(x, y, 18, 3, 'n5') * 3.5 + n.fbm(x, y, 5, 2, 'n6') * cell * 0.6;
+      const base = stroke.baseHeight(i, j);
+      const top = o.top * (0.9 + 0.12 * n.fbm(x, y, 28, 2, 'n2'));
+      const land = Math.max(base, top - Math.max(0, side - o.shelf) * o.grade);
+      const sea = Math.min(base, o.bed + Math.max(0, -face - 1.5) * o.grade);
+      const up = smooth(-cell * 0.75, cell * 0.75, face);
+      const target = sea + (land - sea) * up;
+      const h = base + (target - base) * ends * keep;
+      g.heights[j * g.columns + i] = Math.min(HEIGHT_LIMITS.max, Math.max(HEIGHT_LIMITS.min, h));
     }
   }
   return rect;

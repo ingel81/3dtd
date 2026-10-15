@@ -178,6 +178,13 @@
       "view": "{\"cameraAngle\":0.6283185307179586,\"cameraDistance\":20,\"lightIntensity\":1.2,\"modelUrl\":\"assets/models/towers/archer.glb\",\"scale\":12}",
       "model": "e5ef11da4c32d666ef42207bfa33f6d599c5d8b485ad6c1ff3ddf8520ad3d6ff"
     },
+    "tower-bastion": {
+      "file": "tower-bastion.webp",
+      "width": 168,
+      "height": 100,
+      "view": "{\"cameraAngle\":0.6283185307179586,\"cameraDistance\":20,\"lightIntensity\":1.2,\"modelUrl\":\"assets/models/towers/bastion.glb\",\"scale\":6.5}",
+      "model": "dcaf3191fd51373b86f46fcd918bdbea1341e26e5b948ebe3039c090ec28b16e"
+    },
     "tower-cannon": {
       "file": "tower-cannon.webp",
       "width": 168,

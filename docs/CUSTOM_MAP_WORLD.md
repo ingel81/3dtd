@@ -259,7 +259,11 @@ hängt die Gruppe und die Sichtblocker (Gelände, blockierende Objekte) als dire
 Szene; `losBlockers()` gibt die Sichtblocker (der Sichtlinien-Würfel blendet alle anderen Kinder
 aus). Himmel, Sonne mit Schatten, Licht und Nebel bringt die Karte mit
 (`view.environment.apply`); die Fähigkeit `ownEnvironment` sagt der Engine, dass sie ihre eigenen
-Lichter und ihren Himmel weglässt.
+Lichter und ihren Himmel weglässt. Ihren Umgebungston (`life`, CUSTOM_MAPS.md „Umgebungston“) spielt
+`CustomMapWorld` selbst (`hear`, jedes Bild): ein `Soundscape` am Audio-Kontext und Master-Bus, die die Engine beim
+`attach` mitgibt (`WorldAttachContext.audio`), gehört vom Boden, auf den die Kamera schaut, mit der SFX-Lautstärke
+des Spielers. Die Simulation liest `life` nicht, die Prüfsummen eines Laufs hängen nicht daran; den `contentHash` der Karte ändert es
+wie jede andere Änderung.
 
 ## Minikarte
 

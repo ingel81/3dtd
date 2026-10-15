@@ -41,6 +41,7 @@ import { EditorMapView, mapToScene } from './map-view';
 import { pixelRatioFor, readStoredQuality, storedKnobsFor, type QualityKnobs } from '../../three-engine/render-quality';
 import { contourLines } from '../ops/contours';
 import { firstUsePrograms, programsReady } from '../../three-engine/programs-ready';
+import { Soundscape } from '../../world/custom-map/ambience/soundscape';
 
 export interface HoverInfo {
   x: number;
@@ -82,6 +83,8 @@ export interface ViewportCallbacks {
 
 /** Milliseconds between two sky rebuilds while an environment slider moves */
 const ENV_INTERVAL_MS = 100;
+/** The editor's level of the map's ambient sound (it has no volume setting of its own) */
+const AMBIENCE_VOLUME = 0.8;
 /** Milliseconds between two water rebuilds while a brush changes the masks */
 const WATER_INTERVAL_MS = 120;
 const FOV = 50;
@@ -106,6 +109,12 @@ export class EditorViewport {
   /** When the view last took the environment, and whether a newer one waits (sliders move faster than the sky rebuilds) */
   private envAt = 0;
   private envWaiting = false;
+  /** The map's ambient sound while the Life panel's "Hear it" is on, in a context of the editor's own */
+  private ambience: { sound: Soundscape; context: AudioContext } | null = null;
+  private readonly ambienceRight = new Vector3();
+  /** The same for the map's life: its sliders rebuild the effects */
+  private lifeAt = 0;
+  private lifeWaiting = false;
   /** The same for water: a brush that fills pools changes the masks every frame */
   private waterAt = 0;
   private waterWaiting = false;
@@ -205,8 +214,10 @@ export class EditorViewport {
 
   /**
    * Where an enemy walks at a map point: on a bridge deck where one spans
-   * it, as the game's CustomMapSurface lays it, else on the ground. Routes
-   * and the trial wave go over a bridge, not through the river under it.
+   * it, else on the ground. Routes and the trial wave go over a bridge, not
+   * through the river under it. A preview: a road under a bridge shows its
+   * walkers on the deck too, where the game keeps them on the ground
+   * (CustomMapSurface.walkHeightAtMap, the route cut under the deck)
    */
   walkHeightAt(x: number, y: number): number {
     const { paths, terrain } = this.editor.doc;
@@ -656,8 +667,44 @@ export class EditorViewport {
     return out;
   }
 
+  /**
+   * Plays the map's ambient sound (soundscape.ts) heard from where the view
+   * looks, or stops it. Call it from a click: a browser starts audio only
+   * after the person did something on the page
+   */
+  setAmbience(on: boolean): void {
+    if (!on) {
+      this.ambience?.sound.dispose();
+      void this.ambience?.context.close();
+      this.ambience = null;
+      return;
+    }
+    if (this.ambience) return;
+    const context = new AudioContext();
+    const sound = new Soundscape({ context, destination: context.destination });
+    sound.setMap(this.editor.doc);
+    sound.setVolume(AMBIENCE_VOLUME);
+    this.ambience = { sound, context };
+  }
+
+  /** The soundscape heard from the ground the view orbits */
+  private hearAmbience(dt: number): void {
+    const a = this.ambience;
+    if (!a) return;
+    const target = this.controller.current.target;
+    this.ambienceRight.setFromMatrixColumn(this.camera.matrixWorld, 0);
+    const len = Math.hypot(this.ambienceRight.x, this.ambienceRight.z) || 1;
+    a.sound.update(dt, {
+      at: { x: -target.x, y: target.z },
+      height: this.camera.position.y - this.heightAt(-target.x, target.z),
+      right: { x: -this.ambienceRight.x / len, y: this.ambienceRight.z / len },
+      darkness: this.view.view.environment.darkness,
+    });
+  }
+
   dispose(): void {
     this.disposed = true;
+    this.setAmbience(false);
     cancelAnimationFrame(this.raf);
     this.resizeObserver.disconnect();
     for (const u of this.unsubscribe) u();
@@ -890,6 +937,12 @@ export class EditorViewport {
     this.view.updateWater();
   }
 
+  private applyLife(): void {
+    this.lifeWaiting = false;
+    this.lifeAt = performance.now();
+    this.view.setLife();
+  }
+
   private applyEnvironment(): void {
     this.envWaiting = false;
     this.envAt = performance.now();
@@ -899,6 +952,7 @@ export class EditorViewport {
   /** Hand the collected changes to the view */
   private flush(): void {
     if (this.envWaiting && performance.now() - this.envAt >= ENV_INTERVAL_MS) this.applyEnvironment();
+    if (this.lifeWaiting && performance.now() - this.lifeAt >= ENV_INTERVAL_MS) this.applyLife();
     if (this.waterWaiting && performance.now() - this.waterAt >= WATER_INTERVAL_MS) this.applyWater();
     const c = this.pending;
     if (!c) {
@@ -931,6 +985,12 @@ export class EditorViewport {
         if (performance.now() - this.envAt >= ENV_INTERVAL_MS) this.applyEnvironment();
         else this.envWaiting = true;
       }
+      if (c.life) {
+        if (performance.now() - this.lifeAt >= ENV_INTERVAL_MS) this.applyLife();
+        else this.lifeWaiting = true;
+      }
+      // The sound areas and the bed (its biome's sounds) follow at once: setMap only changes gains
+      if (c.life || c.environment) this.ambience?.sound.setMap(this.editor.doc);
     }
     // Water lifts a bridge deck over it: the routes over the bridge follow
     if (c.paths || c.markers || c.heights || c.terrain || c.water || c.bodies) this.routesDirty = true;
@@ -1007,6 +1067,7 @@ export class EditorViewport {
     this.overlay.update(dt);
     this.view.view.setAnimationPaused(this.settings.view.still);
     this.view.update(dt, this.camera, this.controller.current.target);
+    this.hearAmbience(dt);
     this.trial.update(dt);
     this.renderer.render(this.scene, this.camera);
 

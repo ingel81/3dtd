@@ -96,8 +96,9 @@ describe('CustomMapSurface', () => {
     expect(column.groundY).toBeCloseTo(8);
     // Deck from 13 m to 15 m with an arch of 0.8 m at the middle
     expect(column.topY).toBeCloseTo(14 + 0.8, 1);
-    expect(surface.getGroundHeightEstimate(geo.lat, geo.lon)).toBeCloseTo(14.8, 1);
     expect(surface.getStreetHeightEstimate(geo.lat, geo.lon, geo.lat, geo.lon, geo.lat, geo.lon, 'bridge')).toBeCloseTo(14.8, 1);
+    // Off the bridge way (a road through the ditch under it) the walker stays on the ground
+    expect(surface.getGroundHeightEstimate(geo.lat, geo.lon)).toBeCloseTo(8, 1);
     // Beside the bridge the ditch
     expect(surface.sampleColumn(frame.sceneX(40), frame.sceneZ(20))!.topY).toBeCloseTo(8);
   });
@@ -488,7 +489,7 @@ describe('CustomMapSurface bridge decks', () => {
     const frame = new CustomMapFrame();
     const origin = hqOrigin(doc);
     frame.setOrigin(origin.lat, origin.lon);
-    return new CustomMapSurface(doc, frame).walkHeightAtMap(40, 0);
+    return new CustomMapSurface(doc, frame).sampleColumn(frame.sceneX(40), frame.sceneZ(0))!.topY;
   };
 
   it('lifts a deck only over water it crosses, not to a lake elsewhere on the map', () => {

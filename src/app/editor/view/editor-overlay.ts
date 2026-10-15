@@ -1,8 +1,9 @@
 /**
  * What the editor draws over the map and the game never shows: the brush
  * ring draped on the ground, spawns and the HQ, path nodes, the selection,
- * the gizmo ring, a line being drawn, and the routes from each spawn to the
- * HQ with a moving dash. Spawn colours are the game's lane colours.
+ * the gizmo ring, a line being drawn, the life areas while the Life tool is
+ * in hand, and the routes from each spawn to the HQ with a moving dash.
+ * Spawn colours are the game's lane colours.
  */
 import {
   BoxGeometry,
@@ -31,7 +32,8 @@ import {
 } from 'three';
 import { SPAWN_COLORS } from '../../configs/map-constants.config';
 import { TD_THEME } from '../../styles/td-theme';
-import type { CustomMapDocument, MapPoint, MapRiver } from '../../world/custom-map/map-document';
+import type { CustomMapDocument, MapLifeArea, MapPoint, MapRiver } from '../../world/custom-map/map-document';
+import { LIFE_KIND_INFO } from '../../world/custom-map/map-life';
 import { selectedEdges, selectedNodes, selectedSpawns, type Selection } from '../model/editor-document';
 import { pointAt, polylineLength, type Route } from '../ops/path-graph';
 import type { SymmetryMode } from '../ops/symmetry';
@@ -127,6 +129,12 @@ export class EditorOverlay {
   private readonly handleWater = new Color(TD_THEME.tealLight);
   private readonly handleLava = new Color('#ff7a3a');
   private readonly handleChosen = new Color(TD_THEME.brassLight);
+  /** Life areas and routes in their kind's colour (setLife), the chosen one's points */
+  private readonly life = new Group();
+  private readonly lifeMaterials = new Map<string, LineBasicMaterial>();
+  private readonly lifeHandles: InstancedMesh;
+  private lifeHandleAt: MapPoint[] = [];
+  private lifeChosenPoint = -1;
   /** Markers and handles grow with the view distance so they keep a size on screen */
   private markerScale = 1;
   private showNodes = true;
@@ -154,6 +162,10 @@ export class EditorOverlay {
     this.riverHandles.visible = false;
     this.riverHandles.frustumCulled = false;
     this.riverHandles.renderOrder = 14;
+    this.lifeHandles = new InstancedMesh(this.nodeGeometry, new MeshBasicMaterial({ color: '#ffffff', depthTest: false, transparent: true, opacity: 0.95 }), 256);
+    this.lifeHandles.count = 0;
+    this.lifeHandles.frustumCulled = false;
+    this.lifeHandles.renderOrder = 14;
     this.preview = new InstancedMesh(this.nodeGeometry, this.previewMaterial, PREVIEW_DOTS);
     this.preview.count = 0;
     this.preview.frustumCulled = false;
@@ -163,7 +175,7 @@ export class EditorOverlay {
     this.measure.frustumCulled = false;
     this.measure.visible = false;
     this.hover.visible = false;
-    this.group.add(this.hover, this.buildAreas, this.contours, this.grid, this.measure, this.guides, this.markers, this.routes, this.nodes, this.selection, this.brush, this.brushInner, this.gizmo, this.draft, this.preview, this.transform.group, this.riverHandles);
+    this.group.add(this.hover, this.buildAreas, this.contours, this.grid, this.measure, this.guides, this.markers, this.routes, this.nodes, this.selection, this.brush, this.brushInner, this.gizmo, this.draft, this.preview, this.transform.group, this.riverHandles, this.life, this.lifeHandles);
   }
 
   /** Handles on the points of the map's rivers (the water tool's river mode); null hides them */
@@ -190,6 +202,49 @@ export class EditorOverlay {
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     mesh.visible = n > 0;
+  }
+
+  /**
+   * The life areas (outlines closed, routes open) draped on the ground in
+   * their kind's colour, the chosen one brighter with a handle on each point
+   * (the chosen point larger); null hides them all
+   */
+  setLife(areas: readonly MapLifeArea[] | null, chosen: string | null, point: number): void {
+    clear(this.life);
+    this.lifeHandleAt = [];
+    this.lifeChosenPoint = point;
+    for (const a of areas ?? []) {
+      if (a.points.length < 2) continue;
+      const pts = a.shape === 'area' ? [...a.points, a.points[0]] : a.points;
+      const line = new Line(new BufferGeometry(), this.lifeMaterial(LIFE_KIND_INFO[a.kind]?.color ?? '#ffffff', a.id === chosen));
+      line.geometry.setAttribute('position', new BufferAttribute(drapedLine(pts, this.height, 1.2), 3));
+      line.renderOrder = 11;
+      line.frustumCulled = false;
+      this.life.add(line);
+      if (a.id === chosen) this.lifeHandleAt = a.points.slice(0, this.lifeHandles.instanceMatrix.count);
+    }
+    this.placeLifeHandles();
+  }
+
+  private lifeMaterial(color: string, chosen: boolean): LineBasicMaterial {
+    const key = `${color}|${chosen}`;
+    let m = this.lifeMaterials.get(key);
+    if (!m) this.lifeMaterials.set(key, (m = new LineBasicMaterial({ color, depthTest: false, transparent: true, opacity: chosen ? 1 : 0.55 })));
+    return m;
+  }
+
+  private placeLifeHandles(): void {
+    const mesh = this.lifeHandles;
+    const m = new Matrix4();
+    this.lifeHandleAt.forEach((q, k) => {
+      const s = (k === this.lifeChosenPoint ? 1.6 : 0.9) * this.markerScale;
+      m.makeScale(s, s, s).setPosition(-q.x, this.height(q.x, q.y) + 1.2, q.y);
+      mesh.setMatrixAt(k, m);
+      mesh.setColorAt(k, k === this.lifeChosenPoint ? this.handleChosen : this.handleWater);
+    });
+    mesh.count = this.lifeHandleAt.length;
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
   }
 
   /** The brush ring at a map point, draped on the ground; radius 0 hides it */
@@ -572,6 +627,7 @@ export class EditorOverlay {
       else m.scale.setScalar(scale);
     }
     for (const n of this.nodes.children) if (n instanceof Mesh) n.scale.setScalar(n.userData['size'] * scale);
+    if (this.lifeHandleAt.length) this.placeLifeHandles();
   }
 
   /** Moves the dots along the routes, spawn to HQ */
@@ -605,6 +661,8 @@ export class EditorOverlay {
     clear(this.nodes);
     clear(this.selection);
     clear(this.routes);
+    clear(this.life);
+    for (const m of this.lifeMaterials.values()) m.dispose();
     this.nodeGeometry.dispose();
     for (const t of this.tags.values()) {
       t.material.map?.dispose();

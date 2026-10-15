@@ -83,6 +83,7 @@ const TOWER_COLORS: Record<string, string> = {
   poison: '#5FBF8F',
   lightning: '#E8D44D',
   chaos: '#D946EF',
+  bastion: '#8C8F94',
 };
 
 // =====================================================================

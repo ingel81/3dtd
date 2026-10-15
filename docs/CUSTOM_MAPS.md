@@ -120,11 +120,16 @@ Nebel der Szene wieder her.
   Streifens, 30 m entlang geglättet, ohne Straßen, Pflaster und Lava; ein gepflasterter Rand nimmt den natürlichen Boden,
   den die Karte am meisten hat; eine Textur 512 × 3, ein Lookup je Zeile nur jenseits des Rands), vorher die erste
   Schicht (Harbor Town: Pflaster bis zum Horizont). Ab 250 m hinter dem Rand steigt eine **Bergkette** (ab 900 m voll,
-  Grat-Rauschen entlang des Rands, Höhe nach Look `BACKDROP_HEIGHT`: Gebirge 420 m, Sumpf 40 m; nicht über dem Meer),
+  Grat-Rauschen entlang des Rands, Höhe nach Look `BACKDROP_HEIGHT`: Gebirge 420 m, Mond 150 m, Sumpf 40 m; nicht über dem Meer;
+  Land jenseits des Rands versinkt im Höhennebel zu 97 %, auf dem Mond ohne Luft nur zu 60 % (`beyondHaze`, sonst
+  verschwände die Kette im schwarzen Dunst),
   so endet keine Karte sichtbar in flachem Land; dieselben Ringpunkte, kein Draw Call mehr. **Bäume am Rand**
   (`edge-trees.ts`): die Bäume der 40 m am Rand gespiegelt auf die Schürze, eine eigene Objektschicht außerhalb der
   Sichtlinie (nur Bild, das Spiel liest sie nicht), auf der Höhe der Schürze (`ApronProfile.heightAt`); ein Wald endet
-  nicht mehr als Linie vor kahlem Boden. Nicht Teil der Karte (keine Abfragen, `losTransparent`)
+  nicht mehr als Linie vor kahlem Boden. Keiner im Meer jenseits einer Küste (`ApronProfile.underWater`: wo das
+  Hauptwasser über die Schürze weiterläuft und ihr Boden unter Spiegel + 0,3 m liegt; von oben standen sie dort als dunkle
+  Kegel mit Schatten im Wasser); nach Höhen- und Wasseränderungen am Rand neu gesetzt. Nicht Teil der Karte (keine
+  Abfragen, `losTransparent`)
 
 - **Bodenverdeckung und Geländeform** (`ground-occlusion.ts`, RGBA je Rasterpunkt, ein Zugriff im Shader):
   R Verdeckung (Horizontwinkel in acht Richtungen bis 32 m: Mulden, Rinnen, Hangfüße dunkler; mal weiche
@@ -177,6 +182,11 @@ der Innenseite einer Biegung bis 2,4-fach, außen schmal, entlang des Flusses wa
 angefressen. Brücken (`kind: 'bridge'`) bekommen ein Deck aus instanzierten `bridge-deck`-Stücken zwischen den Uferhöhen, mit
 leichtem Bogen und mindestens 1 m über dem Wasser. `style: 'stone' | 'lava'` an der Kante nimmt `bridge-deck-stone`
 bzw. `bridge-deck-lava`; fehlt das Stück im Katalog, bleibt es beim Holzdeck.
+Eine Kante mit `surface` (ein Bodenmaterial, OSM-Welten: Asphalt, Pflaster, Kies) lässt die Maske aus: ihr Belag ist
+in die Bodenfarbe gemalt und zeigt sich statt Kopfsteinen und Spurrillen. `street` an der Kante (der `highway`-Typ des
+echten Wegs) gibt im Spiel den Straßentyp, nach dem Routen gewichtet und Spawns gewählt werden
+(`custom-map-streets.ts`); ohne ihn entscheidet die Art. Beides fehlt auf allen bisherigen Karten
+([OSM_WORLD_PLAN.md](OSM_WORLD_PLAN.md)).
 
 ### Wasser (`water/`)
 
@@ -380,7 +390,7 @@ Fundamente reichen bis 1,5 m in den Boden.
 
 Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `file: ''`, Kategorie `fx`):
 
-- **Partikel** `fire`, `smoke`, `embers`, `fireflies`, `fog`, `leaves`, `snow`, `sparkle`: je Art ein instanziertes
+- **Partikel** `fire`, `smoke`, `embers`, `sparks`, `fireflies`, `fog`, `leaves`, `snow`, `sparkle`: je Art ein instanziertes
   Feld für die ganze Karte. Zustandslos: jedes Teilchen läuft per Zeit und Zufallswert im Vertex-Shader durch sein
   Leben, die CPU schiebt nur eine Zeit-Uniform. Leuchtende Arten additiv, beleuchtete (Rauch, Nebel, Laub, Schnee)
   werden nachts dunkler. `radius`, `height`, `rate`, `color` je Effekt; `at` setzt den Effekt neben den Ursprung
@@ -402,23 +412,98 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   max(3 m, halbe Fallhöhe) darüber, sonst der Boden; liegt der Boden mehr als 1 m über dem Fuß, keine); liegt der Fuß über stillem
   Wasser (Spiegel am Scheibenrand höchstens 0,3 m anders), eine Scheibe aus wirbelndem Schaum darauf, über einem
   abfallenden Fluss keine. Trifft der Fuß die Kante eines anderen Wasserfalls (eine Stufe einer Kaskade), weder Gischt
-  noch Scheibe: das Wasser läuft dort die nächste Fläche hinab, Schaum hinge sonst vor der Klippe in der Luft
-- **Lichter** (`light`: Farbe, Stärke, Reichweite, Höhe, `flicker`): jedes bekommt einen additiven Schein (am Tag
+  noch Scheibe: das Wasser läuft dort die nächste Fläche hinab, Schaum hinge sonst vor der Klippe in der Luft.
+  **Lavafall:** steht Lava unter dem Fuß oder an der Lippe (ein Wasserfall, gesetzt über einer Kante in den Lavasee),
+  zeichnet dieselbe Fläche geschmolzenen Fels: dunkle
+  Krustenplatten gleiten langsam über glühende Ströme, hell an der Lippe und am Fuß, ohne Tag-Nacht-Dämpfung; am Fuß
+  Glut und etwas Rauch statt Gischt, keine Schaumscheibe (Attribut `aLava`, ein Zweig im selben Shader)
+- **Lichtkegel** (`beam`, `effects/light-beams.ts`): zwei Kegel gegenüber aus der Lichthöhe (`height`), `radius` lang,
+  drehen sich mit den drehenden Teilen des Objekts (unten), additiv, mittig heller, nur bei Dunkelheit; ein Mesh für
+  alle. Der Leuchtturm hat einen (Höhe 20 m, 70 m lang, eine Umdrehung in 10 s)
+- **Drehende Teile** (`objects/spin.ts`): Teile eines Modells mit Material `spin-…` drehen sich im Vertex-Shader um
+  die senkrechte Achse durch den Ursprung des Modells, eine Umdrehung in `spin` Sekunden (Katalog, Standard 8), jedes
+  Objekt mit eigenem Startwinkel aus seiner Lage, auf der Uhr des Winds (das Standbild hält sie an); sie werden nicht
+  mit anderen Teilen zusammengelegt (`mergeKey`). Radarschüssel und Leuchtturm-Linse liefert die Modellseite (E179)
+- **Lichter** (`light`: Farbe, Stärke, Reichweite, Höhe, `flicker`, `blink`): jedes bekommt einen additiven Schein (am Tag
   schwach, nachts voll); dazu ein fester Pool von 6 `PointLight`s für die Lichter nächst dem Kamerafokus, nach
   Dunkelheit eingeblendet (Nacht, Dämmerung, tiefe Sonne). Am Tag kosten sie nichts, die feste Poolgröße vermeidet
-  Shader-Neubau
+  Shader-Neubau. `blink` (Sekunden): ein kurzer Blitz je Periode (Schein und Punktlicht, auch am Tag gut sichtbar),
+  backt kein Licht auf den Boden; der Antennenmast blinkt alle 1,5 s, `fx-beacon` setzt ein blinkendes Licht frei
 - **Leben aus dem Karteninhalt** (`CustomMapView.refreshAmbient`, ohne Bearbeiten): Glühwürmchen nachts (ab
   Dunkelheit 0,35) über den Ufern von Seen und Sümpfen (alle 12 m) und mitten in Wäldern (30-m-Quadrate mit mindestens
   6 Bäumen), höchstens 60 Schwärme, in den Biomen temperate, swamp, mountain. Vogelschwärme am Tag
   (`effects/bird-flocks.ts`): ein instanziertes Mesh für alle (ein Draw Call), Flug, Flügelschlag und Gleiten im
-  Vertex-Shader auf der Uhr des Winds (ein Standbild hält sie an), je ein Schwarm je 300-m-Quadrat Karte (höchstens 5)
-  über dem Land mit den wenigsten Bäumen, 45 m und höher, Kreise von 40 bis 56 m, deren Mitte langsam wandert; näher
-  als 45 m an der Kamera klappen sie weg, nachts und mit der Pflanzenbewegung „aus“ sind sie fort; nicht auf dem Mond,
-  Mars und in der Hölle. Stufe Low (Partikelanteil unter 0,7): keine Vögel, weniger Glühwürmchen. Gesetzte Schwärme
-  (Effekt `birds`, `fx-birds`) und gesetzte Glühwürmchen ersetzen die automatischen (LEVEL_EDITOR.md, Objekte). Glut über Feuern und
-  Lava, schaukelnde Boote und Wimpel im Wind gab es schon (Katalog `effects`, `float`, `wind`). Umgebungston je Biom
-  fehlt noch, die Klänge gibt es nicht: Wind (Wiese, Pass), Bach und Fluss, Wellen am Ufer, Vogelgesang, Möwen,
-  Krähen, Grillen und Frösche bei Nacht, Lavagrollen und Blubbern, eine Glocke
+  Vertex-Shader auf der Uhr des Winds (ein Standbild hält sie an). Jeder Schwarm fliegt eine geschlossene Schleife,
+  64 Punkte gleichmäßig über ihre Länge in einer Float-Textur (eine Zeile je Schwarm, höchstens 64 Schwärme); die Vögel
+  weichen seitlich und in der Höhe von ihr ab, die ganze Schleife driftet langsam. Je ein Schwarm je 300-m-Quadrat
+  Karte (höchstens 5) über dem Land mit den wenigsten Bäumen, 45 m und höher, Kreise von 40 bis 56 m, deren Mitte
+  langsam wandert; näher als 45 m an der Kamera klappen sie weg, nachts und mit der Pflanzenbewegung „aus“ sind sie
+  fort; nicht auf dem Mond, Mars und in der Hölle. Stufe Low (Partikelanteil unter 0,7): keine Vögel, weniger
+  Glühwürmchen. Gesetzte Schwärme (Effekt `birds`, `fx-birds`, ein Kreis) und gesetzte Glühwürmchen ersetzen die
+  automatischen (LEVEL_EDITOR.md, Objekte), ebenso die der Lebensbereiche (unten). Glut über Feuern und Lava,
+  schaukelnde Boote und Wimpel im Wind gab es schon (Katalog `effects`, `float`, `wind`)
+- **Lebensbereiche** (`doc.life`, `map-life.ts`, `effects/life-areas.ts`; im Editor das Werkzeug Life, LEVEL_EDITOR.md):
+  ein Umriss (`shape: 'area'`), den das Leben füllt, oder eine Linie (`route`), der es folgt, je mit Art, Dichte
+  (0,1 bis 3), Höhe, Farbe und der niedrigsten Stufe, die es zeigt (`quality`: Medium, oder High). Vögel: ein Umriss
+  gibt eine Schleife in seinem Inneren (neun Strahlen aus der Mitte, je 0,5 bis 0,9 des Wegs zum Rand, als
+  Catmull-Rom-Kurve; ein stark eingebuchteter Umriss kann an einer Bucht etwas hinausragen), 10 Vögel je Dichte 1;
+  eine Linie eine Schleife auf ihr hin auf der einen Seite und auf der anderen zurück (12 m daneben), 8 Vögel; Höhe
+  über dem höchsten Boden der Nachbarpunkte der Schleife (Standard 40 m), damit ein Schwarm über einen Kamm fliegt.
+  Art (`species`, `BIRD_LOOK` in `bird-flocks.ts`, Farbe, Größe, Flügelschlag, Gleitanteil, Tempo je Vogel als
+  Instanzattribut, weiter ein Draw Call): Singvögel (Standard), Möwen (hell, 1,5-fach, gleiten öfter), Krähen und
+  Raben (schwarz, 1,3-fach), Greifvögel (braun, 2,6-fach, meist gleitend, 0,6-fach so schnell, ein Drittel der Zahl,
+  Standardhöhe 80 m, weiter gestreut).
+  Partikel (`fireflies`, `fog`, `leaves`, `embers`, `sparks`): Emitter auf einem verwackelten Raster im Umriss oder
+  entlang der Linie (Abstand je Art 8 bis 28 m, höchstens 160 je Bereich), auf dem Boden oder der Wasserfläche; sie
+  gehen in das Feld ihrer Art (eine Art, die die Karte schon hat, kostet keinen Draw Call mehr); Glühwürmchen nur
+  nachts wie die automatischen. Funken (`sparks`, neu): stoßweise hoch und zurück, nachts hell, am Tag schwach.
+  Schneegestöber (`snow`, alle 12 m, aus 14 m Höhe). Staubteufel (`dust`, neue Partikelart): je 70 m ein Wirbel, der
+  etwa 40 m um seine Stelle wandert, Staub schraubt sich bis 18 m hoch und weitet sich oben; jeder lebt etwa 40 s je
+  Minute; alle Teilchen eines Wirbels teilen sich dessen Bahn über einen Wert aus seiner Stelle. Hitzeflimmern (`haze`,
+  `effects/life-haze.ts`): ein Tuch 0,6 m über dem Boden im Umriss (Raster alle 4 m, höchstens 40 000 Punkte) oder in
+  einem Band 8 m beiderseits der Linie, mit dem Shader des Lava-Flimmerns (`heatHazeMesh`, `water/heat-haze.ts`), am
+  Rand über 12 m ausgeblendet; es liest die Bildkopie der Brechung und steht daher nur mit dem Effekt „Lava glow and
+  heat haze“ (High, Ultra oder der Schalter des Spielers), aus der Spielkamera schwach.
+  Boote (`boats`, `effects/life-movers.ts`): je Boot eine eigene langsame Schleife im Umriss (0,5 bis 1,2 m/s; 4 Boote
+  je Dichte 1, höchstens 24) oder auf einer Linie auf der einen Seite hin und auf der anderen zurück (4 m daneben,
+  1,5 bis 2,5 m/s, 3 Boote), auf dem Spiegel des Wassers darunter (über Land behalten sie den des letzten Wassers),
+  Bug voraus, mit dem Schaukeln schwimmender Objekte; das Modell ist ein schwimmendes Asset des Katalogs (`asset`,
+  Standard `rowboat`). Ein instanziertes Mesh je Teil des Modells, die CPU setzt einige Dutzend Matrizen je Bild; sie
+  blockieren weder Sicht noch Bauen und werfen keinen Schatten (die Schattenkarte der Sonne ist gecacht).
+  Bewegte Dinge (`movers`, dieselbe Klasse): ein beliebiges Asset (`asset`, Pflicht; ein Rover, ein Karren, Tiere) auf
+  dem Boden, mit ihm geneigt, im Umriss je eines auf eigener Schleife (3 je Dichte 1, höchstens 16) oder auf der Linie
+  in zwei Spuren 2,5 m neben ihr (2), mit `speed` m/s (Standard 1,5, je eines bis 20 % anders). Die Gegner und Tower
+  sehen sie nicht
+  Schalter der Karte (`life.auto`): Schornsteinrauch, automatische Glühwürmchen und Vögel (an, wenn nichts gesetzt),
+  Funken über Lava (aus, wenn nichts gesetzt); `life.density` 0 bis 2 als Faktor auf das alles. `life.flags`: das Tuch
+  der Banner weht im Wind (`objects/cloth.ts`: die Karten `foliage-banner*` werden beim Laden zu einem Raster aus 6 x 14
+  Vierecken mit `aHang`, 0 an der Stange, 1 am freien Ende; im Vertex-Shader laufen Wellen das Tuch hinab und der Wind
+  bläht es, `WIND_UNIFORMS.uClothWave`, mit der Pflanzenbewegung des Spielers); ohne den Schalter schwankt nur die
+  Stange wie bisher. Grafikstufe
+  (`render-quality.ts`, `customMaps.life`): Low 0 (keine Lebensbereiche, keine Funken über Lava), Medium 0,7 (ohne die
+  Bereiche mit `quality: 'high'`), High und Ultra 1. Eine Karte ohne `life` sieht aus wie vorher
+
+### Umgebungston (`ambience/`)
+
+`ambience/soundscape.ts` spielt den Ton der Karte, gehört von dem Punkt, auf den die Kamera schaut (im Spiel
+`CustomMapWorld.hear`, im Editor die Mitte der Ansicht, Schalter „Hear it in the editor“ im Life-Panel, eigener
+`AudioContext` erst nach dem Klick). Teile:
+- **Ton über der ganzen Karte** (`life.ambience`: `sound` und `volume`): ein Klang, oder `biome`, der des Looks bei Tag
+  und bei Nacht, mit der Dunkelheit überblendet (0,3 bis 0,7): temperate Vogelgesang und Grillen, mountain, arctic,
+  apocalypse und mars Wind, desert Wind und Grillen, swamp Frösche, city Stadtrauschen, hell Lavagrollen, moon keiner
+  (`ambient-sounds.ts`, `BIOME_SOUNDS`). Ohne `ambience` keiner: eine Karte bleibt still, bis man ihn setzt
+- **Tonbereiche** (Lebensbereich der Art `sound` mit `sound` und `volume`, Standard 0,7): im Umriss oder auf der Linie
+  voll, darüber hinaus über 70 m leiser (`AREA_REACH`, quadratisch), aus der Seite, auf der er liegt (Stereo-Panner,
+  voll seitlich erst 30 m außerhalb); ein Bach entlang einer Linie, Brandung entlang einer Küste, Feuer in einem Hof
+- Von oben leiser: bis 80 m über dem Boden voll, ab 600 m ein Drittel (`lift`)
+- Klänge (`AMBIENT_SOUNDS`): `wind`, `birdsong`, `night-insects`, `stream`, `surf`, `swamp`, `lava`, `fire`, `city`, je mit
+  eigenem Pegel. Heute synthetische Platzhalter aus `tools/ambient/make_placeholders.py` (Rauschen im Frequenzraum über
+  die ganze Schleife gefiltert, Rufe und Hüllkurven laufen über das Ende herum, daher ohne Naht); die Datei trägt
+  0,1 s der Schleife davor und danach (`LOOP_PAD`), gespielt wird dazwischen, so verschluckt der MP3-Versatz nichts.
+  Echte Aufnahmen ersetzen später die Dateien unter denselben Ids. Eine unbekannte Id spielt nichts (eine Karte aus
+  einem neueren Spiel)
+- Kosten: je hörbarer Stimme eine Quelle (im Audio-Thread); Pegel und Panning rechnet die CPU zehnmal je Sekunde,
+  eine Stimme, die drei Sekunden still ist, gibt ihre Quelle ab. Die Grafikstufe ändert nichts am Ton
 
 ### Umgebung (`environment/`)
 
@@ -510,12 +595,18 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   (Off, Calm, Full: `uPlantSway` 0, 0,4, 1); die Windstärke der Karte bleibt, Wolken, Rauch und Wetter ziehen voll. Kosten im Messrahmen nicht messbar (Demo-Tal 1,42 / 1,43 ms je Bild)
 - **Biome** (`biomes.ts`, `environment.biome`): `temperate`, `hell`, `moon`, `mars`, `arctic`, `apocalypse`,
   `swamp`, `desert`, `mountain`, `city` setzen auf die Himmelsvoreinstellung Himmels- und Lichtfarben, Wolken,
-  Dunstdichte und wie eng er am Boden liegt, Grading sowie Sterne, Planet (Mond: die Erde), Polarlicht und
+  Dunstdichte und wie eng er am Boden liegt, Grading sowie Sterne, Polarlicht und
   Umgebungspartikel um den Fokus (Glut, Asche, Staub, Schneetreiben). Ein Biom kann dem Hof um die Sonne und dem
   Dunst zu ihr hin eine eigene Farbe geben (`glowColor`, sonst das Sonnenlicht). Mars wie auf den Rover-Bildern:
   blasser Butterscotch-Himmel am Tag, Licht fast weiß, Sättigung im Grading 0,74, damit der Boden seine Farben zeigt
   (heller Staub, dunkler Basaltsand, ockerfarbener Kies, rostige, graue und schwarze Steine); in der Dämmerung ein
   blauer Hof um die Sonne über braungrauem Himmel
+- **Planet** (`environment.planet`: `azimuth`, `elevation` in Grad, `size` als scheinbarer Durchmesser in Grad, 0
+  keiner; `planetOf`): eine Scheibe im prozeduralen Himmel, von der Sonnenseite beleuchtet, Ozeane, Land und Wolken,
+  ein heller Atmosphärensaum (Uniforms `uPlanetDir`, `uPlanet` = Radius in Bogenmaß). Ohne Einstellung zeigt der Look
+  Moon die Erde (`DEFAULT_PLANET`: Nordosten, 33 Grad hoch, 4 Grad), andere Looks keinen. Ein Bildhimmel zeigt keinen.
+  Auf dem Mond gilt der schwarze Himmel als dunkel genug für die Lichter der Karte: `darkness` mindestens 0,5 wie in
+  der Hölle (Schein der Lampen, Fenster, Punktlichter-Pool)
 - **Nebel für Türme und Gegner**: die Kartenmaterialien nutzen den Höhennebel, alles andere den `FogExp2` der
   Szene; dessen Dichte setzt `matchFog` je Frame so, dass beide am Kamerafokus gleich dicht sind
 - **Grading** wird immer im sRGB-Raum gerechnet, auch durch die Post-Processing-Kette des Spiels (lineares
@@ -580,11 +671,11 @@ Bestand baut der Asset-Worker aus; Stand beim Schreiben:
   8 % seiner Höhe, höchstens 15 cm über dem tiefsten), und wie tief dieser Punkt unter dem Ursprung liegt;
   `tools/map-assets/measure_bases.mjs` misst sie an den Modellen nach `bases.json`, `update_catalog.py` übernimmt sie.
   Gescannte Felsen sind unten flach abgeschnitten, und diese Platte reicht oft weit über den Fußabdruck hinaus (der
-  Steinhaufen `rock-large`: Fußabdruck 1,8 m, Platte 7,4 mal 3,6 m). 52 Felsen haben eine; Kulissenstücke ohne Platte
-  (Kraterränder, Becken, Felsbogen, Klippen- und Küstenwände, Tafelberg, Eisberg, Gletscher; `NO_PLATE` im Skript) keine. Wie
+  Steinhaufen `rock-large`: Fußabdruck 1,8 m, Platte 7,4 mal 3,6 m). 53 Felsen haben eine; Kulissenstücke ohne Platte
+  (Kraterränder, Becken, Felsbogen, Klippen- und Küstenwände, Tafelberg, Eisberg, Gletscher, Schneefeld; `NO_PLATE` im Skript) keine. Wie
   der Editor Felsen damit absetzt: [LEVEL_EDITOR.md](LEVEL_EDITOR.md), Objekte
-- **401 Katalog-Objekte**, davon 392 Modelle (GLB, meshopt, WebP bis 512 px, große Klippen 1024 px) und 9 Effekt-Marker; je
-  Kategorie 124 Requisiten, 71 Felsen, 68 Gebäude, 42 Pflanzen, 31 Bäume, 33 Mauern und Zäune, 23 Bauwerke
+- **402 Katalog-Objekte**, davon 393 Modelle (GLB, meshopt, WebP bis 512 px, große Klippen 1024 px) und 9 Effekt-Marker; je
+  Kategorie 124 Requisiten, 72 Felsen, 68 Gebäude, 42 Pflanzen, 31 Bäume, 33 Mauern und Zäune, 23 Bauwerke
   (`structure`). Je Biom: Laub- und Nadelbäume mit Herbst-
   und Schneevarianten, Trauerweide, Mangrove, Palmen, Kakteen, Köcherbäume; Sträucher, Hecken, Gras je Biom, Schilf,
   Weizen, Blumen, Seerosen, Pilze; Felsen je Gesteinsart, modulare Klippen, Sandsteinsäulen, Tafelberg, Felsbogen,
@@ -596,7 +687,7 @@ Bestand baut der Asset-Worker aus; Stand beim Schreiben:
   Eisschollen, Eiszapfen); Hölle (Höllentor, Altar, Lavafelsen, Dornen, Ketten, Obsidian, Galgenkäfig); Fahrzeuge
   (Auto, Pickup, Lkw, Bus, Panzerwrack, je intakt, verrostet, ausgebrannt); Teile der Vorzeige-Level (Seilbahn,
   Hexenhütte, Hafen, Karawanenzelt, Schmiede, Burgruine); Wahrzeichen (E179, `build_landmarks.py`: Tunnelportal aus
-  Stein und aus Beton, Burgruine als ein Stück, Gletscherzunge, Séracs, Lawinenverbauung blank und eingeschneit,
+  Stein und aus Beton, Burgruine als ein Stück, Gletscherzunge, Séracs, Altschneefeld, Lawinenverbauung blank und eingeschneit,
   Schiffswrack, Rakete mit Startturm, Obsidianturm, Flutlichtmast, Positionslicht, Glockenturm auch mit Schnee,
   Steinkreis, Tribok, eingestürzte Hochstraße); Streu-Steine; Fackeln, Feuer, Wasserfall
 - **Wahrzeichen** (E179): `tunnel-portal` und `tunnel-portal-concrete` (Bauwerk, Sicht- und Bausperre) sind
@@ -607,11 +698,34 @@ Bestand baut der Asset-Worker aus; Stand beim Schreiben:
   Gebäude ein. `stone-circle` (15 m) und `highway-collapsed` (rund 50 m entlang X, Hochstraße auf 9 m) sind Bauwerke,
   `trebuchet` (wirft nach vorn, -Z in glTF), `floodlight-mast` und `beacon-post` (mit Katalog-Licht) Requisiten,
   `obsidian-tower` (14 m) ein Fels mit Platte. `glacier` (Fels ohne
-  Platte, 90 m lang, reicht 10 m in den Boden) steigt selbst kaum an: mit „An Hang ausrichten“ kippt er mit dem Hang;
-  auf ebenem Boden wirkt er wie eine Eisplatte. `avalanche-barrier(-snow)` sind 4-m-Felder für Reihen am Hang
+  Platte, 90 m lang, 44 m breit, reicht 6 m in den Boden) ist flach und läuft an den Flanken aus, er steigt selbst
+  kaum an: mit „An Hang ausrichten“ kippt er mit dem Hang, in einem Tal liegt er zwischen den Hängen; auf ebenem
+  Boden wirkt er wie ein flacher Laib. `seracs` sind zerbrochene, schiefe Eistürme (Fels mit Platte), `snowfield`
+  ein dünnes Altschneefeld (Fels ohne Platte, keine Bausperre). Alle drei nutzen nur die Schneetextur, getönt. `avalanche-barrier(-snow)` sind 4-m-Felder für Reihen am Hang
   (Bauwerk, Bausperre, die Streben reichen bergauf). `shipwreck` ist eine Requisite (kein Einebnen, liegt 1,5 m im
   Sand), `rocket` ein Gebäude mit eigener Betonplatte. Dreiecke und Draw Calls je Modell: `catalog.json`
   (`triangles`), je Material ein Draw Call (`pack_models.py` fügt gleiche Materialien zusammen)
+- **Drehteile** (E179 für E190): Teile, die sich drehen sollen, haben Materialien `spin-*` und liegen im GLB als
+  eigener Knoten (`spin-<id>`), Drehachse ist die Senkrechte durch den Ursprung des Modells: der Kopf von
+  `antenna-dish` (Schüssel, Joch, Speisehorn), die Linse im Laternenraum von `lighthouse`. Die Bauskripte trennen
+  sie nach dem AO-Backen ab (`blender_kit.split_spin`); spin-Materialien brauchen Werte, die kein anderes Material des
+  Modells hat, sonst führt glTF-Transform sie zusammen. Gedreht wird noch nichts: `collectParts` backt alle Knoten
+  flach und `merge-parts.ts` fasst einfarbige Materialien zusammen, das Drehen gehört zu E190
+- **Heutige Gebäude für OSM-Welten** (O6, `build_modern.py`, Tag `city`, einige auch `village`/`temperate`): ein Satz
+  Materialien für alle (gestrichener Putz in wenigen Tönen, anthrazit oder rote Dachziegel, weiße Fenster in echten
+  Laibungen, Rollläden, Zinkrinnen, Betonsockel). Wohnen: `house-modern` (10 × 8,6 m, PV), `house-modern-red`
+  (9 × 8,2 m), `house-semi` (14 × 9 m), `house-terrace` (6 × 10 m, Seiten blind und bündig für Reihen),
+  `house-terrace-row` (vier Häuser, 24 × 10 m), alle zwei Geschosse mit Satteldach. Nebengebäude: `garage` (3 × 6 m),
+  `garage-row` (15 × 6 m), `garden-shed`, `carport`, `carport-double`, `station-canopy` (22 × 13 m, ohne Marke),
+  `greenhouse` (6 × 12 m), `kiosk`, `transformer-station`. Innenstadt: `block-row-4` und `block-row-6` (15 × 12 bzw. 16 × 13 m,
+  Seiten blind) und `block-corner-4`/`-6` (14 × 14 bzw. 15 × 15 m, Straßenfront vorn und links), Läden im Erdgeschoss
+  der Straßenseiten. Gewerbe: `office-mid` (5 Geschosse, 24 × 14 m), `office-high` (8, 22 × 18 m), `supermarket`
+  (40 × 26 m), `hall-flat` (30 × 20 m), `industrial-hall` (60 × 30 m, Bürotrakt im Westen). Öffentlich: `school` (46 × 14 m,
+  3 Geschosse), `town-hall` (30 × 15 m), `town-church` (Schiff 26 × 13 m, Turm 50 m), `station` (28 × 11 m, Bahnsteigdach
+  hinten), `parking-garage` (32 × 40 m, 4 Decks, Rampe hinten). Ohne Gebäude: `rail-track` (10 m entlang X),
+  `rail-platform` (20 × 4 m, Kante vorn), `catenary-mast` (Ausleger nach hinten), `buffer-stop`, `power-pylon` (47 m),
+  `vine-row` (10 m entlang X), `fruit-tree`, `playground-swing`, `playground-slide`, `football-goal`, `fountain`.
+  Front ist die Tür- bzw. Ladenseite; Carports, Tankstellendach und Gewächshaus sperren keine Sicht
 - **9 Effekt-Marker** (`fx-*`, `file: ''`): Glühwürmchen, Rauch, Glut, Bodennebel, Laub, Schnee, Funkeln, Wasserfall
 - **Tags**: Biome `temperate`, `autumn`, `winter`, `mountain`, `desert`, `swamp`, `coast`, `volcanic`, `village`,
   `castle`, `crystal`, `arena`, `city`, `wasteland`, `moon`, `mars`, `arctic`, `hell`; Rollen für Pinsel `conifer`,

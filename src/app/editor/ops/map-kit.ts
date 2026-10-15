@@ -31,8 +31,9 @@ import { LandscapeStroke } from './landscape/landscape-stroke';
 import { resample, simplify } from './landscape/lines';
 import { carveRiver, DEFAULT_RIVER, type RiverOptions, type RiverResult } from './landscape/river';
 import { buildRoad, DEFAULT_ROAD, type RoadOptions, type RoadResult } from './landscape/road';
-import { cliffAlong, formDab, type FormKind } from './landscape/shapes';
+import { cliffAlong, coastAlong, formDab, type FormKind } from './landscape/shapes';
 import {
+  alignedToSlope,
   ObjectGrid,
   ObjectIds,
   scatterDab,
@@ -40,6 +41,7 @@ import {
   rockShape,
   levelsGround,
   levelUnderBuilding,
+  MAX_SINK,
   objectsAlong,
   setDown,
   wallAlong,
@@ -62,6 +64,7 @@ import { addPouredBodies, basinSpillHeight, BODY_COLORS, emptyWater, fillBasin, 
 import { MAX_WATER_BODIES } from '../../world/custom-map/map-file';
 import { validateMap, type MapIssue } from '../validation/map-validation';
 import { assetCosts } from '../validation/map-budget';
+import { lifeProblems, newLifeId } from '../../world/custom-map/map-life';
 import {
   fitSplatMaps,
   MAX_MAP_PREFABS,
@@ -69,11 +72,18 @@ import {
   type MapEnvironment,
   type MapBridgeStyle,
   type MapGameplay,
+  type MapLife,
+  type MapLifeArea,
+  type MapLifeKind,
   type MapObject,
   type MapPathKind,
   type MapPoint,
   type MapWaterKind,
 } from '../../world/custom-map/map-document';
+
+/** What a life area may set beside its kind, shape and points */
+export type LifeOptions = Partial<Pick<MapLifeArea, 'density' | 'height' | 'color' | 'sound' | 'volume' | 'asset' | 'quality' | 'species' | 'speed'>>;
+const LIFE_OPTION_KEYS: readonly (keyof LifeOptions)[] = ['density', 'height', 'color', 'sound', 'volume', 'asset', 'quality', 'species', 'speed'];
 
 /** A brush as the panel sets it; falloff defaults to the editor's 0.6 */
 export interface Brush {
@@ -102,6 +112,8 @@ export interface PlaceOptions {
   scale?: number;
   /** Height over the ground (the editor's Z field) */
   z?: number;
+  /** "Align to slope" after placing: tilted with the ground over its footprint (a rock then settles onto its plate) */
+  align?: boolean;
   blocksBuild?: boolean;
   blocksLos?: boolean;
   tint?: string;
@@ -204,6 +216,62 @@ export class MapKit {
     return slopeAt(this.doc.terrain, x, y);
   }
 
+  /**
+   * A contour line: where the ground stands at `height`, traced across a
+   * slope. Every `spacing` metres along `a` to `b` (a line across the slope)
+   * it looks up and down the slope, square to that line and up to `reach`
+   * metres off it, for the spot at that height; stretches where the ground
+   * never reaches it (a ridge, a hollow) are left out, so the result may come
+   * in pieces. For rows along a hillside: terraces, fences, barriers.
+   */
+  contour(a: MapPoint, b: MapPoint, height: number, o: { spacing?: number; reach?: number } = {}): MapPoint[][] {
+    const spacing = o.spacing ?? 4;
+    const reach = o.reach ?? 60;
+    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    const along = { x: (b.x - a.x) / len, y: (b.y - a.y) / len };
+    const across = { x: -along.y, y: along.x };
+    const pieces: MapPoint[][] = [];
+    let piece: MapPoint[] = [];
+    for (let d = 0; d <= len; d += spacing) {
+      const m = { x: a.x + along.x * d, y: a.y + along.y * d };
+      const at = (s: number) => ({ x: m.x + across.x * s, y: m.y + across.y * s });
+      // The nearest crossing of the height on either side, then halved down to a decimetre
+      let found: MapPoint | null = null;
+      const step = 2;
+      for (let s = 0; s <= reach && !found; s += step) {
+        for (const sign of s ? [1, -1] : [1]) {
+          const lo = s * sign;
+          const hi = (s + step) * sign;
+          const fl = this.h(at(lo).x, at(lo).y) - height;
+          const fh = this.h(at(hi).x, at(hi).y) - height;
+          if (fl * fh > 0) continue;
+          let [p, q, fp] = [lo, hi, fl];
+          for (let k = 0; k < 6; k++) {
+            const mid = (p + q) / 2;
+            const fm = this.h(at(mid).x, at(mid).y) - height;
+            if (fm * fp > 0) [p, fp] = [mid, fm];
+            else q = mid;
+          }
+          found = at((p + q) / 2);
+          break;
+        }
+      }
+      const last = piece[piece.length - 1];
+      // A crossing far off the last one is another stretch of the line (round a spur), not its next point
+      if (found && last && Math.hypot(found.x - last.x, found.y - last.y) > spacing * 3) {
+        pieces.push(piece);
+        piece = [];
+      }
+      if (found && Math.abs(found.x) < this.half && Math.abs(found.y) < this.half) piece.push({ x: r2(found.x), y: r2(found.y) });
+      else if (piece.length) {
+        pieces.push(piece);
+        piece = [];
+      }
+    }
+    if (piece.length) pieces.push(piece);
+    return pieces.filter((p) => p.length >= 2);
+  }
+
   private nextSeed(): number {
     this.strokes++;
     return Math.floor(hashCell(this.strokes, this.seed, 977) * 2 ** 31);
@@ -272,6 +340,106 @@ export class MapKit {
         if (rect) s.changed({ heights: rect });
       }
     });
+  }
+
+  /**
+   * A rocky coast along a line drawn on the shore, the land on one side
+   * (`land`, left or right of the line's direction): the land rises to a
+   * cliff of `top` metres with a ragged face at the line and a shelf behind
+   * it (`shelf`, 6 m), falling back to the land's own height at `grade` (0.35
+   * m per metre); the sea floor at its foot sinks to `bed` (-3 m). It only
+   * raises land and deepens sea, its ends taper into the shore as it was,
+   * roads keep their ground. Cliff rocks (`rocks`, cliff-coast; null none)
+   * line the face from under the water to the shelf's edge, their face to the
+   * sea, and stones (`surf`; null none) break the water before it. Fill the
+   * sea again after it (`sea`). Returns the objects placed.
+   */
+  rockyCoast(
+    line: readonly MapPoint[],
+    o: { land: 'left' | 'right'; top: number; bed?: number; shelf?: number; grade?: number; rocks?: readonly string[] | null; surf?: readonly string[] | null },
+  ): MapObject[] {
+    const drawn = o.land === 'left' ? line : [...line].reverse();
+    const rocks = o.rocks === undefined ? ['cliff-coast'] : (o.rocks ?? []);
+    const surf = o.surf === undefined ? ['rock-large', 'rock-granite', 'boulder'] : (o.surf ?? []);
+    for (const a of [...rocks, ...surf]) if (!this.catalog.objects.has(a)) throw new Error(`${this.name}: ${this.catalog.unknown('asset', a)}`);
+    this.stroke('Rocky coast', (s) => {
+      s.symmetry = 'none';
+      for (const l of this.images(drawn)) {
+        const rect = coastAlong(s, l, { top: o.top, bed: o.bed ?? -3, shelf: o.shelf ?? 6, grade: o.grade ?? 0.35, reach: 40 });
+        if (rect) s.changed({ heights: rect });
+      }
+    });
+    this.freeCheck = null;
+    const out: MapObject[] = [];
+    const level = this.doc.terrain.water?.level ?? 0;
+    this.freeCheck = new LandscapeStroke(this.editor, 'check', 1, this.catalog);
+    const check = this.freeCheck;
+    const length = polylineLength(drawn);
+    // Along the line: where it runs, its land side (left) and its sea side
+    const frame = (d: number) => {
+      const p = pointAt(drawn, d);
+      const q = pointAt(drawn, Math.min(length, d + 1));
+      const r = pointAt(drawn, Math.max(0, d - 1));
+      const dl = Math.hypot(q.x - r.x, q.y - r.y) || 1;
+      return { p, land: { x: -(q.y - r.y) / dl, y: (q.x - r.x) / dl } };
+    };
+    // Cliff rocks along the face: where the ground falls through the middle of the cliff, from 1.5 m under the water
+    // to just over the shelf, a little more than their width apart; none where the cliff tapers out or on a road
+    // Smallest last: where a piece's ends would stand out in open water (a tight bend of the shore) a smaller one goes
+    const bySize = [...rocks].sort((a, b) => this.catalog.object(b).radius - this.catalog.object(a).radius);
+    for (let d = 0, k = 0; rocks.length && d < length; k++) {
+      const { p, land } = frame(d);
+      const at = (off: number) => ({ x: p.x + land.x * off, y: p.y + land.y * off });
+      const shelf = this.h(at(8).x, at(8).y);
+      d += 4;
+      if (shelf < level + 1.5) continue;
+      const mid = (shelf + level) / 2;
+      let face: MapPoint | null = null;
+      for (let off = 8; off >= -8; off -= 0.5) {
+        if (this.h(at(off).x, at(off).y) < mid) {
+          face = at(off);
+          break;
+        }
+      }
+      if (!face) continue;
+      const ground = this.h(face.x, face.y);
+      const bottom = Math.min(level - 1.5, ground);
+      const first = rocks[Math.floor(this.noise.hash(k, 7, 91) * rocks.length) % rocks.length];
+      const fits = (asset: string): { asset: string; scale: number; half: number } | null => {
+        const entry = this.catalog.object(asset);
+        const scale = Math.min(2, Math.max(0.5, (shelf + 0.4 - bottom) / entry.height));
+        const half = entry.radius * scale * 0.7;
+        for (const side of [-1, 1]) {
+          // Its end, a few metres in: still on the shore
+          const end = { x: face!.x - land.y * half * side + land.x * 4, y: face!.y + land.x * half * side + land.y * 4 };
+          if (this.h(end.x, end.y) < level - 1) return null;
+        }
+        return check.roadDistance(face!.x, face!.y, half * 2) < half ? null : { asset, scale, half };
+      };
+      const pick = fits(first) ?? bySize.slice(bySize.indexOf(first) + 1).map(fits).find((f) => f) ?? null;
+      if (!pick) continue;
+      // The model's north to the sea, its width along the coast
+      const rotation = Math.atan2(land.x, -land.y);
+      out.push(this.place(pick.asset, face.x, face.y, { rotation, scale: pick.scale, z: bottom - ground }));
+      d += pick.half * 1.25 - 4;
+    }
+    if (!surf.length || !this.doc.terrain.water) return out;
+    // Stones in the surf every 7 m, about half of them, 3 to 9 m out, standing out of the water
+    for (let d = 4, k = 0; d < length - 4; d += 7, k++) {
+      if (this.noise.hash(k, 3, 91) < 0.45) continue;
+      const { p, land } = frame(d);
+      const off = 3 + 6 * this.noise.hash(k, 4, 91);
+      const at = { x: p.x - land.x * off, y: p.y - land.y * off };
+      const ground = this.h(at.x, at.y);
+      if (ground > level - 0.3 || check.roadDistance(at.x, at.y, 8) < 4) continue;
+      const asset = surf[k % surf.length];
+      const entry = this.catalog.object(asset);
+      // Tall enough to show though it settles up to MAX_SINK into the floor; none where it would have to be huge
+      const need = (level - ground + 0.4 + 0.8 * this.noise.hash(k, 5, 91)) / (entry.height * (1 - MAX_SINK));
+      if (need > 3) continue;
+      out.push(this.place(asset, at.x, at.y, { rotation: this.noise.hash(k, 6, 91) * Math.PI * 2, scale: Math.max(0.6, need) }));
+    }
+    return out;
   }
 
   /** Rain erosion: `drops` dabs along `where` */
@@ -616,6 +784,33 @@ export class MapKit {
     return fillFromEdge(this.doc.terrain, body);
   }
 
+  /**
+   * The shore of the land round `center` between two directions (radians,
+   * counter-clockwise from east): going out from the centre, where the
+   * ground first falls under `level` (the main water's, else 0), a point
+   * about every `step` metres. It runs counter-clockwise, so the land lies
+   * on its left (rockyCoast with `land: 'left'`); directions without a shore
+   * within `max` metres are left out.
+   */
+  shoreAround(center: MapPoint, from: number, to: number, o: { level?: number; step?: number; max?: number } = {}): MapPoint[] {
+    const level = o.level ?? this.doc.terrain.water?.level ?? 0;
+    const max = o.max ?? 200;
+    const out: MapPoint[] = [];
+    const turns = Math.max(2, Math.ceil(((to - from) * 180) / Math.PI));
+    for (let k = 0; k <= turns; k++) {
+      const a = from + ((to - from) * k) / turns;
+      for (let r = 1; r <= max; r += 0.5) {
+        const p = { x: center.x + Math.cos(a) * r, y: center.y + Math.sin(a) * r };
+        if (Math.abs(p.x) > this.half || Math.abs(p.y) > this.doc.terrain.depth / 2) break;
+        if (this.h(p.x, p.y) < level) {
+          out.push(p);
+          break;
+        }
+      }
+    }
+    return out.length > 1 ? resample(out, o.step ?? 6) : out;
+  }
+
   // ---- Objects tool --------------------------------------------------------------------------------------------
 
   private freeCheck: LandscapeStroke | null = null;
@@ -670,6 +865,10 @@ export class MapKit {
     // A building levels its ground first, as in the editor (levelUnderBuilding)
     const entry = this.catalog.object(asset);
     if (levelsGround(entry)) for (const p of [object, ...images]) levelUnderBuilding(t, p, entry.radius);
+    if (o.align) {
+      object = alignedToSlope(t, object, entry.radius);
+      images = images.map((i) => alignedToSlope(t, i, entry.radius));
+    }
     if (rock) {
       object = settled(t, object, rock);
       images = images.map((i) => settled(t, i, rock));
@@ -796,6 +995,45 @@ export class MapKit {
       if (o.bollard !== null && this.free(edge.x, edge.y, 0.6)) out.push(this.place(o.bollard ?? 'bollards', edge.x, edge.y, { rotation: facing(edge, water) + Math.PI / 2 }));
       const inner = at(4);
       if (n % 2 === 0 && o.lamp !== null && this.free(inner.x, inner.y, 0.4)) out.push(this.place(o.lamp ?? 'street-lamp', inner.x, inner.y, { rotation: facing(inner, water) }));
+    }
+    return out;
+  }
+
+  /**
+   * A glacier or snowfield along a line from its head down to its snout: the
+   * crags under it laid into an even tongue `width` metres wide that falls
+   * straight from point to point, `sink` metres under the ground's heights
+   * at the points, `snow` painted over it (fading out at
+   * its edges), broken ice at the snout (`snout` assets) and moraine scree
+   * along both edges (`moraine` assets), each kept off roads and markers.
+   * The ground's cliff material still shows where the tongue stays steeper
+   * than the map's cliff angle: an icefall reads as rock there. Returns the
+   * objects placed.
+   */
+  glacier(
+    line: readonly MapPoint[],
+    o: { width: number; snow: string; sink?: number; snout?: readonly string[]; moraine?: readonly string[] },
+  ): MapObject[] {
+    const w = o.width;
+    // The ice as an even slope from point to point, at the ground's heights there less the sink, its edges blended
+    const heights = line.map((p) => this.h(p.x, p.y) - (o.sink ?? 0));
+    for (let i = 0; i < line.length - 1; i++) this.ramp({ ...line[i], h: heights[i] }, { ...line[i + 1], h: heights[i + 1] }, w, 0.5);
+    const pts = resample(line, 4);
+    this.smooth(pts, { radius: w * 0.6, falloff: 0.6 }, 3);
+    this.paint(o.snow, pts, { radius: w * 0.55, falloff: 0.45 }, 1);
+    const out: MapObject[] = [];
+    const end = pts[pts.length - 1];
+    if (o.snout?.length) out.push(...this.scatter(o.snout, end, { radius: w * 0.4, strength: 1 }, { density: 3, minDistance: 3, scaleMin: 0.8, scaleMax: 1.6 }));
+    if (o.moraine?.length) {
+      for (const side of [1, -1]) {
+        const edge = pts.map((p, k) => {
+          const a = pts[Math.max(0, k - 1)];
+          const b = pts[Math.min(pts.length - 1, k + 1)];
+          const dl = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+          return { x: p.x - ((b.y - a.y) / dl) * (w / 2) * side, y: p.y + ((b.x - a.x) / dl) * (w / 2) * side };
+        });
+        out.push(...this.scatter(o.moraine, edge, { radius: w * 0.12 + 2, strength: 1 }, { density: 2, minDistance: 4, scaleMin: 0.7, scaleMax: 1.4 }));
+      }
     }
     return out;
   }
@@ -943,6 +1181,47 @@ export class MapKit {
 
   gameplay(g: MapGameplay): void {
     this.doc.gameplay = { ...g };
+  }
+
+  // ---- Life ----------------------------------------------------------------------------------------------------
+
+  /** A life area (the Life tool's Outline): the outline the life fills; returns its id */
+  lifeArea(kind: MapLifeKind, points: readonly MapPoint[], options: LifeOptions = {}): string {
+    return this.addLife(kind, 'area', points, options);
+  }
+
+  /** A life route (the Life tool's Line): the line flocks, boats or a sound follow; returns its id */
+  lifeRoute(kind: MapLifeKind, points: readonly MapPoint[], options: LifeOptions = {}): string {
+    return this.addLife(kind, 'route', points, options);
+  }
+
+  /** The map's own life: { auto: { smoke, fireflies, birds, sparks }, density, flags, ambience: { sound, volume } } */
+  lifeSettings(patch: Omit<MapLife, 'areas'>): void {
+    const life: MapLife = { ...this.doc.life, ...patch, auto: patch.auto ? { ...this.doc.life?.auto, ...patch.auto } : this.doc.life?.auto };
+    if (!life.auto) delete life.auto;
+    const problems = lifeProblems(life);
+    if (problems.length) throw new Error(`${this.name}: ${problems[0]}`);
+    this.doc.life = life;
+  }
+
+  /** Remove life areas by id */
+  removeLife(ids: readonly string[]): void {
+    const areas = this.doc.life?.areas ?? [];
+    const missing = ids.filter((id) => !areas.some((a) => a.id === id));
+    if (missing.length) throw new Error(`${this.name}: there are no life areas ${missing.join(', ')}; life areas: ${areas.map((a) => a.id).join(', ') || 'none'}`);
+    this.doc.life = { ...this.doc.life, areas: areas.filter((a) => !ids.includes(a.id)) };
+  }
+
+  private addLife(kind: MapLifeKind, shape: MapLifeArea['shape'], points: readonly MapPoint[], options: LifeOptions): string {
+    const areas = this.doc.life?.areas ?? [];
+    const unknown = Object.keys(options).filter((k) => !LIFE_OPTION_KEYS.includes(k as keyof LifeOptions));
+    if (unknown.length) throw new Error(`${this.name}: life areas know no ${unknown.join(', ')} (they take ${LIFE_OPTION_KEYS.join(', ')})`);
+    const area: MapLifeArea = { id: newLifeId(areas, kind), kind, shape, points: points.map((p) => ({ x: r2(p.x), y: r2(p.y) })), ...options };
+    const life: MapLife = { ...this.doc.life, areas: [...areas, area] };
+    const problems = lifeProblems(life);
+    if (problems.length) throw new Error(`${this.name}: ${problems[0]}`);
+    this.doc.life = life;
+    return area.id;
   }
 
   // ---- Done ----------------------------------------------------------------------------------------------------

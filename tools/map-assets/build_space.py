@@ -142,11 +142,24 @@ def wheel(tyre, hub, centre, axis, radius=0.42, width=0.32, cleats=16):
 
 
 def dome(name, radius=6.0, glass=True, greenhouse=False):
-    """Geodesic-looking dome: a ring wall, hemisphere of struts, glass or white panels"""
+    """Geodesic-looking dome: a ring wall with vents, a hemisphere of struts with glass or white panels, an
+    airlock tunnel with a round hatch at the front (-Y), a cable reel and a small tank beside it. The
+    greenhouse glows green from its grow lights and shows its beds and plants through the glass"""
     clear_scene()
     struts = Part(trim(), smooth=True)
-    panel = Part(flat_material('dome-glass', (0.35, 0.45, 0.5), 0.08, 0.4) if glass else hull(), smooth=True, uv_scale=0.3)
+    if greenhouse:
+        pane = flat_material('greenhouse-glass', (0.18, 0.4, 0.2), 0.08, 0.3, emission=(0.12, 0.62, 0.14), strength=0.6)
+    elif glass:
+        pane = flat_material('dome-glass', (0.35, 0.45, 0.5), 0.08, 0.4)
+    else:
+        pane = None
+    panel = Part(pane if pane else hull(), smooth=True, uv_scale=0.3)
+    shell = Part(hull(), smooth=True, uv_scale=0.3)
+    dark = Part(flat_material('hatch-dark', (0.06, 0.06, 0.07), 0.6))
     tube(struts, [Vector((0, 0, -0.3)), Vector((0, 0, 0.8))], [radius + 0.2, radius + 0.2], 24, cap=False)
+    for k in range(12):
+        a = (k + 0.5) / 12 * math.tau
+        box(dark, math.cos(a) * (radius + 0.22), math.sin(a) * (radius + 0.22), 0.25, 0.06, 0.9, 0.3, a)
     prof = [(math.sin(t) * radius, math.cos(t)) for t in [k / 10 * math.pi / 2 for k in range(11)]]
     tube(panel, [Vector((0, 0, 0.8 + z)) for z, _ in prof], [radius * r + 0.001 for _, r in prof], 24)
     for k in range(12):
@@ -159,16 +172,32 @@ def dome(name, radius=6.0, glass=True, greenhouse=False):
         pts = [Vector((math.cos(k / n * math.tau) * radius * r * 1.01, math.sin(k / n * math.tau) * radius * r * 1.01, 0.8 + z)) for k in range(n + 1)]
         for p, q in zip(pts, pts[1:]):
             oriented_box(struts, p, q, 0.1)
-    box(struts, 0, -radius - 0.7, -0.3, 2.0, 1.6, 2.6)
-    objects = [struts.to_object(name + '-struts'), panel.to_object(name)]
+    tube(struts, [Vector((0, 0, 0.8 + radius - 0.05)), Vector((0, 0, 0.8 + radius + 0.15))], [0.9, 0.7], 12, cap=True)
+    # Airlock: a short tunnel out of the ring wall, ribs, a round hatch at its end
+    tube(shell, [Vector((0, -radius + 0.5, 1.4)), Vector((0, -radius - 2.0, 1.4))], [1.3, 1.3], 16)
+    for y in (-radius - 0.2, -radius - 1.9):
+        tube(struts, [Vector((0, y + 0.12, 1.4)), Vector((0, y - 0.12, 1.4))], [1.4, 1.4], 16)
+    box(struts, 0, -radius - 1.0, -0.3, 2.4, 2.8, 0.45)
+    hatch(struts, dark, Vector((0, -radius - 2.1, 1.4)), Vector((0, -1, 0)), 0.8)
+    # A cable reel and a tank against the ring wall
+    a = 0.9
+    c = Vector((math.cos(a) * (radius + 1.1), math.sin(a) * (radius + 1.1), 0))
+    tube(struts, [c + Vector((-0.4, 0, 0.6)), c + Vector((0.4, 0, 0.6))], [0.6, 0.6], 12, cap=True)
+    tube(struts, [c + Vector((0.4, 0, 0.6)), c + Vector((-0.4, 0, 0.6))], [0.6, 0.6], 12, cap=True)
+    c = Vector((math.cos(a + 1.2) * (radius + 1.0), math.sin(a + 1.2) * (radius + 1.0), 0))
+    tube(shell, [c, c + Vector((0, 0, 0.2)), c + Vector((0, 0, 1.8)), c + Vector((0, 0, 2.1))], [0.4, 0.6, 0.6, 0.25], 12)
+    objects = [struts.to_object(name + '-struts'), panel.to_object(name), shell.to_object(name + '-airlock'), dark.to_object(name + '-dark')]
     if greenhouse:
         plants = Part(flat_material('greenhouse-plants', (0.15, 0.4, 0.12), 0.8))
+        beds = Part(flat_material('greenhouse-soil', (0.2, 0.13, 0.08), 0.9))
         rnd = random.Random(3)
         for k in range(14):
             a = rnd.uniform(0, math.tau)
             r = rnd.uniform(0, radius * 0.7)
             box(plants, math.cos(a) * r, math.sin(a) * r, 0.8, rnd.uniform(0.6, 1.2), rnd.uniform(0.6, 1.2), rnd.uniform(0.4, 1.4), a)
-        objects.append(plants.to_object(name + '-plants'))
+        for k in range(3):
+            box(beds, -radius * 0.45 + k * radius * 0.45, 0, 0.7, 1.2, radius * 1.3, 0.35)
+        objects += [plants.to_object(name + '-plants'), beds.to_object(name + '-beds')]
     export(name, objects)
 
 
@@ -184,24 +213,36 @@ def tunnel(name, length=6.0):
 
 
 def antenna_dish(name):
-    """Parabolic dish on a turret, tilted to the sky (towards -Y)"""
+    """Parabolic dish on a turret, tilted to the sky (towards -Y): a fixed pedestal with a cable box and
+    a ladder; the head (yoke, dish with its rim struts and feed horn) has materials `spin-*` and stays a
+    node of its own, turning about the vertical axis through the origin (docs/CUSTOM_MAPS.md, Drehteile)"""
     clear_scene()
-    shell = Part(hull('dish-white'), smooth=True, uv_scale=0.3)
     metal = Part(trim(), smooth=True)
-    tube(metal, [Vector((0, 0, -0.3)), Vector((0, 0, 3.0))], [0.5, 0.4], 10, cap=True)
+    shell = Part(flat_material('spin-dish-white', (0.82, 0.83, 0.84), 0.4, 0.2), smooth=True)
+    head = Part(flat_material('spin-dish-metal', (0.24, 0.25, 0.26), 0.45, 0.6), smooth=True)
+    tube(metal, [Vector((0, 0, -0.3)), Vector((0, 0, 0.4))], [1.1, 1.1], 16, cap=True)
+    tube(metal, [Vector((0, 0, 0.4)), Vector((0, 0, 2.6))], [0.55, 0.45], 12, cap=True)
+    box(metal, 0.75, 0, 0.4, 0.5, 0.8, 0.9)
+    for k in range(6):
+        oriented_box(metal, Vector((-0.5, -0.3, 0.6 + k * 0.33)), Vector((-0.5, 0.3, 0.6 + k * 0.33)), 0.04)
+    # Head: a turntable, a yoke and the dish
+    tube(head, [Vector((0, 0, 2.6)), Vector((0, 0, 3.0))], [0.7, 0.7], 16, cap=True)
+    for s in (-1, 1):
+        oriented_box(head, Vector((s * 0.55, 0, 3.0)), Vector((s * 0.55, -0.2, 4.1)), 0.18)
     c = Vector((0, -0.3, 4.2))
     axis = Vector((0, -0.6, 0.8)).normalized()
+    oriented_box(head, Vector((-0.6, -0.2, 4.1)), Vector((0.6, -0.2, 4.1)), 0.16)
     prof = [(0.0, 0.2), (0.15, 1.2), (0.45, 2.2), (0.85, 3.0), (1.1, 3.4)]
     tube(shell, [c + axis * z for z, _ in prof], [r for _, r in prof], 24)
     tube(shell, [c + axis * (z - 0.06) for z, _ in reversed(prof)], [r for _, r in reversed(prof)], 24)
+    tube(head, [c + axis * 1.08, c + axis * 1.14], [3.45, 3.45], 24)
+    side = axis.orthogonal().normalized()
     for k in range(3):
         a = k / 3 * math.tau
-        side = axis.orthogonal().normalized()
         rim = c + axis * 1.1 + (side * math.cos(a) + axis.cross(side) * math.sin(a)) * 3.2
-        oriented_box(metal, rim, c + axis * 2.6, 0.06)
-    tube(metal, [c + axis * 2.4, c + axis * 2.9], [0.2, 0.12], 8, cap=True)
-    oriented_box(metal, Vector((0, 0, 3.0)), c, 0.5)
-    export(name, [shell.to_object(name), metal.to_object(name + '-metal')])
+        oriented_box(head, rim, c + axis * 2.6, 0.06)
+    tube(head, [c + axis * 2.4, c + axis * 2.9], [0.2, 0.12], 8, cap=True)
+    export(name, [metal.to_object(name + '-metal'), shell.to_object('spin-' + name), head.to_object('spin-' + name + '-head')])
 
 
 def antenna_mast(name, height=14.0):

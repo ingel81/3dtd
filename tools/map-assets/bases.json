@@ -50,6 +50,6 @@
   "stones-mossy-scatter": [0.9,1.1,0.1],
   "stones-desert-scatter": [0.6,1,0.1],
   "stones-volcanic-scatter": [1,0.8,0.1],
-  "seracs": [5.1,5.1,2],
-  "obsidian-tower": [3,2.9,1.2]
+  "seracs": [9.3,8.5,1],
+  "obsidian-tower": [5.4,4.8,1]
 }

@@ -15,6 +15,7 @@ import { DamageApplicationService } from './damage-application.service';
 import { ArmorType, DamageType } from '../../configs/combat/combat.types';
 import { GameEventBus } from '../../game-engine/game-event-bus';
 import { HERO_SOURCE_ID } from '../../configs/hero.config';
+import { DAMAGE_MATRIX } from '../../configs/combat/damage-matrix.config';
 
 /** Minimal Enemy stub — only the fields/methods DamageApplicationService touches. */
 interface EnemyStub {
@@ -119,6 +120,22 @@ describe('DamageApplicationService', () => {
       expect(result?.finalDamage).toBe(25);
       expect(result?.baseDamage).toBe(25);
       expect(enemy.health.hp).toBe(75);
+    });
+
+    it('counts a corroded target one armor class lighter, as its status service says (TODO E101)', () => {
+      const corroded = new Set<string>(['tank']);
+      service.initialize(
+        { getById: () => undefined } as never, { kill: () => true } as never, bus,
+        { isCorroded: (e: { id: string }) => corroded.has(e.id) } as never,
+      );
+      const tank = makeEnemy({ id: 'tank', hp: 1000, armor: 'heavy' });
+      const other = makeEnemy({ id: 'other', hp: 1000, armor: 'heavy' });
+      expect(service.applyDamage(vfx as never, tank as never, 100, 'pierce', 't', false, false)!.multiplier)
+        .toBe(DAMAGE_MATRIX.pierce.light);
+      expect(service.applyDamage(vfx as never, other as never, 100, 'pierce', 't', false, false)!.multiplier)
+        .toBe(DAMAGE_MATRIX.pierce.heavy);
+      expect(service.applyBeamDamage(vfx as never, tank as never, 10, 'fire', 't', false)!.multiplier)
+        .toBe(DAMAGE_MATRIX.fire.light);
     });
 
     it('applies the matrix multiplier to finalDamage', () => {

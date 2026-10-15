@@ -87,6 +87,7 @@ describe('map scripts', () => {
     expect(run(`map.biome('jungle', { x: 0, y: 0 }, { radius: 5 })`)).toMatchObject({ ok: false, error: expect.stringMatching(/one of meadow/) });
     expect(run(`map.place('no-such-asset', 0, 0)`)).toMatchObject({ ok: false, error: expect.stringMatching(/no asset no-such-asset/) });
     expect(run(`map.environment({ sky: 'purple' })`)).toMatchObject({ ok: false, error: expect.stringMatching(/sky must be one of/) });
+    expect(run(`map.environment({ planet: { azimuth: 10, size: 4 } })`)).toMatchObject({ ok: false, error: expect.stringMatching(/planet must be \{ azimuth/) });
     expect(run(`throw new Error('mine')`)).toMatchObject({ ok: false, error: expect.stringMatching(/^mine \(line 1\)/) });
     expect(() => checkCommand('raise', [{ x: 0, y: 0 }, { radius: 1 }, NaN])).toThrow(/finite/);
     expect(() => checkCommand('raise', [[{ x: 0, y: 0 }, { x: 9000, y: 0 }], { radius: 0.5 }, 1])).toThrow(/dabs/);
@@ -199,6 +200,36 @@ describe('map scripts', () => {
     const before = Float32Array.from(g.heights);
     kit.place('hut-stilts', 0, 20);
     expect(Array.from(g.heights)).toEqual(Array.from(before));
+  });
+
+  it("draws life areas and routes, sets the map's own life, reads and removes them, and plays them back as one change", async () => {
+    const r = ok(
+      run(`
+        const flock = map.lifeArea('birds', [{ x: -60, y: -60 }, { x: 60, y: -60 }, { x: 0, y: 60 }], { height: 30, density: 1.5 });
+        const stream = map.lifeRoute('sound', [{ x: -100, y: 0 }, { x: 100, y: 10 }], { sound: 'stream', volume: 0.5 });
+        map.lifeRoute('fireflies', [{ x: 0, y: -100 }, { x: 0, y: 100 }]);
+        map.lifeSettings({ auto: { birds: false }, density: 0.8 });
+        map.removeLife([stream]);
+        return { flock, life: map.life() };
+      `),
+    );
+    const life = (r.value as { life: CustomMapDocument['life'] }).life!;
+    expect((r.value as { flock: string }).flock).toBe('birds-1');
+    expect(life.areas!.map((a) => a.id)).toEqual(['birds-1', 'fireflies-1']);
+    expect(life.areas![0]).toEqual({ id: 'birds-1', kind: 'birds', shape: 'area', points: [{ x: -60, y: -60 }, { x: 60, y: -60 }, { x: 0, y: 60 }], height: 30, density: 1.5 });
+    expect(life.auto).toEqual({ birds: false });
+    expect(life.density).toBe(0.8);
+    const editor = new EditorDocument(map());
+    const changes: { life?: boolean }[] = [];
+    editor.onChange((c) => changes.push(c));
+    const played = await playCommands(editor, index, r.commands, 7, { wait: async () => undefined });
+    expect(played.fingerprint).toBe(r.fingerprint);
+    expect(changes.some((c) => c.life)).toBe(true);
+    // A wrong option, a kind or too few points say what is wrong
+    expect(run(`map.lifeArea('birds', [{ x: 0, y: 0 }, { x: 9, y: 0 }, { x: 0, y: 9 }], { wings: 3 })`)).toMatchObject({ ok: false, error: expect.stringMatching(/know no wings/) });
+    expect(run(`map.lifeArea('dragons', [{ x: 0, y: 0 }, { x: 9, y: 0 }, { x: 0, y: 9 }])`).ok).toBe(false);
+    expect(run(`map.lifeArea('fog', [{ x: 0, y: 0 }, { x: 9, y: 0 }])`)).toMatchObject({ ok: false, error: expect.stringMatching(/needs 3 to 256 points/) });
+    expect(run(`map.removeLife(['nope'])`)).toMatchObject({ ok: false, error: expect.stringMatching(/no life areas nope/) });
   });
 
   it('turns into the same kit run as a level script', () => {

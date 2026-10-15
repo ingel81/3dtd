@@ -14,6 +14,7 @@ import { mapSceneCost } from '../validation/map-budget';
 import type { MapIssue } from '../validation/map-validation';
 import { SCENE_BUDGET } from '../../world/custom-map/render/objects/scene-cost';
 import type { CustomMapDocument, MapObject, MapWater } from '../../world/custom-map/map-document';
+import { lifeSwitches } from '../../world/custom-map/map-life';
 
 export interface MapRect {
   x0: number;
@@ -84,6 +85,11 @@ export function mapSummary(doc: CustomMapDocument, catalog: CatalogIndex): Recor
     sceneCost: { points: Math.round(cost), budget: SCENE_BUDGET, percent: Math.round((cost / SCENE_BUDGET) * 100) },
     environment: doc.environment,
     gameplay: doc.gameplay ?? {},
+    life: {
+      ...lifeSwitches(doc.life),
+      ambience: doc.life?.ambience ?? null,
+      areas: (doc.life?.areas ?? []).map((a) => ({ id: a.id, kind: a.kind, shape: a.shape, points: a.points.length, density: a.density ?? 1 })),
+    },
   };
 }
 
@@ -199,7 +205,7 @@ export function contentFingerprint(doc: CustomMapDocument): string {
   if (t.water) bytes(t.water.mask);
   for (const b of t.waterBodies ?? []) bytes(b.mask);
   text(JSON.stringify({ layers: t.layers, water: t.water?.level, bodies: t.waterBodies?.map((b) => b.level), rivers: t.rivers, cliff: [t.cliffMaterial, t.cliffAngle] }));
-  text(JSON.stringify([doc.objects, doc.paths, doc.spawns, doc.hq, doc.environment, doc.gameplay ?? null]));
+  text(JSON.stringify([doc.objects, doc.paths, doc.spawns, doc.hq, doc.environment, doc.gameplay ?? null, doc.life ?? null]));
   return (h >>> 0).toString(16).padStart(8, '0');
 }
 

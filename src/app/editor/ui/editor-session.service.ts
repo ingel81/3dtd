@@ -14,7 +14,7 @@ import { DOWNLOAD_REMINDER_MS, storageSafety, type StorageSafety } from '../mode
 import { biomeById } from '../ops/landscape/biomes';
 import { applyTemplate, type MapTemplate } from '../ops/landscape/templates';
 import { Injectable, NgZone, OnDestroy, inject, signal } from '@angular/core';
-import { MAX_MAP_PREFABS, type CustomMapDocument, type MapMeta } from '../../world/custom-map/map-document';
+import { MAX_MAP_PREFABS, type CustomMapDocument, type MapLife, type MapMeta } from '../../world/custom-map/map-document';
 import { createMapDocument, slugMapId, type NewMapOptions } from '../../world/custom-map/map-create';
 import { MAP_FILE_EXTENSION, MapFileError, packMapFile, unpackMapFile } from '../../world/custom-map/map-file';
 import { MapStore, type LoadedMap, type MapSummary } from '../../world/custom-map/map-store';
@@ -42,6 +42,7 @@ import type { Stamp, StampRect } from '../ops/stamp';
 import { ObjectTool } from '../tools/object-tool';
 import { PaintTool } from '../tools/paint-tool';
 import { PathTool } from '../tools/path-tool';
+import { LifeTool, withLife } from '../tools/life-tool';
 import { TerrainTool } from '../tools/terrain-tool';
 import { PanelTool, TOOL_BRUSH_RADIUS, TOOLS, defaultSettings, type EditorSettings, type EditorTool, type ToolId } from '../tools/tool';
 import { DEFAULT_BRUSH, type BrushSettings } from '../ops/brush';
@@ -149,6 +150,7 @@ export class EditorSession implements OnDestroy {
     paint: new PaintTool(),
     water: new WaterTool(),
     objects: new ObjectTool(),
+    life: new LifeTool(),
     paths: new PathTool(),
     markers: new MarkerTool(),
     environment: new PanelTool('environment', 'Sky, sun and fog change the look of the map; the game uses them too'),
@@ -456,7 +458,7 @@ export class EditorSession implements OnDestroy {
     if (!editor) throw new Error('No map is open in the editor');
     const busy = this.busyReason();
     if (busy) throw new Error(`The map cannot change now: ${busy}`);
-    const parts = ['terrain', 'objects', 'paths', 'spawns', 'hq', 'environment', 'gameplay', 'prefabs'] as const;
+    const parts = ['terrain', 'objects', 'paths', 'spawns', 'hq', 'environment', 'gameplay', 'life', 'prefabs'] as const;
     const before = SnapshotCommand.capture(editor.doc, parts);
     const abort = new AbortController();
     this.terrainAbort = abort;
@@ -881,6 +883,8 @@ export class EditorSession implements OnDestroy {
   detachViewport(): void {
     this.viewport?.dispose();
     this.viewport = null;
+    // The sound stopped with the view; a new view starts it only from a click
+    this.settings.life.hear = false;
   }
 
   selectTool(id: ToolId): void {
@@ -979,6 +983,19 @@ export class EditorSession implements OnDestroy {
     const editor = this.editor;
     if (!editor) return;
     this.execute(SnapshotCommand.record(editor.doc, 'Map details', ['meta'], (d) => (d.meta = { ...d.meta, ...patch })));
+  }
+
+  /** Plays the map's ambient sound in the editor, or stops it (from a click: browsers start audio only then) */
+  hearAmbience(on: boolean): void {
+    this.patchSettings((s) => (s.life.hear = on));
+    this.viewport?.setAmbience(on);
+  }
+
+  /** The map's life with `change` made to a copy, one step */
+  editLife(change: (life: MapLife) => void, label: string): void {
+    const editor = this.editor;
+    if (!editor) return;
+    this.execute(SnapshotCommand.record(editor.doc, label, ['life'], (d) => (d.life = withLife(d, change))));
   }
 
   editEnvironment(patch: Partial<CustomMapDocument['environment']>, label = 'Environment'): void {

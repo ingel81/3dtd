@@ -11,7 +11,7 @@ import { TOWER_TYPES } from './tower-types.config';
 
 describe('projectile types config', () => {
   const allIds: ProjectileTypeId[] = [
-    'arrow', 'cannonball', 'arcane-orb', 'ice-shard', 'bullet', 'rocket', 'poison-glob', 'chaos-orb',
+    'arrow', 'cannonball', 'arcane-orb', 'ice-shard', 'bullet', 'rocket', 'poison-glob', 'chaos-orb', 'flak-shell',
     'hero-round', 'hero-shell', 'hero-rune',
   ];
 

@@ -11,13 +11,14 @@ import {
 import { ARMOR_TYPES, ArmorType } from './combat/combat.types';
 import { DAMAGE_MATRIX } from './combat/damage-matrix.config';
 import { computeTowerDPSFromLevels } from '../director/tower-dps.util';
+import { PROJECTILE_TYPES } from './projectile-types.config';
 import { getResearch, getResearchForTower } from './research/research-tree.config';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 describe('tower types config', () => {
   // Combat towers + passive buildings (research-center, missile-silo)
-  const combatIds: TowerTypeId[] = ['archer', 'dual-gatling', 'cannon', 'magic', 'rocket', 'ice', 'fire', 'tentacle', 'poison', 'lightning', 'chaos'];
+  const combatIds: TowerTypeId[] = ['archer', 'dual-gatling', 'cannon', 'magic', 'rocket', 'ice', 'fire', 'tentacle', 'poison', 'lightning', 'chaos', 'bastion'];
   const allIds: TowerTypeId[] = [...combatIds, 'research-center', 'missile-silo'];
 
   it('contains all tower types', () => {
@@ -190,6 +191,24 @@ describe('tower types config', () => {
     visit(unlock!.id);
     expect(required).toContain('siege-engineering');
     expect(required).toContain('arcane-studies');
+  });
+
+  it('the iron bastion is flak: splash in the air and on the ground, never the best gold against one body', () => {
+    // Its burst is the point (MASTER_GAME_DESIGN §3.14): against a single light body the gatling stays the
+    // better buy, and against heavy and fortified the pierce shell is weak, as the gatling's bullets.
+    const bastion = getTowerType('bastion');
+    expect(bastion.damageType).toBe('pierce');
+    expect(bastion.canTargetAir).toBe(true);
+    expect(bastion.canTargetGround).toBe(true);
+    expect(PROJECTILE_TYPES[bastion.projectileType].splashRadius).toBeGreaterThan(0);
+
+    const dpsPerGold = (t: TowerTypeConfig, armor: ArmorType) =>
+      (computeTowerDPSFromLevels(t, {}) * DAMAGE_MATRIX[t.damageType][armor]) / t.cost;
+    const gatling = getTowerType('dual-gatling');
+    expect(dpsPerGold(bastion, 'light')).toBeCloseTo(0.432, 3);
+    expect(dpsPerGold(bastion, 'light')).toBeLessThan(dpsPerGold(gatling, 'light'));
+    expect(dpsPerGold(bastion, 'heavy')).toBeLessThan(0.1);
+    expect(getResearchForTower('bastion')?.prerequisites).toContain('siege-engineering');
   });
 
   it('every configured turretNode exists in its model', () => {

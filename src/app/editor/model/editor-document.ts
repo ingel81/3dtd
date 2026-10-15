@@ -12,6 +12,7 @@ import type {
   CustomMapDocument,
   MapEnvironment,
   MapGameplay,
+  MapLife,
   MapMeta,
   MapObject,
   MapPaths,
@@ -40,6 +41,8 @@ export interface DocChange {
   /** Spawns and HQ */
   markers?: boolean;
   environment?: boolean;
+  /** Life areas and the map's life switches (map-life.ts) */
+  life?: boolean;
   meta?: boolean;
   /** Ground layer list (materials, order) */
   layers?: boolean;
@@ -64,6 +67,7 @@ export function mergeChanges(a: DocChange, b: DocChange): DocChange {
     paths: a.paths || b.paths || undefined,
     markers: a.markers || b.markers || undefined,
     environment: a.environment || b.environment || undefined,
+    life: a.life || b.life || undefined,
     meta: a.meta || b.meta || undefined,
     layers: a.layers || b.layers || undefined,
     terrain: a.terrain || b.terrain || undefined,
@@ -223,7 +227,7 @@ export class EditorDocument {
     this.state = this.nextState++;
     this.savedState = saved ? this.state : -1;
     this.select(null);
-    this.emit({ terrain: true, objects: 'all', paths: true, markers: true, environment: true, meta: true, layers: true, water: true });
+    this.emit({ terrain: true, objects: 'all', paths: true, markers: true, environment: true, life: true, meta: true, layers: true, water: true });
   }
 
   /** Apply a command and keep it */
@@ -425,6 +429,7 @@ export interface DocParts {
   spawns: MapSpawn[];
   hq: MapPoint;
   environment: MapEnvironment;
+  life: MapLife | undefined;
   meta: MapMeta;
   terrain: MapTerrain;
   prefabs: MapPrefab[] | undefined;
@@ -437,6 +442,7 @@ const PART_CHANGE: Record<keyof DocParts, DocChange> = {
   spawns: { markers: true },
   hq: { markers: true },
   environment: { environment: true },
+  life: { life: true },
   meta: { meta: true },
   terrain: { terrain: true, layers: true, water: true },
   prefabs: { meta: true },

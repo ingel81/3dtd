@@ -3,9 +3,10 @@ import { DetMath } from '../utils/det-math';
 
 export type TowerTypeId =
   | 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rocket' | 'ice' | 'fire' | 'tentacle' | 'poison' | 'lightning' | 'chaos'
+  | 'bastion'
   | 'research-center' | 'missile-silo';
 export type ProjectileTypeId =
-  | 'arrow' | 'cannonball' | 'arcane-orb' | 'ice-shard' | 'bullet' | 'rocket' | 'poison-glob' | 'chaos-orb'
+  | 'arrow' | 'cannonball' | 'arcane-orb' | 'ice-shard' | 'bullet' | 'rocket' | 'poison-glob' | 'chaos-orb' | 'flak-shell'
   // The hero's ammo (hero.config.ts), fired by no tower
   | 'hero-round' | 'hero-shell' | 'hero-rune';
 export type UpgradeId = 'speed' | 'damage' | 'range' | 'beam-width' | 'research-slots';
@@ -261,7 +262,7 @@ export interface TowerTypeConfig {
    * TowerLifecycle.place and canPickTowerCard.
    */
   minWave?: number;
-  /** What a passive building does, the flavor of its build card's tooltip */
+  /** What a passive building does, or a tower's role in a line: the flavor of its build card's tooltip */
   description?: string;
 
   // Targeting capabilities
@@ -307,6 +308,7 @@ const FIRE_MODEL_URL = 'assets/models/towers/fire.glb';
 const POISON_MODEL_URL = 'assets/models/towers/poison_tower.glb';
 const LIGHTNING_MODEL_URL = 'assets/models/towers/lightning.glb';
 const CHAOS_MODEL_URL = 'assets/models/towers/chaos.glb';
+const BASTION_MODEL_URL = 'assets/models/towers/bastion.glb';
 
 export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   archer: {
@@ -622,6 +624,44 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     // Wächst eher über Schaden, L25 ×5,35 wie Archer und Lightning: der
     // Generalist soll die Spezialisten auch im Endausbau nicht überholen.
     upgrades: combatUpgrades({ damage: 1.05, rate: 1.04 }),
+  },
+  bastion: {
+    id: 'bastion',
+    name: 'Iron Bastion',
+    defaultTargeting: 'first',
+    // Meshy "Iron Bastion Turret", cut and reduced by tools/blender/build_tower.py (towers/bastion.json): nodes base,
+    // turret_top (the yaw axis on the origin) and gun (origin on the trunnions, the barrel levelled along -X).
+    // The model is 2.14 units long with the barrel, 1.19 high, the base's widest vertex 0.863 from the axis: at
+    // scale 5 a turret 6 m high, its muzzle 7.1 m out.
+    modelUrl: BASTION_MODEL_URL,
+    scale: 5,
+    previewScale: 6.5,
+    heightOffset: 0, // The base's lowest point is the model origin
+    shootHeight: 3.8, // The trunnions, 0.756 units up
+    footprintRadius: 4.4,
+    rotationY: -1.5708, // The barrel along -X in the file: turned so it faces north at rest, as the gatling
+    turretBarrelOffset: -1.5708,
+    turnsTurret: true,
+    modelTop: 5.95,
+    // The shell leaves near the muzzle, not from the turret's middle
+    firePoints: [{ x: 0, z: 6 }],
+    // The gun tilts on its trunnions: up to 60° for flyers, 12° down before the barrel meets the base
+    pitchNodes: ['gun'],
+    pitchRange: { min: -0.21, max: 1.05 },
+    damageType: 'pierce',
+    damage: 36,
+    range: 65,
+    fireRate: 0.75,
+    projectileType: 'flak-shell',
+    // Flak: the shell bursts among a swarm (splash 5 m, at most 6), on the ground and in the air from the start.
+    // The gatling stays the better gold against one light body (0.89 DPS per gold against 0.43 in the DPS
+    // model, MASTER_GAME_DESIGN §3.14); against a packed swarm a burst hits up to six.
+    cost: 150,
+    canTargetAir: true,
+    canTargetGround: true,
+    description: 'Flak: shells that burst among swarms, in the air and on the ground.',
+    // Grows over damage: the burst carries it to every body it hits
+    upgrades: combatUpgrades({ damage: 1.06, rate: 1.03 }),
   },
   'research-center': {
     id: 'research-center',
