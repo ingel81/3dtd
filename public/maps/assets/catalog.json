@@ -9325,7 +9325,7 @@
       "name": "Rubble pile",
       "category": "rock",
       "file": "models/rubble-pile.glb",
-      "triangles": 776,
+      "triangles": 512,
       "footprint": 2.0,
       "height": 2.2,
       "base": [
@@ -9353,7 +9353,7 @@
       "name": "Large rubble pile",
       "category": "rock",
       "file": "models/rubble-pile-large.glb",
-      "triangles": 776,
+      "triangles": 944,
       "footprint": 3.5,
       "height": 3.1,
       "base": [
