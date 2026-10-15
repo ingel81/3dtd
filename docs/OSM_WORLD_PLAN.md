@@ -1,6 +1,7 @@
 # Welt aus OpenStreetMap (Plan)
 
-**Status:** Plan, 2026-10-14; Phase O1 „Graue Welt“ gebaut 2026-10-15 (TODO E157), siehe [Phase O1](#phase-o1-gebaut-2026-10-15)
+**Status:** Plan, 2026-10-14; Phase O1 „Graue Welt“ gebaut 2026-10-15 (TODO E157), siehe [Phase O1](#phase-o1-gebaut-2026-10-15);
+Phase O3 „Land und Wasser“ gebaut 2026-10-15, siehe [Phase O3](#phase-o3-gebaut-2026-10-15)
 **Bezug:** [CUSTOM_MAPS.md](CUSTOM_MAPS.md) (Renderer, Katalog), [CUSTOM_MAP_WORLD.md](CUSTOM_MAP_WORLD.md) (Spiel),
 [LEVEL_EDITOR.md](LEVEL_EDITOR.md) (Editor), [W3X_IMPORT.md](W3X_IMPORT.md) (Vorbild für einen Importer im Worker),
 [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) (Ortssuche, Spawns auf echten Orten), [SHOWCASE_LEVELS.md](SHOWCASE_LEVELS.md)
@@ -489,6 +490,101 @@ Datei.
   schließt sie vor Welle 1. Ob eine OSM-Welt mit einer offenen Spur starten soll, ist offen.
 - **Steile Pfade:** die Prüfung meldet Treppen und Weinbergpfade über 30° (Oberbergen 52, Stuttgart 59) als Warnung.
 - **Namensnennung:** `meta.source.attribution` trägt die Zeilen (OSM, Höhenquelle); angezeigt werden sie mit O2.
+
+## Phase O3, gebaut (2026-10-15)
+
+Code in `src/app/world/osm/`: `land-tags.ts` (die Tabellen „Boden, Biome, Pflanzen“ und „Wasser“ als Daten),
+`convert/raster.ts` (Flächen auf ein Raster, Distanzfeld, Linien mit Breite), `convert/water.ts`, `convert/ground.ts`,
+`convert/vegetation.ts`. Ablauf in `convertOsm`: Gelände, Straßengraph, Wasser graben, Straßen einebnen, Wasser
+nachziehen (`settleWater`), Landnutzung malen, Betten und Ufer malen, Beläge malen, HQ und Spawns, Pflanzen. Der
+Bericht hat dafür `ground`, `water` und `plants`.
+
+### Beim Bau entschieden
+
+- **Boden:** jede Fläche mit einer Landklasse (`landClassOf`: `landuse`, `natural`, `leisure`, Parkplatz) füllt die
+  Splat-Texel in ihr, die kleinere Fläche über der größeren. `landuse=residential` malt nichts (Gärten bleiben das
+  Grundgras), benannte Gebiete wie `natural=mountain_range` und Naturschutzgebiete auch nicht. Die Schichten: Grundgras,
+  die Beläge der Straßen und die Materialien des Wassers sind gesetzt, die Landnutzung bekommt den Rest bis 12, nach
+  bedeckter Fläche; eine Klasse ohne eigene Schicht nimmt das nächste Material ihrer Liste, das eine hat (auch einen
+  Straßenbelag, etwa Kies für Bahngelände), sonst das Grundgras. Ränder mischen über einen Texel (3 × 3). An allen
+  drei Orten sind die 12 Schichten voll; der Bericht nennt, wer auf was fiel (`ground.fellBack`).
+- **Stimmung:** Biom `city`, wenn Gebäude 15 % der Karte bedecken (Stuttgart Mitte 30 %, Miltenberg 11 %), sonst
+  `temperate`; die Sonne so hoch wie mittags zur Tagundnachtgleiche (25 bis 65°), von Süden (südlich des Äquators von
+  Norden).
+- **Wasser vor dem Einebnen:** Flussflächen (`water=river`, `canal` …, `waterway=riverbank`) in eine Maske; jeder
+  zusammenhängende Teil wird entlang seiner Hauptachse in 60-m-Stücken gelesen und dort geteilt, wo sein Spiegel
+  0,75 m vom Anfang des Abschnitts abweicht. Der Spiegel eines Körpers ist das 30-%-Quantil der Höhen in ihm, ohne die
+  Randproben (das Vermessungsmodell hält die Wasserfläche flach, die Glättung zieht den Rand hoch). Hauptwasser ist das
+  Meer, sonst der größte Flussabschnitt; Seen, Teiche, Becken, Pools und Feuchtgebiete sind eigene Körper, unter 50 m²
+  weggelassen, über 64 die kleinsten. Das Bett liegt unter dem Spiegel (Schelf am Ufer, tiefer nach innen, Pools mit
+  steilen Wänden), der Rand 2 m breit 0,2 m über dem Spiegel, dann 3 m bis ins Land.
+- **Feuchtgebiete:** Sumpfboden aus der Bodenstufe; ab 400 m² ein Sumpfkörper mit Tümpeln, wo ein weiches Rauschen
+  (14 m) niedrig ist, mindestens 3 m vom Rand und höchstens 0,6 m über dem Spiegel.
+- **Bäche und Flüsse als Linien:** `waterway=river`, `canal`, `stream`, `drain`, `ditch` ohne Tunnel (Durchlässe) und
+  ohne `intermittent=yes`; Breite aus `width`, sonst 12, 8, 2,5, 1,6, 1,2 m. Sie laufen auf dem echten Verlauf (kein
+  Mäander wie der Flusspinsel), nur außerhalb der Wasserflächen (ein Schritt hinein, damit sie sich treffen), und enden
+  an einer Straße ohne Brücke (ein Durchlass, den die Daten nicht nennen). Der Spiegel kommt aus `bankLevels` des
+  Flusspinsels und fällt in Richtung des Wegs (gegen die Höhen gezeichnete Wege werden gedreht). Der Graben ist
+  mindestens eine Probe breit je Seite, sonst verfehlt das 2-m-Raster einen schmalen Graben.
+- **Küste:** `natural=coastline` zu Ketten verbunden, am Kartenrand geschnitten; jedes Stück, das die Karte quert, wird
+  im Uhrzeigersinn am Rand bis zum nächsten Stück geschlossen (OSM zeichnet das Land links), Inseln schneiden Löcher. Das
+  Meer ist Hauptwasser auf 0 m über dem Meer, der Kartennull wandert dorthin (`meta.source.zeroM` 0). Liegt das so
+  bestimmte Meer überwiegend über 3 m, ist die Küste in der Antwort kaputt: kein Meer, eine Warnung. Ein Strand
+  (`sand-coast`) bis 16 m ins Land, wo es flach bleibt. Ohne Küste in den Proben nur in einer Spec geprüft.
+- **Nach dem Einebnen** (`settleWater`): eine Straße durch einen Körper (ohne Brücke) wird Damm, ihre Proben verlassen
+  die Maske und liegen über dem Spiegel; ein Ufer, das die Schulter einer Straße aus dem Wasser hob, ist Land; jede
+  Probe neben einem Körper liegt wieder über seinem Spiegel; die Gräben der Bäche werden neben den Straßen neu
+  geschnitten. Die Editor-Prüfung meldet an den drei Orten weder `water-floating` noch `path-under-water`.
+- **Betten und Ufer:** `riverbed` unter dem Wasser und an den Ufern, `sand-coast` am Meer, nach der Landnutzung und vor
+  den Belägen gemalt.
+- **Pflanzen:** je Landklasse Arten mit Dichte je Hektar (Wald: Laubbäume 100, am Rand 200 auf 18 m, ein paar
+  Nadelbäume, Büsche am Rand, Farn, Stümpfe; Nadelwald 120 und 220; Gebüsch, Heide, Wiese mit Blumen, Park, Friedhof,
+  Kleingärten, Feuchtgebiet mit Schilf). Kandidaten aus einem verwackelten Gitter je Art, je Zelle ein Ort und ein Wurf
+  aus einem Hash (gleiche Daten, gleicher Wald). Fern der Routen dünner: bis 150 m voll, ab 700 m die Hälfte. Reben in
+  Reihen hangabwärts (2,4 m Abstand, Stücke von 10 m), Obstbäume in Reihen entlang der längsten Seite (8 × 7 m), Schilf
+  in 3 m um Seen, Teiche und Bäche, Einzelbäume nach `leaf_type` und `genus` (in der Stadt `tree-street`), Baumreihen
+  alle 9 m. Nichts wächst auf Straßen (Bäume 2 m, Büsche 1 m Abstand), im Wasser, in Gebäudegrundrissen, 25 m um das HQ
+  und 12 m um Spawns.
+- **Objektbudget nach Scene cost** (Entscheidung 5): die Pflanzen dürfen die Hälfte von `SCENE_BUDGET` kosten (6 M
+  Punkte; der Rest bleibt für Gebäude und Ausstattung), Reihen davon höchstens 40 % (ein Rebstück kostet so viel wie
+  drei Bäume, ein Weindorf gäbe sonst alles für Reben aus), höchstens 60 000 Objekte. Reicht es nicht, gehen
+  Einzelbäume und Baumreihen vor, dann die Reihen nach Nähe zur Route und die übrigen nach Wurf geteilt durch die
+  Routennähe. Die Kosten je Objekt rechnet `plantCosts` aus dem Katalog (`objectCost` auf 2,4 km); der Client liest den
+  Katalog und gibt sie als Option `plantCosts` in den Worker. Ohne sie zählt eine Pflanze wie ein unbekanntes Objekt
+  (lichter).
+
+### Messungen O3 (2026-10-15)
+
+Dieselben drei Orte und Rohdaten wie O1. Erzeugen in Node direkt hintereinander vorher und nachher (Rechner unter
+Last anderer Läufe, Richtwerte); Objekte und Scene cost mit dem Katalog. Die Spawns werden gewürfelt, die Pflanzen
+folgen den Routen: Objektzahlen schwanken zwischen Läufen um wenige Prozent.
+
+| | Oberbergen | Miltenberg | Stuttgart Mitte |
+|---|---|---|---|
+| Erzeugen vorher, nachher | 0,7 s, 1,5 s | 0,5 s, 1,1 s | 1,3 s, 1,9 s |
+| Datei vorher, nachher | 5,95, 7,36 MB | 5,59, 6,44 MB | 6,22, 7,16 MB |
+| Bodenschichten (mit Grundgras) | 12 | 12 | 12 |
+| Gewässer | 2 Seen, 2 Pools, 2 Feuchtgebiete, 20 Bachstücke (2,6 km) | Main als Hauptwasser, 3 Seen, 5 Pools, 11 Bachstücke (3,4 km) | 9 Seen und Teiche, 12 Pools und Brunnen |
+| Pflanzen, davon Einzelbäume und Baumreihen | 28 167, 45 | 16 129, 160 | 5 373, 2 416 |
+| größte Gruppen | Reben 9 360, Wald 7 337, Gebüsch 4 873, Heide 2 522, Obst 2 170 | Wald 10 461, Reben 1 854, Gebüsch 1 399 | Park 896, Reben 866, Wald 761 |
+| Scene cost der Pflanzen (Budget 6 M) | 2,93 M | 1,12 M | 0,47 M |
+
+Zum Vergleich die mitgelieferten Level (512 m): 0,7 bis 7,6 M Punkte, 460 bis 13 400 Objekte. Nur in Oberbergen
+reichte das Budget nicht für alles: die Reben stießen an ihre 40 %, fern der Routen fehlen sie (dort Rebboden ohne
+Stöcke). Laden im Dev-Server bis `load:ready`: 8 bis 13 s vorher wie nachher (Richtwert, Rechner unter Last).
+
+### Offen nach O3
+
+- **Bodenschichten:** die Beläge der Straßen nehmen sechs Schichten (Asphalt, Pflaster, Kopfstein, Gehweg, Kies,
+  Erdweg), Wasser eine, so bleiben der Landnutzung fünf; Wald fiel im 1,2-km-Ausschnitt von Miltenberg auf Gras, weil
+  Gewerbe und Wiese mehr Fläche hatten. Möglich: Gehweg und Pflaster zusammenlegen, oder Wald fest vorziehen.
+- **Stadtzentren:** `landuse=retail` und `commercial` (Stuttgart: eine Fläche von 0,78 km²) malen Platten unter alles;
+  bis die Gebäude aus O4 stehen, ist die Innenstadt eine graue Fläche mit Straßenbäumen.
+- **Flussabschnitte:** die Teilung geht entlang einer geraden Hauptachse; ein stark gewundener Fluss mit Gefälle wird
+  ungenau geteilt (in den Proben fällt der Main über die Karte kaum, ein Abschnitt).
+- **Küste:** nur synthetisch geprüft; ein Küstenort gehört in die Abnahme (O7).
+- **Bäche neben Wegen:** wo ein Weg dicht neben dem Bach läuft, schneidet der neu geschnittene Graben in dessen
+  Schulter.
 
 ## Offene Fragen an den User (beantwortet, siehe oben)
 
