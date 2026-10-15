@@ -162,7 +162,7 @@ export function buildEmberCrater(): CustomMapDocument {
     const p = { x: Math.cos(a) * r, y: Math.sin(a) * r };
     if (!k.free(p.x, p.y, 8)) continue;
     if (i % 3 === 2) k.place('brazier', p.x, p.y, { scale: 1.4 });
-    else k.place(i % 3 ? 'rock-needle' : 'obsidian-spikes', p.x, p.y, { rotation: a, scale: i % 3 ? 0.6 + 0.4 * k.noise.hash(i, 15, 83) : 3.5 + 2 * k.noise.hash(i, 17, 84), tint: '#2a2228' });
+    else k.place(i % 3 ? 'obsidian-tower' : 'hell-spires', p.x, p.y, { rotation: a, scale: 0.8 + 0.5 * k.noise.hash(i, 15, 83) });
   }
   for (const { lip, at } of vents) {
     k.place('lava-rock-large', at.x, at.y, { rotation: facing(at, lip), scale: 1.3 });
