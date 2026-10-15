@@ -9846,6 +9846,7 @@
       "randomRotation": true,
       "wind": 0,
       "drawDistance": 2500,
+      "spin": 6,
       "tags": [
         "moon",
         "mars",
