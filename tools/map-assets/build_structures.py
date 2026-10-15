@@ -1,6 +1,9 @@
 """Buildings, castle kit, bridges, walls and fences of the map asset catalogue (loaded by build_models.py)."""
 import math
+import os
 import random
+
+import bpy
 
 from mathutils import Matrix, Vector
 
@@ -38,11 +41,40 @@ def gable_roof(part, w, d, wall_h, pitch_h, overhang, ridge_along_x=True):
         part.quad(under, uvs)
 
 
+def roof_snow():
+    """snow_02 for roofs: its footprints and dark grooves lifted to a soft grey, a cold white"""
+    import numpy as np
+    m = pbr_material('snow-roof', 'snow_02')
+    key = 'snow_02-roof'
+    node = next((n for n in m.node_tree.nodes if n.type == 'TEX_IMAGE' and n.image and n.image.name.startswith('snow_02_diff')), None)
+    if node is None:
+        return m
+    if key not in bpy.data.images:
+        src = node.image
+        px = np.empty(src.size[0] * src.size[1] * 4, dtype=np.float32)
+        src.pixels.foreach_get(px)
+        px = px.reshape(-1, 4)
+        px[:, :3] = (1 - (1 - px[:, :3]) * 0.35) * np.array((0.93, 0.95, 0.99), dtype=np.float32)
+        img = bpy.data.images.new(key, src.size[0], src.size[1])
+        img.pixels.foreach_set(px.ravel())
+        folder = os.path.join(blender_kit.OUT, 'tinted')
+        os.makedirs(folder, exist_ok=True)
+        img.filepath_raw = os.path.join(folder, key + '.png')
+        img.file_format = 'PNG'
+        img.save()
+    node.image = bpy.data.images[key]
+    return m
+
+
 def house(name, w, d, wall_h, roof_asset, wall_asset, storeys=1, barn=False, wall_tint=None, frame=True, snow=False,
           extra=None, roof_tint=None):
     """Gabled house; `frame=False` drops the timber frame (stone, log or plank walls), `snow` lays a
-    white layer over the roof, `extra(w, d, wall_h, pitch)` returns more parts (mill wheel, porch)"""
+    white layer over the roof with rounded lips along the eaves and verges and a cushion on the ridge, and
+    snow on the window sills and the step; `extra(w, d, wall_h, pitch)` returns more parts (mill wheel, porch)"""
     clear_scene()
+    snow_mat = roof_snow() if snow else None
+    # Rounded snow (lips, sills): the cover's material, smooth, merged with it when packed
+    drift = Part(snow_mat, uv_metres=3.0, bevel=0.0, smooth=True) if snow else None
     stone = Part(pbr_material('stone-slates', 'castle_wall_slates'), uv_metres=2.0)
     walls = Part(pbr_material('wall-' + wall_asset, wall_asset, wall_tint), uv_metres=2.5 if not barn else 2.0)
     timber = Part(pbr_material('timber', 'medieval_wood', (0.45, 0.38, 0.32)), uv_metres=1.5)
@@ -105,6 +137,8 @@ def house(name, w, d, wall_h, roof_asset, wall_asset, storeys=1, barn=False, wal
         box(timber, c.x, c.y, z + 0.5, 0.9 if abs(a.x) > 0.5 else 0.05, 0.05 if abs(a.x) > 0.5 else 0.9, 0.05)
         c = Vector((x, y, 0)) + n * 0.12
         box(stone, c.x, c.y, z - 0.12, 1.3 if abs(a.x) > 0.5 else 0.22, 0.22 if abs(a.x) > 0.5 else 1.3, 0.1)
+        if drift:
+            box(drift, c.x, c.y, z - 0.02, 1.2 if abs(a.x) > 0.5 else 0.18, 0.18 if abs(a.x) > 0.5 else 1.2, 0.07)
         for s in (-1, 1):
             c = Vector((x, y, 0)) + a * s * 0.85 + n * 0.08
             box(shutters, c.x, c.y, z, 0.55 if abs(a.x) > 0.5 else 0.06, 0.06 if abs(a.x) > 0.5 else 0.55, 1.1)
@@ -156,9 +190,27 @@ def house(name, w, d, wall_h, roof_asset, wall_asset, storeys=1, barn=False, wal
         if p.bm.faces:
             objects.append(p.to_object(name + suffix))
     if snow:
-        cover = Part(pbr_material('snow-snow_02', 'snow_02', (0.95, 0.97, 1.0)), uv_metres=3.0, bevel=0.0)
+        cover = Part(snow_mat, uv_metres=3.0, bevel=0.0)
         gable_roof(cover, w + 0.1, d, wall_h + 0.12, pitch, 0.55)
-        objects.append(cover.to_object(name + '-snow'))
+        # Lips: lumpy rolls along the eaves and up the verges, a cushion along the ridge (its top no higher
+        # than the cover), all inside the cover's outline
+        hw, hd = w / 2 + 0.6, d / 2 + 0.55
+        eave_s = wall_h + 0.12 - 0.55 * pitch / (d / 2)
+        top_s = wall_h + 0.12 + pitch
+        rnd = random.Random(len(name))
+        n = max(4, int(w / 1.2))
+        for sy in (-1, 1):
+            pts = [Vector((-hw + 0.2 + (2 * hw - 0.4) * k / n, sy * (hd - 0.04), eave_s - 0.1)) for k in range(n + 1)]
+            tube(drift, pts, [0.19 + rnd.uniform(-0.04, 0.04) for _ in pts], 8, cap=True)
+            for sx in (-1, 1):
+                a = Vector((sx * (hw - 0.1), sy * (hd - 0.12), eave_s + 0.02))
+                b = Vector((sx * (hw - 0.1), 0, top_s - 0.1))
+                tube(drift, [a, (a + b) / 2, b], [0.1, 0.11, 0.1], 6)
+        # Over the ridge cap, its top level with the cap's
+        tube(drift, [Vector((-hw + 0.1, 0, wall_h + pitch - 0.03)), Vector((hw - 0.1, 0, wall_h + pitch - 0.03))], [0.2, 0.2], 10, cap=True)
+        if not barn:
+            box(drift, 0, -d / 2 - 0.45, plinth * 0.3 + 0.05, door_w + 0.6, 0.6, 0.06)
+        objects += [cover.to_object(name + '-snow'), drift.to_object(name + '-drifts')]
     if extra:
         objects += [p.to_object(name + '-extra%d' % k) for k, p in enumerate(extra(w, d, wall_h, pitch))]
     export(name, objects)
