@@ -89,6 +89,14 @@ export const BUILDING_MODELS: Readonly<Record<string, BuildingModel>> = Object.f
       { asset: 'greenhouse', box: [6, 12], floors: 1, module: true },
       { asset: 'kiosk', box: [4, 3], floors: 1 },
       { asset: 'transformer-station', box: [3.6, 2.6], floors: 1 },
+      // tools/map-assets/build_modern2.py; the barn stands with a gable to the front
+      { asset: 'shop-small', box: [10, 8], floors: 1 },
+      { asset: 'shop-office', box: [12, 10], floors: 4 },
+      { asset: 'office-ribbon', box: [16, 16], floors: 10 },
+      { asset: 'barn-modern', box: [12, 18], floors: 1 },
+      { asset: 'outbuilding', box: [4, 4], floors: 1 },
+      { asset: 'shelter-lean-to', box: [6, 2.6], floors: 1 },
+      { asset: 'annex', box: [7, 5], floors: 1 },
     ] satisfies BuildingModel[]
   ).map((m) => [m.asset, m]),
 );
@@ -100,22 +108,22 @@ export const BUILDING_MODELS: Readonly<Record<string, BuildingModel>> = Object.f
  * city blocks), so a footprint laid with several copies costs little
  */
 export const KIND_MODELS: Readonly<Record<BuildingKind, { models: readonly string[]; fallback?: BuildingKind; rows?: boolean }>> = {
-  house: { models: ['house-modern', 'house-modern-red', 'house-semi', 'house-terrace'], fallback: 'apartments' },
+  house: { models: ['house-modern', 'house-modern-red', 'house-semi', 'house-terrace', 'annex'], fallback: 'apartments' },
   semi: { models: ['house-semi'], fallback: 'house' },
   terrace: { models: ['house-terrace', 'house-terrace-row'], fallback: 'house', rows: true },
-  garage: { models: ['garage', 'garage-row'], fallback: 'carport', rows: true },
-  shed: { models: ['garden-shed'], fallback: 'garage' },
-  carport: { models: ['carport', 'carport-double'], fallback: 'garage', rows: true },
+  garage: { models: ['garage', 'garage-row', 'outbuilding'], fallback: 'carport', rows: true },
+  shed: { models: ['garden-shed', 'outbuilding'], fallback: 'garage' },
+  carport: { models: ['carport', 'carport-double', 'shelter-lean-to'], fallback: 'garage', rows: true },
   canopy: { models: ['station-canopy', 'carport-double', 'carport'], fallback: 'carport' },
   apartments: {
     models: ['block-row-4', 'block-row-6', 'apartment-block', 'apartment-block-tall', 'house-terrace'],
     fallback: 'office',
     rows: true,
   },
-  office: { models: ['office-mid', 'office-high', 'office-tower', 'block-row-6'], fallback: 'apartments' },
-  retail: { models: ['supermarket', 'hall-flat', 'shop', 'kiosk'], fallback: 'industrial' },
+  office: { models: ['office-mid', 'office-high', 'office-tower', 'office-ribbon', 'shop-office', 'block-row-6'], fallback: 'apartments' },
+  retail: { models: ['supermarket', 'hall-flat', 'shop', 'shop-small', 'shop-office', 'kiosk'], fallback: 'industrial' },
   industrial: { models: ['industrial-hall', 'hall-flat', 'warehouse'], fallback: 'retail' },
-  farm: { models: ['barn', 'warehouse', 'hall-flat'], fallback: 'industrial' },
+  farm: { models: ['barn-modern', 'barn', 'warehouse', 'hall-flat'], fallback: 'industrial' },
   school: { models: ['school', 'town-hall'], fallback: 'office' },
   civic: { models: ['town-hall', 'school'], fallback: 'office' },
   church: { models: ['town-church', 'chapel'], fallback: 'civic' },

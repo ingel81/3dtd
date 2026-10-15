@@ -790,6 +790,13 @@ Bestand baut der Asset-Worker aus; Stand beim Schreiben:
   `rail-platform` (20 × 4 m, Kante vorn), `catenary-mast` (Ausleger nach hinten), `buffer-stop`, `power-pylon` (47 m),
   `vine-row` (10 m entlang X), `fruit-tree`, `playground-swing`, `playground-slide`, `football-goal`, `fountain`.
   Front ist die Tür- bzw. Ladenseite; Carports, Tankstellendach und Gewächshaus sperren keine Sicht
+- **Weitere Arten** (`build_modern2.py`, E179): `shop-small` (Laden, 10 × 8 m, ein Geschoss, Schaufenster auf
+  Steinsockel, Schildband ohne Schrift, Markise), `shop-office` (Geschäftshaus, 12 × 10 m, 4 Geschosse, Läden unter
+  Bandfenstern), `office-ribbon` (Bürohochhaus, 16 × 16 m, 10 Geschosse, Bandfenster zwischen hellen Lisenen, Glasaufbau),
+  `barn-modern` (Scheune heutiger Art, 12 × 18 m, Giebel mit Schiebetor vorn, Bretter auf Betonsockel, Lichtplatten),
+  `outbuilding` (Nebengebäude 4 × 4 m, verputzt, Satteldach, Flügeltor), `shelter-lean-to` (offener Unterstand
+  6 × 2,6 m, Pultdach, Brennholz, sperrt keine Sicht), `annex` (Anbau 7 × 5 m, Pultdach zur Front, Rückseite für
+  die Hauswand). Die OSM-Welt nimmt sie in ihre Arten auf (`building-tags.ts`).
 - **9 Effekt-Marker** (`fx-*`, `file: ''`): Glühwürmchen, Rauch, Glut, Bodennebel, Laub, Schnee, Funkeln, Wasserfall
 - **Tags**: Biome `temperate`, `autumn`, `winter`, `mountain`, `desert`, `swamp`, `coast`, `volcanic`, `village`,
   `castle`, `crystal`, `arena`, `city`, `wasteland`, `moon`, `mars`, `arctic`, `hell`; Rollen für Pinsel `conifer`,

@@ -336,6 +336,12 @@ Wahl nach `box` in O4; Dachüberstände, Vordächer, Anbauten und Rampen kommen 
 | `train_station` | `station` | 28 × 11 m, 2 |
 | `parking` (Parkhaus) | `parking-garage` | 32 × 40 m, 4 Decks, Treppenturm vorn links, Rampe hinten (Hülle 37 × 54 m) |
 | `greenhouse`, `kiosk`, `transformer_tower` | `greenhouse`, `kiosk`, `transformer-station` | 6 × 12 (Giebel vorn), 4 × 3, 3,6 × 2,6 m |
+| `retail` klein, `office` klein (E179, `build_modern2.py`) | `shop-small`, `shop-office` | 10 × 8 m, 1; 12 × 10 m, 4 |
+| `office` hoch | `office-ribbon` (Bandfenster, Lisenen) | 16 × 16 m, 10 |
+| `barn`, `farm_auxiliary` | `barn-modern` (vor `barn`) | 12 × 18 m (Giebel vorn) |
+| `shed`, `garage` (4 × 4 bis 5 × 5 m) | `outbuilding` | 4 × 4 m |
+| `carport`, `amenity=shelter` (schmal) | `shelter-lean-to` | 6 × 2,6 m |
+| Teile von `house` (Anbau, Flügel) | `annex` | 7 × 5 m |
 
 Ohne Gebäude: `rail-track`, `rail-platform`, `catenary-mast`, `buffer-stop`, `power-pylon`, `vine-row`, `fruit-tree`,
 `playground-swing`, `playground-slide`, `football-goal`, `fountain` (CUSTOM_MAPS.md, Katalog).

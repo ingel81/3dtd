@@ -128,5 +128,12 @@
   "parking-garage": [-2.6,-7,16.7,24.4],
   "greenhouse": [0,0,2.8,5.4],
   "kiosk": [0,0.4,2.1,1.9],
-  "transformer-station": [0,0,1.7,1.3]
+  "transformer-station": [0,0,1.7,1.3],
+  "shop-small": [0,0.6,4.7,4.3],
+  "barn-modern": [0,1.2,6,9.7],
+  "shelter-lean-to": [0,0.1,2.9,1.5],
+  "outbuilding": [0,0,2.2,2.3],
+  "annex": [0.2,0.2,3.4,2.5],
+  "office-ribbon": [0,1.3,7.5,8.7],
+  "shop-office": [0,0.4,5.7,5.2]
 }

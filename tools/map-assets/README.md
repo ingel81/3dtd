@@ -55,6 +55,8 @@ Schiffswrack, Rakete, Obsidianturm, Lichtmasten, Glockenturm, Steinkreis, Tribok
 Carports, Tankstellendach, Blockrand-Module, Bürohäuser, Supermarkt, Hallen, Schule, Rathaus,
 Stadtkirche, Bahnhof, Parkhaus, Gewächshaus, Kiosk, Trafostation; Gleis, Bahnsteig, Oberleitungsmast, Prellbock,
 Hochspannungsmast, Rebzeile, Obstbaum, Spielgeräte, Fußballtor, Brunnen),
+`build_modern2.py` (weitere Arten für OSM-Welten: Laden, Geschäftshaus, Bürohochhaus mit Bandfenstern, Scheune
+heutiger Art, Nebengebäude 4 × 4 m, offener Unterstand, Anbau),
 gemeinsame Helfer in `blender_kit.py`. Klippen-Scans sind nur Wand und Krone: `import_model(..., close=True)`
 schließt Rückseite und Unterseite (`close_shell`), sonst sieht man von oben oder hinten in den Fels hinein.
 
