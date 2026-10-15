@@ -10,7 +10,8 @@ drawn cards (chain-link, hazard stripes); some Poly Haven street props.
 import math
 import random
 
-from mathutils import Vector
+import bmesh
+from mathutils import Matrix, Vector
 
 import bpy
 
@@ -618,24 +619,72 @@ def concrete_bridge(name, length=30.0, width=9.0, height=6.0):
 
 # ---------------------------------------------------------------- wasteland
 
-def rubble_pile(name, seed, size=4.0):
-    """Heap of broken concrete slabs with bent rebar"""
+def chunk(part, centre, size, rnd, tilt=35):
+    """A broken block: a box with jittered corners, turned at random up to `tilt` degrees off level"""
+    tmp = bmesh.new()
+    bmesh.ops.create_cube(tmp, size=1.0)
+    for v in tmp.verts:
+        v.co = Vector((v.co.x * size.x, v.co.y * size.y, v.co.z * size.z)) + Vector([rnd.uniform(-0.12, 0.12) * c for c in size])
+    rot = (Matrix.Rotation(math.radians(rnd.uniform(0, 360)), 4, 'Z') @ Matrix.Rotation(math.radians(rnd.uniform(-tilt, tilt)), 4, 'X')
+           @ Matrix.Rotation(math.radians(rnd.uniform(-tilt, tilt)), 4, 'Y'))
+    bmesh.ops.transform(tmp, matrix=Matrix.Translation(centre) @ rot, verts=tmp.verts)
+    part.add_bmesh(tmp)
+    tmp.free()
+
+
+def fit_box(objects, extent, z0, z1):
+    """Scales finished parts so the model spans `extent` along its longer side and z0..z1 in height: the
+    catalogue keeps the footprint and height it had"""
+    pts = [o.matrix_world @ v.co for o in objects for v in o.data.vertices]
+    lo = Vector([min(p[i] for p in pts) for i in range(3)])
+    hi = Vector([max(p[i] for p in pts) for i in range(3)])
+    s = extent / max(hi.x - lo.x, hi.y - lo.y)
+    sz = (z1 - z0) / (hi.z - lo.z)
+    m = Matrix.Translation((0, 0, z0)) @ Matrix.Diagonal((s, s, sz, 1)) @ Matrix.Translation((0, 0, -lo.z))
+    for o in objects:
+        o.data.transform(m)
+        o.data.update()
+
+
+def rubble_pile(name, seed, size=4.0, fit=None):
+    """Heap of a collapsed wall: a mound of grit and dust, broken concrete slabs and lumps tipped every way,
+    pieces of brick wall, bent rebar; `fit` = (extent, z0, z1) keeps the catalogue box. AO baked"""
+    from build_nature import lump
     clear_scene()
     rnd = random.Random(seed)
-    concrete = Part(pbr_material('wall-concrete_floor_damaged_01', 'concrete_floor_damaged_01'), uv_metres=2.0)
-    brick = Part(pbr_material('wall-brick_wall_07', 'brick_wall_07'), uv_metres=2.0)
+    concrete = Part(pbr_material('wall-concrete_floor_damaged_01-light', 'concrete_floor_damaged_01', (1.5, 1.6, 1.8)), uv_metres=2.0,
+                    bevel=0.0)
+    brick = Part(pbr_material('wall-brick_wall_07', 'brick_wall_07'), uv_metres=2.0, bevel=0.0)
+    grit = Part(pbr_material('roof-gravel_floor_02-dust', 'gravel_floor_02', (0.72, 0.7, 0.66)), uv_metres=1.5, bevel=0.0)
     rebar = Part(flat_material('rebar', (0.2, 0.1, 0.05), 0.7, 0.6))
-    for k in range(16):
+    r0 = size * 0.5
+    lump(grit, Vector((0, 0, -0.4)), Vector((r0 * 0.85, r0 * 0.75, size * 0.14)), seed, roughness=0.4, subdiv=2)
+    top = -0.4 + 1.3 * size * 0.14
+    for k in range(int(22 * (size / 4.0) ** 1.4)):
         a = rnd.uniform(0, math.tau)
-        r = size * 0.5 * math.sqrt(rnd.random())
-        z = (1 - r / (size * 0.5)) * size * 0.35
-        part = concrete if k % 3 else brick
-        box(part, math.cos(a) * r, math.sin(a) * r, z - 0.4, rnd.uniform(0.6, 1.8), rnd.uniform(0.4, 1.2), rnd.uniform(0.2, 0.5),
-            rnd.uniform(0, 3))
-    for k in range(6):
-        a = Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), size * 0.25))
-        oriented_box(rebar, a, a + Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(0.3, 1.2))), 0.04)
-    export(name, [concrete.to_object(name), brick.to_object(name + '-bricks'), rebar.to_object(name + '-rebar')])
+        t = math.sqrt(rnd.random()) * 0.95
+        r = r0 * t
+        # On the mound, heaped higher towards the middle
+        z = top * (1 - t * t) + size * 0.22 * (1 - t) ** 2 - 0.05
+        c = Vector((math.cos(a) * r, math.sin(a) * r * 0.9, z))
+        if k % 4 == 0:
+            # A piece of brick wall
+            chunk(brick, c, Vector((rnd.uniform(0.6, 1.2), 0.25, rnd.uniform(0.4, 0.8))), rnd, 50)
+        elif k % 4 == 1:
+            chunk(concrete, c, Vector((rnd.uniform(0.3, 0.6), rnd.uniform(0.3, 0.5), rnd.uniform(0.25, 0.4))), rnd, 60)
+        else:
+            # Floor slab fragment, tipped
+            chunk(concrete, c, Vector((rnd.uniform(0.9, 1.8), rnd.uniform(0.6, 1.2), rnd.uniform(0.16, 0.25))), rnd, 40)
+    for k in range(7):
+        a = Vector((rnd.uniform(-0.6, 0.6) * r0, rnd.uniform(-0.6, 0.6) * r0, size * 0.18))
+        b = a + Vector((rnd.uniform(-0.6, 0.6), rnd.uniform(-0.6, 0.6), rnd.uniform(0.3, 0.9)))
+        oriented_box(rebar, a, b, 0.035)
+        oriented_box(rebar, b, b + Vector((rnd.uniform(-0.5, 0.5), rnd.uniform(-0.5, 0.5), rnd.uniform(-0.3, 0.2))), 0.035)
+    objects = [grit.to_object(name + '-grit'), concrete.to_object(name), brick.to_object(name + '-bricks'), rebar.to_object(name + '-rebar')]
+    if fit:
+        fit_box(objects, *fit)
+    joined = bake_ao(name, objects)
+    export(name, [joined])
 
 
 def barbed_wire(name, length=5.0):
@@ -820,8 +869,8 @@ def models():
         'power-pole': lambda: power_pole('power-pole'),
         'power-pole-fallen': lambda: power_pole('power-pole-fallen', fallen=True),
         # Wasteland
-        'rubble-pile': lambda: rubble_pile('rubble-pile', 7),
-        'rubble-pile-large': lambda: rubble_pile('rubble-pile-large', 8, size=8.0),
+        'rubble-pile': lambda: rubble_pile('rubble-pile', 7, fit=(4.337, -0.395, 2.164)),
+        'rubble-pile-large': lambda: rubble_pile('rubble-pile-large', 8, size=8.0, fit=(7.685, -0.347, 3.105)),
         'barbed-wire': lambda: barbed_wire('barbed-wire'),
         'sandbags': lambda: sandbags('sandbags'),
         'barricade': lambda: sandbags('barricade', rows=2, planks=True),
