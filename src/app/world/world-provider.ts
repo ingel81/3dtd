@@ -228,6 +228,16 @@ export interface IntroTour {
   portals: { x: number; z: number }[];
 }
 
+/**
+ * A world's own scripted intro (a custom map's `intro`, map-intro.ts): the
+ * camera's pose over `seconds`, played instead of the tour
+ */
+export interface IntroShot {
+  seconds: number;
+  /** Camera position and the point it looks at `t` seconds in, scene space, written to the two vectors */
+  poseAt(t: number, position: Vector3, look: Vector3): void;
+}
+
 /** What a world gets from the engine when it is attached */
 export interface WorldAttachContext {
   scene: Scene;
@@ -357,6 +367,8 @@ export interface WorldProvider {
    * map: from the HQ past every spawn), null for the longest route
    */
   introTour(): IntroTour | null;
+  /** The world's own camera flight, played instead of the tour; missing or null for none (only a custom map has one) */
+  introShot?(): IntroShot | null;
   /** The map from straight above for the minimap, null for a world without one (tiles, DevWorld) or before it stands */
   minimap(): WorldMinimap | null;
   /**

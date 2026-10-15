@@ -514,6 +514,26 @@ export interface MapLife {
   areas?: MapLifeArea[];
 }
 
+/** A camera view of a map's intro flight in map space: where the camera stands and the point it looks at */
+export interface MapIntroView {
+  x: number;
+  y: number;
+  h: number;
+  lookX: number;
+  lookY: number;
+  lookH: number;
+}
+
+/**
+ * The map's own intro camera flight (map-intro.ts): through its views in
+ * turn (one holds still), or an orbit around the HQ (`angle` the start bearing in
+ * radians, 0 east, counter-clockwise; `height` above the HQ's ground;
+ * `sweep` degrees, default 360). None plays the game's default tour
+ */
+export type MapIntro =
+  | { kind: 'path'; seconds: number; views: MapIntroView[] }
+  | { kind: 'orbit'; seconds: number; radius: number; height: number; angle: number; sweep?: number };
+
 export interface CustomMapDocument {
   format: typeof MAP_FORMAT;
   version: number;
@@ -528,6 +548,8 @@ export interface CustomMapDocument {
   gameplay?: MapGameplay;
   /** Life areas, ambient sound and the switches of the map's own life (map-life.ts); optional, no new version */
   life?: MapLife;
+  /** The map's own intro camera flight (map-intro.ts); optional, no new version */
+  intro?: MapIntro;
   /**
    * Prefabs and stamps kept with this map (the editor's; the game ignores
    * them): they travel with its file. Not part of the content hash

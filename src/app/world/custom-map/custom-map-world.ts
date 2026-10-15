@@ -9,6 +9,7 @@ import type {
   GroundHeights,
   StreetStyle,
   WorldAttachContext,
+  IntroShot,
   IntroTour,
   WorldCapabilities,
   WorldMinimap,
@@ -34,6 +35,7 @@ import type { CustomMapView } from './render/custom-map-view';
 import type { CustomMapQuality, QualityKnobs } from '../../three-engine/render-quality';
 import { Soundscape } from './ambience/soundscape';
 import { sceneToMap } from './render/map-coords';
+import { emptyPose, introPoseAt } from './map-intro';
 
 /** A map of its own: no real place, nothing streams, no credentials, nothing to roll again */
 export const CUSTOM_MAP_CAPABILITIES: WorldCapabilities = {
@@ -101,6 +103,9 @@ export function customMapStartWave(search: string): number {
  * a page plays one map, and another world reloads the page
  */
 const opened = new Map<string, LoadedCustomMap>();
+
+/** Metres the map's own intro flight keeps above the ground under the camera */
+const INTRO_GROUND_CLEARANCE = 3;
 
 /**
  * Loads the map a ref names from the map store (own maps in IndexedDB, then
@@ -567,6 +572,27 @@ export class CustomMapWorld implements WorldProvider {
     const turn = (p: { x: number; z: number }): number => (angle(p) - start + Math.PI * 4) % (Math.PI * 2);
     const ordered = [...spawns].sort((a, b) => turn(a) - turn(b));
     return { points: [hq, ...ordered], portals: ordered };
+  }
+
+  /**
+   * The map's own intro flight (its `intro`), in scene space; the camera
+   * stays at least INTRO_GROUND_CLEARANCE above the ground under it
+   */
+  introShot(): IntroShot | null {
+    const intro = this.doc.intro;
+    if (!intro) return null;
+    const { hq } = this.doc;
+    const at = { x: hq.x, y: hq.y, h: this.surface.heightAtMap(hq.x, hq.y) };
+    const pose = emptyPose();
+    return {
+      seconds: intro.seconds,
+      poseAt: (t, position, look) => {
+        introPoseAt(intro, at, t, pose);
+        const floor = this.surface.heightAtMap(pose.x, pose.y) + INTRO_GROUND_CLEARANCE;
+        position.set(this.frame.sceneX(pose.x), Math.max(floor, pose.h), this.frame.sceneZ(pose.y));
+        look.set(this.frame.sceneX(pose.lookX), pose.lookH, this.frame.sceneZ(pose.lookY));
+      },
+    };
   }
 
   /**

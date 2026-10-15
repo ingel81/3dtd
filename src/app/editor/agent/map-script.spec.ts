@@ -287,6 +287,32 @@ describe('map scripts', () => {
     expect(run(`map.removeLife(['nope'])`)).toMatchObject({ ok: false, error: expect.stringMatching(/no life areas nope/) });
   });
 
+  it("sets the map's own intro flight, reads it, plays it back and takes it away again (TODO E170)", async () => {
+    const r = ok(
+      run(`
+        map.intro({ kind: 'orbit', seconds: 12, radius: 150, height: 60, angle: 1 });
+        return map.introFlight();
+      `),
+    );
+    expect(r.value).toEqual({ kind: 'orbit', seconds: 12, radius: 150, height: 60, angle: 1 });
+    const editor = new EditorDocument(map());
+    const played = await playCommands(editor, index, r.commands, 7, { wait: async () => undefined });
+    expect(played.fingerprint).toBe(r.fingerprint);
+    expect(editor.doc.intro).toEqual(r.value);
+    expect(ok(run(`map.intro({ kind: 'orbit', seconds: 12, radius: 150, height: 60, angle: 1 }); map.intro(null); return map.introFlight();`)).value).toBeNull();
+    expect(run(`map.intro({ kind: 'path', seconds: 12, views: [] })`)).toMatchObject({ ok: false, error: expect.stringMatching(/intro.views must be a list of 1 to 16/) });
+  });
+
+  it("makes a spawn's lane optional and always open again, as the Spawns panel's switch", () => {
+    const doc = map();
+    doc.spawns = [{ id: 's1', name: 'West', x: -100, y: 0 }, { id: 's2', name: 'East', x: 100, y: 0 }];
+    const r = ok(run(`map.optionalLane('s2', true); const a = map.markers().spawns; map.optionalLane('s2', false); return [a, map.markers().spawns];`, doc));
+    const [on, off] = r.value as { id: string; optional?: boolean }[][];
+    expect(on.map((s) => s.optional)).toEqual([undefined, true]);
+    expect(off.every((s) => !('optional' in s))).toBe(true);
+    expect(run(`map.optionalLane('s9', true)`, doc)).toMatchObject({ ok: false, error: expect.stringMatching(/no spawn s9; spawns: s1, s2/) });
+  });
+
   it('draws the images of a life area under symmetry', () => {
     const kit = new MapKit(map(), index, { name: 't', seed: 7 });
     kit.symmetry = 'rot2';

@@ -252,7 +252,11 @@ Kein allgemeines Skriptsystem.
 `CustomMapView` (Renderer der Karte, `render/`) wird beim ersten Anhängen nachgeladen und so
 verschoben, dass der Ursprung des Laufs (das HQ) der Ursprung der Szene ist. Darüber
 `EnvironmentControls` wie in DevWorld, die Kamera beginnt über dem HQ; der Intro-Flug startet am HQ
-und landet in der Übersicht über HQ, Spawns und Routen, wie auf echten Orten. Die Säule der Karte kennt nur Boden
+und landet in der Übersicht über HQ, Spawns und Routen, wie auf echten Orten. Hat die Karte einen eigenen Flug
+(`intro`, Orbit oder Kamerapfad aus dem Editor), spielt `introShot()` ihn statt der Tour: die Kamera schwenkt in
+`enterSec` (3 s) aus der Startansicht hinein, folgt dem Flug (nie tiefer als 3 m über dem Boden darunter) und zieht
+danach wie sonst in die Übersicht; ein Klick, das Rad oder Esc überspringen ihn. Kein Abtasten der Skyline: wohin die
+Kamera fliegt, bestimmt der Kartenbauer. Die Säule der Karte kennt nur Boden
 und Brückendecks; der Flug nimmt dazu `skylineAt` (Oberkante des höchsten Objekts, das das Bauen sperrt, über einem
 Punkt, aus Fußabdruck und Höhe des Katalogs), sonst flog er auf Harbor Town durch Dächer. `view.attach(scene)`
 hängt die Gruppe und die Sichtblocker (Gelände, blockierende Objekte) als direkte Kinder an die

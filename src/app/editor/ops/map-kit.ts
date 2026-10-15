@@ -65,6 +65,7 @@ import { MAX_WATER_BODIES } from '../../world/custom-map/map-file';
 import { objectsOnMoverWays, validateMap, type MapIssue } from '../validation/map-validation';
 import { assetCosts } from '../validation/map-budget';
 import { lifeProblems, newLifeId } from '../../world/custom-map/map-life';
+import { introProblems } from '../../world/custom-map/map-intro';
 import {
   fitSplatMaps,
   MAX_MAP_PREFABS,
@@ -72,6 +73,7 @@ import {
   type MapEnvironment,
   type MapBridgeStyle,
   type MapGameplay,
+  type MapIntro,
   type MapLife,
   type MapLifeArea,
   type MapLifeKind,
@@ -1184,6 +1186,17 @@ export class MapKit {
 
   gameplay(g: MapGameplay): void {
     this.doc.gameplay = { ...g };
+  }
+
+  /** The map's own intro camera flight (the Map panel's Intro flight, map-intro.ts); none for the game's default tour */
+  intro(spec?: MapIntro | null): void {
+    if (!spec) {
+      delete this.doc.intro;
+      return;
+    }
+    const problems = introProblems(spec);
+    if (problems.length) throw new Error(`${this.name}: ${problems[0]}`);
+    this.doc.intro = structuredClone(spec);
   }
 
   // ---- Life ----------------------------------------------------------------------------------------------------

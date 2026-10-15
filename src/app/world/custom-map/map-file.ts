@@ -29,6 +29,7 @@ import {
 } from './map-document';
 import { MAP_ID_PATTERN } from './map-create';
 import { lifeProblems } from './map-life';
+import { introProblems } from './map-intro';
 
 export const MAP_FILE_EXTENSION = '.3dtdmap';
 export const MAP_JSON_ENTRY = 'map.json';
@@ -461,6 +462,7 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
     p.push('environment wind needs strength, direction and gusts');
   }
   p.push(...lifeProblems(doc.life));
+  p.push(...introProblems(doc.intro));
   return p;
 }
 

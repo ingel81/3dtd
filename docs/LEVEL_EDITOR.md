@@ -393,6 +393,16 @@ den Stand etwa einmal pro Sekunde und zeichnet ihn bandweise neu. Ein Fortschrit
 alten Boden wieder her; fertig ist es ein Undo-Schritt. Während ein Job läuft, nehmen die Werkzeuge keine Eingaben an,
 die Ansicht lässt sich drehen.
 
+**Intro flight** (im Map-Panel, TODO E170): der Kameraflug, den das Spiel nach dem Laden spielt. „Default“ ist der Flug
+des Spiels (vom HQ an jedem Spawn vorbei, CUSTOM_MAP_WORLD.md). „Orbit the HQ“ kreist um das HQ, Abstand, Höhe über dem
+HQ-Boden und Startrichtung aus der aktuellen Ansicht („Orbit from this view“ nimmt sie neu), „Turn“ 30 bis 720 Grad.
+„Camera path“ fliegt durch Ansichten, die „Add this view“ einzeln behält (Kameraort und Blickpunkt, höchstens 16, eine
+allein steht still), als Catmull-Rom-Kurve mit gleicher Zeit zwischen je zwei; „View n“ zeigt eine Ansicht wieder,
+„Remove“ nimmt sie heraus. „Length“ 3 bis 60 s. „Preview“ spielt den Flug in der Ansicht (ohne das Ein- und
+Ausschwenken des Spiels), ein Klick oder das Rad hält ihn an. Jede Änderung ist ein Undo-Schritt. Gespeichert als
+`intro` der Karte (CUSTOM_MAPS.md); eine Karte ohne behält den Standard-Flug und ihre Datei. Spiegeln und Größe
+ändern lassen den Flug, wie er ist.
+
 **Was wartet.** Solange ein Strich oder ein Ziehen in der Ansicht gehalten wird oder ein Gelände-Job läuft
 (`EditorSession.busyReason`), warten Rückgängig, Wiederholen, Speichern (Strg+S; ein Autosave kommt später wieder),
 Einfügen (Strg+V), „Restore“, „Test map“, der Bot-Check und das Verlassen der Karte; die Statuszeile sagt, worauf
@@ -617,7 +627,10 @@ Szenenkosten.
   `{ kind: 'budget' }` oder `{ kind: 'table', table }` in der Form der Table-Source, `difficulty` in Prozent, ohne
   Feld 100, `events` die Wellen-Ereignisse; später dazugekommene optionale Felder heben die Version nicht, so auch `environment.skyImage`, die Id
   eines Himmelsbilds, ohne Feld prozedural, und `life`, das Leben der Karte (Werkzeug Life, CUSTOM_MAPS.md
-  „Lebensbereiche“); ohne Feld sieht und klingt die Karte wie vorher, ihr `contentHash` bleibt); Version-1-Dateien lesen sich
+  „Lebensbereiche“); ohne Feld sieht und klingt die Karte wie vorher, ihr `contentHash` bleibt; ebenso `intro`, der eigene
+  Kameraflug (`{ kind: 'orbit', seconds, radius, height, angle, sweep? }` oder `{ kind: 'path', seconds, views }`, je
+  Ansicht `x`, `y`, `h` und `lookX`, `lookY`, `lookH` im Kartenraum, `world/custom-map/map-intro.ts`, geprüft von
+  `introProblems`)); Version-1-Dateien lesen sich
   unverändert über die Migration 1 nach 2
 - Prefabs und Stempel der Karte (`prefabs`, optional, höchstens 32, `MAX_MAP_PREFABS`): je Eintrag Id, Name, Zeit, Bild
   (PNG als Data-URL) und das Stück; dessen Arrays liegen im Zip unter `prefabs/<k>/heights.f32`, `paint.u8` und

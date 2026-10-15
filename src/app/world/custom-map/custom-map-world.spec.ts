@@ -385,6 +385,27 @@ describe('CustomMapWorld', () => {
     expect(new CustomMapWorld({ doc: { ...doc, spawns: doc.spawns.slice(0, 1) }, contentHash: '' }, hqOrigin(doc)).introTour()).toBeNull();
   });
 
+  it("flies the map's own intro in scene space, never under the ground (TODO E170)", () => {
+    const doc = testMap();
+    expect(new CustomMapWorld({ doc, contentHash: '' }, hqOrigin(doc)).introShot()).toBeNull();
+    doc.intro = { kind: 'orbit', seconds: 10, radius: 50, height: 30, angle: Math.PI };
+    const shot = new CustomMapWorld({ doc, contentHash: '' }, hqOrigin(doc)).introShot()!;
+    expect(shot.seconds).toBe(10);
+    const at = new Vector3();
+    const look = new Vector3();
+    shot.poseAt(0, at, look);
+    // Map (40, 0), 30 m above the HQ's ground (19 m); scene x = HQ x - map x
+    expect(at.x).toBeCloseTo(50, 3);
+    expect(at.y).toBeCloseTo(49, 3);
+    expect(at.z).toBeCloseTo(0, 3);
+    expect(look.x).toBeCloseTo(0, 3);
+    expect(look.y).toBeCloseTo(19, 3);
+    doc.intro = { kind: 'path', seconds: 5, views: [{ x: 0, y: 0, h: 0, lookX: 90, lookY: 0, lookH: 19 }] };
+    new CustomMapWorld({ doc, contentHash: '' }, hqOrigin(doc)).introShot()!.poseAt(1, at, look);
+    // The ground at map x 0 is 10 m: the camera stays 3 m above it
+    expect(at.y).toBeCloseTo(13, 3);
+  });
+
   it('lets its buildings fall when the map says so, on its own copy of the map (TODO E131)', () => {
     const doc = testMap();
     doc.objects = [{ id: 'barn', asset: 'barn', x: 20, y: 20, z: 0, rotation: 0, scale: 1 }];
