@@ -125,6 +125,13 @@ export class PlacePickerComponent {
   readonly spawnOpen = signal(false);
 
   readonly showCoordinates = signal(false);
+  /** What the searched place becomes: its photorealistic 3D tiles, or a map of its own made from OpenStreetMap */
+  readonly kind = signal<'tiles' | 'osm'>('tiles');
+  /** The place loaded now, short: "Heilbronn" */
+  readonly shortCurrent = computed(() => {
+    const current = this.current();
+    return current ? shortName(current.name) : '';
+  });
   readonly coordLat = signal<number | null>(null);
   readonly coordLon = signal<number | null>(null);
   readonly isLoadingCoords = signal(false);
@@ -276,7 +283,8 @@ export class PlacePickerComponent {
   /** A searched place's name as the list shows it: its own, the place from its address, or the coordinates */
   private placeName(hq: SearchedPlace): string {
     const extracted = hq.address ? this.geocoding.extractLocationName(hq.address) : UNKNOWN_LOCATION_NAME;
-    return hq.name ? shortName(hq.name) : extracted !== UNKNOWN_LOCATION_NAME ? extracted : `${hq.lat.toFixed(4)}, ${hq.lon.toFixed(4)}`;
+    if (extracted !== UNKNOWN_LOCATION_NAME) return extracted;
+    return hq.name ? shortName(hq.name) : `${hq.lat.toFixed(4)}, ${hq.lon.toFixed(4)}`;
   }
 
   // ---- One click ----
@@ -346,5 +354,7 @@ export class PlacePickerComponent {
 
 /** The first part of a long address: "Hauptstraße 5, Miltenberg, Bayern" -> "Hauptstraße 5" */
 function shortName(name: string): string {
-  return name.split(',')[0].trim() || name;
+  // The first part that is a name, not a postcode or a house number: "74235, Erlenbach" is Erlenbach
+  const parts = name.split(',').map((part) => part.trim()).filter((part) => part !== '');
+  return parts.find((part) => !/^[\d\s-]+$/.test(part)) ?? parts[0] ?? name;
 }

@@ -495,9 +495,12 @@ Datei.
 
 **Wege hinein** (nur wo die eigenen Karten offen sind, `CUSTOM_MAPS_OPEN`):
 
-- Menü, New game, Real places: neben „Load place“ eines gesuchten Orts „Play on a map of this place“ (auch mit
-  Token, Entscheidung 9); bei einem geladenen echten Ort „Make a map of this place…“, HQ auf dem Ort und die Spawns
-  des Laufs als Startpunkte (die nicht auf eine Straße der Karte passen, fallen weg; passt keiner, wird gewürfelt).
+- Menü, New game, Real places: ein Umschalter über der Suche wählt „3D city“ (die Kacheln, braucht einen Map-Key)
+  oder „Map from OpenStreetMap“ (auch mit Token, Entscheidung 9); bei OpenStreetMap heißt der Hauptknopf „Make the
+  map“ und führt in den Rahmen. Ohne neue Suche macht er die Karte des geladenen echten Orts, HQ auf dem Ort und die
+  Spawns des Laufs als Startpunkte (die nicht auf eine Straße der Karte passen, fallen weg; passt keiner, wird
+  gewürfelt). Standort, Zufallsstadt und Koordinaten sind Symbole neben dem Suchfeld; „Move only the spawn“ steht in der
+  Spawn-Auswahl.
 - Auf einer Welt ohne Kacheln (eigene Karte, Spieler ohne Token) unter Real places eine eigene Suche „A map of a real
   place“; die Kartenliste (Your maps) verweist mit „Make a map of a real place…“ dorthin.
 - Editor, New map: „A landscape“ oder „From a real place“ (Suche, dann derselbe Rahmen), die Karte öffnet im Editor.

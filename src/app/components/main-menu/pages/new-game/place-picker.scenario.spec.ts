@@ -132,7 +132,14 @@ describe('Place picker of New game', () => {
   const button = (f: ComponentFixture<unknown>, label: string) =>
     Array.from(el(f).querySelectorAll<HTMLButtonElement>('button')).find((b) => b.textContent!.trim() === label) ?? null;
   const click = (f: ComponentFixture<unknown>, label: string) => {
-    button(f, label)!.click();
+    (button(f, label) ?? el(f).querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`))!.click();
+    f.detectChanges();
+  };
+  /** Opens the spawn choice and takes "Move only the spawn of …" */
+  const moveOnlySpawn = (f: ComponentFixture<unknown>) => {
+    el(f).querySelector<HTMLButtonElement>('.pp-spawn-line')!.click();
+    f.detectChanges();
+    Array.from(el(f).querySelectorAll<HTMLButtonElement>('button')).find((b) => b.textContent!.startsWith('Move only the spawn of'))!.click();
     f.detectChanges();
   };
   const pickPlace = (f: ComponentFixture<unknown>, placeholder: string, place: object) => {
@@ -168,31 +175,44 @@ describe('Place picker of New game', () => {
     const fixture = open({ hq: HEILBRONN, mapsOpen: true, spawns: [{ lat: 49.15, lon: 9.22 }] });
     const frames: OsmFrameRequest[] = [];
     fixture.componentInstance.mapOfPlace.subscribe((r) => frames.push(r));
-    click(fixture, 'Make a map of this place…');
+    click(fixture, 'Map from OpenStreetMap');
+    expect(text(fixture)).toContain('A map of Heilbronn, the place you play, with the spawns of this run.');
+    click(fixture, 'Make the map');
     expect(frames[0]).toEqual({ place: { ...HEILBRONN, name: 'Heilbronn', address: 'Heilbronn' }, spawnsAt: [{ lat: 49.15, lon: 9.22 }] });
     pickPlace(fixture, 'City, street or address…', { lat: 48.78, lon: 9.18, name: 'Stuttgart, Germany', address: { city: 'Stuttgart' } });
-    click(fixture, 'Play on a map of this place');
+    click(fixture, 'Make the map');
     expect(frames[1]).toEqual({ place: { lat: 48.78, lon: 9.18, name: 'Stuttgart', address: 'Stuttgart, Germany' }, spawnsAt: [] });
     expect(chosen).toEqual([]);
+  });
+
+  it('names a map after the town, not the postcode the search result starts with', () => {
+    const fixture = open({ hq: HEILBRONN, mapsOpen: true });
+    const frames: OsmFrameRequest[] = [];
+    fixture.componentInstance.mapOfPlace.subscribe((r) => frames.push(r));
+    click(fixture, 'Map from OpenStreetMap');
+    pickPlace(fixture, 'City, street or address…', { lat: 49.17, lon: 9.27, name: '74235, Erlenbach, Landkreis Heilbronn, Deutschland' });
+    click(fixture, 'Make the map');
+    expect(frames[0].place.name).toBe('Erlenbach');
   });
 
   it('with the maps closed (before their release) no place becomes a map', () => {
     const fixture = open({ hq: HEILBRONN });
     pickPlace(fixture, 'City, street or address…', { lat: 48.78, lon: 9.18, name: 'Stuttgart, Germany' });
-    expect(button(fixture, 'Play on a map of this place')).toBeNull();
-    expect(button(fixture, 'Make a map of this place…')).toBeNull();
+    expect(button(fixture, 'Map from OpenStreetMap')).toBeNull();
+    expect(button(fixture, 'Make the map')).toBeNull();
+    expect(button(fixture, 'Load place')).not.toBeNull();
   });
 
   it('warns that the run under way ends, not while only the spawn moves', () => {
     const fixture = open({ hq: HEILBRONN, waveNumber: 4 });
     expect(text(fixture)).toContain('The run at Heilbronn ends when a new place loads.');
-    click(fixture, 'Move the spawn by address…');
+    moveOnlySpawn(fixture);
     expect(text(fixture)).not.toContain('ends when a new place loads');
   });
 
   it('moves only the spawn by address: the HQ stays, too far is refused, "Move spawn" hands on the new spawn', () => {
     const fixture = open({ hq: HEILBRONN });
-    click(fixture, 'Move the spawn by address…');
+    moveOnlySpawn(fixture);
     expect(text(fixture)).toContain('HQ stays at Heilbronn');
     const confirm = () => button(fixture, 'Move spawn')!;
     expect(confirm().disabled).toBe(true);
@@ -261,7 +281,7 @@ describe('Place picker of New game', () => {
 
   it('a 3DTD link pasted into the coordinates loads that place with its spawns; coordinates fill both fields', () => {
     const fixture = open();
-    click(fixture, 'Coordinates or link');
+    click(fixture, 'Coordinates or a link');
     const [lat] = Array.from(el(fixture).querySelectorAll<HTMLInputElement>('.mp-coords input'));
     const paste = (value: string) => {
       const event = new Event('paste', { cancelable: true }) as ClipboardEvent;
