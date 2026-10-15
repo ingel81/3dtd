@@ -12797,6 +12797,68 @@
       "source": "procedural (tools/map-assets/build_landmarks.py)"
     },
     {
+      "id": "bell-tower",
+      "name": "Bell tower",
+      "category": "building",
+      "file": "models/bell-tower.glb",
+      "triangles": 3874,
+      "footprint": 2.4,
+      "height": 26.5,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "village",
+        "temperate",
+        "mountain"
+      ],
+      "lod": [
+        {
+          "file": "models/bell-tower-lod1.glb",
+          "distance": 350,
+          "triangles": 713
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/roof_slates_02"
+    },
+    {
+      "id": "bell-tower-snow",
+      "name": "Bell tower (snow)",
+      "category": "building",
+      "file": "models/bell-tower-snow.glb",
+      "triangles": 3904,
+      "footprint": 2.4,
+      "height": 26.5,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "village",
+        "winter",
+        "mountain"
+      ],
+      "lod": [
+        {
+          "file": "models/bell-tower-snow-lod1.glb",
+          "distance": 350,
+          "triangles": 709
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/snow_02"
+    },
+    {
       "id": "fx-fireflies",
       "name": "Fireflies",
       "category": "fx",

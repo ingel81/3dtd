@@ -525,6 +525,8 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | obsidian-tower | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/dark_rock_02 |
 | floodlight-mast | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/brushed_concrete |
 | beacon-post | procedural (tools/map-assets/build_landmarks.py) |
+| bell-tower | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/roof_slates_02 |
+| bell-tower-snow | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/snow_02 |
 | fx-fireflies | Effekt des Renderers, kein Modell |
 | fx-smoke | Effekt des Renderers, kein Modell |
 | fx-embers | Effekt des Renderers, kein Modell |

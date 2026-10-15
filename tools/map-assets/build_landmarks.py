@@ -683,6 +683,91 @@ def beacon_post(name):
     export(name, [steel.to_object(name), red.to_object(name + '-light')])
 
 
+# ---------------------------------------------------------------- village landmarks
+
+def disc(part, centre, normal, radius, sides):
+    """Flat round face looking along `normal` (horizontal normals)"""
+    along = Vector((-normal.y, normal.x, 0))
+    ring = [part.bm.verts.new(centre + (along * math.cos(k / sides * math.tau) + Vector((0, 0, 1)) * math.sin(k / sides * math.tau)) * radius)
+            for k in range(sides)]
+    f = part.bm.faces.new(ring)
+    for loop in f.loops:
+        loop[part.uv].uv = (0.5, 0.5)
+
+
+def bell_tower(name, snow=False, w=4.6, shaft=15.0):
+    """Free-standing village bell tower: a stone shaft on a plinth with corner quoins and slit windows, a
+    clock face on each side, an open belfry with round arches and a bell, a steep slate spire with a
+    cross; `snow` lays snow on the spire and the ledges"""
+    from build_structures import FOUNDATION, pyramid_roof
+    clear_scene()
+    stone = Part(pbr_material('wall-stacked_stone_wall', 'stacked_stone_wall'), uv_metres=2.5)
+    quoin = Part(pbr_material('stone-slates', 'castle_wall_slates'), uv_metres=1.5)
+    blocks = Part(pbr_material('stone-slates', 'castle_wall_slates'), uv_metres=1.5, bevel=0.0)
+    roof = Part(pbr_material('roof-roof_slates_02', 'roof_slates_02'))
+    dark = Part(flat_material('window', (0.05, 0.06, 0.07), roughness=0.2, metallic=0.3))
+    face = Part(flat_material('clock-face', (0.86, 0.84, 0.78), 0.6), smooth=True, bevel=0.0)
+    bronze = Part(flat_material('bell-bronze', (0.45, 0.32, 0.12), 0.35, 0.9), smooth=True)
+    box(quoin, 0, 0, -FOUNDATION, w + 0.5, w + 0.5, FOUNDATION + 0.9)
+    box(stone, 0, 0, 0.9, w, w, shaft - 0.9)
+    # Quoins up the corners, a string course under the belfry
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            for k in range(int(shaft / 0.9)):
+                big = k % 2 == 0
+                box(blocks, sx * (w / 2 - (0.25 if big else 0.18)) + sx * 0.04, sy * (w / 2 - (0.18 if big else 0.25)) + sy * 0.04, 0.9 + k * 0.9,
+                    0.58 if big else 0.42, 0.42 if big else 0.58, 0.86)
+    box(quoin, 0, 0, shaft - 0.3, w + 0.3, w + 0.3, 0.3)
+    # Belfry: four arches, corner piers, a cornice
+    bh = 3.6
+    for side in range(4):
+        a = side * math.pi / 2
+        n = Vector((math.cos(a - math.pi / 2), math.sin(a - math.pi / 2), 0))
+        along = Vector((-n.y, n.x, 0))
+        c = n * (w / 2 - 0.25)
+        for s in (-1, 1):
+            p = c + along * s * (w / 2 - 0.45)
+            box(stone, p.x, p.y, shaft, 0.9 if abs(along.x) > 0.5 else 0.5, 0.5 if abs(along.x) > 0.5 else 0.9, bh)
+        steps = 10
+        span = w - 1.8
+        for k in range(steps):
+            m = -span / 2 + (k + 0.5) * span / steps
+            bottom = shaft + bh - 1.2 + math.sqrt(max(0.0, (span / 2) ** 2 - m * m)) * (1.1 / (span / 2))
+            p = c + along * m
+            box(stone, p.x, p.y, bottom, span / steps + 0.01 if abs(along.x) > 0.5 else 0.5, 0.5 if abs(along.x) > 0.5 else span / steps + 0.01,
+                shaft + bh - bottom)
+        # Slit windows on the shaft, a clock face under the belfry
+        for z in (4.0, 8.0):
+            q = n * (w / 2 + 0.02)
+            box(dark, q.x, q.y, z, 0.3 if abs(along.x) > 0.5 else 0.08, 0.08 if abs(along.x) > 0.5 else 0.3, 1.2)
+        q = n * (w / 2 + 0.03) + Vector((0, 0, shaft - 1.6))
+        tube(blocks, [q - n * 0.05, q + n * 0.06], [0.95, 0.95], 16, cap=True)
+        tube(face, [q + n * 0.06, q + n * 0.16], [0.8, 0.8], 16)
+        disc(face, q + n * 0.16, n, 0.8, 16)
+        oriented_box(dark, q + n * 0.2, q + n * 0.2 + Vector((0, 0, 0.6)), 0.06)
+        oriented_box(dark, q + n * 0.2, q + n * 0.2 + along * 0.45, 0.06)
+    box(quoin, 0, 0, shaft + bh, w + 0.4, w + 0.4, 0.35)
+    box(stone, 0, 0, shaft - 0.1, w - 1.0, w - 1.0, 0.2)
+    # Bell on a beam
+    oriented_box(quoin, Vector((-w / 2 + 0.5, 0, shaft + bh - 0.6)), Vector((w / 2 - 0.5, 0, shaft + bh - 0.6)), 0.22)
+    prof = [(0.0, 0.62), (0.1, 0.6), (0.35, 0.45), (0.8, 0.36), (1.05, 0.28), (1.15, 0.0)]
+    tube(bronze, [Vector((0, 0, shaft + bh - 1.9 + z)) for z, _ in prof], [r for _, r in prof], 14)
+    # Spire and cross
+    top = shaft + bh + 0.35
+    pyramid_roof(roof, w, w, top, 6.5, overhang=0.35)
+    oriented_box(dark, Vector((0, 0, top + 6.3)), Vector((0, 0, top + 7.6)), 0.08)
+    oriented_box(dark, Vector((-0.35, 0, top + 7.2)), Vector((0.35, 0, top + 7.2)), 0.07)
+    objects = [stone.to_object(name), quoin.to_object(name + '-quoins'), blocks.to_object(name + '-blocks'), roof.to_object(name + '-roof'), dark.to_object(name + '-dark'),
+               face.to_object(name + '-clock'), bronze.to_object(name + '-bell')]
+    if snow:
+        cover = Part(pbr_material('snow-snow_02', 'snow_02', (0.95, 0.97, 1.0)), uv_metres=3.0, bevel=0.0)
+        pyramid_roof(cover, w + 0.05, w + 0.05, top + 0.1, 6.5, overhang=0.38)
+        box(cover, 0, 0, shaft + bh + 0.35, w + 0.45, w + 0.45, 0.08)
+        box(cover, 0, 0, shaft, w + 0.35, w + 0.35, 0.08)
+        objects.append(cover.to_object(name + '-snow'))
+    export(name, objects, lod=500)
+
+
 def models():
     return {
         'tunnel-portal': lambda: tunnel_portal('tunnel-portal'),
@@ -697,4 +782,6 @@ def models():
         'obsidian-tower': lambda: obsidian_tower('obsidian-tower'),
         'floodlight-mast': lambda: floodlight_mast('floodlight-mast'),
         'beacon-post': lambda: beacon_post('beacon-post'),
+        'bell-tower': lambda: bell_tower('bell-tower'),
+        'bell-tower-snow': lambda: bell_tower('bell-tower-snow', snow=True),
     }
