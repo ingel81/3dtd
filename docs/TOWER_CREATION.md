@@ -341,8 +341,22 @@ Ein Pfad ist ein Ein-Klick-Upgrade, einmal je Tower, einer je Tower (`configs/to
 Ein Pfad kann einen Anbau mitbringen (`attachment`: GLB in den Einheiten des Tower-Modells, unter dessen Mesh gehängt,
 ein Knoten darf langsam schwenken) und einen Erkennungsradius (`detectionRadius`, türkiser Ring beim Auswählen).
 
-Heute: Archer „Scout“ (Forschung Scouting ab W16, 3000; Pfad 250): ein Ausguck (`tools/blender/scout_lookout.py`)
-entdeckt getarnte Gegner im Umkreis von 35 m für alle Tower ([ENEMY_CREATION.md](ENEMY_CREATION.md), Camo).
+Was ein Pfad am Treffer tut, liest `CombatEffectService.applyPathHit` aus dem Pfad des Schusses: das Projektil trägt
+den Pfad seines Towers beim Abschuss (`Projectile.pathId`, im Wellen-Snapshot), ein danach gekaufter oder verkaufter
+Pfad ändert Schüsse in der Luft nicht. Die Verteidigungsanalyse des Wellenplaners rechnet den Pfad mit
+(`towerArmorMultipliers` in `director/tower-dps.util.ts`). Die Anbauten baut `tools/blender/path_attachments.py`
+(einer je Pfad, in den Einheiten des Tower-Modells).
+
+| Tower | Pfad | Forschung (ab Welle, Kosten) | Pfad | Wirkung | Rolle |
+|---|---|---|---:|---|---|
+| Archer | Scout | Scouting (W16, 3000) | 250 | Ausguck (`tools/blender/scout_lookout.py`), entdeckt getarnte Gegner im Umkreis von 35 m für alle Tower ([ENEMY_CREATION.md](ENEMY_CREATION.md), Camo) | Camo-Konter |
+| Archer | Fire Arrows | Incendiary Arrows (W10, 2000, nach Fire Alchemy) | 250 | jeder direkte Treffer setzt einen Brand: 25 % des Pfeilschadens je Sekunde als Feuer, 3 s, ein Brand je Tower, der nächste Treffer erneuert ihn; ein brennender Gegner regeneriert nicht | Regen-Konter in der Ballistik-Linie, mehr Schaden gegen Weiches |
+
+Rechnung Fire Arrows (Archer L0, 30 Physical je Sekunde, Brand 7,5 Fire je Sekunde, Matrix §2.3): gegen Unarmored
+30 + 11,3 (+37 %), Light 30 + 9 (+30 %), Heavy 15 + 4,5 (+30 %), Fortified 9 + 1,9 (+21 %), Ethereal 3 + 0,8. Der
+Brand wächst mit dem Damage-Track. Dieselben +37 % gegen Unarmored kosten über den Damage-Track ab L0 etwa 6,5 Stufen
+(etwa 400 Gold), ab L5 etwa 1.200 Gold: der Pfad ist ein billiger Kauf für Archer, die schon ausgebaut sind, wie der
+Scout ein Einmalkauf.
 
 ## Bauzeit und Gerüst
 

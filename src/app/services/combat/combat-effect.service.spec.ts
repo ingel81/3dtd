@@ -21,6 +21,7 @@ import { GAME_BALANCE } from '../../configs/game-balance.config';
 import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 import { ABILITY_DEATH_BLOOD_CAP } from '../../configs/visual-effects.config';
 import { DAMAGE_MATRIX, EFFECTIVENESS_COLORS, getEffectiveness } from '../../configs/combat/damage-matrix.config';
+import { TOWER_PATHS, type TowerPathId } from '../../configs/tower-paths.config';
 
 /**
  * Coverage: Splash trifft nur Ziele, die der Quell-Tower anvisieren darf.
@@ -378,5 +379,63 @@ describe('CombatEffectService ability damage numbers', () => {
     service.damageNumbersEnabled = false;
     service.showAbilityDamage(enemy('unarmored'), 0.6, null);
     expect(spawnFloatingText).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Coverage: what a tower path adds to a shot's direct hit (configs/tower-paths.config.ts, TODO E101).
+ */
+describe('CombatEffectService tower paths', () => {
+  const origin = { lat: 48.0, lon: 9.0, height: 0 };
+  const enemyAt = (id: string, metersNorth: number, isAirUnit = false) => ({
+    id,
+    alive: true,
+    position: { lat: origin.lat + metersNorth / METERS_PER_DEGREE_LAT, lon: origin.lon },
+    typeConfig: { id, isAirUnit, heightOffset: isAirUnit ? 15 : 0 },
+    heightOffset: isAirUnit ? 15 : 0,
+    transform: { terrainHeight: 0 },
+  });
+
+  let applyDamage: ReturnType<typeof vi.fn>;
+  let applyBurn: ReturnType<typeof vi.fn>;
+
+  function hit(towerType: TowerTypeId, pathId: TowerPathId | null, primary = enemyAt('primary', 0), damage = 40): void {
+    mockInjections['GlobalRouteGridService'] = { getEnemiesInRadiusGeo: () => [] };
+    const service = new CombatEffectService();
+    const projectile = {
+      typeConfig: PROJECTILE_TYPES[TOWER_TYPES[towerType].projectileType as ProjectileTypeId],
+      damage,
+      sourceTowerId: 't-1',
+      sourceTowerType: towerType,
+      pathId,
+      targetLost: false,
+      position: origin,
+    };
+    (service as unknown as {
+      handleProjectileHit: (p: unknown, e: unknown, d: string) => void;
+    }).handleProjectileHit(projectile, primary, TOWER_TYPES[towerType].damageType);
+  }
+
+  beforeEach(() => {
+    Object.keys(mockInjections).forEach((k) => delete mockInjections[k]);
+    applyDamage = vi.fn(() => null);
+    applyBurn = vi.fn();
+    mockInjections['DamageApplicationService'] = { applyDamage };
+    mockInjections['StatusEffectService'] = { applySlow: vi.fn(), applyPoison: vi.fn(), applyBurn };
+    mockInjections['CombatVfxService'] = { emitIceExplosion: vi.fn(), emitIceDecal: vi.fn() };
+  });
+
+  it('a Fire Arrows hit sets its target burning for a share of the arrow, one burn per tower', () => {
+    const target = enemyAt('zombie', 0);
+    hit('archer', 'incendiary', target, 40);
+    expect(applyBurn.mock.calls).toEqual([
+      [target, 40 * TOWER_PATHS.incendiary.burnShare!, GAME_BALANCE.effects.burn.duration, 't-1'],
+    ]);
+  });
+
+  it('an archer without the path burns nothing', () => {
+    hit('archer', null);
+    hit('archer', 'scout');
+    expect(applyBurn).not.toHaveBeenCalled();
   });
 });

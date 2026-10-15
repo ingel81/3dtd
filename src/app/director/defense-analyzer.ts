@@ -9,6 +9,7 @@
 
 import { Tower } from '../entities/tower.entity';
 import { TowerTypeId, TOWER_TYPES, type TowerTypeConfig } from '../configs/tower-types.config';
+import type { TowerPathId } from '../configs/tower-paths.config';
 import { PROJECTILE_TYPES } from '../configs/projectile-types.config';
 import { ArmorType, ARMOR_TYPES, DamageType, DAMAGE_TYPES } from '../configs/combat/combat.types';
 import {
@@ -19,7 +20,9 @@ import {
   TowerDistribution,
   VulnerabilityAnalysis,
 } from './models/game-state-snapshot';
-import { computeTowerDPS, canTargetAirEffective, airTargetingFor, type AirTargeting, armorMultipliersFor } from './tower-dps.util';
+import {
+  computeTowerDPS, canTargetAirEffective, airTargetingFor, type AirTargeting, armorMultipliersFor, towerArmorMultipliers,
+} from './tower-dps.util';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import type { HeroDefenseProfile } from '../configs/hero.config';
 import { DetMath } from '../utils/det-math';
@@ -334,19 +337,25 @@ function calculateDPSPerArmor(
   const zero = () => ARMOR_TYPES.reduce((acc, a) => { acc[a] = 0; return acc; }, {} as Record<ArmorType, number>);
   const effective: EffectiveDPSPerArmor = { ground: zero(), air: zero() };
   for (const tower of towers) {
-    addTowerDps(effective, tower.typeConfig, computeTowerDPS(tower), airTargetingFor(airTargetingUnlocked, tower));
+    addTowerDps(effective, tower.typeConfig, computeTowerDPS(tower), airTargetingFor(airTargetingUnlocked, tower), tower.pathId);
   }
   return effective;
 }
 
 /**
  * One tower's matrix damage into `out`, per armor, ground and air as it can
- * target them. Pure: the live analysis and the balance calculator
- * (tools/balance-calc) share it.
+ * target them, with what its path adds (towerArmorMultipliers). Pure: the
+ * live analysis and the balance calculator (tools/balance-calc) share it.
  */
-export function addTowerDps(out: EffectiveDPSPerArmor, cfg: TowerTypeConfig, dps: number, airTargeting: boolean): void {
+export function addTowerDps(
+  out: EffectiveDPSPerArmor,
+  cfg: TowerTypeConfig,
+  dps: number,
+  airTargeting: boolean,
+  pathId: TowerPathId | null = null,
+): void {
   if (dps <= 0) return;
-  const mults = armorMultipliersFor(cfg.damageType);
+  const mults = towerArmorMultipliers(cfg, pathId);
   const canGround = cfg.canTargetGround ?? true;
   const canAir = canTargetAirEffective(cfg.id as TowerTypeId, airTargeting);
   for (const armor of ARMOR_TYPES) {
@@ -376,7 +385,7 @@ export function damageMetresPerArmor(
     if (!metres) continue;
     const dps = computeTowerDPS(tower);
     if (dps <= 0) continue;
-    const mults = armorMultipliersFor(tower.typeConfig.damageType);
+    const mults = towerArmorMultipliers(tower.typeConfig, tower.pathId);
     const canGround = tower.typeConfig.canTargetGround ?? true;
     const canAir = canTargetAirEffective(tower.typeConfig.id as TowerTypeId, airTargetingFor(airTargetingUnlocked, tower));
     for (const armor of ARMOR_TYPES) {

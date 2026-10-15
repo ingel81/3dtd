@@ -9,6 +9,7 @@ import { TOWER_TYPES, TowerTypeId } from '../configs/tower-types.config';
 import { DAMAGE_MATRIX } from '../configs/combat/damage-matrix.config';
 import { ARMOR_TYPES } from '../configs/combat/combat.types';
 import { HERO, heroDefenseProfile } from '../configs/hero.config';
+import { TOWER_PATHS } from '../configs/tower-paths.config';
 
 const POS = { lat: 10, lon: 20, height: 0 };
 
@@ -132,6 +133,21 @@ describe('damageMetresPerArmor()', () => {
     const out = damageMetresPerArmor([a, b], false, new Map([[a.id, { ground: 10, air: 0 }], [b.id, { ground: 30, air: 0 }]]));
     expect(out.ground.light).toBeCloseTo(dps * light * 40, 6);
     expect(out.air.light).toBe(0);
+  });
+
+  it('counts a Fire Arrows burn as its share of the damage in the fire row (TODO E101)', () => {
+    const plain = new Tower(POS, 'archer');
+    const burning = new Tower(POS, 'archer');
+    burning.pathId = 'incendiary';
+    const metres = new Map([[plain.id, { ground: 10, air: 0 }], [burning.id, { ground: 10, air: 0 }]]);
+    const dps = computeTowerDPS(plain);
+    const share = TOWER_PATHS.incendiary.burnShare!;
+    const out = damageMetresPerArmor([burning], false, metres);
+    for (const armor of ARMOR_TYPES) {
+      const mult = DAMAGE_MATRIX.physical[armor] + share * DAMAGE_MATRIX.fire[armor];
+      expect(out.ground[armor], armor).toBeCloseTo(dps * mult * 10, 6);
+    }
+    expect(damageMetresPerArmor([plain], false, metres).ground.unarmored).toBeCloseTo(dps * 10, 6);
   });
 
   it('leaves out a tower the route does not pass', () => {

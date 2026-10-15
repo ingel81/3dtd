@@ -114,7 +114,7 @@ Mechanik in [STATUS_EFFECTS.md](../STATUS_EFFECTS.md)):
 | Effekt | Quelle | Wirkung | Dauer |
 |---|---|---|---|
 | **Slow** | Ice Tower | -50 % Tempo | 3 s |
-| **Burn** | Fire Tower | 20 % der Beam-DPS als DoT, Tick 500 ms, pro Turm ein Eintrag | 3 s, im Kegel erneuert |
+| **Burn** | Fire Tower; Archer mit Pfad Fire Arrows | Fire: 20 % der Beam-DPS als DoT; Archer: 25 % des Pfeilschadens; Tick 500 ms, pro Turm ein Eintrag | 3 s, im Kegel bzw. je Treffer erneuert |
 | **Poison** | Poison Tower | 8 DPS | 4 s |
 | **Freeze** | Frostbombe | Halt | 3 s, Bosse 1 s |
 | **Stun** | EMP | Halt | 1,5 s, Maschinen 6 s, Bosse 0,75 s |
@@ -209,7 +209,9 @@ in §12.3.
 - Seit 2026-10-02 30 statt 25 Schaden und Upgrades zu 0,6 des Preises: Mit den
   Preisen aller Tower war jede Stufe des schwächsten Basis-Schadens der
   schlechteste Kauf (menschlicher Lauf bis W60: 3,6 Schaden je Gold, Fire 17,3).
-- Der geplante Air-Upgrade-Pfad und die Spezialisierungen sind nicht gebaut (§12.3).
+- Pfade (Einmalkauf je Tower, [TOWER_CREATION.md](../TOWER_CREATION.md#pfade-2026-10-03-todo-e101)): Scout
+  (Camo-Erkennung) oder Fire Arrows (jeder Treffer brennt mit 25 % des Pfeils als Feuer je Sekunde, 3 s; hält Regen
+  an). Der geplante Air-Upgrade-Pfad ist nicht gebaut (§12.3).
 
 ### 3.4 Dual-Gatling: Pierce
 - Trifft Luft erst mit der Forschung AA Retrofit (`aa-retrofit`), die nur die
@@ -509,8 +511,8 @@ den Text aus `description`.
 
 ### 6.3 Tech-Tree (Forschungsbaum)
 
-Frei wählbar mit Voraussetzungen, 21 Knoten in vier Kategorien
-(`research-tree.config.ts`), zusammen 174.120 Credits (bis 2026-10-01 19.670).
+Frei wählbar mit Voraussetzungen, 23 Knoten in vier Kategorien
+(`research-tree.config.ts`), zusammen 179.120 Credits (bis 2026-10-01 19.670).
 
 **Tempo (seit 2026-10-02):** Eine Forschung kann eine Mindestwelle haben
 (`minWave`). Sie öffnet in der Bauphase vor dieser Welle (`researchWave`: die
@@ -550,6 +552,16 @@ fünf Wellen Einkommen und steht gegen Upgrades.
 
 Die Fähigkeiten beschreibt [ABILITIES.md](../ABILITIES.md), den Held
 [HERO.md](../HERO.md).
+
+#### Pfad-Forschungen
+
+Jede öffnet einen Tower-Pfad (`unlock-path`), den danach jeder Tower des Typs einmal kauft
+([TOWER_CREATION.md](../TOWER_CREATION.md#pfade-2026-10-03-todo-e101)).
+
+| ID | Name | Kosten | Dauer | ab Welle | Voraussetzung | Pfad |
+|---|---|---:|---:|---:|---|---|
+| `scouting` | Scouting | 3.000 | 25 s | 16 | Advanced Weaponry | Archer: Scout |
+| `incendiary-arrows` | Incendiary Arrows | 2.000 | 20 s | 10 | Fire Alchemy | Archer: Fire Arrows |
 
 #### Upgrade-Tier-Freischaltungen
 

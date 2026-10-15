@@ -13,6 +13,7 @@ import {
   ProjectileTypeConfig,
 } from '../configs/projectile-types.config';
 import { TowerTypeId } from '../configs/tower-types.config';
+import type { TowerPathId } from '../configs/tower-paths.config';
 import { Enemy } from './enemy.entity';
 import {
   geoDistanceFast,
@@ -38,6 +39,11 @@ export class Projectile extends GameObject {
    */
   readonly targetEnemy: Enemy | null;
   readonly sourceTowerId: string;
+  /**
+   * The path its tower had when it fired (Tower.pathId), null for none and for the hero's: what the hit does
+   * beyond its damage (CombatEffectService). A plain field, so the wave snapshot carries it.
+   */
+  pathId: TowerPathId | null = null;
 
   private _transform!: TransformComponent;
   private _combat!: CombatComponent;

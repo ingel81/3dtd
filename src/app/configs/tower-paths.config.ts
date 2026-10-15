@@ -7,7 +7,7 @@
 import type { TowerTypeId } from './tower-types.config';
 import type { ResearchId } from './research/research.types';
 
-export type TowerPathId = 'scout';
+export type TowerPathId = 'scout' | 'incendiary';
 
 export interface TowerPath {
   readonly id: TowerPathId;
@@ -25,6 +25,11 @@ export interface TowerPath {
    * (TODO E100), 0 or absent for none
    */
   readonly detectionRadius?: number;
+  /**
+   * Share of a shot's damage that its direct hit sets burning (StatusEffectService.applyBurn, fire damage,
+   * GAME_BALANCE.effects.burn.duration, one burn per tower refreshed by each hit), absent for none
+   */
+  readonly burnShare?: number;
   /** What the tower wears with it: a model in the tower model's own units, hung under its mesh */
   readonly attachment?: {
     readonly modelUrl: string;
@@ -44,6 +49,19 @@ export const TOWER_PATHS: Readonly<Record<TowerPathId, TowerPath>> = {
     detectionRadius: 35,
     // tools/blender/scout_lookout.py
     attachment: { modelUrl: 'assets/models/towers/attachments/scout.glb', sweepNode: 'scout_nest' },
+  },
+  incendiary: {
+    id: 'incendiary',
+    towerId: 'archer',
+    name: 'Fire Arrows',
+    description: 'Each hit sets its target burning for 3 s, a quarter of the arrow as fire damage a second; a burning enemy does not regenerate.',
+    cost: 250,
+    research: 'incendiary-arrows',
+    // Archer L0: 30 physical a second plus 7.5 fire, +37 % against unarmored, +30 % against light and heavy
+    // (docs/TOWER_CREATION.md, Pfade)
+    burnShare: 0.25,
+    // tools/blender/path_attachments.py
+    attachment: { modelUrl: 'assets/models/towers/attachments/incendiary.glb' },
   },
 };
 

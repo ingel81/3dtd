@@ -11,6 +11,7 @@ import { TOWER_TYPES, type TowerTypeConfig } from '../../configs/tower-types.con
 import { Projectile } from '../../entities/projectile.entity';
 import { GeoPosition } from '../../models/game.types';
 import { GAME_BALANCE } from '../../configs/game-balance.config';
+import { getTowerPath } from '../../configs/tower-paths.config';
 import { TIMING } from '../../configs/timing.config';
 import { geoDistanceFast } from '../../utils/geo-utils';
 import { TowerManager } from '../../managers/tower.manager';
@@ -181,6 +182,8 @@ export class CombatEffectService {
           projectile.sourceTowerId
         );
       }
+
+      if (projectile.pathId) this.applyPathHit(projectile, enemy);
     }
 
     // Apply splash damage to nearby enemies. When the primary target is gone,
@@ -266,6 +269,18 @@ export class CombatEffectService {
         );
       }
     }
+  }
+
+  /**
+   * What the path of the shot's tower adds to its direct hit (configs/tower-paths.config.ts): a burn of
+   * `burnShare` of the shot's damage.
+   */
+  private applyPathHit(projectile: Projectile, enemy: Enemy): void {
+    const path = getTowerPath(projectile.pathId);
+    if (!path || !enemy.alive) return;
+    if (path.burnShare) this.statusEffectService.applyBurn(
+      enemy, projectile.damage * path.burnShare, GAME_BALANCE.effects.burn.duration, projectile.sourceTowerId,
+    );
   }
 
   /**

@@ -226,6 +226,22 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     effects: [{ kind: 'unlock-path', pathId: 'scout' }],
   },
 
+  // A path for the starting tower out of the fire research: the regen counter
+  // in the ballistic line, before the Regeneration waves (W28, W56)
+  'incendiary-arrows': {
+    id: 'incendiary-arrows',
+    name: 'Incendiary Arrows',
+    description: 'Archer towers can take the Fire Arrows path: every hit sets its target burning',
+    category: 'global-perk',
+    branch: 'ballistics',
+    icon: 'burst',
+    cost: 2000,
+    duration: 20,
+    prerequisites: ['fire-alchemy'],
+    minWave: 10,
+    effects: [{ kind: 'unlock-path', pathId: 'incendiary' }],
+  },
+
   'nuclear-strike': {
     id: 'nuclear-strike',
     name: 'Nuclear Strike',
