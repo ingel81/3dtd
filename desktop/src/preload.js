@@ -32,21 +32,37 @@ ipcRenderer.on('desktop:open-map', (_event, name) => {
   if (mapListeners.size) openedMap = null;
 });
 
-// An AI agent's tool call (desktop:agent-call, docs/AGENT_MCP.md): the open editor answers it,
-// without one the answer says so; either way the main process hears back under the call's id
+/** An answer as plain data: text, an optional picture, the error flag; anything else is no answer */
+function plainAgentAnswer(answer) {
+  if (!answer || typeof answer !== 'object' || typeof answer.text !== 'string') return { text: 'The editor gave no answer', isError: true };
+  const plain = { text: answer.text, isError: answer.isError === true };
+  const image = answer.image;
+  if (image && typeof image === 'object' && typeof image.data === 'string') plain.image = { mimeType: String(image.mimeType || 'image/jpeg'), data: image.data };
+  return plain;
+}
+
+// An AI agent's tool call (desktop:agent-call, docs/AGENT_MCP.md): the open editor answers it
+// through `reply`, without one the answer says so; either way the main process hears back once
+// under the call's id. What the handler returns is not waited on: a page promise that is not the
+// native one (zone.js patches it) crosses the context bridge as a plain object without `then`, and
+// the answer was lost (empty text for every tool, 2026-10-15)
 let agentHandler = null;
-ipcRenderer.on('desktop:agent-call', async (_event, call) => {
-  let answer;
+ipcRenderer.on('desktop:agent-call', (_event, call) => {
+  let replied = false;
+  const reply = (answer) => {
+    if (replied) return;
+    replied = true;
+    ipcRenderer.send('desktop:agent-reply', { id: call?.id, answer: plainAgentAnswer(answer) });
+  };
   if (!agentHandler) {
-    answer = { text: 'The map editor is not open. Ask the player to open a map in the editor (main menu, Map editor).', isError: true };
-  } else {
-    try {
-      answer = await agentHandler({ tool: String(call?.tool ?? ''), args: call?.args && typeof call.args === 'object' ? call.args : {} });
-    } catch (error) {
-      answer = { text: String(error?.message ?? error), isError: true };
-    }
+    reply({ text: 'The map editor is not open. Ask the player to open a map in the editor (main menu, Map editor).', isError: true });
+    return;
   }
-  ipcRenderer.send('desktop:agent-reply', { id: call?.id, answer });
+  try {
+    agentHandler({ tool: String(call?.tool ?? ''), args: call?.args && typeof call.args === 'object' ? call.args : {} }, reply);
+  } catch (error) {
+    reply({ text: String(error?.message ?? error), isError: true });
+  }
 });
 
 contextBridge.exposeInMainWorld(
@@ -158,7 +174,10 @@ contextBridge.exposeInMainWorld(
 
     /** AI agents editing maps over MCP (docs/AGENT_MCP.md), off until the player allows it */
     agent: Object.freeze({
-      /** The open editor answers the agent's calls; returns an unsubscribe. One handler at a time */
+      /**
+       * The open editor answers the agent's calls: `handler(call, reply)` calls `reply(answer)` once
+       * with plain data; what it returns is ignored. Returns an unsubscribe. One handler at a time
+       */
       onCall(handler) {
         if (typeof handler !== 'function') return () => {};
         agentHandler = handler;

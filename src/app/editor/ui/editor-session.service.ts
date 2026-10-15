@@ -218,7 +218,10 @@ export class EditorSession implements OnDestroy {
     this.zone.runOutsideAngular(() => {
       this.tick = setInterval(() => this.pollChanges(), 150);
     });
-    this.stopAgent = readAgentBridge()?.onCall((call) => this.zone.run(() => this.agent.handle(call))) ?? null;
+    this.stopAgent =
+      readAgentBridge()?.onCall((call, reply) => {
+        void this.zone.run(() => this.agent.handle(call)).then(reply, (e: unknown) => reply({ text: String((e as Error)?.message ?? e), isError: true }));
+      }) ?? null;
   }
 
   get doc(): CustomMapDocument | null {

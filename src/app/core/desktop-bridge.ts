@@ -80,8 +80,12 @@ export interface AgentStatus {
 
 /** AI agents editing maps over MCP, desktop build only (docs/AGENT_MCP.md) */
 export interface AgentBridge {
-  /** The open editor answers the agent's calls with `handler`; returns an unsubscribe. One handler at a time */
-  onCall(handler: (call: AgentCall) => Promise<AgentAnswer>): () => void;
+  /**
+   * The open editor answers the agent's calls: `handler` calls `reply` once with plain data. What
+   * it returns is ignored: a zone.js promise does not survive the context bridge. Returns an
+   * unsubscribe. One handler at a time
+   */
+  onCall(handler: (call: AgentCall, reply: (answer: AgentAnswer) => void) => void): () => void;
   status(): Promise<AgentStatus>;
   /** The settings switch "Allow AI agents to edit maps" */
   setEnabled(on: boolean): Promise<AgentStatus>;

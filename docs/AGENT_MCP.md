@@ -147,8 +147,13 @@ src/app/editor/ops/map-kit.ts     MapKit (vorher Kern von LevelKit); tools/maps/
 tools/agent/                      Bau des Sandbox-Workers und sein Test
 ```
 
-Der Editor meldet sich in `EditorSession` an (`readAgentBridge()?.onCall`), beim Verlassen ab. Einstellungs-Schalter:
-`settings-sections.component` (Reiter Privacy, nur mit Bridge).
+Der Editor meldet sich in `EditorSession` an (`readAgentBridge()?.onCall`), beim Verlassen ab. Er antwortet über den
+Rückruf `reply(answer)`, den das Preload ihm mitgibt, nicht über den Rückgabewert: ein Promise der Seite ist unter
+zone.js nicht das native und kommt über die contextBridge als Objekt ohne `then` an, die Antwort ging verloren (jedes
+Werkzeug außer `view_picture` lieferte leeren Text, gefunden 2026-10-15). Das Preload schickt je Aufruf genau eine
+Antwort und nur als reine Daten (Text, Bild, Fehler); eine Antwort ohne Text wird zum Fehler „The editor gave no
+answer“, im Hauptprozess ebenso. Einstellungs-Schalter: `settings-sections.component` (Reiter Privacy, nur mit
+Bridge).
 
 ## Tests
 
@@ -156,6 +161,9 @@ Der Editor meldet sich in `EditorSession` an (`readAgentBridge()?.onCall`), beim
   tools/list, tools/call, Bild, Argumentprüfung vor dem Editor, 403 für Webseite und fremden Host, 404 für anderen
   Pfad, nicht im Netz erreichbar), `setUpAgentMcp` mit falschem IPC (aus, an, Antwort über die Seite, Schalter
   gemerkt, fremder Absender, Start mit gemerktem Schalter, Fenster zu).
+- `desktop/test/preload.test.js`: das Preload gegen ein falsches `electron`: Antwort aus `reply`, nicht aus dem
+  Rückgabewert (ein Objekt wie ein Zone-Promise nach der Bridge), jedes Werkzeug von `TOOLS` unter seiner Id, Bild
+  bleibt, eine Antwort je Aufruf, Antwort ohne Text und Wurf werden Fehler, ohne Editor der Hinweis.
 - `desktop/test/protocol.test.js`: Policy des Sandbox-Workers; `tools/web-csp/web-csp.spec.ts`: dieselbe in
   `.htaccess`.
 - `src/app/editor/agent/map-script.spec.ts`: Befehle behalten, Lesen nach Ändern, Abspielen ergibt denselben
@@ -165,7 +173,8 @@ Der Editor meldet sich in `EditorSession` an (`readAgentBridge()?.onCall`), beim
   Function-Konstruktor, eine Antwort je Worker.
 - `src/app/editor/ui/editor-session.spec.ts` (AI agent): ein Skript ist ein Undo-Schritt und Undo nimmt alles zurück;
   gescheitertes Skript ändert nichts; Cancel stellt die Karte wieder her und ein zweiter Aufruf wartet; direkte
-  Werkzeuge je ein Schritt, `undo_last` nur für eigene Schritte; Lesen, Kopieren, keine offene Karte.
+  Werkzeuge je ein Schritt, `undo_last` nur für eigene Schritte; Lesen, Kopieren, keine offene Karte; jedes Werkzeug
+  über die Bridge mit `reply` als klonbare Antwort mit Text, Abmelden beim Verlassen.
 - `settings-sections.scenario.spec.ts`: Schalter, Adresse, nicht in der Webversion.
 
 ## Von Hand testen (Desktop-App)

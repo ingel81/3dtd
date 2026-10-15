@@ -271,7 +271,7 @@ function setUpAgentMcp({ ipcMain, getWindow, userDataDir, fs, log, isAppSender, 
     if (!waiting || event.sender !== waiting.contents) return;
     pending.delete(reply.id);
     clearTimeout(waiting.timer);
-    waiting.resolve(reply.answer && typeof reply.answer === 'object' ? reply.answer : { text: 'The editor gave no answer', isError: true });
+    waiting.resolve(reply.answer && typeof reply.answer === 'object' && typeof reply.answer.text === 'string' ? reply.answer : { text: 'The editor gave no answer', isError: true });
   });
 
   const callEditor = (tool, args) =>

@@ -485,4 +485,54 @@ describe('editor session and the AI agent', () => {
     expect((await call(agent, 'map_summary')).text).toMatch(/No map is open/);
     s.ngOnDestroy();
   });
+
+  it('answers every tool through the bridge reply as plain data, whatever its handler returns', async () => {
+    // The desktop server's tools (desktop/src/agent-mcp.js TOOLS) that the editor answers
+    const tools: [string, Record<string, unknown>][] = [
+      ['map_summary', {}],
+      ['map_heights', { x0: -8, y0: -8, x1: 8, y1: 8, samples: 3 }],
+      ['map_objects', {}],
+      ['check_map', {}],
+      ['catalog', { search: 'rock' }],
+      ['script_api', {}],
+      ['top_down_picture', {}],
+      ['list_maps', {}],
+      ['read_map', { id: 'm' }],
+      ['run_script', { source: 'return 1' }],
+      ['move_marker', { target: 'hq', x: 2, y: 2 }],
+      ['place_object', { asset: 'rock-small', x: 1, y: 1 }],
+      ['move_object', { id: 'nope', x: 1 }],
+      ['delete_objects', { ids: ['nope'] }],
+      ['set_rules', { rules: { startCredits: 500 } }],
+      ['set_sky', { environment: { sky: 'dusk' } }],
+      ['undo_last', {}],
+      ['copy_map', { id: 'm' }],
+    ];
+    let handler: ((call: { tool: string; args: Record<string, unknown> }, reply: (answer: unknown) => void) => unknown) | null = null;
+    (window as unknown as { desktop?: unknown }).desktop = {
+      version: '0.7.1',
+      onUpdateReady: () => () => undefined,
+      installUpdateNow: () => undefined,
+      saveRun: async () => true,
+      agent: { onCall: (h: typeof handler) => ((handler = h), () => (handler = null)), status: async () => ({ enabled: true, url: null }), setEnabled: async () => ({ enabled: true, url: null }) },
+    };
+    try {
+      const { s } = session();
+      await s.catalogReady.catch(() => undefined);
+      s.catalog.set(catalog);
+      await s.save(true);
+      expect(handler).not.toBeNull();
+      for (const [tool, args] of tools) {
+        const answer = await new Promise<unknown>((resolve) => handler!({ tool, args }, resolve));
+        // What crosses the bridge: a plain, cloneable answer with text
+        expect(structuredClone(answer), tool).toEqual(answer);
+        expect(typeof (answer as { text?: unknown }).text, tool).toBe('string');
+        expect((answer as { text: string }).text.length, tool).toBeGreaterThan(0);
+      }
+      s.ngOnDestroy();
+      expect(handler).toBeNull();
+    } finally {
+      delete (window as unknown as { desktop?: unknown }).desktop;
+    }
+  });
 });
