@@ -194,6 +194,18 @@ export function buildEmberCrater(): CustomMapDocument {
     k.place('lava-pool', p.x, p.y, { rotation: a, scale: 1.1 + 0.4 * k.noise.hash(i, 23, 87) });
   }
 
+  // The hell fields on the outer slopes: black towers and spires standing in clusters, a column of smoke out of
+  // each, so the cone does not end in bare dark slopes
+  for (const [n, c] of [{ x: -205, y: -195 }, { x: -215, y: 185 }, { x: 205, y: 195 }, { x: 215, y: -185 }].entries()) {
+    k.place('fx-smoke-column', c.x, c.y, { scale: 1.1, tint: '#3a302c' });
+    for (let i = 0; i < 8; i++) {
+      const a = k.noise.hash(n, i, 94) * Math.PI * 2;
+      const d = 8 + 22 * k.noise.hash(n, i, 95);
+      const p = { x: c.x + Math.cos(a) * d, y: c.y + Math.sin(a) * d };
+      if (k.free(p.x, p.y, 6)) k.place(d < 18 ? 'obsidian-tower' : 'hell-spires', p.x, p.y, { rotation: a, scale: 0.8 + 0.6 * k.noise.hash(n, i, 96) });
+    }
+  }
+
   // ---- Life: sparks over the lava, the lava's rumble over the whole crater and louder at the lake
   k.lifeSettings({ auto: { sparks: true }, ambience: { sound: 'biome', volume: 0.5 } });
   k.lifeArea('sound', ring(46).slice(0, 24), { sound: 'lava', volume: 0.8 });

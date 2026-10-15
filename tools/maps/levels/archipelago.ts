@@ -160,7 +160,7 @@ export function buildArchipelago(): CustomMapDocument {
 
   // ---- Life: gulls round the lighthouse rock, over the harbour and the wreck; rowing boats drifting in the harbour,
   // a fishing boat going out round the main island and back; the surf on the rocky coasts, birdsong on the islands
-  // TODO(E190): gull calls, surf spray on the rocks
+  // TODO(E190): surf spray on the rocks
   const ring = (at: MapPoint, r: number): MapPoint[] => Array.from({ length: 8 }, (_, i) => ({ x: at.x + Math.cos((i / 8) * Math.PI * 2) * r, y: at.y + Math.sin((i / 8) * Math.PI * 2) * r }));
   k.lifeArea('birds', ring(islands[5].at, 60), { species: 'gulls', height: 30, density: 1.2 });
   k.lifeArea('birds', ring(harbour, 45), { species: 'gulls', height: 22 });
@@ -168,6 +168,9 @@ export function buildArchipelago(): CustomMapDocument {
   k.lifeArea('boats', ring(harbour, 18), { density: 0.5 });
   k.lifeRoute('boats', [{ x: harbour.x + 20, y: harbour.y - 14 }, { x: 160, y: -150 }, { x: 175, y: -60 }, { x: 255, y: -10 }], { asset: 'fishing-boat' });
   for (const n of [0, 1, 5, 6]) k.lifeRoute('sound', coastLines[n], { sound: 'surf', volume: n === 5 ? 0.8 : 0.6 });
+  // Gull calls where the gulls wheel: the lighthouse rock and the harbour
+  k.lifeArea('sound', ring(islands[5].at, 50), { sound: 'gulls', volume: 0.5 });
+  k.lifeArea('sound', ring(harbour, 35), { sound: 'gulls', volume: 0.45 });
   k.lifeSettings({ ambience: { sound: 'biome', volume: 0.45 } });
 
   k.clearRoads();

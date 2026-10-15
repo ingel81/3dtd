@@ -164,6 +164,23 @@ export function buildRedCanyon(): CustomMapDocument {
   for (const [x, y, a, sc] of [[-250, 230, 'sandstone-pillar-tall', 1.3], [250, 230, 'mesa', 0.9], [245, -240, 'sandstone-pillar-tall', 1.1], [-120, -240, 'rock-arch', 1.4], [60, 250, 'sandstone-pillar', 1.4], [-250, -250, 'mesa', 0.8]] as const) {
     k.place(a, x, y, { scale: sc, rotation: y * 0.01 });
   }
+  // A skyline of table mountains along the map's edges, away from the spawns: the plain ends in high buttes before
+  // the far range, layer behind layer
+  for (const [x, y, a, sc] of [
+    [-238, 165, 'mesa', 2],
+    [-170, 240, 'mesa', 1.7],
+    [150, 242, 'mesa', 1.9],
+    [240, 140, 'mesa', 2],
+    [242, 55, 'mesa', 1.6],
+    [238, -175, 'mesa', 1.8],
+    [-10, -242, 'mesa', 1.7],
+    [-240, -125, 'mesa', 1.8],
+    [-215, 205, 'sandstone-pillar-tall', 1.4],
+    [200, 242, 'sandstone-pillar-tall', 1.3],
+    [-195, -242, 'sandstone-pillar-tall', 1.4],
+  ] as const) {
+    if (k.free(x, y, a === 'mesa' ? 20 * sc : 4)) k.place(a, x, y, { scale: sc, rotation: (x + y) * 0.013 });
+  }
   // Hoodoo fields on the plain: clusters of rock needles, the tall ones in the middle
   for (const [n, c] of [{ x: -200, y: 60 }, { x: 215, y: 30 }, { x: -60, y: -215 }, { x: 140, y: 230 }].entries()) {
     for (let i = 0; i < 7; i++) {
