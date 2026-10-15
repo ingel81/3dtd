@@ -82,7 +82,7 @@
       "spawns": 2,
       "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "eb3c1640bfcb2126e98ec2ea9d5542a4fad2af4e0b2ea7a6dc7f4fff0ca253e8"
+      "contentHash": "b772d64c4358ea4676f683f6fb1af62e8a4d3eded7e2921881d0891083834292"
     },
     {
       "id": "frost-hamlet",
@@ -96,7 +96,7 @@
       "spawns": 2,
       "biome": "arctic",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "ec58f7bca6cddb94de399b28e9a2e396d69694ba91781fbf2737f9bf71dd3c2a"
+      "contentHash": "3006abad93774a6d4748258cacc9b17059f5eb4c65674439be06a4ffdf7df61e"
     },
     {
       "id": "ember-crater",
@@ -166,7 +166,7 @@
       "spawns": 3,
       "biome": "apocalypse",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "16be205370da43962c56cbe6dec670440994a6c2ee885abf64854c4ec562f1b7"
+      "contentHash": "11eb8e6c214528b18e2d118d6e4c248113a07e4ecfaf1144163946a5fb85dc01"
     },
     {
       "id": "harbor-town",
@@ -180,7 +180,7 @@
       "spawns": 3,
       "biome": "city",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "aca8028d9775455f38df9e1a8b3f0c6c3b19b98be4219ee971809a71518088e2"
+      "contentHash": "c3022f99557b57394ca1d3dbb2767e2872e1d8cfc2b3b8bbe97b2099b5c16af3"
     }
   ]
 }
