@@ -56,21 +56,23 @@ describe('OSM roads', () => {
     expect(mouths.map((m) => [m.p.x, m.inward.x, m.width])).toEqual([[40, 1, 10], [300, -1, 10]]);
   });
 
-  it('joins tunnel ways end to end, puts mouths only at its open ends inside the map, and keeps short ones as roads', () => {
+  it('joins tunnel ways end to end, puts mouths only at its open ends inside the map, and keeps short ones and footways open', () => {
     const f = parseOsm({
       elements: [
         way(1, { highway: 'primary', tunnel: 'yes' }, [[0, 0, 1], [100, 0, 2]]),
         way(2, { highway: 'primary', tunnel: 'yes' }, [[100, 0, 2], [100, 100, 3], [1300, 100, 4]]),
-        way(3, { highway: 'footway', tunnel: 'yes' }, [[0, 50, 5], [0, 80, 6]]),
+        way(3, { highway: 'footway', tunnel: 'yes' }, [[0, 50, 5], [0, 150, 6]]),
+        way(4, { highway: 'service', tunnel: 'yes' }, [[300, 0, 7], [330, 0, 8]]),
       ],
     }, frame, 1200);
     const { paths, stats, tunnels, mouths } = buildRoads(f);
-    expect(stats).toMatchObject({ tunnels: 1, shortTunnels: 1 });
+    expect(stats).toMatchObject({ tunnels: 1, openTunnels: 2 });
     expect(tunnels[0].lines).toHaveLength(2);
     // Node 2 joins the two ways, node 4 lies off the map: one mouth, at node 1, facing east
     expect(mouths.map((m) => [m.p.x, m.p.y, m.inward.x])).toEqual([[0, 0, 1]]);
     expect(paths.edges.find((e) => e.street === 'footway')).toMatchObject({ kind: 'path', surface: 'sidewalk' });
     expect(paths.edges.find((e) => e.street === 'footway')!.tunnel).toBeUndefined();
+    expect(paths.edges.find((e) => e.street === 'service')).toMatchObject({ kind: 'road', surface: 'asphalt' });
   });
 
   it('neither levels nor paints a tunnel', () => {

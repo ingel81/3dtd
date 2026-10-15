@@ -11,7 +11,8 @@
  * Tunnels stay in the graph as tunnel edges (not drawn, levelled or painted),
  * so routes run through them as on the real places; their mouths get portal
  * models (convert/tunnels.ts). A tunnel shorter than MIN_TUNNEL_M (an
- * underpass under an embankment the world does not draw) stays a road.
+ * underpass under an embankment the world does not draw) stays a road, and a
+ * footway or path through one stays a path (the portal is a road's).
  */
 import { flattenUnderPaths } from '../../../editor/ops/path-terrain';
 import { MAX_LAYERS, readWeights, writeWeights } from '../../../editor/ops/paint-ops';
@@ -33,8 +34,8 @@ export interface RoadStats {
   kmByType: Record<string, number>;
   /** Pieces cut at the map's edge */
   cutAtEdge: number;
-  /** Tunnel ways in tunnels shorter than MIN_TUNNEL_M, kept as roads */
-  shortTunnels: number;
+  /** Tunnel ways kept as plain roads and paths: footways and paths, and roads in tunnels shorter than MIN_TUNNEL_M */
+  openTunnels: number;
 }
 
 /** A tunnel's mouth inside the map: where its portal stands */
@@ -79,16 +80,19 @@ interface Vertex {
 /** The road ways of `features` as the map's path graph */
 export function buildRoads(features: OsmFeatures): RoadBuild {
   const lim = features.half - EDGE_INSET;
-  const stats: RoadStats = { ways: 0, tunnels: 0, tunnelM: 0, nodes: 0, edges: 0, bridges: 0, km: { road: 0, path: 0, bridge: 0 }, kmByType: {}, cutAtEdge: 0, shortTunnels: 0 };
+  const stats: RoadStats = { ways: 0, tunnels: 0, tunnelM: 0, nodes: 0, edges: 0, bridges: 0, km: { road: 0, path: 0, bridge: 0 }, kmByType: {}, cutAtEdge: 0, openTunnels: 0 };
   const roads = features.ways
     .filter((w) => w.nodes.length >= 2)
     .map((way) => ({ way, tags: roadTags(way.tags) }))
     .filter((r): r is { way: typeof r.way; tags: NonNullable<typeof r.tags> } => r.tags !== null);
-  const { tunnels, mouths, short } = findTunnels(roads, lim);
-  for (const r of roads) if (short.has(r.way)) r.tags = { ...r.tags, tunnel: false };
+  const { tunnels, mouths, short } = findTunnels(roads.filter((r) => r.tags.kind === 'road'), lim);
+  for (const r of roads) {
+    if (!r.tags.tunnel || (r.tags.kind === 'road' && !short.has(r.way))) continue;
+    r.tags = { ...r.tags, tunnel: false };
+    stats.openTunnels++;
+  }
   stats.tunnels = tunnels.length;
   stats.tunnelM = tunnels.reduce((s, t) => s + t.length, 0);
-  stats.shortTunnels = short.size;
 
   // Nodes used twice or more: shared by ways, or a way's closing node
   const uses = new Map<number, number>();
