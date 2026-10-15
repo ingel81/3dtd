@@ -561,12 +561,18 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   (Off, Calm, Full: `uPlantSway` 0, 0,4, 1); die Windstärke der Karte bleibt, Wolken, Rauch und Wetter ziehen voll. Kosten im Messrahmen nicht messbar (Demo-Tal 1,42 / 1,43 ms je Bild)
 - **Biome** (`biomes.ts`, `environment.biome`): `temperate`, `hell`, `moon`, `mars`, `arctic`, `apocalypse`,
   `swamp`, `desert`, `mountain`, `city` setzen auf die Himmelsvoreinstellung Himmels- und Lichtfarben, Wolken,
-  Dunstdichte und wie eng er am Boden liegt, Grading sowie Sterne, Planet (Mond: die Erde), Polarlicht und
+  Dunstdichte und wie eng er am Boden liegt, Grading sowie Sterne, Polarlicht und
   Umgebungspartikel um den Fokus (Glut, Asche, Staub, Schneetreiben). Ein Biom kann dem Hof um die Sonne und dem
   Dunst zu ihr hin eine eigene Farbe geben (`glowColor`, sonst das Sonnenlicht). Mars wie auf den Rover-Bildern:
   blasser Butterscotch-Himmel am Tag, Licht fast weiß, Sättigung im Grading 0,74, damit der Boden seine Farben zeigt
   (heller Staub, dunkler Basaltsand, ockerfarbener Kies, rostige, graue und schwarze Steine); in der Dämmerung ein
   blauer Hof um die Sonne über braungrauem Himmel
+- **Planet** (`environment.planet`: `azimuth`, `elevation` in Grad, `size` als scheinbarer Durchmesser in Grad, 0
+  keiner; `planetOf`): eine Scheibe im prozeduralen Himmel, von der Sonnenseite beleuchtet, Ozeane, Land und Wolken,
+  ein heller Atmosphärensaum (Uniforms `uPlanetDir`, `uPlanet` = Radius in Bogenmaß). Ohne Einstellung zeigt der Look
+  Moon die Erde (`DEFAULT_PLANET`: Nordosten, 33 Grad hoch, 4 Grad), andere Looks keinen. Ein Bildhimmel zeigt keinen.
+  Auf dem Mond gilt der schwarze Himmel als dunkel genug für die Lichter der Karte: `darkness` mindestens 0,5 wie in
+  der Hölle (Schein der Lampen, Fenster, Punktlichter-Pool)
 - **Nebel für Türme und Gegner**: die Kartenmaterialien nutzen den Höhennebel, alles andere den `FogExp2` der
   Szene; dessen Dichte setzt `matchFog` je Frame so, dass beide am Kamerafokus gleich dicht sind
 - **Grading** wird immer im sRGB-Raum gerechnet, auch durch die Post-Processing-Kette des Spiels (lineares

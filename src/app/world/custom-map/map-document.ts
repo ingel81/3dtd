@@ -278,6 +278,28 @@ export interface MapEnvironment {
    * id this game does not ship renders procedural as well
    */
   skyImage?: string;
+  /**
+   * The planet in the procedural sky (the moon's Earth): where it stands and how big. Default: the look's
+   * (`DEFAULT_PLANET` on the moon, none elsewhere); size 0 shows none
+   */
+  planet?: MapPlanet;
+}
+
+export interface MapPlanet {
+  /** Degrees from north, clockwise, as the sun's */
+  azimuth: number;
+  /** Degrees over the horizon */
+  elevation: number;
+  /** Apparent diameter, degrees (the Earth from the Moon: 2) */
+  size: number;
+}
+
+/** The Earth over the moon where a map does not set it: north-east, a third up, twice its true size */
+export const DEFAULT_PLANET: MapPlanet = { azimuth: 33, elevation: 33, size: 4 };
+
+/** The planet a map shows: its own setting, else its look's (the moon sees `DEFAULT_PLANET`); size 0 none */
+export function planetOf(env: Pick<MapEnvironment, 'planet' | 'biome'>): MapPlanet {
+  return env.planet ?? (env.biome === 'moon' ? DEFAULT_PLANET : { ...DEFAULT_PLANET, size: 0 });
 }
 
 export interface MapWind {

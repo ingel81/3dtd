@@ -246,6 +246,18 @@ describe('map file', () => {
     expect(validateMapDocument(doc)).toContain('environment skyImage must be a sky id');
   });
 
+  it('carries a planet in the sky, an optional setting; an old map keeps its hash', async () => {
+    const doc = sample();
+    const hash = await contentHash(doc);
+    doc.environment.planet = { azimuth: 20, elevation: 18, size: 9 };
+    const { doc: back } = unpackMapFile(packMapFile(doc));
+    expect(back.environment.planet).toEqual({ azimuth: 20, elevation: 18, size: 9 });
+    doc.environment = { ...doc.environment, planet: undefined };
+    expect(await contentHash(doc)).toBe(hash);
+    doc.environment.planet = { azimuth: 20, elevation: 18, size: -1 };
+    expect(validateMapDocument(doc)).toContain('environment planet needs azimuth, elevation and a size of 0 or more');
+  });
+
   it('validates the grid and the references', () => {
     const doc = sample();
     expect(validateMapDocument(doc)).toEqual([]);

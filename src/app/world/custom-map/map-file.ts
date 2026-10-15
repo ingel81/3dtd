@@ -424,6 +424,10 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
   if (env?.biome !== undefined && !looks.includes(env.biome)) p.push(`environment biome ${String(env.biome)} is unknown`);
   // An unknown id is no error: a map from a newer game shows the procedural sky here
   if (env?.skyImage !== undefined && typeof env.skyImage !== 'string') p.push('environment skyImage must be a sky id');
+  const planet = env?.planet;
+  if (planet !== undefined && (!planet || typeof planet !== 'object' || !finite(planet.azimuth) || !finite(planet.elevation) || !finite(planet.size) || planet.size < 0)) {
+    p.push('environment planet needs azimuth, elevation and a size of 0 or more');
+  }
   const wind = env?.wind;
   if (wind !== undefined && (!wind || typeof wind !== 'object' || !finite(wind.strength) || !finite(wind.direction) || !finite(wind.gusts))) {
     p.push('environment wind needs strength, direction and gusts');

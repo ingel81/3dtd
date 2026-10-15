@@ -3,7 +3,7 @@ import type { MapBiome, MapEnvironment } from '../../map-document';
 /**
  * Looks of the environment per biome, on top of the sky preset (day, dusk,
  * night, overcast): sky and light colours, cloud cover, haze, grade, sky
- * features (stars, a planet, aurora) and ambient particles around the
+ * features (stars, aurora; the moon's planet is a map setting, planetOf) and ambient particles around the
  * camera's focus.
  */
 
@@ -37,8 +37,6 @@ export interface BiomeLook extends SkyPreset {
   fogFalloff: number;
   /** 0..1 stars in the sky */
   stars: number;
-  /** A planet in the sky (the moon map sees the earth) */
-  planet: boolean;
   /** 0..1 aurora bands */
   aurora: number;
   particles: AmbientParticles;
@@ -124,7 +122,7 @@ export const SKY_PRESETS: Record<MapEnvironment['sky'], SkyPreset> = {
   },
 };
 
-const PLAIN = { fogScale: 1, fogFalloff: 1 / 70, stars: 0, planet: false, aurora: 0, particles: null as AmbientParticles, exposure: 1, split: [0xe6edff, 0xfffaf3] as [number, number] };
+const PLAIN = { fogScale: 1, fogFalloff: 1 / 70, stars: 0, aurora: 0, particles: null as AmbientParticles, exposure: 1, split: [0xe6edff, 0xfffaf3] as [number, number] };
 
 /**
  * Tone mapping exposure per sky (Khronos PBR Neutral rolls off the
@@ -210,7 +208,6 @@ function biomeLookUnclamped(biome: MapBiome | undefined, sky: MapEnvironment['sk
         grade: [1.15, 0.7, 0xffffff],
         fogScale: 0,
         stars: 1,
-        planet: true,
       };
     case 'mars':
       // Mars as the rovers see it: a butterscotch sky by day, pale and greyish rather than red, and

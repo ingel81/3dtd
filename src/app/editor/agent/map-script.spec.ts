@@ -87,6 +87,7 @@ describe('map scripts', () => {
     expect(run(`map.biome('jungle', { x: 0, y: 0 }, { radius: 5 })`)).toMatchObject({ ok: false, error: expect.stringMatching(/one of meadow/) });
     expect(run(`map.place('no-such-asset', 0, 0)`)).toMatchObject({ ok: false, error: expect.stringMatching(/no asset no-such-asset/) });
     expect(run(`map.environment({ sky: 'purple' })`)).toMatchObject({ ok: false, error: expect.stringMatching(/sky must be one of/) });
+    expect(run(`map.environment({ planet: { azimuth: 10, size: 4 } })`)).toMatchObject({ ok: false, error: expect.stringMatching(/planet must be \{ azimuth/) });
     expect(run(`throw new Error('mine')`)).toMatchObject({ ok: false, error: expect.stringMatching(/^mine \(line 1\)/) });
     expect(() => checkCommand('raise', [{ x: 0, y: 0 }, { radius: 1 }, NaN])).toThrow(/finite/);
     expect(() => checkCommand('raise', [[{ x: 0, y: 0 }, { x: 9000, y: 0 }], { radius: 0.5 }, 1])).toThrow(/dabs/);

@@ -247,7 +247,7 @@ export const SCRIPT_OPS: Readonly<Record<string, OpSpec>> = {
   // Environment and Gameplay
   environment: {
     args: [a('patch', OBJECT)],
-    doc: `Sky and air: { sky: ${ENVIRONMENT_CHOICES['sky'].join('|')}, sunAzimuth, sunElevation (degrees), fogDensity, tint '#rrggbb', weather: ${ENVIRONMENT_CHOICES['weather'].join('|')}, weatherStrength 0..1, biome: ${ENVIRONMENT_CHOICES['biome'].join('|')} (the look of sky, light and air; not a landscape biome), snowCover 0..1, moonlight, wind { strength 0..1, direction degrees, gusts 0..1 } }`,
+    doc: `Sky and air: { sky: ${ENVIRONMENT_CHOICES['sky'].join('|')}, sunAzimuth, sunElevation (degrees), fogDensity, tint '#rrggbb', weather: ${ENVIRONMENT_CHOICES['weather'].join('|')}, weatherStrength 0..1, biome: ${ENVIRONMENT_CHOICES['biome'].join('|')} (the look of sky, light and air; not a landscape biome), snowCover 0..1, moonlight, wind { strength 0..1, direction degrees, gusts 0..1 }, planet { azimuth, elevation, size degrees; 0 none; the Moon look shows the Earth } }`,
   },
   // Life tool
   lifeArea: {
@@ -789,6 +789,11 @@ export function checkEnvironment(patch: Record<string, unknown>): Partial<Custom
       const w = value as Record<string, unknown> | null;
       if (!w || typeof w !== 'object' || !['strength', 'direction', 'gusts'].every((k) => typeof w[k] === 'number')) {
         throw new ScriptError(`${where} must be { strength 0..1, direction degrees, gusts 0..1 }`);
+      }
+    } else if (key === 'planet') {
+      const p = value as Record<string, unknown> | null;
+      if (!p || typeof p !== 'object' || !['azimuth', 'elevation', 'size'].every((k) => typeof p[k] === 'number') || (p['size'] as number) < 0) {
+        throw new ScriptError(`${where} must be { azimuth degrees, elevation degrees, size degrees (0 none) }`);
       }
     } else throw new ScriptError(`map.environment knows no ${key}`);
   }
