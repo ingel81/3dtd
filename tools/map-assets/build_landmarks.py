@@ -602,6 +602,87 @@ def rocket(name):
     export(name, objects, lod=600)
 
 
+# ---------------------------------------------------------------- volcano, station lights
+
+def out_at(angle, radius, z):
+    return Vector((math.cos(angle) * radius, math.sin(angle) * radius, z))
+
+
+def obsidian_tower(name, seed=41, height=14.0):
+    """A tower of volcanic glass for a crater rim: a leaning faceted spire with shards broken off around
+    it, standing in dark rock with glowing cracks at its foot"""
+    from build_extreme import ember, hell_rock
+    from build_levels import obsidian_material
+    clear_scene()
+    rnd = random.Random(seed)
+    glass = Part(obsidian_material())
+    rock = hell_rock()
+    rock.bevel = 0.0
+    glow = Part(ember(1.6), bevel=0.0)
+    lean = Vector((rnd.uniform(-0.12, 0.12), rnd.uniform(-0.12, 0.12), 1.0)).normalized()
+    pts = [Vector((0, 0, -1.0)), lean * height * 0.45, lean * height * 0.8, lean * height]
+    tube(glass, pts, [2.3, 1.7, 0.9, 0.0], 7, smooth=False)
+    for k in range(5):
+        a = k / 5 * math.tau + rnd.uniform(-0.3, 0.3)
+        out = Vector((math.cos(a), math.sin(a), 0))
+        d = (out * rnd.uniform(0.25, 0.6) + Vector((0, 0, 1))).normalized()
+        h = height * rnd.uniform(0.25, 0.55)
+        base = out * rnd.uniform(1.6, 2.6) + Vector((0, 0, -0.8))
+        tube(glass, [base, base + d * h * 0.7, base + d * h], [rnd.uniform(0.5, 0.9), rnd.uniform(0.35, 0.6), 0.0], 5, smooth=False)
+    for k in range(6):
+        a = rnd.uniform(0, math.tau)
+        lump(rock, out_at(a, rnd.uniform(2.0, 3.6), -0.6), Vector((rnd.uniform(1.0, 1.8), rnd.uniform(0.8, 1.4), rnd.uniform(0.5, 0.9))),
+             seed * 10 + k, roughness=0.4, subdiv=2)
+    for k in range(7):
+        a = rnd.uniform(0, math.tau)
+        c = out_at(a, rnd.uniform(1.0, 3.8), 0.02)
+        box(glow, c.x, c.y, c.z - 0.06, rnd.uniform(0.8, 1.8), 0.09, 0.12, a + math.pi / 2 + rnd.uniform(-0.4, 0.4))
+    objects = [glass.to_object(name), smooth(rock.to_object(name + '-rock')), glow.to_object(name + '-glow')]
+    for p in objects[0].data.polygons:
+        p.use_smooth = False
+    export(name, objects)
+
+
+def floodlight_mast(name, height=12.0):
+    """Floodlight mast for a pad or a base: a tapered steel pole on a concrete foot, a ladder, a head frame
+    with four lamps facing the front (-Y)"""
+    clear_scene()
+    steel = Part(flat_material('mast-steel', (0.55, 0.56, 0.58), 0.4, 0.8), smooth=True)
+    concrete = Part(pbr_material('wall-brushed_concrete', 'brushed_concrete'), uv_metres=2.0)
+    lamp = Part(flat_material('flood-lamp', (1.0, 0.95, 0.85), 0.3, emission=(1.0, 0.95, 0.85), strength=3.0), bevel=0.0)
+    dark = Part(flat_material('lamp-housing', (0.12, 0.12, 0.13), 0.5, 0.6))
+    box(concrete, 0, 0, -0.8, 1.2, 1.2, 1.1)
+    tube(steel, [Vector((0, 0, 0.3)), Vector((0, 0, height))], [0.24, 0.12], 10, cap=True)
+    for k in range(int(height / 0.4) - 2):
+        z = 1.0 + k * 0.4
+        oriented_box(steel, Vector((-0.18, 0.28, z)), Vector((0.18, 0.28, z)), 0.03)
+    for s in (-1, 1):
+        oriented_box(steel, Vector((s * 0.18, 0.28, 0.8)), Vector((s * 0.18, 0.28, height - 0.6)), 0.04)
+    oriented_box(steel, Vector((-1.4, 0, height)), Vector((1.4, 0, height)), 0.12)
+    oriented_box(steel, Vector((-1.4, 0, height + 1.0)), Vector((1.4, 0, height + 1.0)), 0.12)
+    for x in (-1.4, 1.4):
+        oriented_box(steel, Vector((x, 0, height)), Vector((x, 0, height + 1.0)), 0.1)
+    for k in range(4):
+        x = -1.05 + k * 0.7
+        z = height + 0.5
+        box(dark, x, -0.15, z - 0.3, 0.6, 0.3, 0.6)
+        box(lamp, x, -0.31, z - 0.25, 0.5, 0.04, 0.5)
+    export(name, [steel.to_object(name), concrete.to_object(name + '-foot'), dark.to_object(name + '-housing'), lamp.to_object(name + '-lamps')])
+
+
+def beacon_post(name):
+    """Short post with a red position light on top, for pad edges, masts and paths"""
+    clear_scene()
+    steel = Part(flat_material('mast-steel', (0.55, 0.56, 0.58), 0.4, 0.8), smooth=True)
+    red = Part(flat_material('beacon', (0.9, 0.1, 0.05), 0.3, emission=(1.0, 0.1, 0.05), strength=2.0), smooth=True, bevel=0.0)
+    tube(steel, [Vector((0, 0, -0.3)), Vector((0, 0, 0.08))], [0.25, 0.25], 10, cap=True)
+    tube(steel, [Vector((0, 0, 0.08)), Vector((0, 0, 2.0))], [0.06, 0.05], 8)
+    tube(steel, [Vector((0, 0, 2.0)), Vector((0, 0, 2.08))], [0.14, 0.14], 10, cap=True)
+    prof = [(0.0, 0.11), (0.1, 0.11), (0.18, 0.08), (0.24, 0.0)]
+    tube(red, [Vector((0, 0, 2.08 + z)) for z, _ in prof], [r for _, r in prof], 10)
+    export(name, [steel.to_object(name), red.to_object(name + '-light')])
+
+
 def models():
     return {
         'tunnel-portal': lambda: tunnel_portal('tunnel-portal'),
@@ -613,4 +694,7 @@ def models():
         'avalanche-barrier-snow': lambda: avalanche_barrier('avalanche-barrier-snow', snowed=True),
         'shipwreck': lambda: shipwreck('shipwreck'),
         'rocket': lambda: rocket('rocket'),
+        'obsidian-tower': lambda: obsidian_tower('obsidian-tower'),
+        'floodlight-mast': lambda: floodlight_mast('floodlight-mast'),
+        'beacon-post': lambda: beacon_post('beacon-post'),
     }

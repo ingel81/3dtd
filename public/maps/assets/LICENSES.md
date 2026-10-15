@@ -522,6 +522,9 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | avalanche-barrier-snow | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/snow_02 |
 | shipwreck | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/dark_planks |
 | rocket | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/brushed_concrete |
+| obsidian-tower | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/dark_rock_02 |
+| floodlight-mast | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/brushed_concrete |
+| beacon-post | procedural (tools/map-assets/build_landmarks.py) |
 | fx-fireflies | Effekt des Renderers, kein Modell |
 | fx-smoke | Effekt des Renderers, kein Modell |
 | fx-embers | Effekt des Renderers, kein Modell |
