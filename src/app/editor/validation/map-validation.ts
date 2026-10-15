@@ -12,7 +12,7 @@ import { dangerLook } from '../../world/custom-map/render/asset-catalog';
 import { sceneCost, SCENE_BUDGET } from '../../world/custom-map/render/objects/scene-cost';
 import { validateWaveTable, type WaveTable } from '../../director/sources/table/wave-table';
 import { heightAt, insideMap, sampleX, sampleY, slopeAt } from '../model/grid';
-import { components, EdgeIndex, routeBetween } from '../ops/path-graph';
+import { components, EdgeIndex, nearestOnPolyline, routeBetween } from '../ops/path-graph';
 import { undersideGap } from '../ops/object-ops';
 import { seatHeight, type ObjectFooting } from '../../world/custom-map/render/objects/object-seat';
 import { waterLevelAt } from '../../world/custom-map/water-level';
@@ -20,6 +20,7 @@ import { bridgeDecks, deckHeightAt } from '../../world/custom-map/bridge-decks';
 import { HeightField } from '../../world/custom-map/render/height-field';
 import { TOWER_SPOT_M2, TYPICAL_TOWER_RANGE, type BuildAreas } from './build-areas';
 import { waveEventProblems } from './wave-event-check';
+import { MOVER_CLEARANCE, moverWays } from '../../world/custom-map/map-life';
 
 export type IssueSeverity = 'error' | 'warning';
 
@@ -50,6 +51,7 @@ export interface MapIssue {
     | 'path-under-water'
     | 'water-buried'
     | 'object-on-path'
+    | 'object-on-mover-route'
     | 'object-floating'
     | 'water-floating'
     | 'path-steep'
@@ -286,6 +288,18 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
   }
 
   if (options.footingOf) floatingObjects(doc, options.footingOf, rules.maxFloat, issues);
+  if (options.footingOf) {
+    const inWay = objectsOnMoverWays(doc, options.footingOf);
+    if (inWay.length) {
+      issues.push({
+        severity: 'warning',
+        code: 'object-on-mover-route',
+        message: `${inWay.length === 1 ? 'An object stands' : `${inWay.length} objects stand`} on the way of a moving life route (rovers, carts) and would be driven through (${[...new Set(inWay.map((o) => o.asset))].join(', ')}). Move them off the route or the route round them.`,
+        focus: inWay[0],
+        target: { kind: 'object', id: inWay[0].id },
+      });
+    }
+  }
   floatingWater(doc, rules.maxWaterStep, issues);
   buriedWater(doc, issues);
 
@@ -571,6 +585,30 @@ function flatSetPiece(asset: string, f: ObjectFooting): boolean {
 
 /** A set piece no higher than this share of its footprint lies flat */
 const FLAT_SHARE = 0.25;
+
+/** What a mover cannot drive through: rocks, trees, buildings, walls, props (not plants, structures one drives over, effects) */
+const IN_THE_WAY: ReadonlySet<string> = new Set(['rock', 'tree', 'building', 'wall', 'prop']);
+
+/**
+ * Objects standing on the way of a ground route's movers (`object-on-mover-route`,
+ * map-life.ts moverWays): their footprint reaches within MOVER_CLEARANCE of
+ * the loop the movers drive, so a rover would go through them. `categories`
+ * narrows what counts (default: all that stand in the way)
+ */
+export function objectsOnMoverWays(
+  doc: CustomMapDocument,
+  footingOf: (asset: string) => ObjectFooting | undefined,
+  categories: ReadonlySet<string> = IN_THE_WAY,
+): MapObject[] {
+  const ways = moverWays(doc.life);
+  if (!ways.length) return [];
+  return doc.objects.filter((o) => {
+    const f = footingOf(o.asset);
+    if (!f || !categories.has(f.category)) return false;
+    const reach = MOVER_CLEARANCE + f.footprint * (o.scale || 1);
+    return ways.some((loop) => (nearestOnPolyline([...loop, loop[0]], o)?.dist ?? Infinity) < reach);
+  });
+}
 
 function floatingObjects(doc: CustomMapDocument, footingOf: (asset: string) => ObjectFooting | undefined, tolerance: number, issues: MapIssue[]): void {
   const found = objectsInAir(doc, footingOf, tolerance);

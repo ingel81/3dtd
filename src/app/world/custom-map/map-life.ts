@@ -355,3 +355,40 @@ export function newLifeId(areas: readonly MapLifeArea[], kind: MapLifeKind): str
     if (!ids.has(id)) return id;
   }
 }
+
+/**
+ * A closed loop along a line: out on one side `offset` metres from it,
+ * round its end and back on the other side; something on it goes there and
+ * back without turning on the spot
+ */
+export function routeLoop(points: readonly MapPoint[], offset: number): MapPoint[] {
+  const length = shapeLength(points, false);
+  const count = Math.max(3, Math.min(24, Math.round(length / 40) + 1));
+  const line = resampleShape(points, false, count);
+  const side = (k: number): MapPoint => {
+    const a = line[Math.max(0, k - 1)];
+    const b = line[Math.min(line.length - 1, k + 1)];
+    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    return { x: -(b.y - a.y) / len, y: (b.x - a.x) / len };
+  };
+  const keys: MapPoint[] = [];
+  for (let k = 0; k < line.length; k++) {
+    const n = side(k);
+    keys.push({ x: line[k].x + n.x * offset, y: line[k].y + n.y * offset });
+  }
+  for (let k = line.length - 1; k >= 0; k--) {
+    const n = side(k);
+    keys.push({ x: line[k].x - n.x * offset, y: line[k].y - n.y * offset });
+  }
+  return catmullRomLoop(keys, Math.max(32, Math.min(96, keys.length * 4)));
+}
+
+/** Metres a route's movers drive off its line, out on one side and back on the other (life-movers.ts) */
+export const MOVER_LANE = 2.5;
+/** Metres a mover's way needs clear to either side of the lane it drives: a rover's or a cart's half width and a little room */
+export const MOVER_CLEARANCE = 1.8;
+
+/** The loops the movers of the ground routes drive (not those hanging from a line at a height), their way to keep clear */
+export function moverWays(life: MapLife | undefined): MapPoint[][] {
+  return (life?.areas ?? []).filter((a) => a.kind === 'movers' && a.shape === 'route' && a.height === undefined && a.points.length >= 2).map((a) => routeLoop(a.points, MOVER_LANE));
+}

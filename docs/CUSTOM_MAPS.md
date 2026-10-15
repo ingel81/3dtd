@@ -484,7 +484,9 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   in zwei Spuren 2,5 m neben ihr (2), mit `speed` m/s (Standard 1,5, je eines bis 20 % anders). Mit `height` hängen
   sie an einer Geraden statt am Boden: auf einer Linie von `height` über dem Boden am Anfang zu `height` über dem Boden
   am Ende (eine Gondel am Seil), im Umriss `height` über seiner Mitte; dann ungeneigt. Die Gegner und Tower sehen sie
-  nicht
+  nicht. Der Weg einer Bodenlinie (ohne `height`) bleibt frei: die Schleife, die sie fahren (`moverWays`, map-life.ts),
+  und 1,8 m zu jeder Seite; das `lifeRoute` des Kartenwerkzeugs und des Agenten räumt Felsen, Bäume und Pflanzen von
+  dort ab, alles Übrige (Gebäude, Mauern, Props) meldet die Prüfung (`object-on-mover-route`)
   Schalter der Karte (`life.auto`): Schornsteinrauch, automatische Glühwürmchen und Vögel (an, wenn nichts gesetzt),
   Funken über Lava (aus, wenn nichts gesetzt); `life.density` 0 bis 2 als Faktor auf das alles. `life.flags`: das Tuch
   der Banner weht im Wind (`objects/cloth.ts`: die Karten `foliage-banner*` werden beim Laden zu einem Raster aus 6 x 14

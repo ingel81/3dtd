@@ -62,7 +62,7 @@ import { lifeAreaImages, mirrorChange, objectImages, symmetryImages, type Symmet
 import { flattenDab, noiseDab, plateauDab, raiseDab, rampBetween, smoothDab, terraceDab, erodeDab } from './terrain-ops';
 import { addPouredBodies, basinSpillHeight, BODY_COLORS, emptyWater, fillBasin, fillFromEdge, lakeDab, RIM_MARGIN, waterBody, waterMaskDab, wetSamples } from './water-ops';
 import { MAX_WATER_BODIES } from '../../world/custom-map/map-file';
-import { validateMap, type MapIssue } from '../validation/map-validation';
+import { objectsOnMoverWays, validateMap, type MapIssue } from '../validation/map-validation';
 import { assetCosts } from '../validation/map-budget';
 import { lifeProblems, newLifeId } from '../../world/custom-map/map-life';
 import {
@@ -83,6 +83,9 @@ import {
 
 /** What a life area may set beside its kind, shape and points */
 export type LifeOptions = Partial<Pick<MapLifeArea, 'density' | 'height' | 'color' | 'sound' | 'volume' | 'reach' | 'asset' | 'quality' | 'species' | 'speed'>>;
+/** What a route of movers sweeps off its way when drawn by a script (lifeRoute) */
+const CLEARED_FOR_MOVERS: ReadonlySet<string> = new Set(['rock', 'tree', 'plant']);
+
 const LIFE_OPTION_KEYS: readonly (keyof LifeOptions)[] = ['density', 'height', 'color', 'sound', 'volume', 'reach', 'asset', 'quality', 'species', 'speed'];
 
 /** A brush as the panel sets it; falloff defaults to the editor's 0.6 */
@@ -1229,6 +1232,12 @@ export class MapKit {
     const problems = lifeProblems(life);
     if (problems.length) throw new Error(`${this.name}: ${problems[0]}`);
     this.doc.life = life;
+    // A route of movers clears its way of rocks, trees and plants strewn there; what else stands in it the check reports
+    const strewn = new Set(objectsOnMoverWays({ ...this.doc, life: { areas: [area, ...images] } }, (a) => this.catalog.object(a).footing, CLEARED_FOR_MOVERS));
+    if (strewn.size) {
+      this.doc.objects = this.doc.objects.filter((o) => !strewn.has(o));
+      this.freeCheck = null;
+    }
     return area.id;
   }
 

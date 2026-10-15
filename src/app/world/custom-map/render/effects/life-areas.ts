@@ -1,6 +1,6 @@
 import { Vector3 } from 'three';
 import type { MapLifeArea, MapLifeKind, MapPoint } from '../../map-document';
-import { areaDensity, catmullRomLoop, lifeSeed, lifeSpots, loopInside, outlineArea, resampleShape, shapeLength } from '../../map-life';
+import { areaDensity, lifeSeed, lifeSpots, loopInside, outlineArea, routeLoop } from '../../map-life';
 import { mapToScene } from '../map-coords';
 import type { Flock } from './bird-flocks';
 import { particleCount, type ParticleEmitter, type ParticleKind } from './particle-field';
@@ -98,29 +98,3 @@ export function lifeFlock(area: MapLifeArea, ground: SurfaceAt, factor: number):
   return { path, birds, spread, drift, seed: (seed % 1000) / 1000 || 0.37, species };
 }
 
-/**
- * A closed loop along a line: out on one side `offset` metres from it,
- * round its end and back on the other side; something on it goes there and
- * back without turning on the spot
- */
-export function routeLoop(points: readonly MapPoint[], offset: number): MapPoint[] {
-  const length = shapeLength(points, false);
-  const count = Math.max(3, Math.min(24, Math.round(length / 40) + 1));
-  const line = resampleShape(points, false, count);
-  const side = (k: number): MapPoint => {
-    const a = line[Math.max(0, k - 1)];
-    const b = line[Math.min(line.length - 1, k + 1)];
-    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-    return { x: -(b.y - a.y) / len, y: (b.x - a.x) / len };
-  };
-  const keys: MapPoint[] = [];
-  for (let k = 0; k < line.length; k++) {
-    const n = side(k);
-    keys.push({ x: line[k].x + n.x * offset, y: line[k].y + n.y * offset });
-  }
-  for (let k = line.length - 1; k >= 0; k--) {
-    const n = side(k);
-    keys.push({ x: line[k].x - n.x * offset, y: line[k].y - n.y * offset });
-  }
-  return catmullRomLoop(keys, Math.max(32, Math.min(96, keys.length * 4)));
-}

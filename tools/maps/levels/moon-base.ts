@@ -150,8 +150,9 @@ export function buildMoonBase(): CustomMapDocument {
 
   // ---- Life: rovers driving the track out to the launch site and the one to the solar field; the dishes turn on
   // their own (the catalogue's spin)
-  k.lifeRoute('movers', [{ x: pad.x - 14, y: pad.y - 8 }, { x: -30, y: -80 }, { x: launch.x + 10, y: launch.y + 14 }], { asset: 'rover', speed: 1.6 });
-  k.lifeRoute('movers', [{ x: hq.x + 30, y: hq.y + 20 }, { x: hq.x + 62, y: hq.y + 48 }, { x: hq.x + 96, y: hq.y + 64 }], { asset: 'rover', speed: 1.4 });
+  // Both start clear of the pad's fuel tanks and mast and of the research station: a rover drove through them
+  k.lifeRoute('movers', [{ x: pad.x - 20, y: pad.y - 18 }, { x: -30, y: -80 }, { x: launch.x + 10, y: launch.y + 14 }], { asset: 'rover', speed: 1.6 });
+  k.lifeRoute('movers', [{ x: hq.x + 38, y: hq.y + 28 }, { x: hq.x + 62, y: hq.y + 48 }, { x: hq.x + 96, y: hq.y + 64 }], { asset: 'rover', speed: 1.4 });
   // Radio hiss in the station, round the hub and its modules
   k.lifeArea('sound', ring(40, 8), { sound: 'radio-hiss', volume: 0.6 });
   k.trimLayers(7);

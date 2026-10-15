@@ -202,6 +202,17 @@ describe('map scripts', () => {
     expect(heightAt(kit.doc.terrain, 44, 20)).toBeCloseTo(heightAt(kit.doc.terrain, 36, 20), 3);
   });
 
+  it('clears the rocks and trees off the way of a route of movers, leaving what stands beside it', () => {
+    const kit = new MapKit(map(), index, { name: 't', seed: 7 });
+    const onWay = kit.place('boulder', 0, 2.5);
+    const beside = kit.place('boulder', 0, 20);
+    const house = kit.place('house', 60, 30);
+    kit.lifeRoute('movers', [{ x: -80, y: 0 }, { x: 80, y: 0 }], { asset: 'rover' });
+    const ids = kit.doc.objects.map((o) => o.id);
+    expect(ids).not.toContain(onWay.id);
+    expect(ids).toEqual(expect.arrayContaining([beside.id, house.id]));
+  });
+
   it('levels no ground under a hut on stilts, which stands over its shore as it is', () => {
     const kit = new MapKit(map(), index, { name: 't', seed: 7 });
     const g = kit.doc.terrain.grid;
