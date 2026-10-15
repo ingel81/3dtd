@@ -264,7 +264,9 @@ Nachmittag.
 steht noch, die Blöcke sind ausgebrannt: der Stadt-Pinsel legt Raster und Häuser, die Häuser, Autos, Bäume und
 Laternen werden gegen Ruinen, Wracks, verkohlte Bäume und umgestürzte Masten getauscht. Fünf eingestürzte Blöcke
 sind Trümmerfelder zum Bauen. Die Spuren laufen als gerade Pfade auf den Straßen (nicht die Kurven der Straßenlinie)
-zur gehaltenen Kreuzung mit Sandsäcken, Barrikaden und Panzersperren. Look `apocalypse`, bedeckt, Dunst.
+zur gehaltenen Kreuzung mit Sandsäcken, Barrikaden und Panzersperren. Look `apocalypse`, bedeckt, Dunst. Über den Ruinen
+stehen sechs hohe dunkle Rauchsäulen (`fx-smoke-column`, Glut am Fuß) im Krater, am Hochhaus-Torso und in eingestürzten
+Blöcken.
 
 ### 12 Hafenstadt (`harbor-town`)
 `tools/maps/levels/harbor-town.ts`, Small 512 m. Spuren 444, 380 und 508 m. Eine Stadt am Hang über einer Bucht, die
