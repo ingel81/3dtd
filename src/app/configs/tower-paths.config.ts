@@ -7,7 +7,7 @@
 import type { TowerTypeId } from './tower-types.config';
 import type { ResearchId } from './research/research.types';
 
-export type TowerPathId = 'scout' | 'incendiary' | 'multirole' | 'seal';
+export type TowerPathId = 'scout' | 'incendiary' | 'multirole' | 'seal' | 'corrode';
 
 export interface TowerPath {
   readonly id: TowerPathId;
@@ -37,6 +37,11 @@ export interface TowerPath {
   readonly groundDamageShare?: number;
   /** Game ms a direct hit lifts its target's Phasing for (StatusEffectService.applySeal), absent for none */
   readonly sealMs?: number;
+  /**
+   * Game ms a direct hit corrodes its target for (StatusEffectService.applyCorrode): one armor class lighter
+   * where that hurts more, never stacked, not on bosses; absent for none
+   */
+  readonly corrodeMs?: number;
   /** What the tower wears with it: a model in the tower model's own units, hung under its mesh */
   readonly attachment?: {
     readonly modelUrl: string;
@@ -93,6 +98,18 @@ export const TOWER_PATHS: Readonly<Record<TowerPathId, TowerPath>> = {
     sealMs: 4000,
     // tools/blender/path_attachments.py
     attachment: { modelUrl: 'assets/models/towers/attachments/seal.glb', sweepNode: 'seal_rings' },
+  },
+  corrode: {
+    id: 'corrode',
+    towerId: 'poison',
+    name: 'Caustic',
+    description: 'Each hit corrodes its target for 3 s: it counts one armor class lighter (bosses are immune).',
+    cost: 250,
+    research: 'caustic-compounds',
+    // Direct hit only, one class at most: a poison tower keeps about three targets corroded (docs/TOWER_CREATION.md, Pfade)
+    corrodeMs: 3000,
+    // tools/blender/path_attachments.py
+    attachment: { modelUrl: 'assets/models/towers/attachments/corrode.glb' },
   },
 };
 

@@ -462,6 +462,14 @@ describe('CombatEffectService tower paths', () => {
     expect(applySeal.mock.calls).toEqual([[target, TOWER_PATHS.seal.sealMs, 't-1']]);
   });
 
+  it('a Caustic hit corrodes its direct target, not the splash', () => {
+    const applyCorrode = vi.fn();
+    (mockInjections['StatusEffectService'] as Record<string, unknown>)['applyCorrode'] = applyCorrode;
+    const target = enemyAt('tank', 0);
+    hit('poison', 'corrode', target, 5, [enemyAt('zombie', 1)]);
+    expect(applyCorrode.mock.calls).toEqual([[target, TOWER_PATHS.corrode.corrodeMs, 't-1']]);
+  });
+
   it('an archer without the path burns nothing', () => {
     hit('archer', null);
     hit('archer', 'scout');

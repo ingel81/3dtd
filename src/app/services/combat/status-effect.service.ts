@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Enemy } from '../../entities/enemy.entity';
 import { StatusEffectType } from '../../models/status-effects';
+import { LIGHTER_ARMOR } from '../../configs/combat/damage-matrix.config';
 
 /**
  * StatusEffectService: applies slow / poison / burn / freeze / stun effects to enemies.
@@ -46,6 +47,29 @@ export class StatusEffectService {
       startTime: this.gameClockProvider(),
       sourceId,
     });
+  }
+
+  /**
+   * Corrode: for `duration` game ms hits count against the better of its armor and the next lighter one
+   * (matrixMultiplier). One at a time, a new one refreshes it; no stacking past one class. Nothing on a
+   * boss or on an armor with no lighter class (unarmored, ethereal).
+   */
+  applyCorrode(enemy: Enemy, duration: number, sourceId: string): void {
+    if (enemy.typeConfig.isBoss) return;
+    const armor = enemy.getEffectiveArmorType();
+    if (LIGHTER_ARMOR[armor] === armor) return;
+    enemy.movement.applyStatusEffect({
+      type: 'corrode',
+      value: 1,
+      duration,
+      startTime: this.gameClockProvider(),
+      sourceId,
+    });
+  }
+
+  /** Whether the enemy is corroded now (MovementComponent.isCorroded) */
+  isCorroded(enemy: Enemy): boolean {
+    return enemy.movement.isCorroded(this.gameClockProvider());
   }
 
   applyPoison(enemy: Enemy, dotDps: number, duration: number, sourceId: string): void {

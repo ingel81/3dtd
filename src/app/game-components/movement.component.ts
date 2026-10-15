@@ -325,7 +325,7 @@ export class MovementComponent extends Component {
   /**
    * Apply a status effect to this entity.
    *
-   * Slow, poison and seal don't stack: one of each can be active, and any new one
+   * Slow, poison, seal and corrode don't stack: one of each can be active, and any new one
    * replaces it regardless of source. Every other type (burn, freeze) is kept
    * per source: the same source refreshes its entry, another source adds one.
    * A replaced entry hands its DoT tick phase to the new one.
@@ -368,7 +368,7 @@ export class MovementComponent extends Component {
 
   /** Index of the entry a new effect of `type` from `sourceId` refreshes, or -1. */
   private findEffectSlot(type: StatusEffectType, sourceId: string | undefined): number {
-    const bySource = type !== 'slow' && type !== 'poison' && type !== 'seal';
+    const bySource = type !== 'slow' && type !== 'poison' && type !== 'seal' && type !== 'corrode';
     for (let i = 0; i < this.statusEffects.length; i++) {
       const e = this.statusEffects[i];
       if (e.type === type && (!bySource || e.sourceId === sourceId)) return i;
@@ -499,6 +499,18 @@ export class MovementComponent extends Component {
     return this.statusEffects.some(
       (effect) => effect.type === 'poison' && gameTimeMs - effect.startTime < effect.duration,
     );
+  }
+
+  /**
+   * Whether the enemy is corroded (corrode): asked by every hit on an enemy with an effect, so a plain loop
+   * instead of some() and its closure.
+   */
+  isCorroded(gameTimeMs: number): boolean {
+    if (!this.hasStatusEffects) return false;
+    for (const effect of this.statusEffects) {
+      if (effect.type === 'corrode' && gameTimeMs - effect.startTime < effect.duration) return true;
+    }
+    return false;
   }
 
   /** Whether enemy has an active burn effect. */

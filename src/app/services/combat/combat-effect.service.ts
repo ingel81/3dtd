@@ -99,7 +99,7 @@ export class CombatEffectService {
 
     // Initialize sub-services
     this.vfx.initialize(eventBus);
-    this.damageService.initialize(towerManager, enemyManager, eventBus);
+    this.damageService.initialize(towerManager, enemyManager, eventBus, this.statusEffectService);
 
     // Subscribe to projectile:hit events
     this.eventBusSubs.add(this.eventBus.on('projectile:hit', (event) => {
@@ -281,7 +281,7 @@ export class CombatEffectService {
 
   /**
    * What the path of the shot's tower adds to its direct hit (configs/tower-paths.config.ts): a burn of
-   * `burnShare` of the shot's damage, a seal of `sealMs`.
+   * `burnShare` of the shot's damage, a seal of `sealMs`, a corrosion of `corrodeMs`.
    */
   private applyPathHit(projectile: Projectile, enemy: Enemy): void {
     const path = getTowerPath(projectile.pathId);
@@ -291,6 +291,7 @@ export class CombatEffectService {
       this.statusEffectService.applyBurn(enemy, dps, GAME_BALANCE.effects.burn.duration, projectile.sourceTowerId);
     }
     if (path.sealMs) this.statusEffectService.applySeal(enemy, path.sealMs, projectile.sourceTowerId);
+    if (path.corrodeMs) this.statusEffectService.applyCorrode(enemy, path.corrodeMs, projectile.sourceTowerId);
   }
 
   /**

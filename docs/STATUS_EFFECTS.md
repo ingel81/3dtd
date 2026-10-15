@@ -17,6 +17,7 @@ Das Status-Effekt-System ermöglicht es Towern, temporäre Effekte auf Enemies a
 - **Freeze** (Stopp): Frostbombe (Fähigkeit, [ABILITIES.md](ABILITIES.md))
 - **Stun** (Stopp, elektrisch): EMP (Fähigkeit, [ABILITIES.md](ABILITIES.md))
 - **Seal** (hebt Phasing auf): Magic Tower mit Pfad Binding Sigil, das direkt getroffene Ziel
+- **Corrode** (eine Rüstungsklasse leichter): Poison Tower mit Pfad Caustic, das direkt getroffene Ziel
 
 Die Effekte der Tower-Pfade hängen am Pfad des Towers, den das Projektil beim Abschuss mitnimmt
 (`Projectile.pathId`, `CombatEffectService.applyPathHit`, [TOWER_CREATION.md](TOWER_CREATION.md#pfade-2026-10-03-todo-e101)).
@@ -327,6 +328,18 @@ Solange ein Siegel läuft, greift ein Slow auch an einem Typ mit Phasing (`immun
 eigene Dauer aus, auch wenn das Siegel vorher endet. Ein Siegel je Gegner wie beim Slow (nicht pro Quelle), ein neuer
 Treffer erneuert es; auf einen Typ ohne Phasing legt `applySeal` nichts. `value` wird nicht gelesen. Keine eigene
 Darstellung: sichtbar wird es am Frost des Slows.
+
+## Corrode (Rüstung zersetzt)
+
+**Status:** seit 2026-10-15. Quelle: der Poison Tower mit dem Pfad Caustic, je direktem Treffer 3 s (nicht der
+Splash).
+
+Solange es läuft, zählt jeder Treffer gegen die bessere von der eigenen Rüstung und der nächstleichteren
+(`LIGHTER_ARMOR`, `matrixMultiplier(damageType, armor, corroded)`): `DamageApplicationService` fragt
+`StatusEffectService.isCorroded` (eine Schleife ohne Closure, `MovementComponent.isCorroded`) bei jedem Treffer,
+auch bei DoT-Ticks und Beams. Ein Eintrag je Gegner, ein neuer Treffer erneuert ihn, kein Stapeln über eine Klasse.
+`applyCorrode` legt nichts auf Bosse und auf Rüstung ohne leichtere Klasse (Unarmored, Ethereal). Keine eigene
+Darstellung: das Ziel trägt ohnehin den Poison-Effekt, die Schadenszahlen zeigen die stärkere Wirkung.
 
 ---
 

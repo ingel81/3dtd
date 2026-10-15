@@ -105,6 +105,22 @@ describe('StatusEffectService', () => {
       expect(wraith.movement.statusEffects).toHaveLength(2);
     });
 
+    it('corrodes armor that has a lighter class, not a boss, and says so while it lasts (TODO E101)', () => {
+      service.setGameClockProvider(() => clock);
+      const withArmor = (armor: string, isBoss = false) => {
+        const e = makeEnemy({ isBoss } as never) as ReturnType<typeof makeEnemy> & { getEffectiveArmorType: () => string };
+        e.getEffectiveArmorType = () => armor;
+        return e;
+      };
+      const tank = withArmor('heavy');
+      service.applyCorrode(tank as never, 3000, 'poison-1');
+      expect(tank.movement.statusEffects.map((e) => e.type)).toEqual(['corrode']);
+      for (const spared of [withArmor('unarmored'), withArmor('ethereal'), withArmor('heavy', true)]) {
+        service.applyCorrode(spared as never, 3000, 'poison-1');
+        expect(spared.movement.statusEffects).toHaveLength(0);
+      }
+    });
+
     it('applySeal leaves a type without Phasing alone', () => {
       service.applySeal(enemy as never, 4000, 'magic-1');
       expect(enemy.movement.statusEffects).toHaveLength(0);

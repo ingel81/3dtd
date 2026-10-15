@@ -125,6 +125,10 @@ Kegel gleich: der Fire Tower gibt 20 % seines Schadens als Burn aus statt
 direkt. Details in [STATUS_EFFECTS.md](../STATUS_EFFECTS.md#burn-effect-dot),
 die Fähigkeiten in [ABILITIES.md](../ABILITIES.md).
 
+Gebaut seit 2026-10-15 mit den Tower-Pfaden: **Seal** (Magic, Binding Sigil: Phasing 4 s aufgehoben) und
+**Corrode** (Poison, Caustic: 3 s eine Rüstungsklasse leichter, je Schadensart das Bessere aus beiden Spalten,
+nicht stapelbar, nicht auf Bossen). Corrode ist die mildere Form des geplanten Armor Break (§12.1).
+
 Gebaut seit 2026-10-02: Regen (§2.5), den ein Burn anhält, und das Gegenmittel
 `immuneToSlow` (Phasing). Nicht gebaut: Armor Break, Mark, ein Stun als
 Tower-Effekt und `immuneToBurn`. Die Design-Werte stehen in §12.1.
@@ -259,6 +263,8 @@ in §12.3.
 - DoT-Spezialist mit Splash-Projektil.
 - Eigenständiger Schadenstyp (nicht Fire-Subtyp).
 - Poison-DoT und Burn-DoT sind getrennte Effekte, können gleichzeitig wirken.
+- Pfad Caustic (Forschung Caustic Compounds ab W11, Pfad 250, seit 2026-10-15): der direkte Treffer zersetzt 3 s,
+  das Ziel zählt für alle Tower eine Rüstungsklasse leichter, wo das mehr Schaden macht (§2.4, Corrode).
 
 ### 3.12 Lightning: Lightning
 - **Chain-Hitscan** (`attackType: 'chain'`): Primary-Treffer + 2 Jumps, je `chainFalloff 0.7` (100% → 70% → 49%), `jumpRange 15m` zwischen Chain-Links.
@@ -539,8 +545,8 @@ den Text aus `description`.
 
 ### 6.3 Tech-Tree (Forschungsbaum)
 
-Frei wählbar mit Voraussetzungen, 26 Knoten in vier Kategorien
-(`research-tree.config.ts`), zusammen 184.120 Credits (bis 2026-10-01 19.670).
+Frei wählbar mit Voraussetzungen, 27 Knoten in vier Kategorien
+(`research-tree.config.ts`), zusammen 186.120 Credits (bis 2026-10-01 19.670).
 
 **Tempo (seit 2026-10-02):** Eine Forschung kann eine Mindestwelle haben
 (`minWave`). Sie öffnet in der Bauphase vor dieser Welle (`researchWave`: die
@@ -593,6 +599,7 @@ Jede öffnet einen Tower-Pfad (`unlock-path`), den danach jeder Tower des Typs e
 | `incendiary-arrows` | Incendiary Arrows | 2.000 | 20 s | 10 | Fire Alchemy | Archer: Fire Arrows |
 | `multirole-warheads` | Multirole Warheads | 1.500 | 20 s | 9 | Rocketry | Rocket: Multirole |
 | `binding-sigils` | Binding Sigils | 2.500 | 25 s | 15 | Arcane Studies | Magic: Binding Sigil |
+| `caustic-compounds` | Caustic Compounds | 2.000 | 20 s | 11 | Toxic Compounds | Poison: Caustic |
 
 #### Upgrade-Tier-Freischaltungen
 

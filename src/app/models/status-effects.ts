@@ -8,8 +8,10 @@
  * tell the two apart.
  * seal: Phasing (immuneToSlow) is lifted for its duration, a slow takes hold
  * (the Magic tower's Binding Sigil path); `value` is unused.
+ * corrode: hits count against the better of its armor and the next lighter
+ * one (LIGHTER_ARMOR, the Poison tower's Caustic path); `value` is unused.
  */
-export type StatusEffectType = 'slow' | 'freeze' | 'stun' | 'burn' | 'poison' | 'seal';
+export type StatusEffectType = 'slow' | 'freeze' | 'stun' | 'burn' | 'poison' | 'seal' | 'corrode';
 
 /**
  * Represents an active status effect on an enemy

@@ -290,6 +290,22 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     effects: [{ kind: 'unlock-path', pathId: 'seal' }],
   },
 
+  // Out of the poison line, with the tank and bear waves (W9, W11): the
+  // armor of what the poison tower hits counts one class lighter
+  'caustic-compounds': {
+    id: 'caustic-compounds',
+    name: 'Caustic Compounds',
+    description: 'Poison towers can take the Caustic path: each hit makes its target count one armor class lighter',
+    category: 'global-perk',
+    branch: 'biology',
+    icon: 'flask',
+    cost: 2000,
+    duration: 20,
+    prerequisites: ['toxic-compounds'],
+    minWave: 11,
+    effects: [{ kind: 'unlock-path', pathId: 'corrode' }],
+  },
+
   'nuclear-strike': {
     id: 'nuclear-strike',
     name: 'Nuclear Strike',

@@ -8,6 +8,7 @@ Writes public/assets/models/towers/attachments/<name>.glb. Names:
     incendiary  Archer, Fire Arrows: an iron fire basket with embers on the platform, a quiver of pitch arrows
     multirole   Rocket, Multirole: a mast with a turning radar dish (`multirole_radar`), a crate of ground shells
     seal        Magic, Binding Sigil: two rings of glowing runes about the orb, turning (`seal_rings`)
+    corrode     Poison, Caustic: two vats of glowing acid at the plant's foot
 """
 import math
 import os
@@ -209,10 +210,44 @@ def build_seal():
     return [rings]
 
 
+# ---------------------------------------------------------------- corrode (poison)
+
+# Poison model units: the plant's head up to z 0.35, the rocks round its foot at z -0.23 to -0.27 about 0.33 out
+VATS = ((Vector((0.235, -0.235, -0.235)), 0.09), (Vector((-0.225, 0.225, -0.27)), 0.065))
+
+
+def build_corrode():
+    iron = material('acid_iron', (0.16, 0.17, 0.15), metallic=0.7, roughness=0.6)
+    acid = material('acid_fluid', (0.75, 1.0, 0.10), emission=(0.65, 1.0, 0.05), strength=4.0)
+    parts = []
+    # Two open vats of bubbling acid at the plant's foot, a ladle hung on the bigger one
+    for at, radius in VATS:
+        height = radius * 1.1
+        parts.append(cylinder('vat', radius * 0.85, height, at + Vector((0, 0, height / 2)), iron, radius2=radius,
+                              verts=14))
+        # The acid fills it to the brim (the cone's cap is its surface)
+        parts.append(cylinder('acid', radius * 0.96, 0.006, at + Vector((0, 0, height + 0.002)), acid, verts=14))
+        for k in range(3):
+            a = k * 2.1 + radius * 10
+            parts.append(sphere('bubble', radius * 0.16, at + Vector((math.cos(a) * radius * 0.45,
+                                                                         math.sin(a) * radius * 0.45,
+                                                                         height + 0.006)), acid))
+        for k in range(2):
+            a = k * math.pi + 0.6
+            parts.append(rod('band', at + Vector((math.cos(a) * radius, math.sin(a) * radius, height * 0.3)),
+                             at + Vector((math.cos(a) * radius, math.sin(a) * radius, height * 0.7)), 0.004, iron))
+    at, radius = VATS[0]
+    rim = at + Vector((0, 0, radius * 1.1))
+    parts.append(rod('ladle', rim + Vector((-radius * 0.5, 0, -0.01)), rim + Vector((radius * 0.4, 0.02, 0.09)), 0.005,
+                     iron))
+    return [join('corrode_vats', parts)]
+
+
 BUILDS = {
     'incendiary': ('archer.glb', build_incendiary, (1.1, -1.1, 0.9), (0.05, 0.05, 0.1)),
     'multirole': ('rocket.glb', build_multirole, (-2.6, -1.4, 1.8), (-0.2, 0.0, -0.2)),
     'seal': ('magic.glb', build_seal, (1.2, -1.2, 1.3), (0.0, 0.0, 0.55)),
+    'corrode': ('poison_tower.glb', build_corrode, (1.5, -1.5, 1.0), (0.0, 0.0, -0.1)),
 }
 
 

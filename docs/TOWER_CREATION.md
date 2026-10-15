@@ -372,6 +372,7 @@ Pfad ändert Schüsse in der Luft nicht. Die Verteidigungsanalyse des Wellenplan
 | Archer | Fire Arrows | Incendiary Arrows (W10, 2000, nach Fire Alchemy) | 250 | jeder direkte Treffer setzt einen Brand: 25 % des Pfeilschadens je Sekunde als Feuer, 3 s, ein Brand je Tower, der nächste Treffer erneuert ihn; ein brennender Gegner regeneriert nicht | Regen-Konter in der Ballistik-Linie, mehr Schaden gegen Weiches |
 | Rocket | Multirole | Multirole Warheads (W9, 1500, nach Rocketry) | 300 | schießt auch auf Boden, dort mit 50 % (Treffer und Splash); solange ein Flieger Kandidat ist, nimmt sie den, und von einem Bodenziel schaut sie beim periodischen Sichtcheck (bis 3/s) nach Fliegern | die Rocket steht in Bodenwellen nicht mehr still |
 | Magic | Binding Sigil | Binding Sigils (W15, 2500, nach Arcane Studies) | 250 | jeder direkte Treffer versiegelt sein Ziel 4 s (Status `seal`, einer je Gegner, ein neuer erneuert ihn): Phasing (`immuneToSlow`) ist aufgehoben, ein Slow greift; der Slow läuft danach seine eigene Dauer aus | Ice wirkt wieder auf Wraiths (ab W17) |
+| Poison | Caustic | Caustic Compounds (W11, 2000, nach Toxic Compounds) | 250 | jeder direkte Treffer (nicht der Splash) zersetzt sein Ziel 3 s (Status `corrode`, einer je Gegner, kein Stapeln): Treffer zählen gegen die bessere von seiner Rüstung und der nächstleichteren (`LIGHTER_ARMOR`: Fortified zu Heavy zu Light zu Unarmored); Unarmored, Ethereal und Bosse nie | Panzerknacker für alle Tower, nicht nur Siege |
 
 Bodenziele per Pfad: `canTargetGroundEffective` und `groundDamageShareOf` in `entities/tower-targeting.util.ts`
 gelten für Zielwahl (`Tower.canTargetGround`, `prefersAir`), Splash, Sicht (`TowerLos` fragt die Bodensicht an,
@@ -388,6 +389,16 @@ aller Tower, solange er hält. Die Magic (1,5 Schuss/s) versiegelt jedes Ziel, d
 stirbt oder die Reichweite verlässt; jedes Siegel läuft 4 s nach ihrem letzten Treffer weiter. Ohne Ice in
 derselben Strecke bringt der Pfad nichts. Der Wellenplaner kennt Slows nicht (wie bisher), das Siegel zählt dort
 nicht.
+
+Rechnung Caustic: „eine Klasse leichter“ nimmt je Schadensart das Bessere (`matrixMultiplier` in
+`configs/combat/damage-matrix.config.ts`), damit Siege gegen Heavy nicht von 1,75 auf 0,5 fällt. Gegen einen
+zersetzten Heavy (Tank, Mech, Bär): Pierce 0,35 zu 1,6, Physical 0,5 zu 1,0, Fire 0,6 zu 1,2, Ice 0,8 zu 1,3,
+Poison 0,4 zu 1,2, Lightning 1,2 zu 1,5; Siege und Magic bleiben. Gegen Fortified (Mammut, Golem): Lightning 0,3 zu
+1,2, Fire 0,25 zu 0,6, Ice 0,5 zu 0,8, Physical 0,3 zu 0,5, Siege 1,6 zu 1,75. Eine Gatling L0 (50 DPS) macht einem
+zersetzten Tank 80 statt 17,5, der Poison Tower selbst 15,6 statt 5,2 (5 + 8 DoT). Die Deckel: nur der direkte
+Treffer (1 Schuss/s, die Poison hält ihr Ziel), also etwa ein Ziel je Tower und die zuletzt getroffenen noch bis
+zu 3 s; eine Klasse, kein Stapeln; Bosse nie. Am stärksten mit gleicher Zielwahl (`first`): Poison und Gatling
+schießen auf den vordersten Gegner. Der Wellenplaner rechnet mit der reinen Matrix, die Zersetzung zählt dort nicht.
 
 Rechnung Multirole (Rocket L0 60 Siege alle 2 s, Splash 5 m bis 5 Ziele): am Boden 30 je Schuss, 15 DPS vor Splash,
 gegen Heavy 26 (Matrix 1,75). Eine Cannon L0 (150 Gold) bringt gegen Heavy 48 vor Splash (55 × 0,5/s × 1,75): die
