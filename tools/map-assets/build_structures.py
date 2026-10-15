@@ -368,19 +368,42 @@ CASTLE = 'castle_wall_slates'
 RUIN = 'mossy_stone_wall'
 
 
-def merlons(part, x0, x1, y, z, thick, width=0.9, gap=0.7, height=1.1):
-    """Battlements along X between x0 and x1 at depth y"""
+def merlons(part, x0, x1, y, z, thick, width=0.9, gap=0.7, height=1.1, cap=0.0, cap_part=None):
+    """Battlements along X between x0 and x1 at depth y; `cap`: a coping stone of that height, a little
+    wider, on top of each (the total height stays), in `cap_part` if given"""
     n = max(1, int((x1 - x0 + gap) // (width + gap)))
     span = n * width + (n - 1) * gap
     start = (x0 + x1) / 2 - span / 2 + width / 2
     for k in range(n):
-        box(part, start + k * (width + gap), y, z, width, thick, height)
+        box(part, start + k * (width + gap), y, z, width, thick, height - cap)
+        if cap:
+            box(cap_part or part, start + k * (width + gap), y, z + height - cap, width + 0.1, thick + 0.1, cap)
 
 
-def ring_merlons(part, r, z, thick, count, height=1.1):
+def ring_merlons(part, r, z, thick, count, height=1.1, cap=0.0, cap_part=None):
     for k in range(count):
         a = (k + 0.5) / count * math.tau
-        box(part, math.cos(a) * r, math.sin(a) * r, z, thick, math.tau * r / count * 0.55, height, a)
+        box(part, math.cos(a) * r, math.sin(a) * r, z, thick, math.tau * r / count * 0.55, height - cap, a)
+        if cap:
+            box(cap_part or part, math.cos(a) * r, math.sin(a) * r, z + height - cap, thick + 0.1, math.tau * r / count * 0.55 + 0.1, cap, a)
+
+
+def slit(stone, dark, centre, normal, z, w=0.18, h=1.3):
+    """An opening in a wall face (`centre` on the face, `normal` out): the dark slot in a surround of jamb
+    stones, a lintel and a sill standing proud of the face, so it reads as set into the wall. `stone` is best
+    a part without chamfer (small boxes, many of them)"""
+    n = Vector(normal).normalized()
+    u = Vector((-n.y, n.x, 0))
+    rot = math.atan2(u.y, u.x)
+    c = Vector(centre)
+    box(dark, c.x, c.y, z, w, 0.12, h, rot)
+    for s in (-1, 1):
+        p = c + u * s * (w / 2 + 0.11) + n * 0.04
+        box(stone, p.x, p.y, z - 0.05, 0.22, 0.16, h + 0.1, rot)
+    p = c + n * 0.05
+    box(stone, p.x, p.y, z + h, w + 0.55, 0.18, 0.22, rot)
+    p = c + n * 0.07
+    box(stone, p.x, p.y, z - 0.18, w + 0.45, 0.22, 0.16, rot)
 
 
 def arch_wall(part, x0, x1, y, thick, z0, top, cx, width, spring, steps=10):
@@ -571,6 +594,8 @@ def castle_wall(name, stone_asset=CASTLE, ruined=False, seed=0, length=8.0, heig
     stone = Part(pbr_material('castle-' + stone_asset, stone_asset), uv_metres=3.0)
     if not ruined:
         dark = Part(flat_material('slit', (0.03, 0.03, 0.035), 0.9))
+        # Coping and slit surrounds: the wall's stone without the chamfer (merged into one draw call when packed)
+        trim = Part(stone.material, uv_metres=3.0, bevel=0.0)
         box(stone, 0, 0, -0.5, length, thick, height + 0.5)
         # Battered foot, a string course under the parapet, corbels carrying the battlements
         hexa(stone, [(-length / 2, -thick / 2 - 0.7, -1.0), (length / 2, -thick / 2 - 0.7, -1.0), (length / 2, thick / 2 + 0.3, -1.0),
@@ -580,11 +605,11 @@ def castle_wall(name, stone_asset=CASTLE, ruined=False, seed=0, length=8.0, heig
         for k in range(int(length / 1.0)):
             box(stone, -length / 2 + 0.5 + k, -thick / 2 - 0.15, height - 0.6, 0.35, 0.3, 0.6)
         box(stone, 0, -thick / 2 + 0.2, height - 0.05, length, 0.8, 0.3)
-        merlons(stone, -length / 2, length / 2, -thick / 2 + 0.05, height + 0.25, 0.6)
+        merlons(stone, -length / 2, length / 2, -thick / 2 + 0.05, height + 0.25, 0.6, cap=0.12, cap_part=trim)
         box(stone, 0, thick / 2 - 0.25, height, length, 0.5, 0.7)
         for x in (-length / 4, length / 4):
-            box(dark, x, -thick / 2 - 0.02, 3.2, 0.18, 0.1, 1.3)
-        export(name, [stone.to_object(name), dark.to_object(name + '-slits')])
+            slit(trim, dark, (x, -thick / 2, 0), (0, -1, 0), 3.2)
+        export(name, [stone.to_object(name), trim.to_object(name + '-trim'), dark.to_object(name + '-slits')])
         return
     # Ruined: the masonry broken off along a jagged line through eight column tops, loose stones on the break,
     # a battered foot, rubble in front
@@ -618,6 +643,7 @@ def castle_wall_block(name, along=4.4, depth=4.4, height=8.6, stone_asset=CASTLE
     into it up to its middle, so the line tool can fit them on a 2 m grid; battlements on all four sides"""
     clear_scene()
     stone = Part(pbr_material('castle-' + stone_asset, stone_asset), uv_metres=3.0)
+    trim = Part(stone.material, uv_metres=3.0, bevel=0.0)
     dark = Part(flat_material('slit', (0.03, 0.03, 0.035), 0.9))
     ha, hd = along / 2, depth / 2
     box(stone, 0, 0, -0.5, along, depth, height + 0.5)
@@ -636,15 +662,16 @@ def castle_wall_block(name, along=4.4, depth=4.4, height=8.6, stone_asset=CASTLE
     # The parapet's top projects over the corbels; battlements round the edge
     box(stone, 0, 0, height - 0.05, along + 0.4, depth + 0.4, 0.3)
     for side in (-1, 1):
-        merlons(stone, -ha, ha, side * (hd - 0.1), height + 0.25, 0.6)
+        merlons(stone, -ha, ha, side * (hd - 0.1), height + 0.25, 0.6, cap=0.12, cap_part=trim)
         for k in range(max(1, int((depth - 1.2 + 0.7) // 1.6))):
             n = max(1, int((depth - 1.2 + 0.7) // 1.6))
             y = -hd + 0.6 + (k + 0.5) * (depth - 1.2) / n
-            box(stone, side * (ha - 0.1), y, height + 0.25, 0.6, 0.9, 1.1)
+            box(stone, side * (ha - 0.1), y, height + 0.25, 0.6, 0.9, 0.98)
+            box(trim, side * (ha - 0.1), y, height + 0.25 + 0.98, 0.7, 1.0, 0.12)
     for x in (-ha / 2, ha / 2) if along > 3.5 else (0.0,):
-        for y in (-hd - 0.02, hd + 0.02):
-            box(dark, x, y, 4.0, 0.18, 0.1, 1.3)
-    export(name, [stone.to_object(name), dark.to_object(name + '-slits')])
+        for side in (-1, 1):
+            slit(trim, dark, (x, side * hd, 0), (0, side, 0), 4.0)
+    export(name, [stone.to_object(name), trim.to_object(name + '-trim'), dark.to_object(name + '-slits')])
 
 
 def castle_tower(name, roof=False, stone_asset=CASTLE, radius=3.6, height=12.0, ruined=False):
@@ -693,12 +720,15 @@ def castle_tower(name, roof=False, stone_asset=CASTLE, radius=3.6, height=12.0, 
     for k in range(16):
         a = (k + 0.5) / 16 * math.tau
         box(stone, math.cos(a) * (radius + 0.2), math.sin(a) * (radius + 0.2), height - 1.2, 0.5, 0.35, 0.8, a)
-    ring_merlons(stone, radius + 0.25, height + 1.0, 0.6, 14)
+    trim = Part(stone.material, uv_metres=3.0, bevel=0.0)
+    ring_merlons(stone, radius + 0.25, height + 1.0, 0.6, 14, cap=0.12, cap_part=trim)
     for k in range(6):
         a = k / 6 * math.tau + 0.3
+        n = Vector((math.cos(a), math.sin(a), 0))
         for z in (3.0, 7.0):
-            box(dark, math.cos(a) * (radius + 0.02), math.sin(a) * (radius + 0.02), z, 0.25, 0.25, 1.1, a)
-    objects = [stone.to_object(name), dark.to_object(name + '-slits')]
+            # The shaft tapers from 1.02 radius at 2 m to the radius at the top
+            slit(trim, dark, n * radius * (1.02 - 0.02 * (z - 2.0) / (height - 2.0)), n, z, 0.2, 1.1)
+    objects = [stone.to_object(name), trim.to_object(name + '-trim'), dark.to_object(name + '-slits')]
     if roof:
         slates = Part(pbr_material('roof-roof_slates_02', 'roof_slates_02'))
         cone_roof(slates, 0, 0, height + 1.0, radius + 0.6, radius * 1.8, 16)
@@ -713,17 +743,19 @@ def castle_gate(name, stone_asset=CASTLE):
     wood = Part(pbr_material('planks-dark', 'dark_planks', (0.8, 0.7, 0.6)), uv_metres=1.5)
     iron = Part(flat_material('iron', (0.08, 0.08, 0.08), 0.5, 0.8))
     dark = Part(flat_material('slit', (0.03, 0.03, 0.035), 0.9))
+    trim = Part(stone.material, uv_metres=3.0, bevel=0.0)
     tw = 5.0
     for sx in (-1, 1):
         x = sx * (8 - tw / 2)
         box(stone, x, 0, -0.5, tw, 5.5, 11.5)
         for side in (-1, 1):
-            merlons(stone, x - tw / 2, x + tw / 2, side * (2.75 - 0.3), 11.0, 0.6)
-        box(dark, x, -2.78, 6.0, 0.3, 0.1, 1.2)
+            merlons(stone, x - tw / 2, x + tw / 2, side * (2.75 - 0.3), 11.0, 0.6, cap=0.12, cap_part=trim)
+        slit(trim, dark, (x, -2.75, 0), (0, -1, 0), 6.0, 0.3, 1.2)
     # Passage block between the towers with an arch 4 m wide, springing at 3.5 m
     arch_wall(stone, -3, 3, 0, 4.4, -0.5, 9.0, 0, 4.0, 3.5)
-    merlons(stone, -3, 3, -1.9, 9.0, 0.6)
+    merlons(stone, -3, 3, -1.9, 9.0, 0.6, cap=0.12, cap_part=trim)
     box(stone, 0, 1.9, 9.0, 6, 0.6, 0.8)
+    voussoirs(trim, 0, 0, 4.4, 3.5, 4.0, count=9, depth=0.5)
     # Portcullis half raised in front of the doors, corbels and a string course on the towers
     for k in range(7):
         x = -1.8 + k * 0.6
@@ -740,7 +772,7 @@ def castle_gate(name, stone_asset=CASTLE):
         box(wood, sx * 1.0, 0.6, 0, 2.0, 0.15, 5.4)
         for z in (1.0, 3.0, 4.6):
             box(iron, sx * 1.0, 0.5, z, 2.0, 0.06, 0.12)
-    export(name, [stone.to_object(name), wood.to_object(name + '-doors'), iron.to_object(name + '-iron'),
+    export(name, [stone.to_object(name), trim.to_object(name + '-trim'), wood.to_object(name + '-doors'), iron.to_object(name + '-iron'),
                   dark.to_object(name + '-windows')])
 
 
@@ -750,6 +782,7 @@ def castle_keep(name, stone_asset=CASTLE):
     stone = Part(pbr_material('castle-' + stone_asset, stone_asset), uv_metres=3.0)
     slates = Part(pbr_material('roof-roof_slates_02', 'roof_slates_02'))
     dark = Part(flat_material('window', (0.04, 0.045, 0.05), 0.3))
+    trim = Part(stone.material, uv_metres=3.0, bevel=0.0)
     s, h = 12.0, 17.0
     box(stone, 0, 0, -0.5, s, s, h + 0.5)
     hexa(stone, [(-s / 2 - 0.9, -s / 2 - 0.9, -1.0), (s / 2 + 0.9, -s / 2 - 0.9, -1.0), (s / 2 + 0.9, s / 2 + 0.9, -1.0), (-s / 2 - 0.9, s / 2 + 0.9, -1.0)],
@@ -761,13 +794,14 @@ def castle_keep(name, stone_asset=CASTLE):
         for x, y in ((t, -s / 2 - 0.15), (t, s / 2 + 0.15), (-s / 2 - 0.15, t), (s / 2 + 0.15, t)):
             box(stone, x, y, h - 0.7, 0.35, 0.35, 0.6)
     for side in (-1, 1):
-        merlons(stone, -s / 2 + 1.5, s / 2 - 1.5, side * (s / 2 - 0.3), h, 0.6)
+        merlons(stone, -s / 2 + 1.5, s / 2 - 1.5, side * (s / 2 - 0.3), h, 0.6, cap=0.12, cap_part=trim)
     # Battlements on the east and west sides: rotated copies
     for side in (-1, 1):
         n = 5
         for k in range(n):
             y = -s / 2 + 1.5 + (k + 0.5) * (s - 3) / n
-            box(stone, side * (s / 2 - 0.3), y, h, 0.6, 0.9, 1.1)
+            box(stone, side * (s / 2 - 0.3), y, h, 0.6, 0.9, 0.98)
+            box(trim, side * (s / 2 - 0.3), y, h + 0.98, 0.7, 1.0, 0.12)
     for cx in (-1, 1):
         for cy in (-1, 1):
             x, y = cx * (s / 2 - 0.4), cy * (s / 2 - 0.4)
@@ -775,12 +809,12 @@ def castle_keep(name, stone_asset=CASTLE):
             cone_roof(slates, x, y, h + 2.0, 1.6, 3.2, 12)
     for z in (5.0, 10.0, 14.0):
         for k in (-1, 0, 1):
-            box(dark, k * 3.5, -s / 2 - 0.02, z, 0.8 if z > 6 else 0.3, 0.1, 1.6 if z > 6 else 1.2)
-            box(dark, k * 3.5, s / 2 + 0.02, z, 0.8 if z > 6 else 0.3, 0.1, 1.6 if z > 6 else 1.2)
-            box(dark, -s / 2 - 0.02, k * 3.5, z, 0.1, 0.8 if z > 6 else 0.3, 1.6 if z > 6 else 1.2)
-            box(dark, s / 2 + 0.02, k * 3.5, z, 0.1, 0.8 if z > 6 else 0.3, 1.6 if z > 6 else 1.2)
+            w, hh = (0.8, 1.6) if z > 6 else (0.3, 1.2)
+            for n in ((0, -1, 0), (0, 1, 0), (-1, 0, 0), (1, 0, 0)):
+                c = Vector(n) * s / 2 + Vector((-n[1], n[0], 0)) * k * 3.5
+                slit(trim, dark, c, n, z, w, hh)
     box(dark, 0, -s / 2 - 0.02, 0, 2.2, 0.1, 3.2)
-    export(name, [stone.to_object(name), slates.to_object(name + '-roofs'), dark.to_object(name + '-windows')])
+    export(name, [stone.to_object(name), trim.to_object(name + '-trim'), slates.to_object(name + '-roofs'), dark.to_object(name + '-windows')])
 
 
 def castle_stairs(name, stone_asset=CASTLE):
