@@ -183,10 +183,18 @@ export class TowerLifecycle {
     if (!this.research(tower.ownerId).isPathUnlocked(path.id)) return false;
     if (!this.creditsLedger.spend(path.cost, 'upgrade', this.actingPlayer())) return false;
     const hadGround = tower.canTargetGround;
+    const before = tower.typeConfig;
+    const range = tower.combat.range;
     tower.pathId = path.id;
     this.sink.towers.setPath(tower.id, path.id);
     // A path that gives an air tower the ground needs its ground sight (as the air retrofit its air sight)
     if (!hadGround && tower.canTargetGround) this.los.recompute(tower, 'retrofit');
+    // A swap with another range sees as far as a range upgrade would (its muzzle stays where it was)
+    if (tower.combat.range !== range) this.recomputeRangeAfterUpgrade(tower);
+    // A tower still on its type's targeting takes the swap's
+    if (tower.targetingStrategy === (before.defaultTargeting ?? 'closest')) {
+      tower.targetingStrategy = tower.typeConfig.defaultTargeting ?? 'closest';
+    }
     // As an upgrade: the run log books it as the tower's, its sound plays, the stats panel follows
     this.eventBus.emit({ type: 'tower:upgraded', tower, level: 1, cost: path.cost, upgradeId: `path:${path.id}` });
     return true;

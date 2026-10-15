@@ -35,7 +35,7 @@ import type { TowerAim } from '../../entities/tower-aim';
 import { TowerMuzzleFlash } from './tower-muzzle-flash';
 import { setTowerGreyedOut } from './tower-hold-fire';
 import { TowerBuild } from './tower-scaffold';
-import { getTowerPath } from '../../configs/tower-paths.config';
+import { getTowerPath, towerConfigOf } from '../../configs/tower-paths.config';
 
 /**
  * Tower render data - stored per tower
@@ -307,7 +307,8 @@ export class ThreeTowerRenderer {
     customRotation: number,
     aim: TowerAim,
   ): Promise<TowerRenderData | null> {
-    const config = TOWER_TYPES[typeId];
+    // With a path that swaps the model, the swapped one (setPath can come before the tower's model)
+    const config = TOWER_TYPES[typeId] ? towerConfigOf(typeId, this.pathIds.get(id)) : undefined;
     if (!config) {
       console.error(`[ThreeTowerRenderer] Unknown tower type: ${typeId}`);
       return null;
@@ -529,6 +530,11 @@ export class ThreeTowerRenderer {
   private async applyPath(data: TowerRenderData, pathId: string): Promise<void> {
     const path = getTowerPath(pathId);
     if (!path) return;
+    // A path that swaps the model builds the tower again on it; create() comes back here for the rest
+    if (towerConfigOf(data.typeConfig.id, pathId) !== data.typeConfig) {
+      await this.rebuild(data);
+      return;
+    }
     if ((path.detectionRadius ?? 0) > 0 && !this.detectionRings.has(data.id)) {
       const ring = this.detectionRingKit.create();
       const foot = this.sync.geoToLocal(data.lat, data.lon, data.height);
@@ -554,6 +560,32 @@ export class ThreeTowerRenderer {
     data.mesh.add(model);
     const sweep = attachment.sweepNode ? model.getObjectByName(attachment.sweepNode) : undefined;
     if (sweep) this.sweepNodes.set(data.id, sweep);
+  }
+
+  /**
+   * Tower `data` again from its config with its path (a swap): the old model goes, the new one comes on the same
+   * spot with the same aim, selection, hold fire, range and rings. A scaffold still coming down goes with it.
+   */
+  private async rebuild(data: TowerRenderData): Promise<void> {
+    // The old model stands until the new one has loaded
+    const config = towerConfigOf(data.typeConfig.id, this.pathIds.get(data.id));
+    try {
+      await this.assetManager.loadModel(config.modelUrl);
+      this.loadedModelUrls.add(config.modelUrl);
+    } catch (err) {
+      console.error(`[ThreeTowerRenderer] Failed to load model: ${config.modelUrl}`, err);
+      return;
+    }
+    if (this.towers.get(data.id) !== data) return;
+    this.builds.get(data.id)?.dispose();
+    this.builds.delete(data.id);
+    this.sweepNodes.delete(data.id);
+    this.disposeRender(data);
+    this.towers.delete(data.id);
+    const next = await this.create(data.id, data.typeConfig.id, data.lat, data.lon, data.height, data.customRotation, data.aim);
+    if (!next) return;
+    if (data.isSelected) this.select(data.id);
+    else if (this.hoveredId === data.id) this.setRangeVisible(next, true);
   }
 
   /** The builds of one render frame, `gameDeltaMs` of game time (0 while paused) */
@@ -828,7 +860,13 @@ export class ThreeTowerRenderer {
     this.ownerColors.delete(id);
     const data = this.towers.get(id);
     if (!data) return;
+    this.disposeRender(data);
+    if (this.hoveredId === id) this.hoveredId = null;
+    this.towers.delete(id);
+  }
 
+  /** Take the model, rings and markers of `data` out of the scene; the tower's entry and maps are the caller's */
+  private disposeRender(data: TowerRenderData): void {
     // Remove mesh
     data.sawArms?.dispose();
     data.stream?.dispose();
@@ -874,9 +912,6 @@ export class ThreeTowerRenderer {
     }
     data.animations.clear();
     data.currentAction = null;
-
-    if (this.hoveredId === id) this.hoveredId = null;
-    this.towers.delete(id);
   }
 
   /**
