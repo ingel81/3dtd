@@ -39,6 +39,7 @@ describe('OSM furniture', () => {
     expect(pointAsset({ power: 'tower' })).toBe('power-pylon');
     expect(pointAsset({ man_made: 'tower', 'tower:type': 'communication' })).toBe('antenna-mast');
     expect(pointAsset({ man_made: 'tower', 'tower:type': 'bell_tower' })).toBeNull();
+    expect(pointAsset({ railway: 'buffer_stop' })).toBe('buffer-stop');
   });
 
   it('puts fence pieces along the line, turned across it, none on the road', () => {
@@ -92,6 +93,25 @@ describe('OSM furniture', () => {
     // On the right of the eastward way, beside the road's edge
     for (const o of lamps) expect(o.y).toBeCloseTo(-3.9, 3);
     expect(validateMap(doc).map((i) => i.code)).not.toContain('object-on-path');
+  });
+
+  it('lays tracks with overhead line masts on their left, none on a neighbouring track, and a buffer stop at the end of a track', () => {
+    // Two electrified tracks running east north of the road, 4.5 m apart; the first ends in a buffer stop
+    const near = way(1, { railway: 'rail', electrified: 'contact_line' }, [{ x: -80, y: 30 }, { x: 40, y: 30 }]);
+    const far = way(2, { railway: 'rail', electrified: 'contact_line' }, [{ x: -80, y: 34.5 }, { x: 40, y: 34.5 }]);
+    const stop: OsmPoint = { id: near.nodes[1], tags: { railway: 'buffer_stop' }, x: 40, y: 30 };
+    const { doc, features, water } = world([near, far], [stop]);
+    placeFurniture(doc, features, water, { costOf });
+    const track = doc.objects.filter((o) => o.asset === 'rail-track');
+    expect(track.length).toBe(24);
+    for (const o of track) expect(Math.abs(Math.sin(o.rotation))).toBeLessThan(1e-3);
+    // The far track's masts stand 3.2 m north of it; the near track's would stand on the far one and are left out
+    const masts = doc.objects.filter((o) => o.asset === 'catenary-mast');
+    expect(masts.length).toBeGreaterThan(0);
+    for (const o of masts) expect(o.y).toBeCloseTo(37.7, 3);
+    // The stop's rails (model +X) run east, the track's way into it
+    const buffer = doc.objects.find((o) => o.asset === 'buffer-stop')!;
+    expect(Math.cos(buffer.rotation)).toBeCloseTo(1, 3);
   });
 
   it('holds the furniture to its budget, the lit-road lamps going first, the same every time', () => {

@@ -809,8 +809,11 @@ Fall in `import-osm.spec.ts` auf der eingefrorenen Probe (Ausstattung im Anteil,
   „Leitplanke“ fehlt. Bordsteine, Tore, Schranken, Kabelsperren bleiben weg.
 - **Gleise:** `railway=rail`, `light_rail`, `tram`, `narrow_gauge`, `subway`, `funicular` ohne Tunnel und Brücke
   (Brücken haben kein Deck für Gleise): `rail-track` alle 10 m. Straßenbahn in der Straße fällt mit der Straßenregel
-  weg, Bahnübergänge haben eine Lücke. Oberleitungsmasten, Prellböcke (`railway=buffer_stop` fragt die Abfrage nicht
-  ab) und Bahnsteige sind nicht gebaut.
+  weg, Bahnübergänge haben eine Lücke. An Gleisen mit `electrified=contact_line` (Bahn, Stadtbahn, Schmalspur;
+  Straßenbahnen hängen ihre Leitung an Querdrähte) alle 50 m ein `catenary-mast` links, 3,2 m von der Gleismitte, der
+  Ausleger über dem Gleis; keiner näher als 2,5 m an einem anderen Gleis (Bahnhöfe, Gleisfelder; Stuttgart: 116
+  Masten). Prellböcke (`railway=buffer_stop`, seit O5 in der Abfrage; gespeicherte Rahmen haben sie erst nach einem
+  neuen Abruf) am Gleisende, die Schienen des Modells in Fahrtrichtung. Bahnsteige sind nicht gebaut.
 - **Punkte:** Bank, Abfallkorb, Bushaltestelle, Hydrant, Poller (`bollards`), Brunnen (`amenity=fountain`),
   Antennenmast (`man_made=mast`, Turm `tower:type=communication`), Aussichtsturm (`watchtower`), Strommast
   (`power=tower`: `power-pylon`, `power=pole`: `power-pole`, gedreht in Richtung der Leitung). Gedreht zur nächsten
@@ -865,7 +868,7 @@ Die Ausstattung kostet rund 1 bis 3 % Draw Calls und 3 bis 5 % Dreiecke; die Bil
 
 ### Offen nach O5
 
-- **Fehlende Modelle:** Leitplanke, Stromleitung zwischen den Masten, Bahnsteigkante, Oberleitung, Schaltkasten
+- **Fehlende Modelle:** Leitplanke, Stromleitung zwischen den Masten, Bahnsteigkante, Fahrdraht zwischen den Masten, Schaltkasten
   (`man_made=street_cabinet`, Miltenberg 154), Fahnenmast.
 - **Gleise am Hang:** die Stücke folgen dem Boden ohne Einebnen; auf einem steilen Bahndamm kippen sie nicht mit.
 

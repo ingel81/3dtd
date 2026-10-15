@@ -24,6 +24,7 @@ const NODE_FILTERS = [
   '["amenity"~"^(bench|waste_basket|fountain)$"]',
   '["emergency"="fire_hydrant"]',
   '["power"~"^(tower|pole)$"]',
+  '["railway"="buffer_stop"]',
 ] as const;
 
 /**

@@ -1,7 +1,8 @@
 /**
  * The furniture of an OSM world (docs/OSM_WORLD_PLAN.md, phase O5,
  * Zuordnung: Ausstattung): fences, walls, hedges, retaining and city walls
- * and concrete road barriers along their lines, railway tracks, street
+ * and concrete road barriers along their lines, railway tracks with the
+ * masts of their overhead line, buffer stops at their ends, street
  * lamps (the mapped ones, and along lit roads where none are mapped), power
  * pylons and poles, benches, bins, bus stops, hydrants, bollards, fountains
  * and masts from their nodes.
@@ -18,9 +19,9 @@ import { resample } from '../../../editor/ops/landscape/lines';
 import { ObjectIds, objectsAlong, wallAlong, WALL_KITS, DEFAULT_LINE } from '../../../editor/ops/object-ops';
 import { EdgeIndex } from '../../../editor/ops/path-graph';
 import { hashCell } from '../../../editor/ops/landscape/landscape-noise';
-import type { CustomMapDocument, MapObject, MapPoint } from '../../custom-map/map-document';
+import type { CustomMapDocument, MapObject, MapPathEdge, MapPathNode, MapPoint } from '../../custom-map/map-document';
 import { SCENE_BUDGET } from '../../custom-map/render/objects/scene-cost';
-import { runs, type OsmFeatures } from '../osm-parse';
+import { runs, type OsmFeatures, type OsmWay } from '../osm-parse';
 import { fillRings, sampleGrid } from './raster';
 import type { WaterResult } from './water';
 
@@ -45,6 +46,7 @@ const PIECES = {
   hedge: { asset: 'hedge-long', spacing: 6 },
   barrier: { asset: 'road-barrier', spacing: 1.4 },
   rail: { asset: 'rail-track', spacing: 10 },
+  catenary: { asset: 'catenary-mast', spacing: 50 },
 } satisfies Record<string, LinePiece>;
 
 /** Every asset the furniture may place, for the catalogue's costs (assetCosts) */
@@ -65,6 +67,7 @@ export const FURNITURE_ASSETS: readonly string[] = [
   'fountain',
   'antenna-mast',
   'watchtower',
+  'buffer-stop',
 ];
 
 /** The model of a `barrier` line, or null for one the map leaves out (kerbs, gates, guard rails: no model of a metal rail yet) */
@@ -92,6 +95,12 @@ export function barrierPiece(tags: Readonly<Record<string, string>>): LinePiece 
 
 /** Railway kinds that get a track (no disused, abandoned or platform lines) */
 const TRACKS = new Set(['rail', 'light_rail', 'tram', 'narrow_gauge', 'subway', 'funicular']);
+/** Railway kinds whose overhead line (`electrified=contact_line`) gets masts beside the track (trams hang theirs on span wires) */
+const MASTED = new Set(['rail', 'light_rail', 'narrow_gauge']);
+/** Metres from the track's middle to a mast (the model's arm reaches 3.2 m back over the track) */
+const MAST_OFFSET = 3.2;
+/** A mast keeps this far from every other track's middle (stations and yards) */
+const MAST_CLEAR = 2.5;
 
 /** The model of a tagged point, or null */
 export function pointAsset(tags: Readonly<Record<string, string>>): string | null {
@@ -99,6 +108,7 @@ export function pointAsset(tags: Readonly<Record<string, string>>): string | nul
   if (tags['highway'] === 'bus_stop') return 'bus-stop';
   if (tags['power'] === 'tower') return 'power-pylon';
   if (tags['power'] === 'pole') return 'power-pole';
+  if (tags['railway'] === 'buffer_stop') return 'buffer-stop';
   if (tags['emergency'] === 'fire_hydrant') return 'hydrant';
   if (tags['barrier'] === 'bollard') return 'bollards';
   switch (tags['amenity']) {
@@ -213,12 +223,14 @@ export function placeFurniture(doc: CustomMapDocument, features: OsmFeatures, wa
     }
   };
 
-  // Lines: barriers, city walls, tracks
+  // Lines: barriers, city walls, tracks with their overhead line masts
   const across = { ...DEFAULT_LINE, turn: 'across' as const };
+  const isTrack = (w: OsmWay) => TRACKS.has(w.tags['railway'] ?? '') && !w.tags['tunnel'] && !w.tags['bridge'];
+  const tracks = trackIndex(features.ways.filter(isTrack));
   for (const w of features.ways) {
     const piece = barrierPiece(w.tags);
     const cityWall = w.tags['barrier'] === 'city_wall';
-    const track = TRACKS.has(w.tags['railway'] ?? '') && !w.tags['tunnel'] && !w.tags['bridge'];
+    const track = isTrack(w);
     if (!piece && !cityWall && !track) continue;
     // The pieces of one way move together in the editor
     const group = `osm-w${w.id}`;
@@ -229,6 +241,11 @@ export function placeFurniture(doc: CustomMapDocument, features: OsmFeatures, wa
         keep(wallAlong(raw, WALL_KITS[0], { corners: 'blocks', front: 'left' }, ids), 'city wall', 0, group, false);
       } else if (track) {
         keep(objectsAlong(raw, PIECES.rail.asset, { ...across, spacing: PIECES.rail.spacing }, ids, still), 'track', 1, group);
+        if (w.tags['electrified'] === 'contact_line' && MASTED.has(w.tags['railway'])) {
+          // On the left, the arm (model back) over the track; none on a neighbouring track
+          const masts = objectsAlong(raw, PIECES.catenary.asset, { ...across, spacing: PIECES.catenary.spacing, offset: MAST_OFFSET }, ids, still);
+          keep(masts.filter((m) => !tracks.nearest(m, MAST_CLEAR)), 'catenary', 1, group);
+        }
       } else if (piece) {
         // A retaining wall's low side is on the right of its way (OSM): its face turns there
         const line = piece === PIECES.retaining ? [...raw].reverse() : raw;
@@ -242,6 +259,7 @@ export function placeFurniture(doc: CustomMapDocument, features: OsmFeatures, wa
   const lamps: MapPoint[] = [];
   const lamp = doc.environment.biome === 'city' ? STREET_LAMPS.city : STREET_LAMPS.town;
   let powerLines: Map<number, number> | undefined;
+  let trackEnds: Map<number, number> | undefined;
   const facing = (p: MapPoint, toward: MapPoint) => wrap(Math.atan2(-(toward.x - p.x), toward.y - p.y));
   for (const pt of features.points) {
     const asset = pointAsset(pt.tags);
@@ -263,6 +281,7 @@ export function placeFurniture(doc: CustomMapDocument, features: OsmFeatures, wa
       rotation = facing(p, hit.point);
     }
     if (asset === 'power-pylon' || asset === 'power-pole') rotation = (powerLines ??= powerLineTurns(features)).get(pt.id) ?? rotation;
+    if (asset === 'buffer-stop') rotation = (trackEnds ??= trackEndTurns(features.ways.filter(isTrack))).get(pt.id) ?? rotation;
     if (asset === LAMP) lamps.push(p);
     keep([{ id: '', asset: asset === LAMP ? lamp : asset, x: round2(p.x), y: round2(p.y), z: 0, rotation: round3(rotation), scale: 1 }], asset === LAMP ? 'lamps' : asset, 2);
   }
@@ -336,6 +355,37 @@ function powerLineTurns(features: OsmFeatures): Map<number, number> {
       if (!a || !b || (a.x === b.x && a.y === b.y) || out.has(node)) return;
       out.set(node, wrap(Math.atan2(-(b.x - a.x), b.y - a.y)));
     });
+  }
+  return out;
+}
+
+/** The tracks' lines as a path graph, for the nearest track to a point */
+function trackIndex(ways: readonly OsmWay[]): EdgeIndex {
+  const nodes: MapPathNode[] = [];
+  const edges: MapPathEdge[] = [];
+  for (const w of ways) {
+    for (const line of runs(w.points)) {
+      if (line.length < 2) continue;
+      const a = { id: `t${nodes.length}`, ...line[0] };
+      const b = { id: `t${nodes.length + 1}`, ...line[line.length - 1] };
+      nodes.push(a, b);
+      edges.push({ id: `t${edges.length}`, a: a.id, b: b.id, width: 1.5, kind: 'path', via: line.slice(1, -1) });
+    }
+  }
+  return new EdgeIndex({ nodes, edges });
+}
+
+/** The turn of a buffer stop at a track's end: its model's rails (+X) run on in the track's direction into it */
+function trackEndTurns(ways: readonly OsmWay[]): Map<number, number> {
+  const out = new Map<number, number>();
+  for (const w of ways) {
+    const last = w.nodes.length - 1;
+    for (const [end, prev] of [[0, 1], [last, last - 1]] as const) {
+      const a = w.points[prev];
+      const b = w.points[end];
+      if (!a || !b || last < 1) continue;
+      out.set(w.nodes[end], wrap(Math.atan2(-(b.x - a.x), b.y - a.y) + Math.PI / 2));
+    }
   }
   return out;
 }
