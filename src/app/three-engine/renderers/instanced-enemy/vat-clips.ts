@@ -15,21 +15,29 @@ export const DEFAULT_BAKE_FPS = 30;
 /** One clip to bake. */
 export interface VATClip {
   name: string;
-  /** Clip time the game can show (s); the bake stops there. Infinity for looping clips. */
+  /** Clip time the game can show (s), counted from `from`; the bake stops there. Infinity for looping clips. */
   seconds: number;
+  /** Clip time the bake starts at (s), EnemyTypeConfig.clipStart; 0 when missing */
+  from?: number;
 }
 
 type VATClipConfig = Pick<
   EnemyTypeConfig,
-  'walkAnimation' | 'runAnimation' | 'deathAnimation' | 'deathAnimations' | 'animationSpeed' | 'deathDuration'
+  'walkAnimation' | 'runAnimation' | 'deathAnimation' | 'deathAnimations' | 'animationSpeed' | 'deathAnimationSpeed' | 'deathDuration' | 'clipStart'
 >;
 
+/** Playback speed of a type's death clips (EnemyTypeConfig.deathAnimationSpeed) */
+export function deathPlaybackSpeed(config: Pick<EnemyTypeConfig, 'animationSpeed' | 'deathAnimationSpeed'>): number {
+  return config.deathAnimationSpeed ?? config.animationSpeed ?? 1;
+}
+
 /**
- * Clip time a death animation is on screen. It plays at animationSpeed until
- * EnemyManager removes the enemy, enemyDeathDuration() after the kill.
+ * Clip time a death animation is on screen, from where it starts. It plays at
+ * deathPlaybackSpeed() until EnemyManager removes the enemy,
+ * enemyDeathDuration() after the kill.
  */
-export function vatDeathSeconds(config: Pick<EnemyTypeConfig, 'animationSpeed' | 'deathDuration'>): number {
-  return (enemyDeathDuration(config) / 1000) * (config.animationSpeed ?? 1);
+export function vatDeathSeconds(config: Pick<EnemyTypeConfig, 'animationSpeed' | 'deathAnimationSpeed' | 'deathDuration'>): number {
+  return (enemyDeathDuration(config) / 1000) * deathPlaybackSpeed(config);
 }
 
 /**
@@ -42,8 +50,9 @@ export function vatClips(config: VATClipConfig): VATClip[] {
   const add = (name: string | undefined, seconds: number): void => {
     if (!name) return;
     const known = clips.find((c) => c.name === name);
+    const from = config.clipStart?.[name];
     if (known) known.seconds = Math.max(known.seconds, seconds);
-    else clips.push({ name, seconds });
+    else clips.push(from ? { name, seconds, from } : { name, seconds });
   };
   add(config.walkAnimation, Infinity);
   add(config.runAnimation, Infinity);
@@ -70,6 +79,17 @@ const FRAME_EPSILON = 1e-3;
 export function vatFrameCount(duration: number, fps: number, seconds = Infinity): number {
   if (seconds === Infinity) return Math.max(1, Math.ceil(duration * fps - FRAME_EPSILON));
   return Math.floor(Math.min(seconds, duration) * fps + FRAME_EPSILON) + 1;
+}
+
+/** Where the bake of a clip starts, within the clip */
+export function clipFrom(duration: number, clip: Pick<VATClip, 'from'>): number {
+  return Math.min(Math.max(clip.from ?? 0, 0), duration);
+}
+
+/** VAT frames of a clip from its start (VATClip.from) on, as vatFrameCount counts them */
+export function vatClipFrameCount(duration: number, fps: number, clip: VATClip): number {
+  const from = clipFrom(duration, clip);
+  return vatFrameCount(duration - from, fps, clip.seconds);
 }
 
 /** The clips of a model that get baked and their frames in the VAT (vatClipRegistry). */
@@ -100,14 +120,14 @@ export function vatClipRegistry(animations: AnimationClip[], clips: VATClip[], f
   let totalFrames = 0;
   const animEntries = new Map<string, VATAnimationEntry>();
 
-  for (const { name, seconds } of validClips) {
-    const clip = clipMap.get(name)!;
-    const frameCount = vatFrameCount(clip.duration, fps, seconds);
-    animEntries.set(name, {
-      name,
+  for (const vatClip of validClips) {
+    const clip = clipMap.get(vatClip.name)!;
+    const frameCount = vatClipFrameCount(clip.duration, fps, vatClip);
+    animEntries.set(vatClip.name, {
+      name: vatClip.name,
       frameStart: totalFrames,
       frameCount,
-      duration: clip.duration,
+      duration: clip.duration - clipFrom(clip.duration, vatClip),
       totalTime: frameCount / fps,
     });
     totalFrames += frameCount;

@@ -126,6 +126,25 @@ export interface EnemyTypeConfig {
    */
   deathDuration?: number;
   animationSpeed?: number;
+  /**
+   * Playback speed of the death clips; animationSpeed when missing. The walk's
+   * speed matches the clip's stride to the ground, a death at that speed can
+   * be over in a blink (Zombie: 4.11, a 3 s fall in 0.7 s).
+   */
+  deathAnimationSpeed?: number;
+  /**
+   * Clip time in seconds a clip starts at, by clip name: the bake skips what
+   * lies before (a death clip that first stands still, dying_backwards).
+   */
+  clipStart?: Readonly<Record<string, number>>;
+  /**
+   * Bake every frame with its lowest vertex at the ground (y 0): the stance
+   * foot on the ground while walking, the body on it while falling and
+   * lying. For ground units whose clips float or sink (both zombies: the
+   * walks 0.2 to 0.3 m over the ground, the deaths ending 0.1 to 0.2 m in it).
+   * Not for flyers or anything that leaves the ground on purpose.
+   */
+  groundedBake?: boolean;
   animationVariation?: boolean; // Switches between walk and run animation
   runSpeedMultiplier?: number; // Speed multiplier for run animation (default: 1.0)
   /**
@@ -474,18 +493,25 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     hitSound: 'flesh',
     modelUrl: 'assets/models/enemies/zombie.glb',
     scale: 0.984,
-    modelRangeY: { min: -0.2759, max: 4.2728 },
+    modelRangeY: { min: 0, max: 4.3972 },
     armorType: 'unarmored',
     baseHp: 80,
     baseSpeed: 5,
     hasAnimations: true,
     walkAnimation: 'Armature|Walk',
     deathAnimation: 'Armature|Die',
+    // Die2 falls to its knees, then forward: a second way to go (E185)
+    deathAnimations: ['Armature|Die', 'Armature|Die2'],
     animationSpeed: 4.11,
+    // At the walk's 4.11 the 3 s fall was over in 0.7 s; at 1.5 both deaths lie still before the 2 s removal
+    deathAnimationSpeed: 1.5,
+    // The walk's soles float 0.06 to 0.21 model units over the origin for most of the loop, Die ends 0.2 under it
+    groundedBake: true,
     movingSound: 'assets/sounds/enemies/zombie/ambient.mp3',
     movingSoundVolume: 0.4,
     movingSoundRefDistance: 25, // Zombies are quieter from distance
-    heightOffset: 0.5,
+    // On the ground (E185): 0.5 m, a value from before the VAT bake, lifted the feet off it
+    heightOffset: 0,
     healthBarOffset: 5.5,
     canBleed: true, // Zombies bleed
     headingOffset: -0.349, // -20° rotation offset
@@ -502,7 +528,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     hitSound: 'flesh',
     modelUrl: 'assets/models/enemies/zombie_v2.glb',
     scale: 2.432,
-    modelRangeY: { min: -0.0828, max: 1.7475 },
+    modelRangeY: { min: 0, max: 1.6758 },
     armorType: 'unarmored',
     baseHp: 80,
     baseSpeed: 3,
@@ -515,7 +541,13 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     // whole clip plays, the other two end or lie still before (read from the
     // clips, tools/model-budget/death-rest.spec.ts).
     deathDuration: 3000,
-    animationSpeed: 1,
+    // Unsteady_Walk strides 0.72 model units a second (x2.432 = 1.74 m/s) at 1; at 3 m/s its feet slid 72 %
+    animationSpeed: 1.72,
+    // The deaths keep their own pace, the timings above are at 1
+    deathAnimationSpeed: 1,
+    // dying_backwards stands still for its first 0.35 s; the walk floats 0.19 to 0.31 m, the deaths end in the ground
+    clipStart: { dying_backwards: 0.35 },
+    groundedBake: true,
     movingSound: 'assets/sounds/enemies/zombie/ambient.mp3',
     movingSoundVolume: 0.4,
     movingSoundRefDistance: 25,

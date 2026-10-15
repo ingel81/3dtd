@@ -89,7 +89,7 @@ backt seit der Runde vom 2026-09-14 über Skinning.
 
 - Walk und Run loopen und kommen ganz in die VAT, bis auf den Frame am Clip-Ende: Der ist
   wieder Frame 0 (`ceil(Dauer × fps)` Frames).
-- Todes-Clips laufen mit `animationSpeed`, bis `EnemyManager` den Gegner nach
+- Todes-Clips laufen mit `deathAnimationSpeed` (sonst `animationSpeed`), bis `EnemyManager` den Gegner nach
   `enemyDeathDuration()` entfernt (`EnemyTypeConfig.deathDuration`, sonst
   `TIMING.deathAnimationDuration`, 2 s). Gebacken wird nur diese Clip-Zeit
   (`vatDeathSeconds`), bis einschließlich des Frames `floor(t × fps)`, der beim Entfernen zu
@@ -99,6 +99,13 @@ backt seit der Runde vom 2026-09-14 über Skinning.
   Frame-Zahl (4/3 s wird 1,3333334 s, bei 30 fps 40,0000012 Frames). `vatFrameCount` rechnet
   mit 0,001 Frames Toleranz. Ohne sie hätten sechs Loop-Clips die Startpose doppelt gezeigt
   (bis 2026-09-13).
+- `clipStart` (Sekunden je Clip-Name) lässt einen Clip später beginnen: gebacken wird ab dort, die
+  Frames zählen ab dort (`vatClipFrameCount`); für Todes-Clips, die erst stillstehen.
+- `groundedBake`: jeder gebackene Frame wird senkrecht verschoben, bis sein tiefster Vertex auf y 0
+  liegt (`FrameScratch` in `vat-baker.ts`). Beim Gehen steht so der Standfuß auf dem Boden, beim
+  Fallen und Liegen der Körper; Clips, die schweben oder einsinken, liegen danach richtig. Nur für
+  Bodentypen (beide Zombies, E185), nicht für Flieger. Die Höhe des Bakes ändert sich damit, also
+  auch `modelRangeY` (Zielpunkt der Simulation, `enemy-model-range.spec.ts` gleicht ab).
 - Idle wird nicht gebacken, kein Spielzustand zeigt es.
 - Clips, die das Modell nicht enthält, fallen weg.
 

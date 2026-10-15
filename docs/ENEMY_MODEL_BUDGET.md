@@ -524,7 +524,7 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 | Mammoth (`mammoth`) | Elite/Boss | 48 | 5.557 | 8.685 | 0,3 | Skinning | 321 | 5557×321 | RGBA16F | 1,51 | 13,6 | 1024² |
 | Tank (`tank`) | Elite/Boss | 50 | 4.932 | 2.705 | 0,2 | Skinning | 24 | 4932×24 | RGBA16F | 0,82 | 0,9 | 1024² |
 | Hornet (`hornet`) | Normal | 160 | 4.915 | 6.440 | 0,8 | Objekt-Anim. | 59 | 4915×59 | RGBA16F | 0,35 | 2,2 | 1024² |
-| Zombie v2 (`zombie-v2`) | Elite/Boss | 80 | 4.870 | 3.704 | 0,4 | Skinning | 306 | 4870×306 | RGBA16F | 1,08 | 11,4 | 1024² |
+| Zombie v2 (`zombie-v2`) | Elite/Boss | 80 | 4.870 | 3.704 | 0,4 | Skinning | 295 | 4870×295 | RGBA16F | 1,08 | 11,0 | 1024² |
 | Mech (`mech`) | Elite/Boss | 40 | 4.771 | 2.877 | 0,2 | Skinning | 40 | 4771×40 | RGBA16F | 1,44 | 1,5 | 1024² |
 | Ghost (`ghost`) | Normal | 140 | 4.270 | 6.474 | 0,6 | Skinning | 105 | 4270×105 | RGBA16F | 0,46 | 3,4 | 1024² |
 | Zombie Soldier (`zombie-soldier`) | Elite/Boss | 60 | 4.266 | 7.176 | 0,3 | Skinning | 160 | 4266×160 | RGBA16F | 0,84 | 5,2 | 1024² |
@@ -534,7 +534,7 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 | Spider (`spider`) | Swarm | 700 | 2.140 | 2.417 | 1,5 | Skinning | 25 | 2140×25 | RGBA16F | 0,56 | 0,4 | 512² |
 | Penguin (`penguin`) | Normal | 300 | 1.993 | 3.408 | 0,6 | Skinning | 87 | 1993×87 | RGBA16F | 0,42 | 1,3 | 512² |
 | Skarnax (`worm`) | Elite/Boss | 1 | 1.700 | 1.662 | 0,0 | Skinning | 48 | 1700×48 | RGBA16F | 0,93 | 0,6 | 1024² |
-| Zombie (`zombie`) | Swarm | 560 | 1.453 | 2.157 | 0,8 | Skinning | 209 | 1453×209 | RGBA16F | 0,83 | 2,3 | 1024² |
+| Zombie (`zombie`) | Swarm | 560 | 1.453 | 2.157 | 0,8 | Skinning | 300 | 1453×300 | RGBA16F | 1,16 | 3,3 | 1024² |
 | Skarnax Tail (`worm-tail`) | in keiner Welle | 0 | 1.214 | 1.214 | 0,0 | Skinning | 32 | 1214×32 | RGBA16F | 1,05 | 0,3 | 512² |
 | Skeleton (`skeleton`) | Swarm | 820 | 1.156 | 658 | 0,9 | Objekt-Anim. | 26 | 1156×26 | RGBA16F | 0,51 | 0,2 | 512² |
 | Skeleton Minion (`skeleton-minion`) | Swarm | 1.640 | 1.156 | 658 | 1,9 | Objekt-Anim. | 26 | 1156×26 | RGBA16F | 0,31 | 0,2 | 512² |
@@ -543,8 +543,8 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 | Ooze (`ooze`) | Elite/Boss | 1 | 282 | 504 | 0,0 | Objekt-Anim. | 24 | 282×24 | RGBA16F | 0,50 | 0,1 | – |
 | Slime Clump (`slime-clump`) | Normal | 120 | 282 | 504 | 0,0 | Objekt-Anim. | 38 | 282×38 | RGBA16F | 0,47 | 0,1 | – |
 
-VAT-Speicher aller Typen zusammen: **97,4 MB** (30 fps), alles in RGBA32F wären **168,0 MB**.
-Todes-Clips sind auf den sichtbaren Teil gekürzt; ganz gebacken kämen **0,4 MB** dazu.
+VAT-Speicher aller Typen zusammen: **98,0 MB** (30 fps), alles in RGBA32F wären **169,2 MB**.
+Todes-Clips sind auf den sichtbaren Teil gekürzt; ganz gebacken kämen **0,5 MB** dazu.
 
 ### Alpha
 
@@ -600,9 +600,9 @@ Loader das Modell nicht indiziert (FBX) oder das Modell enthält doppelte Vertic
 
 ### Gebackene Clips
 
-Todes-Clips laufen mit `animationSpeed`, bis der Gegner nach `deathDuration` (Standard 2.000 ms)
-entfernt wird. Gebacken wird nur dieser Teil (`vatClips` in `vat-clips.ts`), „gekürzt“ zählt
-die weggelassenen Frames.
+Todes-Clips laufen mit `deathAnimationSpeed` (sonst `animationSpeed`), bis der Gegner nach `deathDuration`
+(Standard 2.000 ms) entfernt wird; ein Clip mit `clipStart` beginnt dort. Gebacken wird nur
+dieser Teil (`vatClips` in `vat-clips.ts`), „gekürzt“ zählt die weggelassenen Frames.
 
 | Gegner | Clip | Rolle | Dauer s | Frames | gekürzt |
 | --- | --- | --- | ---: | ---: | ---: |
@@ -617,7 +617,7 @@ die weggelassenen Frames.
 | Hornet | `Take 001` | walk | 1,96 | 59 | – |
 | Zombie v2 | `Unsteady_Walk` | walk | 2,96 | 89 | – |
 | Zombie v2 | `Dead` | death | 2,96 | 89 | – |
-| Zombie v2 | `dying_backwards` | death | 2,21 | 67 | – |
+| Zombie v2 | `dying_backwards` | death | 2,21 | 56 | – |
 | Zombie v2 | `Electrocuted_Fall` | death | 2,00 | 61 | – |
 | Mech | `Armature\|Walk` | walk | 1,33 | 40 | – |
 | Ghost | `Take 001` | walk | 3,50 | 105 | – |
@@ -634,6 +634,7 @@ die weggelassenen Frames.
 | Skarnax | `Jaws` | walk | 1,60 | 48 | – |
 | Zombie | `Armature\|Walk` | walk | 4,00 | 120 | – |
 | Zombie | `Armature\|Die` | death | 2,96 | 89 | – |
+| Zombie | `Armature\|Die2` | death | 3,33 | 91 | 10 |
 | Skarnax Tail | `Crawl` | walk | 1,07 | 32 | – |
 | Skeleton | `sprint` | walk | 0,50 | 15 | – |
 | Skeleton | `die` | death | 0,33 | 11 | – |

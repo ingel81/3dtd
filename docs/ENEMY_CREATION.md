@@ -31,8 +31,8 @@ generierten Tabellen von [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md#messwerte
 
 | Enemy | armorType | baseHp | Speed | Air? | Besonderheit |
 |-------|-----------|--------|-------|------|--------------|
-| zombie | unarmored | 80 | 5 | – | Standard-Gegner |
-| zombie-v2 | unarmored | 80 | 3 | – | Zweites Zombie-Modell, Todes-Clip-Pool `deathAnimations: ['Dead', 'dying_backwards', 'Electrocuted_Fall']` (der letzte auf den Sturz geschnitten), 10 % der `zombie_horde` |
+| zombie | unarmored | 80 | 5 | – | Standard-Gegner; Tod `Die` oder `Die2` mit `deathAnimationSpeed: 1.5`, `groundedBake`, `heightOffset: 0` (E185) |
+| zombie-v2 | unarmored | 80 | 3 | – | Zweites Zombie-Modell, Todes-Clip-Pool `deathAnimations: ['Dead', 'dying_backwards', 'Electrocuted_Fall']` (der letzte auf den Sturz geschnitten, `dying_backwards` ab 0,35 s), `animationSpeed: 1.72` (Schritt passend zu 3 m/s), Tod bei 1, `groundedBake` (E185), 10 % der `zombie_horde` |
 | zombie-soldier | heavy | 160 | 6 | – | Stärkere Variante mit Emissive |
 | rat | unarmored | 5 | 10 | – | Schwächster Swarm-Gegner |
 | spider | light | 60 | 9 | – | Schneller, wenig HP |
@@ -159,13 +159,16 @@ const NEW_ENEMY_MODEL_URL = 'assets/models/enemies/new_enemy.glb';
 | `runAnimation` | Optional | Schnellere Bewegung (Alternative zu Walk) |
 | `deathAnimation` | Optional | Spielt beim Tod, bis der Gegner nach `deathDuration` (Standard 2 s) entfernt wird. Gebacken wird nur dieser Teil (`animationSpeed` × `deathDuration` Clip-Zeit), der Rest des Clips ist nie zu sehen |
 | `deathAnimations` | Optional | Pool von Todes-Clips, einer zufällig pro Kill; gekürzt wie `deathAnimation` |
+| `deathAnimationSpeed` | Optional | Abspieltempo der Todes-Clips, sonst `animationSpeed`. Das Gangtempo passt zum Schritt, ein Tod darin kann zu schnell sein (Zombie: 4,11, der Sturz von 3 s in 0,7 s) |
+| `clipStart` | Optional | Clip-Zeit in Sekunden, ab der ein Clip gebacken wird, je Name: ein Todes-Clip, der erst stillsteht (`zombie-v2`, `dying_backwards`: 0,35) |
+| `groundedBake` | Optional | Jeder Frame mit seinem tiefsten Vertex auf y 0: beim Gehen der Standfuß am Boden, beim Fallen und Liegen der Körper. Für Bodentypen, deren Clips schweben oder einsinken (beide Zombies), nicht für Flieger |
 
 Idle-Clips werden nicht gebacken, das Spiel zeigt keine stehenden Gegner.
 
 Ein Todes-Clip muss am Boden liegen, wenn der Gegner entfernt wird, sonst verschwindet er im
 Fallen. Das geschieht `deathDuration` ms nach dem Kill (`EnemyTypeConfig`, Standard
-`TIMING.deathAnimationDuration` = 2000), in Clip-Zeit also nach `animationSpeed` ×
-`deathDuration`. `tools/model-budget/death-rest.spec.ts` prüft das an den Modelldateien: Nach
+`TIMING.deathAnimationDuration` = 2000), in Clip-Zeit also nach `deathAnimationSpeed` (sonst
+`animationSpeed`) × `deathDuration`, ab `clipStart`. `tools/model-budget/death-rest.spec.ts` prüft das an den Modelldateien: Nach
 dem Entfernen bewegt sich kein Vertex eines Todes-Clips mehr als 5 % der Modellhöhe. Zombie v2
 (`Dead`), Stone Golem und Zombie Soldier fielen nach 2 s noch; seit dem Playtest vom
 2026-09-15 haben sie eine `deathDuration`, in der ihr längster Todes-Clip ganz läuft (3000,
@@ -178,6 +181,26 @@ Bewegung); auch die drei Typen mit eigener Dauer liegen danach nur kurz still.
 Clip flog raus (fd18a10). Seit `05b25233` ist er in Blender auf den Sturz (3,0 bis 5,0 s)
 geschnitten und wieder im Pool. Ein kürzerer Clip hält seinen letzten Frame bis zum Entfernen
 (Skeleton: `die` mit 0,33 s).
+
+**Zombie V1 und V2 Bild für Bild (E185, 2026-10-15):** Kontaktbögen je Clip und die Werkzeuge in
+`tools/model-budget` (`clip-trace.mjs`: tiefster Vertex je Zeit, `loop-find.mjs`: Loop-Naht, dazu ein Gangmaß aus
+Fußvertices: Gleiten in %). Gefunden und behoben:
+
+- V1 `Armature|Walk`: die Sohlen schwebten von 0,5 bis 3,25 s 0,06 bis 0,21 Modelleinheiten über dem Ursprung,
+  dazu stand der Ursprung `heightOffset` 0,5 m über dem Boden (aus Code und Bake-Daten, ein Altwert von vor dem
+  VAT-Umbau): `groundedBake` und `heightOffset: 0`. Simulation: der Zielpunkt liegt damit 0,30 m tiefer (die Mitte
+  des Modells, `modelRangeY` neu gemessen), der Lebensbalken 0,5 m; bei Zombie v2 der Zielpunkt 0,01 m höher.
+- V1 `Armature|Die` lief mit dem Gangtempo 4,11, ein Sturz von 3 s in 0,7 s: `deathAnimationSpeed: 1.5`, dazu `Die2`
+  (auf die Knie, dann vornüber) im Pool. `Die` endete 0,2 Einheiten im Boden: `groundedBake`.
+- V2 `Unsteady_Walk` schritt bei `animationSpeed` 1 mit 1,74 m/s, der Gegner läuft 3 m/s, die Füße glitten 72 %:
+  `animationSpeed: 1.72`, die Tode bleiben bei 1 (`deathAnimationSpeed`), ihre Zeiten oben gelten weiter.
+- V2 schwebte beim Gehen 0,19 bis 0,31 m (`Electrocuted_Fall` am Anfang ebenso), `Dead` und `dying_backwards` endeten
+  0,19 und 0,11 m im Boden: `groundedBake`.
+- V2 `dying_backwards` stand die ersten 0,35 s still: `clipStart`.
+
+Offen: Beide Tode beginnen in einer anderen Pose als der Gang (V1 `Die` aufrecht, der Gang ein vorgebeugter
+Ausfallschritt): beim Tod springt die Pose, ein Überblenden zwischen Clips hat der VAT-Shader nicht. V1 `Walk` hat
+keine Fingerkanäle, die Hände bleiben in der Bind-Pose (bei Spielgröße kaum zu sehen; `Walk2` hätte sie).
 
 ### Animation Speed Coupling
 

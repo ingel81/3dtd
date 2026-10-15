@@ -14,7 +14,7 @@ import {
   type Side,
 } from 'three';
 import type { EnemyTypeConfig } from '../../../configs/enemy-types.config';
-import { DEFAULT_BAKE_FPS, vatClipRegistry, vatClips, type VATAnimationEntry, type VATClip } from './vat-clips';
+import { clipFrom, DEFAULT_BAKE_FPS, vatClipRegistry, vatClips, type VATAnimationEntry, type VATClip } from './vat-clips';
 import {
   createPositionTexture,
   emptyBounds,
@@ -22,6 +22,7 @@ import {
   modelHeightRange,
   vatEncoding,
   vatLayout,
+  type VATBounds,
   type VATEncoding,
 } from './vat-encoding';
 import { mergeBakedMeshes, texturePixels, vatAlpha, vatSide, type BakedMeshPart, type VATAlpha } from './vat-surface';
@@ -70,7 +71,11 @@ export interface VATData {
 export function bakeEnemyVAT(config: EnemyTypeConfig, model: Object3D, animations: AnimationClip[]): VATData | null {
   if (!config.hasAnimations || animations.length === 0) return bakeStaticVAT(model, config.scale);
   const clips = vatClips(config);
-  return bakeVAT(model, animations, clips, config.scale) ?? bakeObjectAnimVAT(model, animations, clips, config.scale);
+  const grounded = config.groundedBake === true;
+  return (
+    bakeVAT(model, animations, clips, config.scale, DEFAULT_BAKE_FPS, grounded) ??
+    bakeObjectAnimVAT(model, animations, clips, config.scale, DEFAULT_BAKE_FPS, grounded)
+  );
 }
 
 /**
@@ -85,6 +90,7 @@ export function bakeEnemyVAT(config: EnemyTypeConfig, model: Object3D, animation
  * @param clips - Clips to bake and how much of each (vatClips)
  * @param worldScale - Scale the model is shown at in game, picks the texel type (vatEncoding)
  * @param fps - Baking framerate (default: 30)
+ * @param grounded - Each frame's lowest vertex at y 0 (EnemyTypeConfig.groundedBake)
  */
 export function bakeVAT(
   modelRoot: Object3D,
@@ -92,6 +98,7 @@ export function bakeVAT(
   clips: VATClip[],
   worldScale: number,
   fps: number = DEFAULT_BAKE_FPS,
+  grounded = false,
 ): VATData | null {
   // Collect ALL SkinnedMeshes (multi-mesh support: body, hair, clothes, etc.)
   const skins: (BakedMeshPart & { mesh: SkinnedMesh })[] = [];
@@ -132,12 +139,14 @@ export function bakeVAT(
   const data = new Float32Array(texWidth * texHeight * 4);
   const tempVec = new Vector3();
   const bounds = emptyBounds();
+  const frameScratch = new FrameScratch(totalVertices);
   const skinning = skins.map((skin) => new SkinningBake(skin.mesh, skin.meshToRoot));
 
   // Bake each clip using a fresh mixer
-  for (const { name } of validClips) {
-    const clip = clipMap.get(name)!;
-    const entry = animEntries.get(name)!;
+  for (const vatClip of validClips) {
+    const clip = clipMap.get(vatClip.name)!;
+    const entry = animEntries.get(vatClip.name)!;
+    const from = clipFrom(clip.duration, vatClip);
 
     // Fresh mixer per clip to avoid state leaking
     const mixer = new AnimationMixer(modelRoot);
@@ -147,7 +156,7 @@ export function bakeVAT(
     action.play();
 
     for (let frame = 0; frame < entry.frameCount; frame++) {
-      const time = Math.min(frame / fps, clip.duration - 0.0001);
+      const time = Math.min(from + frame / fps, clip.duration - 0.0001);
 
       // Set animation to exact time and update all transforms
       mixer.setTime(time);
@@ -160,19 +169,10 @@ export function bakeVAT(
         bake.updateFrame();
         for (let v = 0; v < skin.vertexCount; v++) {
           bake.vertex(v, tempVec);
-          growBounds(bounds, tempVec);
-
-          const globalV = skin.vertexOffset + v;
-          const col = globalV % texWidth;
-          const localRow = Math.floor(globalV / texWidth);
-          const globalRow = (entry.frameStart + frame) * rowsPerFrame + localRow;
-          const offset = (globalRow * texWidth + col) * 4;
-          data[offset] = tempVec.x;
-          data[offset + 1] = tempVec.y;
-          data[offset + 2] = tempVec.z;
-          data[offset + 3] = 1.0;
+          frameScratch.set(skin.vertexOffset + v, tempVec);
         }
       }
+      frameScratch.write(data, entry.frameStart + frame, texWidth, rowsPerFrame, grounded, bounds);
     }
 
     // Clean up this mixer
@@ -222,6 +222,7 @@ export function bakeVAT(
  * @param clips - Clips to bake and how much of each (vatClips)
  * @param worldScale - Scale the model is shown at in game, picks the texel type (vatEncoding)
  * @param fps - Baking framerate (default: 30)
+ * @param grounded - Each frame's lowest vertex at y 0 (EnemyTypeConfig.groundedBake)
  */
 export function bakeObjectAnimVAT(
   modelRoot: Object3D,
@@ -229,6 +230,7 @@ export function bakeObjectAnimVAT(
   clips: VATClip[],
   worldScale: number,
   fps: number = DEFAULT_BAKE_FPS,
+  grounded = false,
 ): VATData | null {
   // Collect all non-skinned Mesh nodes
   interface ObjMeshInfo {
@@ -274,11 +276,13 @@ export function bakeObjectAnimVAT(
   const meshToRoot = new Matrix4();
   const rootInverse = new Matrix4();
   const bounds = emptyBounds();
+  const frameScratch = new FrameScratch(totalVertices);
 
   // Bake each clip
-  for (const { name } of validClips) {
-    const clip = clipMap.get(name)!;
-    const entry = animEntries.get(name)!;
+  for (const vatClip of validClips) {
+    const clip = clipMap.get(vatClip.name)!;
+    const entry = animEntries.get(vatClip.name)!;
+    const from = clipFrom(clip.duration, vatClip);
 
     const mixer = new AnimationMixer(modelRoot);
     const action = mixer.clipAction(clip);
@@ -287,7 +291,7 @@ export function bakeObjectAnimVAT(
     action.play();
 
     for (let frame = 0; frame < entry.frameCount; frame++) {
-      const time = Math.min(frame / fps, clip.duration - 0.0001);
+      const time = Math.min(from + frame / fps, clip.duration - 0.0001);
 
       mixer.setTime(time);
       modelRoot.updateMatrixWorld(true);
@@ -301,19 +305,10 @@ export function bakeObjectAnimVAT(
         for (let v = 0; v < info.vertexCount; v++) {
           tempVec.fromBufferAttribute(posAttr, v);
           tempVec.applyMatrix4(meshToRoot);
-          growBounds(bounds, tempVec);
-
-          const globalV = info.vertexOffset + v;
-          const col = globalV % texWidth;
-          const localRow = Math.floor(globalV / texWidth);
-          const globalRow = (entry.frameStart + frame) * rowsPerFrame + localRow;
-          const offset = (globalRow * texWidth + col) * 4;
-          data[offset] = tempVec.x;
-          data[offset + 1] = tempVec.y;
-          data[offset + 2] = tempVec.z;
-          data[offset + 3] = 1.0;
+          frameScratch.set(info.vertexOffset + v, tempVec);
         }
       }
+      frameScratch.write(data, entry.frameStart + frame, texWidth, rowsPerFrame, grounded, bounds);
     }
 
     action.stop();
@@ -353,6 +348,52 @@ export function bakeObjectAnimVAT(
     fps,
     ...modelHeightRange(bounds),
   };
+}
+
+/** Index into the VAT data of a vertex in a frame (tiled: rowsPerFrame rows of texWidth texels per frame) */
+function vatOffset(vertex: number, frame: number, texWidth: number, rowsPerFrame: number): number {
+  const row = frame * rowsPerFrame + Math.floor(vertex / texWidth);
+  return (row * texWidth + (vertex % texWidth)) * 4;
+}
+
+/**
+ * One frame's vertices as baked, in full precision, before they go into the
+ * VAT. Grounded, the frame moves down (or up) until its lowest vertex lies at
+ * y 0. The bounds the encoding is chosen from grow with the values before
+ * they are stored in float32, as they always did.
+ */
+class FrameScratch {
+  private readonly xyz: Float64Array;
+  private readonly point = new Vector3();
+
+  constructor(private readonly vertices: number) {
+    this.xyz = new Float64Array(vertices * 3);
+  }
+
+  set(vertex: number, p: Vector3): void {
+    this.xyz[vertex * 3] = p.x;
+    this.xyz[vertex * 3 + 1] = p.y;
+    this.xyz[vertex * 3 + 2] = p.z;
+  }
+
+  write(data: Float32Array, frame: number, texWidth: number, rowsPerFrame: number, grounded: boolean, bounds: VATBounds): void {
+    const xyz = this.xyz;
+    let shift = 0;
+    if (grounded) {
+      let lowest = Infinity;
+      for (let v = 0; v < this.vertices; v++) lowest = Math.min(lowest, xyz[v * 3 + 1]);
+      if (Number.isFinite(lowest)) shift = lowest;
+    }
+    for (let v = 0; v < this.vertices; v++) {
+      const p = this.point.set(xyz[v * 3], xyz[v * 3 + 1] - shift, xyz[v * 3 + 2]);
+      growBounds(bounds, p);
+      const o = vatOffset(v, frame, texWidth, rowsPerFrame);
+      data[o] = p.x;
+      data[o + 1] = p.y;
+      data[o + 2] = p.z;
+      data[o + 3] = 1.0;
+    }
+  }
 }
 
 /**

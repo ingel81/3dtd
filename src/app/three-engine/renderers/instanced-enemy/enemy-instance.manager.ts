@@ -467,6 +467,8 @@ export class EnemyInstanceManager {
 
     state.isDead = true;
     state.animTime = 0;
+    // Deaths play at their own speed, the walk's matches its stride (EnemyTypeConfig.deathAnimationSpeed)
+    if (state.config.deathAnimationSpeed !== undefined) state.animSpeed = state.config.deathAnimationSpeed;
 
     const pool = this.pools.get(state.typeId);
     if (!pool) return;

@@ -210,6 +210,19 @@ describe('EnemyInstanceManager', () => {
     expect(frame()).toBe(29);
   });
 
+  it('plays a death at the type\'s death speed (E185)', () => {
+    const config = { ...CONFIG, deathAnimationSpeed: 0.5 };
+    const own = new EnemyInstanceManager(new Scene());
+    own.createPool('wallsmasher', fakeVat([...CLIPS, CONFIG.deathAnimation!]), config);
+    const state = own.addEnemy('a', 'wallsmasher', new Vector3(), 0)!;
+
+    own.playDeathAnimation('a');
+    expect(state.animSpeed).toBe(0.5);
+    // The death clip takes frames 20-29, 1 s: 0.9 s of game at 0.5 is 0.45 s of clip, frame 24
+    own.updateAnimations(0.9);
+    expect(state.pool.animFrameAttr.getX(state.index)).toBe(24);
+  });
+
   it('plays the run clip at its natural rate while the enemy runs at run speed', () => {
     const state = manager.addEnemy('a', 'wallsmasher', new Vector3(), 0)!;
     manager.startRunAnimation('a');

@@ -2,7 +2,7 @@
 /**
  * Death clips come to rest before their enemy is removed.
  *
- * A killed enemy plays its death clip at animationSpeed and goes
+ * A killed enemy plays its death clip at deathAnimationSpeed (else animationSpeed) and goes
  * enemyDeathDuration() after the kill; the VAT is cut there and holds the
  * frame shown then (vatClips). Whatever the clip still does after that point
  * is never on screen: the enemy vanishes in mid-fall. With the default 2 s
@@ -134,7 +134,8 @@ describe('death clips', () => {
         const clip = model.animations.find((c) => c.name === name);
         // generate.spec.ts reports a configured clip the model lacks
         if (!clip) continue;
-        const motion = motionAfter(model, clip, cut);
+        // The clip is shown from its clipStart on
+        const motion = motionAfter(model, clip, (config.clipStart?.[name] ?? 0) + cut);
         if (motion > REST_TOLERANCE) {
           moving.push(`${id} ${name}: moves ${(motion * 100).toFixed(0)} % of its height after ${cut.toFixed(2)} s of clip time`);
         }

@@ -36,7 +36,7 @@ import { ENEMY_TYPES, type EnemyTypeConfig } from '../../src/app/configs/enemy-t
 import { RUN_PLAN } from '../../src/app/director/sources/budget/run-plan';
 import { TIMING } from '../../src/app/configs/timing.config';
 import { bakeEnemyVAT, type VATData } from '../../src/app/three-engine/renderers/instanced-enemy/vat-baker';
-import { DEFAULT_BAKE_FPS, vatClips, vatFrameCount } from '../../src/app/three-engine/renderers/instanced-enemy/vat-clips';
+import { clipFrom, DEFAULT_BAKE_FPS, vatClipFrameCount, vatClips, vatFrameCount } from '../../src/app/three-engine/renderers/instanced-enemy/vat-clips';
 import {
   VAT_HALF_FLOAT_MAX_ERROR,
   vatLayout,
@@ -123,11 +123,13 @@ function planBake(config: EnemyTypeConfig, model: ModelInfo): Bake {
   }
 
   const clipsByName = new Map(model.clips.map((c) => [c.name, c]));
-  const clips = vatClips(config).map(({ name, seconds }): BakedClip => {
+  const clips = vatClips(config).map((vatClip): BakedClip => {
+    const { name, seconds } = vatClip;
     const clip = clipsByName.get(name);
-    // The whole clip, baked like its role: a loop, or a clip that stops at its end.
-    const whole = clip ? vatFrameCount(clip.duration, DEFAULT_BAKE_FPS, seconds === Infinity ? Infinity : clip.duration) : 0;
-    const frames = clip ? vatFrameCount(clip.duration, DEFAULT_BAKE_FPS, seconds) : 0;
+    // The whole clip from its start, baked like its role: a loop, or a clip that stops at its end.
+    const rest = clip ? clip.duration - clipFrom(clip.duration, vatClip) : 0;
+    const whole = clip ? vatFrameCount(rest, DEFAULT_BAKE_FPS, seconds === Infinity ? Infinity : rest) : 0;
+    const frames = clip ? vatClipFrameCount(clip.duration, DEFAULT_BAKE_FPS, vatClip) : 0;
     return { name, role: roleOf(config, name), duration: clip?.duration ?? null, frames, cutFrames: whole - frames };
   });
 
@@ -436,9 +438,9 @@ function render(rows: Row[]): string {
 
   out.push('### Gebackene Clips');
   out.push('');
-  out.push(`Todes-Clips laufen mit \`animationSpeed\`, bis der Gegner nach \`deathDuration\` (Standard ${int(TIMING.deathAnimationDuration)} ms)`);
-  out.push('entfernt wird. Gebacken wird nur dieser Teil (`vatClips` in `vat-clips.ts`), „gekürzt“ zählt');
-  out.push('die weggelassenen Frames.');
+  out.push(`Todes-Clips laufen mit \`deathAnimationSpeed\` (sonst \`animationSpeed\`), bis der Gegner nach \`deathDuration\``);
+  out.push(`(Standard ${int(TIMING.deathAnimationDuration)} ms) entfernt wird; ein Clip mit \`clipStart\` beginnt dort. Gebacken wird nur`);
+  out.push('dieser Teil (`vatClips` in `vat-clips.ts`), „gekürzt“ zählt die weggelassenen Frames.');
   out.push('');
   out.push(table(
     ['Gegner', 'Clip', 'Rolle', 'Dauer s', 'Frames', 'gekürzt'],

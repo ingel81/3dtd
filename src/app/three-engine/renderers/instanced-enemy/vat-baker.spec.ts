@@ -15,7 +15,7 @@ import {
   VectorKeyframeTrack,
 } from 'three';
 import { bakeVAT, type VATData } from './vat-baker';
-import { vatClips, vatDeathSeconds, vatFrameCount } from './vat-clips';
+import { deathPlaybackSpeed, vatClipFrameCount, vatClips, vatDeathSeconds, vatFrameCount } from './vat-clips';
 import { toHalfFloatRounded, VAT_HALF_FLOAT_MAX_ERROR, vatEncoding } from './vat-encoding';
 import { ENEMY_TYPES } from '../../../configs/enemy-types.config';
 import { TIMING } from '../../../configs/timing.config';
@@ -55,11 +55,11 @@ describe('vatFrameCount', () => {
 describe('vatClips', () => {
   it('cuts death clips where the enemy is removed and keeps loops whole', () => {
     const config = ENEMY_TYPES['zombie'];
-    const deathSeconds = (TIMING.deathAnimationDuration / 1000) * config.animationSpeed!;
+    const deathSeconds = (TIMING.deathAnimationDuration / 1000) * deathPlaybackSpeed(config);
     expect(vatDeathSeconds(config)).toBe(deathSeconds);
     expect(vatClips(config)).toEqual([
       { name: config.walkAnimation, seconds: Infinity },
-      { name: config.deathAnimation, seconds: deathSeconds },
+      ...config.deathAnimations!.map((name) => ({ name, seconds: deathSeconds })),
     ]);
   });
 
@@ -71,8 +71,19 @@ describe('vatClips', () => {
   it("cuts at the type's own death duration where it has one", () => {
     const config = ENEMY_TYPES['zombie-v2'];
     expect(config.deathDuration).toBeGreaterThan(TIMING.deathAnimationDuration);
-    expect(vatDeathSeconds(config)).toBe((config.deathDuration! / 1000) * config.animationSpeed!);
+    expect(vatDeathSeconds(config)).toBe((config.deathDuration! / 1000) * deathPlaybackSpeed(config));
     expect(vatClips({ deathAnimation: 'die', deathDuration: 3300, animationSpeed: 1.38 })[0].seconds).toBeCloseTo(4.554);
+  });
+
+  it('plays and cuts the deaths at their own speed, and starts a clip where its type says (E185)', () => {
+    const clips = vatClips({ walkAnimation: 'walk', deathAnimation: 'die', animationSpeed: 4, deathAnimationSpeed: 1.5, clipStart: { die: 0.4 } });
+    expect(clips).toEqual([
+      { name: 'walk', seconds: Infinity },
+      { name: 'die', seconds: 3, from: 0.4 },
+    ]);
+    // 3 s shown from 0.4 s on, of a 2.21 s clip: its 1.81 s left, frames 0 to 54
+    expect(vatClipFrameCount(2.21, 30, clips[1])).toBe(55);
+    expect(vatClipFrameCount(2.21, 30, { name: 'die', seconds: 3, from: 9 })).toBe(1);
   });
 
   it('bakes a clip used twice once, as far as its longest use', () => {
@@ -211,6 +222,26 @@ describe('bakeVAT', () => {
 
     // Last baked frame: the pose at 2 s, vertex 0 sunk by two units.
     expect(vatPosition(vat, 0, 30 + 60)[1]).toBeCloseTo(-2, 3);
+  });
+
+  it('bakes from the clip start, and grounded puts each frame on y 0 (E185)', () => {
+    // The triangle (y 0 to 1) floats up from 0.5 to 1.5 over the walk
+    const float = new AnimationClip('walk', 1, [new VectorKeyframeTrack('root.position', [0, 1], [0, 0.5, 0, 0, 1.5, 0])]);
+    const raw = bakeVAT(skinnedTriangle(), [float, die], vatClips({ walkAnimation: 'walk', deathAnimation: 'die', animationSpeed: 1, clipStart: { die: 1 } }), 1e6)!;
+    expect(vatPosition(raw, 0, 15)[1]).toBeCloseTo(1, 3);
+    // The death starts at 1 s of its clip, sunk one unit already, and runs 2 s from there
+    expect(raw.animations.get('die')).toMatchObject({ frameStart: 30, frameCount: 61 });
+    expect(vatPosition(raw, 0, 30)[1]).toBeCloseTo(-1, 3);
+    expect(vatPosition(raw, 0, 30 + 60)[1]).toBeCloseTo(-3, 3);
+
+    const grounded = bakeVAT(skinnedTriangle(), [float, die], vatClips({ walkAnimation: 'walk', deathAnimation: 'die', animationSpeed: 1 }), 1e6, 30, true)!;
+    for (const frame of [0, 15, 29, 30, 60, 90]) {
+      expect(vatPosition(grounded, 0, frame)[1]).toBeCloseTo(0, 5);
+      expect(vatPosition(grounded, 2, frame)[1]).toBeCloseTo(1, 5);
+    }
+    // Sideways nothing moves
+    expect(vatPosition(grounded, 1, 15)[0]).toBeCloseTo(1, 5);
+    expect(grounded.modelMinY).toBeCloseTo(0, 5);
   });
 
   it('stores small models in half floats within the error bound', () => {
