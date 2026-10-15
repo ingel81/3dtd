@@ -175,6 +175,46 @@ Paket B6, 2026-10-15 nachmittags:
 - **B6.4 Forschung ziehen:** drei Forschungen einreihen, Q: *Griff je Zeile.* Unterste nach oben ziehen: *Reihe bleibt,
   kein Zurückspringen;* wird ein Slot frei, *startet die oberste.* Pfeile per Tastatur gehen weiter.
 
+## C Worker-Runden 2026-10-15 (Branch `night/custom-maps-round2`)
+
+Eigene Karten: Hauptmenü, Reiter „Custom maps“, Karte wählen, Start. Nachtansicht im Spiel: Developer options oder im
+Editor oben „Night“. Editor: Custom maps, Karte wählen, „Edit“.
+
+Paket C1, Mond, Mars, Hafen:
+
+- **C1.1 Moon Base:** Luftschleusen und Tunnel vorne geschlossen, Radarschüsseln drehen auf ebenem Boden, Krater mit
+  Auswurf statt Steinkreisen, Masten mit Blinklicht, ferne Berge niedriger (80 m), Erde am Himmel mit Kontinenten.
+- **C1.2 Mars Canyon:** zwei Gewächshäuser mit dunklem Glas, die Rover fahren frei (kein Objekt auf ihrer Spur).
+- **C1.3 Harbor Town:** Straßen als Asphalt, das Fischerboot mit Deck auf dem Rumpf, Laternen nachts.
+- **C1.4 Archipelago und Demo Valley:** Klippen ohne offene Rückseite, Felsen vom Fuß der Kante an, Bojen blinken wie
+  Seezeichen; Demo Valley am Felsen (Crag) ebenso.
+
+Paket C2, Leben und Licht:
+
+- **C2.1 Ember Crater:** drei hohe Rauchsäulen über dem Krater, aus der Spielkamera und von oben.
+- **C2.2 Autumn Keep nachts:** Herbstlaub je Baum von Rot bis Gelb, Fackeln an den Mauern leuchten ohne Sprünge.
+- **C2.3 Mountain Pass:** Gras reicht weit (vom Turm und von oben), ferne Berge am Rand.
+- **C2.4 Lichter nachts:** Laternen mit größerem Hof, Licht spiegelt auf Wasser (Harbor Town, Witch Marsh).
+
+Paket C3, Editor und OSM:
+
+- **C3.1 Straßenbelag:** Editor, Werkzeug Roads, Straße anklicken, unter „Surface“ Pflaster wählen. *Belag wechselt sofort,
+  Undo nimmt ihn zurück.*
+- **C3.2 Bauverbot als Rechteck:** neben einer langen Halle einen Tower setzen. *Gesperrt nur im gedrehten Rechteck.*
+- **C3.3 OSM-Welt Erlenbach:** New game, „A map of a real place“, Erlenbach 74235. *Einfamilienhäuser statt Wohnblöcken,
+  Gehweg und Pflaster als graue Platten.*
+- **C3.4 OSM-Tunnel Miltenberg:** OSM-Welt Miltenberg. *Tunnel mit Portal an beiden Enden, Gegner laufen hindurch.*
+- **C3.5 Biome:** Editor, Biom-Pinsel Wiese, Dorf, Wüste und das neue Herbst-Biom. *Mehrere Baumarten je Biom.*
+
+Paket C4, Kampf:
+
+- **C4.1 Ballista-Bolzen (Dev-Build):** Archer mit Sniper-Pfad. *Eigener Bolzen und eigener Ton.*
+- **C4.2 Gatling plus Ätzend gegen Heavy:** Schaden steigt sichtbar, sobald Ätzend die Rüstung senkt.
+- **C4.3 Zombies:** eine Zombie-Welle. *Verschiedene Kleidungen, Füße auf dem Boden.*
+- **C4.4 Töne:** Klangvarianten im Life-Panel, Wellenton gegen Start-Horn unterscheidbar.
+
+Hinweis: nach dem Wechsel auf diesen Stand den Dev-Server einmal neu starten (MapLibre neu in den Abhängigkeiten).
+
 ## Eichtabelle
 
 Fingerprints aus `__corridor.fingerprint()` für K2.1 und K2.2. Alle Werte vor 748 (Rothenburg `d8050177`, Tokyo
