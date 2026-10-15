@@ -387,6 +387,7 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
     if (!finite(e.width) || e.width <= 0) p.push(`path edge ${e.id} has no width`);
     if (e.via !== undefined && (!Array.isArray(e.via) || e.via.some((v) => !finite(v?.x) || !finite(v?.y)))) p.push(`path edge ${e.id} has a bad curve point`);
     if (e.style !== undefined && !['wood', 'stone', 'lava'].includes(e.style)) p.push(`path edge ${e.id} has an unknown bridge style`);
+    if (e.tunnel !== undefined && typeof e.tunnel !== 'boolean') p.push(`path edge ${e.id} has a bad tunnel flag`);
     if ((e.street !== undefined && typeof e.street !== 'string') || (e.surface !== undefined && typeof e.surface !== 'string')) p.push(`path edge ${e.id} has a bad street type or surface`);
   }
   for (const sp of doc.spawns) {

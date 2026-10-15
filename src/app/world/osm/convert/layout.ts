@@ -75,10 +75,11 @@ export class OsmLayout {
     private readonly names: ReadonlyMap<string, string>,
   ) {
     const nodes = new Map(map.paths.nodes.map((n) => [n.id, n]));
-    this.lines = map.paths.edges.map((e) => ({ edgeId: e.id, kind: e.kind, line: [nodes.get(e.a)!, ...(e.via ?? []), nodes.get(e.b)!] }));
+    // A tunnel holds neither the HQ nor a spawn: both would stand in the hill
+    this.lines = map.paths.edges.map((e) => ({ edgeId: e.id, kind: e.tunnel ? 'tunnel' : e.kind, line: [nodes.get(e.a)!, ...(e.via ?? []), nodes.get(e.b)!] }));
     const place = { x: 0, y: 0 };
     const onRoad = this.nearest(place, (k) => k === 'road');
-    const hit = onRoad && onRoad.dist <= HQ_ROAD_REACH ? onRoad : (this.nearest(place, () => true) ?? onRoad);
+    const hit = onRoad && onRoad.dist <= HQ_ROAD_REACH ? onRoad : (this.nearest(place, (k) => k !== 'tunnel') ?? onRoad);
     this.hq = hit ? { x: round2(hit.point.x), y: round2(hit.point.y) } : null;
     this.hqShiftM = Math.round(hit?.dist ?? 0);
     this.streets = new CustomMapStreets(map);
@@ -134,6 +135,7 @@ export class OsmLayout {
     const distance = Math.hypot(foot.x - hqPoint.x, foot.y - hqPoint.y);
     if (distance < MIN_MANUAL_SPAWN_DISTANCE) return { reason: 'Too close to the HQ' };
     if (distance > MAX_MANUAL_SPAWN_DISTANCE) return { reason: 'Too far from the HQ' };
+    if (this.inTunnel(foot)) return { reason: 'Inside a tunnel' };
     return this.laid({ x: round2(foot.x), y: round2(foot.y) }, distance) ?? { reason: 'No route to the HQ from here' };
   }
 
@@ -142,7 +144,7 @@ export class OsmLayout {
     const hq = mapToGeo(this.hq!);
     const from = mapToGeo(p);
     const route = this.streets.findPath(this.network, from.lat, from.lon, hq.lat, hq.lon);
-    if (route.length < 2) return null;
+    if (route.length < 2 || this.inTunnel(p)) return null;
     let routeM = 0;
     for (let k = 1; k < route.length; k++) routeM += this.streets.haversineDistance(route[k - 1].lat, route[k - 1].lon, route[k].lat, route[k].lon);
     const street = this.nearest(p, () => true);
@@ -152,14 +154,20 @@ export class OsmLayout {
     return { name, x: round2(p.x), y: round2(p.y), distanceM: Math.round(distanceM), routeM: Math.round(routeM), route: line };
   }
 
-  private nearest(p: MapPoint, accept: (kind: string) => boolean): { point: MapPoint; dist: number; edgeId: string } | null {
-    let best: { point: MapPoint; dist: number; edgeId: string } | null = null;
+  /** `p` lies on a tunnel edge rather than on the road it meets at the mouth */
+  private inTunnel(p: MapPoint): boolean {
+    const street = this.nearest(p, () => true);
+    return street?.kind === 'tunnel' && street.dist < 0.5 && (this.nearest(p, (k) => k !== 'tunnel')?.dist ?? Infinity) >= 0.5;
+  }
+
+  private nearest(p: MapPoint, accept: (kind: string) => boolean): { point: MapPoint; dist: number; edgeId: string; kind: string } | null {
+    let best: { point: MapPoint; dist: number; edgeId: string; kind: string } | null = null;
     for (const { edgeId, kind, line } of this.lines) {
       if (!accept(kind)) continue;
       for (let s = 0; s + 1 < line.length; s++) {
         const q = closest(line[s], line[s + 1], p);
         const d = Math.hypot(q.x - p.x, q.y - p.y);
-        if (!best || d < best.dist) best = { point: q, dist: d, edgeId };
+        if (!best || d < best.dist) best = { point: q, dist: d, edgeId, kind };
       }
     }
     return best;

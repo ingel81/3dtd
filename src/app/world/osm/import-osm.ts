@@ -18,6 +18,7 @@ import type { OsmFrameStore } from './osm-frame-store';
 import { downloadOsm, osmQueryBox } from './osm-query';
 import type { OverpassResponse } from './overpass-client';
 import { buildRoads, levelRoads, paintRoads, type RoadStats } from './convert/roads';
+import { buildTunnels, type TunnelReport } from './convert/tunnels';
 import { fillOsmTerrain } from './convert/terrain';
 import { paintGround, placeMood, type GroundReport } from './convert/ground';
 import { growVegetation, type VegetationReport } from './convert/vegetation';
@@ -81,6 +82,7 @@ export interface OsmImportReport {
   parse: OsmParseStats;
   terrain: { dem: string | null; zeroM: number; minM: number; maxM: number; demFailed: string[] };
   roads: RoadStats;
+  tunnels: TunnelReport;
   ground: GroundReport;
   water: WaterReport;
   plants: VegetationReport;
@@ -139,7 +141,9 @@ export function convertOsm(input: OsmImportInput, options: OsmImportOptions = {}
   const roads = buildRoads(features);
   doc.paths = roads.paths;
   if (!roads.paths.edges.length) warnings.push('roads: no roads in this place; the map has nowhere for enemies to walk');
-  if (roads.stats.tunnels) warnings.push(`roads: ${roads.stats.tunnels} tunnels left out (${roads.stats.tunnelM} m), they come with their portals later`);
+  // Before the water: a river over a tunnel still cuts its bed through the raised ground
+  const tunnels = buildTunnels(t0, roads.tunnels, roads.mouths);
+  doc.objects.push(...tunnels.objects);
   step('roads');
 
   // Water before the roads level the ground, settled after: a road through water stands on a dam
@@ -204,6 +208,7 @@ export function convertOsm(input: OsmImportInput, options: OsmImportOptions = {}
       parse: features.stats,
       terrain: { dem, zeroM, minM: round1(terrain.min), maxM: round1(terrain.max), demFailed: input.demFailed ?? [] },
       roads: roads.stats,
+      tunnels: tunnels.report,
       ground: ground.report,
       water: water.report,
       plants,

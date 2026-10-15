@@ -50,7 +50,7 @@ export function rasterizePathMask(
   const sx = resolution / width;
   const sy = resolution / depth;
   for (const edge of paths.edges) {
-    if (edge.kind === 'bridge' || edge.surface) continue;
+    if (edge.kind === 'bridge' || edge.surface || edge.tunnel) continue;
     const line = edgePolyline(edge, nodes);
     if (!line) continue;
     const channel = edge.kind === 'road' ? 0 : 1;

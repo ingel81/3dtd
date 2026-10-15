@@ -93,15 +93,14 @@ export interface RoadTags {
   surface: RoadSurface;
   /** A bridge (`bridge=*` but `no`) */
   bridge: boolean;
-  /** A tunnel the world leaves out (see roadTags) */
+  /** A tunnel (see roadTags): a tunnel edge with portals at its mouths (convert/tunnels.ts) */
   tunnel: boolean;
 }
 
 /**
  * What a way's tags make of it as a road, null for a way that is none. Width
  * from `width`, else `lanes` times 3 m, else the type's; `surface` picks the
- * material. Tunnels are left out until they get their portals (decision 8 of
- * the plan, a later phase); a passage through a building stays a road.
+ * material. A passage through a building is no tunnel: it stays a road.
  */
 export function roadTags(tags: Record<string, string>): RoadTags | null {
   const type = tags['highway'];
