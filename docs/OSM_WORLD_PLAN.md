@@ -3,7 +3,7 @@
 **Status:** Plan, 2026-10-14; Phase O1 „Graue Welt“, O2 „Ablauf“, O3 „Land und Wasser“ und O4 „Gebäude“ gebaut
 2026-10-15 (TODO E157), O5 „Ausstattung“ 2026-10-16, siehe [Phase O1](#phase-o1-gebaut-2026-10-15),
 [Phase O2](#phase-o2-gebaut-2026-10-15), [Phase O3](#phase-o3-gebaut-2026-10-15), [Phase O4](#phase-o4-gebaut-2026-10-15)
-und [Phase O5](#phase-o5-gebaut-2026-10-16)
+und [Phase O5](#phase-o5-gebaut-2026-10-16); O7 „Messen“ in Teilen, siehe [Phase O7](#phase-o7-messung-2026-10-16-teil)
 **Bezug:** [CUSTOM_MAPS.md](CUSTOM_MAPS.md) (Renderer, Katalog), [CUSTOM_MAP_WORLD.md](CUSTOM_MAP_WORLD.md) (Spiel),
 [LEVEL_EDITOR.md](LEVEL_EDITOR.md) (Editor), [W3X_IMPORT.md](W3X_IMPORT.md) (Vorbild für einen Importer im Worker),
 [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) (Ortssuche, Spawns auf echten Orten), [SHOWCASE_LEVELS.md](SHOWCASE_LEVELS.md)
@@ -868,6 +868,45 @@ Die Ausstattung kostet rund 1 bis 3 % Draw Calls und 3 bis 5 % Dreiecke; die Bil
 - **Fehlende Modelle:** Leitplanke, Stromleitung zwischen den Masten, Bahnsteigkante, Oberleitung, Schaltkasten
   (`man_made=street_cabinet`, Miltenberg 154), Fahnenmast.
 - **Gleise am Hang:** die Stücke folgen dem Boden ohne Einebnen; auf einem steilen Bahndamm kippen sie nicht mit.
+
+## Phase O7, Messung (2026-10-16, Teil)
+
+Gemessen an den vier Orten mit gespeicherten Rohdaten: Oberbergen (Dorf im Weinberg), Miltenberg (Kleinstadt am
+Fluss), Stuttgart Mitte (Innenstadt), Erlenbach (Dorf; Abfrage über rund 1,5 km statt 2,4 km, ohne Höhen, also flach
+und nur in der Mitte gefüllt). Stand: O1 bis O5 samt Häusern (E198), Tunneln und Betonbrücken. Küste, Gebirge und ein
+Ort außerhalb Europas fehlen: ein frischer Abruf für Erlenbach über 2,4 km scheiterte am 2026-10-16 an beiden Servern
+des Spiels (overpass-api.de 502 „at capacity“, overpass.private.coffee 500), je ein Versuch, keine Wiederholung.
+
+Erzeugen in Node (`tools/osm/osm-world.spec.ts`, ein Kern, Rechner mit anderen Läufen belegt, Richtwerte); Spiel im
+Dev-Server, headless Chromium mit D3D11 (RTX 5080), 1600 × 900, Startansicht nach „Skip intro“, 90 Bilder ohne
+Bildratenbremse:
+
+| | Oberbergen | Miltenberg | Stuttgart Mitte | Erlenbach (1,5 km, flach) | Demo-Tal (512 m) |
+|---|---|---|---|---|---|
+| Erzeugen (ohne Abruf) | 2,3 s | 2,0 s | 3,3 s | 1,2 s | |
+| Packen | 1,6 s | 1,4 s | 1,7 s | 0,9 s | |
+| Editor-Prüfung | 132 ms | 181 ms | 245 ms | 41 ms | |
+| Datei | 7,42 MB | 6,30 MB | 6,73 MB | 0,96 MB | |
+| Objekte | 30 058 | 31 641 | 28 610 | 17 245 | |
+| Szenenkosten (Budget 12 M) | 3,97 M | 7,99 M | 13,40 M | 4,96 M | |
+| Laden bis `load:ready` | 17,5 s | 11,1 s | 14,4 s | 17,4 s | 6,7 s |
+| Bildzeit Median / 90 % | 13,1 / 15,4 ms | 4,4 / 5,0 ms | 7,4 / 9,4 ms | 4,4 / 7,8 ms | 2,3 / 2,9 ms |
+| Draw Calls | 544 | 937 | 1 201 | 360 | 253 |
+| Dreiecke im Bild | 2,1 M | 6,0 M | 10,1 M | 3,0 M | 1,4 M |
+| JS-Heap (`performance.memory`) | 842 MB | 894 MB | 1 070 MB | 793 MB | 462 MB |
+
+Befunde:
+
+- **Erzeugen** bleibt unter 4 s ohne Abruf; mit dem Abruf (2 bis 6 s, O1) und den Höhen unter 10 s, wie in O1 geschätzt.
+- **Laden** dauert 11 bis 18 s im Dev-Server (das Demo-Tal 6,7 s); die Zahlen schwanken zwischen Läufen um mehrere
+  Sekunden (Miltenberg 11,1 bis 14,0 s in diesem Lauf). Ein Produktions-Build ist nicht gemessen.
+- **Bildzeit:** Oberbergen ist mit den wenigsten Dreiecken der teuerste Ort (13 ms Median), vermutlich die
+  28 000 Pflanzen (Reben, Wald) in der Startansicht; nicht weiter zerlegt.
+- **Stuttgart** liegt über dem Szenenbudget (13,4 M), getragen von den Gebäuden ohne Grenze (11,1 M, Entscheidung
+  2026-10-15); die Bildzeit hält trotzdem 7 bis 9 ms headless.
+- **Speicher:** OSM-Welten belegen headless knapp doppelt so viel JS-Heap wie das Demo-Tal.
+- **Offen für die Abnahme:** Küste, Gebirge, Ort außerhalb Europas (je eine Abfrage, sobald ein Server antwortet),
+  Messung im Produktions-Build, Nachtest durch den User.
 
 ## Offene Fragen an den User (beantwortet, siehe oben)
 
