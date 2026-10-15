@@ -178,6 +178,11 @@ export class EditorMapView {
     return this.view.terrainLayerTwins();
   }
 
+  /** Water, lava and particle stand-ins, to compile before a brush brings the first one */
+  effectTwins(): Mesh[] {
+    return this.view.effectTwins();
+  }
+
   updatePaths(): void {
     this.view.updatePaths();
   }

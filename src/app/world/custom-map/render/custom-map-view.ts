@@ -1,11 +1,14 @@
 import {
   BackSide,
+  BufferAttribute,
+  BufferGeometry,
   DoubleSide,
   FrontSide,
   Group,
   InstancedMesh,
   MeshDepthMaterial,
   Ray,
+  Vector2,
   Vector3,
   VSMShadowMap,
   WebGLRenderTarget,
@@ -14,17 +17,18 @@ import {
   Mesh,
   type Object3D,
   Scene,
+  type ShaderMaterial,
   type ShadowMapType,
   type WebGLRenderer,
 } from 'three';
-import type { CustomMapDocument, MapEnvironment, MapObject } from '../map-document';
+import type { CustomMapDocument, MapEnvironment, MapObject, MapWaterKind } from '../map-document';
 import { HeightField } from './height-field';
 import type { MapAssetLibrary } from './map-asset-library';
 import type { AssetCatalog, CatalogObject } from './asset-catalog';
 import { mapToScene, sceneToMap } from './map-coords';
 import { CustomMapEnvironment } from './environment/map-environment';
 import { fitShadowBox } from './environment/shadow-fit';
-import { EffectLayer } from './effects/effect-layer';
+import { EffectLayer, glowStandIn } from './effects/effect-layer';
 import { CoverMap } from './environment/cover-map';
 import { setPlantSway } from './environment/wind';
 import { MapObjectLayer, type ObjectHit } from './objects/object-layer';
@@ -37,6 +41,9 @@ import { RiverSurface, sampleRiver } from './water/river-surface';
 import { WaterSurface } from './water/water-surface';
 import type { CustomMapQuality } from '../../../three-engine/render-quality';
 import { SceneCopy } from './water/scene-copy';
+import { createWaterMaterial, setWaterEffects, setWaterSky } from './water/water-material';
+import { setHeatHaze } from './water/heat-haze';
+import { ParticleField } from './effects/particle-field';
 import { GroundDecals } from './terrain/ground-decals';
 import { NO_MAP_EFFECTS, type MapEffects } from './map-effects';
 import type { GridRect } from './terrain/terrain-chunks';
@@ -160,6 +167,8 @@ export class CustomMapView {
   private disposed = false;
   /** Depth materials like the ones the shadow pass derives, by the material's uuid (warmUpAssets) */
   private readonly depthTwins = new Map<string, MeshDepthMaterial>();
+  /** Stand-ins of what an edit brings in later (effectTwins), kept so their programs stay */
+  private effectMeshes: Mesh[] | null = null;
   /** A render target to compile the shadow pass's programs for (linear output, no tone mapping) */
   private offscreen: WebGLRenderTarget | null = null;
 
@@ -357,6 +366,43 @@ export class CustomMapView {
   /** Meshes for the terrain shader's variants with more material layers (MapTerrainLayer.layerTwins) */
   terrainLayerTwins(): Mesh[] {
     return this.terrain.layerTwins();
+  }
+
+  /**
+   * Stand-ins for what a brush brings onto a map that has none yet, to
+   * compile ahead: a water body and a river of every kind (lava with its heat
+   * shimmer) with the map's switchable effects and sky, a particle field
+   * (every kind shares one program) and the light halos. The first lava
+   * pool of a hell stroke linked them in its frames (frames of 550 to 600
+   * ms in a dev build). Built once and kept, so three keeps their programs;
+   * the effects as they are now (a later switch recompiles anyway).
+   */
+  effectTwins(): Mesh[] {
+    if (this.effectMeshes) return this.effectMeshes;
+    const geometry = new BufferGeometry().setAttribute('position', new BufferAttribute(new Float32Array(9), 3));
+    const f = this.heights;
+    const mapHalf = new Vector2(((f.columns - 1) * f.cellSize) / 2, ((f.rows - 1) * f.cellSize) / 2);
+    const e = this.environment;
+    const out: Mesh[] = [];
+    const kinds: [MapWaterKind, boolean][] = [
+      ...(['water', 'sea', 'swamp', 'ice', 'lava'] as MapWaterKind[]).map((k): [MapWaterKind, boolean] => [k, false]),
+      ['water', true],
+      ['lava', true],
+    ];
+    for (const [kind, river] of kinds) {
+      const material = createWaterMaterial({ kind, river, heights: this.terrain.heightTexture, color: '', mapHalf });
+      setWaterEffects(material, kind, this.mapEffects, this.sceneCopy);
+      setWaterSky(material, e.skyDome.uniforms, e.sun.intensity);
+      const mesh = new Mesh(geometry, material) as Mesh<BufferGeometry, ShaderMaterial>;
+      mesh.receiveShadow = true;
+      if (kind === 'lava' && this.mapEffects.lavaGlow) setHeatHaze(mesh, this.sceneCopy);
+      out.push(mesh);
+    }
+    const particles = new ParticleField('smoke', [{ kind: 'smoke', origin: new Vector3(), radius: 1, height: 1, count: 1, color: undefined, scale: 1 }], { value: 0 }, { value: 1 });
+    out.push(particles.mesh, glowStandIn());
+    for (const m of out) m.frustumCulled = false;
+    this.effectMeshes = out;
+    return out;
   }
 
   /** The depth material three's shadow pass would draw `material` with (WebGLShadowMap getDepthMaterial) */
@@ -1002,6 +1048,12 @@ export class CustomMapView {
     this.bridges.dispose();
     this.environment.dispose();
     for (const twin of this.depthTwins.values()) twin.dispose();
+    for (const m of this.effectMeshes ?? []) {
+      setHeatHaze(m as Mesh<BufferGeometry, ShaderMaterial>, null);
+      (m.material as ShaderMaterial).dispose();
+      m.geometry.dispose();
+    }
+    this.effectMeshes = null;
     this.offscreen?.dispose();
     this.sceneCopy.dispose();
     if (this.lavaDue) clearTimeout(this.lavaDue);

@@ -414,7 +414,7 @@ export class EditorViewport {
       topDownWarm();
       await idle(2000);
       if (this.disposed || view !== this.view) return;
-      const twins = view.terrainLayerTwins();
+      const twins = [...view.terrainLayerTwins(), ...view.effectTwins()];
       if (twins.length) {
         const group = new Group();
         for (const t of twins) group.add(t);

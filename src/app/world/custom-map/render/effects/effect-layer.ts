@@ -444,6 +444,11 @@ function push(map: Map<ParticleKind, ParticleEmitter[]>, e: ParticleEmitter): vo
   list.push(e);
 }
 
+/** The halo quads without lights, to compile their program before a map gets its first light (CustomMapView.effectTwins) */
+export function glowStandIn(): Mesh<InstancedBufferGeometry, ShaderMaterial> {
+  return buildGlows([], { value: 0 });
+}
+
 /** Additive halo quads, one per light, brighter at night and flickering like their light */
 function buildGlows(spots: LightSpot[], time: { value: number }): Mesh<InstancedBufferGeometry, ShaderMaterial> {
   const quad = new PlaneGeometry(1, 1);
