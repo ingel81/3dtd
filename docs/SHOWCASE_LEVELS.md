@@ -171,7 +171,11 @@ Dev-Server. Vier Spuren zu je 474 m, Startgeld 250 je Spur (`gameplay.startCredi
 ebenfalls, aber mit 124 und 140 HP). Bilder: `docs/images/levels/twin-gates.jpg`, `twin-gates-castle.jpg`,
 `twin-gates-game.jpg`. Gebaut mit Mirror X: Pinsel kopieren ihre Zellen, Linien und Objekte entstehen gespiegelt; den
 Generator-Boden spiegelt `mirrorFrom` einmal von West nach Ost. Was auf der Achse steht (Bergfried hinter dem HQ),
-ist ohne Symmetrie gesetzt.
+ist ohne Symmetrie gesetzt. Seit E184 stehen die Burgen auf Felsplateaus (10 m, steile Flanken mit
+Klippenfelsen, trockener Graben am Fuß), ein Fluss in zwei Armen umfasst die Mitte mit dem HQ (die Spuren queren ihn
+auf Steinbrücken), je Arm eine Wassermühle; Belagerungslager vor Nord- und Südtor (Kanonen, Zelte, Barrikaden,
+Lagerfeuer; Platzhalter, bis Belagerungsgerät als Modell da ist), Banner und Fackeln an allen Toren, Wachfeuer vor den
+Mauern, dichterer Wald an den Außenrändern, Vogelschwärme.
 
 Biom gemäßigt mit Burgmauern, Look `dusk`. Streng symmetrische Coop-Karte (Spiegelung an X): zwei Burgen, je zwei
 Spuren pro Spieler, die sich in der Mitte am gemeinsamen HQ treffen. Gestaltet mit dem Symmetrie-Modus. Spawns: 4.
