@@ -809,6 +809,58 @@ def stone_circle(name, seed=23, radius=7.5, count=13):
     export(name, objects, lod=500)
 
 
+# ---------------------------------------------------------------- siege
+
+def trebuchet(name, seed=29):
+    """A counterweight trebuchet, cocked, throwing towards the front (-Y): a timber base on four solid
+    wheels, two A-frames carrying the axle at 6 m, the long arm drawn down to the rear, the counterweight
+    box raised at the front, the sling lying in its trough; a few stone balls beside it"""
+    clear_scene()
+    rnd = random.Random(seed)
+    wood = Part(pbr_material('wood-rough', 'rough_wood', (0.8, 0.72, 0.62)), uv_metres=1.0)
+    iron = Part(flat_material('iron', (0.08, 0.08, 0.08), 0.5, 0.8), smooth=True)
+    rope = Part(flat_material('rope', (0.55, 0.47, 0.33), 0.9), smooth=True, bevel=0.0)
+    stone = Part(pbr_material('stone-slates', 'castle_wall_slates'), uv_metres=1.0, smooth=True, bevel=0.0)
+    hw, hl, axle = 1.4, 3.6, 6.0
+    for s in (-1, 1):
+        box(wood, s * hw, 0, 0.55, 0.4, hl * 2, 0.4)
+        for y in (-hl + 0.5, hl - 0.5):
+            tube(wood, [Vector((s * (hw + 0.25), y, 0.55)), Vector((s * (hw + 0.55), y, 0.55))], [0.55, 0.55], 12)
+            tube(iron, [Vector((s * (hw + 0.55), y, 0.55)), Vector((s * (hw + 0.62), y, 0.55))], [0.12, 0.12], 8)
+        # A-frame: two legs and a brace up to the axle
+        top = Vector((s * hw, 0, axle))
+        for y in (-2.2, 2.2):
+            oriented_box(wood, Vector((s * hw, y, 0.75)), top, 0.3)
+        oriented_box(wood, Vector((s * hw, -1.3, 3.0)), Vector((s * hw, 1.3, 3.0)), 0.22)
+        oriented_box(wood, Vector((s * hw, 0, 0.75)), top, 0.26)
+    for y in (-hl + 0.3, -1.0, 1.0, hl - 0.3):
+        box(wood, 0, y, 0.6, hw * 2 + 0.4, 0.3, 0.3)
+    tube(iron, [Vector((-hw - 0.3, 0, axle)), Vector((hw + 0.3, 0, axle))], [0.12, 0.12], 8)
+    # The arm: long end drawn down to the rear, short end up at the front with the counterweight
+    pivot = Vector((0, 0, axle))
+    back = pivot + Vector((0, 8.2, -4.6)).normalized() * 9.0
+    front = pivot + (pivot - back).normalized() * 3.0
+    oriented_box(wood, back, front, 0.4)
+    for k in range(4):
+        p = pivot.lerp(back, 0.15 + k * 0.22)
+        tube(iron, [p + Vector((-0.27, 0, 0)), p + Vector((0.27, 0, 0))], [0.24, 0.24], 8)
+    hang = front + Vector((0, 0, -0.4))
+    for s in (-1, 1):
+        oriented_box(iron, front + Vector((s * 0.3, 0, 0)), hang + Vector((s * 0.6, 0, -1.2)), 0.08)
+    box(wood, hang.x, hang.y, hang.z - 3.4, 2.0, 1.8, 2.2)
+    box(iron, hang.x, hang.y, hang.z - 1.3, 2.1, 1.9, 0.12)
+    # Sling from the arm's tip forward along the trough, a pouch at its end
+    pts = [back, back + Vector((0, -1.5, -0.4)), Vector((0, back.y - 3.0, 0.95)), Vector((0, -1.0, 0.95))]
+    for a, b in zip(pts, pts[1:]):
+        tube(rope, [a, b], [0.04, 0.04], 5)
+    lump(rope, Vector((0, -1.3, 0.85)), Vector((0.35, 0.3, 0.2)), seed, roughness=0.2, subdiv=1)
+    for k in range(5):
+        lump(stone, Vector((-hw - 1.6 + rnd.uniform(-0.6, 0.6), rnd.uniform(-1.5, 1.5), -0.1)), Vector((0.4, 0.4, 0.4)), seed + k,
+             roughness=0.1, flat_bottom=False, subdiv=2)
+    objects = [wood.to_object(name), iron.to_object(name + '-iron'), rope.to_object(name + '-rope'), stone.to_object(name + '-stones')]
+    export(name, objects, lod=600)
+
+
 def models():
     return {
         'tunnel-portal': lambda: tunnel_portal('tunnel-portal'),
@@ -826,4 +878,5 @@ def models():
         'bell-tower': lambda: bell_tower('bell-tower'),
         'bell-tower-snow': lambda: bell_tower('bell-tower-snow', snow=True),
         'stone-circle': lambda: stone_circle('stone-circle'),
+        'trebuchet': lambda: trebuchet('trebuchet'),
     }

@@ -12890,6 +12890,37 @@
       "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/rock_boulder_dry; https://polyhaven.com/a/mossy_stone_wall"
     },
     {
+      "id": "trebuchet",
+      "name": "Trebuchet",
+      "category": "prop",
+      "file": "models/trebuchet.glb",
+      "triangles": 1430,
+      "footprint": 5.2,
+      "height": 7.6,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "castle",
+        "autumn",
+        "temperate"
+      ],
+      "lod": [
+        {
+          "file": "models/trebuchet-lod1.glb",
+          "distance": 350,
+          "triangles": 867
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/rough_wood; https://polyhaven.com/a/castle_wall_slates"
+    },
+    {
       "id": "fx-fireflies",
       "name": "Fireflies",
       "category": "fx",
