@@ -5,8 +5,8 @@ import { act, asset, clickMap, click, flyover, m, mode, newMap, orbit, par, path
 const WEATHER = '[aria-label=Weather] button[role=radio]';
 
 export const SCENES = [
-  // Level ground: the mirrored side cut rectangles into the noisy ground, the lava craters' rims leaked
-  { name: 'editor2-new', page: '/editor', steps: [...newMap('Fire and Ice', 'second map', 'flat')] },
+  // Level ground (the lava craters' rims leaked on noisy ground), frozen instead of the form's green grass
+  { name: 'editor2-new', page: '/editor', steps: [{ do: 'mark', name: 'Fire and Ice' }, ...newMap('Fire and Ice', 'second map', 'flat', 'Frozen ground')] },
   {
     name: 'editor2-biomes',
     steps: [
@@ -26,6 +26,7 @@ export const SCENES = [
       stroke(3, [[-0.35, 0.3], [-0.1, 0.36], [0.15, 0.36], [0.35, 0.3]]),
       act('idle', { timeout: 30 }),
       wait(2.2),
+      { do: 'mark', name: 'effect:snow' },
       { do: 'frame', points: [[-0.3, -0.3], [0.3, -0.28]], from: 180, pitch: 32, margin: 40 },
       click('[data-biome=hell]', { label: 'hell' }),
       act('idle', { timeout: 20 }),
@@ -33,34 +34,16 @@ export const SCENES = [
       stroke(4, [[-0.3, -0.3], [-0.1, -0.34], [0.1, -0.33], [0.3, -0.28]]),
       act('idle', { timeout: 30 }),
       wait(2.4),
+      { do: 'mark', name: 'effect:hell' },
       path(1.5, ['current', [[-0.05, 0.05, 25], [0.0, 0.32, 30]]]),
       tool('environment'),
       click(WEATHER, { withText: 'Snow', label: 'snowfall' }),
       wait(3),
+      { do: 'mark', name: 'effect:snowfall' },
       // Clear again: the snow cover whitened the whole map, the symmetry from above read as white on white
       click(WEATHER, { withText: 'Clear' }),
       { do: 'range', sel: 'app-editor-range[label="Snow cover"]', to: 0, dur: 0.6 },
       wait(0.8),
-    ],
-  },
-  {
-    // From high above: Mirror X makes two mountains of one stroke, Both four craters, the axes drawn on the map
-    name: 'editor2-symmetry',
-    steps: [
-      tool('landscape'),
-      { do: 'frame', points: [[-0.35, -0.25], [0.35, 0.25]], from: 180, pitch: 48, margin: 10, glide: 1.5 },
-      { do: 'select', sel: '[data-test=symmetry]', value: 'x', label: 'mirror' },
-      mode('mountain'),
-      settings({ brush: { radius: 70, strength: 1 }, landscape: { seed: 71 } }),
-      // Clear of the HQ (0.25, 0) and the West spawn its mirror would hit
-      stroke(4, [[0.3, -0.2], [0.31, -0.2]], { label: 'two mountains' }),
-      wait(1),
-      { do: 'select', sel: '[data-test=symmetry]', value: 'xy', label: 'both' },
-      mode('crater'),
-      settings({ brush: { radius: 48, strength: 1 } }),
-      stroke(3.6, [[0.15, 0.13], [0.15, 0.13]], { label: 'four craters' }),
-      wait(1.8),
-      { do: 'select', sel: '[data-test=symmetry]', value: 'none' },
     ],
   },
   {
@@ -94,7 +77,7 @@ export const SCENES = [
       // Low over the lava toward the volcano, the editor's frame out of the picture
       { do: 'ui', on: false },
       act('overlay', { on: false }),
-      path(7, ['current', [[0.16, -0.62, 28], [0.16, -0.42]], [[0.32, -0.6, 26], [0.38, -0.3, 10]]], { ease: 'inOut' }),
+      path(7, ['current', [[0.16, -0.62, 28], [0.16, -0.42]], [[0.32, -0.6, 26], [0.38, -0.3, 10]]], { ease: 'inOut', label: 'effect:lava' }),
     ],
   },
 ];

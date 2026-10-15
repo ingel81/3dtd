@@ -17,15 +17,19 @@
 // { do: 'markers', on } the game's HQ diamond and name signs. Fly-overs and the outro play clean, editor and
 // game with their full UI.
 //
-// Programme (round 2, 2026-10-15): intro over Red Canyon, Ember Crater, Ruined City, Demo Valley; into the
-// editor from Demo Valley's pause menu, hopping between the four maps (own copies of the shipped ones); the
-// Warcraft 3 import; a fight on Red Canyon as edited; the outro on Moon Base.
+// Programme (round 3, 2026-10-16): a short intro over Ember Crater, Red Canyon and Demo Valley; into the editor from
+// Demo Valley's pause menu, hopping between Demo Valley, Mars Canyon, Moon Base and Red Canyon (own copies of the
+// shipped maps); Fire and Ice built from frozen ground; the Warcraft 3 import; the shipped maps after today's round
+// (autumn, lights at night, buoys, cliffs); a fight on Red Canyon with the new towers, played to the boss's fall;
+// the outro on Moon Base under the Earth.
 
 import { SCENES as INTRO } from './scenes/intro.mjs';
 import { SCENES as EDITOR } from './scenes/editor.mjs';
+import { SCENES as EDITOR2 } from './scenes/editor2.mjs';
 import { SCENES as W3X } from './scenes/w3x.mjs';
+import { SCENES as WORLDS } from './scenes/worlds.mjs';
 import { SCENES as GAME } from './scenes/game.mjs';
 import { SCENES as OUTRO } from './scenes/outro.mjs';
 
 /** The programme in order; each part lives in scenes/ (common.mjs has the helpers) */
-export const SCENES = [...INTRO, ...EDITOR, ...W3X, ...GAME, ...OUTRO];
+export const SCENES = [...INTRO, ...EDITOR, ...EDITOR2, ...W3X, ...WORLDS, ...GAME, ...OUTRO];

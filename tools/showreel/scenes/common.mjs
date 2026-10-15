@@ -26,8 +26,8 @@ export const flyover = (name, map, label, shots) => ({
   steps: [{ do: 'ui', on: false }, { do: 'markers', on: false }, act('routes', { on: false }), { do: 'mark', name: label }, ...shots],
 });
 
-/** The new-map form: a name, Small, the empty ground (optionally a ground preset), Create */
-export const newMap = (name, label, ground = null) => [
+/** The new-map form: a name, Small, the empty ground (optionally a ground preset and a base material by its name), Create */
+export const newMap = (name, label, ground = null, material = null) => [
   wait(0.6),
   click('[data-test=new-map]', { label }),
   { do: 'type', sel: '[data-test=new-name]', text: name, cps: 11 },
@@ -35,6 +35,8 @@ export const newMap = (name, label, ground = null) => [
   click('[data-template=""]'),
   // A ground preset of the empty map ('flat': level ground, no noise)
   ...(ground ? [click(`[data-preset=${ground}]`)] : []),
+  // The base material instead of the form's green default
+  ...(material ? [click('.mb-material', { withText: material })] : []),
   wait(0.3),
   click('[data-test=create-map]', { label: 'create' }),
   act('viewReady', { timeout: 90 }),
