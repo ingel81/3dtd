@@ -20,8 +20,8 @@ import type { OverpassResponse } from './overpass-client';
 import { buildRoads, levelRoads, paintRoads, type RoadStats } from './convert/roads';
 import { fillOsmTerrain } from './convert/terrain';
 import { paintGround, placeMood, type GroundReport } from './convert/ground';
-import { growVegetation, PLANT_BUDGET_SHARE, type VegetationReport } from './convert/vegetation';
-import { objectCost, SCENE_BUDGET } from '../custom-map/render/objects/scene-cost';
+import { growVegetation, type VegetationReport } from './convert/vegetation';
+import { objectCost } from '../custom-map/render/objects/scene-cost';
 import { carveWater, paintWater, settleWater, WATER_MATERIALS, type WaterPaintRole, type WaterReport } from './convert/water';
 import { layOut, OsmLayout, type LayoutReport } from './convert/layout';
 import { placeBuildings, type BuildingCatalogEntry, type BuildingReport } from './convert/buildings';
@@ -176,10 +176,9 @@ export function convertOsm(input: OsmImportInput, options: OsmImportOptions = {}
   warnings.push(...buildings.warnings);
   step('buildings');
 
-  // The plants keep off the footprints and take the scene budget the buildings left, up to their share
+  // The plants keep off the footprints and hold their own share of the scene budget (the buildings have no cap for now)
   const unknownCost = objectCost(undefined, side * side);
-  const plantBudget = Math.max(0, Math.min(PLANT_BUDGET_SHARE * SCENE_BUDGET, SCENE_BUDGET - buildings.report.cost));
-  const plants = growVegetation(doc, features, ground.land, water, { costOf: (asset) => options.plantCosts?.[asset] ?? unknownCost, budget: plantBudget });
+  const plants = growVegetation(doc, features, ground.land, water, { costOf: (asset) => options.plantCosts?.[asset] ?? unknownCost });
   step('plants');
 
   const dem = input.dem ? input.dem.source : null;

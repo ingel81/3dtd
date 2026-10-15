@@ -8,7 +8,7 @@ import { MAX_GROUND_LAYERS } from '../custom-map/map-document';
 import { readWeights } from '../../editor/ops/paint-ops';
 import { heightAt } from '../../editor/model/grid';
 import { plantCosts, PLANT_BUDGET_SHARE } from './convert/vegetation';
-import { BUILDING_BUDGET_SHARE, buildingCatalog } from './convert/buildings';
+import { buildingCatalog } from './convert/buildings';
 import { objectCost, SCENE_BUDGET } from '../custom-map/render/objects/scene-cost';
 import type { CatalogObject } from '../custom-map/render/asset-catalog';
 import { readFileSync } from 'node:fs';
@@ -91,7 +91,9 @@ describe('OSM world (frozen probe Miltenberg)', () => {
     const area = doc.terrain.width * doc.terrain.depth;
     const cost = built.reduce((s, o) => s + objectCost(byId.get(o.asset), area), 0);
     expect(cost).toBeCloseTo(b.cost, -2);
-    expect(b.cost).toBeLessThanOrEqual(BUILDING_BUDGET_SHARE * SCENE_BUDGET * 1.1);
+    // No cap for now: every footprint that fits stands, the cost is reported
+    expect(b.dropped.budget).toBe(0);
+    expect(b.costShare).toBeCloseTo(b.cost / SCENE_BUDGET, 3);
     expect(b.missing.every((m) => m.count > 0)).toBe(true);
   });
 
@@ -102,12 +104,12 @@ describe('OSM world (frozen probe Miltenberg)', () => {
     expect(report.warnings.some((w) => w.startsWith('buildings: no asset catalogue'))).toBe(true);
   });
 
-  it('keeps the plants off the footprints, and the plants take what the buildings leave of the scene budget', () => {
+  it('keeps the plants off the footprints, within their own share of the scene budget', () => {
     const objects: CatalogObject[] = catalog.objects;
     const { doc, report } = convertOsm(probe(), { ...options, catalog: buildingCatalog(objects), plantCosts: plantCosts(objects, 1200) });
     expect(report.buildings.objects).toBeGreaterThan(0);
-    expect(report.plants.budget).toBe(Math.round(Math.min(PLANT_BUDGET_SHARE * SCENE_BUDGET, SCENE_BUDGET - report.buildings.cost)));
-    expect(report.buildings.cost + report.plants.cost).toBeLessThanOrEqual(SCENE_BUDGET);
+    expect(report.plants.budget).toBe(Math.round(PLANT_BUDGET_SHARE * SCENE_BUDGET));
+    expect(report.plants.cost).toBeLessThanOrEqual(report.plants.budget);
     // No tree in a building's wall box: none within a metre of a building model's middle
     const houses = doc.objects.filter((o) => o.group?.startsWith('osm-b') && o.asset !== 'retaining-wall');
     const trees = doc.objects.filter((o) => o.asset.startsWith('tree-'));

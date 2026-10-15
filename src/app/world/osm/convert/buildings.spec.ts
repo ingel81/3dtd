@@ -139,7 +139,7 @@ describe('OSM buildings: placing', () => {
     for (const w of walls) expect(w.y).toBeGreaterThan(house.y);
   });
 
-  it('holds the buildings to their share of the scene budget, the small far ones first', () => {
+  it('with a cap, holds the buildings to it, the small far ones first; without one every footprint stands', () => {
     const areas = [area(1, box({ x: 0, y: 14 }, 10, 8.6, 0), { building: 'house' })];
     for (let k = 0; k < 8; k++) areas.push(area(10 + k, box({ x: -80 + k * 12, y: -12 }, 3, 6, 0), { building: 'garage' }));
     const { doc, features } = world(areas);
@@ -148,5 +148,6 @@ describe('OSM buildings: placing', () => {
     expect(report.dropped.budget).toBeGreaterThan(0);
     expect(report.cost).toBeLessThanOrEqual(one * 0.6);
     expect(warnings.some((w) => w.includes('scene cost'))).toBe(true);
+    expect(placeBuildings(world(areas).doc, features, { catalog }).report.dropped.budget).toBe(0);
   });
 });

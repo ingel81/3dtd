@@ -17,8 +17,9 @@
  *    modules (the block with a facade of decision 6), else it is left out.
  * 4. Clear of roads, water and the HQ: a model over a road shrinks, else it
  *    goes; one in water goes.
- * 5. Scene cost: the buildings may spend BUILDING_BUDGET_SHARE of the scene
- *    budget; past it the smallest buildings far from the HQ go first.
+ * 5. Scene cost: with a cap (BUILDING_BUDGET_SHARE of the scene budget, off
+ *    for now, or `budget`) the smallest buildings far from the HQ go first
+ *    past it.
  * 6. Slope: the ground under each model (its wall box and a margin, never a
  *    road or water) is cut to its lowest corner, where the renderer seats it;
  *    where the hill then stands higher than RETAINING_FROM beside a wall, a
@@ -90,8 +91,13 @@ export interface BuildingResult {
   warnings: string[];
 }
 
-/** Share of SCENE_BUDGET the buildings may spend: the land's trees and plants take the rest */
-export const BUILDING_BUDGET_SHARE = 0.6;
+/**
+ * Share of SCENE_BUDGET the buildings may spend. Off for now (user,
+ * 2026-10-15): every footprint stands, the report still gives the cost;
+ * 0.6 held Stuttgart to about 2 450 of 7 900 footprints. Set a share (or
+ * pass `budget`) to bring the cap back.
+ */
+export const BUILDING_BUDGET_SHARE = Infinity;
 /** A footprint filling less of its turned rectangle than this is cut into rectangles */
 export const FILL_SPLIT = 0.8;
 /** One scale for all axes, within these */
@@ -264,7 +270,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
   // Scene cost: past the budget, the smallest footprints far from the HQ go first
   const budget = options.budget ?? BUILDING_BUDGET_SHARE * SCENE_BUDGET;
   let cost = footprints.reduce((s, f) => s + f.cost, 0);
-  if (catalog && cost > budget) {
+  if (catalog && Number.isFinite(budget) && cost > budget) {
     const worth = (f: Footprint) => f.area / (1 + Math.hypot(f.centre.x - doc.hq.x, f.centre.y - doc.hq.y) / 400);
     const order = [...footprints].sort((p, q) => worth(p) - worth(q));
     const gone = new Set<Footprint>();
