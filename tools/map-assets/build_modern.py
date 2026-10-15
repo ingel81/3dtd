@@ -15,7 +15,7 @@ import random
 import bmesh
 from mathutils import Vector
 
-from blender_kit import Part, box, clear_scene, export_lod, finish, flat_material, pbr_material, tube
+from blender_kit import Part, box, clear_scene, export_lod, finish, flat_material, pbr_material, tilt, tube
 from build_city import Face, glass
 from build_structures import gable_roof
 
@@ -318,7 +318,6 @@ def gabled_house(name, units, d, floors=2, roof='anthracite', pitch_deg=36, sola
     low, top = gabled_roof(kit, w, d, eave, pitch, closed_ends=row_ends)
     if solar:
         panels = Part(flat_material('pv-panel', (0.03, 0.05, 0.1), 0.15, 0.6))
-        frame = kit.metal
         slope = math.atan2(pitch, d / 2)
         run = d / 2 * 0.72
         cols = max(1, int(w * solar / 1.05))
@@ -342,8 +341,161 @@ def gabled_house(name, units, d, floors=2, roof='anthracite', pitch_deg=36, sola
     export(name, kit.objects(name), lod=lod)
 
 
+# ---------------------------------------------------------------- garages, sheds, carports, canopies
+
+def flat_top(kit, w, d, z, fall=0.12, edge=0.22):
+    """Flat roof: a bitumen membrane falling to the back, a zinc edge trim around it"""
+    felt = Part(pbr_material('roof-bitumen', 'bitumen', (0.8, 0.8, 0.8)), uv_metres=3.0, bevel=0.0)
+    hw, hd = w / 2, d / 2
+    prism(felt, [Vector((-hw, -hd, z + fall)), Vector((hw, -hd, z + fall)), Vector((hw, hd, z)), Vector((-hw, hd, z))],
+          Vector((0, 0, -0.08)))
+    for sy in (-1, 1):
+        box(kit.metal, 0, sy * (hd + 0.02), z - 0.08 + (fall if sy < 0 else 0), w + 0.08, 0.04, edge)
+    for sx in (-1, 1):
+        plank(kit.metal, Vector((sx * (hw + 0.02), -hd, z - 0.08 + fall + edge / 2)), Vector((sx * (hw + 0.02), hd, z - 0.08 + edge / 2)),
+              0.04, edge)
+    kit.extra.append(felt)
+
+
+def garage_door(kit, face, u, zb, w, h, part, ribs=4):
+    """Up-and-over door set back in its opening, with pressed ribs and a handle"""
+    face.box(part, u, -0.1, zb, w, 0.05, h)
+    for k in range(1, ribs + 1):
+        face.box(part, u, -0.07, zb + k * h / (ribs + 1), w - 0.1, 0.02, 0.05)
+    face.box(kit.metal, u, -0.06, zb + h * 0.42, 0.18, 0.03, 0.06)
+
+
+def garages(name, count=1, w=3.0, d=6.0, h=2.6, tint=PALE_GREY, seed=0):
+    """Prefab concrete garages side by side (front -Y): rendered walls, an up-and-over door each, a flat roof
+    falling to the back with a zinc edge, the joints between the boxes as pilasters"""
+    clear_scene()
+    rnd = random.Random(seed)
+    kit = Kit()
+    doors = [Part(flat_material('garage-door-' + c, rgb, 0.45, 0.3)) for c, rgb in
+             (('white', (0.78, 0.78, 0.76)), ('anthracite', (0.12, 0.125, 0.13)), ('brown', (0.24, 0.15, 0.09)))]
+    W = count * w
+    z0, t = 0.1, 0.12
+    box(kit.plinth, 0, 0, -FOUNDATION, W + 0.06, d + 0.06, FOUNDATION + z0)
+    front = Face(0, W, d)
+    ops = [(-W / 2 + (k + 0.5) * w, w - 0.6, z0, z0 + 2.0) for k in range(count)]
+    punched_wall(kit.walls(tint), front, -W / 2, W / 2, z0, h, ops, t=t)
+    for u, ow, zb, zt in ops:
+        garage_door(kit, front, u, zb, ow, zt - zb, doors[rnd.randrange(3)] if count > 1 else doors[0])
+    for k in (1, 2, 3):
+        face = Face(k, W, d)
+        inset = t if k % 2 else 0.0
+        punched_wall(kit.walls(tint), face, -face.length / 2 + inset, face.length / 2 - inset, z0, h, [], t=t)
+    for k in range(1, count):
+        front.box(kit.walls(tint), -W / 2 + k * w, 0.02, z0, 0.16, 0.04, h - z0)
+    flat_top(kit, W + 0.1, d + 0.1, h, fall=0.1, edge=0.2)
+    kit.extra += [p for p in doors if p.bm.faces]
+    export(name, kit.objects(name), lod=60 * count + 40)
+
+
+def shed(name, w=2.6, d=2.2, wall_h=2.1):
+    """Wooden garden house: plank walls on a low base, a felt gable roof, a door in the gable end facing
+    front (-Y) and a small window at the side"""
+    clear_scene()
+    kit = Kit()
+    planks = Part(pbr_material('planks-shed', 'wood_planks_grey', (1.15, 1.02, 0.84)), uv_metres=1.6, bevel=0.0)
+    trim = Part(pbr_material('planks-shed-trim', 'brown_planks_04', (0.7, 0.6, 0.5)), uv_metres=1.0)
+    felt = Part(pbr_material('roof-felt', 'bitumen', (0.55, 0.57, 0.6)))
+    # Built with the ridge along X and the door on the east gable, then turned so the door faces -Y
+    box(kit.plinth, 0, 0, -0.4, w + 0.1, d + 0.1, 0.5)
+    for k in (0, 2):
+        f = Face(k, w, d)
+        ops = [(0.4, 0.6, 0.95, 1.55)] if k == 0 else []
+        punched_wall(planks, f, -w / 2, w / 2, 0.1, wall_h, ops, t=0.08)
+        for u, ow, zb, zt in ops:
+            window(kit, f, u, zb, ow, zt - zb, reveal=0.04, split=False)
+    pitch = d / 2 * math.tan(math.radians(35))
+    for k in (1, 3):
+        f = Face(k, w, d)
+        ops = [(0.0, 0.9, 0.1, 1.95)] if k == 1 else []
+        punched_wall(planks, f, -d / 2 + 0.08, d / 2 - 0.08, 0.1, wall_h, ops, t=0.08)
+        gable_wall(planks, f, wall_h, pitch, d, t=0.08)
+        if ops:
+            f.box(trim, 0.0, -0.05, 0.1, 0.9, 0.04, 1.85)
+            for zz in (0.4, 1.6):
+                f.box(trim, 0.0, -0.02, zz, 0.8, 0.03, 0.1)
+            f.box(kit.metal, -0.3, -0.01, 1.0, 0.05, 0.05, 0.15)
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            box(trim, sx * (w / 2 - 0.02), sy * (d / 2 - 0.02), 0.1, 0.1, 0.1, wall_h - 0.1)
+    gable_roof(felt, w, d, wall_h, pitch, 0.25)
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            plank(trim, Vector((sx * (w / 2 + 0.27), sy * (d / 2 + 0.25), wall_h - 0.25 * pitch / (d / 2) - 0.02)),
+                  Vector((sx * (w / 2 + 0.27), 0, wall_h + pitch)), 0.03, 0.14)
+    objects = [planks.to_object(name), trim.to_object(name + '-trim'), felt.to_object(name + '-roof')] + kit.objects(name)
+    tilt(objects, z=-90)
+    export(name, objects, lod=120)
+
+
+def carport(name, w=3.2, d=5.6, h=2.4, bays=1):
+    """Steel carport: posts on footings, a deep fascia on all sides and a trapezoidal sheet roof falling to the back"""
+    clear_scene()
+    kit = Kit()
+    steel = Part(flat_material('steel-anthracite', (0.1, 0.105, 0.11), 0.45, 0.6))
+    W = w * bays
+    for k in range(bays + 1):
+        x = -W / 2 + 0.08 + k * (W - 0.16) / bays
+        for y in (-d / 2 + 0.3, d / 2 - 0.3):
+            box(steel, x, y, -0.4, 0.12, 0.12, h + 0.4)
+            box(kit.plinth, x, y, -0.4, 0.3, 0.3, 0.45)
+    box(steel, 0, -d / 2 + 0.06, h, W + 0.1, 0.12, 0.3)
+    box(steel, 0, d / 2 - 0.06, h - 0.1, W + 0.1, 0.12, 0.3)
+    for sx in (-1, 1):
+        plank(steel, Vector((sx * W / 2, -d / 2, h + 0.15)), Vector((sx * W / 2, d / 2, h + 0.05)), 0.12, 0.3)
+    roof = Part(pbr_material('roof-trapezoid', 'corrugated_iron_02', (0.75, 0.76, 0.78)), uv_metres=2.0, bevel=0.0)
+    prism(roof, [Vector((-W / 2, -d / 2, h + 0.22)), Vector((W / 2, -d / 2, h + 0.22)), Vector((W / 2, d / 2, h + 0.12)),
+                 Vector((-W / 2, d / 2, h + 0.12))], Vector((0, 0, 0.04)))
+    kit.extra += [steel, roof]
+    export(name, kit.objects(name), lod=80 * bays)
+
+
+def station_canopy(name, w=22.0, d=13.0, h=5.0):
+    """Petrol station roof: a slab with a deep white fascia and a red band on four columns, lights under it,
+    two pump islands with two pumps each (no brand)"""
+    clear_scene()
+    kit = Kit()
+    white = Part(flat_material('fascia-white', (0.82, 0.83, 0.84), 0.35, 0.1))
+    band = Part(flat_material('fascia-red', (0.55, 0.05, 0.04), 0.4, 0.1))
+    steel = Part(flat_material('column-grey', (0.5, 0.52, 0.54), 0.4, 0.6), smooth=True)
+    lamp = Part(flat_material('canopy-light', (0.95, 0.95, 0.9), 0.3, emission=(1.0, 0.98, 0.92), strength=1.6))
+    pump = Part(flat_material('pump-body', (0.75, 0.76, 0.77), 0.4, 0.3))
+    dark = Part(flat_material('pump-dark', (0.05, 0.05, 0.06), 0.4, 0.2))
+    slab = 1.1
+    box(white, 0, 0, h, w, d, slab)
+    box(band, 0, 0, h + slab * 0.55, w + 0.04, d + 0.04, 0.22)
+    box(kit.plinth, 0, 0, h + slab - 0.02, w - 0.4, d - 0.4, 0.04)
+    for x in (-w / 4, w / 4):
+        for y in (-d / 4 + 0.6, d / 4 - 0.6):
+            tube(steel, [Vector((x, y, -0.3)), Vector((x, y, h))], [0.25, 0.25], 12)
+        # Pump island: a kerbed concrete strip with two pumps
+        box(kit.plinth, x, 0, -0.3, 1.4, d * 0.62, 0.45)
+        for y in (-d * 0.16, d * 0.16):
+            box(pump, x, y, 0.15, 0.7, 1.1, 1.9)
+            box(dark, x, y, 1.25, 0.72, 0.8, 0.45)
+            box(band, x, y, 1.85, 0.74, 1.12, 0.2)
+            for s in (-1, 1):
+                tube(dark, [Vector((x + s * 0.36, y + 0.3, 1.1)), Vector((x + s * 0.5, y + 0.3, 0.7)),
+                            Vector((x + s * 0.4, y + 0.3, 0.35))], [0.025, 0.025, 0.025], 5)
+    for i in range(4):
+        for j in range(3):
+            box(lamp, -w * 0.375 + i * w * 0.25, -d / 3 + j * d / 3, h - 0.03, 1.4, 0.6, 0.04)
+    kit.extra += [white, band, steel, lamp, pump, dark]
+    export(name, kit.objects(name), lod=400)
+
+
 def models():
     return {
+        'garage': lambda: garages('garage', 1, seed=6),
+        'garage-row': lambda: garages('garage-row', 5, seed=7),
+        'garden-shed': lambda: shed('garden-shed'),
+        'carport': lambda: carport('carport'),
+        'carport-double': lambda: carport('carport-double', bays=2),
+        'station-canopy': lambda: station_canopy('station-canopy'),
         'house-modern': lambda: gabled_house('house-modern', [(10.0, WHITE)], 8.6, solar=0.7, seed=1),
         'house-modern-red': lambda: gabled_house('house-modern-red', [(9.0, CREAM)], 8.2, roof='red', pitch_deg=40, chimney=True,
                                                  seed=2),

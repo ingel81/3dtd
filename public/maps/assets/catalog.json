@@ -13409,6 +13409,183 @@
         }
       ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "garage",
+      "name": "Garage (prefab, 3 x 6 m)",
+      "category": "building",
+      "file": "models/garage.glb",
+      "triangles": 256,
+      "footprint": 2.8,
+      "height": 2.8,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "lod": [
+        {
+          "file": "models/garage-lod1.glb",
+          "distance": 350,
+          "triangles": 184
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "garage-row",
+      "name": "Garage row (five, 15 x 6 m)",
+      "category": "building",
+      "file": "models/garage-row.glb",
+      "triangles": 688,
+      "footprint": 6.8,
+      "height": 2.8,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/garage-row-lod1.glb",
+          "distance": 350,
+          "triangles": 672
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "garden-shed",
+      "name": "Garden shed (2.2 x 2.6 m)",
+      "category": "building",
+      "file": "models/garden-shed.glb",
+      "triangles": 732,
+      "footprint": 1.4,
+      "height": 2.9,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city",
+        "village",
+        "temperate"
+      ],
+      "lod": [
+        {
+          "file": "models/garden-shed-lod1.glb",
+          "distance": 350,
+          "triangles": 207
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/wood_planks_grey; https://polyhaven.com/a/brown_planks_04; https://polyhaven.com/a/bitumen"
+    },
+    {
+      "id": "carport",
+      "name": "Carport (3.2 x 5.6 m)",
+      "category": "building",
+      "file": "models/carport.glb",
+      "triangles": 284,
+      "footprint": 2.5,
+      "height": 2.7,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/carport-lod1.glb",
+          "distance": 350,
+          "triangles": 140
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "carport-double",
+      "name": "Double carport (6.4 x 5.6 m)",
+      "category": "building",
+      "file": "models/carport-double.glb",
+      "triangles": 396,
+      "footprint": 2.9,
+      "height": 2.7,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/carport-double-lod1.glb",
+          "distance": 350,
+          "triangles": 284
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "station-canopy",
+      "name": "Petrol station canopy with pumps (22 x 13 m)",
+      "category": "building",
+      "file": "models/station-canopy.glb",
+      "triangles": 700,
+      "footprint": 9.9,
+      "height": 6.1,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/station-canopy-lod1.glb",
+          "distance": 350,
+          "triangles": 700
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete"
     }
   ]
 }
