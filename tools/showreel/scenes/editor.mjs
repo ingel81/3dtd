@@ -223,7 +223,7 @@ export const SCENES = [
   block('mars-objects', 'mars-canyon', 'Mars Canyon', [
     // A greenhouse and a dome by the landing pad: each levels its ground as it lands; the greenhouse moved, a copy
     // dragged beside it. Drags start on the building beside its middle (the middle holds the gizmo's lift handle)
-    frame([m(-95, -185), m(-70, -215), m(-125, -175)], { from: 20, pitch: 30, margin: 10, glide: 1.4 }),
+    frame([m(-95, -185), m(-70, -215), m(-125, -175)], { from: 20, pitch: 32, margin: 0, glide: 1.4 }),
     tool('objects', { label: 'objects' }),
     mode('place'),
     ...asset('greenhouse', 'greenhouse-dome'),
@@ -256,7 +256,7 @@ export const SCENES = [
     ...settle(0.6),
     effect('buildings'),
     // The village road paved: the road picked in the Roads panel, its surface chosen, painted at once
-    frame([m(-10, -130), m(90, -150)], { from: 10, pitch: 34, margin: 10, glide: 1.4 }),
+    frame([m(25, -128), m(75, -142)], { from: 10, pitch: 40, margin: 2, glide: 1.4 }),
     tool('paths', { label: 'road surface' }),
     mode('edit'),
     clickMap(m(50, -135)),
@@ -274,7 +274,11 @@ export const SCENES = [
     settings({ objects: { line: { offset: 5.5, bothSides: true, spacing: 14 } } }),
     clickMap(m(-150, -85)),
     ...settle(0.5),
+    // Low along the road between the two rows
+    act('overlay', { on: false }),
+    path(2.4, ['current', [m(-115, -78, 6), m(-205, -105, 3)]], { ease: 'inOut' }),
     effect('lamps'),
+    wait(0.6),
     // Rain, then night where the lamps stand and the village begins: every setting with the camera at rest, held
     // until it shows
     act('overlay', { on: false }),

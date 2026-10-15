@@ -15,7 +15,7 @@ export const SCENES = [
       // the south over the station toward it, rising as it closes in
       wait(1),
       { do: 'mark', name: 'Outro' },
-      path(16, [[m(20, -175, 20), m(36, 220, 46)], [m(26, -120, 26), m(36, 220, 50)], [m(30, -70, 34), m(36, 220, 54)]], { ease: 'inOut', label: 'effect:earth' }),
+      path(16, [[m(20, -175, 14), m(40, 250, 70)], [m(26, -125, 20), m(40, 250, 80)], [m(30, -80, 28), m(40, 250, 90)]], { ease: 'inOut', label: 'effect:earth' }),
       { do: 'fade', to: 1, dur: 2, label: 'fade out' },
       wait(0.5),
     ],

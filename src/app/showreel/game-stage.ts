@@ -372,9 +372,11 @@ export class GameStage implements Stage {
         const at = this.named(String(args['near'] ?? 'spots'));
         if (!at) throw new Error(`showreel: no spot ${String(args['near'])} for enemiesNear`);
         const radius = Number(args['radius'] ?? 60);
+        // `kind`: only an enemy of that type counts (the boss, not the swarm ahead of it)
+        const kind = args['kind'] === undefined ? null : String(args['kind']);
         const mirror = (c.towerControl as unknown as TowerSeat).mirror;
         await waitUntil(
-          () => mirror.aliveEnemies().some((e) => Math.hypot(e.position.lon * MAP_METERS_PER_DEGREE - at.x, e.position.lat * MAP_METERS_PER_DEGREE - at.y) <= radius),
+          () => mirror.aliveEnemies().some((e) => (!kind || e.typeConfig.id === kind) && Math.hypot(e.position.lon * MAP_METERS_PER_DEGREE - at.x, e.position.lat * MAP_METERS_PER_DEGREE - at.y) <= radius),
           Number(args['timeout'] ?? 90),
           'an enemy near the towers',
         );
