@@ -80,7 +80,9 @@ export function buildArchipelago(): CustomMapDocument {
   k.scatter(['tree-pine', 'tree-fir'], [{ x: -230, y: 50 }, { x: -120, y: -5 }, { x: 30, y: 135 }], { radius: 20, strength: 0.8 }, { density: 4, minDistance: 4.5 });
   k.scatter(['flowers', 'flowers-yellow', 'flowers-blue', 'grass-clump'], [{ x: 60, y: -40 }, { x: -200, y: 60 }, { x: -50, y: 205 }, { x: -105, y: 15 }], { radius: 40, strength: 1 }, { density: 12, minDistance: 1.5 });
   k.scatter(['tree-pine', 'tree-oak', 'shrub-wide', 'shrub'], [{ x: -95, y: 35 }, { x: 65, y: 125 }, { x: -200, y: -180 }, { x: -20, y: 210 }], { radius: 22, strength: 0.7 }, { density: 3, minDistance: 5 });
-  k.scatter(['rock-coast', 'rock-round', 'boulder'], [{ x: 235, y: 70 }, { x: 180, y: 110 }, { x: -235, y: -170 }, { x: 140, y: -110 }], { radius: 20, strength: 0.8 }, { density: 0.8, minDistance: 10, scaleMin: 0.4, scaleMax: 0.9 }, false);
+  // Round stones and boulders only: the flat coastal slab (rock-coast, up to 24 m across) stuck out level from the
+  // steep flanks as plates over the water
+  k.scatter(['rock-round', 'boulder'], [{ x: 235, y: 70 }, { x: 180, y: 110 }, { x: -235, y: -170 }, { x: 140, y: -110 }], { radius: 20, strength: 0.8 }, { density: 0.8, minDistance: 10, scaleMin: 0.4, scaleMax: 0.9 }, false);
   k.scatter(['grass-tall-dry', 'iceplant', 'flowers-yellow'], [{ x: -10, y: -130 }, { x: -140, y: 40 }, { x: 10, y: 160 }], { radius: 30, strength: 0.8 }, { density: 8, minDistance: 2 });
 
   // ---- Harbour: quay along the cove, crane, huts, boats; lighthouse on the east rock
@@ -98,7 +100,10 @@ export function buildArchipelago(): CustomMapDocument {
   k.row('fence-rail', [{ x: 100, y: -55 }, { x: 125, y: -60 }, { x: 140, y: -40 }], 3.8, { turn: Math.PI / 2 });
   const light = islands[5].at;
   k.place('lighthouse', light.x + 6, light.y - 4, { rotation: 0 });
-  k.place('house-stone', light.x - 12, light.y - 14, { rotation: facing({ x: light.x - 12, y: light.y - 14 }, hq) });
+  // The keeper's house on a terrace of its own: on the crown's slope it stood half sunk into the hill
+  const keeper = { x: light.x - 12, y: light.y - 14 };
+  k.level(keeper, { radius: 9, falloff: 0.5 }, k.h(keeper.x, keeper.y));
+  k.place('house-stone', keeper.x, keeper.y, { rotation: facing(keeper, hq) });
   // A small village round the HQ
   for (const [x, y, a] of [[30, -40, 'cottage'], [104, -78, 'house'], [36, -96, 'cottage'], [108, -40, 'house-stone']] as const) {
     k.chimney(k.place(a, x, y, { rotation: facing({ x, y }, hq) }));
