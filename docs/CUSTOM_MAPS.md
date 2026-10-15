@@ -610,4 +610,14 @@ die normale Tiefe zurück, zwei Spieler sähen dann verschiedene Tiefenpuffer. N
   sind das 2 m je Texel
 - Partikel und Wetter werfen keine Schatten; Regen, Schnee, Asche und Staub enden an Dächern und am Boden (CoverMap
   über Gelände und Fußabdrücke der Gebäude), andere Partikel kennen das Gelände nicht
-- Lichter: höchstens 6 echte Punktlichter gleichzeitig, ohne Schatten
+- Lichter: höchstens 6 echte Punktlichter gleichzeitig, ohne Schatten. Alle Lichter (Laternen, Fackeln, Feuer, die
+  Lavapunkte) sind dazu ins Land gebacken (`effects/lamp-light.ts`): zwei Texturen über die Karte (ein Texel je Meter,
+  höchstens 512 je Seite, Half Float), ruhige und flackernde Lichter getrennt, je Licht ein umgekehrtes Quadrat von
+  seiner Höhe, das an seiner Reichweite weich endet; Alpha hält die Bodenhöhe des Lichts. Jedes Kartenmaterial mit
+  Höhennebel (Gelände, Objekte, Gras) liest sie an seinem Fragment und gibt ihr Licht mal seiner Farbe dazu, über
+  dem Licht 6 bis 12 m nach oben auslaufend (ein Dach über der Laterne bleibt dunkel), Wände und Unterseiten weniger,
+  Feuer flackernd mit einer Phase, die über die Karte wandert, mit weicher Grenze statt Weiß; nach Dunkelheit
+  eingeblendet wie der Pool. Neu gebacken wird nur das Rechteck, das alte und neue Lichter erreichen. Die Lichthöfe
+  sind nachts mindestens ein Hundertstel des Abstands breit, so lesen sie aus der Spielkamera. Gemessen
+  (Render-Bench headless, High, GPU-Median, belastete Maschine): Harbor Town 1,03 bis 1,08 ms vorher, 1,06 bis 1,20
+  nachher; Witch Marsh 0,80 bis 0,86 und 0,82 bis 0,90; Ember Crater 0,70 bis 0,98 und 0,70 bis 0,98

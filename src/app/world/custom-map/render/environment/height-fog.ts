@@ -1,4 +1,5 @@
 import { Color, Vector3, Vector4, type Material, type Texture, type WebGLProgramParametersWithUniforms } from 'three';
+import { LAMP_LIGHT_FRAGMENT, LAMP_LIGHT_PARS, LAMP_LIGHT_UNIFORMS } from '../effects/lamp-light';
 
 /**
  * Height fog with aerial perspective for the custom map's materials.
@@ -175,8 +176,11 @@ export function addHeightFog(material: Material): void {
   const prevKey = material.customProgramCacheKey;
   material.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms, renderer) => {
     prev.call(material, shader, renderer);
-    Object.assign(shader.uniforms, HEIGHT_FOG_UNIFORMS, LAVA_GLOW_UNIFORMS);
-    const lavaGlow = !material.userData['noLavaGlow'] && shader.fragmentShader.includes('#include <emissivemap_fragment>');
+    Object.assign(shader.uniforms, HEIGHT_FOG_UNIFORMS, LAVA_GLOW_UNIFORMS, LAMP_LIGHT_UNIFORMS);
+    const lit = shader.fragmentShader.includes('#include <emissivemap_fragment>');
+    const lavaGlow = !material.userData['noLavaGlow'] && lit;
+    // Lamps, torches and fires light every lit surface near them (effects/lamp-light.ts), the terrain too
+    const glow = `${lavaGlow ? LAVA_GLOW_FRAGMENT : ''}\n${lit ? LAMP_LIGHT_FRAGMENT : ''}`;
     shader.vertexShader = shader.vertexShader
       .replace('#include <fog_pars_vertex>', '#include <fog_pars_vertex>\nvarying vec3 vFogWorldPos;')
       .replace(
@@ -189,13 +193,13 @@ export function addHeightFog(material: Material): void {
         #endif`,
       );
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <fog_pars_fragment>', `#include <fog_pars_fragment>\nvarying vec3 vFogWorldPos;\n${HEIGHT_FOG_PARS}\n${LAVA_GLOW_PARS}`)
-      .replace('#include <emissivemap_fragment>', lavaGlow ? `#include <emissivemap_fragment>\n${LAVA_GLOW_FRAGMENT}` : '#include <emissivemap_fragment>')
+      .replace('#include <fog_pars_fragment>', `#include <fog_pars_fragment>\nvarying vec3 vFogWorldPos;\n${HEIGHT_FOG_PARS}\n${LAVA_GLOW_PARS}\n${LAMP_LIGHT_PARS}`)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>\n${glow}`)
       .replace('#include <color_fragment>', `#include <color_fragment>\n${SURFACE_WEATHER_COLOR}`)
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>\n${SURFACE_WEATHER_ROUGHNESS}`)
       // The terrain replaces the roughness chunk and leaves this marker
       .replace('// map-roughness-done', SURFACE_WEATHER_ROUGHNESS)
       .replace('#include <fog_fragment>', heightFogFragment('vFogWorldPos'));
   };
-  material.customProgramCacheKey = () => `${prevKey.call(material)}-hfog2`;
+  material.customProgramCacheKey = () => `${prevKey.call(material)}-hfog3`;
 }

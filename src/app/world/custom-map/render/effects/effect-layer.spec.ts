@@ -5,6 +5,7 @@ import type { AssetCatalog, CatalogObject } from '../asset-catalog';
 import { HeightField } from '../height-field';
 import { EffectLayer, lightCap, POINT_LIGHTS } from './effect-layer';
 import { particleCount } from './particle-field';
+import { LAMP_LIGHT_UNIFORMS } from './lamp-light';
 
 const base: Omit<CatalogObject, 'id' | 'name'> = {
   category: 'fx',
@@ -42,6 +43,21 @@ function flat(): HeightField {
 const place = (id: string, asset: string, x: number): MapObject => ({ id, asset, x, y: 0, z: 0, rotation: 0, scale: 1 });
 
 describe('EffectLayer', () => {
+  it('bakes its lights onto the land and lets them shine by darkness, not without lights', () => {
+    const layer = new EffectLayer(flat());
+    layer.set([place('t', 'torch', 10)], catalog);
+    expect(LAMP_LIGHT_UNIFORMS.uLampFlicker.value).not.toBeNull();
+    layer.setDarkness(1);
+    expect(LAMP_LIGHT_UNIFORMS.uLampOn.value).toBe(1);
+    layer.setDarkness(0);
+    expect(LAMP_LIGHT_UNIFORMS.uLampOn.value).toBe(0);
+    layer.set([place('r', 'rock', 10)], catalog);
+    layer.setDarkness(1);
+    expect(LAMP_LIGHT_UNIFORMS.uLampOn.value).toBe(0);
+    layer.dispose();
+    expect(LAMP_LIGHT_UNIFORMS.uLampSteady.value).toBeNull();
+  });
+
   it('builds one particle field per kind, waterfalls with spray, and glows', () => {
     const layer = new EffectLayer(flat());
     const objects = [place('a', 'torch', 0), place('b', 'torch', 10), place('c', 'falls', -20), place('d', 'rock', 5)];

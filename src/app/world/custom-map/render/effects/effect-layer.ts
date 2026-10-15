@@ -18,17 +18,20 @@ import type { HeightField } from '../height-field';
 import { mapToScene } from '../map-coords';
 import { ParticleField, particleCount, type ParticleEmitter, type ParticleKind } from './particle-field';
 import { buildWaterfalls, fallFoot, fallLip, fallReach, type WaterfallSpec } from './waterfall';
+import { LAMP_LIGHT_UNIFORMS, LampLight, type LampSpot } from './lamp-light';
 
 /**
  * Effects and lights of the map's objects, from their catalogue entries
  * (`effects`, `light`): particle fields (one per kind for the whole map),
  * waterfall sheets with spray, and lights.
  *
- * Lights: every light gets an additive glow quad at its height (cheap, all
- * of them). A pool of POINT_LIGHTS real point lights follows the lights
- * nearest to the camera's focus, faded in by darkness (`setDarkness`: 0 by
- * day, 1 at night) so a day map pays for none. The pool's size is fixed,
- * so moving the lights never recompiles a material.
+ * Lights: every light gets an additive glow quad at its height and its
+ * light baked onto the land around it (lamp-light.ts, every map material
+ * samples it): cheap, all of them. A pool of POINT_LIGHTS real point
+ * lights follows the lights nearest to the camera's focus. Both fade in by
+ * darkness (`setDarkness`: 0 by day, 1 at night) so a day map pays for
+ * none. The pool's size is fixed, so moving the lights never recompiles a
+ * material.
  */
 
 export const POINT_LIGHTS = 6;
@@ -75,6 +78,9 @@ export class EffectLayer {
   /** Lights that do not come from objects: glowing lava */
   private extraSpots: LightSpot[] = [];
   private readonly pool: PointLight[] = [];
+  /** The lights baked onto the land (lamp-light.ts); lit: whether any light falls on the map */
+  private readonly lamps: LampLight;
+  private lampsLit = false;
   private darkness = 0;
   private readonly nearestSpots: LightSpot[] = [];
   private readonly nearestDistances = new Float64Array(POINT_LIGHTS);
@@ -98,6 +104,7 @@ export class EffectLayer {
   ) {
     this.group.name = 'custom-map-effects';
     this.group.userData['losTransparent'] = true;
+    this.lamps = new LampLight(field);
     for (let k = 0; k < POINT_LIGHTS; k++) {
       const light = new PointLight(0xffffff, 0, 10, 2);
       light.castShadow = false;
@@ -172,6 +179,7 @@ export class EffectLayer {
       this.glows = buildGlows(this.spots, this.time);
       this.group.add(this.glows);
     }
+    this.bakeLamps();
     this.showPool();
   }
 
@@ -216,7 +224,32 @@ export class EffectLayer {
       flicker: true,
       seed: 100 + k * 2.3,
     }));
+    this.bakeLamps();
     this.showPool();
+  }
+
+  /**
+   * Bakes every light onto the land (lamp-light.ts) and hands the textures to
+   * the map materials. Lava points (5 m over their lava) light wider and
+   * steadier than their point lights, which stand for a whole patch
+   */
+  private bakeLamps(): void {
+    const lamps: LampSpot[] = [
+      ...this.spots,
+      ...this.extraSpots.map((s) => ({ position: s.position, color: s.color, intensity: 0.9, distance: 32, flicker: true })),
+    ];
+    this.lampsLit = this.lamps.bake(lamps);
+    const u = LAMP_LIGHT_UNIFORMS;
+    u.uLampSteady.value = this.lamps.steady;
+    u.uLampFlicker.value = this.lamps.flicker;
+    this.lamps.gridUv(u.uLampGridUv.value);
+    this.lightLamps();
+  }
+
+  /** The baked light's strength by darkness; none without lights */
+  private lightLamps(): void {
+    if (LAMP_LIGHT_UNIFORMS.uLampSteady.value !== this.lamps.steady) return;
+    LAMP_LIGHT_UNIFORMS.uLampOn.value = this.lampsLit ? this.darkness : 0;
   }
 
   /**
@@ -298,6 +331,7 @@ export class EffectLayer {
     this.darkness = Math.min(1, Math.max(0, darkness));
     this.light.value = 1 - this.darkness * 0.85;
     if (this.glows) this.glows.material.uniforms['uDarkness'].value = this.darkness;
+    this.lightLamps();
     this.showPool();
   }
 
@@ -337,6 +371,7 @@ export class EffectLayer {
   /** Advances the effects and moves the point lights to the lights nearest `focus` (group space) */
   update(dt: number, focus: Vector3): void {
     this.time.value += dt;
+    if (LAMP_LIGHT_UNIFORMS.uLampSteady.value === this.lamps.steady) LAMP_LIGHT_UNIFORMS.uLampTime.value = this.time.value;
     if (this.retired.length && ++this.retiredFrames > 2) this.freeRetired();
     const live = this.pool[0].visible ? this.nearest(focus) : 0;
     this.pool.forEach((light, k) => {
@@ -362,6 +397,12 @@ export class EffectLayer {
     for (const f of this.lavaFields) f.dispose();
     this.lavaFields = [];
     for (const light of this.pool) light.dispose();
+    if (LAMP_LIGHT_UNIFORMS.uLampSteady.value === this.lamps.steady) {
+      LAMP_LIGHT_UNIFORMS.uLampOn.value = 0;
+      LAMP_LIGHT_UNIFORMS.uLampSteady.value = null;
+      LAMP_LIGHT_UNIFORMS.uLampFlicker.value = null;
+    }
+    this.lamps.dispose();
     this.group.removeFromParent();
   }
 
@@ -499,7 +540,8 @@ void main() {
   vColor = aCol.rgb * flicker * mix(0.25, 1.0, uDarkness);
   vUv = uv;
   vec4 mvPosition = modelViewMatrix * vec4(aPos.xyz, 1.0);
-  mvPosition.xy += position.xy * aPos.w * mix(0.6, 1.0, uDarkness);
+  // At night at least a hundredth of the distance across, so lamps read from the game camera high above
+  mvPosition.xy += position.xy * max(aPos.w * mix(0.6, 1.0, uDarkness), -mvPosition.z * 0.01 * uDarkness);
   // Pulled towards the camera a little, so the halo is not cut by the lamp's own mesh
   mvPosition.xyz *= 1.0 - min(0.4 / max(-mvPosition.z, 1.0), 0.3);
   gl_Position = projectionMatrix * mvPosition;
