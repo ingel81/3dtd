@@ -53,7 +53,7 @@ const KIND_LOOK: Record<ParticleKind, { life: number; size: number; color: strin
   snow: { life: 10, size: 0.08, color: '#ffffff', additive: false },
   sparkle: { life: 1.6, size: 0.15, color: '#ffffff', additive: true },
   spray: { life: 2.2, size: 3.2, color: '#eef4f6', additive: false },
-  sparks: { life: 1.4, size: 0.09, color: '#ffb040', additive: true },
+  sparks: { life: 1.4, size: 0.16, color: '#ffb040', additive: true },
 };
 
 export interface ParticleEmitter {

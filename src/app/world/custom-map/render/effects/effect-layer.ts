@@ -289,9 +289,7 @@ export class EffectLayer {
         const origin = p.clone().setY(p.y - 5);
         embers.push({ kind: 'embers', origin, radius: 12, height: 0.2, count: per, color: '#ff8a30', scale: 1.4 });
         if (k % 3 === 0) smoke.push({ kind: 'smoke', origin, radius: 10, height: 0.5, count: 4, color: '#4a3a34', scale: 2.5 });
-        if (sparksOn && k % 2 === 0) {
-          sparks.push({ kind: 'sparks', origin, radius: 10, height: 0.2, count: this.share(Math.round(14 * life.density)), color: '#ff9a30', scale: 1 });
-        }
+        if (sparksOn) sparks.push({ kind: 'sparks', origin, radius: 10, height: 0.2, count: this.share(Math.round(24 * life.density)), color: '#ff9a30', scale: 1.2 });
       }
       for (const [kind, list] of [['embers', embers], ['smoke', smoke], ['sparks', sparks]] as const) {
         if (!list.length) continue;
