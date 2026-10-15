@@ -142,11 +142,24 @@ def wheel(tyre, hub, centre, axis, radius=0.42, width=0.32, cleats=16):
 
 
 def dome(name, radius=6.0, glass=True, greenhouse=False):
-    """Geodesic-looking dome: a ring wall, hemisphere of struts, glass or white panels"""
+    """Geodesic-looking dome: a ring wall with vents, a hemisphere of struts with glass or white panels, an
+    airlock tunnel with a round hatch at the front (-Y), a cable reel and a small tank beside it. The
+    greenhouse glows green from its grow lights and shows its beds and plants through the glass"""
     clear_scene()
     struts = Part(trim(), smooth=True)
-    panel = Part(flat_material('dome-glass', (0.35, 0.45, 0.5), 0.08, 0.4) if glass else hull(), smooth=True, uv_scale=0.3)
+    if greenhouse:
+        pane = flat_material('greenhouse-glass', (0.18, 0.4, 0.2), 0.08, 0.3, emission=(0.12, 0.62, 0.14), strength=0.6)
+    elif glass:
+        pane = flat_material('dome-glass', (0.35, 0.45, 0.5), 0.08, 0.4)
+    else:
+        pane = None
+    panel = Part(pane if pane else hull(), smooth=True, uv_scale=0.3)
+    shell = Part(hull(), smooth=True, uv_scale=0.3)
+    dark = Part(flat_material('hatch-dark', (0.06, 0.06, 0.07), 0.6))
     tube(struts, [Vector((0, 0, -0.3)), Vector((0, 0, 0.8))], [radius + 0.2, radius + 0.2], 24, cap=False)
+    for k in range(12):
+        a = (k + 0.5) / 12 * math.tau
+        box(dark, math.cos(a) * (radius + 0.22), math.sin(a) * (radius + 0.22), 0.25, 0.06, 0.9, 0.3, a)
     prof = [(math.sin(t) * radius, math.cos(t)) for t in [k / 10 * math.pi / 2 for k in range(11)]]
     tube(panel, [Vector((0, 0, 0.8 + z)) for z, _ in prof], [radius * r + 0.001 for _, r in prof], 24)
     for k in range(12):
@@ -159,16 +172,32 @@ def dome(name, radius=6.0, glass=True, greenhouse=False):
         pts = [Vector((math.cos(k / n * math.tau) * radius * r * 1.01, math.sin(k / n * math.tau) * radius * r * 1.01, 0.8 + z)) for k in range(n + 1)]
         for p, q in zip(pts, pts[1:]):
             oriented_box(struts, p, q, 0.1)
-    box(struts, 0, -radius - 0.7, -0.3, 2.0, 1.6, 2.6)
-    objects = [struts.to_object(name + '-struts'), panel.to_object(name)]
+    tube(struts, [Vector((0, 0, 0.8 + radius - 0.05)), Vector((0, 0, 0.8 + radius + 0.15))], [0.9, 0.7], 12, cap=True)
+    # Airlock: a short tunnel out of the ring wall, ribs, a round hatch at its end
+    tube(shell, [Vector((0, -radius + 0.5, 1.4)), Vector((0, -radius - 2.0, 1.4))], [1.3, 1.3], 16)
+    for y in (-radius - 0.2, -radius - 1.9):
+        tube(struts, [Vector((0, y + 0.12, 1.4)), Vector((0, y - 0.12, 1.4))], [1.4, 1.4], 16)
+    box(struts, 0, -radius - 1.0, -0.3, 2.4, 2.8, 0.45)
+    hatch(struts, dark, Vector((0, -radius - 2.1, 1.4)), Vector((0, -1, 0)), 0.8)
+    # A cable reel and a tank against the ring wall
+    a = 0.9
+    c = Vector((math.cos(a) * (radius + 1.1), math.sin(a) * (radius + 1.1), 0))
+    tube(struts, [c + Vector((-0.4, 0, 0.6)), c + Vector((0.4, 0, 0.6))], [0.6, 0.6], 12, cap=True)
+    tube(struts, [c + Vector((0.4, 0, 0.6)), c + Vector((-0.4, 0, 0.6))], [0.6, 0.6], 12, cap=True)
+    c = Vector((math.cos(a + 1.2) * (radius + 1.0), math.sin(a + 1.2) * (radius + 1.0), 0))
+    tube(shell, [c, c + Vector((0, 0, 0.2)), c + Vector((0, 0, 1.8)), c + Vector((0, 0, 2.1))], [0.4, 0.6, 0.6, 0.25], 12)
+    objects = [struts.to_object(name + '-struts'), panel.to_object(name), shell.to_object(name + '-airlock'), dark.to_object(name + '-dark')]
     if greenhouse:
         plants = Part(flat_material('greenhouse-plants', (0.15, 0.4, 0.12), 0.8))
+        beds = Part(flat_material('greenhouse-soil', (0.2, 0.13, 0.08), 0.9))
         rnd = random.Random(3)
         for k in range(14):
             a = rnd.uniform(0, math.tau)
             r = rnd.uniform(0, radius * 0.7)
             box(plants, math.cos(a) * r, math.sin(a) * r, 0.8, rnd.uniform(0.6, 1.2), rnd.uniform(0.6, 1.2), rnd.uniform(0.4, 1.4), a)
-        objects.append(plants.to_object(name + '-plants'))
+        for k in range(3):
+            box(beds, -radius * 0.45 + k * radius * 0.45, 0, 0.7, 1.2, radius * 1.3, 0.35)
+        objects += [plants.to_object(name + '-plants'), beds.to_object(name + '-beds')]
     export(name, objects)
 
 
