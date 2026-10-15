@@ -610,8 +610,17 @@ export class CustomMapView {
     if (!rect) this.updateWater();
     else this.refreshWaterNear(rect);
     if (!rect || this.bridgeNear(rect)) void this.refreshBridges();
+    // The apron beyond the border follows its heights, the mirrored trees the apron
+    if (!rect || this.nearBorder(rect)) this.edgeTreesLater(this.doc.objects);
     this.environment.invalidateShadows();
     this.refreshFarShadow(true);
+  }
+
+  /** Whether a rectangle reaches into the border band whose trees are mirrored beyond it */
+  private nearBorder(rect: MapRect): boolean {
+    const hw = this.doc.terrain.width / 2 - EDGE_TREE_BAND;
+    const hd = this.doc.terrain.depth / 2 - EDGE_TREE_BAND;
+    return rect.minX < -hw || rect.maxX > hw || rect.minY < -hd || rect.maxY > hd;
   }
 
   /** Bakes the far shadow cascade again when it is on: right away, or after edits pause for 0.4 s */
@@ -726,8 +735,9 @@ export class CustomMapView {
       return;
     }
     this.terrain.refreshWater(this.doc.paths);
-    // Rain stops and grass ends at the new surfaces
+    // Rain stops and grass ends at the new surfaces, the mirrored trees beyond the border at the sea
     this.coverDirty = true;
+    this.edgeTreesLater(this.doc.objects);
     const bodies = [this.doc.terrain.water, ...(this.doc.terrain.waterBodies ?? [])];
     // Slot 0 is the main body (it may be null); further bodies follow
     while (this.waters.length > bodies.length) this.waters.pop()?.dispose();
@@ -777,6 +787,7 @@ export class CustomMapView {
     else this.terrain.refreshWaterMask(g);
     surface.set(water, border ? this.terrain.apronProfile : null, g);
     this.coverDirty = true;
+    if (border) this.edgeTreesLater(this.doc.objects);
     if (wasLava || water.kind === 'lava') this.effects.setLavaLights(this.lavaLightPoints());
     this.objects.refreshHeights(rect, true);
     if (this.bridgeNear(rect)) void this.refreshBridges();
@@ -1144,7 +1155,9 @@ export class CustomMapView {
     if (this.disposed) return;
     const trees = new Set(catalog.objects.filter((e) => e.category === 'tree').map((e) => e.id));
     const t = this.doc.terrain;
-    await this.edgeTrees.setObjects(edgeTreeObjects(this.doc.objects, (a) => trees.has(a), t.width, t.depth));
+    // None in the sea beyond a coast: from above they stood in the water as dark cones with their shadows
+    const apron = this.terrain.apronProfile;
+    await this.edgeTrees.setObjects(edgeTreeObjects(this.doc.objects, (a) => trees.has(a), t.width, t.depth, (x, y) => !apron.underWater(x, y, 0.3)));
   }
 
   /** Again once an edit pauses, when it touched the border's band */

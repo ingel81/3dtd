@@ -57,6 +57,9 @@ export class ApronProfile {
 
   /** Share of the border that lies under the main water: above one half the map is an island or a coast */
   readonly wetShare: number;
+  /** Border points under the main water, and its level (null: no water) */
+  private readonly wet: Uint8Array;
+  private readonly waterLevel: number | null;
 
   constructor(
     private readonly field: HeightField,
@@ -107,6 +110,8 @@ export class ApronProfile {
       });
     }
     this.wetShare = n ? wet / n : 0;
+    this.wet = wetAt;
+    this.waterLevel = water ? water.level : null;
     this.heights = new Float32Array(APRON_RINGS.length * n);
     APRON_RINGS.forEach((dist, r) => {
       const radius = Math.min(Math.floor(n / 4), Math.round((dist * 0.6) / field.cellSize));
@@ -157,8 +162,35 @@ export class ApronProfile {
     return this.onRing(r, side, x, y) * (1 - t) + this.onRing(r + 1, side, x, y) * t;
   }
 
+  /**
+   * Whether the main water covers a point beyond the border, as the water
+   * surface runs it on (water-surface.ts): off a wet stretch of the border,
+   * or anywhere round a map that is mostly sea, where the apron's ground
+   * lies below the level plus `margin`. False inside the map
+   */
+  underWater(x: number, y: number, margin = 0): boolean {
+    if (this.waterLevel === null) return false;
+    const f = this.field;
+    const ex = Math.max(f.originX - x, x - (f.originX + this.w));
+    const ey = Math.max(f.originY - y, y - (f.originY + this.d));
+    if (Math.max(ex, ey) <= 0) return false;
+    const side = ey >= ex ? (y < f.originY ? 0 : 2) : x > f.originX + this.w ? 1 : 3;
+    const k = Math.round(this.alongIndex(0, side, x, y)) % this.along.length;
+    if (this.wetShare <= 0.5 && !this.wet[k]) return false;
+    return this.heightAt(x, y) < this.waterLevel + margin;
+  }
+
   /** Height of ring r off `side` at the point of it across from map (x, y) */
   private onRing(r: number, side: number, x: number, y: number): number {
+    const n = this.along.length;
+    const at = this.alongIndex(r, side, x, y);
+    const k = Math.floor(at);
+    const u = at - k;
+    return this.height(r, k % n) * (1 - u) + this.height(r, (k + 1) % n) * u;
+  }
+
+  /** Index (with fraction) along the rings of the point of ring r off `side` across from map (x, y) */
+  private alongIndex(r: number, side: number, x: number, y: number): number {
     const grow = APRON_RINGS[r];
     const W = this.w + 2 * grow;
     const D = this.d + 2 * grow;
@@ -170,11 +202,7 @@ export class ApronProfile {
     const rows = this.field.rows - 1;
     const start = side === 0 ? 0 : side === 1 ? cols : side === 2 ? cols + rows : 2 * cols + rows;
     const count = side % 2 === 0 ? cols : rows;
-    const n = this.along.length;
-    const at = start + Math.min(1, Math.max(0, f)) * count;
-    const k = Math.floor(at);
-    const u = at - k;
-    return this.height(r, k % n) * (1 - u) + this.height(r, (k + 1) % n) * u;
+    return start + Math.min(1, Math.max(0, f)) * count;
   }
 
   /** Map position of point k on ring r */

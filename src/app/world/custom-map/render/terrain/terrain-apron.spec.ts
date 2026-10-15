@@ -84,4 +84,18 @@ describe('edgeTreeObjects', () => {
     ]);
     expect(out[0]).toMatchObject({ asset: 'tree-oak', rotation: 1, scale: 1.2 });
   });
+
+  it('plants no mirrored tree in the sea beyond a coast, only on the land beyond a dry stretch', () => {
+    // The east half of the map under the sea (level 6 over ground at 5), the west half dry
+    const field = flatField();
+    const mask = new Uint8Array(101 * 101);
+    for (let j = 0; j < 101; j++) for (let i = 51; i < 101; i++) mask[j * 101 + i] = 255;
+    const apron = new ApronProfile(field, { level: 6, mask, color: '#000' });
+    expect(apron.underWater(0, 0)).toBe(false);
+    expect(apron.underWater(110, 20)).toBe(true);
+    expect(apron.underWater(-110, 20)).toBe(false);
+    const tree = (id: string, x: number, y: number) => ({ id, asset: 'tree-pine', x, y, z: 0, rotation: 0, scale: 1 });
+    const out = edgeTreeObjects([tree('e', 90, 20), tree('w', -90, 20)], () => true, 200, 200, (x, y) => !apron.underWater(x, y, 0.3));
+    expect(out.map((o) => o.id)).toEqual(['edge:w:w']);
+  });
 });

@@ -124,7 +124,10 @@ Nebel der Szene wieder her.
   so endet keine Karte sichtbar in flachem Land; dieselben Ringpunkte, kein Draw Call mehr. **Bäume am Rand**
   (`edge-trees.ts`): die Bäume der 40 m am Rand gespiegelt auf die Schürze, eine eigene Objektschicht außerhalb der
   Sichtlinie (nur Bild, das Spiel liest sie nicht), auf der Höhe der Schürze (`ApronProfile.heightAt`); ein Wald endet
-  nicht mehr als Linie vor kahlem Boden. Nicht Teil der Karte (keine Abfragen, `losTransparent`)
+  nicht mehr als Linie vor kahlem Boden. Keiner im Meer jenseits einer Küste (`ApronProfile.underWater`: wo das
+  Hauptwasser über die Schürze weiterläuft und ihr Boden unter Spiegel + 0,3 m liegt; von oben standen sie dort als dunkle
+  Kegel mit Schatten im Wasser); nach Höhen- und Wasseränderungen am Rand neu gesetzt. Nicht Teil der Karte (keine
+  Abfragen, `losTransparent`)
 
 - **Bodenverdeckung und Geländeform** (`ground-occlusion.ts`, RGBA je Rasterpunkt, ein Zugriff im Shader):
   R Verdeckung (Horizontwinkel in acht Richtungen bis 32 m: Mulden, Rinnen, Hangfüße dunkler; mal weiche
