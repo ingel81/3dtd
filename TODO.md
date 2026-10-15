@@ -237,6 +237,8 @@ Nachtest-Liste in `tmp/NEXT_SESSION.md`, kommt nach PLAYTEST.md, wenn der User Z
 - [ ] **Mond, Mars, Hafen**: Schleusen zu, Radarschüssel ebnet ihren Boden, Kraterauswurf statt Steinkreise, Fischerboot,
       Asphalt in Harbor Town, Gewächshaus mit dunklem Glas (nur 2 auf Mars), Mover-Routen frei.
 - [ ] **Bojen blinken, Ballista-Bolzen mit eigenem Ton** (Dev-Build, Ballista Bolts); **OSM-Tunnel mit Portalen** (Miltenberg).
+- [ ] **OSM: Gehweg und Pflaster eine Schicht** (graue Platten `sidewalk`), eine Bodenschicht mehr für die Landnutzung;
+      eine neue OSM-Welt mit Fußgängerzone erzeugen.
 - [ ] **E199 Ortssuche im New game**: Treffer fließen unter dem Feld, der Dialog wächst; Kartenwelt › A map of a real place.
 - [ ] **E200 Wegknoten in Look**: außerhalb von Roads kleine Punkte statt großer Scheiben; OSM-Karte im Editor, Look.
 - [ ] **Straßenbelag am Weg**: Roads, Straße wählen, „Surface“ (Asphalt, Pflaster, Kies …) sofort, mit Undo, bleibt bei Rebuild.

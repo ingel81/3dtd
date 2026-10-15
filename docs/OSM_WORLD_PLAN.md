@@ -222,7 +222,7 @@ Dazu:
 | OSM | Karte | Breite (ohne `width`/`lanes`) | Belag |
 |---|---|---|---|
 | `motorway` bis `tertiary` samt `_link` | `road` | 12 bis 7 m | Asphalt |
-| `unclassified`, `residential`, `living_street` | `road` | 6 m | Asphalt, nach `surface` Pflaster |
+| `unclassified`, `residential`, `living_street` | `road` | 6 m | Asphalt, nach `surface` Platten |
 | `service`, `pedestrian` | `road` | 4 bis 5 m | Asphalt bzw. Platten |
 | `track` | `path` | 3 m | Feldweg (`mud-tracks`, `dirt-path`) |
 | `footway`, `path`, `cycleway`, `steps` | `path` | 2 bis 3 m | nach `surface` (Kies, Platten, Erde) |
@@ -435,9 +435,9 @@ die Seite erzeugt die Karte im Worker, zeigt eine Statuszeile, speichert sie als
   bleibt Straße. Der Bericht nennt Zahl und Länge.
 - **Einebnen und Belag:** `flattenUnderPaths` mit 3 m Schulter und 20 m Glättung, erst Pfade, dann Straßen von
   schmal nach breit (die breitere gewinnt an Kreuzungen); Brücken nicht. Der Belag wird in die Bodenfarbe gemalt
-  (Asphalt, Pflaster `pavers`, Kopfstein, Gehweg, Kies, Erdweg nach `highway` und `surface`, 0,75 m weicher Rand),
+  (Asphalt, Platten `sidewalk`, Kopfstein, Kies, Erdweg nach `highway` und `surface`, 0,75 m weicher Rand),
   die Kante bekommt `surface`, und die Wegmaske lässt solche Kanten aus (sonst lägen Kopfsteine mit Spurrillen
-  darüber). Sieben Bodenschichten mit Gras; die dritte Splat-Karte bleibt für O3 frei. Splat 2048².
+  darüber). Sechs Bodenschichten mit Gras (bis 2026-10-15 sieben); die dritte Splat-Karte bleibt für O3 frei. Splat 2048².
 - **HQ und Spawns:** HQ auf dem nächsten Punkt einer Straße bis 250 m um den Ort, sonst eines Pfads. Vier Spawns
   über `StreetRouter.findRandomStreetPoint` auf dem Netz der Karte (500 bis 1000 m, Route geprüft, Portal gerade
   gerückt), mindestens 250 m und 40° auseinander; der erste immer offen, die anderen `optional`. Name nach der
@@ -643,9 +643,13 @@ Stöcke). Laden im Dev-Server bis `load:ready`: 8 bis 13 s vorher wie nachher (R
 
 ### Offen nach O3
 
-- **Bodenschichten:** die Beläge der Straßen nehmen sechs Schichten (Asphalt, Pflaster, Kopfstein, Gehweg, Kies,
-  Erdweg), Wasser eine, so bleiben der Landnutzung fünf; Wald fiel im 1,2-km-Ausschnitt von Miltenberg auf Gras, weil
-  Gewerbe und Wiese mehr Fläche hatten. Möglich: Gehweg und Pflaster zusammenlegen, oder Wald fest vorziehen.
+- **Bodenschichten:** die Beläge der Straßen nahmen sechs Schichten (Asphalt, Pflaster, Kopfstein, Gehweg, Kies,
+  Erdweg), Wasser eine, so blieben der Landnutzung fünf; Wald fiel im 1,2-km-Ausschnitt von Miltenberg auf Gras, weil
+  Gewerbe und Wiese mehr Fläche hatten. **Entschieden (2026-10-15):** Gehweg und Pflaster sind eine Schicht, die grauen
+  Platten `sidewalk` (Fußwege, Fußgängerzonen, verkehrsberuhigte Straßen, `surface=paving_stones`, `bricks` …). Aus der
+  Spielkamera lesen sich die kleinen bräunlichen Steine von `pavers` wie Kopfstein, die großen Platten bleiben ruhig
+  und heben sich von Kopfstein und Asphalt ab. Die Straßen nehmen fünf Schichten, die Landnutzung bekommt eine mehr.
+  Gespeicherte Karten behalten ihr `pavers`; nur neu erzeugte Welten ändern sich.
 - **Stadtzentren:** `landuse=retail` und `commercial` (Stuttgart: eine Fläche von 0,78 km²) malen Platten unter alles;
   bis die Gebäude aus O4 stehen, ist die Innenstadt eine graue Fläche mit Straßenbäumen.
 - **Flussabschnitte:** die Teilung geht entlang einer geraden Hauptachse; ein stark gewundener Fluss mit Gefälle wird
