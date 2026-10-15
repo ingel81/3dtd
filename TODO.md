@@ -186,8 +186,6 @@ Nachtest-Liste in `tmp/NEXT_SESSION.md`, kommt nach PLAYTEST.md, wenn der User Z
 - [ ] **E201 Bauverbot als Rechteck**: Gebäude und Mauern sperren und sitzen nach ihrem gedrehten Rechteck (Katalog `box`);
       neben einer langen Schule bauen, Sitz am Hang.
 - [ ] **E197 Rauchsäule** `fx-smoke-column` (Life-Panel „Tall smoke column“), Ember Crater mit drei Säulen; dort ansehen.
-- [ ] **Biom-Pinsel Baumarten**: neues Biom Autumn wood, Meadow/Village mit Obst- und Jungbäumen, Desert mit Trockenbäumen; im
-      Editor Landscape > Autumn wood malen.
 - [ ] **E187 Baumvariation**: Herbstlaub streut Rot bis Gelb je Baum, Pflanzen in der Größe; Autumn Keep über dem Wald.
 - [ ] **Klippen geschlossen**: Klippen-Scans mit Rückseite, Felsen ab Fuß der Kante, keine Streifen an Steilwänden;
       Archipelago Leuchtturmfelsen, Demo Valley Crag.
