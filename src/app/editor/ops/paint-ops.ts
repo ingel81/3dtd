@@ -6,7 +6,7 @@
  * The third map (layers 9 to 12) exists only on maps with more than 8
  * layers; without it those weights read as 0 and are not written.
  */
-import { MAX_GROUND_LAYERS, fitSplatMaps, type MapTerrain } from '../../world/custom-map/map-document';
+import { MAX_GROUND_LAYERS, fitSplatMaps, type MapTerrain, type MapWater } from '../../world/custom-map/map-document';
 import { heightAt, slopeAt, texelRectAround, texelX, texelY, type GridRect } from '../model/grid';
 import { brushWeight, type BrushSettings } from './brush';
 
@@ -113,13 +113,22 @@ export interface AutoPaintRule {
 
 /**
  * Rules from the materials the map already has: the first layer covers
- * everything, a rock-like layer takes steep slopes, a sand-like one the low
- * shore, a snow-like one the peaks, grass-like ones the flat middle.
+ * everything, a sand-like layer the low shore of the map's water (none on
+ * a map without water: low ground away from any shore stays as it is), a
+ * rock-like one slopes from 30 degrees on (gentler flanks keep their
+ * grass, as on real mountains), a snow-like one the peaks, over the rock up
+ * to 40 degrees so a steep summit stays white. Of several candidates a
+ * rock is taken before a stone, a stone before a cliff.
  */
 export function defaultAutoRules(terrain: MapTerrain): AutoPaintRule[] {
   const rules: AutoPaintRule[] = [];
-  const find = (...words: string[]) =>
-    terrain.layers.findIndex((l, k) => k > 0 && words.some((w) => l.material.toLowerCase().includes(w)));
+  const find = (...words: string[]) => {
+    for (const w of words) {
+      const k = terrain.layers.findIndex((l, n) => n > 0 && l.material.toLowerCase().includes(w));
+      if (k >= 0) return k;
+    }
+    return -1;
+  };
   let min = Infinity;
   let max = -Infinity;
   for (const h of terrain.grid.heights) {
@@ -127,15 +136,25 @@ export function defaultAutoRules(terrain: MapTerrain): AutoPaintRule[] {
     if (h > max) max = h;
   }
   const span = Math.max(1, max - min);
-  const shore = (terrain.water?.level ?? min) + Math.max(1.5, span * 0.05);
   rules.push({ layer: 0, minSlope: 0, maxSlope: 90, minHeight: -Infinity, maxHeight: Infinity, blend: 4 });
+  const water = shoreLevel(terrain);
   const sand = find('sand', 'beach', 'mud');
-  if (sand >= 0) rules.push({ layer: sand, minSlope: 0, maxSlope: 20, minHeight: -Infinity, maxHeight: shore, blend: 1.5 });
+  if (sand >= 0 && water !== null) {
+    rules.push({ layer: sand, minSlope: 0, maxSlope: 20, minHeight: -Infinity, maxHeight: water + Math.max(1.5, span * 0.05), blend: 1.5 });
+  }
+  const rock = find('rock', 'stone', 'cliff');
+  if (rock >= 0) rules.push({ layer: rock, minSlope: 35, maxSlope: 90, minHeight: -Infinity, maxHeight: Infinity, blend: 5 });
   const snow = find('snow', 'ice');
   if (snow >= 0) rules.push({ layer: snow, minSlope: 0, maxSlope: 40, minHeight: min + span * 0.8, maxHeight: Infinity, blend: span * 0.04 });
-  const rock = find('rock', 'cliff', 'stone');
-  if (rock >= 0) rules.push({ layer: rock, minSlope: 28, maxSlope: 90, minHeight: -Infinity, maxHeight: Infinity, blend: 6 });
   return rules;
+}
+
+/** The level of the map's water a shore forms at: the main water, else the lowest lake or sea; null without water */
+function shoreLevel(terrain: MapTerrain): number | null {
+  const wet = (w: MapWater | null | undefined) => !!w && (w.kind ?? 'water') !== 'lava' && w.mask.some((v) => v);
+  if (wet(terrain.water)) return terrain.water!.level;
+  const levels = (terrain.waterBodies ?? []).filter(wet).map((w) => w.level);
+  return levels.length ? Math.min(...levels) : null;
 }
 
 /** Repaints the whole map from rules; later rules lie over earlier ones */

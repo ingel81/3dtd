@@ -193,9 +193,11 @@ Klick meldet die Statuszeile „Ramp built“ statt weiter „Ramp start set“ 
 
 **Paint (3).** Bis zu zwölf Bodenschichten aus dem Katalog (beim Hinzufügen nach Biom gruppiert); die Liste wählt die Schicht zum Malen, tauscht ihr Material,
 verschiebt und entfernt sie (ihr Gewicht geht an die anderen). Halten malt, Shift oder der Schalter radiert. „Auto paint
-the map“ malt die ganze Karte neu: die erste Schicht überall, felsartige Schichten an steilen Hängen, sandartige am
-Ufer, schneeartige auf den Gipfeln (nach dem Materialnamen). Darunter das Klippenmaterial und ab welcher Neigung es
-greift.
+the map“ malt die ganze Karte neu (`defaultAutoRules`, nach dem Materialnamen): die erste Schicht überall, eine
+sandartige am Ufer des Wassers der Karte (ohne Wasser keine: tiefe Wiesen bleiben grün), eine felsartige ab 30 Grad
+Neigung (voll ab 35, flachere Bergflanken behalten ihr Gras; Fels vor Stein vor Klippe), eine schneeartige auf den
+Gipfeln bis 40 Grad, über dem Fels, damit ein steiler Gipfel weiß bleibt. Darunter das Klippenmaterial und ab welcher
+Neigung es greift.
 
 **Water (4).** Das Hauptwasser und weitere Gewässer, jedes mit eigenem Spiegel, eigener Art (Water, Sea, Swamp, Ice,
 Lava) und Farbe; das Panel listet sie, das gewählte bearbeitet das Werkzeug. Fill basin: ein Klick in eine Mulde flutet

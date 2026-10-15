@@ -121,6 +121,41 @@ describe('ground paint', () => {
     expect(dominantLayer(t, 50, 0)).toBe(1);
   });
 
+  it('auto paints snow over the rock on a steep summit, grass on gentle flanks', () => {
+    const t = flat().terrain;
+    t.layers.push({ material: 'cliff' }, { material: 'snow-fresh' });
+    // A cone 60 m high: 35 degree sides near the top, 20 degree ones further out
+    const g = t.grid;
+    for (let j = 0; j < g.rows; j++) {
+      for (let i = 0; i < g.columns; i++) {
+        const r = Math.hypot(i * g.cellSize - 100, j * g.cellSize - 100);
+        g.heights[j * g.columns + i] = Math.max(0, r < 30 ? 60 - r * 0.7 : 39 - (r - 30) * 0.36);
+      }
+    }
+    autoPaint(t, defaultAutoRules(t));
+    // Near the top: steep and high, white over the rock
+    expect(dominantLayer(t, 4, 0)).toBe(2);
+    // Steep below the snow line: rock
+    expect(dominantLayer(t, 20, 0)).toBe(1);
+    // A 20 degree flank keeps its grass
+    expect(dominantLayer(t, 50, 0)).toBe(0);
+  });
+
+  it('auto paints sand only along a shore: none on a map without water', () => {
+    const t = flat().terrain;
+    t.layers.push({ material: 'sand' });
+    const g = t.grid;
+    // A gentle rise to the east, 10 m over the map
+    for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) g.heights[j * g.columns + i] = i * 0.1;
+    autoPaint(t, defaultAutoRules(t));
+    expect(dominantLayer(t, -95, 0)).toBe(0);
+    t.water = emptyWater(t, 1);
+    for (let k = 0; k < g.columns * g.rows; k++) if (g.heights[k] < 1) t.water.mask[k] = 255;
+    autoPaint(t, defaultAutoRules(t));
+    expect(dominantLayer(t, -85, 0)).toBe(1);
+    expect(dominantLayer(t, 60, 0)).toBe(0);
+  });
+
   it('moves and removes layers with their weights', () => {
     const t = flat().terrain;
     t.layers.push({ material: 'dirt' });
