@@ -150,6 +150,46 @@ export function buildWitchMarsh(): CustomMapDocument {
   // Campfires on the big islands, warm light the enemies walk past
   for (const [x, y] of [[50, 5], [-20, 20], [120, -150], [-225, 0], [-40, 150]] as const) if (k.free(x, y, 2)) k.place('campfire', x, y);
 
+  // ---- The landmark: a giant willow on the HQ island, its crown over the witch's hut
+  const giant = { x: 70, y: -204 };
+  k.erase(giant, 9, (o) => o.asset.startsWith('fx'));
+  k.place('tree-willow', giant.x, giant.y, { rotation: 0.7, scale: 3 });
+  k.scatter(['roots', 'mushrooms-glow', 'stump-mossy'], giant, { radius: 10, strength: 1 }, { density: 6, minDistance: 2 });
+  // The cauldron glows green
+  k.place('fx-embers', 128, -178, { scale: 0.5, tint: '#7dff6a' });
+
+  // ---- A rock knoll in the south-west with a stone circle
+  const knoll = { x: -205, y: -185 };
+  k.erase(knoll, 34, (o) => o.asset.startsWith('fx'));
+  k.raise(knoll, { radius: 26, falloff: 0.35 }, 11);
+  k.roughen(knoll, { radius: 30, falloff: 0.9 }, 2.5, 2209);
+  k.level(knoll, { radius: 11, falloff: 0.5 }, k.h(knoll.x, knoll.y));
+  k.sea(marsh);
+  k.cliffRocks(knoll, { radius: 30 });
+  for (let n = 0; n < 9; n++) {
+    const a = (n / 9) * Math.PI * 2;
+    k.place('rock-needle', knoll.x + Math.cos(a) * 8, knoll.y + Math.sin(a) * 8, { rotation: a, scale: 0.3 });
+  }
+  k.place('campfire', knoll.x, knoll.y);
+  k.scatter(['grass-swamp', 'nettles', 'rock-mossy-flat', 'stones-mossy-scatter'], knoll, { radius: 24, strength: 1 }, { density: 5, minDistance: 2.5 });
+
+  // ---- Sunken huts in the open water, stilt walks between the outer islands (no lanes), will-o'-the-wisps
+  for (const [x, y, r] of [[-120, 30, 0.3], [150, 60, -0.25], [-40, -110, 0.2]] as const) {
+    if (k.free(x, y, 4)) k.place('hut-stilts', x, y, { rotation: x, z: -1.6, roll: r, pitch: r / 2 });
+  }
+  for (const line of [
+    [{ x: -165, y: 140 }, { x: -178, y: 160 }, { x: -190, y: 180 }],
+    [{ x: -112, y: -126 }, { x: -126, y: -100 }, { x: -140, y: -76 }],
+  ]) {
+    k.row('jetty', line, 12, { turn: Math.PI / 2 });
+  }
+  for (const [x, y] of [[-110, 70], [160, -90], [-60, -60], [130, 150], [-230, 90], [40, 190]] as const) {
+    k.place('fx-fireflies', x, y, { scale: 0.5, tint: '#9fd8ff' });
+  }
+  // Fog banks in the hollows away from the walks
+  for (const [x, y] of [[-150, -200], [210, -60], [215, 120], [-120, 225], [-235, 120], [60, 150]] as const) k.place('fx-fog', x, y, { scale: 1.1 });
+  // TODO(E190): crows by night on the dead trees, frogs and crickets (ambient sound)
+
   // Seven ground materials: the least used goes (each one is 8 MB of pixels to load)
   k.trimLayers(7);
   // Night under a bright blue moon: the swamp look lays its haze flat over the water, the moonlight lets walks,

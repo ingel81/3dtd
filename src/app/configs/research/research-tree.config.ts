@@ -198,7 +198,7 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     description: 'Unlocks the Sentinel Laser: a beam that heats up on one target, against bosses and tanks',
     category: 'tower-unlock',
     branch: 'arcane',
-    icon: 'target',
+    icon: 'bulb',
     cost: 2500,
     duration: 25,
     prerequisites: ['storm-mastery'],
@@ -287,6 +287,70 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     // Camouflaged enemies come from W22 on (run-plan.json)
     minWave: 16,
     effects: [{ kind: 'unlock-path', pathId: 'scout' }],
+  },
+
+  // A path for the starting tower out of the fire research: the regen counter
+  // in the ballistic line, before the Regeneration waves (W28, W56)
+  'incendiary-arrows': {
+    id: 'incendiary-arrows',
+    name: 'Incendiary Arrows',
+    description: 'Archer towers can take the Fire Arrows path: every hit sets its target burning',
+    category: 'global-perk',
+    branch: 'ballistics',
+    icon: 'burst',
+    cost: 2000,
+    duration: 20,
+    prerequisites: ['fire-alchemy'],
+    minWave: 10,
+    effects: [{ kind: 'unlock-path', pathId: 'incendiary' }],
+  },
+
+  // The rocket stands idle in every ground wave; this lets it help there at
+  // half damage, from the first tank waves on (W9, W11)
+  'multirole-warheads': {
+    id: 'multirole-warheads',
+    name: 'Multirole Warheads',
+    description: 'Rocket towers can take the Multirole path: they fire at ground enemies too, at half damage',
+    category: 'global-perk',
+    branch: 'ballistics',
+    icon: 'target',
+    cost: 1500,
+    duration: 20,
+    prerequisites: ['rocketry'],
+    minWave: 9,
+    effects: [{ kind: 'unlock-path', pathId: 'multirole' }],
+  },
+
+  // Out of the magic line, before the first wraiths (W17): lifts their
+  // Phasing, so the ice tower's slow works on them again
+  'binding-sigils': {
+    id: 'binding-sigils',
+    name: 'Binding Sigils',
+    description: 'Magic towers can take the Binding Sigil path: each hit lifts Phasing, slows take hold again',
+    category: 'global-perk',
+    branch: 'arcane',
+    icon: 'sparkle',
+    cost: 2500,
+    duration: 25,
+    prerequisites: ['arcane-studies'],
+    minWave: 15,
+    effects: [{ kind: 'unlock-path', pathId: 'seal' }],
+  },
+
+  // Out of the poison line, with the tank and bear waves (W9, W11): the
+  // armor of what the poison tower hits counts one class lighter
+  'caustic-compounds': {
+    id: 'caustic-compounds',
+    name: 'Caustic Compounds',
+    description: 'Poison towers can take the Caustic path: each hit makes its target count one armor class lighter',
+    category: 'global-perk',
+    branch: 'biology',
+    icon: 'flask',
+    cost: 2000,
+    duration: 20,
+    prerequisites: ['toxic-compounds'],
+    minWave: 11,
+    effects: [{ kind: 'unlock-path', pathId: 'corrode' }],
   },
 
   'nuclear-strike': {

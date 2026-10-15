@@ -379,21 +379,26 @@ export class TowerCombatService {
         if (tower.combat.canFire() && isAimAligned(tower.aim)) {
           // Periodic LOS recheck (throttled to max ~3/sec per tower) — runs
           // for air targets too now that tall buildings can break air LOS.
+          // A tower that prefers air (a Multirole rocket) looks again from a ground target at the same rate.
           if (tower.needsLosRecheck(gameTimeMs)) {
             tower.markLosChecked(gameTimeMs);
-            if (!losCheck(target)) {
-              // Target no longer visible - find new target
+            const lost = !losCheck(target);
+            if (lost || (tower.prefersAir && !target.typeConfig.isAirUnit)) {
+              // Target no longer visible, or a flyer may have come - find new target
+              const previous = target;
               tower.clearTarget();
               target = tower.findTarget(candidates, this.research.airTargetingFor(tower.ownerId), losCheck, this.bodyDistSq);
               if (!target) {
                 releaseAim(tower.aim);
                 continue;
               }
-              // Update rotation to new target, don't fire this sub-step
-              const newHeading = this.calculateHeading(tower.position, this.targetPoint(target));
-              aimAt(tower.aim, newHeading);
-              this.aimPitch(tower, target);
-              continue;
+              if (lost || target !== previous) {
+                // Update rotation to new target, don't fire this sub-step
+                const newHeading = this.calculateHeading(tower.position, this.targetPoint(target));
+                aimAt(tower.aim, newHeading);
+                this.aimPitch(tower, target);
+                continue;
+              }
             }
           }
 

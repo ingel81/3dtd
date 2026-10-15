@@ -496,6 +496,11 @@ export class ThreeTilesEngine {
       drawSuppressed: this.drawSuppressed,
       groundChanged: () => this.onGroundChanged(),
       drawsToTarget: () => this.postProcessing?.needsRender() ?? false,
+      audio: {
+        context: this.spatialAudio.getListener().context,
+        destination: this.spatialAudio.getListener().getInput(),
+        volume: () => this.spatialAudio.masterVolume,
+      },
     });
   }
 

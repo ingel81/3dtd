@@ -32,7 +32,8 @@ const TEXTURE_SLOTS = [
  */
 export function mergeKey(material: Material, geometry?: BufferGeometry): string | null {
   const m = material as MeshStandardMaterial;
-  if (!m.isMeshStandardMaterial || m.name.startsWith('foliage-') || m.map || m.vertexColors) return null;
+  // Parts that turn (spin-…, object-layer.ts) keep their own draw
+  if (!m.isMeshStandardMaterial || m.name.startsWith('foliage-') || m.name.startsWith('spin-') || m.map || m.vertexColors) return null;
   // The loader gives each material its own copy of a shared texture: the image and the uv channel tell them alike
   const textures = TEXTURE_SLOTS.map((slot) => {
     const t = (m as unknown as Record<string, Texture | null>)[slot];

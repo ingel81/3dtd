@@ -27,12 +27,12 @@ export function buildTwinGates(): CustomMapDocument {
   k.generate('hills', 88, 0.6);
   k.mirrorFrom({ x: -1, y: 0 });
   const castle = { x: -118, y: 0 };
-  k.plateau(castle, { radius: 62, falloff: 0.5 }, k.h(castle.x, castle.y) + 6);
+  // The castle on a rock plateau: sheer sides, its rim broken, a dry ditch at the foot
+  k.plateau(castle, { radius: 58, falloff: 0.15 }, k.h(castle.x, castle.y) + 10);
   k.level(castle, { radius: 48, falloff: 0.3 }, k.h(castle.x, castle.y));
-  // A dry ditch round the mound and an earth rampart beyond it
   const ringAt = (r: number): MapPoint[] => Array.from({ length: 33 }, (_, i) => ({ x: castle.x + Math.cos((i / 32) * Math.PI * 2) * r, y: Math.sin((i / 32) * Math.PI * 2) * r }));
-  k.raise(ringAt(64), { radius: 7, falloff: 0.8 }, -1.6);
-  k.raise(ringAt(76), { radius: 6, falloff: 0.9 }, 0.9);
+  k.roughen(ringAt(58), { radius: 7, falloff: 0.7 }, 2, 8808);
+  k.raise(ringAt(66), { radius: 6, falloff: 0.8 }, -1.6);
   const hq = { x: 0, y: 0 };
   k.level(hq, { radius: 34, falloff: 0.6 }, k.h(0, 0) + 2);
 
@@ -49,6 +49,9 @@ export function buildTwinGates(): CustomMapDocument {
   k.spawn('North-East', 244, 214);
   k.spawn('South-East', 244, -214);
   k.hq(hq.x, hq.y);
+  // A river in two arms round the middle, crossed by the lanes to the HQ on bridges, the HQ between them
+  k.river([{ x: -6, y: 256 }, { x: -20, y: 160 }, { x: -42, y: 70 }, { x: -42, y: -70 }, { x: -20, y: -160 }, { x: -6, y: -256 }], { width: 9, depth: 1.8, bank: 6 });
+  k.bridgeStyle('stone');
 
   // ---- Land: woods along the outer edges, meadows between, the baileys and the HQ paved
   // Woods in the outer corners and on the axis ends (each spot a dab of its own, not a line)
@@ -113,6 +116,51 @@ export function buildTwinGates(): CustomMapDocument {
       if (t.x < -2 && Math.abs(t.x - castle.x) + Math.abs(t.y) > 45 && k.free(t.x, t.y, 0.5)) k.place('torch', t.x, t.y);
     }
   }
+
+  // Rock on the plateaus' faces, once the brushes shaped the ground: what grew on them makes room
+  for (const p of ringAt(58)) k.erase(p, 5, (o) => o.asset.startsWith('castle') || o.asset.startsWith('fx'));
+  k.cliffRocks(ringAt(58), { radius: 10 });
+  // A watermill on each arm of the river
+  const mill = { x: -64, y: 118 };
+  k.erase(mill, 8);
+  if (k.free(mill.x, mill.y, 4)) k.place('watermill', mill.x, mill.y, { rotation: facing(mill, { x: -40, y: 118 }) });
+  // Siege works before the north and south gates: guns, gabions and a camp (TODO(E179): trebuchet, siege tower)
+  for (const sy of [1, -1]) {
+    for (const [x, y, a, r] of [
+      [castle.x - 26, 92, 'cannon', 0],
+      [castle.x + 22, 94, 'cannon', 0.3],
+      [castle.x - 34, 104, 'tent', 0.4],
+      [castle.x + 34, 108, 'tent-large', -0.3],
+      [castle.x - 18, 104, 'barricade', 0],
+      [castle.x + 14, 100, 'supply-crates', 0.5],
+      [castle.x + 28, 118, 'weapon-rack', 0],
+      [castle.x - 30, 118, 'campfire', 0],
+      [castle.x + 40, 96, 'campfire', 0],
+    ] as const) {
+      const p = { x, y: y * sy };
+      if (k.free(p.x, p.y, 2)) k.place(a, p.x, p.y, { rotation: sy > 0 ? Math.PI + r : r });
+    }
+  }
+  // Banners and torches at every gate, watch fires before the walls
+  for (const [x, y, a] of [
+    [castle.x - 7, y1 + 3, 'banner-red'],
+    [castle.x + 7, y1 + 3, 'banner-red'],
+    [castle.x - 7, y0 - 3, 'banner-red'],
+    [castle.x + 7, y0 - 3, 'banner-red'],
+    [x1 + 3, 8, 'torch'],
+    [x1 + 3, -8, 'torch'],
+    [castle.x - 6, y1 + 6, 'torch'],
+    [castle.x + 6, y0 - 6, 'torch'],
+    [x0 - 10, 20, 'brazier'],
+    [x0 - 10, -20, 'brazier'],
+  ] as const) {
+    if (k.free(x, y, 0.6)) k.place(a, x, y, { rotation: y > 0 ? 0 : Math.PI });
+  }
+  // Denser, darker woods along the outer edges, birds over the hills
+  k.biome('forest', [{ x: -240, y: 150 }, { x: -240, y: -150 }], { radius: 22, strength: 1 });
+  k.biome('forest', [{ x: -150, y: 244 }, { x: -60, y: 244 }], { radius: 18, strength: 1 });
+  k.biome('forest', [{ x: -150, y: -244 }, { x: -60, y: -244 }], { radius: 18, strength: 1 });
+  k.place('fx-birds', -170, 150, { scale: 0.8 });
 
   // ---- The middle (on the axis, once): the keep behind the HQ, banners, statues
   k.symmetry = 'none';

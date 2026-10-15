@@ -92,6 +92,40 @@ describe('StatusEffectService', () => {
       expect(wraith.movement.statusEffects.map((e) => e.type)).toEqual(['freeze']);
     });
 
+    it('a seal lifts Phasing while it lasts: a slow takes hold, after it no longer (TODO E101)', () => {
+      service.setGameClockProvider(() => clock);
+      const wraith = makeEnemy({ immuneToSlow: ENEMY_TYPES['wraith'].immuneToSlow });
+      service.applySeal(wraith as never, 4000, 'magic-1');
+      expect(wraith.movement.statusEffects.map((e) => e.type)).toEqual(['seal']);
+      clock = 3999;
+      service.applySlow(wraith as never, 0.5, 3000, 'ice-1');
+      expect(wraith.movement.statusEffects.map((e) => e.type)).toEqual(['seal', 'slow']);
+      clock = 4000;
+      service.applySlow(wraith as never, 0.5, 3000, 'ice-2');
+      expect(wraith.movement.statusEffects).toHaveLength(2);
+    });
+
+    it('corrodes armor that has a lighter class, not a boss, and says so while it lasts (TODO E101)', () => {
+      service.setGameClockProvider(() => clock);
+      const withArmor = (armor: string, isBoss = false) => {
+        const e = makeEnemy({ isBoss } as never) as ReturnType<typeof makeEnemy> & { getEffectiveArmorType: () => string };
+        e.getEffectiveArmorType = () => armor;
+        return e;
+      };
+      const tank = withArmor('heavy');
+      service.applyCorrode(tank as never, 3000, 'poison-1');
+      expect(tank.movement.statusEffects.map((e) => e.type)).toEqual(['corrode']);
+      for (const spared of [withArmor('unarmored'), withArmor('ethereal'), withArmor('heavy', true)]) {
+        service.applyCorrode(spared as never, 3000, 'poison-1');
+        expect(spared.movement.statusEffects).toHaveLength(0);
+      }
+    });
+
+    it('applySeal leaves a type without Phasing alone', () => {
+      service.applySeal(enemy as never, 4000, 'magic-1');
+      expect(enemy.movement.statusEffects).toHaveLength(0);
+    });
+
     it('applyPoison forwards a poison effect with the DoT value', () => {
       service.applyPoison(enemy as never, 12, 3000, 'poison-tower');
       expect(enemy.movement.statusEffects[0]).toMatchObject({

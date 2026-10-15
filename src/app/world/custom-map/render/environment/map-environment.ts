@@ -30,7 +30,7 @@ import {
   type WebGLRenderTarget,
   type WebGLRenderer,
 } from 'three';
-import type { MapEnvironment } from '../../map-document';
+import { planetOf, type MapEnvironment, type MapPlanet } from '../../map-document';
 import { HEIGHT_FOG_UNIFORMS } from './height-fog';
 import { biomeLook, type BiomeLook } from './biomes';
 import { ShadowParts } from './shadow-parts';
@@ -224,6 +224,7 @@ export class CustomMapEnvironment {
     const baseFog = Math.min(env.fogDensity, 0.004) * p.fogScale;
     this.fog.density = baseFog;
     HEIGHT_FOG_UNIFORMS.uFogFalloff.value = p.fogFalloff;
+    HEIGHT_FOG_UNIFORMS.uFogBeyond.value = p.beyondHaze ?? 0.97;
     // Weather: rain and snow close the sky, dim the sun and thicken the air; fog weather thickens it most
     const weather = env.weather ?? 'clear';
     const k = weather === 'clear' ? 0 : Math.min(1, Math.max(0, env.weatherStrength ?? 0.6));
@@ -280,7 +281,7 @@ export class CustomMapEnvironment {
       cloudShadow: new Color(p.cloudShadow).multiply(tint),
       haze: this.fog.color,
       stars: image ? 0 : p.stars,
-      planet: !image && p.planet,
+      planet: image ? null : this.planetDisc(planetOf(this.env)),
       aurora: image ? 0 : p.aurora,
     });
     this.showImage(image);
@@ -393,11 +394,18 @@ export class CustomMapEnvironment {
     return this.env.biome;
   }
 
+  /** A planet's direction in the scene and its disc's radius for the sky dome; up to 85 degrees high */
+  private planetDisc(planet: MapPlanet): { dir: Vector3; radius: number } | null {
+    if (planet.size <= 0) return null;
+    const elevation = Math.min(85, Math.max(-5, planet.elevation));
+    return { dir: sunDirection(planet.azimuth, elevation, new Vector3()), radius: (Math.min(40, planet.size) * Math.PI) / 360 };
+  }
+
   /** 0 by day, 1 at night: how much map lights (lanterns, torches) matter */
   get darkness(): number {
     let base = { day: 0, overcast: 0.2, dusk: 0.6, night: 1 }[this.env.sky] ?? 0;
-    // Under hell's dark sky and on the moon lights matter by day too
-    if (this.env.biome === 'hell' || this.env.biome === 'apocalypse') base = Math.max(base, 0.5);
+    // Under hell's dark sky and on the moon (black sky, hard shadows) lights matter by day too
+    if (this.env.biome === 'hell' || this.env.biome === 'apocalypse' || this.env.biome === 'moon') base = Math.max(base, 0.5);
     // A low sun darkens any sky
     return Math.min(1, Math.max(base, 1 - this.env.sunElevation / 12));
   }

@@ -8,7 +8,7 @@ describe('importW3xInWorker', () => {
     const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
     const { doc, report } = await importW3xInWorker(buffer, { fileName: 'lane.w3x' });
     expect(report.strategy).toBe('script-pattern');
-    expect(doc.meta.source?.file).toBe('lane.w3x');
+    expect(doc.meta.source).toMatchObject({ kind: 'w3x', file: 'lane.w3x' });
     expect(buffer.byteLength).toBe(bytes.byteLength);
     // Heights, both splat maps and the water mask leave the worker without a copy
     expect(documentTransferables(doc).length).toBe(4);
@@ -59,6 +59,6 @@ describe('importW3xInWorker', () => {
   it('takes the file name from a File', async () => {
     const file = new File([buildSyntheticMap() as BlobPart], 'from-disk.w3x');
     const { doc } = await importW3xInWorker(file);
-    expect(doc.meta.source?.file).toBe('from-disk.w3x');
+    expect(doc.meta.source).toMatchObject({ kind: 'w3x', file: 'from-disk.w3x' });
   });
 });

@@ -1,6 +1,6 @@
 # Welt aus OpenStreetMap (Plan)
 
-**Status:** Plan, 2026-10-14, nichts gebaut (TODO E157)
+**Status:** Plan, 2026-10-14; Phase O1 „Graue Welt“ gebaut 2026-10-15 (TODO E157), siehe [Phase O1](#phase-o1-gebaut-2026-10-15)
 **Bezug:** [CUSTOM_MAPS.md](CUSTOM_MAPS.md) (Renderer, Katalog), [CUSTOM_MAP_WORLD.md](CUSTOM_MAP_WORLD.md) (Spiel),
 [LEVEL_EDITOR.md](LEVEL_EDITOR.md) (Editor), [W3X_IMPORT.md](W3X_IMPORT.md) (Vorbild für einen Importer im Worker),
 [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) (Ortssuche, Spawns auf echten Orten), [SHOWCASE_LEVELS.md](SHOWCASE_LEVELS.md)
@@ -312,6 +312,32 @@ Hochspannungsmast. Der Katalog hat heute Dorf-, Burg-, Wüsten- und einige Stadt
 `brick-block`, `office-tower`, `shop`, `warehouse`); eine deutsche Kleinstadt sähe ohne neue Modelle wie ein Dorf mit
 Plattenbauten aus.
 
+**Gebaut (O6, 2026-10-15, `build_modern.py`):** Maße der Wände als Breite (X, Front) mal Tiefe, für die
+Wahl nach `box` in O4; Dachüberstände, Vordächer, Anbauten und Rampen kommen dazu (gemessene Hüllen in `pack_models.py`,
+`report.json`). Stockwerke stehen im Namen.
+
+| OSM-Art (Vorschlag) | Modell | Maße, Geschosse |
+|---|---|---|
+| `house`, `detached` | `house-modern`, `house-modern-red` | 10 × 8,6 bzw. 9 × 8,2 m, 2 |
+| `semidetached_house` | `house-semi` | 14 × 9 m, 2 |
+| `terrace` | `house-terrace` (Modul, Seiten blind), `house-terrace-row` | 6 × 10 bzw. 24 × 10 m, 2 |
+| `garage`, `garages` | `garage`, `garage-row` | 3 × 6 bzw. 15 × 6 m |
+| `shed`, `hut` (Garten) | `garden-shed` | 2,2 × 2,6 m |
+| `carport`, `roof` | `carport`, `carport-double`, `station-canopy` | 3,2 × 5,6, 6,4 × 5,6, 22 × 13 m |
+| `apartments`, `residential` (Innenstadt) | `block-row-4`, `block-row-6`, `block-corner-4`, `block-corner-6` | 15 × 12, 16 × 13, 14 × 14, 15 × 15 m; 4 bzw. 6 |
+| `office`, `commercial` | `office-mid`, `office-high` | 24 × 14 m, 5; 22 × 18 m, 8 |
+| `retail`, `supermarket` | `supermarket`, `hall-flat` | 40 × 26, 30 × 20 m |
+| `industrial`, `warehouse` (groß) | `industrial-hall` | 60 × 30 m, dazu ein Bürotrakt 10 × 9 m an der Westseite |
+| `school`, `university`, `public` | `school` | 46 × 14 m, 3 |
+| `townhall`, `civic` | `town-hall` | 30 × 15 m, 3 |
+| `church` | `town-church` | Schiff 26 × 13 m mit Turm, gesamt rund 33 × 14 m |
+| `train_station` | `station` | 28 × 11 m, 2 |
+| `parking` (Parkhaus) | `parking-garage` | 32 × 40 m, 4 Decks, Treppenturm vorn links, Rampe hinten (Hülle 37 × 54 m) |
+| `greenhouse`, `kiosk`, `transformer_tower` | `greenhouse`, `kiosk`, `transformer-station` | 6 × 12 (Giebel vorn), 4 × 3, 3,6 × 2,6 m |
+
+Ohne Gebäude: `rail-track`, `rail-platform`, `catenary-mast`, `buffer-stop`, `power-pylon`, `vine-row`, `fruit-tree`,
+`playground-swing`, `playground-slide`, `football-goal`, `fountain` (CUSTOM_MAPS.md, Katalog).
+
 ## Phasen
 
 Aufwand in Arbeitstagen eines Workers, geschätzt.
@@ -361,6 +387,108 @@ und Bäumen); O3 bis O5 füllen sie; O6 läuft parallel, sobald O4 die Liste lie
 8. Tunnel: an beiden Enden ein Tunneleingang (eigenes Modell, nicht das Spawn-Portal), dazwischen unsichtbar.
 9. „Play on a map of this place“ auch für Spieler mit Token.
 10. Splat 2048 für OSM-Welten.
+
+## Phase O1, gebaut (2026-10-15)
+
+Code in `src/app/world/osm/` (ohne Angular und DOM): `overpass-client.ts` (aus `osm-street.service.ts` herausgelöst,
+die Straßen der echten Orte nutzen ihn mit ihren alten Grenzen), `osm-query.ts`, `osm-parse.ts`, `osm-tags.ts`,
+`dem-tiles.ts`, `convert/terrain.ts`, `convert/roads.ts`, `convert/layout.ts`, `import-osm.ts` (Ablauf und Bericht),
+`osm.worker.ts` mit `osm-import-client.ts`, `osm-link.ts` (Testeinstieg). Specs auf einer eingefrorenen Probe
+(`integration/fixtures/osm/world-miltenberg.*`, 1,2 km Quadrat, 400 kB gepackt); `tools/osm/osm-world.spec.ts` erzeugt
+Welten aus heruntergeladenen Rohdaten für Messungen (`--mode osm`).
+
+**Testeinstieg:** `?osm=<lat>,<lon>` (nur wo Links eigene Karten öffnen dürfen, also im Dev-Build bis zur Freigabe):
+die Seite erzeugt die Karte im Worker, zeigt eine Statuszeile, speichert sie als eigene Karte (freie Id
+`osm-<lat>-<lon>`) und lädt neu auf `?world=map:<id>`. Der Bericht steht in der Konsole (`[OSM world]`).
+
+### Beim Bau entschieden
+
+- **Höhendaten:** Mapterhorn, Zoom 14, AWS-Kacheln (Zoom 13) als Rückfall, flacher Boden, wenn keine Quelle
+  liefert (Bericht: `heights: no elevation tiles came`). Vergleich an drei Orten, je 2,6 km Quadrat:
+
+  | | Mapterhorn z15 | Mapterhorn z14 | AWS z15 |
+  |---|---|---|---|
+  | Kacheln, Bytes (Oberbergen, Miltenberg, Stuttgart) | 20/16/20, 1,5 bis 2,3 MB | 6/9/6, 0,7 bis 0,9 MB | 20/16/20, 1,2 bis 1,8 MB |
+  | Pixel auf einer Geraden mit beiden Nachbarn (hochgerechnet) | 14 bis 19 % | 13 bis 18 % | 32 bis 75 % (`eudem`) |
+
+  Als Schummerung auf dem 2-m-Raster sehen z14 und z15 gleich aus (Altstadt, Mainufer, Bahndamm, Straßenkanten
+  erkennbar); AWS zeigt nur weiche Hänge. Mapterhorn liefert WebP, dekodiert über `createImageBitmap` ohne
+  Farbumrechnung auf einem `OffscreenCanvas` (auch im Worker).
+- **Gelände:** bilinear auf das 2-m-Raster (1201², Seite immer 2400 m), zwei Durchgänge 3×3-Mittel gegen Stufen an
+  Mauern und Bordsteinen, Kartennull auf der tiefsten Stelle (abgerundet); `meta.source.zeroM` hält deren Höhe über
+  dem Meer (für die Küste in O3).
+- **Abfrage:** globale `[bbox]` (Karte plus 100 m), `out body geom(<bbox>)`, `maxsize` 256 MB, `timeout` 90 s, eigene
+  Zeitgrenzen (105 s bis zu den Kopfzeilen, 60 s Körper, Parallelfrage nach 8 s). Die Antwort hält die Geometrie
+  eines Wegs passend zu seiner Knotenliste, Knoten außerhalb der Box als `null` (je Seite bleibt einer außerhalb
+  stehen). Bei einer `remark` über Speicher oder Zeit vier Viertel nacheinander, zusammengeführt je Element.
+- **Flächen:** geschlossene Wege mit Flächen-Tags und Multipolygone (Ringe über gleiche Endpunkte, ein offener Ring
+  wird geradlinig geschlossen und gezählt), auf das Kartenquadrat geschnitten. In O1 nur gezählt; O3 malt sie.
+- **Straßengraph:** dieselben `highway`-Typen wie die Straßenabfrage der echten Orte. Knoten, die zwei Wege teilen
+  (oder ein Weg zweimal), werden Kartenknoten (`n<OSM-Id>`), am Kartenrand und an Abbruchstellen der Antwort
+  entstehen eigene Knoten (`b<n>`); ein geschlossener Weg wird in der Mitte geteilt. Zwischenpunkte mit 0,2 m
+  Douglas-Peucker. Breite aus `width`, sonst `lanes` × 3 m, sonst `ROAD_TYPES` in `osm-tags.ts`, auf 1,5 bis 24 m.
+  Jede Kante trägt ihren `highway`-Typ (`street`): Routen und Spawns wählen wie auf echten Orten.
+- **Brücken und Tunnel:** `bridge=*` wird Brückenkante (Stein, Holz bei `bridge:material` oder `material=wood`;
+  Beton kommt mit O5). Tunnel bleiben draußen, bis sie ihre Portale haben (Entscheidung 8); `tunnel=building_passage`
+  bleibt Straße. Der Bericht nennt Zahl und Länge.
+- **Einebnen und Belag:** `flattenUnderPaths` mit 3 m Schulter und 20 m Glättung, erst Pfade, dann Straßen von
+  schmal nach breit (die breitere gewinnt an Kreuzungen); Brücken nicht. Der Belag wird in die Bodenfarbe gemalt
+  (Asphalt, Pflaster `pavers`, Kopfstein, Gehweg, Kies, Erdweg nach `highway` und `surface`, 0,75 m weicher Rand),
+  die Kante bekommt `surface`, und die Wegmaske lässt solche Kanten aus (sonst lägen Kopfsteine mit Spurrillen
+  darüber). Sieben Bodenschichten mit Gras; die dritte Splat-Karte bleibt für O3 frei. Splat 2048².
+- **HQ und Spawns:** HQ auf dem nächsten Punkt einer Straße bis 250 m um den Ort, sonst eines Pfads. Vier Spawns
+  über `StreetRouter.findRandomStreetPoint` auf dem Netz der Karte (500 bis 1000 m, Route geprüft, Portal gerade
+  gerückt), mindestens 250 m und 40° auseinander; der erste immer offen, die anderen `optional`. Name nach der
+  Straße, sonst nach der Himmelsrichtung.
+- **Prüfung:** `EdgeIndex` in `editor/ops/path-graph.ts` (Kanten-Segmente in 32-m-Zellen, Linien vorgehalten);
+  `validateMap`, `routeBetween`, `components` und `spawnRoutes` nutzen es, Dijkstra läuft auf einem Heap.
+
+### Messungen O1 (2026-10-15)
+
+Drei Orte, je 2,4 km: Oberbergen (Dorf im Kaiserstuhl, Weinberge), Miltenberg (Kleinstadt am Main), Stuttgart
+Mitte. Overpass-Antworten von overpass.openstreetmap.fr (die beiden Server des Spiels antworteten am Nachmittag mit
+502 bzw. 500), Höhen von Mapterhorn. Erzeugen in Node (ein Kern, Rechner voll mit anderen Läufen, also nur
+Richtwerte); Laden und Bildrate im Dev-Server, headless Chromium mit D3D11 auf RTX 5080, Spielansicht nach dem Laden,
+`?menu=skip`.
+
+| | Oberbergen | Miltenberg | Stuttgart Mitte |
+|---|---|---|---|
+| Overpass: Zeit, JSON | 2,6 s, 6,0 MB | 2,2 s, 4,8 MB | 6,1 s, 18,1 MB |
+| Elemente (Wege, Punkte) | 5 082 (4 336, 139) | 7 386 (6 385, 934) | 26 101 (19 581, 5 779) |
+| Höhen (Mapterhorn z14): Kacheln, Bytes | 6, 0,73 MB | 9, 0,87 MB | 6, 0,69 MB |
+| Höhenbereich | 215 bis 468 m | 124 bis 405 m | 233 bis 402 m |
+| Kanten, Knoten, Brücken | 2 957, 2 827, 3 | 2 546, 2 029, 21 | 9 745, 7 508, 64 |
+| Straße / Pfad km | 27 / 105 | 71 / 42 | 147 / 83 |
+| Tunnel weggelassen | 1 (27 m) | 7 (434 m) | 463 (12,2 km) |
+| Teile des Netzes (Prüfung) | 34 | 9 | 82 |
+| Spawns | 3 von 4 | 4 | 4 |
+| Erzeugen (Node) | 0,7 s | 0,7 s | 2,1 s |
+| davon Einebnen, Belag | 0,40 s, 0,14 s | 0,35 s, 0,23 s | 1,19 s, 0,37 s |
+| Packen, Datei | 1,0 s, 5,95 MB | 1,0 s, 5,59 MB | 1,2 s, 6,22 MB |
+| Editor-Prüfung | 32 ms | 33 ms | 120 ms (vor dem Kantenraster 6,7 s) |
+| `?osm=` bis zur gespeicherten Karte im Browser (Overpass aus dem Speicher, Höhen live) | 3,9 s | 5,2 s | 2,6 s |
+| Laden bis `load:ready` (Dev-Server) | 13,9 s | 8,2 s | 8,3 s |
+| Bilder je Sekunde (headless, Richtwert) | 1 219 | 1 468 | 712 |
+| JS-Heap Hauptthread (CDP) | 84 MB | 103 MB | 97 MB |
+
+Zum Vergleich im selben Lauf das Demo-Tal (mitgeliefert, mit Wald und Objekten): Laden 16,6 s, 35 Bilder je
+Sekunde, 78 MB. Mit dem echten Overpass-Abruf (2 bis 6 s) bleibt eine graue Welt unter 10 s bis zur gespeicherten
+Datei.
+
+### Offen nach O1
+
+- **Wege unter Brücken (nachgeprüft und behoben):** Die Zellen einer Route unter einem Deck laufen schon wie auf
+  echten Orten (`UnderpassIndex` schneidet sie, sie nehmen den Boden zwischen den Portalen), Türme darunter stehen
+  auf dem Boden mit dem Deck als Säulenoberkante. Falsch war nur die Gehhöhe abseits eines Brückenwegs
+  (`CustomMapSurface.walkHeightAtMap`, `getGroundHeightEstimate`): sie gab das Deck; jetzt den Boden, das Deck nur
+  am Brückenende bis 0,5 m über dem Boden. Die Vorschau des Editors (Probelauf) zeigt Läufer unter einer Brücke
+  weiter auf dem Deck.
+- **Tunnel:** Stuttgart verliert 12 km Wege (Fußgängerpassagen, Stadtbahn-Zugänge, B14), das Netz zerfällt in 82
+  Teile; die Spawns liegen trotzdem auf dem Teil des HQ (sie brauchen eine Route).
+- **Spuren zu Beginn:** alle Spawns sind beim Start offen (die Spurwahl öffnet optionale bis `max`); der Spieler
+  schließt sie vor Welle 1. Ob eine OSM-Welt mit einer offenen Spur starten soll, ist offen.
+- **Steile Pfade:** die Prüfung meldet Treppen und Weinbergpfade über 30° (Oberbergen 52, Stuttgart 59) als Warnung.
+- **Namensnennung:** `meta.source.attribution` trägt die Zeilen (OSM, Höhenquelle); angezeigt werden sie mit O2.
 
 ## Offene Fragen an den User (beantwortet, siehe oben)
 

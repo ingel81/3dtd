@@ -1,11 +1,12 @@
-import { type Material, Mesh, PointLight, Vector3 } from 'three';
+import { type InstancedBufferGeometry, type Material, Mesh, PointLight, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
-import type { MapObject } from '../../map-document';
+import type { MapLife, MapObject } from '../../map-document';
 import type { AssetCatalog, CatalogObject } from '../asset-catalog';
 import { HeightField } from '../height-field';
 import { EffectLayer, lightCap, POINT_LIGHTS } from './effect-layer';
 import { particleCount } from './particle-field';
 import { LAMP_LIGHT_UNIFORMS } from './lamp-light';
+import { circleFlock } from './bird-flocks';
 
 const base: Omit<CatalogObject, 'id' | 'name'> = {
   category: 'fx',
@@ -36,6 +37,8 @@ const catalog: AssetCatalog = {
     { ...base, id: 'house', name: 'House', category: 'building', footprint: 4, height: 7, effects: [{ kind: 'smoke', at: [2, -1], height: 7, rate: 2 }] },
     { ...base, id: 'fx-smoke', name: 'Smoke', effects: [{ kind: 'smoke', radius: 1, height: 0, rate: 4 }] },
     { ...base, id: 'fx-birds', name: 'Bird flock', effects: [{ kind: 'birds', radius: 45, height: 50, rate: 10 }] },
+    { ...base, id: 'lighthouse', name: 'Lighthouse', category: 'building', height: 22, spin: 10, effects: [{ kind: 'beam', height: 20, radius: 70 }] },
+    { ...base, id: 'beacon', name: 'Beacon', light: { color: '#ff2010', intensity: 0.6, distance: 6, height: 14, blink: 1.5 } },
     { ...base, id: 'fx-fireflies', name: 'Fireflies', effects: [{ kind: 'fireflies', radius: 8, height: 1.5, rate: 6, color: '#e6ff8c' }] },
   ],
 };
@@ -88,7 +91,7 @@ describe('EffectLayer', () => {
 
   it('shows fireflies only in the dark and birds by day, birds only on levels with most particles', () => {
     const layer = new EffectLayer(flat());
-    layer.setAmbient({ fireflies: [new Vector3(0, 4, 0)], flocks: [{ center: new Vector3(0, 50, 0), radius: 40, birds: 10, seed: 0.3 }] });
+    layer.setAmbient({ fireflies: [new Vector3(0, 4, 0)], flocks: [circleFlock(new Vector3(0, 50, 0), 40, 10, 0.3)] });
     const flies = () => layer.group.children.find((c) => c.name === 'custom-map-particles-fireflies')!;
     layer.setDarkness(0);
     expect(flies().visible).toBe(false);
@@ -105,12 +108,16 @@ describe('EffectLayer', () => {
 
   it('lets placed flocks and fireflies take the place of the automatic ones, sized by scale and coloured by tint', () => {
     const layer = new EffectLayer(flat());
-    layer.setAmbient({ fireflies: [new Vector3(0, 4, 0)], flocks: [{ center: new Vector3(0, 50, 0), radius: 40, birds: 10, seed: 0.3 }] });
+    layer.setAmbient({ fireflies: [new Vector3(0, 4, 0)], flocks: [circleFlock(new Vector3(0, 50, 0), 40, 10, 0.3)] });
     layer.set([{ ...place('b', 'fx-birds', 20), scale: 1.5 }, { ...place('f', 'fx-fireflies', -20), tint: '#ff8040' }], catalog);
     // One placed flock of 15 (10 at scale 1.5), none of the automatic one
     expect(layer.birds.mesh.geometry.instanceCount).toBe(15);
-    const flock = layer.birds.mesh.geometry.getAttribute('aFlock');
-    expect([flock.getX(0), flock.getY(0), flock.getW(0)]).toEqual([-20, 4 + 75, 67.5]);
+    // Its loop: a circle 67.5 m wide at 75 m over the object, whose middle wanders 0.6 of that
+    const loop = loopOf(layer, 0);
+    expect(loop[0].x).toBeCloseTo(-20 + 67.5, 3);
+    expect(loop[0].y).toBeCloseTo(4 + 75, 3);
+    expect(Math.max(...loop.map((p) => Math.hypot(p.x + 20, p.z)))).toBeCloseTo(67.5, 0);
+    expect(layer.birds.mesh.geometry.getAttribute('aFlock').getW(0)).toBeCloseTo(40.5, 3);
     // The placed fireflies in their tint; no automatic field beside them
     const fields = layer.group.children.filter((c) => c.name === 'custom-map-particles-fireflies') as Mesh[];
     expect(fields).toHaveLength(1);
@@ -130,6 +137,160 @@ describe('EffectLayer', () => {
     layer.dispose();
   });
 
+  it("flies a birds area's flock inside its outline and a route's out along it and back, in place of the map's own", () => {
+    const layer = new EffectLayer(flat());
+    layer.setAmbient({ fireflies: [], flocks: [circleFlock(new Vector3(0, 50, 0), 40, 10, 0.3)] });
+    const outline = [{ x: 0, y: 0 }, { x: 40, y: 0 }, { x: 40, y: 40 }, { x: 0, y: 40 }];
+    const life: MapLife = {
+      areas: [
+        { id: 'b1', kind: 'birds', shape: 'area', points: outline, height: 30 },
+        { id: 'b2', kind: 'birds', shape: 'route', points: [{ x: -45, y: -40 }, { x: -45, y: 40 }], density: 2 },
+      ],
+    };
+    layer.setLife(life);
+    layer.set([], catalog);
+    // 10 in the area, 16 on the route at density 2; the automatic flock gone
+    expect(layer.birds.mesh.geometry.instanceCount).toBe(26);
+    const area = loopOf(layer, 0);
+    for (const p of area) {
+      expect(-p.x).toBeGreaterThan(0);
+      expect(-p.x).toBeLessThan(40);
+      expect(p.z).toBeGreaterThan(0);
+      expect(p.z).toBeLessThan(40);
+      // 30 m over the ground at 4 m
+      expect(p.y).toBeCloseTo(34, 3);
+    }
+    // The route's loop runs its whole length on both sides of the line, 40 m up by default
+    const route = loopOf(layer, 1);
+    expect(Math.min(...route.map((p) => p.z))).toBeLessThan(-30);
+    expect(Math.max(...route.map((p) => p.z))).toBeGreaterThan(30);
+    expect(route.some((p) => -p.x < -45 - 6) && route.some((p) => -p.x > -45 + 6)).toBe(true);
+    expect(route[0].y).toBeCloseTo(44, 3);
+    // Low shows no life areas: the map's own flock comes back, then the level hides every bird
+    layer.setQuality({ particles: 0.7, pointLights: 4, life: 0 });
+    layer.set([], catalog);
+    expect(layer.birds.mesh.geometry.instanceCount).toBe(7);
+    layer.dispose();
+  });
+
+  it('flies gulls, crows and birds of prey in their own colour and size; birds of prey few and high', () => {
+    const layer = new EffectLayer(flat());
+    const outline = [{ x: 0, y: 0 }, { x: 40, y: 0 }, { x: 40, y: 40 }, { x: 0, y: 40 }];
+    layer.setLife({ areas: [{ id: 'r', kind: 'birds', shape: 'area', points: outline, species: 'raptors' }, { id: 'g', kind: 'birds', shape: 'area', points: outline, species: 'gulls' }] });
+    layer.set([], catalog);
+    const g = layer.birds.mesh.geometry;
+    // 3 raptors (a third of 10), 10 gulls
+    expect(g.instanceCount).toBe(13);
+    expect(loopOf(layer, 0)[0].y).toBeCloseTo(4 + 80, 3);
+    const tint = g.getAttribute('aTint');
+    const look = g.getAttribute('aLook');
+    expect(tint.getX(0)).toBeLessThan(0.1);
+    expect(tint.getX(3)).toBeGreaterThan(0.6);
+    expect(look.getX(0)).toBeGreaterThan(2.3);
+    expect(look.getX(3)).toBeLessThan(1.7);
+    layer.dispose();
+  });
+
+  it("spreads a particle area's emitters over its outline into the field of its kind, and fireflies only at night", () => {
+    const layer = new EffectLayer(flat());
+    layer.setAmbient({ fireflies: [new Vector3(0, 4, 0)], flocks: [] });
+    const square = [{ x: -40, y: -40 }, { x: 40, y: -40 }, { x: 40, y: 40 }, { x: -40, y: 40 }];
+    layer.setLife({
+      areas: [
+        { id: 'e', kind: 'embers', shape: 'area', points: square, color: '#ff0000' },
+        { id: 'f', kind: 'fireflies', shape: 'route', points: [{ x: -40, y: 0 }, { x: 40, y: 0 }] },
+        { id: 'h', kind: 'fog', shape: 'area', points: square, quality: 'high' },
+      ],
+    });
+    layer.set([place('a', 'torch', 0)], catalog);
+    const field = (name: string) => layer.group.children.filter((c): c is Mesh => c instanceof Mesh && c.name === `custom-map-particles-${name}`);
+    // The torch's embers and the area's in one field: emitters about 8 m apart over the 80 m square
+    const embers = field('embers');
+    expect(embers).toHaveLength(1);
+    const origins = embers[0].geometry.getAttribute('aOrigin');
+    const colors = embers[0].geometry.getAttribute('aColor');
+    let red = 0;
+    for (let k = 0; k < origins.count; k++) {
+      expect(Math.abs(origins.getX(k))).toBeLessThanOrEqual(40);
+      expect(Math.abs(origins.getZ(k))).toBeLessThanOrEqual(40);
+      if (colors.getY(k) < 0.01) red++;
+    }
+    expect(red).toBeGreaterThan(60 * particleCount('embers', undefined));
+    // Fireflies along the line, in place of the map's own, shown at night only
+    const flies = field('fireflies');
+    expect(flies).toHaveLength(1);
+    const along = flies[0].geometry.getAttribute('aOrigin');
+    for (let k = 0; k < along.count; k++) expect(Math.abs(along.getZ(k))).toBeLessThan(6);
+    layer.setDarkness(0);
+    expect(flies[0].visible).toBe(false);
+    layer.setDarkness(1);
+    expect(flies[0].visible).toBe(true);
+    // Dust devils and snow flurries in fields of their own
+    layer.setLife({ areas: [{ id: 'd', kind: 'dust', shape: 'area', points: square }, { id: 's', kind: 'snow', shape: 'area', points: square }] });
+    layer.set([], catalog);
+    expect(field('dust')).toHaveLength(1);
+    expect(field('snow')).toHaveLength(1);
+    layer.setLife({
+      areas: [
+        { id: 'e', kind: 'embers', shape: 'area', points: square, color: '#ff0000' },
+        { id: 'h', kind: 'fog', shape: 'area', points: square, quality: 'high' },
+      ],
+    });
+    layer.set([place('a', 'torch', 0)], catalog);
+    // The fog asks for High: Medium leaves it out
+    expect(field('fog')).toHaveLength(1);
+    layer.setQuality({ particles: 0.7, pointLights: 4, life: 0.7 });
+    layer.set([place('a', 'torch', 0)], catalog);
+    expect(field('fog')).toHaveLength(0);
+    layer.dispose();
+  });
+
+  it("turns the map's own life off by its switches, scales it by its density and lets lava spark", () => {
+    const layer = new EffectLayer(flat());
+    const ambient = { fireflies: [new Vector3(0, 4, 0)], flocks: [circleFlock(new Vector3(0, 50, 0), 40, 10, 0.3)] };
+    const smoke = () => layer.group.children.find((c): c is Mesh<InstancedBufferGeometry> => c instanceof Mesh && c.name === 'custom-map-particles-smoke')?.geometry.instanceCount ?? 0;
+    layer.setAmbient(ambient);
+    layer.set([place('h', 'house', 10)], catalog);
+    const fullSmoke = smoke();
+    expect(fullSmoke).toBeGreaterThan(0);
+    layer.setLife({ density: 0.5 });
+    layer.set([place('h', 'house', 10)], catalog);
+    expect(layer.birds.mesh.geometry.instanceCount).toBe(5);
+    expect(smoke()).toBe(Math.round(fullSmoke / 2));
+    layer.setLife({ auto: { smoke: false, birds: false, fireflies: false } });
+    layer.set([place('h', 'house', 10)], catalog);
+    expect(smoke()).toBe(0);
+    expect(layer.birds.mesh.geometry.instanceCount).toBe(0);
+    expect(layer.group.children.some((c) => c.name === 'custom-map-particles-fireflies')).toBe(false);
+    // Sparks over lava only with their switch
+    const sparks = () => layer.group.children.some((c) => c.name === 'custom-map-particles-sparks');
+    layer.setLavaLights([new Vector3(0, 9, 0), new Vector3(30, 9, 0)]);
+    expect(sparks()).toBe(false);
+    layer.setLife({ auto: { sparks: true } });
+    layer.setLavaLights([new Vector3(0, 9, 0), new Vector3(30, 9, 0)]);
+    expect(sparks()).toBe(true);
+    layer.dispose();
+  });
+
+  it('sweeps a lighthouse beam pair at night only, and lets a beacon flash without lighting the ground', () => {
+    const layer = new EffectLayer(flat());
+    layer.set([place('l', 'lighthouse', 0), place('b', 'beacon', 30)], catalog);
+    const beams = layer.group.children.find((c): c is Mesh<InstancedBufferGeometry> => c instanceof Mesh && c.name === 'custom-map-beams')!;
+    expect(beams.geometry.instanceCount).toBe(2);
+    const at = beams.geometry.getAttribute('aBeam');
+    expect([at.getY(0), at.getW(0)]).toEqual([4 + 20, 70]);
+    expect(beams.geometry.getAttribute('aTurn').getX(0)).toBe(10);
+    layer.setDarkness(0);
+    expect(beams.visible).toBe(false);
+    layer.setDarkness(1);
+    expect(beams.visible).toBe(true);
+    // The beacon glows in flashes and is the only light: nothing baked on the ground
+    const glows = layer.group.children.find((c): c is Mesh<InstancedBufferGeometry> => c instanceof Mesh && c.name === 'custom-map-glows')!;
+    expect(glows.geometry.getAttribute('aBlink').getX(0)).toBe(1.5);
+    expect(LAMP_LIGHT_UNIFORMS.uLampOn.value).toBe(0);
+    layer.dispose();
+  });
+
   it('builds one particle field per kind, waterfalls with spray, and glows', () => {
     const layer = new EffectLayer(flat());
     const objects = [place('a', 'torch', 0), place('b', 'torch', 10), place('c', 'falls', -20), place('d', 'rock', 5)];
@@ -143,6 +304,21 @@ describe('EffectLayer', () => {
       'custom-map-particles-spray',
       'custom-map-waterfalls',
     ]);
+    layer.dispose();
+  });
+
+  it('draws a fall into lava as a lava fall: glowing sheet, embers and smoke at its foot, no spray or foam', () => {
+    const layer = new EffectLayer(flat(), () => 5, () => true);
+    layer.set([place('c', 'falls', -20)], catalog);
+    const names = layer.group.children.filter((c) => c instanceof Mesh).map((c) => c.name);
+    expect(names).toContain('custom-map-particles-embers');
+    expect(names).toContain('custom-map-particles-smoke');
+    expect(names).not.toContain('custom-map-particles-spray');
+    const geometry = (layer.group.children.find((c) => c.name === 'custom-map-waterfalls') as Mesh).geometry;
+    const lava = geometry.getAttribute('aLava');
+    const fall = geometry.getAttribute('aFall');
+    for (let k = 0; k < lava.count; k++) expect(lava.getX(k)).toBe(1);
+    for (let k = 0; k < fall.count; k++) expect(fall.getX(k)).toBeGreaterThanOrEqual(0);
     layer.dispose();
   });
 
@@ -288,3 +464,15 @@ describe('EffectLayer', () => {
     expect(particleCount('fog', undefined)).toBeGreaterThanOrEqual(1);
   });
 });
+
+/** The points of flock `row`'s loop in the birds' path texture (scene space) */
+function loopOf(layer: EffectLayer, row: number): Vector3[] {
+  const tex = layer.birds.mesh.material.uniforms['uPaths'].value as { image: { data: Float32Array; width: number } };
+  const { data, width } = tex.image;
+  const out: Vector3[] = [];
+  for (let s = 0; s < width; s++) {
+    const at = (row * width + s) * 4;
+    out.push(new Vector3(data[at], data[at + 1], data[at + 2]));
+  }
+  return out;
+}

@@ -114,7 +114,7 @@ Mechanik in [STATUS_EFFECTS.md](../STATUS_EFFECTS.md)):
 | Effekt | Quelle | Wirkung | Dauer |
 |---|---|---|---|
 | **Slow** | Ice Tower | -50 % Tempo | 3 s |
-| **Burn** | Fire Tower | 20 % der Beam-DPS als DoT, Tick 500 ms, pro Turm ein Eintrag | 3 s, im Kegel erneuert |
+| **Burn** | Fire Tower; Archer mit Pfad Fire Arrows | Fire: 20 % der Beam-DPS als DoT; Archer: 25 % des Pfeilschadens; Tick 500 ms, pro Turm ein Eintrag | 3 s, im Kegel bzw. je Treffer erneuert |
 | **Poison** | Poison Tower | 8 DPS | 4 s |
 | **Freeze** | Frostbombe | Halt | 3 s, Bosse 1 s |
 | **Stun** | EMP | Halt | 1,5 s, Maschinen 6 s, Bosse 0,75 s |
@@ -124,6 +124,10 @@ Werte aus `game-balance.config.ts` (`effects`), `combat-tuning.config.ts`
 Kegel gleich: der Fire Tower gibt 20 % seines Schadens als Burn aus statt
 direkt. Details in [STATUS_EFFECTS.md](../STATUS_EFFECTS.md#burn-effect-dot),
 die Fähigkeiten in [ABILITIES.md](../ABILITIES.md).
+
+Gebaut seit 2026-10-15 mit den Tower-Pfaden: **Seal** (Magic, Binding Sigil: Phasing 4 s aufgehoben) und
+**Corrode** (Poison, Caustic: 3 s eine Rüstungsklasse leichter, je Schadensart das Bessere aus beiden Spalten,
+nicht stapelbar, nicht auf Bossen). Corrode ist die mildere Form des geplanten Armor Break (§12.1).
 
 Gebaut seit 2026-10-02: Regen (§2.5), den ein Burn anhält, und das Gegenmittel
 `immuneToSlow` (Phasing). Nicht gebaut: Armor Break, Mark, ein Stun als
@@ -142,7 +146,7 @@ Gebaut sind diese Eigenschaften je Gegnertyp (`EnemyTypeConfig` in
 | Split | `splitOnDeath` | ein Kill (kein Leck) teilt den Gegner | Skeleton (2 Minions), Ooze (bis zu 20 Slime Clumps mit 3/10 ihrer HP) |
 | Kette | `chain` | ein Spawn bringt einen Wurm aus Segmenten | Skarnax |
 | Regen | `regenPerSecond` | heilt je Sekunde einen Anteil der max. HP, in Schritten von 0,5 s Spielzeit, nie solange er brennt | Mammoth 1 %, Slime Clump 2 % |
-| Phasing | `immuneToSlow` | ein Slow greift nicht; Freeze und Stun schon | Wraith |
+| Phasing | `immuneToSlow` | ein Slow greift nicht; Freeze und Stun schon; ein Siegel (Magic, Pfad Binding Sigil) hebt es 4 s auf | Wraith |
 | Wut | `traits.rage` | unter einem Anteil der HP schneller und nimmt weniger Turmschaden, rot | Herbert (50 %), Golem King (40 %), Dragon Matriarch (50 %) |
 | Eigenes Leck | `leakDamage` | kostet im HQ diesen Wert statt dem aus den HP | Skarnax 150 |
 | Elite | (je Welle, `ELITE_SHARE`) | etwa jeder 20. einer Art ab zehn, 4,5-fache HP, gold, ein Viertel größer | alle außer Bossen, Wurm und Ooze |
@@ -217,7 +221,9 @@ in §12.3.
 - Seit 2026-10-02 30 statt 25 Schaden und Upgrades zu 0,6 des Preises: Mit den
   Preisen aller Tower war jede Stufe des schwächsten Basis-Schadens der
   schlechteste Kauf (menschlicher Lauf bis W60: 3,6 Schaden je Gold, Fire 17,3).
-- Der geplante Air-Upgrade-Pfad und die Spezialisierungen sind nicht gebaut (§12.3).
+- Pfade (Einmalkauf je Tower, [TOWER_CREATION.md](../TOWER_CREATION.md#pfade-2026-10-03-todo-e101)): Scout
+  (Camo-Erkennung) oder Fire Arrows (jeder Treffer brennt mit 25 % des Pfeils als Feuer je Sekunde, 3 s; hält Regen
+  an). Der geplante Air-Upgrade-Pfad ist nicht gebaut (§12.3).
 
 ### 3.4 Dual-Gatling: Pierce
 - Trifft Luft erst mit der Forschung AA Retrofit (`aa-retrofit`), die nur die
@@ -233,11 +239,14 @@ in §12.3.
 - Seit 2026-10-02 60 statt 40 Schaden und Upgrades zu 0,75: Sie steht in jeder
   Bodenwelle still (menschlicher Lauf bis W60: 2,8 Schaden je Gold). Die Rolle
   bleibt (TODO E15).
-- Die geplante „Bodenfreigabe" ist nicht gebaut (§12.3).
+- Pfad Multirole (Forschung Multirole Warheads ab W9, Pfad 300, seit 2026-10-15): trifft auch Boden, dort mit
+  50 % (Treffer und Splash), Flieger zuerst. Das ist die frühere geplante „Bodenfreigabe“ (§12.3).
 
 ### 3.7 Magic: Magic
 - Stärkster Ethereal-Counter (2.0×), zweiter Konter gegen Fortified (1.3×, Runen gegen Stein).
 - Schwach gegen Light (0.5×): flinke Ziele weichen den Geschossen aus.
+- Pfad Binding Sigil (Forschung Binding Sigils ab W15, Pfad 250, seit 2026-10-15): jeder Treffer hebt Phasing
+  4 s auf, der Slow der Ice greift dann auch an Wraiths (§2.5).
 
 ### 3.8 Ice: Ice
 - **Air + Ground** ab Basis. Niedriger DPS, starker Slow.
@@ -260,6 +269,8 @@ in §12.3.
 - DoT-Spezialist mit Splash-Projektil.
 - Eigenständiger Schadenstyp (nicht Fire-Subtyp).
 - Poison-DoT und Burn-DoT sind getrennte Effekte, können gleichzeitig wirken.
+- Pfad Caustic (Forschung Caustic Compounds ab W11, Pfad 250, seit 2026-10-15): der direkte Treffer zersetzt 3 s,
+  das Ziel zählt für alle Tower eine Rüstungsklasse leichter, wo das mehr Schaden macht (§2.4, Corrode).
 
 ### 3.12 Lightning: Lightning
 - **Chain-Hitscan** (`attackType: 'chain'`): Primary-Treffer + 2 Jumps, je `chainFalloff 0.7` (100% → 70% → 49%), `jumpRange 15m` zwischen Chain-Links.
@@ -614,8 +625,8 @@ den Text aus `description`.
 
 ### 6.3 Tech-Tree (Forschungsbaum)
 
-Frei wählbar mit Voraussetzungen, 25 Knoten in vier Kategorien
-(`research-tree.config.ts`), zusammen 183.320 Credits (bis 2026-10-01 19.670).
+Frei wählbar mit Voraussetzungen, 29 Knoten in vier Kategorien
+(`research-tree.config.ts`), zusammen 191.320 Credits (bis 2026-10-01 19.670).
 
 **Tempo (seit 2026-10-02):** Eine Forschung kann eine Mindestwelle haben
 (`minWave`). Sie öffnet in der Bauphase vor dieser Welle (`researchWave`: die
@@ -659,6 +670,19 @@ fünf Wellen Einkommen und steht gegen Upgrades.
 
 Die Fähigkeiten beschreibt [ABILITIES.md](../ABILITIES.md), den Held
 [HERO.md](../HERO.md).
+
+#### Pfad-Forschungen
+
+Jede öffnet einen Tower-Pfad (`unlock-path`), den danach jeder Tower des Typs einmal kauft
+([TOWER_CREATION.md](../TOWER_CREATION.md#pfade-2026-10-03-todo-e101)).
+
+| ID | Name | Kosten | Dauer | ab Welle | Voraussetzung | Pfad |
+|---|---|---:|---:|---:|---|---|
+| `scouting` | Scouting | 3.000 | 25 s | 16 | Advanced Weaponry | Archer: Scout |
+| `incendiary-arrows` | Incendiary Arrows | 2.000 | 20 s | 10 | Fire Alchemy | Archer: Fire Arrows |
+| `multirole-warheads` | Multirole Warheads | 1.500 | 20 s | 9 | Rocketry | Rocket: Multirole |
+| `binding-sigils` | Binding Sigils | 2.500 | 25 s | 15 | Arcane Studies | Magic: Binding Sigil |
+| `caustic-compounds` | Caustic Compounds | 2.000 | 20 s | 11 | Toxic Compounds | Poison: Caustic |
 
 #### Upgrade-Tier-Freischaltungen
 
@@ -870,7 +894,7 @@ Gebaut sind nur die Tracks aus §3.2. Geplant waren:
   vs Air, L3 Schaden vs Air. Gebaut ist stattdessen die Forschung AA Retrofit.
 - **Cannon, Armor Break Path:** L3 „Risse im Panzer“: **Armor Break** (4s,
   Unarmored-Logik). Dazu ein Air-Upgrade-Pfad (aus §7.2).
-- **Rocket:** späterer Pfad „Bodenfreigabe“ erlaubt Ground.
+- **Rocket:** späterer Pfad „Bodenfreigabe“ erlaubt Ground. Gebaut 2026-10-15 als Pfad Multirole (§3.6).
 - **Fire:** Air via Upgrade „Luftflamme“.
 
 ### 12.4 Gegner (aus §4)

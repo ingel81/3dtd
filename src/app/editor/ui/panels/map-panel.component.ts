@@ -29,7 +29,7 @@ import { MapBudgetComponent } from './map-budget.component';
         <span class="td-label">Description</span>
         <textarea class="td-input mp-text" rows="4" maxlength="600" [value]="m.description" (change)="edit('description', $event)"></textarea>
       </label>
-      <p class="td-note">Id {{ m.id }}@if (m.source) { | imported from {{ m.source.file }} }</p>
+      <p class="td-note">Id {{ m.id }}@if (m.source?.kind === 'w3x') { | imported from {{ m.source.file }} } @else if (m.source?.kind === 'osm') { | made from OpenStreetMap at {{ m.source.address }} }</p>
     }
     <app-map-budget />
     @if (size(); as s) {

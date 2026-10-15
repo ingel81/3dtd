@@ -12,7 +12,7 @@ import { dangerLook } from '../../world/custom-map/render/asset-catalog';
 import { sceneCost, SCENE_BUDGET } from '../../world/custom-map/render/objects/scene-cost';
 import { validateWaveTable, type WaveTable } from '../../director/sources/table/wave-table';
 import { heightAt, insideMap, sampleX, sampleY, slopeAt } from '../model/grid';
-import { components, edgePolyline, nearestOnEdges, nearestOnPolyline, routeBetween } from '../ops/path-graph';
+import { components, EdgeIndex, routeBetween } from '../ops/path-graph';
 import { undersideGap } from '../ops/object-ops';
 import { seatHeight, type ObjectFooting } from '../../world/custom-map/render/objects/object-seat';
 import { waterLevelAt } from '../../world/custom-map/water-level';
@@ -114,6 +114,8 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
   const issues: MapIssue[] = [];
   const t = doc.terrain;
   const { paths } = doc;
+  // Nearest-road lookups through a grid of the edges: an OSM world has ten thousand
+  const edges = new EdgeIndex(paths);
 
   if (!paths.edges.length) {
     issues.push({ severity: 'error', code: 'no-paths', message: 'The map has no roads. Enemies walk only on roads (Roads tool, 6).' });
@@ -134,11 +136,11 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
   if (!insideMap(t, doc.hq)) {
     issues.push({ severity: 'error', code: 'hq-outside', message: 'The HQ stands outside the map.', focus: doc.hq, target: { kind: 'hq' } });
   } else {
-    groundIssues(doc, doc.hq, 'The HQ', rules, issues, { kind: 'hq' });
+    groundIssues(doc, edges, doc.hq, 'The HQ', rules, issues, { kind: 'hq' });
   }
 
   if (paths.edges.length) {
-    const hqHit = nearestOnEdges(paths, doc.hq);
+    const hqHit = edges.nearest(doc.hq);
     if (!hqHit || hqHit.dist > rules.snapDistance) {
       issues.push({
         severity: 'error',
@@ -148,7 +150,7 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
         target: { kind: 'hq' },
       });
     }
-    const groups = components(paths).filter((g) => g.length > 1);
+    const groups = components(paths, edges).filter((g) => g.length > 1);
     if (groups.length > 1) {
       const smallest = [...groups].sort((a, b) => a.length - b.length)[0];
       const node = paths.nodes.find((n) => n.id === smallest[0]);
@@ -168,9 +170,9 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
       issues.push({ severity: 'error', code: 'spawn-outside', message: `Spawn ${name} stands outside the map.`, focus: s, target: { kind: 'spawn', id: s.id } });
       continue;
     }
-    groundIssues(doc, s, `Spawn ${name}`, rules, issues, { kind: 'spawn', id: s.id });
+    groundIssues(doc, edges, s, `Spawn ${name}`, rules, issues, { kind: 'spawn', id: s.id });
     if (!paths.edges.length) continue;
-    const hit = nearestOnEdges(paths, s);
+    const hit = edges.nearest(s);
     if (!hit || hit.dist > rules.snapDistance) {
       issues.push({
         severity: 'error',
@@ -181,7 +183,7 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
       });
       continue;
     }
-    const route = routeBetween(paths, s, doc.hq);
+    const route = routeBetween(paths, s, doc.hq, edges);
     if (!route) {
       issues.push({ severity: 'error', code: 'spawn-unreachable', message: `No road leads from spawn ${name} to the HQ.`, focus: s, target: { kind: 'spawn', id: s.id } });
       continue;
@@ -227,7 +229,7 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
   for (const [index, e] of paths.edges.entries()) {
     // Named as the outline counts them, not by the internal id
     const name = `${KIND_NAME[e.kind] ?? 'Road'} ${index + 1}`;
-    const line = edgePolyline(paths, e);
+    const line = edges.polyline(e);
     if (line.length < 2) continue;
     const outside = line.find((p) => !insideMap(t, p));
     if (outside) {
@@ -264,10 +266,9 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
   let firstBlocked: { id: string; x: number; y: number } | null = null;
   for (const o of doc.objects) {
     if (!(o.blocksBuild ?? blocks(o.asset)) && !o.blocksLos) continue;
-    const hit = nearestOnEdges(paths, o, 30);
+    const hit = edges.nearest(o, 30);
     if (!hit) continue;
-    const half = hit.edge.width / 2;
-    if (nearestOnPolyline(edgePolyline(paths, hit.edge), o)!.dist < half) {
+    if (hit.dist < hit.edge.width / 2) {
       blocked++;
       firstBlocked ??= o;
     }
@@ -291,7 +292,7 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
   let firstAlarming: { id: string; x: number; y: number } | null = null;
   if (paths.edges.length) {
     for (const o of doc.objects) {
-      if (!danger(o.asset) || !nearestOnEdges(paths, o, rules.dangerColorReach)) continue;
+      if (!danger(o.asset) || !edges.nearest(o, rules.dangerColorReach)) continue;
       alarming++;
       firstAlarming ??= o;
     }
@@ -350,6 +351,7 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
 /** Water and steep ground under a spawn portal or the HQ */
 function groundIssues(
   doc: CustomMapDocument,
+  edges: EdgeIndex,
   p: MapPoint,
   name: string,
   rules: ValidationRules,
@@ -358,7 +360,7 @@ function groundIssues(
 ): void {
   const kind = target.kind;
   // A spawn on a bridge stands over the river, not in it
-  const onBridge = nearestOnEdges(doc.paths, p, rules.snapDistance)?.edge.kind === 'bridge';
+  const onBridge = edges.nearest(p, rules.snapDistance)?.edge.kind === 'bridge';
   if (!onBridge && underWater(doc, p)) {
     issues.push({ severity: 'warning', code: kind === 'hq' ? 'hq-in-water' : 'spawn-in-water', message: `${name} stands in water.`, focus: p, target });
   }
@@ -551,10 +553,18 @@ export function objectsInAir(doc: CustomMapDocument, footingOf: (asset: string) 
 /** Set pieces that ring a hollow (crater rims): nothing lies under their middle, their pieces follow the rim */
 const RING_PIECES = new Set(['crater-rim', 'mars-crater-rim']);
 
-/** A rock set piece lower than it is wide that rests on no measured plate (catalogue without `base`), rings left out */
+/**
+ * A flat rock set piece that rests on no measured plate (catalogue without
+ * `base`): a slab or a pool, at most a quarter as high as it is wide; rings
+ * left out. Cliff walls are wide too but stand against a slope, their foot
+ * at the ground (the Cliff rocks brush sinks them in), not on a plate
+ */
 function flatSetPiece(asset: string, f: ObjectFooting): boolean {
-  return f.category === 'rock' && !f.base && !f.float && f.height < f.footprint && !RING_PIECES.has(asset);
+  return f.category === 'rock' && !f.base && !f.float && f.height < f.footprint * FLAT_SHARE && !RING_PIECES.has(asset);
 }
+
+/** A set piece no higher than this share of its footprint lies flat */
+const FLAT_SHARE = 0.25;
 
 function floatingObjects(doc: CustomMapDocument, footingOf: (asset: string) => ObjectFooting | undefined, tolerance: number, issues: MapIssue[]): void {
   const found = objectsInAir(doc, footingOf, tolerance);

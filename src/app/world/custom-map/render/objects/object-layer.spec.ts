@@ -385,3 +385,29 @@ describe('MapObjectLayer packed assets in the editor', () => {
     layer.dispose();
   });
 });
+
+describe('MapObjectLayer spinning parts', () => {
+  it('turns parts named spin-… in a program of their own, apart from the still parts', async () => {
+    const field = new HeightField({ columns: 2, rows: 2, cellSize: 1000, heights: new Float32Array(4) }, 1000, 1000);
+    const radar = { ...catalog.objects[0], id: 'radar', category: 'prop' as const, lod: undefined, file: 'radar.glb', wind: 0, spin: 5 };
+    const lib = new MapAssetLibrary('base/', {
+      fetch: (() =>
+        Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ ...catalog, objects: [radar] }) } as Response)) as typeof fetch,
+      loadModel: () => {
+        const root = new Group();
+        root.add(new Mesh(new BoxGeometry(1, 1, 1), new MeshStandardMaterial({ name: 'mast' })));
+        root.add(new Mesh(new BoxGeometry(2, 0.2, 2), new MeshStandardMaterial({ name: 'spin-dish' })));
+        return Promise.resolve(root);
+      },
+    });
+    const los = new Group();
+    const layer = new MapObjectLayer(field, lib, los, {});
+    await layer.setObjects([{ id: 'r', asset: 'radar', x: 0, y: 0, z: 0, rotation: 0, scale: 1 }]);
+    const meshes = [...layer.group.children, ...los.children].filter((c): c is InstancedMesh => c instanceof InstancedMesh);
+    const keys = meshes.map((m) => (m.material as MeshStandardMaterial).customProgramCacheKey());
+    // The dish has its own draw and program, the mast is merged and still
+    expect(keys.filter((k) => k.startsWith('custom-map-object-s'))).toHaveLength(1);
+    expect(meshes.length).toBeGreaterThanOrEqual(2);
+    layer.dispose();
+  });
+});

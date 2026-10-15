@@ -12,6 +12,7 @@ import { PROJECTILE_TYPES } from '../configs/projectile-types.config';
 import { DamageType, ArmorType, ARMOR_TYPES } from '../configs/combat/combat.types';
 import { DAMAGE_MATRIX } from '../configs/combat/damage-matrix.config';
 import { GAME_BALANCE } from '../configs/game-balance.config';
+import { getTowerPath, type TowerPathId } from '../configs/tower-paths.config';
 
 // Re-export so existing AI consumers keep their import path working.
 export { canTargetAirEffective } from '../entities/tower-targeting.util';
@@ -192,6 +193,24 @@ export function armorMultipliersFor(damageType: DamageType): Record<ArmorType, n
   const result = {} as Record<ArmorType, number>;
   for (const armor of ARMOR_TYPES) {
     result[armor] = row?.[armor] ?? 1.0;
+  }
+  return result;
+}
+
+/**
+ * The armor multipliers of a tower's damage with its path: the matrix row of its damage type, plus a path's
+ * burn (TowerPath.burnShare) as that share of the damage in the fire row. What the defense analysis multiplies
+ * its DPS with.
+ */
+export function towerArmorMultipliers(
+  cfg: TowerTypeConfig,
+  pathId: TowerPathId | null | undefined,
+): Record<ArmorType, number> {
+  const result = armorMultipliersFor(cfg.damageType);
+  const burn = getTowerPath(pathId)?.burnShare ?? 0;
+  if (burn > 0) {
+    const fire = armorMultipliersFor('fire');
+    for (const armor of ARMOR_TYPES) result[armor] += burn * fire[armor];
   }
   return result;
 }

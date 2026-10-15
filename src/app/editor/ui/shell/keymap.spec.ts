@@ -7,14 +7,14 @@ describe('keymap', () => {
     let map = loadKeymap(storage);
     expect(actionFor(map, '1')).toBe('tool:landscape');
     expect(actionFor(map, 'T')).toBe('view:top');
-    // N is free; then give C (game view's) to the top view: game view takes the old N
-    map = rebind(map, 'view:top', 'n');
-    map = rebind(map, 'view:game', 'n');
+    // U is free; then give C (game view's) to the top view: game view takes the old U
+    map = rebind(map, 'view:top', 'u');
+    map = rebind(map, 'view:game', 'u');
     expect(map['view:top']).toBe('c');
-    expect(map['view:game']).toBe('n');
+    expect(map['view:game']).toBe('u');
     saveKeymap(map, storage);
-    expect(JSON.parse(store.get('3dtd-editor-keys')!)).toEqual({ 'view:top': 'c', 'view:game': 'n' });
-    expect(loadKeymap(storage)['view:game']).toBe('n');
+    expect(JSON.parse(store.get('3dtd-editor-keys')!)).toEqual({ 'view:top': 'c', 'view:game': 'u' });
+    expect(loadKeymap(storage)['view:game']).toBe('u');
     expect(KEY_ACTIONS.length).toBeGreaterThan(12);
     expect(bindable('[')).toBe(false);
     expect(bindable('+')).toBe(false);

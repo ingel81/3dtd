@@ -5578,6 +5578,36 @@
       "source": "procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/cliff_side"
     },
     {
+      "id": "rock-arch-large",
+      "name": "Rock arch (over a road)",
+      "category": "rock",
+      "file": "models/rock-arch-large.glb",
+      "triangles": 1280,
+      "footprint": 17.4,
+      "height": 19.6,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.3
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "desert",
+        "mars"
+      ],
+      "lod": [
+        {
+          "file": "models/rock-arch-large-lod1.glb",
+          "distance": 350,
+          "triangles": 834
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/cliff_side"
+    },
+    {
       "id": "stalagmites",
       "name": "Stalagmites",
       "category": "rock",
@@ -5610,7 +5640,7 @@
       "name": "Basalt columns",
       "category": "rock",
       "file": "models/basalt-columns.glb",
-      "triangles": 192,
+      "triangles": 480,
       "footprint": 2.1,
       "height": 3.2,
       "base": [
@@ -6445,7 +6475,7 @@
       "name": "Windmill",
       "category": "building",
       "file": "models/windmill.glb",
-      "triangles": 1110,
+      "triangles": 3888,
       "footprint": 5.9,
       "height": 17.2,
       "blocksLos": true,
@@ -6515,9 +6545,9 @@
       "name": "Lighthouse",
       "category": "building",
       "file": "models/lighthouse.glb",
-      "triangles": 642,
+      "triangles": 1680,
       "footprint": 3.6,
-      "height": 22.2,
+      "height": 23.6,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6527,8 +6557,16 @@
       "randomRotation": true,
       "wind": 0,
       "drawDistance": 3000,
+      "spin": 10,
       "tags": [
         "coast"
+      ],
+      "effects": [
+        {
+          "kind": "beam",
+          "height": 20,
+          "radius": 70
+        }
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/whitewashed_brick; https://polyhaven.com/a/castle_wall_slates"
     },
@@ -7294,6 +7332,203 @@
         "arena"
       ],
       "source": "https://polyhaven.com/a/horse_statue_01; Sockel procedural (tools/map-assets/build_structures.py)"
+    },
+    {
+      "id": "cow",
+      "name": "Cow",
+      "category": "prop",
+      "file": "models/cow.glb",
+      "triangles": 528,
+      "footprint": 1.1,
+      "height": 1.5,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "temperate",
+        "village",
+        "mountain"
+      ],
+      "source": "procedural (tools/map-assets/build_extras.py)"
+    },
+    {
+      "id": "cow-grazing",
+      "name": "Cow, grazing",
+      "category": "prop",
+      "file": "models/cow-grazing.glb",
+      "triangles": 528,
+      "footprint": 1.1,
+      "height": 1.5,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "temperate",
+        "village",
+        "mountain"
+      ],
+      "source": "procedural (tools/map-assets/build_extras.py)"
+    },
+    {
+      "id": "cow-lying",
+      "name": "Cow, lying",
+      "category": "prop",
+      "file": "models/cow-lying.glb",
+      "triangles": 422,
+      "footprint": 1.1,
+      "height": 1.2,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "temperate",
+        "village",
+        "mountain"
+      ],
+      "source": "procedural (tools/map-assets/build_extras.py)"
+    },
+    {
+      "id": "sheep",
+      "name": "Sheep",
+      "category": "prop",
+      "file": "models/sheep.glb",
+      "triangles": 737,
+      "footprint": 0.7,
+      "height": 1.1,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "temperate",
+        "village",
+        "mountain",
+        "coast"
+      ],
+      "source": "procedural (tools/map-assets/build_extras.py)"
+    },
+    {
+      "id": "sheep-grazing",
+      "name": "Sheep, grazing",
+      "category": "prop",
+      "file": "models/sheep-grazing.glb",
+      "triangles": 737,
+      "footprint": 0.6,
+      "height": 1.0,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "temperate",
+        "village",
+        "mountain",
+        "coast"
+      ],
+      "source": "procedural (tools/map-assets/build_extras.py)"
+    },
+    {
+      "id": "sheep-lying",
+      "name": "Sheep, lying",
+      "category": "prop",
+      "file": "models/sheep-lying.glb",
+      "triangles": 631,
+      "footprint": 0.7,
+      "height": 0.8,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "temperate",
+        "village",
+        "mountain",
+        "coast"
+      ],
+      "source": "procedural (tools/map-assets/build_extras.py)"
+    },
+    {
+      "id": "deer",
+      "name": "Red deer",
+      "category": "prop",
+      "file": "models/deer.glb",
+      "triangles": 632,
+      "footprint": 0.9,
+      "height": 2.1,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "temperate",
+        "autumn",
+        "mountain",
+        "winter"
+      ],
+      "source": "procedural (tools/map-assets/build_extras.py)"
+    },
+    {
+      "id": "deer-grazing",
+      "name": "Red deer, grazing",
+      "category": "prop",
+      "file": "models/deer-grazing.glb",
+      "triangles": 632,
+      "footprint": 1.0,
+      "height": 1.3,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "temperate",
+        "autumn",
+        "mountain",
+        "winter"
+      ],
+      "source": "procedural (tools/map-assets/build_extras.py)"
     },
     {
       "id": "statue-knight",
@@ -8246,7 +8481,7 @@
         {
           "file": "models/apartment-block-tall-lod1.glb",
           "distance": 350,
-          "triangles": 1934
+          "triangles": 1936
         }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_block_wall; https://polyhaven.com/a/brushed_concrete"
@@ -8305,7 +8540,7 @@
         {
           "file": "models/brick-block-lod1.glb",
           "distance": 350,
-          "triangles": 2512
+          "triangles": 2511
         }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/brick_wall_07; https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/hessian_230"
@@ -8374,7 +8609,7 @@
       "name": "Broken high-rise",
       "category": "building",
       "file": "models/tower-stump.glb",
-      "triangles": 2028,
+      "triangles": 3728,
       "footprint": 7.6,
       "height": 33.1,
       "blocksLos": true,
@@ -8388,6 +8623,13 @@
       "drawDistance": 3000,
       "tags": [
         "wasteland"
+      ],
+      "lod": [
+        {
+          "file": "models/tower-stump-lod1.glb",
+          "distance": 350,
+          "triangles": 986
+        }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_floor_damaged_01; https://polyhaven.com/a/rectangular_facade_tiles"
     },
@@ -8425,7 +8667,7 @@
       "name": "Warehouse",
       "category": "building",
       "file": "models/warehouse.glb",
-      "triangles": 186,
+      "triangles": 1918,
       "footprint": 8.4,
       "height": 7.6,
       "blocksLos": true,
@@ -8440,6 +8682,13 @@
       "tags": [
         "city"
       ],
+      "lod": [
+        {
+          "file": "models/warehouse-lod1.glb",
+          "distance": 350,
+          "triangles": 472
+        }
+      ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -8447,7 +8696,7 @@
       "name": "Rusty warehouse",
       "category": "building",
       "file": "models/warehouse-rusty.glb",
-      "triangles": 186,
+      "triangles": 1984,
       "footprint": 8.4,
       "height": 7.6,
       "blocksLos": true,
@@ -8462,7 +8711,14 @@
       "tags": [
         "wasteland"
       ],
-      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/brushed_concrete"
+      "lod": [
+        {
+          "file": "models/warehouse-rusty-lod1.glb",
+          "distance": 350,
+          "triangles": 479
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/rusty_metal_03; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/brushed_concrete"
     },
     {
       "id": "container-green",
@@ -9274,7 +9530,7 @@
       "name": "Rubble pile",
       "category": "rock",
       "file": "models/rubble-pile.glb",
-      "triangles": 776,
+      "triangles": 512,
       "footprint": 2.0,
       "height": 2.2,
       "base": [
@@ -9302,7 +9558,7 @@
       "name": "Large rubble pile",
       "category": "rock",
       "file": "models/rubble-pile-large.glb",
-      "triangles": 776,
+      "triangles": 944,
       "footprint": 3.5,
       "height": 3.1,
       "base": [
@@ -9707,7 +9963,7 @@
       "name": "Habitat dome",
       "category": "building",
       "file": "models/dome-white.glb",
-      "triangles": 3132,
+      "triangles": 3666,
       "footprint": 6.2,
       "height": 6.9,
       "blocksLos": true,
@@ -9730,7 +9986,7 @@
       "name": "Glass dome",
       "category": "building",
       "file": "models/dome-glass.glb",
-      "triangles": 3132,
+      "triangles": 3666,
       "footprint": 6.2,
       "height": 6.9,
       "blocksLos": true,
@@ -9753,7 +10009,7 @@
       "name": "Greenhouse dome",
       "category": "building",
       "file": "models/greenhouse-dome.glb",
-      "triangles": 3300,
+      "triangles": 3870,
       "footprint": 7.1,
       "height": 7.9,
       "blocksLos": true,
@@ -9775,9 +10031,9 @@
       "name": "Antenna dish",
       "category": "prop",
       "file": "models/antenna-dish.glb",
-      "triangles": 482,
+      "triangles": 736,
       "footprint": 3.0,
-      "height": 7.1,
+      "height": 7.2,
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -9787,6 +10043,7 @@
       "randomRotation": true,
       "wind": 0,
       "drawDistance": 2500,
+      "spin": 6,
       "tags": [
         "moon",
         "mars",
@@ -9822,7 +10079,7 @@
         "intensity": 0.6,
         "distance": 6,
         "height": 14.0,
-        "flicker": true
+        "blink": 1.5
       },
       "source": "procedural (tools/map-assets/build_space.py)"
     },
@@ -9848,6 +10105,28 @@
         "mars"
       ],
       "source": "procedural (tools/map-assets/build_space.py); Goldfolie gezeichnet (make_foliage.py)"
+    },
+    {
+      "id": "mars-lander",
+      "name": "Mars ascent vehicle",
+      "category": "prop",
+      "file": "models/mars-lander.glb",
+      "triangles": 2462,
+      "footprint": 3.3,
+      "height": 11.1,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "mars"
+      ],
+      "source": "procedural (tools/map-assets/build_extras.py); Rost https://polyhaven.com/a/rusty_metal_03"
     },
     {
       "id": "rover",
@@ -9925,7 +10204,7 @@
       "name": "Landing pad",
       "category": "structure",
       "file": "models/landing-pad.glb",
-      "triangles": 354,
+      "triangles": 466,
       "footprint": 9.0,
       "height": 0.4,
       "blocksLos": false,
@@ -10643,7 +10922,7 @@
       "name": "Altar",
       "category": "prop",
       "file": "models/altar.glb",
-      "triangles": 928,
+      "triangles": 1358,
       "footprint": 3.0,
       "height": 3.0,
       "blocksLos": false,
@@ -11696,7 +11975,7 @@
       "name": "Harbour crane",
       "category": "prop",
       "file": "models/harbor-crane.glb",
-      "triangles": 250,
+      "triangles": 754,
       "footprint": 3.1,
       "height": 7.5,
       "blocksLos": false,
@@ -11711,7 +11990,30 @@
       "tags": [
         "coast"
       ],
-      "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/dark_planks"
+      "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/brown_planks_04"
+    },
+    {
+      "id": "dock-crane",
+      "name": "Dock crane (steel)",
+      "category": "structure",
+      "file": "models/dock-crane.glb",
+      "triangles": 858,
+      "footprint": 12.4,
+      "height": 16.1,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "coast",
+        "city"
+      ],
+      "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/container_side"
     },
     {
       "id": "jetty",
@@ -11855,6 +12157,29 @@
         "arctic"
       ],
       "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks"
+    },
+    {
+      "id": "dog-sled",
+      "name": "Dog sled with team",
+      "category": "prop",
+      "file": "models/dog-sled.glb",
+      "triangles": 3426,
+      "footprint": 3.5,
+      "height": 1.1,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "winter",
+        "arctic"
+      ],
+      "source": "procedural (tools/map-assets/build_extras.py)"
     },
     {
       "id": "woodpile-snow",
@@ -12153,7 +12478,7 @@
         {
           "file": "models/office-tower-lod1.glb",
           "distance": 350,
-          "triangles": 2540
+          "triangles": 2541
         }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/gravel_floor_02"
@@ -12540,9 +12865,9 @@
       "name": "Glacier tongue",
       "category": "rock",
       "file": "models/glacier.glb",
-      "triangles": 6480,
-      "footprint": 44.7,
-      "height": 10.5,
+      "triangles": 7012,
+      "footprint": 43.3,
+      "height": 6.1,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -12561,7 +12886,7 @@
         {
           "file": "models/glacier-lod1.glb",
           "distance": 350,
-          "triangles": 1325
+          "triangles": 1237
         }
       ],
       "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/snow_02; https://polyhaven.com/a/rock_face"
@@ -12571,13 +12896,13 @@
       "name": "Seracs",
       "category": "rock",
       "file": "models/seracs.glb",
-      "triangles": 1716,
-      "footprint": 7.1,
-      "height": 9.7,
+      "triangles": 1150,
+      "footprint": 7.2,
+      "height": 8.4,
       "base": [
-        5.1,
-        5.1,
-        2
+        9.3,
+        8.5,
+        1
       ],
       "blocksLos": true,
       "blocksBuild": true,
@@ -12592,14 +12917,31 @@
         "mountain",
         "arctic"
       ],
-      "lod": [
-        {
-          "file": "models/seracs-lod1.glb",
-          "distance": 350,
-          "triangles": 846
-        }
-      ],
       "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/snow_02"
+    },
+    {
+      "id": "snowfield",
+      "name": "Snowfield",
+      "category": "rock",
+      "file": "models/snowfield.glb",
+      "triangles": 748,
+      "footprint": 18.0,
+      "height": 1.1,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.6,
+        1.6
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "mountain",
+        "winter",
+        "arctic"
+      ],
+      "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/snow_02; https://polyhaven.com/a/rock_boulder_dry"
     },
     {
       "id": "avalanche-barrier",
@@ -12670,7 +13012,7 @@
         {
           "file": "models/shipwreck-lod1.glb",
           "distance": 350,
-          "triangles": 1182
+          "triangles": 1181
         }
       ],
       "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/dark_planks"
@@ -12700,7 +13042,7 @@
         {
           "file": "models/rocket-lod1.glb",
           "distance": 350,
-          "triangles": 1023
+          "triangles": 1026
         }
       ],
       "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/brushed_concrete"
@@ -12710,13 +13052,13 @@
       "name": "Obsidian tower",
       "category": "rock",
       "file": "models/obsidian-tower.glb",
-      "triangles": 706,
-      "footprint": 4.2,
-      "height": 14.0,
+      "triangles": 878,
+      "footprint": 5.5,
+      "height": 22,
       "base": [
-        3,
-        2.9,
-        1.2
+        5.4,
+        4.8,
+        1
       ],
       "blocksLos": true,
       "blocksBuild": true,
@@ -12822,7 +13164,7 @@
         {
           "file": "models/bell-tower-lod1.glb",
           "distance": 350,
-          "triangles": 713
+          "triangles": 712
         }
       ],
       "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/roof_slates_02"
@@ -12853,7 +13195,7 @@
         {
           "file": "models/bell-tower-snow-lod1.glb",
           "distance": 350,
-          "triangles": 709
+          "triangles": 708
         }
       ],
       "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/snow_02"
@@ -13233,6 +13575,1137 @@
         }
       ],
       "source": "Effekt des Renderers, kein Modell"
+    },
+    {
+      "id": "fx-beacon",
+      "name": "Blinking beacon",
+      "category": "fx",
+      "file": "",
+      "footprint": 0.3,
+      "height": 0.3,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.5
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "moon",
+        "mars",
+        "city",
+        "arctic",
+        "coast"
+      ],
+      "light": {
+        "color": "#ff2010",
+        "intensity": 0.6,
+        "distance": 6,
+        "height": 0.2,
+        "blink": 1.5
+      },
+      "source": "Effekt des Renderers, kein Modell"
+    },
+    {
+      "id": "house-modern",
+      "name": "Modern house (2 floors, 10 x 8.6 m)",
+      "category": "building",
+      "file": "models/house-modern.glb",
+      "triangles": 3012,
+      "footprint": 5.2,
+      "height": 9.6,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/house-modern-lod1.glb",
+          "distance": 350,
+          "triangles": 773
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "house-modern-red",
+      "name": "Modern house, red roof (2 floors, 9 x 8.2 m)",
+      "category": "building",
+      "file": "models/house-modern-red.glb",
+      "triangles": 2494,
+      "footprint": 4.8,
+      "height": 10.7,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/house-modern-red-lod1.glb",
+          "distance": 350,
+          "triangles": 825
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "house-semi",
+      "name": "Semi-detached house (2 floors, 14 x 9 m)",
+      "category": "building",
+      "file": "models/house-semi.glb",
+      "triangles": 2952,
+      "footprint": 7.0,
+      "height": 10.0,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/house-semi-lod1.glb",
+          "distance": 350,
+          "triangles": 790
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "house-terrace",
+      "name": "Terraced house module (2 floors, 6 x 10 m, blank sides)",
+      "category": "building",
+      "file": "models/house-terrace.glb",
+      "triangles": 1160,
+      "footprint": 5.3,
+      "height": 10.0,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/house-terrace-lod1.glb",
+          "distance": 350,
+          "triangles": 666
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "house-terrace-row",
+      "name": "Terraced houses, row of four (2 floors, 24 x 10 m)",
+      "category": "building",
+      "file": "models/house-terrace-row.glb",
+      "triangles": 4832,
+      "footprint": 11.5,
+      "height": 10.0,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/house-terrace-row-lod1.glb",
+          "distance": 350,
+          "triangles": 1444
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "garage",
+      "name": "Garage (prefab, 3 x 6 m)",
+      "category": "building",
+      "file": "models/garage.glb",
+      "triangles": 256,
+      "footprint": 2.8,
+      "height": 2.8,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "lod": [
+        {
+          "file": "models/garage-lod1.glb",
+          "distance": 350,
+          "triangles": 184
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "garage-row",
+      "name": "Garage row (five, 15 x 6 m)",
+      "category": "building",
+      "file": "models/garage-row.glb",
+      "triangles": 688,
+      "footprint": 6.8,
+      "height": 2.8,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/garage-row-lod1.glb",
+          "distance": 350,
+          "triangles": 672
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "garden-shed",
+      "name": "Garden shed (2.2 x 2.6 m)",
+      "category": "building",
+      "file": "models/garden-shed.glb",
+      "triangles": 732,
+      "footprint": 1.4,
+      "height": 2.9,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city",
+        "village",
+        "temperate"
+      ],
+      "lod": [
+        {
+          "file": "models/garden-shed-lod1.glb",
+          "distance": 350,
+          "triangles": 207
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/wood_planks_grey; https://polyhaven.com/a/brown_planks_04; https://polyhaven.com/a/bitumen"
+    },
+    {
+      "id": "carport",
+      "name": "Carport (3.2 x 5.6 m)",
+      "category": "building",
+      "file": "models/carport.glb",
+      "triangles": 284,
+      "footprint": 2.5,
+      "height": 2.7,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/carport-lod1.glb",
+          "distance": 350,
+          "triangles": 140
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "carport-double",
+      "name": "Double carport (6.4 x 5.6 m)",
+      "category": "building",
+      "file": "models/carport-double.glb",
+      "triangles": 396,
+      "footprint": 2.9,
+      "height": 2.7,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/carport-double-lod1.glb",
+          "distance": 350,
+          "triangles": 284
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "station-canopy",
+      "name": "Petrol station canopy with pumps (22 x 13 m)",
+      "category": "building",
+      "file": "models/station-canopy.glb",
+      "triangles": 700,
+      "footprint": 9.9,
+      "height": 6.1,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/station-canopy-lod1.glb",
+          "distance": 350,
+          "triangles": 700
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "block-row-4",
+      "name": "City house, perimeter block (4 floors, 15 x 12 m, blank sides)",
+      "category": "building",
+      "file": "models/block-row-4.glb",
+      "triangles": 4692,
+      "footprint": 7.1,
+      "height": 19.9,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/block-row-4-lod1.glb",
+          "distance": 350,
+          "triangles": 1381
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "block-row-6",
+      "name": "City block, flat roof (6 floors, 16 x 13 m, blank sides)",
+      "category": "building",
+      "file": "models/block-row-6.glb",
+      "triangles": 8872,
+      "footprint": 7.4,
+      "height": 23.7,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/block-row-6-lod1.glb",
+          "distance": 350,
+          "triangles": 1614
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "block-corner-4",
+      "name": "City corner house (4 floors, 14 x 14 m, street front and west)",
+      "category": "building",
+      "file": "models/block-corner-4.glb",
+      "triangles": 4010,
+      "footprint": 6.7,
+      "height": 19.9,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/block-corner-4-lod1.glb",
+          "distance": 350,
+          "triangles": 1394
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "block-corner-6",
+      "name": "City corner block, flat roof (6 floors, 15 x 15 m, street front and west)",
+      "category": "building",
+      "file": "models/block-corner-6.glb",
+      "triangles": 5812,
+      "footprint": 6.9,
+      "height": 23.7,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/block-corner-6-lod1.glb",
+          "distance": 350,
+          "triangles": 1724
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "office-mid",
+      "name": "Office building (5 floors, 24 x 14 m)",
+      "category": "building",
+      "file": "models/office-mid.glb",
+      "triangles": 2156,
+      "footprint": 11.0,
+      "height": 22.6,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/office-mid-lod1.glb",
+          "distance": 350,
+          "triangles": 670
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "office-high",
+      "name": "Office building (8 floors, 22 x 18 m)",
+      "category": "building",
+      "file": "models/office-high.glb",
+      "triangles": 2348,
+      "footprint": 10.1,
+      "height": 33.1,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/office-high-lod1.glb",
+          "distance": 350,
+          "triangles": 850
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "supermarket",
+      "name": "Supermarket (40 x 26 m)",
+      "category": "building",
+      "file": "models/supermarket.glb",
+      "triangles": 684,
+      "footprint": 18.1,
+      "height": 6.9,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/supermarket-lod1.glb",
+          "distance": 350,
+          "triangles": 586
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/exterior_wall_cladding_03; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "hall-flat",
+      "name": "Commercial hall, flat roof (30 x 20 m)",
+      "category": "building",
+      "file": "models/hall-flat.glb",
+      "triangles": 1368,
+      "footprint": 13.6,
+      "height": 7.4,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/hall-flat-lod1.glb",
+          "distance": 350,
+          "triangles": 504
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/exterior_wall_cladding_03; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "industrial-hall",
+      "name": "Industrial hall with office annex (60 x 30 m)",
+      "category": "building",
+      "file": "models/industrial-hall.glb",
+      "triangles": 4112,
+      "footprint": 31.7,
+      "height": 10.6,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city",
+        "wasteland"
+      ],
+      "lod": [
+        {
+          "file": "models/industrial-hall-lod1.glb",
+          "distance": 350,
+          "triangles": 757
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/box_profile_metal_sheet; https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "school",
+      "name": "School or office block (3 floors, 46 x 14 m)",
+      "category": "building",
+      "file": "models/school.glb",
+      "triangles": 8834,
+      "footprint": 20.9,
+      "height": 14.0,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/school-lod1.glb",
+          "distance": 350,
+          "triangles": 1789
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "town-hall",
+      "name": "Town hall (3 floors, 30 x 15 m)",
+      "category": "building",
+      "file": "models/town-hall.glb",
+      "triangles": 7830,
+      "footprint": 13.9,
+      "height": 22.0,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/town-hall-lod1.glb",
+          "distance": 350,
+          "triangles": 1514
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "town-church",
+      "name": "Town church with tower (nave 26 x 13 m, 50 m)",
+      "category": "building",
+      "file": "models/town-church.glb",
+      "triangles": 2202,
+      "footprint": 15.0,
+      "height": 50,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "lod": [
+        {
+          "file": "models/town-church-lod1.glb",
+          "distance": 350,
+          "triangles": 1128
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/white_sandstone_bricks; https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/roof_slates_02"
+    },
+    {
+      "id": "station",
+      "name": "Railway station (2 floors, 28 x 11 m, platform canopy)",
+      "category": "building",
+      "file": "models/station.glb",
+      "triangles": 4664,
+      "footprint": 13.1,
+      "height": 11.9,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/station-lod1.glb",
+          "distance": 350,
+          "triangles": 817
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "parking-garage",
+      "name": "Multi-storey car park (4 decks, 32 x 40 m)",
+      "category": "building",
+      "file": "models/parking-garage.glb",
+      "triangles": 1304,
+      "footprint": 24.4,
+      "height": 15.3,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/parking-garage-lod1.glb",
+          "distance": 350,
+          "triangles": 958
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/precast_concrete_wall; https://polyhaven.com/a/asphalt_02; https://polyhaven.com/a/painted_plaster_wall"
+    },
+    {
+      "id": "greenhouse",
+      "name": "Greenhouse (6 x 12 m)",
+      "category": "building",
+      "file": "models/greenhouse.glb",
+      "triangles": 744,
+      "footprint": 5.4,
+      "height": 3.9,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city",
+        "village",
+        "temperate"
+      ],
+      "lod": [
+        {
+          "file": "models/greenhouse-lod1.glb",
+          "distance": 350,
+          "triangles": 232
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brick_wall_07"
+    },
+    {
+      "id": "kiosk",
+      "name": "Kiosk (4 x 3 m)",
+      "category": "building",
+      "file": "models/kiosk.glb",
+      "triangles": 332,
+      "footprint": 2.1,
+      "height": 3,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/kiosk-lod1.glb",
+          "distance": 350,
+          "triangles": 232
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "transformer-station",
+      "name": "Transformer station (3.6 x 2.6 m)",
+      "category": "building",
+      "file": "models/transformer-station.glb",
+      "triangles": 276,
+      "footprint": 1.7,
+      "height": 2.8,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "lod": [
+        {
+          "file": "models/transformer-station-lod1.glb",
+          "distance": 350,
+          "triangles": 89
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "rail-track",
+      "name": "Railway track, straight (10 m along X)",
+      "category": "structure",
+      "file": "models/rail-track.glb",
+      "triangles": 744,
+      "footprint": 4.5,
+      "height": 0.6,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "city",
+        "temperate"
+      ],
+      "lod": [
+        {
+          "file": "models/rail-track-lod1.glb",
+          "distance": 350,
+          "triangles": 74
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/gravel_floor_02; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "rail-platform",
+      "name": "Station platform (20 x 4 m, edge to the front)",
+      "category": "structure",
+      "file": "models/rail-platform.glb",
+      "triangles": 224,
+      "footprint": 9.0,
+      "height": 3.4,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "city"
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/concrete_slab_wall"
+    },
+    {
+      "id": "catenary-mast",
+      "name": "Overhead line mast (arm reaches back over the track)",
+      "category": "prop",
+      "file": "models/catenary-mast.glb",
+      "triangles": 174,
+      "footprint": 5.4,
+      "height": 7.8,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "city"
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "buffer-stop",
+      "name": "Buffer stop",
+      "category": "prop",
+      "file": "models/buffer-stop.glb",
+      "triangles": 488,
+      "footprint": 1.8,
+      "height": 1.6,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/buffer-stop-lod1.glb",
+          "distance": 320,
+          "triangles": 84
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/dark_planks"
+    },
+    {
+      "id": "power-pylon",
+      "name": "High-voltage pylon (47 m)",
+      "category": "structure",
+      "file": "models/power-pylon.glb",
+      "triangles": 2716,
+      "footprint": 9.9,
+      "height": 47,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 4000,
+      "tags": [
+        "city",
+        "temperate",
+        "mountain"
+      ],
+      "lod": [
+        {
+          "file": "models/power-pylon-lod1.glb",
+          "distance": 350,
+          "triangles": 1004
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "vine-row",
+      "name": "Vine row (10 m along X)",
+      "category": "plant",
+      "file": "models/vine-row.glb",
+      "triangles": 538,
+      "footprint": 3.1,
+      "height": 2.1,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0.3,
+      "drawDistance": 900,
+      "tags": [
+        "temperate",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/rough_wood; https://polyhaven.com/a/bark_brown_01; Blätter https://ambientcg.com/view?id=LeafSet029"
+    },
+    {
+      "id": "fruit-tree",
+      "name": "Fruit tree",
+      "category": "tree",
+      "file": "models/fruit-tree.glb",
+      "triangles": 844,
+      "footprint": 0.9,
+      "height": 6.1,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.2
+      ],
+      "randomRotation": true,
+      "wind": 0.5,
+      "drawDistance": 2500,
+      "tags": [
+        "temperate",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py, build_nature.py); Rinde https://polyhaven.com/a/bark_brown_01; Blätter https://ambientcg.com/view?id=LeafSet002"
+    },
+    {
+      "id": "playground-swing",
+      "name": "Playground swing",
+      "category": "prop",
+      "file": "models/playground-swing.glb",
+      "triangles": 136,
+      "footprint": 1.7,
+      "height": 2.6,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/rough_wood"
+    },
+    {
+      "id": "playground-slide",
+      "name": "Playground slide tower",
+      "category": "prop",
+      "file": "models/playground-slide.glb",
+      "triangles": 704,
+      "footprint": 2.6,
+      "height": 3.7,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "lod": [
+        {
+          "file": "models/playground-slide-lod1.glb",
+          "distance": 240,
+          "triangles": 159
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/rough_wood"
+    },
+    {
+      "id": "football-goal",
+      "name": "Football goal (7.3 m)",
+      "category": "prop",
+      "file": "models/football-goal.glb",
+      "triangles": 116,
+      "footprint": 3.3,
+      "height": 2.5,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 700,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py)"
+    },
+    {
+      "id": "fountain",
+      "name": "Town fountain (5.5 m)",
+      "category": "structure",
+      "file": "models/fountain.glb",
+      "triangles": 308,
+      "footprint": 2.4,
+      "height": 3,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1200,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/sandstone_blocks_04"
     }
   ]
 }

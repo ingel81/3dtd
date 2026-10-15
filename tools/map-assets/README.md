@@ -47,6 +47,10 @@ Pflanzen, Felsen, Klippen, Kristalle), `build_structures.py` (Häuser, Burg, Br�
 (Requisiten), `build_city.py` (Stadt, Endzeit), `build_space.py` (Mond, Mars), `build_extreme.py` (Arktis, Hölle,
 Berge, Sumpf, Wüste), `build_landmarks.py` (Tunnelportale, Burgruine, Gletscher, Séracs, Lawinenverbauung,
 Schiffswrack, Rakete, Obsidianturm, Lichtmasten, Glockenturm, Steinkreis, Tribok, eingestürzte Hochstraße),
+`build_modern.py` (heutige Gebäude für OSM-Welten: Wohnhäuser, Doppel- und Reihenhäuser, Garagen, Gartenhaus,
+Carports, Tankstellendach, Blockrand-Module, Bürohäuser, Supermarkt, Hallen, Schule, Rathaus,
+Stadtkirche, Bahnhof, Parkhaus, Gewächshaus, Kiosk, Trafostation; Gleis, Bahnsteig, Oberleitungsmast, Prellbock,
+Hochspannungsmast, Rebzeile, Obstbaum, Spielgeräte, Fußballtor, Brunnen),
 gemeinsame Helfer in `blender_kit.py`.
 
 `objects.json` hält je Objekt, was ein Mensch entscheidet: Name, Kategorie, Biom-Tags, Lizenzquelle und, wo der

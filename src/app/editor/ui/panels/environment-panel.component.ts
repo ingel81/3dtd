@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import type { MapBiome, MapEnvironment, MapWeather, MapWind } from '../../../world/custom-map/map-document';
+import { planetOf, type MapBiome, type MapEnvironment, type MapPlanet, type MapWeather, type MapWind } from '../../../world/custom-map/map-document';
 import { chooseSkyImage, SKY_IMAGES } from '../../../world/custom-map/render/environment/sky-images';
 import { windOf } from '../../../world/custom-map/render/environment/wind';
 import { SnapshotCommand } from '../../model/editor-document';
@@ -151,6 +151,23 @@ const SKIES: { id: MapEnvironment['sky']; label: string }[] = [
         <app-editor-range label="Snow cover" unit="%" [min]="0" [max]="100" [value]="(e.snowCover ?? 0) * 100"
                           (changing)="live({ snowCover: $event / 100 })" (changed)="commit({ snowCover: $event / 100 }, 'Snow cover')" />
       </div>
+      @if (!e.skyImage) {
+        <div class="td-group" data-test="planet">
+          <h3 class="td-section">Planet</h3>
+          <app-editor-range label="Size" unit="deg" [min]="0" [max]="20" [step]="0.5" [value]="planetOf(e).size"
+                            (changing)="live(planet(e, { size: $event }))" (changed)="commit(planet(e, { size: $event }), 'Planet size')" />
+          @if (planetOf(e).size > 0) {
+            <app-editor-range label="Direction" unit="deg" [min]="0" [max]="359" [value]="planetOf(e).azimuth"
+                              (changing)="live(planet(e, { azimuth: $event }))" (changed)="commit(planet(e, { azimuth: $event }), 'Planet direction')" />
+            <app-editor-range label="Height" unit="deg" [min]="0" [max]="85" [value]="planetOf(e).elevation"
+                              (changing)="live(planet(e, { elevation: $event }))" (changed)="commit(planet(e, { elevation: $event }), 'Planet height')" />
+          }
+          <p class="td-note">A planet in the sky, lit from the sun's side (the Moon look shows the Earth). Size 0: none.</p>
+          @if (e.planet) {
+            <button type="button" class="td-btn-secondary td-btn-sm" (click)="commit({ planet: undefined }, 'Planet')">Use the look's planet</button>
+          }
+        </div>
+      }
       <div class="td-group" data-test="wind">
         <h3 class="td-section">Wind</h3>
         <app-editor-range label="Strength" unit="%" [min]="0" [max]="100" [value]="windOf(e).strength * 100"
@@ -177,6 +194,7 @@ export class EnvironmentPanelComponent {
   readonly timeOfDay = timeOfDay;
   readonly skyPreset = skyPreset;
   readonly windOf = windOf;
+  readonly planetOf = planetOf;
   readonly env = computed(() => (this.session.docRev(), this.session.doc ? { ...this.session.doc.environment } : null));
   /** The environment before the slider started moving */
   private before: MapEnvironment | null = null;
@@ -195,6 +213,11 @@ export class EnvironmentPanelComponent {
   /** The map's wind (or the look's default, which the first change writes into the map) with `patch` on top */
   wind(e: MapEnvironment, patch: Partial<MapWind>): Partial<MapEnvironment> {
     return { wind: { ...windOf(e), ...patch } };
+  }
+
+  /** The map's planet (or the look's, which the first change writes into the map) with `patch` on top */
+  planet(e: MapEnvironment, patch: Partial<MapPlanet>): Partial<MapEnvironment> {
+    return { planet: { ...planetOf(e), ...patch } };
   }
 
   live(patch: Partial<MapEnvironment>): void {

@@ -6,6 +6,7 @@
  * the village. Two spawns in the valley meet at the first hairpin.
  */
 import type { CustomMapDocument, MapPoint } from '../../../src/app/world/custom-map/map-document';
+import { pointAt, polylineLength } from '../../../src/app/editor/ops/path-graph';
 import { facing, LevelKit } from './kit';
 
 export function buildMountainPass(): CustomMapDocument {
@@ -179,6 +180,47 @@ export function buildMountainPass(): CustomMapDocument {
   k.scatter(['rock-granite', 'boulder', 'rock-large', 'rock-granite-flat'], [{ x: -120, y: -80 }, { x: 120, y: -150 }, { x: 130, y: -10 }, { x: -130, y: 20 }, { x: -60, y: 60 }], { radius: 40, strength: 0.7 }, { density: 1.2, minDistance: 9, scaleMin: 0.8, scaleMax: 1.8 });
   k.scatter(['tree-pine', 'tree-fir', 'tree-fir-young'], [{ x: -140, y: -60 }, { x: -120, y: 40 }, { x: 130, y: -60 }, { x: 120, y: -170 }], { radius: 35, strength: 0.8 }, { density: 2.5, minDistance: 6, scaleMin: 0.8, scaleMax: 1.3 });
   k.scatter(['tree-pine', 'boulder', 'rock-small'], [{ x: 105, y: 30 }, { x: 225, y: 25 }], { radius: 22, strength: 0.8 }, { density: 2, minDistance: 5 });
+  // ---- High mountain: a glacier under each peak, avalanche barriers above the village, alpine huts on the pastures
+  for (const tongue of [
+    [{ x: -138, y: 204 }, { x: -105, y: 192 }, { x: -72, y: 172 }],
+    [{ x: 148, y: 198 }, { x: 115, y: 190 }, { x: 84, y: 176 }],
+  ]) {
+    // What grew on the ice goes
+    for (const p of tongue) k.erase(p, 20, (o) => o.asset.startsWith('fx'));
+    k.glacier(tongue, { width: 40, snow: 'snow-fresh', sink: 2.5, snout: ['ice-blocks', 'ice-blocks', 'snow-drift-mound'], moraine: ['scree-scatter', 'rock-granite', 'rock-granite-flat'] });
+    // Wind blows snow off the head of the ice
+    k.place('fx-snow', tongue[0].x, tongue[0].y, { scale: 1.5 });
+  }
+  // Rows of barriers along the contours of the steep flanks over the pass, short and staggered as they are built
+  // TODO(E179): an avalanche barrier model (snow bridge); short palisades stand in for it (a wide model sinks on the
+  // steep flank: it sits at the lowest point of its footprint)
+  for (const [a, b] of [
+    [{ x: -150, y: 112 }, { x: -92, y: 132 }],
+    [{ x: 150, y: 108 }, { x: 96, y: 128 }],
+  ] as const) {
+    for (const [row, height] of [116, 127, 138].entries()) {
+      for (const piece of k.contour(a, b, height, { spacing: 3, reach: 50 })) {
+        const length = polylineLength(piece);
+        for (let d = (row % 2) * 9; d + 12 <= length; d += 21) {
+          const run = [pointAt(piece, d), pointAt(piece, d + 4), pointAt(piece, d + 8), pointAt(piece, d + 12)];
+          if (run.every((p) => k.free(p.x, p.y, 1.5))) k.row('palisade', run, 3.2, { turn: Math.PI / 2, scale: 0.8 });
+        }
+      }
+    }
+  }
+  // Alpine huts on the high pastures, each with its woodpile and a pen
+  for (const [x, y, r] of [[-206, 34, 0.6], [-140, 66, 0.2], [200, 26, -0.6], [140, 62, -0.2]] as const) {
+    k.erase({ x, y }, 9);
+    k.place('alpine-hut', x, y, { rotation: r });
+    k.place('woodpile', x + Math.cos(r) * 5, y + Math.sin(r) * 5, { rotation: r + Math.PI / 2 });
+    const pen = { x: x - Math.sin(r) * 11, y: y + Math.cos(r) * 11 };
+    k.row('fence-rail', [{ x: pen.x - Math.cos(r) * 8, y: pen.y - Math.sin(r) * 8 }, { x: pen.x + Math.cos(r) * 8, y: pen.y + Math.sin(r) * 8 }], 2, { turn: Math.PI / 2 });
+  }
+  // Eagles circle the summits
+  for (const peak of [{ x: -160, y: 165 }, { x: 165, y: 165 }]) k.place('fx-birds', peak.x, peak.y, { scale: 0.6 });
+  // TODO(E190): the gondolas ride the cable; cow bells on the pastures and wind over the pass (ambient sound)
+  // TODO(E179): cows on the pastures
+
   // Dry stone walls hold the road where it runs on an embankment
   k.shoulderWalls('retaining-wall', { spacing: 6, minDrop: 2.2 });
   // Hairpin knobs: level ground inside the bends for towers

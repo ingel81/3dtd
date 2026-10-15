@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Enemy } from '../../entities/enemy.entity';
 import { StatusEffectType } from '../../models/status-effects';
+import { LIGHTER_ARMOR } from '../../configs/combat/damage-matrix.config';
 
 /**
  * StatusEffectService: applies slow / poison / burn / freeze / stun effects to enemies.
@@ -20,9 +21,9 @@ export class StatusEffectService {
     this.gameClockProvider = provider;
   }
 
-  /** Nothing on a type with Phasing (immuneToSlow) */
+  /** Nothing on a type with Phasing (immuneToSlow), unless a seal lifts it (applySeal) */
   applySlow(enemy: Enemy, slowAmount: number, duration: number, sourceId: string): void {
-    if (enemy.typeConfig.immuneToSlow) return;
+    if (enemy.typeConfig.immuneToSlow && !this.hasActiveEffect(enemy, 'seal')) return;
     enemy.movement.applyStatusEffect({
       type: 'slow',
       value: slowAmount,
@@ -30,6 +31,45 @@ export class StatusEffectService {
       startTime: this.gameClockProvider(),
       sourceId,
     });
+  }
+
+  /**
+   * Seal: Phasing (immuneToSlow) lifted for `duration` game ms, a slow takes hold meanwhile and runs its own
+   * course. One seal at a time, a new one refreshes it. Only for a type with Phasing; on any other it would
+   * change nothing.
+   */
+  applySeal(enemy: Enemy, duration: number, sourceId: string): void {
+    if (!enemy.typeConfig.immuneToSlow) return;
+    enemy.movement.applyStatusEffect({
+      type: 'seal',
+      value: 1,
+      duration,
+      startTime: this.gameClockProvider(),
+      sourceId,
+    });
+  }
+
+  /**
+   * Corrode: for `duration` game ms hits count against the better of its armor and the next lighter one
+   * (matrixMultiplier). One at a time, a new one refreshes it; no stacking past one class. Nothing on a
+   * boss or on an armor with no lighter class (unarmored, ethereal).
+   */
+  applyCorrode(enemy: Enemy, duration: number, sourceId: string): void {
+    if (enemy.typeConfig.isBoss) return;
+    const armor = enemy.getEffectiveArmorType();
+    if (LIGHTER_ARMOR[armor] === armor) return;
+    enemy.movement.applyStatusEffect({
+      type: 'corrode',
+      value: 1,
+      duration,
+      startTime: this.gameClockProvider(),
+      sourceId,
+    });
+  }
+
+  /** Whether the enemy is corroded now (MovementComponent.isCorroded) */
+  isCorroded(enemy: Enemy): boolean {
+    return enemy.movement.isCorroded(this.gameClockProvider());
   }
 
   applyPoison(enemy: Enemy, dotDps: number, duration: number, sourceId: string): void {

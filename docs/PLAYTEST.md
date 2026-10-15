@@ -158,6 +158,23 @@ Paket B5, nach der Nachtschicht (2026-10-14 vormittags):
   Karte, Menü: *unter Custom maps ein eigenes Continue mit Kartenname und Welle.* Load zeigt je Reiter nur dessen
   Stände.
 
+Paket B6, 2026-10-15 nachmittags:
+
+- **B6.1 Editor aus dem Spiel:** eine Karte im Spiel, Esc, „Edit this map“, bestätigen: *der Editor öffnet die Karte
+  (mitgelieferte als Kopie).* Im Editor „Test map“, im Testfenster Esc, „Back to editor“: *der Editor-Tab kommt nach
+  vorn, das Testfenster schließt.* Game over auf einer Karte: *Knopf „Edit map“ bzw. „Back to editor“.*
+- **B6.2 KI-Agent im Editor (Desktop-App):** oben rechts „Agent“, Schalter an: *„On“, Adresse mit Copy.*
+  `claude mcp add --transport http 3dtd <Adresse>`, dann in Claude Code eine Karte anlegen lassen: *Editor öffnet sie,
+  unten das Band mit Agentenname, Etikett „Connected“.* Einen langen Hügelzug bauen lassen und währenddessen Stop:
+  *Hügel weg, „Stopped“, der Agent meldet „pressed Stop“.* „Let it go on“, dann Spiegeln mit Probelauf: *erst nur eine
+  Beschreibung, danach ein Schritt im Verlauf, Ctrl+Z nimmt ihn ganz zurück.* „Öffne Demo Valley“: *eine Kopie öffnet.*
+  Schalter aus: *Band weg.*
+- **B6.3 Kameraansichten:** im Spiel Shift+F1: *Meldung „Camera view 1 saved“.* Wegfahren, F1: *Kamera gleitet in
+  etwa 0,7 s zurück, Seite lädt nicht neu.* F3 auf leerem Platz: *Hinweis statt Browser-Suche.* F5 im Lauf: *kein
+  Reload* (Strg+F5 lädt neu). Spielstand speichern, neu laden, laden, F1: *Ansicht wieder da.* H: *Zeilen unter Camera.*
+- **B6.4 Forschung ziehen:** drei Forschungen einreihen, Q: *Griff je Zeile.* Unterste nach oben ziehen: *Reihe bleibt,
+  kein Zurückspringen;* wird ein Slot frei, *startet die oberste.* Pfeile per Tastatur gehen weiter.
+
 ## Eichtabelle
 
 Fingerprints aus `__corridor.fingerprint()` für K2.1 und K2.2. Alle Werte vor 748 (Rothenburg `d8050177`, Tokyo

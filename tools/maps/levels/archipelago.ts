@@ -64,6 +64,30 @@ export function buildArchipelago(): CustomMapDocument {
   k.spawn('North Isle', north.x, north.y);
   k.hq(hq.x, hq.y);
 
+  // ---- Rocky coasts on the weather sides, away from the bridges, beaches and the harbour: cliffs over the sea,
+  // cliff rocks on their faces, stones in the surf. The lighthouse rock all round but for a landing to the west
+  const deg = Math.PI / 180;
+  // Small islands take smaller cliff pieces: the long coastal wall drew their round shores as polygons
+  const small = ['cliff-wall-b', 'cliff-wall', 'cliff-face', 'cliff-face-b'];
+  const coasts: { at: MapPoint; from: number; to: number; top: number; rocks?: string[] }[] = [
+    { at: islands[0].at, from: -35, to: 55, top: 7 },
+    { at: islands[1].at, from: 45, to: 140, top: 6, rocks: small },
+    { at: islands[2].at, from: 205, to: 330, top: 5, rocks: small },
+    { at: islands[3].at, from: 120, to: 235, top: 6, rocks: small },
+    { at: islands[4].at, from: -70, to: 45, top: 5, rocks: small },
+    { at: islands[5].at, from: -160, to: 160, top: 12, rocks: ['cliff-coast', 'cliff-wall-b', 'cliff-wall'] },
+    { at: islands[6].at, from: 190, to: 345, top: 5, rocks: small },
+  ];
+  const coastLines = coasts.map((c) => k.shoreAround(c.at, c.from * deg, c.to * deg));
+  for (const [n, c] of coasts.entries()) k.rockyCoast(coastLines[n], { land: 'left', top: c.top, bed: -4, rocks: c.rocks });
+  // The lighthouse rock's crown: rock walls on its steep flanks, not a painted slope
+  k.cliffRocks(islands[5].at, { radius: 30 });
+  // A sandbank in the open water south of the middle isle, a wreck stranded on it
+  const bank = { x: -140, y: -95 };
+  k.level([bank, { x: bank.x + 22, y: bank.y - 8 }], { radius: 22, falloff: 0.4 }, 0.6);
+  k.roughen(bank, { radius: 24, falloff: 0.8 }, 0.5, 77);
+  k.sea(sea);
+
   // ---- Ground: beaches below 1.5 m, rock on the steep shores, grass above
   k.autoPaint([
     { material: 'grass', minSlope: 0, maxSlope: 90, minHeight: -Infinity, maxHeight: Infinity, blend: 2 },
@@ -108,6 +132,13 @@ export function buildArchipelago(): CustomMapDocument {
   for (const [x, y, r] of [[52, shoreY - 10, 0.3], [92, shoreY - 12, 2.4]] as const) k.place('rowboat', x, y, { rotation: r });
   for (const [x, y, a] of [[48, shoreY - 50, 'buoy-red'], [96, shoreY - 50, 'buoy-green']] as const) k.place(a, x, y);
   k.place('jetty', -150, 30, { rotation: 0.4, z: 0 });
+  // The wreck on the sandbank, heeled over, its cargo strewn on the sand
+  k.erase({ x: bank.x + 11, y: bank.y - 4 }, 28);
+  k.place('shipwreck', bank.x + 11, bank.y - 4, { rotation: 1.9 });
+  for (const [dx, dy, a] of [[-4, 4, 'barrels-broken'], [3, 6, 'crate'], [16, -6, 'barrel-old'], [-6, -2, 'crate-flat']] as const) k.place(a, bank.x + dx, bank.y + dy, { rotation: dx });
+  // Ships out at sea as a backdrop
+  k.place('ship', 175, -215, { rotation: 1.1 });
+  k.place('ship', -215, 215, { rotation: -0.6, scale: 0.8 });
   k.row('wall-dry-stone', [{ x: 20, y: -20 }, { x: 40, y: 5 }, { x: 80, y: 15 }], 5.4, { turn: Math.PI / 2 });
   k.row('fence-rail', [{ x: 100, y: -55 }, { x: 125, y: -60 }, { x: 140, y: -40 }], 3.8, { turn: Math.PI / 2 });
   const light = islands[5].at;
@@ -120,8 +151,22 @@ export function buildArchipelago(): CustomMapDocument {
   for (const [x, y, a] of [[30, -40, 'cottage'], [104, -78, 'house'], [36, -96, 'cottage'], [108, -40, 'house-stone']] as const) {
     k.chimney(k.place(a, x, y, { rotation: facing({ x, y }, hq) }));
   }
-  k.place('windmill', 130, -10, { rotation: 0.7 });
+  // The windmill on the east rise (it stood off the shore in the sea before), the wood cleared round it
+  k.erase({ x: 96, y: -14 }, 9);
+  k.place('windmill', 96, -14, { rotation: 0.7 });
   k.place('well', 52, -62);
+
+  // ---- Life: gulls round the lighthouse rock, over the harbour and the wreck; rowing boats drifting in the harbour,
+  // a fishing boat going out round the main island and back; the surf on the rocky coasts, birdsong on the islands
+  // TODO(E190): gull calls, surf spray on the rocks
+  const ring = (at: MapPoint, r: number): MapPoint[] => Array.from({ length: 8 }, (_, i) => ({ x: at.x + Math.cos((i / 8) * Math.PI * 2) * r, y: at.y + Math.sin((i / 8) * Math.PI * 2) * r }));
+  k.lifeArea('birds', ring(islands[5].at, 60), { species: 'gulls', height: 30, density: 1.2 });
+  k.lifeArea('birds', ring(harbour, 45), { species: 'gulls', height: 22 });
+  k.lifeArea('birds', ring({ x: bank.x + 11, y: bank.y - 4 }, 40), { species: 'gulls', height: 20, density: 0.6 });
+  k.lifeArea('boats', ring(harbour, 18), { density: 0.5 });
+  k.lifeRoute('boats', [{ x: harbour.x + 20, y: harbour.y - 14 }, { x: 160, y: -150 }, { x: 175, y: -60 }, { x: 255, y: -10 }], { asset: 'fishing-boat' });
+  for (const n of [0, 1, 5, 6]) k.lifeRoute('sound', coastLines[n], { sound: 'surf', volume: n === 5 ? 0.8 : 0.6 });
+  k.lifeSettings({ ambience: { sound: 'biome', volume: 0.45 } });
 
   k.clearRoads();
   k.environment({ biome: 'temperate', sky: 'day', sunAzimuth: 150, sunElevation: 50, fogDensity: 0.0004, tint: '#fbfdff' });

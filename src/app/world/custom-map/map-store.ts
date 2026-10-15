@@ -298,7 +298,7 @@ export class MapStore {
   async ownMatch(doc: CustomMapDocument): Promise<MapSummary | null> {
     const own = (await this.listOwn()).filter((m) => m.origin === 'own');
     const uid = doc.meta.uid;
-    const source = doc.meta.source?.file;
+    const source = doc.meta.source?.kind === 'w3x' ? doc.meta.source.file : undefined;
     return own.find((m) => (uid && m.uid === uid) || (!uid && source && m.importedFrom === source)) ?? null;
   }
 
@@ -399,7 +399,7 @@ export function summarize(doc: CustomMapDocument, origin: MapOrigin, hash: strin
     objects: doc.objects.length,
     spawns: doc.spawns.length,
     biome: doc.environment.biome ?? 'temperate',
-    importedFrom: doc.meta.source?.file,
+    importedFrom: doc.meta.source?.kind === 'w3x' ? doc.meta.source.file : undefined,
     ...(doc.meta.uid ? { uid: doc.meta.uid } : {}),
     ...(doc.meta.copyOf ? { copyOf: { ...doc.meta.copyOf } } : {}),
   };

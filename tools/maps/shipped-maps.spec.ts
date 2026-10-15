@@ -12,19 +12,19 @@ import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createDemoMap } from '../../src/app/world/custom-map/demo-map';
 import type { CustomMapDocument } from '../../src/app/world/custom-map/map-document';
 import { contentHash, packMapFile, unpackMapFile, validateMapDocument } from '../../src/app/world/custom-map/map-file';
 import type { ShippedMapEntry, ShippedMapIndex } from '../../src/app/world/custom-map/map-store';
 import { writeGeneratedFile } from '../generated-file';
 import { SHOWCASE_LEVELS } from './levels';
+import { buildDemoValley } from './levels/demo-valley';
 import { mapPicture } from './map-picture';
 
 const MAPS_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../../public/maps');
 const INDEX = resolve(MAPS_DIR, 'index.json');
 
-/** The shipped maps, in list order: the demo valley, then the showcase levels (tools/maps/levels/) */
-const SHIPPED: { id: string; build: () => CustomMapDocument }[] = [{ id: 'demo-valley', build: () => createDemoMap(7) }, ...SHOWCASE_LEVELS];
+/** The shipped maps, in list order: the demo valley (the generated sample map, dressed), then the showcase levels (tools/maps/levels/) */
+const SHIPPED: { id: string; build: () => CustomMapDocument }[] = [{ id: 'demo-valley', build: buildDemoValley }, ...SHOWCASE_LEVELS];
 
 /** Writes binary content unless the file holds the same bytes */
 function writeBytes(path: string, bytes: Uint8Array): boolean {

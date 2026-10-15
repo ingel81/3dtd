@@ -246,3 +246,30 @@ describe('Tower build (TODO E104)', () => {
     expect(buildTimeOf(getTowerType('research-center'))).toBe(0);
   });
 });
+
+describe('Tower with the Multirole path (TODO E101)', () => {
+  const at = (typeId: 'zombie' | 'bat', metres: number): Enemy =>
+    new Enemy(typeId, [
+      { lat: position.lat + metres / 111320, lon: position.lon },
+      { lat: position.lat + 1, lon: position.lon },
+    ]);
+
+  it('lets a rocket fire at the ground only with the path', () => {
+    const rocket = new Tower(position, 'rocket');
+    const zombie = at('zombie', 10);
+    expect(rocket.canTargetGround).toBe(false);
+    expect(rocket.findTarget([zombie], false)).toBeNull();
+    rocket.pathId = 'multirole';
+    expect(rocket.canTargetGround).toBe(true);
+    expect(rocket.findTarget([zombie], false)).toBe(zombie);
+  });
+
+  it('picks a flyer over a nearer ground enemy', () => {
+    const rocket = new Tower(position, 'rocket');
+    rocket.pathId = 'multirole';
+    rocket.targetingStrategy = 'closest';
+    const zombie = at('zombie', 5);
+    const bat = at('bat', 40);
+    expect(rocket.findTarget([zombie, bat], false)).toBe(bat);
+  });
+});

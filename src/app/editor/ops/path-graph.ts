@@ -6,6 +6,7 @@
  * the nearest point. Everything here edits `MapPaths` in place; the tool
  * wraps it in a snapshot command.
  */
+import { MinHeap } from '../../utils/street-astar';
 import type {
   CustomMapDocument,
   MapPathEdge,
@@ -104,6 +105,115 @@ export function nearestOnPolyline(
     walked += segLen;
   }
   return best;
+}
+
+/** Side of the cells an EdgeIndex files the edges' segments in, metres */
+const EDGE_CELL = 32;
+
+/**
+ * The edges of a path graph as lines, filed by segment in a grid of
+ * EDGE_CELL cells: the nearest edge to a point is looked up in the cells
+ * around it, ring by ring, instead of over every edge (an OSM world has ten
+ * thousand). Built once for a graph that does not change while it is used
+ * (a check, the routes of all spawns).
+ */
+export class EdgeIndex {
+  private readonly lines = new Map<MapPathEdge, MapPoint[]>();
+  private readonly lengths = new Map<MapPathEdge, number>();
+  private readonly order = new Map<MapPathEdge, number>();
+  private readonly cells = new Map<number, { edge: MapPathEdge; segment: number }[]>();
+  private readonly minI: number;
+  private readonly minJ: number;
+  private readonly maxI: number;
+  private readonly maxJ: number;
+
+  constructor(readonly paths: MapPaths) {
+    const nodes = new Map(paths.nodes.map((n) => [n.id, n]));
+    let minI = Infinity;
+    let minJ = Infinity;
+    let maxI = -Infinity;
+    let maxJ = -Infinity;
+    paths.edges.forEach((edge, n) => {
+      const a = nodes.get(edge.a);
+      const b = nodes.get(edge.b);
+      const line = a && b ? [{ x: a.x, y: a.y }, ...(edge.via ?? []).map((p) => ({ x: p.x, y: p.y })), { x: b.x, y: b.y }] : [];
+      this.lines.set(edge, line);
+      this.lengths.set(edge, polylineLength(line));
+      this.order.set(edge, n);
+      for (let k = 1; k < line.length; k++) {
+        const i0 = Math.floor(Math.min(line[k - 1].x, line[k].x) / EDGE_CELL);
+        const i1 = Math.floor(Math.max(line[k - 1].x, line[k].x) / EDGE_CELL);
+        const j0 = Math.floor(Math.min(line[k - 1].y, line[k].y) / EDGE_CELL);
+        const j1 = Math.floor(Math.max(line[k - 1].y, line[k].y) / EDGE_CELL);
+        for (let j = j0; j <= j1; j++) {
+          for (let i = i0; i <= i1; i++) {
+            const key = cellKey(i, j);
+            let list = this.cells.get(key);
+            if (!list) this.cells.set(key, (list = []));
+            list.push({ edge, segment: k - 1 });
+          }
+        }
+        minI = Math.min(minI, i0);
+        minJ = Math.min(minJ, j0);
+        maxI = Math.max(maxI, i1);
+        maxJ = Math.max(maxJ, j1);
+      }
+    });
+    this.minI = minI;
+    this.minJ = minJ;
+    this.maxI = maxI;
+    this.maxJ = maxJ;
+  }
+
+  /** The edge as a line (edgePolyline): the index's copy, not to be changed */
+  polyline(edge: MapPathEdge): MapPoint[] {
+    return this.lines.get(edge) ?? edgePolyline(this.paths, edge);
+  }
+
+  length(edge: MapPathEdge): number {
+    return this.lengths.get(edge) ?? polylineLength(this.polyline(edge));
+  }
+
+  /** The nearest point on any edge within `maxDist`, as nearestOnEdges finds it (of two as near, the first edge) */
+  nearest(p: MapPoint, maxDist = Infinity): EdgeHit | null {
+    if (!this.cells.size) return null;
+    const ci = Math.floor(p.x / EDGE_CELL);
+    const cj = Math.floor(p.y / EDGE_CELL);
+    // Rings until no farther cell can hold a nearer segment, or the grid ends
+    const rings = Math.max(ci - this.minI, this.maxI - ci, cj - this.minJ, this.maxJ - cj, 0);
+    let best: { edge: MapPathEdge; dist: number } | null = null;
+    for (let r = 0; r <= rings; r++) {
+      const near = Math.max(0, r - 1) * EDGE_CELL;
+      if (near > maxDist || (best && near > best.dist)) break;
+      for (let j = cj - r; j <= cj + r; j++) {
+        for (let i = ci - r; i <= ci + r; i++) {
+          if (Math.max(Math.abs(i - ci), Math.abs(j - cj)) !== r) continue;
+          for (const item of this.cells.get(cellKey(i, j)) ?? []) {
+            const line = this.lines.get(item.edge)!;
+            const d = segmentDistance(p, line[item.segment], line[item.segment + 1]);
+            if (d > maxDist) continue;
+            if (!best || d < best.dist || (d === best.dist && this.order.get(item.edge)! < this.order.get(best.edge)!)) best = { edge: item.edge, dist: d };
+          }
+        }
+      }
+    }
+    if (!best) return null;
+    const hit = nearestOnPolyline(this.lines.get(best.edge)!, p)!;
+    return { edge: best.edge, ...hit, length: this.lengths.get(best.edge)! };
+  }
+}
+
+/** One number per grid cell (cells within a million of the origin either way) */
+function cellKey(i: number, j: number): number {
+  return (i + 1_000_000) * 2_000_003 + (j + 1_000_000);
+}
+
+function segmentDistance(p: MapPoint, a: MapPoint, b: MapPoint): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  const s = len2 > 0 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2)) : 0;
+  return Math.hypot(a.x + dx * s - p.x, a.y + dy * s - p.y);
 }
 
 export function addNode(paths: MapPaths, p: MapPoint): MapPathNode {
@@ -276,8 +386,8 @@ function catmull(p0: MapPoint, p1: MapPoint, p2: MapPoint, p3: MapPoint, t: numb
 // Graph queries
 
 /** Groups of nodes joined by edges */
-export function components(paths: MapPaths): string[][] {
-  const adj = adjacency(paths);
+export function components(paths: MapPaths, index = new EdgeIndex(paths)): string[][] {
+  const adj = adjacency(paths, index);
   const seen = new Set<string>();
   const out: string[][] = [];
   for (const n of paths.nodes) {
@@ -306,11 +416,11 @@ interface Link {
   length: number;
 }
 
-function adjacency(paths: MapPaths): Map<string, Link[]> {
+function adjacency(paths: MapPaths, index: EdgeIndex): Map<string, Link[]> {
   const adj = new Map<string, Link[]>();
   for (const n of paths.nodes) adj.set(n.id, []);
   for (const e of paths.edges) {
-    const length = polylineLength(edgePolyline(paths, e));
+    const length = index.length(e);
     adj.get(e.a)?.push({ to: e.b, edge: e, length });
     adj.get(e.b)?.push({ to: e.a, edge: e, length });
   }
@@ -328,14 +438,15 @@ export interface Route {
 /**
  * Shortest way along the network from the point nearest `from` to the
  * point nearest `to`. Null when there is no network or the two points lie
- * on parts that do not connect.
+ * on parts that do not connect. `index` (an EdgeIndex of `paths`) saves
+ * building one per call where many routes run on one graph.
  */
-export function routeBetween(paths: MapPaths, from: MapPoint, to: MapPoint): Route | null {
-  const s = nearestOnEdges(paths, from);
-  const t = nearestOnEdges(paths, to);
+export function routeBetween(paths: MapPaths, from: MapPoint, to: MapPoint, index = new EdgeIndex(paths)): Route | null {
+  const s = index.nearest(from);
+  const t = index.nearest(to);
   if (!s || !t) return null;
-  const sLine = edgePolyline(paths, s.edge);
-  const tLine = edgePolyline(paths, t.edge);
+  const sLine = index.polyline(s.edge);
+  const tLine = index.polyline(t.edge);
   const startGap = s.dist;
   const endGap = t.dist;
 
@@ -349,36 +460,32 @@ export function routeBetween(paths: MapPaths, from: MapPoint, to: MapPoint): Rou
   }
 
   // Dijkstra from the two ends of the start edge, each with its partial cost
-  const adj = adjacency(paths);
+  const adj = adjacency(paths, index);
   const dist = new Map<string, number>();
   const prev = new Map<string, { node: string; edge: MapPathEdge } | null>();
-  const open = new Set<string>();
+  // Open nodes by cost; a node reached again for less leaves its old entry behind, skipped when it comes up
+  const open = new MinHeap<string>();
   const seed = (node: string, cost: number) => {
     if (cost < (dist.get(node) ?? Infinity)) {
       dist.set(node, cost);
       prev.set(node, null);
-      open.add(node);
+      open.push(node, cost);
     }
   };
   seed(s.edge.a, s.along);
   seed(s.edge.b, s.length - s.along);
+  const done = new Set<string>();
   while (open.size) {
-    let cur = '';
-    let best = Infinity;
-    for (const id of open) {
-      const d = dist.get(id)!;
-      if (d < best) {
-        best = d;
-        cur = id;
-      }
-    }
-    open.delete(cur);
+    const cur = open.pop()!;
+    if (done.has(cur)) continue;
+    done.add(cur);
+    const best = dist.get(cur)!;
     for (const link of adj.get(cur) ?? []) {
       const d = best + link.length;
       if (d < (dist.get(link.to) ?? Infinity)) {
         dist.set(link.to, d);
         prev.set(link.to, { node: cur, edge: link.edge });
-        open.add(link.to);
+        open.push(link.to, d);
       }
     }
   }
@@ -401,7 +508,7 @@ export function routeBetween(paths: MapPaths, from: MapPoint, to: MapPoint): Rou
   points.push(...slicePolyline(sLine, s.along, first === s.edge.a ? 0 : s.length));
   for (let k = 1; k < chain.length; k++) {
     const edge = chain[k].edge!;
-    const line = edgePolyline(paths, edge);
+    const line = index.polyline(edge);
     const forward = edge.a === chain[k - 1].node;
     points.push(...(forward ? line : [...line].reverse()));
   }
@@ -447,6 +554,7 @@ function dedupe(points: MapPoint[]): MapPoint[] {
 /** Routes from every spawn to the HQ, by spawn id; null where there is none */
 export function spawnRoutes(doc: CustomMapDocument): Map<string, Route | null> {
   const out = new Map<string, Route | null>();
-  for (const s of doc.spawns) out.set(s.id, routeBetween(doc.paths, s, doc.hq));
+  const index = new EdgeIndex(doc.paths);
+  for (const s of doc.spawns) out.set(s.id, routeBetween(doc.paths, s, doc.hq, index));
   return out;
 }
