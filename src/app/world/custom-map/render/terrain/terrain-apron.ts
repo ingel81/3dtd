@@ -26,8 +26,12 @@ import type { HeightField } from '../height-field';
  * queries.
  */
 
-/** Distances of the rings from the border, metres */
-export const APRON_RINGS = [0, 12, 40, 100, 220, 450, 900, 1600, 3000];
+/**
+ * Distances of the rings from the border, metres: dense where the backdrop
+ * range stands (every 80 to 160 m), so its ridges and gullies have flanks
+ * the light can shade instead of three facets from foot to crest
+ */
+export const APRON_RINGS = [0, 12, 40, 100, 220, 300, 380, 460, 540, 620, 700, 790, 880, 980, 1090, 1210, 1340, 1480, 1640, 2200, 3000];
 /** Water may extend over the rings up to this distance */
 export const RIVER_REACH = 220;
 /** Metres beyond the border where the backdrop range starts to rise, and where it reaches its height */
@@ -55,6 +59,9 @@ export class ApronProfile {
   private readonly w: number;
   private readonly d: number;
 
+  /** Height the backdrop range rises from: the apron's hills, a little below the border's mean */
+  readonly base: number;
+
   /** Share of the border that lies under the main water: above one half the map is an island or a coast */
   readonly wetShare: number;
   /** Border points under the main water, and its level (null: no water) */
@@ -81,6 +88,7 @@ export class ApronProfile {
       border[k] = field.heightAt(x, y);
       mean += border[k] / n;
     });
+    this.base = mean - 4;
     // Circular prefix sums for the growing blur along the edge
     const prefix = new Float64Array(n + 1);
     for (let k = 0; k < n; k++) prefix[k + 1] = prefix[k] + border[k];
@@ -118,12 +126,13 @@ export class ApronProfile {
       const keep = Math.exp(-dist / 300);
       this.along.forEach(([side, f], k) => {
         const [x, y] = this.point(side, f, dist);
-        const hills = mean - 4 + (smoothNoise(x * 0.004, y * 0.004) - 0.5) * 40 * Math.min(1, dist / 600);
+        const hills = this.base + (smoothNoise(x * 0.004, y * 0.004) - 0.5) * 40 * Math.min(1, dist / 600);
         let h = windowMean(k, radius) * keep + hills * (1 - keep);
         if (backdrop > 0) {
-          // Ridges along the border at two scales, the peaks where both crest
+          // Ridges along the border at three scales, the peaks where they crest; the finest cuts spurs and
+          // gullies into the flanks
           const ridge = (f: number) => 1 - Math.abs(2 * smoothNoise(x * f + 17.3, y * f - 4.1) - 1);
-          const crest = Math.pow(0.65 * ridge(1 / 350) + 0.35 * ridge(1 / 140), 1.5);
+          const crest = Math.pow(0.58 * ridge(1 / 350) + 0.3 * ridge(1 / 140) + 0.12 * ridge(1 / 60), 1.5);
           h += backdrop * smoothstepRange(BACKDROP_FROM, BACKDROP_FULL, dist) * (0.3 + 0.7 * crest);
         }
         // Sea beyond a wet border (and everywhere around a mostly wet one): the floor falls off
