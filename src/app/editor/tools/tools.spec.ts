@@ -9,6 +9,7 @@ import { MarkerTool } from './marker-tool';
 import { ObjectTool, insidePolygon } from './object-tool';
 import { paintCommands } from './paint-tool';
 import { PathTool } from './path-tool';
+import { craterProfile } from '../ops/landscape/shapes';
 import { TerrainTool } from './terrain-tool';
 import { defaultSettings, type ToolContext, type ToolPointer } from './tool';
 import { WaterTool, waterCommands } from './water-tool';
@@ -477,6 +478,34 @@ describe('water and lava bodies', () => {
     ed.undo();
     expect(heightAt(ed.doc.terrain, -100, -100)).toBe(0);
     expect(ed.historySteps).toBe(steps - 1);
+  });
+
+  it('fills a flat crater from a click on its rim or wall, and says so where no hollow is', () => {
+    const ed = fresh();
+    const ctx = context(ed);
+    const g = ed.doc.terrain.grid;
+    // A crater 1.2 m deep from its rim to its floor, as the crater brush leaves it on flat ground
+    for (let j = 0; j < g.rows; j++) {
+      for (let i = 0; i < g.columns; i++) {
+        const r = Math.hypot(i * g.cellSize - 200, j * g.cellSize - 200) / 24;
+        g.heights[j * g.columns + i] = 1 * craterProfile(r);
+      }
+    }
+    ed.execute(waterCommands.addBody(ed, 'lava', 0));
+    ctx.settings.water = { mode: 'fill', pour: 'water', body: 0, depth: 3, river: -1, riverPoint: -1 };
+    const water = new WaterTool();
+    // On the rim, where the ground stands above the level the fill takes
+    water.pointerDown(at(24, 0), ctx);
+    const lava = ed.doc.terrain.waterBodies![0];
+    expect(ctx.messages).toEqual([]);
+    expect(lava.level).toBeGreaterThan(-0.85);
+    expect(lava.level).toBeLessThan(0.3);
+    expect(lava.mask[(g.rows >> 1) * g.columns + (g.columns >> 1)]).toBe(255);
+    // Open flat ground holds nothing
+    ed.execute(waterCommands.addBody(ed, 'lava', 0));
+    ctx.settings.water.body = 1;
+    water.pointerDown(at(-150, -150), ctx);
+    expect(ctx.messages.at(-1)).toBe('This spot is no hollow: the water would run off');
   });
 
   it('pours lava down a slope into two hollows as new bodies, one undo step', async () => {

@@ -199,8 +199,10 @@ greift.
 
 **Water (4).** Das Hauptwasser und weitere Gewässer, jedes mit eigenem Spiegel, eigener Art (Water, Sea, Swamp, Ice,
 Lava) und Farbe; das Panel listet sie, das gewählte bearbeitet das Werkzeug. Fill basin: ein Klick in eine Mulde flutet
-sie. Ohne Wasser (oder mit Strg) wird der Spiegel knapp unter den Rand der Mulde gesetzt, also die Höhe, an der sie
-überlaufen würde (`basinSpillHeight`): die Flut steigt vom Klickpunkt nach Höhe geordnet und läuft über kleine Dellen
+sie, von ihrem Grund aus: der Klick läuft den Boden hinab bis zum tiefsten Punkt, höchstens 40 m weit (`hollowFloor`),
+so füllt auch ein Klick auf die Wand, den Rand oder einen Buckel im Krater. Ohne Wasser (oder mit Strg) wird der Spiegel
+knapp unter den Rand der Mulde gesetzt (0,3 m, in einer Mulde flacher als 0,6 m die halbe Tiefe, `basinBrim`, so hält
+auch ein flacher Krater Wasser), also die Höhe, an der sie überlaufen würde (`basinSpillHeight`): die Flut steigt vom Klickpunkt nach Höhe geordnet und läuft über kleine Dellen
 im Boden weiter (ein unebener Grubenboden), sie endet erst, wo das Wasser hinter einem Sattel zum Kartenrand abläuft
 oder in eine eigene Mulde fällt (beide Seiten mindestens 2 m unter dem Sattel, `OWN_HOLLOW_DEPTH`). Behält ein
 Gewässer seinen Spiegel und liegt der deutlich unter dem Rand der geklickten Mulde, sagt die Statuszeile das und

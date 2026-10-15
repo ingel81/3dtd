@@ -155,6 +155,48 @@ export function addPouredBodies(terrain: MapTerrain, lakes: readonly { level: nu
   return added;
 }
 
+/** Metres a fill click may lie off a hollow's floor (on its wall or rim, on a hump in it) and still fill that hollow */
+export const FILL_REACH = 40;
+
+/**
+ * Where a fill clicked at sample (i, j) floods from: the lowest point the
+ * ground runs down to from there (steepest descent over the eight
+ * neighbours), at most FILL_REACH metres away. A click on a crater's wall
+ * or its rim fills the crater; in a hollow's floor it stays in the same
+ * hollow, as the way down never climbs.
+ */
+export function hollowFloor(terrain: MapTerrain, i: number, j: number, reach = FILL_REACH): { i: number; j: number } {
+  const g = terrain.grid;
+  const c = g.columns;
+  const h = g.heights;
+  let k = j * c + i;
+  for (let step = Math.ceil(reach / g.cellSize); step > 0; step--) {
+    const ki = k % c;
+    const kj = (k - ki) / c;
+    let best = k;
+    for (let nj = Math.max(0, kj - 1); nj <= Math.min(g.rows - 1, kj + 1); nj++) {
+      for (let ni = Math.max(0, ki - 1); ni <= Math.min(c - 1, ki + 1); ni++) {
+        if (h[nj * c + ni] < h[best]) best = nj * c + ni;
+      }
+    }
+    if (best === k) break;
+    k = best;
+  }
+  return { i: k % c, j: Math.floor(k / c) };
+}
+
+/**
+ * The level a fill gives the hollow under sample (i, j) (its floor, see
+ * hollowFloor): RIM_MARGIN under where it overflows, in a hollow shallower
+ * than twice that half its depth, so a flat crater holds water too.
+ * Rounded to 0.1 m; at or under the floor where no hollow is.
+ */
+export function basinBrim(terrain: MapTerrain, i: number, j: number): number {
+  const spill = basinSpillHeight(terrain, i, j);
+  const depth = spill - terrain.grid.heights[j * terrain.grid.columns + i];
+  return Math.round((spill - Math.min(RIM_MARGIN, depth / 2)) * 10) / 10;
+}
+
 /**
  * Depth a hollow needs below the saddle it shares with another, on both
  * sides, to count as a hollow of its own; a shallower one is a dip in the

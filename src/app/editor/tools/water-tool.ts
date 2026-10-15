@@ -13,7 +13,7 @@ import type { CatalogIndex } from '../catalog/asset-catalog';
 import type { CustomMapDocument, MapRiver, MapTerrain, MapWater, MapWaterKind } from '../../world/custom-map/map-document';
 import type { DocChange, EditCommand, EditorDocument, PatchTarget } from '../model/editor-document';
 import { nearestSample, sampleRectAround, type GridRect } from '../model/grid';
-import { addPouredBodies, basinSpillHeight, BODY_COLORS, emptyWater, fillBasin, fillFromEdge, lakeDab, RIM_MARGIN, waterBody, waterMaskDab, wetSamples } from '../ops/water-ops';
+import { addPouredBodies, basinBrim, BODY_COLORS, emptyWater, fillBasin, fillFromEdge, hollowFloor, lakeDab, waterBody, waterMaskDab, wetSamples } from '../ops/water-ops';
 import { pourOffThread, POUR_MAX_LAKES } from '../ops/pour';
 import { MAX_WATER_BODIES } from '../../world/custom-map/map-file';
 import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
@@ -204,14 +204,16 @@ export class WaterTool implements EditorTool {
   }
 
   /**
-   * Fill the hollow under the pointer. A body without water yet (or with
+   * Fill the hollow under the pointer, from its floor (a click on its wall
+   * or rim fills it too, hollowFloor). A body without water yet (or with
    * Ctrl) takes the hollow's rim as its level, a little below the spill.
    */
   private fill(p: ToolPointer, ctx: ToolContext): void {
     const editor = ctx.editor;
     const t = editor.doc.terrain;
     const s = ctx.settings.water;
-    const { i, j } = nearestSample(t, p.hit!.x, p.hit!.y);
+    const clicked = nearestSample(t, p.hit!.x, p.hit!.y);
+    const { i, j } = hollowFloor(t, clicked.i, clicked.j);
     const before = waterState(t);
     const body = waterBody(t, s.body);
     const fresh = !body || !body.mask.some((v) => v);
@@ -221,7 +223,7 @@ export class WaterTool implements EditorTool {
       ctx.status('Choose a body in the panel first');
       return;
     }
-    const brim = Math.round((basinSpillHeight(t, i, j) - RIM_MARGIN) * 10) / 10;
+    const brim = basinBrim(t, i, j);
     if (fresh || p.ctrl) target.level = brim;
     const rect = fillBasin(t, i, j, s.body);
     if (rect) {
