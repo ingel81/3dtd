@@ -14,11 +14,11 @@ from mathutils import Vector, noise
 
 from blender_kit import finish as export  # noqa: F401  (every structure gets baked AO)
 from blender_kit import (
-    Part, two_sided, box, card, card_material, clear_scene, flat_material, glow_card_material, oriented_box, pbr_material,
+    Part, two_sided, box, card, card_material, clear_scene, flat_material, glow_card_material, hexa, oriented_box, pbr_material,
     tube,
 )
 from build_nature import crystals, dead_tree, hoodoo, lump, stalagmites
-from build_structures import arch_wall, cone_roof, house, stairs
+from build_structures import arch_wall, column, cone_roof, house, stairs
 
 ICE = (0.5, 0.72, 0.9)
 
@@ -589,23 +589,59 @@ def oasis_pool(name, seed, radius=4.0):
 
 
 def desert_temple(name):
-    """Sandstone temple front: stepped base, six columns, a heavy lintel and a dark doorway"""
+    """Sandstone temple: a stepped base, a portico of six fluted columns with bases and capitals, an
+    entablature (architrave, a frieze with triglyphs, a cornice) under a low pediment and roof, the cella
+    behind with corner pilasters and a framed dark doorway"""
     clear_scene()
     stone = Part(pbr_material('wall-sandstone_blocks_04', 'sandstone_blocks_04'), uv_metres=3.0)
-    col = Part(pbr_material('rock-sandstone_cracks', 'sandstone_cracks'), smooth=True)
+    # Mouldings, triglyphs, column bases and capitals: the same stone without the chamfer (one draw call when packed)
+    trim = Part(stone.material, uv_metres=1.5, bevel=0.0)
+    col = Part(pbr_material('rock-sandstone_cracks', 'sandstone_cracks', (1.0, 0.94, 0.86)), smooth=True)
     dark = Part(flat_material('temple-dark', (0.04, 0.035, 0.03), 0.9))
     w, d = 18.0, 14.0
     for k in range(3):
         box(stone, 0, 0, -0.8 + k * 0.5, w - k * 1.2, d - k * 1.2, 0.8)
-    box(stone, 0, 2.0, 0.7, w - 4.0, d - 6.0, 8.0)
-    box(dark, 0, -2.02 + 2.0 - (d - 6.0) / 2, 0.7, 3.0, 0.1, 4.5)
+    stairs(stone, -2, 2, -d / 2 - 0.5, 1.0, 0.7, 4)
+    # Cella: plinth course, corner pilasters, the doorway in a frame with a cornice
+    cy0, cy1 = -2.0, 5.4
+    box(stone, 0, (cy0 + cy1) / 2, 0.7, 13.0, cy1 - cy0, 5.8)
+    box(trim, 0, (cy0 + cy1) / 2, 0.7, 13.3, cy1 - cy0 + 0.3, 0.45)
+    for sx in (-1, 1):
+        for y in (cy0, cy1):
+            box(trim, sx * 6.3, y, 0.7, 0.9, 0.5, 5.8)
+    box(dark, 0, cy0 - 0.02, 1.15, 2.6, 0.1, 3.9)
+    for sx in (-1, 1):
+        box(trim, sx * 1.55, cy0 - 0.08, 1.15, 0.5, 0.2, 3.9)
+    box(trim, 0, cy0 - 0.1, 5.05, 3.8, 0.25, 0.45)
+    box(trim, 0, cy0 - 0.16, 5.5, 4.2, 0.35, 0.18)
+    # Portico
     for k in range(6):
         x = -w / 2 + 2.5 + k * (w - 5.0) / 5
-        tube(col, [Vector((x, -d / 2 + 2.2, 0.7)), Vector((x, -d / 2 + 2.2, 8.0))], [0.65, 0.55], 14)
-        box(stone, x, -d / 2 + 2.2, 0.7, 1.6, 1.6, 0.4)
-    box(stone, 0, -d / 2 + 2.2 + (d - 4.4) / 2 - 1.0, 8.0, w - 3.0, d - 4.4 + 2.0, 1.4)
-    stairs(stone, -2, 2, -d / 2 - 0.5, 1.0, 0.7, 4)
-    export(name, [stone.to_object(name), col.to_object(name + '-columns'), dark.to_object(name + '-door')])
+        column(col, trim, x, -d / 2 + 2.2, 0.7, 5.8, 0.6)
+    # Entablature: architrave, frieze with triglyphs over and between the columns, cornice
+    y0, y1 = -5.55, 5.75
+    box(stone, 0, (y0 + y1) / 2, 6.5, 14.3, y1 - y0, 0.7)
+    box(stone, 0, (y0 + y1) / 2, 7.2, 14.1, y1 - y0 - 0.2, 0.6)
+    for k in range(11):
+        x = -6.5 + k * 1.3
+        box(trim, x, y0 + 0.05, 7.2, 0.5, 0.2, 0.6)
+    box(trim, 0, (y0 + y1) / 2, 7.8, 15.0, y1 - y0 + 0.7, 0.3)
+    # Pediment and roof: the gable closed front and back, two stone roof slabs, raking cornices at the front
+    bm = stone.bm
+    for y, back in ((y0 - 0.1, False), (y1, True)):
+        tri = [bm.verts.new((-7.2, y, 8.1)), bm.verts.new((7.2, y, 8.1)), bm.verts.new((0, y, 9.05))]
+        bm.faces.new(list(reversed(tri)) if back else tri)
+    pr = [bm.verts.new(v) for v in ((-7.2, y0 - 0.1, 8.1), (7.2, y0 - 0.1, 8.1), (7.2, y1, 8.1), (-7.2, y1, 8.1))]
+    bm.faces.new(list(reversed(pr)))
+    ry0, ry1 = y0 - 0.4, y1 + 0.35
+    for sx in (-1, 1):
+        lo = [(sx * 7.6, ry0, 8.05), (0, ry0, 9.1), (0, ry1, 9.1), (sx * 7.6, ry1, 8.05)]
+        hi = [(sx * 7.6, ry0, 8.3), (0, ry0, 9.4), (0, ry1, 9.4), (sx * 7.6, ry1, 8.3)]
+        if sx > 0:
+            lo, hi = lo[::-1], hi[::-1]
+        hexa(trim, lo, hi)
+    export(name, [stone.to_object(name), trim.to_object(name + '-trim'), smooth(col.to_object(name + '-columns')),
+                  dark.to_object(name + '-door')])
 
 
 def nomad_tent(name):

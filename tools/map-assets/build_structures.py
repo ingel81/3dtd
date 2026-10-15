@@ -639,6 +639,60 @@ def ragged_arch(part, x0, x1, thick, z0, cx, width, spring, xs, tops, steps=12):
 
 # ---------------------------------------------------------------- castle kit (8 m grid, walls 7 m high)
 
+def fluted_drum(part, matrix, length, r0, r1, flutes=12, rnd=None):
+    """Column shaft along local Z from 0 to `length`, radius r0 to r1 with a slight swelling (entasis), cut by
+    `flutes` shallow grooves (smooth-shaded, they read as soft fluting); with `rnd` the top is broken off
+    unevenly, else closed flat. `matrix` places it (a fallen drum lies on its side)"""
+    import bmesh
+    tmp = bmesh.new()
+    uv = tmp.loops.layers.uv.new('UVMap')
+    n = 2 * flutes
+    rings = []
+    for f in (0.0, 0.33, 0.67, 1.0):
+        r = r0 + (r1 - r0) * f + 0.04 * r0 * math.sin(math.pi * f)
+        ring = []
+        for j in range(n + 1):
+            a = j / n * math.tau
+            rr = r * (1.0 if j % 2 == 0 else 0.92)
+            z = f * length
+            if rnd and f == 1.0 and j < n:
+                z -= rnd.uniform(0.0, 0.45) * r0
+            ring.append(tmp.verts.new((math.cos(a) * rr, math.sin(a) * rr, z)))
+        if rnd and f == 1.0:
+            ring[n].co.z = ring[0].co.z
+        rings.append(ring)
+    around = max(1.0, round(math.tau * r0 / 1.2))
+    for k in range(3):
+        for j in range(n):
+            face = tmp.faces.new((rings[k][j], rings[k][j + 1], rings[k + 1][j + 1], rings[k + 1][j]))
+            face.smooth = True
+            for loop, (u, v) in zip(face.loops, ((j, k), (j + 1, k), (j + 1, k + 1), (j, k + 1))):
+                loop[uv].uv = (u / n * around, v * length / 3 / 1.5)
+    top = rings[-1]
+    centre = tmp.verts.new((0, 0, length - (0.3 * r0 if rnd else 0.0)))
+    for j in range(n):
+        face = tmp.faces.new((centre, top[j], top[j + 1]))
+        for loop in face.loops:
+            loop[uv].uv = (loop.vert.co.x / 1.5, loop.vert.co.y / 1.5)
+    part.add_bmesh(tmp, matrix)
+    tmp.free()
+
+
+def column(shaft, stone, x, y, z0, h, r, rnd=None):
+    """A classical column standing on z0, `h` high to the top of its capital: a square plinth and a round
+    base in `stone`, the fluted shaft in `shaft`, an echinus and a square abacus on top; with `rnd` it is
+    broken off at z0 + h (no capital)"""
+    box(stone, x, y, z0, r * 2.5, r * 2.5, 0.35)
+    tube(stone, [Vector((x, y, z0 + 0.3)), Vector((x, y, z0 + 0.5))], [r * 1.22, r * 1.1], 16, smooth=False, cap=True)
+    if rnd:
+        fluted_drum(shaft, Matrix.Translation((x, y, z0 + 0.45)), h - 0.45, r, r * (1 - 0.12 * (h - 0.45) / 6.0), rnd=rnd)
+        return
+    top = z0 + h - 0.62
+    fluted_drum(shaft, Matrix.Translation((x, y, z0 + 0.45)), top - z0 - 0.45, r, r * 0.84)
+    tube(stone, [Vector((x, y, top - 0.02)), Vector((x, y, top + 0.32))], [r * 0.86, r * 1.25], 16, smooth=False, cap=True)
+    box(stone, x, y, top + 0.32, r * 2.7, r * 2.7, 0.3)
+
+
 def castle_wall(name, stone_asset=CASTLE, ruined=False, seed=0, length=8.0, height=7.0, thick=2.4):
     """Curtain wall along X, front (-Y) with battlements, walkway on top behind a low parapet"""
     clear_scene()
@@ -1426,24 +1480,34 @@ def ruin_wall(name, seed=0):
 
 
 def ruin_columns(name, seed=0):
-    """Temple remains: a stepped platform, standing and broken columns, one fallen"""
+    """Temple remains: a stepped platform, fluted columns with bases and capitals, two still carrying a piece
+    of the architrave, others snapped off; one fallen and broken into drums, stones lying about"""
     clear_scene()
     rnd = random.Random(seed)
     stone = Part(pbr_material('wall-white_sandstone_bricks', 'white_sandstone_bricks', (1.05, 1.0, 0.95)), uv_metres=2.0)
-    col = Part(pbr_material('rock-sandstone_cracks', 'sandstone_cracks', (1.1, 1.05, 1.0)), smooth=True)
+    trim = Part(stone.material, uv_metres=1.5, bevel=0.0)
+    col = Part(pbr_material('rock-sandstone_cracks', 'sandstone_cracks', (1.0, 0.94, 0.86)), smooth=True)
     box(stone, 0, 0, -0.3, 12, 7, 0.6)
     box(stone, 0, 0, 0.3, 11, 6, 0.3)
-    heights = [6.0, 3.2, 6.0, 1.5, 4.6, 6.0]
+    heights = [6.45, 6.45, 3.2, 1.5, 4.6, 2.4]
     for k, h in enumerate(heights):
         x = -4.5 + (k % 3) * 4.5
         y = -2.0 if k < 3 else 2.0
-        tube(col, [Vector((x, y, 0.6)), Vector((x, y, 0.6 + h))], [0.55, 0.48], 12)
-        box(stone, x, y, 0.6, 1.4, 1.4, 0.35)
-        if h > 5.5:
-            box(stone, x, y, 0.6 + h, 1.4, 1.4, 0.45)
-    box(stone, -2.25, -2.0, 7.05, 6.0, 1.2, 0.7)
-    tube(col, [Vector((2.0, 4.6, 0.6)), Vector((6.5, 5.2, 0.55))], [0.5, 0.5], 12, cap=True)
-    export(name, [stone.to_object(name), col.to_object(name + '-columns')])
+        column(col, trim, x, y, 0.6, h, 0.5, None if h > 6 else rnd)
+    # Architrave over the two standing columns, its far end broken
+    box(stone, -2.25, -2.0, 7.05, 6.2, 1.2, 0.7)
+    chunk(trim, Vector((1.05, -2.0, 7.2)), Vector((0.5, 1.0, 0.45)), rnd, 15)
+    # The fallen column in three drums, a capital beside them, stones from the architrave
+    a, b = Vector((2.6, 4.75, 0.5)), Vector((6.6, 5.2, 0.5))
+    turn = Vector((0, 0, 1)).rotation_difference((b - a).normalized()).to_matrix().to_4x4()
+    for k in range(3):
+        p = a + (b - a) * (k / 3) + Vector((0, rnd.uniform(-0.15, 0.15), 0))
+        fluted_drum(col, Matrix.Translation(p) @ turn @ Matrix.Rotation(rnd.uniform(0, 6.3), 4, 'Z'), (b - a).length / 3 - 0.12, 0.47, 0.45)
+    box(trim, -5.2, 4.2, -0.05, 1.3, 1.3, 0.3, 0.4)
+    for k in range(6):
+        chunk(trim, Vector((rnd.uniform(-5.5, 1.5), rnd.uniform(-3.4, -2.8) if k % 2 else rnd.uniform(3.4, 4.4), 0.1)),
+              Vector((rnd.uniform(0.4, 0.8), rnd.uniform(0.3, 0.6), rnd.uniform(0.25, 0.4))), rnd)
+    export(name, [stone.to_object(name), trim.to_object(name + '-trim'), col.to_object(name + '-columns')])
 
 
 def ruin_arch(name):

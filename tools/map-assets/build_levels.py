@@ -22,7 +22,7 @@ from blender_kit import finish as export  # noqa: F401  (baked AO)
 import blender_kit
 from build_nature import lump
 from build_structures import (
-    RUIN, arch_wall, break_line, chunk, gable_roof, house, merlons, pyramid_roof, ragged_arch, ragged_wall, rim_stones, voussoirs,
+    RUIN, arch_wall, break_line, chunk, column, fluted_drum, gable_roof, house, merlons, pyramid_roof, ragged_arch, ragged_wall, rim_stones, voussoirs,
 )
 
 WOOD = 'weathered_planks'
@@ -356,30 +356,57 @@ def fishing_boat(name):
 # ---------------------------------------------------------------- desert canyon
 
 def temple_ruin(name, seed=0):
-    """Broken sandstone temple: stepped base, columns snapped at different heights, part of the lintel
-    fallen, blocks scattered"""
+    """Broken sandstone temple: stepped base, fluted columns snapped at different heights (the standing ones
+    with capitals), two pieces of the architrave still up, the cella walls broken down along jagged lines
+    round a doorway, a fallen column in drums, blocks scattered"""
     clear_scene()
     rnd = random.Random(seed)
     stone = Part(pbr_material('wall-sandstone_blocks_04', 'sandstone_blocks_04'), uv_metres=3.0)
-    col = Part(pbr_material('rock-sandstone_cracks', 'sandstone_cracks'), smooth=True)
-    dark = Part(flat_material('temple-dark', (0.04, 0.035, 0.03), 0.9))
+    # Jambs, capitals, bases and loose stones: the same stone without the chamfer (one draw call when packed)
+    trim = Part(stone.material, uv_metres=1.5, bevel=0.0)
+    col = Part(pbr_material('rock-sandstone_cracks', 'sandstone_cracks', (1.0, 0.94, 0.86)), smooth=True)
     w, d = 18.0, 14.0
     for k in range(3):
         box(stone, 0, 0, -0.8 + k * 0.5, w - k * 1.2, d - k * 1.2, 0.8)
-    box(stone, 0, 2.0, 0.7, w - 4.0, d - 6.0, 5.5)
-    box(dark, 0, -1.02, 0.7, 3.0, 0.1, 4.0)
+    # Cella walls 0.9 thick round x -7..7, y -2..6, broken down (the side walls between front and back, no
+    # faces on top of each other); a doorway 3 m wide in the front
+    t = 0.9
+    walls = [(-7.0, -1.5, Matrix.Translation((0, -2.0 + t / 2, 0))), (1.5, 7.0, Matrix.Translation((0, -2.0 + t / 2, 0))),
+             (-7.0, 7.0, Matrix.Translation((0, 6.0 - t / 2, 0))),
+             (-2.0 + t, 6.0 - t, Matrix.Translation((-7.0 + t / 2, 0, 0)) @ Matrix.Rotation(math.pi / 2, 4, 'Z')),
+             (-2.0 + t, 6.0 - t, Matrix.Translation((7.0 - t / 2, 0, 0)) @ Matrix.Rotation(math.pi / 2, 4, 'Z'))]
+    for x0, x1, m in walls:
+        n = max(2, int((x1 - x0) / 2.0))
+        centres = [x0 + (k + 0.5) * (x1 - x0) / n for k in range(n)]
+        heights = [rnd.uniform(2.2, 6.2) for _ in centres]
+        xs, tops = break_line(x0, x1, centres, heights, rnd, 0.6)
+        ragged_wall(stone, xs, tops, t, 0.7, m)
+        rim_stones(trim, xs, tops, t, rnd, 8.0, m, 0.35)
+    for sx in (-1, 1):
+        box(trim, sx * 1.65, -2.0 - 0.06, 0.7, 0.4, 0.3, 2.4 + rnd.uniform(0, 1.2))
+    for k in range(8):
+        chunk(trim, Vector((rnd.uniform(-6.0, 6.0), rnd.uniform(-1.0, 5.0), 0.8)),
+              Vector((rnd.uniform(0.5, 1.0), rnd.uniform(0.4, 0.7), rnd.uniform(0.3, 0.5))), rnd)
     heights = [7.3, 3.1, 7.3, 1.8, 5.2, 7.3]
     for k, hgt in enumerate(heights):
         x = -w / 2 + 2.5 + k * (w - 5.0) / 5
-        tube(col, [Vector((x, -d / 2 + 2.2, 0.7)), Vector((x, -d / 2 + 2.2, 0.7 + hgt))], [0.65, 0.58], 14, cap=True)
-        box(stone, x, -d / 2 + 2.2, 0.7, 1.6, 1.6, 0.4)
-    box(stone, -w / 2 + 5.0, -d / 2 + 2.2, 8.0, 8.5, 1.8, 1.2)
-    box(stone, w / 2 - 2.5, -d / 2 + 2.2, 8.0, 3.0, 1.8, 1.2)
-    tube(col, [Vector((1.5, -d / 2 - 1.5, 0.3)), Vector((6.0, -d / 2 - 2.6, 0.35))], [0.6, 0.6], 14, cap=True)
+        column(col, trim, x, -d / 2 + 2.2, 0.7, hgt, 0.62, None if hgt > 7 else rnd)
+    # Architrave pieces with a strip of the cornice
+    for x0, x1 in ((-8.25, 0.25), (5.0, 8.0)):
+        box(stone, (x0 + x1) / 2, -d / 2 + 2.2, 8.0, x1 - x0, 1.7, 0.8)
+        box(trim, (x0 + x1) / 2 - 0.2, -d / 2 + 2.2 - 0.1, 8.8, x1 - x0 - 0.6, 1.9, 0.4)
+    # The fallen column in four drums, its capital beside them
+    a, b = Vector((1.5, -d / 2 - 1.5, 0.55)), Vector((6.0, -d / 2 - 2.6, 0.55))
+    turn = Vector((0, 0, 1)).rotation_difference((b - a).normalized()).to_matrix().to_4x4()
+    for k in range(4):
+        p = a + (b - a) * (k / 4) + Vector((rnd.uniform(-0.1, 0.1), rnd.uniform(-0.2, 0.2), 0))
+        fluted_drum(col, Matrix.Translation(p) @ turn @ Matrix.Rotation(rnd.uniform(0, 6.3), 4, 'Z'), (b - a).length / 4 - 0.1, 0.58, 0.56)
+    box(trim, 7.3, -d / 2 - 2.4, -0.1, 1.7, 1.7, 0.35, 0.5)
+    box(stone, 9.05, -d / 2 - 1.0, -0.2, 1.1, 0.9, 0.7, 0.0)
     for k in range(10):
         box(stone, rnd.uniform(-w / 2, w / 2), -d / 2 - rnd.uniform(0.5, 3.5), -0.2, rnd.uniform(0.8, 1.8), rnd.uniform(0.6, 1.2),
             rnd.uniform(0.5, 1.0), rnd.uniform(0, 3))
-    export(name, [stone.to_object(name), smooth(col.to_object(name + '-columns')), dark.to_object(name + '-door')])
+    export(name, [stone.to_object(name), trim.to_object(name + '-trim'), smooth(col.to_object(name + '-columns'))])
 
 
 def caravan_tent(name):
