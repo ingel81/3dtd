@@ -18,7 +18,15 @@ import type { HeightField } from '../height-field';
 /** Most texels a side */
 const MAX_TEXELS = 512;
 /** Light at the foot of a lamp of catalogue intensity 1 */
-const GAIN = 1.6;
+const GAIN = 2.4;
+/**
+ * The falloff's core is at least this share of the reach wide: a pure
+ * inverse square from a low lamp (a torch at 2 m) lit a hand's breadth of
+ * ground and left the rest of its reach dark
+ */
+const CORE = 0.3;
+/** Share of the foot's light that the whole pool keeps, fading only with its edge */
+const FLOOR = 0.3;
 
 interface Rect {
   i0: number;
@@ -121,6 +129,7 @@ export class LampLight {
     if (!dirty) return false;
     this.clear(dirty);
     for (const { s, x, y, ground, h, reach, r } of work) {
+      const core = Math.max(h, reach * CORE);
       const target = s.flicker ? flicker : steady;
       // Linear colour times strength; brighter lights reach further too (catalogue distance)
       color.copy(s.color).multiplyScalar(s.intensity * GAIN);
@@ -130,9 +139,10 @@ export class LampLight {
           const dx = this.originX + i * this.texel - x;
           const d2 = dx * dx + dy * dy;
           if (d2 >= reach * reach) continue;
-          // An inverse square from the light's height, ending softly at its reach
+          // An inverse square from the light's height (its core at least CORE of the reach) over a faint floor
+          // (FLOOR), so the pool reads out to its reach, ending softly there
           const window = 1 - d2 / (reach * reach);
-          const f = ((h * h) / (d2 + h * h)) * window * window;
+          const f = (((core * core) / (d2 + core * core)) * (1 - FLOOR) + FLOOR) * window * window;
           const k = j * this.columns + i;
           const q = k * 4;
           target[q] += color.r * f;
@@ -198,29 +208,33 @@ export class LampLight {
 /** Added to every map material's light (height-fog.ts): the baked lamp light, flickering where it is fire */
 export const LAMP_LIGHT_FRAGMENT = /* glsl */ `
 if (uLampOn > 0.0) {
-  vec2 lampAt = vec2(uFogMap.x - vFogWorldPos.x, vFogWorldPos.z - uFogMap.y);
-  vec2 lampUv = lampAt * uLampGridUv.xy + uLampGridUv.zw;
-  vec4 lampSteady = texture2D(uLampSteady, lampUv);
-  vec3 lampFlicker = texture2D(uLampFlicker, lampUv).rgb;
-  float lampPhase = dot(lampAt, vec2(0.13, 0.17));
-  float lampFlick = 0.8 + 0.12 * sin(uLampTime * 9.0 + lampPhase) + 0.08 * sin(uLampTime * 23.0 + lampPhase * 3.0);
-  // High over the ground the light stands on (a roof over a street lamp) it fades out
-  float lampOver = vFogWorldPos.y - lampSteady.a;
-  float lampVertical = 1.0 - smoothstep(6.0, 12.0, lampOver);
   // Faces turned up take it all, walls most of it, faces turned down little
   float lampUp = dot(normal, normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz));
   float lampFacing = 0.35 + 0.65 * clamp(lampUp * 0.5 + 0.5, 0.0, 1.0);
-  vec3 lampLight = lampSteady.rgb + lampFlicker * lampFlick;
-  // Soft limit: many lamps together light brightly, never to white
-  lampLight = lampLight / (1.0 + max(max(lampLight.r, lampLight.g), lampLight.b) * 0.35);
-  totalEmissiveRadiance += diffuseColor.rgb * lampLight * (uLampOn * lampVertical * lampFacing);
+  totalEmissiveRadiance += diffuseColor.rgb * lampLightAt(vFogWorldPos) * lampFacing;
 }
 `;
 
+/** The baked light at a world position, by darkness (needs HEIGHT_FOG_PARS before it for uFogMap) */
 export const LAMP_LIGHT_PARS = /* glsl */ `
 uniform float uLampOn;
 uniform sampler2D uLampSteady;
 uniform sampler2D uLampFlicker;
 uniform vec4 uLampGridUv;
 uniform float uLampTime;
+vec3 lampLightAt(vec3 worldPos) {
+  if (uLampOn <= 0.0) return vec3(0.0);
+  vec2 lampAt = vec2(uFogMap.x - worldPos.x, worldPos.z - uFogMap.y);
+  vec2 lampUv = lampAt * uLampGridUv.xy + uLampGridUv.zw;
+  vec4 lampSteady = texture2D(uLampSteady, lampUv);
+  vec3 lampFlicker = texture2D(uLampFlicker, lampUv).rgb;
+  float lampPhase = dot(lampAt, vec2(0.13, 0.17));
+  float lampFlick = 0.78 + 0.14 * sin(uLampTime * 9.0 + lampPhase) + 0.08 * sin(uLampTime * 23.0 + lampPhase * 3.0);
+  // High over the ground the light stands on (a roof over a street lamp) it fades out
+  float lampVertical = 1.0 - smoothstep(6.0, 12.0, worldPos.y - lampSteady.a);
+  vec3 lampLight = lampSteady.rgb + lampFlicker * lampFlick;
+  // Soft limit: many lamps together light brightly, never to white
+  lampLight = lampLight / (1.0 + max(max(lampLight.r, lampLight.g), lampLight.b) * 0.35);
+  return lampLight * (uLampOn * lampVertical);
+}
 `;

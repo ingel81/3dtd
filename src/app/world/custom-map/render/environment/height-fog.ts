@@ -67,7 +67,7 @@ if (uLavaGlowOn > 0.5) {
   float lavaNear = texture2D(uLavaGlowTex, lavaAt * uLavaGridUv.xy + uLavaGridUv.zw).a;
   // Lit from below: faces turned down and sideways take the most
   float below = 0.2 + 0.8 * max(-dot(normal, normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz)), 0.0);
-  totalEmissiveRadiance += vec3(1.0, 0.32, 0.06) * pow(lavaNear, 3.0) * 0.4 * below;
+  totalEmissiveRadiance += vec3(1.0, 0.32, 0.06) * pow(lavaNear, 2.0) * 0.6 * below;
 }
 `;
 

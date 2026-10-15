@@ -43,6 +43,15 @@ describe('lamp light', () => {
     expect(at(lamps, lamps.flicker, 0, 0)[0]).toBe(0);
   });
 
+  it('keeps a low light bright out to half its reach', () => {
+    const lamps = new LampLight(flat());
+    // A torch 1 m over the ground with 12 m of reach: a pure inverse square left 3 percent at 6 m
+    lamps.bake([{ ...lamp(0, 0), position: new Vector3(0, 5, 0) }]);
+    const under = at(lamps, lamps.steady, 0, 0)[0];
+    expect(at(lamps, lamps.steady, 6, 0)[0]).toBeGreaterThan(under * 0.25);
+    lamps.dispose();
+  });
+
   it('puts a fire into the flickering light, and a lamp moved leaves nothing behind', () => {
     const lamps = new LampLight(flat());
     lamps.bake([lamp(-20, 0, true)]);

@@ -76,11 +76,6 @@ eigenen Karten, Coop-Protokoll 5). Vier Worker-Branches darauf laufen (Abschnitt
       (Editor-Werkzeug, auch Skripte und Level-Kit) das Gelände unter der Grundfläche plus Rand einebnen und weich
       anschließen, sodass das Gebäude ganz Platz hat und auf keiner Seite durch den Hang geschnitten wird. Verschieben
       eines stehenden Gebäudes (Gizmo) bleibt frei, halb im Berg ist dann gewollt. Läuft mit E177 auf `wt/fixes1015`.
-- [ ] **E189 Laternen und andere Punktlichter nachts zu schwach** (User, 2026-10-15, eigene Karten im Spiel): genau
-      ansehen, mit Bildern bei Nacht (Spiel und Editor) gegen Tag; Stärke, Reichweite, Leuchtkörper und Lichtfleck am
-      Boden. Hängt am Lichter-Pool (6 Punktlichter, nächste zur Kamera) und dessen Fix in E177 (`wt/fixes1015`).
-      Dazu mit Feuer und Lava als Lichtquellen spielen: Fackeln, Feuerschalen, Lagerfeuer flackernd, Lava wirft
-      warmes Licht auf Gelände und Objekte in der Nähe (billig: Lichtfleck/Emissive statt vieler echter Lichter).
 - [ ] **E188 Objekte poppen beim Zoomen und Bewegen auf** (User, 2026-10-15, eigene Karten): stellenweise erscheinen
       Objekte sichtbar spät. User sieht es sich genauer an und liefert Screenshots; erst dann untersuchen (LOD-Wechsel,
       Sichtweite je Objekt, Culling). Verwandt: Bäume poppen nach `viewReady` (E183, `wt/fx-engine`).
@@ -246,6 +241,8 @@ Nachtest-Liste in `tmp/NEXT_SESSION.md`, kommt nach PLAYTEST.md, wenn der User Z
       400 m²), Modellwahl per Salz, Tönung je Grundriss; Erlenbach 74235 im Editor ansehen.
 - [ ] **E201 Bauverbot als Rechteck**: Gebäude und Mauern sperren und sitzen nach ihrem gedrehten Rechteck (Katalog `box`);
       neben einer langen Schule bauen, Sitz am Hang.
+- [ ] **E189 Lichter nachts**: Lichtfleck breiter und heller, größerer Hof, Pool kräftiger, Licht auf Wasser, Lava glüht
+      weiter; Autumn Keep und Witch Marsh nachts ansehen.
 
 ### Nachtschicht 2026-10-14 (Branch `night/custom-maps-round2`, nicht gepusht)
 
