@@ -334,10 +334,20 @@ export class GameStage implements Stage {
       case 'credits':
         c.sim.bus.emit({ type: 'debug:add-credits', amount: Number(args['amount'] ?? 100_000) });
         return;
-      case 'jumpWave':
-        // The next wave to start, the ones before skipped (between waves only): a fuller wave for the camera
-        c.sim.bus.emit({ type: 'debug:jump-to-wave', wave: Number(args['wave'] ?? 5), grantGold: false });
+      case 'jumpWave': {
+        // The next wave to start, the ones before skipped (between waves only): a fuller wave for the camera.
+        // The game takes it only once the last wave has ended (a jump asked as it winds down was refused and
+        // the next wave came instead): asked again until the wave button names the wave
+        const wave = Number(args['wave'] ?? 5);
+        const shown = () => /Wave\s+(\d+)/.exec(document.querySelector('.td-wave-btn')?.textContent ?? '')?.[1];
+        await waitUntil(() => !document.querySelector('.td-wave-btn.td-wave-running'), 60, 'the last wave to end');
+        await waitUntil(() => {
+          if (shown() === String(wave)) return true;
+          c.sim.bus.emit({ type: 'debug:jump-to-wave', wave, grantGold: false });
+          return false;
+        }, 15, `wave ${wave} on the wave button`);
         return;
+      }
       case 'research':
         c.sim.bus.emit({ type: 'debug:complete-all-research' });
         return;
@@ -369,17 +379,23 @@ export class GameStage implements Stage {
         return;
       case 'enemiesNear': {
         // Until an enemy walks within `radius` m of a named spot `near` (`spots`: the towers), to skip the long walk
-        const at = this.named(String(args['near'] ?? 'spots'));
-        if (!at) throw new Error(`showreel: no spot ${String(args['near'])} for enemiesNear`);
+        // `near: 'any'`: within `radius` of any planned tower spot (a boss may come in on another lane)
+        const name = String(args['near'] ?? 'spots');
+        const targets = name === 'any' ? this.spots : [this.named(name)].filter((p): p is { x: number; y: number } => !!p);
+        if (!targets.length) throw new Error(`showreel: no spot ${name} for enemiesNear`);
         const radius = Number(args['radius'] ?? 60);
         // `kind`: only an enemy of that type counts (the boss, not the swarm ahead of it)
         const kind = args['kind'] === undefined ? null : String(args['kind']);
         const mirror = (c.towerControl as unknown as TowerSeat).mirror;
         await waitUntil(
-          () => mirror.aliveEnemies().some((e) => (!kind || e.typeConfig.id === kind) && Math.hypot(e.position.lon * MAP_METERS_PER_DEGREE - at.x, e.position.lat * MAP_METERS_PER_DEGREE - at.y) <= radius),
+          () => mirror.aliveEnemies().some((e) => (!kind || e.typeConfig.id === kind) && targets.some((at) => Math.hypot(e.position.lon * MAP_METERS_PER_DEGREE - at.x, e.position.lat * MAP_METERS_PER_DEGREE - at.y) <= radius)),
           Number(args['timeout'] ?? 90),
           'an enemy near the towers',
-        );
+        ).catch((e: unknown) => {
+          // What there was instead: the kinds alive
+          const kinds = [...new Set(mirror.aliveEnemies().map((v) => v.typeConfig.id))].join(', ') || 'none';
+          throw new Error(`${e instanceof Error ? e.message : String(e)} (${kind ?? 'any kind'}; alive: ${kinds})`);
+        });
         return;
       }
       case 'waveDone':

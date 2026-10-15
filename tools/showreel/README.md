@@ -93,7 +93,7 @@ opens a second window; under the hook the runner opens it in the same one.
 
 Every step may carry `label` (a time mark). Points: `[fx, fy, h?]` shares of the map around its middle, `{ at, dx,
 dy, h }` from a named spot (`hq`, `center`, `spawn:<i>`; editor `node:<i>`, `river:<r>:<p>`, `object:<asset|last>`;
-game `spot:<i>`, `spots`), `{ m: [x, y], h }` metres; `h` above the ground, `habs` absolute, none: on the ground.
+game `spot:<i>`, `spots`, `enemy:<i>` or `enemy:<type>` (an enemy alive, held while it lives; a follow ends as it falls)), `{ m: [x, y], h }` metres; `h` above the ground, `habs` absolute, none: on the ground.
 
 | Step | Does |
 |------|------|
@@ -106,7 +106,7 @@ game `spot:<i>`, `spots`), `{ m: [x, y], h }` metres; `h` above the ground, `hab
 | `ui`, `legend`, `markers` | UI in the picture (see above) |
 | `follow` `{ at, dur, back, side, h, ahead }` | Chase camera on a moving spot (editor `runner:<i>`, a trial runner) |
 | `upload` `{ sel, file }` | A local file into a file input (the runner's `setInputFiles`; the W3X import) |
-| `act` `{ name, ... }` | Stage action. Game: `intro` (wait for the game's intro flight to land), `man` `{ dur, wait, spot? }` (into a tower's first-person view, aim and shoot, out), `photo`, `routes`, `markers`, `hints`, `credits`, `research`, `jumpWave`, `speed`, `planTowers` `{count, tower, from, to, route, offsets, step}`, `build` `{tower, spot, hold}`, `wave`, `waveDone` `{timeout}` (until none alive and none to come), `environment` `{patch}`. Editor: `settings` `{patch}` (EditorSettings, deep merge), `environment`, `trialSpeed`, `viewReady`, `idle`, `save`, `history` `{ to: 0 \| 'end', stepS }` |
+| `act` `{ name, ... }` | Stage action. Game: `intro` (wait for the game's intro flight to land), `man` `{ dur, wait, spot? }` (into a tower's first-person view, aim and shoot, out), `photo`, `routes`, `markers`, `hints`, `credits`, `research`, `jumpWave`, `speed`, `planTowers` `{count, tower, from, to, route, offsets, step}`, `build` `{tower, spot, hold}`, `wave`, `waveDone` `{timeout}` (until none alive and none to come), `enemiesNear` `{near, radius, kind?, timeout}` (until an enemy, of that type when given, is within `radius` m of a named spot), `upgradeAll` (every tower to its last level), `healthBars` `{on}`, `environment` `{patch}`. Editor: `settings` `{patch}` (EditorSettings, deep merge), `environment`, `trialSpeed`, `viewReady`, `idle`, `save`, `history` `{ to: 0 \| 'end', stepS }` |
 
 Intro pages: a scene with `intro: true` loads its page with `showreel=intro`: the hook hides the game's HUD from the
 first frame (lane lines, HQ and spawns stay), the runner starts the sound and the sync flash while the map loads, and
@@ -114,7 +114,7 @@ the scene's `intro` action waits until the game's intro flight has landed before
 then lies over the loading screen; in take 3 the runner did not find it there and placed those pages' sound by the
 clock.
 
-Programme files: `script.mjs` assembles `scenes/intro.mjs`, `editor.mjs`, `w3x.mjs`, `game.mjs`, `outro.mjs`
+Programme files: `script.mjs` assembles `scenes/intro.mjs`, `editor.mjs`, `editor2.mjs`, `w3x.mjs`, `worlds.mjs`, `game.mjs`, `outro.mjs`
 (helpers in `scenes/common.mjs`). `--script <file>` runs another programme (probes). Effect moments carry a mark
 `effect:<what>` (the change visibly done), map blocks a mark with the map's name: the cut
 (`tmp/showreel/edit/build.py`) cuts around them.

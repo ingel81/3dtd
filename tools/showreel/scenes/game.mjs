@@ -57,13 +57,13 @@ export const SCENES = [
       wait(2.2),
       { do: 'follow', at: { at: 'enemy:zombie' }, dur: 7, back: 7, side: 3.5, h: 1.8, ahead: 8, label: 'zombies' },
       // Over the canyon, looking down on the chainsaw and the slicer (a low orbit ends in the canyon wall)
-      frame([{ at: 'spot:5' }, { at: 'spot:4' }], { from: 200, pitch: 58, margin: 16, glide: 0.8 }),
+      frame([{ at: 'spot:5' }, { at: 'spot:4' }], { from: 200, pitch: 55, margin: 4, glide: 0.8 }),
       act('healthBars', { on: true }),
       act('speed', { value: 4 }),
       act('enemiesNear', { near: 'spot:5', radius: 45, timeout: 120 }),
       act('speed', { value: 1 }),
       { do: 'mark', name: 'zombies at the towers' },
-      frame([{ at: 'spot:5' }, { at: 'spot:4' }], { from: 200, pitch: 58, margin: 16, turn: 35, dur: 8, label: 'effect:chainsaw' }),
+      frame([{ at: 'spot:5' }, { at: 'spot:4' }], { from: 200, pitch: 55, margin: 4, turn: 35, dur: 8, label: 'effect:chainsaw' }),
       act('speed', { value: 3 }),
       act('waveDone', { timeout: 120 }),
     ],
@@ -74,20 +74,35 @@ export const SCENES = [
     // play speed; the camera on the boss until it falls, then slowly up and back
     name: 'game-boss',
     steps: [
+      act('speed', { value: 1 }),
+      // Between waves first: a jump asked while the last wave still winds down is refused (wave 2 came instead)
+      wait(2),
       act('upgradeAll'),
       act('jumpWave', { wave: 10 }),
-      wait(0.6),
+      wait(1.2),
       act('wave', { label: 'boss wave' }),
       { do: 'cursor', show: false },
       wait(4.5),
       { do: 'mark', name: 'effect:boss entrance' },
-      frame([{ at: 'spot:2' }, { at: 'spot:3' }, { at: 'spot:4' }, { at: 'spot:5' }], { from: 200, pitch: 36, margin: 4, glide: 1 }),
-      act('speed', { value: 4 }),
-      act('enemiesNear', { near: 'spot:5', radius: 110, kind: 'herbert', timeout: 150 }),
-      act('speed', { value: 1.5 }),
-      { do: 'mark', name: 'boss at the towers' },
-      // Behind the boss through the whole gauntlet: slicer and chainsaw, laser, bastion, ballista, until he falls
-      { do: 'follow', at: { at: 'enemy:herbert' }, dur: 90, back: 18, side: 9, h: 9, ahead: 8, label: 'boss' },
+      // Until the boss walks (the entrance shows him before he is on the map)
+      act('enemiesNear', { near: 'any', radius: 100000, kind: 'herbert', timeout: 60 }),
+      // Behind the boss from the gate: the walk to the towers at speed (cut), then at play speed through the
+      // gauntlet (chainsaw, ballista, slicer, laser, bastion) until he falls; the follow ends with him
+      {
+        do: 'par',
+        steps: [
+          { do: 'follow', at: { at: 'enemy:herbert' }, dur: 300, back: 18, side: 9, h: 9, ahead: 8, label: 'boss' },
+          {
+            do: 'seq',
+            steps: [
+              act('speed', { value: 4 }),
+              act('enemiesNear', { near: 'any', radius: 120, kind: 'herbert', timeout: 240 }),
+              act('speed', { value: 1.5 }),
+              { do: 'mark', name: 'boss at the towers' },
+            ],
+          },
+        ],
+      },
       // The follow ends as the boss falls: the climax; what is left of the wave goes at speed (cut)
       { do: 'mark', name: 'boss down' },
       wait(1.5),
