@@ -373,7 +373,9 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
 - **Wasserfall** (`waterfall`): gebogene Fläche von der Kante (`height`) bis zum Fuß, Breite 2 × `radius`, fällt zur
   Vorderseite (+z) des Objekts und wird nach unten etwas breiter, in der Mitte leicht nach vorn gewölbt, dahinter eine
   schmalere zweite Fläche mit versetzten Streifen; zwei Lagen Streifen laufen herab (langsamer Körper,
-  schnelle helle Front), unten bricht das Wasser weiß; keine Ecken: die Seiten fransen mit einer laufenden Welle aus,
+  schnelle helle Front), darüber feine Fäden, zwischen den Streifen wird die Fläche dünner; an der Kante glatt und
+  glasig mit einem Lichtband, wo das Wasser über sie kippt, nach unten zerfällt es in Streifen und bricht weiß; keine
+  Ecken: die Seiten fransen mit einer laufenden Welle aus,
   die Kante beginnt dünn, der Fuß löst sich in der Gischt auf. Die Fläche taucht nicht in den Hang: fällt vor ihr eine
   steile Flanke statt einer Wand ab (die Kaskade des Fluss-Werkzeugs), rückt jede Zeile nach vorn, bis sie höchstens
   0,25 m im Boden und mindestens 0,2 m über dem Flussband liegt, höchstens so weit, wie der Fall hoch ist; ein Ufer oder

@@ -18,7 +18,10 @@ import { SHADER_NOISE } from '../shader-noise';
  * in the middle, and a second, narrower sheet hangs just behind it with its
  * streaks shifted, so it reads as a body of water, not a card. Two layers
  * of streaks at different speeds and scales run down it (a fast bright
- * front over a slower body). Where the water lands on a pool, a disc of churning foam
+ * front over a slower body), with fine threads over them; between the
+ * streaks the sheet thins out. At the lip the water is smooth and glassy,
+ * a band of light where it bends over the edge, and breaks into streaks as
+ * it falls. Where the water lands on a pool, a disc of churning foam
  * lies on the pool's surface (`pool`, same mesh and material) when the
  * water there is still; on a river sloping away below the foot it would
  * stand out of the surface. A step of a cascade gets none (effect-layer.ts):
@@ -277,15 +280,22 @@ void main() {
     float body = valueNoise(p * vec2(1.0, 0.25)) * 0.6 + valueNoise(p * vec2(2.3, 0.5) + 7.0) * 0.4;
     vec2 q = vec2(vUv.x * 9.0 + 4.0, vUv.y * 1.6 - uTime * 2.4);
     float front = valueNoise(q * vec2(1.0, 0.2)) * 0.7 + valueNoise(q * vec2(2.7, 0.6) + 11.0) * 0.3;
+    // Fine threads running down over the streaks
+    float threads = valueNoise(vec2(vUv.x * 26.0 + 2.0, vUv.y * 0.9 - uTime * 2.0));
     float foam = max(smoothstep(0.45, 0.85, body), smoothstep(0.55, 0.85, front) * 0.9);
-    // Lower down the water breaks into white
+    foam = clamp(foam + (threads - 0.5) * 0.35, 0.0, 1.0);
+    // Smooth and glassy at the lip, breaking into streaks as it falls; lower down the water breaks into white
+    float lip = 1.0 - smoothstep(0.0, 0.16, vFall);
+    foam *= 1.0 - lip * 0.75;
     foam = mix(foam, 1.0, smoothstep(0.55, 1.0, vFall) * 0.45);
-    color = mix(deep, white, foam * 0.8 + 0.15) * uLight;
+    // A band of light where the water bends over the edge
+    float sheen = smoothstep(0.01, 0.05, vFall) * (1.0 - smoothstep(0.05, 0.13, vFall)) * (0.7 + 0.3 * threads);
+    color = (mix(deep, white, foam * 0.8 + 0.15) + vec3(0.35, 0.4, 0.42) * sheen) * uLight;
     // Sides fray, more as it falls and spreads; the lip starts thin, the foot dissolves into the spray
     float wobble = valueNoise(vec2(vAcross * 3.0, vUv.y * 0.7 - uTime * 1.3)) - 0.5;
     float edge = min(vAcross, 1.0 - vAcross) + wobble * (0.25 + 0.2 * vFall) + (body - 0.5) * 0.1;
     float side = smoothstep(0.02, 0.24 + 0.16 * vFall, edge);
-    alpha = (0.5 + foam * 0.45) * smoothstep(0.0, 0.06, vFall) * (1.0 - smoothstep(0.82, 1.0, vFall + (front - 0.5) * 0.15)) * side;
+    alpha = (0.4 + foam * 0.55 + lip * 0.25) * smoothstep(0.0, 0.06, vFall) * (1.0 - smoothstep(0.82, 1.0, vFall + (front - 0.5) * 0.15)) * side;
   }
   gl_FragColor = vec4(color, alpha);
   #include <tonemapping_fragment>
