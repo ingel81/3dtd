@@ -114,9 +114,45 @@ describe('map scripts', () => {
     expect(r.commands).toHaveLength(6);
   });
 
+  it('makes water with map.water and reads it with map.waterBodies, no read hiding a command', () => {
+    const doc = map();
+    const r = ok(run(`const main = map.water(1, 'ice'); return { main, read: map.waterBodies() };`, doc));
+    expect(r.value).toMatchObject({ main: -1, read: { main: { level: 1, kind: 'ice' } } });
+    expect(r.commands.map((c) => c.op)).toEqual(['water']);
+    expect(doc.terrain.water).toMatchObject({ level: 1, kind: 'ice' });
+  });
+
+  it('removes roads by edge id and refuses ids that are not there, pointing roads to removeRoads', () => {
+    const doc = map();
+    ok(run(`map.road([{ x: -100, y: 0 }, { x: 100, y: 0 }]);`, doc));
+    const edge = doc.paths.edges[0].id;
+    expect(run(`map.removeObjects(['${edge}'])`, structuredClone(doc))).toMatchObject({ ok: false, error: expect.stringMatching(new RegExp(`no objects ${edge}.*is a road.*map\\.removeRoads`)) });
+    expect(run(`map.removeObjects(['o99'])`, structuredClone(doc))).toMatchObject({ ok: false, error: expect.stringMatching(/no objects o99/) });
+    expect(run(`map.removeRoads(['e99'])`, structuredClone(doc))).toMatchObject({ ok: false, error: expect.stringMatching(new RegExp(`no roads e99; roads: ${edge}`)) });
+    ok(run(`map.removeRoads(['${edge}'])`, doc));
+    expect(doc.paths.edges).toEqual([]);
+    expect(doc.paths.nodes).toEqual([]);
+  });
+
+  it('takes null for a left-out optional argument', () => {
+    const doc = map();
+    ok(run(`map.road([{ x: -100, y: 0 }, { x: 100, y: 0 }]); map.flattenRoads(null, 4, 3);`, doc));
+    expect(() => checkCommand('raise', [{ x: 0, y: 0 }, { radius: 1 }, null])).toThrow(/metres must be a number/);
+  });
+
+  it('names close catalogue ids for an unknown material or asset', () => {
+    expect(run(`map.paint('rock', { x: 0, y: 0 }, { radius: 5 })`)).toMatchObject({ ok: false, error: expect.stringMatching(/no material rock; close: [a-z-]*rock/) });
+    expect(run(`map.place('fir', 0, 0)`)).toMatchObject({ ok: false, error: expect.stringMatching(/no asset fir; close: .*tree-fir/) });
+    const empty = runMapScript(`map.place('tree-fir', 0, 0)`, map(), { materials: [], objects: [] }, { seed: 1 });
+    expect(empty).toMatchObject({ ok: false, error: expect.stringMatching(/asset catalogue did not load/) });
+  });
+
   it('documents every command in the reference', () => {
     const text = scriptReference();
     for (const op of Object.keys(SCRIPT_OPS)) expect(text).toContain(`map.${op}(`);
+    expect(text).toContain('map.waterBodies()');
+    expect(text).toMatch(/biome: temperate\|hell\|moon/);
+    expect(text).toMatch(/waves is \{ kind: 'budget' \}/);
   });
 
   it('levels the ground under a house a script places on a slope, not under a tree', () => {

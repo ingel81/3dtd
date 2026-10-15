@@ -215,4 +215,24 @@ export class CatalogIndex {
     for (const o of this.catalog.objects) seen.add(o.category);
     return [...seen].filter((c) => this.catalog.objects.some((o) => o.category === c));
   }
+
+  /** Whether the catalogue holds anything; an unreachable one is empty (MapAssetLibrary.catalog) */
+  get loaded(): boolean {
+    return this.materials.size > 0 || this.objects.size > 0;
+  }
+
+  /**
+   * Why a material or an object id is unknown, with the closest ids (sharing a
+   * word of the id, the name or a tag), for an error a script can act on
+   */
+  unknown(kind: 'material' | 'asset', id: string): string {
+    if (!this.loaded) return `no ${kind} ${id}: the asset catalogue did not load, so no material or object can be used`;
+    const words = id.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2);
+    const entries: { id: string; name: string; tags?: string[] }[] = kind === 'material' ? this.catalog.materials : this.catalog.objects.filter((o) => !o.internal);
+    const close = entries
+      .filter((e) => words.some((w) => e.id.includes(w) || e.name.toLowerCase().includes(w) || (e.tags ?? []).includes(w)))
+      .slice(0, 8)
+      .map((e) => e.id);
+    return `no ${kind} ${id}; ${close.length ? `close: ${close.join(', ')}` : 'the catalog tool lists them'}`;
+  }
 }

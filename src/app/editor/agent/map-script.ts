@@ -15,7 +15,7 @@
 import { CatalogIndex, type MapAssetCatalog } from '../catalog/asset-catalog';
 import { TERRAIN_PRESETS } from '../ops/generate';
 import { BIOMES } from '../ops/landscape/biomes';
-import { edgePolyline } from '../ops/path-graph';
+import { deleteEdge, edgePolyline } from '../ops/path-graph';
 import { contentFingerprint } from './agent-reads';
 import { dabCentres, facing, MapKit, rng, type Brush, type Where } from '../ops/map-kit';
 import { validateMapDocument } from '../../world/custom-map/map-file';
@@ -110,6 +110,13 @@ const PATH_KINDS = ['road', 'path', 'bridge'] as const;
 const BRIDGE_STYLES = ['wood', 'stone', 'lava'] as const;
 const SYMMETRIES = ['none', 'x', 'y', 'xy', 'rot2', 'rot4'] as const;
 
+const ENVIRONMENT_CHOICES: Record<string, readonly string[]> = {
+  sky: ['day', 'dusk', 'night', 'overcast'],
+  weather: ['clear', 'rain', 'snow', 'fog'],
+  biome: ['temperate', 'hell', 'moon', 'mars', 'arctic', 'apocalypse', 'swamp', 'desert', 'mountain', 'city'],
+};
+const ENVIRONMENT_NUMBERS = ['sunAzimuth', 'sunElevation', 'fogDensity', 'weatherStrength', 'snowCover', 'moonlight'];
+
 /**
  * Every command a script may call, by the kit's method name (and a few of
  * the editor's own: spawns and objects removed). Order as in the reference.
@@ -159,20 +166,24 @@ export const SCRIPT_OPS: Readonly<Record<string, OpSpec>> = {
   shoulderWalls: { args: [a('asset', STRING), a('options', OBJECT)], doc: 'Walls where the ground falls away beside roads; options { spacing, offset, minDrop, edges }' },
   clearRoads: { args: [a('keep', STRINGS, true)], doc: 'Delete objects that block building on a road (gates and arches stay)' },
   erase: { args: [a('at', POINT), a('radius', num(0, 5000))], doc: 'Delete objects within a radius' },
-  removeObjects: { args: [a('ids', STRINGS)], doc: 'Delete objects by id' },
+  removeObjects: { args: [a('ids', STRINGS)], doc: 'Delete objects by id (map.objects() lists them); an unknown id stops the script' },
   settleRocks: { args: [], doc: 'Lower rocks onto the ground shaped under them since' },
   // Paths tool and markers
   path: { args: [a('points', LINE), a('width', num(1, 60)), a('kind', one(PATH_KINDS), true), a('snap', num(0, 50), true), a('style', one(BRIDGE_STYLES), true)], doc: 'A plain path through the points (no grading or paint); returns the edge id' },
   walk: { args: [a('line', LINE), a('options', OBJECT, true)], doc: 'Paths along a line that turn into bridges over water; options { width, bridgeWidth, dry, wetBelow }' },
   bridgeStyle: { args: [a('style', one(BRIDGE_STYLES)), a('near', POINT, true), a('within', num(0, 2000), true)], doc: 'Style of every bridge, or of those near a point' },
+  removeRoads: { args: [a('edgeIds', STRINGS)], doc: 'Delete roads by edge id (map.roads() lists them) and the junctions they leave alone; the ground stays as it is' },
   flattenRoads: { args: [a('edgeIds', STRINGS, true), a('shoulder', num(0, 50), true), a('smoothing', num(0, 100), true)], doc: 'Flatten the ground under roads (all, or the given edges)', wholeGround: true },
   spawn: { args: [a('name', STRING), a('x', num()), a('y', num())], doc: 'A spawn portal' },
   removeSpawn: { args: [a('id', STRING)], doc: 'Remove a spawn by id' },
   clearSpawns: { args: [], doc: 'Remove every spawn' },
   hq: { args: [a('x', num()), a('y', num())], doc: 'Move the HQ' },
   // Environment and Gameplay
-  environment: { args: [a('patch', OBJECT)], doc: 'Sky and air: { sky: day|dusk|night|overcast, sunAzimuth, sunElevation, fogDensity, tint, weather: clear|rain|snow|fog, weatherStrength, biome, snowCover, moonlight, wind }' },
-  gameplay: { args: [a('rules', OBJECT)], doc: 'Rules: { startCredits, hqHealth, towers: [ids], waves, lanes, destructible, difficulty 50..200 }' },
+  environment: {
+    args: [a('patch', OBJECT)],
+    doc: `Sky and air: { sky: ${ENVIRONMENT_CHOICES['sky'].join('|')}, sunAzimuth, sunElevation (degrees), fogDensity, tint '#rrggbb', weather: ${ENVIRONMENT_CHOICES['weather'].join('|')}, weatherStrength 0..1, biome: ${ENVIRONMENT_CHOICES['biome'].join('|')} (the look of sky, light and air; not a landscape biome), snowCover 0..1, moonlight, wind { strength 0..1, direction degrees, gusts 0..1 } }`,
+  },
+  gameplay: { args: [a('rules', OBJECT)], doc: "Rules: { startCredits, hqHealth, towers: [tower ids], destructible: true|false, difficulty 50..200 (percent on the wave budget) }; waves is { kind: 'budget' } (the game's waves, the default) or a map's own table, there is no wave count" },
 };
 
 /** The reference of `map` for the agent (the script_api tool) */
@@ -185,8 +196,9 @@ export function scriptReference(): string {
     'Map scripts: plain JavaScript (no imports, no await) run against `map`. Coordinates in metres, x east, y north, (0, 0) the map centre.',
     'A point is { x, y }; a line is [point, ...]; `where` is a point or a line the brush is dragged along; a brush is { radius, strength?: 0..1, falloff?: 0..1 }.',
     'Globals: map, rng(seed) -> () => 0..1, facing(from, to) -> radians, log(...) (or console.log). `return` a value to get it back.',
-    'Reads (see the copy as the script left it): map.width, map.depth, map.cellSize, map.half, map.h(x, y), map.slope(x, y),',
-    '  map.noise(x, y, wave, octaves?) -> -1..1, map.ridged(x, y, wave, octaves?), map.objects(rect?), map.markers(), map.roads(), map.layers(), map.water(), map.lanes(), map.issues().',
+    'Reads (see the copy as the script left it): map.width, map.depth, map.cellSize, map.half, map.h(x, y) (metres), map.slope(x, y),',
+    '  map.noise(x, y, wave, octaves?) -> -1..1, map.ridged(x, y, wave, octaves?), map.objects(rect?), map.markers(), map.roads(), map.layers(), map.waterBodies(), map.lanes(), map.issues().',
+    'An optional argument may be left out or passed as undefined or null; later ones still count by position.',
     'Commands (each checked; the whole script lands as one undo step and plays back animated):',
     ...lines,
     'Order that works: ground shape (generate, form, cliff), rivers, roads, spawns and HQ, then biomes and paint, then single objects. Prefer strokes along lines over many single dabs.',
@@ -280,7 +292,8 @@ export function checkCommand(op: string, args: readonly unknown[]): ScriptComman
   const spec = Object.prototype.hasOwnProperty.call(SCRIPT_OPS, op) ? SCRIPT_OPS[op] : undefined;
   if (!spec) throw new ScriptError(`map.${op} is no command`);
   if (args.length > spec.args.length) throw new ScriptError(`map.${op} takes ${spec.args.length} arguments, got ${args.length}`);
-  const copy = args.map((v, k) => plainData(v, `map.${op}: ${spec.args[k].name}`));
+  // null stands for a left-out optional argument, as undefined does
+  const copy = args.map((v, k) => (v === null && spec.args[k].optional ? undefined : plainData(v, `map.${op}: ${spec.args[k].name}`)));
   // Trailing undefined arguments are left out, as if not passed
   while (copy.length && copy[copy.length - 1] === undefined) copy.pop();
   spec.args.forEach((arg, k) => {
@@ -298,6 +311,9 @@ export function checkCommand(op: string, args: readonly unknown[]): ScriptComman
   }
   return { op, args: copy };
 }
+
+/** Commands that paint materials or place objects: they need the asset catalogue */
+export const ASSET_OPS: ReadonlySet<string> = new Set(['biome', 'biomeBand', 'layer', 'paint', 'autoPaint', 'cliffs', 'paintRoads', 'place', 'scatter', 'row', 'chimney', 'shoulderWalls']);
 
 /** Whether a command may change the ground all over the map */
 export function changesWholeGround(op: string): boolean {
@@ -329,7 +345,21 @@ export function applyCommand(kit: MapKit, command: ScriptCommand): unknown {
       return undefined;
     case 'removeObjects': {
       const ids = new Set(args[0] as string[]);
+      const known = new Set(doc.objects.map((o) => o.id));
+      const missing = [...ids].filter((id) => !known.has(id));
+      if (missing.length) {
+        const roads = missing.filter((id) => doc.paths.edges.some((e) => e.id === id));
+        const hint = roads.length ? `; ${roads.join(', ')} ${roads.length > 1 ? 'are roads' : 'is a road'}, map.removeRoads deletes roads` : '; map.objects() lists them';
+        throw new ScriptError(`map.removeObjects: there are no objects ${missing.slice(0, 10).join(', ')}${hint}`);
+      }
       doc.objects = doc.objects.filter((o) => !ids.has(o.id));
+      return undefined;
+    }
+    case 'removeRoads': {
+      const ids = args[0] as string[];
+      const missing = ids.filter((id) => !doc.paths.edges.some((e) => e.id === id));
+      if (missing.length) throw new ScriptError(`map.removeRoads: there are no roads ${missing.slice(0, 10).join(', ')}; roads: ${doc.paths.edges.map((e) => e.id).join(', ') || 'none'}`);
+      for (const id of ids) deleteEdge(doc.paths, id);
       return undefined;
     }
     case 'removeSpawn': {
@@ -357,13 +387,6 @@ export function applyCommand(kit: MapKit, command: ScriptCommand): unknown {
   if (typeof method !== 'function') throw new ScriptError(`map.${command.op} is no command`);
   return method.apply(kit, args);
 }
-
-const ENVIRONMENT_CHOICES: Record<string, readonly string[]> = {
-  sky: ['day', 'dusk', 'night', 'overcast'],
-  weather: ['clear', 'rain', 'snow', 'fog'],
-  biome: ['temperate', 'hell', 'moon', 'mars', 'arctic', 'apocalypse', 'swamp', 'desert', 'mountain', 'city'],
-};
-const ENVIRONMENT_NUMBERS = ['sunAzimuth', 'sunElevation', 'fogDensity', 'weatherStrength', 'snowCover', 'moonlight'];
 
 /** An environment patch the map file and the renderer take: known keys, known choices, numbers */
 export function checkEnvironment(patch: Record<string, unknown>): Partial<CustomMapDocument['environment']> {
@@ -428,7 +451,7 @@ export function scriptMap(kit: MapKit, kept: ScriptCommand[], options: Required<
     if (typeof v !== 'number' || !Number.isFinite(v)) throw new ScriptError(`${name} must be a number`);
     return v;
   };
-  Object.assign(api, {
+  const reads: Record<string, unknown> = {
     h: (x: number, y: number) => kit.h(finite(x, 'map.h: x'), finite(y, 'map.h: y')),
     slope: (x: number, y: number) => kit.slope(finite(x, 'map.slope: x'), finite(y, 'map.slope: y')),
     noise: (x: number, y: number, wave: number, octaves?: number) => kit.noise.fbm(finite(x, 'x'), finite(y, 'y'), finite(wave, 'wave'), Math.min(8, Math.max(1, octaves ?? 4))),
@@ -437,7 +460,7 @@ export function scriptMap(kit: MapKit, kept: ScriptCommand[], options: Required<
     markers: () => forScript({ hq: doc.hq, spawns: doc.spawns }),
     roads: () => forScript(doc.paths.edges.map((e) => ({ id: e.id, kind: e.kind, width: e.width, points: edgePolyline(doc.paths, e) }))),
     layers: () => t().layers.map((l) => l.material),
-    water: () =>
+    waterBodies: () =>
       forScript({
         main: t().water ? { level: t().water!.level, kind: t().water!.kind ?? 'water' } : null,
         bodies: (t().waterBodies ?? []).map((b, index) => ({ index, level: b.level, kind: b.kind ?? 'water' })),
@@ -445,7 +468,10 @@ export function scriptMap(kit: MapKit, kept: ScriptCommand[], options: Required<
       }),
     lanes: () => kit.lanes(),
     issues: () => kit.issues().map((i) => ({ severity: i.severity, message: i.message })),
-  });
+  };
+  // A read named like a command would hide it (map.water once read the water instead of making it)
+  for (const name of Object.keys(reads)) if (name in api) throw new Error(`map.${name} is both a command and a read`);
+  Object.assign(api, reads);
   return Object.freeze(api);
 }
 

@@ -38,15 +38,15 @@ Server noch Schalter.
 | `map_heights` | liest | Höhen in einem Rechteck, auf höchstens 128 Werte je Seite verkleinert, Dezimeter |
 | `map_objects` | liest | Objekte in einem Rechteck (oder alle), optional eines Assets, höchstens 1000 |
 | `check_map` | liest | Prüfen des Editors als Daten (öffnet auch das Prüf-Panel für den Menschen) |
-| `catalog` | liest | Materialien, Objekt-Assets (Größe, blockiert Bauen), Biome, Generator-Vorlagen, Landformen; Filter category, tag, search |
+| `catalog` | liest | Materialien, Objekt-Assets, Biome, Generator-Vorlagen, Landformen. Ohne Filter nur die Ids nach Kategorie (alles mit Zeilen wären rund 80 KB); mit category (Objekt-Kategorie oder `Materials`), tag oder search die vollen Zeilen (Größe, Tags, blockiert Bauen); eine unbekannte Kategorie nennt die vorhandenen. Ohne geladenen Katalog ein Fehler |
 | `script_api` | liest | Befehle und Lesefunktionen von `map` für Skripte (aus `SCRIPT_OPS`) |
 | `view_picture` | liest | Bild des App-Fensters (`webContents.capturePage`, JPEG, höchstens 1600 px breit) |
 | `top_down_picture` | liest | Karte von oben, Norden oben, höchstens 1024 px (JPEG) |
 | `list_maps` | liest | eigene und mitgelieferte Karten, welche offen ist |
 | `read_map` | liest | Zusammenfassung, Höhen oder Objekte einer beliebigen Karte, ohne sie zu öffnen |
-| `run_script` | ändert | Skript gegen die offene Karte, ein Undo-Schritt, animiert abgespielt |
+| `run_script` | ändert | Skript gegen die offene Karte, ein Undo-Schritt, animiert abgespielt; `dry_run` nur auf der Kopie |
 | `move_marker` | ändert | HQ (`hq`) oder einen Spawn (Id oder Name) versetzen |
-| `place_object`, `move_object`, `delete_objects` | ändert | einzelne Objekte |
+| `place_object`, `move_object`, `delete_objects` | ändert | einzelne Objekte; eine Straßen-Id in `delete_objects` verweist auf `map.removeRoads` |
 | `set_rules` | ändert | Regeln (`gameplay`), verworfen, wenn die Karte so nicht speicherbar wäre |
 | `set_sky` | ändert | Himmel und Luft (`environment`), nur bekannte Schlüssel und Werte |
 | `undo_last` | ändert | letzten Schritt des Agenten zurücknehmen |
@@ -64,7 +64,7 @@ Ein Skript ist schlichtes JavaScript (kein `import`, kein `await`) gegen `map`. 
 baut): Generator, Landschaftsstriche (Biome, Formen, Klippen, Erosion, Fluss, Straße), Terrain-, Paint- und
 Wasserpinsel entlang Punkten, Objekte setzen, streuen, in Reihen, Wege, Spawns, HQ, Symmetrie, Himmel, Regeln.
 Lesen: `map.h(x, y)`, `map.slope`, `map.noise`, `map.ridged`, `map.objects(rect)`, `map.markers()`, `map.roads()`,
-`map.layers()`, `map.water()`, `map.lanes()`, `map.issues()`. Dazu `rng(seed)`, `facing(a, b)`, `log(...)`. Die volle
+`map.layers()`, `map.waterBodies()`, `map.lanes()`, `map.issues()`. Dazu `rng(seed)`, `facing(a, b)`, `log(...)`. Die volle
 Liste mit Argumenten liefert `script_api` (`scriptReference()` aus `SCRIPT_OPS` in `agent/map-script.ts`).
 
 ```js
@@ -101,7 +101,22 @@ Ablauf:
    ein Fingerabdruck der Karte nach dem Abspielen gegen den der Kopie (gleicher Code, gleicher Seed; anders nur, wenn
    der Mensch die Karte inzwischen änderte).
 
-Ein Skript, das scheitert, ändert nichts; die Antwort nennt Fehler und Zeile.
+Ein Skript, das scheitert, ändert nichts; die Antwort nennt Fehler und Zeile. Ein Skript, dessen Befehle die Karte so
+lassen, wie sie war (Fingerabdruck gleich), wird nicht abgespielt und macht keinen Undo-Schritt (`changed: false`).
+Mit `dry_run: true` läuft es nur in der Sandbox: Logzeilen, Rückgabewert und Zahl der Befehle, die Karte bleibt.
+
+Namen: Befehl und Lesefunktion heißen nie gleich (`scriptMap` bricht sonst ab). Bis 2026-10-15 verdeckte die
+Lesefunktion `map.water()` den Befehl `map.water(level, kind)`, ein Agent bekam statt neuen Wassers dessen Liste; die
+Lesefunktion heißt jetzt `map.waterBodies()`. Ein optionales Argument darf `null` sein (wie ausgelassen), spätere
+zählen weiter nach Stelle. `map.removeObjects` und `map.removeRoads` brechen bei unbekannten Ids ab statt still nichts
+zu tun; eine Straßen-Id in `removeObjects` nennt `removeRoads`. Ein unbekanntes Material oder Asset nennt nahe Ids aus
+dem Katalog.
+
+Katalog: Ist er nicht geladen (die Kartendaten waren nicht erreichbar, `MapAssetLibrary.catalog` gibt dann einen
+leeren), antworten `catalog`, `place_object` und jedes Skript mit Befehlen aus `ASSET_OPS` (Biome, Malen, Objekte)
+mit einem Fehler, der das sagt, statt mit leeren Listen. Formen, Wasser, Straßen, Marker, Himmel und Regeln gehen
+weiter. Die Desktop-App aus einem Checkout (nicht gepackt) liefert die Kartendaten aus `public/maps` selbst aus
+(`localMapDataRoot` in `desktop/src/main.js`); die gepackte App lädt sie wie die Webversion vom Webserver (E134).
 
 ## Sicherheit
 
@@ -168,13 +183,17 @@ Bridge).
   `.htaccess`.
 - `src/app/editor/agent/map-script.spec.ts`: Befehle behalten, Lesen nach Ändern, Abspielen ergibt denselben
   Fingerabdruck (Generator, Straße, Farbe in Läufen, Biom, Streuen), Ablehnungen mit Zeile, verdeckte Namen,
-  Rückgaben ohne Durchgriff auf die Karte, Spawn-Ids, Referenz vollständig.
+  Rückgaben ohne Durchgriff auf die Karte, Spawn-Ids, Referenz vollständig; `map.water` macht Wasser und
+  `waterBodies` liest es, `removeRoads` und Ablehnung unbekannter Ids, `null` als ausgelassen, nahe Ids bei unbekanntem
+  Material oder Asset, Katalog nicht geladen.
 - `tools/agent/script-worker.spec.ts`: der gebaute Worker in eigenem Realm: Sperre vor dem Skript, auch über den
   Function-Konstruktor, eine Antwort je Worker.
 - `src/app/editor/ui/editor-session.spec.ts` (AI agent): ein Skript ist ein Undo-Schritt und Undo nimmt alles zurück;
   gescheitertes Skript ändert nichts; Cancel stellt die Karte wieder her und ein zweiter Aufruf wartet; direkte
   Werkzeuge je ein Schritt, `undo_last` nur für eigene Schritte; Lesen, Kopieren, keine offene Karte; jedes Werkzeug
-  über die Bridge mit `reply` als klonbare Antwort mit Text, Abmelden beim Verlassen.
+  über die Bridge mit `reply` als klonbare Antwort mit Text, Abmelden beim Verlassen; Fehler statt leerer Listen ohne
+  Katalog, knapper Katalog ohne Filter, `dry_run` und kein Undo-Schritt ohne Änderung, Straße über `removeRoads`.
+- `desktop/test/protocol.test.js` (map data of a checkout): Kartendatei aus `public/maps`, nur unter `maps/`.
 - `settings-sections.scenario.spec.ts`: Schalter, Adresse, nicht in der Webversion.
 
 ## Von Hand testen (Desktop-App)

@@ -84,10 +84,10 @@ const WRITE = { readOnlyHint: false, destructiveHint: false, idempotentHint: fal
  */
 const TOOLS = [
   ['map_summary', 'The map open in the editor at a glance: size, heights, ground layers, water, roads, spawns with their lane lengths, HQ, objects by category, scene cost, sky, rules and the undo history. Start here.', {}, READ],
-  ['map_heights', 'Ground heights over a rectangle, downsampled to `samples` a side (default 32, at most 128); rows from south to north, decimetres.', { ...rect, samples: z.number().int().min(2).max(128).optional() }, READ],
+  ['map_heights', 'Ground heights over a rectangle, downsampled to `samples` a side (default 32, at most 128); rows from south to north, metres rounded to 0.1.', { ...rect, samples: z.number().int().min(2).max(128).optional() }, READ],
   ['map_objects', 'Objects in a rectangle (all without one), optionally of one asset; at most 1000 listed.', { ...optionalRect, asset: z.string().optional() }, READ],
   ['check_map', "The editor's check of the open map as data: errors (the map cannot be played) and warnings, each with where to look.", {}, READ],
-  ['catalog', 'What can be painted and placed: ground materials, object assets (size, whether they block building), biomes, generator presets, landforms. Narrow it with category, tag or search.', { category: z.string().optional(), tag: z.string().optional(), search: z.string().optional() }, READ],
+  ['catalog', 'What can be painted and placed: ground materials, object assets, landscape biomes, generator presets, landforms. Without a filter only the ids, grouped; with category (an object category or "Materials"), tag (e.g. winter, volcanic, coast) or search the full rows (size, tags, whether it blocks building).', { category: z.string().optional(), tag: z.string().optional(), search: z.string().optional() }, READ],
   ['script_api', 'The commands and reads a run_script script has (`map.*`), with their arguments. Read it before the first script.', {}, READ],
   ['view_picture', 'A picture of the app window as the player sees it (the editor view and its panels). Use it sparingly; the check and the numbers usually say enough.', { max_width: z.number().int().min(320).max(MAX_VIEW_WIDTH).optional() }, READ],
   ['top_down_picture', 'The open map from straight above, north up, `size` pixels a side (default 512, at most 1024).', { size: z.number().int().min(128).max(1024).optional() }, READ],
@@ -95,21 +95,22 @@ const TOOLS = [
   ['read_map', 'Read any map without opening it: its summary, heights or objects (as map_summary, map_heights, map_objects). Never changes it.', { id: z.string(), what: z.enum(['summary', 'heights', 'objects']).optional(), ...optionalRect, samples: z.number().int().min(2).max(128).optional(), asset: z.string().optional() }, READ],
   [
     'run_script',
-    'Run a JavaScript script against the open map (`map.raise(...)`, `map.road(...)`, `map.biome(...)` …; see script_api). It runs sandboxed on a copy first (no network, no files, 30 s); then the editor plays its commands on the map, animated for the player, as ONE undo step. A failing script changes nothing. Prefer few scripts with many commands, strokes along lines over single dabs.',
+    'Run a JavaScript script against the open map (`map.raise(...)`, `map.road(...)`, `map.biome(...)` …; see script_api). It runs sandboxed on a copy first (no network, no files, 30 s); then the editor plays its commands on the map, animated for the player, as ONE undo step. A failing script changes nothing, nor does one that leaves the map as it was. The answer carries the findings of the check. dry_run: true only runs it on the copy (to try reads or a command) and changes nothing. Prefer few scripts with many commands, strokes along lines over single dabs.',
     {
       source: z.string().min(1).max(1_000_000).describe('The script body; `return` a value to get it back'),
       label: z.string().max(60).optional().describe('Name of the undo step, after "Agent: "'),
       seed: z.number().int().optional().describe('Seed of the random strokes (default 1)'),
       animate: z.boolean().optional().describe('Draw it over a few seconds for the player (default true)'),
+      dry_run: z.boolean().optional().describe('Run on a copy only and return its logs and value; the map stays as it is (default false)'),
     },
     WRITE,
   ],
   ['move_marker', 'Move the HQ (target "hq") or a spawn (its id or name) to a point.', { target: z.string(), x: z.number(), y: z.number() }, WRITE],
   ['place_object', 'Place one object of a catalog asset.', { asset: z.string(), x: z.number(), y: z.number(), ...placement }, WRITE],
   ['move_object', 'Move, turn, scale or tint one object by id.', { id: z.string(), x: z.number().optional(), y: z.number().optional(), ...placement }, WRITE],
-  ['delete_objects', 'Delete objects by id.', { ids: z.array(z.string()).min(1) }, WRITE],
-  ['set_rules', 'Change the rules (gameplay): startCredits, hqHealth, towers (ids), waves, lanes, destructible, difficulty 50..200.', { rules: z.record(z.string(), z.unknown()) }, WRITE],
-  ['set_sky', 'Change sky and air: sky (day, dusk, night, overcast), sunAzimuth, sunElevation, fogDensity, tint, weather (clear, rain, snow, fog), weatherStrength, biome, snowCover, moonlight, wind { strength, direction, gusts }.', { environment: z.record(z.string(), z.unknown()) }, WRITE],
+  ['delete_objects', 'Delete objects by id (map_objects lists them). Roads are no objects: map.removeRoads in run_script deletes them.', { ids: z.array(z.string()).min(1) }, WRITE],
+  ['set_rules', "Change the rules (gameplay), merged into the map's: startCredits, hqHealth, towers (tower ids, all when left out), destructible (true|false), difficulty 50..200 (percent on the wave budget, 100 normal). waves is { kind: 'budget' } (the game's waves, the default) or a map's own table; there is no wave count.", { rules: z.record(z.string(), z.unknown()) }, WRITE],
+  ['set_sky', "Change sky and air: sky (day, dusk, night, overcast), sunAzimuth, sunElevation (degrees), fogDensity, tint ('#rrggbb'), weather (clear, rain, snow, fog), weatherStrength 0..1, biome (the look of sky, light and air: temperate, hell, moon, mars, arctic, apocalypse, swamp, desert, mountain, city), snowCover 0..1, moonlight 0..1, wind { strength 0..1, direction degrees, gusts 0..1 }.", { environment: z.record(z.string(), z.unknown()) }, WRITE],
   ['undo_last', "Undo the agent's own last step; a step of the player stays.", {}, WRITE],
   ['copy_map', 'Copy any map (own or shipped) as a new own map; returns its id. The open map stays open; other maps are never changed.', { id: z.string(), name: z.string().max(80).optional() }, WRITE],
 ];
@@ -119,6 +120,7 @@ const INSTRUCTIONS = [
   'Coordinates are metres, x east, y north, (0, 0) the map centre. Each change is one undo step named "Agent: …".',
   'Work in few run_script calls (read script_api first): strokes along lines and polygons, many commands per script.',
   'Then check_map and map_summary; pictures only now and then. Other maps can be read and copied, not changed.',
+  'A new map may already hold a spawn, a road and the HQ: map_summary lists them.',
 ].join(' ');
 
 /** An editor answer as an MCP tool result */

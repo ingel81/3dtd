@@ -134,21 +134,46 @@ export function issuesAsData(issues: readonly MapIssue[]): { errors: number; war
   };
 }
 
-/** What can be painted, placed and brushed, optionally narrowed to a category, a tag or a word */
+/** The category name that lists the ground materials in `catalogAsData` */
+export const MATERIALS_CATEGORY = 'Materials';
+
+/**
+ * What can be painted, placed and brushed, optionally narrowed to a category
+ * (an object category or MATERIALS_CATEGORY), a tag or a word. Without any
+ * filter only the ids come back, grouped (the full rows of all of it run to
+ * some 80 KB); a filter gives the full rows.
+ */
 export function catalogAsData(catalog: CatalogIndex, filter: { category?: string; tag?: string; search?: string } = {}): Record<string, unknown> {
   const word = filter.search?.toLowerCase();
-  const matches = (e: { id: string; name: string; tags?: string[]; category?: string }) =>
-    (!filter.category || e.category === filter.category) && (!filter.tag || (e.tags ?? []).includes(filter.tag)) && (!word || e.id.includes(word) || e.name.toLowerCase().includes(word));
-  return {
-    materials: catalog.catalog.materials.filter((m) => !filter.category && matches(m)).map((m) => ({ id: m.id, name: m.name, tags: m.tags ?? [] })),
-    objects: catalog.catalog.objects
-      .filter((o) => !o.internal && matches(o))
-      .map((o) => ({ id: o.id, name: o.name, category: o.category, radius: r2(o.radius), height: r2(o.height), blocksBuild: o.blocksBuild, blocksLos: o.blocksLos, tags: o.tags ?? [] })),
-    categories: catalog.categories(),
+  const category = filter.category?.toLowerCase();
+  const wantsMaterials = !category || category === MATERIALS_CATEGORY.toLowerCase() || category === 'material';
+  const matches = (e: { id: string; name: string; tags?: string[] }) =>
+    (!filter.tag || (e.tags ?? []).includes(filter.tag)) && (!word || e.id.includes(word) || e.name.toLowerCase().includes(word));
+  const materials = wantsMaterials ? catalog.catalog.materials.filter(matches) : [];
+  const objects = catalog.catalog.objects.filter((o) => !o.internal && (!category || o.category.toLowerCase() === category) && matches(o));
+  const lists = {
+    categories: [MATERIALS_CATEGORY, ...catalog.categories()],
     tags: catalog.biomes(),
     biomes: BIOMES.map((b) => ({ id: b.id, label: b.label, hint: b.hint })),
     terrainPresets: TERRAIN_PRESETS.map((p) => ({ id: p.id, hint: p.hint })),
     landforms: ['mountain', 'valley', 'plateau', 'crater', 'dunes'],
+  };
+  if (!filter.category && !filter.tag && !word) {
+    const byCategory: Record<string, string[]> = {};
+    for (const o of objects) (byCategory[o.category] ??= []).push(o.id);
+    return {
+      note: 'Ids only. Ask again with category, tag or search for sizes, tags and whether an object blocks building.',
+      materials: materials.map((m) => m.id),
+      objects: byCategory,
+      ...lists,
+    };
+  }
+  const unknownCategory = !!category && !wantsMaterials && !catalog.categories().some((c) => c.toLowerCase() === category);
+  return {
+    ...(unknownCategory ? { note: `There is no category ${filter.category}; the categories are ${lists.categories.join(', ')}` } : {}),
+    materials: materials.map((m) => ({ id: m.id, name: m.name, tags: m.tags ?? [] })),
+    objects: objects.map((o) => ({ id: o.id, name: o.name, category: o.category, radius: r2(o.radius), height: r2(o.height), blocksBuild: o.blocksBuild, blocksLos: o.blocksLos, tags: o.tags ?? [] })),
+    ...lists,
   };
 }
 

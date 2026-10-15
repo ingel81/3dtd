@@ -14,8 +14,8 @@ import type { MapIssue } from '../validation/map-validation';
 import { validateMapDocument } from '../../world/custom-map/map-file';
 import type { MapStore } from '../../world/custom-map/map-store';
 import type { CustomMapDocument, MapObject } from '../../world/custom-map/map-document';
-import { catalogAsData, heightsIn, issuesAsData, mapSummary, objectsIn, type MapRect } from './agent-reads';
-import { checkEnvironment, scriptReference, type ScriptRunResult } from './map-script';
+import { catalogAsData, contentFingerprint, heightsIn, issuesAsData, mapSummary, objectsIn, type MapRect } from './agent-reads';
+import { ASSET_OPS, checkEnvironment, scriptReference, type ScriptRunResult } from './map-script';
 import { playCommands, type PlayResult } from './script-playback';
 
 /** Every step the agent makes starts with this in the history */
@@ -46,6 +46,11 @@ export interface AgentHost {
 
 /** Runs a script in the sandbox (script-sandbox.ts); tests run it in-process */
 export type ScriptSandbox = (source: string, doc: CustomMapDocument, catalog: CatalogIndex, seed: number) => Promise<ScriptRunResult>;
+
+/** What every call that needs materials or objects says when the catalogue did not load */
+const NO_CATALOG =
+  'The asset catalogue did not load (maps/assets/catalog.json was not reachable), so no material, object or landscape biome can be used. ' +
+  'Shaping the ground, water, roads, spawns, the HQ, sky and rules still work. Ask the player to check the map data download and reopen the editor.';
 
 class AgentError extends Error {
   override name = 'AgentError';
@@ -101,7 +106,7 @@ export class EditorAgent {
       case 'check_map':
         return json(issuesAsData(this.withMap(() => this.host.runCheck())));
       case 'catalog':
-        return json(catalogAsData(this.host.catalog(), { category: args['category'] as string | undefined, tag: args['tag'] as string | undefined, search: args['search'] as string | undefined }));
+        return json(catalogAsData(this.loadedCatalog(), { category: args['category'] as string | undefined, tag: args['tag'] as string | undefined, search: args['search'] as string | undefined }));
       case 'script_api':
         return { text: scriptReference() };
       case 'top_down_picture':
@@ -148,6 +153,13 @@ export class EditorAgent {
   private withMap<T>(read: () => T): T {
     this.editorOrThrow();
     return read();
+  }
+
+  /** The asset catalogue, or an error saying it did not load (an unreachable one is empty) */
+  private loadedCatalog(): CatalogIndex {
+    const catalog = this.host.catalog();
+    if (!catalog.loaded) throw new AgentError(NO_CATALOG);
+    return catalog;
   }
 
   private history(): { steps: number; last: string | null } {
@@ -219,7 +231,15 @@ export class EditorAgent {
     const catalog = this.host.catalog();
     const result = await this.sandbox(source, structuredClone(opened), catalog, seed);
     if (!result.ok) return { text: JSON.stringify({ ok: false, error: result.error, logs: result.logs }), isError: true };
-    if (!result.commands.length) return json({ ok: true, changed: false, logs: result.logs, value: result.value });
+    const needsAssets = [...new Set(result.commands.filter((c) => ASSET_OPS.has(c.op)).map((c) => c.op))];
+    if (needsAssets.length && !catalog.loaded) return { text: JSON.stringify({ ok: false, error: `${NO_CATALOG} The script calls ${needsAssets.map((op) => `map.${op}`).join(', ')}.`, logs: result.logs }), isError: true };
+    if (args['dry_run'] === true) {
+      return json({ ok: true, dryRun: true, changed: false, commands: result.commands.length, note: 'Ran on a copy only; the map is unchanged', logs: result.logs, value: result.value });
+    }
+    // Commands that end where the map was (a removal of nothing, a stroke undone) make no undo step
+    if (!result.commands.length || result.fingerprint === contentFingerprint(opened)) {
+      return json({ ok: true, changed: false, commands: result.commands.length, logs: result.logs, value: result.value });
+    }
     // The map may have changed while the script ran (the player): play on what is there now
     if (this.host.editor !== editor || editor.doc !== opened) throw new AgentError('The editor opened another map while the script ran; nothing changed');
     this.host.flash(`${label}: ${result.commands.length} commands`);
@@ -287,7 +307,8 @@ export class EditorAgent {
     const doc = this.changeableEditor().doc;
     const catalog = this.host.catalog();
     const asset = text(args, 'asset');
-    if (!catalog.objects.has(asset)) throw new AgentError(`There is no asset ${asset}; the catalog tool lists them`);
+    if (!catalog.loaded) throw new AgentError(NO_CATALOG);
+    if (!catalog.objects.has(asset)) throw new AgentError(`There is ${catalog.unknown('asset', asset)}`);
     num(args, 'x');
     num(args, 'y');
     let object: MapObject = { id: new ObjectIds(doc.objects).take(), asset, x: 0, y: 0, z: 0, rotation: 0, scale: 1, ...this.placement(args) };
@@ -314,7 +335,11 @@ export class EditorAgent {
     if (!Array.isArray(ids) || !ids.length || ids.some((i) => typeof i !== 'string')) throw new AgentError('ids must be a list of object ids');
     const known = new Set(doc.objects.map((o) => o.id));
     const missing = (ids as string[]).filter((i) => !known.has(i));
-    if (missing.length) throw new AgentError(`There are no objects ${missing.slice(0, 10).join(', ')}`);
+    if (missing.length) {
+      const roads = missing.filter((i) => doc.paths.edges.some((e) => e.id === i));
+      const hint = roads.length ? `; ${roads.join(', ')} ${roads.length > 1 ? 'are roads' : 'is a road'}: run_script with map.removeRoads([...]) deletes roads` : '; map_objects lists them';
+      throw new AgentError(`There are no objects ${missing.slice(0, 10).join(', ')}${hint}`);
+    }
     return this.commit(ObjectsCommand.remove(`${AGENT_LABEL}delete ${ids.length} objects`, doc, ids as string[]), `${ids.length} deleted`);
   }
 

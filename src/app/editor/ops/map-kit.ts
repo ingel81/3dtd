@@ -386,7 +386,7 @@ export class MapKit {
   /** The layer of a material, added to the list when it is missing */
   layer(material: string): number {
     const t = this.doc.terrain;
-    if (!this.catalog.materials.has(material)) throw new Error(`${this.name}: no material ${material}`);
+    if (!this.catalog.materials.has(material)) throw new Error(`${this.name}: ${this.catalog.unknown('material', material)}`);
     const k = t.layers.findIndex((l) => l.material === material);
     if (k >= 0) return k;
     if (t.layers.length >= this.maxLayers) throw new Error(`${this.name}: ground layers full, ${material} left out`);
@@ -433,7 +433,7 @@ export class MapKit {
 
   /** The cliff material for steep faces (its own slot, not one of the ground layers) and from which angle */
   cliffs(material: string, angle: number): void {
-    if (!this.catalog.materials.has(material)) throw new Error(`${this.name}: no material ${material}`);
+    if (!this.catalog.materials.has(material)) throw new Error(`${this.name}: ${this.catalog.unknown('material', material)}`);
     this.doc.terrain.cliffMaterial = material;
     this.doc.terrain.cliffAngle = angle;
   }
@@ -523,7 +523,7 @@ export class MapKit {
 
   /** Place one object (and its symmetric images); a rock settles onto its plate as in the editor */
   place(asset: string, x: number, y: number, o: PlaceOptions = {}): MapObject {
-    if (!this.catalog.objects.has(asset)) throw new Error(`${this.name}: no asset ${asset}`);
+    if (!this.catalog.objects.has(asset)) throw new Error(`${this.name}: ${this.catalog.unknown('asset', asset)}`);
     const ids = new ObjectIds(this.doc.objects);
     const rock = rockShape(this.catalog.object(asset));
     let object: MapObject = {
@@ -560,7 +560,7 @@ export class MapKit {
    * Landscape brushes would refuse (roads, markers, water) are dropped
    */
   scatter(assets: readonly string[], where: Where, brush: Brush, options: Partial<ScatterOptions> = {}, avoidRoads = true, hold = 1): MapObject[] {
-    for (const a of assets) if (!this.catalog.objects.has(a)) throw new Error(`${this.name}: no asset ${a}`);
+    for (const a of assets) if (!this.catalog.objects.has(a)) throw new Error(`${this.name}: ${this.catalog.unknown('asset', a)}`);
     const b = brushOf(brush);
     const random = rng(this.nextSeed());
     const grid = new ObjectGrid(8, this.doc.objects);

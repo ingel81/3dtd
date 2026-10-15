@@ -12,6 +12,7 @@ import { resolve } from 'node:path';
 import { CatalogIndex, normalizeCatalog } from '../catalog/asset-catalog';
 import { EditorAgent, type ScriptSandbox } from '../agent/editor-agent';
 import { runMapScript } from '../agent/map-script';
+import { contentFingerprint } from '../agent/agent-reads';
 
 function session(): { s: EditorSession; backend: MemoryMapBackend; history: VersionHistory; versions: MemoryVersionBackend } {
   const s = TestBed.runInInjectionContext(() => new EditorSession());
@@ -422,7 +423,7 @@ describe('editor session and the AI agent', () => {
     const before = s.editor!.historySteps;
     const answer = await call(agent, 'run_script', { source: `map.raise({ x: 0, y: 0 }, { radius: 12 }, 3);\nmap.place('no-such-thing', 0, 0);` });
     expect(answer.isError).toBe(true);
-    expect(JSON.parse(answer.text).error).toMatch(/no asset no-such-thing \(line 2\)/);
+    expect(JSON.parse(answer.text).error).toMatch(/no asset no-such-thing;.*\(line 2\)/);
     expect(s.editor!.historySteps).toBe(before);
     s.ngOnDestroy();
   });
@@ -483,6 +484,62 @@ describe('editor session and the AI agent', () => {
     expect((await call(agent, 'teleport')).isError).toBe(true);
     s.editor = null;
     expect((await call(agent, 'map_summary')).text).toMatch(/No map is open/);
+    s.ngOnDestroy();
+  });
+
+  it('says the asset catalogue did not load instead of answering with empty lists', async () => {
+    const { s } = session();
+    await s.catalogReady.catch(() => undefined);
+    const agent = new EditorAgent(s, inProcess);
+    for (const answer of [await call(agent, 'catalog'), await call(agent, 'place_object', { asset: 'tree-fir', x: 0, y: 0 })]) {
+      expect(answer.isError).toBe(true);
+      expect(answer.text).toMatch(/asset catalogue did not load/);
+    }
+    const painted = await call(agent, 'run_script', { source: `map.biome('forest', { x: 0, y: 0 }, { radius: 10 });` });
+    expect(painted.isError).toBe(true);
+    expect(JSON.parse(painted.text).error).toMatch(/did not load.*map\.biome/);
+    // Shaping the ground needs no catalogue
+    expect(JSON.parse((await call(agent, 'run_script', { source: `map.raise({ x: 0, y: 0 }, { radius: 10 }, 2);`, animate: false })).text)).toMatchObject({ changed: true });
+    s.ngOnDestroy();
+  });
+
+  it('lists the catalogue compactly without a filter, materials as a category, and names an unknown one', async () => {
+    const { s, agent } = await agentSession();
+    const all = JSON.parse((await call(agent, 'catalog')).text);
+    expect(all.materials).toContain('grass');
+    expect(all.objects['Trees']).toContain('tree-fir');
+    expect(all.categories[0]).toBe('Materials');
+    expect(JSON.stringify(all).length).toBeLessThan(30_000);
+    const materials = JSON.parse((await call(agent, 'catalog', { category: 'materials' })).text);
+    expect(materials.materials.length).toBeGreaterThan(10);
+    expect(materials.objects).toEqual([]);
+    expect(JSON.parse((await call(agent, 'catalog', { category: 'ground' })).text).note).toMatch(/no category ground; the categories are Materials, /);
+    s.ngOnDestroy();
+  });
+
+  it('tries a script on a copy with dry_run, and makes no undo step for one that changes nothing', async () => {
+    const { s, agent } = await agentSession();
+    const steps = s.editor!.historySteps;
+    const before = contentFingerprint(s.editor!.doc);
+    const dry = JSON.parse((await call(agent, 'run_script', { source: `map.raise({ x: 0, y: 0 }, { radius: 10 }, 4); return map.h(0, 0) > 3;`, dry_run: true })).text);
+    expect(dry).toMatchObject({ ok: true, dryRun: true, changed: false, commands: 1, value: true });
+    const hq = s.editor!.doc.hq;
+    const same = JSON.parse((await call(agent, 'run_script', { source: `map.hq(${hq.x}, ${hq.y});` })).text);
+    expect(same).toMatchObject({ ok: true, changed: false, commands: 1 });
+    expect(s.editor!.historySteps).toBe(steps);
+    expect(contentFingerprint(s.editor!.doc)).toBe(before);
+    s.ngOnDestroy();
+  });
+
+  it('points a road id given to delete_objects to removeRoads, which deletes it as one step', async () => {
+    const { s, agent } = await agentSession();
+    expect(JSON.parse((await call(agent, 'run_script', { source: `map.road([{ x: -20, y: 0 }, { x: 20, y: 0 }]);`, animate: false })).text)).toMatchObject({ changed: true });
+    const edge = s.editor!.doc.paths.edges[0].id;
+    const refused = await call(agent, 'delete_objects', { ids: [edge] });
+    expect(refused.isError).toBe(true);
+    expect(refused.text).toMatch(new RegExp(`${edge} is a road: run_script with map\\.removeRoads`));
+    expect(JSON.parse((await call(agent, 'run_script', { source: `map.removeRoads(['${edge}']);`, animate: false })).text)).toMatchObject({ changed: true });
+    expect(s.editor!.doc.paths.edges.some((e) => e.id === edge)).toBe(false);
     s.ngOnDestroy();
   });
 
