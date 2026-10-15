@@ -76,8 +76,13 @@ zu; eine Schneegrenze ist beim Renderer gewünscht), die Seilbahn hat Seile aus 
 `pitch` entlang des Hangs geneigt, und eine Gondel je Feld (Bild `mountain-pass-cablecar.jpg`). Steinbrücke über den Bach (`style: 'stone'`, Bild `mountain-pass-bridge.jpg`); der Bergsee ist ein
 eigenes Gewässer, weil der Spiegel des Hauptwassers jedes Brückendeck der Karte auf seine Höhe hebt. Hochgebirge
 (E184): ein Gletscher an der Innenflanke jedes Gipfels (`glacier`, zum Dorf hin sichtbar, Schneeböen am Kopf),
-Lawinenverbauung als versetzte Reihen auf drei Höhenlinien über dem Pass (Palisaden als Platzhalter, bis ein Modell
-da ist), vier Almhütten mit Holzstapel und Pferch auf den Hochweiden, Adler (Vogelschwarm) über beiden Gipfeln.
+Lawinenverbauung (`avalanche-barrier`, die oberste Reihe eingeschneit) als versetzte Dreiergruppen auf drei
+Höhenlinien über dem Pass, jede quer zur Falllinie; kleine Séracs im steilen unteren Teil jeder Zunge, Altschneefelder
+(`snowfield`, mit dem Hang gekippt) nur dort, wo der Boden unter der Platte eben genug ist; das `glacier`-Modell ist
+weggelassen (liest sich als heller Klotz, die Zunge bleibt aus Gelände). Vier Almhütten mit Holzstapel, Pferch und
+Kühen auf den Hochweiden, Schafe am Talrand. Leben: Greifvögel über beiden Gipfeln, Singvögel über dem Tal,
+Schneegestöber am Kopf der Gletscher; Wind über der ganzen Karte, am Pass lauter, Bachrauschen vom Wasserfall talwärts,
+Vogelgesang im Tal. Offen: Gondeln fahren nicht (kein Mechanismus für Seilbahnen), Kuhglocken (kein Klang).
 
 Biom Berge, Look `mountain`, später Nachmittag. Ein Pass zwischen zwei Gipfeln; die Straße windet sich in Serpentinen
 vom Tal zum Pass, wo das HQ in einem Bergdorf steht (Steinhäuser mit Holzbalkon, Kapelle, Stützmauern). Ein Wasserfall
