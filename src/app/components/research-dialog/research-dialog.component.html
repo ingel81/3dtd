@@ -94,13 +94,20 @@
           } @else {
             @if (!viewOnly()) {
               <p class="td-note td-rd-hint">
-                Starts in this order. Credits are charged when a research begins, and an entry waits
-                until you can pay for it.
+                Starts in this order; drag a row or use its arrows to change it. Credits are charged
+                when a research begins, and an entry waits until you can pay for it.
               </p>
             }
-            <ol class="td-rows">
+            <ol class="td-rows" cdkDropList cdkDropListLockAxis="y" [cdkDropListData]="queue()"
+                [cdkDropListDisabled]="viewOnly()" (cdkDropListDropped)="onDrop($event)">
               @for (id of queue(); track id; let i = $index; let first = $first; let last = $last) {
-                <li class="td-row td-rd-qrow">
+                <li class="td-row td-rd-qrow" cdkDrag [cdkDragData]="id" cdkDragPreviewContainer="parent">
+                  <div class="td-well td-rd-qslot" *cdkDragPlaceholder></div>
+                  @if (!viewOnly()) {
+                    <span class="td-rd-qgrip" cdkDragHandle [attr.aria-hidden]="true" title="Drag to reorder">
+                      <td-icon name="dragHandle" [size]="14" />
+                    </span>
+                  }
                   <span class="td-tag td-num">{{ i + 1 }}</span>
                   <td-icon class="td-rd-qi" [name]="$any(researchIcon(id))" [size]="17" />
                   <span class="td-name td-rd-qname">{{ researchName(id) }}</span>

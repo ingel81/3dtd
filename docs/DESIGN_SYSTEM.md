@@ -533,6 +533,12 @@ Coop davor Reiter je Spieler als `td-seg`). Das Brett liegt vertieft (`--td-tree
 Tier-Spalte links; rechts Warteschlange und Detail mit Köpfen wie in der Sidebar (`td-head`); unten Legende und die
 Zählung je Strang (`td-tag` mit Raute in der Strangfarbe).
 
+Die Warteschlange sortiert man per Ziehen (E109, `@angular/cdk/drag-drop`, gehört zu Angular Material und war schon
+Abhängigkeit): ein Griff (`dragHandle`) links in jeder Zeile, die Zeile hebt sich als helle Platte (`--td-stone-lit`,
+`--td-raised-lit`), ihr Platz bleibt als flache Mulde, die anderen gleiten zur Seite. Der Drop schickt
+`command:move-queued-research`; bis die Simulation die neue Reihe meldet, zeigt der Dialog die gezogene Reihenfolge.
+Die Pfeile hoch und runter bleiben für die Tastatur. Die Warteschlange eines Koop-Partners hat weder Griff noch Pfeile.
+
 Der Graph ist `components/tech-tree/`, eine darstellende Komponente ohne Fachwissen. Geometrie aus
 `utils/dag-layout.ts`. Knoten sind Steinplatten (`--td-raised-quiet`, Radius `--td-radius`) mit dem Symbol in einer
 Mulde; Zustand und Strang tragen Information und kommen aus eigenen Tokens:

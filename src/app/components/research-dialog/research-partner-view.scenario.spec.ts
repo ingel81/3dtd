@@ -21,6 +21,9 @@ import { getTestBed, TestBed } from '@angular/core/testing';
 import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MATERIAL_ANIMATIONS } from '@angular/material/core';
+import { CdkDrag, CdkDragHandle, CdkDragPlaceholder, CdkDropList, type CdkDragDrop } from '@angular/cdk/drag-drop';
+import { ResearchStore } from '../../store/research.store';
+import type { ResearchId } from '../../configs/research/research.types';
 import { GameEventBus } from '../../game-engine/game-event-bus';
 import { ResearchManager } from '../../managers/research.manager';
 import { SimMirror } from '../../sim/client/mirror/sim-mirror';
@@ -119,7 +122,7 @@ describe('Coop research view of a partner (TODO E35)', () => {
         templateUrl: undefined,
         styleUrl: undefined,
         styles: [],
-        imports: [MatDialogModule, IconStub, TreeStub, DragScrollStub],
+        imports: [MatDialogModule, IconStub, TreeStub, DragScrollStub, CdkDropList, CdkDrag, CdkDragHandle, CdkDragPlaceholder],
       },
     });
     dialog = TestBed.inject(MatDialog);
@@ -194,6 +197,42 @@ describe('Coop research view of a partner (TODO E35)', () => {
     expect(overlay().querySelector('.td-rd-viewonly')).toBeNull();
     expect(readouts()).toEqual(['Slots 0/1', 'Credits 750']);
     expect(nodeState('biology')).not.toBe('completed');
+  });
+
+  it('a partner\'s queue has no drag grip, the own one has one per row (TODO E109)', async () => {
+    TestBed.inject(ResearchStore).queuedResearches.set(['ice-magic', 'biology']);
+    await openResearchDialog(dialog, TestBed.inject(Injector), 'p2');
+    await settle();
+    expect(overlay().querySelectorAll('.td-rd-qgrip')).toHaveLength(0);
+    tabs()[0].click();
+    await settle();
+    expect(overlay().querySelectorAll('.td-rd-qgrip')).toHaveLength(2);
+  });
+
+  it('a row dropped elsewhere in the own queue moves it there and shows the new order until the next queue (TODO E109)', async () => {
+    inGame.set(false);
+    const store = TestBed.inject(ResearchStore);
+    store.queuedResearches.set(['ice-magic', 'biology', 'fire-alchemy']);
+    const ref = await openResearchDialog(dialog, TestBed.inject(Injector));
+    await settle();
+    const names = () => [...overlay().querySelectorAll('.td-rd-qname')].map((n) => n.textContent!.trim());
+    const before = names();
+
+    const component = ref!.componentInstance as unknown as { onDrop(e: Partial<CdkDragDrop<readonly ResearchId[], readonly ResearchId[], ResearchId>>): void };
+    component.onDrop({ previousIndex: 2, currentIndex: 0, item: { data: 'fire-alchemy' } as CdkDragDrop<ResearchId[]>['item'] });
+    await settle();
+    expect(emitCommand).toHaveBeenCalledWith({ type: 'command:move-queued-research', researchId: 'fire-alchemy', toIndex: 0 });
+    expect(names()).toEqual([before[2], before[0], before[1]]);
+
+    // The simulation's answer replaces the shown order, whatever it says
+    store.queuedResearches.set(['biology', 'ice-magic']);
+    await settle();
+    expect(names()).toHaveLength(2);
+
+    // A drop on its own place sends nothing
+    emitCommand.mockClear();
+    component.onDrop({ previousIndex: 1, currentIndex: 1, item: { data: 'ice-magic' } as CdkDragDrop<ResearchId[]>['item'] });
+    expect(emitCommand).not.toHaveBeenCalled();
   });
 
   it('alone: no tabs, the own tree', async () => {
