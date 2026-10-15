@@ -583,8 +583,8 @@ Bestand baut der Asset-Worker aus; Stand beim Schreiben:
   Steinhaufen `rock-large`: Fußabdruck 1,8 m, Platte 7,4 mal 3,6 m). 52 Felsen haben eine; Kulissenstücke ohne Platte
   (Kraterränder, Becken, Felsbogen, Klippen- und Küstenwände, Tafelberg, Eisberg, Gletscher; `NO_PLATE` im Skript) keine. Wie
   der Editor Felsen damit absetzt: [LEVEL_EDITOR.md](LEVEL_EDITOR.md), Objekte
-- **393 Katalog-Objekte**, davon 384 Modelle (GLB, meshopt, WebP bis 512 px, große Klippen 1024 px) und 9 Effekt-Marker; je
-  Kategorie 121 Requisiten, 70 Felsen, 66 Gebäude, 42 Pflanzen, 31 Bäume, 33 Mauern und Zäune, 21 Bauwerke
+- **401 Katalog-Objekte**, davon 392 Modelle (GLB, meshopt, WebP bis 512 px, große Klippen 1024 px) und 9 Effekt-Marker; je
+  Kategorie 124 Requisiten, 71 Felsen, 68 Gebäude, 42 Pflanzen, 31 Bäume, 33 Mauern und Zäune, 23 Bauwerke
   (`structure`). Je Biom: Laub- und Nadelbäume mit Herbst-
   und Schneevarianten, Trauerweide, Mangrove, Palmen, Kakteen, Köcherbäume; Sträucher, Hecken, Gras je Biom, Schilf,
   Weizen, Blumen, Seerosen, Pilze; Felsen je Gesteinsart, modulare Klippen, Sandsteinsäulen, Tafelberg, Felsbogen,
@@ -597,12 +597,16 @@ Bestand baut der Asset-Worker aus; Stand beim Schreiben:
   (Auto, Pickup, Lkw, Bus, Panzerwrack, je intakt, verrostet, ausgebrannt); Teile der Vorzeige-Level (Seilbahn,
   Hexenhütte, Hafen, Karawanenzelt, Schmiede, Burgruine); Wahrzeichen (E179, `build_landmarks.py`: Tunnelportal aus
   Stein und aus Beton, Burgruine als ein Stück, Gletscherzunge, Séracs, Lawinenverbauung blank und eingeschneit,
-  Schiffswrack, Rakete mit Startturm); Streu-Steine; Fackeln, Feuer, Wasserfall
+  Schiffswrack, Rakete mit Startturm, Obsidianturm, Flutlichtmast, Positionslicht, Glockenturm auch mit Schnee,
+  Steinkreis, Tribok, eingestürzte Hochstraße); Streu-Steine; Fackeln, Feuer, Wasserfall
 - **Wahrzeichen** (E179): `tunnel-portal` und `tunnel-portal-concrete` (Bauwerk, Sicht- und Bausperre) sind
   Tunnelmünder für Straßen: Fassade mit 8 m breiter Öffnung, Flügelmauern, ein 14 m tiefes Gewölbe mit Fahrbahn,
   das in ein schwarzes Ende ausläuft, Fels des Hangs darum; Ursprung am Fuß der Öffnung, die Straße läuft entlang +Z
   (glTF) hinein, ein Portal je Tunnelende. Bauwerke stehen auf dem Boden unter ihrer Mitte und ebnen nichts ein.
-  `castle-ruin` (Gebäude, rund 36 mal 30 m, 22 m hoch) ebnet beim Setzen wie jedes Gebäude ein. `glacier` (Fels ohne
+  `castle-ruin` (Gebäude, rund 36 mal 30 m, 22 m hoch) und `bell-tower(-snow)` (25 m) ebnen beim Setzen wie jedes
+  Gebäude ein. `stone-circle` (15 m) und `highway-collapsed` (rund 50 m entlang X, Hochstraße auf 9 m) sind Bauwerke,
+  `trebuchet` (wirft nach vorn, -Z in glTF), `floodlight-mast` und `beacon-post` (mit Katalog-Licht) Requisiten,
+  `obsidian-tower` (14 m) ein Fels mit Platte. `glacier` (Fels ohne
   Platte, 90 m lang, reicht 10 m in den Boden) steigt selbst kaum an: mit „An Hang ausrichten“ kippt er mit dem Hang;
   auf ebenem Boden wirkt er wie eine Eisplatte. `avalanche-barrier(-snow)` sind 4-m-Felder für Reihen am Hang
   (Bauwerk, Bausperre, die Streben reichen bergauf). `shipwreck` ist eine Requisite (kein Einebnen, liegt 1,5 m im
@@ -613,7 +617,7 @@ Bestand baut der Asset-Worker aus; Stand beim Schreiben:
   `castle`, `crystal`, `arena`, `city`, `wasteland`, `moon`, `mars`, `arctic`, `hell`; Rollen für Pinsel `conifer`,
   `shore`, `water`, `undergrowth`, `scree`. `category` bleibt die Art. Material- und Objekt-Ids teilen sich einen
   Namensraum
-- 84 Objekte haben eine Fernstufe (`lod`, `-lod1.glb` ohne Texturen, ab 350 m bzw. 40 % der Sichtweite), 32 ein
+- 89 Objekte haben eine Fernstufe (`lod`, `-lod1.glb` ohne Texturen, ab 350 m bzw. 40 % der Sichtweite), 34 ein
   Licht (`light`), 40 Effekte (`effects`); 10 schwimmen (`float`: Boote, Schiff, Bojen, Seerosen, Eisscholle,
   Steg, Pier; Ursprung des Modells ist die Wasserlinie, ihr z zählt ab dem Spiegel unter ihnen, auf trockenem Boden ab
   dem Boden; eine Wassertiefe in z hebt sie in die Luft, das meldet die Prüfung `object-floating`). 9 stehen absichtlich

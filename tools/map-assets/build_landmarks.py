@@ -4,9 +4,11 @@ Tunnel portals for roads through a hill (an old stone one, a modern
 concrete one with lamps; the road runs in along +Y), a castle ruin on its
 own as a landmark, a glacier tongue and a serac field, avalanche barriers
 (steel snow bridges, bare and snowed in), a shipwreck stranded on its
-side, and a rocket with its launch tower. Built from Poly Haven textures
-and the shared builders; every piece gets baked AO and a flat-coloured
-copy for distance.
+side, a rocket with its launch tower, an obsidian tower, a floodlight
+mast and a beacon post, a bell tower (also snowed), a stone circle, a
+trebuchet and a collapsed highway. Built from Poly Haven textures and the
+shared builders; every piece gets baked AO, the larger ones a
+flat-coloured copy for distance.
 """
 import math
 import random
