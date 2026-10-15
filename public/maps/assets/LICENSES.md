@@ -542,6 +542,7 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | fx-sparkle | Effekt des Renderers, kein Modell |
 | fx-waterfall | Effekt des Renderers, kein Modell |
 | fx-birds | Effekt des Renderers, kein Modell |
+| fx-beacon | Effekt des Renderers, kein Modell |
 | house-modern | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brushed_concrete |
 | house-modern-red | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete |
 | house-semi | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete |

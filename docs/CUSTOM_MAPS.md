@@ -413,9 +413,19 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   Krustenplatten gleiten langsam über glühende Ströme, hell an der Lippe und am Fuß, ohne Tag-Nacht-Dämpfung; am Fuß
   Glut und etwas Rauch statt Gischt, keine Schaumscheibe (Attribut `aLava`, ein Zweig im selben Shader)
 - **Lichter** (`light`: Farbe, Stärke, Reichweite, Höhe, `flicker`): jedes bekommt einen additiven Schein (am Tag
+  noch Scheibe: das Wasser läuft dort die nächste Fläche hinab, Schaum hinge sonst vor der Klippe in der Luft
+- **Lichtkegel** (`beam`, `effects/light-beams.ts`): zwei Kegel gegenüber aus der Lichthöhe (`height`), `radius` lang,
+  drehen sich mit den drehenden Teilen des Objekts (unten), additiv, mittig heller, nur bei Dunkelheit; ein Mesh für
+  alle. Der Leuchtturm hat einen (Höhe 20 m, 70 m lang, eine Umdrehung in 10 s)
+- **Drehende Teile** (`objects/spin.ts`): Teile eines Modells mit Material `spin-…` drehen sich im Vertex-Shader um
+  die senkrechte Achse durch den Ursprung des Modells, eine Umdrehung in `spin` Sekunden (Katalog, Standard 8), jedes
+  Objekt mit eigenem Startwinkel aus seiner Lage, auf der Uhr des Winds (das Standbild hält sie an); sie werden nicht
+  mit anderen Teilen zusammengelegt (`mergeKey`). Radarschüssel und Leuchtturm-Linse liefert die Modellseite (E179)
+- **Lichter** (`light`: Farbe, Stärke, Reichweite, Höhe, `flicker`, `blink`): jedes bekommt einen additiven Schein (am Tag
   schwach, nachts voll); dazu ein fester Pool von 6 `PointLight`s für die Lichter nächst dem Kamerafokus, nach
   Dunkelheit eingeblendet (Nacht, Dämmerung, tiefe Sonne). Am Tag kosten sie nichts, die feste Poolgröße vermeidet
-  Shader-Neubau
+  Shader-Neubau. `blink` (Sekunden): ein kurzer Blitz je Periode (Schein und Punktlicht, auch am Tag gut sichtbar),
+  backt kein Licht auf den Boden; der Antennenmast blinkt alle 1,5 s, `fx-beacon` setzt ein blinkendes Licht frei
 - **Leben aus dem Karteninhalt** (`CustomMapView.refreshAmbient`, ohne Bearbeiten): Glühwürmchen nachts (ab
   Dunkelheit 0,35) über den Ufern von Seen und Sümpfen (alle 12 m) und mitten in Wäldern (30-m-Quadrate mit mindestens
   6 Bäumen), höchstens 60 Schwärme, in den Biomen temperate, swamp, mountain. Vogelschwärme am Tag

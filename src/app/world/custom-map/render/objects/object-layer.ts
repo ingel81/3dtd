@@ -30,6 +30,7 @@ import { instanceVariation } from './instance-variation';
 import { bakeImpostor, type Impostor } from './impostor';
 import { addVertexRoughMetal, mergeParts } from './merge-parts';
 import { clothGeometry, isCloth } from './cloth';
+import { DEFAULT_SPIN, SPIN_GLSL } from './spin';
 import { addNightWindows, isWindowGlass } from './night-windows';
 import { addLodFade, blendAt, disposeFadeGeometry, fadeGeometry, REST_S, SETTLE_S, settleBlend } from './lod-fade';
 
@@ -1089,10 +1090,12 @@ export class MapObjectLayer {
     const flame = card && !waterfall && !!m0.emissive && m0.emissive.getHex() !== 0;
     // Banner cloth waves where the map asks for it (cloth.ts, WIND_UNIFORMS.uClothWave)
     const cloth = isCloth(m0);
+    // Parts that turn round the model's upright axis: a radar dish, a lighthouse's lens (catalogue `spin`)
+    const spin = m0.name.startsWith('spin-');
     const wind = waterfall ? 0 : entry.wind;
     // Floating objects that are not moored structures rock on the water
     const bob = !!entry.float && entry.category !== 'structure';
-    const key = `${source.uuid}|${wind}|${wind > 0 ? entry.height : 0}|${card ? entry.drawDistance : 0}|${bob ? 1 : 0}|${cloth ? 1 : 0}`;
+    const key = `${source.uuid}|${wind}|${wind > 0 ? entry.height : 0}|${card ? entry.drawDistance : 0}|${bob ? 1 : 0}|${cloth ? 1 : 0}|${spin ? (entry.spin ?? DEFAULT_SPIN) : 0}`;
     const cached = this.materials.get(key);
     if (cached) return cached;
     // Always an own copy: the library's material is shared (other views, the editor's thumbnails)
@@ -1104,7 +1107,7 @@ export class MapObjectLayer {
       const peak = Math.max(m.emissive.r, m.emissive.g, m.emissive.b) * m.emissiveIntensity;
       if (peak > MAX_EMISSIVE) m.emissiveIntensity *= MAX_EMISSIVE / peak;
     }
-    if (!card && wind <= 0 && !bob) {
+    if (!card && wind <= 0 && !bob && !spin) {
       if (m.userData['roughMetal']) addVertexRoughMetal(m);
       if (m.userData['nightGlow']) addNightWindows(m, true);
       else if (isWindowGlass(source.name)) addNightWindows(m, false);
@@ -1119,14 +1122,16 @@ export class MapObjectLayer {
       uWindBend: { value: windSwayAtTop(wind, entry.height) },
       uWindHeight: { value: Math.max(entry.height, 0.3) },
       uFadeRange: { value: new Vector2(entry.drawDistance * bias * 0.55, entry.drawDistance * bias) },
+      uSpinPeriod: { value: Math.max(0.5, entry.spin ?? DEFAULT_SPIN) },
     };
     if (card) this.fades.push({ range: local.uFadeRange.value, drawDistance: entry.drawDistance });
-    const variant = `${wind > 0 ? 'w' : ''}${card ? 'c' : ''}${waterfall ? 'f' : ''}${flame ? 'l' : ''}${bob ? 'b' : ''}${cloth ? 'k' : ''}`;
+    const variant = `${wind > 0 ? 'w' : ''}${card ? 'c' : ''}${waterfall ? 'f' : ''}${flame ? 'l' : ''}${bob ? 'b' : ''}${cloth ? 'k' : ''}${spin ? 's' : ''}`;
     m.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, WIND_UNIFORMS);
       shader.uniforms['uWindBend'] = local.uWindBend;
       shader.uniforms['uWindHeight'] = local.uWindHeight;
       shader.uniforms['uFadeRange'] = local.uFadeRange;
+      shader.uniforms['uSpinPeriod'] = local.uSpinPeriod;
       shader.vertexShader = shader.vertexShader.replace('#include <common>', `#include <common>\n${WIND_GLSL}\nuniform float uWindBend;\nuniform float uWindHeight;`);
       if (wind > 0) {
         shader.vertexShader = shader.vertexShader.replace(
@@ -1183,6 +1188,29 @@ export class MapObjectLayer {
             transformed.y += heave + transformed.x * roll + transformed.z * pitch;
           }`,
         );
+      }
+      if (spin) {
+        // Turning round the model's upright axis, each object at its own angle (spinAngle): the shape and its normals
+        const angle = `float spinPhase = 0.0;
+            #ifdef USE_INSTANCING
+            spinPhase = spinAngle(instanceMatrix[3].xz);
+            #endif
+            float spinA = uWindTime * 6.2831853 / uSpinPeriod + spinPhase;
+            mat2 spinTurn = mat2(cos(spinA), sin(spinA), -sin(spinA), cos(spinA));`;
+        shader.vertexShader = shader.vertexShader
+          .replace('#include <common>', `#include <common>
+uniform float uSpinPeriod;
+${SPIN_GLSL}`)
+          .replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>
+{
+${angle}
+objectNormal.xz = spinTurn * objectNormal.xz;
+}`)
+          .replace('#include <begin_vertex>', `#include <begin_vertex>
+{
+${angle}
+transformed.xz = spinTurn * transformed.xz;
+}`);
       }
       if (cloth) {
         // The cloth ripples down from where it is fastened, more at its free end, and blows out with the wind

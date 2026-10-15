@@ -27,7 +27,7 @@ import { WIND_UNIFORMS } from '../environment/wind';
  * normally. Weather (rain, snow around the camera) is weather.ts.
  */
 
-export type ParticleKind = Exclude<EffectKind, 'waterfall' | 'birds'> | 'spray' | 'dust';
+export type ParticleKind = Exclude<EffectKind, 'waterfall' | 'birds' | 'beam'> | 'spray' | 'dust';
 
 const KIND_ID: Record<ParticleKind, number> = {
   fire: 0,

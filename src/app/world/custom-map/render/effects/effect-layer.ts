@@ -22,6 +22,8 @@ import { buildWaterfalls, fallFoot, fallLip, fallReach, type WaterfallSpec } fro
 import { LAMP_LIGHT_UNIFORMS, LampLight, type LampSpot } from './lamp-light';
 import { BirdFlocks, circleFlock, type Flock } from './bird-flocks';
 import { isParticleLife, lifeEmitters, lifeFlock } from './life-areas';
+import { buildBeams, type Beam } from './light-beams';
+import { DEFAULT_SPIN } from '../objects/spin';
 
 /**
  * Effects and lights of the map's objects, from their catalogue entries
@@ -65,6 +67,8 @@ interface LightSpot {
   cap: number;
   flicker: boolean;
   seed: number;
+  /** Seconds between two short flashes; 0 a light that stays on */
+  blink: number;
 }
 
 export class EffectLayer {
@@ -94,6 +98,9 @@ export class EffectLayer {
   private lifeFlocks: Flock[] = [];
   readonly birds = new BirdFlocks();
   private waterfalls: Mesh | null = null;
+  /** Sweeping light beams (a lighthouse), shown by darkness */
+  private beams: Mesh | null = null;
+  private readonly beamDarkness = { value: 0 };
   private glows: Mesh<InstancedBufferGeometry, ShaderMaterial> | null = null;
   private spots: LightSpot[] = [];
   /** Lights that do not come from objects: glowing lava */
@@ -145,6 +152,7 @@ export class EffectLayer {
     const emitters = new Map<ParticleKind, ParticleEmitter[]>();
     const falls: WaterfallSpec[] = [];
     const feet: FallFoot[] = [];
+    const beams: Beam[] = [];
     const up = new Vector3(0, 1, 0);
     const q = new Quaternion();
     this.placedFlocks = [];
@@ -175,6 +183,16 @@ export class EffectLayer {
           spec.lava = this.lavaAt(-lip.x, lip.z) || [0, 2, 4, 6].some(ahead);
           falls.push(spec);
           feet.push({ foot, radius, rate: fx.rate, color: fx.color, lava: spec.lava });
+          continue;
+        }
+        if (fx.kind === 'beam') {
+          // The light's beams, turning with the object's spinning parts
+          beams.push({
+            origin: origin.clone().setY(origin.y + (fx.height ?? e.height * 0.9) * s),
+            length: (fx.radius ?? 60) * s,
+            color: fx.color ?? '#fff2cc',
+            period: e.spin ?? DEFAULT_SPIN,
+          });
           continue;
         }
         if (fx.kind === 'birds') {
@@ -219,6 +237,7 @@ export class EffectLayer {
           cap: lightCap(e.light.height * s),
           flicker: e.light.flicker ?? false,
           seed: this.spots.length * 1.618,
+          blink: e.light.blink ?? 0,
         });
       }
     }
@@ -232,6 +251,10 @@ export class EffectLayer {
     if (falls.length) {
       this.waterfalls = buildWaterfalls(falls, this.time, this.light, (x, z) => this.waterLevelAt(-x, z));
       this.group.add(this.waterfalls);
+    }
+    if (beams.length) {
+      this.beams = buildBeams(beams, this.beamDarkness);
+      this.group.add(this.beams);
     }
     if (this.spots.length) {
       this.glows = buildGlows(this.spots, this.time);
@@ -316,6 +339,7 @@ export class EffectLayer {
       cap: lightCap(5),
       flicker: true,
       seed: 100 + k * 2.3,
+      blink: 0,
     }));
     this.bakeLamps();
     this.showPool();
@@ -327,8 +351,9 @@ export class EffectLayer {
    * steadier than their point lights, which stand for a whole patch
    */
   private bakeLamps(): void {
+    // A blinking beacon lights no ground: its flash is too short for that
     const lamps: LampSpot[] = [
-      ...this.spots,
+      ...this.spots.filter((s) => !s.blink),
       ...this.extraSpots.map((s) => ({ position: s.position, color: s.color, intensity: 0.9, distance: 32, flicker: true })),
     ];
     this.lampsLit = this.lamps.bake(lamps);
@@ -473,6 +498,8 @@ export class EffectLayer {
     this.darkness = Math.min(1, Math.max(0, darkness));
     this.light.value = 1 - this.darkness * 0.85;
     if (this.glows) this.glows.material.uniforms['uDarkness'].value = this.darkness;
+    this.beamDarkness.value = this.darkness;
+    if (this.beams) this.beams.visible = this.darkness > 0.05;
     this.lightLamps();
     this.showAmbient();
     this.showPool();
@@ -529,7 +556,7 @@ export class EffectLayer {
       const flicker = spot.flicker
         ? 0.82 + 0.12 * Math.sin(this.time.value * 9 + spot.seed) + 0.06 * Math.sin(this.time.value * 23 + spot.seed * 3)
         : 1;
-      light.intensity = Math.min(spot.intensity * CANDELA, spot.cap) * flicker * this.darkness;
+      light.intensity = Math.min(spot.intensity * CANDELA, spot.cap) * flicker * this.darkness * (spot.blink ? blinkOn(this.time.value, spot.blink, spot.seed) : 1);
       light.updateMatrixWorld();
     });
   }
@@ -603,6 +630,15 @@ export class EffectLayer {
       });
       this.waterfalls = null;
     }
+    const beams = this.beams;
+    if (beams) {
+      beams.removeFromParent();
+      this.retired.push(() => {
+        beams.geometry.dispose();
+        (beams.material as ShaderMaterial).dispose();
+      });
+      this.beams = null;
+    }
     const glows = this.glows;
     if (glows) {
       glows.removeFromParent();
@@ -632,6 +668,12 @@ function push(map: Map<ParticleKind, ParticleEmitter[]>, e: ParticleEmitter): vo
   list.push(e);
 }
 
+/** Whether a blinking light flashes now (the glow shader's rule) */
+function blinkOn(time: number, period: number, seed: number): number {
+  const f = time / period + seed * 0.37;
+  return f - Math.floor(f) >= 0.82 ? 1 : 0;
+}
+
 /** The halo quads without lights, to compile their program before a map gets its first light (CustomMapView.effectTwins) */
 export function glowStandIn(): Mesh<InstancedBufferGeometry, ShaderMaterial> {
   return buildGlows([], { value: 0 });
@@ -646,12 +688,15 @@ function buildGlows(spots: LightSpot[], time: { value: number }): Mesh<Instanced
   g.setAttribute('uv', quad.getAttribute('uv'));
   const pos = new Float32Array(spots.length * 4);
   const col = new Float32Array(spots.length * 4);
+  const blink = new Float32Array(spots.length * 2);
   spots.forEach((s, k) => {
+    blink.set([s.blink, s.seed], k * 2);
     pos.set([s.position.x, s.position.y, s.position.z, Math.min(6, 0.6 + s.intensity * 1.2)], k * 4);
     col.set([s.color.r, s.color.g, s.color.b, s.flicker ? s.seed : -1], k * 4);
   });
   g.setAttribute('aPos', new InstancedBufferAttribute(pos, 4));
   g.setAttribute('aCol', new InstancedBufferAttribute(col, 4));
+  g.setAttribute('aBlink', new InstancedBufferAttribute(blink, 2));
   g.instanceCount = spots.length;
   quad.dispose();
   const material = new ShaderMaterial({
@@ -677,6 +722,7 @@ const GLOW_VERTEX = /* glsl */ `
 #include <logdepthbuf_pars_vertex>
 attribute vec4 aPos;
 attribute vec4 aCol;
+attribute vec2 aBlink;
 uniform float uTime;
 uniform float uDarkness;
 varying vec2 vUv;
@@ -685,6 +731,8 @@ void main() {
   float flicker = aCol.w < 0.0 ? 1.0 : 0.85 + 0.1 * sin(uTime * 9.0 + aCol.w) + 0.05 * sin(uTime * 23.0 + aCol.w * 3.0);
   // Faint by day (a lit lamp), full at night
   vColor = aCol.rgb * flicker * mix(0.25, 1.0, uDarkness);
+  // A beacon: a short bright flash every aBlink.x seconds, readable by day as well
+  if (aBlink.x > 0.0) vColor = aCol.rgb * mix(0.7, 1.0, uDarkness) * 1.6 * step(0.82, fract(uTime / aBlink.x + aBlink.y * 0.37));
   vUv = uv;
   vec4 mvPosition = modelViewMatrix * vec4(aPos.xyz, 1.0);
   // At night at least a hundredth of the distance across, so lamps read from the game camera high above

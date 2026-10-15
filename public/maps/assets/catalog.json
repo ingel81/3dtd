@@ -6557,8 +6557,16 @@
       "randomRotation": true,
       "wind": 0,
       "drawDistance": 3000,
+      "spin": 10,
       "tags": [
         "coast"
+      ],
+      "effects": [
+        {
+          "kind": "beam",
+          "height": 20,
+          "radius": 70
+        }
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/whitewashed_brick; https://polyhaven.com/a/castle_wall_slates"
     },
@@ -9873,7 +9881,7 @@
         "intensity": 0.6,
         "distance": 6,
         "height": 14.0,
-        "flicker": true
+        "blink": 1.5
       },
       "source": "procedural (tools/map-assets/build_space.py)"
     },
@@ -13323,6 +13331,38 @@
           "rate": 10
         }
       ],
+      "source": "Effekt des Renderers, kein Modell"
+    },
+    {
+      "id": "fx-beacon",
+      "name": "Blinking beacon",
+      "category": "fx",
+      "file": "",
+      "footprint": 0.3,
+      "height": 0.3,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.5
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "moon",
+        "mars",
+        "city",
+        "arctic",
+        "coast"
+      ],
+      "light": {
+        "color": "#ff2010",
+        "intensity": 0.6,
+        "distance": 6,
+        "height": 0.2,
+        "blink": 1.5
+      },
       "source": "Effekt des Renderers, kein Modell"
     },
     {

@@ -37,6 +37,8 @@ const catalog: AssetCatalog = {
     { ...base, id: 'house', name: 'House', category: 'building', footprint: 4, height: 7, effects: [{ kind: 'smoke', at: [2, -1], height: 7, rate: 2 }] },
     { ...base, id: 'fx-smoke', name: 'Smoke', effects: [{ kind: 'smoke', radius: 1, height: 0, rate: 4 }] },
     { ...base, id: 'fx-birds', name: 'Bird flock', effects: [{ kind: 'birds', radius: 45, height: 50, rate: 10 }] },
+    { ...base, id: 'lighthouse', name: 'Lighthouse', category: 'building', height: 22, spin: 10, effects: [{ kind: 'beam', height: 20, radius: 70 }] },
+    { ...base, id: 'beacon', name: 'Beacon', light: { color: '#ff2010', intensity: 0.6, distance: 6, height: 14, blink: 1.5 } },
     { ...base, id: 'fx-fireflies', name: 'Fireflies', effects: [{ kind: 'fireflies', radius: 8, height: 1.5, rate: 6, color: '#e6ff8c' }] },
   ],
 };
@@ -267,6 +269,25 @@ describe('EffectLayer', () => {
     layer.setLife({ auto: { sparks: true } });
     layer.setLavaLights([new Vector3(0, 9, 0), new Vector3(30, 9, 0)]);
     expect(sparks()).toBe(true);
+    layer.dispose();
+  });
+
+  it('sweeps a lighthouse beam pair at night only, and lets a beacon flash without lighting the ground', () => {
+    const layer = new EffectLayer(flat());
+    layer.set([place('l', 'lighthouse', 0), place('b', 'beacon', 30)], catalog);
+    const beams = layer.group.children.find((c): c is Mesh<InstancedBufferGeometry> => c instanceof Mesh && c.name === 'custom-map-beams')!;
+    expect(beams.geometry.instanceCount).toBe(2);
+    const at = beams.geometry.getAttribute('aBeam');
+    expect([at.getY(0), at.getW(0)]).toEqual([4 + 20, 70]);
+    expect(beams.geometry.getAttribute('aTurn').getX(0)).toBe(10);
+    layer.setDarkness(0);
+    expect(beams.visible).toBe(false);
+    layer.setDarkness(1);
+    expect(beams.visible).toBe(true);
+    // The beacon glows in flashes and is the only light: nothing baked on the ground
+    const glows = layer.group.children.find((c): c is Mesh<InstancedBufferGeometry> => c instanceof Mesh && c.name === 'custom-map-glows')!;
+    expect(glows.geometry.getAttribute('aBlink').getX(0)).toBe(1.5);
+    expect(LAMP_LIGHT_UNIFORMS.uLampOn.value).toBe(0);
     layer.dispose();
   });
 
