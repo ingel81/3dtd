@@ -47,7 +47,7 @@ Server noch Schalter.
 | `run_script` | ändert | Skript gegen die offene Karte, ein Undo-Schritt, animiert abgespielt; `dry_run` nur auf der Kopie |
 | `move_marker` | ändert | HQ (`hq`) oder einen Spawn (Id oder Name) versetzen |
 | `place_object`, `move_object`, `delete_objects` | ändert | einzelne Objekte; eine Straßen-Id in `delete_objects` verweist auf `map.removeRoads` |
-| `set_rules` | ändert | Regeln (`gameplay`), verworfen, wenn die Karte so nicht speicherbar wäre |
+| `set_rules` | ändert | Regeln (`gameplay`), verworfen, wenn die Karte so nicht speicherbar wäre; unbekannte Schlüssel und `waves` in falscher Form (es gibt keine Wellenzahl) mit Beispiel abgelehnt (`checkRules`, auch für `map.gameplay`) |
 | `set_sky` | ändert | Himmel und Luft (`environment`), nur bekannte Schlüssel und Werte |
 | `undo_last` | ändert | letzten Schritt des Agenten zurücknehmen |
 | `copy_map` | legt an | beliebige Karte als neue eigene Karte kopieren; die offene bleibt offen |

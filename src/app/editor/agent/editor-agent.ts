@@ -15,7 +15,7 @@ import { validateMapDocument } from '../../world/custom-map/map-file';
 import type { MapStore } from '../../world/custom-map/map-store';
 import type { CustomMapDocument, MapObject } from '../../world/custom-map/map-document';
 import { catalogAsData, contentFingerprint, heightsIn, issuesAsData, mapSummary, objectsIn, type MapRect } from './agent-reads';
-import { ASSET_OPS, checkEnvironment, scriptReference, type ScriptRunResult } from './map-script';
+import { ASSET_OPS, checkEnvironment, checkRules, scriptReference, type ScriptRunResult } from './map-script';
 import { playCommands, type PlayResult } from './script-playback';
 
 /** Every step the agent makes starts with this in the history */
@@ -347,7 +347,8 @@ export class EditorAgent {
     const doc = this.changeableEditor().doc;
     const rules = args['rules'];
     if (!rules || typeof rules !== 'object' || Array.isArray(rules)) throw new AgentError('rules must be an object');
-    return this.commit(SnapshotCommand.record(doc, `${AGENT_LABEL}rules`, ['gameplay'], (d) => (d.gameplay = { ...(d.gameplay ?? {}), ...(rules as object) })), 'rules set');
+    const checked = checkRules(rules as Record<string, unknown>);
+    return this.commit(SnapshotCommand.record(doc, `${AGENT_LABEL}rules`, ['gameplay'], (d) => (d.gameplay = { ...(d.gameplay ?? {}), ...checked })), 'rules set');
   }
 
   private setSky(args: Args): AgentAnswer {

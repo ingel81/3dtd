@@ -375,7 +375,7 @@ export function applyCommand(kit: MapKit, command: ScriptCommand): unknown {
       kit.environment(checkEnvironment(args[0] as Record<string, unknown>));
       return undefined;
     case 'gameplay':
-      kit.gameplay({ ...(doc.gameplay ?? {}), ...(args[0] as object) });
+      kit.gameplay({ ...(doc.gameplay ?? {}), ...checkRules(args[0] as Record<string, unknown>) });
       return undefined;
     case 'river':
       return (kit.river(args[0] as MapPoint[], args[1] as object) ?? []).map((r) => ({ bridges: r.bridges, waterfalls: r.waterfalls, id: r.river.id }));
@@ -386,6 +386,27 @@ export function applyCommand(kit: MapKit, command: ScriptCommand): unknown {
   const method = (kit as unknown as Record<string, (...x: unknown[]) => unknown>)[command.op];
   if (typeof method !== 'function') throw new ScriptError(`map.${command.op} is no command`);
   return method.apply(kit, args);
+}
+
+const RULE_KEYS = ['startCredits', 'hqHealth', 'towers', 'waves', 'lanes', 'destructible', 'difficulty'];
+const WAVES_EXAMPLE =
+  "waves is { kind: 'budget' } (the game's waves, the default) or { kind: 'table', table } with a map's own list (read_map of a shipped map shows one); " +
+  "there is no wave count. Example: { waves: { kind: 'budget' }, difficulty: 120 }";
+
+/**
+ * A rules patch with known keys and waves in their shape; the map file checks
+ * the numbers. The errors say the shape, with an example: agents gave
+ * `waves: 30` and lost a whole script to "waves.kind must be budget or table"
+ */
+export function checkRules(patch: Record<string, unknown>): Partial<NonNullable<CustomMapDocument['gameplay']>> {
+  const unknown = Object.keys(patch).filter((k) => !RULE_KEYS.includes(k));
+  if (unknown.length) throw new ScriptError(`the rules know no ${unknown.join(', ')}; they are ${RULE_KEYS.join(', ')}`);
+  const waves = patch['waves'] as { kind?: unknown; table?: unknown } | undefined;
+  if (waves !== undefined) {
+    const ok = !!waves && typeof waves === 'object' && (waves.kind === 'budget' || (waves.kind === 'table' && !!waves.table && typeof waves.table === 'object'));
+    if (!ok) throw new ScriptError(`rules: ${WAVES_EXAMPLE}, not ${JSON.stringify(waves)}`);
+  }
+  return patch as Partial<NonNullable<CustomMapDocument['gameplay']>>;
 }
 
 /** An environment patch the map file and the renderer take: known keys, known choices, numbers */

@@ -543,6 +543,19 @@ describe('editor session and the AI agent', () => {
     s.ngOnDestroy();
   });
 
+  it('explains the shape of waves and the known rules, in set_rules and in a script', async () => {
+    const { s, agent } = await agentSession();
+    const count = await call(agent, 'set_rules', { rules: { waves: 30, difficulty: 120 } });
+    expect(count.isError).toBe(true);
+    expect(count.text).toMatch(/waves is \{ kind: 'budget' \}.*there is no wave count\. Example: \{ waves: \{ kind: 'budget' \}, difficulty: 120 \}, not 30/);
+    expect((await call(agent, 'set_rules', { rules: { waveCount: 30 } })).text).toMatch(/know no waveCount; they are startCredits, hqHealth/);
+    const script = JSON.parse((await call(agent, 'run_script', { source: `map.gameplay({ waves: 25 });` })).text);
+    expect(script.error).toMatch(/there is no wave count.*\(line 1\)/);
+    expect(JSON.parse((await call(agent, 'set_rules', { rules: { waves: { kind: 'budget' }, difficulty: 120 } })).text)).toMatchObject({ ok: true });
+    expect(s.editor!.doc.gameplay).toMatchObject({ waves: { kind: 'budget' }, difficulty: 120 });
+    s.ngOnDestroy();
+  });
+
   it('answers every tool through the bridge reply as plain data, whatever its handler returns', async () => {
     // The desktop server's tools (desktop/src/agent-mcp.js TOOLS) that the editor answers
     const tools: [string, Record<string, unknown>][] = [
