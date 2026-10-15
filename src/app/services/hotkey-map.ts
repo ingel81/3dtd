@@ -31,10 +31,6 @@ export type HotkeyAction =
   | { kind: 'camera-hq' }
   /** Fly to the next spawn point, round the list */
   | { kind: 'camera-spawn' }
-  /** Glide to saved camera view `slot` (F1 to F5), 0-based */
-  | { kind: 'camera-recall'; slot: number }
-  /** Save the camera's view in `slot` (Shift+F1 to Shift+F5), 0-based */
-  | { kind: 'camera-store'; slot: number }
   /** Photo mode on or off */
   | { kind: 'photo-mode' }
   /** The research tree, once a Research Center stands */
@@ -49,22 +45,6 @@ export type HotkeyEvent = Pick<KeyboardEvent, 'key' | 'shiftKey' | 'ctrlKey' | '
 
 /** Build cards reachable by number key: the first nine, in BUILD panel order. */
 const TOWER_SLOT_KEYS = 9;
-
-/**
- * Saved camera views on F1 to F5, Shift to save, as in RTS games (TODO E20).
- * The number keys pick towers, Ctrl+number switches tabs and Alt+number does
- * so on Linux. The browser's F1 (help), F3 (find) and F5 (reload) and their
- * Shift forms give way when the page takes the key; Ctrl+F5 stays the
- * browser's. The desktop app keeps only F11 and F12 for itself.
- */
-const CAMERA_SLOT_KEYS = ['F1', 'F2', 'F3', 'F4', 'F5'];
-
-/** The camera slot of F1 to F5 with no modifier but Shift, 0-based; null for any other key */
-export function cameraSlotOf(e: HotkeyEvent): number | null {
-  if (e.ctrlKey || e.altKey || e.metaKey) return null;
-  const slot = CAMERA_SLOT_KEYS.indexOf(e.key);
-  return slot >= 0 ? slot : null;
-}
 
 /** Ability by its key (AbilityConfig.hotkey), lower case */
 const ABILITY_BY_KEY = new Map(ABILITY_IDS.map((id) => [ABILITIES[id].hotkey.toLowerCase(), id]));
@@ -84,10 +64,6 @@ export function resolveHotkey(e: HotkeyEvent): HotkeyAction | null {
   // key repeats keydown; none of these actions should fire twice from it.
   if (e.ctrlKey || e.altKey || e.metaKey || e.repeat) return null;
 
-  const cameraSlot = cameraSlotOf(e);
-  if (cameraSlot !== null) {
-    return e.shiftKey ? { kind: 'camera-store', slot: cameraSlot } : { kind: 'camera-recall', slot: cameraSlot };
-  }
   const key = e.key;
   if (key.length === 1 && key >= '1' && key <= '9') {
     return { kind: 'select-tower', slot: Number(key) - 1 };
@@ -195,8 +171,6 @@ export const HOTKEY_HELP: readonly HotkeyHelpGroup[] = [
       { keys: ['W', 'A', 'S', 'D'], label: 'Move, arrow keys too, hold Shift for faster' },
       { keys: ['Home'], label: 'Fly to the HQ' },
       { keys: ['N'], label: 'Fly to the next spawn point' },
-      { keys: ['Shift+F1', 'Shift+F5'], range: true, label: 'Save the view as camera view 1 to 5, for this place and run' },
-      { keys: ['F1', 'F5'], range: true, label: 'Fly back to a saved camera view' },
       { keys: ['O'], label: 'Photo mode: hide the interface, save screenshots; Esc leaves it' },
     ],
   },

@@ -2,8 +2,6 @@ import { Injectable } from '@angular/core';
 import {
   Vector3,
   Vector2,
-  Quaternion,
-  Matrix4,
   PerspectiveCamera,
   Object3D,
   Mesh,
@@ -97,20 +95,9 @@ export class CameraControlService {
   private jump: { dx: number; dy: number; dz: number; elapsedMs: number; applied: number } | null = null;
   private readonly jumpDirection = new Vector3();
 
-  /** Wall-clock length of a glide to a saved view (F1 to F5), ms */
-  private static readonly GLIDE_DURATION_MS = 700;
-  /** Running glide to a saved view: from and to, position and orientation */
-  private glide: {
-    fromPosition: Vector3; toPosition: Vector3;
-    fromQuaternion: Quaternion; toQuaternion: Quaternion;
-    elapsedMs: number;
-  } | null = null;
-  private readonly lookMatrix = new Matrix4();
-
   /** Stop a quick jump under way where it is (the replay puts the camera back). */
   cancelJump(): void {
     this.jump = null;
-    this.glide = null;
   }
 
   // ========================================
@@ -187,7 +174,6 @@ export class CameraControlService {
     if (!this.engine) return;
     cameraTimeline.record('camera.reset', {}, true);
     this.jump = null;
-    this.glide = null;
 
     const view = this.getOverview();
     if (!view) {
@@ -221,7 +207,6 @@ export class CameraControlService {
     cameraTimeline.record('camera.jump', { target: [target.x, target.y, target.z] }, true);
 
     const camera = this.engine.getCamera();
-    this.glide = null;
     camera.getWorldDirection(this.jumpDirection);
     const to = jumpCameraPosition(camera.position, this.jumpDirection, target);
     if (!to) {
@@ -258,58 +243,10 @@ export class CameraControlService {
   /** Drop a running quick jump; a scripted shot takes the camera (boss intro). */
   stopJump(): void {
     this.jump = null;
-    this.glide = null;
   }
 
-  /** The camera's pose now as position and a look-at point `distance` m ahead; null without an engine */
-  currentView(distance = 100): CameraView | null {
-    if (!this.engine) return null;
-    const camera = this.engine.getCamera();
-    camera.getWorldDirection(this.jumpDirection);
-    const { x, y, z } = camera.position;
-    return {
-      position: { x, y, z },
-      target: {
-        x: x + this.jumpDirection.x * distance,
-        y: y + this.jumpDirection.y * distance,
-        z: z + this.jumpDirection.z * distance,
-      },
-    };
-  }
-
-  /**
-   * Glide the camera to a saved view (F1 to F5, CameraSlotsService):
-   * position and orientation both, eased over GLIDE_DURATION_MS. Unlike a
-   * quick jump the glide sets the pose each frame, so a keyboard pan during
-   * it is lost; it ends where the view was saved.
-   *
-   * @returns false without an engine
-   */
-  glideTo(view: CameraView): boolean {
-    if (!this.engine) return false;
-    const camera = this.engine.getCamera();
-    this.jump = null;
-    const toPosition = new Vector3(view.position.x, view.position.y, view.position.z);
-    // The orientation lookAt would give, without touching the camera yet
-    this.lookMatrix.lookAt(toPosition, new Vector3(view.target.x, view.target.y, view.target.z), camera.up);
-    const toQuaternion = new Quaternion().setFromRotationMatrix(this.lookMatrix);
-    if (camera.parent) {
-      toQuaternion.premultiply(camera.parent.getWorldQuaternion(new Quaternion()).invert());
-    }
-    this.glide = {
-      fromPosition: camera.position.clone(),
-      toPosition,
-      fromQuaternion: camera.quaternion.clone(),
-      toQuaternion,
-      elapsedMs: 0,
-    };
-    cameraTimeline.record('camera.glide', { target: [view.target.x, view.target.y, view.target.z] }, true);
-    return true;
-  }
-
-  /** Per frame from the game loop, wall-clock ms: advance a running jump or glide. */
+  /** Per frame from the game loop, wall-clock ms: advance a running jump. */
   update(deltaMs: number): void {
-    this.updateGlide(deltaMs);
     const jump = this.jump;
     if (!jump || !this.engine) return;
 
@@ -324,17 +261,6 @@ export class CameraControlService {
     position.z += jump.dz * share;
 
     if (jump.elapsedMs >= CameraControlService.JUMP_DURATION_MS) this.jump = null;
-  }
-
-  private updateGlide(deltaMs: number): void {
-    const glide = this.glide;
-    if (!glide || !this.engine) return;
-    glide.elapsedMs = Math.min(CameraControlService.GLIDE_DURATION_MS, glide.elapsedMs + deltaMs);
-    const eased = easeInOutCubic(glide.elapsedMs / CameraControlService.GLIDE_DURATION_MS);
-    const camera = this.engine.getCamera();
-    camera.position.lerpVectors(glide.fromPosition, glide.toPosition, eased);
-    camera.quaternion.slerpQuaternions(glide.fromQuaternion, glide.toQuaternion, eased);
-    if (glide.elapsedMs >= CameraControlService.GLIDE_DURATION_MS) this.glide = null;
   }
 
   /**

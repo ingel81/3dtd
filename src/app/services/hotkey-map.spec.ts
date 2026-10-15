@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { HOTKEY_HELP, HotkeyEvent, cameraSlotOf, resolveHotkey, towerSlotKey } from './hotkey-map';
+import { HOTKEY_HELP, HotkeyEvent, resolveHotkey, towerSlotKey } from './hotkey-map';
 import { ABILITIES, ABILITY_IDS } from '../configs/abilities.config';
 
 const key = (k: string, mods: Partial<HotkeyEvent> = {}): HotkeyEvent => ({
@@ -50,17 +50,6 @@ describe('resolveHotkey', () => {
     expect(resolveHotkey(key('+'))).toEqual({ kind: 'speed', step: 1 });
     expect(resolveHotkey(key('='))).toEqual({ kind: 'speed', step: 1 });
     expect(resolveHotkey(key('-'))).toEqual({ kind: 'speed', step: -1 });
-  });
-
-  it('saves camera views on Shift+F1 to Shift+F5 and flies to them on F1 to F5 (TODO E20)', () => {
-    expect(resolveHotkey(key('F1'))).toEqual({ kind: 'camera-recall', slot: 0 });
-    expect(resolveHotkey(key('F5'))).toEqual({ kind: 'camera-recall', slot: 4 });
-    expect(resolveHotkey(key('F3', { shiftKey: true }))).toEqual({ kind: 'camera-store', slot: 2 });
-    expect(resolveHotkey(key('F6'))).toBeNull();
-    // Ctrl+F5 reloads past the cache, the browser's
-    expect(resolveHotkey(key('F5', { ctrlKey: true }))).toBeNull();
-    expect(cameraSlotOf(key('F5', { ctrlKey: true }))).toBeNull();
-    expect(cameraSlotOf(key('F2', { repeat: true }))).toBe(1);
   });
 
   it('flies the camera on Home and N', () => {

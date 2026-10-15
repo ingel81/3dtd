@@ -18,7 +18,6 @@ import { buildWorldPackage } from '../../coop/world-package';
 import type { SaveFile } from '../../simulator/save-file';
 import type { SimSnapshot } from '../../simulator/sim-snapshot';
 import { downloadBlob } from '../../utils/download';
-import { CameraSlotsService } from '../camera-slots.service';
 import { SaveGame, type SaveGameHost } from './save-game';
 import { IdbSaveSlotStore } from './save-slot.store';
 import { AUTOSAVE_MAP_SLOT, AUTOSAVE_SLOT, type LoadResult, type SaveGamePort, type SaveResult, type SaveSlotInfo, type StartPlace } from './save-game.port';
@@ -60,7 +59,6 @@ export class SaveGameService implements SaveGamePort {
   private readonly worldContext = inject(WorldContext);
   private readonly gameStore = inject(GameStore);
   private readonly uiStore = inject(UIStore);
-  private readonly cameraSlots = inject(CameraSlotsService);
   private readonly coop = inject(CoopService, { optional: true });
 
   /** A load at a start without a place: the menu hands this place to the start (see StartPlace) */
@@ -189,7 +187,6 @@ export class SaveGameService implements SaveGamePort {
       mainRng,
       runLog,
       waveSeries,
-      cameraSlots: this.cameraSlots.saveState(),
     };
   }
 
@@ -240,7 +237,6 @@ export class SaveGameService implements SaveGamePort {
     this.director.restoreState(file.director);
     this.mirror.rng.setState(file.mainRng);
     this.runLog.resumeRun(file.runLog, file.waveSeries, file.sim.waveNumber);
-    this.cameraSlots.restoreState(file.cameraSlots);
     return null;
   }
 

@@ -34,12 +34,6 @@ function parts(): SaveParts {
 const text = (overrides: Record<string, unknown> = {}) => JSON.stringify({ ...buildSaveFile(parts()), ...overrides });
 
 describe('save file (TODO E110)', () => {
-  it('carries the saved camera views, and reads saves from before them (TODO E20)', () => {
-    const views = [null, { position: { x: 1, y: 2, z: 3 }, target: { x: 4, y: 5, z: 6 } }];
-    expect(readSaveFile(text({ cameraSlots: views }), HERE).file?.cameraSlots).toEqual(views);
-    expect(readSaveFile(text(), HERE).file?.cameraSlots).toBeUndefined();
-  });
-
   it('reads back what it wrote, without a note on the same version and balance', () => {
     const read = readSaveFile(text(), HERE);
     expect(read.refusal).toBeNull();
@@ -63,7 +57,6 @@ describe('save file (TODO E110)', () => {
     expect(readSaveFile(text({ sim: null }), HERE).refusal).toBe('damaged');
     expect(readSaveFile(text({ world: { format: '3dtd-world' } }), HERE).refusal).toBe('damaged');
     expect(readSaveFile(text({ director: { source: 'nope', planned: null } }), HERE).refusal).toBe('damaged');
-    expect(readSaveFile(text({ cameraSlots: [{ position: { x: 1 } }] }), HERE).refusal).toBe('damaged');
     expect(readSaveFile(text({ wave: 0 }), HERE).refusal).toBe('damaged');
   });
 

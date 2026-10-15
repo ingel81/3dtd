@@ -187,45 +187,6 @@ describe('CameraControlService', () => {
     });
   });
 
-  describe('glideTo (saved camera views, TODO E20)', () => {
-    it('eases position and orientation to the saved view and ends exactly on it', () => {
-      const { camera, asEngine } = fakeEngine();
-      service.initialize(asEngine, { ...ORIGIN });
-      camera.position.set(0, 100, 0);
-      camera.lookAt(0, 0, -100);
-      const saved: CameraView = { position: { x: 300, y: 250, z: 400 }, target: { x: 300, y: 0, z: 0 } };
-
-      expect(service.glideTo(saved)).toBe(true);
-      service.update(350);
-      expect(camera.position.x).toBeGreaterThan(0);
-      expect(camera.position.x).toBeLessThan(300);
-      service.update(1000);
-
-      expect(camera.position.toArray()).toEqual([300, 250, 400]);
-      const view = service.currentView(Math.hypot(250, 400))!;
-      expect(view.target.x).toBeCloseTo(300, 6);
-      expect(view.target.y).toBeCloseTo(0, 6);
-      expect(view.target.z).toBeCloseTo(0, 6);
-    });
-
-    it('stops where it is on a quick jump or a reset', () => {
-      const { camera, asEngine } = fakeEngine();
-      service.initialize(asEngine, { ...ORIGIN });
-      camera.position.set(0, 100, 0);
-      service.glideTo({ position: { x: 300, y: 250, z: 400 }, target: { x: 300, y: 0, z: 0 } });
-      service.update(200);
-      service.cancelJump();
-      const at = camera.position.toArray();
-      service.update(1000);
-      expect(camera.position.toArray()).toEqual(at);
-    });
-
-    it('does nothing without an engine', () => {
-      expect(service.glideTo(VIEW)).toBe(false);
-      expect(service.currentView()).toBeNull();
-    });
-  });
-
   describe('getCameraHeading', () => {
     it.each([
       ['north (+Z)', { x: 0, z: 100 }, 0],
