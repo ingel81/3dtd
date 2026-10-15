@@ -182,6 +182,11 @@ der Innenseite einer Biegung bis 2,4-fach, außen schmal, entlang des Flusses wa
 angefressen. Brücken (`kind: 'bridge'`) bekommen ein Deck aus instanzierten `bridge-deck`-Stücken zwischen den Uferhöhen, mit
 leichtem Bogen und mindestens 1 m über dem Wasser. `style: 'stone' | 'lava'` an der Kante nimmt `bridge-deck-stone`
 bzw. `bridge-deck-lava`; fehlt das Stück im Katalog, bleibt es beim Holzdeck.
+Eine Kante mit `surface` (ein Bodenmaterial, OSM-Welten: Asphalt, Pflaster, Kies) lässt die Maske aus: ihr Belag ist
+in die Bodenfarbe gemalt und zeigt sich statt Kopfsteinen und Spurrillen. `street` an der Kante (der `highway`-Typ des
+echten Wegs) gibt im Spiel den Straßentyp, nach dem Routen gewichtet und Spawns gewählt werden
+(`custom-map-streets.ts`); ohne ihn entscheidet die Art. Beides fehlt auf allen bisherigen Karten
+([OSM_WORLD_PLAN.md](OSM_WORLD_PLAN.md)).
 
 ### Wasser (`water/`)
 
