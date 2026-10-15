@@ -46,6 +46,8 @@ export class ShadowParts {
   private readonly run = new Object3D();
   /** The scene's objects in scene order, split into the parts at a build's start */
   private roots: Object3D[] = [];
+  /** The scene the build draws: a caster that left it meanwhile makes the build stale */
+  private scene: Object3D | null = null;
   private next = -1;
   /** Where the build's box lies (the sun's target when it began) and its radius */
   readonly center = new Vector3();
@@ -80,6 +82,7 @@ export class ShadowParts {
     this.stage.shadow.updateMatrices(this.stage);
     this.center.copy(sun.target.position);
     this.radius = from.right;
+    this.scene = scene;
     this.roots = [];
     collectRoots(scene, this.roots);
     this.next = 0;
@@ -89,6 +92,7 @@ export class ShadowParts {
   cancel(): void {
     this.next = -1;
     this.roots = [];
+    this.scene = null;
   }
 
   /**
@@ -137,7 +141,17 @@ export class ShadowParts {
       renderer.setRenderTarget(previous);
     }
     if (this.next < SHADOW_PARTS) return false;
+    // A caster left the scene while the parts drew (a cell of trees rebuilt for new ones): the map lacks it and
+    // its replacement, and swapped in it would drop those shadows for a build (they flickered under a brush).
+    // The sun keeps the map it shows; the build begins again with the scene as it is now
+    if (this.scene && this.roots.some((root) => !inside(root, this.scene!))) {
+      this.roots = [];
+      collectRoots(this.scene, this.roots);
+      this.next = 0;
+      return false;
+    }
     this.next = -1;
+    this.scene = null;
     this.roots = [];
     // Swap: the sun reads the new map with the matrix it was drawn for, the old one is the next build's
     // (three makes the sun's own map, at the warm-up, a WebGLRenderTarget as well)
@@ -188,6 +202,13 @@ function collectRoots(node: Object3D, out: Object3D[]): void {
       collectRoots(child, out);
     }
   }
+}
+
+/** Whether `node` still hangs under `scene` */
+function inside(node: Object3D, scene: Object3D): boolean {
+  let o: Object3D | null = node.parent;
+  while (o && o !== scene) o = o.parent;
+  return o === scene;
 }
 
 /** Still in the scene and every group above it shown: three's pass checks only the object itself */
