@@ -6,7 +6,8 @@
  * scenes to play, the sync mark, the sound recording, the windows the page
  * asked to open.
  */
-import type { Injector } from '@angular/core';
+import type { Injector, Provider } from '@angular/core';
+import { CUSTOM_MAPS_OPEN } from '../world/custom-maps-open';
 import { AudioRecording, installAudioTap } from './audio-tap';
 import { Director, type Mark, type Scene } from './director';
 import { EditorStage } from './editor-stage';
@@ -61,6 +62,9 @@ export interface ShowreelApi {
   opened: string[];
   marks: Mark[];
 }
+
+/** What the showreel's app gets on top of its own: the custom maps open (the pause menu's Edit this map, the editor) */
+export const SHOWREEL_PROVIDERS: Provider[] = [{ provide: CUSTOM_MAPS_OPEN, useValue: true }];
 
 /** Before the app starts: the sound tap and the page's look; the editor's tour stays away, its legend until a script shows it */
 export function installShowreelEarly(): void {

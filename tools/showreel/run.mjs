@@ -6,6 +6,7 @@
 //   node tools/showreel/run.mjs --url http://localhost:4200 --out <dir>            the whole programme, recorded
 //   node tools/showreel/run.mjs --scene harbor-flyover --rehearse                  one scene, nothing recorded
 //   node tools/showreel/run.mjs --from editor-river                                from a scene to the end
+//   node tools/showreel/run.mjs --from dv-sculpt --to dv-night ...                 a stretch of the programme
 //   node tools/showreel/run.mjs --finish <run folder>                            align and mix a run that stopped early
 //   node tools/showreel/run.mjs --list                                             the scenes and their lengths
 //   node tools/showreel/run.mjs --displays                                         the displays Windows has
@@ -72,7 +73,11 @@ function chosenScenes() {
   let page = null;
   const withPage = SCENES.map((s) => {
     if (s.page) page = s.page;
-    return { ...s, needs: page };
+    const scene = { ...s, needs: page };
+    // A scene that ends on another page (it leaves by the app's own link, or opens another map in the editor):
+    // the scenes after it need that page when a run starts there
+    if (s.arrives) page = s.arrives;
+    return scene;
   });
   const only = option('scene', '');
   const from = option('from', '');
@@ -82,12 +87,16 @@ function chosenScenes() {
     if (missing.length) throw new Error(`no scene ${missing.join(', ')}`);
     return withPage.filter((s) => names.includes(s.name));
   }
+  // --to <scene>: the programme up to that scene (with --from: a stretch of it)
+  const to = option('to', '');
+  const end = to ? withPage.findIndex((s) => s.name === to) : withPage.length - 1;
+  if (end < 0) throw new Error(`no scene ${to}`);
   if (from) {
     const at = withPage.findIndex((s) => s.name === from);
     if (at < 0) throw new Error(`no scene ${from}`);
-    return withPage.slice(at);
+    return withPage.slice(at, end + 1);
   }
-  return withPage;
+  return withPage.slice(0, end + 1);
 }
 
 /** Seconds a scene's steps take by their `dur` (par: the longest), a lower bound: loading and clicks add to it */
@@ -191,6 +200,8 @@ async function main() {
   await page.exposeFunction('__showreelUpload', (sel, file) => page.setInputFiles(sel, file));
   page.on('console', (m) => {
     if (m.text().includes('[showreel]')) console.log(`  ${m.text()}`);
+    // The page's own errors (a view that never gets ready says why here)
+    else if (m.type() === 'error') console.log(`  console error: ${m.text().slice(0, 300)}`);
   });
   page.on('pageerror', (e) => {
     problems.push(e.message);
@@ -354,6 +365,43 @@ async function main() {
     save();
   };
 
+  /**
+   * The scene's last click leaves the page by the app's own address change (the pause menu's Edit this map):
+   * the page's sound is kept before, the new address gets the hook's `showreel` on the way (a redirect of the
+   * navigation, so the app's link stays as it is), and the page that comes is waited for like a loaded one
+   */
+  const leavePage = async (scene) => {
+    await closeSegment();
+    const from = page.url();
+    const origin = new URL(base).origin;
+    const hooked = (u) => u.origin === origin && !u.searchParams.has('showreel') && !/\.[a-z0-9]+$/i.test(u.pathname);
+    const redirect = (route, request) => {
+      if (!request.isNavigationRequest()) return route.continue();
+      const u = new URL(request.url());
+      u.searchParams.set('showreel', '');
+      return route.fulfill({ status: 302, headers: { location: u.toString() } });
+    };
+    await page.route(hooked, redirect);
+    try {
+      // The click's own marks go with the old page (its clock and sound are closed): none kept
+      await Promise.all([
+        page.waitForURL((u) => u.href !== from, { timeout: 30_000 }),
+        page.evaluate((s) => window.__showreel.run(s), { name: `${scene.name}:leave`, steps: [{ do: 'click', sel: scene.leave, dur: 0.3 }] }).catch(() => []),
+      ]);
+      await page.waitForFunction(() => !!window.__showreel, null, { timeout: 60_000 });
+    } finally {
+      await page.unroute(hooked, redirect);
+    }
+    console.log(`page ${page.url()} (left ${scene.name})`);
+    if (!rehearse && display) await onScreen();
+    segment = { url: page.url(), kind: null };
+    segment.kind = await page.evaluate(() => window.__showreel.ready(180));
+    await page.waitForTimeout(1500);
+    if (!rehearse) await startSound();
+    await logView();
+    save();
+  };
+
   /** A short fingerprint of the editor's map (heights, layers, water, objects, roads, rivers, sky), null in the game */
   const fingerprint = () =>
     page.evaluate(() => {
@@ -398,7 +446,10 @@ async function main() {
       await page.evaluate((s) => window.__showreel.run(s), { name: `${scene.name}#${i}`, steps: [step] });
       await page.waitForTimeout(400);
       const after = await fingerprint();
-      const changed = before && after ? Object.keys(after).filter((k) => after[k] !== before[k]) : [];
+      // Counts with their change (objects +75), the rest by name
+      const changed = before && after
+        ? Object.keys(after).filter((k) => after[k] !== before[k]).map((k) => (typeof after[k] === 'number' && k !== 'heights' && k !== 'paint' && !k.endsWith('Sum') ? `${k}${after[k] > before[k] ? '+' : ''}${after[k] - before[k]}` : k))
+        : [];
       const what = [step.do, step.name, step.sel, step.label].filter(Boolean).join(' ');
       const shot = `${scene.name}-${String(i).padStart(2, '0')}.png`;
       await page.screenshot({ path: join(out, 'verify', shot) });
@@ -450,6 +501,7 @@ async function main() {
       save();
       const list = await page.evaluate(() => window.__showreel.opened.slice());
       if (list.length) opened = list[list.length - 1];
+      if (scene.leave) await leavePage(scene);
     }
     await closeSegment();
   } catch (e) {

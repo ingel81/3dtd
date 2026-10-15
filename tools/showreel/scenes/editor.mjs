@@ -1,7 +1,17 @@
-// The editor, map 1: Green Valley, from an empty map to Test map. Every beat keeps the camera on what it changes
-// and holds about a second on the result. Ground layers (12 at most): grass, snow (Paint),
-// forest x3, sand, gravel and mud (river), cobblestone (road), 10 in all.
-import { act, asset, clickMap, click, m, mode, newMap, orbit, par, path, seq, settings, stroke, tool, wait } from './common.mjs';
+// The editor on the four maps of the intro, as own copies of the shipped maps, hopping between them through the
+// map list: every tool where it reads best. Demo Valley comes in from the game's pause menu (intro.mjs,
+// edit-this-map). Each block ends on its result held; `effect:<what>` marks the moment it shows.
+//
+//   Demo Valley   sculpt (small and big brush), cliff and ramp, a mountain with snow, erase and forest; buildings that level
+//                 their ground, lamps beside the road; later night (fireflies, lit windows, the lamps)
+//   Red Canyon    a lake and a river into it (mirroring, foam, shallows); a road, select and move, stamps;
+//                 symmetry painted from above (two, then four); the visit's history rewound and replayed
+//   Ember Crater  lava poured into a new crater; hell ground, a lava flow; later rain, fog and sky
+//   Ruined City   a bomb crater and Fill a hollow, build areas, a trial wave, Test map
+//
+// Ground layers (12 at most): Demo Valley 8 (+ snow, forest), Red Canyon 7 (+ river), Ember Crater 7,
+// Ruined City 7 (+ meadow).
+import { act, asset, clickMap, click, m, mode, orbit, path, settings, stroke, tool, wait } from './common.mjs';
 
 /** The camera on map points (director frame step): from the current side or `from` degrees, turning `turn` over `dur` */
 const frame = (points, opts = {}) => ({ do: 'frame', points, ...opts });
@@ -10,434 +20,354 @@ const key = (k, mods) => ({ do: 'key', key: k, ...(mods ? { mods } : {}) });
 const keys = (k, n, mods) => Array.from({ length: n }, () => [key(k, mods), wait(0.12)]).flat();
 
 /** After a change: the editor idle, then the camera held `hold` seconds while it takes effect */
-const settle = (hold) => [act('idle', { timeout: 20 }), wait(hold)];
+const settle = (hold) => [act('idle', { timeout: 30 }), wait(hold)];
+
+/** The moment a change shows: the cut ends a beat after it */
+const effect = (what) => ({ do: 'mark', name: `effect:${what}` });
 
 /** The Sky panel's preset buttons and weather buttons (a bare withText 'Snow' also finds other fields) */
 const SKY_PRESET = '[aria-labelledby=ep-sky] button[role=radio]';
 const WEATHER = '[aria-label=Weather] button[role=radio]';
 
-/** Camera poses [eye, look] the sky scene comes back to */
-/** The oak grove behind the village (HQ at 128, 0): low, the trees and houses in front */
-const FOREST_VIEW = [{ m: [70, -62], h: 7 }, { m: [62, -22], h: 4 }];
-/** Low beside the West road, looking along it: the row of lamps recedes to the spawn */
-const LAMPS_VIEW = [{ m: [-62, -14], h: 6 }, { m: [-160, 2], h: 3 }];
-const WIDE_VIEW = [[0.05, -0.08, 45], [0.0, 0.3, 25]];
-/** Low over the south, looking the valley's length north: fog shows in the depth */
-const DEEP_VIEW = [[0.02, -0.46, 10], [0.0, 0.35, 15]];
+/**
+ * To another map: the open one saved and closed (Back), its row in the list (an own copy when there is one, it
+ * comes first; else the shipped map, which opens as an own copy), Open
+ */
+const hop = (name) => [
+  click('[data-test=back]', { label: `hop ${name}` }),
+  { do: 'waitFor', sel: '[data-test=new-map]', timeout: 30 },
+  wait(0.5),
+  click('[role=option][data-map]', { withText: name }),
+  wait(0.4),
+  click('[data-test=open-map]'),
+  act('viewReady', { timeout: 90 }),
+  wait(1.2),
+];
+
+/** A block on a map: the hop there first, `arrives` for a run that starts after it */
+const block = (name, id, mapName, steps, before = []) => ({
+  name,
+  arrives: `/editor?map=${id}`,
+  steps: [...hop(mapName), ...before, { do: 'mark', name: mapName }, ...steps],
+});
 
 export const SCENES = [
-  { name: 'editor-new', page: '/editor', steps: [{ do: 'mark', name: 'Map editor' }, ...newMap('Green Valley', 'new map')] },
   {
-    // Small and weak, then the keys make the brush big and strong: the same stroke again, side by side
-    name: 'editor-brush',
+    // Demo Valley, opened from the game: sculpt in the south meadow, small and weak, then big and strong
+    name: 'dv-sculpt',
     steps: [
-      path(1.5, ['current', [[-0.3, -0.52, 60], [-0.3, -0.3]]]),
+      { do: 'mark', name: 'Map editor' },
+      act('viewReady', { timeout: 90 }),
+      wait(1.5),
+      frame([m(-120, -200), m(-55, -205)], { from: 0, pitch: 32, margin: 30, glide: 1.6 }),
       tool('terrain', { label: 'terrain' }),
       mode('raise'),
-      settings({ brush: { radius: 10, strength: 0.25 } }),
-      stroke(1.6, [[-0.37, -0.3], [-0.365, -0.3]], { label: 'small brush' }),
+      settings({ brush: { radius: 10, strength: 0.3 } }),
+      stroke(1.6, [m(-115, -200), m(-114, -200)], { label: 'small brush' }),
       wait(0.6),
-      { do: 'move', to: [-0.25, -0.3], dur: 0.4 },
+      { do: 'move', to: m(-75, -200), dur: 0.4 },
       ...keys(']', 9),
       ...keys('}', 4, { shift: true }),
-      wait(0.5),
-      stroke(2, [[-0.24, -0.3], [-0.235, -0.3]], { label: 'big brush' }),
+      wait(0.4),
+      stroke(2.2, [m(-76, -200), m(-74, -200)], { label: 'big brush' }),
+      ...settle(0.4),
+      effect('sculpt'),
+      wait(0.8),
+      // A table with a hard rim beside the hill, then a ramp up to it from the south
+      mode('plateau', { label: 'cliff' }),
+      settings({ brush: { radius: 30, strength: 1 }, terrain: { step: 12 } }),
+      stroke(1.5, [m(-25, -192), m(-24, -192)]),
+      ...settle(0.6),
+      // From the south-east, the ramp running down from the table toward the camera's side
+      frame([m(-25, -192), m(20, -205)], { from: 40, pitch: 26, margin: 22, glide: 1.4 }),
+      mode('ramp', { label: 'ramp' }),
+      clickMap(m(-20, -194)),
+      clickMap(m(22, -206)),
+      ...settle(0.4),
+      effect('cliff ramp'),
       wait(1),
     ],
   },
   {
-    name: 'editor-terrain',
-    // Each sculpt mode framed on its own spot, result held: erode down the big hill's side, terraces on its top,
-    // roughen the flat ground before it, smooth over the terraces
+    // A mountain in the west meadow between the road and the river, snow painted on its top, a forest up its flank
+    name: 'dv-mountain',
     steps: [
-      mode('erode'),
-      settings({ brush: { radius: 30, strength: 1 } }),
-      frame([[-0.27, -0.27], [-0.22, -0.32]], { from: 200, pitch: 30, margin: 30, glide: 1.8 }),
-      stroke(2.2, [[-0.27, -0.27], [-0.22, -0.32]], { label: 'erode' }),
-      wait(0.9),
-      mode('terrace'),
-      settings({ brush: { radius: 34, strength: 1 } }),
-      stroke(2, [[-0.24, -0.3], [-0.245, -0.295]], { label: 'terrace' }),
-      wait(0.9),
-      mode('noise'),
-      settings({ brush: { radius: 28, strength: 1 } }),
-      frame([[-0.38, -0.38], [-0.32, -0.4]], { from: 190, pitch: 32, margin: 22, glide: 1 }),
-      stroke(1.8, [[-0.38, -0.38], [-0.32, -0.4]], { label: 'roughen' }),
-      wait(0.9),
-      mode('smooth'),
-      settings({ brush: { radius: 30, strength: 1 } }),
-      frame([[-0.24, -0.3]], { from: 200, pitch: 30, margin: 40, glide: 1 }),
-      stroke(2, [[-0.26, -0.3], [-0.23, -0.29]], { label: 'smooth' }),
-      wait(0.9),
-    ],
-  },
-  {
-    // A table with a hard rim, a ramp up to it seen from the side, then the rim smoothed away on camera
-    name: 'editor-cliff-ramp',
-    steps: [
-      // Up and over the smoothed hill, then down to the table's spot (straight, the camera went into the hill)
-      path(2.2, ['current', [[-0.12, -0.5, 80], [-0.12, -0.32]], [[-0.02, -0.5, 45], [-0.1, -0.33]]], { ease: 'inOut' }),
-      mode('plateau'),
-      settings({ brush: { radius: 42, strength: 1 }, terrain: { step: 14 } }),
-      stroke(1.5, [[-0.1, -0.3], [-0.095, -0.3]], { label: 'cliff' }),
-      wait(0.8),
-      frame([[-0.1, -0.3], [-0.1, -0.44]], { from: 75, pitch: 16, margin: 8, pad: 0.85, glide: 1.2 }),
-      mode('ramp'),
-      clickMap([-0.1, -0.31], { label: 'ramp' }),
-      clickMap([-0.1, -0.44]),
-      wait(1.6),
-    ],
-  },
-  {
-    name: 'editor-shapes',
-    steps: [
-      tool('landscape', { label: 'landscape' }),
+      frame([m(-235, 10), m(-145, 10)], { from: 15, pitch: 20, margin: 18, glide: 1.8 }),
+      tool('landscape', { label: 'mountain' }),
       mode('mountain'),
-      settings({ brush: { radius: 75, strength: 1 }, landscape: { seed: 11, reroll: false } }),
-      // A glide there first (the turning frame alone jumped in half a second), closer: the map's edge out of the picture
-      frame([[-0.28, 0.32], [0.0, 0.38], [0.28, 0.33]], { from: 195, pitch: 22, margin: 15, pad: 0.85, glide: 1.8 }),
-      par(
-        frame([[-0.28, 0.32], [0.0, 0.38], [0.28, 0.33]], { from: 195, pitch: 22, margin: 15, pad: 0.85, dur: 14, turn: 22 }),
-        seq(
-          wait(0.9),
-          stroke(3.5, [[-0.28, 0.32], [-0.27, 0.33]], { label: 'mountains' }),
-          stroke(3.5, [[0.0, 0.38], [0.01, 0.38]]),
-          settings({ landscape: { seed: 12 } }),
-          stroke(3, [[0.27, 0.34], [0.28, 0.33]]),
-        ),
-      ),
-      mode('valley', { label: 'valley' }),
-      settings({ brush: { radius: 40, strength: 1 } }),
-      frame([[0.22, 0.3], [0.33, 0.38]], { from: 160, pitch: 30, margin: 40, pad: 1 }),
-      stroke(3, [[0.22, 0.3], [0.33, 0.38]]),
-      wait(0.8),
-      mode('cliff', { label: 'cliff edge' }),
-      settings({ brush: { radius: 30, strength: 1 }, landscape: { cliffHeight: 14 } }),
-      frame([[-0.42, 0.12], [-0.1, 0.14]], { from: 160, pitch: 28, margin: 25 }),
-      stroke(2, [[-0.42, 0.12], [-0.25, 0.16], [-0.1, 0.14]]),
-      wait(0.8),
-    ],
-  },
-  {
-    // Snow as a new layer, painted on a peak
-    name: 'editor-paint',
-    steps: [
-      frame([[0.0, 0.38]], { from: 185, pitch: 28, margin: 70, pad: 1 }),
-      tool('paint', { label: 'paint' }),
+      settings({ brush: { radius: 55, strength: 1 }, landscape: { seed: 11, reroll: false } }),
+      stroke(4, [m(-190, 15), m(-189, 16)]),
+      ...settle(0.6),
+      effect('mountain'),
+      // Snow as a new ground layer on the peak (the Snow biome lays rock on a slope this steep)
+      tool('paint', { label: 'paint snow' }),
       click('[data-test=add-layer]'),
       click('.pp-group', { withText: 'Mountain' }),
       click('[data-material=snow-fresh]', { timeout: 8 }),
-      settings({ brush: { radius: 22, strength: 1 } }),
-      stroke(2.2, [[-0.02, 0.38], [0.02, 0.385], [0.0, 0.375]], { label: 'paint snow' }),
-      // Auto paint left out: on these mountains it takes the snow away and browns the meadow (app, E177)
-      wait(0.5),
-      orbit(4, [0.0, 0.36], { from: 180, to: 215, radius: 120, height: 70 }),
-    ],
-  },
-  {
-    name: 'editor-forest',
-    steps: [
-      tool('landscape'),
-      mode('biome', { label: 'forest' }),
+      settings({ brush: { radius: 24, strength: 1 } }),
+      stroke(2.4, [m(-194, 18), m(-185, 13), m(-190, 23), m(-189, 15)]),
+      ...settle(1),
+      effect('snow'),
+      // The meadow west of the mountain's foot cleared (a forest keeps its spacing from every object, the meadow's
+      // grass clumps let no tree grow), then a wood grown on it
+      tool('objects', { label: 'erase' }),
+      mode('erase'),
+      settings({ brush: { radius: 30, strength: 1 } }),
+      stroke(2, [m(-228, -18), m(-218, -32), m(-230, -38), m(-222, -22)]),
+      ...settle(0.6),
+      effect('erase'),
+      tool('landscape', { label: 'forest' }),
+      mode('biome'),
       click('[data-biome=forest]'),
-      settings({ brush: { radius: 50, strength: 0.9 }, landscape: { seed: 21 } }),
-      par(
-        frame([[-0.36, 0.28], [-0.12, 0.3], [0.2, 0.22]], { from: 175, pitch: 28, margin: 20, pad: 0.85, dur: 9, turn: 20 }),
-        seq(
-          wait(0.9),
-          stroke(3.5, [[-0.36, 0.28], [-0.3, 0.33], [-0.24, 0.31], [-0.18, 0.27], [-0.12, 0.3]]),
-          stroke(2.5, [[-0.12, 0.24], [0.1, 0.25], [0.2, 0.22]]),
-        ),
-      ),
-    ],
-  },
-  {
-    name: 'editor-river',
-    steps: [
-      mode('river', { label: 'river' }),
-      par(
-        frame([[-0.02, 0.33], [-0.1, -0.48]], { from: 250, pitch: 35, margin: 20, dur: 5, turn: 15 }),
-        stroke(3.5, [[-0.02, 0.33], [-0.1, 0.15], [-0.04, -0.02], [-0.14, -0.2], [-0.1, -0.48]], { settle: 0.3 }),
-      ),
-      wait(0.8),
-      path(1.2, ['current', [{ at: 'river:0:10', dx: 35, dy: -70, h: 105 }, { at: 'river:0:10', dx: 14 }]]),
-      tool('water', { label: 'move the river' }),
-      wait(0.3),
-      mode('river'),
-      stroke(1.8, [{ at: 'river:0:10' }, { at: 'river:0:10', dx: 30, dy: 4 }], { settle: 0.3 }),
-      // The river's handles go with the selection: the moved bed alone
-      key('Escape'),
-      wait(1.2),
-    ],
-  },
-  {
-    name: 'editor-lake',
-    steps: [
-      path(1.5, ['current', [[0.3, -0.45, 60], [0.18, -0.24]]]),
-      // Esc after the river move left the tool: pick it again
-      tool('water'),
-      mode('lake', { label: 'dig a lake' }),
-      settings({ brush: { radius: 26, strength: 1 } }),
-      stroke(2.4, [[0.16, -0.22], [0.2, -0.25], [0.17, -0.27]]),
-      act('idle', { timeout: 30 }),
-      wait(1.2),
-    ],
-  },
-  {
-    name: 'editor-roads',
-    steps: [
-      frame([{ at: 'hq' }, [0.32, 0.08], [0.47, 0.2]], { from: 200, pitch: 48, margin: 25, glide: 1.5 }),
-      tool('paths', { label: 'roads' }),
-      mode('draw'),
-      clickMap({ at: 'hq', dx: 0, dy: 6 }),
-      clickMap([0.32, 0.08]),
-      clickMap([0.4, 0.12]),
-      clickMap([0.47, 0.2]),
-      key('Enter'),
-      wait(0.4),
-      mode('edit', { label: 'bend the road' }),
-      stroke(1.4, [{ at: 'node:-2' }, { at: 'node:-2', dx: -32, dy: 30 }], { settle: 0.2 }),
-      key('s'),
+      settings({ brush: { radius: 34, strength: 1 }, landscape: { seed: 21 } }),
+      ...settle(0.3),
+      stroke(3.6, [m(-228, -18), m(-218, -32), m(-230, -38), m(-222, -22)]),
+      ...settle(1.8),
+      effect('forest'),
       wait(0.6),
-      tool('markers', { label: 'spawn' }),
-      mode('spawn'),
-      clickMap({ at: 'node:-1' }),
-      wait(0.8),
     ],
   },
+  block('rc-water', 'red-canyon', 'Red Canyon', [
+    // A lake dug in the plain east of the north canyon, then a river from the east into it
+    frame([m(110, 30), m(225, 180)], { from: 215, pitch: 32, margin: 12, glide: 1.6 }),
+    tool('water', { label: 'dig a lake' }),
+    mode('lake'),
+    settings({ brush: { radius: 30, strength: 1 } }),
+    stroke(3, [m(115, 40), m(140, 55), m(130, 30), m(120, 50)]),
+    ...settle(1),
+    effect('lake'),
+    tool('landscape', { label: 'river' }),
+    mode('river'),
+    stroke(3.4, [m(225, 180), m(205, 140), m(180, 105), m(160, 78), m(142, 56)], { settle: 0.3 }),
+    ...settle(1),
+    effect('river'),
+    // Low over the lake: the mesas mirrored, the foam at the shore, the shallows turquoise
+    act('overlay', { on: false }),
+    { do: 'cursor', show: false },
+    path(5, ['current', [m(85, 15, 7), m(150, 60, 2)], [m(110, 5, 6), m(160, 70, 2)]], { ease: 'inOut', label: 'effect:mirror' }),
+    { do: 'cursor', show: true },
+    act('overlay', { on: true }),
+  ]),
+  block('ec-lava', 'ember-crater', 'Ember Crater', [
+    // A crater on the open south-east slope, lava poured into it: it fills and runs on downhill
+    frame([m(140, -140), m(175, -180)], { from: 330, pitch: 34, margin: 18, glide: 1.6 }),
+    tool('landscape', { label: 'crater' }),
+    mode('crater'),
+    settings({ brush: { radius: 38, strength: 1 } }),
+    stroke(1.6, [m(140, -140), m(140, -140)]),
+    ...settle(0.4),
+    tool('water', { label: 'pour lava' }),
+    mode('pour'),
+    click('[data-test=pour-lava]'),
+    clickMap(m(140, -140)),
+    ...settle(2.2),
+    effect('lava'),
+    // Hell ground round it, the camera closer; then a lava flow out of the pool
+    frame([m(150, -125), m(190, -170)], { from: 330, pitch: 30, margin: 4, glide: 1.2 }),
+    tool('landscape', { label: 'hell' }),
+    mode('biome'),
+    click('[data-biome=hell]'),
+    settings({ brush: { radius: 34, strength: 1 } }),
+    ...settle(0.3),
+    stroke(3, [m(110, -110), m(175, -120), m(200, -175), m(165, -205)]),
+    ...settle(1.8),
+    effect('hell'),
+    // A lava flow from the new pool down the outer slope
+    mode('river', { label: 'lava flow' }),
+    click('[data-test=river-lava]'),
+    ...settle(0.3),
+    stroke(3, [m(150, -152), m(168, -180), m(192, -205), m(215, -225)], { settle: 0.3 }),
+    ...settle(1.6),
+    effect('lava flow'),
+  ]),
+  block('dv-objects', 'demo-valley', 'Demo Valley', [
+    // Buildings on the new hill's flank and table: each levels its ground as it lands
+    frame([m(-80, -185), m(-30, -195), m(-110, -215)], { from: 10, pitch: 30, margin: 8, glide: 1.6 }),
+    tool('objects', { label: 'objects' }),
+    mode('place'),
+    ...asset('chapel', 'chapel'),
+    clickMap(m(-78, -182), { label: 'place buildings' }),
+    ...settle(0.6),
+    ...asset('tall', 'house-tall'),
+    clickMap(m(-28, -198)),
+    ...settle(0.4),
+    ...asset('watchtower', 'watchtower'),
+    clickMap(m(-112, -214)),
+    ...settle(0.8),
+    effect('buildings'),
+    // Lamps all along the West road, beside it on both sides
+    frame([m(-200, -110), m(-95, -100)], { from: 20, pitch: 24, margin: 12, glide: 1.4 }),
+    mode('line'),
+    click('[data-test=line-roads]'),
+    ...asset('lamp', 'lamp-post'),
+    settings({ objects: { line: { offset: 5.5, bothSides: true, spacing: 14 } } }),
+    clickMap(m(-150, -85), { label: 'lamps' }),
+    ...settle(0.6),
+    act('overlay', { on: false }),
+    path(2.4, ['current', [m(-115, -78, 6), m(-205, -105, 3)]], { ease: 'inOut' }),
+    effect('lamps'),
+    wait(1),
+    act('overlay', { on: true }),
+  ]),
+  block('rc-roads', 'red-canyon', 'Red Canyon', [
+    // A road out of the temple basin, bent; a tent moved and copied; the oasis stamped by the new lake
+    frame([{ at: 'hq' }, m(210, -110), m(225, -40)], { from: 250, pitch: 45, margin: 25, glide: 1.6 }),
+    tool('paths', { label: 'roads' }),
+    mode('draw'),
+    clickMap({ at: 'hq', dx: 4, dy: 6 }),
+    clickMap(m(205, -125)),
+    clickMap(m(225, -50)),
+    key('Enter'),
+    ...settle(0.4),
+    mode('edit', { label: 'bend the road' }),
+    stroke(1.4, [{ at: 'node:-2' }, { at: 'node:-2', dx: 18, dy: -22 }], { settle: 0.2 }),
+    key('s'),
+    ...settle(0.6),
+    effect('road'),
+    // The desert temple by the HQ: selected, moved, a copy dragged beside it. Drags start on the building beside
+    // its middle: the middle holds the gizmo's lift handle (a drag there sank an obelisk), off the building a drag
+    // draws a box
+    frame([m(184, -153), m(210, -135)], { from: 300, pitch: 30, margin: 18, glide: 1.2 }),
+    tool('objects', { label: 'select' }),
+    mode('select'),
+    clickMap(m(184, -153)),
+    wait(0.4),
+    stroke(1.3, [m(187, -150), m(199, -142)], { label: 'move', settle: 0.3 }),
+    wait(0.6),
+    key('d', { ctrl: true }),
+    wait(0.3),
+    stroke(1.3, [m(199, -142), m(220, -120)], { label: 'duplicate', settle: 0.3 }),
+    wait(0.8),
+    effect('select move'),
+    key('Escape'),
+    // The oasis's palms and tents copied and stamped round the new lake, once turned
+    frame([m(86, -180), m(132, -226)], { from: 0, pitch: 50, margin: 20, glide: 1.4 }),
+    tool('stamp', { label: 'stamps' }),
+    mode('select'),
+    click('input[aria-label="Heights"]'),
+    click('input[aria-label="Ground paint"]'),
+    click('input[aria-label="Water"]'),
+    click('input[aria-label="Roads"]'),
+    stroke(1.2, [m(86, -180), m(132, -226)], { label: 'copy' }),
+    click('[data-test=copy]'),
+    wait(0.3),
+    // Up to the new lake: on its west shore, then turned on its south shore
+    frame([m(70, 60), m(130, -10), m(160, 60)], { from: 0, pitch: 45, margin: 14, glide: 1.8 }),
+    clickMap(m(78, 62), { label: 'stamp' }),
+    ...settle(0.6),
+    key('r'),
+    wait(0.4),
+    clickMap(m(130, -8), { label: 'stamp turned' }),
+    ...settle(1),
+    effect('stamps'),
+    key('Escape'),
+    // Symmetry from high above, green ground painted on the desert: Mirror X makes two of one stroke, Both four
+    frame([m(-235, -235), m(235, 235)], { from: 0, pitch: 62, margin: 2, glide: 1.8 }),
+    tool('paint', { label: 'symmetry' }),
+    click('[data-test=add-layer]'),
+    click('.pp-group', { withText: 'Temperate' }),
+    click('[data-material=grass-lush]', { timeout: 8 }),
+    settings({ brush: { radius: 26, strength: 1 } }),
+    { do: 'select', sel: '[data-test=symmetry]', value: 'x', label: 'mirror' },
+    ...settle(0.3),
+    stroke(2.6, [m(190, -70), m(215, -95), m(200, -125), m(175, -110)], { label: 'two' }),
+    ...settle(1.2),
+    effect('mirror'),
+    { do: 'select', sel: '[data-test=symmetry]', value: 'xy', label: 'both' },
+    ...settle(0.3),
+    stroke(2.6, [m(165, 205), m(190, 220), m(180, 238)], { label: 'four' }),
+    ...settle(1.2),
+    effect('four'),
+    { do: 'select', sel: '[data-test=symmetry]', value: 'none' },
+    // The visit undone step by step, then forward again
+    click('[data-test=side-history]', { label: 'history' }),
+    act('history', { to: 0, stepS: 0.3 }),
+    wait(0.8),
+    act('history', { to: 'end', stepS: 0.3 }),
+    effect('history'),
+    wait(0.8),
+    click('[data-test=side-tool]'),
+  ]),
+  block('ec-sky', 'ember-crater', 'Ember Crater', [
+    // Storm over the volcano: every setting with the camera at rest, held until it shows
+    act('overlay', { on: false }),
+    // Over the crater's south rim, the lava lake and the HQ island below
+    path(1.8, ['current', [m(-30, -150, 50), m(0, -5, 14)]], { ease: 'inOut' }),
+    tool('environment', { label: 'sky' }),
+    ...settle(0.6),
+    { do: 'select', sel: '[data-test=sky-image]', value: 'thunderstorm', label: 'sky picture' },
+    ...settle(2),
+    effect('sky'),
+    click(WEATHER, { withText: 'Rain', label: 'rain' }),
+    { do: 'range', sel: 'app-editor-range[label=Strength]', to: 100, dur: 0.8 },
+    ...settle(2.4),
+    effect('rain'),
+    click(WEATHER, { withText: 'Fog', label: 'fog' }),
+    { do: 'range', sel: 'app-editor-range[label=Strength]', to: 80, dur: 0.8 },
+    ...settle(2.4),
+    effect('fog'),
+    click(WEATHER, { withText: 'Clear' }),
+    ...settle(0.6),
+    act('overlay', { on: true }),
+  ]),
+  block('dv-night', 'demo-valley', 'Demo Valley', [
+    // Night where the lamps stand and the village begins: lit windows, the lamps, fireflies by the woods
+    act('overlay', { on: false }),
+    // Low by the West road where it reaches the village: lamps on the left, the houses ahead
+    path(2, ['current', [m(-95, -140, 7), m(30, -115, 6)]], { ease: 'inOut' }),
+    tool('environment', { label: 'night' }),
+    ...settle(0.6),
+    click(SKY_PRESET, { withText: 'Night' }),
+    ...settle(1.6),
+    { do: 'range', sel: '[data-test=moonlight]', to: 60, dur: 1 },
+    ...settle(2.4),
+    effect('night'),
+    orbit(5, 'look', { turn: 18, ease: 'inOut' }),
+    act('overlay', { on: true }),
+  ]),
+  block('city-fill', 'ruined-city', 'Ruined City', [
+    // A bomb crater at a free crossing, filled to its rim (Ctrl): the ruins mirrored in it
+    frame([m(64, -192)], { from: 20, pitch: 30, margin: 35, glide: 1.6 }),
+    tool('landscape', { label: 'crater' }),
+    mode('crater'),
+    settings({ brush: { radius: 22, strength: 1 } }),
+    stroke(1.4, [m(64, -192), m(64, -192)]),
+    ...settle(0.4),
+    tool('water', { label: 'fill' }),
+    mode('fill'),
+    clickMap(m(64, -192), { mods: { ctrl: true } }),
+    ...settle(1.8),
+    effect('fill'),
+  ]),
   {
-    name: 'editor-objects',
+    // Where towers may stand, over the whole city
+    name: 'city-areas',
     steps: [
-      path(1.8, ['current', [{ at: 'hq', dx: -45, dy: -105, h: 38 }, { at: 'hq', dx: -60, dy: -45 }]]),
-      tool('objects', { label: 'objects' }),
-      mode('place'),
-      ...asset('chapel', 'chapel'),
-      clickMap({ at: 'hq', dx: -45, dy: -32 }, { label: 'place buildings' }),
-      ...asset('tall', 'house-tall'),
-      clickMap({ at: 'hq', dx: -72, dy: -40 }),
-      ...asset('watchtower', 'watchtower'),
-      clickMap({ at: 'hq', dx: -88, dy: -58 }),
-      ...asset('cottage', 'cottage'),
-      clickMap({ at: 'hq', dx: -24, dy: -42 }),
-      ...asset('castle wall', 'castle-wall'),
-      mode('line', { label: 'castle wall' }),
-      frame([{ at: 'hq', dx: -100, dy: -15 }, { at: 'hq', dx: -100, dy: -80 }, { at: 'hq', dx: -20, dy: -80 }], { pitch: 38, margin: 15 }),
-      stroke(2.2, [{ at: 'hq', dx: -100, dy: -15 }, { at: 'hq', dx: -100, dy: -80 }, { at: 'hq', dx: -20, dy: -80 }], { settle: 0.3 }),
-      wait(0.8),
-      mode('scatter', { label: 'scatter trees' }),
-      ...asset('oak', 'tree-oak'),
-      // Behind the houses as the camera sees them from the south, dense enough to read as a grove
-      settings({ brush: { radius: 14, strength: 1 }, objects: { scatter: { density: 14 } } }),
-      frame([{ at: 'hq', dx: -95, dy: -24 }, { at: 'hq', dx: -30, dy: -20 }, { at: 'hq', dx: -45, dy: -45 }], { from: 10, pitch: 32, margin: 20 }),
-      // West of the chapel only: a wider stroke grew oaks into the chapel and the houses
-      stroke(2.4, [{ at: 'hq', dx: -96, dy: -20 }, { at: 'hq', dx: -66, dy: -18 }]),
-      wait(1),
-    ],
-  },
-  {
-    // Select, scale with the gizmo, duplicate and drag the copy
-    name: 'editor-select',
-    steps: [
-      frame([{ at: 'object:cottage' }, { at: 'object:cottage', dx: 16, dy: -10 }], { pitch: 35, margin: 14 }),
-      mode('select', { label: 'select' }),
-      clickMap({ at: 'object:cottage' }),
-      key('r'),
-      wait(0.3),
-      stroke(1, [{ at: 'object:cottage', dx: 2 }, { at: 'object:cottage', dx: 4.5 }], { label: 'scale', settle: 0.3 }),
-      wait(0.6),
-      key('w'),
-      key('d', { ctrl: true }),
-      wait(0.3),
-      stroke(1.3, [{ at: 'object:cottage', dx: 3, dy: -3 }, { at: 'object:cottage', dx: 19, dy: -13 }], { label: 'duplicate', settle: 0.3 }),
-      // Align to slope left out: on this flat ground it changes nothing on screen
-      wait(1),
-      key('Escape'),
-    ],
-  },
-  {
-    // Lamps all along the road with one click; they light up at night in the sky scene
-    name: 'editor-lamps',
-    steps: [
-      frame([{ m: [-100, 0] }, { m: [-40, 0] }], { from: 200, pitch: 20, margin: 10 }),
-      mode('line'),
-      click('[data-test=line-roads]'),
-      ...asset('lamp', 'lamp-post'),
-      // Beside the road on both sides (offset 0 stood them on the road's middle): half the 8 m road and 1.5 m
-      settings({ objects: { line: { offset: 5.5, bothSides: true, spacing: 12 } } }),
-      clickMap({ m: [-100, 0] }, { label: 'lamps' }),
-      wait(0.6),
-      act('overlay', { on: false }),
-      path(2.2, ['current', LAMPS_VIEW], { ease: 'inOut' }),
-      wait(0.8),
-    ],
-  },
-  {
-    name: 'editor-look',
-    steps: [
-      frame([{ at: 'object:chapel' }, { at: 'hq' }], { pitch: 35, margin: 20 }),
-      tool('look', { label: 'look' }),
-      clickMap({ at: 'object:chapel' }),
-      wait(1.6),
-    ],
-  },
-  {
-    // Copy a piece of the village and stamp it twice, turned
-    name: 'editor-stamps',
-    // HQ at (128, 0): the village west of it (walls down to y -80, the lake below), free meadow east of it
-    steps: [
-      frame([{ at: 'hq', dx: -105, dy: -10 }, { at: 'hq', dx: -15, dy: -78 }, { at: 'hq', dx: 110, dy: -150 }], { from: 190, pitch: 40, margin: 12 }),
-      // The lamps scene left the overlay off: on again once the camera has gone up
-      act('overlay', { on: true }),
-      tool('stamp', { label: 'stamps' }),
-      mode('select'),
-      // Objects only: with the heights, paint, water and roads the copy cut rectangles into the hilly ground
-      click('input[aria-label="Heights"]'),
-      click('input[aria-label="Ground paint"]'),
-      click('input[aria-label="Water"]'),
-      click('input[aria-label="Roads"]'),
-      stroke(1.2, [{ at: 'hq', dx: -105, dy: -10 }, { at: 'hq', dx: -15, dy: -78 }], { label: 'copy' }),
-      click('[data-test=copy]'),
-      wait(0.3),
-      clickMap({ at: 'hq', dx: 77, dy: -55 }, { label: 'stamp' }),
-      act('idle', { timeout: 20 }),
-      wait(0.6),
-      key('r'),
-      wait(0.4),
-      clickMap({ at: 'hq', dx: 87, dy: -150 }, { label: 'stamp turned' }),
-      act('idle', { timeout: 20 }),
-      wait(1.2),
-      key('Escape'),
-    ],
-  },
-  {
-    // A crater on a level table, then Fill a hollow: the water fills just that crater to its rim
-    name: 'editor-fill',
-    steps: [
-      frame([{ m: [-170, -72] }], { from: 160, pitch: 30, margin: 45 }),
-      tool('landscape'),
-      // A level table first: on the hillside a crater's rim had a low side and the water ran off ("no hollow")
-      mode('plateau'),
-      settings({ brush: { radius: 55, strength: 1 } }),
-      stroke(1.2, [{ m: [-170, -72] }, { m: [-169, -72] }]),
-      mode('crater'),
-      settings({ brush: { radius: 32, strength: 1 } }),
-      stroke(2, [{ m: [-170, -72] }, { m: [-170, -72] }], { label: 'crater' }),
-      wait(0.5),
-      tool('water'),
-      mode('fill', { label: 'fill a hollow' }),
-      // Ctrl: the hollow's own rim sets the level, whatever water the map has already
-      clickMap({ m: [-170, -72] }, { mods: { ctrl: true } }),
-      act('idle', { timeout: 30 }),
-      wait(1.5),
-    ],
-  },
-  {
-    // The whole build undone step by step to the empty map, then forward again
-    name: 'editor-history',
-    steps: [
-      path(1.5, ['current', [[0.05, -0.55, 300], [0.0, 0.02]]]),
-      click('[data-test=side-history]', { label: 'history' }),
-      act('history', { to: 0, stepS: 0.09 }),
-      wait(1),
-      act('history', { to: 'end', stepS: 0.06 }),
-      wait(0.8),
-      click('[data-test=side-tool]'),
-    ],
-  },
-  {
-    // The Sky tool with the forest in front: wind from calm to storm, the day running into dusk; night at the
-    // lamps; pictures, rain and the still frame; fog over the depth of the valley, snow; back to a clear day
-    name: 'editor-sky',
-    // Every setting made with the camera at rest, then held until it has taken effect (a new look compiles, the
-    // wind reaches the trees, the rain starts to fall): changes during a camera move showed as stutter
-    steps: [
-      // Road nodes, spawn flag and HQ marker out of the picture for the whole scene
-      act('overlay', { on: false }),
-      path(1.5, ['current', FOREST_VIEW]),
-      tool('environment', { label: 'sky' }),
-      ...settle(0.6),
-      { do: 'range', sel: '[data-test=wind] app-editor-range', to: 100, dur: 2.2, label: 'wind' },
-      ...settle(2.6),
-      { do: 'range', sel: '[data-test=wind] app-editor-range', to: 15, dur: 1 },
-      ...settle(1.2),
-      // Up over the grove's crowns, out to the mountains; then one slider from noon into dusk
-      path(4, ['current', [{ m: [52, -50], h: 34 }, { m: [40, 20], h: 20 }], [[-0.06, 0.1, 22], [-0.07, 0.3, 28]]], { ease: 'smooth' }),
-      ...settle(0.6),
-      { do: 'range', sel: '[data-test=time-of-day]', to: 19.6, dur: 3.6, label: 'time of day' },
-      ...settle(2),
-      // Night where the lamps stand
-      path(2, ['current', LAMPS_VIEW], { ease: 'inOut' }),
-      ...settle(0.4),
-      click(SKY_PRESET, { withText: 'Night', label: 'night' }),
-      ...settle(1.6),
-      { do: 'range', sel: '[data-test=moonlight]', to: 85, dur: 1.2, label: 'moonlight' },
-      ...settle(2),
-      path(2, ['current', WIDE_VIEW], { ease: 'inOut' }),
-      ...settle(0.4),
-      { do: 'select', sel: '[data-test=sky-image]', value: 'sunset', label: 'sky picture' },
-      ...settle(2),
-      { do: 'select', sel: '[data-test=sky-image]', value: 'thunderstorm' },
-      ...settle(1.2),
-      click(WEATHER, { withText: 'Rain', label: 'rain' }),
-      { do: 'range', sel: 'app-editor-range[label=Strength]', to: 100, dur: 0.8 },
-      ...settle(2.4),
-      { do: 'key', key: 'b', label: 'still frame' },
-      wait(0.4),
-      orbit(3, 'look', { turn: 30, ease: 'inOut' }),
-      { do: 'key', key: 'b' },
-      ...settle(1),
-      click(WEATHER, { withText: 'Clear' }),
-      ...settle(1),
-      { do: 'select', sel: '[data-test=sky-image]', value: 'starry-night', label: 'starry night' },
-      ...settle(2.2),
-      { do: 'select', sel: '[data-test=sky-image]', value: '' },
-      click(SKY_PRESET, { withText: 'Day' }),
-      { do: 'range', sel: '[data-test=time-of-day]', to: 11, dur: 0.8 },
-      ...settle(1.2),
-      // Snow under an overcast sky over the valley's depth (Fog left out: neither the weather nor the slider
-      // showed on screen)
-      path(2.5, ['current', DEEP_VIEW], { ease: 'smooth' }),
-      ...settle(0.4),
-      click(SKY_PRESET, { withText: 'Overcast', label: 'overcast' }),
-      ...settle(1),
-      click(WEATHER, { withText: 'Snow', label: 'snow' }),
-      { do: 'range', sel: 'app-editor-range[label=Strength]', to: 90, dur: 0.8 },
-      ...settle(2.6),
-      click(WEATHER, { withText: 'Clear' }),
-      // A clear day for everything after: the preset keeps the sun where it was, the clock sets it
-      click(SKY_PRESET, { withText: 'Day' }),
-      { do: 'range', sel: '[data-test=time-of-day]', to: 11, dur: 0.6 },
-      ...settle(1.2),
-      act('overlay', { on: true }),
-    ],
-  },
-  {
-    // A look at the spawn as the runners come out, then the camera chases one of them, then pulls up
-    name: 'editor-trial',
-    steps: [
-      // The spawn flag and the route's node balls out of the picture for the whole trial
-      act('overlay', { on: false }),
-      // Over the hills to the spawn, not along the ground (the direct line grazed a slope)
-      path(2.4, ['current', [{ m: [-150, -60], h: 70 }, { m: [-230, 0], h: 10 }], [{ m: [-215, -25], h: 6 }, { m: [-250, 0], h: 2 }]], { ease: 'inOut' }),
-      click('[data-test=trial]', { label: 'trial wave' }),
-      click('[data-test=trial-speed] button', { withText: '2x' }),
-      wait(2.5),
-      { do: 'follow', at: { at: 'runner:0' }, dur: 7, back: 12, side: 7, h: 5, label: 'chase' },
-      path(3, ['current', [{ m: [-120, -100], h: 75 }, { m: [-120, 0] }]], { ease: 'inOut', label: 'pull up' }),
-      wait(1.5),
-      act('overlay', { on: true }),
-      click('[data-test=trial]'),
-    ],
-  },
-  {
-    name: 'editor-overlays',
-    steps: [
-      path(1.5, ['current', [[0.05, -0.62, 240], [0.0, 0.0]]]),
+      frame([m(-200, -200), m(200, 200)], { from: 0, pitch: 58, margin: 5, glide: 1.6 }),
       tool('measure', { label: 'build areas' }),
       click('[data-test=build-areas]'),
-      wait(2.8),
+      wait(2.4),
+      effect('build areas'),
       click('[data-test=build-areas]'),
     ],
   },
-  { name: 'editor-test', steps: [click('[data-test=test-play]', { label: 'test map' }), wait(1.5)] },
+  {
+    // The runners come out of the south gate, the camera chases one, then pulls up; then Test map
+    name: 'city-trial',
+    steps: [
+      act('overlay', { on: false }),
+      // Down into the avenue north of the South Gate, looking back at the gate the runners come through
+      path(2.4, ['current', [m(-150, -150, 40), m(-192, -230, 4)], [m(-192, -185, 8), m(-192, -252, 3)]], { ease: 'inOut' }),
+      click('[data-test=trial]', { label: 'trial wave' }),
+      click('[data-test=trial-speed] button', { withText: '2x' }),
+      wait(2.2),
+      { do: 'follow', at: { at: 'runner:0' }, dur: 6, back: 12, side: 7, h: 5, label: 'chase' },
+      path(3, ['current', [m(-80, -200, 80), m(-40, -100)]], { ease: 'inOut', label: 'pull up' }),
+      wait(1),
+      act('overlay', { on: true }),
+      click('[data-test=trial]'),
+      click('[data-test=test-play]', { label: 'test map' }),
+      wait(1.2),
+    ],
+  },
 ];

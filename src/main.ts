@@ -25,5 +25,9 @@ const showreel =
     : Promise.resolve(null);
 
 showreel
-  .then((hook) => bootstrapApplication(AppComponent, appConfig).then((app) => hook?.startShowreel(app.injector)))
+  .then((hook) =>
+    bootstrapApplication(AppComponent, hook ? { ...appConfig, providers: [...appConfig.providers, ...hook.SHOWREEL_PROVIDERS] } : appConfig).then((app) =>
+      hook?.startShowreel(app.injector),
+    ),
+  )
   .catch((err) => console.error(err));

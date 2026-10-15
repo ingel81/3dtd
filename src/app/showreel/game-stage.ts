@@ -29,7 +29,7 @@ import { pressKey } from './pointer';
 interface GameComponent {
   photoMode: { active(): boolean; enter(): void; exit(): void };
   sim: { bus: { emit(command: Record<string, unknown>): void } };
-  store: { credits(): number };
+  store: { credits(): number; enemiesAlive(): number; waveEnemiesLeft(): number };
   controlsHintVisible: { set(on: boolean): void };
   towerControl: TowerControlService;
 }
@@ -329,6 +329,10 @@ export class GameStage implements Stage {
       }
       case 'wave':
         await this.hands.click('.td-wave-btn', Number(args['dur'] ?? 0.8));
+        return;
+      case 'waveDone':
+        // The running wave beaten: none alive and none still to come
+        await waitUntil(() => c.store.enemiesAlive() === 0 && c.store.waveEnemiesLeft() === 0, Number(args['timeout'] ?? 90), 'the wave to be beaten');
         return;
       case 'environment': {
         const w = this.world;
