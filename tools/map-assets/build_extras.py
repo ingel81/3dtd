@@ -11,7 +11,7 @@ import random
 
 from mathutils import Vector
 
-from blender_kit import Part, box, clear_scene, finish, flat_material, oriented_box, rust_material, tube
+from blender_kit import Part, box, clear_scene, export, finish, flat_material, oriented_box, rust_material, tube
 
 
 def squash(faces, sx=1.0, sz=1.0, centre=Vector()):
@@ -139,7 +139,184 @@ def mars_lander(name):
                   dark.to_object(name + '-dark'), win.to_object(name + '-window'), heap.to_object(name + '-heap')])
 
 
+# ---------------------------------------------------------------- livestock and deer
+
+# Per kind: body length and radius (round, then squashed across by `wide` and up by `deep`), height of the
+# body's axis standing, leg radius, neck and head length, head radius, how upright the neck is carried
+# (0 level, 1 upright) and how steeply the head points down (0 level, 1 straight down)
+COW = dict(length=1.75, radius=0.4, wide=0.8, deep=1.2, axis=0.98, leg=0.08, neck=0.42, head=0.5, head_r=0.15, carriage=0.3, nose=0.75)
+SHEEP = dict(length=0.95, radius=0.33, wide=0.9, deep=1.0, axis=0.62, leg=0.035, neck=0.3, head=0.3, head_r=0.09, carriage=0.6, nose=0.6)
+DEER = dict(length=1.15, radius=0.25, wide=0.8, deep=1.15, axis=0.95, leg=0.035, neck=0.55, head=0.32, head_r=0.08, carriage=0.85, nose=0.5)
+
+
+def body_axis(kind, pose):
+    """Height of the body's axis: standing, or resting on the ground"""
+    return kind['radius'] * kind['deep'] * 0.9 if pose == 'lie' else kind['axis']
+
+
+def quadruped(kind, pose, coat, legs, face, hoof, seed=0):
+    """A grazing animal facing -Y in one of three poses: `stand` (head up), `graze` (muzzle on the ground)
+    or `lie` (body on the ground, legs folded under). Coat, leg, face and hoof parts may be the same Part.
+    Returns the poll (top of the head) and the head's forward direction for ears, horns or antlers"""
+    rnd = random.Random(seed)
+    L, r = kind['length'], kind['radius']
+    axis = body_axis(kind, pose)
+    lying = pose == 'lie'
+    # Body: rump (+Y) to chest (-Y), deepest behind the shoulder
+    ys = [L / 2 + 0.05, L / 2 - 0.05, L * 0.25, 0.0, -L * 0.25, -L / 2 + 0.06, -L / 2 - 0.04]
+    rs = [0.25, 0.8, 0.98, 1.0, 0.97, 0.78, 0.35]
+    pts = [Vector((0, y, axis + (0.02 * L if y < 0 else 0.0))) for y in ys]
+    faces = tube(coat, pts, [r * f for f in rs], 10, cap=True)
+    squash(faces, sx=kind['wide'], sz=kind['deep'], centre=Vector((0, 0, axis)))
+    r *= kind['deep']
+    # Legs: thigh, shank, hoof; hind legs bend back at the hock, front legs straight
+    half = r * kind['wide'] * 0.55
+    lr = kind['leg']
+    for front in (True, False):
+        y = -L / 2 + 0.22 * L if front else L / 2 - 0.2 * L
+        for side in (-1, 1):
+            x = side * half
+            if lying:
+                # Folded under the body: front legs bent at the knee with the shank tucked back, hind legs
+                # along the flank with the hoof forward
+                if front:
+                    hip = Vector((x, y, axis - r * 0.4))
+                    knee = Vector((x * 1.1, y - 0.12 * L, lr * 1.4))
+                    foot = Vector((x * 1.05, y + 0.08 * L, lr * 1.2))
+                else:
+                    hip = Vector((x * 1.2, y, axis - r * 0.1))
+                    knee = Vector((x * 1.9, y + 0.08 * L, lr * 1.6))
+                    foot = Vector((x * 1.8, y - 0.3 * L, lr * 1.2))
+                tube(legs, [hip, knee, foot], [lr * 2.0, lr * 1.3, lr * 1.0], 6, cap=True)
+                continue
+            hip = Vector((x, y, axis - r * 0.2))
+            knee = Vector((x, y + (0.0 if front else 0.08 * L), (axis - r * 0.2) * 0.45))
+            foot = Vector((x, y + (0.02 if front else 0.03), 0.05))
+            if pose == 'graze' and front:
+                # Front legs a little apart and forward, taking the weight of the lowered head
+                foot.y -= 0.05 * L
+                foot.x *= 1.15
+            tube(legs, [hip, hip.lerp(knee, 0.5), knee, foot], [lr * 2.2, lr * 1.7, lr * 1.0, lr * 0.9], 6)
+            tube(hoof, [foot, foot - Vector((0, 0, 0.05))], [lr * 1.05, lr * 1.15], 6, cap=True)
+    # Neck and head
+    shoulder = Vector((0, -L / 2 + 0.12, axis + r * 0.35))
+    head_r = kind['head_r']
+    if pose == 'graze':
+        poll = Vector((0, -L / 2 - kind['neck'] * 0.55, max(0.35, axis * 0.42)))
+        tip = poll + Vector((rnd.uniform(-0.05, 0.05), -kind['head'] * 0.45, -kind['head'] * 0.85))
+        tip.z = max(tip.z, head_r * 0.7)
+    elif lying:
+        poll = Vector((0, -L / 2 - kind['neck'] * 0.25, axis + r * 0.9 + kind['neck'] * 0.5))
+        turn = rnd.uniform(-0.6, 0.6)
+        tip = poll + Vector((math.sin(turn) * kind['head'], -math.cos(turn) * kind['head'] * 0.9, -kind['head'] * 0.35))
+    else:
+        up = kind['carriage']
+        poll = Vector((0, -L / 2 - kind['neck'] * (1.0 - 0.6 * up), axis + r * 0.5 + kind['neck'] * up))
+        dip = kind['nose'] * math.pi / 2
+        tip = poll + Vector((0, -math.cos(dip), -math.sin(dip))) * kind['head']
+    tube(coat, [shoulder, shoulder.lerp(poll, 0.6), poll], [r * 0.62, r * 0.45, head_r * 1.2], 8)
+    tube(face, [poll - (tip - poll).normalized() * head_r * 0.6, poll, poll.lerp(tip, 0.6), tip],
+         [head_r * 0.5, head_r * 1.05, head_r * 0.9, head_r * 0.62], 8, cap=True)
+    # Tail
+    rump = Vector((0, L / 2 + 0.02, axis + r * 0.55))
+    if lying:
+        tube(coat, [rump, rump + Vector((0.08, 0.12, -r * 0.6))], [lr * 0.7, lr * 0.4], 5)
+    else:
+        tube(coat, [rump, rump + Vector((0, 0.05, -axis * 0.35)), rump + Vector((0, 0.06, -axis * 0.6))], [lr * 0.6, lr * 0.45, lr * 0.35], 5)
+    return poll, (tip - poll).normalized()
+
+
+def head_frame(ahead):
+    """Sideways and up from the head's point of view (up tilts forward when the head points down)"""
+    side = Vector((0, 0, 1)).cross(ahead).normalized()
+    return side, ahead.cross(side).normalized()
+
+
+def ears(part, poll, ahead, size, droop=0.3):
+    """Two flat ears out from the poll, sideways and a little back"""
+    side, _ = head_frame(ahead)
+    for s in (-1, 1):
+        a = poll + side * s * size * 0.4 - ahead * size * 0.2
+        b = a + side * s * size + Vector((0, 0, -droop * size)) - ahead * size * 0.2
+        oriented_box(part, a, b, size * 0.35)
+
+
+def cow(name, pose, seed):
+    """Hereford-style cow: red-brown coat, white face and chest, short pale horns"""
+    clear_scene()
+    coat = Part(flat_material('cow-coat', (0.17, 0.065, 0.03), 0.85), smooth=True)
+    white = Part(flat_material('cow-white', (0.62, 0.6, 0.55), 0.85), smooth=True)
+    hoof = Part(flat_material('animal-hoof', (0.05, 0.045, 0.04), 0.6), smooth=True)
+    poll, ahead = quadruped(COW, pose, coat, coat, white, hoof, seed)
+    ears(coat, poll, ahead, 0.16)
+    side, up = head_frame(ahead)
+    for s in (-1, 1):
+        base = poll + side * s * 0.08 + up * 0.06
+        tube(white, [base, base + side * s * 0.12 + up * 0.03, base + side * s * 0.17 + up * 0.1 + ahead * 0.04],
+             [0.03, 0.022, 0.008], 5)
+    # The white blaze down the chest
+    L, z = COW['length'], body_axis(COW, pose)
+    tube(white, [Vector((0, -L / 2 + 0.1, z + 0.1)), Vector((0, -L / 2 - 0.01, z - 0.12))], [0.18, 0.12], 8, cap=True)
+    objects = [coat.to_object(name), white.to_object(name + '-white'), hoof.to_object(name + '-hoof')]
+    # Lying, the hooves are folded under: no hoof part
+    export(name, [o for o in objects if o.data.polygons])
+
+
+def sheep(name, pose, seed):
+    """Woolly sheep with a black face and legs (Suffolk): tufts of fleece over the body"""
+    clear_scene()
+    rnd = random.Random(seed)
+    wool = Part(flat_material('sheep-wool', (0.56, 0.52, 0.43), 0.95), smooth=True)
+    black = Part(flat_material('sheep-face', (0.06, 0.055, 0.05), 0.8), smooth=True)
+    poll, ahead = quadruped(SHEEP, pose, wool, black, black, black, seed)
+    ears(black, poll, ahead, 0.1, droop=0.5)
+    L, r, axis = SHEEP['length'], SHEEP['radius'], body_axis(SHEEP, pose)
+    for k in range(9):
+        a = rnd.uniform(-1.9, 1.9)
+        y = rnd.uniform(-L * 0.38, L * 0.4)
+        c = Vector((math.sin(a) * r * 0.85, y, axis + math.cos(a) * r * 0.85))
+        n = (c - Vector((0, y, axis))).normalized()
+        rad = rnd.uniform(0.11, 0.15)
+        tube(wool, [c - n * rad * 0.6, c + n * rad * 0.2, c + n * rad * 0.55], [rad * 0.9, rad, rad * 0.5], 7)
+    # The wool cap on the poll
+    tube(wool, [poll - ahead * 0.06 + Vector((0, 0, -0.02)), poll + Vector((0, 0, 0.05))], [0.1, 0.07], 7, cap=True)
+    export(name, [wool.to_object(name), black.to_object(name + '-face')])
+
+
+def deer(name, pose, seed):
+    """Red deer stag: reddish brown with a pale rump patch, antlers with four tines a side"""
+    clear_scene()
+    coat = Part(flat_material('deer-coat', (0.19, 0.095, 0.045), 0.85), smooth=True)
+    pale = Part(flat_material('deer-pale', (0.46, 0.38, 0.29), 0.85), smooth=True)
+    poll, ahead = quadruped(DEER, pose, coat, coat, coat, pale, seed)
+    ears(coat, poll, ahead, 0.13, droop=-0.3)
+    L, axis = DEER['length'], body_axis(DEER, pose)
+    tube(pale, [Vector((0, L / 2 + 0.02, axis + 0.04)), Vector((0, L / 2 + 0.06, axis - 0.1))], [0.13, 0.09], 8, cap=True)
+    side, up = head_frame(ahead)
+    back = -ahead
+    for s in (-1, 1):
+        # Main beam out, back and up in a lyre curve, tines forward and up off it
+        base = poll + side * s * 0.05 + up * 0.05
+        beam = [base, base + side * s * 0.2 + up * 0.18 + back * 0.1, base + side * s * 0.38 + up * 0.36 + back * 0.2,
+                base + side * s * 0.45 + up * 0.55 + back * 0.15, base + side * s * 0.4 + up * 0.7 + back * 0.05]
+        tube(pale, beam, [0.028, 0.024, 0.02, 0.016, 0.006], 5)
+        for t, length in ((0.12, 0.2), (0.3, 0.18), (0.55, 0.16), (0.8, 0.12)):
+            k = min(int(t * 4), 3)
+            p = beam[k].lerp(beam[k + 1], t * 4 - k)
+            tine = p + (ahead * 0.7 + up * 0.7 - side * s * 0.1).normalized() * length
+            tube(pale, [p, tine], [0.014, 0.004], 4)
+    export(name, [coat.to_object(name), pale.to_object(name + '-pale')])
+
+
 def models():
     return {
         'mars-lander': lambda: mars_lander('mars-lander'),
+        'cow': lambda: cow('cow', 'stand', 1),
+        'cow-grazing': lambda: cow('cow-grazing', 'graze', 2),
+        'cow-lying': lambda: cow('cow-lying', 'lie', 3),
+        'sheep': lambda: sheep('sheep', 'stand', 4),
+        'sheep-grazing': lambda: sheep('sheep-grazing', 'graze', 5),
+        'sheep-lying': lambda: sheep('sheep-lying', 'lie', 6),
+        'deer': lambda: deer('deer', 'stand', 7),
+        'deer-grazing': lambda: deer('deer-grazing', 'graze', 8),
     }

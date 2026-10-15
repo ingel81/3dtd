@@ -7334,6 +7334,203 @@
       "source": "https://polyhaven.com/a/horse_statue_01; Sockel procedural (tools/map-assets/build_structures.py)"
     },
     {
+      "id": "cow",
+      "name": "Cow",
+      "category": "prop",
+      "file": "models/cow.glb",
+      "triangles": 528,
+      "footprint": 1.1,
+      "height": 1.5,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "temperate",
+        "village",
+        "mountain"
+      ],
+      "source": "procedural (tools/map-assets/build_extras.py)"
+    },
+    {
+      "id": "cow-grazing",
+      "name": "Cow, grazing",
+      "category": "prop",
+      "file": "models/cow-grazing.glb",
+      "triangles": 528,
+      "footprint": 1.1,
+      "height": 1.5,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "temperate",
+        "village",
+        "mountain"
+      ],
+      "source": "procedural (tools/map-assets/build_extras.py)"
+    },
+    {
+      "id": "cow-lying",
+      "name": "Cow, lying",
+      "category": "prop",
+      "file": "models/cow-lying.glb",
+      "triangles": 422,
+      "footprint": 1.1,
+      "height": 1.2,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "temperate",
+        "village",
+        "mountain"
+      ],
+      "source": "procedural (tools/map-assets/build_extras.py)"
+    },
+    {
+      "id": "sheep",
+      "name": "Sheep",
+      "category": "prop",
+      "file": "models/sheep.glb",
+      "triangles": 737,
+      "footprint": 0.7,
+      "height": 1.1,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "temperate",
+        "village",
+        "mountain",
+        "coast"
+      ],
+      "source": "procedural (tools/map-assets/build_extras.py)"
+    },
+    {
+      "id": "sheep-grazing",
+      "name": "Sheep, grazing",
+      "category": "prop",
+      "file": "models/sheep-grazing.glb",
+      "triangles": 737,
+      "footprint": 0.6,
+      "height": 1.0,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "temperate",
+        "village",
+        "mountain",
+        "coast"
+      ],
+      "source": "procedural (tools/map-assets/build_extras.py)"
+    },
+    {
+      "id": "sheep-lying",
+      "name": "Sheep, lying",
+      "category": "prop",
+      "file": "models/sheep-lying.glb",
+      "triangles": 631,
+      "footprint": 0.7,
+      "height": 0.8,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "temperate",
+        "village",
+        "mountain",
+        "coast"
+      ],
+      "source": "procedural (tools/map-assets/build_extras.py)"
+    },
+    {
+      "id": "deer",
+      "name": "Red deer",
+      "category": "prop",
+      "file": "models/deer.glb",
+      "triangles": 632,
+      "footprint": 0.9,
+      "height": 2.1,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "temperate",
+        "autumn",
+        "mountain",
+        "winter"
+      ],
+      "source": "procedural (tools/map-assets/build_extras.py)"
+    },
+    {
+      "id": "deer-grazing",
+      "name": "Red deer, grazing",
+      "category": "prop",
+      "file": "models/deer-grazing.glb",
+      "triangles": 632,
+      "footprint": 1.0,
+      "height": 1.3,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "temperate",
+        "autumn",
+        "mountain",
+        "winter"
+      ],
+      "source": "procedural (tools/map-assets/build_extras.py)"
+    },
+    {
       "id": "statue-knight",
       "name": "Knight statue",
       "category": "prop",

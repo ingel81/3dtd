@@ -318,6 +318,14 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | shrine | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/clay_roof_tiles_02 |
 | graves | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/dark_rock |
 | statue-horse | https://polyhaven.com/a/horse_statue_01; Sockel procedural (tools/map-assets/build_structures.py) |
+| cow | procedural (tools/map-assets/build_extras.py) |
+| cow-grazing | procedural (tools/map-assets/build_extras.py) |
+| cow-lying | procedural (tools/map-assets/build_extras.py) |
+| sheep | procedural (tools/map-assets/build_extras.py) |
+| sheep-grazing | procedural (tools/map-assets/build_extras.py) |
+| sheep-lying | procedural (tools/map-assets/build_extras.py) |
+| deer | procedural (tools/map-assets/build_extras.py) |
+| deer-grazing | procedural (tools/map-assets/build_extras.py) |
 | statue-knight | https://polyhaven.com/a/gothic_statue; Sockel procedural (tools/map-assets/build_structures.py) |
 | torch | procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/dark_planks; Flamme gezeichnet (make_foliage.py) |
 | brazier | procedural (tools/map-assets/build_props.py); Flamme gezeichnet (make_foliage.py) |
