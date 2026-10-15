@@ -27,7 +27,7 @@ import { canManTower } from '../../../sim/client/mirror/sim-mirror';
 import { SellConfirmService } from '../../../services/sell-confirm.service';
 import { UpgradeHintService } from '../../../services/upgrade-hint.service';
 import { openDamageMatrixDialog } from '../../damage-matrix-dialog/open-damage-matrix-dialog';
-import { TdIconComponent } from '../../icon/icon.component';
+import { TdIconComponent, type TdIconName } from '../../icon/icon.component';
 import { damageTypeIcon } from '../../icon/damage-type-icon';
 import {
   VETERAN_TOOLTIP,
@@ -146,6 +146,11 @@ export class SidebarTowerPanelComponent implements OnInit, OnDestroy {
    */
   isPathUnlocked(path: TowerPath): boolean {
     return pathUnlockedBy(this.researchStore.completedResearches(), path.id);
+  }
+
+  /** A path's mark: the icon of the research that opens it (each research has its own) */
+  pathIcon(path: TowerPath): TdIconName {
+    return (getResearch(path.research)?.icon ?? 'eye') as TdIconName;
   }
 
   /** The tooltip of a path tile: what it does, and what it waits for */
