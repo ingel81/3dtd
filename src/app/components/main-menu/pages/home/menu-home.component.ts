@@ -21,7 +21,7 @@ import { CUSTOM_MAPS_OPEN } from '../../../../world/custom-maps-open';
 
 /** An entry of the list */
 export type HomeEntryId =
-  | 'continue' | 'play' | 'new-game' | 'coop' | 'save' | 'load' | 'settings' | 'extras' | 'editor' | 'restart' | 'quit';
+  | 'continue' | 'play' | 'new-game' | 'coop' | 'save' | 'load' | 'settings' | 'extras' | 'editor' | 'edit-map' | 'restart' | 'quit';
 
 export interface HomeEntry {
   id: HomeEntryId;
@@ -47,6 +47,7 @@ export const HOME_ENTRY_ICON: Record<HomeEntryId, TdIconName> = {
   settings: 'cog',
   extras: 'manual',
   editor: 'terrain',
+  'edit-map': 'terrain',
   restart: 'refresh',
   quit: 'power',
 };
@@ -56,6 +57,7 @@ export type HomeConfirm =
   | { kind: 'leave'; from: string; to: string }
   | { kind: 'restart' }
   | { kind: 'editor' }
+  | { kind: 'edit-map' }
   | { kind: 'quit' };
 
 const PAGE_OF: Partial<Record<HomeEntryId, MenuPage>> = {
@@ -72,7 +74,7 @@ const PAGE_OF: Partial<Record<HomeEntryId, MenuPage>> = {
  * Continue (an autosave, or a run loaded), Play (the place behind the menu),
  * New game, Coop, Save (with a run), Load, Settings, Extras, Quit in the app.
  * In the pause layer: Continue back to the game, Save, Load, Settings,
- * Extras, and below the line New game, Coop, Restart here, Quit. Not in a
+ * Extras, and below the line New game, Coop, Edit this map (a custom map), Restart here, Quit. Not in a
  * coop game: Save, Load, Restart, New game (the map is the room's).
  *
  * While the place loads, one entry shows the bar: the one the player chose,
@@ -152,6 +154,7 @@ export class MenuHomeComponent {
       list.push(entry('settings', 'Settings'), entry('extras', 'Extras'));
       if (menu.canChangePlace()) list.push(entry('new-game', 'New game', null, true));
       list.push(entry('coop', 'Coop', null, true));
+      if (menu.editableMapId() !== null) list.push(entry('edit-map', menu.editMapLabel, null, true));
       if (menu.canRestart()) list.push(entry('restart', 'Restart here', null, true));
       if (menu.canQuit) list.push(entry('quit', 'Quit 3DTD', null, true));
       return list;
@@ -235,6 +238,10 @@ export class MenuHomeComponent {
         if (this.menu.underWay() || this.menu.inCoop()) this.ask({ kind: 'editor' });
         else openMapEditor();
         return;
+      case 'edit-map':
+        if (this.menu.underWay() || this.menu.inCoop()) this.ask({ kind: 'edit-map' });
+        else this.menu.editThisMap();
+        return;
       case 'quit':
         if (this.menu.underWay() || this.menu.inCoop()) this.ask({ kind: 'quit' });
         else this.menu.quit();
@@ -268,6 +275,7 @@ export class MenuHomeComponent {
     if (confirm.kind === 'leave') void this.loadAutosave();
     else if (confirm.kind === 'restart') this.menu.restart();
     else if (confirm.kind === 'editor') openMapEditor();
+    else if (confirm.kind === 'edit-map') this.menu.editThisMap();
     else this.menu.quit();
   }
 
@@ -338,6 +346,10 @@ export class MenuHomeComponent {
         return { question: 'Restart here? The run ends.', yes: 'Restart' };
       case 'editor':
         return { question: 'Open the map editor? The run ends.', yes: 'Open the editor' };
+      case 'edit-map':
+        return this.menu.fromEditor
+          ? { question: 'Back to the editor? The test run ends.', yes: 'Back to editor' }
+          : { question: 'Edit this map? The run ends.', yes: 'Open in the editor' };
       case 'quit':
         return { question: 'Quit 3DTD? The run ends.', yes: 'Quit' };
     }

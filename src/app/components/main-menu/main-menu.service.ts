@@ -16,6 +16,7 @@ import { startMenuSkipped } from './start-menu-skipped';
 import { WorldContext } from '../../world/world-context.service';
 import { RESUME_URL_PARAM, WorldChoiceService } from '../../world/world-choice.service';
 import { CUSTOM_MAPS_OPEN } from '../../world/custom-maps-open';
+import { MAP_TEST_WINDOW, returnToEditor } from '../../world/map-trial';
 
 export { startMenuSkipped } from './start-menu-skipped';
 
@@ -123,6 +124,11 @@ export class MainMenuService {
 
   /** The page plays a custom map */
   readonly onMap = computed(() => this.worldContext.ref().kind === 'custom-map');
+  /** The custom map this page plays, to edit: while the maps are open, not in a replay; else null */
+  readonly editableMapId = computed(() => {
+    const ref = this.worldContext.ref();
+    return this.mapsOpen && ref.kind === 'custom-map' && !this.ui.replayMode() ? ref.mapId : null;
+  });
   /**
    * Which kind of world the start list shows. It follows the world the
    * page plays; the player may look at the other: its Continue and Load
@@ -135,6 +141,21 @@ export class MainMenuService {
   readonly homeTab = computed<MenuWorldTab>(() => (this.onMap() ? 'custom' : 'real'));
   /** The list shows the world of this page (or there are no tabs) */
   readonly onHomeTab = computed(() => !this.tabsShown() || this.tab() === this.homeTab());
+
+  /** The page is the editor's test tab ("Test map"), its editor still there: editing the map goes back to it */
+  readonly fromEditor = typeof window !== 'undefined' && window.name === MAP_TEST_WINDOW && !!window.opener;
+  /** The words of the way into the editor: back to it from its test tab, else the map opens there */
+  readonly editMapLabel = this.fromEditor ? 'Back to editor' : 'Edit this map';
+
+  /**
+   * The map editor on the map this page plays (a shipped one opens there as an own copy). From the editor's
+   * test tab the editor that opened it comes back instead, the map still open in it.
+   */
+  editThisMap(): void {
+    const mapId = this.editableMapId();
+    if (mapId === null || returnToEditor(mapId)) return;
+    window.location.assign(this.worlds.editUrl(mapId));
+  }
 
   /** A save the page was opened to load (?resume=), said when it went wrong */
   readonly notice = signal<string | null>(null);

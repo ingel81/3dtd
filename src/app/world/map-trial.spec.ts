@@ -1,5 +1,5 @@
 import { GameEventBus } from '../game-engine/game-event-bus';
-import { MAP_TRIAL_STALL_MS, MAP_TRIAL_TONE, MAP_TRIAL_WAVES, MAX_MAP_TRIAL_WAVES, MapTrial, mapTrialSummary, mapTrialWaves, type MapTrialResult } from './map-trial';
+import { MAP_TRIAL_STALL_MS, MAP_TRIAL_TONE, MAP_TRIAL_WAVES, MAX_MAP_TRIAL_WAVES, MAP_EDITOR_WINDOW, MAP_TEST_WINDOW, MapTrial, returnToEditor, mapTrialSummary, mapTrialWaves, type MapTrialResult } from './map-trial';
 
 describe('map trial', () => {
   let bus: GameEventBus;
@@ -62,5 +62,28 @@ describe('map trial', () => {
     waveDone(2, 0);
     bus.emit({ type: 'game:over', reason: 'base-destroyed' });
     expect(results).toHaveLength(1);
+  });
+});
+
+describe('returnToEditor', () => {
+  const editorOn = (href: string) => ({ name: MAP_EDITOR_WINDOW, closed: false, location: { href }, focus: vi.fn() });
+  const testTab = (opener: unknown, name = MAP_TEST_WINDOW) => ({ name, opener, close: vi.fn(), open: vi.fn() }) as unknown as Window;
+
+  it('brings the editor that still shows the map to the front and closes the test tab', () => {
+    const editor = editorOn('http://localhost/play/editor?map=m1');
+    const tab = testTab(editor);
+    expect(returnToEditor('m1', tab)).toBe(true);
+    expect(editor.focus).toHaveBeenCalled();
+    // By its name: the browser brings that tab to the front, focus() alone does not
+    expect(tab.open).toHaveBeenCalledWith('', MAP_EDITOR_WINDOW);
+    expect(tab.close).toHaveBeenCalled();
+  });
+
+  it('leaves it to the caller outside the test tab, without an editor, or with the editor on another map', () => {
+    expect(returnToEditor('m1', testTab(editorOn('http://localhost/editor?map=m1'), 'other'))).toBe(false);
+    expect(returnToEditor('m1', testTab(null))).toBe(false);
+    expect(returnToEditor('m1', testTab({ ...editorOn('http://localhost/editor?map=m1'), closed: true }))).toBe(false);
+    expect(returnToEditor('m1', testTab(editorOn('http://localhost/editor?map=m2')))).toBe(false);
+    expect(returnToEditor('m1', testTab(editorOn('http://localhost/?world=map:m1')))).toBe(false);
   });
 });

@@ -4,6 +4,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { MapBrowserComponent } from './browser/map-browser.component';
 import { EditorSession } from './editor-session.service';
 import { EditorShellComponent } from './shell/editor-shell.component';
+import { MAP_EDITOR_WINDOW } from '../../world/map-trial';
 
 /**
  * `/editor`: the map browser, or with `?map=<id>` that map in the editor.
@@ -37,6 +38,8 @@ export class EditorPageComponent implements OnInit {
   private following: Promise<void> = Promise.resolve();
 
   ngOnInit(): void {
+    // A name the test tab can call it by to come back (returnToEditor); the test tab keeps its own
+    if (!window.name) window.name = MAP_EDITOR_WINDOW;
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
       const id = params.get('map');
       this.following = this.following.then(() => this.follow(id));

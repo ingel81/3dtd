@@ -28,6 +28,11 @@ export const MAP_TRIAL_MESSAGE = '3dtd-map-trial';
  * the page open a window of this name only (desktop/src/security.js).
  */
 export const MAP_TEST_WINDOW = '3dtd-map-test';
+/**
+ * Name of the editor's own tab: window.open with it, inside a click, brings that tab to the front, where
+ * focus() on it does not (Chrome).
+ */
+export const MAP_EDITOR_WINDOW = '3dtd-map-editor';
 /** The timescale a trial plays at (the bot dashboard's) */
 export const MAP_TRIAL_SPEED = 75;
 
@@ -154,4 +159,28 @@ export function mapTrialSummary(result: MapTrialResult): string {
     case 'stuck':
       return `Map check stuck: no wave finished after wave ${result.wavesHeld} of ${result.waves} (${hq})`;
   }
+}
+
+/**
+ * From the editor's test tab (MAP_TEST_WINDOW): the editor that opened it comes to the front and the test
+ * tab closes, if that editor still shows `mapId`. False when there is none: another tab, the editor closed
+ * or on another map; the caller then opens the editor here. Called inside a click: only then may
+ * window.open bring the editor's tab (MAP_EDITOR_WINDOW) to the front; the desktop app refuses that name,
+ * its windows come up with focus().
+ */
+export function returnToEditor(mapId: string, win: Window = window): boolean {
+  if (win.name !== MAP_TEST_WINDOW) return false;
+  const editor = win.opener as Window | null;
+  try {
+    if (!editor || editor.closed) return false;
+    const url = new URL(editor.location.href);
+    if (!url.pathname.endsWith('/editor') || url.searchParams.get('map') !== mapId) return false;
+  } catch {
+    // Not ours to read
+    return false;
+  }
+  editor.focus();
+  if (editor.name === MAP_EDITOR_WINDOW) win.open('', MAP_EDITOR_WINDOW);
+  win.close();
+  return true;
 }

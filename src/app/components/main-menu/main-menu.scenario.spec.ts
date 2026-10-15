@@ -716,6 +716,26 @@ describe('The main menu', () => {
       expect(el().querySelector('.mh-pause-place')?.textContent).toBe('Heilbronn | wave 1');
     });
 
+    it('on a custom map offers Edit this map, asking first while a run is under way; not in a replay', async () => {
+      mapsOpen = true;
+      world.useCustomMap('ember-crater-copy', 'Ember Crater (copy)');
+      await setup('pause');
+      game.towerCount.set(1);
+      await settle();
+      const edit = vi.spyOn(menu, 'editThisMap').mockImplementation(() => undefined);
+
+      expect(entries()).toEqual(['Continue', 'Save game', 'Load game', 'Settings', 'Extras', 'New game', 'Coop', 'Edit this map', 'Restart here']);
+      await click(entry('edit-map'));
+      expect(edit).not.toHaveBeenCalled();
+      expect(text()).toContain('Edit this map? The run ends.');
+      await click(Array.from(el().querySelectorAll<HTMLElement>('.mh-confirm button')).find((b) => b.textContent === 'Open in the editor')!);
+      expect(edit).toHaveBeenCalledTimes(1);
+
+      ui.replayMode.set(true);
+      await settle();
+      expect(entries()).not.toContain('Edit this map');
+    });
+
     it('Continue and Esc go back to the game', async () => {
       await setup('pause');
       await click(entry('continue'));

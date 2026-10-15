@@ -389,6 +389,10 @@
             </span>
             <span class="td-inline td-end-actions">
               <button type="button" class="td-btn-secondary" (click)="openMainMenu()">Main menu</button>
+              <!-- A custom map: straight into the editor on it, or back to the editor that tests it -->
+              @if (mainMenu.editableMapId() !== null) {
+                <button type="button" class="td-btn-secondary" (click)="mainMenu.editThisMap()">{{ mainMenu.fromEditor ? 'Back to editor' : 'Edit map' }}</button>
+              }
               <!-- The wave that broke the HQ, once more, while the replay is offered -->
               @if (replay.offered()) {
                 <button type="button" class="td-btn-secondary" (click)="replay.enter()">Replay wave {{ replay.recordedWave() }}</button>
