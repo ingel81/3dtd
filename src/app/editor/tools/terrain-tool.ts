@@ -155,6 +155,8 @@ export class TerrainTool implements EditorTool {
       if (rect) stroke.changed({ heights: rect });
     }
     stroke.finish();
+    // The start's toast would stand over the finished ramp
+    ctx.status('Ramp built');
   }
 
   private end(): void {
