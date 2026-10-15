@@ -91,6 +91,7 @@ export function mapSummary(doc: CustomMapDocument, catalog: CatalogIndex): Recor
       waveSound: doc.life?.waveSound ?? null,
       areas: (doc.life?.areas ?? []).map((a) => ({ id: a.id, kind: a.kind, shape: a.shape, points: a.points.length, density: a.density ?? 1 })),
     },
+    intro: doc.intro ?? 'default',
   };
 }
 
@@ -206,7 +207,7 @@ export function contentFingerprint(doc: CustomMapDocument): string {
   if (t.water) bytes(t.water.mask);
   for (const b of t.waterBodies ?? []) bytes(b.mask);
   text(JSON.stringify({ layers: t.layers, water: t.water?.level, bodies: t.waterBodies?.map((b) => b.level), rivers: t.rivers, cliff: [t.cliffMaterial, t.cliffAngle] }));
-  text(JSON.stringify([doc.objects, doc.paths, doc.spawns, doc.hq, doc.environment, doc.gameplay ?? null, doc.life ?? null]));
+  text(JSON.stringify([doc.objects, doc.paths, doc.spawns, doc.hq, doc.environment, doc.gameplay ?? null, doc.life ?? null, doc.intro ?? null]));
   return (h >>> 0).toString(16).padStart(8, '0');
 }
 
@@ -290,6 +291,7 @@ export function mapDiff(before: CustomMapDocument, after: CustomMapDocument): Re
   if (env.length) out['environment'] = Object.fromEntries(env.map((k) => [k, (after.environment as unknown as Record<string, unknown>)[k] ?? null]));
   const rules = keys(before.gameplay, after.gameplay);
   if (rules.length) out['gameplay'] = Object.fromEntries(rules.map((k) => [k, (after.gameplay as Record<string, unknown> | undefined)?.[k] ?? null]));
+  if (JSON.stringify(before.intro ?? null) !== JSON.stringify(after.intro ?? null)) out['intro'] = after.intro ?? 'default';
   const meta = keys({ name: before.meta.name, description: before.meta.description }, { name: after.meta.name, description: after.meta.description });
   if (meta.length) out['details'] = Object.fromEntries(meta.map((k) => [k, (after.meta as unknown as Record<string, unknown>)[k] ?? null]));
   return out;
