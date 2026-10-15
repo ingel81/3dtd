@@ -75,18 +75,25 @@ export function buildEmberCrater(): CustomMapDocument {
   k.hq(island.x, island.y);
 
 
-  // ---- Ground: hell outside, cracked crater walls, lava flows down the outer slopes
-  k.biome('hell', [{ x: -200, y: -200 }, { x: -220, y: 180 }, { x: 0, y: 220 }, { x: 210, y: 190 }, { x: 210, y: -190 }], { radius: 70, strength: 0.6 });
-  k.cracks([{ x: -110, y: 40 }, { x: -60, y: 100 }, { x: 40, y: 105 }, { x: 105, y: 30 }, { x: 80, y: -70 }], { radius: 30, strength: 0.8 }, 1);
-  k.paint('volcanic-rock', [{ x: 0, y: -100 }, { x: -100, y: 0 }, { x: 0, y: 100 }, { x: 100, y: 0 }], { radius: 50, falloff: 1 }, 0.4);
-  k.paint('obsidian', island, { radius: 26, falloff: 0.6 }, 0.9);
-  k.paint('brimstone', [{ x: -170, y: -120 }, { x: 160, y: 150 }], { radius: 30, falloff: 1 }, 0.6);
+  // The lava runs on over the crater floor below its level once the roads are graded: dug into the uneven floor,
+  // the lake's mask ended on the floor's low side and the lava stood there over the ground in the air
+  k.fill({ x: -40, y: 0 }, lava);
+
+  // ---- Ground: lava flows down the outer slopes first (a later flow cut the banks of the hell pools and they
+  // hung in the air there), then hell outside, cracked crater walls
   for (const line of [
     [{ x: -130, y: -110 }, { x: -170, y: -170 }, { x: -230, y: -230 }],
     [{ x: 120, y: 120 }, { x: 170, y: 175 }, { x: 240, y: 230 }],
   ]) {
     k.river(line, { kind: 'lava', width: 7, depth: 1.2, bank: 6, reeds: false, bridges: false });
   }
+  // One stroke per corner: a stroke's pools fill to one level near where it starts, so a single stroke round the
+  // whole cone held pools only in a band of the slope
+  for (const at of [{ x: -200, y: -200 }, { x: -220, y: 180 }, { x: 0, y: 220 }, { x: 210, y: 190 }, { x: 210, y: -190 }]) k.biome('hell', at, { radius: 70, strength: 0.6 });
+  k.cracks([{ x: -110, y: 40 }, { x: -60, y: 100 }, { x: 40, y: 105 }, { x: 105, y: 30 }, { x: 80, y: -70 }], { radius: 30, strength: 0.8 }, 1);
+  k.paint('volcanic-rock', [{ x: 0, y: -100 }, { x: -100, y: 0 }, { x: 0, y: 100 }, { x: 100, y: 0 }], { radius: 50, falloff: 1 }, 0.4);
+  k.paint('obsidian', island, { radius: 26, falloff: 0.6 }, 0.9);
+  k.paint('brimstone', [{ x: -170, y: -120 }, { x: 160, y: 150 }], { radius: 30, falloff: 1 }, 0.6);
 
   // ---- The island, the rim: spikes, the gate, braziers along the spiral, the forge, smoke
   for (let i = 0; i < 9; i++) {
@@ -95,7 +102,8 @@ export function buildEmberCrater(): CustomMapDocument {
     if (nearestOnPolyline([end, toIsland, island], p)!.dist < 8) continue;
     k.place(i % 2 ? 'obsidian-spikes' : 'obsidian-slabs', p.x, p.y, { rotation: a, scale: 1.2 });
   }
-  k.place('hell-gate', -12, 12, { rotation: facing({ x: -12, y: 12 }, end) });
+  // Larger than the catalogue's default: from the rim and in a fly-over the gate read as a small doorway
+  k.place('hell-gate', -12, 12, { rotation: facing({ x: -12, y: 12 }, end), scale: 1.4 });
   for (let i = 8; i < spiral.length - 4; i += 14) {
     const p = spiral[i];
     const q = spiral[i + 1];
