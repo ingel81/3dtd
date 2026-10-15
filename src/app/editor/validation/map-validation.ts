@@ -47,6 +47,7 @@ export interface MapIssue {
     | 'lane-little-room'
     | 'spawn-near-hq'
     | 'path-under-water'
+    | 'water-buried'
     | 'object-on-path'
     | 'object-floating'
     | 'water-floating'
@@ -283,6 +284,7 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
 
   if (options.footingOf) floatingObjects(doc, options.footingOf, rules.maxFloat, issues);
   floatingWater(doc, rules.maxWaterStep, issues);
+  buriedWater(doc, issues);
 
   const danger = options.dangerColor ?? ((asset: string) => dangerLook(asset) !== null);
   let alarming = 0;
@@ -397,6 +399,51 @@ function underWater(doc: CustomMapDocument, p: MapPoint): boolean {
     }
   }
   return false;
+}
+
+/** Fewest marked cells a body needs before `buriedWater` judges it */
+const BURIED_MIN_CELLS = 40;
+/**
+ * Share of a body's marked cells under the ground from which it counts as
+ * buried; a mask painted wide over the shore leaves much dry (the demo
+ * valley's water 65 %, every other shipped body under 30 %)
+ */
+const BURIED_SHARE = 0.85;
+
+/**
+ * Water whose bed rose over its surface (`water-buried`): most cells its mask
+ * marks have ground above its level, so it does not show. A biome brush or a
+ * landform stroked over a frozen lake did this and the check said nothing
+ * (an AI agent's winter map, 2026-10-15). One pass over each mask.
+ */
+function buriedWater(doc: CustomMapDocument, issues: MapIssue[]): void {
+  const t = doc.terrain;
+  const g = t.grid;
+  const bodies = [...(t.water ? [{ body: t.water, name: `The ${t.water.kind && t.water.kind !== 'water' ? t.water.kind : 'water'}` }] : []), ...(t.waterBodies ?? []).map((body, index) => ({ body, name: `Water body ${index} (${body.kind ?? 'water'})` }))];
+  for (const { body, name } of bodies) {
+    let marked = 0;
+    let dry = 0;
+    let top = -Infinity;
+    let sx = 0;
+    let sy = 0;
+    for (let k = 0; k < body.mask.length; k++) {
+      if (body.mask[k] === 0) continue;
+      marked++;
+      const h = g.heights[k];
+      if (h <= body.level) continue;
+      dry++;
+      top = Math.max(top, h);
+      sx += (k % g.columns) * g.cellSize - t.width / 2;
+      sy += Math.floor(k / g.columns) * g.cellSize - t.depth / 2;
+    }
+    if (marked < BURIED_MIN_CELLS || dry / marked < BURIED_SHARE) continue;
+    issues.push({
+      severity: 'warning',
+      code: 'water-buried',
+      message: `${name} lies under the ground: ${Math.round((dry / marked) * 100)} % of it has its bed above its surface (up to ${(top - body.level).toFixed(1)} m). Dig it out again or raise its level.`,
+      focus: { x: Math.round(sx / dry), y: Math.round(sy / dry) },
+    });
+  }
 }
 
 function wetAt(doc: CustomMapDocument, p: MapPoint): boolean {

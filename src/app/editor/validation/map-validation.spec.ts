@@ -32,6 +32,29 @@ describe('validateMap', () => {
     expect(issues[0].severity).toBe('error');
   });
 
+  it('finds water whose bed rose above its surface, and leaves a lake with its shore alone', () => {
+    const doc = createMapDocument({ id: 'm', name: 'M', width: 400, depth: 400 });
+    const g = doc.terrain.grid;
+    g.heights.fill(0);
+    const ice = { ...emptyWater(doc.terrain, -1), kind: 'ice' as const };
+    // A round lake of 30 m around (100, 100): 80 % of it dug 3 m deep, its rim above the surface
+    for (let j = 0; j < g.rows; j++) {
+      for (let i = 0; i < g.columns; i++) {
+        const r = Math.hypot(i * g.cellSize - 200 - 100, j * g.cellSize - 200 - 100);
+        if (r > 30) continue;
+        ice.mask[j * g.columns + i] = 255;
+        if (r < 27) g.heights[j * g.columns + i] = -3;
+      }
+    }
+    doc.terrain.waterBodies = [ice];
+    expect(codes(doc)).not.toContain('water-buried');
+    // A brush raised the bed again
+    for (let k = 0; k < g.heights.length; k++) if (ice.mask[k]) g.heights[k] = 2.2;
+    const issue = validateMap(doc).find((i) => i.code === 'water-buried');
+    expect(issue?.message).toBe('Water body 0 (ice) lies under the ground: 100 % of it has its bed above its surface (up to 3.2 m). Dig it out again or raise its level.');
+    expect(issue?.focus?.x).toBeCloseTo(100, -1);
+  });
+
   it('wants the HQ on a path', () => {
     const doc = createMapDocument({ id: 'm', name: 'M', width: 800, depth: 800 });
     doc.hq = { x: 0, y: 200 };
