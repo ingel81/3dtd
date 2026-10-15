@@ -40,7 +40,7 @@ import { idle } from './idle';
 import { EditorMapView, mapToScene } from './map-view';
 import { pixelRatioFor, readStoredQuality, storedKnobsFor, type QualityKnobs } from '../../three-engine/render-quality';
 import { contourLines } from '../ops/contours';
-import { programsReady } from '../../three-engine/programs-ready';
+import { firstUsePrograms, programsReady } from '../../three-engine/programs-ready';
 
 export interface HoverInfo {
   x: number;
@@ -420,6 +420,8 @@ export class EditorViewport {
         for (const t of twins) group.add(t);
         await this.compileForViews(group);
       }
+      // What was compiled ahead does its first-use work now, not in the frame of a click that first draws it
+      await firstUsePrograms(this.renderer, () => this.disposed || view !== this.view);
     } catch {
       // A view replaced or lost while compiling
     } finally {
@@ -496,7 +498,11 @@ export class EditorViewport {
     const fresh = assetIds.filter((id) => !this.warmed.has(id));
     if (!fresh.length) return;
     for (const id of fresh) this.warmed.add(id);
-    void this.view.warmUpAssets(this.renderer, this.scene, this.camera, fresh, (o) => this.compileForViews(o)).catch(() => undefined);
+    const view = this.view;
+    void view
+      .warmUpAssets(this.renderer, this.scene, this.camera, fresh, (o) => this.compileForViews(o))
+      .then(() => firstUsePrograms(this.renderer, () => this.disposed || view !== this.view))
+      .catch(() => undefined);
   }
 
   /** Whether the trial wave walks */

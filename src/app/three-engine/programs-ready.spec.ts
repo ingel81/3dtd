@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { programsReady } from './programs-ready';
+import { firstUsePrograms, programsReady } from './programs-ready';
 
 describe('programsReady', () => {
   beforeEach(() => vi.useFakeTimers());
@@ -28,5 +28,17 @@ describe('programsReady', () => {
     expect(done).toBe(false);
     await vi.advanceTimersByTimeAsync(30);
     expect(done).toBe(true);
+  });
+});
+
+describe('firstUsePrograms', () => {
+  it('asks every program for its uniforms once, and stops when the view is gone', async () => {
+    const asked: number[] = [];
+    const renderer = { info: { programs: [0, 1, 2].map((k) => ({ getUniforms: () => asked.push(k) })) } };
+    await firstUsePrograms(renderer);
+    expect(asked).toEqual([0, 1, 2]);
+    asked.length = 0;
+    await firstUsePrograms(renderer, () => true);
+    expect(asked).toEqual([]);
   });
 });

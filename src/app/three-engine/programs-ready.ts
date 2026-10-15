@@ -24,3 +24,21 @@ export function programsReady(
     check();
   });
 }
+
+/**
+ * Does each program's first-use work now, one program per task: three
+ * fetches a program's info log and its uniform and attribute locations the
+ * first time a draw uses it (WebGLProgram.getUniforms), and for a program
+ * compiled ahead but not drawn yet (the other light state, a biome's
+ * assets) that cost 50 to 160 ms in the frame of the click that first drew
+ * it. Programs already used answer at once. Resolves when all are done.
+ */
+export async function firstUsePrograms(renderer: { info: { programs?: readonly object[] | null } }, gone: () => boolean = () => false): Promise<void> {
+  for (const p of [...(renderer.info.programs ?? [])]) {
+    if (gone()) return;
+    const t = performance.now();
+    (p as { getUniforms?: () => unknown }).getUniforms?.();
+    // Only work that took time gives the frames a turn
+    if (performance.now() - t > 2) await new Promise((resolve) => setTimeout(resolve));
+  }
+}
