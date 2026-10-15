@@ -62,17 +62,25 @@ import { addPouredBodies, basinSpillHeight, BODY_COLORS, emptyWater, fillBasin, 
 import { MAX_WATER_BODIES } from '../../world/custom-map/map-file';
 import { validateMap, type MapIssue } from '../validation/map-validation';
 import { assetCosts } from '../validation/map-budget';
+import { lifeProblems, newLifeId } from '../../world/custom-map/map-life';
 import {
   fitSplatMaps,
   type CustomMapDocument,
   type MapEnvironment,
   type MapBridgeStyle,
   type MapGameplay,
+  type MapLife,
+  type MapLifeArea,
+  type MapLifeKind,
   type MapObject,
   type MapPathKind,
   type MapPoint,
   type MapWaterKind,
 } from '../../world/custom-map/map-document';
+
+/** What a life area may set beside its kind, shape and points */
+export type LifeOptions = Partial<Pick<MapLifeArea, 'density' | 'height' | 'color' | 'sound' | 'volume' | 'asset' | 'quality'>>;
+const LIFE_OPTION_KEYS: readonly (keyof LifeOptions)[] = ['density', 'height', 'color', 'sound', 'volume', 'asset', 'quality'];
 
 /** A brush as the panel sets it; falloff defaults to the editor's 0.6 */
 export interface Brush {
@@ -1043,6 +1051,47 @@ export class MapKit {
 
   gameplay(g: MapGameplay): void {
     this.doc.gameplay = { ...g };
+  }
+
+  // ---- Life ----------------------------------------------------------------------------------------------------
+
+  /** A life area (the Life tool's Outline): the outline the life fills; returns its id */
+  lifeArea(kind: MapLifeKind, points: readonly MapPoint[], options: LifeOptions = {}): string {
+    return this.addLife(kind, 'area', points, options);
+  }
+
+  /** A life route (the Life tool's Line): the line flocks, boats or a sound follow; returns its id */
+  lifeRoute(kind: MapLifeKind, points: readonly MapPoint[], options: LifeOptions = {}): string {
+    return this.addLife(kind, 'route', points, options);
+  }
+
+  /** The map's own life: { auto: { smoke, fireflies, birds, sparks }, density, flags, ambience: { sound, volume } } */
+  lifeSettings(patch: Omit<MapLife, 'areas'>): void {
+    const life: MapLife = { ...this.doc.life, ...patch, auto: patch.auto ? { ...this.doc.life?.auto, ...patch.auto } : this.doc.life?.auto };
+    if (!life.auto) delete life.auto;
+    const problems = lifeProblems(life);
+    if (problems.length) throw new Error(`${this.name}: ${problems[0]}`);
+    this.doc.life = life;
+  }
+
+  /** Remove life areas by id */
+  removeLife(ids: readonly string[]): void {
+    const areas = this.doc.life?.areas ?? [];
+    const missing = ids.filter((id) => !areas.some((a) => a.id === id));
+    if (missing.length) throw new Error(`${this.name}: there are no life areas ${missing.join(', ')}; life areas: ${areas.map((a) => a.id).join(', ') || 'none'}`);
+    this.doc.life = { ...this.doc.life, areas: areas.filter((a) => !ids.includes(a.id)) };
+  }
+
+  private addLife(kind: MapLifeKind, shape: MapLifeArea['shape'], points: readonly MapPoint[], options: LifeOptions): string {
+    const areas = this.doc.life?.areas ?? [];
+    const unknown = Object.keys(options).filter((k) => !LIFE_OPTION_KEYS.includes(k as keyof LifeOptions));
+    if (unknown.length) throw new Error(`${this.name}: life areas know no ${unknown.join(', ')} (they take ${LIFE_OPTION_KEYS.join(', ')})`);
+    const area: MapLifeArea = { id: newLifeId(areas, kind), kind, shape, points: points.map((p) => ({ x: r2(p.x), y: r2(p.y) })), ...options };
+    const life: MapLife = { ...this.doc.life, areas: [...areas, area] };
+    const problems = lifeProblems(life);
+    if (problems.length) throw new Error(`${this.name}: ${problems[0]}`);
+    this.doc.life = life;
+    return area.id;
   }
 
   // ---- Done ----------------------------------------------------------------------------------------------------

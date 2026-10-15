@@ -143,9 +143,12 @@ lehnt der Agent ab. `create_map` legt die Karte wie der Dialog „New map“ an 
 Ein Skript ist schlichtes JavaScript (kein `import`, kein `await`) gegen `map`. Die Befehle sind die des Map-Kits
 (`src/app/editor/ops/map-kit.ts`, dieselben Operationen, mit denen `tools/maps/levels/` die mitgelieferten Karten
 baut): Generator, Landschaftsstriche (Biome, Formen, Klippen, Erosion, Fluss, Straße), Terrain-, Paint- und
-Wasserpinsel entlang Punkten, Objekte setzen, streuen, in Reihen, Wege, Spawns, HQ, Symmetrie, Himmel, Regeln.
+Wasserpinsel entlang Punkten, Objekte setzen, streuen, in Reihen, Wege, Spawns, HQ, Symmetrie, Himmel, Regeln, Leben
+(`map.lifeArea(kind, punkte, optionen)`, `map.lifeRoute`, `map.lifeSettings`, `map.removeLife`; Arten und Optionen wie im
+Werkzeug Life, LEVEL_EDITOR.md; eine unbekannte Option, Art oder zu wenige Punkte brechen mit Grund ab).
 Lesen: `map.h(x, y)`, `map.slope`, `map.noise`, `map.ridged`, `map.objects(rect)`, `map.markers()`, `map.roads()`,
-`map.layers()`, `map.waterBodies()`, `map.lanes()`, `map.issues()`. Dazu `rng(seed)`, `facing(a, b)`, `log(...)`. Die volle
+`map.layers()`, `map.waterBodies()`, `map.lanes()`, `map.issues()`, `map.life()`. `map_summary` nennt unter `life` die
+Schalter, die Dichte, den Umgebungston und die Bereiche (Id, Art, Form, Punkte, Dichte). Dazu `rng(seed)`, `facing(a, b)`, `log(...)`. Die volle
 Liste mit Argumenten liefert `script_api` (`scriptReference()` aus `SCRIPT_OPS` in `agent/map-script.ts`).
 
 ```js
@@ -176,7 +179,7 @@ Ablauf:
    bekommt nach jedem Schritt mit, was sich änderte.
 3. **Ein Undo-Schritt**: `EditorSession.agentEdit` hält den Ablauf wie einen Geländejob (Ansicht gesperrt, Job mit
    Cancel im Map-Panel, Speichern und Undo warten). Fertig wird vorher und nachher zu einem `SnapshotCommand`
-   (Gelände, Objekte, Wege, Spawns, HQ, Himmel, Regeln). Bei Fehler oder Cancel geht die Karte auf den Stand davor
+   (Gelände, Objekte, Wege, Spawns, HQ, Himmel, Regeln, Leben). Bei Fehler oder Cancel geht die Karte auf den Stand davor
    zurück.
 4. **Antwort**: Zahl der Befehle und Schritte, Logzeilen, Rückgabewert, Befunde des Prüfens, und `sameAsSandbox`:
    ein Fingerabdruck der Karte nach dem Abspielen gegen den der Kopie (gleicher Code, gleicher Seed; anders nur, wenn

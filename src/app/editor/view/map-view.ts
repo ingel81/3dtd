@@ -191,6 +191,11 @@ export class EditorMapView {
     this.view.setEnvironment(this.doc.environment);
   }
 
+  /** The map's life areas or switches changed */
+  setLife(): void {
+    this.view.setLife();
+  }
+
   dispose(): void {
     this.view.environment.detach();
     this.view.dispose();

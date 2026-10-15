@@ -106,6 +106,9 @@ export class EditorViewport {
   /** When the view last took the environment, and whether a newer one waits (sliders move faster than the sky rebuilds) */
   private envAt = 0;
   private envWaiting = false;
+  /** The same for the map's life: its sliders rebuild the effects */
+  private lifeAt = 0;
+  private lifeWaiting = false;
   /** The same for water: a brush that fills pools changes the masks every frame */
   private waterAt = 0;
   private waterWaiting = false;
@@ -890,6 +893,12 @@ export class EditorViewport {
     this.view.updateWater();
   }
 
+  private applyLife(): void {
+    this.lifeWaiting = false;
+    this.lifeAt = performance.now();
+    this.view.setLife();
+  }
+
   private applyEnvironment(): void {
     this.envWaiting = false;
     this.envAt = performance.now();
@@ -899,6 +908,7 @@ export class EditorViewport {
   /** Hand the collected changes to the view */
   private flush(): void {
     if (this.envWaiting && performance.now() - this.envAt >= ENV_INTERVAL_MS) this.applyEnvironment();
+    if (this.lifeWaiting && performance.now() - this.lifeAt >= ENV_INTERVAL_MS) this.applyLife();
     if (this.waterWaiting && performance.now() - this.waterAt >= WATER_INTERVAL_MS) this.applyWater();
     const c = this.pending;
     if (!c) {
@@ -930,6 +940,10 @@ export class EditorViewport {
       if (c.environment) {
         if (performance.now() - this.envAt >= ENV_INTERVAL_MS) this.applyEnvironment();
         else this.envWaiting = true;
+      }
+      if (c.life) {
+        if (performance.now() - this.lifeAt >= ENV_INTERVAL_MS) this.applyLife();
+        else this.lifeWaiting = true;
       }
     }
     // Water lifts a bridge deck over it: the routes over the bridge follow

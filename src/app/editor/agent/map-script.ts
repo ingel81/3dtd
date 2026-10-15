@@ -27,6 +27,7 @@ import { contentFingerprint } from './agent-reads';
 import { dabCentres, facing, MapKit, rng, type Brush, type Where } from '../ops/map-kit';
 import { validateMapDocument } from '../../world/custom-map/map-file';
 import type { CustomMapDocument, MapBridgeStyle, MapObject, MapPathKind, MapPoint, MapRiver } from '../../world/custom-map/map-document';
+import { LIFE_KINDS } from '../../world/custom-map/map-life';
 
 /** One command of a script, as kept and played */
 export interface ScriptCommand {
@@ -246,6 +247,14 @@ export const SCRIPT_OPS: Readonly<Record<string, OpSpec>> = {
     args: [a('patch', OBJECT)],
     doc: `Sky and air: { sky: ${ENVIRONMENT_CHOICES['sky'].join('|')}, sunAzimuth, sunElevation (degrees), fogDensity, tint '#rrggbb', weather: ${ENVIRONMENT_CHOICES['weather'].join('|')}, weatherStrength 0..1, biome: ${ENVIRONMENT_CHOICES['biome'].join('|')} (the look of sky, light and air; not a landscape biome), snowCover 0..1, moonlight, wind { strength 0..1, direction degrees, gusts 0..1 } }`,
   },
+  // Life tool
+  lifeArea: {
+    args: [a('kind', one(LIFE_KINDS)), a('points', LINE), a('options', OBJECT, true)],
+    doc: 'A life area: an outline (3 or more points) the life fills (birds circle in it, particles over it, boats drift on its water, a sound plays in it); options { density 0.1..3, height (birds: flight height over the ground, 40), color, sound, volume 0..1, asset (boats), quality: medium|high }; returns its id',
+  },
+  lifeRoute: { args: [a('kind', one(LIFE_KINDS)), a('points', LINE), a('options', OBJECT, true)], doc: 'A life route: a line birds fly along and back, particles follow, boats go up and down or a sound follows (a stream); options as lifeArea; returns its id' },
+  lifeSettings: { args: [a('patch', OBJECT)], doc: "The map's own life: { auto: { smoke, fireflies, birds (on unless false), sparks (over lava, off unless true) }, density 0..2 (a factor on all of it), flags (banners wave), ambience: { sound, volume 0..1 } }" },
+  removeLife: { args: [a('ids', STRINGS)], doc: 'Remove life areas by id (map.life() lists them)' },
   gameplay: { args: [a('rules', OBJECT)], doc: "Rules: { startCredits, hqHealth, towers: [tower ids], destructible: true|false, difficulty 50..200 (percent on the wave budget) }; waves is { kind: 'budget' } (the game's waves, the default) or a map's own table, there is no wave count" },
 };
 
@@ -261,7 +270,7 @@ export function scriptReference(): string {
     'Globals: map, rng(seed) -> () => 0..1, facing(from, to) -> radians, log(...) (or console.log). `return` a value to get it back.',
     'Reads (see the copy as the script left it): map.width, map.depth, map.cellSize, map.half, map.h(x, y) (metres), map.slope(x, y),',
     '  map.noise(x, y, wave, octaves?) -> -1..1, map.ridged(x, y, wave, octaves?), map.objects(rect?), map.markers(), map.roads() (edges with their nodes a, b),',
-    '  map.nodes(), map.rivers() (points with width and height), map.layers(), map.waterBodies(), map.lanes(), map.issues().',
+    '  map.nodes(), map.rivers() (points with width and height), map.layers(), map.waterBodies(), map.lanes(), map.issues(), map.life().',
     'An optional argument may be left out or passed as undefined or null; later ones still count by position.',
     'Commands (each checked; the whole script lands as one undo step and plays back animated):',
     ...lines,
@@ -846,6 +855,7 @@ export function scriptMap(kit: MapKit, kept: ScriptCommand[], options: Required<
       }),
     lanes: () => kit.lanes(),
     issues: () => kit.issues().map((i) => ({ severity: i.severity, message: i.message })),
+    life: () => forScript(doc.life ?? {}),
   };
   // A read named like a command would hide it (map.water once read the water instead of making it)
   for (const name of Object.keys(reads)) if (name in api) throw new Error(`map.${name} is both a command and a read`);
