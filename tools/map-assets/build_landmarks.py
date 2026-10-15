@@ -32,9 +32,9 @@ def smooth(obj):
     return obj
 
 
-def export(name, objects, lod=None):
+def export(name, objects, lod=None, ao_size=512):
     """Baked AO, then a flat-coloured copy with `lod` triangles for distance"""
-    obj = finish(name, objects)
+    obj = finish(name, objects, ao_size=ao_size)
     if lod:
         export_lod(name, obj, ratio=min(1.0, lod / max(1, len(obj.data.polygons))))
     return obj
@@ -278,122 +278,190 @@ def castle_ruin(name, seed=4):
 
 # ---------------------------------------------------------------- glacier, seracs
 
-def ice_part(tint=(0.72, 0.86, 1.0), name='glacier-ice', uv=6.0, smooth_faces=True):
-    """Glacier ice: the snow texture tinted blue"""
-    return Part(pbr_material(name, 'snow_02', tint), uv_metres=uv, smooth=smooth_faces, bevel=0.0)
-
-
-def snow_cover(uv=5.0):
-    return Part(pbr_material('snow-snow_02', 'snow_02', (1.05, 1.05, 1.08)), uv_metres=uv, smooth=True, bevel=0.0)
-
-
-def ice_block(part, base, size, turn, lean, rnd):
-    """A serac: a tilted ice block, a smaller one broken off on its top; returns its placement"""
-    m = Matrix.Translation(base) @ Matrix.Rotation(turn, 4, 'Z') @ Matrix.Rotation(lean[0], 4, 'X') @ Matrix.Rotation(lean[1], 4, 'Y')
-    before = len(part.bm.verts)
-    box(part, 0, 0, -1.5, size.x, size.y, size.z + 1.5)
-    box(part, rnd.uniform(-0.2, 0.2) * size.x, rnd.uniform(-0.2, 0.2) * size.y, size.z - 0.1, size.x * 0.6, size.y * 0.7, size.z * rnd.uniform(0.15, 0.3),
-        rnd.uniform(-0.4, 0.4))
-    part.bm.verts.ensure_lookup_table()
-    for v in part.bm.verts[before:]:
-        v.co = m @ v.co
+def ice_material(name, tint, glow=None, strength=0.35):
+    """Glacier ice and snow from the one snow texture set, tinted; `glow` lets the ice shine faintly blue
+    from within, as light comes through thin ice"""
+    m = pbr_material(name, 'snow_02', tint)
+    if glow:
+        bsdf = next(n for n in m.node_tree.nodes if n.type == 'BSDF_PRINCIPLED')
+        bsdf.inputs['Emission Color'].default_value = (*glow, 1)
+        bsdf.inputs['Emission Strength'].default_value = strength
     return m
 
 
-def glacier(name, seed=12, length=90.0, width=40.0):
-    """A glacier tongue climbing along +Y: its snout an ice cliff at the front (-Y) with seracs broken off,
-    crevasses across the middle (bare blue ice in the troughs), snow on the flats and the upper part,
-    moraine rock along both flanks; it reaches 10 m into the ground, so tilted with a slope (or in a valley
-    floor) it shows no gap. Origin at the snout's foot"""
+def glacier(name, seed=12, length=90.0, width=44.0):
+    """A glacier tongue flowing along -Y towards its snout at the origin: a low wide body that thins out to
+    nothing at its flanks (it lies in a valley or on a slope, tilted with it), crevasse bands across its
+    middle that bend down-glacier towards the edges and show blue ice in their walls, a dark medial
+    moraine down its centre and lateral moraines along both edges, snow on the upper part, and a blue,
+    broken ice cliff at the snout. Reaches 6 m into the ground. One snow texture set, tinted"""
     clear_scene()
     rnd = random.Random(seed)
-    ice = ice_part()
-    deep = ice_part((0.36, 0.6, 0.92), 'glacier-ice-deep', 4.0, smooth_faces=False)
-    deep.bevel = 0.05
-    snow = snow_cover()
-    rock = Part(pbr_material('rock-' + ROCK, ROCK, GREY), uv_metres=4.0, bevel=0.0)
-    nu, nv = 20, 80
+    snow = Part(ice_material('glacier-snow', (1.04, 1.05, 1.08)), uv_metres=6.0, smooth=True, bevel=0.0)
+    ice = Part(ice_material('glacier-ice', (0.62, 0.7, 0.78)), uv_metres=6.0, smooth=True, bevel=0.0)
+    blue = Part(ice_material('glacier-ice-blue', (0.32, 0.58, 0.88), glow=(0.08, 0.2, 0.35)), uv_metres=4.0, bevel=0.0)
+    dirt = Part(ice_material('glacier-moraine', (0.36, 0.33, 0.3)), uv_metres=3.0, smooth=True, bevel=0.0)
+    nu, nv = 32, 90
     off = Vector((seed * 1.3, seed * 2.1, 0.5))
 
+    def band_at(u, v):
+        """Crevasse depth: chevrons across the middle of the tongue, bent down-glacier at the edges"""
+        zone = max(0.0, 1.0 - abs(v - 0.42) / 0.3)
+        phase = (v + 0.06 * u * u) * length / 6.0 * math.tau + 0.7 * noise.noise(Vector((u * 3.0, v * 8.0, 1.0)) + off)
+        mask = 0.5 + 0.5 * noise.noise(Vector((u * 2.5, v * 5.0, 4.0)) + off)
+        return zone * mask * max(0.0, math.cos(phase)) ** 10
+
     def surface(u, v):
-        half = width / 2 * (0.6 + 0.4 * v ** 0.6) * (1.0 + 0.15 * noise.noise(Vector((v * 5.0, u * 0.5, 7.0)) + off))
-        x = u * half + 3.0 * math.sin(v * 2.4 + 0.5)
+        half = width / 2 * (0.55 + 0.45 * v ** 0.5) * (1.0 + 0.1 * noise.noise(Vector((v * 6.0, 0.0, 7.0)) + off))
+        x = u * half + 4.0 * math.sin(v * 2.2 + 0.4)
         y = v * length
-        # Flat across, falling steeply at the flanks; it rises little itself, the slope it lies on does that
-        dome = max(0.0, 1.0 - abs(u) ** 3) ** 0.7
-        z = (7.0 + 4.0 * v) * dome
-        # Crevasses: troughs across the tongue in its middle, bent forward towards the edges
-        band = max(0.0, 1.0 - abs(v - 0.45) / 0.28)
-        phase = v * length / 7.5 * math.tau + 1.2 * u * u + 0.8 * noise.noise(Vector((u * 2.0, v * 6.0, 0)) + off)
-        z -= 3.2 * band * max(0.0, math.cos(phase)) ** 6 * dome
-        z += 0.5 * noise.noise(Vector((x * 0.08, y * 0.08, 0)) + off)
-        return Vector((x, y, z - 0.5))
+        # Low and wide: thick in the middle, thinning to nothing at the flanks
+        body = (1.0 - abs(u) ** 2) ** 1.2
+        z = (3.5 + 2.5 * v) * body + 0.9 * noise.noise(Vector((x * 0.06, y * 0.04, 0)) + off) * body
+        z += 0.25 * noise.noise(Vector((x * 0.3, y * 0.3, 2.0)) + off)
+        z -= 2.6 * band_at(u, v) * body
+        # The snout: steepening into the ice cliff
+        if v < 0.06:
+            z *= 0.55 + 0.45 * (v / 0.06)
+        return Vector((x, y, z - 0.3))
 
     grid = [[surface(-1 + 2 * i / nu, j / nv) for i in range(nu + 1)] for j in range(nv + 1)]
     for j in range(nv):
+        v = (j + 0.5) / nv
         for i in range(nu):
+            u = -1 + 2 * (i + 0.5) / nu
             q = [grid[j][i], grid[j][i + 1], grid[j + 1][i + 1], grid[j + 1][i]]
-            n = (q[1] - q[0]).cross(q[3] - q[0]).normalized()
-            upper = j / nv
-            # Snow on the flats, more of it higher up; bare ice on the trough walls and the lowest part
-            c = (q[0] + q[2]) / 2
-            snowy = n.z > 0.93 and upper > 0.08 and noise.noise(Vector((c.x * 0.06, c.y * 0.04, 3.0)) + off) + upper * 1.4 > 0.15
-            (snow if snowy else ice).quad(q, [(0, 0), (1, 0), (1, 1), (0, 1)])
-    # Skirt from the rim down into the ground: the snout is a steep ice cliff, leaning out a little
-    rim = [grid[0][i] for i in range(nu + 1)] + [grid[j][nu] for j in range(1, nv + 1)] + \
-          [grid[nv][i] for i in range(nu - 1, -1, -1)] + [grid[j][0] for j in range(nv - 1, 0, -1)]
-    rim.append(rim[0])
-    for a, b in zip(rim, rim[1:]):
-        drop = Vector((0, 0, -10.0))
-        q = [b, a, a + drop + Vector((0, -1.2 if a.y < 1 else 0, 0)), b + drop + Vector((0, -1.2 if b.y < 1 else 0, 0))]
-        (deep if a.y < 1 and b.y < 1 else ice).quad(q, [(0, 0), (1, 0), (1, 1), (0, 1)])
-    # Seracs broken off at the snout
-    for k in range(10):
-        x = rnd.uniform(-width * 0.3, width * 0.3)
-        size = Vector((rnd.uniform(1.6, 3.2), rnd.uniform(1.4, 2.6), rnd.uniform(1.5, 4.0)))
-        ice_block(deep, Vector((x, rnd.uniform(-4.0, -1.5), -0.3)), size, rnd.uniform(0, math.pi),
-                  (rnd.uniform(-0.3, 0.3), rnd.uniform(-0.3, 0.3)), rnd)
-    # Lateral moraines: rock ridges along both flanks, a terminal one in front
+            if band_at(u, v) > 0.25:
+                part = blue
+            elif abs(u) > 0.86 - 0.05 * noise.noise(Vector((v * 9.0, 0.0, 3.0)) + off) or (abs(u - 0.04 * math.sin(v * 9.0)) < 0.03 and v < 0.85):
+                part = dirt
+            elif v > 0.55 + 0.12 * noise.noise(Vector((u * 2.0, v * 3.0, 9.0)) + off):
+                part = snow
+            else:
+                part = ice
+            part.quad(q, [(0, 0), (1, 0), (1, 1), (0, 1)])
+    # The snout cliff: from the front edge down into the ground, broken into vertical ribs
+    front = grid[0]
+    for i in range(nu):
+        a, b = front[i], front[i + 1]
+        bottom_a = Vector((a.x, a.y - 1.5 - 0.8 * noise.noise(Vector((a.x * 0.5, 0, 2.0)) + off), -6.0))
+        bottom_b = Vector((b.x, b.y - 1.5 - 0.8 * noise.noise(Vector((b.x * 0.5, 0, 2.0)) + off), -6.0))
+        mid_a = a.lerp(bottom_a, 0.5) + Vector((0, -0.6 * rnd.random(), 0))
+        mid_b = b.lerp(bottom_b, 0.5) + Vector((0, -0.6 * rnd.random(), 0))
+        blue.quad([b, a, mid_a, mid_b], [(0, 0), (1, 0), (1, 1), (0, 1)])
+        blue.quad([mid_b, mid_a, bottom_a, bottom_b], [(0, 0), (1, 0), (1, 1), (0, 1)])
+    # Flanks and back: a short skirt into the ground under the moraine
+    for edge in ([grid[j][nu] for j in range(nv + 1)], [grid[j][0] for j in range(nv, -1, -1)], [grid[nv][i] for i in range(nu, -1, -1)]):
+        for a, b in zip(edge, edge[1:]):
+            dirt.quad([b, a, a - Vector((0, 0, 6.0)), b - Vector((0, 0, 6.0))], [(0, 0), (1, 0), (1, 1), (0, 1)])
+    # Ice blocks fallen from the snout, moraine boulders along the edges
+    for k in range(7):
+        c = Vector((rnd.uniform(-width * 0.25, width * 0.25), rnd.uniform(-5.0, -2.0), -0.4))
+        lump(blue, c, Vector((rnd.uniform(0.9, 1.8), rnd.uniform(0.8, 1.5), rnd.uniform(0.8, 1.6))), seed * 30 + k, roughness=0.4, subdiv=1)
+    # The medial moraine: a ridge of stones down the middle of the lower tongue
+    for k in range(16):
+        v = 0.03 + k * 0.05
+        p = surface(0.04 * math.sin(v * 9.0), v)
+        lump(dirt, p + Vector((0, 0, -0.35)), Vector((rnd.uniform(0.5, 0.9), rnd.uniform(1.2, 1.8), rnd.uniform(0.3, 0.5))), seed * 70 + k,
+             roughness=0.5, subdiv=1)
     for s in (-1, 1):
-        for k in range(10):
-            v = 0.05 + k * 0.09
-            p = surface(s * 1.02, v)
-            lump(rock, Vector((p.x + s * 1.5, p.y, -1.2)), Vector((rnd.uniform(2.0, 3.5), rnd.uniform(3.5, 5.0), rnd.uniform(1.2, 2.2))),
-                 seed * 70 + k + (s + 1) * 20, roughness=0.4, subdiv=2)
-    for k in range(5):
-        lump(rock, Vector((rnd.uniform(-width * 0.35, width * 0.35), rnd.uniform(-8.5, -6.0), -0.8)),
-             Vector((rnd.uniform(1.0, 2.0), rnd.uniform(0.8, 1.5), rnd.uniform(0.5, 1.0))), seed * 90 + k, roughness=0.45, subdiv=2)
-    objects = [smooth(ice.to_object(name)), deep.to_object(name + '-deep'), smooth(snow.to_object(name + '-snow')),
-               smooth(rock.to_object(name + '-moraine'))]
-    export(name, objects, lod=900)
+        for k in range(6):
+            p = surface(s * 0.95, 0.08 + k * 0.15)
+            lump(dirt, p + Vector((s * 0.5, 0, -0.6)), Vector((rnd.uniform(0.8, 1.6), rnd.uniform(1.0, 2.0), rnd.uniform(0.6, 1.1))),
+                 seed * 50 + k + s * 10, roughness=0.45, subdiv=1)
+    objects = [snow.to_object(name), ice.to_object(name + '-ice'), blue.to_object(name + '-blue'), dirt.to_object(name + '-moraine')]
+    for o in objects[:2]:
+        smooth(o)
+    export(name, objects, lod=700, ao_size=256)
+
+
+def ice_tower(part, base, radius, height, rnd):
+    """One serac: an irregular prism of 5 to 7 sides, kinked and leaning as it rises, narrowing, its top
+    broken off along a slanted, jagged cut, sometimes with a sharp splinter standing up"""
+    sides = rnd.randint(5, 7)
+    shape = [rnd.uniform(0.65, 1.15) for _ in range(sides)]
+    turn = rnd.uniform(0, math.tau)
+    lean = Vector((rnd.uniform(-0.3, 0.3), rnd.uniform(-0.3, 0.3), 0))
+    levels = 4
+    cut = Vector((rnd.uniform(-0.6, 0.6), rnd.uniform(-0.6, 0.6), 0))
+    bm = part.bm
+    rings = []
+    for j in range(levels + 1):
+        t = j / levels
+        centre = base + lean * height * t + Vector((rnd.uniform(-0.2, 0.2), rnd.uniform(-0.2, 0.2), -1.0 + (height + 1.0) * t))
+        r = radius * (1.0 - 0.2 * t)
+        ring = []
+        for k in range(sides):
+            a = turn + k / sides * math.tau
+            d = Vector((math.cos(a), math.sin(a), 0))
+            p = centre + d * r * shape[k] * rnd.uniform(0.92, 1.08)
+            if j == levels:
+                # Slanted, jagged break across the top
+                p.z += d.dot(cut) * radius + rnd.uniform(-0.5, 0.5)
+            ring.append(bm.verts.new(p))
+        rings.append(ring)
+    for j in range(levels):
+        for k in range(sides):
+            bm.faces.new((rings[j][k], rings[j][(k + 1) % sides], rings[j + 1][(k + 1) % sides], rings[j + 1][k]))
+    top = rings[-1]
+    if rnd.random() < 0.3:
+        centre = sum((v.co for v in top), Vector()) / sides
+        tip = bm.verts.new(centre + Vector((rnd.uniform(-0.5, 0.5), rnd.uniform(-0.5, 0.5), rnd.uniform(0.5, 1.2))))
+        for k in range(sides):
+            bm.faces.new((top[k], top[(k + 1) % sides], tip))
+    else:
+        bm.faces.new(top)
 
 
 def seracs(name, seed=31):
-    """A field of seracs: leaning ice towers and blocks, snow on their tops, for the broken part of a glacier
-    or below an ice fall"""
+    """A field of seracs: jagged ice towers, leaning and narrowing as they rise, broken off along slanted
+    cuts with splinters standing up, flat fractured faces of blue ice that shines faintly from within, a
+    little old snow between them"""
     clear_scene()
     rnd = random.Random(seed)
-    ice = ice_part((0.42, 0.66, 0.95), 'glacier-ice-deep', 3.0, smooth_faces=False)
-    ice.bevel = 0.08
-    snow = snow_cover(3.0)
-    snow.bevel = 0.1
-    snow.smooth = False
-    for k in range(13):
+    ice = Part(ice_material('serac-ice', (0.45, 0.68, 0.92), glow=(0.08, 0.2, 0.35), strength=0.45), uv_metres=7.0, bevel=0.0)
+    snow = Part(ice_material('glacier-snow', (1.04, 1.05, 1.08)), uv_metres=3.0, smooth=True, bevel=0.0)
+    for k in range(14):
         a = rnd.uniform(0, math.tau)
-        r = 0.0 if k == 0 else rnd.uniform(2.5, 7.5)
-        h = rnd.uniform(4.0, 9.0) * (1.3 - r / 10.0)
-        size = Vector((rnd.uniform(1.8, 3.2), rnd.uniform(1.6, 2.8), h))
-        turn = rnd.uniform(0, math.pi)
-        lean = (rnd.uniform(-0.25, 0.25), rnd.uniform(-0.25, 0.25))
-        base = Vector((math.cos(a) * r, math.sin(a) * r, 0))
-        m = ice_block(ice, base, size, turn, lean, rnd)
-        before = len(snow.bm.verts)
-        box(snow, 0, 0, size.z - 0.02, size.x + 0.2, size.y + 0.2, 0.35)
-        snow.bm.verts.ensure_lookup_table()
-        for v in snow.bm.verts[before:]:
-            v.co = m @ v.co
-    objects = [ice.to_object(name), snow.to_object(name + '-snow')]
-    export(name, objects, lod=500)
+        r = 0.0 if k == 0 else rnd.uniform(2.0, 7.5)
+        h = rnd.uniform(3.0, 7.5) * (1.3 - r / 10.0)
+        ice_tower(ice, Vector((math.cos(a) * r, math.sin(a) * r, 0)), rnd.uniform(1.8, 3.0), h, rnd)
+    for k in range(5):
+        a = rnd.uniform(0, math.tau)
+        lump(snow, Vector((math.cos(a) * rnd.uniform(3, 7), math.sin(a) * rnd.uniform(3, 7), -0.5)),
+             Vector((rnd.uniform(1.2, 2.2), rnd.uniform(1.0, 1.8), 0.6)), seed * 20 + k, roughness=0.2, subdiv=2)
+    objects = [ice.to_object(name), smooth(snow.to_object(name + '-snow'))]
+    for p in objects[0].data.polygons:
+        p.use_smooth = False
+    export(name, objects, ao_size=256)
+
+
+def snowfield(name, seed=19, length=40.0, width=26.0):
+    """A patch of old snow for the shade of a slope or a gully: a thin, lumpy sheet with soft, ragged
+    edges and a few rocks sticking through, lying on the ground (tilt it with the slope)"""
+    clear_scene()
+    rnd = random.Random(seed)
+    snow = Part(ice_material('glacier-snow', (1.04, 1.05, 1.08)), uv_metres=6.0, smooth=True, bevel=0.0)
+    rock = Part(pbr_material('rock-' + ROCK, ROCK, GREY), uv_metres=3.0, smooth=True, bevel=0.0)
+    off = Vector((seed * 0.7, seed * 1.9, 0.3))
+    n = 18
+    grid = []
+    for j in range(n + 1):
+        row = []
+        for i in range(n + 1):
+            u, v = -1 + 2 * i / n, -1 + 2 * j / n
+            r = math.hypot(u, v * 0.9)
+            edge = 1.0 + 0.25 * noise.noise(Vector((u * 2.0, v * 2.0, 5.0)) + off)
+            h = max(0.0, 1.0 - (r / edge) ** 3) * (1.2 + 0.5 * noise.noise(Vector((u * 3.0, v * 3.0, 0)) + off))
+            row.append(Vector((u * width / 2, v * length / 2, h - 0.35)))
+        grid.append(row)
+    for j in range(n):
+        for i in range(n):
+            snow.quad([grid[j][i], grid[j][i + 1], grid[j + 1][i + 1], grid[j + 1][i]], [(0, 0), (1, 0), (1, 1), (0, 1)])
+    for k in range(5):
+        lump(rock, Vector((rnd.uniform(-width * 0.3, width * 0.3), rnd.uniform(-length * 0.3, length * 0.3), -0.2)),
+             Vector((rnd.uniform(0.6, 1.4), rnd.uniform(0.5, 1.1), rnd.uniform(0.6, 1.0))), seed * 10 + k, roughness=0.4, subdiv=1)
+    export(name, [smooth(snow.to_object(name)), smooth(rock.to_object(name + '-rock'))], ao_size=256)
 
 
 # ---------------------------------------------------------------- avalanche barriers
@@ -950,6 +1018,7 @@ def models():
         'castle-ruin': lambda: castle_ruin('castle-ruin'),
         'glacier': lambda: glacier('glacier'),
         'seracs': lambda: seracs('seracs'),
+        'snowfield': lambda: snowfield('snowfield'),
         'avalanche-barrier': lambda: avalanche_barrier('avalanche-barrier'),
         'avalanche-barrier-snow': lambda: avalanche_barrier('avalanche-barrier-snow', snowed=True),
         'shipwreck': lambda: shipwreck('shipwreck'),

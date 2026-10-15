@@ -12540,9 +12540,9 @@
       "name": "Glacier tongue",
       "category": "rock",
       "file": "models/glacier.glb",
-      "triangles": 6480,
-      "footprint": 44.7,
-      "height": 10.5,
+      "triangles": 7012,
+      "footprint": 43.3,
+      "height": 6.1,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -12561,7 +12561,7 @@
         {
           "file": "models/glacier-lod1.glb",
           "distance": 350,
-          "triangles": 1325
+          "triangles": 1237
         }
       ],
       "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/snow_02; https://polyhaven.com/a/rock_face"
@@ -12571,13 +12571,13 @@
       "name": "Seracs",
       "category": "rock",
       "file": "models/seracs.glb",
-      "triangles": 1716,
-      "footprint": 7.1,
-      "height": 9.7,
+      "triangles": 1150,
+      "footprint": 7.2,
+      "height": 8.4,
       "base": [
-        5.1,
-        5.1,
-        2
+        9.3,
+        8.5,
+        1
       ],
       "blocksLos": true,
       "blocksBuild": true,
@@ -12592,14 +12592,31 @@
         "mountain",
         "arctic"
       ],
-      "lod": [
-        {
-          "file": "models/seracs-lod1.glb",
-          "distance": 350,
-          "triangles": 846
-        }
-      ],
       "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/snow_02"
+    },
+    {
+      "id": "snowfield",
+      "name": "Snowfield",
+      "category": "rock",
+      "file": "models/snowfield.glb",
+      "triangles": 748,
+      "footprint": 18.0,
+      "height": 1.1,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.6,
+        1.6
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "mountain",
+        "winter",
+        "arctic"
+      ],
+      "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/snow_02; https://polyhaven.com/a/rock_boulder_dry"
     },
     {
       "id": "avalanche-barrier",

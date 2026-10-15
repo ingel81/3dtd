@@ -580,11 +580,11 @@ Bestand baut der Asset-Worker aus; Stand beim Schreiben:
   8 % seiner Höhe, höchstens 15 cm über dem tiefsten), und wie tief dieser Punkt unter dem Ursprung liegt;
   `tools/map-assets/measure_bases.mjs` misst sie an den Modellen nach `bases.json`, `update_catalog.py` übernimmt sie.
   Gescannte Felsen sind unten flach abgeschnitten, und diese Platte reicht oft weit über den Fußabdruck hinaus (der
-  Steinhaufen `rock-large`: Fußabdruck 1,8 m, Platte 7,4 mal 3,6 m). 52 Felsen haben eine; Kulissenstücke ohne Platte
-  (Kraterränder, Becken, Felsbogen, Klippen- und Küstenwände, Tafelberg, Eisberg, Gletscher; `NO_PLATE` im Skript) keine. Wie
+  Steinhaufen `rock-large`: Fußabdruck 1,8 m, Platte 7,4 mal 3,6 m). 53 Felsen haben eine; Kulissenstücke ohne Platte
+  (Kraterränder, Becken, Felsbogen, Klippen- und Küstenwände, Tafelberg, Eisberg, Gletscher, Schneefeld; `NO_PLATE` im Skript) keine. Wie
   der Editor Felsen damit absetzt: [LEVEL_EDITOR.md](LEVEL_EDITOR.md), Objekte
-- **401 Katalog-Objekte**, davon 392 Modelle (GLB, meshopt, WebP bis 512 px, große Klippen 1024 px) und 9 Effekt-Marker; je
-  Kategorie 124 Requisiten, 71 Felsen, 68 Gebäude, 42 Pflanzen, 31 Bäume, 33 Mauern und Zäune, 23 Bauwerke
+- **402 Katalog-Objekte**, davon 393 Modelle (GLB, meshopt, WebP bis 512 px, große Klippen 1024 px) und 9 Effekt-Marker; je
+  Kategorie 124 Requisiten, 72 Felsen, 68 Gebäude, 42 Pflanzen, 31 Bäume, 33 Mauern und Zäune, 23 Bauwerke
   (`structure`). Je Biom: Laub- und Nadelbäume mit Herbst-
   und Schneevarianten, Trauerweide, Mangrove, Palmen, Kakteen, Köcherbäume; Sträucher, Hecken, Gras je Biom, Schilf,
   Weizen, Blumen, Seerosen, Pilze; Felsen je Gesteinsart, modulare Klippen, Sandsteinsäulen, Tafelberg, Felsbogen,
@@ -596,7 +596,7 @@ Bestand baut der Asset-Worker aus; Stand beim Schreiben:
   Eisschollen, Eiszapfen); Hölle (Höllentor, Altar, Lavafelsen, Dornen, Ketten, Obsidian, Galgenkäfig); Fahrzeuge
   (Auto, Pickup, Lkw, Bus, Panzerwrack, je intakt, verrostet, ausgebrannt); Teile der Vorzeige-Level (Seilbahn,
   Hexenhütte, Hafen, Karawanenzelt, Schmiede, Burgruine); Wahrzeichen (E179, `build_landmarks.py`: Tunnelportal aus
-  Stein und aus Beton, Burgruine als ein Stück, Gletscherzunge, Séracs, Lawinenverbauung blank und eingeschneit,
+  Stein und aus Beton, Burgruine als ein Stück, Gletscherzunge, Séracs, Altschneefeld, Lawinenverbauung blank und eingeschneit,
   Schiffswrack, Rakete mit Startturm, Obsidianturm, Flutlichtmast, Positionslicht, Glockenturm auch mit Schnee,
   Steinkreis, Tribok, eingestürzte Hochstraße); Streu-Steine; Fackeln, Feuer, Wasserfall
 - **Wahrzeichen** (E179): `tunnel-portal` und `tunnel-portal-concrete` (Bauwerk, Sicht- und Bausperre) sind
@@ -607,8 +607,10 @@ Bestand baut der Asset-Worker aus; Stand beim Schreiben:
   Gebäude ein. `stone-circle` (15 m) und `highway-collapsed` (rund 50 m entlang X, Hochstraße auf 9 m) sind Bauwerke,
   `trebuchet` (wirft nach vorn, -Z in glTF), `floodlight-mast` und `beacon-post` (mit Katalog-Licht) Requisiten,
   `obsidian-tower` (14 m) ein Fels mit Platte. `glacier` (Fels ohne
-  Platte, 90 m lang, reicht 10 m in den Boden) steigt selbst kaum an: mit „An Hang ausrichten“ kippt er mit dem Hang;
-  auf ebenem Boden wirkt er wie eine Eisplatte. `avalanche-barrier(-snow)` sind 4-m-Felder für Reihen am Hang
+  Platte, 90 m lang, 44 m breit, reicht 6 m in den Boden) ist flach und läuft an den Flanken aus, er steigt selbst
+  kaum an: mit „An Hang ausrichten“ kippt er mit dem Hang, in einem Tal liegt er zwischen den Hängen; auf ebenem
+  Boden wirkt er wie ein flacher Laib. `seracs` sind zerbrochene, schiefe Eistürme (Fels mit Platte), `snowfield`
+  ein dünnes Altschneefeld (Fels ohne Platte, keine Bausperre). Alle drei nutzen nur die Schneetextur, getönt. `avalanche-barrier(-snow)` sind 4-m-Felder für Reihen am Hang
   (Bauwerk, Bausperre, die Streben reichen bergauf). `shipwreck` ist eine Requisite (kein Einebnen, liegt 1,5 m im
   Sand), `rocket` ein Gebäude mit eigener Betonplatte. Dreiecke und Draw Calls je Modell: `catalog.json`
   (`triangles`), je Material ein Draw Call (`pack_models.py` fügt gleiche Materialien zusammen)

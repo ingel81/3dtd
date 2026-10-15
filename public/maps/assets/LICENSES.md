@@ -518,6 +518,7 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | castle-ruin | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/mossy_stone_wall; https://polyhaven.com/a/dark_planks; Efeu https://ambientcg.com/view?id=LeafSet029 |
 | glacier | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/snow_02; https://polyhaven.com/a/rock_face |
 | seracs | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/snow_02 |
+| snowfield | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/snow_02; https://polyhaven.com/a/rock_boulder_dry |
 | avalanche-barrier | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/brushed_concrete |
 | avalanche-barrier-snow | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/snow_02 |
 | shipwreck | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/dark_planks |
