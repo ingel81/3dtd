@@ -1109,8 +1109,7 @@ export class MapObjectLayer {
     }
     if (!card && wind <= 0 && !bob && !spin) {
       if (m.userData['roughMetal']) addVertexRoughMetal(m);
-      if (m.userData['nightGlow']) addNightWindows(m, true);
-      else if (isWindowGlass(source.name)) addNightWindows(m, false);
+      addWindowGlow(m, source);
       addLodFade(m);
       addHeightFog(m);
       this.materials.set(key, m);
@@ -1272,11 +1271,19 @@ transformed.xz = spinTurn * transformed.xz;
     };
     m.customProgramCacheKey = () => `custom-map-object-${variant}`;
     if (m.userData['roughMetal']) addVertexRoughMetal(m);
+    // Window glass on parts that move lights up at night as well (a ship rocking on the water, a turning part)
+    if (!card) addWindowGlow(m, source);
     addLodFade(m);
     addHeightFog(m);
     this.materials.set(key, m);
     return m;
   }
+}
+
+/** Window glass glows at night (night-windows.ts): a merged part per vertex, a glass material all over */
+function addWindowGlow(m: Material, source: Material): void {
+  if (m.userData['nightGlow']) addNightWindows(m, true);
+  else if (isWindowGlass(source.name)) addNightWindows(m, false);
 }
 
 const merged = new WeakMap<ObjectModel, ModelPart[]>();
