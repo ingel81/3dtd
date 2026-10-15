@@ -7,7 +7,7 @@
 import type { TowerTypeId } from './tower-types.config';
 import type { ResearchId } from './research/research.types';
 
-export type TowerPathId = 'scout' | 'incendiary';
+export type TowerPathId = 'scout' | 'incendiary' | 'multirole';
 
 export interface TowerPath {
   readonly id: TowerPathId;
@@ -30,6 +30,11 @@ export interface TowerPath {
    * GAME_BALANCE.effects.burn.duration, one burn per tower refreshed by each hit), absent for none
    */
   readonly burnShare?: number;
+  /**
+   * An air-only tower also targets the ground, at this share of its damage (direct and splash), and keeps
+   * to air targets while it has one (Tower.prefersAir); absent for none
+   */
+  readonly groundDamageShare?: number;
   /** What the tower wears with it: a model in the tower model's own units, hung under its mesh */
   readonly attachment?: {
     readonly modelUrl: string;
@@ -62,6 +67,18 @@ export const TOWER_PATHS: Readonly<Record<TowerPathId, TowerPath>> = {
     burnShare: 0.25,
     // tools/blender/path_attachments.py
     attachment: { modelUrl: 'assets/models/towers/attachments/incendiary.glb' },
+  },
+  multirole: {
+    id: 'multirole',
+    towerId: 'rocket',
+    name: 'Multirole',
+    description: 'Fires at ground enemies too, at half damage, while no flyer is in range.',
+    cost: 300,
+    research: 'multirole-warheads',
+    // Rocket L0 against the ground: 30 siege every 2 s with its 5 m splash, a third of a cannon (docs/TOWER_CREATION.md, Pfade)
+    groundDamageShare: 0.5,
+    // tools/blender/path_attachments.py
+    attachment: { modelUrl: 'assets/models/towers/attachments/multirole.glb', sweepNode: 'multirole_radar' },
   },
 };
 

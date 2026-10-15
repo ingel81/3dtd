@@ -242,6 +242,22 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     effects: [{ kind: 'unlock-path', pathId: 'incendiary' }],
   },
 
+  // The rocket stands idle in every ground wave; this lets it help there at
+  // half damage, from the first tank waves on (W9, W11)
+  'multirole-warheads': {
+    id: 'multirole-warheads',
+    name: 'Multirole Warheads',
+    description: 'Rocket towers can take the Multirole path: they fire at ground enemies too, at half damage',
+    category: 'global-perk',
+    branch: 'ballistics',
+    icon: 'target',
+    cost: 1500,
+    duration: 20,
+    prerequisites: ['rocketry'],
+    minWave: 9,
+    effects: [{ kind: 'unlock-path', pathId: 'multirole' }],
+  },
+
   'nuclear-strike': {
     id: 'nuclear-strike',
     name: 'Nuclear Strike',

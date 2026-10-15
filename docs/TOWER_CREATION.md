@@ -351,12 +351,23 @@ Pfad ändert Schüsse in der Luft nicht. Die Verteidigungsanalyse des Wellenplan
 |---|---|---|---:|---|---|
 | Archer | Scout | Scouting (W16, 3000) | 250 | Ausguck (`tools/blender/scout_lookout.py`), entdeckt getarnte Gegner im Umkreis von 35 m für alle Tower ([ENEMY_CREATION.md](ENEMY_CREATION.md), Camo) | Camo-Konter |
 | Archer | Fire Arrows | Incendiary Arrows (W10, 2000, nach Fire Alchemy) | 250 | jeder direkte Treffer setzt einen Brand: 25 % des Pfeilschadens je Sekunde als Feuer, 3 s, ein Brand je Tower, der nächste Treffer erneuert ihn; ein brennender Gegner regeneriert nicht | Regen-Konter in der Ballistik-Linie, mehr Schaden gegen Weiches |
+| Rocket | Multirole | Multirole Warheads (W9, 1500, nach Rocketry) | 300 | schießt auch auf Boden, dort mit 50 % (Treffer und Splash); solange ein Flieger Kandidat ist, nimmt sie den, und von einem Bodenziel schaut sie beim periodischen Sichtcheck (bis 3/s) nach Fliegern | die Rocket steht in Bodenwellen nicht mehr still |
+
+Bodenziele per Pfad: `canTargetGroundEffective` und `groundDamageShareOf` in `entities/tower-targeting.util.ts`
+gelten für Zielwahl (`Tower.canTargetGround`, `prefersAir`), Splash, Sicht (`TowerLos` fragt die Bodensicht an,
+`choosePath` stößt sie wie das AA Retrofit mit Grund `retrofit` an) und die Verteidigungsanalyse (Boden mal Anteil).
 
 Rechnung Fire Arrows (Archer L0, 30 Physical je Sekunde, Brand 7,5 Fire je Sekunde, Matrix §2.3): gegen Unarmored
 30 + 11,3 (+37 %), Light 30 + 9 (+30 %), Heavy 15 + 4,5 (+30 %), Fortified 9 + 1,9 (+21 %), Ethereal 3 + 0,8. Der
 Brand wächst mit dem Damage-Track. Dieselben +37 % gegen Unarmored kosten über den Damage-Track ab L0 etwa 6,5 Stufen
 (etwa 400 Gold), ab L5 etwa 1.200 Gold: der Pfad ist ein billiger Kauf für Archer, die schon ausgebaut sind, wie der
 Scout ein Einmalkauf.
+
+Rechnung Multirole (Rocket L0 60 Siege alle 2 s, Splash 5 m bis 5 Ziele): am Boden 30 je Schuss, 15 DPS vor Splash,
+gegen Heavy 26 (Matrix 1,75). Eine Cannon L0 (150 Gold) bringt gegen Heavy 48 vor Splash (55 × 0,5/s × 1,75): die
+Rocket mit Pfad ist am Boden gut die Hälfte einer Cannon, für 120 + 300 Gold, und bleibt Luftabwehr. Gegen Light und
+Unarmored 7,5 (Siege 0,5). Im menschlichen Lauf bis W60 standen ab W16 acht Rockets auf L0 in jeder Bodenwelle still
+(`tools/balance-calc/trajectory.json`); mit dem Pfad tragen sie dort gegen Heavy zusammen etwa so viel wie vier Cannons L0.
 
 ## Bauzeit und Gerüst
 

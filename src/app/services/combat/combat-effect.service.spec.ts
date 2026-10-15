@@ -399,8 +399,14 @@ describe('CombatEffectService tower paths', () => {
   let applyDamage: ReturnType<typeof vi.fn>;
   let applyBurn: ReturnType<typeof vi.fn>;
 
-  function hit(towerType: TowerTypeId, pathId: TowerPathId | null, primary = enemyAt('primary', 0), damage = 40): void {
-    mockInjections['GlobalRouteGridService'] = { getEnemiesInRadiusGeo: () => [] };
+  function hit(
+    towerType: TowerTypeId,
+    pathId: TowerPathId | null,
+    primary = enemyAt('primary', 0),
+    damage = 40,
+    splashVictims: ReturnType<typeof enemyAt>[] = [],
+  ): void {
+    mockInjections['GlobalRouteGridService'] = { getEnemiesInRadiusGeo: () => splashVictims };
     const service = new CombatEffectService();
     const projectile = {
       typeConfig: PROJECTILE_TYPES[TOWER_TYPES[towerType].projectileType as ProjectileTypeId],
@@ -431,6 +437,21 @@ describe('CombatEffectService tower paths', () => {
     expect(applyBurn.mock.calls).toEqual([
       [target, 40 * TOWER_PATHS.incendiary.burnShare!, GAME_BALANCE.effects.burn.duration, 't-1'],
     ]);
+  });
+
+  it('a Multirole rocket hits ground enemies at the path share, direct and splash, flyers in full', () => {
+    const share = TOWER_PATHS.multirole.groundDamageShare!;
+    const tank = enemyAt('tank', 0);
+    hit('rocket', 'multirole', tank, 60, [enemyAt('zombie', 0.01), enemyAt('bat', 0.01, true)]);
+    const dealt = Object.fromEntries(applyDamage.mock.calls.map((c) => [(c[1] as { id: string }).id, c[2]]));
+    expect(dealt['tank']).toBe(60 * share);
+    expect(dealt['zombie']).toBe(Math.floor(60 * share * (1 - 0.01 / PROJECTILE_TYPES.rocket.splashRadius!)));
+    expect(dealt['bat']).toBe(Math.floor(60 * (1 - 0.01 / PROJECTILE_TYPES.rocket.splashRadius!)));
+  });
+
+  it('a rocket without the path spares the ground in its splash', () => {
+    hit('rocket', null, enemyAt('dragon', 0, true), 60, [enemyAt('zombie', 0.01), enemyAt('bat', 0.01, true)]);
+    expect(applyDamage.mock.calls.map((c) => (c[1] as { id: string }).id)).toEqual(['dragon', 'bat']);
   });
 
   it('an archer without the path burns nothing', () => {

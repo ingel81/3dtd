@@ -150,6 +150,18 @@ describe('damageMetresPerArmor()', () => {
     expect(damageMetresPerArmor([plain], false, metres).ground.unarmored).toBeCloseTo(dps * 10, 6);
   });
 
+  it('counts a Multirole rocket on the ground at the path share (TODO E101)', () => {
+    const rocket = new Tower(POS, 'rocket');
+    const metres = new Map([[rocket.id, { ground: 10, air: 20 }]]);
+    const dps = computeTowerDPS(rocket);
+    expect(damageMetresPerArmor([rocket], false, metres).ground.heavy).toBe(0);
+    rocket.pathId = 'multirole';
+    const out = damageMetresPerArmor([rocket], false, metres);
+    const heavy = DAMAGE_MATRIX.siege.heavy;
+    expect(out.ground.heavy).toBeCloseTo(dps * heavy * TOWER_PATHS.multirole.groundDamageShare! * 10, 6);
+    expect(out.air.heavy).toBeCloseTo(dps * heavy * 20, 6);
+  });
+
   it('leaves out a tower the route does not pass', () => {
     const a = new Tower(POS, 'archer');
     expect(damageMetresPerArmor([a], false, new Map()).ground.light).toBe(0);

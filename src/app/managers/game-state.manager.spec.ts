@@ -601,6 +601,24 @@ describe('GameStateManager', () => {
         // The gatling asks again, now with air; the archer still waits for its first
         expect(needed).toEqual([[gatling!.id, 'retrofit', true]]);
       });
+
+      it('asks for the ground sight of a rocket that takes the Multirole path (TODO E101)', () => {
+        (mockServices['GlobalRouteGridService'] as { isInitialized: Mock }).isInitialized.mockReturnValue(true);
+        gsm.addCredits(5000, 'cheat');
+        gsm.researchManager.completeResearch('rocketry');
+        const rocket = gsm.placeTower(BASE_POSITION, 'rocket')!;
+        expect(gsm.towerLos.applyMask(rocket, { range: 100, ground: false, air: true, bits: new Uint8Array(0) })).toBe(true);
+        rocket.builtAtMs = 0;
+        expect(rocket.canTargetGround).toBe(false);
+        const needed: [string, string, boolean][] = [];
+        bus.on('tower:los-needed', (event) => needed.push([event.towerId, event.reason, event.canTargetGround]));
+
+        gsm.researchManager.completeResearch('multirole-warheads');
+        expect(gsm.chooseTowerPath(rocket, 'multirole')).toBe(true);
+
+        expect(rocket.canTargetGround).toBe(true);
+        expect(needed).toEqual([[rocket.id, 'retrofit', true]]);
+      });
     });
 
     describe('research queue', () => {

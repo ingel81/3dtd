@@ -23,6 +23,7 @@ import {
 import {
   computeTowerDPS, canTargetAirEffective, airTargetingFor, type AirTargeting, armorMultipliersFor, towerArmorMultipliers,
 } from './tower-dps.util';
+import { canTargetGroundEffective, groundDamageShareOf } from '../entities/tower-targeting.util';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import type { HeroDefenseProfile } from '../configs/hero.config';
 import { DetMath } from '../utils/det-math';
@@ -151,7 +152,7 @@ function calculateAoeDpsShare(
     if (dps <= 0) continue;
     const isAoe = isSplashTower(typeId) || cfg.attackType === 'chain';
 
-    if (cfg.canTargetGround !== false) {
+    if (tower.canTargetGround) {
       groundTotal += dps;
       if (isAoe) groundAoe += dps;
     }
@@ -356,11 +357,12 @@ export function addTowerDps(
 ): void {
   if (dps <= 0) return;
   const mults = towerArmorMultipliers(cfg, pathId);
-  const canGround = cfg.canTargetGround ?? true;
+  const canGround = canTargetGroundEffective(cfg.id as TowerTypeId, pathId);
+  const groundShare = groundDamageShareOf(pathId);
   const canAir = canTargetAirEffective(cfg.id as TowerTypeId, airTargeting);
   for (const armor of ARMOR_TYPES) {
     const dpsVsArmor = dps * mults[armor];
-    if (canGround) out.ground[armor] += dpsVsArmor;
+    if (canGround) out.ground[armor] += dpsVsArmor * groundShare;
     if (canAir) out.air[armor] += dpsVsArmor;
   }
 }
@@ -386,10 +388,11 @@ export function damageMetresPerArmor(
     const dps = computeTowerDPS(tower);
     if (dps <= 0) continue;
     const mults = towerArmorMultipliers(tower.typeConfig, tower.pathId);
-    const canGround = tower.typeConfig.canTargetGround ?? true;
+    const canGround = tower.canTargetGround;
+    const groundShare = groundDamageShareOf(tower.pathId);
     const canAir = canTargetAirEffective(tower.typeConfig.id as TowerTypeId, airTargetingFor(airTargetingUnlocked, tower));
     for (const armor of ARMOR_TYPES) {
-      if (canGround) out.ground[armor] += dps * mults[armor] * metres.ground;
+      if (canGround) out.ground[armor] += dps * mults[armor] * groundShare * metres.ground;
       if (canAir) out.air[armor] += dps * mults[armor] * metres.air;
     }
   }

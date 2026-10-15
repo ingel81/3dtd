@@ -6,7 +6,7 @@ import { CombatVfxService } from './combat-vfx.service';
 import { DamageApplicationService } from './damage-application.service';
 import { NO_RESEARCH, type SimResearch } from '../../managers/research.manager';
 import { Enemy } from '../../entities/enemy.entity';
-import { canTargetAirEffective } from '../../entities/tower-targeting.util';
+import { canTargetAirEffective, canTargetGroundEffective, groundDamageShareOf } from '../../entities/tower-targeting.util';
 import { TOWER_TYPES, type TowerTypeConfig } from '../../configs/tower-types.config';
 import { Projectile } from '../../entities/projectile.entity';
 import { GeoPosition } from '../../models/game.types';
@@ -151,7 +151,7 @@ export class CombatEffectService {
       const result = this.damageService.applyDamage(
         this.vfx,
         enemy,
-        projectile.damage,
+        projectile.damage * this.shareAgainst(projectile, enemy),
         damageType,
         projectile.sourceTowerId,
         false,
@@ -216,7 +216,7 @@ export class CombatEffectService {
     const sourceType = projectile.sourceTowerType;
     const hitsAir = sourceType === null
       || canTargetAirEffective(sourceType, this.research.airTargetingFor(this.ownerOf(projectile.sourceTowerId)));
-    const hitsGround = sourceType === null || (TOWER_TYPES[sourceType].canTargetGround ?? true);
+    const hitsGround = sourceType === null || canTargetGroundEffective(sourceType, projectile.pathId);
 
     const maxTargets = this.nearestHittable(
       originPos, splashRadius, excludeId, hitsAir, hitsGround, projectile.typeConfig.splashMaxTargets,
@@ -229,7 +229,7 @@ export class CombatEffectService {
       // Always with falloff, no switch: Firefox's optimising JIT skipped a branch on one
       // here after about a quarter of an hour of play, and its splash hit at full damage
       // while every other client fell off with the distance (coop desync, TODO E64)
-      const splashDamage = Math.floor(projectile.damage * (1 - dists[i] / splashRadius));
+      const splashDamage = Math.floor(projectile.damage * this.shareAgainst(projectile, nearbyEnemy) * (1 - dists[i] / splashRadius));
 
       if (splashDamage > 0) {
         const result = this.damageService.applyDamage(
@@ -269,6 +269,14 @@ export class CombatEffectService {
         );
       }
     }
+  }
+
+  /**
+   * Share of a shot's damage `enemy` takes: 1, but a ground enemy only the path's groundDamageShare of a shot
+   * whose tower took the ground with its path (the Multirole rocket)
+   */
+  private shareAgainst(projectile: Projectile, enemy: Enemy): number {
+    return enemy.typeConfig.isAirUnit ? 1 : groundDamageShareOf(projectile.pathId);
   }
 
   /**

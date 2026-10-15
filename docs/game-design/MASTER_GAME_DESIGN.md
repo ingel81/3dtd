@@ -227,7 +227,8 @@ in §12.3.
 - Seit 2026-10-02 60 statt 40 Schaden und Upgrades zu 0,75: Sie steht in jeder
   Bodenwelle still (menschlicher Lauf bis W60: 2,8 Schaden je Gold). Die Rolle
   bleibt (TODO E15).
-- Die geplante „Bodenfreigabe" ist nicht gebaut (§12.3).
+- Pfad Multirole (Forschung Multirole Warheads ab W9, Pfad 300, seit 2026-10-15): trifft auch Boden, dort mit
+  50 % (Treffer und Splash), Flieger zuerst. Das ist die frühere geplante „Bodenfreigabe“ (§12.3).
 
 ### 3.7 Magic: Magic
 - Stärkster Ethereal-Counter (2.0×), zweiter Konter gegen Fortified (1.3×, Runen gegen Stein).
@@ -511,8 +512,8 @@ den Text aus `description`.
 
 ### 6.3 Tech-Tree (Forschungsbaum)
 
-Frei wählbar mit Voraussetzungen, 23 Knoten in vier Kategorien
-(`research-tree.config.ts`), zusammen 179.120 Credits (bis 2026-10-01 19.670).
+Frei wählbar mit Voraussetzungen, 24 Knoten in vier Kategorien
+(`research-tree.config.ts`), zusammen 180.620 Credits (bis 2026-10-01 19.670).
 
 **Tempo (seit 2026-10-02):** Eine Forschung kann eine Mindestwelle haben
 (`minWave`). Sie öffnet in der Bauphase vor dieser Welle (`researchWave`: die
@@ -562,6 +563,7 @@ Jede öffnet einen Tower-Pfad (`unlock-path`), den danach jeder Tower des Typs e
 |---|---|---:|---:|---:|---|---|
 | `scouting` | Scouting | 3.000 | 25 s | 16 | Advanced Weaponry | Archer: Scout |
 | `incendiary-arrows` | Incendiary Arrows | 2.000 | 20 s | 10 | Fire Alchemy | Archer: Fire Arrows |
+| `multirole-warheads` | Multirole Warheads | 1.500 | 20 s | 9 | Rocketry | Rocket: Multirole |
 
 #### Upgrade-Tier-Freischaltungen
 
@@ -773,7 +775,7 @@ Gebaut sind nur die Tracks aus §3.2. Geplant waren:
   vs Air, L3 Schaden vs Air. Gebaut ist stattdessen die Forschung AA Retrofit.
 - **Cannon, Armor Break Path:** L3 „Risse im Panzer“: **Armor Break** (4s,
   Unarmored-Logik). Dazu ein Air-Upgrade-Pfad (aus §7.2).
-- **Rocket:** späterer Pfad „Bodenfreigabe“ erlaubt Ground.
+- **Rocket:** späterer Pfad „Bodenfreigabe“ erlaubt Ground. Gebaut 2026-10-15 als Pfad Multirole (§3.6).
 - **Fire:** Air via Upgrade „Luftflamme“.
 
 ### 12.4 Gegner (aus §4)

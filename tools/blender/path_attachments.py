@@ -6,6 +6,7 @@ path, built in its tower model's own units, so the game hangs it under the tower
 
 Writes public/assets/models/towers/attachments/<name>.glb. Names:
     incendiary  Archer, Fire Arrows: an iron fire basket with embers on the platform, a quiver of pitch arrows
+    multirole   Rocket, Multirole: a mast with a turning radar dish (`multirole_radar`), a crate of ground shells
 """
 import math
 import os
@@ -119,8 +120,60 @@ def build_incendiary():
     return [basket, quiver]
 
 
+# ---------------------------------------------------------------- multirole (rocket)
+
+# Rocket model units: the stone ledge around the tower body at z -0.38 about 0.57 from the middle, the ground
+# plate at z -0.59 further out; the launcher turns above z 0.35, so the mast stays below it
+MAST_FOOT = Vector((-0.40, -0.40, -0.38))
+MAST_TOP_Z = 0.10
+CRATE_AT = Vector((-0.46, 0.44, -0.59))
+
+
+def build_multirole():
+    steel = material('multi_steel', (0.42, 0.44, 0.46), metallic=0.85, roughness=0.4)
+    dish_mat = material('multi_dish', (0.80, 0.82, 0.84), metallic=0.4, roughness=0.5)
+    lamp = material('multi_lamp', (0.2, 1.0, 0.3), emission=(0.2, 1.0, 0.3), strength=4.0)
+    wood = material('multi_wood', (0.36, 0.25, 0.12))
+    olive = material('multi_olive', (0.28, 0.32, 0.16), roughness=0.7)
+    stripe = material('multi_stripe', (0.95, 0.75, 0.10), roughness=0.6)
+
+    # The mast with two braces down to the ledge; the radar head turns on its top (sweepNode)
+    top = Vector((MAST_FOOT.x, MAST_FOOT.y, MAST_TOP_Z))
+    mast = [rod('mast', MAST_FOOT, top, 0.018, steel, verts=8)]
+    for d in (Vector((0.12, 0, 0)), Vector((0, 0.12, 0))):
+        mast.append(rod('brace', MAST_FOOT + d, MAST_FOOT + Vector((0, 0, 0.18)), 0.009, steel))
+    mast = join('multirole_mast', mast)
+
+    head = [cylinder('pivot', 0.03, 0.04, top + Vector((0, 0, 0.02)), steel, verts=10)]
+    # A dish tilted up and out, a feed arm in front of it, a green lamp on the pivot
+    dish_at = top + Vector((0, 0, 0.09))
+    head.append(cylinder('dish', 0.11, 0.035, dish_at, dish_mat, rotation=(math.radians(70), 0, 0), radius2=0.02,
+                         verts=16))
+    head.append(rod('feed', dish_at, dish_at + Vector((0, -0.12, 0.04)), 0.005, steel))
+    head.append(sphere('lamp', 0.014, top + Vector((0.035, 0, 0.045)), lamp))
+    head = join('multirole_radar', head)
+    bpy.context.scene.cursor.location = top
+    bpy.ops.object.select_all(action='DESELECT')
+    head.select_set(True)
+    bpy.context.view_layer.objects.active = head
+    bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
+
+    # An open crate of ground shells, olive with yellow bands
+    crate = [cylinder('box', 0.11, 0.08, CRATE_AT + Vector((0, 0, 0.04)), wood, verts=4,
+                      rotation=(0, 0, math.radians(45)))]
+    for i in range(3):
+        for j in range(2):
+            at = CRATE_AT + Vector((-0.05 + i * 0.05, -0.025 + j * 0.05, 0.08))
+            crate.append(cylinder('shell', 0.019, 0.08, at + Vector((0, 0, 0.03)), olive, verts=8))
+            crate.append(cylinder('band', 0.020, 0.012, at + Vector((0, 0, 0.045)), stripe, verts=8))
+            crate.append(cylinder('nose', 0.019, 0.03, at + Vector((0, 0, 0.085)), olive, radius2=0.004, verts=8))
+    crate = join('multirole_crate', crate)
+    return [mast, head, crate]
+
+
 BUILDS = {
     'incendiary': ('archer.glb', build_incendiary, (1.1, -1.1, 0.9), (0.05, 0.05, 0.1)),
+    'multirole': ('rocket.glb', build_multirole, (-2.6, -1.4, 1.8), (-0.2, 0.0, -0.2)),
 }
 
 
