@@ -5250,7 +5250,7 @@
       "name": "Cliff face",
       "category": "rock",
       "file": "models/cliff-face.glb",
-      "triangles": 3999,
+      "triangles": 4000,
       "footprint": 5.0,
       "height": 7.8,
       "blocksLos": true,
@@ -5269,7 +5269,7 @@
         {
           "file": "models/cliff-face-lod1.glb",
           "distance": 350,
-          "triangles": 299
+          "triangles": 300
         }
       ],
       "source": "https://polyhaven.com/a/rock_face_01"
@@ -5279,7 +5279,7 @@
       "name": "Cliff face, broad",
       "category": "rock",
       "file": "models/cliff-face-b.glb",
-      "triangles": 3999,
+      "triangles": 3998,
       "footprint": 4.4,
       "height": 8.3,
       "blocksLos": true,
@@ -5445,7 +5445,7 @@
         {
           "file": "models/cliff-coast-lod1.glb",
           "distance": 350,
-          "triangles": 299
+          "triangles": 300
         }
       ],
       "source": "https://polyhaven.com/a/coastal_cliff_02"
