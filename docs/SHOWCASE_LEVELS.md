@@ -141,8 +141,9 @@ Nebel in den Senken am Morgen. Spawns: 3. Bauflächen: Mauerkronen-Nähe, Lichtu
 Kakteengruppen, Steinstreu und weitere Felstürme auf der Hochebene. Spuren 506 und 553 m. Bilder:
 `docs/images/levels/red-canyon.jpg` (Tempelbecken), `red-canyon-floor.jpg`, `red-canyon-game.jpg`. Die Schluchten
 sind mit dem Level-Pinsel entlang einer Linie geschnitten und mit dem Terrace-Pinsel gestuft; Tafelberge mit dem
-Cliff-Pinsel (Plateau) und einer Rampe. Am Kartenrand steht abseits der Spawns eine Reihe großer Tafelberge (`mesa`, 1,6- bis
-2-fach) und hoher Felsnadeln als Kulisse vor der fernen Bergkette.
+Cliff-Pinsel (Plateau) und einer Rampe. An den Ecken und Rändern stehen abseits der Spawns acht Felstürme aus Gelände (40 bis
+60 m über der Ebene, Cliff-Pinsel mit Terrassen und Klippenfelsen aus Sandstein), ganz innerhalb der Karte, als
+Kulisse vor der fernen Bergkette.
 
 Biom Wüste, Look `desert`, harte Mittagssonne mit Hitzedunst. Ein verzweigter Canyon mit Tafelbergen; die Wege laufen
 im Canyon-Boden, Türme stehen oben auf den Tafelbergen (Plateaus mit Rampen). Tempelruine als HQ, Oase mit Palmen,
