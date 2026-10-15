@@ -1,8 +1,8 @@
 /**
  * Harbor town: a port on a bay at dusk. Streets of brick and apartment
- * blocks run down to the waterfront, where the HQ holds the harbor master's
+ * blocks run to the waterfront, where the HQ holds the harbor master's
  * square between the quay, the cranes and the container yard. Three columns
- * come down the streets from the hills behind the town; a mole with a
+ * come down the streets from the edge of the town; a mole with a
  * lighthouse closes the harbor, ships and fishing boats lie at the piers.
  */
 import type { CustomMapDocument, MapPoint } from '../../../src/app/world/custom-map/map-document';
@@ -20,10 +20,12 @@ export function buildHarborTown(): CustomMapDocument {
   for (const m of ['pavers', 'asphalt', 'sidewalk', 'brick-paving', 'concrete', 'sand-coast', 'pebbles', 'grass-leafy']) k.layer(m);
   k.cliffs('concrete', 45);
 
-  // ---- The land: the town on a gentle slope up to the north, a quay wall, the bay to the south
+  // ---- The land: the town on level ground behind a quay wall, the bay to the south. The city brush levels each
+  // block to one height while the streets keep theirs: on the gentle slope the town once stood on, the blocks
+  // stood as terraces with earth walls up to 3 m over the streets
   const shore = -156;
   for (let x = -300; x <= 300; x += 60) {
-    for (let y = shore + 20; y <= 300; y += 60) k.level({ x, y }, { radius: 70, falloff: 0.4 }, 4 + Math.max(0, y - shore) * 0.025);
+    for (let y = shore + 20; y <= 300; y += 60) k.level({ x, y }, { radius: 70, falloff: 0.4 }, 4.4);
     for (let y = shore - 50; y >= -300; y -= 40) k.level({ x, y }, { radius: 45, falloff: 0.4 }, -7);
   }
 
@@ -88,7 +90,7 @@ export function buildHarborTown(): CustomMapDocument {
   k.place('rowboat', -230, shore - 14, { rotation: 0.6 });
   k.place('lighthouse', 205, -228);
   for (const [x, y, a] of [[120, -230, 'buoy-red'], [70, -240, 'buoy-green'], [-60, -230, 'buoy-red']] as const) k.place(a, x, y);
-  k.scatter(['pebbles-scatter', 'rock-coast'], { x: -235, y: shore - 10 }, { radius: 24, strength: 0.7 }, { density: 2, minDistance: 4 });
+  k.scatter(['pebbles-scatter'], { x: -235, y: shore - 10 }, { radius: 24, strength: 0.7 }, { density: 2, minDistance: 4 });
 
   k.trimLayers(7);
   // Dusk over the bay: the lamps come on in the streets, the sea catches the last light
