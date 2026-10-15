@@ -730,8 +730,9 @@ def toxic_barrel(name, leaking=False):
     clear_scene()
     drum = Part(image_material('hazard', blender_kit.FOLIAGE + '/hazard.jpg', 0.5), smooth=True)
     rust = Part(pbr_material('metal-green_metal_rust', 'green_metal_rust'), smooth=True)
-    tube(rust, [Vector((0, 0, 0)), Vector((0, 0, 0.88))], [0.29, 0.29], 14, cap=True)
-    tube(drum, [Vector((0, 0, 0.3)), Vector((0, 0, 0.58))], [0.295, 0.295], 14)
+    drum_shell(rust)
+    # The hazard band between the hoops
+    tube(drum, [Vector((0, 0, 0.315)), Vector((0, 0, 0.572))], [0.286, 0.286], 16)
     objects = [rust.to_object(name), drum.to_object(name + '-band')]
     if leaking:
         tilt(objects, x=90, lift=0.29)
@@ -804,13 +805,36 @@ def broken_fence(name, length=4.0):
     export(name, [wood.to_object(name)])
 
 
+def drum_shell(part, r=0.29, h=0.88, sides=16, dent=None):
+    """Steel drum in one closed shell: rolled chimes at both ends, two rolling hoops at a third and two
+    thirds, the lid set down inside the top chime with two bung caps; `dent` = (angle, z, depth) pushes a
+    dent into the side"""
+    b = r * 0.975
+    prof = [(0.0, b), (0.012, r), (0.03, r), (0.042, b)]
+    for zc in (h / 3, 2 * h / 3):
+        prof += [(zc - 0.02, b), (zc, r * 1.02), (zc + 0.02, b)]
+    prof += [(h - 0.042, b), (h - 0.03, r), (h - 0.004, r), (h, r * 0.96), (h - 0.002, r * 0.9), (h - 0.018, r * 0.89)]
+    first = len(part.bm.verts)
+    tube(part, [Vector((0, 0, z)) for z, _ in prof], [rr for _, rr in prof], sides, smooth=True, cap=True)
+    if dent:
+        a, zd, depth = dent
+        c = Vector((math.cos(a) * r, math.sin(a) * r, zd))
+        part.bm.verts.ensure_lookup_table()
+        for v in part.bm.verts[first:]:
+            dist = (v.co - c).length
+            if dist < 0.16:
+                push = depth * (1 - dist / 0.16) ** 2
+                v.co.x -= math.cos(a) * push
+                v.co.y -= math.sin(a) * push
+    for x, size in ((0.16, 0.035), (-0.17, 0.022)):
+        tube(part, [Vector((x, 0.03, h - 0.02)), Vector((x, 0.03, h + 0.0))], [size, size], 8, smooth=False, cap=True)
+
+
 def rusty_barrel(name, tipped=False):
+    """Oil drum gone to rust with chimes, hoops, lid and bungs and a dent in its side; `tipped`: lying"""
     clear_scene()
     steel = Part(pbr_material('metal-rusty_metal_03-barrel', 'rusty_metal_03', (0.75, 0.62, 0.5)), smooth=True, uv_scale=0.6)
-    for z0, z1 in ((0.0, 0.29), (0.3, 0.58), (0.59, 0.88)):
-        tube(steel, [Vector((0, 0, z0)), Vector((0, 0, z1))], [0.29, 0.29], 16, cap=True)
-    for z in (0.29, 0.585):
-        tube(steel, [Vector((0, 0, z - 0.01)), Vector((0, 0, z + 0.01))], [0.305, 0.305], 16)
+    drum_shell(steel, dent=(2.2, 0.5, 0.035))
     objects = [steel.to_object(name)]
     if tipped:
         tilt(objects, x=90, lift=0.29)
