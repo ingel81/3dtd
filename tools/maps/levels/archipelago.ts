@@ -76,6 +76,13 @@ export function buildArchipelago(): CustomMapDocument {
   k.biome('meadow', [{ x: 80, y: -20 }, { x: 0, y: -60 }, { x: -90, y: 20 }, { x: -190, y: 60 }, { x: 55, y: 115 }, { x: -40, y: 205 }], { radius: 45, strength: 0.7 });
   k.biome('forest', [{ x: 110, y: 0 }, { x: 120, y: -60 }], { radius: 32, strength: 0.8 });
   k.biome('conifer', [{ x: -205, y: 85 }, { x: -60, y: 225 }], { radius: 26, strength: 0.7 });
+  // Beaches on the sheltered shores, after the other biomes (they would paint over them): the main island's west side toward the sound, the west isle's south, the
+  // small south-west isle (sand down to the water, the wet strip, driftwood, dune grass, shore pines)
+  k.biome('beach', [{ x: -8, y: -105 }, { x: -14, y: -65 }], { radius: 22, strength: 1 }, 1);
+  k.biome('beach', { x: -200, y: 16 }, { radius: 22, strength: 1 }, 1);
+  k.biome('beach', { x: -200, y: -150 }, { radius: 20, strength: 1 }, 1);
+  // The biomes' relief sank some of the shore under the sea's level beside its mask: the sea runs in there again
+  k.sea(sea);
   k.scatter(['tree-oak', 'tree-birch', 'tree-maple', 'shrub-wide'], [{ x: 0, y: -100 }, { x: 120, y: -90 }, { x: 15, y: 0 }, { x: 125, y: 20 }], { radius: 26, strength: 0.8 }, { density: 3.5, minDistance: 5 });
   k.scatter(['tree-pine', 'tree-fir'], [{ x: -230, y: 50 }, { x: -120, y: -5 }, { x: 30, y: 135 }], { radius: 20, strength: 0.8 }, { density: 4, minDistance: 4.5 });
   k.scatter(['flowers', 'flowers-yellow', 'flowers-blue', 'grass-clump'], [{ x: 60, y: -40 }, { x: -200, y: 60 }, { x: -50, y: 205 }, { x: -105, y: 15 }], { radius: 40, strength: 1 }, { density: 12, minDistance: 1.5 });

@@ -17,7 +17,7 @@ export function buildHarborTown(): CustomMapDocument {
     base: 'pavers',
     seed: 8818,
   });
-  for (const m of ['pavers', 'asphalt', 'sidewalk', 'brick-paving', 'concrete', 'sand-coast', 'pebbles', 'grass-leafy']) k.layer(m);
+  for (const m of ['pavers', 'asphalt', 'sidewalk', 'brick-paving', 'concrete', 'sand-coast', 'sand', 'grass-leafy']) k.layer(m);
   // The quay walls are the map's only sheer faces: stone blocks, not an earth bank
   k.cliffs('stone-blocks', 45);
 
@@ -56,13 +56,14 @@ export function buildHarborTown(): CustomMapDocument {
   // step from the beach to the east edge, bollards and lamps along its edge (the quay's promenade)
   k.level([{ x: -256, y: shore - 60 }, { x: 256, y: shore - 60 }], { radius: 46, falloff: 0.2 }, -7);
   k.quay([{ x: -234, y: shore }, { x: 258, y: shore }], { top: quayTop, bed: -6, land: 'left', reach: 40, spacing: 12 });
-  // A sandy beach in the west corner, down from the quay's end
+  // A sandy beach in the west corner, down from the quay's end: the ramp, then the beach brush once the bay is
+  // filled (sand to the water, the wet strip, driftwood, dune grass, shore pines)
   k.ramp({ x: -250, y: shore + 4, h: quayTop }, { x: -250, y: shore - 30, h: -2 }, 30, 0.8);
-  k.paint('sand-coast', { x: -248, y: shore - 12 }, { radius: 18, falloff: 0.6 }, 1);
   // The mole out to the lighthouse: sheer stone sides like the quay, its top a little under the quay's
   k.level([{ x: 150, y: shore - 4 }, { x: 190, y: -200 }, { x: 205, y: -228 }], { radius: 6, falloff: 0.05 }, quayTop - 0.4);
   const sea = k.water(0, 'sea', '#24566a');
   k.sea(sea);
+  k.biome('beach', { x: -246, y: shore - 8 }, { radius: 20, strength: 1 }, 1);
 
   // ---- The waterfront: paved quay, the harbor master's square at the HQ, cranes, containers, warehouses
   k.erase({ x: 0, y: -130 }, 30);
