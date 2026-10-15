@@ -511,7 +511,8 @@ def warehouse(name, rusty=False):
 
 
 def container(name, tint, rusty=False):
-    """Shipping container 6.1 x 2.44 x 2.6 m along X"""
+    """Shipping container 6.1 x 2.44 x 2.6 m along X: corner posts with castings, side rails, a door end with
+    two leaves, four locking bars with handles and keepers"""
     clear_scene()
     asset = 'container_side' if not rusty else 'rusty_metal_03'
     body = Part(pbr_material('metal-' + asset + '-' + '-'.join('%.2f' % c for c in tint), asset, tint), uv_metres=2.6)
@@ -520,13 +521,23 @@ def container(name, tint, rusty=False):
     for x in (-3.0, 3.0):
         for y in (-1.17, 1.17):
             box(frame, x, y, 0, 0.16, 0.16, 2.6)
+            for z in (0.0, 2.44):
+                box(frame, x, y, z, 0.18, 0.18, 0.16)
+        for z in (0.0, 2.48):
+            box(frame, x, 0, z, 0.14, 2.3, 0.12)
     for z in (0.0, 2.48):
         for y in (-1.17, 1.17):
             box(frame, 0, y, z, 6.1, 0.14, 0.14)
+    # Door end (+X): two leaves standing proud, each with two locking bars, handles and keepers
+    for sy in (-1, 1):
+        box(body, 3.04, sy * 0.59, 0.16, 0.03, 1.12, 2.3)
+        for y in (sy * 0.25, sy * 0.9):
+            tube(frame, [Vector((3.07, y, 0.14)), Vector((3.07, y, 2.48))], [0.025, 0.025], 6)
+            for z in (0.17, 2.43):
+                box(frame, 3.07, y, z - 0.04, 0.05, 0.1, 0.08)
+            oriented_box(frame, Vector((3.08, y, 1.1)), Vector((3.08, y - sy * 0.25, 1.1)), 0.03)
     export(name, [body.to_object(name), frame.to_object(name + '-frame')])
 
-
-# ---------------------------------------------------------------- street furniture
 
 def traffic_light(name):
     clear_scene()
