@@ -29,6 +29,22 @@ export const AMBIENT_SOUNDS: Readonly<Record<string, AmbientSound>> = {
   city: { label: 'City hum', file: 'assets/sounds/ambient/city.mp3', gain: 0.5 },
 };
 
+/**
+ * Sounds a map plays once at the start of each wave (`life.waveSound`):
+ * whole files, no loop pad. Placeholders like the loops
+ * (make_placeholders.py ONE_SHOTS), recordings replace them under the ids
+ */
+export const WAVE_SOUNDS: Readonly<Record<string, AmbientSound>> = {
+  bell: { label: 'Church bell', file: 'assets/sounds/ambient/bell.mp3', gain: 0.8 },
+  'siren-distant': { label: 'Distant siren', file: 'assets/sounds/ambient/siren-distant.mp3', gain: 0.7 },
+  'ship-horn': { label: "Ship's horn", file: 'assets/sounds/ambient/ship-horn.mp3', gain: 0.8 },
+};
+
+/** A loop's or a wave sound's entry by id */
+export function soundEntry(id: string): AmbientSound | undefined {
+  return AMBIENT_SOUNDS[id] ?? WAVE_SOUNDS[id];
+}
+
 /** `life.ambience.sound` for the biome's own bed */
 export const BIOME_AMBIENCE = 'biome';
 

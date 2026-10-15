@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { MapEnvironment, MapLife } from '../map-document';
-import { AMBIENT_SOUNDS, ambienceSounds } from './ambient-sounds';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { AMBIENT_SOUNDS, WAVE_SOUNDS, ambienceSounds } from './ambient-sounds';
 import { AREA_REACH, LOOP_PAD, Soundscape, type SoundscapeListener } from './soundscape';
 
 /** Just enough Web Audio for the soundscape: gains and pans hold their last target, sources say whether they play */
@@ -108,5 +110,39 @@ describe('Soundscape', () => {
     expect(a.sources.filter((x) => x.playing)).toHaveLength(1);
     expect(loads).toBe(1);
     s.dispose();
+  });
+
+  it("plays the wave sound once from its area's place, quieter far off and panned there, or alike everywhere", async () => {
+    const a = fakeAudio();
+    const s = new Soundscape(a, (url) => Promise.resolve({ duration: 7, url } as unknown as AudioBuffer));
+    s.setVolume(1);
+    const church = { id: 'church', kind: 'fog' as const, shape: 'area' as const, points: [{ x: 290, y: -10 }, { x: 310, y: -10 }, { x: 300, y: 10 }] };
+    s.setMap({ life: { waveSound: { sound: 'bell', volume: 0.5, area: 'church' }, areas: [church] }, environment: env('arctic') });
+    await tick(s, listener(0, 0));
+    await s.playWave();
+    const bell = a.sources.find((x) => (x.sound as { url: string }).url.endsWith('bell.mp3'))!;
+    expect(bell.playing).toBe(true);
+    const gain = a.gains[a.gains.length - 1].gain.value;
+    // 290 m off: a share between WAVE_FAR and full, to the east (the listener's right)
+    expect(gain).toBeLessThan(WAVE_SOUNDS['bell'].gain * 0.5 * 0.6);
+    expect(gain).toBeGreaterThan(WAVE_SOUNDS['bell'].gain * 0.5 * 0.35);
+    expect(a.pans[a.pans.length - 1].pan.value).toBeGreaterThan(0.5);
+    // Without an area (or with one that is gone) alike everywhere, in the middle
+    s.setMap({ life: { waveSound: { sound: 'bell', volume: 0.5, area: 'gone' } }, environment: env('arctic') });
+    await s.playWave();
+    expect(a.gains[a.gains.length - 1].gain.value).toBeCloseTo(WAVE_SOUNDS['bell'].gain * 0.5, 3);
+    expect(a.pans[a.pans.length - 1].pan.value).toBe(0);
+    // None set, an unknown sound or volume 0: nothing
+    const before = a.sources.length;
+    s.setMap({ life: { waveSound: { sound: 'dragons', volume: 1 } }, environment: env('arctic') });
+    await s.playWave();
+    s.setMap({ life: {}, environment: env('arctic') });
+    await s.playWave();
+    expect(a.sources.length).toBe(before);
+    s.dispose();
+  });
+
+  it('has a file for every sound', () => {
+    for (const entry of [...Object.values(AMBIENT_SOUNDS), ...Object.values(WAVE_SOUNDS)]) expect(existsSync(resolve('public', entry.file))).toBe(true);
   });
 });

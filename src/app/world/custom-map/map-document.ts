@@ -473,6 +473,13 @@ export interface MapLife {
   flags?: boolean;
   /** The ambient sound over the whole map: a sound id, or 'biome' for the biome's by day and by night; volume 0..1. None when missing */
   ambience?: { sound: string; volume: number };
+  /**
+   * A sound once at the start of every wave (a bell, a distant siren, a
+   * ship's horn; ambience/ambient-sounds.ts WAVE_SOUNDS), volume 0..1; from
+   * the life area `area` names (heard from its place, quieter far off) or
+   * everywhere alike. Heard only, the simulation never knows it
+   */
+  waveSound?: { sound: string; volume: number; area?: string };
   areas?: MapLifeArea[];
 }
 

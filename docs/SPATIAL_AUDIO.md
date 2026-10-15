@@ -643,6 +643,8 @@ läuft also durch denselben Master-Bus mit Limiter; seine Lautstärke ist die SF
 `AudioBufferSourceNode`, ein `GainNode` und ein `StereoPannerNode`; keine `PositionalAudio`, kein Enemy- oder
 One-Shot-Budget: das Distanzmodell der Spiel-Sounds passt nicht zu einem Ton, der in einer Fläche überall gleich laut
 ist und den die Kamera aus 100 bis 400 m Höhe hört. Pause des Spiels hält ihn nicht an (die Welt lebt weiter).
+Der Ton zu jeder Welle (`life.waveSound`, Glocke, Sirene, Horn) läuft denselben Weg: eine Quelle ohne Schleife je
+Wellenstart, ausgelöst von `wave:started` (`PresentationHost` an `WorldProvider.waveStarted`).
 Die Dateien liegen unter `public/assets/sounds/ambient/` (Abschnitt Assets).
 
 ## Performance-Optimierungen

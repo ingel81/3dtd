@@ -495,6 +495,13 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
 - **Tonbereiche** (Lebensbereich der Art `sound` mit `sound` und `volume`, Standard 0,7): im Umriss oder auf der Linie
   voll, darüber hinaus über 70 m leiser (`AREA_REACH`, quadratisch), aus der Seite, auf der er liegt (Stereo-Panner,
   voll seitlich erst 30 m außerhalb); ein Bach entlang einer Linie, Brandung entlang einer Küste, Feuer in einem Hof
+- **Ton zu jeder Welle** (`life.waveSound`: `sound`, `volume`, optional `area`): einmal, wenn eine Welle beginnt
+  (`wave:started` auf dem Hauptbus, über `PresentationHost` an `WorldProvider.waveStarted`, nicht beim Vorspulen eines
+  Replays; die Simulation weiß nichts davon). Mit `area` (Id eines Lebensbereichs beliebiger Art) kommt er von dort:
+  über 400 m bis auf 35 % leiser (`WAVE_REACH`, `WAVE_FAR`) und aus seiner Seite; ohne, oder wenn der Bereich fehlt,
+  überall gleich. Klänge `WAVE_SOUNDS`: `bell` (Glockenschlag), `siren-distant` (ferne Sirene), `ship-horn`
+  (Schiffshorn), ganze Dateien ohne Schleifenpolster, Platzhalter aus `make_placeholders.py` (`ONE_SHOTS`).
+  Life-Panel: „At each wave“, Lautstärke, „Comes from“, „Play“ spielt ihn einmal im Editor
 - Von oben leiser: bis 80 m über dem Boden voll, ab 600 m ein Drittel (`lift`)
 - Klänge (`AMBIENT_SOUNDS`): `wind`, `birdsong`, `night-insects`, `stream`, `surf`, `swamp`, `lava`, `fire`, `city`, je mit
   eigenem Pegel. Heute synthetische Platzhalter aus `tools/ambient/make_placeholders.py` (Rauschen im Frequenzraum über

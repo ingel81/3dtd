@@ -5,7 +5,8 @@ filtered in the frequency domain over the whole loop (circular), envelopes and c
 so the end runs into the start without a seam. The file holds the loop with PAD seconds of it
 repeated before and after; the game loops from PAD to the end minus PAD (soundscape.ts
 LOOP_PAD), which hides the MP3 encoder's delay at both ends. Real recordings replace these
-later (tmp/plan/AMBIENT_SOUNDS_2026-10-15.md); the ids stay.
+later (tmp/plan/AMBIENT_SOUNDS_2026-10-15.md); the ids stay. ONE_SHOTS are the wave sounds
+(ambient-sounds.ts WAVE_SOUNDS): whole files, played once, no pad.
 
     python -I tools/ambient/make_placeholders.py public/assets/sounds/ambient [<id> ...]
 """
@@ -173,15 +174,67 @@ SOUNDS = {
 }
 
 
-def write(signal, path):
+def ring(seconds):
+    """A time axis for a one-shot of `seconds`"""
+    return np.arange(int(RATE * seconds)) / RATE
+
+
+def bell(rng):
+    """One toll of a church bell: inharmonic partials (hum, prime, tierce, quint, nominal), the high ones dying first"""
+    t = ring(7.0)
+    f0 = 220.0
+    out = np.zeros_like(t)
+    for ratio, amp, decay in [(0.5, 0.6, 2.8), (1.0, 1.0, 2.0), (1.19, 0.5, 1.6), (1.5, 0.35, 1.3), (2.0, 0.55, 1.0), (2.51, 0.25, 0.7), (3.0, 0.15, 0.5)]:
+        out += amp * np.sin(2 * np.pi * f0 * ratio * t + rng.uniform(0, 6.28)) * np.exp(-t / decay)
+    strike = band(rng, 800, 4000)[: len(t)] * np.exp(-t / 0.02) * 0.4
+    return (out + strike) * np.minimum(1, t / 0.003)
+
+
+def siren_distant(rng):
+    """An air-raid siren far off: a tone rising, holding, falling, dull and with a slow wavering"""
+    t = ring(9.0)
+    pitch = 180 + 320 * np.clip(t / 3.0, 0, 1) - 320 * np.clip((t - 6.0) / 3.0, 0, 1)
+    wobble = 1 + 0.01 * np.sin(2 * np.pi * 0.7 * t)
+    phase = 2 * np.pi * np.cumsum(pitch * wobble) / RATE
+    tone = np.sin(phase) + 0.3 * np.sin(2 * phase) + 0.1 * np.sin(3 * phase)
+    env = np.minimum(1, t / 1.0) * np.minimum(1, (t[-1] - t) / 1.5)
+    air = band(rng, 60, 500, -0.6)[: len(t)] * 0.15
+    return tone * env * (0.8 + 0.2 * np.sin(2 * np.pi * 0.23 * t)) + air * env
+
+
+def ship_horn(rng):
+    """A ship's horn: a low, rich tone held for three seconds, a little uneven, with its echo"""
+    t = ring(6.0)
+    f0 = 98.0
+    held = np.clip(t / 0.25, 0, 1) * np.clip((3.4 - t) / 0.4, 0, 1)
+    phase = 2 * np.pi * f0 * t * (1 + 0.002 * np.sin(2 * np.pi * 3 * t))
+    tone = sum(np.sin(k * phase) / k ** 0.8 for k in range(1, 9))
+    dry = tone * held
+    echo = np.zeros_like(dry)
+    lag = int(0.9 * RATE)
+    echo[lag:] = dry[:-lag] * 0.25
+    return dry + echo + band(rng, 40, 200, -0.5)[: len(t)] * 0.05 * held
+
+
+ONE_SHOTS = {
+    'bell': bell,
+    'siren-distant': siren_distant,
+    'ship-horn': ship_horn,
+}
+
+
+def write(signal, path, pad=True):
     signal = signal - signal.mean()
     # About -18 dBFS RMS, peaks held under -1 dBFS
     signal *= 10 ** (-18 / 20) / (np.sqrt(np.mean(signal ** 2)) + 1e-9)
     peak = np.max(np.abs(signal))
     if peak > 0.89:
         signal = np.tanh(signal / 0.89) * 0.89
-    pad = int(PAD * RATE)
-    full = np.concatenate([signal[-pad:], signal, signal[:pad]])
+    if pad:
+        n = int(PAD * RATE)
+        full = np.concatenate([signal[-n:], signal, signal[:n]])
+    else:
+        full = signal * np.minimum(1, (len(signal) - np.arange(len(signal))) / (0.05 * RATE))
     pcm = (np.clip(full, -1, 1) * 32767).astype('<i2')
     with tempfile.TemporaryDirectory() as tmp:
         wav = os.path.join(tmp, 'loop.wav')
@@ -202,6 +255,12 @@ def main():
             continue
         rng = np.random.default_rng(1000 + k)
         write(make(rng), os.path.join(out_dir, f'{name}.mp3'))
+        print(name)
+    for k, (name, make) in enumerate(ONE_SHOTS.items()):
+        if only and name not in only:
+            continue
+        rng = np.random.default_rng(2000 + k)
+        write(make(rng), os.path.join(out_dir, f'{name}.mp3'), pad=False)
         print(name)
 
 

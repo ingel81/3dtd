@@ -1167,7 +1167,7 @@ export class MapKit {
     return this.addLife(kind, 'route', points, options);
   }
 
-  /** The map's own life: { auto: { smoke, fireflies, birds, sparks }, density, flags, ambience: { sound, volume } } */
+  /** The map's own life: { auto: { smoke, fireflies, birds, sparks }, density, flags, ambience: { sound, volume }, waveSound: { sound, volume, area? } } */
   lifeSettings(patch: Omit<MapLife, 'areas'>): void {
     const life: MapLife = { ...this.doc.life, ...patch, auto: patch.auto ? { ...this.doc.life?.auto, ...patch.auto } : this.doc.life?.auto };
     if (!life.auto) delete life.auto;

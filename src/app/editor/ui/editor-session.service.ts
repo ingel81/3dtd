@@ -946,6 +946,12 @@ export class EditorSession implements OnDestroy {
     this.viewport?.setAmbience(on);
   }
 
+  /** The map's wave sound once in the editor (from a click), its sound on from then */
+  playWaveSound(): void {
+    this.patchSettings((s) => (s.life.hear = true));
+    this.viewport?.playWaveSound();
+  }
+
   /** The map's life with `change` made to a copy, one step */
   editLife(change: (life: MapLife) => void, label: string): void {
     const editor = this.editor;

@@ -1,13 +1,14 @@
-import type { CustomMapDocument, MapLifeArea, MapPoint } from '../map-document';
+import type { CustomMapDocument, MapLife, MapLifeArea, MapPoint } from '../map-document';
 import { nearestOnShape } from '../map-life';
-import { AMBIENT_SOUNDS, ambienceSounds } from './ambient-sounds';
+import { AMBIENT_SOUNDS, WAVE_SOUNDS, ambienceSounds, soundEntry } from './ambient-sounds';
 
 /**
  * The ambient sound of a custom map (TODO E190, docs/CUSTOM_MAPS.md
  * "Umgebungston"): the map's bed over everything (`life.ambience`: the
  * biome's by day and by night, crossfading with the darkness, or one sound)
  * and the sound areas and routes (`life.areas`, kind `sound`), each loud
- * inside its outline or on its line and fading over AREA_REACH metres.
+ * inside its outline or on its line and fading over AREA_REACH metres,
+ * and the sound once at each wave's start (`life.waveSound`, playWave).
  * Heard from where the camera looks (the listener: a ground point and the
  * camera's height over it); from high up everything is quieter, and a sound
  * off to one side pans there. Plain Web Audio: one looping buffer source,
@@ -26,6 +27,9 @@ const STEP = 0.1;
 const GLIDE = 0.35;
 /** Seconds a silent voice keeps its source before it stops */
 const SILENT_STOP = 3;
+/** Metres over which a wave sound from an area falls to its least share, and that share (a bell carries) */
+const WAVE_REACH = 400;
+const WAVE_FAR = 0.35;
 
 export interface SoundscapeOutput {
   context: BaseAudioContext;
@@ -68,6 +72,10 @@ export class Soundscape {
   private elapsed = STEP;
   private readonly near: MapPoint = { x: 0, y: 0 };
   private disposed = false;
+  /** The map's wave sound and the area it comes from */
+  private wave: { sound: string; volume: number; area: MapLifeArea | null } | null = null;
+  /** Where the listener was at the last update, for a wave sound between updates */
+  private heard: Omit<SoundscapeListener, 'darkness'> = { at: { x: 0, y: 0 }, height: 80, right: { x: 1, y: 0 } };
 
   constructor(
     private readonly out: SoundscapeOutput,
@@ -111,6 +119,43 @@ export class Soundscape {
     }
     this.voices = kept;
     this.elapsed = STEP;
+    this.wave = waveSoundOf(doc.life);
+    if (this.wave) void this.buffer(this.wave.sound);
+  }
+
+  /**
+   * The map's wave sound once, as a wave starts: from its area's place
+   * (panned, quieter far off, never below WAVE_FAR) or alike everywhere,
+   * quieter from high up like the rest. Nothing without one
+   */
+  async playWave(): Promise<void> {
+    const w = this.wave;
+    if (!w || this.disposed || this.volume <= 0) return;
+    const buffer = await this.buffer(w.sound);
+    if (!buffer || this.disposed || this.wave !== w) return;
+    const l = this.heard;
+    const lift = Math.min(1, Math.max(0.35, 1 - (l.height - 80) / 780));
+    let level = (WAVE_SOUNDS[w.sound]?.gain ?? 0.7) * w.volume * lift;
+    let pan = 0;
+    if (w.area) {
+      const d = nearestOnShape(w.area, l.at.x, l.at.y, this.near);
+      level *= WAVE_FAR + (1 - WAVE_FAR) * Math.max(0, 1 - d / WAVE_REACH);
+      if (d > 1) pan = (((this.near.x - l.at.x) * l.right.x + (this.near.y - l.at.y) * l.right.y) / d) * Math.min(1, d / 30) * 0.8;
+    }
+    const context = this.out.context;
+    const gain = context.createGain();
+    gain.gain.value = level;
+    const panner = context.createStereoPanner();
+    panner.pan.value = pan;
+    const s = context.createBufferSource();
+    s.buffer = buffer;
+    s.connect(gain).connect(panner).connect(this.master);
+    s.onended = () => {
+      s.disconnect();
+      gain.disconnect();
+      panner.disconnect();
+    };
+    s.start();
   }
 
   /** Everything's level, 0..1 (the player's sound volume); 0 silences and, after a while, stops the sources */
@@ -126,6 +171,7 @@ export class Soundscape {
     if (this.elapsed < STEP) return;
     const step = this.elapsed;
     this.elapsed = 0;
+    this.heard = { at: { x: listener.at.x, y: listener.at.y }, height: listener.height, right: { x: listener.right.x, y: listener.right.y } };
     const now = this.out.context.currentTime;
     // From high up the land is quieter: full up to 80 m over it, a third from 600 m
     const lift = Math.min(1, Math.max(0.35, 1 - (listener.height - 80) / 780));
@@ -170,7 +216,7 @@ export class Soundscape {
   private async buffer(sound: string): Promise<AudioBuffer | null> {
     if (this.buffers.has(sound)) return this.buffers.get(sound) ?? null;
     this.buffers.set(sound, null);
-    const entry = AMBIENT_SOUNDS[sound];
+    const entry = soundEntry(sound);
     try {
       const b = entry ? await this.load(entry.file) : null;
       this.buffers.set(sound, b);
@@ -210,6 +256,13 @@ export class Soundscape {
     v.gain.disconnect();
     v.pan.disconnect();
   }
+}
+
+/** The map's wave sound with the area it names (none when that area is gone or the sound unknown) */
+function waveSoundOf(life: MapLife | undefined): { sound: string; volume: number; area: MapLifeArea | null } | null {
+  const w = life?.waveSound;
+  if (!w || !(w.volume > 0) || !WAVE_SOUNDS[w.sound]) return null;
+  return { sound: w.sound, volume: w.volume, area: (w.area && life?.areas?.find((a) => a.id === w.area)) || null };
 }
 
 const cache = new WeakMap<BaseAudioContext, Map<string, Promise<AudioBuffer>>>();

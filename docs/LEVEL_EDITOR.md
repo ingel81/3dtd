@@ -317,7 +317,8 @@ Dokument trägt (`life.areas`), und die Schalter dessen, was die Karte von selbs
   Effekt-Objekt (Rauchsäule, kreisender Schwarm, Glühwürmchen, Glut) mit dem Objektwerkzeug; „What the map brings by
   itself“: Schornsteinrauch, Glühwürmchen an Ufern und in Wäldern, Vögel über offenem Land, Funken über Lava, wehende
   Banner, Dichte (0 bis 200 % auf alles); „Sound“: „Over the whole map“ (keiner, der des Looks bei Tag und Nacht oder
-  ein Klang) mit Lautstärke, „Hear it in the editor“ (spielt den Ton von der Mitte der Ansicht aus, Lautstärke 80 %;
+  ein Klang) mit Lautstärke, „At each wave“ (Glocke, ferne Sirene, Schiffshorn einmal je Wellenstart) mit Lautstärke,
+  „Comes from“ (ein Lebensbereich oder überall) und „Play“, „Hear it in the editor“ (spielt den Ton von der Mitte der Ansicht aus, Lautstärke 80 %;
   aus beim Öffnen, Browser starten Ton erst nach einem Klick). Regler wirken sofort und werden beim Loslassen ein Schritt
 - Die Bereiche stehen nur, solange das Werkzeug in der Hand ist, als Linien in der Farbe ihrer Art über dem Boden.
   Mit Symmetrie entstehen an jedem Bild Kopien eines neuen Bereichs (gespiegelte Linien laufen rückwärts; ein Umriss,

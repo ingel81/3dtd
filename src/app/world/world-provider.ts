@@ -365,6 +365,12 @@ export interface WorldProvider {
    * wave 1 where the map has optional lanes (hasLaneChoice)
    */
   lanes(): WorldLanes | null;
+  /**
+   * A wave started (the main bus's `wave:started`, not while a replay fast
+   * forwards): a world's own sound for it (a custom map's `life.waveSound`).
+   * Presentation only, the simulation never hears it
+   */
+  waveStarted?(wave: number): void;
   /** The world's own run rules (start credits, HQ health, tower types), null: the game's */
   runRules(): RunRules | null;
   /** The world's waves: the source it asks for and its own wave list, null: the game's choice */

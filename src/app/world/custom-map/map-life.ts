@@ -84,6 +84,10 @@ export function lifeProblems(life: unknown): string[] {
   if (amb !== undefined && (!amb || typeof amb.sound !== 'string' || !finite(amb.volume) || amb.volume < 0 || amb.volume > 1)) {
     p.push('life.ambience needs a sound and a volume 0 to 1');
   }
+  const ws = l.waveSound;
+  if (ws !== undefined && (!ws || typeof ws.sound !== 'string' || !finite(ws.volume) || ws.volume < 0 || ws.volume > 1 || (ws.area !== undefined && typeof ws.area !== 'string'))) {
+    p.push('life.waveSound needs a sound, a volume 0 to 1 and, if it names one, the id of a life area');
+  }
   if (l.areas === undefined) return p;
   if (!Array.isArray(l.areas) || l.areas.length > MAX_LIFE_AREAS) return [...p, `life.areas must be a list of at most ${MAX_LIFE_AREAS}`];
   const ids = new Set<string>();

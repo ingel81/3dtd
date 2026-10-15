@@ -6,7 +6,7 @@ import { SnapshotCommand } from '../../model/editor-document';
 import type { LifeMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
 import { RangeRowComponent } from './range-row.component';
-import { AMBIENT_SOUNDS, BIOME_AMBIENCE } from '../../../world/custom-map/ambience/ambient-sounds';
+import { AMBIENT_SOUNDS, BIOME_AMBIENCE, WAVE_SOUNDS } from '../../../world/custom-map/ambience/ambient-sounds';
 
 
 /** Effect objects a click places (the Objects tool's Place), for one spot instead of an area */
@@ -203,11 +203,38 @@ const TINTED: ReadonlySet<MapLifeKind> = new Set(['fireflies', 'fog', 'leaves', 
                             (changing)="liveLife({ ambience: { sound: amb.sound, volume: $event / 100 } })"
                             (changed)="commitLife({ ambience: { sound: amb.sound, volume: $event / 100 } }, 'Sound volume')" />
         }
+        <label class="td-setting">
+          <span>At each wave</span>
+          <select class="td-select is-auto" [value]="life()?.waveSound?.sound ?? ''" (change)="setWaveSound($any($event.target).value)" aria-label="Sound at each wave" data-test="life-wave-sound">
+            <option value="">None</option>
+            @for (o of waveSounds; track o.id) {
+              <option [value]="o.id">{{ o.label }}</option>
+            }
+          </select>
+        </label>
+        @if (life()?.waveSound; as ws) {
+          <app-editor-range label="Volume" unit="%" [min]="0" [max]="100" [step]="5" [value]="ws.volume * 100"
+                            (changing)="liveLife({ waveSound: { ...ws, volume: $event / 100 } })"
+                            (changed)="commitLife({ waveSound: { ...ws, volume: $event / 100 } }, 'Wave sound volume')" />
+          <label class="td-setting">
+            <span>Comes from</span>
+            <select class="td-select is-auto" [value]="ws.area ?? ''" (change)="setWaveSoundArea($any($event.target).value)" aria-label="Where the wave sound comes from" data-test="life-wave-area">
+              <option value="">Everywhere alike</option>
+              @for (a of areas(); track a.id) {
+                <option [value]="a.id">{{ a.id }}</option>
+              }
+            </select>
+          </label>
+          <div class="td-setting">
+            <span>Hear it once</span>
+            <button class="td-btn-secondary td-btn-sm" type="button" (click)="session.playWaveSound()" data-test="life-wave-play">Play</button>
+          </div>
+        }
         <div class="td-setting">
           <span>Hear it in the editor</span>
           <input class="td-switch" type="checkbox" [checked]="settings().hear" (change)="session.hearAmbience($any($event.target).checked)" aria-label="Hear the map's sound" data-test="life-hear" />
         </div>
-      <p class="td-note">The look's own plays its sounds by day and by night. Sound areas and lines add a sound where you draw them (pick Sound above).</p>
+      <p class="td-note">The look's own plays its sounds by day and by night. Sound areas and lines add a sound where you draw them (pick Sound above). The wave sound plays once as each wave starts, from the area it comes from (quieter far off) or alike everywhere.</p>
     </div>
   `,
   styles: [
@@ -222,6 +249,7 @@ export class LifePanelComponent {
   readonly info = LIFE_KIND_INFO;
   readonly kinds = LIFE_KINDS;
   readonly sounds = Object.entries(AMBIENT_SOUNDS).map(([id, s]) => ({ id, label: s.label }));
+  readonly waveSounds = Object.entries(WAVE_SOUNDS).map(([id, s]) => ({ id, label: s.label }));
   readonly biomeAmbience = BIOME_AMBIENCE;
   readonly spots = SPOTS;
   readonly tinted = TINTED;
@@ -294,6 +322,18 @@ export class LifePanelComponent {
   setAmbience(sound: string): void {
     const volume = this.life()?.ambience?.volume ?? 0.6;
     this.commitLife({ ambience: sound ? { sound, volume } : undefined }, sound ? 'Sound over the map' : 'No sound over the map');
+  }
+
+  setWaveSound(sound: string): void {
+    const now = this.life()?.waveSound;
+    this.commitLife({ waveSound: sound ? { ...now, sound, volume: now?.volume ?? 0.8 } : undefined }, sound ? 'Sound at each wave' : 'No sound at each wave');
+  }
+
+  setWaveSoundArea(area: string): void {
+    const now = this.life()?.waveSound;
+    if (!now) return;
+    const { area: _old, ...rest } = now;
+    this.commitLife({ waveSound: area ? { ...rest, area } : rest }, 'Wave sound place');
   }
 
   setAuto(key: 'smoke' | 'fireflies' | 'birds' | 'sparks', on: boolean): void {

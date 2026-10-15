@@ -28,7 +28,7 @@ import { dabCentres, facing, MapKit, rng, type Brush, type Where } from '../ops/
 import { validateMapDocument } from '../../world/custom-map/map-file';
 import type { CustomMapDocument, MapBridgeStyle, MapObject, MapPathKind, MapPoint, MapRiver } from '../../world/custom-map/map-document';
 import { LIFE_KINDS } from '../../world/custom-map/map-life';
-import { AMBIENT_SOUNDS } from '../../world/custom-map/ambience/ambient-sounds';
+import { AMBIENT_SOUNDS, WAVE_SOUNDS } from '../../world/custom-map/ambience/ambient-sounds';
 
 /** One command of a script, as kept and played */
 export interface ScriptCommand {
@@ -125,6 +125,7 @@ const PATH_KINDS = ['road', 'path', 'bridge'] as const;
 const BRIDGE_STYLES = ['wood', 'stone', 'lava'] as const;
 const SYMMETRIES = ['none', 'x', 'y', 'xy', 'rot2', 'rot4'] as const;
 const SOUND_IDS = Object.keys(AMBIENT_SOUNDS).join('|');
+const WAVE_SOUND_IDS = Object.keys(WAVE_SOUNDS).join('|');
 
 const ENVIRONMENT_CHOICES: Record<string, readonly string[]> = {
   sky: ['day', 'dusk', 'night', 'overcast'],
@@ -255,7 +256,7 @@ export const SCRIPT_OPS: Readonly<Record<string, OpSpec>> = {
     doc: `A life area: an outline (3 or more points) the life fills (birds circle in it, particles over it, boats drift on its water, a sound plays in it); options { density 0.1..3, height (birds: flight height over the ground, 40), color, sound: ${SOUND_IDS}, volume 0..1, asset (boats: a floating prop, rowboat; movers: any asset), species: songbirds|gulls|crows|raptors (birds), speed m/s (movers, 1.5), quality: medium|high }; returns its id`,
   },
   lifeRoute: { args: [a('kind', one(LIFE_KINDS)), a('points', LINE), a('options', OBJECT, true)], doc: 'A life route: a line birds fly along and back, particles follow, boats go up and down or a sound follows (a stream); options as lifeArea; returns its id' },
-  lifeSettings: { args: [a('patch', OBJECT)], doc: "The map's own life: { auto: { smoke, fireflies, birds (on unless false), sparks (over lava, off unless true) }, density 0..2 (a factor on all of it), flags (banners wave), ambience: { sound: biome (the look's own by day and night) or a sound, volume 0..1 } }" },
+  lifeSettings: { args: [a('patch', OBJECT)], doc: `The map's own life: { auto: { smoke, fireflies, birds (on unless false), sparks (over lava, off unless true) }, density 0..2 (a factor on all of it), flags (banners wave), ambience: { sound: biome (the look's own by day and night) or a sound, volume 0..1 }, waveSound: { sound: ${WAVE_SOUND_IDS}, volume 0..1, area (a life area's id it sounds from; everywhere alike without) }: once as each wave starts }` },
   removeLife: { args: [a('ids', STRINGS)], doc: 'Remove life areas by id (map.life() lists them)' },
   gameplay: { args: [a('rules', OBJECT)], doc: "Rules: { startCredits, hqHealth, towers: [tower ids], destructible: true|false, difficulty 50..200 (percent on the wave budget) }; waves is { kind: 'budget' } (the game's waves, the default) or a map's own table, there is no wave count" },
 };

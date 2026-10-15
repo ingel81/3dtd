@@ -465,6 +465,11 @@ export class CustomMapWorld implements WorldProvider {
     };
   }
 
+  /** The map's sound at each wave's start (life.waveSound), heard from where the camera looks */
+  waveStarted(_wave: number): void {
+    void this.soundscape?.playWave();
+  }
+
   /** The map's lanes (TODO E130): switched before wave 1 where some are optional, closed when a coop room leaves them free */
   lanes(): WorldLanes | null {
     const choice = this.laneChoice;

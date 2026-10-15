@@ -687,6 +687,12 @@ export class EditorViewport {
     this.ambience = { sound, context };
   }
 
+  /** The map's wave sound once, as at a wave's start; turns the editor's sound on (from a click) */
+  playWaveSound(): void {
+    this.setAmbience(true);
+    void this.ambience?.sound.playWave();
+  }
+
   /** The soundscape heard from the ground the view orbits */
   private hearAmbience(dt: number): void {
     const a = this.ambience;
