@@ -167,3 +167,16 @@ describe('MapKit.glacier', () => {
     expect(placed.some((o) => o.asset === 'scree-scatter')).toBe(true);
   });
 });
+
+describe('MapKit.place', () => {
+  it('aligns to the slope on request, as the Align to slope button does', () => {
+    const k = kit();
+    const g = k.doc.terrain.grid;
+    // Rising 0.3 m per metre to the north
+    for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) g.heights[j * g.columns + i] = 0.3 * j * g.cellSize;
+    const flat = k.place('shipwreck', 0, 0);
+    const tilted = k.place('shipwreck', 20, 0, { align: true });
+    expect(flat.pitch ?? 0).toBe(0);
+    expect(Math.abs(tilted.pitch ?? 0)).toBeCloseTo(Math.atan(0.3), 1);
+  });
+});

@@ -33,6 +33,7 @@ import { carveRiver, DEFAULT_RIVER, type RiverOptions, type RiverResult } from '
 import { buildRoad, DEFAULT_ROAD, type RoadOptions, type RoadResult } from './landscape/road';
 import { cliffAlong, coastAlong, formDab, type FormKind } from './landscape/shapes';
 import {
+  alignedToSlope,
   ObjectGrid,
   ObjectIds,
   scatterDab,
@@ -109,6 +110,8 @@ export interface PlaceOptions {
   scale?: number;
   /** Height over the ground (the editor's Z field) */
   z?: number;
+  /** "Align to slope" after placing: tilted with the ground over its footprint (a rock then settles onto its plate) */
+  align?: boolean;
   blocksBuild?: boolean;
   blocksLos?: boolean;
   tint?: string;
@@ -834,6 +837,10 @@ export class MapKit {
     // A building levels its ground first, as in the editor (levelUnderBuilding)
     const entry = this.catalog.object(asset);
     if (levelsGround(entry)) for (const p of [object, ...images]) levelUnderBuilding(t, p, entry.radius);
+    if (o.align) {
+      object = alignedToSlope(t, object, entry.radius);
+      images = images.map((i) => alignedToSlope(t, i, entry.radius));
+    }
     if (rock) {
       object = settled(t, object, rock);
       images = images.map((i) => settled(t, i, rock));
