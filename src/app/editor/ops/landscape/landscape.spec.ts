@@ -75,6 +75,24 @@ describe('biome brush', () => {
     expect(ed.doc.terrain.layers.map((l) => l.material)).toContain('forest-floor');
   });
 
+  it('mixes species: a few conifers in the forest, a few birches among the pines, mossy trees in the swamp (E187)', () => {
+    const species = (biome: string, seed = 1) => {
+      const ed = map();
+      paint(ed, biome, seed);
+      const count = new Map<string, number>();
+      for (const o of ed.doc.objects) if (catalog.object(o.asset).category === 'Trees') count.set(o.asset, (count.get(o.asset) ?? 0) + 1);
+      return count;
+    };
+    const forest = species('forest');
+    const all = [...forest.values()].reduce((a, b) => a + b, 0);
+    const conifers = (forest.get('tree-fir') ?? 0) + (forest.get('tree-pine') ?? 0);
+    expect(conifers).toBeGreaterThan(0);
+    expect(conifers / all).toBeLessThan(0.25);
+    expect(species('conifer').get('tree-birch') ?? 0).toBeGreaterThan(0);
+    expect(species('conifer').get('tree-fir') ?? 0).toBeGreaterThan(species('conifer').get('tree-birch') ?? 0);
+    expect([1, 2, 3].some((seed) => species('swamp', seed).has('tree-swamp-moss'))).toBe(true);
+  });
+
   it('grows more where the brush is stronger', () => {
     const weak = map();
     const strong = map();

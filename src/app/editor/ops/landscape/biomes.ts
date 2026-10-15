@@ -135,7 +135,7 @@ export const BIOMES: readonly BiomeDef[] = [
   {
     id: 'forest',
     label: 'Forest',
-    hint: 'Oak, maple and birch on forest floor, ferns and mushrooms inside, bushes at the edge',
+    hint: 'Oak, maple and birch with a few firs and pines on forest floor, ferns and mushrooms inside, bushes at the edge',
     color: '#3f6b2a',
     ground: [
       { material: ['forest-floor', 'forest-ground', 'dirt'], share: 0.5 },
@@ -145,7 +145,8 @@ export const BIOMES: readonly BiomeDef[] = [
     relief: { kind: 'rolling', amplitude: 2, wave: 70 },
     objects: [
       { assets: ['tree-oak', 'tree-maple'], perHectare: 100, scale: [0.85, 1.35], zone: 'core', spacing: 5, clump: 0.3 },
-      { assets: [...TREES_TEMPERATE], perHectare: 55, scale: [0.85, 1.25], zone: 'any', spacing: 5, clump: 0.5 },
+      // A mixed wood: a few conifers among the broadleaves (E187)
+      { assets: [...TREES_TEMPERATE, 'tree-fir', 'tree-pine'], perHectare: 55, scale: [0.85, 1.25], zone: 'any', spacing: 5, clump: 0.5 },
       { assets: ['fern', 'nettles', 'periwinkle'], perHectare: 140, scale: [0.8, 1.4], zone: 'core', spacing: 1.5, clump: 0.7 },
       { assets: ['mushrooms', 'roots', 'branches'], perHectare: 40, scale: [0.8, 1.3], zone: 'core', spacing: 2, clump: 0.7 },
       { assets: ['bush', 'shrub', 'bush-ivy'], perHectare: 110, scale: [0.8, 1.4], zone: 'edge', spacing: 2.5, clump: 0.4 },
@@ -157,7 +158,7 @@ export const BIOMES: readonly BiomeDef[] = [
   {
     id: 'conifer',
     label: 'Pine forest',
-    hint: 'Dense pines and firs on needle ground, undergrowth at the rim',
+    hint: 'Dense pines and firs on needle ground, a few birches, undergrowth at the rim',
     color: '#2c4f2f',
     ground: [
       { material: ['forest-ground', 'forest-floor'], share: 0.55 },
@@ -167,8 +168,8 @@ export const BIOMES: readonly BiomeDef[] = [
     steepGround: ['rock-lichen', 'rocky-ground', 'cliff'],
     relief: { kind: 'rolling', amplitude: 2.5, wave: 80 },
     objects: [
-      { assets: ['tree-pine'], perHectare: 130, scale: [0.8, 1.4], zone: 'core', spacing: 4.5, clump: 0.3 },
-      { assets: ['tree-fir', 'tree-pine', 'tree-fir-young'], perHectare: 110, scale: [0.8, 1.35], zone: 'any', spacing: 4.5, clump: 0.3 },
+      { assets: ['tree-pine', 'tree-fir'], perHectare: 130, scale: [0.8, 1.4], zone: 'core', spacing: 4.5, clump: 0.3 },
+      { assets: ['tree-fir', 'tree-pine', 'tree-fir-young', 'tree-birch'], perHectare: 110, scale: [0.8, 1.35], zone: 'any', spacing: 4.5, clump: 0.3 },
       { assets: ['fern', 'grass-green'], perHectare: 50, scale: [0.8, 1.2], zone: 'core', spacing: 2, clump: 0.6 },
       { assets: ['bush', 'shrub'], perHectare: 80, scale: [0.8, 1.3], zone: 'edge', spacing: 2.5 },
       { assets: ['rock-small', 'boulder', 'rock-mossy-b'], perHectare: 10, scale: [0.6, 1.4], zone: 'any', spacing: 4 },
@@ -229,7 +230,7 @@ export const BIOMES: readonly BiomeDef[] = [
     objects: [
       { assets: ['reed-bed', 'reeds', 'grass-swamp'], perHectare: 900, scale: [0.8, 1.4], zone: 'shore', spacing: 1, clump: 0.3 },
       { assets: ['grass-swamp', 'nettles', 'fern'], perHectare: 90, scale: [0.8, 1.3], zone: 'any', spacing: 1.5, clump: 0.7 },
-      { assets: ['tree-swamp-dead', 'tree-dead'], perHectare: 10, scale: [0.8, 1.3], zone: 'core', spacing: 8 },
+      { assets: ['tree-swamp-dead', 'tree-dead', 'tree-swamp-moss'], perHectare: 10, scale: [0.8, 1.3], zone: 'core', spacing: 8 },
       { assets: ['tree-willow', 'tree-mangrove'], perHectare: 6, scale: [0.8, 1.2], zone: 'any', spacing: 9 },
       { assets: ['mushrooms', 'roots', 'stump-mossy'], perHectare: 20, scale: [0.8, 1.2], zone: 'core', spacing: 2.5, clump: 0.6 },
       { assets: ['bush-ivy', 'bush'], perHectare: 25, scale: [0.7, 1.2], zone: 'edge', spacing: 3 },
