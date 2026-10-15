@@ -1621,6 +1621,8 @@ def graves(name, seed):
 # ---------------------------------------------------------------- market and camps
 
 def market_stall(name, cloth_tint):
+    """Market stall: four posts tied by beams carry a sagging cloth canopy with a scalloped valance at the
+    front, a counter with crates of produce, sacks behind"""
     clear_scene()
     wood = Part(pbr_material('planks-dark', 'dark_planks', (1.0, 0.9, 0.8)), uv_metres=1.0)
     counter = Part(pbr_material('planks-crate', 'brown_planks_04'), uv_metres=1.0)
@@ -1629,15 +1631,39 @@ def market_stall(name, cloth_tint):
     for x in (-w / 2, w / 2):
         for y, h in ((-d / 2, 2.6), (d / 2, 2.2)):
             box(wood, x, y, 0, 0.12, 0.12, h)
+        oriented_box(wood, Vector((x, -d / 2, 2.3)), Vector((x, d / 2, 2.0)), 0.08)
+    for y, z in ((-d / 2, 2.3), (d / 2, 2.0)):
+        box(wood, 0, y, z - 0.04, w + 0.1, 0.08, 0.08)
     box(counter, 0, -d / 2 + 0.2, 0, w, 0.5, 1.0)
     box(counter, 0, 0, 0.9, w - 0.1, d - 0.2, 0.06)
-    corners = [Vector((-w / 2 - 0.2, -d / 2 - 0.5, 2.5)), Vector((w / 2 + 0.2, -d / 2 - 0.5, 2.5)),
-               Vector((w / 2 + 0.2, d / 2 + 0.1, 2.25)), Vector((-w / 2 - 0.2, d / 2 + 0.1, 2.25))]
-    cloth.quad(corners, [(0, 0), (1.5, 0), (1.5, 1), (0, 1)])
+    # Canopy: a grid of quads, sagging between the beams, overhanging at the front
+    nx, ny = 6, 4
+    def roof(i, j):
+        u, v = i / nx, j / ny
+        x = -w / 2 - 0.2 + u * (w + 0.4)
+        y = -d / 2 - 0.5 + v * (d + 0.6)
+        z = 2.5 - 0.25 * v - 0.08 * math.sin(math.pi * u) * math.sin(math.pi * min(1.0, v * 1.2))
+        return Vector((x, y, z))
+    for i in range(nx):
+        for j in range(ny):
+            cloth.quad([roof(i, j), roof(i + 1, j), roof(i + 1, j + 1), roof(i, j + 1)],
+                       [(i / nx * 1.5, j / ny), ((i + 1) / nx * 1.5, j / ny), ((i + 1) / nx * 1.5, (j + 1) / ny), (i / nx * 1.5, (j + 1) / ny)])
+    # Valance along the front edge, scalloped
+    for i in range(nx * 2):
+        a, b = roof(i / 2, 0), roof((i + 1) / 2, 0)
+        drop = 0.32
+        dz = Vector((0, 0, drop))
+        cloth.quad([a - dz * 0.6, (a + b) / 2 - dz, b - dz * 0.6, b, a], [(0, 0.08), (0.12, 0), (0.25, 0.08), (0.25, 0.2), (0, 0.2)])
     goods = Part(flat_material('goods', (0.75, 0.45, 0.15), 0.7))
     rnd = random.Random(len(name))
-    for k in range(7):
-        box(goods, rnd.uniform(-w / 2 + 0.3, w / 2 - 0.3), rnd.uniform(-0.6, 0.3), 0.96, 0.25, 0.25, 0.18, rnd.uniform(0, 2))
+    for k in range(4):
+        x = -w / 2 + 0.5 + k * (w - 1.0) / 3
+        box(counter, x, -0.45, 0.96, 0.55, 0.4, 0.16)
+        for m in range(5):
+            c = Vector((x + rnd.uniform(-0.2, 0.2), -0.45 + rnd.uniform(-0.12, 0.12), 1.12))
+            box(goods, c.x, c.y, c.z - 0.05, 0.11, 0.11, 0.1, rnd.uniform(0, 2))
+    for k in range(3):
+        tube(goods, [Vector((-1.0 + k * 0.6, 0.6, 0.0)), Vector((-1.0 + k * 0.6, 0.6, 0.55))], [0.22, 0.18], 8, cap=True)
     export(name, [wood.to_object(name), counter.to_object(name + '-counter'), cloth.to_object(name + '-cloth'),
                   goods.to_object(name + '-goods')])
 
@@ -1649,21 +1675,33 @@ def tent(name, large=False):
     wood = Part(pbr_material('planks-dark', 'dark_planks'), uv_metres=1.0)
     dark = Part(flat_material('tent-inside', (0.08, 0.07, 0.05), 0.9))
     if not large:
+        # Ridge along Y, entrance at the front (-Y): the canvas sags a little between the poles, the front
+        # flaps are tied back, pegs along the hem
         l, w, h = 3.6, 2.6, 2.2
-        # Ridge along Y, entrance at the front (-Y)
+        n = 4
         for side in (-1, 1):
-            corners = [Vector((side * w / 2, l / 2, 0)), Vector((side * w / 2, -l / 2, 0)), Vector((0, -l / 2, h)), Vector((0, l / 2, h))]
-            if side < 0:
-                corners = list(reversed(corners))
-            canvas.quad(corners, [(0, 0), (1.5, 0), (1.5, 1), (0, 1)])
-        for flip in (False,):
-            back = [canvas.bm.verts.new(c) for c in ((-w / 2, l / 2, 0), (w / 2, l / 2, 0), (0, l / 2, h))]
-            canvas.bm.faces.new(list(reversed(back)) if flip else back)
-            front = [dark.bm.verts.new(c) for c in ((-w / 2 * 0.7, -l / 2 + 0.02, 0), (w / 2 * 0.7, -l / 2 + 0.02, 0),
-                                                    (0, -l / 2 + 0.02, h * 0.7))]
-            dark.bm.faces.new(list(reversed(front)) if flip else front)
+            for k in range(n):
+                y0, y1 = -l / 2 + k * l / n, -l / 2 + (k + 1) * l / n
+                s0, s1 = 0.06 * math.sin(math.pi * k / n), 0.06 * math.sin(math.pi * (k + 1) / n)
+                corners = [Vector((side * w / 2, y1, 0)), Vector((side * w / 2, y0, 0)), Vector((0, y0, h - s0)), Vector((0, y1, h - s1))]
+                if side < 0:
+                    corners = list(reversed(corners))
+                canvas.quad(corners, [(k / n * 1.5, 0), ((k + 1) / n * 1.5, 0), ((k + 1) / n * 1.5, 1), (k / n * 1.5, 1)])
+        back = [canvas.bm.verts.new(c) for c in ((-w / 2, l / 2, 0), (w / 2, l / 2, 0), (0, l / 2, h))]
+        canvas.bm.faces.new(back)
+        front = [dark.bm.verts.new(c) for c in ((-w / 2 * 0.7, -l / 2 + 0.02, 0), (w / 2 * 0.7, -l / 2 + 0.02, 0),
+                                                (0, -l / 2 + 0.02, h * 0.7))]
+        dark.bm.faces.new(front)
+        for side in (-1, 1):
+            # Flap folded back against the side: a triangle from the ridge down the front edge
+            canvas.quad([Vector((0, -l / 2 - 0.01, h)), Vector((side * w / 2 * 0.3, -l / 2 + 0.25, h * 0.7)),
+                         Vector((side * w / 2 * 0.95, -l / 2 + 0.05, 0.05)), Vector((side * w / 2 * 0.7, -l / 2 - 0.01, 0.05))][::side],
+                        [(0, 1), (0.3, 0.7), (0.5, 0), (0.3, 0)][::side])
         for y in (-l / 2 - 0.1, l / 2 + 0.1):
             box(wood, 0, y, 0, 0.08, 0.08, h + 0.2)
+        for side in (-1, 1):
+            for y in (-l / 2 + 0.2, 0.0, l / 2 - 0.2):
+                oriented_box(wood, Vector((side * (w / 2 + 0.05), y, -0.15)), Vector((side * (w / 2 + 0.12), y, 0.12)), 0.035)
         export(name, [canvas.to_object(name), wood.to_object(name + '-poles'), dark.to_object(name + '-door')])
         return
     r, wall = 3.4, 1.8
