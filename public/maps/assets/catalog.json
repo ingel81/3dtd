@@ -13263,6 +13263,35 @@
       "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/rough_wood; https://polyhaven.com/a/castle_wall_slates"
     },
     {
+      "id": "siege-tower",
+      "name": "Siege tower",
+      "category": "building",
+      "file": "models/siege-tower.glb",
+      "triangles": 5068,
+      "footprint": 3.3,
+      "height": 13.3,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "castle"
+      ],
+      "lod": [
+        {
+          "file": "models/siege-tower-lod1.glb",
+          "distance": 350,
+          "triangles": 1188
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_extras.py); https://polyhaven.com/a/rough_wood; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/hessian_230"
+    },
+    {
       "id": "highway-collapsed",
       "name": "Collapsed highway",
       "category": "structure",

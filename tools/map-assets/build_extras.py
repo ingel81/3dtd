@@ -11,7 +11,7 @@ import random
 
 from mathutils import Matrix, Vector
 
-from blender_kit import Part, box, clear_scene, export, finish, flat_material, oriented_box, rust_material, tube
+from blender_kit import Part, box, clear_scene, export, export_lod, finish, flat_material, hexa, oriented_box, pbr_material, rust_material, tube
 
 
 def squash(faces, sx=1.0, sz=1.0, centre=Vector()):
@@ -384,6 +384,121 @@ def dog_sled(name):
                   canvas.to_object(name + '-canvas'), rope.to_object(name + '-rope')])
 
 
+# ---------------------------------------------------------------- siege tower
+
+def siege_tower(name):
+    """A siege tower (belfry) rolled up to a wall (front -Y): a timber frame of four storeys tapering
+    upwards on a chassis with six solid wheels, planked on the front and sides and hung with hides against
+    fire, arrow slits in the sides, the back open on ladders and floors; on top a fighting platform behind
+    a planked parapet and the drawbridge half lowered on its ropes"""
+    clear_scene()
+    wood = Part(pbr_material('wood-rough', 'rough_wood', (0.8, 0.72, 0.62)), uv_metres=1.0)
+    planks = Part(pbr_material('planks-dark', 'dark_planks', (0.85, 0.75, 0.65)), uv_metres=2.0)
+    hides = Part(pbr_material('hide-hessian', 'hessian_230', (0.42, 0.27, 0.17)), uv_metres=1.5, smooth=True, bevel=0.0)
+    iron = Part(flat_material('iron', (0.08, 0.08, 0.08), 0.5, 0.8), smooth=True)
+    rope = Part(flat_material('rope', (0.55, 0.47, 0.33), 0.9), smooth=True, bevel=0.0)
+    dark = Part(flat_material('slit', (0.03, 0.03, 0.035), 0.9), bevel=0.0)
+    z_base, z_top, z_platform = 1.0, 12.4, 10.2
+    floors = (z_base, 4.1, 7.2, z_platform)
+
+    def half(z):
+        """Half width (x) and half depth (y) of the frame at height z: it narrows towards the top"""
+        t = (z - z_base) / (z_top - z_base)
+        return 2.2 - 0.45 * t, 2.5 - 0.5 * t
+
+    def corner(z, sx, sy, grow=0.0):
+        hx, hy = half(z)
+        return Vector((sx * (hx + grow), sy * (hy + grow), z))
+
+    # Chassis: two long sills and cross beams, six wheels with iron tyres, axle ends through the hubs
+    for s in (-1, 1):
+        box(wood, s * 1.9, 0, 0.55, 0.45, 5.8, 0.45)
+        for y in (-1.9, 0.0, 1.9):
+            tube(wood, [Vector((s * 2.15, y, 0.62)), Vector((s * 2.5, y, 0.62))], [0.62, 0.62], 14, cap=True)
+            tube(iron, [Vector((s * 2.12, y, 0.62)), Vector((s * 2.53, y, 0.62))], [0.65, 0.65], 14)
+            tube(iron, [Vector((s * 2.5, y, 0.62)), Vector((s * 2.6, y, 0.62))], [0.14, 0.14], 8, cap=True)
+    for y in (-2.6, -0.95, 0.95, 2.6):
+        box(wood, 0, y, 0.6, 4.3, 0.35, 0.35)
+    # Corner posts, the girts at each floor and the floors
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            oriented_box(wood, corner(z_base - 0.1, sx, sy), corner(z_top, sx, sy), 0.32)
+    for z in floors:
+        for a, b in (((-1, -1), (1, -1)), ((1, -1), (1, 1)), ((1, 1), (-1, 1)), ((-1, 1), (-1, -1))):
+            oriented_box(wood, corner(z, *a, grow=0.02), corner(z, *b, grow=0.02), 0.26)
+        hx, hy = half(z)
+        box(planks, 0, 0, z - 0.05, hx * 2, hy * 2, 0.1)
+    # Cladding: plank slabs on the front and both sides from the base to the platform, proud of the posts
+    for z0, z1 in zip(floors, floors[1:]):
+        for (ax, ay), (bx, by) in (((-1, -1), (1, -1)), ((1, -1), (1, 1)), ((-1, 1), (-1, -1))):
+            n = Vector((ax + bx, ay + by, 0)).normalized() * 0.08
+            a0, b0 = corner(z0, ax, ay, 0.1), corner(z0, bx, by, 0.1)
+            a1, b1 = corner(z1, ax, ay, 0.1), corner(z1, bx, by, 0.1)
+            hexa(planks, [a0, b0, b0 - n, a0 - n], [a1, b1, b1 - n, a1 - n])
+    # Hides hung down the front in two tiers of strips, the upper over the lower, wavy and of uneven length
+    hx, _ = half(z_platform)
+    for k in range(10):
+        tier, col = divmod(k, 5)
+        n = 5
+        xa = -hx + (col + 0.5 * tier) * hx * 2 / (n + 0.5) + 0.04
+        xb = xa + hx * 2 / (n + 0.5) - 0.08
+        top = z_platform - 0.1 if tier == 0 else 5.6
+        bottom = (5.0 if tier == 0 else z_base + 0.3) - 0.35 * math.sin(k * 2.1) ** 2
+        lift = 0.06 * (1 - tier)
+        pts = []
+        for j in range(6):
+            z = top - j * (top - bottom) / 5
+            pts.append((z, -half(z)[1] - 0.2 - lift - 0.05 * math.sin(j * 1.3 + k)))
+        for (za, ya), (zb, yb) in zip(pts, pts[1:]):
+            hides.quad([Vector((xa, ya, za)), Vector((xa, yb, zb)), Vector((xb, yb, zb)), Vector((xb, ya, za))],
+                       [(0, za / 1.5), (0, zb / 1.5), (1, zb / 1.5), (1, za / 1.5)])
+    # Arrow slits in the sides, two per storey
+    for z0 in floors[:-1]:
+        zc = z0 + 1.4
+        for s in (-1, 1):
+            for y in (-0.9, 0.9):
+                box(dark, s * (half(zc)[0] + 0.19), y, zc, 0.04, 0.22, 1.0)
+    # The back: open, a ladder up each storey and a diagonal brace between the rear posts
+    for z0, z1 in zip(floors, floors[1:]):
+        y0, y1 = half(z0)[1] - 0.9, half(z1)[1] - 0.6
+        for x in (0.8, 1.3):
+            oriented_box(wood, Vector((x, y0, z0)), Vector((x, y1, z1)), 0.09)
+        for k in range(1, 8):
+            p = Vector((0, y0, z0)).lerp(Vector((0, y1, z1)), k / 8)
+            oriented_box(wood, Vector((0.8, p.y, p.z)), Vector((1.3, p.y, p.z)), 0.06)
+        oriented_box(wood, corner(z0, -1, 1), corner(z1, 1, 1), 0.2)
+    # Fighting platform: a parapet of planks on the sides and back, high and low in turn (crenels)
+    for (ax, ay), (bx, by) in (((1, -1), (1, 1)), ((1, 1), (-1, 1)), ((-1, 1), (-1, -1))):
+        a, b = corner(z_platform, ax, ay), corner(z_platform, bx, by)
+        for k in range(4):
+            p0, p1 = a.lerp(b, k / 4 + 0.02), a.lerp(b, (k + 1) / 4 - 0.02)
+            d = p1 - p0
+            box(planks, (p0.x + p1.x) / 2, (p0.y + p1.y) / 2, z_platform, abs(d.x) + 0.1, abs(d.y) + 0.1, 1.6 if k % 2 == 0 else 1.1)
+    # Two posts at the front carry the bridge ropes
+    for sx in (-1, 1):
+        tube(wood, [corner(z_platform, sx, -1), corner(z_top + 0.6, sx, -1)], [0.16, 0.14], 8)
+    # Drawbridge: hinged at the front edge of the platform, lowered to 35 degrees from upright
+    hx, hy = half(z_platform)
+    ang = math.radians(35)
+    length, width = 3.6, hx * 2 - 0.3
+    base = Vector((0, -hy - 0.15, z_platform))
+    tip = base + Vector((0, -math.sin(ang) * length, math.cos(ang) * length))
+    for k in range(7):
+        x = -width / 2 + (k + 0.5) * width / 7
+        oriented_box(planks, base + Vector((x, 0, 0)), tip + Vector((x, 0, 0)), width / 7.3)
+    # Battens across the bridge's outer face, hinge irons, the ropes to the posts
+    for t in (0.15, 0.55, 0.92):
+        p = base.lerp(tip, t) + Vector((0, -0.1 * math.cos(ang), -0.1 * math.sin(ang)))
+        oriented_box(wood, p - Vector((width / 2, 0, 0)), p + Vector((width / 2, 0, 0)), 0.14)
+    for x in (-width / 3, width / 3):
+        tube(iron, [base + Vector((x - 0.2, 0, 0)), base + Vector((x + 0.2, 0, 0))], [0.09, 0.09], 8)
+    for sx in (-1, 1):
+        tube(rope, [tip + Vector((sx * (width / 2 - 0.1), 0, 0)), corner(z_top + 0.5, sx, -1)], [0.03, 0.03], 5)
+    obj = finish(name, [wood.to_object(name), planks.to_object(name + '-planks'), hides.to_object(name + '-hides'),
+                        iron.to_object(name + '-iron'), rope.to_object(name + '-rope'), dark.to_object(name + '-slits')])
+    export_lod(name, obj, ratio=min(1.0, 700 / len(obj.data.polygons)))
+
+
 def models():
     return {
         'mars-lander': lambda: mars_lander('mars-lander'),
@@ -396,4 +511,5 @@ def models():
         'deer': lambda: deer('deer', 'stand', 7),
         'deer-grazing': lambda: deer('deer-grazing', 'graze', 8),
         'dog-sled': lambda: dog_sled('dog-sled'),
+        'siege-tower': lambda: siege_tower('siege-tower'),
     }
