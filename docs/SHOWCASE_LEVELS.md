@@ -108,7 +108,11 @@ Insel. Bauflächen: die Inseln; das Wasser selbst ist nicht bebaubar.
 84 x 76 m statt 60 x 60 m, Mauern und Torhaus größer, Bergfried höher, sechs Turmruinen an Ecken und Mauern, Lücken
 im Mauerzug; Felsen, Efeu und Gestrüpp um die Hügelkrone; Laub und Farbflecken auf der Wiese. Der Herbstwald ist der
 Wald-Pinsel, dessen Sommerbäume danach gegen ihre Herbstvarianten getauscht werden (ein Herbst-Biom fehlt dem
-Landscape-Werkzeug); Morgennebel nur als wenige kleine Nebelfelder, größere wirken von oben wie Schnee.
+Landscape-Werkzeug); Morgennebel nur als wenige kleine Nebelfelder, größere wirken von oben wie Schnee. Seit E184
+steht die Burg auf einem Felssporn: die Krone 7 m über dem alten Hügel, steile Flanken mit Klippenfelsen
+(`cliffRocks`, vor dem Bewuchs gesetzt, der Pinsel hält Abstand zu anderen Objekten), der Torweg als Rampe durch die
+Südflanke; ein Wassergraben fünf Meter um die Mauern, offen am Torweg; Feuerschalen, Lagerfeuer, Fackeln und Banner in
+Burghof und Tor; eine Windmühle auf einem Hügel östlich mit Feld; mehr Nebel in den Senken, Raben über dem Wald.
 
 Biom Laubwald mit Herbstfarben, Look `day` warm. Eine Burgruine auf einem Hügel, Mauerreste, Bergfried-Ruine, ein
 Torhaus. Drei Wege kommen aus den Wäldern und treffen sich vor dem Tor; das HQ steht im Burghof. Laubhaufen, Efeu,
