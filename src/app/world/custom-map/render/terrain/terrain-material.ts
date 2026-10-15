@@ -42,7 +42,9 @@ export function materialLook(category: MaterialCategory | undefined): { soft: nu
  *    noisy edge) are combined into one weight per texture-array layer.
  * 2. Every layer with weight samples albedo+height and normal+roughness+AO,
  *    twice with offset UVs picked by a low-frequency noise (no visible
- *    repeat); the cliff layer samples three planes (triplanar).
+ *    repeat); the cliff layer samples three planes (triplanar), and on
+ *    slopes from 25 degrees the strongest painted layer does too (no
+ *    streaks stretched down a flank).
  * 3. Height blend: a layer shows where its height plus weight is within a
  *    small band of the best, so gravel fills the gaps between cobbles and
  *    grass gives way to dirt in clumps, not as a smear.
@@ -129,6 +131,8 @@ export class TerrainMaterial extends MeshStandardMaterial {
     /** Camera distances (m) from which the ground samples one layer lookup, and no layer textures at all */
     uFarSingle: { value: 150 },
     uFarFlat: { value: 400 },
+    /** Camera distance (m) up to which painted ground on steep slopes reads its side planes; 0 none */
+    uSteepNear: { value: 150 },
     uRough: { value: Array.from({ length: TERRAIN_MAX_LAYERS }, () => new Vector2(0.6, 1)) },
     uTerrainTime: { value: 0 },
     uSplatLayer: { value: new Int32Array(12).fill(-1) },
@@ -231,11 +235,13 @@ export class TerrainMaterial extends MeshStandardMaterial {
 
   /**
    * Distances (m) from which far ground gets cheaper: one layer lookup at a
-   * larger scale, then the layers' average colours only (quality levels)
+   * larger scale, then the layers' average colours only, and up to which
+   * painted ground on steep slopes reads its side planes (quality levels)
    */
-  setFarDistances(single: number, flat: number): void {
+  setFarDistances(single: number, flat: number, steep = single): void {
     this.terrainUniforms.uFarSingle.value = single;
     this.terrainUniforms.uFarFlat.value = Math.max(single, flat);
+    this.terrainUniforms.uSteepNear.value = steep;
   }
 
   /** Water level for the wet banks, and the kind of the main water for its swash; null when the map has no water */
@@ -292,6 +298,10 @@ uniform int uCliffLayer;
 uniform int uRoadLayer;
 uniform int uPathLayer;
 uniform float uCliffCos;
+uniform float uSteepNear;
+// Painted ground takes the side planes from 25 degrees of slope, fully from 35
+#define STEEP_FROM_COS ${Math.cos((25 * Math.PI) / 180).toFixed(4)}
+#define STEEP_FULL_COS ${Math.cos((35 * Math.PI) / 180).toFixed(4)}
 
 ${SHADER_NOISE}
 
@@ -331,6 +341,20 @@ vec3 unpackTerrainNormal(vec4 dat) {
   // Strengthened: from game distance the ground's relief would otherwise vanish
   vec2 xy = (dat.xy * 2.0 - 1.0) * vec2(1.6, -1.6);
   return vec3(xy, sqrt(max(0.0, 1.0 - dot(xy, xy))));
+}
+
+// Triplanar on the side planes (after Ben Golus, whiteout blend): the samples of the x and z planes mixed
+// into the top projection's colour, data and normal by the shares in t (x, top, z)
+void sideBlend(vec4 cx, vec4 dx4, vec4 cz, vec4 dz4, vec3 t, vec3 nGeo, vec3 sgn, inout vec3 nTop, inout vec4 col, inout vec4 dat) {
+  vec3 tx = unpackTerrainNormal(dx4);
+  vec3 tz = unpackTerrainNormal(dz4);
+  tx.x *= sgn.x;
+  tz.x *= -sgn.z;
+  tx = vec3(tx.xy + nGeo.zy, abs(tx.z) * nGeo.x);
+  tz = vec3(tz.xy + nGeo.xy, abs(tz.z) * nGeo.z);
+  nTop = safeNormalize(tx.zyx * t.x + nTop * t.y + tz.xyz * t.z, nGeo);
+  col = cx * t.x + col * t.y + cz * t.z;
+  dat = dx4 * t.x + dat * t.y + dz4 * t.z;
 }
 
 // The sun's light left by the far cascade: 1 inside the cached shadow map, the baked land shadow beyond it
@@ -486,6 +510,30 @@ float viewDist = length(vViewPosition);
 bool farSingle = viewDist > uFarSingle + farJitter;
 bool farFlat = viewDist > uFarFlat;
 float farFade = smoothstep(uFarFlat * 0.7, uFarFlat, viewDist);
+// Painted ground on a steep slope (from STEEP_FROM to STEEP_FULL degrees, below the cliff angle): the top
+// projection stretched it into streaks. Its strongest layer also reads the two side planes, once before the
+// loop as the cliff does, within uSteepNear metres of the camera (0 on Low: none)
+float steepShare = 1.0 - smoothstep(STEEP_FULL_COS, STEEP_FROM_COS, nGeo.y);
+int steepLayer = -1;
+vec4 steepX = vec4(0.0); vec4 steepXd = vec4(0.5, 0.5, 1.0, 1.0);
+vec4 steepZ = vec4(0.0); vec4 steepZd = vec4(0.5, 0.5, 1.0, 1.0);
+if (steepShare > 0.004 && !farFlat && viewDist < uSteepNear + farJitter) {
+  float strongest = 0.004;
+  for (int k = 0; k < TERRAIN_LAYERS; k++) {
+    if (k != uCliffLayer && w[k] > strongest) {
+      strongest = w[k];
+      steepLayer = k;
+    }
+  }
+  if (steepLayer >= 0) {
+    float s = uInvScale[steepLayer];
+    sampleNoTile(steepLayer, sideX * s, sideXdx * s, sideXdy * s, sel, farSingle, steepX, steepXd);
+    sampleNoTile(steepLayer, sideZ * s, sideZdx * s, sideZdy * s, sel, farSingle, steepZ, steepZd);
+  }
+}
+// The side planes' share for the steep layer: all of it from STEEP_FULL, split between x and z as the cliff's
+float sideSum = max(tri.x + tri.z, 1e-5);
+vec3 steepTri = vec3(tri.x / sideSum * steepShare, 1.0 - steepShare, tri.z / sideSum * steepShare);
 if (farFlat) {
   for (int k = 0; k < TERRAIN_LAYERS; k++) {
     lc[k] = vec4(uAverage[k], 0.5);
@@ -504,19 +552,8 @@ for (int k = 0; k < TERRAIN_LAYERS; k++) {
   vec3 tn = unpackTerrainNormal(dat);
   // Top projection: tangent x along scene +x, tangent y along scene +z (whiteout blend)
   vec3 nTop = safeNormalize(vec3(tn.x + nGeo.x, tn.z * nGeo.y, tn.y + nGeo.z), nGeo);
-  if (k == uCliffLayer && cliffSides) {
-    // Triplanar on the side planes (after Ben Golus, whiteout blend)
-    vec4 cx = cliffX; vec4 dx4 = cliffXd; vec4 cz = cliffZ; vec4 dz4 = cliffZd;
-    vec3 tx = unpackTerrainNormal(dx4);
-    vec3 tz = unpackTerrainNormal(dz4);
-    tx.x *= sgn.x;
-    tz.x *= -sgn.z;
-    tx = vec3(tx.xy + nGeo.zy, abs(tx.z) * nGeo.x);
-    tz = vec3(tz.xy + nGeo.xy, abs(tz.z) * nGeo.z);
-    nTop = safeNormalize(tx.zyx * tri.x + nTop * tri.y + tz.xyz * tri.z, nGeo);
-    col = cx * tri.x + col * tri.y + cz * tri.z;
-    dat = dx4 * tri.x + dat * tri.y + dz4 * tri.z;
-  }
+  if (k == uCliffLayer && cliffSides) sideBlend(cliffX, cliffXd, cliffZ, cliffZd, tri, nGeo, sgn, nTop, col, dat);
+  else if (k == steepLayer) sideBlend(steepX, steepXd, steepZ, steepZd, steepTri, nGeo, sgn, nTop, col, dat);
   // Each layer gets its own noise sign, so neighbours do not shift together
   col.a += blendNoise * (float(k & 1) * 2.0 - 1.0);
   // Towards the flat ground's values, which it has once past uFarFlat

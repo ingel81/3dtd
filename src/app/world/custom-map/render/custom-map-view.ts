@@ -975,7 +975,7 @@ export class CustomMapView {
   applyQuality(q: CustomMapQuality): void {
     setPlantSway(q.plantSway);
     this.environment.setShadowQuality(q.shadowMapSize, q.shadowRadius);
-    this.setFarGround(q.farSingle, q.farFlat);
+    this.setFarGround(q.farSingle, q.farFlat, q.steepNear);
     this.setEffects({ refraction: q.refraction, seaWaves: q.seaWaves, lavaGlow: q.lavaGlow, shadowCascade: q.shadowCascade });
     this.objects.setDetail({ lodBias: q.lodBias, impostorFrom: q.impostorFrom });
     this.terrain.grass.setBlades(q.grassBlades);
@@ -1019,10 +1019,11 @@ export class CustomMapView {
   /**
    * Distances (m) from which the ground gets cheaper: one layer lookup at a
    * larger scale from `single` (default 150), only the layers' average colours
-   * from `flat` (default 400). For the quality levels
+   * from `flat` (default 400); painted ground on steep slopes reads its side
+   * planes up to `steep` (default `single`, 0 none). For the quality levels
    */
-  setFarGround(single: number, flat: number): void {
-    this.terrain.setFarDistances(single, flat);
+  setFarGround(single: number, flat: number, steep = single): void {
+    this.terrain.setFarDistances(single, flat, steep);
   }
 
   /** The switchable effects now on */

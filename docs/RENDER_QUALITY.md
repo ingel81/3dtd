@@ -57,7 +57,8 @@ Abschnitt mit dem, was dort wirklich wirkt, und zuletzt „Everywhere“:
   Routenkorridors (eigener Zielwert in Metern, `route-corridor-region.ts`).
 - **Effekte der eigenen Karten** (`map-effects.ts`, Kosten in [CUSTOM_MAPS.md](CUSTOM_MAPS.md)): High hat sie alle an,
   das Bild von vor den Stufen hatte sie noch nicht. Der Boden wird ab `farSingle` mit einer Schicht und ab `farFlat`
-  nur mit den Mittelwerten der Schichten gezeichnet (QX5); Low liest so ab 80 m nur noch eine Schicht.
+  nur mit den Mittelwerten der Schichten gezeichnet (QX5); Low liest so ab 80 m nur noch eine Schicht. Steile gemalte
+  Hänge lesen ihre Seitenebenen bis `steepNear` (Low 0, Medium 110, High 150, Ultra 220 m).
 
 ## Eigene Teile je Welt (E156)
 
@@ -69,7 +70,7 @@ keine Zwischenwerte:
 |---|---|---|
 | `tileDetail` | echte Orte | `errorTarget` |
 | `shadows` | eigene Karten | `shadowMapSize`, `shadowRadius` |
-| `farDetail` | eigene Karten | `lodBias`, `impostorFrom`, `farSingle`, `farFlat` |
+| `farDetail` | eigene Karten | `lodBias`, `impostorFrom`, `farSingle`, `farFlat`, `steepNear` |
 | `grass` | eigene Karten | `grassBlades`, `grassDistance` (Low: „Off“, kein Gras) |
 | `refraction`, `seaWaves`, `lavaGlow`, `shadowCascade` | eigene Karten | Schalter, an oder aus |
 

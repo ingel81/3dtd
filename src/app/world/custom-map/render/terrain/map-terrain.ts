@@ -67,8 +67,8 @@ export class MapTerrainLayer {
   private materialParams: TerrainMaterialParams | null = null;
   /** Materials of the shader's larger layer counts, by count (layerTwins) */
   private readonly twins = new Map<number, TerrainMaterial>();
-  /** Where far ground gets cheaper (TerrainMaterial.setFarDistances), kept for a material built later */
-  private far: [number, number] = [150, 400];
+  /** Where far ground gets cheaper and steep ground reads its sides (TerrainMaterial.setFarDistances), kept for a material built later */
+  private far: [number, number, number] = [150, 400, 150];
 
   /** Bakes the far cascade of the sun's shadow for the land as it is now (`sunDir` in scene space) */
   bakeFarShadow(sunDir: Vector3): void {
@@ -82,10 +82,10 @@ export class MapTerrainLayer {
     return this.farShadow.bakeSliced(this.field, sunDir.clone(), this.terrain.width, this.terrain.depth, () => bake === this.farShadowBake);
   }
 
-  /** Distances (m) from which far ground samples one layer lookup, then no layer textures (quality levels) */
-  setFarDistances(single: number, flat: number): void {
-    this.far = [single, flat];
-    this.material?.setFarDistances(single, flat);
+  /** Distances (m) from which far ground samples one layer lookup, then no layer textures, and up to which steep ground reads its sides (quality levels) */
+  setFarDistances(single: number, flat: number, steep = single): void {
+    this.far = [single, flat, steep];
+    this.material?.setFarDistances(single, flat, steep);
   }
   /** The far shadow bake under way (bakeFarShadowSliced): a newer one stops it */
   private farShadowBake = 0;
@@ -187,7 +187,7 @@ export class MapTerrainLayer {
     this.material.terrainUniforms.uFarShadow = this.farShadow.texture;
     this.material.terrainUniforms.uFarShadowArea = this.farShadow.area;
     addHeightFog(this.material);
-    this.material.setFarDistances(this.far[0], this.far[1]);
+    this.material.setFarDistances(this.far[0], this.far[1], this.far[2]);
     this.material.setWaterLevel(t.water?.level ?? null, t.water?.kind);
     this.chunks.setMaterial(this.material);
     this.apron.material = this.material;

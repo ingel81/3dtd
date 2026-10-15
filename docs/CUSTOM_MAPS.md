@@ -100,13 +100,16 @@ Nebel der Szene wieder her.
   natürlicher Flecken (`variation-texture.ts`, 512², auf dem CPU mit verzerrtem fbm gebaut) in drei Maßstäben (512, 96
   und 28 m) statt rund zwölf Rechenrauschen je Pixel; das Gras liest dieselbe Textur. Klippen triplanar (die Seitenprojektion übernimmt ab etwa 35°; die Grenze zwischen Fels und
   Geröll folgt keiner Höhenlinie, sondern bricht: Felsblöcke greifen ins Geröll, Geröll läuft in Zungen entlang der
-  Falllinie den Fels hinauf, in mehreren Maßstäben); Makrovariation und in der Ferne die Durchschnittsfarbe. **Ferne billiger**: ab `uFarSingle`
+  Falllinie den Fels hinauf, in mehreren Maßstäben). **Steile gemalte Hänge** (unter dem Klippenwinkel): von 25° an,
+  ganz ab 35°, liest die stärkste gemalte Schicht eines Pixels ebenfalls die zwei Seitenebenen, einmal vor der
+  Schleife wie die Klippe (zwei Lookups mehr nur dort), bis `uSteepNear` vor der Kamera (Stufe: `steepNear`, Low 0);
+  vorher zog die Draufsicht Geröll und Gras an Flanken zu Streifen. Makrovariation und in der Ferne die Durchschnittsfarbe. **Ferne billiger**: ab `uFarSingle`
   (150 m) liest jede Schicht Normale und Rauheit einmal statt zweimal (die Farbe behält ihr Anti-Kachel-Paar), ab
   `uFarFlat` (400 m) gar keine Schichttexturen mehr, nur die Durchschnittsfarben nach Gewicht über der Rasternormale;
   die Grenze zu einer Schicht ist mit Rauschen verzittert, zur flachen Ferne blenden Farbe, Daten und Normale über die
   letzten 30 % vor `uFarFlat` weich hinüber. Vorher lag dort ein verzittertes Band von 30 m: senkte sich die Kamera
   im Einflug aus der Übersicht (fast alles Boden in gleichem Abstand), sprang die Bodenbemalung über das ganze Bild auf
-  einmal von flach zu texturiert (E193). `CustomMapView.setFarGround(single, flat)` für die Qualitätsstufen Jede Schicht blendet so weich wie
+  einmal von flach zu texturiert (E193). `CustomMapView.setFarGround(single, flat, steep)` für die Qualitätsstufen Jede Schicht blendet so weich wie
   ihre Katalog-Kategorie (`MATERIAL_LOOK`: Gras und Sand laufen in die Nachbarn, Fels und Eis schneiden) und bekommt
   deren Rauheitsbereich (Schlamm und Eis glänzender, Gras und Sand matt); der Glanz läuft zum Blickrand hin aus (keine
   weißen Flächen im Gegenlicht)
