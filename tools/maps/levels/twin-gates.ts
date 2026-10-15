@@ -124,8 +124,11 @@ export function buildTwinGates(): CustomMapDocument {
   const mill = { x: -64, y: 118 };
   k.erase(mill, 8);
   if (k.free(mill.x, mill.y, 4)) k.place('watermill', mill.x, mill.y, { rotation: facing(mill, { x: -40, y: 118 }) });
-  // Siege works before the north and south gates: guns, gabions and a camp (TODO(E179): trebuchet, siege tower)
+  // Siege works before the north and south gates: a trebuchet aimed at the gate, guns, gabions and a camp
+  // (TODO(E179): siege tower)
   for (const sy of [1, -1]) {
+    const engine = { x: castle.x - 2, y: 122 * sy };
+    if (k.free(engine.x, engine.y, 5)) k.place('trebuchet', engine.x, engine.y, { rotation: facing(engine, { x: castle.x, y: y1 * sy }) });
     for (const [x, y, a, r] of [
       [castle.x - 26, 92, 'cannon', 0],
       [castle.x + 22, 94, 'cannon', 0.3],
@@ -160,7 +163,6 @@ export function buildTwinGates(): CustomMapDocument {
   k.biome('forest', [{ x: -240, y: 150 }, { x: -240, y: -150 }], { radius: 22, strength: 1 });
   k.biome('forest', [{ x: -150, y: 244 }, { x: -60, y: 244 }], { radius: 18, strength: 1 });
   k.biome('forest', [{ x: -150, y: -244 }, { x: -60, y: -244 }], { radius: 18, strength: 1 });
-  k.place('fx-birds', -170, 150, { scale: 0.8 });
 
   // ---- The middle (on the axis, once): the keep behind the HQ, banners, statues
   k.symmetry = 'none';
@@ -168,6 +170,23 @@ export function buildTwinGates(): CustomMapDocument {
   for (const [x, y, a] of [[-12, -20, 'statue-knight'], [12, -20, 'statue-knight'], [-16, 26, 'banner-blue'], [16, 26, 'banner-blue']] as const) {
     k.place(a, x, y, { rotation: Math.PI });
   }
+
+  // ---- Life (set on both halves: symmetry does not copy it): flags on both castles and the keep, birds over the
+  // woods, the river, birdsong by day and crickets by night, the watch fires crackle
+  const mirrored = (pts: MapPoint[]): MapPoint[][] => [pts, pts.map((p) => ({ x: -p.x, y: p.y }))];
+  const blob = (at: MapPoint, r: number, n = 9): MapPoint[] =>
+    Array.from({ length: n }, (_, i) => {
+      const a = (i / n) * Math.PI * 2;
+      const w = r * (0.75 + 0.5 * k.noise.hash(Math.round(at.x), Math.round(at.y), i));
+      return { x: at.x + Math.cos(a) * w, y: at.y + Math.sin(a) * w };
+    });
+  for (const pts of [...mirrored(blob({ x: -200, y: 150 }, 60)), ...mirrored(blob({ x: -190, y: -140 }, 55))]) k.lifeArea('birds', pts, { density: 0.9, height: 40 });
+  for (const sy of [1, -1]) {
+    for (const pts of mirrored([{ x: -6, y: 256 * sy }, { x: -20, y: 160 * sy }, { x: -42, y: 70 * sy }, { x: -42, y: 0 }])) k.lifeRoute('sound', pts, { sound: 'stream', volume: 0.6 });
+    // The camp fires before the gates
+    for (const pts of mirrored(blob({ x: castle.x, y: 108 * sy }, 26, 6))) k.lifeArea('sound', pts, { sound: 'fire', volume: 0.45 });
+  }
+  k.lifeSettings({ flags: true, ambience: { sound: 'biome', volume: 0.5 } });
 
   // Four lanes split the first waves four ways: a little more money per lane to open with
   k.gameplay({ startCredits: 250 });

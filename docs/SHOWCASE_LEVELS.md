@@ -187,8 +187,10 @@ Generator-Boden spiegelt `mirrorFrom` einmal von West nach Ost. Was auf der Achs
 ist ohne Symmetrie gesetzt. Seit E184 stehen die Burgen auf Felsplateaus (10 m, steile Flanken mit
 Klippenfelsen, trockener Graben am Fuß), ein Fluss in zwei Armen umfasst die Mitte mit dem HQ (die Spuren queren ihn
 auf Steinbrücken), je Arm eine Wassermühle; Belagerungslager vor Nord- und Südtor (Kanonen, Zelte, Barrikaden,
-Lagerfeuer; Platzhalter, bis Belagerungsgerät als Modell da ist), Banner und Fackeln an allen Toren, Wachfeuer vor den
-Mauern, dichterer Wald an den Außenrändern, Vogelschwärme.
+Lagerfeuer, je ein Trebuchet auf das Tor gerichtet; ein Belagerungsturm fehlt noch), Banner und Fackeln an allen
+Toren, Wachfeuer vor den Mauern, dichterer Wald an den Außenrändern. Leben (auf beiden Hälften gesetzt, die Symmetrie
+kopiert es nicht): wehende Banner auf beiden Burgen (`life.flags`), Vogelschwärme über den Wäldern, Bachrauschen
+entlang beider Flussarme, Feuerknistern an den Lagern, Vogelgesang am Tag und Grillen nachts.
 
 Biom gemäßigt mit Burgmauern, Look `dusk`. Streng symmetrische Coop-Karte (Spiegelung an X): zwei Burgen, je zwei
 Spuren pro Spieler, die sich in der Mitte am gemeinsamen HQ treffen. Gestaltet mit dem Symmetrie-Modus. Spawns: 4.
