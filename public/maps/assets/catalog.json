@@ -6497,7 +6497,7 @@
       "name": "Chapel",
       "category": "building",
       "file": "models/chapel.glb",
-      "triangles": 268,
+      "triangles": 4130,
       "footprint": 7.6,
       "height": 20,
       "blocksLos": true,

@@ -880,47 +880,100 @@ def castle_stairs(name, stone_asset=CASTLE):
 
 # ---------------------------------------------------------------- village, chapel, mills, towers
 
+def arched_opening(trim, dark, centre, normal, z, w, h, steps=6):
+    """A round-headed opening in a wall face (`centre` on the face, `normal` out), `h` up to the springing:
+    the dark glass set in, jamb stones, a ring of arch stones and a sill standing proud of the face"""
+    n = Vector(normal).normalized()
+    u = Vector((-n.y, n.x, 0))
+    rot = math.atan2(u.y, u.x)
+    c = Vector(centre)
+    r = w / 2
+    box(dark, c.x, c.y, z, w, 0.12, h, rot)
+    for k in range(steps):
+        m = -r + (k + 0.5) * w / steps
+        p = c + u * m
+        box(dark, p.x, p.y, z + h - 0.01, w / steps + 0.01, 0.12, math.sqrt(max(0.0, r * r - m * m)) + 0.01, rot)
+    for side in (-1, 1):
+        p = c + u * side * (r + 0.1) + n * 0.04
+        box(trim, p.x, p.y, z - 0.05, 0.2, 0.14, h + 0.05, rot)
+    ring = r + 0.1
+    pts = [c + n * 0.04 + u * math.cos(a) * ring + Vector((0, 0, z + h + math.sin(a) * ring))
+           for a in (math.pi * k / 7 for k in range(8))]
+    for a, b in zip(pts, pts[1:]):
+        oriented_box(trim, a, b, 0.2)
+    p = c + n * 0.07
+    box(trim, p.x, p.y, z - 0.18, w + 0.45, 0.22, 0.16, rot)
+
+
 def chapel(name):
-    """Stone chapel: nave with slate roof, bell tower with pyramid roof at the front (-Y)"""
+    """Stone chapel: nave with slate roof on a plinth, buttresses between round-headed windows, an eaves
+    course, a round window in the back gable; bell tower at the front (-Y) with string courses, louvred
+    belfry openings on all four sides, an arched doorway, a pyramid spire with a cross"""
     clear_scene()
     stone = Part(pbr_material('wall-white_sandstone_bricks', 'white_sandstone_bricks'), uv_metres=2.5)
+    # Courses, surrounds and buttress caps: the wall's stone without the chamfer (one draw call when packed)
+    trim = Part(stone.material, uv_metres=2.5, bevel=0.0)
     roof = Part(pbr_material('roof-roof_slates_02', 'roof_slates_02'))
     dark = Part(flat_material('window', (0.05, 0.06, 0.08), 0.2, 0.3))
     wood = Part(pbr_material('planks-dark', 'dark_planks'), uv_metres=1.5)
     w, d, wall_h = 7.0, 13.0, 6.0
+    y0, y1 = 1.0 - d / 2, 1.0 + d / 2
     # Nave runs along Y: build it along X and turn by the gable orientation (ridge along Y)
-    box(stone, 0, 1.0, 0, w, d, wall_h)
+    box(stone, 0, 1.0, -0.5, w, d, wall_h + 0.5)
+    box(trim, 0, 1.0, -0.5, w + 0.3, d + 0.3, 1.0)
+    box(trim, 0, 1.0, wall_h - 0.3, w + 0.25, d + 0.1, 0.3)
     pitch = w * 0.55
     for sy in (-1, 1):
         y = 1.0 + sy * d / 2
         bm = stone.bm
         tri = [bm.verts.new((-w / 2, y, wall_h)), bm.verts.new((w / 2, y, wall_h)), bm.verts.new((0, y, wall_h + pitch))]
         bm.faces.new(tri if sy < 0 else list(reversed(tri)))
-    # Roof planes along Y
+    # Roof planes along Y, a ridge on top
     for side in (-1, 1):
         hw = w / 2 + 0.4
-        a = Vector((side * hw, 1.0 - d / 2 - 0.3, wall_h - 0.4 * pitch / (w / 2)))
-        b = Vector((side * hw, 1.0 + d / 2 + 0.3, wall_h - 0.4 * pitch / (w / 2)))
-        c = Vector((0, 1.0 + d / 2 + 0.3, wall_h + pitch))
-        e = Vector((0, 1.0 - d / 2 - 0.3, wall_h + pitch))
+        a = Vector((side * hw, y0 - 0.3, wall_h - 0.4 * pitch / (w / 2)))
+        b = Vector((side * hw, y1 + 0.3, wall_h - 0.4 * pitch / (w / 2)))
+        c = Vector((0, y1 + 0.3, wall_h + pitch))
+        e = Vector((0, y0 - 0.3, wall_h + pitch))
         slope = (c - b).length
         quad = [a, b, c, e] if side > 0 else [b, a, e, c]
         roof.quad(quad, [(0, 0), (d / 2.2, 0), (d / 2.2, slope / 2.2), (0, slope / 2.2)])
         roof.quad([v - Vector((0, 0, 0.15)) for v in reversed(quad)], [(0, 0), (d / 2.2, 0), (d / 2.2, slope / 2.2), (0, slope / 2.2)])
-    # Tower at the front
-    t = 3.6
-    ty = 1.0 - d / 2 - t / 2 + 0.2
-    box(stone, 0, ty, 0, t, t, 15.0)
-    pyramid_roof(roof, t, t, 15.0, 5.0, 0.25, cy=ty)
+    box(roof, 0, 1.0, wall_h + pitch - 0.12, 0.3, d + 0.6, 0.22)
+    # Round-headed windows on the long sides, stepped buttresses between them and at the corners
     for side in (-1, 1):
         for k in range(3):
-            box(dark, side * (w / 2 + 0.02), -2.0 + k * 3.5, 2.2, 0.1, 0.9, 2.4)
-    for sx in (-1, 1):
-        box(dark, sx * (t / 2 + 0.02), ty, 11.5, 0.1, 1.0, 1.8)
-    box(dark, 0, ty - t / 2 - 0.02, 11.5, 1.0, 0.1, 1.8)
-    box(wood, 0, ty - t / 2 - 0.05, 0, 1.6, 0.12, 3.0)
-    box(dark, 0, 1.0 + d / 2 + 0.02, 3.5, 1.4, 0.1, 2.6)
-    export(name, [stone.to_object(name), roof.to_object(name + '-roof'), dark.to_object(name + '-windows'),
+            arched_opening(trim, dark, (side * w / 2, -2.0 + k * 3.5, 0), (side, 0, 0), 2.0, 0.9, 2.0)
+        for y in (y0 + 0.4, -0.25, 3.25, y1 - 0.4):
+            x = side * w / 2
+            hexa(stone, [(x, y - 0.35, -0.5), (x + side * 0.75, y - 0.35, -0.5), (x + side * 0.75, y + 0.35, -0.5), (x, y + 0.35, -0.5)][::side],
+                 [(x, y - 0.35, 4.6), (x + side * 0.45, y - 0.35, 2.6), (x + side * 0.45, y + 0.35, 2.6), (x, y + 0.35, 4.6)][::side])
+            box(trim, x + side * 0.38, y, 2.45, 0.85, 0.82, 0.16)
+    # A round window in the back gable: the glass disc in a ring of stones
+    tube(dark, [Vector((0, y1 - 0.05, wall_h + 1.3)), Vector((0, y1 + 0.03, wall_h + 1.3))], [0.75, 0.75], 16, smooth=False, cap=True)
+    tube(trim, [Vector((0, y1 - 0.05, wall_h + 1.3)), Vector((0, y1 + 0.12, wall_h + 1.3))], [1.0, 1.0], 16, smooth=False)
+    # Tower at the front: string courses, a belfry with louvred openings, an arched doorway
+    t = 3.6
+    ty = y0 - t / 2 + 0.2
+    box(stone, 0, ty, -0.5, t, t, 15.5)
+    box(trim, 0, ty, -0.5, t + 0.3, t + 0.3, 1.0)
+    for z in (6.4, 10.3, 14.7):
+        box(trim, 0, ty, z, t + 0.2, t + 0.2, 0.3)
+    pyramid_roof(roof, t, t, 15.0, 4.0, 0.25, cy=ty)
+    for n in ((0, -1, 0), (0, 1, 0), (-1, 0, 0), (1, 0, 0)):
+        c = Vector((0, ty, 0)) + Vector(n) * t / 2
+        arched_opening(trim, dark, c, n, 11.2, 1.0, 1.7)
+        u = Vector((-n[1], n[0], 0))
+        for k in range(5):
+            p = c + Vector(n) * 0.05
+            box(wood, p.x, p.y, 11.35 + k * 0.38, 0.95, 0.06, 0.08, math.atan2(u.y, u.x))
+    # Doorway: the door set back in an arched surround, a step before it
+    arched_opening(trim, wood, (0, ty - t / 2, 0), (0, -1, 0), 0.0, 1.6, 2.4)
+    box(trim, 0, ty - t / 2 - 0.12, -0.3, 2.2, 0.24, 0.42)
+    # Cross on the spire
+    box(wood, 0, ty, 18.9, 0.14, 0.14, 1.1)
+    box(wood, 0, ty, 19.45, 0.62, 0.14, 0.13)
+    export(name, [stone.to_object(name), trim.to_object(name + '-trim'), roof.to_object(name + '-roof'), dark.to_object(name + '-windows'),
                   wood.to_object(name + '-door')])
 
 
