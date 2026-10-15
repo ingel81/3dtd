@@ -64,7 +64,10 @@ Die generierte Beispielkarte (`src/app/world/custom-map/demo-map.ts`, so auch im
 Karte), für die Auslieferung mit dem Level-Kit nachgearbeitet (`tools/maps/levels/demo-valley.ts`, `LevelKit` auf
 einer vorhandenen Karte, E184): der Ruinenhügel im Südwesten als Felsklotz mit Klippenfelsen und Burgruine (Bergfried,
 Mauern, Türme, Tor zum Dorf), ein Aussichtshügel südlich des Dorfs mit Kapelle und Wachturm, Lichtungen, Totholz und
-Unterholz in den Wäldern, Krähenschwärme. Wege, Spawns und HQ wie generiert.
+Unterholz in den Wäldern, Kühe am Hof und Schafe am Talrand. Leben: Krähen über den beiden dichtesten Wäldern,
+Flussrauschen entlang des Flusses, Vogelgesang am Tag und Grillen nachts, Rauch aus den Kaminen. Das Modell
+`castle-ruin` statt des Ensembles geprüft und nicht genommen (vom Westweg schwächere Silhouette, schwebende
+Zinnenblöcke im Modell). Wege, Spawns und HQ wie generiert.
 
 ### 1 Bergpass (`mountain-pass`)
 **Gebaut** (`tools/maps/levels/mountain-pass.ts`, Small 512 m). Kartenprobe 10 Wellen bestanden (HQ 448 von 500,

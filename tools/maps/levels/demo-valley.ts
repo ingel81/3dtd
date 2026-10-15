@@ -74,10 +74,25 @@ export function buildDemoValley(): CustomMapDocument {
     k.scatter(['grass-clump', 'flowers', 'fern', 'stump'], c, { radius: 11, strength: 1 }, { density: 12, minDistance: 1.6 });
   }
   k.scatter(['log', 'stump', 'fern', 'bush', 'tree-dead'], woods, { radius: 16, strength: 0.8 }, { density: 2.5, minDistance: 3, scaleMin: 0.8, scaleMax: 1.3 });
-  // Crows over the woods
-  for (const c of woods.slice(0, 2)) k.place('fx-birds', c.x, c.y, { scale: 0.8 });
-  // TODO(E179): cows and sheep on the pastures by the farm
-  // TODO(E190): the brook and birdsong (ambient sound)
+  // ---- Life: crows wheeling low over the two thickest woods, the river murmuring through the valley,
+  // birdsong by day and crickets by night over the whole map (the houses' chimneys smoke by themselves)
+  for (const c of woods.slice(0, 2)) k.lifeArea('birds', ring(c, 45, 0, 330, 40), { species: 'crows', density: 1, height: 28 });
+  k.lifeRoute('sound', [{ x: -256, y: 158 }, { x: -170, y: 95 }, { x: -95, y: 70 }, { x: -30, y: 10 }, { x: 40, y: -15 }, { x: 120, y: -30 }, { x: 190, y: -95 }, { x: 256, y: -142 }], { sound: 'stream', volume: 0.7 });
+  k.lifeSettings({ ambience: { sound: 'biome', volume: 0.55 } });
+  // Cows and sheep on the pastures by the farm and at the valley's edge, off the roads
+  // A herd: `count` animals round a spot, each turned its own way, none on a road
+  const herd = (assets: readonly string[], at: MapPoint, count: number, radius: number) => {
+    for (let n = 0, tries = 0; n < count && tries < count * 4; tries++) {
+      const a = k.noise.hash(Math.round(at.x), tries, 71) * Math.PI * 2;
+      const d = radius * Math.sqrt(k.noise.hash(Math.round(at.y), tries, 72));
+      const p = { x: at.x + Math.cos(a) * d, y: at.y + Math.sin(a) * d };
+      if (!k.free(p.x, p.y, 2)) continue;
+      k.place(assets[n % assets.length], p.x, p.y, { rotation: k.noise.hash(tries, n, 73) * Math.PI * 2 });
+      n++;
+    }
+  };
+  for (const at of [{ x: 185, y: -225 }, { x: 215, y: -195 }]) herd(['cow-grazing', 'cow', 'cow-grazing', 'cow-lying'], at, 4, 12);
+  for (const at of [{ x: 30, y: -235 }, { x: 225, y: -120 }]) herd(['sheep-grazing', 'sheep', 'sheep-grazing', 'sheep-lying'], at, 7, 12);
 
   return k.finish();
 }
