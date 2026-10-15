@@ -5,7 +5,7 @@ import { MAP_STORE } from '../../world/world-choice.service';
 import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
 import type { CatalogObject } from '../../world/custom-map/render/asset-catalog';
 import { buildingCatalog } from '../../world/osm/convert/buildings';
-import { plantCosts } from '../../world/osm/convert/vegetation';
+import { assetCosts } from '../../world/osm/convert/vegetation';
 import { OSM_SPAWNS, OSM_WORLD_SIDE, osmMapNames, type OsmImportReport } from '../../world/osm/import-osm';
 import type { FrameSpawn, GeoPoint, OsmFrameInfo, OsmStep } from '../../world/osm/osm-frame-core';
 import { OSM_CANCELLED, OsmFrameSession } from '../../world/osm/osm-frame-session';
@@ -33,6 +33,7 @@ const STEPS: readonly { step: OsmStep | 'save'; text: string }[] = [
   { step: 'paint', text: 'Painting the road surfaces' },
   { step: 'layout', text: 'HQ and spawns' },
   { step: 'buildings', text: 'Buildings' },
+  { step: 'furniture', text: 'Fences, walls, tracks and lamps' },
   { step: 'plants', text: 'Forests and trees' },
   { step: 'pack', text: 'Packing the map' },
   { step: 'save', text: 'Saving' },
@@ -264,7 +265,7 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
       const catalog = await catalogObjects();
       const made = await this.session.make(
         this.spawns(),
-        { id, plantCosts: catalog && plantCosts(catalog, OSM_WORLD_SIDE), catalog: catalog && buildingCatalog(catalog) },
+        { id, costs: catalog && assetCosts(catalog, OSM_WORLD_SIDE), catalog: catalog && buildingCatalog(catalog) },
         (step) => this.step.set(step),
         signal,
       );

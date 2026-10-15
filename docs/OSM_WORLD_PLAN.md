@@ -1,8 +1,9 @@
 # Welt aus OpenStreetMap (Plan)
 
 **Status:** Plan, 2026-10-14; Phase O1 „Graue Welt“, O2 „Ablauf“, O3 „Land und Wasser“ und O4 „Gebäude“ gebaut
-2026-10-15 (TODO E157), siehe [Phase O1](#phase-o1-gebaut-2026-10-15), [Phase O2](#phase-o2-gebaut-2026-10-15),
-[Phase O3](#phase-o3-gebaut-2026-10-15) und [Phase O4](#phase-o4-gebaut-2026-10-15)
+2026-10-15 (TODO E157), O5 „Ausstattung“ 2026-10-16, siehe [Phase O1](#phase-o1-gebaut-2026-10-15),
+[Phase O2](#phase-o2-gebaut-2026-10-15), [Phase O3](#phase-o3-gebaut-2026-10-15), [Phase O4](#phase-o4-gebaut-2026-10-15)
+und [Phase O5](#phase-o5-gebaut-2026-10-16)
 **Bezug:** [CUSTOM_MAPS.md](CUSTOM_MAPS.md) (Renderer, Katalog), [CUSTOM_MAP_WORLD.md](CUSTOM_MAP_WORLD.md) (Spiel),
 [LEVEL_EDITOR.md](LEVEL_EDITOR.md) (Editor), [W3X_IMPORT.md](W3X_IMPORT.md) (Vorbild für einen Importer im Worker),
 [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) (Ortssuche, Spawns auf echten Orten), [SHOWCASE_LEVELS.md](SHOWCASE_LEVELS.md)
@@ -195,7 +196,7 @@ Code in `src/app/world/osm/` ohne Angular und DOM (Worker, Node, Specs), wie `wo
 | `convert/ground.ts` | Landnutzung zu höchstens 8 Schichten, Vorrang bei Überlappung |
 | `convert/vegetation.ts` | Wald, Gebüsch, Parks, Einzelbäume, Baumreihen, im Objektbudget |
 | `convert/buildings.ts` | Grundriss zu Katalog-Modell(en), Art raten, ausrichten, auf den Hang setzen |
-| `convert/furniture.ts` | Zäune, Mauern, Hecken, Laternen, Bahn, Brückenart, Kleinkram |
+| `convert/furniture.ts` | Zäune, Mauern, Hecken, Laternen, Bahn, Kleinkram, Strommasten (gebaut O5) |
 | `convert/layout.ts` | HQ und Spawns (`StreetRouter` auf `mapStreetNetwork`), Kartenrahmen |
 | `import-osm.ts`, `osm-frame-core.ts`, `osm-frame-store.ts`, `osm.worker.ts`, `osm-frame-session.ts` | Ablauf, Bericht, Rahmen-Sitzung, Speicher je Rahmen, Worker, Abbruch |
 
@@ -787,6 +788,82 @@ Entscheidung 8 umgesetzt (`convert/roads.ts` findTunnels, `convert/tunnels.ts`):
   Katalog wäre die eigentliche Lösung (Spiel-Code, nicht in O4). Gebaut (E201): Katalog `box`, Scheibe geschnitten
   mit dem gedrehten Rechteck (docs/CUSTOM_MAP_WORLD.md); die Pads nehmen die Sitzpunkte aus demselben Rechteck.
 - **Böschungen:** die Stützmauer ist eine 6-m-Platte; bei Abträgen über 3 m bleibt ein Rest der Böschung über ihr.
+
+## Phase O5, gebaut (2026-10-16)
+
+Code: `src/app/world/osm/convert/furniture.ts` (`placeFurniture`), aufgerufen in `convertOsm` nach den Gebäuden und vor
+den Pflanzen (Schritt „Fences, walls, tracks and lamps“ im Rahmen). Specs: `convert/furniture.spec.ts` (Tags zu
+Modellen, Zaun quer zur Linie und nicht auf der Straße, Stützmauer mit Front nach rechts, nichts in Gebäuden und am
+HQ, Bushaltestelle an den Straßenrand gerückt, Laternen an beleuchteten Straßen, Budget und Wiederholbarkeit) und ein
+Fall in `import-osm.spec.ts` auf der eingefrorenen Probe (Ausstattung im Anteil, keine `object-on-path`).
+
+### Beim Bau entschieden
+
+- **Linien** (`barrier`): Zaun nach `fence_type` (`fence-wood`, sonst Maschendraht/Metall `fence-chainlink`,
+  Lattenzaun `fence-rail`, Staketen `fence-picket`), Mauer `wall-stone` (`wall=dry_stone`: `wall-dry-stone`),
+  Stützmauer `retaining-wall` mit der Front zur rechten Seite des Wegs (OSM zeichnet die tiefe Seite rechts), Hecke
+  `hedge-long`, `jersey_barrier` als `road-barrier`. Die Stücke stehen mit `objectsAlong` quer zur Linie (ihre Länge
+  ist Modell-X), im Abstand etwas unter ihrer Länge. `barrier=city_wall` baut die Burgmauer (`wallAlong`, Blöcke an
+  den Ecken), sie darf in Gebäude reichen (Tore, Türme sind dort oft Gebäude). **Leitplanken** (`guard_rail`) bleiben
+  weg: der Betonblock ist keine Leitplanke und kostet 526 Punkte je 1,5 m (Erlenbach: rund 1 070 Stück); ein Modell
+  „Leitplanke“ fehlt. Bordsteine, Tore, Schranken, Kabelsperren bleiben weg.
+- **Gleise:** `railway=rail`, `light_rail`, `tram`, `narrow_gauge`, `subway`, `funicular` ohne Tunnel und Brücke
+  (Brücken haben kein Deck für Gleise): `rail-track` alle 10 m. Straßenbahn in der Straße fällt mit der Straßenregel
+  weg, Bahnübergänge haben eine Lücke. Oberleitungsmasten, Prellböcke (`railway=buffer_stop` fragt die Abfrage nicht
+  ab) und Bahnsteige sind nicht gebaut.
+- **Punkte:** Bank, Abfallkorb, Bushaltestelle, Hydrant, Poller (`bollards`), Brunnen (`amenity=fountain`),
+  Antennenmast (`man_made=mast`, Turm `tower:type=communication`), Aussichtsturm (`watchtower`), Strommast
+  (`power=tower`: `power-pylon`, `power=pole`: `power-pole`, gedreht in Richtung der Leitung). Gedreht zur nächsten
+  Straße; eine Bushaltestelle oder Laterne auf der Straße rückt an deren Rand (0,9 m außerhalb, auf der Seite des
+  Knotens). Leitungen zwischen den Masten fehlen.
+- **Laternen:** die gemappten (`highway=street_lamp`), dazu an Straßen mit `lit=yes` (Haupt- bis Wohnstraßen,
+  Erschließung) eine alle 32 m rechts am Rand, keine näher als 18 m an einer anderen. Modell nach der Stimmung: in der
+  Stadt (`biome` `city`) `street-lamp` (1 365 Punkte), sonst die Laterne `lamp-post` (91 Punkte).
+- **Freihalten:** die Mitte jedes Stücks liegt außerhalb der halben Straßenbreite plus 0,4 m (Tunnelkanten zählen
+  nicht), nicht im Wasser, nicht in einem OSM-Gebäudegrundriss, 25 m vom HQ und 10 m von Spawns.
+- **Budget:** `FURNITURE_BUDGET_SHARE` 15 % von `SCENE_BUDGET` (1,8 M Punkte); reicht es nicht, fallen zuerst die
+  ergänzten Laternen, dann die Punkte, dann die Gleise, zuletzt die Linien. Die Kosten je Asset rechnet `assetCosts`
+  (früher `plantCosts`, jetzt Pflanzen und Ausstattung; Option `costs` statt `plantCosts`).
+- **Gruppen:** die Stücke einer Linie tragen `group: osm-w<Weg-Id>`, der Editor verschiebt einen Zaun im Ganzen.
+
+### Messungen O5 (2026-10-16)
+
+Dieselben Rohdaten wie O1 (Oberbergen, Miltenberg, Stuttgart Mitte; Abfrage vom 2026-10-15), dazu Erlenbach (Abfrage
+vom 2026-10-15 über rund 1,5 km, ohne Höhen, flach). Erzeugen in Node (`tools/osm/osm-world.spec.ts`, Rechner mit
+anderen Läufen belegt, Richtwerte).
+
+| | Oberbergen | Miltenberg | Stuttgart Mitte | Erlenbach |
+|---|---|---|---|---|
+| Ausstattung, Objekte | 111 | 3 557 | 6 051 | 1 418 |
+| davon Linien (Zaun, Mauer, Stützmauer, Hecke, Burgmauer, Barriere) | 0 | 1 987 | 3 551 | 1 334 |
+| Gleisstücke | 0 | 320 | 1 831 | 0 |
+| Laternen gemappt / ergänzt | 0 / 43 | 0 / 926 | 191 / 0 | 7 / 43 |
+| weggelassen: Straße, Gebäude, Budget | 49, 5, 0 | 476, 53, 0 | 2 897, 368, 2 105 | 73, 2, 0 |
+| Szenenkosten (Budget 1,8 M) | 0,01 M | 1,04 M | 1,80 M | 0,75 M |
+| Schritt (Node) | 12 ms | 54 ms | 131 ms | 17 ms |
+| Szenenkosten der Karte gesamt | 3,97 M | 7,99 M | 13,40 M | 4,96 M |
+
+Stuttgart reizt das Budget aus: die ergänzten Laternen fallen ganz weg (die 191 gemappten stehen). Über 12 M liegt
+Stuttgart wegen der Gebäude ohne Grenze (11,1 M), nicht wegen der Ausstattung.
+
+Im Spiel (Dev-Server, headless Chromium mit D3D11, Startansicht nach „Skip intro“, 90 Bilder, vorher = dieselbe
+Datei ohne die Ausstattung):
+
+| | Miltenberg vorher → nachher | Stuttgart vorher → nachher |
+|---|---|---|
+| Draw Calls | 926 → 937 | 1 172 → 1 201 |
+| Dreiecke im Bild | 5,7 → 6,0 M | 9,73 → 10,05 M |
+| Bildzeit Median (Richtwert, Rechner unter Last) | 5,1 → 4,4 ms | 7,8 → 7,4 ms |
+
+Die Ausstattung kostet rund 1 bis 3 % Draw Calls und 3 bis 5 % Dreiecke; die Bildzeit liegt im Rauschen.
+
+### Offen nach O5
+
+- **Brückenstil `concrete`:** nicht gebaut; braucht ein Deckstück `bridge-deck-concrete` im Format der anderen
+  (4 m entlang X, 1 m breit, Oberkante 0) und den Stil in `MapBridgeStyle`, Dateiprüfung und Editor.
+- **Fehlende Modelle:** Leitplanke, Stromleitung zwischen den Masten, Bahnsteigkante, Oberleitung, Schaltkasten
+  (`man_made=street_cabinet`, Miltenberg 154), Fahnenmast.
+- **Gleise am Hang:** die Stücke folgen dem Boden ohne Einebnen; auf einem steilen Bahndamm kippen sie nicht mit.
 
 ## Offene Fragen an den User (beantwortet, siehe oben)
 

@@ -21,7 +21,7 @@ import { convertOsm } from '../../src/app/world/osm/import-osm';
 import type { DemMosaic } from '../../src/app/world/osm/dem-tiles';
 import { validateMap } from '../../src/app/editor/validation/map-validation';
 import { renderTopDown } from '../w3x/top-down';
-import { plantCosts } from '../../src/app/world/osm/convert/vegetation';
+import { assetCosts } from '../../src/app/world/osm/convert/vegetation';
 import { buildingCatalog } from '../../src/app/world/osm/convert/buildings';
 import type { CatalogObject } from '../../src/app/world/custom-map/render/asset-catalog';
 import { objectCost, sceneCost } from '../../src/app/world/custom-map/render/objects/scene-cost';
@@ -53,7 +53,7 @@ describe.skipIf(mode !== 'osm')('OSM world dump', () => {
       const t0 = performance.now();
       const { doc, report } = convertOsm(
         { lat: place.lat, lon: place.lon, address: place.name, overpass, dem: readMosaic(place.name), fetchedAt: new Date().toISOString() },
-        { id: `osm-${place.name}`, name: `OSM ${place.name}`, plantCosts: plantCosts(catalog.objects, 2400), catalog: buildingCatalog(catalog.objects) },
+        { id: `osm-${place.name}`, name: `OSM ${place.name}`, costs: assetCosts(catalog.objects, 2400), catalog: buildingCatalog(catalog.objects) },
       );
       const area = doc.terrain.width * doc.terrain.depth;
       const scene = Math.round(sceneCost(doc.objects, (asset) => objectCost(catalog.objects.find((o) => o.id === asset), area)));
@@ -70,7 +70,7 @@ describe.skipIf(mode !== 'osm')('OSM world dump', () => {
       writeFileSync(join(outDir, `${doc.meta.id}.png`), renderTopDown(doc, 0.5).png);
       const out = { convertMs, packMs, checkMs, fileBytes: file.length, objects: doc.objects.length, scene, issues: issues.map((i) => `${i.severity} ${i.code}: ${i.message}`), ...report };
       writeFileSync(join(outDir, `${doc.meta.id}.json`), JSON.stringify(out, null, 1));
-      console.log(JSON.stringify({ place: place.name, convertMs, packMs, checkMs, fileMB: +(file.length / 1e6).toFixed(2), objects: doc.objects.length, scene, ms: report.ms, roads: report.roads, layout: report.layout, buildings: report.buildings, plants: report.plants, issues: out.issues, warnings: report.warnings }, null, 1));
+      console.log(JSON.stringify({ place: place.name, convertMs, packMs, checkMs, fileMB: +(file.length / 1e6).toFixed(2), objects: doc.objects.length, scene, ms: report.ms, roads: report.roads, layout: report.layout, buildings: report.buildings, furniture: report.furniture, plants: report.plants, issues: out.issues, warnings: report.warnings }, null, 1));
     }, 600_000);
   }
 });

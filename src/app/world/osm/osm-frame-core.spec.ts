@@ -54,7 +54,7 @@ describe('OSM world frame (frozen probe Miltenberg)', () => {
     const chosen = frame.spawns.slice(0, 2);
     const steps: string[] = [];
     const made = core.make(chosen, { ...options, id: 'osm-test' }, (step) => steps.push(step));
-    expect(steps).toEqual(['parse', 'terrain', 'roads', 'water', 'level', 'ground', 'shores', 'paint', 'layout', 'buildings', 'plants', 'pack']);
+    expect(steps).toEqual(['parse', 'terrain', 'roads', 'water', 'level', 'ground', 'shores', 'paint', 'layout', 'buildings', 'furniture', 'plants', 'pack']);
     const { doc } = made;
     expect(doc.meta.id).toBe('osm-test');
     expect(doc.spawns.map((s) => s.name)).toEqual(chosen.map((s) => s.name));
