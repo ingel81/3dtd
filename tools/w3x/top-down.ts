@@ -5,6 +5,8 @@
  * Writes PNG bytes with a tiny encoder over fflate's zlib.
  */
 
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 import { zlibSync } from 'fflate';
 import type { CustomMapDocument } from '../../src/app/world/custom-map/map-document';
 
@@ -45,6 +47,21 @@ const LAYER_COLOURS: Record<string, [number, number, number]> = {
   'leaves-autumn': [170, 100, 40],
   'leaves-scattered': [140, 110, 60],
 };
+
+/** The catalogue's average colour of a material the table above lacks */
+let catalogColours: Map<string, [number, number, number]> | null = null;
+function averageColour(material: string): [number, number, number] | undefined {
+  if (!catalogColours) {
+    const catalog = JSON.parse(readFileSync(resolve(__dirname, '../../public/maps/assets/catalog.json'), 'utf8')) as { materials: { id: string; average?: string }[] };
+    catalogColours = new Map(
+      catalog.materials.filter((m) => m.average).map((m) => {
+        const n = parseInt(m.average!.slice(1), 16);
+        return [m.id, [(n >> 16) & 255, (n >> 8) & 255, n & 255]];
+      }),
+    );
+  }
+  return catalogColours.get(material);
+}
 
 const OBJECT_COLOURS: [RegExp, [number, number, number]][] = [
   [/^tree/, [20, 70, 20]],
@@ -104,7 +121,7 @@ export function renderTopDown(doc: CustomMapDocument, pixelsPerMetre = 2): { png
     return g.heights[j * g.columns + i];
   };
   const res = t.splat.resolution;
-  const layerColours = t.layers.map((l) => LAYER_COLOURS[l.material] ?? [200, 0, 200]);
+  const layerColours = t.layers.map((l) => LAYER_COLOURS[l.material] ?? averageColour(l.material) ?? [200, 0, 200]);
   for (let py = 0; py < H; py++) {
     const y = t.depth / 2 - (py + 0.5) / pixelsPerMetre;
     for (let px = 0; px < W; px++) {
@@ -138,13 +155,14 @@ export function renderTopDown(doc: CustomMapDocument, pixelsPerMetre = 2): { png
       rgb[o] = Math.max(0, Math.min(255, r * shade));
       rgb[o + 1] = Math.max(0, Math.min(255, gg * shade));
       rgb[o + 2] = Math.max(0, Math.min(255, b * shade));
-      if (t.water) {
-        const i = Math.round((x + t.width / 2) / g.cellSize);
-        const j = Math.round((y + t.depth / 2) / g.cellSize);
-        if (t.water.mask[j * g.columns + i]) {
+      const i = Math.round((x + t.width / 2) / g.cellSize);
+      const j = Math.round((y + t.depth / 2) / g.cellSize);
+      for (const body of [t.water, ...(t.waterBodies ?? [])]) {
+        if (body?.mask[j * g.columns + i]) {
           rgb[o] = rgb[o] * 0.3 + 40;
           rgb[o + 1] = rgb[o + 1] * 0.3 + 110;
           rgb[o + 2] = rgb[o + 2] * 0.3 + 200;
+          break;
         }
       }
     }
@@ -162,6 +180,17 @@ export function renderTopDown(doc: CustomMapDocument, pixelsPerMetre = 2): { png
       }
     }
   };
+  for (const river of t.rivers ?? []) {
+    for (let k = 0; k + 1 < river.points.length; k++) {
+      const a = river.points[k];
+      const b = river.points[k + 1];
+      const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+      for (let s = 0; s <= len; s += 0.5 / pixelsPerMetre) {
+        const [px, py] = toPx(a.x + ((b.x - a.x) * s) / len, a.y + ((b.y - a.y) * s) / len);
+        dot(px, py, Math.max(1, (a.width / 2) * pixelsPerMetre), [60, 120, 210]);
+      }
+    }
+  }
   for (const ob of doc.objects) {
     const [px, py] = toPx(ob.x, ob.y);
     dot(px, py, Math.max(1, ob.scale * pixelsPerMetre * 0.8), OBJECT_COLOURS.find(([re]) => re.test(ob.asset))![1]);

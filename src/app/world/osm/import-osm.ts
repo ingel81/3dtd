@@ -17,6 +17,8 @@ import { downloadOsm, osmQueryBox } from './osm-query';
 import type { OverpassResponse } from './overpass-client';
 import { buildRoads, levelRoads, paintRoads, type RoadStats } from './convert/roads';
 import { fillOsmTerrain } from './convert/terrain';
+import { paintGround, type GroundReport } from './convert/ground';
+import { carveWater, paintWater, settleWater, WATER_MATERIALS, type WaterPaintRole, type WaterReport } from './convert/water';
 import { layOut, type LayoutReport } from './convert/layout';
 
 /** Side of an OSM world, metres: always 2.4 km (decision 2 of the plan), spawns up to 1000 m from the HQ in the middle */
@@ -60,6 +62,8 @@ export interface OsmImportReport {
   parse: OsmParseStats;
   terrain: { dem: string | null; zeroM: number; minM: number; maxM: number; demFailed: string[] };
   roads: RoadStats;
+  ground: GroundReport;
+  water: WaterReport;
   layers: string[];
   layout: LayoutReport;
   /** Milliseconds per step */
@@ -115,8 +119,21 @@ export function convertOsm(input: OsmImportInput, options: OsmImportOptions = {}
   if (roads.stats.tunnels) warnings.push(`roads: ${roads.stats.tunnels} tunnels left out (${roads.stats.tunnelM} m), they come with their portals later`);
   step('roads');
 
+  // Water before the roads level the ground, settled after: a road through water stands on a dam
+  const water = carveWater(t0, features, doc.paths, terrain.zeroM);
+  const zeroM = water.report.coast ? 0 : terrain.zeroM;
+  warnings.push(...water.warnings);
+  step('water');
+
   levelRoads(t0, doc.paths);
+  settleWater(t0, water);
   step('level');
+  // The land takes the layers the roads' surfaces and the water's shores leave
+  const wetMaterials = (Object.keys(WATER_MATERIALS) as WaterPaintRole[]).filter((r) => water.paint[r].some((v) => v > 0)).map((r) => WATER_MATERIALS[r]);
+  const ground = paintGround(t0, features, new Set([...doc.paths.edges.flatMap((e) => (e.surface ? [e.surface] : [])), ...wetMaterials]));
+  step('ground');
+  paintWater(t0, water);
+  step('shores');
   paintRoads(t0, doc.paths);
   step('paint');
 
@@ -135,7 +152,7 @@ export function convertOsm(input: OsmImportInput, options: OsmImportOptions = {}
     sideM: side,
     fetchedAt: input.fetchedAt,
     dem,
-    zeroM: terrain.zeroM,
+    zeroM,
     attribution: [OSM_MAP_ATTRIBUTION.replace(/^Routes /, 'Map data '), ...(input.dem ? [DEM_SOURCES[input.dem.source].attribution] : [])],
   };
 
@@ -147,8 +164,10 @@ export function convertOsm(input: OsmImportInput, options: OsmImportOptions = {}
       sideM: side,
       grid: { columns: g.columns, rows: g.rows, cellSize: g.cellSize, splat: t0.splat.resolution },
       parse: features.stats,
-      terrain: { dem, zeroM: terrain.zeroM, minM: round1(terrain.min), maxM: round1(terrain.max), demFailed: input.demFailed ?? [] },
+      terrain: { dem, zeroM, minM: round1(terrain.min), maxM: round1(terrain.max), demFailed: input.demFailed ?? [] },
       roads: roads.stats,
+      ground: ground.report,
+      water: water.report,
       layers: t0.layers.map((l) => l.material),
       layout,
       ms,

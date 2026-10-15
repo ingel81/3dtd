@@ -7,6 +7,9 @@ import { packMapFile, unpackMapFile, validateMapDocument } from '../custom-map/m
 import { mapStreetNetwork } from '../custom-map/custom-map-streets';
 import type { DemMosaic } from './dem-tiles';
 import { convertOsm, type OsmImportInput } from './import-osm';
+import { MAX_GROUND_LAYERS } from '../custom-map/map-document';
+import { readWeights } from '../../editor/ops/paint-ops';
+import { heightAt } from '../../editor/model/grid';
 
 /** The frozen probe (integration/fixtures/osm/README.md, OSM worlds): Miltenberg, 1.2 km square, Overpass and heights */
 function probe(): OsmImportInput {
@@ -75,5 +78,51 @@ describe('OSM world (frozen probe Miltenberg)', () => {
       expect(s.routeM).toBeGreaterThan(s.distanceM * 0.9);
     }
     for (const s of doc.spawns) expect(routeBetween(doc.paths, s, doc.hq)).not.toBeNull();
+  });
+
+  it('paints the land into the layers the roads leave, the smaller area over the larger', () => {
+    const { doc, report } = convertOsm(probe(), options);
+    const t = doc.terrain;
+    expect(t.layers.length).toBeLessThanOrEqual(MAX_GROUND_LAYERS);
+    for (const e of doc.paths.edges) if (e.surface) expect(t.layers.map((l) => l.material)).toContain(e.surface);
+    expect(report.ground.areas.forest).toBeGreaterThan(0);
+    expect(report.ground.areas.meadow).toBeGreaterThan(0);
+    // Every class painted its own material or the one it fell back on
+    for (const [material, took] of Object.entries(report.ground.fellBack)) {
+      expect(t.layers.map((l) => l.material)).not.toContain(material);
+      expect(t.layers.map((l) => l.material)).toContain(took);
+    }
+    // The texels still add up to full weight
+    const w = new Float32Array(MAX_GROUND_LAYERS);
+    const res = t.splat.resolution;
+    for (let k = 0; k < res * res; k += 997) {
+      readWeights(t, k, w);
+      expect(w.reduce((s, v) => s + v, 0)).toBe(255);
+    }
+  });
+
+  it('lays the Main as the main water on its level, with the land at its rim over it and no water in the air', () => {
+    const { doc, report } = convertOsm(probe(), options);
+    const t = doc.terrain;
+    expect(report.water.main).toBe('river');
+    const main = t.water!;
+    const g = t.grid;
+    let wet = 0;
+    for (let k = 0; k < main.mask.length; k++) {
+      if (!main.mask[k]) continue;
+      wet++;
+      expect(g.heights[k]).toBeLessThan(main.level);
+    }
+    // About 65 000 m² of the Main lie in the probe's square
+    expect(wet * g.cellSize * g.cellSize).toBeGreaterThan(50_000);
+    // The Main lies at the bottom of the town
+    expect(main.level).toBeLessThan(5);
+    const issues = validateMap(doc).map((i) => i.code);
+    expect(issues).not.toContain('water-floating');
+    expect(issues).not.toContain('path-under-water');
+    for (const river of t.rivers ?? []) {
+      for (let k = 1; k < river.points.length; k++) expect(river.points[k].height).toBeLessThanOrEqual(river.points[k - 1].height);
+      for (const p of river.points) expect(heightAt(t, p.x, p.y)).toBeLessThan(p.height + 0.01);
+    }
   });
 });
