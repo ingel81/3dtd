@@ -1,6 +1,7 @@
 # Welt aus OpenStreetMap (Plan)
 
-**Status:** Plan, 2026-10-14; Phase O1 „Graue Welt“ gebaut 2026-10-15 (TODO E157), siehe [Phase O1](#phase-o1-gebaut-2026-10-15)
+**Status:** Plan, 2026-10-14; Phase O1 „Graue Welt“ gebaut 2026-10-15 (TODO E157), siehe [Phase O1](#phase-o1-gebaut-2026-10-15);
+Phase O4 „Gebäude“ gebaut 2026-10-15, siehe [Phase O4](#phase-o4-gebaut-2026-10-15)
 **Bezug:** [CUSTOM_MAPS.md](CUSTOM_MAPS.md) (Renderer, Katalog), [CUSTOM_MAP_WORLD.md](CUSTOM_MAP_WORLD.md) (Spiel),
 [LEVEL_EDITOR.md](LEVEL_EDITOR.md) (Editor), [W3X_IMPORT.md](W3X_IMPORT.md) (Vorbild für einen Importer im Worker),
 [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) (Ortssuche, Spawns auf echten Orten), [SHOWCASE_LEVELS.md](SHOWCASE_LEVELS.md)
@@ -489,6 +490,89 @@ Datei.
   schließt sie vor Welle 1. Ob eine OSM-Welt mit einer offenen Spur starten soll, ist offen.
 - **Steile Pfade:** die Prüfung meldet Treppen und Weinbergpfade über 30° (Oberbergen 52, Stuttgart 59) als Warnung.
 - **Namensnennung:** `meta.source.attribution` trägt die Zeilen (OSM, Höhenquelle); angezeigt werden sie mit O2.
+
+## Phase O4, gebaut (2026-10-15)
+
+Code: `src/app/world/osm/building-tags.ts` (Art raten, Modelltabelle mit Wandmaßen und Geschossen, Modelle je Art mit
+Rückfall-Art) und `convert/buildings.ts` (Form, Wahl, Ausrichten, Freihalten, Budget, Hang); `import-osm.ts` ruft
+`placeBuildings` nach HQ und Spawns. Specs: `convert/buildings.spec.ts` (Rechteck, Teilen, Wahl, Art, Ausrichtung,
+Straße/Wasser/HQ, Hang mit Sitzhöhe und Stützmauer, Budget) und ein Fall in `import-osm.spec.ts` auf der
+eingefrorenen Probe (Katalog-Modelle, keine Objekte auf Straßen oder in der Luft, Kosten im Anteil).
+
+### Beim Bau entschieden
+
+- **Maße der Modelle:** als Tabelle in `building-tags.ts`, nicht im Katalog: Wandmaße (Breite entlang der Front, Tiefe)
+  der O6-Modelle aus der Tabelle oben, die älteren Stadtmodelle aus ihren gemessenen Hüllen ohne Dachüberstand;
+  Industriehalle mit Bürotrakt (70 × 30 m, Mitte 5 m nach Westen), Parkhaus mit Rampe (37 × 54 m). Front ist Modell
+  +z, wie überall. Eine Spec prüft, dass jedes Modell im Katalog steht. Ohne Katalog (Specs, Werkzeuge) stehen alle
+  Modelle, die Kosten werden nicht gedeckelt (Warnung).
+- **Art raten:** `building` (Tabelle), sonst `amenity`, `shop`, sonst Größe, Seitenverhältnis, Stockwerke und die
+  Landnutzung unter der Mitte: unter 15 m² Schuppen, bis 45 m² Garage (quadratisch bis 25 m² Schuppen), in
+  Industrie Halle, auf Hof- und Ackerland Scheune, über 220 m² oder ab 3 Geschossen Wohnblock, sonst Haus.
+  `commercial` ohne Geschosse und über 600 m² ist eine Halle (Winzergenossenschaft in Oberbergen), kein Bürohaus.
+  `bridge`, `ruins`, `container`, Tiefgaragen (`location=underground`, `layer<0`) bleiben weg; `building:part` wird
+  nicht gelesen.
+- **Teilen:** Füllgrad unter 0,8: Raster des Grundrisses in seinen eigenen Achsen (0,5 bis 2 m), dann immer das
+  größte Rechteck gefüllter Zellen, bis die Reste unter 18 m² bzw. 12 % der Fläche liegen (höchstens 8 Teile).
+- **Wahl:** je Teil die Seite mit der nächsten Straße als Front (Pfade nur ohne Straße in 60 m); Fehlermaß ist die
+  Summe der Logarithmen der Abdeckung in Breite und Tiefe (zu groß zählt doppelt), dazu Aufschläge für Kopien
+  (Module einer Reihen-Art 0,01, sonst 0,06 bis 0,12), zweite Reihe, Geschosse und eine von der Straße abgewandte
+  Front. Grenze 0,5, sonst die Rückfall-Art (bis zu drei Stufen). Ohne Geschosse in den Tags höchstens 5 Geschosse
+  (kein Hochhaus im Dorf). Eckhäuser nur an den Enden von Blockreihen mit Seitenstraße in 10 m, so gedreht, dass
+  ihre zweite Straßenseite (Westen) zur Seitenstraße zeigt.
+- **Strecken:** nicht gebaut (bräuchte eine Skala je Achse im Dateiformat); „Block mit Fassade“ ist eine Reihe von
+  Blockrand-Modulen, die mit großzügigerem Fehlermaß (1,2) steht, wo sonst nichts passt.
+- **Freihalten:** ein Modell, dessen Wandkasten eine Straße berührt (Pfade mit halber Breite, Gehwege laufen an den
+  Wänden), schrumpft zur Rückseite hin bis Skala 0,8; sonst fällt es weg. Weg fällt auch, was mit einer Ecke in einer
+  OSM-Wasserfläche oder im Wasser der Karte steht oder näher als 14 m am HQ.
+- **Budget:** Gebäude dürfen 60 % von `SCENE_BUDGET` ausgeben (`BUILDING_BUDGET_SHARE`), der Rest bleibt für
+  Bäume und Pflanzen aus O3. Darüber fallen ganze Grundrisse, die kleinsten fern vom HQ zuerst (Fläche geteilt
+  durch 1 + Abstand/400 m). Stützmauern kommen danach und zählen nicht in die Grenze (Stuttgart 65 % statt 60 %).
+- **Hang:** der Boden unter Wandkasten plus 0,6 m wird auf die tiefste Ecke abgetragen (auch die acht Punkte, mit
+  denen der Renderer ein Gebäude setzt, `object-seat.ts`), nie unter einer Straße (halbe Breite plus 0,5 m) oder im
+  Wasser; `z` bleibt 0, die Prüfung findet nichts in der Luft. Aufgeschüttet wird nichts: mit der tiefsten Ecke liegt
+  die Böschung bergseitig, dort steht ab 2 m Höhe eine Stützmauer (`retaining-wall`, Front zum Gebäude, nicht auf
+  Straßen oder im Nachbarhaus). Die Talseite aus dem Plan braucht damit keine Mauer.
+- **Gruppen:** alle Modelle und Mauern eines Grundrisses tragen `group: osm-b<OSM-Id>`, der Editor verschiebt sie
+  zusammen.
+
+### Messungen O4 (2026-10-15)
+
+Node für das Erzeugen (ein Kern, Rechner mit anderen Läufen belegt), Spiel im Dev-Server, headless Chromium (D3D11, RTX
+5080), Startansicht nach „Skip intro“, vorher = dieselbe Welt ohne Gebäude.
+
+| | Oberbergen | Miltenberg | Stuttgart Mitte |
+|---|---|---|---|
+| Grundrisse, davon stehen | 1 131, 1 039 | 3 564, 3 417 | 7 938, 2 454 |
+| weggelassen: Budget, Straße, kein Modell, unter 6 m², HQ | 0, 45, 46, 1, 0 | 0, 90, 45, 8, 4 | 4 242, 337, 515, 395, 0 |
+| geteilt, als Reihe gelegt, geschrumpft | 75, 395, 89 | 160, 1 439, 183 | 628, 3 209, 349 |
+| Objekte (davon Stützmauern) | 1 895 (272) | 7 486 (1 488) | 9 138 (3 480) |
+| Szenenkosten der Gebäude | 1,07 M (8,9 %) | 5,21 M (43 %) | 7,82 M (65 %) |
+| Pads, tiefster Abtrag | 1 601, 9,7 m | 5 923, 14,9 m | 5 635, 17,5 m |
+| Schritt Gebäude (Node) | 0,1 bis 0,2 s | 0,15 bis 0,4 s | 0,4 bis 0,5 s |
+| Datei | 5,92 MB | 5,34 MB | 5,76 MB |
+| Bildzeit Median vorher → nachher | 0,93 → 1,15 ms | 0,85 → 2,11 ms | 0,88 → 2,61 ms |
+| Dreiecke im Bild vorher → nachher | 2,3 → 4,1 M | 3,1 → 12,0 M | 3,6 → 15,1 M |
+| Draw Calls vorher → nachher | 605 → 591 | 548 → 1 195 | 633 → 1 194 |
+
+Der Abtrag liegt meist bei der Neigung über das Haus (Median 0,6 m, 90 % unter 2,3 m in Miltenberg); über 4 m nur bei
+rund 1 % (Häuser im Weinberg, lange Bauten am Hang). Die Datei liegt bei den O1-Werten (5,95, 5,59, 6,22 MB),
+nicht darüber.
+
+### Offen nach O4
+
+- **Stuttgart verliert 53 % der Grundrisse ans Budget.** Die Stadtmodelle zeichnen ihre LOD1 (1 400 bis 1 700
+  Dreiecke) bis 3 km; eine zweite Fernstufe (rund 100 Dreiecke ab 700 m) senkt die Kosten je Blockmodul nach
+  `scene-cost.ts` gerechnet auf weniger als die Hälfte (`block-row-4` rund 1 600 auf 660 Punkte). Vorschlag für die Modell-Worker; danach den Anteil neu messen.
+- **Fehlende Arten** (Teile, für die kein Modell der eigenen Art passt, über die drei Proben, häufigste zuerst):
+  kleines Büro- und Geschäftshaus 8 bis 15 m Front, 3 bis 5 Geschosse (Stuttgart nimmt dafür Blockmodule);
+  schmaler Anbau oder Flügel, 4 bis 6 m tief und 6 bis 15 m lang; Nebengebäude 4 × 4 bis 6 × 6 m (größer als das
+  Gartenhaus); schmale Unterstände 2 m tief und 4 bis 15 m lang (Fahrrad, Mülltonnen, Garagenvordach); Schulflügel
+  10 × 15 m; Scheune und Winzerhof heutiger Art (das Dorfmodell `barn` steht dafür).
+- **Lange Gebäude sperren zu viel Bauplatz:** Bauverbot und Sitzhöhe rechnen mit einem Kreis (`footprint` × Skala),
+  bei einer Schule (46 m) 21 m Radius über die Straße hinaus. Teilen in Module mildert es; ein Rechteck je Modell im
+  Katalog wäre die eigentliche Lösung (Spiel-Code, nicht in O4).
+- **Böschungen:** die Stützmauer ist eine 6-m-Platte; bei Abträgen über 3 m bleibt ein Rest der Böschung über ihr.
 
 ## Offene Fragen an den User (beantwortet, siehe oben)
 

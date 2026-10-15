@@ -71,8 +71,6 @@ export const BUILDING_MODELS: Readonly<Record<string, BuildingModel>> = Object.f
       { asset: 'block-corner-6', box: [15, 15], floors: 6, corner: true },
       { asset: 'apartment-block', box: [14, 11.4], floors: 4 },
       { asset: 'apartment-block-tall', box: [16.6, 13.6], floors: 8 },
-      { asset: 'brick-block', box: [11.4, 9.6], at: [0.35, 0], floors: 4 },
-      { asset: 'brick-house', box: [9.2, 9.4], at: [0.45, 0.65], floors: 3 },
       { asset: 'shop', box: [9.6, 8], floors: 2 },
       { asset: 'office-mid', box: [24, 14], floors: 5 },
       { asset: 'office-high', box: [22, 18], floors: 8 },
@@ -102,7 +100,7 @@ export const BUILDING_MODELS: Readonly<Record<string, BuildingModel>> = Object.f
  * city blocks), so a footprint laid with several copies costs little
  */
 export const KIND_MODELS: Readonly<Record<BuildingKind, { models: readonly string[]; fallback?: BuildingKind; rows?: boolean }>> = {
-  house: { models: ['house-modern', 'house-modern-red', 'house-semi', 'house-terrace', 'brick-house'], fallback: 'apartments' },
+  house: { models: ['house-modern', 'house-modern-red', 'house-semi', 'house-terrace'], fallback: 'apartments' },
   semi: { models: ['house-semi'], fallback: 'house' },
   terrace: { models: ['house-terrace', 'house-terrace-row'], fallback: 'house', rows: true },
   garage: { models: ['garage', 'garage-row'], fallback: 'carport', rows: true },
@@ -110,7 +108,7 @@ export const KIND_MODELS: Readonly<Record<BuildingKind, { models: readonly strin
   carport: { models: ['carport', 'carport-double'], fallback: 'garage', rows: true },
   canopy: { models: ['station-canopy', 'carport-double', 'carport'], fallback: 'carport' },
   apartments: {
-    models: ['block-row-4', 'block-row-6', 'apartment-block', 'apartment-block-tall', 'brick-block', 'house-terrace'],
+    models: ['block-row-4', 'block-row-6', 'apartment-block', 'apartment-block-tall', 'house-terrace'],
     fallback: 'office',
     rows: true,
   },
@@ -269,6 +267,8 @@ export function buildingKind(tags: Readonly<Record<string, string>>, area: numbe
     // A big house or a small block: the size says more than the tag
     if (tagged === 'house' && area > 400) return 'apartments';
     if (tagged === 'industrial' && area < 60) return 'garage';
+    // `commercial` without storeys: a big one is a hall (a winery, a market), not an office block
+    if (tags['building'] === 'commercial' && area > 600 && buildingLevels(tags) === null) return 'retail';
     return tagged;
   }
   const amenity = AMENITY_KINDS[tags['amenity'] ?? ''];

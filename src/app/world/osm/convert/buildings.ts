@@ -56,7 +56,7 @@ export interface BuildingReport {
   rows: number;
   /** Footprints by kind */
   kinds: Partial<Record<BuildingKind, number>>;
-  /** Footprints that took another kind's models ("garage>carport") */
+  /** Footprints (some part of them) that took another kind's models ("garage>carport"), or none ("shed>none") */
   fallbacks: Record<string, number>;
   /** Footprints left out and why */
   dropped: { tiny: number; noModel: number; roads: number; water: number; hq: number; budget: number };
@@ -71,7 +71,8 @@ export interface BuildingReport {
   costShare: number;
   /**
    * What the catalogue lacks, most first: a kind with the size class of the
-   * footprints it did not fit (`apartments 30x20`), and how many
+   * rectangles (whole footprints or their parts) none of its models fitted
+   * (`house 10x4`), and how many
    */
   missing: { kind: string; count: number }[];
 }
@@ -97,6 +98,8 @@ const MAX_FIT_ERROR = 0.5;
 const BLOCK_FIT_ERROR = 1.2;
 /** What a front turned away from the street costs a fit */
 const ACROSS_PENALTY = 0.15;
+/** Most storeys a model may have for a footprint without `building:levels` or `height` */
+const UNTAGGED_FLOORS = 5;
 /** Copies of one model a rectangle may be laid with */
 const MAX_COPIES = 24;
 /** A part of a cut footprint smaller than this (m², and share of the footprint) is left to its neighbour */
@@ -211,13 +214,13 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
         const laid = layPart(part, kind, levels, roads, known, area.id, report);
         took.add(laid?.kind ?? null);
         if (laid) placements.push(...laid.placements);
+        // The catalogue lacks this kind at this size: the part took another kind's models, or none
+        if (laid?.kind !== kind) {
+          const key = `${kind} ${sizeClass(part.a, part.b)}`;
+          missing.set(key, (missing.get(key) ?? 0) + 1);
+        }
       }
-      // The catalogue lacks this kind at this size: some part of it took another kind's models, or none
-      if ([...took].some((k) => k !== kind)) {
-        const key = `${kind} ${sizeClass(rect.a, rect.b)}`;
-        missing.set(key, (missing.get(key) ?? 0) + 1);
-        for (const k of took) if (k && k !== kind) report.fallbacks[`${kind}>${k}`] = (report.fallbacks[`${kind}>${k}`] ?? 0) + 1;
-      }
+      for (const k of took) if (k !== kind) report.fallbacks[`${kind}>${k ?? 'none'}`] = (report.fallbacks[`${kind}>${k ?? 'none'}`] ?? 0) + 1;
       if (!placements.length) {
         report.dropped.noModel++;
         continue;
@@ -454,6 +457,8 @@ export function fitModels(
   const models = KIND_MODELS[kind].models.filter((m) => known(m) && BUILDING_MODELS[m]);
   models.forEach((asset, rank) => {
     const model = BUILDING_MODELS[asset];
+    // High-rises only where the tags say so: a village's winery is no office tower
+    if (levels === null && model.floors > UNTAGGED_FLOORS) return;
     const [w, d] = model.box;
     for (let rows = 1; rows <= 2; rows++) {
       const most = Math.min(MAX_COPIES, Math.max(1, Math.ceil(wide / (w * SCALE_MIN))));
@@ -466,7 +471,7 @@ export function fitModels(
         const extra = copies * rows - 1;
         // Copies: cheap for modules of a kind that stands in rows, dearer for a house cut in two
         error += extra * (model.module ? (KIND_MODELS[kind].rows ? 0.01 : 0.06) : 0.12) + (rows > 1 ? 0.12 : 0);
-        if (levels !== null) error += Math.min(0.4, Math.abs(levels - model.floors) * 0.08);
+        if (levels !== null) error += Math.min(0.6, Math.abs(levels - model.floors) * 0.08);
         // A little order (the first model of the kind) and a little variety (the footprint's salt) for ties
         error += rank * 0.01 + (((salt * 31 + rank * 17) % 7) / 7) * 0.03;
         if (!best || error < best.error) best = { model, copies, rows, scale, error };
