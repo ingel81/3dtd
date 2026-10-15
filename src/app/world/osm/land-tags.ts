@@ -53,7 +53,7 @@ export const LAND_GROUND: Readonly<Record<LandClass, readonly string[]>> = {
   orchard: ['meadow-earthy', 'meadow', 'grass-lush'],
   allotments: ['grass-lush'],
   cemetery: ['grass-lush'],
-  paved: ['paving', 'pavers', 'sidewalk', 'concrete'],
+  paved: ['paving', 'sidewalk', 'concrete'],
   industrial: ['concrete', 'concrete-damaged', 'asphalt', 'gravel'],
   railway: ['gravel', 'gravel-light', 'dirt'],
   construction: ['dirt', 'rubble', 'gravel'],

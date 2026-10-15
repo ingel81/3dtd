@@ -14,10 +14,11 @@ interface RoadType {
 }
 
 /**
- * Ground materials a road is painted with. Seven with the map's base layer:
- * the third splat map (past eight layers) stays free for the land of O3.
+ * Ground materials a road is painted with, five layers of the twelve. Paving
+ * stones and footways share the grey slabs (`sidewalk`): from the game camera
+ * the small brown pavers read like cobblestone, and the land gets the layer.
  */
-export type RoadSurface = 'asphalt' | 'pavers' | 'cobblestone' | 'sidewalk' | 'gravel' | 'dirt-path';
+export type RoadSurface = 'asphalt' | 'cobblestone' | 'sidewalk' | 'gravel' | 'dirt-path';
 
 /**
  * The highway types of the street loads of the real places (the same list,
@@ -37,14 +38,14 @@ export const ROAD_TYPES: Readonly<Record<string, RoadType>> = {
   tertiary_link: { kind: 'road', width: 6, surface: 'asphalt' },
   unclassified: { kind: 'road', width: 6, surface: 'asphalt' },
   residential: { kind: 'road', width: 6, surface: 'asphalt' },
-  living_street: { kind: 'road', width: 6, surface: 'pavers' },
+  living_street: { kind: 'road', width: 6, surface: 'sidewalk' },
   service: { kind: 'road', width: 4, surface: 'asphalt' },
-  pedestrian: { kind: 'road', width: 5, surface: 'pavers' },
+  pedestrian: { kind: 'road', width: 5, surface: 'sidewalk' },
   track: { kind: 'path', width: 3, surface: 'gravel' },
   footway: { kind: 'path', width: 2.5, surface: 'sidewalk' },
   cycleway: { kind: 'path', width: 2.5, surface: 'asphalt' },
   path: { kind: 'path', width: 2, surface: 'dirt-path' },
-  steps: { kind: 'path', width: 2.5, surface: 'pavers' },
+  steps: { kind: 'path', width: 2.5, surface: 'sidewalk' },
 };
 
 /** `surface` values to the painted material */
@@ -55,11 +56,11 @@ const SURFACES: Readonly<Record<string, RoadSurface>> = {
   'concrete:lanes': 'asphalt',
   chipseal: 'asphalt',
   paved: 'asphalt',
-  paving_stones: 'pavers',
-  'paving_stones:lanes': 'pavers',
-  bricks: 'pavers',
-  metal: 'pavers',
-  wood: 'pavers',
+  paving_stones: 'sidewalk',
+  'paving_stones:lanes': 'sidewalk',
+  bricks: 'sidewalk',
+  metal: 'sidewalk',
+  wood: 'sidewalk',
   sett: 'cobblestone',
   cobblestone: 'cobblestone',
   unhewn_cobblestone: 'cobblestone',

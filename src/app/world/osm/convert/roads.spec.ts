@@ -118,4 +118,24 @@ describe('OSM roads', () => {
     expect(t.splat.maps[0][texel(0, 0) * 4 + 1]).toBe(255);
     expect(t.splat.maps[0][texel(0, 20) * 4]).toBe(255);
   });
+
+  it('paints paving stones and footways with one layer, five for all surfaces with the base grass making six', () => {
+    const doc = createMapDocument({ id: 't', name: 't', width: 200, depth: 200, cellSize: 2, splatResolution: 256, starter: false });
+    const f = parseOsm({
+      elements: [
+        way(1, { highway: 'residential' }, [[-80, -60, 1], [80, -60, 2]]),
+        way(2, { highway: 'pedestrian' }, [[-80, -40, 3], [80, -40, 4]]),
+        way(3, { highway: 'living_street' }, [[-80, -20, 5], [80, -20, 6]]),
+        way(4, { highway: 'residential', surface: 'paving_stones' }, [[-80, 0, 7], [80, 0, 8]]),
+        way(5, { highway: 'footway' }, [[-80, 20, 9], [80, 20, 10]]),
+        way(6, { highway: 'service', surface: 'sett' }, [[-80, 40, 11], [80, 40, 12]]),
+        way(7, { highway: 'track' }, [[-80, 60, 13], [80, 60, 14]]),
+        way(8, { highway: 'path' }, [[-80, 80, 15], [80, 80, 16]]),
+      ],
+    }, frame, 100);
+    doc.paths = buildRoads(f).paths;
+    expect(doc.paths.edges.map((e) => e.surface)).toEqual(['asphalt', 'sidewalk', 'sidewalk', 'sidewalk', 'sidewalk', 'cobblestone', 'gravel', 'dirt-path']);
+    expect(paintRoads(doc.terrain, doc.paths)).toEqual(['asphalt', 'sidewalk', 'cobblestone', 'gravel', 'dirt-path']);
+    expect(doc.terrain.layers.length).toBe(6);
+  });
 });
