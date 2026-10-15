@@ -11839,7 +11839,7 @@
       "name": "Fishing boat",
       "category": "prop",
       "file": "models/fishing-boat.glb",
-      "triangles": 297,
+      "triangles": 713,
       "footprint": 4.0,
       "height": 6.6,
       "blocksLos": false,

@@ -50,6 +50,41 @@ def smooth(obj):
     return obj
 
 
+def hull_station(t, beam, depth, sheer):
+    """The hull's section at `t` (0 bow, 1 stern): half beam, height of the gunwale, depth of the U below it"""
+    w = max(0.02, beam / 2 * (math.sin(min(1.0, t * 1.25) * math.pi / 2) ** 0.8) * (1.0 if t < 0.85 else 0.95))
+    return w, depth + sheer * (1 - t) ** 2 * 2, depth * (0.4 + 0.6 * min(1, t * 3))
+
+
+def half_beam_at(t, z, beam, depth, sheer):
+    """Half the hull's inside width at height `z` at `t`; 0 where its bottom stands higher"""
+    w, top, d = hull_station(t, beam, depth, sheer)
+    u = (top - z) / d
+    return w * math.sqrt(1 - u * u) if 0 <= u < 1 else 0.0
+
+
+def deck(part, length, beam, depth, sheer, z, thick=0.1, inset=0.06, steps=32):
+    """A deck at height `z` (its top) that follows the hull inside its sides: wide amidships, pointed
+    where the hull narrows towards the bow, ending where the bottom rises above it"""
+    import bmesh
+    side = []
+    for i in range(steps + 1):
+        t = i / steps
+        h = half_beam_at(t, z, beam, depth, sheer) - inset
+        if h > 0.02:
+            side.append((h, -length / 2 + t * length))
+    ring = [(-h, y) for h, y in side] + [(h, y) for h, y in reversed(side)]
+    bm = part.bm
+    top = [bm.verts.new((x, y, z)) for x, y in ring]
+    bottom = [bm.verts.new((x, y, z - thick)) for x, y in ring]
+    bm.faces.new(list(reversed(top)))
+    bm.faces.new(bottom)
+    n = len(ring)
+    for k in range(n):
+        bm.faces.new((top[k], top[(k + 1) % n], bottom[(k + 1) % n], bottom[k]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[-(n + 2):])
+
+
 def hull(part, length, beam, depth, sheer=0.25, stations=9, broken=None, rnd=None):
     """Open boat hull along Y (bow at -Y): U-shaped sections, pointed bow, a transom stern"""
     bm = part.bm
@@ -57,13 +92,11 @@ def hull(part, length, beam, depth, sheer=0.25, stations=9, broken=None, rnd=Non
     for i in range(stations):
         t = i / (stations - 1)
         y = -length / 2 + t * length
-        w = beam / 2 * (math.sin(min(1.0, t * 1.25) * math.pi / 2) ** 0.8) * (1.0 if t < 0.85 else 0.95)
-        w = max(w, 0.02)
-        top = depth + sheer * (1 - t) ** 2 * 2
+        w, top, d = hull_station(t, beam, depth, sheer)
         ring = []
         for k in range(7):
             a = k / 6 * math.pi
-            ring.append(bm.verts.new((-math.cos(a) * w, y, top - math.sin(a) * depth * (0.4 + 0.6 * min(1, t * 3)))))
+            ring.append(bm.verts.new((-math.cos(a) * w, y, top - math.sin(a) * d)))
         rings.append(ring)
     faces = []
     for i in range(stations - 1):
@@ -377,7 +410,8 @@ def rowboat(name, rotten=False):
     hull(wood, 4.2, 1.5, 0.6, broken=0.12 if rotten else None, rnd=rnd)
     seats = planks((0.65, 0.55, 0.45))
     for y in (-0.8, 0.3, 1.3):
-        box(seats, 0, y, 0.38, 1.3 if y > -0.5 else 1.0, 0.25, 0.05)
+        # Thwarts as wide as the hull is inside at their height
+        box(seats, 0, y, 0.38, 2 * half_beam_at((y + 2.1) / 4.2, 0.43, 1.5, 0.6, 0.25), 0.25, 0.05)
     objects = [wood.to_object(name), seats.to_object(name + '-seats')]
     if not rotten:
         oar = planks((0.75, 0.65, 0.5))
@@ -393,12 +427,12 @@ def rowboat(name, rotten=False):
 
 
 def fishing_boat(name):
-    """Small fishing boat: deep hull, a wheelhouse aft, a mast with a boom, nets on deck"""
+    """Small fishing boat: deep hull, a deck inside it, a wheelhouse aft, a mast with a boom, nets on deck"""
     clear_scene()
     paint = Part(flat_material('hull-blue', (0.12, 0.22, 0.4), 0.45, 0.1))
     wood = planks((0.7, 0.62, 0.52))
     hull(paint, 9.0, 3.0, 1.6, sheer=0.5)
-    box(wood, 0, 0.3, 1.2, 2.6, 8.0, 0.1)
+    deck(wood, 9.0, 3.0, 1.6, 0.5, 1.3)
     box(wood, 0, 2.3, 1.3, 2.0, 2.2, 1.9)
     cabin_roof = Part(flat_material('cabin-white', (0.82, 0.82, 0.8), 0.5))
     box(cabin_roof, 0, 2.3, 3.2, 2.2, 2.4, 0.12)
@@ -414,7 +448,8 @@ def fishing_boat(name):
     oriented_box(mast, Vector((0, -1.5, 3.0)), Vector((0, 1.2, 2.6)), 0.08)
     net = Part(card_material('net', 'net.png'))
     up = lambda co: Vector((0, 0, 1))
-    net.quad([Vector((-1.0, -3.2, 1.35)), Vector((1.0, -3.2, 1.35)), Vector((1.0, -1.8, 1.45)), Vector((-1.0, -1.8, 1.45))],
+    # The net heaped between the mast and the wheelhouse, where the deck is wide
+    net.quad([Vector((-0.9, -1.1, 1.35)), Vector((0.9, -1.1, 1.35)), Vector((0.9, 0.3, 1.45)), Vector((-0.9, 0.3, 1.45))],
              [(0, 0), (2, 0), (2, 1.4), (0, 1.4)], up)
     objects = [paint.to_object(name), wood.to_object(name + '-deck'), cabin_roof.to_object(name + '-roof'), dark.to_object(name + '-windows'),
                mast.to_object(name + '-mast'), net.to_object(name + '-net')]
