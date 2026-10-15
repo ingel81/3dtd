@@ -1390,8 +1390,13 @@ def palisade(name, length=4.0, height=4.5, gate=False):
         n = int(length / 0.38)
         for k in range(n):
             x = -length / 2 + (k + 0.5) * length / n
-            h = height * rnd.uniform(0.92, 1.05)
-            tube(logs, [Vector((x, 0, -0.8)), Vector((x, 0, h - 0.5)), Vector((x, 0, h))], [0.19, 0.18, 0.02], 7)
+            # Logs of different girth and height, leaning a little, the points hewn in five facets
+            h = height * rnd.uniform(0.9, 1.03)
+            r = rnd.uniform(0.185, 0.21)
+            lx, ly = rnd.uniform(-0.04, 0.04), rnd.uniform(-0.03, 0.03)
+            tube(logs, [Vector((x, 0, -0.8)), Vector((x + lx, ly, h - 0.55)), Vector((x + lx * 1.05, ly, h - 0.45))], [r, r * 0.94, r * 0.9], 7)
+            tube(logs, [Vector((x + lx * 1.05, ly, h - 0.45)), Vector((x + lx * 1.1 + rnd.uniform(-0.04, 0.04), ly, h))], [r * 0.9, 0.015], 5,
+                 smooth=False)
         for z in (1.0, height - 1.3):
             box(beams, 0, 0.25, z, length, 0.14, 0.24)
         export(name, [logs.to_object(name), beams.to_object(name + '-beams')])
@@ -1429,13 +1434,26 @@ def picket_fence(name, length=4.0):
 
 
 def rail_fence(name, length=4.0):
-    """Rustic split-rail fence: three rails between crossed posts"""
+    """Rustic split-rail fence: at each end a pair of posts with the rails resting between them on a cross
+    tie, three split rails (rough three-sided sections) sagging a little and turned every way"""
     clear_scene()
+    rnd = random.Random(5)
     wood = Part(pbr_material('bark-bark_brown_02', 'bark_brown_02', (0.75, 0.72, 0.68)), smooth=True)
-    for x in (-length / 2, length / 2):
-        tube(wood, [Vector((x, 0, -0.3)), Vector((x, 0, 1.3))], [0.09, 0.08], 6)
-    for z in (0.35, 0.7, 1.05):
-        tube(wood, [Vector((-length / 2 - 0.1, 0.12, z)), Vector((length / 2 + 0.1, 0.12, z + 0.04))], [0.06, 0.055], 5)
+    for x in (-length / 2 + 0.05, length / 2 - 0.05):
+        for y, lean in ((-0.06, -0.03), (0.21, 0.03)):
+            tube(wood, [Vector((x, y, -0.3)), Vector((x + rnd.uniform(-0.02, 0.02), y + lean, 1.3))], [0.08, 0.065], 6, cap=True)
+        for z in (0.28, 0.63, 0.98):
+            oriented_box(wood, Vector((x - 0.04, -0.12, z)), Vector((x - 0.04, 0.28, z)), 0.04)
+    for k, z in enumerate((0.35, 0.7, 1.05)):
+        sag = rnd.uniform(0.03, 0.06)
+        a, b = Vector((-length / 2 - 0.1, 0.075, z + 0.02)), Vector((length / 2 + 0.1, 0.075, z + rnd.uniform(0.0, 0.05)))
+        mid = a.lerp(b, 0.5) - Vector((0, rnd.uniform(-0.02, 0.02), sag))
+        face = tube(wood, [a, mid, b], [0.075, 0.07, 0.065], 3, smooth=False)
+        # Turn the split section about its length so the flat sides face different ways
+        turn = Matrix.Rotation(rnd.uniform(0, math.tau), 4, (b - a).normalized())
+        for v in {v for f in face for v in f.verts}:
+            axis_pt = a + (b - a).normalized() * (v.co - a).dot((b - a).normalized())
+            v.co = axis_pt + turn @ (v.co - axis_pt)
     export(name, [wood.to_object(name)])
 
 
