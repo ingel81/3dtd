@@ -242,3 +242,44 @@ describe('Combat Effects Integration', () => {
     expect(enemy.health.hp).toBe(enemy.health.maxHp - 20);
   });
 });
+
+describe('Tower path effects on real enemies (TODO E101)', () => {
+  it('a corroded tank takes pierce as light armor until the corrosion ends, then as heavy again', async () => {
+    const { StatusEffectService } = await import('../services/combat/status-effect.service');
+    const { DamageApplicationService } = await import('../services/combat/damage-application.service');
+    const { DAMAGE_MATRIX } = await import('../configs/combat/damage-matrix.config');
+    const m = createTestManagers();
+    let now = 1000;
+    const status = new StatusEffectService();
+    status.setGameClockProvider(() => now);
+    const damage = new DamageApplicationService();
+    damage.initialize(m.towerManager, m.enemyManager, m.eventBus, status);
+    const vfx = { emitHitBlood: vi.fn(), emitDeathBlood: vi.fn(), emitBloodEffect: vi.fn() };
+    const tank = m.enemyManager.spawn(TEST_PATH, 'tank', 100000, true);
+
+    const hit = () => damage.applyDamage(vfx as never, tank, 100, 'pierce', 't', false, true)!.multiplier;
+    expect(hit()).toBe(DAMAGE_MATRIX.pierce.heavy);
+    status.applyCorrode(tank, 3000, 'poison-1');
+    expect(hit()).toBe(DAMAGE_MATRIX.pierce.light);
+    now += 2999;
+    expect(hit()).toBe(DAMAGE_MATRIX.pierce.light);
+    now += 1;
+    expect(hit()).toBe(DAMAGE_MATRIX.pierce.heavy);
+  });
+
+  it('a sealed wraith takes the ice slow and moves at half speed', async () => {
+    const { StatusEffectService } = await import('../services/combat/status-effect.service');
+    const m = createTestManagers();
+    const now = 1000;
+    const status = new StatusEffectService();
+    status.setGameClockProvider(() => now);
+    const wraith = m.enemyManager.spawn(TEST_PATH, 'wraith', 10, true);
+    const speed = wraith.movement.getEffectiveSpeed(now);
+
+    status.applySlow(wraith, GAME_BALANCE.effects.ice.slowAmount, GAME_BALANCE.effects.ice.duration, 'ice-1');
+    expect(wraith.movement.getEffectiveSpeed(now)).toBe(speed);
+    status.applySeal(wraith, 4000, 'magic-1');
+    status.applySlow(wraith, GAME_BALANCE.effects.ice.slowAmount, GAME_BALANCE.effects.ice.duration, 'ice-1');
+    expect(wraith.movement.getEffectiveSpeed(now)).toBe(speed * (1 - GAME_BALANCE.effects.ice.slowAmount));
+  });
+});

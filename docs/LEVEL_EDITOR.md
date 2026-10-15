@@ -66,7 +66,7 @@ ohne die Datei zu laden), bietet ein Banner „Fresh copy“ (neue Kopie, die al
 | P | Probewelle: die Gegner laufen die Routen ab (auch der Knopf „Trial wave“) |
 | + und - (auch =) | Probewelle schneller, langsamer: 1x, 2x, 4x, 8x, solange sie läuft (nicht umlegbar) |
 | Strg+K | Befehle: Werkzeuge, Pinsel, Biome, Ansichten, Symmetrie, Marker und die Objekte der Karte nach Namen |
-| 1 bis 9, 0, G, D | Werkzeug: Landscape, Terrain, Paint, Water, Objects, Roads, Spawns and HQ, Sky and weather, Map, Copy and stamps, Rules, Measure |
+| 1 bis 9, 0, G, D, N | Werkzeug: Landscape, Terrain, Paint, Water, Objects, Roads, Spawns and HQ, Sky and weather, Map, Copy and stamps, Rules, Measure, Life |
 | M | Symmetrie reihum: aus, Mirror X, Mirror Y, Both, Turn 2, Turn 4 (auch oben in der Kopfleiste) |
 | Alt+1 bis 9 (Strg+Ziffer, wo der Browser sie lässt) | Kamera-Ansicht merken; Shift+Ziffer fliegt hin; die Knöpfe 1 bis 9 unter der Minikarte ebenso (Alt-Klick merkt) |
 | ? | Übersicht aller Tasten; unter „Your keys“ lassen sich die Einzeltasten (Werkzeuge, F, T, C, B, P, V, M) umlegen, gespeichert in `3dtd-editor-keys` |
@@ -85,7 +85,7 @@ Kugel, Biome als kleines Stück Boden mit ihren Pflanzen. Ein kleiner eigener Re
 hebt sie in IndexedDB (`3dtd-editor-thumbs`) auf; bis ein Bild fertig ist, steht ein gezeichnetes Symbol.
 
 Die linke Leiste zeigt jedes Werkzeug mit Symbol und Namen: oben allein Look, darunter drei Gruppen: Shape (Landscape, Terrain, Paint, Water,
-Objects), Play (Roads, Spawns, Rules) und Map (Sky, Map, Stamps, Measure). Rechts stehen zwei Reiter: die Optionen des
+Objects, Life), Play (Roads, Spawns, Rules) und Map (Sky, Map, Stamps, Measure). Rechts stehen zwei Reiter: die Optionen des
 Werkzeugs und die Gliederung; ein Werkzeug zu wählen zeigt seine Optionen. Die rechte Spalte lässt sich an ihrer
 Innenkante breiter und schmaler ziehen (320 bis 680 px, anfangs 340; Pfeiltasten auf der fokussierten Kante, Doppelklick
 setzt zurück, gemerkt in `localStorage` `3dtd-editor-side`), die Ansicht passt sich an. Lange Beschriftungen brechen
@@ -108,7 +108,7 @@ Gewässer.
 Jeder Pinsel hat Größe (1 bis 200 m), Stärke und Weichheit (Anteil des Radius, der ausblendet). Der Ring auf dem Boden
 zeigt Größe und den harten Kern.
 
-**Einstieg.** Beim ersten Öffnen einer Karte führt eine Tour in 23 Schritten durch den Editor (`ui/shell/tour.ts`):
+**Einstieg.** Beim ersten Öffnen einer Karte führt eine Tour in 24 Schritten durch den Editor (`ui/shell/tour.ts`):
 Ansicht, die Werkzeugleiste, dann jedes Werkzeug in der Reihenfolge der Leiste (Look, dann Landscape bis Measure; der Schritt
 wählt das Werkzeug, sein Panel steht rechts), die Reiter Outline und History, Minikarte und gemerkte Ansichten,
 Symmetrie, Speichern und File, Strg+K und Hilfe, zuletzt Check, Probewelle (mit ihrer Geschwindigkeit) und Test map.
@@ -117,7 +117,7 @@ CSS-Selektor; fehlt das Element, kein Ring). Ein Schritt geht von selbst weiter,
 Landschaftsstrich, eine Straße, ein Spawn, der Check, die Probewelle, der Test), sonst mit „Next“; „Back“ geht zurück,
 „Skip the tour“ beendet sie. Danach kommt sie nicht mehr von selbst (localStorage `3dtd-editor-tour`: `done` oder
 `skipped:<Schritt>`). Die Hilfe (?) startet sie neu („Start the tour“) und setzt eine übersprungene am Schritt fort,
-an dem man sie beendet hat („Resume the tour (N/23)“); Strg+K kennt beides. Die Schritte der Werkzeuge stehen in
+an dem man sie beendet hat („Resume the tour (N/24)“); Strg+K kennt beides. Die Schritte der Werkzeuge stehen in
 `TOOL_TOUR`, einem Eintrag je Werkzeug; ein neues Werkzeug bekommt dort seinen Schritt und erscheint an seinem Platz
 in der Leiste (`tour.spec.ts` verlangt einen je Werkzeug der Leiste). Die Hilfe hat neben den Tasten die Seite „Good levels“: Weglänge, Engstellen, Bauflächen,
 Sichtlinien, Spurzahl und Testen, jeweils mit einem Knopf, der das passende Werkzeug öffnet. Kann eine Karte nicht
@@ -249,7 +249,7 @@ Tags des Katalogs und Suche (Name, Id oder Tag).
   Tönung (Tint im Auswahl-Panel) färbt die Teilchen. Ohne gesetzte Schwärme oder Glühwürmchen bringt die Karte eigene
   mit (CUSTOM_MAPS.md, „Leben aus dem Karteninhalt“): sobald einer gesetzt ist, gelten nur die gesetzten. Häuser mit
   Schornstein rauchen von selbst, ein von Hand gesetzter Rauch über dem Haus ersetzt den Schornsteinrauch.
-  Umgebungston je Zone ist noch nicht setzbar: es gibt keine Klänge dafür
+  Bereiche, Wege und Umgebungston setzt das Werkzeug Life (N)
 - Gebäude (Katalog-Kategorie `building`, nicht schwimmend, nicht auf Stelzen: Katalog `stilts`, die Pfahlhütte am Ufer verschob sonst ihr Ufer und ließ Wasser in der Luft stehen) ebnen beim ersten Setzen ihren Boden (`levelUnderBuilding`
   in `ops/object-ops.ts`): der Fußabdruck-Radius, 1,5 m und eine Gitterzelle mehr gehen auf die Grundhöhe (Mittel des
   Bodens unter der Mitte und acht Punkten des Fußabdrucks, Abtrag und Auftrag), darüber hinaus läuft der Boden über den
@@ -297,6 +297,31 @@ Tags des Katalogs und Suche (Name, Id oder Tag).
   (Default folgt dem Katalog) und die Tönung: Farbe für die Auswahl, „Random tint“ (jedes Objekt ein eigener Ton um
   die Farbe oder um Weiß), „No tint“. Streuen hat eine Tönung und „Random tint“ (0 bis 100 %) für jedes neue Objekt
 
+**Life (N).** Leben auf der Karte (TODO E190, CUSTOM_MAPS.md „Lebensbereiche“): Bereiche und Wege, die die Karte im
+Dokument trägt (`life.areas`), und die Schalter dessen, was die Karte von selbst mitbringt (`tools/life-tool.ts`,
+`ui/panels/life-panel.component.ts`). Die Taste N, weil L im Objektwerkzeug die Pfeile umschaltet.
+- Outline: ein Klick je Ecke, Enter, Doppelklick oder Rechtsklick schließt den Umriss; gehalten und gezogen malt er
+  ihn frei (ein Punkt alle 6 m, Loslassen schließt). Line: ebenso eine offene Linie. Was darin lebt, wählt das Panel:
+  Birds (ein Schwarm kreist im Umriss, auf einer Linie hin und zurück), Fireflies (nachts), Ground fog, Leaves,
+  Embers, Sparks, Snow, Dust devils, Heat haze (nur mit dem Lava-Glüh-Effekt), Boats (treiben auf dem Wasser des Umrisses, auf einer Linie hin und zurück),
+  Movers (ein Requisit des Katalogs fährt oder geht über den Boden, mit Tempo), Sound (ein Klang, voll
+  im Umriss oder auf der Linie, über 70 m leiser). Ein neuer Bereich ist ein Schritt im Verlauf und gleich gewählt. Zu wenig für einen Umriss (unter
+  drei Ecken oder 16 m²) sagt die Statuszeile. Höchstens 64 Bereiche, 256 Punkte je Bereich
+- Edit: ein Klick wählt den kleinsten Umriss um den Punkt, sonst eine Linie in 12 Pixeln; die Punkte des gewählten
+  stehen als Griffe da, Ziehen verschiebt einen (ein Schritt), Shift+Klick auf den Rand setzt einen Punkt dazu, Entf
+  nimmt den gewählten Punkt (ein Umriss behält drei, eine Linie zwei) oder ohne gewählten Punkt den Bereich
+- Panel: Art des nächsten Bereichs; der gewählte mit Dichte (10 bis 300 %), Flughöhe (Vögel), Höhe und Farbe
+  (Partikel), Vogelart (Singvögel, Möwen, Krähen und Raben, Greifvögel), Boot (die schwimmenden Requisiten des
+  Katalogs) oder Klang und Lautstärke, „Shows from“ Medium oder nur
+  High, Show, Remove; die Liste der Bereiche; „One spot“ setzt ein
+  Effekt-Objekt (Rauchsäule, kreisender Schwarm, Glühwürmchen, Glut) mit dem Objektwerkzeug; „What the map brings by
+  itself“: Schornsteinrauch, Glühwürmchen an Ufern und in Wäldern, Vögel über offenem Land, Funken über Lava, wehende
+  Banner, Dichte (0 bis 200 % auf alles); „Sound“: „Over the whole map“ (keiner, der des Looks bei Tag und Nacht oder
+  ein Klang) mit Lautstärke, „Hear it in the editor“ (spielt den Ton von der Mitte der Ansicht aus, Lautstärke 80 %;
+  aus beim Öffnen, Browser starten Ton erst nach einem Klick). Regler wirken sofort und werden beim Loslassen ein Schritt
+- Die Bereiche stehen nur, solange das Werkzeug in der Hand ist, als Linien in der Farbe ihrer Art über dem Boden.
+  Symmetrie, Stempel und „Mirror now“ nehmen sie nicht mit; Größe ändern lässt sie, wo sie sind (die Mitte bleibt)
+
 **Roads (6).** Draw: jeder Klick setzt einen Knoten und verbindet ihn mit dem letzten; ein Klick nahe einem Knoten
 schließt dort an, nahe einer Straße entsteht eine Kreuzung (Alt setzt frei). Enter, Rechtsklick oder Doppelklick
 beendet die Linie. Edit: Knoten ziehen (auf einem anderen abgelegt verschmelzen sie), Straße wählen; Shift+Klick
@@ -323,7 +348,10 @@ Himmel und Licht zusammenpassen, `skyPreset`; Night und Overcast lassen die Sonn
 Süden 60 Grad hoch, Untergang 20 Uhr im Westen; tiefe Sonne ist Dämmerung, eine Stunde nach Untergang Nacht),
 Sonnenrichtung und -höhe, bei Night das Mondlicht (`moonlight`, kühles Licht auf dem Land, Himmel bleibt dunkel), Nebel,
 Tönung, Wetter (Clear, Rain, Snow, Fog mit Stärke), Wind (Stärke, Richtung „From“, aus der er kommt, Böen; ohne eigenen
-Wind gilt der des Bioms, „Use the look's wind“ stellt das wieder her); Regler wirken sofort und werden beim Loslassen
+Wind gilt der des Bioms, „Use the look's wind“ stellt das wieder her), Planet (nur prozeduraler Himmel: Größe als
+scheinbarer Durchmesser in Grad, 0 keiner, dazu Richtung und Höhe; ohne eigene Einstellung zeigt der Look Moon die Erde
+im Nordosten, 33 Grad hoch, 4 Grad groß, `DEFAULT_PLANET`; „Use the look's planet“ stellt das wieder her; Map-Kit und
+Skript: `environment({ planet: { azimuth, elevation, size } })`); Regler wirken sofort und werden beim Loslassen
 ein Schritt im Verlauf.
 
 **Map (9).** Name, Autor, Beschreibung; Größe ändern (die Mitte bleibt, kleiner schneidet die Ränder ab, größer setzt
@@ -527,7 +555,8 @@ Szenenkosten.
   wachsen dadurch um 21 bis 54 kB, 2 bis 7 %; nur der Editor liest es); optionales Feld `gameplay` (`startCredits`, `hqHealth`, `towers`, `waves` als
   `{ kind: 'budget' }` oder `{ kind: 'table', table }` in der Form der Table-Source, `difficulty` in Prozent, ohne
   Feld 100; später dazugekommene optionale Felder heben die Version nicht, so auch `environment.skyImage`, die Id
-  eines Himmelsbilds, ohne Feld prozedural); Version-1-Dateien lesen sich
+  eines Himmelsbilds, ohne Feld prozedural, und `life`, das Leben der Karte (Werkzeug Life, CUSTOM_MAPS.md
+  „Lebensbereiche“); ohne Feld sieht und klingt die Karte wie vorher, ihr `contentHash` bleibt); Version-1-Dateien lesen sich
   unverändert über die Migration 1 nach 2
 - Kartendokument Version 3: bis zu zwölf Bodenschichten. Die Gewichte der Schichten 9 bis 12 liegen in einer dritten
   Splat-Karte (`terrain/splat2.u8`), die es nur gibt, solange die Karte mehr als acht Schichten hat

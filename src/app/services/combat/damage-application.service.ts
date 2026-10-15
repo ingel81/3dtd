@@ -9,6 +9,7 @@ import { GameEventBus } from '../../game-engine/game-event-bus';
 import { enemyBloodColor, enemyHitSpot } from '../../utils/enemy-hit-spot';
 import { isHeroSource } from '../../configs/hero.config';
 import type { KilledBy } from '../../game-engine/game-event-bus';
+import type { StatusEffectService } from './status-effect.service';
 
 /**
  * DamageApplicationService - Applies damage to enemies and handles kills
@@ -24,15 +25,25 @@ export class DamageApplicationService {
   private towerManager: TowerManager | null = null;
   private enemyManager: EnemyManager | null = null;
   private eventBus: GameEventBus | null = null;
+  /** Whether a target is corroded (StatusEffectService.isCorroded), null when nothing can be */
+  private statusEffects: Pick<StatusEffectService, 'isCorroded'> | null = null;
 
   initialize(
     towerManager: TowerManager,
     enemyManager: EnemyManager,
     eventBus: GameEventBus,
+    statusEffects: Pick<StatusEffectService, 'isCorroded'> | null = null,
   ): void {
     this.towerManager = towerManager;
     this.enemyManager = enemyManager;
     this.eventBus = eventBus;
+    this.statusEffects = statusEffects;
+  }
+
+  /** The matrix result of a hit: its armor, corroded or not (status `corrode`) */
+  private matrixDamage(enemy: Enemy, damage: number, damageType: DamageType): DamageResult {
+    const corroded = this.statusEffects !== null && this.statusEffects.isCorroded(enemy);
+    return calculateDamage(damage, damageType, enemy.getEffectiveArmorType(), 1, corroded);
   }
 
   /**
@@ -59,8 +70,7 @@ export class DamageApplicationService {
   ): DamageResult | null {
     if (!this.towerManager || !this.enemyManager) return null;
 
-    const armorType = enemy.getEffectiveArmorType();
-    const result = calculateDamage(damage, damageType, armorType);
+    const result = this.matrixDamage(enemy, damage, damageType);
 
     // Spawn blood effects for enemies that can bleed
     if (!skipBloodEffects) {
@@ -103,8 +113,7 @@ export class DamageApplicationService {
   ): DamageResult | null {
     if (!this.towerManager || !this.enemyManager) return null;
 
-    const armorType = enemy.getEffectiveArmorType();
-    const result = calculateDamage(damage, damageType, armorType);
+    const result = this.matrixDamage(enemy, damage, damageType);
 
     if (showBloodEffects && enemy.typeConfig.canBleed) {
       const spot = enemyHitSpot(enemy);

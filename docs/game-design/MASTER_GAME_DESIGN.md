@@ -114,7 +114,7 @@ Mechanik in [STATUS_EFFECTS.md](../STATUS_EFFECTS.md)):
 | Effekt | Quelle | Wirkung | Dauer |
 |---|---|---|---|
 | **Slow** | Ice Tower | -50 % Tempo | 3 s |
-| **Burn** | Fire Tower | 20 % der Beam-DPS als DoT, Tick 500 ms, pro Turm ein Eintrag | 3 s, im Kegel erneuert |
+| **Burn** | Fire Tower; Archer mit Pfad Fire Arrows | Fire: 20 % der Beam-DPS als DoT; Archer: 25 % des Pfeilschadens; Tick 500 ms, pro Turm ein Eintrag | 3 s, im Kegel bzw. je Treffer erneuert |
 | **Poison** | Poison Tower | 8 DPS | 4 s |
 | **Freeze** | Frostbombe | Halt | 3 s, Bosse 1 s |
 | **Stun** | EMP | Halt | 1,5 s, Maschinen 6 s, Bosse 0,75 s |
@@ -124,6 +124,10 @@ Werte aus `game-balance.config.ts` (`effects`), `combat-tuning.config.ts`
 Kegel gleich: der Fire Tower gibt 20 % seines Schadens als Burn aus statt
 direkt. Details in [STATUS_EFFECTS.md](../STATUS_EFFECTS.md#burn-effect-dot),
 die Fähigkeiten in [ABILITIES.md](../ABILITIES.md).
+
+Gebaut seit 2026-10-15 mit den Tower-Pfaden: **Seal** (Magic, Binding Sigil: Phasing 4 s aufgehoben) und
+**Corrode** (Poison, Caustic: 3 s eine Rüstungsklasse leichter, je Schadensart das Bessere aus beiden Spalten,
+nicht stapelbar, nicht auf Bossen). Corrode ist die mildere Form des geplanten Armor Break (§12.1).
 
 Gebaut seit 2026-10-02: Regen (§2.5), den ein Burn anhält, und das Gegenmittel
 `immuneToSlow` (Phasing). Nicht gebaut: Armor Break, Mark, ein Stun als
@@ -142,7 +146,7 @@ Gebaut sind diese Eigenschaften je Gegnertyp (`EnemyTypeConfig` in
 | Split | `splitOnDeath` | ein Kill (kein Leck) teilt den Gegner | Skeleton (2 Minions), Ooze (bis zu 20 Slime Clumps mit 3/10 ihrer HP) |
 | Kette | `chain` | ein Spawn bringt einen Wurm aus Segmenten | Skarnax |
 | Regen | `regenPerSecond` | heilt je Sekunde einen Anteil der max. HP, in Schritten von 0,5 s Spielzeit, nie solange er brennt | Mammoth 1 %, Slime Clump 2 % |
-| Phasing | `immuneToSlow` | ein Slow greift nicht; Freeze und Stun schon | Wraith |
+| Phasing | `immuneToSlow` | ein Slow greift nicht; Freeze und Stun schon; ein Siegel (Magic, Pfad Binding Sigil) hebt es 4 s auf | Wraith |
 | Wut | `traits.rage` | unter einem Anteil der HP schneller und nimmt weniger Turmschaden, rot | Herbert (50 %), Golem King (40 %), Dragon Matriarch (50 %) |
 | Eigenes Leck | `leakDamage` | kostet im HQ diesen Wert statt dem aus den HP | Skarnax 150 |
 | Elite | (je Welle, `ELITE_SHARE`) | etwa jeder 20. einer Art ab zehn, 4,5-fache HP, gold, ein Viertel größer | alle außer Bossen, Wurm und Ooze |
@@ -172,6 +176,7 @@ Mutator je Welle ([WAVE_RUN_PLAN.md](../WAVE_RUN_PLAN.md), Abschnitt 16).
 | **Poison** | Poison | 5 dmg + DoT 8/s für 4 s, 1.0/s, Range 55, Splash 8 m | 100 | nein |
 | **Lightning** | Lightning | 32 dmg primary, Chain ×0.7/Jump, 2 Jumps, 0.8/s, Range 65 | 130 | **Air + Ground** |
 | **Chaos** | Chaos | 50 dmg, 1.2/s, Range 60, 1,0 gegen jede Rüstung | 200 | **Air + Ground** |
+| **Iron Bastion** | Pierce | 36 dmg, 0.75/s, Range 65, Flak-Splash 5 m (max. 6 Ziele) | 150 | **Air + Ground** |
 
 ### 3.2 Upgrade-Regeln (Stand 2026-09)
 - **Kosten:** `50 × 1,25^Stufe` pro Stufe und Track, mal dem Kostenfaktor des
@@ -199,6 +204,7 @@ Mutator je Welle ([WAVE_RUN_PLAN.md](../WAVE_RUN_PLAN.md), Abschnitt 16).
 | Poison | 1,05 | 1,04 | DoT skaliert mit dem Damage-Track |
 | Lightning | 1,05 | 1,04 | Kette vervielfacht ohnehin |
 | Chaos | 1,05 | 1,04 | Generalist, soll die Spezialisten auch im Endausbau nicht überholen |
+| Iron Bastion | 1,06 | 1,03 | der Splash trägt den Schaden auf jedes getroffene Ziel |
 
 Andere Upgrade-Pfade als diese Tracks gibt es nicht. Die früher je Tower
 geplanten Pfade (Air-Pfade, Armor Break, Luftflamme, Spezialisierungen) stehen
@@ -209,7 +215,9 @@ in §12.3.
 - Seit 2026-10-02 30 statt 25 Schaden und Upgrades zu 0,6 des Preises: Mit den
   Preisen aller Tower war jede Stufe des schwächsten Basis-Schadens der
   schlechteste Kauf (menschlicher Lauf bis W60: 3,6 Schaden je Gold, Fire 17,3).
-- Der geplante Air-Upgrade-Pfad und die Spezialisierungen sind nicht gebaut (§12.3).
+- Pfade (Einmalkauf je Tower, [TOWER_CREATION.md](../TOWER_CREATION.md#pfade-2026-10-03-todo-e101)): Scout
+  (Camo-Erkennung) oder Fire Arrows (jeder Treffer brennt mit 25 % des Pfeils als Feuer je Sekunde, 3 s; hält Regen
+  an). Der geplante Air-Upgrade-Pfad ist nicht gebaut (§12.3).
 
 ### 3.4 Dual-Gatling: Pierce
 - Trifft Luft erst mit der Forschung AA Retrofit (`aa-retrofit`), die nur die
@@ -225,11 +233,14 @@ in §12.3.
 - Seit 2026-10-02 60 statt 40 Schaden und Upgrades zu 0,75: Sie steht in jeder
   Bodenwelle still (menschlicher Lauf bis W60: 2,8 Schaden je Gold). Die Rolle
   bleibt (TODO E15).
-- Die geplante „Bodenfreigabe" ist nicht gebaut (§12.3).
+- Pfad Multirole (Forschung Multirole Warheads ab W9, Pfad 300, seit 2026-10-15): trifft auch Boden, dort mit
+  50 % (Treffer und Splash), Flieger zuerst. Das ist die frühere geplante „Bodenfreigabe“ (§12.3).
 
 ### 3.7 Magic: Magic
 - Stärkster Ethereal-Counter (2.0×), zweiter Konter gegen Fortified (1.3×, Runen gegen Stein).
 - Schwach gegen Light (0.5×): flinke Ziele weichen den Geschossen aus.
+- Pfad Binding Sigil (Forschung Binding Sigils ab W15, Pfad 250, seit 2026-10-15): jeder Treffer hebt Phasing
+  4 s auf, der Slow der Ice greift dann auch an Wraiths (§2.5).
 
 ### 3.8 Ice: Ice
 - **Air + Ground** ab Basis. Niedriger DPS, starker Slow.
@@ -252,6 +263,8 @@ in §12.3.
 - DoT-Spezialist mit Splash-Projektil.
 - Eigenständiger Schadenstyp (nicht Fire-Subtyp).
 - Poison-DoT und Burn-DoT sind getrennte Effekte, können gleichzeitig wirken.
+- Pfad Caustic (Forschung Caustic Compounds ab W11, Pfad 250, seit 2026-10-15): der direkte Treffer zersetzt 3 s,
+  das Ziel zählt für alle Tower eine Rüstungsklasse leichter, wo das mehr Schaden macht (§2.4, Corrode).
 
 ### 3.12 Lightning: Lightning
 - **Chain-Hitscan** (`attackType: 'chain'`): Primary-Treffer + 2 Jumps, je `chainFalloff 0.7` (100% → 70% → 49%), `jumpRange 15m` zwischen Chain-Links.
@@ -273,6 +286,29 @@ in §12.3.
 - **Upgrades:** Damage 1,05, Fire Rate 1,04, L25 ×5,35 wie Archer und Lightning (§3.2).
 - **Modell:** Kenney „tower-round-crystals“ (CC0, Tower Defense Kit). Der mittlere Kristall dreht sich zum Ziel (`turretNode`), aus ihm kommt der Orb. Der Sound ist ein eigener, verzerrter Chaos-Schuss (`towers/chaos/cast.mp3`, seit 2026-09-23).
 - **Wave-Director:** zählt als Anti-Air und als Anti-Ethereal (Ethereal-Multiplikator 1,0 erreicht die Schwelle von `isAntiEtherealTower`).
+
+### 3.14 Iron Bastion: Pierce (seit 2026-10-15)
+- **Flak:** schwere Kanone, deren Granate in einem Schwarm platzt: Splash 5 m, höchstens 6 Ziele (`flak-shell`),
+  Luft und Boden ab Basis. Das Rohr neigt sich zum Ziel (bis 60° für Flieger).
+- **Rolle:** leichte Schwärme, am Boden (Spinnen, Ratten, Skelette) und in der Luft (Fledermäuse, Hornissen). Pierce
+  1,6 gegen Light, 1,25 gegen Unarmored; gegen Heavy (0,35) und Fortified (0,25) so schwach wie die Gatling.
+- **Rechnung** (DPS-Modell `computeTowerDPSFromLevels`, Basisstufe, Splash als weicher Faktor 1 + 5/10):
+
+| DPS × Matrix / Gold | Unarmored | Light | Heavy | Fortified | Ethereal |
+|---|---:|---:|---:|---:|---:|
+| Iron Bastion (150) | 0,34 | 0,43 | 0,09 | 0,07 | 0,03 |
+| Dual-Gatling (90) | 0,69 | 0,89 | 0,19 | 0,14 | 0,06 |
+| Cannon (150) | 0,15 | 0,15 | 0,51 | 0,47 | 0,09 |
+
+  Gegen ein einzelnes leichtes Ziel bleibt die Gatling der bessere Kauf. Die Bastion lohnt sich im Pulk: ein Schuss
+  (27 DPS roh) trifft dort bis zu 6 Körper mit 1 − Abstand/5 m: bei 3 Nachbarn im Mittel 2,5 m entfernt das
+  2,5-Fache (0,72 Light-DPS je Gold), bei 5 Nachbarn das 3,5-Fache (1,0), mehr als die Gatling gegen den Pulk. Gegen Luftschwärme braucht sie keine Forschung wie die Gatling (AA
+  Retrofit).
+- **Freischaltung:** Flak Artillery (1.000 Gold, 20 s, ab Welle 8) hinter Siege Engineering.
+- **Upgrades:** Damage 1,06, Fire Rate 1,03 (L25 ×5,3 bis 6,4 wie alle, §3.2).
+- **Modell:** Meshy-Kandidat „Iron Bastion Turret“, zerlegt und reduziert mit `tools/blender/build_tower.py`
+  (45.000 Dreiecke, Textur 1024 JPEG). Ton: der Schuss der Cannon, etwas leiser.
+- **Wave-Director:** zählt als Anti-Air.
 
 ---
 
@@ -509,8 +545,8 @@ den Text aus `description`.
 
 ### 6.3 Tech-Tree (Forschungsbaum)
 
-Frei wählbar mit Voraussetzungen, 21 Knoten in vier Kategorien
-(`research-tree.config.ts`), zusammen 174.120 Credits (bis 2026-10-01 19.670).
+Frei wählbar mit Voraussetzungen, 27 Knoten in vier Kategorien
+(`research-tree.config.ts`), zusammen 186.120 Credits (bis 2026-10-01 19.670).
 
 **Tempo (seit 2026-10-02):** Eine Forschung kann eine Mindestwelle haben
 (`minWave`). Sie öffnet in der Bauphase vor dieser Welle (`researchWave`: die
@@ -535,6 +571,7 @@ fünf Wellen Einkommen und steht gegen Upgrades.
 | `fire-alchemy` | Fire Alchemy | 800 | 20 s | 6 | Toxic Compounds | Fire Tower |
 | `arcane-studies` | Arcane Studies | 650 | 20 s | – | Ice Magic | Magic Tower |
 | `storm-mastery` | Storm Mastery | 1.200 | 20 s | 9 | Arcane Studies | Lightning Tower |
+| `flak-artillery` | Flak Artillery | 1.000 | 20 s | 8 | Siege Engineering | Iron Bastion |
 | `chaos-rift` | Chaos Rift | 8.000 | 30 s | 20 | Siege Engineering + Storm Mastery | Chaos Tower |
 
 #### Global Perks
@@ -550,6 +587,19 @@ fünf Wellen Einkommen und steht gegen Upgrades.
 
 Die Fähigkeiten beschreibt [ABILITIES.md](../ABILITIES.md), den Held
 [HERO.md](../HERO.md).
+
+#### Pfad-Forschungen
+
+Jede öffnet einen Tower-Pfad (`unlock-path`), den danach jeder Tower des Typs einmal kauft
+([TOWER_CREATION.md](../TOWER_CREATION.md#pfade-2026-10-03-todo-e101)).
+
+| ID | Name | Kosten | Dauer | ab Welle | Voraussetzung | Pfad |
+|---|---|---:|---:|---:|---|---|
+| `scouting` | Scouting | 3.000 | 25 s | 16 | Advanced Weaponry | Archer: Scout |
+| `incendiary-arrows` | Incendiary Arrows | 2.000 | 20 s | 10 | Fire Alchemy | Archer: Fire Arrows |
+| `multirole-warheads` | Multirole Warheads | 1.500 | 20 s | 9 | Rocketry | Rocket: Multirole |
+| `binding-sigils` | Binding Sigils | 2.500 | 25 s | 15 | Arcane Studies | Magic: Binding Sigil |
+| `caustic-compounds` | Caustic Compounds | 2.000 | 20 s | 11 | Toxic Compounds | Poison: Caustic |
 
 #### Upgrade-Tier-Freischaltungen
 
@@ -761,7 +811,7 @@ Gebaut sind nur die Tracks aus §3.2. Geplant waren:
   vs Air, L3 Schaden vs Air. Gebaut ist stattdessen die Forschung AA Retrofit.
 - **Cannon, Armor Break Path:** L3 „Risse im Panzer“: **Armor Break** (4s,
   Unarmored-Logik). Dazu ein Air-Upgrade-Pfad (aus §7.2).
-- **Rocket:** späterer Pfad „Bodenfreigabe“ erlaubt Ground.
+- **Rocket:** späterer Pfad „Bodenfreigabe“ erlaubt Ground. Gebaut 2026-10-15 als Pfad Multirole (§3.6).
 - **Fire:** Air via Upgrade „Luftflamme“.
 
 ### 12.4 Gegner (aus §4)

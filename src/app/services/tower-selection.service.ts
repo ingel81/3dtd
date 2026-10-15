@@ -121,7 +121,7 @@ export class TowerSelectionService {
       towerTip,
       groundRange: range,
       airRange: range,
-      canTargetGround: config.canTargetGround ?? true,
+      canTargetGround: tower.canTargetGround,
       canTargetAir: canTargetAirEffective(
         config.id as TowerTypeId,
         this.mirror.researchOf(tower.ownerId).airTargetingUnlocked,

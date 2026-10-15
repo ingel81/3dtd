@@ -32,6 +32,16 @@ export function buildFrostHamlet(): CustomMapDocument {
   k.level({ x: 40, y: 75 }, { radius: 40, falloff: 0.5 }, -1.8);
   k.raise([{ x: -260, y: 200 }, { x: -120, y: 250 }, { x: 260, y: 230 }], { radius: 110, falloff: 1 }, 12);
   k.raise([{ x: 250, y: -200 }, { x: 180, y: -260 }], { radius: 90, falloff: 1 }, 9);
+  // A peak over the ridge north of the village, a lower one to the north-west; a glacier in a trough down the high one's
+  // south flank
+  k.form('mountain', { x: 70, y: 248 }, { radius: 72, strength: 1 }, 3);
+  k.form('mountain', { x: -150, y: 246 }, { radius: 60, strength: 0.8 }, 3);
+  const glacier: MapPoint[] = [{ x: 72, y: 252 }, { x: 68, y: 226 }, { x: 64, y: 200 }];
+  k.form('valley', glacier, { radius: 24, strength: 0.8 }, 2);
+  // Rock bands across the long white slopes (south and east of the lake, west of the village)
+  k.cliff([{ x: -230, y: -175 }, { x: -170, y: -190 }, { x: -120, y: -215 }], 4, 14);
+  k.cliff([{ x: 230, y: -60 }, { x: 215, y: 10 }, { x: 225, y: 70 }], 5, 14);
+  k.cliff([{ x: -180, y: 150 }, { x: -125, y: 175 }, { x: -95, y: 215 }], 5, 16);
   // The village terrace on the north shore
   const hq = { x: 20, y: 140 };
   k.level(hq, { radius: 60, falloff: 0.6 }, k.h(hq.x, hq.y));
@@ -60,6 +70,21 @@ export function buildFrostHamlet(): CustomMapDocument {
   k.paint('frozen-ground', hq, { radius: 30, falloff: 1 }, 0.25);
   k.paint('gravel-light', hq, { radius: 18, falloff: 0.8 }, 0.6);
   k.paint('ice-cracked', lakeAt, { radius: 110, falloff: 0.3 }, 0.3);
+  // The glacier's ice in its trough, fresh snow on its flanks
+  k.paint('ice-cracked', glacier, { radius: 13, falloff: 0.7 }, 0.9);
+  k.paint('snow-fresh', glacier, { radius: 26, falloff: 0.4 }, 0.5);
+  // Tracks in the snow between the houses: trodden paths, the sled runs to the woodpiles and down to the ice
+  for (const line of [
+    [{ x: -22, y: 160 }, { x: 0, y: 150 }, { x: 20, y: 140 }],
+    [{ x: -30, y: 128 }, { x: -6, y: 126 }, { x: 20, y: 140 }],
+    [{ x: 62, y: 164 }, { x: 46, y: 150 }, { x: 20, y: 140 }],
+    [{ x: 20, y: 185 }, { x: 20, y: 160 }],
+    [{ x: 100, y: 150 }, { x: 86, y: 112 }, { x: 66, y: 106 }],
+    [{ x: -62, y: 150 }, { x: -40, y: 172 }, { x: -22, y: 160 }],
+    [{ x: 38, y: 120 }, { x: 30, y: 80 }, { x: 40, y: 30 }],
+  ]) {
+    k.paint('frozen-ground', line, { radius: 1.6, falloff: 0.6 }, 0.7);
+  }
 
   // ---- The village: snowed houses round the square, chapel, barn, woodpiles, sleds, fences
   const houses: [number, number, string][] = [
@@ -89,7 +114,13 @@ export function buildFrostHamlet(): CustomMapDocument {
   }
   k.row('fence-picket', [{ x: -90, y: 120 }, { x: -85, y: 170 }, { x: -50, y: 195 }], 3.6, { turn: Math.PI / 2 });
   k.row('fence-picket', [{ x: 120, y: 125 }, { x: 125, y: 170 }, { x: 90, y: 195 }], 3.6, { turn: Math.PI / 2 });
-  for (const [x, y] of [[-12, 140], [52, 140], [20, 172]] as const) k.place('lamp-post', x, y);
+  for (const [x, y] of [[-12, 140], [52, 140], [20, 172], [-40, 140], [80, 130], [-8, 176], [44, 176]] as const) if (k.free(x, y, 1)) k.place('lamp-post', x, y);
+  // The square's fire and lanterns by the doors
+  k.place('campfire', 34, 128);
+  for (const [x, y] of [[-16, 154], [-24, 122], [56, 158], [60, 101], [94, 145]] as const) if (k.free(x, y, 0.5)) k.place('lantern', x, y);
+  // Ravens over the village, sleds and dogs at its edge
+  // TODO(E179): sled dogs beside the sleds; TODO(E190): the bell tower's bell at each wave, the wind
+  k.place('fx-birds', 0, 170, { z: 10, scale: 0.5 });
 
   // ---- On the ice: fishers' huts and holes, a sled, skates of snow
   for (const [x, y, r] of [[-40, 30, 0.4], [60, -20, 2.1], [-20, -40, 1.2], [70, 50, 2.8], [-60, -10, 0.9]] as const) {
@@ -101,6 +132,26 @@ export function buildFrostHamlet(): CustomMapDocument {
   k.scatter(['tree-fir-snow', 'tree-pine-snow', 'tree-fir-young-snow'], [{ x: -120, y: 80 }, { x: -110, y: -40 }, { x: 150, y: 110 }, { x: 190, y: -90 }, { x: -190, y: -150 }, { x: -200, y: 120 }, { x: 210, y: 160 }], { radius: 28, strength: 0.9 }, { density: 4, minDistance: 5, scaleMin: 0.8, scaleMax: 1.3 });
   // Snow drifts and icicled rocks along the shore
   k.scatter(['snow-drift-mound', 'rock-snow', 'grass-snow'], [{ x: -90, y: 60 }, { x: -100, y: -50 }, { x: 110, y: 30 }, { x: 90, y: -80 }], { radius: 30, strength: 0.7 }, { density: 2, minDistance: 6 });
+  // The long white slopes broken up: spruce groups, drifts and rocks, fences across the fields
+  k.scatter(['tree-fir-snow', 'tree-pine-snow', 'tree-fir-young-snow'], [{ x: -200, y: -60 }, { x: -60, y: -205 }, { x: 80, y: -200 }, { x: 205, y: 20 }, { x: -230, y: 200 }, { x: 130, y: -150 }, { x: -150, y: -140 }], { radius: 16, strength: 0.9 }, { density: 5, minDistance: 4.5, scaleMin: 0.7, scaleMax: 1.3 });
+  k.scatter(['snow-drift-mound', 'rock-snow', 'boulder'], [{ x: -170, y: -100 }, { x: 160, y: -60 }, { x: -60, y: -160 }, { x: 60, y: -170 }, { x: 180, y: 80 }, { x: -200, y: 100 }], { radius: 26, strength: 0.6 }, { density: 1.5, minDistance: 7 });
+  k.row('fence-rail', [{ x: -230, y: 20 }, { x: -180, y: 30 }, { x: -150, y: 60 }], 3.8, { turn: Math.PI / 2 });
+  k.row('fence-rail', [{ x: 160, y: -200 }, { x: 200, y: -170 }, { x: 240, y: -160 }], 3.8, { turn: Math.PI / 2 });
+  k.row('fence-picket', [{ x: 130, y: 180 }, { x: 170, y: 170 }, { x: 200, y: 140 }], 3.6, { turn: Math.PI / 2 });
+  // Rock walls on the peaks' steep flanks and on the rock bands, icicles hanging off the band west of the village
+  k.cliffRocks([{ x: 70, y: 230 }, { x: -150, y: 232 }], { radius: 40 });
+  k.cliffRocks([{ x: -230, y: -175 }, { x: -170, y: -190 }, { x: -120, y: -215 }], { radius: 10 });
+  k.cliffRocks([{ x: 230, y: -60 }, { x: 215, y: 10 }, { x: 225, y: 70 }], { radius: 10 });
+  k.cliffRocks([{ x: -180, y: 150 }, { x: -125, y: 175 }, { x: -95, y: 215 }], { radius: 10 });
+  for (const p of resample([{ x: -176, y: 152 }, { x: -125, y: 177 }, { x: -97, y: 213 }], 9)) k.place('icicles', p.x, p.y, { rotation: facing(p, hq) });
+  // The glacier dressed: seracs where it breaks over the steep part, old snowfields on the peaks' flanks; the trough
+  // cleared of trees and rocks first. The glacier model as its tongue stood out of the trough as a pale blob, tilted or
+  // sunk: the trough's ice and the seracs carry it
+  for (const p of resample(glacier, 6)) k.erase(p, 14);
+  for (const [x, y, sc] of [[70, 240, 1], [64, 232, 0.8], [74, 228, 0.9], [69, 221, 0.7]] as const) k.place('seracs', x, y, { rotation: x * 0.3, scale: sc, align: true });
+  for (const [x, y, r, sc] of [[30, 232, 0.4, 1], [96, 214, 0.9, 1], [-60, 238, 2.5, 0.8]] as const) k.place('snowfield', x, y, { rotation: r, scale: sc, align: true });
+  // The bell tower over the village square, the village's landmark beside the chapel
+  if (k.free(-8, 190, 3)) k.place('bell-tower-snow', -8, 190, { rotation: facing({ x: -8, y: 190 }, hq) });
   for (const [x, y] of [[-200, 0], [200, 120], [-120, 210], [150, -180], [0, 230]] as const) k.place('fx-snow', x, y, { scale: 1.3 });
 
   // Seven ground materials: the least used goes (each one is 8 MB of pixels to load)

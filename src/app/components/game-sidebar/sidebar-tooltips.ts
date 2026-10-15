@@ -119,6 +119,8 @@ export function towerCardTooltip(
     targeting,
     armorTitle: 'vs Armor',
     armor,
+    // The role of a tower that has one written down (TowerTypeConfig.description)
+    flavor: tower.description,
   };
 }
 

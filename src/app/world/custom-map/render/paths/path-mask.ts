@@ -11,7 +11,8 @@ import { sampleRiver } from '../water/river-surface';
  * road follows every bump without z-fighting, and the height blend gives
  * cobbles poking through grass at the edges instead of a hard border.
  *
- * Bridges are not painted; they get a deck mesh (path-bridges.ts).
+ * Bridges are not painted; they get a deck mesh (path-bridges.ts). Nor are
+ * roads with a painted `surface` (OSM worlds): their ground shows.
  */
 
 /** Texel size the mask aims for, in metres */
@@ -49,7 +50,7 @@ export function rasterizePathMask(
   const sx = resolution / width;
   const sy = resolution / depth;
   for (const edge of paths.edges) {
-    if (edge.kind === 'bridge') continue;
+    if (edge.kind === 'bridge' || edge.surface) continue;
     const line = edgePolyline(edge, nodes);
     if (!line) continue;
     const channel = edge.kind === 'road' ? 0 : 1;

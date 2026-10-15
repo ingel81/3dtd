@@ -53,7 +53,8 @@ die Punkte, die ein Spielmenü erwartet.
   Spiel stellt `TowerDefenseComponent` den `SaveGameService` dahinter, außerhalb bleibt der Stub.
 - **Format** `simulator/save-file.ts` (`3dtd-save`, Version 1): Kopf wie die Replay-Datei, dazu Ort (Name, HQ,
   Spawns), Weltpaket, `SimSnapshot`, Director (Quelle, deren Zustand, die zugesagte Welle), `SimMirror.rng`, Run-Log
-  und Kurvenpunkte. Andere Spielversion oder andere Werte laden mit Hinweis, abgelehnt werden nur anderes Format,
+  und Kurvenpunkte, dazu die Kameraansichten F1 bis F5 (`cameraSlots`, E20, fehlt in älteren Dateien und wird dann
+  geleert). Andere Spielversion oder andere Werte laden mit Hinweis, abgelehnt werden nur anderes Format,
   andere Snapshot-Form oder eine beschädigte Datei. Export als gzip (`3dtd-save-<ort>-w<welle>.json.gz`).
 - **Plätze** in IndexedDB (`3dtd-saves`, Kopf und Text getrennt): `autosave` nach jeder Welle, sobald die
   Simulation ruht (`snapshotRefusal` leer, höchstens 10 s), dazu `slot-1` bis `slot-5`.

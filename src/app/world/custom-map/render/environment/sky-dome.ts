@@ -90,6 +90,8 @@ export class SkyDome {
         // The haze colour (linear): the dome's foot fades into it, as the far land does
         uSkyHaze: { value: new Color() },
         uStars: { value: 0 },
+        // The planet's direction and its disc's radius (radians); 0 none
+        uPlanetDir: { value: new Vector3(0, 1, 0) },
         uPlanet: { value: 0 },
         uAurora: { value: 0 },
         // An image sky: the upper hemisphere (top row the zenith), its turn about the vertical (radians)
@@ -146,7 +148,8 @@ export class SkyDome {
     cloudShadow: Color;
     haze: Color;
     stars?: number;
-    planet?: boolean;
+    /** A planet: its direction and the radius of its disc, radians */
+    planet?: { dir: Vector3; radius: number } | null;
     aurora?: number;
   }): void {
     const u = this.mesh.material.uniforms;
@@ -161,7 +164,8 @@ export class SkyDome {
     u['uCloudShadow'].value.copy(p.cloudShadow);
     u['uSkyHaze'].value.copy(p.haze);
     u['uStars'].value = p.stars ?? 0;
-    u['uPlanet'].value = p.planet ? 1 : 0;
+    u['uPlanet'].value = p.planet ? p.planet.radius : 0;
+    if (p.planet) u['uPlanetDir'].value.copy(p.planet.dir);
     u['uAurora'].value = p.aurora ?? 0;
     this.bakeAge = SKY_BAKE_FRAMES;
   }
@@ -231,6 +235,7 @@ uniform float uSkyTime;
 uniform vec2 uCloudOffset;
 uniform float uStars;
 uniform float uPlanet;
+uniform vec3 uPlanetDir;
 uniform float uAurora;
 uniform sampler2D uSkyImage;
 uniform float uSkyImageOn;
@@ -290,12 +295,11 @@ vec3 skyColor(vec3 dir, bool withSun) {
       sky += vec3(0.9, 0.93, 1.0) * star * uStars * 1.6 * smoothstep(0.0, 0.25, dir.y);
     }
     // A planet (the earth over the moon): a disc lit from the sun's side, oceans, land and clouds
-    if (uPlanet > 0.5) {
-      vec3 pd = normalize(vec3(-0.45, 0.55, 0.7));
+    if (uPlanet > 0.0) {
+      vec3 pd = uPlanetDir;
       vec3 t1 = normalize(cross(pd, vec3(0.0, 1.0, 0.0)));
       vec3 t2 = cross(t1, pd);
-      float size = 0.035;
-      vec2 q = vec2(dot(dir, t1), dot(dir, t2)) / size;
+      vec2 q = vec2(dot(dir, t1), dot(dir, t2)) / uPlanet;
       float r = length(q);
       if (dot(dir, pd) > 0.0 && r < 1.0) {
         vec3 nrm = normalize(q.x * t1 + q.y * t2 - pd * sqrt(1.0 - r * r));

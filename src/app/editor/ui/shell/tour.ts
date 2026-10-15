@@ -92,6 +92,16 @@ export const TOOL_TOUR: Partial<Record<ToolId, Omit<TourStep, 'id' | 'tool' | 't
       { key: 'Ctrl+D', description: 'Duplicate' },
     ],
   },
+  life: {
+    title: 'Life',
+    message:
+      'Draw where birds fly, fireflies glow, fog drifts, boats float or a sound plays: click an outline or a line, or hold and paint it. Edit drags its points. Below are the switches of what the map brings by itself.',
+    hints: [
+      { key: 'Click', description: 'Point' },
+      { key: 'Enter', description: 'Close the outline' },
+      { key: 'Del', description: 'Remove' },
+    ],
+  },
   paths: {
     title: 'Lay the enemies a road',
     message:

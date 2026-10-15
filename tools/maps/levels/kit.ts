@@ -54,8 +54,12 @@ export interface LevelSpec {
 }
 
 export class LevelKit extends MapKit {
-  constructor(readonly spec: LevelSpec) {
-    const doc = createMapDocument({
+  /** A new map of the spec's size, or `base` (a map made otherwise, the demo valley) to build on */
+  constructor(
+    readonly spec: LevelSpec,
+    base?: CustomMapDocument,
+  ) {
+    const doc = base ?? createMapDocument({
       id: spec.id,
       name: spec.name,
       author: '3DTD',

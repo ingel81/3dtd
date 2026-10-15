@@ -24,7 +24,19 @@ Ufer); `shipped-maps-check.spec.ts` verlangt dasselbe. Ändert ein späterer Sch
 Straße), füllt `fillToRim` ihn bis knapp unter seinen Rand, `fill` lässt ihn bei seinem Spiegel über den tieferen Boden
 laufen. Wo Stadt an Wasser grenzt, baut `quay(line, { top, bed, land })` eine Kaimauer: das Land auf einer Seite eben auf
 `top`, das Wasser auf `bed`, eine senkrechte Stufe dazwischen, die das Klippenmaterial der Karte zeigt (Steinblöcke
-statt Erdböschung), Poller an der Kante und Laternen auf der Promenade.
+statt Erdböschung), Poller an der Kante und Laternen auf der Promenade. Felsküsten baut `rockyCoast(line, { land, top })`
+auf einer Uferlinie (`shoreAround(center, from, to)` findet sie rund um eine Insel, gegen den Uhrzeigersinn, Land links):
+das Land steigt zu einer Klippe von `top` Metern mit ausgefranster Wand und einem Absatz dahinter, der Meeresboden davor
+sinkt auf `bed`; es hebt nur Land und vertieft nur Meer, die Enden laufen aus, Straßen bleiben. Klippenfelsen
+(`rocks`, Standard `cliff-coast`; an engen Bögen der nächstkleinere der Liste) stehen an der Wand von 1,5 m unter dem
+Wasser bis zur Kante, Steine in der Brandung davor. Danach `sea` erneut. `cliffRocks(where, brush)` ist der Pinsel
+Cliff rocks des Editors (Felswände auf steilen Flanken). Vorher
+`environment` setzen (der Look wählt die Modelle), und vor dem Bewuchs: der Pinsel hält Abstand zu anderen Objekten.
+`contour(a, b, height)` liefert die Höhenlinie quer über einen Hang (für Reihen am Hang: Zäune, Verbauungen, Terrassen),
+in Stücken, wo der Boden die Höhe nicht erreicht. `glacier(line, { width, snow })` legt einen Gletscher oder ein
+Schneefeld vom Kopf zur Zunge: ein ebener Strang von Punkt zu Punkt, etwas eingesenkt, mit Schnee bemalt, Eisbrocken an
+der Zunge und Moränenschutt an den Rändern. Breite Modelle (Zäune, Mauern) sitzen am tiefsten Punkt ihrer Grundfläche:
+am Steilhang versinken sie, dort schmale Stücke nehmen.
 
 Packen: `npx vitest run tools/maps/shipped-maps.spec.ts -t <id>` (mit `LEVEL_LOG=1` Spuren, Objekte, Warnungen) (ein Level allein; die Liste in `index.json` behält
 die anderen). Ansehen: `/map-preview?map=<id>&cam=x,y,h,tx,ty,th&clean` (Kamera und Ziel in Kartenmetern, Höhen über
@@ -47,6 +59,13 @@ dem Boden). Bilder unter `docs/images/levels/`.
 
 ## Die Level
 
+### 0 Demo-Tal (`demo-valley`)
+Die generierte Beispielkarte (`src/app/world/custom-map/demo-map.ts`, so auch im Editor und in `/map-preview` ohne
+Karte), für die Auslieferung mit dem Level-Kit nachgearbeitet (`tools/maps/levels/demo-valley.ts`, `LevelKit` auf
+einer vorhandenen Karte, E184): der Ruinenhügel im Südwesten als Felsklotz mit Klippenfelsen und Burgruine (Bergfried,
+Mauern, Türme, Tor zum Dorf), ein Aussichtshügel südlich des Dorfs mit Kapelle und Wachturm, Lichtungen, Totholz und
+Unterholz in den Wäldern, Krähenschwärme. Wege, Spawns und HQ wie generiert.
+
 ### 1 Bergpass (`mountain-pass`)
 **Gebaut** (`tools/maps/levels/mountain-pass.ts`, Small 512 m). Kartenprobe 10 Wellen bestanden (HQ 448 von 500,
 19 Tower), Spielansicht 268 fps, Laden 5,8 s am Dev-Server. Spuren 765 und 770 m. Bilder:
@@ -55,7 +74,10 @@ dem Boden). Bilder unter `docs/images/levels/`.
 Kaminen. Abweichungen: Schnee liegt nur auf den flacheren Gipfelpartien (an den Wänden deckt das Klippenmaterial ihn
 zu; eine Schneegrenze ist beim Renderer gewünscht), die Seilbahn hat Seile aus `cable-span-40`-Stücken, mit
 `pitch` entlang des Hangs geneigt, und eine Gondel je Feld (Bild `mountain-pass-cablecar.jpg`). Steinbrücke über den Bach (`style: 'stone'`, Bild `mountain-pass-bridge.jpg`); der Bergsee ist ein
-eigenes Gewässer, weil der Spiegel des Hauptwassers jedes Brückendeck der Karte auf seine Höhe hebt.
+eigenes Gewässer, weil der Spiegel des Hauptwassers jedes Brückendeck der Karte auf seine Höhe hebt. Hochgebirge
+(E184): ein Gletscher an der Innenflanke jedes Gipfels (`glacier`, zum Dorf hin sichtbar, Schneeböen am Kopf),
+Lawinenverbauung als versetzte Reihen auf drei Höhenlinien über dem Pass (Palisaden als Platzhalter, bis ein Modell
+da ist), vier Almhütten mit Holzstapel und Pferch auf den Hochweiden, Adler (Vogelschwarm) über beiden Gipfeln.
 
 Biom Berge, Look `mountain`, später Nachmittag. Ein Pass zwischen zwei Gipfeln; die Straße windet sich in Serpentinen
 vom Tal zum Pass, wo das HQ in einem Bergdorf steht (Steinhäuser mit Holzbalkon, Kapelle, Stützmauern). Ein Wasserfall
@@ -71,7 +93,11 @@ Geländer), gelegt, wo die Linie übers Wasser läuft; Fackeln an den Stegen. Fe
 `temperate` bei Nacht, weil der Sumpf-Look nachts helle Wolken hat; an den Renderer gemeldet), tiefe Nebelbänke übers
 offene Wasser, Moos, Schlamm und Wurzeln auf den Inseln, Laternen an den Pfahlhütten, Kessel und Leuchtpilze. Lesbarkeit: Nacht im Sumpf-Look mit `moonlight: 1` (kühles Mondlicht des Renderers), dessen Dunst flach über dem
 Wasser liegt; Wege, Inseln und Stege sind aus der Spielkamera klar. Nebelbälle nur noch klein an den Spawns, Laternen
-und Fackeln alle 16 m an den Stegen, Lagerfeuer auf den großen Inseln, Glühwürmchen-Wolken über dem offenen Wasser.
+und Fackeln alle 16 m an den Stegen, Lagerfeuer auf den großen Inseln, Glühwürmchen-Wolken über dem offenen Wasser. Seit
+E184: eine Riesenweide (dreifache Größe) als Wahrzeichen auf der HQ-Insel, grüne Glut über dem Kessel der Hexe, eine
+Felskuppe mit Klippenfelsen und Steinkreis im Südwesten, drei versunkene Pfahlhütten (schräg, halb im Wasser), zwei
+Stelzenstege zwischen äußeren Inseln (keine Spuren), Irrlichter (bläuliche Glühwürmchen) und Nebelbänke in den
+Senken abseits der Stege.
 
 Biom Sumpf, Look `swamp`, Nacht mit Bodennebel und Glühwürmchen. Ein Bohlenweg über Sumpfwasser, Inseln mit
 Pfahlhütten, die Hexenhütte mit grün leuchtenden Fenstern als HQ-Kulisse, Laternen an den Stegen als einzige
@@ -85,7 +111,11 @@ Insel. Bauflächen: die Inseln; das Wasser selbst ist nicht bebaubar.
 84 x 76 m statt 60 x 60 m, Mauern und Torhaus größer, Bergfried höher, sechs Turmruinen an Ecken und Mauern, Lücken
 im Mauerzug; Felsen, Efeu und Gestrüpp um die Hügelkrone; Laub und Farbflecken auf der Wiese. Der Herbstwald ist der
 Wald-Pinsel, dessen Sommerbäume danach gegen ihre Herbstvarianten getauscht werden (ein Herbst-Biom fehlt dem
-Landscape-Werkzeug); Morgennebel nur als wenige kleine Nebelfelder, größere wirken von oben wie Schnee.
+Landscape-Werkzeug); Morgennebel nur als wenige kleine Nebelfelder, größere wirken von oben wie Schnee. Seit E184
+steht die Burg auf einem Felssporn: die Krone 7 m über dem alten Hügel, steile Flanken mit Klippenfelsen
+(`cliffRocks`, vor dem Bewuchs gesetzt, der Pinsel hält Abstand zu anderen Objekten), der Torweg als Rampe durch die
+Südflanke; ein Wassergraben fünf Meter um die Mauern, offen am Torweg; Feuerschalen, Lagerfeuer, Fackeln und Banner in
+Burghof und Tor; eine Windmühle auf einem Hügel östlich mit Feld; mehr Nebel in den Senken, Raben über dem Wald.
 
 Biom Laubwald mit Herbstfarben, Look `day` warm. Eine Burgruine auf einem Hügel, Mauerreste, Bergfried-Ruine, ein
 Torhaus. Drei Wege kommen aus den Wäldern und treffen sich vor dem Tor; das HQ steht im Burghof. Laubhaufen, Efeu,
@@ -144,7 +174,11 @@ Dev-Server. Vier Spuren zu je 474 m, Startgeld 250 je Spur (`gameplay.startCredi
 ebenfalls, aber mit 124 und 140 HP). Bilder: `docs/images/levels/twin-gates.jpg`, `twin-gates-castle.jpg`,
 `twin-gates-game.jpg`. Gebaut mit Mirror X: Pinsel kopieren ihre Zellen, Linien und Objekte entstehen gespiegelt; den
 Generator-Boden spiegelt `mirrorFrom` einmal von West nach Ost. Was auf der Achse steht (Bergfried hinter dem HQ),
-ist ohne Symmetrie gesetzt.
+ist ohne Symmetrie gesetzt. Seit E184 stehen die Burgen auf Felsplateaus (10 m, steile Flanken mit
+Klippenfelsen, trockener Graben am Fuß), ein Fluss in zwei Armen umfasst die Mitte mit dem HQ (die Spuren queren ihn
+auf Steinbrücken), je Arm eine Wassermühle; Belagerungslager vor Nord- und Südtor (Kanonen, Zelte, Barrikaden,
+Lagerfeuer; Platzhalter, bis Belagerungsgerät als Modell da ist), Banner und Fackeln an allen Toren, Wachfeuer vor den
+Mauern, dichterer Wald an den Außenrändern, Vogelschwärme.
 
 Biom gemäßigt mit Burgmauern, Look `dusk`. Streng symmetrische Coop-Karte (Spiegelung an X): zwei Burgen, je zwei
 Spuren pro Spieler, die sich in der Mitte am gemeinsamen HQ treffen. Gestaltet mit dem Symmetrie-Modus. Spawns: 4.

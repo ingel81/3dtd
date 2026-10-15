@@ -220,6 +220,9 @@
         @if (mounted().has('objects')) {
           <div class="es-panel" [class.is-off]="session.tool() !== 'objects'"><app-object-panel /></div>
         }
+        @if (mounted().has('life')) {
+          <div class="es-panel" [class.is-off]="session.tool() !== 'life'"><app-life-panel /></div>
+        }
         @if (mounted().has('paths')) {
           <div class="es-panel" [class.is-off]="session.tool() !== 'paths'"><app-path-panel /></div>
         }

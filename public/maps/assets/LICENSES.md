@@ -253,6 +253,7 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | sandstone-pillar-tall | procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/cliff_side |
 | mesa | procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/cliff_side |
 | rock-arch | procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/cliff_side |
+| rock-arch-large | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/cliff_side |
 | stalagmites | procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/rock_boulder_dry |
 | basalt-columns | procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/dark_rock |
 | crystals-blue | procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/dark_rock |
@@ -317,6 +318,14 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | shrine | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/clay_roof_tiles_02 |
 | graves | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/dark_rock |
 | statue-horse | https://polyhaven.com/a/horse_statue_01; Sockel procedural (tools/map-assets/build_structures.py) |
+| cow | procedural (tools/map-assets/build_extras.py) |
+| cow-grazing | procedural (tools/map-assets/build_extras.py) |
+| cow-lying | procedural (tools/map-assets/build_extras.py) |
+| sheep | procedural (tools/map-assets/build_extras.py) |
+| sheep-grazing | procedural (tools/map-assets/build_extras.py) |
+| sheep-lying | procedural (tools/map-assets/build_extras.py) |
+| deer | procedural (tools/map-assets/build_extras.py) |
+| deer-grazing | procedural (tools/map-assets/build_extras.py) |
 | statue-knight | https://polyhaven.com/a/gothic_statue; Sockel procedural (tools/map-assets/build_structures.py) |
 | torch | procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/dark_planks; Flamme gezeichnet (make_foliage.py) |
 | brazier | procedural (tools/map-assets/build_props.py); Flamme gezeichnet (make_foliage.py) |
@@ -420,6 +429,7 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | antenna-dish | procedural (tools/map-assets/build_space.py) |
 | antenna-mast | procedural (tools/map-assets/build_space.py) |
 | lander | procedural (tools/map-assets/build_space.py); Goldfolie gezeichnet (make_foliage.py) |
+| mars-lander | procedural (tools/map-assets/build_extras.py); Rost https://polyhaven.com/a/rusty_metal_03 |
 | rover | procedural (tools/map-assets/build_space.py); Solarzellen gezeichnet |
 | solar-array | procedural (tools/map-assets/build_space.py); Solarzellen gezeichnet |
 | fuel-tanks | procedural (tools/map-assets/build_space.py) |
@@ -485,7 +495,8 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | camel-saddle | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/hessian_230; Streifenstoff gezeichnet |
 | trade-goods | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/hessian_230; https://polyhaven.com/a/patterned_clay_wall; Streifenstoff gezeichnet |
 | harbor-quay | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/castle_wall_slates |
-| harbor-crane | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/dark_planks |
+| harbor-crane | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/brown_planks_04 |
+| dock-crane | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/container_side |
 | jetty | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/bark_willow |
 | fisher-hut | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/roof_planks; https://polyhaven.com/a/bark_willow; Netz gezeichnet |
 | buoy-red | procedural (tools/map-assets/build_levels.py) |
@@ -518,6 +529,7 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | castle-ruin | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/mossy_stone_wall; https://polyhaven.com/a/dark_planks; Efeu https://ambientcg.com/view?id=LeafSet029 |
 | glacier | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/snow_02; https://polyhaven.com/a/rock_face |
 | seracs | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/snow_02 |
+| snowfield | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/snow_02; https://polyhaven.com/a/rock_boulder_dry |
 | avalanche-barrier | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/brushed_concrete |
 | avalanche-barrier-snow | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/snow_02 |
 | shipwreck | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/dark_planks |
@@ -539,6 +551,46 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | fx-sparkle | Effekt des Renderers, kein Modell |
 | fx-waterfall | Effekt des Renderers, kein Modell |
 | fx-birds | Effekt des Renderers, kein Modell |
+| fx-beacon | Effekt des Renderers, kein Modell |
+| house-modern | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brushed_concrete |
+| house-modern-red | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete |
+| house-semi | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete |
+| house-terrace | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brushed_concrete |
+| house-terrace-row | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brushed_concrete |
+| garage | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete |
+| garage-row | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete |
+| garden-shed | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/wood_planks_grey; https://polyhaven.com/a/brown_planks_04; https://polyhaven.com/a/bitumen |
+| carport | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/brushed_concrete |
+| carport-double | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/brushed_concrete |
+| station-canopy | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete |
+| block-row-4 | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete |
+| block-row-6 | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete |
+| block-corner-4 | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete |
+| block-corner-6 | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete |
+| office-mid | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete |
+| office-high | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete |
+| supermarket | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/exterior_wall_cladding_03; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete |
+| hall-flat | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/exterior_wall_cladding_03; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete |
+| industrial-hall | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/box_profile_metal_sheet; https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/brushed_concrete |
+| school | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete |
+| town-hall | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete |
+| town-church | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/white_sandstone_bricks; https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/roof_slates_02 |
+| station | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete |
+| parking-garage | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/precast_concrete_wall; https://polyhaven.com/a/asphalt_02; https://polyhaven.com/a/painted_plaster_wall |
+| greenhouse | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brick_wall_07 |
+| kiosk | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/brushed_concrete |
+| transformer-station | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete |
+| rail-track | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/gravel_floor_02; https://polyhaven.com/a/brushed_concrete |
+| rail-platform | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/concrete_slab_wall |
+| catenary-mast | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete |
+| buffer-stop | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/dark_planks |
+| power-pylon | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete |
+| vine-row | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/rough_wood; https://polyhaven.com/a/bark_brown_01; Blätter https://ambientcg.com/view?id=LeafSet029 |
+| fruit-tree | procedural (tools/map-assets/build_modern.py, build_nature.py); Rinde https://polyhaven.com/a/bark_brown_01; Blätter https://ambientcg.com/view?id=LeafSet002 |
+| playground-swing | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/rough_wood |
+| playground-slide | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/rough_wood |
+| football-goal | procedural (tools/map-assets/build_modern.py) |
+| fountain | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/sandstone_blocks_04 |
 
 ## Himmelsbilder (`skies/<id>.webp`)
 

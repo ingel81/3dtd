@@ -26,6 +26,11 @@ import { SHADER_NOISE } from '../shader-noise';
  * water there is still; on a river sloping away below the foot it would
  * stand out of the surface. A step of a cascade gets none (effect-layer.ts):
  * its water runs on down the next sheet.
+ *
+ * A lava fall (`lava`: lava under its foot or at its lip, effect-layer.ts) is
+ * the same sheet drawn as molten rock: dark crust plates sliding down over
+ * glowing streams, brightest at the lip and where it lands, its own light
+ * by night as by day, no foam disc.
  */
 
 export interface WaterfallSpec {
@@ -39,6 +44,8 @@ export interface WaterfallSpec {
   pool?: number | null;
   /** How far out in front of the lip each row of the sheet hangs (fallReach), ROWS + 1 of them; the plain curve without */
   reach?: number[];
+  /** Molten rock instead of water */
+  lava?: boolean;
 }
 
 const ROWS = 16;
@@ -132,6 +139,8 @@ export function buildWaterfalls(
   const across: number[] = [];
   // 0..1 down the sheet; -1 on a foam disc
   const fall: number[] = [];
+  // 1 on a lava fall
+  const lava: number[] = [];
   const index: number[] = [];
   const put = (e: number[], x: number, y: number, z: number): void => {
     pos.push(e[0] * x + e[4] * y + e[8] * z + e[12], e[1] * x + e[5] * y + e[9] * z + e[13], e[2] * x + e[6] * y + e[10] * z + e[14]);
@@ -158,6 +167,7 @@ export function buildWaterfalls(
           uv.push((c / COLS) * spec.radius * 0.5 + shift, t * spec.height * 0.25 + shift);
           across.push(c / COLS);
           fall.push(t);
+          lava.push(spec.lava ? 1 : 0);
         }
       }
       for (let r = 0; r < ROWS; r++) {
@@ -168,7 +178,7 @@ export function buildWaterfalls(
         }
       }
     }
-    if (spec.pool !== null && spec.pool !== undefined && still(e, spec.pool, out, spec.radius * 1.6, levelAt)) {
+    if (!spec.lava && spec.pool !== null && spec.pool !== undefined && still(e, spec.pool, out, spec.radius * 1.6, levelAt)) {
       // Foam on the pool: a disc around the foot, a little above the surface
       const middle = pos.length / 3;
       const reach = spec.radius * 1.6;
@@ -176,12 +186,14 @@ export function buildWaterfalls(
       uv.push(0, 0);
       across.push(0.5);
       fall.push(-1);
+      lava.push(0);
       for (let k = 0; k < DISC; k++) {
         const a = (k / DISC) * Math.PI * 2;
         put(e, Math.cos(a) * reach, spec.pool + 0.04, out + Math.sin(a) * reach * 0.8);
         uv.push(Math.cos(a), Math.sin(a));
         across.push(0.5);
         fall.push(-1);
+        lava.push(0);
       }
       for (let k = 0; k < DISC; k++) index.push(middle, middle + 1 + k, middle + 1 + ((k + 1) % DISC));
     }
@@ -191,6 +203,7 @@ export function buildWaterfalls(
   g.setAttribute('uv', new BufferAttribute(new Float32Array(uv), 2));
   g.setAttribute('aAcross', new BufferAttribute(new Float32Array(across), 1));
   g.setAttribute('aFall', new BufferAttribute(new Float32Array(fall), 1));
+  g.setAttribute('aLava', new BufferAttribute(new Float32Array(lava), 1));
   g.setIndex(index);
   g.computeBoundingSphere();
 
@@ -236,13 +249,16 @@ const WATERFALL_VERTEX = /* glsl */ `
 #include <logdepthbuf_pars_vertex>
 attribute float aAcross;
 attribute float aFall;
+attribute float aLava;
 varying vec2 vUv;
 varying float vAcross;
 varying float vFall;
+varying float vLava;
 void main() {
   vUv = uv;
   vAcross = aAcross;
   vFall = aFall;
+  vLava = aLava;
   vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
   gl_Position = projectionMatrix * mvPosition;
   #include <logdepthbuf_vertex>
@@ -259,6 +275,7 @@ uniform float uLight;
 varying vec2 vUv;
 varying float vAcross;
 varying float vFall;
+varying float vLava;
 ${SHADER_NOISE}
 void main() {
   #include <logdepthbuf_fragment>
@@ -274,6 +291,23 @@ void main() {
     float foam = smoothstep(0.35, 0.75, churn + (1.0 - r) * 0.35);
     color = mix(deep, white, 0.5 + foam * 0.45) * uLight;
     alpha = foam * (1.0 - smoothstep(0.55, 1.0, r)) * 0.85;
+  } else if (vLava > 0.5) {
+    // Molten rock: crust plates sliding down slowly over glowing streams; bright at the lip and the foot
+    vec2 p = vec2(vUv.x * 4.0, vUv.y * 1.6 - uTime * 0.45);
+    float crust = valueNoise(p * vec2(1.0, 0.7)) * 0.6 + valueNoise(p * vec2(2.6, 1.8) + 5.0) * 0.4;
+    // Plates of crust with glowing seams between them; the seams run down faster than the plates
+    float plates = smoothstep(0.42, 0.5, crust);
+    float seam = 1.0 - smoothstep(0.0, 0.06, abs(crust - 0.46));
+    float stream = valueNoise(vec2(vUv.x * 8.0 + 2.0, vUv.y * 0.6 - uTime * 0.9));
+    float hot = max((1.0 - plates) * (0.45 + 0.55 * stream), seam);
+    hot = max(hot, (1.0 - smoothstep(0.0, 0.18, vFall)) * 0.8);
+    hot = max(hot, smoothstep(0.8, 1.0, vFall) * 0.7);
+    vec3 dark = vec3(0.06, 0.018, 0.01);
+    vec3 glow = mix(vec3(0.95, 0.1, 0.01), vec3(1.35, 0.32, 0.03), smoothstep(0.75, 1.0, hot));
+    color = mix(dark, glow, hot);
+    float wobble = valueNoise(vec2(vAcross * 3.0, vUv.y * 0.5 - uTime * 0.4)) - 0.5;
+    float edge = min(vAcross, 1.0 - vAcross) + wobble * (0.2 + 0.1 * vFall);
+    alpha = smoothstep(0.02, 0.16, edge) * smoothstep(0.0, 0.04, vFall) * (1.0 - smoothstep(0.88, 1.0, vFall));
   } else {
     // Two layers of streaks stretched along the fall, scrolling down: a slow body, a fast bright front
     vec2 p = vec2(vUv.x * 6.0, vUv.y * 1.2 - uTime * 1.3);

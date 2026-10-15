@@ -396,10 +396,35 @@ def bake_ao(name, objects, size=512, distance=2.0, samples=24):
 
 
 def finish(name, objects, ao_size=512):
-    """Bakes ambient occlusion over the whole model, then exports it"""
+    """Bakes ambient occlusion over the whole model, then exports it; the faces of `spin-*` materials (a part
+    that turns, see split_spin) go into a node of their own"""
     obj = bake_ao(name, objects, size=ao_size)
-    export(name, [obj])
+    export(name, [obj] + split_spin(obj, name))
     return obj
+
+
+def split_spin(obj, name):
+    """Moves the faces of materials named `spin-*` out of `obj` into one object `spin-<name>`: a part of
+    the model that turns about the vertical axis through its origin (a radar head, a lighthouse lens).
+    It stays a node of its own in the GLB; pack_models.py joins only equal materials, so give spin
+    materials values no other material of the model has (glTF-Transform merges equal materials first)"""
+    spin = [i for i, slot in enumerate(obj.material_slots) if slot.material and slot.material.name.startswith('spin-')]
+    if not spin:
+        return []
+    bpy.ops.object.select_all(action='DESELECT')
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.select_all(action='DESELECT')
+    bm = bmesh.from_edit_mesh(obj.data)
+    for f in bm.faces:
+        f.select_set(f.material_index in spin)
+    bmesh.update_edit_mesh(obj.data)
+    bpy.ops.mesh.separate(type='SELECTED')
+    bpy.ops.object.mode_set(mode='OBJECT')
+    part = next(o for o in bpy.context.selected_objects if o != obj)
+    part.name = 'spin-' + name
+    return [part]
 
 
 def flat_copy(material):
@@ -511,7 +536,8 @@ def tube(part, points, radii, sides, smooth=True, cap=False):
                 loop[part.uv].uv = uv
             faces.append(f)
     if cap:
-        f = bm.faces.new(list(reversed(rings[-1][:-1])))
+        # The ring runs counter-clockwise about the tube's direction: in that order the cap faces out of the end
+        f = bm.faces.new(rings[-1][:-1])
         for loop in f.loops:
             loop[part.uv].uv = (0.5 + (loop.vert.co - points[-1]).x, 0.5 + (loop.vert.co - points[-1]).y)
     return faces

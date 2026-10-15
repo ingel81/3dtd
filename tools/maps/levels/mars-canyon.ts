@@ -21,8 +21,8 @@ export function buildMarsCanyon(): CustomMapDocument {
   for (const m of ['desert-gravel', 'mars-dunes', 'mars-dust', 'volcanic-rock', 'regolith', 'concrete']) k.layer(m);
   k.cliffs('cliff-ochre', 40);
 
-  // ---- The plain at 26 m, dunes on it, mesas rising over it
-  const plain = 26;
+  // ---- The plain at 40 m, dunes on it, mesas rising over it
+  const plain = 40;
   for (let y = -300; y <= 300; y += 110) for (let x = -300; x <= 300; x += 110) k.level({ x, y }, { radius: 130, falloff: 0.4 }, plain);
   k.form('dunes', [{ x: 150, y: 200 }, { x: 230, y: 120 }], { radius: 70, strength: 0.7 }, 1);
   k.form('dunes', [{ x: -220, y: -200 }, { x: -120, y: -230 }], { radius: 60, strength: 0.7 }, 1);
@@ -46,7 +46,8 @@ export function buildMarsCanyon(): CustomMapDocument {
   const northCanyon: MapPoint[] = [north, { x: 100, y: 190 }, { x: 130, y: 130 }, { x: 70, y: 90 }, { x: 60, y: 30 }, basin];
   const eastCanyon: MapPoint[] = [east, { x: 205, y: -215 }, { x: 215, y: -165 }, { x: 165, y: -190 }, { x: 120, y: -160 }, { x: 135, y: -110 }, { x: 95, y: -90 }, { x: 70, y: -140 }, hq];
   const carve = (line: MapPoint[], floor: number, radius: number, seed: number) => {
-    k.terrace(line, { radius: radius * 1.9, falloff: 0.5 }, 7, floor, 0.35);
+    // Ledges every 6 m: the deep walls read as layers of sediment, as in the canyons the rovers photograph
+    k.terrace(line, { radius: radius * 1.9, falloff: 0.5 }, 6, floor, 0.5);
     k.level(line, { radius, falloff: 0.35 }, floor);
     k.roughen(line, { radius: radius * 1.6, falloff: 0.6 }, 2.5, seed);
   };
@@ -55,12 +56,17 @@ export function buildMarsCanyon(): CustomMapDocument {
   carve(eastCanyon, 2.5, 22, 3);
   carve([basin, hq], 2, 28, 4);
   k.level(basin, { radius: 48, falloff: 0.4 }, 3);
-  for (const [dx, dy, r] of [[0, 0, 56], [30, -20, 40], [-30, -10, 40]] as const) k.level({ x: hq.x + dx, y: hq.y + dy }, { radius: r, falloff: 0.45 }, 2);
+  // The colony's floor: wide and level under the domes and the pad, the walls rising round it
+  for (const [dx, dy, r] of [[0, 0, 62], [30, -20, 46], [-30, -10, 46], [-60, -40, 26]] as const) k.level({ x: hq.x + dx, y: hq.y + dy }, { radius: r, falloff: 0.3 }, 2);
   for (const line of [westCanyon, northCanyon, eastCanyon]) k.erode(line, { radius: 34, strength: 1 }, 5);
+  // The spawns at the map's edge stand on the canyon floor, not on its wall
+  for (const [p, floor] of [[west, 3], [north, 3], [east, 2.5]] as const) k.level(p, { radius: 20, falloff: 0.3 }, floor);
+  // The floor under the roads smoothed after the roughening: no step on the way steeper than a road climbs
+  for (const line of [westCanyon, northCanyon, eastCanyon]) k.smooth(line, { radius: 9, falloff: 0.6 }, 3);
   k.erode(basin, { radius: 90, strength: 1 }, 8);
   // A mesa left standing in the basin, a ramp up to a bench over the colony
   k.plateau({ x: -10, y: 10 }, { radius: 15, falloff: 0.3 }, 17);
-  k.ramp({ x: 40, y: -165, h: 2 }, { x: 25, y: -195, h: 18 }, 7);
+  k.ramp({ x: 40, y: -165, h: 2 }, { x: 25, y: -195, h: 20 }, 7);
 
   // ---- Roads on the canyon floors
   const road = { width: 8, surface: [] as string[], lamps: false, adapt: false };
@@ -109,7 +115,14 @@ export function buildMarsCanyon(): CustomMapDocument {
   for (const p of around(20, 3, 1.4)) if (k.free(p.x, p.y, 3)) k.place('base-tunnel', p.x, p.y, { rotation: facing(p, hq) + Math.PI / 2 });
   const pad = { x: hq.x - 60, y: hq.y - 40 };
   k.paint('concrete', pad, { radius: 14, falloff: 0.4 }, 1);
-  if (k.free(pad.x, pad.y, 8)) k.place('landing-pad', pad.x, pad.y);
+  if (k.free(pad.x, pad.y, 8)) {
+    k.place('landing-pad', pad.x, pad.y);
+    // The lander that brought the colony, standing on its pad as the landmark of the base
+    // TODO(E179): a Mars lander model; the moon lander, enlarged, stands in
+    k.place('lander', pad.x + 1, pad.y, { rotation: 2.2, scale: 2.2 });
+  }
+  // A greenhouse farm on the basin's edge, rovers on their way out to it
+  for (const p of around(54, 6, 0.5)) if (p.y < hq.y - 10 && k.free(p.x, p.y, 9)) k.place('greenhouse-dome', p.x, p.y, { rotation: facing(p, hq) });
   for (const [dx, dy] of [[24, 6], [24, -8]] as const) if (k.free(pad.x + dx, pad.y + dy, 4)) k.place('fuel-tanks', pad.x + dx, pad.y + dy);
   for (let i = 0; i < 6; i++) {
     const p = { x: 90 + (i % 3) * 14, y: -190 + Math.floor(i / 3) * 12 };
@@ -130,7 +143,10 @@ export function buildMarsCanyon(): CustomMapDocument {
     }
   }
   for (const line of [westCanyon, northCanyon, eastCanyon]) {
-    k.scatter(['mars-boulder', 'mars-rock-large', 'mars-stone', 'boulder', 'mars-boulder', 'rock-basalt'], line, { radius: 30, strength: 0.6, falloff: 0.3 }, { density: 1.2, minDistance: 7, scaleMin: 0.7, scaleMax: 1.5 });
+    // Boulders on the floor and the ledges only: one settled on the face of a wall stuck out of it as a dark block;
+    // no black basalt cubes among them, they read as holes from the game camera
+    const fallen = new Set(k.scatter(['mars-boulder', 'mars-rock-large', 'mars-stone', 'boulder', 'mars-boulder', 'mars-rock-large'], line, { radius: 30, strength: 0.6, falloff: 0.3 }, { density: 1.2, minDistance: 7, scaleMin: 0.7, scaleMax: 1.5 }));
+    k.doc.objects = k.doc.objects.filter((o) => !fallen.has(o) || k.slope(o.x, o.y) < 35);
   }
   // Stones and dust ripples over the plain
   k.scatter(['mars-stone', 'stones-desert-scatter', 'boulder', 'stones-volcanic-scatter', 'mars-boulder'], [{ x: -200, y: 230 }, { x: 0, y: 150 }, { x: 200, y: 100 }, { x: -230, y: -190 }, { x: -100, y: -200 }, { x: 180, y: -230 }, { x: -220, y: 100 }], { radius: 55, strength: 0.7 }, { density: 2.5, minDistance: 4, scaleMin: 0.6, scaleMax: 1.4 });
@@ -138,6 +154,8 @@ export function buildMarsCanyon(): CustomMapDocument {
     if (k.free(x, y, 8)) k.place(a, x, y, { scale: sc, rotation: x * 0.01 });
   }
 
+  // TODO(E190): dust devils on the plain, the mission flag in the wind, the antenna blinking, a rover driving, sand
+  // blowing over the canyon edges
   k.trimLayers(7);
   // Butterscotch sky, the sun low in the dust
   k.environment({ biome: 'mars', sky: 'day', sunAzimuth: 230, sunElevation: 30, fogDensity: 0.0012, tint: '#fff0e2' });

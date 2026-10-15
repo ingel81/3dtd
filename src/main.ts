@@ -12,5 +12,14 @@ for (const weight of [500, 600, 700]) {
   void document.fonts?.load(`${weight} 16px ${TD_FONTS.ui}`).catch(() => undefined);
 }
 
-bootstrapApplication(AppComponent, appConfig)
-  .catch((err) => console.error(err));
+const start = () => bootstrapApplication(AppComponent, appConfig).catch((err) => console.error(err));
+
+// `?osm=<lat>,<lon>`: the map of that place is made first and the page loads anew on it (world/osm/osm-link.ts)
+if (new URLSearchParams(window.location.search).has('osm')) {
+  void import('./app/world/osm/osm-link').then(async ({ openOsmLink, osmLinkPlace }) => {
+    const place = osmLinkPlace(window.location.search);
+    if (!place || !(await openOsmLink(place))) void start();
+  });
+} else {
+  void start();
+}

@@ -26,6 +26,8 @@ export const HEIGHT_FOG_UNIFORMS = {
   uFogStart: { value: 450 },
   /** The map's extent in the scene (centre x, z and half sizes): land beyond the border fades into the haze */
   uFogMap: { value: new Vector4(0, 0, 1e6, 1e6) },
+  /** How far land beyond the border sinks into the haze, 0..1 (the look's beyondHaze) */
+  uFogBeyond: { value: 0.97 },
   /** Colour grade of the map's look, after the fog: contrast, saturation, and a multiply tint */
   uGradeContrast: { value: 1 },
   uGradeSaturation: { value: 1 },
@@ -77,6 +79,7 @@ uniform vec3 uFogSunDir;
 uniform float uFogDensity;
 uniform float uFogStart;
 uniform vec4 uFogMap;
+uniform float uFogBeyond;
 uniform float uGradeContrast;
 uniform float uGradeSaturation;
 uniform vec3 uGradeTint;
@@ -127,7 +130,7 @@ export function heightFogFragment(worldPos: string): string {
   float fogFactor = 1.0 - exp(-max(amount, 0.0));
   // Land beyond the map's border is backdrop: it sinks into the haze within 160 m, so the map stands out as the place
   vec2 beyond = abs(${worldPos}.xz - uFogMap.xy) - uFogMap.zw;
-  fogFactor = max(fogFactor, smoothstep(-20.0, 160.0, max(beyond.x, beyond.y)) * 0.97);
+  fogFactor = max(fogFactor, smoothstep(-20.0, 160.0, max(beyond.x, beyond.y)) * uFogBeyond);
   float sunward = pow(max(dot(fogRay / max(fogDist, 1e-3), uFogSunDir), 0.0), 8.0);
   // Fog is applied in output space (as three does). three hands fogColor over in that space already
   // (getUnlitUniformColorSpace: sRGB into the canvas, linear into a post target); only the sun's

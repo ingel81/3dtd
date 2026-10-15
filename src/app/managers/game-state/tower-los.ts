@@ -4,8 +4,8 @@ import type { GlobalRouteGridService } from '../../services/world/global-route-g
 import type { SimCoords } from '../../sim/core/sim-coords';
 import type { Tower } from '../../entities/tower.entity';
 import type { LosMask } from '../../utils/los-mask';
-import { TOWER_TYPES, type TowerTypeId } from '../../configs/tower-types.config';
-import { canTargetAirEffective } from '../../entities/tower-targeting.util';
+import type { TowerTypeId } from '../../configs/tower-types.config';
+import { canTargetAirEffective, canTargetGroundEffective } from '../../entities/tower-targeting.util';
 
 /** Why a tower waits and the generation of its latest request */
 export interface LosAwait {
@@ -83,18 +83,17 @@ export class TowerLos {
   /**
    * `tower:los-needed` with what the main thread renders: the range the
    * tower has now (a placed one's is its base range) and the layers it may
-   * target, air as its owner's research has it now.
+   * target, air as its owner's research has it now, ground as its path has it.
    */
   private announce(tower: Tower, { reason, generation }: LosAwait): void {
     const typeId = tower.typeConfig.id as TowerTypeId;
-    const config = TOWER_TYPES[typeId];
     this.eventBus.emit({
       type: 'tower:los-needed',
       towerId: tower.id,
       reason,
       generation,
       range: tower.combat.range,
-      canTargetGround: config.canTargetGround ?? true,
+      canTargetGround: canTargetGroundEffective(typeId, tower.pathId),
       canTargetAir: canTargetAirEffective(typeId, this.airTargetingFor(tower.ownerId)),
     });
   }

@@ -42,6 +42,7 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 | Poison | projectile | poison | 5 | 55m | 1.0/s | 100 | DoT (poison-glob), Splash |
 | Lightning | **chain** | lightning | 35 | 65m | 0.8/s | 130 | Hitscan-Kette (`maxJumps: 2`, `chainFalloff: 0.7`, `jumpRange: 15m`). Idle-Crackle am Turm-Tip + lokale Aufhell-Halos pro Hit (additive Sprites). Air+Ground. |
 | Chaos | projectile | chaos | 50 | 60m | 1.2/s | 200 | Generalist (1,0 gegen jede Rüstung), Air+Ground, Projektil `chaos-orb`. Kenney-Modell, der mittlere Kristall dreht sich (`turretNode: 'crystal'`) |
+| Iron Bastion | projectile | pierce | 36 | 65m | 0.75/s | 150 | Flak: Splash 5 m (max. 6 Ziele), Air+Ground, Rohr neigt sich (`pitchNodes: ['gun']`). Modell aus `tools/blender/build_tower.py` |
 | Research Center | **passive** | – | 0 | 0 | 0 | 75 | Kein Combat, siehe Research-System. Einmal je Karte |
 | Missile Silo | **passive** | – | 0 | 0 | 0 | 400 | Kein Combat, von ihm startet der Nuklearschlag ([ABILITIES.md](ABILITIES.md)). Einmal je Karte, keine Upgrades, Forschung `nuclear-strike` |
 
@@ -147,7 +148,7 @@ const NEW_MODEL_URL = 'assets/models/towers/new_tower.glb';
 | `upgrades` | TowerUpgrade[] | - | Verfügbare Upgrades |
 | `unique` | boolean | false | Einmal je Karte (Research Center, Missile Silo): kein zweites, solange eines steht |
 | `minWave` | number | - | Baubar erst ab der Bauphase vor Welle N (Research Center: 2, damit das Startgold Tower für Welle 1 kauft); Simulation und Baukarte prüfen es |
-| `description` | string | - | Was ein passives Gebäude tut, Text im Tooltip seiner Karte |
+| `description` | string | - | Was ein passives Gebäude tut oder die Rolle eines Towers in einem Satz, Text im Tooltip seiner Karte |
 | `canTargetAir` | boolean | false | Kann Luft-Einheiten angreifen |
 | `canTargetGround` | boolean | true | Kann Boden-Einheiten angreifen |
 | `hasAnimations` | boolean | false | GLTF-Animationen vorhanden |
@@ -162,6 +163,24 @@ const NEW_MODEL_URL = 'assets/models/towers/new_tower.glb';
 | `chainFalloff` | number | - | **Chain-only:** Schaden-Multiplier pro Jump (Lightning: 0.7 → 100%/70%/49%) |
 | `jumpRange` | number | - | **Chain-only:** Max. Distanz zwischen zwei Chain-Links in Metern |
 | `damageType` | DamageType | - | Pflichtfeld: physical/pierce/siege/magic/fire/ice/poison/lightning/chaos |
+
+### Modell aus einem Meshy-Kandidaten
+
+Die Kandidaten (`public/assets/models/towers/candidates/*.blend`, nicht in git) sind ein einziges Netz mit 0,8 bis
+2,5 Mio. Dreiecken und drei 2048er-Texturen. `tools/blender/split_tower.py` schneidet es nach `towers/<name>.json` in
+die Teile, die sich bewegen; `tools/blender/build_tower.py` läuft danach in derselben Blender-Sitzung und schreibt die
+GLB nach dem Block `export` derselben Datei:
+
+```bash
+blender -b --factory-startup <kandidat.blend> --python tools/blender/split_tower.py   --python tools/blender/build_tower.py -- tools/blender/towers/bastion.json <ausgabe>
+```
+
+Reduziert auf `triangles` (jedes Teil behält seinen Anteil), nur die Grundfarbe als JPEG (`texture`, `quality`),
+Material wie die anderen Tower (metallic 0, roughness 0,6). Die Gierachse steht auf x = z = 0, der tiefste Punkt auf
+y = 0 (`heightOffset` 0); jedes Teil hat seinen Pivot als Ursprung und keine Drehung, `names` benennt die Knoten
+(`turret_top`), `level` legt ein Rohr waagrecht, damit `pitchNodes` von Neigung 0 aus kippen. Am Ende druckt das
+Skript Dreiecke, Ursprünge und den Radius jedes Teils (`BUILD_TOWER {...}`): daraus `footprintRadius`, `shootHeight`
+und `firePoints`; `modelTop` prüft `tower-model.spec.ts`.
 
 ### 4. Projektiltyp hinzufügen (falls neu)
 
@@ -341,8 +360,51 @@ Ein Pfad ist ein Ein-Klick-Upgrade, einmal je Tower, einer je Tower (`configs/to
 Ein Pfad kann einen Anbau mitbringen (`attachment`: GLB in den Einheiten des Tower-Modells, unter dessen Mesh gehängt,
 ein Knoten darf langsam schwenken) und einen Erkennungsradius (`detectionRadius`, türkiser Ring beim Auswählen).
 
-Heute: Archer „Scout“ (Forschung Scouting ab W16, 3000; Pfad 250): ein Ausguck (`tools/blender/scout_lookout.py`)
-entdeckt getarnte Gegner im Umkreis von 35 m für alle Tower ([ENEMY_CREATION.md](ENEMY_CREATION.md), Camo).
+Was ein Pfad am Treffer tut, liest `CombatEffectService.applyPathHit` aus dem Pfad des Schusses: das Projektil trägt
+den Pfad seines Towers beim Abschuss (`Projectile.pathId`, im Wellen-Snapshot), ein danach gekaufter oder verkaufter
+Pfad ändert Schüsse in der Luft nicht. Die Verteidigungsanalyse des Wellenplaners rechnet den Pfad mit
+(`towerArmorMultipliers` in `director/tower-dps.util.ts`). Die Anbauten baut `tools/blender/path_attachments.py`
+(einer je Pfad, in den Einheiten des Tower-Modells).
+
+| Tower | Pfad | Forschung (ab Welle, Kosten) | Pfad | Wirkung | Rolle |
+|---|---|---|---:|---|---|
+| Archer | Scout | Scouting (W16, 3000) | 250 | Ausguck (`tools/blender/scout_lookout.py`), entdeckt getarnte Gegner im Umkreis von 35 m für alle Tower ([ENEMY_CREATION.md](ENEMY_CREATION.md), Camo) | Camo-Konter |
+| Archer | Fire Arrows | Incendiary Arrows (W10, 2000, nach Fire Alchemy) | 250 | jeder direkte Treffer setzt einen Brand: 25 % des Pfeilschadens je Sekunde als Feuer, 3 s, ein Brand je Tower, der nächste Treffer erneuert ihn; ein brennender Gegner regeneriert nicht | Regen-Konter in der Ballistik-Linie, mehr Schaden gegen Weiches |
+| Rocket | Multirole | Multirole Warheads (W9, 1500, nach Rocketry) | 300 | schießt auch auf Boden, dort mit 50 % (Treffer und Splash); solange ein Flieger Kandidat ist, nimmt sie den, und von einem Bodenziel schaut sie beim periodischen Sichtcheck (bis 3/s) nach Fliegern | die Rocket steht in Bodenwellen nicht mehr still |
+| Magic | Binding Sigil | Binding Sigils (W15, 2500, nach Arcane Studies) | 250 | jeder direkte Treffer versiegelt sein Ziel 4 s (Status `seal`, einer je Gegner, ein neuer erneuert ihn): Phasing (`immuneToSlow`) ist aufgehoben, ein Slow greift; der Slow läuft danach seine eigene Dauer aus | Ice wirkt wieder auf Wraiths (ab W17) |
+| Poison | Caustic | Caustic Compounds (W11, 2000, nach Toxic Compounds) | 250 | jeder direkte Treffer (nicht der Splash) zersetzt sein Ziel 3 s (Status `corrode`, einer je Gegner, kein Stapeln): Treffer zählen gegen die bessere von seiner Rüstung und der nächstleichteren (`LIGHTER_ARMOR`: Fortified zu Heavy zu Light zu Unarmored); Unarmored, Ethereal und Bosse nie | Panzerknacker für alle Tower, nicht nur Siege |
+
+Bodenziele per Pfad: `canTargetGroundEffective` und `groundDamageShareOf` in `entities/tower-targeting.util.ts`
+gelten für Zielwahl (`Tower.canTargetGround`, `prefersAir`), Splash, Sicht (`TowerLos` fragt die Bodensicht an,
+`choosePath` stößt sie wie das AA Retrofit mit Grund `retrofit` an) und die Verteidigungsanalyse (Boden mal Anteil).
+
+Rechnung Fire Arrows (Archer L0, 30 Physical je Sekunde, Brand 7,5 Fire je Sekunde, Matrix §2.3): gegen Unarmored
+30 + 11,3 (+37 %), Light 30 + 9 (+30 %), Heavy 15 + 4,5 (+30 %), Fortified 9 + 1,9 (+21 %), Ethereal 3 + 0,8. Der
+Brand wächst mit dem Damage-Track. Dieselben +37 % gegen Unarmored kosten über den Damage-Track ab L0 etwa 6,5 Stufen
+(etwa 400 Gold), ab L5 etwa 1.200 Gold: der Pfad ist ein billiger Kauf für Archer, die schon ausgebaut sind, wie der
+Scout ein Einmalkauf.
+
+Rechnung Binding Sigil: der Slow der Ice (50 %, 3 s) verdoppelt die Zeit eines Wraiths (Basis 8 m/s) im Feuer
+aller Tower, solange er hält. Die Magic (1,5 Schuss/s) versiegelt jedes Ziel, das sie trifft, und hält es, bis es
+stirbt oder die Reichweite verlässt; jedes Siegel läuft 4 s nach ihrem letzten Treffer weiter. Ohne Ice in
+derselben Strecke bringt der Pfad nichts. Der Wellenplaner kennt Slows nicht (wie bisher), das Siegel zählt dort
+nicht.
+
+Rechnung Caustic: „eine Klasse leichter“ nimmt je Schadensart das Bessere (`matrixMultiplier` in
+`configs/combat/damage-matrix.config.ts`), damit Siege gegen Heavy nicht von 1,75 auf 0,5 fällt. Gegen einen
+zersetzten Heavy (Tank, Mech, Bär): Pierce 0,35 zu 1,6, Physical 0,5 zu 1,0, Fire 0,6 zu 1,2, Ice 0,8 zu 1,3,
+Poison 0,4 zu 1,2, Lightning 1,2 zu 1,5; Siege und Magic bleiben. Gegen Fortified (Mammut, Golem): Lightning 0,3 zu
+1,2, Fire 0,25 zu 0,6, Ice 0,5 zu 0,8, Physical 0,3 zu 0,5, Siege 1,6 zu 1,75. Eine Gatling L0 (50 DPS) macht einem
+zersetzten Tank 80 statt 17,5, der Poison Tower selbst 15,6 statt 5,2 (5 + 8 DoT). Die Deckel: nur der direkte
+Treffer (1 Schuss/s, die Poison hält ihr Ziel), also etwa ein Ziel je Tower und die zuletzt getroffenen noch bis
+zu 3 s; eine Klasse, kein Stapeln; Bosse nie. Am stärksten mit gleicher Zielwahl (`first`): Poison und Gatling
+schießen auf den vordersten Gegner. Der Wellenplaner rechnet mit der reinen Matrix, die Zersetzung zählt dort nicht.
+
+Rechnung Multirole (Rocket L0 60 Siege alle 2 s, Splash 5 m bis 5 Ziele): am Boden 30 je Schuss, 15 DPS vor Splash,
+gegen Heavy 26 (Matrix 1,75). Eine Cannon L0 (150 Gold) bringt gegen Heavy 48 vor Splash (55 × 0,5/s × 1,75): die
+Rocket mit Pfad ist am Boden gut die Hälfte einer Cannon, für 120 + 300 Gold, und bleibt Luftabwehr. Gegen Light und
+Unarmored 7,5 (Siege 0,5). Im menschlichen Lauf bis W60 standen ab W16 acht Rockets auf L0 in jeder Bodenwelle still
+(`tools/balance-calc/trajectory.json`); mit dem Pfad tragen sie dort gegen Heavy zusammen etwa so viel wie vier Cannons L0.
 
 ## Bauzeit und Gerüst
 
@@ -422,8 +484,9 @@ export const TOWER_TYPES = {
   poison: { ... },             // 9. Position
   lightning: { ... },          // 10. Position
   chaos: { ... },              // 11. Position
-  'research-center': { ... },  // 12. Position (passives Building, kein Combat)
-  'missile-silo': { ... },     // 13. Position (passives Building, Abschussort des Nuklearschlags)
+  bastion: { ... },            // 12. Position (Iron Bastion)
+  'research-center': { ... },  // 13. Position (passives Building, kein Combat)
+  'missile-silo': { ... },     // 14. Position (passives Building, Abschussort des Nuklearschlags)
 };
 ```
 

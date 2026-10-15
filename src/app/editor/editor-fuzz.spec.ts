@@ -24,6 +24,7 @@ import type { BiomeId } from './ops/landscape/biomes';
 import { resizeMap } from './ops/resize';
 import type { SymmetryMode } from './ops/symmetry';
 import { LandscapeTool } from './tools/landscape-tool';
+import { LifeTool } from './tools/life-tool';
 import { MarkerTool } from './tools/marker-tool';
 import { ObjectTool } from './tools/object-tool';
 import { PaintTool, paintCommands } from './tools/paint-tool';
@@ -132,6 +133,7 @@ function fuzz(seed: number, count: number): Run {
     markers: new MarkerTool(),
     landscape: new LandscapeTool(),
     stamp: new StampTool(),
+    life: new LifeTool(),
   };
   const steps: string[] = [];
   const pick = <T>(list: readonly T[]): T => list[Math.floor(r() * list.length)];
@@ -293,7 +295,7 @@ function fuzz(seed: number, count: number): Run {
     restore: () => {
       if (!kept.length) return;
       const from = pick(kept);
-      const parts = ['terrain', 'objects', 'paths', 'spawns', 'hq', 'environment', 'gameplay'] as const;
+      const parts = ['terrain', 'objects', 'paths', 'spawns', 'hq', 'environment', 'gameplay', 'life'] as const;
       editor.execute(
         SnapshotCommand.record(editor.doc, 'Restore version', parts, (m) => {
           for (const k of parts) (m as unknown as Record<string, unknown>)[k] = structuredClone(from[k]);
@@ -471,6 +473,30 @@ function fuzz(seed: number, count: number): Run {
       }
       steps.push(`jump to ${to}`);
     },
+    life: () => {
+      const s = ctx.settings.life;
+      const areas = editor.doc.life?.areas ?? [];
+      if (areas.length && r() < 0.4) {
+        // Edit: choose one, drag its first point or remove it
+        const a = pick(areas);
+        s.mode = 'edit';
+        s.chosen = a.id;
+        s.point = -1;
+        const p = a.points[0];
+        if (r() < 0.7) drag(tools.life, ctx, [[p.x, p.y], [p.x + 10, p.y - 6]]);
+        else tools.life.key!(key('Delete'), ctx);
+        steps.push('life edit');
+        return;
+      }
+      s.mode = r() < 0.6 ? 'area' : 'route';
+      s.kind = pick(['birds', 'fireflies', 'fog', 'embers', 'sound'] as const);
+      for (const [x, y] of path(s.mode === 'area' ? 4 : 3)) {
+        tools.life.pointerDown(at(x, y), ctx);
+        tools.life.pointerUp(at(x, y), ctx);
+      }
+      tools.life.key!(key('Enter'), ctx);
+      steps.push(`life ${s.mode} ${s.kind}`);
+    },
     environment: () => {
       editor.execute(
         SnapshotCommand.record(editor.doc, 'Environment', ['environment'], (m) => {
@@ -485,7 +511,7 @@ function fuzz(seed: number, count: number): Run {
     ['road', 2], ['marker', 2], ['landscape', 4], ['stamp', 2], ['symmetry', 1], ['resize', 1], ['detail', 1], ['keep', 1],
     ['restore', 1], ['environment', 1], ['tint', 2], ['align', 1], ['placeAligned', 1], ['line', 2], ['cliffRocks', 2], ['mirror', 1],
     ['heightmap', 1], ['roadEdit', 3], ['roadBox', 1], ['river', 2], ['jump', 1], ['riverLine', 1], ['oldRoad', 1], ['rebuildDressing', 1],
-    ['roadRoundTrip', 1],
+    ['roadRoundTrip', 1], ['life', 1],
   ];
   const total = weights.reduce((s, [, w]) => s + w, 0);
   for (let k = 0; k < count; k++) {

@@ -17,6 +17,7 @@ import { VACANT_LANES } from './lane-choice';
 import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate';
 import { MAP_DIFFICULTY, MAP_FORMAT, MAP_VERSION, MAX_GROUND_LAYERS, splatMapCount, type CustomMapDocument } from './map-document';
 import { MAP_ID_PATTERN } from './map-create';
+import { lifeProblems } from './map-life';
 
 export const MAP_FILE_EXTENSION = '.3dtdmap';
 export const MAP_JSON_ENTRY = 'map.json';
@@ -368,6 +369,7 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
     if (!finite(e.width) || e.width <= 0) p.push(`path edge ${e.id} has no width`);
     if (e.via !== undefined && (!Array.isArray(e.via) || e.via.some((v) => !finite(v?.x) || !finite(v?.y)))) p.push(`path edge ${e.id} has a bad curve point`);
     if (e.style !== undefined && !['wood', 'stone', 'lava'].includes(e.style)) p.push(`path edge ${e.id} has an unknown bridge style`);
+    if ((e.street !== undefined && typeof e.street !== 'string') || (e.surface !== undefined && typeof e.surface !== 'string')) p.push(`path edge ${e.id} has a bad street type or surface`);
   }
   for (const sp of doc.spawns) {
     if (!sp || !finite(sp.x) || !finite(sp.y)) p.push(`spawn ${sp.id} has no position`);
@@ -423,10 +425,15 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
   if (env?.biome !== undefined && !looks.includes(env.biome)) p.push(`environment biome ${String(env.biome)} is unknown`);
   // An unknown id is no error: a map from a newer game shows the procedural sky here
   if (env?.skyImage !== undefined && typeof env.skyImage !== 'string') p.push('environment skyImage must be a sky id');
+  const planet = env?.planet;
+  if (planet !== undefined && (!planet || typeof planet !== 'object' || !finite(planet.azimuth) || !finite(planet.elevation) || !finite(planet.size) || planet.size < 0)) {
+    p.push('environment planet needs azimuth, elevation and a size of 0 or more');
+  }
   const wind = env?.wind;
   if (wind !== undefined && (!wind || typeof wind !== 'object' || !finite(wind.strength) || !finite(wind.direction) || !finite(wind.gusts))) {
     p.push('environment wind needs strength, direction and gusts');
   }
+  p.push(...lifeProblems(doc.life));
   return p;
 }
 

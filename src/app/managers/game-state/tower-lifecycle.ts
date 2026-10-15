@@ -182,8 +182,11 @@ export class TowerLifecycle {
     if (!tower.isBuilt(this.gameTimeMs())) return false;
     if (!this.research(tower.ownerId).isPathUnlocked(path.id)) return false;
     if (!this.creditsLedger.spend(path.cost, 'upgrade', this.actingPlayer())) return false;
+    const hadGround = tower.canTargetGround;
     tower.pathId = path.id;
     this.sink.towers.setPath(tower.id, path.id);
+    // A path that gives an air tower the ground needs its ground sight (as the air retrofit its air sight)
+    if (!hadGround && tower.canTargetGround) this.los.recompute(tower, 'retrofit');
     // As an upgrade: the run log books it as the tower's, its sound plays, the stats panel follows
     this.eventBus.emit({ type: 'tower:upgraded', tower, level: 1, cost: path.cost, upgradeId: `path:${path.id}` });
     return true;

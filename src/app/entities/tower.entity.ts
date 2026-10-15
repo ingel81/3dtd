@@ -14,7 +14,7 @@ import { Enemy } from './enemy.entity';
 import { RouteCell } from '../utils/route-cell';
 import type { LosMask } from '../utils/los-mask';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
-import { canTargetAirEffective } from './tower-targeting.util';
+import { canTargetAirEffective, canTargetGroundEffective } from './tower-targeting.util';
 import { TowerAim, createTowerAim } from './tower-aim';
 import { DetMath } from '../utils/det-math';
 import { getTowerPath, type TowerPathId } from '../configs/tower-paths.config';
@@ -154,6 +154,19 @@ export class Tower extends GameObject {
   /** Radius (m) within which it reveals camouflaged enemies, 0 when it does not (its path's detectionRadius) */
   get detectionRadius(): number {
     return getTowerPath(this.pathId)?.detectionRadius ?? 0;
+  }
+
+  /** Whether it may attack ground enemies: its type's flag, or a path that gives an air tower the ground */
+  get canTargetGround(): boolean {
+    return canTargetGroundEffective(this.typeConfig.id as TowerTypeId, this.pathId);
+  }
+
+  /**
+   * An air tower that took the ground with its path (TowerPath.groundDamageShare): it picks a flyer while one
+   * is a candidate, and leaves a ground target for one at its periodic sight check (TowerCombatService)
+   */
+  get prefersAir(): boolean {
+    return getTowerPath(this.pathId)?.groundDamageShare !== undefined;
   }
 
   /**
@@ -352,7 +365,7 @@ export class Tower extends GameObject {
         // Verify target type is still compatible (air/ground)
         const isAirEnemy = this._currentTarget.typeConfig.isAirUnit ?? false;
         const canTargetAir = canTargetAirEffective(this.typeConfig.id as TowerTypeId, airTargetingUnlocked);
-        const canTargetGround = this.typeConfig.canTargetGround ?? true;
+        const canTargetGround = this.canTargetGround;
         const typeValid = (isAirEnemy && canTargetAir) || (!isAirEnemy && canTargetGround);
 
         // A camouflaged target the scouts lost goes as one out of range
@@ -374,7 +387,7 @@ export class Tower extends GameObject {
 
     // Get targeting capabilities (AA-Retrofit research can extend air-targeting for Gatling).
     const canTargetAir = canTargetAirEffective(this.typeConfig.id as TowerTypeId, airTargetingUnlocked);
-    const canTargetGround = this.typeConfig.canTargetGround ?? true;
+    const canTargetGround = this.canTargetGround;
 
     // LOS check only when selecting NEW target: the periodic recheck in
     // updateTowerShooting drops air and ground targets that lose it, and
@@ -390,6 +403,7 @@ export class Tower extends GameObject {
     }
 
     // Select best target based on strategy
+    if (this.prefersAir) keepAirIfAny(candidates);
     const bestTarget = this.selectByStrategy(candidates);
 
     // Cache the new target
@@ -410,7 +424,7 @@ export class Tower extends GameObject {
   ): boolean {
     this._bodyDistSq = bodyDistSq ?? null;
     const canTargetAir = canTargetAirEffective(this.typeConfig.id as TowerTypeId, airTargetingUnlocked);
-    const canTargetGround = this.typeConfig.canTargetGround ?? true;
+    const canTargetGround = this.canTargetGround;
     return this.canEngage(enemy, canTargetAir, canTargetGround, this.combat.range * this.combat.range, losCheck);
   }
 
@@ -785,4 +799,14 @@ export class Tower extends GameObject {
     const dy = dLat * METERS_PER_DEGREE_LAT;
     return dx * dx + dy * dy;
   }
+}
+
+/** Drop the ground enemies from `candidates` in place when one of them flies (Tower.prefersAir) */
+function keepAirIfAny(candidates: Enemy[]): void {
+  if (!candidates.some((enemy) => enemy.typeConfig.isAirUnit)) return;
+  let write = 0;
+  for (const enemy of candidates) {
+    if (enemy.typeConfig.isAirUnit) candidates[write++] = enemy;
+  }
+  candidates.length = write;
 }

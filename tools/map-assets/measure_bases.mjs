@@ -28,6 +28,7 @@ const NO_PLATE = new Set([
   'lava-pool',
   'oasis-pool',
   'rock-arch',
+  'rock-arch-large',
   'rock-coast',
   'cliff-face',
   'cliff-face-b',
@@ -40,6 +41,7 @@ const NO_PLATE = new Set([
   'mesa',
   'iceberg',
   'glacier',
+  'snowfield',
 ]);
 
 const assets = process.argv[2];

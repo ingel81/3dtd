@@ -476,11 +476,15 @@ export class StateSnapshotService {
     // ignores chain falloff, splash and DoT — so upgrading a Fire or Lightning
     // tower left the hash unchanged and the profile stale.
     let hash = towers.length.toString();
+    // A path can change where a tower fires (the Multirole rocket takes the ground), not its DPS: the cells
+    // come with its new sight, after the path
     let dpsSum = 0;
+    let cells = 0;
     for (const t of towers) {
       dpsSum += computeTowerDPS(t);
+      cells += t.visibleCells.length;
     }
-    hash += '_' + Math.round(dpsSum);
+    hash += '_' + Math.round(dpsSum) + '_' + cells;
     return hash;
   }
 }
