@@ -6515,9 +6515,9 @@
       "name": "Lighthouse",
       "category": "building",
       "file": "models/lighthouse.glb",
-      "triangles": 642,
+      "triangles": 1680,
       "footprint": 3.6,
-      "height": 22.2,
+      "height": 23.6,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -9789,9 +9789,9 @@
       "name": "Antenna dish",
       "category": "prop",
       "file": "models/antenna-dish.glb",
-      "triangles": 482,
+      "triangles": 736,
       "footprint": 3.0,
-      "height": 7.1,
+      "height": 7.2,
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [

@@ -665,6 +665,12 @@ Bestand baut der Asset-Worker aus; Stand beim Schreiben:
   (Bauwerk, Bausperre, die Streben reichen bergauf). `shipwreck` ist eine Requisite (kein Einebnen, liegt 1,5 m im
   Sand), `rocket` ein Gebäude mit eigener Betonplatte. Dreiecke und Draw Calls je Modell: `catalog.json`
   (`triangles`), je Material ein Draw Call (`pack_models.py` fügt gleiche Materialien zusammen)
+- **Drehteile** (E179 für E190): Teile, die sich drehen sollen, haben Materialien `spin-*` und liegen im GLB als
+  eigener Knoten (`spin-<id>`), Drehachse ist die Senkrechte durch den Ursprung des Modells: der Kopf von
+  `antenna-dish` (Schüssel, Joch, Speisehorn), die Linse im Laternenraum von `lighthouse`. Die Bauskripte trennen
+  sie nach dem AO-Backen ab (`blender_kit.split_spin`); spin-Materialien brauchen Werte, die kein anderes Material des
+  Modells hat, sonst führt glTF-Transform sie zusammen. Gedreht wird noch nichts: `collectParts` backt alle Knoten
+  flach und `merge-parts.ts` fasst einfarbige Materialien zusammen, das Drehen gehört zu E190
 - **9 Effekt-Marker** (`fx-*`, `file: ''`): Glühwürmchen, Rauch, Glut, Bodennebel, Laub, Schnee, Funkeln, Wasserfall
 - **Tags**: Biome `temperate`, `autumn`, `winter`, `mountain`, `desert`, `swamp`, `coast`, `volcanic`, `village`,
   `castle`, `crystal`, `arena`, `city`, `wasteland`, `moon`, `mars`, `arctic`, `hell`; Rollen für Pinsel `conifer`,

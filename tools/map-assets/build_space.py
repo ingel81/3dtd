@@ -184,24 +184,36 @@ def tunnel(name, length=6.0):
 
 
 def antenna_dish(name):
-    """Parabolic dish on a turret, tilted to the sky (towards -Y)"""
+    """Parabolic dish on a turret, tilted to the sky (towards -Y): a fixed pedestal with a cable box and
+    a ladder; the head (yoke, dish with its rim struts and feed horn) has materials `spin-*` and stays a
+    node of its own, turning about the vertical axis through the origin (docs/CUSTOM_MAPS.md, Drehteile)"""
     clear_scene()
-    shell = Part(hull('dish-white'), smooth=True, uv_scale=0.3)
     metal = Part(trim(), smooth=True)
-    tube(metal, [Vector((0, 0, -0.3)), Vector((0, 0, 3.0))], [0.5, 0.4], 10, cap=True)
+    shell = Part(flat_material('spin-dish-white', (0.82, 0.83, 0.84), 0.4, 0.2), smooth=True)
+    head = Part(flat_material('spin-dish-metal', (0.24, 0.25, 0.26), 0.45, 0.6), smooth=True)
+    tube(metal, [Vector((0, 0, -0.3)), Vector((0, 0, 0.4))], [1.1, 1.1], 16, cap=True)
+    tube(metal, [Vector((0, 0, 0.4)), Vector((0, 0, 2.6))], [0.55, 0.45], 12, cap=True)
+    box(metal, 0.75, 0, 0.4, 0.5, 0.8, 0.9)
+    for k in range(6):
+        oriented_box(metal, Vector((-0.5, -0.3, 0.6 + k * 0.33)), Vector((-0.5, 0.3, 0.6 + k * 0.33)), 0.04)
+    # Head: a turntable, a yoke and the dish
+    tube(head, [Vector((0, 0, 2.6)), Vector((0, 0, 3.0))], [0.7, 0.7], 16, cap=True)
+    for s in (-1, 1):
+        oriented_box(head, Vector((s * 0.55, 0, 3.0)), Vector((s * 0.55, -0.2, 4.1)), 0.18)
     c = Vector((0, -0.3, 4.2))
     axis = Vector((0, -0.6, 0.8)).normalized()
+    oriented_box(head, Vector((-0.6, -0.2, 4.1)), Vector((0.6, -0.2, 4.1)), 0.16)
     prof = [(0.0, 0.2), (0.15, 1.2), (0.45, 2.2), (0.85, 3.0), (1.1, 3.4)]
     tube(shell, [c + axis * z for z, _ in prof], [r for _, r in prof], 24)
     tube(shell, [c + axis * (z - 0.06) for z, _ in reversed(prof)], [r for _, r in reversed(prof)], 24)
+    tube(head, [c + axis * 1.08, c + axis * 1.14], [3.45, 3.45], 24)
+    side = axis.orthogonal().normalized()
     for k in range(3):
         a = k / 3 * math.tau
-        side = axis.orthogonal().normalized()
         rim = c + axis * 1.1 + (side * math.cos(a) + axis.cross(side) * math.sin(a)) * 3.2
-        oriented_box(metal, rim, c + axis * 2.6, 0.06)
-    tube(metal, [c + axis * 2.4, c + axis * 2.9], [0.2, 0.12], 8, cap=True)
-    oriented_box(metal, Vector((0, 0, 3.0)), c, 0.5)
-    export(name, [shell.to_object(name), metal.to_object(name + '-metal')])
+        oriented_box(head, rim, c + axis * 2.6, 0.06)
+    tube(head, [c + axis * 2.4, c + axis * 2.9], [0.2, 0.12], 8, cap=True)
+    export(name, [metal.to_object(name + '-metal'), shell.to_object('spin-' + name), head.to_object('spin-' + name + '-head')])
 
 
 def antenna_mast(name, height=14.0):

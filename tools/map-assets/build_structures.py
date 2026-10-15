@@ -835,33 +835,70 @@ def watchtower(name):
 
 
 def lighthouse(name):
-    """White tapered tower with red bands, gallery and a glowing lantern room"""
+    """White tapered tower with red bands on a stone base, a door with a canopy, windows up the shaft, an
+    iron gallery with railing, the lantern room with its glazing bars and a domed roof with a vane. The
+    lens inside the lantern (two bright panels back to back on a drum) has materials `spin-*`: it stays a
+    node of its own, turning about the tower's axis (docs/CUSTOM_MAPS.md, Drehteile)"""
     clear_scene()
     walls = Part(pbr_material('wall-whitewashed_brick', 'whitewashed_brick', (1.1, 1.1, 1.1)), smooth=True)
     red = Part(flat_material('lighthouse-red', (0.55, 0.08, 0.06), 0.6), smooth=True)
     iron = Part(flat_material('iron', (0.08, 0.08, 0.08), 0.5, 0.8))
-    glass = Part(flat_material('lamp-glass', (1.0, 0.85, 0.5), 0.2, emission=(1.0, 0.8, 0.45), strength=1.0), smooth=True)
+    glass = Part(flat_material('lantern-glass', (0.55, 0.62, 0.6), 0.05, 0.3, emission=(1.0, 0.82, 0.5), strength=0.35), smooth=True)
     stone = Part(pbr_material('stone-slates', 'castle_wall_slates'), uv_metres=2.0)
+    dark = Part(flat_material('window', (0.05, 0.06, 0.07), roughness=0.2, metallic=0.3))
+    lens = Part(flat_material('spin-lighthouse-lens', (1.0, 0.9, 0.65), 0.2, emission=(1.0, 0.85, 0.55), strength=3.0), bevel=0.0)
+    drum = Part(flat_material('spin-lighthouse-drum', (0.3, 0.26, 0.18), 0.4, 0.8), smooth=True)
     h = 18.0
-    tube(stone, [Vector((0, 0, -0.5)), Vector((0, 0, 1.2))], [4.0, 3.9], 16)
-    tube(walls, [Vector((0, 0, 1.2)), Vector((0, 0, h))], [3.2, 2.1], 16, cap=True)
+
+    def radius(z):
+        return 3.2 - 1.1 * (z - 1.2) / (h - 1.2)
+
+    tube(stone, [Vector((0, 0, -0.5)), Vector((0, 0, 1.2))], [4.0, 3.9], 20, cap=True)
+    tube(walls, [Vector((0, 0, 1.2)), Vector((0, 0, h))], [radius(1.2), radius(h)], 20)
     for z0, z1 in ((6.0, 8.5), (12.5, 15.0)):
-        r0 = 3.2 - 1.1 * (z0 - 1.2) / (h - 1.2) + 0.03
-        r1 = 3.2 - 1.1 * (z1 - 1.2) / (h - 1.2) + 0.03
-        tube(red, [Vector((0, 0, z0)), Vector((0, 0, z1))], [r0, r1], 16)
-    tube(iron, [Vector((0, 0, h)), Vector((0, 0, h + 0.25))], [3.0, 3.0], 16, cap=True)
-    for k in range(16):
-        a = k / 16 * math.tau
-        p = Vector((math.cos(a) * 2.9, math.sin(a) * 2.9, h + 0.25))
-        oriented_box(iron, p, p + Vector((0, 0, 1.0)), 0.06)
-    pts = [Vector((math.cos(k / 16 * math.tau) * 2.9, math.sin(k / 16 * math.tau) * 2.9, h + 1.2)) for k in range(17)]
-    for a, b in zip(pts, pts[1:]):
-        oriented_box(iron, a, b, 0.06)
-    tube(glass, [Vector((0, 0, h + 0.25)), Vector((0, 0, h + 2.6))], [1.5, 1.5], 12)
-    cone_roof(iron, 0, 0, h + 2.6, 1.8, 1.6, 12)
-    box(iron, 0, -3.2, 0, 1.2, 0.2, 2.3)
-    export(name, [stone.to_object(name + '-base'), walls.to_object(name), red.to_object(name + '-bands'),
-                  iron.to_object(name + '-iron'), glass.to_object(name + '-lamp')])
+        tube(red, [Vector((0, 0, z0)), Vector((0, 0, z1))], [radius(z0) + 0.03, radius(z1) + 0.03], 20)
+    # Door with a small canopy, windows climbing the shaft
+    box(dark, 0, -radius(1.2) - 0.05, 1.2, 1.1, 0.15, 2.1)
+    box(stone, 0, -radius(1.2) - 0.45, 3.35, 1.7, 0.9, 0.15)
+    for k, z in enumerate((5.0, 9.6, 14.0)):
+        a = -math.pi / 2 + (k - 1) * 0.9
+        r = radius(z) + 0.02
+        box(dark, math.cos(a) * r, math.sin(a) * r, z, 0.12, 0.55, 0.9, a)
+    # Gallery: a slab on corbels, a railing of posts and two rails
+    tube(iron, [Vector((0, 0, h)), Vector((0, 0, h + 0.3))], [3.1, 3.1], 20, cap=True)
+    for k in range(12):
+        a = k / 12 * math.tau
+        oriented_box(iron, Vector((math.cos(a) * (radius(h) - 0.1), math.sin(a) * (radius(h) - 0.1), h - 0.9)),
+                     Vector((math.cos(a) * 2.9, math.sin(a) * 2.9, h)), 0.14)
+    for k in range(20):
+        a = k / 20 * math.tau
+        p = Vector((math.cos(a) * 3.0, math.sin(a) * 3.0, h + 0.3))
+        oriented_box(iron, p, p + Vector((0, 0, 1.0)), 0.05)
+    for z in (h + 0.75, h + 1.3):
+        pts = [Vector((math.cos(k / 20 * math.tau) * 3.0, math.sin(k / 20 * math.tau) * 3.0, z)) for k in range(21)]
+        for a, b in zip(pts, pts[1:]):
+            oriented_box(iron, a, b, 0.05)
+    # Lantern room: a low wall, glazing with bars, a domed roof with a ball and a vane
+    tube(walls, [Vector((0, 0, h + 0.3)), Vector((0, 0, h + 0.9))], [1.7, 1.7], 16, cap=True)
+    tube(glass, [Vector((0, 0, h + 0.9)), Vector((0, 0, h + 3.0))], [1.6, 1.6], 16)
+    for k in range(8):
+        a = k / 8 * math.tau
+        p = Vector((math.cos(a) * 1.62, math.sin(a) * 1.62, h + 0.9))
+        oriented_box(iron, p, p + Vector((0, 0, 2.1)), 0.07)
+    prof = [(0.0, 1.85), (0.25, 1.7), (0.7, 1.3), (1.1, 0.7), (1.3, 0.2), (1.35, 0.0)]
+    tube(iron, [Vector((0, 0, h + 3.0 + z)) for z, _ in prof], [r for _, r in prof], 16)
+    tube(iron, [Vector((0, 0, h + 4.3)), Vector((0, 0, h + 4.6))], [0.18, 0.18], 8, cap=True)
+    oriented_box(iron, Vector((0, 0, h + 4.6)), Vector((0, 0, h + 5.6)), 0.04)
+    oriented_box(iron, Vector((-0.4, 0, h + 5.3)), Vector((0.5, 0, h + 5.3)), 0.04)
+    # The lens: a drum on the axis and two bright panels back to back
+    tube(drum, [Vector((0, 0, h + 0.9)), Vector((0, 0, h + 1.4))], [0.35, 0.3], 10, cap=True)
+    tube(drum, [Vector((0, 0, h + 1.4)), Vector((0, 0, h + 2.7))], [0.12, 0.12], 6, cap=True)
+    for s in (-1, 1):
+        box(lens, 0, s * 0.35, h + 1.5, 0.9, 0.12, 1.0)
+    objects = [stone.to_object(name + '-base'), walls.to_object(name), red.to_object(name + '-bands'), iron.to_object(name + '-iron'),
+               glass.to_object(name + '-glass'), dark.to_object(name + '-dark'), drum.to_object('spin-' + name + '-drum'),
+               lens.to_object('spin-' + name + '-lens')]
+    export(name, objects)
 
 
 # ---------------------------------------------------------------- bridges, boardwalks, piers
