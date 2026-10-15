@@ -412,8 +412,6 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   zeichnet dieselbe Fläche geschmolzenen Fels: dunkle
   Krustenplatten gleiten langsam über glühende Ströme, hell an der Lippe und am Fuß, ohne Tag-Nacht-Dämpfung; am Fuß
   Glut und etwas Rauch statt Gischt, keine Schaumscheibe (Attribut `aLava`, ein Zweig im selben Shader)
-- **Lichter** (`light`: Farbe, Stärke, Reichweite, Höhe, `flicker`): jedes bekommt einen additiven Schein (am Tag
-  noch Scheibe: das Wasser läuft dort die nächste Fläche hinab, Schaum hinge sonst vor der Klippe in der Luft
 - **Lichtkegel** (`beam`, `effects/light-beams.ts`): zwei Kegel gegenüber aus der Lichthöhe (`height`), `radius` lang,
   drehen sich mit den drehenden Teilen des Objekts (unten), additiv, mittig heller, nur bei Dunkelheit; ein Mesh für
   alle. Der Leuchtturm hat einen (Höhe 20 m, 70 m lang, eine Umdrehung in 10 s)
