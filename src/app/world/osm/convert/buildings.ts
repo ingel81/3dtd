@@ -137,6 +137,21 @@ const RETAINING_ASSET = 'retaining-wall';
 const RETAINING_BOX: readonly [number, number] = [6, 1.2];
 /** Path edges (footways) count this share of their width against buildings: pavements run along the walls */
 const PATH_WIDTH_SHARE = 0.5;
+/** The buildings within this (m) give a footprint the median size of its neighbourhood (buildingKind's `around`) */
+const AROUND_REACH = 100;
+/** Footprints smaller than this (m²) are no house of the neighbourhood (sheds, garages) */
+const AROUND_FROM = 45;
+/** What a model of a kind may lose to another (fit error) and still be drawn by the footprint's salt: houses vary */
+const VARIETY = 0.08;
+/** What a module (blank sides) standing alone costs in a kind that does not stand in rows: a narrow house only */
+const LONE_MODULE = 0.1;
+/**
+ * Tints of the small buildings, one per footprint by its id (white walls to
+ * cream and sand, the red and anthracite roofs to brown and grey). Instance
+ * colours: no draw call more
+ */
+const BUILDING_TINTS: readonly (string | null)[] = [null, null, null, '#f6eee2', '#efe5d6', '#f3e3cb', '#e4ddd5', '#e9d6c2', '#dcd2c6'];
+const TINTED_KINDS: ReadonlySet<BuildingKind> = new Set(['house', 'semi', 'terrace', 'garage', 'shed', 'farm']);
 
 /** A turned rectangle: middle, unit axis `u` along side `a`, side `b` along `v` (u turned a quarter left) */
 interface Rect {
@@ -167,6 +182,8 @@ interface Footprint {
   centre: MapPoint;
   placements: Placement[];
   cost: number;
+  /** The tint of its models, null for none */
+  tint: string | null;
 }
 
 /** The buildings of `features` placed on `doc` (after the roads and the HQ): objects to add, the ground levelled under them */
@@ -197,6 +214,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
   const waters = new AreaIndex(features.areas.filter((a) => isWaterTags(a.tags)));
   const missing = new Map<string, number>();
   const footprints: Footprint[] = [];
+  const around = new AroundIndex(features.areas.filter((a) => a.tags['building'] && isGroundBuilding(a.tags) && a.area >= AROUND_FROM));
 
   for (const area of features.areas) {
     if (!area.tags['building'] || !isGroundBuilding(area.tags)) continue;
@@ -215,7 +233,8 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
       const rect = minAreaRect(outer);
       const centre = rect.c;
       const land = (lands.at(centre)?.tags ?? null) as Record<string, string> | null;
-      const kind = buildingKind(area.tags, ringA, Math.max(rect.a, rect.b) / Math.max(0.1, Math.min(rect.a, rect.b)), land ? buildingLandOf(land) : null);
+      const aspect = Math.max(rect.a, rect.b) / Math.max(0.1, Math.min(rect.a, rect.b));
+      const kind = buildingKind(area.tags, ringA, aspect, land ? buildingLandOf(land) : null, around.median(centre, AROUND_REACH));
       report.kinds[kind] = (report.kinds[kind] ?? 0) + 1;
       const fill = ringA / (rect.a * rect.b);
       const parts = fill < FILL_SPLIT ? splitFootprint(outer, holes, rect, ringA) : [rect];
@@ -263,7 +282,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
         continue;
       }
       const cost = kept.reduce((s, pl) => s + costOf(pl.asset, catalog, doc), 0);
-      footprints.push({ id: area.id, kind, area: ringA, centre, placements: kept, cost });
+      footprints.push({ id: area.id, kind, area: ringA, centre, placements: kept, cost, tint: TINTED_KINDS.has(kind) ? BUILDING_TINTS[hashId(area.id) % BUILDING_TINTS.length] : null });
     }
   }
 
@@ -296,7 +315,17 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
       const pad = levelPad(doc, pl, seatR, guard);
       if (pad.cut > 0.05) report.pads++;
       report.deepestCutM = Math.max(report.deepestCutM, round1(pad.cut));
-      objects.push({ id: `osm-b${++n}`, asset: pl.asset, x: round2(origin(pl).x), y: round2(origin(pl).y), z: 0, rotation: round3(pl.rotation), scale: round3(pl.scale), group });
+      objects.push({
+        id: `osm-b${++n}`,
+        asset: pl.asset,
+        x: round2(origin(pl).x),
+        y: round2(origin(pl).y),
+        z: 0,
+        rotation: round3(pl.rotation),
+        scale: round3(pl.scale),
+        ...(f.tint ? { tint: f.tint } : {}),
+        group,
+      });
       if (known(RETAINING_ASSET)) {
         for (const w of retainingWalls(doc, pl, pad.level, roads, boxes)) {
           objects.push({ id: `osm-b${++n}`, ...w, group });
@@ -473,8 +502,10 @@ export function fitModels(
     // High-rises only where the tags say so: a village's winery is no office tower
     if (levels === null && model.floors > UNTAGGED_FLOORS) return;
     const [w, d] = model.box;
-    for (let rows = 1; rows <= 2; rows++) {
-      const most = Math.min(MAX_COPIES, Math.max(1, Math.ceil(wide / (w * SCALE_MIN))));
+    // A module in a kind that does not stand in rows (a terraced house among houses): alone, a narrow house
+    const lone = model.module && !KIND_MODELS[kind].rows;
+    for (let rows = 1; rows <= (lone ? 1 : 2); rows++) {
+      const most = lone ? 1 : Math.min(MAX_COPIES, Math.max(1, Math.ceil(wide / (w * SCALE_MIN))));
       for (let copies = 1; copies <= most; copies++) {
         const scale = Math.min(SCALE_MAX, Math.max(SCALE_MIN, Math.min(wide / (copies * w), deep / (rows * d))));
         const cu = (copies * w * scale) / wide;
@@ -485,8 +516,9 @@ export function fitModels(
         // Copies: cheap for modules of a kind that stands in rows, dearer for a house cut in two
         error += extra * (model.module ? (KIND_MODELS[kind].rows ? 0.01 : 0.06) : 0.12) + (rows > 1 ? 0.12 : 0);
         if (levels !== null) error += Math.min(0.6, Math.abs(levels - model.floors) * 0.08);
-        // A little order (the first model of the kind) and a little variety (the footprint's salt) for ties
-        error += rank * 0.01 + (((salt * 31 + rank * 17) % 7) / 7) * 0.03;
+        if (lone) error += LONE_MODULE;
+        // A little order (the first model of the kind) and variety (the footprint's salt) among fits about as good
+        error += rank * 0.01 + (((salt * 31 + rank * 17) % 7) / 7) * VARIETY;
         if (!best || error < best.error) best = { model, copies, rows, scale, error };
       }
     }
@@ -913,6 +945,60 @@ class BoxIndex {
     for (let j = cj - r; j <= cj + r; j++) for (let i = ci - r; i <= ci + r; i++) out.push(...(this.cells.get(this.key(i, j)) ?? []));
     return out;
   }
+}
+
+/** The footprints' middles and sizes in a grid of cells, for the median size of the buildings around a point */
+class AroundIndex {
+  private readonly cell = 100;
+  private readonly cells = new Map<number, number[]>();
+
+  constructor(areas: readonly OsmArea[]) {
+    for (const area of areas) {
+      const c = ringMiddle(area.outer[0]);
+      const key = this.key(Math.floor(c.x / this.cell), Math.floor(c.y / this.cell));
+      let list = this.cells.get(key);
+      if (!list) this.cells.set(key, (list = []));
+      list.push(c.x, c.y, area.area);
+    }
+  }
+
+  private key(i: number, j: number): number {
+    return (i + 4096) * 8192 + (j + 4096);
+  }
+
+  /** Median footprint (m²) of the buildings within `reach` of `p`, null with fewer than five */
+  median(p: MapPoint, reach: number): number | null {
+    const sizes: number[] = [];
+    const r = Math.ceil(reach / this.cell);
+    const ci = Math.floor(p.x / this.cell);
+    const cj = Math.floor(p.y / this.cell);
+    for (let j = cj - r; j <= cj + r; j++) {
+      for (let i = ci - r; i <= ci + r; i++) {
+        const list = this.cells.get(this.key(i, j));
+        if (!list) continue;
+        for (let k = 0; k < list.length; k += 3) if (Math.hypot(list[k] - p.x, list[k + 1] - p.y) <= reach) sizes.push(list[k + 2]);
+      }
+    }
+    if (sizes.length < 5) return null;
+    sizes.sort((a, b) => a - b);
+    return sizes[sizes.length >> 1];
+  }
+}
+
+/** Mean of a ring's points */
+function ringMiddle(ring: readonly MapPoint[]): MapPoint {
+  let x = 0;
+  let y = 0;
+  for (const p of ring) {
+    x += p.x;
+    y += p.y;
+  }
+  return { x: x / Math.max(1, ring.length), y: y / Math.max(1, ring.length) };
+}
+
+/** A small hash of an OSM id (ids pass 2^32) */
+function hashId(id: number): number {
+  return Math.abs(Math.imul(id % 2147483647 | 0, 2654435761) >>> 0) % 1009;
 }
 
 /** Areas in a grid of cells by their bounds, for the area a point lies in (the smallest) */

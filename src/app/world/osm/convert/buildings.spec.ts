@@ -88,6 +88,34 @@ describe('OSM buildings: shapes and models', () => {
     expect(buildingKind({ building: 'yes' }, 2000, 2, 'industrial')).toBe('industrial');
     expect(buildingKind({ building: 'yes', amenity: 'place_of_worship' }, 600, 2, null)).toBe('church');
     expect(buildingKind({ building: 'garages' }, 90, 5, null)).toBe('garage');
+    // A big untagged footprint: a block of flats among blocks, a big house among houses (a village, a suburb)
+    expect(buildingKind({ building: 'yes' }, 280, 1.4, 'residential')).toBe('apartments');
+    expect(buildingKind({ building: 'yes' }, 280, 1.4, 'residential', 110)).toBe('house');
+    expect(buildingKind({ building: 'yes' }, 280, 1.4, 'residential', 600)).toBe('apartments');
+  });
+
+  it('lays a house as one house, not as a row of terraced modules; the narrow one as a lone module', () => {
+    // 13 x 10 m: one house at its scale, whatever the salt
+    for (let salt = 0; salt < 7; salt++) {
+      const fit = fitModels('house', 13, 10, null, all, salt)!;
+      expect(fit.copies * fit.rows).toBe(1);
+      expect(fit.model.module).toBeFalsy();
+    }
+    // 6 x 10 m between neighbours: the terraced module, alone
+    const narrow = fitModels('house', 6, 10, null, all)!;
+    expect(narrow.model.asset).toBe('house-terrace');
+    expect(narrow.copies * narrow.rows).toBe(1);
+    // A terrace stays a row of modules
+    expect(fitModels('terrace', 30, 10, null, all)!.copies).toBeGreaterThan(1);
+  });
+
+  it('varies the houses: both detached models and tints over many footprints', () => {
+    const areas = Array.from({ length: 24 }, (_, k) => area(1000 + k * 7919, box({ x: -88 + k * 7.5, y: 12 }, 7, 9.5, 0), { building: 'house' }));
+    const { doc, features } = world(areas);
+    const { objects } = placeBuildings(doc, features, { catalog });
+    const assets = new Set(objects.map((o) => o.asset));
+    expect(assets.size).toBeGreaterThan(1);
+    expect(new Set(objects.map((o) => o.tint ?? 'none')).size).toBeGreaterThan(2);
   });
 
   it('only names models the catalogue has', () => {
