@@ -160,7 +160,8 @@ Sandbank knapp unter dem Spiegel (die Prüfung warnt dort bewusst „under water
 
 Biom gemäßigt/Küste, Meer rundum, Look `day` klar. Fünf Inseln, verbunden durch Holzbrücken und Furten; Hafen mit
 Kaimauer, Kran, Fischerhütten, Leuchtturm. Gegner kommen über zwei Brückenketten zur Hauptinsel. Spawns: 2. Bauflächen:
-Inselränder an den Brückenköpfen.
+Inselränder an den Brückenköpfen. Am Rand des Sunds stehen sieben Brandungspfeiler (einzeln und in Gruppen, 12 bis
+24 m, aus dem Meeresboden gehoben, Klippenfelsen der Küste) als Tiefe vor dem Horizont.
 Leben (Werkzeug Life, im Level-Skript): Vögel über Leuchtturmfels, Hafen und Wrack, Ruderboote im Hafen, ein
 Fischerboot auf einer Route um die Hauptinsel; Brandung entlang der Felsküsten, Möwenrufe am Leuchtturmfels und
 über dem Hafen, Vogelgesang des Looks.
