@@ -29,6 +29,8 @@ import { mapToScene, sceneToMap } from './map-coords';
 import { CustomMapEnvironment } from './environment/map-environment';
 import { fitShadowBox } from './environment/shadow-fit';
 import { EffectLayer, glowStandIn } from './effects/effect-layer';
+import type { Flock } from './effects/bird-flocks';
+import type { MapBiome } from '../map-document';
 import { CoverMap } from './environment/cover-map';
 import { setPlantSway } from './environment/wind';
 import { MapObjectLayer, type ObjectHit } from './objects/object-layer';
@@ -52,6 +54,16 @@ import { NO_MAP_EFFECTS, type MapEffects } from './map-effects';
 import type { GridRect } from './terrain/terrain-chunks';
 import { programsReady } from '../../../three-engine/programs-ready';
 import { waterLevelAt } from '../water-level';
+
+/** Biomes with fireflies at night, and with birds by day */
+const FIREFLY_BIOMES: ReadonlySet<MapBiome> = new Set(['temperate', 'swamp', 'mountain']);
+const BIRD_BIOMES: ReadonlySet<MapBiome> = new Set(['temperate', 'mountain', 'swamp', 'desert', 'arctic', 'city', 'apocalypse']);
+/** Woods for fireflies and open land for birds are counted in squares of this size, metres; a wood has this many trees */
+const WOOD_CELL = 30;
+const WOOD_TREES = 6;
+/** Shore samples for fireflies every this many metres, and at most this many swarms */
+const SHORE_STEP = 12;
+const MAX_FIREFLY_SPOTS = 60;
 
 /**
  * CustomMapView: draws a custom map document. The editor and the game use
@@ -173,6 +185,8 @@ export class CustomMapView {
   private disposed = false;
   /** Depth materials like the ones the shadow pass derives, by the material's uuid (warmUpAssets) */
   private readonly depthTwins = new Map<string, MeshDepthMaterial>();
+  /** The next refreshAmbient, once edits pause */
+  private ambientDue: ReturnType<typeof setTimeout> | null = null;
   /** Stand-ins of what an edit brings in later (effectTwins), kept so their programs stay */
   private effectMeshes: Mesh[] | null = null;
   /** A render target to compile the shadow pass's programs for (linear output, no tone mapping) */
@@ -825,7 +839,8 @@ export class CustomMapView {
   }
 
   setEnvironment(env: MapEnvironment): void {
-    const biome = this.doc.environment.biome;
+    const docBiome = this.doc.environment.biome;
+    const biome = this.environment.biome;
     this.doc.environment = env;
     const sun = this.environment.sunDir.clone();
     this.environment.set(env);
@@ -833,7 +848,9 @@ export class CustomMapView {
     // The far shadow only follows the sun and the backdrop's mountains (a sky, a weather or the fog leave it), spread
     // over frames once the sun stands: the whole bake (20 to 60 ms, 80 in a dev build) held every step of a sun slider
     // and the click of a sky
-    if (!this.environment.sunDir.equals(sun) || env.biome !== biome) this.refreshFarShadow(true);
+    if (!this.environment.sunDir.equals(sun) || env.biome !== docBiome) this.refreshFarShadow(true);
+    // Fireflies and birds belong to some biomes only
+    if (this.environment.biome !== biome) this.refreshAmbientSoon();
     this.lightWater();
     this.effects.setDarkness(this.environment.darkness);
     NIGHT_WINDOW_UNIFORMS.uNightWindows.value = this.environment.darkness;
@@ -847,6 +864,7 @@ export class CustomMapView {
    */
   private refreshLava(): void {
     this.effects.setLavaLights(this.lavaLightPoints());
+    this.refreshAmbientSoon();
     // The ground's closeness to lava: right away the first time, edits once they pause for a quarter second
     if (this.lavaDue) clearTimeout(this.lavaDue);
     this.lavaDue = null;
@@ -888,6 +906,99 @@ export class CustomMapView {
     const sx = 1 / (f.cellSize * f.columns);
     const sy = 1 / (f.cellSize * f.rows);
     g.uLavaGridUv.value.set(sx, sy, (t.width / 2) * sx + 0.5 / f.columns, (t.depth / 2) * sy + 0.5 / f.rows);
+  }
+
+  /** refreshAmbient once edits pause for half a second */
+  private refreshAmbientSoon(): void {
+    if (this.ambientDue) clearTimeout(this.ambientDue);
+    this.ambientDue = setTimeout(() => {
+      this.ambientDue = null;
+      void this.refreshAmbient();
+    }, 500);
+  }
+
+  /**
+   * Life the map brings by itself, from its content (effects.setAmbient):
+   * fireflies over the shores of lakes and swamps and in woods, in the
+   * biomes that have them; bird flocks circling over the most open land,
+   * one per 300 m square of map (at most five), where there is air and
+   * birds. Nothing to edit: a map with water and woods gets it.
+   */
+  private async refreshAmbient(): Promise<void> {
+    const catalog = await this.assets.catalog();
+    if (this.disposed) return;
+    const biome = this.doc.environment.biome ?? 'temperate';
+    const trees = new Set(catalog.objects.filter((o) => o.category === 'tree').map((o) => o.id));
+    const woods = new Map<number, { x: number; y: number; n: number }>();
+    const t = this.doc.terrain;
+    const bin = (x: number, y: number) => Math.floor((y + t.depth / 2) / WOOD_CELL) * 4096 + Math.floor((x + t.width / 2) / WOOD_CELL);
+    for (const o of this.doc.objects) {
+      if (!trees.has(o.asset)) continue;
+      const k = bin(o.x, o.y);
+      const w = woods.get(k) ?? { x: 0, y: 0, n: 0 };
+      w.x += o.x;
+      w.y += o.y;
+      w.n++;
+      woods.set(k, w);
+    }
+    const fireflies = FIREFLY_BIOMES.has(biome) ? this.fireflyPoints(woods) : [];
+    const flocks = BIRD_BIOMES.has(biome) ? this.flockSpots(woods, bin) : [];
+    this.effects.setAmbient({ fireflies, flocks });
+  }
+
+  /** Points along the shores of lakes and swamps and in the middle of woods, at most MAX_FIREFLY_SPOTS, spread over the map */
+  private fireflyPoints(woods: Map<number, { x: number; y: number; n: number }>): Vector3[] {
+    const t = this.doc.terrain;
+    const f = this.heights;
+    const step = Math.max(1, Math.round(SHORE_STEP / f.cellSize));
+    const out: Vector3[] = [];
+    for (const body of [t.water, ...(t.waterBodies ?? [])]) {
+      if (!body || (body.kind && body.kind !== 'water' && body.kind !== 'swamp')) continue;
+      const wet = (i: number, j: number) => i >= 0 && j >= 0 && i < f.columns && j < f.rows && !!body.mask[j * f.columns + i] && f.sample(i, j) < body.level;
+      for (let j = 0; j < f.rows; j += step) {
+        for (let i = 0; i < f.columns; i += step) {
+          if (!wet(i, j) || (wet(i + step, j) && wet(i - step, j) && wet(i, j + step) && wet(i, j - step))) continue;
+          out.push(mapToScene(f.originX + i * f.cellSize, f.originY + j * f.cellSize, body.level + 0.3, new Vector3()));
+        }
+      }
+    }
+    for (const w of woods.values()) {
+      if (w.n < WOOD_TREES) continue;
+      const x = w.x / w.n;
+      const y = w.y / w.n;
+      out.push(mapToScene(x, y, f.heightAt(x, y) + 0.3, new Vector3()));
+    }
+    // Spread over the map: every k-th of them
+    const k = Math.ceil(out.length / MAX_FIREFLY_SPOTS);
+    return out.filter((_, n) => n % k === 0);
+  }
+
+  /** Centres of flocks over the land with the fewest trees, apart from each other, the map's edge and the water */
+  private flockSpots(woods: Map<number, { x: number; y: number; n: number }>, bin: (x: number, y: number) => number): Flock[] {
+    const t = this.doc.terrain;
+    const f = this.heights;
+    const wanted = Math.min(5, Math.max(1, Math.round((t.width * t.depth) / (300 * 300))));
+    const candidates: { x: number; y: number; score: number }[] = [];
+    for (let y = -t.depth / 2 + 80; y <= t.depth / 2 - 80; y += 60) {
+      for (let x = -t.width / 2 + 80; x <= t.width / 2 - 80; x += 60) {
+        if (this.waterLevelAt(x, y) !== null) continue;
+        candidates.push({ x, y, score: woods.get(bin(x, y))?.n ?? 0 });
+      }
+    }
+    candidates.sort((a, b) => a.score - b.score || a.x - b.x || a.y - b.y);
+    const out: Flock[] = [];
+    for (const c of candidates) {
+      if (out.length >= wanted) break;
+      if (out.some((o) => Math.hypot(-o.center.x - c.x, o.center.z - c.y) < 180)) continue;
+      const k = out.length;
+      out.push({
+        center: mapToScene(c.x, c.y, f.heightAt(c.x, c.y) + 45 + 12 * k, new Vector3()),
+        radius: 40 + 8 * (k % 3),
+        birds: 9 + (k % 3) * 2,
+        seed: ((Math.abs(Math.sin(c.x * 12.9898 + c.y * 78.233)) * 43758.5453) % 1) || 0.37,
+      });
+    }
+    return out;
   }
 
   private lavaLightPoints(): Vector3[] {
@@ -1035,6 +1146,8 @@ export class CustomMapView {
   private async refreshEffects(asset?: string): Promise<void> {
     const catalog = await this.assets.catalog();
     if (this.disposed) return;
+    // Woods grown or felled change where fireflies and birds go: once the edits pause
+    this.refreshAmbientSoon();
     if (asset) {
       const e = catalog.objects.find((o) => o.id === asset);
       if (!e?.effects && !e?.light) return;
@@ -1108,6 +1221,7 @@ export class CustomMapView {
     this.offscreen?.dispose();
     this.sceneCopy.dispose();
     if (this.lavaDue) clearTimeout(this.lavaDue);
+    if (this.ambientDue) clearTimeout(this.ambientDue);
     if (this.farShadowDue) clearTimeout(this.farShadowDue);
     if (this.decalsDue) clearTimeout(this.decalsDue);
     this.decals.dispose();

@@ -67,16 +67,25 @@ export type EffectKind =
   | 'leaves'
   | 'snow'
   | 'sparkle'
-  | 'waterfall';
+  | 'waterfall'
+  | 'birds';
 
 /**
  * A particle or sheet effect an object carries. Sizes are at scale 1 and
  * scale with the object. A `waterfall` builds a falling sheet `radius` wide
  * on each side and `height` high (from the object's base up) with spray at
- * its foot; the others emit particles from a disc of `radius` at `height`.
+ * its foot; `birds` is a flock of `rate` birds circling `radius` wide at
+ * `height` over the object (effects/bird-flocks.ts); the others emit
+ * particles from a disc of `radius` at `height`.
  */
 export interface CatalogEffect {
   kind: EffectKind;
+  /**
+   * Where on the model it comes from, beside its origin: x and z of the
+   * model's own frame (as the glTF holds it), metres at scale 1, turned and
+   * scaled with the object (a house's chimney)
+   */
+  at?: readonly [number, number];
   radius?: number;
   height?: number;
   /** Particles per second */

@@ -19,6 +19,7 @@ import { mapToScene } from '../map-coords';
 import { ParticleField, particleCount, type ParticleEmitter, type ParticleKind } from './particle-field';
 import { buildWaterfalls, fallFoot, fallLip, fallReach, type WaterfallSpec } from './waterfall';
 import { LAMP_LIGHT_UNIFORMS, LampLight, type LampSpot } from './lamp-light';
+import { BirdFlocks, type Flock } from './bird-flocks';
 
 /**
  * Effects and lights of the map's objects, from their catalogue entries
@@ -72,6 +73,17 @@ export class EffectLayer {
   private fields: ParticleField[] = [];
   /** Embers and smoke over lava (setLavaLights), apart from the objects' effects */
   private lavaFields: ParticleField[] = [];
+  /** Life the map's content brings by itself (setAmbient): fireflies at night, birds by day */
+  private fireflies: ParticleField | null = null;
+  private ambient: { fireflies: Vector3[]; flocks: Flock[] } = { fireflies: [], flocks: [] };
+  /**
+   * What the map maker placed (fx-birds, fx-fireflies and objects with those
+   * effects): placed flocks fly instead of the automatic ones, placed
+   * fireflies stand instead of the automatic ones (set)
+   */
+  private placedFlocks: Flock[] = [];
+  private placedFireflies = false;
+  readonly birds = new BirdFlocks();
   private waterfalls: Mesh | null = null;
   private glows: Mesh<InstancedBufferGeometry, ShaderMaterial> | null = null;
   private spots: LightSpot[] = [];
@@ -105,6 +117,7 @@ export class EffectLayer {
     this.group.name = 'custom-map-effects';
     this.group.userData['losTransparent'] = true;
     this.lamps = new LampLight(field);
+    this.group.add(this.birds.mesh);
     for (let k = 0; k < POINT_LIGHTS; k++) {
       const light = new PointLight(0xffffff, 0, 10, 2);
       light.castShadow = false;
@@ -123,6 +136,10 @@ export class EffectLayer {
     const feet: FallFoot[] = [];
     const up = new Vector3(0, 1, 0);
     const q = new Quaternion();
+    this.placedFlocks = [];
+    this.placedFireflies = false;
+    // Smoke placed by hand (fx-smoke over a house, a level script's chimney) stands for the house's own chimney
+    const placedSmoke = objects.filter((o) => entries.get(o.asset)?.effects?.some((fx) => fx.kind === 'smoke' && !fx.at));
     for (const o of objects) {
       const e = entries.get(o.asset);
       if (!e?.effects && !e?.light) continue;
@@ -142,14 +159,33 @@ export class EffectLayer {
           feet.push({ foot: fallFoot(matrix, spec), radius, rate: fx.rate, color: fx.color });
           continue;
         }
+        if (fx.kind === 'birds') {
+          // A flock the map maker placed: its size and number with the object's scale
+          this.placedFlocks.push({
+            center: origin.clone().setY(origin.y + (fx.height ?? 50) * s),
+            radius: (fx.radius ?? 45) * s,
+            birds: Math.max(2, Math.round((fx.rate ?? 10) * s)),
+            seed: ((Math.abs(Math.sin(o.x * 12.9898 + o.y * 78.233)) * 43758.5453) % 1) || 0.37,
+          });
+          continue;
+        }
+        if (fx.kind === 'fireflies') this.placedFireflies = true;
         const kind = fx.kind;
+        let from = origin;
+        if (fx.at) {
+          // A chimney's smoke: none where smoke already rises within the house's reach
+          const reach = e.footprint * s + 2;
+          if (placedSmoke.some((p) => p !== o && Math.hypot(p.x - o.x, p.y - o.y) < reach)) continue;
+          from = new Vector3(fx.at[0] * s, 0, fx.at[1] * s).applyQuaternion(q.setFromAxisAngle(up, o.rotation)).add(origin);
+        }
         push(emitters, {
           kind,
-          origin,
+          origin: from,
           radius: (fx.radius ?? (kind === 'fire' ? 0.15 : e.footprint)) * s,
           height: (fx.height ?? (kind === 'leaves' ? e.height * 0.8 : 0)) * s,
-          count: this.share(particleCount(kind, fx.rate)),
-          color: fx.color,
+          // An area effect of the map maker's (category fx) grows denser with its scale, and takes its tint
+          count: this.share(particleCount(kind, fx.rate) * (e.category === 'fx' ? Math.max(0.3, s * s) : 1)),
+          color: (e.category === 'fx' && o.tint) || fx.color,
           scale: kind === 'fog' || kind === 'smoke' ? s : Math.sqrt(s),
         });
       }
@@ -181,6 +217,7 @@ export class EffectLayer {
     }
     this.bakeLamps();
     this.showPool();
+    this.setAmbient(this.ambient);
   }
 
   /**
@@ -253,6 +290,42 @@ export class EffectLayer {
   }
 
   /**
+   * Life from the map's content (CustomMapView works out where): fireflies
+   * over shores and in woods, shown only in the dark; bird flocks over open
+   * land by day, on levels with most of the particles (medium and up).
+   * Placed flocks and fireflies (set) take the place of these
+   */
+  setAmbient(ambient: { fireflies: Vector3[]; flocks: Flock[] }): void {
+    this.ambient = ambient;
+    if (this.fireflies) {
+      const old = this.fireflies;
+      old.mesh.removeFromParent();
+      this.retired.push(() => old.dispose());
+      this.retiredFrames = 0;
+      this.fireflies = null;
+    }
+    if (ambient.fireflies.length && !this.placedFireflies) {
+      const per = this.share(14);
+      this.fireflies = new ParticleField(
+        'fireflies',
+        ambient.fireflies.map((origin) => ({ kind: 'fireflies', origin, radius: 9, height: 1.8, count: per, color: undefined, scale: 1 })),
+        this.time,
+        this.light,
+      );
+      this.group.add(this.fireflies.mesh);
+    }
+    const flocks = this.placedFlocks.length ? this.placedFlocks : ambient.flocks;
+    this.birds.set(this.particleShare >= 0.7 ? flocks.map((f) => ({ ...f, birds: Math.max(2, Math.round(f.birds * this.particleShare)) })) : []);
+    this.showAmbient();
+  }
+
+  /** Fireflies only in the dark, birds by day (bird-flocks.ts) */
+  private showAmbient(): void {
+    if (this.fireflies) this.fireflies.mesh.visible = this.darkness > 0.35;
+    this.birds.setDarkness(this.darkness);
+  }
+
+  /**
    * The quality level's part: a share of every field's particles (a `set`
    * after it builds them so) and how many real point lights follow the
    * lamps. Returns whether the particles changed, so the owner sets the
@@ -263,6 +336,7 @@ export class EffectLayer {
     this.particleShare = quality.particles;
     this.lightCount = Math.max(0, Math.min(POINT_LIGHTS, Math.round(quality.pointLights)));
     this.showPool();
+    if (changed) this.setAmbient(this.ambient);
     return changed;
   }
 
@@ -332,6 +406,7 @@ export class EffectLayer {
     this.light.value = 1 - this.darkness * 0.85;
     if (this.glows) this.glows.material.uniforms['uDarkness'].value = this.darkness;
     this.lightLamps();
+    this.showAmbient();
     this.showPool();
   }
 
@@ -396,6 +471,9 @@ export class EffectLayer {
     this.freeRetired();
     for (const f of this.lavaFields) f.dispose();
     this.lavaFields = [];
+    this.fireflies?.dispose();
+    this.fireflies = null;
+    this.birds.dispose();
     for (const light of this.pool) light.dispose();
     if (LAMP_LIGHT_UNIFORMS.uLampSteady.value === this.lamps.steady) {
       LAMP_LIGHT_UNIFORMS.uLampOn.value = 0;

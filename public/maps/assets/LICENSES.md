@@ -521,6 +521,7 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | fx-snow | Effekt des Renderers, kein Modell |
 | fx-sparkle | Effekt des Renderers, kein Modell |
 | fx-waterfall | Effekt des Renderers, kein Modell |
+| fx-birds | Effekt des Renderers, kein Modell |
 
 ## Himmelsbilder (`skies/<id>.webp`)
 

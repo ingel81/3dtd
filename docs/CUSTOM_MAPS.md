@@ -343,7 +343,11 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
 - **Partikel** `fire`, `smoke`, `embers`, `fireflies`, `fog`, `leaves`, `snow`, `sparkle`: je Art ein instanziertes
   Feld für die ganze Karte. Zustandslos: jedes Teilchen läuft per Zeit und Zufallswert im Vertex-Shader durch sein
   Leben, die CPU schiebt nur eine Zeit-Uniform. Leuchtende Arten additiv, beleuchtete (Rauch, Nebel, Laub, Schnee)
-  werden nachts dunkler. `radius`, `height`, `rate`, `color` je Effekt
+  werden nachts dunkler. `radius`, `height`, `rate`, `color` je Effekt; `at` setzt den Effekt neben den Ursprung
+  (x und z des Modells, mit dem Objekt gedreht und skaliert): so raucht der Schornstein der Häuser (`house`,
+  `house-large`, `cottage`, `house-stone`, `house-tall`, die Schnee-Varianten, `watermill`, `log-cabin`, `alpine-hut`,
+  `fisher-hut`, `house-stone-balcony`; Lage aus `build_structures.py` `house()`). Steht schon ein von Hand gesetzter
+  Rauch (`fx-smoke`, `MapKit.chimney`) im Fußabdruck des Hauses plus 2 m, raucht nur der gesetzte
 - **Wasserfall** (`waterfall`): gebogene Fläche von der Kante (`height`) bis zum Fuß, Breite 2 × `radius`, fällt zur
   Vorderseite (+z) des Objekts und wird nach unten etwas breiter, in der Mitte leicht nach vorn gewölbt, dahinter eine
   schmalere zweite Fläche mit versetzten Streifen; zwei Lagen Streifen laufen herab (langsamer Körper,
@@ -361,6 +365,18 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   schwach, nachts voll); dazu ein fester Pool von 6 `PointLight`s für die Lichter nächst dem Kamerafokus, nach
   Dunkelheit eingeblendet (Nacht, Dämmerung, tiefe Sonne). Am Tag kosten sie nichts, die feste Poolgröße vermeidet
   Shader-Neubau
+- **Leben aus dem Karteninhalt** (`CustomMapView.refreshAmbient`, ohne Bearbeiten): Glühwürmchen nachts (ab
+  Dunkelheit 0,35) über den Ufern von Seen und Sümpfen (alle 12 m) und mitten in Wäldern (30-m-Quadrate mit mindestens
+  6 Bäumen), höchstens 60 Schwärme, in den Biomen temperate, swamp, mountain. Vogelschwärme am Tag
+  (`effects/bird-flocks.ts`): ein instanziertes Mesh für alle (ein Draw Call), Flug, Flügelschlag und Gleiten im
+  Vertex-Shader auf der Uhr des Winds (ein Standbild hält sie an), je ein Schwarm je 300-m-Quadrat Karte (höchstens 5)
+  über dem Land mit den wenigsten Bäumen, 45 m und höher, Kreise von 40 bis 56 m, deren Mitte langsam wandert; näher
+  als 45 m an der Kamera klappen sie weg, nachts und mit der Pflanzenbewegung „aus“ sind sie fort; nicht auf dem Mond,
+  Mars und in der Hölle. Stufe Low (Partikelanteil unter 0,7): keine Vögel, weniger Glühwürmchen. Gesetzte Schwärme
+  (Effekt `birds`, `fx-birds`) und gesetzte Glühwürmchen ersetzen die automatischen (LEVEL_EDITOR.md, Objekte). Glut über Feuern und
+  Lava, schaukelnde Boote und Wimpel im Wind gab es schon (Katalog `effects`, `float`, `wind`). Umgebungston je Biom
+  fehlt noch, die Klänge gibt es nicht: Wind (Wiese, Pass), Bach und Fluss, Wellen am Ufer, Vogelgesang, Möwen,
+  Krähen, Grillen und Frösche bei Nacht, Lavagrollen und Blubbern, eine Glocke
 
 ### Umgebung (`environment/`)
 

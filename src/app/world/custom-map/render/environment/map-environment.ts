@@ -388,6 +388,11 @@ export class CustomMapEnvironment {
     this.shadowDirty = true;
   }
 
+  /** The map's look (its biome) as last set */
+  get biome(): MapEnvironment['biome'] {
+    return this.env.biome;
+  }
+
   /** 0 by day, 1 at night: how much map lights (lanterns, torches) matter */
   get darkness(): number {
     let base = { day: 0, overcast: 0.2, dusk: 0.6, night: 1 }[this.env.sky] ?? 0;

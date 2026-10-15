@@ -33,6 +33,10 @@ const catalog: AssetCatalog = {
     },
     { ...base, id: 'falls', name: 'Falls', footprint: 3, height: 12, effects: [{ kind: 'waterfall' }] },
     { ...base, id: 'rock', name: 'Rock', category: 'rock' },
+    { ...base, id: 'house', name: 'House', category: 'building', footprint: 4, height: 7, effects: [{ kind: 'smoke', at: [2, -1], height: 7, rate: 2 }] },
+    { ...base, id: 'fx-smoke', name: 'Smoke', effects: [{ kind: 'smoke', radius: 1, height: 0, rate: 4 }] },
+    { ...base, id: 'fx-birds', name: 'Bird flock', effects: [{ kind: 'birds', radius: 45, height: 50, rate: 10 }] },
+    { ...base, id: 'fx-fireflies', name: 'Fireflies', effects: [{ kind: 'fireflies', radius: 8, height: 1.5, rate: 6, color: '#e6ff8c' }] },
   ],
 };
 
@@ -58,12 +62,71 @@ describe('EffectLayer', () => {
     expect(LAMP_LIGHT_UNIFORMS.uLampSteady.value).toBeNull();
   });
 
+  it("puts a house's chimney smoke at its chimney, turned with it, and none where smoke is placed over it", () => {
+    const smokeOrigins = (objects: MapObject[]): Vector3[] => {
+      const layer = new EffectLayer(flat());
+      layer.set(objects, catalog);
+      const mesh = layer.group.children.find((c): c is Mesh => c instanceof Mesh && c.name === 'custom-map-particles-smoke');
+      const origins = mesh?.geometry.getAttribute('aOrigin');
+      const out: Vector3[] = [];
+      for (let k = 0; k < (origins?.count ?? 0); k++) out.push(new Vector3(origins!.getX(k), origins!.getY(k), origins!.getZ(k)));
+      layer.dispose();
+      return out;
+    };
+    // Unturned: the model's x and z, map x running against scene x
+    const plain = smokeOrigins([place('h', 'house', 10)]);
+    expect(plain.length).toBeGreaterThan(0);
+    for (const p of plain) expect([p.x, p.z]).toEqual([-10 + 2, -1]);
+    // A half turn takes the chimney to the other side
+    const turned = smokeOrigins([{ ...place('h', 'house', 10), rotation: Math.PI }]);
+    expect(turned[0].x).toBeCloseTo(-10 - 2, 5);
+    expect(turned[0].z).toBeCloseTo(1, 5);
+    // Smoke placed by hand over the house stands for its chimney: only that one rises
+    const placed = smokeOrigins([place('h', 'house', 10), place('s', 'fx-smoke', 11)]);
+    for (const p of placed) expect(p.x).toBeCloseTo(-11, 5);
+  });
+
+  it('shows fireflies only in the dark and birds by day, birds only on levels with most particles', () => {
+    const layer = new EffectLayer(flat());
+    layer.setAmbient({ fireflies: [new Vector3(0, 4, 0)], flocks: [{ center: new Vector3(0, 50, 0), radius: 40, birds: 10, seed: 0.3 }] });
+    const flies = () => layer.group.children.find((c) => c.name === 'custom-map-particles-fireflies')!;
+    layer.setDarkness(0);
+    expect(flies().visible).toBe(false);
+    expect(layer.birds.mesh.visible).toBe(true);
+    expect(layer.birds.mesh.geometry.instanceCount).toBe(10);
+    layer.setDarkness(1);
+    expect(flies().visible).toBe(true);
+    expect(layer.birds.mesh.visible).toBe(false);
+    // Low: a share under 0.7, no birds
+    layer.setQuality({ particles: 0.4, pointLights: 2 });
+    expect(layer.birds.mesh.geometry.instanceCount).toBe(0);
+    layer.dispose();
+  });
+
+  it('lets placed flocks and fireflies take the place of the automatic ones, sized by scale and coloured by tint', () => {
+    const layer = new EffectLayer(flat());
+    layer.setAmbient({ fireflies: [new Vector3(0, 4, 0)], flocks: [{ center: new Vector3(0, 50, 0), radius: 40, birds: 10, seed: 0.3 }] });
+    layer.set([{ ...place('b', 'fx-birds', 20), scale: 1.5 }, { ...place('f', 'fx-fireflies', -20), tint: '#ff8040' }], catalog);
+    // One placed flock of 15 (10 at scale 1.5), none of the automatic one
+    expect(layer.birds.mesh.geometry.instanceCount).toBe(15);
+    const flock = layer.birds.mesh.geometry.getAttribute('aFlock');
+    expect([flock.getX(0), flock.getY(0), flock.getW(0)]).toEqual([-20, 4 + 75, 67.5]);
+    // The placed fireflies in their tint; no automatic field beside them
+    const fields = layer.group.children.filter((c) => c.name === 'custom-map-particles-fireflies') as Mesh[];
+    expect(fields).toHaveLength(1);
+    const color = fields[0].geometry.getAttribute('aColor');
+    expect(color.getX(0)).toBeCloseTo(1, 2);
+    expect(color.getZ(0)).toBeLessThan(0.3);
+    layer.dispose();
+  });
+
   it('builds one particle field per kind, waterfalls with spray, and glows', () => {
     const layer = new EffectLayer(flat());
     const objects = [place('a', 'torch', 0), place('b', 'torch', 10), place('c', 'falls', -20), place('d', 'rock', 5)];
     layer.set(objects, catalog);
     const names = layer.group.children.filter((c) => c instanceof Mesh).map((c) => c.name).sort();
     expect(names).toEqual([
+      'custom-map-birds',
       'custom-map-glows',
       'custom-map-particles-embers',
       'custom-map-particles-fire',
@@ -127,13 +190,14 @@ describe('EffectLayer', () => {
   it('frees what a rebuild replaced only after two frames drew the new effects, so their programs stay linked', () => {
     const layer = new EffectLayer(flat());
     layer.set([place('a', 'torch', 0)], catalog);
-    const old = layer.group.children.filter((c): c is Mesh => c instanceof Mesh);
+    // The bird flocks stay: they are set anew, not replaced
+    const old = layer.group.children.filter((c): c is Mesh => c instanceof Mesh && c !== layer.birds.mesh);
     let freed = 0;
     for (const m of old) (m.material as Material).addEventListener('dispose', () => freed++);
     layer.set([place('a', 'torch', 0), place('b', 'torch', 10)], catalog);
     // Out of the scene at once, the new effects in their place
     expect(old.every((m) => m.parent === null)).toBe(true);
-    expect(layer.group.children.filter((c) => c instanceof Mesh)).toHaveLength(old.length);
+    expect(layer.group.children.filter((c) => c instanceof Mesh && c !== layer.birds.mesh)).toHaveLength(old.length);
     const focus = new Vector3();
     layer.update(0.016, focus);
     layer.update(0.016, focus);
@@ -147,7 +211,7 @@ describe('EffectLayer', () => {
     const layer = new EffectLayer(flat());
     layer.set([place('a', 'torch', 0)], catalog);
     let freed = 0;
-    for (const m of layer.group.children.filter((c): c is Mesh => c instanceof Mesh)) (m.material as Material).addEventListener('dispose', () => freed++);
+    for (const m of layer.group.children.filter((c): c is Mesh => c instanceof Mesh && c !== layer.birds.mesh)) (m.material as Material).addEventListener('dispose', () => freed++);
     layer.set([], catalog);
     layer.dispose();
     expect(freed).toBe(3);
