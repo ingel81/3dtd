@@ -347,7 +347,7 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
         if (uRimLight > 0.0) {
           vec3 rimNormal = normalize(vNormal) * (gl_FrontFacing ? 1.0 : -1.0);
           float rimTerm = 1.0 - max(dot(rimNormal, normalize(cameraPosition - vWorldPosition)), 0.0);
-          litColor += vec3(0.85, 0.92, 1.0) * rimTerm * rimTerm * rimTerm * uRimLight;
+          litColor += vec3(0.85, 0.92, 1.0) * rimTerm * rimTerm * rimTerm * rimTerm * uRimLight;
         }
 
         // Apply tint (for freeze/damage effects)

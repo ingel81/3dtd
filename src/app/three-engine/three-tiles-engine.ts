@@ -72,7 +72,7 @@ import { DynamicResolution, MIN_SAMPLES } from './dynamic-resolution';
 import { pixelRatioFor, type QualityKnobs, type QualityWorld } from './render-quality';
 
 /** Strength of the enemies' rim light on worlds that ask for it (WorldCapabilities.enemyRimLight) */
-const ENEMY_RIM_LIGHT = 0.55;
+const ENEMY_RIM_LIGHT = 0.2;
 
 /** Called right before and right after a frame is drawn (ThreeTilesEngine.setFrameProbe) */
 export interface FrameProbe {

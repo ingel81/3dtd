@@ -534,7 +534,7 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   Level wie ohne Tone-Mapping, Schatten werden etwas tiefer, Lichter brennen nicht mehr aus
 
 **Randlicht für Gegner** (`WorldCapabilities.enemyRimLight`, nur eigene Karten): ein kühler Saum, wo die Oberfläche
-eines Gegners sich von der Kamera abwendet (`uRimLight` in `vat-material.ts`, Stärke 0,55), damit Gegner sich vom
+eines Gegners sich von der Kamera abwendet (`uRimLight` in `vat-material.ts`, Stärke 0,2, vierte Potenz für einen schmalen Saum), damit Gegner sich vom
 beleuchteten, detailreichen Boden abheben. Tiles und DevWorld behalten das Aussehen (Stärke 0).
 
 **Schatten für Tower, Gegner und Held** (`WorldCapabilities.groundShadows`, nur eigene Karten): Tower werfen ihren
