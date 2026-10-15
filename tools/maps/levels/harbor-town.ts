@@ -133,9 +133,9 @@ export function buildHarborTown(): CustomMapDocument {
   // ---- Life: gulls over the harbour and the mole, fishing boats going out past the ships and back, rowing boats
   // drifting in the east basin, a fog bank on the open sea beyond the mole; the town's murmur, surf on the mole and
   // the beach
-  // TODO(E190): gulls (birds of the gull species) and their calls, a ship's horn
-  k.lifeArea('birds', [{ x: -200, y: -168 }, { x: 140, y: -168 }, { x: 215, y: -215 }, { x: 160, y: -250 }, { x: -200, y: -245 }], { height: 25, density: 1.2 });
-  k.lifeArea('birds', [{ x: -256, y: -150 }, { x: -200, y: -150 }, { x: -200, y: -215 }, { x: -256, y: -215 }], { height: 18, density: 0.6 });
+  // TODO(E190): gull calls, a ship's horn
+  k.lifeArea('birds', [{ x: -200, y: -168 }, { x: 140, y: -168 }, { x: 215, y: -215 }, { x: 160, y: -250 }, { x: -200, y: -245 }], { species: 'gulls', height: 25, density: 1.2 });
+  k.lifeArea('birds', [{ x: -256, y: -150 }, { x: -200, y: -150 }, { x: -200, y: -215 }, { x: -256, y: -215 }], { species: 'gulls', height: 18, density: 0.6 });
   k.lifeRoute('boats', [{ x: -160, y: -212 }, { x: -40, y: -232 }, { x: 60, y: -240 }, { x: 150, y: -246 }, { x: 250, y: -246 }], { asset: 'fishing-boat' });
   k.lifeArea('boats', [{ x: 38, y: -168 }, { x: 140, y: -168 }, { x: 150, y: -192 }, { x: 46, y: -192 }], { density: 0.5 });
   k.lifeArea('fog', [{ x: 214, y: -200 }, { x: 256, y: -200 }, { x: 256, y: -256 }, { x: -60, y: -256 }, { x: 150, y: -240 }], { density: 0.7, quality: 'high' });

@@ -143,10 +143,10 @@ export function buildRuinedCity(): CustomMapDocument {
 
   // ---- Life: paper blowing down the three avenues, crows over the fallen blocks and the torso, smoke lying in the
   // crater and over the canal; the wind in the ruins, the camp's fire
-  // TODO(E190): crows (birds of the crow species), a far siren's echo
+  // TODO(E190): a far siren's echo
   for (const line of [northLine, eastLine, southLine]) k.lifeRoute('leaves', line.slice(0, -1), { height: 3, color: '#d8d2c2', density: 0.6 });
-  k.lifeArea('birds', [{ x: -150, y: 40 }, { x: 60, y: 40 }, { x: 60, y: 150 }, { x: -150, y: 150 }], { height: 30 });
-  k.lifeArea('birds', [{ x: 130, y: 20 }, { x: 240, y: 20 }, { x: 240, y: 110 }, { x: 130, y: 110 }], { height: 22, density: 0.6 });
+  k.lifeArea('birds', [{ x: -150, y: 40 }, { x: 60, y: 40 }, { x: 60, y: 150 }, { x: -150, y: 150 }], { species: 'crows', height: 30 });
+  k.lifeArea('birds', [{ x: 130, y: 20 }, { x: 240, y: 20 }, { x: 240, y: 110 }, { x: 130, y: 110 }], { species: 'crows', height: 22, density: 0.6 });
   k.lifeArea('fog', [{ x: crater.x - 30, y: crater.y - 30 }, { x: crater.x + 30, y: crater.y - 30 }, { x: crater.x + 30, y: crater.y + 30 }, { x: crater.x - 30, y: crater.y + 30 }], { color: '#9a948a', density: 0.8, quality: 'high' });
   k.lifeRoute('fog', canal, { color: '#9aa096', density: 0.6, quality: 'high' });
   k.lifeArea('sound', [{ x: hq.x + 4, y: hq.y - 32 }, { x: hq.x + 20, y: hq.y - 32 }, { x: hq.x + 20, y: hq.y - 16 }, { x: hq.x + 4, y: hq.y - 16 }], { sound: 'fire', volume: 0.4 });
