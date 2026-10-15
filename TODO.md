@@ -101,6 +101,10 @@ eigenen Karten, Coop-Protokoll 5). Vier Worker-Branches darauf laufen (Abschnitt
       Dachkanten, Sockel, Kantenfasen), Texturen in Blender (Verdeckung, Kantenabnutzung, Schmutz backen; höhere
       Auflösung wo es lohnt, heute WebP 512 px), LODs neu (`make_lods.py`, `match_lods.py`), im Budget (Scene cost,
       E169). Zuerst die Gebäude aus dem Showreel; Vorher/Nachher-Bilder je Modell zur Abnahme.
+- [ ] **E194 Erde am Mondhimmel sieht zu schlecht aus** (User, 2026-10-15, Bild Moon Base mit der Erde über dem
+      Nordrand): Planet-Einstellung (`environment.planet`, `sky-dome.ts`) zeichnet die Erde zu grob. Besser: echte
+      Erdtextur (Kontinente, Wolken, Ozeanglanz), Tag-Nacht-Grenze passend zur Sonne, Atmosphärensaum, scharf bei der
+      gewählten Größe.
 - [ ] **E184 Mitgelieferte Karten imposanter** (User, 2026-10-15): die meisten Karten sind noch zu langweilig, es muss
       deutlich mehr gehen (Kulisse, Höhenunterschiede, Blickpunkte, Wahrzeichen, dichtere und abwechslungsreichere
       Gestaltung). Bekannte Stellen aus dem Showreel: Wald in Autumn Keep trüb und aus der Distanz braun, Burg in der
