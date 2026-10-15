@@ -383,6 +383,11 @@ jeweiligen Fach-Doku.
 - Dev-Menü mit Cheats, alle Konsolen-Globals (`__corridor`, `__rg`, `__perf` usw.) und die Dauer-Messungen
   (Raycast-Zeitmessung, `[Camera]`-Log) bleiben im Release-Build.
 
+- [ ] **Entschieden 2026-10-15 (abends):** E195 Navigation: alle Fragen beantwortet, siehe Abschnitt 6 in
+      [WORLDS_NAVIGATION_PLAN.md](docs/WORLDS_NAVIGATION_PLAN.md). Kamera auf Kartenwelten bleibt 3 m über dem Boden.
+      Biom-Pinsel bekommen mehr Baumarten und ein Herbst-Biom (Karten neu packen). OSM: Gehweg und Pflaster eine
+      Bodenschicht. Kein Dev-Link `?osm=`. Ballista-Ton abgenommen.
+
 ## Verworfen (nicht erneut angehen)
 
 - **E196 Doppelseitige Stoffe von unten unsichtbar** (2026-10-15): kein Renderfehler; alle Stoffe sind DoubleSide, die

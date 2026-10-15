@@ -315,30 +315,23 @@ für sich lieferbar; bis Phase 4 bleibt die heutige Menüoptik.
 Phase 2 ist die Grundlage für alles danach und das größte Risiko; sie sollte zuerst mit Messung (Speicher-Treppe)
 abgeschlossen sein. Phase 6 kann im Klick-Dummy weiter abgestimmt werden, während 1 bis 3 gebaut werden.
 
-## 6. Offene Entscheidungen
+## 6. Entscheidungen (User, 2026-10-15)
 
-Aus dem Dummy:
+Gewählte Darstellung nach Dummy und Vorschlag (`tmp/plan/mockups/world-globes/proposal.html`): Einstieg drei frei
+stehende Globen, Menü links auf allen Ebenen (Start, Weltmenü, Pausemenü), die Welt des laufenden oder letzten Laufs
+groß, Globus mittel, Hintergrund je Welt, Kopfzeile oben, Dichte großzügig, Weltumschalter als Mini-Globen,
+Nachtseite an; Kreis- und Minimal-Varianten sind raus.
 
-1. Wo steht das Menü je Ebene (Start, Weltmenü, Pausemenü): überall links, oder im Pausemenü anders (etwa unten als
-   Leiste, damit das Spiel sichtbar bleibt)?
-2. Kommt eine Kreis-Variante (Wege als Knöpfe auf einem Ring um den Globus) oder eine minimale Variante (nur Ecken)
-   noch in Frage, oder sind beide raus?
-3. Ersetzt der Echtwelt-Globus auf der Startseite die heutige Menü-Erde ganz (eine Kugel, die vom Start bis zum
-   Abtauchen dieselbe ist), oder bleibt die Menü-Erde als eigene Ansicht nach dem Klick?
-4. Wie comichaft soll der Globus der Karten sein: in den Farben und Materialien der Engine (Biome der Karten), oder
-   freier gezeichnet?
+1. **Lauf beim Weltwechsel:** je Welt bleibt ein Lauf als Autosave stehen; Start fragt nur, wenn in derselben Welt
+   schon einer läuft.
+2. **Editor neben dem Lauf:** der Lauf geht als Autosave weg, „Back to the run“ lädt ihn an derselben Stelle neu.
+3. **Links:** wählen nur aus (Weltmenü mit Ort oder Karte vorgewählt, Globus dreht hin), erst Start lädt.
+4. **Start mit Autosave:** immer die Globen, „Continue“ oben im Menü links, die Welt des Laufs groß.
+5. **OpenStreetMap:** eigene Welt mit eigenem Globus; fertige OSM-Karten stehen zusätzlich unter Maps.
+6. **Echtwelt-Globus:** die heutige Menü-Erde (echte Texturen, Abtauch-Übergang), neu angeordnet, dazu Nachtseite
+   und Stadtlichter; der gezeichnete Dummy-Globus war nur Platzhalter.
+7. **Globus der Karten:** echter Low-Poly-Globus in den Farben der Engine, Kartenpunkte als kleine Modelle.
+8. **Route `/editor`:** bleibt als Einstieg, führt aber in dieselbe App ohne Neuladen.
+9. **Fokus im Startmenü:** der erste Eintrag bekommt den Fokus wie heute.
 
-Weitere:
-
-5. Was passiert mit einem Lauf, wenn man in einer anderen Welt etwas startet: endet er (ein Lauf zur Zeit), oder bleibt
-   er je Welt als Autosave stehen und lässt sich über einen Chip fortsetzen?
-6. Editor neben einem Lauf: reicht es, wenn der Lauf beim Wechsel in den Editor gespeichert und beim Zurückgehen am
-   Anfang der Welle neu geladen wird, oder soll er im Speicher bleiben und sofort weiterlaufen (mehr GPU-Last, erst
-   nach Messung)?
-7. Links im Browser: sollen Orte weiter in der Adresszeile stehen (zum Kopieren), oder bleibt die Adresse nach dem
-   Start leer und es gibt einen Knopf „Copy link“?
-8. Start mit Autosave: landet Neuladen immer auf den Globen (Continue groß hervorgehoben), oder springt es direkt in
-   die Welt des letzten Laufs, wenn es einen gibt?
-9. Wird OpenStreetMap eine eigene Welt neben Maps (eigener Globus, eigene Liste), obwohl OSM-Karten technisch eigene
-   Karten sind (`MapSource` `kind: 'osm'` in `map-document.ts`), oder stehen sie nur als Filter unter Maps?
-10. Soll die Route `/editor` als Einstieg erhalten bleiben (für Entwicklung und Agenten), oder ganz wegfallen?
+Offen bleibt nur, was beim Bauen auffällt; die Reihenfolge der Phasen steht in Abschnitt 5.
