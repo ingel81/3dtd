@@ -511,7 +511,8 @@ def tube(part, points, radii, sides, smooth=True, cap=False):
                 loop[part.uv].uv = uv
             faces.append(f)
     if cap:
-        f = bm.faces.new(list(reversed(rings[-1][:-1])))
+        # The ring runs counter-clockwise about the tube's direction: in that order the cap faces out of the end
+        f = bm.faces.new(rings[-1][:-1])
         for loop in f.loops:
             loop[part.uv].uv = (0.5 + (loop.vert.co - points[-1]).x, 0.5 + (loop.vert.co - points[-1]).y)
     return faces

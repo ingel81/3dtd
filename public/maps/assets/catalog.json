@@ -5610,7 +5610,7 @@
       "name": "Basalt columns",
       "category": "rock",
       "file": "models/basalt-columns.glb",
-      "triangles": 192,
+      "triangles": 480,
       "footprint": 2.1,
       "height": 3.2,
       "base": [
@@ -8246,7 +8246,7 @@
         {
           "file": "models/apartment-block-tall-lod1.glb",
           "distance": 350,
-          "triangles": 1934
+          "triangles": 1936
         }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_block_wall; https://polyhaven.com/a/brushed_concrete"
@@ -8305,7 +8305,7 @@
         {
           "file": "models/brick-block-lod1.glb",
           "distance": 350,
-          "triangles": 2512
+          "triangles": 2511
         }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/brick_wall_07; https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/hessian_230"
@@ -9939,7 +9939,7 @@
       "name": "Landing pad",
       "category": "structure",
       "file": "models/landing-pad.glb",
-      "triangles": 354,
+      "triangles": 466,
       "footprint": 9.0,
       "height": 0.4,
       "blocksLos": false,
@@ -10657,7 +10657,7 @@
       "name": "Altar",
       "category": "prop",
       "file": "models/altar.glb",
-      "triangles": 928,
+      "triangles": 1358,
       "footprint": 3.0,
       "height": 3.0,
       "blocksLos": false,
@@ -12167,7 +12167,7 @@
         {
           "file": "models/office-tower-lod1.glb",
           "distance": 350,
-          "triangles": 2540
+          "triangles": 2541
         }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/gravel_floor_02"
@@ -12701,7 +12701,7 @@
         {
           "file": "models/shipwreck-lod1.glb",
           "distance": 350,
-          "triangles": 1182
+          "triangles": 1181
         }
       ],
       "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/dark_planks"
@@ -12731,7 +12731,7 @@
         {
           "file": "models/rocket-lod1.glb",
           "distance": 350,
-          "triangles": 1023
+          "triangles": 1026
         }
       ],
       "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/brushed_concrete"
@@ -12853,7 +12853,7 @@
         {
           "file": "models/bell-tower-lod1.glb",
           "distance": 350,
-          "triangles": 713
+          "triangles": 712
         }
       ],
       "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/roof_slates_02"
@@ -12884,7 +12884,7 @@
         {
           "file": "models/bell-tower-snow-lod1.glb",
           "distance": 350,
-          "triangles": 709
+          "triangles": 708
         }
       ],
       "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/snow_02"
