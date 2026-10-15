@@ -111,8 +111,12 @@ describe('MapObjectLayer packed assets (few objects, no cells)', () => {
     expect(shown('tree')).toBe(5);
     expect(shown('tree-lod1')).toBe(16);
 
-    expect(fades('tree').filter((f) => f !== 0)).toEqual([expect.closeTo(0.25, 2)]);
-    expect(fades('tree-lod1').filter((f) => f !== 0)).toEqual([expect.closeTo(-0.75, 2)]);
+    // How far it has dissolved depends on its bounds, which grow and shrink with the tree's size (instance-variation.ts)
+    const dissolving = fades('tree').filter((f) => f !== 0);
+    expect(dissolving).toHaveLength(1);
+    expect(dissolving[0]).toBeGreaterThan(0);
+    expect(dissolving[0]).toBeLessThan(1);
+    expect(fades('tree-lod1').filter((f) => f !== 0)).toEqual([expect.closeTo(dissolving[0] - 1, 5)]);
     look(395);
     // The editor still picks a far tree: the picks hold every object
     const hit = layer.raycast(new Ray(new Vector3(-380, 1, -10), new Vector3(0, 0, 1)));
@@ -313,10 +317,10 @@ describe('MapObjectLayer tilt', () => {
     await layer.setObjects([{ id: 'g', asset: 'tree', x: 0, y: 0, z: 0, rotation: 0, pitch: Math.PI / 2, scale: 1 }]);
     const mesh = los.children.find((c): c is InstancedMesh => c instanceof InstancedMesh && c.name === 'tree')!;
     const m = new Matrix4().fromArray(mesh.instanceMatrix.array, 0);
-    // The model's up axis now lies along +z (a quarter turn around x)
+    // The model's up axis now lies along +z (a quarter turn around x), give or take a tree's lean (at most 0.07 rad)
     const up = new Vector3(0, 1, 0).transformDirection(m);
-    expect(up.y).toBeCloseTo(0);
-    expect(Math.abs(up.z)).toBeCloseTo(1);
+    expect(Math.abs(up.y)).toBeLessThan(0.08);
+    expect(Math.abs(up.z)).toBeGreaterThan(0.99);
     layer.dispose();
   });
 });

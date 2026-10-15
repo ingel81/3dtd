@@ -25,6 +25,7 @@ import { addHeightFog } from '../environment/height-fog';
 import { WIND_GLSL, WIND_UNIFORMS, windSwayAtTop } from '../environment/wind';
 import { mapToScene } from '../map-coords';
 import { seatHeight } from './object-seat';
+import { instanceVariation } from './instance-variation';
 import { bakeImpostor, type Impostor } from './impostor';
 import { addVertexRoughMetal, mergeParts } from './merge-parts';
 import { addLodFade, blendAt, disposeFadeGeometry, fadeGeometry, REST_S, SETTLE_S, settleBlend } from './lod-fade';
@@ -58,7 +59,8 @@ import { addLodFade, blendAt, disposeFadeGeometry, fadeGeometry, REST_S, SETTLE_
  * Trees and plants sway in the wind, foliage cards keep their normals and
  * fade when seen edge-on or near their draw distance, waterfall cards flow
  * and flames flicker (all in objectMaterial). Vegetation gets a brightness
- * and hue per instance, so a forest of one model does not look cloned.
+ * and hue per instance, trees a size and a lean (instance-variation.ts), so a
+ * forest of one model does not look cloned.
  */
 
 /** Edge of an object cell in metres */
@@ -191,6 +193,7 @@ export class MapObjectLayer {
   private readonly tmpQuat = new Quaternion();
   private readonly tmpScale = new Vector3();
   private readonly up = new Vector3(0, 1, 0);
+  private readonly leanAxis = new Vector3();
   private readonly tilt = new Quaternion();
   private readonly tiltEuler = new Euler();
   private readonly sphere = new Sphere();
@@ -1029,11 +1032,18 @@ export class MapObjectLayer {
   private writeInstance(b: AssetBatch, i: number): void {
     const o = b.objects[i];
     const e = b.entry;
-    const s = o.scale || 1;
+    // Trees vary in size and lean, vegetation in shade (instance-variation.ts): in the matrix and colour only
+    const look = instanceVariation(o.id, e.category);
+    const s = (o.scale || 1) * look.size;
     const ground = seatHeight(e, o, this.seatGround, this.seatWater);
     mapToScene(o.x, o.y, ground + o.z, this.tmpPos);
     this.tmpQuat.setFromAxisAngle(this.up, o.rotation);
     if (o.pitch || o.roll) this.tmpQuat.multiply(this.tilt.setFromEuler(this.tiltEuler.set(o.pitch ?? 0, 0, o.roll ?? 0, 'XZY')));
+    if (look.lean > 0) {
+      // About a level axis across the lean's direction (scene x is map -x), in the scene's frame
+      this.leanAxis.set(Math.sin(look.leanToward), 0, Math.cos(look.leanToward));
+      this.tmpQuat.premultiply(this.tilt.setFromAxisAngle(this.leanAxis, look.lean));
+    }
     this.tmpScale.setScalar(s);
     this.tmpMatrix.compose(this.tmpPos, this.tmpQuat, this.tmpScale);
     this.tmpMatrix.toArray(b.matrices, i * 16);
@@ -1044,18 +1054,9 @@ export class MapObjectLayer {
     b.spheres[i * 4 + 3] = radius;
     if (b.colors) {
       const c = o.tint ? new Color(o.tint) : null;
-      // Hash of the id: the same object keeps its shade across rebuilds
-      let h = 2166136261;
-      for (let k = 0; k < o.id.length; k++) h = Math.imul(h ^ o.id.charCodeAt(k), 16777619);
-      const r1 = ((h >>> 0) % 1000) / 1000;
-      const r2 = ((h >>> 10) % 1000) / 1000;
-      const r3 = ((h >>> 20) % 1000) / 1000;
-      // Brightness, then a hue drift: some crowns yellower, some bluer, a few turning early
-      const v = 0.8 + r1 * 0.32;
-      const turning = b.entry.category === 'tree' && r3 > 0.93 ? 1 : 0;
-      b.colors[i * 3] = (c?.r ?? 1) * v * (0.92 + r2 * 0.16 + turning * 0.25);
-      b.colors[i * 3 + 1] = (c?.g ?? 1) * v * (0.96 + r3 * 0.06);
-      b.colors[i * 3 + 2] = (c?.b ?? 1) * v * (1.06 - r2 * 0.2 - turning * 0.2);
+      b.colors[i * 3] = (c?.r ?? 1) * look.r;
+      b.colors[i * 3 + 1] = (c?.g ?? 1) * look.g;
+      b.colors[i * 3 + 2] = (c?.b ?? 1) * look.b;
     }
   }
 
