@@ -49,6 +49,7 @@ Server noch Schalter.
 | `place_object`, `move_object`, `delete_objects` | ändert | einzelne Objekte; eine Straßen-Id in `delete_objects` verweist auf `map.removeRoads` |
 | `set_rules` | ändert | Regeln (`gameplay`), verworfen, wenn die Karte so nicht speicherbar wäre; unbekannte Schlüssel und `waves` in falscher Form (es gibt keine Wellenzahl) mit Beispiel abgelehnt (`checkRules`, auch für `map.gameplay`) |
 | `set_sky` | ändert | Himmel und Luft (`environment`), nur bekannte Schlüssel und Werte |
+| `set_map_info` | ändert | Name und Beschreibung der offenen Karte (Id und Datei bleiben), ein Schritt |
 | `undo_last` | ändert | letzten Schritt des Agenten zurücknehmen |
 | `copy_map` | legt an | beliebige Karte als neue eigene Karte kopieren; die offene bleibt offen |
 
@@ -206,7 +207,7 @@ Bridge).
 1. `npm --prefix desktop install` (neue Abhängigkeiten), dann `npm --prefix desktop run dev` oder ein Build.
 2. Einstellungen, Privacy, **Allow AI agents to edit maps** an: die Adresse erscheint, Copy kopiert sie.
 3. In einem Terminal `claude mcp add --transport http 3dtd <Adresse>`, Claude Code starten, `/mcp` zeigt `3dtd`
-   verbunden mit 19 Werkzeugen.
+   verbunden mit 20 Werkzeugen.
 4. Im Spiel Hauptmenü, Map editor, eine Karte öffnen.
 5. Claude bitten: „Lies die Karte und baue im Nordosten einen bewaldeten Hügel mit einem Weg zum HQ.“ Erwartung: der
    Agent ruft `map_summary`, `script_api`, dann `run_script`; im Editor wächst der Hügel in Schritten, das Map-Panel

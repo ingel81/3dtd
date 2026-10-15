@@ -579,6 +579,16 @@ describe('editor session and the AI agent', () => {
     s.ngOnDestroy();
   });
 
+  it('names and describes the open map as one undo step, keeping its id', async () => {
+    const { s, agent } = await agentSession();
+    const answer = JSON.parse((await call(agent, 'set_map_info', { name: 'Ash Isle', description: 'A volcano island with three landings.' })).text);
+    expect(answer).toMatchObject({ ok: true, step: 'Agent: map details' });
+    expect(s.editor!.doc.meta).toMatchObject({ id: 'm', name: 'Ash Isle', description: 'A volcano island with three landings.' });
+    expect((await call(agent, 'set_map_info', {})).isError).toBe(true);
+    expect((await call(agent, 'set_map_info', { name: '  ' })).isError).toBe(true);
+    s.ngOnDestroy();
+  });
+
   it('answers every tool through the bridge reply as plain data, whatever its handler returns', async () => {
     // The desktop server's tools (desktop/src/agent-mcp.js TOOLS) that the editor answers
     const tools: [string, Record<string, unknown>][] = [
@@ -598,6 +608,7 @@ describe('editor session and the AI agent', () => {
       ['delete_objects', { ids: ['nope'] }],
       ['set_rules', { rules: { startCredits: 500 } }],
       ['set_sky', { environment: { sky: 'dusk' } }],
+      ['set_map_info', { name: 'Renamed' }],
       ['undo_last', {}],
       ['copy_map', { id: 'm' }],
     ];

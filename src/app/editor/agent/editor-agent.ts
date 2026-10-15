@@ -131,6 +131,8 @@ export class EditorAgent {
         return this.setRules(args);
       case 'set_sky':
         return this.setSky(args);
+      case 'set_map_info':
+        return this.setMapInfo(args);
       case 'undo_last':
         return this.undoLast();
       default:
@@ -365,6 +367,15 @@ export class EditorAgent {
     if (!patch || typeof patch !== 'object' || Array.isArray(patch)) throw new AgentError('environment must be an object');
     const checked = checkEnvironment(patch as Record<string, unknown>);
     return this.commit(SnapshotCommand.record(doc, `${AGENT_LABEL}sky`, ['environment'], (d) => (d.environment = { ...d.environment, ...checked })), 'environment set');
+  }
+
+  private setMapInfo(args: Args): AgentAnswer {
+    const doc = this.changeableEditor().doc;
+    const patch: { name?: string; description?: string } = {};
+    if (args['name'] !== undefined) patch.name = text(args, 'name').trim().slice(0, 80);
+    if (typeof args['description'] === 'string') patch.description = args['description'].trim().slice(0, 500);
+    if (!Object.keys(patch).length) throw new AgentError('Give a name, a description or both');
+    return this.commit(SnapshotCommand.record(doc, `${AGENT_LABEL}map details`, ['meta'], (d) => (d.meta = { ...d.meta, ...patch })), `map details set (id ${doc.meta.id} stays)`);
   }
 
   private undoLast(): AgentAnswer {

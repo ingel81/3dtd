@@ -111,6 +111,7 @@ const TOOLS = [
   ['delete_objects', 'Delete objects by id (map_objects lists them). Roads are no objects: map.removeRoads in run_script deletes them.', { ids: z.array(z.string()).min(1) }, WRITE],
   ['set_rules', "Change the rules (gameplay), merged into the map's: startCredits, hqHealth, towers (tower ids, all when left out), destructible (true|false), difficulty 50..200 (percent on the wave budget, 100 normal). waves is { kind: 'budget' } (the game's waves, the default) or a map's own table; there is no wave count.", { rules: z.record(z.string(), z.unknown()) }, WRITE],
   ['set_sky', "Change sky and air: sky (day, dusk, night, overcast), sunAzimuth, sunElevation (degrees), fogDensity, tint ('#rrggbb'), weather (clear, rain, snow, fog), weatherStrength 0..1, biome (the look of sky, light and air: temperate, hell, moon, mars, arctic, apocalypse, swamp, desert, mountain, city), snowCover 0..1, moonlight 0..1, wind { strength 0..1, direction degrees, gusts 0..1 }.", { environment: z.record(z.string(), z.unknown()) }, WRITE],
+  ['set_map_info', "Name the open map and describe it for the map list (the map's id and file stay).", { name: z.string().min(1).max(80).optional(), description: z.string().max(500).optional() }, WRITE],
   ['undo_last', "Undo the agent's own last step; a step of the player stays.", {}, WRITE],
   ['copy_map', 'Copy any map (own or shipped) as a new own map; returns its id. The open map stays open; other maps are never changed.', { id: z.string(), name: z.string().max(80).optional() }, WRITE],
 ];

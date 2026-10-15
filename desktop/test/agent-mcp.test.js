@@ -97,6 +97,8 @@ describe('createAgentServer', () => {
 
     const list = message((await send(port, { body: rpc(2, 'tools/list') })).text);
     assert.deepEqual(list.result.tools.map((t) => t.name).sort(), TOOLS.map(([name]) => name).sort());
+    const info = list.result.tools.find((t) => t.name === 'set_map_info');
+    assert.deepEqual(Object.keys(info.inputSchema.properties).sort(), ['description', 'name']);
     const script = list.result.tools.find((t) => t.name === 'run_script');
     assert.deepEqual(script.inputSchema.required, ['source']);
     assert.equal(script.annotations.readOnlyHint, false);
