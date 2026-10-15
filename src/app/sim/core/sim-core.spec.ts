@@ -35,6 +35,7 @@ import type { WaveConfig } from '../../managers/wave.manager';
 import { TEST_WORLD_REF } from '../../../test/world-context-fake';
 import { runStartAt, runStartGold } from '../protocol/run-start';
 import { RUN_PLAN_RULES } from '../../director/sources/budget/run-plan';
+import type { RunWaveEvent } from '../protocol/run-rules';
 
 const SEED = 0x51c0;
 const HEAD = { configHash: 'spec', gameVersion: 'spec', commit: 'spec' };
@@ -263,6 +264,86 @@ describe('SimCore in the same thread', () => {
     expect(core.gsm.captureSnapshot().structures).toEqual([100]);
     expect(core.gsm.stateHash()).toBe(hashBefore);
     expect(drive.tick().ops.filter((op) => op[0] === 'structures.setFallen')).toEqual([['structures.setFallen', []]]);
+  });
+
+  it("runs a custom map's wave events: a lane that opens later, objects that go, messages; quietly on a restore; bit for bit in a replay (TODO E170)", () => {
+    const mathRandom = Math.random;
+    Math.random = mulberry32(SEED + 3);
+    try {
+      const main = mainWorld();
+      const gate = { id: 'gate', lat: 70 / M, lon: 30 / M, radius: 4 };
+      const events: RunWaveEvent[] = [
+        { wave: 1, kind: 'message', text: 'Hold the road' },
+        { wave: 2, kind: 'portal', spawn: 'spawn-2' },
+        { wave: 2, kind: 'message', text: 'The east opens' },
+        { wave: 2, kind: 'objects', show: false, ids: ['gate'], objects: [gate] },
+      ];
+      const rules = { startCredits: 100, hqHealth: 500, towers: null, structures: null, start: null, events };
+      const world: SimWorld = {
+        ...main.world,
+        rules,
+        worldKey: worldKeyOf(main.grid.snapshotHeights(), main.world.paths.map(([, p]) => p), main.sync.getOrigin(), rules),
+      };
+      // The events are part of the key
+      const without = worldKeyOf(main.grid.snapshotHeights(), main.world.paths.map(([, p]) => p), main.sync.getOrigin(), { ...rules, events: undefined });
+      expect(world.worldKey).not.toBe(without);
+      const core = newCore(world);
+      const drive = new Driver(core);
+      const local = core.gsm.localPlayerId;
+      // spawn-2 is no lane before wave 2: one lane of start credits
+      expect([core.gsm.waveEvents.size, core.gsm.waveEvents.reachedWave, core.gsm.waveEvents.laneOpen('spawn-2')]).toEqual([4, 1, false]);
+      expect(core.gsm.laneSpawns).toEqual(['spawn-1']);
+      expect(core.gsm.creditsOf(local)).toBe(100);
+      let packet = drive.tick();
+      expect(packet.ops.filter((op) => op[0] === 'waveEvents.setReached')).toEqual([['waveEvents.setReached', 1]]);
+      expect(packet.events.filter((e) => e.type === 'map:wave-events').map((e) => e.payload)).toEqual([{ wave: 1, messages: ['Hold the road'], opened: [] }]);
+
+      drive.send({ type: 'command:place-tower', typeId: 'archer', position: { lat: 60 / M, lon: 9 / M, height: 0 } });
+      packet = drive.tick();
+      for (const need of drive.needs(packet)) drive.send(answer(main, core, need));
+      drive.tick();
+      const before = core.gsm.captureSnapshot();
+      drive.send({ type: 'command:start-wave', config: wave });
+      packet = drive.tick();
+      // Wave 1 on the open lane only
+      expect(core.gsm.waveManager.getWaveLaneCount()).toBe(1);
+      const seen: SimFramePacket[] = [];
+      for (let f = 0; f < 20000; f++) {
+        packet = drive.tick();
+        seen.push(packet);
+        if (packet.scalars.phase !== 'wave') break;
+      }
+      expect(packet.scalars.waveNumber).toBe(1);
+      // Wave 1 ended: the events before wave 2 happen
+      expect(core.gsm.laneSpawns).toEqual(['spawn-1', 'spawn-2']);
+      expect(seen.flatMap((p) => p.ops.filter((op) => op[0] === 'waveEvents.setReached'))).toEqual([['waveEvents.setReached', 2]]);
+      expect(seen.flatMap((p) => p.events.filter((e) => e.type === 'map:wave-events').map((e) => e.payload))).toEqual([
+        { wave: 2, messages: ['The east opens'], opened: ['Spawn 2'] },
+      ]);
+      // The archer 21 m from the gate that went looks anew
+      const archer = core.gsm.towerManager.getAll()[0];
+      expect(seen.flatMap((p) => drive.needs(p)).some((n) => n.towerId === archer.id && n.reason === 'world')).toBe(true);
+      for (let f = 0; f < 400 && packet.scalars.snapshotRefusal !== null; f++) packet = drive.tick();
+      const file = core.rpc('replayFile', { ...HEAD, world: TEST_WORLD_REF })!;
+
+      // Back to before wave 1: one lane again, the main thread hears the wave reached, no banner
+      core.gsm.restoreSnapshot(before, 'live');
+      expect(core.gsm.laneSpawns).toEqual(['spawn-1']);
+      packet = drive.tick();
+      expect(packet.ops.filter((op) => op[0] === 'waveEvents.setReached')).toEqual([['waveEvents.setReached', 1]]);
+      expect(packet.events.filter((e) => e.type === 'map:wave-events')).toEqual([]);
+
+      // The wave again in a fresh simulation, every hash checked
+      const replay = new Driver(newCore(world));
+      expect(replay.core.rpc('loadReplayFile', file.text, { ...HERE, world: TEST_WORLD_REF }).refusal).toBeNull();
+      replay.core.rpc('replayEnter', 1, true);
+      let state = replay.tick({ replay: { playing: true, speed: 10 } }).scalars.replay!;
+      for (let f = 0; f < 20000 && !state.finished; f++) state = replay.tick({ replay: { playing: true, speed: 10 } }).scalars.replay!;
+      expect(state.finished).toBe(true);
+      expect(state.divergedAt).toBeNull();
+    } finally {
+      Math.random = mathRandom;
+    }
   });
 
   it('plays a wave from commands to packets, answers lines of sight by command, and re-simulates it bit for bit', () => {

@@ -18,13 +18,14 @@ import type {
   WorldWaves,
 } from '../world-provider';
 import type { WorldRef } from '../world-ref';
-import { runRulesOf, type RunRules } from '../../sim/protocol/run-rules';
+import { runRulesOf, type RunRules, type RunWaveEvent } from '../../sim/protocol/run-rules';
 import { MAX_START_WAVE, runStartAt, type RunStart } from '../../sim/protocol/run-start';
 import { validateWaveTable, type WaveTable } from '../../director/sources/table/wave-table';
 import { createWaveSource, initialWaveSourceId } from '../../director/wave-source.registry';
 import { CustomMapFrame, CustomMapSurface } from './custom-map-surface';
 import { CustomMapStreets } from './custom-map-streets';
-import { type CustomMapDocument, type MapObject, difficultyFactor, geoToMap, mapToGeo } from './map-document';
+import { type CustomMapDocument, type MapEnvironment, type MapObject, difficultyFactor, geoToMap, mapToGeo } from './map-document';
+import { environmentAt, hiddenObjectsAt, messagesOf } from './wave-events';
 import { CustomMapDestruction, FALLEN_SCALE, type StructureEntry } from './custom-map-destruction';
 import { renderMinimapPicture } from './custom-map-minimap';
 import { MapStore } from './map-store';
@@ -175,8 +176,13 @@ export class CustomMapWorld implements WorldProvider {
   private disposed = false;
   /** The catalogue's objects once loaded: the build blocking is redone with them when a structure falls */
   private catalogObjects: readonly (StructureEntry & { blocksBuild: boolean })[] = [];
-  /** The scale a fallen object had, to stand it up again */
-  private readonly fallenScale = new Map<string, number>();
+  /** Objects lying fallen (destruction) and objects a wave event keeps out of the picture now */
+  private readonly fallenIds = new Set<string>();
+  private eventHidden = new Set<string>();
+  /** The scale an object out of the picture had, to stand it up again */
+  private readonly outScale = new Map<string, number>();
+  /** The map's own sky and weather, before its wave events change them */
+  private readonly baseEnvironment: MapEnvironment;
   /** What the minimap picture renders: the scene and the children the map put into it */
   private stage: { scene: Scene; renderer: WebGLRenderer; owned: Set<Object3D>; fog: { value: number }; drawsToTarget: () => boolean } | null = null;
   private minimapPicture: HTMLCanvasElement | null = null;
@@ -197,8 +203,10 @@ export class CustomMapWorld implements WorldProvider {
     /** The wave runs start at (customMapStartWave), 1 for a normal run */
     private readonly startWave = 1,
   ) {
-    // A fallen object leaves the run's own copy of the list, never the opened map
-    this.doc = destructible ? { ...map.doc, objects: map.doc.objects.map((o) => ({ ...o })) } : map.doc;
+    // A fallen object, one a wave event hides and a sky the events change leave the run's own copy, never the opened map
+    const events = map.doc.gameplay?.events ?? [];
+    this.doc = destructible || events.length ? { ...map.doc, objects: map.doc.objects.map((o) => ({ ...o })) } : map.doc;
+    this.baseEnvironment = map.doc.environment;
     this.capabilities = destructible ? { ...CUSTOM_MAP_CAPABILITIES, destructible: true } : CUSTOM_MAP_CAPABILITIES;
     this.laneChoice = laneChoiceOf(this.doc.spawns, this.doc.gameplay, spawnLimit);
     this.destruction = destructible
@@ -208,6 +216,8 @@ export class CustomMapWorld implements WorldProvider {
     this.frame.setOrigin(origin.lat, origin.lon);
     this.surface = new CustomMapSurface(this.doc, this.frame);
     this.streets = new CustomMapStreets(this.doc);
+    // The sky and objects of the first wave to play, before the simulation says so: nothing shows that it hides
+    this.showWaveEvents(startWave);
   }
 
   get ref(): WorldRef {
@@ -387,8 +397,56 @@ export class CustomMapWorld implements WorldProvider {
     // A destructible map's structures: the simulation keeps their HP (TODO E131)
     const structures = this.destruction?.asRunStructures() ?? [];
     const start = this.runStart();
-    if (!structures.length && !start && (!play || (play.startCredits === undefined && play.hqHealth === undefined && !play.towers?.length))) return null;
-    return runRulesOf({ ...play, structures, start });
+    const events = this.runEvents();
+    if (!structures.length && !start && !events.length && (!play || (play.startCredits === undefined && play.hqHealth === undefined && !play.towers?.length))) return null;
+    return runRulesOf({ ...play, structures, start, events });
+  }
+
+  /**
+   * The map's wave events for the simulation (TODO E170): the objects of an
+   * objects event with where they stand and their ground radius at the scale
+   * they were made with (not one a hidden or fallen object has now), for the
+   * towers whose sight they change
+   */
+  private runEvents(): RunWaveEvent[] {
+    const events = this.doc.gameplay?.events ?? [];
+    if (!events.length) return [];
+    const byId = new Map(this.doc.objects.map((o) => [o.id, o]));
+    const footprint = new Map(this.catalogObjects.map((e) => [e.id, e.footprint]));
+    return events.map((e): RunWaveEvent => {
+      if (e.kind !== 'objects') return e;
+      const objects = e.ids.flatMap((id) => {
+        const o = byId.get(id);
+        if (!o) return [];
+        const radius = Math.round((footprint.get(o.asset) ?? 1) * (this.outScale.get(id) ?? o.scale) * 100) / 100;
+        return [{ id, ...mapToGeo(o), radius }];
+      });
+      return { ...e, objects };
+    });
+  }
+
+  /** The messages of the map's events before `wave` */
+  waveMessages(wave: number): string[] {
+    return messagesOf(this.doc.gameplay?.events ?? [], wave);
+  }
+
+  /**
+   * The wave events up to `wave` happened (op `waveEvents.setReached`): the
+   * sky and weather of then, and the objects they show or hide in or out of
+   * the picture and the build blocking (as a fallen structure)
+   */
+  showWaveEvents(wave: number): void {
+    const events = this.doc.gameplay?.events;
+    if (!events?.length) return;
+    const env = environmentAt(this.baseEnvironment, events, wave);
+    if (JSON.stringify(env) !== JSON.stringify(this.doc.environment)) {
+      if (this.view) this.view.setEnvironment(env);
+      else this.doc.environment = env;
+    }
+    const hidden = hiddenObjectsAt(events, wave);
+    const changed = this.doc.objects.filter((o) => hidden.has(o.id) !== this.eventHidden.has(o.id));
+    this.eventHidden = hidden;
+    if (changed.length) this.takeOut(changed);
   }
 
   /** Where a test run starts past wave 1, with the gold of the waves this map plays (its own list, else the player's source) */
@@ -551,19 +609,32 @@ export class CustomMapWorld implements WorldProvider {
   /** Fallen structures shrink to next to nothing in the view (FALLEN_SCALE) and stop blocking the build */
   private fell(objects: readonly MapObject[]): void {
     if (isDevMode()) console.log(`[CustomMap] fell: ${objects.map((o) => `${o.asset} ${o.id}`).join(', ')}`);
-    for (const o of objects) {
-      this.fallenScale.set(o.id, o.scale);
-      o.scale = FALLEN_SCALE;
-    }
-    this.view?.updateObjects(objects);
-    this.surface.setObjectCatalog(this.catalogObjects);
+    for (const o of objects) this.fallenIds.add(o.id);
+    this.takeOut(objects);
   }
 
   /** A reset stands them up again */
   private rose(objects: readonly MapObject[]): void {
+    for (const o of objects) this.fallenIds.delete(o.id);
+    this.takeOut(objects);
+  }
+
+  /**
+   * Objects out of the picture while fallen or hidden by a wave event:
+   * shrunk to next to nothing (FALLEN_SCALE), so they neither show, block
+   * sight nor block building; back at their scale once neither holds
+   */
+  private takeOut(objects: readonly MapObject[]): void {
     for (const o of objects) {
-      o.scale = this.fallenScale.get(o.id) ?? o.scale;
-      this.fallenScale.delete(o.id);
+      const out = this.fallenIds.has(o.id) || this.eventHidden.has(o.id);
+      const kept = this.outScale.get(o.id);
+      if (out && kept === undefined) {
+        this.outScale.set(o.id, o.scale);
+        o.scale = FALLEN_SCALE;
+      } else if (!out && kept !== undefined) {
+        o.scale = kept;
+        this.outScale.delete(o.id);
+      }
     }
     this.view?.updateObjects(objects);
     this.surface.setObjectCatalog(this.catalogObjects);

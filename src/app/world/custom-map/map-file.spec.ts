@@ -258,6 +258,40 @@ describe('map file', () => {
     expect(validateMapDocument(doc)).toContain('prefab 2: paint does not match its grid');
   });
 
+  it('carries the wave events in the rules and checks their shape (TODO E170)', async () => {
+    const doc = sample();
+    const hash = await contentHash(doc);
+    doc.gameplay = {
+      events: [
+        { wave: 3, kind: 'message', text: 'The gate opens' },
+        { wave: 3, kind: 'objects', ids: ['o1'], show: false },
+        { wave: 5, kind: 'weather', weather: 'snow', strength: 0.4 },
+        { wave: 6, kind: 'time', hour: 20.5 },
+        { wave: 8, kind: 'portal', spawn: 's1' },
+      ],
+    };
+    expect(validateMapDocument(doc)).toEqual([]);
+    const { doc: back } = unpackMapFile(packMapFile(doc));
+    expect(back.gameplay).toEqual(doc.gameplay);
+    expect(await contentHash(back)).not.toBe(hash);
+    doc.gameplay.events = [
+      { wave: 0, kind: 'message', text: 'x' },
+      { wave: 2, kind: 'message', text: '' },
+      { wave: 2, kind: 'weather', weather: 'hail' as never },
+      { wave: 2, kind: 'time', hour: 30 },
+      { wave: 2, kind: 'objects', ids: [], show: true },
+      { wave: 2, kind: 'party' } as never,
+    ];
+    expect(validateMapDocument(doc)).toEqual([
+      'wave event 1: wave must be a whole number from 1 to 200',
+      'wave event 2: a message of 1 to 200 characters',
+      'wave event 3: weather must be clear, rain, snow or fog',
+      'wave event 4: hour must be 0 to 24',
+      'wave event 5 names 1 to 500 objects',
+      'wave event 6: kind party is unknown',
+    ]);
+  });
+
   it('carries an image sky, an optional id; an old map has none and keeps its hash (TODO E172)', async () => {
     const doc = sample();
     const hash = await contentHash(doc);

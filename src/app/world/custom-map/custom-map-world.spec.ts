@@ -380,6 +380,49 @@ describe('CustomMapWorld', () => {
     expect(world.surface.buildBlocker(geo.lat, geo.lon, 1)).toBe(BUILD_BLOCKED_OBJECT);
   });
 
+  it('hands its wave events to the simulation with the objects placed, and shows sky and objects as far as it says (TODO E170)', () => {
+    const doc = testMap();
+    doc.objects = [
+      { id: 'gate', asset: 'barn', x: 20, y: 20, z: 0, rotation: 0, scale: 1.5 },
+      { id: 'wall', asset: 'barn', x: -20, y: 20, z: 0, rotation: 0, scale: 1 },
+    ];
+    doc.environment = { ...doc.environment, sky: 'day', weather: 'clear' };
+    doc.gameplay = {
+      events: [
+        { wave: 3, kind: 'objects', ids: ['gate'], show: true },
+        { wave: 4, kind: 'objects', ids: ['wall'], show: false },
+        { wave: 4, kind: 'weather', weather: 'rain', strength: 0.8 },
+        { wave: 5, kind: 'time', hour: 21.5 },
+        { wave: 2, kind: 'message', text: 'Hold' },
+      ],
+    };
+    const catalog = [{ id: 'barn', category: 'building', footprint: 5, height: 6, blocksBuild: true }];
+    const gate = mapToGeo({ x: 20, y: 20 });
+    const world = new CustomMapWorld({ doc, contentHash: 'abc' }, hqOrigin(doc), 3);
+    world.useCatalog(catalog);
+    // Before wave 3 the gate is hidden: out of the picture and the build blocking, on the run's own copy only
+    expect(world.doc.objects[0].scale).toBe(FALLEN_SCALE);
+    expect(doc.objects[0].scale).toBe(1.5);
+    expect(world.surface.buildBlocker(gate.lat, gate.lon, 1)).toBeNull();
+    // The rules carry the events, the gate at its own scale
+    const events = world.runRules()!.events!;
+    expect(events).toHaveLength(5);
+    expect(events[0]).toEqual({ wave: 3, kind: 'objects', ids: ['gate'], show: true, objects: [{ id: 'gate', ...gate, radius: 7.5 }] });
+
+    world.showWaveEvents(3);
+    expect(world.doc.objects[0].scale).toBe(1.5);
+    expect(world.surface.buildBlocker(gate.lat, gate.lon, 1)).toBe(BUILD_BLOCKED_OBJECT);
+    expect(world.doc.environment.weather).toBe('clear');
+    world.showWaveEvents(5);
+    expect(world.doc.objects[1].scale).toBe(FALLEN_SCALE);
+    expect(world.doc.environment).toMatchObject({ weather: 'rain', weatherStrength: 0.8, sky: 'night' });
+    expect(doc.environment.weather).toBe('clear');
+    // Back (a restore): as before
+    world.showWaveEvents(1);
+    expect(world.doc.objects.map((o) => o.scale)).toEqual([FALLEN_SCALE, 1]);
+    expect(world.doc.environment).toEqual(doc.environment);
+  });
+
   it('has no minimap picture before the map stands', () => {
     const doc = testMap();
     expect(new CustomMapWorld({ doc, contentHash: 'abc' }, hqOrigin(doc), 3).minimap()).toBeNull();

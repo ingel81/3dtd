@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import type { MapBiome, MapEnvironment, MapWeather, MapWind } from '../../../world/custom-map/map-document';
 import { chooseSkyImage, SKY_IMAGES } from '../../../world/custom-map/render/environment/sky-images';
 import { windOf } from '../../../world/custom-map/render/environment/wind';
+import { DAY_SUN, timeOfDay } from '../../../world/custom-map/time-of-day';
 import { SnapshotCommand } from '../../model/editor-document';
 import { EditorSession } from '../editor-session.service';
 import { RangeRowComponent } from './range-row.component';
@@ -12,23 +13,6 @@ const WEATHERS: { id: MapWeather; label: string }[] = [
   { id: 'snow', label: 'Snow' },
   { id: 'fog', label: 'Fog' },
 ];
-
-/** Lowest sun (degrees) timeOfDay calls day; under it the land takes dusk light and the map's lights come on */
-const DAY_SUN = 15;
-
-/**
- * A time of day as sun and sky, a summer day: the sun rises in the east at
- * 6, stands in the south at 13 60 degrees high, sets in the west at 20;
- * low sun is dusk, an hour past sunset is night. An overcast sky stays
- * overcast.
- */
-export function timeOfDay(hour: number, sky: MapEnvironment['sky']): Partial<MapEnvironment> {
-  const f = (hour - 6) / 14;
-  const elevation = 60 * Math.sin(Math.PI * f);
-  const azimuth = ((90 + 180 * f) % 360 + 360) % 360;
-  const nextSky: MapEnvironment['sky'] = sky === 'overcast' ? 'overcast' : elevation < -6 ? 'night' : elevation < DAY_SUN ? 'dusk' : 'day';
-  return { sunAzimuth: Math.round(azimuth), sunElevation: Math.round(Math.max(2, elevation)), sky: nextSky };
-}
 
 /**
  * A sky button: Day and Dusk also bring the sun to an hour that gives that

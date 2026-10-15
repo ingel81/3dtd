@@ -383,6 +383,12 @@ ob Bauwerke durch Treffer fallen (World, [CUSTOM_MAP_WORLD.md](CUSTOM_MAP_WORLD.
 die erlaubten Tower und die Wellen: die Wellen des Spiels (Budget-Source) oder eine eigene Liste in der Form der Table-
 Source ([WAVE_SOURCE_PLAN.md](WAVE_SOURCE_PLAN.md)): je Welle Name, HP-Faktor, Abstand, Gegnertyp mit Anzahl, dazu die
 Wiederholregel nach der letzten Welle; „Start from the game's list“ übernimmt die Liste des Spiels als Anfang.
+„Wave events“ legt fest, was vor einer Welle geschieht ([CUSTOM_MAP_WORLD.md](CUSTOM_MAP_WORLD.md#ereignisse-je-welle-e170)):
+Art wählen, „Add event“; die Liste steht nach Wellen, ein Klick öffnet einen Eintrag. Message (Text), Weather (Clear,
+Rain, Snow, Fog mit Stärke), Time of day (Stunde), Portal opens (welcher Spawn ab dieser Welle Gegner bringt),
+Objects (die gewählten Objekte erscheinen oder gehen; „Use the selection“ ersetzt sie, „Select them“ wählt sie). Ein
+neues Objects-Ereignis nimmt die Auswahl des Objektwerkzeugs. Jede Änderung ein Schritt im Verlauf, Probleme stehen
+darunter und im Check.
 „Difficulty“ (50 bis 200 %, Standard 100) legt einen Faktor auf das Budget jeder Welle des Spiels, der Druck-Regler
 regelt weiter obendrauf ([WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md), Abschnitt 19); eine eigene Liste behält ihre HP. Prüfen
 meldet Fehler der Liste und Regeln ohne schießenden Tower. Sie stehen im Kartendokument (`gameplay`, siehe
@@ -463,6 +469,7 @@ den Routen (Fläche in Reichweite, Tower darauf, bei mehreren Spuren die engste)
 | `water-floating` | Warnung | Wasser, das in der Luft endet (`waterInAir`): eine nasse Probe eines Gewässers (Maske gesetzt, Boden unter dem Spiegel) neben einer außerhalb der Maske, wo der Boden auf halbem Weg und anderes Wasser dort mehr als 0,5 m unter dem Spiegel liegen (ein See am Hang, ein Ufer, das ein Fluss oder eine Straße durchschnitt, ein Becken auf zu tiefem Land); ein Flussband (alle 2 m zwischen seinen Punkten), dessen beide Ufer einen Meter neben ihm so tief liegen, außer einen Fall hinab und jenseits des Kartenrands. Nennt jedes Gewässer und zeigt die schlimmste Stelle. Abhilfe: Ufer heben, Spiegel senken (Strg-Klick mit Fill füllt bis zum Rand) oder die Maske dort abnehmen. Die Levelskripte brechen ab (`finish`), ausgelieferte Karten haben keine (`shipped-maps-check`) |
 | `danger-color` | Warnung | Deko in Gefahrenfarben (rote Pilze, rote Blüten; `DANGER_LOOK` in `render/asset-catalog.ts`, dieselbe Liste wie für die mitgelieferten Karten) bis 30 m an einer Straße: Rot steht im Spiel für Gegner, Treffer und Feuer |
 | `scene-cost` | Warnung | Szenenkosten über 100 % (unten): mehr, als eine Karte flüssig zeichnet |
+| `wave-events` | Fehler, Warnung | Wellen-Ereignisse (`validation/wave-event-check.ts`): ein Portal nennt einen Spawn, den es nicht mehr gibt (Fehler); alle Spawns öffnen erst später, Welle 1 hätte keine Spur (Fehler); Objekte eines Ereignisses fehlen; Tageszeit auf einer Karte mit Himmelsbild |
 
 ### Szenenkosten
 
@@ -544,7 +551,7 @@ Szenenkosten.
   4 Byte je Höhenpunkt, eine 300 m lange Straße auf 2-m-Raster rund 12 kB Text vor dem Zip; die mitgelieferten Level
   wachsen dadurch um 21 bis 54 kB, 2 bis 7 %; nur der Editor liest es); optionales Feld `gameplay` (`startCredits`, `hqHealth`, `towers`, `waves` als
   `{ kind: 'budget' }` oder `{ kind: 'table', table }` in der Form der Table-Source, `difficulty` in Prozent, ohne
-  Feld 100; später dazugekommene optionale Felder heben die Version nicht, so auch `environment.skyImage`, die Id
+  Feld 100, `events` die Wellen-Ereignisse; später dazugekommene optionale Felder heben die Version nicht, so auch `environment.skyImage`, die Id
   eines Himmelsbilds, ohne Feld prozedural); Version-1-Dateien lesen sich
   unverändert über die Migration 1 nach 2
 - Prefabs und Stempel der Karte (`prefabs`, optional, höchstens 32, `MAX_MAP_PREFABS`): je Eintrag Id, Name, Zeit, Bild

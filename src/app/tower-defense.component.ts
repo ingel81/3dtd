@@ -111,6 +111,7 @@ import { LeakVignetteComponent } from './components/leak-vignette/leak-vignette.
 import { OffscreenIndicatorsComponent } from './components/offscreen-indicators/offscreen-indicators.component';
 import { CoopPingArrowsComponent } from './components/coop-ping-arrows/coop-ping-arrows.component';
 import { BloodMoonBannerComponent } from './components/blood-moon-banner/blood-moon-banner.component';
+import { MapEventBannerComponent } from './components/map-event-banner/map-event-banner.component';
 import { RelocationStatusComponent } from './components/relocation-status/relocation-status.component';
 import { UpdateHintComponent } from './components/update-hint/update-hint.component';
 import { LaneLengthPanelComponent } from './components/lane-length-panel/lane-length-panel.component';
@@ -187,6 +188,7 @@ import { MainMenuService } from './components/main-menu/main-menu.service';
     OffscreenIndicatorsComponent,
     CoopPingArrowsComponent,
     BloodMoonBannerComponent,
+    MapEventBannerComponent,
     RelocationStatusComponent,
     UpdateHintComponent,
     LaneLengthPanelComponent,

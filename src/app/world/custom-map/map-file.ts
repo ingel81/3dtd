@@ -15,7 +15,18 @@
  */
 import { VACANT_LANES } from './lane-choice';
 import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate';
-import { MAP_DIFFICULTY, MAP_FORMAT, MAP_VERSION, MAX_GROUND_LAYERS, MAX_MAP_PREFABS, splatMapCount, type CustomMapDocument, type MapPrefab } from './map-document';
+import {
+  MAP_DIFFICULTY,
+  MAP_FORMAT,
+  MAP_VERSION,
+  MAX_GROUND_LAYERS,
+  MAX_MAP_PREFABS,
+  WAVE_EVENT_LIMITS,
+  splatMapCount,
+  type CustomMapDocument,
+  type MapPrefab,
+  type MapWaveEvent,
+} from './map-document';
 import { MAP_ID_PATTERN } from './map-create';
 
 export const MAP_FILE_EXTENSION = '.3dtdmap';
@@ -405,6 +416,10 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
           if (lanes.vacant !== undefined && !VACANT_LANES.includes(lanes.vacant)) p.push('gameplay.lanes.vacant must be close, host or split');
         }
       }
+      if (gp.events !== undefined) {
+        if (!Array.isArray(gp.events) || gp.events.length > WAVE_EVENT_LIMITS.events) p.push(`gameplay.events must be a list of at most ${WAVE_EVENT_LIMITS.events}`);
+        else gp.events.forEach((e, k) => p.push(...waveEventProblems(e, k)));
+      }
       const w = gp.waves;
       if (w !== undefined && w.kind !== 'budget' && w.kind !== 'table') p.push('gameplay.waves.kind must be budget or table');
       if (w?.kind === 'table') {
@@ -439,6 +454,30 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
     p.push('environment wind needs strength, direction and gusts');
   }
   return p;
+}
+
+/** What is wrong with wave event k of a map, in words (the shape; the editor's check names spawns and objects that are gone) */
+function waveEventProblems(e: MapWaveEvent, k: number): string[] {
+  const what = `wave event ${k + 1}`;
+  if (!e || typeof e !== 'object') return [`${what} is not an object`];
+  if (!Number.isInteger(e.wave) || e.wave < 1 || e.wave > WAVE_EVENT_LIMITS.wave) return [`${what}: wave must be a whole number from 1 to ${WAVE_EVENT_LIMITS.wave}`];
+  const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+  switch (e.kind) {
+    case 'message':
+      return typeof e.text === 'string' && e.text.trim() && e.text.length <= WAVE_EVENT_LIMITS.text ? [] : [`${what}: a message of 1 to ${WAVE_EVENT_LIMITS.text} characters`];
+    case 'weather':
+      if (!['clear', 'rain', 'snow', 'fog'].includes(e.weather)) return [`${what}: weather must be clear, rain, snow or fog`];
+      return e.strength === undefined || (finite(e.strength) && e.strength >= 0 && e.strength <= 1) ? [] : [`${what}: strength must be 0 to 1`];
+    case 'time':
+      return finite(e.hour) && e.hour >= 0 && e.hour <= 24 ? [] : [`${what}: hour must be 0 to 24`];
+    case 'portal':
+      return typeof e.spawn === 'string' && e.spawn ? [] : [`${what} names no spawn`];
+    case 'objects':
+      if (typeof e.show !== 'boolean') return [`${what}: show must be true or false`];
+      return Array.isArray(e.ids) && e.ids.length > 0 && e.ids.length <= WAVE_EVENT_LIMITS.objects && e.ids.every((id) => typeof id === 'string') ? [] : [`${what} names 1 to ${WAVE_EVENT_LIMITS.objects} objects`];
+    default:
+      return [`${what}: kind ${String((e as { kind: unknown }).kind)} is unknown`];
+  }
 }
 
 /** What is wrong with prefab k of a map, in words */

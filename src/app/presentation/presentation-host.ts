@@ -319,6 +319,8 @@ export class PresentationHost implements SimPresenterApi {
     ops.override('main.iceDecal', (args) => iceDecal(engine, args[0] as number, args[1] as number, args[2] as number));
     // The structures of a destructible world as the simulation has them (TODO E131)
     ops.override('structures.setFallen', (args) => this.worldDamage.setFallen(args[0] as string[]));
+    // A custom map's wave events as far as the simulation reached them (TODO E170)
+    ops.override('waveEvents.setReached', (args) => engine.world.showWaveEvents?.(args[0] as number));
     ops.override('main.structureFell', (args) =>
       this.worldDamage.fell(args[0] as number, args[1] as number, args[2] as number, args[3] as number));
   }

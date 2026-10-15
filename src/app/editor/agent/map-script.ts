@@ -255,7 +255,11 @@ export const SCRIPT_OPS: Readonly<Record<string, OpSpec>> = {
     args: [a('patch', OBJECT)],
     doc: `Sky and air: { sky: ${ENVIRONMENT_CHOICES['sky'].join('|')}, sunAzimuth, sunElevation (degrees), fogDensity, tint '#rrggbb', weather: ${ENVIRONMENT_CHOICES['weather'].join('|')}, weatherStrength 0..1, biome: ${ENVIRONMENT_CHOICES['biome'].join('|')} (the look of sky, light and air; not a landscape biome), snowCover 0..1, moonlight, wind { strength 0..1, direction degrees, gusts 0..1 } }`,
   },
-  gameplay: { args: [a('rules', OBJECT)], doc: "Rules: { startCredits, hqHealth, towers: [tower ids], destructible: true|false, difficulty 50..200 (percent on the wave budget) }; waves is { kind: 'budget' } (the game's waves, the default) or a map's own table, there is no wave count" },
+  gameplay: {
+    args: [a('rules', OBJECT)],
+    doc: "Rules: { startCredits, hqHealth, towers: [tower ids], destructible: true|false, difficulty 50..200 (percent on the wave budget), events: [wave events] }; waves is { kind: 'budget' } (the game's waves, the default) or a map's own table, there is no wave count. " +
+      'events: before wave N (its build phase) { wave, kind: message { text } | weather { weather, strength } | time { hour } | portal { spawn } | objects { ids, show } }',
+  },
 };
 
 /** The reference of `map` for the agent (the script_api tool) */
@@ -757,7 +761,11 @@ function applyHeightGrid(doc: CustomMapDocument, origin: MapPoint, step: number,
   }
 }
 
-const RULE_KEYS = ['startCredits', 'hqHealth', 'towers', 'waves', 'lanes', 'destructible', 'difficulty'];
+const RULE_KEYS = ['startCredits', 'hqHealth', 'towers', 'waves', 'lanes', 'destructible', 'difficulty', 'events'];
+const EVENTS_EXAMPLE =
+  "events is a list of what happens before a wave (its build phase), each { wave, kind } and: message { text }, weather { weather: clear|rain|snow|fog, strength 0..1 }, " +
+  'time { hour 0..24 }, portal { spawn: spawn id } (the spawn brings enemies only from that wave on), objects { ids: [object ids], show: true|false } (they appear or go). ' +
+  "Example: { events: [{ wave: 5, kind: 'message', text: 'The north gate falls' }, { wave: 5, kind: 'portal', spawn: 's2' }] }";
 const WAVES_EXAMPLE =
   "waves is { kind: 'budget' } (the game's waves, the default) or { kind: 'table', table } with a map's own list (read_map of a shipped map shows one); " +
   "there is no wave count. Example: { waves: { kind: 'budget' }, difficulty: 120 }";
@@ -774,6 +782,10 @@ export function checkRules(patch: Record<string, unknown>): Partial<NonNullable<
   if (waves !== undefined) {
     const ok = !!waves && typeof waves === 'object' && (waves.kind === 'budget' || (waves.kind === 'table' && !!waves.table && typeof waves.table === 'object'));
     if (!ok) throw new ScriptError(`rules: ${WAVES_EXAMPLE}, not ${JSON.stringify(waves)}`);
+  }
+  const events = patch['events'];
+  if (events !== undefined && (!Array.isArray(events) || events.some((e) => !e || typeof e !== 'object' || typeof (e as { wave?: unknown }).wave !== 'number'))) {
+    throw new ScriptError(`rules: ${EVENTS_EXAMPLE}`);
   }
   return patch as Partial<NonNullable<CustomMapDocument['gameplay']>>;
 }

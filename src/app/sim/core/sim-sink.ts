@@ -164,6 +164,15 @@ export interface SimSink {
      */
     setFallen(ids: readonly string[]): void;
   };
+  readonly waveEvents: {
+    /**
+     * The wave whose events happened last (a custom map's wave events,
+     * WaveEvents, TODO E170), also after a restore or a replay's seek: the
+     * player hands it to the world (WorldProvider.showWaveEvents), which
+     * sets sky, weather and the objects as they stand then
+     */
+    setReached(wave: number): void;
+  };
   readonly show: {
     /**
      * Take the show off the field before a snapshot restore or after a

@@ -344,7 +344,30 @@ export interface MapGameplay {
    * missing. The pressure loop still works on top. A list of the map's own keeps its HP
    */
   difficulty?: number;
+  /** What happens before a wave (TODO E170, wave-events.ts), at most MAX_WAVE_EVENTS */
+  events?: MapWaveEvent[];
 }
+
+/**
+ * Something a map lets happen before wave `wave`: when the build phase
+ * before it begins (wave 1: at the start). A message on the screen, the
+ * weather or the time of day changing, a spawn portal that opens (its lane
+ * runs from that wave on, before it the spawn brings no enemies), objects
+ * that appear or go (a gate, a bridge, a wall). The game runs them in its
+ * simulation, so every coop client and every replay sees the same
+ * (world/custom-map/wave-events.ts).
+ */
+export type MapWaveEvent =
+  | { wave: number; kind: 'message'; text: string }
+  | { wave: number; kind: 'weather'; weather: MapWeather; strength?: number }
+  | { wave: number; kind: 'time'; hour: number }
+  | { wave: number; kind: 'portal'; spawn: string }
+  | { wave: number; kind: 'objects'; ids: string[]; show: boolean };
+
+export type MapWaveEventKind = MapWaveEvent['kind'];
+
+/** Wave events a map may have, the last wave one may name, and a message's length */
+export const WAVE_EVENT_LIMITS = { events: 64, wave: 200, text: 200, objects: 500 } as const;
 
 /** The difficulty a map may set, percent on the wave budget (MapGameplay.difficulty) */
 export const MAP_DIFFICULTY = { min: 50, max: 200, normal: 100 } as const;

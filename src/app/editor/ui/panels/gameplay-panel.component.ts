@@ -10,6 +10,7 @@ import { MAP_DIFFICULTY, type MapGameplay, type MapWaveRow, type MapWaveTable } 
 import { SnapshotCommand } from '../../model/editor-document';
 import { EditorSession } from '../editor-session.service';
 import { RangeRowComponent } from './range-row.component';
+import { WaveEventsPanelComponent } from './wave-events-panel.component';
 
 /**
  * The map's own rules: start credits, HQ health, the towers players may
@@ -26,7 +27,7 @@ function pruned(lanes: MapLanes): MapLanes | undefined {
 @Component({
   selector: 'app-gameplay-panel',
   standalone: true,
-  imports: [TdIconComponent, MatTooltipModule, RangeRowComponent],
+  imports: [TdIconComponent, MatTooltipModule, RangeRowComponent, WaveEventsPanelComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'td-stack is-loose' },
   templateUrl: './gameplay-panel.component.html',

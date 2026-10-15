@@ -55,7 +55,7 @@ Desktop-App: die Webversion hat weder Server noch Schalter, Agent-Knopf und Band
 | `run_script` | ändert | Skript gegen die offene Karte, ein Undo-Schritt, animiert abgespielt |
 | `move_marker` | ändert | HQ (`hq`) oder einen Spawn (Id oder Name) versetzen |
 | `place_object`, `move_object`, `delete_objects` | ändert | einzelne Objekte; eine Straßen-Id in `delete_objects` verweist auf `map.removeRoads` |
-| `set_rules` | ändert | Regeln (`gameplay`), verworfen, wenn die Karte so nicht speicherbar wäre; unbekannte Schlüssel und `waves` in falscher Form (es gibt keine Wellenzahl) mit Beispiel abgelehnt (`checkRules`, auch für `map.gameplay`) |
+| `set_rules` | ändert | Regeln (`gameplay`), verworfen, wenn die Karte so nicht speicherbar wäre; unbekannte Schlüssel, `waves` in falscher Form (es gibt keine Wellenzahl) und `events` ohne Liste mit Beispiel abgelehnt (`checkRules`, auch für `map.gameplay`); `events` sind die Wellen-Ereignisse (Nachricht, Wetter, Tageszeit, Portal, Objekte), die ganze Liste ersetzt die der Karte |
 | `set_sky` | ändert | Himmel und Luft (`environment`), nur bekannte Schlüssel und Werte |
 | `set_map_info` | ändert | Name und Beschreibung der offenen Karte (Id und Datei bleiben), ein Schritt |
 | `erode_map` | ändert | Erosion der ganzen Karte wie im Map-Panel, im Terrain-Worker, sichtbar während sie läuft |
