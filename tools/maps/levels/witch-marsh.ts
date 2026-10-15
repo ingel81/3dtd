@@ -82,6 +82,8 @@ export function buildWitchMarsh(): CustomMapDocument {
     const big = play.includes(isl);
     k.biome('swamp', isl.at, { radius: isl.radius * (big ? 0.95 : 1.1), strength: big ? 0.45 : 0.9 }, 1);
   }
+  // The swamp's relief sank island shores below the marsh water: it runs in there again, else it ended at them in the air
+  k.sea(marsh);
   // Willows, mossy and dead trees on the island rims, some in the shallows
   k.scatter(['tree-willow', 'tree-swamp-moss', 'tree-swamp-dead', 'tree-dead', 'tree-mangrove'], islands.map((i) => i.at), { radius: 70, strength: 1, falloff: 0.5 }, { density: 0.9, minDistance: 9, scaleMin: 0.8, scaleMax: 1.3 }, true);
   // Reeds and lily pads in the shallows between the islands
