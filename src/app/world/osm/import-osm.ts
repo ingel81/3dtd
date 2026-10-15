@@ -18,6 +18,7 @@ import type { OverpassResponse } from './overpass-client';
 import { buildRoads, levelRoads, paintRoads, type RoadStats } from './convert/roads';
 import { fillOsmTerrain } from './convert/terrain';
 import { layOut, type LayoutReport } from './convert/layout';
+import { placeBuildings, type BuildingCatalogEntry, type BuildingReport } from './convert/buildings';
 
 /** Side of an OSM world, metres: always 2.4 km (decision 2 of the plan), spawns up to 1000 m from the HQ in the middle */
 export const OSM_WORLD_SIDE = 2400;
@@ -51,6 +52,8 @@ export interface OsmImportOptions {
   splatResolution?: number;
   spawns?: number;
   now?: Date;
+  /** The asset catalogue's objects: the buildings take their models and scene cost from it (convert/buildings.ts) */
+  catalog?: readonly BuildingCatalogEntry[];
 }
 
 export interface OsmImportReport {
@@ -62,6 +65,7 @@ export interface OsmImportReport {
   roads: RoadStats;
   layers: string[];
   layout: LayoutReport;
+  buildings: BuildingReport;
   /** Milliseconds per step */
   ms: Record<string, number>;
   warnings: string[];
@@ -126,6 +130,12 @@ export function convertOsm(input: OsmImportInput, options: OsmImportOptions = {}
   }
   step('layout');
 
+  // After the HQ (they keep clear of it); their pads cut the ground the roads levelled, never the roads
+  const buildings = placeBuildings(doc, features, { catalog: options.catalog });
+  doc.objects.push(...buildings.objects);
+  warnings.push(...buildings.warnings);
+  step('buildings');
+
   const dem = input.dem ? input.dem.source : null;
   doc.meta.source = {
     kind: 'osm',
@@ -151,6 +161,7 @@ export function convertOsm(input: OsmImportInput, options: OsmImportOptions = {}
       roads: roads.stats,
       layers: t0.layers.map((l) => l.material),
       layout,
+      buildings: buildings.report,
       ms,
       warnings,
     },

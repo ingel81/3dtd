@@ -4,6 +4,7 @@
  * are missing (Node, specs) it works on the calling thread. Aborting the
  * signal or running past `timeoutMs` ends the worker.
  */
+import { MapAssetLibrary } from '../custom-map/render/map-asset-library';
 import { convertOsm, fetchOsmInput, type OsmImportOptions, type OsmImportResult } from './import-osm';
 import type { OsmDownloadStats, OsmImportStep, OsmWorkerRequest, OsmWorkerResponse } from './osm-worker.types';
 
@@ -31,6 +32,11 @@ export async function importOsmInWorker(
   const { signal, timeoutMs = OSM_IMPORT_TIMEOUT_MS, onStep } = control;
   const cancelled = (): Error => new Error('Making the map was cancelled');
   if (signal?.aborted) throw cancelled();
+  // The buildings take their models and scene cost from the asset catalogue (loaded once for the game)
+  if (!options.catalog) {
+    const objects = (await MapAssetLibrary.shared().catalog()).objects;
+    if (objects.length) options = { ...options, catalog: objects };
+  }
   if (typeof Worker === 'undefined') {
     onStep?.('download');
     const { input, download } = await fetchOsmInput(place.lat, place.lon, { address: place.address, sideM: options.sideM, signal });

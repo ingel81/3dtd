@@ -1,11 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
-import { validateMap } from '../../editor/validation/map-validation';
+import { objectsInAir, validateMap } from '../../editor/validation/map-validation';
 import { routeBetween } from '../../editor/ops/path-graph';
 import { packMapFile, unpackMapFile, validateMapDocument } from '../custom-map/map-file';
 import { mapStreetNetwork } from '../custom-map/custom-map-streets';
 import type { DemMosaic } from './dem-tiles';
+import { objectCost, SCENE_BUDGET } from '../custom-map/render/objects/scene-cost';
+import type { CatalogObject } from '../custom-map/render/asset-catalog';
+import { BUILDING_BUDGET_SHARE } from './convert/buildings';
 import { convertOsm, type OsmImportInput } from './import-osm';
 
 /** The frozen probe (integration/fixtures/osm/README.md, OSM worlds): Miltenberg, 1.2 km square, Overpass and heights */
@@ -75,5 +78,35 @@ describe('OSM world (frozen probe Miltenberg)', () => {
       expect(s.routeM).toBeGreaterThan(s.distanceM * 0.9);
     }
     for (const s of doc.spawns) expect(routeBetween(doc.paths, s, doc.hq)).not.toBeNull();
+  });
+
+  it('stands the buildings on their footprints: catalogue models, off the roads, seated, within their share of the scene cost', () => {
+    const catalog: CatalogObject[] = JSON.parse(readFileSync(join(__dirname, '../../../../public/maps/assets/catalog.json'), 'utf8')).objects;
+    const byId = new Map(catalog.map((e) => [e.id, e]));
+    const { doc, report } = convertOsm(probe(), { ...options, catalog });
+    const b = report.buildings;
+    // Miltenberg's 1.2 km: about a thousand footprints, nearly all of them stand
+    expect(b.footprints).toBeGreaterThan(800);
+    expect(b.placed / b.footprints).toBeGreaterThan(0.9);
+    expect(doc.objects.length).toBe(b.objects);
+    for (const o of doc.objects) expect(byId.has(o.asset)).toBe(true);
+    expect(b.kinds.house).toBeGreaterThan(0);
+    expect(b.kinds.apartments).toBeGreaterThan(0);
+    expect(b.kinds.garage).toBeGreaterThan(0);
+    const issues = validateMap(doc, { footingOf: (a) => byId.get(a), blocksBuild: (a) => byId.get(a)?.blocksBuild ?? false });
+    expect(issues.filter((i) => i.code === 'object-on-path' || i.code === 'object-floating' || i.severity === 'error')).toEqual([]);
+    expect(objectsInAir(doc, (a) => byId.get(a))).toEqual([]);
+    const area = doc.terrain.width * doc.terrain.depth;
+    const cost = doc.objects.reduce((s, o) => s + objectCost(byId.get(o.asset), area), 0);
+    expect(cost).toBeCloseTo(b.cost, -2);
+    expect(b.cost).toBeLessThanOrEqual(BUILDING_BUDGET_SHARE * SCENE_BUDGET * 1.1);
+    expect(b.missing.every((m) => m.count > 0)).toBe(true);
+  });
+
+  it('places no buildings without them in the data, and warns when it has no catalogue', () => {
+    const input = probe();
+    const { report } = convertOsm({ ...input, overpass: { elements: input.overpass.elements.filter((e) => !e.tags?.['building']) } }, options);
+    expect(report.buildings.objects).toBe(0);
+    expect(report.warnings.some((w) => w.startsWith('buildings: no asset catalogue'))).toBe(true);
   });
 });
