@@ -82,7 +82,7 @@
       "spawns": 2,
       "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "df8071696674d85e049c25a45e6291646fdd6a9d6b982f6dfd58adc9a51574f1"
+      "contentHash": "cd50567986fde95b017575f00655f14173c2bf7570f415e098e7903f18d4b8fc"
     },
     {
       "id": "frost-hamlet",
@@ -152,7 +152,7 @@
       "spawns": 3,
       "biome": "mars",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "7b384b15fc2e6e6ee310ae7d7654c29c24dd069155571eb67a7831d40504d8a9"
+      "contentHash": "24e51acc3eb0fb55d48deddbb4fd09e803b8ffbddb17f9ac2394e687b3cf73b7"
     },
     {
       "id": "ruined-city",

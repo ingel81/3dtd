@@ -160,8 +160,9 @@ Sandbank knapp unter dem Spiegel (die Prüfung warnt dort bewusst „under water
 
 Biom gemäßigt/Küste, Meer rundum, Look `day` klar. Fünf Inseln, verbunden durch Holzbrücken und Furten; Hafen mit
 Kaimauer, Kran, Fischerhütten, Leuchtturm. Gegner kommen über zwei Brückenketten zur Hauptinsel. Spawns: 2. Bauflächen:
-Inselränder an den Brückenköpfen. Am Rand des Sunds stehen sieben Brandungspfeiler (einzeln und in Gruppen, 12 bis
-24 m, aus dem Meeresboden gehoben, Klippenfelsen der Küste) als Tiefe vor dem Horizont.
+Inselränder an den Brückenköpfen. Am Rand des Sunds stehen sieben schlanke Brandungspfeiler (einzeln und zu zweit,
+15 bis 30 m, mit einer Schulter, aus dem Meeresboden gehoben) als Tiefe vor dem Horizont; die Klippenschicht der
+Karte ist heller Kalkstein (`limestone`) statt dunklem Moosfels.
 Leben (Werkzeug Life, im Level-Skript): Vögel über Leuchtturmfels, Hafen und Wrack, Ruderboote im Hafen, ein
 Fischerboot auf einer Route um die Hauptinsel; Brandung entlang der Felsküsten, Möwenrufe am Leuchtturmfels und
 über dem Hafen, Vogelgesang des Looks.
@@ -267,7 +268,8 @@ Look `moon`, tiefe Sonne (22°), schwarzer Himmel. In drei Ecken heben sich abse
 einem Becken, eine dritte Spur kommt vom Ostrand; die Kolonie (Hub, Gewächshauskuppeln, Landeplatz, Windräder,
 Solarfeld auf einer Bank darüber) steht am Südende. Dünen, Krater und Tafelberge auf der Ebene. Look `mars`, staubiger
 Nachmittag. An den Rändern stehen abseits der Spawns acht Felstürme aus Gelände (40 bis 55 m über
-der Ebene, gestuft, Mars-Klippenfelsen am Fuß), ganz innerhalb der Karte, als Kulisse vor der fernen Bergkette.
+der Ebene, vom breiten Schuttfuß über einen schmaleren Körper zur kleineren, versetzten Spitze, gestuft, von Rinnen
+zerschnitten, Mars-Klippenfelsen an Wand und Fuß), ganz innerhalb der Karte, als Kulisse vor der fernen Bergkette.
 
 ### 11 Endzeit-Stadt (`ruined-city`)
 `tools/maps/levels/ruined-city.ts`, Small 512 m. Spuren 572, 444 und 444 m. Das Straßenraster der Stadt (64 m)

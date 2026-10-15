@@ -208,7 +208,7 @@ export interface MapObject {
 export type MapPathKind = 'road' | 'path' | 'bridge';
 
 /** What a bridge is built of (default wood) */
-export type MapBridgeStyle = 'wood' | 'stone' | 'lava';
+export type MapBridgeStyle = 'wood' | 'stone' | 'concrete' | 'lava';
 
 export interface MapPathNode extends MapPoint {
   id: string;

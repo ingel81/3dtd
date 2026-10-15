@@ -7,7 +7,8 @@ import { convertOsm } from './import-osm';
 import { MAX_GROUND_LAYERS } from '../custom-map/map-document';
 import { readWeights } from '../../editor/ops/paint-ops';
 import { heightAt } from '../../editor/model/grid';
-import { plantCosts, PLANT_BUDGET_SHARE } from './convert/vegetation';
+import { assetCosts, PLANT_BUDGET_SHARE } from './convert/vegetation';
+import { FURNITURE_BUDGET_SHARE } from './convert/furniture';
 import { buildingCatalog } from './convert/buildings';
 import { objectCost, SCENE_BUDGET } from '../custom-map/render/objects/scene-cost';
 import type { CatalogObject } from '../custom-map/render/asset-catalog';
@@ -106,7 +107,7 @@ describe('OSM world (frozen probe Miltenberg)', () => {
 
   it('keeps the plants off the footprints, within their own share of the scene budget', () => {
     const objects: CatalogObject[] = catalog.objects;
-    const { doc, report } = convertOsm(probe(), { ...options, catalog: buildingCatalog(objects), plantCosts: plantCosts(objects, 1200) });
+    const { doc, report } = convertOsm(probe(), { ...options, catalog: buildingCatalog(objects), costs: assetCosts(objects, 1200) });
     expect(report.buildings.objects).toBeGreaterThan(0);
     expect(report.plants.budget).toBe(Math.round(PLANT_BUDGET_SHARE * SCENE_BUDGET));
     expect(report.plants.cost).toBeLessThanOrEqual(report.plants.budget);
@@ -114,6 +115,10 @@ describe('OSM world (frozen probe Miltenberg)', () => {
     const houses = doc.objects.filter((o) => o.group?.startsWith('osm-b') && o.asset !== 'retaining-wall');
     const trees = doc.objects.filter((o) => o.asset.startsWith('tree-'));
     for (const tr of trees) for (const h of houses) expect(Math.hypot(tr.x - h.x, tr.y - h.y)).toBeGreaterThan(1);
+    // The furniture: walls, hedges and fences of the old town, within its share, off the roads
+    expect(report.furniture.objects).toBeGreaterThan(50);
+    expect(report.furniture.cost).toBeLessThanOrEqual(FURNITURE_BUDGET_SHARE * SCENE_BUDGET);
+    expect(validateMap(doc).map((i) => i.code)).not.toContain('object-on-path');
   });
 
   it('paints the land into the layers the roads leave, the smaller area over the larger', () => {
@@ -166,8 +171,8 @@ describe('OSM world (frozen probe Miltenberg)', () => {
   });
 
   it('grows forests, single trees and shore reeds off the roads and the HQ, the same every time, within the plants budget', () => {
-    const costs = plantCosts(catalog.objects, 1200);
-    const { doc, report } = convertOsm(probe(), { ...options, plantCosts: costs });
+    const costs = assetCosts(catalog.objects, 1200);
+    const { doc, report } = convertOsm(probe(), { ...options, costs: costs });
     const placed = report.plants.placed;
     expect(placed['forest']).toBeGreaterThan(300);
     expect(placed['trees']).toBeGreaterThan(20);
@@ -177,17 +182,17 @@ describe('OSM world (frozen probe Miltenberg)', () => {
     for (const o of doc.objects) expect(Math.hypot(o.x - doc.hq.x, o.y - doc.hq.y)).toBeGreaterThan(20);
     for (const o of doc.objects) for (const b of [t(doc).water, ...(t(doc).waterBodies ?? [])]) expect(b ? wetAt(doc, o, b.mask) : false).toBe(false);
     seed = 1;
-    expect(convertOsm(probe(), { ...options, plantCosts: costs }).doc.objects).toEqual(doc.objects);
+    expect(convertOsm(probe(), { ...options, costs: costs }).doc.objects).toEqual(doc.objects);
   });
 
   it('thins the plants far from the routes first when the budget runs short, and keeps the single trees', () => {
-    const costs = plantCosts(catalog.objects, 1200);
-    const full = convertOsm(probe(), { ...options, plantCosts: costs });
+    const costs = assetCosts(catalog.objects, 1200);
+    const full = convertOsm(probe(), { ...options, costs: costs });
     seed = 1;
     // Each plant dearer, so that about a quarter of them fits
     const factor = (4 * PLANT_BUDGET_SHARE * SCENE_BUDGET) / full.report.plants.cost;
     const dear = Object.fromEntries(Object.entries(costs).map(([k, v]) => [k, v * factor]));
-    const thin = convertOsm(probe(), { ...options, plantCosts: dear });
+    const thin = convertOsm(probe(), { ...options, costs: dear });
     expect(thin.report.plants.objects).toBeLessThan(full.report.plants.objects / 2);
     expect(thin.report.plants.placed['trees']).toBe(full.report.plants.placed['trees']);
     const near = (doc: typeof full.doc) => {

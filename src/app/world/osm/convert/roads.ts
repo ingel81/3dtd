@@ -134,7 +134,7 @@ export function buildRoads(features: OsmFeatures): RoadBuild {
           const edge: MapPathEdge = { id: `e${edges.length + 1}`, a, b, width: tags.width, kind, street: tags.type };
           if (via.length) edge.via = via;
           if (tags.tunnel) edge.tunnel = true;
-          else if (kind === 'bridge') edge.style = bridgeStyle(way.tags);
+          else if (kind === 'bridge') edge.style = bridgeStyle(way.tags, tags.kind);
           else edge.surface = tags.surface;
           edges.push(edge);
           names.set(edge.id, way.tags['name'] ?? '');
