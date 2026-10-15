@@ -122,6 +122,8 @@ export class EffectLayer {
     private readonly field: HeightField,
     /** Level of the water at a map point, null on dry ground: a waterfall's foam lies on its pool */
     private readonly waterLevelAt: (x: number, y: number) => number | null = () => null,
+    /** Whether lava stands at a map point: a waterfall into or out of it is a lava fall */
+    private readonly lavaAt: (x: number, y: number) => boolean = () => false,
   ) {
     this.group.name = 'custom-map-effects';
     this.group.userData['losTransparent'] = true;
@@ -165,8 +167,14 @@ export class EffectLayer {
           // The sheet hangs over the ground and a river's slope all the way down; its foot is where the water lands
           const reach = fallReach(matrix, height, (x, z) => this.field.heightAt(-x, z), (x, z) => this.waterLevelAt(-x, z));
           const spec: WaterfallSpec = { matrix, radius, height, pool: null, reach };
+          const foot = fallFoot(matrix, spec);
+          const lip = fallLip(matrix, spec);
+          // Lava at its lip, under its foot or just ahead of it (where it pours in): the sheet glows and the foot
+          // throws embers, not spray
+          const ahead = (d: number) => this.lavaAt(-(foot.x + matrix.elements[8] * d), foot.z + matrix.elements[10] * d);
+          spec.lava = this.lavaAt(-lip.x, lip.z) || [0, 2, 4, 6].some(ahead);
           falls.push(spec);
-          feet.push({ foot: fallFoot(matrix, spec), radius, rate: fx.rate, color: fx.color });
+          feet.push({ foot, radius, rate: fx.rate, color: fx.color, lava: spec.lava });
           continue;
         }
         if (fx.kind === 'birds') {
@@ -408,7 +416,7 @@ export class EffectLayer {
     const lip = new Vector3();
     const origin = new Vector3();
     for (let i = 0; i < falls.length; i++) {
-      const { foot, radius, rate, color } = feet[i];
+      const { foot, radius, rate, color, lava } = feet[i];
       const height = falls[i].height;
       const step = falls.some((other, j) => {
         if (j === i) return false;
@@ -425,6 +433,12 @@ export class EffectLayer {
       const ground = this.field.heightAt(footMap.x, footMap.y);
       if (pool === null && ground > foot.y + 1) continue;
       const at = foot.clone().setY(pool ?? ground);
+      if (lava) {
+        // Lava lands in embers and a little smoke, no foam
+        push(emitters, { kind: 'embers', origin: at, radius: radius * 1.2, height: 0.3, count: this.share(particleCount('embers', 3 * radius)), color: '#ff8a30', scale: 1.4 });
+        push(emitters, { kind: 'smoke', origin: at, radius, height: 0.5, count: this.share(particleCount('smoke', 0.6 * radius)), color: '#4a3a34', scale: 2 });
+        continue;
+      }
       // The foam disc lies on the pool, in the fall's own frame
       if (pool !== null) falls[i].pool = pool - origin.setFromMatrixPosition(falls[i].matrix).y;
       // Spray where the water lands, and a wider, slower cloud of mist around it
@@ -609,6 +623,7 @@ interface FallFoot {
   radius: number;
   rate: number | undefined;
   color: string | undefined;
+  lava: boolean;
 }
 
 function push(map: Map<ParticleKind, ParticleEmitter[]>, e: ParticleEmitter): void {

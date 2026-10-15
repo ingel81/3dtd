@@ -256,6 +256,21 @@ describe('EffectLayer', () => {
     layer.dispose();
   });
 
+  it('draws a fall into lava as a lava fall: glowing sheet, embers and smoke at its foot, no spray or foam', () => {
+    const layer = new EffectLayer(flat(), () => 5, () => true);
+    layer.set([place('c', 'falls', -20)], catalog);
+    const names = layer.group.children.filter((c) => c instanceof Mesh).map((c) => c.name);
+    expect(names).toContain('custom-map-particles-embers');
+    expect(names).toContain('custom-map-particles-smoke');
+    expect(names).not.toContain('custom-map-particles-spray');
+    const geometry = (layer.group.children.find((c) => c.name === 'custom-map-waterfalls') as Mesh).geometry;
+    const lava = geometry.getAttribute('aLava');
+    const fall = geometry.getAttribute('aFall');
+    for (let k = 0; k < lava.count; k++) expect(lava.getX(k)).toBe(1);
+    for (let k = 0; k < fall.count; k++) expect(fall.getX(k)).toBeGreaterThanOrEqual(0);
+    layer.dispose();
+  });
+
   it('lands foam and spray only at the foot of a cascade, on the pool, not at its steps in mid air', () => {
     // A pool 1 m deep everywhere: a step's foot would find it too and float its disc at that level
     const sprayAndDisc = (objects: MapObject[], level: (x: number, y: number) => number = () => 5): { spray: number; disc: number[] } => {

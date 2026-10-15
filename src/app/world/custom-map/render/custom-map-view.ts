@@ -253,7 +253,11 @@ export class CustomMapView {
     this.group.add(this.edgeTrees.group);
     this.bridges = new BridgeLayer(this.heights, assets);
     this.group.add(this.bridges.group);
-    this.effects = new EffectLayer(this.heights, (x, y) => this.waterLevelAt(x, y));
+    this.effects = new EffectLayer(
+      this.heights,
+      (x, y) => this.waterLevelAt(x, y),
+      (x, y) => waterLevelAt(this.doc.terrain, x, y, this.heights.heightAt(x, y) - 1, 'lava') !== null,
+    );
     this.effects.setLife(doc.life);
     this.boats = new LifeBoats(assets, this.heights, (x, y) => this.waterLevelAt(x, y));
     this.group.add(this.boats.group);

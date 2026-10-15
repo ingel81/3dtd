@@ -407,7 +407,11 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   max(3 m, halbe Fallhöhe) darüber, sonst der Boden; liegt der Boden mehr als 1 m über dem Fuß, keine); liegt der Fuß über stillem
   Wasser (Spiegel am Scheibenrand höchstens 0,3 m anders), eine Scheibe aus wirbelndem Schaum darauf, über einem
   abfallenden Fluss keine. Trifft der Fuß die Kante eines anderen Wasserfalls (eine Stufe einer Kaskade), weder Gischt
-  noch Scheibe: das Wasser läuft dort die nächste Fläche hinab, Schaum hinge sonst vor der Klippe in der Luft
+  noch Scheibe: das Wasser läuft dort die nächste Fläche hinab, Schaum hinge sonst vor der Klippe in der Luft.
+  **Lavafall:** steht Lava unter dem Fuß oder an der Lippe (ein Wasserfall, gesetzt über einer Kante in den Lavasee),
+  zeichnet dieselbe Fläche geschmolzenen Fels: dunkle
+  Krustenplatten gleiten langsam über glühende Ströme, hell an der Lippe und am Fuß, ohne Tag-Nacht-Dämpfung; am Fuß
+  Glut und etwas Rauch statt Gischt, keine Schaumscheibe (Attribut `aLava`, ein Zweig im selben Shader)
 - **Lichter** (`light`: Farbe, Stärke, Reichweite, Höhe, `flicker`): jedes bekommt einen additiven Schein (am Tag
   schwach, nachts voll); dazu ein fester Pool von 6 `PointLight`s für die Lichter nächst dem Kamerafokus, nach
   Dunkelheit eingeblendet (Nacht, Dämmerung, tiefe Sonne). Am Tag kosten sie nichts, die feste Poolgröße vermeidet
