@@ -10,6 +10,11 @@ import { convertOsm, type OsmImportInput } from './import-osm';
 import { MAX_GROUND_LAYERS } from '../custom-map/map-document';
 import { readWeights } from '../../editor/ops/paint-ops';
 import { heightAt } from '../../editor/model/grid';
+import { spawnRoutes } from '../../editor/ops/path-graph';
+import { plantCosts, PLANT_BUDGET_SHARE } from './convert/vegetation';
+import { SCENE_BUDGET } from '../custom-map/render/objects/scene-cost';
+
+const catalog = JSON.parse(readFileSync(join(__dirname, '../../../../public/maps/assets/catalog.json'), 'utf8'));
 
 /** The frozen probe (integration/fixtures/osm/README.md, OSM worlds): Miltenberg, 1.2 km square, Overpass and heights */
 function probe(): OsmImportInput {
@@ -87,6 +92,9 @@ describe('OSM world (frozen probe Miltenberg)', () => {
     for (const e of doc.paths.edges) if (e.surface) expect(t.layers.map((l) => l.material)).toContain(e.surface);
     expect(report.ground.areas.forest).toBeGreaterThan(0);
     expect(report.ground.areas.meadow).toBeGreaterThan(0);
+    // The sun as high as at noon around the equinox at 49.7 degrees north, from the south
+    expect(doc.environment.sunElevation).toBe(40);
+    expect(doc.environment.sunAzimuth).toBe(150);
     // Every class painted its own material or the one it fell back on
     for (const [material, took] of Object.entries(report.ground.fellBack)) {
       expect(t.layers.map((l) => l.material)).not.toContain(material);
@@ -125,4 +133,55 @@ describe('OSM world (frozen probe Miltenberg)', () => {
       for (const p of river.points) expect(heightAt(t, p.x, p.y)).toBeLessThan(p.height + 0.01);
     }
   });
+
+  it('grows forests, single trees and shore reeds off the roads and the HQ, the same every time, within the plants budget', () => {
+    const costs = plantCosts(catalog.objects, 1200);
+    const { doc, report } = convertOsm(probe(), { ...options, plantCosts: costs });
+    const placed = report.plants.placed;
+    expect(placed['forest']).toBeGreaterThan(300);
+    expect(placed['trees']).toBeGreaterThan(20);
+    expect(placed['shore']).toBeGreaterThan(0);
+    expect(report.plants.cost).toBeLessThanOrEqual(PLANT_BUDGET_SHARE * SCENE_BUDGET);
+    expect(validateMap(doc).map((i) => i.code)).not.toContain('object-on-path');
+    for (const o of doc.objects) expect(Math.hypot(o.x - doc.hq.x, o.y - doc.hq.y)).toBeGreaterThan(20);
+    for (const o of doc.objects) for (const b of [t(doc).water, ...(t(doc).waterBodies ?? [])]) expect(b ? wetAt(doc, o, b.mask) : false).toBe(false);
+    seed = 1;
+    expect(convertOsm(probe(), { ...options, plantCosts: costs }).doc.objects).toEqual(doc.objects);
+  });
+
+  it('thins the plants far from the routes first when the budget runs short, and keeps the single trees', () => {
+    const costs = plantCosts(catalog.objects, 1200);
+    const full = convertOsm(probe(), { ...options, plantCosts: costs });
+    seed = 1;
+    // Each plant dearer, so that about a quarter of them fits
+    const factor = (4 * PLANT_BUDGET_SHARE * SCENE_BUDGET) / full.report.plants.cost;
+    const dear = Object.fromEntries(Object.entries(costs).map(([k, v]) => [k, v * factor]));
+    const thin = convertOsm(probe(), { ...options, plantCosts: dear });
+    expect(thin.report.plants.objects).toBeLessThan(full.report.plants.objects / 2);
+    expect(thin.report.plants.placed['trees']).toBe(full.report.plants.placed['trees']);
+    const near = (doc: typeof full.doc) => {
+      const routes = [...spawnRoutes(doc).values()].flatMap((r) => (r ? [r.points] : []));
+      const forest = doc.objects.filter((o) => o.asset.startsWith('tree-'));
+      const close = forest.filter((o) => routes.some((line) => line.some((p, k) => k > 0 && segmentDistance(o, line[k - 1], p) < 150)));
+      return close.length / forest.length;
+    };
+    expect(near(thin.doc)).toBeGreaterThan(near(full.doc));
+  });
 });
+
+const t = (doc: { terrain: import('../custom-map/map-document').MapTerrain }) => doc.terrain;
+
+function wetAt(doc: { terrain: import('../custom-map/map-document').MapTerrain }, p: { x: number; y: number }, mask: Uint8Array): boolean {
+  const g = doc.terrain.grid;
+  const i = Math.round((p.x + doc.terrain.width / 2) / g.cellSize);
+  const j = Math.round((p.y + doc.terrain.depth / 2) / g.cellSize);
+  return mask[j * g.columns + i] !== 0;
+}
+
+function segmentDistance(p: { x: number; y: number }, a: { x: number; y: number }, b: { x: number; y: number }): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy || 1;
+  const u = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2));
+  return Math.hypot(p.x - a.x - u * dx, p.y - a.y - u * dy);
+}

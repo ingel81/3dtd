@@ -4,7 +4,9 @@
  * are missing (Node, specs) it works on the calling thread. Aborting the
  * signal or running past `timeoutMs` ends the worker.
  */
-import { convertOsm, fetchOsmInput, type OsmImportOptions, type OsmImportResult } from './import-osm';
+import { MapAssetLibrary } from '../custom-map/render/map-asset-library';
+import { plantCosts } from './convert/vegetation';
+import { convertOsm, fetchOsmInput, OSM_WORLD_SIDE, type OsmImportOptions, type OsmImportResult } from './import-osm';
 import type { OsmDownloadStats, OsmImportStep, OsmWorkerRequest, OsmWorkerResponse } from './osm-worker.types';
 
 let nextId = 1;
@@ -31,6 +33,7 @@ export async function importOsmInWorker(
   const { signal, timeoutMs = OSM_IMPORT_TIMEOUT_MS, onStep } = control;
   const cancelled = (): Error => new Error('Making the map was cancelled');
   if (signal?.aborted) throw cancelled();
+  options = { ...options, plantCosts: options.plantCosts ?? (await catalogPlantCosts(options.sideM ?? OSM_WORLD_SIDE)) };
   if (typeof Worker === 'undefined') {
     onStep?.('download');
     const { input, download } = await fetchOsmInput(place.lat, place.lon, { address: place.address, sideM: options.sideM, signal });
@@ -64,5 +67,14 @@ export async function importOsmInWorker(
     if (timer) clearTimeout(timer);
     if (onAbort) signal?.removeEventListener('abort', onAbort);
     worker.terminate();
+  }
+}
+
+/** The plants' scene costs from the renderer's catalogue; none where it cannot be read (the import then counts them dear) */
+async function catalogPlantCosts(side: number): Promise<Record<string, number> | undefined> {
+  try {
+    return plantCosts((await MapAssetLibrary.shared().catalog()).objects, side);
+  } catch {
+    return undefined;
   }
 }

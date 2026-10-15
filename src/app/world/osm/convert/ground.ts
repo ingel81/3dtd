@@ -12,7 +12,7 @@
  * (vegetation.ts): which class grows where.
  */
 import { MAX_LAYERS } from '../../../editor/ops/paint-ops';
-import { fitSplatMaps, type MapTerrain } from '../../custom-map/map-document';
+import { fitSplatMaps, type MapEnvironment, type MapTerrain } from '../../custom-map/map-document';
 import { LAND_GROUND, landClassOf, type LandClass } from '../land-tags';
 import type { OsmFeatures } from '../osm-parse';
 import { fillRings, sampleGrid, texelGrid } from './raster';
@@ -139,4 +139,23 @@ export function paintGround(terrain: MapTerrain, features: OsmFeatures, reserved
     }
   }
   return { report, land };
+}
+
+/** Share of the map under buildings from which its look is a city's */
+const CITY_SHARE = 0.15;
+
+/**
+ * The look of the place: a city's where buildings cover much of it, else the
+ * temperate land; the sun as high as at noon around the equinox at its
+ * latitude, from the south (north on the southern half)
+ */
+export function placeMood(features: OsmFeatures): Pick<MapEnvironment, 'biome' | 'sunElevation' | 'sunAzimuth'> {
+  let built = 0;
+  for (const a of features.areas) if (a.tags['building']) built += a.area;
+  const lat = features.frame.lat;
+  return {
+    biome: built / (4 * features.half * features.half) >= CITY_SHARE ? 'city' : 'temperate',
+    sunElevation: Math.round(Math.min(65, Math.max(25, 90 - Math.abs(lat)))),
+    sunAzimuth: lat >= 0 ? 150 : 30,
+  };
 }

@@ -17,7 +17,9 @@ import { downloadOsm, osmQueryBox } from './osm-query';
 import type { OverpassResponse } from './overpass-client';
 import { buildRoads, levelRoads, paintRoads, type RoadStats } from './convert/roads';
 import { fillOsmTerrain } from './convert/terrain';
-import { paintGround, type GroundReport } from './convert/ground';
+import { paintGround, placeMood, type GroundReport } from './convert/ground';
+import { growVegetation, type VegetationReport } from './convert/vegetation';
+import { objectCost } from '../custom-map/render/objects/scene-cost';
 import { carveWater, paintWater, settleWater, WATER_MATERIALS, type WaterPaintRole, type WaterReport } from './convert/water';
 import { layOut, type LayoutReport } from './convert/layout';
 
@@ -53,6 +55,13 @@ export interface OsmImportOptions {
   splatResolution?: number;
   spawns?: number;
   now?: Date;
+  /**
+   * Scene cost per plant asset on this map (vegetation.ts plantCosts, from
+   * the catalogue): the plants are held to their budget by it. An asset
+   * missing counts as an unknown object (dearer, so the forests come out
+   * thinner)
+   */
+  plantCosts?: Record<string, number>;
 }
 
 export interface OsmImportReport {
@@ -64,6 +73,7 @@ export interface OsmImportReport {
   roads: RoadStats;
   ground: GroundReport;
   water: WaterReport;
+  plants: VegetationReport;
   layers: string[];
   layout: LayoutReport;
   /** Milliseconds per step */
@@ -131,6 +141,7 @@ export function convertOsm(input: OsmImportInput, options: OsmImportOptions = {}
   // The land takes the layers the roads' surfaces and the water's shores leave
   const wetMaterials = (Object.keys(WATER_MATERIALS) as WaterPaintRole[]).filter((r) => water.paint[r].some((v) => v > 0)).map((r) => WATER_MATERIALS[r]);
   const ground = paintGround(t0, features, new Set([...doc.paths.edges.flatMap((e) => (e.surface ? [e.surface] : [])), ...wetMaterials]));
+  Object.assign(doc.environment, placeMood(features));
   step('ground');
   paintWater(t0, water);
   step('shores');
@@ -142,6 +153,10 @@ export function convertOsm(input: OsmImportInput, options: OsmImportOptions = {}
     warnings.push(`spawns: ${layout.spawns.length} of ${layout.wanted} found on streets 500 to 1000 m from the HQ with a route to it`);
   }
   step('layout');
+
+  const unknownCost = objectCost(undefined, side * side);
+  const plants = growVegetation(doc, features, ground.land, water, { costOf: (asset) => options.plantCosts?.[asset] ?? unknownCost });
+  step('plants');
 
   const dem = input.dem ? input.dem.source : null;
   doc.meta.source = {
@@ -168,6 +183,7 @@ export function convertOsm(input: OsmImportInput, options: OsmImportOptions = {}
       roads: roads.stats,
       ground: ground.report,
       water: water.report,
+      plants,
       layers: t0.layers.map((l) => l.material),
       layout,
       ms,
