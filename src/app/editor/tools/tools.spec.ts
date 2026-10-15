@@ -1,5 +1,5 @@
 import { createMapDocument } from '../../world/custom-map/map-create';
-import { CatalogIndex } from '../catalog/asset-catalog';
+import { CatalogIndex, normalizeCatalog } from '../catalog/asset-catalog';
 import { EditorDocument } from '../model/editor-document';
 import { heightAt } from '../model/grid';
 import type { EditorOverlay } from '../view/editor-overlay';
@@ -98,6 +98,40 @@ describe('editor tools', () => {
     ed.select({ kind: 'objects', ids: [ed.doc.objects[0].id] });
     tool.key(new KeyboardEvent('keydown', { key: 'Delete' }), ctx);
     expect(ed.doc.objects).toHaveLength(0);
+  });
+
+  it('levels a slope under a house placed anew, in the same undo step; a tree levels nothing', () => {
+    const ed = fresh();
+    const ctx = context(ed);
+    const objects = [
+      { id: 'house', name: 'House', category: 'building', file: 'h.glb', footprint: 5, height: 8, blocksLos: true, blocksBuild: true },
+      { id: 'tree-oak', name: 'Oak', category: 'tree', file: 't.glb', footprint: 2, height: 10, blocksLos: false, blocksBuild: true },
+    ];
+    Object.assign(ctx, { catalog: new CatalogIndex(normalizeCatalog({ objects }, 'http://x/')) });
+    const g = ed.doc.terrain.grid;
+    // Ground rising 0.3 m per metre to the east
+    for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) g.heights[j * g.columns + i] = (i * g.cellSize - 200) * 0.3;
+    const slope = Float32Array.from(g.heights);
+    const tool = new ObjectTool();
+    ctx.settings.objects.mode = 'place';
+    ctx.settings.objects.asset = 'tree-oak';
+    tool.pointerDown(at(-100, 0), ctx);
+    expect(Array.from(g.heights)).toEqual(Array.from(slope));
+    ctx.settings.objects.asset = 'house';
+    tool.pointerDown(at(40, 20), ctx);
+    const house = ed.doc.objects.at(-1)!;
+    // Level under the footprint and its pad: the uphill and downhill sides at the same height
+    const east = heightAt(ed.doc.terrain, 40 + 5, 20);
+    expect(heightAt(ed.doc.terrain, 40 - 5, 20)).toBeCloseTo(east, 3);
+    expect(heightAt(ed.doc.terrain, 40, 20 + 5)).toBeCloseTo(east, 3);
+    expect(east).toBeCloseTo(12, 0);
+    // Far off, the slope as it was
+    expect(heightAt(ed.doc.terrain, 40 + 30, 20)).toBeCloseTo(21, 3);
+    const steps = ed.historySteps;
+    ed.undo();
+    expect(ed.doc.objects.find((o) => o.id === house.id)).toBeUndefined();
+    expect(Array.from(g.heights)).toEqual(Array.from(slope));
+    expect(ed.historySteps).toBe(steps - 1);
   });
 
   it('selects by lasso on the screen, moves along an arrow and lifts with the blue one', () => {

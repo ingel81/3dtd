@@ -4,7 +4,10 @@
  * snap and duplicates. Ids are `o<number>`, counted on from the highest.
  */
 import type { CustomMapDocument, MapObject, MapPoint, MapTerrain } from '../../world/custom-map/map-document';
-import { heightAt, slopeAt, insideMap } from '../model/grid';
+import { CompoundCommand, PatchCommand, patchLayout, type EditCommand } from '../model/editor-document';
+import { heightAt, slopeAt, insideMap, sampleRectAround, sampleX, sampleY, type GridRect } from '../model/grid';
+import { RegionRecorder } from '../model/region-patch';
+import { HEIGHT_LIMITS } from './terrain-ops';
 import { brushWeight, type BrushSettings } from './brush';
 
 /** Hands out fresh object ids, starting past the highest in the map */
@@ -176,6 +179,90 @@ export function settled<T extends MapObject>(terrain: MapTerrain, o: T, rock: Ro
 export function setDown<T extends MapObject>(terrain: MapTerrain, o: T, rock: RockShape | undefined, align: boolean, reach = 2): T {
   const tilted = align ? alignedToSlope(terrain, o, rock ? Math.max(rock.base[0], rock.base[1]) : reach) : o;
   return rock ? settled(terrain, tilted, rock) : tilted;
+}
+
+/** Metres of level ground around a building's footprint, and the least width over which it blends into the land */
+export const BUILDING_PAD = 1.5;
+const BUILDING_BLEND = 4;
+
+/** A building that levels its ground when first placed: catalogue category building, not afloat */
+export function levelsGround(entry: { footing?: { category: string; float?: boolean } }): boolean {
+  return entry.footing?.category === 'building' && !entry.footing.float;
+}
+
+/**
+ * Levels the ground under a building placed anew, so it stands whole and no
+ * slope cuts into it on any side: the samples within its footprint radius
+ * (`footprint` at scale 1, times its scale), BUILDING_PAD and one grid cell
+ * more go to its base height, the mean of the ground under its middle and
+ * eight points of its footprint (cut and fill alike); beyond that the
+ * levelled ground blends smoothly into the land over the footprint radius,
+ * at least BUILDING_BLEND metres and twice the height of the cut or fill,
+ * so its banks stay gentle. The renderer stands it on the lowest of those
+ * eight points (seatHeight), on level ground its base. `beforeWrite` saves
+ * the rectangle first (an undo step). Returns the changed samples'
+ * rectangle; null on ground level within 5 cm. Moving it later levels nothing.
+ */
+export function levelUnderBuilding(terrain: MapTerrain, o: MapObject, footprint: number, beforeWrite?: (rect: GridRect) => void): GridRect | null {
+  const r = footprint * (o.scale || 1);
+  const ground = [heightAt(terrain, o.x, o.y)];
+  for (let k = 0; k < 8; k++) {
+    const a = (k / 8) * Math.PI * 2;
+    ground.push(heightAt(terrain, o.x + Math.cos(a) * r, o.y + Math.sin(a) * r));
+  }
+  if (Math.max(...ground) - Math.min(...ground) < 0.05) return null;
+  const base = ground.reduce((a, b) => a + b, 0) / ground.length;
+  // One grid cell more: the ground between the samples at the footprint's edge is level too
+  const core = r + BUILDING_PAD + terrain.grid.cellSize;
+  // Banks no steeper than one in two: a deep cut or fill blends out wider
+  let step = 0;
+  for (let k = 0; k < 8; k++) {
+    const a = (k / 8) * Math.PI * 2;
+    step = Math.max(step, Math.abs(heightAt(terrain, o.x + Math.cos(a) * core, o.y + Math.sin(a) * core) - base));
+  }
+  const blend = Math.max(BUILDING_BLEND, r, 2 * step);
+  const rect = sampleRectAround(terrain, o.x, o.y, core + blend);
+  beforeWrite?.(rect);
+  const g = terrain.grid;
+  for (let j = rect.j0; j <= rect.j1; j++) {
+    for (let i = rect.i0; i <= rect.i1; i++) {
+      const d = Math.hypot(sampleX(terrain, i) - o.x, sampleY(terrain, j) - o.y);
+      if (d >= core + blend) continue;
+      const f = d <= core ? 1 : 1 - smoothstep((d - core) / blend);
+      const k = j * g.columns + i;
+      g.heights[k] = Math.min(HEIGHT_LIMITS.max, Math.max(HEIGHT_LIMITS.min, g.heights[k] + (base - g.heights[k]) * f));
+    }
+  }
+  return rect;
+}
+
+/**
+ * Levels the ground under buildings placed anew (levelUnderBuilding), each
+ * of them, and returns that change as a command already in the map: the
+ * editor's Place and line, and the agent's place put it in one step with
+ * the placement (withGround). Null for any other asset or level ground.
+ */
+export function levelForBuildings(
+  doc: CustomMapDocument,
+  label: string,
+  objects: readonly MapObject[],
+  entry: { footing?: { category: string; float?: boolean }; radius: number },
+): EditCommand | null {
+  if (!levelsGround(entry)) return null;
+  const recorder = new RegionRecorder(doc.terrain.grid.heights, patchLayout(doc, 'heights'));
+  let changed = false;
+  for (const o of objects) changed = !!levelUnderBuilding(doc.terrain, o, entry.radius, (r) => recorder.touch(r)) || changed;
+  return changed ? new PatchCommand(label, [{ target: 'heights', patches: recorder.finish() }]) : null;
+}
+
+/** The placement and the levelled ground under it as one undo step */
+export function withGround(label: string, ground: EditCommand | null, add: EditCommand): EditCommand {
+  return ground ? new CompoundCommand(label, [ground, add]) : add;
+}
+
+function smoothstep(t: number): number {
+  const x = Math.min(1, Math.max(0, t));
+  return x * x * (3 - 2 * x);
 }
 
 function withTilt<T extends MapObject>(o: T, pitch: number, roll: number): T {

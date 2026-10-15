@@ -28,6 +28,8 @@ import {
   freeGroup,
   snapTo,
   withGroups,
+  levelForBuildings,
+  withGround,
 } from '../ops/object-ops';
 import { objectImages, sameSector, symmetryImages } from '../ops/symmetry';
 import { edgePolyline, nearestOnEdges } from '../ops/path-graph';
@@ -424,8 +426,10 @@ export class ObjectTool implements EditorTool {
     }
     const images = objectImages(own, symmetryImages(ctx.settings.symmetry, t.grid.columns === t.grid.rows), () => ids.take(), t.width / 2, t.depth / 2);
     const entry = ctx.catalog.object(s.asset!);
+    const label = kit ? `${kit.name} along a line` : `${ctx.catalog.object(s.asset!).name} along a line`;
+    const ground = levelForBuildings(doc, label, [...own, ...images], entry);
     const placed = [...own, ...images].map((o) => setDown(t, o, rockShape(entry), s.alignToSlope && !entry.float, entry.radius));
-    ctx.editor.execute(ObjectsCommand.add(kit ? `${kit.name} along a line` : `${ctx.catalog.object(s.asset!).name} along a line`, doc, placed));
+    ctx.editor.execute(withGround(label, ground, ObjectsCommand.add(label, doc, placed)));
     ctx.status(`${placed.length} objects placed along ${Math.round(lineLength(line))} m`);
   }
 
@@ -453,8 +457,11 @@ export class ObjectTool implements EditorTool {
     const images = objectImages([object], symmetryImages(ctx.settings.symmetry, t.grid.columns === t.grid.rows), () => ids.take(), t.width / 2, t.depth / 2);
     // Each copy tilts with its own ground: a mirror image does not lean as the original does
     const entry = ctx.catalog.object(s.asset);
+    const label = `Place ${entry.name}`;
+    // A building levels its ground first, in the same step
+    const ground = levelForBuildings(doc, label, [object, ...images], entry);
     const placed = [object, ...images].map((o) => setDown(t, o, rockShape(entry), s.alignToSlope && !entry.float, entry.radius));
-    ctx.editor.execute(ObjectsCommand.add(`Place ${ctx.catalog.object(s.asset).name}`, doc, placed));
+    ctx.editor.execute(withGround(label, ground, ObjectsCommand.add(label, doc, placed)));
   }
 
   private selectDown(p: ToolPointer, ctx: ToolContext): boolean {
@@ -675,3 +682,4 @@ function nearestRiver(doc: { terrain: { rivers?: { points: { x: number; y: numbe
   }
   return best;
 }
+

@@ -227,6 +227,14 @@ der Wand statt in Sägezähnen entlang des Rasters (Uferschnitt, [CUSTOM_MAPS.md
 
 **Objects (5).** Palette aus dem Katalog mit Bildern, Kategorien (auch Structures und Effects), Biom-Filter nach den
 Tags des Katalogs und Suche (Name, Id oder Tag).
+- Gebäude (Katalog-Kategorie `building`, nicht schwimmend) ebnen beim ersten Setzen ihren Boden (`levelUnderBuilding`
+  in `ops/object-ops.ts`): der Fußabdruck-Radius, 1,5 m und eine Gitterzelle mehr gehen auf die Grundhöhe (Mittel des
+  Bodens unter der Mitte und acht Punkten des Fußabdrucks, Abtrag und Auftrag), darüber hinaus läuft der Boden über den
+  Fußabdruck-Radius weich in das Gelände aus (mindestens 4 m und die doppelte Höhe von Abtrag oder Auftrag, so bleiben
+  die Böschungen flacher als 1 zu 2). So steht das Haus ganz und kein Hang schneidet hinein.
+  Ein Schritt im Verlauf mit dem Setzen; gilt für Place, Line, das Platzieren des Agenten (MCP) und `MapKit.place` der
+  Levelskripte und `run_script`. Verschieben, Drehen, Kopieren und Streuen ebnen nichts: ein Haus halb im Hang ist
+  danach eine freie Wahl.
 - Felsen mit Unterseite (Katalog `base`, siehe [CUSTOM_MAPS.md](CUSTOM_MAPS.md), Assets) setzt der Editor auf ihre
   Platte (`settled` in `ops/object-ops.ts`): Wo die Platte über dem Hang hängt (`undersideGap`: Ebene der Platte,
   gekippt mit `pitch`/`roll`, gegen den Boden auf zwei Ellipsen unter ihr), sinkt der Fels, bis sie überall aufliegt,

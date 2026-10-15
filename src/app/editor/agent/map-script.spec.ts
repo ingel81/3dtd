@@ -119,6 +119,20 @@ describe('map scripts', () => {
     for (const op of Object.keys(SCRIPT_OPS)) expect(text).toContain(`map.${op}(`);
   });
 
+  it('levels the ground under a house a script places on a slope, not under a tree', () => {
+    const kit = new MapKit(map(), index, { name: 't', seed: 7 });
+    const g = kit.doc.terrain.grid;
+    for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) g.heights[j * g.columns + i] = (i * g.cellSize - 128) * 0.25;
+    kit.place('tree-oak', -60, 0);
+    expect(heightAt(kit.doc.terrain, -60 + 3, 0)).toBeCloseTo(-14.25, 3);
+    kit.place('house', 40, 20);
+    const r = index.object('house').radius;
+    expect(heightAt(kit.doc.terrain, 40 + r, 20)).toBeCloseTo(heightAt(kit.doc.terrain, 40 - r, 20), 3);
+    expect(heightAt(kit.doc.terrain, 40, 20 + r)).toBeCloseTo(heightAt(kit.doc.terrain, 40 - r, 20), 3);
+    // The slope beyond the blend as it was
+    expect(heightAt(kit.doc.terrain, 40 + 4 * r + 12, 20)).toBeCloseTo((40 + 4 * r + 12) * 0.25, 3);
+  });
+
   it('turns into the same kit run as a level script', () => {
     const doc = map();
     ok(run(`map.raise({ x: 0, y: 0 }, { radius: 20 }, 3);`, doc));

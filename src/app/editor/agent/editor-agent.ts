@@ -9,7 +9,7 @@
 import type { AgentAnswer, AgentCall } from '../../core/desktop-bridge';
 import type { CatalogIndex } from '../catalog/asset-catalog';
 import { ObjectsCommand, SnapshotCommand, type EditCommand, type EditorDocument } from '../model/editor-document';
-import { ObjectIds, rockShape, settled } from '../ops/object-ops';
+import { ObjectIds, levelForBuildings, rockShape, settled, withGround } from '../ops/object-ops';
 import type { MapIssue } from '../validation/map-validation';
 import { validateMapDocument } from '../../world/custom-map/map-file';
 import type { MapStore } from '../../world/custom-map/map-store';
@@ -292,8 +292,11 @@ export class EditorAgent {
     num(args, 'y');
     let object: MapObject = { id: new ObjectIds(doc.objects).take(), asset, x: 0, y: 0, z: 0, rotation: 0, scale: 1, ...this.placement(args) };
     const rock = rockShape(catalog.object(asset));
+    const label = `${AGENT_LABEL}place ${asset}`;
+    // A building levels its ground first, in the same step, as in the editor
+    const ground = levelForBuildings(doc, label, [object], catalog.object(asset));
     if (rock) object = settled(doc.terrain, object, rock);
-    return this.commit(ObjectsCommand.add(`${AGENT_LABEL}place ${asset}`, doc, [object]), `${object.id} placed`);
+    return this.commit(withGround(label, ground, ObjectsCommand.add(label, doc, [object])), `${object.id} placed`);
   }
 
   private moveObject(args: Args): AgentAnswer {

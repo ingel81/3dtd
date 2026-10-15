@@ -31,7 +31,7 @@ import { resample, simplify } from './landscape/lines';
 import { carveRiver, DEFAULT_RIVER, type RiverOptions, type RiverResult } from './landscape/river';
 import { buildRoad, DEFAULT_ROAD, type RoadOptions, type RoadResult } from './landscape/road';
 import { cliffAlong, formDab, type FormKind } from './landscape/shapes';
-import { ObjectGrid, ObjectIds, scatterDab, settled, rockShape, type ScatterOptions, DEFAULT_SCATTER } from './object-ops';
+import { ObjectGrid, ObjectIds, scatterDab, settled, rockShape, levelsGround, levelUnderBuilding, type ScatterOptions, DEFAULT_SCATTER } from './object-ops';
 import { MAX_LAYERS, autoPaint, defaultAutoRules, paintDab, readWeights, removeLayer, type AutoPaintRule } from './paint-ops';
 import { addNode, connect, edgePolyline, nearestNode, nearestOnEdges, pointAt, polylineLength, spawnRoutes, splitEdge } from './path-graph';
 import { flattenUnderPaths, paintUnderPaths } from './path-terrain';
@@ -523,6 +523,9 @@ export class MapKit {
     };
     const t = this.doc.terrain;
     let images = this.symmetry === 'none' ? [] : objectImages([object], symmetryImages(this.symmetry, t.grid.columns === t.grid.rows), () => ids.take(), t.width / 2, t.depth / 2);
+    // A building levels its ground first, as in the editor (levelUnderBuilding)
+    const entry = this.catalog.object(asset);
+    if (levelsGround(entry)) for (const p of [object, ...images]) levelUnderBuilding(t, p, entry.radius);
     if (rock) {
       object = settled(t, object, rock);
       images = images.map((i) => settled(t, i, rock));
