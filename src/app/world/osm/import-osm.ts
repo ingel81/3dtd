@@ -20,10 +20,11 @@ import type { OverpassResponse } from './overpass-client';
 import { buildRoads, levelRoads, paintRoads, type RoadStats } from './convert/roads';
 import { fillOsmTerrain } from './convert/terrain';
 import { paintGround, placeMood, type GroundReport } from './convert/ground';
-import { growVegetation, type VegetationReport } from './convert/vegetation';
-import { objectCost } from '../custom-map/render/objects/scene-cost';
+import { growVegetation, PLANT_BUDGET_SHARE, type VegetationReport } from './convert/vegetation';
+import { objectCost, SCENE_BUDGET } from '../custom-map/render/objects/scene-cost';
 import { carveWater, paintWater, settleWater, WATER_MATERIALS, type WaterPaintRole, type WaterReport } from './convert/water';
 import { layOut, OsmLayout, type LayoutReport } from './convert/layout';
+import { placeBuildings, type BuildingCatalogEntry, type BuildingReport } from './convert/buildings';
 
 /** Side of an OSM world, metres: always 2.4 km (decision 2 of the plan), spawns up to 1000 m from the HQ in the middle */
 export const OSM_WORLD_SIDE = 2400;
@@ -59,6 +60,8 @@ export interface OsmImportOptions {
   /** Where the spawns go (the frame's choice, real coordinates); drawn as on a real place when absent */
   spawnsAt?: { lat: number; lon: number }[];
   now?: Date;
+  /** The asset catalogue's objects: the buildings take their models and scene cost from it (convert/buildings.ts) */
+  catalog?: readonly BuildingCatalogEntry[];
   /**
    * Scene cost per plant asset on this map (vegetation.ts plantCosts, from
    * the catalogue): the plants are held to their budget by it. An asset
@@ -69,7 +72,7 @@ export interface OsmImportOptions {
 }
 
 /** One step of the conversion, for the progress list */
-export type OsmConvertStep = 'parse' | 'terrain' | 'roads' | 'water' | 'level' | 'ground' | 'shores' | 'paint' | 'layout' | 'plants';
+export type OsmConvertStep = 'parse' | 'terrain' | 'roads' | 'water' | 'level' | 'ground' | 'shores' | 'paint' | 'layout' | 'buildings' | 'plants';
 
 export interface OsmImportReport {
   place: { lat: number; lon: number; address: string };
@@ -83,6 +86,7 @@ export interface OsmImportReport {
   plants: VegetationReport;
   layers: string[];
   layout: LayoutReport;
+  buildings: BuildingReport;
   /** Milliseconds per step */
   ms: Record<string, number>;
   warnings: string[];
@@ -97,7 +101,7 @@ export interface OsmImportResult {
 export function convertOsm(input: OsmImportInput, options: OsmImportOptions = {}, onStep?: (step: OsmConvertStep) => void): OsmImportResult {
   const ms: Record<string, number> = {};
   let t = performance.now();
-  const order: OsmConvertStep[] = ['parse', 'terrain', 'roads', 'water', 'level', 'ground', 'shores', 'paint', 'layout', 'plants'];
+  const order: OsmConvertStep[] = ['parse', 'terrain', 'roads', 'water', 'level', 'ground', 'shores', 'paint', 'layout', 'buildings', 'plants'];
   const step = (name: string) => {
     const now = performance.now();
     ms[name] = Math.round(now - t);
@@ -166,8 +170,16 @@ export function convertOsm(input: OsmImportInput, options: OsmImportOptions = {}
   }
   step('layout');
 
+  // After the HQ (they keep clear of it) and the water; their pads cut the ground the roads levelled, never the roads
+  const buildings = placeBuildings(doc, features, { catalog: options.catalog });
+  doc.objects.push(...buildings.objects);
+  warnings.push(...buildings.warnings);
+  step('buildings');
+
+  // The plants keep off the footprints and take the scene budget the buildings left, up to their share
   const unknownCost = objectCost(undefined, side * side);
-  const plants = growVegetation(doc, features, ground.land, water, { costOf: (asset) => options.plantCosts?.[asset] ?? unknownCost });
+  const plantBudget = Math.max(0, Math.min(PLANT_BUDGET_SHARE * SCENE_BUDGET, SCENE_BUDGET - buildings.report.cost));
+  const plants = growVegetation(doc, features, ground.land, water, { costOf: (asset) => options.plantCosts?.[asset] ?? unknownCost, budget: plantBudget });
   step('plants');
 
   const dem = input.dem ? input.dem.source : null;
@@ -198,6 +210,7 @@ export function convertOsm(input: OsmImportInput, options: OsmImportOptions = {}
       plants,
       layers: t0.layers.map((l) => l.material),
       layout,
+      buildings: buildings.report,
       ms,
       warnings,
     },

@@ -1,4 +1,4 @@
-import { validateMap } from '../../editor/validation/map-validation';
+import { objectsInAir, validateMap } from '../../editor/validation/map-validation';
 import { routeBetween, spawnRoutes } from '../../editor/ops/path-graph';
 import { packMapFile, unpackMapFile, validateMapDocument } from '../custom-map/map-file';
 import { mapStreetNetwork } from '../custom-map/custom-map-streets';
@@ -8,7 +8,9 @@ import { MAX_GROUND_LAYERS } from '../custom-map/map-document';
 import { readWeights } from '../../editor/ops/paint-ops';
 import { heightAt } from '../../editor/model/grid';
 import { plantCosts, PLANT_BUDGET_SHARE } from './convert/vegetation';
-import { SCENE_BUDGET } from '../custom-map/render/objects/scene-cost';
+import { BUILDING_BUDGET_SHARE, buildingCatalog } from './convert/buildings';
+import { objectCost, SCENE_BUDGET } from '../custom-map/render/objects/scene-cost';
+import type { CatalogObject } from '../custom-map/render/asset-catalog';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -66,6 +68,50 @@ describe('OSM world (frozen probe Miltenberg)', () => {
       expect(s.routeM).toBeGreaterThan(s.distanceM * 0.9);
     }
     for (const s of doc.spawns) expect(routeBetween(doc.paths, s, doc.hq)).not.toBeNull();
+  });
+
+  it('stands the buildings on their footprints: catalogue models, off the roads, seated, within their share of the scene cost', () => {
+    const objects: CatalogObject[] = catalog.objects;
+    const byId = new Map(objects.map((e) => [e.id, e]));
+    const { doc, report } = convertOsm(probe(), { ...options, catalog: buildingCatalog(objects) });
+    const b = report.buildings;
+    // Miltenberg's 1.2 km: about a thousand footprints, nearly all of them stand
+    expect(b.footprints).toBeGreaterThan(800);
+    expect(b.placed / b.footprints).toBeGreaterThan(0.9);
+    // The buildings' objects carry their footprint's group; the plants grow after them
+    const built = doc.objects.filter((o) => o.group?.startsWith('osm-b'));
+    expect(built.length).toBe(b.objects);
+    for (const o of doc.objects) expect(byId.has(o.asset)).toBe(true);
+    expect(b.kinds.house).toBeGreaterThan(0);
+    expect(b.kinds.apartments).toBeGreaterThan(0);
+    expect(b.kinds.garage).toBeGreaterThan(0);
+    const issues = validateMap({ ...doc, objects: built }, { footingOf: (a) => byId.get(a), blocksBuild: (a) => byId.get(a)?.blocksBuild ?? false });
+    expect(issues.filter((i) => i.code === 'object-on-path' || i.code === 'object-floating' || i.severity === 'error')).toEqual([]);
+    expect(objectsInAir({ ...doc, objects: built }, (a) => byId.get(a))).toEqual([]);
+    const area = doc.terrain.width * doc.terrain.depth;
+    const cost = built.reduce((s, o) => s + objectCost(byId.get(o.asset), area), 0);
+    expect(cost).toBeCloseTo(b.cost, -2);
+    expect(b.cost).toBeLessThanOrEqual(BUILDING_BUDGET_SHARE * SCENE_BUDGET * 1.1);
+    expect(b.missing.every((m) => m.count > 0)).toBe(true);
+  });
+
+  it('places no buildings without them in the data, and warns when it has no catalogue', () => {
+    const input = probe();
+    const { report } = convertOsm({ ...input, overpass: { elements: input.overpass.elements.filter((e) => !e.tags?.['building']) } }, options);
+    expect(report.buildings.objects).toBe(0);
+    expect(report.warnings.some((w) => w.startsWith('buildings: no asset catalogue'))).toBe(true);
+  });
+
+  it('keeps the plants off the footprints, and the plants take what the buildings leave of the scene budget', () => {
+    const objects: CatalogObject[] = catalog.objects;
+    const { doc, report } = convertOsm(probe(), { ...options, catalog: buildingCatalog(objects), plantCosts: plantCosts(objects, 1200) });
+    expect(report.buildings.objects).toBeGreaterThan(0);
+    expect(report.plants.budget).toBe(Math.round(Math.min(PLANT_BUDGET_SHARE * SCENE_BUDGET, SCENE_BUDGET - report.buildings.cost)));
+    expect(report.buildings.cost + report.plants.cost).toBeLessThanOrEqual(SCENE_BUDGET);
+    // No tree in a building's wall box: none within a metre of a building model's middle
+    const houses = doc.objects.filter((o) => o.group?.startsWith('osm-b') && o.asset !== 'retaining-wall');
+    const trees = doc.objects.filter((o) => o.asset.startsWith('tree-'));
+    for (const tr of trees) for (const h of houses) expect(Math.hypot(tr.x - h.x, tr.y - h.y)).toBeGreaterThan(1);
   });
 
   it('paints the land into the layers the roads leave, the smaller area over the larger', () => {

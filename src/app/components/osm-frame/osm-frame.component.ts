@@ -3,6 +3,8 @@ import { TdIconComponent } from '../icon/icon.component';
 import type { MapSummary } from '../../world/custom-map/map-store';
 import { MAP_STORE } from '../../world/world-choice.service';
 import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
+import type { CatalogObject } from '../../world/custom-map/render/asset-catalog';
+import { buildingCatalog } from '../../world/osm/convert/buildings';
 import { plantCosts } from '../../world/osm/convert/vegetation';
 import { OSM_SPAWNS, OSM_WORLD_SIDE, osmMapNames, type OsmImportReport } from '../../world/osm/import-osm';
 import type { FrameSpawn, GeoPoint, OsmFrameInfo, OsmStep } from '../../world/osm/osm-frame-core';
@@ -30,6 +32,7 @@ const STEPS: readonly { step: OsmStep | 'save'; text: string }[] = [
   { step: 'shores', text: 'Painting the shores' },
   { step: 'paint', text: 'Painting the road surfaces' },
   { step: 'layout', text: 'HQ and spawns' },
+  { step: 'buildings', text: 'Buildings' },
   { step: 'plants', text: 'Forests and trees' },
   { step: 'pack', text: 'Packing the map' },
   { step: 'save', text: 'Saving' },
@@ -258,7 +261,13 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
     const signal = this.making.signal;
     try {
       const id = await this.store.freeId(osmMapNames(this.place()).id);
-      const made = await this.session.make(this.spawns(), { id, plantCosts: await catalogPlantCosts() }, (step) => this.step.set(step), signal);
+      const catalog = await catalogObjects();
+      const made = await this.session.make(
+        this.spawns(),
+        { id, plantCosts: catalog && plantCosts(catalog, OSM_WORLD_SIDE), catalog: catalog && buildingCatalog(catalog) },
+        (step) => this.step.set(step),
+        signal,
+      );
       if (signal.aborted) throw new Error(OSM_CANCELLED);
       this.step.set('save');
       const summary = await this.store.save(made.doc, null, made.file);
@@ -295,15 +304,21 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
   reportLine(report: OsmImportReport): string {
     const r = report.roads;
     const spawns = report.layout.spawns.length;
+    const built = report.buildings.placed;
     return `${Math.round(r.km.road + r.km.bridge)} km of road, ${Math.round(r.km.path)} km of paths, ` +
-      `${r.bridges} ${r.bridges === 1 ? 'bridge' : 'bridges'}, ${spawns} ${spawns === 1 ? 'spawn' : 'spawns'}`;
+      `${r.bridges} ${r.bridges === 1 ? 'bridge' : 'bridges'}, ${built} ${built === 1 ? 'building' : 'buildings'}, ${spawns} ${spawns === 1 ? 'spawn' : 'spawns'}`;
   }
 }
 
-/** The plants' scene costs from the renderer's catalogue; none where it cannot be read (the import then counts them dear) */
-async function catalogPlantCosts(): Promise<Record<string, number> | undefined> {
+/**
+ * The renderer's catalogue objects for the plants' scene costs and the
+ * buildings' models; none where it cannot be read (the import then counts
+ * plants dear and places every building model without a budget)
+ */
+async function catalogObjects(): Promise<readonly CatalogObject[] | undefined> {
   try {
-    return plantCosts((await MapAssetLibrary.shared().catalog()).objects, OSM_WORLD_SIDE);
+    const objects = (await MapAssetLibrary.shared().catalog()).objects;
+    return objects.length ? objects : undefined;
   } catch {
     return undefined;
   }
