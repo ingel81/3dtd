@@ -159,7 +159,8 @@ Biom gemäßigt/Küste, Meer rundum, Look `day` klar. Fünf Inseln, verbunden du
 Kaimauer, Kran, Fischerhütten, Leuchtturm. Gegner kommen über zwei Brückenketten zur Hauptinsel. Spawns: 2. Bauflächen:
 Inselränder an den Brückenköpfen.
 Leben (Werkzeug Life, im Level-Skript): Vögel über Leuchtturmfels, Hafen und Wrack, Ruderboote im Hafen, ein
-Fischerboot auf einer Route um die Hauptinsel; Brandung entlang der Felsküsten, Vogelgesang des Looks.
+Fischerboot auf einer Route um die Hauptinsel; Brandung entlang der Felsküsten, Möwenrufe am Leuchtturmfels und
+über dem Hafen, Vogelgesang des Looks.
 
 ### 6 Winterdorf (`frost-hamlet`)
 **Gebaut** (`tools/maps/levels/frost-hamlet.ts`, Small 512 m, 1,0 MB). Kartenprobe 10 Wellen bestanden (HQ 342,4 von
