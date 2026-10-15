@@ -151,6 +151,15 @@ export const SCRIPT_OPS: Readonly<Record<string, OpSpec>> = {
     doc: 'Copy a rectangle { x0, y0, x1, y1 } of the map and paste it centred on `to` (Copy and stamps tool); options { rotation (radians), feather 0..1 (0.25, how far the rim fades into the ground), parts { heights, paint, water, objects, roads } (all true) }',
     wholeGround: true,
   },
+  savePrefab: {
+    args: [a('name', STRING), a('ids', STRINGS), a('ground', BOOL, true)],
+    doc: "Keep objects as a prefab in the map's file (pasted, they go down as one group); ground: also the heights, paint and water under them (false). Returns its id",
+  },
+  placePrefab: {
+    args: [a('prefab', STRING), a('to', POINT), a('options', OBJECT, true)],
+    doc: 'Place a prefab or stamp the map keeps (id or name, map.prefabs() lists them) centred on `to`; options { rotation (radians), feather 0..1 }',
+    wholeGround: true,
+  },
   setSymmetry: { args: [a('mode', one(SYMMETRIES))], doc: 'Symmetry for the commands after it: strokes, lines, objects land at every image' },
   mirrorFrom: { args: [a('from', POINT)], doc: 'Copy the sector of a point (heights, paint, main water) to its symmetric images', wholeGround: true },
   // Landscape tool
@@ -261,7 +270,7 @@ export function scriptReference(): string {
     'Globals: map, rng(seed) -> () => 0..1, facing(from, to) -> radians, log(...) (or console.log). `return` a value to get it back.',
     'Reads (see the copy as the script left it): map.width, map.depth, map.cellSize, map.half, map.h(x, y) (metres), map.slope(x, y),',
     '  map.noise(x, y, wave, octaves?) -> -1..1, map.ridged(x, y, wave, octaves?), map.objects(rect?), map.markers(), map.roads() (edges with their nodes a, b),',
-    '  map.nodes(), map.rivers() (points with width and height), map.layers(), map.waterBodies(), map.lanes(), map.issues().',
+    '  map.nodes(), map.rivers() (points with width and height), map.layers(), map.waterBodies(), map.lanes(), map.prefabs(), map.issues().',
     'An optional argument may be left out or passed as undefined or null; later ones still count by position.',
     'Commands (each checked; the whole script lands as one undo step and plays back animated):',
     ...lines,
@@ -466,6 +475,11 @@ export function applyCommand(kit: MapKit, command: ScriptCommand): unknown {
       return kit.mirrorMap(args[0] as MapKit['symmetry'], args[1] as MapPoint);
     case 'copyArea':
       kit.copyArea(args[0] as Rect, args[1] as MapPoint, (args[2] ?? {}) as Parameters<MapKit['copyArea']>[2]);
+      return undefined;
+    case 'savePrefab':
+      return kit.savePrefab(args[0] as string, args[1] as string[], args[2] === true);
+    case 'placePrefab':
+      kit.placePrefab(args[0] as string, args[1] as MapPoint, (args[2] ?? {}) as Parameters<MapKit['placePrefab']>[2]);
       return undefined;
     case 'line':
       return kit.line(args[0] as string, args[1] as MapPoint[], (args[2] ?? {}) as Parameters<MapKit['line']>[2]);
@@ -845,6 +859,7 @@ export function scriptMap(kit: MapKit, kept: ScriptCommand[], options: Required<
         rivers: (t().rivers ?? []).map((r) => ({ id: r.id, kind: r.kind })),
       }),
     lanes: () => kit.lanes(),
+    prefabs: () => forScript((doc.prefabs ?? []).map((p) => ({ id: p.id, name: p.name, width: Math.round(p.stamp.width), depth: Math.round(p.stamp.depth), objects: p.stamp.objects.length, prefab: !!p.stamp.prefab }))),
     issues: () => kit.issues().map((i) => ({ severity: i.severity, message: i.message })),
   };
   // A read named like a command would hide it (map.water once read the water instead of making it)

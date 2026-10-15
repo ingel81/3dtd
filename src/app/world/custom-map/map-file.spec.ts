@@ -228,6 +228,36 @@ describe('map file', () => {
     expect(validateMapDocument(doc)).toContain('gameplay.difficulty must be 50 to 200 (percent)');
   });
 
+  it('carries the prefabs a map keeps for its editor, outside the content hash (TODO E170)', async () => {
+    const doc = sample();
+    const hash = await contentHash(doc);
+    const piece = {
+      width: 8, depth: 6, cell: 2, columns: 5, rows: 4, heights: new Float32Array(20).fill(0.5),
+      paintCell: 1, paintColumns: 8, paintRows: 6, materials: ['grass', 'dirt'], paint: new Uint8Array(96).fill(7),
+      water: { mask: new Uint8Array(20).fill(255, 0, 3), level: -0.2, color: '#335566' },
+      objects: [{ asset: 'tree-oak', x: 1, y: 0, z: 0, rotation: 0, scale: 1 }], roads: { nodes: [], edges: [] }, prefab: true,
+    };
+    doc.prefabs = [
+      { id: 'pf-1', name: 'Grove', createdAt: '2026-10-15T00:00:00Z', preview: null, stamp: piece },
+      { id: 'pf-2', name: 'Dry', createdAt: '2026-10-15T00:00:00Z', preview: 'data:image/png;base64,AA', stamp: { ...piece, water: null } },
+    ];
+    expect(validateMapDocument(doc)).toEqual([]);
+    expect(await contentHash(doc)).toBe(hash);
+    const bytes = packMapFile(doc);
+    expect(Object.keys(unzipSync(bytes)).filter((n) => n.startsWith('prefabs/')).sort()).toEqual([
+      'prefabs/0/heights.f32', 'prefabs/0/paint.u8', 'prefabs/0/water.u8', 'prefabs/1/heights.f32', 'prefabs/1/paint.u8',
+    ]);
+    const { doc: back } = unpackMapFile(bytes);
+    expect(back.prefabs).toEqual(doc.prefabs);
+    expect(back.prefabs![0].stamp.heights).toBeInstanceOf(Float32Array);
+    expect(await contentHash(back)).toBe(hash);
+    // A map without prefabs writes no key
+    delete back.prefabs;
+    expect(JSON.parse(new TextDecoder().decode(unzipSync(packMapFile(back))['map.json']))).not.toHaveProperty('prefabs');
+    doc.prefabs[1].stamp = { ...piece, paint: new Uint8Array(3) };
+    expect(validateMapDocument(doc)).toContain('prefab 2: paint does not match its grid');
+  });
+
   it('carries an image sky, an optional id; an old map has none and keeps its hash (TODO E172)', async () => {
     const doc = sample();
     const hash = await contentHash(doc);

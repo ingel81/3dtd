@@ -368,7 +368,67 @@ export interface CustomMapDocument {
   environment: MapEnvironment;
   /** The map's own game rules (version 2); none means the game's defaults */
   gameplay?: MapGameplay;
+  /**
+   * Prefabs and stamps kept with this map (the editor's; the game ignores
+   * them): they travel with its file. Not part of the content hash
+   */
+  prefabs?: MapPrefab[];
 }
+
+/** What a piece of a map holds, or what a paste takes of it */
+export interface MapPieceParts {
+  heights: boolean;
+  paint: boolean;
+  water: boolean;
+  objects: boolean;
+  roads: boolean;
+}
+
+/**
+ * A piece of a map, centred on its own middle (the editor's Copy and stamps,
+ * editor/ops/stamp.ts): heights relative to its rim, paint per material,
+ * water, objects and the roads inside.
+ */
+export interface MapPiece {
+  width: number;
+  depth: number;
+  /** Height samples: `columns` x `rows` every `cell` metres, relative to the rim */
+  cell: number;
+  columns: number;
+  rows: number;
+  heights: Float32Array;
+  /** Paint: `paintColumns` x `paintRows` cells of `materials.length` weights (0..255) */
+  paintCell: number;
+  paintColumns: number;
+  paintRows: number;
+  materials: string[];
+  paint: Uint8Array;
+  /** Water mask on the height samples and the water level relative to the rim; null without water */
+  water: { mask: Uint8Array; level: number; color: string } | null;
+  objects: Omit<MapObject, 'id'>[];
+  roads: { nodes: MapPathNode[]; edges: MapPathEdge[] };
+  /** What the piece holds; all of it when missing (a rectangle copied whole) */
+  parts?: MapPieceParts;
+  /**
+   * Taken from a selection of objects (a prefab): a paste puts its objects
+   * down as one group of their own
+   */
+  prefab?: boolean;
+}
+
+/** A saved piece with its name and picture: the editor's stamp library, or a map's own (CustomMapDocument.prefabs) */
+export interface MapPrefab {
+  id: string;
+  name: string;
+  /** ISO time */
+  createdAt: string;
+  /** PNG data URL, the piece from above */
+  preview: string | null;
+  stamp: MapPiece;
+}
+
+/** Prefabs a map keeps (CustomMapDocument.prefabs) */
+export const MAX_MAP_PREFABS = 32;
 
 /** Synthetic lat/lon of a map point (origin (0, 0)) */
 export function mapToGeo(p: MapPoint): { lat: number; lon: number } {

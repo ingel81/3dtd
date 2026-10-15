@@ -284,6 +284,8 @@ Tags des Katalogs und Suche (Name, Id oder Tag).
   hineinreichen), also ohne Lücke und ohne Überlappung. Zinnen links oder rechts der Zeichenrichtung; das Torhaus
   setzt man von Hand in die Mauer
 - Erase: entfernt, was der Pinsel trifft
+- Prefabs (über der Palette): die gewählten Objekte als Prefab ablegen und gespeicherte Prefabs setzen, siehe
+  [Copy and stamps](#werkzeuge) unten
 - Select: Klick wählt (die ganze Gruppe, Strg+Klick ein Mitglied), Shift+Klick ergänzt, Ziehen auf freiem Grund
   wählt per Rahmen, Alt+Ziehen per Lasso, Strg+A alles Sichtbare; Rahmen und Lasso nehmen, was auf dem Bildschirm darin steht. Ausgeblendete
   Kategorien (Auge in der Gliederung) bleiben bei allen dreien draußen, Entf trifft also nichts Unsichtbares.
@@ -355,8 +357,24 @@ Zeiger als Umriss, R und Shift+R drehen um 90 Grad, Komma und Punkt um 15, ein K
 Werkzeug setzt die letzte Kopie). Schalter wählen, was mitkommt: Höhen, Bodenfarbe, Wasser, Objekte, Straßen. Höhen
 gelten relativ zum Rand des Stücks: ein Hügel landet auf dem Boden, auf den man ihn setzt; der Rand blendet weich
 über (einstellbar). Bodenfarbe geht nach Material, nicht nach Schicht: fehlt es auf der Karte, kommt es als Schicht
-dazu, solange Platz ist. „Save the copy“ legt das Stück mit Name und Bild in die Stempel-Bibliothek (IndexedDB
-`3dtd-editor-stamps`); Stempel gelten auf jeder Karte, ein Klick wählt einen zum Setzen.
+dazu, solange Platz ist. „Save the copy“ legt das Stück mit Name und Bild ab, je nach „Every map“ in die
+Stempel-Bibliothek dieses Browsers (IndexedDB `3dtd-editor-stamps`, gilt auf jeder Karte) oder mit „This map“ in die
+Datei der Karte (`prefabs`, siehe [Datei](#speichern-und-dateien); höchstens 32, ein Schritt im Verlauf, reist mit der
+Karte mit). Die Liste „Stamps and prefabs“ zeigt die der Karte zuerst, ein Klick wählt einen zum Setzen. Gruppen im
+Stück werden beim Setzen eigene Gruppen der Karte (`g<n>`, die nächste freie); vorher landeten die Kopien in der
+Gruppe des Originals, und ein Klick wählte Original und alle Kopien zusammen. Auch die Symmetrie-Bilder eines gesetzten
+Objekts mit Gruppe bekommen je Bild eine eigene (`<Gruppe>m<Bild>`, wie „Mirror now“).
+
+**Prefabs.** Ein Prefab ist ein Stempel aus einer Auswahl von Objekten statt aus einem Rechteck (`capturePrefab` in
+`ops/stamp.ts`): im Objects-Werkzeug Objekte wählen, unter „Prefabs“ Namen geben und „Save as prefab“, wahlweise
+„With the ground under them“ (Höhen, Bodenfarbe und Wasser im Rechteck um die Fußabdrücke der Objekte plus 2 m) und
+„Every map“ oder „This map“ wie bei den Stempeln. Es hält nur die gewählten Objekte (keine Straßen), um die Mitte ihrer
+Fußabdrücke, mit Drehung, Größe, Neigung, Tönung und Schaltern. Darunter stehen die Prefabs der Karte und der
+Bibliothek mit Bild; ein Klick öffnet Copy and stamps im Modus Place mit dem Prefab: Umriss am Zeiger, R und Komma/Punkt
+drehen, ein Klick setzt es. Gesetzt bilden seine Objekte eine Gruppe (ab zwei Objekten), ein Klick wählt sie zusammen.
+Ohne Boden ändert das Setzen keinen Höhenpunkt und keine Farbe, egal was „Take along“ sagt (`parts` des Stücks: was es
+hält; das Setzen nimmt davon, was die Schalter erlauben). Prefabs stehen auch in der Stempel-Liste (Zusatz „Prefab“),
+Löschen geht in beiden Listen.
 
 **Rules (G).** Die eigenen Regeln der Karte: Startgeld und HQ-Leben (leer heißt Spiel-Standard: 100 und 500), die
 Spuren (wenigste und meiste offene, was der Koop mit Spuren macht, die niemand hält: Close / To the host / Share out;
@@ -529,6 +547,10 @@ Szenenkosten.
   Feld 100; später dazugekommene optionale Felder heben die Version nicht, so auch `environment.skyImage`, die Id
   eines Himmelsbilds, ohne Feld prozedural); Version-1-Dateien lesen sich
   unverändert über die Migration 1 nach 2
+- Prefabs und Stempel der Karte (`prefabs`, optional, höchstens 32, `MAX_MAP_PREFABS`): je Eintrag Id, Name, Zeit, Bild
+  (PNG als Data-URL) und das Stück; dessen Arrays liegen im Zip unter `prefabs/<k>/heights.f32`, `paint.u8` und
+  `water.u8`. Nur der Editor liest sie, das Spiel nicht; sie zählen nicht zum `contentHash` (wie `meta.uid`), eine
+  Karte ohne Prefabs schreibt kein Feld. Hebt die Version nicht
 - Kartendokument Version 3: bis zu zwölf Bodenschichten. Die Gewichte der Schichten 9 bis 12 liegen in einer dritten
   Splat-Karte (`terrain/splat2.u8`), die es nur gibt, solange die Karte mehr als acht Schichten hat
   (`splatMapCount`, `fitSplatMaps`: die neunte Schicht legt sie leer an, das Entfernen bis auf acht wirft sie weg; im
@@ -609,7 +631,7 @@ src/app/editor/
   ops/              Operationen ohne Angular: Pinsel, Gelände, Farbe, Wasser, Objekte, Wegenetz, Straßen-Boden, Größe
   ops/landscape/    Landschafts-Pinsel: Biome, Formen, Erosion, Fluss, Straße, LandscapeStroke (ein Undo-Schritt)
   ops/symmetry.ts   Bilder der Symmetrie, Sektor des Zeigers, Kopieren der Zellen und Objekte
-  ops/stamp.ts      Stücke kopieren und setzen; model/stamp-store.ts die Stempel-Bibliothek
+  ops/stamp.ts      Stücke kopieren und setzen, Prefabs aus einer Auswahl; model/stamp-store.ts die Stempel-Bibliothek
   ops/generate.ts   Gelände-Generator; ops/contours.ts Höhenlinien
   ops/map-kit.ts    MapKit: die Operationen ohne Oberfläche für Skripte (Level-Skripte, KI-Agent)
   agent/            KI-Agent über MCP (Desktop-App): Werkzeuge, Skript-Sandbox, Abspielen als ein Undo-Schritt (AGENT_MCP.md)

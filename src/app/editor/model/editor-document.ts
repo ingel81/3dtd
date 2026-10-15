@@ -16,6 +16,7 @@ import type {
   MapObject,
   MapPaths,
   MapPoint,
+  MapPrefab,
   MapSpawn,
   MapTerrain,
 } from '../../world/custom-map/map-document';
@@ -426,6 +427,7 @@ export interface DocParts {
   environment: MapEnvironment;
   meta: MapMeta;
   terrain: MapTerrain;
+  prefabs: MapPrefab[] | undefined;
 }
 
 const PART_CHANGE: Record<keyof DocParts, DocChange> = {
@@ -437,6 +439,7 @@ const PART_CHANGE: Record<keyof DocParts, DocChange> = {
   environment: { environment: true },
   meta: { meta: true },
   terrain: { terrain: true, layers: true, water: true },
+  prefabs: { meta: true },
 };
 
 /** Swaps parts of the document between two copies */
@@ -502,6 +505,8 @@ function estimateBytes(parts: Partial<DocParts>): number {
     if ((value as MapTerrain).grid) {
       const t = value as MapTerrain;
       n += t.grid.heights.byteLength + t.splat.maps[0].byteLength * t.splat.maps.length + (t.water?.mask.byteLength ?? 0);
+    } else if (Array.isArray(value) && (value[0] as MapPrefab | undefined)?.stamp) {
+      for (const p of value as MapPrefab[]) n += p.stamp.heights.byteLength + p.stamp.paint.byteLength + (p.preview?.length ?? 0) + p.stamp.objects.length * 160;
     } else n += JSON.stringify(value).length;
   }
   return n;

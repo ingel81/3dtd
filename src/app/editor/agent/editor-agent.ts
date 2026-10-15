@@ -14,7 +14,7 @@ import type { AgentAnswer, AgentCall } from '../../core/desktop-bridge';
 import type { CatalogIndex } from '../catalog/asset-catalog';
 import { EditorDocument, ObjectsCommand, SnapshotCommand, type EditCommand } from '../model/editor-document';
 import type { MapVersion } from '../model/version-store';
-import type { SavedStamp } from '../model/stamp-store';
+import type { SavedStamp, StampKeep } from '../model/stamp-store';
 import { ObjectIds, levelForBuildings, rockShape, settled, withGround } from '../ops/object-ops';
 import { resizeMap } from '../ops/resize';
 import { detailTarget, increaseMapDetail } from '../ops/detail';
@@ -22,12 +22,12 @@ import { decodePng, decodeRaw16, imageToHeights } from '../ops/heightmap';
 import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
 import { MAP_TEMPLATES } from '../ops/landscape/templates';
 import { TERRAIN_PRESETS, type TerrainPreset } from '../ops/generate';
-import { ALL_PARTS, captureStamp, pasteStamp, type Stamp, type StampParts, type StampRect } from '../ops/stamp';
+import { ALL_PARTS, capturePrefab, captureStamp, pasteStamp, type Stamp, type StampParts, type StampRect } from '../ops/stamp';
 import { erodeJob, startTerrainJob } from '../workers/terrain-job';
 import type { MapIssue } from '../validation/map-validation';
 import { validateMapDocument } from '../../world/custom-map/map-file';
 import type { MapStore } from '../../world/custom-map/map-store';
-import type { CustomMapDocument, MapObject } from '../../world/custom-map/map-document';
+import { MAX_MAP_PREFABS, type CustomMapDocument, type MapObject } from '../../world/custom-map/map-document';
 import { catalogAsData, contentFingerprint, heightsIn, issuesAsData, mapDiff, mapSummary, objectsIn, type MapRect } from './agent-reads';
 import { ASSET_OPS, checkEnvironment, checkRules, scriptReference, type ScriptRunResult } from './map-script';
 import { playCommands, type PlayResult } from './script-playback';
@@ -94,7 +94,8 @@ export interface AgentHost {
   versions(): MapVersion[];
   versionDoc(version: MapVersion): Promise<CustomMapDocument>;
   savedStamps(): Promise<SavedStamp[]>;
-  saveStamp(name: string, stamp: Stamp, region: StampRect | null): Promise<void>;
+  /** Keeps a piece in the library (every map) or in the open map's file; null when the map keeps no more */
+  saveStamp(name: string, stamp: Stamp, region: StampRect | null, keep?: StampKeep): Promise<SavedStamp | null>;
 }
 
 /** Runs a script in the sandbox (script-sandbox.ts); tests run it in-process */
@@ -678,24 +679,56 @@ export class EditorAgent {
     return json({ ok: true, step: label, done: `${image.width} x ${image.height} on the ${g.columns} x ${g.rows} grid, black ${low} m, white ${high} m` });
   }
 
+  /** The library's stamps and prefabs and those the open map keeps, the map's first */
+  private async stampList(): Promise<{ saved: SavedStamp; keep: StampKeep }[]> {
+    const own = (this.host.editor?.doc.prefabs ?? []).map((saved) => ({ saved, keep: 'map' as const }));
+    const library = (await this.host.savedStamps()).map((saved) => ({ saved, keep: 'library' as const }));
+    return [...own, ...library];
+  }
+
   private async listStamps(): Promise<AgentAnswer> {
-    const list = await this.host.savedStamps();
+    const list = await this.stampList();
     return json({
-      stamps: list.map((s) => ({ id: s.id, name: s.name, createdAt: s.createdAt, width: Math.round(s.stamp.width), depth: Math.round(s.stamp.depth), objects: s.stamp.objects.length, roads: s.stamp.roads.edges.length, water: !!s.stamp.water })),
-      note: 'paste_stamp places one by id or name; save_stamp keeps a rectangle of any map as a stamp',
+      stamps: list.map(({ saved: s, keep }) => ({
+        id: s.id,
+        name: s.name,
+        keep,
+        prefab: !!s.stamp.prefab,
+        createdAt: s.createdAt,
+        width: Math.round(s.stamp.width),
+        depth: Math.round(s.stamp.depth),
+        objects: s.stamp.objects.length,
+        roads: s.stamp.roads.edges.length,
+        water: !!s.stamp.water,
+        ground: (s.stamp.parts ?? ALL_PARTS).heights,
+      })),
+      note: "paste_stamp places one by id or name; save_stamp keeps a rectangle of any map as a stamp, or objects of the open map by ids as a prefab; keep 'map' keeps it in the open map's file, 'library' for every map",
     });
   }
 
   private async saveStamp(args: Args): Promise<AgentAnswer> {
     const name = text(args, 'name').trim().slice(0, 60);
+    const keep: StampKeep = args['keep'] === 'map' ? 'map' : 'library';
+    const ids = Array.isArray(args['ids']) ? (args['ids'] as unknown[]).filter((id): id is string => typeof id === 'string') : null;
+    if (ids) {
+      // A prefab of objects of the open map, with the ground under them when asked
+      const doc = this.doc();
+      const missing = ids.filter((id) => !doc.objects.some((o) => o.id === id));
+      if (!ids.length || missing.length) throw new AgentError(missing.length ? `There are no objects ${missing.slice(0, 10).join(', ')}; map_objects lists them` : 'ids names no object');
+      const catalog = this.host.catalog();
+      const taken = capturePrefab(doc, ids, args['ground'] === true, (asset) => catalog.object(asset).radius)!;
+      if (!(await this.host.saveStamp(name, taken.stamp, taken.rect, keep))) throw new AgentError(`The map keeps ${MAX_MAP_PREFABS} prefabs at most`);
+      return json({ ok: true, saved: name, keep, prefab: true, objects: taken.stamp.objects.length, size: { width: Math.round(taken.stamp.width), depth: Math.round(taken.stamp.depth) } });
+    }
     const rect = rectOf(args);
-    if (!rect) throw new AgentError('x0, y0, x1, y1 must be numbers');
+    if (!rect) throw new AgentError('x0, y0, x1, y1 must be numbers (or ids for a prefab of objects)');
     if (Math.abs(rect.x1 - rect.x0) < 4 || Math.abs(rect.y1 - rect.y0) < 4) throw new AgentError('A stamp is at least 4 m a side');
     const from = optText(args, 'from_map');
     const doc = from ? await this.otherDoc(from) : this.doc();
     const onOpenMap = doc === this.host.editor?.doc;
-    await this.host.saveStamp(name, captureStamp(doc, rect), onOpenMap ? rect : null);
-    return json({ ok: true, saved: name, from: doc.meta.id, size: { width: Math.round(Math.abs(rect.x1 - rect.x0)), depth: Math.round(Math.abs(rect.y1 - rect.y0)) } });
+    if (keep === 'map' && !onOpenMap) throw new AgentError("keep 'map' keeps a piece of the open map; a piece of another map goes into the library");
+    if (!(await this.host.saveStamp(name, captureStamp(doc, rect), onOpenMap ? rect : null, keep))) throw new AgentError(`The map keeps ${MAX_MAP_PREFABS} prefabs at most`);
+    return json({ ok: true, saved: name, keep, from: doc.meta.id, size: { width: Math.round(Math.abs(rect.x1 - rect.x0)), depth: Math.round(Math.abs(rect.y1 - rect.y0)) } });
   }
 
   private async pasteStamp(args: Args): Promise<AgentAnswer> {
@@ -712,7 +745,7 @@ export class EditorAgent {
       what = `a piece of ${doc.meta.id}`;
     } else {
       const key = text(args, 'stamp');
-      const list = await this.host.savedStamps();
+      const list = (await this.stampList()).map((e) => e.saved);
       const saved = list.find((s) => s.id === key) ?? list.find((s) => s.name === key);
       if (!saved) throw new AgentError(`There is no stamp ${key}; stamps: ${list.map((s) => `${s.id} (${s.name})`).join(', ') || 'none'}`);
       stamp = saved.stamp;
@@ -873,7 +906,7 @@ class DryHost implements AgentHost {
     return this.real.savedStamps();
   }
 
-  async saveStamp(): Promise<void> {
+  async saveStamp(): Promise<SavedStamp | null> {
     throw new AgentError('A dry run does not keep stamps');
   }
 }

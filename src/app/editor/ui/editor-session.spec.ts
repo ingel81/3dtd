@@ -657,6 +657,19 @@ describe('editor session and the AI agent', () => {
     expect(JSON.parse((await call(agent, 'paste_stamp', { stamp: 'ridge', x: -16, y: 0, rotation: 1, parts: { objects: false } })).text)).toMatchObject({ ok: true });
     expect(editor.historySteps).toBe(steps + 1);
     expect((await call(agent, 'paste_stamp', { stamp: 'none', x: 0, y: 0 })).text).toMatch(/no stamp none; stamps: .*ridge/);
+    // A prefab of objects kept in the map's file, one undo step, listed first and placed by name as one group
+    editor.doc.objects.push({ id: 'p1', asset: 'tree-oak', x: 10, y: 10, z: 0, rotation: 0, scale: 1 }, { id: 'p2', asset: 'tree-oak', x: 14, y: 10, z: 0, rotation: 0, scale: 1 });
+    const kept = JSON.parse((await call(agent, 'save_stamp', { name: 'pair', ids: ['p1', 'p2'], keep: 'map' })).text);
+    expect(kept).toMatchObject({ ok: true, keep: 'map', prefab: true, objects: 2 });
+    expect(editor.doc.prefabs?.map((p) => p.name)).toEqual(['pair']);
+    expect(JSON.parse((await call(agent, 'list_stamps')).text).stamps.map((st: { name: string; keep: string }) => `${st.name}:${st.keep}`)).toEqual(['pair:map', 'ridge:library']);
+    const count = editor.doc.objects.length;
+    expect(JSON.parse((await call(agent, 'paste_stamp', { stamp: 'pair', x: -20, y: -20 })).text)).toMatchObject({ ok: true });
+    const placed = editor.doc.objects.slice(count);
+    expect(placed).toHaveLength(2);
+    expect(placed[0].group).toBeDefined();
+    expect(placed[1].group).toBe(placed[0].group);
+    expect((await call(agent, 'save_stamp', { name: 'x', ids: ['nope'] })).text).toMatch(/no objects nope/);
     s.ngOnDestroy();
   });
 

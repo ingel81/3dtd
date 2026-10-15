@@ -146,8 +146,20 @@ const TOOLS = [
     { data: z.string().min(8).max(1_500_000), format: z.enum(['png', 'raw']).optional(), low: z.number(), high: z.number(), ...dryRun },
     WRITE,
   ],
-  ['list_stamps', "The player's stamps (saved map pieces of the Copy and stamps tool).", {}, READ],
-  ['save_stamp', 'Keep a rectangle of the open map, or of any other map (from_map), as a stamp: heights relative to its rim, paint, water, objects and roads.', { name: z.string().min(1).max(60), ...rect, from_map: z.string().optional() }, WRITE],
+  ['list_stamps', "The player's stamps and prefabs (saved map pieces of the Copy and stamps tool), those the open map keeps (keep 'map') and the library's for every map (keep 'library').", {}, READ],
+  [
+    'save_stamp',
+    "Keep a piece as a stamp: a rectangle of the open map, or of any other map (from_map): heights relative to its rim, paint, water, objects and roads. Or, with ids, a prefab of objects of the open map: those objects (a paste puts them down as one group), with ground: true also the heights, paint and water under them. keep 'library' (default) keeps it for every map, 'map' in the open map's file.",
+    {
+      name: z.string().min(1).max(60),
+      ...optionalRect,
+      from_map: z.string().optional(),
+      ids: z.array(z.string()).min(1).max(2000).optional().describe('Object ids of the open map for a prefab, instead of a rectangle'),
+      ground: z.boolean().optional().describe('A prefab takes the ground under its objects along (default false)'),
+      keep: z.enum(['library', 'map']).optional(),
+    },
+    WRITE,
+  ],
   [
     'paste_stamp',
     'Paste a piece centred on (x, y), as the Copy and stamps tool does: a stamp (id or name) or a rectangle copied straight from the open map or another map (from_map with x0..y1). It sits on the ground there, turned by rotation (radians), its rim faded over feather 0..1 (0.25); parts choose heights, paint, water, objects, roads (all by default).',
