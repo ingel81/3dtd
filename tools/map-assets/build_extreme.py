@@ -37,6 +37,51 @@ def smooth(obj):
     return obj
 
 
+# ---------------------------------------------------------------- mountains
+
+def alpine_extras():
+    """What makes a stone hut an alpine hut (with a roof of weathered boards): a boarded gable, stones holding
+    down the roof boards, a bench by the door and a woodpile along the side wall (house extra)"""
+    def extra(w, d, wall_h, pitch):
+        boards = Part(pbr_material('planks-alpine', 'weathered_planks', (0.62, 0.5, 0.4)), uv_metres=1.2, bevel=0.0)
+        stones = Part(pbr_material('stone-roof', 'castle_wall_slates', (0.55, 0.55, 0.55)), uv_metres=1.0, bevel=0.0)
+        logs = Part(pbr_material('bark-bark_brown_02', 'bark_brown_02'), smooth=True)
+        rnd = random.Random(11)
+        # Gable boarding: vertical boards over both gable triangles, proud of the stone
+        for sx in (-1, 1):
+            x = sx * (w / 2 + 0.05)
+            n = 9
+            for k in range(n):
+                y = -d / 2 + (k + 0.5) * d / n
+                top = wall_h + pitch * (1 - abs(y) / (d / 2)) - 0.1
+                if top > wall_h + 0.05:
+                    box(boards, x, y, wall_h - 0.05, 0.06, d / n - 0.03, top - wall_h + 0.05)
+            box(boards, x + sx * 0.02, 0, wall_h + pitch * 0.45, 0.04, 0.5, 0.5)
+        # Stones on the roof in rows across the slope
+        for side in (-1, 1):
+            for row in (0.3, 0.65):
+                y = side * (d / 2 + 0.5) * (1 - row)
+                z = wall_h + pitch * row + 0.12
+                for k in range(5):
+                    x = -w / 2 + 0.7 + k * (w - 1.4) / 4 + rnd.uniform(-0.25, 0.25)
+                    lump(stones, Vector((x, y, z - 0.1)), Vector((0.45, 0.36, 0.26)), 60 + k + int(row * 10) + side, roughness=0.3, subdiv=1)
+            oriented_box(boards, Vector((-w / 2 - 0.4, side * (d / 2 + 0.5) * 0.52, wall_h + pitch * 0.48 + 0.14)),
+                         Vector((w / 2 + 0.4, side * (d / 2 + 0.5) * 0.52, wall_h + pitch * 0.48 + 0.14)), 0.1)
+        # Bench beside the door
+        box(boards, -w / 4, -d / 2 - 0.35, 0.45, 1.8, 0.4, 0.06)
+        for x in (-w / 4 - 0.7, -w / 4 + 0.7):
+            box(boards, x, -d / 2 - 0.35, 0.0, 0.08, 0.35, 0.45)
+        # Woodpile under the eave on the right
+        for k in range(3):
+            for j in range(8):
+                y = -d / 2 + 0.7 + j * (d - 1.4) / 7
+                z = 0.15 + k * 0.24 + (0.11 if j % 2 else 0)
+                tube(logs, [Vector((w / 2 + 0.2, y, z)), Vector((w / 2 + 0.75, y, z))], [0.12, 0.12], 5, cap=True)
+        parts = [boards, stones, logs]
+        return parts
+    return extra
+
+
 # ---------------------------------------------------------------- arctic
 
 def igloo(name):
@@ -597,8 +642,9 @@ def models():
         'hell-spires': lambda: stalagmites('hell-spires', 92, asset='dark_rock_02', count=5, height=9.0),
         # Mountains
         'rope-bridge': lambda: rope_bridge('rope-bridge'),
-        'alpine-hut': lambda: house('alpine-hut', 8.0, 6.0, 4.0, 'roof_planks', 'stacked_stone_wall', frame=False),
-        'alpine-hut-snow': lambda: house('alpine-hut-snow', 8.0, 6.0, 4.0, 'roof_planks', 'stacked_stone_wall', frame=False, snow=True),
+        'alpine-hut': lambda: house('alpine-hut', 8.0, 6.0, 4.0, 'weathered_planks', 'stacked_stone_wall', frame=False, extra=alpine_extras()),
+        'alpine-hut-snow': lambda: house('alpine-hut-snow', 8.0, 6.0, 4.0, 'weathered_planks', 'stacked_stone_wall', frame=False, snow=True,
+                                         extra=alpine_extras()),
         'rock-needle': lambda: hoodoo('rock-needle', 93, height=22.0, asset='rock_face'),
         'cairn': lambda: cairn('cairn', 94),
         # Swamp and desert

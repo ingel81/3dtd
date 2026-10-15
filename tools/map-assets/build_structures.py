@@ -165,15 +165,22 @@ def house(name, w, d, wall_h, roof_asset, wall_asset, storeys=1, barn=False, wal
 
 
 def tower_ruin(name, seed):
+    """Round tower broken down on one side: a mossy stone shell with a jagged crown, loose stones on its
+    rim, a plinth course and a string course, slit windows, a doorway, a floor beam left inside, ivy and
+    rubble at its foot"""
     clear_scene()
     rnd = random.Random(seed)
-    stone = Part(pbr_material('castle-brick', 'castle_brick_07'))
+    stone = Part(pbr_material('castle-' + RUIN, RUIN), uv_metres=2.5)
+    dark = Part(flat_material('hole', (0.03, 0.03, 0.03), 0.95))
+    wood = Part(pbr_material('planks-dark', 'dark_planks'), uv_metres=1.0)
+    ivy = Part(card_material('ivy-wall', 'ivy-wall.png'))
     bm = stone.bm
-    sides = 18
-    r_out, r_in = 3.6, 2.8
-    rings = 7
+    sides = 24
+    r_out, r_in = 3.6, 2.7
+    rings = 8
     heights = [12.0 - (5.5 * max(0.0, math.sin(s / sides * math.tau * 1.3 + 0.8)) + rnd.uniform(0, 1.2)) for s in range(sides + 1)]
     heights[-1] = heights[0]
+    tops = {}
     for r, flip in ((r_out, False), (r_in, True)):
         grid = []
         for k in range(rings + 1):
@@ -183,29 +190,53 @@ def tower_ruin(name, seed):
                 z = -FOUNDATION + (heights[s] + FOUNDATION) * k / rings
                 row.append(bm.verts.new((math.cos(a) * r, math.sin(a) * r, z)))
             grid.append(row)
-        circ = math.tau * r
         for k in range(rings):
             for s in range(sides):
                 q = [grid[k][s], grid[k][s + 1], grid[k + 1][s + 1], grid[k + 1][s]]
-                if flip:
-                    q = list(reversed(q))
-                f = bm.faces.new(q)
-                for loop, (i, j) in zip(f.loops, [(s, k), (s + 1, k), (s + 1, k + 1), (s, k + 1)] if not flip else [(s, k + 1), (s + 1, k + 1), (s + 1, k), (s, k)]):
-                    loop[stone.uv].uv = (i / sides * circ / 2.0, (heights[i] + FOUNDATION) * j / rings / 2.0)
-        if not flip:
-            outer_top = grid[-1]
-        else:
-            inner_top = grid[-1]
+                bm.faces.new(list(reversed(q)) if flip else q)
+        tops[flip] = grid[-1]
     for s in range(sides):
-        f = bm.faces.new((outer_top[s], inner_top[s], inner_top[s + 1], outer_top[s + 1]))
-        for loop, uv in zip(f.loops, [(0, 0), (0, 0.4), (0.4, 0.4), (0.4, 0)]):
-            loop[stone.uv].uv = uv
-    rubble = Part(pbr_material('castle-brick', 'castle_brick_07'), uv_metres=2.0)
+        bm.faces.new((tops[False][s], tops[True][s], tops[True][s + 1], tops[False][s + 1]))
+    # Plinth and string course: rings standing proud of the shell
+    tube(stone, [Vector((0, 0, -0.5)), Vector((0, 0, 0.9))], [r_out + 0.25, r_out + 0.2], sides)
+    for s in range(sides):
+        a = (s + 0.5) / sides * math.tau
+        if min(heights[s], heights[s + 1]) > 5.0:
+            box(stone, math.cos(a) * (r_out + 0.06), math.sin(a) * (r_out + 0.06), 4.6, 0.3, math.tau * r_out / sides + 0.05, 0.28, a)
+        # Loose stones along the broken rim
+        if rnd.random() < 0.6:
+            h = min(heights[s], heights[s + 1])
+            rr = (r_out + r_in) / 2
+            box(stone, math.cos(a) * rr, math.sin(a) * rr, h - 0.1, rnd.uniform(0.4, 0.7), rnd.uniform(0.4, 0.8), rnd.uniform(0.25, 0.45),
+                a + rnd.uniform(-0.3, 0.3))
+    # Slit windows where the wall still stands, a doorway at the front (-Y)
+    for s in range(0, sides, 3):
+        a = (s + 0.5) / sides * math.tau
+        for z in (2.6, 7.0):
+            if min(heights[s], heights[s + 1]) > z + 2.0:
+                box(dark, math.cos(a) * (r_out + 0.01), math.sin(a) * (r_out + 0.01), z, 0.1, 0.32, 1.3, a)
+    box(dark, 0, -r_out - 0.02, 0.0, 1.4, 0.1, 2.4)
+    tube(dark, [Vector((0, -r_out - 0.07, 2.4)), Vector((0, -r_out + 0.03, 2.4))], [0.7, 0.7], 10)
+    oriented_box(wood, Vector((-r_in + 0.2, 0.6, 5.2)), Vector((r_in - 0.3, -0.4, 4.4)), 0.3)
+    for k in range(6):
+        a = rnd.uniform(0, math.tau)
+        top = rnd.uniform(4.0, 7.5)
+        n = Vector((math.cos(a), math.sin(a), 0))
+        p = n * (r_out + 0.04) + Vector((0, 0, top))
+        card(ivy, p, Vector((0, 0, -1)), n, 1.6, top - 0.2, p - n * 8)
+    rubble = Part(pbr_material('castle-' + RUIN, RUIN), uv_metres=1.5, bevel=0.0)
+    from build_nature import lump
+    for k in range(3):
+        a = 0.5 + k * 0.5
+        lump(rubble, Vector((math.cos(a) * 4.6, math.sin(a) * 4.6, -0.4)), Vector((1.3, 1.0, 0.6)), seed * 10 + k, roughness=0.45, subdiv=2)
     for k in range(9):
         a = rnd.uniform(0, math.tau)
         rr = rnd.uniform(4.0, 6.5)
-        box(rubble, math.cos(a) * rr, math.sin(a) * rr, -0.1, rnd.uniform(0.5, 1.1), rnd.uniform(0.4, 0.8), rnd.uniform(0.3, 0.6), rnd.uniform(0, 3))
-    export(name, [stone.to_object(name), rubble.to_object(name + '-rubble')])
+        box(stone, math.cos(a) * rr, math.sin(a) * rr, -0.1, rnd.uniform(0.5, 1.1), rnd.uniform(0.4, 0.8), rnd.uniform(0.3, 0.6), rnd.uniform(0, 3))
+    obj = rubble.to_object(name + '-rubble')
+    for p in obj.data.polygons:
+        p.use_smooth = True
+    export(name, [stone.to_object(name), dark.to_object(name + '-holes'), wood.to_object(name + '-beam'), ivy.to_object(name + '-ivy'), obj])
 
 
 def stone_course(part, x0, x1, y, z, h, depth, rnd, seed):

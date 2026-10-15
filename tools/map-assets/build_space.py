@@ -228,26 +228,80 @@ def antenna_mast(name, height=14.0):
 
 
 def lander(name):
-    """Descent stage wrapped in gold foil on four legs, a white ascent cabin, engine bell, ladder"""
+    """Two-stage lunar lander (front -Y): an octagonal descent stage in gold and black foil over its engine
+    bell, four legs with struts and footpads, a porch and a ladder down the front leg; the ascent stage on
+    top with the crew cabin and its slanted windows, an equipment bay behind, tank bulges at the sides,
+    a docking tunnel, radar and antenna dishes and four thruster quads"""
     clear_scene()
     foil = Part(image_material('gold-foil', blender_kit.FOLIAGE + '/gold-foil.jpg', 0.35))
-    shell = Part(hull(), smooth=False)
+    black = Part(flat_material('foil-black', (0.05, 0.045, 0.04), 0.55, 0.4))
+    shell = Part(hull(), smooth=False, uv_scale=0.5)
     metal = Part(trim(), smooth=True)
     win = Part(window())
-    tube(foil, [Vector((0, 0, 1.2)), Vector((0, 0, 2.8))], [2.0, 2.0], 8, cap=True)
-    tube(shell, [Vector((0, 0, 2.8)), Vector((0, 0, 4.3)), Vector((0, 0, 4.8))], [1.5, 1.3, 0.6], 8, cap=True)
-    box(win, 0, -1.33, 3.5, 0.5, 0.1, 0.4)
-    tube(metal, [Vector((0, 0, 1.25)), Vector((0, 0, 0.6))], [0.35, 0.7], 12)
+    # Descent stage: eight panels, gold and black in turn, a deck on top and a floor under it
+    r, z0, z1 = 2.0, 1.1, 2.7
+    corners = [Vector((math.cos((k + 0.5) / 8 * math.tau) * r, math.sin((k + 0.5) / 8 * math.tau) * r, 0)) for k in range(8)]
+    for k in range(8):
+        a, b = corners[k], corners[(k + 1) % 8]
+        part = foil if k % 2 == 0 else black
+        part.quad([a + Vector((0, 0, z0)), b + Vector((0, 0, z0)), b + Vector((0, 0, z1)), a + Vector((0, 0, z1))],
+                  [(0, 0), (1, 0), (1, 1), (0, 1)])
+    deck = [metal.bm.verts.new(c + Vector((0, 0, z1))) for c in corners]
+    metal.bm.faces.new(deck)
+    floor = [metal.bm.verts.new(c + Vector((0, 0, z0))) for c in reversed(corners)]
+    metal.bm.faces.new(floor)
+    tube(black, [Vector((0, 0, z0 + 0.05)), Vector((0, 0, 0.5))], [0.5, 0.9], 16)
+    # Legs on the four axes: main strut, two side struts, a footpad; ladder rungs on the front one
     for k in range(4):
-        a = k / 4 * math.tau + math.pi / 4
+        a = k / 4 * math.tau - math.pi / 2
         out = Vector((math.cos(a), math.sin(a), 0))
-        foot = out * 3.4
-        oriented_box(metal, out * 1.7 + Vector((0, 0, 2.2)), foot + Vector((0, 0, 0.15)), 0.12)
-        oriented_box(metal, out * 1.9 + Vector((0, 0, 1.3)), foot * 0.85 + Vector((0, 0, 0.6)), 0.08)
-        tube(metal, [foot, foot + Vector((0, 0, 0.12))], [0.45, 0.45], 10, cap=True)
-    for k in range(6):
-        box(metal, 0, -2.05, 0.4 + k * 0.35, 0.6, 0.05, 0.05)
-    export(name, [foil.to_object(name + '-foil'), shell.to_object(name), metal.to_object(name + '-metal'), win.to_object(name + '-window')])
+        side = Vector((-out.y, out.x, 0))
+        top = out * 2.0 + Vector((0, 0, 2.5))
+        foot = out * 3.7 + Vector((0, 0, 0.3))
+        tube(metal, [top, foot], [0.11, 0.09], 8)
+        mid = top.lerp(foot, 0.6)
+        for s in (-1, 1):
+            tube(metal, [out * 1.6 + side * s * 1.0 + Vector((0, 0, z0 + 0.05)), mid], [0.05, 0.05], 6)
+        tube(foil, [foot + Vector((0, 0, -0.3)), foot + Vector((0, 0, -0.18)), foot + Vector((0, 0, -0.05))], [0.55, 0.55, 0.3], 12,
+             cap=True)
+        if k == 0:
+            for j in range(8):
+                p = top.lerp(foot, 0.1 + j * 0.1)
+                oriented_box(metal, p - side * 0.35 - out * 0.12, p + side * 0.35 - out * 0.12, 0.05)
+            box(metal, 0, -2.0, z1 - 0.1, 1.0, 0.8, 0.08)
+    # Ascent stage: base plate, cabin with the front facets and windows, equipment bay, tank bulges
+    box(metal, 0, 0, z1, 3.2, 3.0, 0.22)
+    zc = z1 + 0.22
+    tube(shell, [Vector((0, 0.7, zc + 1.15)), Vector((0, -1.4, zc + 1.15))], [1.15, 1.15], 10, cap=True)
+    box(shell, 0, 1.25, zc, 2.6, 1.5, 1.8)
+    for s in (-1, 1):
+        prof = [(-0.7, 0.05), (-0.55, 0.38), (-0.3, 0.55), (1.0, 0.55), (1.25, 0.38), (1.4, 0.05)]
+        tube(black, [Vector((s * 1.4, y, zc + 0.7)) for y, _ in prof], [w for _, w in prof], 10)
+    for s in (-1, 1):
+        # Slanted triangular windows on the front facets
+        c = Vector((s * 0.45, -1.42, zc + 1.6))
+        win.quad([c + Vector((-0.25 * s, -0.02, -0.25)), c + Vector((0.3 * s, -0.02, -0.35)), c + Vector((0.2 * s, -0.08, 0.25)),
+                  c + Vector((-0.25 * s, -0.08, 0.3))][::s], [(0, 0), (1, 0), (1, 1), (0, 1)])
+    box(black, 0, -1.43, zc + 0.15, 0.9, 0.06, 1.0)
+    # Docking tunnel, rendezvous radar, steerable antenna
+    tube(metal, [Vector((0, -0.3, zc + 2.2)), Vector((0, -0.3, zc + 2.75))], [0.55, 0.5], 12, cap=True)
+    tube(black, [Vector((0, -0.3, zc + 2.75)), Vector((0, -0.3, zc + 2.82))], [0.42, 0.42], 12, cap=True)
+    radar = Vector((0.0, -1.0, zc + 2.6))
+    oriented_box(metal, Vector((0.0, -0.9, zc + 2.1)), radar, 0.08)
+    tube(shell, [radar, radar + Vector((0, -0.2, 0.15)), radar + Vector((0, -0.32, 0.3))], [0.08, 0.35, 0.5], 12)
+    mast = Vector((1.3, 0.9, zc + 2.6))
+    oriented_box(metal, Vector((1.1, 0.9, zc + 1.8)), mast, 0.07)
+    tube(shell, [mast, mast + Vector((0.12, -0.12, 0.15)), mast + Vector((0.2, -0.2, 0.25))], [0.05, 0.3, 0.42], 12)
+    tube(metal, [Vector((-1.0, 1.6, zc + 1.8)), Vector((-1.0, 1.6, zc + 3.2))], [0.025, 0.02], 5)
+    # Thruster quads at the four corners: a block with four nozzles
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            c = Vector((sx * 1.55, sy * 1.25, zc + 1.4))
+            box(metal, c.x, c.y, c.z - 0.15, 0.3, 0.3, 0.3)
+            for d in (Vector((0, 0, 1)), Vector((0, 0, -1)), Vector((sx, 0, 0)), Vector((0, sy, 0))):
+                tube(metal, [c + d * 0.12, c + d * 0.35], [0.05, 0.09], 6)
+    export(name, [foil.to_object(name + '-foil'), black.to_object(name + '-black'), shell.to_object(name), metal.to_object(name + '-metal'),
+                  win.to_object(name + '-window')])
 
 
 def rover(name, colour=(0.82, 0.8, 0.76)):

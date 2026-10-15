@@ -154,7 +154,7 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | house | procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/clay_plaster, medieval_wood, clay_roof_tiles_02, castle_wall_slates |
 | house-large | procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/grey_plaster_02, medieval_wood, grey_roof_tiles, castle_wall_slates |
 | barn | procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/brown_planks_07, grey_roof_tiles, castle_wall_slates |
-| tower-ruin | procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/castle_brick_07 |
+| tower-ruin | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/mossy_stone_wall; https://polyhaven.com/a/dark_planks; Efeu https://ambientcg.com/view?id=LeafSet029 |
 | wall-stone | procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/stacked_stone_wall |
 | fence-wood | procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/rough_wood |
 | crate | procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/brown_planks_04, dark_planks |
@@ -454,8 +454,8 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | obsidian-spikes | procedural (tools/map-assets/build_extreme.py) |
 | hell-spires | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_rock_02 |
 | rope-bridge | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/weathered_planks |
-| alpine-hut | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_planks |
-| alpine-hut-snow | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_planks |
+| alpine-hut | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/bark_brown_02 |
+| alpine-hut-snow | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/bark_brown_02 |
 | rock-needle | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/rock_face |
 | cairn | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/rock_face |
 | tree-swamp-moss | procedural (tools/map-assets/build_extreme.py); Rinde https://polyhaven.com/a/bark_brown_02; Moos gezeichnet (make_foliage.py) |
@@ -513,6 +513,15 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | stones-mossy-scatter | procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/rock_moss_set_02 |
 | stones-desert-scatter | procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/namaqualand_boulder_03 |
 | stones-volcanic-scatter | procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/moon_rock_03 (getönt) |
+| tunnel-portal | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/rock_face |
+| tunnel-portal-concrete | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/rock_face |
+| castle-ruin | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/mossy_stone_wall; https://polyhaven.com/a/dark_planks; Efeu https://ambientcg.com/view?id=LeafSet029 |
+| glacier | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/snow_02; https://polyhaven.com/a/rock_face |
+| seracs | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/snow_02 |
+| avalanche-barrier | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/brushed_concrete |
+| avalanche-barrier-snow | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/snow_02 |
+| shipwreck | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/dark_planks |
+| rocket | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/brushed_concrete |
 | fx-fireflies | Effekt des Renderers, kein Modell |
 | fx-smoke | Effekt des Renderers, kein Modell |
 | fx-embers | Effekt des Renderers, kein Modell |

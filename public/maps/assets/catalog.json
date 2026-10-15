@@ -2764,7 +2764,6 @@
       "tags": [
         "village"
       ],
-      "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/clay_plaster, medieval_wood, clay_roof_tiles_02, castle_wall_slates",
       "effects": [
         {
           "kind": "smoke",
@@ -2777,7 +2776,8 @@
           "rate": 2.5,
           "color": "#6a6460"
         }
-      ]
+      ],
+      "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/clay_plaster, medieval_wood, clay_roof_tiles_02, castle_wall_slates"
     },
     {
       "id": "house-large",
@@ -2799,7 +2799,6 @@
       "tags": [
         "village"
       ],
-      "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/grey_plaster_02, medieval_wood, grey_roof_tiles, castle_wall_slates",
       "effects": [
         {
           "kind": "smoke",
@@ -2812,7 +2811,8 @@
           "rate": 2.5,
           "color": "#6a6460"
         }
-      ]
+      ],
+      "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/grey_plaster_02, medieval_wood, grey_roof_tiles, castle_wall_slates"
     },
     {
       "id": "barn",
@@ -2841,7 +2841,7 @@
       "name": "Tower ruin",
       "category": "building",
       "file": "models/tower-ruin.glb",
-      "triangles": 648,
+      "triangles": 3632,
       "footprint": 4.0,
       "height": 12,
       "blocksLos": true,
@@ -2854,9 +2854,10 @@
       "wind": 0,
       "drawDistance": 3000,
       "tags": [
-        "castle"
+        "castle",
+        "autumn"
       ],
-      "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/castle_brick_07"
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/mossy_stone_wall; https://polyhaven.com/a/dark_planks; Efeu https://ambientcg.com/view?id=LeafSet029"
     },
     {
       "id": "wall-stone",
@@ -6147,7 +6148,6 @@
         "village",
         "autumn"
       ],
-      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/beige_wall_001; https://polyhaven.com/a/reed_roof_04; https://polyhaven.com/a/medieval_wood; https://polyhaven.com/a/castle_wall_slates",
       "effects": [
         {
           "kind": "smoke",
@@ -6160,7 +6160,8 @@
           "rate": 2.5,
           "color": "#6a6460"
         }
-      ]
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/beige_wall_001; https://polyhaven.com/a/reed_roof_04; https://polyhaven.com/a/medieval_wood; https://polyhaven.com/a/castle_wall_slates"
     },
     {
       "id": "house-stone",
@@ -6183,7 +6184,6 @@
         "village",
         "mountain"
       ],
-      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/castle_wall_slates",
       "effects": [
         {
           "kind": "smoke",
@@ -6196,7 +6196,8 @@
           "rate": 2.5,
           "color": "#6a6460"
         }
-      ]
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/castle_wall_slates"
     },
     {
       "id": "house-tall",
@@ -6218,7 +6219,6 @@
       "tags": [
         "village"
       ],
-      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/beige_wall_001; https://polyhaven.com/a/clay_roof_tiles_02; https://polyhaven.com/a/medieval_wood; https://polyhaven.com/a/castle_wall_slates",
       "effects": [
         {
           "kind": "smoke",
@@ -6231,7 +6231,8 @@
           "rate": 2.5,
           "color": "#6a6460"
         }
-      ]
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/beige_wall_001; https://polyhaven.com/a/clay_roof_tiles_02; https://polyhaven.com/a/medieval_wood; https://polyhaven.com/a/castle_wall_slates"
     },
     {
       "id": "house-snow",
@@ -6254,7 +6255,6 @@
         "winter",
         "village"
       ],
-      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/grey_plaster_02; https://polyhaven.com/a/grey_roof_tiles; https://polyhaven.com/a/medieval_wood; https://polyhaven.com/a/castle_wall_slates",
       "effects": [
         {
           "kind": "smoke",
@@ -6267,7 +6267,8 @@
           "rate": 2.5,
           "color": "#6a6460"
         }
-      ]
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/grey_plaster_02; https://polyhaven.com/a/grey_roof_tiles; https://polyhaven.com/a/medieval_wood; https://polyhaven.com/a/castle_wall_slates"
     },
     {
       "id": "house-stone-snow",
@@ -6291,7 +6292,6 @@
         "village",
         "mountain"
       ],
-      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/castle_wall_slates",
       "effects": [
         {
           "kind": "smoke",
@@ -6304,7 +6304,8 @@
           "rate": 2.5,
           "color": "#6a6460"
         }
-      ]
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/castle_wall_slates"
     },
     {
       "id": "log-cabin",
@@ -6328,7 +6329,6 @@
         "village",
         "swamp"
       ],
-      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/wood_trunk_wall; https://polyhaven.com/a/roof_planks; https://polyhaven.com/a/castle_wall_slates",
       "effects": [
         {
           "kind": "smoke",
@@ -6341,7 +6341,8 @@
           "rate": 2.5,
           "color": "#6a6460"
         }
-      ]
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/wood_trunk_wall; https://polyhaven.com/a/roof_planks; https://polyhaven.com/a/castle_wall_slates"
     },
     {
       "id": "log-cabin-snow",
@@ -6365,7 +6366,6 @@
         "mountain",
         "arctic"
       ],
-      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/wood_trunk_wall; https://polyhaven.com/a/roof_planks; https://polyhaven.com/a/castle_wall_slates",
       "effects": [
         {
           "kind": "smoke",
@@ -6378,7 +6378,8 @@
           "rate": 2.5,
           "color": "#6a6460"
         }
-      ]
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/wood_trunk_wall; https://polyhaven.com/a/roof_planks; https://polyhaven.com/a/castle_wall_slates"
     },
     {
       "id": "barn-snow",
@@ -6424,7 +6425,6 @@
         "village",
         "mountain"
       ],
-      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/dark_planks",
       "effects": [
         {
           "kind": "smoke",
@@ -6437,7 +6437,8 @@
           "rate": 2.5,
           "color": "#6a6460"
         }
-      ]
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/dark_planks"
     },
     {
       "id": "windmill",
@@ -6535,7 +6536,6 @@
       "id": "hut-stilts",
       "name": "Hut on stilts",
       "category": "building",
-      "stilts": true,
       "file": "models/hut-stilts.glb",
       "triangles": 326,
       "footprint": 3.3,
@@ -6549,6 +6549,7 @@
       "randomRotation": false,
       "wind": 0,
       "drawDistance": 3000,
+      "stilts": true,
       "tags": [
         "swamp",
         "coast"
@@ -9830,9 +9831,9 @@
       "name": "Lander",
       "category": "prop",
       "file": "models/lander.glb",
-      "triangles": 376,
-      "footprint": 2.6,
-      "height": 4.8,
+      "triangles": 1266,
+      "footprint": 3.8,
+      "height": 6.1,
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -10860,7 +10861,7 @@
       "name": "Alpine hut",
       "category": "building",
       "file": "models/alpine-hut.glb",
-      "triangles": 3054,
+      "triangles": 4066,
       "footprint": 4.1,
       "height": 7.5,
       "blocksLos": true,
@@ -10876,7 +10877,6 @@
         "mountain",
         "village"
       ],
-      "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_planks",
       "effects": [
         {
           "kind": "smoke",
@@ -10889,14 +10889,15 @@
           "rate": 2.5,
           "color": "#6a6460"
         }
-      ]
+      ],
+      "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/bark_brown_02"
     },
     {
       "id": "alpine-hut-snow",
       "name": "Alpine hut (snow)",
       "category": "building",
       "file": "models/alpine-hut-snow.glb",
-      "triangles": 3062,
+      "triangles": 4074,
       "footprint": 4.1,
       "height": 7.5,
       "blocksLos": true,
@@ -10912,7 +10913,6 @@
         "mountain",
         "winter"
       ],
-      "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_planks",
       "effects": [
         {
           "kind": "smoke",
@@ -10925,7 +10925,8 @@
           "rate": 2.5,
           "color": "#6a6460"
         }
-      ]
+      ],
+      "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/bark_brown_02"
     },
     {
       "id": "rock-needle",
@@ -11113,7 +11114,6 @@
         "mountain",
         "village"
       ],
-      "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_planks; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/castle_wall_slates",
       "effects": [
         {
           "kind": "smoke",
@@ -11126,7 +11126,8 @@
           "rate": 2.5,
           "color": "#6a6460"
         }
-      ]
+      ],
+      "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_planks; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/castle_wall_slates"
     },
     {
       "id": "house-stone-balcony-snow",
@@ -11149,7 +11150,6 @@
         "mountain",
         "winter"
       ],
-      "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_planks; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/snow_02",
       "effects": [
         {
           "kind": "smoke",
@@ -11162,7 +11162,8 @@
           "rate": 2.5,
           "color": "#6a6460"
         }
-      ]
+      ],
+      "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_planks; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/snow_02"
     },
     {
       "id": "chapel-mountain",
@@ -11756,7 +11757,6 @@
         "coast",
         "swamp"
       ],
-      "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/roof_planks; https://polyhaven.com/a/bark_willow; Netz gezeichnet",
       "effects": [
         {
           "kind": "smoke",
@@ -11769,7 +11769,8 @@
           "rate": 2.5,
           "color": "#6a6460"
         }
-      ]
+      ],
+      "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/roof_planks; https://polyhaven.com/a/bark_willow; Netz gezeichnet"
     },
     {
       "id": "buoy-red",
@@ -12440,6 +12441,268 @@
         "scree"
       ],
       "source": "procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/moon_rock_03 (getönt)"
+    },
+    {
+      "id": "tunnel-portal",
+      "name": "Tunnel portal (stone)",
+      "category": "structure",
+      "file": "models/tunnel-portal.glb",
+      "triangles": 4018,
+      "footprint": 20.7,
+      "height": 15.7,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "temperate",
+        "mountain",
+        "village",
+        "castle"
+      ],
+      "lod": [
+        {
+          "file": "models/tunnel-portal-lod1.glb",
+          "distance": 350,
+          "triangles": 544
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/rock_face"
+    },
+    {
+      "id": "tunnel-portal-concrete",
+      "name": "Tunnel portal (concrete)",
+      "category": "structure",
+      "file": "models/tunnel-portal-concrete.glb",
+      "triangles": 3478,
+      "footprint": 20.1,
+      "height": 14.2,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city",
+        "mountain"
+      ],
+      "lod": [
+        {
+          "file": "models/tunnel-portal-concrete-lod1.glb",
+          "distance": 350,
+          "triangles": 542
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/rock_face"
+    },
+    {
+      "id": "castle-ruin",
+      "name": "Castle ruin",
+      "category": "building",
+      "file": "models/castle-ruin.glb",
+      "triangles": 6108,
+      "footprint": 17.2,
+      "height": 22,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "castle",
+        "autumn"
+      ],
+      "lod": [
+        {
+          "file": "models/castle-ruin-lod1.glb",
+          "distance": 350,
+          "triangles": 1407
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/mossy_stone_wall; https://polyhaven.com/a/dark_planks; Efeu https://ambientcg.com/view?id=LeafSet029"
+    },
+    {
+      "id": "glacier",
+      "name": "Glacier tongue",
+      "category": "rock",
+      "file": "models/glacier.glb",
+      "triangles": 6480,
+      "footprint": 44.7,
+      "height": 10.5,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.6,
+        1.6
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "mountain",
+        "arctic",
+        "winter"
+      ],
+      "lod": [
+        {
+          "file": "models/glacier-lod1.glb",
+          "distance": 350,
+          "triangles": 1325
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/snow_02; https://polyhaven.com/a/rock_face"
+    },
+    {
+      "id": "seracs",
+      "name": "Seracs",
+      "category": "rock",
+      "file": "models/seracs.glb",
+      "triangles": 1716,
+      "footprint": 7.1,
+      "height": 9.7,
+      "base": [
+        5.1,
+        5.1,
+        2
+      ],
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.6,
+        1.5
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "mountain",
+        "arctic"
+      ],
+      "lod": [
+        {
+          "file": "models/seracs-lod1.glb",
+          "distance": 350,
+          "triangles": 846
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/snow_02"
+    },
+    {
+      "id": "avalanche-barrier",
+      "name": "Avalanche barrier",
+      "category": "structure",
+      "file": "models/avalanche-barrier.glb",
+      "triangles": 512,
+      "footprint": 1.8,
+      "height": 3.5,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "mountain"
+      ],
+      "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "avalanche-barrier-snow",
+      "name": "Avalanche barrier (snowed in)",
+      "category": "structure",
+      "file": "models/avalanche-barrier-snow.glb",
+      "triangles": 928,
+      "footprint": 2.2,
+      "height": 3.6,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "mountain",
+        "winter"
+      ],
+      "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/snow_02"
+    },
+    {
+      "id": "shipwreck",
+      "name": "Shipwreck",
+      "category": "prop",
+      "file": "models/shipwreck.glb",
+      "triangles": 4453,
+      "footprint": 12.3,
+      "height": 5.8,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.2
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "coast"
+      ],
+      "lod": [
+        {
+          "file": "models/shipwreck-lod1.glb",
+          "distance": 350,
+          "triangles": 1182
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/dark_planks"
+    },
+    {
+      "id": "rocket",
+      "name": "Rocket on its pad",
+      "category": "building",
+      "file": "models/rocket.glb",
+      "triangles": 2952,
+      "footprint": 8.1,
+      "height": 34.3,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "moon",
+        "mars"
+      ],
+      "lod": [
+        {
+          "file": "models/rocket-lod1.glb",
+          "distance": 350,
+          "triangles": 1023
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/brushed_concrete"
     },
     {
       "id": "fx-fireflies",

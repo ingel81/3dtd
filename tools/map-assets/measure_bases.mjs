@@ -39,6 +39,7 @@ const NO_PLATE = new Set([
   'mars-cliff',
   'mesa',
   'iceberg',
+  'glacier',
 ]);
 
 const assets = process.argv[2];

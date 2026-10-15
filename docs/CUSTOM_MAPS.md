@@ -580,11 +580,11 @@ Bestand baut der Asset-Worker aus; Stand beim Schreiben:
   8 % seiner Höhe, höchstens 15 cm über dem tiefsten), und wie tief dieser Punkt unter dem Ursprung liegt;
   `tools/map-assets/measure_bases.mjs` misst sie an den Modellen nach `bases.json`, `update_catalog.py` übernimmt sie.
   Gescannte Felsen sind unten flach abgeschnitten, und diese Platte reicht oft weit über den Fußabdruck hinaus (der
-  Steinhaufen `rock-large`: Fußabdruck 1,8 m, Platte 7,4 mal 3,6 m). 51 Felsen haben eine; Kulissenstücke ohne Platte
-  (Kraterränder, Becken, Felsbogen, Klippen- und Küstenwände, Tafelberg, Eisberg; `NO_PLATE` im Skript) keine. Wie
+  Steinhaufen `rock-large`: Fußabdruck 1,8 m, Platte 7,4 mal 3,6 m). 52 Felsen haben eine; Kulissenstücke ohne Platte
+  (Kraterränder, Becken, Felsbogen, Klippen- und Küstenwände, Tafelberg, Eisberg, Gletscher; `NO_PLATE` im Skript) keine. Wie
   der Editor Felsen damit absetzt: [LEVEL_EDITOR.md](LEVEL_EDITOR.md), Objekte
-- **374 Katalog-Objekte**, davon 366 Modelle (GLB, meshopt, WebP bis 512 px, große Klippen 1024 px) und 8 Effekt-Marker; je
-  Kategorie 118 Requisiten, 68 Felsen, 64 Gebäude, 42 Pflanzen, 31 Bäume, 29 Mauern und Zäune, 14 Bauwerke
+- **393 Katalog-Objekte**, davon 384 Modelle (GLB, meshopt, WebP bis 512 px, große Klippen 1024 px) und 9 Effekt-Marker; je
+  Kategorie 121 Requisiten, 70 Felsen, 66 Gebäude, 42 Pflanzen, 31 Bäume, 33 Mauern und Zäune, 21 Bauwerke
   (`structure`). Je Biom: Laub- und Nadelbäume mit Herbst-
   und Schneevarianten, Trauerweide, Mangrove, Palmen, Kakteen, Köcherbäume; Sträucher, Hecken, Gras je Biom, Schilf,
   Weizen, Blumen, Seerosen, Pilze; Felsen je Gesteinsart, modulare Klippen, Sandsteinsäulen, Tafelberg, Felsbogen,
@@ -595,14 +595,26 @@ Bestand baut der Asset-Worker aus; Stand beim Schreiben:
   Antennen, Lander, Rover, Solarfelder, Landeplatz, Kraterränder); Arktis (Iglu, Forschungsstation, Eisberg,
   Eisschollen, Eiszapfen); Hölle (Höllentor, Altar, Lavafelsen, Dornen, Ketten, Obsidian, Galgenkäfig); Fahrzeuge
   (Auto, Pickup, Lkw, Bus, Panzerwrack, je intakt, verrostet, ausgebrannt); Teile der Vorzeige-Level (Seilbahn,
-  Hexenhütte, Hafen, Karawanenzelt, Schmiede, Burgruine); Streu-Steine; Fackeln, Feuer, Wasserfall
-- **8 Effekt-Marker** (`fx-*`, `file: ''`): Glühwürmchen, Rauch, Glut, Bodennebel, Laub, Schnee, Funkeln, Wasserfall
+  Hexenhütte, Hafen, Karawanenzelt, Schmiede, Burgruine); Wahrzeichen (E179, `build_landmarks.py`: Tunnelportal aus
+  Stein und aus Beton, Burgruine als ein Stück, Gletscherzunge, Séracs, Lawinenverbauung blank und eingeschneit,
+  Schiffswrack, Rakete mit Startturm); Streu-Steine; Fackeln, Feuer, Wasserfall
+- **Wahrzeichen** (E179): `tunnel-portal` und `tunnel-portal-concrete` (Bauwerk, Sicht- und Bausperre) sind
+  Tunnelmünder für Straßen: Fassade mit 8 m breiter Öffnung, Flügelmauern, ein 14 m tiefes Gewölbe mit Fahrbahn,
+  das in ein schwarzes Ende ausläuft, Fels des Hangs darum; Ursprung am Fuß der Öffnung, die Straße läuft entlang +Z
+  (glTF) hinein, ein Portal je Tunnelende. Bauwerke stehen auf dem Boden unter ihrer Mitte und ebnen nichts ein.
+  `castle-ruin` (Gebäude, rund 36 mal 30 m, 22 m hoch) ebnet beim Setzen wie jedes Gebäude ein. `glacier` (Fels ohne
+  Platte, 90 m lang, reicht 10 m in den Boden) steigt selbst kaum an: mit „An Hang ausrichten“ kippt er mit dem Hang;
+  auf ebenem Boden wirkt er wie eine Eisplatte. `avalanche-barrier(-snow)` sind 4-m-Felder für Reihen am Hang
+  (Bauwerk, Bausperre, die Streben reichen bergauf). `shipwreck` ist eine Requisite (kein Einebnen, liegt 1,5 m im
+  Sand), `rocket` ein Gebäude mit eigener Betonplatte. Dreiecke und Draw Calls je Modell: `catalog.json`
+  (`triangles`), je Material ein Draw Call (`pack_models.py` fügt gleiche Materialien zusammen)
+- **9 Effekt-Marker** (`fx-*`, `file: ''`): Glühwürmchen, Rauch, Glut, Bodennebel, Laub, Schnee, Funkeln, Wasserfall
 - **Tags**: Biome `temperate`, `autumn`, `winter`, `mountain`, `desert`, `swamp`, `coast`, `volcanic`, `village`,
   `castle`, `crystal`, `arena`, `city`, `wasteland`, `moon`, `mars`, `arctic`, `hell`; Rollen für Pinsel `conifer`,
   `shore`, `water`, `undergrowth`, `scree`. `category` bleibt die Art. Material- und Objekt-Ids teilen sich einen
   Namensraum
-- 73 Objekte haben eine Fernstufe (`lod`, `-lod1.glb` ohne Texturen, ab 350 m bzw. 40 % der Sichtweite), 32 ein
-  Licht (`light`), 24 Effekte (`effects`); 10 schwimmen (`float`: Boote, Schiff, Bojen, Seerosen, Eisscholle,
+- 84 Objekte haben eine Fernstufe (`lod`, `-lod1.glb` ohne Texturen, ab 350 m bzw. 40 % der Sichtweite), 32 ein
+  Licht (`light`), 40 Effekte (`effects`); 10 schwimmen (`float`: Boote, Schiff, Bojen, Seerosen, Eisscholle,
   Steg, Pier; Ursprung des Modells ist die Wasserlinie, ihr z zählt ab dem Spiegel unter ihnen, auf trockenem Boden ab
   dem Boden; eine Wassertiefe in z hebt sie in die Luft, das meldet die Prüfung `object-floating`). 9 stehen absichtlich
   in der Luft (`aloft`: Objekt-Brücken, Seilbahn-Spannen, Gondel); die Prüfung lässt sie aus
