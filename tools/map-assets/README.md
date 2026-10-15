@@ -56,7 +56,9 @@ Carports, Tankstellendach, Blockrand-Module, Bürohäuser, Supermarkt, Hallen, S
 Stadtkirche, Bahnhof, Parkhaus, Gewächshaus, Kiosk, Trafostation; Gleis, Bahnsteig, Oberleitungsmast, Prellbock,
 Hochspannungsmast, Rebzeile, Obstbaum, Spielgeräte, Fußballtor, Brunnen),
 gemeinsame Helfer in `blender_kit.py`. Klippen-Scans sind nur Wand und Krone: `import_model(..., close=True)`
-schließt Rückseite und Unterseite (`close_shell`), sonst sieht man von oben oder hinten in den Fels hinein.
+schließt Rückseite und Unterseite (`close_shell`), sonst sieht man von oben oder hinten in den Fels hinein. Ein flacher
+Rand (Höhe unter einem Zehntel der Breite) ist eine Unterseite und bekommt einen ebenen Boden aus seiner Mitte: so
+ist der unten offene Haufen `namaqualand_boulder_02` (`rock-large`, `rock-sandstone-large`) geschlossen.
 
 `objects.json` hält je Objekt, was ein Mensch entscheidet: Name, Kategorie, Biom-Tags, Lizenzquelle und, wo der
 Kategorie-Standard nicht passt, Sichtlinie, Bauverbot, Wind, Sichtweite, Skalierbereich. Fußabdruck und Höhe misst

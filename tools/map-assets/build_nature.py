@@ -763,7 +763,7 @@ def models():
         'rock-desert': lambda: import_model('namaqualand_boulder_03', 1.8, 1500, 'rock-desert', ground=True),
         'rock-desert-large': lambda: import_model('namaqualand_boulder_06', 3.2, 2000, 'rock-desert-large', ground=True),
         'rock-sandstone': lambda: import_model('namaqualand_boulder_05', 2.2, 1500, 'rock-sandstone', tint=tint_sand, desaturate=0.5, ground=True),
-        'rock-sandstone-large': lambda: import_model('namaqualand_boulder_02', 3.5, 2000, 'rock-sandstone-large', tint=tint_sand, desaturate=0.5, ground=True),
+        'rock-sandstone-large': lambda: import_model('namaqualand_boulder_02', 3.5, 2000, 'rock-sandstone-large', tint=tint_sand, desaturate=0.5, ground=True, close=True),
         'rock-basalt': lambda: import_model('namaqualand_boulder_03', 1.6, 1500, 'rock-basalt', tint=dark, desaturate=0.9, ground=True),
         'rock-basalt-large': lambda: import_model('namaqualand_boulder_06', 3.0, 2000, 'rock-basalt-large', tint=dark, desaturate=0.9, ground=True),
         'rock-snow': lambda: import_model('namaqualand_boulder_05', 2.0, 1500, 'rock-snow', tint=(1.3, 1.33, 1.38), desaturate=1.0, ground=True),

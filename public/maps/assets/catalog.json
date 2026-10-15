@@ -2721,13 +2721,13 @@
       "name": "Boulder",
       "category": "rock",
       "file": "models/rock-large.glb",
-      "triangles": 1199,
+      "triangles": 1200,
       "footprint": 1.8,
       "height": 2.6,
       "base": [
         3.7,
-        1.8,
-        0
+        1.7,
+        0.1
       ],
       "blocksLos": true,
       "blocksBuild": true,
@@ -2741,6 +2741,13 @@
       "tags": [
         "temperate",
         "mountain"
+      ],
+      "lod": [
+        {
+          "file": "models/rock-large-lod1.glb",
+          "distance": 350,
+          "triangles": 300
+        }
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_02"
     },
@@ -4842,11 +4849,11 @@
       "file": "models/rock-sandstone-large.glb",
       "triangles": 2000,
       "footprint": 4.5,
-      "height": 3.4,
+      "height": 3.3,
       "base": [
-        4.7,
-        2.5,
-        0.1
+        4,
+        2.3,
+        0.2
       ],
       "blocksLos": true,
       "blocksBuild": true,

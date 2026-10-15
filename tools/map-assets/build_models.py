@@ -48,7 +48,7 @@ def base_models():
         'log': lambda: log('log'),
         'fern': lambda: import_model('fern_02', 0.9, 900, 'fern'),
         'rock-small': lambda: import_model('namaqualand_boulder_04', 0.9, 500, 'rock-small', desaturate=0.7),
-        'rock-large': lambda: import_model('namaqualand_boulder_02', 2.6, 1200, 'rock-large', desaturate=0.7),
+        'rock-large': lambda: import_model('namaqualand_boulder_02', 2.6, 1200, 'rock-large', desaturate=0.7, ground=True, close=True),
         'barrel': lambda: import_model('Barrel_01', 1.0, 1200, 'barrel'),
         'house': lambda: house('house', 7.0, 5.0, 3.6, 'clay_roof_tiles_02', 'grey_plaster_02', wall_tint=(1.08, 1.02, 0.9)),
         'house-large': lambda: house('house-large', 10.0, 7.0, 6.4, 'grey_roof_tiles', 'grey_plaster_02', storeys=2,

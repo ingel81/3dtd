@@ -650,8 +650,8 @@ def plain_texel(obj, bm, uv):
 
 
 def close_shell(obj):
-    """Close a scanned shell: a cliff scan is its face and top only, open behind and underneath, so from
-    above or behind one looked into it (or through it, onto the ground). Every open rim gets a fan to a
+    """Close a scanned shell: a cliff scan is its face and top only, open behind and underneath, a boulder scan
+    can be open underneath, so from above, behind or downhill one looked into it (or through it, onto the ground). Every open rim gets a fan to a
     tip behind it, so the surface has no edge left and hides its inside from every side. The caps read
     one texel of the scan, the one nearest its average colour: an atlas smears across new faces."""
     bm = bmesh.new()
@@ -677,7 +677,12 @@ def close_shell(obj):
         # the fan of the open back cut through the curved face in front of it, and a low tip keeps the
         # back steep, in the slope behind the rock and not over it
         tip = sum((e.verts[0].co for e in loop), Vector()) / len(loop)
-        tip.y = max(e.verts[0].co.y for e in loop)
+        span = max(max(e.verts[0].co[i] for e in loop) - min(e.verts[0].co[i] for e in loop) for i in (0, 1))
+        rise = max(e.verts[0].co.z for e in loop) - min(e.verts[0].co.z for e in loop)
+        if rise > span * 0.1:
+            tip.y = max(e.verts[0].co.y for e in loop)
+        # A flat rim is an underside (a boulder scan cut off at the ground): its cap from the middle, at the rim's
+        # lowest point, so it stays a floor and does not fold over itself
         tip.z = min(e.verts[0].co.z for e in loop)
         apex = bm.verts.new(tip)
         for e in loop:
