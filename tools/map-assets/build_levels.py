@@ -179,7 +179,9 @@ def gondola(name):
 
 
 def cable_station(name):
-    """Valley station: stone base hall, a steel roof frame over the bullwheel, a parked gondola, cables out"""
+    """Valley station: a stone hall on a plinth with a timber upper storey under a slate roof, windows round it,
+    a stair up its side to the boarding deck on stone piers; over the deck a braced steel frame with a roof
+    carries the bullwheel (rim, spokes, hub), railings along the deck, cables out, a gondola waiting on them"""
     clear_scene()
     stone = Part(pbr_material('stone-stacked', 'stacked_stone_wall'), uv_metres=2.0)
     wood = planks((0.7, 0.6, 0.5))
@@ -187,26 +189,79 @@ def cable_station(name):
     roof = Part(pbr_material('roof-roof_slates_02', 'roof_slates_02'))
     cable = Part(flat_material('cable', (0.1, 0.1, 0.1), 0.4, 0.8), smooth=True)
     dark = Part(flat_material('window', (0.05, 0.06, 0.07), 0.2, 0.3))
-    box(stone, 0, 3.0, -1.0, 10.0, 6.0, 4.6)
-    for k in range(3):
-        box(dark, -3 + k * 3, -0.02, 1.0, 1.2, 0.1, 1.4)
-    box(wood, 0, -2.0, 3.6, 10.0, 8.0, 0.25)
+    # Hall: stone ground floor with a plinth and a cornice, the timber storey above, its roof ridge along X
+    box(stone, 0, 2.9, -1.0, 10.0, 5.7, 4.6)
+    box(stone, 0, 2.9, -1.0, 10.3, 6.0, 1.4)
+    box(stone, 0, 2.9, 3.45, 10.25, 5.95, 0.2)
+    box(wood, 0, 2.9, 3.65, 9.8, 5.5, 2.15)
+    gable_roof(roof, 9.8, 5.5, 5.8, 1.6, 0.35)
+    for v in roof.bm.verts:
+        v.co.y += 2.9
+    bm = wood.bm
+    for sx in (-1, 1):
+        tri = [bm.verts.new((sx * 4.9, 0.15, 5.8)), bm.verts.new((sx * 4.9, 5.65, 5.8)), bm.verts.new((sx * 4.9, 2.9, 7.4))]
+        bm.faces.new(tri if sx > 0 else list(reversed(tri)))
+    for sx in (-1, 1):
+        for y in (1.4, 4.4):
+            box(dark, sx * 5.0, y, 1.0, 0.1, 1.1, 1.4)
+            box(stone, sx * 5.05, y, 0.85, 0.2, 1.5, 0.15)
+            box(dark, sx * 4.92, y, 4.3, 0.1, 1.2, 1.0)
+    for x in (-3.0, 0.0, 3.0):
+        box(dark, x, 5.77, 4.3, 1.4, 0.1, 1.0)
+        box(dark, x, 0.13, 4.3, 1.4, 0.1, 1.0)
+    box(dark, -2.5, 5.77, 0.0, 1.2, 0.1, 2.2)
+    box(wood, -2.5, 5.83, 0.0, 1.1, 0.06, 2.1)
+    # Stair up the side of the hall to the deck
+    for k in range(12):
+        box(wood, 5.35, 5.4 - k * 0.45, -0.3, 0.7, 0.5, 0.3 + (k + 1) * 0.3)
+    # Deck on stone piers, railings along it (gaps where the gondolas run)
+    box(wood, 0, -3.0, 3.6, 10.0, 6.4, 0.25)
+    for x in (-4.4, 4.4):
+        for y in (-5.6, -2.0):
+            box(stone, x, y, -1.0, 0.9, 0.9, 4.6)
+    for x0, x1, y in ((-5.0, -3.3, -6.15), (-1.5, 1.5, -6.15), (3.3, 5.0, -6.15)):
+        oriented_box(steel, Vector((x0, y, 4.85)), Vector((x1, y, 4.85)), 0.06)
+        for x in (x0, x1):
+            oriented_box(steel, Vector((x, y, 3.85)), Vector((x, y, 4.9)), 0.07)
+    for x in (-4.95, 4.95):
+        oriented_box(steel, Vector((x, -6.15, 4.85)), Vector((x, 0.0, 4.85)), 0.06)
+        for y in (-4.1, -2.0):
+            oriented_box(steel, Vector((x, y, 3.85)), Vector((x, y, 4.9)), 0.07)
+    # Steel frame with knee braces, its roof, the bullwheel hanging from it
     for x in (-4.6, 4.6):
         for y in (-5.6, -1.0):
-            oriented_box(steel, Vector((x, y, 0)), Vector((x, y, 7.0)), 0.25)
+            oriented_box(steel, Vector((x, y, 3.8)), Vector((x, y, 7.0)), 0.25)
+        oriented_box(steel, Vector((x, -5.6, 7.0)), Vector((x, -1.0, 7.0)), 0.2)
     for y in (-5.6, -1.0):
         oriented_box(steel, Vector((-4.6, y, 7.0)), Vector((4.6, y, 7.0)), 0.25)
+        for sx in (-1, 1):
+            oriented_box(steel, Vector((sx * 4.6, y, 5.9)), Vector((sx * 3.4, y, 7.0)), 0.12)
+    oriented_box(steel, Vector((0, -5.6, 7.0)), Vector((0, -1.0, 7.0)), 0.25)
     gable_roof(roof, 10.6, 6.0, 7.2, 1.2, 0.4)
-    for v in roof.bm.verts:
+    for v in roof.bm.verts[len(roof.bm.verts) - 16:]:
         v.co.y -= 3.3
     c = Vector((0, -3.3, 4.6))
-    tube(steel, [c, c + Vector((0, 0, 0.35))], [2.4, 2.4], 24, cap=True)
-    tube(steel, [c + Vector((0, 0, 0.35)), c + Vector((0, 0, 2.4))], [0.35, 0.35], 10, cap=True)
+    ring = [c + Vector((math.cos(a) * 2.4, math.sin(a) * 2.4, 0.15)) for a in (k / 24 * math.tau for k in range(25))]
+    tube(steel, ring, [0.13] * 25, 8)
+    for k in range(8):
+        a = k / 8 * math.tau
+        oriented_box(steel, c + Vector((0, 0, 0.15)), c + Vector((math.cos(a) * 2.35, math.sin(a) * 2.35, 0.15)), 0.1)
+    tube(steel, [c, c + Vector((0, 0, 0.4))], [0.5, 0.5], 12, cap=True)
+    tube(steel, [c + Vector((0, 0, 0.4)), c + Vector((0, 0, 2.4))], [0.3, 0.3], 10, cap=True)
     for x in (-2.4, 2.4):
-        tube(cable, [Vector((x, -3.3, 4.8)), Vector((x, -12.0, 5.5)), Vector((x, -22.0, 7.0))], [0.05, 0.05, 0.05], 6)
+        tube(cable, [Vector((x, -3.3, 4.75)), Vector((x, -12.0, 5.5)), Vector((x, -22.0, 7.0))], [0.05, 0.05, 0.05], 6)
+    # Gondola on the cable: red body, a band of windows, a roof cap, the hanger and its grip
     cab = Part(flat_material('gondola-red', (0.6, 0.1, 0.08), 0.35, 0.3), bevel=0.06)
-    box(cab, 2.4, -6.0, 1.9, 2.2, 1.8, 1.8)
-    oriented_box(steel, Vector((2.4, -6.0, 3.7)), Vector((2.4, -6.0, 4.8)), 0.1)
+    gx, gy = 2.4, -8.0
+    box(cab, gx, gy, 2.2, 2.0, 1.7, 0.75)
+    box(dark, gx, gy, 2.95, 1.9, 1.6, 0.55)
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            box(cab, gx + sx * 0.92, gy + sy * 0.77, 2.95, 0.16, 0.16, 0.55)
+    box(cab, gx, gy, 3.5, 2.05, 1.75, 0.2)
+    box(cab, gx, gy, 3.7, 1.4, 1.1, 0.15)
+    oriented_box(steel, Vector((gx, gy, 3.85)), Vector((gx, gy, 5.2)), 0.1)
+    box(steel, gx, gy, 5.1, 0.3, 0.6, 0.25)
     export(name, [stone.to_object(name), wood.to_object(name + '-deck'), steel.to_object(name + '-steel'), roof.to_object(name + '-roof'),
                   cable.to_object(name + '-cables'), dark.to_object(name + '-windows'), cab.to_object(name + '-gondola')])
 

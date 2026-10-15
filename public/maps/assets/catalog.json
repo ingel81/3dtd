@@ -11542,7 +11542,7 @@
       "name": "Cable car station",
       "category": "building",
       "file": "models/cablecar-station.glb",
-      "triangles": 406,
+      "triangles": 2612,
       "footprint": 12.6,
       "height": 8.4,
       "blocksLos": true,
