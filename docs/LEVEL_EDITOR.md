@@ -33,6 +33,9 @@ ohne die Datei zu laden), bietet ein Banner „Fresh copy“ (neue Kopie, die al
   editor“), das Formular bleibt bis zum Wechsel gesperrt und springt nicht (früher schob eine eigene Zeile dafür die
   Liste über die Höhe, ein Rollbalken kam und ging und die Vorlagen sprangen von sechs auf fünf Spalten und zurück);
   bis die Ansicht ihre Programme übersetzt hat, steht dort „Preparing the view“
+- **New map, From a real place:** der zweite Start neben „A landscape“: Ortssuche, dann derselbe Rahmen wie im Menü
+  (flache Karte mit dem 2,4-km-Quadrat, HQ, ziehbare Spawns, „Make the map“); die erzeugte Karte ist schon gespeichert
+  und öffnet sich im Editor. Ablauf und Regeln in [OSM_WORLD_PLAN.md](OSM_WORLD_PLAN.md#phase-o2-gebaut-2026-10-15)
 - **Import file:** `.3dtdmap` oder `.w3x` per Dateiwahl oder per Ablegen auf der Seite. Ein Warcraft-3-Import fragt
   erst nach Metern je Kachel (4), höchstens Objekten (6000), „Playable area only“, „Enhance ground“ (Boden nach
   Spielrolle neu malen, aus: Kacheln wie im Original) und „Take the map's waves“ (die Wellen der Karte als eigene
@@ -66,7 +69,7 @@ ohne die Datei zu laden), bietet ein Banner „Fresh copy“ (neue Kopie, die al
 | P | Probewelle: die Gegner laufen die Routen ab (auch der Knopf „Trial wave“) |
 | + und - (auch =) | Probewelle schneller, langsamer: 1x, 2x, 4x, 8x, solange sie läuft (nicht umlegbar) |
 | Strg+K | Befehle: Werkzeuge, Pinsel, Biome, Ansichten, Symmetrie, Marker und die Objekte der Karte nach Namen |
-| 1 bis 9, 0, G, D | Werkzeug: Landscape, Terrain, Paint, Water, Objects, Roads, Spawns and HQ, Sky and weather, Map, Copy and stamps, Rules, Measure |
+| 1 bis 9, 0, G, D, N | Werkzeug: Landscape, Terrain, Paint, Water, Objects, Roads, Spawns and HQ, Sky and weather, Map, Copy and stamps, Rules, Measure, Life |
 | M | Symmetrie reihum: aus, Mirror X, Mirror Y, Both, Turn 2, Turn 4 (auch oben in der Kopfleiste) |
 | Alt+1 bis 9 (Strg+Ziffer, wo der Browser sie lässt) | Kamera-Ansicht merken; Shift+Ziffer fliegt hin; die Knöpfe 1 bis 9 unter der Minikarte ebenso (Alt-Klick merkt) |
 | ? | Übersicht aller Tasten; unter „Your keys“ lassen sich die Einzeltasten (Werkzeuge, F, T, C, B, P, V, M) umlegen, gespeichert in `3dtd-editor-keys` |
@@ -85,7 +88,7 @@ Kugel, Biome als kleines Stück Boden mit ihren Pflanzen. Ein kleiner eigener Re
 hebt sie in IndexedDB (`3dtd-editor-thumbs`) auf; bis ein Bild fertig ist, steht ein gezeichnetes Symbol.
 
 Die linke Leiste zeigt jedes Werkzeug mit Symbol und Namen: oben allein Look, darunter drei Gruppen: Shape (Landscape, Terrain, Paint, Water,
-Objects), Play (Roads, Spawns, Rules) und Map (Sky, Map, Stamps, Measure). Rechts stehen zwei Reiter: die Optionen des
+Objects, Life), Play (Roads, Spawns, Rules) und Map (Sky, Map, Stamps, Measure). Rechts stehen zwei Reiter: die Optionen des
 Werkzeugs und die Gliederung; ein Werkzeug zu wählen zeigt seine Optionen. Die rechte Spalte lässt sich an ihrer
 Innenkante breiter und schmaler ziehen (320 bis 680 px, anfangs 340; Pfeiltasten auf der fokussierten Kante, Doppelklick
 setzt zurück, gemerkt in `localStorage` `3dtd-editor-side`), die Ansicht passt sich an. Lange Beschriftungen brechen
@@ -108,7 +111,7 @@ Gewässer.
 Jeder Pinsel hat Größe (1 bis 200 m), Stärke und Weichheit (Anteil des Radius, der ausblendet). Der Ring auf dem Boden
 zeigt Größe und den harten Kern.
 
-**Einstieg.** Beim ersten Öffnen einer Karte führt eine Tour in 23 Schritten durch den Editor (`ui/shell/tour.ts`):
+**Einstieg.** Beim ersten Öffnen einer Karte führt eine Tour in 24 Schritten durch den Editor (`ui/shell/tour.ts`):
 Ansicht, die Werkzeugleiste, dann jedes Werkzeug in der Reihenfolge der Leiste (Look, dann Landscape bis Measure; der Schritt
 wählt das Werkzeug, sein Panel steht rechts), die Reiter Outline und History, Minikarte und gemerkte Ansichten,
 Symmetrie, Speichern und File, Strg+K und Hilfe, zuletzt Check, Probewelle (mit ihrer Geschwindigkeit) und Test map.
@@ -117,7 +120,7 @@ CSS-Selektor; fehlt das Element, kein Ring). Ein Schritt geht von selbst weiter,
 Landschaftsstrich, eine Straße, ein Spawn, der Check, die Probewelle, der Test), sonst mit „Next“; „Back“ geht zurück,
 „Skip the tour“ beendet sie. Danach kommt sie nicht mehr von selbst (localStorage `3dtd-editor-tour`: `done` oder
 `skipped:<Schritt>`). Die Hilfe (?) startet sie neu („Start the tour“) und setzt eine übersprungene am Schritt fort,
-an dem man sie beendet hat („Resume the tour (N/23)“); Strg+K kennt beides. Die Schritte der Werkzeuge stehen in
+an dem man sie beendet hat („Resume the tour (N/24)“); Strg+K kennt beides. Die Schritte der Werkzeuge stehen in
 `TOOL_TOUR`, einem Eintrag je Werkzeug; ein neues Werkzeug bekommt dort seinen Schritt und erscheint an seinem Platz
 in der Leiste (`tour.spec.ts` verlangt einen je Werkzeug der Leiste). Die Hilfe hat neben den Tasten die Seite „Good levels“: Weglänge, Engstellen, Bauflächen,
 Sichtlinien, Spurzahl und Testen, jeweils mit einem Knopf, der das passende Werkzeug öffnet. Kann eine Karte nicht
@@ -137,8 +140,9 @@ umlegbare Taste (Esc ist keine Einzeltaste, die man vergeben könnte).
 **Landscape (1).** Landschaft malen: Höhe, Bodenfarbe, Wasser und Objekte entstehen gemeinsam, jeder Strich ist
 ein Schritt im Verlauf. Jeder Strich hat einen Seed (im Panel und in der Statuszeile, „Roll“ würfelt, der Schalter
 würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben dieselbe Landschaft.
-- Biome: Meadow, Forest, Pine forest, Rocks, Mountains, Swamp, Desert, Beach, Snow, Arctic, Village, City, Hell,
-  Wasteland, Moon, Mars. Halten malt; die Stärke bestimmt Dichte und Ausprägung, der Rand franst aus. Unterholz, Büsche und Zäune
+- Biome: Meadow, Forest, Autumn wood, Pine forest, Rocks, Mountains, Swamp, Desert, Beach, Snow, Arctic, Village, City,
+  Hell, Wasteland, Moon, Mars. Autumn wood malt Herbstbäume auf Laub mit Laubhaufen, braunen Pilzen und roten Büschen am
+  Rand (die roten Fliegenpilze nicht, sie stehen in `DANGER_LOOK`). Halten malt; die Stärke bestimmt Dichte und Ausprägung, der Rand franst aus. Unterholz, Büsche und Zäune
   wachsen am Rand des Strichs, Bäume und Häuser innen; eine Objektart mischt alle ihre Kandidaten aus dem Katalog.
   Objekte meiden Straßen, Wasser, Spawns und HQ; der Boden unter Straßen bleibt. Sumpf, Hölle und Arktis legen Becken
   an, gefüllt mit einem eigenen Gewässer der Art Swamp, Lava oder Ice knapp unter dem Boden am Startpunkt (ein
@@ -167,9 +171,12 @@ würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben diese
 - Cliff rocks: gehalten über steilem Boden (steiler als der Klippenwinkel, höchstens 45 Grad) stehen Klippenmodelle des
   Katalogs entlang der Kante (`ops/landscape/cliff-rocks.ts`): auf einem Raster von Stellen alle 4 m, je Strich einmal
   entschieden; die Breite läuft längs der Höhenlinie, die Front zur tiefen Seite, die Größe folgt dem Gefälle über
-  die Modelltiefe (0,5- bis 1,8-fach), leicht eingesenkt, mit etwa halber Breite Abstand zueinander, nicht auf
-  Straßen. Die Modelle wählt der Look der Karte (Sandstein in der Wüste, Basalt in Hölle und Endzeit, Mars-Klippen auf
-  dem Mars, sonst Felswände) oder das Panel
+  die Modelltiefe (0,5- bis 1,8-fach), die Wand steht vom Fuß des Gefälles (dem tiefsten Boden davor, leicht
+  eingesenkt) bis etwa zu seiner Kante, mit etwa halber Breite Abstand zueinander, nicht auf Straßen und nicht im
+  Wasser. Die Modelle wählt der Look der Karte (Sandstein in der Wüste, Basalt in Hölle und Endzeit, Mars-Klippen
+  auf dem Mars, sonst die grauen Felswände und Felsflächen; je Look nur Modelle derselben Färbung, die Küstenklippe
+  nur über das Panel) oder das Panel. Die Klippenmodelle sind geschlossen (`close_shell` in
+  `tools/map-assets/blender_kit.py`), von oben und hinten Fels statt Loch
 - Glow cracks: der Boden bricht in ein Netz feiner Lavarisse mit Kruste auf verbranntem Fels; die Risse sinken etwas ein
 - Linien (ziehen, auch vom Kartenrand her): Cliff edge hebt den Boden links der Zeichenrichtung als Klippe, die
   Pinselgröße ist die Breite oben; River (Water oder Lava) legt einen Fluss an, der immer bergab fließt (bergauf
@@ -193,7 +200,12 @@ würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben diese
   die ganze frühere Straße; an der Teilungsstelle kann der Boden danach um einige Zentimeter vom ersten Bau abweichen
   (im Fuzz-Test bis etwa 9 cm). Ein Profil über die Einmündung hinweg hieße, die Glättung über verbundene Kanten zu
   führen; das steht aus. „Rebuild road dressing“ im Roads-Panel legt die Ausstattung der gewählten Straßen neu an: aus ihrem `dress`,
-  aus der Karte oder, für eine bloße Linie, mit den Einstellungen des Straßenpinsels (Landscape, Road). Ebenso folgt das Flussbett
+  aus der Karte oder, für eine bloße Linie, mit den Einstellungen des Straßenpinsels (Landscape, Road). „Surface“ im
+  Roads-Panel (gewählte Straße, keine Brücke) stellt den Belag dieser Straßen sofort um (`setRoadSurface`, ein Schritt):
+  Asphalt, Pflaster, Platten, Kies, Feldweg und andere Straßenbeläge des Katalogs (`ROAD_SURFACES`) stehen in `edge.surface`
+  und im `dress`, werden unter die Straße gemalt, die Wegmaske lässt die Kante aus, und „Rebuild road dressing“ malt ihn
+  wieder; „None“ gibt die gezeichnete Straße mit Pflaster und Spuren über dem Boden zurück, der Anstrich bleibt. Agent:
+  `map.roadSurface(ids, material | 'none')`. Ebenso folgt das Flussbett
   seinem Lauf: einen Flusspunkt verschieben oder entfernen (Water, 4, Rivers), die Breite ändern oder „Fewer river
   points“ füllt das alte Bett und gräbt das neue (`moveRiverBed`): Schilf, Steine und Wasserfälle beider Bänder gehen,
   das neue Band bekommt Bodenanstrich, Schilf, Steine und Wasserfälle wie beim ersten Ziehen (`paintRiverBed`,
@@ -244,13 +256,14 @@ Tags des Katalogs und Suche (Name, Id oder Tag).
 - Leben setzen: die Effekte der Palette (Kategorie Effects, ohne Modell) sind Objekte wie alle, mit Verlauf, Auswahl,
   Kopieren, Symmetrie und `map.place` in Skripten und über MCP. Vogelschwarm (`fx-birds`, Effekt `birds`: kreist mit
   10 Vögeln 45 m weit in 50 m Höhe über dem Punkt, mit der Skalierung größer, höher und mehr Vögel), Glühwürmchen
-  (`fx-fireflies`), Rauchsäule (`fx-smoke`), Glut (`fx-embers`), Bodennebel, Laub, Schneegestöber, Funkeln. Bei
-  Effekt-Objekten macht die Skalierung die Fläche größer und dichter (Teilchen mal Skalierung zum Quadrat), die
+  (`fx-fireflies`), Rauch (`fx-smoke`), hohe Rauchsäule (`fx-smoke-column`, 40 m, zieht mit dem Wind), Glut
+  (`fx-embers`), Bodennebel, Laub, Schneegestöber, Funkeln. Bei Effekt-Objekten macht die Skalierung die Fläche
+  größer und dichter (Teilchen mal Skalierung zum Quadrat; die Rauchsäule höher, breiter, Puffs nur linear mehr), die
   Tönung (Tint im Auswahl-Panel) färbt die Teilchen. Ohne gesetzte Schwärme oder Glühwürmchen bringt die Karte eigene
   mit (CUSTOM_MAPS.md, „Leben aus dem Karteninhalt“): sobald einer gesetzt ist, gelten nur die gesetzten. Häuser mit
   Schornstein rauchen von selbst, ein von Hand gesetzter Rauch über dem Haus ersetzt den Schornsteinrauch.
-  Umgebungston je Zone ist noch nicht setzbar: es gibt keine Klänge dafür
-- Gebäude (Katalog-Kategorie `building`, nicht schwimmend, nicht auf Stelzen: Katalog `stilts`, die Pfahlhütte am Ufer verschob sonst ihr Ufer und ließ Wasser in der Luft stehen) ebnen beim ersten Setzen ihren Boden (`levelUnderBuilding`
+  Bereiche, Wege und Umgebungston setzt das Werkzeug Life (N)
+- Gebäude (Katalog-Kategorie `building`) und Objekte mit Drehteil (Katalog `spin`: die Radarschüssel drehte sonst am Hang in den Boden dahinter), beide nicht schwimmend, nicht auf Stelzen: Katalog `stilts`, die Pfahlhütte am Ufer verschob sonst ihr Ufer und ließ Wasser in der Luft stehen) ebnen beim ersten Setzen ihren Boden (`levelUnderBuilding`
   in `ops/object-ops.ts`): der Fußabdruck-Radius, 1,5 m und eine Gitterzelle mehr gehen auf die Grundhöhe (Mittel des
   Bodens unter der Mitte und acht Punkten des Fußabdrucks, Abtrag und Auftrag), darüber hinaus läuft der Boden über den
   Fußabdruck-Radius weich in das Gelände aus (mindestens 4 m und die doppelte Höhe von Abtrag oder Auftrag, so bleiben
@@ -284,6 +297,8 @@ Tags des Katalogs und Suche (Name, Id oder Tag).
   hineinreichen), also ohne Lücke und ohne Überlappung. Zinnen links oder rechts der Zeichenrichtung; das Torhaus
   setzt man von Hand in die Mauer
 - Erase: entfernt, was der Pinsel trifft
+- Prefabs (über der Palette): die gewählten Objekte als Prefab ablegen und gespeicherte Prefabs setzen, siehe
+  [Copy and stamps](#werkzeuge) unten
 - Select: Klick wählt (die ganze Gruppe, Strg+Klick ein Mitglied), Shift+Klick ergänzt, Ziehen auf freiem Grund
   wählt per Rahmen, Alt+Ziehen per Lasso, Strg+A alles Sichtbare; Rahmen und Lasso nehmen, was auf dem Bildschirm darin steht. Ausgeblendete
   Kategorien (Auge in der Gliederung) bleiben bei allen dreien draußen, Entf trifft also nichts Unsichtbares.
@@ -297,6 +312,35 @@ Tags des Katalogs und Suche (Name, Id oder Tag).
   (Default folgt dem Katalog) und die Tönung: Farbe für die Auswahl, „Random tint“ (jedes Objekt ein eigener Ton um
   die Farbe oder um Weiß), „No tint“. Streuen hat eine Tönung und „Random tint“ (0 bis 100 %) für jedes neue Objekt
 
+**Life (N).** Leben auf der Karte (TODO E190, CUSTOM_MAPS.md „Lebensbereiche“): Bereiche und Wege, die die Karte im
+Dokument trägt (`life.areas`), und die Schalter dessen, was die Karte von selbst mitbringt (`tools/life-tool.ts`,
+`ui/panels/life-panel.component.ts`). Die Taste N, weil L im Objektwerkzeug die Pfeile umschaltet.
+- Outline: ein Klick je Ecke, Enter, Doppelklick oder Rechtsklick schließt den Umriss; gehalten und gezogen malt er
+  ihn frei (ein Punkt alle 6 m, Loslassen schließt). Line: ebenso eine offene Linie. Was darin lebt, wählt das Panel:
+  Birds (ein Schwarm kreist im Umriss, auf einer Linie hin und zurück), Fireflies (nachts), Ground fog, Leaves,
+  Embers, Sparks, Snow, Dust devils, Heat haze (nur mit dem Lava-Glüh-Effekt), Boats (treiben auf dem Wasser des Umrisses, auf einer Linie hin und zurück),
+  Movers (ein Requisit des Katalogs fährt oder geht über den Boden, mit Tempo), Sound (ein Klang, voll
+  im Umriss oder auf der Linie, über 70 m leiser). Ein neuer Bereich ist ein Schritt im Verlauf und gleich gewählt. Zu wenig für einen Umriss (unter
+  drei Ecken oder 16 m²) sagt die Statuszeile. Höchstens 64 Bereiche, 256 Punkte je Bereich
+- Edit: ein Klick wählt den kleinsten Umriss um den Punkt, sonst eine Linie in 12 Pixeln; die Punkte des gewählten
+  stehen als Griffe da, Ziehen verschiebt einen (ein Schritt), Shift+Klick auf den Rand setzt einen Punkt dazu, Entf
+  nimmt den gewählten Punkt (ein Umriss behält drei, eine Linie zwei) oder ohne gewählten Punkt den Bereich
+- Panel: Art des nächsten Bereichs; der gewählte mit Dichte (10 bis 300 %), Flughöhe (Vögel), Höhe und Farbe
+  (Partikel), Vogelart (Singvögel, Möwen, Krähen und Raben, Greifvögel), Boot (die schwimmenden Requisiten des
+  Katalogs) oder Klang, Lautstärke und Reichweite (10 bis 300 m, wie weit er um den Bereich ausklingt, Standard 70), „Shows from“ Medium oder nur
+  High, Show, Remove; die Liste der Bereiche; „One spot“ setzt ein
+  Effekt-Objekt (Rauchsäule, kreisender Schwarm, Glühwürmchen, Glut) mit dem Objektwerkzeug; „What the map brings by
+  itself“: Schornsteinrauch, Glühwürmchen an Ufern und in Wäldern, Vögel über offenem Land, Funken über Lava, wehende
+  Banner, Dichte (0 bis 200 % auf alles); „Sound“: „Over the whole map“ (keiner, der des Looks bei Tag und Nacht oder
+  ein Klang) mit Lautstärke, „At each wave“ (Glocke, ferne Sirene, Schiffshorn einmal je Wellenstart) mit Lautstärke,
+  „Comes from“ (ein Lebensbereich oder überall) und „Play“, „Hear it in the editor“ (spielt den Ton von der Mitte der Ansicht aus, Lautstärke 80 %;
+  aus beim Öffnen, Browser starten Ton erst nach einem Klick). Regler wirken sofort und werden beim Loslassen ein Schritt
+- Die Bereiche stehen nur, solange das Werkzeug in der Hand ist, als Linien in der Farbe ihrer Art über dem Boden.
+  Mit Symmetrie entstehen an jedem Bild Kopien eines neuen Bereichs (gespiegelte Linien laufen rückwärts; ein Umriss,
+  der sein eigenes Bild ist, bleibt einer); Ändern und Löschen gilt danach nur dem einen Bereich. Stempel nehmen
+  Bereiche mit, deren Punkte alle im Rechteck liegen, „Mirror now“ behandelt sie wie Flüsse. Größe ändern lässt sie,
+  wo sie sind (die Mitte bleibt)
+
 **Roads (6).** Draw: jeder Klick setzt einen Knoten und verbindet ihn mit dem letzten; ein Klick nahe einem Knoten
 schließt dort an, nahe einer Straße entsteht eine Kreuzung (Alt setzt frei). Enter, Rechtsklick oder Doppelklick
 beendet die Linie. Edit: Knoten ziehen (auf einem anderen abgelegt verschmelzen sie), Straße wählen; Shift+Klick
@@ -308,7 +352,10 @@ Breite und Art gelten für alle gewählten Straßen; Breite und Art
 alle). Die Routen von jedem Spawn zum HQ laufen als Punkte über die Karte (abschaltbar). Routen, Straßenlinien, die
 gewählte Straße und eine gezogene Linie liegen in Schritten von 2 m auf dem Boden (`drapedLine`), nicht gerade
 zwischen weit entfernten Punkten durch einen Hügel; Routen, Straßen und Punkte über einer Brücke auf ihrem Deck
-(`walkHeightAt`, dasselbe Deck wie im Spiel, `bridge-decks.ts`).
+(`walkHeightAt`, dasselbe Deck wie im Spiel, `bridge-decks.ts`). Nur in Roads sind die Knoten Griffe, die mit dem
+Abstand der Kamera wachsen; in jedem anderen Werkzeug (Look eingeschlossen) sind sie Punkte von 0,6 m, die nicht
+mitwachsen (`setNodeHandles`), sonst decken die rund 2000 Knoten einer OSM-Karte sie von weitem zu. Ein gewählter
+Knoten ist überall ein Griff.
 
 **Spawns and HQ (7).** Q: Klick setzt einen Spawn (Name nach Himmelsrichtung, im Panel änderbar; höchstens 32, dann sagt die Statuszeile
 warum), H: Klick versetzt das
@@ -323,7 +370,10 @@ Himmel und Licht zusammenpassen, `skyPreset`; Night und Overcast lassen die Sonn
 Süden 60 Grad hoch, Untergang 20 Uhr im Westen; tiefe Sonne ist Dämmerung, eine Stunde nach Untergang Nacht),
 Sonnenrichtung und -höhe, bei Night das Mondlicht (`moonlight`, kühles Licht auf dem Land, Himmel bleibt dunkel), Nebel,
 Tönung, Wetter (Clear, Rain, Snow, Fog mit Stärke), Wind (Stärke, Richtung „From“, aus der er kommt, Böen; ohne eigenen
-Wind gilt der des Bioms, „Use the look's wind“ stellt das wieder her); Regler wirken sofort und werden beim Loslassen
+Wind gilt der des Bioms, „Use the look's wind“ stellt das wieder her), Planet (nur prozeduraler Himmel: Größe als
+scheinbarer Durchmesser in Grad, 0 keiner, dazu Richtung und Höhe; ohne eigene Einstellung zeigt der Look Moon die Erde
+im Nordosten, 33 Grad hoch, 4 Grad groß, `DEFAULT_PLANET`; „Use the look's planet“ stellt das wieder her; Map-Kit und
+Skript: `environment({ planet: { azimuth, elevation, size } })`); Regler wirken sofort und werden beim Loslassen
 ein Schritt im Verlauf.
 
 **Map (9).** Name, Autor, Beschreibung; Größe ändern (die Mitte bleibt, kleiner schneidet die Ränder ab, größer setzt
@@ -352,11 +402,28 @@ sie trägt); ein Undo-Schritt (`ops/heightmap.ts`).
 
 **Copy and stamps (0).** Select: ein Rechteck auf der Karte ziehen, Strg+C kopiert es; danach folgt das Stück dem
 Zeiger als Umriss, R und Shift+R drehen um 90 Grad, Komma und Punkt um 15, ein Klick setzt es (Strg+V aus jedem
-Werkzeug setzt die letzte Kopie). Schalter wählen, was mitkommt: Höhen, Bodenfarbe, Wasser, Objekte, Straßen. Höhen
+Werkzeug setzt die letzte Kopie). Schalter wählen, was mitkommt: Höhen, Bodenfarbe, Wasser, Objekte, Straßen, Lebensbereiche (alle Punkte im
+Rechteck; gedreht wie Objekte; Stempel von früher haben keine). Höhen
 gelten relativ zum Rand des Stücks: ein Hügel landet auf dem Boden, auf den man ihn setzt; der Rand blendet weich
 über (einstellbar). Bodenfarbe geht nach Material, nicht nach Schicht: fehlt es auf der Karte, kommt es als Schicht
-dazu, solange Platz ist. „Save the copy“ legt das Stück mit Name und Bild in die Stempel-Bibliothek (IndexedDB
-`3dtd-editor-stamps`); Stempel gelten auf jeder Karte, ein Klick wählt einen zum Setzen.
+dazu, solange Platz ist. „Save the copy“ legt das Stück mit Name und Bild ab, je nach „Every map“ in die
+Stempel-Bibliothek dieses Browsers (IndexedDB `3dtd-editor-stamps`, gilt auf jeder Karte) oder mit „This map“ in die
+Datei der Karte (`prefabs`, siehe [Datei](#speichern-und-dateien); höchstens 32, ein Schritt im Verlauf, reist mit der
+Karte mit). Die Liste „Stamps and prefabs“ zeigt die der Karte zuerst, ein Klick wählt einen zum Setzen. Gruppen im
+Stück werden beim Setzen eigene Gruppen der Karte (`g<n>`, die nächste freie); vorher landeten die Kopien in der
+Gruppe des Originals, und ein Klick wählte Original und alle Kopien zusammen. Auch die Symmetrie-Bilder eines gesetzten
+Objekts mit Gruppe bekommen je Bild eine eigene (`<Gruppe>m<Bild>`, wie „Mirror now“).
+
+**Prefabs.** Ein Prefab ist ein Stempel aus einer Auswahl von Objekten statt aus einem Rechteck (`capturePrefab` in
+`ops/stamp.ts`): im Objects-Werkzeug Objekte wählen, unter „Prefabs“ Namen geben und „Save as prefab“, wahlweise
+„With the ground under them“ (Höhen, Bodenfarbe und Wasser im Rechteck um die Fußabdrücke der Objekte plus 2 m) und
+„Every map“ oder „This map“ wie bei den Stempeln. Es hält nur die gewählten Objekte (keine Straßen), um die Mitte ihrer
+Fußabdrücke, mit Drehung, Größe, Neigung, Tönung und Schaltern. Darunter stehen die Prefabs der Karte und der
+Bibliothek mit Bild; ein Klick öffnet Copy and stamps im Modus Place mit dem Prefab: Umriss am Zeiger, R und Komma/Punkt
+drehen, ein Klick setzt es. Gesetzt bilden seine Objekte eine Gruppe (ab zwei Objekten), ein Klick wählt sie zusammen.
+Ohne Boden ändert das Setzen keinen Höhenpunkt und keine Farbe, egal was „Take along“ sagt (`parts` des Stücks: was es
+hält; das Setzen nimmt davon, was die Schalter erlauben). Prefabs stehen auch in der Stempel-Liste (Zusatz „Prefab“),
+Löschen geht in beiden Listen.
 
 **Rules (G).** Die eigenen Regeln der Karte: Startgeld und HQ-Leben (leer heißt Spiel-Standard: 100 und 500), die
 Spuren (wenigste und meiste offene, was der Koop mit Spuren macht, die niemand hält: Close / To the host / Share out;
@@ -365,6 +432,19 @@ ob Bauwerke durch Treffer fallen (World, [CUSTOM_MAP_WORLD.md](CUSTOM_MAP_WORLD.
 die erlaubten Tower und die Wellen: die Wellen des Spiels (Budget-Source) oder eine eigene Liste in der Form der Table-
 Source ([WAVE_SOURCE_PLAN.md](WAVE_SOURCE_PLAN.md)): je Welle Name, HP-Faktor, Abstand, Gegnertyp mit Anzahl, dazu die
 Wiederholregel nach der letzten Welle; „Start from the game's list“ übernimmt die Liste des Spiels als Anfang.
+Unter einer eigenen Liste steht eine Balance-Hilfe (`ui/panels/wave-curve.ts`, Kurve `wave-curve-chart`): die HP jeder
+Welle je Spur (Grund-HP mal HP-Faktor, Teilungen mitgezählt, `lineageHp`; nach der Liste die Wiederholregel) gegen die
+Liste des Spiels, logarithmisch, über die Liste plus zehn Wellen (mindestens 30). Unter dem Zeiger die Welle mit
+Gegnern, HP, HP der Spiel-Liste, dem Schaden am HQ, wenn alles durchkäme (`lineageLeakDamage`, gegen das HQ-Leben der
+Regeln), und der Spawn-Dauer; darunter die erste Welle der Liste, die allein auf einer Spur das ganze HQ nehmen könnte.
+Für die Wellen des Spiels (Budget) gibt es keine Kurve: deren HP richten sich nach der Abwehr. Wie viel Platz für Tower
+die Spuren haben, zeigt Build areas.
+„Wave events“ legt fest, was vor einer Welle geschieht ([CUSTOM_MAP_WORLD.md](CUSTOM_MAP_WORLD.md#ereignisse-je-welle-e170)):
+Art wählen, „Add event“; die Liste steht nach Wellen, ein Klick öffnet einen Eintrag. Message (Text), Weather (Clear,
+Rain, Snow, Fog mit Stärke), Time of day (Stunde), Portal opens (welcher Spawn ab dieser Welle Gegner bringt),
+Objects (die gewählten Objekte erscheinen oder gehen; „Use the selection“ ersetzt sie, „Select them“ wählt sie). Ein
+neues Objects-Ereignis nimmt die Auswahl des Objektwerkzeugs. Jede Änderung ein Schritt im Verlauf, Probleme stehen
+darunter und im Check.
 „Difficulty“ (50 bis 200 %, Standard 100) legt einen Faktor auf das Budget jeder Welle des Spiels, der Druck-Regler
 regelt weiter obendrauf ([WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md), Abschnitt 19); eine eigene Liste behält ihre HP. Prüfen
 meldet Fehler der Liste und Regeln ohne schießenden Tower. Sie stehen im Kartendokument (`gameplay`, siehe
@@ -400,14 +480,15 @@ den Boden heben oder graben (Raise, Lower, Smooth, Roughen, Erode, Berg, Tal, Kr
 welligem Relief), geben dem Bild dieselbe Änderung auf seinem eigenen Boden; Pinsel, die Höhen setzen (Flatten, Level,
 Terrace, Cliff, Plateau, Biome, die ebnen oder Tümpel unter einen Spiegel senken), die Höhen der Quelle. Auf
 symmetrischem Boden sind die Kopien exakt. Gesetzte und gestreute Objekte, Spawns,
-gezeichnete Straßen und die Linien-Pinsel (Fluss, Straße, Klippe) entstehen an jedem Bild; gespiegelte Linien laufen
+gezeichnete Straßen, die Linien-Pinsel (Fluss, Straße, Klippe) und neue Lebensbereiche entstehen an jedem Bild; gespiegelte Linien laufen
 rückwärts, damit eine Klippe ihre Seite behält. Ein Strich mit seinen Kopien ist ein Schritt im Verlauf.
 
 „Mirror now“ (oben neben der Symmetrie, auch Strg+K) macht die ganze Karte auf einmal symmetrisch
 (`ops/mirror-map.ts`): der Teil der Karte, auf den die Mitte der Ansicht zeigt, wird in die anderen kopiert. Höhen,
 Bodenfarbe und Wassermasken Zelle für Zelle; Objekte, Spawns, Straßen und Flüsse der anderen Teile weichen den Bildern
 der Quelle (Objektgruppen eines Bilds werden eigene Gruppen). Eine Straße, die die Achse kreuzt, endet am Bild ihres
-Quell-Endes, so treffen sich die Hälften; ein Fluss über die Achse bleibt, wie er ist. Das HQ bleibt stehen. Ein
+Quell-Endes, so treffen sich die Hälften; ein Fluss über die Achse bleibt, wie er ist. Lebensbereiche wie Flüsse:
+ganz im Quellteil kopiert, ganz außerhalb entfernt, über die Achse bleiben sie. Das HQ bleibt stehen. Ein
 Schritt im Verlauf.
 
 ### Gelände-Generator
@@ -440,11 +521,13 @@ den Routen (Fläche in Reichweite, Tower darauf, bei mehreren Spuren die engste)
 | `path-under-water` | Warnung | Straße (keine Brücke) unter Wasser |
 | `path-steep` | Warnung | Straße steiler als 30 Grad |
 | `object-on-path` | Warnung | Blockierendes Objekt auf einer Straße |
+| `object-on-mover-route` | Warnung | Fels, Baum, Gebäude, Mauer oder Prop auf dem Weg einer Bodenlinie der bewegten Dinge (`movers`, ohne `height`): sein Fußabdruck reicht bis 1,8 m an die Schleife, die sie fahren (`objectsOnMoverWays`); ein Rover führe hindurch. Nennt die Assets. Die Levelskripte brechen bei dieser Warnung ab (`finish`) |
 | `water-buried` | Warnung | Wasser, dessen Bett über seine Oberfläche stieg: mindestens 85 % der Zellen seiner Maske liegen über seinem Pegel (ab 40 Zellen), es ist nicht zu sehen; etwa ein Biom- oder Formpinsel über einem See (`buriedWater`). Eine breit über das Ufer gemalte Maske bleibt darunter (Demo-Tal 65 %) |
 | `object-floating` | Warnung | Objekte, die mehr als 25 cm in der Luft hängen (`objectsInAir`), gemessen ab der Höhe, auf die der Renderer sie stellt (`seatHeight`): Felsen mit ihrer Platte gegen den Boden (ein Fels, der waagerecht am Hang steht), flache Felsstücke ohne gemessene Platte (Küstenfelsen, Becken; nicht die Kraterringe) mit ihrem Fußabdruck als Platte, abzüglich ihrer halben Dicke (die Küstenfelsen auf Archipelago standen als Platten aus der Flanke), schwimmende Assets mit der Wasserlinie gegen den Spiegel (eine Wassertiefe in z hebt sie hoch), alles andere mit dem Fuß gegen den Boden (Häuser, Mauern, Props an ihrer tiefsten Ecke, Bäume 0,15 m tief). Gehalten ist, was auf einem anderen Objekt steht (Fuß im Fußabdruck, zwischen dessen Fuß und Oberkante), auf dem Deck einer Straßenbrücke (bis 0,25 m über den Rand, höchstens 0,3 m eingesunken) oder auf Eis. Effekte und Assets mit `aloft` (Objekt-Brücken, Seilbahn-Spannen, Gondel) bleiben außen vor. Ebenso gemeldet: ein schwimmendes Asset tiefer unter seinem Wasser als die halbe Höhe (0,25 bis 1,5 m). Zählt sie und wählt den schlimmsten. Ende setzt ihn ab (z 0, Fels auf seine Platte), „Align to slope“ kippt ihn. Ein Gitter von 16 m sucht die Stützen nur für die wenigen in der Luft. Die Levelskripte brechen bei dieser Warnung ab (`finish`), ausgelieferte Karten haben keine (`shipped-maps-check`) |
 | `water-floating` | Warnung | Wasser, das in der Luft endet (`waterInAir`): eine nasse Probe eines Gewässers (Maske gesetzt, Boden unter dem Spiegel) neben einer außerhalb der Maske, wo der Boden auf halbem Weg und anderes Wasser dort mehr als 0,5 m unter dem Spiegel liegen (ein See am Hang, ein Ufer, das ein Fluss oder eine Straße durchschnitt, ein Becken auf zu tiefem Land); ein Flussband (alle 2 m zwischen seinen Punkten), dessen beide Ufer einen Meter neben ihm so tief liegen, außer einen Fall hinab und jenseits des Kartenrands. Nennt jedes Gewässer und zeigt die schlimmste Stelle. Abhilfe: Ufer heben, Spiegel senken (Strg-Klick mit Fill füllt bis zum Rand) oder die Maske dort abnehmen. Die Levelskripte brechen ab (`finish`), ausgelieferte Karten haben keine (`shipped-maps-check`) |
 | `danger-color` | Warnung | Deko in Gefahrenfarben (rote Pilze, rote Blüten; `DANGER_LOOK` in `render/asset-catalog.ts`, dieselbe Liste wie für die mitgelieferten Karten) bis 30 m an einer Straße: Rot steht im Spiel für Gegner, Treffer und Feuer |
 | `scene-cost` | Warnung | Szenenkosten über 100 % (unten): mehr, als eine Karte flüssig zeichnet |
+| `wave-events` | Fehler, Warnung | Wellen-Ereignisse (`validation/wave-event-check.ts`): ein Portal nennt einen Spawn, den es nicht mehr gibt (Fehler); alle Spawns öffnen erst später, Welle 1 hätte keine Spur (Fehler); Objekte eines Ereignisses fehlen; Tageszeit auf einer Karte mit Himmelsbild |
 
 ### Szenenkosten
 
@@ -526,9 +609,14 @@ Szenenkosten.
   4 Byte je Höhenpunkt, eine 300 m lange Straße auf 2-m-Raster rund 12 kB Text vor dem Zip; die mitgelieferten Level
   wachsen dadurch um 21 bis 54 kB, 2 bis 7 %; nur der Editor liest es); optionales Feld `gameplay` (`startCredits`, `hqHealth`, `towers`, `waves` als
   `{ kind: 'budget' }` oder `{ kind: 'table', table }` in der Form der Table-Source, `difficulty` in Prozent, ohne
-  Feld 100; später dazugekommene optionale Felder heben die Version nicht, so auch `environment.skyImage`, die Id
-  eines Himmelsbilds, ohne Feld prozedural); Version-1-Dateien lesen sich
+  Feld 100, `events` die Wellen-Ereignisse; später dazugekommene optionale Felder heben die Version nicht, so auch `environment.skyImage`, die Id
+  eines Himmelsbilds, ohne Feld prozedural, und `life`, das Leben der Karte (Werkzeug Life, CUSTOM_MAPS.md
+  „Lebensbereiche“); ohne Feld sieht und klingt die Karte wie vorher, ihr `contentHash` bleibt); Version-1-Dateien lesen sich
   unverändert über die Migration 1 nach 2
+- Prefabs und Stempel der Karte (`prefabs`, optional, höchstens 32, `MAX_MAP_PREFABS`): je Eintrag Id, Name, Zeit, Bild
+  (PNG als Data-URL) und das Stück; dessen Arrays liegen im Zip unter `prefabs/<k>/heights.f32`, `paint.u8` und
+  `water.u8`. Nur der Editor liest sie, das Spiel nicht; sie zählen nicht zum `contentHash` (wie `meta.uid`), eine
+  Karte ohne Prefabs schreibt kein Feld. Hebt die Version nicht
 - Kartendokument Version 3: bis zu zwölf Bodenschichten. Die Gewichte der Schichten 9 bis 12 liegen in einer dritten
   Splat-Karte (`terrain/splat2.u8`), die es nur gibt, solange die Karte mehr als acht Schichten hat
   (`splatMapCount`, `fitSplatMaps`: die neunte Schicht legt sie leer an, das Entfernen bis auf acht wirft sie weg; im
@@ -609,7 +697,7 @@ src/app/editor/
   ops/              Operationen ohne Angular: Pinsel, Gelände, Farbe, Wasser, Objekte, Wegenetz, Straßen-Boden, Größe
   ops/landscape/    Landschafts-Pinsel: Biome, Formen, Erosion, Fluss, Straße, LandscapeStroke (ein Undo-Schritt)
   ops/symmetry.ts   Bilder der Symmetrie, Sektor des Zeigers, Kopieren der Zellen und Objekte
-  ops/stamp.ts      Stücke kopieren und setzen; model/stamp-store.ts die Stempel-Bibliothek
+  ops/stamp.ts      Stücke kopieren und setzen, Prefabs aus einer Auswahl; model/stamp-store.ts die Stempel-Bibliothek
   ops/generate.ts   Gelände-Generator; ops/contours.ts Höhenlinien
   ops/map-kit.ts    MapKit: die Operationen ohne Oberfläche für Skripte (Level-Skripte, KI-Agent)
   agent/            KI-Agent über MCP (Desktop-App): Werkzeuge, Skript-Sandbox, Abspielen als ein Undo-Schritt (AGENT_MCP.md)

@@ -399,7 +399,7 @@ gepanzerter Luft die Rakete) dran, ist sie eine **Regel**, sobald bezahlbar.
   (`gatling-tech → aa-retrofit → ice-magic → tentacle-biology → siege-engineering →
   rocketry → arcane-studies → toxic-compounds → fire-alchemy →
   advanced-weaponry → nuclear-strike → frost-bomb → storm-mastery → emp →
-  master-engineering → orbital-laser → chaos-rift → advanced-engineering →
+  master-engineering → orbital-laser → flak-artillery → laser-optics → cybernetics → rotisserie → chaos-rift → advanced-engineering →
   transcendent-tech`, `research-pick.strategy.ts`), die am Wave-Kampagne
   ausgerichtet ist: AA fertig vor
   `bat_swarm` (W7), Cannon vor `boss_herbert` (W10), Rocket vor `dragon_elite`

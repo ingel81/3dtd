@@ -11,6 +11,7 @@ import {
   Group,
   HemisphereLight,
   LinearFilter,
+  LinearMipmapLinearFilter,
   Mesh,
   NeutralToneMapping,
   OrthographicCamera,
@@ -30,12 +31,12 @@ import {
   type WebGLRenderTarget,
   type WebGLRenderer,
 } from 'three';
-import type { MapEnvironment } from '../../map-document';
+import { planetOf, type MapEnvironment, type MapPlanet } from '../../map-document';
 import { HEIGHT_FOG_UNIFORMS } from './height-fog';
 import { biomeLook, type BiomeLook } from './biomes';
 import { ShadowParts } from './shadow-parts';
 import { SkyDome } from './sky-dome';
-import { fetchSkyImage, skyImageOf, skyImageYaw, type SkyImage } from './sky-images';
+import { fetchPlanetImage, fetchSkyImage, skyImageOf, skyImageYaw, type SkyImage } from './sky-images';
 import { WeatherLayer } from './weather';
 import { setWind, windOf, WIND_UNIFORMS } from './wind';
 
@@ -108,6 +109,9 @@ export class CustomMapEnvironment {
   private imageTexture: Texture | null = null;
   private imagePixels: { id: string; data: Uint8ClampedArray } | null = null;
   private imageReady: Promise<void> = Promise.resolve();
+  /** The planet's picture: loaded once the map shows a planet (null: not asked for, or loading) */
+  private planetTexture: Texture | null = null;
+  private planetLoading = false;
   /**
    * Resolves once the environment map holds the sky. The first one waits for
    * PMREM's programs to link off the main thread; `warmUp` waits for it.
@@ -224,6 +228,7 @@ export class CustomMapEnvironment {
     const baseFog = Math.min(env.fogDensity, 0.004) * p.fogScale;
     this.fog.density = baseFog;
     HEIGHT_FOG_UNIFORMS.uFogFalloff.value = p.fogFalloff;
+    HEIGHT_FOG_UNIFORMS.uFogBeyond.value = p.beyondHaze ?? 0.97;
     // Weather: rain and snow close the sky, dim the sun and thicken the air; fog weather thickens it most
     const weather = env.weather ?? 'clear';
     const k = weather === 'clear' ? 0 : Math.min(1, Math.max(0, env.weatherStrength ?? 0.6));
@@ -267,6 +272,8 @@ export class CustomMapEnvironment {
     HEIGHT_FOG_UNIFORMS.uGradeTint.value.set(p.grade[2]);
     HEIGHT_FOG_UNIFORMS.uGradeShadow.value.set(p.split[0]);
     HEIGHT_FOG_UNIFORMS.uGradeLight.value.set(p.split[1]);
+    const planet = image ? null : this.planetDisc(planetOf(this.env));
+    if (planet) this.loadPlanet();
     this.skyDome.set({
       zenith: this.zenith,
       horizon: this.horizon,
@@ -280,7 +287,7 @@ export class CustomMapEnvironment {
       cloudShadow: new Color(p.cloudShadow).multiply(tint),
       haze: this.fog.color,
       stars: image ? 0 : p.stars,
-      planet: !image && p.planet,
+      planet,
       aurora: image ? 0 : p.aurora,
     });
     this.showImage(image);
@@ -393,11 +400,18 @@ export class CustomMapEnvironment {
     return this.env.biome;
   }
 
+  /** A planet's direction in the scene and its disc's radius for the sky dome; up to 85 degrees high */
+  private planetDisc(planet: MapPlanet): { dir: Vector3; radius: number } | null {
+    if (planet.size <= 0) return null;
+    const elevation = Math.min(85, Math.max(-5, planet.elevation));
+    return { dir: sunDirection(planet.azimuth, elevation, new Vector3()), radius: (Math.min(40, planet.size) * Math.PI) / 360 };
+  }
+
   /** 0 by day, 1 at night: how much map lights (lanterns, torches) matter */
   get darkness(): number {
     let base = { day: 0, overcast: 0.2, dusk: 0.6, night: 1 }[this.env.sky] ?? 0;
-    // Under hell's dark sky and on the moon lights matter by day too
-    if (this.env.biome === 'hell' || this.env.biome === 'apocalypse') base = Math.max(base, 0.5);
+    // Under hell's dark sky and on the moon (black sky, hard shadows) lights matter by day too
+    if (this.env.biome === 'hell' || this.env.biome === 'apocalypse' || this.env.biome === 'moon') base = Math.max(base, 0.5);
     // A low sun darkens any sky
     return Math.min(1, Math.max(base, 1 - this.env.sunElevation / 12));
   }
@@ -500,6 +514,10 @@ export class CustomMapEnvironment {
     this.imageId = null;
     this.imageTexture?.dispose();
     this.imageTexture = null;
+    this.planetTexture?.dispose();
+    this.planetTexture = null;
+    // A picture still loading is dropped when it arrives
+    this.planetLoading = false;
     this.sky.dispose();
     this.envTarget?.dispose();
     this.pmrem?.dispose();
@@ -596,6 +614,38 @@ export class CustomMapEnvironment {
       .catch((error: unknown) => console.warn(`[CustomMapEnvironment] sky ${image.id} not loaded, the sky stays a gradient`, error));
     this.imageReady = load;
     this.envReady = Promise.all([this.envReady, load]).then(() => undefined);
+  }
+
+  /** Loads the planet's picture once, the first time the map shows a planet; until then the disc is plain */
+  private loadPlanet(): void {
+    if (this.planetTexture || this.planetLoading) return;
+    if (typeof createImageBitmap === 'undefined') return;
+    this.planetLoading = true;
+    fetchPlanetImage()
+      .then((blob) => createImageBitmap(blob, { colorSpaceConversion: 'none', premultiplyAlpha: 'none' }))
+      .then((bitmap) => {
+        if (!this.planetLoading) {
+          bitmap.close();
+          return;
+        }
+        const texture = new Texture(bitmap);
+        texture.colorSpace = SRGBColorSpace;
+        // Top row first, the north pole at v = 0 as the sky reads it
+        texture.flipY = false;
+        texture.wrapS = RepeatWrapping;
+        texture.wrapT = ClampToEdgeWrapping;
+        // Mipmaps: the disc is a few hundred pixels at most; the lookup picks a longitude that does not jump
+        texture.minFilter = LinearMipmapLinearFilter;
+        texture.magFilter = LinearFilter;
+        texture.anisotropy = 4;
+        texture.needsUpdate = true;
+        this.planetTexture = texture;
+        this.skyDome.setPlanetMap(texture);
+      })
+      .catch((error: unknown) => {
+        this.planetLoading = false;
+        console.warn('[CustomMapEnvironment] planet picture not loaded, the disc stays plain', error);
+      });
   }
 
   private installSky(): void {

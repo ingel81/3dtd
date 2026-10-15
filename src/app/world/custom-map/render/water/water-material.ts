@@ -17,6 +17,7 @@ import {
 } from 'three';
 import type { MapWaterKind } from '../../map-document';
 import { HEIGHT_FOG_PARS, HEIGHT_FOG_UNIFORMS, heightFogFragment } from '../environment/height-fog';
+import { LAMP_LIGHT_PARS, LAMP_LIGHT_UNIFORMS } from '../effects/lamp-light';
 import { SKY_FUNCTIONS, SKY_TEXTURE_GLSL } from '../environment/sky-dome';
 import { SHADER_NOISE } from '../shader-noise';
 import { TERRAIN_HEIGHT_GLSL, type HeightTexture } from '../terrain/height-texture';
@@ -114,7 +115,7 @@ export function createWaterMaterial(o: WaterMaterialOptions): ShaderMaterial {
   material.uniforms['uWaves'].value = waveTexture();
   if (o.kind === 'lava') material.uniforms['uLavaNoise'].value = lavaNoiseTexture();
   // Shared objects (merge above copied them): fog and terrain heights follow their owners
-  Object.assign(material.uniforms, HEIGHT_FOG_UNIFORMS, o.heights.uniforms, GROUND_COLOR_UNIFORMS);
+  Object.assign(material.uniforms, HEIGHT_FOG_UNIFORMS, LAMP_LIGHT_UNIFORMS, o.heights.uniforms, GROUND_COLOR_UNIFORMS);
   material.name = `custom-map-water-${o.kind}`;
   setWaterColor(material, o.kind, o.color);
   return material;
@@ -374,6 +375,7 @@ uniform sampler2D uReflection;
 uniform mat4 uReflectMatrix;
 #endif
 ${HEIGHT_FOG_PARS}
+${LAMP_LIGHT_PARS}
 ${SHADER_NOISE}
 ${SKY_FUNCTIONS}
 ${SKY_TEXTURE_GLSL}
@@ -601,6 +603,8 @@ void main() {
   color = mix(body * uLight * mix(0.6, 1.0, sunShade), sky, fresnel * 0.5);
   color += uSunColor * pow(max(dot(r, uSunDir), 0.0), 80.0) * 0.6 * sunShade;
   color += pointGlints(n, v) * 0.5;
+  // The baked light of lamps and fires on the bank (lamp-light.ts) on the ice
+  color += body * lampLightAt(vWorldPos) * 0.8;
   alpha = edge;
 #else
   // Water, sea, swamp
@@ -744,6 +748,8 @@ void main() {
   color += uShallow * vec3(0.7, 1.15, 1.0) * uSunColor * scatter * 0.3 * sunShade;
   #endif
   color += pointGlints(n, v);
+  // The baked light of lamps and fires on the bank (lamp-light.ts): a warm sheen on the water near them
+  color += lampLightAt(vWorldPos) * 0.18;
   // Foam where it gets shallow, broken up by the waves. It lies a little off the waterline and thins out
   // towards it; at a mask's edge it goes with the water. Where the shallow strip is only a few pixels wide
   // (a steep bank, or far away) it would draw a hard white line along the shore: there it fades, by the

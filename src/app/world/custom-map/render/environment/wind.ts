@@ -27,6 +27,11 @@ export const WIND_UNIFORMS = {
    * moves them. Clouds, smoke and weather keep the full wind
    */
   uPlantSway: { value: 1 },
+  /**
+   * 1 where banners' cloth waves in the wind (a map's `life.flags`, on levels
+   * that show the map's life), 0 where only the pole sways
+   */
+  uClothWave: { value: 0 },
 };
 
 /** The wind of maps without their own, per biome; the moon has no air */

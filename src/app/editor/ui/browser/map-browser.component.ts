@@ -1,3 +1,4 @@
+import { AgentControlComponent } from '../agent/agent-control.component';
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, input, output, signal } from '@angular/core';
 import { biomeById } from '../../ops/landscape/biomes';
 import { MAP_TEMPLATES, templateById, type MapTemplate } from '../../ops/landscape/templates';
@@ -10,6 +11,9 @@ import { TRASH_DAYS, type MapSummary } from '../../../world/custom-map/map-store
 import { download, EditorSession } from '../editor-session.service';
 import { WorldChoiceService } from '../../../world/world-choice.service';
 import type { GroundMaterialEntry } from '../../catalog/asset-catalog';
+import { AddressAutocompleteComponent } from '../../../components/address-autocomplete.component';
+import { OsmFrameComponent } from '../../../components/osm-frame/osm-frame.component';
+import type { OsmFrameRequest } from '../../../components/osm-frame/osm-frame-request';
 
 export interface SizePreset {
   id: string;
@@ -33,7 +37,7 @@ export const SIZE_PRESETS: readonly SizePreset[] = [
 @Component({
   selector: 'app-map-browser',
   standalone: true,
-  imports: [TdIconComponent, MatTooltipModule],
+  imports: [TdIconComponent, MatTooltipModule, AgentControlComponent, AddressAutocompleteComponent, OsmFrameComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './map-browser.component.html',
   styleUrl: './map-browser.component.scss',
@@ -65,6 +69,10 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
   readonly dragging = signal(false);
 
   // New map form
+  /** A landscape of the editor's, or a real place made from OpenStreetMap (an OSM world) */
+  readonly newFrom = signal<'landscape' | 'place'>('landscape');
+  /** The real place whose frame shows, null while searching */
+  readonly osmPlace = signal<OsmFrameRequest | null>(null);
   readonly presets = SIZE_PRESETS;
   readonly newName = signal('New map');
   readonly newAuthor = signal('');
@@ -214,6 +222,17 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
   startNew(): void {
     this.mode.set('new');
     this.confirmDelete.set(null);
+    this.osmPlace.set(null);
+  }
+
+  choosePlace(found: { lat: number; lon: number; name: string }): void {
+    this.osmPlace.set({ place: { lat: found.lat, lon: found.lon, name: found.name.split(',')[0], address: found.name }, spawnsAt: [] });
+  }
+
+  /** A map made from a real place: stored already, it opens */
+  openMade(summary: MapSummary): void {
+    this.osmPlace.set(null);
+    this.open.emit(summary.id);
   }
 
   async createMap(): Promise<void> {

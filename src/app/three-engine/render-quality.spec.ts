@@ -15,6 +15,8 @@ describe('render quality levels (E154)', () => {
     // The custom-map part as the renderer had it: shadows 4096, impostors from 380 m, 70 000 blades to 140 m, six lights
     expect(high.customMaps).toMatchObject({ shadowMapSize: 4096, shadowRadius: 1.5, lodBias: 1, impostorFrom: 380, grassBlades: 70_000, grassDistance: 140, pointLights: 6, particles: 1 });
     expect(high.customMaps).toMatchObject({ farSingle: 150, farFlat: 400, refraction: true, seaWaves: true, lavaGlow: true, shadowCascade: true });
+    // The far grass ring beyond the near blades
+    expect(high.customMaps).toMatchObject({ grassFarBlades: 60_000, grassFarDistance: 300 });
   });
 
   it('draws custom maps at most at their own pixel ratio cap, and Low and Medium at a share of DPR 1', () => {
@@ -81,7 +83,7 @@ describe('quality overrides per world (E156)', () => {
     const { low, ultra, high } = QUALITY_TABLE;
     expect(knobs.level).toBe('low');
     expect(knobs.general).toEqual(low.general);
-    expect(knobs.customMaps).toMatchObject({ grassBlades: ultra.customMaps.grassBlades, grassDistance: ultra.customMaps.grassDistance });
+    expect(knobs.customMaps).toMatchObject({ grassBlades: ultra.customMaps.grassBlades, grassDistance: ultra.customMaps.grassDistance, grassFarBlades: ultra.customMaps.grassFarBlades });
     expect(knobs.customMaps).toMatchObject({ shadowMapSize: high.customMaps.shadowMapSize, shadowRadius: high.customMaps.shadowRadius });
     expect(knobs.customMaps).toMatchObject({ lodBias: low.customMaps.lodBias, farSingle: low.customMaps.farSingle, particles: low.customMaps.particles });
     expect(knobs.customMaps).toMatchObject({ refraction: true, seaWaves: false, lavaGlow: false });

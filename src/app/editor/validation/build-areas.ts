@@ -69,8 +69,8 @@ export interface BuildAreas {
 /** What the computation needs of the map: the ground, water, roads (bridge decks), blocking objects, markers, routes */
 export interface BuildAreaInput {
   doc: Pick<CustomMapDocument, 'terrain' | 'paths' | 'spawns' | 'hq'> & { objects: MapObject[] };
-  /** The catalogue's footprint radius and build flag of the assets the objects use */
-  catalog: { id: string; footprint: number; blocksBuild: boolean }[];
+  /** The catalogue's footprint radius, ground rectangle and build flag of the assets the objects use */
+  catalog: { id: string; footprint: number; box?: readonly [number, number, number, number]; blocksBuild: boolean }[];
   /** Each lane's route from its spawn to the HQ, null where it has none */
   routes: { spawnId: string; name: string; points: MapPoint[] | null }[];
   /** Cell size, m; by default the map's longer side over 512, at least 4 */
@@ -236,13 +236,13 @@ function segmentDistance(px: number, py: number, ax: number, ay: number, bx: num
 /** The input for the worker: copies of the arrays, the objects that may block only */
 export function buildAreaInput(
   doc: CustomMapDocument,
-  catalog: (asset: string) => { radius: number; blocksBuild: boolean },
+  catalog: (asset: string) => { radius: number; box?: readonly [number, number, number, number]; blocksBuild: boolean },
   routes: BuildAreaInput['routes'],
 ): BuildAreaInput {
   const t = doc.terrain;
   const objects = doc.objects
     .filter((o) => o.blocksBuild ?? catalog(o.asset).blocksBuild)
-    .map((o) => ({ id: o.id, asset: o.asset, x: o.x, y: o.y, z: 0, rotation: 0, scale: o.scale, blocksBuild: true }));
+    .map((o) => ({ id: o.id, asset: o.asset, x: o.x, y: o.y, z: 0, rotation: o.rotation, scale: o.scale, blocksBuild: true }));
   const assets = [...new Set(objects.map((o) => o.asset))];
   return {
     doc: {
@@ -259,7 +259,7 @@ export function buildAreaInput(
       hq: doc.hq,
       objects,
     },
-    catalog: assets.map((id) => ({ id, footprint: catalog(id).radius, blocksBuild: true })),
+    catalog: assets.map((id) => ({ id, footprint: catalog(id).radius, box: catalog(id).box, blocksBuild: true })),
     routes,
   };
 }

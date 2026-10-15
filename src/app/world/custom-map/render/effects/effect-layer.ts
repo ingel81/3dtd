@@ -12,14 +12,18 @@ import {
   ShaderMaterial,
   Vector3,
 } from 'three';
-import type { MapObject } from '../../map-document';
+import type { MapLife, MapObject } from '../../map-document';
+import { areaShown, lifeSwitches } from '../../map-life';
 import type { AssetCatalog, CatalogObject } from '../asset-catalog';
 import type { HeightField } from '../height-field';
 import { mapToScene } from '../map-coords';
 import { ParticleField, particleCount, type ParticleEmitter, type ParticleKind } from './particle-field';
 import { buildWaterfalls, fallFoot, fallLip, fallReach, type WaterfallSpec } from './waterfall';
 import { LAMP_LIGHT_UNIFORMS, LampLight, type LampSpot } from './lamp-light';
-import { BirdFlocks, type Flock } from './bird-flocks';
+import { BirdFlocks, circleFlock, type Flock } from './bird-flocks';
+import { isParticleLife, lifeEmitters, lifeFlock } from './life-areas';
+import { buildBeams, type Beam } from './light-beams';
+import { DEFAULT_SPIN } from '../objects/spin';
 
 /**
  * Effects and lights of the map's objects, from their catalogue entries
@@ -38,7 +42,10 @@ import { BirdFlocks, type Flock } from './bird-flocks';
 export const POINT_LIGHTS = 6;
 
 /** Catalogue intensity 1 in three's units (candela-ish): a lantern */
-const CANDELA = 18;
+const CANDELA = 28;
+/** The light glowing lava throws up into smoke over it */
+const LAVA_GLOW = '#ff6a20';
+
 /**
  * Most light a point light may throw on the ground right under it. A low,
  * strong light (lava pool, campfire) otherwise burns a white disc into what
@@ -63,6 +70,8 @@ interface LightSpot {
   cap: number;
   flicker: boolean;
   seed: number;
+  /** Seconds between two short flashes; 0 a light that stays on */
+  blink: number;
 }
 
 export class EffectLayer {
@@ -83,8 +92,18 @@ export class EffectLayer {
    */
   private placedFlocks: Flock[] = [];
   private placedFireflies = false;
+  /** The map's life (setLife): its switches and areas, drawn from the next `set` */
+  private life: MapLife | undefined = undefined;
+  /** The quality level's share of the life areas (render-quality.ts `life`; 0 on Low: none) */
+  private lifeShare = 1;
+  /** Fireflies and flocks of the life areas, shown like the automatic ones (setAmbient) */
+  private lifeFireflies: ParticleEmitter[] = [];
+  private lifeFlocks: Flock[] = [];
   readonly birds = new BirdFlocks();
   private waterfalls: Mesh | null = null;
+  /** Sweeping light beams (a lighthouse), shown by darkness */
+  private beams: Mesh | null = null;
+  private readonly beamDarkness = { value: 0 };
   private glows: Mesh<InstancedBufferGeometry, ShaderMaterial> | null = null;
   private spots: LightSpot[] = [];
   /** Lights that do not come from objects: glowing lava */
@@ -113,6 +132,8 @@ export class EffectLayer {
     private readonly field: HeightField,
     /** Level of the water at a map point, null on dry ground: a waterfall's foam lies on its pool */
     private readonly waterLevelAt: (x: number, y: number) => number | null = () => null,
+    /** Whether lava stands at a map point: a waterfall into or out of it is a lava fall */
+    private readonly lavaAt: (x: number, y: number) => boolean = () => false,
   ) {
     this.group.name = 'custom-map-effects';
     this.group.userData['losTransparent'] = true;
@@ -134,12 +155,14 @@ export class EffectLayer {
     const emitters = new Map<ParticleKind, ParticleEmitter[]>();
     const falls: WaterfallSpec[] = [];
     const feet: FallFoot[] = [];
+    const beams: Beam[] = [];
     const up = new Vector3(0, 1, 0);
     const q = new Quaternion();
     this.placedFlocks = [];
     this.placedFireflies = false;
+    const life = lifeSwitches(this.life);
     // Smoke placed by hand (fx-smoke over a house, a level script's chimney) stands for the house's own chimney
-    const placedSmoke = objects.filter((o) => entries.get(o.asset)?.effects?.some((fx) => fx.kind === 'smoke' && !fx.at));
+    const placedSmoke = objects.filter((o) => entries.get(o.asset)?.effects?.some((fx) => (fx.kind === 'smoke' || fx.kind === 'column') && !fx.at));
     for (const o of objects) {
       const e = entries.get(o.asset);
       if (!e?.effects && !e?.light) continue;
@@ -155,38 +178,62 @@ export class EffectLayer {
           // The sheet hangs over the ground and a river's slope all the way down; its foot is where the water lands
           const reach = fallReach(matrix, height, (x, z) => this.field.heightAt(-x, z), (x, z) => this.waterLevelAt(-x, z));
           const spec: WaterfallSpec = { matrix, radius, height, pool: null, reach };
+          const foot = fallFoot(matrix, spec);
+          const lip = fallLip(matrix, spec);
+          // Lava at its lip, under its foot or just ahead of it (where it pours in): the sheet glows and the foot
+          // throws embers, not spray
+          const ahead = (d: number) => this.lavaAt(-(foot.x + matrix.elements[8] * d), foot.z + matrix.elements[10] * d);
+          spec.lava = this.lavaAt(-lip.x, lip.z) || [0, 2, 4, 6].some(ahead);
           falls.push(spec);
-          feet.push({ foot: fallFoot(matrix, spec), radius, rate: fx.rate, color: fx.color });
+          feet.push({ foot, radius, rate: fx.rate, color: fx.color, lava: spec.lava });
+          continue;
+        }
+        if (fx.kind === 'beam') {
+          // The light's beams, turning with the object's spinning parts
+          beams.push({
+            origin: origin.clone().setY(origin.y + (fx.height ?? e.height * 0.9) * s),
+            length: (fx.radius ?? 60) * s,
+            color: fx.color ?? '#fff2cc',
+            period: e.spin ?? DEFAULT_SPIN,
+          });
           continue;
         }
         if (fx.kind === 'birds') {
           // A flock the map maker placed: its size and number with the object's scale
-          this.placedFlocks.push({
-            center: origin.clone().setY(origin.y + (fx.height ?? 50) * s),
-            radius: (fx.radius ?? 45) * s,
-            birds: Math.max(2, Math.round((fx.rate ?? 10) * s)),
-            seed: ((Math.abs(Math.sin(o.x * 12.9898 + o.y * 78.233)) * 43758.5453) % 1) || 0.37,
-          });
+          this.placedFlocks.push(
+            circleFlock(
+              origin.clone().setY(origin.y + (fx.height ?? 50) * s),
+              (fx.radius ?? 45) * s,
+              Math.max(2, Math.round((fx.rate ?? 10) * s)),
+              ((Math.abs(Math.sin(o.x * 12.9898 + o.y * 78.233)) * 43758.5453) % 1) || 0.37,
+            ),
+          );
           continue;
         }
         if (fx.kind === 'fireflies') this.placedFireflies = true;
         const kind = fx.kind;
         let from = origin;
         if (fx.at) {
-          // A chimney's smoke: none where smoke already rises within the house's reach
+          // A chimney's smoke: none where smoke already rises within the house's reach, none with the map's switch off
+          if (!life.smoke || life.density <= 0) continue;
           const reach = e.footprint * s + 2;
           if (placedSmoke.some((p) => p !== o && Math.hypot(p.x - o.x, p.y - o.y) < reach)) continue;
           from = new Vector3(fx.at[0] * s, 0, fx.at[1] * s).applyQuaternion(q.setFromAxisAngle(up, o.rotation)).add(origin);
         }
+        const column = kind === 'column';
         push(emitters, {
           kind,
           origin: from,
           radius: (fx.radius ?? (kind === 'fire' ? 0.15 : e.footprint)) * s,
-          height: (fx.height ?? (kind === 'leaves' ? e.height * 0.8 : 0)) * s,
-          // An area effect of the map maker's (category fx) grows denser with its scale, and takes its tint
-          count: this.share(particleCount(kind, fx.rate) * (e.category === 'fx' ? Math.max(0.3, s * s) : 1)),
+          // A column's height is how high it rises, the object's own by default
+          height: (fx.height ?? (kind === 'leaves' ? e.height * 0.8 : column ? e.height : 0)) * s,
+          // An area effect of the map maker's (category fx) grows denser with its scale, and takes its tint; a
+          // column's puffs grow with it instead, so it needs only a few more
+          count: this.share(particleCount(kind, fx.rate) * (column ? Math.max(0.5, s) : e.category === 'fx' ? Math.max(0.3, s * s) : fx.at ? life.density : 1)),
           color: (e.category === 'fx' && o.tint) || fx.color,
-          scale: kind === 'fog' || kind === 'smoke' ? s : Math.sqrt(s),
+          scale: kind === 'fog' || kind === 'smoke' || column ? s : Math.sqrt(s),
+          // A column over lava glows orange at its foot, one over a fire in its light's colour
+          glow: column ? (this.lavaAt(o.x, o.y) ? LAVA_GLOW : e.light?.color) : undefined,
         });
       }
       if (e.light) {
@@ -198,10 +245,12 @@ export class EffectLayer {
           cap: lightCap(e.light.height * s),
           flicker: e.light.flicker ?? false,
           seed: this.spots.length * 1.618,
+          blink: e.light.blink ?? 0,
         });
       }
     }
     this.landFalls(falls, feet, emitters);
+    this.lifeAreas(emitters);
     for (const [kind, list] of emitters) {
       const field = new ParticleField(kind, list, this.time, this.light);
       this.fields.push(field);
@@ -211,6 +260,10 @@ export class EffectLayer {
       this.waterfalls = buildWaterfalls(falls, this.time, this.light, (x, z) => this.waterLevelAt(-x, z));
       this.group.add(this.waterfalls);
     }
+    if (beams.length) {
+      this.beams = buildBeams(beams, this.beamDarkness);
+      this.group.add(this.beams);
+    }
     if (this.spots.length) {
       this.glows = buildGlows(this.spots, this.time);
       this.group.add(this.glows);
@@ -218,6 +271,35 @@ export class EffectLayer {
     this.bakeLamps();
     this.showPool();
     this.setAmbient(this.ambient);
+  }
+
+  /**
+   * The life areas' share of the effects (map-life.ts), on levels that show
+   * them: particles join the fields of their kind (no draw call more for a
+   * kind the map has), fireflies and flocks go with the automatic ones
+   */
+  private lifeAreas(emitters: Map<ParticleKind, ParticleEmitter[]>): void {
+    this.lifeFireflies = [];
+    this.lifeFlocks = [];
+    const factor = lifeSwitches(this.life).density;
+    const surface = (x: number, y: number) => Math.max(this.field.heightAt(x, y), this.waterLevelAt(x, y) ?? -Infinity);
+    for (const area of this.life?.areas ?? []) {
+      if (!areaShown(area, this.lifeShare) || factor <= 0) continue;
+      if (area.kind === 'birds') this.lifeFlocks.push(lifeFlock(area, surface, factor));
+      else if (isParticleLife(area.kind)) {
+        const list = lifeEmitters(area, surface, factor, (n) => this.share(n));
+        if (area.kind === 'fireflies') this.lifeFireflies.push(...list);
+        else for (const e of list) push(emitters, e);
+      }
+    }
+  }
+
+  /**
+   * The map's life (the document's `life`): switches, density and areas,
+   * taken by the next `set` and `setLavaLights` (the view calls both)
+   */
+  setLife(life: MapLife | undefined): void {
+    this.life = life;
   }
 
   /**
@@ -238,12 +320,17 @@ export class EffectLayer {
       const per = Math.max(8, Math.min(60, Math.floor(2000 / points.length)));
       const embers: ParticleEmitter[] = [];
       const smoke: ParticleEmitter[] = [];
+      const sparks: ParticleEmitter[] = [];
+      // Sparks bursting from the lava where the map turns them on (life.auto.sparks), on levels that show life
+      const life = lifeSwitches(this.life);
+      const sparksOn = life.sparks && this.lifeShare > 0 && life.density > 0;
       for (const [k, p] of points.entries()) {
         const origin = p.clone().setY(p.y - 5);
         embers.push({ kind: 'embers', origin, radius: 12, height: 0.2, count: per, color: '#ff8a30', scale: 1.4 });
         if (k % 3 === 0) smoke.push({ kind: 'smoke', origin, radius: 10, height: 0.5, count: 4, color: '#4a3a34', scale: 2.5 });
+        if (sparksOn) sparks.push({ kind: 'sparks', origin, radius: 10, height: 0.2, count: this.share(Math.round(24 * life.density)), color: '#ff9a30', scale: 1.2 });
       }
-      for (const [kind, list] of [['embers', embers], ['smoke', smoke]] as const) {
+      for (const [kind, list] of [['embers', embers], ['smoke', smoke], ['sparks', sparks]] as const) {
         if (!list.length) continue;
         const field = new ParticleField(kind, list, this.time, this.light);
         this.lavaFields.push(field);
@@ -260,6 +347,7 @@ export class EffectLayer {
       cap: lightCap(5),
       flicker: true,
       seed: 100 + k * 2.3,
+      blink: 0,
     }));
     this.bakeLamps();
     this.showPool();
@@ -271,9 +359,10 @@ export class EffectLayer {
    * steadier than their point lights, which stand for a whole patch
    */
   private bakeLamps(): void {
+    // A blinking beacon lights no ground: its flash is too short for that
     const lamps: LampSpot[] = [
-      ...this.spots,
-      ...this.extraSpots.map((s) => ({ position: s.position, color: s.color, intensity: 0.9, distance: 32, flicker: true })),
+      ...this.spots.filter((s) => !s.blink),
+      ...this.extraSpots.map((s) => ({ position: s.position, color: s.color, intensity: 1.3, distance: 36, flicker: true })),
     ];
     this.lampsLit = this.lamps.bake(lamps);
     const u = LAMP_LIGHT_UNIFORMS;
@@ -304,18 +393,21 @@ export class EffectLayer {
       this.retiredFrames = 0;
       this.fireflies = null;
     }
-    if (ambient.fireflies.length && !this.placedFireflies) {
-      const per = this.share(14);
-      this.fireflies = new ParticleField(
-        'fireflies',
-        ambient.fireflies.map((origin) => ({ kind: 'fireflies', origin, radius: 9, height: 1.8, count: per, color: undefined, scale: 1 })),
-        this.time,
-        this.light,
-      );
+    // Fireflies or flocks set by hand (objects, life areas) take the place of the map's own; its switches turn those off
+    const life = lifeSwitches(this.life);
+    const emitters = [...this.lifeFireflies];
+    if (life.fireflies && life.density > 0 && !this.placedFireflies && !emitters.length) {
+      const per = this.share(14 * life.density);
+      for (const origin of ambient.fireflies) emitters.push({ kind: 'fireflies', origin, radius: 9, height: 1.8, count: per, color: undefined, scale: 1 });
+    }
+    if (emitters.length) {
+      this.fireflies = new ParticleField('fireflies', emitters, this.time, this.light);
       this.group.add(this.fireflies.mesh);
     }
-    const flocks = this.placedFlocks.length ? this.placedFlocks : ambient.flocks;
-    this.birds.set(this.particleShare >= 0.7 ? flocks.map((f) => ({ ...f, birds: Math.max(2, Math.round(f.birds * this.particleShare)) })) : []);
+    const placed = [...this.placedFlocks, ...this.lifeFlocks];
+    const own = life.birds ? ambient.flocks.map((f) => ({ ...f, birds: Math.round(f.birds * life.density) })) : [];
+    const flocks = placed.length ? placed : own;
+    this.birds.set(this.particleShare >= 0.7 ? flocks.filter((f) => f.birds > 0).map((f) => ({ ...f, birds: Math.max(Math.min(2, f.birds), Math.round(f.birds * this.particleShare)) })) : []);
     this.showAmbient();
   }
 
@@ -327,13 +419,16 @@ export class EffectLayer {
 
   /**
    * The quality level's part: a share of every field's particles (a `set`
-   * after it builds them so) and how many real point lights follow the
-   * lamps. Returns whether the particles changed, so the owner sets the
-   * effects again
+   * after it builds them so), how many real point lights follow the lamps
+   * and which life areas show (`life`: 0 none, under 1 those not asking for
+   * High). Returns whether particles or life changed, so the owner sets the
+   * effects (and the lava's) again
    */
-  setQuality(quality: { particles: number; pointLights: number }): boolean {
-    const changed = quality.particles !== this.particleShare;
+  setQuality(quality: { particles: number; pointLights: number; life?: number }): boolean {
+    const life = quality.life ?? this.lifeShare;
+    const changed = quality.particles !== this.particleShare || life !== this.lifeShare;
     this.particleShare = quality.particles;
+    this.lifeShare = life;
     this.lightCount = Math.max(0, Math.min(POINT_LIGHTS, Math.round(quality.pointLights)));
     this.showPool();
     if (changed) this.setAmbient(this.ambient);
@@ -354,7 +449,7 @@ export class EffectLayer {
     const lip = new Vector3();
     const origin = new Vector3();
     for (let i = 0; i < falls.length; i++) {
-      const { foot, radius, rate, color } = feet[i];
+      const { foot, radius, rate, color, lava } = feet[i];
       const height = falls[i].height;
       const step = falls.some((other, j) => {
         if (j === i) return false;
@@ -371,6 +466,12 @@ export class EffectLayer {
       const ground = this.field.heightAt(footMap.x, footMap.y);
       if (pool === null && ground > foot.y + 1) continue;
       const at = foot.clone().setY(pool ?? ground);
+      if (lava) {
+        // Lava lands in embers and a little smoke, no foam
+        push(emitters, { kind: 'embers', origin: at, radius: radius * 1.2, height: 0.3, count: this.share(particleCount('embers', 3 * radius)), color: '#ff8a30', scale: 1.4 });
+        push(emitters, { kind: 'smoke', origin: at, radius, height: 0.5, count: this.share(particleCount('smoke', 0.6 * radius)), color: '#4a3a34', scale: 2 });
+        continue;
+      }
       // The foam disc lies on the pool, in the fall's own frame
       if (pool !== null) falls[i].pool = pool - origin.setFromMatrixPosition(falls[i].matrix).y;
       // Spray where the water lands, and a wider, slower cloud of mist around it
@@ -405,6 +506,8 @@ export class EffectLayer {
     this.darkness = Math.min(1, Math.max(0, darkness));
     this.light.value = 1 - this.darkness * 0.85;
     if (this.glows) this.glows.material.uniforms['uDarkness'].value = this.darkness;
+    this.beamDarkness.value = this.darkness;
+    if (this.beams) this.beams.visible = this.darkness > 0.05;
     this.lightLamps();
     this.showAmbient();
     this.showPool();
@@ -461,7 +564,7 @@ export class EffectLayer {
       const flicker = spot.flicker
         ? 0.82 + 0.12 * Math.sin(this.time.value * 9 + spot.seed) + 0.06 * Math.sin(this.time.value * 23 + spot.seed * 3)
         : 1;
-      light.intensity = Math.min(spot.intensity * CANDELA, spot.cap) * flicker * this.darkness;
+      light.intensity = Math.min(spot.intensity * CANDELA, spot.cap) * flicker * this.darkness * (spot.blink ? blinkOn(this.time.value, spot.blink, spot.seed) : 1);
       light.updateMatrixWorld();
     });
   }
@@ -535,6 +638,15 @@ export class EffectLayer {
       });
       this.waterfalls = null;
     }
+    const beams = this.beams;
+    if (beams) {
+      beams.removeFromParent();
+      this.retired.push(() => {
+        beams.geometry.dispose();
+        (beams.material as ShaderMaterial).dispose();
+      });
+      this.beams = null;
+    }
     const glows = this.glows;
     if (glows) {
       glows.removeFromParent();
@@ -555,12 +667,19 @@ interface FallFoot {
   radius: number;
   rate: number | undefined;
   color: string | undefined;
+  lava: boolean;
 }
 
 function push(map: Map<ParticleKind, ParticleEmitter[]>, e: ParticleEmitter): void {
   let list = map.get(e.kind);
   if (!list) map.set(e.kind, (list = []));
   list.push(e);
+}
+
+/** Whether a blinking light flashes now (the glow shader's rule) */
+function blinkOn(time: number, period: number, seed: number): number {
+  const f = time / period + seed * 0.37;
+  return f - Math.floor(f) >= 0.82 ? 1 : 0;
 }
 
 /** The halo quads without lights, to compile their program before a map gets its first light (CustomMapView.effectTwins) */
@@ -577,12 +696,15 @@ function buildGlows(spots: LightSpot[], time: { value: number }): Mesh<Instanced
   g.setAttribute('uv', quad.getAttribute('uv'));
   const pos = new Float32Array(spots.length * 4);
   const col = new Float32Array(spots.length * 4);
+  const blink = new Float32Array(spots.length * 2);
   spots.forEach((s, k) => {
+    blink.set([s.blink, s.seed], k * 2);
     pos.set([s.position.x, s.position.y, s.position.z, Math.min(6, 0.6 + s.intensity * 1.2)], k * 4);
     col.set([s.color.r, s.color.g, s.color.b, s.flicker ? s.seed : -1], k * 4);
   });
   g.setAttribute('aPos', new InstancedBufferAttribute(pos, 4));
   g.setAttribute('aCol', new InstancedBufferAttribute(col, 4));
+  g.setAttribute('aBlink', new InstancedBufferAttribute(blink, 2));
   g.instanceCount = spots.length;
   quad.dispose();
   const material = new ShaderMaterial({
@@ -608,18 +730,22 @@ const GLOW_VERTEX = /* glsl */ `
 #include <logdepthbuf_pars_vertex>
 attribute vec4 aPos;
 attribute vec4 aCol;
+attribute vec2 aBlink;
 uniform float uTime;
 uniform float uDarkness;
 varying vec2 vUv;
 varying vec3 vColor;
 void main() {
   float flicker = aCol.w < 0.0 ? 1.0 : 0.85 + 0.1 * sin(uTime * 9.0 + aCol.w) + 0.05 * sin(uTime * 23.0 + aCol.w * 3.0);
-  // Faint by day (a lit lamp), full at night
-  vColor = aCol.rgb * flicker * mix(0.25, 1.0, uDarkness);
+  // Faint by day (a lit lamp), bright at night: the lamp reads from the game camera high above
+  vColor = aCol.rgb * flicker * mix(0.3, 1.5, uDarkness);
+  // A beacon: a short bright flash every aBlink.x seconds, readable by day as well
+  if (aBlink.x > 0.0) vColor = aCol.rgb * mix(0.7, 1.0, uDarkness) * 1.6 * step(0.82, fract(uTime / aBlink.x + aBlink.y * 0.37));
   vUv = uv;
   vec4 mvPosition = modelViewMatrix * vec4(aPos.xyz, 1.0);
-  // At night at least a hundredth of the distance across, so lamps read from the game camera high above
-  mvPosition.xy += position.xy * max(aPos.w * mix(0.6, 1.0, uDarkness), -mvPosition.z * 0.01 * uDarkness);
+  // The quad twice the light's size: the core fills its inner half, the halo around it the rest.
+  // At night at least a fiftieth of the distance across, so lamps read from the game camera high above
+  mvPosition.xy += position.xy * max(aPos.w * 2.0 * mix(0.6, 1.0, uDarkness), -mvPosition.z * 0.02 * uDarkness);
   // Pulled towards the camera a little, so the halo is not cut by the lamp's own mesh
   mvPosition.xyz *= 1.0 - min(0.4 / max(-mvPosition.z, 1.0), 0.3);
   gl_Position = projectionMatrix * mvPosition;
@@ -635,8 +761,9 @@ varying vec3 vColor;
 void main() {
   #include <logdepthbuf_fragment>
   float r = length(vUv - 0.5) * 2.0;
-  float core = pow(max(1.0 - r, 0.0), 6.0) * 1.5;
-  float halo = pow(max(1.0 - r, 0.0), 2.0) * 0.35;
+  float core = pow(max(1.0 - r * 2.0, 0.0), 6.0) * 1.6;
+  // A wide soft halo: the light in the night air around the lamp
+  float halo = pow(max(1.0 - r, 0.0), 3.0) * 0.3;
   float a = core + halo;
   if (a < 0.003) discard;
   gl_FragColor = vec4(vColor * a, 1.0);

@@ -1,7 +1,10 @@
-import { BoxGeometry, Group, Mesh, MeshStandardMaterial, Texture } from 'three';
+import { BoxGeometry, DoubleSide, Group, Mesh, MeshStandardMaterial, PlaneGeometry, Texture } from 'three';
 import { describe, expect, it, vi } from 'vitest';
+import { readdirSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { parseCatalog } from './asset-catalog';
 import { MapAssetLibrary, packMaterial, type ImagePixels } from './map-asset-library';
+import { mergeParts } from './objects/merge-parts';
 
 const catalog = {
   version: 1,
@@ -113,6 +116,40 @@ describe('MapAssetLibrary', () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
     process.off('unhandledRejection', unhandled);
     expect(unhandled).not.toHaveBeenCalled();
+  });
+
+  it('keeps cloth drawn from both sides: the shipped models carry it, the library and its merged parts keep it', async () => {
+    // The materials the builders mark two_sided (cloth, canopies, flags, sails), by the names they give them
+    const root = resolve(__dirname, '../../../../..');
+    const builders = readdirSync(resolve(root, 'tools/map-assets')).filter((f) => f.endsWith('.py'));
+    const names = builders.flatMap((f) => [...readFileSync(resolve(root, 'tools/map-assets', f), 'utf8').matchAll(/two_sided\(\w+\('([^']+)'/g)].map((m) => m[1]));
+    expect(names.length).toBeGreaterThan(5);
+    const models = resolve(root, 'public/maps/assets/models');
+    const cloth: string[] = [];
+    for (const file of readdirSync(models).filter((f) => f.endsWith('.glb'))) {
+      const glb = readFileSync(resolve(models, file));
+      const json = JSON.parse(glb.subarray(20, 20 + glb.readUInt32LE(12)).toString()) as { materials?: { name: string; doubleSided?: boolean }[] };
+      for (const m of json.materials ?? []) if (names.some((n) => m.name.startsWith(n))) cloth.push(`${file} ${m.name} ${m.doubleSided ? 'both' : 'front'}`);
+    }
+    expect(cloth.length).toBeGreaterThan(5);
+    expect(cloth.filter((c) => c.endsWith('front'))).toEqual([]);
+    // Loaded (GLTFLoader: doubleSided is DoubleSide) and merged with the plain parts it shares nothing with
+    const lib = new MapAssetLibrary('base/', {
+      fetch: (() => Promise.resolve(jsonResponse(catalog))) as unknown as typeof fetch,
+      loadModel: () => {
+        const group = new Group();
+        group.add(new Mesh(new PlaneGeometry(2, 2), new MeshStandardMaterial({ name: 'cloth-hessian', side: DoubleSide })));
+        group.add(new Mesh(new BoxGeometry(1, 1, 1), new MeshStandardMaterial({ name: 'planks', side: DoubleSide })));
+        group.add(new Mesh(new BoxGeometry(1, 1, 1), new MeshStandardMaterial({ name: 'goods', side: DoubleSide, color: 0xff0000 })));
+        return Promise.resolve(group);
+      },
+    });
+    const model = await lib.model('pine');
+    expect(model.parts.length).toBeGreaterThan(0);
+    const merged = mergeParts(model.parts);
+    expect(merged.length).toBeLessThan(model.parts.length);
+    for (const part of [...model.parts, ...merged]) expect(part.material.side).toBe(DoubleSide);
+    lib.dispose();
   });
 
   it('falls back to flat materials and placeholder models', async () => {

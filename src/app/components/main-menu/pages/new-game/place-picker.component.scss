@@ -8,6 +8,18 @@
   gap: 10px;
 }
 
+.pp-search {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.pp-hash {
+  font-weight: 700;
+  line-height: 1;
+}
+
 .pp-spawn-line > span {
   flex: 1;
 }

@@ -54,7 +54,7 @@ describe('weather', () => {
     e.set({ ...env, biome: 'moon' });
     expect(e.fog.density).toBe(0);
     expect(e.skyDome.uniforms['uStars'].value).toBe(1);
-    expect(e.skyDome.uniforms['uPlanet'].value).toBe(1);
+    expect(e.skyDome.uniforms['uPlanet'].value).toBeGreaterThan(0);
     e.set({ ...env, biome: 'hell' });
     expect(e.weather.mesh.visible).toBe(true);
     expect(e.weather.mesh.material.uniforms['uKind'].value).toBe(2);

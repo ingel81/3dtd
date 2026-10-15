@@ -84,6 +84,27 @@ export function towerCardTooltip(
         { label: 'TYPE', value: 'BEAM' },
         { label: 'RANGE', value: `${tower.range}m` },
       ]
+    : tower.attackType === 'stream'
+    ? [
+        // At full drive
+        { label: 'DPS', value: String(tower.damage) },
+        { label: 'TYPE', value: 'STREAM' },
+        { label: 'RANGE', value: `${tower.range}m` },
+      ]
+    : tower.attackType === 'saw'
+    ? [
+        // Per arm and second, every arm on a target of its own
+        { label: 'DPS', value: `${tower.damage}×${tower.sawArms?.length ?? 1}` },
+        { label: 'TYPE', value: 'ARMS' },
+        { label: 'RANGE', value: `${tower.range}m` },
+      ]
+    : tower.attackType === 'laser' && tower.laser
+    ? [
+        // Cold to hot (TowerTypeConfig.laser)
+        { label: 'DPS', value: `${tower.damage}–${tower.damage * tower.laser.maxFactor}` },
+        { label: 'TYPE', value: 'LASER' },
+        { label: 'RANGE', value: `${tower.range}m` },
+      ]
     : [
         { label: 'DMG', value: String(tower.damage) },
         { label: 'RATE', value: `${tower.fireRate}/s` },
@@ -119,6 +140,8 @@ export function towerCardTooltip(
     targeting,
     armorTitle: 'vs Armor',
     armor,
+    // The role of a tower that has one written down (TowerTypeConfig.description)
+    flavor: tower.description,
   };
 }
 

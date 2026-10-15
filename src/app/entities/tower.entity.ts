@@ -14,10 +14,10 @@ import { Enemy } from './enemy.entity';
 import { RouteCell } from '../utils/route-cell';
 import type { LosMask } from '../utils/los-mask';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
-import { canTargetAirEffective } from './tower-targeting.util';
-import { TowerAim, createTowerAim } from './tower-aim';
+import { canTargetAirEffective, canTargetGroundEffective } from './tower-targeting.util';
+import { TowerAim, createTowerAim, refitTowerAim } from './tower-aim';
 import { DetMath } from '../utils/det-math';
-import { getTowerPath, type TowerPathId } from '../configs/tower-paths.config';
+import { getTowerPath, towerConfigOf, type TowerPathId } from '../configs/tower-paths.config';
 
 /** See Tower.getSimState. Plain data. */
 export interface TowerSimState {
@@ -42,13 +42,21 @@ export interface TowerSimState {
   builtAtMs?: number;
   /** See Tower.pathId; absent in snapshots from before paths, which read as none */
   pathId?: TowerPathId | null;
+  /** See Tower.laserHold; absent for every other tower and in older snapshots, which read as none */
+  laserHold?: { targetId: string; heldMs: number } | null;
+  /** See Tower.streamDrive; absent for every other tower and in older snapshots, which read as 0 */
+  streamDrive?: number;
 }
 
 /**
  * Tower entity - combines Transform, Combat, and Render components
  */
 export class Tower extends GameObject {
-  readonly typeConfig: TowerTypeConfig;
+  /** Its type's config, or with a path that swaps its model the swapped one (towerConfigOf), see pathId */
+  private _typeConfig: TowerTypeConfig;
+  get typeConfig(): TowerTypeConfig {
+    return this._typeConfig;
+  }
 
   private _transform!: TransformComponent;
   private _combat!: CombatComponent;
@@ -95,6 +103,19 @@ export class Tower extends GameObject {
 
   /** The player holds the trigger (command:tower-trigger); false unless manned */
   triggerHeld = false;
+
+  /**
+   * A laser (attackType 'laser'): the target its beam holds and the game ms it has burnt on it, which set the
+   * heat (laserHeat); null without. Simulation state: in the snapshot and the state hash. Set by
+   * TowerCombatService.updateLaserTowers, cleared at the wave end.
+   */
+  laserHold: { targetId: string; heldMs: number } | null = null;
+
+  /**
+   * A stream (attackType 'stream'): its drive, 0 at a standstill to 1. Simulation state like laserHold, set by
+   * TowerCombatService.updateStreamTowers, 0 at the wave end.
+   */
+  streamDrive = 0;
 
   /** Whether this tower is sleeping (no enemies in range) */
   isSleeping = false;
@@ -148,12 +169,42 @@ export class Tower extends GameObject {
    */
   builtAtMs = 0;
 
-  /** The path it took (configs/tower-paths.config.ts), null for none; one per tower, bought once */
-  pathId: TowerPathId | null = null;
+  private _pathId: TowerPathId | null = null;
+
+  /**
+   * The path it took (configs/tower-paths.config.ts), null for none; one per tower, bought once. A path with a
+   * swap changes its config (towerConfigOf): the stats follow from their upgrade levels, the aim from the new
+   * turret. rangeSquaredGeo and the line of sight are the caller's, as after a range upgrade.
+   */
+  get pathId(): TowerPathId | null {
+    return this._pathId;
+  }
+  set pathId(pathId: TowerPathId | null) {
+    if (pathId === this._pathId) return;
+    this._pathId = pathId;
+    const config = towerConfigOf(this._typeConfig.id, pathId);
+    if (config === this._typeConfig) return;
+    this._typeConfig = config;
+    refitTowerAim(this.aim, config);
+    for (const upgrade of config.upgrades) this.applyStat(upgrade, this.getUpgradeLevel(upgrade.id));
+  }
 
   /** Radius (m) within which it reveals camouflaged enemies, 0 when it does not (its path's detectionRadius) */
   get detectionRadius(): number {
     return getTowerPath(this.pathId)?.detectionRadius ?? 0;
+  }
+
+  /** Whether it may attack ground enemies: its type's flag, or a path that gives an air tower the ground */
+  get canTargetGround(): boolean {
+    return canTargetGroundEffective(this.typeConfig.id as TowerTypeId, this.pathId);
+  }
+
+  /**
+   * An air tower that took the ground with its path (TowerPath.groundDamageShare): it picks a flyer while one
+   * is a candidate, and leaves a ground target for one at its periodic sight check (TowerCombatService)
+   */
+  get prefersAir(): boolean {
+    return getTowerPath(this.pathId)?.groundDamageShare !== undefined;
   }
 
   /**
@@ -198,7 +249,7 @@ export class Tower extends GameObject {
     plinthOverhang: readonly number[] = [],
   ) {
     super('tower');
-    this.typeConfig = getTowerType(typeId);
+    this._typeConfig = getTowerType(typeId);
     this.customRotation = customRotation;
     this.aim = createTowerAim(this.typeConfig, customRotation);
     this.plinthHeight = plinthHeight;
@@ -352,7 +403,7 @@ export class Tower extends GameObject {
         // Verify target type is still compatible (air/ground)
         const isAirEnemy = this._currentTarget.typeConfig.isAirUnit ?? false;
         const canTargetAir = canTargetAirEffective(this.typeConfig.id as TowerTypeId, airTargetingUnlocked);
-        const canTargetGround = this.typeConfig.canTargetGround ?? true;
+        const canTargetGround = this.canTargetGround;
         const typeValid = (isAirEnemy && canTargetAir) || (!isAirEnemy && canTargetGround);
 
         // A camouflaged target the scouts lost goes as one out of range
@@ -374,7 +425,7 @@ export class Tower extends GameObject {
 
     // Get targeting capabilities (AA-Retrofit research can extend air-targeting for Gatling).
     const canTargetAir = canTargetAirEffective(this.typeConfig.id as TowerTypeId, airTargetingUnlocked);
-    const canTargetGround = this.typeConfig.canTargetGround ?? true;
+    const canTargetGround = this.canTargetGround;
 
     // LOS check only when selecting NEW target: the periodic recheck in
     // updateTowerShooting drops air and ground targets that lose it, and
@@ -390,6 +441,7 @@ export class Tower extends GameObject {
     }
 
     // Select best target based on strategy
+    if (this.prefersAir) keepAirIfAny(candidates);
     const bestTarget = this.selectByStrategy(candidates);
 
     // Cache the new target
@@ -410,7 +462,7 @@ export class Tower extends GameObject {
   ): boolean {
     this._bodyDistSq = bodyDistSq ?? null;
     const canTargetAir = canTargetAirEffective(this.typeConfig.id as TowerTypeId, airTargetingUnlocked);
-    const canTargetGround = this.typeConfig.canTargetGround ?? true;
+    const canTargetGround = this.canTargetGround;
     return this.canEngage(enemy, canTargetAir, canTargetGround, this.combat.range * this.combat.range, losCheck);
   }
 
@@ -630,9 +682,17 @@ export class Tower extends GameObject {
     if (currentLevel >= upgrade.maxLevel) return false;
     const newLevel = currentLevel + 1;
 
-    // Aus Basiswert × Track-Faktor neu rechnen statt zu multiplizieren: die
-    // Stufen ab L16 sind degressiv, und so kann nichts driften.
-    const factor = upgradeFactor(upgrade, newLevel);
+    this.applyStat(upgrade, newLevel);
+    this.upgradeLevels.set(upgradeId, newLevel);
+    return true;
+  }
+
+  /**
+   * The stat of `upgrade` at `level`. Aus Basiswert × Track-Faktor neu rechnen statt zu multiplizieren: die
+   * Stufen ab L16 sind degressiv, und so kann nichts driften.
+   */
+  private applyStat(upgrade: TowerUpgrade, level: number): void {
+    const factor = upgradeFactor(upgrade, level);
     switch (upgrade.effect.stat) {
       case 'fireRate':
         this._combat.fireRate = this.typeConfig.fireRate * factor;
@@ -647,9 +707,6 @@ export class Tower extends GameObject {
         // Beam width is computed dynamically via getEffectiveBeamWidth()
         break;
     }
-
-    this.upgradeLevels.set(upgradeId, newLevel);
-    return true;
   }
 
   /**
@@ -678,6 +735,9 @@ export class Tower extends GameObject {
       damageDealt: this._combat.damageDealt,
       builtAtMs: this.builtAtMs,
       pathId: this.pathId,
+      // Only where it is used: every other tower's state stays as it was
+      ...(this.typeConfig.attackType === 'laser' ? { laserHold: this.laserHold ? { ...this.laserHold } : null } : {}),
+      ...(this.typeConfig.attackType === 'stream' ? { streamDrive: this.streamDrive } : {}),
     };
   }
 
@@ -703,6 +763,8 @@ export class Tower extends GameObject {
     this._combat.damageDealt = state.damageDealt;
     this.builtAtMs = state.builtAtMs ?? 0;
     this.pathId = state.pathId ?? null;
+    this.laserHold = state.laserHold ? { ...state.laserHold } : null;
+    this.streamDrive = state.streamDrive ?? 0;
   }
 
   /**
@@ -785,4 +847,14 @@ export class Tower extends GameObject {
     const dy = dLat * METERS_PER_DEGREE_LAT;
     return dx * dx + dy * dy;
   }
+}
+
+/** Drop the ground enemies from `candidates` in place when one of them flies (Tower.prefersAir) */
+function keepAirIfAny(candidates: Enemy[]): void {
+  if (!candidates.some((enemy) => enemy.typeConfig.isAirUnit)) return;
+  let write = 0;
+  for (const enemy of candidates) {
+    if (enemy.typeConfig.isAirUnit) candidates[write++] = enemy;
+  }
+  candidates.length = write;
 }

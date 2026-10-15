@@ -533,6 +533,12 @@ Coop davor Reiter je Spieler als `td-seg`). Das Brett liegt vertieft (`--td-tree
 Tier-Spalte links; rechts Warteschlange und Detail mit Köpfen wie in der Sidebar (`td-head`); unten Legende und die
 Zählung je Strang (`td-tag` mit Raute in der Strangfarbe).
 
+Die Warteschlange sortiert man per Ziehen (E109, `@angular/cdk/drag-drop`, gehört zu Angular Material und war schon
+Abhängigkeit): ein Griff (`dragHandle`) links in jeder Zeile, die Zeile hebt sich als helle Platte (`--td-stone-lit`,
+`--td-raised-lit`), ihr Platz bleibt als flache Mulde, die anderen gleiten zur Seite. Der Drop schickt
+`command:move-queued-research`; bis die Simulation die neue Reihe meldet, zeigt der Dialog die gezogene Reihenfolge.
+Die Pfeile hoch und runter bleiben für die Tastatur. Die Warteschlange eines Koop-Partners hat weder Griff noch Pfeile.
+
 Der Graph ist `components/tech-tree/`, eine darstellende Komponente ohne Fachwissen. Geometrie aus
 `utils/dag-layout.ts`. Knoten sind Steinplatten (`--td-raised-quiet`, Radius `--td-radius`) mit dem Symbol in einer
 Mulde; Zustand und Strang tragen Information und kommen aus eigenen Tokens:
@@ -734,6 +740,8 @@ Hauptmenü offen ist oder das Spiel lädt; Strg/Alt/Meta und gehaltene Tasten l�
 | H / ? | Übersicht als Dialog | |
 | Pos1 | Kamera zum HQ | nicht im Intro-Flug |
 | N | Kamera zum nächsten Spawnpunkt, reihum | nicht im Intro-Flug |
+| Shift+F1 bis Shift+F5 | Kameraansicht 1 bis 5 speichern (Position und Blickrichtung), Meldung „Camera view N saved“ | nicht im Intro-Flug |
+| F1 bis F5 | Zur gespeicherten Ansicht gleiten (700 ms, Position und Ausrichtung); leer: Meldung, wie man sie füllt | nicht im Intro-Flug |
 | Taste der Fähigkeit (K für den Nuclear Strike, [ABILITIES.md](ABILITIES.md)) | Zielmodus an, nochmal aus; kann sie nicht feuern, nennt die Hinweisbox den Grund | Knopf der Fähigkeitenleiste |
 | G | Held wählen, gewählt: Kamera zu ihm | Held-Knopf |
 | V | Nächste Munition | Munition im Helden-Panel |
@@ -746,6 +754,15 @@ Während eines Boss-Intros überspringt Esc das Intro, alle anderen Spieltasten 
 (`IntroCameraFlightService.handleKeyDown`). Im Replay steuern Leertaste und P die Pause, + und - die Geschwindigkeit,
 Esc führt zurück (`HotkeyService.runInReplay`). Im bemannten Tower wirken nur Leertaste, P, +/-, M, C und Esc
 (`HotkeyService.runInTower`). Die Übersicht (`components/hotkey-help-dialog/`) liest `HOTKEY_HELP` aus derselben Datei.
+
+**Kameraansichten (E20):** F1 bis F5 wie in RTS-Spielen, weil die Zahlen Tower wählen, Strg+Zahl im Browser den Tab
+wechselt und Alt+Zahl das unter Linux tut. Die Browser-Belegungen F1 (Hilfe), F3 (Suchen), F5 (Neu laden) und ihre
+Shift-Form weichen, sobald das Spiel die Taste nimmt: F1 bis F5 werden immer abgefangen, auch auf leerem Platz und
+gehalten, solange die Spieltasten gelten; Strg+F5 und F5 unter einem Dialog bleiben dem Browser. Die Desktop-App
+belegt selbst nur F11 und F12 (`desktop/src/shortcuts.js`). Die Ansichten hält `CameraSlotsService` in lokalen
+Koordinaten des Orts (Welt und HQ): an einem anderen Ort sind die Plätze leer, ein Neustart am selben Ort behält sie,
+der Spielstand trägt sie mit (`SaveFile.cameraSlots`). Nur Darstellung, die Simulation sieht sie nie; im Coop hat
+jeder Spieler seine eigenen. Im Replay gelten sie mit, im bemannten Tower nicht.
 
 ---
 

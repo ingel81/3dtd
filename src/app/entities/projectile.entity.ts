@@ -13,6 +13,7 @@ import {
   ProjectileTypeConfig,
 } from '../configs/projectile-types.config';
 import { TowerTypeId } from '../configs/tower-types.config';
+import type { TowerPathId } from '../configs/tower-paths.config';
 import { Enemy } from './enemy.entity';
 import {
   geoDistanceFast,
@@ -38,6 +39,11 @@ export class Projectile extends GameObject {
    */
   readonly targetEnemy: Enemy | null;
   readonly sourceTowerId: string;
+  /**
+   * The path its tower had when it fired (Tower.pathId), null for none and for the hero's: what the hit does
+   * beyond its damage (CombatEffectService). A plain field, so the wave snapshot carries it.
+   */
+  pathId: TowerPathId | null = null;
 
   private _transform!: TransformComponent;
   private _combat!: CombatComponent;
@@ -227,10 +233,10 @@ export class Projectile extends GameObject {
   }
 
   /**
-   * Check if this projectile has arc trajectory (arrows, cannonballs)
+   * Check if this projectile has arc trajectory (ProjectileTypeConfig.arc: arrows, bolts, cannonballs)
    */
   get hasArcTrajectory(): boolean {
-    return this.typeConfig.id === 'arrow' || this.typeConfig.id === 'cannonball';
+    return this.typeConfig.arc !== undefined;
   }
 
   /**
@@ -339,11 +345,9 @@ export class Projectile extends GameObject {
     // Derivative of arc: d(arcOffset)/d(progress) = maxArc * 4 * (1 - 2*progress)
     let arcSlope = 0;
 
-    if (this.typeConfig.id === 'arrow') {
-      const maxArcHeight = Math.min(this._totalDistance * 0.05, 10);
-      arcSlope = maxArcHeight * 4 * (1 - 2 * progress);
-    } else if (this.typeConfig.id === 'cannonball') {
-      const maxArcHeight = Math.min(this._totalDistance * 0.15, 25);
+    const arc = this.typeConfig.arc;
+    if (arc) {
+      const maxArcHeight = Math.min(this._totalDistance * arc.share, arc.max);
       arcSlope = maxArcHeight * 4 * (1 - 2 * progress);
     }
 
@@ -388,17 +392,10 @@ export class Projectile extends GameObject {
       return baseHeight;
     }
 
-    // Arc trajectory for arrows: slight arc
-    if (this.typeConfig.id === 'arrow') {
-      const maxArcHeight = Math.min(this._totalDistance * 0.05, 10);
-      const arcOffset = maxArcHeight * 4 * progress * (1 - progress);
-      return baseHeight + arcOffset;
-    }
-
-    // Arc trajectory for cannonballs: higher parabolic arc (~20° launch angle)
-    if (this.typeConfig.id === 'cannonball') {
-      // Higher arc for cannonballs - proportional to distance
-      const maxArcHeight = Math.min(this._totalDistance * 0.15, 25);
+    // Arc trajectory (arrows slight, bolts flatter, cannonballs high): proportional to distance
+    const arc = this.typeConfig.arc;
+    if (arc) {
+      const maxArcHeight = Math.min(this._totalDistance * arc.share, arc.max);
       const arcOffset = maxArcHeight * 4 * progress * (1 - progress);
       return baseHeight + arcOffset;
     }

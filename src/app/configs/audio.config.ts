@@ -66,6 +66,7 @@ export const ENEMY_SOUND_PATTERNS = [
 /** Projectile sound IDs for budget management */
 export const PROJECTILE_SOUND_IDS = [
   'arrow',
+  'bolt',
   'bullet',
   'rocket',
   'cannonball',
@@ -73,6 +74,7 @@ export const PROJECTILE_SOUND_IDS = [
   'arcane-orb',
   'chaos-orb',
   'poison-glob',
+  'flak-shell',
   'hero-round',
   'hero-shell',
   'hero-rune',

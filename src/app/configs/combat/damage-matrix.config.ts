@@ -43,6 +43,27 @@ export const DAMAGE_MATRIX: DamageMatrix = {
   chaos:           { unarmored: 1.0,  light: 1.0,  heavy: 1.0,  fortified: 1.0,  ethereal: 1.0 },
 };
 
+/**
+ * One armor class lighter, for a corroded enemy (the Poison tower's Caustic path, status `corrode`):
+ * fortified to heavy, heavy to light, light to unarmored. Unarmored and ethereal have none.
+ */
+export const LIGHTER_ARMOR: Readonly<Record<ArmorType, ArmorType>> = {
+  unarmored: 'unarmored',
+  light: 'unarmored',
+  heavy: 'light',
+  fortified: 'heavy',
+  ethereal: 'ethereal',
+};
+
+/**
+ * The multiplier of `damageType` against `armorType`; corroded, the better of its own armor's and the next
+ * lighter one's: corrosion never makes a hit weaker (siege against heavy keeps 1.75, not light's 0.5).
+ */
+export function matrixMultiplier(damageType: DamageType, armorType: ArmorType, corroded = false): number {
+  const own = DAMAGE_MATRIX[damageType][armorType];
+  return corroded ? Math.max(own, DAMAGE_MATRIX[damageType][LIGHTER_ARMOR[armorType]]) : own;
+}
+
 // ==================== Effectiveness Thresholds ====================
 
 /**

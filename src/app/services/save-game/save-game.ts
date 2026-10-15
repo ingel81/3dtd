@@ -158,7 +158,7 @@ export class SaveGame implements Omit<SaveGamePort, 'startPlace'> {
 
   private async loadText(text: string): Promise<LoadResult> {
     const read = readSaveFile(text, this.here);
-    if (read.refusal !== null) return { ok: false, reason: saveFileRefusalText(read.refusal) };
+    if (read.refusal !== null) return { ok: false, reason: saveFileRefusalText(read.refusal, read.detail) };
     let failed: string | null;
     try {
       failed = await this.host.apply(read.file);

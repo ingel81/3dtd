@@ -6,6 +6,7 @@ import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 import { StreetRouter } from './street-router';
 import { spawnLabel } from '../../utils/spawn-label';
 import type { WorldStreetSource } from '../../world/world-provider';
+import { OVERPASS_SERVERS, fetchOverpass, type OverpassElement, type OverpassResponse } from '../../world/osm/overpass-client';
 
 export type { Street, StreetNetwork, StreetNode } from '../../interfaces/street-network-provider.interface';
 
@@ -18,72 +19,6 @@ export interface BuildingFootprint {
 
 export interface BuildingData {
   buildings: BuildingFootprint[];
-}
-
-/** An element of an Overpass answer, as far as the parsers read it. */
-interface OverpassElement {
-  type: string;
-  id: number;
-  lat?: number;
-  lon?: number;
-  nodes?: number[];
-  tags?: Record<string, string>;
-}
-
-/** An Overpass answer. */
-interface OverpassResponse {
-  elements: OverpassElement[];
-  /** Set when the server ran into a limit (memory, time); the elements may be cut short then. */
-  remark?: string;
-}
-
-/** One answer of one Overpass server and how long it took, see OsmStreetService.askOverpass. */
-interface OverpassAnswer {
-  data: OverpassResponse;
-  /** Length of the JSON text, about its bytes unpacked. */
-  chars: number;
-  /** From the request to the headers, and from there to the end of the body. */
-  headersMs: number;
-  bodyMs: number;
-}
-
-/**
- * Time a server gets to start its answer (the headers) before the attempt
- * is aborted.
- */
-const OVERPASS_HEADER_TIMEOUT_MS = 15000;
-
-/**
- * Time a server gets from its headers to the end of its body before the
- * attempt is aborted, so a server that starts its answer and then hangs
- * hands over to the next instead of holding the load up for good. Generous
- * against a slow but valid answer: the query itself runs at most 25 s on
- * the server (`[timeout:25]`) before any of it is sent.
- */
-const OVERPASS_BODY_TIMEOUT_MS = 30000;
-
-/**
- * Time a server gets to start its answer before the next one is asked
- * alongside it (OsmStreetService.fetchOverpass). An assumption, not a
- * measurement: a server that has not begun to answer after 4 s is taken
- * to be queueing the query. `headers=` in the `[OSM]` log shows what the
- * servers take.
- */
-const OVERPASS_HEDGE_MS = 4000;
-
-/** `[OSM] <what> from <host>: ...` for an answer: where its time went and what came. */
-function logOverpassAnswer(what: string, server: string, answer: OverpassAnswer): void {
-  let ways = 0;
-  let nodes = 0;
-  for (const element of answer.data.elements) {
-    if (element.type === 'way') ways++;
-    else if (element.type === 'node') nodes++;
-  }
-  const remark = answer.data.remark ? ` remark="${answer.data.remark}"` : '';
-  console.warn(
-    `[OSM] ${what} from ${new URL(server).host}: headers=${answer.headersMs.toFixed(0)} body=${answer.bodyMs.toFixed(0)}ms ` +
-    `size=${(answer.chars / 1e6).toFixed(1)}MB ways=${ways} nodes=${nodes}${remark}`,
-  );
 }
 
 /** Radius of the street box around the HQ, m: the one every place of the game loads its streets with */
@@ -109,7 +44,7 @@ const HIGHWAY_TYPES =
  * Overpass query for the streets that run through any of `boxes`: each way
  * once with its tags, then all of its nodes, inside the boxes or not.
  * `maxsize` caps the server's memory for the query at 4 MB; a query that
- * needs more ends with a `remark` in the answer (logOverpassAnswer).
+ * needs more ends with a `remark` in the answer (logged by overpass-client.ts).
  */
 function streetQuery(boxes: readonly GeoBox[]): string {
   const ways = boxes
@@ -197,16 +132,8 @@ export class OsmStreetService extends StreetRouter implements WorldStreetSource 
   // IndexedDB cache service (replaces localStorage)
   private readonly streetCache = inject(StreetCacheService);
 
-  // Overpass servers, asked in this order. Both sit in the EU: the player's
-  // IP and the queried area reach whichever one answers, and the mirror that
-  // used to be third was run by Mail.ru in Russia. overpass-api.de comes
-  // first because it answers fastest; the one asked first costs every load
-  // OVERPASS_HEDGE_MS when it hangs. overpass.kumi.systems is a DNS alias of
-  // overpass.private.coffee, the same server, so it is not listed apart.
-  private readonly OVERPASS_SERVERS = [
-    'https://overpass-api.de/api/interpreter',
-    'https://overpass.private.coffee/api/interpreter',
-  ];
+  // Overpass servers, asked in this order (overpass-client.ts)
+  private readonly OVERPASS_SERVERS = [...OVERPASS_SERVERS];
 
   /**
    * The streets loaded last, from Overpass or the IndexedDB cache. The next
@@ -337,131 +264,9 @@ export class OsmStreetService extends StreetRouter implements WorldStreetSource 
     return network;
   }
 
-  /**
-   * Post `query` to the Overpass servers and return what `accept` makes of
-   * the first answer it takes. The servers are asked in order. One that
-   * fails, does not start its answer within OVERPASS_HEADER_TIMEOUT_MS, does
-   * not finish it within OVERPASS_BODY_TIMEOUT_MS after that or whose answer
-   * `accept` throws on hands over to the next at once. One
-   * that has not started its answer after OVERPASS_HEDGE_MS gets the next
-   * asked alongside it, so a server that waits out its 15 s no longer holds
-   * the others back that long; the first answer taken aborts the rest.
-   * Every attempt is logged: an answer with the time to its headers and on
-   * to the end of its body, its size and what came (logOverpassAnswer), a
-   * failure with its time and reason. So a slow load shows whether a server
-   * was slow to start or its answer was long. Rejects with the last error
-   * when none answered.
-   *
-   * @param what What is loaded, for the log
-   */
+  /** The Overpass client (overpass-client.ts) on this service's servers, with the street loads' limits */
   private fetchOverpass<T>(what: string, query: string, accept: (data: OverpassResponse) => T): Promise<T> {
-    const servers = this.OVERPASS_SERVERS;
-    return new Promise<T>((resolve, reject) => {
-      const controllers: AbortController[] = [];
-      let asked = 0;
-      let failed = 0;
-      let done = false;
-
-      const askNext = (): void => {
-        if (done || asked >= servers.length) return;
-        const server = servers[asked++];
-        const controller = new AbortController();
-        controllers.push(controller);
-        const start = performance.now();
-        const hedge = setTimeout(askNext, OVERPASS_HEDGE_MS);
-        const attempt = async (): Promise<T> => {
-          const answer = await this.askOverpass(server, query, controller, () => clearTimeout(hedge));
-          logOverpassAnswer(what, server, answer);
-          return accept(answer.data);
-        };
-        attempt().then(
-          (result) => {
-            if (done) return;
-            done = true;
-            for (const other of controllers) if (other !== controller) other.abort();
-            resolve(result);
-          },
-          (error: unknown) => {
-            clearTimeout(hedge);
-            // A server aborted because another answered first.
-            if (done) return;
-            const reason = error instanceof Error ? error : new Error(String(error));
-            console.warn(
-              `[OSM] ${what} from ${new URL(server).host} failed after ${(performance.now() - start).toFixed(0)}ms: ${reason.message}`,
-            );
-            failed++;
-            if (asked < servers.length) {
-              askNext();
-            } else if (failed === asked) {
-              done = true;
-              reject(reason);
-            }
-          },
-        );
-      };
-      askNext();
-    });
-  }
-
-  /**
-   * Post `query` to one Overpass server and read its answer. Aborted
-   * through `controller`, and by itself when the headers take longer than
-   * OVERPASS_HEADER_TIMEOUT_MS or the body after them longer than
-   * OVERPASS_BODY_TIMEOUT_MS; `onHeaders` is called when the headers are
-   * there.
-   */
-  private async askOverpass(
-    server: string,
-    query: string,
-    controller: AbortController,
-    onHeaders: () => void,
-  ): Promise<OverpassAnswer> {
-    const start = performance.now();
-    let timedOut = false;
-    const timeoutId = setTimeout(() => {
-      timedOut = true;
-      controller.abort();
-    }, OVERPASS_HEADER_TIMEOUT_MS);
-
-    let response: Response;
-    try {
-      response = await fetch(server, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: `data=${encodeURIComponent(query)}`,
-        signal: controller.signal,
-      });
-    } catch (error) {
-      throw timedOut ? new Error(`no answer within ${OVERPASS_HEADER_TIMEOUT_MS}ms`) : error;
-    } finally {
-      clearTimeout(timeoutId);
-    }
-
-    onHeaders();
-    const headersAt = performance.now();
-    if (!response.ok) {
-      throw new Error(`OSM API error: ${response.status}`);
-    }
-    const bodyTimeoutId = setTimeout(() => {
-      timedOut = true;
-      controller.abort();
-    }, OVERPASS_BODY_TIMEOUT_MS);
-    let text: string;
-    try {
-      text = await response.text();
-    } catch (error) {
-      throw timedOut ? new Error(`answer not complete within ${OVERPASS_BODY_TIMEOUT_MS}ms`) : error;
-    } finally {
-      clearTimeout(bodyTimeoutId);
-    }
-    return {
-      data: JSON.parse(text) as OverpassResponse,
-      chars: text.length,
-      headersMs: headersAt - start,
-      bodyMs: performance.now() - headersAt,
-    };
+    return fetchOverpass({ what, query, accept: (data) => accept(data), servers: this.OVERPASS_SERVERS });
   }
 
   private parseOverpassResponse(

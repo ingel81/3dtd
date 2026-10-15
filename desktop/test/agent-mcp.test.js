@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const { describe, it, after } = require('node:test');
-const { DEFAULT_PORT, TOOLS, checkRequest, createAgentServer, readSettings, setUpAgentMcp } = require('../src/agent-mcp');
+const { DEFAULT_PORT, TOOLS, checkRequest, createAgentServer, describeCall, readSettings, setUpAgentMcp } = require('../src/agent-mcp');
 
 const silent = { info: () => {}, warn: () => {} };
 
@@ -98,7 +98,11 @@ describe('createAgentServer', () => {
     const list = message((await send(port, { body: rpc(2, 'tools/list') })).text);
     assert.deepEqual(list.result.tools.map((t) => t.name).sort(), TOOLS.map(([name]) => name).sort());
     const info = list.result.tools.find((t) => t.name === 'set_map_info');
-    assert.deepEqual(Object.keys(info.inputSchema.properties).sort(), ['description', 'name']);
+    assert.deepEqual(Object.keys(info.inputSchema.properties).sort(), ['description', 'dry_run', 'name']);
+    // Every tool that changes the map can run dry first
+    for (const t of list.result.tools.filter((t) => t.annotations.readOnlyHint === false && t.annotations.idempotentHint === false && !['undo_last', 'save_stamp'].includes(t.name))) {
+      assert.ok(t.inputSchema.properties.dry_run, `${t.name} takes dry_run`);
+    }
     const script = list.result.tools.find((t) => t.name === 'run_script');
     assert.deepEqual(script.inputSchema.required, ['source']);
     assert.equal(script.annotations.readOnlyHint, false);
@@ -171,6 +175,7 @@ describe('setUpAgentMcp', () => {
     const sent = [];
     const contents = {
       send: (channel, call) => {
+        if (channel === 'desktop:agent-status-changed') return;
         sent.push(call);
         // The page answers as the preload does
         setImmediate(() => ipc.call('desktop:agent-reply', { sender: contents }, { id: call.id, answer: { text: `answer ${call.tool}` } }));
@@ -180,7 +185,7 @@ describe('setUpAgentMcp', () => {
     const app = { sender: contents };
     const agent = setUpAgentMcp({ ipcMain: ipc, getWindow: () => window, userDataDir: '/data', fs, log: silent, isAppSender: (e) => e === app || e.sender === contents, version: 'test' });
     await agent.started;
-    assert.deepEqual(await ipc.call('desktop:agent-status', app), { enabled: false, url: null });
+    assert.deepEqual(await ipc.call('desktop:agent-status', app), { enabled: false, url: null, held: false, client: null, current: null, last: null });
 
     const on = await ipc.call('desktop:agent-set-enabled', app, true);
     assert.equal(on.enabled, true);
@@ -197,7 +202,7 @@ describe('setUpAgentMcp', () => {
     assert.equal(await ipc.call('desktop:agent-set-enabled', { sender: {} }, false), null);
 
     const off = await ipc.call('desktop:agent-set-enabled', app, false);
-    assert.deepEqual(off, { enabled: false, url: null });
+    assert.deepEqual(off, { enabled: false, url: null, held: false, client: null, current: null, last: null });
     await assert.rejects(send(port, { body: initialize }));
     await agent.close();
   });
@@ -216,6 +221,77 @@ describe('setUpAgentMcp', () => {
     const answer = message((await send(port, { body: rpc(2, 'tools/call', { name: 'map_summary', arguments: {} }) })).text);
     assert.equal(answer.result.isError, true);
     assert.match(answer.result.content[0].text, /window is closed/);
+    await agent.close();
+  });
+});
+
+describe('describeCall', () => {
+  it('says in words what a call does, for the agent band', () => {
+    assert.equal(describeCall('run_script', { label: 'forest hill' }), 'runs the script "forest hill"');
+    assert.equal(describeCall('run_script', { dry_run: true }), 'runs the script (dry run)');
+    assert.equal(describeCall('open_map', { id: 'demo-valley' }), 'opens "demo-valley"');
+    assert.equal(describeCall('erode_map', {}), 'erode map');
+  });
+});
+
+describe('setUpAgentMcp: who connected, what runs, Stop', () => {
+  function fakeIpc() {
+    const handlers = new Map();
+    return { handle: (name, fn) => handlers.set(name, fn), on: (name, fn) => handlers.set(name, fn), call: (name, ...args) => handlers.get(name)(...args) };
+  }
+  const fs = { readFileSync: () => JSON.stringify({ enabled: true, port: 47390 }), writeFileSync: () => {} };
+
+  it('pushes the client, the call that runs and the one before; Stop ends the call and refuses the next', async () => {
+    const ipc = fakeIpc();
+    const pushed = [];
+    const calls = [];
+    let answerLater = null;
+    const contents = {
+      send: (channel, payload) => {
+        if (channel === 'desktop:agent-status-changed') return pushed.push(payload);
+        calls.push(payload);
+        // run_script waits for the page; everything else answers at once
+        if (payload.tool === 'run_script') answerLater = () => ipc.call('desktop:agent-reply', { sender: contents }, { id: payload.id, answer: { text: 'late' } });
+        else setImmediate(() => ipc.call('desktop:agent-reply', { sender: contents }, { id: payload.id, answer: { text: `answer ${payload.tool}` } }));
+      },
+    };
+    const window = { isDestroyed: () => false, webContents: contents };
+    const app = { sender: contents };
+    const agent = setUpAgentMcp({ ipcMain: ipc, getWindow: () => window, userDataDir: '/data', fs, log: silent, isAppSender: (e) => e === app || e.sender === contents, version: 'test' });
+    await agent.started;
+    const port = Number(new URL(agent.status().url).port);
+
+    await send(port, { body: rpc(1, 'initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'claude-code', version: '2' } }) });
+    await send(port, { body: rpc(2, 'tools/call', { name: 'map_summary', arguments: {} }) });
+    assert.equal(agent.status().client.name, 'claude-code');
+    assert.ok(pushed.some((s) => s.current?.tool === 'map_summary' && s.current.what === 'reads the map'));
+    assert.deepEqual({ tool: agent.status().last.tool, ok: agent.status().last.ok }, { tool: 'map_summary', ok: true });
+    assert.equal(agent.status().current, null);
+
+    // A script waits for the page; Stop ends it with the stop text and holds the next calls
+    const script = send(port, { body: rpc(3, 'tools/call', { name: 'run_script', arguments: { source: 'map.raise()', label: 'hill' } }) });
+    while (!answerLater) await new Promise((r) => setTimeout(r, 5));
+    assert.equal(agent.status().current.what, 'runs the script "hill"');
+    const stopped = await ipc.call('desktop:agent-stop', app);
+    assert.equal(stopped.held, true);
+    const ended = message((await script).text);
+    assert.equal(ended.result.isError, true);
+    assert.match(ended.result.content[0].text, /pressed Stop/);
+    // The page's answer after Stop goes nowhere
+    answerLater();
+    const before = calls.length;
+    const refused = message((await send(port, { body: rpc(4, 'tools/call', { name: 'check_map', arguments: {} }) })).text);
+    assert.equal(refused.result.isError, true);
+    assert.match(refused.result.content[0].text, /pressed Stop/);
+    assert.equal(calls.length, before, 'a stopped agent does not reach the editor');
+    const picture = message((await send(port, { body: rpc(5, 'tools/call', { name: 'view_picture', arguments: {} }) })).text);
+    assert.equal(picture.result.isError, true);
+
+    // A page elsewhere cannot stop or resume
+    assert.equal(await ipc.call('desktop:agent-resume', { sender: {} }), null);
+    assert.equal((await ipc.call('desktop:agent-resume', app)).held, false);
+    const again = message((await send(port, { body: rpc(6, 'tools/call', { name: 'check_map', arguments: {} }) })).text);
+    assert.equal(again.result.content[0].text, 'answer check_map');
     await agent.close();
   });
 });

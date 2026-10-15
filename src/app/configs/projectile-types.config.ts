@@ -4,7 +4,7 @@ import { ProjectileTypeId } from './tower-types.config';
 export type { ProjectileTypeId } from './tower-types.config';
 
 export type ProjectileVisualType =
-  | 'arrow' | 'cannonball' | 'magic' | 'ice' | 'bullet' | 'rocket' | 'poison' | 'chaos'
+  | 'arrow' | 'bolt' | 'cannonball' | 'magic' | 'ice' | 'bullet' | 'rocket' | 'poison' | 'chaos'
   // The hero's explosive rounds: a bullet-shaped tracer in orange-red
   | 'shell';
 
@@ -63,6 +63,11 @@ export interface ProjectileTypeConfig {
   // Meters behind the mesh centre where trail particles and the trail streak
   // start (the rocket's nozzle). Visual only; default 0 = centre.
   tailOffset?: number;
+
+  // A parabolic flight (Projectile.calculateFlightHeight): its top lies
+  // `share` of the distance above the straight line, at most `max` metres.
+  // Absent: it flies straight (bullets, orbs) or homes (rockets).
+  arc?: { share: number; max: number };
 }
 
 export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = {
@@ -71,12 +76,25 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
     speed: 80,
     visualType: 'arrow',
     scale: 8, // Model is tiny (~0.8m), scale up significantly
+    arc: { share: 0.05, max: 10 },
+  },
+  // The ballista's bolt: a heavy shaft on a flat path, out to twice the
+  // archer's range. Same speed as the arrow, so the path's balance stays as
+  // tools/balance-calc has it.
+  bolt: {
+    id: 'bolt',
+    speed: 80,
+    visualType: 'bolt',
+    scale: 1, // createBoltGeometry() is in metres
+    arc: { share: 0.02, max: 4 },
   },
   cannonball: {
     id: 'cannonball',
     speed: 50,
     visualType: 'cannonball',
     scale: 0.5,
+    // Higher arc (~20° launch angle)
+    arc: { share: 0.15, max: 25 },
     // Balance 2026-09: war 10 m ohne Zielcap. Im Pulk (0,5 bis 3 m Abstand)
     // traf ein Schuss so 3 bis 10 volle Treffer. 6 m und höchstens 8 Opfer
     // lassen im selben Pulk 1,5 bis 5,7 übrig.
@@ -277,6 +295,33 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
       blending: 'normal',
     },
   },
+  // Iron Bastion: an orange tracer shell with a thin smoke line that bursts
+  // among a swarm, air or ground (VFXService, EXPLOSION_PRESETS.flak). 5 m and
+  // at most 6 victims: a packed swarm of bats or spiders, not a whole column.
+  'flak-shell': {
+    id: 'flak-shell',
+    speed: 110,
+    visualType: 'shell',
+    scale: 0.32,
+    splashRadius: 5,
+    splashMaxTargets: 6,
+    trailParticles: {
+      enabled: true,
+      spawnChance: 0.5,
+      countPerSpawn: 1,
+      colorMin: { r: 0.2, g: 0.18, b: 0.16 },
+      colorMax: { r: 0.45, g: 0.4, b: 0.35 },
+      sizeMin: 0.4,
+      sizeMax: 0.9,
+      lifetimeMin: 0.2,
+      lifetimeMax: 0.45,
+      velocityX: { min: -0.3, max: 0.3 },
+      velocityY: { min: 0.0, max: 0.5 },
+      velocityZ: { min: -0.3, max: 0.3 },
+      spawnOffset: 0.2,
+      blending: 'normal',
+    },
+  },
   // The hero's standard rounds (HERO_AMMO.standard): a slimmer, faster
   // tracer than the gatling's, one puff per gate instead of two. At 180 m/s
   // and 3 shots a second over at most 18 m there is rarely more than one in
@@ -375,6 +420,13 @@ export const PROJECTILE_SOUNDS: Record<ProjectileTypeId, ProjectileSoundConfig> 
     rolloffFactor: 1,
     volume: 0.5,
   },
+  // The ballista: a heavy string slap and the bolt leaving (ElevenLabs, 2026-10-15)
+  bolt: {
+    url: 'assets/sounds/towers/ballista/shoot.mp3',
+    refDistance: 60,
+    rolloffFactor: 1,
+    volume: 0.6,
+  },
   bullet: {
     url: 'assets/sounds/towers/gatling/shoot.mp3',
     refDistance: 40,
@@ -417,6 +469,13 @@ export const PROJECTILE_SOUNDS: Record<ProjectileTypeId, ProjectileSoundConfig> 
     refDistance: 55,
     rolloffFactor: 1.1,
     volume: 0.5,
+  },
+  // Iron Bastion: the cannon's report, a little quieter (it fires half again as often)
+  'flak-shell': {
+    url: 'assets/sounds/towers/cannon/shoot.mp3',
+    refDistance: 65,
+    rolloffFactor: 1,
+    volume: 0.45,
   },
   // The hero's rifle, quiet: it fires three times a second
   'hero-round': {

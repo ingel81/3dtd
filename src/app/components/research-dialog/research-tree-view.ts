@@ -9,7 +9,8 @@
  * but too dear (`poor`), and one that is shut while everything it still waits
  * for is already running or queued (`pending`).
  */
-import { RESEARCH_TREE, getResearch } from '../../configs/research/research-tree.config';
+import { releasedResearch } from '../../configs/release';
+import { getResearch } from '../../configs/research/research-tree.config';
 import {
   RESEARCH_BRANCH_LABEL,
   type ActiveResearch,
@@ -119,7 +120,7 @@ export type ResearchAction = 'start' | 'queue' | 'unqueue' | 'none';
 
 /** Every research as a node, in config order; the layout decides the places. */
 export function buildResearchNodes(state: ResearchTreeState): TechTreeNode[] {
-  return Object.values(RESEARCH_TREE).map((research) => {
+  return releasedResearch().map((research) => {
     const status = nodeState(research, state);
     return {
       id: research.id,
@@ -141,7 +142,7 @@ export function buildResearchNodes(state: ResearchTreeState): TechTreeNode[] {
 
 /** One edge per prerequisite. A research with two of them gets two. */
 export function buildResearchEdges(): DagEdge[] {
-  return Object.values(RESEARCH_TREE).flatMap((research) =>
+  return releasedResearch().flatMap((research) =>
     research.prerequisites.map((prerequisite) => ({ from: prerequisite, to: research.id })),
   );
 }
@@ -179,7 +180,7 @@ export function buildResearchDetail(
       done: state.completed.has(p),
     })),
     opensAtWave: waitsForWave(research, state),
-    opens: Object.values(RESEARCH_TREE).filter((r) => r.prerequisites.includes(research.id)).length,
+    opens: releasedResearch().filter((r) => r.prerequisites.includes(research.id)).length,
     action: researchClickAction(research.id, state),
   };
 }
@@ -208,7 +209,7 @@ export function researchClickAction(id: ResearchId, state: ResearchTreeState): R
 
 /** How many researches are done, for the readout in the header. */
 export function researchProgressCounts(state: ResearchTreeState): { done: number; total: number } {
-  const all = Object.values(RESEARCH_TREE);
+  const all = releasedResearch();
   return { done: all.filter((r) => state.completed.has(r.id)).length, total: all.length };
 }
 
@@ -221,7 +222,7 @@ export function researchBranchCounts(state: ResearchTreeState): {
 }[] {
   const order = Object.keys(RESEARCH_BRANCH_LABEL) as (keyof typeof RESEARCH_BRANCH_LABEL)[];
   return order.map((branch) => {
-    const own = Object.values(RESEARCH_TREE).filter((r) => r.branch === branch);
+    const own = releasedResearch().filter((r) => r.branch === branch);
     return {
       branch,
       label: RESEARCH_BRANCH_LABEL[branch],

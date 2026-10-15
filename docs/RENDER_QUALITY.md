@@ -34,9 +34,11 @@ Abschnitt mit dem, was dort wirklich wirkt, und zuletzt „Everywhere“:
 | Schattenkarte | eigene Karten | 1024 | 2048 | 4096 | 4096, weicher (PCF 2,5) |
 | LOD-Bias, Sichtweite | eigene Karten | 0,5× | 0,75× | 1× | 1,25× |
 | Impostor ab | eigene Karten | 200 m | 280 m | 380 m | 500 m |
-| Gras | eigene Karten | aus | 35 000 Halme bis 90 m | 70 000 bis 140 m | 100 000 bis 180 m |
+| Gras nah | eigene Karten | aus | 35 000 Halme bis 90 m | 70 000 bis 140 m | 100 000 bis 180 m |
+| Grasring fern | eigene Karten | aus | 30 000 Halme bis 200 m | 60 000 bis 300 m | 90 000 bis 400 m |
 | Partikel der Karte | eigene Karten | 40 % | 70 % | 100 % | 100 % |
 | Punktlichter nachts | eigene Karten | 2 | 4 | 6 | 6 |
+| Leben der Karte (Lebensbereiche, treibende Boote, wehende Banner, Funken über Lava) | eigene Karten | aus | 70 %, ohne Bereiche „High“ | 100 % | 100 % |
 | Boden billiger ab (eine Schicht / nur Mittelwerte) | eigene Karten | 80 / 220 m | 110 / 300 m | 150 / 400 m | 220 / 600 m |
 | Brechung im Wasser (`refraction`) | eigene Karten | aus | aus | an | an |
 | Dünung auf dem Meer (`seaWaves`) | eigene Karten | aus | an | an | an |
@@ -73,7 +75,7 @@ keine Zwischenwerte:
 | `tileDetail` | echte Orte | `errorTarget` |
 | `shadows` | eigene Karten | `shadowMapSize`, `shadowRadius` |
 | `farDetail` | eigene Karten | `lodBias`, `impostorFrom`, `farSingle`, `farFlat`, `steepNear` |
-| `grass` | eigene Karten | `grassBlades`, `grassDistance` (Low: „Off“, kein Gras) |
+| `grass` | eigene Karten | `grassBlades`, `grassDistance`, `grassFarBlades`, `grassFarDistance` (Low: „Off“, kein Gras) |
 | `refraction`, `seaWaves`, `lavaGlow`, `shadowCascade` | eigene Karten | Schalter, an oder aus |
 
 - `knobsWith(level, overrides, plantMotion)` baut daraus die Stellschrauben, die spielen; der `RenderQualityService`

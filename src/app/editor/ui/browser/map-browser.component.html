@@ -3,6 +3,7 @@
     <header class="mb-head td-line-bottom">
       <h1 class="td-dlg-title" id="mb-title">Map editor</h1>
       <div class="td-actions">
+        <app-agent-control />
         <button class="td-btn-ghost" type="button" (click)="backToGame()">Back to the game</button>
         @if (worlds.mapFolder) {
           <button class="td-btn-ghost" type="button" (click)="worlds.revealMapFolder()"
@@ -184,6 +185,25 @@
       <aside class="mb-detail td-stack is-loose">
         @if (mode() === 'new') {
           <h2 class="td-section">New map</h2>
+          <div class="td-seg" role="radiogroup" aria-label="Start from">
+            <button type="button" role="radio" [attr.aria-checked]="newFrom() === 'landscape'" (click)="newFrom.set('landscape')">A landscape</button>
+            <button type="button" role="radio" [attr.aria-checked]="newFrom() === 'place'" (click)="newFrom.set('place')" data-test="new-from-place">From a real place</button>
+          </div>
+          @if (newFrom() === 'place') {
+            @if (osmPlace(); as request) {
+              <app-osm-frame context="editor" [place]="request.place" [spawnsAt]="request.spawnsAt" (back)="osmPlace.set(null)" (done)="openMade($event.summary)" />
+            } @else {
+              <p class="td-note">The streets, bridges and ground of a 2.4 km square from OpenStreetMap and free height data, the HQ on the place you search.</p>
+              <app-td-address-autocomplete
+                [placeholder]="'City, street or address…'"
+                [currentValue]="null"
+                (locationSelected)="choosePlace($event)"
+              />
+              <div class="td-actions mb-new-actions">
+                <button class="td-btn-secondary" type="button" (click)="mode.set('details')">Cancel</button>
+              </div>
+            }
+          } @else {
           <label class="td-field">
             <span class="td-label">Name</span>
             <input class="td-input" type="text" maxlength="60" [value]="newName()" (input)="newName.set(asValue($event))" data-test="new-name" />
@@ -264,6 +284,7 @@
             <button class="td-btn-secondary" type="button" [disabled]="busy()" (click)="mode.set('details')">Cancel</button>
             <button class="td-btn-primary" type="button" [disabled]="busy()" (click)="createMap()" data-test="create-map">Create map</button>
           </div>
+          }
         } @else if (chosen(); as m) {
           @if (preview(m); as src) {
             <img class="mb-preview" [src]="src" alt="Top view of {{ m.name }}" />

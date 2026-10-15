@@ -9,6 +9,7 @@ import { TOWER_TYPES, TowerTypeId } from '../configs/tower-types.config';
 import { DAMAGE_MATRIX } from '../configs/combat/damage-matrix.config';
 import { ARMOR_TYPES } from '../configs/combat/combat.types';
 import { HERO, heroDefenseProfile } from '../configs/hero.config';
+import { TOWER_PATHS } from '../configs/tower-paths.config';
 
 const POS = { lat: 10, lon: 20, height: 0 };
 
@@ -132,6 +133,46 @@ describe('damageMetresPerArmor()', () => {
     const out = damageMetresPerArmor([a, b], false, new Map([[a.id, { ground: 10, air: 0 }], [b.id, { ground: 30, air: 0 }]]));
     expect(out.ground.light).toBeCloseTo(dps * light * 40, 6);
     expect(out.air.light).toBe(0);
+  });
+
+  it('counts a Fire Arrows burn as its share of the damage in the fire row (TODO E101)', () => {
+    const plain = new Tower(POS, 'archer');
+    const burning = new Tower(POS, 'archer');
+    burning.pathId = 'incendiary';
+    const metres = new Map([[plain.id, { ground: 10, air: 0 }], [burning.id, { ground: 10, air: 0 }]]);
+    const dps = computeTowerDPS(plain);
+    const share = TOWER_PATHS.incendiary.burnShare!;
+    const out = damageMetresPerArmor([burning], false, metres);
+    for (const armor of ARMOR_TYPES) {
+      const mult = DAMAGE_MATRIX.physical[armor] + share * DAMAGE_MATRIX.fire[armor];
+      expect(out.ground[armor], armor).toBeCloseTo(dps * mult * 10, 6);
+    }
+    expect(damageMetresPerArmor([plain], false, metres).ground.unarmored).toBeCloseTo(dps * 10, 6);
+  });
+
+  it('counts a Sniper with its own stats, through the armor one class lighter (TODO E101)', () => {
+    const sniper = new Tower(POS, 'archer');
+    sniper.pathId = 'sniper';
+    const metres = new Map([[sniper.id, { ground: 10, air: 0 }]]);
+    const swap = TOWER_PATHS.sniper.swap!;
+    const dps = swap.damage! * swap.fireRate!;
+    expect(computeTowerDPS(sniper)).toBeCloseTo(dps, 6);
+    const out = damageMetresPerArmor([sniper], false, metres);
+    expect(out.ground.heavy).toBeCloseTo(dps * DAMAGE_MATRIX.physical.light * 10, 6);
+    expect(out.ground.fortified).toBeCloseTo(dps * DAMAGE_MATRIX.physical.heavy * 10, 6);
+    expect(out.ground.unarmored).toBeCloseTo(dps * DAMAGE_MATRIX.physical.unarmored * 10, 6);
+  });
+
+  it('counts a Multirole rocket on the ground at the path share (TODO E101)', () => {
+    const rocket = new Tower(POS, 'rocket');
+    const metres = new Map([[rocket.id, { ground: 10, air: 20 }]]);
+    const dps = computeTowerDPS(rocket);
+    expect(damageMetresPerArmor([rocket], false, metres).ground.heavy).toBe(0);
+    rocket.pathId = 'multirole';
+    const out = damageMetresPerArmor([rocket], false, metres);
+    const heavy = DAMAGE_MATRIX.siege.heavy;
+    expect(out.ground.heavy).toBeCloseTo(dps * heavy * TOWER_PATHS.multirole.groundDamageShare! * 10, 6);
+    expect(out.air.heavy).toBeCloseTo(dps * heavy * 20, 6);
   });
 
   it('leaves out a tower the route does not pass', () => {

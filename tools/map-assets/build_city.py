@@ -10,16 +10,16 @@ drawn cards (chain-link, hazard stripes); some Poly Haven street props.
 import math
 import random
 
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 import bpy
 
 from blender_kit import (
     Part, bake_ao, box, card_material, clear_scene, export, export_lod, flat_material, hexa, image_material, import_model,
-    oriented_box, pbr_material, tilt, tube,
+    oriented_box, pbr_material, rust_material, tilt, tube,
 )
 import blender_kit
-from build_structures import cone_roof, gable_roof
+from build_structures import chunk, cone_roof, gable_roof
 
 FOUNDATION = 1.0
 
@@ -313,60 +313,206 @@ def shop(name):
 
 
 def tower_stump(name, seed=0):
-    """Broken high-rise: concrete frame 8 storeys of columns and slabs, the top torn off, rebar sticking out"""
+    """Broken high-rise: concrete frame 8 storeys of columns and slabs, the top torn off, rebar sticking out;
+    edge beams between the columns that still stand, spandrel panels left on the lower floors, a stair core,
+    a slab hanging from its rebar, rubble at the foot. Ambient occlusion baked, a flat LOD"""
     clear_scene()
     rnd = random.Random(seed)
-    concrete = Part(pbr_material('wall-concrete_floor_damaged_01', 'concrete_floor_damaged_01'), uv_metres=3.0)
+    concrete_mat = pbr_material('wall-concrete_floor_damaged_01-light', 'concrete_floor_damaged_01', (1.5, 1.6, 1.8))
+    concrete = Part(concrete_mat, uv_metres=3.0)
+    # Beams and chunks: same material without the chamfer (merged into one draw call when packed)
+    plain = Part(concrete_mat, uv_metres=3.0, bevel=0.0)
     facade = Part(pbr_material('wall-rectangular_facade_tiles', 'rectangular_facade_tiles', (0.8, 0.8, 0.8)), uv_metres=3.0)
     rebar = Part(flat_material('rebar', (0.2, 0.1, 0.05), 0.7, 0.6))
     s, fh = 16.0, 3.4
     box(concrete, 0, 0, -FOUNDATION, s + 0.4, s + 0.4, FOUNDATION + 0.5)
+    columns = {}
     for i in range(4):
         for j in range(4):
             x, y = -s / 2 + 1 + i * (s - 2) / 3, -s / 2 + 1 + j * (s - 2) / 3
             h = fh * (4 + 5 * abs(math.sin(i * 1.3 + j * 0.7 + seed))) * rnd.uniform(0.85, 1.05)
+            columns[(i, j)] = (x, y, h)
             box(concrete, x, y, 0, 0.8, 0.8, h)
             for k in range(3):
                 a = Vector((x + rnd.uniform(-0.3, 0.3), y + rnd.uniform(-0.3, 0.3), h))
                 oriented_box(rebar, a, a + Vector((rnd.uniform(-0.6, 0.6), rnd.uniform(-0.6, 0.6), rnd.uniform(0.6, 1.6))), 0.05)
+    floors = []
     for f in range(1, 9):
         z = f * fh
         frac = max(0.0, 1 - f / 9) * rnd.uniform(0.6, 1.1)
         if frac <= 0.1:
             continue
         sx = s * min(1.0, frac + 0.3)
+        floors.append((f, z))
         box(concrete, -s / 2 + sx / 2, rnd.uniform(-1, 1), z - 0.3, sx, s - rnd.uniform(0, 4), 0.3, rnd.uniform(-0.03, 0.03))
         if f < 5:
             for side in (-1, 1):
                 box(facade, -s / 2 + sx / 2, side * (s / 2 + 0.1), z - fh + 0.9, sx * rnd.uniform(0.4, 0.9), 0.2, 1.0)
-    export(name, [concrete.to_object(name), facade.to_object(name + '-facade'), rebar.to_object(name + '-rebar')])
+    rnd = random.Random(seed + 100)
+    # Edge beams round the outside where both columns still reach the floor; spandrel panels on the east
+    # and west of the lower floors
+    ring = [(i, 0) for i in range(4)] + [(3, j) for j in range(1, 4)] + [(i, 3) for i in (2, 1, 0)] + [(0, j) for j in (2, 1)]
+    for f, z in floors:
+        for a, b in zip(ring, ring[1:] + ring[:1]):
+            (xa, ya, ha), (xb, yb, hb) = columns[a], columns[b]
+            if min(ha, hb) < z:
+                continue
+            if abs(xa - xb) > 0.1:
+                box(plain, (xa + xb) / 2, ya, z - 0.75, abs(xa - xb), 0.5, 0.5)
+            else:
+                box(plain, xa, (ya + yb) / 2, z - 0.75, 0.5, abs(ya - yb), 0.5)
+                if f < 4 and rnd.random() < 0.7:
+                    box(facade, xa + (0.25 if xa > 0 else -0.25), (ya + yb) / 2, z - fh + 0.9, 0.2, abs(ya - yb) * rnd.uniform(0.5, 0.95), 1.0)
+    # Stair core up five storeys with openings onto each landing
+    cx, cy = s / 2 - 4.0, s / 2 - 4.0
+    box(concrete, cx, cy, 0, 3.0, 3.0, fh * 5 + 0.6)
+    for f in range(5):
+        box(rebar, cx - 1.51, cy, f * fh + 0.2, 0.04, 1.0, 2.1)
+    # A slab torn loose on the third floor, hanging from its rebar towards the ground
+    z = 3 * fh
+    top = [(-6.5, -6.6, z - 0.3), (-2.0, -6.6, z - 0.3), (-2.0, -6.3, z), (-6.5, -6.3, z)]
+    low = [(-6.6, -3.0, z - 4.2), (-1.9, -3.0, z - 4.2), (-1.9, -2.7, z - 3.9), (-6.6, -2.7, z - 3.9)]
+    hexa(plain, [top[0], top[1], low[1], low[0]], [top[3], top[2], low[2], low[3]])
+    for k in range(6):
+        p = Vector((-6.2 + k * 0.8, -6.45, z - 0.15))
+        oriented_box(rebar, p, p + Vector((rnd.uniform(-0.1, 0.1), 0.5, -0.6)), 0.04)
+    # Rubble round the foot, on the foundation slab and spilling off it
+    for k in range(26):
+        a = rnd.uniform(0, math.tau)
+        r = rnd.uniform(3.0, 7.6)
+        x = max(-7.6, min(7.6, math.cos(a) * r))
+        y = max(-7.6, min(7.6, math.sin(a) * r))
+        box(plain, x, y, 0.3, rnd.uniform(0.5, 1.6), rnd.uniform(0.4, 1.2), rnd.uniform(0.25, 0.6), rnd.uniform(0, 3))
+    objects = [concrete.to_object(name), plain.to_object(name + '-plain'), facade.to_object(name + '-facade'), rebar.to_object(name + '-rebar')]
+    joined = bake_ao(name, objects, size=1024)
+    export(name, [joined])
+    export_lod(name, joined)
 
 
 def warehouse(name, rusty=False):
-    """Steel shed: corrugated walls and shallow roof, a roller door and a side door (front -Y)"""
+    """Steel shed 18 x 12 m (front -Y): corrugated cladding and roof on a steel portal frame, ribbon windows
+    under the eaves, skylight strips, gutters and downpipes, a roller door in a framed opening with its
+    housing and a ramp, a side door under a canopy, louvres in the gables, roof vents. `rusty`: the same
+    sheet rusted, some panels gone, broken panes. Ambient occlusion baked, a flat-coloured LOD"""
     clear_scene()
-    asset = 'corrugated_iron_02' if not rusty else 'rusty_metal_03'
-    sheet = Part(pbr_material('metal-' + asset, asset, (0.95, 0.95, 0.95) if not rusty else None), uv_metres=3.0)
+    rnd = random.Random(12 if rusty else 3)
+    if rusty:
+        sheet_mat = rust_material('metal-corrugated-rusty', 'corrugated_iron_02')
+        steel_mat = flat_material('steel-rusty', (0.12, 0.07, 0.045), 0.8, 0.3)
+        pane_mat = hole()
+    else:
+        sheet_mat = pbr_material('metal-corrugated_iron_02', 'corrugated_iron_02', (0.95, 0.95, 0.95))
+        steel_mat = flat_material('steel-painted', (0.11, 0.13, 0.15), 0.5, 0.4)
+        pane_mat = flat_material('skylight-pane', (0.13, 0.16, 0.18), 0.45, 0.3)
+    sheet = Part(sheet_mat, uv_metres=2.5)
     trim = Part(pbr_material('wall-brushed_concrete', 'brushed_concrete'), uv_metres=2.0)
     door = Part(pbr_material('metal-painted_metal_shutter', 'painted_metal_shutter'), uv_metres=3.0)
-    w, d, h = 18.0, 12.0, 6.0
+    steel = Part(steel_mat)
+    panes = Part(pane_mat)
+    w, d, h, pitch, over = 18.0, 12.0, 6.0, 1.6, 0.3
     box(trim, 0, 0, -FOUNDATION, w + 0.2, d + 0.2, FOUNDATION + 0.4)
     box(sheet, 0, 0, 0.4, w, d, h - 0.4)
-    pitch = 1.6
     for sx in (-1, 1):
         x = sx * w / 2
         bm = sheet.bm
         tri = [bm.verts.new((x, -d / 2, h)), bm.verts.new((x, d / 2, h)), bm.verts.new((x, 0, h + pitch))]
         bm.faces.new(tri if sx > 0 else list(reversed(tri)))
-    roof = Part(pbr_material('metal-' + asset + '-roof', asset, (0.8, 0.8, 0.8) if not rusty else None))
-    gable_roof(roof, w, d, h, pitch, 0.3)
-    box(door, -2.5, -d / 2 - 0.05, 0.4, 5.0, 0.1, 4.4)
+    # Roof in the wall sheet: box mapping runs the corrugation down the slope
+    gable_roof(sheet, w, d, h, pitch, over)
+    hd = d / 2 + over
+    eave = h - over * pitch / (d / 2)
+    top = h + pitch
+
+    def on_roof(side, x, t, lift=0.02):
+        """Point on the roof surface of one side: t = 0 at the eave, 1 at the ridge"""
+        normal = Vector((0, side * (top - eave), hd)).normalized()
+        return Vector((x, side * hd * (1 - t), eave + (top - eave) * t)) + normal * lift
+
+    # Portal frame: columns proud of the cladding along the long walls, corner posts, gable posts
+    for k in range(5):
+        x = -w / 2 + k * w / 4
+        for sy in (-1, 1):
+            box(steel, x, sy * (d / 2 + 0.08), 0.4, 0.3 if 0 < k < 4 else 0.36, 0.2 if 0 < k < 4 else 0.36, h - 0.4)
+    for sx in (-1, 1):
+        for y in (-d / 6, d / 6):
+            box(steel, sx * (w / 2 + 0.08), y, 0.4, 0.2, 0.3, h - 0.4 + pitch * (1 - abs(y) / (d / 2)) - 0.1)
+        # Eave girt along the gable end
+        box(steel, sx * (w / 2 + 0.06), 0, h - 0.2, 0.14, d, 0.2)
+    # Gutters under the eaves and downpipes at the corners
+    for sy in (-1, 1):
+        box(steel, 0, sy * (hd - 0.1), eave - 0.32, w + 0.5, 0.24, 0.22)
+        for sx in (-1, 1):
+            x = sx * (w / 2 - 0.5)
+            tube(steel, [Vector((x, sy * (hd - 0.1), eave - 0.3)), Vector((x, sy * (d / 2 + 0.12), eave - 0.8)),
+                         Vector((x, sy * (d / 2 + 0.12), 0.5)), Vector((x, sy * (d / 2 + 0.35), 0.42))], [0.07] * 4, 6)
+    # Ribbon windows in each bay under the eaves; rusty: some panes broken out
+    for k in range(4):
+        x = -w / 2 + (k + 0.5) * w / 4
+        for sy in (-1, 1):
+            y = sy * (d / 2 + 0.03)
+            box(panes, x, y, 4.35, 3.4, 0.04, 0.85)
+            box(steel, x, sy * (d / 2 + 0.06), 4.25, 3.6, 0.1, 0.1)
+            box(steel, x, sy * (d / 2 + 0.06), 5.2, 3.6, 0.1, 0.1)
+            for m in (-1, 0, 1):
+                box(steel, x + m * 1.75 if m else x, sy * (d / 2 + 0.06), 4.25, 0.08, 0.1, 1.05)
+    # Skylight strips down both roof planes
+    for side in (-1, 1):
+        for x in (-6.0, 0.0, 6.0):
+            a, b = on_roof(side, x - 0.6, 0.12), on_roof(side, x + 0.6, 0.12)
+            c, e = on_roof(side, x + 0.6, 0.88), on_roof(side, x - 0.6, 0.88)
+            panes.quad([a, b, c, e] if side < 0 else [b, a, e, c], [(0, 0), (1, 0), (1, 1), (0, 1)])
+        # Round ventilators half way up the slope
+        for x in (-3.0, 3.0):
+            p = on_roof(side, x + side * 0.4, 0.55, 0.0)
+            tube(steel, [p - Vector((0, 0, 0.2)), p + Vector((0, 0, 0.35))], [0.28, 0.28], 10, cap=True)
+            cone_roof(steel, p.x, p.y, p.z + 0.35, 0.4, 0.22, 10)
+    # Ridge cap
+    oriented_box(steel, Vector((-w / 2 - over + 0.05, 0, top - 0.06)), Vector((w / 2 + over - 0.05, 0, top - 0.06)), 0.16)
+    # Roller door: shutter in a steel frame with its coil housing, a concrete ramp up to the floor
+    rx, rw, rh = -2.5, 5.0, 4.4
+    box(door, rx, -d / 2 - 0.05, 0.4, rw, 0.1, rh)
+    for s in (-1, 1):
+        box(steel, rx + s * (rw / 2 + 0.12), -d / 2 - 0.12, 0.4, 0.24, 0.24, rh + 0.1)
+    box(steel, rx, -d / 2 - 0.3, 0.4 + rh, rw + 0.5, 0.6, 0.55)
+    hexa(trim, [(rx - rw / 2 - 0.3, -d / 2 - 2.6, -0.3), (rx + rw / 2 + 0.3, -d / 2 - 2.6, -0.3), (rx + rw / 2 + 0.3, -d / 2 - 0.1, -0.3),
+                (rx - rw / 2 - 0.3, -d / 2 - 0.1, -0.3)],
+         [(rx - rw / 2 - 0.3, -d / 2 - 2.6, 0.02), (rx + rw / 2 + 0.3, -d / 2 - 2.6, 0.02), (rx + rw / 2 + 0.3, -d / 2 - 0.1, 0.4),
+          (rx - rw / 2 - 0.3, -d / 2 - 0.1, 0.4)])
+    # Side door with frame, canopy and a step
     box(door, 5.5, -d / 2 - 0.05, 0.4, 1.1, 0.1, 2.2)
-    export(name, [sheet.to_object(name), roof.to_object(name + '-roof'), trim.to_object(name + '-base'), door.to_object(name + '-doors')])
+    for s in (-1, 1):
+        box(steel, 5.5 + s * 0.62, -d / 2 - 0.08, 0.4, 0.12, 0.14, 2.3)
+    box(steel, 5.5, -d / 2 - 0.08, 2.6, 1.36, 0.14, 0.1)
+    box(steel, 5.5, -d / 2 - 0.55, 2.85, 1.8, 1.0, 0.08)
+    box(trim, 5.5, -d / 2 - 0.45, -0.2, 1.6, 0.8, 0.6)
+    # Louvre vents high in both gables
+    for sx in (-1, 1):
+        box(steel, sx * (w / 2 + 0.05), 0, h + 0.15, 0.1, 1.4, 0.8)
+        for k in range(4):
+            box(door, sx * (w / 2 + 0.12), 0, h + 0.22 + k * 0.17, 0.06, 1.2, 0.08)
+    if rusty:
+        # Panels gone from the cladding and the roof: the dark inside shows
+        for k in range(5):
+            x = rnd.uniform(-w / 2 + 1, w / 2 - 1)
+            sy = rnd.choice((-1, 1))
+            if sy < 0 and -5.5 < x < 7.0:
+                x = rnd.uniform(-8.0, -5.6)
+            z = rnd.uniform(0.6, 2.6)
+            box(panes, x, sy * (d / 2 + 0.015), z, rnd.uniform(0.6, 1.2), 0.02, rnd.uniform(1.0, 1.8))
+        for side, x, t in ((-1, -7.5, 0.35), (1, 2.0, 0.6), (1, 7.2, 0.25)):
+            a, b = on_roof(side, x - 0.7, t), on_roof(side, x + 0.7, t)
+            c, e = on_roof(side, x + 0.7, t + 0.22), on_roof(side, x - 0.7, t + 0.22)
+            panes.quad([a, b, c, e] if side < 0 else [b, a, e, c], [(0, 0), (1, 0), (1, 1), (0, 1)])
+    objects = [sheet.to_object(name), trim.to_object(name + '-base'), door.to_object(name + '-doors'), steel.to_object(name + '-steel'),
+               panes.to_object(name + '-panes')]
+    joined = bake_ao(name, objects)
+    export(name, [joined])
+    export_lod(name, joined)
 
 
 def container(name, tint, rusty=False):
-    """Shipping container 6.1 x 2.44 x 2.6 m along X"""
+    """Shipping container 6.1 x 2.44 x 2.6 m along X: corner posts with castings, side rails, a door end with
+    two leaves, four locking bars with handles and keepers"""
     clear_scene()
     asset = 'container_side' if not rusty else 'rusty_metal_03'
     body = Part(pbr_material('metal-' + asset + '-' + '-'.join('%.2f' % c for c in tint), asset, tint), uv_metres=2.6)
@@ -375,13 +521,23 @@ def container(name, tint, rusty=False):
     for x in (-3.0, 3.0):
         for y in (-1.17, 1.17):
             box(frame, x, y, 0, 0.16, 0.16, 2.6)
+            for z in (0.0, 2.44):
+                box(frame, x, y, z, 0.18, 0.18, 0.16)
+        for z in (0.0, 2.48):
+            box(frame, x, 0, z, 0.14, 2.3, 0.12)
     for z in (0.0, 2.48):
         for y in (-1.17, 1.17):
             box(frame, 0, y, z, 6.1, 0.14, 0.14)
+    # Door end (+X): two leaves standing proud, each with two locking bars, handles and keepers
+    for sy in (-1, 1):
+        box(body, 3.04, sy * 0.59, 0.16, 0.03, 1.12, 2.3)
+        for y in (sy * 0.25, sy * 0.9):
+            tube(frame, [Vector((3.07, y, 0.14)), Vector((3.07, y, 2.48))], [0.025, 0.025], 6)
+            for z in (0.17, 2.43):
+                box(frame, 3.07, y, z - 0.04, 0.05, 0.1, 0.08)
+            oriented_box(frame, Vector((3.08, y, 1.1)), Vector((3.08, y - sy * 0.25, 1.1)), 0.03)
     export(name, [body.to_object(name), frame.to_object(name + '-frame')])
 
-
-# ---------------------------------------------------------------- street furniture
 
 def traffic_light(name):
     clear_scene()
@@ -401,31 +557,59 @@ def traffic_light(name):
                   amber.to_object(name + '-amber'), green.to_object(name + '-green')])
 
 
-def bench(name):
-    clear_scene()
-    wood = Part(pbr_material('planks-crate', 'brown_planks_04'), uv_metres=1.0)
-    iron = Part(flat_material('iron', (0.08, 0.08, 0.08), 0.5, 0.8))
-    for x in (-0.8, 0.8):
-        box(iron, x, 0, 0, 0.06, 0.5, 0.45)
-        oriented_box(iron, Vector((x, 0.22, 0.45)), Vector((x, 0.3, 0.85)), 0.05)
-    for k in range(4):
-        box(wood, 0, -0.2 + k * 0.13, 0.45, 1.9, 0.1, 0.04)
-    for k in range(3):
-        oriented_box(wood, Vector((-0.95, 0.26 + k * 0.02, 0.55 + k * 0.12)), Vector((0.95, 0.26 + k * 0.02, 0.55 + k * 0.12)), 0.08)
-    export(name, [wood.to_object(name), iron.to_object(name + '-iron')])
-
-
 def bus_stop(name):
+    """Bus shelter: posts on base plates, a roof slab with a fascia sloping to the back, framed glass at the
+    back and one end, an advert case at the other end, a bench along the back wall"""
     clear_scene()
     metal = Part(flat_material('pole-grey', (0.25, 0.26, 0.27), 0.5, 0.6))
     pane = Part(flat_material('shelter-glass', (0.35, 0.42, 0.45), 0.1, 0.3))
     for x in (-1.8, 1.8):
         for y in (-0.6, 0.6):
-            box(metal, x, y, 0, 0.08, 0.08, 2.5)
-    box(metal, 0, 0, 2.5, 3.9, 1.6, 0.1)
-    box(pane, 0, 0.62, 0.3, 3.5, 0.03, 2.0)
-    box(pane, -1.82, 0, 0.3, 0.03, 1.1, 2.0)
+            box(metal, x, y, 0, 0.08, 0.08, 2.45 - (y + 0.6) * 0.06)
+            box(metal, x, y, 0, 0.2, 0.2, 0.02)
+    hexa(metal, [(-1.95, -0.8, 2.42), (1.95, -0.8, 2.42), (1.95, 0.8, 2.33), (-1.95, 0.8, 2.33)],
+         [(-1.95, -0.8, 2.6), (1.95, -0.8, 2.6), (1.95, 0.8, 2.51), (-1.95, 0.8, 2.51)])
+    # Glass along the back in three framed panes, a frame rail top and bottom
+    for z in (0.28, 2.27):
+        box(metal, 0, 0.62, z, 3.6, 0.06, 0.05)
+    for x in (-0.6, 0.6):
+        box(metal, x, 0.62, 0.28, 0.05, 0.06, 2.0)
+    box(pane, 0, 0.62, 0.32, 3.5, 0.02, 1.95)
+    # Glass at the left end, the advert case at the right end
+    box(metal, -1.8, 0, 0.28, 0.06, 1.2, 0.05)
+    box(metal, -1.8, 0, 2.27, 0.06, 1.2, 0.05)
+    box(pane, -1.82, 0, 0.32, 0.02, 1.1, 1.95)
+    box(metal, 1.8, 0.1, 0.25, 0.16, 1.0, 2.0)
+    for sx in (-1, 1):
+        box(pane, 1.8 + sx * 0.085, 0.1, 0.35, 0.01, 0.85, 1.8)
+    # Bench along the back
+    box(metal, 0, 0.42, 0.42, 2.6, 0.32, 0.05)
+    for x in (-1.1, 1.1):
+        box(metal, x, 0.48, 0, 0.06, 0.2, 0.42)
     export(name, [metal.to_object(name), pane.to_object(name + '-glass')])
+
+
+def bench(name):
+    """Park bench: cast iron sides (front and back leg, seat rail, armrest), four seat slats and three back
+    slats leaning back"""
+    clear_scene()
+    wood = Part(pbr_material('planks-crate', 'brown_planks_04'), uv_metres=1.0)
+    iron = Part(flat_material('iron', (0.08, 0.08, 0.08), 0.5, 0.8))
+    for x in (-0.82, 0.82):
+        for a, b, t in (((x, -0.24, 0), (x, -0.2, 0.43), 0.05), ((x, 0.2, 0), (x, 0.18, 0.43), 0.05),
+                        ((x, 0.18, 0.43), (x, 0.28, 0.85), 0.05), ((x, -0.27, 0.42), (x, 0.2, 0.42), 0.05),
+                        ((x, -0.2, 0.43), (x, -0.23, 0.62), 0.04), ((x, -0.28, 0.63), (x, 0.24, 0.66), 0.045)):
+            oriented_box(iron, Vector(a), Vector(b), t)
+        box(iron, x, -0.24, 0, 0.1, 0.1, 0.02)
+        box(iron, x, 0.2, 0, 0.1, 0.1, 0.02)
+    for k in range(4):
+        box(wood, 0, -0.2 + k * 0.12, 0.45, 1.9, 0.1, 0.035)
+    for k in range(3):
+        z = 0.56 + k * 0.11
+        y = 0.215 + (z - 0.45) * 0.24
+        hexa(wood, [(-0.95, y - 0.02, z), (0.95, y - 0.02, z), (0.95, y + 0.02, z), (-0.95, y + 0.02, z)],
+             [(-0.95, y + 0.0, z + 0.085), (0.95, y + 0.0, z + 0.085), (0.95, y + 0.04, z + 0.085), (-0.95, y + 0.04, z + 0.085)])
+    export(name, [wood.to_object(name), iron.to_object(name + '-iron')])
 
 
 def chainlink_fence(name, length=4.0, height=2.2, barbed=False):
@@ -473,24 +657,59 @@ def concrete_bridge(name, length=30.0, width=9.0, height=6.0):
 
 # ---------------------------------------------------------------- wasteland
 
-def rubble_pile(name, seed, size=4.0):
-    """Heap of broken concrete slabs with bent rebar"""
+def fit_box(objects, extent, z0, z1):
+    """Scales finished parts so the model spans `extent` along its longer side and z0..z1 in height: the
+    catalogue keeps the footprint and height it had"""
+    pts = [o.matrix_world @ v.co for o in objects for v in o.data.vertices]
+    lo = Vector([min(p[i] for p in pts) for i in range(3)])
+    hi = Vector([max(p[i] for p in pts) for i in range(3)])
+    s = extent / max(hi.x - lo.x, hi.y - lo.y)
+    sz = (z1 - z0) / (hi.z - lo.z)
+    m = Matrix.Translation((0, 0, z0)) @ Matrix.Diagonal((s, s, sz, 1)) @ Matrix.Translation((0, 0, -lo.z))
+    for o in objects:
+        o.data.transform(m)
+        o.data.update()
+
+
+def rubble_pile(name, seed, size=4.0, fit=None):
+    """Heap of a collapsed wall: a mound of grit and dust, broken concrete slabs and lumps tipped every way,
+    pieces of brick wall, bent rebar; `fit` = (extent, z0, z1) keeps the catalogue box. AO baked"""
+    from build_nature import lump
     clear_scene()
     rnd = random.Random(seed)
-    concrete = Part(pbr_material('wall-concrete_floor_damaged_01', 'concrete_floor_damaged_01'), uv_metres=2.0)
-    brick = Part(pbr_material('wall-brick_wall_07', 'brick_wall_07'), uv_metres=2.0)
+    concrete = Part(pbr_material('wall-concrete_floor_damaged_01-light', 'concrete_floor_damaged_01', (1.5, 1.6, 1.8)), uv_metres=2.0,
+                    bevel=0.0)
+    brick = Part(pbr_material('wall-brick_wall_07', 'brick_wall_07'), uv_metres=2.0, bevel=0.0)
+    grit = Part(pbr_material('roof-gravel_floor_02-dust', 'gravel_floor_02', (0.72, 0.7, 0.66)), uv_metres=1.5, bevel=0.0)
     rebar = Part(flat_material('rebar', (0.2, 0.1, 0.05), 0.7, 0.6))
-    for k in range(16):
+    r0 = size * 0.5
+    lump(grit, Vector((0, 0, -0.4)), Vector((r0 * 0.85, r0 * 0.75, size * 0.14)), seed, roughness=0.4, subdiv=2)
+    top = -0.4 + 1.3 * size * 0.14
+    for k in range(int(22 * (size / 4.0) ** 1.4)):
         a = rnd.uniform(0, math.tau)
-        r = size * 0.5 * math.sqrt(rnd.random())
-        z = (1 - r / (size * 0.5)) * size * 0.35
-        part = concrete if k % 3 else brick
-        box(part, math.cos(a) * r, math.sin(a) * r, z - 0.4, rnd.uniform(0.6, 1.8), rnd.uniform(0.4, 1.2), rnd.uniform(0.2, 0.5),
-            rnd.uniform(0, 3))
-    for k in range(6):
-        a = Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), size * 0.25))
-        oriented_box(rebar, a, a + Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(0.3, 1.2))), 0.04)
-    export(name, [concrete.to_object(name), brick.to_object(name + '-bricks'), rebar.to_object(name + '-rebar')])
+        t = math.sqrt(rnd.random()) * 0.95
+        r = r0 * t
+        # On the mound, heaped higher towards the middle
+        z = top * (1 - t * t) + size * 0.22 * (1 - t) ** 2 - 0.05
+        c = Vector((math.cos(a) * r, math.sin(a) * r * 0.9, z))
+        if k % 4 == 0:
+            # A piece of brick wall
+            chunk(brick, c, Vector((rnd.uniform(0.6, 1.2), 0.25, rnd.uniform(0.4, 0.8))), rnd, 50)
+        elif k % 4 == 1:
+            chunk(concrete, c, Vector((rnd.uniform(0.3, 0.6), rnd.uniform(0.3, 0.5), rnd.uniform(0.25, 0.4))), rnd, 60)
+        else:
+            # Floor slab fragment, tipped
+            chunk(concrete, c, Vector((rnd.uniform(0.9, 1.8), rnd.uniform(0.6, 1.2), rnd.uniform(0.16, 0.25))), rnd, 40)
+    for k in range(7):
+        a = Vector((rnd.uniform(-0.6, 0.6) * r0, rnd.uniform(-0.6, 0.6) * r0, size * 0.18))
+        b = a + Vector((rnd.uniform(-0.6, 0.6), rnd.uniform(-0.6, 0.6), rnd.uniform(0.3, 0.9)))
+        oriented_box(rebar, a, b, 0.035)
+        oriented_box(rebar, b, b + Vector((rnd.uniform(-0.5, 0.5), rnd.uniform(-0.5, 0.5), rnd.uniform(-0.3, 0.2))), 0.035)
+    objects = [grit.to_object(name + '-grit'), concrete.to_object(name), brick.to_object(name + '-bricks'), rebar.to_object(name + '-rebar')]
+    if fit:
+        fit_box(objects, *fit)
+    joined = bake_ao(name, objects)
+    export(name, [joined])
 
 
 def barbed_wire(name, length=5.0):
@@ -550,8 +769,9 @@ def toxic_barrel(name, leaking=False):
     clear_scene()
     drum = Part(image_material('hazard', blender_kit.FOLIAGE + '/hazard.jpg', 0.5), smooth=True)
     rust = Part(pbr_material('metal-green_metal_rust', 'green_metal_rust'), smooth=True)
-    tube(rust, [Vector((0, 0, 0)), Vector((0, 0, 0.88))], [0.29, 0.29], 14, cap=True)
-    tube(drum, [Vector((0, 0, 0.3)), Vector((0, 0, 0.58))], [0.295, 0.295], 14)
+    drum_shell(rust)
+    # The hazard band between the hoops
+    tube(drum, [Vector((0, 0, 0.315)), Vector((0, 0, 0.572))], [0.286, 0.286], 16)
     objects = [rust.to_object(name), drum.to_object(name + '-band')]
     if leaking:
         tilt(objects, x=90, lift=0.29)
@@ -624,13 +844,36 @@ def broken_fence(name, length=4.0):
     export(name, [wood.to_object(name)])
 
 
+def drum_shell(part, r=0.29, h=0.88, sides=16, dent=None):
+    """Steel drum in one closed shell: rolled chimes at both ends, two rolling hoops at a third and two
+    thirds, the lid set down inside the top chime with two bung caps; `dent` = (angle, z, depth) pushes a
+    dent into the side"""
+    b = r * 0.975
+    prof = [(0.0, b), (0.012, r), (0.03, r), (0.042, b)]
+    for zc in (h / 3, 2 * h / 3):
+        prof += [(zc - 0.02, b), (zc, r * 1.02), (zc + 0.02, b)]
+    prof += [(h - 0.042, b), (h - 0.03, r), (h - 0.004, r), (h, r * 0.96), (h - 0.002, r * 0.9), (h - 0.018, r * 0.89)]
+    first = len(part.bm.verts)
+    tube(part, [Vector((0, 0, z)) for z, _ in prof], [rr for _, rr in prof], sides, smooth=True, cap=True)
+    if dent:
+        a, zd, depth = dent
+        c = Vector((math.cos(a) * r, math.sin(a) * r, zd))
+        part.bm.verts.ensure_lookup_table()
+        for v in part.bm.verts[first:]:
+            dist = (v.co - c).length
+            if dist < 0.16:
+                push = depth * (1 - dist / 0.16) ** 2
+                v.co.x -= math.cos(a) * push
+                v.co.y -= math.sin(a) * push
+    for x, size in ((0.16, 0.035), (-0.17, 0.022)):
+        tube(part, [Vector((x, 0.03, h - 0.02)), Vector((x, 0.03, h + 0.0))], [size, size], 8, smooth=False, cap=True)
+
+
 def rusty_barrel(name, tipped=False):
+    """Oil drum gone to rust with chimes, hoops, lid and bungs and a dent in its side; `tipped`: lying"""
     clear_scene()
     steel = Part(pbr_material('metal-rusty_metal_03-barrel', 'rusty_metal_03', (0.75, 0.62, 0.5)), smooth=True, uv_scale=0.6)
-    for z0, z1 in ((0.0, 0.29), (0.3, 0.58), (0.59, 0.88)):
-        tube(steel, [Vector((0, 0, z0)), Vector((0, 0, z1))], [0.29, 0.29], 16, cap=True)
-    for z in (0.29, 0.585):
-        tube(steel, [Vector((0, 0, z - 0.01)), Vector((0, 0, z + 0.01))], [0.305, 0.305], 16)
+    drum_shell(steel, dent=(2.2, 0.5, 0.035))
     objects = [steel.to_object(name)]
     if tipped:
         tilt(objects, x=90, lift=0.29)
@@ -675,8 +918,8 @@ def models():
         'power-pole': lambda: power_pole('power-pole'),
         'power-pole-fallen': lambda: power_pole('power-pole-fallen', fallen=True),
         # Wasteland
-        'rubble-pile': lambda: rubble_pile('rubble-pile', 7),
-        'rubble-pile-large': lambda: rubble_pile('rubble-pile-large', 8, size=8.0),
+        'rubble-pile': lambda: rubble_pile('rubble-pile', 7, fit=(4.337, -0.395, 2.164)),
+        'rubble-pile-large': lambda: rubble_pile('rubble-pile-large', 8, size=8.0, fit=(7.685, -0.347, 3.105)),
         'barbed-wire': lambda: barbed_wire('barbed-wire'),
         'sandbags': lambda: sandbags('sandbags'),
         'barricade': lambda: sandbags('barricade', rows=2, planks=True),

@@ -96,8 +96,9 @@ describe('CustomMapSurface', () => {
     expect(column.groundY).toBeCloseTo(8);
     // Deck from 13 m to 15 m with an arch of 0.8 m at the middle
     expect(column.topY).toBeCloseTo(14 + 0.8, 1);
-    expect(surface.getGroundHeightEstimate(geo.lat, geo.lon)).toBeCloseTo(14.8, 1);
     expect(surface.getStreetHeightEstimate(geo.lat, geo.lon, geo.lat, geo.lon, geo.lat, geo.lon, 'bridge')).toBeCloseTo(14.8, 1);
+    // Off the bridge way (a road through the ditch under it) the walker stays on the ground
+    expect(surface.getGroundHeightEstimate(geo.lat, geo.lon)).toBeCloseTo(8, 1);
     // Beside the bridge the ditch
     expect(surface.sampleColumn(frame.sceneX(40), frame.sceneZ(20))!.topY).toBeCloseTo(8);
   });
@@ -158,6 +159,32 @@ describe('CustomMapSurface', () => {
     expect(blocking.buildBlocker(...at(-50, -20), 3)).toBeNull();
     expect(blocking.buildBlocker(...at(24.9, 20), 3)).toBe(BUILD_BLOCKED_OBJECT);
     expect(blocking.buildBlocker(...at(25.1, 20), 3)).toBeNull();
+  });
+
+  it("forbids building on a long building's turned rectangle, not on the disc of half its length", () => {
+    const map = testMap();
+    // A 46 x 15 m school, turned half a radian: footprint 20.9 m, rectangle 41.8 x 15.2 m about (0, 1.3)
+    const school = { id: 's', asset: 'school', x: -40, y: 10, z: 0, rotation: 0.5, scale: 1 };
+    map.objects = [school];
+    const c = Math.cos(school.rotation);
+    const s = Math.sin(school.rotation);
+    // A point in the school's own x and z, on the map (object-ground.ts)
+    const local = (x: number, z: number): [number, number] => {
+      const g = mapToGeo({ x: school.x - (x * c + z * s), y: school.y - x * s + z * c });
+      return [g.lat, g.lon];
+    };
+    const surface = new CustomMapSurface(map, frame);
+    surface.setObjectCatalog([{ id: 'school', footprint: 20.9, blocksBuild: true, height: 14, box: [0, 1.3, 20.9, 7.6] }]);
+    // 4 m off its long side: free for a 3 m tower (the disc reached 21 m, over the street)
+    expect(surface.buildBlocker(...local(0, 1.3 + 7.6 + 4), 3)).toBeNull();
+    expect(surface.buildBlocker(...local(0, 1.3 - 7.6 - 4), 3)).toBeNull();
+    expect(surface.buildBlocker(...local(0, 1.3 + 7.6 + 2), 3)).toBe(BUILD_BLOCKED_OBJECT);
+    // Along its length up to the disc
+    expect(surface.buildBlocker(...local(19, 1.3), 3)).toBe(BUILD_BLOCKED_OBJECT);
+    expect(surface.buildBlocker(...local(24.5, 1.3), 3)).toBeNull();
+    // Without the rectangle (an older catalogue) the disc holds as before
+    surface.setObjectCatalog([{ id: 'school', footprint: 20.9, blocksBuild: true }]);
+    expect(surface.buildBlocker(...local(0, 1.3 + 7.6 + 4), 3)).toBe(BUILD_BLOCKED_OBJECT);
   });
 
   it("knows the roofs of a map's houses for the intro flight's skyline", () => {
@@ -260,6 +287,14 @@ describe('CustomMapWorld', () => {
     // The credit line: the map (with its author where it has one) and the assets' licence, no Google, no OSM
     expect(world.attribution()).toEqual([expect.stringContaining('Test Map'), CUSTOM_MAP_ASSET_CREDIT]);
     expect(world.capabilities).toMatchObject({ realPlace: false, credentials: false, ecef: false, streaming: false, destructible: false });
+  });
+
+  it('credits the data an OSM world was made of beside the map and the assets', () => {
+    const doc = testMap();
+    const attribution = ['Map data © OpenStreetMap contributors', 'Heights: Mapterhorn (mapterhorn.com) and its sources'];
+    doc.meta.source = { kind: 'osm', lat: 49.7, lon: 9.26, address: 'Miltenberg', sideM: 2400, fetchedAt: '2026-10-15T00:00:00Z', dem: 'mapterhorn', zeroM: 120, attribution };
+    const world = new CustomMapWorld({ doc, contentHash: 'abc' }, hqOrigin(doc), 3);
+    expect(world.attribution()).toEqual([expect.stringContaining('Test Map'), ...attribution, CUSTOM_MAP_ASSET_CREDIT]);
   });
 
   it('opens the lanes the player picks before wave 1: the start layout has them, each in its colour slot (TODO E130)', () => {
@@ -380,6 +415,49 @@ describe('CustomMapWorld', () => {
     expect(world.surface.buildBlocker(geo.lat, geo.lon, 1)).toBe(BUILD_BLOCKED_OBJECT);
   });
 
+  it('hands its wave events to the simulation with the objects placed, and shows sky and objects as far as it says (TODO E170)', () => {
+    const doc = testMap();
+    doc.objects = [
+      { id: 'gate', asset: 'barn', x: 20, y: 20, z: 0, rotation: 0, scale: 1.5 },
+      { id: 'wall', asset: 'barn', x: -20, y: 20, z: 0, rotation: 0, scale: 1 },
+    ];
+    doc.environment = { ...doc.environment, sky: 'day', weather: 'clear' };
+    doc.gameplay = {
+      events: [
+        { wave: 3, kind: 'objects', ids: ['gate'], show: true },
+        { wave: 4, kind: 'objects', ids: ['wall'], show: false },
+        { wave: 4, kind: 'weather', weather: 'rain', strength: 0.8 },
+        { wave: 5, kind: 'time', hour: 21.5 },
+        { wave: 2, kind: 'message', text: 'Hold' },
+      ],
+    };
+    const catalog = [{ id: 'barn', category: 'building', footprint: 5, height: 6, blocksBuild: true }];
+    const gate = mapToGeo({ x: 20, y: 20 });
+    const world = new CustomMapWorld({ doc, contentHash: 'abc' }, hqOrigin(doc), 3);
+    world.useCatalog(catalog);
+    // Before wave 3 the gate is hidden: out of the picture and the build blocking, on the run's own copy only
+    expect(world.doc.objects[0].scale).toBe(FALLEN_SCALE);
+    expect(doc.objects[0].scale).toBe(1.5);
+    expect(world.surface.buildBlocker(gate.lat, gate.lon, 1)).toBeNull();
+    // The rules carry the events, the gate at its own scale
+    const events = world.runRules()!.events!;
+    expect(events).toHaveLength(5);
+    expect(events[0]).toEqual({ wave: 3, kind: 'objects', ids: ['gate'], show: true, objects: [{ id: 'gate', ...gate, radius: 7.5 }] });
+
+    world.showWaveEvents(3);
+    expect(world.doc.objects[0].scale).toBe(1.5);
+    expect(world.surface.buildBlocker(gate.lat, gate.lon, 1)).toBe(BUILD_BLOCKED_OBJECT);
+    expect(world.doc.environment.weather).toBe('clear');
+    world.showWaveEvents(5);
+    expect(world.doc.objects[1].scale).toBe(FALLEN_SCALE);
+    expect(world.doc.environment).toMatchObject({ weather: 'rain', weatherStrength: 0.8, sky: 'night' });
+    expect(doc.environment.weather).toBe('clear');
+    // Back (a restore): as before
+    world.showWaveEvents(1);
+    expect(world.doc.objects.map((o) => o.scale)).toEqual([FALLEN_SCALE, 1]);
+    expect(world.doc.environment).toEqual(doc.environment);
+  });
+
   it('has no minimap picture before the map stands', () => {
     const doc = testMap();
     expect(new CustomMapWorld({ doc, contentHash: 'abc' }, hqOrigin(doc), 3).minimap()).toBeNull();
@@ -445,7 +523,7 @@ describe('CustomMapSurface bridge decks', () => {
     const frame = new CustomMapFrame();
     const origin = hqOrigin(doc);
     frame.setOrigin(origin.lat, origin.lon);
-    return new CustomMapSurface(doc, frame).walkHeightAtMap(40, 0);
+    return new CustomMapSurface(doc, frame).sampleColumn(frame.sceneX(40), frame.sceneZ(0))!.topY;
   };
 
   it('lifts a deck only over water it crosses, not to a lake elsewhere on the map', () => {

@@ -405,6 +405,283 @@ describe('TowerCombatService', () => {
   });
 
   // ────────────────────────────────────────────────────────────────
+  // Laser: heats up on one target, cold on a new one
+  // ────────────────────────────────────────────────────────────────
+  describe('updateLaserTowers', () => {
+    const towerPos = { lat: 48.0, lon: 9.0, height: 0 };
+
+    function enemyNorthOf(meters: number, id = `e-${meters}`) {
+      return {
+        id,
+        alive: true,
+        health: { hp: 1000 },
+        position: { lat: towerPos.lat + meters / METERS_PER_DEGREE_LAT, lon: towerPos.lon },
+        typeConfig: { id: 'zombie', isAirUnit: false, heightOffset: 0, scale: 1 },
+        heightOffset: 0,
+        transform: { terrainHeight: 0 },
+        movement: { getPathProgress: () => 0.5 },
+      };
+    }
+
+    function setup() {
+      const enemies = [enemyNorthOf(30)];
+      mockInjections['GlobalRouteGridService'] = {
+        getEnemiesForTower: (_cells: unknown[], out: unknown[]) => {
+          out.length = 0;
+          out.push(...enemies);
+          return out;
+        },
+        getBodyEnemies: () => [],
+        isPositionVisibleFromTower: () => true,
+      };
+      const applyBeamDamage = vi.fn();
+      mockInjections['CombatEffectService'] = { applyBeamDamage };
+      service = new TowerCombatService();
+      service.initialize(NO_RESEARCH);
+      const tower = new Tower(towerPos, 'sentinel');
+      tower.losReady = true;
+      tower.visibleCells = [{} as never];
+      // Turned to the north already: the beam is on from the first step
+      tower.aim.current = 0;
+      const towerManager = { getAllActive: () => [tower] };
+      const step = (ms = 16) => {
+        service.updateLaserTowers(ms, towerManager as never, 1000);
+        service.flushBeams();
+      };
+      return { tower, enemies, applyBeamDamage, step };
+    }
+
+    it('starts cold and heats up to the hot damage over the ramp', () => {
+      const { tower, applyBeamDamage, step } = setup();
+      const laser = tower.typeConfig.laser!;
+      step();
+      expect(applyBeamDamage.mock.calls[0][1]).toBeCloseTo(tower.typeConfig.damage * 0.016, 9);
+      for (let t = 16; t <= laser.rampSeconds * 1000 + 100; t += 16) step();
+      const last = applyBeamDamage.mock.calls.at(-1)!;
+      expect(last[1]).toBeCloseTo(tower.typeConfig.damage * laser.maxFactor * 0.016, 9);
+      expect(sink.laserBeams.startBeam).toHaveBeenLastCalledWith(tower.id, expect.anything(), expect.anything(), 1);
+    });
+
+    it('starts cold again on a new target', () => {
+      const { tower, enemies, applyBeamDamage, step } = setup();
+      for (let i = 0; i < 100; i++) step();
+      expect(applyBeamDamage.mock.calls.at(-1)![1]).toBeGreaterThan(tower.typeConfig.damage * 0.016 * 1.5);
+      enemies[0].alive = false;
+      enemies.push(enemyNorthOf(31, 'other'));
+      step();
+      expect(applyBeamDamage.mock.calls.at(-1)![0].id).toBe('other');
+      expect(applyBeamDamage.mock.calls.at(-1)![1]).toBeCloseTo(tower.typeConfig.damage * 0.016, 9);
+    });
+
+    it('puts the beam out without a target and forgets the heat at the wave end', () => {
+      const { tower, enemies, step } = setup();
+      step();
+      enemies[0].alive = false;
+      enemies.length = 0;
+      step();
+      expect(sink.laserBeams.stopBeam).toHaveBeenCalledWith(tower.id);
+      enemies.push(enemyNorthOf(30, 'next'));
+      step();
+      expect(tower.laserHold?.targetId).toBe('next');
+      service.stopAllBeams([tower]);
+      expect(tower.laserHold).toBeNull();
+    });
+
+    it('carries the heat in the tower state: a run restored mid-beam deals the same as one that never stopped', () => {
+      const a = setup();
+      for (let i = 0; i < 80; i++) a.step();
+      const saved = a.tower.getSimState();
+      expect(saved.laserHold).toEqual({ targetId: 'e-30', heldMs: 80 * 16 });
+      for (let i = 0; i < 40; i++) a.step();
+      const straight = a.applyBeamDamage.mock.calls.slice(80).map((call) => call[1]);
+
+      // Another simulation with the same enemy, the tower restored from the state taken at step 80
+      const b = setup();
+      b.tower.restoreSimState(saved);
+      for (let i = 0; i < 40; i++) b.step();
+      expect(b.applyBeamDamage.mock.calls.map((call) => call[1])).toEqual(straight);
+      // Without the heat it would have started cold
+      expect(straight[0]).toBeGreaterThan(b.tower.typeConfig.damage * 0.016 * 1.5);
+    });
+
+    it('fires only once the turret is aligned', () => {
+      const { tower, applyBeamDamage, step } = setup();
+      tower.aim.current = Math.PI / 2;
+      step();
+      expect(applyBeamDamage).not.toHaveBeenCalled();
+      expect(sink.laserBeams.startBeam).not.toHaveBeenCalled();
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────
+  // Saw: an arm per target, by distance
+  // ────────────────────────────────────────────────────────────────
+  describe('updateSawTowers', () => {
+    const towerPos = { lat: 48.0, lon: 9.0, height: 0 };
+
+    function enemyNorthOf(meters: number, id = `e-${meters}`) {
+      return {
+        id,
+        alive: true,
+        health: { hp: 100 },
+        position: { lat: towerPos.lat + meters / METERS_PER_DEGREE_LAT, lon: towerPos.lon },
+        typeConfig: { id: 'zombie', isAirUnit: false, heightOffset: 0, scale: 1 },
+        heightOffset: 0,
+        transform: { terrainHeight: 0 },
+        movement: { getPathProgress: () => 0.5 },
+      };
+    }
+
+    function setup(enemies: ReturnType<typeof enemyNorthOf>[]) {
+      mockInjections['GlobalRouteGridService'] = {
+        getEnemiesForTower: (_cells: unknown[], out: unknown[]) => {
+          out.length = 0;
+          out.push(...enemies);
+          return out;
+        },
+        getBodyEnemies: () => [],
+        isPositionVisibleFromTower: () => true,
+      };
+      const applyBeamDamage = vi.fn();
+      mockInjections['CombatEffectService'] = { applyBeamDamage };
+      service = new TowerCombatService();
+      service.initialize(NO_RESEARCH);
+      const tower = new Tower(towerPos, 'chainsaw');
+      tower.losReady = true;
+      tower.visibleCells = [{} as never];
+      const towerManager = { getAllActive: () => [tower] };
+      const step = () => {
+        service.updateSawTowers(16, towerManager as never, 1000);
+        service.flushBeams();
+      };
+      /** The enemy each arm sawed in the last step, in arm order */
+      const sawed = () => applyBeamDamage.mock.calls.slice(-3).map((call) => (call[0] as { id: string }).id);
+      return { tower, applyBeamDamage, step, sawed };
+    }
+
+    it('gives the nearest to the first arm, the farthest to the last, and leaves out what is beyond the arms', () => {
+      const { tower, applyBeamDamage, step, sawed } = setup([enemyNorthOf(12), enemyNorthOf(5), enemyNorthOf(9), enemyNorthOf(20)]);
+      step();
+      expect(sawed()).toEqual(['e-5', 'e-9', 'e-12']);
+      expect(applyBeamDamage.mock.calls[0][1]).toBeCloseTo(tower.typeConfig.damage * 0.016, 9);
+      expect(sink.towers.setSawTargets).toHaveBeenLastCalledWith(tower.id, [expect.anything(), expect.anything(), expect.anything()]);
+    });
+
+    it('sends the free arms to the farthest of fewer targets', () => {
+      const { step, sawed } = setup([enemyNorthOf(10), enemyNorthOf(6)]);
+      step();
+      expect(sawed()).toEqual(['e-6', 'e-10', 'e-10']);
+    });
+
+    it('takes equal distances by id, the same on every client', () => {
+      const { step, sawed } = setup([enemyNorthOf(8, 'b'), enemyNorthOf(8, 'a'), enemyNorthOf(8, 'c')]);
+      step();
+      expect(sawed()).toEqual(['a', 'b', 'c']);
+    });
+
+    it('docks the arms once nothing is in reach, and at the wave end', () => {
+      const enemies = [enemyNorthOf(6)];
+      const { tower, step } = setup(enemies);
+      step();
+      enemies.length = 0;
+      step();
+      expect(sink.towers.setSawTargets).toHaveBeenLastCalledWith(tower.id, []);
+      enemies.push(enemyNorthOf(7));
+      step();
+      service.stopAllBeams();
+      service.flushBeams();
+      expect(sink.towers.setSawTargets).toHaveBeenLastCalledWith(tower.id, []);
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────
+  // Stream: spins up, hits its line, runs down
+  // ────────────────────────────────────────────────────────────────
+  describe('updateStreamTowers', () => {
+    const towerPos = { lat: 48.0, lon: 9.0, height: 0 };
+
+    function setup() {
+      const enemy = {
+        id: 'e-20',
+        alive: true,
+        health: { hp: 1000 },
+        position: { lat: towerPos.lat + 20 / METERS_PER_DEGREE_LAT, lon: towerPos.lon },
+        typeConfig: { id: 'zombie', isAirUnit: false, heightOffset: 0, scale: 1 },
+        heightOffset: 0,
+        transform: { terrainHeight: 0 },
+        movement: { getPathProgress: () => 0.5 },
+      };
+      const enemies: (typeof enemy)[] = [enemy];
+      mockInjections['GlobalRouteGridService'] = {
+        getEnemiesForTower: (_cells: unknown[], out: unknown[]) => {
+          out.length = 0;
+          out.push(...enemies);
+          return out;
+        },
+        getBodyEnemies: () => [],
+        isPositionVisibleFromTower: () => true,
+      };
+      const applyBeamDamage = vi.fn();
+      mockInjections['CombatEffectService'] = { applyBeamDamage };
+      service = new TowerCombatService();
+      service.initialize(NO_RESEARCH);
+      // The line needs real vector math, which the three mock lacks: one bystander on it
+      const bystander = { ...enemy, id: 'on-the-line' };
+      (service as unknown as { getEnemiesInCone: () => unknown[] }).getEnemiesInCone = () => [bystander];
+      const tower = new Tower(towerPos, 'shawarma');
+      tower.losReady = true;
+      tower.visibleCells = [{} as never];
+      tower.aim.current = 0;
+      const towerManager = { getAllActive: () => [tower] };
+      const step = () => {
+        service.updateStreamTowers(16, towerManager as never, 1000);
+        service.flushBeams();
+      };
+      return { tower, enemy, enemies, applyBeamDamage, step };
+    }
+
+    it('spins up from a standstill and deals its damage with the drive, to the target and its line', () => {
+      const { tower, applyBeamDamage, step } = setup();
+      const full = tower.typeConfig.damage * 0.016;
+      step();
+      const ids = applyBeamDamage.mock.calls.map((call) => (call[0] as { id: string }).id);
+      expect(ids).toEqual(['on-the-line', 'e-20']);
+      const drive = 0.016 / tower.typeConfig.stream!.spinUpSeconds;
+      expect(applyBeamDamage.mock.calls[0][1]).toBeCloseTo(full * drive, 9);
+      for (let i = 0; i < 200; i++) step();
+      expect(applyBeamDamage.mock.calls.at(-1)![1]).toBeCloseTo(full, 9);
+      expect(sink.towers.setStream).toHaveBeenLastCalledWith(tower.id, expect.anything(), 1);
+    });
+
+    it('runs down without a target and stops at 0, and stands still at the wave end', () => {
+      const { tower, enemy, enemies, step } = setup();
+      for (let i = 0; i < 50; i++) step();
+      enemy.alive = false;
+      enemies.length = 0;
+      step();
+      expect(sink.towers.setStream).toHaveBeenLastCalledWith(tower.id, null, expect.any(Number));
+      for (let i = 0; i < 200; i++) step();
+      expect(sink.towers.setStream).toHaveBeenLastCalledWith(tower.id, null, 0);
+      expect(tower.streamDrive).toBe(0);
+    });
+
+    it('carries the drive in the tower state, so a restored run goes on spun up', () => {
+      const a = setup();
+      for (let i = 0; i < 60; i++) a.step();
+      const saved = a.tower.getSimState();
+      expect(saved.streamDrive).toBeCloseTo((60 * 0.016) / a.tower.typeConfig.stream!.spinUpSeconds, 9);
+      for (let i = 0; i < 20; i++) a.step();
+      const straight = a.applyBeamDamage.mock.calls.slice(120).map((call) => call[1]);
+      const b = setup();
+      b.tower.restoreSimState(saved);
+      for (let i = 0; i < 20; i++) b.step();
+      expect(b.applyBeamDamage.mock.calls.map((call) => call[1])).toEqual(straight);
+      service.stopAllBeams([b.tower]);
+      expect(b.tower.streamDrive).toBe(0);
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────
   // Range upgrades reach the wake check and the radius fallback
   // ────────────────────────────────────────────────────────────────
   describe('upgraded range', () => {

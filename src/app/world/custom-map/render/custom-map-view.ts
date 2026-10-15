@@ -29,10 +29,13 @@ import { mapToScene, sceneToMap } from './map-coords';
 import { CustomMapEnvironment } from './environment/map-environment';
 import { fitShadowBox } from './environment/shadow-fit';
 import { EffectLayer, glowStandIn } from './effects/effect-layer';
-import type { Flock } from './effects/bird-flocks';
+import { circleFlock, type Flock } from './effects/bird-flocks';
+import { LifeMovers } from './effects/life-movers';
+import { LifeHaze } from './effects/life-haze';
+import { areaShown, lifeSwitches } from '../map-life';
 import type { MapBiome } from '../map-document';
 import { CoverMap } from './environment/cover-map';
-import { setPlantSway } from './environment/wind';
+import { setPlantSway, WIND_UNIFORMS } from './environment/wind';
 import { MapObjectLayer, type ObjectHit } from './objects/object-layer';
 import { IMPOSTOR_SUN } from './objects/impostor';
 import { BridgeLayer } from './paths/path-bridges';
@@ -40,7 +43,6 @@ import { LAVA_GLOW_UNIFORMS } from './environment/height-fog';
 import { MapTerrainLayer } from './terrain/map-terrain';
 import { ApronField, EDGE_TREE_BAND, edgeTreeObjects } from './objects/edge-trees';
 import { NIGHT_WINDOW_UNIFORMS } from './objects/night-windows';
-import { BACKDROP_HEIGHT } from './terrain/terrain-apron';
 import type { HeightTexture } from './terrain/height-texture';
 import { RiverSurface, sampleRiver } from './water/river-surface';
 import { WaterSurface } from './water/water-surface';
@@ -153,6 +155,12 @@ export class CustomMapView {
   private edgeTreesDue: ReturnType<typeof setTimeout> | null = null;
   private readonly bridges: BridgeLayer;
   private readonly effects: EffectLayer;
+  /** Boats drifting on the water and movers going over the ground, of the life areas (effects/life-movers.ts) */
+  private readonly movers: LifeMovers;
+  /** Heat shimmer over the life areas of hot ground (effects/life-haze.ts), with the lava glow effect */
+  private readonly haze: LifeHaze;
+  /** The quality level's share of the map's life (render-quality.ts `life`) */
+  private lifeShare = 1;
   /** Terrain and roof tops for the weather; rebuilt lazily (coverDirty) */
   private readonly cover: CoverMap;
   private coverDirty = true;
@@ -161,14 +169,11 @@ export class CustomMapView {
   private readonly hitPoint = new Vector3();
   private readonly mapPoint = { x: 0, y: 0 };
   private readonly focusPoint = new Vector3();
-  private readonly grassCenter = new Vector3();
   /** Centre of the ground the camera sees, the sun's shadow box's (group and scene space) */
   private readonly shadowCenter = new Vector3();
   private readonly worldShadowCenter = new Vector3();
   /** Object and terrain versions the sun's shadow map was last rendered for */
   private shadowVersion = -1;
-  /** Beyond this camera distance to its focus the grass blades are not drawn (the quality level's; 140 m in High) */
-  private grassDistance = 140;
   private readonly viewRay = new Ray();
   /** The switchable effects (map-effects.ts) and the frame copy refraction reads */
   private mapEffects: MapEffects = { ...NO_MAP_EFFECTS };
@@ -177,9 +182,10 @@ export class CustomMapView {
   private readonly reflection = new WaterReflection(() => [
     ...this.waters.flatMap((w) => (w ? [w.object] : [])),
     ...this.rivers.map((r) => r.mesh),
-    this.terrain.grass.mesh,
+    ...this.terrain.grass.meshes,
     this.decals.mesh,
     this.effects.group,
+    this.movers.group,
     ...this.objects.decorMeshes(),
   ], () => [this.group, this.losBlockers, this.environment.lights, this.environment.skyDome.mesh]);
   /** The body the reflection mirrors, picked a few times a second */
@@ -217,10 +223,10 @@ export class CustomMapView {
     this.losBlockers.name = 'custom-map-los-blockers';
     this.group.add(this.losBlockers);
 
-    this.terrain = new MapTerrainLayer(t, this.heights, BACKDROP_HEIGHT[doc.environment.biome ?? 'temperate']);
+    this.terrain = new MapTerrainLayer(t, this.heights, doc.environment.biome ?? 'temperate');
     this.losBlockers.add(this.terrain.chunks.group);
     this.group.add(this.terrain.apron);
-    if (options.grass !== false) this.group.add(this.terrain.grass.mesh);
+    if (options.grass !== false) this.group.add(...this.terrain.grass.meshes);
 
     this.mapEffects = { ...NO_MAP_EFFECTS, ...options.effects };
     this.environment = new CustomMapEnvironment(doc.environment);
@@ -246,7 +252,18 @@ export class CustomMapView {
     this.group.add(this.edgeTrees.group);
     this.bridges = new BridgeLayer(this.heights, assets);
     this.group.add(this.bridges.group);
-    this.effects = new EffectLayer(this.heights, (x, y) => this.waterLevelAt(x, y));
+    this.effects = new EffectLayer(
+      this.heights,
+      (x, y) => this.waterLevelAt(x, y),
+      (x, y) => waterLevelAt(this.doc.terrain, x, y, this.heights.heightAt(x, y) - 1, 'lava') !== null,
+    );
+    this.effects.setLife(doc.life);
+    this.movers = new LifeMovers(assets, this.heights, (x, y) => this.waterLevelAt(x, y));
+    this.group.add(this.movers.group);
+    this.haze = new LifeHaze(this.heights);
+    this.group.add(this.haze.group);
+    this.refreshHaze();
+    this.waveBanners();
     this.decals = new GroundDecals(this.terrain.heightTexture);
     this.group.add(this.decals.mesh);
     this.group.add(this.effects.group);
@@ -570,15 +587,16 @@ export class CustomMapView {
     // rendered again each frame (shimmer)
     const shadowRadius = this.environment.focus(this.group.localToWorld(this.worldShadowCenter.copy(this.shadowCenter)), fit);
     this.effects.update(clock, this.focusPoint);
+    this.movers.update(clock);
     this.objects.shadowRadius = shadowRadius * 1.2;
     this.objects.update(dtSeconds, camera, this.shadowCenter);
     this.edgeTrees.shadowRadius = this.objects.shadowRadius;
     this.edgeTrees.update(dtSeconds, camera, this.shadowCenter);
     IMPOSTOR_SUN.uImpSun.value.copy(this.environment.sunDir);
-    // Grass between the camera's foot and the focus; from far up blades are below a pixel, skip them
-    this.grassCenter.copy(this.camPos).lerp(this.focusPoint, 0.6);
-    this.terrain.grass.update(clock, this.grassCenter);
-    this.terrain.grass.setNear(reach < this.grassDistance);
+    // Grass from the camera's foot towards the focus (a low camera looking far, a tower's view, keeps
+    // blades at its feet), a far ring beyond; each thins out as the camera draws away from its focus
+    const camHeight = this.camPos.y - this.heights.heightAt(-this.camPos.x, this.camPos.z);
+    this.terrain.grass.update(this.camPos, this.focusPoint, camHeight, reach);
     // The weather's cover: at most four times a second, and only when something changed
     this.coverAge += dtSeconds;
     if (this.coverDirty && this.coverAge > 0.25) void this.refreshCover();
@@ -610,8 +628,17 @@ export class CustomMapView {
     if (!rect) this.updateWater();
     else this.refreshWaterNear(rect);
     if (!rect || this.bridgeNear(rect)) void this.refreshBridges();
+    // The apron beyond the border follows its heights, the mirrored trees the apron
+    if (!rect || this.nearBorder(rect)) this.edgeTreesLater(this.doc.objects);
     this.environment.invalidateShadows();
     this.refreshFarShadow(true);
+  }
+
+  /** Whether a rectangle reaches into the border band whose trees are mirrored beyond it */
+  private nearBorder(rect: MapRect): boolean {
+    const hw = this.doc.terrain.width / 2 - EDGE_TREE_BAND;
+    const hd = this.doc.terrain.depth / 2 - EDGE_TREE_BAND;
+    return rect.minX < -hw || rect.maxX > hw || rect.minY < -hd || rect.maxY > hd;
   }
 
   /** Bakes the far shadow cascade again when it is on: right away, or after edits pause for 0.4 s */
@@ -726,8 +753,9 @@ export class CustomMapView {
       return;
     }
     this.terrain.refreshWater(this.doc.paths);
-    // Rain stops and grass ends at the new surfaces
+    // Rain stops and grass ends at the new surfaces, the mirrored trees beyond the border at the sea
     this.coverDirty = true;
+    this.edgeTreesLater(this.doc.objects);
     const bodies = [this.doc.terrain.water, ...(this.doc.terrain.waterBodies ?? [])];
     // Slot 0 is the main body (it may be null); further bodies follow
     while (this.waters.length > bodies.length) this.waters.pop()?.dispose();
@@ -777,6 +805,7 @@ export class CustomMapView {
     else this.terrain.refreshWaterMask(g);
     surface.set(water, border ? this.terrain.apronProfile : null, g);
     this.coverDirty = true;
+    if (border) this.edgeTreesLater(this.doc.objects);
     if (wasLava || water.kind === 'lava') this.effects.setLavaLights(this.lavaLightPoints());
     this.objects.refreshHeights(rect, true);
     if (this.bridgeNear(rect)) void this.refreshBridges();
@@ -859,7 +888,7 @@ export class CustomMapView {
     this.doc.environment = env;
     const sun = this.environment.sunDir.clone();
     this.environment.set(env);
-    this.terrain.setBackdrop(BACKDROP_HEIGHT[env.biome ?? 'temperate']);
+    this.terrain.setBiome(env.biome ?? 'temperate');
     // The far shadow only follows the sun and the backdrop's mountains (a sky, a weather or the fog leave it), spread
     // over frames once the sun stands: the whole bake (20 to 60 ms, 80 in a dev build) held every step of a sun slider
     // and the click of a sky
@@ -871,7 +900,37 @@ export class CustomMapView {
     NIGHT_WINDOW_UNIFORMS.uNightWindows.value = this.environment.darkness;
   }
 
-  /** Where glowing lava lights its surroundings: one point per 40 m patch of a lava body, every 30 m along lava flows */
+  /**
+   * The map's life changed (the document's `life`: switches, density,
+   * areas): effects, sparks over lava and the map's own fireflies and birds
+   * follow
+   */
+  setLife(): void {
+    this.effects.setLife(this.doc.life);
+    void this.refreshEffects();
+    this.effects.setLavaLights(this.lavaLightPoints());
+    void this.refreshMovers();
+    this.waveBanners();
+    this.refreshHaze();
+  }
+
+  /** Heat shimmer over the life areas of hot ground, on levels that show them and with the lava glow effect on */
+  private refreshHaze(): void {
+    const shown = (this.doc.life?.areas ?? []).filter((a) => a.kind === 'haze' && areaShown(a, this.lifeShare));
+    this.haze.set(shown, this.mapEffects.lavaGlow && lifeSwitches(this.doc.life).density > 0 ? this.sceneCopy : null);
+  }
+
+  /** The life areas' boats and movers, on levels that show them */
+  private refreshMovers(): Promise<void> {
+    const shown = (this.doc.life?.areas ?? []).filter((a) => (a.kind === 'boats' || a.kind === 'movers') && areaShown(a, this.lifeShare));
+    return this.movers.set(shown, lifeSwitches(this.doc.life).density);
+  }
+
+  /** Banners' cloth waves on maps that ask for it (life.flags), on levels that show the map's life */
+  private waveBanners(): void {
+    WIND_UNIFORMS.uClothWave.value = lifeSwitches(this.doc.life).flags && this.lifeShare > 0 ? 1 : 0;
+  }
+
   /**
    * Lava's reach on the land around it: lights, embers and smoke over it
    * (effects), and the baked closeness the ground turns to cooled rock and
@@ -1002,20 +1061,25 @@ export class CustomMapView {
     }
     candidates.sort((a, b) => a.score - b.score || a.x - b.x || a.y - b.y);
     const out: Flock[] = [];
+    const centres: { x: number; y: number }[] = [];
     for (const c of candidates) {
       if (out.length >= wanted) break;
-      if (out.some((o) => Math.hypot(-o.center.x - c.x, o.center.z - c.y) < 180)) continue;
+      if (centres.some((o) => Math.hypot(o.x - c.x, o.y - c.y) < 180)) continue;
       const k = out.length;
-      out.push({
-        center: mapToScene(c.x, c.y, f.heightAt(c.x, c.y) + 45 + 12 * k, new Vector3()),
-        radius: 40 + 8 * (k % 3),
-        birds: 9 + (k % 3) * 2,
-        seed: ((Math.abs(Math.sin(c.x * 12.9898 + c.y * 78.233)) * 43758.5453) % 1) || 0.37,
-      });
+      centres.push(c);
+      out.push(
+        circleFlock(
+          mapToScene(c.x, c.y, f.heightAt(c.x, c.y) + 45 + 12 * k, new Vector3()),
+          40 + 8 * (k % 3),
+          9 + (k % 3) * 2,
+          ((Math.abs(Math.sin(c.x * 12.9898 + c.y * 78.233)) * 43758.5453) % 1) || 0.37,
+        ),
+      );
     }
     return out;
   }
 
+  /** Where glowing lava lights its surroundings: one point per 40 m patch of a lava body, every 30 m along lava flows */
   private lavaLightPoints(): Vector3[] {
     const t = this.doc.terrain;
     const f = this.heights;
@@ -1132,10 +1196,19 @@ export class CustomMapView {
     this.setEffects({ refraction: q.refraction, seaWaves: q.seaWaves, lavaGlow: q.lavaGlow, shadowCascade: q.shadowCascade, waterDetail: q.waterDetail, reflection: q.waterReflection > 0 });
     this.objects.setDetail({ lodBias: q.lodBias, impostorFrom: q.impostorFrom });
     this.edgeTrees.setDetail({ lodBias: q.lodBias, impostorFrom: q.impostorFrom });
-    this.terrain.grass.setBlades(q.grassBlades);
-    this.grassDistance = q.grassDistance;
+    this.terrain.grass.setQuality(q.grassBlades, q.grassDistance, q.grassFarBlades, q.grassFarDistance);
     this.environment.weather.setShare(q.particles);
-    if (this.effects.setQuality({ particles: q.particles, pointLights: q.pointLights })) void this.refreshEffects();
+    const lifeChanged = q.life !== this.lifeShare;
+    this.lifeShare = q.life;
+    if (this.effects.setQuality({ particles: q.particles, pointLights: q.pointLights, life: q.life })) {
+      void this.refreshEffects();
+      this.effects.setLavaLights(this.lavaLightPoints());
+    }
+    if (lifeChanged) {
+      void this.refreshMovers();
+      this.waveBanners();
+      this.refreshHaze();
+    }
   }
 
   /** The border's trees mirrored onto the apron (edge-trees.ts), from `doc.objects` */
@@ -1144,7 +1217,9 @@ export class CustomMapView {
     if (this.disposed) return;
     const trees = new Set(catalog.objects.filter((e) => e.category === 'tree').map((e) => e.id));
     const t = this.doc.terrain;
-    await this.edgeTrees.setObjects(edgeTreeObjects(this.doc.objects, (a) => trees.has(a), t.width, t.depth));
+    // None in the sea beyond a coast: from above they stood in the water as dark cones with their shadows
+    const apron = this.terrain.apronProfile;
+    await this.edgeTrees.setObjects(edgeTreeObjects(this.doc.objects, (a) => trees.has(a), t.width, t.depth, (x, y) => !apron.underWater(x, y, 0.3)));
   }
 
   /** Again once an edit pauses, when it touched the border's band */
@@ -1243,6 +1318,7 @@ export class CustomMapView {
     this.mapEffects = { ...this.mapEffects, ...effects };
     this.applyEffects();
     if (this.mapEffects.shadowCascade !== cascade) this.applyShadowCascade();
+    this.refreshHaze();
   }
 
   private applyShadowCascade(): void {
@@ -1278,6 +1354,9 @@ export class CustomMapView {
     for (const w of this.waters) w?.dispose();
     for (const r of this.rivers) r.dispose();
     this.effects.dispose();
+    this.movers.dispose();
+    this.haze.dispose();
+    WIND_UNIFORMS.uClothWave.value = 0;
     this.cover.dispose();
     this.objects.dispose();
     this.edgeTrees.dispose();
@@ -1321,6 +1400,7 @@ export class CustomMapView {
       this.objects.setObjects(this.doc.objects),
       this.refreshEdgeTrees(),
       this.refreshEffects(),
+      this.refreshMovers(),
       this.refreshContact(),
       this.bridges.set(this.doc.paths, this.doc.terrain),
       this.refreshDecals(),

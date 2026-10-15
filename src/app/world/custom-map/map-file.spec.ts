@@ -228,6 +228,70 @@ describe('map file', () => {
     expect(validateMapDocument(doc)).toContain('gameplay.difficulty must be 50 to 200 (percent)');
   });
 
+  it('carries the prefabs a map keeps for its editor, outside the content hash (TODO E170)', async () => {
+    const doc = sample();
+    const hash = await contentHash(doc);
+    const piece = {
+      width: 8, depth: 6, cell: 2, columns: 5, rows: 4, heights: new Float32Array(20).fill(0.5),
+      paintCell: 1, paintColumns: 8, paintRows: 6, materials: ['grass', 'dirt'], paint: new Uint8Array(96).fill(7),
+      water: { mask: new Uint8Array(20).fill(255, 0, 3), level: -0.2, color: '#335566' },
+      objects: [{ asset: 'tree-oak', x: 1, y: 0, z: 0, rotation: 0, scale: 1 }], roads: { nodes: [], edges: [] }, prefab: true,
+    };
+    doc.prefabs = [
+      { id: 'pf-1', name: 'Grove', createdAt: '2026-10-15T00:00:00Z', preview: null, stamp: piece },
+      { id: 'pf-2', name: 'Dry', createdAt: '2026-10-15T00:00:00Z', preview: 'data:image/png;base64,AA', stamp: { ...piece, water: null } },
+    ];
+    expect(validateMapDocument(doc)).toEqual([]);
+    expect(await contentHash(doc)).toBe(hash);
+    const bytes = packMapFile(doc);
+    expect(Object.keys(unzipSync(bytes)).filter((n) => n.startsWith('prefabs/')).sort()).toEqual([
+      'prefabs/0/heights.f32', 'prefabs/0/paint.u8', 'prefabs/0/water.u8', 'prefabs/1/heights.f32', 'prefabs/1/paint.u8',
+    ]);
+    const { doc: back } = unpackMapFile(bytes);
+    expect(back.prefabs).toEqual(doc.prefabs);
+    expect(back.prefabs![0].stamp.heights).toBeInstanceOf(Float32Array);
+    expect(await contentHash(back)).toBe(hash);
+    // A map without prefabs writes no key
+    delete back.prefabs;
+    expect(JSON.parse(new TextDecoder().decode(unzipSync(packMapFile(back))['map.json']))).not.toHaveProperty('prefabs');
+    doc.prefabs[1].stamp = { ...piece, paint: new Uint8Array(3) };
+    expect(validateMapDocument(doc)).toContain('prefab 2: paint does not match its grid');
+  });
+
+  it('carries the wave events in the rules and checks their shape (TODO E170)', async () => {
+    const doc = sample();
+    const hash = await contentHash(doc);
+    doc.gameplay = {
+      events: [
+        { wave: 3, kind: 'message', text: 'The gate opens' },
+        { wave: 3, kind: 'objects', ids: ['o1'], show: false },
+        { wave: 5, kind: 'weather', weather: 'snow', strength: 0.4 },
+        { wave: 6, kind: 'time', hour: 20.5 },
+        { wave: 8, kind: 'portal', spawn: 's1' },
+      ],
+    };
+    expect(validateMapDocument(doc)).toEqual([]);
+    const { doc: back } = unpackMapFile(packMapFile(doc));
+    expect(back.gameplay).toEqual(doc.gameplay);
+    expect(await contentHash(back)).not.toBe(hash);
+    doc.gameplay.events = [
+      { wave: 0, kind: 'message', text: 'x' },
+      { wave: 2, kind: 'message', text: '' },
+      { wave: 2, kind: 'weather', weather: 'hail' as never },
+      { wave: 2, kind: 'time', hour: 30 },
+      { wave: 2, kind: 'objects', ids: [], show: true },
+      { wave: 2, kind: 'party' } as never,
+    ];
+    expect(validateMapDocument(doc)).toEqual([
+      'wave event 1: wave must be a whole number from 1 to 200',
+      'wave event 2: a message of 1 to 200 characters',
+      'wave event 3: weather must be clear, rain, snow or fog',
+      'wave event 4: hour must be 0 to 24',
+      'wave event 5 names 1 to 500 objects',
+      'wave event 6: kind party is unknown',
+    ]);
+  });
+
   it('carries an image sky, an optional id; an old map has none and keeps its hash (TODO E172)', async () => {
     const doc = sample();
     const hash = await contentHash(doc);
@@ -244,6 +308,18 @@ describe('map file', () => {
     expect(validateMapDocument(doc)).toEqual([]);
     doc.environment.skyImage = 7 as never;
     expect(validateMapDocument(doc)).toContain('environment skyImage must be a sky id');
+  });
+
+  it('carries a planet in the sky, an optional setting; an old map keeps its hash', async () => {
+    const doc = sample();
+    const hash = await contentHash(doc);
+    doc.environment.planet = { azimuth: 20, elevation: 18, size: 9 };
+    const { doc: back } = unpackMapFile(packMapFile(doc));
+    expect(back.environment.planet).toEqual({ azimuth: 20, elevation: 18, size: 9 });
+    doc.environment = { ...doc.environment, planet: undefined };
+    expect(await contentHash(doc)).toBe(hash);
+    doc.environment.planet = { azimuth: 20, elevation: 18, size: -1 };
+    expect(validateMapDocument(doc)).toContain('environment planet needs azimuth, elevation and a size of 0 or more');
   });
 
   it('validates the grid and the references', () => {

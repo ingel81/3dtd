@@ -1,3 +1,4 @@
+import { releasedTowerTypes } from '../../configs/release';
 import {
   ARMOR_TYPES,
   ArmorType,
@@ -11,7 +12,7 @@ import {
   getEffectiveness,
 } from '../../configs/combat/damage-matrix.config';
 import { ARMOR_TYPE_UI, DAMAGE_TYPE_UI } from '../../configs/combat/combat-ui.config';
-import { getAllTowerTypes, TowerTypeConfig, TowerTypeId } from '../../configs/tower-types.config';
+import { TowerTypeConfig, TowerTypeId } from '../../configs/tower-types.config';
 import { EnemyTypeConfig, getAllEnemyTypes } from '../../configs/enemy-types.config';
 
 /**
@@ -97,7 +98,7 @@ function isCombatTower(tower: TowerTypeConfig): boolean {
  */
 export function buildDamageMatrixRows(
   isUnlocked: (id: TowerTypeId) => boolean = () => true,
-  towers: readonly TowerTypeConfig[] = getAllTowerTypes(),
+  towers: readonly TowerTypeConfig[] = releasedTowerTypes(),
   matrix: DamageMatrix = DAMAGE_MATRIX,
 ): DamageMatrixRow[] {
   return towers
@@ -125,7 +126,7 @@ export function buildDamageMatrixRows(
 /** Gesperrte Kampf-Tower, für den Forschungshinweis unter der Tabelle. */
 export function countLockedTowers(
   isUnlocked: (id: TowerTypeId) => boolean,
-  towers: readonly TowerTypeConfig[] = getAllTowerTypes(),
+  towers: readonly TowerTypeConfig[] = releasedTowerTypes(),
 ): number {
   return towers.filter((tower) => isCombatTower(tower) && !isUnlocked(tower.id)).length;
 }

@@ -4,7 +4,7 @@ import { PROJECTILE_SOUNDS } from '../configs/projectile-types.config';
 /**
  * The sounds the simulation plays by id (audio:play events and
  * `spatialAudio.*` ops) or that the presentation plays for its towers:
- * placing and selling, the flame loop, the tentacle's grab, the lightning
+ * placing and selling, the flame loop, the laser's hum, the tentacle's grab, the lightning
  * chain, and each projectile's shot. Registered once per audio manager on
  * the main thread; the simulation registers nothing.
  */
@@ -23,6 +23,27 @@ export function registerCombatSounds(audio: SpatialAudioManager): void {
     refDistance: 30,
     rolloffFactor: 1.2,
     volume: 0.5,
+    loop: true,
+  });
+  // The Sentinel Laser's hum while its beam is on
+  audio.registerSound('laser-loop', 'assets/sounds/abilities/orbital_laser_beam.mp3', {
+    refDistance: 30,
+    rolloffFactor: 1.3,
+    volume: 0.35,
+    loop: true,
+  });
+  // The Chainsaw's arm motors while its saws cut
+  audio.registerSound('saw-loop', 'assets/sounds/enemies/mech/servo_loop.mp3', {
+    refDistance: 30,
+    rolloffFactor: 1.3,
+    volume: 0.5,
+    loop: true,
+  });
+  // The Shawarma Slicer's sizzle while its stream runs: the flame loop, quieter
+  audio.registerSound('doner-loop', 'assets/sounds/towers/fire/flame_loop.mp3', {
+    refDistance: 25,
+    rolloffFactor: 1.3,
+    volume: 0.3,
     loop: true,
   });
   audio.registerSound('tentacle-grab', 'assets/sounds/towers/tentacle/tentacle-01.mp3', {

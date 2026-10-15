@@ -4,7 +4,7 @@
  * viewport feeds them, the panels change their settings.
  */
 import type { GizmoHandle } from '../view/transform-gizmo';
-import type { MapObject, MapPathKind, MapPoint } from '../../world/custom-map/map-document';
+import type { MapLifeKind, MapObject, MapPathKind, MapPoint } from '../../world/custom-map/map-document';
 import type { CatalogIndex } from '../catalog/asset-catalog';
 import type { EditorDocument } from '../model/editor-document';
 import { DEFAULT_BRUSH, type BrushSettings } from '../ops/brush';
@@ -17,7 +17,7 @@ import { DEFAULT_RIVER, type RiverOptions } from '../ops/landscape/river';
 import { DEFAULT_ROAD, type RoadOptions } from '../ops/landscape/road';
 import type { EditorOverlay } from '../view/editor-overlay';
 
-export type ToolId = 'look' | 'landscape' | 'stamp' | 'gameplay' | 'measure' | 'terrain' | 'paint' | 'water' | 'objects' | 'paths' | 'markers' | 'environment' | 'settings';
+export type ToolId = 'look' | 'landscape' | 'stamp' | 'gameplay' | 'measure' | 'terrain' | 'paint' | 'water' | 'objects' | 'life' | 'paths' | 'markers' | 'environment' | 'settings';
 
 export interface ToolInfo {
   id: ToolId;
@@ -35,6 +35,7 @@ export const TOOLS: readonly ToolInfo[] = [
   { id: 'paint', label: 'Paint', key: '3', about: 'Ground layers and auto paint' },
   { id: 'water', label: 'Water', key: '4', about: 'Fill hollows, paint water, lava or ice' },
   { id: 'objects', label: 'Objects', key: '5', about: 'Place, scatter, select, move, turn and scale' },
+  { id: 'life', label: 'Life', key: 'N', about: 'Birds, fireflies, fog, boats and sounds over areas and along routes, and what the map brings by itself' },
   { id: 'paths', label: 'Roads', key: '6', about: 'Draw and edit the roads enemies walk' },
   { id: 'markers', label: 'Spawns and HQ', key: '7', about: 'Where enemies come from and what they attack' },
   { id: 'environment', label: 'Sky and weather', key: '8', about: 'Sky, time of day, fog and weather' },
@@ -60,6 +61,7 @@ export const TOOL_GROUPS: readonly { label: string; tools: readonly { id: ToolId
       { id: 'paint', short: 'Paint' },
       { id: 'water', short: 'Water' },
       { id: 'objects', short: 'Objects' },
+      { id: 'life', short: 'Life' },
     ],
   },
   {
@@ -122,6 +124,8 @@ export const LANDSCAPE_MODES: readonly { id: LandscapeMode; label: string; hint:
 ];
 
 export type ObjectMode = 'select' | 'place' | 'scatter' | 'line' | 'erase';
+/** Life: draw an outline, draw a line, or pick and change what is there */
+export type LifeMode = 'area' | 'route' | 'edit';
 export type GizmoMode = 'move' | 'rotate' | 'scale';
 export type PathMode = 'draw' | 'edit';
 export type MarkerMode = 'spawn' | 'hq';
@@ -191,6 +195,16 @@ export interface EditorSettings {
     line: LineOptions & { follow: 'free' | 'roads' };
   };
   paths: { mode: PathMode; width: number; kind: MapPathKind; /** Snap radius to nodes and edges, metres */ snap: number; showRoutes: boolean };
+  life: {
+    mode: LifeMode;
+    /** What the next area or route holds */
+    kind: MapLifeKind;
+    /** The life area being changed (its id), and its chosen point (-1 none) */
+    chosen: string | null;
+    point: number;
+    /** Play the map's ambient sounds in the editor, heard from the middle of the view */
+    hear: boolean;
+  };
   markers: { mode: MarkerMode };
   /** Look: the ground point the last click found nothing on, which the panel describes */
   look: { at: MapPoint | null };
@@ -231,6 +245,7 @@ export function defaultSettings(): EditorSettings {
     water: { mode: 'fill', pour: 'water', body: -1, depth: 3, river: -1, riverPoint: -1 },
     objects: { mode: 'select', gizmo: 'move', asset: null, scatter: { ...DEFAULT_SCATTER }, snap: 0, randomRotation: true, space: 'global', alignToSlope: false, line: { ...DEFAULT_LINE, follow: 'free' } },
     paths: { mode: 'draw', width: 8, kind: 'road', snap: 10, showRoutes: true },
+    life: { mode: 'area', kind: 'birds', chosen: null, point: -1, hear: false },
     markers: { mode: 'spawn' },
     look: { at: null },
     stamp: { mode: 'select', parts: { ...ALL_PARTS }, rotation: 0, feather: 0.25, region: null, current: null, currentName: '' },

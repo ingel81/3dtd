@@ -7,8 +7,11 @@ category, tags, licence source and, where the default does not fit,
 placement flags). Missing fields come from the category defaults below;
 footprint and height come from the measured bounds in <glb-raw-dir>/report.json
 (pack_models.py) unless objects.json sets them; the underside of rocks (`base`)
-from bases.json (measure_bases.mjs); the triangle counts from the packed models
-(count_triangles.py). Also rewrites LICENSES.md.
+from bases.json (measure_bases.mjs), the ground rectangle of buildings and walls
+(`box`) from boxes.json (measure_boxes.mjs); the triangle counts from the packed models
+(count_triangles.py). Objects <glb-raw-dir> has not measured (a build of a few
+models) keep their measured fields from the current catalog.json.
+Also rewrites LICENSES.md.
 """
 import json
 import os
@@ -30,8 +33,8 @@ DEFAULTS = {
 # Share of the half extent that counts as occupied ground (a crown overhangs, a trunk does not)
 FOOTPRINT_SHARE = {'tree': 0.3, 'plant': 0.6}
 LOD_DISTANCE = 350
-ORDER = ['id', 'name', 'category', 'file', 'footprint', 'height', 'base', 'blocksLos', 'blocksBuild', 'scaleRange',
-         'randomRotation', 'wind', 'drawDistance', 'float', 'aloft', 'stilts', 'tags', 'effects', 'light', 'lod', 'source']
+ORDER = ['id', 'name', 'category', 'file', 'footprint', 'height', 'base', 'box', 'blocksLos', 'blocksBuild', 'scaleRange',
+         'randomRotation', 'wind', 'drawDistance', 'float', 'aloft', 'stilts', 'spin', 'tags', 'effects', 'light', 'lod', 'source']
 
 
 def main():
@@ -39,6 +42,10 @@ def main():
     spec = json.load(open(os.path.join(HERE, 'objects.json'), encoding='utf8'))
     report = json.load(open(os.path.join(raw, 'report.json'), encoding='utf8'))
     bases = json.load(open(os.path.join(HERE, 'bases.json'), encoding='utf8'))
+    boxes = json.load(open(os.path.join(HERE, 'boxes.json'), encoding='utf8'))
+    path = os.path.join(out, 'catalog.json')
+    catalog = json.load(open(path, encoding='utf8'))
+    current = {o['id']: o for o in catalog['objects']}
     objects = []
     for o in spec:
         # Effect-only entries (`"file": ""` in objects.json) have no model; they need footprint and height
@@ -48,15 +55,22 @@ def main():
             continue
         e.pop('textureSize', None)
         m = report.get(o['id'])
-        if m is None and ('footprint' not in o or 'height' not in o):
+        # Not built this time (a build of a few models): the measured fields stay as the catalogue has them
+        kept = current.get(o['id']) if m is None else None
+        if m is None and kept is None and ('footprint' not in o or 'height' not in o):
             raise SystemExit(f'{o["id"]}: not measured, run pack_models.py first')
         if 'height' not in o:
-            e['height'] = round(m['max'][1], 1)
+            e['height'] = kept['height'] if kept else round(m['max'][1], 1)
         if 'footprint' not in o:
-            half = max(m['max'][0] - m['min'][0], m['max'][2] - m['min'][2]) / 2
-            e['footprint'] = round(max(0.2, half * FOOTPRINT_SHARE.get(o['category'], 0.9)), 1)
+            if kept:
+                e['footprint'] = kept['footprint']
+            else:
+                half = max(m['max'][0] - m['min'][0], m['max'][2] - m['min'][2]) / 2
+                e['footprint'] = round(max(0.2, half * FOOTPRINT_SHARE.get(o['category'], 0.9)), 1)
         if o['id'] in bases:
             e['base'] = bases[o['id']]
+        if o['id'] in boxes:
+            e['box'] = boxes[o['id']]
         if e['category'] == 'rock' and 'blocksLos' not in o:
             e['blocksLos'] = e['height'] >= 1.8
         if 'drawDistance' not in o and e['category'] in ('rock', 'prop') and e['height'] >= 3:
@@ -65,9 +79,9 @@ def main():
             # Decimated copy from the builders (export_lod); switched in beyond this distance
             # Small plants vanish at their draw distance: switch well before that
             e['lod'] = [{'file': f'models/{o["id"]}-lod1.glb', 'distance': min(LOD_DISTANCE, round(e['drawDistance'] * 0.4))}]
+        elif kept and 'lod' in kept and 'lod' not in o:
+            e['lod'] = kept['lod']
         objects.append({k: e[k] for k in ORDER if k in e})
-    path = os.path.join(out, 'catalog.json')
-    catalog = json.load(open(path, encoding='utf8'))
     taken = {m['id'] for m in catalog['materials']}
     for o in objects:
         if o['id'] in taken:

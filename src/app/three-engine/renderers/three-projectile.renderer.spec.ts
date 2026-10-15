@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { BoxGeometry, Euler, MeshBasicMaterial, Scene, Vector3 } from 'three';
-import { createRocketGeometry, ProjectileInstanceManager, ThreeProjectileRenderer } from './three-projectile.renderer';
+import { createBoltGeometry, createRocketGeometry, ProjectileInstanceManager, ThreeProjectileRenderer } from './three-projectile.renderer';
 import { StateLerp } from './state-lerp';
 import type { CoordinateSync } from './index';
 import { PROJECTILE_TYPES } from '../../configs/projectile-types.config';
@@ -28,6 +28,23 @@ describe('createRocketGeometry', () => {
   it('starts the trail at the nozzle', () => {
     const rocket = PROJECTILE_TYPES.rocket;
     expect(rocket.tailOffset).toBeCloseTo(-box.min.y * rocket.scale, 5);
+  });
+
+  it('colours every vertex (one material, one draw call)', () => {
+    expect(geometry.getAttribute('color').count).toBe(geometry.getAttribute('position').count);
+    expect(geometry.groups).toHaveLength(0);
+  });
+});
+
+describe('createBoltGeometry', () => {
+  const geometry = createBoltGeometry();
+  geometry.computeBoundingBox();
+  const box = geometry.boundingBox!;
+
+  it('is a long shaft along +Y, centred on the projectile position', () => {
+    expect(box.max.y).toBeCloseTo(-box.min.y, 5);
+    expect(box.max.y - box.min.y).toBeGreaterThan(5);
+    expect(box.max.x - box.min.x).toBeLessThan(1);
   });
 
   it('colours every vertex (one material, one draw call)', () => {

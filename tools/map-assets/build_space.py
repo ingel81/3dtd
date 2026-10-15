@@ -30,6 +30,18 @@ def window():
     return flat_material('station-window', (0.55, 0.7, 0.85), 0.15, emission=(0.45, 0.6, 0.75), strength=0.35)
 
 
+def see_through(material, alpha):
+    """Glass one sees through (glTF alpha blend): the base colour's alpha"""
+    bsdf = next(n for n in material.node_tree.nodes if n.type == 'BSDF_PRINCIPLED')
+    bsdf.inputs['Alpha'].default_value = alpha
+    for attr, value in (('surface_render_method', 'BLENDED'), ('blend_method', 'BLEND')):
+        try:
+            setattr(material, attr, value)
+        except (AttributeError, TypeError):
+            pass
+    return material
+
+
 def hatch(frame, dark, centre, normal, radius=0.7):
     """Round hatch: a framed ring with a dark door and a wheel"""
     n = normal.normalized()
@@ -142,11 +154,26 @@ def wheel(tyre, hub, centre, axis, radius=0.42, width=0.32, cleats=16):
 
 
 def dome(name, radius=6.0, glass=True, greenhouse=False):
-    """Geodesic-looking dome: a ring wall, hemisphere of struts, glass or white panels"""
+    """Geodesic-looking dome: a ring wall with vents, a hemisphere of struts with glass or white panels, an
+    airlock tunnel with a round hatch at the front (-Y), a cable reel and a small tank beside it. The
+    greenhouse has dark green glass one sees through, onto beds of plants lit in patches by grow lights"""
     clear_scene()
     struts = Part(trim(), smooth=True)
-    panel = Part(flat_material('dome-glass', (0.35, 0.45, 0.5), 0.08, 0.4) if glass else hull(), smooth=True, uv_scale=0.3)
+    if greenhouse:
+        pane = see_through(flat_material('greenhouse-glass', (0.04, 0.12, 0.06), 0.08, 0.3), 0.45)
+    elif glass:
+        pane = flat_material('dome-glass', (0.35, 0.45, 0.5), 0.08, 0.4)
+    else:
+        pane = None
+    panel = Part(pane if pane else hull(), smooth=True, uv_scale=0.3)
+    shell = Part(hull(), smooth=True, uv_scale=0.3)
+    dark = Part(flat_material('hatch-dark', (0.06, 0.06, 0.07), 0.6))
     tube(struts, [Vector((0, 0, -0.3)), Vector((0, 0, 0.8))], [radius + 0.2, radius + 0.2], 24, cap=False)
+    # Ring wall top: closes the slot between the wall and the hemisphere
+    tube(struts, [Vector((0, 0, 0.8)), Vector((0, 0, 0.801))], [radius + 0.2, radius - 0.05], 24)
+    for k in range(12):
+        a = (k + 0.5) / 12 * math.tau
+        box(dark, math.cos(a) * (radius + 0.22), math.sin(a) * (radius + 0.22), 0.25, 0.06, 0.9, 0.3, a)
     prof = [(math.sin(t) * radius, math.cos(t)) for t in [k / 10 * math.pi / 2 for k in range(11)]]
     tube(panel, [Vector((0, 0, 0.8 + z)) for z, _ in prof], [radius * r + 0.001 for _, r in prof], 24)
     for k in range(12):
@@ -159,16 +186,42 @@ def dome(name, radius=6.0, glass=True, greenhouse=False):
         pts = [Vector((math.cos(k / n * math.tau) * radius * r * 1.01, math.sin(k / n * math.tau) * radius * r * 1.01, 0.8 + z)) for k in range(n + 1)]
         for p, q in zip(pts, pts[1:]):
             oriented_box(struts, p, q, 0.1)
-    box(struts, 0, -radius - 0.7, -0.3, 2.0, 1.6, 2.6)
-    objects = [struts.to_object(name + '-struts'), panel.to_object(name)]
+    tube(struts, [Vector((0, 0, 0.8 + radius - 0.05)), Vector((0, 0, 0.8 + radius + 0.15))], [0.9, 0.7], 12, cap=True)
+    # Airlock: a short tunnel out of the ring wall, ribs, an end plate with a round hatch
+    tube(shell, [Vector((0, -radius + 0.5, 1.4)), Vector((0, -radius - 2.0, 1.4))], [1.3, 1.3], 16, cap=True)
+    for y in (-radius - 0.2, -radius - 1.9):
+        tube(struts, [Vector((0, y + 0.12, 1.4)), Vector((0, y - 0.12, 1.4))], [1.4, 1.4], 16, cap=y < -radius - 1)
+    box(struts, 0, -radius - 1.0, -0.3, 2.4, 2.8, 0.45)
+    hatch(struts, dark, Vector((0, -radius - 2.1, 1.4)), Vector((0, -1, 0)), 0.8)
+    # A cable reel and a tank against the ring wall
+    a = 0.9
+    c = Vector((math.cos(a) * (radius + 1.1), math.sin(a) * (radius + 1.1), 0))
+    tube(struts, [c + Vector((-0.4, 0, 0.6)), c + Vector((0.4, 0, 0.6))], [0.6, 0.6], 12, cap=True)
+    tube(struts, [c + Vector((0.4, 0, 0.6)), c + Vector((-0.4, 0, 0.6))], [0.6, 0.6], 12, cap=True)
+    c = Vector((math.cos(a + 1.2) * (radius + 1.0), math.sin(a + 1.2) * (radius + 1.0), 0))
+    tube(shell, [c, c + Vector((0, 0, 0.2)), c + Vector((0, 0, 1.8)), c + Vector((0, 0, 2.1))], [0.4, 0.6, 0.6, 0.25], 12)
+    objects = [struts.to_object(name + '-struts'), panel.to_object(name), shell.to_object(name + '-airlock'), dark.to_object(name + '-dark')]
     if greenhouse:
-        plants = Part(flat_material('greenhouse-plants', (0.15, 0.4, 0.12), 0.8))
+        # Seen through the dark glass: beds of plants, some lit by the grow lights over them and some in the dark
+        # between, so the dome glows in patches, not as a lamp
+        plants = Part(flat_material('greenhouse-plants', (0.06, 0.2, 0.06), 0.8, emission=(0.03, 0.12, 0.03), strength=0.5))
+        lit = Part(flat_material('greenhouse-plants-lit', (0.1, 0.32, 0.08), 0.8, emission=(0.12, 0.45, 0.08), strength=0.8))
+        beds = Part(flat_material('greenhouse-soil', (0.2, 0.13, 0.08), 0.9))
+        lamps = Part(flat_material('grow-light', (0.9, 0.85, 0.7), 0.4, emission=(1.0, 0.8, 0.55), strength=1.2))
         rnd = random.Random(3)
-        for k in range(14):
-            a = rnd.uniform(0, math.tau)
-            r = rnd.uniform(0, radius * 0.7)
-            box(plants, math.cos(a) * r, math.sin(a) * r, 0.8, rnd.uniform(0.6, 1.2), rnd.uniform(0.6, 1.2), rnd.uniform(0.4, 1.4), a)
-        objects.append(plants.to_object(name + '-plants'))
+        for k in range(3):
+            x = -radius * 0.45 + k * radius * 0.45
+            half = math.sqrt(max(0.0, (radius * 0.85) ** 2 - x * x))
+            box(beds, x, 0, 0.7, 1.2, 2 * half, 0.35)
+            # A grow light over part of the bed only; the plants under it are the lit ones
+            y0, y1 = sorted(rnd.uniform(-half, half) for _ in range(2))
+            if y1 - y0 > 1.5:
+                oriented_box(lamps, Vector((x, y0, 3.2)), Vector((x, y1, 3.2)), 0.08)
+            for j in range(int(2 * half / 0.9)):
+                y = -half + 0.45 + j * 0.9
+                size = rnd.uniform(0.5, 0.9)
+                box(lit if y0 <= y <= y1 else plants, x + rnd.uniform(-0.15, 0.15), y, 1.05, size, size * 0.9, rnd.uniform(0.3, 1.0), rnd.uniform(0, 1))
+        objects += [plants.to_object(name + '-plants'), lit.to_object(name + '-plants-lit'), beds.to_object(name + '-beds'), lamps.to_object(name + '-lights')]
     export(name, objects)
 
 
@@ -176,32 +229,49 @@ def tunnel(name, length=6.0):
     clear_scene()
     shell = Part(hull(), smooth=True, uv_scale=0.3)
     ribs = Part(trim(), smooth=True)
+    dark = Part(flat_material('hatch-dark', (0.06, 0.06, 0.07), 0.6))
     tube(shell, [Vector((-length / 2, 0, 1.6)), Vector((length / 2, 0, 1.6))], [1.1, 1.1], 14)
     for x in (-length / 2, 0, length / 2):
-        tube(ribs, [Vector((x - 0.1, 0, 1.6)), Vector((x + 0.1, 0, 1.6))], [1.2, 1.2], 14)
+        # The end ribs are closed plates facing outwards, each with a hatch
+        ends = [Vector((x + 0.1, 0, 1.6)), Vector((x - 0.1, 0, 1.6))] if x < 0 else [Vector((x - 0.1, 0, 1.6)), Vector((x + 0.1, 0, 1.6))]
+        tube(ribs, ends, [1.2, 1.2], 14, cap=x != 0)
         box(ribs, x, 0, 0, 0.3, 1.6, 0.6)
-    export(name, [shell.to_object(name), ribs.to_object(name + '-ribs')])
+    for sx in (-1, 1):
+        hatch(ribs, dark, Vector((sx * (length / 2 + 0.1), 0, 1.6)), Vector((sx, 0, 0)), 0.7)
+    export(name, [shell.to_object(name), ribs.to_object(name + '-ribs'), dark.to_object(name + '-hatch')])
 
 
 def antenna_dish(name):
-    """Parabolic dish on a turret, tilted to the sky (towards -Y)"""
+    """Parabolic dish on a turret, tilted to the sky (towards -Y): a fixed pedestal with a cable box and
+    a ladder; the head (yoke, dish with its rim struts and feed horn) has materials `spin-*` and stays a
+    node of its own, turning about the vertical axis through the origin (docs/CUSTOM_MAPS.md, Drehteile)"""
     clear_scene()
-    shell = Part(hull('dish-white'), smooth=True, uv_scale=0.3)
     metal = Part(trim(), smooth=True)
-    tube(metal, [Vector((0, 0, -0.3)), Vector((0, 0, 3.0))], [0.5, 0.4], 10, cap=True)
+    shell = Part(flat_material('spin-dish-white', (0.82, 0.83, 0.84), 0.4, 0.2), smooth=True)
+    head = Part(flat_material('spin-dish-metal', (0.24, 0.25, 0.26), 0.45, 0.6), smooth=True)
+    tube(metal, [Vector((0, 0, -0.3)), Vector((0, 0, 0.4))], [1.1, 1.1], 16, cap=True)
+    tube(metal, [Vector((0, 0, 0.4)), Vector((0, 0, 2.6))], [0.55, 0.45], 12, cap=True)
+    box(metal, 0.75, 0, 0.4, 0.5, 0.8, 0.9)
+    for k in range(6):
+        oriented_box(metal, Vector((-0.5, -0.3, 0.6 + k * 0.33)), Vector((-0.5, 0.3, 0.6 + k * 0.33)), 0.04)
+    # Head: a turntable, a yoke and the dish
+    tube(head, [Vector((0, 0, 2.6)), Vector((0, 0, 3.0))], [0.7, 0.7], 16, cap=True)
+    for s in (-1, 1):
+        oriented_box(head, Vector((s * 0.55, 0, 3.0)), Vector((s * 0.55, -0.2, 4.1)), 0.18)
     c = Vector((0, -0.3, 4.2))
     axis = Vector((0, -0.6, 0.8)).normalized()
+    oriented_box(head, Vector((-0.6, -0.2, 4.1)), Vector((0.6, -0.2, 4.1)), 0.16)
     prof = [(0.0, 0.2), (0.15, 1.2), (0.45, 2.2), (0.85, 3.0), (1.1, 3.4)]
     tube(shell, [c + axis * z for z, _ in prof], [r for _, r in prof], 24)
     tube(shell, [c + axis * (z - 0.06) for z, _ in reversed(prof)], [r for _, r in reversed(prof)], 24)
+    tube(head, [c + axis * 1.08, c + axis * 1.14], [3.45, 3.45], 24)
+    side = axis.orthogonal().normalized()
     for k in range(3):
         a = k / 3 * math.tau
-        side = axis.orthogonal().normalized()
         rim = c + axis * 1.1 + (side * math.cos(a) + axis.cross(side) * math.sin(a)) * 3.2
-        oriented_box(metal, rim, c + axis * 2.6, 0.06)
-    tube(metal, [c + axis * 2.4, c + axis * 2.9], [0.2, 0.12], 8, cap=True)
-    oriented_box(metal, Vector((0, 0, 3.0)), c, 0.5)
-    export(name, [shell.to_object(name), metal.to_object(name + '-metal')])
+        oriented_box(head, rim, c + axis * 2.6, 0.06)
+    tube(head, [c + axis * 2.4, c + axis * 2.9], [0.2, 0.12], 8, cap=True)
+    export(name, [metal.to_object(name + '-metal'), shell.to_object('spin-' + name), head.to_object('spin-' + name + '-head')])
 
 
 def antenna_mast(name, height=14.0):
@@ -228,26 +298,80 @@ def antenna_mast(name, height=14.0):
 
 
 def lander(name):
-    """Descent stage wrapped in gold foil on four legs, a white ascent cabin, engine bell, ladder"""
+    """Two-stage lunar lander (front -Y): an octagonal descent stage in gold and black foil over its engine
+    bell, four legs with struts and footpads, a porch and a ladder down the front leg; the ascent stage on
+    top with the crew cabin and its slanted windows, an equipment bay behind, tank bulges at the sides,
+    a docking tunnel, radar and antenna dishes and four thruster quads"""
     clear_scene()
     foil = Part(image_material('gold-foil', blender_kit.FOLIAGE + '/gold-foil.jpg', 0.35))
-    shell = Part(hull(), smooth=False)
+    black = Part(flat_material('foil-black', (0.05, 0.045, 0.04), 0.55, 0.4))
+    shell = Part(hull(), smooth=False, uv_scale=0.5)
     metal = Part(trim(), smooth=True)
     win = Part(window())
-    tube(foil, [Vector((0, 0, 1.2)), Vector((0, 0, 2.8))], [2.0, 2.0], 8, cap=True)
-    tube(shell, [Vector((0, 0, 2.8)), Vector((0, 0, 4.3)), Vector((0, 0, 4.8))], [1.5, 1.3, 0.6], 8, cap=True)
-    box(win, 0, -1.33, 3.5, 0.5, 0.1, 0.4)
-    tube(metal, [Vector((0, 0, 1.25)), Vector((0, 0, 0.6))], [0.35, 0.7], 12)
+    # Descent stage: eight panels, gold and black in turn, a deck on top and a floor under it
+    r, z0, z1 = 2.0, 1.1, 2.7
+    corners = [Vector((math.cos((k + 0.5) / 8 * math.tau) * r, math.sin((k + 0.5) / 8 * math.tau) * r, 0)) for k in range(8)]
+    for k in range(8):
+        a, b = corners[k], corners[(k + 1) % 8]
+        part = foil if k % 2 == 0 else black
+        part.quad([a + Vector((0, 0, z0)), b + Vector((0, 0, z0)), b + Vector((0, 0, z1)), a + Vector((0, 0, z1))],
+                  [(0, 0), (1, 0), (1, 1), (0, 1)])
+    deck = [metal.bm.verts.new(c + Vector((0, 0, z1))) for c in corners]
+    metal.bm.faces.new(deck)
+    floor = [metal.bm.verts.new(c + Vector((0, 0, z0))) for c in reversed(corners)]
+    metal.bm.faces.new(floor)
+    tube(black, [Vector((0, 0, z0 + 0.05)), Vector((0, 0, 0.5))], [0.5, 0.9], 16)
+    # Legs on the four axes: main strut, two side struts, a footpad; ladder rungs on the front one
     for k in range(4):
-        a = k / 4 * math.tau + math.pi / 4
+        a = k / 4 * math.tau - math.pi / 2
         out = Vector((math.cos(a), math.sin(a), 0))
-        foot = out * 3.4
-        oriented_box(metal, out * 1.7 + Vector((0, 0, 2.2)), foot + Vector((0, 0, 0.15)), 0.12)
-        oriented_box(metal, out * 1.9 + Vector((0, 0, 1.3)), foot * 0.85 + Vector((0, 0, 0.6)), 0.08)
-        tube(metal, [foot, foot + Vector((0, 0, 0.12))], [0.45, 0.45], 10, cap=True)
-    for k in range(6):
-        box(metal, 0, -2.05, 0.4 + k * 0.35, 0.6, 0.05, 0.05)
-    export(name, [foil.to_object(name + '-foil'), shell.to_object(name), metal.to_object(name + '-metal'), win.to_object(name + '-window')])
+        side = Vector((-out.y, out.x, 0))
+        top = out * 2.0 + Vector((0, 0, 2.5))
+        foot = out * 3.7 + Vector((0, 0, 0.3))
+        tube(metal, [top, foot], [0.11, 0.09], 8)
+        mid = top.lerp(foot, 0.6)
+        for s in (-1, 1):
+            tube(metal, [out * 1.6 + side * s * 1.0 + Vector((0, 0, z0 + 0.05)), mid], [0.05, 0.05], 6)
+        tube(foil, [foot + Vector((0, 0, -0.3)), foot + Vector((0, 0, -0.18)), foot + Vector((0, 0, -0.05))], [0.55, 0.55, 0.3], 12,
+             cap=True)
+        if k == 0:
+            for j in range(8):
+                p = top.lerp(foot, 0.1 + j * 0.1)
+                oriented_box(metal, p - side * 0.35 - out * 0.12, p + side * 0.35 - out * 0.12, 0.05)
+            box(metal, 0, -2.0, z1 - 0.1, 1.0, 0.8, 0.08)
+    # Ascent stage: base plate, cabin with the front facets and windows, equipment bay, tank bulges
+    box(metal, 0, 0, z1, 3.2, 3.0, 0.22)
+    zc = z1 + 0.22
+    tube(shell, [Vector((0, 0.7, zc + 1.15)), Vector((0, -1.4, zc + 1.15))], [1.15, 1.15], 10, cap=True)
+    box(shell, 0, 1.25, zc, 2.6, 1.5, 1.8)
+    for s in (-1, 1):
+        prof = [(-0.7, 0.05), (-0.55, 0.38), (-0.3, 0.55), (1.0, 0.55), (1.25, 0.38), (1.4, 0.05)]
+        tube(black, [Vector((s * 1.4, y, zc + 0.7)) for y, _ in prof], [w for _, w in prof], 10)
+    for s in (-1, 1):
+        # Slanted triangular windows on the front facets
+        c = Vector((s * 0.45, -1.42, zc + 1.6))
+        win.quad([c + Vector((-0.25 * s, -0.02, -0.25)), c + Vector((0.3 * s, -0.02, -0.35)), c + Vector((0.2 * s, -0.08, 0.25)),
+                  c + Vector((-0.25 * s, -0.08, 0.3))][::s], [(0, 0), (1, 0), (1, 1), (0, 1)])
+    box(black, 0, -1.43, zc + 0.15, 0.9, 0.06, 1.0)
+    # Docking tunnel, rendezvous radar, steerable antenna
+    tube(metal, [Vector((0, -0.3, zc + 2.2)), Vector((0, -0.3, zc + 2.75))], [0.55, 0.5], 12, cap=True)
+    tube(black, [Vector((0, -0.3, zc + 2.75)), Vector((0, -0.3, zc + 2.82))], [0.42, 0.42], 12, cap=True)
+    radar = Vector((0.0, -1.0, zc + 2.6))
+    oriented_box(metal, Vector((0.0, -0.9, zc + 2.1)), radar, 0.08)
+    tube(shell, [radar, radar + Vector((0, -0.2, 0.15)), radar + Vector((0, -0.32, 0.3))], [0.08, 0.35, 0.5], 12)
+    mast = Vector((1.3, 0.9, zc + 2.6))
+    oriented_box(metal, Vector((1.1, 0.9, zc + 1.8)), mast, 0.07)
+    tube(shell, [mast, mast + Vector((0.12, -0.12, 0.15)), mast + Vector((0.2, -0.2, 0.25))], [0.05, 0.3, 0.42], 12)
+    tube(metal, [Vector((-1.0, 1.6, zc + 1.8)), Vector((-1.0, 1.6, zc + 3.2))], [0.025, 0.02], 5)
+    # Thruster quads at the four corners: a block with four nozzles
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            c = Vector((sx * 1.55, sy * 1.25, zc + 1.4))
+            box(metal, c.x, c.y, c.z - 0.15, 0.3, 0.3, 0.3)
+            for d in (Vector((0, 0, 1)), Vector((0, 0, -1)), Vector((sx, 0, 0)), Vector((0, sy, 0))):
+                tube(metal, [c + d * 0.12, c + d * 0.35], [0.05, 0.09], 6)
+    export(name, [foil.to_object(name + '-foil'), black.to_object(name + '-black'), shell.to_object(name), metal.to_object(name + '-metal'),
+                  win.to_object(name + '-window')])
 
 
 def rover(name, colour=(0.82, 0.8, 0.76)):
@@ -374,5 +498,5 @@ def models():
         'mars-boulder': lambda: import_model('moon_rock_05', 2.4, 2000, 'mars-boulder', desaturate=1.0, tint=rust, ground=True),
         'mars-stone': lambda: import_model('namaqualand_boulder_03', 1.6, 1500, 'mars-stone', desaturate=0.8, tint=rust, ground=True),
         'mars-rock-large': lambda: import_model('namaqualand_boulder_06', 3.2, 2000, 'mars-rock-large', desaturate=0.8, tint=rust, ground=True),
-        'mars-cliff': lambda: import_model('namaqualand_cliff_02', 12.0, 6000, 'mars-cliff', desaturate=0.8, tint=rust, ground=True),
+        'mars-cliff': lambda: import_model('namaqualand_cliff_02', 12.0, 6000, 'mars-cliff', desaturate=0.8, tint=rust, ground=True, close=True),
     }

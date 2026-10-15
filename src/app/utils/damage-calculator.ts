@@ -8,7 +8,7 @@
  */
 
 import { DamageType, ArmorType, DamageResult } from '../configs/combat/combat.types';
-import { DAMAGE_MATRIX, getEffectiveness } from '../configs/combat/damage-matrix.config';
+import { getEffectiveness, matrixMultiplier } from '../configs/combat/damage-matrix.config';
 
 /**
  * Calculate effective damage using the damage matrix.
@@ -19,15 +19,17 @@ import { DAMAGE_MATRIX, getEffectiveness } from '../configs/combat/damage-matrix
  * @param damageType      Type of damage being dealt
  * @param armorType       Current armor type of the target (may be overridden by Armor Break)
  * @param bonusMultiplier Additional multiplier from future effects like Mark (default: 1.0)
+ * @param corroded        The target is corroded (status `corrode`) or the hit pierces armor (TowerPath.armorPiercing):
+ *                        the better of its armor and the next lighter
  */
 export function calculateDamage(
   baseDamage: number,
   damageType: DamageType,
   armorType: ArmorType,
-  bonusMultiplier = 1.0
+  bonusMultiplier = 1.0,
+  corroded = false,
 ): DamageResult {
-  const matrixMultiplier = DAMAGE_MATRIX[damageType][armorType];
-  const totalMultiplier = matrixMultiplier * bonusMultiplier;
+  const totalMultiplier = matrixMultiplier(damageType, armorType, corroded) * bonusMultiplier;
   const finalDamage = baseDamage * totalMultiplier;
 
   return {

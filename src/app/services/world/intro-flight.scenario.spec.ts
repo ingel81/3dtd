@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('../../three-engine', () => ({}));
 vi.mock('./route-animation.service', () => ({ RouteAnimationService: class RouteAnimationService {} }));
 vi.mock('../camera-control.service', () => ({ CameraControlService: class CameraControlService {} }));
+vi.mock('../camera-slots.service', () => ({ CameraSlotsService: class CameraSlotsService {} }));
 vi.mock('@angular/material/dialog', () => ({ MatDialog: class MatDialog {} }));
 vi.mock('../../components/hotkey-help-dialog/open-hotkey-help-dialog', () => ({
   openHotkeyHelpDialog: (dialog: { open: () => void }) => dialog.open(),
@@ -28,6 +29,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { IntroCameraFlightService } from './intro-camera-flight.service';
 import { RouteAnimationService } from './route-animation.service';
 import { CameraControlService } from '../camera-control.service';
+import { CameraSlotsService } from '../camera-slots.service';
 import { HotkeyService } from '../hotkey.service';
 import { InputHandlerService } from '../input-handler.service';
 import { KeyboardPanService } from '../keyboard-pan.service';
@@ -109,6 +111,7 @@ describe('Intro flight input, playtest 525 to 528 replayed', () => {
       providers: [
         { provide: IntroCameraFlightService, useValue: intro },
         { provide: CameraControlService, useValue: { resetCamera, focusGeo } },
+        { provide: CameraSlotsService, useValue: {} },
         { provide: TowerDefenseFacadeService, useValue: { startWave, upgradeTower: vi.fn(), sellSelectedTower: vi.fn() } },
         { provide: TowerSelectionService, useValue: { select: vi.fn() } },
         { provide: SimMirror, useValue: { selectableTower: (id: string | null) => id } },

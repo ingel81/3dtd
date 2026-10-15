@@ -1,15 +1,17 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { Box3, type Object3D } from 'three';
+import { Box3, type Mesh, type Object3D } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { TOWER_TYPES, type TowerTypeConfig } from './tower-types.config';
+import { TOWER_PATHS, towerConfigOf } from './tower-paths.config';
 
 /**
  * What the simulation takes from the tower configs instead of the loaded
  * model (docs/SIMULATOR_PLAN.md, P2), checked against each tower's GLB:
  * whether a turret part turns (turnsTurret), where it points in the file
- * (turretRestY) and how high the placed model reaches (modelTop).
+ * (turretRestY) and how high the placed model reaches (modelTop). A path's
+ * swap (TowerPath.swap) the same, on its own model.
  */
 
 /** A tower GLB as the game serves it, without its textures. */
@@ -34,9 +36,16 @@ function turretPart(config: TowerTypeConfig, model: Object3D): Object3D | null {
   return found;
 }
 
+/** Every config a tower can run on: each type's, and each path's swap of it */
+const CONFIGS: [string, TowerTypeConfig][] = [
+  ...Object.values(TOWER_TYPES).map((config): [string, TowerTypeConfig] => [config.id, config]),
+  ...Object.values(TOWER_PATHS).filter((path) => path.swap)
+    .map((path): [string, TowerTypeConfig] => [`${path.towerId} as ${path.id}`, towerConfigOf(path.towerId, path.id)]),
+];
+
 describe('tower configs against their models', () => {
-  for (const config of Object.values(TOWER_TYPES)) {
-    it(`${config.id}: turret part, its rest pose and the model top`, async () => {
+  for (const [name, config] of CONFIGS) {
+    it(`${name}: turret part, its rest pose and the model top`, async () => {
       const model = await loadModel(config);
       const turret = turretPart(config, model);
 
@@ -55,6 +64,27 @@ describe('tower configs against their models', () => {
       model.updateMatrixWorld(true);
       const top = new Box3().setFromObject(model).max.y;
       expect(config.modelTop, 'modelTop').toBeCloseTo(top, 1);
+    });
+  }
+});
+
+describe('path swaps', () => {
+  for (const path of Object.values(TOWER_PATHS).filter((p) => p.swap)) {
+    it(`${path.id}: keeps the muzzle height of its type and stands within its footprint`, async () => {
+      const type = TOWER_TYPES[path.towerId];
+      const config = towerConfigOf(path.towerId, path.id);
+      // The sight was rendered from the type's muzzle: a range recompute only adds cells (TowerLos)
+      expect(config.heightOffset + config.shootHeight).toBeCloseTo(type.heightOffset + type.shootHeight, 6);
+      // The plinth and the placement checked the type's footprint
+      expect(config.footprintRadius).toBe(type.footprintRadius);
+      const model = await loadModel(config);
+      // Its base's widest vertex from the axis, as footprintRadius is measured
+      const base = model.getObjectByName('base') as Mesh | undefined;
+      expect(base?.isMesh, 'a base mesh').toBe(true);
+      const at = base!.geometry.getAttribute('position');
+      let widest = 0;
+      for (let i = 0; i < at.count; i++) widest = Math.max(widest, Math.hypot(at.getX(i), at.getZ(i)));
+      expect(widest * config.scale).toBeLessThanOrEqual(type.footprintRadius);
     });
   }
 });

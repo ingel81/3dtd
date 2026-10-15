@@ -164,7 +164,7 @@
     <div class="td-stack tp-paths">
       @if (chosenPath(); as path) {
         <div class="td-inline tp-path-chosen" [matTooltip]="path.description" matTooltipPosition="left">
-          <td-icon class="td-tone-brass" name="eye" [size]="16"></td-icon>
+          <td-icon class="td-tone-brass" [name]="pathIcon(path)" [size]="16"></td-icon>
           <span class="td-name">{{ path.name }}</span>
           <span class="td-caps">path</span>
         </div>
@@ -176,7 +176,7 @@
                   [attr.aria-disabled]="!unlocked || underConstruction() || store.credits() < path.cost || viewOnly()"
                   [matTooltip]="pathTooltip(path)" matTooltipPosition="left"
                   (click)="onChoosePath(path.id)">
-            <td-icon [size]="18" [name]="unlocked ? 'eye' : 'lock'"></td-icon>
+            <td-icon [size]="18" [name]="unlocked ? pathIcon(path) : 'lock'"></td-icon>
             <span class="td-plate-label">
               <span class="td-name">{{ path.name }} <span class="td-caps">path</span></span>
               <span class="td-sub">once per tower</span>

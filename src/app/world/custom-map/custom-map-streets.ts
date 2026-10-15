@@ -4,7 +4,14 @@ import { StreetRouter } from '../../services/location/street-router';
 import type { WorldStreetSource } from '../world-provider';
 import { MAP_METERS_PER_DEGREE, type CustomMapDocument, type MapPathKind } from './map-document';
 
-/** Street type per path kind: roads route first, paths and bridges as a road does (types of StreetRouter's weights) */
+/** What the street network reads of a map: its paths and its size (an OSM world's frame has no more before the making) */
+export type StreetMap = Pick<CustomMapDocument, 'paths'> & { terrain: Pick<CustomMapDocument['terrain'], 'width' | 'depth'> };
+
+/**
+ * Street type per path kind: roads route first, paths and bridges as a road
+ * does (types of StreetRouter's weights). An edge of a real way (an OSM
+ * world's) carries its own type
+ */
 const STREET_TYPE: Record<MapPathKind, string> = {
   road: 'primary',
   bridge: 'primary',
@@ -21,7 +28,7 @@ const STREET_TYPE: Record<MapPathKind, string> = {
 export class CustomMapStreets extends StreetRouter implements WorldStreetSource {
   readonly network: StreetNetwork;
 
-  constructor(doc: CustomMapDocument) {
+  constructor(doc: StreetMap) {
     super();
     this.network = mapStreetNetwork(doc);
   }
@@ -51,7 +58,7 @@ export class CustomMapStreets extends StreetRouter implements WorldStreetSource 
 }
 
 /** The street network of a map's paths, lat/lon in the synthetic frame (mapToGeo) */
-export function mapStreetNetwork(doc: CustomMapDocument): StreetNetwork {
+export function mapStreetNetwork(doc: StreetMap): StreetNetwork {
   const M = MAP_METERS_PER_DEGREE;
   const nodes = new Map<number, StreetNode>();
   const byId = new Map<string, StreetNode>();
@@ -71,11 +78,12 @@ export function mapStreetNetwork(doc: CustomMapDocument): StreetNetwork {
     const street: Street = {
       id: streets.length + 1,
       name: e.kind === 'bridge' ? 'Bridge' : e.kind === 'path' ? 'Path' : 'Road',
-      type: STREET_TYPE[e.kind],
+      type: e.street ?? STREET_TYPE[e.kind],
       nodes: [a, ...(e.via ?? []).map((v) => node(v.x, v.y)), b],
       width: e.width,
     };
     if (e.kind === 'bridge') street.bridge = 'yes';
+    if (e.tunnel) street.tunnel = 'yes';
     streets.push(street);
   }
 

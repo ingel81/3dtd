@@ -8,11 +8,13 @@ import type { CatalogIndex } from '../catalog/asset-catalog';
 import { heightAt } from '../model/grid';
 import { TERRAIN_PRESETS } from '../ops/generate';
 import { BIOMES } from '../ops/landscape/biomes';
+import { MAP_TEMPLATES } from '../ops/landscape/templates';
 import { edgePolyline, polylineLength, spawnRoutes } from '../ops/path-graph';
 import { mapSceneCost } from '../validation/map-budget';
 import type { MapIssue } from '../validation/map-validation';
 import { SCENE_BUDGET } from '../../world/custom-map/render/objects/scene-cost';
 import type { CustomMapDocument, MapObject, MapWater } from '../../world/custom-map/map-document';
+import { lifeSwitches } from '../../world/custom-map/map-life';
 
 export interface MapRect {
   x0: number;
@@ -83,6 +85,12 @@ export function mapSummary(doc: CustomMapDocument, catalog: CatalogIndex): Recor
     sceneCost: { points: Math.round(cost), budget: SCENE_BUDGET, percent: Math.round((cost / SCENE_BUDGET) * 100) },
     environment: doc.environment,
     gameplay: doc.gameplay ?? {},
+    life: {
+      ...lifeSwitches(doc.life),
+      ambience: doc.life?.ambience ?? null,
+      waveSound: doc.life?.waveSound ?? null,
+      areas: (doc.life?.areas ?? []).map((a) => ({ id: a.id, kind: a.kind, shape: a.shape, points: a.points.length, density: a.density ?? 1 })),
+    },
   };
 }
 
@@ -156,6 +164,7 @@ export function catalogAsData(catalog: CatalogIndex, filter: { category?: string
     tags: catalog.biomes(),
     biomes: BIOMES.map((b) => ({ id: b.id, label: b.label, hint: b.hint })),
     terrainPresets: TERRAIN_PRESETS.map((p) => ({ id: p.id, hint: p.hint })),
+    mapTemplates: MAP_TEMPLATES.map((t) => ({ id: t.id, label: t.label, hint: t.hint })),
     landforms: ['mountain', 'valley', 'plateau', 'crater', 'dunes'],
   };
   if (!filter.category && !filter.tag && !word) {
@@ -197,6 +206,91 @@ export function contentFingerprint(doc: CustomMapDocument): string {
   if (t.water) bytes(t.water.mask);
   for (const b of t.waterBodies ?? []) bytes(b.mask);
   text(JSON.stringify({ layers: t.layers, water: t.water?.level, bodies: t.waterBodies?.map((b) => b.level), rivers: t.rivers, cliff: [t.cliffMaterial, t.cliffAngle] }));
-  text(JSON.stringify([doc.objects, doc.paths, doc.spawns, doc.hq, doc.environment, doc.gameplay ?? null]));
+  text(JSON.stringify([doc.objects, doc.paths, doc.spawns, doc.hq, doc.environment, doc.gameplay ?? null, doc.life ?? null]));
   return (h >>> 0).toString(16).padStart(8, '0');
+}
+
+/**
+ * What a change did to a map, `before` against `after`, small enough for a
+ * tool answer: ground samples moved (and how far), paint, water, objects
+ * added, removed and changed, roads, spawns, the HQ, sky, rules and details.
+ * Parts that stayed are left out; `{}` means nothing changed.
+ */
+export function mapDiff(before: CustomMapDocument, after: CustomMapDocument): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  const a = before.terrain;
+  const b = after.terrain;
+  if (a.width !== b.width || a.depth !== b.depth || a.grid.columns !== b.grid.columns || a.grid.rows !== b.grid.rows) {
+    out['size'] = { from: { width: a.width, depth: a.depth, cellSize: a.grid.cellSize }, to: { width: b.width, depth: b.depth, cellSize: b.grid.cellSize } };
+  } else {
+    let cells = 0;
+    let rise = 0;
+    let drop = 0;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    const g = b.grid;
+    for (let k = 0; k < g.heights.length; k++) {
+      const d = g.heights[k] - a.grid.heights[k];
+      if (Math.abs(d) < 0.005) continue;
+      cells++;
+      if (d > rise) rise = d;
+      if (d < drop) drop = d;
+      const x = (k % g.columns) * g.cellSize - b.width / 2;
+      const y = Math.floor(k / g.columns) * g.cellSize - b.depth / 2;
+      x0 = Math.min(x0, x);
+      x1 = Math.max(x1, x);
+      y0 = Math.min(y0, y);
+      y1 = Math.max(y1, y);
+    }
+    if (cells) out['ground'] = { samples: cells, percent: Math.round((cells / g.heights.length) * 1000) / 10, maxRise: r1(rise), maxDrop: r1(drop), within: { x0: r2(x0), y0: r2(y0), x1: r2(x1), y1: r2(y1) } };
+    let texels = 0;
+    if (a.splat.resolution === b.splat.resolution && a.splat.maps.length === b.splat.maps.length) {
+      for (let m = 0; m < b.splat.maps.length; m++) {
+        const ma = a.splat.maps[m];
+        const mb = b.splat.maps[m];
+        for (let k = 0; k < mb.length; k++) if (ma[k] !== mb[k]) texels++;
+      }
+    }
+    if (texels || JSON.stringify(a.layers) !== JSON.stringify(b.layers)) out['paint'] = { values: texels, layers: b.layers.map((l) => l.material) };
+  }
+  const water = (t: typeof a) => JSON.stringify([t.water ? [t.water.level, t.water.kind, waterShare(t.water)] : null, (t.waterBodies ?? []).map((w) => [w.level, w.kind, waterShare(w)]), t.rivers ?? []]);
+  if (water(a) !== water(b)) {
+    out['water'] = {
+      main: b.water ? { level: r2(b.water.level), kind: b.water.kind ?? 'water', coversPercent: waterShare(b.water) } : null,
+      bodies: (b.waterBodies ?? []).length,
+      rivers: (b.rivers ?? []).length,
+    };
+  }
+  const objectsBefore = new Map(before.objects.map((o) => [o.id, JSON.stringify(o)]));
+  const objectsAfter = new Map(after.objects.map((o) => [o.id, JSON.stringify(o)]));
+  const added = after.objects.filter((o) => !objectsBefore.has(o.id));
+  const removed = before.objects.filter((o) => !objectsAfter.has(o.id)).map((o) => o.id);
+  const changed = after.objects.filter((o) => objectsBefore.has(o.id) && objectsBefore.get(o.id) !== objectsAfter.get(o.id)).map((o) => o.id);
+  if (added.length || removed.length || changed.length) {
+    const byAsset: Record<string, number> = {};
+    for (const o of added) byAsset[o.asset] = (byAsset[o.asset] ?? 0) + 1;
+    out['objects'] = { added: added.length, addedByAsset: byAsset, removed: removed.length, changed: changed.length, ...(changed.length <= 20 && changed.length ? { changedIds: changed } : {}), ...(removed.length <= 20 && removed.length ? { removedIds: removed } : {}) };
+  }
+  if (JSON.stringify(before.paths) !== JSON.stringify(after.paths)) {
+    const ea = new Map(before.paths.edges.map((e) => [e.id, JSON.stringify([edgePolyline(before.paths, e), e.width, e.kind, e.style])]));
+    const eb = new Map(after.paths.edges.map((e) => [e.id, JSON.stringify([edgePolyline(after.paths, e), e.width, e.kind, e.style])]));
+    out['roads'] = {
+      added: [...eb.keys()].filter((id) => !ea.has(id)),
+      removed: [...ea.keys()].filter((id) => !eb.has(id)),
+      changed: [...eb.keys()].filter((id) => ea.has(id) && ea.get(id) !== eb.get(id)),
+      nodes: after.paths.nodes.length,
+    };
+  }
+  if (JSON.stringify(before.spawns) !== JSON.stringify(after.spawns)) out['spawns'] = after.spawns.map((sp) => ({ id: sp.id, name: sp.name, x: r2(sp.x), y: r2(sp.y) }));
+  if (before.hq.x !== after.hq.x || before.hq.y !== after.hq.y) out['hq'] = { x: r2(after.hq.x), y: r2(after.hq.y) };
+  const keys = (x: object | undefined, y: object | undefined) => {
+    const all = new Set([...Object.keys(x ?? {}), ...Object.keys(y ?? {})]);
+    return [...all].filter((k) => JSON.stringify((x as Record<string, unknown> | undefined)?.[k]) !== JSON.stringify((y as Record<string, unknown> | undefined)?.[k]));
+  };
+  const env = keys(before.environment, after.environment);
+  if (env.length) out['environment'] = Object.fromEntries(env.map((k) => [k, (after.environment as unknown as Record<string, unknown>)[k] ?? null]));
+  const rules = keys(before.gameplay, after.gameplay);
+  if (rules.length) out['gameplay'] = Object.fromEntries(rules.map((k) => [k, (after.gameplay as Record<string, unknown> | undefined)?.[k] ?? null]));
+  const meta = keys({ name: before.meta.name, description: before.meta.description }, { name: after.meta.name, description: after.meta.description });
+  if (meta.length) out['details'] = Object.fromEntries(meta.map((k) => [k, (after.meta as unknown as Record<string, unknown>)[k] ?? null]));
+  return out;
 }

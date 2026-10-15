@@ -170,6 +170,8 @@ describe('symmetry', () => {
     const tool = new LandscapeTool();
     ctx.settings.landscape.biome = 'swamp';
     ctx.settings.landscape.reroll = false;
+    // A fixed seed: the pools' places follow it, and a rolled one sometimes left only a few wet cells
+    ctx.settings.landscape.seed = 7;
     ctx.settings.brush = { radius: 40, strength: 1, falloff: 0.5 };
     tool.pointerDown(at(-90, 100), ctx);
     for (let k = 0; k < 20; k++) tool.frame(0.1, at(-90 + k, 100), ctx);

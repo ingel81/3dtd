@@ -16,6 +16,7 @@ vi.mock('./infrastructure/engine-initialization.service', () => ({
 }));
 vi.mock('./tower-placement.service', () => ({ TowerPlacementService: class TowerPlacementService {} }));
 vi.mock('./camera-control.service', () => ({ CameraControlService: class CameraControlService {} }));
+vi.mock('./camera-slots.service', () => ({ CameraSlotsService: class CameraSlotsService {} }));
 vi.mock('./world/intro-camera-flight.service', () => ({
   IntroCameraFlightService: class IntroCameraFlightService {},
 }));
@@ -40,6 +41,7 @@ import { ResearchStore } from '../store/research.store';
 import { TowerPlacementService } from './tower-placement.service';
 import { SellConfirmService } from './sell-confirm.service';
 import { CameraControlService } from './camera-control.service';
+import { CameraSlotsService } from './camera-slots.service';
 import { IntroCameraFlightService } from './world/intro-camera-flight.service';
 import { AbilityTargetingService } from './ability-targeting.service';
 import { PhotoModeService } from './photo-mode.service';
@@ -161,6 +163,7 @@ describe('U and the upgrade tiles, playtest 518, 519 and 520 replayed', () => {
         { provide: SellConfirmService, useValue: new SellConfirmService() },
         { provide: MatDialog, useValue: { open: vi.fn(), openDialogs: [] } },
         { provide: CameraControlService, useValue: {} },
+        { provide: CameraSlotsService, useValue: {} },
         { provide: IntroCameraFlightService, useValue: { active: signal(false) } },
         { provide: AbilityTargetingService, useValue: {} },
         { provide: PhotoModeService, useValue: { active: signal(false) } },

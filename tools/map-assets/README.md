@@ -32,18 +32,31 @@ python -I tools/map-assets/match_lods.py public/maps/assets [<id> ...]
 python -I tools/map-assets/build_skies.py $DL/skies public/maps/assets [<id> ...]
 python -I tools/map-assets/write_licenses.py public/maps/assets
 
+# Erde über Mondkarten (NASA Blue Marble, gemeinfrei): skies/earth.webp 1024 x 512, Alpha = Glanz auf offenem Meer;
+# danach write_licenses.py
+python -I tools/map-assets/build_planet.py $DL/planet public/maps/assets
+
 # Unterseite der Felsen aus objects.json an den gepackten Modellen messen (bases.json)
 node tools/map-assets/measure_bases.mjs public/maps/assets
 
 # Objekte in catalog.json schreiben (objects.json + Messwerte + bases.json), Dreiecke je Modell und LOD
-# (count_triangles.py, auch allein nach einem pack_models.py), LICENSES.md neu
+# (count_triangles.py, auch allein nach einem pack_models.py), LICENSES.md neu. Nicht gebaute Modelle (ein Bau
+# einzelner Ids) behalten Fußabdruck, Höhe und LOD aus dem bisherigen catalog.json. Neue LODs: match_lods.py
+# braucht ihren Katalogeintrag, also update_catalog.py, match_lods.py, update_catalog.py
 python -I tools/map-assets/update_catalog.py $DL/glb-raw public/maps/assets
 ```
 
 Aufteilung der Blender-Skripte: `build_models.py` (Einstieg, Register, Grundbestand), `build_nature.py` (Bäume,
 Pflanzen, Felsen, Klippen, Kristalle), `build_structures.py` (Häuser, Burg, Brücken, Mauern), `build_props.py`
 (Requisiten), `build_city.py` (Stadt, Endzeit), `build_space.py` (Mond, Mars), `build_extreme.py` (Arktis, Hölle,
-Berge, Sumpf, Wüste), gemeinsame Helfer in `blender_kit.py`.
+Berge, Sumpf, Wüste), `build_landmarks.py` (Tunnelportale, Burgruine, Gletscher, Séracs, Lawinenverbauung,
+Schiffswrack, Rakete, Obsidianturm, Lichtmasten, Glockenturm, Steinkreis, Tribok, eingestürzte Hochstraße),
+`build_modern.py` (heutige Gebäude für OSM-Welten: Wohnhäuser, Doppel- und Reihenhäuser, Garagen, Gartenhaus,
+Carports, Tankstellendach, Blockrand-Module, Bürohäuser, Supermarkt, Hallen, Schule, Rathaus,
+Stadtkirche, Bahnhof, Parkhaus, Gewächshaus, Kiosk, Trafostation; Gleis, Bahnsteig, Oberleitungsmast, Prellbock,
+Hochspannungsmast, Rebzeile, Obstbaum, Spielgeräte, Fußballtor, Brunnen),
+gemeinsame Helfer in `blender_kit.py`. Klippen-Scans sind nur Wand und Krone: `import_model(..., close=True)`
+schließt Rückseite und Unterseite (`close_shell`), sonst sieht man von oben oder hinten in den Fels hinein.
 
 `objects.json` hält je Objekt, was ein Mensch entscheidet: Name, Kategorie, Biom-Tags, Lizenzquelle und, wo der
 Kategorie-Standard nicht passt, Sichtlinie, Bauverbot, Wind, Sichtweite, Skalierbereich. Fußabdruck und Höhe misst

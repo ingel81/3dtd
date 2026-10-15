@@ -34,6 +34,12 @@ function parts(): SaveParts {
 const text = (overrides: Record<string, unknown> = {}) => JSON.stringify({ ...buildSaveFile(parts()), ...overrides });
 
 describe('save file (TODO E110)', () => {
+  it('carries the saved camera views, and reads saves from before them (TODO E20)', () => {
+    const views = [null, { position: { x: 1, y: 2, z: 3 }, target: { x: 4, y: 5, z: 6 } }];
+    expect(readSaveFile(text({ cameraSlots: views }), HERE).file?.cameraSlots).toEqual(views);
+    expect(readSaveFile(text(), HERE).file?.cameraSlots).toBeUndefined();
+  });
+
   it('reads back what it wrote, without a note on the same version and balance', () => {
     const read = readSaveFile(text(), HERE);
     expect(read.refusal).toBeNull();
@@ -57,6 +63,7 @@ describe('save file (TODO E110)', () => {
     expect(readSaveFile(text({ sim: null }), HERE).refusal).toBe('damaged');
     expect(readSaveFile(text({ world: { format: '3dtd-world' } }), HERE).refusal).toBe('damaged');
     expect(readSaveFile(text({ director: { source: 'nope', planned: null } }), HERE).refusal).toBe('damaged');
+    expect(readSaveFile(text({ cameraSlots: [{ position: { x: 1 } }] }), HERE).refusal).toBe('damaged');
     expect(readSaveFile(text({ wave: 0 }), HERE).refusal).toBe('damaged');
   });
 
@@ -77,6 +84,23 @@ describe('save file (TODO E110)', () => {
     const pressure = { smoothed: null, samples: 0, multiplier: 1, lastStep: 'warming-up', lastTarget: null, lastPressure: null, lastChange: 1 };
     expect(readSaveFile(text({ director: { source: 'budget', sourceState: { pressure, lastCapped: false }, planned: null } }), HERE).refusal).toBeNull();
     expect(saveFileRefusalText('damaged')).toBe('That save is damaged.');
+  });
+
+  it('refuses a save with an unreleased tower or path in a production build, and names it (configs/release.ts)', () => {
+    const sim = emptySimSnapshot(11);
+    const tower = (typeId: string, pathId: string | null) => ({
+      id: 't1', typeId, lat: 49.1, lon: 9.2, height: 0, customRotation: 0, plinthHeight: 0, plinthOverhang: [], upgrades: [],
+      losMask: null, state: { cooldownMs: 0, kills: 0, damageDealt: 0, pathId },
+    });
+    const withTower = (typeId: string, pathId: string | null = null) => text({ sim: { ...sim, towers: [tower(typeId, pathId)] } });
+    const bastion = readSaveFile(withTower('bastion'), HERE, true);
+    expect(bastion.refusal).toBe('unreleased');
+    expect(bastion.refusal !== null && saveFileRefusalText(bastion.refusal, bastion.detail))
+      .toBe('That save uses Iron Bastion, which this version of the game does not have yet.');
+    expect(readSaveFile(withTower('archer', 'incendiary'), HERE, true).refusal).toBe('unreleased');
+    expect(readSaveFile(withTower('archer', 'scout'), HERE, true).refusal).toBeNull();
+    // A dev build loads it
+    expect(readSaveFile(withTower('bastion'), HERE, false).refusal).toBeNull();
   });
 
   it('names the download after place and wave', () => {

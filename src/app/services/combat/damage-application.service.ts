@@ -9,6 +9,7 @@ import { GameEventBus } from '../../game-engine/game-event-bus';
 import { enemyBloodColor, enemyHitSpot } from '../../utils/enemy-hit-spot';
 import { isHeroSource } from '../../configs/hero.config';
 import type { KilledBy } from '../../game-engine/game-event-bus';
+import type { StatusEffectService } from './status-effect.service';
 
 /**
  * DamageApplicationService - Applies damage to enemies and handles kills
@@ -24,15 +25,28 @@ export class DamageApplicationService {
   private towerManager: TowerManager | null = null;
   private enemyManager: EnemyManager | null = null;
   private eventBus: GameEventBus | null = null;
+  /** Whether a target is corroded (StatusEffectService.isCorroded), null when nothing can be */
+  private statusEffects: Pick<StatusEffectService, 'isCorroded'> | null = null;
 
   initialize(
     towerManager: TowerManager,
     enemyManager: EnemyManager,
     eventBus: GameEventBus,
+    statusEffects: Pick<StatusEffectService, 'isCorroded'> | null = null,
   ): void {
     this.towerManager = towerManager;
     this.enemyManager = enemyManager;
     this.eventBus = eventBus;
+    this.statusEffects = statusEffects;
+  }
+
+  /**
+   * The matrix result of a hit: its armor, one class lighter where that hurts more when the target is corroded
+   * (status `corrode`) or the hit pierces armor (TowerPath.armorPiercing)
+   */
+  private matrixDamage(enemy: Enemy, damage: number, damageType: DamageType, piercesArmor = false): DamageResult {
+    const lighter = piercesArmor || (this.statusEffects !== null && this.statusEffects.isCorroded(enemy));
+    return calculateDamage(damage, damageType, enemy.getEffectiveArmorType(), 1, lighter);
   }
 
   /**
@@ -46,6 +60,7 @@ export class DamageApplicationService {
    * @param sourceTowerId - Tower that dealt the damage, or HERO_SOURCE_ID
    * @param isSplashDamage - Whether this is splash (lower blood intensity)
    * @param skipBloodEffects - Skip blood (e.g. ice projectiles)
+   * @param piercesArmor - Counts against the next lighter armor where that hurts more (TowerPath.armorPiercing)
    * @returns DamageResult with effective damage info, or null if not initialized
    */
   applyDamage(
@@ -55,12 +70,12 @@ export class DamageApplicationService {
     damageType: DamageType,
     sourceTowerId: string,
     isSplashDamage: boolean,
-    skipBloodEffects: boolean
+    skipBloodEffects: boolean,
+    piercesArmor = false,
   ): DamageResult | null {
     if (!this.towerManager || !this.enemyManager) return null;
 
-    const armorType = enemy.getEffectiveArmorType();
-    const result = calculateDamage(damage, damageType, armorType);
+    const result = this.matrixDamage(enemy, damage, damageType, piercesArmor);
 
     // Spawn blood effects for enemies that can bleed
     if (!skipBloodEffects) {
@@ -103,8 +118,7 @@ export class DamageApplicationService {
   ): DamageResult | null {
     if (!this.towerManager || !this.enemyManager) return null;
 
-    const armorType = enemy.getEffectiveArmorType();
-    const result = calculateDamage(damage, damageType, armorType);
+    const result = this.matrixDamage(enemy, damage, damageType);
 
     if (showBloodEffects && enemy.typeConfig.canBleed) {
       const spot = enemyHitSpot(enemy);

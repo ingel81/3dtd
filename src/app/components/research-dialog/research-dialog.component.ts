@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
+import { CdkDrag, CdkDragHandle, CdkDragPlaceholder, CdkDropList, moveItemInArray, type CdkDragDrop } from '@angular/cdk/drag-drop';
 import { getResearch } from '../../configs/research/research-tree.config';
 import { researchCost as laneCost, researchWave, type ResearchId } from '../../configs/research/research.types';
 import { ResearchStore } from '../../store/research.store';
@@ -50,7 +51,10 @@ const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
 @Component({
   selector: 'app-research-dialog',
   standalone: true,
-  imports: [MatDialogModule, TdIconComponent, TechTreeComponent, DragScrollDirective, RovingGroupDirective],
+  imports: [
+    MatDialogModule, TdIconComponent, TechTreeComponent, DragScrollDirective, RovingGroupDirective,
+    CdkDropList, CdkDrag, CdkDragHandle, CdkDragPlaceholder,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './research-dialog.component.html',
   styleUrl: './research-dialog.component.scss',
@@ -117,7 +121,17 @@ export class ResearchDialogComponent {
   });
 
   protected readonly nodes = computed(() => buildResearchNodes(this.treeState()));
-  protected readonly queue = computed(() => this.treeState().queued);
+  /**
+   * The order a drop asked for, shown until the simulation's next queue
+   * arrives: the command takes effect at the next tick, and without it the
+   * row would jump back for that long. `base` is the queue it was dropped on.
+   */
+  private readonly droppedOrder = signal<{ base: readonly ResearchId[]; order: ResearchId[] } | null>(null);
+  protected readonly queue = computed(() => {
+    const queued = this.treeState().queued;
+    const dropped = this.droppedOrder();
+    return dropped && dropped.base === queued ? dropped.order : queued;
+  });
   protected readonly credits = this.store.credits;
   protected readonly slotsUsed = computed(() => this.treeState().active.length);
   protected readonly slotsTotal = computed(() => this.partner()?.maxSlots ?? this.research.researchSlots());
@@ -223,15 +237,22 @@ export class ResearchDialogComponent {
     this.facade.emitCommand({ type: 'command:unqueue-research', researchId });
   }
 
-  /**
-   * Up and down rather than dragging: the repo has no cdk/drag-drop anywhere,
-   * and a button works with a keyboard without anything else being built.
-   */
+  /** Up and down buttons: the queue's order by keyboard, beside dragging a row */
   protected onMove(researchId: ResearchId, delta: number): void {
     if (this.viewOnly()) return;
     const toIndex = this.queue().indexOf(researchId) + delta;
     if (toIndex < 0 || toIndex >= this.queue().length) return;
     this.facade.emitCommand({ type: 'command:move-queued-research', researchId, toIndex });
+  }
+
+  /** A row dragged to another place in the queue (cdk drag-drop) */
+  protected onDrop(event: CdkDragDrop<readonly ResearchId[], readonly ResearchId[], ResearchId>): void {
+    if (this.viewOnly() || event.previousIndex === event.currentIndex) return;
+    const base = this.treeState().queued;
+    const order = [...this.queue()];
+    moveItemInArray(order, event.previousIndex, event.currentIndex);
+    this.droppedOrder.set({ base, order });
+    this.facade.emitCommand({ type: 'command:move-queued-research', researchId: event.item.data, toIndex: event.currentIndex });
   }
 
   /** The detail panel's last line on a partner's tree, where nothing can be done */

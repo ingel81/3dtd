@@ -27,7 +27,7 @@ import {
   straightenEdge,
 } from '../ops/path-graph';
 import { flattenUnderPaths, paintUnderPaths } from '../ops/path-terrain';
-import { rebuildDressing, relayRoads, type RoadOptions } from '../ops/landscape/road';
+import { rebuildDressing, relayRoads, surfaceRoads, type RoadOptions } from '../ops/landscape/road';
 import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
 import type { CatalogIndex } from '../catalog/asset-catalog';
 import { symmetryImages } from '../ops/symmetry';
@@ -49,10 +49,6 @@ export class PathTool implements EditorTool {
 
   brushVisible(): boolean {
     return false;
-  }
-
-  activate(ctx: ToolContext): void {
-    ctx.overlay.setNodesVisible(true);
   }
 
   deactivate(ctx: ToolContext): void {
@@ -381,6 +377,14 @@ export function rebuildRoads(editor: EditorDocument, catalog: CatalogIndex, edge
   rebuildDressing(stroke, edgeIds, { adapt: road.adapt, ...(surface ? { surface } : {}), lamps: road.lamps, fences: road.fences, objects: [] });
   stroke.changed({ paths: true });
   stroke.finish();
+}
+
+/** The surface of the selected roads (null: none, the drawn road), painted at once; one step */
+export function setRoadSurface(editor: EditorDocument, catalog: CatalogIndex, edgeIds: readonly string[], material: string | null): number {
+  const stroke = new LandscapeStroke(editor, 'Road surface', 1, catalog);
+  const n = surfaceRoads(stroke, edgeIds, material);
+  stroke.finish();
+  return n;
 }
 
 /** Width or kind for several roads as one step */

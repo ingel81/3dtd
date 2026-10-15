@@ -3,7 +3,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import type { MapPathKind } from '../../../world/custom-map/map-document';
 import { edgePolyline, polylineLength, smoothEdge, straightenEdge } from '../../ops/path-graph';
 import { selectedEdges, selectedNodes } from '../../model/editor-document';
-import { editRoads, flattenRoads, paintRoads, pathCommands, rebuildRoads, setRoads } from '../../tools/path-tool';
+import { roadSurfaces } from '../../ops/landscape/road';
+import { editRoads, flattenRoads, paintRoads, pathCommands, rebuildRoads, setRoadSurface, setRoads } from '../../tools/path-tool';
 import type { PathMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
 import { RangeRowComponent } from './range-row.component';
@@ -16,6 +17,7 @@ const KINDS: { id: MapPathKind; label: string }[] = [
 
 /**
  * Roads: draw or edit, width and kind for new roads and the selected one,
+ * the selected road's surface,
  * smoothing, routes on or off, and "Flatten road" / "Paint road" for the
  * ground under them.
  */
@@ -40,6 +42,18 @@ const KINDS: { id: MapPathKind; label: string }[] = [
             <button type="button" role="radio" [attr.aria-checked]="e.kind === k.id" (click)="setEdge({ kind: k.id })">{{ k.label }}</button>
           }
         </div>
+        @if (e.kind !== 'bridge' && surfaces().length) {
+          <label class="td-setting">
+            <span>Surface</span>
+            <select class="td-select is-auto" (change)="setSurface($any($event.target).value)" aria-label="Surface of the road" data-test="road-surface"
+                    matTooltip="The road's own ground, painted under it at once and kept when the dressing is laid anew; None draws cobbles and ruts over the ground">
+              <option value="" [selected]="!e.surface">None</option>
+              @for (m of surfaces(); track m.id) {
+                <option [value]="m.id" [selected]="e.surface === m.id">{{ m.name }}</option>
+              }
+            </select>
+          </label>
+        }
       </div>
     }
     @if (edgeIds().length) {
@@ -87,6 +101,7 @@ export class PathPanelComponent {
   readonly kinds = KINDS;
   readonly s = computed(() => (this.session.settingsRev(), { ...this.session.settings.paths }));
   readonly layer = signal(0);
+  readonly surfaces = computed(() => roadSurfaces(this.session.catalog()));
   readonly layers = computed(() => {
     this.session.docRev();
     const catalog = this.session.catalog();
@@ -112,7 +127,7 @@ export class PathPanelComponent {
     if (!list.length) return null;
     const length = Math.round(list.reduce((n, e) => n + polylineLength(edgePolyline(doc.paths, e)), 0));
     // Several roads: their values as the first has them, a change goes to all
-    return { id: list.length === 1 ? `Road ${list[0].id}` : `${list.length} roads`, width: list[0].width, kind: list[0].kind, length, ids: list.map((e) => e.id) };
+    return { id: list.length === 1 ? `Road ${list[0].id}` : `${list.length} roads`, width: list[0].width, kind: list[0].kind, surface: list[0].surface, length, ids: list.map((e) => e.id) };
   });
 
   setMode(mode: PathMode): void {
@@ -137,6 +152,14 @@ export class PathPanelComponent {
     const ids = this.edge()?.ids ?? this.edgeIds();
     if (!editor || !ids.length || this.session.blocked('Changing roads')) return;
     setRoads(editor, this.session.catalog(), ids, patch);
+    this.session.refresh();
+  }
+
+  setSurface(material: string): void {
+    const editor = this.session.editor;
+    const ids = this.edge()?.ids ?? [];
+    if (!editor || !ids.length || this.session.blocked('Changing roads')) return;
+    setRoadSurface(editor, this.session.catalog(), ids, material || null);
     this.session.refresh();
   }
 

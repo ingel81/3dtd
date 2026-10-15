@@ -9,6 +9,7 @@
 
 import { Tower } from '../entities/tower.entity';
 import { TowerTypeId, TOWER_TYPES, type TowerTypeConfig } from '../configs/tower-types.config';
+import type { TowerPathId } from '../configs/tower-paths.config';
 import { PROJECTILE_TYPES } from '../configs/projectile-types.config';
 import { ArmorType, ARMOR_TYPES, DamageType, DAMAGE_TYPES } from '../configs/combat/combat.types';
 import {
@@ -19,7 +20,10 @@ import {
   TowerDistribution,
   VulnerabilityAnalysis,
 } from './models/game-state-snapshot';
-import { computeTowerDPS, canTargetAirEffective, airTargetingFor, type AirTargeting, armorMultipliersFor } from './tower-dps.util';
+import {
+  computeTowerDPS, canTargetAirEffective, airTargetingFor, type AirTargeting, armorMultipliersFor, towerArmorMultipliers,
+} from './tower-dps.util';
+import { canTargetGroundEffective, groundDamageShareOf } from '../entities/tower-targeting.util';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import type { HeroDefenseProfile } from '../configs/hero.config';
 import { DetMath } from '../utils/det-math';
@@ -49,6 +53,10 @@ const TOWER_CAPABILITIES: Record<
   poison: { dot: true }, // Poison Tower applies DOT
   lightning: { antiAir: true },
   chaos: { antiAir: true }, // Generalist: air and ground, 1.0 against every armor
+  bastion: { antiAir: true }, // Flak: air and ground from the start
+  sentinel: { antiAir: true }, // Laser: air and ground, one target at a time
+  chainsaw: {}, // Three saw arms at the road's edge, ground only
+  shawarma: {}, // A stream on a line, ground only
   'research-center': {}, // Passive building — no combat capabilities
   'missile-silo': {}, // Passive building: the nuclear strike is an ability, not tower fire
 };
@@ -148,7 +156,7 @@ function calculateAoeDpsShare(
     if (dps <= 0) continue;
     const isAoe = isSplashTower(typeId) || cfg.attackType === 'chain';
 
-    if (cfg.canTargetGround !== false) {
+    if (tower.canTargetGround) {
       groundTotal += dps;
       if (isAoe) groundAoe += dps;
     }
@@ -334,24 +342,31 @@ function calculateDPSPerArmor(
   const zero = () => ARMOR_TYPES.reduce((acc, a) => { acc[a] = 0; return acc; }, {} as Record<ArmorType, number>);
   const effective: EffectiveDPSPerArmor = { ground: zero(), air: zero() };
   for (const tower of towers) {
-    addTowerDps(effective, tower.typeConfig, computeTowerDPS(tower), airTargetingFor(airTargetingUnlocked, tower));
+    addTowerDps(effective, tower.typeConfig, computeTowerDPS(tower), airTargetingFor(airTargetingUnlocked, tower), tower.pathId);
   }
   return effective;
 }
 
 /**
  * One tower's matrix damage into `out`, per armor, ground and air as it can
- * target them. Pure: the live analysis and the balance calculator
- * (tools/balance-calc) share it.
+ * target them, with what its path adds (towerArmorMultipliers). Pure: the
+ * live analysis and the balance calculator (tools/balance-calc) share it.
  */
-export function addTowerDps(out: EffectiveDPSPerArmor, cfg: TowerTypeConfig, dps: number, airTargeting: boolean): void {
+export function addTowerDps(
+  out: EffectiveDPSPerArmor,
+  cfg: TowerTypeConfig,
+  dps: number,
+  airTargeting: boolean,
+  pathId: TowerPathId | null = null,
+): void {
   if (dps <= 0) return;
-  const mults = armorMultipliersFor(cfg.damageType);
-  const canGround = cfg.canTargetGround ?? true;
+  const mults = towerArmorMultipliers(cfg, pathId);
+  const canGround = canTargetGroundEffective(cfg.id as TowerTypeId, pathId);
+  const groundShare = groundDamageShareOf(pathId);
   const canAir = canTargetAirEffective(cfg.id as TowerTypeId, airTargeting);
   for (const armor of ARMOR_TYPES) {
     const dpsVsArmor = dps * mults[armor];
-    if (canGround) out.ground[armor] += dpsVsArmor;
+    if (canGround) out.ground[armor] += dpsVsArmor * groundShare;
     if (canAir) out.air[armor] += dpsVsArmor;
   }
 }
@@ -376,11 +391,12 @@ export function damageMetresPerArmor(
     if (!metres) continue;
     const dps = computeTowerDPS(tower);
     if (dps <= 0) continue;
-    const mults = armorMultipliersFor(tower.typeConfig.damageType);
-    const canGround = tower.typeConfig.canTargetGround ?? true;
+    const mults = towerArmorMultipliers(tower.typeConfig, tower.pathId);
+    const canGround = tower.canTargetGround;
+    const groundShare = groundDamageShareOf(tower.pathId);
     const canAir = canTargetAirEffective(tower.typeConfig.id as TowerTypeId, airTargetingFor(airTargetingUnlocked, tower));
     for (const armor of ARMOR_TYPES) {
-      if (canGround) out.ground[armor] += dps * mults[armor] * metres.ground;
+      if (canGround) out.ground[armor] += dps * mults[armor] * groundShare * metres.ground;
       if (canAir) out.air[armor] += dps * mults[armor] * metres.air;
     }
   }

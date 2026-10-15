@@ -12,7 +12,7 @@
       "spawns": 2,
       "biome": "temperate",
       "updatedAt": "1970-01-01T00:00:00.000Z",
-      "contentHash": "bb01b335dc9425ad36fab86595b0e7f07a120d58c9cf90bfe12f595f9c8e0f7d"
+      "contentHash": "94aad212a207964d2913fcf9df6f4fcdc77dbbb0fe6c062bcf298edc50089fba"
     },
     {
       "id": "mountain-pass",
@@ -26,7 +26,7 @@
       "spawns": 2,
       "biome": "mountain",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "775958cf8eb153515f8596e10d79afe345c76adb282a2832cc70181538586f6f"
+      "contentHash": "ba50b27e0d8a08eabcc851f21ffb5ee9c40625c84bfe35b93b023d975e43db86"
     },
     {
       "id": "witch-marsh",
@@ -40,7 +40,7 @@
       "spawns": 2,
       "biome": "swamp",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "1259622fc52d59cac070077ca8f74741cbf40cfe17b0394424d0384f4ff0d8ec"
+      "contentHash": "c3eeed09b8f35ce524f8f4e9d51b93c5cb7c695ebed8a32162330dbc45862315"
     },
     {
       "id": "autumn-keep",
@@ -54,7 +54,7 @@
       "spawns": 3,
       "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "9b83c38d7f43d2432bd549312fd60a24c940c58c04e797c42e409b3b04bfa80a"
+      "contentHash": "ed70ca1bff77a38bd520dd76028d5866d34a6820614c3a678fc4d033fcd4f4ed"
     },
     {
       "id": "red-canyon",
@@ -68,7 +68,7 @@
       "spawns": 2,
       "biome": "desert",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "4c97c3453a4737c9db29e9964d41ac7c08313a080af2aca333142580d6e8c942"
+      "contentHash": "0557411b572b23f1dc1fe77dbb9fdc9a88d7d9f7be6c9dbb33c13569dd0218c4"
     },
     {
       "id": "archipelago",
@@ -82,7 +82,7 @@
       "spawns": 2,
       "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "eb3c1640bfcb2126e98ec2ea9d5542a4fad2af4e0b2ea7a6dc7f4fff0ca253e8"
+      "contentHash": "3f5bd1c6a6386003ea2796233eb75bb662f28b15716e2883818ba7347edeeae4"
     },
     {
       "id": "frost-hamlet",
@@ -96,7 +96,7 @@
       "spawns": 2,
       "biome": "arctic",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "ec58f7bca6cddb94de399b28e9a2e396d69694ba91781fbf2737f9bf71dd3c2a"
+      "contentHash": "8da0d6d62272aa7b7d91065708c2afb34b428675c69af994841faba22ce0f5b4"
     },
     {
       "id": "ember-crater",
@@ -110,7 +110,7 @@
       "spawns": 3,
       "biome": "hell",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "d4747dd6d0485f7d3b2881f28b56324787883b1e32f069d2aadb692cd6c5689d"
+      "contentHash": "f85393a0fbb7a19d82dfe552988c9659cd62887330c3ca1e3e4117d151ca7c69"
     },
     {
       "id": "twin-gates",
@@ -124,7 +124,7 @@
       "spawns": 4,
       "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "5e48e0820db5123c5c92e3c509c2239ba47e79d8033b02191d23ae5bb9380bb8"
+      "contentHash": "cd84ecd8560a43bbc95bb1c1347589d19d03c39d033ae7fe3048dbed1cba506d"
     },
     {
       "id": "moon-base",
@@ -138,7 +138,7 @@
       "spawns": 3,
       "biome": "moon",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "86344f249fb7c82598fe10542d00e9a82c57fc6cab1f22a2e8ff78f07fa8f9da"
+      "contentHash": "df0e140e1be3d1179d5e9b60fe19c47ed26702ce9142f29cdb321b61e8ef0b51"
     },
     {
       "id": "mars-canyon",
@@ -152,7 +152,7 @@
       "spawns": 3,
       "biome": "mars",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "913785ccbbb748cf638050f66c9f031b526921a0adc4656963614d1e4d6cd1a0"
+      "contentHash": "f2fff4c7343eb402b646b4d79181b006ce3a43513422fd09336a3c48f91837f4"
     },
     {
       "id": "ruined-city",
@@ -166,7 +166,7 @@
       "spawns": 3,
       "biome": "apocalypse",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "16be205370da43962c56cbe6dec670440994a6c2ee885abf64854c4ec562f1b7"
+      "contentHash": "48e04fc0523a3f530989829ad6baf11119df6501f0f169017d28ebae05e8fa7e"
     },
     {
       "id": "harbor-town",
@@ -180,7 +180,7 @@
       "spawns": 3,
       "biome": "city",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "aca8028d9775455f38df9e1a8b3f0c6c3b19b98be4219ee971809a71518088e2"
+      "contentHash": "6283ad45f7d294bca8a276cc2edee396fbab36c9ed2f9d927bb156ca59ea25dc"
     }
   ]
 }

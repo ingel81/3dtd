@@ -114,7 +114,7 @@ Mechanik in [STATUS_EFFECTS.md](../STATUS_EFFECTS.md)):
 | Effekt | Quelle | Wirkung | Dauer |
 |---|---|---|---|
 | **Slow** | Ice Tower | -50 % Tempo | 3 s |
-| **Burn** | Fire Tower | 20 % der Beam-DPS als DoT, Tick 500 ms, pro Turm ein Eintrag | 3 s, im Kegel erneuert |
+| **Burn** | Fire Tower; Archer mit Pfad Fire Arrows | Fire: 20 % der Beam-DPS als DoT; Archer: 25 % des Pfeilschadens; Tick 500 ms, pro Turm ein Eintrag | 3 s, im Kegel bzw. je Treffer erneuert |
 | **Poison** | Poison Tower | 8 DPS | 4 s |
 | **Freeze** | Frostbombe | Halt | 3 s, Bosse 1 s |
 | **Stun** | EMP | Halt | 1,5 s, Maschinen 6 s, Bosse 0,75 s |
@@ -124,6 +124,10 @@ Werte aus `game-balance.config.ts` (`effects`), `combat-tuning.config.ts`
 Kegel gleich: der Fire Tower gibt 20 % seines Schadens als Burn aus statt
 direkt. Details in [STATUS_EFFECTS.md](../STATUS_EFFECTS.md#burn-effect-dot),
 die Fähigkeiten in [ABILITIES.md](../ABILITIES.md).
+
+Gebaut seit 2026-10-15 mit den Tower-Pfaden: **Seal** (Magic, Binding Sigil: Phasing 4 s aufgehoben) und
+**Corrode** (Poison, Caustic: 3 s eine Rüstungsklasse leichter, je Schadensart das Bessere aus beiden Spalten,
+nicht stapelbar, nicht auf Bossen). Corrode ist die mildere Form des geplanten Armor Break (§12.1).
 
 Gebaut seit 2026-10-02: Regen (§2.5), den ein Burn anhält, und das Gegenmittel
 `immuneToSlow` (Phasing). Nicht gebaut: Armor Break, Mark, ein Stun als
@@ -142,7 +146,7 @@ Gebaut sind diese Eigenschaften je Gegnertyp (`EnemyTypeConfig` in
 | Split | `splitOnDeath` | ein Kill (kein Leck) teilt den Gegner | Skeleton (2 Minions), Ooze (bis zu 20 Slime Clumps mit 3/10 ihrer HP) |
 | Kette | `chain` | ein Spawn bringt einen Wurm aus Segmenten | Skarnax |
 | Regen | `regenPerSecond` | heilt je Sekunde einen Anteil der max. HP, in Schritten von 0,5 s Spielzeit, nie solange er brennt | Mammoth 1 %, Slime Clump 2 % |
-| Phasing | `immuneToSlow` | ein Slow greift nicht; Freeze und Stun schon | Wraith |
+| Phasing | `immuneToSlow` | ein Slow greift nicht; Freeze und Stun schon; ein Siegel (Magic, Pfad Binding Sigil) hebt es 4 s auf | Wraith |
 | Wut | `traits.rage` | unter einem Anteil der HP schneller und nimmt weniger Turmschaden, rot | Herbert (50 %), Golem King (40 %), Dragon Matriarch (50 %) |
 | Eigenes Leck | `leakDamage` | kostet im HQ diesen Wert statt dem aus den HP | Skarnax 150 |
 | Elite | (je Welle, `ELITE_SHARE`) | etwa jeder 20. einer Art ab zehn, 4,5-fache HP, gold, ein Viertel größer | alle außer Bossen, Wurm und Ooze |
@@ -172,6 +176,10 @@ Mutator je Welle ([WAVE_RUN_PLAN.md](../WAVE_RUN_PLAN.md), Abschnitt 16).
 | **Poison** | Poison | 5 dmg + DoT 8/s für 4 s, 1.0/s, Range 55, Splash 8 m | 100 | nein |
 | **Lightning** | Lightning | 32 dmg primary, Chain ×0.7/Jump, 2 Jumps, 0.8/s, Range 65 | 130 | **Air + Ground** |
 | **Chaos** | Chaos | 50 dmg, 1.2/s, Range 60, 1,0 gegen jede Rüstung | 200 | **Air + Ground** |
+| **Iron Bastion** | Pierce | 36 dmg, 0.75/s, Range 65, Flak-Splash 5 m (max. 6 Ziele) | 150 | **Air + Ground** |
+| **Chainsaw** | Pierce | 3 Arme mit je 30 DPS, jeder Arm ein eigenes Ziel, Range 14 | 140 | nein |
+| **Shawarma Slicer** | Physical | Strom 80 DPS bei vollem Antrieb auf einer Linie (1,6 m), dreht in 2,5 s hoch, Range 35 | 150 | nein |
+| **Sentinel Laser** | Lightning | Laser 24 DPS kalt, auf demselben Ziel in 4 s bis 96 DPS, Range 60 | 170 | **Air + Ground** |
 
 ### 3.2 Upgrade-Regeln (Stand 2026-09)
 - **Kosten:** `50 × 1,25^Stufe` pro Stufe und Track, mal dem Kostenfaktor des
@@ -199,6 +207,10 @@ Mutator je Welle ([WAVE_RUN_PLAN.md](../WAVE_RUN_PLAN.md), Abschnitt 16).
 | Poison | 1,05 | 1,04 | DoT skaliert mit dem Damage-Track |
 | Lightning | 1,05 | 1,04 | Kette vervielfacht ohnehin |
 | Chaos | 1,05 | 1,04 | Generalist, soll die Spezialisten auch im Endausbau nicht überholen |
+| Iron Bastion | 1,06 | 1,03 | der Splash trägt den Schaden auf jedes getroffene Ziel |
+| Chainsaw | 1,07 | 1,03 (Chain Speed) | Kettentempo multipliziert den Dauerschaden jedes Arms |
+| Shawarma Slicer | 1,06 | 1,04 (Drive) | der Antrieb multipliziert den Dauerschaden |
+| Sentinel Laser | 1,06 | 1,04 (Heat-up) | Fire Rate heißt hier Heat-up und verkürzt das Aufheizen |
 
 Andere Upgrade-Pfade als diese Tracks gibt es nicht. Die früher je Tower
 geplanten Pfade (Air-Pfade, Armor Break, Luftflamme, Spezialisierungen) stehen
@@ -209,7 +221,11 @@ in §12.3.
 - Seit 2026-10-02 30 statt 25 Schaden und Upgrades zu 0,6 des Preises: Mit den
   Preisen aller Tower war jede Stufe des schwächsten Basis-Schadens der
   schlechteste Kauf (menschlicher Lauf bis W60: 3,6 Schaden je Gold, Fire 17,3).
-- Der geplante Air-Upgrade-Pfad und die Spezialisierungen sind nicht gebaut (§12.3).
+- Pfade (Einmalkauf je Tower, [TOWER_CREATION.md](../TOWER_CREATION.md#pfade-2026-10-03-todo-e101)): Scout
+  (Camo-Erkennung), Fire Arrows (jeder Treffer brennt mit 25 % des Pfeils als Feuer je Sekunde, 3 s; hält Regen
+  an) oder Sniper (seit 2026-10-15, Pfad 300: Modelltausch auf eine Ballista, 140 Schaden alle 4 s, 60 m,
+  panzerbrechend eine Klasse leichter, auf das stärkste Ziel; L0 35 DPS, gegen Heavy 2,3-fach des Archers). Der
+  geplante Air-Upgrade-Pfad ist nicht gebaut (§12.3).
 
 ### 3.4 Dual-Gatling: Pierce
 - Trifft Luft erst mit der Forschung AA Retrofit (`aa-retrofit`), die nur die
@@ -225,11 +241,14 @@ in §12.3.
 - Seit 2026-10-02 60 statt 40 Schaden und Upgrades zu 0,75: Sie steht in jeder
   Bodenwelle still (menschlicher Lauf bis W60: 2,8 Schaden je Gold). Die Rolle
   bleibt (TODO E15).
-- Die geplante „Bodenfreigabe" ist nicht gebaut (§12.3).
+- Pfad Multirole (Forschung Multirole Warheads ab W9, Pfad 300, seit 2026-10-15): trifft auch Boden, dort mit
+  50 % (Treffer und Splash), Flieger zuerst. Das ist die frühere geplante „Bodenfreigabe“ (§12.3).
 
 ### 3.7 Magic: Magic
 - Stärkster Ethereal-Counter (2.0×), zweiter Konter gegen Fortified (1.3×, Runen gegen Stein).
 - Schwach gegen Light (0.5×): flinke Ziele weichen den Geschossen aus.
+- Pfad Binding Sigil (Forschung Binding Sigils ab W15, Pfad 250, seit 2026-10-15): jeder Treffer hebt Phasing
+  4 s auf, der Slow der Ice greift dann auch an Wraiths (§2.5).
 
 ### 3.8 Ice: Ice
 - **Air + Ground** ab Basis. Niedriger DPS, starker Slow.
@@ -252,6 +271,8 @@ in §12.3.
 - DoT-Spezialist mit Splash-Projektil.
 - Eigenständiger Schadenstyp (nicht Fire-Subtyp).
 - Poison-DoT und Burn-DoT sind getrennte Effekte, können gleichzeitig wirken.
+- Pfad Caustic (Forschung Caustic Compounds ab W11, Pfad 250, seit 2026-10-15): der direkte Treffer zersetzt 3 s,
+  das Ziel zählt für alle Tower eine Rüstungsklasse leichter, wo das mehr Schaden macht (§2.4, Corrode).
 
 ### 3.12 Lightning: Lightning
 - **Chain-Hitscan** (`attackType: 'chain'`): Primary-Treffer + 2 Jumps, je `chainFalloff 0.7` (100% → 70% → 49%), `jumpRange 15m` zwischen Chain-Links.
@@ -273,6 +294,103 @@ in §12.3.
 - **Upgrades:** Damage 1,05, Fire Rate 1,04, L25 ×5,35 wie Archer und Lightning (§3.2).
 - **Modell:** Kenney „tower-round-crystals“ (CC0, Tower Defense Kit). Der mittlere Kristall dreht sich zum Ziel (`turretNode`), aus ihm kommt der Orb. Der Sound ist ein eigener, verzerrter Chaos-Schuss (`towers/chaos/cast.mp3`, seit 2026-09-23).
 - **Wave-Director:** zählt als Anti-Air und als Anti-Ethereal (Ethereal-Multiplikator 1,0 erreicht die Schwelle von `isAntiEtherealTower`).
+
+### 3.14 Iron Bastion: Pierce (seit 2026-10-15)
+- **Flak:** schwere Kanone, deren Granate in einem Schwarm platzt: Splash 5 m, höchstens 6 Ziele (`flak-shell`),
+  Luft und Boden ab Basis. Das Rohr neigt sich zum Ziel (bis 60° für Flieger).
+- **Rolle:** leichte Schwärme, am Boden (Spinnen, Ratten, Skelette) und in der Luft (Fledermäuse, Hornissen). Pierce
+  1,6 gegen Light, 1,25 gegen Unarmored; gegen Heavy (0,35) und Fortified (0,25) so schwach wie die Gatling.
+- **Rechnung** (DPS-Modell `computeTowerDPSFromLevels`, Basisstufe, Splash als weicher Faktor 1 + 5/10):
+
+| DPS × Matrix / Gold | Unarmored | Light | Heavy | Fortified | Ethereal |
+|---|---:|---:|---:|---:|---:|
+| Iron Bastion (150) | 0,34 | 0,43 | 0,09 | 0,07 | 0,03 |
+| Dual-Gatling (90) | 0,69 | 0,89 | 0,19 | 0,14 | 0,06 |
+| Cannon (150) | 0,15 | 0,15 | 0,51 | 0,47 | 0,09 |
+
+  Gegen ein einzelnes leichtes Ziel bleibt die Gatling der bessere Kauf. Die Bastion lohnt sich im Pulk: ein Schuss
+  (27 DPS roh) trifft dort bis zu 6 Körper mit 1 − Abstand/5 m: bei 3 Nachbarn im Mittel 2,5 m entfernt das
+  2,5-Fache (0,72 Light-DPS je Gold), bei 5 Nachbarn das 3,5-Fache (1,0), mehr als die Gatling gegen den Pulk. Gegen Luftschwärme braucht sie keine Forschung wie die Gatling (AA
+  Retrofit).
+- **Freischaltung:** Flak Artillery (1.000 Gold, 20 s, ab Welle 8) hinter Siege Engineering.
+- **Upgrades:** Damage 1,06, Fire Rate 1,03 (L25 ×5,3 bis 6,4 wie alle, §3.2).
+- **Modell:** Meshy-Kandidat „Iron Bastion Turret“, zerlegt und reduziert mit `tools/blender/build_tower.py`
+  (45.000 Dreiecke, Textur 1024 JPEG). Ton: der Schuss der Cannon, etwas leiser.
+- **Wave-Director:** zählt als Anti-Air.
+
+### 3.15 Sentinel Laser: Lightning (seit 2026-10-15)
+- **Laser** (`attackType: 'laser'`): ein Strahl auf ein Ziel, Hitscan, Schaden je Sub-Step. Kalt 24 DPS; hält er
+  dasselbe Ziel, heizt er linear in 4 s auf das Vierfache auf (96 DPS, `laserHeat`). Ein neues Ziel, eines außer
+  Sicht oder eine Drehung beginnt kalt. Schießt erst, wenn der Turm ausgerichtet ist. Standard-Zielwahl `Strongest`.
+- **Rolle:** der Boss- und Panzerknacker: Tank, Mech, Drache, Skarnax, Dragon Matriarch (Lightning 1,2 gegen Heavy),
+  auch Ethereal (1,5). Gegen Fortified 0,3 wie der Lightning Tower, gegen Schwärme schwach (jedes Ziel beginnt kalt).
+- **Rechnung** (DPS-Modell, Basisstufe; der Laser zählt mit seiner mittleren Hitze 2,5, `laserMeanFactor`):
+
+| DPS × Matrix / Gold | Unarmored | Light | Heavy | Fortified | Ethereal |
+|---|---:|---:|---:|---:|---:|
+| Sentinel, Modell (60 DPS, 170) | 0,35 | 0,53 | 0,42 | 0,11 | 0,53 |
+| Sentinel heiß auf einem Ziel (96 DPS) | 0,56 | 0,85 | 0,68 | 0,17 | 0,85 |
+| Lightning (130) | 0,43 | 0,65 | 0,52 | 0,13 | 0,65 |
+| Cannon (150) | 0,15 | 0,15 | 0,51 | 0,47 | 0,09 |
+
+  Im Modell liegt er unter dem Lightning Tower, gegen einen einzelnen schweren Körper, der lange lebt, ist er heiß der
+  beste Kauf je Gold gegen Heavy (0,68 gegen Rocket 0,66 nur Luft, Cannon 0,51).
+- **Freischaltung:** Laser Optics (2.500 Gold, 25 s, ab Welle 12) hinter Storm Mastery.
+- **Upgrades:** Damage 1,06, Heat-up 1,04 (der Fire-Rate-Track teilt die Aufheizzeit), Range.
+- **Darstellung:** `LaserBeamRenderer` (ein Draw Call für alle Strahlen): kalt eine dünne rote Linie, heiß ein breiter
+  weißgelber Kern mit Korona und größerem Glühen am Ziel. Der Kopf neigt sich zum Ziel (bis 60°). Ton: der Strahl des
+  Orbital Laser als Schleife, solange er brennt.
+- **Wave-Director:** zählt als Anti-Air, nicht als Splash.
+
+### 3.16 Chainsaw: Pierce (seit 2026-10-15)
+- **Drei Roboterarme** (`attackType: 'saw'`, `sawArms`) mit je einer Kettensäge, je Arm 30 Schaden je Sekunde mal
+  Kettentempo, Dauerschaden je Sub-Step. Jeder Arm sägt ein eigenes Ziel, solange genug in Reichweite sind; die
+  Ziele gehen nach Entfernung an die Arme (nächstes an den unteren, mittleres an den seitlichen, fernstes an den
+  oberen), freie Arme gehen mit auf das fernste. Gleich weite nach ID, damit jeder Client gleich wählt. So bleibt
+  jeder Arm in seinem Band der Straße und nichts kreuzt; die Bögen sind dazu gestaffelt (unten, mitte, hoch).
+- **Reichweite 14 m:** vom nächsten erlaubten Platz (10 m von der Route) über die Straße. Der Tower gehört direkt an
+  den Rand, sein Text sagt es.
+- **Rolle:** Häcksler am Straßenrand gegen Fleisch und Schwärme am Boden: Pierce 1,25 gegen Unarmored, 1,6 gegen
+  Light; gegen Heavy (0,35) und Fortified (0,25) schwach, keine Luft.
+- **Rechnung** (DPS-Modell, Basisstufe, Arme × Schaden):
+
+| DPS × Matrix / Gold | Unarmored | Light | Heavy | Fortified | Ethereal |
+|---|---:|---:|---:|---:|---:|
+| Chainsaw (90 DPS, 140) | 0,80 | 1,03 | 0,23 | 0,16 | 0,06 |
+| Dual-Gatling (90) | 0,69 | 0,89 | 0,19 | 0,14 | 0,06 |
+| Tentacle (80) | 1,05 | 1,05 | 0,53 | 0,32 | 0,11 |
+
+  Mehr je Gold als die Gatling, die 50 m weit reicht, weniger als der Tentacle mit seinem Schlag am Engpass. Das
+  Modell zählt drei Arme auf drei Zielen; auf einem einzelnen Ziel sägen alle drei dasselbe, der Schaden bleibt.
+- **Freischaltung:** Cybernetics (1.500 Gold, 20 s, ab Welle 10) hinter Tentacle Biology und Siege Engineering.
+- **Upgrades:** Damage 1,07, Chain Speed 1,03 (der Fire-Rate-Track, multipliziert den Schaden), Range.
+- **Darstellung:** Meshy-Modell ohne seine Arme; die Arme zeichnet `tower-saw-arms.ts` unter dem Turm als Bezier mit
+  Gliedern (dunkles Metall, gelbe Fuge, mehr Glieder je länger), eingefahren wie im Modell, ausgefahren in einer
+  knappen halben Sekunde zum Ziel, die Säge 1,25-fach und 15° ins Ziel geneigt, mit leichtem Zittern beim Schnitt.
+  Ton: der Servo-Loop des Mech, solange ein Arm sägt. Eine laufende Kette (UV-Scroll) gibt es noch nicht.
+
+### 3.17 Shawarma Slicer: Physical (seit 2026-10-15)
+- **Döner-Strahl** (`attackType: 'stream'`, `stream`): ein dichter Strom geschnittener Fleischstücke vom Spieß zum
+  Ziel. Mit Ziel und ausgerichtetem Turm dreht der Antrieb aus dem Stand in 2,5 s hoch, ohne Ziel in 2 s herunter;
+  der Schaden folgt dem Antrieb (80 DPS bei vollem Antrieb mal Drive-Track). Hochgedreht bleibt er es von Ziel zu
+  Ziel. Getroffen wird jeder Bodengegner auf der Linie vom Turm zum Ziel, in Zielhöhe, bis 1,6 m daneben.
+- **Rolle:** Dauerfeuer in langen Wellen auf einer vollen Straße; schwach in kurzen Stößen (2,5 s bis voller
+  Antrieb) und gegen Panzerung (Physical 0,5 Heavy, 0,3 Fortified), keine Luft.
+- **Rechnung** (DPS-Modell, Basisstufe, mittlerer Antrieb 0,9 über eine Welle, die Breite als Splash 1 + 1,6/10):
+
+| DPS × Matrix / Gold | Unarmored | Light | Heavy | Fortified | Ethereal |
+|---|---:|---:|---:|---:|---:|
+| Shawarma (83,5 DPS, 150) | 0,56 | 0,56 | 0,28 | 0,17 | 0,06 |
+| Fire (110) | 0,61 | 0,49 | 0,25 | 0,10 | 0,04 |
+| Poison (100) | 0,33 | 0,28 | 0,09 | 0,07 | 0,05 |
+
+  Im Mittelfeld: unter Archer und Fire gegen Fleisch, mit 35 m deutlich weiter als die Flamme (20 m).
+- **Freischaltung:** Rotisserie (1.200 Gold, 20 s, ab Welle 9) hinter Fire Alchemy.
+- **Upgrades:** Damage 1,06, Drive 1,04 (der Fire-Rate-Track, multipliziert den Schaden), Range.
+- **Darstellung:** `tower-doner-stream.ts`: der Spieß dreht (1,5 U/s), der Schneidarm schlägt (6/s, ±8°), beides
+  mit dem Antrieb; mit Ziel fliegen bis 72 Stücke je Sekunde (Kopien der zwei losen Stücke des Modells) mit 40 m/s
+  zum Ziel. Ton: der Flammen-Loop leiser als Brutzeln, solange der Strom läuft. Geplant als Pfad, nicht gebaut:
+  Fett-Spritzer (verlangsamen, Synergie mit Fire).
 
 ---
 
@@ -509,8 +627,8 @@ den Text aus `description`.
 
 ### 6.3 Tech-Tree (Forschungsbaum)
 
-Frei wählbar mit Voraussetzungen, 21 Knoten in vier Kategorien
-(`research-tree.config.ts`), zusammen 174.120 Credits (bis 2026-10-01 19.670).
+Frei wählbar mit Voraussetzungen, 29 Knoten in vier Kategorien
+(`research-tree.config.ts`), zusammen 191.320 Credits (bis 2026-10-01 19.670).
 
 **Tempo (seit 2026-10-02):** Eine Forschung kann eine Mindestwelle haben
 (`minWave`). Sie öffnet in der Bauphase vor dieser Welle (`researchWave`: die
@@ -535,6 +653,10 @@ fünf Wellen Einkommen und steht gegen Upgrades.
 | `fire-alchemy` | Fire Alchemy | 800 | 20 s | 6 | Toxic Compounds | Fire Tower |
 | `arcane-studies` | Arcane Studies | 650 | 20 s | – | Ice Magic | Magic Tower |
 | `storm-mastery` | Storm Mastery | 1.200 | 20 s | 9 | Arcane Studies | Lightning Tower |
+| `flak-artillery` | Flak Artillery | 1.000 | 20 s | 8 | Siege Engineering | Iron Bastion |
+| `cybernetics` | Cybernetics | 1.500 | 20 s | 10 | Tentacle Biology + Siege Engineering | Chainsaw |
+| `rotisserie` | Rotisserie | 1.200 | 20 s | 9 | Fire Alchemy | Shawarma Slicer |
+| `laser-optics` | Laser Optics | 2.500 | 25 s | 12 | Storm Mastery | Sentinel Laser |
 | `chaos-rift` | Chaos Rift | 8.000 | 30 s | 20 | Siege Engineering + Storm Mastery | Chaos Tower |
 
 #### Global Perks
@@ -550,6 +672,20 @@ fünf Wellen Einkommen und steht gegen Upgrades.
 
 Die Fähigkeiten beschreibt [ABILITIES.md](../ABILITIES.md), den Held
 [HERO.md](../HERO.md).
+
+#### Pfad-Forschungen
+
+Jede öffnet einen Tower-Pfad (`unlock-path`), den danach jeder Tower des Typs einmal kauft
+([TOWER_CREATION.md](../TOWER_CREATION.md#pfade-2026-10-03-todo-e101)).
+
+| ID | Name | Kosten | Dauer | ab Welle | Voraussetzung | Pfad |
+|---|---|---:|---:|---:|---|---|
+| `scouting` | Scouting | 3.000 | 25 s | 16 | Advanced Weaponry | Archer: Scout |
+| `incendiary-arrows` | Incendiary Arrows | 2.000 | 20 s | 10 | Fire Alchemy | Archer: Fire Arrows |
+| `ballista-bolts` | Ballista Bolts | 2.500 | 25 s | 12 | Siege Engineering | Archer: Sniper |
+| `multirole-warheads` | Multirole Warheads | 1.500 | 20 s | 9 | Rocketry | Rocket: Multirole |
+| `binding-sigils` | Binding Sigils | 2.500 | 25 s | 15 | Arcane Studies | Magic: Binding Sigil |
+| `caustic-compounds` | Caustic Compounds | 2.000 | 20 s | 11 | Toxic Compounds | Poison: Caustic |
 
 #### Upgrade-Tier-Freischaltungen
 
@@ -761,7 +897,7 @@ Gebaut sind nur die Tracks aus §3.2. Geplant waren:
   vs Air, L3 Schaden vs Air. Gebaut ist stattdessen die Forschung AA Retrofit.
 - **Cannon, Armor Break Path:** L3 „Risse im Panzer“: **Armor Break** (4s,
   Unarmored-Logik). Dazu ein Air-Upgrade-Pfad (aus §7.2).
-- **Rocket:** späterer Pfad „Bodenfreigabe“ erlaubt Ground.
+- **Rocket:** späterer Pfad „Bodenfreigabe“ erlaubt Ground. Gebaut 2026-10-15 als Pfad Multirole (§3.6).
 - **Fire:** Air via Upgrade „Luftflamme“.
 
 ### 12.4 Gegner (aus §4)

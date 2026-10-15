@@ -19,6 +19,8 @@ export interface SandboxOptions {
   timeoutMs?: number;
   /** Makes the worker (tests hand in their own) */
   createWorker?: () => Worker;
+  /** Ends the worker early (the player pressed Stop); nothing of the script is kept */
+  signal?: AbortSignal;
 }
 
 export function runScriptInSandbox(
@@ -39,9 +41,11 @@ export function runScriptInSandbox(
     }
     const finish = (result: ScriptRunResult) => {
       clearTimeout(timer);
+      options.signal?.removeEventListener('abort', stopped);
       worker.terminate();
       resolve(result);
     };
+    const stopped = () => finish({ ok: false, error: 'the player stopped the script; nothing of it is kept', logs: [] });
     const timer = setTimeout(() => finish({ ok: false, error: `the script ran longer than ${Math.round(timeoutMs / 1000)} s and was stopped; nothing of it is kept`, logs: [] }), timeoutMs);
     worker.onmessage = (event: MessageEvent<ScriptRunResult>) => finish(event.data);
     worker.onerror = (event) => {
@@ -49,6 +53,8 @@ export function runScriptInSandbox(
       finish({ ok: false, error: `the script sandbox failed (${event.message || 'no message'})`, logs: [] });
     };
     const request: SandboxRequest = { source, doc, catalog, seed };
+    if (options.signal?.aborted) return stopped();
+    options.signal?.addEventListener('abort', stopped, { once: true });
     worker.postMessage(request);
   });
 }

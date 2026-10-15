@@ -178,12 +178,26 @@
       "view": "{\"cameraAngle\":0.6283185307179586,\"cameraDistance\":20,\"lightIntensity\":1.2,\"modelUrl\":\"assets/models/towers/archer.glb\",\"scale\":12}",
       "model": "e5ef11da4c32d666ef42207bfa33f6d599c5d8b485ad6c1ff3ddf8520ad3d6ff"
     },
+    "tower-bastion": {
+      "file": "tower-bastion.webp",
+      "width": 168,
+      "height": 100,
+      "view": "{\"cameraAngle\":0.6283185307179586,\"cameraDistance\":20,\"lightIntensity\":1.2,\"modelUrl\":\"assets/models/towers/bastion.glb\",\"scale\":6.5}",
+      "model": "dcaf3191fd51373b86f46fcd918bdbea1341e26e5b948ebe3039c090ec28b16e"
+    },
     "tower-cannon": {
       "file": "tower-cannon.webp",
       "width": 168,
       "height": 100,
       "view": "{\"cameraAngle\":0.6283185307179586,\"cameraDistance\":20,\"lightIntensity\":1.2,\"modelUrl\":\"assets/models/towers/cannon.glb\",\"scale\":5.5}",
       "model": "d21fd958be711c3e3b078f40f117846967e9d7a777ffc5219e9436420896a48f"
+    },
+    "tower-chainsaw": {
+      "file": "tower-chainsaw.webp",
+      "width": 168,
+      "height": 100,
+      "view": "{\"cameraAngle\":0.6283185307179586,\"cameraDistance\":20,\"lightIntensity\":1.2,\"modelUrl\":\"assets/models/towers/chainsaw.glb\",\"scale\":7}",
+      "model": "a7e7c5ca815567799a27974e61048df6fbdc20460a61ac1535bf4ec7501b5199"
     },
     "tower-chaos": {
       "file": "tower-chaos.webp",
@@ -254,6 +268,20 @@
       "height": 100,
       "view": "{\"cameraAngle\":0.6283185307179586,\"cameraDistance\":20,\"lightIntensity\":1.2,\"modelUrl\":\"assets/models/towers/rocket.glb\",\"scale\":5.5}",
       "model": "1bcda443e48e73d58e8c8701d307ef567a83fcf198bf75982427ed249cc57552"
+    },
+    "tower-sentinel": {
+      "file": "tower-sentinel.webp",
+      "width": 168,
+      "height": 100,
+      "view": "{\"cameraAngle\":0.6283185307179586,\"cameraDistance\":20,\"lightIntensity\":1.2,\"modelUrl\":\"assets/models/towers/sentinel.glb\",\"scale\":5.5}",
+      "model": "11f3da31fdfdbaf7a9567a93a33b468df5e92402614b8559affd4ac2f44b0d9b"
+    },
+    "tower-shawarma": {
+      "file": "tower-shawarma.webp",
+      "width": 168,
+      "height": 100,
+      "view": "{\"cameraAngle\":0.6283185307179586,\"cameraDistance\":20,\"lightIntensity\":1.2,\"modelUrl\":\"assets/models/towers/shawarma.glb\",\"scale\":6}",
+      "model": "490839ca00f2d7f6c99a6c7bfab87b60e56f97a4c6dd3965fea307285e1ca085"
     },
     "tower-tentacle": {
       "file": "tower-tentacle.webp",

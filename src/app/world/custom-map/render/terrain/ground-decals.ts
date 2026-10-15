@@ -178,7 +178,7 @@ export function planDecals(doc: CustomMapDocument, entries: Map<string, CatalogO
   // Along roads and paths: worn patches at their edges every 9 to 15 m, puddles in the wet
   const nodes = new Map(doc.paths.nodes.map((n) => [n.id, n]));
   for (const edge of doc.paths.edges) {
-    if (edge.kind === 'bridge') continue;
+    if (edge.kind === 'bridge' || edge.tunnel) continue;
     const a = nodes.get(edge.a);
     const b = nodes.get(edge.b);
     if (!a || !b) continue;

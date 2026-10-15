@@ -10,6 +10,10 @@ import { MAP_METERS_PER_DEGREE } from './map-document';
 import { HeightField } from './render/height-field';
 import { type BridgeDeck, bridgeDecks, deckHeightAt } from './bridge-decks';
 import { FALLEN_SCALE } from './custom-map-destruction';
+import type { GroundBox } from './object-ground';
+
+/** Farthest a bridge deck lies over the ground where a walker off the bridge still steps onto it, metres (walkHeightAtMap) */
+const DECK_STEP_M = 0.5;
 
 /** A map column's LOD: nothing streams, so the finest there is; the route grid never samples a cell again */
 const MAP_LOD = { depth: 99, geometricError: 0 } as const;
@@ -68,7 +72,12 @@ export class CustomMapSurface implements WorldSurface {
   readonly field: HeightField;
 
   private readonly bridges: BridgeDeck[];
-  /** Discs (x, y, radius, top) of the objects that forbid building, in 16 m buckets; top NaN without a height */
+  /**
+   * The ground of the objects that forbid building (object-ground.ts), in
+   * 16 m buckets, BLOCKER_STRIDE numbers each: the disc (x, y, radius), the
+   * top (NaN without a height), the rectangle's middle (x, y), half sides
+   * (Infinity without one) and turn (cos, sin)
+   */
   private blockers: {
     cell: number;
     minX: number;
@@ -100,10 +109,19 @@ export class CustomMapSurface implements WorldSurface {
     return this.field.heightAt(x, y);
   }
 
-  /** The height a walker has at a map point: a bridge deck where one spans it, else the terrain */
+  /**
+   * The height a walker off a bridge way has at a map point: the terrain,
+   * also under a deck (a road under a bridge); a deck only where it lies
+   * within DECK_STEP_M of the ground, at a bridge end, so nobody sinks under
+   * its edge there. A walker on the bridge way takes the deck through its
+   * street surface (`bridge`, streetHeightAt), as on the real places, where
+   * the route under another way is cut and runs between portals on the
+   * ground (UnderpassIndex)
+   */
   walkHeightAtMap(x: number, y: number): number {
+    const ground = this.field.heightAt(x, y);
     const deck = deckHeightAt(this.bridges, x, y);
-    return Number.isNaN(deck) ? this.field.heightAt(x, y) : deck;
+    return !Number.isNaN(deck) && deck >= ground && deck - ground <= DECK_STEP_M ? deck : ground;
   }
 
   getTerrainHeightAtGeo(lat: number, lon: number): number | null {
@@ -119,7 +137,7 @@ export class CustomMapSurface implements WorldSurface {
     return streetHeightAt(this.streetGround, lat, lon, prevLat, prevLon, nextLat, nextLon, surface);
   }
 
-  /** Nothing stands beside a map's roads to rule out: the walking height at the point */
+  /** Nothing stands beside a map's roads to rule out: the walking height off a bridge way at the point */
   getGroundHeightEstimate(lat: number, lon: number): number | null {
     return this.walkHeightAtMap(lon * MAP_METERS_PER_DEGREE, lat * MAP_METERS_PER_DEGREE);
   }
@@ -232,12 +250,10 @@ export class CustomMapSurface implements WorldSurface {
       for (let i = i0; i <= i1; i++) {
         const bucket = g.buckets[j * g.columns + i];
         if (!bucket) continue;
-        for (let k = 0; k < bucket.length; k += 4) {
+        for (let k = 0; k < bucket.length; k += BLOCKER_STRIDE) {
           const top = bucket[k + 3];
           if (Number.isNaN(top) || (best !== null && top <= best)) continue;
-          const dx = bucket[k] - x;
-          const dy = bucket[k + 1] - y;
-          if (dx * dx + dy * dy < bucket[k + 2] * bucket[k + 2]) best = top;
+          if (covers(bucket, k, x, y, 0)) best = top;
         }
       }
     }
@@ -247,8 +263,8 @@ export class CustomMapSurface implements WorldSurface {
   /**
    * Why a tower of `radius` may not stand at the point: water under it
    * (inWater), or an object that forbids building (its own `blocksBuild`,
-   * else its catalogue entry's) whose ground disc (footprint x scale) comes
-   * within `radius`; objects count once the catalogue is known
+   * else its catalogue entry's) whose ground (object-ground.ts: its disc,
+   * footprint x scale, and its turned rectangle) comes within `radius`; objects count once the catalogue is known
    * (setObjectCatalog). Null where it may.
    */
   buildBlocker(lat: number, lon: number, radius: number): string | null {
@@ -316,12 +332,7 @@ export class CustomMapSurface implements WorldSurface {
       for (let i = Math.max(0, i0); i <= Math.min(g.columns - 1, i1); i++) {
         const bucket = g.buckets[j * g.columns + i];
         if (!bucket) continue;
-        for (let k = 0; k < bucket.length; k += 4) {
-          const r = bucket[k + 2] + radius;
-          const dx = bucket[k] - x;
-          const dy = bucket[k + 1] - y;
-          if (dx * dx + dy * dy < r * r) return true;
-        }
+        for (let k = 0; k < bucket.length; k += BLOCKER_STRIDE) if (covers(bucket, k, x, y, radius)) return true;
       }
     }
     return false;
@@ -332,7 +343,7 @@ export class CustomMapSurface implements WorldSurface {
    * they forbid building): from now on buildBlocker and skylineAt see the
    * map's objects
    */
-  setObjectCatalog(entries: readonly { id: string; footprint: number; blocksBuild: boolean; height?: number }[]): void {
+  setObjectCatalog(entries: readonly { id: string; footprint: number; blocksBuild: boolean; height?: number; box?: GroundBox }[]): void {
     const byId = new Map(entries.map((e) => [e.id, e]));
     const cell = 16;
     const t = this.doc.terrain;
@@ -351,7 +362,13 @@ export class CustomMapSurface implements WorldSurface {
       const i = Math.min(columns - 1, Math.max(0, Math.floor((o.x - minX) / cell)));
       const j = Math.min(rows - 1, Math.max(0, Math.floor((o.y - minY) / cell)));
       const top = entry?.height === undefined ? NaN : this.field.heightAt(o.x, o.y) + o.z + entry.height * o.scale;
-      (buckets[j * columns + i] ??= []).push(o.x, o.y, r, top);
+      const box = entry?.box;
+      const cos = Math.cos(o.rotation);
+      const sin = Math.sin(o.rotation);
+      // The rectangle's middle from the model's x and z to the map (object-ground.ts)
+      const bx = box ? o.x - (box[0] * cos + box[1] * sin) * o.scale : o.x;
+      const by = box ? o.y - box[0] * sin * o.scale + box[1] * cos * o.scale : o.y;
+      (buckets[j * columns + i] ??= []).push(o.x, o.y, r, top, bx, by, box ? box[2] * o.scale : Infinity, box ? box[3] * o.scale : Infinity, cos, sin);
     }
     this.blockers = { cell, minX, minY, columns, rows, buckets, maxRadius };
   }
@@ -384,4 +401,25 @@ export class CustomMapSurface implements WorldSurface {
       tileGeometricError: MAP_LOD.geometricError,
     };
   }
+}
+
+/** Numbers per object in the surface's blocker buckets */
+const BLOCKER_STRIDE = 10;
+
+/** Whether the ground of the blocker at `k` (its disc and its rectangle) comes within `reach` of map (x, y) */
+function covers(bucket: readonly number[], k: number, x: number, y: number, reach: number): boolean {
+  const r = bucket[k + 2] + reach;
+  const dx = bucket[k] - x;
+  const dy = bucket[k + 1] - y;
+  if (dx * dx + dy * dy >= r * r) return false;
+  const hx = bucket[k + 6];
+  if (hx === Infinity) return true;
+  // In the model's x and z (object-ground.ts toModel), inline: buildBlocker runs per cell of the build areas
+  const cos = bucket[k + 8];
+  const sin = bucket[k + 9];
+  const ox = x - bucket[k + 4];
+  const oy = y - bucket[k + 5];
+  const mx = Math.max(0, Math.abs(-ox * cos - oy * sin) - hx);
+  const mz = Math.max(0, Math.abs(-ox * sin + oy * cos) - bucket[k + 7]);
+  return mx * mx + mz * mz <= reach * reach;
 }

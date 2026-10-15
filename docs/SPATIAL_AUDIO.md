@@ -633,6 +633,20 @@ Ohne `priority` und mit der Standard-Hörweite (500 m), `maxInstances` 2. `refDi
 Assets auf etwa -14 LUFS gebracht, lineare Verstärkung mit True Peak höchstens -1 dBFS
 (Abschnitt [Assets](#assets)).
 
+### Umgebungston eigener Karten (Soundscape, seit 2026-10-15)
+
+Eigene Karten bringen ihren Umgebungston mit (TODO E190, [CUSTOM_MAPS.md](CUSTOM_MAPS.md), „Umgebungston“):
+`world/custom-map/ambience/soundscape.ts` neben dem SpatialAudioManager, nicht in ihm. Die Welt bekommt beim
+`attach` den Kontext und den Eingang des Listeners (`WorldAttachContext.audio`, aus `ThreeTilesEngine`), der Ton
+läuft also durch denselben Master-Bus mit Limiter; seine Lautstärke ist die SFX-Lautstärke des Spielers
+(`spatialAudio.masterVolume`, jedes Bild gelesen; im Bot 0, dann startet keine Quelle). Je Stimme ein schleifender
+`AudioBufferSourceNode`, ein `GainNode` und ein `StereoPannerNode`; keine `PositionalAudio`, kein Enemy- oder
+One-Shot-Budget: das Distanzmodell der Spiel-Sounds passt nicht zu einem Ton, der in einer Fläche überall gleich laut
+ist und den die Kamera aus 100 bis 400 m Höhe hört. Pause des Spiels hält ihn nicht an (die Welt lebt weiter).
+Der Ton zu jeder Welle (`life.waveSound`, Glocke, Sirene, Horn) läuft denselben Weg: eine Quelle ohne Schleife je
+Wellenstart, ausgelöst von `wave:started` (`PresentationHost` an `WorldProvider.waveStarted`).
+Die Dateien liegen unter `public/assets/sounds/ambient/` (Abschnitt Assets).
+
 ## Performance-Optimierungen
 
 ### PositionalAudio-Erzeugung
@@ -713,8 +727,13 @@ Sound-Dateien befinden sich unter `public/assets/sounds/` (Auszug, nicht
 vollständig). Hintergrundmusik liegt separat unter `public/assets/music/`:
 ```
 public/assets/sounds/
+├── ambient/                           # Umgebungston eigener Karten: Loops mit ElevenLabs erzeugt (2026-10-15, wind/stream/surf je zwei),
+│                                      # ebenso die Wellentöne; Platzhalter für neue Klänge: tools/ambient/make_placeholders.py
+│   ├── wind.mp3, birdsong.mp3, night-insects.mp3, stream.mp3, surf.mp3
+│   └── swamp.mp3, lava.mp3, fire.mp3, city.mp3, gulls.mp3, crows.mp3, radio-hiss.mp3   # je 16 s Schleife plus 0,1 s davor und danach
 ├── towers/
 │   ├── archer/shoot.mp3               # Pfeil-Schuss-Sound
+│   ├── ballista/shoot.mp3             # Sehnenschlag der Ballista, Archer-Pfad Sniper (ElevenLabs, 2026-10-15)
 │   ├── gatling/shoot.mp3              # Gatling-Schuss-Sound
 │   ├── rocket/launch.mp3              # Raketen-Start-Sound
 │   ├── cannon/shoot.mp3               # Kanonen-Schuss-Sound

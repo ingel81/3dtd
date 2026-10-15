@@ -323,6 +323,42 @@ export function createRocketGeometry(): BufferGeometry {
 }
 
 /**
+ * The ballista's bolt (PROJECTILE_TYPES.bolt), in metres, coloured per part
+ * like the rocket: a 5.6 m wooden shaft, an iron head, three dark vanes at
+ * the tail. Points +Y like the other projectile geometries and is centred on
+ * the projectile position; the arc tangent turns it along its flight.
+ */
+export function createBoltGeometry(): BufferGeometry {
+  const parts: BufferGeometry[] = [];
+  const addPart = (geometry: BufferGeometry, rgb: readonly [number, number, number]): void => {
+    const count = geometry.getAttribute('position').count;
+    const colors = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) colors.set(rgb, i * 3);
+    geometry.setAttribute('color', new Float32BufferAttribute(colors, 3));
+    parts.push(geometry);
+  };
+
+  const wood = [0.42, 0.27, 0.14] as const;
+  const iron = [0.32, 0.33, 0.35] as const;
+  const vane = [0.16, 0.12, 0.1] as const;
+
+  // Shaft (y -2.8 .. 2.0)
+  addPart(new CylinderGeometry(0.11, 0.13, 4.8, 8).translate(0, -0.4, 0), wood);
+  // Iron collar and head (y 2.0 .. 2.8): a long four-sided point
+  addPart(new CylinderGeometry(0.17, 0.17, 0.2, 8).translate(0, 2.1, 0), iron);
+  addPart(new ConeGeometry(0.26, 0.6, 4).translate(0, 2.5, 0), iron);
+  // Three vanes at the tail (y -2.7 .. -1.8), 0.32 m deep
+  for (let i = 0; i < 3; i++) {
+    addPart(new BoxGeometry(0.03, 0.9, 0.32).translate(0, -2.25, 0.27).rotateY((i * 2 * Math.PI) / 3), vane);
+  }
+
+  const merged = mergeGeometries(parts);
+  for (const part of parts) part.dispose();
+  if (!merged) throw new Error('[ThreeProjectileRenderer] Bolt geometry merge failed');
+  return merged;
+}
+
+/**
  * ThreeProjectileRenderer - Renders projectiles using GPU instancing
  */
 export class ThreeProjectileRenderer {
@@ -332,6 +368,7 @@ export class ThreeProjectileRenderer {
 
   // Instanced managers per visual type
   private arrowManager: ProjectileInstanceManager | null = null;
+  private boltManager: ProjectileInstanceManager;
   private cannonballManager: ProjectileInstanceManager;
   private magicManager: ProjectileInstanceManager;
   private iceManager: ProjectileInstanceManager;
@@ -362,6 +399,7 @@ export class ThreeProjectileRenderer {
     this.loader = new GLTFLoader();
 
     // Create instanced managers for each visual type
+    this.boltManager = this.createBoltManager();
     this.cannonballManager = this.createCannonballManager();
     this.magicManager = this.createMagicManager();
     this.iceManager = this.createIceManager();
@@ -376,6 +414,7 @@ export class ThreeProjectileRenderer {
 
     // Add meshes to scene
     // Arrow will be added when model loads
+    scene.add(this.boltManager.instancedMesh);
     scene.add(this.cannonballManager.instancedMesh);
     scene.add(this.magicManager.instancedMesh);
     scene.add(this.iceManager.instancedMesh);
@@ -451,6 +490,20 @@ export class ThreeProjectileRenderer {
     });
     this.arrowManager = new ProjectileInstanceManager(geometry, material, 500);
     this.scene.add(this.arrowManager.instancedMesh);
+  }
+
+  private createBoltManager(): ProjectileInstanceManager {
+    const material = new MeshStandardMaterial({
+      vertexColors: true, // Part colours, see createBoltGeometry()
+      metalness: 0.2,
+      roughness: 0.7,
+      // Keeps the thin shaft readable against dark ground
+      emissive: 0xffffff,
+      emissiveIntensity: 0.08,
+    });
+
+    // One bolt every 4 s per ballista
+    return new ProjectileInstanceManager(createBoltGeometry(), material, 100);
   }
 
   private createCannonballManager(): ProjectileInstanceManager {
@@ -611,6 +664,8 @@ export class ThreeProjectileRenderer {
     switch (visualType) {
       case 'arrow':
         return this.arrowManager;
+      case 'bolt':
+        return this.boltManager;
       case 'cannonball':
         return this.cannonballManager;
       case 'magic':
@@ -788,8 +843,8 @@ export class ThreeProjectileRenderer {
 
   private managers(): ProjectileInstanceManager[] {
     const all = [
-      this.cannonballManager, this.magicManager, this.iceManager, this.bulletManager, this.rocketManager,
-      this.poisonManager, this.chaosManager, this.shellManager,
+      this.boltManager, this.cannonballManager, this.magicManager, this.iceManager, this.bulletManager,
+      this.rocketManager, this.poisonManager, this.chaosManager, this.shellManager,
     ];
     if (this.arrowManager) all.push(this.arrowManager);
     return all;
@@ -836,6 +891,7 @@ export class ThreeProjectileRenderer {
   get count(): number {
     return (
       (this.arrowManager?.count ?? 0) +
+      this.boltManager.count +
       this.cannonballManager.count +
       this.magicManager.count +
       this.iceManager.count +
@@ -856,6 +912,7 @@ export class ThreeProjectileRenderer {
     const lerp = this.stateLerp?.uniform.value ?? 1;
     for (const manager of this.managers()) manager.slide(lerp);
     this.arrowManager?.flush();
+    this.boltManager.flush();
     this.cannonballManager.flush();
     this.magicManager.flush();
     this.iceManager.flush();
@@ -868,6 +925,7 @@ export class ThreeProjectileRenderer {
 
   clear(): void {
     this.arrowManager?.clear();
+    this.boltManager.clear();
     this.cannonballManager.clear();
     this.magicManager.clear();
     this.iceManager.clear();
@@ -917,6 +975,7 @@ export class ThreeProjectileRenderer {
       this.scene.remove(this.arrowManager.instancedMesh);
       this.arrowManager.dispose();
     }
+    this.scene.remove(this.boltManager.instancedMesh);
     this.scene.remove(this.cannonballManager.instancedMesh);
     this.scene.remove(this.magicManager.instancedMesh);
     this.scene.remove(this.iceManager.instancedMesh);
@@ -926,6 +985,7 @@ export class ThreeProjectileRenderer {
     this.scene.remove(this.chaosManager.instancedMesh);
     this.scene.remove(this.shellManager.instancedMesh);
 
+    this.boltManager.dispose();
     this.cannonballManager.dispose();
     this.magicManager.dispose();
     this.iceManager.dispose();

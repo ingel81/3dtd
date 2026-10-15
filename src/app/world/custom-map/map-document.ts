@@ -36,8 +36,8 @@ export interface MapMeta {
   /** ISO times */
   createdAt: string;
   updatedAt: string;
-  /** Where the map came from, when it was imported */
-  source?: { kind: 'w3x'; file: string; mapName: string; tileset?: string };
+  /** Where the map came from, when it was imported or made from a real place */
+  source?: MapSource;
   /**
    * The map's identity across files and renames, given when a map is first
    * stored as one's own; a copy gets a new one. A file read in again finds
@@ -52,6 +52,28 @@ export interface MapMeta {
    */
   copyOf?: { id: string; hash: string };
 }
+
+/** Where a map came from: a Warcraft 3 map, or a real place made from OpenStreetMap (world/osm) */
+export type MapSource =
+  | { kind: 'w3x'; file: string; mapName: string; tileset?: string }
+  | {
+      kind: 'osm';
+      /** The place in the middle of the map */
+      lat: number;
+      lon: number;
+      /** What the player searched for, or the coordinates */
+      address: string;
+      /** Side of the square map, metres */
+      sideM: number;
+      /** ISO time the OSM data was fetched */
+      fetchedAt: string;
+      /** Where the heights came from (dem-tiles.ts), null for flat ground */
+      dem: string | null;
+      /** Height above sea level of the map's zero, metres */
+      zeroM: number;
+      /** Lines to show wherever the map is played */
+      attribution: string[];
+    };
 
 /**
  * A regular height grid over the whole map. Sample (i, j) sits at
@@ -204,6 +226,24 @@ export interface MapPathEdge {
   /** Bridges only: the deck's material, default wood */
   style?: MapBridgeStyle;
   /**
+   * The street type of the real way it was made from (OSM `highway`, an OSM
+   * world's): routes weigh it and spawns choose it as on the real places.
+   * Without it the kind decides (custom-map-streets.ts)
+   */
+  street?: string;
+  /**
+   * A ground material painted under the road at its width (an OSM world's
+   * asphalt, pavers, gravel): the road mask leaves the edge out, so the
+   * painted ground shows instead of the cobbles and ruts of a drawn road
+   */
+  surface?: string;
+  /**
+   * Runs in a tunnel (an OSM world's `tunnel=*`): not drawn, levelled or
+   * painted, a portal model stands at each mouth; routes run through it as
+   * through a tunnel on a real place, their height between the mouths
+   */
+  tunnel?: boolean;
+  /**
    * What the road brush built along this edge, so it can be laid anew when
    * the road moves (the editor's; the game ignores it): the ground levelled
    * into an embankment or cutting, the surface painted, the lamps and fences
@@ -278,6 +318,28 @@ export interface MapEnvironment {
    * id this game does not ship renders procedural as well
    */
   skyImage?: string;
+  /**
+   * The planet in the procedural sky (the moon's Earth): where it stands and how big. Default: the look's
+   * (`DEFAULT_PLANET` on the moon, none elsewhere); size 0 shows none
+   */
+  planet?: MapPlanet;
+}
+
+export interface MapPlanet {
+  /** Degrees from north, clockwise, as the sun's */
+  azimuth: number;
+  /** Degrees over the horizon */
+  elevation: number;
+  /** Apparent diameter, degrees (the Earth from the Moon: 2) */
+  size: number;
+}
+
+/** The Earth over the moon where a map does not set it: north-east, a third up, twice its true size */
+export const DEFAULT_PLANET: MapPlanet = { azimuth: 33, elevation: 33, size: 4 };
+
+/** The planet a map shows: its own setting, else its look's (the moon sees `DEFAULT_PLANET`); size 0 none */
+export function planetOf(env: Pick<MapEnvironment, 'planet' | 'biome'>): MapPlanet {
+  return env.planet ?? (env.biome === 'moon' ? DEFAULT_PLANET : { ...DEFAULT_PLANET, size: 0 });
 }
 
 export interface MapWind {
@@ -344,7 +406,30 @@ export interface MapGameplay {
    * missing. The pressure loop still works on top. A list of the map's own keeps its HP
    */
   difficulty?: number;
+  /** What happens before a wave (TODO E170, wave-events.ts), at most MAX_WAVE_EVENTS */
+  events?: MapWaveEvent[];
 }
+
+/**
+ * Something a map lets happen before wave `wave`: when the build phase
+ * before it begins (wave 1: at the start). A message on the screen, the
+ * weather or the time of day changing, a spawn portal that opens (its lane
+ * runs from that wave on, before it the spawn brings no enemies), objects
+ * that appear or go (a gate, a bridge, a wall). The game runs them in its
+ * simulation, so every coop client and every replay sees the same
+ * (world/custom-map/wave-events.ts).
+ */
+export type MapWaveEvent =
+  | { wave: number; kind: 'message'; text: string }
+  | { wave: number; kind: 'weather'; weather: MapWeather; strength?: number }
+  | { wave: number; kind: 'time'; hour: number }
+  | { wave: number; kind: 'portal'; spawn: string }
+  | { wave: number; kind: 'objects'; ids: string[]; show: boolean };
+
+export type MapWaveEventKind = MapWaveEvent['kind'];
+
+/** Wave events a map may have, the last wave one may name, and a message's length */
+export const WAVE_EVENT_LIMITS = { events: 64, wave: 200, text: 200, objects: 500 } as const;
 
 /** The difficulty a map may set, percent on the wave budget (MapGameplay.difficulty) */
 export const MAP_DIFFICULTY = { min: 50, max: 200, normal: 100 } as const;
@@ -354,6 +439,79 @@ export function difficultyFactor(gameplay: Pick<MapGameplay, 'difficulty'> | und
   const d = gameplay?.difficulty;
   if (typeof d !== 'number' || !Number.isFinite(d)) return 1;
   return Math.min(MAP_DIFFICULTY.max, Math.max(MAP_DIFFICULTY.min, d)) / 100;
+}
+
+/**
+ * What lives in a life area (map-life.ts): bird flocks, fireflies at night,
+ * banks of ground fog, falling leaves, embers, sparks, snow flurries, dust
+ * devils, heat shimmering over hot ground, boats drifting on the water,
+ * things moving over the ground (a rover, a herd), or an ambient sound
+ */
+export type MapLifeKind = 'birds' | 'fireflies' | 'fog' | 'leaves' | 'embers' | 'sparks' | 'snow' | 'dust' | 'haze' | 'boats' | 'movers' | 'sound';
+
+/** What flies in a birds area: small songbirds, gulls, crows and ravens, big birds of prey (eagles, vultures) */
+export type MapBirdSpecies = 'songbirds' | 'gulls' | 'crows' | 'raptors';
+
+/**
+ * A stretch of the map with life in it, drawn in the editor's Life tool:
+ * an outline (`area`) the life fills, or a line (`route`) it follows (a
+ * flock flying along a valley, boats along a river, the sound of a stream).
+ * Drawn only; the game's rules never see it
+ */
+export interface MapLifeArea {
+  id: string;
+  kind: MapLifeKind;
+  shape: 'area' | 'route';
+  /** The outline (closed by itself, at least three points) or the line (at least two) */
+  points: MapPoint[];
+  /** 0.1..3, how much of it (birds, particles, boats); default 1 */
+  density?: number;
+  /** Birds: how high they fly over the ground, metres (default 40); particles: how high over the ground they start */
+  height?: number;
+  /** #rrggbb tint of the particles */
+  color?: string;
+  /** Sound: the ambient sound's id (ambience/ambient-sounds.ts) and its volume 0..1 (default 0.7) */
+  sound?: string;
+  volume?: number;
+  /** Sound: metres over which it fades out beyond the outline or the line (LIFE_SOUND_REACH, default 70) */
+  reach?: number;
+  /** Boats: the floating asset that drifts (default a rowboat); movers: the asset that moves (required) */
+  asset?: string;
+  /** Birds: what flies (default songbirds) */
+  species?: MapBirdSpecies;
+  /** Movers: metres per second (default 1.5) */
+  speed?: number;
+  /** The lowest quality level that shows it (default medium; Low shows no life areas) */
+  quality?: 'medium' | 'high';
+}
+
+/**
+ * Life on the map beyond its objects (TODO E190): the switches of what the
+ * map's content brings by itself, a density knob, waving banners, the
+ * ambient sound and the life areas. Every field is optional; a map without
+ * it looks and sounds as before
+ */
+export interface MapLife {
+  /**
+   * Life from the map's content: chimney smoke, fireflies over shores and in
+   * woods, birds over open land (each on when missing), sparks over lava
+   * (off when missing)
+   */
+  auto?: { smoke?: boolean; fireflies?: boolean; birds?: boolean; sparks?: boolean };
+  /** 0..2, a factor on all of it (the automatic life and the areas); default 1 */
+  density?: number;
+  /** Banners' cloth waves in the wind, not only the pole swaying */
+  flags?: boolean;
+  /** The ambient sound over the whole map: a sound id, or 'biome' for the biome's by day and by night; volume 0..1. None when missing */
+  ambience?: { sound: string; volume: number };
+  /**
+   * A sound once at the start of every wave (a bell, a distant siren, a
+   * ship's horn; ambience/ambient-sounds.ts WAVE_SOUNDS), volume 0..1; from
+   * the life area `area` names (heard from its place, quieter far off) or
+   * everywhere alike. Heard only, the simulation never knows it
+   */
+  waveSound?: { sound: string; volume: number; area?: string };
+  areas?: MapLifeArea[];
 }
 
 export interface CustomMapDocument {
@@ -368,7 +526,73 @@ export interface CustomMapDocument {
   environment: MapEnvironment;
   /** The map's own game rules (version 2); none means the game's defaults */
   gameplay?: MapGameplay;
+  /** Life areas, ambient sound and the switches of the map's own life (map-life.ts); optional, no new version */
+  life?: MapLife;
+  /**
+   * Prefabs and stamps kept with this map (the editor's; the game ignores
+   * them): they travel with its file. Not part of the content hash
+   */
+  prefabs?: MapPrefab[];
 }
+
+/** What a piece of a map holds, or what a paste takes of it */
+export interface MapPieceParts {
+  heights: boolean;
+  paint: boolean;
+  water: boolean;
+  objects: boolean;
+  roads: boolean;
+  /** Life areas (missing in pieces kept before they travelled: none) */
+  life?: boolean;
+}
+
+/**
+ * A piece of a map, centred on its own middle (the editor's Copy and stamps,
+ * editor/ops/stamp.ts): heights relative to its rim, paint per material,
+ * water, objects, the roads and the life areas inside.
+ */
+export interface MapPiece {
+  width: number;
+  depth: number;
+  /** Height samples: `columns` x `rows` every `cell` metres, relative to the rim */
+  cell: number;
+  columns: number;
+  rows: number;
+  heights: Float32Array;
+  /** Paint: `paintColumns` x `paintRows` cells of `materials.length` weights (0..255) */
+  paintCell: number;
+  paintColumns: number;
+  paintRows: number;
+  materials: string[];
+  paint: Uint8Array;
+  /** Water mask on the height samples and the water level relative to the rim; null without water */
+  water: { mask: Uint8Array; level: number; color: string } | null;
+  objects: Omit<MapObject, 'id'>[];
+  roads: { nodes: MapPathNode[]; edges: MapPathEdge[] };
+  /** Life areas and routes with all their points inside, relative to the middle; missing in pieces kept before */
+  life?: Omit<MapLifeArea, 'id'>[];
+  /** What the piece holds; all of it when missing (a rectangle copied whole) */
+  parts?: MapPieceParts;
+  /**
+   * Taken from a selection of objects (a prefab): a paste puts its objects
+   * down as one group of their own
+   */
+  prefab?: boolean;
+}
+
+/** A saved piece with its name and picture: the editor's stamp library, or a map's own (CustomMapDocument.prefabs) */
+export interface MapPrefab {
+  id: string;
+  name: string;
+  /** ISO time */
+  createdAt: string;
+  /** PNG data URL, the piece from above */
+  preview: string | null;
+  stamp: MapPiece;
+}
+
+/** Prefabs a map keeps (CustomMapDocument.prefabs) */
+export const MAX_MAP_PREFABS = 32;
 
 /** Synthetic lat/lon of a map point (origin (0, 0)) */
 export function mapToGeo(p: MapPoint): { lat: number; lon: number } {

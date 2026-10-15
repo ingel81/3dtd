@@ -26,6 +26,7 @@
  * localStorage and is not affected by regenerations.
  */
 
+import { releasedResearch, releasedTowerTypes } from '../../src/app/configs/release';
 import { describe, it, expect } from 'vitest';
 import { mkdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -39,7 +40,6 @@ import {
   getUpgradeCost,
   type TowerTypeId,
 } from '../../src/app/configs/tower-types.config';
-import { RESEARCH_TREE } from '../../src/app/configs/research/research-tree.config';
 import { RESEARCH_CENTER_LEVELS } from '../../src/app/configs/research/research-center.config';
 import { CAMPAIGN } from '../../src/app/configs/campaign.config';
 import { planRowForWave } from '../../src/app/director/sources/budget/run-plan';
@@ -83,6 +83,7 @@ const TOWER_COLORS: Record<string, string> = {
   poison: '#5FBF8F',
   lightning: '#E8D44D',
   chaos: '#D946EF',
+  bastion: '#8C8F94',
 };
 
 // =====================================================================
@@ -153,8 +154,9 @@ function summariseEffect(effects: { kind: string; towerId?: string; perkId?: str
 }
 
 function buildPayload(): Payload {
-  // Combat towers only: the passive buildings (Research Center, Missile Silo) deal no damage
-  const towers: PayloadTower[] = Object.values(TOWER_TYPES)
+  // Combat towers only: the passive buildings (Research Center, Missile Silo) deal no damage. The released ones
+  // with their research: the planner plans what players get (configs/release.ts)
+  const towers: PayloadTower[] = releasedTowerTypes(true)
     .filter((t) => t.attackType !== 'passive')
     .map((t) => ({
       id: t.id,
@@ -177,7 +179,7 @@ function buildPayload(): Payload {
         })),
     }));
 
-  const researches: PayloadResearch[] = Object.values(RESEARCH_TREE).map((r) => ({
+  const researches: PayloadResearch[] = releasedResearch(true).map((r) => ({
     id: r.id,
     name: r.name,
     cost: r.cost,

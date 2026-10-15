@@ -8,10 +8,12 @@ import {
 } from './projectile-types.config';
 import { PROJECTILE_SOUND_IDS } from './audio.config';
 import { TOWER_TYPES } from './tower-types.config';
+import { towerConfigOf } from './tower-paths.config';
+import { projectileSoundId } from '../managers/projectile.manager';
 
 describe('projectile types config', () => {
   const allIds: ProjectileTypeId[] = [
-    'arrow', 'cannonball', 'arcane-orb', 'ice-shard', 'bullet', 'rocket', 'poison-glob', 'chaos-orb',
+    'arrow', 'bolt', 'cannonball', 'arcane-orb', 'ice-shard', 'bullet', 'rocket', 'poison-glob', 'chaos-orb', 'flak-shell',
     'hero-round', 'hero-shell', 'hero-rune',
   ];
 
@@ -87,6 +89,18 @@ describe('projectile types config', () => {
     Object.values(TOWER_TYPES).forEach((tower) => {
       expect(PROJECTILE_TYPES[tower.projectileType]).toBeDefined();
     });
+  });
+
+  it('fires a bolt with its own sound from the ballista, the arrow from the archer', () => {
+    const ballista = towerConfigOf('archer', 'sniper');
+    expect(ballista.projectileType).toBe('bolt');
+    expect(towerConfigOf('archer', null).projectileType).toBe('arrow');
+    expect(projectileSoundId(ballista.projectileType)).toBe('bolt');
+    expect(PROJECTILE_SOUNDS.bolt.url).not.toBe(PROJECTILE_SOUNDS.arrow.url);
+    // As fast as the arrow (the path's balance), on a flatter arc
+    const { bolt, arrow } = PROJECTILE_TYPES;
+    expect(bolt.speed).toBe(arrow.speed);
+    expect(bolt.arc!.share).toBeLessThan(arrow.arc!.share);
   });
 
   it('keeps the arcane orb trail violet-to-cyan, not fire coloured', () => {

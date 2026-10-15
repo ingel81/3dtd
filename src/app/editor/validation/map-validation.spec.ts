@@ -3,7 +3,7 @@ import { emptyWater } from '../ops/water-ops';
 import type { ObjectFooting } from '../../world/custom-map/render/objects/object-seat';
 import { bridgeDecks, deckHeightAt } from '../../world/custom-map/bridge-decks';
 import { HeightField } from '../../world/custom-map/render/height-field';
-import { objectsInAir, validateMap, waterInAir } from './map-validation';
+import { objectsInAir, objectsOnMoverWays, validateMap, waterInAir } from './map-validation';
 
 const codes = (doc: ReturnType<typeof createMapDocument>) => validateMap(doc).map((i) => i.code);
 
@@ -11,6 +11,20 @@ describe('validateMap', () => {
   it('passes the starter map of a big enough size', () => {
     const doc = createMapDocument({ id: 'm', name: 'M', width: 800, depth: 400 });
     expect(validateMap(doc).filter((i) => i.severity === 'error')).toEqual([]);
+  });
+
+  it('checks the wave events against the map: a spawn gone, objects gone, no lane at wave 1 (TODO E170)', () => {
+    const doc = createMapDocument({ id: 'm', name: 'M', width: 800, depth: 400 });
+    const spawn = doc.spawns[0].id;
+    doc.objects.push({ id: 'o1', asset: 'tree-oak', x: 10, y: 10, z: 0, rotation: 0, scale: 1 });
+    doc.gameplay = { events: [{ wave: 3, kind: 'message', text: 'Hi' }, { wave: 4, kind: 'objects', ids: ['o1'], show: true }] };
+    expect(codes(doc)).not.toContain('wave-events');
+    doc.gameplay.events!.push({ wave: 5, kind: 'portal', spawn: 'nope' }, { wave: 6, kind: 'objects', ids: ['o1', 'gone'], show: false });
+    expect(validateMap(doc).filter((i) => i.code === 'wave-events').map((i) => i.severity)).toEqual(['error', 'warning']);
+    // Every spawn opens later: wave 1 has no lane
+    doc.gameplay.events = [{ wave: 2, kind: 'portal', spawn }];
+    const issue = validateMap(doc).find((i) => i.code === 'wave-events')!;
+    expect(issue).toMatchObject({ severity: 'error', target: { kind: 'spawn', id: spawn } });
   });
 
   it('wants paths and spawns', () => {
@@ -74,6 +88,7 @@ describe('validateMap, objects in the air', () => {
   const footings: Record<string, ObjectFooting> = {
     heap: { category: 'rock', footprint: 3, height: 2.6, base: [3, 2, 0] },
     slab: { category: 'rock', footprint: 10, height: 2 },
+    'cliff-wall': { category: 'rock', footprint: 18, height: 9.5 },
     'crater-rim': { category: 'rock', footprint: 10, height: 1 },
     bush: { category: 'plant', footprint: 1, height: 1 },
     house: { category: 'building', footprint: 4, height: 6 },
@@ -129,12 +144,13 @@ describe('validateMap, objects in the air', () => {
     expect(issue?.message).toMatch(/^3 objects hang in the air, a boat or buoy sinks under the water \(worst: buoy, 5\.0 m up\)/);
   });
 
-  it('measures a flat set piece without a plate on its footprint, crater rims left out', () => {
+  it('measures a flat set piece without a plate on its footprint, crater rims and cliff walls left out', () => {
     const doc = createMapDocument({ id: 'm', name: 'M', width: 400, depth: 400 });
     const g = doc.terrain.grid;
     // A 20 degree slope: a 10 m slab level on it hangs some 3.6 m over the ground on its low side
     for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) g.heights[j * g.columns + i] = 0.36 * i * g.cellSize;
-    doc.objects.push(place('slab', 'slab', 50), place('rim', 'crater-rim', 80));
+    // A cliff wall on the slope stands on its foot, sunk in a little as the Cliff rocks brush sets it
+    doc.objects.push(place('slab', 'slab', 50), place('rim', 'crater-rim', 80), place('wall', 'cliff-wall', 120, -2));
     expect(inAir(doc)).toEqual(['slab']);
     // On level ground it lies flat
     g.heights.fill(0);
@@ -297,5 +313,28 @@ describe('validateMap, water in the air', () => {
     // A fall: 20 m down over 4 m, the waterfall's sheet covers it
     doc.terrain.rivers[0].points = [{ x: -2, y: 0, width: 6, height: 20 }, { x: 2, y: 0, width: 6, height: 0 }];
     expect(waterInAir(doc)).toEqual([]);
+  });
+});
+
+describe('validateMap, objects on the way of movers', () => {
+  const footings: Record<string, ObjectFooting> = {
+    boulder: { category: 'rock', footprint: 1.5, height: 2 },
+    bush: { category: 'plant', footprint: 1, height: 1 },
+    pier: { category: 'structure', footprint: 4, height: 1 },
+  };
+  const footingOf = (a: string) => footings[a];
+  const place = (id: string, asset: string, x: number, y: number) => ({ id, asset, x, y, z: 0, rotation: 0, scale: 1 });
+
+  it('reports what a rover on a route would drive through, not what stands beside it, a plant or a route in the air', () => {
+    const doc = createMapDocument({ id: 'm', name: 'M', width: 400, depth: 400 });
+    doc.life = { areas: [{ id: 'movers-1', kind: 'movers', shape: 'route', points: [{ x: -100, y: 0 }, { x: 100, y: 0 }], asset: 'rover' }] };
+    // On a lane (2.5 m off the line), on the line between the lanes, well beside it, a bush on a lane, a pier
+    doc.objects.push(place('lane', 'boulder', 0, 2.5), place('middle', 'boulder', 40, 0), place('beside', 'boulder', 0, 12), place('bush', 'bush', 20, -2.5), place('pier', 'pier', -40, 2));
+    expect(objectsOnMoverWays(doc, footingOf).map((o) => o.id)).toEqual(['lane', 'middle']);
+    const issue = validateMap(doc, { footingOf }).find((i) => i.code === 'object-on-mover-route');
+    expect(issue?.message).toMatch(/^2 objects stand on the way of a moving life route \(rovers, carts\) and would be driven through \(boulder\)/);
+    // A gondola hangs from its line: nothing under it is in its way
+    doc.life.areas![0].height = 20;
+    expect(objectsOnMoverWays(doc, footingOf)).toEqual([]);
   });
 });

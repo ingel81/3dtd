@@ -67,16 +67,23 @@ export type EffectKind =
   | 'leaves'
   | 'snow'
   | 'sparkle'
+  | 'sparks'
+  | 'column'
   | 'waterfall'
-  | 'birds';
+  | 'birds'
+  | 'beam';
 
 /**
  * A particle or sheet effect an object carries. Sizes are at scale 1 and
  * scale with the object. A `waterfall` builds a falling sheet `radius` wide
  * on each side and `height` high (from the object's base up) with spray at
  * its foot; `birds` is a flock of `rate` birds circling `radius` wide at
- * `height` over the object (effects/bird-flocks.ts); the others emit
- * particles from a disc of `radius` at `height`.
+ * `height` over the object (effects/bird-flocks.ts); `beam` two light beams
+ * `radius` long from `height`, turning with the object's `spin` (a
+ * lighthouse), shown in the dark; `column` a tall plume of smoke rising
+ * `height` from a foot `radius` wide, leaning with the wind and lit from
+ * below over lava or by the object's own light; the others emit particles
+ * from a disc of `radius` at `height`.
  */
 export interface CatalogEffect {
   kind: EffectKind;
@@ -103,6 +110,8 @@ export interface CatalogLight {
   /** Height of the light above the object's base, metres */
   height: number;
   flicker?: boolean;
+  /** Seconds between two short flashes (a beacon on a mast); the light is off between them and lights no ground */
+  blink?: number;
 }
 
 export interface CatalogObject {
@@ -124,6 +133,13 @@ export interface CatalogObject {
    * sinks a rock until this plate reaches the ground on a slope
    */
   base?: [number, number, number];
+  /**
+   * Buildings and walls: the ground rectangle at scale 1, metres: its middle
+   * (model x, z), half width and half depth, 0.9 of the model's bounds like
+   * the footprint (tools/map-assets/measure_boxes.mjs). Building bans and the
+   * seat take it within the footprint disc (object-ground.ts)
+   */
+  box?: [number, number, number, number];
   blocksLos: boolean;
   blocksBuild: boolean;
   /** Placement hints for brushes and generators */
@@ -155,6 +171,12 @@ export interface CatalogObject {
    * placing it levels no ground, which moved the bank and stranded water
    */
   stilts?: boolean;
+  /**
+   * Seconds a full turn of its parts with materials named `spin-…` takes,
+   * round the model's upright axis (a radar dish, a lighthouse's lens; its
+   * `beam` turns with them). Default 8 where such parts exist
+   */
+  spin?: number;
   /** Lower detail models by camera distance */
   lod?: { file: string; distance: number; triangles?: number }[];
 }

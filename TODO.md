@@ -17,46 +17,14 @@ Nach dem Test geht ein Eintrag **nur auf Zuruf des Users** nach DONE.md. Die Ken
 und werden nicht neu vergeben, Neues bekommt die nächste freie Nummer. Nichts Internes ins Repo (Adressen,
 Mitspielernamen, Gesprächsdetails).
 
-Stand 2026-10-15. 0.7.1 ist veröffentlicht (`origin/main` = `v0.7.1`, `origin/next` knapp darüber). Die Arbeit seit 0.7.0 liegt
-lokal auf `night/custom-maps-round2` (über 200 Commits, nicht gepusht; ein Push veröffentlicht auch die gesperrten
-eigenen Karten, Coop-Protokoll 5). Vier Worker-Branches darauf laufen (Abschnitt „Läuft gerade“).
+Stand 2026-10-16 (Nachtschicht). 0.7.1 ist veröffentlicht (`origin/main` = `v0.7.1`). Die Arbeit seit 0.7.0 liegt
+lokal auf `night/custom-maps-round2` (über 300 Commits, nicht gepusht; ein Push veröffentlicht auch die gesperrten
+eigenen Karten, Coop-Protokoll 5). Die Worker-Runden vom 2026-10-15 sind übernommen (Abschnitt 2).
 
 ---
 
 ## 1. Offen
 
-### Läuft gerade (2026-10-15, Worker-Branches auf `night/custom-maps-round2`)
-
-- [ ] **E177 Editor-Fehler aus dem Showreel-Review** (2026-10-14, Take 3; läuft auf `wt/fixes1015`): Wechsel auf Nacht
-      friert das Bild 3,9 s ein (danach je ~2 s bei Umgebungswechsel); Auto paint macht Berge fast schwarz und streut
-      braune Flecken über die Wiese; Toast „Ramp start set“ bleibt nach dem zweiten Klick stehen; Forest-Biom setzt am
-      Steilhang keine Bäume (prüfen, ob gewollt); „Day“ setzt die Uhrzeit nicht zurück; Hölle-Pinsel wirkungslos;
-      Lava-Fill „no hollow“ auf flachen Kratern. Dazu: Biom-Pinsel scheitern an der Schichtgrenze (Hölle bei voller
-      Liste, Arctic meldet auf neuer Karte die 12er-Grenze); Look zeigt auf blankem Boden und am HQ nur „Nothing
-      yet.“; Baumschatten flackern, sobald der Pinsel (Wald-Biom) neue Bäume setzt (User, 2026-10-15); der Lava-/Hölle-Biom-Pinsel
-      ruckelt beim Malen (Showreel Take 8, ~637 s); der Fix für den Toast liegt schon auf `wt/showreel` (`002a7c3a`) und wird übernommen.
-- [ ] **E178 Test ab Welle N: Forschung zu knapp?** (2026-10-14; läuft auf `wt/fx-engine`): Ab Welle 5 sind außer
-      Archer alle Tower gesperrt (Annahme: billigste Forschung bis 25 % des Golds). Gegen echte Läufe rechnen.
-- [ ] **E180 Mitgelieferte Karten durchgehen** (User, 2026-10-15; läuft auf `wt/fx-maps`): jede Karte mit strengem
-      Check und Bildern von oben und vom Boden; bekannt: schwebende Wasserplatte am Flussende (Mountain Pass), flache
-      Platten in der Flanke der Leuchtturminsel über dem Wasser, Wärterhaus halb im Hang, gestreckte Bodentextur an
-      Steilflanken (Archipelago), Höllentor klein (Ember Crater), Einstiegsflug der Hafenstadt geht nahe West Gate durch
-      ein Dach, Kartenrand am Horizont (Mountain Pass, Abendblick). Harbor Town (User, 2026-10-15): Übergang Wasser zu
-      Stadt als dunkle, zerklüftete Erdböschung statt Kai, diverse Fehler, nachts keine erleuchteten Fenster.
-      **Gebaut 2026-10-15** auf `wt/fx-maps` (10 Commits, alle 13 Karten bestehen den strengen Check; neu gepackt
-      Mountain Pass, Archipelago, Witch Marsh, Ember Crater, Harbor Town, deren Hashes und Replays ändern sich). Läuft
-      weiter: Textur an Steilflanken für alle Schichten, Kartenrand mit Kulisse, E187. Mechanismus beheben, Check erweitern, neu packen.
-- [ ] **E181 Schneefall nur in einem Rechteck des Bildes** (User, 2026-10-15, Showreel Take 8; läuft auf `wt/fx-engine`):
-      Das Wetter (Schnee, Regen) deckt nicht die ganze Ansicht ab, sondern einen festen Kasten. Muss bei jeder
-      Kamerahöhe und jedem Zoom das Bild füllen, ohne sichtbaren Rand.
-- [ ] **E183 Engine-Fehler aus den Showreel-Prüfungen** (2026-10-14/15; läuft auf `wt/fx-engine`): Ruckler, Bildfehler,
-      Licht und Spiel-UI aus den Prüfberichten der Takes, soweit nicht Editor (E177) oder Kartendaten (E180).
-- [ ] **E169 Rest: SCENE_BUDGET geeicht** (2026-10-15, `wt/fx-engine` 27561a74, noch nicht auf dem Sammel-Branch):
-      12 Mio. bestätigt (3 ms teuerste Ansicht bei 11,5 Mio.), Schattenbox, 12 Schichten (+0,1 ms) und Bildhimmel
-      gemessen ([BENCHMARKS.md](docs/BENCHMARKS.md)). Offen: einmalig 5,09 ms auf Ultra im Demo-Tal (dda5daf4), ungeklärt.
-- [ ] **E173 Wasser und Lava** (läuft auf `wt/fx-water`, siehe Features).
-
-### Nach dem Playtest 2026-10-04
 
 - [ ] **E1 Balancing aufrollen**: Phase 1 und 2 gebaut, Baseline und sechs Tuning-Runden gelaufen. Offen: Zielbänder
       (3b) und Kampagnenende (3a), [docs/BALANCING_PLAN.md](docs/BALANCING_PLAN.md).
@@ -68,19 +36,6 @@ eigenen Karten, Coop-Protokoll 5). Vier Worker-Branches darauf laufen (Abschnitt
 
 ### Bugs
 
-- [ ] **E193 Intro erst, wenn die Karte fertig geladen ist** (User, 2026-10-15, eigene Karten im Browser): während
-      der Intro-Kamerafahrt und dem Reinzoomen laden noch Dinge nach, Bodenbemalung und Co. ploppen auf. Erst alles
-      laden (Bodenschichten, Modelle und LODs, Shader vorkompiliert, Schatten und Gras gebaut), dann das Intro starten;
-      Ladeplatte so lange stehen lassen. Läuft auf `wt/fx-engine`.
-- [ ] **E191 Gebäude beim Platzieren nie im Berg** (User, 2026-10-15, Showreel): beim ersten Setzen eines Gebäudes
-      (Editor-Werkzeug, auch Skripte und Level-Kit) das Gelände unter der Grundfläche plus Rand einebnen und weich
-      anschließen, sodass das Gebäude ganz Platz hat und auf keiner Seite durch den Hang geschnitten wird. Verschieben
-      eines stehenden Gebäudes (Gizmo) bleibt frei, halb im Berg ist dann gewollt. Läuft mit E177 auf `wt/fixes1015`.
-- [ ] **E189 Laternen und andere Punktlichter nachts zu schwach** (User, 2026-10-15, eigene Karten im Spiel): genau
-      ansehen, mit Bildern bei Nacht (Spiel und Editor) gegen Tag; Stärke, Reichweite, Leuchtkörper und Lichtfleck am
-      Boden. Hängt am Lichter-Pool (6 Punktlichter, nächste zur Kamera) und dessen Fix in E177 (`wt/fixes1015`).
-      Dazu mit Feuer und Lava als Lichtquellen spielen: Fackeln, Feuerschalen, Lagerfeuer flackernd, Lava wirft
-      warmes Licht auf Gelände und Objekte in der Nähe (billig: Lichtfleck/Emissive statt vieler echter Lichter).
 - [ ] **E188 Objekte poppen beim Zoomen und Bewegen auf** (User, 2026-10-15, eigene Karten): stellenweise erscheinen
       Objekte sichtbar spät. User sieht es sich genauer an und liefert Screenshots; erst dann untersuchen (LOD-Wechsel,
       Sichtweite je Objekt, Culling). Verwandt: Bäume poppen nach `viewReady` (E183, `wt/fx-engine`).
@@ -101,29 +56,42 @@ eigenen Karten, Coop-Protokoll 5). Vier Worker-Branches darauf laufen (Abschnitt
       Dachkanten, Sockel, Kantenfasen), Texturen in Blender (Verdeckung, Kantenabnutzung, Schmutz backen; höhere
       Auflösung wo es lohnt, heute WebP 512 px), LODs neu (`make_lods.py`, `match_lods.py`), im Budget (Scene cost,
       E169). Zuerst die Gebäude aus dem Showreel; Vorher/Nachher-Bilder je Modell zur Abnahme.
+- [ ] **E195 Spiel, Editor und Welten aus einem Guss** (User, 2026-10-15, für später; großer Punkt, erst Plan-Doku
+      und Abstimmung): Spiel und Editor fühlen sich wie zwei getrennte Anwendungen an, beide nicht richtig mit dem
+      Hauptmenü verknüpft; das Hin und Her zwischen Editor, Karte und Spiel und zwischen echten Orten (3D-Tiles), eigenen
+      Karten und OSM-Karten (im Grunde auch eigene Karten) ist nicht flüssig, teils lädt die Seite neu. Ziel:
+      - eine zusammenhängende Anwendung: Hauptmenü, Spiel und Editor als Teile eines Ganzen, Wechsel ohne Neuladen
+        und ohne Änderung der URL (die Desktop-App hat keine Adresszeile: jeder Weg muss über die Oberfläche gehen)
+      - jederzeit klar: wo man ist (Welt, Karte, Spiel oder Editor, laufender Lauf), wohin man kann, und was nicht geht
+        und warum (etwa kein Map-Key für 3D-Tiles: sichtbar, mit dem Weg zum Key, statt versteckt)
+      - möglichst viele Optionen von überall: aus dem Spiel in den Editor und zurück in denselben Lauf, aus dem Editor
+        in ein Probespiel, aus einem echten Ort eine Karte, Laden und Speichern quer über die Welten
+      - Idee (User): ein globaler Umschalter für das, was man gerade tut (echte Orte, eigene Karten, OSM-Karten, Editor),
+        und je Welt ein eigener Hintergrund hinter dem Menü statt immer des echten Globus, etwa ein eigener Globus oder
+        eine Kartenwelt für die Custom Maps, damit sichtbar ist, dass es mechanisch dasselbe Spiel in anderer Welt ist;
+        der Wechsel nahtlos, ohne Klick-und-Neuladen
+      - Idee (User, 2026-10-15 abends): Neuladen landet heute immer gleich in der Echtwelt (Tiles laden). Stattdessen
+        zum Start drei Globen nebeneinander: echte 3D-Tiles (ausgegraut ohne Token, mit dem Weg zum Token), ein
+        schematischer Globus für die OSM-Welt, ein comichafter in Engine-Grafik für die mitgelieferten und eigenen
+        Karten. Ein Klick holt den Globus groß nach vorn (wie heute der Menü-Globus), geladen wird erst mit Start im
+        Menü. Klick-Dummy dazu: `tmp/plan/mockups/world-globes/`
+      Plan: [WORLDS_NAVIGATION_PLAN.md](docs/WORLDS_NAVIGATION_PLAN.md) (Bestand, Zielmodell, 7 Phasen, offene Entscheidungen);
+      gewählte Darstellung: Globen, Menü links, letzte Welt groß, Globus mittel, Hintergrund je Welt, großzügig.
+      Vorgehen: alle heutigen Wege aufnehmen (Startmenü-Reiter, New game, Pausemenü, Game over, Editor-Kopf, Testfenster,
+      Spielstände, Links, Desktop), Brüche und Neuladen benennen, ein durchgängiges Modell vorschlagen (Plan-Doku),
+      mit dem User per Baukasten/Entwürfen abstimmen, dann bauen.
 - [ ] **E184 Mitgelieferte Karten imposanter** (User, 2026-10-15): die meisten Karten sind noch zu langweilig, es muss
       deutlich mehr gehen (Kulisse, Höhenunterschiede, Blickpunkte, Wahrzeichen, dichtere und abwechslungsreichere
       Gestaltung). Bekannte Stellen aus dem Showreel: Wald in Autumn Keep trüb und aus der Distanz braun, Burg in der
       Dämmerung nur Silhouette, langer leerer weißer Hang in Frost Hamlet. Nach E180 (Fehler zuerst; fx-maps schreibt
       je Karte Vorschläge, liegen vor zur Auswahl durch den User); je Karte ein Vorschlag mit Vorher-Bildern, dann die Level-Skripte
       (`tools/maps/levels/`, `LevelKit`) ausbauen. Hängt mit E179 (bessere Modelle) und E182 (Showreel) zusammen.
-- [ ] **E187 Mehr Variation bei Bäumen** (User, 2026-10-15): heute rund 30 Baumarten im Katalog; prüfen, was ohne
-      Leistungsverlust mehr Abwechslung bringt: je Instanz Farbton, Helligkeit, Größe, Neigung und Drehung (über die
-      Instanzdaten, kein Draw Call mehr), zwei bis drei Formvarianten je Art aus dem Blender-Bau (E179), Mischung je
-      Biom. Draw Calls und GPU-Zeit vorher/nachher messen.
 - [ ] **E190 Karten lebendiger** (User, 2026-10-15): neben der Gestaltung (E184) Bewegung und Leben in der Welt, z. B.
       Vogelschwärme, Rauch aus Schornsteinen, Fahnen, Boote, die treiben, Glühwürmchen und Funken bei Nacht, Tiere am
       Rand, Umgebungsgeräusche je Biom; alles billig (Partikel, Shader, wenige Instanzen) und je Grafikstufe abschaltbar.
       Vorschläge je Karte zusammen mit E184. Entschieden (User, 2026-10-15): allgemeine Mechanismen, auch im Editor
       setzbar und einstellbar (Katalog/Effekt-Objekte, Bereiche, Map-Kit- und MCP-Befehle); die mitgelieferten Karten
       bekommen ihr Leben nur über dieselben Editor-Funktionen, keine Sonderwege je Karte. Gilt ebenso für E184.
-- [ ] **E192 Strand-Biom** (User, 2026-10-15): neues Biom „Beach“ neben den 15 heutigen (`ops/landscape/biomes.ts`):
-      Sand am Wasser mit flachem Übergang ins Ufer, Kies und Treibgut, Dünengras, Palmen oder Strandkiefern je nach
-      Klima, nasser Sandstreifen an der Wasserlinie (mit E173). Wenige Bodenschichten, damit die 12er-Grenze hält.
-- [ ] **E185 Zombie V1 und V2: Animationen und Kleidungsvarianten** (User, 2026-10-15): die Animationen beider Modelle
-      ansehen und verbessern; dazu mehrere Kleidungsstile je Modell, damit eine Horde nicht gleichförmig aussieht.
-      Muss performant bleiben: Varianten über die Instanz (Textur-Atlas oder Farbtausch je Instanz im VAT-Shader,
-      Instancing in `instanced-enemy/`), kein zusätzlicher Draw Call je Variante; Bildrate vorher/nachher messen.
 - [ ] **E182 Showreel-Video, nächste Runde** (User, 2026-10-15; geparkt, bis Fixes, Karten und offene Features stehen):
       Rig auf `wt/showreel` (`tools/showreel/`), Take 8 sauber, lange (12 min) und kurze Fassung (1:30) abgelehnt:
       zu lahm, noch Fehler. Wünsche: kurzes Intro bis zum Editor; Editor-Funktionen auf vier Karten im Wechsel, auch
@@ -131,12 +99,6 @@ eigenen Karten, Coop-Protokoll 5). Vier Worker-Branches darauf laufen (Abschnitt
       abrupt enden lassen; Outro auf Mars, Mond oder einem anderen Planeten mit eindrucksvoller Kulisse, nicht dieselbe
       Karte wie am Anfang. Kurze Fassung: zeigt das Wichtige nicht, lässt zu viel aus und schneidet teils im falschen
       Moment (mitten in der Aktion statt nach der sichtbaren Wirkung). Schnitt mit `tmp/showreel/edit/build.py long|short`.
-- [ ] **E102 Neue Tower aus den Meshy-Kandidaten** (User, 2026-10-02; Modelle in
-      `public/assets/models/towers/candidates/`, Zerlegung mit `tools/blender/split_tower.py` und `towers/*.json`):
-      Iron Bastion und Sentinel Laser abgenommen. Chainsaw mit Roboter-Tentakeln statt Armen (bis 14 m, eingefahren wie
-      das Modell, je Arm ein eigenes Ziel, Zuordnung nach Entfernung, damit nichts kreuzt). Shawarma Slicer mit
-      Döner-Strahl (dreht aus dem Stand hoch, Fett-Spritzer später als Pfad). Magma Reactor zurückgestellt. Alle auf das
-      Modell-Budget reduzieren (heute 0,8 bis 2,5 Mio. Dreiecke).
 - [ ] **E103 Ego-Steuerung des Helden** (User, 2026-10-02).
 - [ ] **E83 AppImage und AUR** (2026-09-30): gebaut 2026-10-05 (statische Laufzeit, Update-Information und `.zsync`,
       AUR-Paket `3dtd-bin` mit CI-Job). AUR ok, der Job lief im Release 0.7.0 grün. Offen beim User nur: das AppImage
@@ -187,10 +149,24 @@ eigenen Karten, Coop-Protokoll 5). Vier Worker-Branches darauf laufen (Abschnitt
 
 ## 2. Gebaut, wartet auf Test
 
+### Worker-Runden 2026-10-15 (übernommen, Nachtests in PLAYTEST.md C)
+
+- [ ] **E177 Editor-Fehler, E191 Gebäude ebnen ihren Boden**: Nachtwechsel ohne Standbild, Auto paint, Toast, Day/Dusk,
+      Hölle-Pinsel auf voller Liste, Fill a hollow, Look auf blankem Boden, Baumschatten beim Malen (PLAYTEST C).
+- [ ] **E178, E181, E183, E193**: Test ab Welle N mit Forschung, Wetter füllt das Bild, kein Schwarz und Aufploppen im
+      Intro, Ladeplatte bis alles steht (PLAYTEST C).
+- [ ] **E180, E173**: Karten nach strengem Check, Wasser mit Spiegelung und Uferwellen, Lava als Krustenplatten (PLAYTEST C).
+- [ ] **E185 Zombies** mit Kleidungsvarianten und Gangbild, **E192 Strand-Biom**, **E194 Erde aus Blue Marble** (PLAYTEST C).
+- [ ] **E102 Neue Tower** Iron Bastion, Sentinel Laser, Chainsaw, Shawarma Slicer; **E101** Pfade Sniper, Caustic,
+      Binding Sigil; **E20** Kameraplätze Shift+F1..F5; **E109** Forschung ziehen (PLAYTEST C).
+- [ ] **Biome**: mehr Baumarten in Wiese, Dorf, Wüste, neues Herbst-Biom (PLAYTEST C).
+
 ### Runde 2026-10-14 tagsüber (Branch `night/custom-maps-round2`, nicht gepusht)
 
 Nachtest-Liste in `tmp/NEXT_SESSION.md`, kommt nach PLAYTEST.md, wenn der User Zeit hat.
 
+- [ ] **E202 Ferne Berge am Kartenrand**: Fels an Steilflanken, Rinnen, Schnee/Staub je Look, Gipfel aus dem Dunst
+      (Moon Base, Mountain Pass, Red Canyon, Frost Hamlet zum Horizont).
 - [ ] **Editor** E158 Tour 23 Schritte, E159 Probewelle 1x bis 8x, E165 Seitenleiste umbrechend mit Anfasser, E166
       Hilfe-Reiter, E167 ruhiges Create map, E168 Werkzeug Look (Esc), E169 Scene cost statt Objektzahl.
 - [ ] **E170 Eigene Karten nach E154**: Bauflächen-Overlay, Test ab Welle N, Difficulty, Mars nach NASA-Farben, Plant
@@ -205,6 +181,24 @@ Nachtest-Liste in `tmp/NEXT_SESSION.md`, kommt nach PLAYTEST.md, wenn der User Z
 - [ ] **E171 Teil 1** MCP-Server in der Desktop-App ([AGENT_MCP.md](docs/AGENT_MCP.md)), `run_script`, 19 Werkzeuge.
 - [ ] **E153 Desktop auf der starken GPU**: in 0.7.1 ausgeliefert, auf dem Laptop geprüft (PLAYTEST A3.3); nach DONE
       auf Zuruf.
+- [ ] **E198 OSM-Häuser**: Einfamilienhäuser statt Reihenhaus-Reihen und Blöcke (Nachbarschaft unter 180 m², Block erst ab
+      400 m²), Modellwahl per Salz, Tönung je Grundriss; Erlenbach 74235 im Editor ansehen.
+- [ ] **E201 Bauverbot als Rechteck**: Gebäude und Mauern sperren und sitzen nach ihrem gedrehten Rechteck (Katalog `box`);
+      neben einer langen Schule bauen, Sitz am Hang.
+- [ ] **E197 Rauchsäule** `fx-smoke-column` (Life-Panel „Tall smoke column“), Ember Crater mit drei Säulen; dort ansehen.
+- [ ] **E187 Baumvariation**: Herbstlaub streut Rot bis Gelb je Baum, Pflanzen in der Größe; Autumn Keep über dem Wald.
+- [ ] **Klippen geschlossen**: Klippen-Scans mit Rückseite, Felsen ab Fuß der Kante, keine Streifen an Steilwänden;
+      Archipelago Leuchtturmfelsen, Demo Valley Crag.
+- [ ] **Mond, Mars, Hafen**: Schleusen zu, Radarschüssel ebnet ihren Boden, Kraterauswurf statt Steinkreise, Fischerboot,
+      Asphalt in Harbor Town, Gewächshaus mit dunklem Glas (nur 2 auf Mars), Mover-Routen frei.
+- [ ] **Bojen blinken, Ballista-Bolzen mit eigenem Ton** (Dev-Build, Ballista Bolts); **OSM-Tunnel mit Portalen** (Miltenberg).
+- [ ] **OSM: Gehweg und Pflaster eine Schicht** (graue Platten `sidewalk`), eine Bodenschicht mehr für die Landnutzung;
+      eine neue OSM-Welt mit Fußgängerzone erzeugen.
+- [ ] **E199 Ortssuche im New game**: Treffer fließen unter dem Feld, der Dialog wächst; Kartenwelt › A map of a real place.
+- [ ] **E200 Wegknoten in Look**: außerhalb von Roads kleine Punkte statt großer Scheiben; OSM-Karte im Editor, Look.
+- [ ] **Straßenbelag am Weg**: Roads, Straße wählen, „Surface“ (Asphalt, Pflaster, Kies …) sofort, mit Undo, bleibt bei Rebuild.
+- [ ] **E189 Lichter nachts**: Lichtfleck breiter und heller, größerer Hof, Pool kräftiger, Licht auf Wasser, Lava glüht
+      weiter; Autumn Keep und Witch Marsh nachts ansehen.
 
 ### Nachtschicht 2026-10-14 (Branch `night/custom-maps-round2`, nicht gepusht)
 
@@ -252,8 +246,9 @@ Nachtest-Liste in `tmp/NEXT_SESSION.md`, kommt nach PLAYTEST.md, wenn der User Z
 
 ## 3. Später und Ideen
 
-- [ ] **E170 Rest (C)**: Prefabs, Intro-Kameraflug, Ereignisse je Welle, Balance-Hilfen, DevWorld durch Testkarten
-      ersetzen; KTX2 für Modelltexturen nur mit Roh-GLBs ([CUSTOM_MAPS_NEXT_PLAN.md](docs/CUSTOM_MAPS_NEXT_PLAN.md)).
+- [ ] **E170 Rest (C)**: Intro-Kameraflug, DevWorld durch Testkarten ersetzen; KTX2 für Modelltexturen nur mit
+      Roh-GLBs ([CUSTOM_MAPS_NEXT_PLAN.md](docs/CUSTOM_MAPS_NEXT_PLAN.md)). Prefabs, Ereignisse je Welle und HP-Kurve gebaut.
+- [ ] **E169 Rest**: einmalig 5,09 ms auf Ultra im Demo-Tal (`dda5daf4`), ungeklärt; nur mit neuem Beleg angehen.
 - [ ] **E171 Teil 2 KI-Agent baut Karten** (Desktop-App, Entscheide in [AGENT_MCP.md](docs/AGENT_MCP.md)): Rest nach
       Teil 1, Umfang offen (Abschnitt 1, „Mit dem User klären“).
 - [ ] **E157 OSM-Welt: spielen ohne Token oder als eigene Karte** (User-Idee 2026-10-14, mit E128 zusammengelegt;
@@ -274,17 +269,13 @@ Nachtest-Liste in `tmp/NEXT_SESSION.md`, kommt nach PLAYTEST.md, wenn der User Z
       (A* auf dem OSM-Straßengraph vom Portal zum HQ, Spawns und HQ verschiebbar, keine Zwischenwegpunkte). Lange gerade
       Strecken geben Towern viel freien Schaden, die Wellengröße richtet sich nach der Abwehr, nicht nach der
       Routenform. Ideen: erzwungene Ecken oder Umwege, wenn eine Route zu gerade ist, ggf. manuelle Wegpunkte.
-- [ ] **E20 Kamerapositionen 1 bis 5 speichern** wie in RTS-Spielen: 1 bis 9 wählen heute Tower (`hotkey-map.ts`),
-      Ctrl+Zahl wechselt im Browser den Tab; Tasten unklar.
 - [ ] **E29 Coop-Rest**: Egoperspektive im Coop zäher als allein (T19), vielleicht Turm-Modell lokal vorausdrehen;
       weitere Raum-Optionen aus dem Design (D45: Credits je Spieler oder geteilt, Gold senden an/aus, Startgeld,
       Difficulty, Regel bei Abbruch).
 - [ ] **E33 Relay-Rest**: Drain, C5b nach dem Playtest ([COOP_PLAN.md](docs/COOP_PLAN.md) C9).
-- [ ] **E34 Rest**: Perfect, Combo und Comeback für die ganze Welle statt je Spur.
-- [ ] **E101 Rest: weitere Tower-Pfade** (User, 2026-10-02; gebaut ist der Späher des Archers): je Tower ein Pfad, Forschung
-      schaltet frei, je Tower einmal gekauft, Anbau oder Modelltausch. Archer: Scharfschütze (Modelltausch, etwa auf die
-      Ironclad Ballista, E102), Brandpfeile. Ideen: Rakete Mehrzweck (Boden mit halbem Schaden), Magic Bannsiegel (hebt
-      Phasing auf), Poison Ätzend (−1 Rüstung); Ice, Kanone, Gatling, Lightning, Fire, Tentacle offen.
+- [ ] **E101 Rest: weitere Tower-Pfade** (User, 2026-10-02): je Tower ein Pfad, Forschung schaltet frei, je Tower
+      einmal gekauft. Gebaut: Späher und Scharfschütze (Ballista) des Archers, Magic Bannsiegel, Poison Ätzend. Ideen:
+      Brandpfeile, Rakete Mehrzweck (Boden mit halbem Schaden); Ice, Kanone, Gatling, Lightning, Fire, Tentacle offen.
 - [ ] **E81 Restrisiken des zweiten Worker-Reviews**: Wellenstart-Sperre fällt nach 2 s Wanduhr; Coop-Start und
       Ortswechsel ohne Paket dazwischen lassen den Lauf unmarkiert; ein hängender Worker blockiert nach `newRun`;
       Gegner-Views nur aus Event-Refs behalten die Werte des Events. Beobachten, nur mit Beleg angehen.
@@ -325,8 +316,6 @@ Nachtest-Liste in `tmp/NEXT_SESSION.md`, kommt nach PLAYTEST.md, wenn der User Z
       Aufwand M laut Studie. Schicht 1 (Kampfspuren) ist gebaut.
 - [ ] **E116 Coop-Spielstand vom Host** (User, 2026-10-05: vorerst nur Einzelspiel): der Host lädt einen Spielstand in
       einen Raum, Gäste bekommen ihn beim Beitreten; das Format ist dafür ausgelegt ([SAVE_LOAD_PLAN.md](docs/SAVE_LOAD_PLAN.md)).
-- [ ] **E109 Forschungsdialog**: Warteschlange per Ziehen umsortieren (heute Hoch/Runter-Knöpfe, das Repo nutzt kein
-      `cdk/drag-drop`) und weitere Rubriken neben "Tower Tech", sobald es Inhalt dafür gibt.
 
 ## Entschieden (keine Arbeit)
 
@@ -347,7 +336,15 @@ jeweiligen Fach-Doku.
 - Dev-Menü mit Cheats, alle Konsolen-Globals (`__corridor`, `__rg`, `__perf` usw.) und die Dauer-Messungen
   (Raycast-Zeitmessung, `[Camera]`-Log) bleiben im Release-Build.
 
+- [ ] **Entschieden 2026-10-15 (abends):** E195 Navigation: alle Fragen beantwortet, siehe Abschnitt 6 in
+      [WORLDS_NAVIGATION_PLAN.md](docs/WORLDS_NAVIGATION_PLAN.md). Kamera auf Kartenwelten bleibt 3 m über dem Boden.
+      Biom-Pinsel bekommen mehr Baumarten und ein Herbst-Biom (Karten neu packen). OSM: Gehweg und Pflaster eine
+      Bodenschicht. Kein Dev-Link `?osm=`. Ballista-Ton abgenommen.
+
 ## Verworfen (nicht erneut angehen)
+
+- **E196 Doppelseitige Stoffe von unten unsichtbar** (2026-10-15): kein Renderfehler; alle Stoffe sind DoubleSide, die
+  Kamera bleibt auf Kartenwelten 3 m über dem Boden und kommt nie unter ein Vordach. Spec pinnt die Doppelseitigkeit.
 
 - **Eigene Karten: Wellen je Spawn und Spuren erst ab Welle N** (Review eigene Karten, User-Wahl D am 2026-10-13):
   verworfen, siehe [CUSTOM_MAPS_NEXT_PLAN.md](docs/CUSTOM_MAPS_NEXT_PLAN.md).

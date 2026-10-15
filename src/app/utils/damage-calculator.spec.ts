@@ -1,6 +1,7 @@
 import { calculateDamage } from './damage-calculator';
 import {
   DAMAGE_MATRIX,
+  LIGHTER_ARMOR,
   EFFECTIVENESS_THRESHOLDS,
   getEffectiveness,
 } from '../configs/combat/damage-matrix.config';
@@ -232,5 +233,19 @@ describe('calculateDamage()', () => {
     const r = calculateDamage(100, 'siege', 'fortified', 0);
     expect(r.finalDamage).toBe(0);
     expect(r.multiplier).toBe(0);
+  });
+
+  it('counts a corroded target one armor class lighter where that is better, never worse (TODO E101)', () => {
+    for (const damageType of DAMAGE_TYPES) {
+      for (const armor of ARMOR_TYPES) {
+        const plain = calculateDamage(100, damageType, armor).multiplier;
+        const corroded = calculateDamage(100, damageType, armor, 1, true).multiplier;
+        expect(corroded, `${damageType} vs ${armor}`).toBe(Math.max(plain, DAMAGE_MATRIX[damageType][LIGHTER_ARMOR[armor]]));
+        expect(corroded).toBeGreaterThanOrEqual(plain);
+      }
+    }
+    expect(calculateDamage(100, 'pierce', 'heavy', 1, true).multiplier).toBe(DAMAGE_MATRIX.pierce.light);
+    expect(calculateDamage(100, 'siege', 'heavy', 1, true).multiplier).toBe(DAMAGE_MATRIX.siege.heavy);
+    expect(calculateDamage(100, 'magic', 'ethereal', 1, true).multiplier).toBe(DAMAGE_MATRIX.magic.ethereal);
   });
 });

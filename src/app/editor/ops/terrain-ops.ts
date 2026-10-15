@@ -230,8 +230,9 @@ function copyRect(t: MapTerrain, rect: GridRect, pad: number): GridRect & { data
     i1: Math.min(g.columns - 1, rect.i1 + pad),
     j1: Math.min(g.rows - 1, rect.j1 + pad),
   };
-  const w = r.i1 - r.i0 + 1;
-  const data = new Float32Array(w * (r.j1 - r.j0 + 1));
+  // A dab wholly off the grid copies nothing
+  const w = Math.max(0, r.i1 - r.i0 + 1);
+  const data = new Float32Array(w * Math.max(0, r.j1 - r.j0 + 1));
   for (let j = r.j0; j <= r.j1; j++) {
     data.set(g.heights.subarray(j * g.columns + r.i0, j * g.columns + r.i1 + 1), (j - r.j0) * w);
   }

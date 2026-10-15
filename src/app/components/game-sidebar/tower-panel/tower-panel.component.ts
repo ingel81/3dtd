@@ -27,7 +27,7 @@ import { canManTower } from '../../../sim/client/mirror/sim-mirror';
 import { SellConfirmService } from '../../../services/sell-confirm.service';
 import { UpgradeHintService } from '../../../services/upgrade-hint.service';
 import { openDamageMatrixDialog } from '../../damage-matrix-dialog/open-damage-matrix-dialog';
-import { TdIconComponent } from '../../icon/icon.component';
+import { TdIconComponent, type TdIconName } from '../../icon/icon.component';
 import { damageTypeIcon } from '../../icon/damage-type-icon';
 import {
   VETERAN_TOOLTIP,
@@ -39,7 +39,8 @@ import {
 } from './tower-stats';
 import { formatCompact } from '../../../utils/format-compact';
 import { COOP } from '../../../services/coop.token';
-import { getTowerPath, pathsOf, type TowerPath, type TowerPathId } from '../../../configs/tower-paths.config';
+import { getTowerPath, type TowerPath, type TowerPathId } from '../../../configs/tower-paths.config';
+import { releasedPathsOf } from '../../../configs/release';
 import { getResearch, pathUnlockedBy } from '../../../configs/research/research-tree.config';
 import { TowerUpgradeService } from '../../../services/tower-upgrade.service';
 import { UPGRADE_MANY, isUnderConstruction, upgradeTimes, upgradeTrackRefusal } from '../../../utils/player-actions';
@@ -133,7 +134,7 @@ export class SidebarTowerPanelComponent implements OnInit, OnDestroy {
   });
 
   /** The paths of the tower's type (configs/tower-paths.config.ts) */
-  readonly paths = computed(() => pathsOf(this.tower().typeConfig.id));
+  readonly paths = computed(() => releasedPathsOf(this.tower().typeConfig.id));
   /** The path it took, null while none; follows the same revision as the stats */
   readonly chosenPath = computed(() => {
     this.store.selectedTowerRevision();
@@ -146,6 +147,11 @@ export class SidebarTowerPanelComponent implements OnInit, OnDestroy {
    */
   isPathUnlocked(path: TowerPath): boolean {
     return pathUnlockedBy(this.researchStore.completedResearches(), path.id);
+  }
+
+  /** A path's mark: the icon of the research that opens it (each research has its own) */
+  pathIcon(path: TowerPath): TdIconName {
+    return (getResearch(path.research)?.icon ?? 'eye') as TdIconName;
   }
 
   /** The tooltip of a path tile: what it does, and what it waits for */

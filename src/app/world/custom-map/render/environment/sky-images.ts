@@ -75,3 +75,18 @@ export async function fetchSkyImage(image: SkyImage): Promise<Blob> {
   if (!res.ok) throw new Error(`HTTP ${res.status} for sky ${image.id}`);
   return res.blob();
 }
+
+/**
+ * The Earth over moon maps (E194): NASA's Blue Marble with clouds,
+ * equirect 1024 x 512, sRGB, alpha where the sun glints on open sea
+ * (`tools/map-assets/build_planet.py`). Loaded only for a map that shows a
+ * planet (`planetOf`).
+ */
+export const PLANET_IMAGE = { file: 'earth.webp', source: 'https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57735/land_ocean_ice_cloud_2048.jpg' } as const;
+
+/** The planet's picture, through the map data's cache like the image skies */
+export async function fetchPlanetImage(): Promise<Blob> {
+  const res = await mapDataFetch(mapDataUrl(`${DEFAULT_ASSET_BASE}skies/${PLANET_IMAGE.file}`));
+  if (!res.ok) throw new Error(`HTTP ${res.status} for planet ${PLANET_IMAGE.file}`);
+  return res.blob();
+}

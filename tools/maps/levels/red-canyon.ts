@@ -20,8 +20,8 @@ export function buildRedCanyon(): CustomMapDocument {
   for (const m of ['desert-stony', 'sand-dunes', 'red-earth', 'sand-red', 'desert-cracked-red', 'riverbed-dry', 'sandstone-paving', 'grass-dry']) k.layer(m);
   k.cliffs('cliff-sandstone', 40);
 
-  // ---- The plain: lifted to 30 m, a little rolling
-  const plain = 30;
+  // ---- The plain: lifted to 44 m, a little rolling
+  const plain = 44;
   for (let y = -300; y <= 300; y += 110) for (let x = -300; x <= 300; x += 110) k.level({ x, y }, { radius: 130, falloff: 0.4 }, plain);
   k.form('dunes', [{ x: -200, y: 190 }, { x: -60, y: 210 }], { radius: 70, strength: 0.6 }, 1);
   // Table mountains rising over the plain: each from a few lobes, so the rims wander, then rain breaks them up
@@ -52,14 +52,19 @@ export function buildRedCanyon(): CustomMapDocument {
     [{ x: -50, y: 10 }, { x: -70, y: 60 }, { x: -110, y: 85 }],
   ];
   const carve = (line: MapPoint[], floor: number, radius: number) => {
-    k.terrace(line, { radius: radius * 1.9, falloff: 0.5 }, 6, floor, 0.35);
+    // Ledges every 7 m: the walls read as bands of rock, the cliff shader's strata on top
+    k.terrace(line, { radius: radius * 1.9, falloff: 0.5 }, 7, floor, 0.45);
     k.level(line, { radius, falloff: 0.35 }, floor);
     k.roughen(line, { radius: radius * 1.6, falloff: 0.6 }, 2.5, 4404 + line.length);
   };
-  carve(westCanyon, 2, 24);
-  carve(northCanyon, 2, 22);
-  carve(southCanyon, 1.5, 26);
-  for (const side of sideCanyons) carve(side, 4, 13);
+  // Narrow and deep: the walls stand 40 m and more over a floor wide enough for the road and its shoulders
+  carve(westCanyon, 2, 18);
+  carve(northCanyon, 2, 17);
+  carve(southCanyon, 1.5, 21);
+  for (const side of sideCanyons) carve(side, 4, 11);
+  // The north road bends west into the junction: its floor follows it there, and the spawns stand on level ground
+  carve([{ x: -10, y: 40 }, { x: -24, y: 2 }, { x: -20, y: -36 }], 2, 15);
+  for (const p of [west, north]) k.level(p, { radius: 20, falloff: 0.3 }, 2);
   // The basins: where the canyons join, and the temple basin with the oasis, wider in some directions than others
   k.level(j, { radius: 46, falloff: 0.4 }, 2);
   for (const [dx, dy, r] of [[0, 0, 70], [35, -30, 50], [-30, -35, 45], [45, 35, 40]] as const) k.level({ x: hq.x + dx, y: hq.y + dy }, { radius: r, falloff: 0.45 }, 1.5);
@@ -80,10 +85,10 @@ export function buildRedCanyon(): CustomMapDocument {
   k.hq(hq.x, hq.y);
 
   // ---- Oasis: a pool by the temple with palms round it
-  const oasis = { x: 112, y: -200 };
+  const oasis = { x: 108, y: -202 };
   const pool = k.body(0.6, 'water', '#2d6b6a');
-  k.lake(oasis, { radius: 16, falloff: 0.8 }, 2, pool);
-  k.paint('grass-dry', oasis, { radius: 24, falloff: 0.8 }, 0.8);
+  k.lake([oasis, { x: 96, y: -214 }], { radius: 17, falloff: 0.8 }, 2, pool);
+  k.paint('grass-dry', [oasis, { x: 96, y: -214 }], { radius: 32, falloff: 0.8 }, 0.9);
 
   // ---- Ground: dunes and stony red earth on the plain, sand and dry wash on the canyon floors
   k.biome('desert', [{ x: -200, y: 200 }, { x: 0, y: 220 }, { x: 200, y: 220 }], { radius: 70, strength: 0.6 });
@@ -102,10 +107,13 @@ export function buildRedCanyon(): CustomMapDocument {
   k.place('desert-temple', hq.x + 34, hq.y + 22, { rotation: facing({ x: hq.x + 34, y: hq.y + 22 }, hq) });
   for (const [x, y, r] of [[hq.x - 26, hq.y + 4, 0], [hq.x + 14, hq.y + 22, 0.2], [hq.x - 24, hq.y - 6, 0.5]] as const) k.place('ruin-columns', x, y, { rotation: r });
   k.place('obelisk', hq.x - 6, hq.y + 34, { rotation: 0.3 });
+  // Torches at the temple's steps and along its forecourt
+  for (const [dx, dy] of [[8, -8], [24, -20], [26, 12], [42, 16], [-8, 20], [6, 30]] as const) if (k.free(hq.x + dx, hq.y + dy, 1)) k.place('torch', hq.x + dx, hq.y + dy);
   k.place('obelisk', hq.x + 30, hq.y + 30, { rotation: 0.3 });
-  k.scatter(['tree-palm', 'tree-palm-tall', 'tree-palm-dry'], oasis, { radius: 26, strength: 1, falloff: 0.4 }, { density: 6, minDistance: 5, scaleMin: 0.85, scaleMax: 1.2 }, false);
-  k.doc.objects = k.doc.objects.filter((o) => !o.asset.startsWith('tree-palm') || Math.hypot(o.x - oasis.x, o.y - oasis.y) > 15);
-  k.scatter(['grass-tall-dry', 'iceplant', 'flower-gazania', 'desert-shrub'], oasis, { radius: 30, strength: 1 }, { density: 10, minDistance: 2 });
+  // A grove round the pool: palms, the tall ones nearest the water, shrubs and flowers under them
+  k.scatter(['tree-palm', 'tree-palm-tall', 'tree-palm-tall', 'tree-palm', 'desert-tree'], [oasis, { x: 96, y: -214 }], { radius: 36, strength: 1, falloff: 0.4 }, { density: 9, minDistance: 4.5, scaleMin: 0.85, scaleMax: 1.25 }, false);
+  k.doc.objects = k.doc.objects.filter((o) => !(o.asset.startsWith('tree-palm') || o.asset === 'desert-tree') || (k.h(o.x, o.y) > 0.75 && Math.hypot(o.x - hq.x, o.y - hq.y) > 14));
+  k.scatter(['grass-tall-dry', 'iceplant', 'flower-gazania', 'desert-shrub', 'iceplant', 'flower-ursinia'], [oasis, { x: 96, y: -214 }], { radius: 38, strength: 1 }, { density: 14, minDistance: 1.8 });
   const camp = { x: 128, y: -230 };
   for (const [dx, dy, a] of [[0, 0, 'caravan-tent'], [14, 8, 'tent-nomad'], [-10, 14, 'tent-nomad'], [8, -12, 'trade-goods'], [-6, -8, 'camel-saddle'], [20, -4, 'campfire'], [-16, -4, 'trade-goods']] as const) {
     k.place(a, camp.x + dx, camp.y + dy, { rotation: facing({ x: camp.x + dx, y: camp.y + dy }, oasis) });
@@ -122,8 +130,25 @@ export function buildRedCanyon(): CustomMapDocument {
   ] as const) {
     k.place(a, x, y, { scale: s, rotation: x * 0.01 });
   }
-  // Rock needles and an arch standing in the canyons and the basin
-  for (const [x, y, a, sc] of [[-120, -45, 'sandstone-pillar-tall', 1], [60, 120, 'sandstone-pillar', 1.3], [-175, -25, 'sandstone-pillar', 1.1], [175, -140, 'sandstone-pillar-tall', 0.9], [65, -86, 'rock-arch', 1.1], [-15, 70, 'sandstone-pillar', 0.9]] as const) {
+  // A natural arch spanning the west canyon, the road running through it, its feet in the walls; it does not
+  // block building (its footprint is wider than the canyon and would close the rims to towers)
+  const archAt = { x: -122, y: -40 };
+  k.place('rock-arch', archAt.x, archAt.y, { rotation: facing({ x: -150, y: -58 }, { x: -95, y: -22 }), scale: 2.2, blocksBuild: false });
+  // A rope bridge over a side canyon, from lip to lip at the plain's height
+  const side = sideCanyons[1];
+  const mid = { x: (side[0].x + side[1].x) / 2 + 8, y: (side[0].y + side[1].y) / 2 + 3 };
+  const along = Math.atan2(side[1].y - side[0].y, side[1].x - side[0].x);
+  const lip = (dir: number) => {
+    let d = 4;
+    while (d < 60 && k.h(mid.x - Math.sin(along) * d * dir, mid.y + Math.cos(along) * d * dir) < plain - 3) d += 1;
+    return d;
+  };
+  const [l1, l2] = [lip(1), lip(-1)];
+  const centre = { x: mid.x - Math.sin(along) * ((l1 - l2) / 2), y: mid.y + Math.cos(along) * ((l1 - l2) / 2) };
+  // The model spans its local x, which a rotation turns counter-clockwise from east
+  k.place('rope-bridge', centre.x, centre.y, { rotation: along + Math.PI / 2, scale: Math.min(1.8, (l1 + l2 + 4) / 20), z: plain - 3.5 - k.h(centre.x, centre.y) });
+  // Rock needles standing in the canyons and the basin
+  for (const [x, y, a, sc] of [[60, 120, 'sandstone-pillar', 1.3], [-175, -25, 'sandstone-pillar', 1.1], [175, -140, 'sandstone-pillar-tall', 0.9], [65, -86, 'rock-arch', 1.1], [-15, 70, 'sandstone-pillar', 0.9]] as const) {
     if (k.free(x, y, 4)) k.place(a, x, y, { scale: sc, rotation: x * 0.02 });
   }
   for (const line of [westCanyon, northCanyon, southCanyon]) {
@@ -139,7 +164,29 @@ export function buildRedCanyon(): CustomMapDocument {
   for (const [x, y, a, sc] of [[-250, 230, 'sandstone-pillar-tall', 1.3], [250, 230, 'mesa', 0.9], [245, -240, 'sandstone-pillar-tall', 1.1], [-120, -240, 'rock-arch', 1.4], [60, 250, 'sandstone-pillar', 1.4], [-250, -250, 'mesa', 0.8]] as const) {
     k.place(a, x, y, { scale: sc, rotation: y * 0.01 });
   }
+  // Hoodoo fields on the plain: clusters of rock needles, the tall ones in the middle
+  for (const [n, c] of [{ x: -200, y: 60 }, { x: 215, y: 30 }, { x: -60, y: -215 }, { x: 140, y: 230 }].entries()) {
+    for (let i = 0; i < 7; i++) {
+      const a = k.noise.hash(n, i, 91) * Math.PI * 2;
+      const d = 4 + 16 * k.noise.hash(n, i, 92);
+      const p = { x: c.x + Math.cos(a) * d, y: c.y + Math.sin(a) * d };
+      if (k.free(p.x, p.y, 3)) k.place(d < 10 ? 'sandstone-pillar-tall' : 'sandstone-pillar', p.x, p.y, { rotation: a, scale: 0.7 + 0.6 * k.noise.hash(n, i, 93) });
+    }
+  }
   k.scatter(['bones', 'bone-pile', 'cactus', 'tree-dead-pale'], [{ x: -120, y: -100 }, { x: 60, y: 60 }, { x: -40, y: 160 }], { radius: 50, strength: 0.6 }, { density: 0.6, minDistance: 12 });
+
+  // ---- Life: vultures circling over the junction and the temple, dust devils wandering the plain and the basins,
+  // heat shimmer over the canyon floors, the wind of the desert and louder through the canyons
+  const around = (c: MapPoint, r: number): MapPoint[] => Array.from({ length: 8 }, (_, i) => ({ x: c.x + Math.cos((i / 8) * Math.PI * 2) * r, y: c.y + Math.sin((i / 8) * Math.PI * 2) * r }));
+  k.lifeArea('birds', around(j, 60), { species: 'raptors' });
+  k.lifeArea('birds', around({ x: hq.x - 30, y: hq.y + 20 }, 55), { species: 'raptors', density: 0.7 });
+  k.lifeArea('dust', [{ x: 90, y: 175 }, { x: 240, y: 175 }, { x: 240, y: 245 }, { x: 90, y: 245 }]);
+  k.lifeArea('dust', [{ x: -245, y: -105 }, { x: -150, y: -125 }, { x: -130, y: -235 }, { x: -245, y: -235 }]);
+  k.lifeArea('dust', [{ x: -245, y: 40 }, { x: -110, y: 40 }, { x: -110, y: 130 }, { x: -245, y: 130 }], { density: 0.7 });
+  k.lifeArea('dust', around({ x: j.x + 10, y: j.y - 10 }, 32), { density: 0.6 });
+  for (const line of [westCanyon, northCanyon, southCanyon]) k.lifeRoute('haze', line, { density: 0.8 });
+  for (const line of [westCanyon, northCanyon]) k.lifeRoute('sound', line, { sound: 'wind', volume: 0.5 });
+  k.lifeSettings({ ambience: { sound: 'biome', volume: 0.4 } });
 
   // Seven ground materials: the least used goes (each one is 8 MB of pixels to load)
   k.trimLayers(7);

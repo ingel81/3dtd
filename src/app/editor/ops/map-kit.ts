@@ -18,10 +18,11 @@
  */
 import { CatalogIndex } from '../catalog/asset-catalog';
 import { EditorDocument } from '../model/editor-document';
-import { heightAt, slopeAt, type GridRect } from '../model/grid';
+import { heightAt, insideMap, nearestSample, slopeAt, type GridRect } from '../model/grid';
 import { BRUSH_LIMITS, type BrushSettings } from './brush';
 import { finishGenerated, generateTerrain, type TerrainPreset } from './generate';
 import { biomeBand, biomeDab, finishBiome } from './landscape/biome-brush';
+import { cliffModelsFor, cliffRocksDab } from './landscape/cliff-rocks';
 import { biomeById, type BiomeId } from './landscape/biomes';
 import { cracksDab } from './landscape/cracks';
 import { erosionDab } from './landscape/erosion';
@@ -30,27 +31,62 @@ import { LandscapeStroke } from './landscape/landscape-stroke';
 import { resample, simplify } from './landscape/lines';
 import { carveRiver, DEFAULT_RIVER, type RiverOptions, type RiverResult } from './landscape/river';
 import { buildRoad, DEFAULT_ROAD, type RoadOptions, type RoadResult } from './landscape/road';
-import { cliffAlong, formDab, type FormKind } from './landscape/shapes';
-import { ObjectGrid, ObjectIds, scatterDab, settled, rockShape, levelsGround, levelUnderBuilding, type ScatterOptions, DEFAULT_SCATTER } from './object-ops';
+import { cliffAlong, coastAlong, formDab, type FormKind } from './landscape/shapes';
+import {
+  alignedToSlope,
+  ObjectGrid,
+  ObjectIds,
+  scatterDab,
+  settled,
+  rockShape,
+  levelsGround,
+  levelUnderBuilding,
+  MAX_SINK,
+  objectsAlong,
+  setDown,
+  wallAlong,
+  wallKitOf,
+  type LineOptions,
+  type ScatterOptions,
+  DEFAULT_LINE,
+  DEFAULT_SCATTER,
+} from './object-ops';
+import { mirrorMap as mirrorWholeMap, type MirrorResult } from './mirror-map';
+import { pourWater } from './pour';
+import { ALL_PARTS, capturePrefab, captureStamp, pasteStamp, type PasteOptions, type Stamp, type StampParts, type StampRect } from './stamp';
+import { stampEntry } from '../model/stamp-store';
 import { MAX_LAYERS, autoPaint, defaultAutoRules, paintDab, readWeights, removeLayer, type AutoPaintRule } from './paint-ops';
 import { addNode, connect, edgePolyline, nearestNode, nearestOnEdges, pointAt, polylineLength, spawnRoutes, splitEdge } from './path-graph';
 import { flattenUnderPaths, paintUnderPaths } from './path-terrain';
-import { mirrorChange, objectImages, symmetryImages, type SymmetryMode } from './symmetry';
+import { lifeAreaImages, mirrorChange, objectImages, symmetryImages, type SymmetryMode } from './symmetry';
 import { flattenDab, noiseDab, plateauDab, raiseDab, rampBetween, smoothDab, terraceDab, erodeDab } from './terrain-ops';
-import { basinSpillHeight, BODY_COLORS, emptyWater, fillBasin, fillFromEdge, lakeDab, RIM_MARGIN, waterBody, waterMaskDab } from './water-ops';
-import { validateMap, type MapIssue } from '../validation/map-validation';
+import { addPouredBodies, basinSpillHeight, BODY_COLORS, emptyWater, fillBasin, fillFromEdge, lakeDab, RIM_MARGIN, waterBody, waterMaskDab, wetSamples } from './water-ops';
+import { MAX_WATER_BODIES } from '../../world/custom-map/map-file';
+import { objectsOnMoverWays, validateMap, type MapIssue } from '../validation/map-validation';
 import { assetCosts } from '../validation/map-budget';
+import { lifeProblems, newLifeId } from '../../world/custom-map/map-life';
 import {
   fitSplatMaps,
+  MAX_MAP_PREFABS,
   type CustomMapDocument,
   type MapEnvironment,
   type MapBridgeStyle,
   type MapGameplay,
+  type MapLife,
+  type MapLifeArea,
+  type MapLifeKind,
   type MapObject,
   type MapPathKind,
   type MapPoint,
   type MapWaterKind,
 } from '../../world/custom-map/map-document';
+
+/** What a life area may set beside its kind, shape and points */
+export type LifeOptions = Partial<Pick<MapLifeArea, 'density' | 'height' | 'color' | 'sound' | 'volume' | 'reach' | 'asset' | 'quality' | 'species' | 'speed'>>;
+/** What a route of movers sweeps off its way when drawn by a script (lifeRoute) */
+const CLEARED_FOR_MOVERS: ReadonlySet<string> = new Set(['rock', 'tree', 'plant']);
+
+const LIFE_OPTION_KEYS: readonly (keyof LifeOptions)[] = ['density', 'height', 'color', 'sound', 'volume', 'reach', 'asset', 'quality', 'species', 'speed'];
 
 /** A brush as the panel sets it; falloff defaults to the editor's 0.6 */
 export interface Brush {
@@ -79,6 +115,8 @@ export interface PlaceOptions {
   scale?: number;
   /** Height over the ground (the editor's Z field) */
   z?: number;
+  /** "Align to slope" after placing: tilted with the ground over its footprint (a rock then settles onto its plate) */
+  align?: boolean;
   blocksBuild?: boolean;
   blocksLos?: boolean;
   tint?: string;
@@ -181,6 +219,62 @@ export class MapKit {
     return slopeAt(this.doc.terrain, x, y);
   }
 
+  /**
+   * A contour line: where the ground stands at `height`, traced across a
+   * slope. Every `spacing` metres along `a` to `b` (a line across the slope)
+   * it looks up and down the slope, square to that line and up to `reach`
+   * metres off it, for the spot at that height; stretches where the ground
+   * never reaches it (a ridge, a hollow) are left out, so the result may come
+   * in pieces. For rows along a hillside: terraces, fences, barriers.
+   */
+  contour(a: MapPoint, b: MapPoint, height: number, o: { spacing?: number; reach?: number } = {}): MapPoint[][] {
+    const spacing = o.spacing ?? 4;
+    const reach = o.reach ?? 60;
+    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    const along = { x: (b.x - a.x) / len, y: (b.y - a.y) / len };
+    const across = { x: -along.y, y: along.x };
+    const pieces: MapPoint[][] = [];
+    let piece: MapPoint[] = [];
+    for (let d = 0; d <= len; d += spacing) {
+      const m = { x: a.x + along.x * d, y: a.y + along.y * d };
+      const at = (s: number) => ({ x: m.x + across.x * s, y: m.y + across.y * s });
+      // The nearest crossing of the height on either side, then halved down to a decimetre
+      let found: MapPoint | null = null;
+      const step = 2;
+      for (let s = 0; s <= reach && !found; s += step) {
+        for (const sign of s ? [1, -1] : [1]) {
+          const lo = s * sign;
+          const hi = (s + step) * sign;
+          const fl = this.h(at(lo).x, at(lo).y) - height;
+          const fh = this.h(at(hi).x, at(hi).y) - height;
+          if (fl * fh > 0) continue;
+          let [p, q, fp] = [lo, hi, fl];
+          for (let k = 0; k < 6; k++) {
+            const mid = (p + q) / 2;
+            const fm = this.h(at(mid).x, at(mid).y) - height;
+            if (fm * fp > 0) [p, fp] = [mid, fm];
+            else q = mid;
+          }
+          found = at((p + q) / 2);
+          break;
+        }
+      }
+      const last = piece[piece.length - 1];
+      // A crossing far off the last one is another stretch of the line (round a spur), not its next point
+      if (found && last && Math.hypot(found.x - last.x, found.y - last.y) > spacing * 3) {
+        pieces.push(piece);
+        piece = [];
+      }
+      if (found && Math.abs(found.x) < this.half && Math.abs(found.y) < this.half) piece.push({ x: r2(found.x), y: r2(found.y) });
+      else if (piece.length) {
+        pieces.push(piece);
+        piece = [];
+      }
+    }
+    if (piece.length) pieces.push(piece);
+    return pieces.filter((p) => p.length >= 2);
+  }
+
   private nextSeed(): number {
     this.strokes++;
     return Math.floor(hashCell(this.strokes, this.seed, 977) * 2 ** 31);
@@ -251,6 +345,106 @@ export class MapKit {
     });
   }
 
+  /**
+   * A rocky coast along a line drawn on the shore, the land on one side
+   * (`land`, left or right of the line's direction): the land rises to a
+   * cliff of `top` metres with a ragged face at the line and a shelf behind
+   * it (`shelf`, 6 m), falling back to the land's own height at `grade` (0.35
+   * m per metre); the sea floor at its foot sinks to `bed` (-3 m). It only
+   * raises land and deepens sea, its ends taper into the shore as it was,
+   * roads keep their ground. Cliff rocks (`rocks`, cliff-coast; null none)
+   * line the face from under the water to the shelf's edge, their face to the
+   * sea, and stones (`surf`; null none) break the water before it. Fill the
+   * sea again after it (`sea`). Returns the objects placed.
+   */
+  rockyCoast(
+    line: readonly MapPoint[],
+    o: { land: 'left' | 'right'; top: number; bed?: number; shelf?: number; grade?: number; rocks?: readonly string[] | null; surf?: readonly string[] | null },
+  ): MapObject[] {
+    const drawn = o.land === 'left' ? line : [...line].reverse();
+    const rocks = o.rocks === undefined ? ['cliff-coast'] : (o.rocks ?? []);
+    const surf = o.surf === undefined ? ['rock-large', 'rock-granite', 'boulder'] : (o.surf ?? []);
+    for (const a of [...rocks, ...surf]) if (!this.catalog.objects.has(a)) throw new Error(`${this.name}: ${this.catalog.unknown('asset', a)}`);
+    this.stroke('Rocky coast', (s) => {
+      s.symmetry = 'none';
+      for (const l of this.images(drawn)) {
+        const rect = coastAlong(s, l, { top: o.top, bed: o.bed ?? -3, shelf: o.shelf ?? 6, grade: o.grade ?? 0.35, reach: 40 });
+        if (rect) s.changed({ heights: rect });
+      }
+    });
+    this.freeCheck = null;
+    const out: MapObject[] = [];
+    const level = this.doc.terrain.water?.level ?? 0;
+    this.freeCheck = new LandscapeStroke(this.editor, 'check', 1, this.catalog);
+    const check = this.freeCheck;
+    const length = polylineLength(drawn);
+    // Along the line: where it runs, its land side (left) and its sea side
+    const frame = (d: number) => {
+      const p = pointAt(drawn, d);
+      const q = pointAt(drawn, Math.min(length, d + 1));
+      const r = pointAt(drawn, Math.max(0, d - 1));
+      const dl = Math.hypot(q.x - r.x, q.y - r.y) || 1;
+      return { p, land: { x: -(q.y - r.y) / dl, y: (q.x - r.x) / dl } };
+    };
+    // Cliff rocks along the face: where the ground falls through the middle of the cliff, from 1.5 m under the water
+    // to just over the shelf, a little more than their width apart; none where the cliff tapers out or on a road
+    // Smallest last: where a piece's ends would stand out in open water (a tight bend of the shore) a smaller one goes
+    const bySize = [...rocks].sort((a, b) => this.catalog.object(b).radius - this.catalog.object(a).radius);
+    for (let d = 0, k = 0; rocks.length && d < length; k++) {
+      const { p, land } = frame(d);
+      const at = (off: number) => ({ x: p.x + land.x * off, y: p.y + land.y * off });
+      const shelf = this.h(at(8).x, at(8).y);
+      d += 4;
+      if (shelf < level + 1.5) continue;
+      const mid = (shelf + level) / 2;
+      let face: MapPoint | null = null;
+      for (let off = 8; off >= -8; off -= 0.5) {
+        if (this.h(at(off).x, at(off).y) < mid) {
+          face = at(off);
+          break;
+        }
+      }
+      if (!face) continue;
+      const ground = this.h(face.x, face.y);
+      const bottom = Math.min(level - 1.5, ground);
+      const first = rocks[Math.floor(this.noise.hash(k, 7, 91) * rocks.length) % rocks.length];
+      const fits = (asset: string): { asset: string; scale: number; half: number } | null => {
+        const entry = this.catalog.object(asset);
+        const scale = Math.min(2, Math.max(0.5, (shelf + 0.4 - bottom) / entry.height));
+        const half = entry.radius * scale * 0.7;
+        for (const side of [-1, 1]) {
+          // Its end, a few metres in: still on the shore
+          const end = { x: face!.x - land.y * half * side + land.x * 4, y: face!.y + land.x * half * side + land.y * 4 };
+          if (this.h(end.x, end.y) < level - 1) return null;
+        }
+        return check.roadDistance(face!.x, face!.y, half * 2) < half ? null : { asset, scale, half };
+      };
+      const pick = fits(first) ?? bySize.slice(bySize.indexOf(first) + 1).map(fits).find((f) => f) ?? null;
+      if (!pick) continue;
+      // The model's north to the sea, its width along the coast
+      const rotation = Math.atan2(land.x, -land.y);
+      out.push(this.place(pick.asset, face.x, face.y, { rotation, scale: pick.scale, z: bottom - ground }));
+      d += pick.half * 1.25 - 4;
+    }
+    if (!surf.length || !this.doc.terrain.water) return out;
+    // Stones in the surf every 7 m, about half of them, 3 to 9 m out, standing out of the water
+    for (let d = 4, k = 0; d < length - 4; d += 7, k++) {
+      if (this.noise.hash(k, 3, 91) < 0.45) continue;
+      const { p, land } = frame(d);
+      const off = 3 + 6 * this.noise.hash(k, 4, 91);
+      const at = { x: p.x - land.x * off, y: p.y - land.y * off };
+      const ground = this.h(at.x, at.y);
+      if (ground > level - 0.3 || check.roadDistance(at.x, at.y, 8) < 4) continue;
+      const asset = surf[k % surf.length];
+      const entry = this.catalog.object(asset);
+      // Tall enough to show though it settles up to MAX_SINK into the floor; none where it would have to be huge
+      const need = (level - ground + 0.4 + 0.8 * this.noise.hash(k, 5, 91)) / (entry.height * (1 - MAX_SINK));
+      if (need > 3) continue;
+      out.push(this.place(asset, at.x, at.y, { rotation: this.noise.hash(k, 6, 91) * Math.PI * 2, scale: Math.max(0.6, need) }));
+    }
+    return out;
+  }
+
   /** Rain erosion: `drops` dabs along `where` */
   erode(where: Where, brush: Brush, rounds = 6): void {
     const b = brushOf(brush);
@@ -271,6 +465,28 @@ export class MapKit {
         }
       }
     });
+  }
+
+  /**
+   * Cliff rocks along `where` (Landscape tool): cliff walls on the steep
+   * spots under the brush, sized to the drop; `model` one cliff asset, or
+   * 'auto' for those of the map's look. Returns the ids placed
+   */
+  cliffRocks(where: Where, brush: Brush, model = 'auto'): string[] {
+    const models = cliffModelsFor(this.doc.environment.biome, model, this.catalog);
+    if (!models.length) throw new Error(`${this.name}: ${model === 'auto' ? 'the catalogue has no cliff models' : this.catalog.unknown('asset', model)}`);
+    const b = brushOf(brush);
+    const ids = this.stroke('Cliff rocks', (s) => {
+      const out: string[] = [];
+      for (const c of dabs(where, b.radius / 3)) {
+        const got = cliffRocksDab(s, c, b, models, this.catalog);
+        if (got.length) s.changed({ objects: got });
+        out.push(...got);
+      }
+      return out;
+    });
+    this.freeCheck = null;
+    return ids;
   }
 
   /** A river or lava flow along a line (the River line of the Landscape tool) */
@@ -303,10 +519,71 @@ export class MapKit {
 
   // ---- Map tool: generator -------------------------------------------------------------------------------------
 
-  /** The terrain generator over the whole map (replace or add), without repainting */
-  generate(preset: TerrainPreset, seed: number, strength: number, add = false): void {
+  /**
+   * The terrain generator over the whole map (replace or add). Without
+   * `repaint` the ground only; with it as the Map panel's generator does: the
+   * water the preset wants, its ground layers and an auto paint
+   */
+  generate(preset: TerrainPreset, seed: number, strength: number, add = false, repaint = false): void {
     const result = generateTerrain(this.doc.terrain, { preset, seed, strength, add });
-    finishGenerated(this.doc, { ...result, water: null, materials: [] }, () => false, false);
+    if (repaint) finishGenerated(this.doc, result, (m) => this.catalog.materials.has(m), true);
+    else finishGenerated(this.doc, { ...result, water: null, materials: [] }, () => false, false);
+    this.freeCheck = null;
+  }
+
+  /**
+   * "Mirror now" (the top bar): the sector of `from` becomes the whole map,
+   * ground, water, objects, spawns, roads and rivers
+   */
+  mirrorMap(mode: SymmetryMode, from: MapPoint): MirrorResult {
+    const out = mirrorWholeMap(this.doc, mode, from);
+    this.freeCheck = null;
+    return out;
+  }
+
+  /** Copy a rectangle of the map and paste it centred on `to` (Copy and stamps), turned, its rim faded into the ground */
+  copyArea(rect: StampRect, to: MapPoint, o: { rotation?: number; feather?: number; parts?: Partial<StampParts> } = {}): void {
+    this.paste(captureStamp(this.doc, rect), to, o);
+  }
+
+  /** Paste a stamp centred on `to` as the Copy and stamps tool does */
+  paste(stamp: Stamp, to: MapPoint, o: { rotation?: number; feather?: number; parts?: Partial<StampParts> } = {}): void {
+    const options: PasteOptions = { parts: { ...ALL_PARTS, ...o.parts }, rotation: o.rotation ?? 0, feather: o.feather ?? 0.25 };
+    this.stroke(
+      'Paste',
+      (s) => {
+        s.symmetry = 'none';
+        pasteStamp(s, stamp, to, options);
+      },
+      0,
+    );
+    this.freeCheck = null;
+  }
+
+  /**
+   * Keep objects as a prefab in the map's file (Copy and stamps, prefabs):
+   * them, and with `ground` the heights, paint and water under them; returns
+   * its id, `pf-<n>`, the same every time the script runs
+   */
+  savePrefab(name: string, ids: readonly string[], ground = false): string {
+    const list = this.doc.prefabs ?? [];
+    if (list.length >= MAX_MAP_PREFABS) throw new Error(`${this.name}: the map keeps ${MAX_MAP_PREFABS} prefabs at most`);
+    const known = new Set(this.doc.objects.map((o) => o.id));
+    const missing = ids.filter((id) => !known.has(id));
+    if (!ids.length || missing.length) throw new Error(`${this.name}: ${missing.length ? `there are no objects ${missing.slice(0, 10).join(', ')}` : 'no objects'}`);
+    const taken = capturePrefab(this.doc, ids, ground, (asset) => this.catalog.object(asset).radius)!;
+    let n = list.length + 1;
+    while (list.some((p) => p.id === `pf-${n}`)) n++;
+    this.doc.prefabs = [...list, { ...stampEntry(name, taken.stamp, null), id: `pf-${n}` }];
+    return `pf-${n}`;
+  }
+
+  /** Place a prefab or stamp the map keeps (by id or name) centred on `to`, turned (radians) */
+  placePrefab(key: string, to: MapPoint, o: { rotation?: number; feather?: number } = {}): void {
+    const list = this.doc.prefabs ?? [];
+    const saved = list.find((p) => p.id === key) ?? list.find((p) => p.name === key);
+    if (!saved) throw new Error(`${this.name}: the map keeps no prefab ${key}; it has ${list.map((p) => `${p.id} (${p.name})`).join(', ') || 'none'}`);
+    this.paste(saved.stamp, to, o);
   }
 
   // ---- Terrain tool --------------------------------------------------------------------------------------------
@@ -510,11 +787,57 @@ export class MapKit {
     return fillFromEdge(this.doc.terrain, body);
   }
 
+  /**
+   * The shore of the land round `center` between two directions (radians,
+   * counter-clockwise from east): going out from the centre, where the
+   * ground first falls under `level` (the main water's, else 0), a point
+   * about every `step` metres. It runs counter-clockwise, so the land lies
+   * on its left (rockyCoast with `land: 'left'`); directions without a shore
+   * within `max` metres are left out.
+   */
+  shoreAround(center: MapPoint, from: number, to: number, o: { level?: number; step?: number; max?: number } = {}): MapPoint[] {
+    const level = o.level ?? this.doc.terrain.water?.level ?? 0;
+    const max = o.max ?? 200;
+    const out: MapPoint[] = [];
+    const turns = Math.max(2, Math.ceil(((to - from) * 180) / Math.PI));
+    for (let k = 0; k <= turns; k++) {
+      const a = from + ((to - from) * k) / turns;
+      for (let r = 1; r <= max; r += 0.5) {
+        const p = { x: center.x + Math.cos(a) * r, y: center.y + Math.sin(a) * r };
+        if (Math.abs(p.x) > this.half || Math.abs(p.y) > this.doc.terrain.depth / 2) break;
+        if (this.h(p.x, p.y) < level) {
+          out.push(p);
+          break;
+        }
+      }
+    }
+    return out.length > 1 ? resample(out, o.step ?? 6) : out;
+  }
+
   // ---- Objects tool --------------------------------------------------------------------------------------------
 
   private freeCheck: LandscapeStroke | null = null;
 
   /** Whether an object of this footprint may stand here: off roads, away from spawns and HQ, dry */
+  /**
+   * Pour water or lava at a point (Water tool, Pour): it fills the hollow,
+   * spills over and fills every hollow on its way down as new bodies; with
+   * symmetry at every image. Returns how many bodies it made
+   */
+  pour(at: MapPoint, kind: 'water' | 'lava' = 'water'): number {
+    const t = this.doc.terrain;
+    const g = t.grid;
+    const { i, j } = nearestSample(t, at.x, at.y);
+    const wet = wetSamples(t);
+    if (wet[j * g.columns + i]) throw new Error(`${this.name}: there is water at (${at.x}, ${at.y}) already; pour onto dry ground`);
+    const starts = symmetryImages(this.symmetry, g.columns === g.rows).map((img) => {
+      const [ii, jj] = img.cell(i, j, g.columns, g.rows);
+      return jj * g.columns + ii;
+    });
+    const result = pourWater({ columns: g.columns, rows: g.rows, heights: g.heights, starts, wet, cellSize: g.cellSize });
+    return addPouredBodies(t, result.lakes, kind, MAX_WATER_BODIES);
+  }
+
   free(x: number, y: number, footprint: number): boolean {
     this.freeCheck ??= new LandscapeStroke(this.editor, 'check', 1, this.catalog);
     this.freeCheck.refreshRoads();
@@ -545,6 +868,10 @@ export class MapKit {
     // A building levels its ground first, as in the editor (levelUnderBuilding)
     const entry = this.catalog.object(asset);
     if (levelsGround(entry)) for (const p of [object, ...images]) levelUnderBuilding(t, p, entry.radius);
+    if (o.align) {
+      object = alignedToSlope(t, object, entry.radius);
+      images = images.map((i) => alignedToSlope(t, i, entry.radius));
+    }
     if (rock) {
       object = settled(t, object, rock);
       images = images.map((i) => settled(t, i, rock));
@@ -610,6 +937,30 @@ export class MapKit {
   }
 
   /**
+   * Objects along a line as the Objects tool's Line draws them: a wall kit's
+   * piece builds the kit's wall (blocks or towers at the corners), any other
+   * asset stands every `spacing` metres, turned along, across or at random,
+   * optionally on both sides. With symmetry at every image
+   */
+  line(asset: string, line: readonly MapPoint[], o: Partial<LineOptions> & { alignToSlope?: boolean } = {}): MapObject[] {
+    if (!this.catalog.objects.has(asset)) throw new Error(`${this.name}: ${this.catalog.unknown('asset', asset)}`);
+    const t = this.doc.terrain;
+    const ids = new ObjectIds(this.doc.objects);
+    const options: LineOptions = { ...DEFAULT_LINE, ...o };
+    const kit = wallKitOf(asset);
+    const own = (
+      kit ? wallAlong(line, kit, { corners: options.corners ?? 'blocks', front: options.front ?? 'left' }, ids) : objectsAlong(line, asset, options, ids, rng(this.nextSeed()))
+    ).filter((p) => insideMap(t, p));
+    const images = this.symmetry === 'none' ? [] : objectImages(own, symmetryImages(this.symmetry, t.grid.columns === t.grid.rows), () => ids.take(), t.width / 2, t.depth / 2);
+    const entry = this.catalog.object(asset);
+    if (levelsGround(entry)) for (const p of [...own, ...images]) levelUnderBuilding(t, p, entry.radius);
+    const placed = [...own, ...images].map((p) => setDown(t, p, rockShape(entry), !!o.alignToSlope && !entry.float, entry.radius));
+    this.doc.objects.push(...placed);
+    this.freeCheck = null;
+    return placed;
+  }
+
+  /**
    * A quay along a line: the land on one side (`land`: left or right of the
    * line's direction) level at `top` over 14 m, the water side at `bed` over
    * `reach` metres (16 by default: wider where the land's slopes reach far into the water), one sheer
@@ -647,6 +998,45 @@ export class MapKit {
       if (o.bollard !== null && this.free(edge.x, edge.y, 0.6)) out.push(this.place(o.bollard ?? 'bollards', edge.x, edge.y, { rotation: facing(edge, water) + Math.PI / 2 }));
       const inner = at(4);
       if (n % 2 === 0 && o.lamp !== null && this.free(inner.x, inner.y, 0.4)) out.push(this.place(o.lamp ?? 'street-lamp', inner.x, inner.y, { rotation: facing(inner, water) }));
+    }
+    return out;
+  }
+
+  /**
+   * A glacier or snowfield along a line from its head down to its snout: the
+   * crags under it laid into an even tongue `width` metres wide that falls
+   * straight from point to point, `sink` metres under the ground's heights
+   * at the points, `snow` painted over it (fading out at
+   * its edges), broken ice at the snout (`snout` assets) and moraine scree
+   * along both edges (`moraine` assets), each kept off roads and markers.
+   * The ground's cliff material still shows where the tongue stays steeper
+   * than the map's cliff angle: an icefall reads as rock there. Returns the
+   * objects placed.
+   */
+  glacier(
+    line: readonly MapPoint[],
+    o: { width: number; snow: string; sink?: number; snout?: readonly string[]; moraine?: readonly string[] },
+  ): MapObject[] {
+    const w = o.width;
+    // The ice as an even slope from point to point, at the ground's heights there less the sink, its edges blended
+    const heights = line.map((p) => this.h(p.x, p.y) - (o.sink ?? 0));
+    for (let i = 0; i < line.length - 1; i++) this.ramp({ ...line[i], h: heights[i] }, { ...line[i + 1], h: heights[i + 1] }, w, 0.5);
+    const pts = resample(line, 4);
+    this.smooth(pts, { radius: w * 0.6, falloff: 0.6 }, 3);
+    this.paint(o.snow, pts, { radius: w * 0.55, falloff: 0.45 }, 1);
+    const out: MapObject[] = [];
+    const end = pts[pts.length - 1];
+    if (o.snout?.length) out.push(...this.scatter(o.snout, end, { radius: w * 0.4, strength: 1 }, { density: 3, minDistance: 3, scaleMin: 0.8, scaleMax: 1.6 }));
+    if (o.moraine?.length) {
+      for (const side of [1, -1]) {
+        const edge = pts.map((p, k) => {
+          const a = pts[Math.max(0, k - 1)];
+          const b = pts[Math.min(pts.length - 1, k + 1)];
+          const dl = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+          return { x: p.x - ((b.y - a.y) / dl) * (w / 2) * side, y: p.y + ((b.x - a.x) / dl) * (w / 2) * side };
+        });
+        out.push(...this.scatter(o.moraine, edge, { radius: w * 0.12 + 2, strength: 1 }, { density: 2, minDistance: 4, scaleMin: 0.7, scaleMax: 1.4 }));
+      }
     }
     return out;
   }
@@ -794,6 +1184,61 @@ export class MapKit {
 
   gameplay(g: MapGameplay): void {
     this.doc.gameplay = { ...g };
+  }
+
+  // ---- Life ----------------------------------------------------------------------------------------------------
+
+  /** A life area (the Life tool's Outline): the outline the life fills, with its images under `symmetry`; returns its id */
+  lifeArea(kind: MapLifeKind, points: readonly MapPoint[], options: LifeOptions = {}): string {
+    return this.addLife(kind, 'area', points, options);
+  }
+
+  /** A life route (the Life tool's Line): the line flocks, boats or a sound follow; returns its id */
+  lifeRoute(kind: MapLifeKind, points: readonly MapPoint[], options: LifeOptions = {}): string {
+    return this.addLife(kind, 'route', points, options);
+  }
+
+  /** The map's own life: { auto: { smoke, fireflies, birds, sparks }, density, flags, ambience: { sound, volume }, waveSound: { sound, volume, area? } } */
+  lifeSettings(patch: Omit<MapLife, 'areas'>): void {
+    const life: MapLife = { ...this.doc.life, ...patch, auto: patch.auto ? { ...this.doc.life?.auto, ...patch.auto } : this.doc.life?.auto };
+    if (!life.auto) delete life.auto;
+    const problems = lifeProblems(life);
+    if (problems.length) throw new Error(`${this.name}: ${problems[0]}`);
+    this.doc.life = life;
+  }
+
+  /** Remove life areas by id */
+  removeLife(ids: readonly string[]): void {
+    const areas = this.doc.life?.areas ?? [];
+    const missing = ids.filter((id) => !areas.some((a) => a.id === id));
+    if (missing.length) throw new Error(`${this.name}: there are no life areas ${missing.join(', ')}; life areas: ${areas.map((a) => a.id).join(', ') || 'none'}`);
+    this.doc.life = { ...this.doc.life, areas: areas.filter((a) => !ids.includes(a.id)) };
+  }
+
+  private addLife(kind: MapLifeKind, shape: MapLifeArea['shape'], points: readonly MapPoint[], options: LifeOptions): string {
+    const areas = this.doc.life?.areas ?? [];
+    const unknown = Object.keys(options).filter((k) => !LIFE_OPTION_KEYS.includes(k as keyof LifeOptions));
+    if (unknown.length) throw new Error(`${this.name}: life areas know no ${unknown.join(', ')} (they take ${LIFE_OPTION_KEYS.join(', ')})`);
+    const area: MapLifeArea = { id: newLifeId(areas, kind), kind, shape, points: points.map((p) => ({ x: r2(p.x), y: r2(p.y) })), ...options };
+    // With symmetry on, its images too (as the Life tool draws them)
+    const t = this.doc.terrain;
+    const taken = [...areas, area];
+    const images = lifeAreaImages([area], symmetryImages(this.symmetry, t.grid.columns === t.grid.rows), (a) => {
+      const id = newLifeId(taken, a.kind);
+      taken.push({ ...a, id });
+      return id;
+    }, t.width / 2, t.depth / 2);
+    const life: MapLife = { ...this.doc.life, areas: [...areas, area, ...images] };
+    const problems = lifeProblems(life);
+    if (problems.length) throw new Error(`${this.name}: ${problems[0]}`);
+    this.doc.life = life;
+    // A route of movers clears its way of rocks, trees and plants strewn there; what else stands in it the check reports
+    const strewn = new Set(objectsOnMoverWays({ ...this.doc, life: { areas: [area, ...images] } }, (a) => this.catalog.object(a).footing, CLEARED_FOR_MOVERS));
+    if (strewn.size) {
+      this.doc.objects = this.doc.objects.filter((o) => !strewn.has(o));
+      this.freeCheck = null;
+    }
+    return area.id;
   }
 
   // ---- Done ----------------------------------------------------------------------------------------------------

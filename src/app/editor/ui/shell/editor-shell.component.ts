@@ -43,10 +43,13 @@ import { OutlinerComponent } from '../panels/outliner.component';
 import { HistoryPanelComponent } from '../panels/history-panel.component';
 import { PaintPanelComponent } from '../panels/paint-panel.component';
 import { PathPanelComponent } from '../panels/path-panel.component';
+import { LifePanelComponent } from '../panels/life-panel.component';
 import { StatusBarComponent } from '../panels/status-bar.component';
 import { TerrainPanelComponent } from '../panels/terrain-panel.component';
 import { WaterPanelComponent } from '../panels/water-panel.component';
 import { MAX_START_WAVE } from '../../../sim/protocol/run-start';
+import { AgentBandComponent } from '../agent/agent-band.component';
+import { AgentControlComponent } from '../agent/agent-control.component';
 
 const LEGEND_KEY = '3dtd-editor-legend';
 const SIDE_KEY = '3dtd-editor-side';
@@ -88,6 +91,7 @@ export const TOOL_ICON: Record<ToolId, TdIconName> = {
   paint: 'edit',
   water: 'splash',
   objects: 'build',
+  life: 'wind',
   paths: 'route',
   markers: 'portal',
   environment: 'sparkle',
@@ -114,6 +118,7 @@ export const TOOL_ICON: Record<ToolId, TdIconName> = {
     WaterPanelComponent,
     ObjectPanelComponent,
     PathPanelComponent,
+    LifePanelComponent,
     MarkerPanelComponent,
     StampPanelComponent,
     GameplayPanelComponent,
@@ -127,6 +132,8 @@ export const TOOL_ICON: Record<ToolId, TdIconName> = {
     StatusBarComponent,
     CommandPaletteComponent,
     ContextHintComponent,
+    AgentBandComponent,
+    AgentControlComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './editor-shell.component.html',

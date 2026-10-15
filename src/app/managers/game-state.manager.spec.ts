@@ -78,6 +78,7 @@ import { GameClock } from './game-state/game-clock';
 import { GameStateManager } from './game-state.manager';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { TOWER_TYPES } from '../configs/tower-types.config';
+import { TOWER_PATHS } from '../configs/tower-paths.config';
 import { getResearch } from '../configs/research/research-tree.config';
 import { GameEventBus } from '../game-engine/game-event-bus';
 import { createTestCoords, createTestOps, type SinkSpy } from '../integration/test-helpers';
@@ -600,6 +601,49 @@ describe('GameStateManager', () => {
 
         // The gatling asks again, now with air; the archer still waits for its first
         expect(needed).toEqual([[gatling!.id, 'retrofit', true]]);
+      });
+
+      it('asks for the ground sight of a rocket that takes the Multirole path (TODO E101)', () => {
+        (mockServices['GlobalRouteGridService'] as { isInitialized: Mock }).isInitialized.mockReturnValue(true);
+        gsm.addCredits(5000, 'cheat');
+        gsm.researchManager.completeResearch('rocketry');
+        const rocket = gsm.placeTower(BASE_POSITION, 'rocket')!;
+        expect(gsm.towerLos.applyMask(rocket, { range: 100, ground: false, air: true, bits: new Uint8Array(0) })).toBe(true);
+        rocket.builtAtMs = 0;
+        expect(rocket.canTargetGround).toBe(false);
+        const needed: [string, string, boolean][] = [];
+        bus.on('tower:los-needed', (event) => needed.push([event.towerId, event.reason, event.canTargetGround]));
+
+        gsm.researchManager.completeResearch('multirole-warheads');
+        expect(gsm.chooseTowerPath(rocket, 'multirole')).toBe(true);
+
+        expect(rocket.canTargetGround).toBe(true);
+        expect(needed).toEqual([[rocket.id, 'retrofit', true]]);
+      });
+
+      it('rebuilds an archer as the Sniper: its range asks for sight, its targeting follows the swap (TODO E101)', () => {
+        (mockServices['GlobalRouteGridService'] as { isInitialized: Mock }).isInitialized.mockReturnValue(true);
+        gsm.addCredits(5000, 'cheat');
+        const archer = gsm.placeTower(BASE_POSITION, 'archer')!;
+        const other = gsm.placeTower({ ...BASE_POSITION, lat: BASE_POSITION.lat + 0.001 }, 'archer')!;
+        for (const tower of [archer, other]) {
+          expect(gsm.towerLos.applyMask(tower, { range: 30, ground: true, air: true, bits: new Uint8Array(0) })).toBe(true);
+          tower.builtAtMs = 0;
+        }
+        other.targetingStrategy = 'last';
+        const needed: [string, string, number][] = [];
+        bus.on('tower:los-needed', (event) => needed.push([event.towerId, event.reason, event.range]));
+
+        expect(gsm.chooseTowerPath(archer, 'sniper')).toBe(false);
+        gsm.researchManager.completeResearch('ballista-bolts');
+        expect(gsm.chooseTowerPath(archer, 'sniper')).toBe(true);
+        expect(gsm.chooseTowerPath(other, 'sniper')).toBe(true);
+
+        const range = TOWER_PATHS.sniper.swap!.range!;
+        expect(archer.combat.range).toBe(range);
+        expect(needed).toEqual([[archer.id, 'upgrade', range], [other.id, 'upgrade', range]]);
+        expect(archer.targetingStrategy).toBe('highest-hp');
+        expect(other.targetingStrategy).toBe('last');
       });
     });
 

@@ -21,6 +21,7 @@ import { GAME_BALANCE } from '../../configs/game-balance.config';
 import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 import { ABILITY_DEATH_BLOOD_CAP } from '../../configs/visual-effects.config';
 import { DAMAGE_MATRIX, EFFECTIVENESS_COLORS, getEffectiveness } from '../../configs/combat/damage-matrix.config';
+import { TOWER_PATHS, type TowerPathId } from '../../configs/tower-paths.config';
 
 /**
  * Coverage: Splash trifft nur Ziele, die der Quell-Tower anvisieren darf.
@@ -378,5 +379,106 @@ describe('CombatEffectService ability damage numbers', () => {
     service.damageNumbersEnabled = false;
     service.showAbilityDamage(enemy('unarmored'), 0.6, null);
     expect(spawnFloatingText).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Coverage: what a tower path adds to a shot's direct hit (configs/tower-paths.config.ts, TODO E101).
+ */
+describe('CombatEffectService tower paths', () => {
+  const origin = { lat: 48.0, lon: 9.0, height: 0 };
+  const enemyAt = (id: string, metersNorth: number, isAirUnit = false) => ({
+    id,
+    alive: true,
+    position: { lat: origin.lat + metersNorth / METERS_PER_DEGREE_LAT, lon: origin.lon },
+    typeConfig: { id, isAirUnit, heightOffset: isAirUnit ? 15 : 0 },
+    heightOffset: isAirUnit ? 15 : 0,
+    transform: { terrainHeight: 0 },
+  });
+
+  let applyDamage: ReturnType<typeof vi.fn>;
+  let applyBurn: ReturnType<typeof vi.fn>;
+
+  function hit(
+    towerType: TowerTypeId,
+    pathId: TowerPathId | null,
+    primary = enemyAt('primary', 0),
+    damage = 40,
+    splashVictims: ReturnType<typeof enemyAt>[] = [],
+  ): void {
+    mockInjections['GlobalRouteGridService'] = { getEnemiesInRadiusGeo: () => splashVictims };
+    const service = new CombatEffectService();
+    const projectile = {
+      typeConfig: PROJECTILE_TYPES[TOWER_TYPES[towerType].projectileType as ProjectileTypeId],
+      damage,
+      sourceTowerId: 't-1',
+      sourceTowerType: towerType,
+      pathId,
+      targetLost: false,
+      position: origin,
+    };
+    (service as unknown as {
+      handleProjectileHit: (p: unknown, e: unknown, d: string) => void;
+    }).handleProjectileHit(projectile, primary, TOWER_TYPES[towerType].damageType);
+  }
+
+  beforeEach(() => {
+    Object.keys(mockInjections).forEach((k) => delete mockInjections[k]);
+    applyDamage = vi.fn(() => null);
+    applyBurn = vi.fn();
+    mockInjections['DamageApplicationService'] = { applyDamage };
+    mockInjections['StatusEffectService'] = { applySlow: vi.fn(), applyPoison: vi.fn(), applyBurn };
+    mockInjections['CombatVfxService'] = { emitIceExplosion: vi.fn(), emitIceDecal: vi.fn() };
+  });
+
+  it('a Fire Arrows hit sets its target burning for a share of the arrow, one burn per tower', () => {
+    const target = enemyAt('zombie', 0);
+    hit('archer', 'incendiary', target, 40);
+    expect(applyBurn.mock.calls).toEqual([
+      [target, 40 * TOWER_PATHS.incendiary.burnShare!, GAME_BALANCE.effects.burn.duration, 't-1'],
+    ]);
+  });
+
+  it('a Multirole rocket hits ground enemies at the path share, direct and splash, flyers in full', () => {
+    const share = TOWER_PATHS.multirole.groundDamageShare!;
+    const tank = enemyAt('tank', 0);
+    hit('rocket', 'multirole', tank, 60, [enemyAt('zombie', 0.01), enemyAt('bat', 0.01, true)]);
+    const dealt = Object.fromEntries(applyDamage.mock.calls.map((c) => [(c[1] as { id: string }).id, c[2]]));
+    expect(dealt['tank']).toBe(60 * share);
+    expect(dealt['zombie']).toBe(Math.floor(60 * share * (1 - 0.01 / PROJECTILE_TYPES.rocket.splashRadius!)));
+    expect(dealt['bat']).toBe(Math.floor(60 * (1 - 0.01 / PROJECTILE_TYPES.rocket.splashRadius!)));
+  });
+
+  it('a rocket without the path spares the ground in its splash', () => {
+    hit('rocket', null, enemyAt('dragon', 0, true), 60, [enemyAt('zombie', 0.01), enemyAt('bat', 0.01, true)]);
+    expect(applyDamage.mock.calls.map((c) => (c[1] as { id: string }).id)).toEqual(['dragon', 'bat']);
+  });
+
+  it('a Binding Sigil hit seals its target', () => {
+    const applySeal = vi.fn();
+    (mockInjections['StatusEffectService'] as Record<string, unknown>)['applySeal'] = applySeal;
+    const target = enemyAt('wraith', 0);
+    hit('magic', 'seal', target);
+    expect(applySeal.mock.calls).toEqual([[target, TOWER_PATHS.seal.sealMs, 't-1']]);
+  });
+
+  it('a Caustic hit corrodes its direct target, not the splash', () => {
+    const applyCorrode = vi.fn();
+    (mockInjections['StatusEffectService'] as Record<string, unknown>)['applyCorrode'] = applyCorrode;
+    const target = enemyAt('tank', 0);
+    hit('poison', 'corrode', target, 5, [enemyAt('zombie', 1)]);
+    expect(applyCorrode.mock.calls).toEqual([[target, TOWER_PATHS.corrode.corrodeMs, 't-1']]);
+  });
+
+  it('a Sniper bolt pierces armor on its direct hit, an arrow does not', () => {
+    hit('archer', 'sniper', enemyAt('tank', 0), 140);
+    hit('archer', null, enemyAt('tank', 0), 30);
+    expect(applyDamage.mock.calls.map((c) => c[7])).toEqual([true, false]);
+  });
+
+  it('an archer without the path burns nothing', () => {
+    hit('archer', null);
+    hit('archer', 'scout');
+    expect(applyBurn).not.toHaveBeenCalled();
   });
 });

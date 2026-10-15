@@ -202,5 +202,15 @@
   "perStroke": 12,
   "scale": 0.6
  },
- "rampUp": 2.5
+ "rampUp": 2.5,
+ "material": "ShawarmaSlicer",
+ "export": {
+  "glb": "public/assets/models/towers/shawarma.glb",
+  "triangles": 55000,
+  "texture": 1024,
+  "quality": 88,
+  "names": {
+   "turret": "turret_top"
+  }
+ }
 }

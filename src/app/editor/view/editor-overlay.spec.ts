@@ -1,4 +1,5 @@
-import { Line } from 'three';
+import { Line, Mesh } from 'three';
+import type { CustomMapDocument } from '../../world/custom-map/map-document';
 import { EditorOverlay, drapedLine } from './editor-overlay';
 
 /** A hill 12 m high between x = 20 and 60, on flat ground elsewhere */
@@ -51,5 +52,30 @@ describe('EditorOverlay height lines', () => {
     const overlay = new EditorOverlay(() => 0);
     overlay.setContours({ minor: new Float32Array([0, 0, 5, 10, 0, 5]), major: new Float32Array(0) });
     expect(overlay.group.getObjectsByProperty('type', 'LineSegments')).toHaveLength(1);
+  });
+});
+
+describe('EditorOverlay road nodes', () => {
+  /** TODO E200: on an OSM map some 2000 nodes grew with the view distance in Look and covered the map */
+  it('draws nodes as small dots outside the Paths tool, as growing handles in it, a selected one always as a handle', () => {
+    const overlay = new EditorOverlay(() => 0);
+    const doc = {
+      spawns: [],
+      hq: { x: 0, y: 0 },
+      paths: {
+        nodes: [{ id: 'a', x: 0, y: 0 }, { id: 'b', x: 50, y: 0 }],
+        edges: [{ id: 'e', a: 'a', b: 'b', width: 6, kind: 'road' }],
+      },
+    } as unknown as CustomMapDocument;
+    overlay.updateMarkers(doc, { kind: 'node', id: 'b' });
+    overlay.setViewDistance(2200);
+    const nodes = overlay.group.getObjectsByProperty('renderOrder', 11).filter((o) => o instanceof Mesh);
+    expect(nodes.map((n) => n.scale.x)).toEqual([0.6, 18]);
+
+    overlay.setNodeHandles(true);
+    expect(nodes.map((n) => n.scale.x)).toEqual([18, 18]);
+    overlay.setNodeHandles(false);
+    expect(nodes[0].scale.x).toBe(0.6);
+    overlay.dispose();
   });
 });

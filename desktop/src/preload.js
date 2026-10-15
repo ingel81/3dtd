@@ -65,6 +65,14 @@ ipcRenderer.on('desktop:agent-call', (_event, call) => {
   }
 });
 
+// The agent's status as the main process pushes it (who connected, what runs, Stop): kept for the next listener
+let agentStatus = null;
+const statusListeners = new Set();
+ipcRenderer.on('desktop:agent-status-changed', (_event, status) => {
+  agentStatus = status && typeof status === 'object' ? status : null;
+  if (agentStatus) for (const listener of statusListeners) listener(agentStatus);
+});
+
 contextBridge.exposeInMainWorld(
   'desktop',
   Object.freeze({
@@ -185,13 +193,29 @@ contextBridge.exposeInMainWorld(
           if (agentHandler === handler) agentHandler = null;
         };
       },
-      /** { enabled, url, error? } */
+      /** { enabled, url, error?, held, client, current, last } */
       status() {
         return ipcRenderer.invoke('desktop:agent-status');
       },
       /** The settings switch; resolves the new status */
       setEnabled(on) {
         return ipcRenderer.invoke('desktop:agent-set-enabled', on === true);
+      },
+      /** Calls `listener` with the status at once and on every change; returns an unsubscribe */
+      onStatus(listener) {
+        if (typeof listener !== 'function') return () => {};
+        statusListeners.add(listener);
+        if (agentStatus) listener(agentStatus);
+        else void ipcRenderer.invoke('desktop:agent-status').then((status) => status && statusListeners.has(listener) && listener(agentStatus ?? status));
+        return () => statusListeners.delete(listener);
+      },
+      /** Stop: the call running now ends, every call after is refused; resolves the new status */
+      stop() {
+        return ipcRenderer.invoke('desktop:agent-stop');
+      },
+      /** The agent may go on; resolves the new status */
+      resume() {
+        return ipcRenderer.invoke('desktop:agent-resume');
       },
     }),
 

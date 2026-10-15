@@ -69,13 +69,31 @@ export interface AgentAnswer {
   isError?: boolean;
 }
 
-/** Whether AI agents may edit maps and where they connect */
+/** One call of an agent as the band shows it */
+export interface AgentCallInfo {
+  tool: string;
+  /** What it does, for the player ("runs the script hill") */
+  what: string;
+  /** Since when it runs (ms since 1970), or when it ended */
+  at: number;
+  /** Ended calls: whether it went through */
+  ok?: boolean;
+}
+
+/** Whether AI agents may edit maps, where they connect, who came and what it does */
 export interface AgentStatus {
   enabled: boolean;
   /** The MCP address while it is on */
   url: string | null;
   /** Why it could not start */
   error?: string;
+  /** The player pressed Stop: every call is refused until Resume */
+  held?: boolean;
+  /** The agent that last reached the server: its name (the MCP client's) and when (ms since 1970) */
+  client?: { name: string | null; lastSeen: number } | null;
+  /** The call running now and the one before */
+  current?: AgentCallInfo | null;
+  last?: AgentCallInfo | null;
 }
 
 /** AI agents editing maps over MCP, desktop build only (docs/AGENT_MCP.md) */
@@ -89,6 +107,12 @@ export interface AgentBridge {
   status(): Promise<AgentStatus>;
   /** The settings switch "Allow AI agents to edit maps" */
   setEnabled(on: boolean): Promise<AgentStatus>;
+  /** Calls `listener` with the status at once and on every change (a call starts or ends); returns an unsubscribe */
+  onStatus?(listener: (status: AgentStatus) => void): () => void;
+  /** Stop in the agent band: the call running now ends, every call after is refused; resolves the new status */
+  stop?(): Promise<AgentStatus>;
+  /** The agent may go on */
+  resume?(): Promise<AgentStatus>;
 }
 
 export interface DesktopBridge {

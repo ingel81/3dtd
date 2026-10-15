@@ -8,16 +8,18 @@ import {
   type Material,
   type Vector3,
 } from 'three';
-import { MAX_GROUND_LAYERS, type MapTerrain as MapTerrainDoc, type MapPaths } from '../../map-document';
+import { MAX_GROUND_LAYERS, type MapBiome, type MapTerrain as MapTerrainDoc, type MapPaths } from '../../map-document';
 import type { HeightField } from '../height-field';
 import type { MapAssetLibrary, MaterialCompressed, MaterialPixels } from '../map-asset-library';
 import { pathMaskResolution, rasterizePathMask } from '../paths/path-mask';
 import { addHeightFog } from '../environment/height-fog';
-import { ApronProfile, buildTerrainApron } from './terrain-apron';
+import { ApronProfile, BACKDROP_HEIGHT, buildTerrainApron } from './terrain-apron';
+import { APRON_LOOK, ApronMaterial } from './apron-material';
 import { APRON_PAINT_BAND, apronPaintTexture, apronPaintWeights } from './apron-paint';
 import { TerrainChunks, type GridRect } from './terrain-chunks';
 import { TerrainMaterial, TERRAIN_MAX_LAYERS, type TerrainLayerSlots, type TerrainMaterialParams } from './terrain-material';
-import { GrassField, type GrassInputs } from '../grass/grass-field';
+import type { GrassInputs } from '../grass/grass-field';
+import { GrassLayers } from '../grass/grass-layers';
 import { GroundOcclusion } from './ground-occlusion';
 import { HeightTexture } from './height-texture';
 import { setGroundColors } from './ground-color';
@@ -66,6 +68,8 @@ export class MapTerrainLayer {
   /** Height profile of the apron, shared with the water that leaves the map */
   apronProfile: ApronProfile;
   private material: TerrainMaterial | null = null;
+  /** The apron's: the terrain's with the backdrop range painted as distant mountains (apron-material.ts) */
+  private apronMaterial: ApronMaterial | null = null;
   private materialParams: TerrainMaterialParams | null = null;
   /** Materials of the shader's larger layer counts, by count (layerTwins) */
   private readonly twins = new Map<number, TerrainMaterial>();
@@ -98,8 +102,8 @@ export class MapTerrainLayer {
   readonly occlusion: GroundOcclusion;
   /** The far cascade of the sun's shadow (the shadowCascade effect), shared with the material */
   readonly farShadow = new FarShadow();
-  /** Blades near the camera on the grass layers */
-  readonly grass: GrassField;
+  /** Blades on the grass layers, near the camera and in a ring beyond */
+  readonly grass: GrassLayers;
   /** The height grid on the GPU (water depth, grass) */
   readonly heightTexture: HeightTexture;
   private grassInputs: Omit<GrassInputs, 'splat' | 'pathMask'> | null = null;
@@ -112,17 +116,17 @@ export class MapTerrainLayer {
   constructor(
     private readonly terrain: MapTerrainDoc,
     private readonly field: HeightField,
-    /** Height of the mountains beyond the apron, metres (BACKDROP_HEIGHT by the map's look) */
-    private backdrop = 0,
+    /** The map's look: height (BACKDROP_HEIGHT) and paint (APRON_LOOK) of the mountains beyond the apron */
+    private biome: MapBiome = 'temperate',
   ) {
     this.chunks = new TerrainChunks(field, this.placeholder);
-    this.apronProfile = new ApronProfile(field, terrain.water, backdrop);
+    this.apronProfile = new ApronProfile(field, terrain.water, BACKDROP_HEIGHT[biome]);
     this.apron = buildTerrainApron(this.apronProfile, this.placeholder);
     this.normals = new GridNormalTexture(field);
     this.occlusion = new GroundOcclusion(field);
     this.heightTexture = new HeightTexture(field);
-    this.grass = new GrassField(this.heightTexture);
-    this.grass.mesh.visible = false;
+    this.grass = new GrassLayers(this.heightTexture);
+    for (const m of this.grass.meshes) m.visible = false;
     this.normals.setWater(terrain.water?.mask ?? null);
   }
 
@@ -168,6 +172,7 @@ export class MapTerrainLayer {
 
     if (generation !== this.generation) return;
     this.material?.dispose();
+    this.apronMaterial?.dispose();
     this.arrays?.dispose();
     this.splat?.dispose();
     this.pathMask?.dispose();
@@ -204,7 +209,10 @@ export class MapTerrainLayer {
     this.material.setFarDistances(this.far[0], this.far[1], this.far[2]);
     this.material.setWaterLevel(t.water?.level ?? null, t.water?.kind);
     this.chunks.setMaterial(this.material);
-    this.apron.material = this.material;
+    this.apronMaterial = new ApronMaterial(this.materialParams, this.material);
+    addHeightFog(this.apronMaterial);
+    this.setApronRange();
+    this.apron.material = this.apronMaterial;
 
     // Grass blades where the splat paints grass layers, coloured like the ground under them
     // Vector4 defaults to w = 1, which marked the eighth layer as grass on every map
@@ -275,17 +283,24 @@ export class MapTerrainLayer {
   refreshApron(rect?: GridRect): void {
     const f = this.field;
     if (!rect || rect.i0 <= 0 || rect.j0 <= 0 || rect.i1 >= f.columns - 1 || rect.j1 >= f.rows - 1) {
-      this.apronProfile = new ApronProfile(f, this.terrain.water, this.backdrop);
+      this.apronProfile = new ApronProfile(f, this.terrain.water, BACKDROP_HEIGHT[this.biome]);
       this.apron.geometry.dispose();
       this.apron.geometry = buildTerrainApron(this.apronProfile, this.apron.material as Material).geometry;
+      this.setApronRange();
     }
   }
 
-  /** The mountains beyond the apron for a new look of the map (BACKDROP_HEIGHT) */
-  setBackdrop(metres: number): void {
-    if (metres === this.backdrop) return;
-    this.backdrop = metres;
-    this.refreshApron();
+  /** The mountains beyond the apron for a new look of the map (BACKDROP_HEIGHT, APRON_LOOK) */
+  setBiome(biome: MapBiome): void {
+    if (biome === this.biome) return;
+    const height = BACKDROP_HEIGHT[biome] !== BACKDROP_HEIGHT[this.biome];
+    this.biome = biome;
+    if (height) this.refreshApron();
+    else this.setApronRange();
+  }
+
+  private setApronRange(): void {
+    this.apronMaterial?.setRange(this.apronProfile.base, BACKDROP_HEIGHT[this.biome], APRON_LOOK[this.biome]);
   }
 
   /** Water changed: wet banks follow the mask and level, river banks the rivers */
@@ -345,6 +360,7 @@ export class MapTerrainLayer {
     this.apron.geometry.dispose();
     this.apron.removeFromParent();
     this.material?.dispose();
+    this.apronMaterial?.dispose();
     for (const twin of this.twins.values()) twin.dispose();
     this.placeholder.dispose();
     this.arrays?.dispose();

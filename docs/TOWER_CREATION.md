@@ -21,6 +21,9 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 - Projektil-Angriffe mit optionalen mehreren Fire Points (Dual-Gatling)
 - Beam-Angriffe (Fire Tower, `attackType: 'beam'`)
 - Melee-Angriffe (Tentacle Tower, `attackType: 'melee'`)
+- Strom-Angriffe (Shawarma Slicer, `attackType: 'stream'`: dreht hoch, trifft alles auf einer Linie)
+- Säge-Angriffe (Chainsaw, `attackType: 'saw'`: drei Roboterarme, jeder auf einem eigenen Ziel)
+- Laser-Angriffe (Sentinel Laser, `attackType: 'laser'`: ein Strahl auf ein Ziel, der auf diesem Ziel aufheizt)
 - **Chain-Hitscan-Angriffe** (Lightning Tower, `attackType: 'chain'`: Primary + N Jumps mit `chainFalloff` zwischen Hits, eigener `LightningBoltRenderer`)
 - Passive Buildings (Research Center, Missile Silo, `attackType: 'passive'`), einmal je Karte über `unique`
 - **Veteranen-Ränge** aus Kills, rein kosmetisch, mit Abzeichen über dem Tower (siehe [Veteranen-Ränge](#veteranen-ränge))
@@ -42,6 +45,10 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 | Poison | projectile | poison | 5 | 55m | 1.0/s | 100 | DoT (poison-glob), Splash |
 | Lightning | **chain** | lightning | 35 | 65m | 0.8/s | 130 | Hitscan-Kette (`maxJumps: 2`, `chainFalloff: 0.7`, `jumpRange: 15m`). Idle-Crackle am Turm-Tip + lokale Aufhell-Halos pro Hit (additive Sprites). Air+Ground. |
 | Chaos | projectile | chaos | 50 | 60m | 1.2/s | 200 | Generalist (1,0 gegen jede Rüstung), Air+Ground, Projektil `chaos-orb`. Kenney-Modell, der mittlere Kristall dreht sich (`turretNode: 'crystal'`) |
+| Iron Bastion | projectile | pierce | 36 | 65m | 0.75/s | 150 | Flak: Splash 5 m (max. 6 Ziele), Air+Ground, Rohr neigt sich (`pitchNodes: ['gun']`). Modell aus `tools/blender/build_tower.py` |
+| Chainsaw | **saw** | pierce | 30 DPS je Arm | 14m | (Chain Speed) | 140 | Drei Arme, jeder auf einem eigenen Ziel nach Entfernung (`sawArms`), nur Boden; Arme gezeichnet von `tower-saw-arms.ts` |
+| Shawarma Slicer | **stream** | physical | 80 DPS voll | 35m | (Drive) | 150 | Strom auf einer Linie, dreht in 2,5 s hoch (`stream`), nur Boden; Spieß, Arm und Stücke von `tower-doner-stream.ts` |
+| Sentinel Laser | **laser** | lightning | 24 DPS kalt | 60m | – | 170 | Strahl auf ein Ziel, heizt in 4 s auf ×4 (`laser`), neues Ziel kalt; Air+Ground, Kopf neigt sich (`pitchNodes: ['head']`) |
 | Research Center | **passive** | – | 0 | 0 | 0 | 75 | Kein Combat, siehe Research-System. Einmal je Karte |
 | Missile Silo | **passive** | – | 0 | 0 | 0 | 400 | Kein Combat, von ihm startet der Nuklearschlag ([ABILITIES.md](ABILITIES.md)). Einmal je Karte, keine Upgrades, Forschung `nuclear-strike` |
 
@@ -147,12 +154,13 @@ const NEW_MODEL_URL = 'assets/models/towers/new_tower.glb';
 | `upgrades` | TowerUpgrade[] | - | Verfügbare Upgrades |
 | `unique` | boolean | false | Einmal je Karte (Research Center, Missile Silo): kein zweites, solange eines steht |
 | `minWave` | number | - | Baubar erst ab der Bauphase vor Welle N (Research Center: 2, damit das Startgold Tower für Welle 1 kauft); Simulation und Baukarte prüfen es |
-| `description` | string | - | Was ein passives Gebäude tut, Text im Tooltip seiner Karte |
+| `released` | boolean | true | `false`: nur im Dev-Build, in Produktion verborgen (siehe [Freigabe](#freigabe)) |
+| `description` | string | - | Was ein passives Gebäude tut oder die Rolle eines Towers in einem Satz, Text im Tooltip seiner Karte |
 | `canTargetAir` | boolean | false | Kann Luft-Einheiten angreifen |
 | `canTargetGround` | boolean | true | Kann Boden-Einheiten angreifen |
 | `hasAnimations` | boolean | false | GLTF-Animationen vorhanden |
 | `animationPingPong` | boolean | false | Animation vorwärts/rückwärts abspielen |
-| `attackType` | AttackType | 'projectile' | 'projectile', 'beam', 'melee', 'chain' oder 'passive' |
+| `attackType` | AttackType | 'projectile' | 'projectile', 'beam', 'melee', 'chain', 'laser', 'saw', 'stream' oder 'passive' |
 | `damagePerSecond` | number | - | DPS für Beam-Tower |
 | `beamWidth` | number | - | Kegel-Breite am Ende in Metern |
 | `defaultTargeting` | TargetingStrategy | `'closest'` | Standard-Targeting-Strategie |
@@ -161,7 +169,28 @@ const NEW_MODEL_URL = 'assets/models/towers/new_tower.glb';
 | `maxJumps` | number | - | **Chain-only:** Anzahl zusätzlicher Ziele nach Primary (Lightning: 2 → 3 Hits) |
 | `chainFalloff` | number | - | **Chain-only:** Schaden-Multiplier pro Jump (Lightning: 0.7 → 100%/70%/49%) |
 | `jumpRange` | number | - | **Chain-only:** Max. Distanz zwischen zwei Chain-Links in Metern |
+| `laser` | { maxFactor, rampSeconds, muzzleM } | - | **Laser-only:** `damage` ist Schaden je Sekunde kalt; auf demselben Ziel steigt er linear auf `maxFactor` in `rampSeconds` (geteilt durch die Fire Rate, Track „Heat-up"), der Strahl beginnt `muzzleM` vor dem Kopf-Pivot |
+| `sawArms` | { node, socket, out, axis, lift }[] | - | **Saw-only:** je Arm der Sägen-Node, Ansatz und Richtung am Torso, Richtung der Halterung eingefahren und Bogenhöhe, im Frame des Turret-Teils (glTF-Einheiten); `damage` ist Schaden je Sekunde und Arm, mal `fireRate` (Chain Speed) |
+| `stream` | { spinUpSeconds, spinDownSeconds, width, muzzle } | - | **Stream-only:** `damage` je Sekunde bei vollem Antrieb, mal `fireRate` (Drive); Antrieb hoch und herunter in diesen Zeiten, Treffer auf der Linie bis `width` m daneben, `muzzle` im Frame des Turret-Teils |
 | `damageType` | DamageType | - | Pflichtfeld: physical/pierce/siege/magic/fire/ice/poison/lightning/chaos |
+
+### Modell aus einem Meshy-Kandidaten
+
+Die Kandidaten (`public/assets/models/towers/candidates/*.blend`, nicht in git) sind ein einziges Netz mit 0,8 bis
+2,5 Mio. Dreiecken und drei 2048er-Texturen. `tools/blender/split_tower.py` schneidet es nach `towers/<name>.json` in
+die Teile, die sich bewegen; `tools/blender/build_tower.py` läuft danach in derselben Blender-Sitzung und schreibt die
+GLB nach dem Block `export` derselben Datei:
+
+```bash
+blender -b --factory-startup <kandidat.blend> --python tools/blender/split_tower.py   --python tools/blender/build_tower.py -- tools/blender/towers/bastion.json <ausgabe>
+```
+
+Reduziert auf `triangles` (jedes Teil behält seinen Anteil), nur die Grundfarbe als JPEG (`texture`, `quality`),
+Material wie die anderen Tower (metallic 0, roughness 0,6). Die Gierachse steht auf x = z = 0, der tiefste Punkt auf
+y = 0 (`heightOffset` 0); jedes Teil hat seinen Pivot als Ursprung und keine Drehung, `names` benennt die Knoten
+(`turret_top`), `level` legt ein Rohr waagrecht, damit `pitchNodes` von Neigung 0 aus kippen. Am Ende druckt das
+Skript Dreiecke, Ursprünge und den Radius jedes Teils (`BUILD_TOWER {...}`): daraus `footprintRadius`, `shootHeight`
+und `firePoints`; `modelTop` prüft `tower-model.spec.ts`.
 
 ### 4. Projektiltyp hinzufügen (falls neu)
 
@@ -341,8 +370,93 @@ Ein Pfad ist ein Ein-Klick-Upgrade, einmal je Tower, einer je Tower (`configs/to
 Ein Pfad kann einen Anbau mitbringen (`attachment`: GLB in den Einheiten des Tower-Modells, unter dessen Mesh gehängt,
 ein Knoten darf langsam schwenken) und einen Erkennungsradius (`detectionRadius`, türkiser Ring beim Auswählen).
 
-Heute: Archer „Scout“ (Forschung Scouting ab W16, 3000; Pfad 250): ein Ausguck (`tools/blender/scout_lookout.py`)
-entdeckt getarnte Gegner im Umkreis von 35 m für alle Tower ([ENEMY_CREATION.md](ENEMY_CREATION.md), Camo).
+Ein Pfad kann das Modell tauschen (`swap`): Modell, Stand und Zielen (Turret, Mündung `firePoints`, Neigung) und die
+Basiswerte Schaden, Reichweite und Tempo. Der Tower läuft danach auf `towerConfigOf(typ, pfad)`, der Typ-Config mit
+dem Tausch darüber, je Pfad ein festes Objekt; `Tower.typeConfig` ist diese Config, sobald `Tower.pathId` gesetzt ist
+(Kauf, Snapshot, Schatten-Tower des Hauptthreads). Die Werte folgen aus den Stufen der Upgrade-Tracks (die bleiben), das
+Zielen aus `refitTowerAim` (ab dann wartet das Feuern auf das Drehen, wenn der Tausch einen Turret hat). Eine andere
+Reichweite fragt die Sicht an wie ein Range-Upgrade, ein Tower mit der Zielwahl seines Typs nimmt die des Tauschs. Der
+Renderer baut den Tower auf dem neuen Modell neu (`ThreeTowerRenderer.rebuild`). Zwei Regeln prüft
+`tower-model.spec.ts`: der Tausch behält die Mündungshöhe (`heightOffset + shootHeight`), so bleibt die Sicht gültig
+und ein Range-Recompute fügt nur Zellen hinzu, und seine Basis steht im `footprintRadius` des Typs (Sockel und
+Platzierung sind schon entschieden). Panzerbrechend (`armorPiercing`): der direkte Treffer zählt gegen das Bessere aus
+Rüstung und nächstleichterer (`LIGHTER_ARMOR`, wie bei Caustic), auch gegen Bosse.
+
+Was ein Pfad am Treffer tut, liest `CombatEffectService.applyPathHit` aus dem Pfad des Schusses: das Projektil trägt
+den Pfad seines Towers beim Abschuss (`Projectile.pathId`, im Wellen-Snapshot), ein danach gekaufter oder verkaufter
+Pfad ändert Schüsse in der Luft nicht. Die Verteidigungsanalyse des Wellenplaners rechnet den Pfad mit
+(`towerArmorMultipliers` in `director/tower-dps.util.ts`). Die Anbauten baut `tools/blender/path_attachments.py`
+(einer je Pfad, in den Einheiten des Tower-Modells).
+
+| Tower | Pfad | Forschung (ab Welle, Kosten) | Pfad | Wirkung | Rolle |
+|---|---|---|---:|---|---|
+| Archer | Scout | Scouting (W16, 3000) | 250 | Ausguck (`tools/blender/scout_lookout.py`), entdeckt getarnte Gegner im Umkreis von 35 m für alle Tower ([ENEMY_CREATION.md](ENEMY_CREATION.md), Camo) | Camo-Konter |
+| Archer | Fire Arrows | Incendiary Arrows (W10, 2000, nach Fire Alchemy) | 250 | jeder direkte Treffer setzt einen Brand: 25 % des Pfeilschadens je Sekunde als Feuer, 3 s, ein Brand je Tower, der nächste Treffer erneuert ihn; ein brennender Gegner regeneriert nicht | Regen-Konter in der Ballistik-Linie, mehr Schaden gegen Weiches |
+| Rocket | Multirole | Multirole Warheads (W9, 1500, nach Rocketry) | 300 | schießt auch auf Boden, dort mit 50 % (Treffer und Splash); solange ein Flieger Kandidat ist, nimmt sie den, und von einem Bodenziel schaut sie beim periodischen Sichtcheck (bis 3/s) nach Fliegern | die Rocket steht in Bodenwellen nicht mehr still |
+| Magic | Binding Sigil | Binding Sigils (W15, 2500, nach Arcane Studies) | 250 | jeder direkte Treffer versiegelt sein Ziel 4 s (Status `seal`, einer je Gegner, ein neuer erneuert ihn): Phasing (`immuneToSlow`) ist aufgehoben, ein Slow greift; der Slow läuft danach seine eigene Dauer aus | Ice wirkt wieder auf Wraiths (ab W17) |
+| Archer | Sniper | Ballista Bolts (W12, 2500, nach Siege Engineering) | 300 | Modelltausch auf die Ironclad Ballista (`tools/blender/build_tower.py`, `towers/ballista.json`): Schaden 140 statt 30, alle 4 s, Reichweite 60 statt 30, panzerbrechend, Zielwahl stärkstes Ziel (`highest-hp`), Turret dreht; eigenes Projektil `bolt` (flacher Bogen, Bolzen-Mesh) und eigener Schuss-Ton (`swap.projectileType`, [PROJECTILES.md](PROJECTILES.md)) | Schwere Ziele und Bosse auf Distanz |
+| Poison | Caustic | Caustic Compounds (W11, 2000, nach Toxic Compounds) | 250 | jeder direkte Treffer (nicht der Splash) zersetzt sein Ziel 3 s (Status `corrode`, einer je Gegner, kein Stapeln): Treffer zählen gegen die bessere von seiner Rüstung und der nächstleichteren (`LIGHTER_ARMOR`: Fortified zu Heavy zu Light zu Unarmored); Unarmored, Ethereal und Bosse nie | Panzerknacker für alle Tower, nicht nur Siege |
+
+Bodenziele per Pfad: `canTargetGroundEffective` und `groundDamageShareOf` in `entities/tower-targeting.util.ts`
+gelten für Zielwahl (`Tower.canTargetGround`, `prefersAir`), Splash, Sicht (`TowerLos` fragt die Bodensicht an,
+`choosePath` stößt sie wie das AA Retrofit mit Grund `retrofit` an) und die Verteidigungsanalyse (Boden mal Anteil).
+
+Rechnung Fire Arrows (Archer L0, 30 Physical je Sekunde, Brand 7,5 Fire je Sekunde, Matrix §2.3): gegen Unarmored
+30 + 11,3 (+37 %), Light 30 + 9 (+30 %), Heavy 15 + 4,5 (+30 %), Fortified 9 + 1,9 (+21 %), Ethereal 3 + 0,8. Der
+Brand wächst mit dem Damage-Track. Dieselben +37 % gegen Unarmored kosten über den Damage-Track ab L0 etwa 6,5 Stufen
+(etwa 400 Gold), ab L5 etwa 1.200 Gold: der Pfad ist ein billiger Kauf für Archer, die schon ausgebaut sind, wie der
+Scout ein Einmalkauf.
+
+Rechnung Sniper (Matrix §2.3, Physical): Archer L0 30 DPS, Sniper L0 140 alle 4 s = 35 DPS, durch die Rüstung eine
+Klasse leichter. Gegen Unarmored und Light 35 zu 30, gegen Heavy 35 zu 15 (2,3-fach), gegen Fortified 17,5 zu 9
+(1,9-fach), Ethereal 3,5 zu 3. Doppelte Reichweite heißt auf gerader Strecke etwa doppelt so lange im Feuer. Die
+Upgrade-Stufen bleiben und multiplizieren die neuen Basiswerte: ein Archer auf Damage L10 und Fire Rate L10 (Faktor
+2,4) macht gegen Heavy 36, als Sniper 84. Gegen Schwärme verliert er: ein Ziel alle 4 s, ein Bolzen von 140 auf einen
+Zombie verschenkt den Rest; die Zielwahl `highest-hp` hält ihn auf den dicken. Die Cannon L0 (150 Gold) bleibt gegen
+Heavy am Boden mit 48 vor Splash vorn; der Sniper trifft dazu Flieger, steht auf einem Archer-Bauplatz und kostet als
+Pfad 300 auf den Archer (45). Der Wellenplaner rechnet ihn mit seinen Werten und der leichteren Klasse
+(`towerArmorMultipliers`).
+
+Rechnung Binding Sigil: der Slow der Ice (50 %, 3 s) verdoppelt die Zeit eines Wraiths (Basis 8 m/s) im Feuer
+aller Tower, solange er hält. Die Magic (1,5 Schuss/s) versiegelt jedes Ziel, das sie trifft, und hält es, bis es
+stirbt oder die Reichweite verlässt; jedes Siegel läuft 4 s nach ihrem letzten Treffer weiter. Ohne Ice in
+derselben Strecke bringt der Pfad nichts. Der Wellenplaner kennt Slows nicht (wie bisher), das Siegel zählt dort
+nicht.
+
+Rechnung Caustic: „eine Klasse leichter“ nimmt je Schadensart das Bessere (`matrixMultiplier` in
+`configs/combat/damage-matrix.config.ts`), damit Siege gegen Heavy nicht von 1,75 auf 0,5 fällt. Gegen einen
+zersetzten Heavy (Tank, Mech, Bär): Pierce 0,35 zu 1,6, Physical 0,5 zu 1,0, Fire 0,6 zu 1,2, Ice 0,8 zu 1,3,
+Poison 0,4 zu 1,2, Lightning 1,2 zu 1,5; Siege und Magic bleiben. Gegen Fortified (Mammut, Golem): Lightning 0,3 zu
+1,2, Fire 0,25 zu 0,6, Ice 0,5 zu 0,8, Physical 0,3 zu 0,5, Siege 1,6 zu 1,75. Eine Gatling L0 (50 DPS) macht einem
+zersetzten Tank 80 statt 17,5, der Poison Tower selbst 15,6 statt 5,2 (5 + 8 DoT). Die Deckel: nur der direkte
+Treffer (1 Schuss/s, die Poison hält ihr Ziel), also etwa ein Ziel je Tower und die zuletzt getroffenen noch bis
+zu 3 s; eine Klasse, kein Stapeln; Bosse nie. Am stärksten mit gleicher Zielwahl (`first`): Poison und Gatling
+schießen auf den vordersten Gegner. Der Wellenplaner rechnet mit der reinen Matrix, die Zersetzung zählt dort nicht.
+
+Rechnung Multirole (Rocket L0 60 Siege alle 2 s, Splash 5 m bis 5 Ziele): am Boden 30 je Schuss, 15 DPS vor Splash,
+gegen Heavy 26 (Matrix 1,75). Eine Cannon L0 (150 Gold) bringt gegen Heavy 48 vor Splash (55 × 0,5/s × 1,75): die
+Rocket mit Pfad ist am Boden gut die Hälfte einer Cannon, für 120 + 300 Gold, und bleibt Luftabwehr. Gegen Light und
+Unarmored 7,5 (Siege 0,5). Im menschlichen Lauf bis W60 standen ab W16 acht Rockets auf L0 in jeder Bodenwelle still
+(`tools/balance-calc/trajectory.json`); mit dem Pfad tragen sie dort gegen Heavy zusammen etwa so viel wie vier Cannons L0.
+
+## Freigabe
+
+Ein neuer Tower-Typ oder Pfad kommt mit `released: false` in seiner Config (`TowerTypeConfig.released`,
+`TowerPath.released`, ohne Feld gilt er als freigegeben). Wie die eigenen Karten (`world/custom-maps-open.ts`) ist
+er im Dev-Build (`environment.production` false) ganz da und in einem Produktions-Build verborgen. Entscheidet nur
+`configs/release.ts`: `isReleased`, `isTowerReleased`, `isPathReleased`, `isResearchReleased` (eine Forschung ist
+verborgen, sobald sie einen verborgenen Tower oder Pfad freischaltet) und die Listen `releasedTowerTypes`,
+`releasedPathsOf`, `releasedResearch`. Jede Funktion nimmt `production` als Parameter, Vorgabe der Build.
+
+Was es in Produktion verbirgt: die Karte im Baumenü (und damit ihre Zifferntaste), die Pfad-Kachel im Tower-Panel,
+die Forschung im Baum und ihre Zählung im Research-Panel, die Schadensmatrix und die Turm-Hinweise der Wellenwarnung,
+die Bots (Tower-Liste und Forschungswahl), die Forschung beim Start in einer späteren Welle (`run-start.ts`).
+Die Werkzeuge rechnen immer mit `production = true`: Wave Planner, Economy- und Tower-Stats-Chart zeigen, was
+Spieler bekommen. Ein Spielstand, der einen verborgenen Tower oder Pfad enthält, lädt nicht
+(`readSaveFile`, Absage `unreleased` mit seinem Namen). Die Simulation selbst kennt alle Typen.
+
+Stand 2026-10-15 nicht freigegeben: Iron Bastion, Sentinel Laser, Chainsaw, Shawarma Slicer und die Pfade Fire
+Arrows, Multirole, Binding Sigil, Caustic. Freigeben heißt: das Feld entfernen.
 
 ## Bauzeit und Gerüst
 
@@ -422,8 +536,12 @@ export const TOWER_TYPES = {
   poison: { ... },             // 9. Position
   lightning: { ... },          // 10. Position
   chaos: { ... },              // 11. Position
-  'research-center': { ... },  // 12. Position (passives Building, kein Combat)
-  'missile-silo': { ... },     // 13. Position (passives Building, Abschussort des Nuklearschlags)
+  bastion: { ... },            // 12. Position (Iron Bastion)
+  sentinel: { ... },           // 13. Position (Sentinel Laser)
+  chainsaw: { ... },           // 14. Position (Chainsaw)
+  shawarma: { ... },           // 15. Position (Shawarma Slicer)
+  'research-center': { ... },  // 16. Position (passives Building, kein Combat)
+  'missile-silo': { ... },     // 17. Position (passives Building, Abschussort des Nuklearschlags)
 };
 ```
 
@@ -880,6 +998,38 @@ VFX-Integration:
 - Pro Hit triggert ein additiver Sprite-Halo am Endpunkt (Opacity faded `(1-age)²`)
 
 ---
+
+## Beispiel: Sentinel Laser (Laser Attack)
+
+`attackType: 'laser'`: `TowerCombatService.updateLaserTowers` hält ein Ziel (Sicht-Recheck wie beim Fire Tower),
+dreht den Turm und neigt den Kopf, und sobald der Turm ausgerichtet ist, trifft der Strahl je Sub-Step mit
+`damage × laserHeat(...) × dt` (`applyBeamDamage`). Die Hitze hängt am Ziel: `Tower.laserHold` hält Ziel-ID und Zeit
+darauf, ein neues Ziel, kein Ziel oder eine Drehung setzt sie zurück, das Wellenende (`stopAllBeams` mit den Towern)
+ebenso. Sie ist Simulationszustand: im Tower-Snapshot (`getSimState`/`restoreSimState`, nur beim Laser) und in der
+Prüfsumme (`state-hash.ts`, nur beim Laser, die Zeilen aller anderen Tower bleiben gleich). Ein Spielstand, ein
+Koop-Beitritt oder ein Replay-Sprung mitten im Strahl geht also heiß weiter. Verkaufen und Feuerpause löschen den
+Strahl über `stopTowerBeam`. Ans Bild gehen die Strahlen wie die Flammen einmal je Frame
+(`laserBeams.startBeam/stopBeam/clear`, `flushBeams`), gezeichnet vom `LaserBeamRenderer`; die Präsentation lässt
+dazu die Schleife `laser-loop` laufen (`FlameSounds` mit eigener Sound-ID).
+
+## Beispiel: Chainsaw (Saw Attack)
+
+`attackType: 'saw'`: `TowerCombatService.updateSawTowers` nimmt je Sub-Step die Ziele, die der Tower angreifen darf
+(`mayEngage`: Reichweite, Sicht, Boden), die nächsten `sawArms.length` nach Entfernung (gleich weit nach ID), und
+gibt sie den Armen in ihrer Reihenfolge, freie Arme an das fernste. Jeder Arm trifft sein Ziel mit
+`damage × fireRate × dt` (`applyBeamDamage`). Kein eigener Zustand je Tower: die Wahl ist jeden Sub-Step neu. Ans
+Bild geht einmal je Frame `towers.setSawTargets(id, Ziele)` (leer: alle Arme heim), `SawArms` im
+`ThreeTowerRenderer` fährt die Arme aus und ein; die Präsentation lässt `saw-loop` laufen, solange ein Arm sägt.
+
+## Beispiel: Shawarma Slicer (Stream Attack)
+
+`attackType: 'stream'`: `TowerCombatService.updateStreamTowers` hält ein Ziel wie die Flamme und dreht den Turm.
+Ausgerichtet steigt der Antrieb (`Tower.streamDrive`, im Snapshot und in der Prüfsumme wie die Hitze des Lasers,
+am Wellenende 0), sonst fällt er; mit Ziel trifft der Strom jeden Bodengegner im schmalen Kegel vom Turm zum Ziel in dessen Höhe
+(`getEnemiesInCone`, Breite `width`) mit `damage × fireRate × Antrieb × dt`. Ans Bild geht einmal je Frame
+`towers.setStream(id, Ziel oder null, Antrieb)`, ein auslaufender Turm bekommt zuletzt `(null, 0)`;
+`DonerStream` im `ThreeTowerRenderer` dreht Spieß und Arm und fliegt die Stücke, die Präsentation lässt
+`doner-loop` laufen, solange ein Ziel da ist.
 
 ## Tower-Placement-System
 

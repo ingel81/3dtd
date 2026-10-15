@@ -1,3 +1,4 @@
+import { releasedTowerTypes } from './configs/release';
 import { GlobeBackdropComponent } from './components/globe-backdrop/globe-backdrop.component';
 import { MenuLoadingComponent } from './components/main-menu/loading/menu-loading.component';
 import {
@@ -94,7 +95,7 @@ import { ThreeTilesEngine } from './three-engine';
 import { Vector3 } from 'three';
 // Theme
 // Tower config
-import { TOWER_TYPES, getAllTowerTypes, TowerTypeId, UpgradeId, TargetingStrategy, AirSubStrategy } from './configs/tower-types.config';
+import { TOWER_TYPES, TowerTypeId, UpgradeId, TargetingStrategy, AirSubStrategy } from './configs/tower-types.config';
 import { Tower } from './entities/tower.entity';
 // AI Wave Director (optional)
 import { WaveDirector } from './director/wave-director';
@@ -111,6 +112,7 @@ import { LeakVignetteComponent } from './components/leak-vignette/leak-vignette.
 import { OffscreenIndicatorsComponent } from './components/offscreen-indicators/offscreen-indicators.component';
 import { CoopPingArrowsComponent } from './components/coop-ping-arrows/coop-ping-arrows.component';
 import { BloodMoonBannerComponent } from './components/blood-moon-banner/blood-moon-banner.component';
+import { MapEventBannerComponent } from './components/map-event-banner/map-event-banner.component';
 import { RelocationStatusComponent } from './components/relocation-status/relocation-status.component';
 import { UpdateHintComponent } from './components/update-hint/update-hint.component';
 import { LaneLengthPanelComponent } from './components/lane-length-panel/lane-length-panel.component';
@@ -187,6 +189,7 @@ import { MainMenuService } from './components/main-menu/main-menu.service';
     OffscreenIndicatorsComponent,
     CoopPingArrowsComponent,
     BloodMoonBannerComponent,
+    MapEventBannerComponent,
     RelocationStatusComponent,
     UpdateHintComponent,
     LaneLengthPanelComponent,
@@ -329,7 +332,8 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   // Expose Math and tower config for template
   readonly Math = Math;
-  readonly towerTypes = getAllTowerTypes();
+  // The build panel: this build's towers (configs/release.ts)
+  readonly towerTypes = releasedTowerTypes();
 
   private engine: ThreeTilesEngine | null = null;
   private streetNetwork: StreetNetwork | null = null;
@@ -417,6 +421,12 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   readonly losLegendCanGround = computed(() => {
     const typeId = this.activeLosTowerTypeId();
     if (!typeId) return false;
+    // A selected tower's path can give it the ground (the Multirole rocket)
+    const tower = this.buildMode() ? null : this.store.selectedTower();
+    if (tower) {
+      this.store.selectedTowerRevision();
+      return tower.canTargetGround;
+    }
     // canTargetGround ist optional und defaultet auf true (siehe Tower-Config).
     return TOWER_TYPES[typeId]?.canTargetGround ?? true;
   });

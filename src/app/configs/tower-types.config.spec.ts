@@ -7,17 +7,19 @@ import {
   TowerTypeConfig,
   TowerTypeId,
   TowerUpgrade,
+  laserHeat,
 } from './tower-types.config';
 import { ARMOR_TYPES, ArmorType } from './combat/combat.types';
 import { DAMAGE_MATRIX } from './combat/damage-matrix.config';
 import { computeTowerDPSFromLevels } from '../director/tower-dps.util';
+import { PROJECTILE_TYPES } from './projectile-types.config';
 import { getResearch, getResearchForTower } from './research/research-tree.config';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 describe('tower types config', () => {
   // Combat towers + passive buildings (research-center, missile-silo)
-  const combatIds: TowerTypeId[] = ['archer', 'dual-gatling', 'cannon', 'magic', 'rocket', 'ice', 'fire', 'tentacle', 'poison', 'lightning', 'chaos'];
+  const combatIds: TowerTypeId[] = ['archer', 'dual-gatling', 'cannon', 'magic', 'rocket', 'ice', 'fire', 'tentacle', 'poison', 'lightning', 'chaos', 'bastion', 'sentinel', 'chainsaw', 'shawarma'];
   const allIds: TowerTypeId[] = [...combatIds, 'research-center', 'missile-silo'];
 
   it('contains all tower types', () => {
@@ -190,6 +192,82 @@ describe('tower types config', () => {
     visit(unlock!.id);
     expect(required).toContain('siege-engineering');
     expect(required).toContain('arcane-studies');
+  });
+
+  it('the iron bastion is flak: splash in the air and on the ground, never the best gold against one body', () => {
+    // Its burst is the point (MASTER_GAME_DESIGN §3.14): against a single light body the gatling stays the
+    // better buy, and against heavy and fortified the pierce shell is weak, as the gatling's bullets.
+    const bastion = getTowerType('bastion');
+    expect(bastion.damageType).toBe('pierce');
+    expect(bastion.canTargetAir).toBe(true);
+    expect(bastion.canTargetGround).toBe(true);
+    expect(PROJECTILE_TYPES[bastion.projectileType].splashRadius).toBeGreaterThan(0);
+
+    const dpsPerGold = (t: TowerTypeConfig, armor: ArmorType) =>
+      (computeTowerDPSFromLevels(t, {}) * DAMAGE_MATRIX[t.damageType][armor]) / t.cost;
+    const gatling = getTowerType('dual-gatling');
+    expect(dpsPerGold(bastion, 'light')).toBeCloseTo(0.432, 3);
+    expect(dpsPerGold(bastion, 'light')).toBeLessThan(dpsPerGold(gatling, 'light'));
+    expect(dpsPerGold(bastion, 'heavy')).toBeLessThan(0.1);
+    expect(getResearchForTower('bastion')?.prerequisites).toContain('siege-engineering');
+  });
+
+  it('the sentinel laser heats up on one target: no better gold than lightning at its mean, the best on a held heavy body', () => {
+    const sentinel = getTowerType('sentinel');
+    const laser = sentinel.laser!;
+    expect(sentinel.attackType).toBe('laser');
+    expect(sentinel.canTargetAir).toBe(true);
+    expect(laserHeat(laser, 0, 1)).toBe(1);
+    expect(laserHeat(laser, laser.rampSeconds / 2, 1)).toBeCloseTo((1 + laser.maxFactor) / 2, 9);
+    expect(laserHeat(laser, laser.rampSeconds * 2, 1)).toBe(laser.maxFactor);
+    // The Heat-up track shortens the ramp
+    expect(laserHeat(laser, laser.rampSeconds / 2, 2)).toBe(laser.maxFactor);
+
+    const perGold = (t: TowerTypeConfig, armor: ArmorType, dps = computeTowerDPSFromLevels(t, {})) =>
+      (dps * DAMAGE_MATRIX[t.damageType][armor]) / t.cost;
+    const lightning = getTowerType('lightning');
+    expect(perGold(sentinel, 'heavy')).toBeCloseTo(0.424, 3);
+    expect(perGold(sentinel, 'heavy')).toBeLessThan(perGold(lightning, 'heavy'));
+    // Hot on one heavy body: more than any tower's single target model DPS per gold against heavy
+    const hot = perGold(sentinel, 'heavy', sentinel.damage * laser.maxFactor);
+    expect(hot).toBeCloseTo(0.678, 3);
+    for (const id of ['cannon', 'lightning', 'magic', 'chaos'] as const) {
+      expect(hot, id).toBeGreaterThan(perGold(getTowerType(id), 'heavy'));
+    }
+    expect(getResearchForTower('sentinel')?.prerequisites).toContain('storm-mastery');
+  });
+
+  it('the chainsaw saws three bodies at once at the road: much damage per gold for its short reach', () => {
+    const saw = getTowerType('chainsaw');
+    expect(saw.attackType).toBe('saw');
+    expect(saw.sawArms).toHaveLength(3);
+    expect(saw.canTargetAir).toBe(false);
+    // Arms of 14 m: from the closest a tower may stand to a route (10 m) across the road
+    expect(saw.range).toBe(14);
+
+    const perGold = (t: TowerTypeConfig, armor: ArmorType) =>
+      (computeTowerDPSFromLevels(t, {}) * DAMAGE_MATRIX[t.damageType][armor]) / t.cost;
+    expect(perGold(saw, 'unarmored')).toBeCloseTo(0.804, 3);
+    // More than the gatling, which reaches 50 m, less than the tentacle and its slam at the choke
+    expect(perGold(saw, 'unarmored')).toBeGreaterThan(perGold(getTowerType('dual-gatling'), 'unarmored'));
+    expect(perGold(saw, 'unarmored')).toBeLessThan(perGold(getTowerType('tentacle'), 'unarmored'));
+    expect(perGold(saw, 'heavy')).toBeLessThan(0.25);
+    expect(getResearchForTower('chainsaw')?.prerequisites).toEqual(['tentacle-biology', 'siege-engineering']);
+  });
+
+  it('the shawarma slicer streams on a line at its mean drive, in the middle of the field per gold', () => {
+    const doner = getTowerType('shawarma');
+    expect(doner.attackType).toBe('stream');
+    expect(doner.canTargetAir).toBe(false);
+    expect(doner.stream!.spinUpSeconds).toBeGreaterThan(2);
+
+    const perGold = (t: TowerTypeConfig, armor: ArmorType) =>
+      (computeTowerDPSFromLevels(t, {}) * DAMAGE_MATRIX[t.damageType][armor]) / t.cost;
+    expect(perGold(doner, 'unarmored')).toBeCloseTo(0.557, 3);
+    // Below the archer and the fire tower against flesh, above the cannon and the poison tower
+    expect(perGold(doner, 'unarmored')).toBeLessThan(perGold(getTowerType('fire'), 'unarmored'));
+    expect(perGold(doner, 'unarmored')).toBeGreaterThan(perGold(getTowerType('poison'), 'unarmored'));
+    expect(getResearchForTower('shawarma')?.prerequisites).toEqual(['fire-alchemy']);
   });
 
   it('every configured turretNode exists in its model', () => {

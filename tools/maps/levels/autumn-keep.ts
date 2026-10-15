@@ -5,7 +5,7 @@
  * piles, ivy and morning fog in the hollows.
  */
 import type { CustomMapDocument, MapPoint } from '../../../src/app/world/custom-map/map-document';
-import { LevelKit } from './kit';
+import { facing, LevelKit } from './kit';
 
 export function buildAutumnKeep(): CustomMapDocument {
   const k = new LevelKit({
@@ -27,7 +27,15 @@ export function buildAutumnKeep(): CustomMapDocument {
   const top = k.h(c.x, c.y);
   k.plateau(c, { radius: 84, falloff: 0.5 }, top);
   k.smooth(c, { radius: 100, falloff: 0.5 }, 5);
-  k.level(c, { radius: 64, falloff: 0.3 }, top);
+  // A rock spur: the crown stands over the old hilltop with sheer sides; the gate road grades its way up the south face
+  const crown = top + 7;
+  const spur = { x: 0, y: 70 };
+  k.plateau(spur, { radius: 70, falloff: 0.2 }, crown);
+  k.level(spur, { radius: 64, falloff: 0.25 }, crown);
+  // Its rim broken
+  const rim: MapPoint[] = [];
+  for (let a = 0; a <= 360; a += 12) rim.push({ x: spur.x + Math.cos((a * Math.PI) / 180) * 71, y: spur.y + Math.sin((a * Math.PI) / 180) * 71 });
+  k.roughen(rim, { radius: 8, falloff: 0.7 }, 2.5, 3303);
   for (const p of [{ x: -130, y: -150 }, { x: 140, y: -160 }, { x: -170, y: 110 }, { x: 170, y: 120 }]) k.form('valley', p, { radius: 60, strength: 0.6 }, 3);
 
   // ---- Roads out of the woods to the green before the gate, then up through the gate to the bailey
@@ -43,6 +51,8 @@ export function buildAutumnKeep(): CustomMapDocument {
   k.spawn('South Wood', 42, -250);
   k.spawn('East Wood', 250, -18);
   k.hq(hq.x, hq.y);
+  // Rock on the spur's faces before anything grows there (the brush keeps off other objects)
+  k.cliffRocks(rim, { radius: 14 });
 
   // ---- Woods: autumn oaks, maples and birches round the hill, the green and the bailey kept open
   k.biome('meadow', [{ x: -80, y: -40 }, { x: 0, y: -20 }, { x: 80, y: -40 }], { radius: 60, strength: 0.6 });
@@ -156,9 +166,71 @@ export function buildAutumnKeep(): CustomMapDocument {
   // A few fallen blocks down the hill
   k.scatter(['rock-mossy-a', 'rock-mossy-b', 'rock-mossy-c'], [{ x: -45, y: 15 }, { x: 45, y: 15 }, { x: -50, y: 100 }, { x: 50, y: 105 }], { radius: 16, strength: 0.8 }, { density: 2.5, minDistance: 5 });
 
-  // ---- Morning fog in the hollows, leaves on the wind
-  for (const [x, y] of [[-130, -150], [140, -160], [-170, 110], [170, 120]] as const) k.place('fx-fog', x, y, { scale: 0.7 });
-  for (const [x, y] of [[-150, -100], [150, -90], [-120, 150], [130, 150], [0, -120]] as const) k.place('fx-leaves', x, y, { scale: 1.3 });
+  // ---- The spur: a moat round the walls (the gate road crosses on a causeway)
+  const moat = k.body(crown - 1.2, 'water', '#2a3f3a');
+  // Five metres round the walls (a squarish ring), open where the road comes to the gate
+  const ditch: MapPoint[] = [];
+  const squarish = (v: number) => Math.sign(v) * Math.abs(v) ** 0.35;
+  for (let a = -80; a <= 260; a += 4) ditch.push({ x: 49 * squarish(Math.cos((a * Math.PI) / 180)), y: spur.y + 44 * squarish(Math.sin((a * Math.PI) / 180)) });
+  for (const p of ditch) k.erase(p, 5, (o) => o.asset.startsWith('castle') || o.asset.startsWith('fx'));
+  // Its banks at the crown again (the brushes since roughened them), then the ditch dug
+  k.level(ditch, { radius: 10, falloff: 0.3 }, crown);
+  k.lake(ditch, { radius: 4, falloff: 0.5 }, 2.2, moat);
+  k.scatter(['reeds', 'lily-pads'], ditch, { radius: 4, strength: 0.6 }, { density: 6, minDistance: 2, sinkOnSlope: false }, false);
+  for (const o of k.doc.objects) if (o.asset === 'lily-pads') o.z = 0.02;
+
+  // ---- Light for the dusk: braziers and a fire in the bailey, torches at the gate and along the walls, banners
+  for (const [x, y, a] of [
+    [-12, 66, 'brazier'],
+    [12, 70, 'brazier'],
+    [-6, 30, 'brazier'],
+    [6, 30, 'brazier'],
+    [-30, 96, 'campfire'],
+    [-36, 50, 'torch'],
+    [36, 50, 'torch'],
+    [-36, 90, 'torch'],
+    [36, 96, 'torch'],
+    [-20, 102, 'torch'],
+    [14, 102, 'torch'],
+    [-10, 24, 'banner-red'],
+    [10, 24, 'banner-red'],
+  ] as const) {
+    if (k.free(x, y, 0.6)) k.place(a, x, y, { rotation: Math.PI });
+  }
+  // Banners on the north towers (each held by what it stands on)
+  for (const x of [x0 - 2, x1 + 2]) k.place('banner-red', x, y1 + 2, { z: k.catalog.object('castle-tower-ruined').height * 1.25 - 1.5, rotation: Math.PI });
+  // TODO(E179): lit windows in the keep and the towers (night windows on the castle models)
+
+  // ---- A windmill on a knoll east of the castle, its field round it
+  const mill = { x: 128, y: 40 };
+  k.erase(mill, 22, (o) => o.asset.startsWith('fx'));
+  k.raise(mill, { radius: 26, falloff: 0.9 }, 5);
+  k.level(mill, { radius: 8, falloff: 0.5 }, k.h(mill.x, mill.y));
+  k.place('windmill', mill.x, mill.y, { rotation: facing(mill, c) });
+  k.scatter(['wheat-field', 'hay-bales', 'grass-autumn'], [{ x: mill.x - 14, y: mill.y - 14 }, { x: mill.x + 14, y: mill.y - 12 }], { radius: 10, strength: 1 }, { density: 6, minDistance: 3 });
+
+  // ---- Life: morning fog in the hollows and down the valleys, leaves falling in the woods, ravens over them
+  const blob = (at: MapPoint, r: number, n = 9): MapPoint[] =>
+    Array.from({ length: n }, (_, i) => {
+      const a = (i / n) * Math.PI * 2;
+      const w = r * (0.75 + 0.5 * k.noise.hash(Math.round(at.x), Math.round(at.y), i));
+      return { x: at.x + Math.cos(a) * w, y: at.y + Math.sin(a) * w };
+    });
+  for (const at of [{ x: -130, y: -150 }, { x: 140, y: -160 }, { x: -170, y: 110 }, { x: 170, y: 120 }, { x: -100, y: 175 }, { x: 95, y: 180 }, { x: -200, y: -60 }, { x: 205, y: -100 }]) {
+    k.lifeArea('fog', blob(at, 40), { density: 1 });
+  }
+  for (const at of [{ x: -190, y: -150 }, { x: 190, y: -150 }, { x: -200, y: 60 }, { x: 200, y: 60 }, { x: -110, y: 200 }, { x: 110, y: 200 }, { x: 0, y: -125 }]) {
+    k.lifeArea('leaves', blob(at, 50), { density: 1.2 });
+  }
+  // A flock of ravens wheeling over each side's woods, low
+  for (const at of [{ x: -185, y: -60 }, { x: 185, y: 40 }]) k.lifeArea('birds', blob(at, 85), { species: 'crows', density: 1.2, height: 32 });
+  // The banners on the towers and the gate wave; birdsong by day, crickets by night, the fire in the bailey crackles
+  k.lifeSettings({ flags: true, ambience: { sound: 'biome', volume: 0.5 } });
+  k.lifeArea('sound', blob({ x: -10, y: 70 }, 24, 6), { sound: 'fire', volume: 0.6 });
+  // Red deer grazing at the edge of the wood, a stag watching over them
+  for (const [x, y, a, r] of [[-150, -45, 'deer', 0.6], [-156, -36, 'deer-grazing', 2.1], [-143, -33, 'deer-grazing', -0.8], [160, -62, 'deer', -0.5], [167, -55, 'deer-grazing', 1.4]] as const) {
+    if (k.free(x, y, 1.5)) k.place(a, x, y, { rotation: r });
+  }
 
   // Seven ground materials: the least used goes (each one is 8 MB of pixels to load)
   k.trimLayers(7);

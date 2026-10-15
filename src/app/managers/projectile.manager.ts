@@ -70,6 +70,7 @@ export class ProjectileManager extends EntityManager<Projectile> {
       quiet ? null : this.towerSoundPosition(tower),
       aimPoint,
     );
+    projectile.pathId = tower.pathId;
 
     if (!quiet) this.muzzleFlash(tower);
     return projectile;
@@ -97,6 +98,7 @@ export class ProjectileManager extends EntityManager<Projectile> {
       quiet ? null : this.towerSoundPosition(tower),
       aimPoint,
     );
+    projectile.pathId = tower.pathId;
     if (!quiet) this.muzzleFlash(tower);
     return projectile;
   }

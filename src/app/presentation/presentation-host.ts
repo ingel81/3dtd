@@ -67,6 +67,12 @@ export class PresentationHost implements SimPresenterApi {
   readonly frame: FramePresenter;
   readonly ops: OpPlayer;
   readonly flames: FlameSounds;
+  /** The lasers' hum, run like the flame loops */
+  readonly lasers: FlameSounds;
+  /** The saw arms' motors while they cut, run like the flame loops */
+  readonly saws: FlameSounds;
+  /** The Shawarma Slicer's sizzle while its stream runs */
+  readonly streams: FlameSounds;
   readonly manualShots: ManualShots;
 
   private readonly engine: ThreeTilesEngine;
@@ -100,6 +106,9 @@ export class PresentationHost implements SimPresenterApi {
 
     this.frame = new FramePresenter(engine, ground);
     this.flames = new FlameSounds(() => engine.spatialAudio ?? null);
+    this.lasers = new FlameSounds(() => engine.spatialAudio ?? null, 'laser-loop');
+    this.saws = new FlameSounds(() => engine.spatialAudio ?? null, 'saw-loop');
+    this.streams = new FlameSounds(() => engine.spatialAudio ?? null, 'doner-loop');
     this.ops = new OpPlayer(engine);
     this.installOverrides(source, bus);
 
@@ -114,6 +123,8 @@ export class PresentationHost implements SimPresenterApi {
     // After a snapshot restore or a replay's seek (GameStateManager.resyncPresentation),
     // in a replay too: the look and sound of the state as it stands
     this.subs.add(bus.on('sim:presented', (event) => this.resync(event.phase, event.wave, event.baseHealth)));
+    // The world's own sound for a new wave (a custom map's bell or horn)
+    this.subs.add(bus.onShow('wave:started', ({ wave }) => engine.world.waveStarted?.(wave)));
   }
 
   // ── SimPresenterApi ──
@@ -141,12 +152,16 @@ export class PresentationHost implements SimPresenterApi {
   clear(): void {
     this.frame.clear();
     this.flames.clear();
+    this.lasers.clear();
+    this.saws.clear();
+    this.streams.clear();
     const engine = this.engine;
     engine.enemies.clear();
     engine.oozes.clear();
     engine.projectiles.clear();
     engine.trailStreaks.clear();
     engine.flameBeams.clear();
+    engine.laserBeams.clear();
     engine.tentacles.clear();
     engine.plinths.clear();
     engine.towerBadges.clear();
@@ -298,6 +313,35 @@ export class PresentationHost implements SimPresenterApi {
       call(...args);
       this.flames.clear();
     });
+    // The saw motors run while an arm cuts, at the first arm's target
+    ops.override('towers.setSawTargets', (args, call) => {
+      call(...args);
+      const at = (args[1] as (Vector3 | null)[]).find((target) => target !== null);
+      if (at) this.saws.burn(args[0] as string, at);
+      else this.saws.stop(args[0] as string);
+    });
+
+    // The sizzle runs while the stream has a target, at the target
+    ops.override('towers.setStream', (args, call) => {
+      call(...args);
+      const target = args[1] as Vector3 | null;
+      if (target) this.streams.burn(args[0] as string, target);
+      else this.streams.stop(args[0] as string);
+    });
+
+    // The laser's hum runs with its beam
+    ops.override('laserBeams.startBeam', (args, call) => {
+      call(...args);
+      this.lasers.burn(args[0] as string, args[1] as Vector3);
+    });
+    ops.override('laserBeams.stopBeam', (args, call) => {
+      call(...args);
+      this.lasers.stop(args[0] as string);
+    });
+    ops.override('laserBeams.clear', (args, call) => {
+      call(...args);
+      this.lasers.clear();
+    });
 
     // The chain starts at the tip of the tower's model and sounds there
     ops.override('main.chainLightning', (args) => {
@@ -319,6 +363,8 @@ export class PresentationHost implements SimPresenterApi {
     ops.override('main.iceDecal', (args) => iceDecal(engine, args[0] as number, args[1] as number, args[2] as number));
     // The structures of a destructible world as the simulation has them (TODO E131)
     ops.override('structures.setFallen', (args) => this.worldDamage.setFallen(args[0] as string[]));
+    // A custom map's wave events as far as the simulation reached them (TODO E170)
+    ops.override('waveEvents.setReached', (args) => engine.world.showWaveEvents?.(args[0] as number));
     ops.override('main.structureFell', (args) =>
       this.worldDamage.fell(args[0] as number, args[1] as number, args[2] as number, args[3] as number));
   }

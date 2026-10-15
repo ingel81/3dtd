@@ -27,7 +27,7 @@ const catalog = new CatalogIndex(
 const overlay = {
   setDraft: () => undefined,
   setGizmo: () => undefined,
-  setNodesVisible: () => undefined,
+  setNodeHandles: () => undefined,
   setPreview: () => undefined,
   setRiverHandles: () => undefined,
   transform: { hide: () => undefined, setKind: () => undefined, place: () => undefined, highlight: () => undefined },

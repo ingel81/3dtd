@@ -1,0 +1,53 @@
+// Layout of the OSM world's frame: the flat map over the width of the page,
+// the spawn rows with their number, the actions under them.
+
+.of-map {
+  position: relative;
+  width: 100%;
+  height: clamp(240px, 44vh, 420px);
+  overflow: hidden;
+}
+
+.of-credit {
+  margin-top: calc(-1 * var(--td-sp-2));
+}
+
+.of-row {
+  display: flex;
+  align-items: center;
+  gap: var(--td-sp-2);
+}
+
+// The row's text picks the spawn: a bare button over the row's width
+.of-pick {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: var(--td-sp-3);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.of-num {
+  flex: 0 0 auto;
+  width: 22px;
+  color: var(--td-hp-text);
+  text-align: center;
+}
+
+.of-text {
+  display: grid;
+  min-width: 0;
+}
+
+.of-warnings {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

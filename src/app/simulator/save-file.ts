@@ -1,9 +1,11 @@
+import { unreleasedInSave } from '../configs/release';
 import type { GeoPosition } from '../models/game.types';
 import type { GameRngState } from '../utils/game-rng';
 import type { DirectorSave } from '../director/wave-director';
 import { createWaveSource, isWaveSourceId } from '../director/wave-source.registry';
 import type { RunLog } from '../run-log/run-log.types';
 import type { WaveSeriesPoint } from '../run-log/wave-series';
+import type { CameraSlots } from '../services/camera-slots.service';
 import { WORLD_PACKAGE_VERSION, worldPackageShape, type WorldPackage } from '../coop/world-package';
 import { SIM_SNAPSHOT_VERSION, type SimSnapshot } from './sim-snapshot';
 
@@ -51,6 +53,8 @@ export interface SaveFile {
   runLog: RunLog | null;
   /** The game-over charts' points so far (run-log/wave-series.ts) */
   waveSeries: WaveSeriesPoint[];
+  /** The saved camera views, F1 to F5 (CameraSlotsService); absent in saves from before them */
+  cameraSlots?: CameraSlots | null;
 }
 
 /** Where the run is played: the place as the place picker names it, its HQ and spawns */
@@ -82,7 +86,7 @@ export function buildSaveFile(parts: SaveParts, now: Date = new Date()): SaveFil
 export const MAX_SAVE_FILE_BYTES = 32 * 1024 * 1024;
 
 /** Why a save cannot be loaded, null when it can. */
-export type SaveFileRefusal = 'not-a-save' | 'too-big' | 'damaged' | 'version';
+export type SaveFileRefusal = 'not-a-save' | 'too-big' | 'damaged' | 'version' | 'unreleased';
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const isPlace = (v: unknown): boolean => isObject(v) && Number.isFinite(v['lat']) && Number.isFinite(v['lon']);
@@ -91,6 +95,10 @@ const strings = (v: unknown): boolean => Array.isArray(v) && v.every((s) => type
 /** [player id, state] pairs of a per-player part, absent in a snapshot from before coop */
 const perPlayer = (v: unknown, state: (s: unknown) => boolean): boolean =>
   v === undefined || (Array.isArray(v) && v.every((p) => Array.isArray(p) && p.length === 2 && typeof p[0] === 'string' && state(p[1])));
+
+const isPoint = (v: unknown): boolean => isObject(v) && finite(v['x']) && finite(v['y']) && finite(v['z']);
+const isCameraSlots = (v: unknown): boolean => v === undefined || v === null
+  || (Array.isArray(v) && v.every((s) => s === null || (isObject(s) && isPoint(s['position']) && isPoint(s['target']))));
 
 /** Random state: a seed and finite numbers per stream */
 function isRng(v: unknown): boolean {
@@ -161,7 +169,8 @@ function isDirector(v: unknown): boolean {
 export function readSaveFile(
   text: string,
   here: { gameVersion: string; configHash: string },
-): { file: SaveFile; refusal: null; note: string | null } | { file: null; refusal: SaveFileRefusal } {
+  production?: boolean,
+): { file: SaveFile; refusal: null; note: string | null } | { file: null; refusal: SaveFileRefusal; detail?: string } {
   if (text.length > MAX_SAVE_FILE_BYTES) return { file: null, refusal: 'too-big' };
   let data: Partial<SaveFile>;
   try {
@@ -178,6 +187,9 @@ export function readSaveFile(
   if (file.world.version !== WORLD_PACKAGE_VERSION || file.sim.version !== SIM_SNAPSHOT_VERSION) {
     return { file: null, refusal: 'version' };
   }
+  // A tower or a path this build does not have (configs/release.ts): saved in a dev build
+  const unreleased = unreleasedInSave(file.sim.towers, production);
+  if (unreleased !== null) return { file: null, refusal: 'unreleased', detail: unreleased };
   return { file, refusal: null, note: saveNote(file, here) };
 }
 
@@ -196,7 +208,8 @@ function wellFormed(data: Partial<SaveFile>): boolean {
     && isDirector(director)
     && isRng(data.mainRng)
     && (data.runLog === null || (isObject(data.runLog) && isObject(data.runLog['head']) && Array.isArray(data.runLog['records'])))
-    && Array.isArray(data.waveSeries);
+    && Array.isArray(data.waveSeries)
+    && isCameraSlots(data.cameraSlots);
 }
 
 /** Saved with another version or other values: it loads, but the run may go on differently */
@@ -209,8 +222,9 @@ export function saveNote(file: Pick<SaveFile, 'gameVersion' | 'configHash'>, her
 }
 
 /** What the player reads when a save does not load. */
-export function saveFileRefusalText(refusal: SaveFileRefusal): string {
+export function saveFileRefusalText(refusal: SaveFileRefusal, detail?: string): string {
   switch (refusal) {
+    case 'unreleased': return `That save uses ${detail ?? 'a tower'}, which this version of the game does not have yet.`;
     case 'not-a-save': return 'That file is no 3DTD save.';
     case 'too-big': return 'That file is far too big for a 3DTD save.';
     case 'damaged': return 'That save is damaged.';

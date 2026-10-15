@@ -15,7 +15,8 @@ vi.mock('three', () => ({
 import { Tower } from './tower.entity';
 import { TransformComponent, CombatComponent, RenderComponent } from '../game-components';
 import { ComponentType } from '../core/component';
-import { DEFAULT_BUILD_TIME_MS, buildTimeOf, getTowerType, getUpgradeCost } from '../configs/tower-types.config';
+import { DEFAULT_BUILD_TIME_MS, TOWER_TYPES, buildTimeOf, getTowerType, getUpgradeCost, upgradeFactor } from '../configs/tower-types.config';
+import { TOWER_PATHS, towerConfigOf } from '../configs/tower-paths.config';
 import { Enemy } from './enemy.entity';
 
 const position = { lat: 10, lon: 20, height: 5 };
@@ -244,5 +245,79 @@ describe('Tower build (TODO E104)', () => {
   it('takes the default build time, a passive building none', () => {
     expect(buildTimeOf(getTowerType('archer'))).toBe(DEFAULT_BUILD_TIME_MS);
     expect(buildTimeOf(getTowerType('research-center'))).toBe(0);
+  });
+});
+
+describe('Tower with the Sniper path (TODO E101)', () => {
+  const swap = TOWER_PATHS.sniper.swap!;
+
+  it('runs on the swapped config: its model, its aim and its base stats under the upgrades it has', () => {
+    const archer = new Tower(position, 'archer');
+    archer.applyUpgrade('damage');
+    archer.applyUpgrade('range');
+    expect(archer.aim.turret).toBe(false);
+
+    archer.pathId = 'sniper';
+    expect(archer.typeConfig).toBe(towerConfigOf('archer', 'sniper'));
+    expect(archer.typeConfig.id).toBe('archer');
+    expect(archer.typeConfig.upgrades).toBe(TOWER_TYPES.archer.upgrades);
+    expect(archer.aim.turret).toBe(true);
+    expect(archer.aim.pitchMax).toBe(swap.pitchRange!.max);
+    const [damage, , range] = TOWER_TYPES.archer.upgrades;
+    expect(archer.combat.damage).toBeCloseTo(swap.damage! * upgradeFactor(damage, 1), 9);
+    expect(archer.combat.range).toBeCloseTo(swap.range! * upgradeFactor(range, 1), 9);
+    expect(archer.combat.fireRate).toBe(swap.fireRate);
+    expect(archer.getNextFirePoint()).toEqual(swap.firePoints![0]);
+  });
+
+  it('comes back from a snapshot as it was, and without the path as an archer', () => {
+    const sniper = new Tower(position, 'archer');
+    sniper.applyUpgrade('speed');
+    sniper.pathId = 'sniper';
+    const copy = new Tower(position, 'archer');
+    copy.restoreUpgradeLevels(sniper.getUpgradeLevels());
+    copy.restoreSimState(sniper.getSimState());
+    expect(copy.typeConfig).toBe(sniper.typeConfig);
+    expect(copy.combat.fireRate).toBe(sniper.combat.fireRate);
+    expect(copy.aim).toEqual(sniper.aim);
+
+    copy.restoreSimState(new Tower(position, 'archer').getSimState());
+    expect(copy.typeConfig).toBe(TOWER_TYPES.archer);
+    expect(copy.aim.turret).toBe(false);
+    expect(copy.combat.fireRate).toBeCloseTo(TOWER_TYPES.archer.fireRate * upgradeFactor(TOWER_TYPES.archer.upgrades[1], 1), 9);
+  });
+
+  it('leaves the other paths on their type config', () => {
+    const scout = new Tower(position, 'archer');
+    scout.pathId = 'scout';
+    expect(scout.typeConfig).toBe(TOWER_TYPES.archer);
+    expect(towerConfigOf('rocket', 'sniper')).toBe(TOWER_TYPES.rocket);
+  });
+});
+
+describe('Tower with the Multirole path (TODO E101)', () => {
+  const at = (typeId: 'zombie' | 'bat', metres: number): Enemy =>
+    new Enemy(typeId, [
+      { lat: position.lat + metres / 111320, lon: position.lon },
+      { lat: position.lat + 1, lon: position.lon },
+    ]);
+
+  it('lets a rocket fire at the ground only with the path', () => {
+    const rocket = new Tower(position, 'rocket');
+    const zombie = at('zombie', 10);
+    expect(rocket.canTargetGround).toBe(false);
+    expect(rocket.findTarget([zombie], false)).toBeNull();
+    rocket.pathId = 'multirole';
+    expect(rocket.canTargetGround).toBe(true);
+    expect(rocket.findTarget([zombie], false)).toBe(zombie);
+  });
+
+  it('picks a flyer over a nearer ground enemy', () => {
+    const rocket = new Tower(position, 'rocket');
+    rocket.pathId = 'multirole';
+    rocket.targetingStrategy = 'closest';
+    const zombie = at('zombie', 5);
+    const bat = at('bat', 40);
+    expect(rocket.findTarget([zombie, bat], false)).toBe(bat);
   });
 });

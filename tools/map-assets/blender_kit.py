@@ -118,6 +118,79 @@ def two_sided(material):
     return material
 
 
+def rust_material(name, asset=None, paint=None, threshold=0.66, tint=None):
+    """Weathered metal: a Poly Haven set (`asset`, with its normal map) or a flat `paint` colour, rusted where
+    rusty_metal_03 shows rust (its brown, not its yellow paint: green/red below `threshold`, 0.66 heavy, 0.6
+    light); rust is rough and not metallic. Colour and roughness/metal maps go next to the GLBs as PNGs"""
+    import numpy as np
+    key = (name, asset or 'paint')
+    if key in _materials:
+        return _materials[key]
+    folder = os.path.join(OUT, 'tinted')
+    os.makedirs(folder, exist_ok=True)
+
+    def pixels(path, non_color=False):
+        img = load_image(path, non_color)
+        px = np.empty(img.size[0] * img.size[1] * 4, dtype=np.float32)
+        img.pixels.foreach_get(px)
+        return img.size, px.reshape(-1, 4)
+
+    def save(label, size, px, non_color=False):
+        out = bpy.data.images.new(name + '-' + label, size[0], size[1])
+        if non_color:
+            out.colorspace_settings.name = 'Non-Color'
+        out.pixels.foreach_set(px.ravel())
+        out.filepath_raw = os.path.join(folder, name + '-' + label + '.png')
+        out.file_format = 'PNG'
+        out.save()
+        return out
+
+    size, rust = pixels(tex_path('rusty_metal_03', 'diff'))
+    _, rust_arm = pixels(tex_path('rusty_metal_03', 'arm'), True)
+    mask = np.clip((threshold - rust[:, 1] / (rust[:, 0] + 1e-3)) / 0.14, 0, 1)[:, None]
+    if asset:
+        _, base = pixels(tex_path(asset, 'diff'))
+        _, arm = pixels(tex_path(asset, 'arm'), True)
+        normal = tex_path(asset, 'nor')
+    else:
+        base = np.tile(np.array([*paint, 1.0], dtype=np.float32), (len(rust), 1))
+        # Paint: a flat colour with the rust texture's faint scratches as variation, a painted sheen
+        base[:, :3] *= 0.85 + 0.3 * rust[:, :3].mean(axis=1, keepdims=True)
+        arm = np.tile(np.array([1.0, 0.45, 0.3, 1.0], dtype=np.float32), (len(rust), 1))
+        normal = tex_path('rusty_metal_03', 'nor')
+    if tint:
+        base[:, :3] *= np.array(tint, dtype=np.float32)
+    colour = base * (1 - mask) + rust * 0.85 * mask
+    colour[:, 3] = 1.0
+    rough = arm.copy()
+    rough[:, 1:2] = arm[:, 1:2] * (1 - mask) + np.maximum(rust_arm[:, 1:2], 0.75) * mask
+    rough[:, 2:3] = arm[:, 2:3] * (1 - mask) + 0.15 * mask
+    rough[:, 3] = 1.0
+    m = bpy.data.materials.new(name)
+    try:
+        m.use_nodes = True
+    except AttributeError:
+        pass
+    nt = m.node_tree
+    bsdf = next(n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED')
+    diff = nt.nodes.new('ShaderNodeTexImage')
+    diff.image = save('diff', size, np.clip(colour, 0, 1))
+    nt.links.new(diff.outputs['Color'], bsdf.inputs['Base Color'])
+    nor = nt.nodes.new('ShaderNodeTexImage')
+    nor.image = load_image(normal, non_color=True)
+    nmap = nt.nodes.new('ShaderNodeNormalMap')
+    nt.links.new(nor.outputs['Color'], nmap.inputs['Color'])
+    nt.links.new(nmap.outputs['Normal'], bsdf.inputs['Normal'])
+    armn = nt.nodes.new('ShaderNodeTexImage')
+    armn.image = save('arm', size, np.clip(rough, 0, 1), True)
+    sep = nt.nodes.new('ShaderNodeSeparateColor')
+    nt.links.new(armn.outputs['Color'], sep.inputs['Color'])
+    nt.links.new(sep.outputs['Green'], bsdf.inputs['Roughness'])
+    nt.links.new(sep.outputs['Blue'], bsdf.inputs['Metallic'])
+    _materials[key] = m
+    return m
+
+
 def card_material(name, png):
     """Alpha-tested foliage (the loader switches `foliage-*` materials to alpha test, double sided)"""
     m = bpy.data.materials.new('foliage-' + name)
@@ -323,10 +396,35 @@ def bake_ao(name, objects, size=512, distance=2.0, samples=24):
 
 
 def finish(name, objects, ao_size=512):
-    """Bakes ambient occlusion over the whole model, then exports it"""
+    """Bakes ambient occlusion over the whole model, then exports it; the faces of `spin-*` materials (a part
+    that turns, see split_spin) go into a node of their own"""
     obj = bake_ao(name, objects, size=ao_size)
-    export(name, [obj])
+    export(name, [obj] + split_spin(obj, name))
     return obj
+
+
+def split_spin(obj, name):
+    """Moves the faces of materials named `spin-*` out of `obj` into one object `spin-<name>`: a part of
+    the model that turns about the vertical axis through its origin (a radar head, a lighthouse lens).
+    It stays a node of its own in the GLB; pack_models.py joins only equal materials, so give spin
+    materials values no other material of the model has (glTF-Transform merges equal materials first)"""
+    spin = [i for i, slot in enumerate(obj.material_slots) if slot.material and slot.material.name.startswith('spin-')]
+    if not spin:
+        return []
+    bpy.ops.object.select_all(action='DESELECT')
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.select_all(action='DESELECT')
+    bm = bmesh.from_edit_mesh(obj.data)
+    for f in bm.faces:
+        f.select_set(f.material_index in spin)
+    bmesh.update_edit_mesh(obj.data)
+    bpy.ops.mesh.separate(type='SELECTED')
+    bpy.ops.object.mode_set(mode='OBJECT')
+    part = next(o for o in bpy.context.selected_objects if o != obj)
+    part.name = 'spin-' + name
+    return [part]
 
 
 def flat_copy(material):
@@ -380,6 +478,8 @@ def export_lod(name, obj, ratio=0.3, suffix='-lod1'):
     lod.select_set(True)
     bpy.context.view_layer.objects.active = lod
     bpy.ops.object.modifier_apply(modifier=mod.name)
+    # Collapsed edges can leave duplicate faces behind (box-built parts)
+    lod.data.validate()
     while len(lod.data.uv_layers):
         lod.data.uv_layers.remove(lod.data.uv_layers[0])
     export(name + suffix, [lod])
@@ -436,7 +536,8 @@ def tube(part, points, radii, sides, smooth=True, cap=False):
                 loop[part.uv].uv = uv
             faces.append(f)
     if cap:
-        f = bm.faces.new(list(reversed(rings[-1][:-1])))
+        # The ring runs counter-clockwise about the tube's direction: in that order the cap faces out of the end
+        f = bm.faces.new(rings[-1][:-1])
         for loop in f.loops:
             loop[part.uv].uv = (0.5 + (loop.vert.co - points[-1]).x, 0.5 + (loop.vert.co - points[-1]).y)
     return faces
@@ -529,15 +630,82 @@ def card(part, base, direction, normal_hint, width, length, center):
 
 # ---------------------------------------------------------------- imported models
 
+def plain_texel(obj, bm, uv):
+    """UV of a texel with the scan's average colour: of 400 corners spread over the mesh, the one whose
+    base colour texel is nearest the mean of them all"""
+    import numpy as np
+    img = next((n.image for m in obj.data.materials if m and m.use_nodes for n in m.node_tree.nodes
+                if n.type == 'TEX_IMAGE' and n.image and n.image.colorspace_settings.name == 'sRGB'), None)
+    if img is None or img.size[0] == 0:
+        return None
+    w, h = img.size
+    px = np.empty(w * h * 4, dtype=np.float32)
+    img.pixels.foreach_get(px)
+    px = px.reshape(h, w, 4)[:, :, :3]
+    corners = [l[uv].uv.copy() for f in bm.faces for l in f.loops]
+    picks = corners[::max(1, len(corners) // 400)]
+    cols = np.array([px[min(h - 1, int((c.y % 1) * h)), min(w - 1, int((c.x % 1) * w))] for c in picks])
+    best = int(np.argmin(((cols - cols.mean(axis=0)) ** 2).sum(axis=1)))
+    return picks[best]
+
+
+def close_shell(obj):
+    """Close a scanned shell: a cliff scan is its face and top only, open behind and underneath, so from
+    above or behind one looked into it (or through it, onto the ground). Every open rim gets a fan to a
+    tip behind it, so the surface has no edge left and hides its inside from every side. The caps read
+    one texel of the scan, the one nearest its average colour: an atlas smears across new faces."""
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    # Split vertices along UV seams are no holes
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
+    uv = bm.loops.layers.uv.active
+    plain = plain_texel(obj, bm, uv) if uv else None
+    rim = {e for e in bm.edges if e.is_boundary}
+    added = 0
+    while rim:
+        # One closed rim: walk from edge to edge over the rim vertices
+        loop = [rim.pop()]
+        v = loop[0].verts[1]
+        while True:
+            e = next((x for x in v.link_edges if x in rim), None)
+            if e is None:
+                break
+            rim.discard(e)
+            loop.append(e)
+            v = e.other_vert(v)
+        # The tip under the rim's middle, as far back and as low as the rim reaches: from the middle itself
+        # the fan of the open back cut through the curved face in front of it, and a low tip keeps the
+        # back steep, in the slope behind the rock and not over it
+        tip = sum((e.verts[0].co for e in loop), Vector()) / len(loop)
+        tip.y = max(e.verts[0].co.y for e in loop)
+        tip.z = min(e.verts[0].co.z for e in loop)
+        apex = bm.verts.new(tip)
+        for e in loop:
+            # The face's own winding over the edge, reversed for the cap
+            f = e.link_faces[0]
+            l = next(x for x in f.loops if x.edge == e)
+            a, b = l.vert, l.link_loop_next.vert
+            tri = bm.faces.new((b, a, apex))
+            tri.smooth = True
+            added += 1
+            if plain:
+                for c in tri.loops:
+                    c[uv].uv = plain
+    bm.to_mesh(obj.data)
+    bm.free()
+    print('closed', obj.name, added, 'cap triangles')
+
+
 def import_model(asset, target_height, target_faces, name, desaturate=0.0, tint=None, objects=None, rot=0.0,
-                 keep_scale=False, ground=False, extra=None):
+                 keep_scale=False, ground=False, close=False, extra=None):
     """A Poly Haven glTF as one game model: joined, decimated to `target_faces`, base centre at the
     origin and scaled to `target_height` (None or keep_scale: the scan's own metres).
 
     `objects`: names (or name prefixes ending in `*`) of the meshes to keep, for sets and kits;
     `rot`: degrees around the up axis (front towards -Y); `tint`: RGB multiplier of the colour
     textures after `desaturate`; `ground`: sink the base so the lowest 3 % of vertices sit under 0
-    (rocks on uneven terrain); `extra(obj)`: last edits before the export, may return more objects
+    (rocks on uneven terrain); `close`: fill the open back and underside of a scanned face (close_shell);
+    `extra(obj)`: last edits before the export, may return more objects
     to export with it (a plinth).
     """
     clear_scene()
@@ -574,6 +742,8 @@ def import_model(asset, target_height, target_faces, name, desaturate=0.0, tint=
         for p in obj.data.polygons:
             p.use_smooth = True
     bm.free()
+    if close:
+        close_shell(obj)
     for _ in range(3):
         # Some scans keep most faces on the first pass (quads, seams); triangulated, the next pass gets there
         if len(obj.data.polygons) <= target_faces * 1.2:
