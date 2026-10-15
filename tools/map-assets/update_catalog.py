@@ -7,7 +7,8 @@ category, tags, licence source and, where the default does not fit,
 placement flags). Missing fields come from the category defaults below;
 footprint and height come from the measured bounds in <glb-raw-dir>/report.json
 (pack_models.py) unless objects.json sets them; the underside of rocks (`base`)
-from bases.json (measure_bases.mjs); the triangle counts from the packed models
+from bases.json (measure_bases.mjs), the ground rectangle of buildings and walls
+(`box`) from boxes.json (measure_boxes.mjs); the triangle counts from the packed models
 (count_triangles.py). Objects <glb-raw-dir> has not measured (a build of a few
 models) keep their measured fields from the current catalog.json.
 Also rewrites LICENSES.md.
@@ -32,7 +33,7 @@ DEFAULTS = {
 # Share of the half extent that counts as occupied ground (a crown overhangs, a trunk does not)
 FOOTPRINT_SHARE = {'tree': 0.3, 'plant': 0.6}
 LOD_DISTANCE = 350
-ORDER = ['id', 'name', 'category', 'file', 'footprint', 'height', 'base', 'blocksLos', 'blocksBuild', 'scaleRange',
+ORDER = ['id', 'name', 'category', 'file', 'footprint', 'height', 'base', 'box', 'blocksLos', 'blocksBuild', 'scaleRange',
          'randomRotation', 'wind', 'drawDistance', 'float', 'aloft', 'stilts', 'spin', 'tags', 'effects', 'light', 'lod', 'source']
 
 
@@ -41,6 +42,7 @@ def main():
     spec = json.load(open(os.path.join(HERE, 'objects.json'), encoding='utf8'))
     report = json.load(open(os.path.join(raw, 'report.json'), encoding='utf8'))
     bases = json.load(open(os.path.join(HERE, 'bases.json'), encoding='utf8'))
+    boxes = json.load(open(os.path.join(HERE, 'boxes.json'), encoding='utf8'))
     path = os.path.join(out, 'catalog.json')
     catalog = json.load(open(path, encoding='utf8'))
     current = {o['id']: o for o in catalog['objects']}
@@ -67,6 +69,8 @@ def main():
                 e['footprint'] = round(max(0.2, half * FOOTPRINT_SHARE.get(o['category'], 0.9)), 1)
         if o['id'] in bases:
             e['base'] = bases[o['id']]
+        if o['id'] in boxes:
+            e['box'] = boxes[o['id']]
         if e['category'] == 'rock' and 'blocksLos' not in o:
             e['blocksLos'] = e['height'] >= 1.8
         if 'drawDistance' not in o and e['category'] in ('rock', 'prop') and e['height'] >= 3:

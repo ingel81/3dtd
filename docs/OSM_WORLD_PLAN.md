@@ -672,6 +672,8 @@ eingefrorenen Probe (Katalog-Modelle, keine Objekte auf Straßen oder in der Luf
 - **Art raten:** `building` (Tabelle), sonst `amenity`, `shop`, sonst Größe, Seitenverhältnis, Stockwerke und die
   Landnutzung unter der Mitte: unter 15 m² Schuppen, bis 45 m² Garage (quadratisch bis 25 m² Schuppen), in
   Industrie Halle, auf Hof- und Ackerland Scheune, über 220 m² oder ab 3 Geschossen Wohnblock, sonst Haus.
+  Unter Häusern (Median der Grundrisse ab 45 m² in 100 m unter 180 m², ein Dorf, eine Siedlung; Erlenbach rund
+  110 m²) wird ein Grundriss ohne Geschosse erst über 400 m² zum Wohnblock (E198).
   `commercial` ohne Geschosse und über 600 m² ist eine Halle (Winzergenossenschaft in Oberbergen), kein Bürohaus.
   `bridge`, `ruins`, `container`, Tiefgaragen (`location=underground`, `layer<0`) bleiben weg; `building:part` wird
   nicht gelesen.
@@ -681,7 +683,11 @@ eingefrorenen Probe (Katalog-Modelle, keine Objekte auf Straßen oder in der Luf
   Summe der Logarithmen der Abdeckung in Breite und Tiefe (zu groß zählt doppelt), dazu Aufschläge für Kopien
   (Module einer Reihen-Art 0,01, sonst 0,06 bis 0,12), zweite Reihe, Geschosse und eine von der Straße abgewandte
   Front. Grenze 0,5, sonst die Rückfall-Art (bis zu drei Stufen). Ohne Geschosse in den Tags höchstens 5 Geschosse
-  (kein Hochhaus im Dorf). Eckhäuser nur an den Enden von Blockreihen mit Seitenstraße in 10 m, so gedreht, dass
+  (kein Hochhaus im Dorf). Ein Modul (blinde Seiten) einer Art ohne Reihen (das Reihenhaus unter `house`) steht nur
+  allein und mit Aufschlag 0,1, als schmales Haus zwischen Nachbarn; in Erlenbach waren vorher 247 Häuser ein
+  einzelnes und 180 eine Reihe von Reihenhaus-Modulen (E198). Unter ähnlich guten Modellen wählt das Salz des
+  Grundrisses (bis 0,08 Fehlermaß), Häuser, Garagen, Schuppen und Höfe bekommen je Grundriss eine Tönung aus
+  `BUILDING_TINTS` (Wände Creme bis Sand, Dächer zu Braun und Grau; Instanzfarben, kein Draw Call mehr). Eckhäuser nur an den Enden von Blockreihen mit Seitenstraße in 10 m, so gedreht, dass
   ihre zweite Straßenseite (Westen) zur Seitenstraße zeigt.
 - **Strecken:** nicht gebaut (bräuchte eine Skala je Achse im Dateiformat); „Block mit Fassade“ ist eine Reihe von
   Blockrand-Modulen, die mit großzügigerem Fehlermaß (1,2) steht, wo sonst nichts passt.
@@ -740,7 +746,8 @@ nicht darüber.
   10 × 15 m; Scheune und Winzerhof heutiger Art (das Dorfmodell `barn` steht dafür).
 - **Lange Gebäude sperren zu viel Bauplatz:** Bauverbot und Sitzhöhe rechnen mit einem Kreis (`footprint` × Skala),
   bei einer Schule (46 m) 21 m Radius über die Straße hinaus. Teilen in Module mildert es; ein Rechteck je Modell im
-  Katalog wäre die eigentliche Lösung (Spiel-Code, nicht in O4).
+  Katalog wäre die eigentliche Lösung (Spiel-Code, nicht in O4). Gebaut (E201): Katalog `box`, Scheibe geschnitten
+  mit dem gedrehten Rechteck (docs/CUSTOM_MAP_WORLD.md); die Pads nehmen die Sitzpunkte aus demselben Rechteck.
 - **Böschungen:** die Stützmauer ist eine 6-m-Platte; bei Abträgen über 3 m bleibt ein Rest der Böschung über ihr.
 
 ## Offene Fragen an den User (beantwortet, siehe oben)

@@ -130,6 +130,13 @@ export interface CatalogObject {
    * sinks a rock until this plate reaches the ground on a slope
    */
   base?: [number, number, number];
+  /**
+   * Buildings and walls: the ground rectangle at scale 1, metres: its middle
+   * (model x, z), half width and half depth, 0.9 of the model's bounds like
+   * the footprint (tools/map-assets/measure_boxes.mjs). Building bans and the
+   * seat take it within the footprint disc (object-ground.ts)
+   */
+  box?: [number, number, number, number];
   blocksLos: boolean;
   blocksBuild: boolean;
   /** Placement hints for brushes and generators */

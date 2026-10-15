@@ -257,11 +257,28 @@ export function isGroundBuilding(tags: Readonly<Record<string, string>>): boolea
 }
 
 /**
+ * Median footprint (m²) of the buildings around under which the place is one
+ * of houses (a village, a suburb): there a big untagged footprint is a big
+ * house or a farmhouse, not a block of flats (Erlenbach: median about 110 m²)
+ */
+export const HOUSE_PLACE_AREA = 180;
+/** Untagged footprints bigger than this (m²) are blocks of flats; among houses (HOUSE_PLACE_AREA) the second */
+const BLOCK_AREA = 220;
+const BLOCK_AREA_AMONG_HOUSES = 400;
+
+/**
  * The kind of a building: its `building` value, else its `amenity` or
  * `shop`, else a guess from the size (m² of its footprint), the storeys,
- * the shape (its longer side over the shorter) and the land use around
+ * the shape (its longer side over the shorter), the land use around and
+ * the median footprint of the buildings around (`around`, m², null unknown)
  */
-export function buildingKind(tags: Readonly<Record<string, string>>, area: number, aspect: number, land: BuildingLand): BuildingKind {
+export function buildingKind(
+  tags: Readonly<Record<string, string>>,
+  area: number,
+  aspect: number,
+  land: BuildingLand,
+  around: number | null = null,
+): BuildingKind {
   const tagged = BUILDING_VALUES[tags['building'] ?? ''];
   if (tagged) {
     // A big house or a small block: the size says more than the tag
@@ -284,6 +301,7 @@ export function buildingKind(tags: Readonly<Record<string, string>>, area: numbe
   if (land === 'religious') return area > 150 ? 'church' : 'chapel';
   if (land === 'commercial' || land === 'retail') return area > 600 && (levels ?? 1) <= 2 ? 'retail' : 'office';
   if (area > 1500) return (levels ?? 1) <= 2 ? 'industrial' : 'apartments';
-  if ((levels ?? 0) >= 3 || area > 220) return 'apartments';
+  const block = around !== null && around < HOUSE_PLACE_AREA ? BLOCK_AREA_AMONG_HOUSES : BLOCK_AREA;
+  if ((levels ?? 0) >= 3 || area > block) return 'apartments';
   return 'house';
 }

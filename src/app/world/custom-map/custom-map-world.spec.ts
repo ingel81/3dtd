@@ -161,6 +161,32 @@ describe('CustomMapSurface', () => {
     expect(blocking.buildBlocker(...at(25.1, 20), 3)).toBeNull();
   });
 
+  it("forbids building on a long building's turned rectangle, not on the disc of half its length", () => {
+    const map = testMap();
+    // A 46 x 15 m school, turned half a radian: footprint 20.9 m, rectangle 41.8 x 15.2 m about (0, 1.3)
+    const school = { id: 's', asset: 'school', x: -40, y: 10, z: 0, rotation: 0.5, scale: 1 };
+    map.objects = [school];
+    const c = Math.cos(school.rotation);
+    const s = Math.sin(school.rotation);
+    // A point in the school's own x and z, on the map (object-ground.ts)
+    const local = (x: number, z: number): [number, number] => {
+      const g = mapToGeo({ x: school.x - (x * c + z * s), y: school.y - x * s + z * c });
+      return [g.lat, g.lon];
+    };
+    const surface = new CustomMapSurface(map, frame);
+    surface.setObjectCatalog([{ id: 'school', footprint: 20.9, blocksBuild: true, height: 14, box: [0, 1.3, 20.9, 7.6] }]);
+    // 4 m off its long side: free for a 3 m tower (the disc reached 21 m, over the street)
+    expect(surface.buildBlocker(...local(0, 1.3 + 7.6 + 4), 3)).toBeNull();
+    expect(surface.buildBlocker(...local(0, 1.3 - 7.6 - 4), 3)).toBeNull();
+    expect(surface.buildBlocker(...local(0, 1.3 + 7.6 + 2), 3)).toBe(BUILD_BLOCKED_OBJECT);
+    // Along its length up to the disc
+    expect(surface.buildBlocker(...local(19, 1.3), 3)).toBe(BUILD_BLOCKED_OBJECT);
+    expect(surface.buildBlocker(...local(24.5, 1.3), 3)).toBeNull();
+    // Without the rectangle (an older catalogue) the disc holds as before
+    surface.setObjectCatalog([{ id: 'school', footprint: 20.9, blocksBuild: true }]);
+    expect(surface.buildBlocker(...local(0, 1.3 + 7.6 + 4), 3)).toBe(BUILD_BLOCKED_OBJECT);
+  });
+
   it("knows the roofs of a map's houses for the intro flight's skyline", () => {
     const map = testMap();
     map.objects = [{ id: 'o1', asset: 'house', x: -50, y: 20, z: 0, rotation: 0, scale: 1.5 }];

@@ -127,19 +127,11 @@ eigenen Karten, Coop-Protokoll 5). Vier Worker-Branches darauf laufen (Abschnitt
       (z. B. Marktstand-Dach) sind im Spiel von schräg unten nicht zu sehen; bestand schon vorher.
 - [ ] **E197 Echter Rauchsäulen-Effekt** (2026-10-15, Befund fx-maps-hot2): Rauchsäulen sind gestapelte `fx-smoke`
       und wirken im Standbild fleckig; ein eigener Effekt für hohe, ziehende Säulen (Ember Crater, Brände).
-- [ ] **E198 OSM-Welt: Gebäude passend und vielfältig** (User, 2026-10-15, Erlenbach 74235 im Editor): Ein Ort aus
-      überwiegend Einfamilienhäusern mit Satteldach (rot oder schwarz) erscheint als Feld gleicher Wohnblöcke. Prüfen,
-      warum die Artwahl (`building-tags.ts`) dort Blöcke statt `house-modern`/`house-semi` nimmt (vermutlich `building=yes`
-      ohne Geschosse und Rückfall), und mehr Varianz: Dachfarben, Dachformen, Größen, Drehung, Nebengebäude. Fehlende
-      Arten aus dem O4-Bericht (kleines Geschäftshaus, Anbau, Nebengebäude, Unterstand, Scheune) mit E179.
 - [ ] **E199 New game auf einer Kartenwelt: Ergebnisliste abgeschnitten** (User, 2026-10-15): Unter „A map of a real
       place“ ist der Dialog zu niedrig, die Treffer der Ortssuche scrollen in einem schmalen Streifen. Dialoghöhe bzw.
       Trefferliste so, dass mehrere Treffer sichtbar sind.
 - [ ] **E200 Editor-Ansicht „Look“ auf OSM-Karten** (2026-10-15, Befund fx-osm2, im Bild bestätigt): die rund 2000
       Wegknoten erscheinen als große helle Scheiben und decken die Karte zu; in Look ausblenden oder klein zeichnen.
-- [ ] **E201 Bauverbot um Gebäude als Kreis** (2026-10-15, Befund fx-osm4): Bauverbot und Sitzhöhe rechnen mit
-      footprint × Skala als Kreis; lange Gebäude sperren über die Straße hinaus (Schule 46 m: 21 m Radius). Grundriss
-      als Rechteck nehmen.
 - [ ] **E202 Ferne Berge am Kartenrand besser texturieren** (User, 2026-10-15, Moon Base): das unerreichbare Gebirge
       ringsum (Schürze, `terrain-apron.ts`, Farbe aus `apron-paint.ts`) wirkt flach und grob; mehr Struktur (Fels an
       Steilhängen, Detail- oder Makrotextur, Schattierung nach Hangneigung), für alle Karten.
@@ -251,6 +243,10 @@ Nachtest-Liste in `tmp/NEXT_SESSION.md`, kommt nach PLAYTEST.md, wenn der User Z
 - [ ] **E171 Teil 1** MCP-Server in der Desktop-App ([AGENT_MCP.md](docs/AGENT_MCP.md)), `run_script`, 19 Werkzeuge.
 - [ ] **E153 Desktop auf der starken GPU**: in 0.7.1 ausgeliefert, auf dem Laptop geprüft (PLAYTEST A3.3); nach DONE
       auf Zuruf.
+- [ ] **E198 OSM-Häuser**: Einfamilienhäuser statt Reihenhaus-Reihen und Blöcke (Nachbarschaft unter 180 m², Block erst ab
+      400 m²), Modellwahl per Salz, Tönung je Grundriss; Erlenbach 74235 im Editor ansehen.
+- [ ] **E201 Bauverbot als Rechteck**: Gebäude und Mauern sperren und sitzen nach ihrem gedrehten Rechteck (Katalog `box`);
+      neben einer langen Schule bauen, Sitz am Hang.
 
 ### Nachtschicht 2026-10-14 (Branch `night/custom-maps-round2`, nicht gepusht)
 
