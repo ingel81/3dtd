@@ -688,12 +688,12 @@ eingefrorenen Probe (Katalog-Modelle, keine Objekte auf Straßen oder in der Luf
 - **Freihalten:** ein Modell, dessen Wandkasten eine Straße berührt (Pfade mit halber Breite, Gehwege laufen an den
   Wänden), schrumpft zur Rückseite hin bis Skala 0,8; sonst fällt es weg. Weg fällt auch, was mit einer Ecke in einer
   OSM-Wasserfläche oder im Wasser der Karte steht oder näher als 14 m am HQ.
-- **Budget:** Gebäude kommen vor den Pflanzen (nach HQ und Spawns) und dürfen 60 % von `SCENE_BUDGET` ausgeben
-  (`BUILDING_BUDGET_SHARE`). Darüber fallen ganze Grundrisse, die kleinsten fern vom HQ zuerst (Fläche geteilt durch
-  1 + Abstand/400 m). Stützmauern kommen danach und zählen nicht in die Grenze (Stuttgart 65 % statt 60 %). Die
-  Pflanzen (O3) bekommen, was die Gebäude übrig lassen, höchstens ihre 50 % (`PLANT_BUDGET_SHARE`): zusammen nie über
-  100 %. Die Pflanzen meiden die OSM-Grundrisse selbst. Den Katalog bekommt der Worker aus `OsmFrameComponent.make()`
-  (`buildingCatalog`: nur die Gebäudemodelle und die Stützmauer).
+- **Budget:** keine Grenze für Gebäude (User, 2026-10-15): jeder Grundriss steht, der Bericht nennt die
+  Szenenkosten; geregelt wird später. Die Grenze bleibt als `BUILDING_BUDGET_SHARE` (heute `Infinity`) bzw. Option
+  `budget`: darüber fallen ganze Grundrisse, die kleinsten fern vom HQ zuerst (Fläche geteilt durch 1 + Abstand/400 m);
+  mit 0,6 standen in Stuttgart 2 454 von 7 938. Gebäude kommen vor den Pflanzen (nach HQ und Spawns); die Pflanzen
+  (O3) meiden die OSM-Grundrisse und halten ihren eigenen Anteil (`PLANT_BUDGET_SHARE`, 50 %). Den Katalog bekommt der
+  Worker aus `OsmFrameComponent.make()` (`buildingCatalog`: nur die Gebäudemodelle und die Stützmauer).
 - **Hang:** der Boden unter Wandkasten plus 0,6 m wird auf die tiefste Ecke abgetragen (auch die acht Punkte, mit
   denen der Renderer ein Gebäude setzt, `object-seat.ts`), nie unter einer Straße (halbe Breite plus 0,5 m) oder im
   Wasser; `z` bleibt 0, die Prüfung findet nichts in der Luft. Aufgeschüttet wird nichts: mit der tiefsten Ecke liegt
@@ -727,9 +727,12 @@ nicht darüber.
 
 ### Offen nach O4
 
-- **Stuttgart verliert 53 % der Grundrisse ans Budget.** Die Stadtmodelle zeichnen ihre LOD1 (1 400 bis 1 700
-  Dreiecke) bis 3 km; eine zweite Fernstufe (rund 100 Dreiecke ab 700 m) senkt die Kosten je Blockmodul nach
-  `scene-cost.ts` gerechnet auf weniger als die Hälfte (`block-row-4` rund 1 600 auf 660 Punkte). Vorschlag für die Modell-Worker; danach den Anteil neu messen.
+- **Ohne Grenze (Stand nach dem Merge mit O2/O3, Pflanzen dabei):** Stuttgart 6 696 von 7 938 Grundrissen, 16 983
+  Objekte (4 934 Stützmauern), Gebäude 99 % der Szenenkosten, mit Pflanzen 103 %; Bildzeit Median 7,8 ms (Miltenberg
+  4,7 ms, Gebäude 44 %, gesamt 52 %), 2 588 Draw Calls, 20,6 M Dreiecke, headless wie oben. Die Tabelle oben ist mit
+  der damaligen Grenze 0,6 gemessen. Die Stadtmodelle zeichnen ihre LOD1 (1 400 bis 1 700 Dreiecke) bis 3 km; eine
+  zweite Fernstufe (rund 100 Dreiecke ab 700 m) senkt die Kosten je Blockmodul nach `scene-cost.ts` gerechnet auf
+  weniger als die Hälfte (`block-row-4` rund 1 600 auf 660 Punkte). Vorschlag für die Modell-Worker, danach regeln.
 - **Fehlende Arten** (Teile, für die kein Modell der eigenen Art passt, über die drei Proben, häufigste zuerst):
   kleines Büro- und Geschäftshaus 8 bis 15 m Front, 3 bis 5 Geschosse (Stuttgart nimmt dafür Blockmodule);
   schmaler Anbau oder Flügel, 4 bis 6 m tief und 6 bis 15 m lang; Nebengebäude 4 × 4 bis 6 × 6 m (größer als das
