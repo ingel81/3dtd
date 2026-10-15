@@ -105,11 +105,14 @@ export function buildMoonBase(): CustomMapDocument {
   k.place('lander', pad.x + 2, pad.y + 1, { rotation: 0.6 });
   for (const [dx, dy] of [[-20, 6], [-22, -6]] as const) if (k.free(pad.x + dx, pad.y + dy, 3)) k.place('fuel-tanks', pad.x + dx, pad.y + dy, { rotation: 0.2 });
   // Floodlight masts by the pad and round the hub, lit under the black sky
-  for (const a of [0.5, 3.7]) {
-    const p = { x: pad.x + Math.cos(a) * 12, y: pad.y + Math.sin(a) * 12 };
-    if (k.free(p.x, p.y, 1)) k.place('floodlight-mast', p.x, p.y, { rotation: facing(p, pad) });
-  }
-  for (const p of ring(46, 3, 0.9)) if (k.free(p.x, p.y, 1)) k.place('floodlight-mast', p.x, p.y, { rotation: facing(p, hq) });
+  // A red warning light blinking on top of each mast
+  const mast = (p: MapPoint, toward: MapPoint) => {
+    if (!k.free(p.x, p.y, 1)) return;
+    k.place('floodlight-mast', p.x, p.y, { rotation: facing(p, toward) });
+    k.place('fx-beacon', p.x, p.y, { z: 13.2 });
+  };
+  for (const a of [0.5, 3.7]) mast({ x: pad.x + Math.cos(a) * 12, y: pad.y + Math.sin(a) * 12 }, pad);
+  for (const p of ring(46, 3, 0.9)) mast(p, hq);
   // The launch site out on the plain south-west: the rocket on its own pad with its tower, a fuel farm beside it
   const launch = { x: -55, y: -115 };
   k.level(launch, { radius: 22, falloff: 0.5 }, k.h(launch.x, launch.y));
@@ -151,7 +154,12 @@ export function buildMoonBase(): CustomMapDocument {
   }
   k.scatter(['moon-boulder', 'moon-rock', 'moon-rocks-small'], [{ x: -200, y: 80 }, { x: 100, y: 180 }, { x: -150, y: -200 }, { x: 220, y: -150 }, { x: 0, y: -120 }], { radius: 60, strength: 0.7 }, { density: 2.5, minDistance: 5, scaleMin: 0.6, scaleMax: 1.6 });
 
-  // TODO(E190): blinking position lights on the masts, the radar dish turning, a rover driving its loop, radio noise
+  // ---- Life: rovers driving the track out to the launch site and the one to the solar field; the dishes turn on
+  // their own (the catalogue's spin)
+  k.lifeRoute('movers', [{ x: pad.x - 14, y: pad.y - 8 }, { x: -30, y: -80 }, { x: launch.x + 10, y: launch.y + 14 }], { asset: 'rover', speed: 1.6 });
+  k.lifeRoute('movers', [{ x: hq.x + 30, y: hq.y + 20 }, { x: hq.x + 62, y: hq.y + 48 }, { x: hq.x + 96, y: hq.y + 64 }], { asset: 'rover', speed: 1.4 });
+  // TODO(E190): the position lights on the crest flicker (beacon-post's light), they should blink; radio hiss in the
+  // station (a sound area) once the ambient sounds have a radio loop
   k.trimLayers(7);
   // Hard light from a low sun: long shadows show every crater, the sky stays black; the Earth over the north rim,
   // half lit from the sun's side
