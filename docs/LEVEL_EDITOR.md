@@ -250,8 +250,9 @@ Tags des Katalogs und Suche (Name, Id oder Tag).
 - Leben setzen: die Effekte der Palette (Kategorie Effects, ohne Modell) sind Objekte wie alle, mit Verlauf, Auswahl,
   Kopieren, Symmetrie und `map.place` in Skripten und über MCP. Vogelschwarm (`fx-birds`, Effekt `birds`: kreist mit
   10 Vögeln 45 m weit in 50 m Höhe über dem Punkt, mit der Skalierung größer, höher und mehr Vögel), Glühwürmchen
-  (`fx-fireflies`), Rauchsäule (`fx-smoke`), Glut (`fx-embers`), Bodennebel, Laub, Schneegestöber, Funkeln. Bei
-  Effekt-Objekten macht die Skalierung die Fläche größer und dichter (Teilchen mal Skalierung zum Quadrat), die
+  (`fx-fireflies`), Rauch (`fx-smoke`), hohe Rauchsäule (`fx-smoke-column`, 40 m, zieht mit dem Wind), Glut
+  (`fx-embers`), Bodennebel, Laub, Schneegestöber, Funkeln. Bei Effekt-Objekten macht die Skalierung die Fläche
+  größer und dichter (Teilchen mal Skalierung zum Quadrat; die Rauchsäule höher, breiter, Puffs nur linear mehr), die
   Tönung (Tint im Auswahl-Panel) färbt die Teilchen. Ohne gesetzte Schwärme oder Glühwürmchen bringt die Karte eigene
   mit (CUSTOM_MAPS.md, „Leben aus dem Karteninhalt“): sobald einer gesetzt ist, gelten nur die gesetzten. Häuser mit
   Schornstein rauchen von selbst, ein von Hand gesetzter Rauch über dem Haus ersetzt den Schornsteinrauch.

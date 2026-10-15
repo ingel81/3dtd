@@ -547,6 +547,7 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | highway-collapsed | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/asphalt_02 |
 | fx-fireflies | Effekt des Renderers, kein Modell |
 | fx-smoke | Effekt des Renderers, kein Modell |
+| fx-smoke-column | Effekt des Renderers, kein Modell |
 | fx-embers | Effekt des Renderers, kein Modell |
 | fx-fog | Effekt des Renderers, kein Modell |
 | fx-leaves | Effekt des Renderers, kein Modell |

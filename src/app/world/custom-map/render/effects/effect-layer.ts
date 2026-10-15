@@ -43,6 +43,9 @@ export const POINT_LIGHTS = 6;
 
 /** Catalogue intensity 1 in three's units (candela-ish): a lantern */
 const CANDELA = 18;
+/** The light glowing lava throws up into smoke over it */
+const LAVA_GLOW = '#ff6a20';
+
 /**
  * Most light a point light may throw on the ground right under it. A low,
  * strong light (lava pool, campfire) otherwise burns a white disc into what
@@ -159,7 +162,7 @@ export class EffectLayer {
     this.placedFireflies = false;
     const life = lifeSwitches(this.life);
     // Smoke placed by hand (fx-smoke over a house, a level script's chimney) stands for the house's own chimney
-    const placedSmoke = objects.filter((o) => entries.get(o.asset)?.effects?.some((fx) => fx.kind === 'smoke' && !fx.at));
+    const placedSmoke = objects.filter((o) => entries.get(o.asset)?.effects?.some((fx) => (fx.kind === 'smoke' || fx.kind === 'column') && !fx.at));
     for (const o of objects) {
       const e = entries.get(o.asset);
       if (!e?.effects && !e?.light) continue;
@@ -217,15 +220,20 @@ export class EffectLayer {
           if (placedSmoke.some((p) => p !== o && Math.hypot(p.x - o.x, p.y - o.y) < reach)) continue;
           from = new Vector3(fx.at[0] * s, 0, fx.at[1] * s).applyQuaternion(q.setFromAxisAngle(up, o.rotation)).add(origin);
         }
+        const column = kind === 'column';
         push(emitters, {
           kind,
           origin: from,
           radius: (fx.radius ?? (kind === 'fire' ? 0.15 : e.footprint)) * s,
-          height: (fx.height ?? (kind === 'leaves' ? e.height * 0.8 : 0)) * s,
-          // An area effect of the map maker's (category fx) grows denser with its scale, and takes its tint
-          count: this.share(particleCount(kind, fx.rate) * (e.category === 'fx' ? Math.max(0.3, s * s) : fx.at ? life.density : 1)),
+          // A column's height is how high it rises, the object's own by default
+          height: (fx.height ?? (kind === 'leaves' ? e.height * 0.8 : column ? e.height : 0)) * s,
+          // An area effect of the map maker's (category fx) grows denser with its scale, and takes its tint; a
+          // column's puffs grow with it instead, so it needs only a few more
+          count: this.share(particleCount(kind, fx.rate) * (column ? Math.max(0.5, s) : e.category === 'fx' ? Math.max(0.3, s * s) : fx.at ? life.density : 1)),
           color: (e.category === 'fx' && o.tint) || fx.color,
-          scale: kind === 'fog' || kind === 'smoke' ? s : Math.sqrt(s),
+          scale: kind === 'fog' || kind === 'smoke' || column ? s : Math.sqrt(s),
+          // A column over lava glows orange at its foot, one over a fire in its light's colour
+          glow: column ? (this.lavaAt(o.x, o.y) ? LAVA_GLOW : e.light?.color) : undefined,
         });
       }
       if (e.light) {
