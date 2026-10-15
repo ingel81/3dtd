@@ -24,7 +24,13 @@ Ufer); `shipped-maps-check.spec.ts` verlangt dasselbe. Ändert ein späterer Sch
 Straße), füllt `fillToRim` ihn bis knapp unter seinen Rand, `fill` lässt ihn bei seinem Spiegel über den tieferen Boden
 laufen. Wo Stadt an Wasser grenzt, baut `quay(line, { top, bed, land })` eine Kaimauer: das Land auf einer Seite eben auf
 `top`, das Wasser auf `bed`, eine senkrechte Stufe dazwischen, die das Klippenmaterial der Karte zeigt (Steinblöcke
-statt Erdböschung), Poller an der Kante und Laternen auf der Promenade.
+statt Erdböschung), Poller an der Kante und Laternen auf der Promenade. Felsküsten baut `rockyCoast(line, { land, top })`
+auf einer Uferlinie (`shoreAround(center, from, to)` findet sie rund um eine Insel, gegen den Uhrzeigersinn, Land links):
+das Land steigt zu einer Klippe von `top` Metern mit ausgefranster Wand und einem Absatz dahinter, der Meeresboden davor
+sinkt auf `bed`; es hebt nur Land und vertieft nur Meer, die Enden laufen aus, Straßen bleiben. Klippenfelsen
+(`rocks`, Standard `cliff-coast`; an engen Bögen der nächstkleinere der Liste) stehen an der Wand von 1,5 m unter dem
+Wasser bis zur Kante, Steine in der Brandung davor. Danach `sea` erneut. `cliffRocks(where, brush)` ist der Pinsel
+Cliff rocks des Editors (Felswände auf steilen Flanken).
 
 Packen: `npx vitest run tools/maps/shipped-maps.spec.ts -t <id>` (mit `LEVEL_LOG=1` Spuren, Objekte, Warnungen) (ein Level allein; die Liste in `index.json` behält
 die anderen). Ansehen: `/map-preview?map=<id>&cam=x,y,h,tx,ty,th&clean` (Kamera und Ziel in Kartenmetern, Höhen über

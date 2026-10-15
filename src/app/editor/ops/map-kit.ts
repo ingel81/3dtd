@@ -31,7 +31,7 @@ import { LandscapeStroke } from './landscape/landscape-stroke';
 import { resample, simplify } from './landscape/lines';
 import { carveRiver, DEFAULT_RIVER, type RiverOptions, type RiverResult } from './landscape/river';
 import { buildRoad, DEFAULT_ROAD, type RoadOptions, type RoadResult } from './landscape/road';
-import { cliffAlong, formDab, type FormKind } from './landscape/shapes';
+import { cliffAlong, coastAlong, formDab, type FormKind } from './landscape/shapes';
 import {
   ObjectGrid,
   ObjectIds,
@@ -40,6 +40,7 @@ import {
   rockShape,
   levelsGround,
   levelUnderBuilding,
+  MAX_SINK,
   objectsAlong,
   setDown,
   wallAlong,
@@ -270,6 +271,106 @@ export class MapKit {
         if (rect) s.changed({ heights: rect });
       }
     });
+  }
+
+  /**
+   * A rocky coast along a line drawn on the shore, the land on one side
+   * (`land`, left or right of the line's direction): the land rises to a
+   * cliff of `top` metres with a ragged face at the line and a shelf behind
+   * it (`shelf`, 6 m), falling back to the land's own height at `grade` (0.35
+   * m per metre); the sea floor at its foot sinks to `bed` (-3 m). It only
+   * raises land and deepens sea, its ends taper into the shore as it was,
+   * roads keep their ground. Cliff rocks (`rocks`, cliff-coast; null none)
+   * line the face from under the water to the shelf's edge, their face to the
+   * sea, and stones (`surf`; null none) break the water before it. Fill the
+   * sea again after it (`sea`). Returns the objects placed.
+   */
+  rockyCoast(
+    line: readonly MapPoint[],
+    o: { land: 'left' | 'right'; top: number; bed?: number; shelf?: number; grade?: number; rocks?: readonly string[] | null; surf?: readonly string[] | null },
+  ): MapObject[] {
+    const drawn = o.land === 'left' ? line : [...line].reverse();
+    const rocks = o.rocks === undefined ? ['cliff-coast'] : (o.rocks ?? []);
+    const surf = o.surf === undefined ? ['rock-large', 'rock-granite', 'boulder'] : (o.surf ?? []);
+    for (const a of [...rocks, ...surf]) if (!this.catalog.objects.has(a)) throw new Error(`${this.name}: ${this.catalog.unknown('asset', a)}`);
+    this.stroke('Rocky coast', (s) => {
+      s.symmetry = 'none';
+      for (const l of this.images(drawn)) {
+        const rect = coastAlong(s, l, { top: o.top, bed: o.bed ?? -3, shelf: o.shelf ?? 6, grade: o.grade ?? 0.35, reach: 40 });
+        if (rect) s.changed({ heights: rect });
+      }
+    });
+    this.freeCheck = null;
+    const out: MapObject[] = [];
+    const level = this.doc.terrain.water?.level ?? 0;
+    this.freeCheck = new LandscapeStroke(this.editor, 'check', 1, this.catalog);
+    const check = this.freeCheck;
+    const length = polylineLength(drawn);
+    // Along the line: where it runs, its land side (left) and its sea side
+    const frame = (d: number) => {
+      const p = pointAt(drawn, d);
+      const q = pointAt(drawn, Math.min(length, d + 1));
+      const r = pointAt(drawn, Math.max(0, d - 1));
+      const dl = Math.hypot(q.x - r.x, q.y - r.y) || 1;
+      return { p, land: { x: -(q.y - r.y) / dl, y: (q.x - r.x) / dl } };
+    };
+    // Cliff rocks along the face: where the ground falls through the middle of the cliff, from 1.5 m under the water
+    // to just over the shelf, a little more than their width apart; none where the cliff tapers out or on a road
+    // Smallest last: where a piece's ends would stand out in open water (a tight bend of the shore) a smaller one goes
+    const bySize = [...rocks].sort((a, b) => this.catalog.object(b).radius - this.catalog.object(a).radius);
+    for (let d = 0, k = 0; rocks.length && d < length; k++) {
+      const { p, land } = frame(d);
+      const at = (off: number) => ({ x: p.x + land.x * off, y: p.y + land.y * off });
+      const shelf = this.h(at(8).x, at(8).y);
+      d += 4;
+      if (shelf < level + 1.5) continue;
+      const mid = (shelf + level) / 2;
+      let face: MapPoint | null = null;
+      for (let off = 8; off >= -8; off -= 0.5) {
+        if (this.h(at(off).x, at(off).y) < mid) {
+          face = at(off);
+          break;
+        }
+      }
+      if (!face) continue;
+      const ground = this.h(face.x, face.y);
+      const bottom = Math.min(level - 1.5, ground);
+      const first = rocks[Math.floor(this.noise.hash(k, 7, 91) * rocks.length) % rocks.length];
+      const fits = (asset: string): { asset: string; scale: number; half: number } | null => {
+        const entry = this.catalog.object(asset);
+        const scale = Math.min(2, Math.max(0.5, (shelf + 0.4 - bottom) / entry.height));
+        const half = entry.radius * scale * 0.7;
+        for (const side of [-1, 1]) {
+          // Its end, a few metres in: still on the shore
+          const end = { x: face!.x - land.y * half * side + land.x * 4, y: face!.y + land.x * half * side + land.y * 4 };
+          if (this.h(end.x, end.y) < level - 1) return null;
+        }
+        return check.roadDistance(face!.x, face!.y, half * 2) < half ? null : { asset, scale, half };
+      };
+      const pick = fits(first) ?? bySize.slice(bySize.indexOf(first) + 1).map(fits).find((f) => f) ?? null;
+      if (!pick) continue;
+      // The model's north to the sea, its width along the coast
+      const rotation = Math.atan2(land.x, -land.y);
+      out.push(this.place(pick.asset, face.x, face.y, { rotation, scale: pick.scale, z: bottom - ground }));
+      d += pick.half * 1.25 - 4;
+    }
+    if (!surf.length || !this.doc.terrain.water) return out;
+    // Stones in the surf every 7 m, about half of them, 3 to 9 m out, standing out of the water
+    for (let d = 4, k = 0; d < length - 4; d += 7, k++) {
+      if (this.noise.hash(k, 3, 91) < 0.45) continue;
+      const { p, land } = frame(d);
+      const off = 3 + 6 * this.noise.hash(k, 4, 91);
+      const at = { x: p.x - land.x * off, y: p.y - land.y * off };
+      const ground = this.h(at.x, at.y);
+      if (ground > level - 0.3 || check.roadDistance(at.x, at.y, 8) < 4) continue;
+      const asset = surf[k % surf.length];
+      const entry = this.catalog.object(asset);
+      // Tall enough to show though it settles up to MAX_SINK into the floor; none where it would have to be huge
+      const need = (level - ground + 0.4 + 0.8 * this.noise.hash(k, 5, 91)) / (entry.height * (1 - MAX_SINK));
+      if (need > 3) continue;
+      out.push(this.place(asset, at.x, at.y, { rotation: this.noise.hash(k, 6, 91) * Math.PI * 2, scale: Math.max(0.6, need) }));
+    }
+    return out;
   }
 
   /** Rain erosion: `drops` dabs along `where` */
@@ -586,6 +687,33 @@ export class MapKit {
   /** Sea from the edge */
   sea(body = -1): number {
     return fillFromEdge(this.doc.terrain, body);
+  }
+
+  /**
+   * The shore of the land round `center` between two directions (radians,
+   * counter-clockwise from east): going out from the centre, where the
+   * ground first falls under `level` (the main water's, else 0), a point
+   * about every `step` metres. It runs counter-clockwise, so the land lies
+   * on its left (rockyCoast with `land: 'left'`); directions without a shore
+   * within `max` metres are left out.
+   */
+  shoreAround(center: MapPoint, from: number, to: number, o: { level?: number; step?: number; max?: number } = {}): MapPoint[] {
+    const level = o.level ?? this.doc.terrain.water?.level ?? 0;
+    const max = o.max ?? 200;
+    const out: MapPoint[] = [];
+    const turns = Math.max(2, Math.ceil(((to - from) * 180) / Math.PI));
+    for (let k = 0; k <= turns; k++) {
+      const a = from + ((to - from) * k) / turns;
+      for (let r = 1; r <= max; r += 0.5) {
+        const p = { x: center.x + Math.cos(a) * r, y: center.y + Math.sin(a) * r };
+        if (Math.abs(p.x) > this.half || Math.abs(p.y) > this.doc.terrain.depth / 2) break;
+        if (this.h(p.x, p.y) < level) {
+          out.push(p);
+          break;
+        }
+      }
+    }
+    return out.length > 1 ? resample(out, o.step ?? 6) : out;
   }
 
   // ---- Objects tool --------------------------------------------------------------------------------------------

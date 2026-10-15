@@ -48,3 +48,67 @@ describe('MapKit.fillToRim', () => {
     expect(waterInAir(k.doc)).toEqual([]);
   });
 });
+
+describe('MapKit.rockyCoast', () => {
+  it('raises a ragged cliff over the sea along the shore, rocks on its face and stones in the surf, and leaves the rest', () => {
+    const k = kit();
+    const t = k.doc.terrain;
+    // Low land to the north, the sea 4 m deep to the south, a hill far inland
+    const g = t.grid;
+    for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) g.heights[j * g.columns + i] = j * g.cellSize - 128 > 0 ? 1 : -4;
+    k.raise({ x: 0, y: 90 }, { radius: 20, falloff: 0.2 }, 11);
+    const hill = k.h(0, 90);
+    k.sea(k.water(0, 'sea'));
+    const placed = k.rockyCoast([{ x: -100, y: 0 }, { x: 100, y: 0 }], { land: 'left', top: 7 });
+    // The shelf over the sea, the step down to the floor at its foot within a few metres
+    const along = [-60, -40, -20, 0, 20, 40, 60];
+    expect(Math.min(...along.map((x) => k.h(x, 8)))).toBeGreaterThan(5);
+    expect(Math.max(...along.map((x) => k.h(x, -9)))).toBeLessThan(-2.5);
+    // Inland, past the ends and the hill: as they were
+    expect(k.h(0, 60)).toBeCloseTo(1, 5);
+    expect(k.h(125, 10)).toBeCloseTo(1, 5);
+    expect(k.h(0, 90)).toBeCloseTo(hill, 5);
+    const rocks = placed.filter((o) => o.asset === 'cliff-coast');
+    expect(rocks.length).toBeGreaterThanOrEqual(5);
+    for (const o of rocks) {
+      expect(Math.abs(o.y)).toBeLessThan(12);
+      // From under the water to the cliff's edge (lower where it tapers out at the ends), the face to the sea (south)
+      expect(k.h(o.x, o.y) + o.z).toBeLessThan(-1);
+      if (Math.abs(o.x) < 80) expect(k.h(o.x, o.y) + o.z + index.object(o.asset).height * o.scale).toBeGreaterThan(5);
+      expect(Math.abs(Math.abs(o.rotation) - Math.PI)).toBeLessThan(0.3);
+    }
+    const stones = placed.filter((o) => o.asset !== 'cliff-coast');
+    expect(stones.length).toBeGreaterThan(0);
+    for (const o of stones) {
+      expect(o.y).toBeLessThan(0);
+      // Each stone shows over the water
+      expect(k.h(o.x, o.y) + o.z + index.object(o.asset).height * o.scale).toBeGreaterThan(0);
+    }
+  });
+
+  it('finds the shore round an island, counter-clockwise, the land on its left', () => {
+    const k = kit();
+    k.doc.terrain.grid.heights.fill(-5);
+    k.level({ x: 10, y: -20 }, { radius: 40, falloff: 0.1 }, 3);
+    const shore = k.shoreAround({ x: 10, y: -20 }, 0, Math.PI);
+    expect(shore.length).toBeGreaterThan(8);
+    for (const p of shore) {
+      expect(Math.hypot(p.x - 10, p.y + 20)).toBeGreaterThan(33);
+      expect(Math.hypot(p.x - 10, p.y + 20)).toBeLessThan(42);
+      expect(p.y).toBeGreaterThan(-21);
+    }
+    // From east round by north to west
+    expect(shore[0].x).toBeGreaterThan(40);
+    expect(shore[shore.length - 1].x).toBeLessThan(-20);
+  });
+
+  it('runs the Cliff rocks brush over steep ground only', () => {
+    const k = kit();
+    k.cliff([{ x: -60, y: 0 }, { x: 60, y: 0 }], 10, 20);
+    const flat = k.cliffRocks({ x: 0, y: -60 }, { radius: 15 });
+    expect(flat).toEqual([]);
+    const ids = k.cliffRocks([{ x: -40, y: 0 }, { x: 40, y: 0 }], { radius: 8 });
+    expect(ids.length).toBeGreaterThan(2);
+    for (const id of ids) expect(Math.abs(k.doc.objects.find((o) => o.id === id)!.y)).toBeLessThan(10);
+  });
+});
