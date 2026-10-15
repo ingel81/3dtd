@@ -32,7 +32,9 @@ ohne die Datei zu laden), bietet ein Banner „Fresh copy“ (neue Kopie, die al
   Während des Anlegens steht der Stand in der Knopfzeile des Formulars („Painting the land 40 %“, dann „Opening the
   editor“), das Formular bleibt bis zum Wechsel gesperrt und springt nicht (früher schob eine eigene Zeile dafür die
   Liste über die Höhe, ein Rollbalken kam und ging und die Vorlagen sprangen von sechs auf fünf Spalten und zurück);
-  bis die Ansicht ihre Programme übersetzt hat, steht dort „Preparing the view“
+  bis die Ansicht ihre Programme übersetzt hat, steht dort „Preparing the view“; bis dahin zeichnet die Ansicht
+  nichts (vorher stand gut eine Sekunde der grüne Ersatzboden, bevor die Bodenfarben da waren), ein neu gebauter
+  Boden (Größe geändert, Kontext zurück) behält bis dahin das letzte Bild
 - **New map, From a real place:** der zweite Start neben „A landscape“: Ortssuche, dann derselbe Rahmen wie im Menü
   (flache Karte mit dem 2,4-km-Quadrat, HQ, ziehbare Spawns, „Make the map“); die erzeugte Karte ist schon gespeichert
   und öffnet sich im Editor. Ablauf und Regeln in [OSM_WORLD_PLAN.md](OSM_WORLD_PLAN.md#phase-o2-gebaut-2026-10-15)

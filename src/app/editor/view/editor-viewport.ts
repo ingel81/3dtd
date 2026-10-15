@@ -120,6 +120,12 @@ export class EditorViewport {
   private waterAt = 0;
   private waterWaiting = false;
   private routesDirty = true;
+  /**
+   * The view whose ground is in and programs built (warmUpView): frames draw
+   * only then, so a map opening shows the page's "Preparing the view" and a
+   * rebuilt view the last frame, not the terrain's green stand-in ground
+   */
+  private shownView: EditorMapView | null = null;
   /** The bridge decks of the map as it stands, laid again after a change (walkHeightAt) */
   private decks: BridgeDeck[] | null = null;
   /** The symmetry the guides show, and whether the ground under them moved */
@@ -470,6 +476,7 @@ export class EditorViewport {
     try {
       await view.warmUp(this.renderer, this.scene, this.camera);
       if (this.disposed || view !== this.view) return;
+      this.shownView = view;
       this.callbacks.viewReady();
       await idle(2000);
       if (this.disposed || view !== this.view) return;
@@ -486,7 +493,8 @@ export class EditorViewport {
       // What was compiled ahead does its first-use work now, not in the frame of a click that first draws it
       await firstUsePrograms(this.renderer, () => this.disposed || view !== this.view);
     } catch {
-      // A view replaced or lost while compiling
+      // A view replaced or lost while compiling; a view still current draws as it is
+      if (!this.disposed && view === this.view) this.shownView = view;
     } finally {
       topDownWarm();
     }
@@ -1136,7 +1144,7 @@ export class EditorViewport {
     this.view.update(dt, this.camera, this.controller.current.target);
     this.hearAmbience(dt);
     this.trial.update(dt);
-    this.renderer.render(this.scene, this.camera);
+    if (this.shownView === this.view) this.renderer.render(this.scene, this.camera);
 
     this.reportHover(time, tp?.hit ?? null);
     this.reportStats(time);
