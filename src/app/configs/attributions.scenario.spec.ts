@@ -34,6 +34,10 @@ describe('Attributions of the hero and the world map (playtest 302)', () => {
       expect.objectContaining({ author: 'GEBCO, NASA Visible Earth' }),
       expect.objectContaining({ license: 'Public domain', sourceUrl: 'http://tdc-www.harvard.edu/catalogs/bsc5.html' }),
       expect.objectContaining({ author: 'OpenStreetMap contributors', license: 'ODbL 1.0' }),
+      // Maps made from a real place (docs/OSM_WORLD_PLAN.md): their streets, heights, and the flat map of their frame
+      expect.objectContaining({ author: 'OpenStreetMap contributors', license: 'ODbL 1.0' }),
+      expect.objectContaining({ sourceUrl: 'https://mapterhorn.com' }),
+      expect.objectContaining({ sourceUrl: 'https://openfreemap.org' }),
     ]);
   });
 });

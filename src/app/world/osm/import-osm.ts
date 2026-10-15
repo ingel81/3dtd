@@ -171,15 +171,16 @@ export function convertOsm(input: OsmImportInput, options: OsmImportOptions = {}
 
 const round1 = (v: number): number => Math.round(v * 10) / 10;
 
-/** The address line, id and name of a place's map: "Map of Miltenberg", `osm-miltenberg` (taken ids get a number in the store) */
+/**
+ * The address line, name and id of a place's map: the first part of the
+ * search ("Miltenberg" of "Miltenberg, Bayern, Deutschland"), `osm-miltenberg`
+ * (a taken id gets a number in the store); the coordinates without a search
+ */
 export function osmMapNames(place: { lat: number; lon: number; address?: string }): { address: string; id: string; name: string } {
   const searched = place.address?.trim();
   const address = searched || `${place.lat.toFixed(5)}, ${place.lon.toFixed(5)}`;
-  return {
-    address,
-    id: `osm-${slugMapId(address)}`.slice(0, 64),
-    name: searched ? `Map of ${searched.split(',')[0]}` : `Map at ${address}`,
-  };
+  const name = searched ? searched.split(',')[0].trim() || searched : address;
+  return { address, name, id: `osm-${slugMapId(name)}`.slice(0, 64) };
 }
 
 /** A place's streets before its map is made: the frame draws and drops the spawns on them (OsmLayout) */
