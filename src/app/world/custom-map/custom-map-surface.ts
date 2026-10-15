@@ -68,7 +68,7 @@ export class CustomMapSurface implements WorldSurface {
   readonly field: HeightField;
 
   private readonly bridges: BridgeDeck[];
-  /** Discs (x, y, radius) of the objects that forbid building, in 16 m buckets */
+  /** Discs (x, y, radius, top) of the objects that forbid building, in 16 m buckets; top NaN without a height */
   private blockers: {
     cell: number;
     minX: number;
@@ -214,6 +214,37 @@ export class CustomMapSurface implements WorldSurface {
   }
 
   /**
+   * The top of the highest object that forbids building (a house, a wall, a
+   * tower) whose ground disc covers a local point, local Y; null where none
+   * does. The column's topY knows only the ground and the bridge decks.
+   */
+  skylineAt(localX: number, localZ: number): number | null {
+    const g = this.blockers;
+    if (!g) return null;
+    const x = this.frame.mapX(localX);
+    const y = this.frame.mapY(localZ);
+    let best: number | null = null;
+    const i0 = Math.max(0, Math.floor((x - g.maxRadius - g.minX) / g.cell));
+    const i1 = Math.min(g.columns - 1, Math.floor((x + g.maxRadius - g.minX) / g.cell));
+    const j0 = Math.max(0, Math.floor((y - g.maxRadius - g.minY) / g.cell));
+    const j1 = Math.min(g.rows - 1, Math.floor((y + g.maxRadius - g.minY) / g.cell));
+    for (let j = j0; j <= j1; j++) {
+      for (let i = i0; i <= i1; i++) {
+        const bucket = g.buckets[j * g.columns + i];
+        if (!bucket) continue;
+        for (let k = 0; k < bucket.length; k += 4) {
+          const top = bucket[k + 3];
+          if (Number.isNaN(top) || (best !== null && top <= best)) continue;
+          const dx = bucket[k] - x;
+          const dy = bucket[k + 1] - y;
+          if (dx * dx + dy * dy < bucket[k + 2] * bucket[k + 2]) best = top;
+        }
+      }
+    }
+    return best;
+  }
+
+  /**
    * Why a tower of `radius` may not stand at the point: water under it
    * (inWater), or an object that forbids building (its own `blocksBuild`,
    * else its catalogue entry's) whose ground disc (footprint x scale) comes
@@ -285,7 +316,7 @@ export class CustomMapSurface implements WorldSurface {
       for (let i = Math.max(0, i0); i <= Math.min(g.columns - 1, i1); i++) {
         const bucket = g.buckets[j * g.columns + i];
         if (!bucket) continue;
-        for (let k = 0; k < bucket.length; k += 3) {
+        for (let k = 0; k < bucket.length; k += 4) {
           const r = bucket[k + 2] + radius;
           const dx = bucket[k] - x;
           const dy = bucket[k + 1] - y;
@@ -297,10 +328,11 @@ export class CustomMapSurface implements WorldSurface {
   }
 
   /**
-   * The catalogue's objects (footprint radius at scale 1, whether they forbid
-   * building): from now on buildBlocker sees the map's objects
+   * The catalogue's objects (footprint radius and height at scale 1, whether
+   * they forbid building): from now on buildBlocker and skylineAt see the
+   * map's objects
    */
-  setObjectCatalog(entries: readonly { id: string; footprint: number; blocksBuild: boolean }[]): void {
+  setObjectCatalog(entries: readonly { id: string; footprint: number; blocksBuild: boolean; height?: number }[]): void {
     const byId = new Map(entries.map((e) => [e.id, e]));
     const cell = 16;
     const t = this.doc.terrain;
@@ -318,7 +350,8 @@ export class CustomMapSurface implements WorldSurface {
       maxRadius = Math.max(maxRadius, r);
       const i = Math.min(columns - 1, Math.max(0, Math.floor((o.x - minX) / cell)));
       const j = Math.min(rows - 1, Math.max(0, Math.floor((o.y - minY) / cell)));
-      (buckets[j * columns + i] ??= []).push(o.x, o.y, r);
+      const top = entry?.height === undefined ? NaN : this.field.heightAt(o.x, o.y) + o.z + entry.height * o.scale;
+      (buckets[j * columns + i] ??= []).push(o.x, o.y, r, top);
     }
     this.blockers = { cell, minX, minY, columns, rows, buckets, maxRadius };
   }

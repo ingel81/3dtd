@@ -160,6 +160,15 @@ describe('CustomMapSurface', () => {
     expect(blocking.buildBlocker(...at(25.1, 20), 3)).toBeNull();
   });
 
+  it("knows the roofs of a map's houses for the intro flight's skyline", () => {
+    const map = testMap();
+    map.objects = [{ id: 'o1', asset: 'house', x: -50, y: 20, z: 0, rotation: 0, scale: 1.5 }];
+    const roofs = new CustomMapSurface(map, frame);
+    roofs.setObjectCatalog([{ id: 'house', footprint: 5, blocksBuild: true, height: 8 }]);
+    expect(roofs.skylineAt(frame.sceneX(-50), frame.sceneZ(22))).toBeCloseTo(roofs.heightAtMap(-50, 20) + 12, 5);
+    expect(roofs.skylineAt(frame.sceneX(-50), frame.sceneZ(30))).toBeNull();
+  });
+
   it('forbids building in water: a body under the tower or a river along it, not on the dry bank', () => {
     const map = testMap();
     const g = map.terrain.grid;

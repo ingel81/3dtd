@@ -117,6 +117,12 @@ export interface WorldSurface {
    */
   roofAt(localX: number, localZ: number): number | null;
   /**
+   * The top of the highest object over a local point where the column leaves
+   * it out (a custom map's houses: the map's column knows only its ground and
+   * bridges); null where nothing stands, or where the column has it (tiles)
+   */
+  skylineAt?(localX: number, localZ: number): number | null;
+  /**
    * Why a tower of `radius` metres may not stand at a geographic point
    * (BUILD_BLOCKED_OBJECT: a custom map's houses and trees, BUILD_BLOCKED_WATER:
    * its lakes and rivers); null where it may, and always where the ground

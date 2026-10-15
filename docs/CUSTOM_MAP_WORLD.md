@@ -216,7 +216,9 @@ Eine Karte sagt es selbst: `gameplay.destructible: true` (im Editor unter Rules,
 `CustomMapView` (Renderer der Karte, `render/`) wird beim ersten Anhängen nachgeladen und so
 verschoben, dass der Ursprung des Laufs (das HQ) der Ursprung der Szene ist. Darüber
 `EnvironmentControls` wie in DevWorld, die Kamera beginnt über dem HQ; der Intro-Flug startet am HQ
-und landet in der Übersicht über HQ, Spawns und Routen, wie auf echten Orten. `view.attach(scene)`
+und landet in der Übersicht über HQ, Spawns und Routen, wie auf echten Orten. Die Säule der Karte kennt nur Boden
+und Brückendecks; der Flug nimmt dazu `skylineAt` (Oberkante des höchsten Objekts, das das Bauen sperrt, über einem
+Punkt, aus Fußabdruck und Höhe des Katalogs), sonst flog er auf Harbor Town durch Dächer. `view.attach(scene)`
 hängt die Gruppe und die Sichtblocker (Gelände, blockierende Objekte) als direkte Kinder an die
 Szene; `losBlockers()` gibt die Sichtblocker (der Sichtlinien-Würfel blendet alle anderen Kinder
 aus). Himmel, Sonne mit Schatten, Licht und Nebel bringt die Karte mit

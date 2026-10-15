@@ -1049,7 +1049,9 @@ export class IntroCameraFlightService {
       raycastStats.exit(scope);
     }
     if (column !== null) {
-      this.profile.top[i] = column.topY;
+      // A custom map's houses stand outside its column: the flight clears their roofs too
+      const sky = engine.terrain.skylineAt?.(this.samplePoint.x, this.samplePoint.z) ?? null;
+      this.profile.top[i] = sky !== null && sky > column.topY ? sky : column.topY;
       this.profile.ground[i] = column.groundY;
       this.profile.error[i] = column.tileGeometricError;
     }
