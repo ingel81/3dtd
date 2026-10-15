@@ -12,6 +12,7 @@ import type {
   CustomMapDocument,
   MapEnvironment,
   MapGameplay,
+  MapIntro,
   MapLife,
   MapMeta,
   MapObject,
@@ -430,6 +431,7 @@ export interface DocParts {
   hq: MapPoint;
   environment: MapEnvironment;
   life: MapLife | undefined;
+  intro: MapIntro | undefined;
   meta: MapMeta;
   terrain: MapTerrain;
   prefabs: MapPrefab[] | undefined;
@@ -443,6 +445,7 @@ const PART_CHANGE: Record<keyof DocParts, DocChange> = {
   hq: { markers: true },
   environment: { environment: true },
   life: { life: true },
+  intro: { meta: true },
   meta: { meta: true },
   terrain: { terrain: true, layers: true, water: true },
   prefabs: { meta: true },

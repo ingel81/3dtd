@@ -23,7 +23,8 @@ import {
   WebGLRenderer,
 } from 'three';
 import { SPAWN_COLORS } from '../../configs/map-constants.config';
-import type { MapObject, MapPoint } from '../../world/custom-map/map-document';
+import type { MapIntro, MapIntroView, MapObject, MapPoint } from '../../world/custom-map/map-document';
+import { emptyPose, introPoseAt } from '../../world/custom-map/map-intro';
 import { type BridgeDeck, bridgeDecks, deckHeightAt } from '../../world/custom-map/bridge-decks';
 import { HeightField } from '../../world/custom-map/render/height-field';
 import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
@@ -134,6 +135,9 @@ export class EditorViewport {
   private lastHit: MapHit | null = null;
   private raf = 0;
   private lastTime = 0;
+  /** The map's intro flight playing in the view (Preview), until it ends or a click or the wheel stops it */
+  private introPreview: { intro: MapIntro; t: number; hq: { x: number; y: number; h: number }; done: () => void } | null = null;
+  private readonly introPose = emptyPose();
   private frames = 0;
   private statsTime = 0;
   private hoverTime = 0;
@@ -275,6 +279,52 @@ export class EditorViewport {
     g.distance = v.distance;
     g.yaw = v.yaw;
     g.pitch = v.pitch;
+  }
+
+  /** Where the camera stands and the point it looks at now, in map space (the intro's views) */
+  introView(): MapIntroView {
+    const c = this.camera.position;
+    const t = this.controller.current.target;
+    const r = (v: number) => Math.round(v * 100) / 100 || 0;
+    return { x: r(-c.x), y: r(c.z), h: r(c.y), lookX: r(-t.x), lookY: r(t.z), lookH: r(t.y) };
+  }
+
+  /**
+   * Plays the map's intro flight in the view as the game does (without the
+   * game's swing in and out), then hands the view back as it was; `done`
+   * when it ends or a click or the wheel stops it
+   */
+  previewIntro(intro: MapIntro, done: () => void): void {
+    this.stopIntroPreview();
+    const hq = this.editor.doc.hq;
+    this.introPreview = { intro, t: 0, hq: { x: hq.x, y: hq.y, h: this.heightAt(hq.x, hq.y) }, done };
+  }
+
+  stopIntroPreview(): void {
+    const p = this.introPreview;
+    this.introPreview = null;
+    p?.done();
+  }
+
+  /** One frame of the preview; false when there is none (the controller has the camera) */
+  private playIntroPreview(dt: number): boolean {
+    const p = this.introPreview;
+    if (!p) return false;
+    p.t += dt;
+    if (p.t > p.intro.seconds) {
+      this.stopIntroPreview();
+      return false;
+    }
+    const pose = introPoseAt(p.intro, p.hq, p.t, this.introPose);
+    // As the game keeps it (CustomMapWorld.introShot): never under the ground
+    const floor = this.heightAt(pose.x, pose.y) + 3;
+    this.camera.position.set(-pose.x, Math.max(floor, pose.h), pose.y);
+    this.camera.up.set(0, 1, 0);
+    this.camera.lookAt(-pose.lookX, pose.lookH, pose.lookY);
+    this.camera.near = 0.5;
+    this.camera.far = 20000;
+    this.camera.updateProjectionMatrix();
+    return true;
   }
 
   /** Frame the whole map */
@@ -807,6 +857,11 @@ export class EditorViewport {
 
   private onPointerDown(e: PointerEvent): void {
     this.canvas.focus({ preventScroll: true });
+    if (this.introPreview) {
+      this.stopIntroPreview();
+      e.preventDefault();
+      return;
+    }
     this.trackPointer(e);
     const pan = e.button === 1 || (e.button === 2 && e.shiftKey);
     if (e.button === 0 && this.tool && !this.locked) {
@@ -859,6 +914,10 @@ export class EditorViewport {
 
   private onWheel(e: WheelEvent): void {
     e.preventDefault();
+    if (this.introPreview) {
+      this.stopIntroPreview();
+      return;
+    }
     // Ctrl and the wheel size the brush where one shows (Ctrl+wheel would zoom the page otherwise)
     if ((e.ctrlKey || e.metaKey) && this.tool?.brushVisible(this.ctx)) {
       const b = this.settings.brush;
@@ -1045,7 +1104,7 @@ export class EditorViewport {
     g.z = Math.max(-t.depth / 2, Math.min(t.depth / 2, g.z));
     this.controller.setGroundHeight(this.heightAt(-g.x, g.z));
     if (this.controller.update(dt)) this.callbacks.camera();
-    this.controller.apply(this.camera);
+    if (!this.playIntroPreview(dt)) this.controller.apply(this.camera);
     // The map's haze starts behind what the camera looks at: from afar the whole map stays readable
     this.view.view.environment.setClearAir(this.controller.current.distance * 1.15);
 
