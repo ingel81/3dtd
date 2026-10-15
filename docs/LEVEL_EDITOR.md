@@ -282,7 +282,8 @@ Spur oder „no route“.
 
 **Sky and weather (8).** Sky picture (Procedural oder eines der Himmelsbilder, CUSTOM_MAPS.md „Bildhimmel“: die
 Wahl setzt das Preset des Bilds und seine Sonnenhöhe; mit Bild entfallen Himmel-Preset und Tageszeit, Direction dreht
-den Himmel mit der Sonne, Height bewegt nur das Licht), Himmel (Day, Dusk, Night, Overcast), Tageszeit (ein Sommertag: Aufgang 6 Uhr im Osten, 13 Uhr im
+den Himmel mit der Sonne, Height bewegt nur das Licht), Himmel (Day, Dusk, Night, Overcast; Day stellt eine Sonne unter 15 Grad auf 10 Uhr, Dusk eine höhere auf 19 Uhr, damit
+Himmel und Licht zusammenpassen, `skyPreset`; Night und Overcast lassen die Sonne stehen), Tageszeit (ein Sommertag: Aufgang 6 Uhr im Osten, 13 Uhr im
 Süden 60 Grad hoch, Untergang 20 Uhr im Westen; tiefe Sonne ist Dämmerung, eine Stunde nach Untergang Nacht),
 Sonnenrichtung und -höhe, bei Night das Mondlicht (`moonlight`, kühles Licht auf dem Land, Himmel bleibt dunkel), Nebel,
 Tönung, Wetter (Clear, Rain, Snow, Fog mit Stärke), Wind (Stärke, Richtung „From“, aus der er kommt, Böen; ohne eigenen

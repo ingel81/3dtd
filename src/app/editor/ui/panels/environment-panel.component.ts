@@ -13,6 +13,9 @@ const WEATHERS: { id: MapWeather; label: string }[] = [
   { id: 'fog', label: 'Fog' },
 ];
 
+/** Lowest sun (degrees) timeOfDay calls day; under it the land takes dusk light and the map's lights come on */
+const DAY_SUN = 15;
+
 /**
  * A time of day as sun and sky, a summer day: the sun rises in the east at
  * 6, stands in the south at 13 60 degrees high, sets in the west at 20;
@@ -23,8 +26,20 @@ export function timeOfDay(hour: number, sky: MapEnvironment['sky']): Partial<Map
   const f = (hour - 6) / 14;
   const elevation = 60 * Math.sin(Math.PI * f);
   const azimuth = ((90 + 180 * f) % 360 + 360) % 360;
-  const nextSky: MapEnvironment['sky'] = sky === 'overcast' ? 'overcast' : elevation < -6 ? 'night' : elevation < 15 ? 'dusk' : 'day';
+  const nextSky: MapEnvironment['sky'] = sky === 'overcast' ? 'overcast' : elevation < -6 ? 'night' : elevation < DAY_SUN ? 'dusk' : 'day';
   return { sunAzimuth: Math.round(azimuth), sunElevation: Math.round(Math.max(2, elevation)), sky: nextSky };
+}
+
+/**
+ * A sky button: Day and Dusk also bring the sun to an hour that gives that
+ * sky when the time set does not (Day after an evening on the slider left
+ * the land in dusk light with its lanterns lit): Day to 10 o'clock, Dusk to
+ * 19 o'clock. Night and Overcast keep the sun where it stands.
+ */
+export function skyPreset(sky: MapEnvironment['sky'], e: Pick<MapEnvironment, 'sunElevation'>): Partial<MapEnvironment> {
+  if (sky === 'day' && e.sunElevation < DAY_SUN) return timeOfDay(10, 'day');
+  if (sky === 'dusk' && e.sunElevation >= DAY_SUN) return timeOfDay(19, 'day');
+  return { sky };
 }
 
 /** The renderer's looks: sky, light, haze, grading, stars and particles in the air */
@@ -81,7 +96,7 @@ const SKIES: { id: MapEnvironment['sky']; label: string }[] = [
         <span class="td-label" id="ep-sky">Sky</span>
         <div class="td-seg is-sm" role="radiogroup" aria-labelledby="ep-sky">
           @for (s of skies; track s.id) {
-            <button type="button" role="radio" [attr.aria-checked]="env()?.sky === s.id" (click)="commit({ sky: s.id }, 'Sky')">{{ s.label }}</button>
+            <button type="button" role="radio" [attr.aria-checked]="env()?.sky === s.id" (click)="commit(skyPreset(s.id, env()!), 'Sky')">{{ s.label }}</button>
           }
         </div>
       </div>
@@ -160,6 +175,7 @@ export class EnvironmentPanelComponent {
   readonly looks = LOOKS;
   readonly weathers = WEATHERS;
   readonly timeOfDay = timeOfDay;
+  readonly skyPreset = skyPreset;
   readonly windOf = windOf;
   readonly env = computed(() => (this.session.docRev(), this.session.doc ? { ...this.session.doc.environment } : null));
   /** The environment before the slider started moving */
