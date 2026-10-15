@@ -98,14 +98,13 @@ export function buildRuinedCity(): CustomMapDocument {
   const crater = { x: 200, y: 60 };
   k.erase(crater, 36);
   k.form('crater', crater, { radius: 36, strength: 1 }, 1.5);
-  // The elevated road: two runs of deck on pillars, the spans between them down in the rubble
+  // The elevated road: two runs of deck on pillars, between them the collapsed segment, its far span down in the rubble
   const viaduct = { x: -128, y: 0 };
   for (const p of resample([{ x: viaduct.x, y: -100 }, { x: viaduct.x, y: 96 }], 8)) k.erase(p, 15);
-  k.row('bridge-concrete', [{ x: viaduct.x, y: -100 }, { x: viaduct.x, y: -26 }], 26, { turn: Math.PI / 2 });
-  k.row('bridge-concrete', [{ x: viaduct.x, y: 30 }, { x: viaduct.x, y: 96 }], 26, { turn: Math.PI / 2 });
-  k.place('bridge-concrete', viaduct.x, -10, { rotation: 0, pitch: 0.3, z: -2.6 });
-  k.place('bridge-concrete', viaduct.x + 3, 16, { rotation: 0.1, pitch: -0.24, z: -2.8 });
-  for (const [dx, dy] of [[-8, 2], [9, -4], [-4, 22]] as const) k.place('rubble-pile-large', viaduct.x + dx, viaduct.y + dy, { rotation: dx });
+  k.row('bridge-concrete', [{ x: viaduct.x, y: -100 }, { x: viaduct.x, y: -26 }], 32, { turn: Math.PI / 2, scale: 1.25 });
+  k.row('bridge-concrete', [{ x: viaduct.x, y: 30 }, { x: viaduct.x, y: 96 }], 32, { turn: Math.PI / 2, scale: 1.25 });
+  k.place('highway-collapsed', viaduct.x, 2, { rotation: Math.PI / 2 });
+  for (const [dx, dy] of [[-10, 12], [10, 20]] as const) k.place('rubble-pile-large', viaduct.x + dx, viaduct.y + dy, { rotation: dx });
   const torso = { x: 32, y: 96 };
   k.erase(torso, 16);
   k.place('tower-stump', torso.x, torso.y, { rotation: 0.4, scale: 1.7 });
