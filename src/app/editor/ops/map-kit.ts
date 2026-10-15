@@ -867,7 +867,7 @@ export class MapKit {
     let images = this.symmetry === 'none' ? [] : objectImages([object], symmetryImages(this.symmetry, t.grid.columns === t.grid.rows), () => ids.take(), t.width / 2, t.depth / 2);
     // A building levels its ground first, as in the editor (levelUnderBuilding)
     const entry = this.catalog.object(asset);
-    if (levelsGround(entry)) for (const p of [object, ...images]) levelUnderBuilding(t, p, entry.radius);
+    if (levelsGround(entry)) for (const p of [object, ...images]) levelUnderBuilding(t, p, entry);
     if (o.align) {
       object = alignedToSlope(t, object, entry.radius);
       images = images.map((i) => alignedToSlope(t, i, entry.radius));
@@ -953,7 +953,7 @@ export class MapKit {
     ).filter((p) => insideMap(t, p));
     const images = this.symmetry === 'none' ? [] : objectImages(own, symmetryImages(this.symmetry, t.grid.columns === t.grid.rows), () => ids.take(), t.width / 2, t.depth / 2);
     const entry = this.catalog.object(asset);
-    if (levelsGround(entry)) for (const p of [...own, ...images]) levelUnderBuilding(t, p, entry.radius);
+    if (levelsGround(entry)) for (const p of [...own, ...images]) levelUnderBuilding(t, p, entry);
     const placed = [...own, ...images].map((p) => setDown(t, p, rockShape(entry), !!o.alignToSlope && !entry.float, entry.radius));
     this.doc.objects.push(...placed);
     this.freeCheck = null;

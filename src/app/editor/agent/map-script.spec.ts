@@ -193,6 +193,41 @@ describe('map scripts', () => {
     expect(heightAt(kit.doc.terrain, 40 + 4 * r + 12, 20)).toBeCloseTo((40 + 4 * r + 12) * 0.25, 3);
   });
 
+  it('levels a long building by its turned rectangle, not by the disc of half its length', () => {
+    const kit = new MapKit(map(), index, { name: 't', seed: 7 });
+    const g = kit.doc.terrain.grid;
+    for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) g.heights[j * g.columns + i] = (i * g.cellSize - 128) * 0.25;
+    // The school turned a quarter: its 42 m length runs along y, its 15 m depth (model z -6.3 to 8.9) across the slope in x
+    const school = index.object('school');
+    expect(school.footing?.box).toEqual([0, 1.3, 20.9, 7.6]);
+    kit.place('school', 40, 20, { rotation: Math.PI / 2 });
+    const at = (x: number, y: number) => heightAt(kit.doc.terrain, x, y);
+    // Level along its length, out to its ends
+    expect(at(40, 20 + 18)).toBeCloseTo(at(40, 20 - 18), 3);
+    expect(at(40 + 5, 20)).toBeCloseTo(at(40 - 5, 20), 3);
+    // Across it the slope stands as it was past the pad (3.5 m) and the bank (7.6 m), where the disc took 45 m
+    expect(at(40 + 6.3 + 3.5 + 7.6 + 2, 20)).toBeCloseTo((40 + 6.3 + 3.5 + 7.6 + 2) * 0.25, 3);
+    expect(at(40 - 8.9 - 3.5 - 7.6 - 2, 20)).toBeCloseTo((40 - 8.9 - 3.5 - 7.6 - 2) * 0.25, 3);
+  });
+
+  it('cuts the pad of a house on a shore no lower than the sea beside it', () => {
+    const kit = new MapKit(map(), index, { name: 't', seed: 7 });
+    const g = kit.doc.terrain.grid;
+    const mask = new Uint8Array(g.columns * g.rows);
+    // A step down into the sea at x = 0: the ground 0.2 m over the water, the bed 3 m under it
+    for (let j = 0; j < g.rows; j++) {
+      for (let i = 0; i < g.columns; i++) {
+        const sea = i * g.cellSize - 128 < 0;
+        g.heights[j * g.columns + i] = sea ? -3 : 0.2;
+        mask[j * g.columns + i] = sea ? 255 : 0;
+      }
+    }
+    kit.doc.terrain.water = { level: 0, mask, color: '#335566' };
+    kit.place('house', 2, 0);
+    // The mean under the house lies under the sea; the dry ground beside it stays at the water's level
+    for (const x of [2, 4, 8]) expect(heightAt(kit.doc.terrain, x, 0)).toBeGreaterThanOrEqual(0);
+  });
+
   it('levels the ground under a radar dish on a slope, so its turning head sweeps clear of the hill behind', () => {
     const kit = new MapKit(map(), index, { name: 't', seed: 7 });
     const g = kit.doc.terrain.grid;
