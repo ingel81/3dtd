@@ -185,6 +185,10 @@ export function buildMountainPass(): CustomMapDocument {
   k.plateau({ x: 82, y: -105 }, { radius: 11, falloff: 0.3 }, k.h(82, -105));
   k.plateau({ x: -82, y: -32 }, { radius: 11, falloff: 0.3 }, k.h(-82, -32));
 
+  // The lake to its rim once the ground round it is done: the stream out of it cut its south bank, which stood
+  // lower than the level the lake was dug at, and the water ended there in the air over the valley
+  k.fillToRim(lakeAt, lake);
+
   // Seven ground materials: the least used goes (each one is 8 MB of pixels to load)
   k.trimLayers(7);
   k.environment({ biome: 'mountain', sky: 'day', sunAzimuth: 235, sunElevation: 28, fogDensity: 0.0005, tint: '#fff4e6' });

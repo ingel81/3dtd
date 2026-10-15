@@ -37,7 +37,7 @@ import { addNode, connect, edgePolyline, nearestNode, nearestOnEdges, pointAt, p
 import { flattenUnderPaths, paintUnderPaths } from './path-terrain';
 import { mirrorChange, objectImages, symmetryImages, type SymmetryMode } from './symmetry';
 import { flattenDab, noiseDab, plateauDab, raiseDab, rampBetween, smoothDab, terraceDab, erodeDab } from './terrain-ops';
-import { BODY_COLORS, emptyWater, fillBasin, fillFromEdge, lakeDab, waterMaskDab } from './water-ops';
+import { basinSpillHeight, BODY_COLORS, emptyWater, fillBasin, fillFromEdge, lakeDab, RIM_MARGIN, waterBody, waterMaskDab } from './water-ops';
 import { validateMap, type MapIssue } from '../validation/map-validation';
 import { assetCosts } from '../validation/map-budget';
 import {
@@ -470,6 +470,25 @@ export class MapKit {
     const i = Math.round((p.x + t.width / 2) / g.cellSize);
     const j = Math.round((p.y + t.depth / 2) / g.cellSize);
     if (!fillBasin(t, i, j, body)) throw new Error(`${this.name}: no basin under (${p.x}, ${p.y})`);
+  }
+
+  /**
+   * Fill basin to its rim (the Water tool's Ctrl click on a fresh body): the
+   * body's level a little under where the hollow under a point overflows,
+   * its mask the hollow alone. After the ground round a lake changed (a
+   * river cut its rim, a road lowered it), the water stands where it holds.
+   */
+  fillToRim(p: MapPoint, body = -1): number {
+    const t = this.doc.terrain;
+    const g = t.grid;
+    const water = waterBody(t, body);
+    if (!water) throw new Error(`${this.name}: no body ${body}`);
+    const i = Math.round((p.x + t.width / 2) / g.cellSize);
+    const j = Math.round((p.y + t.depth / 2) / g.cellSize);
+    water.level = Math.round((basinSpillHeight(t, i, j) - RIM_MARGIN) * 10) / 10;
+    water.mask.fill(0);
+    if (!fillBasin(t, i, j, body)) throw new Error(`${this.name}: no basin under (${p.x}, ${p.y})`);
+    return water.level;
   }
 
   /** Dig lake: the bed sinks to `depth` under the body's level */
