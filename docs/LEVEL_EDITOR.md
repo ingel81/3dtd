@@ -147,8 +147,10 @@ würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben diese
   ein Schacht), ihr Rand bleibt über dem Spiegel, und wo das Land daneben trotzdem tiefer liegt, läuft es ab
   (`drainSpills`): ein Strich über einen Hang füllt nur die Becken in der Höhe seines Startpunkts. Beach arbeitet auf das
   Wasser zu, das dem Startpunkt des Strichs am nächsten liegt (bis 150 m, See, Meer oder Fluss,
-  `LandscapeStroke.coastLevel`): Land bis 6 m über und unter dessen Spiegel wird zum flachen Strand und zur flachen
-  Uferbank zusammengedrückt (Relief `shore`), darüber niedrige Dünen; nasser Küstensand auf der Bank unter dem Wasser
+  `LandscapeStroke.coastLevel`): unter dem Wasser eine flache Bank (halbe Tiefe), darüber ein Strand, der mit dem Abstand
+  vom Wasser sanft steigt (Abstandsfeld zur Küste, `coastDistance`: 0,3 m an der Wasserlinie, 1,5 m nach 24 m), was
+  höher stand, wird darauf abgetragen; dahinter steigt das Land höchstens 0,25 m je Meter (keine Abbruchkante), ab 48 m
+  bleibt es, wie es war, und zum Rand des Pinsels läuft der Abtrag aus (Relief `shore`); niedrige Dünen hinten am Strand; nasser Küstensand auf der Bank unter dem Wasser
   und bis 0,35 m darüber (`waterline`, nur bei echtem Wasser), sonst Sand mit Flecken von Kiessand (drei
   Bodenschichten). Unter dem Wasser und bis 0,7 m darüber malt der Pinsel überall, wo er hinreicht, mit voller Stärke,
   auch an seinem ausgefransten Rand: sonst blieb dort die erste Schicht (Gras) direkt am Wasser. Eine lockere Reihe

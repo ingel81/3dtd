@@ -36,6 +36,11 @@ import type { LandscapeStroke } from './landscape-stroke';
 /** Share per second the ground and paint close toward the biome at full strength */
 const SHAPE_RATE = 2.5;
 const PAINT_RATE = 3;
+/** Metres a beach's strand rises per metre from the water, and how wide it is before the land takes over */
+const STRAND_RISE = 0.05;
+const STRAND_WIDTH = 24;
+/** Metres the land behind the strand may rise per metre (about 14 degrees) */
+const BACK_RISE = 0.25;
 /** Metres the land may stand over a pool's level for the pool to sink into it */
 const POOL_DIG = 2.5;
 
@@ -67,11 +72,27 @@ function relief(stroke: LandscapeStroke, biome: BiomeDef, x: number, y: number, 
   const n = stroke.noise;
   switch (r.kind) {
     case 'shore': {
-      // A beach: the land within a few metres of the water's level squeezed toward it (a flat strand above
-      // the water, a shallow shelf under it), easing back into the land 6 m up and down; low dunes above
+      // A beach: under the water a shallow shelf (half the depth); above it a strand that rises gently with the
+      // distance from the water (STRAND_RISE per metre, 0.3 m at the waterline, 1.5 m at 24 m), whatever stood
+      // higher cut down to it, low dunes at the back of the strand
       const h = base - coastOf(stroke);
-      const keep = 0.4 + 0.6 * smooth(1.5, 6, Math.abs(h));
-      return h * (keep - 1) + r.amplitude * n.billowed(x, y, r.wave) * smooth(1.5, 4, h);
+      if (h <= 0) return -0.5 * h;
+      const t = stroke.doc.terrain;
+      const g = t.grid;
+      const field = stroke.coastDistance();
+      if (!field) {
+        const keep = 0.4 + 0.6 * smooth(1.5, 6, h);
+        return h * (keep - 1) + r.amplitude * n.billowed(x, y, r.wave) * smooth(1.5, 4, h);
+      }
+      const i = Math.min(g.columns - 1, Math.max(0, Math.round((x + t.width / 2) / g.cellSize)));
+      const j = Math.min(g.rows - 1, Math.max(0, Math.round((y + t.depth / 2) / g.cellSize)));
+      const d = field[j * g.columns + i];
+      // Behind the strand the land may rise no steeper than BACK_RISE (a soft bank into the meadow, no scarp),
+      // and from twice the strand's width on it is left as it was
+      const cap = d < STRAND_WIDTH ? 0.3 + STRAND_RISE * d : 0.3 + STRAND_RISE * STRAND_WIDTH + BACK_RISE * (d - STRAND_WIDTH);
+      const dunes = r.amplitude * n.billowed(x, y, r.wave) * smooth(10, STRAND_WIDTH, d) * (1 - smooth(STRAND_WIDTH, STRAND_WIDTH * 1.5, d));
+      const back = smooth(STRAND_WIDTH * 2, STRAND_WIDTH * 4, d);
+      return (Math.min(h, cap) + dunes) * (1 - back) + h * back - h;
     }
     case 'rolling':
       return r.amplitude * n.fbm(x, y, r.wave, 4);
@@ -232,7 +253,10 @@ function applyBiome(stroke: LandscapeStroke, reach: BiomeReach, biome: BiomeDef,
       const keep = stroke.roadKeep(x, y);
       if (keep <= 0) continue;
       const base = stroke.baseHeight(i, j);
-      let target = biome.relief.kind === 'flatten' ? stroke.anchor.h : base + relief(stroke, biome, x, y, base) * strength;
+      // A beach cuts metres off the land: toward the brush's rim the cut fades out, else a held stroke pulled even
+      // its rim all the way down and left a scarp there
+      const fade = biome.relief.kind === 'shore' ? smooth(0.05, 0.75, w) : 1;
+      let target = biome.relief.kind === 'flatten' ? stroke.anchor.h : base + relief(stroke, biome, x, y, base) * strength * fade;
       const k = j * g.columns + i;
       // Pools only in land that holds them: not below their level (the water would hang over it), not more than
       // POOL_DIG above it (a shaft down to the water)

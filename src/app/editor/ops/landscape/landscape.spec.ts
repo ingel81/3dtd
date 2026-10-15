@@ -341,8 +341,12 @@ describe('biome brush', () => {
     // Three ground layers at most next to the base
     expect(t.layers.map((l) => l.material)).toEqual(expect.arrayContaining(['sand', 'sand-coast']));
     expect(t.layers.length).toBeLessThanOrEqual(4);
-    // The strand is flatter than the land was (0.25 m per metre) near the water
-    expect(heightAt(t, 0, 48) - heightAt(t, 0, 44)).toBeLessThan(0.25 * 4 * 0.75);
+    // The strand is flat and low: within 12 m of the water under 1.5 m over it (the land rose 0.25 m per metre)
+    let shoreline = 30;
+    while (heightAt(t, 0, shoreline) < 0) shoreline += 0.5;
+    for (let d = 0; d <= 12; d += 2) expect(heightAt(t, 0, shoreline + d)).toBeLessThan(1.5);
+    // Low dunes at the back of the strand
+    expect(heightAt(t, 0, shoreline + 20)).toBeLessThan(2.2);
     // The wet strip at the waterline, dry sand up the strand
     const wet = t.layers.findIndex((l) => l.material === 'sand-coast');
     const texel = (x: number, y: number) => Math.floor(((y + t.depth / 2) / t.depth) * t.splat.resolution) * t.splat.resolution + Math.floor(((x + t.width / 2) / t.width) * t.splat.resolution);
@@ -354,9 +358,13 @@ describe('biome brush', () => {
     let waterline = 40;
     while (heightAt(t, 0, waterline) < 0) waterline += 0.5;
     expect(weight(0, waterline)).toBeGreaterThan(weight(0, waterline + 12));
-    // Temperate: no palms; a desert map grows palms and no pines
+    // Temperate: shore pines behind the strand, no palms; a desert map grows palms and no pines
     const assets = (e: EditorDocument) => new Set(e.doc.objects.map((o) => o.asset));
+    expect(assets(ed).has('tree-pine')).toBe(true);
     expect(assets(ed).has('tree-palm') || assets(ed).has('tree-palm-tall')).toBe(false);
+    // Driftwood and dune grass dress it
+    expect(ed.doc.objects.filter((o) => o.asset.startsWith('log')).length).toBeGreaterThan(3);
+    expect(ed.doc.objects.filter((o) => o.asset === 'grass-tall-dry').length).toBeGreaterThan(40);
     const warm = shore('desert');
     expect(assets(warm).has('tree-pine')).toBe(false);
     expect(assets(warm).has('tree-palm') || assets(warm).has('tree-palm-tall')).toBe(true);

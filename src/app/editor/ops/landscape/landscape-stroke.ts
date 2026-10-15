@@ -38,6 +38,8 @@ import { LandscapeNoise } from './landscape-noise';
 
 /** Metres from where a stroke begins within which it finds the water it works by (coastLevel) */
 const COAST_REACH = 150;
+/** Metres the coast's distance field reaches; further counts as this far */
+const COAST_FAR = 120;
 
 interface RoadLine {
   points: MapPoint[];
@@ -92,6 +94,8 @@ export class LandscapeStroke {
   anchor: { x: number; y: number; h: number } | null = null;
   /** The level of the water the stroke works by (coastLevel), worked out once; undefined before */
   private coast: number | null | undefined = undefined;
+  /** Distances to the coast (coastDistance), worked out once; undefined before */
+  private coastFar: Float32Array | null | undefined = undefined;
   /** Per stroke memory of the brushes (decided object cells, strongest weights) */
   readonly decided = new Set<string>();
   readonly strongest = new Map<string, number>();
@@ -365,6 +369,64 @@ export class LandscapeStroke {
     }
     this.coast = level;
     return level;
+  }
+
+  /**
+   * Metres from each height sample to the nearest water of the stroke's
+   * coast (coastLevel: a sample of a body at that level under its surface,
+   * or within a river of it), up to COAST_FAR; null without a coast. Worked
+   * out once per stroke on the ground before it (a chamfer distance over the
+   * grid), so a beach keeps its profile while the brush reshapes it.
+   */
+  coastDistance(): Float32Array | null {
+    if (this.coastFar !== undefined) return this.coastFar;
+    const level = this.coastLevel();
+    if (level === null) return (this.coastFar = null);
+    const t = this.doc.terrain;
+    const g = t.grid;
+    const c = g.columns;
+    const rows = g.rows;
+    const d = new Float32Array(c * rows).fill(COAST_FAR);
+    const bodies = [t.water, ...(t.waterBodies ?? [])].filter((b) => b && Math.abs(b.level - level) < 0.01);
+    for (let k = 0; k < d.length; k++) {
+      const h = this.baseHeight(k % c, Math.floor(k / c));
+      for (const b of bodies) if (b!.mask[k] && h < level) d[k] = 0;
+    }
+    for (const river of t.rivers ?? []) {
+      if (river.kind !== 'water') continue;
+      for (const p of river.points) {
+        const i0 = Math.round((p.x + t.width / 2) / g.cellSize);
+        const j0 = Math.round((p.y + t.depth / 2) / g.cellSize);
+        const r = Math.ceil(p.width / 2 / g.cellSize);
+        for (let j = Math.max(0, j0 - r); j <= Math.min(rows - 1, j0 + r); j++) for (let i = Math.max(0, i0 - r); i <= Math.min(c - 1, i0 + r); i++) d[j * c + i] = 0;
+      }
+    }
+    // Two passes of a 3-4 chamfer, in metres
+    const a = g.cellSize;
+    const b = g.cellSize * Math.SQRT2;
+    for (let j = 0; j < rows; j++) {
+      for (let i = 0; i < c; i++) {
+        const k = j * c + i;
+        if (i > 0) d[k] = Math.min(d[k], d[k - 1] + a);
+        if (j > 0) {
+          d[k] = Math.min(d[k], d[k - c] + a);
+          if (i > 0) d[k] = Math.min(d[k], d[k - c - 1] + b);
+          if (i < c - 1) d[k] = Math.min(d[k], d[k - c + 1] + b);
+        }
+      }
+    }
+    for (let j = rows - 1; j >= 0; j--) {
+      for (let i = c - 1; i >= 0; i--) {
+        const k = j * c + i;
+        if (i < c - 1) d[k] = Math.min(d[k], d[k + 1] + a);
+        if (j < rows - 1) {
+          d[k] = Math.min(d[k], d[k + c] + a);
+          if (i < c - 1) d[k] = Math.min(d[k], d[k + c + 1] + b);
+          if (i > 0) d[k] = Math.min(d[k], d[k + c - 1] + b);
+        }
+      }
+    }
+    return (this.coastFar = d);
   }
 
   /** Call before the stroke changes the road network (river bridges, a new road) */
