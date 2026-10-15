@@ -459,7 +459,8 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   Dunkelheit eingeblendet (Nacht, Dämmerung, tiefe Sonne). Am Tag kosten sie nichts, die feste Poolgröße vermeidet
   Shader-Neubau. `blink` (Sekunden): ein kurzer Blitz je Periode (Schein und Punktlicht, auch am Tag gut sichtbar),
   backt kein Licht auf den Boden; Antennenmast und Positionslicht (`beacon-post`) blinken alle 1,5 s (der
-  Flutlichtmast hat keine roten Lichter und leuchtet stetig), `fx-beacon` setzt ein blinkendes Licht frei
+  Flutlichtmast hat keine roten Lichter und leuchtet stetig), die Bojen wie Seezeichen (rot alle 2,5 s, grün alle 4 s,
+  jede Boje mit eigener Phase), `fx-beacon` setzt ein blinkendes Licht frei
 - **Leben aus dem Karteninhalt** (`CustomMapView.refreshAmbient`, ohne Bearbeiten): Glühwürmchen nachts (ab
   Dunkelheit 0,35) über den Ufern von Seen und Sümpfen (alle 12 m) und mitten in Wäldern (30-m-Quadrate mit mindestens
   6 Bäumen), höchstens 60 Schwärme, in den Biomen temperate, swamp, mountain. Vogelschwärme am Tag

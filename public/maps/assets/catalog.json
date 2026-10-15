@@ -12647,7 +12647,7 @@
         "intensity": 0.6,
         "distance": 6,
         "height": 2.2,
-        "flicker": true
+        "blink": 2.5
       },
       "source": "procedural (tools/map-assets/build_levels.py)"
     },
@@ -12677,7 +12677,7 @@
         "intensity": 0.6,
         "distance": 6,
         "height": 2.2,
-        "flicker": true
+        "blink": 4
       },
       "source": "procedural (tools/map-assets/build_levels.py)"
     },
