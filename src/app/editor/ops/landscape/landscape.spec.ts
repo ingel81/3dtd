@@ -10,13 +10,14 @@ import { biomeDab, finishBiome, previewSpots } from './biome-brush';
 import { biomeById, BIOMES } from './biomes';
 import { erosionDab } from './erosion';
 import { LandscapeStroke } from './landscape-stroke';
-import { carveRiver, DEFAULT_RIVER, freeboard, recarveRiver, relevelRiver, removeRiver } from './river';
+import { carveRiver, DEFAULT_RIVER, freeboard, recarveRiver, relevelRiver, removeRiver, riverPoints } from './river';
 import { movePoint, simplifyRiver } from '../river-edit';
 import { buildRoad, DEFAULT_ROAD } from './road';
 import { citySlots, streetDistance } from './city';
 import { cliffAlong, craterProfile, formDab, formHeight } from './shapes';
 import { cracksDab } from './cracks';
 import { readWeights } from '../paint-ops';
+import { waterInAir } from '../../validation/map-validation';
 
 const catalog = new CatalogIndex(
   normalizeCatalog(JSON.parse(readFileSync(resolve('public/maps/assets/catalog.json'), 'utf8')), 'http://x/maps/assets/'),
@@ -496,6 +497,18 @@ describe('river and road', () => {
     expect(ed.doc.terrain.rivers?.[0].points).toEqual(pts);
   });
 
+  it('keeps points at the lip and the foot of a fall, so the ribbon runs on the surface between them', () => {
+    // 40 m of course, a vertex every 2 m, the surface 10 m up to 19 m along, then 0
+    const line = Array.from({ length: 21 }, (_, k) => ({ x: 0, y: k * 2 }));
+    const along = line.map((p) => p.y);
+    const surface = along.map((s) => (s < 19 ? 10 : 0));
+    const kept = riverPoints(line, along, surface);
+    // The 8 m points (0, 8 … 40) and the lip (18 m) and foot (20 m) between 16 and 24
+    expect(kept.map((k) => k.s)).toEqual([0, 8, 16, 18, 20, 24, 32, 40]);
+    // A flat stretch keeps the 8 m points alone
+    expect(riverPoints(line, along, along.map(() => 3)).map((k) => k.s)).toEqual([0, 8, 16, 24, 32, 40]);
+  });
+
   it('turns a river drawn uphill round and puts a waterfall over a step', () => {
     const ed = map();
     const t = ed.doc.terrain;
@@ -509,6 +522,9 @@ describe('river and road', () => {
     expect(pts[0].y).toBeLessThan(0);
     expect(pts[0].height).toBeGreaterThan(pts[pts.length - 1].height + 10);
     expect(result.waterfalls).toBe(1);
+    // Points at the fall's lip and foot: the ribbon between two runs down the fall, not as a slope over the pool
+    expect(pts.length).toBeGreaterThan(Math.round(300 / 8) + 1);
+    expect(waterInAir(ed.doc)).toEqual([]);
     const fall = ed.doc.objects.find((o) => o.asset === 'fx-waterfall')!;
     expect(Math.abs(fall.y)).toBeLessThan(10);
     // Faces downstream (north, +y): front +y at turn 0

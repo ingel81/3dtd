@@ -676,7 +676,10 @@ Verlauf. Höhen ziehen zu einem Ziel aus dem Boden vor dem Strich (`RegionRecord
 nichts auf. Objekte stehen auf einem verwackelten Raster je Objektart und Seed (eine Stelle und ein Würfel je Zelle,
 einmal entschieden); Kern-Objekte wachsen, sobald der Pinsel stark genug war, Rand-Objekte werden am Strichende nach
 dem stärksten erreichten Gewicht entschieden. Rauschen aus `devworld/utils/seeded-random.ts`. Ein Fluss ist ein
-`MapRiver` in `terrain.rivers` (Punkte alle 8 m mit Breite und Spiegelhöhe, Fließrichtung ab Punkt 0): der Spiegel
+`MapRiver` in `terrain.rivers` (Punkte alle 8 m mit Breite und Spiegelhöhe, dazu einer an Kante und Fuß eines
+Falls, wo der Spiegel mehr als 0,3 m von der Geraden zwischen zwei Punkten abweicht, `riverPoints`: das Band läuft
+zwischen Punkten gerade, ein Punkt mitten in der Wand und einer hinter dem Fuß ergaben eine schräge Platte über dem
+Becken; Fließrichtung ab Punkt 0): der Spiegel
 kommt aus den Ufern (`bankLevels`): je Punkt das tiefere der beiden Ufer, gemessen, wo die breiteste Böschung des
 Pinsels das Land erreicht (halbe Breite plus 1,4 Uferbreiten), abzüglich eines Freibords (0,4 bis 1,5 m, mit der
 Breite wachsend, `freeboard`), höchstens 0,5 m unter dem Boden in der Mitte; wie weit das tiefere Ufer ihn hinabzieht,

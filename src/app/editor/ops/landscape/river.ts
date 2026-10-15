@@ -52,6 +52,8 @@ const FALL_MIN = 1.5;
 const REED_SLOPE = 30;
 /** Metres between the points of a river */
 const POINT_STEP = 8;
+/** Metres the ribbon between two points may stand off the carved surface before a point goes in between */
+const POINT_FIT = 0.3;
 
 export interface RiverResult {
   line: MapPoint[];
@@ -278,10 +280,7 @@ export function carveRiver(stroke: LandscapeStroke, drawn: readonly MapPoint[], 
   // The river itself: points with width and surface height, flowing from the first
   stroke.markRivers();
   const round = (v: number) => Math.round(v * 100) / 100;
-  const points = resample(line, POINT_STEP).map((p) => {
-    const s = nearestOnPolyline(line, p)?.along ?? 0;
-    return { x: round(p.x), y: round(p.y), width: round(half(s) * 2), height: round(surfaceAt(s)) };
-  });
+  const points = riverPoints(line, along, surface).map(({ p, s }) => ({ x: round(p.x), y: round(p.y), width: round(half(s) * 2), height: round(surfaceAt(s)) }));
   const rivers = (t.rivers ??= []);
   const river: MapRiver = { id: newId('river', rivers), kind: lava ? 'lava' : 'water', points };
   rivers.push(river);
@@ -291,6 +290,50 @@ export function carveRiver(stroke: LandscapeStroke, drawn: readonly MapPoint[], 
   const bridges = options.bridges && !lava ? bridgeCrossings(stroke, line, maxHalf + options.bank) : 0;
   stroke.changed({ heights: rect, splat: splat ?? undefined, water: true, objects: placed.length ? placed : undefined, paths: bridges > 0 || undefined });
   return { line, river, bridges, waterfalls, heights: rect, splat };
+}
+
+/**
+ * Where a river keeps its points along its course (`line` with `along` and
+ * `surface` per vertex): one every POINT_STEP, and a vertex between two
+ * wherever the surface stands more than POINT_FIT off the straight run from
+ * one to the next. The renderer runs the height straight between points:
+ * over a waterfall 8 m apart, a point on the face and one past the foot
+ * made a sloped sheet hanging over the pool below; the lip and the foot
+ * keep the ribbon on the carved surface.
+ */
+export function riverPoints(line: readonly MapPoint[], along: readonly number[], surface: readonly number[]): { p: MapPoint; s: number }[] {
+  const at = (s: number) => {
+    let k = 1;
+    while (k < along.length - 1 && along[k] < s) k++;
+    const f = Math.min(1, Math.max(0, (s - along[k - 1]) / Math.max(1e-6, along[k] - along[k - 1])));
+    return surface[k - 1] + (surface[k] - surface[k - 1]) * f;
+  };
+  const kept = resample(line, POINT_STEP).map((p) => ({ p, s: nearestOnPolyline(line, p)?.along ?? 0 }));
+  const out: { p: MapPoint; s: number }[] = [];
+  const refine = (a: { p: MapPoint; s: number }, b: { p: MapPoint; s: number }) => {
+    const ha = at(a.s);
+    const hb = at(b.s);
+    let worst = POINT_FIT;
+    let pick = -1;
+    for (let k = 0; k < along.length; k++) {
+      if (along[k] <= a.s + 0.5 || along[k] >= b.s - 0.5) continue;
+      const off = Math.abs(surface[k] - (ha + ((hb - ha) * (along[k] - a.s)) / (b.s - a.s)));
+      if (off > worst) {
+        worst = off;
+        pick = k;
+      }
+    }
+    if (pick < 0) return;
+    const mid = { p: line[pick], s: along[pick] };
+    refine(a, mid);
+    out.push(mid);
+    refine(mid, b);
+  };
+  kept.forEach((q, k) => {
+    if (k) refine(kept[k - 1], q);
+    out.push(q);
+  });
+  return out;
 }
 
 /** Bank width at a point: wider and narrower along the river */
