@@ -13264,6 +13264,151 @@
         }
       ],
       "source": "Effekt des Renderers, kein Modell"
+    },
+    {
+      "id": "house-modern",
+      "name": "Modern house (2 floors, 10 x 8.6 m)",
+      "category": "building",
+      "file": "models/house-modern.glb",
+      "triangles": 3012,
+      "footprint": 5.2,
+      "height": 9.6,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/house-modern-lod1.glb",
+          "distance": 350,
+          "triangles": 773
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "house-modern-red",
+      "name": "Modern house, red roof (2 floors, 9 x 8.2 m)",
+      "category": "building",
+      "file": "models/house-modern-red.glb",
+      "triangles": 2494,
+      "footprint": 4.8,
+      "height": 10.7,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/house-modern-red-lod1.glb",
+          "distance": 350,
+          "triangles": 825
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "house-semi",
+      "name": "Semi-detached house (2 floors, 14 x 9 m)",
+      "category": "building",
+      "file": "models/house-semi.glb",
+      "triangles": 2952,
+      "footprint": 7.0,
+      "height": 10.0,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/house-semi-lod1.glb",
+          "distance": 350,
+          "triangles": 790
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "house-terrace",
+      "name": "Terraced house module (2 floors, 6 x 10 m, blank sides)",
+      "category": "building",
+      "file": "models/house-terrace.glb",
+      "triangles": 1160,
+      "footprint": 5.3,
+      "height": 10.0,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/house-terrace-lod1.glb",
+          "distance": 350,
+          "triangles": 666
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "house-terrace-row",
+      "name": "Terraced houses, row of four (2 floors, 24 x 10 m)",
+      "category": "building",
+      "file": "models/house-terrace-row.glb",
+      "triangles": 4832,
+      "footprint": 11.5,
+      "height": 10.0,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/house-terrace-row-lod1.glb",
+          "distance": 350,
+          "triangles": 1444
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brushed_concrete"
     }
   ]
 }

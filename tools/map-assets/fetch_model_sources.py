@@ -33,6 +33,9 @@ TEXTURES = [
     'concrete_floor_damaged_01', 'asphalt_02', 'moon_01',
     # Arctic, hell, mountains
     'snow_02', 'rock_face', 'bitumen', 'gravel_floor_02', 'leaves_forest_ground',
+    # Modern buildings for OSM worlds (build_modern.py)
+    'painted_plaster_wall', 'clay_roof_tiles_03', 'grey_roof_tiles_02', 'box_profile_metal_sheet', 'concrete_tile_facade',
+    'exterior_wall_cladding_03', 'precast_concrete_wall',
 ]
 MODELS = [
     'namaqualand_boulder_02', 'namaqualand_boulder_04', 'fern_02', 'Barrel_01', 'dead_tree_trunk',
