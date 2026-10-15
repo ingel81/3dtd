@@ -51,6 +51,11 @@ export interface GrassInputs {
 /** Edge of the tile around the focus, metres */
 const TILE = 64;
 /**
+ * How far ahead of the camera's foot the tile's middle may sit, metres: the camera stays well inside the tile,
+ * so a low camera (a tower's view) has grass from its feet out, not a patch round a far aim point
+ */
+export const GRASS_AHEAD = TILE * 0.3;
+/**
  * Blades the field holds, for the highest quality level; a level draws the
  * first so many (setBlades). The random sequence runs blade by blade, so
  * the first 70 000 lie where they lay before the levels
@@ -261,7 +266,7 @@ vec2 sceneXZ = uGrassCenter + mod(aBladeOffset - uGrassCenter, vec2(uGrassTile))
 vec2 mapPos = vec2(-sceneXZ.x, sceneXZ.y);
 // Towards a circle inside the tile: fewer blades (each drops out at its own threshold), and shorter
 float edge = length(sceneXZ - uGrassCenter) / (0.5 * uGrassTile);
-float fade = 1.0 - smoothstep(0.3, 0.88, edge);
+float fade = 1.0 - smoothstep(0.6, 0.95, edge);
 float keepEdge = smoothstep(0.0, 0.25, fade - fract(aBladeRand.x * 7.31 + aBladeRand.y * 3.17));
 bool onMap = abs(mapPos.x) <= uGrassMapSize.x * 0.5 && abs(mapPos.y) <= uGrassMapSize.y * 0.5;
 // A dropped blade: every vertex on one point, so its triangles draw nothing. The checks run cheapest
