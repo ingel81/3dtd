@@ -99,7 +99,7 @@ function marks(doc: CustomMapDocument): Marks {
     environment: JSON.stringify(doc.environment),
     gameplay: JSON.stringify(doc.gameplay ?? null),
     layers: t.layers.length,
-    water: JSON.stringify([t.water?.level, t.water?.kind, t.waterBodies?.map((b) => [b.level, b.kind]), t.rivers?.length]),
+    water: JSON.stringify([t.water?.level, t.water?.kind, t.waterBodies?.map((b) => [b.level, b.kind]), t.rivers?.map((r) => [r.kind, r.points.length])]),
   };
 }
 

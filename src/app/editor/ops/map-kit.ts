@@ -18,10 +18,11 @@
  */
 import { CatalogIndex } from '../catalog/asset-catalog';
 import { EditorDocument } from '../model/editor-document';
-import { heightAt, slopeAt, type GridRect } from '../model/grid';
+import { heightAt, insideMap, nearestSample, slopeAt, type GridRect } from '../model/grid';
 import { BRUSH_LIMITS, type BrushSettings } from './brush';
 import { finishGenerated, generateTerrain, type TerrainPreset } from './generate';
 import { biomeBand, biomeDab, finishBiome } from './landscape/biome-brush';
+import { cliffModelsFor, cliffRocksDab } from './landscape/cliff-rocks';
 import { biomeById, type BiomeId } from './landscape/biomes';
 import { cracksDab } from './landscape/cracks';
 import { erosionDab } from './landscape/erosion';
@@ -31,13 +32,33 @@ import { resample, simplify } from './landscape/lines';
 import { carveRiver, DEFAULT_RIVER, type RiverOptions, type RiverResult } from './landscape/river';
 import { buildRoad, DEFAULT_ROAD, type RoadOptions, type RoadResult } from './landscape/road';
 import { cliffAlong, formDab, type FormKind } from './landscape/shapes';
-import { ObjectGrid, ObjectIds, scatterDab, settled, rockShape, levelsGround, levelUnderBuilding, type ScatterOptions, DEFAULT_SCATTER } from './object-ops';
+import {
+  ObjectGrid,
+  ObjectIds,
+  scatterDab,
+  settled,
+  rockShape,
+  levelsGround,
+  levelUnderBuilding,
+  objectsAlong,
+  setDown,
+  wallAlong,
+  wallKitOf,
+  type LineOptions,
+  type ScatterOptions,
+  DEFAULT_LINE,
+  DEFAULT_SCATTER,
+} from './object-ops';
+import { mirrorMap as mirrorWholeMap, type MirrorResult } from './mirror-map';
+import { pourWater } from './pour';
+import { ALL_PARTS, captureStamp, pasteStamp, type PasteOptions, type Stamp, type StampParts, type StampRect } from './stamp';
 import { MAX_LAYERS, autoPaint, defaultAutoRules, paintDab, readWeights, removeLayer, type AutoPaintRule } from './paint-ops';
 import { addNode, connect, edgePolyline, nearestNode, nearestOnEdges, pointAt, polylineLength, spawnRoutes, splitEdge } from './path-graph';
 import { flattenUnderPaths, paintUnderPaths } from './path-terrain';
 import { mirrorChange, objectImages, symmetryImages, type SymmetryMode } from './symmetry';
 import { flattenDab, noiseDab, plateauDab, raiseDab, rampBetween, smoothDab, terraceDab, erodeDab } from './terrain-ops';
-import { basinSpillHeight, BODY_COLORS, emptyWater, fillBasin, fillFromEdge, lakeDab, RIM_MARGIN, waterBody, waterMaskDab } from './water-ops';
+import { addPouredBodies, basinSpillHeight, BODY_COLORS, emptyWater, fillBasin, fillFromEdge, lakeDab, RIM_MARGIN, waterBody, waterMaskDab, wetSamples } from './water-ops';
+import { MAX_WATER_BODIES } from '../../world/custom-map/map-file';
 import { validateMap, type MapIssue } from '../validation/map-validation';
 import { assetCosts } from '../validation/map-budget';
 import {
@@ -273,6 +294,28 @@ export class MapKit {
     });
   }
 
+  /**
+   * Cliff rocks along `where` (Landscape tool): cliff walls on the steep
+   * spots under the brush, sized to the drop; `model` one cliff asset, or
+   * 'auto' for those of the map's look. Returns the ids placed
+   */
+  cliffRocks(where: Where, brush: Brush, model = 'auto'): string[] {
+    const models = cliffModelsFor(this.doc.environment.biome, model, this.catalog);
+    if (!models.length) throw new Error(`${this.name}: ${model === 'auto' ? 'the catalogue has no cliff models' : this.catalog.unknown('asset', model)}`);
+    const b = brushOf(brush);
+    const ids = this.stroke('Cliff rocks', (s) => {
+      const out: string[] = [];
+      for (const c of dabs(where, b.radius / 3)) {
+        const got = cliffRocksDab(s, c, b, models, this.catalog);
+        if (got.length) s.changed({ objects: got });
+        out.push(...got);
+      }
+      return out;
+    });
+    this.freeCheck = null;
+    return ids;
+  }
+
   /** A river or lava flow along a line (the River line of the Landscape tool) */
   river(line: readonly MapPoint[], options: Partial<RiverOptions> = {}): RiverResult[] {
     return this.stroke('River', (s) => {
@@ -303,10 +346,45 @@ export class MapKit {
 
   // ---- Map tool: generator -------------------------------------------------------------------------------------
 
-  /** The terrain generator over the whole map (replace or add), without repainting */
-  generate(preset: TerrainPreset, seed: number, strength: number, add = false): void {
+  /**
+   * The terrain generator over the whole map (replace or add). Without
+   * `repaint` the ground only; with it as the Map panel's generator does: the
+   * water the preset wants, its ground layers and an auto paint
+   */
+  generate(preset: TerrainPreset, seed: number, strength: number, add = false, repaint = false): void {
     const result = generateTerrain(this.doc.terrain, { preset, seed, strength, add });
-    finishGenerated(this.doc, { ...result, water: null, materials: [] }, () => false, false);
+    if (repaint) finishGenerated(this.doc, result, (m) => this.catalog.materials.has(m), true);
+    else finishGenerated(this.doc, { ...result, water: null, materials: [] }, () => false, false);
+    this.freeCheck = null;
+  }
+
+  /**
+   * "Mirror now" (the top bar): the sector of `from` becomes the whole map,
+   * ground, water, objects, spawns, roads and rivers
+   */
+  mirrorMap(mode: SymmetryMode, from: MapPoint): MirrorResult {
+    const out = mirrorWholeMap(this.doc, mode, from);
+    this.freeCheck = null;
+    return out;
+  }
+
+  /** Copy a rectangle of the map and paste it centred on `to` (Copy and stamps), turned, its rim faded into the ground */
+  copyArea(rect: StampRect, to: MapPoint, o: { rotation?: number; feather?: number; parts?: Partial<StampParts> } = {}): void {
+    this.paste(captureStamp(this.doc, rect), to, o);
+  }
+
+  /** Paste a stamp centred on `to` as the Copy and stamps tool does */
+  paste(stamp: Stamp, to: MapPoint, o: { rotation?: number; feather?: number; parts?: Partial<StampParts> } = {}): void {
+    const options: PasteOptions = { parts: { ...ALL_PARTS, ...o.parts }, rotation: o.rotation ?? 0, feather: o.feather ?? 0.25 };
+    this.stroke(
+      'Paste',
+      (s) => {
+        s.symmetry = 'none';
+        pasteStamp(s, stamp, to, options);
+      },
+      0,
+    );
+    this.freeCheck = null;
   }
 
   // ---- Terrain tool --------------------------------------------------------------------------------------------
@@ -515,6 +593,25 @@ export class MapKit {
   private freeCheck: LandscapeStroke | null = null;
 
   /** Whether an object of this footprint may stand here: off roads, away from spawns and HQ, dry */
+  /**
+   * Pour water or lava at a point (Water tool, Pour): it fills the hollow,
+   * spills over and fills every hollow on its way down as new bodies; with
+   * symmetry at every image. Returns how many bodies it made
+   */
+  pour(at: MapPoint, kind: 'water' | 'lava' = 'water'): number {
+    const t = this.doc.terrain;
+    const g = t.grid;
+    const { i, j } = nearestSample(t, at.x, at.y);
+    const wet = wetSamples(t);
+    if (wet[j * g.columns + i]) throw new Error(`${this.name}: there is water at (${at.x}, ${at.y}) already; pour onto dry ground`);
+    const starts = symmetryImages(this.symmetry, g.columns === g.rows).map((img) => {
+      const [ii, jj] = img.cell(i, j, g.columns, g.rows);
+      return jj * g.columns + ii;
+    });
+    const result = pourWater({ columns: g.columns, rows: g.rows, heights: g.heights, starts, wet, cellSize: g.cellSize });
+    return addPouredBodies(t, result.lakes, kind, MAX_WATER_BODIES);
+  }
+
   free(x: number, y: number, footprint: number): boolean {
     this.freeCheck ??= new LandscapeStroke(this.editor, 'check', 1, this.catalog);
     this.freeCheck.refreshRoads();
@@ -607,6 +704,30 @@ export class MapKit {
       out.push(this.place(asset, p.x, p.y, { ...o, rotation, z: o.zFrom ? o.zFrom(p) : o.z }));
     }
     return out;
+  }
+
+  /**
+   * Objects along a line as the Objects tool's Line draws them: a wall kit's
+   * piece builds the kit's wall (blocks or towers at the corners), any other
+   * asset stands every `spacing` metres, turned along, across or at random,
+   * optionally on both sides. With symmetry at every image
+   */
+  line(asset: string, line: readonly MapPoint[], o: Partial<LineOptions> & { alignToSlope?: boolean } = {}): MapObject[] {
+    if (!this.catalog.objects.has(asset)) throw new Error(`${this.name}: ${this.catalog.unknown('asset', asset)}`);
+    const t = this.doc.terrain;
+    const ids = new ObjectIds(this.doc.objects);
+    const options: LineOptions = { ...DEFAULT_LINE, ...o };
+    const kit = wallKitOf(asset);
+    const own = (
+      kit ? wallAlong(line, kit, { corners: options.corners ?? 'blocks', front: options.front ?? 'left' }, ids) : objectsAlong(line, asset, options, ids, rng(this.nextSeed()))
+    ).filter((p) => insideMap(t, p));
+    const images = this.symmetry === 'none' ? [] : objectImages(own, symmetryImages(this.symmetry, t.grid.columns === t.grid.rows), () => ids.take(), t.width / 2, t.depth / 2);
+    const entry = this.catalog.object(asset);
+    if (levelsGround(entry)) for (const p of [...own, ...images]) levelUnderBuilding(t, p, entry.radius);
+    const placed = [...own, ...images].map((p) => setDown(t, p, rockShape(entry), !!o.alignToSlope && !entry.float, entry.radius));
+    this.doc.objects.push(...placed);
+    this.freeCheck = null;
+    return placed;
   }
 
   /**

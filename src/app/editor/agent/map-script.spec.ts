@@ -209,4 +209,85 @@ describe('map scripts', () => {
     expect(contentFingerprint(doc)).toBe(contentFingerprint(kit.doc));
     expect(heightAt(doc.terrain, 0, 0)).toBeCloseTo(3, 1);
   });
+
+  it('has every tool of the editor as a command, and plays them to the map the sandbox saw', async () => {
+    const r = ok(
+      run(`
+        map.generate('valleys', 5, 0.6, false, true);
+        map.road([{ x: -120, y: 0 }, { x: 0, y: 30 }, { x: 120, y: 0 }], { width: 8 });
+        const [road] = map.roads();
+        const node = map.splitRoad(road.id, { x: 0, y: 30 });
+        map.moveNode(node, { x: 4, y: 40 });
+        const branch = map.connectNodes(node, map.nodes().find((n) => n.id !== node).id, { width: 5, kind: 'path' });
+        map.editRoads([branch], { width: 6 });
+        map.smoothRoad(road.id, 10);
+        map.straightenRoad(branch);
+        map.river([{ x: -120, y: -90 }, { x: 0, y: -70 }, { x: 120, y: -100 }], { width: 10 });
+        const [river] = map.rivers();
+        map.moveRiverPoint(river.id, 1, { x: 0, y: -60 });
+        const added = map.addRiverPoint(river.id, 1, 0.5);
+        map.removeRiverPoint(river.id, added);
+        map.riverWidth(river.id, 12);
+        map.simplifyRiver(river.id);
+        map.riverKind(river.id, 'lava');
+        map.carveRiverBed(river.id);
+        map.pour({ x: 60, y: 90 }, 'water');
+        const walls = map.line('castle-wall', [{ x: -60, y: 80 }, { x: -20, y: 80 }, { x: -20, y: 110 }]);
+        const fence = map.line('rock-small', [{ x: 20, y: 70 }, { x: 60, y: 70 }], { spacing: 6, bothSides: true, offset: 3 });
+        const copies = map.duplicate([fence[0].id], { x: 0, y: 5 });
+        map.changeObjects(copies.map((o) => o.id), { dx: 2, turn: 0.5, scale: 1.2 });
+        map.alignToSlope([fence[1].id]);
+        const group = map.group(walls.map((o) => o.id));
+        map.ungroup([walls[0].id]);
+        map.cliffRocks([{ x: -100, y: -40 }, { x: -60, y: -40 }], { radius: 20 });
+        map.spawn('West', -120, 0);
+        map.moveSpawn('s1', -118, 2);
+        map.renameSpawn('s1', 'Gate');
+        map.copyArea({ x0: -40, y0: 60, x1: 0, y1: 100 }, { x: 80, y: -20 }, { rotation: 1, parts: { roads: false } });
+        map.mirrorMap('x', { x: -60, y: 0 });
+        return { group, walls: walls.length, fence: fence.length, lava: map.rivers()[0].kind, spawns: map.markers().spawns.map((s) => s.name) };
+      `),
+    );
+    expect(r.value).toMatchObject({ group: 'g1', lava: 'lava', spawns: expect.arrayContaining(['Gate']) });
+    expect((r.value as { walls: number }).walls).toBeGreaterThan(2);
+    const editor = new EditorDocument(map());
+    const played = await playCommands(editor, index, r.commands, 7, { wait: async () => undefined });
+    expect(played.fingerprint).toBe(r.fingerprint);
+  });
+
+  it('stops at an unknown road, node, river, spawn, object or layer and names what there is', () => {
+    const cases: [string, RegExp][] = [
+      [`map.moveNode('n9', { x: 0, y: 0 })`, /no road node n9; map\.nodes\(\) lists them/],
+      [`map.editRoads(['e9'], { width: 4 })`, /no road e9; roads: none/],
+      [`map.road([{ x: -50, y: 0 }, { x: 50, y: 0 }]); map.editRoads([map.roads()[0].id], { lanes: 2 })`, /a road knows no lanes/],
+      [`map.riverWidth('r9', 8)`, /no river r9; rivers: none/],
+      [`map.moveSpawn('s9', 0, 0)`, /no spawn s9/],
+      [`map.changeObjects(['o9'], { x: 1 })`, /no objects o9/],
+      [`map.place('rock-small', 0, 0); map.changeObjects([map.objects()[0].id], { colour: 'red' })`, /an object knows no colour/],
+      [`map.removeLayer('lava-rock')`, /no ground layer is lava-rock; layers: grass/],
+      [`map.removeLayer('grass')`, /at least one ground layer/],
+      [`map.water(5); map.sea(); map.pour({ x: 0, y: 0 })`, /water at \(0, 0\) already/],
+      [`map.copyArea({ x0: 0, y0: 0 }, { x: 0, y: 0 })`, /must be a rectangle/],
+    ];
+    for (const [source, error] of cases) {
+      const result = run(source);
+      expect(result.ok, source).toBe(false);
+      expect((result as { error: string }).error, source).toMatch(error);
+    }
+  });
+
+  it('reads road nodes, the ends of each road and the points of rivers', () => {
+    const r = ok(
+      run(`
+        map.road([{ x: -100, y: 0 }, { x: 100, y: 0 }]);
+        map.river([{ x: -100, y: -60 }, { x: 100, y: -80 }]);
+        return { roads: map.roads(), nodes: map.nodes(), rivers: map.rivers() };
+      `),
+    );
+    const value = r.value as { roads: { a: string; b: string }[]; nodes: { id: string; roads: string[] }[]; rivers: { width: number; points: { height: number }[] }[] };
+    expect(value.nodes.map((n) => n.id)).toEqual(expect.arrayContaining([value.roads[0].a, value.roads[0].b]));
+    expect(value.nodes[0].roads.length).toBeGreaterThan(0);
+    expect(value.rivers[0].width).toBeGreaterThan(0);
+    expect(typeof value.rivers[0].points[0].height).toBe('number');
+  });
 });
