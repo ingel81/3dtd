@@ -140,8 +140,9 @@ umlegbare Taste (Esc ist keine Einzeltaste, die man vergeben könnte).
 **Landscape (1).** Landschaft malen: Höhe, Bodenfarbe, Wasser und Objekte entstehen gemeinsam, jeder Strich ist
 ein Schritt im Verlauf. Jeder Strich hat einen Seed (im Panel und in der Statuszeile, „Roll“ würfelt, der Schalter
 würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben dieselbe Landschaft.
-- Biome: Meadow, Forest, Pine forest, Rocks, Mountains, Swamp, Desert, Beach, Snow, Arctic, Village, City, Hell,
-  Wasteland, Moon, Mars. Halten malt; die Stärke bestimmt Dichte und Ausprägung, der Rand franst aus. Unterholz, Büsche und Zäune
+- Biome: Meadow, Forest, Autumn wood, Pine forest, Rocks, Mountains, Swamp, Desert, Beach, Snow, Arctic, Village, City,
+  Hell, Wasteland, Moon, Mars. Autumn wood malt Herbstbäume auf Laub mit Laubhaufen, braunen Pilzen und roten Büschen am
+  Rand (die roten Fliegenpilze nicht, sie stehen in `DANGER_LOOK`). Halten malt; die Stärke bestimmt Dichte und Ausprägung, der Rand franst aus. Unterholz, Büsche und Zäune
   wachsen am Rand des Strichs, Bäume und Häuser innen; eine Objektart mischt alle ihre Kandidaten aus dem Katalog.
   Objekte meiden Straßen, Wasser, Spawns und HQ; der Boden unter Straßen bleibt. Sumpf, Hölle und Arktis legen Becken
   an, gefüllt mit einem eigenen Gewässer der Art Swamp, Lava oder Ice knapp unter dem Boden am Startpunkt (ein

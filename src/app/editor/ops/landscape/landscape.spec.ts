@@ -93,6 +93,17 @@ describe('biome brush', () => {
     expect([1, 2, 3].some((seed) => species('swamp', seed).has('tree-swamp-moss'))).toBe(true);
   });
 
+  it('grows an autumn wood on fallen leaves, without red toadstools', () => {
+    const ed = map();
+    paint(ed, 'autumn', 1);
+    const assets = new Set(ed.doc.objects.map((o) => o.asset));
+    for (const tree of ['tree-oak-autumn', 'tree-maple-autumn', 'tree-maple-red']) expect(assets.has(tree)).toBe(true);
+    expect(assets.has('bush-maple-autumn')).toBe(true);
+    expect(assets.has('tree-oak')).toBe(false);
+    expect(assets.has('mushrooms-red')).toBe(false);
+    expect(ed.doc.terrain.layers.map((l) => l.material)).toContain('leaves-autumn');
+  });
+
   it('grows more where the brush is stronger', () => {
     const weak = map();
     const strong = map();

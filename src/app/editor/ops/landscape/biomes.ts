@@ -10,6 +10,7 @@ import type { MapBiome, MapWaterKind } from '../../../world/custom-map/map-docum
 export type BiomeId =
   | 'meadow'
   | 'forest'
+  | 'autumn'
   | 'conifer'
   | 'rocks'
   | 'mountains'
@@ -128,7 +129,7 @@ export const BIOMES: readonly BiomeDef[] = [
       { assets: ['grass-green', 'grass-clump'], perHectare: 160, scale: [0.8, 1.4], zone: 'any', spacing: 1.5, clump: 0.6 },
       { assets: ['flowers', 'flowers-blue', 'flowers-yellow', 'periwinkle'], perHectare: 90, scale: [0.8, 1.3], zone: 'core', spacing: 1.5, clump: 0.85 },
       { assets: ['bush', 'shrub', 'shrub-wide'], perHectare: 14, scale: [0.7, 1.3], zone: 'any', spacing: 4, clump: 0.5 },
-      { assets: ['tree-oak', 'tree-maple', 'tree-birch'], perHectare: 2, scale: [0.9, 1.3], zone: 'core', spacing: 12 },
+      { assets: ['tree-oak', 'tree-maple', 'tree-birch', 'tree-oak-young', 'fruit-tree'], perHectare: 2, scale: [0.9, 1.3], zone: 'core', spacing: 12 },
       { assets: ['rock-mossy-flat', 'rock-round'], perHectare: 2, scale: [0.6, 1.2], zone: 'any', spacing: 8 },
     ],
   },
@@ -153,6 +154,29 @@ export const BIOMES: readonly BiomeDef[] = [
       { assets: ['stump', 'stump-old', 'stump-mossy'], perHectare: 7, scale: [0.8, 1.2], zone: 'core', spacing: 4 },
       { assets: ['log', 'log-fallen'], perHectare: 5, scale: [0.8, 1.2], zone: 'core', spacing: 6 },
       { assets: ['rock-mossy-a', 'rock-mossy-b', 'rock-mossy-c'], perHectare: 3, scale: [0.6, 1.2], zone: 'core', spacing: 8 },
+    ],
+  },
+  {
+    id: 'autumn',
+    label: 'Autumn wood',
+    hint: 'Autumn oaks, maples and birches on fallen leaves, leaf piles and mushrooms inside, red bushes at the edge',
+    color: '#b0642c',
+    ground: [
+      { material: ['leaves-autumn', 'leaves-scattered', 'forest-floor'], share: 0.45 },
+      { material: ['forest-floor', 'forest-ground', 'dirt'], share: 0.35 },
+      { material: ['grass-withered', 'grass'], share: 0.2 },
+    ],
+    relief: { kind: 'rolling', amplitude: 2, wave: 70 },
+    objects: [
+      { assets: ['tree-oak-autumn', 'tree-maple-autumn', 'tree-maple-red'], perHectare: 100, scale: [0.85, 1.35], zone: 'core', spacing: 5, clump: 0.3 },
+      { assets: ['tree-oak-autumn', 'tree-maple-autumn', 'tree-birch-autumn', 'tree-maple-red'], perHectare: 55, scale: [0.85, 1.25], zone: 'any', spacing: 5, clump: 0.5 },
+      // Brown toadstools only: the red ones read as enemy markers (DANGER_LOOK)
+      { assets: ['leaf-pile', 'mushrooms', 'branches'], perHectare: 50, scale: [0.8, 1.3], zone: 'core', spacing: 2, clump: 0.7 },
+      { assets: ['grass-autumn', 'fern'], perHectare: 110, scale: [0.8, 1.3], zone: 'any', spacing: 1.5, clump: 0.7 },
+      { assets: ['bush-maple-autumn', 'shrub'], perHectare: 100, scale: [0.8, 1.4], zone: 'edge', spacing: 2.5, clump: 0.4 },
+      { assets: ['stump', 'stump-old', 'stump-mossy'], perHectare: 6, scale: [0.8, 1.2], zone: 'core', spacing: 4 },
+      { assets: ['log', 'log-fallen'], perHectare: 5, scale: [0.8, 1.2], zone: 'core', spacing: 6 },
+      { assets: ['rock-mossy-a', 'rock-mossy-flat'], perHectare: 3, scale: [0.6, 1.2], zone: 'core', spacing: 8 },
     ],
   },
   {
@@ -242,7 +266,7 @@ export const BIOMES: readonly BiomeDef[] = [
   {
     id: 'desert',
     label: 'Desert',
-    hint: 'Dunes and cracked hardpan, cacti, succulents and wind-cut rocks',
+    hint: 'Dunes and cracked hardpan, cacti, succulents, a few dry trees and wind-cut rocks',
     color: '#c2b080',
     ground: [
       // Sand first; the darker hardpan and stony ground in small patches, else a wide view reads as camouflage
@@ -255,6 +279,7 @@ export const BIOMES: readonly BiomeDef[] = [
     objects: [
       { assets: ['cactus', 'cactus-tall', 'cactus-barrel', 'tree-quiver-small'], perHectare: 6, scale: [0.6, 1.3], zone: 'any', spacing: 7, clump: 0.5 },
       { assets: ['desert-shrub', 'succulent', 'grass-tall-dry'], perHectare: 16, scale: [0.6, 1.3], zone: 'any', spacing: 4, clump: 0.6 },
+      { assets: ['desert-tree', 'tree-palm-dry', 'tree-quiver'], perHectare: 1.5, scale: [0.8, 1.2], zone: 'any', spacing: 14, clump: 0.5 },
       { assets: ['rock-desert', 'rock-sandstone', 'stones'], perHectare: 5, scale: [0.6, 1.4], zone: 'any', spacing: 8 },
       { assets: ['rock-desert-large', 'rock-sandstone-large'], perHectare: 1.2, scale: [0.6, 1.2], zone: 'core', spacing: 18 },
       { assets: ['bones', 'tree-dead-pale', 'tree-quiver-dead'], perHectare: 0.8, scale: [0.7, 1.1], zone: 'any', spacing: 20 },
@@ -345,7 +370,7 @@ export const BIOMES: readonly BiomeDef[] = [
       { assets: ['lamp-post'], perHectare: 4, scale: [1, 1], zone: 'core', spacing: 12 },
       { assets: ['crate', 'barrel', 'cart', 'woodpile', 'barrel-wine', 'hay-bales'], perHectare: 16, scale: [0.9, 1.2], zone: 'core', spacing: 3, clump: 0.8 },
       { assets: ['fence-wood', 'fence-picket', 'hedge'], perHectare: 12, scale: [1, 1], zone: 'edge', spacing: 5 },
-      { assets: ['tree-oak', 'tree-oak-young', 'tree-birch'], perHectare: 4, scale: [0.9, 1.2], zone: 'edge', spacing: 10 },
+      { assets: ['tree-oak', 'tree-oak-young', 'tree-birch', 'fruit-tree', 'tree-maple'], perHectare: 4, scale: [0.9, 1.2], zone: 'edge', spacing: 10 },
       { assets: ['flowers-yellow', 'flowers', 'periwinkle'], perHectare: 30, scale: [0.8, 1.2], zone: 'any', spacing: 2, clump: 0.8 },
     ],
   },
