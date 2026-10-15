@@ -551,10 +551,18 @@ export function objectsInAir(doc: CustomMapDocument, footingOf: (asset: string) 
 /** Set pieces that ring a hollow (crater rims): nothing lies under their middle, their pieces follow the rim */
 const RING_PIECES = new Set(['crater-rim', 'mars-crater-rim']);
 
-/** A rock set piece lower than it is wide that rests on no measured plate (catalogue without `base`), rings left out */
+/**
+ * A flat rock set piece that rests on no measured plate (catalogue without
+ * `base`): a slab or a pool, at most a quarter as high as it is wide; rings
+ * left out. Cliff walls are wide too but stand against a slope, their foot
+ * at the ground (the Cliff rocks brush sinks them in), not on a plate
+ */
 function flatSetPiece(asset: string, f: ObjectFooting): boolean {
-  return f.category === 'rock' && !f.base && !f.float && f.height < f.footprint && !RING_PIECES.has(asset);
+  return f.category === 'rock' && !f.base && !f.float && f.height < f.footprint * FLAT_SHARE && !RING_PIECES.has(asset);
 }
+
+/** A set piece no higher than this share of its footprint lies flat */
+const FLAT_SHARE = 0.25;
 
 function floatingObjects(doc: CustomMapDocument, footingOf: (asset: string) => ObjectFooting | undefined, tolerance: number, issues: MapIssue[]): void {
   const found = objectsInAir(doc, footingOf, tolerance);

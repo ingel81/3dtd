@@ -74,6 +74,7 @@ describe('validateMap, objects in the air', () => {
   const footings: Record<string, ObjectFooting> = {
     heap: { category: 'rock', footprint: 3, height: 2.6, base: [3, 2, 0] },
     slab: { category: 'rock', footprint: 10, height: 2 },
+    'cliff-wall': { category: 'rock', footprint: 18, height: 9.5 },
     'crater-rim': { category: 'rock', footprint: 10, height: 1 },
     bush: { category: 'plant', footprint: 1, height: 1 },
     house: { category: 'building', footprint: 4, height: 6 },
@@ -129,12 +130,13 @@ describe('validateMap, objects in the air', () => {
     expect(issue?.message).toMatch(/^3 objects hang in the air, a boat or buoy sinks under the water \(worst: buoy, 5\.0 m up\)/);
   });
 
-  it('measures a flat set piece without a plate on its footprint, crater rims left out', () => {
+  it('measures a flat set piece without a plate on its footprint, crater rims and cliff walls left out', () => {
     const doc = createMapDocument({ id: 'm', name: 'M', width: 400, depth: 400 });
     const g = doc.terrain.grid;
     // A 20 degree slope: a 10 m slab level on it hangs some 3.6 m over the ground on its low side
     for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) g.heights[j * g.columns + i] = 0.36 * i * g.cellSize;
-    doc.objects.push(place('slab', 'slab', 50), place('rim', 'crater-rim', 80));
+    // A cliff wall on the slope stands on its foot, sunk in a little as the Cliff rocks brush sets it
+    doc.objects.push(place('slab', 'slab', 50), place('rim', 'crater-rim', 80), place('wall', 'cliff-wall', 120, -2));
     expect(inAir(doc)).toEqual(['slab']);
     // On level ground it lies flat
     g.heights.fill(0);
