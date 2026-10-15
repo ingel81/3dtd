@@ -59,7 +59,9 @@ und wo es vom Vorschlag abweicht; die Einzelheiten stehen in der Fach-Doku (Tabe
 9. **Token-Schritt.** Bleibt eigener Schritt; solange er steht, ist das Menü ausgeblendet. Settings, Map, „Change key“
    öffnet ihn; in der Lage Pause schließt das Menü dafür, in der Lage Start bleibt es dahinter.
 10. **Automatisierung.** Gebaut: `?bot=` (außer `bot=manual`), `&benchmark` und `&menu=skip` lassen das Start-Menü weg
-    (`startMenuSkipped`). Die E2E-Helfer drücken Play.
+    (`startMenuSkipped`). Die E2E-Helfer drücken Play. Während ein solcher Lauf seinen Ort lädt (oder daran
+    scheitert), steht die Ladeplatte des Menüs unten rechts über der leeren Karte (`skippedMenuPlate`), statt dass
+    Kopfzeile und Seitenleiste sekundenlang über einem schwarzen Bild stehen.
 
 ### Wege, die wegfallen oder umziehen
 

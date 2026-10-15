@@ -81,6 +81,15 @@
   transition: opacity var(--td-dur-mid) var(--td-ease-out), visibility 0s linear var(--td-dur-mid);
 }
 
+/* The start menu's loading plate when a run skips the menu (skippedMenuPlate),
+   where the menu puts it: bottom right */
+.td-skipped-menu-plate {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  z-index: 1000;
+}
+
 /* Bottom centre of the map, stacked upwards (skip intro, LOS legend, hint box).
    Absolute in .td-canvas-area, so the centre is the map's, not the page's. */
 .td-bottom-stack {

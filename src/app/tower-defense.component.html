@@ -94,6 +94,10 @@
         </div>
       }
 
+      @if (skippedMenuPlate()) {
+        <app-menu-loading class="td-skipped-menu-plate" />
+      }
+
       <canvas #gameCanvas class="td-canvas" [class.hidden]="error()" [class.td-placement-cursor]="!!mapPlacementMode()"></canvas>
 
       <!-- The menu globe while no place stands, and the dive into it (docs/GLOBE_PLAN.md) -->

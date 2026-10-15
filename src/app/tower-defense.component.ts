@@ -1,4 +1,5 @@
 import { GlobeBackdropComponent } from './components/globe-backdrop/globe-backdrop.component';
+import { MenuLoadingComponent } from './components/main-menu/loading/menu-loading.component';
 import {
   Component,
   OnDestroy,
@@ -151,6 +152,7 @@ import { MainMenuService } from './components/main-menu/main-menu.service';
   imports: [
     CommonModule,
     GlobeBackdropComponent,
+    MenuLoadingComponent,
     FocusOnShowDirective,
     MatDialogModule,
     CdkTrapFocus,
@@ -354,6 +356,14 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
    * (CanvasSizeFollower), and back when the menu closes
    */
   readonly startMenu = computed(() => this.uiStore.mainMenuOpen() && this.mainMenu.layer() === 'start');
+  /**
+   * The start menu's loading plate over the empty map while a run without
+   * the menu (bot, benchmark, `menu=skip`) loads its place or failed to:
+   * otherwise header and sidebar stood over a black map for seconds
+   */
+  readonly skippedMenuPlate = computed(() =>
+    this.mainMenu.automated && !this.uiStore.mainMenuOpen() && !this.tokenScreen()
+      && (this.mainMenu.placeLoading() || this.mainMenu.problem() !== null));
   /** The tile key screen stands instead of the game, the menu waits behind it */
   readonly tokenScreen = computed(() =>
     this.awaitingCredentials() || this.configService.credentialsRejected() || this.configService.setupRequested());
