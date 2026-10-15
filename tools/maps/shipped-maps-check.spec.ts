@@ -5,7 +5,8 @@
  * no object that blocks building stands on a road, every asset and material
  * is in the catalogue, no decoration reads as danger (DANGER_LOOK), no object
  * hangs in the air (the check's object-floating: rocks by their plates, boats
- * and buoys over the water, everything else over the ground), the
+ * and buoys over the water, everything else over the ground), no water
+ * ends in the air (water-floating: a lake, pool or river without a bank), the
  * scene cost stays below the Map panel's warning and the file size in budget (docs/SHOWCASE_LEVELS.md, "Regeln für alle
  * Level").
  *
@@ -16,7 +17,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { edgePolyline, nearestOnEdges, nearestOnPolyline } from '../../src/app/editor/ops/path-graph';
-import { validateMap } from '../../src/app/editor/validation/map-validation';
+import { validateMap, waterInAir } from '../../src/app/editor/validation/map-validation';
 import { rockShape } from '../../src/app/editor/ops/object-ops';
 import { CustomMapStreets } from '../../src/app/world/custom-map/custom-map-streets';
 import { MAP_METERS_PER_DEGREE, mapToGeo, type CustomMapDocument } from '../../src/app/world/custom-map/map-document';
@@ -133,6 +134,10 @@ describe('shipped maps check', () => {
       it('stands no object in the air: rocks on their plates, floating assets on the water, the rest on the ground', () => {
         const issues = validateMap(doc!, { footingOf: (a) => objects.get(a) });
         expect(issues.filter((i) => i.code === 'object-floating').map((i) => `${i.message} [${i.target?.id}]`)).toEqual([]);
+      });
+
+      it('holds all water in its banks: no lake, pool or river ends in the air', () => {
+        expect(waterInAir(doc!).map((w) => `${w.what}: ${w.height.toFixed(1)} m at ${Math.round(w.at.x)},${Math.round(w.at.y)}`)).toEqual([]);
       });
 
       it('places no decoration in the colours of danger', () => {
