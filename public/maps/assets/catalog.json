@@ -10689,7 +10689,7 @@
       "name": "Icicle ledge",
       "category": "prop",
       "file": "models/icicles.glb",
-      "triangles": 204,
+      "triangles": 846,
       "footprint": 1.8,
       "height": 3.0,
       "blocksLos": false,
