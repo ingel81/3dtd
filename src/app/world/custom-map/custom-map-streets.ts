@@ -4,7 +4,11 @@ import { StreetRouter } from '../../services/location/street-router';
 import type { WorldStreetSource } from '../world-provider';
 import { MAP_METERS_PER_DEGREE, type CustomMapDocument, type MapPathKind } from './map-document';
 
-/** Street type per path kind: roads route first, paths and bridges as a road does (types of StreetRouter's weights) */
+/**
+ * Street type per path kind: roads route first, paths and bridges as a road
+ * does (types of StreetRouter's weights). An edge of a real way (an OSM
+ * world's) carries its own type
+ */
 const STREET_TYPE: Record<MapPathKind, string> = {
   road: 'primary',
   bridge: 'primary',
@@ -71,7 +75,7 @@ export function mapStreetNetwork(doc: CustomMapDocument): StreetNetwork {
     const street: Street = {
       id: streets.length + 1,
       name: e.kind === 'bridge' ? 'Bridge' : e.kind === 'path' ? 'Path' : 'Road',
-      type: STREET_TYPE[e.kind],
+      type: e.street ?? STREET_TYPE[e.kind],
       nodes: [a, ...(e.via ?? []).map((v) => node(v.x, v.y)), b],
       width: e.width,
     };

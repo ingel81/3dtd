@@ -36,8 +36,8 @@ export interface MapMeta {
   /** ISO times */
   createdAt: string;
   updatedAt: string;
-  /** Where the map came from, when it was imported */
-  source?: { kind: 'w3x'; file: string; mapName: string; tileset?: string };
+  /** Where the map came from, when it was imported or made from a real place */
+  source?: MapSource;
   /**
    * The map's identity across files and renames, given when a map is first
    * stored as one's own; a copy gets a new one. A file read in again finds
@@ -52,6 +52,28 @@ export interface MapMeta {
    */
   copyOf?: { id: string; hash: string };
 }
+
+/** Where a map came from: a Warcraft 3 map, or a real place made from OpenStreetMap (world/osm) */
+export type MapSource =
+  | { kind: 'w3x'; file: string; mapName: string; tileset?: string }
+  | {
+      kind: 'osm';
+      /** The place in the middle of the map */
+      lat: number;
+      lon: number;
+      /** What the player searched for, or the coordinates */
+      address: string;
+      /** Side of the square map, metres */
+      sideM: number;
+      /** ISO time the OSM data was fetched */
+      fetchedAt: string;
+      /** Where the heights came from (dem-tiles.ts), null for flat ground */
+      dem: string | null;
+      /** Height above sea level of the map's zero, metres */
+      zeroM: number;
+      /** Lines to show wherever the map is played */
+      attribution: string[];
+    };
 
 /**
  * A regular height grid over the whole map. Sample (i, j) sits at
@@ -203,6 +225,18 @@ export interface MapPathEdge {
   via?: MapPoint[];
   /** Bridges only: the deck's material, default wood */
   style?: MapBridgeStyle;
+  /**
+   * The street type of the real way it was made from (OSM `highway`, an OSM
+   * world's): routes weigh it and spawns choose it as on the real places.
+   * Without it the kind decides (custom-map-streets.ts)
+   */
+  street?: string;
+  /**
+   * A ground material painted under the road at its width (an OSM world's
+   * asphalt, pavers, gravel): the road mask leaves the edge out, so the
+   * painted ground shows instead of the cobbles and ruts of a drawn road
+   */
+  surface?: string;
   /**
    * What the road brush built along this edge, so it can be laid anew when
    * the road moves (the editor's; the game ignores it): the ground levelled
