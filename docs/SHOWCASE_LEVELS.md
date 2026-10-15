@@ -85,7 +85,8 @@ Höhenlinien über dem Pass, jede quer zur Falllinie; kleine Séracs im steilen 
 weggelassen (liest sich als heller Klotz, die Zunge bleibt aus Gelände). Vier Almhütten mit Holzstapel, Pferch und
 Kühen auf den Hochweiden, Schafe am Talrand. Leben: Greifvögel über beiden Gipfeln, Singvögel über dem Tal,
 Schneegestöber am Kopf der Gletscher; Wind über der ganzen Karte, am Pass lauter, Bachrauschen vom Wasserfall talwärts,
-Vogelgesang im Tal. Offen: Gondeln fahren nicht (kein Mechanismus für Seilbahnen), Kuhglocken (kein Klang).
+Vogelgesang im Tal, Kuhglocken auf den Almen um die Hütten. Offen: Gondeln fahren nicht (bewegte Dinge hängen an
+einer geraden Linie, das Seil hier läuft über drei Stützen).
 
 Biom Berge, Look `mountain`, später Nachmittag. Ein Pass zwischen zwei Gipfeln; die Straße windet sich in Serpentinen
 vom Tal zum Pass, wo das HQ in einem Bergdorf steht (Steinhäuser mit Holzbalkon, Kapelle, Stützmauern). Ein Wasserfall
