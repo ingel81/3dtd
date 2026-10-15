@@ -4,10 +4,12 @@
 //
 //   Demo Valley   sculpt (small and big brush), cliff and ramp, a mountain with snow, erase and forest; buildings that level
 //                 their ground, lamps beside the road; later night (fireflies, lit windows, the lamps)
-//   Red Canyon    a lake and a river into it (mirroring, foam, shallows); a road, select and move, stamps;
-//                 symmetry painted from above (two, then four); the visit's history rewound and replayed
+//   Red Canyon    a lake and a river into it (mirroring, foam, shallows); later a road, select and move, stamps,
+//                 symmetry painted from above (two, then four), the visit's history rewound and replayed, Test map
 //   Ember Crater  lava poured into a new crater; hell ground, a lava flow; later rain, fog and sky
-//   Ruined City   a bomb crater and Fill a hollow, build areas, a trial wave, Test map
+//   Ruined City   a bomb crater and Fill a hollow, build areas, a trial wave
+//
+// Order: Demo Valley, Red Canyon, Ember Crater, Demo Valley, Ruined City, Ember Crater, Demo Valley, Red Canyon.
 //
 // Ground layers (12 at most): Demo Valley 8 (+ snow, forest), Red Canyon 7 (+ river), Ember Crater 7,
 // Ruined City 7 (+ meadow).
@@ -209,6 +211,86 @@ export const SCENES = [
     wait(1),
     act('overlay', { on: true }),
   ]),
+  block('city-fill', 'ruined-city', 'Ruined City', [
+    // A bomb crater at a free crossing, filled to its rim (Ctrl): the ruins mirrored in it
+    frame([m(64, -192)], { from: 20, pitch: 30, margin: 35, glide: 1.6 }),
+    tool('landscape', { label: 'crater' }),
+    mode('crater'),
+    settings({ brush: { radius: 22, strength: 1 } }),
+    stroke(1.4, [m(64, -192), m(64, -192)]),
+    ...settle(0.4),
+    tool('water', { label: 'fill' }),
+    mode('fill'),
+    clickMap(m(64, -192), { mods: { ctrl: true } }),
+    ...settle(1.8),
+    effect('fill'),
+  ]),
+  {
+    // Where towers may stand, over the whole city
+    name: 'city-areas',
+    steps: [
+      frame([m(-200, -200), m(200, 200)], { from: 0, pitch: 58, margin: 5, glide: 1.6 }),
+      tool('measure', { label: 'build areas' }),
+      click('[data-test=build-areas]'),
+      wait(2.4),
+      effect('build areas'),
+      click('[data-test=build-areas]'),
+    ],
+  },
+  {
+    // The runners come out of the south gate, the camera chases one, then pulls up
+    name: 'city-trial',
+    steps: [
+      act('overlay', { on: false }),
+      // Down into the avenue north of the South Gate, looking back at the gate the runners come through
+      path(2.4, ['current', [m(-150, -150, 40), m(-192, -230, 4)], [m(-192, -185, 8), m(-192, -252, 3)]], { ease: 'inOut' }),
+      click('[data-test=trial]', { label: 'trial wave' }),
+      click('[data-test=trial-speed] button', { withText: '2x' }),
+      wait(2.2),
+      { do: 'follow', at: { at: 'runner:0' }, dur: 6, back: 12, side: 7, h: 5, label: 'chase' },
+      path(3, ['current', [m(-80, -200, 80), m(-40, -100)]], { ease: 'inOut', label: 'pull up' }),
+      wait(1),
+      act('overlay', { on: true }),
+      click('[data-test=trial]'),
+    ],
+  },
+  block('ec-sky', 'ember-crater', 'Ember Crater', [
+    // Storm over the volcano: every setting with the camera at rest, held until it shows
+    act('overlay', { on: false }),
+    // Over the crater's south rim, the lava lake and the HQ island below
+    path(1.8, ['current', [m(-30, -150, 50), m(0, -5, 14)]], { ease: 'inOut' }),
+    tool('environment', { label: 'sky' }),
+    ...settle(0.6),
+    { do: 'select', sel: '[data-test=sky-image]', value: 'thunderstorm', label: 'sky picture' },
+    ...settle(2),
+    effect('sky'),
+    click(WEATHER, { withText: 'Rain', label: 'rain' }),
+    { do: 'range', sel: 'app-editor-range[label=Strength]', to: 100, dur: 0.8 },
+    ...settle(2.4),
+    effect('rain'),
+    click(WEATHER, { withText: 'Fog', label: 'fog' }),
+    { do: 'range', sel: 'app-editor-range[label=Strength]', to: 80, dur: 0.8 },
+    ...settle(2.4),
+    effect('fog'),
+    click(WEATHER, { withText: 'Clear' }),
+    ...settle(0.6),
+    act('overlay', { on: true }),
+  ]),
+  block('dv-night', 'demo-valley', 'Demo Valley', [
+    // Night where the lamps stand and the village begins: lit windows, the lamps, fireflies by the woods
+    act('overlay', { on: false }),
+    // Low by the West road where it reaches the village: lamps on the left, the houses ahead
+    path(2, ['current', [m(-95, -140, 7), m(30, -115, 6)]], { ease: 'inOut' }),
+    tool('environment', { label: 'night' }),
+    ...settle(0.6),
+    click(SKY_PRESET, { withText: 'Night' }),
+    ...settle(1.6),
+    { do: 'range', sel: '[data-test=moonlight]', to: 60, dur: 1 },
+    ...settle(2.4),
+    effect('night'),
+    orbit(5, 'look', { turn: 18, ease: 'inOut' }),
+    act('overlay', { on: true }),
+  ]),
   block('rc-roads', 'red-canyon', 'Red Canyon', [
     // A road out of the temple basin, bent; a tent moved and copied; the oasis stamped by the new lake
     frame([{ at: 'hq' }, m(210, -110), m(225, -40)], { from: 250, pitch: 45, margin: 25, glide: 1.6 }),
@@ -287,87 +369,8 @@ export const SCENES = [
     effect('history'),
     wait(0.8),
     click('[data-test=side-tool]'),
+    // The map as edited into the game: the fight (game.mjs) plays on it
+    click('[data-test=test-play]', { label: 'test map' }),
+    wait(1.2),
   ]),
-  block('ec-sky', 'ember-crater', 'Ember Crater', [
-    // Storm over the volcano: every setting with the camera at rest, held until it shows
-    act('overlay', { on: false }),
-    // Over the crater's south rim, the lava lake and the HQ island below
-    path(1.8, ['current', [m(-30, -150, 50), m(0, -5, 14)]], { ease: 'inOut' }),
-    tool('environment', { label: 'sky' }),
-    ...settle(0.6),
-    { do: 'select', sel: '[data-test=sky-image]', value: 'thunderstorm', label: 'sky picture' },
-    ...settle(2),
-    effect('sky'),
-    click(WEATHER, { withText: 'Rain', label: 'rain' }),
-    { do: 'range', sel: 'app-editor-range[label=Strength]', to: 100, dur: 0.8 },
-    ...settle(2.4),
-    effect('rain'),
-    click(WEATHER, { withText: 'Fog', label: 'fog' }),
-    { do: 'range', sel: 'app-editor-range[label=Strength]', to: 80, dur: 0.8 },
-    ...settle(2.4),
-    effect('fog'),
-    click(WEATHER, { withText: 'Clear' }),
-    ...settle(0.6),
-    act('overlay', { on: true }),
-  ]),
-  block('dv-night', 'demo-valley', 'Demo Valley', [
-    // Night where the lamps stand and the village begins: lit windows, the lamps, fireflies by the woods
-    act('overlay', { on: false }),
-    // Low by the West road where it reaches the village: lamps on the left, the houses ahead
-    path(2, ['current', [m(-95, -140, 7), m(30, -115, 6)]], { ease: 'inOut' }),
-    tool('environment', { label: 'night' }),
-    ...settle(0.6),
-    click(SKY_PRESET, { withText: 'Night' }),
-    ...settle(1.6),
-    { do: 'range', sel: '[data-test=moonlight]', to: 60, dur: 1 },
-    ...settle(2.4),
-    effect('night'),
-    orbit(5, 'look', { turn: 18, ease: 'inOut' }),
-    act('overlay', { on: true }),
-  ]),
-  block('city-fill', 'ruined-city', 'Ruined City', [
-    // A bomb crater at a free crossing, filled to its rim (Ctrl): the ruins mirrored in it
-    frame([m(64, -192)], { from: 20, pitch: 30, margin: 35, glide: 1.6 }),
-    tool('landscape', { label: 'crater' }),
-    mode('crater'),
-    settings({ brush: { radius: 22, strength: 1 } }),
-    stroke(1.4, [m(64, -192), m(64, -192)]),
-    ...settle(0.4),
-    tool('water', { label: 'fill' }),
-    mode('fill'),
-    clickMap(m(64, -192), { mods: { ctrl: true } }),
-    ...settle(1.8),
-    effect('fill'),
-  ]),
-  {
-    // Where towers may stand, over the whole city
-    name: 'city-areas',
-    steps: [
-      frame([m(-200, -200), m(200, 200)], { from: 0, pitch: 58, margin: 5, glide: 1.6 }),
-      tool('measure', { label: 'build areas' }),
-      click('[data-test=build-areas]'),
-      wait(2.4),
-      effect('build areas'),
-      click('[data-test=build-areas]'),
-    ],
-  },
-  {
-    // The runners come out of the south gate, the camera chases one, then pulls up; then Test map
-    name: 'city-trial',
-    steps: [
-      act('overlay', { on: false }),
-      // Down into the avenue north of the South Gate, looking back at the gate the runners come through
-      path(2.4, ['current', [m(-150, -150, 40), m(-192, -230, 4)], [m(-192, -185, 8), m(-192, -252, 3)]], { ease: 'inOut' }),
-      click('[data-test=trial]', { label: 'trial wave' }),
-      click('[data-test=trial-speed] button', { withText: '2x' }),
-      wait(2.2),
-      { do: 'follow', at: { at: 'runner:0' }, dur: 6, back: 12, side: 7, h: 5, label: 'chase' },
-      path(3, ['current', [m(-80, -200, 80), m(-40, -100)]], { ease: 'inOut', label: 'pull up' }),
-      wait(1),
-      act('overlay', { on: true }),
-      click('[data-test=trial]'),
-      click('[data-test=test-play]', { label: 'test map' }),
-      wait(1.2),
-    ],
-  },
 ];

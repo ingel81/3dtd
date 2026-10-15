@@ -29,7 +29,7 @@ node tools/showreel/run.mjs --displays                                 # the dis
 node tools/showreel/run.mjs --scene ember-flyover --rehearse           # one scene on the screen, nothing recorded
 node tools/showreel/run.mjs --scene ember-flyover --out <dir>          # one scene recorded
 node tools/showreel/run.mjs --out <dir>                                # the whole programme
-node tools/showreel/run.mjs --from editor-new --headless 1600x900 --shots 3 --url http://localhost:4307   # development
+node tools/showreel/run.mjs --from dv-sculpt --to rc-water --headless 1600x900 --verify --url http://localhost:4307   # development
 ```
 
 A run writes `run.json` after every page and scene (capture start, pages with their sound file and sync times, marks).
@@ -41,11 +41,11 @@ The dev server for a recording should run without live reload (`npx ng serve --p
 --hmr=false`): a source change during a run reloads the page under the runner.
 
 Options: `--display DISPLAY2` (default the primary), `--quality ultra|high` (default ultra; Auto would play custom maps a level lower), `--output-idx N` (skips the colour test), `--dpr 1` (headless: the scaling to stand in for, e.g. `--headless 2048x1152 --dpr 1.25`),
-`--cq 18`, `--chroma 444`, `--from <scene>`, `--scene a,b`.
+`--cq 18`, `--chroma 444`, `--from <scene>`, `--to <scene>`, `--scene a,b`.
 
 UI per step: `{ do: 'ui', on }` (game: photo mode; editor: without header, tool column, side column, status bar,
 minimap), `{ do: 'legend', on }` (the editor's mouse legend, off at the start), `{ do: 'markers', on }` (HQ diamond and
-name signs in the game). Fly-overs and finale play clean, editor and game with their UI.
+name signs in the game). Fly-overs and the outro play clean, editor and game with their UI.
 
 Chrome gets no translate bubble: the feature list (Playwright's own plus `TranslateUI`, since Chrome reads only the
 last `--disable-features`), `--lang=en-US`, and `translate.enabled: false` in the fresh profile; `--check-browser`
@@ -53,7 +53,16 @@ prints the flags and the pref.
 
 A scene with `page` loads it (`opened`: the address the editor's Test map asked for, opened in the same window);
 one without plays on. `--scene` loads the page the scene needs, but editor scenes build on the ones before
-(`--from editor-new` for those).
+(`--from` for those). A scene with `leave: <selector>` ends by the app's own navigation: after its steps the runner
+keeps the page's sound, clicks that element (the pause menu's "Open in the editor") and follows the page the app
+goes to; a redirect of that navigation adds `showreel`, so the hook loads there too (the app's link is left as it
+is). `arrives: <address>` names the page a scene ends on (after a leave, or after the editor opened another map
+from its list), so a run with `--from` a later scene loads that page. The hook opens the custom maps for its page
+(`CUSTOM_MAPS_OPEN`), so the pause menu offers Edit this map before their release.
+
+Editor storage: every run starts Chrome on a fresh profile, so no own copies or saves of an earlier run leak in.
+A shipped map opened in the editor becomes an own copy; opened again (the map list's row, own copy or shipped)
+it is that copy, with no "original changed" notice while the shipped file is the same.
 
 ## Output (one folder per run)
 
@@ -97,7 +106,7 @@ game `spot:<i>`, `spots`), `{ m: [x, y], h }` metres; `h` above the ground, `hab
 | `ui`, `legend`, `markers` | UI in the picture (see above) |
 | `follow` `{ at, dur, back, side, h, ahead }` | Chase camera on a moving spot (editor `runner:<i>`, a trial runner) |
 | `upload` `{ sel, file }` | A local file into a file input (the runner's `setInputFiles`; the W3X import) |
-| `act` `{ name, ... }` | Stage action. Game: `intro` (wait for the game's intro flight to land), `man` `{ dur, wait, spot? }` (into a tower's first-person view, aim and shoot, out), `photo`, `routes`, `markers`, `hints`, `credits`, `research`, `jumpWave`, `speed`, `planTowers` `{count, tower}`, `build` `{tower, spot, hold}`, `wave`, `environment` `{patch}`. Editor: `settings` `{patch}` (EditorSettings, deep merge), `environment`, `trialSpeed`, `viewReady`, `idle`, `save`, `history` `{ to: 0 \| 'end', stepS }` |
+| `act` `{ name, ... }` | Stage action. Game: `intro` (wait for the game's intro flight to land), `man` `{ dur, wait, spot? }` (into a tower's first-person view, aim and shoot, out), `photo`, `routes`, `markers`, `hints`, `credits`, `research`, `jumpWave`, `speed`, `planTowers` `{count, tower, from, to, route, offsets, step}`, `build` `{tower, spot, hold}`, `wave`, `waveDone` `{timeout}` (until none alive and none to come), `environment` `{patch}`. Editor: `settings` `{patch}` (EditorSettings, deep merge), `environment`, `trialSpeed`, `viewReady`, `idle`, `save`, `history` `{ to: 0 \| 'end', stepS }` |
 
 Intro pages: a scene with `intro: true` loads its page with `showreel=intro`: the hook hides the game's HUD from the
 first frame (lane lines, HQ and spawns stay), the runner starts the sound and the sync flash while the map loads, and
@@ -105,8 +114,10 @@ the scene's `intro` action waits until the game's intro flight has landed before
 then lies over the loading screen; in take 3 the runner did not find it there and placed those pages' sound by the
 clock.
 
-Programme files: `script.mjs` assembles `scenes/flyovers.mjs`, `editor.mjs`, `editor2.mjs`, `w3x.mjs`, `game.mjs`,
-`finale.mjs` (helpers in `scenes/common.mjs`). `--script <file>` runs another programme (probes).
+Programme files: `script.mjs` assembles `scenes/intro.mjs`, `editor.mjs`, `w3x.mjs`, `game.mjs`, `outro.mjs`
+(helpers in `scenes/common.mjs`). `--script <file>` runs another programme (probes). Effect moments carry a mark
+`effect:<what>` (the change visibly done), map blocks a mark with the map's name: the cut
+(`tmp/showreel/edit/build.py`) cuts around them.
 
 Towers: `planTowers` finds spots beside the routes with the game's own rules (`TowerPlacementService.placementAt`,
 3 m room around) before the pointer moves; `build` clicks the card once it is enabled, glides the camera over a spot

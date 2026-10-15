@@ -151,13 +151,13 @@ export class GameStage implements Stage {
    * from the HQ outwards, both sides, each checked by the game's placement
    * rules and apart from the others, so every build is one clean click
    */
-  private planSpots(count: number, tower: string, from = 40, to = 320, only: number | null = null): void {
+  private planSpots(count: number, tower: string, from = 40, to = 320, only: number | null = null, offsets = [20, 24, 28], step = 28): void {
     // `route`: the spots along that route alone, so they stand together in one shot
     const all = [...this.routes.getCachedPaths().values()].map((r) => r.map((w) => ({ x: w.lon * MAP_METERS_PER_DEGREE, y: w.lat * MAP_METERS_PER_DEGREE })));
     const routes = only === null ? all : all.slice(only, only + 1);
     const chosen: { x: number; y: number }[] = [];
     const apart = (p: { x: number; y: number }) => chosen.every((q) => Math.hypot(q.x - p.x, q.y - p.y) >= 24);
-    for (let d = from; d <= to && chosen.length < count; d += 28) {
+    for (let d = from; d <= to && chosen.length < count; d += step) {
       for (const route of routes) {
         // Walk from the HQ end back along the route to distance d
         let left = d;
@@ -175,7 +175,8 @@ export class GameStage implements Stage {
           const nx = -(b.y - a.y) / (len || 1);
           const ny = (b.x - a.x) / (len || 1);
           const side = chosen.length % 2 ? 1 : -1;
-          for (const off of [20, 24, 28, -20, -24, -28]) {
+          // How far beside the route, this side first (a city's corners stand closer than a meadow's)
+          for (const off of [...offsets, ...offsets.map((o) => -o)]) {
             const p = { x: px + nx * off * side, y: py + ny * off * side };
             if (apart(p) && this.buildableAround(p.x, p.y, tower)) {
               chosen.push(p);
@@ -320,6 +321,8 @@ export class GameStage implements Stage {
           Number(args['from'] ?? 40),
           Number(args['to'] ?? 320),
           args['route'] === undefined ? null : Number(args['route']),
+          (args['offsets'] as number[] | undefined) ?? undefined,
+          args['step'] === undefined ? undefined : Number(args['step']),
         );
         return;
       case 'build': {

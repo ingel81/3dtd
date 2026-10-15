@@ -11,10 +11,12 @@ export const SCENES = [
       { do: 'ui', on: false },
       { do: 'markers', on: false },
       act('routes', { on: false }),
-      sky('deep-space', 'night', 18, { sunAzimuth: 120, moonlight: 0.8 }),
+      // The sun low and bright on the regolith under the black, starry picture
+      sky('deep-space', 'day', 16, { sunAzimuth: 120 }),
       { do: 'mark', name: 'Outro' },
-      // Low over the craters toward the station, rising as it closes in: the sky's galaxy over the rim
-      path(18, [[m(-175, -125, 14), m(30, -20, 8)], [m(-115, -175, 22), m(30, -20, 6)], [m(-25, -190, 42), m(30, -20, 4)]], { ease: 'inOut', label: 'effect:moon base' }),
+      // Low over the craters from the south-east toward the station, rising as it closes in: the galaxy over the
+      // rim (from the south-west the West landing zone's red beacon stood in the foreground)
+      path(18, [[m(140, -205, 12), m(30, -20, 30)], [m(70, -200, 22), m(30, -20, 14)], [m(5, -130, 36), m(30, -20, 4)]], { ease: 'inOut', label: 'effect:moon base' }),
       { do: 'fade', to: 1, dur: 2, label: 'fade out' },
       wait(0.5),
     ],

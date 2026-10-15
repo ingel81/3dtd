@@ -5,8 +5,8 @@ import { act, click, flyover, m, orbit, path, wait } from './common.mjs';
 
 export const SCENES = [
   flyover('intro-red-canyon', 'red-canyon', 'Red Canyon', [
-    // Round the oasis by the temple, low: the palms and mesas mirrored in its still water, the foam at its rim
-    orbit(8, { m: [110, -192] }, { from: 150, to: 205, radius: 60, radiusTo: 42, height: 17, heightTo: 11, ease: 'inOut', label: 'effect:oasis' }),
+    // Round the oasis by the temple, high enough to see over the basin's rim: the palms and mesas mirrored in its still water, the foam at its rim
+    orbit(8, { m: [110, -195] }, { from: 150, to: 190, radius: 52, radiusTo: 40, height: 30, heightTo: 20, ease: 'inOut', label: 'effect:oasis' }),
   ]),
   flyover('intro-ember-crater', 'ember-crater', 'Ember Crater', [
     // Low over the lava lake round the HQ island: the crust plates drift, the cracks glow

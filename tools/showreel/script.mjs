@@ -19,7 +19,7 @@
 //
 // Programme (round 2, 2026-10-15): intro over Red Canyon, Ember Crater, Ruined City, Demo Valley; into the
 // editor from Demo Valley's pause menu, hopping between the four maps (own copies of the shipped ones); the
-// Warcraft 3 import; a fight on the Ruined City as edited; the outro on Moon Base.
+// Warcraft 3 import; a fight on Red Canyon as edited; the outro on Moon Base.
 
 import { SCENES as INTRO } from './scenes/intro.mjs';
 import { SCENES as EDITOR } from './scenes/editor.mjs';
