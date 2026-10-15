@@ -507,11 +507,16 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   Life-Panel: „At each wave“, Lautstärke, „Comes from“, „Play“ spielt ihn einmal im Editor
 - Von oben leiser: bis 80 m über dem Boden voll, ab 600 m ein Drittel (`lift`)
 - Klänge (`AMBIENT_SOUNDS`): `wind`, `birdsong`, `night-insects`, `stream`, `surf`, `swamp`, `lava`, `fire`, `city`,
-  `gulls`, `crows`, `radio-hiss`, je mit eigenem Pegel. Heute synthetische Platzhalter aus `tools/ambient/make_placeholders.py` (Rauschen im Frequenzraum über
-  die ganze Schleife gefiltert, Rufe und Hüllkurven laufen über das Ende herum, daher ohne Naht); die Datei trägt
-  0,1 s der Schleife davor und danach (`LOOP_PAD`), gespielt wird dazwischen, so verschluckt der MP3-Versatz nichts.
-  Echte Aufnahmen ersetzen später die Dateien unter denselben Ids. Eine unbekannte Id spielt nichts (eine Karte aus
-  einem neueren Spiel)
+  `gulls`, `crows`, `radio-hiss`, `harbor`, `cowbells`, `pine-wind`, `rain`, `cave-wind`, je mit eigenem Pegel. Mit
+  ElevenLabs erzeugt und ausgewählt (2026-10-15): `wind`, `birdsong`, `stream`, `surf`, `swamp`, `lava`, `fire`, `city`,
+  `gulls`, `crows`, `radio-hiss`; noch synthetische Platzhalter aus `tools/ambient/make_placeholders.py` (Rauschen im
+  Frequenzraum über die ganze Schleife gefiltert, Rufe und Hüllkurven laufen über das Ende herum, daher ohne Naht):
+  `night-insects`, `harbor`, `cowbells`, `pine-wind`, `rain`, `cave-wind`. Die Datei trägt 0,1 s der Schleife davor
+  und danach (`LOOP_PAD`), gespielt wird dazwischen, so verschluckt der MP3-Versatz nichts. Eine unbekannte Id spielt
+  nichts (eine Karte aus einem neueren Spiel)
+- **Varianten**: `wind`, `stream` und `surf` haben je zwei Aufnahmen (`variants`, `wind-2.mp3` usw.). Sie spielen
+  abwechselnd: jede bis zum Ende ihrer Schleife, die nächste setzt 2 s vorher ein (`CROSSFADE`, Equal-Power-Blende,
+  eine Sekunde vorher eingeplant), so fällt die 20-s-Schleife beim langen Zuhören weniger auf
 - Kosten: je hörbarer Stimme eine Quelle (im Audio-Thread); Pegel und Panning rechnet die CPU zehnmal je Sekunde,
   eine Stimme, die drei Sekunden still ist, gibt ihre Quelle ab. Die Grafikstufe ändert nichts am Ton
 

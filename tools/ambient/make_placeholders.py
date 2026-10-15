@@ -199,6 +199,63 @@ def radio_hiss(rng):
     return out
 
 
+
+def harbor(rng):
+    # Water slapping on the quay walls and hulls, a creaking rope now and then
+    out = band(rng, 60, 700, -0.6) * (0.5 + 0.5 * slow(rng, 1.2)) * 0.6
+    for _ in range(40):
+        n = int(rng.uniform(0.08, 0.2) * RATE)
+        add(out, int(rng.uniform(0, N)), band(rng, 200, 2500)[:n] * window(n) * rng.uniform(0.3, 0.8))
+    for _ in range(5):
+        n = int(rng.uniform(0.4, 0.8) * RATE)
+        f = np.linspace(rng.uniform(180, 260), rng.uniform(300, 420), n)
+        add(out, int(rng.uniform(0, N)), tone(f, window(n)) * (0.5 + 0.5 * np.sign(tone(f * 0.03, np.ones(n)))) * 0.25)
+    return out
+
+
+def cowbells(rng):
+    # Wind over a pasture, bells of a few cows ringing irregularly
+    out = wind(rng) * 0.2
+    for cow in range(4):
+        f0 = rng.uniform(600, 1100)
+        level = rng.uniform(0.3, 0.8)
+        for _ in range(int(rng.integers(6, 12))):
+            n = int(0.6 * RATE)
+            t = np.arange(n) / RATE
+            ring_ = sum(np.sin(2 * np.pi * f0 * r * t) * a for r, a in ((1, 1.0), (2.76, 0.5), (5.4, 0.25))) * np.exp(-t / 0.15)
+            add(out, int(rng.uniform(0, N)), ring_ * level)
+    return out
+
+
+def pine_wind(rng):
+    # A soft rush of needles rising and falling, higher and airier than open wind
+    rush = band(rng, 400, 5000, -0.3) * (0.3 + 0.7 * slow(rng, 0.12) ** 1.5)
+    return rush + band(rng, 40, 300, -0.6) * 0.3
+
+
+def rain(rng):
+    out = band(rng, 800, 9000, -0.1) * 0.6 + band(rng, 100, 800, -0.4) * 0.3
+    for _ in range(900):
+        n = int(rng.uniform(0.002, 0.006) * RATE)
+        add(out, int(rng.uniform(0, N)), rng.standard_normal(n) * np.exp(-np.linspace(0, 5, n)) * rng.uniform(0.2, 0.9))
+    return out
+
+
+def cave_wind(rng):
+    # A hollow moan (a narrow band that drifts), sparse drips
+    out = band(rng, 30, 200, -0.8) * 0.4
+    moan = band(rng, 150, 230) * slow(rng, 0.1) ** 2 * 1.2
+    out += moan
+    for _ in range(10):
+        n = int(0.12 * RATE)
+        t = np.arange(n) / RATE
+        f = rng.uniform(900, 1600)
+        drip = np.sin(2 * np.pi * f * (1 + 2 * t) * t) * np.exp(-t / 0.03)
+        at = int(rng.uniform(0, N))
+        add(out, at, drip * 0.6)
+        add(out, at + int(0.25 * RATE), drip * 0.2)
+    return out
+
 SOUNDS = {
     'wind': wind,
     'birdsong': birdsong,
@@ -212,6 +269,11 @@ SOUNDS = {
     'gulls': gulls,
     'crows': crows,
     'radio-hiss': radio_hiss,
+    'harbor': harbor,
+    'cowbells': cowbells,
+    'pine-wind': pine_wind,
+    'rain': rain,
+    'cave-wind': cave_wind,
 }
 
 

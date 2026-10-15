@@ -1,6 +1,6 @@
 import type { CustomMapDocument, MapLife, MapLifeArea, MapPoint } from '../map-document';
 import { nearestOnShape } from '../map-life';
-import { AMBIENT_SOUNDS, WAVE_SOUNDS, ambienceSounds, soundEntry } from './ambient-sounds';
+import { AMBIENT_SOUNDS, WAVE_SOUNDS, ambienceSounds, soundEntry, soundFiles } from './ambient-sounds';
 
 /**
  * The ambient sound of a custom map (TODO E190, docs/CUSTOM_MAPS.md
@@ -13,6 +13,8 @@ import { AMBIENT_SOUNDS, WAVE_SOUNDS, ambienceSounds, soundEntry } from './ambie
  * camera's height over it); from high up everything is quieter, and a sound
  * off to one side pans there. Plain Web Audio: one looping buffer source,
  * gain and stereo panner per voice into the destination the owner gives
+ * (a sound with variants: one source per turn, the next crossfading in
+ * CROSSFADE seconds before the loop ends)
  * (the game's master bus, or the editor's own context); a voice that falls
  * silent stops its source after a while and starts it again when heard.
  * Drawn nothing, decides nothing: the simulation never hears it.
@@ -27,6 +29,9 @@ const STEP = 0.1;
 const GLIDE = 0.35;
 /** Seconds a silent voice keeps its source before it stops */
 const SILENT_STOP = 3;
+/** Seconds two variants of a sound overlap, and how far ahead the next one is scheduled */
+export const CROSSFADE = 2;
+const SCHEDULE_AHEAD = 1;
 /** Metres over which a wave sound from an area falls to its least share, and that share (a bell carries) */
 const WAVE_REACH = 400;
 const WAVE_FAR = 0.35;
@@ -60,6 +65,10 @@ interface Voice {
   bed?: 'day' | 'night';
   area?: MapLifeArea;
   volume: number;
+  /** A sound with variants: the turns scheduled (the playing one and the next) */
+  turns?: { source: AudioBufferSourceNode; gain: GainNode; end: number }[];
+  /** When the next turn starts and which variant it plays */
+  next?: { at: number; variant: number };
 }
 
 export type BufferLoader = (url: string) => Promise<AudioBuffer>;
@@ -115,12 +124,12 @@ export class Soundscape {
       const pan = this.out.context.createStereoPanner();
       gain.connect(pan).connect(this.master);
       kept.push({ ...w, gain, pan, source: null, silent: 0 });
-      void this.buffer(w.sound);
+      void this.sound(w.sound);
     }
     this.voices = kept;
     this.elapsed = STEP;
     this.wave = waveSoundOf(doc.life);
-    if (this.wave) void this.buffer(this.wave.sound);
+    if (this.wave) void this.sound(this.wave.sound);
   }
 
   /**
@@ -131,7 +140,7 @@ export class Soundscape {
   async playWave(): Promise<void> {
     const w = this.wave;
     if (!w || this.disposed || this.volume <= 0) return;
-    const buffer = await this.buffer(w.sound);
+    const buffer = (await this.sound(w.sound))?.[0];
     if (!buffer || this.disposed || this.wave !== w) return;
     const l = this.heard;
     const lift = Math.min(1, Math.max(0.35, 1 - (l.height - 80) / 780));
@@ -196,6 +205,7 @@ export class Soundscape {
       v.silent = audible ? 0 : v.silent + step;
       if (audible && !v.source) this.start(v);
       if (!audible && v.source && v.silent > SILENT_STOP) this.stop(v);
+      if (v.next && v.next.at - now < SCHEDULE_AHEAD) this.turn(v);
       v.gain.gain.setTargetAtTime(level, now, GLIDE / 3);
       v.pan.pan.setTargetAtTime(pan, now, GLIDE / 3);
     }
@@ -213,23 +223,48 @@ export class Soundscape {
     this.master.disconnect();
   }
 
-  private async buffer(sound: string): Promise<AudioBuffer | null> {
-    if (this.buffers.has(sound)) return this.buffers.get(sound) ?? null;
-    this.buffers.set(sound, null);
-    const entry = soundEntry(sound);
+  /** A sound's buffers (its own, then its variants'), each file loaded once; null when one did not load */
+  private async sound(id: string): Promise<AudioBuffer[] | null> {
+    const entry = soundEntry(id);
+    if (!entry) return null;
+    const all = await Promise.all(soundFiles(entry).map((file) => this.file(file)));
+    return all.every((b) => b) ? (all as AudioBuffer[]) : null;
+  }
+
+  private async file(url: string): Promise<AudioBuffer | null> {
+    if (this.buffers.has(url)) return this.buffers.get(url) ?? null;
+    this.buffers.set(url, null);
     try {
-      const b = entry ? await this.load(entry.file) : null;
-      this.buffers.set(sound, b);
+      const b = await this.load(url);
+      this.buffers.set(url, b);
       return b;
     } catch (err) {
-      console.warn(`[Soundscape] ${sound} did not load`, err);
+      console.warn(`[Soundscape] ${url} did not load`, err);
       return null;
     }
   }
 
+  /** The loaded buffers of a sound, null until all are there */
+  private loaded(id: string): AudioBuffer[] | null {
+    const entry = soundEntry(id);
+    if (!entry) return null;
+    const all = soundFiles(entry).map((f) => this.buffers.get(f));
+    return all.every((b) => b) ? (all as AudioBuffer[]) : null;
+  }
+
   private start(v: Voice): void {
-    const buffer = this.buffers.get(v.sound);
-    if (!buffer) return;
+    const buffers = this.loaded(v.sound);
+    if (!buffers) return;
+    if (buffers.length > 1) {
+      // Variants in turn: from a random one, somewhere in its loop
+      const variant = Math.floor(Math.random() * buffers.length);
+      const [from, to] = loopOf(buffers[variant]);
+      v.turns = [];
+      v.next = { at: this.out.context.currentTime, variant };
+      this.turn(v, from + Math.random() * Math.max(0, to - from - CROSSFADE * 3));
+      return;
+    }
+    const buffer = buffers[0];
     const s = this.out.context.createBufferSource();
     s.buffer = buffer;
     s.loop = true;
@@ -241,7 +276,56 @@ export class Soundscape {
     v.source = s;
   }
 
+  /**
+   * The next turn of a sound with variants: its next recording from `offset`
+   * (the loop's start but for the first turn) to the loop's end, fading in
+   * over CROSSFADE (but the first) and out over its last CROSSFADE seconds,
+   * while the turn after fades in
+   */
+  private turn(v: Voice, offset?: number): void {
+    const buffers = this.loaded(v.sound);
+    const next = v.next;
+    if (!buffers || !next || !v.turns) return;
+    const context = this.out.context;
+    const b = buffers[next.variant % buffers.length];
+    const [from, to] = loopOf(b);
+    const start = offset ?? from;
+    const length = Math.max(CROSSFADE * 2, to - start);
+    const at = Math.max(next.at, context.currentTime);
+    const gain = context.createGain();
+    gain.gain.value = offset === undefined ? 0 : 1;
+    if (offset === undefined) gain.gain.setValueCurveAtTime(equalPower(true), at, CROSSFADE);
+    gain.gain.setValueCurveAtTime(equalPower(false), at + length - CROSSFADE, CROSSFADE);
+    const s = context.createBufferSource();
+    s.buffer = b;
+    s.connect(gain).connect(v.gain);
+    s.start(at, start, length);
+    const now = context.currentTime;
+    for (const t of v.turns) if (t.end <= now) this.end(t);
+    v.turns = v.turns.filter((t) => t.end > now);
+    v.turns.push({ source: s, gain, end: at + length });
+    v.source = s;
+    v.next = { at: at + length - CROSSFADE, variant: next.variant + 1 };
+  }
+
+  private end(t: { source: AudioBufferSourceNode; gain: GainNode }): void {
+    try {
+      t.source.stop();
+    } catch {
+      // never started
+    }
+    t.source.disconnect();
+    t.gain.disconnect();
+  }
+
   private stop(v: Voice): void {
+    if (v.turns) {
+      for (const t of v.turns) this.end(t);
+      v.turns = undefined;
+      v.next = undefined;
+      v.source = null;
+      return;
+    }
     try {
       v.source?.stop();
     } catch {
@@ -256,6 +340,23 @@ export class Soundscape {
     v.gain.disconnect();
     v.pan.disconnect();
   }
+}
+
+/** Where a padded file's loop runs, seconds */
+function loopOf(b: AudioBuffer): [number, number] {
+  const from = Math.min(LOOP_PAD, b.duration / 4);
+  return [from, Math.max(from + 0.1, b.duration - LOOP_PAD)];
+}
+
+/** An equal-power fade, in (0 to 1) or out: two unrelated recordings cross at an even loudness */
+function equalPower(rising: boolean): Float32Array {
+  const n = 32;
+  const out = new Float32Array(n);
+  for (let k = 0; k < n; k++) {
+    const f = k / (n - 1);
+    out[k] = rising ? Math.sin((f * Math.PI) / 2) : Math.cos((f * Math.PI) / 2);
+  }
+  return out;
 }
 
 /** The map's wave sound with the area it names (none when that area is gone or the sound unknown) */

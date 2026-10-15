@@ -2,15 +2,15 @@ import { describe, expect, it } from 'vitest';
 import type { MapEnvironment, MapLife } from '../map-document';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { AMBIENT_SOUNDS, WAVE_SOUNDS, ambienceSounds } from './ambient-sounds';
-import { AREA_REACH, LOOP_PAD, Soundscape, type SoundscapeListener } from './soundscape';
+import { AMBIENT_SOUNDS, WAVE_SOUNDS, ambienceSounds, soundFiles } from './ambient-sounds';
+import { AREA_REACH, CROSSFADE, LOOP_PAD, Soundscape, type SoundscapeListener } from './soundscape';
 
 /** Just enough Web Audio for the soundscape: gains and pans hold their last target, sources say whether they play */
 function fakeAudio() {
-  const sources: { sound: unknown; playing: boolean; loopStart: number; loopEnd: number; offset: number }[] = [];
-  const param = () => ({ value: 0, setTargetAtTime(v: number) { this.value = v; } });
+  const sources: { sound: unknown; playing: boolean; loopStart: number; loopEnd: number; offset: number; when: number; duration?: number }[] = [];
+  const param = () => ({ value: 0, curves: [] as { at: number; rising: boolean }[], setTargetAtTime(v: number) { this.value = v; }, setValueCurveAtTime(c: Float32Array, at: number) { this.curves.push({ at, rising: c[0] < c[c.length - 1] }); } });
   const node = () => ({ connect: (n: unknown) => n, disconnect: () => undefined });
-  const gains: { gain: { value: number } }[] = [];
+  const gains: { gain: { value: number; curves: { at: number; rising: boolean }[] } }[] = [];
   const pans: { pan: { value: number } }[] = [];
   const context = {
     currentTime: 0,
@@ -25,8 +25,8 @@ function fakeAudio() {
       return p;
     },
     createBufferSource: () => {
-      const s = { ...node(), buffer: null as unknown, loop: false, loopStart: 0, loopEnd: 0, start(_when: number, offset: number) { entry.playing = true; entry.offset = offset; entry.loopStart = this.loopStart; entry.loopEnd = this.loopEnd; entry.sound = this.buffer; }, stop() { entry.playing = false; } };
-      const entry = { sound: null as unknown, playing: false, loopStart: 0, loopEnd: 0, offset: 0 };
+      const s = { ...node(), buffer: null as unknown, loop: false, loopStart: 0, loopEnd: 0, start(when: number, offset: number, duration?: number) { entry.playing = true; entry.when = when; entry.offset = offset; entry.duration = duration; entry.loopStart = this.loopStart; entry.loopEnd = this.loopEnd; entry.sound = this.buffer; }, stop() { entry.playing = false; } };
+      const entry = { sound: null as unknown, playing: false, loopStart: 0, loopEnd: 0, offset: 0, when: 0, duration: undefined as number | undefined };
       sources.push(entry);
       return s;
     },
@@ -37,7 +37,8 @@ function fakeAudio() {
 const env = (biome: MapEnvironment['biome']) => ({ biome }) as MapEnvironment;
 const listener = (x: number, y: number, extra: Partial<SoundscapeListener> = {}): SoundscapeListener => ({ at: { x, y }, height: 60, right: { x: 1, y: 0 }, darkness: 0, ...extra });
 const tick = async (s: Soundscape, l: SoundscapeListener, seconds = 0.2) => {
-  await Promise.resolve();
+  // The loads settle over a few microtasks
+  for (let k = 0; k < 5; k++) await Promise.resolve();
   s.update(seconds, l);
 };
 /** Voices in the order setMap made them: the bed (day, night), then the areas; master gain first */
@@ -143,6 +144,39 @@ describe('Soundscape', () => {
   });
 
   it('has a file for every sound', () => {
-    for (const entry of [...Object.values(AMBIENT_SOUNDS), ...Object.values(WAVE_SOUNDS)]) expect(existsSync(resolve('public', entry.file))).toBe(true);
+    for (const entry of [...Object.values(AMBIENT_SOUNDS), ...Object.values(WAVE_SOUNDS)]) {
+      for (const file of soundFiles(entry)) expect(existsSync(resolve('public', file)), file).toBe(true);
+    }
+  });
+
+  it('plays the variants of a sound in turn, each crossfading into the next before its loop ends', async () => {
+    const a = fakeAudio();
+    const s = new Soundscape(a, (url) => Promise.resolve({ duration: 20.2, url } as unknown as AudioBuffer));
+    s.setVolume(1);
+    s.setMap({ life: { ambience: { sound: 'wind', volume: 1 } }, environment: env('mountain') });
+    await tick(s, listener(0, 0));
+    expect(a.sources).toHaveLength(1);
+    const first = a.sources[0];
+    const files = [AMBIENT_SOUNDS['wind'].file, ...AMBIENT_SOUNDS['wind'].variants!];
+    const at = (k: number) => files.indexOf((a.sources[k].sound as { url: string }).url);
+    // A turn ends at its loop's end, not looping
+    expect(first.offset + first.duration!).toBeCloseTo(20.2 - LOOP_PAD, 5);
+    const ends = first.when + first.duration!;
+    // The next one is scheduled once its start is near, CROSSFADE before the first ends, from the loop's start, fading in
+    (a.context as { currentTime: number }).currentTime = ends - CROSSFADE - 0.5;
+    s.update(0.2, listener(0, 0));
+    expect(a.sources).toHaveLength(2);
+    expect(a.sources[1]).toMatchObject({ offset: LOOP_PAD, when: ends - CROSSFADE, playing: true });
+    expect(at(1)).toBe((at(0) + 1) % 2);
+    const fade = a.gains[a.gains.length - 1].gain.curves;
+    expect(fade[0]).toEqual({ at: ends - CROSSFADE, rising: true });
+    expect(fade[1].rising).toBe(false);
+    // And the one after goes back to the first recording
+    (a.context as { currentTime: number }).currentTime = a.sources[1].when + a.sources[1].duration! - CROSSFADE - 0.5;
+    s.update(0.2, listener(0, 0));
+    expect(at(2)).toBe(at(0));
+    // Out of hearing it all stops
+    s.dispose();
+    expect(a.sources.every((x) => !x.playing)).toBe(true);
   });
 });
