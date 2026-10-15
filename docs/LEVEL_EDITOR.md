@@ -174,8 +174,9 @@ würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben diese
   die Modelltiefe (0,5- bis 1,8-fach), die Wand steht vom Fuß des Gefälles (dem tiefsten Boden davor, leicht
   eingesenkt) bis etwa zu seiner Kante, mit etwa halber Breite Abstand zueinander, nicht auf Straßen und nicht im
   Wasser. Die Modelle wählt der Look der Karte (Sandstein in der Wüste, Basalt in Hölle und Endzeit, Mars-Klippen
-  auf dem Mars, sonst die grauen Felswände und Felsflächen; je Look nur Modelle derselben Färbung, die Küstenklippe
-  nur über das Panel) oder das Panel. Die Klippenmodelle sind geschlossen (`close_shell` in
+  und die rote Felsfläche `cliff-face-red` in derselben Färbung auf dem Mars, sonst die grauen Felswände und
+  Felsflächen; je Look nur Modelle derselben Färbung, die Küstenklippe und die rote Felsfläche für rote Wüsten und die
+  Hölle nur über das Panel) oder das Panel. Die Klippenmodelle sind geschlossen (`close_shell` in
   `tools/map-assets/blender_kit.py`), von oben und hinten Fels statt Loch
 - Glow cracks: der Boden bricht in ein Netz feiner Lavarisse mit Kruste auf verbranntem Fels; die Risse sinken etwas ein
 - Linien (ziehen, auch vom Kartenrand her): Cliff edge hebt den Boden links der Zeichenrichtung als Klippe, die
@@ -264,10 +265,15 @@ Tags des Katalogs und Suche (Name, Id oder Tag).
   Schornstein rauchen von selbst, ein von Hand gesetzter Rauch über dem Haus ersetzt den Schornsteinrauch.
   Bereiche, Wege und Umgebungston setzt das Werkzeug Life (N)
 - Gebäude (Katalog-Kategorie `building`) und Objekte mit Drehteil (Katalog `spin`: die Radarschüssel drehte sonst am Hang in den Boden dahinter), beide nicht schwimmend, nicht auf Stelzen: Katalog `stilts`, die Pfahlhütte am Ufer verschob sonst ihr Ufer und ließ Wasser in der Luft stehen) ebnen beim ersten Setzen ihren Boden (`levelUnderBuilding`
-  in `ops/object-ops.ts`): der Fußabdruck-Radius, 1,5 m und eine Gitterzelle mehr gehen auf die Grundhöhe (Mittel des
-  Bodens unter der Mitte und acht Punkten des Fußabdrucks, Abtrag und Auftrag), darüber hinaus läuft der Boden über den
-  Fußabdruck-Radius weich in das Gelände aus (mindestens 4 m und die doppelte Höhe von Abtrag oder Auftrag, so bleiben
-  die Böschungen flacher als 1 zu 2). So steht das Haus ganz und kein Hang schneidet hinein.
+  in `ops/object-ops.ts`): sein Grund (`object-ground.ts`: der Fußabdruck-Kreis, bei Gebäuden mit Katalog `box`
+  geschnitten mit dem gedrehten Rechteck, wie Bauverbot und Sitz), 1,5 m und eine Gitterzelle mehr gehen auf die
+  Grundhöhe (Mittel des Bodens unter der Mitte und acht Randpunkten des Grunds, `groundRing`, Abtrag und Auftrag),
+  darüber hinaus läuft der Boden weich in das Gelände aus, über den Fußabdruck-Radius, mit Rechteck über seine halbe
+  schmale Seite (mindestens 4 m und die doppelte Höhe von Abtrag oder Auftrag, so bleiben die Böschungen flacher als
+  1 zu 2). So steht das Haus ganz und kein Hang schneidet hinein; eine lange Schule ebnet ein langes Feld mit Böschungen
+  an den Seiten, nicht den Kreis ihrer halben Länge (quer zu ihr bis 17 bis 20 m von der Mitte statt 45 m). Trockenen
+  Boden gräbt das Ebnen nicht tiefer als das Wasser unter den geebneten Punkten (eine Hütte am Ufer gräbt keine Grube
+  unter den Meeresspiegel, Archipelago meldete sonst Wasser in der Luft).
   Ein Schritt im Verlauf mit dem Setzen; gilt für Place, Line, das Platzieren des Agenten (MCP) und `MapKit.place` der
   Levelskripte und `run_script`. Verschieben, Drehen, Kopieren und Streuen ebnen nichts: ein Haus halb im Hang ist
   danach eine freie Wahl.

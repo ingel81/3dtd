@@ -459,7 +459,9 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
 - **Lichter** (`light`: Farbe, Stärke, Reichweite, Höhe, `flicker`, `blink`): jedes bekommt einen additiven Schein (am Tag
   schwach, nachts voll); dazu ein fester Pool von 6 `PointLight`s für die Lichter nächst dem Kamerafokus, nach
   Dunkelheit eingeblendet (Nacht, Dämmerung, tiefe Sonne). Am Tag kosten sie nichts, die feste Poolgröße vermeidet
-  Shader-Neubau. `blink` (Sekunden): ein kurzer Blitz je Periode (Schein und Punktlicht, auch am Tag gut sichtbar),
+  Shader-Neubau. Ein Poollicht blendet aus, je näher es dem Abstand des nächsten ausgelassenen Lichts kommt (ab 0,7
+  davon, `poolFade`), so wechselt das echte Licht beim Schwenken an einer Fackelreihe weich statt Fackel für Fackel
+  umzuspringen (die Mauer neben einer Fackel sprang von hell auf dunkel). `blink` (Sekunden): ein kurzer Blitz je Periode (Schein und Punktlicht, auch am Tag gut sichtbar),
   backt kein Licht auf den Boden; Antennenmast und Positionslicht (`beacon-post`) blinken alle 1,5 s (der
   Flutlichtmast hat keine roten Lichter und leuchtet stetig), die Bojen wie Seezeichen (rot alle 2,5 s, grün alle 4 s,
   jede Boje mit eigener Phase), `fx-beacon` setzt ein blinkendes Licht frei

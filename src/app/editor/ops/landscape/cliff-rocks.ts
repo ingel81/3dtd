@@ -26,11 +26,11 @@ export const CLIFF_MODELS: Partial<Record<MapBiome, readonly string[]>> & { defa
   desert: ['cliff-wall-sandstone'],
   hell: ['cliff-wall-basalt'],
   apocalypse: ['cliff-wall-basalt'],
-  mars: ['mars-cliff'],
+  mars: ['mars-cliff', 'cliff-face-red'],
   moon: ['cliff-wall', 'cliff-face'],
 };
 
-/** Every cliff model the catalogue offers, for the panel's choice */
+/** Every cliff model the catalogue offers, for the panel's choice (the red face of Mars also for red deserts and hell) */
 export function cliffModelIds(catalog: CatalogIndex): string[] {
   const all = new Set([...Object.values(CLIFF_MODELS).flat(), 'cliff-coast']);
   return [...all].filter((id) => catalog.objects.has(id));

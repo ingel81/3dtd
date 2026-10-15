@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { MapLife, MapObject } from '../../map-document';
 import type { AssetCatalog, CatalogObject } from '../asset-catalog';
 import { HeightField } from '../height-field';
-import { EffectLayer, lightCap, POINT_LIGHTS } from './effect-layer';
+import { EffectLayer, lightCap, poolFade, POINT_LIGHTS } from './effect-layer';
 import { particleCount } from './particle-field';
 import { LAMP_LIGHT_UNIFORMS } from './lamp-light';
 import { circleFlock } from './bird-flocks';
@@ -447,6 +447,32 @@ describe('EffectLayer', () => {
     expect(Math.min(...lit.map((l) => l.position.x))).toBeGreaterThanOrEqual(0);
     // In use, all six count (a changing number would recompile every lit material)
     expect(lights.every((l) => l.visible)).toBe(true);
+    layer.dispose();
+  });
+
+  it('hands the point lights on smoothly as the focus moves along a row of torches', () => {
+    const layer = new EffectLayer(flat());
+    layer.set(Array.from({ length: 20 }, (_, k) => place(`t${k}`, 'torch', k * 4 - 40)), catalog);
+    const lights = layer.group.children.filter((c): c is PointLight => c instanceof PointLight);
+    layer.setDarkness(1);
+    // Each torch's real light (0 when the pool leaves it out), by its x
+    const byTorch = (): Map<number, number> => new Map(lights.filter((l) => l.intensity > 0).map((l) => [Math.round(l.position.x), l.intensity]));
+    let full = 0;
+    let jump = 0;
+    let before = new Map<number, number>();
+    for (let x = -20; x <= 20; x += 0.25) {
+      layer.update(0, new Vector3(x, 0, 0));
+      const now = byTorch();
+      full = Math.max(full, ...now.values());
+      if (x > -20) for (const k of new Set([...before.keys(), ...now.keys()])) jump = Math.max(jump, Math.abs((now.get(k) ?? 0) - (before.get(k) ?? 0)));
+      before = now;
+    }
+    // A quarter metre of camera moves a light by a small share of its strength, never on or off at once
+    expect(full).toBeGreaterThan(10);
+    expect(jump).toBeLessThan(full * 0.15);
+    expect(poolFade(1, Infinity)).toBe(1);
+    expect(poolFade(1, 1)).toBe(0);
+    expect(poolFade(0.25, 1)).toBe(1);
     layer.dispose();
   });
 
