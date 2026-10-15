@@ -63,8 +63,9 @@ import { addLodFade, blendAt, disposeFadeGeometry, fadeGeometry, REST_S, SETTLE_
  * Trees and plants sway in the wind, foliage cards keep their normals and
  * fade when seen edge-on or near their draw distance, waterfall cards flow
  * and flames flicker (all in objectMaterial). Vegetation gets a brightness
- * and hue per instance, trees a size and a lean (instance-variation.ts), so a
- * forest of one model does not look cloned.
+ * hue and size per instance, trees also a lean, autumn foliage a wider
+ * turn of colour (instance-variation.ts), so a forest of one model does
+ * not look cloned.
  */
 
 /** Edge of an object cell in metres */
@@ -1046,8 +1047,8 @@ export class MapObjectLayer {
   private writeInstance(b: AssetBatch, i: number): void {
     const o = b.objects[i];
     const e = b.entry;
-    // Trees vary in size and lean, vegetation in shade (instance-variation.ts): in the matrix and colour only
-    const look = instanceVariation(o.id, e.category);
+    // Vegetation varies in size and shade, trees also in lean (instance-variation.ts): in the matrix and colour only
+    const look = instanceVariation(o.id, e.category, e.tags);
     const s = (o.scale || 1) * look.size;
     const ground = seatHeight(e, o, this.seatGround, this.seatWater);
     mapToScene(o.x, o.y, ground + o.z, this.tmpPos);

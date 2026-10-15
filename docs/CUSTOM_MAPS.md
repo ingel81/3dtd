@@ -397,9 +397,11 @@ Normalen auch auf der Rückseite (three dreht sie bei doppelseitigen Materialien
 werden alpha-getestet mit Alpha-to-Coverage und blenden aus, wenn man sie von der Kante sieht oder sie die Sichtweite
 erreichen; Wasserfall-Karten (`foliage-waterfall*`) fließen, leuchtende Laubkarten (Flammen) flackern. Windstärke und
 Ausblendung sind Uniforms, alle Assets teilen sich wenige Shader-Programme. Vegetation bekommt je Instanz eine
-leicht andere Helligkeit und einen Farbton, Bäume dazu eine Größe (0,88 bis 1,12) und eine Neigung (bis 4°, die meisten
-fast aufrecht), alles im Instanz-Matrix und -Farbe aus einem Hash der Objekt-Id (`instance-variation.ts`, kein Draw Call
-mehr; Sichtlinien sehen die Bäume so, wie sie gezeichnet sind). **Fenster bei Nacht** (`night-windows.ts`): das
+leicht andere Helligkeit, einen Farbton und eine Größe (Bäume 0,88 bis 1,12, Pflanzen 0,92 bis 1,08), Bäume dazu eine
+Neigung (bis 4°, die meisten fast aufrecht); Laub mit Katalog-Tag `autumn` streut weiter zwischen Rot, Rost und Gelb und
+in der Helligkeit. Alles im Instanz-Matrix und -Farbe aus einem Hash der Objekt-Id (`instance-variation.ts`, kein Draw
+Call mehr, Impostoren tragen dieselbe Instanzfarbe; Sichtlinien sehen die Bäume so, wie sie gezeichnet sind). Die Drehung
+um die Hochachse kommt aus dem Dokument (Biom-Pinsel und Pinsel mit Zufallsdrehung). **Fenster bei Nacht** (`night-windows.ts`): das
 Fensterglas der Gebäude (Materialien `window-glass…`, `window`; in zusammengelegten Teilen je Vertex `nightGlow`)
 leuchtet mit der Dunkelheit warm, etwa jedes zweite Fenster nach einem Hash seiner Zelle in der Welt (2,5 m breit,
 3 m hoch), auch an Teilen, die schaukeln oder sich drehen (ein Schiff auf dem Wasser): wenige Shaderzeilen, kein Licht, kein Draw Call. Gebäude stehen auf dem tiefsten von acht Punkten ihres Fußabdrucks (Ecken und Seitenmitten ihres gedrehten Rechtecks `box`, in die Scheibe gezogen, `object-ground.ts`; ohne `box` acht Punkte der Scheibe), ihre
