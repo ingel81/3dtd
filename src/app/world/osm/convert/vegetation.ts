@@ -126,7 +126,7 @@ const SPAWN_CLEAR = 12;
 /** Metres from a route within which plants grow fully, and beyond which at FAR_SHARE */
 const ROUTE_NEAR = 150;
 const ROUTE_FAR = 700;
-const FAR_SHARE = 0.3;
+const FAR_SHARE = 0.5;
 /** Metres between the single trees of a tree row */
 const TREE_ROW_SPACING = 9;
 
