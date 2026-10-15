@@ -53,6 +53,10 @@ function createStubService(name: string): Record<string, unknown> {
       updateBeamTowers: vi.fn(),
       updateMeleeTowers: vi.fn(),
       updateChainTowers: vi.fn(),
+      updateLaserTowers: vi.fn(),
+      updateSawTowers: vi.fn(),
+      updateStreamTowers: vi.fn(),
+      updateMannedTower: vi.fn(),
       stopAllBeams: vi.fn(),
       stopTowerBeam: vi.fn(),
       stopAllMelee: vi.fn(),
@@ -500,7 +504,7 @@ describe('GameStateManager', () => {
         expect(research).not.toHaveBeenCalled();
       });
 
-      it('refuses during a wave, backwards and onto the next wave', () => {
+      it('refuses backwards, onto the next wave and after game over', () => {
         const jumped = vi.fn();
         bus.on('wave:jumped', jumped);
         gsm.jumpToWave(20, false);
@@ -508,10 +512,30 @@ describe('GameStateManager', () => {
         expect(gsm.jumpToWave(20, false)).toBe(false);
         expect(gsm.jumpToWave(20.5, false)).toBe(false);
 
-        gsm.waveManager.phase.set('wave');
+        gsm.waveManager.phase.set('gameover');
         expect(gsm.jumpToWave(40, false)).toBe(false);
         expect(gsm.waveNumber()).toBe(19);
         expect(jumped).toHaveBeenCalledTimes(1);
+      });
+
+      it('asked for while a wave still runs (its last enemies dying), jumps as that wave ends', () => {
+        const jumped = vi.fn();
+        bus.on('wave:jumped', jumped);
+        gsm.waveManager.waveNumber.set(3);
+        gsm.waveManager.phase.set('wave');
+
+        expect(gsm.jumpToWave(40, false)).toBe(true);
+        expect(gsm.jumpToWave(30, false)).toBe(true); // the later request counts
+        expect(gsm.waveNumber()).toBe(3);
+        expect(jumped).not.toHaveBeenCalled();
+
+        // Nothing left of the wave: the next sub-step ends it, then the jump goes
+        gsm.update(1, undefined);
+        gsm.update(1 + 3 * GameClock.FIXED_STEP_MS, undefined);
+        expect(gsm.phase()).toBe('setup');
+        expect(gsm.waveNumber()).toBe(29);
+        expect(jumped).toHaveBeenCalledTimes(1);
+        expect(jumped).toHaveBeenCalledWith(expect.objectContaining({ from: 3, wave: 30, skipped: 26 }));
       });
 
       it('runs through the command pipeline as debug:jump-to-wave', () => {

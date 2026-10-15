@@ -925,13 +925,13 @@ Schalter "Gold of the skipped waves" (Standard an), Knopf.
 
 Weg: `debug:jump-to-wave` (`wave`, `grantGold`) → `GameCommandsHandler` →
 `GameStateManager.jumpToWave()`. Sofort, nicht deferred, wie
-`debug:add-credits`: der Sprung gilt nur in Phase `setup`, und ein
+`debug:add-credits`: der Sprung gilt zwischen den Wellen, und ein
 Wellenstart direkt danach muss den neuen Zähler schon sehen.
 
 | Was | Verhalten |
 |---|---|
 | Zähler | `WaveManager.jumpTo(N - 1)`: Welle N - 1 gilt als gespielt, der nächste Start ist Welle N. Nichts spawnt, kein `wave:started` und kein `wave:completed` |
-| Erlaubt | nur in Phase `setup` (nicht während einer Welle, nicht nach Game Over), nur vorwärts und nur, wenn mindestens eine Welle übersprungen wird (N ab aktueller Welle + 2). Sonst `false`, kein Event |
+| Erlaubt | in Phase `setup`; während einer Welle (für den Spieler oft schon vorbei, die letzten Gegner sterben noch) wartet der Sprung und gilt im Sub-Step, in dem die Welle endet (ein späterer Wunsch ersetzt ihn, der Knopf sagt „After this wave“); nicht nach Game Over, nur vorwärts und nur, wenn mindestens eine Welle übersprungen wird (N ab aktueller Welle + 2). Sonst `false`, kein Event |
 | Gold | mit Schalter `skippedWavesGold(from + 1, N - 1)` (`services/economy.service.ts`): Kill-Budget, Basis-Abschlussbonus und Meilenstein-Boni jeder übersprungenen Welle, also was ein Spieler bekommt, der jede Welle ganz abräumt. Keine Skill-Boni (Perfect, Close Call, Combo, Comeback); der Perfect-Streak bleibt, wie er war |
 | Fähigkeiten | laden nach, als wären die übersprungenen Wellen abgeschlossen (`AbilityManager.advanceWaves`, derselbe Pfad wie bei `wave:completed`), höchstens bis voll |
 | Forschung, Auto-Start-Countdown | bleiben, wie sie sind: sie laufen auf Spielzeit, und der Sprung verbraucht keine |

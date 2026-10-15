@@ -418,7 +418,7 @@ export class GameCommandsHandler {
       this.gsm.abilityOf(this.gsm.actingPlayerId).refillCharges(event.abilityId);
     });
 
-    // Between waves only; refused otherwise, see GameStateManager.jumpToWave
+    // Between waves, or queued for the end of the running one, see GameStateManager.jumpToWave
     this.on('debug:jump-to-wave', (event) => {
       this.gsm.jumpToWave(event.wave, event.grantGold);
     });

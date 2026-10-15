@@ -77,9 +77,17 @@ describe('Jump to wave section, playtest 378 and 380 replayed', () => {
     expect(debuggerPanel.canJump()).toBe(true);
   });
 
-  it('380: in a wave the button says "Between waves only" and sends nothing', () => {
+  it('in a wave (its last enemies dying) the button sends the jump for after it', () => {
     phase.set('wave');
-    expect(debuggerPanel.jumpLabel()).toBe('Between waves only');
+    expect(debuggerPanel.jumpLabel()).toBe('After this wave: next start Wave 30');
+    expect(debuggerPanel.canJump()).toBe(true);
+    debuggerPanel.onJumpToWave();
+    expect(jumps).toEqual([{ wave: 30, grantGold: true }]);
+  });
+
+  it('after game over the button says so and sends nothing', () => {
+    phase.set('gameover');
+    expect(debuggerPanel.jumpLabel()).toBe('Not after game over');
     expect(debuggerPanel.canJump()).toBe(false);
     debuggerPanel.onJumpToWave();
     expect(jumps).toEqual([]);
