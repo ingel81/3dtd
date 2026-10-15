@@ -8,12 +8,16 @@
  */
 import type { MapTerrain, MapWater, MapWaterKind } from '../../world/custom-map/map-document';
 import { sampleRectAround, sampleX, sampleY, type GridRect } from '../model/grid';
+import { waterLevelAt } from '../../world/custom-map/water-level';
 import { brushWeight, type BrushSettings } from './brush';
 
 export const DEFAULT_WATER_COLOR = '#2f5f6f';
 
 /** Metres the water stays below a hollow's rim */
 export const RIM_MARGIN = 0.3;
+
+/** Metres a surface may end over the ground beside it before the water drains there (drainSpills) */
+export const SPILL_TOLERANCE = 0.25;
 
 /** Default look of a new body by kind */
 export const BODY_COLORS: Record<MapWaterKind, string> = {
@@ -109,6 +113,51 @@ function wetShore(terrain: MapTerrain, mask: Uint8Array, seen: Uint8Array, rect:
     i1: Math.min(c - 1, rect.i1 + 1),
     j1: Math.min(g.rows - 1, rect.j1 + 1),
   };
+}
+
+/**
+ * Takes a body's mask off where no bank holds its water: a wet sample (mask
+ * set, ground below the level) next to one outside the mask where the
+ * ground halfway between them and any other water there lie more than
+ * `tolerance` below the level would end the surface in the air; it drains,
+ * and its wet neighbours are looked at again, until every edge of the water
+ * within `rect` meets a bank. Samples outside `rect` stay as they are.
+ * Returns how many drained.
+ */
+export function drainSpills(terrain: MapTerrain, body: MapWater, rect: GridRect, tolerance = SPILL_TOLERANCE): number {
+  const g = terrain.grid;
+  const c = g.columns;
+  const h = g.heights;
+  const level = body.level;
+  const inside = (i: number, j: number) => i >= rect.i0 && i <= rect.i1 && j >= rect.j0 && j <= rect.j1;
+  const spills = (k: number): boolean => {
+    if (!body.mask[k] || h[k] >= level) return false;
+    const i = k % c;
+    const j = (k - i) / c;
+    for (const [a, b] of [[i - 1, j], [i + 1, j], [i, j - 1], [i, j + 1]]) {
+      if (a < 0 || b < 0 || a >= c || b >= g.rows) continue;
+      const q = b * c + a;
+      if (body.mask[q] || h[q] >= level - tolerance) continue;
+      const edge = (h[k] + h[q]) / 2;
+      if (level - Math.max(edge, waterLevelAt(terrain, sampleX(terrain, a), sampleY(terrain, b), h[q]) ?? edge) > tolerance) return true;
+    }
+    return false;
+  };
+  const stack: number[] = [];
+  for (let j = rect.j0; j <= rect.j1; j++) for (let i = rect.i0; i <= rect.i1; i++) if (spills(j * c + i)) stack.push(j * c + i);
+  let drained = 0;
+  while (stack.length) {
+    const k = stack.pop()!;
+    if (!body.mask[k]) continue;
+    body.mask[k] = 0;
+    drained++;
+    const i = k % c;
+    const j = (k - i) / c;
+    for (const [a, b] of [[i - 1, j], [i + 1, j], [i, j - 1], [i, j + 1]]) {
+      if (inside(a, b) && b >= 0 && a >= 0 && a < c && b < g.rows && spills(b * c + a)) stack.push(b * c + a);
+    }
+  }
+  return drained;
 }
 
 /** Samples where a body stands: its mask set and the ground below its level */

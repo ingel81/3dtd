@@ -4,7 +4,7 @@ import { heightAt } from '../model/grid';
 import { brushWeight, stepRadius } from './brush';
 import { autoPaint, defaultAutoRules, dominantLayer, moveLayer, paintDab, readWeights, removeLayer } from './paint-ops';
 import { erodeDab, flattenDab, noiseDab, raiseDab, rampBetween, smoothDab, terraceDab } from './terrain-ops';
-import { basinSpillHeight, emptyWater, fillBasin, waterMaskDab } from './water-ops';
+import { basinSpillHeight, drainSpills, emptyWater, fillBasin, waterMaskDab } from './water-ops';
 import { DEFAULT_SCATTER, MAX_SINK, ObjectGrid, ObjectIds, duplicateObjects, objectsInBox, scatterDab, settled, slopeTilt, alignedToSlope, undersideGap, variedTint, type RockShape } from './object-ops';
 import { Euler, Quaternion, Vector3 } from 'three';
 import { flattenUnderPaths, paintUnderPaths } from './path-terrain';
@@ -183,6 +183,25 @@ describe('water', () => {
     expect(at(0, 0)).toBe(255);
     expect(at(60, 60)).toBe(0);
     expect(fillBasin(t, 0, 0)).toBeNull();
+  });
+
+  it('drains water no bank holds, within the rectangle only', () => {
+    const t = flat().terrain;
+    const g = t.grid;
+    t.water = emptyWater(t, 1);
+    // Ground at 0 under a mask over x < 0: the east edge stands 1 m over the dry ground beyond it
+    for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns >> 1; i++) t.water.mask[j * g.columns + i] = 255;
+    const wet = () => t.water!.mask.reduce((a, b) => a + (b ? 1 : 0), 0);
+    const before = wet();
+    // A strip of rows: the water there drains from the open edge all the way across, the rows outside keep theirs
+    const drained = drainSpills(t, t.water, { i0: 0, i1: g.columns - 1, j0: 10, j1: 19 });
+    expect(drained).toBe(10 * (g.columns >> 1));
+    expect(wet()).toBe(before - drained);
+    // With a bank at the edge it holds
+    t.water.mask.fill(0);
+    for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns >> 1; i++) t.water.mask[j * g.columns + i] = 255;
+    for (let j = 0; j < g.rows; j++) for (let i = g.columns >> 1; i < g.columns; i++) g.heights[j * g.columns + i] = 2;
+    expect(drainSpills(t, t.water, { i0: 0, i1: g.columns - 1, j0: 0, j1: g.rows - 1 })).toBe(0);
   });
 
   it('paints and clears the mask', () => {

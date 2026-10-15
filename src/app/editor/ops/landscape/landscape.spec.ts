@@ -312,6 +312,18 @@ describe('biome brush', () => {
     expect(Math.max(...row)).toBeGreaterThan(0.3);
   });
 
+  it('keeps the pools of a stroke over a slope in their banks', () => {
+    const ed = map();
+    const t = ed.doc.terrain;
+    const g = t.grid;
+    // 8 m up across the stroke: one level for its pools, the land below it would leave them hanging
+    for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) g.heights[j * g.columns + i] = 0.04 * (i * g.cellSize - t.width / 2);
+    paint(ed, 'swamp', 11);
+    paint(ed, 'hell', 3, 1, 5, -80);
+    expect(t.waterBodies!.some((b) => b.mask.some((v) => v > 0))).toBe(true);
+    expect(waterInAir(ed.doc)).toEqual([]);
+  });
+
   it('previews the spots it would grow on', () => {
     const stroke = new LandscapeStroke(map(), 'Biome', 4, catalog);
     const spots = previewSpots(stroke.noise, catalog, { x: 0, y: 80 }, brush, biomeById('forest'));

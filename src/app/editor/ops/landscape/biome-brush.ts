@@ -21,6 +21,7 @@ import type { DocChange } from '../../model/editor-document';
 import type { MapTerrain } from '../../../world/custom-map/map-document';
 import { sampleX, sampleY, slopeAt, texelX, texelY, type GridRect } from '../../model/grid';
 import { brushWeight, type BrushSettings } from '../brush';
+import { drainSpills } from '../water-ops';
 import { MAX_LAYERS, readWeights, writeWeights } from '../paint-ops';
 import { HEIGHT_LIMITS } from '../terrain-ops';
 import { CITY_GRID, type BiomeDef, type BiomeObject } from './biomes';
@@ -35,6 +36,8 @@ import type { LandscapeStroke } from './landscape-stroke';
 /** Share per second the ground and paint close toward the biome at full strength */
 const SHAPE_RATE = 2.5;
 const PAINT_RATE = 3;
+/** Metres the land may stand over a pool's level for the pool to sink into it */
+const POOL_DIG = 2.5;
 
 /** Brush weight with a ragged rim: noise moves the edge in and out (`fray` given saves the noise) */
 export function frayedWeight(noise: LandscapeNoise, d: number, x: number, y: number, brush: BrushSettings, fray?: number): number {
@@ -201,7 +204,9 @@ function applyBiome(stroke: LandscapeStroke, reach: BiomeReach, biome: BiomeDef,
       const base = stroke.baseHeight(i, j);
       let target = biome.relief.kind === 'flatten' ? stroke.anchor.h : base + relief(stroke, biome, x, y) * strength;
       const k = j * g.columns + i;
-      if (waterLevel !== null && w > 0.3) {
+      // Pools only in land that holds them: not below their level (the water would hang over it), not more than
+      // POOL_DIG above it (a shaft down to the water)
+      if (waterLevel !== null && w > 0.3 && base >= waterLevel && base <= waterLevel + POOL_DIG) {
         // Pools: the ground sinks under the level toward their middle; the mask reaches a little
         // past the shore, the renderer cuts the surface where the ground rises above it
         const p = poolDepth(stroke, biome, x, y);
@@ -211,7 +216,10 @@ function applyBiome(stroke: LandscapeStroke, reach: BiomeReach, biome: BiomeDef,
           if (p > 0.3) {
             pool!.water.mask[k] = 255;
             wet = true;
-          }
+          } else target = Math.max(target, waterLevel + 0.05);
+        } else if (poolShore(stroke, biome, x, y) > 0) {
+          // The bank round a pool stays over its level: the relief sinking it there let the water hang over it
+          target = Math.max(target, waterLevel + 0.05);
         }
       }
       const a = Math.min(1, pull * w * keep * (0.4 + 0.6 * strength));
@@ -219,6 +227,8 @@ function applyBiome(stroke: LandscapeStroke, reach: BiomeReach, biome: BiomeDef,
       g.heights[k] = Math.min(HEIGHT_LIMITS.max, Math.max(HEIGHT_LIMITS.min, h));
     }
   }
+  // Where the land beside a pool lies lower than its water (a slope, the relief sinking the shore), it drains
+  if (pool && wet) drainSpills(t, pool.water, rect);
 
   // Ground paint
   const layers = biome.ground.map((gr) => ({ layer: stroke.layerOf(gr.material), share: gr.share }));

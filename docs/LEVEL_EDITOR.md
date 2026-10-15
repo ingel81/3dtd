@@ -141,8 +141,11 @@ würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben diese
   Moon, Mars. Halten malt; die Stärke bestimmt Dichte und Ausprägung, der Rand franst aus. Unterholz, Büsche und Zäune
   wachsen am Rand des Strichs, Bäume und Häuser innen; eine Objektart mischt alle ihre Kandidaten aus dem Katalog.
   Objekte meiden Straßen, Wasser, Spawns und HQ; der Boden unter Straßen bleibt. Sumpf, Hölle und Arktis legen Becken
-  an, gefüllt mit einem eigenen Gewässer der Art Swamp, Lava oder Ice (ein vorhandenes in der Nähe des Startpunkts
-  wird mitbenutzt). City legt ein Straßenraster fest auf die Karte (alle 64 m, Asphalt und Gehwege), Häuser stehen an
+  an, gefüllt mit einem eigenen Gewässer der Art Swamp, Lava oder Ice knapp unter dem Boden am Startpunkt (ein
+  vorhandenes derselben Art bis 2 m tiefer wird mitbenutzt, ein höheres nie: sein Wasser stünde über dem Land). Becken
+  entstehen nur, wo das Land auf ihrem Spiegel bis 2,5 m darüber liegt (tiefer hinge das Wasser in der Luft, höher wäre es
+  ein Schacht), ihr Rand bleibt über dem Spiegel, und wo das Land daneben trotzdem tiefer liegt, läuft es ab
+  (`drainSpills`): ein Strich über einen Hang füllt nur die Becken in der Höhe seines Startpunkts. City legt ein Straßenraster fest auf die Karte (alle 64 m, Asphalt und Gehwege), Häuser stehen an
   den Blockrändern zur Straße gewandt, Laternen auf den Gehwegen; Hell legt Glutrisse über den Boden; Wasteland und
   Moon haben Kraterfelder. Mars mischt hellen Staub mit Dünen, ockerfarbenen Kies und dunklen Basaltsand, Ocker an
   steilen Hängen, dazu rostige, graue und schwarze Steine. Sind die zwölf Bodenschichten voll, macht der Strich Platz (`makeRoom`): eine Schicht, die schon vor dem Strich da war und die kein Boden mehr hält (überall übermalt, höchstens 4 von 255), nimmt das neue Material; sonst malt die Schicht, die ihm am nächsten aussieht (gemeinsamer Katalog-Tag zuerst, dann die mittlere Farbe), an seiner Stelle. Die Statuszeile nennt, was wohin ging; ein Undo stellt die Liste mit zurück. Die Levelskripte lassen ein solches Material weiter weg (`leftOut`). Unter dem Zeiger zeigen Punkte, wo der nächste

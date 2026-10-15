@@ -31,6 +31,7 @@ import { MAX_LAYERS } from '../paint-ops';
 import { ObjectGrid, ObjectIds, rockShape, settled } from '../object-ops';
 import { edgePolyline, nearestOnPolyline } from '../path-graph';
 import { BODY_COLORS, emptyWater } from '../water-ops';
+import { MAX_WATER_BODIES } from '../../../world/custom-map/map-file';
 import { mirrorChange, objectImages, sameSector, symmetryImages, type SymmetryMode } from '../symmetry';
 import { FieldCache } from './field-cache';
 import { LandscapeNoise } from './landscape-noise';
@@ -282,8 +283,9 @@ export class LandscapeStroke {
 
   /**
    * The water pools of a kind fill: the main water for plain water (created
-   * at `level` when there is none), else a body of that kind near `level`,
-   * added when the map has none. Returns the body and a function that
+   * at `level` when there is none), else a body of that kind at most 2 m
+   * below `level` (one above would stand over the land the stroke starts
+   * on), added when the map has none. Returns the body and a function that
    * records a rect of its mask before the stroke writes there.
    */
   poolWater(level: number, kind: MapWaterKind): { water: MapWater; touch: (rect: GridRect) => void; index: number } {
@@ -293,7 +295,11 @@ export class LandscapeStroke {
       return { water: t.water!, touch: (r) => this.touchWater(r), index: -1 };
     }
     const bodies = (t.waterBodies ??= []);
-    let index = this.poolBodies.get(kind) ?? bodies.findIndex((b) => b.kind === kind && Math.abs(b.level - level) < 2);
+    let index =
+      this.poolBodies.get(kind) ??
+      bodies.findIndex((b) => b.kind === kind && b.level <= level + 0.05 && b.level > level - 2);
+    // A map full of bodies: the one of that kind nearest the level
+    if (index < 0 && bodies.length >= MAX_WATER_BODIES) index = bodies.reduce((best, b, n) => (b.kind === kind && (best < 0 || Math.abs(b.level - level) < Math.abs(bodies[best].level - level)) ? n : best), -1);
     if (index < 0) {
       bodies.push({ ...emptyWater(t, Math.round(level * 10) / 10), color: BODY_COLORS[kind], kind });
       index = bodies.length - 1;
