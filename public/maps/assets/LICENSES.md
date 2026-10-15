@@ -561,6 +561,11 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | supermarket | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/exterior_wall_cladding_03; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete |
 | hall-flat | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/exterior_wall_cladding_03; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete |
 | industrial-hall | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/box_profile_metal_sheet; https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/brushed_concrete |
+| school | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete |
+| town-hall | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete |
+| town-church | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/white_sandstone_bricks; https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/roof_slates_02 |
+| station | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete |
+| parking-garage | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/precast_concrete_wall; https://polyhaven.com/a/asphalt_02; https://polyhaven.com/a/painted_plaster_wall |
 
 ## Himmelsbilder (`skies/<id>.webp`)
 

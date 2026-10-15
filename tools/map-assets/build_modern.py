@@ -802,8 +802,303 @@ def hall(name, w, d, h, wall_asset, wall_tint=(1.0, 1.0, 1.0), roof='flat', shop
     export(name, kit.objects(name), lod=lod)
 
 
+# ---------------------------------------------------------------- public buildings
+
+def storeys_wall(kit, part, face, u0, u1, z0, floors, fh, win_w, win_h, sill, bay, top=None, door_u=None, door_w=1.8):
+    """Wall of a public building: one window per bay and storey, an optional double door on the ground floor"""
+    n = max(2, int(round((u1 - u0) / bay)))
+    ops = []
+    for f in range(floors):
+        for i in range(n):
+            u = u0 + (i + 0.5) * (u1 - u0) / n
+            if f == 0 and door_u is not None and abs(u - door_u) < (u1 - u0) / n / 2:
+                ops.append((u, door_w, z0, z0 + 2.6))
+            else:
+                ops.append((u, win_w, z0 + f * fh + sill, z0 + f * fh + sill + win_h))
+    punched_wall(part, face, u0, u1, z0, top if top is not None else z0 + floors * fh, ops)
+    for u, w, zb, zt in ops:
+        if zb == z0:
+            door(kit, face, u, zb, w, zt - zb, side_light=False)
+            face.box(kit.glass, u, -0.13, zb + 0.3, w * 0.6, 0.02, 1.8)
+        else:
+            window(kit, face, u, zb, w, zt - zb, reveal=0.16, shutter=0.0)
+
+
+def school(name, w=46.0, d=14.0, floors=3, fh=3.6, seed=0):
+    """Long school or office of the town: three storeys of wide windows in a rendered front, a projecting
+    entrance bay with a canopy, a flat roof behind a parapet with roof plant"""
+    clear_scene()
+    rnd = random.Random(seed)
+    kit = Kit(frame=(0.2, 0.21, 0.22))
+    top = PLINTH + floors * fh
+    base(kit, w, d)
+    for k in range(4):
+        face = Face(k, w, d)
+        L = face.length
+        u0, u1 = (-L / 2, L / 2) if k % 2 == 0 else (-L / 2 + T, L / 2 - T)
+        if k % 2 == 0:
+            storeys_wall(kit, kit.walls(WHITE), face, u0, u1, PLINTH, floors, fh, 2.4, 1.7, 0.9, 3.1, top=top + 0.6,
+                         door_u=0.0 if k == 0 else u1 - 4.0)
+        else:
+            storeys_wall(kit, kit.walls(WHITE), face, u0, u1, PLINTH, floors, fh, 1.2, 1.7, 0.9, 4.5, top=top + 0.6)
+        face.box(kit.metal, 0, 0.0, top + 0.6, L + 0.04, 0.36, 0.05)
+        # Coloured band under the windows of each storey
+        for f in range(floors):
+            face.box(kit.walls(OCHRE), (u0 + u1) / 2, 0.02, PLINTH + f * fh + 0.55, u1 - u0, 0.04, 0.3)
+    front = Face(0, w, d)
+    front.box(kit.metal, 0, 1.4, PLINTH + 2.9, 8.0, 2.8, 0.3)
+    for s in (-1, 1):
+        front.box(kit.frames, s * 3.8, 2.6, 0.0, 0.2, 0.2, PLINTH + 2.9)
+    flat = Part(pbr_material('roof-bitumen', 'bitumen', (0.8, 0.8, 0.8)), uv_metres=3.0, bevel=0.0)
+    box(flat, 0, 0, top - 0.05, w - 0.5, d - 0.5, 0.1)
+    kit.extra.append(flat)
+    roof_plant(kit, w * 0.8, d * 0.7, top + 0.05, rnd, units=4)
+    export(name, kit.objects(name), lod=500)
+
+
+def town_hall(name, w=30.0, d=15.0, floors=3, fh=3.8, seed=0):
+    """Town hall or district office: three storeys under a red hipped roof, a projecting centre bay with a
+    gable, a clock and a flagpole, steps to a double door"""
+    clear_scene()
+    kit = Kit('red')
+    top = PLINTH + floors * fh + 0.4
+    base(kit, w, d, z_top=PLINTH + 0.3)
+    for k in range(4):
+        face = Face(k, w, d)
+        L = face.length
+        u0, u1 = (-L / 2, L / 2) if k % 2 == 0 else (-L / 2 + T, L / 2 - T)
+        storeys_wall(kit, kit.walls(CREAM), face, u0, u1, PLINTH + 0.3, floors, fh, 1.3, 2.0, 1.0, 3.0, top=top,
+                     door_u=0.0 if k == 0 else None, door_w=2.2)
+        face.box(kit.sill, 0, 0.12, top - 0.4, L + 0.24, 0.3, 0.35)
+        face.box(kit.sill, 0, 0.04, PLINTH + 0.3 + fh - 0.1, L, 0.1, 0.2)
+    # Centre bay: a gabled front standing proud of the facade
+    bw, depth = 9.0, 1.0
+    box(kit.walls(SAND), 0, -d / 2 - depth / 2 + 0.05, PLINTH, bw, depth, top - PLINTH)
+    pitch = 3.0
+    prism(kit.walls(SAND), [Vector((-bw / 2, -d / 2 - depth, top)), Vector((bw / 2, -d / 2 - depth, top)),
+                            Vector((0, -d / 2 - depth, top + pitch))], Vector((0, depth + 2.0, 0)))
+    for s in (-1, 1):
+        plank(kit.ridge, Vector((s * (bw / 2 + 0.2), -d / 2 - depth - 0.2, top - 0.1)), Vector((0, -d / 2 - depth - 0.2, top + pitch + 0.1)),
+              0.5, 0.2)
+    tube(kit.frames, [Vector((0, -d / 2 - depth - 0.05, top + 1.2)), Vector((0, -d / 2 - depth - 0.1, top + 1.2))], [0.8, 0.8], 16, cap=True)
+    for a in (0, 1):
+        box(kit.door, 0.0, -d / 2 - depth - 0.12, top + 1.2 - 0.03, 0.06 if a else 0.5, 0.03, 0.5 if a else 0.06)
+    for f in range(floors):
+        zb = PLINTH + 0.3 + f * fh + (1.0 if f else 2.9)
+        if f == 0:
+            continue
+        for u in (-2.6, 0.0, 2.6):
+            applied_window(kit, Face(0, bw, 2 * (d / 2 + depth)), u, zb, 1.3, 2.0)
+    for k in range(3):
+        box(kit.plinth, 0, -d / 2 - depth - 0.2 - k * 0.35, -0.3, 4.5, 0.35, 0.3 + PLINTH + 0.3 - k * 0.25)
+    h = d / 2 * math.tan(math.radians(40))
+    _hip_roof(kit, w, d, top, h)
+    tube(kit.metal, [Vector((w / 2 - 3, -d / 2 + 2, top + h * 0.6)), Vector((w / 2 - 3, -d / 2 + 2, top + h * 0.6 + 6.0))], [0.05, 0.03], 6)
+    flag = Part(flat_material('flag', (0.7, 0.1, 0.08), 0.8))
+    box(flag, w / 2 - 3 + 0.7, -d / 2 + 2, top + h * 0.6 + 4.6, 1.4, 0.02, 0.9)
+    kit.extra.append(flag)
+    export(name, kit.objects(name), lod=600)
+
+
+def _hip_roof(kit, w, d, z, h, over=0.4):
+    """Hipped roof over a long box: two trapezoids along X, two triangles at the ends, hip and ridge caps"""
+    hw, hd = w / 2 + over, d / 2 + over
+    r = w / 2 - d / 2
+    zt = z + h
+    a, b, c, e = (Vector((-hw, -hd, z)), Vector((hw, -hd, z)), Vector((hw, hd, z)), Vector((-hw, hd, z)))
+    p, q = Vector((-r, 0, zt)), Vector((r, 0, zt))
+    bm = kit.roof.bm
+    uv = kit.roof.uv
+    for poly in ((a, b, q, p), (c, e, p, q), (b, c, q), (e, a, p)):
+        f = bm.faces.new([bm.verts.new(v) for v in poly])
+        n = f.normal
+        for loop in f.loops:
+            co = loop.vert.co
+            along = Vector((-n.y, n.x, 0)).normalized() if abs(n.z) < 0.999 else Vector((1, 0, 0))
+            up = n.cross(along)
+            loop[uv].uv = (co.dot(along) / 2.2, co.dot(up) / 2.2)
+    for corner, apex in ((a, p), (e, p), (b, q), (c, q)):
+        plank(kit.ridge, corner, apex, 0.25, 0.12)
+    plank(kit.ridge, p, q, 0.3, 0.14)
+    bm.faces.new([bm.verts.new(v - Vector((0, 0, 0.01))) for v in (e, c, b, a)])
+
+
+def town_church(name, seed=0):
+    """Town church: a sandstone nave 28 x 13 m under a slate roof, tall pointed windows, a west tower 7 m
+    square with louvred belfry openings, clock faces and a slate spire to 48 m"""
+    clear_scene()
+    kit = Kit()
+    stone = Part(pbr_material('stone-white_sandstone_bricks', 'white_sandstone_bricks', (1.05, 1.0, 0.92)), uv_metres=3.0, bevel=0.0)
+    dress = Part(pbr_material('stone-sandstone-dress', 'sandstone_blocks_04', (1.0, 0.95, 0.85)), uv_metres=2.0)
+    slate = Part(pbr_material('roof-slate', 'roof_slates_02', (0.55, 0.57, 0.62)))
+    lead = Part(flat_material('glass-lead', (0.1, 0.12, 0.16), 0.2, 0.5))
+    kit.extra += [stone, dress, slate, lead]
+    nw, nd, nh = 26.0, 13.0, 12.0
+    nx = 3.5  # nave centre east of the tower
+    box(dress, nx, 0, -FOUNDATION, nw + 0.3, nd + 0.3, FOUNDATION + 0.8)
+    box(stone, nx, 0, 0.8, nw, nd, nh - 0.8)
+    pitch = nd / 2 * math.tan(math.radians(52))
+    gable_roof(slate, nw, nd, nh, pitch, 0.5)
+    for v in slate.bm.verts:
+        v.co.x += nx
+    for x in (nx - nw / 2, nx + nw / 2 - 0.4):
+        prism(stone, [Vector((x, -nd / 2, nh)), Vector((x, nd / 2, nh)), Vector((x, 0, nh + pitch - 0.1))], Vector((0.4, 0, 0)))
+    plank(dress, Vector((nx - nw / 2, 0, nh + pitch + 0.05)), Vector((nx + nw / 2 + 0.5, 0, nh + pitch + 0.05)), 0.3, 0.15)
+
+    def lancet(cx, cy, z, w, h, normal):
+        """Pointed window proud of the wall: dressed surround, leaded glass, a pointed head"""
+        side = Vector((-normal.y, normal.x, 0))
+        o = Vector((cx, cy, 0)) + normal * 0.05
+        for part, grow, out in ((dress, 0.3, 0.0), (lead, 0.0, 0.06)):
+            ww = w + grow
+            base_pts = [o + normal * out - side * ww / 2 + Vector((0, 0, z - grow / 2)), o + normal * out + side * ww / 2 + Vector((0, 0, z - grow / 2)),
+                        o + normal * out + side * ww / 2 + Vector((0, 0, z + h)), o + normal * out + Vector((0, 0, z + h + ww * 0.8)),
+                        o + normal * out - side * ww / 2 + Vector((0, 0, z + h))]
+            prism(part, base_pts, normal * 0.08)
+
+    for k in range(5):
+        x = nx - nw / 2 + 3.0 + k * (nw - 6.0) / 4
+        for sy in (-1, 1):
+            lancet(x, sy * nd / 2, 3.0, 1.6, 5.5, Vector((0, sy, 0)))
+            # Buttress between the windows
+            if k < 4:
+                box(dress, x + (nw - 6.0) / 8, sy * (nd / 2 + 0.4), 0.0, 0.8, 0.8, nh - 2.0)
+    lancet(nx + nw / 2, 0, 3.5, 3.0, 6.5, Vector((1, 0, 0)))
+    # West tower
+    tw, th = 7.0, 30.0
+    tx = nx - nw / 2 - tw / 2 + 0.5
+    box(dress, tx, 0, -FOUNDATION, tw + 0.6, tw + 0.6, FOUNDATION + 1.2)
+    box(stone, tx, 0, 1.2, tw, tw, th - 1.2)
+    for z in (11.0, 21.0, th - 0.6):
+        box(dress, tx, 0, z, tw + 0.3, tw + 0.3, 0.5)
+    box(kit.door, tx, -tw / 2 - 0.02, 0.0, 2.2, 0.1, 3.6)
+    for k in range(4):
+        n = Vector((math.sin(k * math.pi / 2), -math.cos(k * math.pi / 2), 0))
+        c = Vector((tx, 0, 0)) + n * (tw / 2)
+        lancet(c.x, c.y, th - 7.0, 1.6, 3.6, n)
+        for i in range(5):
+            box(kit.door, c.x + n.x * 0.12, c.y + n.y * 0.12, th - 6.6 + i * 0.7, 1.2 if abs(n.y) > 0.5 else 0.06, 0.06 if abs(n.y) > 0.5 else 1.2,
+                0.1)
+        tube(kit.frames, [c + n * 0.05 + Vector((0, 0, 22.8)), c + n * 0.15 + Vector((0, 0, 22.8))], [1.1, 1.1], 16, cap=True)
+        tube(kit.door, [c + n * 0.16 + Vector((0, 0, 22.8)), c + n * 0.2 + Vector((0, 0, 22.8))], [0.06, 0.06], 6, cap=True)
+        box(kit.door, c.x + n.x * 0.2, c.y + n.y * 0.2, 22.8, 0.06, 0.06, 0.8)
+    spire = 18.0
+    sp = Part(slate.material)
+    pyramid_roof(sp, tw - 0.4, tw - 0.4, th, spire, overhang=0.0, cx=tx)
+    slate.add_bmesh(sp.bm)
+    sp.bm.free()
+    gold = Part(flat_material('cross-gold', (0.8, 0.6, 0.2), 0.3, 0.9))
+    box(gold, tx, 0, th + spire - 0.2, 0.12, 0.12, 2.2)
+    box(gold, tx, 0, th + spire + 1.3, 1.0, 0.12, 0.12)
+    kit.extra.append(gold)
+    export(name, kit.objects(name), lod=600)
+
+
+def station(name, w=28.0, d=11.0, seed=0):
+    """Small-town railway station: a two-storey rendered building under a red hipped roof with a station
+    clock, the platform side (+Y) with a canopy on cast-iron posts along the whole front"""
+    clear_scene()
+    kit = Kit('red', frame=(0.32, 0.18, 0.12))
+    fh = 3.6
+    top = PLINTH + 2 * fh + 0.3
+    base(kit, w, d)
+    for k in range(4):
+        face = Face(k, w, d)
+        L = face.length
+        u0, u1 = (-L / 2, L / 2) if k % 2 == 0 else (-L / 2 + T, L / 2 - T)
+        storeys_wall(kit, kit.walls(SAND), face, u0, u1, PLINTH, 2, fh, 1.3, 2.1, 0.8, 3.2, top=top,
+                     door_u=0.0 if k in (0, 2) else None, door_w=2.0)
+        face.box(kit.sill, 0, 0.1, top - 0.3, L + 0.2, 0.25, 0.3)
+        face.box(kit.walls(STONE), 0, 0.02, PLINTH, L, 0.04, 0.8)
+    _hip_roof(kit, w, d, top, d / 2 * math.tan(math.radians(35)))
+    # Platform canopy on the +Y side
+    cd = 4.0
+    for i in range(7):
+        x = -w / 2 + 1.0 + i * (w - 2.0) / 6
+        tube(kit.door, [Vector((x, d / 2 + cd - 0.4, 0.0)), Vector((x, d / 2 + cd - 0.4, 3.4))], [0.1, 0.08], 8)
+    prism(kit.metal, [Vector((-w / 2 - 0.5, d / 2, 3.9)), Vector((w / 2 + 0.5, d / 2, 3.9)), Vector((w / 2 + 0.5, d / 2 + cd, 3.4)),
+                      Vector((-w / 2 - 0.5, d / 2 + cd, 3.4))], Vector((0, 0, 0.1)))
+    box(kit.door, 0, d / 2 + cd - 0.05, 3.2, w + 1.0, 0.1, 0.3)
+    # Station clock on a bracket
+    tube(kit.frames, [Vector((0, d / 2 + 1.5, 2.9)), Vector((0, d / 2 + 1.6, 2.9))], [0.35, 0.35], 16, cap=True)
+    tube(kit.frames, [Vector((0, d / 2 + 1.4, 2.9)), Vector((0, d / 2 + 1.5, 2.9))], [0.35, 0.35], 16, cap=True)
+    box(kit.door, 0, d / 2 + 1.5, 3.25, 0.06, 0.06, 0.6)
+    sign = Part(flat_material('sign-blue', (0.05, 0.15, 0.45), 0.4, 0.1))
+    box(sign, 0, -d / 2 - 0.08, PLINTH + fh + 0.2, 6.0, 0.06, 0.7)
+    box(sign, 0, d / 2 + 0.08, PLINTH + fh + 0.2, 6.0, 0.06, 0.7)
+    kit.extra.append(sign)
+    export(name, kit.objects(name), lod=500)
+
+
+def parking_garage(name, w=32.0, d=40.0, decks=4, dh=2.9, seed=0):
+    """Open multi-storey car park: concrete decks on columns, precast parapet bands, a stair tower with a
+    lift at one corner, a ramp at the back, a few cars on the top deck"""
+    clear_scene()
+    rnd = random.Random(seed)
+    kit = Kit()
+    concrete = Part(pbr_material('deck-concrete', 'brushed_concrete', (1.1, 1.1, 1.1)), uv_metres=3.0, bevel=0.0)
+    parapet = Part(pbr_material('parapet-precast', 'precast_concrete_wall', (1.15, 1.15, 1.15)), uv_metres=3.0, bevel=0.0)
+    asphalt = Part(pbr_material('deck-asphalt', 'asphalt_02', (0.8, 0.8, 0.8)), uv_metres=4.0, bevel=0.0)
+    paint = Part(flat_material('deck-lines', (0.85, 0.85, 0.8), 0.6))
+    kit.extra += [concrete, parapet, asphalt, paint]
+    box(kit.plinth, 0, 0, -FOUNDATION, w + 0.1, d + 0.1, FOUNDATION + 0.15)
+    for k in range(1, decks + 1):
+        z = k * dh
+        box(concrete, 0, 0, z - 0.35, w, d, 0.35)
+        if k == decks:
+            box(asphalt, 0, 0, z, w - 0.6, d - 0.6, 0.02)
+            for i in range(12):
+                for sy in (-1, 1):
+                    box(paint, -w / 2 + 2.5 + i * 2.5, sy * (d / 2 - 3.0), z + 0.02, 0.1, 5.0, 0.01)
+        for j in range(4):
+            face = Face(j, w, d)
+            face.box(parapet, 0, -0.1, z, face.length, 0.2, 1.1)
+    for i in range(6):
+        for j in range(6):
+            x = -w / 2 + 0.4 + i * (w - 0.8) / 5
+            y = -d / 2 + 0.4 + j * (d - 0.8) / 5
+            box(concrete, x, y, 0.15, 0.5, 0.5, decks * dh - 0.5)
+    # Stair and lift tower at the front west corner, rendered
+    sx, sy = -w / 2 - 2.5, -d / 2 + 3.5
+    th = decks * dh + 3.5
+    box(kit.walls(PALE_GREY), sx, sy, 0.0, 5.0, 7.0, th)
+    box(kit.glass, sx - 2.52, sy, 0.6, 0.04, 2.5, th - 1.2)
+    box(kit.metal, sx, sy, th, 5.3, 7.3, 0.2)
+    box(kit.door, sx, sy - 3.52, 0.0, 1.4, 0.04, 2.3)
+    sign = Part(flat_material('sign-parking', (0.05, 0.2, 0.6), 0.4, 0.1))
+    box(sign, sx, sy - 3.54, th - 2.2, 1.8, 0.04, 1.8)
+    box(paint, sx, sy - 3.57, th - 2.0, 0.3, 0.04, 1.4)
+    kit.extra.append(sign)
+    # Ramp at the back up to the first deck
+    prism(concrete, [Vector((-w / 2 + 2, d / 2 + 14, 0.15)), Vector((-w / 2 + 8, d / 2 + 14, 0.15)), Vector((-w / 2 + 8, d / 2, dh)),
+                     Vector((-w / 2 + 2, d / 2, dh))], Vector((0, 0, -0.3)))
+    for x in (-w / 2 + 2, -w / 2 + 8):
+        plank(parapet, Vector((x, d / 2 + 14, 0.65)), Vector((x, d / 2, dh + 0.5)), 0.2, 1.0)
+    colours = [(0.6, 0.05, 0.05), (0.08, 0.1, 0.3), (0.75, 0.75, 0.75), (0.1, 0.1, 0.1)]
+    cars = [Part(flat_material('car-%d' % i, c, 0.3, 0.5)) for i, c in enumerate(colours)]
+    kit.extra += cars
+    for i in range(7):
+        if rnd.random() < 0.4:
+            continue
+        for s in (-1, 1):
+            if rnd.random() < 0.5:
+                continue
+            x = -w / 2 + 3.75 + i * 2.5 * 1.7
+            y = s * (d / 2 - 3.0)
+            p = cars[rnd.randrange(4)]
+            box(p, x, y, decks * dh + 0.25, 1.8, 4.3, 0.75)
+            box(p, x, y + 0.2 * s, decks * dh + 1.0, 1.6, 2.2, 0.55)
+            box(kit.glass, x, y + 0.2 * s, decks * dh + 1.05, 1.62, 2.0, 0.42)
+    export(name, kit.objects(name), lod=500)
+
+
 def models():
     return {
+        'school': lambda: school('school', seed=31),
+        'town-hall': lambda: town_hall('town-hall', seed=32),
+        'town-church': lambda: town_church('town-church', seed=33),
+        'station': lambda: station('station', seed=34),
+        'parking-garage': lambda: parking_garage('parking-garage', seed=35),
         'office-mid': lambda: office('office-mid', 24.0, 14.0, 5, seed=21, lod=450),
         'office-high': lambda: office('office-high', 22.0, 18.0, 8, band_asset='concrete_slab_wall', band_tint=(1.1, 1.1, 1.1),
                                       seed=22, lod=550),

@@ -13871,6 +13871,152 @@
         }
       ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/box_profile_metal_sheet; https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "school",
+      "name": "School or office block (3 floors, 46 x 14 m)",
+      "category": "building",
+      "file": "models/school.glb",
+      "triangles": 8834,
+      "footprint": 20.9,
+      "height": 14.0,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/school-lod1.glb",
+          "distance": 350,
+          "triangles": 1789
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "town-hall",
+      "name": "Town hall (3 floors, 30 x 15 m)",
+      "category": "building",
+      "file": "models/town-hall.glb",
+      "triangles": 7830,
+      "footprint": 13.9,
+      "height": 22.0,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/town-hall-lod1.glb",
+          "distance": 350,
+          "triangles": 1514
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "town-church",
+      "name": "Town church with tower (nave 26 x 13 m, 50 m)",
+      "category": "building",
+      "file": "models/town-church.glb",
+      "triangles": 2202,
+      "footprint": 15.0,
+      "height": 50,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "lod": [
+        {
+          "file": "models/town-church-lod1.glb",
+          "distance": 350,
+          "triangles": 1128
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/white_sandstone_bricks; https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/roof_slates_02"
+    },
+    {
+      "id": "station",
+      "name": "Railway station (2 floors, 28 x 11 m, platform canopy)",
+      "category": "building",
+      "file": "models/station.glb",
+      "triangles": 4664,
+      "footprint": 13.1,
+      "height": 11.9,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/station-lod1.glb",
+          "distance": 350,
+          "triangles": 817
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "parking-garage",
+      "name": "Multi-storey car park (4 decks, 32 x 40 m)",
+      "category": "building",
+      "file": "models/parking-garage.glb",
+      "triangles": 1304,
+      "footprint": 24.4,
+      "height": 15.3,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/parking-garage-lod1.glb",
+          "distance": 350,
+          "triangles": 958
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/precast_concrete_wall; https://polyhaven.com/a/asphalt_02; https://polyhaven.com/a/painted_plaster_wall"
     }
   ]
 }
