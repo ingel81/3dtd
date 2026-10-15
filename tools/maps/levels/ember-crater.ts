@@ -97,6 +97,18 @@ export function buildEmberCrater(): CustomMapDocument {
   k.hq(island.x, island.y);
 
 
+  // Lava falls into the lake: two ledges of rock between the windings and the shore, a cliff edge over the lava,
+  // a glowing vent on each and its lava pouring over the edge (a fall whose foot is in lava is drawn as lava)
+  const vents: { lip: MapPoint; at: MapPoint }[] = [];
+  for (const [deg, r] of [[62, 49], [140, 47]] as const) {
+    const th = (deg * Math.PI) / 180;
+    const at = (d: number, side = 0) => ({ x: Math.cos(th) * d + Math.sin(th) * side, y: Math.sin(th) * d - Math.cos(th) * side });
+    // Drawn clockwise round the crater: the ground left of it, away from the lake, rises
+    k.cliff([at(r, -14), at(r, 14)], 9, 12);
+    k.roughen([at(r + 4, -14), at(r + 4, 14)], { radius: 9, falloff: 0.7 }, 1.5, 7708 + deg);
+    vents.push({ lip: at(r + 1.5), at: at(r + 6) });
+  }
+
   // The lava runs on over the crater floor below its level once the roads are graded: dug into the uneven floor,
   // the lake's mask ended on the floor's low side and the lava stood there over the ground in the air
   k.fill({ x: -40, y: 0 }, lava);
@@ -151,6 +163,18 @@ export function buildEmberCrater(): CustomMapDocument {
     if (!k.free(p.x, p.y, 8)) continue;
     if (i % 3 === 2) k.place('brazier', p.x, p.y, { scale: 1.4 });
     else k.place(i % 3 ? 'rock-needle' : 'obsidian-spikes', p.x, p.y, { rotation: a, scale: i % 3 ? 0.6 + 0.4 * k.noise.hash(i, 15, 83) : 3.5 + 2 * k.noise.hash(i, 17, 84), tint: '#2a2228' });
+  }
+  for (const { lip, at } of vents) {
+    k.place('lava-rock-large', at.x, at.y, { rotation: facing(at, lip), scale: 1.3 });
+    k.place('fx-embers', at.x, at.y, { scale: 0.8 });
+    const top = k.h(lip.x, lip.y);
+    // Two sheets side by side: one fall of 12 m is 6 m wide
+    const across = { x: -(lip.y / Math.hypot(lip.x, lip.y)) * 2.5, y: (lip.x / Math.hypot(lip.x, lip.y)) * 2.5 };
+    for (const side of [-1, 1]) {
+      const p = { x: lip.x + across.x * side, y: lip.y + across.y * side };
+      const h = k.h(p.x, p.y);
+      k.place('fx-waterfall', p.x, p.y, { rotation: facing(p, { x: 0, y: 0 }), z: lavaLevel - h, scale: (h - lavaLevel) / 12 });
+    }
   }
   // Embers only over the lava: the brush's ember spots elsewhere go, a ring of them round the lake shore
   k.doc.objects = k.doc.objects.filter((o) => o.asset !== 'fx-embers');
