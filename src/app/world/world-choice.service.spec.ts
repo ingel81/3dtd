@@ -5,7 +5,9 @@ import { MapStore, MemoryMapBackend, type ShippedMapIndex } from './custom-map/m
 import { parseOwnTilesets } from './tileset/own-tileset';
 import { MAP_STORE, WORLD_NAVIGATE, WorldChoiceService } from './world-choice.service';
 import { WorldContext } from './world-context.service';
-import { worldRefFromSearch, type WorldRef } from './world-ref';
+import type { WorldRef } from './world-ref';
+import { WorldSession } from './world-session.service';
+import { PLAIN_START, type WorldStart } from './world-start';
 
 const INDEX: ShippedMapIndex = {
   maps: [
@@ -18,11 +20,14 @@ const TILESET = parseOwnTilesets([{ id: 'synth', url: 'http://localhost:4311/syn
 describe('WorldChoiceService', () => {
   let service: WorldChoiceService;
   let went: string[];
+  /** The worlds opened in the page (WorldSession.open) */
+  let opened: WorldStart[];
   let current: ReturnType<typeof signal<WorldRef>>;
   let store: MapStore;
 
   beforeEach(() => {
     went = [];
+    opened = [];
     current = signal<WorldRef>({ kind: 'tiles', source: 'cesium' });
     store = new MapStore({
       backend: new MemoryMapBackend(),
@@ -33,6 +38,7 @@ describe('WorldChoiceService', () => {
       providers: [
         { provide: MAP_STORE, useValue: store },
         { provide: WORLD_NAVIGATE, useValue: (url: string) => went.push(url) },
+        { provide: WorldSession, useValue: { open: (order: WorldStart) => opened.push(order) } },
         { provide: ConfigService, useValue: { ownTilesets: signal([TILESET]) } },
         { provide: WorldContext, useValue: { ref: current.asReadonly() } },
       ],
@@ -58,18 +64,28 @@ describe('WorldChoiceService', () => {
     expect(maps.shipped[0].summary).toMatchObject({ author: '3DTD', spawns: 2, biome: 'temperate' });
   });
 
-  it('loads the page on the chosen map or set, and back on the real places', () => {
+  it('opens the chosen map or set in the page, and the real places again, without loading a page', () => {
     service.playMap('demo-valley');
     service.playTileset(TILESET);
     service.playRealPlaces();
-    const [map, tileset, places] = went.map((url) => new URL(url));
-    expect(worldRefFromSearch(map.search)).toEqual({ kind: 'custom-map', mapId: 'demo-valley', contentHash: '' });
+    const [map, tileset, places] = opened;
+    expect(map).toEqual({ ...PLAIN_START, world: { kind: 'custom-map', mapId: 'demo-valley', contentHash: '' } });
     // A set starts at the middle of its area
-    expect(worldRefFromSearch(tileset.search)).toEqual({ kind: 'tileset', id: 'synth' });
-    expect(tileset.searchParams.get('l')).toBe('48.77840,9.18000');
-    expect(worldRefFromSearch(places.search)).toBeNull();
+    expect(tileset.world).toEqual({ kind: 'tileset', id: 'synth' });
+    expect(tileset.place).toEqual({ hq: { lat: 48.7784, lon: 9.18 }, spawns: [] });
+    expect(places).toEqual(PLAIN_START);
+    expect(went).toEqual([]);
     expect(new URL(service.editUrl('demo-valley')).pathname).toMatch(/\/editor$/);
     expect(new URL(service.editUrl('demo-valley')).searchParams.get('map')).toBe('demo-valley');
+  });
+
+  it("opens a save's world in the page and loads the save there", () => {
+    service.openSave({ id: 'slot-2', map: { id: 'bay' } });
+    service.openSave({ id: 'slot-3', map: null });
+    expect(opened).toEqual([
+      { ...PLAIN_START, world: { kind: 'custom-map', mapId: 'bay', contentHash: '' }, resume: 'slot-2' },
+      { ...PLAIN_START, resume: 'slot-3' },
+    ]);
   });
 
   it('knows the world the page plays on', () => {
@@ -81,13 +97,13 @@ describe('WorldChoiceService', () => {
   });
 
   it('plays a map double-clicked in the desktop app, under the id of its file in the map folder', async () => {
-    let opened: ((name: string) => void) | null = null;
+    let listener: ((name: string) => void) | null = null;
     const desktop = {
       version: '0.7.0',
       onUpdateReady: () => () => undefined,
       installUpdateNow: vi.fn(),
       saveRun: async () => true,
-      maps: { onOpen: (listener: (name: string) => void) => ((opened = listener), () => (opened = null)), reveal: vi.fn() },
+      maps: { onOpen: (listen: (name: string) => void) => ((listener = listen), () => (listener = null)), reveal: vi.fn() },
     };
     (window as unknown as { desktop?: unknown }).desktop = desktop;
     try {
@@ -95,19 +111,20 @@ describe('WorldChoiceService', () => {
         providers: [
           { provide: MAP_STORE, useValue: store },
           { provide: WORLD_NAVIGATE, useValue: (url: string) => went.push(url) },
+          { provide: WorldSession, useValue: { open: (order: WorldStart) => opened.push(order) } },
           { provide: ConfigService, useValue: { ownTilesets: signal([]) } },
           { provide: WorldContext, useValue: { ref: current.asReadonly() } },
         ],
       });
       const onDesktop = runInInjectionContext(injector, () => new WorldChoiceService());
       const stop = onDesktop.playOpenedMaps();
-      opened!('Witch Marsh.3dtdmap');
-      await vi.waitFor(() => expect(went).toHaveLength(1));
-      expect(worldRefFromSearch(new URL(went[0]).search)).toEqual({ kind: 'custom-map', mapId: 'witch-marsh', contentHash: '' });
+      listener!('Witch Marsh.3dtdmap');
+      await vi.waitFor(() => expect(opened).toHaveLength(1));
+      expect(opened[0].world).toEqual({ kind: 'custom-map', mapId: 'witch-marsh', contentHash: '' });
       onDesktop.revealMapFolder();
       expect(desktop.maps.reveal).toHaveBeenCalledOnce();
       stop();
-      expect(opened).toBeNull();
+      expect(listener).toBeNull();
       // In a browser there is no folder: nothing to listen to
       expect(service.mapFolder).toBeNull();
     } finally {

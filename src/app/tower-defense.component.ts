@@ -149,6 +149,7 @@ import { MainMenuComponent } from './components/main-menu/main-menu.component';
 import { MainMenuService } from './components/main-menu/main-menu.service';
 import { pageSwitches } from './core/page-switches';
 import { WorldStartService } from './world/world-start';
+import { WorldSession } from './world/world-session.service';
 
 @Component({
   selector: 'app-tower-defense',
@@ -287,6 +288,8 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   readonly worldContext = inject(WorldContext);
   /** What the world was opened with: an invite's room opens the coop page */
   private readonly worldStart = inject(WorldStartService);
+  /** Opens worlds in this page: a new key builds this one anew */
+  private readonly session = inject(WorldSession);
   readonly facade = inject(TowerDefenseFacadeService);
   private readonly vizFacade = inject(VisualizationFacadeService);
   /** A real place's streets and buildings for the minimap (TODO E142) */
@@ -620,14 +623,14 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   /**
    * Credentials arrived from the token screen. Before the engine ever started we
-   * can just start it; if it is already up (a token was rejected mid-flight) a
-   * reload is the honest way to rebuild the whole tile pipeline.
+   * can just start it; if it is already up (a token was rejected mid-flight)
+   * the world opens anew in the page, the whole tile pipeline with it.
    */
   async onCredentialsSaved(): Promise<void> {
     this.awaitingCredentials.set(false);
 
     if (this.gameStarted) {
-      window.location.reload();
+      this.session.reopen();
       return;
     }
 
@@ -721,6 +724,8 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     if (this.controlsHintTimer) clearTimeout(this.controlsHintTimer);
     this.facade.dispose();
+    // What the root keeps of this world's run goes before the next world starts
+    this.session.closed();
   }
 
   /**

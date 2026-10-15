@@ -1,12 +1,14 @@
 import { Injectable, InjectionToken, computed, inject } from '@angular/core';
 import { ConfigService } from '../core/services/config.service';
 import { readDesktopBridge } from '../core/desktop-bridge';
-import { coordKey } from '../utils/geo-utils';
 import { MapStore, type MapSummary } from './custom-map/map-store';
 import type { OwnTileset } from './tileset/own-tileset';
 import { WorldContext } from './world-context.service';
-import { WORLD_URL_PARAM, worldUrlValue, type WorldRef } from './world-ref';
-import { RESUME_URL_PARAM } from './world-start';
+import type { WorldRef } from './world-ref';
+import { PLAIN_START } from './world-start';
+import { WORLD_NAVIGATE, WorldSession } from './world-session.service';
+
+export { WORLD_NAVIGATE } from './world-session.service';
 
 /** The shipped map a player without a tile key starts on (the token screen's "Play the maps") */
 export const FIRST_MAP_ID = 'mountain-pass';
@@ -14,11 +16,6 @@ export const FIRST_MAP_ID = 'mountain-pass';
 /** The map store the menu lists from (IndexedDB and the shipped maps); a spec hands in its own */
 export const MAP_STORE = new InjectionToken<MapStore>('MAP_STORE', { providedIn: 'root', factory: () => new MapStore() });
 
-/** How the page goes to another world: a full load of the URL (a spec records it) */
-export const WORLD_NAVIGATE = new InjectionToken<(url: string) => void>('WORLD_NAVIGATE', {
-  providedIn: 'root',
-  factory: () => (url: string) => window.location.assign(url),
-});
 
 /** A map as the menu lists it: its summary and a picture */
 export interface MapChoice {
@@ -38,9 +35,9 @@ export interface MapChoices {
 /**
  * The worlds a player can choose in the menu besides the real places: the
  * custom maps (own from the map store, then the shipped ones) and the own
- * 3D Tiles sets of the config. A choice loads the page anew on that world
- * (`?world=…`), as a link would; the world is made at the start, not
- * swapped under a running engine.
+ * 3D Tiles sets of the config. A choice opens that world in the page
+ * (WorldSession): the open one goes, engine and worker with it, and the new
+ * one is made from the start. The map editor still loads its own page.
  */
 @Injectable({ providedIn: 'root' })
 export class WorldChoiceService {
@@ -48,6 +45,7 @@ export class WorldChoiceService {
   private readonly navigate = inject(WORLD_NAVIGATE);
   private readonly config = inject(ConfigService);
   private readonly world = inject(WorldContext);
+  private readonly session = inject(WorldSession);
   /** Object URLs of own maps' pictures, given back with the next list */
   private pictureUrls: string[] = [];
 
@@ -91,12 +89,13 @@ export class WorldChoiceService {
 
   /** Play a custom map */
   playMap(mapId: string): void {
-    this.navigate(this.worldUrl({ kind: 'custom-map', mapId, contentHash: '' }));
+    this.session.open({ ...PLAIN_START, world: { kind: 'custom-map', mapId, contentHash: '' } });
   }
 
   /** Play an own tileset, starting at the middle of its area */
   playTileset(tileset: OwnTileset): void {
-    this.navigate(this.worldUrl({ kind: 'tileset', id: tileset.id }, tileset.coverage.center));
+    const { lat, lon } = tileset.coverage.center;
+    this.session.open({ ...PLAIN_START, world: { kind: 'tileset', id: tileset.id }, place: { hq: { lat, lon }, spawns: [] } });
   }
 
   /** The desktop app's map folder, or null in a browser */
@@ -109,7 +108,7 @@ export class WorldChoiceService {
 
   /**
    * A map the player double-clicked (desktop app): the app copied it into
-   * the map folder, the store takes it in when the page loads on it.
+   * the map folder, the store takes it in when the world opens on it.
    * `mayLeave` asks before a running game is left. Called once at the
    * page's start; returns the unsubscribe.
    */
@@ -123,19 +122,18 @@ export class WorldChoiceService {
   }
 
   /**
-   * A save of another world than this page's: the page loads anew on the
-   * save's world (its map, or the real places) and loads the save there
-   * (`?resume=`, MainMenuService); a page plays one world from its start.
+   * A save of another world than the open one: the save's world (its map,
+   * or the real places) opens in the page and loads the save once it stands
+   * (WorldStart.resume, MainMenuService).
    */
   openSave(slot: { id: string; map: { id: string } | null }): void {
-    const url = new URL(slot.map ? this.worldUrl({ kind: 'custom-map', mapId: slot.map.id, contentHash: '' }) : document.baseURI);
-    url.searchParams.set(RESUME_URL_PARAM, slot.id);
-    this.navigate(url.toString());
+    const world: WorldRef | null = slot.map ? { kind: 'custom-map', mapId: slot.map.id, contentHash: '' } : null;
+    this.session.open({ ...PLAIN_START, world, resume: slot.id });
   }
 
   /** Back to the real places of the 3D tiles; the menu then asks where */
   playRealPlaces(): void {
-    this.navigate(new URL(document.baseURI).toString());
+    this.session.open(PLAIN_START);
   }
 
   /** Opens the map editor on this map */
@@ -152,14 +150,6 @@ export class WorldChoiceService {
   editUrl(mapId: string): string {
     const url = new URL('editor', document.baseURI);
     url.searchParams.set('map', mapId);
-    return url.toString();
-  }
-
-  /** The page on `ref`, at `at` where the world needs a place */
-  private worldUrl(ref: WorldRef, at?: { lat: number; lon: number }): string {
-    const url = new URL(document.baseURI);
-    url.searchParams.set(WORLD_URL_PARAM, worldUrlValue(ref)!);
-    if (at) url.searchParams.set('l', coordKey(at));
     return url.toString();
   }
 }

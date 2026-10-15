@@ -440,6 +440,24 @@ export class UIStore {
     this.heroSelected.set(false);
   }
 
+  /**
+   * What belongs to the world that went (WorldSession): build state, the
+   * menus and bars over the game, coop locks, problems and notices. The
+   * player's display choices stay.
+   */
+  resetWorld(): void {
+    this.resetBuildState();
+    this.openMenu.set(null);
+    this.photoMode.set(false);
+    this.replayMode.set(false);
+    this.coopMapLocked.set(false);
+    this.coopDockOpen.set(false);
+    this.mainMenu.set({ open: false, layer: 'start', page: 'home' });
+    this.loadProblem.set(null);
+    this.tilesProblem.set(null);
+    this.notice.set(null);
+  }
+
   /** Full reset including UI state. */
   resetAll(): void {
     this.debugMode.set(false);

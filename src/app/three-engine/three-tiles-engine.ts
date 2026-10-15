@@ -1363,8 +1363,11 @@ export class ThreeTilesEngine {
     // The sky cube is the scene background, the traverse above does not reach it
     this.sky?.dispose();
 
-    // Dispose renderer
+    // Dispose renderer; its context goes at once, not when the canvas is
+    // collected: the next world of the page makes a canvas of its own
+    // (WorldSession) and the browser keeps only a few contexts alive
     this.renderer.dispose();
     this.restoreGLDeletes();
+    this.renderer.forceContextLoss();
   }
 }
