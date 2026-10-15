@@ -120,6 +120,15 @@ describe('EffectLayer', () => {
     layer.dispose();
   });
 
+  it('builds whole particles for a placed effect whose scale makes its count fractional', () => {
+    const layer = new EffectLayer(flat());
+    // 1.3 squared: a fractional count, which once wrote past the field's arrays (RangeError)
+    expect(() => layer.set([{ ...place('s', 'fx-smoke', 0), scale: 1.3 }], catalog)).not.toThrow();
+    const field = layer.group.children.find((c) => c.name === 'custom-map-particles-smoke') as Mesh;
+    expect(field.geometry.instanceCount).toBe(Math.round(particleCount('smoke', 4) * 1.69));
+    layer.dispose();
+  });
+
   it('builds one particle field per kind, waterfalls with spray, and glows', () => {
     const layer = new EffectLayer(flat());
     const objects = [place('a', 'torch', 0), place('b', 'torch', 10), place('c', 'falls', -20), place('d', 'rock', 5)];

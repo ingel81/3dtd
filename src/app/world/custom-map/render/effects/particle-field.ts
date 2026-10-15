@@ -77,16 +77,19 @@ export class ParticleField {
     light: { value: number },
   ) {
     const look = KIND_LOOK[kind];
-    const total = emitters.reduce((n, e) => n + e.count, 0);
+    // Whole particles: a count scaled by an effect object's size (or a level's share) can be fractional, and the
+    // loop below would write one particle more than the arrays hold
+    const counts = emitters.map((e) => Math.max(0, Math.round(e.count)));
+    const total = counts.reduce((n, c) => n + c, 0);
     const origin = new Float32Array(total * 3);
     const shape = new Float32Array(total * 4);
     const colors = new Float32Array(total * 3);
     const c = new Color();
     let i = 0;
     let seed = 1;
-    for (const e of emitters) {
+    for (const [n, e] of emitters.entries()) {
       c.set(e.color ?? look.color);
-      for (let k = 0; k < e.count; k++, i++) {
+      for (let k = 0; k < counts[n]; k++, i++) {
         origin.set([e.origin.x, e.origin.y, e.origin.z], i * 3);
         seed = (seed * 16807) % 2147483647;
         shape.set([e.radius, e.height, look.size * e.scale, seed / 2147483647], i * 4);
