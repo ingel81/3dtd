@@ -5,7 +5,7 @@
 import { test, expect, type Browser, type Page } from '@playwright/test';
 import { expectNoDesync } from '../support/fixtures';
 import {
-  buildArcher, credits, gameMenu, gameReady, inviteLink, openGameMenu, openRoom, relayQuery, runState, shot, startRelay, waveButton,
+  buildArcher, credits, gameMenu, gameReady, inviteLink, openGameMenu, openRoom, playedMap, relayQuery, runState, shot, startRelay, waveButton,
 } from '../support/game';
 
 const MAP = 'demo-valley';
@@ -82,8 +82,8 @@ test("the editor's Test map opens the game on the map it shows", async ({ browse
   await expect(page.locator('[data-test=map-name]')).toHaveText(/Demo/);
   const [game] = await Promise.all([page.context().waitForEvent('page'), page.locator('[data-test=test-play]').click()]);
   game.on('pageerror', (e) => errors.push(e.message));
-  await expect(game).toHaveURL(new RegExp(`world=map(:|%3A)${MAP}`));
   await gameReady(game);
+  expect(await playedMap(game)).toBe(MAP);
   await expect(game.locator('app-quick-actions')).toBeVisible();
   expect(errors).toEqual([]);
   await page.context().close();
@@ -115,9 +115,9 @@ test('a save on a custom map comes back as it was, on the map', async ({ browser
   await confirmIfAsked(page, 'Load');
   await expect(menu).toHaveCount(0, { timeout: 120_000 });
   await expect.poll(() => runState(page), { timeout: 120_000 }).toEqual(saved);
-  // Still the map: its credit line, its link
+  // Still the map: its credit line, its world
   await expect(page.locator('.td-map-attribution')).toContainText('Demo');
-  expect(page.url()).toMatch(new RegExp(`world=map(:|%3A)${MAP}`));
+  expect(await playedMap(page)).toBe(MAP);
   expect(errors).toEqual([]);
   await page.context().close();
 });
@@ -208,7 +208,7 @@ test('coop on an own map: a guest without it gets the map over the relay, both p
     // The map comes in pieces over the relay, the page loads anew on it and joins again
     await expect(host.locator('app-coop-room-table .who')).toHaveCount(2, { timeout: 180_000 });
     await gameReady(guest);
-    await expect(guest).toHaveURL(new RegExp(`world=map(:|%3A)${copy}`));
+    expect(await playedMap(guest)).toBe(copy);
     await guest.getByRole('button', { name: 'Ready up' }).click({ timeout: 120_000 });
     await host.getByRole('button', { name: 'Start match' }).click({ timeout: 30_000 });
     const anyway = host.locator('app-coop-dock').getByRole('button', { name: 'Start anyway' });

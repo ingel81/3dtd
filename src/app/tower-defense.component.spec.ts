@@ -33,6 +33,7 @@ import { LocationManagementService } from './services/location/location-manageme
 import { EngineInitializationService } from './services/infrastructure/engine-initialization.service';
 import { LocationChangeCoordinatorService } from './services/location/location-change-coordinator.service';
 import { WorldContext } from './world/world-context.service';
+import { PLAIN_START, WorldStartService, type WorldStart } from './world/world-start';
 import { TowerDefenseFacadeService } from './services/facade/tower-defense-facade.service';
 import { VisualizationFacadeService } from './services/facade/visualization-facade.service';
 import { TowerDefenseStore } from './store/tower-defense.store';
@@ -146,6 +147,8 @@ describe('TowerDefenseComponent', () => {
   let component: TowerDefenseComponent;
   const reload = vi.fn();
   const originalLocation = window.location;
+  /** The start order the world was opened with */
+  let order: WorldStart = PLAIN_START;
 
   beforeAll(() => {
     getTestBed().initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
@@ -175,6 +178,7 @@ describe('TowerDefenseComponent', () => {
       [EngineInitializationService, { loading: signal(false) }],
       [LocationChangeCoordinatorService, { favoriteNamesMap: signal(new Map()) }],
       [WorldContext, s.world],
+      [WorldStartService, { current: () => order }],
       [TowerDefenseFacadeService, s.facade],
       [VisualizationFacadeService, { buildingFootprints: () => [] }],
       [TowerDefenseStore, s.store],
@@ -209,6 +213,7 @@ describe('TowerDefenseComponent', () => {
   });
 
   afterEach(() => {
+    order = PLAIN_START;
     TestBed.resetTestingModule();
     Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
     vi.useRealTimers();
@@ -227,7 +232,7 @@ describe('TowerDefenseComponent', () => {
     });
 
     it('an invite link opens the coop page of the start menu', async () => {
-      window.location.search = '?room=ABC123';
+      order = { ...PLAIN_START, room: { code: 'ABC123', lane: null } };
       s.ui.mainMenuOpen.set(true);
       await component.ngAfterViewInit();
       expect(s.menu.open).toHaveBeenCalledWith('coop');

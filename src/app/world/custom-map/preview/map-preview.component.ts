@@ -12,6 +12,7 @@ import { CustomMapView } from '../render/custom-map-view';
 import { chooseSkyImage } from '../render/environment/sky-images';
 import { MapAssetLibrary } from '../render/map-asset-library';
 import { mapToScene } from '../render/map-coords';
+import { pageSwitches } from '../../../core/page-switches';
 
 /** Camera spots on the demo map: camera and target in map space (x, y, height) */
 const VIEWS: Record<string, [number, number, number, number, number, number]> = {
@@ -68,7 +69,7 @@ export class MapPreviewComponent implements OnDestroy {
   private readonly canvas = viewChild.required<ElementRef<HTMLCanvasElement>>('canvas');
   private readonly zone = inject(NgZone);
   readonly stats = signal('lädt …');
-  readonly clean = new URLSearchParams(location.search).has('clean');
+  readonly clean = pageSwitches().has('clean');
   private renderer: WebGLRenderer | null = null;
   private view: CustomMapView | null = null;
   private controls: OrbitControls | null = null;
@@ -96,7 +97,7 @@ export class MapPreviewComponent implements OnDestroy {
 
   private async start(): Promise<void> {
     const canvas = this.canvas().nativeElement;
-    const params = new URLSearchParams(location.search);
+    const params = pageSwitches();
     const renderer = new WebGLRenderer({
       canvas,
       // As the game's canvas (CANVAS_RENDERER_OPTIONS): the map must look right with log depth

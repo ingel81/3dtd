@@ -14,7 +14,9 @@ import { autosaveElsewhere } from './autosave-place';
 import type { MenuLayer, MenuPage } from './menu-page';
 import { startMenuSkipped } from './start-menu-skipped';
 import { WorldContext } from '../../world/world-context.service';
-import { RESUME_URL_PARAM, WorldChoiceService } from '../../world/world-choice.service';
+import { WorldChoiceService } from '../../world/world-choice.service';
+import { WorldStartService } from '../../world/world-start';
+import { pageQuery } from '../../core/page-switches';
 import { CUSTOM_MAPS_OPEN } from '../../world/custom-maps-open';
 import { MAP_TEST_WINDOW, returnToEditor } from '../../world/map-trial';
 
@@ -63,6 +65,7 @@ export class MainMenuService {
   private readonly facade = inject(TowerDefenseFacadeService, { optional: true });
   private readonly worldContext = inject(WorldContext);
   private readonly worlds = inject(WorldChoiceService);
+  private readonly start = inject(WorldStartService);
   /** The custom maps are open (CUSTOM_MAPS_OPEN): the start list has its two tabs */
   private readonly mapsOpen = inject(CUSTOM_MAPS_OPEN);
   private readonly bridge = readDesktopBridge();
@@ -75,10 +78,10 @@ export class MainMenuService {
   private readonly history = signal<readonly MenuPage[]>([]);
 
   /** Automated runs play without the start menu (startMenuSkipped) */
-  readonly automated = startMenuSkipped(typeof window === 'undefined' ? '' : window.location.search);
+  readonly automated = startMenuSkipped(pageQuery());
 
-  /** The link named the place (?l=): Play comes before Continue */
-  readonly linkedPlace = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('l');
+  /** The start order named the place (a link's ?l=): Play comes before Continue */
+  readonly linkedPlace = this.start.current().place !== null;
 
   // ---- The place behind the menu ----
 
@@ -357,14 +360,10 @@ export class MainMenuService {
     return !this.worldContext.capabilities().realPlace;
   }
 
-  /** The page was opened to load a save (?resume=): it loads now; the link loses the word, so a reload does not load it again */
+  /** The start order asks to load a save (a link's ?resume=): it loads now, once (WorldStartService.takeResume) */
   private resumeFromLink(): void {
-    if (typeof window === 'undefined') return;
-    const url = new URL(window.location.href);
-    const slotId = url.searchParams.get(RESUME_URL_PARAM);
+    const slotId = this.start.takeResume();
     if (!slotId) return;
-    url.searchParams.delete(RESUME_URL_PARAM);
-    window.history.replaceState(window.history.state, '', url.toString());
     void this.saves.load(slotId).then((result) => {
       if (!result.ok) this.notice.set(result.reason);
       else if (result.note) this.notice.set(`Loaded. ${result.note}`);

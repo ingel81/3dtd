@@ -6,8 +6,6 @@ import { OsmStreetService } from '../services/location/osm-street.service';
 import {
   CUSTOM_MAP_CAPABILITIES,
   CustomMapWorld,
-  customMapSpawnLimit,
-  customMapStartWave,
   openCustomMap,
   openedCustomMap,
   prefetchCustomMapAssets,
@@ -19,6 +17,7 @@ import type { OwnTileset } from './tileset/own-tileset';
 import type { WorldCoverage } from './world-coverage';
 import type { WorldCapabilities, WorldLogo, WorldProvider } from './world-provider';
 import { worldLabel, type WorldKind, type WorldRef } from './world-ref';
+import { WorldStartService } from './world-start';
 
 /** What a factory gets to make its world */
 export interface WorldCreateContext {
@@ -121,16 +120,16 @@ const DEV_WORLD_FACTORY: WorldFactory = {
 /**
  * A custom map from the map store (own maps in IndexedDB, then the shipped
  * ones): `startHq` loads it, `create` makes the world of the loaded map.
- * How many of its spawns a run uses: customMapSpawnLimit (`?spawns=N`); the
- * wave a test run starts at: customMapStartWave (`?fromWave=N`).
+ * How many of its spawns a run uses and the wave a test run starts at come
+ * from the start order (WorldStart.spawnLimit, startWave).
  */
 const CUSTOM_MAP_FACTORY: WorldFactory = {
   capabilities: CUSTOM_MAP_CAPABILITIES,
-  create: (ref, { origin }) => {
+  create: (ref, { injector, origin }) => {
     const map = ref.kind === 'custom-map' ? openedCustomMap(ref) : null;
     if (!map) throw new WorldUnavailableError(ref, 'the map was not opened before the world was made');
-    const search = typeof window === 'undefined' ? '' : window.location.search;
-    return new CustomMapWorld(map, origin, customMapSpawnLimit(search), null, undefined, customMapStartWave(search));
+    const { spawnLimit, startWave } = injector.get(WorldStartService).current();
+    return new CustomMapWorld(map, origin, spawnLimit, null, undefined, startWave);
   },
   startHq: async (ref) => {
     if (ref.kind !== 'custom-map') throw new WorldUnavailableError(ref, 'not a custom map');

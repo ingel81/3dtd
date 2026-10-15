@@ -147,6 +147,8 @@ import { MAX_PLAYERS } from './coop/protocol';
 import { COOP } from './services/coop.token';
 import { MainMenuComponent } from './components/main-menu/main-menu.component';
 import { MainMenuService } from './components/main-menu/main-menu.service';
+import { pageSwitches } from './core/page-switches';
+import { WorldStartService } from './world/world-start';
 
 @Component({
   selector: 'app-tower-defense',
@@ -283,6 +285,8 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   private readonly locationCoordinator = inject(LocationChangeCoordinatorService);
   /** The world the game plays: its credentials, its logos */
   readonly worldContext = inject(WorldContext);
+  /** What the world was opened with: an invite's room opens the coop page */
+  private readonly worldStart = inject(WorldStartService);
   readonly facade = inject(TowerDefenseFacadeService);
   private readonly vizFacade = inject(VisualizationFacadeService);
   /** A real place's streets and buildings for the minimap (TODO E142) */
@@ -601,7 +605,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     // `?tokensetup` forces the screen even when credentials are already there.
     // It is how you swap a key without clearing site data, and the only way to
     // reach the first-run flow on a dev machine that has a token in environment.ts.
-    const forceTokenSetup = new URLSearchParams(window.location.search).has('tokensetup');
+    const forceTokenSetup = pageSwitches().has('tokensetup');
 
     // No tile credentials yet: ask for them before the engine starts, otherwise
     // the player lands on an error overlay telling them to edit a source file
@@ -640,7 +644,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     // The start menu stands in front while the place loads behind it; an
     // invite link opens it on the coop page, where the join shows
     this.mainMenu.openStart();
-    if (this.uiStore.mainMenuOpen() && new URLSearchParams(window.location.search).has('room')) this.mainMenu.open('coop');
+    if (this.uiStore.mainMenuOpen() && this.worldStart.current().room) this.mainMenu.open('coop');
     await this.facade.startGame(this.gameCanvas.nativeElement);
     this.applyAudioVolumes();
     this.controlsHintArmed.set(true);

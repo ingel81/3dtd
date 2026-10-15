@@ -2,12 +2,15 @@ import { Injectable } from '@angular/core';
 import type { SavedSpawn } from '../../models/location.types';
 import { coordKey } from '../../utils/geo-utils';
 import { shareableUrl } from '../../utils/public-url';
-import { WORLD_URL_PARAM } from '../../world/world-ref';
+import { pageSwitches } from '../../core/page-switches';
+import { WORLD_URL_PARAM, worldUrlValue, type WorldRef } from '../../world/world-ref';
 
 /**
  * URL Location Service
  *
- * URL is the single source of truth for location.
+ * Links to a place: read at the page's start into the start order
+ * (WorldStartService), made for a share or invite link. The address itself
+ * is no longer written when the place changes (docs/WORLDS_NAVIGATION_PLAN.md, 3.8).
  * Format: ?l=49.17327,9.26859&s=49.17555,9.26387,187.5;49.18000,9.27000
  * - l = HQ (lat,lon) - COORD_DECIMALS (5) decimal places, the canonical form
  *   of a place's coordinates the game takes every place in (canonicalCoords)
@@ -16,19 +19,12 @@ import { WORLD_URL_PARAM } from '../../world/world-ref';
  *   decimal place). A spawn without one faces along its route, as every
  *   spawn in URLs from before the bearing.
  */
-/** Query switches the location URL keeps; the world (an own tileset, `?world=tileset:<id>`) stays with its places */
-const KEPT_SWITCHES = ['waves', 'interp', WORLD_URL_PARAM];
+/** Switches of development a place's link keeps (pageSwitches) */
+const KEPT_SWITCHES = ['waves', 'interp'];
 
 @Injectable({ providedIn: 'root' })
 export class UrlLocationService {
   private readonly BEARING_PRECISION = 1;
-
-  /**
-   * Parse location from current URL
-   */
-  parseFromUrl(): { hq: { lat: number; lon: number }; spawns: SavedSpawn[] } | null {
-    return this.parseLink(window.location.search);
-  }
 
   /**
    * HQ and spawns from a link to a place: a whole URL from any host (the dev
@@ -62,21 +58,19 @@ export class UrlLocationService {
   }
 
   /**
-   * Update browser URL without reload (replaceState)
+   * This page at `hq` with `spawns`, as a path with query; on a world with
+   * a link of its own (an own tileset, `?world=tileset:<id>`) that world.
    */
-  updateUrl(hq: { lat: number; lon: number }, spawns: readonly SavedSpawn[]): void {
-    window.history.replaceState({}, '', this.urlFor(hq, spawns));
-  }
-
-  /** This page at `hq` with `spawns`, as a path with query (what updateUrl writes). */
-  urlFor(hq: { lat: number; lon: number }, spawns: readonly SavedSpawn[]): string {
+  urlFor(hq: { lat: number; lon: number }, spawns: readonly SavedSpawn[], world: WorldRef | null = null): string {
     let url = `${window.location.pathname}?l=${coordKey(hq)}`;
     if (spawns.length > 0) {
       url += `&s=${spawns.map((s) => this.formatSpawn(s)).join(';')}`;
     }
-    // Switches a tab was opened with survive picking a place: the wave source
+    const worldValue = world ? worldUrlValue(world) : null;
+    if (worldValue) url += `&${WORLD_URL_PARAM}=${encodeURIComponent(worldValue)}`;
+    // Switches a tab was opened with go along: the wave source
     // (initialWaveSourceId), the slide between two states (state-lerp.ts)
-    const search = new URLSearchParams(window.location.search);
+    const search = pageSwitches();
     for (const key of KEPT_SWITCHES) {
       const value = search.get(key);
       if (value) url += `&${key}=${encodeURIComponent(value)}`;
@@ -85,11 +79,27 @@ export class UrlLocationService {
   }
 
   /**
-   * The current place as a link for someone else: this page, or from the
+   * This page's address with a place and its world put back in: the start
+   * took them out of it (WorldStartService), a page loaded on it opens the
+   * same world there. The switches of development stay as they are.
+   */
+  hereUrl(hq: { lat: number; lon: number } | null, spawns: readonly SavedSpawn[], world: WorldRef): string {
+    const url = new URL(window.location.href);
+    if (hq) {
+      url.searchParams.set('l', coordKey(hq));
+      if (spawns.length > 0) url.searchParams.set('s', spawns.map((s) => this.formatSpawn(s)).join(';'));
+    }
+    const worldValue = worldUrlValue(world);
+    if (worldValue) url.searchParams.set(WORLD_URL_PARAM, worldValue);
+    return url.toString();
+  }
+
+  /**
+   * A place as a link for someone else: this page there, or from the
    * desktop build the same place on the web version (shareableUrl).
    */
-  getShareUrl(): string {
-    return shareableUrl(window.location.href);
+  getShareUrl(hq: { lat: number; lon: number }, spawns: readonly SavedSpawn[], world: WorldRef | null = null): string {
+    return shareableUrl(new URL(this.urlFor(hq, spawns, world), window.location.href).toString());
   }
 
   private formatSpawn(spawn: SavedSpawn): string {

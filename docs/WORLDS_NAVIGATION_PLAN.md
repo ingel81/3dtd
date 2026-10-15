@@ -1,6 +1,6 @@
 # Welten und Navigation aus einem Guss (Plan)
 
-Status: Plan, nicht gebaut. Abstimmung mit dem User offen (Abschnitt 6).
+Status: Phase 1 gebaut (Abschnitt 7), Rest Plan. Entscheidungen des Users in Abschnitt 6.
 Grundlagen: TODO E195, Klick-Dummy `tmp/plan/mockups/world-globes/index.html` (Datenmodell, Regeln, Navigationskarte,
 Abgleichsliste „heute vorhanden → im Dummy“), die gewählte Darstellung aus dem Dummy.
 
@@ -335,3 +335,31 @@ Nachtseite an; Kreis- und Minimal-Varianten sind raus.
 9. **Fokus im Startmenü:** der erste Eintrag bekommt den Fokus wie heute.
 
 Offen bleibt nur, was beim Bauen auffällt; die Reihenfolge der Phasen steht in Abschnitt 5.
+
+## 7. Gebaut
+
+### Phase 1: Startauftrag (2026-10-16)
+
+- `world/world-start.ts`: `WorldStart` (Welt, Ort, Spielstand, Coop-Raum, Spawn-Grenze, Startwelle) und
+  `WorldStartService` (root). Beim ersten Zugriff liest er die Adresse einmal (`worldStartFromSearch`), nimmt die
+  Link-Parameter heraus (`LINK_PARAMS`: `l`, `s`, `world`, `resume`, `room`, `lane`) und schreibt die bereinigte
+  Adresse per `replaceState`. Neuladen startet danach ohne Auftrag: Startort-Raten (Autosave, zuletzt gespielt) wie
+  beim Start ohne Link. Ein Spielstand des Auftrags lädt einmal (`takeResume`). DevWorld (`?devworld`) bleibt ein
+  Schalter, sein `WorldRef` ist die Welt des Auftrags.
+- Schalter der Entwicklung bleiben in der Adresse, weil Bot-Tabs auf ihnen neu laden: `devworld` samt Parametern,
+  `bot`, `benchmark`, `quality`, `interp`, `waves`, `tokensetup`, `nokey`, `menu`, `fromWave`, `spawns`,
+  `trialWaves`, `relay` (Hosts und Bot-Sitze nennen ihren Relay damit, nicht nur Einladungen), `hashEvery`,
+  `resyncPart`, `previewsheets`, Kartenvorschau. Gelesen werden sie nur über `core/page-switches.ts`
+  (`pageSwitches`, `pageQuery`); `fromWave` und `spawns` gehen über den Auftrag in die Kartenwelt.
+- Leser umgestellt: `WorldContext` (`chosen` ist ein `linkedSignal` des Auftrags, ein neuer Auftrag setzt es neu),
+  Kartenfabrik (Spawn-Grenze, Startwelle), `LocationFacadeService` (Ort), Facade (Startort-Raten, Kartenprobe),
+  `MainMenuService` (`linkedPlace`, Spielstand), `CoopService` (Raum, Bahn), Token-Dialog (Raum), Spielkomponente
+  (Coop-Seite beim Einladungslink). `page-switches.guard.spec.ts` verbietet `location.search` außerhalb der zwei
+  Leser.
+- Die Adresse wird nicht mehr geschrieben: `UrlLocationService.updateUrl` und `syncUrlWithLocation` sind entfernt
+  (die offene Frage aus 3.8 so entschieden). „Copy link“ baut den Link aus dem aktuellen Ort und der Welt
+  (`getShareUrl(hq, spawns, world)`); Benchmark-Rückweg und Grafik-Benchmark setzen Ort und Welt wieder in die
+  Adresse (`hereUrl`), bis Phase 3 sie ins Fenster holt.
+- Bleibt wie heute bis zu den späteren Phasen: Weltwechsel und Editor laden neu (`WORLD_NAVIGATE`, `?world=…`,
+  `/editor?map=`); der Editor liest `?map=` weiter selbst. Debug-Berichte (`cell-report`, `corridor-snapshot`)
+  nehmen die Adresse ohne Ort.

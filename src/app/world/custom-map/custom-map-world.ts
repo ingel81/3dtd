@@ -489,7 +489,7 @@ export class CustomMapWorld implements WorldProvider {
   private runStart(): RunStart | null {
     if (this.startWave <= 1) return null;
     const waves = this.worldWaves();
-    const source = waves?.source ?? initialWaveSourceId(typeof window === 'undefined' ? '' : window.location.search);
+    const source = waves?.source ?? initialWaveSourceId();
     return runStartAt(this.startWave, createWaveSource(source, waves?.table ? { table: waves.table } : {}).rules);
   }
 

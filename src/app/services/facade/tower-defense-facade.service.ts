@@ -46,7 +46,8 @@ import { GameLoopFacadeService } from './game-loop-facade.service';
 import { LocationFacadeService } from './location-facade.service';
 import { LocationManagementService } from '../location/location-management.service';
 import { LocationChangeCoordinatorService } from '../location/location-change-coordinator.service';
-import { UrlLocationService } from '../location/url-location.service';
+import { WorldStartService } from '../../world/world-start';
+import { pageQuery, pageSwitches } from '../../core/page-switches';
 import { storedPlace } from '../location/place-choice';
 import { AUTOSAVE_SLOT, SAVE_GAME } from '../save-game/save-game.port';
 import { startPlaceGuess, type StartPlaceGuess } from '../../components/main-menu/autosave-place';
@@ -150,7 +151,7 @@ export class TowerDefenseFacadeService {
   private readonly gridViz = inject(RouteGridVizService);
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly locationCoordinator = inject(LocationChangeCoordinatorService);
-  private readonly urlLocation = inject(UrlLocationService);
+  private readonly start = inject(WorldStartService);
   /** The game component's: the autosave's place is the start's first guess */
   private readonly saves = inject(SAVE_GAME);
 
@@ -244,7 +245,7 @@ export class TowerDefenseFacadeService {
       }
     });
 
-    const params = new URLSearchParams(window.location.search);
+    const params = pageSwitches();
     const botMode = params.get('bot');
     // The sheets rendered ahead are baked in this page (tools/preview-sheets/bake.ts, TODO E76)
     if (params.has('previewsheets')) installPreviewSheetHook(this.modelPreview);
@@ -253,7 +254,7 @@ export class TowerDefenseFacadeService {
     // the bot plays there on its own, on no other world
     const botWorld = this.worldContext.ref().kind === 'devworld';
     // A trial of a world with no real place (a custom map, DevWorld): the bot plays its waves without a bot server
-    const trialWaves = this.worldContext.capabilities().realPlace ? null : mapTrialWaves(window.location.search);
+    const trialWaves = this.worldContext.capabilities().realPlace ? null : mapTrialWaves(pageQuery());
     if (trialWaves !== null) {
       this.startMapTrial(trialWaves);
     } else if (botWorld && botMode === 'coop') {
@@ -263,7 +264,7 @@ export class TowerDefenseFacadeService {
       this.store.directorEnabled.set(true);
       this.botClient.botCoop.set(true);
       this.botClient.enableBot('expert');
-    } else if (botWorld && isBenchmarkSearch(window.location.search)) {
+    } else if (botWorld && isBenchmarkSearch(pageQuery())) {
       // The in-game benchmark (TODO E74): no bot, no bot server
     } else if (botWorld) {
       this.store.directorEnabled.set(true);
@@ -351,7 +352,7 @@ export class TowerDefenseFacadeService {
   private offerStartGuess(): void {
     const injector = this.injector;
     // A world with its own HQ (DevWorld, a map) has no place to guess
-    if (!injector || !this.worldContext.capabilities().realPlace || this.urlLocation.parseFromUrl()) return;
+    if (!injector || !this.worldContext.capabilities().realPlace || this.start.current().place) return;
     void this.guessStartPlace().then((guess) => {
       if (!guess) return;
       const waiting = effect(() => {
@@ -366,7 +367,7 @@ export class TowerDefenseFacadeService {
   private async guessStartPlace(): Promise<StartPlaceGuess | null> {
     await this.saves.refresh();
     const autosave = this.saves.slots().find((slot) => slot.id === AUTOSAVE_SLOT) ?? null;
-    return startPlaceGuess(autosave, this.locationMgmt.recents(), window.location.search);
+    return startPlaceGuess(autosave, this.locationMgmt.recents(), this.start.current().room !== null);
   }
 
   /**

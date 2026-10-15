@@ -6,9 +6,7 @@ import { MapStore, type MapSummary } from './custom-map/map-store';
 import type { OwnTileset } from './tileset/own-tileset';
 import { WorldContext } from './world-context.service';
 import { WORLD_URL_PARAM, worldUrlValue, type WorldRef } from './world-ref';
-
-/** The URL parameter of a save to load once the page stands on its world (WorldChoiceService.openSave) */
-export const RESUME_URL_PARAM = 'resume';
+import { RESUME_URL_PARAM } from './world-start';
 
 /** The shipped map a player without a tile key starts on (the token screen's "Play the maps") */
 export const FIRST_MAP_ID = 'mountain-pass';

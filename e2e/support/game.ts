@@ -404,3 +404,17 @@ export async function runState(page: Page): Promise<{ towers: number; credits: n
     };
   });
 }
+
+/**
+ * The custom map the page plays (WorldContext.ref), null on another world.
+ * The address no longer says it: a link's world leaves it at the start
+ * (docs/WORLDS_NAVIGATION_PLAN.md, phase 1).
+ */
+export async function playedMap(page: Page): Promise<string | null> {
+  return page.evaluate(() => {
+    const w = window as unknown as { ng?: { getComponent(el: Element | null): any } };
+    const el = document.querySelector('app-tower-defense');
+    const ref = el && w.ng ? w.ng.getComponent(el)?.worldContext.ref() : null;
+    return ref?.kind === 'custom-map' ? ref.mapId : null;
+  });
+}

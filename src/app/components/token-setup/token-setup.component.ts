@@ -6,6 +6,7 @@ import { APP_DOWNLOADS, coopAccess, type CoopAccess } from '../../coop/coop-acce
 import { readDesktopBridge } from '../../core/desktop-bridge';
 import { FIRST_MAP_ID, WorldChoiceService } from '../../world/world-choice.service';
 import { CUSTOM_MAPS_OPEN } from '../../world/custom-maps-open';
+import { WorldStartService } from '../../world/world-start';
 
 /**
  * First-run screen that asks the player for their own tile credentials.
@@ -38,8 +39,8 @@ export class TokenSetupComponent {
   private readonly worlds = inject(WorldChoiceService);
   /** The maps open; until their release "Play the maps" shows disabled */
   readonly mapsOpen = inject(CUSTOM_MAPS_OPEN);
-  /** The coop room of an invite link this page came with (?room=), to say why a key is asked for (review R8) */
-  readonly coopRoom = new URLSearchParams(window.location.search).get('room');
+  /** The coop room of the start order (an invite link's ?room=), to say why a key is asked for (review R8) */
+  readonly coopRoom = inject(WorldStartService).current().room?.code ?? null;
   /** Where coop may be played: in a browser on the site the invite points to the desktop app (E114) */
   readonly coopAccess: CoopAccess = coopAccess(readDesktopBridge() !== null, window.location.hostname, isDevMode());
   protected readonly appDownloads = APP_DOWNLOADS.all;

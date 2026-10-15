@@ -1,0 +1,76 @@
+import '@angular/compiler';
+import { afterEach, describe, expect, it } from 'vitest';
+import { Injector } from '@angular/core';
+import { UrlLocationService } from '../services/location/url-location.service';
+import { DevWorldService } from '../devworld/devworld.service';
+import { PLAIN_START, WorldStartService, addressWithoutLink, worldStartFromSearch } from './world-start';
+
+/**
+ * The start order (docs/WORLDS_NAVIGATION_PLAN.md, phase 1): a link is read
+ * once into a WorldStart, its parameters leave the address, the switches of
+ * development stay.
+ */
+describe('WorldStart', () => {
+  const urls = new UrlLocationService();
+  const place = (search: string) => urls.parseLink(search);
+  const open = (search: string) => window.history.replaceState({}, '', `/${search}`);
+
+  /** A page's root services, as a fresh load makes them */
+  const page = () => Injector.create({ providers: [WorldStartService, DevWorldService] });
+
+  afterEach(() => open(''));
+
+  it('reads place, world, save, room, spawn limit and start wave from a link', () => {
+    const order = worldStartFromSearch('?l=48.77580,9.18290&s=48.78000,9.19000&world=map:demo&resume=slot-2&room=ABC123&lane=s2&spawns=2&fromWave=5', place, true);
+    expect(order).toEqual({
+      world: { kind: 'custom-map', mapId: 'demo', contentHash: '' },
+      place: { hq: { lat: 48.7758, lon: 9.1829 }, spawns: [{ lat: 48.78, lon: 9.19 }] },
+      resume: 'slot-2',
+      room: { code: 'ABC123', lane: 's2' },
+      spawnLimit: 2,
+      startWave: 5,
+    });
+  });
+
+  it('is the plain start without a link, and the real places for a map link before the maps are open', () => {
+    expect(worldStartFromSearch('', place, true)).toEqual(PLAIN_START);
+    expect(worldStartFromSearch('?world=map:demo', place, false).world).toBeNull();
+    expect(worldStartFromSearch('?world=tileset:campus', place, false).world).toEqual({ kind: 'tileset', id: 'campus' });
+  });
+
+  it("takes the link's parameters out of the address and leaves the switches of development", () => {
+    expect(addressWithoutLink('http://h/?l=1,2&s=3,4&world=map:x&resume=a&room=R&lane=s1&bot=trial&fromWave=3&relay=ws%3A%2F%2Fh&quality=low'))
+      .toBe('http://h/?bot=trial&fromWave=3&relay=ws%3A%2F%2Fh&quality=low');
+    expect(addressWithoutLink('http://h/editor?map=demo')).toBe('http://h/editor?map=demo');
+    expect(addressWithoutLink('http://h/?devworld&terrain=flat')).toBe('http://h/?devworld&terrain=flat');
+  });
+
+  it('reads the address once at the start: a reload after it carries no order out again', () => {
+    open('?l=48.77580,9.18290&world=tileset:campus&resume=slot-1&waves=budget');
+    const start = page().get(WorldStartService);
+
+    expect(window.location.search).toBe('?waves=budget');
+    expect(start.current().place?.hq).toEqual({ lat: 48.7758, lon: 9.1829 });
+    expect(start.current().world).toEqual({ kind: 'tileset', id: 'campus' });
+    // The save loads once, the next menu of the same world does not load it again
+    expect(start.takeResume()).toBe('slot-1');
+    expect(start.takeResume()).toBeNull();
+
+    // A reload: the same page without the link
+    expect(page().get(WorldStartService).current()).toEqual(PLAIN_START);
+  });
+
+  it("has DevWorld's ref as the world of a `?devworld` start", () => {
+    open('?devworld&seed=7');
+    const injector = page();
+    expect(injector.get(WorldStartService).current().world).toMatchObject({ kind: 'devworld', seed: 7 });
+    expect(injector.get(DevWorldService).inUrl).toBe(true);
+  });
+
+  it('takes a new order with its own save', () => {
+    const start = page().get(WorldStartService);
+    start.set({ ...PLAIN_START, world: { kind: 'tileset', id: 'campus' }, resume: 'slot-3' });
+    expect(start.current().world).toEqual({ kind: 'tileset', id: 'campus' });
+    expect(start.takeResume()).toBe('slot-3');
+  });
+});

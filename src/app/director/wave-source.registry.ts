@@ -11,6 +11,7 @@ import { BudgetWaveSource } from './sources/budget/budget-source';
 import type { WaveSource, WaveSourceId } from './wave-source';
 import { DEFAULT_WAVE_SOURCE } from '../configs/director.config';
 import type { WaveTable } from './sources/table/wave-table';
+import { pageQuery } from '../core/page-switches';
 
 /** What a world gives its sources: a custom map's own wave list for the table source, its difficulty for the budget source */
 export interface WaveSourceOptions {
@@ -35,7 +36,7 @@ export function isWaveSourceId(id: unknown): id is WaveSourceId {
  * default. For bot and test runs that compare sources side by side; in coop
  * every client must be opened with the same one.
  */
-export function initialWaveSourceId(search = globalThis.location?.search ?? ''): WaveSourceId {
+export function initialWaveSourceId(search = pageQuery()): WaveSourceId {
   const asked = new URLSearchParams(search).get('waves');
   return asked && isWaveSourceId(asked) ? asked : DEFAULT_WAVE_SOURCE;
 }

@@ -42,6 +42,7 @@ vi.mock('../store/ui.store', () => ({ UIStore: class {} }));
 vi.mock('./infrastructure/engine-initialization.service', () => ({ EngineInitializationService: class {} }));
 vi.mock('./location/location-management.service', () => ({ LocationManagementService: class {} }));
 vi.mock('./location/url-location.service', () => ({ UrlLocationService: class {} }));
+vi.mock('../world/world-start', () => ({ WorldStartService: class {}, PLAIN_START: { world: null, place: null, resume: null, room: null, spawnLimit: 4, startWave: 1 } }));
 vi.mock('./world/path-route.service', () => ({ PathAndRouteService: class {} }));
 vi.mock('./facade/location-facade.service', () => ({ LocationFacadeService: class {} }));
 vi.mock('./location/location-change-coordinator.service', () => ({ LocationChangeCoordinatorService: class {} }));
@@ -57,6 +58,7 @@ vi.mock('../coop/world-package', () => ({
   worldPackageRefusalText: () => 'refused',
 }));
 
+import { PLAIN_START, WorldStartService } from '../world/world-start';
 import { CoopService } from './coop.service';
 import { WorldPackageLoader } from './world/world-package-loader.service';
 import { CoopSession } from '../coop/coop-session';
@@ -162,6 +164,7 @@ function player(relayPort: number, waveSource?: WaveSourceId) {
       { provide: EngineInitializationService, useValue: { getEngine: () => ({ renderLoop }), loading: () => false } },
       { provide: LocationManagementService, useValue: { hq, spawns: signal(SPAWNS.map(({ lat, lon }) => ({ lat, lon }))), missionInfo: signal({ city: 'Stuttgart', country: 'Deutschland', address: 'Marktplatz 1' }) } },
       { provide: UrlLocationService, useValue: { urlFor: () => '/?l=48.7758,9.1829' } },
+      { provide: WorldStartService, useValue: { current: () => PLAIN_START } },
       { provide: PathAndRouteService, useValue: withAutoStubs({ getCachedPaths: () => new Map() }) },
       { provide: LocationFacadeService, useValue: withAutoStubs({ addRandomSpawn: vi.fn(async () => true) }) },
       { provide: LocationChangeCoordinatorService, useValue: locationChange },
