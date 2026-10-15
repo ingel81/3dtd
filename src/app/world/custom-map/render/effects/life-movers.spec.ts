@@ -80,6 +80,9 @@ describe('LifeMovers', () => {
       expect(later[k].distanceTo(start[k])).toBeGreaterThan(10);
       expect(later[k].distanceTo(start[k])).toBeLessThan(13.5);
     }
+    // With a height it hangs from a straight line from 30 m over the start to 30 m over the end
+    await movers.set([{ ...road, height: 30, speed: 1 }], 1);
+    for (const p of positions(movers)) expect(p.y).toBeCloseTo(4 + 30 + ((p.z + 80) / 160) * 32, 0);
     movers.dispose();
   });
 

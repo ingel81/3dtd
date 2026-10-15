@@ -7,7 +7,7 @@
  * every brush pulls toward a target from the original ground instead of
  * piling up dab by dab.
  */
-import { fitSplatMaps, type CustomMapDocument, type MapGroundLayer, type MapObject, type MapPaths, type MapPoint, type MapRiver, type MapWater, type MapWaterKind } from '../../../world/custom-map/map-document';
+import { fitSplatMaps, type CustomMapDocument, type MapGroundLayer, type MapLife, type MapObject, type MapPaths, type MapPoint, type MapRiver, type MapWater, type MapWaterKind } from '../../../world/custom-map/map-document';
 import type { CatalogIndex } from '../../catalog/asset-catalog';
 import {
   CompoundCommand,
@@ -72,6 +72,7 @@ export class LandscapeStroke {
   private waterTouched = false;
   private pathsBefore: MapPaths | null = null;
   private riversBefore: { list: MapRiver[] | undefined } | null = null;
+  private lifeBefore: { life: MapLife | undefined } | null = null;
   readonly added: MapObject[] = [];
   /** Objects the stroke took off the map */
   private readonly removed: ObjectsCommand[] = [];
@@ -445,6 +446,12 @@ export class LandscapeStroke {
     this.riversBefore ??= { list: list ? structuredClone(list) : undefined };
   }
 
+  /** Call before the stroke adds life areas (a pasted stamp's) */
+  markLife(): void {
+    const life = this.doc.life;
+    this.lifeBefore ??= { life: life ? structuredClone(life) : undefined };
+  }
+
   touchHeights(rect: GridRect): void {
     this.heights.touch(rect);
   }
@@ -549,6 +556,7 @@ export class LandscapeStroke {
     if (!patches.empty) parts.push(patches);
     if (this.riversBefore) parts.push(new RiverListCommand('Rivers', this.riversBefore.list, t.rivers ? structuredClone(t.rivers) : undefined));
     if (this.pathsBefore) parts.push(new SnapshotCommand('Roads', { paths: this.pathsBefore }, { paths: structuredClone(doc.paths) }));
+    if (this.lifeBefore) parts.push(new SnapshotCommand('Life', { life: this.lifeBefore.life }, { life: doc.life ? structuredClone(doc.life) : undefined }));
     parts.push(...this.removed);
     if (this.added.length) {
       // Rocks settle onto their plates on the ground the stroke leaves behind (it may have shaped it after placing them)

@@ -7,10 +7,10 @@
  */
 
 import { Tower } from '../entities/tower.entity';
-import { TowerTypeConfig, UpgradeId, upgradeFactor } from '../configs/tower-types.config';
+import { STREAM_MEAN_DRIVE, TowerTypeConfig, UpgradeId, laserMeanFactor, upgradeFactor } from '../configs/tower-types.config';
 import { PROJECTILE_TYPES } from '../configs/projectile-types.config';
 import { DamageType, ArmorType, ARMOR_TYPES } from '../configs/combat/combat.types';
-import { DAMAGE_MATRIX } from '../configs/combat/damage-matrix.config';
+import { DAMAGE_MATRIX, matrixMultiplier } from '../configs/combat/damage-matrix.config';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { getTowerPath, type TowerPathId } from '../configs/tower-paths.config';
 
@@ -74,6 +74,9 @@ export function statMultiplier(
  * DPS formula is never maintained twice. Combines:
  *   - Beam damagePerSecond (Fire), scaled by the damage track
  *   - Projectile/melee damage × fireRate (default)
+ *   - Laser damage per second at its mean heat (Sentinel)
+ *   - Saw damage per second times its arms (Chainsaw)
+ *   - Stream damage per second at its mean drive, its width as splash (Shawarma)
  *   - Chain geometric series 1 + f + f² + … + f^maxJumps (Lightning)
  *   - Additive DoT component (Poison, flat — AI approximation, intentionally
  *     unscaled by the damage track)
@@ -91,6 +94,17 @@ export function computeTowerDPSFromLevels(
     // Beam towers (Fire) keep damagePerSecond in config because applyUpgrade()
     // multiplies _combat.damage (which starts at 0); scale by the damage track.
     base = (cfg.damagePerSecond ?? 0) * statMultiplier(cfg, 'damage', levels);
+  } else if (cfg.attackType === 'stream') {
+    // Damage per second at full drive times the drive track, at its mean drive over a wave
+    base = cfg.damage * statMultiplier(cfg, 'damage', levels) * cfg.fireRate * statMultiplier(cfg, 'fireRate', levels)
+      * STREAM_MEAN_DRIVE;
+  } else if (cfg.attackType === 'saw') {
+    // Every arm saws on a body of its own while there are enough
+    base = cfg.damage * statMultiplier(cfg, 'damage', levels) * cfg.fireRate * statMultiplier(cfg, 'fireRate', levels)
+      * (cfg.sawArms?.length ?? 1);
+  } else if (cfg.attackType === 'laser' && cfg.laser) {
+    // A laser's damage is per second; it counts at its mean heat (laserMeanFactor), the Heat-up track left out
+    base = cfg.damage * statMultiplier(cfg, 'damage', levels) * laserMeanFactor(cfg.laser);
   } else {
     const damage = cfg.damage * statMultiplier(cfg, 'damage', levels);
     const fireRate = cfg.fireRate * statMultiplier(cfg, 'fireRate', levels);
@@ -122,7 +136,9 @@ export function computeTowerDPSFromLevels(
   }
   // A slam hits its neighbours for a share of the strike: a smaller radius in this soft measure
   const slamSplash = cfg.meleeSlam ? cfg.meleeSlam.radius * cfg.meleeSlam.share : 0;
-  const splashRadius = Math.max(projectileSplash, beamSplash, slamSplash);
+  // A stream hits what stands on its line: its width as a radius
+  const streamSplash = cfg.stream?.width ?? 0;
+  const splashRadius = Math.max(projectileSplash, beamSplash, slamSplash, streamSplash);
   if (splashRadius > 0) {
     const mult = Math.min(SPLASH_MULT_CAP, 1 + splashRadius / SPLASH_NORM);
     base *= mult;
@@ -182,16 +198,20 @@ export function armorMultipliersFor(damageType: DamageType): Record<ArmorType, n
 }
 
 /**
- * The armor multipliers of a tower's damage with its path: the matrix row of its damage type, plus a path's
- * burn (TowerPath.burnShare) as that share of the damage in the fire row. What the defense analysis multiplies
- * its DPS with.
+ * The armor multipliers of a tower's damage with its path: the matrix row of its damage type (through the armor
+ * one class lighter where that hurts more, TowerPath.armorPiercing), plus a path's burn (TowerPath.burnShare) as
+ * that share of the damage in the fire row. What the defense analysis multiplies its DPS with.
  */
 export function towerArmorMultipliers(
   cfg: TowerTypeConfig,
   pathId: TowerPathId | null | undefined,
 ): Record<ArmorType, number> {
+  const path = getTowerPath(pathId);
   const result = armorMultipliersFor(cfg.damageType);
-  const burn = getTowerPath(pathId)?.burnShare ?? 0;
+  if (path?.armorPiercing) {
+    for (const armor of ARMOR_TYPES) result[armor] = matrixMultiplier(cfg.damageType, armor, true);
+  }
+  const burn = path?.burnShare ?? 0;
   if (burn > 0) {
     const fire = armorMultipliersFor('fire');
     for (const armor of ARMOR_TYPES) result[armor] += burn * fire[armor];

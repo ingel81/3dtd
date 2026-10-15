@@ -14,11 +14,11 @@ from mathutils import Vector, noise
 
 from blender_kit import finish as export  # noqa: F401  (every structure gets baked AO)
 from blender_kit import (
-    Part, two_sided, box, card, card_material, clear_scene, flat_material, glow_card_material, oriented_box, pbr_material,
+    Part, two_sided, box, card, card_material, clear_scene, flat_material, glow_card_material, hexa, oriented_box, pbr_material,
     tube,
 )
 from build_nature import crystals, dead_tree, hoodoo, lump, stalagmites
-from build_structures import arch_wall, cone_roof, house, stairs
+from build_structures import arch_wall, column, cone_roof, house, stairs
 
 ICE = (0.5, 0.72, 0.9)
 
@@ -107,7 +107,9 @@ def igloo(name):
 
 
 def station(name):
-    """Polar research hut: an orange insulated module on stilts, stairs, windows, a mast"""
+    """Polar research hut: an orange insulated module of ribbed panels on stilts with cross bracing, framed
+    windows, a door off a landing with railings up the stairs, a white band, roof units and vents, a mast
+    with a little dish and guy wires"""
     clear_scene()
     shell = Part(flat_material('station-orange', (0.85, 0.32, 0.08), 0.5, 0.1))
     steel = Part(flat_material('galvanised', (0.45, 0.46, 0.45), 0.4, 0.8), smooth=True)
@@ -116,14 +118,46 @@ def station(name):
     for x in (-w / 2 + 0.5, 0, w / 2 - 0.5):
         for y in (-d / 2 + 0.3, d / 2 - 0.3):
             tube(steel, [Vector((x, y, -0.8)), Vector((x, y, z))], [0.12, 0.12], 6)
+        # Cross bracing between the stilts
+        oriented_box(steel, Vector((x, -d / 2 + 0.3, 0.1)), Vector((x, d / 2 - 0.3, z - 0.2)), 0.05)
+    for y in (-d / 2 + 0.3, d / 2 - 0.3):
+        oriented_box(steel, Vector((-w / 2 + 0.5, y, z - 0.25)), Vector((w / 2 - 0.5, y, z - 0.25)), 0.14)
     box(shell, 0, 0, z, w, d, 3.0)
+    # Panel ribs, a white band (steel colour) under the eaves, roof flashing
+    for k in range(1, 10):
+        x = -w / 2 + k * w / 10
+        for sy in (-1, 1):
+            box(steel, x, sy * (d / 2 + 0.02), z + 0.05, 0.06, 0.05, 2.9)
+    for sy in (-1, 1):
+        box(steel, 0, sy * (d / 2 + 0.03), z + 2.45, w + 0.02, 0.05, 0.3)
     box(steel, 0, 0, z + 3.0, w + 0.2, d + 0.2, 0.2)
     for k in range(4):
-        box(win, -w / 2 + 1.5 + k * 2.2, -d / 2 - 0.03, z + 1.2, 1.0, 0.08, 0.9)
+        x = -w / 2 + 1.5 + k * 2.2
+        box(win, x, -d / 2 - 0.03, z + 1.2, 1.0, 0.08, 0.9)
+        box(steel, x, -d / 2 - 0.06, z + 1.12, 1.16, 0.08, 0.08)
+        box(steel, x, -d / 2 - 0.06, z + 2.1, 1.16, 0.08, 0.08)
     box(win, w / 2 + 0.03, 0, z + 1.2, 0.08, 1.0, 0.9)
+    # Door at the west end above the stairs, a landing with railings
+    box(steel, -w / 2 - 0.03, -d / 2 + 0.6, z + 0.05, 0.08, 0.9, 2.1)
+    box(win, -w / 2 - 0.06, -d / 2 + 0.6, z + 1.5, 0.04, 0.4, 0.4)
     stairs(steel, -w / 2 - 2.6, -w / 2, -d / 2 + 0.6, 1.0, z, 8)
+    for s in (-1, 1):
+        y = -d / 2 + 0.6 + s * 0.5
+        a, b = Vector((-w / 2 - 2.55, y, 1.0)), Vector((-w / 2 - 0.1, y, z + 1.0))
+        oriented_box(steel, a, b, 0.05)
+        for t in (0.0, 0.5, 1.0):
+            p = a.lerp(b, t)
+            oriented_box(steel, p - Vector((0, 0, 1.0)), p, 0.04)
+    # Roof units: an air handler, vent stacks; the mast with a small dish and guy wires
+    box(steel, -2.0, 0.3, z + 3.2, 1.6, 1.2, 0.8)
+    for x in (1.0, 2.2):
+        tube(steel, [Vector((x, -0.8, z + 3.2)), Vector((x, -0.8, z + 3.9))], [0.12, 0.12], 8, cap=True)
     oriented_box(steel, Vector((w / 2 - 1, d / 2 - 0.5, z + 3.2)), Vector((w / 2 - 1, d / 2 - 0.5, z + 9.0)), 0.08)
     box(steel, w / 2 - 1, d / 2 - 0.5, z + 8.0, 0.8, 0.08, 0.5)
+    tube(steel, [Vector((w / 2 - 1, d / 2 - 0.62, z + 6.4)), Vector((w / 2 - 1, d / 2 - 0.9, z + 6.4))], [0.45, 0.05], 10, cap=True)
+    top = Vector((w / 2 - 1, d / 2 - 0.5, z + 7.2))
+    for foot in (Vector((w / 2 - 3.2, d / 2 - 0.5, z + 3.2)), Vector((w / 2 - 0.3, -d / 2 + 0.6, z + 3.2))):
+        oriented_box(steel, foot, top, 0.015)
     export(name, [shell.to_object(name), steel.to_object(name + '-steel'), win.to_object(name + '-windows')])
 
 
@@ -167,16 +201,26 @@ def ice_shapes(name, seed, kind):
 
 
 def icicles(name, seed, width=4.0):
-    """Ice ledge with icicles hanging below it: lay it along a cliff edge or a roof"""
+    """Ice ledge with icicles hanging below it: lay it along a cliff edge or a roof. The ledge a row of
+    rounded lumps, the icicles in clusters, each swelling under its root and running out to a point"""
     clear_scene()
     rnd = random.Random(seed)
     ice = Part(ice_material(), smooth=True)
-    box(ice, 0, 0, 2.6, width, 0.8, 0.35)
-    for k in range(int(width / 0.25)):
-        x = -width / 2 + 0.1 + k * 0.25 + rnd.uniform(-0.05, 0.05)
-        h = rnd.uniform(0.4, 2.2)
-        tube(ice, [Vector((x, -0.25, 2.62)), Vector((x, -0.25, 2.62 - h))], [rnd.uniform(0.06, 0.12), 0.0], 6)
-    export(name, [ice.to_object(name)])
+    tube(ice, [Vector((-width / 2 + 0.45, 0, 2.8)), Vector((width / 2 - 0.45, 0, 2.8))], [0.17, 0.17], 8, cap=True)
+    for k in range(7):
+        x = -width / 2 + 0.4 + k * (width - 0.8) / 6
+        lump(ice, Vector((x, 0, 2.76)), Vector((0.4, 0.36, 0.16)), seed + k, roughness=0.2, subdiv=1)
+    x = -width / 2 + 0.12
+    while x < width / 2 - 0.12:
+        cluster = rnd.random() < 0.35
+        h = rnd.uniform(0.5, 2.2) if cluster else rnd.uniform(0.2, 0.9)
+        r = rnd.uniform(0.07, 0.12) * (1.2 if cluster else 0.8)
+        top = 2.8
+        y = -0.22 + rnd.uniform(-0.06, 0.06)
+        tube(ice, [Vector((x, y, top)), Vector((x, y, top - h * 0.18)), Vector((x + rnd.uniform(-0.03, 0.03), y, top - h * 0.6)),
+                   Vector((x + rnd.uniform(-0.04, 0.04), y, top - h))], [r * 0.8, r, r * 0.45, 0.0], 6)
+        x += rnd.uniform(0.12, 0.3)
+    export(name, [smooth(ice.to_object(name))])
 
 
 def snow_drift(name, seed, length=8.0):
@@ -555,23 +599,59 @@ def oasis_pool(name, seed, radius=4.0):
 
 
 def desert_temple(name):
-    """Sandstone temple front: stepped base, six columns, a heavy lintel and a dark doorway"""
+    """Sandstone temple: a stepped base, a portico of six fluted columns with bases and capitals, an
+    entablature (architrave, a frieze with triglyphs, a cornice) under a low pediment and roof, the cella
+    behind with corner pilasters and a framed dark doorway"""
     clear_scene()
     stone = Part(pbr_material('wall-sandstone_blocks_04', 'sandstone_blocks_04'), uv_metres=3.0)
-    col = Part(pbr_material('rock-sandstone_cracks', 'sandstone_cracks'), smooth=True)
+    # Mouldings, triglyphs, column bases and capitals: the same stone without the chamfer (one draw call when packed)
+    trim = Part(stone.material, uv_metres=1.5, bevel=0.0)
+    col = Part(pbr_material('rock-sandstone_cracks', 'sandstone_cracks', (1.0, 0.94, 0.86)), smooth=True)
     dark = Part(flat_material('temple-dark', (0.04, 0.035, 0.03), 0.9))
     w, d = 18.0, 14.0
     for k in range(3):
         box(stone, 0, 0, -0.8 + k * 0.5, w - k * 1.2, d - k * 1.2, 0.8)
-    box(stone, 0, 2.0, 0.7, w - 4.0, d - 6.0, 8.0)
-    box(dark, 0, -2.02 + 2.0 - (d - 6.0) / 2, 0.7, 3.0, 0.1, 4.5)
+    stairs(stone, -2, 2, -d / 2 - 0.5, 1.0, 0.7, 4)
+    # Cella: plinth course, corner pilasters, the doorway in a frame with a cornice
+    cy0, cy1 = -2.0, 5.4
+    box(stone, 0, (cy0 + cy1) / 2, 0.7, 13.0, cy1 - cy0, 5.8)
+    box(trim, 0, (cy0 + cy1) / 2, 0.7, 13.3, cy1 - cy0 + 0.3, 0.45)
+    for sx in (-1, 1):
+        for y in (cy0, cy1):
+            box(trim, sx * 6.3, y, 0.7, 0.9, 0.5, 5.8)
+    box(dark, 0, cy0 - 0.02, 1.15, 2.6, 0.1, 3.9)
+    for sx in (-1, 1):
+        box(trim, sx * 1.55, cy0 - 0.08, 1.15, 0.5, 0.2, 3.9)
+    box(trim, 0, cy0 - 0.1, 5.05, 3.8, 0.25, 0.45)
+    box(trim, 0, cy0 - 0.16, 5.5, 4.2, 0.35, 0.18)
+    # Portico
     for k in range(6):
         x = -w / 2 + 2.5 + k * (w - 5.0) / 5
-        tube(col, [Vector((x, -d / 2 + 2.2, 0.7)), Vector((x, -d / 2 + 2.2, 8.0))], [0.65, 0.55], 14)
-        box(stone, x, -d / 2 + 2.2, 0.7, 1.6, 1.6, 0.4)
-    box(stone, 0, -d / 2 + 2.2 + (d - 4.4) / 2 - 1.0, 8.0, w - 3.0, d - 4.4 + 2.0, 1.4)
-    stairs(stone, -2, 2, -d / 2 - 0.5, 1.0, 0.7, 4)
-    export(name, [stone.to_object(name), col.to_object(name + '-columns'), dark.to_object(name + '-door')])
+        column(col, trim, x, -d / 2 + 2.2, 0.7, 5.8, 0.6)
+    # Entablature: architrave, frieze with triglyphs over and between the columns, cornice
+    y0, y1 = -5.55, 5.75
+    box(stone, 0, (y0 + y1) / 2, 6.5, 14.3, y1 - y0, 0.7)
+    box(stone, 0, (y0 + y1) / 2, 7.2, 14.1, y1 - y0 - 0.2, 0.6)
+    for k in range(11):
+        x = -6.5 + k * 1.3
+        box(trim, x, y0 + 0.05, 7.2, 0.5, 0.2, 0.6)
+    box(trim, 0, (y0 + y1) / 2, 7.8, 15.0, y1 - y0 + 0.7, 0.3)
+    # Pediment and roof: the gable closed front and back, two stone roof slabs, raking cornices at the front
+    bm = stone.bm
+    for y, back in ((y0 - 0.1, False), (y1, True)):
+        tri = [bm.verts.new((-7.2, y, 8.1)), bm.verts.new((7.2, y, 8.1)), bm.verts.new((0, y, 9.05))]
+        bm.faces.new(list(reversed(tri)) if back else tri)
+    pr = [bm.verts.new(v) for v in ((-7.2, y0 - 0.1, 8.1), (7.2, y0 - 0.1, 8.1), (7.2, y1, 8.1), (-7.2, y1, 8.1))]
+    bm.faces.new(list(reversed(pr)))
+    ry0, ry1 = y0 - 0.4, y1 + 0.35
+    for sx in (-1, 1):
+        lo = [(sx * 7.6, ry0, 8.05), (0, ry0, 9.1), (0, ry1, 9.1), (sx * 7.6, ry1, 8.05)]
+        hi = [(sx * 7.6, ry0, 8.3), (0, ry0, 9.4), (0, ry1, 9.4), (sx * 7.6, ry1, 8.3)]
+        if sx > 0:
+            lo, hi = lo[::-1], hi[::-1]
+        hexa(trim, lo, hi)
+    export(name, [stone.to_object(name), trim.to_object(name + '-trim'), smooth(col.to_object(name + '-columns')),
+                  dark.to_object(name + '-door')])
 
 
 def nomad_tent(name):

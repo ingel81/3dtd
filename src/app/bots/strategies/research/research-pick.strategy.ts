@@ -16,6 +16,7 @@
  * - meta: same as strategist
  */
 
+import { isResearchReleased } from '../../../configs/release';
 import { BaseStrategy } from '../tower-strategy.interface';
 import type { Proposal, ProposalKind } from '../../decision/arbiter';
 import { killTimeSaved, newTowerCapacity } from '../../decision/value';
@@ -33,7 +34,7 @@ import {
 } from '../../../configs/research/research.types';
 import { ArmorType, ARMOR_TYPES } from '../../../configs/combat/combat.types';
 import { DAMAGE_MATRIX } from '../../../configs/combat/damage-matrix.config';
-import { TowerTypeId, TOWER_TYPES } from '../../../configs/tower-types.config';
+import { STREAM_MEAN_DRIVE, TowerTypeId, TOWER_TYPES, laserMeanFactor } from '../../../configs/tower-types.config';
 import { waveHasAir, waveRules } from '../../../director/wave-rules';
 import { ENEMY_TYPES, EnemyTypeId } from '../../../configs/enemy-types.config';
 import { HERO } from '../../../configs/hero.config';
@@ -61,6 +62,12 @@ const UNLOCK_SPEND = 1000;
 const GATE_SHARE = 0.9;
 
 export const BOT_SKIPPED_RESEARCH: ReadonlySet<ResearchId> = new Set([HERO.researchId]);
+
+/** A research the bot leaves alone: skipped on purpose, or not released in this build (configs/release.ts) */
+function botSkips(id: ResearchId): boolean {
+  const config = getResearch(id);
+  return BOT_SKIPPED_RESEARCH.has(id) || !config || !isResearchReleased(config);
+}
 
 export class ResearchPickStrategy extends BaseStrategy {
   constructor(private config: BotConfig, private world?: Pick<BotWorld, 'towerManager'>) {
@@ -101,7 +108,7 @@ export class ResearchPickStrategy extends BaseStrategy {
       'toxic-compounds', 'fire-alchemy',
       'advanced-weaponry', 'nuclear-strike', 'frost-bomb', 'storm-mastery', 'emp',
       'master-engineering', 'orbital-laser',
-      'flak-artillery',
+      'flak-artillery', 'laser-optics', 'cybernetics', 'rotisserie',
       'chaos-rift', 'advanced-engineering', 'transcendent-tech',
       'mercenary-contract',     // the hero; HeroStrategy hires him once it is done
     ],
@@ -231,7 +238,7 @@ export class ResearchPickStrategy extends BaseStrategy {
     // Fallback: skill-order list; a normal player follows the expert's
     const list = this.researchOrderBySkill[skill === 'normal' ? 'expert' : skill];
     return list.find(id =>
-      !BOT_SKIPPED_RESEARCH.has(id) &&
+      !botSkips(id) &&
       !r.completedIds.includes(id) &&
       !this.isActive(id, state) &&
       this.prereqsMet(id, state)
@@ -260,7 +267,7 @@ export class ResearchPickStrategy extends BaseStrategy {
     let bestScore = -Infinity;
 
     for (const id of getAllResearchIds()) {
-      if (BOT_SKIPPED_RESEARCH.has(id)) continue;
+      if (botSkips(id)) continue;
       if (r.completedIds.includes(id)) continue;
       if (this.isActive(id, state)) continue;
       if (!this.prereqsMet(id, state)) continue;
@@ -361,6 +368,12 @@ export class ResearchPickStrategy extends BaseStrategy {
       let dps: number;
       if (towerCfg.attackType === 'beam') {
         dps = towerCfg.damagePerSecond ?? 0;
+      } else if (towerCfg.attackType === 'stream') {
+        dps = towerCfg.damage * STREAM_MEAN_DRIVE;
+      } else if (towerCfg.attackType === 'saw') {
+        dps = towerCfg.damage * (towerCfg.sawArms?.length ?? 1);
+      } else if (towerCfg.attackType === 'laser' && towerCfg.laser) {
+        dps = towerCfg.damage * laserMeanFactor(towerCfg.laser);
       } else if (towerCfg.attackType === 'chain') {
         // Chain hits primary + N jumps with falloff per hop.
         const maxJumps = towerCfg.maxJumps ?? 0;

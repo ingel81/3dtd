@@ -1,3 +1,4 @@
+import { releasedResearch } from '../../configs/release';
 import { GAME_BALANCE } from '../../configs/game-balance.config';
 import { RESEARCH_TREE } from '../../configs/research/research-tree.config';
 import { researchWaitsForWave, type ResearchConfig, type ResearchId } from '../../configs/research/research.types';
@@ -104,7 +105,8 @@ export function runStartAt(wave: number, rules: Pick<WaveRules, 'gold'>): RunSta
 
 /** The whole tree in START_RESEARCH_ORDER, the research it leaves out after it by cost */
 function researchOrder(): ResearchConfig[] {
-  const tree = Object.values(RESEARCH_TREE) as ResearchConfig[];
+  // This build's research: an unreleased tower's or path's is no part of a start (configs/release.ts)
+  const tree = releasedResearch();
   const ranked = START_RESEARCH_ORDER.map((id) => RESEARCH_TREE[id]).filter((c): c is ResearchConfig => !!c);
   const rest = tree.filter((c) => !START_RESEARCH_ORDER.includes(c.id)).sort((x, y) => x.cost - y.cost);
   return [...ranked, ...rest];

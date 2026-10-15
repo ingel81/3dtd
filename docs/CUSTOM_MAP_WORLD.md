@@ -211,6 +211,42 @@ Eine Karte sagt es selbst: `gameplay.destructible: true` (im Editor unter Rules,
 - **Debug:** In der Entwicklung trifft `__worldDamage.hit(lat, lon, reach, amount)` über die Simulation
   (`debug:hit-structures`, im Koop ein Cheat); `structures()` zeigt die HP (gefallen 0, stehend die volle).
 
+## Ereignisse je Welle (E170)
+
+Eine Karte sagt, was vor welcher Welle geschieht: `gameplay.events` (`MapWaveEvent`, höchstens 64, Wellen 1 bis 200),
+gesetzt im Editor unter Rules, „Wave events“ ([LEVEL_EDITOR.md](LEVEL_EDITOR.md)). Arten: `message` (Text auf dem
+Bildschirm), `weather` (Wetter und Stärke), `time` (Stunde, wie der Regler Tageszeit des Editors, `timeOfDay`),
+`portal` (ein Spawn bringt erst ab dieser Welle Gegner), `objects` (Objekte erscheinen oder gehen: Tor, Brücke, Mauer).
+Kein allgemeines Skriptsystem.
+
+- **Zeitpunkt:** die Ereignisse von Welle N geschehen, wenn die Bauphase vor Welle N beginnt: am Ende von Welle N−1,
+  für Welle 1 beim Start. Der Spieler sieht ein neues Portal, das Wetter und die Nachricht also, bevor die Welle kommt.
+  Was gilt, ist eine Funktion der erreichten Welle (`reachedWave`: zwischen den Wellen die nächste, während einer Welle
+  und nach dem Fall des HQ die laufende), eine Regel für Simulation, Hauptthread und Editor
+  (`world/custom-map/wave-events.ts`: `portalWaves`, `hiddenObjectsAt`, `environmentAt`). Ereignisse einer Welle
+  laufen in der Reihenfolge der Liste. Ein Objekt, dessen erstes Ereignis es zeigt, ist davor verborgen
+- **Simulation:** die Ereignisse reisen in den Laufregeln (`RunRules.events`, die Objekte mit Ort und Grundradius,
+  `CustomMapWorld.runRules`) und damit im Weltschlüssel (`runRulesKey`, Teil `e=`); `WaveEvents`
+  (`managers/game-state/wave-events.ts`) führt sie. Ein Spawn mit Portal-Ereignis ist vor seiner Welle keine Spur
+  (`CoopRoom.lanes` fragt `laneOpen`): seine Welle läuft dort nicht, er zählt nicht für Startcredits, Kill-Gold und
+  Forschungspreise, und der Budget-Source plant die Welle auf die offenen Spuren. Öffnet er, hört die Forschung die
+  neuen Preise (`announceState`). Sind alle Spawns erst später offen, laufen alle (der Check meldet das als Fehler).
+  Erscheint oder geht ein Objekt, fragen die Tower in Reichweite plus Objektradius ihre Sicht neu an (wie ein
+  gefallenes Bauwerk). Gesetzt wird beim Laden, nach jeder Welle (`wave:completed`), bei Neustart, Sprung und nach
+  jeder Wiederherstellung (`syncWaveEvents`); ohne eigenen Zustand im Snapshot, denn die Wellenzahl liegt schon darin
+- **Prüfsummen:** Karten mit Ereignissen haben einen anderen Weltschlüssel als ohne; der Zustands-Hash bleibt, wie er
+  war (nichts Neues darin). Karten ohne Ereignisse, Tiles und DevWorld behalten Schlüssel und Hashes
+- **Hauptthread:** Op `waveEvents.setReached(wave)` (auch nach Restore und Replay-Sprung) an
+  `WorldProvider.showWaveEvents`: `CustomMapWorld` setzt Himmel und Wetter (`view.setEnvironment`, ab dem
+  Kartenhimmel) und nimmt verborgene Objekte aus Bild, Sichtblockern und Baublockade (auf `FALLEN_SCALE` wie gefallene
+  Bauwerke, auf der eigenen Kopie der Objektliste). Schon beim Anlegen der Welt gilt der Stand der ersten Welle, nichts
+  blitzt auf. Live (nicht beim Sprung, Restore oder Replay-Sprung) kommt `map:wave-events` mit den Nachrichten und den
+  Namen der geöffneten Spawns; `app-map-event-banner` zeigt sie einige Sekunden über dem Bild (länger bei mehr Text),
+  Screenreader hören sie
+- **Grenzen:** das Portal eines später öffnenden Spawns steht von Anfang an (mit Route), es bringt nur keine Gegner;
+  Wetter und Tageszeit springen ohne Übergang; auf einer Karte mit Himmelsbild bewegt die Tageszeit nur die Sonne; ein
+  zu Beginn verborgenes Bauwerk einer zerstörbaren Karte nimmt keinen Schaden
+
 ## Darstellung
 
 `CustomMapView` (Renderer der Karte, `render/`) wird beim ersten Anhängen nachgeladen und so

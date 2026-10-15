@@ -3,14 +3,14 @@ import { DetMath } from '../utils/det-math';
 
 export type TowerTypeId =
   | 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rocket' | 'ice' | 'fire' | 'tentacle' | 'poison' | 'lightning' | 'chaos'
-  | 'bastion'
+  | 'bastion' | 'sentinel' | 'chainsaw' | 'shawarma'
   | 'research-center' | 'missile-silo';
 export type ProjectileTypeId =
   | 'arrow' | 'cannonball' | 'arcane-orb' | 'ice-shard' | 'bullet' | 'rocket' | 'poison-glob' | 'chaos-orb' | 'flak-shell'
   // The hero's ammo (hero.config.ts), fired by no tower
   | 'hero-round' | 'hero-shell' | 'hero-rune';
 export type UpgradeId = 'speed' | 'damage' | 'range' | 'beam-width' | 'research-slots';
-export type AttackType = 'projectile' | 'beam' | 'melee' | 'passive' | 'chain';
+export type AttackType = 'projectile' | 'beam' | 'melee' | 'passive' | 'chain' | 'laser' | 'saw' | 'stream';
 export type TargetingStrategy = 'closest' | 'lowest-hp' | 'highest-hp' | 'first' | 'last' | 'air-priority';
 export type AirSubStrategy = 'closest' | 'lowest-hp' | 'highest-hp';
 
@@ -262,6 +262,11 @@ export interface TowerTypeConfig {
    * TowerLifecycle.place and canPickTowerCard.
    */
   minWave?: number;
+  /**
+   * False: in dev builds only, hidden in production until it is released (configs/release.ts, isReleased).
+   * Default true.
+   */
+  released?: boolean;
   /** What a passive building does, or a tower's role in a line: the flavor of its build card's tooltip */
   description?: string;
 
@@ -291,6 +296,34 @@ export interface TowerTypeConfig {
    */
   meleeSlam?: { radius: number; maxTargets: number; share: number };
 
+  /**
+   * Laser only (attackType 'laser'): a hitscan beam on one target. `damage` is its damage per second cold; held on
+   * the same target the beam heats up to `maxFactor` times that over `rampSeconds` (shortened by the fire rate
+   * track, Heat-up), and starts cold on every new target. It leaves the lens `muzzleM` m in front of the head's
+   * pivot (shootHeight), along the aim.
+   */
+  laser?: { maxFactor: number; rampSeconds: number; muzzleM: number };
+
+  /**
+   * Saw only (attackType 'saw'): robot arms with a chainsaw each, every arm on a target of its own while there are
+   * enough, `damage` per second each, times `fireRate` (the chain speed track). The targets in range by distance go to the arms in this order (nearest to
+   * the first), free arms join the farthest; so the arms keep apart, each in its band of the road. Per arm, in
+   * the turret part's frame of the model (glTF units, y up): the saw node, where the arm leaves the torso
+   * (`socket`), the way it leaves (`out`), the way the saw's mount faces docked (`axis`) and how high the arm
+   * arches (`lift`, a share of its span).
+   */
+  /**
+   * Stream only (attackType 'stream'): a dense stream of pieces on a line from the muzzle to the target, `damage`
+   * per second at full drive times `fireRate` (the drive track), to every ground enemy within `width` m of that
+   * line. The drive spins up from a standstill over `spinUpSeconds` while it has a target and the turret is
+   * aligned, and down over `spinDownSeconds` without; the damage follows the drive. `muzzle` is where the stream
+   * leaves, in the turret part's frame of the model (glTF units, y up).
+   */
+  stream?: { spinUpSeconds: number; spinDownSeconds: number; width: number; muzzle: [number, number, number] };
+
+  sawArms?: readonly { node: string; socket: [number, number, number]; out: [number, number, number];
+    axis: [number, number, number]; lift: number }[];
+
   // Chain attack settings (for lightning-type towers — hitscan chain)
   maxJumps?: number;      // Number of additional targets after the primary (e.g. 2 = 3 total hits)
   chainFalloff?: number;  // Damage multiplier applied per jump (e.g. 0.7 = -30% per hop)
@@ -309,6 +342,9 @@ const POISON_MODEL_URL = 'assets/models/towers/poison_tower.glb';
 const LIGHTNING_MODEL_URL = 'assets/models/towers/lightning.glb';
 const CHAOS_MODEL_URL = 'assets/models/towers/chaos.glb';
 const BASTION_MODEL_URL = 'assets/models/towers/bastion.glb';
+const SENTINEL_MODEL_URL = 'assets/models/towers/sentinel.glb';
+const CHAINSAW_MODEL_URL = 'assets/models/towers/chainsaw.glb';
+const SHAWARMA_MODEL_URL = 'assets/models/towers/shawarma.glb';
 
 export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   archer: {
@@ -628,6 +664,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   bastion: {
     id: 'bastion',
     name: 'Iron Bastion',
+    released: false, // Dev builds only until it is released (configs/release.ts)
     defaultTargeting: 'first',
     // Meshy "Iron Bastion Turret", cut and reduced by tools/blender/build_tower.py (towers/bastion.json): nodes base,
     // turret_top (the yaw axis on the origin) and gun (origin on the trunnions, the barrel levelled along -X).
@@ -662,6 +699,135 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     description: 'Flak: shells that burst among swarms, in the air and on the ground.',
     // Grows over damage: the burst carries it to every body it hits
     upgrades: combatUpgrades({ damage: 1.06, rate: 1.03 }),
+  },
+  sentinel: {
+    id: 'sentinel',
+    name: 'Sentinel Laser',
+    released: false, // Dev builds only until it is released (configs/release.ts)
+    // The tank killer: the strongest of the wave first, and it stays on it
+    defaultTargeting: 'highest-hp',
+    // Meshy "Sentinel Laser Turret", cut and reduced by tools/blender/build_tower.py (towers/sentinel.json): nodes
+    // base, turret_top (the fork with its cable, the yaw axis on the origin) and head (the lens housing, origin on
+    // its trunnions 1.302 up, the lens along -X). 1.80 units across, 1.90 high, the base's widest vertex 1.171 from
+    // the axis: at scale 3.8 a turret 7.2 m high, the lens 3.4 m in front of the trunnions.
+    modelUrl: SENTINEL_MODEL_URL,
+    scale: 3.8,
+    previewScale: 5.5,
+    heightOffset: 0, // The base's lowest point is the model origin
+    shootHeight: 4.95, // The head's trunnions
+    footprintRadius: 4.5,
+    rotationY: -1.5708, // The lens along -X in the file: turned so it faces north at rest
+    turretBarrelOffset: -1.5708,
+    turnsTurret: true,
+    modelTop: 7.23,
+    // The head tilts on the fork: up to 60° for flyers, 15° down
+    pitchNodes: ['head'],
+    pitchRange: { min: -0.26, max: 1.05 },
+    attackType: 'laser',
+    damageType: 'lightning',
+    damage: 24, // Damage per second cold, 96 hot (laser.maxFactor)
+    range: 60,
+    fireRate: 1, // Heat-up speed: the fire rate track shortens laser.rampSeconds
+    projectileType: 'arrow', // Fallback, unused (laser)
+    laser: { maxFactor: 4, rampSeconds: 4, muzzleM: 3.4 },
+    // One target at a time, at its best on one that lives long: a boss, a tank, a dragon (lightning 1.2 against
+    // heavy). In the DPS model at its mean heat (2.5x) it is no better gold than the lightning tower; held hot on
+    // a heavy body it is the best single target buy (MASTER_GAME_DESIGN §3.15).
+    cost: 170,
+    canTargetAir: true,
+    canTargetGround: true,
+    description: 'Focused laser: heats up on one target, up to four times its damage. Built for bosses.',
+    upgrades: [
+      degressiveUpgrade('damage', 'Damage', 'damage', 1.06),
+      degressiveUpgrade('speed', 'Heat-up', 'fireRate', 1.04),
+      RANGE_UPGRADE,
+    ],
+  },
+  chainsaw: {
+    id: 'chainsaw',
+    name: 'Chainsaw',
+    released: false, // Dev builds only until it is released (configs/release.ts)
+    defaultTargeting: 'closest',
+    // Meshy "Chainsaw Turret" without its arms (tools/blender/towers/chainsaw-tentacle.json, build_tower.py): nodes
+    // base, turret_top (the torso, the yaw axis on the origin) and the three saws under it, each with its origin
+    // where its arm held it. The arms are robot tentacles the renderer draws (tower-saw-arms.ts). The model is
+    // 1.89 units across with the saws, 1.50 high, the base's widest vertex 0.766 from the axis: at scale 4 a
+    // tower 6 m high whose arms reach 14 m (3.5 units).
+    modelUrl: CHAINSAW_MODEL_URL,
+    scale: 4,
+    previewScale: 7,
+    heightOffset: 0,
+    shootHeight: 2.6, // The arms' sockets on the torso
+    footprintRadius: 3.1,
+    rotationY: 0,
+    turretBarrelOffset: 0, // The arms leave the torso along +Z
+    turnsTurret: true,
+    modelTop: 5.99,
+    attackType: 'saw',
+    damageType: 'pierce',
+    damage: 30, // Per arm and second
+    range: 14,
+    fireRate: 1, // Chain speed: multiplies the damage per second, its own upgrade track
+    projectileType: 'arrow', // Fallback, unused (saw)
+    // From the concept (2026-10-02): the lowest arm takes the nearest target, the side arm the middle, the top arm
+    // the farthest, arching higher in turn so they do not cross
+    sawArms: [
+      { node: 'saw_down', socket: [-0.016, 0.19, 0.247], out: [0, -0.1, 1], axis: [0, -0.495, 0.869], lift: 0.3 },
+      { node: 'saw_side', socket: [0.254, 0.55, -0.013], out: [1, 0.2, 0], axis: [0.982, 0.188, 0.011], lift: 0.5 },
+      { node: 'saw_up', socket: [-0.016, 0.53, 0.267], out: [0, 0.35, 1], axis: [0, 0.671, 0.742], lift: 0.75 },
+    ],
+    // Three bodies at once at the road's edge, flesh most of all (pierce 1.25 and 1.6), steel and stone hardly
+    // (0.35, 0.25). Short arms for much damage: 0.80 unarmored DPS per gold against the gatling's 0.69 at 50 m
+    // (MASTER_GAME_DESIGN §3.16).
+    cost: 140,
+    canTargetAir: false,
+    canTargetGround: true,
+    description: 'Three robot arms with chainsaws, each on an enemy of its own. Build it right at the road.',
+    upgrades: [
+      degressiveUpgrade('damage', 'Damage', 'damage', 1.07),
+      degressiveUpgrade('speed', 'Chain Speed', 'fireRate', 1.03),
+      RANGE_UPGRADE,
+    ],
+  },
+  shawarma: {
+    id: 'shawarma',
+    name: 'Shawarma Slicer',
+    released: false, // Dev builds only until it is released (configs/release.ts)
+    defaultTargeting: 'first',
+    // Meshy "Cyber Shawarma Slicer" (tools/blender/towers/shawarma.json, build_tower.py): nodes base, turret_top
+    // (the machine, the yaw axis on the origin), under it spit (the meat on its skewer, turning about y), arm with
+    // blade (the cutter, swinging on its joint) and slice_a, slice_b (two cut pieces, the renderer flies copies of
+    // them, tower-doner-stream.ts). 1.72 units across, 1.64 high, the base's widest vertex 0.908 from the axis: at
+    // scale 4.5 a machine 7.4 m high; the stream leaves 0.77 units over the turret's foot.
+    modelUrl: SHAWARMA_MODEL_URL,
+    scale: 4.5,
+    previewScale: 6,
+    heightOffset: 0,
+    shootHeight: 5.1, // Where the stream leaves the machine
+    footprintRadius: 4.1,
+    rotationY: -1.1788, // The stream leaves along (-0.92, 0, 0.38) in the file: turned so it faces north at rest
+    turretBarrelOffset: -1.1788,
+    turnsTurret: true,
+    modelTop: 7.38,
+    attackType: 'stream',
+    damageType: 'physical',
+    damage: 80, // Per second at full drive
+    range: 35,
+    fireRate: 1, // Drive: multiplies the damage per second, its own upgrade track
+    projectileType: 'arrow', // Fallback, unused (stream)
+    stream: { spinUpSeconds: 2.5, spinDownSeconds: 2, width: 1.6, muzzle: [0.04, 0.77, 0.33] },
+    // Sustained fire on a line: spun up it stays so from target to target, everything on the line in front of it
+    // takes the stream. Worth it in a long wave on a busy road, weak in a short burst (2.5 s to full drive) and
+    // against armour (physical). 0.56 unarmored DPS per gold in the DPS model (MASTER_GAME_DESIGN §3.17).
+    cost: 150,
+    canTargetAir: false,
+    canTargetGround: true,
+    description: 'Spins up a stream of meat slices that hits everything on its line. Strong in long waves.',
+    upgrades: [
+      degressiveUpgrade('damage', 'Damage', 'damage', 1.06),
+      degressiveUpgrade('speed', 'Drive', 'fireRate', 1.04),
+      RANGE_UPGRADE,
+    ],
   },
   'research-center': {
     id: 'research-center',
@@ -765,6 +931,26 @@ export const AIR_SUB_STRATEGIES: AirSubStrategyConfig[] = [
   { id: 'lowest-hp', label: 'Weakest', icon: 'heart', tooltip: 'Targets the weakest air enemy' },
   { id: 'highest-hp', label: 'Strongest', icon: 'shield', tooltip: 'Targets the strongest air enemy' },
 ];
+
+/**
+ * A laser's damage factor after it held its target `heldSeconds` at fire rate `fireRate` (the Heat-up track):
+ * 1 cold, rising linearly to `maxFactor` over `rampSeconds / fireRate`.
+ */
+export function laserHeat(laser: NonNullable<TowerTypeConfig['laser']>, heldSeconds: number, fireRate: number): number {
+  const t = Math.min(1, (heldSeconds * fireRate) / laser.rampSeconds);
+  return 1 + (laser.maxFactor - 1) * t;
+}
+
+/**
+ * The drive the DPS model counts a stream with: it spins up in the first seconds of a wave and stays so while
+ * targets come (TowerTypeConfig.stream).
+ */
+export const STREAM_MEAN_DRIVE = 0.9;
+
+/** The factor the DPS model counts a laser with: the mean of cold and hot, a body that lives long and one that dies quickly. */
+export function laserMeanFactor(laser: NonNullable<TowerTypeConfig['laser']>): number {
+  return (1 + laser.maxFactor) / 2;
+}
 
 /** Game ms a tower stands in its scaffold before it fires, unless its type says otherwise (TowerTypeConfig.buildTimeMs) */
 export const DEFAULT_BUILD_TIME_MS = 5000;

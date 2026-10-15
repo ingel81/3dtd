@@ -82,6 +82,7 @@ function makeEngine() {
     lightningBolts: { registerIdleCrackle: vi.fn() },
     oozes: { add: vi.fn(), remove: vi.fn(), discard: vi.fn(), clear: vi.fn(), setFrame: vi.fn(), collapse: vi.fn() },
     flameBeams: { startBeam: vi.fn(), stopBeam: vi.fn(), clear: vi.fn() },
+    laserBeams: { startBeam: vi.fn(), stopBeam: vi.fn(), clear: vi.fn() },
     getTerrainHeightAtGeo: vi.fn(() => 0),
     spatialAudio: {
       registerSound: vi.fn(),
@@ -137,6 +138,16 @@ describe('PresentationHost', () => {
     expect(engine.towers.create.mock.calls[0][6]).toBe(aim);
   });
 
+  it("tells the world a wave started, not while a replay fast-forwards (a custom map's wave sound)", () => {
+    const waveStarted = vi.fn();
+    (engine.world as { waveStarted?: (wave: number) => void }).waveStarted = waveStarted;
+    bus.emit({ type: 'wave:started', wave: 3, enemyCount: 10 });
+    expect(waveStarted).toHaveBeenCalledWith(3);
+    bus.setShowMuted(true);
+    bus.emit({ type: 'wave:started', wave: 4, enemyCount: 10 });
+    expect(waveStarted).toHaveBeenCalledTimes(1);
+  });
+
   it('builds an ooze\'s stations from its path and adds it with the grid\'s ground', () => {
     host.applyOps([['oozes.add', 'enemy-9', [{ lat: 0, lon: 0 }, { lat: 0, lon: 0.001 }]]]);
     const [id, stations, groundAt] = engine.oozes.add.mock.calls[0] as unknown as [string, { count: number }, (x: number, z: number) => number];
@@ -158,6 +169,16 @@ describe('PresentationHost', () => {
     host.applyOps([['flameBeams.stopBeam', 'tower-2']]);
     expect(engine.spatialAudio.stopLoop).toHaveBeenCalledWith(1);
     expect(host.flames.size).toBe(0);
+  });
+
+  it('runs the laser hum with the laser ops', async () => {
+    host.applyOps([['laserBeams.startBeam', 'tower-3', { x: 1, y: 2, z: 3 }, { x: 4, y: 5, z: 6 }, 0.5]]);
+    await settle();
+    expect(engine.laserBeams.startBeam).toHaveBeenCalledTimes(1);
+    expect((engine.spatialAudio.createLoop.mock.calls[0] as unknown[])[0]).toBe('laser-loop');
+    host.applyOps([['laserBeams.clear']]);
+    expect(engine.laserBeams.clear).toHaveBeenCalled();
+    expect(host.lasers.size).toBe(0);
   });
 
   it('starts a new enemy instance on its walk clip once its model is there, unless it stands', async () => {
@@ -250,7 +271,7 @@ describe('PresentationHost', () => {
 
   it('takes the whole run off the field on clear: renderers, loops and show', () => {
     host.clear();
-    for (const renderer of ['enemies', 'oozes', 'projectiles', 'trailStreaks', 'flameBeams', 'tentacles', 'plinths', 'towerBadges', 'searchlights', 'towers'] as const) {
+    for (const renderer of ['enemies', 'oozes', 'projectiles', 'trailStreaks', 'flameBeams', 'laserBeams', 'tentacles', 'plinths', 'towerBadges', 'searchlights', 'towers'] as const) {
       expect((engine[renderer] as unknown as { clear: ReturnType<typeof vi.fn> }).clear).toHaveBeenCalled();
     }
     expect(engine.effects.stopAllTowerFires).toHaveBeenCalled();

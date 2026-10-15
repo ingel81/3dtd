@@ -103,6 +103,16 @@ export interface SimSink {
     setBuild(id: string, remainingMs: number, totalMs: number): void;
     /** The tower took path `pathId` (configs/tower-paths.config.ts): its model shows it */
     setPath(id: string, pathId: string): void;
+    /**
+     * Where the arms of saw tower `id` cut this frame, one per arm in TowerTypeConfig.sawArms order (null: that
+     * arm rests), local; an empty list docks every arm. Once per frame while they cut, as the flames.
+     */
+    setSawTargets(id: string, targets: readonly (OpVec3 | null)[]): void;
+    /**
+     * The stream of stream tower `id` this frame: where it goes (local, null: the machine spins without one) and
+     * its drive, 0 to 1; 0 stops it. Once per frame while it runs, as the flames.
+     */
+    setStream(id: string, target: OpVec3 | null, drive: number): void;
     remove(id: string): void;
     clear(): void;
   };
@@ -145,6 +155,16 @@ export interface SimSink {
     stopBeam(towerId: string): void;
     clear(): void;
   };
+  readonly laserBeams: {
+    /**
+     * The laser of the frame, once per frame for every tower on target (as
+     * the flames): from the lens to the target, `heat` 0 cold to 1 hot. Its
+     * hum follows the beams like the flame loop.
+     */
+    startBeam(towerId: string, source: OpVec3, target: OpVec3, heat: number): void;
+    stopBeam(towerId: string): void;
+    clear(): void;
+  };
   readonly effects: {
     spawnFloatingText(text: string, lat: number, lon: number, height: number, config: OpFloatingText): void;
     spawnTowerInnerFire(towerId: string, position: OpVec3, fireHeight: number, intensity: number): void;
@@ -163,6 +183,15 @@ export interface SimSink {
      * the new ones falling and stands up any no longer in the set
      */
     setFallen(ids: readonly string[]): void;
+  };
+  readonly waveEvents: {
+    /**
+     * The wave whose events happened last (a custom map's wave events,
+     * WaveEvents, TODO E170), also after a restore or a replay's seek: the
+     * player hands it to the world (WorldProvider.showWaveEvents), which
+     * sets sky, weather and the objects as they stand then
+     */
+    setReached(wave: number): void;
   };
   readonly show: {
     /**

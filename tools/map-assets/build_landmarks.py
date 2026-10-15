@@ -221,8 +221,14 @@ def castle_ruin(name, seed=4):
         a, b = corners[side], corners[(side + 1) % 4]
         inward = (Vector((0, ky, 0)) - (a + b) / 2).normalized() * (t / 2)
         broken_run(stone, a + inward, b + inward, t, -1.5, hs)
-    # Merlons left on the standing front of the keep
-    merlons(stone, -s / 2, s / 2 - 3.0, ky - s / 2 + t / 2, h - 0.2, t, width=1.0, gap=0.8, height=1.2)
+        if side == 0:
+            front = hs
+    # Merlons left on the standing front of the keep, each on the broken top of the strip under it
+    n = int((s - 3.0 + 0.8) // 1.8)
+    for k in range(n):
+        x = -s / 2 + (s - 3.0) / 2 - (n * 1.8 - 0.8) / 2 + 0.5 + k * 1.8
+        top = front[min(cols - 1, int((x + s / 2) / s * cols))]
+        box(stone, x, ky - s / 2 + t / 2, top - 0.2, 1.0, t, 1.2)
     for z in (6.0, 11.5, 16.0):
         for x in (-3.0, 0.0, 3.0):
             box(dark, x, ky - s / 2 - 0.03, z, 0.7, 0.1, 1.8)
@@ -246,7 +252,7 @@ def castle_ruin(name, seed=4):
     box(stone, gx - 3.2, -10.6, -1.5, 2.4, 4.4, 11.5)
     box(stone, gx + 3.2, -10.6, -1.5, 2.4, 4.4, 8.0)
     arch_wall(stone, gx - 2.0, gx + 2.0, -10.0, wall_t + 0.4, -1.5, 7.2, gx, 3.6, 3.6)
-    merlons(stone, gx - 4.4, gx - 2.0, -12.5, 11.5, 0.6, width=0.8, gap=0.6)
+    merlons(stone, gx - 4.4, gx - 2.0, -12.5, 10.0 - 0.2, 0.6, width=0.8, gap=0.6)
     side_heights_left = [wall_h * rnd.uniform(0.85, 1.0) for _ in range(6)]
     side_heights_right = [wall_h * f for f in (0.95, 0.7, 0.35, 0.22, 0.4, 0.8)]
     broken_run(stone, Vector((-15.0, -6.5, 0)), Vector((-s / 2, ky - 2.0, 0)), wall_t, -1.5, side_heights_left)

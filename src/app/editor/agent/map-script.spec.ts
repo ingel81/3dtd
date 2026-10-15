@@ -232,6 +232,16 @@ describe('map scripts', () => {
     expect(run(`map.removeLife(['nope'])`)).toMatchObject({ ok: false, error: expect.stringMatching(/no life areas nope/) });
   });
 
+  it('draws the images of a life area under symmetry', () => {
+    const kit = new MapKit(map(), index, { name: 't', seed: 7 });
+    kit.symmetry = 'rot2';
+    expect(kit.lifeRoute('boats', [{ x: 10, y: 20 }, { x: 60, y: 20.25 }])).toBe('boats-1');
+    expect(kit.doc.life?.areas?.map((a) => [a.id, a.points])).toEqual([
+      ['boats-1', [{ x: 10, y: 20 }, { x: 60, y: 20.25 }]],
+      ['boats-2', [{ x: -10, y: -20 }, { x: -60, y: -20.25 }]],
+    ]);
+  });
+
   it('turns into the same kit run as a level script', () => {
     const doc = map();
     ok(run(`map.raise({ x: 0, y: 0 }, { radius: 20 }, 3);`, doc));
@@ -239,6 +249,26 @@ describe('map scripts', () => {
     kit.raise({ x: 0, y: 0 }, { radius: 20 }, 3);
     expect(contentFingerprint(doc)).toBe(contentFingerprint(kit.doc));
     expect(heightAt(doc.terrain, 0, 0)).toBeCloseTo(3, 1);
+  });
+
+  it('keeps a prefab in the map with an id that is the same when played, and places it as one group (TODO E170)', async () => {
+    const r = ok(
+      run(`
+        const a = map.place('house', 40, 40);
+        const b = map.place('tree-oak', 50, 40);
+        const id = map.savePrefab('Farm', [a.id, b.id], true);
+        map.placePrefab(id, { x: -60, y: -60 }, { rotation: 1 });
+        map.placePrefab('Farm', { x: 60, y: -60 });
+        return { id, kept: map.prefabs() };
+      `),
+    );
+    expect(r.value).toMatchObject({ id: 'pf-1', kept: [{ id: 'pf-1', name: 'Farm', objects: 2, prefab: true }] });
+    const editor = new EditorDocument(map());
+    await playCommands(editor, index, r.commands, 7, { wait: async () => undefined });
+    expect(editor.doc.prefabs?.map((p) => p.id)).toEqual(['pf-1']);
+    const groups = editor.doc.objects.map((o) => o.group ?? '-');
+    expect(groups).toEqual(['-', '-', 'g1', 'g1', 'g2', 'g2']);
+    expect(run(`map.placePrefab('none', { x: 0, y: 0 })`).ok).toBe(false);
   });
 
   it('has every tool of the editor as a command, and plays them to the map the sandbox saw', async () => {

@@ -190,6 +190,53 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     effects: [{ kind: 'unlock-tower', towerId: 'bastion' }],
   },
 
+  // The laser after the lightning: the same energy (lightning damage), focused on one target. Opens with the
+  // heavy and the bosses of the teens, at the price of EMP, which opens with it behind the same research.
+  'laser-optics': {
+    id: 'laser-optics',
+    name: 'Laser Optics',
+    description: 'Unlocks the Sentinel Laser: a beam that heats up on one target, against bosses and tanks',
+    category: 'tower-unlock',
+    branch: 'arcane',
+    icon: 'bulb',
+    cost: 2500,
+    duration: 25,
+    prerequisites: ['storm-mastery'],
+    minWave: 12,
+    effects: [{ kind: 'unlock-tower', towerId: 'sentinel' }],
+  },
+
+  // Robot tentacles: the tentacle's reach in steel, with a saw on each arm. After the tentacle and the cannon's
+  // engineering, opening with the bosses of the tens.
+  'cybernetics': {
+    id: 'cybernetics',
+    name: 'Cybernetics',
+    description: 'Unlocks the Chainsaw: three robot arms, each sawing an enemy of its own at the road',
+    category: 'tower-unlock',
+    branch: 'biology',
+    icon: 'cog',
+    cost: 1500,
+    duration: 20,
+    prerequisites: ['tentacle-biology', 'siege-engineering'],
+    minWave: 10,
+    effects: [{ kind: 'unlock-tower', towerId: 'chainsaw' }],
+  },
+
+  // The grill after the flame: the Shawarma Slicer, a stream of slices on a line, for the long waves of the teens
+  'rotisserie': {
+    id: 'rotisserie',
+    name: 'Rotisserie',
+    description: 'Unlocks the Shawarma Slicer: spins up a stream of slices that hits everything on its line',
+    category: 'tower-unlock',
+    branch: 'biology',
+    icon: 'refresh',
+    cost: 1200,
+    duration: 20,
+    prerequisites: ['fire-alchemy'],
+    minWave: 9,
+    effects: [{ kind: 'unlock-tower', towerId: 'shawarma' }],
+  },
+
   // ==================== Tower Unlocks (Tier 3) ====================
 
   'chaos-rift': {
@@ -256,6 +303,24 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     prerequisites: ['fire-alchemy'],
     minWave: 10,
     effects: [{ kind: 'unlock-path', pathId: 'incendiary' }],
+  },
+
+  // The archer's answer to armor, out of the siege line: the tower becomes a
+  // ballista, after the first tank and bear waves (W9, W11) and before the
+  // first mammoths (W14)
+  'ballista-bolts': {
+    id: 'ballista-bolts',
+    name: 'Ballista Bolts',
+    description: 'Archer towers can take the Sniper path: a ballista with twice the range and armor-piercing bolts',
+    category: 'global-perk',
+    branch: 'ballistics',
+    // A scope: siege engineering before it has the catapult
+    icon: 'search',
+    cost: 2500,
+    duration: 25,
+    prerequisites: ['siege-engineering'],
+    minWave: 12,
+    effects: [{ kind: 'unlock-path', pathId: 'sniper' }],
   },
 
   // The rocket stands idle in every ground wave; this lets it help there at

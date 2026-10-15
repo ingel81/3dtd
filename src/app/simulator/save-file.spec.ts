@@ -86,6 +86,23 @@ describe('save file (TODO E110)', () => {
     expect(saveFileRefusalText('damaged')).toBe('That save is damaged.');
   });
 
+  it('refuses a save with an unreleased tower or path in a production build, and names it (configs/release.ts)', () => {
+    const sim = emptySimSnapshot(11);
+    const tower = (typeId: string, pathId: string | null) => ({
+      id: 't1', typeId, lat: 49.1, lon: 9.2, height: 0, customRotation: 0, plinthHeight: 0, plinthOverhang: [], upgrades: [],
+      losMask: null, state: { cooldownMs: 0, kills: 0, damageDealt: 0, pathId },
+    });
+    const withTower = (typeId: string, pathId: string | null = null) => text({ sim: { ...sim, towers: [tower(typeId, pathId)] } });
+    const bastion = readSaveFile(withTower('bastion'), HERE, true);
+    expect(bastion.refusal).toBe('unreleased');
+    expect(bastion.refusal !== null && saveFileRefusalText(bastion.refusal, bastion.detail))
+      .toBe('That save uses Iron Bastion, which this version of the game does not have yet.');
+    expect(readSaveFile(withTower('archer', 'incendiary'), HERE, true).refusal).toBe('unreleased');
+    expect(readSaveFile(withTower('archer', 'scout'), HERE, true).refusal).toBeNull();
+    // A dev build loads it
+    expect(readSaveFile(withTower('bastion'), HERE, false).refusal).toBeNull();
+  });
+
   it('names the download after place and wave', () => {
     expect(saveFileName('Heilbronn, Kiliansplatz', 12))
       .toBe('3dtd-save-heilbronn-kiliansplatz-w12.json.gz');

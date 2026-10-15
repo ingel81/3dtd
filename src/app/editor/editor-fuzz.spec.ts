@@ -350,7 +350,7 @@ function fuzz(seed: number, count: number): Run {
     mirror: () => {
       const mode = pick<SymmetryMode>(['x', 'y', 'xy', 'rot2']);
       const from = { x: (r() - 0.5) * 100, y: (r() - 0.5) * 100 };
-      editor.execute(SnapshotCommand.record(editor.doc, 'Mirror the map', ['terrain', 'objects', 'paths', 'spawns'], (d) => void mirrorMap(d, mode, from)));
+      editor.execute(SnapshotCommand.record(editor.doc, 'Mirror the map', ['terrain', 'objects', 'paths', 'spawns', 'life'], (d) => void mirrorMap(d, mode, from)));
       steps.push(`mirror ${mode}`);
     },
     heightmap: () => {

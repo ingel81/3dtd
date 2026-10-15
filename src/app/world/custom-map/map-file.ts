@@ -15,7 +15,18 @@
  */
 import { VACANT_LANES } from './lane-choice';
 import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate';
-import { MAP_DIFFICULTY, MAP_FORMAT, MAP_VERSION, MAX_GROUND_LAYERS, splatMapCount, type CustomMapDocument } from './map-document';
+import {
+  MAP_DIFFICULTY,
+  MAP_FORMAT,
+  MAP_VERSION,
+  MAX_GROUND_LAYERS,
+  MAX_MAP_PREFABS,
+  WAVE_EVENT_LIMITS,
+  splatMapCount,
+  type CustomMapDocument,
+  type MapPrefab,
+  type MapWaveEvent,
+} from './map-document';
 import { MAP_ID_PATTERN } from './map-create';
 import { lifeProblems } from './map-life';
 
@@ -80,8 +91,14 @@ function knownEntry(name: string): boolean {
     name === MAP_JSON_ENTRY ||
     name === MAP_PREVIEW_ENTRY ||
     (Object.values(BIN) as string[]).includes(name) ||
-    /^terrain\/water-([1-9]\d?)-mask\.u8$/.test(name)
+    /^terrain\/water-([1-9]\d?)-mask\.u8$/.test(name) ||
+    /^prefabs\/\d{1,2}\/(heights\.f32|paint\.u8|water\.u8)$/.test(name)
   );
+}
+
+/** Zip path of an array of prefab k (CustomMapDocument.prefabs) */
+function prefabPath(k: number, part: 'heights.f32' | 'paint.u8' | 'water.u8'): string {
+  return `prefabs/${k}/${part}`;
 }
 
 /** Zip path of further water body k's mask */
@@ -105,9 +122,9 @@ export interface UnpackedMap {
 export function packMapFile(doc: CustomMapDocument, options: PackOptions = {}): Uint8Array {
   const problems = validateMapDocument(doc);
   if (problems.length) throw new MapFileError(`The map is not valid: ${problems[0]}`, problems);
-  const { json, binaries } = splitDocument(doc);
+  const { json, binaries, editorBinaries } = splitDocument(doc);
   const files: Zippable = { [MAP_JSON_ENTRY]: strToU8(JSON.stringify(json)) };
-  for (const [name, bytes] of binaries) files[name] = bytes;
+  for (const [name, bytes] of [...binaries, ...editorBinaries]) files[name] = bytes;
   if (options.preview) files[MAP_PREVIEW_ENTRY] = [options.preview, { level: 0 }];
   // The zip's file times come from the map, so packing the same map gives the same bytes
   const updated = Date.parse(doc.meta.updatedAt);
@@ -189,8 +206,9 @@ export async function contentHash(doc: CustomMapDocument): Promise<string> {
 /** The bytes `contentHash` digests: canonical JSON of the world, then the arrays */
 export function contentBytes(doc: CustomMapDocument): Uint8Array {
   const { json, binaries } = splitDocument(doc);
-  // Neither the file's version nor its format is world content: a new file version keeps the hashes of unchanged maps
-  const { version: _version, format: _format, ...rest } = json;
+  // Neither the file's version nor its format is world content: a new file version keeps the hashes of unchanged maps.
+  // Nor are the prefabs the map keeps for its editor
+  const { version: _version, format: _format, prefabs: _prefabs, ...rest } = json;
   const world = { ...rest, meta: { id: doc.meta.id } };
   const head = strToU8(canonicalJson(world));
   let size = head.length;
@@ -400,6 +418,10 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
           if (lanes.vacant !== undefined && !VACANT_LANES.includes(lanes.vacant)) p.push('gameplay.lanes.vacant must be close, host or split');
         }
       }
+      if (gp.events !== undefined) {
+        if (!Array.isArray(gp.events) || gp.events.length > WAVE_EVENT_LIMITS.events) p.push(`gameplay.events must be a list of at most ${WAVE_EVENT_LIMITS.events}`);
+        else gp.events.forEach((e, k) => p.push(...waveEventProblems(e, k)));
+      }
       const w = gp.waves;
       if (w !== undefined && w.kind !== 'budget' && w.kind !== 'table') p.push('gameplay.waves.kind must be budget or table');
       if (w?.kind === 'table') {
@@ -419,6 +441,10 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
       }
     }
   }
+  if (doc.prefabs !== undefined) {
+    if (!Array.isArray(doc.prefabs) || doc.prefabs.length > MAX_MAP_PREFABS) p.push(`prefabs must be a list of at most ${MAX_MAP_PREFABS}`);
+    else doc.prefabs.forEach((pf, k) => p.push(...prefabProblems(pf, k)));
+  }
   const env = doc.environment;
   if (!env || !['day', 'dusk', 'night', 'overcast'].includes(env.sky)) p.push('environment sky is unknown');
   const looks = ['temperate', 'hell', 'moon', 'mars', 'arctic', 'apocalypse', 'swamp', 'desert', 'mountain', 'city'];
@@ -437,8 +463,59 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
   return p;
 }
 
-/** The document as JSON with binary refs, and the binaries by zip path */
-function splitDocument(doc: CustomMapDocument): { json: Record<string, unknown>; binaries: [string, Uint8Array][] } {
+/** What is wrong with wave event k of a map, in words (the shape; the editor's check names spawns and objects that are gone) */
+function waveEventProblems(e: MapWaveEvent, k: number): string[] {
+  const what = `wave event ${k + 1}`;
+  if (!e || typeof e !== 'object') return [`${what} is not an object`];
+  if (!Number.isInteger(e.wave) || e.wave < 1 || e.wave > WAVE_EVENT_LIMITS.wave) return [`${what}: wave must be a whole number from 1 to ${WAVE_EVENT_LIMITS.wave}`];
+  const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+  switch (e.kind) {
+    case 'message':
+      return typeof e.text === 'string' && e.text.trim() && e.text.length <= WAVE_EVENT_LIMITS.text ? [] : [`${what}: a message of 1 to ${WAVE_EVENT_LIMITS.text} characters`];
+    case 'weather':
+      if (!['clear', 'rain', 'snow', 'fog'].includes(e.weather)) return [`${what}: weather must be clear, rain, snow or fog`];
+      return e.strength === undefined || (finite(e.strength) && e.strength >= 0 && e.strength <= 1) ? [] : [`${what}: strength must be 0 to 1`];
+    case 'time':
+      return finite(e.hour) && e.hour >= 0 && e.hour <= 24 ? [] : [`${what}: hour must be 0 to 24`];
+    case 'portal':
+      return typeof e.spawn === 'string' && e.spawn ? [] : [`${what} names no spawn`];
+    case 'objects':
+      if (typeof e.show !== 'boolean') return [`${what}: show must be true or false`];
+      return Array.isArray(e.ids) && e.ids.length > 0 && e.ids.length <= WAVE_EVENT_LIMITS.objects && e.ids.every((id) => typeof id === 'string') ? [] : [`${what} names 1 to ${WAVE_EVENT_LIMITS.objects} objects`];
+    default:
+      return [`${what}: kind ${String((e as { kind: unknown }).kind)} is unknown`];
+  }
+}
+
+/** What is wrong with prefab k of a map, in words */
+function prefabProblems(pf: MapPrefab, k: number): string[] {
+  const what = `prefab ${k + 1}`;
+  if (!pf || typeof pf !== 'object' || typeof pf.id !== 'string' || typeof pf.name !== 'string' || !pf.stamp) return [`${what} needs an id, a name and its piece`];
+  const st = pf.stamp;
+  const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+  const out: string[] = [];
+  const whole = (v: unknown, min: number) => Number.isInteger(v) && (v as number) >= min && (v as number) <= MAX_GRID_SIDE;
+  if (![st.width, st.depth, st.cell, st.paintCell].every((v) => finite(v) && v > 0)) out.push(`${what} has no size`);
+  if (!whole(st.columns, 2) || !whole(st.rows, 2) || !isTyped(st.heights, 'Float32Array') || st.heights.length !== st.columns * st.rows) out.push(`${what}: heights do not match its grid`);
+  const materials = Array.isArray(st.materials) && st.materials.every((m) => typeof m === 'string') ? st.materials.length : -1;
+  if (materials < 0) out.push(`${what}: materials must be a list of ids`);
+  else if (!whole(st.paintColumns, 1) || !whole(st.paintRows, 1) || !isTyped(st.paint, 'Uint8Array') || st.paint.length !== st.paintColumns * st.paintRows * materials) {
+    out.push(`${what}: paint does not match its grid`);
+  }
+  if (st.water && (!finite(st.water.level) || !isTyped(st.water.mask, 'Uint8Array') || st.water.mask.length !== st.columns * st.rows)) out.push(`${what}: water does not match its grid`);
+  if (!Array.isArray(st.objects) || st.objects.some((o) => !o || typeof o.asset !== 'string' || ![o.x, o.y, o.z, o.rotation, o.scale].every(finite))) out.push(`${what} has a bad object`);
+  if (!st.roads || !Array.isArray(st.roads.nodes) || !Array.isArray(st.roads.edges)) out.push(`${what}: roads must have lists of nodes and edges`);
+  if (st.life !== undefined && (!Array.isArray(st.life) || st.life.some((a) => !a || !Array.isArray(a.points) || a.points.some((q) => !finite(q?.x) || !finite(q?.y))))) {
+    out.push(`${what}: life must be a list of areas with points`);
+  }
+  return out;
+}
+
+/**
+ * The document as JSON with binary refs, and the binaries by zip path: the
+ * world's, and the editor's own (the prefabs' arrays, outside the content hash)
+ */
+function splitDocument(doc: CustomMapDocument): { json: Record<string, unknown>; binaries: [string, Uint8Array][]; editorBinaries: [string, Uint8Array][] } {
   const t = doc.terrain;
   const binaries: [string, Uint8Array][] = [
     [BIN.heights, floatBytes(t.grid.heights)],
@@ -458,7 +535,22 @@ function splitDocument(doc: CustomMapDocument): { json: Record<string, unknown>;
     water: t.water ? { ...t.water, mask: ref(BIN.water) } : null,
     ...(bodies.length ? { waterBodies: bodies.map((body, k) => ({ ...body, mask: ref(waterBodyPath(k)) })) } : {}),
   };
-  return { json: { ...doc, terrain } as unknown as Record<string, unknown>, binaries };
+  const editorBinaries: [string, Uint8Array][] = [];
+  const prefabs = doc.prefabs?.map((p, k) => {
+    const st = p.stamp;
+    editorBinaries.push([prefabPath(k, 'heights.f32'), floatBytes(st.heights)], [prefabPath(k, 'paint.u8'), st.paint]);
+    if (st.water) editorBinaries.push([prefabPath(k, 'water.u8'), st.water.mask]);
+    const stamp = {
+      ...st,
+      heights: ref(prefabPath(k, 'heights.f32')),
+      paint: ref(prefabPath(k, 'paint.u8')),
+      water: st.water ? { ...st.water, mask: ref(prefabPath(k, 'water.u8')) } : null,
+    };
+    return { ...p, stamp };
+  });
+  // No key at all without prefabs: files of maps without them stay as they were
+  const json = { ...doc, terrain, prefabs: prefabs?.length ? prefabs : undefined };
+  return { json: json as unknown as Record<string, unknown>, binaries, editorBinaries };
 }
 
 function joinDocument(json: Record<string, unknown>, entries: Record<string, Uint8Array>): CustomMapDocument {
@@ -490,6 +582,22 @@ function joinDocument(json: Record<string, unknown>, entries: Record<string, Uin
     });
   } else {
     delete t['waterBodies'];
+  }
+  const prefabs = (doc as unknown as Record<string, unknown>)['prefabs'];
+  if (Array.isArray(prefabs)) {
+    prefabs.forEach((p, k) => {
+      const st = isRecord(p) && isRecord(p['stamp']) ? p['stamp'] : null;
+      if (!st) throw new MapFileError(`Prefab ${k + 1} is not an object.`);
+      const heights = bin(st['heights'], `the heights of prefab ${k + 1}`);
+      if (heights.length % 4) throw new MapFileError(`The heights of prefab ${k + 1} are cut off.`);
+      st['heights'] = bytesToFloat(heights);
+      st['paint'] = bin(st['paint'], `the paint of prefab ${k + 1}`);
+      const water = st['water'];
+      if (isRecord(water)) water['mask'] = bin(water['mask'], `the water of prefab ${k + 1}`);
+      else st['water'] = null;
+    });
+  } else {
+    delete doc.prefabs;
   }
   doc.objects ??= [];
   doc.paths ??= { nodes: [], edges: [] };

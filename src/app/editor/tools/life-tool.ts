@@ -8,11 +8,14 @@
  * Shift+click on its edge adds a point there, Delete removes the chosen
  * point (an outline keeps three, a line two) or, with none chosen, the
  * area. Every finished outline, line and drag is one step in the history.
+ * With symmetry on, a new outline or line gets its images too (in the same
+ * step); edits of one area later stay on that area.
  */
 import type { CustomMapDocument, MapLife, MapLifeArea, MapPoint } from '../../world/custom-map/map-document';
 import { LIFE_KIND_INFO, MAX_LIFE_AREAS, MAX_LIFE_POINTS, nearestOnShape, newLifeId, outlineArea, shapeLength } from '../../world/custom-map/map-life';
 import { SnapshotCommand } from '../model/editor-document';
 import { insideMap } from '../model/grid';
+import { lifeAreaImages, symmetryImages } from '../ops/symmetry';
 import type { EditorTool, ToolContext, ToolPointer } from './tool';
 
 /** Screen pixels a handle or a route's line takes a click from */
@@ -210,7 +213,15 @@ export class LifeTool implements EditorTool {
     }
     const id = newLifeId(areas, s.kind);
     const label = `${LIFE_KIND_INFO[s.kind].label} ${shape === 'area' ? 'area' : 'route'}`;
-    this.change(ctx, label, (life) => (life.areas = [...(life.areas ?? []), newLifeArea(id, s.kind, shape, usable)]));
+    const area = newLifeArea(id, s.kind, shape, usable);
+    const t = ctx.editor.doc.terrain;
+    const taken = [...areas, area];
+    const images = lifeAreaImages([area], symmetryImages(ctx.settings.symmetry, t.grid.columns === t.grid.rows), (a) => {
+      const copy = { ...a, id: newLifeId(taken, a.kind) };
+      taken.push(copy);
+      return copy.id;
+    }, t.width / 2, t.depth / 2).slice(0, MAX_LIFE_AREAS - areas.length - 1);
+    this.change(ctx, label, (life) => (life.areas = [...(life.areas ?? []), area, ...images]));
     s.chosen = id;
     s.point = -1;
     ctx.settingsChanged();

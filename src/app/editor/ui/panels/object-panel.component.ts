@@ -9,6 +9,7 @@ import type { EditorSettings, GizmoMode, ObjectMode } from '../../tools/tool';
 type ObjectToolSettings = EditorSettings['objects'];
 import { EditorSession } from '../editor-session.service';
 import { BrushPanelComponent } from './brush-panel.component';
+import { PrefabPanelComponent } from './prefab-panel.component';
 import { RangeRowComponent } from './range-row.component';
 
 const MODES: { id: ObjectMode; label: string; key: string }[] = [
@@ -28,7 +29,7 @@ const SNAPS = [0, 1, 2, 4, 8];
 @Component({
   selector: 'app-object-panel',
   standalone: true,
-  imports: [BrushPanelComponent, RangeRowComponent, MatTooltipModule],
+  imports: [BrushPanelComponent, PrefabPanelComponent, RangeRowComponent, MatTooltipModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'td-stack is-loose' },
   templateUrl: './object-panel.component.html',

@@ -1,12 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { TdIconComponent } from '../../../components/icon/icon.component';
 import type { MapLife, MapLifeArea, MapLifeKind } from '../../../world/custom-map/map-document';
-import { centroid, DEFAULT_BOAT, LIFE_AREA_DENSITY, LIFE_KIND_INFO, LIFE_KINDS, lifeSwitches, outlineArea, shapeLength } from '../../../world/custom-map/map-life';
+import { centroid, DEFAULT_BOAT, LIFE_AREA_DENSITY, LIFE_KIND_INFO, LIFE_KINDS, LIFE_SOUND_REACH, lifeSwitches, outlineArea, shapeLength } from '../../../world/custom-map/map-life';
 import { SnapshotCommand } from '../../model/editor-document';
 import type { LifeMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
 import { RangeRowComponent } from './range-row.component';
-import { AMBIENT_SOUNDS, BIOME_AMBIENCE } from '../../../world/custom-map/ambience/ambient-sounds';
+import { AMBIENT_SOUNDS, BIOME_AMBIENCE, WAVE_SOUNDS } from '../../../world/custom-map/ambience/ambient-sounds';
 
 
 /** Effect objects a click places (the Objects tool's Place), for one spot instead of an area */
@@ -94,7 +94,9 @@ const TINTED: ReadonlySet<MapLifeKind> = new Set(['fireflies', 'fog', 'leaves', 
           </label>
           <app-editor-range label="Volume" unit="%" [min]="0" [max]="100" [step]="5" [value]="(a.volume ?? 0.7) * 100"
                             (changing)="liveArea(a.id, { volume: $event / 100 })" (changed)="commitArea(a.id, { volume: $event / 100 }, 'Life sound volume')" />
-          <p class="td-note">Full inside the outline or on the line, fading out over 70 m around it; quieter from high up.</p>
+          <app-editor-range label="Reach" unit="m" [min]="reachRange.min" [max]="reachRange.max" [step]="5" [value]="a.reach ?? reachRange.default"
+                            (changing)="liveArea(a.id, { reach: $event })" (changed)="commitArea(a.id, { reach: $event }, 'Life sound reach')" data-test="life-reach" />
+          <p class="td-note">Full inside the outline or on the line, fading out over its reach around it; quieter from high up.</p>
         }
         @if (a.kind === 'movers') {
           <label class="td-setting">
@@ -108,6 +110,14 @@ const TINTED: ReadonlySet<MapLifeKind> = new Set(['fireflies', 'fog', 'leaves', 
           </label>
           <app-editor-range label="Speed" unit="m/s" [min]="0.2" [max]="15" [step]="0.1" [value]="a.speed ?? 1.5"
                             (changing)="liveArea(a.id, { speed: $event })" (changed)="commitArea(a.id, { speed: $event }, 'Mover speed')" />
+          <label class="td-setting">
+            <span>Hangs from a line</span>
+            <input class="td-switch" type="checkbox" [checked]="a.height !== undefined" (change)="commitArea(a.id, { height: $any($event.target).checked ? 20 : undefined }, 'Mover on a line')" aria-label="Hangs from a line" />
+          </label>
+          @if (a.height !== undefined) {
+            <app-editor-range label="Over the ground" unit="m" [min]="1" [max]="150" [value]="a.height"
+                              (changing)="liveArea(a.id, { height: $event })" (changed)="commitArea(a.id, { height: $event }, 'Mover height')" />
+          }
           <p class="td-note">Goes round inside the outline, or up the line on one side and back on the other, over the ground. Drawn only: enemies and towers do not see it.</p>
         }
         @if (a.kind === 'boats') {
@@ -203,11 +213,38 @@ const TINTED: ReadonlySet<MapLifeKind> = new Set(['fireflies', 'fog', 'leaves', 
                             (changing)="liveLife({ ambience: { sound: amb.sound, volume: $event / 100 } })"
                             (changed)="commitLife({ ambience: { sound: amb.sound, volume: $event / 100 } }, 'Sound volume')" />
         }
+        <label class="td-setting">
+          <span>At each wave</span>
+          <select class="td-select is-auto" [value]="life()?.waveSound?.sound ?? ''" (change)="setWaveSound($any($event.target).value)" aria-label="Sound at each wave" data-test="life-wave-sound">
+            <option value="">None</option>
+            @for (o of waveSounds; track o.id) {
+              <option [value]="o.id">{{ o.label }}</option>
+            }
+          </select>
+        </label>
+        @if (life()?.waveSound; as ws) {
+          <app-editor-range label="Volume" unit="%" [min]="0" [max]="100" [step]="5" [value]="ws.volume * 100"
+                            (changing)="liveLife({ waveSound: { ...ws, volume: $event / 100 } })"
+                            (changed)="commitLife({ waveSound: { ...ws, volume: $event / 100 } }, 'Wave sound volume')" />
+          <label class="td-setting">
+            <span>Comes from</span>
+            <select class="td-select is-auto" [value]="ws.area ?? ''" (change)="setWaveSoundArea($any($event.target).value)" aria-label="Where the wave sound comes from" data-test="life-wave-area">
+              <option value="">Everywhere alike</option>
+              @for (a of areas(); track a.id) {
+                <option [value]="a.id">{{ a.id }}</option>
+              }
+            </select>
+          </label>
+          <div class="td-setting">
+            <span>Hear it once</span>
+            <button class="td-btn-secondary td-btn-sm" type="button" (click)="session.playWaveSound()" data-test="life-wave-play">Play</button>
+          </div>
+        }
         <div class="td-setting">
           <span>Hear it in the editor</span>
           <input class="td-switch" type="checkbox" [checked]="settings().hear" (change)="session.hearAmbience($any($event.target).checked)" aria-label="Hear the map's sound" data-test="life-hear" />
         </div>
-      <p class="td-note">The look's own plays its sounds by day and by night. Sound areas and lines add a sound where you draw them (pick Sound above).</p>
+      <p class="td-note">The look's own plays its sounds by day and by night. Sound areas and lines add a sound where you draw them (pick Sound above). The wave sound plays once as each wave starts, from the area it comes from (quieter far off) or alike everywhere.</p>
     </div>
   `,
   styles: [
@@ -222,10 +259,12 @@ export class LifePanelComponent {
   readonly info = LIFE_KIND_INFO;
   readonly kinds = LIFE_KINDS;
   readonly sounds = Object.entries(AMBIENT_SOUNDS).map(([id, s]) => ({ id, label: s.label }));
+  readonly waveSounds = Object.entries(WAVE_SOUNDS).map(([id, s]) => ({ id, label: s.label }));
   readonly biomeAmbience = BIOME_AMBIENCE;
   readonly spots = SPOTS;
   readonly tinted = TINTED;
   readonly density = LIFE_AREA_DENSITY;
+  readonly reachRange = LIFE_SOUND_REACH;
   readonly modes: { id: LifeMode; label: string }[] = [
     { id: 'area', label: 'Outline' },
     { id: 'route', label: 'Line' },
@@ -294,6 +333,18 @@ export class LifePanelComponent {
   setAmbience(sound: string): void {
     const volume = this.life()?.ambience?.volume ?? 0.6;
     this.commitLife({ ambience: sound ? { sound, volume } : undefined }, sound ? 'Sound over the map' : 'No sound over the map');
+  }
+
+  setWaveSound(sound: string): void {
+    const now = this.life()?.waveSound;
+    this.commitLife({ waveSound: sound ? { ...now, sound, volume: now?.volume ?? 0.8 } : undefined }, sound ? 'Sound at each wave' : 'No sound at each wave');
+  }
+
+  setWaveSoundArea(area: string): void {
+    const now = this.life()?.waveSound;
+    if (!now) return;
+    const { area: _old, ...rest } = now;
+    this.commitLife({ waveSound: area ? { ...rest, area } : rest }, 'Wave sound place');
   }
 
   setAuto(key: 'smoke' | 'fireflies' | 'birds' | 'sparks', on: boolean): void {

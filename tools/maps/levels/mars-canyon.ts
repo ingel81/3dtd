@@ -56,8 +56,8 @@ export function buildMarsCanyon(): CustomMapDocument {
   carve(eastCanyon, 2.5, 22, 3);
   carve([basin, hq], 2, 28, 4);
   k.level(basin, { radius: 48, falloff: 0.4 }, 3);
-  // The colony's floor: wide and level under the domes and the pad, the walls rising round it
-  for (const [dx, dy, r] of [[0, 0, 62], [30, -20, 46], [-30, -10, 46], [-60, -40, 26]] as const) k.level({ x: hq.x + dx, y: hq.y + dy }, { radius: r, falloff: 0.3 }, 2);
+  // The colony's floor: wide and level under the domes, the walls rising round it; the pad stays up on the plain
+  for (const [dx, dy, r] of [[0, 0, 62], [30, -20, 46], [-30, -10, 46]] as const) k.level({ x: hq.x + dx, y: hq.y + dy }, { radius: r, falloff: 0.3 }, 2);
   for (const line of [westCanyon, northCanyon, eastCanyon]) k.erode(line, { radius: 34, strength: 1 }, 5);
   // The spawns at the map's edge stand on the canyon floor, not on its wall
   for (const [p, floor] of [[west, 3], [north, 3], [east, 2.5]] as const) k.level(p, { radius: 20, falloff: 0.3 }, floor);
@@ -113,13 +113,14 @@ export function buildMarsCanyon(): CustomMapDocument {
     k.place(['greenhouse-dome', 'base-module', 'dome-white', 'greenhouse-dome', 'dome-glass', 'base-module', 'research-station'][i], p.x, p.y, { rotation: facing(p, hq) });
   }
   for (const p of around(20, 3, 1.4)) if (k.free(p.x, p.y, 3)) k.place('base-tunnel', p.x, p.y, { rotation: facing(p, hq) + Math.PI / 2 });
-  const pad = { x: hq.x - 60, y: hq.y - 40 };
+  // The pad up on the plain, back from the canyon's lip, on a levelled apron
+  const pad = { x: hq.x - 82, y: hq.y - 56 };
+  k.level(pad, { radius: 16, falloff: 0.4 }, plain);
   k.paint('concrete', pad, { radius: 14, falloff: 0.4 }, 1);
   if (k.free(pad.x, pad.y, 8)) {
     k.place('landing-pad', pad.x, pad.y);
     // The lander that brought the colony, standing on its pad as the landmark of the base
-    // TODO(E179): a Mars lander model; the moon lander, enlarged, stands in
-    k.place('lander', pad.x + 1, pad.y, { rotation: 2.2, scale: 2.2 });
+    k.place('lander', pad.x + 1, pad.y, { rotation: 2.2, scale: 1.6 });
   }
   // A greenhouse farm on the basin's edge, rovers on their way out to it
   for (const p of around(54, 6, 0.5)) if (p.y < hq.y - 10 && k.free(p.x, p.y, 9)) k.place('greenhouse-dome', p.x, p.y, { rotation: facing(p, hq) });

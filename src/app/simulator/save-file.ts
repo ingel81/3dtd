@@ -1,3 +1,4 @@
+import { unreleasedInSave } from '../configs/release';
 import type { GeoPosition } from '../models/game.types';
 import type { GameRngState } from '../utils/game-rng';
 import type { DirectorSave } from '../director/wave-director';
@@ -85,7 +86,7 @@ export function buildSaveFile(parts: SaveParts, now: Date = new Date()): SaveFil
 export const MAX_SAVE_FILE_BYTES = 32 * 1024 * 1024;
 
 /** Why a save cannot be loaded, null when it can. */
-export type SaveFileRefusal = 'not-a-save' | 'too-big' | 'damaged' | 'version';
+export type SaveFileRefusal = 'not-a-save' | 'too-big' | 'damaged' | 'version' | 'unreleased';
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const isPlace = (v: unknown): boolean => isObject(v) && Number.isFinite(v['lat']) && Number.isFinite(v['lon']);
@@ -168,7 +169,8 @@ function isDirector(v: unknown): boolean {
 export function readSaveFile(
   text: string,
   here: { gameVersion: string; configHash: string },
-): { file: SaveFile; refusal: null; note: string | null } | { file: null; refusal: SaveFileRefusal } {
+  production?: boolean,
+): { file: SaveFile; refusal: null; note: string | null } | { file: null; refusal: SaveFileRefusal; detail?: string } {
   if (text.length > MAX_SAVE_FILE_BYTES) return { file: null, refusal: 'too-big' };
   let data: Partial<SaveFile>;
   try {
@@ -185,6 +187,9 @@ export function readSaveFile(
   if (file.world.version !== WORLD_PACKAGE_VERSION || file.sim.version !== SIM_SNAPSHOT_VERSION) {
     return { file: null, refusal: 'version' };
   }
+  // A tower or a path this build does not have (configs/release.ts): saved in a dev build
+  const unreleased = unreleasedInSave(file.sim.towers, production);
+  if (unreleased !== null) return { file: null, refusal: 'unreleased', detail: unreleased };
   return { file, refusal: null, note: saveNote(file, here) };
 }
 
@@ -217,8 +222,9 @@ export function saveNote(file: Pick<SaveFile, 'gameVersion' | 'configHash'>, her
 }
 
 /** What the player reads when a save does not load. */
-export function saveFileRefusalText(refusal: SaveFileRefusal): string {
+export function saveFileRefusalText(refusal: SaveFileRefusal, detail?: string): string {
   switch (refusal) {
+    case 'unreleased': return `That save uses ${detail ?? 'a tower'}, which this version of the game does not have yet.`;
     case 'not-a-save': return 'That file is no 3DTD save.';
     case 'too-big': return 'That file is far too big for a 3DTD save.';
     case 'damaged': return 'That save is damaged.';

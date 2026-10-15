@@ -1,28 +1,17 @@
-import type { OsmImportOptions, OsmImportResult } from './import-osm';
+import type { OsmImportOptions } from './import-osm';
+import type { FrameSpawn, GeoPoint, OsmFrameInfo, OsmMade, OsmStep } from './osm-frame-core';
 
-/** One step of an OSM world's making, for the progress line */
-export type OsmImportStep = 'download' | 'convert';
-
-/** What the download took, for the report */
-export interface OsmDownloadStats {
-  osmMs: number;
-  /** JSON characters of the Overpass answers */
-  osmChars: number;
-  osmRequests: number;
-  demMs: number;
-  demTiles: number;
-  demBytes: number;
-}
-
-export interface OsmWorkerRequest {
-  id: number;
-  lat: number;
-  lon: number;
-  address?: string;
-  options: OsmImportOptions;
-}
+/** A call of the frame on the OSM worker (OsmFrameCore's methods) */
+export type OsmWorkerRequest =
+  | { id: number; kind: 'open'; place: GeoPoint & { address?: string }; count: number; spawnsAt: GeoPoint[] }
+  | { id: number; kind: 'draw'; count: number; keep: GeoPoint[] }
+  | { id: number; kind: 'drop'; at: GeoPoint }
+  | { id: number; kind: 'make'; spawnsAt: GeoPoint[]; options: OsmImportOptions };
 
 export type OsmWorkerResponse =
-  | { id: number; kind: 'step'; step: OsmImportStep }
-  | { id: number; kind: 'done'; result: OsmImportResult; download: OsmDownloadStats; convertMs: number }
+  | { id: number; kind: 'step'; step: OsmStep }
+  | { id: number; kind: 'opened'; frame: OsmFrameInfo }
+  | { id: number; kind: 'spawns'; spawns: FrameSpawn[] }
+  | { id: number; kind: 'dropped'; spawn: FrameSpawn | { reason: string } }
+  | { id: number; kind: 'made'; made: OsmMade }
   | { id: number; kind: 'error'; error: string };

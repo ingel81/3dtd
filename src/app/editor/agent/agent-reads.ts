@@ -88,6 +88,7 @@ export function mapSummary(doc: CustomMapDocument, catalog: CatalogIndex): Recor
     life: {
       ...lifeSwitches(doc.life),
       ambience: doc.life?.ambience ?? null,
+      waveSound: doc.life?.waveSound ?? null,
       areas: (doc.life?.areas ?? []).map((a) => ({ id: a.id, kind: a.kind, shape: a.shape, points: a.points.length, density: a.density ?? 1 })),
     },
   };

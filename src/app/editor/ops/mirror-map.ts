@@ -6,15 +6,18 @@
  * A road that leaves the source sector across an axis ends at the image of
  * its source end, so the roads of both halves meet; a river that crosses an
  * axis stays as it is (its bed follows the copied heights only on the
- * source side). The HQ stays where it is. Like the level scripts'
+ * source side). Life areas and routes follow the rivers' rule: wholly in
+ * the source sector they are copied, wholly outside they go, across an
+ * axis they stay. The HQ stays where it is. Like the level scripts'
  * `kit.mirrorFrom`, but for everything the map holds.
  */
-import type { CustomMapDocument, MapPathEdge, MapPathNode, MapRiver, MapSpawn } from '../../world/custom-map/map-document';
+import type { CustomMapDocument, MapLifeArea, MapPathEdge, MapPathNode, MapRiver, MapSpawn } from '../../world/custom-map/map-document';
 import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
 import { spawnName } from '../tools/marker-tool';
 import { ObjectIds } from './object-ops';
 import { newId } from './path-graph';
-import { mirrorChange, sameSector, symmetryImages, type SymmetryMode } from './symmetry';
+import { MAX_LIFE_AREAS, newLifeId } from '../../world/custom-map/map-life';
+import { lifeAreaImages, mirrorChange, sameSector, symmetryImages, type SymmetryMode } from './symmetry';
 
 export interface MirrorResult {
   objects: number;
@@ -22,6 +25,8 @@ export interface MirrorResult {
   /** Spawn images left out: the map holds at most MAX_SPAWN_PORTALS */
   spawnsLeftOut?: number;
   roads: number;
+  /** Life areas and routes added as images */
+  life?: number;
 }
 
 const TAU = Math.PI * 2;
@@ -167,5 +172,32 @@ export function mirrorMap(doc: CustomMapDocument, mode: SymmetryMode, from: { x:
     }
     t.rivers = rivers;
   }
-  return { objects: objects.length - kept.length, spawns: spawnCount, roads: roadCount, ...(spawnsLeftOut ? { spawnsLeftOut } : {}) };
+  // Life areas: like the rivers, by their points
+  let lifeCount = 0;
+  if (doc.life?.areas?.length) {
+    const areas: MapLifeArea[] = [];
+    const whole: MapLifeArea[] = [];
+    for (const a of doc.life.areas) {
+      const ins = a.points.filter(inSource).length;
+      if (ins === 0) continue;
+      areas.push(a);
+      if (ins === a.points.length) whole.push(a);
+    }
+    const taken = [...areas];
+    const copies = lifeAreaImages(whole, images, (a) => {
+      const id = newLifeId(taken, a.kind);
+      taken.push({ ...a, id });
+      return id;
+    }, t.width / 2, t.depth / 2).slice(0, Math.max(0, MAX_LIFE_AREAS - areas.length));
+    lifeCount = copies.length;
+    const list = [...areas, ...copies];
+    doc.life = { ...doc.life, areas: list };
+  }
+  return {
+    objects: objects.length - kept.length,
+    spawns: spawnCount,
+    roads: roadCount,
+    ...(spawnsLeftOut ? { spawnsLeftOut } : {}),
+    ...(lifeCount > 0 ? { life: lifeCount } : {}),
+  };
 }

@@ -39,7 +39,7 @@ export const TURRET_ALIGN_TOLERANCE = Math.PI / 12;
 
 export interface TowerAim {
   /** The model turns a turret part (TowerTypeConfig.turnsTurret): only then firing waits for the aim */
-  readonly turret: boolean;
+  turret: boolean;
   /** Heading the turret points at now, rad */
   current: number;
   /** Heading it turns to, rad */
@@ -59,8 +59,8 @@ export interface TowerAim {
    */
   pitch: number;
   pitchTarget: number;
-  readonly pitchMin: number;
-  readonly pitchMax: number;
+  pitchMin: number;
+  pitchMax: number;
 }
 
 /**
@@ -107,7 +107,7 @@ export function createTowerAim(typeConfig: TowerTypeConfig, customRotation: numb
   const parentRotation = (typeConfig.rotationY ?? 0) + customRotation;
   const heading = localRotationToHeading(typeConfig, parentRotation, typeConfig.turretRestY ?? 0);
   const turret = typeConfig.turnsTurret;
-  const range = typeConfig.pitchNodes ? typeConfig.pitchRange ?? DEFAULT_PITCH_RANGE : { min: 0, max: 0 };
+  const range = pitchRangeOf(typeConfig);
   return {
     turret,
     current: heading,
@@ -121,6 +121,23 @@ export function createTowerAim(typeConfig: TowerTypeConfig, customRotation: numb
     pitchMin: range.min,
     pitchMax: range.max,
   };
+}
+
+function pitchRangeOf(typeConfig: TowerTypeConfig): { min: number; max: number } {
+  return typeConfig.pitchNodes ? typeConfig.pitchRange ?? DEFAULT_PITCH_RANGE : { min: 0, max: 0 };
+}
+
+/**
+ * The tower changed its model in place (a path's swap, Tower.pathId): whether firing waits for the turret and
+ * how far the gun tilts follow the new config. The heading stays; the object stays, the renderer holds it.
+ */
+export function refitTowerAim(aim: TowerAim, typeConfig: TowerTypeConfig): void {
+  const range = pitchRangeOf(typeConfig);
+  aim.turret = typeConfig.turnsTurret;
+  aim.pitchMin = range.min;
+  aim.pitchMax = range.max;
+  aim.pitch = Math.min(range.max, Math.max(range.min, aim.pitch));
+  aim.pitchTarget = Math.min(range.max, Math.max(range.min, aim.pitchTarget));
 }
 
 /**

@@ -12,16 +12,18 @@ corner, keep ruin, gate ruin, leaf pile). Every piece gets baked AO.
 import math
 import random
 
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 from blender_kit import (
-    Part, box, card, card_material, clear_scene, flat_material, image_material, oriented_box, pbr_material, tilt, tube,
+    Part, box, card, card_material, clear_scene, flat_material, hexa, image_material, oriented_box, pbr_material, tilt, tube,
     two_sided,
 )
 from blender_kit import finish as export  # noqa: F401  (baked AO)
 import blender_kit
 from build_nature import lump
-from build_structures import RUIN, arch_wall, gable_roof, house, merlons, pyramid_roof
+from build_structures import (
+    RUIN, arch_wall, break_line, chunk, column, fluted_drum, gable_roof, house, merlons, pyramid_roof, ragged_arch, ragged_wall, rim_stones, voussoirs,
+)
 
 WOOD = 'weathered_planks'
 
@@ -162,22 +164,33 @@ def cable_pylon(name, height=16.0):
 
 
 def gondola(name):
-    """Small cable car cabin hanging from its grip arm"""
+    """Small cable car cabin hanging from its grip arm: a red body with a band of windows parted by corner
+    posts and a door seam, a roof cap, the hanger bent over to the grip on the cable"""
     clear_scene()
     body = Part(flat_material('gondola-red', (0.6, 0.1, 0.08), 0.35, 0.3), bevel=0.06)
     glass = Part(flat_material('car-glass', (0.08, 0.1, 0.12), 0.05, 0.6))
     steel = Part(flat_material('pylon-steel', (0.5, 0.52, 0.5), 0.45, 0.8), smooth=True)
-    box(body, 0, 0, 0.0, 2.2, 1.8, 0.9)
-    box(glass, 0, 0, 0.9, 2.1, 1.7, 0.9)
-    box(body, 0, 0, 1.8, 2.3, 1.9, 0.25)
-    oriented_box(steel, Vector((0, 0, 2.05)), Vector((0, 0, 4.0)), 0.12)
-    oriented_box(steel, Vector((0, 0, 4.0)), Vector((0.6, 0, 4.4)), 0.1)
+    box(body, 0, 0, 0.0, 2.2, 1.8, 0.95)
+    box(body, 0, 0, -0.12, 1.9, 1.5, 0.14)
+    box(glass, 0, 0, 0.95, 2.1, 1.7, 0.8)
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            box(body, sx * 1.02, sy * 0.82, 0.95, 0.16, 0.16, 0.8)
+    box(body, 0, -0.84, 0.95, 0.08, 0.14, 0.8)
+    box(body, 0, -0.91, 0.05, 0.03, 0.04, 0.85)
+    box(body, 0, 0, 1.75, 2.3, 1.9, 0.22)
+    box(body, 0, 0, 1.97, 1.6, 1.2, 0.12)
+    oriented_box(steel, Vector((0, 0, 2.05)), Vector((0, 0, 3.7)), 0.12)
+    tube(steel, [Vector((0, 0, 3.7)), Vector((0.15, 0, 4.05)), Vector((0.45, 0, 4.3))], [0.07, 0.07, 0.07], 8)
+    box(steel, 0.45, 0, 4.2, 0.5, 0.3, 0.2)
     tube(steel, [Vector((-0.6, 0, 4.4)), Vector((0.9, 0, 4.4))], [0.12, 0.12], 8, cap=True)
     export(name, [body.to_object(name), glass.to_object(name + '-glass'), steel.to_object(name + '-hanger')])
 
 
 def cable_station(name):
-    """Valley station: stone base hall, a steel roof frame over the bullwheel, a parked gondola, cables out"""
+    """Valley station: a stone hall on a plinth with a timber upper storey under a slate roof, windows round it,
+    a stair up its side to the boarding deck on stone piers; over the deck a braced steel frame with a roof
+    carries the bullwheel (rim, spokes, hub), railings along the deck, cables out, a gondola waiting on them"""
     clear_scene()
     stone = Part(pbr_material('stone-stacked', 'stacked_stone_wall'), uv_metres=2.0)
     wood = planks((0.7, 0.6, 0.5))
@@ -185,26 +198,79 @@ def cable_station(name):
     roof = Part(pbr_material('roof-roof_slates_02', 'roof_slates_02'))
     cable = Part(flat_material('cable', (0.1, 0.1, 0.1), 0.4, 0.8), smooth=True)
     dark = Part(flat_material('window', (0.05, 0.06, 0.07), 0.2, 0.3))
-    box(stone, 0, 3.0, -1.0, 10.0, 6.0, 4.6)
-    for k in range(3):
-        box(dark, -3 + k * 3, -0.02, 1.0, 1.2, 0.1, 1.4)
-    box(wood, 0, -2.0, 3.6, 10.0, 8.0, 0.25)
+    # Hall: stone ground floor with a plinth and a cornice, the timber storey above, its roof ridge along X
+    box(stone, 0, 2.9, -1.0, 10.0, 5.7, 4.6)
+    box(stone, 0, 2.9, -1.0, 10.3, 6.0, 1.4)
+    box(stone, 0, 2.9, 3.45, 10.25, 5.95, 0.2)
+    box(wood, 0, 2.9, 3.65, 9.8, 5.5, 2.15)
+    gable_roof(roof, 9.8, 5.5, 5.8, 1.6, 0.35)
+    for v in roof.bm.verts:
+        v.co.y += 2.9
+    bm = wood.bm
+    for sx in (-1, 1):
+        tri = [bm.verts.new((sx * 4.9, 0.15, 5.8)), bm.verts.new((sx * 4.9, 5.65, 5.8)), bm.verts.new((sx * 4.9, 2.9, 7.4))]
+        bm.faces.new(tri if sx > 0 else list(reversed(tri)))
+    for sx in (-1, 1):
+        for y in (1.4, 4.4):
+            box(dark, sx * 5.0, y, 1.0, 0.1, 1.1, 1.4)
+            box(stone, sx * 5.05, y, 0.85, 0.2, 1.5, 0.15)
+            box(dark, sx * 4.92, y, 4.3, 0.1, 1.2, 1.0)
+    for x in (-3.0, 0.0, 3.0):
+        box(dark, x, 5.77, 4.3, 1.4, 0.1, 1.0)
+        box(dark, x, 0.13, 4.3, 1.4, 0.1, 1.0)
+    box(dark, -2.5, 5.77, 0.0, 1.2, 0.1, 2.2)
+    box(wood, -2.5, 5.83, 0.0, 1.1, 0.06, 2.1)
+    # Stair up the side of the hall to the deck
+    for k in range(12):
+        box(wood, 5.35, 5.4 - k * 0.45, -0.3, 0.7, 0.5, 0.3 + (k + 1) * 0.3)
+    # Deck on stone piers, railings along it (gaps where the gondolas run)
+    box(wood, 0, -3.0, 3.6, 10.0, 6.4, 0.25)
+    for x in (-4.4, 4.4):
+        for y in (-5.6, -2.0):
+            box(stone, x, y, -1.0, 0.9, 0.9, 4.6)
+    for x0, x1, y in ((-5.0, -3.3, -6.15), (-1.5, 1.5, -6.15), (3.3, 5.0, -6.15)):
+        oriented_box(steel, Vector((x0, y, 4.85)), Vector((x1, y, 4.85)), 0.06)
+        for x in (x0, x1):
+            oriented_box(steel, Vector((x, y, 3.85)), Vector((x, y, 4.9)), 0.07)
+    for x in (-4.95, 4.95):
+        oriented_box(steel, Vector((x, -6.15, 4.85)), Vector((x, 0.0, 4.85)), 0.06)
+        for y in (-4.1, -2.0):
+            oriented_box(steel, Vector((x, y, 3.85)), Vector((x, y, 4.9)), 0.07)
+    # Steel frame with knee braces, its roof, the bullwheel hanging from it
     for x in (-4.6, 4.6):
         for y in (-5.6, -1.0):
-            oriented_box(steel, Vector((x, y, 0)), Vector((x, y, 7.0)), 0.25)
+            oriented_box(steel, Vector((x, y, 3.8)), Vector((x, y, 7.0)), 0.25)
+        oriented_box(steel, Vector((x, -5.6, 7.0)), Vector((x, -1.0, 7.0)), 0.2)
     for y in (-5.6, -1.0):
         oriented_box(steel, Vector((-4.6, y, 7.0)), Vector((4.6, y, 7.0)), 0.25)
+        for sx in (-1, 1):
+            oriented_box(steel, Vector((sx * 4.6, y, 5.9)), Vector((sx * 3.4, y, 7.0)), 0.12)
+    oriented_box(steel, Vector((0, -5.6, 7.0)), Vector((0, -1.0, 7.0)), 0.25)
     gable_roof(roof, 10.6, 6.0, 7.2, 1.2, 0.4)
-    for v in roof.bm.verts:
+    for v in roof.bm.verts[len(roof.bm.verts) - 16:]:
         v.co.y -= 3.3
     c = Vector((0, -3.3, 4.6))
-    tube(steel, [c, c + Vector((0, 0, 0.35))], [2.4, 2.4], 24, cap=True)
-    tube(steel, [c + Vector((0, 0, 0.35)), c + Vector((0, 0, 2.4))], [0.35, 0.35], 10, cap=True)
+    ring = [c + Vector((math.cos(a) * 2.4, math.sin(a) * 2.4, 0.15)) for a in (k / 24 * math.tau for k in range(25))]
+    tube(steel, ring, [0.13] * 25, 8)
+    for k in range(8):
+        a = k / 8 * math.tau
+        oriented_box(steel, c + Vector((0, 0, 0.15)), c + Vector((math.cos(a) * 2.35, math.sin(a) * 2.35, 0.15)), 0.1)
+    tube(steel, [c, c + Vector((0, 0, 0.4))], [0.5, 0.5], 12, cap=True)
+    tube(steel, [c + Vector((0, 0, 0.4)), c + Vector((0, 0, 2.4))], [0.3, 0.3], 10, cap=True)
     for x in (-2.4, 2.4):
-        tube(cable, [Vector((x, -3.3, 4.8)), Vector((x, -12.0, 5.5)), Vector((x, -22.0, 7.0))], [0.05, 0.05, 0.05], 6)
+        tube(cable, [Vector((x, -3.3, 4.75)), Vector((x, -12.0, 5.5)), Vector((x, -22.0, 7.0))], [0.05, 0.05, 0.05], 6)
+    # Gondola on the cable: red body, a band of windows, a roof cap, the hanger and its grip
     cab = Part(flat_material('gondola-red', (0.6, 0.1, 0.08), 0.35, 0.3), bevel=0.06)
-    box(cab, 2.4, -6.0, 1.9, 2.2, 1.8, 1.8)
-    oriented_box(steel, Vector((2.4, -6.0, 3.7)), Vector((2.4, -6.0, 4.8)), 0.1)
+    gx, gy = 2.4, -8.0
+    box(cab, gx, gy, 2.2, 2.0, 1.7, 0.75)
+    box(dark, gx, gy, 2.95, 1.9, 1.6, 0.55)
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            box(cab, gx + sx * 0.92, gy + sy * 0.77, 2.95, 0.16, 0.16, 0.55)
+    box(cab, gx, gy, 3.5, 2.05, 1.75, 0.2)
+    box(cab, gx, gy, 3.7, 1.4, 1.1, 0.15)
+    oriented_box(steel, Vector((gx, gy, 3.85)), Vector((gx, gy, 5.2)), 0.1)
+    box(steel, gx, gy, 5.1, 0.3, 0.6, 0.25)
     export(name, [stone.to_object(name), wood.to_object(name + '-deck'), steel.to_object(name + '-steel'), roof.to_object(name + '-roof'),
                   cable.to_object(name + '-cables'), dark.to_object(name + '-windows'), cab.to_object(name + '-gondola')])
 
@@ -338,6 +404,11 @@ def fishing_boat(name):
     box(cabin_roof, 0, 2.3, 3.2, 2.2, 2.4, 0.12)
     dark = Part(flat_material('window', (0.05, 0.06, 0.07), 0.2, 0.3))
     box(dark, 0, 1.18, 2.2, 1.6, 0.05, 0.6)
+    # Side and rear windows of the wheelhouse and a lamp up the mast: window glass, lit at night
+    for x in (-1.02, 1.02):
+        box(dark, x, 2.3, 2.2, 0.05, 1.2, 0.6)
+    box(dark, 0, 3.42, 2.2, 1.2, 0.05, 0.6)
+    box(dark, 0, -1.5, 6.0, 0.2, 0.2, 0.25)
     mast = Part(pbr_material('planks-dark', 'dark_planks'), smooth=True)
     tube(mast, [Vector((0, -1.5, 1.3)), Vector((0, -1.5, 7.5))], [0.12, 0.08], 8, cap=True)
     oriented_box(mast, Vector((0, -1.5, 3.0)), Vector((0, 1.2, 2.6)), 0.08)
@@ -354,30 +425,57 @@ def fishing_boat(name):
 # ---------------------------------------------------------------- desert canyon
 
 def temple_ruin(name, seed=0):
-    """Broken sandstone temple: stepped base, columns snapped at different heights, part of the lintel
-    fallen, blocks scattered"""
+    """Broken sandstone temple: stepped base, fluted columns snapped at different heights (the standing ones
+    with capitals), two pieces of the architrave still up, the cella walls broken down along jagged lines
+    round a doorway, a fallen column in drums, blocks scattered"""
     clear_scene()
     rnd = random.Random(seed)
     stone = Part(pbr_material('wall-sandstone_blocks_04', 'sandstone_blocks_04'), uv_metres=3.0)
-    col = Part(pbr_material('rock-sandstone_cracks', 'sandstone_cracks'), smooth=True)
-    dark = Part(flat_material('temple-dark', (0.04, 0.035, 0.03), 0.9))
+    # Jambs, capitals, bases and loose stones: the same stone without the chamfer (one draw call when packed)
+    trim = Part(stone.material, uv_metres=1.5, bevel=0.0)
+    col = Part(pbr_material('rock-sandstone_cracks', 'sandstone_cracks', (1.0, 0.94, 0.86)), smooth=True)
     w, d = 18.0, 14.0
     for k in range(3):
         box(stone, 0, 0, -0.8 + k * 0.5, w - k * 1.2, d - k * 1.2, 0.8)
-    box(stone, 0, 2.0, 0.7, w - 4.0, d - 6.0, 5.5)
-    box(dark, 0, -1.02, 0.7, 3.0, 0.1, 4.0)
+    # Cella walls 0.9 thick round x -7..7, y -2..6, broken down (the side walls between front and back, no
+    # faces on top of each other); a doorway 3 m wide in the front
+    t = 0.9
+    walls = [(-7.0, -1.5, Matrix.Translation((0, -2.0 + t / 2, 0))), (1.5, 7.0, Matrix.Translation((0, -2.0 + t / 2, 0))),
+             (-7.0, 7.0, Matrix.Translation((0, 6.0 - t / 2, 0))),
+             (-2.0 + t, 6.0 - t, Matrix.Translation((-7.0 + t / 2, 0, 0)) @ Matrix.Rotation(math.pi / 2, 4, 'Z')),
+             (-2.0 + t, 6.0 - t, Matrix.Translation((7.0 - t / 2, 0, 0)) @ Matrix.Rotation(math.pi / 2, 4, 'Z'))]
+    for x0, x1, m in walls:
+        n = max(2, int((x1 - x0) / 2.0))
+        centres = [x0 + (k + 0.5) * (x1 - x0) / n for k in range(n)]
+        heights = [rnd.uniform(2.2, 6.2) for _ in centres]
+        xs, tops = break_line(x0, x1, centres, heights, rnd, 0.6)
+        ragged_wall(stone, xs, tops, t, 0.7, m)
+        rim_stones(trim, xs, tops, t, rnd, 8.0, m, 0.35)
+    for sx in (-1, 1):
+        box(trim, sx * 1.65, -2.0 - 0.06, 0.7, 0.4, 0.3, 2.4 + rnd.uniform(0, 1.2))
+    for k in range(8):
+        chunk(trim, Vector((rnd.uniform(-6.0, 6.0), rnd.uniform(-1.0, 5.0), 0.8)),
+              Vector((rnd.uniform(0.5, 1.0), rnd.uniform(0.4, 0.7), rnd.uniform(0.3, 0.5))), rnd)
     heights = [7.3, 3.1, 7.3, 1.8, 5.2, 7.3]
     for k, hgt in enumerate(heights):
         x = -w / 2 + 2.5 + k * (w - 5.0) / 5
-        tube(col, [Vector((x, -d / 2 + 2.2, 0.7)), Vector((x, -d / 2 + 2.2, 0.7 + hgt))], [0.65, 0.58], 14, cap=True)
-        box(stone, x, -d / 2 + 2.2, 0.7, 1.6, 1.6, 0.4)
-    box(stone, -w / 2 + 5.0, -d / 2 + 2.2, 8.0, 8.5, 1.8, 1.2)
-    box(stone, w / 2 - 2.5, -d / 2 + 2.2, 8.0, 3.0, 1.8, 1.2)
-    tube(col, [Vector((1.5, -d / 2 - 1.5, 0.3)), Vector((6.0, -d / 2 - 2.6, 0.35))], [0.6, 0.6], 14, cap=True)
+        column(col, trim, x, -d / 2 + 2.2, 0.7, hgt, 0.62, None if hgt > 7 else rnd)
+    # Architrave pieces with a strip of the cornice
+    for x0, x1 in ((-8.25, 0.25), (5.0, 8.0)):
+        box(stone, (x0 + x1) / 2, -d / 2 + 2.2, 8.0, x1 - x0, 1.7, 0.8)
+        box(trim, (x0 + x1) / 2 - 0.2, -d / 2 + 2.2 - 0.1, 8.8, x1 - x0 - 0.6, 1.9, 0.4)
+    # The fallen column in four drums, its capital beside them
+    a, b = Vector((1.5, -d / 2 - 1.5, 0.55)), Vector((6.0, -d / 2 - 2.6, 0.55))
+    turn = Vector((0, 0, 1)).rotation_difference((b - a).normalized()).to_matrix().to_4x4()
+    for k in range(4):
+        p = a + (b - a) * (k / 4) + Vector((rnd.uniform(-0.1, 0.1), rnd.uniform(-0.2, 0.2), 0))
+        fluted_drum(col, Matrix.Translation(p) @ turn @ Matrix.Rotation(rnd.uniform(0, 6.3), 4, 'Z'), (b - a).length / 4 - 0.1, 0.58, 0.56)
+    box(trim, 7.3, -d / 2 - 2.4, -0.1, 1.7, 1.7, 0.35, 0.5)
+    box(stone, 9.05, -d / 2 - 1.0, -0.2, 1.1, 0.9, 0.7, 0.0)
     for k in range(10):
         box(stone, rnd.uniform(-w / 2, w / 2), -d / 2 - rnd.uniform(0.5, 3.5), -0.2, rnd.uniform(0.8, 1.8), rnd.uniform(0.6, 1.2),
             rnd.uniform(0.5, 1.0), rnd.uniform(0, 3))
-    export(name, [stone.to_object(name), smooth(col.to_object(name + '-columns')), dark.to_object(name + '-door')])
+    export(name, [stone.to_object(name), trim.to_object(name + '-trim'), smooth(col.to_object(name + '-columns'))])
 
 
 def caravan_tent(name):
@@ -677,24 +775,49 @@ def woodpile_snow(name):
 
 
 def ice_fishing_hut(name):
-    """Little hut on skids, a stovepipe, a hole in the ice with a stool beside it"""
+    """Little hut on skids: plank walls with corner battens, a framed window and door, a shed roof under a
+    rounded cushion of snow, a stovepipe with a cap; a hole in the ice with a rim of slush, a stool, a rod"""
     clear_scene()
     wood = planks((0.55, 0.32, 0.22))
-    trim = planks((0.9, 0.88, 0.82))
+    trim = Part(pbr_material('planks-dark', 'dark_planks', (0.9, 0.85, 0.8)), uv_metres=1.0)
     metal = Part(iron(), smooth=True)
     hole = Part(flat_material('ice-hole', (0.02, 0.05, 0.08), 0.05, 0.3))
+    glass = Part(flat_material('window', (0.05, 0.06, 0.07), 0.2, 0.3))
     snow = Part(pbr_material('snow-snow_02', 'snow_02', (0.95, 0.97, 1.0)), uv_metres=2.0, bevel=0.0)
+    drift = Part(snow.material, uv_metres=2.0, bevel=0.0, smooth=True)
     for x in (-0.9, 0.9):
         box(trim, x, 0, 0, 0.15, 3.0, 0.2)
+        # Skids turned up at the front
+        tube(trim, [Vector((x, -1.5, 0.1)), Vector((x, -1.62, 0.3))], [0.075, 0.06], 6, cap=True)
     box(wood, 0, 0, 0.2, 2.2, 2.6, 2.0)
+    # Corner battens, a framed door with a handle, a window on the side
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            box(trim, sx * 1.1, sy * 1.3, 0.2, 0.12, 0.12, 2.0)
     box(trim, 0, -1.31, 0.3, 0.8, 0.04, 1.7)
-    box(wood, 0, 0, 2.2, 2.5, 2.9, 0.12, 0)
-    box(snow, 0, 0, 2.32, 2.5, 2.9, 0.15)
-    tube(metal, [Vector((0.6, 0.8, 2.2)), Vector((0.6, 0.8, 3.0))], [0.08, 0.08], 8, cap=True)
+    for sx in (-1, 1):
+        box(trim, sx * 0.46, -1.33, 0.25, 0.1, 0.06, 1.8)
+    box(trim, 0, -1.33, 2.0, 1.02, 0.06, 0.1)
+    box(metal, 0.28, -1.36, 1.1, 0.04, 0.05, 0.16)
+    box(glass, 1.115, 0.2, 1.2, 0.04, 0.6, 0.5)
+    for dy, dz, sy, sz in ((-0.34, 0.25, 0.08, 0.66), (0.34, 0.25, 0.08, 0.66), (0, 0.0, 0.76, 0.08), (0, 0.5, 0.76, 0.08)):
+        box(trim, 1.13, 0.2 + dy, 1.2 + dz - (0.04 if sz < 0.5 else 0.08), 0.06, sy, sz)
+    # Shed roof, deeper at the back, under the snow; a rounded lip along its front and back edges
+    hexa(wood, [(-1.25, -1.45, 2.2), (1.25, -1.45, 2.2), (1.25, 1.45, 2.2), (-1.25, 1.45, 2.2)],
+         [(-1.25, -1.45, 2.32), (1.25, -1.45, 2.32), (1.25, 1.45, 2.42), (-1.25, 1.45, 2.42)])
+    hexa(snow, [(-1.22, -1.42, 2.32), (1.22, -1.42, 2.32), (1.22, 1.42, 2.42), (-1.22, 1.42, 2.42)],
+         [(-1.22, -1.42, 2.47), (1.22, -1.42, 2.47), (1.22, 1.42, 2.57), (-1.22, 1.42, 2.57)])
+    for y, z in ((-1.36, 2.4), (1.36, 2.5)):
+        tube(drift, [Vector((-1.12, y, z)), Vector((0.0, y, z + 0.02)), Vector((1.12, y, z))], [0.1, 0.12, 0.1], 8, cap=True)
+    tube(metal, [Vector((0.6, 0.8, 2.2)), Vector((0.6, 0.8, 2.9))], [0.08, 0.08], 8, cap=True)
+    tube(metal, [Vector((0.6, 0.8, 2.9)), Vector((0.6, 0.8, 3.0))], [0.14, 0.02], 8, cap=True)
+    # Hole in the ice with a rim of slush, a stool beside it and a short rod across the rim
     tube(hole, [Vector((1.8, -1.8, 0.0)), Vector((1.8, -1.8, 0.01))], [0.35, 0.35], 14, cap=True)
+    tube(drift, [Vector((1.8, -1.8, -0.02)), Vector((1.8, -1.8, 0.05))], [0.34, 0.33], 14)
     box(trim, 2.4, -1.4, 0.0, 0.35, 0.35, 0.4)
+    oriented_box(metal, Vector((2.25, -1.55, 0.42)), Vector((1.55, -1.95, 0.12)), 0.025)
     export(name, [wood.to_object(name), trim.to_object(name + '-trim'), metal.to_object(name + '-pipe'), hole.to_object(name + '-hole'),
-                  snow.to_object(name + '-snow')])
+                  glass.to_object(name + '-window'), snow.to_object(name + '-snow'), drift.to_object(name + '-drifts')])
 
 
 # ---------------------------------------------------------------- volcano
@@ -790,15 +913,13 @@ def ruin_corner(name, seed=0, height=6.5, thick=2.0):
     stone = Part(pbr_material('castle-' + RUIN, RUIN), uv_metres=3.0)
     ivy = Part(card_material('ivy-wall', 'ivy-wall.png'))
     cols = 7
+    arms = []
     for arm in range(2):
+        heights = []
         for k in range(cols):
             t = k / (cols - 1)
-            h = height * (1 - 0.75 * t) * rnd.uniform(0.75, 1.05)
-            u = thick / 2 + k * 1.0 + 0.5
-            if arm == 0:
-                box(stone, u, 0, -0.5, 1.01, thick, h + 0.5)
-            else:
-                box(stone, 0, u, -0.5, thick, 1.01, h + 0.5)
+            heights.append(height * (1 - 0.75 * t) * rnd.uniform(0.75, 1.05))
+        arms.append(heights)
     box(stone, 0, 0, -0.5, thick, thick, height + 0.8)
     for k in range(5):
         a = rnd.uniform(0, 2.0)
@@ -808,6 +929,13 @@ def ruin_corner(name, seed=0, height=6.5, thick=2.0):
         card(ivy, p, Vector((0, 0, -1)), Vector((0, -1, 0)), 1.4, top - 0.1, p + Vector((0, 8, 0)))
     for k in range(8):
         box(stone, rnd.uniform(-1, 6), rnd.uniform(-3, -1.2), -0.2, rnd.uniform(0.4, 0.9), rnd.uniform(0.3, 0.6), rnd.uniform(0.3, 0.5), rnd.uniform(0, 3))
+    # Both arms broken along a jagged line through the old column tops (arm 1 turned onto Y)
+    rnd = random.Random(seed + 50)
+    for arm, heights in enumerate(arms):
+        m = Matrix.Rotation(math.pi / 2, 4, 'Z') if arm else Matrix()
+        centres = [thick / 2 + k + 0.5 for k in range(cols)]
+        xs, tops = break_line(thick / 2 - 0.01, thick / 2 + cols + 0.01, centres, heights, rnd, 0.5)
+        ragged_wall(stone, xs, tops, thick, matrix=m)
     export(name, [stone.to_object(name), ivy.to_object(name + '-ivy')])
 
 
@@ -821,42 +949,81 @@ def keep_ruin(name, seed=1):
     ivy = Part(card_material('ivy-wall', 'ivy-wall.png'))
     s, t, h = 11.0, 1.4, 15.0
     cols = 8
+    sides = []
     for side in range(4):
-        for k in range(cols):
-            u = -s / 2 + (k + 0.5) * s / cols
-            top = h * (1.0 - 0.6 * max(0.0, math.sin((k / cols + side * 0.25) * math.pi * 1.3))) * rnd.uniform(0.85, 1.0)
-            if side == 0:
-                box(stone, u, -s / 2 + t / 2, -0.5, s / cols + 0.01, t, top + 0.5)
-            elif side == 1:
-                box(stone, s / 2 - t / 2, u, -0.5, t, s / cols + 0.01, top + 0.5)
-            elif side == 2:
-                box(stone, u, s / 2 - t / 2, -0.5, s / cols + 0.01, t, top + 0.5)
-            else:
-                box(stone, -s / 2 + t / 2, u, -0.5, t, s / cols + 0.01, top + 0.5)
-    for z in (4.5, 9.0):
-        for k in (-1, 1):
-            box(dark, k * 2.5, -s / 2 - 0.02, z, 0.8, 0.1, 1.6)
-    box(dark, 0, -s / 2 - 0.02, 0, 2.0, 0.1, 3.0)
+        sides.append([h * (1.0 - 0.6 * max(0.0, math.sin((k / cols + side * 0.25) * math.pi * 1.3))) * rnd.uniform(0.85, 1.0)
+                      for k in range(cols)])
+    # Each wall broken along a jagged line through its old column tops; walls 1 and 3 turned onto Y
+    rnd2 = random.Random(seed + 50)
+    rubble = Part(pbr_material('castle-' + RUIN, RUIN), uv_metres=1.5, bevel=0.0)
+    centres = [-s / 2 + (k + 0.5) * s / cols for k in range(cols)]
+    offsets = [(0, -s / 2 + t / 2, 0), (s / 2 - t / 2, 0, 0), (0, s / 2 - t / 2, 0), (-s / 2 + t / 2, 0, 0)]
+    for side, heights in enumerate(sides):
+        m = Matrix.Translation(offsets[side]) @ (Matrix.Rotation(math.pi / 2, 4, 'Z') if side % 2 else Matrix())
+        xs, tops = break_line(-s / 2, s / 2, centres, heights, rnd2, 0.8)
+        if side % 2:
+            # Walls 1 and 3 run between the ends of 0 and 2 (no faces on top of each other at the corners)
+            lo, hi = -s / 2 + t, s / 2 - t
+            inner = [(x, z) for x, z in zip(xs, tops) if lo < x < hi]
+            xs = [lo] + [x for x, _ in inner] + [hi]
+            tops = [inner[0][1]] + [z for _, z in inner] + [inner[-1][1]]
+        ragged_wall(stone, xs, tops, t, matrix=m)
+        rim_stones(rubble, xs, tops, t, rnd2, max(max(v) for v in sides), matrix=m)
+    # Windows and the door: dark openings in a stone surround (jambs, lintel, sill) standing proud of the wall
+    for z, w, hh in ((4.5, 0.8, 1.6), (9.0, 0.8, 1.6), (0.0, 2.0, 3.0)):
+        for k in ((-1, 1) if z else (0,)):
+            x = k * 2.5
+            box(dark, x, -s / 2 - 0.02, z, w, 0.1, hh)
+            for sx in (-1, 1):
+                box(stone, x + sx * (w / 2 + 0.12), -s / 2 - 0.04, z - (0.1 if z else 0.0), 0.24, 0.12, hh + 0.2)
+            box(stone, x, -s / 2 - 0.05, z + hh, w + 0.5, 0.14, 0.3)
+            if z:
+                box(stone, x, -s / 2 - 0.05, z - 0.18, w + 0.4, 0.14, 0.14)
+    # Joist holes of the fallen floors on the inside, rubble on the floor
+    for z in (4.0, 8.5):
+        for k in range(5):
+            box(dark, -s / 2 + 2.0 + k * 1.75, s / 2 - t - 0.02, z, 0.3, 0.1, 0.3)
+    for k in range(8):
+        chunk(rubble, Vector((rnd2.uniform(-s / 2 + t + 0.6, s / 2 - t - 0.6), rnd2.uniform(-s / 2 + t + 0.6, s / 2 - t - 0.6), 0.1)),
+              Vector((rnd2.uniform(0.5, 1.1), rnd2.uniform(0.4, 0.8), rnd2.uniform(0.3, 0.5))), rnd2)
     oriented_box(wood, Vector((-3, -3, 0.3)), Vector((3.5, 2.5, 4.5)), 0.35)
     for k in range(7):
         top = rnd.uniform(4.0, 9.0)
         p = Vector((rnd.uniform(-s / 2 + 1, s / 2 - 1), -s / 2 - 0.04, top))
         card(ivy, p, Vector((0, 0, -1)), Vector((0, -1, 0)), 1.8, top - 0.2, p + Vector((0, 8, 0)))
-    export(name, [stone.to_object(name), dark.to_object(name + '-holes'), wood.to_object(name + '-beam'), ivy.to_object(name + '-ivy')])
+    export(name, [stone.to_object(name), rubble.to_object(name + '-rubble'), dark.to_object(name + '-holes'), wood.to_object(name + '-beam'),
+                  ivy.to_object(name + '-ivy')])
 
 
 def gate_ruin(name):
-    """Broken gatehouse: one tower stump, the arch standing on the other side with its top fallen"""
+    """Broken gatehouse: one tower stump broken down to a jagged top, the other tower standing with its
+    battlements, a string course and slits; the arch between them with its wedge stones, its top fallen"""
     clear_scene()
     rnd = random.Random(3)
     stone = Part(pbr_material('castle-' + RUIN, RUIN), uv_metres=3.0)
-    box(stone, -5.5, 0, -0.5, 5.0, 5.5, 5.2)
+    dark = Part(flat_material('slit', (0.03, 0.03, 0.035), 0.9))
+    rubble = Part(pbr_material('castle-' + RUIN, RUIN), uv_metres=1.5, bevel=0.0)
     box(stone, 5.5, 0, -0.5, 5.0, 5.5, 9.5)
     merlons(stone, 3.0, 8.0, -2.45, 9.0, 0.6)
-    arch_wall(stone, -3, 3, 0, 4.4, -0.5, 7.0, 0, 4.0, 3.5)
     for k in range(14):
         box(stone, rnd.uniform(-6, 2), rnd.uniform(-5, -2.8), -0.2, rnd.uniform(0.5, 1.4), rnd.uniform(0.4, 1.0), rnd.uniform(0.3, 0.8), rnd.uniform(0, 3))
-    export(name, [stone.to_object(name)])
+    rnd = random.Random(53)
+    xs, tops = break_line(-8.0, -3.0, [-7.5, -6.5, -5.5, -4.5, -3.5], [4.7, 3.8, 4.4, 3.3, 3.9], rnd, 0.6)
+    ragged_wall(stone, xs, tops, 5.5)
+    rim_stones(rubble, xs[2:], tops[2:], 5.5, rnd, 10.1)
+    xs, tops = break_line(-3.0, 3.0, [-2.6, -1.2, 0.0, 1.2, 2.6], [5.6, 4.6, 5.9, 6.4, 7.0], rnd, 0.5)
+    ragged_arch(stone, -3, 3, 4.4, -0.5, 0, 4.0, 3.5, xs, tops)
+    voussoirs(stone, 0, 0, 4.4, 3.5, 4.0, count=9, depth=0.45)
+    rim_stones(rubble, xs, tops, 4.4, rnd, 10.1)
+    # Standing tower: string course, slits on its faces
+    box(stone, 5.5, 0, 6.2, 5.0, 5.75, 0.25)
+    for z in (2.5, 7.0):
+        box(dark, 5.5, -2.78, z, 0.3, 0.1, 1.2)
+        box(dark, 8.03, 0, z, 0.1, 0.3, 1.2)
+    for k in range(6):
+        chunk(rubble, Vector((rnd.uniform(-2.0, 2.0), rnd.uniform(-1.5, 1.5), 0.1)),
+              Vector((rnd.uniform(0.5, 1.0), rnd.uniform(0.4, 0.8), rnd.uniform(0.3, 0.5))), rnd)
+    export(name, [stone.to_object(name), rubble.to_object(name + '-rubble'), dark.to_object(name + '-slits')])
 
 
 def leaf_pile(name, seed):

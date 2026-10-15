@@ -35,6 +35,7 @@ import {
   LightningBoltRenderer,
 } from './renderers';
 import { InstancedEnemyRenderer } from './renderers/instanced-enemy/instanced-enemy.renderer';
+import { LaserBeamRenderer } from './renderers/laser-beam.renderer';
 import { setBlobGround } from './renderers/instanced-enemy/blob-shadow';
 import { TowerPlinthRenderer } from './renderers/tower-plinth/tower-plinth.renderer';
 import { TowerBadgeRenderer } from './renderers/tower-badge/tower-badge.renderer';
@@ -156,6 +157,8 @@ export class ThreeTilesEngine {
   readonly projectiles: ThreeProjectileRenderer;
   readonly effects: ThreeEffectsRenderer;
   readonly flameBeams: ThreeFlameBeamRenderer;
+  /** The Sentinel Laser's beams */
+  readonly laserBeams: LaserBeamRenderer;
   readonly tentacles: ThreeTentacleRenderer;
   readonly trailStreaks: TrailStreakRenderer;
   readonly lightningBolts: LightningBoltRenderer;
@@ -372,6 +375,7 @@ export class ThreeTilesEngine {
     this.effects = new ThreeEffectsRenderer(this.scene, coordinateSync);
     this.flameBeams = new ThreeFlameBeamRenderer();
     this.flameBeams.setEffectsRenderer(this.effects);
+    this.laserBeams = new LaserBeamRenderer(this.scene);
     this.tentacles = new ThreeTentacleRenderer(this.scene);
     this.trailStreaks = new TrailStreakRenderer(this.scene);
     this.lightningBolts = new LightningBoltRenderer(this.scene);
@@ -943,6 +947,7 @@ export class ThreeTilesEngine {
 
     // Update flame beam shader animations
     this.flameBeams.update(deltaTime);
+    this.laserBeams.update(performance.now() / 1000);
 
     // Update tentacle animations
     this.tentacles.update(deltaTime, this.camera.position);
@@ -1308,6 +1313,7 @@ export class ThreeTilesEngine {
     this.projectiles.dispose();
     this.effects.dispose();
     this.flameBeams.dispose();
+    this.laserBeams.dispose();
     this.tentacles.dispose();
     this.trailStreaks.dispose();
     this.lightningBolts.dispose();

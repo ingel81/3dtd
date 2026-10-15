@@ -14,6 +14,7 @@
  * numbers actually moved.
  */
 
+import { releasedResearch, releasedTowerTypes } from '../../src/app/configs/release';
 import { describe, it, expect } from 'vitest';
 import { mkdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -107,7 +108,8 @@ function buildWaveRows(): WaveRow[] {
 }
 
 function buildTowerRows(): TowerRow[] {
-  return Object.values(TOWER_TYPES).map((t) => ({
+  // The released towers and research: the chart shows what players get (configs/release.ts)
+  return releasedTowerTypes(true).map((t) => ({
     id: t.id,
     name: t.name,
     cost: t.cost,
@@ -118,7 +120,7 @@ function buildResearchRows(): ResearchRow[] {
   // DFS through prereqs to get total cost+duration to unlock each research
   // (sums the research itself + all transitive prereqs, deduplicated).
   const rows: ResearchRow[] = [];
-  for (const r of Object.values(RESEARCH_TREE)) {
+  for (const r of releasedResearch(true)) {
     const seen = new Set<ResearchId>();
     let cumCost = 0;
     let cumDuration = 0;
@@ -178,14 +180,14 @@ function buildRosterBudget(): RosterBudget {
   };
 
   let towers = 0;
-  for (const cfg of Object.values(TOWER_TYPES)) {
+  for (const cfg of releasedTowerTypes(true)) {
     if (cfg.attackType === 'passive') continue;
     let cost = cfg.cost;
     for (const u of cfg.upgrades) cost += trackCost(u, ROSTER_TRACK_LEVEL);
     towers += cost * (ROSTER_TOWER_COUNT[cfg.id] ?? 1);
   }
 
-  const research = Object.values(RESEARCH_TREE).reduce((sum, r) => sum + r.cost, 0);
+  const research = releasedResearch(true).reduce((sum, r) => sum + r.cost, 0);
 
   const rcConfig = TOWER_TYPES['research-center'];
   const researchCenter = rcConfig.cost + rcConfig.upgrades.reduce((sum, u) => sum + trackCost(u, u.maxLevel), 0);

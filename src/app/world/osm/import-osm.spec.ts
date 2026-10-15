@@ -1,35 +1,18 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { gunzipSync } from 'node:zlib';
 import { validateMap } from '../../editor/validation/map-validation';
-import { routeBetween } from '../../editor/ops/path-graph';
+import { routeBetween, spawnRoutes } from '../../editor/ops/path-graph';
 import { packMapFile, unpackMapFile, validateMapDocument } from '../custom-map/map-file';
 import { mapStreetNetwork } from '../custom-map/custom-map-streets';
-import type { DemMosaic } from './dem-tiles';
-import { convertOsm, type OsmImportInput } from './import-osm';
+import { osmProbe as probe } from '../../../../tools/osm/osm-probe';
+import { convertOsm } from './import-osm';
 import { MAX_GROUND_LAYERS } from '../custom-map/map-document';
 import { readWeights } from '../../editor/ops/paint-ops';
 import { heightAt } from '../../editor/model/grid';
-import { spawnRoutes } from '../../editor/ops/path-graph';
 import { plantCosts, PLANT_BUDGET_SHARE } from './convert/vegetation';
 import { SCENE_BUDGET } from '../custom-map/render/objects/scene-cost';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 const catalog = JSON.parse(readFileSync(join(__dirname, '../../../../public/maps/assets/catalog.json'), 'utf8'));
-
-/** The frozen probe (integration/fixtures/osm/README.md, OSM worlds): Miltenberg, 1.2 km square, Overpass and heights */
-function probe(): OsmImportInput {
-  const dir = join(__dirname, '../../integration/fixtures/osm');
-  const read = (name: string) => JSON.parse(gunzipSync(readFileSync(join(dir, name))).toString('utf8'));
-  const over = read('world-miltenberg.overpass.json.gz');
-  const dem = read('world-miltenberg.dem.json.gz');
-  const bytes = Buffer.from(dem.heights, 'base64');
-  const raw = new Int16Array(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
-  const mosaic: DemMosaic = {
-    source: dem.source, zoom: dem.zoom, tileSize: dem.tileSize, left: dem.left, top: dem.top, columns: dem.columns, rows: dem.rows,
-    heights: Float32Array.from(raw, (v) => v * dem.unit),
-  };
-  return { lat: over.place.lat, lon: over.place.lon, address: 'Miltenberg', overpass: { elements: over.elements }, dem: mosaic, fetchedAt: over.source.fetchedAt };
-}
 
 describe('OSM world (frozen probe Miltenberg)', () => {
   // Spawns are drawn as on the real places (Math.random); a fixed sequence keeps the scene the same

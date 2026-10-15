@@ -21,6 +21,7 @@ import {
   Sphere,
   Texture,
   WebGLRenderer,
+  type Vector3,
 } from 'three';
 import { CoordinateSync } from './index';
 import { TowerTypeConfig, TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
@@ -28,11 +29,13 @@ import { AssetManagerService } from '../../services/infrastructure/asset-manager
 import { createLosRing, createTipMarker } from './tower-overlays';
 import { RangeRingKit, placeRangeRing } from './range-ring';
 import { TurretPitch, createTurretPitch, drawTurretAim } from './tower-turret-aim';
+import { SawArms } from './tower-saw-arms';
+import { DonerStream } from './tower-doner-stream';
 import type { TowerAim } from '../../entities/tower-aim';
 import { TowerMuzzleFlash } from './tower-muzzle-flash';
 import { setTowerGreyedOut } from './tower-hold-fire';
 import { TowerBuild } from './tower-scaffold';
-import { getTowerPath } from '../../configs/tower-paths.config';
+import { getTowerPath, towerConfigOf } from '../../configs/tower-paths.config';
 
 /**
  * Tower render data - stored per tower
@@ -73,6 +76,10 @@ export interface TowerRenderData {
   hoverPhaseOffset: number; // Random phase offset for desynchronized hover
   /** Guns that tilt towards the target's height (TowerTypeConfig.pitchNodes) */
   pitch?: TurretPitch;
+  /** The Chainsaw's robot arms (TowerTypeConfig.sawArms) */
+  sawArms?: SawArms;
+  /** The Shawarma Slicer's spit, arm and stream (TowerTypeConfig.stream) */
+  stream?: DonerStream;
   // GLTF animation support
   mixer: AnimationMixer | null;
   animations: Map<string, AnimationClip>;
@@ -300,7 +307,8 @@ export class ThreeTowerRenderer {
     customRotation: number,
     aim: TowerAim,
   ): Promise<TowerRenderData | null> {
-    const config = TOWER_TYPES[typeId];
+    // With a path that swaps the model, the swapped one (setPath can come before the tower's model)
+    const config = TOWER_TYPES[typeId] ? towerConfigOf(typeId, this.pathIds.get(id)) : undefined;
     if (!config) {
       console.error(`[ThreeTowerRenderer] Unknown tower type: ${typeId}`);
       return null;
@@ -464,6 +472,8 @@ export class ThreeTowerRenderer {
     if (config.pitchNodes && turretPart) {
       renderData.pitch = createTurretPitch(config, turretPart);
     }
+    if (config.sawArms && turretPart) renderData.sawArms = new SawArms(config, turretPart);
+    if (config.stream && turretPart) renderData.stream = new DonerStream(config, turretPart, 1 / config.scale);
     // Where the aim points already: the model loads while the simulation turns it
     this.drawAim(renderData);
 
@@ -520,6 +530,11 @@ export class ThreeTowerRenderer {
   private async applyPath(data: TowerRenderData, pathId: string): Promise<void> {
     const path = getTowerPath(pathId);
     if (!path) return;
+    // A path that swaps the model builds the tower again on it; create() comes back here for the rest
+    if (towerConfigOf(data.typeConfig.id, pathId) !== data.typeConfig) {
+      await this.rebuild(data);
+      return;
+    }
     if ((path.detectionRadius ?? 0) > 0 && !this.detectionRings.has(data.id)) {
       const ring = this.detectionRingKit.create();
       const foot = this.sync.geoToLocal(data.lat, data.lon, data.height);
@@ -545,6 +560,32 @@ export class ThreeTowerRenderer {
     data.mesh.add(model);
     const sweep = attachment.sweepNode ? model.getObjectByName(attachment.sweepNode) : undefined;
     if (sweep) this.sweepNodes.set(data.id, sweep);
+  }
+
+  /**
+   * Tower `data` again from its config with its path (a swap): the old model goes, the new one comes on the same
+   * spot with the same aim, selection, hold fire, range and rings. A scaffold still coming down goes with it.
+   */
+  private async rebuild(data: TowerRenderData): Promise<void> {
+    // The old model stands until the new one has loaded
+    const config = towerConfigOf(data.typeConfig.id, this.pathIds.get(data.id));
+    try {
+      await this.assetManager.loadModel(config.modelUrl);
+      this.loadedModelUrls.add(config.modelUrl);
+    } catch (err) {
+      console.error(`[ThreeTowerRenderer] Failed to load model: ${config.modelUrl}`, err);
+      return;
+    }
+    if (this.towers.get(data.id) !== data) return;
+    this.builds.get(data.id)?.dispose();
+    this.builds.delete(data.id);
+    this.sweepNodes.delete(data.id);
+    this.disposeRender(data);
+    this.towers.delete(data.id);
+    const next = await this.create(data.id, data.typeConfig.id, data.lat, data.lon, data.height, data.customRotation, data.aim);
+    if (!next) return;
+    if (data.isSelected) this.select(data.id);
+    else if (this.hoveredId === data.id) this.setRangeVisible(next, true);
   }
 
   /** The builds of one render frame, `gameDeltaMs` of game time (0 while paused) */
@@ -819,8 +860,16 @@ export class ThreeTowerRenderer {
     this.ownerColors.delete(id);
     const data = this.towers.get(id);
     if (!data) return;
+    this.disposeRender(data);
+    if (this.hoveredId === id) this.hoveredId = null;
+    this.towers.delete(id);
+  }
 
+  /** Take the model, rings and markers of `data` out of the scene; the tower's entry and maps are the caller's */
+  private disposeRender(data: TowerRenderData): void {
     // Remove mesh
+    data.sawArms?.dispose();
+    data.stream?.dispose();
     this.scene.remove(data.mesh);
     this.disposeObject(data.mesh);
     if (this.shadowCasting) this.onShadowsChanged?.();
@@ -863,9 +912,6 @@ export class ThreeTowerRenderer {
     }
     data.animations.clear();
     data.currentAction = null;
-
-    if (this.hoveredId === id) this.hoveredId = null;
-    this.towers.delete(id);
   }
 
   /**
@@ -903,6 +949,9 @@ export class ThreeTowerRenderer {
         }
       }
 
+      data.sawArms?.update(deltaSeconds);
+      data.stream?.update(deltaSeconds);
+
       // Selection ring (visual), also on the hovered tower
       if ((data.isSelected || data.id === this.hoveredId) && data.selectionRing) {
         const scale = 1 + Math.sin(this.animationTime) * 0.1;
@@ -919,6 +968,23 @@ export class ThreeTowerRenderer {
 
     // Turret aim and the magic hover
     this.updateTurretVisuals();
+  }
+
+  /**
+   * Where the arms of saw tower `id` cut this frame (TowerCombatService.updateSawTowers), one per arm, null for
+   * an arm going home; an empty list sends them all home. Before the model stands nothing: the next frame
+   * sends them again.
+   */
+  setSawTargets(id: string, targets: readonly (Vector3 | null)[]): void {
+    this.towers.get(id)?.sawArms?.setTargets(targets);
+  }
+
+  /**
+   * The stream of stream tower `id` this frame (TowerCombatService.updateStreamTowers): where it goes (null: the
+   * machine spins without one) and its drive, 0 stops it. Before the model stands nothing.
+   */
+  setStream(id: string, target: Vector3 | null, drive: number): void {
+    this.towers.get(id)?.stream?.setStream(target, drive);
   }
 
   /** Turn and tilt the turret of `data` to its aim. */

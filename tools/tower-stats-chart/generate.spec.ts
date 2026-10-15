@@ -20,6 +20,7 @@
  * only shows a diff when the underlying numbers actually moved.
  */
 
+import { releasedTowerTypes } from '../../src/app/configs/release';
 import { describe, it, expect } from 'vitest';
 import { mkdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -27,7 +28,6 @@ import { fileURLToPath } from 'node:url';
 import { GENERATED_AT_STAMP, writeGeneratedFile } from '../generated-file';
 
 import {
-  TOWER_TYPES,
   getUpgradeCost,
   UPGRADE_COST_SCALING,
   UPGRADE_LATE_FROM_LEVEL,
@@ -42,8 +42,9 @@ import { computeTowerStatsAtLevel } from '../../src/app/director/tower-dps.util'
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT_PATH = resolve(__dirname, '../../docs/tower-stats-chart.html');
 
-// Combat towers only — research-center is a passive building (no DPS / range).
-const COMBAT_TOWERS: TowerTypeConfig[] = Object.values(TOWER_TYPES).filter(
+// Combat towers only — research-center is a passive building (no DPS / range). The released ones: the chart shows
+// what players get (configs/release.ts).
+const COMBAT_TOWERS: TowerTypeConfig[] = releasedTowerTypes(true).filter(
   (t) => t.attackType !== 'passive',
 );
 

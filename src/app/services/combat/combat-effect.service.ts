@@ -155,7 +155,8 @@ export class CombatEffectService {
         damageType,
         projectile.sourceTowerId,
         false,
-        suppressBlood
+        suppressBlood,
+        getTowerPath(projectile.pathId)?.armorPiercing ?? false,
       );
 
       // Spawn damage number for direct hit (color/size based on effectiveness)

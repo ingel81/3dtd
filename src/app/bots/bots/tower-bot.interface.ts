@@ -5,6 +5,7 @@
  * These bots simulate different player skill levels for training the Wave Director.
  */
 
+import { isTowerReleased } from '../../configs/release';
 import { GameStateSnapshot } from '../../director/models/game-state-snapshot';
 import { TowerTypeId, TargetingStrategy } from '../../configs/tower-types.config';
 import type { AbilityId } from '../../configs/abilities.config';
@@ -178,14 +179,19 @@ export interface ITowerBot {
  * bot can build. Skill levels differ in reaction time and tower cap, not in
  * which towers they know about.
  */
-const ALL_COMBAT_TOWERS: TowerTypeId[] = [
+const ALL_COMBAT_TOWERS: TowerTypeId[] = ([
   'archer', 'dual-gatling', 'cannon', 'magic', 'rocket', 'ice', 'fire', 'tentacle', 'poison',
   // Lightning was missing here, so the bot could never build it even after
   // researching storm-mastery — and the AI therefore never saw it played.
   'lightning',
   'chaos',
   'bastion',
-];
+  'sentinel',
+  'chainsaw',
+  'shawarma',
+] as TowerTypeId[])
+  // Unreleased towers only in a dev build (configs/release.ts)
+  .filter((id) => isTowerReleased(id));
 
 /**
  * Default bot configurations by skill level
