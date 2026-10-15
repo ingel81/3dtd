@@ -705,6 +705,14 @@ Bestand baut der Asset-Worker aus; Stand beim Schreiben:
   (Bauwerk, Bausperre, die Streben reichen bergauf). `shipwreck` ist eine Requisite (kein Einebnen, liegt 1,5 m im
   Sand), `rocket` ein Gebäude mit eigener Betonplatte. Dreiecke und Draw Calls je Modell: `catalog.json`
   (`triangles`), je Material ein Draw Call (`pack_models.py` fügt gleiche Materialien zusammen)
+- **Tiere, Mars-Lander, Hundeschlitten, Belagerungsturm** (E179, `build_extras.py`): `cow`, `sheep` (je stehend,
+  `-grazing`, `-lying`) und `deer` (stehend, `-grazing`) sind billige Requisiten für Weiden und Kartenränder: nur
+  Flachfarben ohne Texturen, zwei oder drei Materialien, 420 bis 740 Dreiecke, keine Sicht- und Bausperre; eine Herde
+  instanziert in wenige Draw Calls, jede Pose ist ein eigenes Modell (einmal gemeinsam gebaut, `quadruped`).
+  `dog-sled` (Winter, Arktis, rund 8 m) sind sechs Huskys an der Zugleine vor einem Korbschlitten. `mars-lander`
+  (11 m, Mars) ist ein Aufstiegsfahrzeug auf seinem Abstiegsdeck in rotem Staub, anders als der goldene `lander`.
+  `siege-tower` (Gebäude, 13 m, Burg) ist ein Belagerungsturm auf sechs Rädern mit halb gesenkter Fallbrücke nach vorn
+  (-Z in glTF) und einer Fernstufe
 - **Drehteile** (E179 für E190): Teile, die sich drehen sollen, haben Materialien `spin-*` und liegen im GLB als
   eigener Knoten (`spin-<id>`), Drehachse ist die Senkrechte durch den Ursprung des Modells: der Kopf von
   `antenna-dish` (Schüssel, Joch, Speisehorn), die Linse im Laternenraum von `lighthouse`. Die Bauskripte trennen
