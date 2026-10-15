@@ -253,6 +253,7 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | sandstone-pillar-tall | procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/cliff_side |
 | mesa | procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/cliff_side |
 | rock-arch | procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/cliff_side |
+| rock-arch-large | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/cliff_side |
 | stalagmites | procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/rock_boulder_dry |
 | basalt-columns | procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/dark_rock |
 | crystals-blue | procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/dark_rock |

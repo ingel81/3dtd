@@ -1011,6 +1011,54 @@ def highway_collapsed(name, seed=37, height=9.0, width=12.0):
     export(name, objects, lod=700)
 
 
+# ---------------------------------------------------------------- desert
+
+def rock_arch_large(name, seed=43, span=26.0, rise=17.0):
+    """A natural arch a road runs under: two massive weathered legs flaring at the foot and a thick, flat
+    topped span about 13 m clear above the ground, swept along a half ellipse with a blocky cross section,
+    its faces pitted and stepped by noise, banded sandstone; boulders fallen from it at the feet. Front -Y,
+    the road runs along Y"""
+    clear_scene()
+    rnd = random.Random(seed)
+    rock = Part(pbr_material('rock-cliff_side', 'cliff_side'), uv_metres=6.0, smooth=True, bevel=0.0)
+    off = Vector((seed * 1.1, seed * 0.7, 2.0))
+    n, sides = 30, 12
+    # Cross section: a rounded block, deeper (along Y) than thick, its outline the same along the arch
+    outline = []
+    for k in range(sides):
+        a = k / sides * math.tau
+        c, s_ = math.cos(a), math.sin(a)
+        r = 1.0 / max(abs(c), abs(s_)) ** 0.6
+        outline.append((c * r * rnd.uniform(0.9, 1.1), s_ * r * rnd.uniform(0.9, 1.1)))
+    rings = []
+    for k in range(n + 1):
+        t = k / n * math.pi
+        centre = Vector((-math.cos(t) * span / 2, 0, math.sin(t) * rise - 3.0 * (1 - math.sin(t))))
+        tangent = Vector((math.sin(t) * span / 2, 0, math.cos(t) * (rise + 3.0))).normalized()
+        across = Vector((0, 1, 0))
+        normal = tangent.cross(across).normalized()
+        foot = (1.0 - math.sin(t)) ** 2
+        thick = 2.4 + 2.6 * foot
+        deep = 3.6 + 3.0 * foot
+        ring = []
+        for cx, cy in outline:
+            p = centre + normal * cx * thick + across * cy * deep
+            d = noise.noise(p * 0.22 + off) * 0.9 + noise.noise(p * 0.7 + off) * 0.25
+            p = p + (p - centre).normalized() * d
+            ring.append(rock.bm.verts.new(p))
+        rings.append(ring)
+    for k in range(n):
+        for j in range(sides):
+            a, b = rings[k][j], rings[k][(j + 1) % sides]
+            c, d = rings[k + 1][(j + 1) % sides], rings[k + 1][j]
+            f = rock.bm.faces.new((a, b, c, d))
+            f.smooth = True
+    for k in range(7):
+        side = -1 if k % 2 else 1
+        lump(rock, Vector((side * rnd.uniform(span / 2 - 1, span / 2 + 5), rnd.uniform(-7, 7), -0.6)),
+             Vector((rnd.uniform(1.2, 2.6), rnd.uniform(1.0, 2.2), rnd.uniform(0.8, 1.8))), seed * 10 + k, roughness=0.35, subdiv=2)
+    export(name, [smooth(rock.to_object(name))], lod=600)
+
 def models():
     return {
         'tunnel-portal': lambda: tunnel_portal('tunnel-portal'),
@@ -1031,4 +1079,5 @@ def models():
         'stone-circle': lambda: stone_circle('stone-circle'),
         'trebuchet': lambda: trebuchet('trebuchet'),
         'highway-collapsed': lambda: highway_collapsed('highway-collapsed'),
+        'rock-arch-large': lambda: rock_arch_large('rock-arch-large'),
     }
