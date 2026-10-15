@@ -150,7 +150,8 @@ export function buildRuinedCity(): CustomMapDocument {
   k.lifeArea('fog', [{ x: crater.x - 30, y: crater.y - 30 }, { x: crater.x + 30, y: crater.y - 30 }, { x: crater.x + 30, y: crater.y + 30 }, { x: crater.x - 30, y: crater.y + 30 }], { color: '#9a948a', density: 0.8, quality: 'high' });
   k.lifeRoute('fog', canal, { color: '#9aa096', density: 0.6, quality: 'high' });
   k.lifeArea('sound', [{ x: hq.x + 4, y: hq.y - 32 }, { x: hq.x + 20, y: hq.y - 32 }, { x: hq.x + 20, y: hq.y - 16 }, { x: hq.x + 4, y: hq.y - 16 }], { sound: 'fire', volume: 0.4 });
-  k.lifeSettings({ ambience: { sound: 'biome', volume: 0.55 } });
+  // A siren far off at each wave, the same everywhere
+  k.lifeSettings({ ambience: { sound: 'biome', volume: 0.55 }, waveSound: { sound: 'siren-distant', volume: 0.6 } });
 
   // The ruins still take hits: shots wear the standing blocks down until they fall (TODO E131)
   k.gameplay({ destructible: true });

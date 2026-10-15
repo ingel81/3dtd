@@ -137,11 +137,12 @@ export function buildHarborTown(): CustomMapDocument {
   k.lifeArea('birds', [{ x: -200, y: -168 }, { x: 140, y: -168 }, { x: 215, y: -215 }, { x: 160, y: -250 }, { x: -200, y: -245 }], { species: 'gulls', height: 25, density: 1.2 });
   k.lifeArea('birds', [{ x: -256, y: -150 }, { x: -200, y: -150 }, { x: -200, y: -215 }, { x: -256, y: -215 }], { species: 'gulls', height: 18, density: 0.6 });
   k.lifeRoute('boats', [{ x: -160, y: -212 }, { x: -40, y: -232 }, { x: 60, y: -240 }, { x: 150, y: -246 }, { x: 250, y: -246 }], { asset: 'fishing-boat' });
-  k.lifeArea('boats', [{ x: 38, y: -168 }, { x: 140, y: -168 }, { x: 150, y: -192 }, { x: 46, y: -192 }], { density: 0.5 });
+  const bay = k.lifeArea('boats', [{ x: 38, y: -168 }, { x: 140, y: -168 }, { x: 150, y: -192 }, { x: 46, y: -192 }], { density: 0.5 });
   k.lifeArea('fog', [{ x: 214, y: -200 }, { x: 256, y: -200 }, { x: 256, y: -256 }, { x: -60, y: -256 }, { x: 150, y: -240 }], { density: 0.7, quality: 'high' });
   k.lifeRoute('sound', [{ x: 150, y: shore - 4 }, { x: 190, y: -200 }, { x: 205, y: -228 }], { sound: 'surf', volume: 0.6 });
   k.lifeRoute('sound', [{ x: -256, y: -150 }, { x: -232, y: -186 }], { sound: 'surf', volume: 0.5 });
-  k.lifeSettings({ flags: true, ambience: { sound: 'city', volume: 0.4 } });
+  // A ship's horn from the bay at each wave
+  k.lifeSettings({ flags: true, ambience: { sound: 'city', volume: 0.4 }, waveSound: { sound: 'ship-horn', volume: 0.7, area: bay } });
 
   k.trimLayers(7);
   // Dusk over the bay: the lamps come on in the streets, the sea catches the last light

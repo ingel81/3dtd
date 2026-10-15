@@ -155,14 +155,15 @@ export function buildFrostHamlet(): CustomMapDocument {
   // village, ice fog drifting low over the lake, smoke from every house (their chimneys); the wind over the snow, the
   // fire crackling on the square
   // TODO(E190): the bell at each wave
-  k.lifeArea('birds', [{ x: -70, y: 110 }, { x: 110, y: 110 }, { x: 110, y: 200 }, { x: -70, y: 200 }], { species: 'crows', height: 22, density: 0.7 });
+  const village = k.lifeArea('birds', [{ x: -70, y: 110 }, { x: 110, y: 110 }, { x: 110, y: 200 }, { x: -70, y: 200 }], { species: 'crows', height: 22, density: 0.7 });
   k.lifeArea('birds', [{ x: -150, y: 60 }, { x: -90, y: 60 }, { x: -90, y: 110 }, { x: -150, y: 110 }], { species: 'crows', height: 18, density: 0.5 });
   k.lifeRoute('snow', [{ x: -230, y: 200 }, { x: -150, y: 230 }, { x: -60, y: 235 }, { x: 70, y: 232 }, { x: 160, y: 220 }, { x: 240, y: 180 }], { density: 0.8 });
   k.lifeRoute('snow', [{ x: -230, y: -175 }, { x: -120, y: -215 }, { x: 0, y: -235 }, { x: 150, y: -180 }, { x: 225, y: -60 }, { x: 225, y: 70 }], { density: 0.6 });
   k.lifeArea('snow', [{ x: -70, y: 100 }, { x: 110, y: 100 }, { x: 110, y: 200 }, { x: -70, y: 200 }], { density: 0.5 });
   k.lifeArea('fog', [{ x: -80, y: -60 }, { x: 60, y: -90 }, { x: 110, y: -30 }, { x: 70, y: 70 }, { x: -60, y: 60 }], { density: 0.6, quality: 'high' });
   k.lifeArea('sound', [{ x: 26, y: 120 }, { x: 42, y: 120 }, { x: 42, y: 136 }, { x: 26, y: 136 }], { sound: 'fire', volume: 0.5 });
-  k.lifeSettings({ ambience: { sound: 'biome', volume: 0.5 } });
+  // The bell tower over the square tolls at each wave, from the village
+  k.lifeSettings({ ambience: { sound: 'biome', volume: 0.5 }, waveSound: { sound: 'bell', volume: 0.8, area: village } });
 
   // Seven ground materials: the least used goes (each one is 8 MB of pixels to load)
   k.trimLayers(7);
