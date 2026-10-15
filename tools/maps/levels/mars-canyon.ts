@@ -118,8 +118,7 @@ export function buildMarsCanyon(): CustomMapDocument {
   if (k.free(pad.x, pad.y, 8)) {
     k.place('landing-pad', pad.x, pad.y);
     // The lander that brought the colony, standing on its pad as the landmark of the base
-    // TODO(E179): a Mars lander model; the moon lander, enlarged, stands in
-    k.place('lander', pad.x + 1, pad.y, { rotation: 2.2, scale: 2.2 });
+    k.place('lander', pad.x + 1, pad.y, { rotation: 2.2, scale: 1.6 });
   }
   // A greenhouse farm on the basin's edge, rovers on their way out to it
   for (const p of around(54, 6, 0.5)) if (p.y < hq.y - 10 && k.free(p.x, p.y, 9)) k.place('greenhouse-dome', p.x, p.y, { rotation: facing(p, hq) });
