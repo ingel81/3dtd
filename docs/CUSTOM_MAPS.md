@@ -320,7 +320,12 @@ Normalen auch auf der Rückseite (three dreht sie bei doppelseitigen Materialien
 werden alpha-getestet mit Alpha-to-Coverage und blenden aus, wenn man sie von der Kante sieht oder sie die Sichtweite
 erreichen; Wasserfall-Karten (`foliage-waterfall*`) fließen, leuchtende Laubkarten (Flammen) flackern. Windstärke und
 Ausblendung sind Uniforms, alle Assets teilen sich wenige Shader-Programme. Vegetation bekommt je Instanz eine
-leicht andere Helligkeit und einen Farbton. Gebäude stehen auf dem tiefsten von acht Punkten ihres Fußabdrucks, ihre
+leicht andere Helligkeit und einen Farbton, Bäume dazu eine Größe (0,88 bis 1,12) und eine Neigung (bis 4°, die meisten
+fast aufrecht), alles im Instanz-Matrix und -Farbe aus einem Hash der Objekt-Id (`instance-variation.ts`, kein Draw Call
+mehr; Sichtlinien sehen die Bäume so, wie sie gezeichnet sind). **Fenster bei Nacht** (`night-windows.ts`): das
+Fensterglas der Gebäude (Materialien `window-glass…`, `window`; in zusammengelegten Teilen je Vertex `nightGlow`)
+leuchtet mit der Dunkelheit warm, etwa jedes zweite Fenster nach einem Hash seiner Zelle in der Welt (2,5 m breit,
+3 m hoch): wenige Shaderzeilen, kein Licht, kein Draw Call. Gebäude stehen auf dem tiefsten von acht Punkten ihres Fußabdrucks, ihre
 Fundamente reichen bis 1,5 m in den Boden.
 
 ### Effekte und Lichter (`effects/`)

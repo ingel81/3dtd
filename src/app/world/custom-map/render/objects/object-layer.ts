@@ -28,6 +28,7 @@ import { seatHeight } from './object-seat';
 import { instanceVariation } from './instance-variation';
 import { bakeImpostor, type Impostor } from './impostor';
 import { addVertexRoughMetal, mergeParts } from './merge-parts';
+import { addNightWindows, isWindowGlass } from './night-windows';
 import { addLodFade, blendAt, disposeFadeGeometry, fadeGeometry, REST_S, SETTLE_S, settleBlend } from './lod-fade';
 
 /**
@@ -1091,6 +1092,8 @@ export class MapObjectLayer {
     }
     if (!card && wind <= 0 && !bob) {
       if (m.userData['roughMetal']) addVertexRoughMetal(m);
+      if (m.userData['nightGlow']) addNightWindows(m, true);
+      else if (isWindowGlass(source.name)) addNightWindows(m, false);
       addLodFade(m);
       addHeightFog(m);
       this.materials.set(key, m);

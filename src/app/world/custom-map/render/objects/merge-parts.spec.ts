@@ -1,6 +1,7 @@
 import { BoxGeometry, DataTexture, MeshStandardMaterial, ShaderLib, UniformsUtils } from 'three';
 import { addHeightFog } from '../environment/height-fog';
 import { addVertexRoughMetal, mergeKey, mergeParts } from './merge-parts';
+import { isWindowGlass } from './night-windows';
 
 describe('mergeParts (fewer draw calls per model)', () => {
   it('merges plain parts of one look, keeps textured ones, foliage and other looks apart', () => {
@@ -29,6 +30,21 @@ describe('mergeParts (fewer draw calls per model)', () => {
     expect([color.getX(0), color.getZ(0)]).toEqual([1, 0]);
     expect([color.getX(24), color.getZ(24)]).toEqual([0, 1]);
     expect((out[0].material as MeshStandardMaterial).color.getHex()).toBe(0xffffff);
+  });
+
+  it('marks the window glass among merged parts, which glows at night', () => {
+    const frame = new MeshStandardMaterial({ name: 'frame-0.75', color: 0xdddddd });
+    const glass = new MeshStandardMaterial({ name: 'window-glass', color: 0x4b555d });
+    const [merged] = mergeParts([frame, glass].map((material) => ({ geometry: new BoxGeometry(), material })));
+    expect(merged.material.userData['nightGlow']).toBe(true);
+    const glow = merged.geometry.getAttribute('nightGlow');
+    expect([glow.getX(0), glow.getX(24), glow.getX(47)]).toEqual([0, 1, 1]);
+    // Parts without glass carry no such attribute
+    const [plain] = mergeParts([frame, frame.clone()].map((material) => ({ geometry: new BoxGeometry(), material })));
+    expect(plain.geometry.getAttribute('nightGlow')).toBeUndefined();
+    expect(isWindowGlass('window-glass-old')).toBe(true);
+    expect(isWindowGlass('window')).toBe(true);
+    expect(isWindowGlass('window-hole')).toBe(false);
   });
 
   it('takes only the draw range of a part of a multi-material mesh', () => {

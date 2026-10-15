@@ -36,6 +36,7 @@ import { IMPOSTOR_SUN } from './objects/impostor';
 import { BridgeLayer } from './paths/path-bridges';
 import { LAVA_GLOW_UNIFORMS } from './environment/height-fog';
 import { MapTerrainLayer } from './terrain/map-terrain';
+import { NIGHT_WINDOW_UNIFORMS } from './objects/night-windows';
 import type { HeightTexture } from './terrain/height-texture';
 import { RiverSurface, sampleRiver } from './water/river-surface';
 import { WaterSurface } from './water/water-surface';
@@ -812,6 +813,7 @@ export class CustomMapView {
     if (!this.environment.sunDir.equals(sun)) this.refreshFarShadow(true);
     this.lightWater();
     this.effects.setDarkness(this.environment.darkness);
+    NIGHT_WINDOW_UNIFORMS.uNightWindows.value = this.environment.darkness;
   }
 
   /** Where glowing lava lights its surroundings: one point per 40 m patch of a lava body, every 30 m along lava flows */
@@ -994,6 +996,7 @@ export class CustomMapView {
     }
     this.effects.set(this.doc.objects, catalog);
     this.effects.setDarkness(this.environment.darkness);
+    NIGHT_WINDOW_UNIFORMS.uNightWindows.value = this.environment.darkness;
   }
 
   private lightWater(): void {

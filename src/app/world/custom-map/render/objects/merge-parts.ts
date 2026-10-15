@@ -1,5 +1,6 @@
 import { BufferAttribute, BufferGeometry, Color, type Material, type MeshStandardMaterial, type Texture } from 'three';
 import type { ModelPart } from '../map-asset-library';
+import { isWindowGlass } from './night-windows';
 
 /**
  * Fewer draw calls per model: the parts of a model whose materials differ
@@ -82,6 +83,8 @@ function mergeColored(parts: readonly ModelPart[]): BufferGeometry {
   const arrays = names.map((name) => new Float32Array(vertices * pieces[0].getAttribute(name).itemSize));
   const col = new Float32Array(vertices * 3);
   const roughMetal = new Float32Array(vertices * 2);
+  // Window glass among the parts glows at night (night-windows.ts): which vertices are glass
+  const glass = parts.some((p) => isWindowGlass(p.material.name)) ? new Float32Array(vertices) : null;
   const index = vertices > 65535 ? new Uint32Array(corners) : new Uint16Array(corners);
   let v0 = 0;
   let c0 = 0;
@@ -95,6 +98,7 @@ function mergeColored(parts: readonly ModelPart[]): BufferGeometry {
       col.set([color.r, color.g, color.b], (v0 + i) * 3);
       roughMetal.set([m.roughness, m.metalness], (v0 + i) * 2);
     }
+    if (glass && isWindowGlass(m.name)) glass.fill(1, v0, v0 + n);
     const idx = g.getIndex()!;
     for (let i = 0; i < idx.count; i++) index[c0 + i] = idx.getX(i) + v0;
     v0 += n;
@@ -105,6 +109,7 @@ function mergeColored(parts: readonly ModelPart[]): BufferGeometry {
   names.forEach((name, a) => out.setAttribute(name, new BufferAttribute(arrays[a], pieces[0].getAttribute(name).itemSize)));
   out.setAttribute('color', new BufferAttribute(col, 3));
   out.setAttribute('roughMetal', new BufferAttribute(roughMetal, 2));
+  if (glass) out.setAttribute('nightGlow', new BufferAttribute(glass, 1));
   out.setIndex(new BufferAttribute(index, 1));
   out.computeBoundingSphere();
   out.computeBoundingBox();
@@ -163,7 +168,9 @@ export function mergeParts(parts: readonly ModelPart[]): ModelPart[] {
     material.vertexColors = true;
     material.userData['roughMetal'] = true;
     material.name = `${p.material.name}+${group.length - 1}`;
-    out.push({ geometry: mergeColored(group), material });
+    const geometry = mergeColored(group);
+    if (geometry.getAttribute('nightGlow')) material.userData['nightGlow'] = true;
+    out.push({ geometry, material });
   }
   return out;
 }
