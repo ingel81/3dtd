@@ -16,12 +16,13 @@ import type { CatalogObject } from '../asset-catalog';
 
 /**
  * The points a map may spend and stay fluid: 100 % in the Map panel, the
- * map check and the shipped maps' check. Six times the Demo Valley (2.0 M
- * points, 1.2 ms GPU in the game view on the development machine), so
- * about 7 ms if GPU time grows with the points, room left under the 10 ms
- * of 100 fps for draw calls and the game itself (docs/LEVEL_EDITOR.md,
- * "Szenenkosten"). A GPU benchmark (e2e/perf/render-bench.ts) recalibrates
- * it here and nowhere else.
+ * map check and the shipped maps' check. Calibrated with
+ * e2e/perf/render-bench.ts on nine maps (2026-10-15, RTX 5080, High): the
+ * GPU time of the costliest view grows about 0.19 ms per million points on
+ * 0.8 ms of terrain, grass and light, and reaches 3 ms at 11.5 M, where the
+ * automatic quality would still step up; a GPU a third as fast stays under
+ * the 10 ms where it steps down (docs/LEVEL_EDITOR.md, "Szenenkosten").
+ * A new benchmark recalibrates it here and nowhere else.
  */
 export const SCENE_BUDGET = 12_000_000;
 

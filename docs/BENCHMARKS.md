@@ -200,6 +200,63 @@ map:harbor-town  ultra   pan     2.22     1.89    180  1300x852
   1,78-mal so viele Pixel): Spielansicht GPU med High 1,79, Ultra 3,12 ms (1,74-mal); Draufsicht 1,50 gegen 4,47 ms
   (3-mal), dort zählen die Pixel. Ultra bleibt eine Stufe nur von Hand; die Werte bleiben.
 
+### Ruhiger Rechner 2026-10-15: Schattenbox, 12 Schichten, Bildhimmel
+
+Rechner A (RTX 5080) ohne andere Last (CPU 7 bis 10 %), sonst gleiche Bedingungen. Builds mit Entwicklungs-Umgebung,
+optimiert, `3cb4c594` (vor der Schattenbox nach sichtbarem Boden, den 12 Bodenschichten und den Bildhimmeln) gegen
+`67e3fe51`. `GPU med` in ms, Draw Calls.
+
+```
+World            Level  View    3cb4c594        67e3fe51
+                                GPU med  Calls  GPU med  Calls
+map:demo-valley  high   game    0.76     160    0.75     160
+map:demo-valley  high   close   0.61      96    0.67      96
+map:demo-valley  high   pan     1.38     182    1.05     155
+map:demo-valley  high   top     0.63     141    0.62     141
+map:demo-valley  low    game    0.54      95    0.53      95
+map:demo-valley  low    close   0.51      99    0.52      99
+map:demo-valley  low    pan     0.98     104    0.91      96
+map:harbor-town  high   game    0.88     121    0.85     121
+map:harbor-town  high   close   1.02     140    1.02     140
+map:harbor-town  high   pan     1.41     132    1.28     127
+map:harbor-town  low    game    0.58      92    0.51      92
+map:harbor-town  low    pan     1.11     102    1.09     100
+```
+
+- **Schattenbox** (über dem gesehenen Boden, über vier Bilder verteilt): beim Schwenk High im Demo-Tal 1,38 → 1,05 ms
+  (27 Calls weniger), in der Hafenstadt 1,41 → 1,28; Low kaum (0,98 → 0,91, 1,11 → 1,09). Spielansicht, Nähe und
+  Draufsicht gleich (±0,06 ms, Rauschen der Einzelläufe).
+- **12 Bodenschichten:** das Demo-Tal mit vier Schichten mehr (Schichten 1 bis 4 je zur Hälfte in 9 bis 12, die dritte
+  Splat-Karte zeichnet überall) kostet in der Spielansicht 0,87 statt 0,75 ms, nah 0,78 statt 0,67, Schwenk 1,08 statt
+  1,05 ms: rund 0,1 ms für die dritte Karte, nur auf Karten mit mehr als 8 Schichten (Karten bis 8 nutzen das alte
+  Programm, oben unverändert).
+- **Bildhimmel** (Demo-Tal mit `fair-weather`, 4096 Pixel breit): 0,76 / 0,59 / 1,06 / 0,62 ms in Spiel, Nähe, Schwenk,
+  Draufsicht gegen 0,75 / 0,67 / 1,05 / 0,62 mit der prozeduralen Kuppel: kein messbarer Unterschied.
+
+### Eigene Karten und Szenenkosten 2026-10-15
+
+Gleicher Lauf, Stufe High, `67e3fe51`; die neuen Karten aus den Editor-Vorlagen (Saat 1, Zellen 2 m) als mitgelieferte
+Karten nur in den Bench-Build gelegt. Eichung von `SCENE_BUDGET` ([LEVEL_EDITOR.md](LEVEL_EDITOR.md), „Szenenkosten“).
+
+```
+World                   Points  Cost   game GPU med  worst view       Calls  Triangles
+map:moon-base           2.44 M   20 %  0.41          0.80 pan          78    0.77 M
+map:autumn-keep         2.81 M   23 %  0.53          1.06 close        85    0.31 M
+map:demo-valley         1.96 M   16 %  0.75          1.03 pan         160    0.92 M
+map:harbor-town         2.54 M   21 %  0.85          1.28 pan         121    1.46 M
+map:ruined-city         7.47 M   62 %  0.92          1.42 close        89    2.42 M
+new Meadows Large       0.51 M    4 %  0.86          1.11 pan         203    0.91 M
+new Hell Medium         1.25 M   10 %  1.12          1.27 pan         203    0.94 M
+new Woods Large         6.36 M   53 %  1.86          3.40 close       598    1.14 M
+new City Medium        12.04 M  100 %  2.40          3.05 close       214    8.18 M
+```
+
+- Gerade durch alle neun (kleinste Quadrate): teuerste Ansicht 0,81 ms + 0,19 ms je Mio. Punkte, Spielansicht
+  0,51 + 0,14 ms (R² 0,62). Bei 3 ms in der teuersten Ansicht liegen 11,5 Mio.: `SCENE_BUDGET` bleibt 12 Mio.,
+  jetzt gemessen statt geschätzt.
+- Der Sockel ist Gelände, Gras, Wasser und Licht, nicht Objekte: die Large-Wiese (91 500 Objekte, 4 %) kostet so viel
+  wie die Hafenstadt. Über der Geraden liegt der Large-Wald (598 Calls).
+
 ## Messungen
 
 ### 2026-10-12, Rechner A

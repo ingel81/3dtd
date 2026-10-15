@@ -422,28 +422,35 @@ hält die mitgelieferten Karten unter 80 %. Ein Punkt ist etwa ein Dreieck im Bi
 Beispiele (Punkte je Objekt auf einer Large-Karte): Grasbüschel und Blumen 2,2, Busch 25, Eiche 97, großer Fels 135,
 Steinmauer 1 042, Lagerfeuer 1 194 (Partikel), Haus 3 760, großes Haus 6 560.
 
-**100 % = 12 Mio. Punkte** (`SCENE_BUDGET`, die eine Stelle zum Nachstellen). Grundlage: das Demo-Tal hat 2,0 Mio.
-Punkte und braucht in der Spielansicht 1,21 ms GPU bei 1,23 Mio. gezeichneten Dreiecken (RTX 5080,
-[BENCHMARKS.md](BENCHMARKS.md), Ausgangswerte 2026-10-14). Wächst die GPU-Zeit mit den Punkten, sind 12 Mio. rund
-7 ms; bis zu den 10 ms der 100-fps-Regel ([SHOWCASE_LEVELS.md](SHOWCASE_LEVELS.md)) bleibt Platz für Draw Calls und das
-Spiel selbst. Stand 2026-10-14:
+**100 % = 12 Mio. Punkte** (`SCENE_BUDGET`, die eine Stelle zum Nachstellen), geeicht am 2026-10-15 mit
+`e2e/perf/render-bench.ts` (RTX 5080, Stufe High, Canvas 1300 × 852, [BENCHMARKS.md](BENCHMARKS.md), „Eigene Karten und
+Szenenkosten“): über neun Karten wächst die GPU-Zeit (Median) der teuersten Ansicht mit rund 0,19 ms je Mio. Punkte
+auf einem Sockel von 0,8 ms (Gelände, Gras, Wasser, Himmel, Schatten), die der Spielansicht mit 0,14 ms auf 0,5 ms.
+100 % ist, wo die teuerste Ansicht 3 ms erreicht (die Gerade: 11,5 Mio.), dieselbe Marke, unter der die automatische
+Qualität nach der Bildzeit eine Stufe hochschaltet ([RENDER_QUALITY.md](RENDER_QUALITY.md)): eine GPU mit einem Drittel
+der Leistung bleibt mit dem Bild unter den 10 ms, ab denen sie herunterschaltet. Gemessen:
 
-| Karte | Objekte | Szenenkosten |
-|-------|---------|--------------|
-| Witch Marsh, Archipelago, Red Canyon, Ember Crater, Twin Gates | 480 bis 3 300 | 3 bis 6 % |
-| Frost Hamlet, Mountain Pass, Demo Valley | 1 400 bis 13 200 | 8 bis 16 % |
-| Moon Base, Harbor Town, Autumn Keep, Mars Canyon | 900 bis 7 000 | 20 bis 30 % |
-| Ruined City (Dornen, Nesseln, Ruinen) | 8 200 | 62 % |
-| Neue Karte Meadows, Medium / Large | 22 700 / 91 500 | 3 / 4 % |
-| Neue Karte Woods, Medium / Large | 25 400 / 102 500 | 50 / 53 % |
-| Neue Karte City, Medium / Large | 5 500 / 21 900 | 100 / 257 % |
+| Karte | Objekte | Szenenkosten | GPU Spielansicht | GPU teuerste Ansicht | Calls |
+|-------|---------|--------------|------------------|----------------------|-------|
+| Moon Base | 1 558 | 20 % | 0,41 ms | 0,80 ms (pan) | 78 |
+| Autumn Keep | 6 958 | 23 % | 0,53 ms | 1,06 ms (close) | 85 |
+| Demo Valley | 13 178 | 16 % | 0,75 ms | 1,03 ms (pan) | 160 |
+| Harbor Town | 923 | 21 % | 0,85 ms | 1,28 ms (pan) | 121 |
+| Ruined City | 8 169 | 62 % | 0,92 ms | 1,42 ms (close) | 89 |
+| Neue Karte Meadows, Large | 91 535 | 4 % | 0,86 ms | 1,11 ms (pan) | 203 |
+| Neue Karte Hell, Medium | 1 770 | 10 % | 1,12 ms | 1,27 ms (pan) | 203 |
+| Neue Karte Woods, Large | 102 474 | 53 % | 1,86 ms | 3,40 ms (close) | 598 |
+| Neue Karte City, Medium | 5 533 | 100 % | 2,40 ms | 3,05 ms (close) | 214 |
 
-Was das Modell nicht kennt: Draw Calls (je Asset, Modellteil, Stufe und Zelle) und die CPU. Die Hafenstadt braucht
-bei 1,3-mal so vielen Punkten wie das Demo-Tal 2,3-mal so viel GPU-Zeit (1111 statt 290 Calls). **Nachmessen** mit
-`e2e/perf/render-bench.ts` auf einem ruhigen Rechner: je Karte die GPU-Zeit der Spielansicht (`game`, Spalte GPU)
-neben den Szenenkosten, mindestens Demo Valley, Harbor Town, Ruined City und eine neue City-Karte Medium; 100 % ist
-dann, wo die GPU-Zeit der Spielansicht die Zielmarke erreicht. Liegen Karten mit vielen Assets deutlich über der
-Geraden, braucht die Rechnung einen Posten je Asset (Draw Calls).
+Ohne Messung: die übrigen mitgelieferten Karten 3 bis 30 %, neue Karten Meadows Medium 3 %, Woods Medium 50 %, City
+Large 257 % (nach der Geraden gut 6 ms in der teuersten Ansicht).
+
+Die Szenenkosten zählen nur die Objekte: die Large-Wiese kostet so viel GPU-Zeit wie die Hafenstadt, fast alles
+Gelände und Gras, ihre 91 500 Büschel und Blumen kaum etwas (4 % sind richtig, die 0,86 ms stehen im Sockel). Über der
+Geraden liegt der Large-Wald (598 Calls, Bäume in vielen Zellen): Draw Calls kennt das Modell nicht, ein Posten je
+Asset lohnt sich erst, wenn mehr Karten so weit darüber liegen. Nachmessen nach größeren Änderungen am Zeichnen: die
+Karten oben (neue Karten aus den Vorlagen, Saat 1) mit `render-bench.ts`, je Karte die teuerste Ansicht gegen die
+Szenenkosten.
 
 ## Speichern und Dateien
 
