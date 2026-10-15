@@ -3,7 +3,9 @@ import { resolve } from 'node:path';
 import { createMapDocument } from '../../../world/custom-map/map-create';
 import { CatalogIndex, normalizeCatalog } from '../../catalog/asset-catalog';
 import { EditorDocument } from '../../model/editor-document';
-import { cliffModelIds, cliffModelsFor, cliffRocksDab } from './cliff-rocks';
+import { heightAt } from '../../model/grid';
+import { emptyWater } from '../water-ops';
+import { CLIFF_MODELS, cliffModelIds, cliffModelsFor, cliffRocksDab } from './cliff-rocks';
 import { LandscapeStroke } from './landscape-stroke';
 
 const catalog = new CatalogIndex(
@@ -40,6 +42,10 @@ describe('cliff rocks', () => {
       // Facing east (downhill): north turned to east
       expect(Math.abs(Math.sin(w.rotation) + 1)).toBeLessThan(0.1);
       expect(w.scale).toBeGreaterThanOrEqual(0.5);
+      // Standing from below its spot on the step (the foot of the drop it covers) to over it
+      const ground = heightAt(doc.terrain, w.x, w.y);
+      expect(w.z).toBeLessThan(-1);
+      expect(ground + w.z + catalog.object(w.asset).height * w.scale).toBeGreaterThan(ground);
     }
     // Flat ground in the east takes none
     const before = doc.objects.length;
@@ -50,6 +56,23 @@ describe('cliff rocks', () => {
     expect(editor.historySteps).toBe(1);
     editor.undo();
     expect(doc.objects).toHaveLength(0);
+  });
+
+  it('stands none in the water at the cliff foot', () => {
+    const doc = stepMap();
+    doc.terrain.water = emptyWater(doc.terrain, 13);
+    doc.terrain.water.mask.fill(1);
+    const stroke = new LandscapeStroke(new EditorDocument(doc), 'Cliff rocks', 5, catalog);
+    const models = cliffModelsFor(undefined, 'auto', catalog);
+    for (const y of [-60, -30, 0, 30, 60]) cliffRocksDab(stroke, { x: 0, y }, { radius: 40, strength: 1, falloff: 0.2 }, models, catalog);
+    expect(doc.objects.length).toBeGreaterThan(0);
+    for (const w of doc.objects) expect(heightAt(doc.terrain, w.x, w.y)).toBeGreaterThanOrEqual(13);
+  });
+
+  it('keeps one colouring a list: tinted walls without the grey ones', () => {
+    expect(CLIFF_MODELS.desert).toEqual(['cliff-wall-sandstone']);
+    expect(CLIFF_MODELS.hell).toEqual(['cliff-wall-basalt']);
+    expect(CLIFF_MODELS.mars).toEqual(['mars-cliff']);
   });
 
   it('picks the models of the map look or the one chosen', () => {

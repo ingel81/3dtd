@@ -776,9 +776,10 @@ def models():
         'rock-mossy-flat': lambda: import_model('rock_moss_set_02', None, 1500, 'rock-mossy-flat', objects=['rock_moss_set_02_rock10'], keep_scale=True, ground=True),
         'stones': lambda: import_model('namaqualand_stones_01', 0.35, 1500, 'stones', ground=True),
         'rock-coast': lambda: import_model('coast_rocks_01', None, 3000, 'rock-coast', keep_scale=True, ground=True),
-        # Cliff pieces (modular: stand them in a row or a ring against a slope)
-        'cliff-face': lambda: import_model('rock_face_01', 8.0, 4000, 'cliff-face', ground=True, close=True),
-        'cliff-face-b': lambda: import_model('rock_face_02', 9.0, 4000, 'cliff-face-b', ground=True, close=True),
+        # Cliff pieces (modular: stand them in a row or a ring against a slope), toned to one grey: the Cliff rocks
+        # brush mixes them
+        'cliff-face': lambda: import_model('rock_face_01', 8.0, 4000, 'cliff-face', desaturate=0.5, ground=True, close=True),
+        'cliff-face-b': lambda: import_model('rock_face_02', 9.0, 4000, 'cliff-face-b', desaturate=0.5, ground=True, close=True),
         'cliff-wall': lambda: import_model('namaqualand_cliff_01', 10.0, 5000, 'cliff-wall', desaturate=0.5, ground=True, close=True),
         'cliff-wall-b': lambda: import_model('namaqualand_cliff_02', 12.0, 6000, 'cliff-wall-b', desaturate=0.5, ground=True, close=True),
         'cliff-wall-sandstone': lambda: import_model('namaqualand_cliff_01', 10.0, 5000, 'cliff-wall-sandstone', tint=tint_sand, desaturate=0.5, ground=True, close=True),
