@@ -277,7 +277,8 @@ Straßen im Raster hinunter zum Kai; das HQ hält den Platz am Wasser zwischen K
 Fischerbooten, ein Schiff am Kai, eine Mole mit Leuchtturm, Bojen an der Hafeneinfahrt. Look `city`, Abend. Das
 Hafenbecken und die Kaimauer entstehen nach dem Stadtboden (dessen Glätten rundete sonst die Kante): erst das ganze
 Becken auf -7 m (die Hänge der Stadt reichten sonst als Erdhügel ins Wasser), dann die Kaimauer als eine gerade Stufe
-von 4,4 auf -6 m über einen Höhenpunkt; die Piers durchgehend aus Abschnitten alle 3 m.
+von 4,4 auf -6 m über einen Höhenpunkt; die Piers durchgehend aus Abschnitten alle 3 m. Ton: Möwenrufe über dem Hafen, Wasser und
+Taue am Kai des Ostbeckens (`harbor`).
 
 ## Weitere bei Bedarf
 Hafenstadt mit Kanälen und Brücken, Erde am Himmel der Mondbasis.
