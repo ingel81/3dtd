@@ -15,8 +15,10 @@ import random
 import bmesh
 from mathutils import Vector
 
-from blender_kit import Part, box, clear_scene, export_lod, finish, flat_material, pbr_material, tilt, tube
+from blender_kit import Part, box, card, card_material, clear_scene, export_lod, finish, flat_material, pbr_material, tilt, tube
+from blender_kit import export as export_plain
 from build_city import Face, glass
+from build_nature import broadleaf
 from build_structures import gable_roof, pyramid_roof
 
 FOUNDATION = 1.0
@@ -1181,8 +1183,298 @@ def transformer(name, w=3.6, d=2.6, h=2.6):
     export(name, kit.objects(name), lod=60)
 
 
+# ---------------------------------------------------------------- railway, power, leisure, farming
+
+GAUGE = 1.435
+
+
+def steel_material():
+    return flat_material('steel-rail', (0.32, 0.3, 0.28), 0.35, 0.9)
+
+
+def rails(part, sleepers, x0, x1, z=0.0, spacing=0.65):
+    """Two rails along X (head, web, foot as one profile box each) on concrete sleepers"""
+    for s in (-1, 1):
+        y = s * (GAUGE / 2 + 0.035)
+        box(part, (x0 + x1) / 2, y, z + 0.17, x1 - x0, 0.15, 0.03)
+        box(part, (x0 + x1) / 2, y, z + 0.2, x1 - x0, 0.03, 0.1)
+        box(part, (x0 + x1) / 2, y, z + 0.3, x1 - x0, 0.07, 0.05)
+    n = int((x1 - x0) / spacing)
+    for i in range(n):
+        box(sleepers, x0 + (i + 0.5) * (x1 - x0) / n, 0, z, 0.26, 2.6, 0.17)
+
+
+def track(name, length=10.0):
+    """Straight track along X: a ballast bed with sloped shoulders, concrete sleepers, two rails"""
+    clear_scene()
+    ballast = Part(pbr_material('ballast', 'gravel_floor_02', (0.62, 0.6, 0.58)), uv_metres=1.5, bevel=0.0)
+    sleepers = Part(pbr_material('sleeper-concrete', 'brushed_concrete', (1.1, 1.1, 1.05)), uv_metres=1.0, bevel=0.01)
+    steel = Part(steel_material())
+    h = 0.35
+    prism(ballast, [Vector((-length / 2, -2.4, -0.3)), Vector((-length / 2, 2.4, -0.3)), Vector((-length / 2, 1.6, h)),
+                    Vector((-length / 2, -1.6, h))], Vector((length, 0, 0)))
+    rails(steel, sleepers, -length / 2, length / 2, z=h - 0.08)
+    export(name, [ballast.to_object(name), sleepers.to_object(name + '-sleepers'), steel.to_object(name + '-rails')], lod=60)
+
+
+def platform(name, length=20.0, width=4.0, h=0.76):
+    """Station platform along X, its edge to -Y: a concrete wall, paving on top, the white safety line and
+    the tactile strip, a bench and a sign at the middle"""
+    clear_scene()
+    kit = Kit()
+    wall = Part(pbr_material('platform-wall', 'brushed_concrete'), uv_metres=2.5, bevel=0.02)
+    paving = Part(pbr_material('platform-paving', 'concrete_slab_wall', (0.95, 0.95, 0.95)), uv_metres=3.0, bevel=0.0)
+    white = Part(flat_material('line-white', (0.85, 0.85, 0.82), 0.6))
+    sign = Part(flat_material('sign-blue', (0.05, 0.15, 0.45), 0.4, 0.1))
+    kit.extra += [wall, paving, white, sign]
+    box(wall, 0, 0, -0.5, length, width, h + 0.4)
+    box(paving, 0, 0.1, h - 0.1, length, width - 0.2, 0.1)
+    box(wall, 0, -width / 2 + 0.15, h - 0.12, length, 0.3, 0.14)
+    box(white, 0, -width / 2 + 0.5, h, length, 0.08, 0.01)
+    box(white, 0, -width / 2 + 0.85, h, length, 0.3, 0.008)
+    for x in (-length * 0.25, length * 0.25):
+        box(kit.metal, x - 0.8, width * 0.2, h, 0.06, 0.4, 0.45)
+        box(kit.metal, x + 0.8, width * 0.2, h, 0.06, 0.4, 0.45)
+        box(kit.frames, x, width * 0.2, h + 0.45, 1.8, 0.45, 0.05)
+    tube(kit.metal, [Vector((0, width * 0.3, h)), Vector((0, width * 0.3, h + 2.6))], [0.05, 0.05], 8)
+    box(sign, 0, width * 0.3, h + 2.2, 2.0, 0.06, 0.45)
+    export(name, kit.objects(name))
+
+
+def catenary_mast(name, height=7.6, reach=3.2):
+    """Overhead line mast beside the track: an H-beam mast on a concrete footing, a cantilever over the
+    track (+Y) with insulators, a stub of contact and messenger wire along X"""
+    clear_scene()
+    kit = Kit()
+    steel = Part(flat_material('mast-steel', (0.42, 0.45, 0.43), 0.5, 0.7))
+    insul = Part(flat_material('insulator', (0.45, 0.3, 0.2), 0.3, 0.1), smooth=True)
+    wire = Part(flat_material('wire-copper', (0.25, 0.2, 0.15), 0.4, 0.8), smooth=True)
+    kit.extra += [steel, insul, wire]
+    box(kit.plinth, 0, 0, -0.8, 0.8, 0.8, 1.0)
+    for s in (-1, 1):
+        box(steel, s * 0.13, 0, 0.2, 0.03, 0.3, height)
+    box(steel, 0, 0, 0.2, 0.26, 0.02, height)
+    za, zb = height - 0.4, height - 1.7
+    tube(steel, [Vector((0, 0.15, za)), Vector((0, reach + 0.5, za - 0.2))], [0.05, 0.05], 6)
+    tube(steel, [Vector((0, 0.15, zb)), Vector((0, reach + 0.3, za - 0.25))], [0.04, 0.04], 6)
+    for p in (Vector((0, 0.5, za)), Vector((0, 0.5, zb))):
+        tube(insul, [p, p + Vector((0, 0.5, 0))], [0.09, 0.09], 8, cap=True)
+    tube(steel, [Vector((0, reach, za - 0.2)), Vector((0, reach, za - 1.25))], [0.03, 0.03], 5)
+    for z in (za - 0.15, za - 1.3):
+        tube(wire, [Vector((-6, reach, z)), Vector((6, reach, z))], [0.02, 0.02], 4)
+    export(name, kit.objects(name))
+
+
+def buffer_stop(name):
+    """End of a track: a short rail stub, a welded steel frame with a timber beam and a red-white board"""
+    clear_scene()
+    sleepers = Part(pbr_material('sleeper-concrete', 'brushed_concrete', (1.1, 1.1, 1.05)), uv_metres=1.0, bevel=0.01)
+    steel = Part(steel_material())
+    frame = Part(flat_material('stop-frame', (0.35, 0.12, 0.08), 0.6, 0.4))
+    beam = Part(pbr_material('stop-beam', 'dark_planks'), uv_metres=1.0)
+    red = Part(flat_material('board-red', (0.7, 0.05, 0.04), 0.5))
+    white = Part(flat_material('board-white', (0.85, 0.85, 0.82), 0.5))
+    rails(steel, sleepers, -3.0, 1.0)
+    for s in (-1, 1):
+        y = s * (GAUGE / 2 + 0.035)
+        plank(frame, Vector((-1.5, y, 0.35)), Vector((0.4, y, 1.15)), 0.12, 0.12)
+        box(frame, 0.4, y, 0.3, 0.14, 0.14, 0.95)
+    box(beam, 0.3, 0, 0.75, 0.3, 2.6, 0.35)
+    for i in range(5):
+        box(red if i % 2 == 0 else white, 0.47, -1.0 + i * 0.5, 1.15, 0.04, 0.5, 0.5)
+    export(name, [steel.to_object(name), sleepers.to_object(name + '-sleepers'), frame.to_object(name + '-frame'),
+                  beam.to_object(name + '-beam'), red.to_object(name + '-red'), white.to_object(name + '-white')], lod=60)
+
+
+def pylon(name, height=44.0, base_w=9.0, top_w=1.8, seed=0):
+    """High-voltage pylon (Danube type): four tapering lattice legs, two cross-arm levels with insulator
+    strings, an earth wire peak, concrete footings"""
+    clear_scene()
+    kit = Kit()
+    steel = Part(flat_material('pylon-steel', (0.5, 0.53, 0.52), 0.5, 0.7))
+    insul = Part(flat_material('insulator-glass', (0.35, 0.45, 0.4), 0.15, 0.2), smooth=True)
+    kit.extra += [steel, insul]
+
+    def half(z):
+        t = min(1.0, z / (height * 0.68))
+        return (base_w + (top_w - base_w) * t ** 0.8) / 2
+
+    levels = [0.0, 5.0, 10.5, 15.5, 20.0, 24.0, 27.5, 30.0, 33.5, 37.0, 40.5, height]
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            box(kit.plinth, sx * half(0), sy * half(0), -0.8, 1.2, 1.2, 1.1)
+            for z0, z1 in zip(levels, levels[1:]):
+                plank(steel, Vector((sx * half(z0), sy * half(z0), z0)), Vector((sx * half(z1), sy * half(z1), z1)), 0.2, 0.2)
+    for j, (z0, z1) in enumerate(zip(levels, levels[1:])):
+        h0, h1 = half(z0), half(z1)
+        for k in range(4):
+            ang = k * math.pi / 2
+            u = Vector((math.cos(ang), math.sin(ang), 0))
+            n = Vector((math.sin(ang), -math.cos(ang), 0))
+            a0, b0 = n * h0 - u * h0 + Vector((0, 0, z0)), n * h0 + u * h0 + Vector((0, 0, z0))
+            a1, b1 = n * h1 - u * h1 + Vector((0, 0, z1)), n * h1 + u * h1 + Vector((0, 0, z1))
+            plank(steel, a0, b1, 0.08, 0.08)
+            plank(steel, b0, a1, 0.08, 0.08)
+            plank(steel, a1, b1, 0.1, 0.1)
+    for z, reach in ((30.0, 11.0), (37.0, 7.5)):
+        hz = half(z)
+        for s in (-1, 1):
+            for sy in (-1, 1):
+                plank(steel, Vector((s * hz, sy * hz, z)), Vector((s * reach, 0, z)), 0.12, 0.12)
+                plank(steel, Vector((s * hz, sy * hz, z + 2.0)), Vector((s * reach, 0, z)), 0.08, 0.08)
+            for x in (s * (reach - 0.3), s * (hz + (reach - hz) * 0.45)):
+                tube(insul, [Vector((x, 0, z)), Vector((x, 0, z - 2.6))], [0.13, 0.13], 8)
+                box(steel, x, 0, z - 2.8, 0.25, 0.4, 0.2)
+    plank(steel, Vector((0, 0, height)), Vector((0, 0, height + 3.0)), 0.25, 0.25)
+    export(name, kit.objects(name), lod=600)
+
+
+def vine_row(name, length=10.0, seed=0):
+    """Vineyard row along X: oak posts every 2.5 m, three wires, gnarled vine stocks with a leafy hedge
+    trained along the wires"""
+    clear_scene()
+    rnd = random.Random(seed)
+    wood = Part(pbr_material('post-oak', 'rough_wood', (0.75, 0.68, 0.58)), uv_metres=1.0)
+    stock = Part(pbr_material('vine-bark', 'bark_brown_01', (0.8, 0.7, 0.6)))
+    wire = Part(flat_material('wire-steel', (0.5, 0.5, 0.5), 0.4, 0.9), smooth=True)
+    leaves = Part(card_material('vine', 'leaves-ivy.png'))
+    n = int(length / 2.5)
+    for i in range(n + 1):
+        x = -length / 2 + i * length / n
+        box(wood, x, 0, -0.4, 0.09, 0.09, 2.2)
+    for z in (0.8, 1.25, 1.7):
+        tube(wire, [Vector((-length / 2, 0, z)), Vector((length / 2, 0, z))], [0.008, 0.008], 3)
+    for i in range(int(length / 1.1)):
+        x = -length / 2 + 0.5 + i * 1.1 + rnd.uniform(-0.1, 0.1)
+        tube(stock, [Vector((x, 0, -0.1)), Vector((x + rnd.uniform(-0.1, 0.1), rnd.uniform(-0.05, 0.05), 0.5)),
+                     Vector((x + rnd.uniform(-0.15, 0.15), 0, 0.8))], [0.05, 0.04, 0.03], 5)
+    centre = Vector((0, 0, 1.2))
+    for k in range(int(length * 6)):
+        x = rnd.uniform(-length / 2, length / 2)
+        p = Vector((x, rnd.uniform(-0.2, 0.2), rnd.uniform(0.75, 1.75)))
+        side = Vector((0, 1 if rnd.random() < 0.5 else -1, 0))
+        d = Vector((rnd.uniform(-0.4, 0.4), side.y * 0.2, 1.0)).normalized()
+        size = rnd.uniform(0.5, 0.75)
+        card(leaves, p - d * size * 0.5, d, side, size, size, Vector((x, 0, centre.z)))
+    export_plain(name, [wood.to_object(name + '-posts'), stock.to_object(name + '-stocks'), wire.to_object(name + '-wire'),
+                        leaves.to_object(name + '-leaves')])
+
+
+def swing(name):
+    """Playground swing: two A-frames of round timber, a cross beam, two seats on chains"""
+    clear_scene()
+    wood = Part(pbr_material('playground-wood', 'rough_wood', (0.95, 0.8, 0.6)), smooth=True)
+    steel = Part(flat_material('chain', (0.45, 0.46, 0.47), 0.4, 0.9), smooth=True)
+    seat = Part(flat_material('seat-red', (0.65, 0.08, 0.06), 0.6))
+    w, h = 3.4, 2.5
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            tube(wood, [Vector((sx * w / 2, sy * 1.0, -0.3)), Vector((sx * w / 2, 0, h))], [0.07, 0.06], 8)
+    tube(wood, [Vector((-w / 2 - 0.2, 0, h)), Vector((w / 2 + 0.2, 0, h))], [0.08, 0.08], 8)
+    for x in (-0.8, 0.8):
+        for s in (-1, 1):
+            tube(steel, [Vector((x + s * 0.22, 0, h)), Vector((x + s * 0.22, 0, 0.5))], [0.012, 0.012], 4)
+        box(seat, x, 0, 0.45, 0.5, 0.2, 0.05)
+    export(name, [wood.to_object(name), steel.to_object(name + '-chains'), seat.to_object(name + '-seats')])
+
+
+def slide(name):
+    """Playground slide: a timber tower with a roof, a ladder up the back, a stainless chute down the front"""
+    clear_scene()
+    wood = Part(pbr_material('playground-wood', 'rough_wood', (0.95, 0.8, 0.6)), uv_metres=1.0)
+    steel = Part(flat_material('chute-steel', (0.7, 0.72, 0.74), 0.2, 0.9))
+    roof = Part(flat_material('roof-green', (0.12, 0.35, 0.15), 0.6))
+    s, h = 1.4, 1.5
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            box(wood, sx * s / 2, sy * s / 2, -0.3, 0.1, 0.1, h + 1.8)
+    box(wood, 0, 0, h, s + 0.1, s + 0.1, 0.06)
+    for sx in (-1, 1):
+        box(wood, sx * s / 2, 0, h + 0.5, 0.05, s, 0.08)
+    box(wood, 0, s / 2, h + 0.5, s, 0.05, 0.08)
+    prism(roof, [Vector((-s / 2 - 0.15, -s / 2 - 0.15, h + 1.5)), Vector((s / 2 + 0.15, -s / 2 - 0.15, h + 1.5)),
+                 Vector((0, 0, h + 2.2))], Vector((0, s + 0.3, 0)))
+    for sx in (-1, 1):
+        plank(wood, Vector((sx * 0.25, s / 2 + 1.2, -0.1)), Vector((sx * 0.25, s / 2, h)), 0.05, 0.08)
+    for k in range(5):
+        t = (k + 0.5) / 5
+        box(wood, 0, s / 2 + 1.2 * (1 - t), -0.1 + (h + 0.1) * t, 0.5, 0.05, 0.04)
+    chute_len = 3.0
+    a, b = Vector((0, -s / 2, h + 0.05)), Vector((0, -s / 2 - chute_len, 0.3))
+    plank(steel, a, b, 0.6, 0.03)
+    for sx in (-1, 1):
+        plank(steel, a + Vector((sx * 0.3, 0, 0.12)), b + Vector((sx * 0.3, 0, 0.12)), 0.03, 0.25)
+    export(name, [wood.to_object(name), steel.to_object(name + '-chute'), roof.to_object(name + '-roof')], lod=100)
+
+
+def football_goal(name, w=7.32, h=2.44, depth=2.0):
+    """Football goal: white posts and crossbar, the net held by back stanchions (front -Y)"""
+    clear_scene()
+    white = Part(flat_material('goal-white', (0.9, 0.9, 0.88), 0.4), smooth=True)
+    net = Part(card_material('goal-net', 'net.png'))
+    for sx in (-1, 1):
+        tube(white, [Vector((sx * w / 2, 0, -0.2)), Vector((sx * w / 2, 0, h))], [0.06, 0.06], 8)
+        tube(white, [Vector((sx * w / 2, depth, 0.0)), Vector((sx * w / 2, 0.6, h)), Vector((sx * w / 2, 0.0, h))], [0.025, 0.025, 0.025], 6)
+    tube(white, [Vector((-w / 2, 0, h)), Vector((w / 2, 0, h))], [0.06, 0.06], 8)
+    tube(white, [Vector((-w / 2, depth, 0.02)), Vector((w / 2, depth, 0.02))], [0.025, 0.025], 6)
+    reps = 6.0
+    net.quad([Vector((-w / 2, 0.6, h)), Vector((w / 2, 0.6, h)), Vector((w / 2, depth, 0.02)), Vector((-w / 2, depth, 0.02))],
+             [(0, 0), (w / 1.2, 0), (w / 1.2, reps * 0.5), (0, reps * 0.5)])
+    net.quad([Vector((-w / 2, 0.0, h)), Vector((w / 2, 0.0, h)), Vector((w / 2, 0.6, h)), Vector((-w / 2, 0.6, h))],
+             [(0, 0), (w / 1.2, 0), (w / 1.2, 0.5), (0, 0.5)])
+    for sx in (-1, 1):
+        f = net.bm.faces.new([net.bm.verts.new(v) for v in (Vector((sx * w / 2, 0, 0)), Vector((sx * w / 2, depth, 0.02)),
+                                                              Vector((sx * w / 2, 0.6, h)), Vector((sx * w / 2, 0, h)))])
+        for loop in f.loops:
+            loop[net.uv].uv = (loop.vert.co.y / 1.2, loop.vert.co.z / 1.2)
+    export_plain(name, [white.to_object(name), net.to_object(name + '-net')])
+
+
+def fountain(name, r=2.6, seed=0):
+    """Town fountain: a round sandstone basin with a moulded rim, still water, a column with a bowl and a
+    finial in the middle"""
+    clear_scene()
+    stone = Part(pbr_material('stone-sandstone-dress', 'sandstone_blocks_04', (1.0, 0.95, 0.85)), smooth=True)
+    water = Part(flat_material('fountain-water', (0.16, 0.3, 0.32), 0.05, 0.2))
+    sides = 20
+    tube(stone, [Vector((0, 0, -0.3)), Vector((0, 0, 0.55))], [r, r], sides, smooth=False)
+    tube(stone, [Vector((0, 0, 0.55)), Vector((0, 0, 0.7))], [r + 0.12, r + 0.12], sides, smooth=False)
+    # Rim top as a ring, the inner face of the basin down to the water
+    ring = [(math.cos(k / sides * math.tau), math.sin(k / sides * math.tau)) for k in range(sides)]
+    for k in range(sides):
+        (c0, s0), (c1, s1) = ring[k], ring[(k + 1) % sides]
+        ro, ri = r + 0.12, r - 0.25
+        stone.quad([Vector((c0 * ri, s0 * ri, 0.7)), Vector((c0 * ro, s0 * ro, 0.7)), Vector((c1 * ro, s1 * ro, 0.7)),
+                    Vector((c1 * ri, s1 * ri, 0.7))], [(0, 0), (0.4, 0), (0.4, 0.8), (0, 0.8)])
+        stone.quad([Vector((c0 * ri, s0 * ri, 0.4)), Vector((c0 * ri, s0 * ri, 0.7)), Vector((c1 * ri, s1 * ri, 0.7)),
+                    Vector((c1 * ri, s1 * ri, 0.4))], [(0, 0), (0, 0.3), (0.8, 0.3), (0.8, 0)])
+    disc = [water.bm.verts.new((math.cos(k / sides * math.tau) * (r - 0.25), math.sin(k / sides * math.tau) * (r - 0.25), 0.6))
+            for k in range(sides)]
+    water.bm.faces.new(disc)
+    tube(stone, [Vector((0, 0, 0.5)), Vector((0, 0, 0.9)), Vector((0, 0, 1.8))], [0.45, 0.3, 0.25], 10)
+    tube(stone, [Vector((0, 0, 1.8)), Vector((0, 0, 2.0)), Vector((0, 0, 2.2))], [0.25, 0.9, 0.95], 12, cap=True)
+    tube(stone, [Vector((0, 0, 2.2)), Vector((0, 0, 2.7)), Vector((0, 0, 3.0))], [0.15, 0.2, 0.05], 8)
+    export(name, [stone.to_object(name), water.to_object(name + '-water')])
+
+
+def fruit_tree(name, seed=0):
+    """Orchard tree: a short trunk and a low, wide crown of small light leaves (apple, pear, plum)"""
+    broadleaf(name, seed, 5.5, 2.6, 0.16, 'bark_brown_01', 'leaves-bush')
+
+
 def models():
     return {
+        'rail-track': lambda: track('rail-track'),
+        'rail-platform': lambda: platform('rail-platform'),
+        'catenary-mast': lambda: catenary_mast('catenary-mast'),
+        'buffer-stop': lambda: buffer_stop('buffer-stop'),
+        'power-pylon': lambda: pylon('power-pylon'),
+        'vine-row': lambda: vine_row('vine-row', seed=41),
+        'fruit-tree': lambda: fruit_tree('fruit-tree', seed=42),
+        'playground-swing': lambda: swing('playground-swing'),
+        'playground-slide': lambda: slide('playground-slide'),
+        'football-goal': lambda: football_goal('football-goal'),
+        'fountain': lambda: fountain('fountain'),
         'greenhouse': lambda: greenhouse('greenhouse'),
         'kiosk': lambda: kiosk('kiosk'),
         'transformer-station': lambda: transformer('transformer-station'),

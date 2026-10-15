@@ -14184,6 +14184,285 @@
         }
       ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "rail-track",
+      "name": "Railway track, straight (10 m along X)",
+      "category": "structure",
+      "file": "models/rail-track.glb",
+      "triangles": 744,
+      "footprint": 4.5,
+      "height": 0.6,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "city",
+        "temperate"
+      ],
+      "lod": [
+        {
+          "file": "models/rail-track-lod1.glb",
+          "distance": 350,
+          "triangles": 74
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/gravel_floor_02; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "rail-platform",
+      "name": "Station platform (20 x 4 m, edge to the front)",
+      "category": "structure",
+      "file": "models/rail-platform.glb",
+      "triangles": 224,
+      "footprint": 9.0,
+      "height": 3.4,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "city"
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/concrete_slab_wall"
+    },
+    {
+      "id": "catenary-mast",
+      "name": "Overhead line mast (arm over +Z)",
+      "category": "prop",
+      "file": "models/catenary-mast.glb",
+      "triangles": 174,
+      "footprint": 5.4,
+      "height": 7.8,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "city"
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "buffer-stop",
+      "name": "Buffer stop",
+      "category": "prop",
+      "file": "models/buffer-stop.glb",
+      "triangles": 488,
+      "footprint": 1.8,
+      "height": 1.6,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/buffer-stop-lod1.glb",
+          "distance": 320,
+          "triangles": 84
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/dark_planks"
+    },
+    {
+      "id": "power-pylon",
+      "name": "High-voltage pylon (47 m)",
+      "category": "structure",
+      "file": "models/power-pylon.glb",
+      "triangles": 2716,
+      "footprint": 9.9,
+      "height": 47,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 4000,
+      "tags": [
+        "city",
+        "temperate",
+        "mountain"
+      ],
+      "lod": [
+        {
+          "file": "models/power-pylon-lod1.glb",
+          "distance": 350,
+          "triangles": 1004
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "vine-row",
+      "name": "Vine row (10 m along X)",
+      "category": "plant",
+      "file": "models/vine-row.glb",
+      "triangles": 538,
+      "footprint": 3.1,
+      "height": 2.1,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0.3,
+      "drawDistance": 900,
+      "tags": [
+        "temperate",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/rough_wood; https://polyhaven.com/a/bark_brown_01; Blätter https://ambientcg.com/view?id=LeafSet029"
+    },
+    {
+      "id": "fruit-tree",
+      "name": "Fruit tree",
+      "category": "tree",
+      "file": "models/fruit-tree.glb",
+      "triangles": 844,
+      "footprint": 0.9,
+      "height": 6.1,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.2
+      ],
+      "randomRotation": true,
+      "wind": 0.5,
+      "drawDistance": 2500,
+      "tags": [
+        "temperate",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py, build_nature.py); Rinde https://polyhaven.com/a/bark_brown_01; Blätter https://ambientcg.com/view?id=LeafSet002"
+    },
+    {
+      "id": "playground-swing",
+      "name": "Playground swing",
+      "category": "prop",
+      "file": "models/playground-swing.glb",
+      "triangles": 136,
+      "footprint": 1.7,
+      "height": 2.6,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/rough_wood"
+    },
+    {
+      "id": "playground-slide",
+      "name": "Playground slide tower",
+      "category": "prop",
+      "file": "models/playground-slide.glb",
+      "triangles": 704,
+      "footprint": 2.6,
+      "height": 3.7,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "lod": [
+        {
+          "file": "models/playground-slide-lod1.glb",
+          "distance": 240,
+          "triangles": 159
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/rough_wood"
+    },
+    {
+      "id": "football-goal",
+      "name": "Football goal (7.3 m)",
+      "category": "prop",
+      "file": "models/football-goal.glb",
+      "triangles": 116,
+      "footprint": 3.3,
+      "height": 2.5,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 700,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py)"
+    },
+    {
+      "id": "fountain",
+      "name": "Town fountain (5.5 m)",
+      "category": "structure",
+      "file": "models/fountain.glb",
+      "triangles": 308,
+      "footprint": 2.4,
+      "height": 3,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1200,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/sandstone_blocks_04"
     }
   ]
 }

@@ -571,6 +571,17 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | greenhouse | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brick_wall_07 |
 | kiosk | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/brushed_concrete |
 | transformer-station | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete |
+| rail-track | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/gravel_floor_02; https://polyhaven.com/a/brushed_concrete |
+| rail-platform | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/concrete_slab_wall |
+| catenary-mast | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete |
+| buffer-stop | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/dark_planks |
+| power-pylon | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete |
+| vine-row | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/rough_wood; https://polyhaven.com/a/bark_brown_01; Blätter https://ambientcg.com/view?id=LeafSet029 |
+| fruit-tree | procedural (tools/map-assets/build_modern.py, build_nature.py); Rinde https://polyhaven.com/a/bark_brown_01; Blätter https://ambientcg.com/view?id=LeafSet002 |
+| playground-swing | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/rough_wood |
+| playground-slide | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/rough_wood |
+| football-goal | procedural (tools/map-assets/build_modern.py) |
+| fountain | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/sandstone_blocks_04 |
 
 ## Himmelsbilder (`skies/<id>.webp`)
 
