@@ -211,6 +211,62 @@ export class MapKit {
     return slopeAt(this.doc.terrain, x, y);
   }
 
+  /**
+   * A contour line: where the ground stands at `height`, traced across a
+   * slope. Every `spacing` metres along `a` to `b` (a line across the slope)
+   * it looks up and down the slope, square to that line and up to `reach`
+   * metres off it, for the spot at that height; stretches where the ground
+   * never reaches it (a ridge, a hollow) are left out, so the result may come
+   * in pieces. For rows along a hillside: terraces, fences, barriers.
+   */
+  contour(a: MapPoint, b: MapPoint, height: number, o: { spacing?: number; reach?: number } = {}): MapPoint[][] {
+    const spacing = o.spacing ?? 4;
+    const reach = o.reach ?? 60;
+    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    const along = { x: (b.x - a.x) / len, y: (b.y - a.y) / len };
+    const across = { x: -along.y, y: along.x };
+    const pieces: MapPoint[][] = [];
+    let piece: MapPoint[] = [];
+    for (let d = 0; d <= len; d += spacing) {
+      const m = { x: a.x + along.x * d, y: a.y + along.y * d };
+      const at = (s: number) => ({ x: m.x + across.x * s, y: m.y + across.y * s });
+      // The nearest crossing of the height on either side, then halved down to a decimetre
+      let found: MapPoint | null = null;
+      const step = 2;
+      for (let s = 0; s <= reach && !found; s += step) {
+        for (const sign of s ? [1, -1] : [1]) {
+          const lo = s * sign;
+          const hi = (s + step) * sign;
+          const fl = this.h(at(lo).x, at(lo).y) - height;
+          const fh = this.h(at(hi).x, at(hi).y) - height;
+          if (fl * fh > 0) continue;
+          let [p, q, fp] = [lo, hi, fl];
+          for (let k = 0; k < 6; k++) {
+            const mid = (p + q) / 2;
+            const fm = this.h(at(mid).x, at(mid).y) - height;
+            if (fm * fp > 0) [p, fp] = [mid, fm];
+            else q = mid;
+          }
+          found = at((p + q) / 2);
+          break;
+        }
+      }
+      const last = piece[piece.length - 1];
+      // A crossing far off the last one is another stretch of the line (round a spur), not its next point
+      if (found && last && Math.hypot(found.x - last.x, found.y - last.y) > spacing * 3) {
+        pieces.push(piece);
+        piece = [];
+      }
+      if (found && Math.abs(found.x) < this.half && Math.abs(found.y) < this.half) piece.push({ x: r2(found.x), y: r2(found.y) });
+      else if (piece.length) {
+        pieces.push(piece);
+        piece = [];
+      }
+    }
+    if (piece.length) pieces.push(piece);
+    return pieces.filter((p) => p.length >= 2);
+  }
+
   private nextSeed(): number {
     this.strokes++;
     return Math.floor(hashCell(this.strokes, this.seed, 977) * 2 ** 31);
@@ -904,6 +960,45 @@ export class MapKit {
       if (o.bollard !== null && this.free(edge.x, edge.y, 0.6)) out.push(this.place(o.bollard ?? 'bollards', edge.x, edge.y, { rotation: facing(edge, water) + Math.PI / 2 }));
       const inner = at(4);
       if (n % 2 === 0 && o.lamp !== null && this.free(inner.x, inner.y, 0.4)) out.push(this.place(o.lamp ?? 'street-lamp', inner.x, inner.y, { rotation: facing(inner, water) }));
+    }
+    return out;
+  }
+
+  /**
+   * A glacier or snowfield along a line from its head down to its snout: the
+   * crags under it laid into an even tongue `width` metres wide that falls
+   * straight from point to point, `sink` metres under the ground's heights
+   * at the points, `snow` painted over it (fading out at
+   * its edges), broken ice at the snout (`snout` assets) and moraine scree
+   * along both edges (`moraine` assets), each kept off roads and markers.
+   * The ground's cliff material still shows where the tongue stays steeper
+   * than the map's cliff angle: an icefall reads as rock there. Returns the
+   * objects placed.
+   */
+  glacier(
+    line: readonly MapPoint[],
+    o: { width: number; snow: string; sink?: number; snout?: readonly string[]; moraine?: readonly string[] },
+  ): MapObject[] {
+    const w = o.width;
+    // The ice as an even slope from point to point, at the ground's heights there less the sink, its edges blended
+    const heights = line.map((p) => this.h(p.x, p.y) - (o.sink ?? 0));
+    for (let i = 0; i < line.length - 1; i++) this.ramp({ ...line[i], h: heights[i] }, { ...line[i + 1], h: heights[i + 1] }, w, 0.5);
+    const pts = resample(line, 4);
+    this.smooth(pts, { radius: w * 0.6, falloff: 0.6 }, 3);
+    this.paint(o.snow, pts, { radius: w * 0.55, falloff: 0.45 }, 1);
+    const out: MapObject[] = [];
+    const end = pts[pts.length - 1];
+    if (o.snout?.length) out.push(...this.scatter(o.snout, end, { radius: w * 0.4, strength: 1 }, { density: 3, minDistance: 3, scaleMin: 0.8, scaleMax: 1.6 }));
+    if (o.moraine?.length) {
+      for (const side of [1, -1]) {
+        const edge = pts.map((p, k) => {
+          const a = pts[Math.max(0, k - 1)];
+          const b = pts[Math.min(pts.length - 1, k + 1)];
+          const dl = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+          return { x: p.x - ((b.y - a.y) / dl) * (w / 2) * side, y: p.y + ((b.x - a.x) / dl) * (w / 2) * side };
+        });
+        out.push(...this.scatter(o.moraine, edge, { radius: w * 0.12 + 2, strength: 1 }, { density: 2, minDistance: 4, scaleMin: 0.7, scaleMax: 1.4 }));
+      }
     }
     return out;
   }

@@ -4,6 +4,7 @@ import { createMapDocument } from '../../world/custom-map/map-create';
 import { CatalogIndex, normalizeCatalog } from '../catalog/asset-catalog';
 import { heightAt } from '../model/grid';
 import { MapKit } from './map-kit';
+import { readWeights } from './paint-ops';
 import { waterInAir } from '../validation/map-validation';
 
 const index = new CatalogIndex(normalizeCatalog(JSON.parse(readFileSync(resolve('public/maps/assets/catalog.json'), 'utf8')), 'http://x/maps/assets/'));
@@ -110,5 +111,59 @@ describe('MapKit.rockyCoast', () => {
     const ids = k.cliffRocks([{ x: -40, y: 0 }, { x: 40, y: 0 }], { radius: 8 });
     expect(ids.length).toBeGreaterThan(2);
     for (const id of ids) expect(Math.abs(k.doc.objects.find((o) => o.id === id)!.y)).toBeLessThan(10);
+  });
+});
+
+/** A slope rising 0.5 m per metre to the north, 0 m along y = 0 */
+function slope(k: MapKit): void {
+  const g = k.doc.terrain.grid;
+  for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) g.heights[j * g.columns + i] = (j * g.cellSize - 128) * 0.5;
+}
+
+describe('MapKit.contour', () => {
+  it('traces where the ground stands at a height across a slope, in pieces where it never gets there', () => {
+    const k = kit();
+    slope(k);
+    const [line, ...rest] = k.contour({ x: -100, y: 0 }, { x: 100, y: 0 }, 10, { spacing: 10 });
+    expect(rest).toEqual([]);
+    expect(line.length).toBe(21);
+    for (const p of line) expect(p.y).toBeCloseTo(20, 0);
+    // Out of reach of the line it is looked up from: nothing
+    expect(k.contour({ x: -100, y: 0 }, { x: 100, y: 0 }, 10, { spacing: 10, reach: 10 })).toEqual([]);
+    // A hump on the line: the contour runs round it on its low side
+    k.raise({ x: 0, y: 20 }, { radius: 30, falloff: 0.2 }, 30);
+    const [round] = k.contour({ x: -100, y: 0 }, { x: 100, y: 0 }, 10, { spacing: 10, reach: 20 });
+    expect(round.find((p) => p.x === 0)!.y).toBeLessThan(0);
+    // Too far round for the reach: the line breaks there
+    expect(k.contour({ x: -100, y: 20 }, { x: 100, y: 20 }, 10, { spacing: 10, reach: 6 }).length).toBe(2);
+  });
+});
+
+describe('MapKit.glacier', () => {
+  it('eases the ground under a tongue, sinks it, paints it with snow and sets ice at its snout', () => {
+    const k = kit();
+    slope(k);
+    k.roughen({ x: 0, y: 40 }, { radius: 60, falloff: 1 }, 6, 3);
+    const line = [{ x: 0, y: 100 }, { x: 0, y: 20 }];
+    const rough = (): number => {
+      let sum = 0;
+      for (let y = 30; y <= 90; y += 2) sum += Math.abs(k.h(0, y + 2) - 2 * k.h(0, y) + k.h(0, y - 2));
+      return sum;
+    };
+    const before = rough();
+    const beside = k.h(-30, 60);
+    const mid = k.h(0, 60);
+    const placed = k.glacier(line, { width: 30, snow: 'snow-fresh', sink: 3, snout: ['ice-blocks'], moraine: ['scree-scatter'] });
+    expect(rough()).toBeLessThan(before * 0.5);
+    expect(k.h(0, 60) - mid).toBeLessThan(-1.5);
+    expect(k.h(-30, 60)).toBeCloseTo(beside, 0);
+    const snow = k.doc.terrain.layers.findIndex((l) => l.material === 'snow-fresh');
+    const w = new Float32Array(8);
+    readWeights(k.doc.terrain, (60 + 128) * 256 + 128, w);
+    expect(w[snow]).toBeGreaterThan(0.6);
+    const ice = placed.filter((o) => o.asset === 'ice-blocks');
+    expect(ice.length).toBeGreaterThan(0);
+    for (const o of ice) expect(Math.hypot(o.x, o.y - 20)).toBeLessThan(13);
+    expect(placed.some((o) => o.asset === 'scree-scatter')).toBe(true);
   });
 });
