@@ -1,6 +1,7 @@
 import { Color, Vector3, type WebGLRenderer } from 'three';
 import { describe, expect, it } from 'vitest';
 import { CustomMapEnvironment } from './map-environment';
+import { HEIGHT_FOG_UNIFORMS } from './height-fog';
 import { SHADOW_PARTS } from './shadow-parts';
 import { SkyDome } from './sky-dome';
 import { chooseSkyImage, SKY_IMAGES } from './sky-images';
@@ -337,11 +338,14 @@ describe('the moon', () => {
     e.dispose();
   });
 
-  it('lets the map lights matter by day under the black sky', () => {
+  it('lets the map lights matter by day under the black sky, and the land beyond the border show', () => {
     const e = new CustomMapEnvironment({ ...env, biome: 'moon' });
     expect(e.darkness).toBe(0.5);
+    // No air: the backdrop range would sink into the black haze
+    expect(HEIGHT_FOG_UNIFORMS.uFogBeyond.value).toBeLessThan(0.97);
     e.set({ ...env, biome: 'temperate' });
     expect(e.darkness).toBe(0);
+    expect(HEIGHT_FOG_UNIFORMS.uFogBeyond.value).toBe(0.97);
     e.dispose();
   });
 });

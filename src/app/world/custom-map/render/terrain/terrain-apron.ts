@@ -44,7 +44,7 @@ export const BACKDROP_HEIGHT: Record<MapBiome, number> = {
   city: 90,
   hell: 220,
   apocalypse: 100,
-  moon: 120,
+  moon: 150,
   mars: 200,
 };
 

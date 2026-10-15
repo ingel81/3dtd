@@ -224,6 +224,7 @@ export class CustomMapEnvironment {
     const baseFog = Math.min(env.fogDensity, 0.004) * p.fogScale;
     this.fog.density = baseFog;
     HEIGHT_FOG_UNIFORMS.uFogFalloff.value = p.fogFalloff;
+    HEIGHT_FOG_UNIFORMS.uFogBeyond.value = p.beyondHaze ?? 0.97;
     // Weather: rain and snow close the sky, dim the sun and thicken the air; fog weather thickens it most
     const weather = env.weather ?? 'clear';
     const k = weather === 'clear' ? 0 : Math.min(1, Math.max(0, env.weatherStrength ?? 0.6));

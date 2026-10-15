@@ -49,6 +49,11 @@ export interface BiomeLook extends SkyPreset {
    * when it is not the sun's light (Mars: a blue halo round a setting sun)
    */
   glowColor?: number;
+  /**
+   * How far land beyond the map's border sinks into the haze (default 0.97): without air (the moon) the haze is
+   * black and the backdrop range would vanish into it
+   */
+  beyondHaze?: number;
 }
 
 export const SKY_PRESETS: Record<MapEnvironment['sky'], SkyPreset> = {
@@ -208,6 +213,7 @@ function biomeLookUnclamped(biome: MapBiome | undefined, sky: MapEnvironment['sk
         grade: [1.15, 0.7, 0xffffff],
         fogScale: 0,
         stars: 1,
+        beyondHaze: 0.6,
       };
     case 'mars':
       // Mars as the rovers see it: a butterscotch sky by day, pale and greyish rather than red, and
