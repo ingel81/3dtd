@@ -124,11 +124,14 @@ export function buildTwinGates(): CustomMapDocument {
   const mill = { x: -64, y: 118 };
   k.erase(mill, 8);
   if (k.free(mill.x, mill.y, 4)) k.place('watermill', mill.x, mill.y, { rotation: facing(mill, { x: -40, y: 118 }) });
-  // Siege works before the north and south gates: a trebuchet aimed at the gate, guns, gabions and a camp
-  // (TODO(E179): siege tower)
+  // Siege works before the north and south gates: a trebuchet aimed at the gate, a siege tower rolled up beside
+  // the road, guns, gabions and a camp
   for (const sy of [1, -1]) {
     const engine = { x: castle.x - 2, y: 122 * sy };
     if (k.free(engine.x, engine.y, 5)) k.place('trebuchet', engine.x, engine.y, { rotation: facing(engine, { x: castle.x, y: y1 * sy }) });
+    // The siege tower on the first free spot off the road, facing the wall
+    const tower = [[castle.x + 20, 84], [castle.x - 40, 88], [castle.x + 46, 112], [castle.x - 46, 124], [castle.x + 12, 138]].map(([x, y]) => ({ x, y: y * sy })).find((p) => k.free(p.x, p.y, 4));
+    if (tower) k.place('siege-tower', tower.x, tower.y, { rotation: facing(tower, { x: castle.x, y: y1 * sy }) });
     for (const [x, y, a, r] of [
       [castle.x - 26, 92, 'cannon', 0],
       [castle.x + 22, 94, 'cannon', 0.3],

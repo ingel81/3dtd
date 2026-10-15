@@ -196,7 +196,7 @@ Generator-Boden spiegelt `mirrorFrom` einmal von West nach Ost. Was auf der Achs
 ist ohne Symmetrie gesetzt. Seit E184 stehen die Burgen auf Felsplateaus (10 m, steile Flanken mit
 Klippenfelsen, trockener Graben am Fuß), ein Fluss in zwei Armen umfasst die Mitte mit dem HQ (die Spuren queren ihn
 auf Steinbrücken), je Arm eine Wassermühle; Belagerungslager vor Nord- und Südtor (Kanonen, Zelte, Barrikaden,
-Lagerfeuer, je ein Trebuchet auf das Tor gerichtet; ein Belagerungsturm fehlt noch), Banner und Fackeln an allen
+Lagerfeuer, je ein Trebuchet und ein Belagerungsturm auf das Tor gerichtet), Banner und Fackeln an allen
 Toren, Wachfeuer vor den Mauern, dichterer Wald an den Außenrändern. Leben (auf beiden Hälften gesetzt, die Symmetrie
 kopiert es nicht): wehende Banner auf beiden Burgen (`life.flags`), Vogelschwärme über den Wäldern, Bachrauschen
 entlang beider Flussarme, Feuerknistern an den Lagern, Vogelgesang am Tag und Grillen nachts.
