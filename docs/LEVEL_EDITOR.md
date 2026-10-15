@@ -383,6 +383,13 @@ ob Bauwerke durch Treffer fallen (World, [CUSTOM_MAP_WORLD.md](CUSTOM_MAP_WORLD.
 die erlaubten Tower und die Wellen: die Wellen des Spiels (Budget-Source) oder eine eigene Liste in der Form der Table-
 Source ([WAVE_SOURCE_PLAN.md](WAVE_SOURCE_PLAN.md)): je Welle Name, HP-Faktor, Abstand, Gegnertyp mit Anzahl, dazu die
 Wiederholregel nach der letzten Welle; „Start from the game's list“ übernimmt die Liste des Spiels als Anfang.
+Unter einer eigenen Liste steht eine Balance-Hilfe (`ui/panels/wave-curve.ts`, Kurve `wave-curve-chart`): die HP jeder
+Welle je Spur (Grund-HP mal HP-Faktor, Teilungen mitgezählt, `lineageHp`; nach der Liste die Wiederholregel) gegen die
+Liste des Spiels, logarithmisch, über die Liste plus zehn Wellen (mindestens 30). Unter dem Zeiger die Welle mit
+Gegnern, HP, HP der Spiel-Liste, dem Schaden am HQ, wenn alles durchkäme (`lineageLeakDamage`, gegen das HQ-Leben der
+Regeln), und der Spawn-Dauer; darunter die erste Welle der Liste, die allein auf einer Spur das ganze HQ nehmen könnte.
+Für die Wellen des Spiels (Budget) gibt es keine Kurve: deren HP richten sich nach der Abwehr. Wie viel Platz für Tower
+die Spuren haben, zeigt Build areas.
 „Wave events“ legt fest, was vor einer Welle geschieht ([CUSTOM_MAP_WORLD.md](CUSTOM_MAP_WORLD.md#ereignisse-je-welle-e170)):
 Art wählen, „Add event“; die Liste steht nach Wellen, ein Klick öffnet einen Eintrag. Message (Text), Weather (Clear,
 Rain, Snow, Fog mit Stärke), Time of day (Stunde), Portal opens (welcher Spawn ab dieser Welle Gegner bringt),
