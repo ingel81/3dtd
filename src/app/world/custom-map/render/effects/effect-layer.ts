@@ -395,9 +395,9 @@ export class EffectLayer {
     }
   }
 
-  /** A field's particle count at the level's share, at least one */
+  /** A field's particle count at the level's share, whole and at least one (a field holds whole particles) */
   private share(count: number): number {
-    return this.particleShare >= 1 ? count : Math.max(1, Math.round(count * this.particleShare));
+    return Math.max(1, Math.round(count * Math.min(1, this.particleShare)));
   }
 
   /** 0 by day, 1 at night: how strongly the lights glow and light the ground */
