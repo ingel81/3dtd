@@ -186,6 +186,7 @@ export class CustomMapView {
     this.terrain.grass.mesh,
     this.decals.mesh,
     this.effects.group,
+    this.boats.group,
     ...this.objects.decorMeshes(),
   ], () => [this.group, this.losBlockers, this.environment.lights, this.environment.skyDome.mesh]);
   /** The body the reflection mirrors, picked a few times a second */
