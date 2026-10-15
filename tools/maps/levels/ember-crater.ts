@@ -152,9 +152,13 @@ export function buildEmberCrater(): CustomMapDocument {
   k.place('anvil', 22, -158, { rotation: 0.4 });
   k.place('altar', -150, 30, { rotation: 0.2 });
   for (const [x, y] of [[-30, -20], [25, 30], [-140, -60], [130, -40], [-60, 150], [80, -140], [0, -60]] as const) k.place('fx-smoke', x, y, { scale: 1.4 });
-  // The column of smoke over the crater: plumes stacked over the lake, wider as they rise
-  // TODO(E190): a drifting smoke column effect; until then dark plumes stacked over the lake
-  for (const [x, y, z, sc] of [[18, -36, 0, 2.4], [16, -34, 10, 3], [13, -31, 22, 3.6], [10, -28, 36, 4.2]] as const) k.place('fx-smoke', x, y, { z, scale: sc, tint: '#3a302c' });
+  // Columns of smoke over the crater: plumes stacked over the lake and the two vents, wider as they rise; the wind
+  // (below) leans them north-east and they drift off over the rim
+  const column = (at: MapPoint, scale: number) => {
+    for (const [i, [z, sc]] of ([[0, 2.4], [10, 3], [22, 3.6], [36, 4.2]] as const).entries()) k.place('fx-smoke', at.x + i, at.y + i, { z, scale: sc * scale, tint: '#3a302c' });
+  };
+  column({ x: 18, y: -36 }, 1);
+  for (const { at } of vents) column({ x: at.x * 0.8, y: at.y * 0.8 }, 0.7);
   // Obsidian towers and fire bowls on the rim's crest, off the passes
   for (let i = 0; i < 22; i++) {
     const a = ((i + 0.6 * k.noise.hash(i, 11, 81)) / 22) * Math.PI * 2;
@@ -192,9 +196,13 @@ export function buildEmberCrater(): CustomMapDocument {
     k.place('lava-pool', p.x, p.y, { rotation: a, scale: 1.1 + 0.4 * k.noise.hash(i, 23, 87) });
   }
 
+  // ---- Life: sparks over the lava, the lava's rumble over the whole crater and louder at the lake
+  k.lifeSettings({ auto: { sparks: true }, ambience: { sound: 'biome', volume: 0.5 } });
+  k.lifeArea('sound', ring(46).slice(0, 24), { sound: 'lava', volume: 0.8 });
+
   // Seven ground materials: the least used goes (each one is 8 MB of pixels to load)
   k.trimLayers(7);
   // Dusk over ash-dark ground: the lava and the rocks glow, and the slopes keep their shape in the low red light
-  k.environment({ biome: 'hell', sky: 'dusk', sunAzimuth: 250, sunElevation: 26, fogDensity: 0.0006, tint: '#ffe2cc' });
+  k.environment({ biome: 'hell', sky: 'dusk', sunAzimuth: 250, sunElevation: 26, fogDensity: 0.0006, tint: '#ffe2cc', wind: { strength: 0.4, direction: 220, gusts: 0.3 } });
   return k.finish();
 }
