@@ -214,8 +214,10 @@ export class EditorViewport {
 
   /**
    * Where an enemy walks at a map point: on a bridge deck where one spans
-   * it, as the game's CustomMapSurface lays it, else on the ground. Routes
-   * and the trial wave go over a bridge, not through the river under it.
+   * it, else on the ground. Routes and the trial wave go over a bridge, not
+   * through the river under it. A preview: a road under a bridge shows its
+   * walkers on the deck too, where the game keeps them on the ground
+   * (CustomMapSurface.walkHeightAtMap, the route cut under the deck)
    */
   walkHeightAt(x: number, y: number): number {
     const { paths, terrain } = this.editor.doc;

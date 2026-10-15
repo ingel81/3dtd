@@ -477,8 +477,12 @@ Datei.
 
 ### Offen nach O1
 
-- **Wege unter Brücken:** `CustomMapSurface` hebt alles unter einem Brückendeck auf dessen Höhe (`deckHeightAt`
-  fragt nur die Grundfläche ab). Auf OSM-Welten laufen Routen unter Straßenbrücken durch; gemeldet, nicht gebaut.
+- **Wege unter Brücken (nachgeprüft und behoben):** Die Zellen einer Route unter einem Deck laufen schon wie auf
+  echten Orten (`UnderpassIndex` schneidet sie, sie nehmen den Boden zwischen den Portalen), Türme darunter stehen
+  auf dem Boden mit dem Deck als Säulenoberkante. Falsch war nur die Gehhöhe abseits eines Brückenwegs
+  (`CustomMapSurface.walkHeightAtMap`, `getGroundHeightEstimate`): sie gab das Deck; jetzt den Boden, das Deck nur
+  am Brückenende bis 0,5 m über dem Boden. Die Vorschau des Editors (Probelauf) zeigt Läufer unter einer Brücke
+  weiter auf dem Deck.
 - **Tunnel:** Stuttgart verliert 12 km Wege (Fußgängerpassagen, Stadtbahn-Zugänge, B14), das Netz zerfällt in 82
   Teile; die Spawns liegen trotzdem auf dem Teil des HQ (sie brauchen eine Route).
 - **Spuren zu Beginn:** alle Spawns sind beim Start offen (die Spurwahl öffnet optionale bis `max`); der Spieler
