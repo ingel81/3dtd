@@ -362,8 +362,13 @@ nur der Rand am Ufer zeigt rot.
 
 Für faire Karten: Mirror X (Ost und West gespiegelt), Mirror Y (Nord und Süd), Both (vier Viertel), Turn 2 (halbe
 Drehung um die Mitte), Turn 4 (Vierteldrehung, nur quadratische Karten; sonst halbe Drehung). Hilfslinien zeigen die
-Achsen. Pinsel (Terrain, Paint, Water, Landscape) kopieren nach jedem Tupfer die geänderten Zellen aus dem Teil der
-Karte, in dem der Zeiger steht, in die Bilder: die Kopien sind exakt. Gesetzte und gestreute Objekte, Spawns,
+Achsen. Pinsel (Terrain, Paint, Water, Landscape) kopieren nach jedem Tupfer die Zellen, die der Strich geändert hat,
+aus dem Teil der Karte, in dem der Zeiger steht, in die Bilder (gemessen an dem, was sie vor dem Strich hielten; der
+übrige Boden im Rechteck des Tupfers bleibt, wie er ist, so entstehen auf ungleichem Boden keine Rechtecke). Pinsel, die
+den Boden heben oder graben (Raise, Lower, Smooth, Roughen, Erode, Berg, Tal, Krater, Dünen, Risse, Erosion, Biome mit
+welligem Relief), geben dem Bild dieselbe Änderung auf seinem eigenen Boden; Pinsel, die Höhen setzen (Flatten, Level,
+Terrace, Cliff, Plateau, Biome, die ebnen oder Tümpel unter einen Spiegel senken), die Höhen der Quelle. Auf
+symmetrischem Boden sind die Kopien exakt. Gesetzte und gestreute Objekte, Spawns,
 gezeichnete Straßen und die Linien-Pinsel (Fluss, Straße, Klippe) entstehen an jedem Bild; gespiegelte Linien laufen
 rückwärts, damit eine Klippe ihre Seite behält. Ein Strich mit seinen Kopien ist ein Schritt im Verlauf.
 

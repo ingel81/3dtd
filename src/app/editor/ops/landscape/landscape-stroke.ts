@@ -19,6 +19,7 @@ import {
   patchLayout,
   splatTargets,
   type DocChange,
+  type PatchTarget,
   type SplatTarget,
   type EditCommand,
   type EditorDocument,
@@ -75,7 +76,13 @@ export class LandscapeStroke {
   private change: DocChange = {};
   /** Copy every dab and object to the symmetric images; objects grow only in the sector the stroke began in */
   symmetry: SymmetryMode = 'none';
-  /** The editor's way (on by default): a full layer list makes room (makeRoom). Off, a material that finds it full is left out */
+  /** The stroke adds to the ground (a mountain, a crater): a symmetric image takes the change on its own ground */
+  heightsAdd = false;
+  /**
+   * The editor's ways (on by default): symmetric images take only the cells
+   * the stroke changed, a full layer list makes room (makeRoom). Off, every
+   * cell of a dab copies and a material that finds the list full is left out
+   */
   editorCopies = true;
   /** Ground height where the stroke began (levelling brushes) */
   anchor: { x: number; y: number; h: number } | null = null;
@@ -337,6 +344,21 @@ export class LandscapeStroke {
     return this.heights.original(i, j);
   }
 
+  /** What element (i, j, channel) of a target held before the stroke; the array's value where it is not recorded */
+  private original(target: PatchTarget, i: number, j: number, channel: number): number {
+    const recorder =
+      target === 'heights'
+        ? this.heights
+        : target === 'water'
+          ? this.waterRecorder
+          : target.startsWith('splat')
+            ? this.splat[Number(target.slice(5))]
+            : this.bodyRecorders.get(Number(target.slice(4)));
+    if (recorder) return recorder.original(i, j, channel);
+    const layout = patchLayout(this.doc, target);
+    return patchArray(this.doc, target)[(j * layout.columns + i) * layout.channels + channel];
+  }
+
   /** Takes objects off the map, as part of the stroke's undo step; before any are added */
   removeObjects(ids: readonly string[]): void {
     if (!ids.length) return;
@@ -377,6 +399,8 @@ export class LandscapeStroke {
               water: this.waterTouched ? (r) => this.touchWater(r) : undefined,
               bodies: [...this.bodyRecorders.keys()],
               body: (index, r) => this.bodyRecorders.get(index)?.touch(r),
+              original: this.editorCopies ? (target, i, j, ch) => this.original(target, i, j, ch) : undefined,
+              heightsAdd: this.heightsAdd,
             },
             dab.water ? dab.heights : undefined,
           )

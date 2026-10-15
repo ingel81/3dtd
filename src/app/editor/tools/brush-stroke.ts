@@ -12,6 +12,8 @@ import { RegionRecorder, type PatchArray } from '../model/region-patch';
 export class BrushStroke {
   private readonly recorders = new Map<PatchTarget, RegionRecorder<PatchArray>>();
   private change: DocChange = {};
+  /** The stroke adds to the ground (raise, roughen): a symmetric image takes the change on its own ground */
+  heightsAdd = false;
 
   constructor(
     private readonly editor: EditorDocument,
@@ -48,6 +50,8 @@ export class BrushStroke {
             water: this.recorders.has('water') ? (r) => this.touch('water', r) : undefined,
             bodies: [...this.recorders.keys()].filter((k) => k.startsWith('body')).map((k) => Number(k.slice(4))),
             body: (index, r) => this.touch(`body${index}`, r),
+            original: (target, i, j, ch) => this.original(target, i, j, ch),
+            heightsAdd: this.heightsAdd,
           }, waterRect)
         : dab;
     this.change = {
@@ -57,6 +61,14 @@ export class BrushStroke {
       splat: rectUnion(this.change.splat ?? null, change.splat ?? null) ?? undefined,
     };
     this.editor.emit(change);
+  }
+
+  /** What element (i, j, channel) of a target held before the stroke; the array's value where it is not recorded */
+  private original(target: PatchTarget, i: number, j: number, channel: number): number {
+    const recorder = this.recorders.get(target);
+    if (recorder) return recorder.original(i, j, channel);
+    const layout = patchLayout(this.doc, target);
+    return patchArray(this.doc, target)[(j * layout.columns + i) * layout.channels + channel];
   }
 
   /** The stroke as one undo step; nothing when it changed nothing */

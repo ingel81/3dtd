@@ -5,14 +5,23 @@
  *
  * Brushes paint where the pointer is; afterwards the samples they changed
  * are copied to their images, from the part of the map the pointer is in
- * (its sector), so a stroke across an axis stays consistent. The grids are
- * centred, so a mirrored sample is again exactly a sample; the 90 degree
- * turn needs a square map. Objects, roads and spawns are copied as things.
+ * (its sector), so a stroke across an axis stays consistent. A stroke that
+ * knows what its cells held before (SymmetryTouch.original) copies only
+ * the cells it changed, so ground that is not symmetric keeps its own shape
+ * around them instead of a rectangle of the source's ground (the dab's
+ * whole rectangle copied over); a stroke that adds to the ground (raise,
+ * a mountain, a crater: `heightsAdd`) gives each image the same change on
+ * its own ground, one that sets heights (level, a cliff, pools at a water
+ * level) the source's heights. Without it (the whole map mirrored) every
+ * cell is copied. The grids are centred, so a mirrored sample is again
+ * exactly a sample; the 90 degree turn needs a square map. Objects, roads
+ * and spawns are copied as things.
  */
 import type { CustomMapDocument, MapObject, MapPoint } from '../../world/custom-map/map-document';
-import { mergeChanges, type DocChange } from '../model/editor-document';
+import { mergeChanges, type DocChange, type PatchTarget } from '../model/editor-document';
 import { sampleX, sampleY, texelX, texelY, type GridRect } from '../model/grid';
 import type { ArrayLayout, PatchArray } from '../model/region-patch';
+import { HEIGHT_LIMITS } from './terrain-ops';
 
 export type SymmetryMode = 'none' | 'x' | 'y' | 'xy' | 'rot2' | 'rot4';
 
@@ -125,8 +134,24 @@ export function imageRects(images: readonly SymmetryImage[], rect: GridRect, col
 }
 
 /**
+ * How a symmetric stroke copies a cell to its images: every cell as it is
+ * (`all`), only the cells the stroke changed (`changed`, from what they
+ * held before), or a height's change added to the image's own (`delta`)
+ */
+interface CopyMode {
+  kind: 'all' | 'changed' | 'delta';
+  /** What element (i, j, channel) held before the stroke, for `changed` and `delta` */
+  before?: (i: number, j: number, channel: number) => number;
+  /** For `changed` on paint split over several maps: whether the texel changed in any of them */
+  changedAt?: (i: number, j: number) => boolean;
+}
+
+const COPY_ALL: CopyMode = { kind: 'all' };
+
+/**
  * Copies the cells of `rect` that lie in the pointer's sector to their
- * images. `position` gives a cell's map position (to test the sector).
+ * images (`copy` says which and how). `position` gives a cell's map
+ * position (to test the sector).
  */
 export function mirrorCells(
   mode: SymmetryMode,
@@ -136,18 +161,31 @@ export function mirrorCells(
   rect: GridRect,
   center: MapPoint,
   position: (i: number, j: number) => MapPoint,
+  copy: CopyMode = COPY_ALL,
 ): void {
   if (images.length < 2) return;
   const { columns, rows, channels } = layout;
+  const before = copy.before;
   for (let j = rect.j0; j <= rect.j1; j++) {
     for (let i = rect.i0; i <= rect.i1; i++) {
       if (!sameSector(mode, position(i, j), center)) continue;
       const from = (j * columns + i) * channels;
+      if (copy.kind === 'changed' && before) {
+        let same = !copy.changedAt || !copy.changedAt(i, j);
+        for (let ch = 0; same && ch < channels; ch++) same = array[from + ch] === before(i, j, ch);
+        if (same) continue;
+      }
+      const rise = copy.kind === 'delta' && before ? array[from] - before(i, j, 0) : 0;
+      if (copy.kind === 'delta' && rise === 0) continue;
       for (let k = 1; k < images.length; k++) {
         const [ti, tj] = images[k].cell(i, j, columns, rows);
         if (ti < 0 || tj < 0 || ti >= columns || tj >= rows) continue;
         const to = (tj * columns + ti) * channels;
         if (to === from) continue;
+        if (copy.kind === 'delta' && before) {
+          array[to] = Math.min(HEIGHT_LIMITS.max, Math.max(HEIGHT_LIMITS.min, before(ti, tj, 0) + rise));
+          continue;
+        }
         for (let ch = 0; ch < channels; ch++) array[to + ch] = array[from + ch];
       }
     }
@@ -163,6 +201,14 @@ export interface SymmetryTouch {
   /** Further bodies whose masks the dab painted, and their recorders */
   bodies?: readonly number[];
   body?(index: number, rect: GridRect): void;
+  /**
+   * What element (i, j, channel) of a target held before the stroke (its
+   * recorder's saved tiles): only the cells the stroke changed copy to the
+   * images, the rest of their ground stays. Left out, every cell is copied.
+   */
+  original?(target: PatchTarget, i: number, j: number, channel: number): number;
+  /** With `original`: heights rise by the source's change on the image's own ground instead of taking the source's */
+  heightsAdd?: boolean;
 }
 
 /**
@@ -183,13 +229,25 @@ export function mirrorChange(
   const g = t.grid;
   const images = symmetryImages(mode, g.columns === g.rows && t.splat.resolution > 0);
   let out: DocChange = { ...change };
+  const original = touch.original?.bind(touch);
+  /** How cells of `target` copy: as they are without a record of before, else only changed ones (heights by their change) */
+  const copyOf = (target: PatchTarget, changedAt?: CopyMode['changedAt']): CopyMode =>
+    original
+      ? { kind: target === 'heights' && touch.heightsAdd ? 'delta' : 'changed', before: (i, j, ch) => original(target, i, j, ch), changedAt }
+      : COPY_ALL;
   if (change.heights) {
     const rects = imageRects(images, change.heights, g.columns, g.rows);
     for (const r of rects) touch.heights(r);
-    mirrorCells(mode, images, g.heights, { columns: g.columns, rows: g.rows, channels: 1 }, change.heights, center, (i, j) => ({
-      x: sampleX(t, i),
-      y: sampleY(t, j),
-    }));
+    mirrorCells(
+      mode,
+      images,
+      g.heights,
+      { columns: g.columns, rows: g.rows, channels: 1 },
+      change.heights,
+      center,
+      (i, j) => ({ x: sampleX(t, i), y: sampleY(t, j) }),
+      copyOf('heights'),
+    );
     for (const r of rects) out = mergeChanges(out, { heights: r });
   }
   if (change.water) {
@@ -198,25 +256,43 @@ export function mirrorChange(
     const layout = { columns: g.columns, rows: g.rows, channels: 1 };
     if (t.water && touch.water) {
       for (const r of imageRects(images, rect, g.columns, g.rows)) touch.water(r);
-      mirrorCells(mode, images, t.water.mask, layout, rect, center, at);
+      mirrorCells(mode, images, t.water.mask, layout, rect, center, at, copyOf('water'));
     }
     for (const index of touch.bodies ?? []) {
       const body = t.waterBodies?.[index];
       if (!body) continue;
       for (const r of imageRects(images, rect, g.columns, g.rows)) touch.body?.(index, r);
-      mirrorCells(mode, images, body.mask, layout, rect, center, at);
+      mirrorCells(mode, images, body.mask, layout, rect, center, at, copyOf(`body${index}`));
     }
   }
   if (change.splat) {
     const res = t.splat.resolution;
     const rects = imageRects(images, change.splat, res, res);
     for (const r of rects) touch.splat(r);
-    for (const map of t.splat.maps) {
-      mirrorCells(mode, images, map, { columns: res, rows: res, channels: 4 }, change.splat, center, (u, v) => ({
-        x: texelX(t, u),
-        y: texelY(t, v),
-      }));
-    }
+    // A texel's weights add up to 255 over all maps: one that changed in any map copies in all of them
+    const maps = t.splat.maps;
+    const changedAt = original
+      ? (u: number, v: number) => {
+          const at = (v * res + u) * 4;
+          for (let m = 0; m < maps.length; m++) {
+            for (let ch = 0; ch < 4; ch++) if (maps[m][at + ch] !== original(`splat${m}` as PatchTarget, u, v, ch)) return true;
+          }
+          return false;
+        }
+      : undefined;
+    const splatRect = change.splat;
+    maps.forEach((map, m) => {
+      mirrorCells(
+        mode,
+        images,
+        map,
+        { columns: res, rows: res, channels: 4 },
+        splatRect,
+        center,
+        (u, v) => ({ x: texelX(t, u), y: texelY(t, v) }),
+        copyOf(`splat${m}` as PatchTarget, changedAt),
+      );
+    });
     for (const r of rects) out = mergeChanges(out, { splat: r });
   }
   return out;

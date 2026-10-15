@@ -6,7 +6,7 @@
  */
 import type { MapPoint } from '../../world/custom-map/map-document';
 import { finishBiome, biomeDab, previewSpots } from '../ops/landscape/biome-brush';
-import { biomeById } from '../ops/landscape/biomes';
+import { biomeById, type BiomeId } from '../ops/landscape/biomes';
 import { cracksDab } from '../ops/landscape/cracks';
 import { cliffModelsFor, cliffRocksDab } from '../ops/landscape/cliff-rocks';
 import { erosionDab } from '../ops/landscape/erosion';
@@ -58,6 +58,7 @@ export class LandscapeTool implements EditorTool {
       ctx.catalog,
     );
     this.stroke.symmetry = ctx.settings.symmetry;
+    this.stroke.heightsAdd = addsToGround(s.mode, s.biome);
     this.dab = 0;
     if (isLine(s.mode)) this.line = p.hit ? [{ x: p.hit.x, y: p.hit.y }] : [];
     return true;
@@ -222,4 +223,19 @@ export class LandscapeTool implements EditorTool {
 
 function isLine(mode: LandscapeMode): boolean {
   return !!LANDSCAPE_MODES.find((m) => m.id === mode)?.line;
+}
+
+/**
+ * Whether a stroke adds to the ground, so a symmetric image takes the same
+ * change on its own ground: the forms that raise or carve (a mountain, a
+ * crater, gullies) and a biome's rolling relief. A plateau, a cliff, rivers
+ * and roads set heights, and so does a biome that flattens or sinks pools
+ * under a water level: their images take the source's heights.
+ */
+export function addsToGround(mode: LandscapeMode, biome: BiomeId): boolean {
+  if (mode === 'biome') {
+    const def = biomeById(biome);
+    return def.relief.kind !== 'flatten' && !def.pools;
+  }
+  return mode === 'mountain' || mode === 'valley' || mode === 'crater' || mode === 'dunes' || mode === 'cracks' || mode === 'erode';
 }

@@ -86,6 +86,35 @@ describe('symmetry', () => {
     expect(heightAt(t, 60, 30)).toBe(0);
   });
 
+  it('raises the image on its own ground, and leaves the ground around it as it was', () => {
+    const { ed, ctx } = setup('x');
+    const t = ed.doc.terrain;
+    const g = t.grid;
+    // The east half stands 5 m higher than the west
+    for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) g.heights[j * g.columns + i] = i > g.columns / 2 ? 5 : 0;
+    raise(ctx, -60, 30);
+    const rise = heightAt(t, -60, 30);
+    expect(rise).toBeGreaterThan(1);
+    expect(heightAt(t, 60, 30)).toBeCloseTo(5 + rise, 6);
+    // Inside the dab's rectangle but outside the brush: the east keeps its own ground, no step to the west's
+    const r = ctx.settings.brush.radius;
+    expect(heightAt(t, 60 + r * 0.9, 30 + r * 0.9)).toBe(5);
+    ed.undo();
+    expect(heightAt(t, 60, 30)).toBe(5);
+  });
+
+  it('levels the image to the same height as the source', () => {
+    const { ed, ctx } = setup('x');
+    const t = ed.doc.terrain;
+    const g = t.grid;
+    for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) g.heights[j * g.columns + i] = i > g.columns / 2 ? 5 : 0;
+    ctx.settings.terrain.mode = 'level';
+    ctx.settings.terrain.level = 3;
+    raise(ctx, -60, 30);
+    expect(heightAt(t, -60, 30)).toBeGreaterThan(1);
+    expect(heightAt(t, 60, 30)).toBeCloseTo(heightAt(t, -60, 30), 6);
+  });
+
   it('turns a stroke four ways on a square map', () => {
     const { ed, ctx } = setup('rot4');
     raise(ctx, 80, 20);

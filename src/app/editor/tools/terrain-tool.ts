@@ -57,6 +57,8 @@ export class TerrainTool implements EditorTool {
     }
     const mode = TERRAIN_MODES.find((m) => m.id === s.mode)!;
     this.stroke = new BrushStroke(ctx.editor, mode.label, ['heights'], ctx.settings.symmetry);
+    // Sculpting adds to the ground; levelling sets heights the images must share
+    this.stroke.heightsAdd = mode.group === 'Sculpt';
     this.invert = p.shift;
     this.seed = Math.floor(Math.random() * 1e6);
     if (s.mode === 'flatten') this.target = p.hit.z;
