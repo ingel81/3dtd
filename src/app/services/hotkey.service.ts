@@ -17,7 +17,8 @@ import { ConfigService } from '../core/services/config.service';
 import { CameraControlService } from './camera-control.service';
 import { TowerDefenseFacadeService } from './facade/tower-defense-facade.service';
 import { IntroCameraFlightService } from './world/intro-camera-flight.service';
-import { HotkeyAction, resolveHotkey } from './hotkey-map';
+import { HotkeyAction, cameraSlotOf, resolveHotkey } from './hotkey-map';
+import { CameraSlotsService } from './camera-slots.service';
 import { AbilityTargetingService } from './ability-targeting.service';
 import type { AbilityId } from '../configs/abilities.config';
 import { SellConfirmService } from './sell-confirm.service';
@@ -55,6 +56,7 @@ export class HotkeyService {
   private readonly sellConfirm = inject(SellConfirmService);
   private readonly dialog = inject(MatDialog);
   private readonly cameraControl = inject(CameraControlService);
+  private readonly cameraSlots = inject(CameraSlotsService);
   private readonly introFlight = inject(IntroCameraFlightService);
   private readonly abilityTargeting = inject(AbilityTargetingService);
   private readonly photoMode = inject(PhotoModeService);
@@ -83,6 +85,9 @@ export class HotkeyService {
     // Held Space repeats its keydown; the first one decides
     if (event.key === ' ' && !event.repeat) this.spaceStartedWave = false;
     if (!this.acceptsKey(event)) return;
+    // F1 to F5 are the camera views: the browser's help, find and reload stay
+    // out of the game even on a held key or an empty slot
+    if (cameraSlotOf(event) !== null) event.preventDefault();
     const action = resolveHotkey(event);
     if (action && this.run(action)) {
       event.preventDefault();
@@ -155,6 +160,8 @@ export class HotkeyService {
       case 'hero-ammo': return this.heroControl.cycleAmmo();
       case 'camera-hq': return this.focusHq();
       case 'camera-spawn': return this.focusNextSpawn();
+      case 'camera-recall': return this.recallView(action.slot);
+      case 'camera-store': return this.storeView(action.slot);
       case 'photo-mode':
         this.photoMode.toggle();
         return true;
@@ -223,6 +230,8 @@ export class HotkeyService {
         return true;
       case 'camera-hq': return this.focusHq();
       case 'camera-spawn': return this.focusNextSpawn();
+      case 'camera-recall': return this.recallView(action.slot);
+      case 'camera-store': return this.storeView(action.slot);
       default: return false;
     }
   }
@@ -260,6 +269,21 @@ export class HotkeyService {
     this.spawnIndex = (this.spawnIndex + 1) % spawns.length;
     const spawn = spawns[this.spawnIndex];
     return this.cameraControl.focusGeo(spawn.lat, spawn.lon);
+  }
+
+  /** F1 to F5: glide to a saved view; an empty slot says how to fill it */
+  private recallView(slot: number): boolean {
+    if (this.introFlight.active()) return false;
+    if (this.cameraSlots.recall(slot)) return true;
+    this.uiStore.notice.set({ text: `Camera view ${slot + 1} is empty. Shift+F${slot + 1} saves the view.`, tone: 'warn' });
+    return false;
+  }
+
+  /** Shift+F1 to Shift+F5: save the view now */
+  private storeView(slot: number): boolean {
+    if (this.introFlight.active() || !this.cameraSlots.store(slot)) return false;
+    this.uiStore.notice.set({ text: `Camera view ${slot + 1} saved. F${slot + 1} flies back to it.`, tone: 'ok' });
+    return true;
   }
 
   private selectTower(slot: number): boolean {
