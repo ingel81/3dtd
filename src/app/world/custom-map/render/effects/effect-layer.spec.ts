@@ -120,6 +120,16 @@ describe('EffectLayer', () => {
     layer.dispose();
   });
 
+  it('holds whole particles for scaled area effects, so smoke over chimneys builds its field', () => {
+    // fx-smoke at 0.6 (MapKit.chimney): 24 particles x 0.36 is 8.64, which a field cannot hold
+    const layer = new EffectLayer(flat());
+    const smoke = [0, 1, 2, 3, 4].map((k) => ({ ...place(`s${k}`, 'fx-smoke', k * 15), scale: 0.6 }));
+    expect(() => layer.set(smoke, catalog)).not.toThrow();
+    const mesh = layer.group.children.find((c): c is Mesh => c instanceof Mesh && c.name === 'custom-map-particles-smoke');
+    expect(mesh?.geometry.getAttribute('aOrigin').count).toBe(5 * Math.round(particleCount('smoke', 4) * 0.36));
+    layer.dispose();
+  });
+
   it('builds one particle field per kind, waterfalls with spray, and glows', () => {
     const layer = new EffectLayer(flat());
     const objects = [place('a', 'torch', 0), place('b', 'torch', 10), place('c', 'falls', -20), place('d', 'rock', 5)];
