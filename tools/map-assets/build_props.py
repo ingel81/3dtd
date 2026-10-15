@@ -68,55 +68,94 @@ def flame_cards(part, base, height, width, count=3, seed=0):
         part.quad([base - side, base + side, base + side + top, base - side + top], [(0, 0), (1, 0), (1, 1), (0, 1)], up)
 
 
+def ring(part, centre, r, thick, sides=12):
+    """A thin horizontal hoop (a closed tube round a circle)"""
+    pts = [centre + Vector((math.cos(k / sides * math.tau) * r, math.sin(k / sides * math.tau) * r, 0)) for k in range(sides + 1)]
+    tube(part, pts, [thick] * (sides + 1), 5)
+
+
 def torch(name):
-    """Wooden torch post with a burning head"""
+    """Wooden torch post with iron bands, an open iron basket of six ribs round a pitch-wrapped head, burning"""
     clear_scene()
     wood = Part(pbr_material('planks-dark', 'dark_planks'), uv_metres=1.0)
     iron = Part(flat_material('iron', (0.08, 0.08, 0.08), 0.5, 0.8))
     fire = Part(glow_card_material('flame', 'flame.png'))
-    tube(wood, [Vector((0, 0, -0.3)), Vector((0, 0, 1.9))], [0.07, 0.06], 6)
-    tube(iron, [Vector((0, 0, 1.75)), Vector((0, 0, 2.05))], [0.09, 0.12], 8, cap=True)
+    tube(wood, [Vector((0, 0, -0.3)), Vector((0, 0, 1.0)), Vector((0, 0, 1.85))], [0.075, 0.065, 0.055], 8)
+    for z in (0.5, 1.15, 1.72):
+        tube(iron, [Vector((0, 0, z)), Vector((0, 0, z + 0.05))], [0.072 - z * 0.008, 0.072 - z * 0.008], 8, cap=True)
+    # Pitch-wrapped head in the basket
+    tube(wood, [Vector((0, 0, 1.82)), Vector((0, 0, 1.92)), Vector((0, 0, 2.02))], [0.06, 0.075, 0.06], 8, cap=True)
+    for k in range(6):
+        a = k / 6 * math.tau
+        oriented_box(iron, Vector((math.cos(a) * 0.05, math.sin(a) * 0.05, 1.76)), Vector((math.cos(a) * 0.12, math.sin(a) * 0.12, 2.06)), 0.018)
+    ring(iron, Vector((0, 0, 1.9)), 0.088, 0.012)
+    ring(iron, Vector((0, 0, 2.05)), 0.12, 0.014)
     flame_cards(fire, Vector((0, 0, 2.0)), 0.7, 0.4)
     export(name, [wood.to_object(name), iron.to_object(name + '-iron'), fire.to_object(name + '-flame')])
 
 
 def brazier(name):
-    """Iron fire bowl on three legs"""
+    """Iron fire bowl with a rolled rim and a band, on three legs bowed out to scrolled feet and braced by a
+    hoop, a heap of glowing coals in it"""
+    from build_structures import chunk
     clear_scene()
+    rnd = random.Random(4)
     iron = Part(flat_material('iron', (0.08, 0.08, 0.08), 0.5, 0.8), smooth=True)
     coal = Part(flat_material('embers', (0.6, 0.15, 0.03), 0.9, emission=(1.0, 0.3, 0.05), strength=1.0))
     fire = Part(glow_card_material('flame', 'flame.png'))
     for k in range(3):
         a = k / 3 * math.tau
-        oriented_box(iron, Vector((math.cos(a) * 0.45, math.sin(a) * 0.45, 0)), Vector((math.cos(a) * 0.25, math.sin(a) * 0.25, 0.8)), 0.05)
-    tube(iron, [Vector((0, 0, 0.75)), Vector((0, 0, 0.95)), Vector((0, 0, 1.1))], [0.2, 0.42, 0.5], 12)
-    tube(coal, [Vector((0, 0, 1.0)), Vector((0, 0, 1.02))], [0.45, 0.0], 12)
+        d = Vector((math.cos(a), math.sin(a), 0))
+        tube(iron, [d * 0.22 + Vector((0, 0, 0.82)), d * 0.3 + Vector((0, 0, 0.45)), d * 0.37 + Vector((0, 0, 0.12)), d * 0.42 + Vector((0, 0, 0.03))],
+             [0.03, 0.03, 0.028, 0.03], 6)
+        tube(iron, [d * 0.42 + Vector((0, 0, 0.0)), d * 0.42 + Vector((0, 0, 0.04))], [0.045, 0.045], 8, cap=True)
+    ring(iron, Vector((0, 0, 0.4)), 0.29, 0.015)
+    tube(iron, [Vector((0, 0, 0.75)), Vector((0, 0, 0.95)), Vector((0, 0, 1.08))], [0.2, 0.41, 0.46], 14)
+    ring(iron, Vector((0, 0, 1.08)), 0.46, 0.022, 16)
+    ring(iron, Vector((0, 0, 0.95)), 0.415, 0.015, 16)
+    for k in range(9):
+        a = rnd.uniform(0, math.tau)
+        r = rnd.uniform(0.0, 0.3)
+        chunk(coal, Vector((math.cos(a) * r, math.sin(a) * r, 1.0 + (0.3 - r) * 0.25)), Vector((0.14, 0.12, 0.1)), rnd, 40)
     flame_cards(fire, Vector((0, 0, 1.0)), 1.0, 0.8, 4, 1)
     export(name, [iron.to_object(name), coal.to_object(name + '-embers'), fire.to_object(name + '-flame')])
 
 
 def campfire(name, lit=True):
-    """Ring of stones, crossed logs, flames (or ashes)"""
+    """Ring of rounded stones round a bed of embers, logs leant together into a cone with two more lying
+    across, charred at the ends (or ashes)"""
+    from build_nature import lump
     clear_scene()
     rnd = random.Random(11)
     stone = Part(pbr_material('rock-dark_rock', 'dark_rock', (1.4, 1.35, 1.3)), uv_metres=0.6)
     wood = Part(pbr_material('bark-bark_brown_02', 'bark_brown_02'), smooth=True)
     for k in range(10):
-        a = k / 10 * math.tau
-        box(stone, math.cos(a) * 0.75, math.sin(a) * 0.75, -0.05, 0.3, 0.24, 0.22, a + rnd.uniform(-0.3, 0.3))
-    for k in range(4):
-        a = k / 4 * math.pi + 0.3
+        a = k / 10 * math.tau + rnd.uniform(-0.1, 0.1)
+        lump(stone, Vector((math.cos(a) * 0.75, math.sin(a) * 0.75, -0.04)),
+             Vector((rnd.uniform(0.14, 0.18), rnd.uniform(0.11, 0.14), rnd.uniform(0.11, 0.15))), 20 + k, roughness=0.25, subdiv=1)
+    # Burning: logs leant together into a cone; burnt out: it has fallen in, stubs lie low in the ashes
+    for k in range(5):
+        a = k / 5 * math.tau + 0.4
         d = Vector((math.cos(a), math.sin(a), 0))
-        tube(wood, [-d * 0.55 + Vector((0, 0, 0.08)), d * 0.55 + Vector((0, 0, 0.18 + 0.05 * k))], [0.07, 0.06], 6, cap=True)
+        if lit:
+            tube(wood, [d * 0.5 + Vector((0, 0, 0.02)), d * 0.08 + Vector((0, 0, 0.62))], [0.065, 0.05], 6, cap=True)
+        else:
+            tube(wood, [d * 0.5 + Vector((0, 0, 0.05)), d * 0.12 + Vector((0, 0, 0.32))], [0.06, 0.045], 6, cap=True)
+    for a in (0.2, 1.9):
+        d = Vector((math.cos(a), math.sin(a), 0))
+        tube(wood, [-d * 0.55 + Vector((0, 0, 0.06)), d * 0.55 + Vector((0, 0, 0.09))], [0.07, 0.065], 6, cap=True)
     objects = [stone.to_object(name), wood.to_object(name + '-logs')]
     if lit:
         fire = Part(glow_card_material('flame', 'flame.png'))
         coal = Part(flat_material('embers', (0.6, 0.15, 0.03), 0.9, emission=(1.0, 0.3, 0.05), strength=1.0))
-        tube(coal, [Vector((0, 0, 0.02)), Vector((0, 0, 0.06))], [0.5, 0.0], 10)
+        tube(coal, [Vector((0, 0, 0.0)), Vector((0, 0, 0.05))], [0.5, 0.0], 10)
+        for k in range(7):
+            a = rnd.uniform(0, math.tau)
+            r = rnd.uniform(0.15, 0.45)
+            lump(coal, Vector((math.cos(a) * r, math.sin(a) * r, 0.03)), Vector((0.07, 0.06, 0.04)), 40 + k, roughness=0.3, subdiv=1)
         flame_cards(fire, Vector((0, 0, 0.05)), 1.1, 0.9, 4, 2)
         objects += [fire.to_object(name + '-flame'), coal.to_object(name + '-embers')]
     export(name, objects)
-
 
 def waterfall(name, width=6.0, height=12.0):
     """Falling water: a curved, slightly bowed sheet from the lip (top, front -Y) down to the pool, foam at the foot.
