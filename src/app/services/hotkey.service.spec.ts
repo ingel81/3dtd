@@ -29,6 +29,7 @@ vi.mock('./photo-mode.service', () => ({ PhotoModeService: class PhotoModeServic
 vi.mock('./hero-control.service', () => ({ HeroControlService: class HeroControlService {} }));
 vi.mock('./replay.service', () => ({ ReplayService: class ReplayService {} }));
 vi.mock('./tower-control.service', () => ({ TowerControlService: class TowerControlService {} }));
+vi.mock('./camera-slots.service', () => ({ CameraSlotsService: class CameraSlotsService {} }));
 
 import { Injector, runInInjectionContext, signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
@@ -44,6 +45,7 @@ import { ResearchStore } from '../store/research.store';
 import { TowerPlacementService } from './tower-placement.service';
 import { SellConfirmService } from './sell-confirm.service';
 import { CameraControlService } from './camera-control.service';
+import { CameraSlotsService } from './camera-slots.service';
 import { IntroCameraFlightService } from './world/intro-camera-flight.service';
 import { AbilityTargetingService } from './ability-targeting.service';
 import { PhotoModeService } from './photo-mode.service';
@@ -84,6 +86,12 @@ describe('HotkeyService', () => {
   const setupRequested = signal(false);
   let sellConfirm: SellConfirmService;
   let focusGeo: ReturnType<typeof vi.fn>;
+  /** Filled camera views by slot, CameraSlotsService.recall checks it */
+  let filledViews: Set<number>;
+  const cameraSlots = {
+    store: vi.fn((slot: number) => { filledViews.add(slot); return true; }),
+    recall: vi.fn((slot: number) => filledViews.has(slot)),
+  };
   const introActive = signal(false);
   /** Whether the strike could fire, AbilityTargetingService.start checks it */
   let strikeCanFire: boolean;
@@ -158,6 +166,7 @@ describe('HotkeyService', () => {
     selectedTowerType: signal<string | null>(null),
     coopDockOpen: signal(false),
     mainMenuOpen: signal(false),
+    notice: signal<{ text: string } | null>(null),
   };
   const mainMenu = { open: vi.fn() };
   const research = {
@@ -195,6 +204,9 @@ describe('HotkeyService', () => {
     openDialogs = [];
     sellConfirm = new SellConfirmService();
     focusGeo = vi.fn(() => true);
+    filledViews = new Set();
+    cameraSlots.store.mockClear();
+    cameraSlots.recall.mockClear();
     introActive.set(false);
     strikeCanFire = true;
     abilityTargeting.targeting.set(null);
@@ -238,6 +250,7 @@ describe('HotkeyService', () => {
         { provide: SellConfirmService, useValue: sellConfirm },
         { provide: MatDialog, useValue: { open: openDialog, get openDialogs() { return openDialogs; } } },
         { provide: CameraControlService, useValue: { focusGeo } },
+        { provide: CameraSlotsService, useValue: cameraSlots },
         { provide: IntroCameraFlightService, useValue: { active: introActive } },
         { provide: AbilityTargetingService, useValue: abilityTargeting },
         { provide: PhotoModeService, useValue: photoMode },
@@ -578,8 +591,42 @@ describe('HotkeyService', () => {
       expect(focusGeo.mock.calls).toEqual([[48.71, 9.1], [48.69, 9.12], [48.71, 9.1]]);
     });
 
+    it('Shift+F2 saves camera view 2, F2 glides back, and the browser keeps neither (TODO E20)', () => {
+      const save = press('F2', { shiftKey: true });
+      service.handleKeyDown(save);
+      expect(cameraSlots.store).toHaveBeenCalledWith(1);
+      expect(save.defaultPrevented).toBe(true);
+      const recall = press('F2');
+      service.handleKeyDown(recall);
+      expect(cameraSlots.recall).toHaveBeenCalledWith(1);
+      expect(recall.defaultPrevented).toBe(true);
+    });
+
+    it('F5 on an empty slot or held down still does not reload, and says how to fill the slot', () => {
+      const empty = press('F5');
+      service.handleKeyDown(empty);
+      expect(empty.defaultPrevented).toBe(true);
+      expect(uiStore.notice()?.text).toContain('Shift+F5');
+      const held = press('F5', { repeat: true });
+      service.handleKeyDown(held);
+      expect(held.defaultPrevented).toBe(true);
+      expect(cameraSlots.recall).toHaveBeenCalledTimes(1);
+    });
+
+    it('leaves Ctrl+F5 and F5 under a dialog to the browser', () => {
+      const hard = press('F5', { ctrlKey: true });
+      service.handleKeyDown(hard);
+      expect(hard.defaultPrevented).toBe(false);
+      openDialogs = [{}];
+      const underDialog = press('F5');
+      service.handleKeyDown(underDialog);
+      expect(underDialog.defaultPrevented).toBe(false);
+    });
+
     it('leaves the camera to the intro flight while it plays', () => {
       introActive.set(true);
+      service.handleKeyDown(press('F1', { shiftKey: true }));
+      expect(cameraSlots.store).not.toHaveBeenCalled();
       service.handleKeyDown(press('Home'));
       service.handleKeyDown(press('n'));
       expect(focusGeo).not.toHaveBeenCalled();

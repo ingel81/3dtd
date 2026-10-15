@@ -4,6 +4,7 @@ import type { DirectorSave } from '../director/wave-director';
 import { createWaveSource, isWaveSourceId } from '../director/wave-source.registry';
 import type { RunLog } from '../run-log/run-log.types';
 import type { WaveSeriesPoint } from '../run-log/wave-series';
+import type { CameraSlots } from '../services/camera-slots.service';
 import { WORLD_PACKAGE_VERSION, worldPackageShape, type WorldPackage } from '../coop/world-package';
 import { SIM_SNAPSHOT_VERSION, type SimSnapshot } from './sim-snapshot';
 
@@ -51,6 +52,8 @@ export interface SaveFile {
   runLog: RunLog | null;
   /** The game-over charts' points so far (run-log/wave-series.ts) */
   waveSeries: WaveSeriesPoint[];
+  /** The saved camera views, F1 to F5 (CameraSlotsService); absent in saves from before them */
+  cameraSlots?: CameraSlots | null;
 }
 
 /** Where the run is played: the place as the place picker names it, its HQ and spawns */
@@ -91,6 +94,10 @@ const strings = (v: unknown): boolean => Array.isArray(v) && v.every((s) => type
 /** [player id, state] pairs of a per-player part, absent in a snapshot from before coop */
 const perPlayer = (v: unknown, state: (s: unknown) => boolean): boolean =>
   v === undefined || (Array.isArray(v) && v.every((p) => Array.isArray(p) && p.length === 2 && typeof p[0] === 'string' && state(p[1])));
+
+const isPoint = (v: unknown): boolean => isObject(v) && finite(v['x']) && finite(v['y']) && finite(v['z']);
+const isCameraSlots = (v: unknown): boolean => v === undefined || v === null
+  || (Array.isArray(v) && v.every((s) => s === null || (isObject(s) && isPoint(s['position']) && isPoint(s['target']))));
 
 /** Random state: a seed and finite numbers per stream */
 function isRng(v: unknown): boolean {
@@ -196,7 +203,8 @@ function wellFormed(data: Partial<SaveFile>): boolean {
     && isDirector(director)
     && isRng(data.mainRng)
     && (data.runLog === null || (isObject(data.runLog) && isObject(data.runLog['head']) && Array.isArray(data.runLog['records'])))
-    && Array.isArray(data.waveSeries);
+    && Array.isArray(data.waveSeries)
+    && isCameraSlots(data.cameraSlots);
 }
 
 /** Saved with another version or other values: it loads, but the run may go on differently */

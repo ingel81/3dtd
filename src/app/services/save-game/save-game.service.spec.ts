@@ -23,6 +23,7 @@ import { balanceConfigHash } from '../../run-log/config-hash';
 import type { GamePhase } from '../../models/game.types';
 import { WorldContext } from '../../world/world-context.service';
 import { fakeWorldContext, TEST_WORLD_REF } from '../../../test/world-context-fake';
+import { CameraSlotsService } from '../camera-slots.service';
 
 /**
  * The save game in the running game (TODO E110), on stand-ins: when saving
@@ -112,6 +113,10 @@ function setup(options: { inCoop?: boolean } = {}) {
       return 'w1';
     }),
   };
+  const cameraSlots = {
+    saveState: vi.fn(() => [{ position: { x: 1, y: 2, z: 3 }, target: { x: 0, y: 0, z: 0 } }]),
+    restoreState: vi.fn(() => order.push('camera views')),
+  };
   const phase = signal<GamePhase>('setup');
   const world = { source: () => ({}), spawnPoints: [], sendToSim: vi.fn(() => order.push('fresh run')) };
   const injector = Injector.create({
@@ -129,10 +134,11 @@ function setup(options: { inCoop?: boolean } = {}) {
       { provide: GameStore, useValue: { phase, isGameOver: signal(false) } },
       { provide: UIStore, useValue: { replayMode: signal(false) } },
       { provide: CoopService, useValue: { room: signal(options.inCoop ? {} : null), inGame: signal(false) } },
+      { provide: CameraSlotsService, useValue: cameraSlots },
     ],
   });
   const service = injector.get(SaveGameService);
-  return { service, apply: (file: SaveFile) => (service as unknown as Applying).apply(file), order, phase, director, mirror, runLog, loader, bus, sim };
+  return { service, apply: (file: SaveFile) => (service as unknown as Applying).apply(file), order, phase, director, mirror, runLog, loader, bus, sim, cameraSlots };
 }
 
 describe('SaveGameService (TODO E110)', () => {
@@ -151,7 +157,7 @@ describe('SaveGameService (TODO E110)', () => {
     const file = saveFile();
     expect(await apply(file)).toBeNull();
     // The save's source before adopt: the reset of the fresh run puts it into service in the worker too
-    expect(order).toEqual(['source budget', 'adopt', 'restoreSnapshot', 'director', 'rng', 'run-log']);
+    expect(order).toEqual(['source budget', 'adopt', 'restoreSnapshot', 'director', 'rng', 'run-log', 'camera views']);
     expect(director.restoreState).toHaveBeenCalledWith(file.director);
     expect(mirror.rng.setState).toHaveBeenCalledWith(file.mainRng);
     expect(runLog.resumeRun).toHaveBeenCalledWith(null, [], 4);
