@@ -171,7 +171,7 @@ Biom Schnee/Arktis, Look `arctic`, leichter Schneefall, später Abend mit Latern
 einen zugefrorenen See (Eisfläche), Eisfischerhütten, Holzstapel, Schlitten. Die Straße führt um den See; ein zweiter Weg
 über das Eis (Gegner laufen übers Eis). Spawns: 2. Bauflächen: Seeufer, Dorfplatz.
 Leben: Raben über Dorf und Wald, Eisnebel über dem See (nur High), Rauch aus allen Häusern; Wind des Looks, Feuer am
-Dorfplatz.
+Dorfplatz. Neben beiden Schlitten im Dorf wartet ein Hundegespann (`dog-sled`).
 
 ### 7 Vulkankrater (`ember-crater`)
 **Gebaut** (`tools/maps/levels/ember-crater.ts`, Small 512 m). Kartenprobe 10 Wellen bestanden (HQ 463,3 von 500,
