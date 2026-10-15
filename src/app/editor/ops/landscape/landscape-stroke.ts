@@ -75,6 +75,8 @@ export class LandscapeStroke {
   private change: DocChange = {};
   /** Copy every dab and object to the symmetric images; objects grow only in the sector the stroke began in */
   symmetry: SymmetryMode = 'none';
+  /** The editor's way (on by default): a full layer list makes room (makeRoom). Off, a material that finds it full is left out */
+  editorCopies = true;
   /** Ground height where the stroke began (levelling brushes) */
   anchor: { x: number; y: number; h: number } | null = null;
   /** Per stroke memory of the brushes (decided object cells, strongest weights) */
@@ -84,6 +86,12 @@ export class LandscapeStroke {
   readonly fields = new Map<string, FieldCache>();
   /** Materials the stroke wanted but found no room for in the full layer list */
   readonly layersFull: string[] = [];
+  /** Materials of a full list that took over a layer no ground used any more (`hell-ground for snow-drift`) */
+  readonly layersReused: string[] = [];
+  /** Materials of a full list painted with the layer nearest in look (`lava as lava-crust`) */
+  readonly layersShared: string[] = [];
+  /** Where each material of a full list went, decided once per stroke (makeRoom) */
+  private readonly fullChoice = new Map<string, number | null>();
 
   constructor(
     readonly editor: EditorDocument,
@@ -166,10 +174,12 @@ export class LandscapeStroke {
     const existing = t.layers.findIndex((l) => l.material === material);
     if (existing >= 0) return existing;
     if (t.layers.length >= this.maxLayers) {
-      // Full: another candidate that is there already, else nothing
+      // Full: another candidate that is there already, else room made for it
       const other = t.layers.findIndex((l) => candidates.includes(l.material));
-      if (other < 0 && !this.layersFull.includes(material)) this.layersFull.push(material);
-      return other >= 0 ? other : null;
+      if (other >= 0) return other;
+      if (this.editorCopies) return this.makeRoom(material);
+      if (!this.layersFull.includes(material)) this.layersFull.push(material);
+      return null;
     }
     t.layers.push({ material });
     fitSplatMaps(t);
@@ -180,6 +190,75 @@ export class LandscapeStroke {
     this.change = mergeChanges(this.change, { layers: true });
     this.editor.emit({ layers: true });
     return t.layers.length - 1;
+  }
+
+  /**
+   * A layer for `material` in a full list, once per stroke and material: a
+   * layer that was on the map before the stroke and that no ground uses any
+   * more (painted over everywhere) takes the new material; else the layer
+   * nearest to it in look (sharing a catalogue tag first, then by mean
+   * colour) paints in its place. Null only without a catalogue entry to
+   * compare. The status line names what went where (landscape-tool.ts).
+   */
+  private makeRoom(material: string): number | null {
+    const known = this.fullChoice.get(material);
+    if (known !== undefined) return known;
+    const t = this.doc.terrain;
+    let k = this.unusedLayer();
+    if (k !== null) {
+      this.layersReused.push(`${material} for ${t.layers[k].material}`);
+      t.layers[k] = { material };
+      this.change = mergeChanges(this.change, { layers: true });
+      this.editor.emit({ layers: true });
+    } else {
+      k = this.nearestLayer(material);
+      if (k === null) this.layersFull.push(material);
+      else this.layersShared.push(`${material} as ${t.layers[k].material}`);
+    }
+    this.fullChoice.set(material, k);
+    return k;
+  }
+
+  /**
+   * A layer from before the stroke that no texel holds more than a trace of
+   * (4 of 255), not the first one and not taken over in this stroke already
+   */
+  private unusedLayer(): number | null {
+    const t = this.doc.terrain;
+    const maps = t.splat.maps;
+    const taken = new Set([...this.fullChoice.values()]);
+    for (let k = 1; k < t.layers.length; k++) {
+      if (taken.has(k) || this.layersBefore[k]?.material !== t.layers[k].material) continue;
+      const map = maps[k >> 2];
+      if (!map) continue;
+      let used = false;
+      for (let q = k & 3; q < map.length && !used; q += 4) used = map[q] > 4;
+      if (!used) return k;
+    }
+    return null;
+  }
+
+  /** The layer nearest in look to `material`: sharing a catalogue tag counts first, then the mean colour */
+  private nearestLayer(material: string): number | null {
+    const want = this.catalog.materials.get(material);
+    if (!want) return null;
+    const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) || 0);
+    const [r, g, b] = rgb(want.color);
+    const tags = new Set(want.tags ?? []);
+    let best: number | null = null;
+    let bestScore = Infinity;
+    this.doc.terrain.layers.forEach((l, k) => {
+      const have = this.catalog.materials.get(l.material);
+      if (!have) return;
+      const [r2, g2, b2] = rgb(have.color);
+      const shared = (have.tags ?? []).some((tag) => tags.has(tag));
+      const score = Math.hypot(r - r2, g - g2, b - b2) + (shared ? 0 : 1000);
+      if (score < bestScore) {
+        bestScore = score;
+        best = k;
+      }
+    });
+    return best;
   }
 
   /** Water on the map (created at `level` if there is none); returns its level */
@@ -312,7 +391,10 @@ export class LandscapeStroke {
     const t = doc.terrain;
     const parts: EditCommand[] = [];
     const layersAfter = t.layers.map((l) => ({ ...l }));
-    if (layersAfter.length !== this.layersBefore.length) parts.push(new LayerListCommand('Layers', this.layersBefore, layersAfter));
+    // A longer list, or a layer that took over another material (a full list, makeRoom)
+    if (layersAfter.length !== this.layersBefore.length || layersAfter.some((l, k) => l.material !== this.layersBefore[k].material)) {
+      parts.push(new LayerListCommand('Layers', this.layersBefore, layersAfter));
+    }
     if (this.createdWater) parts.push(new WaterSwapCommand('Water', this.waterBefore, this.createdWater));
     for (const index of this.bodiesAdded) parts.push(new BodyAddCommand('Water', index, structuredClone(t.waterBodies![index])));
     const patches = new PatchCommand(this.label, [

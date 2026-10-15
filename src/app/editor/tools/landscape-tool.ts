@@ -169,8 +169,13 @@ export class LandscapeTool implements EditorTool {
     } else if (s.mode === 'biome') {
       finishBiome(stroke, brush, biomeById(s.biome));
     }
-    if (stroke.layersFull.length) {
-      ctx.status(`The map has ${MAX_LAYERS} ground layers: ${stroke.layersFull.join(', ')} left out. Remove a layer in Paint to make room`);
+    const full = [
+      ...stroke.layersReused.map((m) => `${m} (unused)`),
+      ...stroke.layersShared.map((m) => `${m}, the nearest look`),
+      ...stroke.layersFull.map((m) => `${m} left out`),
+    ];
+    if (full.length) {
+      ctx.status(`The map has ${MAX_LAYERS} ground layers: ${full.join('; ')}. Remove a layer in Paint for each its own`);
     }
     if (stroke.finish() && s.reroll) {
       s.seed = randomSeed();

@@ -168,7 +168,37 @@ describe('biome brush', () => {
     expect(t.splat.maps[2].some((v) => v > 100)).toBe(true);
   });
 
-  it('leaves out a thirteenth ground layer and says which', () => {
+  it('grows a forest on a steep mountain flank as on flat ground', () => {
+    const flatMap = map();
+    paint(flatMap, 'forest', 1);
+    const ed = map();
+    const g = ed.doc.terrain.grid;
+    // A flank rising 35 degrees to the north across the stroke
+    for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) g.heights[j * g.columns + i] = Math.max(0, (j * g.cellSize - 120) * 0.7);
+    expect(slopeAt(ed.doc.terrain, 0, 80)).toBeGreaterThan(30);
+    paint(ed, 'forest', 1);
+    const trees = (doc: CustomMapDocument) => doc.objects.filter((o) => o.asset.startsWith('tree')).length;
+    expect(trees(ed.doc)).toBeGreaterThan(trees(flatMap.doc) * 0.8);
+  });
+
+  it('paints hell on a fresh map after two peaks and the arctic, as the showreel did', () => {
+    const ed = map();
+    const peak = new LandscapeStroke(ed, 'Mountain', 51, catalog);
+    for (const x of [-60, 40]) for (let k = 0; k < 30; k++) formDab(peak, 'mountain', { x, y: 120 }, { radius: 80, strength: 1, falloff: 0.5 }, 0.1);
+    peak.finish();
+    paint(ed, 'arctic', 2, 1, 5, 110);
+    const hell = paint(ed, 'hell', 3, 1, 5, -110);
+    expect(hell.layersFull).toEqual([]);
+    const t = ed.doc.terrain;
+    const ground = t.layers.findIndex((l) => l.material === 'hell-ground');
+    expect(ground).toBeGreaterThan(0);
+    const res = t.splat.resolution;
+    const w = new Float32Array(12);
+    readWeights(t, Math.round(((-110 + 200) / 400) * res) * res + (res >> 1), w);
+    expect(w.reduce((a, b) => a + b, 0) - w[0]).toBeGreaterThan(200);
+  });
+
+  it('makes room in a full list of ground layers for a thirteenth material, and says how', () => {
     const ed = map();
     const t = ed.doc.terrain;
     const materials = catalog.materials;
@@ -177,10 +207,41 @@ describe('biome brush', () => {
       if (!t.layers.some((l) => l.material === id) && id !== 'hell-ground') t.layers.push({ material: id });
     }
     fitSplatMaps(t);
-    const stroke = new LandscapeStroke(ed, 'Biome', 1, catalog);
-    expect(stroke.layerOf(['hell-ground'])).toBeNull();
-    expect(stroke.layersFull).toEqual(['hell-ground']);
+    // The level scripts' strokes leave it out
+    const kit = new LandscapeStroke(ed, 'Biome', 1, catalog);
+    kit.editorCopies = false;
+    expect(kit.layerOf(['hell-ground'])).toBeNull();
+    expect(kit.layersFull).toEqual(['hell-ground']);
     expect(t.layers).toHaveLength(12);
+    // An editor stroke takes over a layer no ground uses: the second one, as the first holds all the ground
+    const second = t.layers[1].material;
+    const stroke = new LandscapeStroke(ed, 'Biome', 1, catalog);
+    expect(stroke.layerOf(['hell-ground'])).toBe(1);
+    expect(t.layers[1].material).toBe('hell-ground');
+    expect(stroke.layersReused).toEqual([`hell-ground for ${second}`]);
+    expect(t.layers).toHaveLength(12);
+    // One undo step puts the list back
+    stroke.finish();
+    ed.undo();
+    expect(t.layers[1].material).toBe(second);
+  });
+
+  it('paints with the layer nearest in look when every layer of a full list is in use', () => {
+    const ed = map();
+    const t = ed.doc.terrain;
+    for (const id of catalog.materials.keys()) {
+      if (t.layers.length >= 12) break;
+      if (!t.layers.some((l) => l.material === id) && !id.startsWith('lava') && !id.startsWith('hell')) t.layers.push({ material: id });
+    }
+    fitSplatMaps(t);
+    // Every layer holds some ground: one texel each
+    t.layers.forEach((_, k) => (t.splat.maps[k >> 2][k * 4 * 7 + (k & 3)] = 200));
+    const stroke = new LandscapeStroke(ed, 'Biome', 1, catalog);
+    const k = stroke.layerOf(['hell-ground'])!;
+    expect(k).not.toBeNull();
+    expect(stroke.layerOf(['hell-ground'])).toBe(k);
+    expect(stroke.layersShared).toEqual([`hell-ground as ${t.layers[k].material}`]);
+    expect(t.layers.map((l) => l.material)).not.toContain('hell-ground');
   });
 
   it('tells the view which pool body changed, so only it redraws', () => {

@@ -190,6 +190,8 @@ export class MapKit {
   stroke<T>(label: string, paint: (s: LandscapeStroke) => T, seed = this.nextSeed()): T {
     const s = new LandscapeStroke(this.editor, label, seed, this.catalog, this.maxLayers);
     s.symmetry = this.symmetry;
+    // The level scripts build the shipped maps: their strokes leave out what finds the layer list full, as they always did
+    s.editorCopies = false;
     const out = paint(s);
     for (const m of s.layersFull) this.leftOut.add(m);
     s.finish();
