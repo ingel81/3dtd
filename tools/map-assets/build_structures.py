@@ -645,7 +645,7 @@ def castle_wall(name, stone_asset=CASTLE, ruined=False, seed=0, length=8.0, heig
     rnd = random.Random(seed)
     stone = Part(pbr_material('castle-' + stone_asset, stone_asset), uv_metres=3.0)
     if not ruined:
-        dark = Part(flat_material('slit', (0.03, 0.03, 0.035), 0.9))
+        dark = Part(flat_material('window', (0.03, 0.03, 0.035), 0.9))
         # Coping and slit surrounds: the wall's stone without the chamfer (merged into one draw call when packed)
         trim = Part(stone.material, uv_metres=3.0, bevel=0.0)
         box(stone, 0, 0, -0.5, length, thick, height + 0.5)
@@ -696,7 +696,7 @@ def castle_wall_block(name, along=4.4, depth=4.4, height=8.6, stone_asset=CASTLE
     clear_scene()
     stone = Part(pbr_material('castle-' + stone_asset, stone_asset), uv_metres=3.0)
     trim = Part(stone.material, uv_metres=3.0, bevel=0.0)
-    dark = Part(flat_material('slit', (0.03, 0.03, 0.035), 0.9))
+    dark = Part(flat_material('window', (0.03, 0.03, 0.035), 0.9))
     ha, hd = along / 2, depth / 2
     box(stone, 0, 0, -0.5, along, depth, height + 0.5)
     # Battered foot on all sides, a string course, corbels under the battlements
@@ -732,7 +732,8 @@ def castle_tower(name, roof=False, stone_asset=CASTLE, radius=3.6, height=12.0, 
     rim, slits and a doorway where it still stands, fallen blocks inside and at its foot"""
     clear_scene()
     stone = Part(pbr_material('castle-' + stone_asset, stone_asset), uv_metres=3.0)
-    dark = Part(flat_material('slit', (0.03, 0.03, 0.035), 0.9))
+    # The slits of a standing tower are lit at night (night-windows.ts), a ruin's stay dark
+    dark = Part(flat_material('slit' if ruined else 'window', (0.03, 0.03, 0.035), 0.9))
     if ruined:
         rnd = random.Random(len(name))
         sides = 24
@@ -794,7 +795,7 @@ def castle_gate(name, stone_asset=CASTLE):
     stone = Part(pbr_material('castle-' + stone_asset, stone_asset), uv_metres=3.0)
     wood = Part(pbr_material('planks-dark', 'dark_planks', (0.8, 0.7, 0.6)), uv_metres=1.5)
     iron = Part(flat_material('iron', (0.08, 0.08, 0.08), 0.5, 0.8))
-    dark = Part(flat_material('slit', (0.03, 0.03, 0.035), 0.9))
+    dark = Part(flat_material('window', (0.03, 0.03, 0.035), 0.9))
     trim = Part(stone.material, uv_metres=3.0, bevel=0.0)
     tw = 5.0
     for sx in (-1, 1):
