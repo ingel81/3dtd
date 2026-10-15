@@ -6,7 +6,7 @@
 //   npm run build (writes build-info.json: game version and commit, which every result carries)
 //   node e2e/perf/serve.mjs <dist/3DTD/browser> <port> [--isolate]
 //   node e2e/perf/sim-load.ts --url http://localhost:4231 [--enemies 5000] [--speed 4] [--towers 40] [--machine A] [--dpr 1]
-//                             [--seconds 10] [--browser chromium|firefox] [--headed]
+//                             [--seconds 10] [--browser chromium|firefox] [--headed] [--kinds zombie,zombie-v2]
 //   A curve over the enemy count (TODO E72): --steps 3000,5000,8000,12000,16000 --speeds 4,1 [--hide-enemies]
 //   tops the enemies up to each step in the same window and measures every speed there; --hide-enemies measures
 //   each once more with the enemy meshes and health bars left out of the draw (the render share per enemy).
@@ -68,6 +68,8 @@ const ENEMY_HP = Number(argument('hp', '1000000'));
 /** Walking speed of the enemies, m/s: slow, so few reach the HQ over a curve of several minutes */
 const ENEMY_SPEED = Number(argument('enemy-speed', '0.5'));
 const HEADED = process.argv.includes('--headed');
+/** Enemy types spawned in turn, `--kinds zombie,zombie-v2`; the benchmark's mix by default */
+const KINDS = argument('kinds', '').split(',').filter(Boolean);
 /**
  * Chromium: after each measurement a CPU profile of the main thread and the worker, written as `<prefix>-<step>x<speed>-
  * main|worker.cpuprofile` with the top functions printed. Readable names need a build without mangling
@@ -300,7 +302,7 @@ console.log(`towers ${placed.towers} of ${TOWERS} (${tried} spots tried)`);
 await startLoadWave(driver);
 const slices = routeSlices(start.paths);
 const sliceAt = { slice: 0 };
-const spawnTo = (target: number) => spawnUpTo(driver, slices, target, sliceAt, ENEMY_SPEED, ENEMY_HP);
+const spawnTo = (target: number) => spawnUpTo(driver, slices, target, sliceAt, ENEMY_SPEED, ENEMY_HP, KINDS.length ? KINDS : undefined);
 
 /** CPU profiles of both threads over SECONDS, written next to `prefix`, the top functions printed */
 async function profile(prefix: string): Promise<void> {

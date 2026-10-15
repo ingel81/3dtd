@@ -122,6 +122,7 @@ export async function spawnUpTo(
   at: { slice: number },
   speed = LOAD_ENEMY_SPEED,
   hp = LOAD_ENEMY_HP,
+  kinds: readonly string[] = LOAD_ENEMY_KINDS,
 ): Promise<void> {
   for (let round = 0; round < 4; round++) {
     if (driver.cancelled?.()) return;
@@ -131,7 +132,7 @@ export async function spawnUpTo(
     let spawned = 0;
     for (let i = 0; i < slices.length && spawned < missing; i++, at.slice++) {
       const count = Math.min(perSlice, missing - spawned);
-      await driver.emit({ type: 'debug:spawn-enemy', enemyType: LOAD_ENEMY_KINDS[at.slice % LOAD_ENEMY_KINDS.length], count, path: slices[i], speed, health: hp });
+      await driver.emit({ type: 'debug:spawn-enemy', enemyType: kinds[at.slice % kinds.length], count, path: slices[i], speed, health: hp });
       spawned += count;
     }
     await driver.sync();
