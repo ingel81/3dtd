@@ -4,6 +4,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { MapBrowserComponent } from './browser/map-browser.component';
 import { EditorSession } from './editor-session.service';
 import { EditorShellComponent } from './shell/editor-shell.component';
+import { AgentBandComponent } from './agent/agent-band.component';
 import { MAP_EDITOR_WINDOW } from '../../world/map-trial';
 
 /**
@@ -15,7 +16,7 @@ import { MAP_EDITOR_WINDOW } from '../../world/map-trial';
 @Component({
   selector: 'app-editor-page',
   standalone: true,
-  imports: [MapBrowserComponent, EditorShellComponent],
+  imports: [MapBrowserComponent, EditorShellComponent, AgentBandComponent],
   providers: [EditorSession],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -23,9 +24,10 @@ import { MAP_EDITOR_WINDOW } from '../../world/map-trial';
       <app-editor-shell (closed)="close()" />
     } @else {
       <app-map-browser [problem]="problem()" (open)="open($event)" />
+      <app-agent-band />
     }
   `,
-  styles: [`:host { display: block; width: 100%; height: 100%; }`],
+  styles: [`:host { position: relative; display: block; width: 100%; height: 100%; }`],
 })
 export class EditorPageComponent implements OnInit {
   private readonly session = inject(EditorSession);
@@ -40,6 +42,18 @@ export class EditorPageComponent implements OnInit {
   ngOnInit(): void {
     // A name the test tab can call it by to come back (returnToEditor); the test tab keeps its own
     if (!window.name) window.name = MAP_EDITOR_WINDOW;
+    // An AI agent opens and leaves maps the way the player does, so the address follows
+    this.session.navigator = {
+      open: async (id) => {
+        await this.open(id);
+        return this.session.editor ? null : (this.problem() ?? 'it could not be read');
+      },
+      close: async () => {
+        await this.close();
+        return !this.opened();
+      },
+    };
+    this.destroyRef.onDestroy(() => (this.session.navigator = null));
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
       const id = params.get('map');
       this.following = this.following.then(() => this.follow(id));

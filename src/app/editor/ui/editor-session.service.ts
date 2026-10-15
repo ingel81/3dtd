@@ -6,7 +6,7 @@
  * editing itself happens in the Angular-free model, ops and tools.
  */
 import type { GridRect } from '../model/grid';
-import { startTerrainJob, type TerrainJob, type TerrainJobMessage } from '../workers/terrain-job';
+import { erodeJob, startTerrainJob, type TerrainJob, type TerrainJobMessage } from '../workers/terrain-job';
 import type { DocChange } from '../model/editor-document';
 import { MAP_TEST_WINDOW, MAP_TRIAL_MESSAGE, MAP_TRIAL_WAVES_PARAM, type MapTrialResult } from '../../world/map-trial';
 import { VersionHistory, type MapVersion } from '../model/version-store';
@@ -52,8 +52,11 @@ import { buildAreaInput, buildAreasOffThread, type BuildAreas } from '../validat
 import { EditorViewport, type CameraBookmark, type FrameStats, type HoverInfo } from '../view/editor-viewport';
 import { DEFAULT_W3X_OPTIONS, loadW3xImporter, type W3xImportOptions, type W3xImportReport } from '../import/w3x-seam';
 import { WORLD_URL_PARAM, worldUrlValue } from '../../world/world-ref';
-import { readAgentBridge } from '../../core/desktop-bridge';
-import { EditorAgent } from '../agent/editor-agent';
+import { readAgentBridge, type AgentStatus } from '../../core/desktop-bridge';
+import { AGENT_LABEL, EditorAgent, type AgentNewMap } from '../agent/editor-agent';
+import { templateById } from '../ops/landscape/templates';
+import { DEFAULT_CELL_SIZE } from '../../world/custom-map/map-create';
+import type { SavedStamp } from '../model/stamp-store';
 import { shadeRelief } from '../agent/relief-shade';
 import { runScriptInSandbox } from '../agent/script-sandbox';
 import { START_WAVE_PARAM } from '../../world/custom-map/custom-map-world';
@@ -212,17 +215,110 @@ export class EditorSession implements OnDestroy {
   readonly catalogReady: Promise<void> = loadAssetCatalog().then((c) => this.catalog.set(new CatalogIndex(c)));
 
   /** An AI agent's calls over MCP, desktop app only (docs/AGENT_MCP.md) */
-  private readonly agent = new EditorAgent(this, (source, doc, catalog, seed) => runScriptInSandbox(source, doc, catalog.catalog, seed));
-  private stopAgent: (() => void) | null = null;
+  private readonly agent = new EditorAgent(this, (source, doc, catalog, seed, signal) => runScriptInSandbox(source, doc, catalog.catalog, seed, { signal }));
+  private readonly agentBridge = readAgentBridge();
+  private unlistenAgent: (() => void)[] = [];
+  /** Whether AI agents may edit maps, who is connected and what it does; null in the web build */
+  readonly agentStatus = signal<AgentStatus | null>(null);
+  /**
+   * How the page opens a map or goes back to the list, so the address
+   * follows (EditorPageComponent); without one the session opens the map
+   * itself. `open` resolves why it did not open, or null
+   */
+  navigator: { open(id: string): Promise<string | null>; close(): Promise<boolean> } | null = null;
 
   constructor() {
     this.zone.runOutsideAngular(() => {
       this.tick = setInterval(() => this.pollChanges(), 150);
     });
-    this.stopAgent =
-      readAgentBridge()?.onCall((call, reply) => {
-        void this.zone.run(() => this.agent.handle(call)).then(reply, (e: unknown) => reply({ text: String((e as Error)?.message ?? e), isError: true }));
-      }) ?? null;
+    const bridge = this.agentBridge;
+    if (bridge) {
+      this.unlistenAgent.push(
+        bridge.onCall((call, reply) => {
+          void this.zone.run(() => this.agent.handle(call)).then(reply, (e: unknown) => reply({ text: String((e as Error)?.message ?? e), isError: true }));
+        }),
+      );
+      const show = (status: AgentStatus | null) => status && this.zone.run(() => this.agentStatus.set(status));
+      if (bridge.onStatus) this.unlistenAgent.push(bridge.onStatus(show));
+      else void bridge.status().then(show);
+    }
+  }
+
+  // ---------------------------------------------------------------- AI agent
+
+  /** The editor's switch "AI agents": the MCP server on or off */
+  async setAgentEnabled(on: boolean): Promise<void> {
+    const status = await this.agentBridge?.setEnabled(on);
+    if (status) this.agentStatus.set(status);
+  }
+
+  /**
+   * Stop in the agent band: what the agent runs now ends and the map goes
+   * back to how it was before that call; its next calls are refused until
+   * the player lets it go on
+   */
+  async stopAgent(): Promise<void> {
+    this.agent.stop();
+    const status = await this.agentBridge?.stop?.();
+    if (status) this.agentStatus.set(status);
+    this.flash('The agent is stopped; its calls are refused until you let it go on');
+  }
+
+  async resumeAgent(): Promise<void> {
+    const status = await this.agentBridge?.resume?.();
+    if (status) this.agentStatus.set(status);
+  }
+
+  /** A job of the agent's (a script playing, the erosion) ends; the map goes back */
+  cancelAgentJob(): void {
+    if (this.terrainJob()?.label.startsWith(AGENT_LABEL)) this.cancelTerrainJob();
+  }
+
+  /** The map changed its size or came back as another version: the view frames it */
+  mapReshaped(): void {
+    this.viewport?.frameMap();
+  }
+
+  /** Opens a map for the agent as the player would; resolves the id that opened */
+  async openMap(id: string): Promise<string> {
+    if (this.navigator) {
+      const problem = await this.navigator.open(id);
+      if (problem) throw new Error(`The map did not open: ${problem}`);
+    } else {
+      if (this.editor && !(await this.close())) throw new Error('The open map could not be saved, so it stays open');
+      await this.open(id);
+    }
+    const opened = this.editor?.doc.meta.id;
+    if (!opened) throw new Error('The map did not open');
+    return opened;
+  }
+
+  /** A new own map for the agent, with a template or a generator, opened in the editor */
+  async createMap(options: AgentNewMap): Promise<string> {
+    if (this.editor && !(await this.closeMap())) throw new Error('The open map could not be saved, so it stays open');
+    await this.catalogReady;
+    const id = await this.createNew(
+      { name: options.name, width: options.width, depth: options.depth, cellSize: DEFAULT_CELL_SIZE, ground: 'flat', baseMaterial: this.catalog().materials.has('grass') ? 'grass' : undefined },
+      { preset: options.preset ?? 'flat', seed: options.seed, strength: options.strength },
+      options.template ? templateById(options.template) : undefined,
+    );
+    return this.openMap(id);
+  }
+
+  /** Saves and goes back to the map list as the player would; false when the map could not be saved */
+  async closeMap(): Promise<boolean> {
+    if (this.navigator) return this.navigator.close();
+    return this.close();
+  }
+
+  async versionDoc(version: MapVersion): Promise<CustomMapDocument> {
+    const bytes = await this.history.bytes(version);
+    if (!bytes) throw new Error('That version is gone');
+    return unpackMapFile(bytes).doc;
+  }
+
+  savedStamps(): Promise<SavedStamp[]> {
+    return this.stamps.list();
   }
 
   get doc(): CustomMapDocument | null {
@@ -293,20 +389,19 @@ export class EditorSession implements OnDestroy {
    * fans everywhere, `strength` 0..1 sets how many and how hard. Shows the
    * land between slices; Cancel puts it back; one undo step.
    */
-  async erodeWholeMap(strength: number, seed = Math.floor(Math.random() * 1e9)): Promise<boolean> {
+  async erodeWholeMap(strength: number, seed = Math.floor(Math.random() * 1e9), label = 'Erode the map'): Promise<boolean> {
     const editor = this.editor;
     if (!editor || this.terrainJob()) return false;
     const t = editor.doc.terrain;
     const g = t.grid;
-    const stroke = new LandscapeStroke(editor, 'Erode the map', seed, this.catalog());
+    const stroke = new LandscapeStroke(editor, label, seed, this.catalog());
     const all = { i0: 0, j0: 0, i1: g.columns - 1, j1: g.rows - 1 };
     stroke.touchHeights(all);
-    const drops = Math.round(g.columns * g.rows * (0.15 + 0.85 * strength));
     let latest: Float32Array | null = null;
     let shownAt = performance.now();
     const ok = await this.runTerrainJob(
-      'Eroding the map',
-      { kind: 'erode', columns: g.columns, rows: g.rows, cellSize: g.cellSize, heights: g.heights, seed, strength: 0.4 + 0.6 * strength, drops },
+      label.startsWith(AGENT_LABEL) ? label : 'Eroding the map',
+      erodeJob(g, strength, seed),
       (m) => {
         // The whole ground redraws for each look: about one a second, and the last one always
         if (m.kind === 'heights') {
@@ -890,9 +985,8 @@ export class EditorSession implements OnDestroy {
     this.flash(`Mirrored from the part in view: ${result.objects} objects, ${result.spawns} spawns, ${result.roads} roads copied${leftOut}`);
   }
 
-  /** The check's findings without showing them (an AI agent's script reports them itself) */
-  checkIssues(): MapIssue[] {
-    const doc = this.doc;
+  /** The check's findings without showing them (an AI agent's script reports them itself); of `doc` for a dry run */
+  checkIssues(doc: CustomMapDocument | null = this.doc): MapIssue[] {
     if (!doc) return [];
     const catalog = this.catalog();
     return validateMap(doc, {
@@ -1431,7 +1525,7 @@ export class EditorSession implements OnDestroy {
     if (this.editor && this.dirty() && !this.readOnly()) void this.save(false);
     this.lock?.close();
     this.stopBotListener?.();
-    this.stopAgent?.();
+    for (const u of this.unlistenAgent) u();
     if (this.statusTimer) clearTimeout(this.statusTimer);
     this.detachViewport();
     for (const u of this.unsubscribe) u();

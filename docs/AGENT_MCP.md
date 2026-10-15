@@ -1,13 +1,14 @@
 # KI-Agent baut Karten über MCP
 
-Stand 2026-10-14, Teil 1 von TODO E171. Ein KI-Agent (ein MCP-Client wie Claude Code) baut oder ändert in der
-Desktop-App die Karte, die im Editor offen ist; ein Mensch kann zusehen. Nur Desktop-App: die Webversion hat weder
-Server noch Schalter.
+Stand 2026-10-15, Teil 1 und 2 von TODO E171. Ein KI-Agent (ein MCP-Client wie Claude Code) baut oder ändert in der
+Desktop-App die Karte, die im Editor offen ist, öffnet und legt Karten an; ein Mensch kann zusehen und ihn anhalten. Nur
+Desktop-App: die Webversion hat weder Server noch Schalter, Agent-Knopf und Band.
 
 ## Einschalten und verbinden
 
-1. Einstellungen, Reiter **Privacy**, Schalter **Allow AI agents to edit maps** (Standard aus). Der Schalter steht in
-   `userData/agent-mcp.json` und gilt beim nächsten Start weiter.
+1. Schalter **Allow AI agents to edit maps** (Standard aus): in den Einstellungen, Reiter **Privacy**, oder im Editor
+   hinter dem Knopf **Agent** (Kopfleiste der Karte und der Kartenliste). Beide schalten denselben Server; der Schalter
+   steht in `userData/agent-mcp.json` und gilt beim nächsten Start weiter.
 2. Darunter erscheint die Adresse, Standard `http://127.0.0.1:47171/mcp` (ist der Port belegt, nimmt der Server den
    nächsten freien der folgenden zehn und merkt ihn sich), mit Knopf **Copy address**.
 3. Im Agenten eintragen, für Claude Code:
@@ -16,16 +17,20 @@ Server noch Schalter.
    claude mcp add --transport http 3dtd http://127.0.0.1:47171/mcp
    ```
 
-4. Im Spiel eine Karte im Editor öffnen. Ohne offenen Editor antwortet jedes Werkzeug mit dem Hinweis, eine Karte zu
-   öffnen.
+4. Im Spiel den Editor öffnen (Hauptmenü, Map editor). Eine Karte öffnet der Agent selbst (`open_map`, `create_map`)
+   oder der Mensch. Ohne offenen Editor antwortet jedes Werkzeug mit dem Hinweis, ihn zu öffnen.
 
 ## Entscheidungen (E171)
 
 - Der Server läuft in der Desktop-App am offenen Editor, damit ein Mensch zusehen kann.
 - Freigabe: ein Schalter, standardmäßig aus. Eingeschaltet darf jedes Programm auf diesem Rechner ran, ohne Token
   (Entscheidung des Users). Webseiten nicht, siehe Sicherheit.
-- Reichweite: geändert wird nur die offene Karte. Alle Karten (eigene und mitgelieferte) darf der Agent lesen und als
-  neue eigene Karte kopieren, nie ändern, löschen oder umbenennen.
+- Reichweite: geändert wird nur die offene Karte. Alle Karten (eigene und mitgelieferte) darf der Agent lesen, als neue
+  eigene Karte kopieren und öffnen; eine mitgelieferte öffnet sich wie beim Menschen als eigene Kopie. Löschen und
+  Umbenennen anderer Karten gibt es nicht.
+- Teil 2 (Entscheidung des Users 2026-10-15): Statusanzeige, Schalter im Editor, Agenten-Band mit Stopp, voller
+  Werkzeugkasten wie für Menschen, Karten selbst öffnen und anlegen. Nicht gewählt (später): Probewelle oder Bot-Test als
+  Rückmeldung, Werkzeuge ohne offenen Editor, Fortschritt und Abbruch langer Skripte durch den Agenten.
 - Jeder ändernde Aufruf ist ein Undo-Schritt, Name beginnt mit `Agent: `; `undo_last` nimmt nur einen solchen zurück.
 - Hauptweg ist `run_script`: der Engpass ist der Denkschritt des Agenten, nicht die App. Einzelwerkzeuge sind für den
   Feinschliff.
@@ -44,19 +49,94 @@ Server noch Schalter.
 | `top_down_picture` | liest | Karte von oben, Norden oben, höchstens 1024 px (JPEG), mit Straßen, Spawns und HQ darüber und Relief-Schattierung (Licht aus Nordwest, `agent/relief-shade.ts`): flach von oben beleuchtet war ein Hügel von 13 m nicht zu sehen |
 | `list_maps` | liest | eigene und mitgelieferte Karten, welche offen ist |
 | `read_map` | liest | Zusammenfassung, Höhen oder Objekte einer beliebigen Karte, ohne sie zu öffnen |
-| `run_script` | ändert | Skript gegen die offene Karte, ein Undo-Schritt, animiert abgespielt; `dry_run` nur auf der Kopie |
+| `open_map` | öffnet | eine Karte im Editor; eine mitgelieferte als eigene Kopie; die offene wird vorher gespeichert |
+| `create_map` | legt an | neue eigene Karte (Name, Breite, Tiefe 64 bis 8192 m, Vorlage oder Generator mit Seed und Stärke) und öffnet sie |
+| `save_map`, `close_map` | speichert | jetzt speichern (mit Vorschaubild); speichern und zurück zur Kartenliste |
+| `run_script` | ändert | Skript gegen die offene Karte, ein Undo-Schritt, animiert abgespielt |
 | `move_marker` | ändert | HQ (`hq`) oder einen Spawn (Id oder Name) versetzen |
 | `place_object`, `move_object`, `delete_objects` | ändert | einzelne Objekte; eine Straßen-Id in `delete_objects` verweist auf `map.removeRoads` |
 | `set_rules` | ändert | Regeln (`gameplay`), verworfen, wenn die Karte so nicht speicherbar wäre; unbekannte Schlüssel und `waves` in falscher Form (es gibt keine Wellenzahl) mit Beispiel abgelehnt (`checkRules`, auch für `map.gameplay`) |
 | `set_sky` | ändert | Himmel und Luft (`environment`), nur bekannte Schlüssel und Werte |
 | `set_map_info` | ändert | Name und Beschreibung der offenen Karte (Id und Datei bleiben), ein Schritt |
+| `erode_map` | ändert | Erosion der ganzen Karte wie im Map-Panel, im Terrain-Worker, sichtbar während sie läuft |
+| `resize_map` | ändert | Größe ändern oder beschneiden um die Mitte, wie im Map-Panel |
+| `increase_detail` | ändert | grobes Gelände alter Karten auf 2 m verfeinern |
+| `import_heightmap` | ändert | Höhen aus einer 16-Bit-PNG- oder RAW-Datei (base64), schwarz `low`, weiß `high` |
+| `list_stamps`, `save_stamp` | liest, legt an | Stempel des Menschen; ein Rechteck der offenen oder einer anderen Karte als Stempel behalten |
+| `paste_stamp` | ändert | Stempel (Id oder Name) oder ein Rechteck aus der offenen oder einer anderen Karte einsetzen: gedreht, Rand weich, Teile wählbar |
+| `list_versions`, `restore_version` | liest, ändert | gespeicherte Versionen der offenen Karte; eine als Undo-Schritt zurückholen |
 | `undo_last` | ändert | letzten Schritt des Agenten zurücknehmen |
-| `copy_map` | legt an | beliebige Karte als neue eigene Karte kopieren; die offene bleibt offen |
+| `copy_map` | legt an | beliebige Karte als neue eigene Karte kopieren; mit `open: true` gleich öffnen |
+
+Jedes Werkzeug, das die Karte ändert (außer `undo_last`), nimmt `dry_run: true`: siehe Probelauf.
 
 Die Beschreibungen und Eingabeschemata (zod) stehen in `desktop/src/agent-mcp.js` (`TOOLS`); dort prüft das SDK die
 Argumente, bevor der Editor sie sieht. Die Serveranweisung (`instructions`) sagt dem Agenten: Koordinaten in Metern,
 x Ost, y Nord, (0, 0) Kartenmitte; wenige Skripte mit vielen Befehlen, Striche statt Tupfer; danach `check_map`,
-Bilder sparsam.
+Bilder sparsam; ohne offene Karte `list_maps`, dann `open_map` oder `create_map`; `dry_run` vor dem Ändern; nach Stopp
+warten.
+
+### Voller Werkzeugkasten
+
+Was der Mensch mit den Werkzeugen des Editors kann, kann der Agent auch, als Skriptbefehl (deterministisch, in der Sandbox
+geprüft, beim Abspielen sichtbar) oder als eigenes Werkzeug, wo es einen Worker braucht oder die Karte als Ganzes
+betrifft:
+
+| Werkzeug des Editors | Für den Agenten |
+|----------------------|-----------------|
+| Map: Generator mit Neubemalen, Spiegeln jetzt, Größe, Detail, Erosion der Karte, Höhen-Import, Versionen | `map.generate(..., add, repaint)`, `map.mirrorMap(mode, from)`, `resize_map`, `increase_detail`, `erode_map`, `import_heightmap`, `list_versions`/`restore_version` |
+| Landscape: Biome, Formen, Risse, Klippenfelsen, Erosion, Fluss, Straße, Klippenkante | `map.biome`, `form`, `cracks`, `cliffRocks`, `erode`, `river`, `road`, `cliff` |
+| Terrain, Paint | Pinsel wie bisher; `map.removeLayer(material)` |
+| Water: Füllen, Gießen, See, Malen, Meer, Fluss bearbeiten | `map.fill`, `pour(at, kind)`, `lake`, `waterMask`, `sea`; `moveRiverPoint`, `addRiverPoint`, `removeRiverPoint`, `riverWidth`, `riverKind`, `simplifyRiver`, `carveRiverBed`, `removeRiver` (das Bett folgt wie im Water-Panel, `relayRiver`) |
+| Objects: Setzen, Streuen, Linie (auch Mauer-Kits), Auswahl bearbeiten, Duplizieren, Gruppen, Hangneigung | `map.place`, `scatter`, `line(asset, line, { spacing, offset, bothSides, turn, corners, front, alignToSlope })`, `changeObjects(ids, patch)`, `duplicate`, `group`/`ungroup`, `alignToSlope`, `removeObjects` |
+| Roads: Zeichnen und Bearbeiten | `map.path`, `walk`; `moveNode`, `splitRoad`, `mergeNodes`, `removeNode`, `dissolveNode`, `connectNodes`, `editRoads(ids, { width, kind, style })`, `smoothRoad`, `straightenRoad` (eine von der Straßenbürste gebaute Straße wird neu gelegt, `editRoads` aus dem Paths-Tool) |
+| Spawns und HQ | `map.spawn`, `moveSpawn`, `renameSpawn`, `removeSpawn`, `hq`; `move_marker` |
+| Copy and stamps | `map.copyArea(rect, to, { rotation, feather, parts })`; `save_stamp`, `paste_stamp` (auch aus anderen Karten) |
+| Sky and weather, Rules, Map details | `set_sky`, `set_rules`, `set_map_info`; `map.environment`, `map.gameplay` |
+
+Lesefunktionen dazu: `map.roads()` mit den Knoten `a`, `b` jeder Straße, `map.nodes()` (Id, Lage, Straßen),
+`map.rivers()` (Punkte mit Breite und Höhe). Nicht über MCP: Probewelle, Bot-Test, Test im Spiel (nicht gewählt), Messen
+(der Agent rechnet selbst), Kamera und Ansicht (`view_picture` und `top_down_picture` reichen).
+
+### Probelauf (`dry_run`)
+
+`dry_run: true` führt denselben Code wie der echte Aufruf aus, aber gegen einen Wirt mit einer Kopie der offenen Karte
+in einem eigenen `EditorDocument` (`DryHost` in `editor-agent.ts`): keine Ansicht, kein Verlauf, nichts gespeichert;
+Katalog, Stempel und Versionen kommen vom echten Wirt. Die Antwort: `{ dryRun, ok, answer, changes, check }`, `answer`
+ist, was der echte Aufruf geantwortet hätte, `changes` der Unterschied der Kopie zur Karte (`mapDiff` in
+`agent-reads.ts`: verschobene Höhenpunkte mit größtem Heben und Senken und Rechteck, Farbe, Wasser, Objekte neu,
+weg, geändert je Asset, Straßen, Spawns, HQ, Himmel, Regeln, Name, Größe), `check` die Befunde des Prüfens der Kopie.
+Ein abgelehnter Aufruf antwortet wie ohne `dry_run`. `run_script` spielt im Probelauf auf der Kopie ab (ohne Animation),
+statt wie bis Teil 1 nur die Sandbox laufen zu lassen; die Erosion läuft im eigenen Terrain-Worker auf den Höhen der
+Kopie.
+
+## Im Editor: Agent-Knopf und Agenten-Band
+
+- **Agent** (Kopfleiste des Editors und der Kartenliste, `agent-control.component.ts`): Etikett mit dem Zustand (Off,
+  On, Connected, Working, Stopped, Not started) und ein Feld mit Schalter, Adresse mit Copy, Name des Agenten und letzter
+  Aufruf. Zustände aus `agent-state.ts`: verbunden heißt, die letzte Anfrage kam vor weniger als fünf Minuten
+  (`AGENT_CONNECTED_MS`; das SDK läuft zustandslos, ein „Verbunden“ gibt es im Protokoll nicht).
+- **Agenten-Band** (unten mittig über der Ansicht, in der Kartenliste unten, `agent-band.component.ts`): zeigt sich,
+  solange der Agent arbeitet, gestoppt ist oder in den letzten fünf Minuten kam. Darin Name (der `clientInfo.name` aus
+  dessen `initialize`), was er tut („runs the script "hill" | 4 s“, „opens "demo-valley"“, Wortlaut aus
+  `describeCall` im Hauptprozess), bei Skript oder Erosion ein Balken, und **Stop**.
+- **Stop**: der Aufruf, der läuft, endet; ein Skript in der Sandbox wird beendet (`signal` an `runScriptInSandbox`),
+  ein spielendes Skript und die Erosion brechen ab und die Karte geht auf den Stand vor dem Aufruf zurück
+  (`EditorAgent.stop`, `cancelAgentJob`). Der Hauptprozess beantwortet den wartenden Aufruf sofort mit „The player
+  pressed Stop …“ und lehnt jeden weiteren ab, ohne den Editor zu fragen, auch `view_picture` (`held`). Im Band steht
+  dann **Let it go on**; der Agent ruft wieder auf. Schalter aus und wieder an setzt alles zurück. Was der Agent vor dem
+  laufenden Aufruf schon geändert hat, bleibt als eigene Schritte im Verlauf (Ctrl+Z).
+- Der Hauptprozess schickt den Status bei jeder Änderung an das Fenster (`desktop:agent-status-changed`: `enabled`,
+  `url`, `error`, `held`, `client`, `current`, `last`); das Preload hält den letzten für spätere Hörer
+  (`agent.onStatus`).
+
+## Karten öffnen und anlegen
+
+`open_map`, `create_map`, `close_map` und `copy_map` mit `open` gehen über die Seite (`EditorSession.navigator`, gesetzt
+von `EditorPageComponent`), wie die Knöpfe des Menschen: die Adresse (`?map=`) folgt, die offene Karte wird vorher
+gespeichert, eine mitgelieferte öffnet als eigene Kopie (`EditorSession.open`). Läuft gerade ein Job oder ein Strich,
+lehnt der Agent ab. `create_map` legt die Karte wie der Dialog „New map“ an (Starter-Straße, Spawn, HQ; Vorlage aus
+`MAP_TEMPLATES`, die `catalog` als `mapTemplates` nennt, sonst Generator, Boden `grass`).
 
 ## Skripte (`run_script`)
 
@@ -146,7 +226,8 @@ weiter. Die Desktop-App aus einem Checkout (nicht gepackt) liefert die Kartendat
   `fetch`, `importScripts`, WebSocket und ein weiterer Worker werden blockiert; der gebaute Sandbox-Worker meldet
   alle gesperrten Namen als `undefined`.
 - **IPC**: Antworten nimmt der Hauptprozess nur vom eigenen Fenster und unter der Id seiner Anfrage
-  (`desktop:agent-reply`); Schalter und Status nur von der App-Seite (`isAppSender`).
+  (`desktop:agent-reply`); Schalter, Status, Stop und Weiter nur von der App-Seite (`isAppSender`).
+- **Stop** des Menschen sperrt jeden weiteren Aufruf im Hauptprozess, bevor der Editor ihn sieht.
 - **Grenzen**: ein Befehl, der in der Sandbox länger als 3 s braucht, wird abgelehnt (der Editor spielt ihn in einem
   Bild ab); höchstens 5000 Befehle je Skript; Anfragen bis 2 MB. Den Speicher eines Skripts begrenzt nichts eigens, nur das Zeitlimit.
 
@@ -155,15 +236,16 @@ weiter. Die Desktop-App aus einem Checkout (nicht gepackt) liefert die Kartendat
 ```
 desktop/src/agent-mcp.js          MCP-Server (SDK @modelcontextprotocol/server 2.0.0, Streamable HTTP), Host/Origin-Prüfung,
                                   Werkzeuge (zod), IPC zum Fenster, view_picture, Schalter (userData/agent-mcp.json)
-desktop/src/preload.js            window.desktop.agent: onCall, status, setEnabled; ohne offenen Editor antwortet er selbst
-src/app/core/desktop-bridge.ts    AgentBridge, AgentCall, AgentAnswer, readAgentBridge
+desktop/src/preload.js            window.desktop.agent: onCall, status, setEnabled, onStatus, stop, resume; ohne offenen Editor antwortet er selbst
+src/app/core/desktop-bridge.ts    AgentBridge, AgentCall, AgentAnswer, AgentStatus, readAgentBridge
 src/app/editor/agent/
-  editor-agent.ts                 Werkzeuge gegen die offene Karte (EditorSession als AgentHost)
+  editor-agent.ts                 Werkzeuge gegen die offene Karte (EditorSession als AgentHost), DryHost, Stop
   map-script.ts                   Befehlsliste SCRIPT_OPS, Prüfen, runMapScript, Referenztext
   script-playback.ts              Abspielen mit Animation, Änderungen an die Ansicht
   script-sandbox.ts               Worker starten, Zeitlimit; script-sandbox.worker.ts dessen Einstieg
   sandbox-lockdown.ts             Worker-Scope sperren
-  agent-reads.ts                  Zusammenfassung, Höhen, Objekte, Katalog, Befunde, Fingerabdruck
+  agent-reads.ts                  Zusammenfassung, Höhen, Objekte, Katalog, Befunde, Fingerabdruck, mapDiff
+src/app/editor/ui/agent/          Agent-Knopf, Agenten-Band, agent-state.ts (Zustand, Zeilen)
 src/app/editor/ops/map-kit.ts     MapKit (vorher Kern von LevelKit); tools/maps/levels/kit.ts ist die dünne Hülle
 tools/agent/                      Bau des Sandbox-Workers und sein Test
 ```
@@ -201,6 +283,14 @@ Bridge).
   Katalog, knapper Katalog ohne Filter, `dry_run` und kein Undo-Schritt ohne Änderung, Straße über `removeRoads`.
 - `desktop/test/protocol.test.js` (map data of a checkout): Kartendatei aus `public/maps`, nur unter `maps/`.
 - `settings-sections.scenario.spec.ts`: Schalter, Adresse, nicht in der Webversion.
+- Teil 2: `desktop/test/agent-mcp.test.js` (Client-Name aus `initialize`, laufender und letzter Aufruf im Status, Stop
+  beendet den wartenden Aufruf und sperrt die nächsten samt `view_picture`, Weiter, fremder Absender, `dry_run` an jedem
+  ändernden Werkzeug, `describeCall`); `desktop/test/preload.test.js` (Status sofort und bei jedem Push, Stop, Weiter);
+  `map-script.spec.ts` (alle neuen Befehle in einem Skript, Abspielen ergibt denselben Fingerabdruck; Ablehnungen mit
+  den vorhandenen Ids; Lesen von Knoten und Flüssen); `editor-session.spec.ts` (Probelauf jedes ändernden Werkzeugs
+  ohne Änderung der Karte und des Verlaufs, Erosion, Größe, Detail, Heightmap, Stempel aus Karte und Bibliothek,
+  Öffnen, Anlegen, Speichern, Schließen, über die Seite, Stop in der Sandbox und beim Abspielen, Versionen);
+  `agent-band.component.spec.ts` (Zustände, Zeilen, Band mit Balken, Stop und Weiter, Knopf mit Schalter).
 
 ## Von Hand testen (Desktop-App)
 
@@ -217,15 +307,15 @@ Bridge).
    'POST', body: '{}' })`: die Seite sieht einen Fehler, `main.log` zeigt `[agent] refused a request: Requests from web
    pages are refused`.
 8. Schalter aus: der Agent bekommt keine Verbindung mehr.
+9. Teil 2: Knopf **Agent** in der Kopfleiste zeigt Off; Schalter darin an: On, Adresse. Agent verbinden und rufen
+   lassen: Connected, das Band unten erscheint mit Name und letztem Aufruf; während eines Skripts Working mit Balken.
+   **Stop** im Band: das Skript hört auf, die Karte ist wie vorher, der Agent bekommt „pressed Stop“; **Let it go on**.
+10. Agent bitten: „Leg eine neue Karte Ash Isle an, 768 m, Vorlage woods, und öffne danach Demo Valley.“ Erwartung:
+    Editor öffnet die neue Karte, dann eine eigene Kopie von Demo Valley; das Original bleibt.
 
-## Offen (Teil 2)
+## Offen (später, nicht gewählt)
 
-- Der volle Werkzeugkasten wie für einen Menschen: alle zwölf Werkzeuge mit ihren Modi und Einstellungen (heute die
-  Befehle des Map-Kits; es fehlen u. a. Stempel setzen, Gelände-Generator mit Neubemalen, Erosion der ganzen Karte im
-  Terrain-Worker, Spiegeln der Karte, Wege bearbeiten statt neu ziehen, Höhen-Import, Größe ändern).
 - Probewelle und Bot-Test als Rückmeldung (Trial wave, Bot test).
-- Stücke aus anderen Karten holen (Stempel, Objekte, Regeln, Wellen) als eigene Befehle; heute nur Lesen und Kopieren.
-- Kopie gleich im Editor öffnen (heute öffnet der Mensch sie); eine Karte zum Bearbeiten öffnen, wenn keine offen ist.
-- Sichtbares Agenten-Band im Editor mit Stopp-Knopf (heute Job-Anzeige im Map-Panel und Statuszeile).
-- Werkzeuge auch ohne offenen Editor (list_maps, read_map, catalog): heute antwortet nur der Editor.
+- Werkzeuge auch ohne offenen Editor (list_maps, read_map, catalog): heute antwortet nur die Editor-Seite.
 - Fortschritt (MCP progress) während langer Skripte; Abbruch eines Aufrufs durch den Agenten.
+- Regeln und Wellen einer anderen Karte als eigener Befehl (heute über `read_map` lesen und `set_rules` setzen).

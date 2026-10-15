@@ -18,12 +18,13 @@ function loadPreload() {
   const listeners = new Map();
   const sent = [];
   let exposed = null;
+  const invoked = [];
   const electron = {
     contextBridge: { exposeInMainWorld: (name, api) => (exposed = api) },
     ipcRenderer: {
       on: (channel, fn) => listeners.set(channel, fn),
       send: (channel, payload) => sent.push({ channel, payload }),
-      invoke: async () => null,
+      invoke: async (channel) => (invoked.push(channel), channel === 'desktop:agent-status' ? { enabled: true, url: 'u', held: false } : null),
     },
   };
   const fakeRequire = (name) => {
@@ -33,7 +34,8 @@ function loadPreload() {
   new Function('require', 'process', source)(fakeRequire, { argv: [] });
   const call = (id, tool, args = {}) => listeners.get('desktop:agent-call')({}, { id, tool, args });
   const replies = () => sent.filter((s) => s.channel === 'desktop:agent-reply').map((s) => s.payload);
-  return { agent: exposed.agent, call, replies };
+  const push = (status) => listeners.get('desktop:agent-status-changed')({}, status);
+  return { agent: exposed.agent, call, replies, push, invoked };
 }
 
 const tick = () => new Promise((resolve) => setImmediate(resolve));
@@ -100,5 +102,27 @@ describe('preload: the agent bridge', () => {
       ],
     );
     assert.match(replies()[0].answer.text, /map editor is not open/);
+  });
+});
+
+describe('preload: the agent status', () => {
+  it('hands the status at once and on every push, and stops and resumes through the main process', async () => {
+    const { agent, push, invoked } = loadPreload();
+    const seen = [];
+    const off = agent.onStatus((s) => seen.push(s));
+    await tick();
+    assert.deepEqual(seen, [{ enabled: true, url: 'u', held: false }]);
+    push({ enabled: true, url: 'u', held: false, current: { tool: 'run_script', what: 'runs the script', at: 1 } });
+    assert.equal(seen.at(-1).current.tool, 'run_script');
+    // A listener that comes later gets the last push at once
+    const later = [];
+    agent.onStatus((s) => later.push(s));
+    assert.equal(later[0].current.tool, 'run_script');
+    off();
+    push({ enabled: false, url: null });
+    assert.equal(seen.length, 2);
+    await agent.stop();
+    await agent.resume();
+    assert.deepEqual(invoked.filter((c) => c !== 'desktop:agent-status'), ['desktop:agent-stop', 'desktop:agent-resume']);
   });
 });

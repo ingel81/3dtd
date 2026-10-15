@@ -40,6 +40,15 @@ export type TerrainJobMessage =
   | { kind: 'heights'; heights: Float32Array; progress: number }
   | { kind: 'done'; result: GenerateResult | null };
 
+/**
+ * The Map panel's "Erode the map" for a grid: `strength` 0..1 sets how many
+ * drops (from 15 % to all of the samples) and how hard each one erodes
+ */
+export function erodeJob(g: { columns: number; rows: number; cellSize: number; heights: Float32Array }, strength: number, seed: number): TerrainJob {
+  const drops = Math.round(g.columns * g.rows * (0.15 + 0.85 * strength));
+  return { kind: 'erode', columns: g.columns, rows: g.rows, cellSize: g.cellSize, heights: g.heights, seed, strength: 0.4 + 0.6 * strength, drops };
+}
+
 /** Rows a generate slice covers */
 const ROWS_PER_SLICE = 48;
 /** Drops an erosion slice runs */

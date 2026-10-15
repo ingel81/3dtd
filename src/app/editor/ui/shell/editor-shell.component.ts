@@ -47,6 +47,8 @@ import { StatusBarComponent } from '../panels/status-bar.component';
 import { TerrainPanelComponent } from '../panels/terrain-panel.component';
 import { WaterPanelComponent } from '../panels/water-panel.component';
 import { MAX_START_WAVE } from '../../../sim/protocol/run-start';
+import { AgentBandComponent } from '../agent/agent-band.component';
+import { AgentControlComponent } from '../agent/agent-control.component';
 
 const LEGEND_KEY = '3dtd-editor-legend';
 const SIDE_KEY = '3dtd-editor-side';
@@ -127,6 +129,8 @@ export const TOOL_ICON: Record<ToolId, TdIconName> = {
     StatusBarComponent,
     CommandPaletteComponent,
     ContextHintComponent,
+    AgentBandComponent,
+    AgentControlComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './editor-shell.component.html',

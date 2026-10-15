@@ -1,3 +1,4 @@
+import { AgentControlComponent } from '../agent/agent-control.component';
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, input, output, signal } from '@angular/core';
 import { biomeById } from '../../ops/landscape/biomes';
 import { MAP_TEMPLATES, templateById, type MapTemplate } from '../../ops/landscape/templates';
@@ -33,7 +34,7 @@ export const SIZE_PRESETS: readonly SizePreset[] = [
 @Component({
   selector: 'app-map-browser',
   standalone: true,
-  imports: [TdIconComponent, MatTooltipModule],
+  imports: [TdIconComponent, MatTooltipModule, AgentControlComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './map-browser.component.html',
   styleUrl: './map-browser.component.scss',

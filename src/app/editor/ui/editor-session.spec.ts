@@ -13,6 +13,10 @@ import { CatalogIndex, normalizeCatalog } from '../catalog/asset-catalog';
 import { EditorAgent, type ScriptSandbox } from '../agent/editor-agent';
 import { runMapScript } from '../agent/map-script';
 import { contentFingerprint } from '../agent/agent-reads';
+import { STOPPED } from '../agent/editor-agent';
+import { MemoryStampBackend, StampLibrary } from '../model/stamp-store';
+import { encodePng16, gridToImage } from '../ops/heightmap';
+import type { ScriptRunResult } from '../agent/map-script';
 
 function session(): { s: EditorSession; backend: MemoryMapBackend; history: VersionHistory; versions: MemoryVersionBackend } {
   const s = TestBed.runInInjectionContext(() => new EditorSession());
@@ -522,7 +526,7 @@ describe('editor session and the AI agent', () => {
     const steps = s.editor!.historySteps;
     const before = contentFingerprint(s.editor!.doc);
     const dry = JSON.parse((await call(agent, 'run_script', { source: `map.raise({ x: 0, y: 0 }, { radius: 10 }, 4); return map.h(0, 0) > 3;`, dry_run: true })).text);
-    expect(dry).toMatchObject({ ok: true, dryRun: true, changed: false, commands: 1, value: true });
+    expect(dry).toMatchObject({ ok: true, dryRun: true, answer: { changed: true, commands: 1, value: true }, changes: { ground: { maxRise: 4 } } });
     const hq = s.editor!.doc.hq;
     const same = JSON.parse((await call(agent, 'run_script', { source: `map.hq(${hq.x}, ${hq.y});` })).text);
     expect(same).toMatchObject({ ok: true, changed: false, commands: 1 });
@@ -589,6 +593,167 @@ describe('editor session and the AI agent', () => {
     s.ngOnDestroy();
   });
 
+  it('runs every changing tool dry on a copy: same answer, what it would change, the map and its history untouched', async () => {
+    const { s, agent } = await agentSession();
+    const editor = s.editor!;
+    const steps = editor.historySteps;
+    const before = contentFingerprint(editor.doc);
+    const hq = JSON.parse((await call(agent, 'move_marker', { target: 'hq', x: 7, y: -3, dry_run: true })).text);
+    expect(hq).toMatchObject({ dryRun: true, ok: true, answer: { step: 'Agent: move HQ' }, changes: { hq: { x: 7, y: -3 } } });
+    const placed = JSON.parse((await call(agent, 'place_object', { asset: 'rock-small', x: 3, y: 4, dry_run: true })).text);
+    expect(placed.changes.objects).toMatchObject({ added: 1, addedByAsset: { 'rock-small': 1 } });
+    const resized = JSON.parse((await call(agent, 'resize_map', { width: 128, depth: 64, dry_run: true })).text);
+    expect(resized.changes.size.to).toMatchObject({ width: 128, depth: 64 });
+    const eroded = JSON.parse((await call(agent, 'erode_map', { strength: 0.3, seed: 2, dry_run: true })).text);
+    expect(eroded).toMatchObject({ dryRun: true, ok: true });
+    // A refusal stays one, also dry
+    const bad = await call(agent, 'set_sky', { environment: { sky: 'green' }, dry_run: true });
+    expect(bad.isError).toBe(true);
+    expect(bad.text).toMatch(/sky must be one of/);
+    expect(editor.historySteps).toBe(steps);
+    expect(contentFingerprint(editor.doc)).toBe(before);
+    s.ngOnDestroy();
+  });
+
+  it('erodes, resizes and refines the map, each as one undo step of its own', async () => {
+    const { s, agent } = await agentSession();
+    const editor = s.editor!;
+    const g = editor.doc.terrain.grid;
+    for (let k = 0; k < g.heights.length; k++) g.heights[k] = Math.sin(k * 0.37) * 6 + (k % g.columns) * 0.4;
+    const heights = g.heights.slice();
+    const eroded = JSON.parse((await call(agent, 'erode_map', { strength: 0.5, seed: 3 })).text);
+    expect(eroded).toMatchObject({ ok: true, step: 'Agent: erode the map' });
+    expect(Array.from(editor.doc.terrain.grid.heights)).not.toEqual(Array.from(heights));
+    expect(editor.undoLabel).toBe('Agent: erode the map');
+    s.undo();
+    expect(Array.from(editor.doc.terrain.grid.heights)).toEqual(Array.from(heights));
+    expect(JSON.parse((await call(agent, 'resize_map', { width: 96, depth: 64 })).text)).toMatchObject({ ok: true, step: 'Agent: resize the map' });
+    expect(editor.doc.terrain.width).toBe(96);
+    expect((await call(agent, 'resize_map', { width: 10, depth: 64 })).text).toMatch(/64\.\.8192/);
+    // A new map has the fine detail already
+    expect((await call(agent, 'increase_detail')).text).toMatch(/detail of new maps already/);
+    s.ngOnDestroy();
+  });
+
+  it('sets the ground from a heightmap and pastes pieces of this map, another map or a stamp', async () => {
+    const { s, agent } = await agentSession();
+    Object.assign(s, { stamps: new StampLibrary(new MemoryStampBackend()) });
+    const editor = s.editor!;
+    const g = editor.doc.terrain.grid;
+    const ramp = { ...g, heights: Float32Array.from(g.heights, (_, k) => (k % g.columns) * 0.25) };
+    const png = encodePng16(gridToImage(ramp).image);
+    const base64 = btoa(String.fromCharCode(...png));
+    const imported = JSON.parse((await call(agent, 'import_heightmap', { data: base64, format: 'png', low: 0, high: 20 })).text);
+    expect(imported).toMatchObject({ ok: true, step: 'Agent: import heightmap' });
+    expect(g.heights[g.columns - 1]).toBeCloseTo(20, 0);
+    expect((await call(agent, 'import_heightmap', { data: btoa('not a png'), low: 0, high: 1 })).text).toMatch(/Not a heightmap/);
+    // A hill copied from the east edge to the middle
+    const pasted = JSON.parse((await call(agent, 'paste_stamp', { x0: 16, y0: -8, x1: 32, y1: 8, x: 0, y: 0 })).text);
+    expect(pasted).toMatchObject({ ok: true, step: 'Agent: paste' });
+    expect((await call(agent, 'save_stamp', { name: 'ridge', x0: 16, y0: -8, x1: 32, y1: 8 })).isError).toBeFalsy();
+    const stamps = JSON.parse((await call(agent, 'list_stamps')).text).stamps;
+    expect(stamps).toEqual([expect.objectContaining({ name: 'ridge', width: 16, depth: 16 })]);
+    const steps = editor.historySteps;
+    expect(JSON.parse((await call(agent, 'paste_stamp', { stamp: 'ridge', x: -16, y: 0, rotation: 1, parts: { objects: false } })).text)).toMatchObject({ ok: true });
+    expect(editor.historySteps).toBe(steps + 1);
+    expect((await call(agent, 'paste_stamp', { stamp: 'none', x: 0, y: 0 })).text).toMatch(/no stamp none; stamps: .*ridge/);
+    s.ngOnDestroy();
+  });
+
+  it('opens, creates, saves and closes maps; a shipped map only as an own copy', async () => {
+    const { s, agent } = await agentSession();
+    await s.save(true);
+    const made = JSON.parse((await call(agent, 'create_map', { name: 'Agent Isle', width: 128, depth: 96, preset: 'hills', seed: 4, strength: 0.4 })).text);
+    expect(made).toMatchObject({ id: 'agent-isle', open: true, width: 128, depth: 96 });
+    expect(s.editor!.doc.meta.id).toBe('agent-isle');
+    expect((await call(agent, 'create_map', { name: 'X', template: 'nowhere' })).text).toMatch(/no template nowhere; templates: meadows/);
+    expect(JSON.parse((await call(agent, 'save_map')).text)).toMatchObject({ ok: true, saved: 'agent-isle' });
+    expect(JSON.parse((await call(agent, 'open_map', { id: 'm' })).text)).toMatchObject({ id: 'm', open: true });
+    expect(s.editor!.doc.meta.id).toBe('m');
+    expect((await call(agent, 'open_map', { id: 'nowhere' })).text).toMatch(/no map nowhere/);
+    const copied = JSON.parse((await call(agent, 'copy_map', { id: 'agent-isle', name: 'Isle two', open: true })).text);
+    expect(copied).toMatchObject({ id: 'isle-two', open: true });
+    expect(s.editor!.doc.meta.id).toBe('isle-two');
+    expect(JSON.parse((await call(agent, 'close_map')).text)).toMatchObject({ ok: true, closed: 'isle-two' });
+    expect(s.editor).toBeNull();
+    expect(JSON.parse((await call(agent, 'list_maps')).text).open).toBeNull();
+    s.ngOnDestroy();
+  });
+
+  it('opens a map through the page when it has one, so the address follows', async () => {
+    const { s, agent } = await agentSession();
+    await s.save(true);
+    const opened: string[] = [];
+    s.navigator = {
+      open: async (id) => {
+        opened.push(id);
+        await s.close();
+        await s.open(id);
+        return null;
+      },
+      close: async () => s.close(),
+    };
+    await call(agent, 'copy_map', { id: 'm', name: 'Second' });
+    expect(JSON.parse((await call(agent, 'open_map', { id: 'second' })).text)).toMatchObject({ id: 'second' });
+    expect(opened).toEqual(['second']);
+    s.ngOnDestroy();
+  });
+
+  it('stops at Stop: a script still in the sandbox lands nowhere, and the map is as it was', async () => {
+    let started!: () => void;
+    const running = new Promise<void>((r) => (started = r));
+    const slow: ScriptSandbox = (source, doc, c, seed, signal) =>
+      new Promise<ScriptRunResult>((resolve) => {
+        started();
+        const result = runMapScript(source, doc, c.catalog, { seed });
+        signal?.addEventListener('abort', () => resolve({ ok: false, error: 'stopped', logs: [] }));
+        setTimeout(() => resolve(result), 200);
+      });
+    const { s, agent } = await agentSession(slow);
+    const editor = s.editor!;
+    const before = contentFingerprint(editor.doc);
+    const steps = editor.historySteps;
+    const answer = call(agent, 'run_script', { source: `map.raise({ x: 0, y: 0 }, { radius: 10 }, 4);`, animate: false });
+    await running;
+    agent.stop();
+    expect(await answer).toEqual({ text: STOPPED, isError: true });
+    expect(contentFingerprint(editor.doc)).toBe(before);
+    expect(editor.historySteps).toBe(steps);
+    // The calls after Stop are refused in the desktop app's server; the editor itself answers again
+    expect((await call(agent, 'map_summary')).isError).toBeFalsy();
+    s.ngOnDestroy();
+  });
+
+  it('stops a script while it plays: the map goes back and the call says so', async () => {
+    const { s, agent } = await agentSession();
+    const editor = s.editor!;
+    const before = contentFingerprint(editor.doc);
+    const answer = call(agent, 'run_script', { source: `for (let k = 0; k < 40; k++) map.raise({ x: k - 20, y: 0 }, { radius: 6 }, 1);` });
+    while (!s.terrainJob()) await new Promise((r) => setTimeout(r, 5));
+    expect(s.terrainJob()!.label).toBe('Agent: script');
+    agent.stop();
+    expect(await answer).toEqual({ text: STOPPED, isError: true });
+    expect(contentFingerprint(editor.doc)).toBe(before);
+    expect(s.terrainJob()).toBeNull();
+    s.ngOnDestroy();
+  });
+
+  it('lists the kept versions and puts one back as one step', async () => {
+    const { s, agent } = await agentSession();
+    const editor = s.editor!;
+    await s.save(true);
+    await s.loadVersions();
+    const [first] = JSON.parse((await call(agent, 'list_versions')).text).versions;
+    expect(first).toMatchObject({ manual: true });
+    await call(agent, 'move_marker', { target: 'hq', x: 9, y: 9 });
+    const hq = { ...editor.doc.hq };
+    const restored = JSON.parse((await call(agent, 'restore_version', { id: first.id })).text);
+    expect(restored).toMatchObject({ ok: true, step: 'Agent: restore version' });
+    expect(editor.doc.hq).not.toEqual(hq);
+    expect((await call(agent, 'restore_version', { id: 'never' })).text).toMatch(/no version never/);
+    s.ngOnDestroy();
+  });
+
   it('answers every tool through the bridge reply as plain data, whatever its handler returns', async () => {
     // The desktop server's tools (desktop/src/agent-mcp.js TOOLS) that the editor answers
     const tools: [string, Record<string, unknown>][] = [
@@ -611,6 +776,19 @@ describe('editor session and the AI agent', () => {
       ['set_map_info', { name: 'Renamed' }],
       ['undo_last', {}],
       ['copy_map', { id: 'm' }],
+      ['erode_map', { strength: 0.1, dry_run: true }],
+      ['resize_map', { width: 64, depth: 96, dry_run: true }],
+      ['increase_detail', { dry_run: true }],
+      ['import_heightmap', { data: 'AAAA', low: 0, high: 10 }],
+      ['list_stamps', {}],
+      ['save_stamp', { name: 'piece', x0: -8, y0: -8, x1: 8, y1: 8 }],
+      ['paste_stamp', { x: 0, y: 0, x0: -8, y0: -8, x1: 8, y1: 8, dry_run: true }],
+      ['list_versions', {}],
+      ['restore_version', { id: 'nope' }],
+      ['save_map', {}],
+      ['open_map', { id: 'm' }],
+      ['create_map', { name: 'Fresh', width: 64, depth: 64 }],
+      ['close_map', {}],
     ];
     let handler: ((call: { tool: string; args: Record<string, unknown> }, reply: (answer: unknown) => void) => unknown) | null = null;
     (window as unknown as { desktop?: unknown }).desktop = {
@@ -622,6 +800,7 @@ describe('editor session and the AI agent', () => {
     };
     try {
       const { s } = session();
+      Object.assign(s, { stamps: new StampLibrary(new MemoryStampBackend()) });
       await s.catalogReady.catch(() => undefined);
       s.catalog.set(catalog);
       await s.save(true);

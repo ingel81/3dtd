@@ -3,6 +3,7 @@
     <header class="mb-head td-line-bottom">
       <h1 class="td-dlg-title" id="mb-title">Map editor</h1>
       <div class="td-actions">
+        <app-agent-control />
         <button class="td-btn-ghost" type="button" (click)="backToGame()">Back to the game</button>
         @if (worlds.mapFolder) {
           <button class="td-btn-ghost" type="button" (click)="worlds.revealMapFolder()"
