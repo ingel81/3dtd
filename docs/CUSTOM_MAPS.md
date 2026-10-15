@@ -509,9 +509,9 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
 - Klänge (`AMBIENT_SOUNDS`): `wind`, `birdsong`, `night-insects`, `stream`, `surf`, `swamp`, `lava`, `fire`, `city`,
   `gulls`, `crows`, `radio-hiss`, `harbor`, `cowbells`, `pine-wind`, `rain`, `cave-wind`, je mit eigenem Pegel. Mit
   ElevenLabs erzeugt und ausgewählt (2026-10-15): `wind`, `birdsong`, `stream`, `surf`, `swamp`, `lava`, `fire`, `city`,
-  `gulls`, `crows`, `radio-hiss`, `harbor`, `cowbells`, `pine-wind`, `rain`, `cave-wind`; noch ein synthetischer
-  Platzhalter aus `tools/ambient/make_placeholders.py` (Rauschen im Frequenzraum über die ganze Schleife gefiltert, Rufe
-  und Hüllkurven laufen über das Ende herum, daher ohne Naht): `night-insects`. Die Datei trägt 0,1 s der Schleife davor
+  `gulls`, `crows`, `radio-hiss`, `harbor`, `cowbells`, `pine-wind`, `rain`, `cave-wind`, `night-insects` (Grillen im
+  Gebüsch). `tools/ambient/make_placeholders.py` erzeugt synthetische Platzhalter für neue Klänge, bis eine Aufnahme
+  gewählt ist (Rauschen im Frequenzraum über die ganze Schleife gefiltert, daher ohne Naht). Die Datei trägt 0,1 s der Schleife davor
   und danach (`LOOP_PAD`), gespielt wird dazwischen, so verschluckt der MP3-Versatz nichts. Eine unbekannte Id spielt
   nichts (eine Karte aus einem neueren Spiel)
 - **Varianten**: `wind`, `stream` und `surf` haben je zwei Aufnahmen (`variants`, `wind-2.mp3` usw.). Sie spielen
