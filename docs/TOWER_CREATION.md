@@ -980,9 +980,11 @@ VFX-Integration:
 
 `attackType: 'laser'`: `TowerCombatService.updateLaserTowers` hält ein Ziel (Sicht-Recheck wie beim Fire Tower),
 dreht den Turm und neigt den Kopf, und sobald der Turm ausgerichtet ist, trifft der Strahl je Sub-Step mit
-`damage × laserHeat(...) × dt` (`applyBeamDamage`). Die Hitze hängt am Ziel: `laserHolds` merkt sich je Tower Ziel-ID
-und Zeit darauf, ein neues Ziel oder eine Drehung setzt sie auf 0. `stopAllBeams` (Wellenende, Reset,
-Snapshot-Restore) leert sie, ein Wellenstart-Snapshot braucht also nichts davon; Verkaufen und Feuerpause löschen den
+`damage × laserHeat(...) × dt` (`applyBeamDamage`). Die Hitze hängt am Ziel: `Tower.laserHold` hält Ziel-ID und Zeit
+darauf, ein neues Ziel, kein Ziel oder eine Drehung setzt sie zurück, das Wellenende (`stopAllBeams` mit den Towern)
+ebenso. Sie ist Simulationszustand: im Tower-Snapshot (`getSimState`/`restoreSimState`, nur beim Laser) und in der
+Prüfsumme (`state-hash.ts`, nur beim Laser, die Zeilen aller anderen Tower bleiben gleich). Ein Spielstand, ein
+Koop-Beitritt oder ein Replay-Sprung mitten im Strahl geht also heiß weiter. Verkaufen und Feuerpause löschen den
 Strahl über `stopTowerBeam`. Ans Bild gehen die Strahlen wie die Flammen einmal je Frame
 (`laserBeams.startBeam/stopBeam/clear`, `flushBeams`), gezeichnet vom `LaserBeamRenderer`; die Präsentation lässt
 dazu die Schleife `laser-loop` laufen (`FlameSounds` mit eigener Sound-ID).
@@ -999,8 +1001,8 @@ Bild geht einmal je Frame `towers.setSawTargets(id, Ziele)` (leer: alle Arme hei
 ## Beispiel: Shawarma Slicer (Stream Attack)
 
 `attackType: 'stream'`: `TowerCombatService.updateStreamTowers` hält ein Ziel wie die Flamme und dreht den Turm.
-Ausgerichtet steigt der Antrieb (`streamDrives`, je Tower, von `stopAllBeams` geleert wie die Hitze des Lasers),
-sonst fällt er; mit Ziel trifft der Strom jeden Bodengegner im schmalen Kegel vom Turm zum Ziel in dessen Höhe
+Ausgerichtet steigt der Antrieb (`Tower.streamDrive`, im Snapshot und in der Prüfsumme wie die Hitze des Lasers,
+am Wellenende 0), sonst fällt er; mit Ziel trifft der Strom jeden Bodengegner im schmalen Kegel vom Turm zum Ziel in dessen Höhe
 (`getEnemiesInCone`, Breite `width`) mit `damage × fireRate × Antrieb × dt`. Ans Bild geht einmal je Frame
 `towers.setStream(id, Ziel oder null, Antrieb)`, ein auslaufender Turm bekommt zuletzt `(null, 0)`;
 `DonerStream` im `ThreeTowerRenderer` dreht Spieß und Arm und fliegt die Stücke, die Präsentation lässt

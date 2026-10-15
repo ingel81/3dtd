@@ -1008,7 +1008,7 @@ export class GameStateManager {
     if (isWavePhase && !this.hasPendingStrikes() && this.waveManager.checkWaveComplete()) {
       this.waveManager.endWave();
       if (!this.replaying) this.simRecorder.end(this.clock.subStep);
-      this.towerCombat.stopAllBeams();
+      this.towerCombat.stopAllBeams(this.towerManager.getAll());
       this.towerCombat.stopAllMelee();
       this.debugEnemies.clear();
     }

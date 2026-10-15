@@ -42,6 +42,10 @@ export interface TowerSimState {
   builtAtMs?: number;
   /** See Tower.pathId; absent in snapshots from before paths, which read as none */
   pathId?: TowerPathId | null;
+  /** See Tower.laserHold; absent for every other tower and in older snapshots, which read as none */
+  laserHold?: { targetId: string; heldMs: number } | null;
+  /** See Tower.streamDrive; absent for every other tower and in older snapshots, which read as 0 */
+  streamDrive?: number;
 }
 
 /**
@@ -95,6 +99,19 @@ export class Tower extends GameObject {
 
   /** The player holds the trigger (command:tower-trigger); false unless manned */
   triggerHeld = false;
+
+  /**
+   * A laser (attackType 'laser'): the target its beam holds and the game ms it has burnt on it, which set the
+   * heat (laserHeat); null without. Simulation state: in the snapshot and the state hash. Set by
+   * TowerCombatService.updateLaserTowers, cleared at the wave end.
+   */
+  laserHold: { targetId: string; heldMs: number } | null = null;
+
+  /**
+   * A stream (attackType 'stream'): its drive, 0 at a standstill to 1. Simulation state like laserHold, set by
+   * TowerCombatService.updateStreamTowers, 0 at the wave end.
+   */
+  streamDrive = 0;
 
   /** Whether this tower is sleeping (no enemies in range) */
   isSleeping = false;
@@ -692,6 +709,9 @@ export class Tower extends GameObject {
       damageDealt: this._combat.damageDealt,
       builtAtMs: this.builtAtMs,
       pathId: this.pathId,
+      // Only where it is used: every other tower's state stays as it was
+      ...(this.typeConfig.attackType === 'laser' ? { laserHold: this.laserHold ? { ...this.laserHold } : null } : {}),
+      ...(this.typeConfig.attackType === 'stream' ? { streamDrive: this.streamDrive } : {}),
     };
   }
 
@@ -717,6 +737,8 @@ export class Tower extends GameObject {
     this._combat.damageDealt = state.damageDealt;
     this.builtAtMs = state.builtAtMs ?? 0;
     this.pathId = state.pathId ?? null;
+    this.laserHold = state.laserHold ? { ...state.laserHold } : null;
+    this.streamDrive = state.streamDrive ?? 0;
   }
 
   /**

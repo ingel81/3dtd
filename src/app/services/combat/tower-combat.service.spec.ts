@@ -482,8 +482,26 @@ describe('TowerCombatService', () => {
       expect(sink.laserBeams.stopBeam).toHaveBeenCalledWith(tower.id);
       enemies.push(enemyNorthOf(30, 'next'));
       step();
-      service.stopAllBeams();
-      expect((service as unknown as { laserHolds: Map<string, unknown> }).laserHolds.size).toBe(0);
+      expect(tower.laserHold?.targetId).toBe('next');
+      service.stopAllBeams([tower]);
+      expect(tower.laserHold).toBeNull();
+    });
+
+    it('carries the heat in the tower state: a run restored mid-beam deals the same as one that never stopped', () => {
+      const a = setup();
+      for (let i = 0; i < 80; i++) a.step();
+      const saved = a.tower.getSimState();
+      expect(saved.laserHold).toEqual({ targetId: 'e-30', heldMs: 80 * 16 });
+      for (let i = 0; i < 40; i++) a.step();
+      const straight = a.applyBeamDamage.mock.calls.slice(80).map((call) => call[1]);
+
+      // Another simulation with the same enemy, the tower restored from the state taken at step 80
+      const b = setup();
+      b.tower.restoreSimState(saved);
+      for (let i = 0; i < 40; i++) b.step();
+      expect(b.applyBeamDamage.mock.calls.map((call) => call[1])).toEqual(straight);
+      // Without the heat it would have started cold
+      expect(straight[0]).toBeGreaterThan(b.tower.typeConfig.damage * 0.016 * 1.5);
     });
 
     it('fires only once the turret is aligned', () => {
@@ -644,7 +662,22 @@ describe('TowerCombatService', () => {
       expect(sink.towers.setStream).toHaveBeenLastCalledWith(tower.id, null, expect.any(Number));
       for (let i = 0; i < 200; i++) step();
       expect(sink.towers.setStream).toHaveBeenLastCalledWith(tower.id, null, 0);
-      expect((service as unknown as { streamDrives: Map<string, number> }).streamDrives.size).toBe(0);
+      expect(tower.streamDrive).toBe(0);
+    });
+
+    it('carries the drive in the tower state, so a restored run goes on spun up', () => {
+      const a = setup();
+      for (let i = 0; i < 60; i++) a.step();
+      const saved = a.tower.getSimState();
+      expect(saved.streamDrive).toBeCloseTo((60 * 0.016) / a.tower.typeConfig.stream!.spinUpSeconds, 9);
+      for (let i = 0; i < 20; i++) a.step();
+      const straight = a.applyBeamDamage.mock.calls.slice(120).map((call) => call[1]);
+      const b = setup();
+      b.tower.restoreSimState(saved);
+      for (let i = 0; i < 20; i++) b.step();
+      expect(b.applyBeamDamage.mock.calls.map((call) => call[1])).toEqual(straight);
+      service.stopAllBeams([b.tower]);
+      expect(b.tower.streamDrive).toBe(0);
     });
   });
 

@@ -86,6 +86,21 @@ describe('StateHasher', () => {
     expect(hasher.hash(source([a, b]))).not.toBe(hasher.hash(source([b, a])));
   });
 
+  it("notices a laser's heat and a stream's drive, and leaves every other tower's row as it was", () => {
+    const laser = (heldMs: number | null) => ({
+      ...tower('tower-1', 10), typeConfig: { upgrades: [], attackType: 'laser' },
+      laserHold: heldMs === null ? null : { targetId: 'enemy-1', heldMs },
+    }) as unknown as Tower;
+    const stream = (drive: number) => ({ ...tower('tower-1', 10), typeConfig: { upgrades: [], attackType: 'stream' }, streamDrive: drive }) as unknown as Tower;
+    const hash = (t: Tower) => hasher.hash(source([], [t]));
+    expect(hash(laser(320))).not.toBe(hash(laser(336)));
+    expect(hash(laser(0))).not.toBe(hash(laser(null)));
+    expect(hash(stream(0.4))).not.toBe(hash(stream(0.41)));
+    // A projectile tower carrying such fields hashes as without them
+    const plain = tower('tower-1', 10);
+    expect(hash({ ...plain, laserHold: { targetId: 'x', heldMs: 5 }, streamDrive: 0.5 } as unknown as Tower)).toBe(hash(plain));
+  });
+
   it('notices a tower cooldown', () => {
     expect(hasher.hash(source([], [tower('tower-1', 10)])))
       .not.toBe(hasher.hash(source([], [tower('tower-1', 11)])));

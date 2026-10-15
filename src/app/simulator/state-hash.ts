@@ -218,6 +218,13 @@ export class StateHasher {
       this.num((tower.holdFire ? 1 : 0) + (tower.manned ? 2 : 0));
       this.num(tower.builtAtMs);
       this.str(tower.pathId ?? '');
+      // A laser's heat and a stream's drive, only on those: every other tower's row stays as it was
+      if (tower.typeConfig.attackType === 'laser') {
+        this.str(tower.laserHold?.targetId ?? '');
+        this.num(tower.laserHold?.heldMs ?? -1);
+      } else if (tower.typeConfig.attackType === 'stream') {
+        this.num(tower.streamDrive);
+      }
       // The owner only when it is not the single player: a single player's row stays short
       if (tower.ownerId !== LOCAL_PLAYER_ID) this.str(tower.ownerId);
     }

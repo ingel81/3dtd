@@ -40,12 +40,6 @@ interface LaserFrame {
   heat: number;
 }
 
-/** What a laser holds: its target and how long it has burnt on it, game ms. Reset with every new target. */
-interface LaserHold {
-  targetId: string;
-  heldMs: number;
-}
-
 /** A shot of the manned tower: at `target`, or a miss when null */
 export interface ManualShot {
   tower: Tower;
@@ -89,22 +83,15 @@ export class TowerCombatService {
   private readonly lasers = new Map<string, LaserFrame>();
   private readonly lasersStopped = new Set<string>();
   /**
-   * Each laser's target and time on it. Simulation state, but only within a wave: stopAllBeams clears it at the
-   * wave's end, a reset and a snapshot restore, so a wave-start snapshot needs none of it.
-   */
-  private readonly laserHolds = new Map<string, LaserHold>();
-  /**
    * Where each saw tower's arms cut this frame (null: docked), by tower, and the towers whose arms went home since
    * the last flush: the renderer gets them once per frame as the flames
    */
   private readonly sawFrames = new Map<string, (OpVec3 | null)[]>();
   private readonly sawsDocked = new Set<string>();
   /**
-   * Each stream tower's drive, 0 to 1, by tower: simulation state, but only within a wave (stopAllBeams clears
-   * it), so wave-start snapshots carry none of it. And what the renderer gets this frame: where the stream
-   * goes (null: it spins without one) and the drive; a tower whose drive ran down gets one last frame of 0.
+   * What the renderer gets of each stream tower this frame: where the stream goes (null: it spins without one)
+   * and the drive (Tower.streamDrive); a tower whose drive ran down gets one last frame of 0.
    */
-  private readonly streamDrives = new Map<string, number>();
   private readonly streamFrames = new Map<string, { target: OpVec3 | null; drive: number }>();
   private readonly streamsStopped = new Set<string>();
   private readonly _sawPicks: Enemy[] = [];
@@ -829,28 +816,30 @@ export class TowerCombatService {
     this.stopBeam(towerId);
     this.stopLaser(towerId);
     if (this.sawFrames.delete(towerId)) this.sawsDocked.add(towerId);
-    if (this.streamDrives.delete(towerId)) {
-      this.streamFrames.delete(towerId);
-      this.streamsStopped.add(towerId);
-    }
+    if (this.streamFrames.delete(towerId)) this.streamsStopped.add(towerId);
   }
 
   /**
-   * Stop all active beams (called on wave end)
+   * Stop all active beams (called on wave end, reset and snapshot restore).
+   * `towers` (at the wave end) also go cold: a laser's heat and a stream's
+   * drive start from nothing in the next wave. A restore passes none, the
+   * towers bring their own state (Tower.getSimState).
    */
-  stopAllBeams(): void {
+  stopAllBeams(towers: Iterable<Tower> = []): void {
     this.beams.clear();
     this.beamsStopped.clear();
     this.lasers.clear();
     this.lasersStopped.clear();
-    this.laserHolds.clear();
     // Every saw arm home: the clear in the next flush docks them
     for (const towerId of this.sawFrames.keys()) this.sawsDocked.add(towerId);
     this.sawFrames.clear();
     // Every stream stands still
-    for (const towerId of this.streamDrives.keys()) this.streamsStopped.add(towerId);
-    this.streamDrives.clear();
+    for (const towerId of this.streamFrames.keys()) this.streamsStopped.add(towerId);
     this.streamFrames.clear();
+    for (const tower of towers) {
+      tower.laserHold = null;
+      tower.streamDrive = 0;
+    }
     this.beamsCleared = true;
     this.lastBeamBloodEffect.clear();
   }
@@ -919,7 +908,7 @@ export class TowerCombatService {
         }
       }
 
-      let drive = this.streamDrives.get(tower.id) ?? 0;
+      let drive = tower.streamDrive;
       let aligned = false;
       if (target) {
         tower.lastTargetTime = gameTimeMs;
@@ -931,14 +920,11 @@ export class TowerCombatService {
         releaseAim(tower.aim);
       }
       drive = aligned ? Math.min(1, drive + dt / stream.spinUpSeconds) : Math.max(0, drive - dt / stream.spinDownSeconds);
+      tower.streamDrive = drive;
       if (drive <= 0) {
-        if (this.streamDrives.delete(tower.id)) {
-          this.streamFrames.delete(tower.id);
-          this.streamsStopped.add(tower.id);
-        }
+        if (this.streamFrames.delete(tower.id)) this.streamsStopped.add(tower.id);
         continue;
       }
-      this.streamDrives.set(tower.id, drive);
 
       if (!target || !aligned) {
         this.streamFrames.set(tower.id, { target: null, drive });
@@ -1075,6 +1061,7 @@ export class TowerCombatService {
 
       if (!target) {
         if (gameTimeMs - tower.lastTargetTime > Tower.SLEEP_DELAY) tower.isSleeping = true;
+        tower.laserHold = null;
         this.stopLaser(tower.id);
         releaseAim(tower.aim);
         continue;
@@ -1084,10 +1071,10 @@ export class TowerCombatService {
       aimAt(tower.aim, this.calculateHeading(tower.position, this.targetPoint(target)));
       this.aimPitch(tower, target);
 
-      let hold = this.laserHolds.get(tower.id);
+      let hold = tower.laserHold;
       if (!hold || hold.targetId !== target.id) {
         hold = { targetId: target.id, heldMs: 0 };
-        this.laserHolds.set(tower.id, hold);
+        tower.laserHold = hold;
       }
       // Turning to it: the beam is off and the target stays cold
       if (!isAimAligned(tower.aim)) {
@@ -1108,12 +1095,11 @@ export class TowerCombatService {
       source.addScaledVector(dir, laser.muzzleM);
       this.lasers.set(tower.id, { source: opVec(source), target: opVec(targetLocal), heat: (heat - 1) / (laser.maxFactor - 1) });
       this.lasersStopped.delete(tower.id);
-      if (!target.alive) this.laserHolds.delete(tower.id);
+      if (!target.alive) tower.laserHold = null;
     }
   }
 
   private stopLaser(towerId: string): void {
-    this.laserHolds.delete(towerId);
     if (this.lasers.delete(towerId)) this.lasersStopped.add(towerId);
   }
 
