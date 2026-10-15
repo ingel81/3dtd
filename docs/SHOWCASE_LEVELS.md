@@ -127,6 +127,8 @@ steht die Burg auf einem Felssporn: die Krone 7 m über dem alten Hügel, steile
 (`cliffRocks`, vor dem Bewuchs gesetzt, der Pinsel hält Abstand zu anderen Objekten), der Torweg als Rampe durch die
 Südflanke; ein Wassergraben fünf Meter um die Mauern, offen am Torweg; Feuerschalen, Lagerfeuer, Fackeln und Banner in
 Burghof und Tor; eine Windmühle auf einem Hügel östlich mit Feld; Rotwild am Waldrand (ein Hirsch, Grasende).
+In den beiden Nordecken steigen bewaldete Hügel
+(20 bis 30 m) zu beiden Seiten der Burg an, keiner dahinter: von Süden steht der Bergfried weiter vor dem Himmel.
 Leben als Lebensbereiche: Morgennebel in acht Senken, fallendes Laub über den Wäldern, Krähen über beiden Waldseiten,
 wehende Banner (`life.flags`); Vogelgesang am Tag, Grillen nachts, Feuerknistern im Burghof. Offen: beleuchtete
 Fenster an Bergfried und Türmen.
