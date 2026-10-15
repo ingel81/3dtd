@@ -9,7 +9,7 @@ heads tapered tubes; each pose is a model of its own.
 import math
 import random
 
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 from blender_kit import Part, box, clear_scene, export, finish, flat_material, oriented_box, rust_material, tube
 
@@ -219,7 +219,11 @@ def quadruped(kind, pose, coat, legs, face, hoof, seed=0):
          [head_r * 0.5, head_r * 1.05, head_r * 0.9, head_r * 0.62], 8, cap=True)
     # Tail
     rump = Vector((0, L / 2 + 0.02, axis + r * 0.55))
-    if lying:
+    if kind.get('curl'):
+        # A bushy tail curled up over the back (sled dogs)
+        tube(coat, [rump, rump + Vector((0, 0.08, 0.1)), rump + Vector((0.02, 0.04, 0.2)), rump + Vector((0.04, -0.06, 0.21))],
+             [lr * 1.4, lr * 2.2, lr * 2.0, lr * 0.8], 6)
+    elif lying:
         tube(coat, [rump, rump + Vector((0.08, 0.12, -r * 0.6))], [lr * 0.7, lr * 0.4], 5)
     else:
         tube(coat, [rump, rump + Vector((0, 0.05, -axis * 0.35)), rump + Vector((0, 0.06, -axis * 0.6))], [lr * 0.6, lr * 0.45, lr * 0.35], 5)
@@ -308,6 +312,78 @@ def deer(name, pose, seed):
     export(name, [coat.to_object(name), pale.to_object(name + '-pale')])
 
 
+# ---------------------------------------------------------------- dog sled
+
+DOG = dict(length=0.72, radius=0.16, wide=0.85, deep=1.15, axis=0.38, leg=0.028, neck=0.2, head=0.17, head_r=0.06, carriage=0.7,
+           nose=0.2, curl=True)
+
+
+def sled_dog(coat, belly, dark, matrix, pose, seed):
+    """One husky (grey back, pale face, legs and paws, pricked ears, curled tail) built at the origin and moved by
+    `matrix` into the parts; a red harness saddle on the back. Returns the harness point (chest) moved too"""
+    parts = [Part(p.material, smooth=True) for p in (coat, belly, dark)]
+    tc, tb, td = parts
+    poll, ahead = quadruped(DOG, pose, tc, tb, tb, tb, seed)
+    ears(tc, poll, ahead, 0.06, droop=-1.2)
+    axis = body_axis(DOG, pose)
+    box(td, 0, -0.05, axis + DOG['radius'] * DOG['deep'] * 0.92, 0.12, 0.2, 0.025)
+    for p, target in zip(parts, (coat, belly, dark)):
+        target.add_bmesh(p.bm, matrix)
+        p.bm.free()
+    return matrix @ Vector((0, -DOG['length'] / 2 - 0.05, axis + 0.05))
+
+
+def dog_sled(name):
+    """A team of six huskies in three pairs on a gangline in front of a basket sled (front -Y): the lead pair
+    standing alert, the others standing or lying at rest; the sled with ash runners, stanchions, a
+    canvas load lashed down and the handlebar at the back"""
+    clear_scene()
+    coat = Part(flat_material('husky-coat', (0.2, 0.19, 0.18), 0.85), smooth=True)
+    belly = Part(flat_material('husky-pale', (0.6, 0.58, 0.55), 0.85), smooth=True)
+    dark = Part(flat_material('harness-red', (0.25, 0.03, 0.025), 0.7), smooth=True)
+    wood = Part(flat_material('sled-ash', (0.28, 0.19, 0.11), 0.7))
+    canvas = Part(flat_material('sled-canvas', (0.3, 0.3, 0.22), 0.9), smooth=True)
+    rope = Part(flat_material('sled-rope', (0.12, 0.1, 0.08), 0.8), smooth=True)
+    rnd = random.Random(12)
+    # Dogs: pairs either side of the gangline, the lead pair in front; heads turned a little at random
+    gang_back, gang_front = Vector((0, 1.5, 0.35)), Vector((0, -3.6, 0.35))
+    poses = [('stand', 'stand'), ('stand', 'lie'), ('lie', 'stand')]
+    for k, y in enumerate((-2.9, -1.7, -0.5)):
+        for j, s in enumerate((-1, 1)):
+            turn = rnd.uniform(-0.25, 0.25) + s * 0.08
+            m = Matrix.Translation((s * 0.42, y, 0)) @ Matrix.Rotation(turn, 4, 'Z')
+            chest = sled_dog(coat, belly, dark, m, poses[k][j], 20 + k * 2 + j)
+            # Tugline from the harness back to the gangline
+            tube(rope, [chest + Vector((0, 0.3, 0)), Vector((0, y + 0.6, 0.35))], [0.012, 0.012], 4)
+            # Neckline from the collar to the gangline
+            tube(rope, [chest + Vector((0, -0.05, 0.12)), Vector((0, y - 0.25, 0.4))], [0.01, 0.01], 4)
+    tube(rope, [gang_back, Vector((0, -0.5, 0.33)), gang_front], [0.018, 0.018, 0.018], 4)
+    # Sled: runners curving up at the front, a slatted bed on stanchions, side rails, the handlebar
+    y0, y1 = 1.5, 3.9
+    for x in (-0.38, 0.38):
+        pts = [Vector((x, y1 + 0.3, 0.04)), Vector((x, y0 + 0.4, 0.04)), Vector((x, y0, 0.15)), Vector((x, y0 - 0.1, 0.45))]
+        tube(wood, pts, [0.03] * 4, 6)
+        for y in (y0 + 0.4, y0 + 1.1, y0 + 1.8, y1):
+            box(wood, x, y, 0.04, 0.05, 0.05, 0.36)
+        tube(wood, [Vector((x, y0, 0.55)), Vector((x, y1, 0.55))], [0.022, 0.022], 6)
+        # Handlebar uprights at the back, leaning back
+        tube(wood, [Vector((x, y1, 0.4)), Vector((x * 1.05, y1 + 0.3, 1.05))], [0.025, 0.022], 6)
+    tube(wood, [Vector((-0.42, y1 + 0.3, 1.05)), Vector((0.42, y1 + 0.3, 1.05))], [0.025, 0.025], 6)
+    tube(wood, [Vector((-0.38, y0 - 0.1, 0.45)), Vector((0.38, y0 - 0.1, 0.45))], [0.03, 0.03], 6)
+    for k in range(7):
+        box(wood, 0, y0 + 0.3 + k * 0.3, 0.38, 0.84, 0.18, 0.03)
+    # The load: a canvas bag lashed down, a rolled pack on top
+    prof = [(0.0, 0.05), (0.08, 0.28), (0.4, 0.33), (1.4, 0.33), (1.72, 0.28), (1.8, 0.05)]
+    faces = tube(canvas, [Vector((0, y0 + 0.4 + d, 0.65)) for d, _ in prof], [w for _, w in prof], 10)
+    squash(faces, sx=1.15, sz=0.75, centre=Vector((0, 0, 0.65)))
+    tube(canvas, [Vector((-0.3, y0 + 1.6, 0.98)), Vector((0.3, y0 + 1.6, 0.98))], [0.12, 0.12], 8, cap=True)
+    for y in (y0 + 0.7, y0 + 1.3, y0 + 1.9):
+        tube(rope, [Vector((-0.42, y, 0.55)), Vector((-0.3, y, 0.85)), Vector((0, y, 0.92)), Vector((0.3, y, 0.85)), Vector((0.42, y, 0.55))],
+             [0.012] * 5, 4)
+    export(name, [coat.to_object(name), belly.to_object(name + '-pale'), dark.to_object(name + '-harness'), wood.to_object(name + '-wood'),
+                  canvas.to_object(name + '-canvas'), rope.to_object(name + '-rope')])
+
+
 def models():
     return {
         'mars-lander': lambda: mars_lander('mars-lander'),
@@ -319,4 +395,5 @@ def models():
         'sheep-lying': lambda: sheep('sheep-lying', 'lie', 6),
         'deer': lambda: deer('deer', 'stand', 7),
         'deer-grazing': lambda: deer('deer-grazing', 'graze', 8),
+        'dog-sled': lambda: dog_sled('dog-sled'),
     }

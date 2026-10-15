@@ -502,6 +502,7 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | buoy-red | procedural (tools/map-assets/build_levels.py) |
 | buoy-green | procedural (tools/map-assets/build_levels.py) |
 | sled | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks |
+| dog-sled | procedural (tools/map-assets/build_extras.py) |
 | woodpile-snow | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/bark_brown_02; https://polyhaven.com/a/rough_wood; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/snow_02 |
 | ice-fishing-hut | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/snow_02 |
 | obsidian-slabs | procedural (tools/map-assets/build_levels.py) |

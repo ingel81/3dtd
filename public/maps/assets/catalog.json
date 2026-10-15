@@ -12159,6 +12159,29 @@
       "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks"
     },
     {
+      "id": "dog-sled",
+      "name": "Dog sled with team",
+      "category": "prop",
+      "file": "models/dog-sled.glb",
+      "triangles": 3426,
+      "footprint": 3.5,
+      "height": 1.1,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "winter",
+        "arctic"
+      ],
+      "source": "procedural (tools/map-assets/build_extras.py)"
+    },
+    {
       "id": "woodpile-snow",
       "name": "Woodpile under snow",
       "category": "prop",
