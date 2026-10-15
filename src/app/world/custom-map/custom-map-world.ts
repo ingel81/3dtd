@@ -396,10 +396,11 @@ export class CustomMapWorld implements WorldProvider {
     return null;
   }
 
-  /** The map with its author, and the licence of the assets it is drawn with */
+  /** The map with its author, the data it was made of (an OSM world's: OpenStreetMap, the heights), and the licence of the assets it is drawn with */
   attribution(): string[] {
-    const { name, author } = this.doc.meta;
-    return [author ? `${name} by ${author}` : name, CUSTOM_MAP_ASSET_CREDIT];
+    const { name, author, source } = this.doc.meta;
+    const data = source?.kind === 'osm' ? source.attribution : [];
+    return [author ? `${name} by ${author}` : name, ...data, CUSTOM_MAP_ASSET_CREDIT];
   }
 
   onFirstGround(callback: () => void): void {

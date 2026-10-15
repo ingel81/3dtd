@@ -263,6 +263,14 @@ describe('CustomMapWorld', () => {
     expect(world.capabilities).toMatchObject({ realPlace: false, credentials: false, ecef: false, streaming: false, destructible: false });
   });
 
+  it('credits the data an OSM world was made of beside the map and the assets', () => {
+    const doc = testMap();
+    const attribution = ['Map data © OpenStreetMap contributors', 'Heights: Mapterhorn (mapterhorn.com) and its sources'];
+    doc.meta.source = { kind: 'osm', lat: 49.7, lon: 9.26, address: 'Miltenberg', sideM: 2400, fetchedAt: '2026-10-15T00:00:00Z', dem: 'mapterhorn', zeroM: 120, attribution };
+    const world = new CustomMapWorld({ doc, contentHash: 'abc' }, hqOrigin(doc), 3);
+    expect(world.attribution()).toEqual([expect.stringContaining('Test Map'), ...attribution, CUSTOM_MAP_ASSET_CREDIT]);
+  });
+
   it('opens the lanes the player picks before wave 1: the start layout has them, each in its colour slot (TODO E130)', () => {
     const doc = testMap();
     // Without an optional lane there is no choice; a coop room may still close a lane nobody holds
