@@ -313,33 +313,80 @@ def shop(name):
 
 
 def tower_stump(name, seed=0):
-    """Broken high-rise: concrete frame 8 storeys of columns and slabs, the top torn off, rebar sticking out"""
+    """Broken high-rise: concrete frame 8 storeys of columns and slabs, the top torn off, rebar sticking out;
+    edge beams between the columns that still stand, spandrel panels left on the lower floors, a stair core,
+    a slab hanging from its rebar, rubble at the foot. Ambient occlusion baked, a flat LOD"""
     clear_scene()
     rnd = random.Random(seed)
-    concrete = Part(pbr_material('wall-concrete_floor_damaged_01', 'concrete_floor_damaged_01'), uv_metres=3.0)
+    concrete_mat = pbr_material('wall-concrete_floor_damaged_01-light', 'concrete_floor_damaged_01', (1.5, 1.6, 1.8))
+    concrete = Part(concrete_mat, uv_metres=3.0)
+    # Beams and chunks: same material without the chamfer (merged into one draw call when packed)
+    plain = Part(concrete_mat, uv_metres=3.0, bevel=0.0)
     facade = Part(pbr_material('wall-rectangular_facade_tiles', 'rectangular_facade_tiles', (0.8, 0.8, 0.8)), uv_metres=3.0)
     rebar = Part(flat_material('rebar', (0.2, 0.1, 0.05), 0.7, 0.6))
     s, fh = 16.0, 3.4
     box(concrete, 0, 0, -FOUNDATION, s + 0.4, s + 0.4, FOUNDATION + 0.5)
+    columns = {}
     for i in range(4):
         for j in range(4):
             x, y = -s / 2 + 1 + i * (s - 2) / 3, -s / 2 + 1 + j * (s - 2) / 3
             h = fh * (4 + 5 * abs(math.sin(i * 1.3 + j * 0.7 + seed))) * rnd.uniform(0.85, 1.05)
+            columns[(i, j)] = (x, y, h)
             box(concrete, x, y, 0, 0.8, 0.8, h)
             for k in range(3):
                 a = Vector((x + rnd.uniform(-0.3, 0.3), y + rnd.uniform(-0.3, 0.3), h))
                 oriented_box(rebar, a, a + Vector((rnd.uniform(-0.6, 0.6), rnd.uniform(-0.6, 0.6), rnd.uniform(0.6, 1.6))), 0.05)
+    floors = []
     for f in range(1, 9):
         z = f * fh
         frac = max(0.0, 1 - f / 9) * rnd.uniform(0.6, 1.1)
         if frac <= 0.1:
             continue
         sx = s * min(1.0, frac + 0.3)
+        floors.append((f, z))
         box(concrete, -s / 2 + sx / 2, rnd.uniform(-1, 1), z - 0.3, sx, s - rnd.uniform(0, 4), 0.3, rnd.uniform(-0.03, 0.03))
         if f < 5:
             for side in (-1, 1):
                 box(facade, -s / 2 + sx / 2, side * (s / 2 + 0.1), z - fh + 0.9, sx * rnd.uniform(0.4, 0.9), 0.2, 1.0)
-    export(name, [concrete.to_object(name), facade.to_object(name + '-facade'), rebar.to_object(name + '-rebar')])
+    rnd = random.Random(seed + 100)
+    # Edge beams round the outside where both columns still reach the floor; spandrel panels on the east
+    # and west of the lower floors
+    ring = [(i, 0) for i in range(4)] + [(3, j) for j in range(1, 4)] + [(i, 3) for i in (2, 1, 0)] + [(0, j) for j in (2, 1)]
+    for f, z in floors:
+        for a, b in zip(ring, ring[1:] + ring[:1]):
+            (xa, ya, ha), (xb, yb, hb) = columns[a], columns[b]
+            if min(ha, hb) < z:
+                continue
+            if abs(xa - xb) > 0.1:
+                box(plain, (xa + xb) / 2, ya, z - 0.75, abs(xa - xb), 0.5, 0.5)
+            else:
+                box(plain, xa, (ya + yb) / 2, z - 0.75, 0.5, abs(ya - yb), 0.5)
+                if f < 4 and rnd.random() < 0.7:
+                    box(facade, xa + (0.25 if xa > 0 else -0.25), (ya + yb) / 2, z - fh + 0.9, 0.2, abs(ya - yb) * rnd.uniform(0.5, 0.95), 1.0)
+    # Stair core up five storeys with openings onto each landing
+    cx, cy = s / 2 - 4.0, s / 2 - 4.0
+    box(concrete, cx, cy, 0, 3.0, 3.0, fh * 5 + 0.6)
+    for f in range(5):
+        box(rebar, cx - 1.51, cy, f * fh + 0.2, 0.04, 1.0, 2.1)
+    # A slab torn loose on the third floor, hanging from its rebar towards the ground
+    z = 3 * fh
+    top = [(-6.5, -6.6, z - 0.3), (-2.0, -6.6, z - 0.3), (-2.0, -6.3, z), (-6.5, -6.3, z)]
+    low = [(-6.6, -3.0, z - 4.2), (-1.9, -3.0, z - 4.2), (-1.9, -2.7, z - 3.9), (-6.6, -2.7, z - 3.9)]
+    hexa(plain, [top[0], top[1], low[1], low[0]], [top[3], top[2], low[2], low[3]])
+    for k in range(6):
+        p = Vector((-6.2 + k * 0.8, -6.45, z - 0.15))
+        oriented_box(rebar, p, p + Vector((rnd.uniform(-0.1, 0.1), 0.5, -0.6)), 0.04)
+    # Rubble round the foot, on the foundation slab and spilling off it
+    for k in range(26):
+        a = rnd.uniform(0, math.tau)
+        r = rnd.uniform(3.0, 7.6)
+        x = max(-7.6, min(7.6, math.cos(a) * r))
+        y = max(-7.6, min(7.6, math.sin(a) * r))
+        box(plain, x, y, 0.3, rnd.uniform(0.5, 1.6), rnd.uniform(0.4, 1.2), rnd.uniform(0.25, 0.6), rnd.uniform(0, 3))
+    objects = [concrete.to_object(name), plain.to_object(name + '-plain'), facade.to_object(name + '-facade'), rebar.to_object(name + '-rebar')]
+    joined = bake_ao(name, objects, size=1024)
+    export(name, [joined])
+    export_lod(name, joined)
 
 
 def warehouse(name, rusty=False):

@@ -8404,7 +8404,7 @@
       "name": "Broken high-rise",
       "category": "building",
       "file": "models/tower-stump.glb",
-      "triangles": 2028,
+      "triangles": 3728,
       "footprint": 7.6,
       "height": 33.1,
       "blocksLos": true,
@@ -8418,6 +8418,13 @@
       "drawDistance": 3000,
       "tags": [
         "wasteland"
+      ],
+      "lod": [
+        {
+          "file": "models/tower-stump-lod1.glb",
+          "distance": 350,
+          "triangles": 986
+        }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_floor_damaged_01; https://polyhaven.com/a/rectangular_facade_tiles"
     },
