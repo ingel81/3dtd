@@ -36,6 +36,9 @@ import { mirrorChange, objectImages, sameSector, symmetryImages, type SymmetryMo
 import { FieldCache } from './field-cache';
 import { LandscapeNoise } from './landscape-noise';
 
+/** Metres from where a stroke begins within which it finds the water it works by (coastLevel) */
+const COAST_REACH = 150;
+
 interface RoadLine {
   points: MapPoint[];
   half: number;
@@ -87,6 +90,8 @@ export class LandscapeStroke {
   editorCopies = true;
   /** Ground height where the stroke began (levelling brushes) */
   anchor: { x: number; y: number; h: number } | null = null;
+  /** The level of the water the stroke works by (coastLevel), worked out once; undefined before */
+  private coast: number | null | undefined = undefined;
   /** Per stroke memory of the brushes (decided object cells, strongest weights) */
   readonly decided = new Set<string>();
   readonly strongest = new Map<string, number>();
@@ -314,6 +319,52 @@ export class LandscapeStroke {
     }
     const r = recorder;
     return { water: bodies[index], touch: (rect) => r.touch(rect), index };
+  }
+
+  /**
+   * The level of the water nearest where the stroke began (`anchor`), within
+   * COAST_REACH metres: a lake's or the sea's where its mask is set and the
+   * ground lies under it, a river's surface; null without water near. Worked
+   * out once per stroke: a beach brush grades and paints toward it.
+   */
+  coastLevel(): number | null {
+    if (this.coast !== undefined) return this.coast;
+    const t = this.doc.terrain;
+    const g = t.grid;
+    const at = this.anchor;
+    let best = Infinity;
+    let level: number | null = null;
+    if (at) {
+      const ci = Math.round((at.x + t.width / 2) / g.cellSize);
+      const cj = Math.round((at.y + t.depth / 2) / g.cellSize);
+      const r = Math.ceil(COAST_REACH / g.cellSize);
+      const bodies = [t.water, ...(t.waterBodies ?? [])];
+      for (let j = Math.max(0, cj - r); j <= Math.min(g.rows - 1, cj + r); j++) {
+        for (let i = Math.max(0, ci - r); i <= Math.min(g.columns - 1, ci + r); i++) {
+          const d = Math.hypot(i - ci, j - cj) * g.cellSize;
+          if (d >= best || d > COAST_REACH) continue;
+          const k = j * g.columns + i;
+          for (const b of bodies) {
+            if (b && b.mask[k] && g.heights[k] < b.level) {
+              best = d;
+              level = b.level;
+            }
+          }
+        }
+      }
+      for (const river of t.rivers ?? []) {
+        if (river.kind !== 'water') continue;
+        for (const p of river.points) {
+          const d = Math.hypot(p.x - at.x, p.y - at.y);
+          if (d < best && d <= COAST_REACH) {
+            best = d;
+            level = p.height;
+          }
+        }
+      }
+    }
+    this.coast = level;
+    return level;
   }
 
   /** Call before the stroke changes the road network (river bridges, a new road) */

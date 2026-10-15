@@ -137,15 +137,21 @@ umlegbare Taste (Esc ist keine Einzeltaste, die man vergeben könnte).
 **Landscape (1).** Landschaft malen: Höhe, Bodenfarbe, Wasser und Objekte entstehen gemeinsam, jeder Strich ist
 ein Schritt im Verlauf. Jeder Strich hat einen Seed (im Panel und in der Statuszeile, „Roll“ würfelt, der Schalter
 würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben dieselbe Landschaft.
-- Biome: Meadow, Forest, Pine forest, Rocks, Mountains, Swamp, Desert, Snow, Arctic, Village, City, Hell, Wasteland,
-  Moon, Mars. Halten malt; die Stärke bestimmt Dichte und Ausprägung, der Rand franst aus. Unterholz, Büsche und Zäune
+- Biome: Meadow, Forest, Pine forest, Rocks, Mountains, Swamp, Desert, Beach, Snow, Arctic, Village, City, Hell,
+  Wasteland, Moon, Mars. Halten malt; die Stärke bestimmt Dichte und Ausprägung, der Rand franst aus. Unterholz, Büsche und Zäune
   wachsen am Rand des Strichs, Bäume und Häuser innen; eine Objektart mischt alle ihre Kandidaten aus dem Katalog.
   Objekte meiden Straßen, Wasser, Spawns und HQ; der Boden unter Straßen bleibt. Sumpf, Hölle und Arktis legen Becken
   an, gefüllt mit einem eigenen Gewässer der Art Swamp, Lava oder Ice knapp unter dem Boden am Startpunkt (ein
   vorhandenes derselben Art bis 2 m tiefer wird mitbenutzt, ein höheres nie: sein Wasser stünde über dem Land). Becken
   entstehen nur, wo das Land auf ihrem Spiegel bis 2,5 m darüber liegt (tiefer hinge das Wasser in der Luft, höher wäre es
   ein Schacht), ihr Rand bleibt über dem Spiegel, und wo das Land daneben trotzdem tiefer liegt, läuft es ab
-  (`drainSpills`): ein Strich über einen Hang füllt nur die Becken in der Höhe seines Startpunkts. City legt ein Straßenraster fest auf die Karte (alle 64 m, Asphalt und Gehwege), Häuser stehen an
+  (`drainSpills`): ein Strich über einen Hang füllt nur die Becken in der Höhe seines Startpunkts. Beach arbeitet auf das
+  Wasser zu, das dem Startpunkt des Strichs am nächsten liegt (bis 150 m, See, Meer oder Fluss,
+  `LandscapeStroke.coastLevel`): Land bis 6 m über und unter dessen Spiegel wird zum flachen Strand und zur flachen
+  Uferbank zusammengedrückt (Relief `shore`), darüber niedrige Dünen; an der Wasserlinie (0,7 m darüber und darunter)
+  ein Streifen nassen Küstensands (`waterline`, nur bei echtem Wasser), sonst Sand mit Flecken von Kiessand (drei
+  Bodenschichten). Kiesel und Treibholz in ihrem Band über dem Wasser, Dünengras darüber, Palmen auf Karten mit warmem
+  Look (Wüste, Mars, Hölle, `mapClimate`), Strandkiefern auf allen anderen (Objekte mit `above` und `climate`). City legt ein Straßenraster fest auf die Karte (alle 64 m, Asphalt und Gehwege), Häuser stehen an
   den Blockrändern zur Straße gewandt, Laternen auf den Gehwegen; Hell legt Glutrisse über den Boden; Wasteland und
   Moon haben Kraterfelder. Mars mischt hellen Staub mit Dünen, ockerfarbenen Kies und dunklen Basaltsand, Ocker an
   steilen Hängen, dazu rostige, graue und schwarze Steine. Sind die zwölf Bodenschichten voll, macht der Strich Platz (`makeRoom`): eine Schicht, die schon vor dem Strich da war und die kein Boden mehr hält (überall übermalt, höchstens 4 von 255), nimmt das neue Material; sonst malt die Schicht, die ihm am nächsten aussieht (gemeinsamer Katalog-Tag zuerst, dann die mittlere Farbe), an seiner Stelle. Die Statuszeile nennt, was wohin ging; ein Undo stellt die Liste mit zurück. Die Levelskripte lassen ein solches Material weiter weg (`leftOut`). Unter dem Zeiger zeigen Punkte, wo der nächste

@@ -5,7 +5,7 @@
  * an object kind mixes all its candidates the catalogue has, one per spot,
  * so a forest has oaks, maples and young trees side by side.
  */
-import type { MapWaterKind } from '../../../world/custom-map/map-document';
+import type { MapBiome, MapWaterKind } from '../../../world/custom-map/map-document';
 
 export type BiomeId =
   | 'meadow'
@@ -15,6 +15,7 @@ export type BiomeId =
   | 'mountains'
   | 'swamp'
   | 'desert'
+  | 'beach'
   | 'snow'
   | 'arctic'
   | 'village'
@@ -49,9 +50,21 @@ export interface BiomeObject {
   spacing: number;
   /** 0 spreads evenly, 1 grows in clumps */
   clump?: number;
+  /** Only this many metres over the water the stroke works by (its coast, LandscapeStroke.coastLevel): from, to */
+  above?: readonly [number, number];
+  /** Only in this climate of the map (mapClimate): palms where it is warm, pines where it is not */
+  climate?: MapClimate;
 }
 
-export type ReliefKind = 'rolling' | 'ridged' | 'dunes' | 'flatten' | 'sink' | 'craters';
+/** Warm or cool, from the map's look: palms or pines on a beach */
+export type MapClimate = 'warm' | 'cool';
+
+/** The climate of a map's look: warm in the desert, on Mars and in hell, cool everywhere else */
+export function mapClimate(biome: MapBiome | undefined): MapClimate {
+  return biome === 'desert' || biome === 'mars' || biome === 'hell' ? 'warm' : 'cool';
+}
+
+export type ReliefKind = 'rolling' | 'ridged' | 'dunes' | 'flatten' | 'sink' | 'craters' | 'shore';
 
 export interface BiomeRelief {
   kind: ReliefKind;
@@ -75,6 +88,8 @@ export interface BiomeDef {
   steepGround?: readonly string[];
   /** Ground around the pools */
   shoreGround?: readonly string[];
+  /** Ground at the waterline of the stroke's coast, up to `band` metres over and under the water */
+  waterline?: { material: readonly string[]; band: number };
   relief: BiomeRelief;
   objects: readonly BiomeObject[];
   /** Share of the area that sinks into pools */
@@ -242,6 +257,27 @@ export const BIOMES: readonly BiomeDef[] = [
       { assets: ['rock-desert', 'rock-sandstone', 'stones'], perHectare: 5, scale: [0.6, 1.4], zone: 'any', spacing: 8 },
       { assets: ['rock-desert-large', 'rock-sandstone-large'], perHectare: 1.2, scale: [0.6, 1.2], zone: 'core', spacing: 18 },
       { assets: ['bones', 'tree-dead-pale', 'tree-quiver-dead'], perHectare: 0.8, scale: [0.7, 1.1], zone: 'any', spacing: 20 },
+    ],
+  },
+  {
+    id: 'beach',
+    label: 'Beach',
+    hint: 'Sand flattening down to the water, a wet strip at the waterline, gravel and driftwood, dune grass; palms where the map is warm, shore pines where it is cool',
+    color: '#e3cf98',
+    // Three ground layers at most: sand, the wet coastal sand, gravelly sand
+    ground: [
+      { material: ['sand', 'sand-coast'], share: 0.82 },
+      { material: ['sand-gravelly', 'pebbles', 'sand'], share: 0.18 },
+    ],
+    waterline: { material: ['sand-coast', 'sand'], band: 0.7 },
+    steepGround: ['sand-gravelly', 'pebbles', 'rocky-ground'],
+    relief: { kind: 'shore', amplitude: 1.2, wave: 45 },
+    objects: [
+      { assets: ['pebbles-scatter'], perHectare: 14, scale: [0.7, 1.3], zone: 'any', spacing: 3, clump: 0.75, above: [-0.2, 1.4] },
+      { assets: ['log-fallen', 'log'], perHectare: 3, scale: [0.7, 1.2], zone: 'any', spacing: 9, above: [0.25, 2.2] },
+      { assets: ['grass-tall-dry'], perHectare: 70, scale: [0.7, 1.3], zone: 'any', spacing: 1.8, clump: 0.8, above: [1.6, 9] },
+      { assets: ['tree-palm', 'tree-palm-tall'], perHectare: 6, scale: [0.85, 1.2], zone: 'core', spacing: 10, clump: 0.5, above: [1.2, 9], climate: 'warm' },
+      { assets: ['tree-pine'], perHectare: 7, scale: [0.8, 1.15], zone: 'core', spacing: 9, clump: 0.6, above: [1.6, 12], climate: 'cool' },
     ],
   },
   {

@@ -19,12 +19,12 @@
  */
 import type { DocChange } from '../../model/editor-document';
 import type { MapTerrain } from '../../../world/custom-map/map-document';
-import { sampleX, sampleY, slopeAt, texelX, texelY, type GridRect } from '../../model/grid';
+import { heightAt, sampleX, sampleY, slopeAt, texelX, texelY, type GridRect } from '../../model/grid';
 import { brushWeight, type BrushSettings } from '../brush';
 import { drainSpills } from '../water-ops';
 import { MAX_LAYERS, readWeights, writeWeights } from '../paint-ops';
 import { HEIGHT_LIMITS } from '../terrain-ops';
-import { CITY_GRID, type BiomeDef, type BiomeObject } from './biomes';
+import { CITY_GRID, mapClimate, type BiomeDef, type BiomeObject } from './biomes';
 import { citySlots, streetDistance } from './city';
 import { crackAt } from './cracks';
 import { FieldCache } from './field-cache';
@@ -53,11 +53,26 @@ const CRACK = MAX_LAYERS + 1;
 const CRUST = MAX_LAYERS + 2;
 const FRAY = MAX_LAYERS + 3;
 
-/** Relief offset of a biome at a map point, metres at full strength */
-function relief(stroke: LandscapeStroke, biome: BiomeDef, x: number, y: number): number {
+/**
+ * The water a stroke grades and paints toward (LandscapeStroke.coastLevel):
+ * without water near where it began, just under the ground there
+ */
+function coastOf(stroke: LandscapeStroke): number {
+  return stroke.coastLevel() ?? (stroke.anchor?.h ?? 0) - 0.3;
+}
+
+/** Relief offset of a biome at a map point (ground `base` there before the stroke), metres at full strength */
+function relief(stroke: LandscapeStroke, biome: BiomeDef, x: number, y: number, base: number): number {
   const r = biome.relief;
   const n = stroke.noise;
   switch (r.kind) {
+    case 'shore': {
+      // A beach: the land within a few metres of the water's level squeezed toward it (a flat strand above
+      // the water, a shallow shelf under it), easing back into the land 6 m up and down; low dunes above
+      const h = base - coastOf(stroke);
+      const keep = 0.4 + 0.6 * smooth(1.5, 6, Math.abs(h));
+      return h * (keep - 1) + r.amplitude * n.billowed(x, y, r.wave) * smooth(1.5, 4, h);
+    }
     case 'rolling':
       return r.amplitude * n.fbm(x, y, r.wave, 4);
     case 'ridged':
@@ -98,6 +113,13 @@ type SlotZone = 'block' | 'street' | 'walk' | 'curb';
 
 function isSlotZone(zone: BiomeObject['zone']): zone is SlotZone {
   return zone === 'block' || zone === 'street' || zone === 'walk' || zone === 'curb';
+}
+
+/** The ground at the waterline of a stroke's coast (BiomeDef.waterline), resolved once per dab */
+interface Waterline {
+  layer: number | null;
+  band: number;
+  level: number;
 }
 
 /** The pattern layers of a biome, resolved once per dab */
@@ -202,7 +224,7 @@ function applyBiome(stroke: LandscapeStroke, reach: BiomeReach, biome: BiomeDef,
       const keep = stroke.roadKeep(x, y);
       if (keep <= 0) continue;
       const base = stroke.baseHeight(i, j);
-      let target = biome.relief.kind === 'flatten' ? stroke.anchor.h : base + relief(stroke, biome, x, y) * strength;
+      let target = biome.relief.kind === 'flatten' ? stroke.anchor.h : base + relief(stroke, biome, x, y, base) * strength;
       const k = j * g.columns + i;
       // Pools only in land that holds them: not below their level (the water would hang over it), not more than
       // POOL_DIG above it (a shaft down to the water)
@@ -234,6 +256,9 @@ function applyBiome(stroke: LandscapeStroke, reach: BiomeReach, biome: BiomeDef,
   const layers = biome.ground.map((gr) => ({ layer: stroke.layerOf(gr.material), share: gr.share }));
   const steep = biome.steepGround ? stroke.layerOf(biome.steepGround) : null;
   const mud = biome.pools ? stroke.layerOf(biome.shoreGround ?? ['mud', 'dirt']) : null;
+  // The wet strip only by real water: without, a band of it would run along a contour over dry land
+  const coast = biome.waterline ? stroke.coastLevel() : null;
+  const waterline = biome.waterline && coast !== null ? { layer: stroke.layerOf(biome.waterline.material), band: biome.waterline.band, level: coast } : null;
   const pattern: PatternLayers =
     biome.pattern === 'streets'
       ? { kind: 'streets', a: stroke.layerOf(['asphalt', 'asphalt-cracked', 'paving']), b: stroke.layerOf(['sidewalk', 'concrete', 'paving']) }
@@ -242,7 +267,7 @@ function applyBiome(stroke: LandscapeStroke, reach: BiomeReach, biome: BiomeDef,
         : { kind: undefined, a: null, b: null };
   const trect = texelRectOf(t, reach);
   stroke.touchSplat(trect);
-  paintBiome(stroke, t, trect, reach, strength, biome, layers, steep, mud, pattern, paintRate);
+  paintBiome(stroke, t, trect, reach, strength, biome, layers, steep, mud, pattern, paintRate, waterline);
 
   // Objects
   const placed = growObjects(stroke, reach, strength, biome, false);
@@ -297,6 +322,7 @@ function paintBiome(
   mud: number | null,
   pattern: PatternLayers,
   rate: number,
+  waterline: Waterline | null = null,
 ): void {
   const usable = layers.filter((l) => l.layer !== null) as { layer: number; share: number }[];
   if (!usable.length) return;
@@ -332,7 +358,7 @@ function paintBiome(
       let sum = 0;
       for (let k = 0; k < MAX_LAYERS; k++) sum += c[o + k];
       for (let k = 0; k < MAX_LAYERS; k++) target[k] = sum > 0 ? c[o + k] / sum : 0;
-      foldOver(t, biome, steep, mud, pattern, x, y, target, c[o + SHORE] / 255, c[o + CRACK] / 255, c[o + CRUST] / 255);
+      foldOver(t, biome, steep, mud, pattern, x, y, target, c[o + SHORE] / 255, c[o + CRACK] / 255, c[o + CRUST] / 255, waterline);
       const a = Math.min(1, rate * w * (0.5 + 0.5 * strength));
       const texel = v * res + u;
       readWeights(t, texel, w8);
@@ -386,12 +412,18 @@ function foldOver(
   shore: number,
   crack: number,
   crust: number,
+  waterline: Waterline | null = null,
 ): void {
   const fold = (layer: number, share: number) => {
     if (share <= 0) return;
     for (let k = 0; k < MAX_LAYERS; k++) out[k] *= 1 - share;
     out[layer] += share;
   };
+  if (waterline?.layer != null) {
+    // The wet strip: from `band` under the water to `band` over it, its edge frayed by the fine noise
+    const h = Math.abs(heightAt(t, x, y) - waterline.level);
+    fold(waterline.layer, 1 - smooth(waterline.band * 0.6, waterline.band * 1.2, h));
+  }
   if (steep !== null) fold(steep, smooth(24, 36, slopeAt(t, x, y)));
   if (mud !== null && biome.pools) fold(mud, shore * 0.9);
   if (pattern.kind === 'streets') {
@@ -461,6 +493,12 @@ function growObjects(stroke: LandscapeStroke, reach: BiomeReach | null, strength
       if (o.zone === 'edge' && !ending) {
         stroke.strongest.set(key, Math.max(stroke.strongest.get(key) ?? 0, w));
         return;
+      }
+      // Only in its band over the water and in its climate; the ground may still change, so not decided yet
+      if (o.climate && o.climate !== mapClimate(stroke.doc.environment.biome)) return;
+      if (o.above) {
+        const h = heightAt(t, px, py) - coastOf(stroke);
+        if (h < o.above[0] || h > o.above[1]) return;
       }
       const clump = o.clump ? 1 - o.clump + o.clump * 2 * (0.5 + 0.5 * n.fbm(px, py, 30, 2, 'n3')) : 1;
       const shore = o.zone === 'shore' ? poolShore(stroke, biome, px, py) : o.zone === 'pool' ? poolDepth(stroke, biome, px, py) : 0;

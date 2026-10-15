@@ -324,6 +324,46 @@ describe('biome brush', () => {
     expect(waterInAir(ed.doc)).toEqual([]);
   });
 
+  it('lays a beach down to the water: a flat strand, the wet strip at the waterline, pines where it is cool, palms where warm', () => {
+    const shore = (biome?: 'desert') => {
+      const ed = map();
+      const t = ed.doc.terrain;
+      const g = t.grid;
+      // Land rising north from a sea in the south: 0 m at y = 40, 0.25 m per metre
+      for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) g.heights[j * g.columns + i] = 0.25 * (j * g.cellSize - t.depth / 2 - 40);
+      t.water = { level: 0, mask: new Uint8Array(g.columns * g.rows).fill(255), color: '#336699', kind: 'sea' };
+      if (biome) ed.doc.environment = { ...ed.doc.environment, biome };
+      paint(ed, 'beach', 5, 1, 5, 50);
+      return ed;
+    };
+    const ed = shore();
+    const t = ed.doc.terrain;
+    // Three ground layers at most next to the base
+    expect(t.layers.map((l) => l.material)).toEqual(expect.arrayContaining(['sand', 'sand-coast']));
+    expect(t.layers.length).toBeLessThanOrEqual(4);
+    // The strand is flatter than the land was (0.25 m per metre) near the water
+    expect(heightAt(t, 0, 48) - heightAt(t, 0, 44)).toBeLessThan(0.25 * 4 * 0.75);
+    // The wet strip at the waterline, dry sand up the strand
+    const wet = t.layers.findIndex((l) => l.material === 'sand-coast');
+    const texel = (x: number, y: number) => Math.floor(((y + t.depth / 2) / t.depth) * t.splat.resolution) * t.splat.resolution + Math.floor(((x + t.width / 2) / t.width) * t.splat.resolution);
+    const weight = (x: number, y: number) => {
+      const w = new Float32Array(16);
+      readWeights(t, texel(x, y), w);
+      return w[wet];
+    };
+    let waterline = 40;
+    while (heightAt(t, 0, waterline) < 0) waterline += 0.5;
+    expect(weight(0, waterline)).toBeGreaterThan(weight(0, waterline + 12));
+    // Temperate: no palms; a desert map grows palms and no pines
+    const assets = (e: EditorDocument) => new Set(e.doc.objects.map((o) => o.asset));
+    expect(assets(ed).has('tree-palm') || assets(ed).has('tree-palm-tall')).toBe(false);
+    const warm = shore('desert');
+    expect(assets(warm).has('tree-pine')).toBe(false);
+    expect(assets(warm).has('tree-palm') || assets(warm).has('tree-palm-tall')).toBe(true);
+    // Nothing of the beach grows in the water
+    for (const o of ed.doc.objects) expect(heightAt(t, o.x, o.y)).toBeGreaterThan(-0.3);
+  });
+
   it('previews the spots it would grow on', () => {
     const stroke = new LandscapeStroke(map(), 'Biome', 4, catalog);
     const spots = previewSpots(stroke.noise, catalog, { x: 0, y: 80 }, brush, biomeById('forest'));
