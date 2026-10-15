@@ -503,15 +503,15 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   Replays; die Simulation weiß nichts davon). Mit `area` (Id eines Lebensbereichs beliebiger Art) kommt er von dort:
   über 400 m bis auf 35 % leiser (`WAVE_REACH`, `WAVE_FAR`) und aus seiner Seite; ohne, oder wenn der Bereich fehlt,
   überall gleich. Klänge `WAVE_SOUNDS`: `bell` (Glockenschlag), `siren-distant` (ferne Sirene), `ship-horn`
-  (Schiffshorn), ganze Dateien ohne Schleifenpolster, Platzhalter aus `make_placeholders.py` (`ONE_SHOTS`).
+  (Schiffshorn), ganze Dateien ohne Schleifenpolster, mit ElevenLabs erzeugt und ausgewählt (2026-10-15).
   Life-Panel: „At each wave“, Lautstärke, „Comes from“, „Play“ spielt ihn einmal im Editor
 - Von oben leiser: bis 80 m über dem Boden voll, ab 600 m ein Drittel (`lift`)
 - Klänge (`AMBIENT_SOUNDS`): `wind`, `birdsong`, `night-insects`, `stream`, `surf`, `swamp`, `lava`, `fire`, `city`,
   `gulls`, `crows`, `radio-hiss`, `harbor`, `cowbells`, `pine-wind`, `rain`, `cave-wind`, je mit eigenem Pegel. Mit
   ElevenLabs erzeugt und ausgewählt (2026-10-15): `wind`, `birdsong`, `stream`, `surf`, `swamp`, `lava`, `fire`, `city`,
-  `gulls`, `crows`, `radio-hiss`; noch synthetische Platzhalter aus `tools/ambient/make_placeholders.py` (Rauschen im
-  Frequenzraum über die ganze Schleife gefiltert, Rufe und Hüllkurven laufen über das Ende herum, daher ohne Naht):
-  `night-insects`, `harbor`, `cowbells`, `pine-wind`, `rain`, `cave-wind`. Die Datei trägt 0,1 s der Schleife davor
+  `gulls`, `crows`, `radio-hiss`, `harbor`, `cowbells`, `pine-wind`, `rain`, `cave-wind`; noch ein synthetischer
+  Platzhalter aus `tools/ambient/make_placeholders.py` (Rauschen im Frequenzraum über die ganze Schleife gefiltert, Rufe
+  und Hüllkurven laufen über das Ende herum, daher ohne Naht): `night-insects`. Die Datei trägt 0,1 s der Schleife davor
   und danach (`LOOP_PAD`), gespielt wird dazwischen, so verschluckt der MP3-Versatz nichts. Eine unbekannte Id spielt
   nichts (eine Karte aus einem neueren Spiel)
 - **Varianten**: `wind`, `stream` und `surf` haben je zwei Aufnahmen (`variants`, `wind-2.mp3` usw.). Sie spielen

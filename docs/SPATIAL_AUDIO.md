@@ -728,7 +728,7 @@ vollständig). Hintergrundmusik liegt separat unter `public/assets/music/`:
 ```
 public/assets/sounds/
 ├── ambient/                           # Umgebungston eigener Karten: Loops mit ElevenLabs erzeugt (2026-10-15, wind/stream/surf je zwei),
-│                                      # Rest und Wellentöne synthetische Platzhalter (tools/ambient/make_placeholders.py)
+│                                      # ebenso die Wellentöne; night-insects noch synthetischer Platzhalter (tools/ambient/make_placeholders.py)
 │   ├── wind.mp3, birdsong.mp3, night-insects.mp3, stream.mp3, surf.mp3
 │   └── swamp.mp3, lava.mp3, fire.mp3, city.mp3, gulls.mp3, crows.mp3, radio-hiss.mp3   # je 16 s Schleife plus 0,1 s davor und danach
 ├── towers/
