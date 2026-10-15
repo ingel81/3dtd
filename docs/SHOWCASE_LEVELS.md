@@ -64,7 +64,10 @@ Die generierte Beispielkarte (`src/app/world/custom-map/demo-map.ts`, so auch im
 Karte), für die Auslieferung mit dem Level-Kit nachgearbeitet (`tools/maps/levels/demo-valley.ts`, `LevelKit` auf
 einer vorhandenen Karte, E184): der Ruinenhügel im Südwesten als Felsklotz mit Klippenfelsen und Burgruine (Bergfried,
 Mauern, Türme, Tor zum Dorf), ein Aussichtshügel südlich des Dorfs mit Kapelle und Wachturm, Lichtungen, Totholz und
-Unterholz in den Wäldern, Krähenschwärme. Wege, Spawns und HQ wie generiert.
+Unterholz in den Wäldern, Kühe am Hof und Schafe am Talrand. Leben: Krähen über den beiden dichtesten Wäldern,
+Flussrauschen entlang des Flusses, Vogelgesang am Tag und Grillen nachts, Rauch aus den Kaminen. Das Modell
+`castle-ruin` statt des Ensembles geprüft und nicht genommen (vom Westweg schwächere Silhouette, schwebende
+Zinnenblöcke im Modell). Wege, Spawns und HQ wie generiert.
 
 ### 1 Bergpass (`mountain-pass`)
 **Gebaut** (`tools/maps/levels/mountain-pass.ts`, Small 512 m). Kartenprobe 10 Wellen bestanden (HQ 448 von 500,
@@ -76,8 +79,13 @@ zu; eine Schneegrenze ist beim Renderer gewünscht), die Seilbahn hat Seile aus 
 `pitch` entlang des Hangs geneigt, und eine Gondel je Feld (Bild `mountain-pass-cablecar.jpg`). Steinbrücke über den Bach (`style: 'stone'`, Bild `mountain-pass-bridge.jpg`); der Bergsee ist ein
 eigenes Gewässer, weil der Spiegel des Hauptwassers jedes Brückendeck der Karte auf seine Höhe hebt. Hochgebirge
 (E184): ein Gletscher an der Innenflanke jedes Gipfels (`glacier`, zum Dorf hin sichtbar, Schneeböen am Kopf),
-Lawinenverbauung als versetzte Reihen auf drei Höhenlinien über dem Pass (Palisaden als Platzhalter, bis ein Modell
-da ist), vier Almhütten mit Holzstapel und Pferch auf den Hochweiden, Adler (Vogelschwarm) über beiden Gipfeln.
+Lawinenverbauung (`avalanche-barrier`, die oberste Reihe eingeschneit) als versetzte Dreiergruppen auf drei
+Höhenlinien über dem Pass, jede quer zur Falllinie; kleine Séracs im steilen unteren Teil jeder Zunge, Altschneefelder
+(`snowfield`, mit dem Hang gekippt) nur dort, wo der Boden unter der Platte eben genug ist; das `glacier`-Modell ist
+weggelassen (liest sich als heller Klotz, die Zunge bleibt aus Gelände). Vier Almhütten mit Holzstapel, Pferch und
+Kühen auf den Hochweiden, Schafe am Talrand. Leben: Greifvögel über beiden Gipfeln, Singvögel über dem Tal,
+Schneegestöber am Kopf der Gletscher; Wind über der ganzen Karte, am Pass lauter, Bachrauschen vom Wasserfall talwärts,
+Vogelgesang im Tal. Offen: Gondeln fahren nicht (kein Mechanismus für Seilbahnen), Kuhglocken (kein Klang).
 
 Biom Berge, Look `mountain`, später Nachmittag. Ein Pass zwischen zwei Gipfeln; die Straße windet sich in Serpentinen
 vom Tal zum Pass, wo das HQ in einem Bergdorf steht (Steinhäuser mit Holzbalkon, Kapelle, Stützmauern). Ein Wasserfall
@@ -95,9 +103,11 @@ offene Wasser, Moos, Schlamm und Wurzeln auf den Inseln, Laternen an den Pfahlh�
 Wasser liegt; Wege, Inseln und Stege sind aus der Spielkamera klar. Nebelbälle nur noch klein an den Spawns, Laternen
 und Fackeln alle 16 m an den Stegen, Lagerfeuer auf den großen Inseln, Glühwürmchen-Wolken über dem offenen Wasser. Seit
 E184: eine Riesenweide (dreifache Größe) als Wahrzeichen auf der HQ-Insel, grüne Glut über dem Kessel der Hexe, eine
-Felskuppe mit Klippenfelsen und Steinkreis im Südwesten, drei versunkene Pfahlhütten (schräg, halb im Wasser), zwei
-Stelzenstege zwischen äußeren Inseln (keine Spuren), Irrlichter (bläuliche Glühwürmchen) und Nebelbänke in den
-Senken abseits der Stege.
+Felskuppe mit Klippenfelsen und Steinkreis (`stone-circle`, ein Feuer daneben) im Südwesten, drei versunkene Pfahlhütten (schräg, halb im Wasser), zwei
+Stelzenstege zwischen äußeren Inseln (keine Spuren), Irrlichter (bläuliche Glühwürmchen). Leben als
+Lebensbereiche: Glühwürmchen über acht Tümpeln offenen Wassers, ziehende Nebelbänke in sechs Senken abseits der Stege
+und kleine an den Spawns; Ton des Sumpfs (Frösche) über der Karte, Grillen auf den beiden großen Inseln, Feuerknistern
+an der Hexenhütte. Offen: Krähen bei Nacht (Vögel fliegen nur am Tag).
 
 Biom Sumpf, Look `swamp`, Nacht mit Bodennebel und Glühwürmchen. Ein Bohlenweg über Sumpfwasser, Inseln mit
 Pfahlhütten, die Hexenhütte mit grün leuchtenden Fenstern als HQ-Kulisse, Laternen an den Stegen als einzige
@@ -115,7 +125,10 @@ Landscape-Werkzeug); Morgennebel nur als wenige kleine Nebelfelder, größere wi
 steht die Burg auf einem Felssporn: die Krone 7 m über dem alten Hügel, steile Flanken mit Klippenfelsen
 (`cliffRocks`, vor dem Bewuchs gesetzt, der Pinsel hält Abstand zu anderen Objekten), der Torweg als Rampe durch die
 Südflanke; ein Wassergraben fünf Meter um die Mauern, offen am Torweg; Feuerschalen, Lagerfeuer, Fackeln und Banner in
-Burghof und Tor; eine Windmühle auf einem Hügel östlich mit Feld; mehr Nebel in den Senken, Raben über dem Wald.
+Burghof und Tor; eine Windmühle auf einem Hügel östlich mit Feld; Rotwild am Waldrand (ein Hirsch, Grasende).
+Leben als Lebensbereiche: Morgennebel in acht Senken, fallendes Laub über den Wäldern, Krähen über beiden Waldseiten,
+wehende Banner (`life.flags`); Vogelgesang am Tag, Grillen nachts, Feuerknistern im Burghof. Offen: beleuchtete
+Fenster an Bergfried und Türmen.
 
 Biom Laubwald mit Herbstfarben, Look `day` warm. Eine Burgruine auf einem Hügel, Mauerreste, Bergfried-Ruine, ein
 Torhaus. Drei Wege kommen aus den Wäldern und treffen sich vor dem Tor; das HQ steht im Burghof. Laubhaufen, Efeu,
@@ -181,8 +194,10 @@ Generator-Boden spiegelt `mirrorFrom` einmal von West nach Ost. Was auf der Achs
 ist ohne Symmetrie gesetzt. Seit E184 stehen die Burgen auf Felsplateaus (10 m, steile Flanken mit
 Klippenfelsen, trockener Graben am Fuß), ein Fluss in zwei Armen umfasst die Mitte mit dem HQ (die Spuren queren ihn
 auf Steinbrücken), je Arm eine Wassermühle; Belagerungslager vor Nord- und Südtor (Kanonen, Zelte, Barrikaden,
-Lagerfeuer; Platzhalter, bis Belagerungsgerät als Modell da ist), Banner und Fackeln an allen Toren, Wachfeuer vor den
-Mauern, dichterer Wald an den Außenrändern, Vogelschwärme.
+Lagerfeuer, je ein Trebuchet auf das Tor gerichtet; ein Belagerungsturm fehlt noch), Banner und Fackeln an allen
+Toren, Wachfeuer vor den Mauern, dichterer Wald an den Außenrändern. Leben (auf beiden Hälften gesetzt, die Symmetrie
+kopiert es nicht): wehende Banner auf beiden Burgen (`life.flags`), Vogelschwärme über den Wäldern, Bachrauschen
+entlang beider Flussarme, Feuerknistern an den Lagern, Vogelgesang am Tag und Grillen nachts.
 
 Biom gemäßigt mit Burgmauern, Look `dusk`. Streng symmetrische Coop-Karte (Spiegelung an X): zwei Burgen, je zwei
 Spuren pro Spieler, die sich in der Mitte am gemeinsamen HQ treffen. Gestaltet mit dem Symmetrie-Modus. Spawns: 4.

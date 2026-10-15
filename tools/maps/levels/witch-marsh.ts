@@ -141,11 +141,16 @@ export function buildWitchMarsh(): CustomMapDocument {
   }
   // Fog only where the enemies come in, small and low; the flat banks over the water come from the swamp look's
   // ground-hugging haze, so the middle stays readable
-  for (const [x, y] of [[-20, 235], [30, 245], [-235, 10], [-240, -40]] as const) k.place('fx-fog', x, y, { scale: 0.7 });
-  // Clouds of fireflies over the open water between the islands
-  for (let y = -220; y <= 220; y += 45) for (let x = -220; x <= 220; x += 45) {
-    const p = { x: x + 18 * k.noise.fbm(x, y, 40), y: y + 18 * k.noise.fbm(y, x, 40) };
-    if (k.h(p.x, p.y) < -0.2 && k.noise.hash(x, y, 61) < 0.6) k.place('fx-fireflies', p.x, p.y, { scale: 1.4 });
+  const ring = (c: MapPoint, r: number, n = 9): MapPoint[] =>
+    Array.from({ length: n }, (_, i) => {
+      const a = (i / n) * Math.PI * 2;
+      const w = r * (0.8 + 0.4 * k.noise.hash(Math.round(c.x), Math.round(c.y), i));
+      return { x: c.x + Math.cos(a) * w, y: c.y + Math.sin(a) * w };
+    });
+  for (const at of [{ x: 5, y: 240 }, { x: -238, y: -15 }]) k.lifeArea('fog', ring(at, 30), { density: 0.8 });
+  // Fireflies over the pools of open water between the islands
+  for (const at of [{ x: -120, y: 60 }, { x: 140, y: -60 }, { x: -60, y: -100 }, { x: 150, y: 140 }, { x: -200, y: 100 }, { x: 30, y: 180 }, { x: -170, y: -110 }, { x: 160, y: -10 }]) {
+    k.lifeArea('fireflies', ring(at, 38), { density: 1.2 });
   }
   // Campfires on the big islands, warm light the enemies walk past
   for (const [x, y] of [[50, 5], [-20, 20], [120, -150], [-225, 0], [-40, 150]] as const) if (k.free(x, y, 2)) k.place('campfire', x, y);
@@ -166,11 +171,9 @@ export function buildWitchMarsh(): CustomMapDocument {
   k.level(knoll, { radius: 11, falloff: 0.5 }, k.h(knoll.x, knoll.y));
   k.sea(marsh);
   k.cliffRocks(knoll, { radius: 30 });
-  for (let n = 0; n < 9; n++) {
-    const a = (n / 9) * Math.PI * 2;
-    k.place('rock-needle', knoll.x + Math.cos(a) * 8, knoll.y + Math.sin(a) * 8, { rotation: a, scale: 0.3 });
-  }
-  k.place('campfire', knoll.x, knoll.y);
+  k.place('stone-circle', knoll.x, knoll.y, { rotation: 0.4 });
+  // A fire glows by the stones
+  if (k.free(knoll.x + 2, knoll.y - 10.5, 1)) k.place('campfire', knoll.x + 2, knoll.y - 10.5);
   k.scatter(['grass-swamp', 'nettles', 'rock-mossy-flat', 'stones-mossy-scatter'], knoll, { radius: 24, strength: 1 }, { density: 5, minDistance: 2.5 });
 
   // ---- Sunken huts in the open water, stilt walks between the outer islands (no lanes), will-o'-the-wisps
@@ -186,9 +189,15 @@ export function buildWitchMarsh(): CustomMapDocument {
   for (const [x, y] of [[-110, 70], [160, -90], [-60, -60], [130, 150], [-230, 90], [40, 190]] as const) {
     k.place('fx-fireflies', x, y, { scale: 0.5, tint: '#9fd8ff' });
   }
-  // Fog banks in the hollows away from the walks
-  for (const [x, y] of [[-150, -200], [210, -60], [215, 120], [-120, 225], [-235, 120], [60, 150]] as const) k.place('fx-fog', x, y, { scale: 1.1 });
-  // TODO(E190): crows by night on the dead trees, frogs and crickets (ambient sound)
+  // Fog banks drifting through the hollows away from the walks
+  for (const at of [{ x: -150, y: -200 }, { x: 210, y: -60 }, { x: 215, y: 120 }, { x: -120, y: 225 }, { x: -235, y: 120 }, { x: 60, y: 150 }]) {
+    k.lifeArea('fog', ring(at, 45), { density: 1.2 });
+  }
+  // The swamp's frogs over the whole map, crickets on the big islands, the fire crackling by the witch's hut
+  k.lifeSettings({ ambience: { sound: 'biome', volume: 0.6 } });
+  for (const isl of play) k.lifeArea('sound', ring(isl.at, isl.radius * 0.8), { sound: 'night-insects', volume: 0.6 });
+  k.lifeArea('sound', ring({ x: 120, y: -175 }, 14, 6), { sound: 'fire', volume: 0.5 });
+  // TODO(E190): crows by night on the dead trees (birds fly only by day)
 
   // Seven ground materials: the least used goes (each one is 8 MB of pixels to load)
   k.trimLayers(7);

@@ -209,11 +209,28 @@ export function buildAutumnKeep(): CustomMapDocument {
   k.place('windmill', mill.x, mill.y, { rotation: facing(mill, c) });
   k.scatter(['wheat-field', 'hay-bales', 'grass-autumn'], [{ x: mill.x - 14, y: mill.y - 14 }, { x: mill.x + 14, y: mill.y - 12 }], { radius: 10, strength: 1 }, { density: 6, minDistance: 3 });
 
-  // ---- Morning fog in the hollows and down the valleys, leaves on the wind, ravens over the woods
-  for (const [x, y] of [[-130, -150], [140, -160], [-170, 110], [170, 120], [-100, 175], [95, 180], [-200, -60], [205, -100]] as const) k.place('fx-fog', x, y, { scale: 0.7 });
-  for (const [x, y] of [[-190, -170], [185, 160]] as const) k.place('fx-birds', x, y, { scale: 0.8 });
-  // TODO(E179): a stag at the edge of the wood
-  for (const [x, y] of [[-150, -100], [150, -90], [-120, 150], [130, 150], [0, -120]] as const) k.place('fx-leaves', x, y, { scale: 1.3 });
+  // ---- Life: morning fog in the hollows and down the valleys, leaves falling in the woods, ravens over them
+  const blob = (at: MapPoint, r: number, n = 9): MapPoint[] =>
+    Array.from({ length: n }, (_, i) => {
+      const a = (i / n) * Math.PI * 2;
+      const w = r * (0.75 + 0.5 * k.noise.hash(Math.round(at.x), Math.round(at.y), i));
+      return { x: at.x + Math.cos(a) * w, y: at.y + Math.sin(a) * w };
+    });
+  for (const at of [{ x: -130, y: -150 }, { x: 140, y: -160 }, { x: -170, y: 110 }, { x: 170, y: 120 }, { x: -100, y: 175 }, { x: 95, y: 180 }, { x: -200, y: -60 }, { x: 205, y: -100 }]) {
+    k.lifeArea('fog', blob(at, 40), { density: 1 });
+  }
+  for (const at of [{ x: -190, y: -150 }, { x: 190, y: -150 }, { x: -200, y: 60 }, { x: 200, y: 60 }, { x: -110, y: 200 }, { x: 110, y: 200 }, { x: 0, y: -125 }]) {
+    k.lifeArea('leaves', blob(at, 50), { density: 1.2 });
+  }
+  // A flock of ravens wheeling over each side's woods, low
+  for (const at of [{ x: -185, y: -60 }, { x: 185, y: 40 }]) k.lifeArea('birds', blob(at, 85), { species: 'crows', density: 1.2, height: 32 });
+  // The banners on the towers and the gate wave; birdsong by day, crickets by night, the fire in the bailey crackles
+  k.lifeSettings({ flags: true, ambience: { sound: 'biome', volume: 0.5 } });
+  k.lifeArea('sound', blob({ x: -10, y: 70 }, 24, 6), { sound: 'fire', volume: 0.6 });
+  // Red deer grazing at the edge of the wood, a stag watching over them
+  for (const [x, y, a, r] of [[-150, -45, 'deer', 0.6], [-156, -36, 'deer-grazing', 2.1], [-143, -33, 'deer-grazing', -0.8], [160, -62, 'deer', -0.5], [167, -55, 'deer-grazing', 1.4]] as const) {
+    if (k.free(x, y, 1.5)) k.place(a, x, y, { rotation: r });
+  }
 
   // Seven ground materials: the least used goes (each one is 8 MB of pixels to load)
   k.trimLayers(7);
