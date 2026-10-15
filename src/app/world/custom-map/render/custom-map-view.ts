@@ -40,7 +40,6 @@ import { MapObjectLayer, type ObjectHit } from './objects/object-layer';
 import { IMPOSTOR_SUN } from './objects/impostor';
 import { BridgeLayer } from './paths/path-bridges';
 import { LAVA_GLOW_UNIFORMS } from './environment/height-fog';
-import { GRASS_AHEAD } from './grass/grass-field';
 import { MapTerrainLayer } from './terrain/map-terrain';
 import { ApronField, EDGE_TREE_BAND, edgeTreeObjects } from './objects/edge-trees';
 import { NIGHT_WINDOW_UNIFORMS } from './objects/night-windows';
@@ -171,14 +170,11 @@ export class CustomMapView {
   private readonly hitPoint = new Vector3();
   private readonly mapPoint = { x: 0, y: 0 };
   private readonly focusPoint = new Vector3();
-  private readonly grassCenter = new Vector3();
   /** Centre of the ground the camera sees, the sun's shadow box's (group and scene space) */
   private readonly shadowCenter = new Vector3();
   private readonly worldShadowCenter = new Vector3();
   /** Object and terrain versions the sun's shadow map was last rendered for */
   private shadowVersion = -1;
-  /** Beyond this camera distance to its focus the grass blades are not drawn (the quality level's; 140 m in High) */
-  private grassDistance = 140;
   private readonly viewRay = new Ray();
   /** The switchable effects (map-effects.ts) and the frame copy refraction reads */
   private mapEffects: MapEffects = { ...NO_MAP_EFFECTS };
@@ -187,7 +183,7 @@ export class CustomMapView {
   private readonly reflection = new WaterReflection(() => [
     ...this.waters.flatMap((w) => (w ? [w.object] : [])),
     ...this.rivers.map((r) => r.mesh),
-    this.terrain.grass.mesh,
+    ...this.terrain.grass.meshes,
     this.decals.mesh,
     this.effects.group,
     this.movers.group,
@@ -231,7 +227,7 @@ export class CustomMapView {
     this.terrain = new MapTerrainLayer(t, this.heights, BACKDROP_HEIGHT[doc.environment.biome ?? 'temperate']);
     this.losBlockers.add(this.terrain.chunks.group);
     this.group.add(this.terrain.apron);
-    if (options.grass !== false) this.group.add(this.terrain.grass.mesh);
+    if (options.grass !== false) this.group.add(...this.terrain.grass.meshes);
 
     this.mapEffects = { ...NO_MAP_EFFECTS, ...options.effects };
     this.environment = new CustomMapEnvironment(doc.environment);
@@ -598,16 +594,10 @@ export class CustomMapView {
     this.edgeTrees.shadowRadius = this.objects.shadowRadius;
     this.edgeTrees.update(dtSeconds, camera, this.shadowCenter);
     IMPOSTOR_SUN.uImpSun.value.copy(this.environment.sunDir);
-    // Grass from the camera's foot towards the focus, its middle at most GRASS_AHEAD ahead: a low camera
-    // looking far (a tower's view) keeps grass at its feet and to the sides; from far up blades are below a
-    // pixel, skip them
-    const aheadX = this.focusPoint.x - this.camPos.x;
-    const aheadZ = this.focusPoint.z - this.camPos.z;
-    const ahead = Math.hypot(aheadX, aheadZ);
-    const step = ahead > 0 ? Math.min(0.6 * ahead, GRASS_AHEAD) / ahead : 0;
-    this.grassCenter.set(this.camPos.x + aheadX * step, this.focusPoint.y, this.camPos.z + aheadZ * step);
-    this.terrain.grass.update(clock, this.grassCenter);
-    this.terrain.grass.setNear(reach < this.grassDistance);
+    // Grass from the camera's foot towards the focus (a low camera looking far, a tower's view, keeps
+    // blades at its feet), a far ring beyond; each thins out as the camera draws away from its focus
+    const camHeight = this.camPos.y - this.heights.heightAt(-this.camPos.x, this.camPos.z);
+    this.terrain.grass.update(this.camPos, this.focusPoint, camHeight, reach);
     // The weather's cover: at most four times a second, and only when something changed
     this.coverAge += dtSeconds;
     if (this.coverDirty && this.coverAge > 0.25) void this.refreshCover();
@@ -1207,8 +1197,7 @@ export class CustomMapView {
     this.setEffects({ refraction: q.refraction, seaWaves: q.seaWaves, lavaGlow: q.lavaGlow, shadowCascade: q.shadowCascade, waterDetail: q.waterDetail, reflection: q.waterReflection > 0 });
     this.objects.setDetail({ lodBias: q.lodBias, impostorFrom: q.impostorFrom });
     this.edgeTrees.setDetail({ lodBias: q.lodBias, impostorFrom: q.impostorFrom });
-    this.terrain.grass.setBlades(q.grassBlades);
-    this.grassDistance = q.grassDistance;
+    this.terrain.grass.setQuality(q.grassBlades, q.grassDistance, q.grassFarBlades, q.grassFarDistance);
     this.environment.weather.setShare(q.particles);
     const lifeChanged = q.life !== this.lifeShare;
     this.lifeShare = q.life;
