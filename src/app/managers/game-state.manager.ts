@@ -1129,6 +1129,7 @@ export class GameStateManager {
       this.towerCombat.updateChainTowers(stepMs, this.towerManager, now);
       this.towerCombat.updateLaserTowers(stepMs, this.towerManager, now);
       this.towerCombat.updateSawTowers(stepMs, this.towerManager, now);
+      this.towerCombat.updateStreamTowers(stepMs, this.towerManager, now);
       if (profiling) timings.tCombat += performance.now() - t0;
     }
 

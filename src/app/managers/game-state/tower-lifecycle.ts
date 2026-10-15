@@ -224,9 +224,9 @@ export class TowerLifecycle {
     // Off the grid, and no mask to wait for
     this.los.unregister(tower);
 
-    // A flame, a laser or the saws stop with their tower
+    // A flame, a laser, the saws or a stream stop with their tower
     const attack = tower.typeConfig.attackType;
-    if (attack === 'beam' || attack === 'laser' || attack === 'saw') this.combat.stopTowerBeam(tower.id);
+    if (attack === 'beam' || attack === 'laser' || attack === 'saw' || attack === 'stream') this.combat.stopTowerBeam(tower.id);
 
     // A sold Research Center cancels what runs in it, refunded as a cancel by hand
     if (tower.typeConfig.id === 'research-center') {

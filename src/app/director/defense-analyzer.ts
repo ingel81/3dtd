@@ -52,6 +52,7 @@ const TOWER_CAPABILITIES: Record<
   bastion: { antiAir: true }, // Flak: air and ground from the start
   sentinel: { antiAir: true }, // Laser: air and ground, one target at a time
   chainsaw: {}, // Three saw arms at the road's edge, ground only
+  shawarma: {}, // A stream on a line, ground only
   'research-center': {}, // Passive building — no combat capabilities
   'missile-silo': {}, // Passive building: the nuclear strike is an ability, not tower fire
 };

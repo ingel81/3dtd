@@ -71,6 +71,8 @@ export class PresentationHost implements SimPresenterApi {
   readonly lasers: FlameSounds;
   /** The saw arms' motors while they cut, run like the flame loops */
   readonly saws: FlameSounds;
+  /** The Shawarma Slicer's sizzle while its stream runs */
+  readonly streams: FlameSounds;
   readonly manualShots: ManualShots;
 
   private readonly engine: ThreeTilesEngine;
@@ -106,6 +108,7 @@ export class PresentationHost implements SimPresenterApi {
     this.flames = new FlameSounds(() => engine.spatialAudio ?? null);
     this.lasers = new FlameSounds(() => engine.spatialAudio ?? null, 'laser-loop');
     this.saws = new FlameSounds(() => engine.spatialAudio ?? null, 'saw-loop');
+    this.streams = new FlameSounds(() => engine.spatialAudio ?? null, 'doner-loop');
     this.ops = new OpPlayer(engine);
     this.installOverrides(source, bus);
 
@@ -149,6 +152,7 @@ export class PresentationHost implements SimPresenterApi {
     this.flames.clear();
     this.lasers.clear();
     this.saws.clear();
+    this.streams.clear();
     const engine = this.engine;
     engine.enemies.clear();
     engine.oozes.clear();
@@ -313,6 +317,14 @@ export class PresentationHost implements SimPresenterApi {
       const at = (args[1] as (Vector3 | null)[]).find((target) => target !== null);
       if (at) this.saws.burn(args[0] as string, at);
       else this.saws.stop(args[0] as string);
+    });
+
+    // The sizzle runs while the stream has a target, at the target
+    ops.override('towers.setStream', (args, call) => {
+      call(...args);
+      const target = args[1] as Vector3 | null;
+      if (target) this.streams.burn(args[0] as string, target);
+      else this.streams.stop(args[0] as string);
     });
 
     // The laser's hum runs with its beam

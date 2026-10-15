@@ -311,6 +311,7 @@ export function createEmptySnapshot(): GameStateSnapshot {
         bastion: false,
         sentinel: false,
         chainsaw: false,
+        shawarma: false,
         'research-center': true,
         'missile-silo': false,
       },

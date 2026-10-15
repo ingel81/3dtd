@@ -174,6 +174,7 @@ Mutator je Welle ([WAVE_RUN_PLAN.md](../WAVE_RUN_PLAN.md), Abschnitt 16).
 | **Chaos** | Chaos | 50 dmg, 1.2/s, Range 60, 1,0 gegen jede Rüstung | 200 | **Air + Ground** |
 | **Iron Bastion** | Pierce | 36 dmg, 0.75/s, Range 65, Flak-Splash 5 m (max. 6 Ziele) | 150 | **Air + Ground** |
 | **Chainsaw** | Pierce | 3 Arme mit je 30 DPS, jeder Arm ein eigenes Ziel, Range 14 | 140 | nein |
+| **Shawarma Slicer** | Physical | Strom 80 DPS bei vollem Antrieb auf einer Linie (1,6 m), dreht in 2,5 s hoch, Range 35 | 150 | nein |
 | **Sentinel Laser** | Lightning | Laser 24 DPS kalt, auf demselben Ziel in 4 s bis 96 DPS, Range 60 | 170 | **Air + Ground** |
 
 ### 3.2 Upgrade-Regeln (Stand 2026-09)
@@ -204,6 +205,7 @@ Mutator je Welle ([WAVE_RUN_PLAN.md](../WAVE_RUN_PLAN.md), Abschnitt 16).
 | Chaos | 1,05 | 1,04 | Generalist, soll die Spezialisten auch im Endausbau nicht überholen |
 | Iron Bastion | 1,06 | 1,03 | der Splash trägt den Schaden auf jedes getroffene Ziel |
 | Chainsaw | 1,07 | 1,03 (Chain Speed) | Kettentempo multipliziert den Dauerschaden jedes Arms |
+| Shawarma Slicer | 1,06 | 1,04 (Drive) | der Antrieb multipliziert den Dauerschaden |
 | Sentinel Laser | 1,06 | 1,04 (Heat-up) | Fire Rate heißt hier Heat-up und verkürzt das Aufheizen |
 
 Andere Upgrade-Pfade als diese Tracks gibt es nicht. Die früher je Tower
@@ -353,6 +355,29 @@ in §12.3.
   Gliedern (dunkles Metall, gelbe Fuge, mehr Glieder je länger), eingefahren wie im Modell, ausgefahren in einer
   knappen halben Sekunde zum Ziel, die Säge 1,25-fach und 15° ins Ziel geneigt, mit leichtem Zittern beim Schnitt.
   Ton: der Servo-Loop des Mech, solange ein Arm sägt. Eine laufende Kette (UV-Scroll) gibt es noch nicht.
+
+### 3.17 Shawarma Slicer: Physical (seit 2026-10-15)
+- **Döner-Strahl** (`attackType: 'stream'`, `stream`): ein dichter Strom geschnittener Fleischstücke vom Spieß zum
+  Ziel. Mit Ziel und ausgerichtetem Turm dreht der Antrieb aus dem Stand in 2,5 s hoch, ohne Ziel in 2 s herunter;
+  der Schaden folgt dem Antrieb (80 DPS bei vollem Antrieb mal Drive-Track). Hochgedreht bleibt er es von Ziel zu
+  Ziel. Getroffen wird jeder Bodengegner auf der Linie vom Turm zum Ziel, in Zielhöhe, bis 1,6 m daneben.
+- **Rolle:** Dauerfeuer in langen Wellen auf einer vollen Straße; schwach in kurzen Stößen (2,5 s bis voller
+  Antrieb) und gegen Panzerung (Physical 0,5 Heavy, 0,3 Fortified), keine Luft.
+- **Rechnung** (DPS-Modell, Basisstufe, mittlerer Antrieb 0,9 über eine Welle, die Breite als Splash 1 + 1,6/10):
+
+| DPS × Matrix / Gold | Unarmored | Light | Heavy | Fortified | Ethereal |
+|---|---:|---:|---:|---:|---:|
+| Shawarma (83,5 DPS, 150) | 0,56 | 0,56 | 0,28 | 0,17 | 0,06 |
+| Fire (110) | 0,61 | 0,49 | 0,25 | 0,10 | 0,04 |
+| Poison (100) | 0,33 | 0,28 | 0,09 | 0,07 | 0,05 |
+
+  Im Mittelfeld: unter Archer und Fire gegen Fleisch, mit 35 m deutlich weiter als die Flamme (20 m).
+- **Freischaltung:** Rotisserie (1.200 Gold, 20 s, ab Welle 9) hinter Fire Alchemy.
+- **Upgrades:** Damage 1,06, Drive 1,04 (der Fire-Rate-Track, multipliziert den Schaden), Range.
+- **Darstellung:** `tower-doner-stream.ts`: der Spieß dreht (1,5 U/s), der Schneidarm schlägt (6/s, ±8°), beides
+  mit dem Antrieb; mit Ziel fliegen bis 72 Stücke je Sekunde (Kopien der zwei losen Stücke des Modells) mit 40 m/s
+  zum Ziel. Ton: der Flammen-Loop leiser als Brutzeln, solange der Strom läuft. Geplant als Pfad, nicht gebaut:
+  Fett-Spritzer (verlangsamen, Synergie mit Fire).
 
 ---
 
@@ -589,8 +614,8 @@ den Text aus `description`.
 
 ### 6.3 Tech-Tree (Forschungsbaum)
 
-Frei wählbar mit Voraussetzungen, 24 Knoten in vier Kategorien
-(`research-tree.config.ts`), zusammen 182.120 Credits (bis 2026-10-01 19.670).
+Frei wählbar mit Voraussetzungen, 25 Knoten in vier Kategorien
+(`research-tree.config.ts`), zusammen 183.320 Credits (bis 2026-10-01 19.670).
 
 **Tempo (seit 2026-10-02):** Eine Forschung kann eine Mindestwelle haben
 (`minWave`). Sie öffnet in der Bauphase vor dieser Welle (`researchWave`: die
@@ -617,6 +642,7 @@ fünf Wellen Einkommen und steht gegen Upgrades.
 | `storm-mastery` | Storm Mastery | 1.200 | 20 s | 9 | Arcane Studies | Lightning Tower |
 | `flak-artillery` | Flak Artillery | 1.000 | 20 s | 8 | Siege Engineering | Iron Bastion |
 | `cybernetics` | Cybernetics | 1.500 | 20 s | 10 | Tentacle Biology + Siege Engineering | Chainsaw |
+| `rotisserie` | Rotisserie | 1.200 | 20 s | 9 | Fire Alchemy | Shawarma Slicer |
 | `laser-optics` | Laser Optics | 2.500 | 25 s | 12 | Storm Mastery | Sentinel Laser |
 | `chaos-rift` | Chaos Rift | 8.000 | 30 s | 20 | Siege Engineering + Storm Mastery | Chaos Tower |
 

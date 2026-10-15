@@ -276,6 +276,13 @@
       "view": "{\"cameraAngle\":0.6283185307179586,\"cameraDistance\":20,\"lightIntensity\":1.2,\"modelUrl\":\"assets/models/towers/sentinel.glb\",\"scale\":5.5}",
       "model": "11f3da31fdfdbaf7a9567a93a33b468df5e92402614b8559affd4ac2f44b0d9b"
     },
+    "tower-shawarma": {
+      "file": "tower-shawarma.webp",
+      "width": 168,
+      "height": 100,
+      "view": "{\"cameraAngle\":0.6283185307179586,\"cameraDistance\":20,\"lightIntensity\":1.2,\"modelUrl\":\"assets/models/towers/shawarma.glb\",\"scale\":6}",
+      "model": "490839ca00f2d7f6c99a6c7bfab87b60e56f97a4c6dd3965fea307285e1ca085"
+    },
     "tower-tentacle": {
       "file": "tower-tentacle.webp",
       "width": 168,

@@ -25,6 +25,8 @@ export function towerDps(tower: {
   // A laser's damage is per second, cold; the fire rate is its heat-up
   if (cfg.attackType === 'laser') return tower.combat.damage;
   // A saw's damage is per second and arm, times its chain speed
+  // A stream's damage is per second at full drive, times its drive track
+  if (cfg.attackType === 'stream') return tower.combat.damage * tower.combat.fireRate;
   if (cfg.attackType === 'saw') return tower.combat.damage * tower.combat.fireRate * (cfg.sawArms?.length ?? 1);
   return tower.combat.damage * tower.combat.fireRate;
 }

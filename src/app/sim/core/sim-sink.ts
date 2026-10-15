@@ -108,6 +108,11 @@ export interface SimSink {
      * arm rests), local; an empty list docks every arm. Once per frame while they cut, as the flames.
      */
     setSawTargets(id: string, targets: readonly (OpVec3 | null)[]): void;
+    /**
+     * The stream of stream tower `id` this frame: where it goes (local, null: the machine spins without one) and
+     * its drive, 0 to 1; 0 stops it. Once per frame while it runs, as the flames.
+     */
+    setStream(id: string, target: OpVec3 | null, drive: number): void;
     remove(id: string): void;
     clear(): void;
   };

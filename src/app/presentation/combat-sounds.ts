@@ -39,6 +39,13 @@ export function registerCombatSounds(audio: SpatialAudioManager): void {
     volume: 0.5,
     loop: true,
   });
+  // The Shawarma Slicer's sizzle while its stream runs: the flame loop, quieter
+  audio.registerSound('doner-loop', 'assets/sounds/towers/fire/flame_loop.mp3', {
+    refDistance: 25,
+    rolloffFactor: 1.3,
+    volume: 0.3,
+    loop: true,
+  });
   audio.registerSound('tentacle-grab', 'assets/sounds/towers/tentacle/tentacle-01.mp3', {
     refDistance: 25,
     rolloffFactor: 1.5,

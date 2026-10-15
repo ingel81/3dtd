@@ -30,6 +30,7 @@ import { createLosRing, createTipMarker } from './tower-overlays';
 import { RangeRingKit, placeRangeRing } from './range-ring';
 import { TurretPitch, createTurretPitch, drawTurretAim } from './tower-turret-aim';
 import { SawArms } from './tower-saw-arms';
+import { DonerStream } from './tower-doner-stream';
 import type { TowerAim } from '../../entities/tower-aim';
 import { TowerMuzzleFlash } from './tower-muzzle-flash';
 import { setTowerGreyedOut } from './tower-hold-fire';
@@ -77,6 +78,8 @@ export interface TowerRenderData {
   pitch?: TurretPitch;
   /** The Chainsaw's robot arms (TowerTypeConfig.sawArms) */
   sawArms?: SawArms;
+  /** The Shawarma Slicer's spit, arm and stream (TowerTypeConfig.stream) */
+  stream?: DonerStream;
   // GLTF animation support
   mixer: AnimationMixer | null;
   animations: Map<string, AnimationClip>;
@@ -469,6 +472,7 @@ export class ThreeTowerRenderer {
       renderData.pitch = createTurretPitch(config, turretPart);
     }
     if (config.sawArms && turretPart) renderData.sawArms = new SawArms(config, turretPart);
+    if (config.stream && turretPart) renderData.stream = new DonerStream(config, turretPart, 1 / config.scale);
     // Where the aim points already: the model loads while the simulation turns it
     this.drawAim(renderData);
 
@@ -827,6 +831,7 @@ export class ThreeTowerRenderer {
 
     // Remove mesh
     data.sawArms?.dispose();
+    data.stream?.dispose();
     this.scene.remove(data.mesh);
     this.disposeObject(data.mesh);
     if (this.shadowCasting) this.onShadowsChanged?.();
@@ -910,6 +915,7 @@ export class ThreeTowerRenderer {
       }
 
       data.sawArms?.update(deltaSeconds);
+      data.stream?.update(deltaSeconds);
 
       // Selection ring (visual), also on the hovered tower
       if ((data.isSelected || data.id === this.hoveredId) && data.selectionRing) {
@@ -936,6 +942,14 @@ export class ThreeTowerRenderer {
    */
   setSawTargets(id: string, targets: readonly (Vector3 | null)[]): void {
     this.towers.get(id)?.sawArms?.setTargets(targets);
+  }
+
+  /**
+   * The stream of stream tower `id` this frame (TowerCombatService.updateStreamTowers): where it goes (null: the
+   * machine spins without one) and its drive, 0 stops it. Before the model stands nothing.
+   */
+  setStream(id: string, target: Vector3 | null, drive: number): void {
+    this.towers.get(id)?.stream?.setStream(target, drive);
   }
 
   /** Turn and tilt the turret of `data` to its aim. */

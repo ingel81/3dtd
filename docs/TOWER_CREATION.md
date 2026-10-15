@@ -21,6 +21,7 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 - Projektil-Angriffe mit optionalen mehreren Fire Points (Dual-Gatling)
 - Beam-Angriffe (Fire Tower, `attackType: 'beam'`)
 - Melee-Angriffe (Tentacle Tower, `attackType: 'melee'`)
+- Strom-Angriffe (Shawarma Slicer, `attackType: 'stream'`: dreht hoch, trifft alles auf einer Linie)
 - Säge-Angriffe (Chainsaw, `attackType: 'saw'`: drei Roboterarme, jeder auf einem eigenen Ziel)
 - Laser-Angriffe (Sentinel Laser, `attackType: 'laser'`: ein Strahl auf ein Ziel, der auf diesem Ziel aufheizt)
 - **Chain-Hitscan-Angriffe** (Lightning Tower, `attackType: 'chain'`: Primary + N Jumps mit `chainFalloff` zwischen Hits, eigener `LightningBoltRenderer`)
@@ -46,6 +47,7 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 | Chaos | projectile | chaos | 50 | 60m | 1.2/s | 200 | Generalist (1,0 gegen jede Rüstung), Air+Ground, Projektil `chaos-orb`. Kenney-Modell, der mittlere Kristall dreht sich (`turretNode: 'crystal'`) |
 | Iron Bastion | projectile | pierce | 36 | 65m | 0.75/s | 150 | Flak: Splash 5 m (max. 6 Ziele), Air+Ground, Rohr neigt sich (`pitchNodes: ['gun']`). Modell aus `tools/blender/build_tower.py` |
 | Chainsaw | **saw** | pierce | 30 DPS je Arm | 14m | (Chain Speed) | 140 | Drei Arme, jeder auf einem eigenen Ziel nach Entfernung (`sawArms`), nur Boden; Arme gezeichnet von `tower-saw-arms.ts` |
+| Shawarma Slicer | **stream** | physical | 80 DPS voll | 35m | (Drive) | 150 | Strom auf einer Linie, dreht in 2,5 s hoch (`stream`), nur Boden; Spieß, Arm und Stücke von `tower-doner-stream.ts` |
 | Sentinel Laser | **laser** | lightning | 24 DPS kalt | 60m | – | 170 | Strahl auf ein Ziel, heizt in 4 s auf ×4 (`laser`), neues Ziel kalt; Air+Ground, Kopf neigt sich (`pitchNodes: ['head']`) |
 | Research Center | **passive** | – | 0 | 0 | 0 | 75 | Kein Combat, siehe Research-System. Einmal je Karte |
 | Missile Silo | **passive** | – | 0 | 0 | 0 | 400 | Kein Combat, von ihm startet der Nuklearschlag ([ABILITIES.md](ABILITIES.md)). Einmal je Karte, keine Upgrades, Forschung `nuclear-strike` |
@@ -157,7 +159,7 @@ const NEW_MODEL_URL = 'assets/models/towers/new_tower.glb';
 | `canTargetGround` | boolean | true | Kann Boden-Einheiten angreifen |
 | `hasAnimations` | boolean | false | GLTF-Animationen vorhanden |
 | `animationPingPong` | boolean | false | Animation vorwärts/rückwärts abspielen |
-| `attackType` | AttackType | 'projectile' | 'projectile', 'beam', 'melee', 'chain', 'laser', 'saw' oder 'passive' |
+| `attackType` | AttackType | 'projectile' | 'projectile', 'beam', 'melee', 'chain', 'laser', 'saw', 'stream' oder 'passive' |
 | `damagePerSecond` | number | - | DPS für Beam-Tower |
 | `beamWidth` | number | - | Kegel-Breite am Ende in Metern |
 | `defaultTargeting` | TargetingStrategy | `'closest'` | Standard-Targeting-Strategie |
@@ -168,6 +170,7 @@ const NEW_MODEL_URL = 'assets/models/towers/new_tower.glb';
 | `jumpRange` | number | - | **Chain-only:** Max. Distanz zwischen zwei Chain-Links in Metern |
 | `laser` | { maxFactor, rampSeconds, muzzleM } | - | **Laser-only:** `damage` ist Schaden je Sekunde kalt; auf demselben Ziel steigt er linear auf `maxFactor` in `rampSeconds` (geteilt durch die Fire Rate, Track „Heat-up"), der Strahl beginnt `muzzleM` vor dem Kopf-Pivot |
 | `sawArms` | { node, socket, out, axis, lift }[] | - | **Saw-only:** je Arm der Sägen-Node, Ansatz und Richtung am Torso, Richtung der Halterung eingefahren und Bogenhöhe, im Frame des Turret-Teils (glTF-Einheiten); `damage` ist Schaden je Sekunde und Arm, mal `fireRate` (Chain Speed) |
+| `stream` | { spinUpSeconds, spinDownSeconds, width, muzzle } | - | **Stream-only:** `damage` je Sekunde bei vollem Antrieb, mal `fireRate` (Drive); Antrieb hoch und herunter in diesen Zeiten, Treffer auf der Linie bis `width` m daneben, `muzzle` im Frame des Turret-Teils |
 | `damageType` | DamageType | - | Pflichtfeld: physical/pierce/siege/magic/fire/ice/poison/lightning/chaos |
 
 ### Modell aus einem Meshy-Kandidaten
@@ -450,8 +453,9 @@ export const TOWER_TYPES = {
   bastion: { ... },            // 12. Position (Iron Bastion)
   sentinel: { ... },           // 13. Position (Sentinel Laser)
   chainsaw: { ... },           // 14. Position (Chainsaw)
-  'research-center': { ... },  // 15. Position (passives Building, kein Combat)
-  'missile-silo': { ... },     // 16. Position (passives Building, Abschussort des Nuklearschlags)
+  shawarma: { ... },           // 15. Position (Shawarma Slicer)
+  'research-center': { ... },  // 16. Position (passives Building, kein Combat)
+  'missile-silo': { ... },     // 17. Position (passives Building, Abschussort des Nuklearschlags)
 };
 ```
 
@@ -928,6 +932,16 @@ gibt sie den Armen in ihrer Reihenfolge, freie Arme an das fernste. Jeder Arm tr
 `damage × fireRate × dt` (`applyBeamDamage`). Kein eigener Zustand je Tower: die Wahl ist jeden Sub-Step neu. Ans
 Bild geht einmal je Frame `towers.setSawTargets(id, Ziele)` (leer: alle Arme heim), `SawArms` im
 `ThreeTowerRenderer` fährt die Arme aus und ein; die Präsentation lässt `saw-loop` laufen, solange ein Arm sägt.
+
+## Beispiel: Shawarma Slicer (Stream Attack)
+
+`attackType: 'stream'`: `TowerCombatService.updateStreamTowers` hält ein Ziel wie die Flamme und dreht den Turm.
+Ausgerichtet steigt der Antrieb (`streamDrives`, je Tower, von `stopAllBeams` geleert wie die Hitze des Lasers),
+sonst fällt er; mit Ziel trifft der Strom jeden Bodengegner im schmalen Kegel vom Turm zum Ziel in dessen Höhe
+(`getEnemiesInCone`, Breite `width`) mit `damage × fireRate × Antrieb × dt`. Ans Bild geht einmal je Frame
+`towers.setStream(id, Ziel oder null, Antrieb)`, ein auslaufender Turm bekommt zuletzt `(null, 0)`;
+`DonerStream` im `ThreeTowerRenderer` dreht Spieß und Arm und fliegt die Stücke, die Präsentation lässt
+`doner-loop` laufen, solange ein Ziel da ist.
 
 ## Tower-Placement-System
 

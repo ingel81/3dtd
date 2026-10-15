@@ -84,6 +84,13 @@ export function towerCardTooltip(
         { label: 'TYPE', value: 'BEAM' },
         { label: 'RANGE', value: `${tower.range}m` },
       ]
+    : tower.attackType === 'stream'
+    ? [
+        // At full drive
+        { label: 'DPS', value: String(tower.damage) },
+        { label: 'TYPE', value: 'STREAM' },
+        { label: 'RANGE', value: `${tower.range}m` },
+      ]
     : tower.attackType === 'saw'
     ? [
         // Per arm and second, every arm on a target of its own

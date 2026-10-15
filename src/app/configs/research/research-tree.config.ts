@@ -222,6 +222,21 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     effects: [{ kind: 'unlock-tower', towerId: 'chainsaw' }],
   },
 
+  // The grill after the flame: the Shawarma Slicer, a stream of slices on a line, for the long waves of the teens
+  'rotisserie': {
+    id: 'rotisserie',
+    name: 'Rotisserie',
+    description: 'Unlocks the Shawarma Slicer: spins up a stream of slices that hits everything on its line',
+    category: 'tower-unlock',
+    branch: 'biology',
+    icon: 'refresh',
+    cost: 1200,
+    duration: 20,
+    prerequisites: ['fire-alchemy'],
+    minWave: 9,
+    effects: [{ kind: 'unlock-tower', towerId: 'shawarma' }],
+  },
+
   // ==================== Tower Unlocks (Tier 3) ====================
 
   'chaos-rift': {

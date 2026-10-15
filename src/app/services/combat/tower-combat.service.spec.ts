@@ -577,6 +577,78 @@ describe('TowerCombatService', () => {
   });
 
   // ────────────────────────────────────────────────────────────────
+  // Stream: spins up, hits its line, runs down
+  // ────────────────────────────────────────────────────────────────
+  describe('updateStreamTowers', () => {
+    const towerPos = { lat: 48.0, lon: 9.0, height: 0 };
+
+    function setup() {
+      const enemy = {
+        id: 'e-20',
+        alive: true,
+        health: { hp: 1000 },
+        position: { lat: towerPos.lat + 20 / METERS_PER_DEGREE_LAT, lon: towerPos.lon },
+        typeConfig: { id: 'zombie', isAirUnit: false, heightOffset: 0, scale: 1 },
+        heightOffset: 0,
+        transform: { terrainHeight: 0 },
+        movement: { getPathProgress: () => 0.5 },
+      };
+      const enemies: (typeof enemy)[] = [enemy];
+      mockInjections['GlobalRouteGridService'] = {
+        getEnemiesForTower: (_cells: unknown[], out: unknown[]) => {
+          out.length = 0;
+          out.push(...enemies);
+          return out;
+        },
+        getBodyEnemies: () => [],
+        isPositionVisibleFromTower: () => true,
+      };
+      const applyBeamDamage = vi.fn();
+      mockInjections['CombatEffectService'] = { applyBeamDamage };
+      service = new TowerCombatService();
+      service.initialize(NO_RESEARCH);
+      // The line needs real vector math, which the three mock lacks: one bystander on it
+      const bystander = { ...enemy, id: 'on-the-line' };
+      (service as unknown as { getEnemiesInCone: () => unknown[] }).getEnemiesInCone = () => [bystander];
+      const tower = new Tower(towerPos, 'shawarma');
+      tower.losReady = true;
+      tower.visibleCells = [{} as never];
+      tower.aim.current = 0;
+      const towerManager = { getAllActive: () => [tower] };
+      const step = () => {
+        service.updateStreamTowers(16, towerManager as never, 1000);
+        service.flushBeams();
+      };
+      return { tower, enemy, enemies, applyBeamDamage, step };
+    }
+
+    it('spins up from a standstill and deals its damage with the drive, to the target and its line', () => {
+      const { tower, applyBeamDamage, step } = setup();
+      const full = tower.typeConfig.damage * 0.016;
+      step();
+      const ids = applyBeamDamage.mock.calls.map((call) => (call[0] as { id: string }).id);
+      expect(ids).toEqual(['on-the-line', 'e-20']);
+      const drive = 0.016 / tower.typeConfig.stream!.spinUpSeconds;
+      expect(applyBeamDamage.mock.calls[0][1]).toBeCloseTo(full * drive, 9);
+      for (let i = 0; i < 200; i++) step();
+      expect(applyBeamDamage.mock.calls.at(-1)![1]).toBeCloseTo(full, 9);
+      expect(sink.towers.setStream).toHaveBeenLastCalledWith(tower.id, expect.anything(), 1);
+    });
+
+    it('runs down without a target and stops at 0, and stands still at the wave end', () => {
+      const { tower, enemy, enemies, step } = setup();
+      for (let i = 0; i < 50; i++) step();
+      enemy.alive = false;
+      enemies.length = 0;
+      step();
+      expect(sink.towers.setStream).toHaveBeenLastCalledWith(tower.id, null, expect.any(Number));
+      for (let i = 0; i < 200; i++) step();
+      expect(sink.towers.setStream).toHaveBeenLastCalledWith(tower.id, null, 0);
+      expect((service as unknown as { streamDrives: Map<string, number> }).streamDrives.size).toBe(0);
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────
   // Range upgrades reach the wake check and the radius fallback
   // ────────────────────────────────────────────────────────────────
   describe('upgraded range', () => {

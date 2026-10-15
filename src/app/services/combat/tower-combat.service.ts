@@ -99,6 +99,14 @@ export class TowerCombatService {
    */
   private readonly sawFrames = new Map<string, (OpVec3 | null)[]>();
   private readonly sawsDocked = new Set<string>();
+  /**
+   * Each stream tower's drive, 0 to 1, by tower: simulation state, but only within a wave (stopAllBeams clears
+   * it), so wave-start snapshots carry none of it. And what the renderer gets this frame: where the stream
+   * goes (null: it spins without one) and the drive; a tower whose drive ran down gets one last frame of 0.
+   */
+  private readonly streamDrives = new Map<string, number>();
+  private readonly streamFrames = new Map<string, { target: OpVec3 | null; drive: number }>();
+  private readonly streamsStopped = new Set<string>();
   private readonly _sawPicks: Enemy[] = [];
   private readonly _sawDist: number[] = [];
   private readonly _laserDir = new Vector3();
@@ -816,6 +824,10 @@ export class TowerCombatService {
     this.stopBeam(towerId);
     this.stopLaser(towerId);
     if (this.sawFrames.delete(towerId)) this.sawsDocked.add(towerId);
+    if (this.streamDrives.delete(towerId)) {
+      this.streamFrames.delete(towerId);
+      this.streamsStopped.add(towerId);
+    }
   }
 
   /**
@@ -830,6 +842,10 @@ export class TowerCombatService {
     // Every saw arm home: the clear in the next flush docks them
     for (const towerId of this.sawFrames.keys()) this.sawsDocked.add(towerId);
     this.sawFrames.clear();
+    // Every stream stands still
+    for (const towerId of this.streamDrives.keys()) this.streamsStopped.add(towerId);
+    this.streamDrives.clear();
+    this.streamFrames.clear();
     this.beamsCleared = true;
     this.lastBeamBloodEffect.clear();
   }
@@ -860,6 +876,86 @@ export class TowerCombatService {
     for (const towerId of this.sawsDocked) sink.towers.setSawTargets(towerId, []);
     this.sawsDocked.clear();
     for (const [towerId, targets] of this.sawFrames) sink.towers.setSawTargets(towerId, targets);
+    for (const towerId of this.streamsStopped) sink.towers.setStream(towerId, null, 0);
+    this.streamsStopped.clear();
+    for (const [towerId, frame] of this.streamFrames) sink.towers.setStream(towerId, frame.target, frame.drive);
+  }
+
+  // =====================================================
+  // STREAM TOWER COMBAT (Shawarma Slicer)
+  // =====================================================
+
+  /**
+   * Update stream towers: with a target and the turret aligned the drive
+   * spins up (TowerTypeConfig.stream) and the stream hits every ground enemy
+   * on its line from the muzzle to the target, `damage × fireRate × drive`
+   * per second; without, the drive runs down. Spun up it stays so from target
+   * to target. Called once per gameplay sub-step (game time).
+   */
+  updateStreamTowers(deltaTime: number, towerManager: TowerManager, gameTimeMs: number): void {
+    const dt = deltaTime / 1000;
+    for (const tower of towerManager.getAllActive()) {
+      const stream = tower.typeConfig.stream;
+      if (tower.typeConfig.attackType !== 'stream' || !stream) continue;
+      if (!tower.losReady || !tower.isBuilt(gameTimeMs)) continue;
+      if (tower.isSleeping && !this.tryWakeTower(tower, gameTimeMs)) continue;
+
+      const candidates = this.collectCandidates(tower);
+      this.beginBodyAim(tower);
+      const losCheck = this.buildLosCheck(tower);
+      const airTargeting = this.research.airTargetingFor(tower.ownerId);
+      let target = tower.findTarget(candidates, airTargeting, losCheck, this.bodyDistSq);
+      // It holds its target like a flame: the periodic sight check lets go of one behind a building
+      if (target && tower.needsLosRecheck(gameTimeMs)) {
+        tower.markLosChecked(gameTimeMs);
+        if (!losCheck(target)) {
+          tower.clearTarget();
+          target = tower.findTarget(candidates, airTargeting, losCheck, this.bodyDistSq);
+        }
+      }
+
+      let drive = this.streamDrives.get(tower.id) ?? 0;
+      let aligned = false;
+      if (target) {
+        tower.lastTargetTime = gameTimeMs;
+        tower.isSleeping = false;
+        aimAt(tower.aim, this.calculateHeading(tower.position, this.targetPoint(target)));
+        aligned = isAimAligned(tower.aim);
+      } else {
+        if (gameTimeMs - tower.lastTargetTime > Tower.SLEEP_DELAY) tower.isSleeping = true;
+        releaseAim(tower.aim);
+      }
+      drive = aligned ? Math.min(1, drive + dt / stream.spinUpSeconds) : Math.max(0, drive - dt / stream.spinDownSeconds);
+      if (drive <= 0) {
+        if (this.streamDrives.delete(tower.id)) {
+          this.streamFrames.delete(tower.id);
+          this.streamsStopped.add(tower.id);
+        }
+        continue;
+      }
+      this.streamDrives.set(tower.id, drive);
+
+      if (!target || !aligned) {
+        this.streamFrames.set(tower.id, { target: null, drive });
+        continue;
+      }
+      // From the muzzle to the target, every ground enemy within the stream's width of the line
+      const targetLocal = this.aimLocalInto(target, this._beamTargetScratch);
+      // The line at the target's height: the stream comes down on the road, what walks on it in front of the
+      // target is on the line, not under it
+      const source = this.muzzleLocal(tower, this._beamSourceScratch);
+      source.y = targetLocal.y;
+      const dx = targetLocal.x - source.x;
+      const dz = targetLocal.z - source.z;
+      const length = Math.sqrt(dx * dx + dz * dz);
+      const damage = tower.combat.damage * tower.combat.fireRate * drive * dt;
+      const damageType = tower.typeConfig.damageType;
+      const hit = this.getEnemiesInCone(source, targetLocal, length + stream.width, stream.width * 2, candidates);
+      if (!hit.includes(target)) hit.push(target);
+      for (const enemy of hit) this.combatEffectService.applyBeamDamage(enemy, damage, damageType, tower.id);
+      this.streamFrames.set(tower.id, { target: opVec(targetLocal), drive });
+      this.streamsStopped.delete(tower.id);
+    }
   }
 
   // =====================================================

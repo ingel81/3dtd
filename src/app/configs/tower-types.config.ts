@@ -3,14 +3,14 @@ import { DetMath } from '../utils/det-math';
 
 export type TowerTypeId =
   | 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rocket' | 'ice' | 'fire' | 'tentacle' | 'poison' | 'lightning' | 'chaos'
-  | 'bastion' | 'sentinel' | 'chainsaw'
+  | 'bastion' | 'sentinel' | 'chainsaw' | 'shawarma'
   | 'research-center' | 'missile-silo';
 export type ProjectileTypeId =
   | 'arrow' | 'cannonball' | 'arcane-orb' | 'ice-shard' | 'bullet' | 'rocket' | 'poison-glob' | 'chaos-orb' | 'flak-shell'
   // The hero's ammo (hero.config.ts), fired by no tower
   | 'hero-round' | 'hero-shell' | 'hero-rune';
 export type UpgradeId = 'speed' | 'damage' | 'range' | 'beam-width' | 'research-slots';
-export type AttackType = 'projectile' | 'beam' | 'melee' | 'passive' | 'chain' | 'laser' | 'saw';
+export type AttackType = 'projectile' | 'beam' | 'melee' | 'passive' | 'chain' | 'laser' | 'saw' | 'stream';
 export type TargetingStrategy = 'closest' | 'lowest-hp' | 'highest-hp' | 'first' | 'last' | 'air-priority';
 export type AirSubStrategy = 'closest' | 'lowest-hp' | 'highest-hp';
 
@@ -307,6 +307,15 @@ export interface TowerTypeConfig {
    * (`socket`), the way it leaves (`out`), the way the saw's mount faces docked (`axis`) and how high the arm
    * arches (`lift`, a share of its span).
    */
+  /**
+   * Stream only (attackType 'stream'): a dense stream of pieces on a line from the muzzle to the target, `damage`
+   * per second at full drive times `fireRate` (the drive track), to every ground enemy within `width` m of that
+   * line. The drive spins up from a standstill over `spinUpSeconds` while it has a target and the turret is
+   * aligned, and down over `spinDownSeconds` without; the damage follows the drive. `muzzle` is where the stream
+   * leaves, in the turret part's frame of the model (glTF units, y up).
+   */
+  stream?: { spinUpSeconds: number; spinDownSeconds: number; width: number; muzzle: [number, number, number] };
+
   sawArms?: readonly { node: string; socket: [number, number, number]; out: [number, number, number];
     axis: [number, number, number]; lift: number }[];
 
@@ -330,6 +339,7 @@ const CHAOS_MODEL_URL = 'assets/models/towers/chaos.glb';
 const BASTION_MODEL_URL = 'assets/models/towers/bastion.glb';
 const SENTINEL_MODEL_URL = 'assets/models/towers/sentinel.glb';
 const CHAINSAW_MODEL_URL = 'assets/models/towers/chainsaw.glb';
+const SHAWARMA_MODEL_URL = 'assets/models/towers/shawarma.glb';
 
 export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   archer: {
@@ -771,6 +781,45 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
       RANGE_UPGRADE,
     ],
   },
+  shawarma: {
+    id: 'shawarma',
+    name: 'Shawarma Slicer',
+    defaultTargeting: 'first',
+    // Meshy "Cyber Shawarma Slicer" (tools/blender/towers/shawarma.json, build_tower.py): nodes base, turret_top
+    // (the machine, the yaw axis on the origin), under it spit (the meat on its skewer, turning about y), arm with
+    // blade (the cutter, swinging on its joint) and slice_a, slice_b (two cut pieces, the renderer flies copies of
+    // them, tower-doner-stream.ts). 1.72 units across, 1.64 high, the base's widest vertex 0.908 from the axis: at
+    // scale 4.5 a machine 7.4 m high; the stream leaves 0.77 units over the turret's foot.
+    modelUrl: SHAWARMA_MODEL_URL,
+    scale: 4.5,
+    previewScale: 6,
+    heightOffset: 0,
+    shootHeight: 5.1, // Where the stream leaves the machine
+    footprintRadius: 4.1,
+    rotationY: -1.1788, // The stream leaves along (-0.92, 0, 0.38) in the file: turned so it faces north at rest
+    turretBarrelOffset: -1.1788,
+    turnsTurret: true,
+    modelTop: 7.38,
+    attackType: 'stream',
+    damageType: 'physical',
+    damage: 80, // Per second at full drive
+    range: 35,
+    fireRate: 1, // Drive: multiplies the damage per second, its own upgrade track
+    projectileType: 'arrow', // Fallback, unused (stream)
+    stream: { spinUpSeconds: 2.5, spinDownSeconds: 2, width: 1.6, muzzle: [0.04, 0.77, 0.33] },
+    // Sustained fire on a line: spun up it stays so from target to target, everything on the line in front of it
+    // takes the stream. Worth it in a long wave on a busy road, weak in a short burst (2.5 s to full drive) and
+    // against armour (physical). 0.56 unarmored DPS per gold in the DPS model (MASTER_GAME_DESIGN §3.17).
+    cost: 150,
+    canTargetAir: false,
+    canTargetGround: true,
+    description: 'Spins up a stream of meat slices that hits everything on its line. Strong in long waves.',
+    upgrades: [
+      degressiveUpgrade('damage', 'Damage', 'damage', 1.06),
+      degressiveUpgrade('speed', 'Drive', 'fireRate', 1.04),
+      RANGE_UPGRADE,
+    ],
+  },
   'research-center': {
     id: 'research-center',
     name: 'Research Center',
@@ -882,6 +931,12 @@ export function laserHeat(laser: NonNullable<TowerTypeConfig['laser']>, heldSeco
   const t = Math.min(1, (heldSeconds * fireRate) / laser.rampSeconds);
   return 1 + (laser.maxFactor - 1) * t;
 }
+
+/**
+ * The drive the DPS model counts a stream with: it spins up in the first seconds of a wave and stays so while
+ * targets come (TowerTypeConfig.stream).
+ */
+export const STREAM_MEAN_DRIVE = 0.9;
 
 /** The factor the DPS model counts a laser with: the mean of cold and hot, a body that lives long and one that dies quickly. */
 export function laserMeanFactor(laser: NonNullable<TowerTypeConfig['laser']>): number {

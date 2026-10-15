@@ -19,7 +19,7 @@ import { resolve } from 'node:path';
 
 describe('tower types config', () => {
   // Combat towers + passive buildings (research-center, missile-silo)
-  const combatIds: TowerTypeId[] = ['archer', 'dual-gatling', 'cannon', 'magic', 'rocket', 'ice', 'fire', 'tentacle', 'poison', 'lightning', 'chaos', 'bastion', 'sentinel', 'chainsaw'];
+  const combatIds: TowerTypeId[] = ['archer', 'dual-gatling', 'cannon', 'magic', 'rocket', 'ice', 'fire', 'tentacle', 'poison', 'lightning', 'chaos', 'bastion', 'sentinel', 'chainsaw', 'shawarma'];
   const allIds: TowerTypeId[] = [...combatIds, 'research-center', 'missile-silo'];
 
   it('contains all tower types', () => {
@@ -253,6 +253,21 @@ describe('tower types config', () => {
     expect(perGold(saw, 'unarmored')).toBeLessThan(perGold(getTowerType('tentacle'), 'unarmored'));
     expect(perGold(saw, 'heavy')).toBeLessThan(0.25);
     expect(getResearchForTower('chainsaw')?.prerequisites).toEqual(['tentacle-biology', 'siege-engineering']);
+  });
+
+  it('the shawarma slicer streams on a line at its mean drive, in the middle of the field per gold', () => {
+    const doner = getTowerType('shawarma');
+    expect(doner.attackType).toBe('stream');
+    expect(doner.canTargetAir).toBe(false);
+    expect(doner.stream!.spinUpSeconds).toBeGreaterThan(2);
+
+    const perGold = (t: TowerTypeConfig, armor: ArmorType) =>
+      (computeTowerDPSFromLevels(t, {}) * DAMAGE_MATRIX[t.damageType][armor]) / t.cost;
+    expect(perGold(doner, 'unarmored')).toBeCloseTo(0.557, 3);
+    // Below the archer and the fire tower against flesh, above the cannon and the poison tower
+    expect(perGold(doner, 'unarmored')).toBeLessThan(perGold(getTowerType('fire'), 'unarmored'));
+    expect(perGold(doner, 'unarmored')).toBeGreaterThan(perGold(getTowerType('poison'), 'unarmored'));
+    expect(getResearchForTower('shawarma')?.prerequisites).toEqual(['fire-alchemy']);
   });
 
   it('every configured turretNode exists in its model', () => {

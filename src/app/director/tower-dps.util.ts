@@ -7,7 +7,7 @@
  */
 
 import { Tower } from '../entities/tower.entity';
-import { TowerTypeConfig, UpgradeId, laserMeanFactor, upgradeFactor } from '../configs/tower-types.config';
+import { STREAM_MEAN_DRIVE, TowerTypeConfig, UpgradeId, laserMeanFactor, upgradeFactor } from '../configs/tower-types.config';
 import { PROJECTILE_TYPES } from '../configs/projectile-types.config';
 import { DamageType, ArmorType, ARMOR_TYPES } from '../configs/combat/combat.types';
 import { DAMAGE_MATRIX } from '../configs/combat/damage-matrix.config';
@@ -75,6 +75,7 @@ export function statMultiplier(
  *   - Projectile/melee damage × fireRate (default)
  *   - Laser damage per second at its mean heat (Sentinel)
  *   - Saw damage per second times its arms (Chainsaw)
+ *   - Stream damage per second at its mean drive, its width as splash (Shawarma)
  *   - Chain geometric series 1 + f + f² + … + f^maxJumps (Lightning)
  *   - Additive DoT component (Poison, flat — AI approximation, intentionally
  *     unscaled by the damage track)
@@ -92,6 +93,10 @@ export function computeTowerDPSFromLevels(
     // Beam towers (Fire) keep damagePerSecond in config because applyUpgrade()
     // multiplies _combat.damage (which starts at 0); scale by the damage track.
     base = (cfg.damagePerSecond ?? 0) * statMultiplier(cfg, 'damage', levels);
+  } else if (cfg.attackType === 'stream') {
+    // Damage per second at full drive times the drive track, at its mean drive over a wave
+    base = cfg.damage * statMultiplier(cfg, 'damage', levels) * cfg.fireRate * statMultiplier(cfg, 'fireRate', levels)
+      * STREAM_MEAN_DRIVE;
   } else if (cfg.attackType === 'saw') {
     // Every arm saws on a body of its own while there are enough
     base = cfg.damage * statMultiplier(cfg, 'damage', levels) * cfg.fireRate * statMultiplier(cfg, 'fireRate', levels)
@@ -130,7 +135,9 @@ export function computeTowerDPSFromLevels(
   }
   // A slam hits its neighbours for a share of the strike: a smaller radius in this soft measure
   const slamSplash = cfg.meleeSlam ? cfg.meleeSlam.radius * cfg.meleeSlam.share : 0;
-  const splashRadius = Math.max(projectileSplash, beamSplash, slamSplash);
+  // A stream hits what stands on its line: its width as a radius
+  const streamSplash = cfg.stream?.width ?? 0;
+  const splashRadius = Math.max(projectileSplash, beamSplash, slamSplash, streamSplash);
   if (splashRadius > 0) {
     const mult = Math.min(SPLASH_MULT_CAP, 1 + splashRadius / SPLASH_NORM);
     base *= mult;

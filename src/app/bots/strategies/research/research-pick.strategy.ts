@@ -33,7 +33,7 @@ import {
 } from '../../../configs/research/research.types';
 import { ArmorType, ARMOR_TYPES } from '../../../configs/combat/combat.types';
 import { DAMAGE_MATRIX } from '../../../configs/combat/damage-matrix.config';
-import { TowerTypeId, TOWER_TYPES, laserMeanFactor } from '../../../configs/tower-types.config';
+import { STREAM_MEAN_DRIVE, TowerTypeId, TOWER_TYPES, laserMeanFactor } from '../../../configs/tower-types.config';
 import { waveHasAir, waveRules } from '../../../director/wave-rules';
 import { ENEMY_TYPES, EnemyTypeId } from '../../../configs/enemy-types.config';
 import { HERO } from '../../../configs/hero.config';
@@ -101,7 +101,7 @@ export class ResearchPickStrategy extends BaseStrategy {
       'toxic-compounds', 'fire-alchemy',
       'advanced-weaponry', 'nuclear-strike', 'frost-bomb', 'storm-mastery', 'emp',
       'master-engineering', 'orbital-laser',
-      'flak-artillery', 'laser-optics', 'cybernetics',
+      'flak-artillery', 'laser-optics', 'cybernetics', 'rotisserie',
       'chaos-rift', 'advanced-engineering', 'transcendent-tech',
       'mercenary-contract',     // the hero; HeroStrategy hires him once it is done
     ],
@@ -361,6 +361,8 @@ export class ResearchPickStrategy extends BaseStrategy {
       let dps: number;
       if (towerCfg.attackType === 'beam') {
         dps = towerCfg.damagePerSecond ?? 0;
+      } else if (towerCfg.attackType === 'stream') {
+        dps = towerCfg.damage * STREAM_MEAN_DRIVE;
       } else if (towerCfg.attackType === 'saw') {
         dps = towerCfg.damage * (towerCfg.sawArms?.length ?? 1);
       } else if (towerCfg.attackType === 'laser' && towerCfg.laser) {
