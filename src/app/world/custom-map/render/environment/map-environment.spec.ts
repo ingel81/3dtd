@@ -1,5 +1,5 @@
-import { Color, Vector3, type WebGLRenderer } from 'three';
-import { describe, expect, it } from 'vitest';
+import { Color, LinearMipmapLinearFilter, SRGBColorSpace, Vector3, type Texture, type WebGLRenderer } from 'three';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CustomMapEnvironment } from './map-environment';
 import { HEIGHT_FOG_UNIFORMS } from './height-fog';
 import { SHADOW_PARTS } from './shadow-parts';
@@ -336,6 +336,44 @@ describe('the moon', () => {
     e.set({ ...env, biome: 'mars', planet: { azimuth: 90, elevation: 20, size: 3 } });
     expect(u['uPlanet'].value).toBeGreaterThan(0);
     e.dispose();
+  });
+
+  describe('the picture of the Earth (TODO E194)', () => {
+    afterEach(() => vi.unstubAllGlobals());
+
+    /** Counts the requests for the picture and decodes any blob into a stand-in bitmap */
+    function stubLoad(): string[] {
+      const urls: string[] = [];
+      vi.stubGlobal('fetch', async (input: RequestInfo | URL) => {
+        urls.push(String(input));
+        return new Response(new Blob([new Uint8Array(4)]));
+      });
+      vi.stubGlobal('createImageBitmap', async () => ({ width: 1024, height: 512, close: () => undefined }));
+      return urls;
+    }
+
+    it('loads it once for a map with a planet, sharp and in sRGB, and never for a map without one', async () => {
+      const urls = stubLoad();
+      const plain = new CustomMapEnvironment({ ...env, biome: 'mars' });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(urls).toEqual([]);
+      expect(plain.skyDome.uniforms['uPlanetMapOn'].value).toBe(0);
+      plain.dispose();
+
+      const e = new CustomMapEnvironment({ ...env, biome: 'moon' });
+      e.set({ ...env, biome: 'moon', planet: { azimuth: 12, elevation: 20, size: 9 } });
+      await vi.waitFor(() => expect(e.skyDome.uniforms['uPlanetMapOn'].value).toBe(1));
+      expect(urls).toHaveLength(1);
+      expect(urls[0]).toMatch(/skies\/earth\.webp$/);
+      const map = e.skyDome.uniforms['uPlanetMap'].value as Texture;
+      expect(map.colorSpace).toBe(SRGBColorSpace);
+      expect(map.minFilter).toBe(LinearMipmapLinearFilter);
+      // The setting stays as it was: the same direction and size
+      expect(e.skyDome.uniforms['uPlanet'].value).toBeCloseTo((9 * Math.PI) / 360, 6);
+      e.set({ ...env, biome: 'moon', planet: { azimuth: 40, elevation: 20, size: 6 } });
+      expect(urls).toHaveLength(1);
+      e.dispose();
+    });
   });
 
   it('lets the map lights matter by day under the black sky, and the land beyond the border show', () => {

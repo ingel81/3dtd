@@ -604,8 +604,13 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   (heller Staub, dunkler Basaltsand, ockerfarbener Kies, rostige, graue und schwarze Steine); in der Dämmerung ein
   blauer Hof um die Sonne über braungrauem Himmel
 - **Planet** (`environment.planet`: `azimuth`, `elevation` in Grad, `size` als scheinbarer Durchmesser in Grad, 0
-  keiner; `planetOf`): eine Scheibe im prozeduralen Himmel, von der Sonnenseite beleuchtet, Ozeane, Land und Wolken,
-  ein heller Atmosphärensaum (Uniforms `uPlanetDir`, `uPlanet` = Radius in Bogenmaß). Ohne Einstellung zeigt der Look
+  keiner; `planetOf`): die Erde im prozeduralen Himmel (`planetColor` in `sky-dome.ts`, im Kuppel-Shader, kein
+  eigener Draw Call; Uniforms `uPlanetDir`, `uPlanet` = Radius in Bogenmaß). Bild: NASA Blue Marble mit Wolken
+  (`skies/earth.webp`, 1024 x 512, sRGB, Alpha = Glanz auf offenem Meer, gebaut von `tools/map-assets/build_planet.py`,
+  rund 240 KB), geladen erst, wenn eine Karte einen Planeten zeigt (`PLANET_IMAGE`, über den Kartendaten-Cache), mit
+  Mipmaps; bis dahin eine schlichte Scheibe in Meeresfarbe. Fest gedreht: Europa und Afrika zur Karte, Nordpol etwas
+  zum Betrachter geneigt. Licht nach der Sonnenrichtung mit weichem, zur Grenze hin wärmerem Terminator, Sonnenglanz
+  auf dem Meer, dünner blauer Luftsaum auf der Tagseite, der knapp über den Rand reicht. Ohne Einstellung zeigt der Look
   Moon die Erde (`DEFAULT_PLANET`: Nordosten, 33 Grad hoch, 4 Grad), andere Looks keinen. Ein Bildhimmel zeigt keinen.
   Auf dem Mond gilt der schwarze Himmel als dunkel genug für die Lichter der Karte: `darkness` mindestens 0,5 wie in
   der Hölle (Schein der Lampen, Fenster, Punktlichter-Pool)
