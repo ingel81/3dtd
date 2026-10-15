@@ -137,13 +137,20 @@ export function buildRuinedCity(): CustomMapDocument {
   // The city taken back: birches and young oaks in the fallen blocks and the crater, ivy and brush in the rubble
   k.scatter(['tree-birch', 'tree-oak-young', 'tree-dead', 'bush-ivy', 'shrub-wide', 'bush'], [{ x: -96, y: 96 }, { x: 96, y: -32 }, { x: -32, y: -96 }, { x: 160, y: 96 }, { x: -160, y: -96 }, crater, { x: viaduct.x, y: 0 }, { x: 0, y: -170 }], { radius: 24, strength: 0.7 }, { density: 1.6, minDistance: 5 });
   k.scatter(['grass-green', 'nettles', 'bush-ivy', 'grass-tall-dry'], spots.filter((_, i) => i % 2 === 1), { radius: 16, strength: 0.6 }, { density: 5, minDistance: 2 });
-  // Smoke out of the crater and the fallen spans, a lantern flickering at the camp, paper blowing down the avenues,
-  // crows over the ruins
-  // TODO(E190): a far siren's echo, the wind in the ruins
+  // Smoke out of the crater and the fallen spans, a lantern flickering at the camp
   for (const [x, y, sc] of [[crater.x, crater.y, 2], [viaduct.x, viaduct.y, 1.4], [64, -190, 1.2], [torso.x, torso.y + 6, 1.2]] as const) k.place('fx-smoke', x, y, { scale: sc });
   for (const [dx, dy] of [[6, -20], [-18, -22]] as const) if (k.free(hq.x + dx, hq.y + dy, 0.5)) k.place('lantern', hq.x + dx, hq.y + dy);
-  for (const [x, y] of [[-64, 64], [128, 100], [-120, -128]] as const) k.place('fx-leaves', x, y, { tint: '#d8d2c2', scale: 1.4 });
-  k.place('fx-birds', -60, 40, { z: 15, scale: 0.6 });
+
+  // ---- Life: paper blowing down the three avenues, crows over the fallen blocks and the torso, smoke lying in the
+  // crater and over the canal; the wind in the ruins, the camp's fire
+  // TODO(E190): crows (birds of the crow species), a far siren's echo
+  for (const line of [northLine, eastLine, southLine]) k.lifeRoute('leaves', line.slice(0, -1), { height: 3, color: '#d8d2c2', density: 0.6 });
+  k.lifeArea('birds', [{ x: -150, y: 40 }, { x: 60, y: 40 }, { x: 60, y: 150 }, { x: -150, y: 150 }], { height: 30 });
+  k.lifeArea('birds', [{ x: 130, y: 20 }, { x: 240, y: 20 }, { x: 240, y: 110 }, { x: 130, y: 110 }], { height: 22, density: 0.6 });
+  k.lifeArea('fog', [{ x: crater.x - 30, y: crater.y - 30 }, { x: crater.x + 30, y: crater.y - 30 }, { x: crater.x + 30, y: crater.y + 30 }, { x: crater.x - 30, y: crater.y + 30 }], { color: '#9a948a', density: 0.8, quality: 'high' });
+  k.lifeRoute('fog', canal, { color: '#9aa096', density: 0.6, quality: 'high' });
+  k.lifeArea('sound', [{ x: hq.x + 4, y: hq.y - 32 }, { x: hq.x + 20, y: hq.y - 32 }, { x: hq.x + 20, y: hq.y - 16 }, { x: hq.x + 4, y: hq.y - 16 }], { sound: 'fire', volume: 0.4 });
+  k.lifeSettings({ ambience: { sound: 'biome', volume: 0.55 } });
 
   // The ruins still take hits: shots wear the standing blocks down until they fall (TODO E131)
   k.gameplay({ destructible: true });
