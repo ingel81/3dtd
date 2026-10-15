@@ -35,6 +35,23 @@ export function buildMarsCanyon(): CustomMapDocument {
     }
     k.erode({ x, y }, { radius: r * 1.3, strength: 1 }, 8);
   }
+  // Buttes at the map's edges, away from the spawns: towers of layered rock 40 to 55 m over the plain, their walls in
+  // Mars cliff rocks, a skyline before the far range; each whole inside the map, so no side runs down to the apron
+  k.environment({ biome: 'mars' });
+  const inside = (v: number, r: number) => Math.sign(v) * Math.min(Math.abs(v), 250 - r * 1.3);
+  const buttes = ([[-230, 230, 22, 52], [-20, 238, 18, 44], [236, 150, 24, 55], [238, 10, 18, 40], [110, -238, 18, 42], [-130, -238, 20, 46], [-236, -190, 22, 50], [-238, 150, 16, 40]] as const).map(
+    ([x, y, r, h]) => [inside(x, r), inside(y, r), r, h] as const,
+  );
+  for (const [n, [x, y, r, h]] of buttes.entries()) {
+    const c = { x, y };
+    k.plateau(c, { radius: r, falloff: 0.25 }, plain + h);
+    const a = k.noise.hash(n, 1, 41) * Math.PI * 2;
+    k.plateau({ x: x + Math.cos(a) * r * 0.6, y: y + Math.sin(a) * r * 0.6 }, { radius: r * 0.7, falloff: 0.25 }, plain + h - 5);
+    k.terrace(c, { radius: r * 1.6, falloff: 0.5 }, 6, plain, 0.5);
+    k.roughen(c, { radius: r * 1.5, falloff: 0.7 }, 3, 6300 + n);
+  }
+  const rim = (c: MapPoint, r: number) => Array.from({ length: 19 }, (_, i) => ({ x: c.x + Math.cos((i / 18) * Math.PI * 2) * r, y: c.y + Math.sin((i / 18) * Math.PI * 2) * r }));
+  for (const [x, y, r] of buttes) k.cliffRocks(rim({ x, y }, r * 0.95), { radius: 10 });
 
   // ---- Two canyons meeting in a basin, the colony on its south side
   const west = { x: -252, y: 30 };

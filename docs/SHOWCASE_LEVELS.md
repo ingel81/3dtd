@@ -262,7 +262,8 @@ Look `moon`, tiefe Sonne (22°), schwarzer Himmel.
 `tools/maps/levels/mars-canyon.ts`, Small 512 m. Spuren 365, 417 und 358 m. Zwei rostrote Canyons treffen sich in
 einem Becken, eine dritte Spur kommt vom Ostrand; die Kolonie (Hub, Gewächshauskuppeln, Landeplatz, Windräder,
 Solarfeld auf einer Bank darüber) steht am Südende. Dünen, Krater und Tafelberge auf der Ebene. Look `mars`, staubiger
-Nachmittag.
+Nachmittag. An den Rändern stehen abseits der Spawns acht Felstürme aus Gelände (40 bis 55 m über
+der Ebene, gestuft, Mars-Klippenfelsen am Fuß), ganz innerhalb der Karte, als Kulisse vor der fernen Bergkette.
 
 ### 11 Endzeit-Stadt (`ruined-city`)
 `tools/maps/levels/ruined-city.ts`, Small 512 m. Spuren 572, 444 und 444 m. Das Straßenraster der Stadt (64 m)
