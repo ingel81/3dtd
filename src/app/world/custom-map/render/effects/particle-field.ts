@@ -27,7 +27,7 @@ import { WIND_UNIFORMS } from '../environment/wind';
  * normally. Weather (rain, snow around the camera) is weather.ts.
  */
 
-export type ParticleKind = Exclude<EffectKind, 'waterfall' | 'birds'> | 'spray';
+export type ParticleKind = Exclude<EffectKind, 'waterfall' | 'birds'> | 'spray' | 'dust';
 
 const KIND_ID: Record<ParticleKind, number> = {
   fire: 0,
@@ -40,6 +40,7 @@ const KIND_ID: Record<ParticleKind, number> = {
   sparkle: 7,
   spray: 8,
   sparks: 9,
+  dust: 10,
 };
 
 /** Per kind: particle life (s), size (m), default colour, additive, particles per unit rate */
@@ -54,6 +55,7 @@ const KIND_LOOK: Record<ParticleKind, { life: number; size: number; color: strin
   sparkle: { life: 1.6, size: 0.15, color: '#ffffff', additive: true },
   spray: { life: 2.2, size: 3.2, color: '#eef4f6', additive: false },
   sparks: { life: 1.4, size: 0.16, color: '#ffb040', additive: true },
+  dust: { life: 4, size: 1.2, color: '#c8a878', additive: false },
 };
 
 export interface ParticleEmitter {
@@ -155,6 +157,7 @@ export function particleCount(kind: ParticleKind, rate: number | undefined): num
     sparkle: 8,
     spray: 14,
     sparks: 6,
+    dust: 12,
   };
   return Math.max(1, Math.min(400, Math.round((rate ?? defaults[kind]) * life)));
 }
@@ -247,6 +250,18 @@ if (uKind == 0) {
   p.xz += vec2(cos(a * 3.0), sin(a * 3.0)) * (0.8 + rnd(seed * 11.0 + cycle) * 1.6) * s;
   color = mix(vec3(1.0, 0.95, 0.7), aColor, phase);
   alpha = (1.0 - phase) * step(0.5, rnd(seed * 5.0 + cycle * 0.7)) * mix(1.0, 0.3, clamp(uLight, 0.0, 1.0));
+} else if (uKind == 10) {
+  // Dust devil: a whirl wandering round its spot (radius), dust spiralling up and spreading at the top; each lives
+  // about 40 s of every minute. Its own seed comes from its spot, so all its particles share the whirl
+  float own = fract(aOrigin.x * 0.137 + aOrigin.z * 0.071) * 100.0;
+  vec2 centre = aOrigin.xz + vec2(sin(uTime * 0.07 + own), cos(uTime * 0.05 + own * 1.3)) * radius;
+  float alive = fract(uTime / 60.0 + own * 0.01);
+  float on = smoothstep(0.0, 0.08, alive) * (1.0 - smoothstep(0.6, 0.68, alive));
+  float turn = seed * 40.0 + uTime * 3.0 + phase * 8.0;
+  float wide = 0.6 + phase * phase * 4.0;
+  p = vec3(centre.x, aOrigin.y, centre.y) + vec3(cos(turn) * wide, height + phase * 18.0, sin(turn) * wide);
+  size *= 0.5 + phase * 2.5;
+  alpha = smoothstep(0.0, 0.1, phase) * (1.0 - phase) * 0.35 * on;
 } else {
   // Spray at a waterfall's foot: billows up and out from where the water lands
   p.xz += vec2(cos(a), sin(a)) * phase * 2.5;
@@ -255,7 +270,7 @@ if (uKind == 0) {
   alpha = smoothstep(0.0, 0.15, phase) * (1.0 - phase) * 0.75;
 }
   vUv = uv;
-if (uKind == 1 || uKind == 4 || uKind == 5 || uKind == 6 || uKind == 8) {
+if (uKind == 1 || uKind == 4 || uKind == 5 || uKind == 6 || uKind == 8 || uKind == 10) {
   // Lit things (smoke, fog, leaves, snow, spray) follow the scene's light; glowing ones do not
   color *= uLight;
 }
@@ -288,8 +303,8 @@ void main() {
 if (uKind == 5) {
   // Leaf: a small pointed oval
   shape = smoothstep(1.0, 0.8, length(d * vec2(2.4, 1.2)) * 2.0);
-} else if (uKind == 1 || uKind == 4 || uKind == 8) {
-  // Smoke and fog: very soft puffs
+} else if (uKind == 1 || uKind == 4 || uKind == 8 || uKind == 10) {
+  // Smoke, fog and dust: very soft puffs
   shape = pow(max(1.0 - r, 0.0), 1.6);
 } else {
   shape = pow(max(1.0 - r, 0.0), 2.2);

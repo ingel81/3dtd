@@ -226,7 +226,7 @@ describe('map scripts', () => {
     expect(played.fingerprint).toBe(r.fingerprint);
     expect(changes.some((c) => c.life)).toBe(true);
     // A wrong option, a kind or too few points say what is wrong
-    expect(run(`map.lifeArea('birds', [{ x: 0, y: 0 }, { x: 9, y: 0 }, { x: 0, y: 9 }], { speed: 3 })`)).toMatchObject({ ok: false, error: expect.stringMatching(/know no speed/) });
+    expect(run(`map.lifeArea('birds', [{ x: 0, y: 0 }, { x: 9, y: 0 }, { x: 0, y: 9 }], { wings: 3 })`)).toMatchObject({ ok: false, error: expect.stringMatching(/know no wings/) });
     expect(run(`map.lifeArea('dragons', [{ x: 0, y: 0 }, { x: 9, y: 0 }, { x: 0, y: 9 }])`).ok).toBe(false);
     expect(run(`map.lifeArea('fog', [{ x: 0, y: 0 }, { x: 9, y: 0 }])`)).toMatchObject({ ok: false, error: expect.stringMatching(/needs 3 to 256 points/) });
     expect(run(`map.removeLife(['nope'])`)).toMatchObject({ ok: false, error: expect.stringMatching(/no life areas nope/) });

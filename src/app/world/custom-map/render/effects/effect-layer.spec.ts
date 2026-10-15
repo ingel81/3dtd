@@ -223,6 +223,18 @@ describe('EffectLayer', () => {
     expect(flies[0].visible).toBe(false);
     layer.setDarkness(1);
     expect(flies[0].visible).toBe(true);
+    // Dust devils and snow flurries in fields of their own
+    layer.setLife({ areas: [{ id: 'd', kind: 'dust', shape: 'area', points: square }, { id: 's', kind: 'snow', shape: 'area', points: square }] });
+    layer.set([], catalog);
+    expect(field('dust')).toHaveLength(1);
+    expect(field('snow')).toHaveLength(1);
+    layer.setLife({
+      areas: [
+        { id: 'e', kind: 'embers', shape: 'area', points: square, color: '#ff0000' },
+        { id: 'h', kind: 'fog', shape: 'area', points: square, quality: 'high' },
+      ],
+    });
+    layer.set([place('a', 'torch', 0)], catalog);
     // The fog asks for High: Medium leaves it out
     expect(field('fog')).toHaveLength(1);
     layer.setQuality({ particles: 0.7, pointLights: 4, life: 0.7 });

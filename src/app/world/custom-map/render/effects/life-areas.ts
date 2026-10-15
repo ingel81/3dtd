@@ -22,6 +22,9 @@ const SPOTS: Partial<Record<MapLifeKind, { spacing: number; height: number }>> =
   leaves: { spacing: 10, height: 7 },
   embers: { spacing: 8, height: 0.2 },
   sparks: { spacing: 10, height: 0.3 },
+  snow: { spacing: 12, height: 14 },
+  // One whirl per 70 m, wandering about 40 m round its spot
+  dust: { spacing: 70, height: 0 },
 };
 /** Most emitters one area gets (spread over it) */
 const MOST_SPOTS = 160;

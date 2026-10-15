@@ -444,12 +444,19 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   entlang der Linie (Abstand je Art 8 bis 28 m, höchstens 160 je Bereich), auf dem Boden oder der Wasserfläche; sie
   gehen in das Feld ihrer Art (eine Art, die die Karte schon hat, kostet keinen Draw Call mehr); Glühwürmchen nur
   nachts wie die automatischen. Funken (`sparks`, neu): stoßweise hoch und zurück, nachts hell, am Tag schwach.
-  Boote (`boats`, `effects/life-boats.ts`): je Boot eine eigene langsame Schleife im Umriss (0,5 bis 1,2 m/s; 4 Boote
+  Schneegestöber (`snow`, alle 12 m, aus 14 m Höhe). Staubteufel (`dust`, neue Partikelart): je 70 m ein Wirbel, der
+  etwa 40 m um seine Stelle wandert, Staub schraubt sich bis 18 m hoch und weitet sich oben; jeder lebt etwa 40 s je
+  Minute; alle Teilchen eines Wirbels teilen sich dessen Bahn über einen Wert aus seiner Stelle.
+  Boote (`boats`, `effects/life-movers.ts`): je Boot eine eigene langsame Schleife im Umriss (0,5 bis 1,2 m/s; 4 Boote
   je Dichte 1, höchstens 24) oder auf einer Linie auf der einen Seite hin und auf der anderen zurück (4 m daneben,
   1,5 bis 2,5 m/s, 3 Boote), auf dem Spiegel des Wassers darunter (über Land behalten sie den des letzten Wassers),
   Bug voraus, mit dem Schaukeln schwimmender Objekte; das Modell ist ein schwimmendes Asset des Katalogs (`asset`,
   Standard `rowboat`). Ein instanziertes Mesh je Teil des Modells, die CPU setzt einige Dutzend Matrizen je Bild; sie
-  blockieren weder Sicht noch Bauen und werfen keinen Schatten (die Schattenkarte der Sonne ist gecacht)
+  blockieren weder Sicht noch Bauen und werfen keinen Schatten (die Schattenkarte der Sonne ist gecacht).
+  Bewegte Dinge (`movers`, dieselbe Klasse): ein beliebiges Asset (`asset`, Pflicht; ein Rover, ein Karren, Tiere) auf
+  dem Boden, mit ihm geneigt, im Umriss je eines auf eigener Schleife (3 je Dichte 1, höchstens 16) oder auf der Linie
+  in zwei Spuren 2,5 m neben ihr (2), mit `speed` m/s (Standard 1,5, je eines bis 20 % anders). Die Gegner und Tower
+  sehen sie nicht
   Schalter der Karte (`life.auto`): Schornsteinrauch, automatische Glühwürmchen und Vögel (an, wenn nichts gesetzt),
   Funken über Lava (aus, wenn nichts gesetzt); `life.density` 0 bis 2 als Faktor auf das alles. `life.flags`: das Tuch
   der Banner weht im Wind (`objects/cloth.ts`: die Karten `foliage-banner*` werden beim Laden zu einem Raster aus 6 x 14

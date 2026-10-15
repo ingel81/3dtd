@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { MapLifeArea } from '../../map-document';
 import { HeightField } from '../height-field';
 import { MapAssetLibrary } from '../map-asset-library';
-import { LifeBoats } from './life-boats';
+import { LifeMovers } from './life-movers';
 
 const catalog = JSON.parse(readFileSync('public/maps/assets/catalog.json', 'utf8')) as unknown;
 
@@ -26,7 +26,7 @@ function library(): MapAssetLibrary {
 const field = new HeightField({ columns: 3, rows: 3, cellSize: 100, heights: new Float32Array(9) }, 200, 200);
 const water = (x: number): number | null => (x < 0 ? 2 : null);
 
-function positions(boats: LifeBoats): Vector3[] {
+function positions(boats: LifeMovers): Vector3[] {
   const out: Vector3[] = [];
   const m = new Matrix4();
   for (const mesh of boats.group.children as InstancedMesh[]) {
@@ -38,9 +38,9 @@ function positions(boats: LifeBoats): Vector3[] {
   return out;
 }
 
-describe('LifeBoats', () => {
+describe('LifeMovers', () => {
   it('drifts the boats of an area on its water, slowly, each on its own loop inside the outline', async () => {
-    const boats = new LifeBoats(library(), field, water);
+    const boats = new LifeMovers(library(), field, water);
     const lake: MapLifeArea = { id: 'l', kind: 'boats', shape: 'area', points: [{ x: -90, y: -40 }, { x: -10, y: -40 }, { x: -10, y: 40 }, { x: -90, y: 40 }], density: 1.5 };
     await boats.set([lake, { id: 'f', kind: 'fog', shape: 'area', points: lake.points }], 1);
     const start = positions(boats);
@@ -64,8 +64,27 @@ describe('LifeBoats', () => {
     boats.dispose();
   });
 
+  it('runs movers over the ground, pitched with it, at their speed, none without an asset', async () => {
+    // A slope rising 0.2 m per metre to the north
+    const hill = new HeightField({ columns: 3, rows: 3, cellSize: 100, heights: new Float32Array([0, 0, 0, 20, 20, 20, 40, 40, 40]) }, 200, 200);
+    const movers = new LifeMovers(library(), hill, () => null);
+    const road: MapLifeArea = { id: 'm', kind: 'movers', shape: 'route', points: [{ x: 0, y: -80 }, { x: 0, y: 80 }], asset: 'rover', speed: 3 };
+    await movers.set([road, { ...road, id: 'n', asset: undefined }], 1);
+    const start = positions(movers);
+    expect(start).toHaveLength(2);
+    for (const p of start) expect(p.y).toBeCloseTo(hill.heightAt(-p.x, p.z), 1);
+    movers.update(4);
+    const later = positions(movers);
+    // About 3 m/s along the line (10 % either way)
+    for (let k = 0; k < 2; k++) {
+      expect(later[k].distanceTo(start[k])).toBeGreaterThan(10);
+      expect(later[k].distanceTo(start[k])).toBeLessThan(13.5);
+    }
+    movers.dispose();
+  });
+
   it('runs boats along a route and back, fewer at a lower density, none without areas', async () => {
-    const boats = new LifeBoats(library(), field, water);
+    const boats = new LifeMovers(library(), field, water);
     const route: MapLifeArea = { id: 'r', kind: 'boats', shape: 'route', points: [{ x: -50, y: -80 }, { x: -50, y: 80 }], asset: 'fishing-boat' };
     await boats.set([route], 1);
     expect(positions(boats)).toHaveLength(3);

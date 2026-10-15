@@ -303,7 +303,8 @@ Dokument trägt (`life.areas`), und die Schalter dessen, was die Karte von selbs
 - Outline: ein Klick je Ecke, Enter, Doppelklick oder Rechtsklick schließt den Umriss; gehalten und gezogen malt er
   ihn frei (ein Punkt alle 6 m, Loslassen schließt). Line: ebenso eine offene Linie. Was darin lebt, wählt das Panel:
   Birds (ein Schwarm kreist im Umriss, auf einer Linie hin und zurück), Fireflies (nachts), Ground fog, Leaves,
-  Embers, Sparks, Boats (treiben auf dem Wasser des Umrisses, auf einer Linie hin und zurück), Sound (ein Klang, voll
+  Embers, Sparks, Snow, Dust devils, Boats (treiben auf dem Wasser des Umrisses, auf einer Linie hin und zurück),
+  Movers (ein Requisit des Katalogs fährt oder geht über den Boden, mit Tempo), Sound (ein Klang, voll
   im Umriss oder auf der Linie, über 70 m leiser). Ein neuer Bereich ist ein Schritt im Verlauf und gleich gewählt. Zu wenig für einen Umriss (unter
   drei Ecken oder 16 m²) sagt die Statuszeile. Höchstens 64 Bereiche, 256 Punkte je Bereich
 - Edit: ein Klick wählt den kleinsten Umriss um den Punkt, sonst eine Linie in 12 Pixeln; die Punkte des gewählten

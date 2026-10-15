@@ -30,7 +30,7 @@ import { CustomMapEnvironment } from './environment/map-environment';
 import { fitShadowBox } from './environment/shadow-fit';
 import { EffectLayer, glowStandIn } from './effects/effect-layer';
 import { circleFlock, type Flock } from './effects/bird-flocks';
-import { LifeBoats } from './effects/life-boats';
+import { LifeMovers } from './effects/life-movers';
 import { areaShown, lifeSwitches } from '../map-life';
 import type { MapBiome } from '../map-document';
 import { CoverMap } from './environment/cover-map';
@@ -155,8 +155,8 @@ export class CustomMapView {
   private edgeTreesDue: ReturnType<typeof setTimeout> | null = null;
   private readonly bridges: BridgeLayer;
   private readonly effects: EffectLayer;
-  /** Boats of the life areas drifting on the water (effects/life-boats.ts) */
-  private readonly boats: LifeBoats;
+  /** Boats drifting on the water and movers going over the ground, of the life areas (effects/life-movers.ts) */
+  private readonly movers: LifeMovers;
   /** The quality level's share of the map's life (render-quality.ts `life`) */
   private lifeShare = 1;
   /** Terrain and roof tops for the weather; rebuilt lazily (coverDirty) */
@@ -186,7 +186,7 @@ export class CustomMapView {
     this.terrain.grass.mesh,
     this.decals.mesh,
     this.effects.group,
-    this.boats.group,
+    this.movers.group,
     ...this.objects.decorMeshes(),
   ], () => [this.group, this.losBlockers, this.environment.lights, this.environment.skyDome.mesh]);
   /** The body the reflection mirrors, picked a few times a second */
@@ -259,8 +259,8 @@ export class CustomMapView {
       (x, y) => waterLevelAt(this.doc.terrain, x, y, this.heights.heightAt(x, y) - 1, 'lava') !== null,
     );
     this.effects.setLife(doc.life);
-    this.boats = new LifeBoats(assets, this.heights, (x, y) => this.waterLevelAt(x, y));
-    this.group.add(this.boats.group);
+    this.movers = new LifeMovers(assets, this.heights, (x, y) => this.waterLevelAt(x, y));
+    this.group.add(this.movers.group);
     this.waveBanners();
     this.decals = new GroundDecals(this.terrain.heightTexture);
     this.group.add(this.decals.mesh);
@@ -585,7 +585,7 @@ export class CustomMapView {
     // rendered again each frame (shimmer)
     const shadowRadius = this.environment.focus(this.group.localToWorld(this.worldShadowCenter.copy(this.shadowCenter)), fit);
     this.effects.update(clock, this.focusPoint);
-    this.boats.update(clock);
+    this.movers.update(clock);
     this.objects.shadowRadius = shadowRadius * 1.2;
     this.objects.update(dtSeconds, camera, this.shadowCenter);
     this.edgeTrees.shadowRadius = this.objects.shadowRadius;
@@ -907,14 +907,14 @@ export class CustomMapView {
     this.effects.setLife(this.doc.life);
     void this.refreshEffects();
     this.effects.setLavaLights(this.lavaLightPoints());
-    void this.refreshBoats();
+    void this.refreshMovers();
     this.waveBanners();
   }
 
-  /** The life areas' boats, on levels that show them */
-  private refreshBoats(): Promise<void> {
-    const shown = (this.doc.life?.areas ?? []).filter((a) => a.kind === 'boats' && areaShown(a, this.lifeShare));
-    return this.boats.set(shown, lifeSwitches(this.doc.life).density);
+  /** The life areas' boats and movers, on levels that show them */
+  private refreshMovers(): Promise<void> {
+    const shown = (this.doc.life?.areas ?? []).filter((a) => (a.kind === 'boats' || a.kind === 'movers') && areaShown(a, this.lifeShare));
+    return this.movers.set(shown, lifeSwitches(this.doc.life).density);
   }
 
   /** Banners' cloth waves on maps that ask for it (life.flags), on levels that show the map's life */
@@ -1197,7 +1197,7 @@ export class CustomMapView {
       this.effects.setLavaLights(this.lavaLightPoints());
     }
     if (lifeChanged) {
-      void this.refreshBoats();
+      void this.refreshMovers();
       this.waveBanners();
     }
   }
@@ -1344,7 +1344,7 @@ export class CustomMapView {
     for (const w of this.waters) w?.dispose();
     for (const r of this.rivers) r.dispose();
     this.effects.dispose();
-    this.boats.dispose();
+    this.movers.dispose();
     WIND_UNIFORMS.uClothWave.value = 0;
     this.cover.dispose();
     this.objects.dispose();
@@ -1389,7 +1389,7 @@ export class CustomMapView {
       this.objects.setObjects(this.doc.objects),
       this.refreshEdgeTrees(),
       this.refreshEffects(),
-      this.refreshBoats(),
+      this.refreshMovers(),
       this.refreshContact(),
       this.bridges.set(this.doc.paths, this.doc.terrain),
       this.refreshDecals(),

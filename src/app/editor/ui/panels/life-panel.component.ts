@@ -95,6 +95,20 @@ const TINTED: ReadonlySet<MapLifeKind> = new Set(['fireflies', 'fog', 'leaves', 
                             (changing)="liveArea(a.id, { volume: $event / 100 })" (changed)="commitArea(a.id, { volume: $event / 100 }, 'Life sound volume')" />
           <p class="td-note">Full inside the outline or on the line, fading out over 70 m around it; quieter from high up.</p>
         }
+        @if (a.kind === 'movers') {
+          <label class="td-setting">
+            <span>What moves</span>
+            <select class="td-select is-auto" [value]="a.asset ?? ''" (change)="commitArea(a.id, { asset: $any($event.target).value || undefined }, 'Mover')" aria-label="What moves" data-test="life-mover">
+              <option value="">Pick one</option>
+              @for (b of moverAssets(); track b.id) {
+                <option [value]="b.id">{{ b.name }}</option>
+              }
+            </select>
+          </label>
+          <app-editor-range label="Speed" unit="m/s" [min]="0.2" [max]="15" [step]="0.1" [value]="a.speed ?? 1.5"
+                            (changing)="liveArea(a.id, { speed: $event })" (changed)="commitArea(a.id, { speed: $event }, 'Mover speed')" />
+          <p class="td-note">Goes round inside the outline, or up the line on one side and back on the other, over the ground. Drawn only: enemies and towers do not see it.</p>
+        }
         @if (a.kind === 'boats') {
           <label class="td-setting">
             <span>Boat</span>
@@ -231,6 +245,8 @@ export class LifePanelComponent {
     { id: 'crows', label: 'Crows and ravens' },
     { id: 'raptors', label: 'Birds of prey (eagles, vultures)' },
   ];
+  /** What may move over the ground: the catalogue's props that do not float (vehicles, carts, animals) */
+  readonly moverAssets = computed(() => [...this.session.catalog().objects.values()].filter((o) => !o.float && o.category === 'prop').sort((a, b) => a.name.localeCompare(b.name)));
   /** What floats and may drift: the catalogue's floating props (boats, buoys) */
   readonly boatAssets = computed(() => [...this.session.catalog().objects.values()].filter((o) => o.float && o.category === 'prop'));
   /** The map's life before a slider started moving */
