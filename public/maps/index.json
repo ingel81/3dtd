@@ -12,7 +12,7 @@
       "spawns": 2,
       "biome": "temperate",
       "updatedAt": "1970-01-01T00:00:00.000Z",
-      "contentHash": "94aad212a207964d2913fcf9df6f4fcdc77dbbb0fe6c062bcf298edc50089fba"
+      "contentHash": "0f77bc499e87cf1a91d89d11f4992fbfb2e261bee5d3503318b066d94c786e01"
     },
     {
       "id": "mountain-pass",
@@ -26,7 +26,7 @@
       "spawns": 2,
       "biome": "mountain",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "609c90c85985b8ea896f55475170bc66332255230ecb28187bc891da27de9516"
+      "contentHash": "9c062850417b5d6931c3dbe4ee828d6f3c394d16937f8004aef13888a46db22b"
     },
     {
       "id": "witch-marsh",
@@ -40,7 +40,7 @@
       "spawns": 2,
       "biome": "swamp",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "c3eeed09b8f35ce524f8f4e9d51b93c5cb7c695ebed8a32162330dbc45862315"
+      "contentHash": "3330e25afb0ccb6f02b8f2f2af9d88f5ee49cd7bfc5a6e7414e599ae8629d281"
     },
     {
       "id": "autumn-keep",
@@ -54,7 +54,7 @@
       "spawns": 3,
       "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "ed70ca1bff77a38bd520dd76028d5866d34a6820614c3a678fc4d033fcd4f4ed"
+      "contentHash": "bbae5097a6371bbed9dbdcc466fd7bdcaabf47921127ea9772572402668cb486"
     },
     {
       "id": "red-canyon",
@@ -68,7 +68,7 @@
       "spawns": 2,
       "biome": "desert",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "9cc705055c20e92d00cfb13a132b18bfb84d89652e7f0b7200c84ed5d0721fa1"
+      "contentHash": "a63d4a0abeb7d19a8ba6b4630bdd19a8ebcad5014ad35e96fdeb16b61dbd3c86"
     },
     {
       "id": "archipelago",
@@ -82,7 +82,7 @@
       "spawns": 2,
       "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "ef0da15318e981fa04a8a8b7b51be334fd306485e157ee2e647976dc01ac6ad8"
+      "contentHash": "5d5b71d2bded2ef4232c103c7098b0a703cb90039b42d938455c50883725c679"
     },
     {
       "id": "frost-hamlet",
@@ -96,7 +96,7 @@
       "spawns": 2,
       "biome": "arctic",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "d890261364416dab4a1c0c5263c13425fa4842a0fbe922a856469fdfc1d6fb29"
+      "contentHash": "efd08b19fc22c6424cf855f7b705bc7df918636ad303ff2ad852a54558fade10"
     },
     {
       "id": "ember-crater",
@@ -110,7 +110,7 @@
       "spawns": 3,
       "biome": "hell",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "67cf1da4de9e0d7abc89a8f96c34d124073d332054ecec365ee05bb5faca275b"
+      "contentHash": "d34bf11f0cfa939eba6c8f88475ab72ce310bcb30b6611ff2a970220120aacab"
     },
     {
       "id": "twin-gates",
@@ -124,7 +124,7 @@
       "spawns": 4,
       "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "f6883ff8eb6f9e3820255191e4962c74d8f32a4d345c9a8bb9c24adce178e3f2"
+      "contentHash": "2dd64a3ccb98f48c9104a8a0c434e23e788216c9c0f3a2bff1ca771158c87352"
     },
     {
       "id": "moon-base",
@@ -138,7 +138,7 @@
       "spawns": 3,
       "biome": "moon",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "df0e140e1be3d1179d5e9b60fe19c47ed26702ce9142f29cdb321b61e8ef0b51"
+      "contentHash": "42b1773c668036e5a3fe4671a516db905ac2c7286fe519be32cc086e5224bf8d"
     },
     {
       "id": "mars-canyon",
@@ -152,7 +152,7 @@
       "spawns": 3,
       "biome": "mars",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "f2fff4c7343eb402b646b4d79181b006ce3a43513422fd09336a3c48f91837f4"
+      "contentHash": "935deda7871621d1ac48e0399fdf50459753c237e164f8ee4e833df9b2fc0b00"
     },
     {
       "id": "ruined-city",
