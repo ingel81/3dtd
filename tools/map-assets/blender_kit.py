@@ -380,6 +380,8 @@ def export_lod(name, obj, ratio=0.3, suffix='-lod1'):
     lod.select_set(True)
     bpy.context.view_layer.objects.active = lod
     bpy.ops.object.modifier_apply(modifier=mod.name)
+    # Collapsed edges can leave duplicate faces behind (box-built parts)
+    lod.data.validate()
     while len(lod.data.uv_layers):
         lod.data.uv_layers.remove(lod.data.uv_layers[0])
     export(name + suffix, [lod])
