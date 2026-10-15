@@ -77,9 +77,11 @@ describe('sun shadow cache', () => {
     expect(build(new Vector3(40, 0, 0), 300).length).toBeGreaterThan(0);
     e.invalidateShadows();
     expect(build(new Vector3(40, 0, 0), 300).length).toBeGreaterThan(0);
-    // A new sun: every part at once
+    // A new sun: spread over frames as well, the shown map stays until the new one is whole
+    const shown = e.sun.shadow.map;
     e.set({ ...env, sunAzimuth: 120 });
-    expect(frame(e, r, new Vector3(40, 0, 0), 300)).toBe(parts);
+    expect(build(new Vector3(40, 0, 0), 300)).toEqual(Array(parts).fill(1));
+    expect(e.sun.shadow.map).not.toBe(shown);
     e.detach();
     expect(r.shadowMap.autoUpdate).toBe(true);
     e.dispose();

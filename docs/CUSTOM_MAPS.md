@@ -395,7 +395,11 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   den nächsten Werfer, gleich in welcher Reihenfolge, nur der erste Teil leert die Karte. Ist sie ganz, tauscht die
   Sonne Karte und Matrix in einem Frame; bis dahin zeigt sie die alte (kein halbfertiger Zustand, kein Springen).
   Eine Änderung während eines Aufbaus wartet auf ihn (beim Schwenken kommen sie alle paar Frames; neu begonnen würde
-  er nie fertig), neue Sonne und neue Kartengröße zeichnen alle Teile in einem Frame. three zeichnet einen
+  er nie fertig). Eine neue Sonne baut ebenso über vier Frames (bis dahin liegen die Schatten, wo die alte Sonne sie
+  warf; in einem Frame kostete das im Editor 100 bis 180 ms je Sonnenwechsel), nur die erste Karte und eine neue
+  Kartengröße zeichnen alle Teile in einem Frame. Hat ein Werfer die Szene während des Aufbaus verlassen (eine Zelle
+  Bäume für neue Bäume neu gebaut), wird der Aufbau nicht getauscht, sondern beginnt neu: getauscht fehlten die
+  Schatten aller Bäume dieser Zellen für einen Aufbau (Flackern unter dem Pinsel). three zeichnet einen
   Schattenpass nur innerhalb eines Renders: die Teile laufen im `onAfterRender` einer leeren Szene, gerendert in ein
   Ziel von einem Texel. Kachelweise (je Kachel ein Teil der Fläche) brachte nichts: ein gepacktes Asset ist ein
   `InstancedMesh` über die ganze Karte und wurde in jeder Kachel gezeichnet (Draw Calls je Frame höher als vorher).

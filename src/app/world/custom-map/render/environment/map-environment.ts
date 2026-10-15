@@ -121,10 +121,7 @@ export class CustomMapEnvironment {
    * set it here.
    */
   private shadowDirty = true;
-  /**
-   * The next build draws every tile in one frame: the first map, a new map
-   * size, a new sun (the old map would be read in the wrong direction)
-   */
+  /** The next build draws every tile in one frame: the first map, a new map size (no map to show meanwhile) */
   private shadowNow = true;
   /** Renders the map again over a few frames, a part of the objects each, and swaps it in (shadow-parts.ts) */
   private readonly shadowParts = new ShadowParts();
@@ -167,7 +164,9 @@ export class CustomMapEnvironment {
 
   /** Recomputes lights, fog and sky for a changed environment */
   set(env: MapEnvironment): void {
-    if (env.sunAzimuth !== this.env.sunAzimuth || env.sunElevation !== this.env.sunElevation) this.redrawShadowsNow();
+    // A new sun builds the map over frames like any change: the shown map keeps the matrix it was drawn with, its
+    // shadows stay where the old sun cast them for those frames (drawn in one frame: 100 to 180 ms in the editor)
+    if (env.sunAzimuth !== this.env.sunAzimuth || env.sunElevation !== this.env.sunElevation) this.shadowDirty = true;
     const skyChanged =
       env.sky !== this.env.sky ||
       env.biome !== this.env.biome ||
@@ -463,8 +462,8 @@ export class CustomMapEnvironment {
    * The sun's shadow map after a change: a build over a few frames, a part of
    * the objects each, the finished map swapped in at once (shadow-parts.ts).
    * A change while a build runs waits for it: changes during a pan come every
-   * few frames, a build begun anew each time would never end. A new sun or
-   * map size draws every part in one frame.
+   * few frames, a build begun anew each time would never end. The first map
+   * and a new map size draw every part in one frame.
    */
   private updateShadows(renderer: WebGLRenderer, scene: Scene, camera: Camera): void {
     const parts = this.shadowParts;
