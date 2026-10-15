@@ -118,10 +118,6 @@ eigenen Karten, Coop-Protokoll 5). Vier Worker-Branches darauf laufen (Abschnitt
       Vorgehen: alle heutigen Wege aufnehmen (Startmenü-Reiter, New game, Pausemenü, Game over, Editor-Kopf, Testfenster,
       Spielstände, Links, Desktop), Brüche und Neuladen benennen, ein durchgängiges Modell vorschlagen (Plan-Doku),
       mit dem User per Baukasten/Entwürfen abstimmen, dann bauen.
-- [ ] **E196 Doppelseitige Stoffe von unten unsichtbar** (2026-10-15, Befund fx-models5): Materialien mit `two_sided`
-      (z. B. Marktstand-Dach) sind im Spiel von schräg unten nicht zu sehen; bestand schon vorher.
-- [ ] **E197 Echter Rauchsäulen-Effekt** (2026-10-15, Befund fx-maps-hot2): Rauchsäulen sind gestapelte `fx-smoke`
-      und wirken im Standbild fleckig; ein eigener Effekt für hohe, ziehende Säulen (Ember Crater, Brände).
 - [ ] **E199 New game auf einer Kartenwelt: Ergebnisliste abgeschnitten** (User, 2026-10-15): Unter „A map of a real
       place“ ist der Dialog zu niedrig, die Treffer der Ortssuche scrollen in einem schmalen Streifen. Dialoghöhe bzw.
       Trefferliste so, dass mehrere Treffer sichtbar sind.
@@ -137,10 +133,6 @@ eigenen Karten, Coop-Protokoll 5). Vier Worker-Branches darauf laufen (Abschnitt
       Dämmerung nur Silhouette, langer leerer weißer Hang in Frost Hamlet. Nach E180 (Fehler zuerst; fx-maps schreibt
       je Karte Vorschläge, liegen vor zur Auswahl durch den User); je Karte ein Vorschlag mit Vorher-Bildern, dann die Level-Skripte
       (`tools/maps/levels/`, `LevelKit`) ausbauen. Hängt mit E179 (bessere Modelle) und E182 (Showreel) zusammen.
-- [ ] **E187 Mehr Variation bei Bäumen** (User, 2026-10-15): heute rund 30 Baumarten im Katalog; prüfen, was ohne
-      Leistungsverlust mehr Abwechslung bringt: je Instanz Farbton, Helligkeit, Größe, Neigung und Drehung (über die
-      Instanzdaten, kein Draw Call mehr), zwei bis drei Formvarianten je Art aus dem Blender-Bau (E179), Mischung je
-      Biom. Draw Calls und GPU-Zeit vorher/nachher messen.
 - [ ] **E190 Karten lebendiger** (User, 2026-10-15): neben der Gestaltung (E184) Bewegung und Leben in der Welt, z. B.
       Vogelschwärme, Rauch aus Schornsteinen, Fahnen, Boote, die treiben, Glühwürmchen und Funken bei Nacht, Tiere am
       Rand, Umgebungsgeräusche je Biom; alles billig (Partikel, Shader, wenige Instanzen) und je Grafikstufe abschaltbar.
@@ -241,6 +233,13 @@ Nachtest-Liste in `tmp/NEXT_SESSION.md`, kommt nach PLAYTEST.md, wenn der User Z
       400 m²), Modellwahl per Salz, Tönung je Grundriss; Erlenbach 74235 im Editor ansehen.
 - [ ] **E201 Bauverbot als Rechteck**: Gebäude und Mauern sperren und sitzen nach ihrem gedrehten Rechteck (Katalog `box`);
       neben einer langen Schule bauen, Sitz am Hang.
+- [ ] **E197 Rauchsäule** `fx-smoke-column` (Life-Panel „Tall smoke column“), Ember Crater mit drei Säulen; dort ansehen.
+- [ ] **E187 Baumvariation**: Herbstlaub streut Rot bis Gelb je Baum, Pflanzen in der Größe; Autumn Keep über dem Wald.
+- [ ] **Klippen geschlossen**: Klippen-Scans mit Rückseite, Felsen ab Fuß der Kante, keine Streifen an Steilwänden;
+      Archipelago Leuchtturmfelsen, Demo Valley Crag.
+- [ ] **Mond, Mars, Hafen**: Schleusen zu, Radarschüssel ebnet ihren Boden, Kraterauswurf statt Steinkreise, Fischerboot,
+      Asphalt in Harbor Town, Gewächshaus mit dunklem Glas (nur 2 auf Mars), Mover-Routen frei.
+- [ ] **Bojen blinken, Ballista-Bolzen mit eigenem Ton** (Dev-Build, Ballista Bolts); **OSM-Tunnel mit Portalen** (Miltenberg).
 - [ ] **E189 Lichter nachts**: Lichtfleck breiter und heller, größerer Hof, Pool kräftiger, Licht auf Wasser, Lava glüht
       weiter; Autumn Keep und Witch Marsh nachts ansehen.
 
@@ -385,6 +384,9 @@ jeweiligen Fach-Doku.
   (Raycast-Zeitmessung, `[Camera]`-Log) bleiben im Release-Build.
 
 ## Verworfen (nicht erneut angehen)
+
+- **E196 Doppelseitige Stoffe von unten unsichtbar** (2026-10-15): kein Renderfehler; alle Stoffe sind DoubleSide, die
+  Kamera bleibt auf Kartenwelten 3 m über dem Boden und kommt nie unter ein Vordach. Spec pinnt die Doppelseitigkeit.
 
 - **Eigene Karten: Wellen je Spawn und Spuren erst ab Welle N** (Review eigene Karten, User-Wahl D am 2026-10-13):
   verworfen, siehe [CUSTOM_MAPS_NEXT_PLAN.md](docs/CUSTOM_MAPS_NEXT_PLAN.md).
