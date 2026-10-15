@@ -83,7 +83,10 @@ export function buildHarborTown(): CustomMapDocument {
   k.erase({ x: 0, y: -130 }, 30);
   k.paint('concrete', [{ x: -256, y: shore + 14 }, { x: 256, y: shore + 14 }], { radius: 16, falloff: 0.4 }, 1);
   k.paint('brick-paving', hq, { radius: 20, falloff: 0.5 }, 1);
-  for (const x of [-90, -40, 60]) if (k.free(x, shore + 12, 6)) k.place('harbor-crane', x, shore + 12, { rotation: Math.PI });
+  // Two steel portal cranes over the ship's berth, their containers on the hook over the water; the wooden jib cranes
+  // with a crate on theirs by the fishing piers and the yard
+  for (const x of [-56, 18]) if (k.free(x, shore + 6, 6)) k.place('dock-crane', x, shore + 6, { rotation: Math.PI });
+  for (const x of [-110, 60]) if (k.free(x, shore + 12, 2)) k.place('harbor-crane', x, shore + 12, { rotation: Math.PI });
   // The container yard east of the HQ, stacks in rows
   const yard = { x: 100, y: -130 };
   k.erase(yard, 22);
@@ -93,7 +96,7 @@ export function buildHarborTown(): CustomMapDocument {
   }
   for (const [x, y] of [[-100, -120], [-160, -125], [160, -110]] as const) {
     k.erase({ x, y }, 12);
-    if (k.free(x, y, 8)) k.place('warehouse', x, y, { rotation: facing({ x, y }, { x, y: y + 10 }) });
+    if (k.free(x, y, 8)) k.chimney(k.place('warehouse', x, y, { rotation: facing({ x, y }, { x, y: y + 10 }) }));
   }
   for (const [x, y, a] of [[-20, -112, 'crate-long'], [18, -110, 'barrel-old'], [-24, -146, 'crate-flat'], [26, -146, 'trade-goods'], [12, -150, 'barrel-small']] as const) {
     if (k.free(x, y, 2)) k.place(a, x, y, { rotation: x * 0.05 });
@@ -117,14 +120,28 @@ export function buildHarborTown(): CustomMapDocument {
   k.place('rowboat', -230, shore - 14, { rotation: 0.6 });
   k.place('lighthouse', 205, -228);
   for (const [x, y, a] of [[120, -230, 'buoy-red'], [70, -240, 'buoy-green'], [-60, -230, 'buoy-red']] as const) k.place(a, x, y);
-  // A second ship riding at anchor in the bay, fishing boats out, gulls over the harbour
-  // TODO(E179): ships with lit windows and cranes with a load on the hook
-  // TODO(E190): the lighthouse's turning beam, the sounds of the harbour (cranes, a ship's horn, gulls)
+  // A second ship riding at anchor in the bay, fishing boats out
+  // TODO(E179): ships with lit windows
   k.place('ship', 90, -215, { rotation: 2.6, scale: 0.85 });
   for (const [x, y, r] of [[30, -200, 0.4], [-110, -225, 2.1]] as const) k.place('fishing-boat', x, y, { rotation: r });
-  k.place('fx-birds', -60, shore - 30, { z: 10, scale: 0.6 });
-  k.place('fx-birds', 150, -200, { z: 15, scale: 0.5 });
   k.scatter(['pebbles-scatter'], { x: -235, y: shore - 10 }, { radius: 24, strength: 0.7 }, { density: 2, minDistance: 4 });
+  // Banners on the harbour master's square, waving in the wind off the bay
+  for (const [dx, dy, a] of [[-27, 10, 'banner-blue'], [27, 10, 'banner-red'], [-27, -14, 'banner-red'], [27, -14, 'banner-blue']] as const) {
+    if (k.free(hq.x + dx, hq.y + dy, 0.5)) k.place(a, hq.x + dx, hq.y + dy, { rotation: Math.PI });
+  }
+
+  // ---- Life: gulls over the harbour and the mole, fishing boats going out past the ships and back, rowing boats
+  // drifting in the east basin, a fog bank on the open sea beyond the mole; the town's murmur, surf on the mole and
+  // the beach
+  // TODO(E190): gulls (birds of the gull species) and their calls, a ship's horn
+  k.lifeArea('birds', [{ x: -200, y: -168 }, { x: 140, y: -168 }, { x: 215, y: -215 }, { x: 160, y: -250 }, { x: -200, y: -245 }], { height: 25, density: 1.2 });
+  k.lifeArea('birds', [{ x: -256, y: -150 }, { x: -200, y: -150 }, { x: -200, y: -215 }, { x: -256, y: -215 }], { height: 18, density: 0.6 });
+  k.lifeRoute('boats', [{ x: -160, y: -212 }, { x: -40, y: -232 }, { x: 60, y: -240 }, { x: 150, y: -246 }, { x: 250, y: -246 }], { asset: 'fishing-boat' });
+  k.lifeArea('boats', [{ x: 38, y: -168 }, { x: 140, y: -168 }, { x: 150, y: -192 }, { x: 46, y: -192 }], { density: 0.5 });
+  k.lifeArea('fog', [{ x: 214, y: -200 }, { x: 256, y: -200 }, { x: 256, y: -256 }, { x: -60, y: -256 }, { x: 150, y: -240 }], { density: 0.7, quality: 'high' });
+  k.lifeRoute('sound', [{ x: 150, y: shore - 4 }, { x: 190, y: -200 }, { x: 205, y: -228 }], { sound: 'surf', volume: 0.6 });
+  k.lifeRoute('sound', [{ x: -256, y: -150 }, { x: -232, y: -186 }], { sound: 'surf', volume: 0.5 });
+  k.lifeSettings({ flags: true, ambience: { sound: 'city', volume: 0.4 } });
 
   k.trimLayers(7);
   // Dusk over the bay: the lamps come on in the streets, the sea catches the last light
