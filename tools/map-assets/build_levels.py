@@ -164,16 +164,25 @@ def cable_pylon(name, height=16.0):
 
 
 def gondola(name):
-    """Small cable car cabin hanging from its grip arm"""
+    """Small cable car cabin hanging from its grip arm: a red body with a band of windows parted by corner
+    posts and a door seam, a roof cap, the hanger bent over to the grip on the cable"""
     clear_scene()
     body = Part(flat_material('gondola-red', (0.6, 0.1, 0.08), 0.35, 0.3), bevel=0.06)
     glass = Part(flat_material('car-glass', (0.08, 0.1, 0.12), 0.05, 0.6))
     steel = Part(flat_material('pylon-steel', (0.5, 0.52, 0.5), 0.45, 0.8), smooth=True)
-    box(body, 0, 0, 0.0, 2.2, 1.8, 0.9)
-    box(glass, 0, 0, 0.9, 2.1, 1.7, 0.9)
-    box(body, 0, 0, 1.8, 2.3, 1.9, 0.25)
-    oriented_box(steel, Vector((0, 0, 2.05)), Vector((0, 0, 4.0)), 0.12)
-    oriented_box(steel, Vector((0, 0, 4.0)), Vector((0.6, 0, 4.4)), 0.1)
+    box(body, 0, 0, 0.0, 2.2, 1.8, 0.95)
+    box(body, 0, 0, -0.12, 1.9, 1.5, 0.14)
+    box(glass, 0, 0, 0.95, 2.1, 1.7, 0.8)
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            box(body, sx * 1.02, sy * 0.82, 0.95, 0.16, 0.16, 0.8)
+    box(body, 0, -0.84, 0.95, 0.08, 0.14, 0.8)
+    box(body, 0, -0.91, 0.05, 0.03, 0.04, 0.85)
+    box(body, 0, 0, 1.75, 2.3, 1.9, 0.22)
+    box(body, 0, 0, 1.97, 1.6, 1.2, 0.12)
+    oriented_box(steel, Vector((0, 0, 2.05)), Vector((0, 0, 3.7)), 0.12)
+    tube(steel, [Vector((0, 0, 3.7)), Vector((0.15, 0, 4.05)), Vector((0.45, 0, 4.3))], [0.07, 0.07, 0.07], 8)
+    box(steel, 0.45, 0, 4.2, 0.5, 0.3, 0.2)
     tube(steel, [Vector((-0.6, 0, 4.4)), Vector((0.9, 0, 4.4))], [0.12, 0.12], 8, cap=True)
     export(name, [body.to_object(name), glass.to_object(name + '-glass'), steel.to_object(name + '-hanger')])
 

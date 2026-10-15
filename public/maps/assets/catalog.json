@@ -11588,7 +11588,7 @@
       "name": "Cable car gondola",
       "category": "prop",
       "file": "models/cablecar-gondola.glb",
-      "triangles": 146,
+      "triangles": 530,
       "footprint": 1.0,
       "height": 4.5,
       "blocksLos": false,
