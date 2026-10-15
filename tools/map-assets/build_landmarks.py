@@ -678,35 +678,56 @@ def out_at(angle, radius, z):
     return Vector((math.cos(angle) * radius, math.sin(angle) * radius, z))
 
 
-def obsidian_tower(name, seed=41, height=14.0):
-    """A tower of volcanic glass for a crater rim: a leaning faceted spire with shards broken off around
-    it, standing in dark rock with glowing cracks at its foot"""
+def glass_shard(part, base, radius, height, lean, rnd):
+    """One spire of volcanic glass: an irregular five- or six-sided prism narrowing in three steps to a
+    sharp, off-centre point, its facets flat like conchoidal fractures"""
+    sides = rnd.randint(5, 6)
+    shape = [rnd.uniform(0.7, 1.15) for _ in range(sides)]
+    turn = rnd.uniform(0, math.tau)
+    bm = part.bm
+    rings = []
+    for j, (t, f) in enumerate(((0.0, 1.0), (0.45, 0.72), (0.78, 0.38))):
+        centre = base + lean * height * t + Vector((0, 0, -1.0 + (height + 1.0) * t))
+        ring = []
+        for k in range(sides):
+            a = turn + k / sides * math.tau + rnd.uniform(-0.12, 0.12) * j
+            ring.append(bm.verts.new(centre + Vector((math.cos(a), math.sin(a), 0)) * radius * f * shape[k]))
+        rings.append(ring)
+    tip = bm.verts.new(base + lean * height + Vector((rnd.uniform(-0.3, 0.3), rnd.uniform(-0.3, 0.3), height)))
+    for j in range(2):
+        for k in range(sides):
+            bm.faces.new((rings[j][k], rings[j][(k + 1) % sides], rings[j + 1][(k + 1) % sides], rings[j + 1][k]))
+    for k in range(sides):
+        bm.faces.new((rings[2][k], rings[2][(k + 1) % sides], tip))
+
+
+def obsidian_tower(name, seed=41, height=22.0):
+    """A cluster of volcanic glass spires for a crater rim: a leaning main spire about 22 m high, seven
+    more shards from 6 to 15 m crowding round its foot, faceted near-black glass with a cold sheen that
+    catches the lava light on its edges, dark rock and glowing cracks at the foot"""
     from build_extreme import ember, hell_rock
-    from build_levels import obsidian_material
     clear_scene()
     rnd = random.Random(seed)
-    glass = Part(obsidian_material())
+    # As obsidian_material (build_levels.py), its sheen warmed by the lava light around it
+    glass = Part(flat_material('obsidian-lava-lit', (0.02, 0.018, 0.022), 0.12, 0.0, emission=(0.04, 0.012, 0.008), strength=0.5),
+                 bevel=0.0)
     rock = hell_rock()
     rock.bevel = 0.0
     glow = Part(ember(1.6), bevel=0.0)
-    lean = Vector((rnd.uniform(-0.12, 0.12), rnd.uniform(-0.12, 0.12), 1.0)).normalized()
-    pts = [Vector((0, 0, -1.0)), lean * height * 0.45, lean * height * 0.8, lean * height]
-    tube(glass, pts, [2.3, 1.7, 0.9, 0.0], 7, smooth=False)
-    for k in range(5):
-        a = k / 5 * math.tau + rnd.uniform(-0.3, 0.3)
+    glass_shard(glass, Vector((0, 0, 0)), 3.0, height, Vector((rnd.uniform(-0.1, 0.1), rnd.uniform(-0.1, 0.1), 0)), rnd)
+    for k in range(7):
+        a = k / 7 * math.tau + rnd.uniform(-0.3, 0.3)
         out = Vector((math.cos(a), math.sin(a), 0))
-        d = (out * rnd.uniform(0.25, 0.6) + Vector((0, 0, 1))).normalized()
-        h = height * rnd.uniform(0.25, 0.55)
-        base = out * rnd.uniform(1.6, 2.6) + Vector((0, 0, -0.8))
-        tube(glass, [base, base + d * h * 0.7, base + d * h], [rnd.uniform(0.5, 0.9), rnd.uniform(0.35, 0.6), 0.0], 5, smooth=False)
-    for k in range(6):
-        a = rnd.uniform(0, math.tau)
-        lump(rock, out_at(a, rnd.uniform(2.0, 3.6), -0.6), Vector((rnd.uniform(1.0, 1.8), rnd.uniform(0.8, 1.4), rnd.uniform(0.5, 0.9))),
-             seed * 10 + k, roughness=0.4, subdiv=2)
+        h = rnd.uniform(6.0, 15.0)
+        glass_shard(glass, out * rnd.uniform(2.6, 4.5), rnd.uniform(1.0, 1.9), h, out * rnd.uniform(0.08, 0.3), rnd)
     for k in range(7):
         a = rnd.uniform(0, math.tau)
-        c = out_at(a, rnd.uniform(1.0, 3.8), 0.02)
-        box(glow, c.x, c.y, c.z - 0.06, rnd.uniform(0.8, 1.8), 0.09, 0.12, a + math.pi / 2 + rnd.uniform(-0.4, 0.4))
+        lump(rock, out_at(a, rnd.uniform(3.0, 5.5), -0.6), Vector((rnd.uniform(1.2, 2.2), rnd.uniform(1.0, 1.6), rnd.uniform(0.6, 1.1))),
+             seed * 10 + k, roughness=0.4, subdiv=2)
+    for k in range(9):
+        a = rnd.uniform(0, math.tau)
+        c = out_at(a, rnd.uniform(1.5, 5.5), 0.02)
+        box(glow, c.x, c.y, c.z - 0.06, rnd.uniform(1.0, 2.4), 0.12, 0.14, a + math.pi / 2 + rnd.uniform(-0.4, 0.4))
     objects = [glass.to_object(name), smooth(rock.to_object(name + '-rock')), glow.to_object(name + '-glow')]
     for p in objects[0].data.polygons:
         p.use_smooth = False

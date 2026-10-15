@@ -12809,13 +12809,13 @@
       "name": "Obsidian tower",
       "category": "rock",
       "file": "models/obsidian-tower.glb",
-      "triangles": 706,
-      "footprint": 4.2,
-      "height": 14.0,
+      "triangles": 878,
+      "footprint": 5.5,
+      "height": 22,
       "base": [
-        3,
-        2.9,
-        1.2
+        5.4,
+        4.8,
+        1
       ],
       "blocksLos": true,
       "blocksBuild": true,
