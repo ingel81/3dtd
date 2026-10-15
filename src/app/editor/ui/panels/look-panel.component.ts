@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { selectedEdges, selectedNodes, selectedSpawns } from '../../model/editor-document';
-import { describePick } from '../../tools/look-tool';
+import { describeGround, describePick } from '../../tools/look-tool';
 import type { PickResult, ToolId } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
 
@@ -28,8 +28,17 @@ import { EditorSession } from '../editor-session.service';
         <div class="td-actions is-start">
           <button class="td-btn-secondary td-btn-sm" type="button" (click)="edit(p.tool)" data-test="look-edit">Edit with {{ p.toolLabel }}</button>
         </div>
+      } @else if (ground(); as g) {
+        <div class="td-kv"><span>Ground</span><span class="td-trunc">{{ g.what }}</span></div>
+        <div class="td-kv"><span>Height</span><span class="td-num">{{ g.height }}</span></div>
+        <div class="td-kv"><span>Slope</span><span class="td-num">{{ g.slope }}</span></div>
+        <div class="td-kv"><span>Water</span><span>{{ g.water }}</span></div>
+        <div class="td-kv"><span>Where</span><span class="td-num">{{ g.at }}</span></div>
+        <div class="td-actions is-start">
+          <button class="td-btn-secondary td-btn-sm" type="button" (click)="edit('paint')" data-test="look-edit">Edit with Paint</button>
+        </div>
       } @else {
-        <p class="td-note">Nothing yet.</p>
+        <p class="td-note">Nothing yet: click a thing, or the ground for its paint, height and slope.</p>
       }
     </div>
   `,
@@ -75,6 +84,16 @@ export class LookPanelComponent {
       where = at(doc.paths.nodes.find((n) => n.id === nodes[0]));
     }
     return { what: describePick(first, ctx), count, at: where, tool, toolLabel };
+  });
+
+  /** The ground point a click found nothing on (LookTool), described */
+  readonly ground = computed(() => {
+    this.session.docRev();
+    this.session.settingsRev();
+    const at = this.session.settings.look.at;
+    const editor = this.session.editor;
+    if (!at || !editor || this.session.selection()) return null;
+    return { ...describeGround(editor.doc.terrain, at.x, at.y, this.session.catalog()), at: `${Math.round(at.x)} m E, ${Math.round(at.y)} m N` };
   });
 
   /** Hands the selection to the tool that edits it, in the mode that moves it */

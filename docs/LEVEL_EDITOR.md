@@ -131,7 +131,7 @@ und hebt die Auswahl auf, wie in jedem Werkzeug; `EditorTool.cancel` sagt, ob es
 unter dem Zeiger steht (ein Objekt mit seiner Gruppe, Strg+Klick allein; Spawn, HQ, Straße, Knoten), und nennt es in
 der Statuszeile; ein Ring zeigt das Objekt unter dem Zeiger. Nichts bewegt sich, nichts wird gemalt oder gesetzt,
 Entf und die Gizmo-Tasten wirken nicht. Das Panel zeigt das Gewählte (was, wie viele, wo) und „Edit with …“, das
-das passende Werkzeug öffnet (Objects im Modus Select, Roads im Modus Edit, Spawns and HQ). Look hat keine
+das passende Werkzeug öffnet (Objects im Modus Select, Roads im Modus Edit, Spawns and HQ). Ein Klick auf freien Boden beschreibt die Stelle (`describeGround`): vorherrschende Bodenschicht, Höhe, Neigung, Wasser darüber mit Tiefe, Lage; „Edit with Paint“. Ob dort Tower stehen dürfen, zeigt weiter das Overlay Build areas (das rechnet ein Worker). Look hat keine
 umlegbare Taste (Esc ist keine Einzeltaste, die man vergeben könnte).
 
 **Landscape (1).** Landschaft malen: Höhe, Bodenfarbe, Wasser und Objekte entstehen gemeinsam, jeder Strich ist

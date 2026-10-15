@@ -4,8 +4,30 @@
  * what it is; nothing on the map moves, grows or gets painted. The editor
  * opens with it, and Esc comes back to it once nothing is half done.
  */
+import type { CatalogIndex } from '../catalog/asset-catalog';
+import type { MapTerrain } from '../../world/custom-map/map-document';
+import { nearestSample, slopeAt, heightAt } from '../model/grid';
 import { withGroups } from '../ops/object-ops';
+import { dominantLayer } from '../ops/paint-ops';
 import type { EditorTool, PickResult, ToolContext, ToolPointer } from './tool';
+
+/** A ground point in words: its ground layer, height, slope and the water over it */
+export function describeGround(t: MapTerrain, x: number, y: number, catalog: CatalogIndex): { what: string; height: string; slope: string; water: string } {
+  const layer = t.layers[dominantLayer(t, x, y)];
+  const ground = layer ? catalog.material(layer.material).name : 'Ground';
+  const h = heightAt(t, x, y);
+  const { i, j } = nearestSample(t, x, y);
+  const k = j * t.grid.columns + i;
+  const bodies = [t.water, ...(t.waterBodies ?? [])].filter((w) => !!w && w.mask[k] && w.level > h);
+  const top = bodies.reduce<(typeof bodies)[number] | null>((a, w) => (!a || w!.level > a.level ? w : a), null);
+  const kind = top ? (top.kind ?? 'water') : null;
+  return {
+    what: `${ground}${kind ? `, under ${kind}` : ''}`,
+    height: `${h.toFixed(1)} m`,
+    slope: `${Math.round(slopeAt(t, x, y))} deg`,
+    water: top ? `${kind} ${(top.level - h).toFixed(1)} m deep` : 'dry',
+  };
+}
 
 /** What a picked thing is, in a few words for the status line and the panel */
 export function describePick(picked: PickResult, ctx: Pick<ToolContext, 'editor' | 'catalog'>): string {
@@ -48,8 +70,12 @@ export class LookTool implements EditorTool {
     if (p.button !== 0) return false;
     const picked = ctx.pick(p);
     const editor = ctx.editor;
+    // Bare ground: the panel describes the spot (its ground, height, slope, water)
+    ctx.settings.look.at = !picked && p.hit ? { x: p.hit.x, y: p.hit.y } : null;
+    ctx.settingsChanged();
     if (!picked) {
       editor.select(null);
+      if (p.hit) ctx.status(describeGround(editor.doc.terrain, p.hit.x, p.hit.y, ctx.catalog).what);
       return false;
     }
     switch (picked.kind) {

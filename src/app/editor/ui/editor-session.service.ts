@@ -618,6 +618,8 @@ export class EditorSession implements OnDestroy {
   private showDocument(doc: CustomMapDocument, frame: boolean): void {
     for (const u of this.unsubscribe) u();
     this.unsubscribe = [];
+    // A spot Look described belongs to the map before
+    this.settings.look.at = null;
     if (this.editor) this.editor.replace(doc);
     else this.editor = new EditorDocument(doc);
     const editor = this.editor;

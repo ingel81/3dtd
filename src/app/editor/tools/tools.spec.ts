@@ -4,7 +4,7 @@ import { EditorDocument } from '../model/editor-document';
 import { heightAt } from '../model/grid';
 import type { EditorOverlay } from '../view/editor-overlay';
 import { freeGroup, withGroups } from '../ops/object-ops';
-import { LookTool } from './look-tool';
+import { describeGround, LookTool } from './look-tool';
 import { MarkerTool } from './marker-tool';
 import { ObjectTool, insidePolygon } from './object-tool';
 import { paintCommands } from './paint-tool';
@@ -272,6 +272,13 @@ describe('editor tools', () => {
     ctx.pick = () => null;
     tool.pointerDown(at(10, 10), ctx);
     expect(ed.selection).toBeNull();
+    // Bare ground: the panel and the status line describe the spot
+    expect(ctx.settings.look.at).toEqual({ x: 10, y: 10 });
+    expect(describeGround(ed.doc.terrain, 10, 10, ctx.catalog)).toMatchObject({ height: '0.0 m', slope: '0 deg', water: 'dry' });
+    expect(ctx.messages.at(-1)).toBe(describeGround(ed.doc.terrain, 10, 10, ctx.catalog).what);
+    ctx.pick = () => ({ kind: 'hq' });
+    tool.pointerDown(at(ed.doc.hq.x, ed.doc.hq.y), ctx);
+    expect(ctx.settings.look.at).toBeNull();
     expect(JSON.stringify(ed.doc)).toBe(before);
     expect(ed.historySteps).toBe(steps);
   });

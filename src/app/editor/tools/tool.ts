@@ -192,6 +192,8 @@ export interface EditorSettings {
   };
   paths: { mode: PathMode; width: number; kind: MapPathKind; /** Snap radius to nodes and edges, metres */ snap: number; showRoutes: boolean };
   markers: { mode: MarkerMode };
+  /** Look: the ground point the last click found nothing on, which the panel describes */
+  look: { at: MapPoint | null };
   stamp: {
     mode: 'select' | 'paste';
     parts: StampParts;
@@ -230,6 +232,7 @@ export function defaultSettings(): EditorSettings {
     objects: { mode: 'select', gizmo: 'move', asset: null, scatter: { ...DEFAULT_SCATTER }, snap: 0, randomRotation: true, space: 'global', alignToSlope: false, line: { ...DEFAULT_LINE, follow: 'free' } },
     paths: { mode: 'draw', width: 8, kind: 'road', snap: 10, showRoutes: true },
     markers: { mode: 'spawn' },
+    look: { at: null },
     stamp: { mode: 'select', parts: { ...ALL_PARTS }, rotation: 0, feather: 0.25, region: null, current: null, currentName: '' },
   };
 }
