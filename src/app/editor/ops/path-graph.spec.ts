@@ -7,6 +7,7 @@ import {
   deleteNode,
   dissolveNode,
   edgePolyline,
+  EdgeIndex,
   mergeNodes,
   moveNode,
   nearestOnEdges,
@@ -124,5 +125,31 @@ describe('path graph', () => {
     const r = routeBetween(p, { x: 10, y: 0 }, { x: 100, y: 90 })!;
     expect(r.length).toBeCloseTo(90 + 90);
     expect(r.points).toContainEqual({ x: 100, y: 0 });
+  });
+
+  it('finds through its edge grid the nearest point nearestOnEdges finds, and the same routes', () => {
+    // A tangle of roads with curves over 2 km, points inside, beside and far off it
+    let seed = 7;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const p: MapPaths = { nodes: [], edges: [] };
+    for (let k = 0; k < 60; k++) addNode(p, { x: rnd() * 2000 - 1000, y: rnd() * 2000 - 1000 });
+    for (let k = 0; k < 90; k++) {
+      const a = p.nodes[Math.floor(rnd() * 60)];
+      const b = p.nodes[Math.floor(rnd() * 60)];
+      const e = connect(p, a.id, b.id, 4 + rnd() * 8);
+      if (e && rnd() < 0.5) e.via = [{ x: (a.x + b.x) / 2 + rnd() * 80 - 40, y: (a.y + b.y) / 2 + rnd() * 80 - 40 }];
+    }
+    const index = new EdgeIndex(p);
+    for (let k = 0; k < 400; k++) {
+      const q = { x: rnd() * 3000 - 1500, y: rnd() * 3000 - 1500 };
+      const reach = k % 2 ? Infinity : 30;
+      const want = nearestOnEdges(p, q, reach);
+      const got = index.nearest(q, reach);
+      expect(got?.edge.id).toBe(want?.edge.id);
+      if (want) expect(got!.dist).toBeCloseTo(want.dist, 9);
+    }
+    const from = p.nodes[0];
+    const to = p.nodes[1];
+    expect(routeBetween(p, from, to, index)?.length).toBeCloseTo(routeBetween(p, from, to)!.length, 9);
   });
 });
