@@ -338,6 +338,11 @@ def fishing_boat(name):
     box(cabin_roof, 0, 2.3, 3.2, 2.2, 2.4, 0.12)
     dark = Part(flat_material('window', (0.05, 0.06, 0.07), 0.2, 0.3))
     box(dark, 0, 1.18, 2.2, 1.6, 0.05, 0.6)
+    # Side and rear windows of the wheelhouse and a lamp up the mast: window glass, lit at night
+    for x in (-1.02, 1.02):
+        box(dark, x, 2.3, 2.2, 0.05, 1.2, 0.6)
+    box(dark, 0, 3.42, 2.2, 1.2, 0.05, 0.6)
+    box(dark, 0, -1.5, 6.0, 0.2, 0.2, 0.25)
     mast = Part(pbr_material('planks-dark', 'dark_planks'), smooth=True)
     tube(mast, [Vector((0, -1.5, 1.3)), Vector((0, -1.5, 7.5))], [0.12, 0.08], 8, cap=True)
     oriented_box(mast, Vector((0, -1.5, 3.0)), Vector((0, 1.2, 2.6)), 0.08)

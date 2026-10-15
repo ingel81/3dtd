@@ -355,6 +355,42 @@ def waterline(draft):
     return lower
 
 
+def ship_lights(obj):
+    """extra() for the sailing ship (after waterline): stern windows on the transom, quarter windows on both
+    sides of the stern cabin and the stern lantern's glass, all window glass (lit at night, night-windows.ts),
+    laid on the scan's surface where a ray from outside meets it"""
+    from mathutils.bvhtree import BVHTree
+    mesh = obj.data
+    tree = BVHTree.FromPolygons([v.co for v in mesh.vertices], [p.vertices for p in mesh.polygons])
+    glass = Part(flat_material('window-glass-ship', (0.05, 0.045, 0.04), 0.3, 0.2))
+
+    def pane(origin, direction, w, h):
+        """A pane where the ray meets the hull, in the hull's plane, upright edges kept vertical"""
+        loc, normal, _, _ = tree.ray_cast(origin, direction)
+        if loc is None:
+            return
+        if normal.dot(direction) > 0:
+            normal = -normal
+        along = Vector((0, 0, 1)).cross(normal).normalized() * (w / 2)
+        up = normal.cross(along).normalized() * (h / 2)
+        c = loc + normal * 0.03
+        glass.quad([c - along - up, c + along - up, c + along + up, c - along + up], [(0, 0), (1, 0), (1, 1), (0, 1)])
+
+    for x in (-0.42, 0.0, 0.42):
+        pane(Vector((x, -20.0, 3.0)), Vector((0, 1, 0)), 0.3, 0.45)
+    for s in (-1, 1):
+        for y in (-9.5, -8.7):
+            pane(Vector((s * 10.0, y, 3.0)), Vector((-s, 0, 0)), 0.32, 0.42)
+    # The stern lantern on its bracket: a glass box just round the middle of its body
+    body = [v.co for v in mesh.vertices if abs(v.co.x) < 0.35 and -12.1 < v.co.y < -11.45 and 4.9 < v.co.z < 5.6]
+    if body:
+        lo = Vector([min(c[i] for c in body) for i in range(3)])
+        hi = Vector([max(c[i] for c in body) for i in range(3)])
+        mid, size = (lo + hi) / 2, hi - lo
+        box(glass, mid.x, mid.y, lo.z + size.z * 0.2, size.x + 0.02, size.y + 0.02, size.z * 0.6)
+    return [glass.to_object('ship-glass')]
+
+
 def models():
     return {
         # Fire and effects
@@ -399,5 +435,6 @@ def models():
         'basket': lambda: import_model('wicker_basket_01', None, 1500, 'basket', keep_scale=True),
         'table': lambda: import_model('WoodenTable_01', None, 1000, 'table', keep_scale=True),
         'pickaxe': lambda: import_model('picke_dirty_01', None, 1000, 'pickaxe', keep_scale=True),
-        'ship': lambda: import_model('dutch_ship_medium', None, 15000, 'ship', keep_scale=True, rot=90, extra=waterline(2.4)),
+        'ship': lambda: import_model('dutch_ship_medium', None, 15000, 'ship', keep_scale=True, rot=90,
+                                     extra=lambda obj: waterline(2.4)(obj) + ship_lights(obj)),
     }
