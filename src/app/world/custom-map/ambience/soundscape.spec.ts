@@ -93,6 +93,21 @@ describe('Soundscape', () => {
     s.dispose();
   });
 
+  it("fades a sound area out over its own reach", async () => {
+    const a = fakeAudio();
+    const s = new Soundscape(a, () => Promise.resolve({ duration: 16.2 } as unknown as AudioBuffer));
+    s.setVolume(1);
+    const area = { id: 's', kind: 'sound' as const, shape: 'route' as const, points: [{ x: 0, y: -50 }, { x: 0, y: 50 }], sound: 'fire', volume: 1, reach: 200 };
+    s.setMap({ life: { areas: [area] }, environment: env('temperate') });
+    // 100 m off: half its reach, a quarter; past the default 70 m and still heard
+    await tick(s, listener(100, 0));
+    expect(levels(a)[0]).toBeCloseTo(AMBIENT_SOUNDS['fire'].gain * 0.25, 3);
+    s.setMap({ life: { areas: [{ ...area, reach: 20 }] }, environment: env('temperate') });
+    await tick(s, listener(25, 0));
+    expect(levels(a)[0]).toBe(0);
+    s.dispose();
+  });
+
   it('keeps the voices an edit leaves, starts none at volume 0 and none for an unknown sound', async () => {
     const a = fakeAudio();
     let loads = 0;

@@ -496,7 +496,7 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   apocalypse und mars Wind, desert Wind und Grillen, swamp Frösche, city Stadtrauschen, hell Lavagrollen, moon keiner
   (`ambient-sounds.ts`, `BIOME_SOUNDS`). Ohne `ambience` keiner: eine Karte bleibt still, bis man ihn setzt
 - **Tonbereiche** (Lebensbereich der Art `sound` mit `sound` und `volume`, Standard 0,7): im Umriss oder auf der Linie
-  voll, darüber hinaus über 70 m leiser (`AREA_REACH`, quadratisch), aus der Seite, auf der er liegt (Stereo-Panner,
+  voll, darüber hinaus über seine Reichweite leiser (`reach` 10 bis 300 m, Standard 70 m, `AREA_REACH`, quadratisch), aus der Seite, auf der er liegt (Stereo-Panner,
   voll seitlich erst 30 m außerhalb); ein Bach entlang einer Linie, Brandung entlang einer Küste, Feuer in einem Hof
 - **Ton zu jeder Welle** (`life.waveSound`: `sound`, `volume`, optional `area`): einmal, wenn eine Welle beginnt
   (`wave:started` auf dem Hauptbus, über `PresentationHost` an `WorldProvider.waveStarted`, nicht beim Vorspulen eines

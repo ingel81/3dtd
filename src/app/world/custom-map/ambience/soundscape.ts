@@ -1,5 +1,5 @@
 import type { CustomMapDocument, MapLife, MapLifeArea, MapPoint } from '../map-document';
-import { nearestOnShape } from '../map-life';
+import { LIFE_SOUND_REACH, nearestOnShape } from '../map-life';
 import { AMBIENT_SOUNDS, WAVE_SOUNDS, ambienceSounds, soundEntry, soundFiles } from './ambient-sounds';
 
 /**
@@ -7,7 +7,8 @@ import { AMBIENT_SOUNDS, WAVE_SOUNDS, ambienceSounds, soundEntry, soundFiles } f
  * "Umgebungston"): the map's bed over everything (`life.ambience`: the
  * biome's by day and by night, crossfading with the darkness, or one sound)
  * and the sound areas and routes (`life.areas`, kind `sound`), each loud
- * inside its outline or on its line and fading over AREA_REACH metres,
+ * inside its outline or on its line and fading over its reach (AREA_REACH
+ * metres unless it sets its own),
  * and the sound once at each wave's start (`life.waveSound`, playWave).
  * Heard from where the camera looks (the listener: a ground point and the
  * camera's height over it); from high up everything is quieter, and a sound
@@ -22,8 +23,8 @@ import { AMBIENT_SOUNDS, WAVE_SOUNDS, ambienceSounds, soundEntry, soundFiles } f
 
 /** Seconds of each file before and after its loop (tools/ambient/make_placeholders.py PAD) */
 export const LOOP_PAD = 0.1;
-/** Metres over which an area's sound fades out beyond its outline or its line */
-export const AREA_REACH = 70;
+/** Metres over which an area's sound fades out beyond its outline or its line, unless it sets its own `reach` */
+export const AREA_REACH = LIFE_SOUND_REACH.default;
 /** How often the gains follow the listener, seconds, and how fast they glide */
 const STEP = 0.1;
 const GLIDE = 0.35;
@@ -192,7 +193,7 @@ export class Soundscape {
       if (v.bed) level = base * (v.bed === 'night' ? night : this.voices.some((o) => o.bed === 'night') ? 1 - night : 1);
       else if (v.area) {
         const d = nearestOnShape(v.area, listener.at.x, listener.at.y, this.near);
-        const f = Math.max(0, 1 - d / AREA_REACH);
+        const f = Math.max(0, 1 - d / (v.area.reach ?? AREA_REACH));
         level = base * f * f;
         if (d > 1) {
           const dx = (this.near.x - listener.at.x) / d;

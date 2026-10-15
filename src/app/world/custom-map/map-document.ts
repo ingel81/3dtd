@@ -467,6 +467,8 @@ export interface MapLifeArea {
   /** Sound: the ambient sound's id (ambience/ambient-sounds.ts) and its volume 0..1 (default 0.7) */
   sound?: string;
   volume?: number;
+  /** Sound: metres over which it fades out beyond the outline or the line (LIFE_SOUND_REACH, default 70) */
+  reach?: number;
   /** Boats: the floating asset that drifts (default a rowboat); movers: the asset that moves (required) */
   asset?: string;
   /** Birds: what flies (default songbirds) */

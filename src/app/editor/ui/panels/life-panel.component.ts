@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { TdIconComponent } from '../../../components/icon/icon.component';
 import type { MapLife, MapLifeArea, MapLifeKind } from '../../../world/custom-map/map-document';
-import { centroid, DEFAULT_BOAT, LIFE_AREA_DENSITY, LIFE_KIND_INFO, LIFE_KINDS, lifeSwitches, outlineArea, shapeLength } from '../../../world/custom-map/map-life';
+import { centroid, DEFAULT_BOAT, LIFE_AREA_DENSITY, LIFE_KIND_INFO, LIFE_KINDS, LIFE_SOUND_REACH, lifeSwitches, outlineArea, shapeLength } from '../../../world/custom-map/map-life';
 import { SnapshotCommand } from '../../model/editor-document';
 import type { LifeMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
@@ -94,7 +94,9 @@ const TINTED: ReadonlySet<MapLifeKind> = new Set(['fireflies', 'fog', 'leaves', 
           </label>
           <app-editor-range label="Volume" unit="%" [min]="0" [max]="100" [step]="5" [value]="(a.volume ?? 0.7) * 100"
                             (changing)="liveArea(a.id, { volume: $event / 100 })" (changed)="commitArea(a.id, { volume: $event / 100 }, 'Life sound volume')" />
-          <p class="td-note">Full inside the outline or on the line, fading out over 70 m around it; quieter from high up.</p>
+          <app-editor-range label="Reach" unit="m" [min]="reachRange.min" [max]="reachRange.max" [step]="5" [value]="a.reach ?? reachRange.default"
+                            (changing)="liveArea(a.id, { reach: $event })" (changed)="commitArea(a.id, { reach: $event }, 'Life sound reach')" data-test="life-reach" />
+          <p class="td-note">Full inside the outline or on the line, fading out over its reach around it; quieter from high up.</p>
         }
         @if (a.kind === 'movers') {
           <label class="td-setting">
@@ -262,6 +264,7 @@ export class LifePanelComponent {
   readonly spots = SPOTS;
   readonly tinted = TINTED;
   readonly density = LIFE_AREA_DENSITY;
+  readonly reachRange = LIFE_SOUND_REACH;
   readonly modes: { id: LifeMode; label: string }[] = [
     { id: 'area', label: 'Outline' },
     { id: 'route', label: 'Line' },

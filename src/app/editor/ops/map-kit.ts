@@ -82,8 +82,8 @@ import {
 } from '../../world/custom-map/map-document';
 
 /** What a life area may set beside its kind, shape and points */
-export type LifeOptions = Partial<Pick<MapLifeArea, 'density' | 'height' | 'color' | 'sound' | 'volume' | 'asset' | 'quality' | 'species' | 'speed'>>;
-const LIFE_OPTION_KEYS: readonly (keyof LifeOptions)[] = ['density', 'height', 'color', 'sound', 'volume', 'asset', 'quality', 'species', 'speed'];
+export type LifeOptions = Partial<Pick<MapLifeArea, 'density' | 'height' | 'color' | 'sound' | 'volume' | 'reach' | 'asset' | 'quality' | 'species' | 'speed'>>;
+const LIFE_OPTION_KEYS: readonly (keyof LifeOptions)[] = ['density', 'height', 'color', 'sound', 'volume', 'reach', 'asset', 'quality', 'species', 'speed'];
 
 /** A brush as the panel sets it; falloff defaults to the editor's 0.6 */
 export interface Brush {

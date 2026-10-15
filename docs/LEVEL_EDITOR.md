@@ -317,7 +317,7 @@ Dokument trägt (`life.areas`), und die Schalter dessen, was die Karte von selbs
   nimmt den gewählten Punkt (ein Umriss behält drei, eine Linie zwei) oder ohne gewählten Punkt den Bereich
 - Panel: Art des nächsten Bereichs; der gewählte mit Dichte (10 bis 300 %), Flughöhe (Vögel), Höhe und Farbe
   (Partikel), Vogelart (Singvögel, Möwen, Krähen und Raben, Greifvögel), Boot (die schwimmenden Requisiten des
-  Katalogs) oder Klang und Lautstärke, „Shows from“ Medium oder nur
+  Katalogs) oder Klang, Lautstärke und Reichweite (10 bis 300 m, wie weit er um den Bereich ausklingt, Standard 70), „Shows from“ Medium oder nur
   High, Show, Remove; die Liste der Bereiche; „One spot“ setzt ein
   Effekt-Objekt (Rauchsäule, kreisender Schwarm, Glühwürmchen, Glut) mit dem Objektwerkzeug; „What the map brings by
   itself“: Schornsteinrauch, Glühwürmchen an Ufern und in Wäldern, Vögel über offenem Land, Funken über Lava, wehende
