@@ -17,6 +17,8 @@ import { MAX_MANUAL_SPAWN_DISTANCE } from '../../../../configs/map-constants.con
 import type { FavoriteLocation } from '../../../../models/location.types';
 import { haversineDistance } from '../../../../utils/geo-utils';
 import { GameStore } from '../../../../store/game.store';
+import { CUSTOM_MAPS_OPEN } from '../../../../world/custom-maps-open';
+import type { OsmFrameRequest } from '../../../osm-frame/osm-frame-request';
 
 type SpawnMode = 'random' | 'manual';
 
@@ -75,6 +77,10 @@ export class PlacePickerComponent {
 
   /** A place the player chose; the page loads it */
   readonly chosen = output<PlaceChoice>();
+  /** A place to make a map of (an OSM world); the page opens its frame */
+  readonly mapOfPlace = output<OsmFrameRequest>();
+  /** The maps are open: a place can become a map */
+  readonly mapsOpen = inject(CUSTOM_MAPS_OPEN);
 
   /** The place loaded now, null at a start without one */
   readonly current = computed(() => {
@@ -250,6 +256,29 @@ export class PlacePickerComponent {
     this.chosen.emit({ kind: 'place', hq: { lat: hq.lat, lon: hq.lon, name, address: hq.address }, spawn });
   }
 
+  // ---- A map of a place ----
+
+  /** The searched place as a map of its own (an OSM world), spawns drawn in the frame */
+  mapOfSearched(): void {
+    const hq = this.selectedHQ();
+    if (!hq) return;
+    this.mapOfPlace.emit({ place: { lat: hq.lat, lon: hq.lon, name: this.placeName(hq), address: hq.name }, spawnsAt: [] });
+  }
+
+  /** The place loaded now as a map, with the spawns of its run */
+  mapOfCurrent(): void {
+    const current = this.current();
+    if (!current) return;
+    const spawnsAt = this.locationMgmt.spawns().map((s) => ({ lat: s.lat, lon: s.lon }));
+    this.mapOfPlace.emit({ place: { lat: current.lat, lon: current.lon, name: shortName(current.name), address: current.name }, spawnsAt });
+  }
+
+  /** A searched place's name as the list shows it: its own, the place from its address, or the coordinates */
+  private placeName(hq: SearchedPlace): string {
+    const extracted = hq.address ? this.geocoding.extractLocationName(hq.address) : UNKNOWN_LOCATION_NAME;
+    return hq.name ? shortName(hq.name) : extracted !== UNKNOWN_LOCATION_NAME ? extracted : `${hq.lat.toFixed(4)}, ${hq.lon.toFixed(4)}`;
+  }
+
   // ---- One click ----
 
   /** The browser's location, asked only on this click; it loads with a random spawn */
@@ -313,4 +342,9 @@ export class PlacePickerComponent {
         : { lat: spawn.lat, lon: spawn.lon, portalBearing: spawn.portalBearing }) : null,
     };
   }
+}
+
+/** The first part of a long address: "Hauptstraße 5, Miltenberg, Bayern" -> "Hauptstraße 5" */
+function shortName(name: string): string {
+  return name.split(',')[0].trim() || name;
 }

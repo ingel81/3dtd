@@ -26,6 +26,9 @@
       </button>
       @if (current()) {
         <button type="button" class="td-link td-inline" (click)="setMovingSpawn(true)">Move the spawn by address…</button>
+        @if (mapsOpen) {
+          <button type="button" class="td-link td-inline" (click)="mapOfCurrent()" data-test="map-of-current">Make a map of this place…</button>
+        }
       }
     </div>
     @if (locating() === 'failed') {
@@ -81,6 +84,10 @@
         </div>
       }
       <div class="td-actions">
+        @if (mapsOpen) {
+          <button type="button" class="td-btn-secondary" (click)="mapOfSearched()" data-test="map-of-place"
+                  title="A map of its own from OpenStreetMap: no map key needed, and it opens in the editor">Play on a map of this place</button>
+        }
         <button type="button" class="td-btn-primary" [disabled]="!canConfirm()" (click)="confirm()">Load place</button>
       </div>
     }

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, output, signal } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { TdIconComponent } from '../../../icon/icon.component';
 import { GameStore } from '../../../../store/game.store';
@@ -22,6 +22,8 @@ import { WorldChoiceService, type MapChoices } from '../../../../world/world-cho
 export class MapPickerComponent implements OnInit {
   readonly worlds = inject(WorldChoiceService);
   private readonly game = inject(GameStore);
+  /** To the real places, where a searched place becomes a map of its own */
+  readonly toPlaces = output<void>();
 
   /** The maps once listed, null while they load */
   readonly maps = signal<MapChoices | null>(null);

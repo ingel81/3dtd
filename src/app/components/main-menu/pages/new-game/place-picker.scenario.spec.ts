@@ -27,6 +27,8 @@ import type { PlaceChoice } from '../../../../services/location/place-choice';
 import type { FavoriteLocation } from '../../../../models/location.types';
 import type { RecentLocation } from '../../../../services/location/recent-locations';
 import { PlacePickerComponent } from './place-picker.component';
+import { CUSTOM_MAPS_OPEN } from '../../../../world/custom-maps-open';
+import type { OsmFrameRequest } from '../../../osm-frame/osm-frame-request';
 
 const template = readFileSync(resolve('src/app/components/main-menu/pages/new-game/place-picker.component.html'), 'utf8');
 
@@ -71,6 +73,9 @@ interface Setup {
   favorites?: FavoriteLocation[];
   waveNumber?: number;
   located?: { lat: number; lon: number } | null;
+  /** The maps are open (a place can become a map) */
+  mapsOpen?: boolean;
+  spawns?: { lat: number; lon: number }[];
 }
 
 describe('Place picker of New game', () => {
@@ -95,8 +100,10 @@ describe('Place picker of New game', () => {
             getLocationDisplayName: () => 'Heilbronn',
             recents: signal(setup.recents ?? []),
             favorites: signal(setup.favorites ?? []),
+            spawns: signal(setup.spawns ?? []),
           },
         },
+        { provide: CUSTOM_MAPS_OPEN, useValue: setup.mapsOpen ?? false },
         { provide: LocationChangeCoordinatorService, useValue: { favoriteNamesMap: signal({ b: 'Paris, Trocadéro' }) } },
         { provide: BestWaveService, useValue: { records: signal([]) } },
         { provide: GeolocationService, useValue: { detectLocation } },
@@ -155,6 +162,25 @@ describe('Place picker of New game', () => {
       hq: { lat: 48.78, lon: 9.18, name: 'Stuttgart, Germany', address: { city: 'Stuttgart' } },
       spawn: null,
     }]);
+  });
+
+  it('with the maps open a place becomes a map of its own: the searched one, or the one loaded with the spawns of its run', () => {
+    const fixture = open({ hq: HEILBRONN, mapsOpen: true, spawns: [{ lat: 49.15, lon: 9.22 }] });
+    const frames: OsmFrameRequest[] = [];
+    fixture.componentInstance.mapOfPlace.subscribe((r) => frames.push(r));
+    click(fixture, 'Make a map of this place…');
+    expect(frames[0]).toEqual({ place: { ...HEILBRONN, name: 'Heilbronn', address: 'Heilbronn' }, spawnsAt: [{ lat: 49.15, lon: 9.22 }] });
+    pickPlace(fixture, 'City, street or address…', { lat: 48.78, lon: 9.18, name: 'Stuttgart, Germany', address: { city: 'Stuttgart' } });
+    click(fixture, 'Play on a map of this place');
+    expect(frames[1]).toEqual({ place: { lat: 48.78, lon: 9.18, name: 'Stuttgart', address: 'Stuttgart, Germany' }, spawnsAt: [] });
+    expect(chosen).toEqual([]);
+  });
+
+  it('with the maps closed (before their release) no place becomes a map', () => {
+    const fixture = open({ hq: HEILBRONN });
+    pickPlace(fixture, 'City, street or address…', { lat: 48.78, lon: 9.18, name: 'Stuttgart, Germany' });
+    expect(button(fixture, 'Play on a map of this place')).toBeNull();
+    expect(button(fixture, 'Make a map of this place…')).toBeNull();
   });
 
   it('warns that the run under way ends, not while only the spawn moves', () => {
