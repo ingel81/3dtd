@@ -151,8 +151,8 @@ Nebel der Szene wieder her.
   und glüht von unten orange mit langsamem Puls). An Hangfüßen unter Steilem rieselt Geröll in der Farbe der Klippe
   heraus. Über jedem Lavapunkt steigen Glut (zusammen höchstens etwa 2000 Teilchen) und etwas Rauch auf. Objekte
   nahe Lava (Häuser, Felsen, Bäume) glühen von unten mit: jedes Kartenmaterial mit Emissive-Anteil liest über den
-  Höhennebel-Patch dieselbe Lavanähe an seiner Stelle (ein Lookup, nur auf Karten mit Lava), am stärksten auf Flächen
-  nach unten und zur Seite, ohne Lichter
+  Höhennebel-Patch dieselbe Lavanähe an seiner Stelle (ein Lookup, nur auf Karten mit Lava; quadratisch über die 12 m),
+  am stärksten auf Flächen nach unten und zur Seite, ohne Lichter
 - **Gebrauchsspuren** (`ground-decals.ts`): nach Kartenregeln gebackene Decals, ein instanziertes Netz, ein Draw
   Call (höchstens 3000): Laub unter jedem zweiten Laubbaum (nicht unter Nadelbäumen, Höllen- und Endzeitbäumen),
   festgetretene dunkle Erde vor Hauseingängen und alle 9 bis 15 m an den Rändern von Straßen und Pfaden, Pfützen dort
@@ -877,11 +877,16 @@ die normale Tiefe zurück, zwei Spieler sähen dann verschiedene Tiefenpuffer. N
 - Lichter: höchstens 6 echte Punktlichter gleichzeitig, ohne Schatten. Alle Lichter (Laternen, Fackeln, Feuer, die
   Lavapunkte) sind dazu ins Land gebacken (`effects/lamp-light.ts`): zwei Texturen über die Karte (ein Texel je Meter,
   höchstens 512 je Seite, Half Float), ruhige und flackernde Lichter getrennt, je Licht ein umgekehrtes Quadrat von
-  seiner Höhe, das an seiner Reichweite weich endet; Alpha hält die Bodenhöhe des Lichts. Jedes Kartenmaterial mit
+  seiner Höhe (Kern mindestens 0,3 der Reichweite breit, dazu ein Sockel von 0,3 des Lichts am Fuß, so trägt der Fleck
+  bis an die Reichweite), das dort weich endet; Alpha hält die Bodenhöhe des Lichts. Jedes Kartenmaterial mit
   Höhennebel (Gelände, Objekte, Gras) liest sie an seinem Fragment und gibt ihr Licht mal seiner Farbe dazu, über
   dem Licht 6 bis 12 m nach oben auslaufend (ein Dach über der Laterne bleibt dunkel), Wände und Unterseiten weniger,
   Feuer flackernd mit einer Phase, die über die Karte wandert, mit weicher Grenze statt Weiß; nach Dunkelheit
-  eingeblendet wie der Pool. Neu gebacken wird nur das Rechteck, das alte und neue Lichter erreichen. Die Lichthöfe
-  sind nachts mindestens ein Hundertstel des Abstands breit, so lesen sie aus der Spielkamera. Gemessen
+  eingeblendet wie der Pool. Wasser und Eis nehmen das gebackene Licht ebenfalls (ein warmer Schimmer am Ufer unter
+  Laternen und Fackeln). Neu gebacken wird nur das Rechteck, das alte und neue Lichter erreichen. Die Lichthöfe haben
+  einen kleinen hellen Kern und einen weiten weichen Hof (Licht in der Nachtluft), nachts mindestens ein Fünfzigstel
+  des Abstands breit, so lesen sie aus der Spielkamera. E189 (Laternen nachts zu schwach): Bodenlicht, Hof und Pool
+  (Katalogstärke 1 = 28 cd) kräftiger, Lavapunkte backen weiter und stärker; gleiche Draw Calls, Renderzeit im Rauschen
+  (Harbor Town 1,11 und 1,13 ms, headless, High). Gemessen
   (Render-Bench headless, High, GPU-Median, belastete Maschine): Harbor Town 1,03 bis 1,08 ms vorher, 1,06 bis 1,20
   nachher; Witch Marsh 0,80 bis 0,86 und 0,82 bis 0,90; Ember Crater 0,70 bis 0,98 und 0,70 bis 0,98

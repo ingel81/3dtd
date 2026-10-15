@@ -42,7 +42,7 @@ import { DEFAULT_SPIN } from '../objects/spin';
 export const POINT_LIGHTS = 6;
 
 /** Catalogue intensity 1 in three's units (candela-ish): a lantern */
-const CANDELA = 18;
+const CANDELA = 28;
 /** The light glowing lava throws up into smoke over it */
 const LAVA_GLOW = '#ff6a20';
 
@@ -362,7 +362,7 @@ export class EffectLayer {
     // A blinking beacon lights no ground: its flash is too short for that
     const lamps: LampSpot[] = [
       ...this.spots.filter((s) => !s.blink),
-      ...this.extraSpots.map((s) => ({ position: s.position, color: s.color, intensity: 0.9, distance: 32, flicker: true })),
+      ...this.extraSpots.map((s) => ({ position: s.position, color: s.color, intensity: 1.3, distance: 36, flicker: true })),
     ];
     this.lampsLit = this.lamps.bake(lamps);
     const u = LAMP_LIGHT_UNIFORMS;
@@ -737,14 +737,15 @@ varying vec2 vUv;
 varying vec3 vColor;
 void main() {
   float flicker = aCol.w < 0.0 ? 1.0 : 0.85 + 0.1 * sin(uTime * 9.0 + aCol.w) + 0.05 * sin(uTime * 23.0 + aCol.w * 3.0);
-  // Faint by day (a lit lamp), full at night
-  vColor = aCol.rgb * flicker * mix(0.25, 1.0, uDarkness);
+  // Faint by day (a lit lamp), bright at night: the lamp reads from the game camera high above
+  vColor = aCol.rgb * flicker * mix(0.3, 1.5, uDarkness);
   // A beacon: a short bright flash every aBlink.x seconds, readable by day as well
   if (aBlink.x > 0.0) vColor = aCol.rgb * mix(0.7, 1.0, uDarkness) * 1.6 * step(0.82, fract(uTime / aBlink.x + aBlink.y * 0.37));
   vUv = uv;
   vec4 mvPosition = modelViewMatrix * vec4(aPos.xyz, 1.0);
-  // At night at least a hundredth of the distance across, so lamps read from the game camera high above
-  mvPosition.xy += position.xy * max(aPos.w * mix(0.6, 1.0, uDarkness), -mvPosition.z * 0.01 * uDarkness);
+  // The quad twice the light's size: the core fills its inner half, the halo around it the rest.
+  // At night at least a fiftieth of the distance across, so lamps read from the game camera high above
+  mvPosition.xy += position.xy * max(aPos.w * 2.0 * mix(0.6, 1.0, uDarkness), -mvPosition.z * 0.02 * uDarkness);
   // Pulled towards the camera a little, so the halo is not cut by the lamp's own mesh
   mvPosition.xyz *= 1.0 - min(0.4 / max(-mvPosition.z, 1.0), 0.3);
   gl_Position = projectionMatrix * mvPosition;
@@ -760,8 +761,9 @@ varying vec3 vColor;
 void main() {
   #include <logdepthbuf_fragment>
   float r = length(vUv - 0.5) * 2.0;
-  float core = pow(max(1.0 - r, 0.0), 6.0) * 1.5;
-  float halo = pow(max(1.0 - r, 0.0), 2.0) * 0.35;
+  float core = pow(max(1.0 - r * 2.0, 0.0), 6.0) * 1.6;
+  // A wide soft halo: the light in the night air around the lamp
+  float halo = pow(max(1.0 - r, 0.0), 3.0) * 0.3;
   float a = core + halo;
   if (a < 0.003) discard;
   gl_FragColor = vec4(vColor * a, 1.0);
