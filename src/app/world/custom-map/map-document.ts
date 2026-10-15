@@ -381,10 +381,10 @@ export function difficultyFactor(gameplay: Pick<MapGameplay, 'difficulty'> | und
 /**
  * What lives in a life area (map-life.ts): bird flocks, fireflies at night,
  * banks of ground fog, falling leaves, embers, sparks, snow flurries, dust
- * devils, boats drifting on the water, things moving over the ground (a
- * rover, a herd), or an ambient sound
+ * devils, heat shimmering over hot ground, boats drifting on the water,
+ * things moving over the ground (a rover, a herd), or an ambient sound
  */
-export type MapLifeKind = 'birds' | 'fireflies' | 'fog' | 'leaves' | 'embers' | 'sparks' | 'snow' | 'dust' | 'boats' | 'movers' | 'sound';
+export type MapLifeKind = 'birds' | 'fireflies' | 'fog' | 'leaves' | 'embers' | 'sparks' | 'snow' | 'dust' | 'haze' | 'boats' | 'movers' | 'sound';
 
 /** What flies in a birds area: small songbirds, gulls, crows and ravens, big birds of prey (eagles, vultures) */
 export type MapBirdSpecies = 'songbirds' | 'gulls' | 'crows' | 'raptors';

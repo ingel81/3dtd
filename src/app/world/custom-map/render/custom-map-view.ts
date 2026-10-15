@@ -31,6 +31,7 @@ import { fitShadowBox } from './environment/shadow-fit';
 import { EffectLayer, glowStandIn } from './effects/effect-layer';
 import { circleFlock, type Flock } from './effects/bird-flocks';
 import { LifeMovers } from './effects/life-movers';
+import { LifeHaze } from './effects/life-haze';
 import { areaShown, lifeSwitches } from '../map-life';
 import type { MapBiome } from '../map-document';
 import { CoverMap } from './environment/cover-map';
@@ -157,6 +158,8 @@ export class CustomMapView {
   private readonly effects: EffectLayer;
   /** Boats drifting on the water and movers going over the ground, of the life areas (effects/life-movers.ts) */
   private readonly movers: LifeMovers;
+  /** Heat shimmer over the life areas of hot ground (effects/life-haze.ts), with the lava glow effect */
+  private readonly haze: LifeHaze;
   /** The quality level's share of the map's life (render-quality.ts `life`) */
   private lifeShare = 1;
   /** Terrain and roof tops for the weather; rebuilt lazily (coverDirty) */
@@ -261,6 +264,9 @@ export class CustomMapView {
     this.effects.setLife(doc.life);
     this.movers = new LifeMovers(assets, this.heights, (x, y) => this.waterLevelAt(x, y));
     this.group.add(this.movers.group);
+    this.haze = new LifeHaze(this.heights);
+    this.group.add(this.haze.group);
+    this.refreshHaze();
     this.waveBanners();
     this.decals = new GroundDecals(this.terrain.heightTexture);
     this.group.add(this.decals.mesh);
@@ -909,6 +915,13 @@ export class CustomMapView {
     this.effects.setLavaLights(this.lavaLightPoints());
     void this.refreshMovers();
     this.waveBanners();
+    this.refreshHaze();
+  }
+
+  /** Heat shimmer over the life areas of hot ground, on levels that show them and with the lava glow effect on */
+  private refreshHaze(): void {
+    const shown = (this.doc.life?.areas ?? []).filter((a) => a.kind === 'haze' && areaShown(a, this.lifeShare));
+    this.haze.set(shown, this.mapEffects.lavaGlow && lifeSwitches(this.doc.life).density > 0 ? this.sceneCopy : null);
   }
 
   /** The life areas' boats and movers, on levels that show them */
@@ -1199,6 +1212,7 @@ export class CustomMapView {
     if (lifeChanged) {
       void this.refreshMovers();
       this.waveBanners();
+      this.refreshHaze();
     }
   }
 
@@ -1309,6 +1323,7 @@ export class CustomMapView {
     this.mapEffects = { ...this.mapEffects, ...effects };
     this.applyEffects();
     if (this.mapEffects.shadowCascade !== cascade) this.applyShadowCascade();
+    this.refreshHaze();
   }
 
   private applyShadowCascade(): void {
@@ -1345,6 +1360,7 @@ export class CustomMapView {
     for (const r of this.rivers) r.dispose();
     this.effects.dispose();
     this.movers.dispose();
+    this.haze.dispose();
     WIND_UNIFORMS.uClothWave.value = 0;
     this.cover.dispose();
     this.objects.dispose();

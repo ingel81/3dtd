@@ -23,27 +23,37 @@ export function setHeatHaze(owner: Mesh<BufferGeometry, ShaderMaterial>, copy: S
     return;
   }
   if (!haze) {
-    const material = new ShaderMaterial({
-      uniforms: { uTime: owner.material.uniforms['uTime'], ...copy.uniforms },
-      vertexShader: HAZE_VERTEX,
-      fragmentShader: HAZE_FRAGMENT,
-      transparent: true,
-      depthWrite: false,
-      toneMapped: false,
-    });
-    material.name = 'custom-map-heat-haze';
-    haze = new Mesh(owner.geometry, material);
-    haze.name = 'custom-map-heat-haze';
+    haze = heatHazeMesh(owner.geometry, owner.material.uniforms['uTime'], copy);
     haze.position.y = 0.4;
-    haze.renderOrder = 4;
-    haze.userData['losTransparent'] = true;
-    haze.onBeforeRender = (renderer) => copy.capture(renderer);
     owner.add(haze);
     owner.userData['heatHaze'] = haze;
   }
   // The owner's geometry is rebuilt on edits: follow it
   haze.geometry = owner.geometry;
   haze.updateMatrix();
+}
+
+/**
+ * A shimmering sheet over `geometry` (its `aDepth` attribute fades it: 0 at
+ * a rim, 1 inside), drawing the frame behind it moved by rising noise on
+ * `time`: over lava, and over a life area of hot ground (effects/life-haze.ts)
+ */
+export function heatHazeMesh(geometry: BufferGeometry, time: { value: number }, copy: SceneCopy): Mesh<BufferGeometry, ShaderMaterial> {
+  const material = new ShaderMaterial({
+    uniforms: { uTime: time, ...copy.uniforms },
+    vertexShader: HAZE_VERTEX,
+    fragmentShader: HAZE_FRAGMENT,
+    transparent: true,
+    depthWrite: false,
+    toneMapped: false,
+  });
+  material.name = 'custom-map-heat-haze';
+  const haze = new Mesh(geometry, material);
+  haze.name = 'custom-map-heat-haze';
+  haze.renderOrder = 4;
+  haze.userData['losTransparent'] = true;
+  haze.onBeforeRender = (renderer) => copy.capture(renderer);
+  return haze;
 }
 
 const HAZE_VERTEX = /* glsl */ `

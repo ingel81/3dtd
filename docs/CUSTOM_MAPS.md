@@ -456,7 +456,11 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   nachts wie die automatischen. Funken (`sparks`, neu): stoßweise hoch und zurück, nachts hell, am Tag schwach.
   Schneegestöber (`snow`, alle 12 m, aus 14 m Höhe). Staubteufel (`dust`, neue Partikelart): je 70 m ein Wirbel, der
   etwa 40 m um seine Stelle wandert, Staub schraubt sich bis 18 m hoch und weitet sich oben; jeder lebt etwa 40 s je
-  Minute; alle Teilchen eines Wirbels teilen sich dessen Bahn über einen Wert aus seiner Stelle.
+  Minute; alle Teilchen eines Wirbels teilen sich dessen Bahn über einen Wert aus seiner Stelle. Hitzeflimmern (`haze`,
+  `effects/life-haze.ts`): ein Tuch 0,6 m über dem Boden im Umriss (Raster alle 4 m, höchstens 40 000 Punkte) oder in
+  einem Band 8 m beiderseits der Linie, mit dem Shader des Lava-Flimmerns (`heatHazeMesh`, `water/heat-haze.ts`), am
+  Rand über 12 m ausgeblendet; es liest die Bildkopie der Brechung und steht daher nur mit dem Effekt „Lava glow and
+  heat haze“ (High, Ultra oder der Schalter des Spielers), aus der Spielkamera schwach.
   Boote (`boats`, `effects/life-movers.ts`): je Boot eine eigene langsame Schleife im Umriss (0,5 bis 1,2 m/s; 4 Boote
   je Dichte 1, höchstens 24) oder auf einer Linie auf der einen Seite hin und auf der anderen zurück (4 m daneben,
   1,5 bis 2,5 m/s, 3 Boote), auf dem Spiegel des Wassers darunter (über Land behalten sie den des letzten Wassers),
