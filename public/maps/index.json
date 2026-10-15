@@ -54,7 +54,7 @@
       "spawns": 3,
       "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "bbae5097a6371bbed9dbdcc466fd7bdcaabf47921127ea9772572402668cb486"
+      "contentHash": "107464646dafd89b055285a6a2111cdc6f3b686f6a2d6573bc474bb1b28f5e47"
     },
     {
       "id": "red-canyon",
@@ -68,7 +68,7 @@
       "spawns": 2,
       "biome": "desert",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "a63d4a0abeb7d19a8ba6b4630bdd19a8ebcad5014ad35e96fdeb16b61dbd3c86"
+      "contentHash": "cde689f16dd135b9b0d8a722bd5cb3e0d492e9d3c345326a372857380252235f"
     },
     {
       "id": "archipelago",
@@ -82,7 +82,7 @@
       "spawns": 2,
       "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "5d5b71d2bded2ef4232c103c7098b0a703cb90039b42d938455c50883725c679"
+      "contentHash": "df8071696674d85e049c25a45e6291646fdd6a9d6b982f6dfd58adc9a51574f1"
     },
     {
       "id": "frost-hamlet",
@@ -110,7 +110,7 @@
       "spawns": 3,
       "biome": "hell",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "d34bf11f0cfa939eba6c8f88475ab72ce310bcb30b6611ff2a970220120aacab"
+      "contentHash": "bcf8bdc1e46b612d81a050ba79a5a58d8dfb663ef622d3686e8e9b27977e31a6"
     },
     {
       "id": "twin-gates",
@@ -138,7 +138,7 @@
       "spawns": 3,
       "biome": "moon",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "42b1773c668036e5a3fe4671a516db905ac2c7286fe519be32cc086e5224bf8d"
+      "contentHash": "8467624e8413d8b4f78d7cdee2e19facf622047b2c5ef998e664d33fa742dcba"
     },
     {
       "id": "mars-canyon",
@@ -152,7 +152,7 @@
       "spawns": 3,
       "biome": "mars",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "935deda7871621d1ac48e0399fdf50459753c237e164f8ee4e833df9b2fc0b00"
+      "contentHash": "7b384b15fc2e6e6ee310ae7d7654c29c24dd069155571eb67a7831d40504d8a9"
     },
     {
       "id": "ruined-city",

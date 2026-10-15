@@ -37,6 +37,13 @@ export function buildAutumnKeep(): CustomMapDocument {
   for (let a = 0; a <= 360; a += 12) rim.push({ x: spur.x + Math.cos((a * Math.PI) / 180) * 71, y: spur.y + Math.sin((a * Math.PI) / 180) * 71 });
   k.roughen(rim, { radius: 8, falloff: 0.7 }, 2.5, 3303);
   for (const p of [{ x: -130, y: -150 }, { x: 140, y: -160 }, { x: -170, y: 110 }, { x: 170, y: 120 }]) k.form('valley', p, { radius: 60, strength: 0.6 }, 3);
+  // Wooded hills in the two north corners, away from the three spawns: the forest climbs them, a second line of hills
+  // either side of the keep; none behind it, where the keep stands against the sky from the south; whole inside the map
+  for (const [n, ridge] of [[{ x: -215, y: 175 }, { x: -170, y: 212 }, { x: -110, y: 214 }], [{ x: 215, y: 170 }, { x: 170, y: 208 }, { x: 110, y: 212 }]].entries()) {
+    k.raise(ridge, { radius: 42, falloff: 1 }, 12);
+    for (const [i, p] of ridge.entries()) k.raise(p, { radius: 38, falloff: 1 }, 8 + 12 * k.noise.hash(n, i, 61));
+    k.roughen(ridge, { radius: 42, falloff: 0.8 }, 2, 3304 + n);
+  }
 
   // ---- Roads out of the woods to the green before the gate, then up through the gate to the bailey
   const green = { x: 0, y: -28 };

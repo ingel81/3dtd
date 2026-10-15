@@ -118,6 +118,10 @@ export function buildEmberCrater(): CustomMapDocument {
   for (const line of [
     [{ x: -130, y: -110 }, { x: -170, y: -170 }, { x: -230, y: -230 }],
     [{ x: 120, y: 120 }, { x: 170, y: 175 }, { x: 240, y: 230 }],
+    // Two more down the north-west and south-east flanks, between the passes: from the game's camera the cone glows
+    // on four sides past the rim
+    [{ x: -66, y: 142 }, { x: -92, y: 196 }, { x: -108, y: 240 }],
+    [{ x: 120, y: -101 }, { x: 170, y: -150 }, { x: 205, y: -200 }],
   ]) {
     k.river(line, { kind: 'lava', width: 7, depth: 1.2, bank: 6, reeds: false, bridges: false });
   }
@@ -194,15 +198,18 @@ export function buildEmberCrater(): CustomMapDocument {
     k.place('lava-pool', p.x, p.y, { rotation: a, scale: 1.1 + 0.4 * k.noise.hash(i, 23, 87) });
   }
 
-  // The hell fields on the outer slopes: black towers and spires standing in clusters, a column of smoke out of
-  // each, so the cone does not end in bare dark slopes
-  for (const [n, c] of [{ x: -205, y: -195 }, { x: -215, y: 185 }, { x: 205, y: 195 }, { x: 215, y: -185 }].entries()) {
-    k.place('fx-smoke-column', c.x, c.y, { scale: 1.1, tint: '#3a302c' });
-    for (let i = 0; i < 8; i++) {
+  // Black towers on the outer slopes beside the four lava flows, between the passes: groups of tall obsidian towers
+  // and spires lit by the lava and a brazier, a column of smoke out of each, seen over the rim from the game's camera
+  for (const [n, deg] of [32, 125, 216, 308].entries()) {
+    const th = (deg * Math.PI) / 180;
+    const c = { x: Math.cos(th) * 182, y: Math.sin(th) * 182 };
+    k.place('fx-smoke-column', c.x, c.y, { scale: 1.5, tint: '#3a302c' });
+    if (k.free(c.x, c.y + 4, 2)) k.place('brazier', c.x, c.y + 4, { scale: 1.6 });
+    for (let i = 0; i < 10; i++) {
       const a = k.noise.hash(n, i, 94) * Math.PI * 2;
-      const d = 8 + 22 * k.noise.hash(n, i, 95);
+      const d = 6 + 24 * k.noise.hash(n, i, 95);
       const p = { x: c.x + Math.cos(a) * d, y: c.y + Math.sin(a) * d };
-      if (k.free(p.x, p.y, 6)) k.place(d < 18 ? 'obsidian-tower' : 'hell-spires', p.x, p.y, { rotation: a, scale: 0.8 + 0.6 * k.noise.hash(n, i, 96) });
+      if (k.free(p.x, p.y, 6)) k.place(d < 20 ? 'obsidian-tower' : 'hell-spires', p.x, p.y, { rotation: a, scale: d < 20 ? 1.4 + 0.7 * k.noise.hash(n, i, 96) : 1.2 + 0.4 * k.noise.hash(n, i, 96) });
     }
   }
 

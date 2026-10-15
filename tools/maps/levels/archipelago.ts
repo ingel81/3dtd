@@ -84,6 +84,15 @@ export function buildArchipelago(): CustomMapDocument {
   for (const [n, c] of coasts.entries()) k.rockyCoast(coastLines[n], { land: 'left', top: c.top, bed: -4, rocks: c.rocks });
   // The lighthouse rock's crown: rock walls on its steep flanks, not a painted slope
   k.cliffRocks(islands[5].at, { radius: 30 });
+  // Sea stacks out at the edges of the sound: towers of rock standing in the open water, alone or in twos and threes,
+  // their sides in the coast's cliff rocks; depth before the horizon, away from the walks, the boats and the ships
+  for (const [n, [x, y, h]] of ([[215, 205, 24], [236, 178, 14], [232, -140, 20], [-236, -62, 22], [-222, -42, 12], [140, -232, 18], [-60, -236, 15]] as const).entries()) {
+    const at = { x, y };
+    // Raised from the sea floor (-7 m) to a ragged top, narrowing as it rises
+    k.raise(at, { radius: 9 + h * 0.35, falloff: 0.75 }, h + 7);
+    k.roughen(at, { radius: 14, falloff: 0.7 }, 3, 90 + n);
+    k.cliffRocks(at, { radius: 14 }, 'cliff-coast');
+  }
   // A sandbank in the open water south of the middle isle, a wreck stranded on it
   const bank = { x: -140, y: -95 };
   k.level([bank, { x: bank.x + 22, y: bank.y - 8 }], { radius: 22, falloff: 0.4 }, 0.6);
