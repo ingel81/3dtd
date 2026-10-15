@@ -81,3 +81,20 @@ a step without effect does not fail.
   and mode clicks.
 - Editor panels stay in the DOM under `visibility: hidden`; `find` skips them.
 - A long wait loop in this shell gets killed (exit 137); poll the log with short until-loops in the background.
+
+## Round 3 (2026-10-16 night)
+
+Programme (`script.mjs`): intro (Ember Crater, Red Canyon, Demo Valley, into the editor from the pause menu), the
+editor hopping Demo Valley, Mars Canyon, Moon Base, Red Canyon, Demo Valley, Mars Canyon, Demo Valley
+(`scenes/editor.mjs`), Fire and Ice on Frozen ground (`editor2.mjs`, its symmetry moved to the Moon), the W3X
+import, today's map changes (`worlds.mjs`: Autumn Keep by day and at night, Harbor Town at night, Archipelago at
+dusk), the fight on Red Canyon (`game.mjs`, shipped map, no Test map), the outro on Moon Base under the Earth.
+
+Fight: six towers from the gate inward (chainsaw, archer rebuilt as ballista, shawarma, sentinel, bastion,
+lightning), wave 1 zombies followed close with the health bars off, then wave 10: Herbert's entrance, followed
+from the gate (walk at speed 4, cut), play speed 1.5 through the towers until he falls, the rest at speed, a slow
+pull-out. `jumpWave` waits for the last wave to end and repeats until the wave button names the wave.
+
+Cut: `tmp/showreel/edit/build.py <take> long|short` (round 3 lists, chapter titles, impact on the beat in the
+short cut, `--limit` for a test cut), `features.py <take> --md <file>` writes the feature list with times.
+A rehearsal's marks are laid end to end into one clock, so `--dry` and `features.py` work on rehearsals too.

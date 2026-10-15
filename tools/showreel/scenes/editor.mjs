@@ -109,6 +109,7 @@ export const SCENES = [
     stroke(1.6, [m(150, 40), m(150, 40)]),
     ...settle(1),
     effect('volcano'),
+    wait(1),
   ]),
   block('moon-craters', 'moon-base', 'Moon Base', [
     // Symmetry: Mirror X makes two big craters of one stroke on the south plain, then Both four over the whole map
@@ -241,6 +242,7 @@ export const SCENES = [
     stroke(1.3, [m(-92, -182), m(-125, -172)], { label: 'duplicate', settle: 0.3 }),
     wait(0.8),
     effect('duplicate'),
+    wait(0.8),
     key('Escape'),
   ]),
   block('dv-village', 'demo-valley', 'Demo Valley', [
