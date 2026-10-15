@@ -78,7 +78,8 @@ export function buildArchipelago(): CustomMapDocument {
     { at: islands[5].at, from: -160, to: 160, top: 12, rocks: ['cliff-coast', 'cliff-wall-b', 'cliff-wall'] },
     { at: islands[6].at, from: 190, to: 345, top: 5, rocks: small },
   ];
-  for (const c of coasts) k.rockyCoast(k.shoreAround(c.at, c.from * deg, c.to * deg), { land: 'left', top: c.top, bed: -4, rocks: c.rocks });
+  const coastLines = coasts.map((c) => k.shoreAround(c.at, c.from * deg, c.to * deg));
+  for (const [n, c] of coasts.entries()) k.rockyCoast(coastLines[n], { land: 'left', top: c.top, bed: -4, rocks: c.rocks });
   // The lighthouse rock's crown: rock walls on its steep flanks, not a painted slope
   k.cliffRocks(islands[5].at, { radius: 30 });
   // A sandbank in the open water south of the middle isle, a wreck stranded on it
@@ -135,12 +136,9 @@ export function buildArchipelago(): CustomMapDocument {
   k.erase({ x: bank.x + 11, y: bank.y - 4 }, 28);
   k.place('shipwreck', bank.x + 11, bank.y - 4, { rotation: 1.9 });
   for (const [dx, dy, a] of [[-4, 4, 'barrels-broken'], [3, 6, 'crate'], [16, -6, 'barrel-old'], [-6, -2, 'crate-flat']] as const) k.place(a, bank.x + dx, bank.y + dy, { rotation: dx });
-  // Ships out at sea as a backdrop, gulls over the lighthouse rock and the harbour
-  // TODO(E190): the lighthouse's turning beam, surf spray on the rocks, gull calls and the sound of the sea
+  // Ships out at sea as a backdrop
   k.place('ship', 175, -215, { rotation: 1.1 });
   k.place('ship', -215, 215, { rotation: -0.6, scale: 0.8 });
-  k.place('fx-birds', islands[5].at.x, islands[5].at.y, { z: 20, scale: 0.6 });
-  k.place('fx-birds', 70, shoreY - 30, { z: 15, scale: 0.6 });
   k.row('wall-dry-stone', [{ x: 20, y: -20 }, { x: 40, y: 5 }, { x: 80, y: 15 }], 5.4, { turn: Math.PI / 2 });
   k.row('fence-rail', [{ x: 100, y: -55 }, { x: 125, y: -60 }, { x: 140, y: -40 }], 3.8, { turn: Math.PI / 2 });
   const light = islands[5].at;
@@ -157,6 +155,18 @@ export function buildArchipelago(): CustomMapDocument {
   k.erase({ x: 96, y: -14 }, 9);
   k.place('windmill', 96, -14, { rotation: 0.7 });
   k.place('well', 52, -62);
+
+  // ---- Life: gulls round the lighthouse rock, over the harbour and the wreck; rowing boats drifting in the harbour,
+  // a fishing boat going out round the main island and back; the surf on the rocky coasts, birdsong on the islands
+  // TODO(E190): gulls (birds of the gull species) and their calls, surf spray on the rocks
+  const ring = (at: MapPoint, r: number): MapPoint[] => Array.from({ length: 8 }, (_, i) => ({ x: at.x + Math.cos((i / 8) * Math.PI * 2) * r, y: at.y + Math.sin((i / 8) * Math.PI * 2) * r }));
+  k.lifeArea('birds', ring(islands[5].at, 60), { height: 30, density: 1.2 });
+  k.lifeArea('birds', ring(harbour, 45), { height: 22 });
+  k.lifeArea('birds', ring({ x: bank.x + 11, y: bank.y - 4 }, 40), { height: 20, density: 0.6 });
+  k.lifeArea('boats', ring(harbour, 18), { density: 0.5 });
+  k.lifeRoute('boats', [{ x: harbour.x + 20, y: harbour.y - 14 }, { x: 160, y: -150 }, { x: 175, y: -60 }, { x: 255, y: -10 }], { asset: 'fishing-boat' });
+  for (const n of [0, 1, 5, 6]) k.lifeRoute('sound', coastLines[n], { sound: 'surf', volume: n === 5 ? 0.8 : 0.6 });
+  k.lifeSettings({ ambience: { sound: 'biome', volume: 0.45 } });
 
   k.clearRoads();
   k.environment({ biome: 'temperate', sky: 'day', sunAzimuth: 150, sunElevation: 50, fogDensity: 0.0004, tint: '#fbfdff' });
