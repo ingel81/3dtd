@@ -185,9 +185,13 @@ export function setDown<T extends MapObject>(terrain: MapTerrain, o: T, rock: Ro
 export const BUILDING_PAD = 1.5;
 const BUILDING_BLEND = 4;
 
-/** A building that levels its ground when first placed: catalogue category building, not afloat, not on stilts */
-export function levelsGround(entry: { footing?: { category: string; float?: boolean; stilts?: boolean } }): boolean {
-  return entry.footing?.category === 'building' && !entry.footing.float && !entry.footing.stilts;
+/**
+ * An object that levels its ground when first placed: a building (catalogue category building) and anything with a
+ * turning part, whose sweep would cut into a slope behind it; neither afloat nor on stilts
+ */
+export function levelsGround(entry: { footing?: { category: string; float?: boolean; stilts?: boolean; turns?: boolean } }): boolean {
+  const f = entry.footing;
+  return !!f && (f.category === 'building' || !!f.turns) && !f.float && !f.stilts;
 }
 
 /**

@@ -100,7 +100,7 @@ export async function loadAssetCatalog(library = MapAssetLibrary.shared()): Prom
 interface RawCatalog {
   materials?: (Partial<GroundMaterialEntry> & { id: string; average?: string; files?: { color?: string } })[];
   objects?: (Partial<ObjectAssetEntry> &
-    Partial<Pick<CatalogObject, 'drawDistance' | 'triangles' | 'lod' | 'effects' | 'aloft' | 'stilts'>> & { id: string; footprint?: number; file?: string; category?: string })[];
+    Partial<Pick<CatalogObject, 'drawDistance' | 'triangles' | 'lod' | 'effects' | 'aloft' | 'stilts' | 'spin'>> & { id: string; footprint?: number; file?: string; category?: string })[];
 }
 
 const CATEGORY_NAMES: Record<string, string> = {
@@ -154,7 +154,7 @@ export function normalizeCatalog(json: RawCatalog, assetsUrl: string): MapAssetC
         height: o.height ?? 2,
         base: o.base,
         float: o.float || undefined,
-        footing: { category: (o.category ?? 'prop') as ObjectCategory, footprint: o.radius ?? o.footprint ?? 1, height: o.height ?? 2, base: o.base, float: o.float, aloft: o.aloft, stilts: o.stilts },
+        footing: { category: (o.category ?? 'prop') as ObjectCategory, footprint: o.radius ?? o.footprint ?? 1, height: o.height ?? 2, base: o.base, float: o.float, aloft: o.aloft, stilts: o.stilts, turns: o.spin !== undefined || undefined },
         internal: INTERNAL_OBJECTS.has(o.id) || undefined,
         tags: o.tags?.length ? [...o.tags] : undefined,
         drawing:

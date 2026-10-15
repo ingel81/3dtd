@@ -253,7 +253,7 @@ Tags des Katalogs und Suche (Name, Id oder Tag).
   mit (CUSTOM_MAPS.md, „Leben aus dem Karteninhalt“): sobald einer gesetzt ist, gelten nur die gesetzten. Häuser mit
   Schornstein rauchen von selbst, ein von Hand gesetzter Rauch über dem Haus ersetzt den Schornsteinrauch.
   Bereiche, Wege und Umgebungston setzt das Werkzeug Life (N)
-- Gebäude (Katalog-Kategorie `building`, nicht schwimmend, nicht auf Stelzen: Katalog `stilts`, die Pfahlhütte am Ufer verschob sonst ihr Ufer und ließ Wasser in der Luft stehen) ebnen beim ersten Setzen ihren Boden (`levelUnderBuilding`
+- Gebäude (Katalog-Kategorie `building`) und Objekte mit Drehteil (Katalog `spin`: die Radarschüssel drehte sonst am Hang in den Boden dahinter), beide nicht schwimmend, nicht auf Stelzen: Katalog `stilts`, die Pfahlhütte am Ufer verschob sonst ihr Ufer und ließ Wasser in der Luft stehen) ebnen beim ersten Setzen ihren Boden (`levelUnderBuilding`
   in `ops/object-ops.ts`): der Fußabdruck-Radius, 1,5 m und eine Gitterzelle mehr gehen auf die Grundhöhe (Mittel des
   Bodens unter der Mitte und acht Punkten des Fußabdrucks, Abtrag und Auftrag), darüber hinaus läuft der Boden über den
   Fußabdruck-Radius weich in das Gelände aus (mindestens 4 m und die doppelte Höhe von Abtrag oder Auftrag, so bleiben

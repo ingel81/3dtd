@@ -193,6 +193,15 @@ describe('map scripts', () => {
     expect(heightAt(kit.doc.terrain, 40 + 4 * r + 12, 20)).toBeCloseTo((40 + 4 * r + 12) * 0.25, 3);
   });
 
+  it('levels the ground under a radar dish on a slope, so its turning head sweeps clear of the hill behind', () => {
+    const kit = new MapKit(map(), index, { name: 't', seed: 7 });
+    const g = kit.doc.terrain.grid;
+    for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) g.heights[j * g.columns + i] = (i * g.cellSize - 128) * 0.5;
+    kit.place('antenna-dish', 40, 20);
+    // The head's rim reaches about 3.7 m out: the ground there stands no higher than under the dish
+    expect(heightAt(kit.doc.terrain, 44, 20)).toBeCloseTo(heightAt(kit.doc.terrain, 36, 20), 3);
+  });
+
   it('levels no ground under a hut on stilts, which stands over its shore as it is', () => {
     const kit = new MapKit(map(), index, { name: 't', seed: 7 });
     const g = kit.doc.terrain.grid;
