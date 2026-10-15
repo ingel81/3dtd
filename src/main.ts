@@ -3,6 +3,8 @@ import { appConfig } from './app/app.config';
 import { AppComponent } from './app/app';
 import { installThemeVars, TD_FONTS } from './app/styles/td-theme';
 
+declare const ngDevMode: unknown;
+
 // The --td-* tokens once on :root, so overlays outside the component tree see them too
 installThemeVars(document);
 
@@ -12,5 +14,16 @@ for (const weight of [500, 600, 700]) {
   void document.fonts?.load(`${weight} 16px ${TD_FONTS.ui}`).catch(() => undefined);
 }
 
-bootstrapApplication(AppComponent, appConfig)
+// The showreel hook (tools/showreel): development builds only, where `?showreel` asks for it. A production
+// build defines ngDevMode as false, so the branch and its chunk drop out of the bundle.
+const showreel =
+  (typeof ngDevMode === 'undefined' || !!ngDevMode) && new URLSearchParams(location.search).has('showreel')
+    ? import('./app/showreel/showreel').then((m) => {
+        m.installShowreelEarly();
+        return m;
+      })
+    : Promise.resolve(null);
+
+showreel
+  .then((hook) => bootstrapApplication(AppComponent, appConfig).then((app) => hook?.startShowreel(app.injector)))
   .catch((err) => console.error(err));

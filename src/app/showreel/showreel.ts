@@ -1,0 +1,151 @@
+/**
+ * The showreel hook (tools/showreel, README.md there): loaded by main.ts
+ * only in a development build and only with `?showreel` in the address. It
+ * taps the game's sound before the app starts, hides the real pointer and
+ * the frame counters, and puts `__showreel` on the page for the runner:
+ * scenes to play, the sync mark, the sound recording, the windows the page
+ * asked to open.
+ */
+import type { Injector } from '@angular/core';
+import { AudioRecording, installAudioTap } from './audio-tap';
+import { Director, type Mark, type Scene } from './director';
+import { EditorStage } from './editor-stage';
+import { GameStage } from './game-stage';
+import { Hands, nextFrame, waitUntil } from './hands';
+import { ShowreelPointer } from './pointer';
+import type { Stage } from './stage';
+
+/** Frame counters and dev overlays out of the picture, the real pointer hidden */
+const STYLE = `
+html.showreel, html.showreel * { cursor: none !important; }
+html.showreel app-info-overlay,
+html.showreel .td-photo-bar,
+html.showreel [data-test=fps],
+html.showreel span:has(+ [data-test=fps]) { display: none !important; }
+/* Script switches (director steps ui, legend): the editor's legend, and the editor without its frame */
+html.showreel.sr-no-legend [data-test=legend],
+html.showreel.sr-no-legend [data-test=legend-open],
+html.showreel.sr-clean .es-top,
+html.showreel.sr-clean .es-tools,
+html.showreel.sr-clean .es-side,
+html.showreel.sr-clean .es-status,
+html.showreel.sr-clean .es-minimap,
+html.showreel.sr-clean .es-trial { display: none !important; }
+html.showreel.sr-clean .es-root { grid-template: 'view' minmax(0, 1fr) / minmax(0, 1fr) !important; }
+/* The editor's map list, new-map form and import report: larger, so their text reads in the video */
+html.showreel .mb-panel { zoom: 1.25; }
+/* An intro page (?showreel=intro): the game's HUD out from the first frame, as photo mode has it, before photo
+   mode can be entered; the scene (route lines, HQ and spawn markers) and the loading globe stay */
+html.showreel.sr-hud-off app-game-header,
+html.showreel.sr-hud-off app-game-sidebar,
+html.showreel.sr-hud-off .notice-banner,
+html.showreel.sr-hud-off .td-canvas-area > :not(canvas):not(app-globe-backdrop):not(.td-error-overlay):not(td-token-setup) { display: none !important; }
+`;
+
+/** How long the sync flash stays white: several frames of a 60 fps capture */
+const FLASH_MS = 120;
+
+export interface ShowreelApi {
+  /** Resolves once the page's stage (game or editor) shows its map */
+  ready(timeoutS?: number): Promise<string>;
+  run(scene: Scene): Promise<Mark[]>;
+  /** The sync mark: white for FLASH_MS and a click into the recording at its first frame; resolves with that frame's time */
+  sync(): Promise<{ t: number; audioT: number }>;
+  audio: {
+    start(): Promise<{ mimeType: string; state: string; startedAt: number }>;
+    stop(): Promise<number>;
+    piece(offset: number, length: number): string;
+    length(): number;
+  };
+  /** Addresses the page asked to open in another window (the editor's Test map), newest last */
+  opened: string[];
+  marks: Mark[];
+}
+
+/** Before the app starts: the sound tap and the page's look; the editor's tour stays away, its legend until a script shows it */
+export function installShowreelEarly(): void {
+  installAudioTap();
+  document.documentElement.classList.add('showreel', 'sr-no-legend');
+  // The runner asks for an intro page with `showreel=intro`: the game's intro flight plays without its HUD
+  const asked = new URLSearchParams(location.search).get('showreel');
+  if (asked === 'intro' || asked === 'clean') document.documentElement.classList.add('sr-hud-off');
+  // `showreel=nointro`: the flight is switched off as soon as the engine offers its handle, before the map stands
+  if (asked === 'nointro') {
+    const off = setInterval(() => {
+      const f = (globalThis as { __flight?: { setEnabled(v: boolean): void } }).__flight;
+      if (!f) return;
+      f.setEnabled(false);
+      clearInterval(off);
+    }, 20);
+  }
+  const style = document.createElement('style');
+  style.textContent = STYLE;
+  document.head.append(style);
+  try {
+    localStorage.setItem('3dtd-editor-tour', 'done');
+  } catch {
+    // storage blocked: the tour shows, the script can still skip it
+  }
+}
+
+/** Once the app runs: the director on `__showreel` */
+export function startShowreel(injector: Injector): void {
+  const opened: string[] = [];
+  // The editor's Test map opens the game in another window; the runner opens it in this one instead
+  window.open = ((url?: string | URL) => {
+    if (url) opened.push(String(url));
+    return null;
+  }) as typeof window.open;
+
+  let pointer: ShowreelPointer | null = null;
+  const hands = (): Hands => new Hands((pointer ??= new ShowreelPointer()));
+  let game: GameStage | null = null;
+  let editor: EditorStage | null = null;
+  const stage = (): Stage =>
+    location.pathname.startsWith('/editor') ? (editor ??= new EditorStage()) : (game ??= new GameStage(injector, hands()));
+  let director: Director | null = null;
+  const directorOf = (): Director => (director ??= new Director(stage, hands()));
+  let recording: AudioRecording | null = null;
+  const marks: Mark[] = [];
+
+  const api: ShowreelApi = {
+    async ready(timeoutS = 120) {
+      const s = stage();
+      await waitUntil(() => s.ready(), timeoutS, `the ${s.kind} to show its map`);
+      return s.kind;
+    },
+    async run(scene) {
+      const run = await directorOf().run(scene);
+      marks.push(...run);
+      return run;
+    },
+    async sync() {
+      const flash = document.createElement('div');
+      Object.assign(flash.style, { position: 'fixed', inset: '0', background: '#fff', zIndex: '2147483647', pointerEvents: 'none' });
+      // Appended in a frame's callback, the flash shows in that frame: the click goes with it
+      const t = await nextFrame();
+      document.body.append(flash);
+      const audioT = recording?.click() ?? 0;
+      marks.push({ t, kind: 'mark', scene: '', label: 'sync' });
+      // Held by time, not frames: on a 144 Hz display two frames are 14 ms, which a 60 fps capture can miss
+      while ((await nextFrame()) - t < FLASH_MS) {
+        // white on screen
+      }
+      flash.remove();
+      return { t, audioT };
+    },
+    audio: {
+      async start() {
+        recording = new AudioRecording();
+        const started = await recording.start();
+        return { ...started, startedAt: recording.startedAt };
+      },
+      stop: () => recording?.stop() ?? Promise.resolve(0),
+      piece: (offset, length) => recording?.piece(offset, length) ?? '',
+      length: () => recording?.base64Length ?? 0,
+    },
+    opened,
+    marks,
+  };
+  (globalThis as Record<string, unknown>)['__showreel'] = api;
+}
