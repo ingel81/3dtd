@@ -137,11 +137,7 @@ export function buildMarsCanyon(): CustomMapDocument {
   // Craters on the plain, boulders fallen into the canyons, rock towers on the horizon
   for (const [x, y, r] of [[-60, 190, 26], [210, 170, 22], [-220, -60, 20]] as const) {
     k.form('crater', { x, y }, { radius: r, strength: 1 }, 2);
-    for (let i = 0; i < 4; i++) {
-      const a = k.noise.hash(x, y, i) * Math.PI * 2;
-      const p = { x: x + Math.cos(a) * r, y: y + Math.sin(a) * r };
-      if (k.free(p.x, p.y, 6)) k.place('mars-crater-rim', p.x, p.y, { rotation: a + Math.PI / 2 });
-    }
+    k.ejecta({ x, y }, r * 1.2, ['mars-rock-large', 'mars-boulder', 'mars-stone']);
   }
   for (const line of [westCanyon, northCanyon, eastCanyon]) {
     // Boulders on the floor and the ledges only: one settled on the face of a wall stuck out of it as a dark block;

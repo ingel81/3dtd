@@ -144,14 +144,8 @@ export function buildMoonBase(): CustomMapDocument {
   for (const [x, y] of [[hq.x - 30, hq.y + 30], [hq.x + 44, hq.y - 12], [-150, -55], [175, -20], [hq.x + 78, hq.y + 66]] as const) {
     if (k.free(x, y, 4)) k.place('rover', x, y, { rotation: facing({ x, y }, hq) });
   }
-  // Crater rims and boulder fields: blocks of rock on the rims, boulders strewn on the plain
-  for (const [x, y, r] of craters.slice(0, 6)) {
-    for (let i = 0; i < 5; i++) {
-      const a = k.noise.hash(x, y, i) * Math.PI * 2;
-      const p = { x: x + Math.cos(a) * r * 0.62, y: y + Math.sin(a) * r * 0.62 };
-      if (k.free(p.x, p.y, 6)) k.place('crater-rim', p.x, p.y, { rotation: a + Math.PI / 2, scale: 0.9 + 0.3 * k.noise.hash(y, x, i) });
-    }
-  }
+  // Crater rims and boulder fields: ejecta strewn along the rims, boulders strewn on the plain
+  for (const [x, y, r] of craters.slice(0, 6)) k.ejecta({ x, y }, r, ['moon-boulder', 'moon-rock', 'moon-rocks-small']);
   k.scatter(['moon-boulder', 'moon-rock', 'moon-rocks-small'], [{ x: -200, y: 80 }, { x: 100, y: 180 }, { x: -150, y: -200 }, { x: 220, y: -150 }, { x: 0, y: -120 }], { radius: 60, strength: 0.7 }, { density: 2.5, minDistance: 5, scaleMin: 0.6, scaleMax: 1.6 });
 
   // ---- Life: rovers driving the track out to the launch site and the one to the solar field; the dishes turn on
