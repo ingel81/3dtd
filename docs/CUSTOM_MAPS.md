@@ -491,7 +491,7 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
 - **Ton über der ganzen Karte** (`life.ambience`: `sound` und `volume`): ein Klang, oder `biome`, der des Looks bei Tag
   und bei Nacht, mit der Dunkelheit überblendet (0,3 bis 0,7): temperate Vogelgesang und Grillen, mountain, arctic,
   apocalypse und mars Wind, desert Wind und Grillen, swamp Frösche, city Stadtrauschen, hell Lavagrollen, moon keiner
-  (`ambient-sounds.ts`, `BIOME_SOUNDS`). Ohne `ambience` keiner: die ausgelieferten Karten bleiben still, bis man ihn setzt
+  (`ambient-sounds.ts`, `BIOME_SOUNDS`). Ohne `ambience` keiner: eine Karte bleibt still, bis man ihn setzt
 - **Tonbereiche** (Lebensbereich der Art `sound` mit `sound` und `volume`, Standard 0,7): im Umriss oder auf der Linie
   voll, darüber hinaus über 70 m leiser (`AREA_REACH`, quadratisch), aus der Seite, auf der er liegt (Stereo-Panner,
   voll seitlich erst 30 m außerhalb); ein Bach entlang einer Linie, Brandung entlang einer Küste, Feuer in einem Hof
