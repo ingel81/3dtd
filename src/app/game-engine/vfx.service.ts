@@ -401,6 +401,12 @@ export class VFXService {
       const radius = PROJECTILE_TYPES.cannonball.splashRadius ?? EXPLOSION_PRESETS.cannon.radius;
       effects.spawnExplosionAtGeo(lat, lon, height, particles, radius, smokePuffs);
       this.markScorch(lat, lon, height, 'cannon');
+    } else if (projectileType === 'flak-shell') {
+      // Flak burst, in the air or on the ground, as wide as its splash; a scorch only where it lands on the route
+      const { particles, smokePuffs } = EXPLOSION_PRESETS.flak;
+      const radius = PROJECTILE_TYPES['flak-shell'].splashRadius ?? EXPLOSION_PRESETS.flak.radius;
+      effects.spawnExplosionAtGeo(lat, lon, height, particles, radius, smokePuffs);
+      this.markScorch(lat, lon, height, 'cannon');
     } else if (projectileType === 'bullet' || projectileType === 'hero-round') {
       // Minimal impact effect for bullets
       effects.spawnExplosionAtGeo(lat, lon, height, EXPLOSION_PRESETS.bullet.particles);
@@ -436,7 +442,7 @@ export class VFXService {
 
   /**
    * Handle muzzle flash for projectile towers.
-   * Only towers with a MUZZLE_FLASH_PROFILES entry flash (Archer, Gatling,
+   * Only towers with a MUZZLE_FLASH_PROFILES entry flash (Archer, Gatling, Iron Bastion,
    * Cannon, Rocket); the profile sizes the additive particles and the pooled
    * PointLight on the tower renderer.
    */

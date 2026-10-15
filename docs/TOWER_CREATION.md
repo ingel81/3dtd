@@ -42,6 +42,7 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 | Poison | projectile | poison | 5 | 55m | 1.0/s | 100 | DoT (poison-glob), Splash |
 | Lightning | **chain** | lightning | 35 | 65m | 0.8/s | 130 | Hitscan-Kette (`maxJumps: 2`, `chainFalloff: 0.7`, `jumpRange: 15m`). Idle-Crackle am Turm-Tip + lokale Aufhell-Halos pro Hit (additive Sprites). Air+Ground. |
 | Chaos | projectile | chaos | 50 | 60m | 1.2/s | 200 | Generalist (1,0 gegen jede Rüstung), Air+Ground, Projektil `chaos-orb`. Kenney-Modell, der mittlere Kristall dreht sich (`turretNode: 'crystal'`) |
+| Iron Bastion | projectile | pierce | 36 | 65m | 0.75/s | 150 | Flak: Splash 5 m (max. 6 Ziele), Air+Ground, Rohr neigt sich (`pitchNodes: ['gun']`). Modell aus `tools/blender/build_tower.py` |
 | Research Center | **passive** | – | 0 | 0 | 0 | 75 | Kein Combat, siehe Research-System. Einmal je Karte |
 | Missile Silo | **passive** | – | 0 | 0 | 0 | 400 | Kein Combat, von ihm startet der Nuklearschlag ([ABILITIES.md](ABILITIES.md)). Einmal je Karte, keine Upgrades, Forschung `nuclear-strike` |
 
@@ -147,7 +148,7 @@ const NEW_MODEL_URL = 'assets/models/towers/new_tower.glb';
 | `upgrades` | TowerUpgrade[] | - | Verfügbare Upgrades |
 | `unique` | boolean | false | Einmal je Karte (Research Center, Missile Silo): kein zweites, solange eines steht |
 | `minWave` | number | - | Baubar erst ab der Bauphase vor Welle N (Research Center: 2, damit das Startgold Tower für Welle 1 kauft); Simulation und Baukarte prüfen es |
-| `description` | string | - | Was ein passives Gebäude tut, Text im Tooltip seiner Karte |
+| `description` | string | - | Was ein passives Gebäude tut oder die Rolle eines Towers in einem Satz, Text im Tooltip seiner Karte |
 | `canTargetAir` | boolean | false | Kann Luft-Einheiten angreifen |
 | `canTargetGround` | boolean | true | Kann Boden-Einheiten angreifen |
 | `hasAnimations` | boolean | false | GLTF-Animationen vorhanden |
@@ -162,6 +163,24 @@ const NEW_MODEL_URL = 'assets/models/towers/new_tower.glb';
 | `chainFalloff` | number | - | **Chain-only:** Schaden-Multiplier pro Jump (Lightning: 0.7 → 100%/70%/49%) |
 | `jumpRange` | number | - | **Chain-only:** Max. Distanz zwischen zwei Chain-Links in Metern |
 | `damageType` | DamageType | - | Pflichtfeld: physical/pierce/siege/magic/fire/ice/poison/lightning/chaos |
+
+### Modell aus einem Meshy-Kandidaten
+
+Die Kandidaten (`public/assets/models/towers/candidates/*.blend`, nicht in git) sind ein einziges Netz mit 0,8 bis
+2,5 Mio. Dreiecken und drei 2048er-Texturen. `tools/blender/split_tower.py` schneidet es nach `towers/<name>.json` in
+die Teile, die sich bewegen; `tools/blender/build_tower.py` läuft danach in derselben Blender-Sitzung und schreibt die
+GLB nach dem Block `export` derselben Datei:
+
+```bash
+blender -b --factory-startup <kandidat.blend> --python tools/blender/split_tower.py   --python tools/blender/build_tower.py -- tools/blender/towers/bastion.json <ausgabe>
+```
+
+Reduziert auf `triangles` (jedes Teil behält seinen Anteil), nur die Grundfarbe als JPEG (`texture`, `quality`),
+Material wie die anderen Tower (metallic 0, roughness 0,6). Die Gierachse steht auf x = z = 0, der tiefste Punkt auf
+y = 0 (`heightOffset` 0); jedes Teil hat seinen Pivot als Ursprung und keine Drehung, `names` benennt die Knoten
+(`turret_top`), `level` legt ein Rohr waagrecht, damit `pitchNodes` von Neigung 0 aus kippen. Am Ende druckt das
+Skript Dreiecke, Ursprünge und den Radius jedes Teils (`BUILD_TOWER {...}`): daraus `footprintRadius`, `shootHeight`
+und `firePoints`; `modelTop` prüft `tower-model.spec.ts`.
 
 ### 4. Projektiltyp hinzufügen (falls neu)
 
@@ -422,8 +441,9 @@ export const TOWER_TYPES = {
   poison: { ... },             // 9. Position
   lightning: { ... },          // 10. Position
   chaos: { ... },              // 11. Position
-  'research-center': { ... },  // 12. Position (passives Building, kein Combat)
-  'missile-silo': { ... },     // 13. Position (passives Building, Abschussort des Nuklearschlags)
+  bastion: { ... },            // 12. Position (Iron Bastion)
+  'research-center': { ... },  // 13. Position (passives Building, kein Combat)
+  'missile-silo': { ... },     // 14. Position (passives Building, Abschussort des Nuklearschlags)
 };
 ```
 

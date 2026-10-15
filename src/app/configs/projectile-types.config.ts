@@ -277,6 +277,33 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
       blending: 'normal',
     },
   },
+  // Iron Bastion: an orange tracer shell with a thin smoke line that bursts
+  // among a swarm, air or ground (VFXService, EXPLOSION_PRESETS.flak). 5 m and
+  // at most 6 victims: a packed swarm of bats or spiders, not a whole column.
+  'flak-shell': {
+    id: 'flak-shell',
+    speed: 110,
+    visualType: 'shell',
+    scale: 0.32,
+    splashRadius: 5,
+    splashMaxTargets: 6,
+    trailParticles: {
+      enabled: true,
+      spawnChance: 0.5,
+      countPerSpawn: 1,
+      colorMin: { r: 0.2, g: 0.18, b: 0.16 },
+      colorMax: { r: 0.45, g: 0.4, b: 0.35 },
+      sizeMin: 0.4,
+      sizeMax: 0.9,
+      lifetimeMin: 0.2,
+      lifetimeMax: 0.45,
+      velocityX: { min: -0.3, max: 0.3 },
+      velocityY: { min: 0.0, max: 0.5 },
+      velocityZ: { min: -0.3, max: 0.3 },
+      spawnOffset: 0.2,
+      blending: 'normal',
+    },
+  },
   // The hero's standard rounds (HERO_AMMO.standard): a slimmer, faster
   // tracer than the gatling's, one puff per gate instead of two. At 180 m/s
   // and 3 shots a second over at most 18 m there is rarely more than one in
@@ -417,6 +444,13 @@ export const PROJECTILE_SOUNDS: Record<ProjectileTypeId, ProjectileSoundConfig> 
     refDistance: 55,
     rolloffFactor: 1.1,
     volume: 0.5,
+  },
+  // Iron Bastion: the cannon's report, a little quieter (it fires half again as often)
+  'flak-shell': {
+    url: 'assets/sounds/towers/cannon/shoot.mp3',
+    refDistance: 65,
+    rolloffFactor: 1,
+    volume: 0.45,
   },
   // The hero's rifle, quiet: it fires three times a second
   'hero-round': {

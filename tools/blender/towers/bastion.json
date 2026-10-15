@@ -9,5 +9,9 @@
   {"name": "base", "rules": [{"zBelow": -0.385}]},
   {"name": "turret", "parent": "base", "pivot": "yaw",
    "motion": [{"type": "swing", "axis": [0, 0, 1], "deg": 55, "period": 6.0}]}
- ]
+ ],
+ "material": "IronBastion",
+ "export": {"glb": "public/assets/models/towers/bastion.glb", "triangles": 45000, "texture": 1024, "quality": 88,
+            "names": {"turret": "turret_top"},
+            "level": [{"part": "gun", "dir": [-0.859, 0.016, 0.513]}]}
 }

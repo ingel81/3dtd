@@ -262,6 +262,9 @@ export const EXPLOSION_PRESETS = {
   // One explosion now, with most of the second one's particles folded in.
   // VFXService takes the radius from the cannonball's splashRadius.
   cannon:   { particles: 50,  radius: 6, smokePuffs: 5 },
+  // The Iron Bastion's flak burst: as wide as its splash (VFXService takes the
+  // flak shell's splashRadius), fewer flames than the cannon, more dark smoke
+  flak:     { particles: 28,  radius: 5, smokePuffs: 4 },
   // Passes no radius: sized like the reference radius (EXPLOSION_LOOK)
   bullet:   { particles: 2 },
   // Green spark burst (BURST_PALETTES.poison). Until 2026-09-12 the glob hit
@@ -1209,5 +1212,7 @@ export const MUZZLE_FLASH_PROFILES: Partial<Record<TowerTypeId, MuzzleFlashProfi
   rocket: { countMin: 3, countMax: 5, sizeMin: 1.5, sizeMax: 3.0, lifeMin: 0.04, lifeMax: 0.06, lightIntensity: 3 },
   // Heavy gun at 0.5 shots/s: the biggest and longest flash
   cannon: { countMin: 6, countMax: 8, sizeMin: 2.5, sizeMax: 4.5, lifeMin: 0.06, lifeMax: 0.1, lightIntensity: 5 },
+  // Iron Bastion: a heavy gun at 0.75 shots/s, a little smaller than the cannon's
+  bastion: { countMin: 5, countMax: 7, sizeMin: 2.0, sizeMax: 3.8, lifeMin: 0.05, lifeMax: 0.09, lightIntensity: 4 },
 };
 

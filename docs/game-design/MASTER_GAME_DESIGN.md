@@ -172,6 +172,7 @@ Mutator je Welle ([WAVE_RUN_PLAN.md](../WAVE_RUN_PLAN.md), Abschnitt 16).
 | **Poison** | Poison | 5 dmg + DoT 8/s für 4 s, 1.0/s, Range 55, Splash 8 m | 100 | nein |
 | **Lightning** | Lightning | 32 dmg primary, Chain ×0.7/Jump, 2 Jumps, 0.8/s, Range 65 | 130 | **Air + Ground** |
 | **Chaos** | Chaos | 50 dmg, 1.2/s, Range 60, 1,0 gegen jede Rüstung | 200 | **Air + Ground** |
+| **Iron Bastion** | Pierce | 36 dmg, 0.75/s, Range 65, Flak-Splash 5 m (max. 6 Ziele) | 150 | **Air + Ground** |
 
 ### 3.2 Upgrade-Regeln (Stand 2026-09)
 - **Kosten:** `50 × 1,25^Stufe` pro Stufe und Track, mal dem Kostenfaktor des
@@ -199,6 +200,7 @@ Mutator je Welle ([WAVE_RUN_PLAN.md](../WAVE_RUN_PLAN.md), Abschnitt 16).
 | Poison | 1,05 | 1,04 | DoT skaliert mit dem Damage-Track |
 | Lightning | 1,05 | 1,04 | Kette vervielfacht ohnehin |
 | Chaos | 1,05 | 1,04 | Generalist, soll die Spezialisten auch im Endausbau nicht überholen |
+| Iron Bastion | 1,06 | 1,03 | der Splash trägt den Schaden auf jedes getroffene Ziel |
 
 Andere Upgrade-Pfade als diese Tracks gibt es nicht. Die früher je Tower
 geplanten Pfade (Air-Pfade, Armor Break, Luftflamme, Spezialisierungen) stehen
@@ -273,6 +275,29 @@ in §12.3.
 - **Upgrades:** Damage 1,05, Fire Rate 1,04, L25 ×5,35 wie Archer und Lightning (§3.2).
 - **Modell:** Kenney „tower-round-crystals“ (CC0, Tower Defense Kit). Der mittlere Kristall dreht sich zum Ziel (`turretNode`), aus ihm kommt der Orb. Der Sound ist ein eigener, verzerrter Chaos-Schuss (`towers/chaos/cast.mp3`, seit 2026-09-23).
 - **Wave-Director:** zählt als Anti-Air und als Anti-Ethereal (Ethereal-Multiplikator 1,0 erreicht die Schwelle von `isAntiEtherealTower`).
+
+### 3.14 Iron Bastion: Pierce (seit 2026-10-15)
+- **Flak:** schwere Kanone, deren Granate in einem Schwarm platzt: Splash 5 m, höchstens 6 Ziele (`flak-shell`),
+  Luft und Boden ab Basis. Das Rohr neigt sich zum Ziel (bis 60° für Flieger).
+- **Rolle:** leichte Schwärme, am Boden (Spinnen, Ratten, Skelette) und in der Luft (Fledermäuse, Hornissen). Pierce
+  1,6 gegen Light, 1,25 gegen Unarmored; gegen Heavy (0,35) und Fortified (0,25) so schwach wie die Gatling.
+- **Rechnung** (DPS-Modell `computeTowerDPSFromLevels`, Basisstufe, Splash als weicher Faktor 1 + 5/10):
+
+| DPS × Matrix / Gold | Unarmored | Light | Heavy | Fortified | Ethereal |
+|---|---:|---:|---:|---:|---:|
+| Iron Bastion (150) | 0,34 | 0,43 | 0,09 | 0,07 | 0,03 |
+| Dual-Gatling (90) | 0,69 | 0,89 | 0,19 | 0,14 | 0,06 |
+| Cannon (150) | 0,15 | 0,15 | 0,51 | 0,47 | 0,09 |
+
+  Gegen ein einzelnes leichtes Ziel bleibt die Gatling der bessere Kauf. Die Bastion lohnt sich im Pulk: ein Schuss
+  (27 DPS roh) trifft dort bis zu 6 Körper mit 1 − Abstand/5 m: bei 3 Nachbarn im Mittel 2,5 m entfernt das
+  2,5-Fache (0,72 Light-DPS je Gold), bei 5 Nachbarn das 3,5-Fache (1,0), mehr als die Gatling gegen den Pulk. Gegen Luftschwärme braucht sie keine Forschung wie die Gatling (AA
+  Retrofit).
+- **Freischaltung:** Flak Artillery (1.000 Gold, 20 s, ab Welle 8) hinter Siege Engineering.
+- **Upgrades:** Damage 1,06, Fire Rate 1,03 (L25 ×5,3 bis 6,4 wie alle, §3.2).
+- **Modell:** Meshy-Kandidat „Iron Bastion Turret“, zerlegt und reduziert mit `tools/blender/build_tower.py`
+  (45.000 Dreiecke, Textur 1024 JPEG). Ton: der Schuss der Cannon, etwas leiser.
+- **Wave-Director:** zählt als Anti-Air.
 
 ---
 
@@ -509,8 +534,8 @@ den Text aus `description`.
 
 ### 6.3 Tech-Tree (Forschungsbaum)
 
-Frei wählbar mit Voraussetzungen, 21 Knoten in vier Kategorien
-(`research-tree.config.ts`), zusammen 174.120 Credits (bis 2026-10-01 19.670).
+Frei wählbar mit Voraussetzungen, 22 Knoten in vier Kategorien
+(`research-tree.config.ts`), zusammen 178.120 Credits (bis 2026-10-01 19.670).
 
 **Tempo (seit 2026-10-02):** Eine Forschung kann eine Mindestwelle haben
 (`minWave`). Sie öffnet in der Bauphase vor dieser Welle (`researchWave`: die
@@ -535,6 +560,7 @@ fünf Wellen Einkommen und steht gegen Upgrades.
 | `fire-alchemy` | Fire Alchemy | 800 | 20 s | 6 | Toxic Compounds | Fire Tower |
 | `arcane-studies` | Arcane Studies | 650 | 20 s | – | Ice Magic | Magic Tower |
 | `storm-mastery` | Storm Mastery | 1.200 | 20 s | 9 | Arcane Studies | Lightning Tower |
+| `flak-artillery` | Flak Artillery | 1.000 | 20 s | 8 | Siege Engineering | Iron Bastion |
 | `chaos-rift` | Chaos Rift | 8.000 | 30 s | 20 | Siege Engineering + Storm Mastery | Chaos Tower |
 
 #### Global Perks
