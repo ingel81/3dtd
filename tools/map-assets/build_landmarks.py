@@ -861,6 +861,86 @@ def trebuchet(name, seed=29):
     export(name, objects, lod=600)
 
 
+# ---------------------------------------------------------------- city
+
+def placed_box(part, m, cx, cy, z0, sx, sy, sz):
+    """A box built at the origin's frame and moved by the matrix `m` (any rotation)"""
+    before = len(part.bm.verts)
+    box(part, cx, cy, z0, sx, sy, sz)
+    part.bm.verts.ensure_lookup_table()
+    for v in part.bm.verts[before:]:
+        v.co = m @ v.co
+
+
+def deck(concrete, asphalt, m, x0, x1, width, rnd, broken_end=None, rebar=None):
+    """A stretch of elevated road along X in the frame `m`: the slab with its haunches, asphalt, parapets;
+    `broken_end` (x) frays that end with rebar sticking out"""
+    length = x1 - x0
+    cx = (x0 + x1) / 2
+    placed_box(concrete, m, cx, 0, -1.2, length, width, 1.2)
+    placed_box(concrete, m, cx, 0, -2.0, length, width * 0.55, 0.8)
+    placed_box(asphalt, m, cx, 0, 0.0, length, width - 1.0, 0.06)
+    for s in (-1, 1):
+        placed_box(concrete, m, cx, s * (width / 2 - 0.25), 0.0, length, 0.5, 0.95)
+    if broken_end is not None:
+        for k in range(9):
+            y = -width / 2 + 0.6 + k * (width - 1.2) / 8
+            out = rnd.uniform(0.6, 1.8)
+            a = m @ Vector((broken_end, y, -0.5 + rnd.uniform(-0.3, 0.3)))
+            b = m @ Vector((broken_end + out * (1 if broken_end > cx else -1), y + rnd.uniform(-0.3, 0.3), -0.5 - rnd.uniform(0.0, 0.8)))
+            oriented_box(rebar, a, b, 0.05)
+        for k in range(5):
+            y = -width / 2 + rnd.uniform(0.5, width - 0.5)
+            sz = rnd.uniform(0.6, 1.4)
+            placed_box(concrete, m, broken_end + (0.3 if broken_end > cx else -0.3) * rnd.uniform(0.5, 1.5), y, -1.2, rnd.uniform(0.6, 1.2),
+                       rnd.uniform(0.8, 1.6), sz)
+
+
+def highway_collapsed(name, seed=37, height=9.0, width=12.0):
+    """A collapsed elevated highway (about 50 m along X): a span still standing on two pillars and broken
+    off in mid-air with its rebar hanging out, the next span fallen with one end on the ground, a pillar
+    snapped half way, rubble below. Concrete with asphalt and parapets; a structure that blocks sight and
+    building"""
+    clear_scene()
+    rnd = random.Random(seed)
+    concrete = Part(pbr_material('wall-brushed_concrete-grey', 'brushed_concrete', (1.2, 1.25, 1.35)), uv_metres=4.0)
+    asphalt = Part(pbr_material('ground-asphalt_02', 'asphalt_02'), uv_metres=4.0, bevel=0.0)
+    rebar = Part(flat_material('iron-rust', (0.18, 0.09, 0.05), 0.85, 0.3), bevel=0.0)
+    stains = Part(flat_material('soot', (0.05, 0.05, 0.05), 0.95), bevel=0.0)
+    standing = Matrix.Translation(Vector((0, 0, height)))
+    deck(concrete, asphalt, standing, -26.0, -3.0, width, rnd, broken_end=-3.0, rebar=rebar)
+    for x in (-22.0, -10.0):
+        box(concrete, x, 0, -1.0, 1.8, 3.4, height - 1.0)
+        box(concrete, x, 0, height - 2.6, 2.4, width * 0.7, 0.7)
+    # Fallen span: the far end still on its pillar's cap, the near end on the ground
+    far, near = Vector((24.0, 0, height - 0.6)), Vector((1.0, 0.8, 0.9))
+    d = far - near
+    m = Matrix.Translation(near) @ Matrix.Rotation(math.atan2(d.y, d.x), 4, 'Z') @ Matrix.Rotation(-math.atan2(d.z, math.hypot(d.x, d.y)), 4, 'Y') \
+        @ Matrix.Rotation(math.radians(6), 4, 'X')
+    deck(concrete, asphalt, m, 0.0, d.length, width, rnd, broken_end=0.0, rebar=rebar)
+    box(concrete, 24.0, 0, -1.0, 1.8, 3.4, height - 1.0 - 1.2)
+    # Snapped pillar between them, its top lying beside it
+    box(concrete, 8.0, 0, -1.0, 1.8, 3.4, 4.6)
+    for k in range(5):
+        a = Vector((8.0 + rnd.uniform(-0.7, 0.7), rnd.uniform(-1.4, 1.4), 3.6))
+        oriented_box(rebar, a, a + Vector((rnd.uniform(-0.4, 0.4), rnd.uniform(-0.4, 0.4), rnd.uniform(0.6, 1.4))), 0.05)
+    top = Matrix.Translation(Vector((10.5, -3.5, 0.9))) @ Matrix.Rotation(math.radians(80), 4, 'Y') @ Matrix.Rotation(0.4, 4, 'Z')
+    placed_box(concrete, top, 0, 0, -0.9, 3.4, 1.8, 1.8)
+    # Rubble heaps under the break, soot below them
+    for k, (c, r) in enumerate(((Vector((-2.0, 0, -0.4)), 2.6), (Vector((2.5, -2.5, -0.4)), 2.0), (Vector((8.0, 2.4, -0.4)), 1.6))):
+        lump(concrete, c, Vector((r, r * 0.8, r * 0.45)), seed + k, roughness=0.5, subdiv=2)
+        for j in range(5):
+            a = rnd.uniform(0, math.tau)
+            p = c + Vector((math.cos(a), math.sin(a), 0)) * rnd.uniform(r, r * 1.8)
+            box(concrete, p.x, p.y, -0.2, rnd.uniform(0.6, 1.6), rnd.uniform(0.5, 1.2), rnd.uniform(0.3, 0.7), rnd.uniform(0, 3))
+    for c in (Vector((-1.0, 0.5, 0.03)), Vector((3.0, -2.0, 0.03))):
+        stains.quad([c + Vector((-3, -3, 0)), c + Vector((3, -3, 0)), c + Vector((3, 3, 0)), c + Vector((-3, 3, 0))],
+                    [(0, 0), (1, 0), (1, 1), (0, 1)])
+    objects = [concrete.to_object(name), asphalt.to_object(name + '-asphalt'), rebar.to_object(name + '-rebar'),
+               stains.to_object(name + '-soot')]
+    export(name, objects, lod=700)
+
+
 def models():
     return {
         'tunnel-portal': lambda: tunnel_portal('tunnel-portal'),
@@ -879,4 +959,5 @@ def models():
         'bell-tower-snow': lambda: bell_tower('bell-tower-snow', snow=True),
         'stone-circle': lambda: stone_circle('stone-circle'),
         'trebuchet': lambda: trebuchet('trebuchet'),
+        'highway-collapsed': lambda: highway_collapsed('highway-collapsed'),
     }

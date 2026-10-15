@@ -12921,6 +12921,36 @@
       "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/rough_wood; https://polyhaven.com/a/castle_wall_slates"
     },
     {
+      "id": "highway-collapsed",
+      "name": "Collapsed highway",
+      "category": "structure",
+      "file": "models/highway-collapsed.glb",
+      "triangles": 2618,
+      "footprint": 22.9,
+      "height": 9.9,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city",
+        "wasteland"
+      ],
+      "lod": [
+        {
+          "file": "models/highway-collapsed-lod1.glb",
+          "distance": 350,
+          "triangles": 1170
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/asphalt_02"
+    },
+    {
       "id": "fx-fireflies",
       "name": "Fireflies",
       "category": "fx",
