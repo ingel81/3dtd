@@ -17,7 +17,7 @@ from mathutils import Vector
 
 from blender_kit import Part, box, clear_scene, export_lod, finish, flat_material, pbr_material, tilt, tube
 from build_city import Face, glass
-from build_structures import gable_roof
+from build_structures import gable_roof, pyramid_roof
 
 FOUNDATION = 1.0
 PLINTH = 0.45
@@ -488,8 +488,161 @@ def station_canopy(name, w=22.0, d=13.0, h=5.0):
     export(name, kit.objects(name), lod=400)
 
 
+# ---------------------------------------------------------------- city centre: perimeter blocks, offices
+
+OCHRE = (1.28, 1.15, 0.88)
+ROSE = (1.3, 1.15, 1.08)
+SAGE = (1.1, 1.2, 1.08)
+STONE = (0.95, 0.94, 0.92)
+
+
+def shop_floor(kit, face, u0, u1, z0, h, door_every=3):
+    """Ground floor of a city house: shop windows in a stone-grey wall, a door every few bays, a fascia band
+    over them"""
+    width = u1 - u0
+    bays = max(2, int(round(width / 3.0)))
+    bw = width / bays
+    ops = []
+    for b in range(bays):
+        u = u0 + (b + 0.5) * bw
+        if b % door_every == door_every // 2:
+            ops.append((u, 1.3, z0, z0 + 2.5))
+        else:
+            ops.append((u, bw - 0.7, z0 + 0.45, z0 + 3.0))
+    punched_wall(kit.walls(STONE), face, u0, u1, z0, z0 + h, ops)
+    for u, w, zb, zt in ops:
+        if zb == z0:
+            door(kit, face, u, zb, w, zt - zb, side_light=False)
+        else:
+            window(kit, face, u, zb, w, zt - zb, reveal=0.1)
+    face.box(kit.sill, (u0 + u1) / 2, 0.06, z0 + h - 0.55, width, 0.12, 0.4)
+
+
+def upper_floors(kit, face, tint, u0, u1, z0, floors, fh, rnd, surround=True, balcony=False):
+    """Upper storeys: a window per bay and storey with a sill (a lintel on old fronts), roller shutters here
+    and there; `balcony`: French doors with slabs and glass railings on every other bay (courtyard side)"""
+    width = u1 - u0
+    bays = max(2, int(round(width / 2.9)))
+    bw = width / bays
+    ops = []
+    for f in range(floors):
+        zf = z0 + f * fh
+        for b in range(bays):
+            u = u0 + (b + 0.5) * bw
+            if balcony and b % 2 == 1:
+                ops.append((u, 1.0, zf + 0.05, zf + 2.3))
+            else:
+                ops.append((u, 1.25, zf + 0.85, zf + 2.45))
+    punched_wall(kit.walls(tint), face, u0, u1, z0, z0 + floors * fh, ops)
+    for u, w, zb, zt in ops:
+        window(kit, face, u, zb, w, zt - zb, shutter=rnd.choice((0.0, 0.0, 0.0, 0.0, 0.4, 1.0)), split=w > 1.1)
+        if surround and not balcony:
+            face.box(kit.sill, u, 0.03, zt, w + 0.3, 0.06, 0.16)
+        if balcony and w < 1.1:
+            face.box(kit.plinth, u, 0.7, zb - 0.2, 2.2, 1.4, 0.18)
+            face.box(kit.frames, u, 1.36, zb + 0.95, 2.2, 0.06, 0.06)
+            for k in range(6):
+                face.box(kit.frames, u - 1.0 + k * 0.4, 1.36, zb - 0.02, 0.04, 0.04, 0.98)
+            for s in (-1, 1):
+                face.box(kit.frames, u + s * 1.08, 0.7, zb + 0.95, 0.05, 1.35, 0.06)
+    for f in range(1, floors):
+        # String course between the storeys
+        face.box(kit.walls(tint), (u0 + u1) / 2, 0.04, z0 + f * fh - 0.05, width, 0.08, 0.12)
+
+
+def dormer(kit, tint, x, eave, d, pitch, y_off=1.2, w=1.6, h=1.5):
+    """Shed dormer on the front slope (-Y): plastered body, a window, a zinc top falling to the front"""
+    slope = pitch / (d / 2)
+    yf = -d / 2 + y_off
+    zf = eave + y_off * slope
+    run = h / slope + 0.3
+    box(kit.walls(tint), x, yf + run / 2, zf - 0.6, w, run, h + 0.6)
+    box(kit.frames, x, yf - 0.03, zf + 0.15, w - 0.5, 0.06, h - 0.45)
+    box(kit.glass, x, yf - 0.065, zf + 0.22, w - 0.64, 0.02, h - 0.59)
+    prism(kit.metal, [Vector((x - w / 2 - 0.1, yf - 0.15, zf + h + 0.02)), Vector((x + w / 2 + 0.1, yf - 0.15, zf + h + 0.02)),
+                      Vector((x + w / 2 + 0.1, yf + run, zf + h + 0.18)), Vector((x - w / 2 - 0.1, yf + run, zf + h + 0.18))],
+          Vector((0, 0, 0.06)))
+
+
+def city_house(name, w, d, floors, tint, roof='gable', street=(0,), blank=(1, 3), seed=0, fh=3.1, ground=4.2, lod=900):
+    """Perimeter-block house of a city centre: shops on the ground floor of the street fronts, storeys of
+    windows above, a courtyard side with balconies, blank party walls where the next house abuts.
+    `street`: faces on the street (0 front -Y, 3 west for a corner house); `roof`: gable (dormers on the
+    front slope), hip (corner houses) or flat (a set-back top storey, modern blocks)"""
+    clear_scene()
+    rnd = random.Random(seed)
+    kit = Kit('red' if roof in ('gable', 'hip') else 'anthracite')
+    eave = PLINTH + ground + (floors - 1) * fh + 0.4
+    base(kit, w, d)
+    for k in range(4):
+        face = Face(k, w, d)
+        L = face.length
+        u0, u1 = (-L / 2, L / 2) if k % 2 == 0 else (-L / 2 + T, L / 2 - T)
+        if k in blank:
+            punched_wall(kit.walls(tint), face, u0, u1, PLINTH, eave, [])
+            continue
+        if k in street:
+            shop_floor(kit, face, u0, u1, PLINTH, ground)
+            upper_floors(kit, face, tint, u0, u1, PLINTH + ground, floors - 1, fh, rnd, surround=roof != 'flat')
+        else:
+            ud = u0 + (u1 - u0) * 0.3
+            punched_wall(kit.walls(tint), face, u0, u1, PLINTH, PLINTH + ground, [(ud, 1.2, PLINTH, PLINTH + 2.3)])
+            door(kit, face, ud, PLINTH, 1.2, 2.3)
+            upper_floors(kit, face, tint, u0, u1, PLINTH + ground, floors - 1, fh, rnd, surround=False, balcony=True)
+        punched_wall(kit.walls(tint), face, u0, u1, PLINTH + ground + (floors - 1) * fh, eave, [])
+    if roof == 'gable':
+        pitch = d / 2 * math.tan(math.radians(42))
+        for k in (1, 3):
+            gable_wall(kit.walls(tint), Face(k, w, d), eave, pitch, d)
+        # Cornice under the eaves of the street front
+        box(kit.sill, 0, -d / 2 - 0.12, eave - 0.35, w, 0.3, 0.3)
+        gabled_roof(kit, w, d, eave, pitch, over=0.35, closed_ends=(False, False))
+        bays = max(2, int(round(w / 2.9)))
+        for b in range(1, bays, 2):
+            dormer(kit, tint, -w / 2 + (b + 0.5) * w / bays, eave, d, pitch)
+    elif roof == 'hip':
+        h = min(w, d) / 2 * math.tan(math.radians(38))
+        for k in range(4):
+            face = Face(k, w, d)
+            face.box(kit.sill, 0, 0.12, eave - 0.35, face.length + 0.24, 0.3, 0.3)
+        hip = Part(kit.roof.material)
+        pyramid_roof(hip, w, d, eave, h, overhang=0.35)
+        kit.roof.add_bmesh(hip.bm)
+        hip.bm.free()
+        for sx in (-1, 1):
+            for sy in (-1, 1):
+                plank(kit.ridge, Vector((sx * (w / 2 + 0.35), sy * (d / 2 + 0.35), eave + 0.02)), Vector((0, 0, eave + h + 0.02)), 0.25, 0.12)
+    else:
+        # Parapet with a zinc coping, a set-back top storey under a thin roof slab
+        for k in range(4):
+            face = Face(k, w, d)
+            face.box(kit.walls(tint), 0, -0.15, eave, face.length, 0.3, 0.6)
+            face.box(kit.metal, 0, 0.0, eave + 0.6, face.length + 0.04, 0.36, 0.05)
+        flat = Part(pbr_material('roof-bitumen', 'bitumen', (0.8, 0.8, 0.8)), uv_metres=3.0, bevel=0.0)
+        box(flat, 0, 0, eave - 0.05, w - 0.5, d - 0.5, 0.1)
+        kit.extra.append(flat)
+        aw, ad = w - 1.2, d - 4.0
+        for k in range(4):
+            face = Face(k, aw, ad)
+            L = face.length
+            u0, u1 = (-L / 2, L / 2) if k % 2 == 0 else (-L / 2 + T, L / 2 - T)
+            bays = max(1, int(L // 3.2))
+            ops = [(u0 + (b + 0.5) * (u1 - u0) / bays, 1.8, eave + 0.05, eave + 2.45) for b in range(bays)] if k in (0, 2) else []
+            punched_wall(kit.walls(WHITE), face, u0, u1, eave + 0.05, eave + 2.85, ops)
+            for u, ow, zb, zt in ops:
+                window(kit, face, u, zb, ow, zt - zb, reveal=0.1)
+        box(kit.metal, 0, 0, eave + 2.85, aw + 0.6, ad + 0.6, 0.25)
+        box(flat, 0, 0, eave + 3.1, aw, ad, 0.05)
+    export(name, kit.objects(name), lod=lod)
+
+
 def models():
     return {
+        'block-row-4': lambda: city_house('block-row-4', 15.0, 12.0, 4, OCHRE, seed=11),
+        'block-row-6': lambda: city_house('block-row-6', 16.0, 13.0, 6, PALE_GREY, roof='flat', seed=12, lod=1100),
+        'block-corner-4': lambda: city_house('block-corner-4', 14.0, 14.0, 4, ROSE, roof='hip', street=(0, 3), blank=(1, 2), seed=13),
+        'block-corner-6': lambda: city_house('block-corner-6', 15.0, 15.0, 6, SAGE, roof='flat', street=(0, 3), blank=(1, 2), seed=14,
+                                             lod=1100),
         'garage': lambda: garages('garage', 1, seed=6),
         'garage-row': lambda: garages('garage-row', 5, seed=7),
         'garden-shed': lambda: shed('garden-shed'),

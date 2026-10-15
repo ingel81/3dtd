@@ -13586,6 +13586,122 @@
         }
       ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "block-row-4",
+      "name": "City house, perimeter block (4 floors, 15 x 12 m, blank sides)",
+      "category": "building",
+      "file": "models/block-row-4.glb",
+      "triangles": 4692,
+      "footprint": 7.1,
+      "height": 19.9,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/block-row-4-lod1.glb",
+          "distance": 350,
+          "triangles": 1381
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "block-row-6",
+      "name": "City block, flat roof (6 floors, 16 x 13 m, blank sides)",
+      "category": "building",
+      "file": "models/block-row-6.glb",
+      "triangles": 8872,
+      "footprint": 7.4,
+      "height": 23.7,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/block-row-6-lod1.glb",
+          "distance": 350,
+          "triangles": 1614
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "block-corner-4",
+      "name": "City corner house (4 floors, 14 x 14 m, street front and west)",
+      "category": "building",
+      "file": "models/block-corner-4.glb",
+      "triangles": 4010,
+      "footprint": 6.7,
+      "height": 19.9,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/block-corner-4-lod1.glb",
+          "distance": 350,
+          "triangles": 1394
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "block-corner-6",
+      "name": "City corner block, flat roof (6 floors, 15 x 15 m, street front and west)",
+      "category": "building",
+      "file": "models/block-corner-6.glb",
+      "triangles": 5812,
+      "footprint": 6.9,
+      "height": 23.7,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/block-corner-6-lod1.glb",
+          "distance": 350,
+          "triangles": 1724
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
     }
   ]
 }
