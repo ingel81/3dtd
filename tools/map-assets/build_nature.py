@@ -6,7 +6,7 @@ import random
 from mathutils import Matrix, Vector
 
 from blender_kit import (
-    Part, box, box_uv, card, card_material, clear_scene, export, export_lod, flat_material, image_material, import_model,
+    Part, box, box_uv, card, card_material, clear_scene, export, export_lod, flat_material, hexa, image_material, import_model,
     oriented_box, pbr_material, tube,
 )
 import blender_kit
@@ -357,36 +357,57 @@ def round_bush(name, seed, radius, height, leaves):
 
 
 def hedge(name, seed, length=3.0, height=1.4, depth=1.0, leaves='leaves-bush'):
-    """Clipped hedge: a dark core box covered in outward-facing leaf cards (sides and top)"""
+    """Clipped hedge: a dark core battered like a trimmed hedge (narrower at the top), covered in
+    outward-facing leaf cards on the sides, the ends, a slightly domed top and rounded shoulders; the face
+    bulges a little along its length. Card normals bend away from the hedge's axis, not its middle, so a long
+    hedge lights like a trimmed block with soft edges"""
     clear_scene()
     rnd = random.Random(seed)
     core = Part(flat_material('hedge-core', (0.06, 0.1, 0.04), 0.9))
     foliage = Part(card_material(leaves.replace('leaves-', 'hedge-'), leaves + '.png'))
-    box(core, 0, 0, 0, length - 0.2, depth - 0.2, height - 0.1)
-    center = Vector((0, 0, height / 2))
+    hl, hd = length / 2 - 0.1, depth / 2 - 0.1
+    hexa(core, [(-hl, -hd, 0), (hl, -hd, 0), (hl, hd, 0), (-hl, hd, 0)],
+         [(-hl + 0.08, -hd + 0.12, height - 0.1), (hl - 0.08, -hd + 0.12, height - 0.1), (hl - 0.08, hd - 0.12, height - 0.1),
+          (-hl + 0.08, hd - 0.12, height - 0.1)])
+
+    def axis(x, z):
+        return Vector((max(-length / 2 + depth / 2, min(length / 2 - depth / 2, x)), 0, min(z, height * 0.45)))
+
     step = 0.55
     nx = max(1, round(length / step))
     nz = max(1, round(height / step))
+    bulge = [rnd.uniform(-0.05, 0.05) for _ in range(nx)]
     for i in range(nx):
         x = -length / 2 + (i + 0.5) * length / nx
         for j in range(nz):
             z = (j + 0.5) * height / nz
             for side in (-1, 1):
-                p = Vector((x + rnd.uniform(-0.1, 0.1), side * depth / 2, z + rnd.uniform(-0.1, 0.1)))
-                d = Vector((rnd.uniform(-0.3, 0.3), side * 0.25, 1)).normalized()
-                card(foliage, p - d * 0.45, d, Vector((0, side, 0)), 0.85, 0.9, center)
+                # Battered face: 0.1 m in at the top
+                y = side * (depth / 2 - 0.1 * z / height + bulge[i])
+                p = Vector((x + rnd.uniform(-0.1, 0.1), y, z + rnd.uniform(-0.08, 0.08)))
+                d = Vector((rnd.uniform(-0.3, 0.3), side * 0.2, 1)).normalized()
+                card(foliage, p - d * 0.45, d, Vector((0, side, 0)), 0.85, 0.9, axis(x, z))
+                # A layer just behind, half a step along, fills the gaps between the cards
+                q = Vector((min(length / 2 - 0.3, x + length / nx / 2), y - side * 0.07, z + rnd.uniform(-0.1, 0.1)))
+                card(foliage, q - d * 0.45, d, Vector((0, side, 0)), 0.8, 0.9, axis(q.x, z))
+        # Shoulders: cards leaning out at 45 degrees along both top edges
+        for side in (-1, 1):
+            p = Vector((x + rnd.uniform(-0.1, 0.1), side * (depth / 2 - 0.14), height - 0.12))
+            d = Vector((1, rnd.uniform(-0.2, 0.2), 0.05)).normalized()
+            card(foliage, p - d * 0.42, d, Vector((0, side, 1)), 0.75, 0.85, axis(x, height))
         for j in range(3):
             y = -depth / 2 + (j + 0.5) * depth / 3
-            p = Vector((x, y, height - 0.05))
+            p = Vector((x, y, height - 0.05 + (0.04 if j == 1 else -0.03) + rnd.uniform(-0.03, 0.03)))
             d = Vector((1, rnd.uniform(-0.3, 0.3), 0.1)).normalized()
-            card(foliage, p - d * 0.45, d, Vector((0, 0, 1)), 0.8, 0.9, center)
+            card(foliage, p - d * 0.45, d, Vector((0, 0, 1)), 0.8, 0.9, axis(x, height))
     for side in (-1, 1):
         for j in range(nz):
             for k in range(2):
                 y = -depth / 4 + k * depth / 2
-                p = Vector((side * length / 2, y, (j + 0.5) * height / nz))
-                d = Vector((side * 0.25, 0, 1)).normalized()
-                card(foliage, p - d * 0.45, d, Vector((side, 0, 0)), 0.8, 0.9, center)
+                z = (j + 0.5) * height / nz
+                p = Vector((side * (length / 2 - 0.05 * z / height), y, z))
+                d = Vector((side * 0.2, 0, 1)).normalized()
+                card(foliage, p - d * 0.45, d, Vector((side, 0, 0)), 0.8, 0.9, axis(side * length, z))
     export(name, [core.to_object(name + '-core'), foliage.to_object(name + '-leaves')])
 
 
