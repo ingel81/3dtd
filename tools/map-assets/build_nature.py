@@ -182,24 +182,65 @@ def grass(name, png, width, height, seed, cards=5):
     export(name, [foliage.to_object(name)])
 
 
+def lumpy(part, first, amount, seed):
+    """Pushes the vertices of `part` from index `first` on out from the Z axis by a smooth bumpy factor
+    (bark that is not a lathe-turned cylinder)"""
+    part.bm.verts.ensure_lookup_table()
+    for v in part.bm.verts[first:]:
+        a = math.atan2(v.co.y, v.co.x)
+        f = 1 + amount * (math.sin(3 * a + seed) * 0.6 + math.sin(5 * a + 2 * seed + v.co.z * 3) * 0.4)
+        v.co.x *= f
+        v.co.y *= f
+
+
 def stump(name):
+    """Tree stump broken off: a lumpy trunk flaring into five roots, the break a little slanted with a bark
+    rim standing proud of the wood and splinters left standing on one side"""
     clear_scene()
+    rnd = random.Random(11)
     wood = Part(pbr_material('bark-bark_brown_02', 'bark_brown_02'))
     top = Part(pbr_material('wood-rough', 'rough_wood', (1.1, 1.0, 0.85)))
-    pts = [Vector((0, 0, 0)), Vector((0, 0, 0.3)), Vector((0, 0, 0.55))]
-    tube(wood, pts, [0.42, 0.34, 0.32], 9)
+    tube(wood, [Vector((0, 0, -0.1)), Vector((0, 0, 0.12)), Vector((0, 0, 0.3)), Vector((0, 0, 0.44))], [0.42, 0.36, 0.32, 0.31], 12)
+    lumpy(wood, 0, 0.06, 1.0)
+    for k in range(5):
+        a = k / 5 * math.tau + rnd.uniform(-0.3, 0.3)
+        out = Vector((math.cos(a), math.sin(a), 0))
+        tube(wood, [out * 0.22 + Vector((0, 0, 0.26)), out * 0.42 + Vector((0, 0, 0.08)), out * 0.62 + Vector((0, 0, -0.06))],
+             [0.13, 0.08, 0.04], 6)
+    # The break: wood a little below the bark rim, slanted, splinters up to 0.6 m on the high side
     bm = top.bm
-    ring = [bm.verts.new((math.cos(a / 9 * math.tau) * 0.32, math.sin(a / 9 * math.tau) * 0.32, 0.55)) for a in range(9)]
+    ring = [bm.verts.new((math.cos(a / 12 * math.tau) * 0.29, math.sin(a / 12 * math.tau) * 0.29,
+                          0.41 + 0.035 * math.cos(a / 12 * math.tau))) for a in range(12)]
     f = bm.faces.new(ring)
     for loop in f.loops:
         loop[top.uv].uv = (loop.vert.co.x + 0.5, loop.vert.co.y + 0.5)
+    for k in range(6):
+        a = -0.9 + k * 0.36 + rnd.uniform(-0.08, 0.08)
+        base = Vector((math.cos(a) * 0.24, math.sin(a) * 0.24, 0.42))
+        tip = base + Vector((rnd.uniform(-0.03, 0.03), rnd.uniform(-0.03, 0.03), rnd.uniform(0.07, 0.18)))
+        tube(top, [base, tip], [0.045, 0.006], 4, smooth=False)
     export(name, [wood.to_object(name + '-bark'), top.to_object(name + '-top')])
 
 
 def log(name):
+    """Fallen trunk, slightly bent and lumpy, its ends chamfered where the bark has worn off, two broken
+    branch stubs"""
     clear_scene()
     wood = Part(pbr_material('bark-bark_brown_02', 'bark_brown_02'))
-    tube(wood, [Vector((-1.6, 0, 0.28)), Vector((0, 0.05, 0.3)), Vector((1.6, 0, 0.26))], [0.3, 0.29, 0.26], 9, cap=True)
+    mid = Vector((0, 0.05, 0.3))
+    for end, r_end in ((Vector((-1.6, 0, 0.28)), 0.3), (Vector((1.6, 0, 0.26)), 0.26)):
+        d = (end - mid).normalized()
+        tube(wood, [mid, mid.lerp(end, 0.5) + Vector((0, 0.02, 0)), end - d * 0.06, end], [0.29, (0.29 + r_end) / 2, r_end, r_end * 0.85],
+             12, cap=True)
+    for v in wood.bm.verts:
+        a = math.atan2(v.co.z - 0.28, v.co.y)
+        f = 1 + 0.05 * math.sin(3 * a + v.co.x * 2.1)
+        v.co.y *= f
+        v.co.z = 0.28 + (v.co.z - 0.28) * f
+    for x, a, length in ((-0.7, 0.35, 0.35), (0.5, 2.75, 0.25)):
+        root = Vector((x, math.cos(a) * 0.2, 0.3 + math.sin(a) * 0.2))
+        tip = root + Vector((0.12, math.cos(a), math.sin(a))).normalized() * length
+        tube(wood, [root, tip], [0.07, 0.05], 6, cap=True)
     export(name, [wood.to_object(name)])
 
 
