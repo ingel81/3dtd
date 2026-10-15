@@ -73,6 +73,7 @@ export const PROJECTILE_SOUND_IDS = [
   'arcane-orb',
   'chaos-orb',
   'poison-glob',
+  'flak-shell',
   'hero-round',
   'hero-shell',
   'hero-rune',

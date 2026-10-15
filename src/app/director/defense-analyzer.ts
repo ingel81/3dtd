@@ -53,6 +53,7 @@ const TOWER_CAPABILITIES: Record<
   poison: { dot: true }, // Poison Tower applies DOT
   lightning: { antiAir: true },
   chaos: { antiAir: true }, // Generalist: air and ground, 1.0 against every armor
+  bastion: { antiAir: true }, // Flak: air and ground from the start
   'research-center': {}, // Passive building — no combat capabilities
   'missile-silo': {}, // Passive building: the nuclear strike is an ability, not tower fire
 };

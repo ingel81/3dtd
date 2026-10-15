@@ -174,6 +174,22 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     effects: [{ kind: 'unlock-tower', towerId: 'rocket' }],
   },
 
+  // Flak after the cannon: a heavy gun, but its burst is for the light swarms (pierce 1.6 against light), in the
+  // air as on the ground. Opens with the second air wave; against the first one AA Retrofit is there earlier.
+  'flak-artillery': {
+    id: 'flak-artillery',
+    name: 'Flak Artillery',
+    description: 'Unlocks the Iron Bastion: bursting shells against swarms, air and ground',
+    category: 'tower-unlock',
+    branch: 'ballistics',
+    icon: 'castle',
+    cost: 1000,
+    duration: 20,
+    prerequisites: ['siege-engineering'],
+    minWave: 8,
+    effects: [{ kind: 'unlock-tower', towerId: 'bastion' }],
+  },
+
   // ==================== Tower Unlocks (Tier 3) ====================
 
   'chaos-rift': {

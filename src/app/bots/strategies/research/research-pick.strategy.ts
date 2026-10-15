@@ -101,6 +101,7 @@ export class ResearchPickStrategy extends BaseStrategy {
       'toxic-compounds', 'fire-alchemy',
       'advanced-weaponry', 'nuclear-strike', 'frost-bomb', 'storm-mastery', 'emp',
       'master-engineering', 'orbital-laser',
+      'flak-artillery',
       'chaos-rift', 'advanced-engineering', 'transcendent-tech',
       'mercenary-contract',     // the hero; HeroStrategy hires him once it is done
     ],

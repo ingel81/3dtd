@@ -5,8 +5,8 @@ import { TOWER_TYPES, TowerTypeId } from './tower-types.config';
 describe('MUZZLE_FLASH_PROFILES', () => {
   const entries = Object.entries(MUZZLE_FLASH_PROFILES) as [TowerTypeId, NonNullable<(typeof MUZZLE_FLASH_PROFILES)[TowerTypeId]>][];
 
-  it('flashes only on Archer, Gatling, Cannon and Rocket', () => {
-    expect(entries.map(([id]) => id).sort()).toEqual(['archer', 'cannon', 'dual-gatling', 'rocket']);
+  it('flashes only on Archer, Gatling, Cannon, Rocket and Iron Bastion', () => {
+    expect(entries.map(([id]) => id).sort()).toEqual(['archer', 'bastion', 'cannon', 'dual-gatling', 'rocket']);
   });
 
   it('only lists towers that fire projectiles', () => {

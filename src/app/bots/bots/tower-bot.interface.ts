@@ -184,6 +184,7 @@ const ALL_COMBAT_TOWERS: TowerTypeId[] = [
   // researching storm-mastery — and the AI therefore never saw it played.
   'lightning',
   'chaos',
+  'bastion',
 ];
 
 /**
