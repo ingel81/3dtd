@@ -243,8 +243,8 @@ export class WaterSurface {
     return this.kind === 'water' || this.kind === 'sea' || this.kind === 'swamp' || this.kind === undefined;
   }
 
-  setSky(skyUniforms: ShaderMaterial['uniforms'], sunIntensity: number): void {
-    setWaterSky(this.material, skyUniforms, sunIntensity);
+  setSky(skyUniforms: ShaderMaterial['uniforms'], sunIntensity: number, darkness = 0): void {
+    setWaterSky(this.material, skyUniforms, sunIntensity, darkness);
   }
 
   /** Switchable effects (refraction, sea waves); `copy` is the view's frame copy */

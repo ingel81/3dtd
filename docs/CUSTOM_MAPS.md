@@ -297,7 +297,12 @@ Lava spiegeln sich).
   am steilen Ufer und aus der Spielkamera). Flachwasser ist hell türkis (die Körperfarbe zu 40 % zu `#5fb3a6`; Sumpf
   trüb grün). Der Wasserkörper nimmt bei warmem, tiefem Licht den Farbton der Sonne an (bis 35 % zur eigenen
   Helligkeit im Sonnenton, nur wenn Rot über Blau liegt): bei Dämmerung von oben gedämpft und warm wie die Spiegelung
-  aus der Nähe, statt kräftig blau; Tag und Nacht bleiben unverändert (gilt für Wasser, Meer und Sumpf)
+  aus der Nähe, statt kräftig blau; Tag und Nacht bleiben unverändert (gilt für Wasser, Meer und Sumpf). Das eigene
+  Licht des Wassers (Körper, Schaum, gespiegeltes Land; `waterLight` in `water-material.ts`) folgt der Sonne und wird
+  mit der Dunkelheit der Szene gedämpft, mit ihrem Quadrat bis auf 30 % (Dämmerung wenig, Nacht stark; Lava nicht):
+  vorher hob das Mondlicht einer Nachtkarte die Sonne an, und Hafen und Kanal leuchteten türkis oder grün über
+  dunklen Straßen. Laternen auf dem Wasser, Lichtglanz und Spiegelung kommen obendrauf und bleiben; bei Tag
+  (Dunkelheit 0) ändert sich nichts. Vorschau: `/map-preview?map=<id>&sky=night&moonlight=1`
 - **Strömung** (`flow-map.ts`): jedes Flächengewässer bekommt beim Laden und bei jedem `set` eine gebackene
   Karte auf dem Höhenraster (RGBA8; RG Strömung in Szene x/z, ±1,2 m/s; B Uferabstand bis 32 m, über je 3 Zellen
   geglättet, damit seine Linien die Ecken des Ufers runden; A Steilheit des Ufers bis 1 Zelle daneben, bis 2,5; das

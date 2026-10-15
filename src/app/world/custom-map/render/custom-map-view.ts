@@ -453,7 +453,7 @@ export class CustomMapView {
     for (const [kind, river] of kinds) {
       const material = createWaterMaterial({ kind, river, heights: this.terrain.heightTexture, color: '', mapHalf });
       setWaterEffects(material, kind, this.mapEffects, this.sceneCopy);
-      setWaterSky(material, e.skyDome.uniforms, e.sun.intensity);
+      setWaterSky(material, e.skyDome.uniforms, e.sun.intensity, e.darkness);
       const mesh = new Mesh(geometry, material) as Mesh<BufferGeometry, ShaderMaterial>;
       mesh.receiveShadow = true;
       if (kind === 'lava' && this.mapEffects.lavaGlow) setHeatHaze(mesh, this.sceneCopy);
@@ -1251,8 +1251,8 @@ export class CustomMapView {
 
   private lightWater(): void {
     const e = this.environment;
-    for (const w of this.waters) w?.setSky(e.skyDome.uniforms, e.sun.intensity);
-    for (const r of this.rivers) r.setSky(e.skyDome.uniforms, e.sun.intensity);
+    for (const w of this.waters) w?.setSky(e.skyDome.uniforms, e.sun.intensity, e.darkness);
+    for (const r of this.rivers) r.setSky(e.skyDome.uniforms, e.sun.intensity, e.darkness);
     this.applyEffects();
   }
 
