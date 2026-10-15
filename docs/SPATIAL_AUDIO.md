@@ -733,6 +733,7 @@ public/assets/sounds/
 │   └── swamp.mp3, lava.mp3, fire.mp3, city.mp3, gulls.mp3, crows.mp3, radio-hiss.mp3   # je 16 s Schleife plus 0,1 s davor und danach
 ├── towers/
 │   ├── archer/shoot.mp3               # Pfeil-Schuss-Sound
+│   ├── ballista/shoot.mp3             # Sehnenschlag der Ballista, Archer-Pfad Sniper (ElevenLabs, 2026-10-15)
 │   ├── gatling/shoot.mp3              # Gatling-Schuss-Sound
 │   ├── rocket/launch.mp3              # Raketen-Start-Sound
 │   ├── cannon/shoot.mp3               # Kanonen-Schuss-Sound

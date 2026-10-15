@@ -4,7 +4,7 @@ import { ProjectileTypeId } from './tower-types.config';
 export type { ProjectileTypeId } from './tower-types.config';
 
 export type ProjectileVisualType =
-  | 'arrow' | 'cannonball' | 'magic' | 'ice' | 'bullet' | 'rocket' | 'poison' | 'chaos'
+  | 'arrow' | 'bolt' | 'cannonball' | 'magic' | 'ice' | 'bullet' | 'rocket' | 'poison' | 'chaos'
   // The hero's explosive rounds: a bullet-shaped tracer in orange-red
   | 'shell';
 
@@ -63,6 +63,11 @@ export interface ProjectileTypeConfig {
   // Meters behind the mesh centre where trail particles and the trail streak
   // start (the rocket's nozzle). Visual only; default 0 = centre.
   tailOffset?: number;
+
+  // A parabolic flight (Projectile.calculateFlightHeight): its top lies
+  // `share` of the distance above the straight line, at most `max` metres.
+  // Absent: it flies straight (bullets, orbs) or homes (rockets).
+  arc?: { share: number; max: number };
 }
 
 export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = {
@@ -71,12 +76,25 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
     speed: 80,
     visualType: 'arrow',
     scale: 8, // Model is tiny (~0.8m), scale up significantly
+    arc: { share: 0.05, max: 10 },
+  },
+  // The ballista's bolt: a heavy shaft on a flat path, out to twice the
+  // archer's range. Same speed as the arrow, so the path's balance stays as
+  // tools/balance-calc has it.
+  bolt: {
+    id: 'bolt',
+    speed: 80,
+    visualType: 'bolt',
+    scale: 1, // createBoltGeometry() is in metres
+    arc: { share: 0.02, max: 4 },
   },
   cannonball: {
     id: 'cannonball',
     speed: 50,
     visualType: 'cannonball',
     scale: 0.5,
+    // Higher arc (~20° launch angle)
+    arc: { share: 0.15, max: 25 },
     // Balance 2026-09: war 10 m ohne Zielcap. Im Pulk (0,5 bis 3 m Abstand)
     // traf ein Schuss so 3 bis 10 volle Treffer. 6 m und höchstens 8 Opfer
     // lassen im selben Pulk 1,5 bis 5,7 übrig.
@@ -401,6 +419,13 @@ export const PROJECTILE_SOUNDS: Record<ProjectileTypeId, ProjectileSoundConfig> 
     refDistance: 50,
     rolloffFactor: 1,
     volume: 0.5,
+  },
+  // The ballista: a heavy string slap and the bolt leaving (ElevenLabs, 2026-10-15)
+  bolt: {
+    url: 'assets/sounds/towers/ballista/shoot.mp3',
+    refDistance: 60,
+    rolloffFactor: 1,
+    volume: 0.6,
   },
   bullet: {
     url: 'assets/sounds/towers/gatling/shoot.mp3',

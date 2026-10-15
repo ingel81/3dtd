@@ -233,10 +233,10 @@ export class Projectile extends GameObject {
   }
 
   /**
-   * Check if this projectile has arc trajectory (arrows, cannonballs)
+   * Check if this projectile has arc trajectory (ProjectileTypeConfig.arc: arrows, bolts, cannonballs)
    */
   get hasArcTrajectory(): boolean {
-    return this.typeConfig.id === 'arrow' || this.typeConfig.id === 'cannonball';
+    return this.typeConfig.arc !== undefined;
   }
 
   /**
@@ -345,11 +345,9 @@ export class Projectile extends GameObject {
     // Derivative of arc: d(arcOffset)/d(progress) = maxArc * 4 * (1 - 2*progress)
     let arcSlope = 0;
 
-    if (this.typeConfig.id === 'arrow') {
-      const maxArcHeight = Math.min(this._totalDistance * 0.05, 10);
-      arcSlope = maxArcHeight * 4 * (1 - 2 * progress);
-    } else if (this.typeConfig.id === 'cannonball') {
-      const maxArcHeight = Math.min(this._totalDistance * 0.15, 25);
+    const arc = this.typeConfig.arc;
+    if (arc) {
+      const maxArcHeight = Math.min(this._totalDistance * arc.share, arc.max);
       arcSlope = maxArcHeight * 4 * (1 - 2 * progress);
     }
 
@@ -394,17 +392,10 @@ export class Projectile extends GameObject {
       return baseHeight;
     }
 
-    // Arc trajectory for arrows: slight arc
-    if (this.typeConfig.id === 'arrow') {
-      const maxArcHeight = Math.min(this._totalDistance * 0.05, 10);
-      const arcOffset = maxArcHeight * 4 * progress * (1 - progress);
-      return baseHeight + arcOffset;
-    }
-
-    // Arc trajectory for cannonballs: higher parabolic arc (~20° launch angle)
-    if (this.typeConfig.id === 'cannonball') {
-      // Higher arc for cannonballs - proportional to distance
-      const maxArcHeight = Math.min(this._totalDistance * 0.15, 25);
+    // Arc trajectory (arrows slight, bolts flatter, cannonballs high): proportional to distance
+    const arc = this.typeConfig.arc;
+    if (arc) {
+      const maxArcHeight = Math.min(this._totalDistance * arc.share, arc.max);
       const arcOffset = maxArcHeight * 4 * progress * (1 - progress);
       return baseHeight + arcOffset;
     }

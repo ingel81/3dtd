@@ -74,6 +74,18 @@ const TRAIL_STYLES: Record<string, TrailStreakStyle> = {
     emissiveIntensity: 0.7,
     minSegmentDistSq: 0.25,
   },
+  // The ballista's bolt: the arrow's streak, wider and paler, as heavy and rare as the shot
+  bolt: {
+    length: 20,
+    widthHead: 0.3,
+    widthTail: 0.2,
+    alphaHead: 0.5,
+    alphaTail: 0.0,
+    colorHead: new Color(0.95, 0.95, 0.85),  // pale white
+    colorTail: new Color(0.75, 0.7, 0.55),   // dusty fade
+    emissiveIntensity: 0.6,
+    minSegmentDistSq: 0.25,
+  },
   magic: {
     length: 32,
     widthHead: 0.4,
@@ -488,7 +500,7 @@ export class TrailStreakRenderer {
   }
 
   private initPools(): void {
-    const types: ProjectileVisualType[] = ['rocket', 'arrow', 'magic', 'ice', 'cannonball', 'bullet', 'shell'];
+    const types: ProjectileVisualType[] = ['rocket', 'arrow', 'bolt', 'magic', 'ice', 'cannonball', 'bullet', 'shell'];
     for (const vt of types) {
       const style = getTrailStyle(vt);
       // One material per type, shared by all trails of that type.

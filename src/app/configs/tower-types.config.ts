@@ -7,6 +7,8 @@ export type TowerTypeId =
   | 'research-center' | 'missile-silo';
 export type ProjectileTypeId =
   | 'arrow' | 'cannonball' | 'arcane-orb' | 'ice-shard' | 'bullet' | 'rocket' | 'poison-glob' | 'chaos-orb' | 'flak-shell'
+  // The archer's Sniper path (tower-paths.config.ts, the ballista)
+  | 'bolt'
   // The hero's ammo (hero.config.ts), fired by no tower
   | 'hero-round' | 'hero-shell' | 'hero-rune';
 export type UpgradeId = 'speed' | 'damage' | 'range' | 'beam-width' | 'research-slots';
