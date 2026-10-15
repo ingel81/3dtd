@@ -55,14 +55,14 @@ Desktop-App: die Webversion hat weder Server noch Schalter, Agent-Knopf und Band
 | `run_script` | ändert | Skript gegen die offene Karte, ein Undo-Schritt, animiert abgespielt |
 | `move_marker` | ändert | HQ (`hq`) oder einen Spawn (Id oder Name) versetzen |
 | `place_object`, `move_object`, `delete_objects` | ändert | einzelne Objekte; eine Straßen-Id in `delete_objects` verweist auf `map.removeRoads` |
-| `set_rules` | ändert | Regeln (`gameplay`), verworfen, wenn die Karte so nicht speicherbar wäre; unbekannte Schlüssel und `waves` in falscher Form (es gibt keine Wellenzahl) mit Beispiel abgelehnt (`checkRules`, auch für `map.gameplay`) |
+| `set_rules` | ändert | Regeln (`gameplay`), verworfen, wenn die Karte so nicht speicherbar wäre; unbekannte Schlüssel, `waves` in falscher Form (es gibt keine Wellenzahl) und `events` ohne Liste mit Beispiel abgelehnt (`checkRules`, auch für `map.gameplay`); `events` sind die Wellen-Ereignisse (Nachricht, Wetter, Tageszeit, Portal, Objekte), die ganze Liste ersetzt die der Karte |
 | `set_sky` | ändert | Himmel und Luft (`environment`), nur bekannte Schlüssel und Werte |
 | `set_map_info` | ändert | Name und Beschreibung der offenen Karte (Id und Datei bleiben), ein Schritt |
 | `erode_map` | ändert | Erosion der ganzen Karte wie im Map-Panel, im Terrain-Worker, sichtbar während sie läuft |
 | `resize_map` | ändert | Größe ändern oder beschneiden um die Mitte, wie im Map-Panel |
 | `increase_detail` | ändert | grobes Gelände alter Karten auf 2 m verfeinern |
 | `import_heightmap` | ändert | Höhen aus einer 16-Bit-PNG- oder RAW-Datei (base64), schwarz `low`, weiß `high` |
-| `list_stamps`, `save_stamp` | liest, legt an | Stempel des Menschen; ein Rechteck der offenen oder einer anderen Karte als Stempel behalten |
+| `list_stamps`, `save_stamp` | liest, legt an | Stempel und Prefabs des Menschen (`keep`: `map` die der offenen Karte, `library` die für jede Karte); ein Rechteck der offenen oder einer anderen Karte als Stempel behalten, oder mit `ids` Objekte der offenen Karte als Prefab (`ground: true` mit dem Boden darunter); `keep: 'map'` legt es in die Datei der offenen Karte |
 | `paste_stamp` | ändert | Stempel (Id oder Name) oder ein Rechteck aus der offenen oder einer anderen Karte einsetzen: gedreht, Rand weich, Teile wählbar |
 | `list_versions`, `restore_version` | liest, ändert | gespeicherte Versionen der offenen Karte; eine als Undo-Schritt zurückholen |
 | `undo_last` | ändert | letzten Schritt des Agenten zurücknehmen |
@@ -91,7 +91,7 @@ betrifft:
 | Objects: Setzen, Streuen, Linie (auch Mauer-Kits), Auswahl bearbeiten, Duplizieren, Gruppen, Hangneigung | `map.place`, `scatter`, `line(asset, line, { spacing, offset, bothSides, turn, corners, front, alignToSlope })`, `changeObjects(ids, patch)`, `duplicate`, `group`/`ungroup`, `alignToSlope`, `removeObjects` |
 | Roads: Zeichnen und Bearbeiten | `map.path`, `walk`; `moveNode`, `splitRoad`, `mergeNodes`, `removeNode`, `dissolveNode`, `connectNodes`, `editRoads(ids, { width, kind, style })`, `smoothRoad`, `straightenRoad` (eine von der Straßenbürste gebaute Straße wird neu gelegt, `editRoads` aus dem Paths-Tool) |
 | Spawns und HQ | `map.spawn`, `moveSpawn`, `renameSpawn`, `removeSpawn`, `hq`; `move_marker` |
-| Copy and stamps | `map.copyArea(rect, to, { rotation, feather, parts })`; `save_stamp`, `paste_stamp` (auch aus anderen Karten) |
+| Copy and stamps, Prefabs | `map.copyArea(rect, to, { rotation, feather, parts })`; `map.savePrefab(name, ids, ground)` (in die Datei der Karte, Id `pf-<n>`, beim Abspielen dieselbe), `map.placePrefab(idOrName, to, { rotation, feather })`, Lesefunktion `map.prefabs()`; `save_stamp`, `paste_stamp` (auch aus anderen Karten) |
 | Sky and weather, Rules, Map details | `set_sky`, `set_rules`, `set_map_info`; `map.environment`, `map.gameplay` |
 
 Lesefunktionen dazu: `map.roads()` mit den Knoten `a`, `b` jeder Straße, `map.nodes()` (Id, Lage, Straßen),

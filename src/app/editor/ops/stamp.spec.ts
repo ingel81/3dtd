@@ -7,7 +7,7 @@ import { heightAt } from '../model/grid';
 import { MemoryStampBackend, StampLibrary } from '../model/stamp-store';
 import { LandscapeStroke } from './landscape/landscape-stroke';
 import { dominantLayer, paintDab } from './paint-ops';
-import { ALL_PARTS, captureStamp, pasteStamp, stampBounds } from './stamp';
+import { ALL_PARTS, capturePrefab, captureStamp, pasteStamp, stampBounds } from './stamp';
 import { raiseDab } from './terrain-ops';
 import { emptyWater } from './water-ops';
 
@@ -82,5 +82,73 @@ describe('stamps', () => {
     await lib.rename(a, 'Big hill');
     await lib.delete((await lib.list())[0].id);
     expect((await lib.list()).map((s) => s.name)).toEqual(['Big hill']);
+  });
+
+  it('pastes a piece with groups into groups of its own, never those of where it came from', () => {
+    const ed = source();
+    ed.doc.objects.push({ id: 'o2', asset: 'tree-oak', x: -105, y: 100, z: 0, rotation: 0, scale: 1, group: 'g1' }, { id: 'o3', asset: 'tree-oak', x: -100, y: 105, z: 0, rotation: 0, scale: 1, group: 'g1' });
+    const stamp = captureStamp(ed.doc, { x0: -130, y0: 70, x1: -70, y1: 130 });
+    for (const at of [{ x: 100, y: 100 }, { x: 100, y: -100 }]) {
+      const stroke = new LandscapeStroke(ed, 'Paste', 0, catalog);
+      pasteStamp(stroke, stamp, at, { parts: ALL_PARTS, rotation: 0, feather: 0.2 });
+      stroke.finish();
+    }
+    const groups = ed.doc.objects.map((o) => o.group ?? '-');
+    // The original pair in g1, each paste's pair in a new group, the loose tree loose
+    expect(groups).toEqual(['-', 'g1', 'g1', '-', 'g2', 'g2', '-', 'g3', 'g3']);
+  });
+});
+
+describe('prefabs', () => {
+  function village(): EditorDocument {
+    const ed = source();
+    ed.doc.objects.push(
+      { id: 'h1', asset: 'house', x: 60, y: -40, z: 0, rotation: 0.5, scale: 1 },
+      { id: 'h2', asset: 'tree-oak', x: 70, y: -40, z: 0, rotation: 0, scale: 1.5, tint: '#ff8800' },
+      { id: 'far', asset: 'tree-oak', x: 66, y: -30, z: 0, rotation: 0, scale: 1 },
+    );
+    return ed;
+  }
+  const radius = (asset: string) => catalog.object(asset).radius;
+
+  it('takes the selected objects only, around the middle of their footprints, without the ground unless asked', () => {
+    const ed = village();
+    const taken = capturePrefab(ed.doc, ['h1', 'h2'], false, radius)!;
+    const st = taken.stamp;
+    expect(st.prefab).toBe(true);
+    expect(st.parts).toEqual({ heights: false, paint: false, water: false, objects: true, roads: false });
+    expect(st.objects.map((o) => o.asset)).toEqual(['house', 'tree-oak']);
+    // The rectangle holds both footprints and the margin; the objects sit relative to its middle
+    expect(taken.rect.x0).toBeLessThan(60 - radius('house'));
+    expect(taken.rect.x1).toBeGreaterThan(70 + radius('tree-oak') * 1.5);
+    const cx = (taken.rect.x0 + taken.rect.x1) / 2;
+    expect(st.objects[0].x).toBeCloseTo(60 - cx, 2);
+    expect(st.objects[1]).toMatchObject({ scale: 1.5, tint: '#ff8800' });
+    expect(st.roads.edges).toEqual([]);
+    expect(st.materials).toEqual([]);
+    const withGround = capturePrefab(ed.doc, ['h1'], true, radius)!.stamp;
+    expect(withGround.parts?.heights).toBe(true);
+    expect(withGround.materials.length).toBeGreaterThan(0);
+    expect(capturePrefab(ed.doc, ['nothing'], false, radius)).toBeNull();
+  });
+
+  it('puts a prefab down as one group, leaves the ground alone without it, and is one undo step', () => {
+    const ed = village();
+    const prefab = capturePrefab(ed.doc, ['h1', 'h2'], false, radius)!.stamp;
+    raiseDab(ed.doc.terrain, 100, 100, { radius: 30, strength: 1, falloff: 0 }, 6);
+    const before = heightAt(ed.doc.terrain, 100, 100);
+    const count = ed.doc.objects.length;
+    const stroke = new LandscapeStroke(ed, 'Paste', 0, catalog);
+    pasteStamp(stroke, prefab, { x: 100, y: 100 }, { parts: ALL_PARTS, rotation: Math.PI, feather: 0.25 });
+    stroke.finish();
+    const placed = ed.doc.objects.slice(count);
+    expect(placed.map((o) => o.asset)).toEqual(['house', 'tree-oak']);
+    expect(new Set(placed.map((o) => o.group)).size).toBe(1);
+    expect(placed[0].group).toMatch(/^g\d+$/);
+    // Turned half round: the tree east of the house now stands west of it
+    expect(placed[1].x).toBeLessThan(placed[0].x);
+    expect(heightAt(ed.doc.terrain, 100, 100)).toBeCloseTo(before, 5);
+    ed.undo();
+    expect(ed.doc.objects).toHaveLength(count);
   });
 });

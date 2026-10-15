@@ -1,10 +1,11 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TdIconComponent } from '../../../components/icon/icon.component';
-import type { SavedStamp } from '../../model/stamp-store';
+import type { SavedStamp, StampKeep } from '../../model/stamp-store';
 import type { StampParts } from '../../ops/stamp';
 import type { StampTool } from '../../tools/stamp-tool';
 import { EditorSession } from '../editor-session.service';
+import type { KeptStamp } from './prefab-panel.component';
 import { RangeRowComponent } from './range-row.component';
 
 const PARTS: { id: keyof StampParts; label: string }[] = [
@@ -58,13 +59,18 @@ const PARTS: { id: keyof StampParts; label: string }[] = [
       }
     </div>
     <div class="td-group">
-      <h3 class="td-section">Stamps</h3>
+      <h3 class="td-section">Stamps and prefabs</h3>
       <div class="sp-save">
         <input class="td-input is-sm" type="text" maxlength="40" placeholder="Name" [value]="name()" (input)="name.set($any($event.target).value)" aria-label="Stamp name" />
         <button class="td-btn-secondary td-btn-sm" type="button" [attr.aria-disabled]="!s().current || null" (click)="save()" data-test="save-stamp">Save the copy</button>
       </div>
+      <div class="td-seg is-sm" role="radiogroup" aria-label="Keep for">
+        <button type="button" role="radio" [attr.aria-checked]="keep() === 'library'" (click)="keep.set('library')" matTooltip="In this browser, for every map">Every map</button>
+        <button type="button" role="radio" [attr.aria-checked]="keep() === 'map'" (click)="keep.set('map')" matTooltip="In this map's file: it travels with the map">This map</button>
+      </div>
       <div class="td-rows">
-        @for (st of stamps(); track st.id) {
+        @for (k of stamps(); track k.saved.id) {
+          @let st = k.saved;
           <div class="td-row sp-row" role="option" tabindex="0" [attr.aria-selected]="s().currentName === st.name && s().mode === 'paste'"
                (click)="use(st)" (keydown.enter)="use(st)" [attr.data-stamp]="st.name">
             @if (st.preview) {
@@ -74,14 +80,14 @@ const PARTS: { id: keyof StampParts; label: string }[] = [
             }
             <span class="sp-text">
               <span class="td-name">{{ st.name }}</span>
-              <span class="td-sub">{{ size(st.stamp.width) }} x {{ size(st.stamp.depth) }} m | {{ st.stamp.objects.length }} objects</span>
+              <span class="td-sub">{{ st.stamp.prefab ? 'Prefab, ' : '' }}{{ size(st.stamp.width) }} x {{ size(st.stamp.depth) }} m | {{ st.stamp.objects.length }} objects{{ k.keep === 'map' ? ' | this map' : '' }}</span>
             </span>
-            <button class="td-tool is-sm" type="button" aria-label="Delete stamp" matTooltip="Delete" (click)="$event.stopPropagation(); remove(st)">
+            <button class="td-tool is-sm" type="button" aria-label="Delete stamp" matTooltip="Delete" (click)="$event.stopPropagation(); remove(k)">
               <td-icon name="trash" [size]="14" />
             </button>
           </div>
         } @empty {
-          <p class="td-note">No stamps yet. Copy a piece of the map and save it here; stamps work on every map.</p>
+          <p class="td-note">No stamps yet. Copy a piece of the map and save it here, for every map or in this map's file.</p>
         }
       </div>
     </div>
@@ -97,7 +103,15 @@ export class StampPanelComponent implements OnInit {
   private readonly session = inject(EditorSession);
   readonly parts = PARTS;
   readonly name = signal('');
-  readonly stamps = signal<SavedStamp[]>([]);
+  readonly keep = signal<StampKeep>('library');
+  /** The map's own first, then the library's */
+  readonly stamps = computed<KeptStamp[]>(() => {
+    this.session.docRev();
+    return [
+      ...this.session.mapStamps().map((saved) => ({ saved, keep: 'map' as const })),
+      ...this.session.libraryStamps().map((saved) => ({ saved, keep: 'library' as const })),
+    ];
+  });
   readonly s = computed(() => (this.session.settingsRev(), { ...this.session.settings.stamp }));
   readonly degrees = computed(() => Math.round((((this.s().rotation * 180) / Math.PI) % 360 + 360) % 360));
 
@@ -106,7 +120,7 @@ export class StampPanelComponent implements OnInit {
   }
 
   async reload(): Promise<void> {
-    this.stamps.set(await this.session.stamps.list().catch(() => []));
+    await this.session.reloadStamps();
   }
 
   setMode(mode: 'select' | 'paste'): void {
@@ -134,10 +148,9 @@ export class StampPanelComponent implements OnInit {
     const st = this.session.settings.stamp;
     if (!st.current) return;
     const name = this.name().trim() || `Stamp ${this.stamps().length + 1}`;
-    await this.session.saveStamp(name, st.current, st.region);
+    if (!(await this.session.saveStamp(name, st.current, st.region, this.keep()))) return;
     this.name.set('');
-    await this.reload();
-    this.session.flash(`Saved stamp ${name}`);
+    this.session.flash(`Saved stamp ${name}${this.keep() === 'map' ? ' in this map' : ''}`);
   }
 
   use(st: SavedStamp): void {
@@ -149,9 +162,9 @@ export class StampPanelComponent implements OnInit {
     });
   }
 
-  async remove(st: SavedStamp): Promise<void> {
-    await this.session.stamps.delete(st.id);
-    await this.reload();
+  async remove(k: KeptStamp): Promise<void> {
+    if (k.keep === 'map') this.session.removeMapStamp(k.saved.id);
+    else await this.session.deleteStamp(k.saved.id);
   }
 
   size(v: number): number {

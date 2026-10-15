@@ -1,17 +1,14 @@
 /**
- * The stamp library: saved map pieces with a name and a picture, kept in
- * this browser's IndexedDB (`3dtd-editor-stamps`), shared by all maps.
+ * The stamp library: saved map pieces (stamps, and prefabs taken from a
+ * selection) with a name and a picture, kept in this browser's IndexedDB
+ * (`3dtd-editor-stamps`), shared by all maps. A map keeps its own in its
+ * document (`prefabs`, EditorSession.saveStamp with 'map').
  */
+import type { MapPrefab } from '../../world/custom-map/map-document';
 import type { Stamp } from '../ops/stamp';
 
-export interface SavedStamp {
-  id: string;
-  name: string;
-  createdAt: string;
-  /** PNG data URL, the piece from above */
-  preview: string | null;
-  stamp: Stamp;
-}
+/** A stamp of the library: the same as a prefab a map keeps */
+export type SavedStamp = MapPrefab;
 
 export interface StampBackend {
   list(): Promise<SavedStamp[]>;
@@ -80,6 +77,20 @@ export class IndexedDbStampBackend implements StampBackend {
   }
 }
 
+/** Where a saved piece is kept: the browser's library, for every map, or the open map's file (CustomMapDocument.prefabs) */
+export type StampKeep = 'library' | 'map';
+
+/** A piece with a new id, its name (or Stamp, Prefab) and picture, for the library or a map */
+export function stampEntry(name: string, stamp: Stamp, preview: string | null, now = new Date()): SavedStamp {
+  return {
+    id: `st-${now.getTime().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`,
+    name: name.trim() || (stamp.prefab ? 'Prefab' : 'Stamp'),
+    createdAt: now.toISOString(),
+    preview,
+    stamp,
+  };
+}
+
 export class StampLibrary {
   constructor(private readonly backend: StampBackend = new IndexedDbStampBackend()) {}
 
@@ -88,13 +99,7 @@ export class StampLibrary {
   }
 
   async save(name: string, stamp: Stamp, preview: string | null, now = new Date()): Promise<SavedStamp> {
-    const saved: SavedStamp = {
-      id: `st-${now.getTime().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`,
-      name: name.trim() || 'Stamp',
-      createdAt: now.toISOString(),
-      preview,
-      stamp,
-    };
+    const saved = stampEntry(name, stamp, preview, now);
     await this.backend.put(saved);
     return saved;
   }

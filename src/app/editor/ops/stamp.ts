@@ -1,7 +1,9 @@
 /**
  * Copy and paste of map pieces, and stamps (saved pieces): a rectangle of
  * the map with its heights, ground paint, water, objects and roads,
- * independent of the map it came from.
+ * independent of the map it came from. A prefab is a piece taken from a
+ * selection of objects (capturePrefab): those objects, and the ground under
+ * them when asked; a paste puts its objects down as one group.
  *
  * Heights are kept relative to the piece's rim (the mean height of its
  * border), so a hill pasted onto a plateau stands on the plateau. Ground
@@ -9,43 +11,20 @@
  * right layer of any map (layers are added when there is room). Pasting
  * turns the piece by any angle and fades its rim into the ground.
  */
-import type { CustomMapDocument, MapObject, MapPathEdge, MapPathNode, MapPoint } from '../../world/custom-map/map-document';
+import type { CustomMapDocument, MapObject, MapPathEdge, MapPieceParts, MapPiece, MapPoint } from '../../world/custom-map/map-document';
 import { clamp, heightAt, sampleX, sampleY, texelX, texelY, type GridRect } from '../model/grid';
 import { MAX_LAYERS, readWeights, writeWeights } from './paint-ops';
+import { freeGroup } from './object-ops';
 import { edgePolyline, newId } from './path-graph';
 import type { LandscapeStroke } from './landscape/landscape-stroke';
 import { smooth } from './landscape/landscape-noise';
 
-export interface StampParts {
-  heights: boolean;
-  paint: boolean;
-  water: boolean;
-  objects: boolean;
-  roads: boolean;
-}
+export type StampParts = MapPieceParts;
 
 export const ALL_PARTS: StampParts = { heights: true, paint: true, water: true, objects: true, roads: true };
 
-/** A piece of a map, centred on its own middle */
-export interface Stamp {
-  width: number;
-  depth: number;
-  /** Height samples: `columns` x `rows` every `cell` metres, relative to the rim */
-  cell: number;
-  columns: number;
-  rows: number;
-  heights: Float32Array;
-  /** Paint: `res` x `res2` cells of `materials.length` weights (0..255) */
-  paintCell: number;
-  paintColumns: number;
-  paintRows: number;
-  materials: string[];
-  paint: Uint8Array;
-  /** Water mask on the height samples and the water level relative to the rim; null without water */
-  water: { mask: Uint8Array; level: number; color: string } | null;
-  objects: Omit<MapObject, 'id'>[];
-  roads: { nodes: MapPathNode[]; edges: MapPathEdge[] };
-}
+/** A piece of a map, centred on its own middle (map-document.ts) */
+export type Stamp = MapPiece;
 
 export interface StampRect {
   x0: number;
@@ -145,6 +124,58 @@ export function captureStamp(doc: CustomMapDocument, rect: StampRect): Stamp {
   return { width, depth, cell, columns, rows, heights, paintCell, paintColumns, paintRows, materials, paint, water, objects, roads };
 }
 
+/** Metres a prefab's ground reaches past its objects' footprints */
+const PREFAB_MARGIN = 2;
+
+/**
+ * A prefab of the objects `ids`: just them, centred on the middle of their
+ * footprints (`radiusOf` an asset's ground radius at scale 1), turned as
+ * they stand, and with `ground` the heights, paint and water under them
+ * (the rectangle around the footprints and PREFAB_MARGIN). No roads.
+ */
+export function capturePrefab(doc: CustomMapDocument, ids: readonly string[], ground: boolean, radiusOf: (asset: string) => number = () => 1): { stamp: Stamp; rect: StampRect } | null {
+  const keep = new Set(ids);
+  const chosen = doc.objects.filter((o) => keep.has(o.id));
+  if (!chosen.length) return null;
+  let x0 = Infinity;
+  let x1 = -Infinity;
+  let y0 = Infinity;
+  let y1 = -Infinity;
+  for (const o of chosen) {
+    const r = Math.max(0.5, radiusOf(o.asset) * o.scale) + PREFAB_MARGIN;
+    x0 = Math.min(x0, o.x - r);
+    x1 = Math.max(x1, o.x + r);
+    y0 = Math.min(y0, o.y - r);
+    y1 = Math.max(y1, o.y + r);
+  }
+  const t = doc.terrain;
+  const rect = { x0: Math.max(x0, -t.width / 2), x1: Math.min(x1, t.width / 2), y0: Math.max(y0, -t.depth / 2), y1: Math.min(y1, t.depth / 2) };
+  const piece = captureStamp(doc, rect);
+  const cx = (rect.x0 + rect.x1) / 2;
+  const cy = (rect.y0 + rect.y1) / 2;
+  const objects = chosen.map(({ id: _id, ...o }) => ({ ...o, x: Math.round((o.x - cx) * 100) / 100, y: Math.round((o.y - cy) * 100) / 100 }));
+  const roads = { nodes: [], edges: [] };
+  if (ground) return { rect, stamp: { ...piece, objects, roads, prefab: true, parts: { heights: true, paint: true, water: !!piece.water, objects: true, roads: false } } };
+  // Objects only: no ground to carry, a flat piece of the same size for its outline
+  const stamp: Stamp = {
+    ...piece,
+    cell: piece.width,
+    columns: 2,
+    rows: 2,
+    heights: new Float32Array(4),
+    paintColumns: 1,
+    paintRows: 1,
+    materials: [],
+    paint: new Uint8Array(0),
+    water: null,
+    objects,
+    roads,
+    prefab: true,
+    parts: { heights: false, paint: false, water: false, objects: true, roads: false },
+  };
+  return { stamp, rect };
+}
+
 export interface PasteOptions {
   parts: StampParts;
   /** Turn counter-clockwise, radians */
@@ -223,6 +254,15 @@ export function pasteStamp(stroke: LandscapeStroke, stamp: Stamp, center: MapPoi
   const sin = Math.sin(options.rotation);
   const b = stampBounds(stamp, center, options.rotation);
   const feather = clamp(options.feather, 0, 1);
+  // What the paste asks for of what the piece holds
+  const holds = stamp.parts ?? ALL_PARTS;
+  const parts: StampParts = {
+    heights: options.parts.heights && holds.heights,
+    paint: options.parts.paint && holds.paint,
+    water: options.parts.water && holds.water,
+    objects: options.parts.objects && holds.objects,
+    roads: options.parts.roads && holds.roads,
+  };
   // The stamp's rim sits at the mean height of the ground along its outline
   const outline = stampOutline(stamp, center, options.rotation);
   let zero = 0;
@@ -242,7 +282,7 @@ export function pasteStamp(stroke: LandscapeStroke, stamp: Stamp, center: MapPoi
     j1: clamp(Math.ceil((b.y1 + t.depth / 2) / g.cellSize), 0, g.rows - 1),
   };
 
-  if (options.parts.heights) {
+  if (parts.heights) {
     stroke.touchHeights(rect);
     for (let j = rect.j0; j <= rect.j1; j++) {
       for (let i = rect.i0; i <= rect.i1; i++) {
@@ -256,7 +296,7 @@ export function pasteStamp(stroke: LandscapeStroke, stamp: Stamp, center: MapPoi
     stroke.changed({ heights: rect });
   }
 
-  if (options.parts.water && stamp.water) {
+  if (parts.water && stamp.water) {
     const level = stroke.ensureWater(zero + stamp.water.level);
     stroke.touchWater(rect);
     const mask = t.water!.mask;
@@ -276,7 +316,7 @@ export function pasteStamp(stroke: LandscapeStroke, stamp: Stamp, center: MapPoi
     stroke.changed({ water: true, heights: rect });
   }
 
-  if (options.parts.paint && stamp.materials.length) {
+  if (parts.paint && stamp.materials.length) {
     const slots = stamp.materials.map((m) => stroke.layerOf([m]));
     const res = t.splat.resolution;
     const trect: GridRect = {
@@ -309,15 +349,28 @@ export function pasteStamp(stroke: LandscapeStroke, stamp: Stamp, center: MapPoi
   }
 
   const placed: string[] = [];
-  if (options.parts.objects) {
+  if (parts.objects) {
+    // Groups of the piece become groups of their own on the map, a prefab one group: never the groups of where it came from
+    const groups = new Map<string, string>();
+    let next = Number(/^g(\d+)$/.exec(freeGroup(doc.objects))![1]);
+    const groupOf = (source: string): string => {
+      let g = groups.get(source);
+      if (!g) groups.set(source, (g = `g${next++}`));
+      return g;
+    };
+    const whole = stamp.prefab && stamp.objects.length > 1;
     for (const o of stamp.objects) {
       const p = place(o, center, cos, sin);
       if (Math.abs(p.x) > t.width / 2 - 1 || Math.abs(p.y) > t.depth / 2 - 1) continue;
-      placed.push(stroke.addObject({ ...o, x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100, rotation: Math.round((o.rotation + options.rotation) * 1000) / 1000 }).id);
+      const { group, ...plain } = o;
+      const object: Omit<MapObject, 'id'> = { ...plain, x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100, rotation: Math.round((o.rotation + options.rotation) * 1000) / 1000 };
+      if (whole) object.group = groupOf('');
+      else if (group) object.group = groupOf(group);
+      placed.push(stroke.addObject(object).id);
     }
   }
 
-  if (options.parts.roads && stamp.roads.edges.length) {
+  if (parts.roads && stamp.roads.edges.length) {
     stroke.markPaths();
     const paths = doc.paths;
     const ids = new Map<string, string>();
@@ -336,7 +389,7 @@ export function pasteStamp(stroke: LandscapeStroke, stamp: Stamp, center: MapPoi
     }
     stroke.refreshRoads();
   }
-  stroke.changed({ objects: placed.length ? placed : undefined, paths: options.parts.roads && stamp.roads.edges.length ? true : undefined });
+  stroke.changed({ objects: placed.length ? placed : undefined, paths: parts.roads && stamp.roads.edges.length ? true : undefined });
 }
 
 /** Total length of the roads in a stamp, for its description */
