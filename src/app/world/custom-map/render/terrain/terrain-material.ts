@@ -476,14 +476,16 @@ if (cliffSides) {
   sampleNoTile(uCliffLayer, sideX * s, sideXdx * s, sideXdy * s, sel, false, cliffX, cliffXd);
   sampleNoTile(uCliffLayer, sideZ * s, sideZdx * s, sideZdy * s, sel, false, cliffZ, cliffZd);
 }
-// Ground in the distance is cheaper (bands dithered by noise, so no line shows): from uFarSingle each
-// layer reads its normal and roughness once instead of twice (the colour keeps its anti-tiling pair), from
+// Ground in the distance is cheaper: from uFarSingle each layer reads its normal and roughness once instead
+// of twice (the colour keeps its anti-tiling pair; a band dithered by noise, so no line shows), from
 // uFarFlat no layer textures at all, the layers' average colours by weight over the grid's normal (the
-// macro variation stays)
+// macro variation stays). The textures fade into those colours over the last 30 % before uFarFlat: a
+// dithered band of 30 m swept the paint over the ground as the intro's camera came down from its overview
 float farJitter = (sel - 0.5) * 30.0;
 float viewDist = length(vViewPosition);
 bool farSingle = viewDist > uFarSingle + farJitter;
-bool farFlat = viewDist > uFarFlat + farJitter;
+bool farFlat = viewDist > uFarFlat;
+float farFade = smoothstep(uFarFlat * 0.7, uFarFlat, viewDist);
 if (farFlat) {
   for (int k = 0; k < TERRAIN_LAYERS; k++) {
     lc[k] = vec4(uAverage[k], 0.5);
@@ -517,10 +519,11 @@ for (int k = 0; k < TERRAIN_LAYERS; k++) {
   }
   // Each layer gets its own noise sign, so neighbours do not shift together
   col.a += blendNoise * (float(k & 1) * 2.0 - 1.0);
-  lc[k] = col;
-  ld[k] = dat;
-  ln[k] = nTop;
-  best = max(best, col.a + w[k]);
+  // Towards the flat ground's values, which it has once past uFarFlat
+  lc[k] = mix(col, vec4(uAverage[k], 0.5), farFade);
+  ld[k] = mix(dat, vec4(0.5, 0.5, 0.85, 1.0), farFade);
+  ln[k] = safeNormalize(mix(nTop, nGeo, farFade), nGeo);
+  best = max(best, lc[k].a + w[k]);
 }
 
 // Height blend within a band below the best layer

@@ -103,7 +103,10 @@ Nebel der Szene wieder her.
   Falllinie den Fels hinauf, in mehreren Maßstäben); Makrovariation und in der Ferne die Durchschnittsfarbe. **Ferne billiger**: ab `uFarSingle`
   (150 m) liest jede Schicht Normale und Rauheit einmal statt zweimal (die Farbe behält ihr Anti-Kachel-Paar), ab
   `uFarFlat` (400 m) gar keine Schichttexturen mehr, nur die Durchschnittsfarben nach Gewicht über der Rasternormale;
-  die Grenzen sind mit Rauschen verzittert. `CustomMapView.setFarGround(single, flat)` für die Qualitätsstufen Jede Schicht blendet so weich wie
+  die Grenze zu einer Schicht ist mit Rauschen verzittert, zur flachen Ferne blenden Farbe, Daten und Normale über die
+  letzten 30 % vor `uFarFlat` weich hinüber. Vorher lag dort ein verzittertes Band von 30 m: senkte sich die Kamera
+  im Einflug aus der Übersicht (fast alles Boden in gleichem Abstand), sprang die Bodenbemalung über das ganze Bild auf
+  einmal von flach zu texturiert (E193). `CustomMapView.setFarGround(single, flat)` für die Qualitätsstufen Jede Schicht blendet so weich wie
   ihre Katalog-Kategorie (`MATERIAL_LOOK`: Gras und Sand laufen in die Nachbarn, Fels und Eis schneiden) und bekommt
   deren Rauheitsbereich (Schlamm und Eis glänzender, Gras und Sand matt); der Glanz läuft zum Blickrand hin aus (keine
   weißen Flächen im Gegenlicht)

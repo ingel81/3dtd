@@ -362,6 +362,15 @@ export class CustomMapEnvironment {
   }
 
   /**
+   * The shadow map renders whole on the next frame, not over a few: the
+   * first frame a player sees (after the warm-up drew every cell into the
+   * map) has its shadows, rather than the trees darkening a moment later
+   */
+  invalidateShadowsNow(): void {
+    this.redrawShadowsNow();
+  }
+
+  /**
    * The quality level's shadow map: its size (texels a side) and how soft
    * its edge is (PCF spread). A new size allocates the map anew and renders
    * it on the next frame

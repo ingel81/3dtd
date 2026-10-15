@@ -270,8 +270,8 @@ export class CustomMapView {
         renderer.setRenderTarget(previous);
         renderer.shadowMap.autoUpdate = wasAuto;
         this.objects.showAllForWarmUp(false);
-        // The warm-up frame drew every cell into the shadow map: the next frame draws the real one
-        this.environment.invalidateShadows();
+        // The warm-up frame drew every cell into the shadow map: the next frame draws the real one, whole
+        this.environment.invalidateShadowsNow();
       }
     }
     return (renderer.info.programs?.length ?? 0) - before;
