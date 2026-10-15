@@ -12,12 +12,12 @@ Das Projektil-Entity verwaltet Position, Bewegung und Flugbahn.
 - `flightHeight` - Aktuelle Flughöhe (interpoliert mit Parabel-Bogen oder linear)
 - `flightProgress` - Fortschritt entlang der Flugbahn (0-1)
 - `isHoming` - Ob das Projektil zielverfolgend ist (Rockets)
-- `hasArcTrajectory` - Ob das Projektil eine Bogenbahn hat (Arrows, Cannonballs)
+- `hasArcTrajectory` - Ob das Projektil eine Bogenbahn hat (`arc` in der Konfig: Arrows, Bolts, Cannonballs)
 - `targetLost` - Ob das Ziel während des Flugs gestorben ist
 
 **Wichtige Methoden:**
 - `calculateDirectionVector(startPos, startHeight)` - Berechnet normalisierten Richtungsvektor von Start zu Ziel
-- `calculateFlightHeight()` - Berechnet Flughöhe (Parabel-Bogen für Arrow/Cannonball, linear für andere)
+- `calculateFlightHeight()` - Berechnet Flughöhe (Parabel-Bogen nach `arc`, linear für andere)
 - `getTargetHeight()` - Gibt Zielhöhe zurück (Enemy-TerrainHeight + heightOffset + gemessene Modellmitte aus `getEnemyAimOffsetY`)
 - `updateTowardsTarget(deltaTime)` - Bewegt Projektil Richtung Ziel, gibt `true` bei Treffer zurück
 - `calculateArcTangentDirection()` - Berechnet Tangentenrichtung entlang der Parabel für Arc-Projektile
@@ -27,8 +27,8 @@ Verwendet `geoDistanceFast()` aus `utils/geo-utils.ts` (schnelle Approximation f
 
 **Flugbahn-Berechnung:**
 ```typescript
-// Arrow: Leichter Parabel-Bogen (maxArcHeight = min(distance * 0.05, 10))
-// Cannonball: Hoher Parabel-Bogen (maxArcHeight = min(distance * 0.15, 25))
+// maxArcHeight = min(distance * arc.share, arc.max), arc aus PROJECTILE_TYPES:
+// Arrow leicht (0.05, 10), Bolt flach (0.02, 4), Cannonball hoch (0.15, 25)
 const baseHeight = startHeight + (targetHeight - startHeight) * progress;
 const arcOffset = maxArcHeight * 4 * progress * (1 - progress);
 return baseHeight + arcOffset;
@@ -99,6 +99,7 @@ Instanz-Matrizen hoch (`addUpdateRange(0, activeCount * 16)`), nicht den ganzen 
 | Typ | Speed | Scale | Visual Type | Splash | Trail |
 |-----|-------|-------|-------------|--------|-------|
 | arrow | 80 m/s | 8 | arrow (GLB Model) | - | - |
+| bolt | 80 m/s | 1 | bolt (Merged Mesh) | - | Blasser Streak, breiter als der Pfeil. Bolzen der Ballista (Archer-Pfad Sniper, Konfig per `swap.projectileType`) |
 | cannonball | 50 m/s | 0.5 | cannonball (Sphere) | 6m, max. 8 Ziele | Grauer Rauch (normal blending) |
 | arcane-orb | 100 m/s | 0.4 | magic (Shader Orb) | - | Violett-Cyan-Funken als Spirale (additive, `trailType: 'spiral'`) |
 | ice-shard | 90 m/s | 0.4 | ice (Shader Orb) | 8m | Eis-Partikel (additive) |
@@ -112,6 +113,7 @@ Instanz-Matrizen hoch (`addUpdateRange(0, activeCount * 16)`), nicht den ganzen 
 
 **Visuelle Typen** (`ProjectileVisualType`):
 - `arrow` - GLB-Modell aus `/assets/models/projectiles/arrow.glb`
+- `bolt` - `createBoltGeometry()`: Holzschaft, Eisenspitze und 3 dunkle Federn zu einer Geometrie gemergt, Teilfarben als Vertex-Farben, 5,6 m lang, in Metern (Scale 1), zentriert, dreht entlang der Bogentangente
 - `cannonball` - SphereGeometry, dunkelgrau metallisch
 - `magic` - SphereGeometry mit ShaderMaterial (Arcane Orb: violetter Körper, cyanfarbene Zellen und Rand, Custom GLSL Shader)
 - `ice` - SphereGeometry mit ShaderMaterial (blau/cyan/weiß Orb, gleicher Shader wie magic mit anderen Farben)
@@ -196,6 +198,7 @@ hierher.
 | Projektil | Sound-Datei | Volume | refDistance | rolloffFactor |
 |-----------|-------------|--------|------------|---------------|
 | arrow | `assets/sounds/towers/archer/shoot.mp3` | 0.5 | 50 | 1 |
+| bolt | `assets/sounds/towers/ballista/shoot.mp3` (ElevenLabs, 2026-10-15) | 0.6 | 60 | 1 |
 | cannonball | `assets/sounds/towers/cannon/shoot.mp3` | 0.6 | 70 | 1 |
 | arcane-orb | `assets/sounds/towers/magic/cast.mp3` | 0.45 | 55 | 1.1 |
 | ice-shard | `assets/sounds/towers/ice/cast.mp3` | 0.4 | 50 | 1 |

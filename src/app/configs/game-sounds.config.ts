@@ -95,12 +95,13 @@ export const HIT_SOUNDS = {
 export type HitSoundId = keyof typeof HIT_SOUNDS;
 
 /**
- * Projectiles whose hits sound: the single shots (archer, cannon, the hero).
+ * Projectiles whose hits sound: the single shots (archer, ballista, cannon, the hero).
  * Rapid fire (gatling), streams (flame, poison) and orbs would make a hit
  * sound a constant hiss. Add a projectile here to give its hits a sound.
  */
 export const HIT_SOUND_PROJECTILES: ReadonlySet<ProjectileTypeId> = new Set<ProjectileTypeId>([
   'arrow',
+  'bolt',
   'cannonball',
   'hero-round',
   'hero-shell',

@@ -19,7 +19,7 @@ export type TowerSwap = Pick<TowerTypeConfig,
   'modelUrl' | 'scale' | 'heightOffset' | 'shootHeight' | 'modelTop' | 'turnsTurret'>
   & Partial<Pick<TowerTypeConfig,
     'rotationY' | 'turretBarrelOffset' | 'turretNode' | 'turretRestY' | 'pitchNodes' | 'pitchRange' | 'firePoints'
-    | 'hasAnimations' | 'animationPingPong' | 'damage' | 'range' | 'fireRate' | 'defaultTargeting'>>;
+    | 'hasAnimations' | 'animationPingPong' | 'damage' | 'range' | 'fireRate' | 'defaultTargeting' | 'projectileType'>>;
 
 export interface TowerPath {
   readonly id: TowerPathId;
@@ -170,6 +170,8 @@ export const TOWER_PATHS: Readonly<Record<TowerPathId, TowerPath>> = {
       range: 60,
       fireRate: 0.25,
       defaultTargeting: 'highest-hp',
+      // A heavy bolt on a flat path and its own string slap instead of the archer's arrow (PROJECTILE_TYPES.bolt)
+      projectileType: 'bolt',
     },
   },
 };
