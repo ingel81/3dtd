@@ -164,6 +164,29 @@ def house(name, w, d, wall_h, roof_asset, wall_asset, storeys=1, barn=False, wal
     export(name, objects)
 
 
+def broken_shell(part, r_out, r_in, heights, z0, rings=8):
+    """Round wall between two radii, its top broken off at `heights` (one per side, the last equal to the first)"""
+    bm = part.bm
+    sides = len(heights) - 1
+    tops = {}
+    for r, flip in ((r_out, False), (r_in, True)):
+        grid = []
+        for k in range(rings + 1):
+            row = []
+            for s in range(sides + 1):
+                a = s / sides * math.tau
+                z = z0 + (heights[s] - z0) * k / rings
+                row.append(bm.verts.new((math.cos(a) * r, math.sin(a) * r, z)))
+            grid.append(row)
+        for k in range(rings):
+            for s in range(sides):
+                q = [grid[k][s], grid[k][s + 1], grid[k + 1][s + 1], grid[k + 1][s]]
+                bm.faces.new(list(reversed(q)) if flip else q)
+        tops[flip] = grid[-1]
+    for s in range(sides):
+        bm.faces.new((tops[False][s], tops[True][s], tops[True][s + 1], tops[False][s + 1]))
+
+
 def tower_ruin(name, seed):
     """Round tower broken down on one side: a mossy stone shell with a jagged crown, loose stones on its
     rim, a plinth course and a string course, slit windows, a doorway, a floor beam left inside, ivy and
@@ -174,29 +197,11 @@ def tower_ruin(name, seed):
     dark = Part(flat_material('hole', (0.03, 0.03, 0.03), 0.95))
     wood = Part(pbr_material('planks-dark', 'dark_planks'), uv_metres=1.0)
     ivy = Part(card_material('ivy-wall', 'ivy-wall.png'))
-    bm = stone.bm
     sides = 24
     r_out, r_in = 3.6, 2.7
-    rings = 8
     heights = [12.0 - (5.5 * max(0.0, math.sin(s / sides * math.tau * 1.3 + 0.8)) + rnd.uniform(0, 1.2)) for s in range(sides + 1)]
     heights[-1] = heights[0]
-    tops = {}
-    for r, flip in ((r_out, False), (r_in, True)):
-        grid = []
-        for k in range(rings + 1):
-            row = []
-            for s in range(sides + 1):
-                a = s / sides * math.tau
-                z = -FOUNDATION + (heights[s] + FOUNDATION) * k / rings
-                row.append(bm.verts.new((math.cos(a) * r, math.sin(a) * r, z)))
-            grid.append(row)
-        for k in range(rings):
-            for s in range(sides):
-                q = [grid[k][s], grid[k][s + 1], grid[k + 1][s + 1], grid[k + 1][s]]
-                bm.faces.new(list(reversed(q)) if flip else q)
-        tops[flip] = grid[-1]
-    for s in range(sides):
-        bm.faces.new((tops[False][s], tops[True][s], tops[True][s + 1], tops[False][s + 1]))
+    broken_shell(stone, r_out, r_in, heights, -FOUNDATION)
     # Plinth and string course: rings standing proud of the shell
     tube(stone, [Vector((0, 0, -0.5)), Vector((0, 0, 0.9))], [r_out + 0.25, r_out + 0.2], sides)
     for s in range(sides):
@@ -431,6 +436,132 @@ def stairs(part, x0, x1, y, depth, top, steps):
         box(part, x, y, -0.3, abs(x1 - x0) / steps + 0.02, depth, top * (k + 1) / steps + 0.3)
 
 
+# ---------------------------------------------------------------- shapes for ruins
+
+def hull(part, points):
+    """Convex solid around the points (rough stones, voussoirs)"""
+    import bmesh
+    tmp = bmesh.new()
+    verts = [tmp.verts.new(p) for p in points]
+    bmesh.ops.convex_hull(tmp, input=verts)
+    for v in [v for v in tmp.verts if not v.link_faces]:
+        tmp.verts.remove(v)
+    bmesh.ops.recalc_face_normals(tmp, faces=tmp.faces)
+    part.add_bmesh(tmp)
+    tmp.free()
+
+
+def chunk(part, centre, size, rnd, tilt=35):
+    """A broken block: a box with jittered corners, turned at random up to `tilt` degrees off level"""
+    rot = (Matrix.Rotation(math.radians(rnd.uniform(0, 360)), 4, 'Z') @ Matrix.Rotation(math.radians(rnd.uniform(-tilt, tilt)), 4, 'X')
+           @ Matrix.Rotation(math.radians(rnd.uniform(-tilt, tilt)), 4, 'Y'))
+    pts = []
+    for x in (-0.5, 0.5):
+        for y in (-0.5, 0.5):
+            for z in (-0.5, 0.5):
+                p = Vector((x * size.x, y * size.y, z * size.z)) + Vector([rnd.uniform(-0.12, 0.12) * c for c in size])
+                pts.append(Vector(centre) + (rot @ p.to_4d()).to_3d())
+    hull(part, pts)
+
+
+def break_line(x0, x1, centres, heights, rnd, notch=0.7):
+    """The top of a broken wall from x0 to x1: through the old column tops (`heights` at `centres`; the highest
+    a short level stretch, so the chamfer keeps the height) with two uneven notches between each two, never
+    above the line between them; returns the x positions and heights"""
+    xs, tops = [x0], [heights[0]]
+    for k, (c, h) in enumerate(zip(centres, heights)):
+        if k:
+            a, ha = centres[k - 1], heights[k - 1]
+            for f in (0.33, 0.67):
+                f += rnd.uniform(-0.08, 0.08)
+                xs.append(a + (c - a) * f)
+                tops.append(ha + (h - ha) * f - rnd.uniform(0.05, notch))
+        if h == max(heights):
+            xs += [c - 0.12, c + 0.12]
+            tops += [h, h]
+        else:
+            xs.append(c)
+            tops.append(h)
+    xs.append(x1)
+    tops.append(heights[-1])
+    return xs, tops
+
+
+def ragged_wall(part, xs, tops, thick, z0=-0.5, matrix=None):
+    """Wall along local X (thickness across Y, centred) whose top runs through `tops` at `xs`, one closed
+    solid (no seams between the pieces); `matrix` places it"""
+    m = matrix or Matrix()
+    keep = [0] + [i for i in range(1, len(xs)) if xs[i] - xs[i - 1] > 1e-3]
+    xs = [xs[i] for i in keep]
+    tops = [tops[i] for i in keep]
+    bm = part.bm
+
+    def v(x, y, z):
+        return bm.verts.new(m @ Vector((x, y, z)))
+
+    fb = [v(x, -thick / 2, z0) for x in xs]
+    ft = [v(x, -thick / 2, t) for x, t in zip(xs, tops)]
+    bb = [v(x, thick / 2, z0) for x in xs]
+    bt = [v(x, thick / 2, t) for x, t in zip(xs, tops)]
+    for i in range(len(xs) - 1):
+        bm.faces.new((fb[i], fb[i + 1], ft[i + 1], ft[i]))
+        bm.faces.new((bb[i + 1], bb[i], bt[i], bt[i + 1]))
+        bm.faces.new((ft[i], ft[i + 1], bt[i + 1], bt[i]))
+        bm.faces.new((fb[i + 1], fb[i], bb[i], bb[i + 1]))
+    bm.faces.new((fb[0], ft[0], bt[0], bb[0]))
+    bm.faces.new((bb[-1], bt[-1], ft[-1], fb[-1]))
+
+
+def rim_stones(part, xs, tops, thick, rnd, below, matrix=None, chance=0.6):
+    """Loose stones lying along a broken top, only where it stays `below` the model's highest point and
+    away from the wall's ends (the catalogue footprint)"""
+    m = matrix or Matrix()
+    for x0, x1, t0, t1 in zip(xs, xs[1:], tops, tops[1:]):
+        t = min(t0, t1)
+        if t > below - 0.5 or rnd.random() > chance or min((x0 + x1) / 2 - xs[0], xs[-1] - (x0 + x1) / 2) < 0.5:
+            continue
+        c = m @ Vector(((x0 + x1) / 2, rnd.uniform(-thick / 4, thick / 4), t + 0.05))
+        chunk(part, c, Vector((rnd.uniform(0.35, 0.6), rnd.uniform(0.3, 0.5), rnd.uniform(0.2, 0.35))), rnd, 25)
+
+
+def voussoirs(part, cx, y, thick, spring, width, count=9, depth=0.45, proud=0.06):
+    """Ring of wedge stones round a round arch (along X at depth y), standing a little proud of both faces"""
+    r = width / 2
+    for k in range(count):
+        a0 = math.pi * k / count + 0.01
+        a1 = math.pi * (k + 1) / count - 0.01
+        pts = []
+        for a in (a0, a1):
+            for rr in (r - 0.02, r + depth):
+                for s in (-1, 1):
+                    pts.append(Vector((cx + math.cos(a) * rr, y + s * (thick / 2 + proud), spring + math.sin(a) * rr)))
+        hull(part, pts)
+
+
+def ragged_arch(part, x0, x1, thick, z0, cx, width, spring, xs, tops, steps=12):
+    """`arch_wall` with a broken top: piers left and right of the opening through the break line (xs, tops),
+    strips over the arch up to the line where it still stands"""
+    r = width / 2
+
+    def line(x):
+        for a, b, ta, tb in zip(xs, xs[1:], tops, tops[1:]):
+            if a <= x <= b:
+                return ta + (tb - ta) * (x - a) / max(1e-6, b - a)
+        return tops[0] if x < xs[0] else tops[-1]
+
+    for lo, hi in ((x0, cx - r), (cx + r, x1)):
+        cut = [lo] + [x for x in xs if lo < x < hi] + [hi]
+        ragged_wall(part, cut, [line(x) for x in cut], thick, z0)
+    for k in range(steps):
+        a = cx - r + k * width / steps
+        b = a + width / steps
+        m = (a + b) / 2 - cx
+        bottom = spring + math.sqrt(max(0.0, r * r - m * m))
+        ta, tb = line(a), line(b)
+        if min(ta, tb) > bottom + 0.2:
+            ragged_wall(part, [a, b], [ta, tb], thick, bottom)
+
+
 # ---------------------------------------------------------------- castle kit (8 m grid, walls 7 m high)
 
 def castle_wall(name, stone_asset=CASTLE, ruined=False, seed=0, length=8.0, height=7.0, thick=2.4):
@@ -455,17 +586,29 @@ def castle_wall(name, stone_asset=CASTLE, ruined=False, seed=0, length=8.0, heig
             box(dark, x, -thick / 2 - 0.02, 3.2, 0.18, 0.1, 1.3)
         export(name, [stone.to_object(name), dark.to_object(name + '-slits')])
         return
-    # Ruined: columns of masonry broken off at different heights, rubble in front
+    # Ruined: the masonry broken off along a jagged line through eight column tops, loose stones on the break,
+    # a battered foot, rubble in front
     cols = 8
+    centres, heights = [], []
     for k in range(cols):
         x = -length / 2 + (k + 0.5) * length / cols
         t = k / (cols - 1)
         h = height * (0.35 + 0.65 * abs(math.sin(t * 2.4 + seed))) * rnd.uniform(0.85, 1.05)
-        box(stone, x, 0, -0.5, length / cols + 0.01, thick, h + 0.5)
+        centres.append(x)
+        heights.append(h)
     rubble = Part(pbr_material('castle-' + stone_asset, stone_asset), uv_metres=2.0)
     for k in range(10):
         box(rubble, rnd.uniform(-length / 2, length / 2), -thick / 2 - rnd.uniform(0.4, 2.2), -0.15,
             rnd.uniform(0.4, 0.9), rnd.uniform(0.3, 0.6), rnd.uniform(0.25, 0.5), rnd.uniform(0, 3))
+    rnd = random.Random(seed + 50)
+    xs, tops = break_line(-length / 2, length / 2, centres, heights, rnd)
+    ragged_wall(stone, xs, tops, thick)
+    rim_stones(rubble, xs, tops, thick, rnd, max(heights))
+    hexa(stone, [(-length / 2, -thick / 2 - 0.5, -0.5), (length / 2, -thick / 2 - 0.5, -0.5), (length / 2, thick / 2, -0.5), (-length / 2, thick / 2, -0.5)],
+         [(-length / 2, -thick / 2, 1.2), (length / 2, -thick / 2, 1.2), (length / 2, thick / 2, 1.2), (-length / 2, thick / 2, 1.2)])
+    for k in range(6):
+        chunk(rubble, Vector((rnd.uniform(-length / 2 + 0.5, length / 2 - 0.5), -thick / 2 - rnd.uniform(0.6, 1.8), 0.05)),
+              Vector((rnd.uniform(0.4, 0.8), rnd.uniform(0.3, 0.6), rnd.uniform(0.25, 0.45))), rnd)
     export(name, [stone.to_object(name), rubble.to_object(name + '-rubble')])
 
 
@@ -504,11 +647,46 @@ def castle_wall_block(name, along=4.4, depth=4.4, height=8.6, stone_asset=CASTLE
     export(name, [stone.to_object(name), dark.to_object(name + '-slits')])
 
 
-def castle_tower(name, roof=False, stone_asset=CASTLE, radius=3.6, height=12.0):
-    """Round tower: wider top ring with battlements, arrow slits; optional slate cone roof"""
+def castle_tower(name, roof=False, stone_asset=CASTLE, radius=3.6, height=12.0, ruined=False):
+    """Round tower: wider top ring with battlements, arrow slits; optional slate cone roof. `ruined`: the shell
+    broken down on one side to a jagged crown (as high as the whole tower's battlements), loose stones on the
+    rim, slits and a doorway where it still stands, fallen blocks inside and at its foot"""
     clear_scene()
     stone = Part(pbr_material('castle-' + stone_asset, stone_asset), uv_metres=3.0)
     dark = Part(flat_material('slit', (0.03, 0.03, 0.035), 0.9))
+    if ruined:
+        rnd = random.Random(len(name))
+        sides = 24
+        crown = height + 2.1
+        raw = [5.2 * max(0.0, math.sin(s / sides * math.tau * 1.1 + 1.3)) + rnd.uniform(0, 0.9) for s in range(sides + 1)]
+        heights = [crown - h + min(raw) for h in raw]
+        heights[-1] = heights[0]
+        tube(stone, [Vector((0, 0, -1.0)), Vector((0, 0, 2.0))], [radius * 1.22, radius * 1.02], 24, smooth=True)
+        broken_shell(stone, radius, radius - 0.9, heights, 1.9)
+        rubble = Part(pbr_material('castle-' + stone_asset, stone_asset), uv_metres=1.5, bevel=0.0)
+        for s in range(sides):
+            a = (s + 0.5) / sides * math.tau
+            lo = min(heights[s], heights[s + 1])
+            if lo > height * 0.55 + 0.6:
+                box(stone, math.cos(a) * (radius + 0.06), math.sin(a) * (radius + 0.06), height * 0.55, 0.3,
+                    math.tau * radius / sides + 0.05, 0.25, a)
+            if lo < crown - 1.0 and rnd.random() < 0.5:
+                rr = radius - 0.45
+                chunk(rubble, Vector((math.cos(a) * rr, math.sin(a) * rr, lo + 0.08)),
+                      Vector((rnd.uniform(0.4, 0.7), rnd.uniform(0.35, 0.6), rnd.uniform(0.25, 0.4))), rnd, 20)
+            if s % 4 == 0:
+                for z in (3.0, 6.0):
+                    if lo > z + 1.8:
+                        box(dark, math.cos(a) * (radius + 0.01), math.sin(a) * (radius + 0.01), z, 0.25, 0.25, 1.1, a)
+        box(dark, 0, -radius - 0.05, 0.2, 1.3, 0.12, 2.3)
+        # Fallen blocks on the floor inside (outside the plinth they would widen the catalogue footprint)
+        for k in range(7):
+            a = rnd.uniform(0, math.tau)
+            rr = rnd.uniform(0.0, radius - 1.4)
+            chunk(rubble, Vector((math.cos(a) * rr, math.sin(a) * rr, 2.0)),
+                  Vector((rnd.uniform(0.5, 1.0), rnd.uniform(0.4, 0.7), rnd.uniform(0.3, 0.5))), rnd)
+        export(name, [stone.to_object(name), rubble.to_object(name + '-rubble'), dark.to_object(name + '-slits')])
+        return
     tube(stone, [Vector((0, 0, -1.0)), Vector((0, 0, 2.0)), Vector((0, 0, height))], [radius * 1.22, radius * 1.02, radius], 24, smooth=True, cap=True)
     tube(stone, [Vector((0, 0, height * 0.55)), Vector((0, 0, height * 0.55 + 0.25))], [radius * 1.04 + 0.1, radius * 1.04 + 0.1], 24, smooth=True)
     tube(stone, [Vector((0, 0, height - 0.4)), Vector((0, 0, height + 1.0))], [radius + 0.45, radius + 0.45], 24, smooth=True, cap=True)
@@ -1014,6 +1192,33 @@ def farm_gate(name):
     export(name, [wood.to_object(name)])
 
 
+def ruin_wall(name, seed=0):
+    """Broken church wall 10 m long: a round-arched window with a sill and wedge stones, the top broken off
+    along a jagged line highest near the middle, two stepped buttresses, a plinth course, fallen stones"""
+    clear_scene()
+    rnd = random.Random(seed)
+    stone = Part(pbr_material('castle-' + RUIN, RUIN), uv_metres=3.0)
+    rubble = Part(pbr_material('castle-' + RUIN, RUIN), uv_metres=1.5, bevel=0.0)
+    length, thick = 10.02, 1.0
+    centres = [-4.5 + k for k in range(10)]
+    heights = [3.6, 5.2, 6.6, 7.4, 7.2, 6.9, 6.3, 5.0, 3.8, 3.1]
+    xs, tops = break_line(-length / 2, length / 2, centres, heights, rnd, 0.6)
+    ragged_arch(stone, -length / 2, length / 2, thick, -0.5, 0.0, 1.6, 4.2, xs, tops, steps=8)
+    box(stone, 0, 0, -0.5, 1.62, thick, 2.6)
+    box(stone, 0, -0.08, 2.0, 1.9, thick + 0.16, 0.14)
+    voussoirs(stone, 0.0, 0, thick, 4.2, 1.6, count=7, depth=0.35)
+    box(stone, 0, 0, -0.5, length, thick + 0.3, 0.8)
+    for x in (-3.3, 3.3):
+        box(stone, x, -thick / 2 - 0.45, -0.5, 0.8, 0.9, 2.6)
+        hexa(stone, [(x - 0.4, -thick / 2 - 0.9, 2.1), (x + 0.4, -thick / 2 - 0.9, 2.1), (x + 0.4, -thick / 2, 2.1), (x - 0.4, -thick / 2, 2.1)],
+             [(x - 0.4, -thick / 2 - 0.1, 3.4), (x + 0.4, -thick / 2 - 0.1, 3.4), (x + 0.4, -thick / 2, 3.4), (x - 0.4, -thick / 2, 3.4)])
+    rim_stones(rubble, xs, tops, thick, rnd, max(heights))
+    for k in range(10):
+        chunk(rubble, Vector((rnd.uniform(-4.6, 4.6), -rnd.uniform(1.0, 2.5), 0.05)),
+              Vector((rnd.uniform(0.35, 0.8), rnd.uniform(0.3, 0.6), rnd.uniform(0.2, 0.45))), rnd)
+    export(name, [stone.to_object(name), rubble.to_object(name + '-rubble')])
+
+
 def ruin_columns(name, seed=0):
     """Temple remains: a stepped platform, standing and broken columns, one fallen"""
     clear_scene()
@@ -1036,11 +1241,25 @@ def ruin_columns(name, seed=0):
 
 
 def ruin_arch(name):
-    """A freestanding broken arch 6 m wide"""
+    """A freestanding broken arch 5 m wide in a wall 9 m long: the wall broken off along a jagged line that
+    falls from the left pier to the right, the arch ring of wedge stones, imposts, a plinth course, fallen
+    stones at its foot"""
     clear_scene()
+    rnd = random.Random(6)
     stone = Part(pbr_material('castle-' + RUIN, RUIN), uv_metres=3.0)
-    arch_wall(stone, -4.5, 4.5, 0, 1.4, -0.5, 7.5, 0, 5.0, 3.5, steps=14)
-    export(name, [stone.to_object(name)])
+    rubble = Part(pbr_material('castle-' + RUIN, RUIN), uv_metres=1.5, bevel=0.0)
+    thick = 1.4
+    xs, tops = break_line(-4.5, 4.5, [-4.0, -3.0, -1.6, 0.0, 1.6, 3.0, 4.0], [7.1, 7.5, 6.95, 6.6, 6.2, 5.3, 4.5], rnd, 0.5)
+    ragged_arch(stone, -4.5, 4.5, thick, -0.5, 0, 5.0, 3.5, xs, tops, steps=14)
+    voussoirs(stone, 0, 0, thick, 3.5, 5.0, count=11, depth=0.5)
+    for sx in (-1, 1):
+        box(stone, sx * 3.0, 0, 3.3, 1.2, thick + 0.16, 0.22)
+        box(stone, sx * 3.5, 0, -0.5, 2.0, thick + 0.3, 0.9)
+    rim_stones(rubble, xs, tops, thick, rnd, 7.5)
+    for k in range(9):
+        chunk(rubble, Vector((rnd.uniform(-4.0, 4.0), rnd.choice((-1, 1)) * rnd.uniform(1.2, 2.4), 0.1)),
+              Vector((rnd.uniform(0.4, 0.8), rnd.uniform(0.3, 0.6), rnd.uniform(0.25, 0.45))), rnd)
+    export(name, [stone.to_object(name), rubble.to_object(name + '-rubble')])
 
 
 def obelisk(name, height=9.0):
@@ -1236,7 +1455,7 @@ def models():
         'castle-wall-ruined-b': lambda: castle_wall('castle-wall-ruined-b', RUIN, ruined=True, seed=4),
         'castle-tower': lambda: castle_tower('castle-tower'),
         'castle-tower-roof': lambda: castle_tower('castle-tower-roof', roof=True),
-        'castle-tower-ruined': lambda: castle_tower('castle-tower-ruined', stone_asset=RUIN, height=7.0),
+        'castle-tower-ruined': lambda: castle_tower('castle-tower-ruined', stone_asset=RUIN, height=7.0, ruined=True),
         'castle-gate': lambda: castle_gate('castle-gate'),
         'castle-keep': lambda: castle_keep('castle-keep'),
         'castle-stairs': lambda: castle_stairs('castle-stairs'),

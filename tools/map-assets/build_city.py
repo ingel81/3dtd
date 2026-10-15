@@ -10,7 +10,6 @@ drawn cards (chain-link, hazard stripes); some Poly Haven street props.
 import math
 import random
 
-import bmesh
 from mathutils import Matrix, Vector
 
 import bpy
@@ -20,7 +19,7 @@ from blender_kit import (
     oriented_box, pbr_material, rust_material, tilt, tube,
 )
 import blender_kit
-from build_structures import cone_roof, gable_roof
+from build_structures import chunk, cone_roof, gable_roof
 
 FOUNDATION = 1.0
 
@@ -618,19 +617,6 @@ def concrete_bridge(name, length=30.0, width=9.0, height=6.0):
 
 
 # ---------------------------------------------------------------- wasteland
-
-def chunk(part, centre, size, rnd, tilt=35):
-    """A broken block: a box with jittered corners, turned at random up to `tilt` degrees off level"""
-    tmp = bmesh.new()
-    bmesh.ops.create_cube(tmp, size=1.0)
-    for v in tmp.verts:
-        v.co = Vector((v.co.x * size.x, v.co.y * size.y, v.co.z * size.z)) + Vector([rnd.uniform(-0.12, 0.12) * c for c in size])
-    rot = (Matrix.Rotation(math.radians(rnd.uniform(0, 360)), 4, 'Z') @ Matrix.Rotation(math.radians(rnd.uniform(-tilt, tilt)), 4, 'X')
-           @ Matrix.Rotation(math.radians(rnd.uniform(-tilt, tilt)), 4, 'Y'))
-    bmesh.ops.transform(tmp, matrix=Matrix.Translation(centre) @ rot, verts=tmp.verts)
-    part.add_bmesh(tmp)
-    tmp.free()
-
 
 def fit_box(objects, extent, z0, z1):
     """Scales finished parts so the model spans `extent` along its longer side and z0..z1 in height: the

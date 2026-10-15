@@ -12,7 +12,7 @@ corner, keep ruin, gate ruin, leaf pile). Every piece gets baked AO.
 import math
 import random
 
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 from blender_kit import (
     Part, box, card, card_material, clear_scene, flat_material, image_material, oriented_box, pbr_material, tilt, tube,
@@ -21,7 +21,9 @@ from blender_kit import (
 from blender_kit import finish as export  # noqa: F401  (baked AO)
 import blender_kit
 from build_nature import lump
-from build_structures import RUIN, arch_wall, gable_roof, house, merlons, pyramid_roof
+from build_structures import (
+    RUIN, arch_wall, break_line, chunk, gable_roof, house, merlons, pyramid_roof, ragged_arch, ragged_wall, rim_stones, voussoirs,
+)
 
 WOOD = 'weathered_planks'
 
@@ -698,15 +700,13 @@ def ruin_corner(name, seed=0, height=6.5, thick=2.0):
     stone = Part(pbr_material('castle-' + RUIN, RUIN), uv_metres=3.0)
     ivy = Part(card_material('ivy-wall', 'ivy-wall.png'))
     cols = 7
+    arms = []
     for arm in range(2):
+        heights = []
         for k in range(cols):
             t = k / (cols - 1)
-            h = height * (1 - 0.75 * t) * rnd.uniform(0.75, 1.05)
-            u = thick / 2 + k * 1.0 + 0.5
-            if arm == 0:
-                box(stone, u, 0, -0.5, 1.01, thick, h + 0.5)
-            else:
-                box(stone, 0, u, -0.5, thick, 1.01, h + 0.5)
+            heights.append(height * (1 - 0.75 * t) * rnd.uniform(0.75, 1.05))
+        arms.append(heights)
     box(stone, 0, 0, -0.5, thick, thick, height + 0.8)
     for k in range(5):
         a = rnd.uniform(0, 2.0)
@@ -716,6 +716,13 @@ def ruin_corner(name, seed=0, height=6.5, thick=2.0):
         card(ivy, p, Vector((0, 0, -1)), Vector((0, -1, 0)), 1.4, top - 0.1, p + Vector((0, 8, 0)))
     for k in range(8):
         box(stone, rnd.uniform(-1, 6), rnd.uniform(-3, -1.2), -0.2, rnd.uniform(0.4, 0.9), rnd.uniform(0.3, 0.6), rnd.uniform(0.3, 0.5), rnd.uniform(0, 3))
+    # Both arms broken along a jagged line through the old column tops (arm 1 turned onto Y)
+    rnd = random.Random(seed + 50)
+    for arm, heights in enumerate(arms):
+        m = Matrix.Rotation(math.pi / 2, 4, 'Z') if arm else Matrix()
+        centres = [thick / 2 + k + 0.5 for k in range(cols)]
+        xs, tops = break_line(thick / 2 - 0.01, thick / 2 + cols + 0.01, centres, heights, rnd, 0.5)
+        ragged_wall(stone, xs, tops, thick, matrix=m)
     export(name, [stone.to_object(name), ivy.to_object(name + '-ivy')])
 
 
@@ -729,42 +736,81 @@ def keep_ruin(name, seed=1):
     ivy = Part(card_material('ivy-wall', 'ivy-wall.png'))
     s, t, h = 11.0, 1.4, 15.0
     cols = 8
+    sides = []
     for side in range(4):
-        for k in range(cols):
-            u = -s / 2 + (k + 0.5) * s / cols
-            top = h * (1.0 - 0.6 * max(0.0, math.sin((k / cols + side * 0.25) * math.pi * 1.3))) * rnd.uniform(0.85, 1.0)
-            if side == 0:
-                box(stone, u, -s / 2 + t / 2, -0.5, s / cols + 0.01, t, top + 0.5)
-            elif side == 1:
-                box(stone, s / 2 - t / 2, u, -0.5, t, s / cols + 0.01, top + 0.5)
-            elif side == 2:
-                box(stone, u, s / 2 - t / 2, -0.5, s / cols + 0.01, t, top + 0.5)
-            else:
-                box(stone, -s / 2 + t / 2, u, -0.5, t, s / cols + 0.01, top + 0.5)
-    for z in (4.5, 9.0):
-        for k in (-1, 1):
-            box(dark, k * 2.5, -s / 2 - 0.02, z, 0.8, 0.1, 1.6)
-    box(dark, 0, -s / 2 - 0.02, 0, 2.0, 0.1, 3.0)
+        sides.append([h * (1.0 - 0.6 * max(0.0, math.sin((k / cols + side * 0.25) * math.pi * 1.3))) * rnd.uniform(0.85, 1.0)
+                      for k in range(cols)])
+    # Each wall broken along a jagged line through its old column tops; walls 1 and 3 turned onto Y
+    rnd2 = random.Random(seed + 50)
+    rubble = Part(pbr_material('castle-' + RUIN, RUIN), uv_metres=1.5, bevel=0.0)
+    centres = [-s / 2 + (k + 0.5) * s / cols for k in range(cols)]
+    offsets = [(0, -s / 2 + t / 2, 0), (s / 2 - t / 2, 0, 0), (0, s / 2 - t / 2, 0), (-s / 2 + t / 2, 0, 0)]
+    for side, heights in enumerate(sides):
+        m = Matrix.Translation(offsets[side]) @ (Matrix.Rotation(math.pi / 2, 4, 'Z') if side % 2 else Matrix())
+        xs, tops = break_line(-s / 2, s / 2, centres, heights, rnd2, 0.8)
+        if side % 2:
+            # Walls 1 and 3 run between the ends of 0 and 2 (no faces on top of each other at the corners)
+            lo, hi = -s / 2 + t, s / 2 - t
+            inner = [(x, z) for x, z in zip(xs, tops) if lo < x < hi]
+            xs = [lo] + [x for x, _ in inner] + [hi]
+            tops = [inner[0][1]] + [z for _, z in inner] + [inner[-1][1]]
+        ragged_wall(stone, xs, tops, t, matrix=m)
+        rim_stones(rubble, xs, tops, t, rnd2, max(max(v) for v in sides), matrix=m)
+    # Windows and the door: dark openings in a stone surround (jambs, lintel, sill) standing proud of the wall
+    for z, w, hh in ((4.5, 0.8, 1.6), (9.0, 0.8, 1.6), (0.0, 2.0, 3.0)):
+        for k in ((-1, 1) if z else (0,)):
+            x = k * 2.5
+            box(dark, x, -s / 2 - 0.02, z, w, 0.1, hh)
+            for sx in (-1, 1):
+                box(stone, x + sx * (w / 2 + 0.12), -s / 2 - 0.04, z - (0.1 if z else 0.0), 0.24, 0.12, hh + 0.2)
+            box(stone, x, -s / 2 - 0.05, z + hh, w + 0.5, 0.14, 0.3)
+            if z:
+                box(stone, x, -s / 2 - 0.05, z - 0.18, w + 0.4, 0.14, 0.14)
+    # Joist holes of the fallen floors on the inside, rubble on the floor
+    for z in (4.0, 8.5):
+        for k in range(5):
+            box(dark, -s / 2 + 2.0 + k * 1.75, s / 2 - t - 0.02, z, 0.3, 0.1, 0.3)
+    for k in range(8):
+        chunk(rubble, Vector((rnd2.uniform(-s / 2 + t + 0.6, s / 2 - t - 0.6), rnd2.uniform(-s / 2 + t + 0.6, s / 2 - t - 0.6), 0.1)),
+              Vector((rnd2.uniform(0.5, 1.1), rnd2.uniform(0.4, 0.8), rnd2.uniform(0.3, 0.5))), rnd2)
     oriented_box(wood, Vector((-3, -3, 0.3)), Vector((3.5, 2.5, 4.5)), 0.35)
     for k in range(7):
         top = rnd.uniform(4.0, 9.0)
         p = Vector((rnd.uniform(-s / 2 + 1, s / 2 - 1), -s / 2 - 0.04, top))
         card(ivy, p, Vector((0, 0, -1)), Vector((0, -1, 0)), 1.8, top - 0.2, p + Vector((0, 8, 0)))
-    export(name, [stone.to_object(name), dark.to_object(name + '-holes'), wood.to_object(name + '-beam'), ivy.to_object(name + '-ivy')])
+    export(name, [stone.to_object(name), rubble.to_object(name + '-rubble'), dark.to_object(name + '-holes'), wood.to_object(name + '-beam'),
+                  ivy.to_object(name + '-ivy')])
 
 
 def gate_ruin(name):
-    """Broken gatehouse: one tower stump, the arch standing on the other side with its top fallen"""
+    """Broken gatehouse: one tower stump broken down to a jagged top, the other tower standing with its
+    battlements, a string course and slits; the arch between them with its wedge stones, its top fallen"""
     clear_scene()
     rnd = random.Random(3)
     stone = Part(pbr_material('castle-' + RUIN, RUIN), uv_metres=3.0)
-    box(stone, -5.5, 0, -0.5, 5.0, 5.5, 5.2)
+    dark = Part(flat_material('slit', (0.03, 0.03, 0.035), 0.9))
+    rubble = Part(pbr_material('castle-' + RUIN, RUIN), uv_metres=1.5, bevel=0.0)
     box(stone, 5.5, 0, -0.5, 5.0, 5.5, 9.5)
     merlons(stone, 3.0, 8.0, -2.45, 9.0, 0.6)
-    arch_wall(stone, -3, 3, 0, 4.4, -0.5, 7.0, 0, 4.0, 3.5)
     for k in range(14):
         box(stone, rnd.uniform(-6, 2), rnd.uniform(-5, -2.8), -0.2, rnd.uniform(0.5, 1.4), rnd.uniform(0.4, 1.0), rnd.uniform(0.3, 0.8), rnd.uniform(0, 3))
-    export(name, [stone.to_object(name)])
+    rnd = random.Random(53)
+    xs, tops = break_line(-8.0, -3.0, [-7.5, -6.5, -5.5, -4.5, -3.5], [4.7, 3.8, 4.4, 3.3, 3.9], rnd, 0.6)
+    ragged_wall(stone, xs, tops, 5.5)
+    rim_stones(rubble, xs[2:], tops[2:], 5.5, rnd, 10.1)
+    xs, tops = break_line(-3.0, 3.0, [-2.6, -1.2, 0.0, 1.2, 2.6], [5.6, 4.6, 5.9, 6.4, 7.0], rnd, 0.5)
+    ragged_arch(stone, -3, 3, 4.4, -0.5, 0, 4.0, 3.5, xs, tops)
+    voussoirs(stone, 0, 0, 4.4, 3.5, 4.0, count=9, depth=0.45)
+    rim_stones(rubble, xs, tops, 4.4, rnd, 10.1)
+    # Standing tower: string course, slits on its faces
+    box(stone, 5.5, 0, 6.2, 5.0, 5.75, 0.25)
+    for z in (2.5, 7.0):
+        box(dark, 5.5, -2.78, z, 0.3, 0.1, 1.2)
+        box(dark, 8.03, 0, z, 0.1, 0.3, 1.2)
+    for k in range(6):
+        chunk(rubble, Vector((rnd.uniform(-2.0, 2.0), rnd.uniform(-1.5, 1.5), 0.1)),
+              Vector((rnd.uniform(0.5, 1.0), rnd.uniform(0.4, 0.8), rnd.uniform(0.3, 0.5))), rnd)
+    export(name, [stone.to_object(name), rubble.to_object(name + '-rubble'), dark.to_object(name + '-slits')])
 
 
 def leaf_pile(name, seed):
