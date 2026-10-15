@@ -472,8 +472,10 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   blockieren weder Sicht noch Bauen und werfen keinen Schatten (die Schattenkarte der Sonne ist gecacht).
   Bewegte Dinge (`movers`, dieselbe Klasse): ein beliebiges Asset (`asset`, Pflicht; ein Rover, ein Karren, Tiere) auf
   dem Boden, mit ihm geneigt, im Umriss je eines auf eigener Schleife (3 je Dichte 1, höchstens 16) oder auf der Linie
-  in zwei Spuren 2,5 m neben ihr (2), mit `speed` m/s (Standard 1,5, je eines bis 20 % anders). Die Gegner und Tower
-  sehen sie nicht
+  in zwei Spuren 2,5 m neben ihr (2), mit `speed` m/s (Standard 1,5, je eines bis 20 % anders). Mit `height` hängen
+  sie an einer Geraden statt am Boden: auf einer Linie von `height` über dem Boden am Anfang zu `height` über dem Boden
+  am Ende (eine Gondel am Seil), im Umriss `height` über seiner Mitte; dann ungeneigt. Die Gegner und Tower sehen sie
+  nicht
   Schalter der Karte (`life.auto`): Schornsteinrauch, automatische Glühwürmchen und Vögel (an, wenn nichts gesetzt),
   Funken über Lava (aus, wenn nichts gesetzt); `life.density` 0 bis 2 als Faktor auf das alles. `life.flags`: das Tuch
   der Banner weht im Wind (`objects/cloth.ts`: die Karten `foliage-banner*` werden beim Laden zu einem Raster aus 6 x 14
