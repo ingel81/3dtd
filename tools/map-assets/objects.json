@@ -283,7 +283,7 @@
   {"id": "supply-crates", "name": "Supply crates", "category": "prop", "drawDistance": 400, "tags": ["wasteland", "arctic"], "source": "https://polyhaven.com/a/old_military_crate"},
   {"id": "base-module", "name": "Station module", "category": "building", "tags": ["moon", "mars", "arctic"], "light": {"color": "#a8c8ff", "intensity": 0.5, "distance": 8, "height": 2.5}, "source": "procedural (tools/map-assets/build_space.py)"},
   {"id": "base-hub", "name": "Station hub", "category": "building", "randomRotation": true, "tags": ["moon", "mars"], "light": {"color": "#a8c8ff", "intensity": 0.5, "distance": 8, "height": 2.5}, "source": "procedural (tools/map-assets/build_space.py)"},
-  {"id": "base-tunnel", "name": "Station tunnel", "category": "structure", "tags": ["moon", "mars"], "source": "procedural (tools/map-assets/build_space.py)"},
+  {"id": "base-tunnel", "footprint": 2.8, "name": "Station tunnel", "category": "structure", "tags": ["moon", "mars"], "source": "procedural (tools/map-assets/build_space.py)"},
   {"id": "dome-white", "footprint": 6.2, "name": "Habitat dome", "category": "building", "randomRotation": true, "tags": ["moon", "mars"], "source": "procedural (tools/map-assets/build_space.py)"},
   {"id": "dome-glass", "footprint": 6.2, "name": "Glass dome", "category": "building", "randomRotation": true, "tags": ["moon", "mars"], "source": "procedural (tools/map-assets/build_space.py)"},
   {"id": "greenhouse-dome", "footprint": 7.1, "name": "Greenhouse dome", "category": "building", "randomRotation": true, "tags": ["mars"], "source": "procedural (tools/map-assets/build_space.py)"},

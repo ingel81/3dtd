@@ -16,6 +16,8 @@ export interface ObjectFooting {
   aloft?: boolean;
   /** Stands on legs over uneven or wet ground: placing it levels nothing */
   stilts?: boolean;
+  /** Has a part that turns (catalogue `spin`, a radar dish's head): placing it levels the ground its sweep passes over */
+  turns?: boolean;
 }
 
 /**
