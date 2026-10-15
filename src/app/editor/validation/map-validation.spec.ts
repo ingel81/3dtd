@@ -3,7 +3,7 @@ import { emptyWater } from '../ops/water-ops';
 import type { ObjectFooting } from '../../world/custom-map/render/objects/object-seat';
 import { bridgeDecks, deckHeightAt } from '../../world/custom-map/bridge-decks';
 import { HeightField } from '../../world/custom-map/render/height-field';
-import { objectsInAir, validateMap } from './map-validation';
+import { objectsInAir, validateMap, waterInAir } from './map-validation';
 
 const codes = (doc: ReturnType<typeof createMapDocument>) => validateMap(doc).map((i) => i.code);
 
@@ -50,6 +50,8 @@ describe('validateMap', () => {
 describe('validateMap, objects in the air', () => {
   const footings: Record<string, ObjectFooting> = {
     heap: { category: 'rock', footprint: 3, height: 2.6, base: [3, 2, 0] },
+    slab: { category: 'rock', footprint: 10, height: 2 },
+    'crater-rim': { category: 'rock', footprint: 10, height: 1 },
     bush: { category: 'plant', footprint: 1, height: 1 },
     house: { category: 'building', footprint: 4, height: 6 },
     quay: { category: 'structure', footprint: 4, height: 2 },
@@ -102,6 +104,18 @@ describe('validateMap, objects in the air', () => {
     const issue = validateMap(doc, { footingOf }).find((i) => i.code === 'object-floating');
     expect(issue?.target).toEqual({ kind: 'object', id: 'deep' });
     expect(issue?.message).toMatch(/^3 objects hang in the air, a boat or buoy sinks under the water \(worst: buoy, 5\.0 m up\)/);
+  });
+
+  it('measures a flat set piece without a plate on its footprint, crater rims left out', () => {
+    const doc = createMapDocument({ id: 'm', name: 'M', width: 400, depth: 400 });
+    const g = doc.terrain.grid;
+    // A 20 degree slope: a 10 m slab level on it hangs some 3.6 m over the ground on its low side
+    for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) g.heights[j * g.columns + i] = 0.36 * i * g.cellSize;
+    doc.objects.push(place('slab', 'slab', 50), place('rim', 'crater-rim', 80));
+    expect(inAir(doc)).toEqual(['slab']);
+    // On level ground it lies flat
+    g.heights.fill(0);
+    expect(inAir(doc)).toEqual([]);
   });
 
   it('holds what stands on ice', () => {
@@ -207,5 +221,58 @@ describe('validateMap, room for towers', () => {
     expect(validateMap(doc, { buildAreas: areas([{ spawnId: 's1', area: 20 * 64, routed: true }]) }).map((i) => i.code)).not.toContain('lane-little-room');
     // A lane without a route has its own error
     expect(validateMap(doc, { buildAreas: areas([{ spawnId: 's1', area: 0, routed: false }]) }).map((i) => i.code)).not.toContain('lane-little-room');
+  });
+});
+
+describe('validateMap, water in the air', () => {
+  const lake = () => {
+    const doc = createMapDocument({ id: 'm', name: 'M', width: 200, depth: 200, starter: false });
+    const t = doc.terrain;
+    const g = t.grid;
+    t.waterBodies = [{ ...emptyWater(t, 2), kind: 'water' }];
+    // A hollow 1 m deep round the middle (radius 20 m), its mask the hollow
+    for (let j = 0; j < g.rows; j++) {
+      for (let i = 0; i < g.columns; i++) {
+        const x = i * g.cellSize - 100;
+        const y = j * g.cellSize - 100;
+        const k = j * g.columns + i;
+        const inside = Math.hypot(x, y) < 20;
+        g.heights[k] = inside ? 1 : 3;
+        if (inside) t.waterBodies[0].mask[k] = 255;
+      }
+    }
+    return doc;
+  };
+
+  it('holds a lake in its hollow and reports one whose bank falls away', () => {
+    const doc = lake();
+    expect(waterInAir(doc)).toEqual([]);
+    expect(validateMap(doc).map((i) => i.code)).not.toContain('water-floating');
+    // The bank south of the lake cut down to the valley floor (a river's channel through the rim)
+    const g = doc.terrain.grid;
+    for (let j = 0; j < g.rows; j++) {
+      for (let i = 0; i < g.columns; i++) {
+        const x = i * g.cellSize - 100;
+        const y = j * g.cellSize - 100;
+        if (Math.abs(x) < 4 && y < -19) g.heights[j * g.columns + i] = -2;
+      }
+    }
+    const found = waterInAir(doc);
+    expect(found.map((f) => f.what)).toEqual(['body 1']);
+    expect(found[0].height).toBeGreaterThan(2);
+    const issue = validateMap(doc).find((i) => i.code === 'water-floating');
+    expect(issue?.severity).toBe('warning');
+    expect(issue?.message).toMatch(/^Water ends in the air: body 1 \(worst: body 1, /);
+  });
+
+  it('reports a river whose ribbon runs over its banks, not down a waterfall', () => {
+    const doc = createMapDocument({ id: 'm', name: 'M', width: 200, depth: 200, starter: false });
+    doc.terrain.grid.heights.fill(0);
+    // Two metres over flat land: no bank holds it
+    doc.terrain.rivers = [{ id: 'r1', kind: 'water', points: [{ x: -40, y: 0, width: 6, height: 2 }, { x: 40, y: 0, width: 6, height: 1.8 }] }];
+    expect(waterInAir(doc).map((f) => f.what)).toEqual(['river 1']);
+    // A fall: 20 m down over 4 m, the waterfall's sheet covers it
+    doc.terrain.rivers[0].points = [{ x: -2, y: 0, width: 6, height: 20 }, { x: 2, y: 0, width: 6, height: 0 }];
+    expect(waterInAir(doc)).toEqual([]);
   });
 });

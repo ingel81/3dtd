@@ -11,7 +11,7 @@ import { WATER_DEPTH_M } from '../../world/world-provider';
 import { dangerLook } from '../../world/custom-map/render/asset-catalog';
 import { sceneCost, SCENE_BUDGET } from '../../world/custom-map/render/objects/scene-cost';
 import { validateWaveTable, type WaveTable } from '../../director/sources/table/wave-table';
-import { heightAt, insideMap, slopeAt } from '../model/grid';
+import { heightAt, insideMap, sampleX, sampleY, slopeAt } from '../model/grid';
 import { components, edgePolyline, nearestOnEdges, nearestOnPolyline, routeBetween } from '../ops/path-graph';
 import { undersideGap } from '../ops/object-ops';
 import { seatHeight, type ObjectFooting } from '../../world/custom-map/render/objects/object-seat';
@@ -49,6 +49,7 @@ export interface MapIssue {
     | 'path-under-water'
     | 'object-on-path'
     | 'object-floating'
+    | 'water-floating'
     | 'path-steep'
     | 'wave-list'
     | 'unknown-tower'
@@ -77,6 +78,8 @@ export interface ValidationRules {
   maxFloat: number;
   /** A lane with room for fewer towers than this in reach of its route is reported (build-areas.ts) */
   minTowerSpots: number;
+  /** Water whose surface ends further than this over the ground beside it (no bank holds it) is reported, metres */
+  maxWaterStep: number;
 }
 
 export const DEFAULT_RULES: ValidationRules = {
@@ -88,6 +91,7 @@ export const DEFAULT_RULES: ValidationRules = {
   dangerColorReach: 30,
   maxFloat: 0.25,
   minTowerSpots: 20,
+  maxWaterStep: 0.5,
 };
 
 export interface ValidationOptions {
@@ -278,6 +282,7 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
   }
 
   if (options.footingOf) floatingObjects(doc, options.footingOf, rules.maxFloat, issues);
+  floatingWater(doc, rules.maxWaterStep, issues);
 
   const danger = options.dangerColor ?? ((asset: string) => dangerLook(asset) !== null);
   let alarming = 0;
@@ -412,7 +417,8 @@ const SUPPORT_CELL = 16;
  * Objects hanging in the air (`object-floating`): each object's underside
  * against what it stands on, measured from where the renderer seats it
  * (seatHeight): a rock's plate against the ground under it (undersideGap: a
- * rock level on a slope), a floating asset's waterline against the water
+ * rock level on a slope; a flat set piece without a plate, coastal rocks or
+ * a pool, on its footprint less half its thickness), a floating asset's waterline against the water
  * (its z counts from there), anything else its foot against the ground (a
  * house's lowest corner, a tree's trunk 0.15 m deep). More than `tolerance`
  * over it hangs in the air, unless something holds it up: another object
@@ -448,7 +454,11 @@ export function objectsInAir(doc: CustomMapDocument, footingOf: (asset: string) 
     solids.push(solid);
     let gap: number;
     if (f.base && !f.float) gap = undersideGap(t, o, f.base);
-    else {
+    else if (flatSetPiece(o.asset, f)) {
+      // A slab without a measured plate (coastal rocks, a pool): its footprint as the plate, its
+      // own half thickness may stand over the ground on the low side
+      gap = undersideGap(t, o, [f.footprint, f.footprint, 0]) - 0.5 * f.height * s;
+    } else {
       // What it stands on: the water under a floating asset, the lowest corner under a house (its seat), else the ground
       const under = f.float ? (water(o.x, o.y) ?? ground(o.x, o.y)) : f.category === 'tree' ? ground(o.x, o.y) : seat;
       gap = solid.foot - under;
@@ -491,6 +501,14 @@ export function objectsInAir(doc: CustomMapDocument, footingOf: (asset: string) 
   return [...hanging.filter(({ solid }) => !held(solid)).map(({ solid, gap }) => ({ o: solid.o, gap })), ...sunk];
 }
 
+/** Set pieces that ring a hollow (crater rims): nothing lies under their middle, their pieces follow the rim */
+const RING_PIECES = new Set(['crater-rim', 'mars-crater-rim']);
+
+/** A rock set piece lower than it is wide that rests on no measured plate (catalogue without `base`), rings left out */
+function flatSetPiece(asset: string, f: ObjectFooting): boolean {
+  return f.category === 'rock' && !f.base && !f.float && f.height < f.footprint && !RING_PIECES.has(asset);
+}
+
 function floatingObjects(doc: CustomMapDocument, footingOf: (asset: string) => ObjectFooting | undefined, tolerance: number, issues: MapIssue[]): void {
   const found = objectsInAir(doc, footingOf, tolerance);
   if (!found.length) return;
@@ -509,5 +527,91 @@ function floatingObjects(doc: CustomMapDocument, footingOf: (asset: string) => O
       '. Select it and press End to set it down on the ground or the water, or Align to slope.',
     focus: worst.o,
     target: { kind: 'object', id: worst.o.id },
+  });
+}
+
+/** Metres down a river's surface may fall per metre and still count as running water, not a waterfall (river.ts FALL_STEEP) */
+const FALL_STEEP = 1;
+
+/**
+ * Water standing in the air (`water-floating`): a sheet whose edge no bank
+ * holds. A body's wet sample (mask set, ground below its level) next to one
+ * outside its mask where both the ground and any other water lie more than
+ * `tolerance` below the level, halfway to it where the surface ends: it
+ * stops there in mid-air (a lake
+ * dug on a slope, a rim a river cut through, a pool of a biome on low
+ * ground). A river's ribbon, every 2 m along its points as the renderer
+ * runs it, whose two banks (a metre past its edges) both lie that far below
+ * its surface, except down a waterfall (falling faster than it runs) and
+ * beyond the map's edge. Returns the worst place of each sheet.
+ */
+export function waterInAir(doc: CustomMapDocument, tolerance = DEFAULT_RULES.maxWaterStep): { what: string; at: MapPoint; height: number }[] {
+  const t = doc.terrain;
+  const g = t.grid;
+  const c = g.columns;
+  const h = g.heights;
+  const top = (x: number, y: number) => {
+    const ground = heightAt(t, x, y);
+    return Math.max(ground, waterLevelAt(t, x, y, ground) ?? ground);
+  };
+  const out: { what: string; at: MapPoint; height: number }[] = [];
+  const bodies = [t.water, ...(t.waterBodies ?? [])];
+  bodies.forEach((body, n) => {
+    if (!body) return;
+    let worst: { at: MapPoint; height: number } | null = null;
+    for (let k = 0; k < h.length; k++) {
+      if (!body.mask[k] || h[k] >= body.level) continue;
+      const i = k % c;
+      const j = (k - i) / c;
+      for (const [a, b] of [[i - 1, j], [i + 1, j], [i, j - 1], [i, j + 1]]) {
+        if (a < 0 || b < 0 || a >= c || b >= g.rows) continue;
+        const q = b * c + a;
+        if (body.mask[q] || h[q] >= body.level - tolerance) continue;
+        // The surface ends about halfway to the dry sample (the shore cut's soft edge): its height over the ground there
+        const at = { x: sampleX(t, a), y: sampleY(t, b) };
+        const edge = (h[k] + h[q]) / 2;
+        const drop = body.level - Math.max(edge, waterLevelAt(t, at.x, at.y, h[q]) ?? edge);
+        if (drop > tolerance && (!worst || drop > worst.height)) worst = { at, height: drop };
+      }
+    }
+    if (worst) out.push({ what: n === 0 ? 'the main water' : `body ${n}`, ...worst });
+  });
+  (t.rivers ?? []).forEach((river, n) => {
+    const pts = river.points;
+    let worst: { at: MapPoint; height: number } | null = null;
+    for (let s = 0; s + 1 < pts.length; s++) {
+      const a = pts[s];
+      const b = pts[s + 1];
+      const len = Math.hypot(b.x - a.x, b.y - a.y);
+      if (!len || Math.abs(a.height - b.height) / len >= FALL_STEEP) continue;
+      const nx = -(b.y - a.y) / len;
+      const ny = (b.x - a.x) / len;
+      for (let d = 0; d < len; d += 2) {
+        const f = d / len;
+        const p = { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
+        if (!insideMap(t, p)) continue;
+        const level = a.height + (b.height - a.height) * f;
+        const off = (a.width + (b.width - a.width) * f) / 2 + 1;
+        const bank = Math.max(top(p.x + nx * off, p.y + ny * off), top(p.x - nx * off, p.y - ny * off));
+        const drop = level - bank;
+        if (drop > tolerance && (!worst || drop > worst.height)) worst = { at: p, height: drop };
+      }
+    }
+    if (worst) out.push({ what: river.kind === 'lava' ? `lava flow ${n + 1}` : `river ${n + 1}`, ...worst });
+  });
+  return out;
+}
+
+function floatingWater(doc: CustomMapDocument, tolerance: number, issues: MapIssue[]): void {
+  const found = waterInAir(doc, tolerance);
+  if (!found.length) return;
+  const worst = found.reduce((a, b) => (b.height > a.height ? b : a));
+  issues.push({
+    severity: 'warning',
+    code: 'water-floating',
+    message:
+      `Water ends in the air: ${found.map((f) => f.what).join(', ')} (worst: ${worst.what}, ${worst.height.toFixed(1)} m over the ground beside it). ` +
+      'Raise the bank there, lower the level, or take the mask off where no bank holds it.',
+    focus: worst.at,
   });
 }
