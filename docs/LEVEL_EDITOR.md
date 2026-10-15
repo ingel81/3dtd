@@ -346,7 +346,10 @@ Breite und Art gelten für alle gewählten Straßen; Breite und Art
 alle). Die Routen von jedem Spawn zum HQ laufen als Punkte über die Karte (abschaltbar). Routen, Straßenlinien, die
 gewählte Straße und eine gezogene Linie liegen in Schritten von 2 m auf dem Boden (`drapedLine`), nicht gerade
 zwischen weit entfernten Punkten durch einen Hügel; Routen, Straßen und Punkte über einer Brücke auf ihrem Deck
-(`walkHeightAt`, dasselbe Deck wie im Spiel, `bridge-decks.ts`).
+(`walkHeightAt`, dasselbe Deck wie im Spiel, `bridge-decks.ts`). Nur in Roads sind die Knoten Griffe, die mit dem
+Abstand der Kamera wachsen; in jedem anderen Werkzeug (Look eingeschlossen) sind sie Punkte von 0,6 m, die nicht
+mitwachsen (`setNodeHandles`), sonst decken die rund 2000 Knoten einer OSM-Karte sie von weitem zu. Ein gewählter
+Knoten ist überall ein Griff.
 
 **Spawns and HQ (7).** Q: Klick setzt einen Spawn (Name nach Himmelsrichtung, im Panel änderbar; höchstens 32, dann sagt die Statuszeile
 warum), H: Klick versetzt das

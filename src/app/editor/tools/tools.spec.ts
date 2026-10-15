@@ -16,7 +16,7 @@ import { WaterTool, waterCommands } from './water-tool';
 
 function context(editor: EditorDocument): ToolContext & { messages: string[] } {
   const messages: string[] = [];
-  const overlay = { setDraft: () => undefined, setGizmo: () => undefined, setNodesVisible: () => undefined, setRiverHandles: () => undefined, transform: { hide: () => undefined, setKind: () => undefined, place: () => undefined, highlight: () => undefined } } as unknown as EditorOverlay;
+  const overlay = { setDraft: () => undefined, setGizmo: () => undefined, setNodeHandles: () => undefined, setRiverHandles: () => undefined, transform: { hide: () => undefined, setKind: () => undefined, place: () => undefined, highlight: () => undefined } } as unknown as EditorOverlay;
   return {
     editor,
     settings: defaultSettings(),

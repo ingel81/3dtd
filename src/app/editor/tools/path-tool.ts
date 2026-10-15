@@ -51,10 +51,6 @@ export class PathTool implements EditorTool {
     return false;
   }
 
-  activate(ctx: ToolContext): void {
-    ctx.overlay.setNodesVisible(true);
-  }
-
   deactivate(ctx: ToolContext): void {
     this.cancel(ctx);
   }

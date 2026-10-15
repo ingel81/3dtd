@@ -1,9 +1,8 @@
 // Layout of the address search: the field with its icon and clear button,
-// a status line under it, the results as a popup list. A place chosen shows
-// its pin in green.
+// a status line under it, the results as a list under it in the flow. A
+// place chosen shows its pin in green.
 
 .autocomplete-container {
-  position: relative;
   width: 100%;
 }
 
@@ -26,15 +25,12 @@
   gap: 4px;
 }
 
+// In the flow, not over what follows: the field stands in scrolling dialog
+// bodies, which would clip a popup to a strip; the list (5 results at most)
+// makes the body taller instead
 .dropdown {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  z-index: 100;
-  max-height: 220px;
+  margin-top: 4px;
   padding: 4px;
-  overflow-y: auto;
 }
 
 .result-item {
