@@ -30,9 +30,11 @@ import { CustomMapEnvironment } from './environment/map-environment';
 import { fitShadowBox } from './environment/shadow-fit';
 import { EffectLayer, glowStandIn } from './effects/effect-layer';
 import { circleFlock, type Flock } from './effects/bird-flocks';
+import { LifeBoats } from './effects/life-boats';
+import { areaShown, lifeSwitches } from '../map-life';
 import type { MapBiome } from '../map-document';
 import { CoverMap } from './environment/cover-map';
-import { setPlantSway } from './environment/wind';
+import { setPlantSway, WIND_UNIFORMS } from './environment/wind';
 import { MapObjectLayer, type ObjectHit } from './objects/object-layer';
 import { IMPOSTOR_SUN } from './objects/impostor';
 import { BridgeLayer } from './paths/path-bridges';
@@ -153,6 +155,10 @@ export class CustomMapView {
   private edgeTreesDue: ReturnType<typeof setTimeout> | null = null;
   private readonly bridges: BridgeLayer;
   private readonly effects: EffectLayer;
+  /** Boats of the life areas drifting on the water (effects/life-boats.ts) */
+  private readonly boats: LifeBoats;
+  /** The quality level's share of the map's life (render-quality.ts `life`) */
+  private lifeShare = 1;
   /** Terrain and roof tops for the weather; rebuilt lazily (coverDirty) */
   private readonly cover: CoverMap;
   private coverDirty = true;
@@ -248,6 +254,9 @@ export class CustomMapView {
     this.group.add(this.bridges.group);
     this.effects = new EffectLayer(this.heights, (x, y) => this.waterLevelAt(x, y));
     this.effects.setLife(doc.life);
+    this.boats = new LifeBoats(assets, this.heights, (x, y) => this.waterLevelAt(x, y));
+    this.group.add(this.boats.group);
+    this.waveBanners();
     this.decals = new GroundDecals(this.terrain.heightTexture);
     this.group.add(this.decals.mesh);
     this.group.add(this.effects.group);
@@ -571,6 +580,7 @@ export class CustomMapView {
     // rendered again each frame (shimmer)
     const shadowRadius = this.environment.focus(this.group.localToWorld(this.worldShadowCenter.copy(this.shadowCenter)), fit);
     this.effects.update(clock, this.focusPoint);
+    this.boats.update(clock);
     this.objects.shadowRadius = shadowRadius * 1.2;
     this.objects.update(dtSeconds, camera, this.shadowCenter);
     this.edgeTrees.shadowRadius = this.objects.shadowRadius;
@@ -892,6 +902,19 @@ export class CustomMapView {
     this.effects.setLife(this.doc.life);
     void this.refreshEffects();
     this.effects.setLavaLights(this.lavaLightPoints());
+    void this.refreshBoats();
+    this.waveBanners();
+  }
+
+  /** The life areas' boats, on levels that show them */
+  private refreshBoats(): Promise<void> {
+    const shown = (this.doc.life?.areas ?? []).filter((a) => a.kind === 'boats' && areaShown(a, this.lifeShare));
+    return this.boats.set(shown, lifeSwitches(this.doc.life).density);
+  }
+
+  /** Banners' cloth waves on maps that ask for it (life.flags), on levels that show the map's life */
+  private waveBanners(): void {
+    WIND_UNIFORMS.uClothWave.value = lifeSwitches(this.doc.life).flags && this.lifeShare > 0 ? 1 : 0;
   }
 
   /**
@@ -1162,9 +1185,15 @@ export class CustomMapView {
     this.terrain.grass.setBlades(q.grassBlades);
     this.grassDistance = q.grassDistance;
     this.environment.weather.setShare(q.particles);
+    const lifeChanged = q.life !== this.lifeShare;
+    this.lifeShare = q.life;
     if (this.effects.setQuality({ particles: q.particles, pointLights: q.pointLights, life: q.life })) {
       void this.refreshEffects();
       this.effects.setLavaLights(this.lavaLightPoints());
+    }
+    if (lifeChanged) {
+      void this.refreshBoats();
+      this.waveBanners();
     }
   }
 
@@ -1310,6 +1339,8 @@ export class CustomMapView {
     for (const w of this.waters) w?.dispose();
     for (const r of this.rivers) r.dispose();
     this.effects.dispose();
+    this.boats.dispose();
+    WIND_UNIFORMS.uClothWave.value = 0;
     this.cover.dispose();
     this.objects.dispose();
     this.edgeTrees.dispose();
@@ -1353,6 +1384,7 @@ export class CustomMapView {
       this.objects.setObjects(this.doc.objects),
       this.refreshEdgeTrees(),
       this.refreshEffects(),
+      this.refreshBoats(),
       this.refreshContact(),
       this.bridges.set(this.doc.paths, this.doc.terrain),
       this.refreshDecals(),

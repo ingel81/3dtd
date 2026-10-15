@@ -1,14 +1,14 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { TdIconComponent } from '../../../components/icon/icon.component';
 import type { MapLife, MapLifeArea, MapLifeKind } from '../../../world/custom-map/map-document';
-import { centroid, LIFE_AREA_DENSITY, LIFE_KIND_INFO, LIFE_KINDS, lifeSwitches, outlineArea, shapeLength } from '../../../world/custom-map/map-life';
+import { centroid, DEFAULT_BOAT, LIFE_AREA_DENSITY, LIFE_KIND_INFO, LIFE_KINDS, lifeSwitches, outlineArea, shapeLength } from '../../../world/custom-map/map-life';
 import { SnapshotCommand } from '../../model/editor-document';
 import type { LifeMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
 import { RangeRowComponent } from './range-row.component';
 
 /** Kinds the panel offers; the rest come with their parts */
-const OFFERED: readonly MapLifeKind[] = LIFE_KINDS.filter((k) => k !== 'boats' && k !== 'sound');
+const OFFERED: readonly MapLifeKind[] = LIFE_KINDS.filter((k) => k !== 'sound');
 
 /** Effect objects a click places (the Objects tool's Place), for one spot instead of an area */
 const SPOTS: { asset: string; label: string }[] = [
@@ -75,6 +75,17 @@ const TINTED: ReadonlySet<MapLifeKind> = new Set(['fireflies', 'fog', 'leaves', 
             </span>
           </label>
         }
+        @if (a.kind === 'boats') {
+          <label class="td-setting">
+            <span>Boat</span>
+            <select class="td-select is-auto" [value]="a.asset ?? defaultBoat" (change)="commitArea(a.id, { asset: $any($event.target).value === defaultBoat ? undefined : $any($event.target).value }, 'Boat')" aria-label="Boat" data-test="life-boat">
+              @for (b of boatAssets(); track b.id) {
+                <option [value]="b.id">{{ b.name }}</option>
+              }
+            </select>
+          </label>
+          <p class="td-note">Draw the outline or the line over water: boats keep the level of the water they last crossed.</p>
+        }
         <label class="td-setting">
           <span>Shows from</span>
           <select class="td-select is-auto" [value]="a.quality ?? 'medium'" (change)="commitArea(a.id, { quality: $any($event.target).value === 'high' ? 'high' : undefined }, 'Life quality')" aria-label="Shows from">
@@ -131,6 +142,10 @@ const TINTED: ReadonlySet<MapLifeKind> = new Set(['fireflies', 'fog', 'leaves', 
           <span>Sparks over lava</span>
           <input class="td-switch" type="checkbox" [checked]="w.sparks" (change)="setAuto('sparks', $any($event.target).checked)" aria-label="Sparks over lava" data-test="auto-sparks" />
         </div>
+        <div class="td-setting">
+          <span>Banners wave in the wind</span>
+          <input class="td-switch" type="checkbox" [checked]="w.flags" (change)="commitLife({ flags: $any($event.target).checked || undefined }, 'Waving banners')" aria-label="Banners wave" data-test="life-flags" />
+        </div>
         <app-editor-range label="Density" unit="%" [min]="0" [max]="200" [step]="10" [value]="w.density * 100"
                           (changing)="liveLife({ density: $event / 100 })" (changed)="commitLife({ density: $event / 100 }, 'Life density')" data-test="life-density" />
         <p class="td-note">Density scales all of the map's life, its own and its areas. Areas and objects you place take the place of the map's own fireflies and birds. Low quality shows no life areas.</p>
@@ -138,7 +153,9 @@ const TINTED: ReadonlySet<MapLifeKind> = new Set(['fireflies', 'fog', 'leaves', 
     }
   `,
   styles: [
-    `.lp-kinds { flex-wrap: wrap; } .lp-kinds .td-swatch { margin-right: 4px; } .lp-row { justify-content: flex-start; gap: 8px; cursor: pointer; }
+    `.lp-kinds { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+     .lp-kinds > button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 0; padding: 0 4px; white-space: nowrap; overflow: hidden; }
+     .lp-row { justify-content: flex-start; gap: 8px; cursor: pointer; }
      .lp-row .td-trunc { flex: 1 1 auto; min-width: 0; } .lp-spots { flex-wrap: wrap; gap: 6px; }`,
   ],
 })
@@ -162,6 +179,9 @@ export class LifePanelComponent {
     return this.areas().find((a) => a.id === id) ?? null;
   });
   readonly switches = computed(() => (this.session.doc ? lifeSwitches(this.life()) : null));
+  readonly defaultBoat = DEFAULT_BOAT;
+  /** What floats and may drift: the catalogue's floating props (boats, buoys) */
+  readonly boatAssets = computed(() => [...this.session.catalog().objects.values()].filter((o) => o.float && o.category === 'prop'));
   /** The map's life before a slider started moving */
   private before: MapLife | undefined | null = null;
 

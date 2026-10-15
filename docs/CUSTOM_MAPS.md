@@ -434,8 +434,18 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   entlang der Linie (Abstand je Art 8 bis 28 m, höchstens 160 je Bereich), auf dem Boden oder der Wasserfläche; sie
   gehen in das Feld ihrer Art (eine Art, die die Karte schon hat, kostet keinen Draw Call mehr); Glühwürmchen nur
   nachts wie die automatischen. Funken (`sparks`, neu): stoßweise hoch und zurück, nachts hell, am Tag schwach.
+  Boote (`boats`, `effects/life-boats.ts`): je Boot eine eigene langsame Schleife im Umriss (0,5 bis 1,2 m/s; 4 Boote
+  je Dichte 1, höchstens 24) oder auf einer Linie auf der einen Seite hin und auf der anderen zurück (4 m daneben,
+  1,5 bis 2,5 m/s, 3 Boote), auf dem Spiegel des Wassers darunter (über Land behalten sie den des letzten Wassers),
+  Bug voraus, mit dem Schaukeln schwimmender Objekte; das Modell ist ein schwimmendes Asset des Katalogs (`asset`,
+  Standard `rowboat`). Ein instanziertes Mesh je Teil des Modells, die CPU setzt einige Dutzend Matrizen je Bild; sie
+  blockieren weder Sicht noch Bauen und werfen keinen Schatten (die Schattenkarte der Sonne ist gecacht)
   Schalter der Karte (`life.auto`): Schornsteinrauch, automatische Glühwürmchen und Vögel (an, wenn nichts gesetzt),
-  Funken über Lava (aus, wenn nichts gesetzt); `life.density` 0 bis 2 als Faktor auf das alles. Grafikstufe
+  Funken über Lava (aus, wenn nichts gesetzt); `life.density` 0 bis 2 als Faktor auf das alles. `life.flags`: das Tuch
+  der Banner weht im Wind (`objects/cloth.ts`: die Karten `foliage-banner*` werden beim Laden zu einem Raster aus 6 x 14
+  Vierecken mit `aHang`, 0 an der Stange, 1 am freien Ende; im Vertex-Shader laufen Wellen das Tuch hinab und der Wind
+  bläht es, `WIND_UNIFORMS.uClothWave`, mit der Pflanzenbewegung des Spielers); ohne den Schalter schwankt nur die
+  Stange wie bisher. Grafikstufe
   (`render-quality.ts`, `customMaps.life`): Low 0 (keine Lebensbereiche, keine Funken über Lava), Medium 0,7 (ohne die
   Bereiche mit `quality: 'high'`), High und Ultra 1. Eine Karte ohne `life` sieht aus wie vorher
 

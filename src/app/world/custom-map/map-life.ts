@@ -12,6 +12,9 @@ import type { MapLife, MapLifeArea, MapLifeKind, MapPoint } from './map-document
 
 export const LIFE_KINDS: readonly MapLifeKind[] = ['birds', 'fireflies', 'fog', 'leaves', 'embers', 'sparks', 'boats', 'sound'];
 
+/** What drifts in a boats area that names no asset */
+export const DEFAULT_BOAT = 'rowboat';
+
 /** Most life areas a map holds, most points one has */
 export const MAX_LIFE_AREAS = 64;
 export const MAX_LIFE_POINTS = 256;
@@ -23,7 +26,7 @@ export const LIFE_DENSITY = { min: 0, max: 2 } as const;
 export const LIFE_KIND_INFO: Readonly<Record<MapLifeKind, { label: string; about: string; color: string }>> = {
   birds: { label: 'Birds', about: 'A flock circles over the area by day, or flies along the route and back', color: '#e8e8f0' },
   fireflies: { label: 'Fireflies', about: 'Glowing at night over the area or along the line', color: '#d8ff6a' },
-  fog: { label: 'Ground fog', about: 'Soft banks of fog drifting low with the wind', color: '#c8d0d4' },
+  fog: { label: 'Fog', about: 'Soft banks of fog drifting low with the wind', color: '#c8d0d4' },
   leaves: { label: 'Leaves', about: 'Leaves falling and drifting with the wind', color: '#d0903a' },
   embers: { label: 'Embers', about: 'Glowing embers rising from the ground', color: '#ff8a30' },
   sparks: { label: 'Sparks', about: 'Bright sparks bursting up and falling, strongest at night', color: '#ffd060' },

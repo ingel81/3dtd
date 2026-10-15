@@ -303,16 +303,17 @@ Dokument trägt (`life.areas`), und die Schalter dessen, was die Karte von selbs
 - Outline: ein Klick je Ecke, Enter, Doppelklick oder Rechtsklick schließt den Umriss; gehalten und gezogen malt er
   ihn frei (ein Punkt alle 6 m, Loslassen schließt). Line: ebenso eine offene Linie. Was darin lebt, wählt das Panel:
   Birds (ein Schwarm kreist im Umriss, auf einer Linie hin und zurück), Fireflies (nachts), Ground fog, Leaves,
-  Embers, Sparks. Ein neuer Bereich ist ein Schritt im Verlauf und gleich gewählt. Zu wenig für einen Umriss (unter
+  Embers, Sparks, Boats (treiben auf dem Wasser des Umrisses, auf einer Linie hin und zurück). Ein neuer Bereich ist ein
+  Schritt im Verlauf und gleich gewählt. Zu wenig für einen Umriss (unter
   drei Ecken oder 16 m²) sagt die Statuszeile. Höchstens 64 Bereiche, 256 Punkte je Bereich
 - Edit: ein Klick wählt den kleinsten Umriss um den Punkt, sonst eine Linie in 12 Pixeln; die Punkte des gewählten
   stehen als Griffe da, Ziehen verschiebt einen (ein Schritt), Shift+Klick auf den Rand setzt einen Punkt dazu, Entf
   nimmt den gewählten Punkt (ein Umriss behält drei, eine Linie zwei) oder ohne gewählten Punkt den Bereich
-- Panel: Art des nächsten Bereichs; der gewählte mit Dichte (10 bis 300 %), Flughöhe (Vögel) oder Höhe und Farbe
-  (Partikel), „Shows from“ Medium oder nur High, Show, Remove; die Liste der Bereiche; „One spot“ setzt ein
+- Panel: Art des nächsten Bereichs; der gewählte mit Dichte (10 bis 300 %), Flughöhe (Vögel), Höhe und Farbe
+  (Partikel) oder Boot (die schwimmenden Requisiten des Katalogs), „Shows from“ Medium oder nur High, Show, Remove; die Liste der Bereiche; „One spot“ setzt ein
   Effekt-Objekt (Rauchsäule, kreisender Schwarm, Glühwürmchen, Glut) mit dem Objektwerkzeug; „What the map brings by
-  itself“: Schornsteinrauch, Glühwürmchen an Ufern und in Wäldern, Vögel über offenem Land, Funken über Lava, Dichte
-  (0 bis 200 % auf alles). Regler wirken sofort und werden beim Loslassen ein Schritt
+  itself“: Schornsteinrauch, Glühwürmchen an Ufern und in Wäldern, Vögel über offenem Land, Funken über Lava, wehende
+  Banner, Dichte (0 bis 200 % auf alles). Regler wirken sofort und werden beim Loslassen ein Schritt
 - Die Bereiche stehen nur, solange das Werkzeug in der Hand ist, als Linien in der Farbe ihrer Art über dem Boden.
   Symmetrie, Stempel und „Mirror now“ nehmen sie nicht mit; Größe ändern lässt sie, wo sie sind (die Mitte bleibt)
 

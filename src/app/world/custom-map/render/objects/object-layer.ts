@@ -29,6 +29,7 @@ import { seatHeight } from './object-seat';
 import { instanceVariation } from './instance-variation';
 import { bakeImpostor, type Impostor } from './impostor';
 import { addVertexRoughMetal, mergeParts } from './merge-parts';
+import { clothGeometry, isCloth } from './cloth';
 import { addNightWindows, isWindowGlass } from './night-windows';
 import { addLodFade, blendAt, disposeFadeGeometry, fadeGeometry, REST_S, SETTLE_S, settleBlend } from './lod-fade';
 
@@ -1086,10 +1087,12 @@ export class MapObjectLayer {
     const card = m0.name.startsWith('foliage-');
     const waterfall = m0.name.startsWith('foliage-waterfall');
     const flame = card && !waterfall && !!m0.emissive && m0.emissive.getHex() !== 0;
+    // Banner cloth waves where the map asks for it (cloth.ts, WIND_UNIFORMS.uClothWave)
+    const cloth = isCloth(m0);
     const wind = waterfall ? 0 : entry.wind;
     // Floating objects that are not moored structures rock on the water
     const bob = !!entry.float && entry.category !== 'structure';
-    const key = `${source.uuid}|${wind}|${wind > 0 ? entry.height : 0}|${card ? entry.drawDistance : 0}|${bob ? 1 : 0}`;
+    const key = `${source.uuid}|${wind}|${wind > 0 ? entry.height : 0}|${card ? entry.drawDistance : 0}|${bob ? 1 : 0}|${cloth ? 1 : 0}`;
     const cached = this.materials.get(key);
     if (cached) return cached;
     // Always an own copy: the library's material is shared (other views, the editor's thumbnails)
@@ -1118,7 +1121,7 @@ export class MapObjectLayer {
       uFadeRange: { value: new Vector2(entry.drawDistance * bias * 0.55, entry.drawDistance * bias) },
     };
     if (card) this.fades.push({ range: local.uFadeRange.value, drawDistance: entry.drawDistance });
-    const variant = `${wind > 0 ? 'w' : ''}${card ? 'c' : ''}${waterfall ? 'f' : ''}${flame ? 'l' : ''}${bob ? 'b' : ''}`;
+    const variant = `${wind > 0 ? 'w' : ''}${card ? 'c' : ''}${waterfall ? 'f' : ''}${flame ? 'l' : ''}${bob ? 'b' : ''}${cloth ? 'k' : ''}`;
     m.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, WIND_UNIFORMS);
       shader.uniforms['uWindBend'] = local.uWindBend;
@@ -1181,6 +1184,30 @@ export class MapObjectLayer {
           }`,
         );
       }
+      if (cloth) {
+        // The cloth ripples down from where it is fastened, more at its free end, and blows out with the wind
+        shader.vertexShader = shader.vertexShader
+          .replace('#include <common>', '#include <common>\nattribute float aHang;\nuniform float uClothWave;')
+          .replace(
+            '#include <begin_vertex>',
+            /* glsl */ `#include <begin_vertex>
+          {
+            vec3 clothBase = vec3(0.0);
+            vec3 clothWind = vec3(uWindDir.x, 0.0, uWindDir.y);
+            #ifdef USE_INSTANCING
+            clothBase = instanceMatrix[3].xyz;
+            clothWind = normalize(transpose(mat3(instanceMatrix)) * clothWind);
+            #endif
+            float clothPhase = dot(clothBase.xz, vec2(0.071, 0.093));
+            float clothPush = windPush(clothBase.xz);
+            float ripple = sin(transformed.y * 2.6 - uWindTime * (3.0 + 2.0 * clothPush) + clothPhase) * 0.65
+              + sin(transformed.x * 4.0 - uWindTime * 4.6 + clothPhase * 1.7) * 0.35;
+            float clothOn = uClothWave * uPlantSway;
+            transformed.z += ripple * aHang * (0.05 + 0.2 * clothPush) * clothOn;
+            transformed += clothWind * aHang * aHang * 0.35 * clothPush * clothOn;
+          }`,
+          );
+      }
       if (waterfall) {
         // Water runs down the card: scroll the texture
         shader.vertexShader = shader.vertexShader.replace(
@@ -1226,10 +1253,13 @@ export class MapObjectLayer {
 
 const merged = new WeakMap<ObjectModel, ModelPart[]>();
 
-/** A model's parts with the plain-coloured ones merged (merge-parts.ts), once per model */
+/** A model's parts with the plain-coloured ones merged (merge-parts.ts) and banner cloth cut to wave (cloth.ts), once per model */
 function mergedParts(model: ObjectModel): ModelPart[] {
   let parts = merged.get(model);
-  if (!parts) merged.set(model, (parts = mergeParts(model.parts)));
+  if (!parts) {
+    parts = mergeParts(model.parts).map((p) => (isCloth(p.material) ? { geometry: clothGeometry(p.geometry), material: p.material } : p));
+    merged.set(model, parts);
+  }
   return parts;
 }
 
