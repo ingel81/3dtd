@@ -107,7 +107,9 @@ def igloo(name):
 
 
 def station(name):
-    """Polar research hut: an orange insulated module on stilts, stairs, windows, a mast"""
+    """Polar research hut: an orange insulated module of ribbed panels on stilts with cross bracing, framed
+    windows, a door off a landing with railings up the stairs, a white band, roof units and vents, a mast
+    with a little dish and guy wires"""
     clear_scene()
     shell = Part(flat_material('station-orange', (0.85, 0.32, 0.08), 0.5, 0.1))
     steel = Part(flat_material('galvanised', (0.45, 0.46, 0.45), 0.4, 0.8), smooth=True)
@@ -116,14 +118,46 @@ def station(name):
     for x in (-w / 2 + 0.5, 0, w / 2 - 0.5):
         for y in (-d / 2 + 0.3, d / 2 - 0.3):
             tube(steel, [Vector((x, y, -0.8)), Vector((x, y, z))], [0.12, 0.12], 6)
+        # Cross bracing between the stilts
+        oriented_box(steel, Vector((x, -d / 2 + 0.3, 0.1)), Vector((x, d / 2 - 0.3, z - 0.2)), 0.05)
+    for y in (-d / 2 + 0.3, d / 2 - 0.3):
+        oriented_box(steel, Vector((-w / 2 + 0.5, y, z - 0.25)), Vector((w / 2 - 0.5, y, z - 0.25)), 0.14)
     box(shell, 0, 0, z, w, d, 3.0)
+    # Panel ribs, a white band (steel colour) under the eaves, roof flashing
+    for k in range(1, 10):
+        x = -w / 2 + k * w / 10
+        for sy in (-1, 1):
+            box(steel, x, sy * (d / 2 + 0.02), z + 0.05, 0.06, 0.05, 2.9)
+    for sy in (-1, 1):
+        box(steel, 0, sy * (d / 2 + 0.03), z + 2.45, w + 0.02, 0.05, 0.3)
     box(steel, 0, 0, z + 3.0, w + 0.2, d + 0.2, 0.2)
     for k in range(4):
-        box(win, -w / 2 + 1.5 + k * 2.2, -d / 2 - 0.03, z + 1.2, 1.0, 0.08, 0.9)
+        x = -w / 2 + 1.5 + k * 2.2
+        box(win, x, -d / 2 - 0.03, z + 1.2, 1.0, 0.08, 0.9)
+        box(steel, x, -d / 2 - 0.06, z + 1.12, 1.16, 0.08, 0.08)
+        box(steel, x, -d / 2 - 0.06, z + 2.1, 1.16, 0.08, 0.08)
     box(win, w / 2 + 0.03, 0, z + 1.2, 0.08, 1.0, 0.9)
+    # Door at the west end above the stairs, a landing with railings
+    box(steel, -w / 2 - 0.03, -d / 2 + 0.6, z + 0.05, 0.08, 0.9, 2.1)
+    box(win, -w / 2 - 0.06, -d / 2 + 0.6, z + 1.5, 0.04, 0.4, 0.4)
     stairs(steel, -w / 2 - 2.6, -w / 2, -d / 2 + 0.6, 1.0, z, 8)
+    for s in (-1, 1):
+        y = -d / 2 + 0.6 + s * 0.5
+        a, b = Vector((-w / 2 - 2.55, y, 1.0)), Vector((-w / 2 - 0.1, y, z + 1.0))
+        oriented_box(steel, a, b, 0.05)
+        for t in (0.0, 0.5, 1.0):
+            p = a.lerp(b, t)
+            oriented_box(steel, p - Vector((0, 0, 1.0)), p, 0.04)
+    # Roof units: an air handler, vent stacks; the mast with a small dish and guy wires
+    box(steel, -2.0, 0.3, z + 3.2, 1.6, 1.2, 0.8)
+    for x in (1.0, 2.2):
+        tube(steel, [Vector((x, -0.8, z + 3.2)), Vector((x, -0.8, z + 3.9))], [0.12, 0.12], 8, cap=True)
     oriented_box(steel, Vector((w / 2 - 1, d / 2 - 0.5, z + 3.2)), Vector((w / 2 - 1, d / 2 - 0.5, z + 9.0)), 0.08)
     box(steel, w / 2 - 1, d / 2 - 0.5, z + 8.0, 0.8, 0.08, 0.5)
+    tube(steel, [Vector((w / 2 - 1, d / 2 - 0.62, z + 6.4)), Vector((w / 2 - 1, d / 2 - 0.9, z + 6.4))], [0.45, 0.05], 10, cap=True)
+    top = Vector((w / 2 - 1, d / 2 - 0.5, z + 7.2))
+    for foot in (Vector((w / 2 - 3.2, d / 2 - 0.5, z + 3.2)), Vector((w / 2 - 0.3, -d / 2 + 0.6, z + 3.2))):
+        oriented_box(steel, foot, top, 0.015)
     export(name, [shell.to_object(name), steel.to_object(name + '-steel'), win.to_object(name + '-windows')])
 
 

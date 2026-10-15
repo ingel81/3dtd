@@ -15,7 +15,7 @@ import random
 from mathutils import Matrix, Vector
 
 from blender_kit import (
-    Part, box, card, card_material, clear_scene, flat_material, image_material, oriented_box, pbr_material, tilt, tube,
+    Part, box, card, card_material, clear_scene, flat_material, hexa, image_material, oriented_box, pbr_material, tilt, tube,
     two_sided,
 )
 from blender_kit import finish as export  # noqa: F401  (baked AO)
@@ -587,24 +587,49 @@ def woodpile_snow(name):
 
 
 def ice_fishing_hut(name):
-    """Little hut on skids, a stovepipe, a hole in the ice with a stool beside it"""
+    """Little hut on skids: plank walls with corner battens, a framed window and door, a shed roof under a
+    rounded cushion of snow, a stovepipe with a cap; a hole in the ice with a rim of slush, a stool, a rod"""
     clear_scene()
     wood = planks((0.55, 0.32, 0.22))
-    trim = planks((0.9, 0.88, 0.82))
+    trim = Part(pbr_material('planks-dark', 'dark_planks', (0.9, 0.85, 0.8)), uv_metres=1.0)
     metal = Part(iron(), smooth=True)
     hole = Part(flat_material('ice-hole', (0.02, 0.05, 0.08), 0.05, 0.3))
+    glass = Part(flat_material('window', (0.05, 0.06, 0.07), 0.2, 0.3))
     snow = Part(pbr_material('snow-snow_02', 'snow_02', (0.95, 0.97, 1.0)), uv_metres=2.0, bevel=0.0)
+    drift = Part(snow.material, uv_metres=2.0, bevel=0.0, smooth=True)
     for x in (-0.9, 0.9):
         box(trim, x, 0, 0, 0.15, 3.0, 0.2)
+        # Skids turned up at the front
+        tube(trim, [Vector((x, -1.5, 0.1)), Vector((x, -1.62, 0.3))], [0.075, 0.06], 6, cap=True)
     box(wood, 0, 0, 0.2, 2.2, 2.6, 2.0)
+    # Corner battens, a framed door with a handle, a window on the side
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            box(trim, sx * 1.1, sy * 1.3, 0.2, 0.12, 0.12, 2.0)
     box(trim, 0, -1.31, 0.3, 0.8, 0.04, 1.7)
-    box(wood, 0, 0, 2.2, 2.5, 2.9, 0.12, 0)
-    box(snow, 0, 0, 2.32, 2.5, 2.9, 0.15)
-    tube(metal, [Vector((0.6, 0.8, 2.2)), Vector((0.6, 0.8, 3.0))], [0.08, 0.08], 8, cap=True)
+    for sx in (-1, 1):
+        box(trim, sx * 0.46, -1.33, 0.25, 0.1, 0.06, 1.8)
+    box(trim, 0, -1.33, 2.0, 1.02, 0.06, 0.1)
+    box(metal, 0.28, -1.36, 1.1, 0.04, 0.05, 0.16)
+    box(glass, 1.115, 0.2, 1.2, 0.04, 0.6, 0.5)
+    for dy, dz, sy, sz in ((-0.34, 0.25, 0.08, 0.66), (0.34, 0.25, 0.08, 0.66), (0, 0.0, 0.76, 0.08), (0, 0.5, 0.76, 0.08)):
+        box(trim, 1.13, 0.2 + dy, 1.2 + dz - (0.04 if sz < 0.5 else 0.08), 0.06, sy, sz)
+    # Shed roof, deeper at the back, under the snow; a rounded lip along its front and back edges
+    hexa(wood, [(-1.25, -1.45, 2.2), (1.25, -1.45, 2.2), (1.25, 1.45, 2.2), (-1.25, 1.45, 2.2)],
+         [(-1.25, -1.45, 2.32), (1.25, -1.45, 2.32), (1.25, 1.45, 2.42), (-1.25, 1.45, 2.42)])
+    hexa(snow, [(-1.22, -1.42, 2.32), (1.22, -1.42, 2.32), (1.22, 1.42, 2.42), (-1.22, 1.42, 2.42)],
+         [(-1.22, -1.42, 2.47), (1.22, -1.42, 2.47), (1.22, 1.42, 2.57), (-1.22, 1.42, 2.57)])
+    for y, z in ((-1.36, 2.4), (1.36, 2.5)):
+        tube(drift, [Vector((-1.12, y, z)), Vector((0.0, y, z + 0.02)), Vector((1.12, y, z))], [0.1, 0.12, 0.1], 8, cap=True)
+    tube(metal, [Vector((0.6, 0.8, 2.2)), Vector((0.6, 0.8, 2.9))], [0.08, 0.08], 8, cap=True)
+    tube(metal, [Vector((0.6, 0.8, 2.9)), Vector((0.6, 0.8, 3.0))], [0.14, 0.02], 8, cap=True)
+    # Hole in the ice with a rim of slush, a stool beside it and a short rod across the rim
     tube(hole, [Vector((1.8, -1.8, 0.0)), Vector((1.8, -1.8, 0.01))], [0.35, 0.35], 14, cap=True)
+    tube(drift, [Vector((1.8, -1.8, -0.02)), Vector((1.8, -1.8, 0.05))], [0.34, 0.33], 14)
     box(trim, 2.4, -1.4, 0.0, 0.35, 0.35, 0.4)
+    oriented_box(metal, Vector((2.25, -1.55, 0.42)), Vector((1.55, -1.95, 0.12)), 0.025)
     export(name, [wood.to_object(name), trim.to_object(name + '-trim'), metal.to_object(name + '-pipe'), hole.to_object(name + '-hole'),
-                  snow.to_object(name + '-snow')])
+                  glass.to_object(name + '-window'), snow.to_object(name + '-snow'), drift.to_object(name + '-drifts')])
 
 
 # ---------------------------------------------------------------- volcano
