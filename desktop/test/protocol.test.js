@@ -197,3 +197,37 @@ describe('createAppProtocolHandler', () => {
     assert.equal(response.headers.get('content-range'), 'bytes */10');
   });
 });
+
+describe('createAppProtocolHandler with the map data of a checkout', () => {
+  const publicDir = path.join(path.dirname(path.dirname(root)), 'repo', 'public');
+  const files = new Map([
+    [inRoot('index.html'), Buffer.from('<!doctype html>')],
+    [inRoot('maps', 'own.json'), Buffer.from('build')],
+    [path.join(publicDir, 'maps', 'assets', 'catalog.json'), Buffer.from('{"objects":[]}')],
+    [path.join(publicDir, 'maps', 'own.json'), Buffer.from('checkout')],
+    [path.join(publicDir, 'secret.json'), Buffer.from('no')],
+  ]);
+  const readFile = async (filePath) => {
+    if (files.has(filePath)) return files.get(filePath);
+    throw Object.assign(new Error('missing'), { code: 'ENOENT' });
+  };
+  const request = (url) => ({ url, headers: new Headers() });
+
+  it('serves a map data file the build left out from the checkout', async () => {
+    const handler = createAppProtocolHandler({ root, readFile, mapDataRoot: publicDir });
+    const response = await handler(request('app://app/maps/assets/catalog.json'));
+    assert.equal(response.status, 200);
+    assert.equal(await response.text(), '{"objects":[]}');
+    // The build's own file wins
+    assert.equal(await (await handler(request('app://app/maps/own.json'))).text(), 'build');
+  });
+
+  it('serves nothing else of the checkout, and nothing without it', async () => {
+    const handler = createAppProtocolHandler({ root, readFile, mapDataRoot: publicDir });
+    assert.equal((await handler(request('app://app/secret.json'))).status, 404);
+    assert.equal((await handler(request('app://app/maps/../secret.json'))).status, 404);
+    assert.equal((await handler(request('app://app/maps/%2e%2e/secret.json'))).status, 404);
+    const without = createAppProtocolHandler({ root, readFile });
+    assert.equal((await without(request('app://app/maps/assets/catalog.json'))).status, 404);
+  });
+});

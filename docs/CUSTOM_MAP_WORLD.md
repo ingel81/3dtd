@@ -267,6 +267,9 @@ Quelle und die langsamsten Dateien (2026-10-14, optimierter Dev-Stand, frischer 
 20,2 MB, Hafenstadt 83 Dateien, 19,2 MB, alle vom Netz, kalt 4,4 und 4,7 s).
 Offen für die Freigabe: die Daten auf den Webserver legen, dort CORS für die Seite und `app://`, im CSP der
 Desktop-App (`desktop/src/protocol.js`, `connect-src`) den Host eintragen, `mapData` in die runtime-config.
+Die Desktop-App, ungepackt aus einem Checkout gestartet (`electron .` nach `web:build`), liefert eine Kartendatei, die
+dem Build fehlt, aus dem `public/maps` des Checkouts (`mapDataRoot` in `createAppProtocolHandler`, nur Pfade unter
+`maps/`); sonst fänden Editor und KI-Agent dort weder Katalog noch mitgelieferte Karten. Die gepackte App nicht.
 
 - `startHq` öffnet die Karte und beginnt sofort, ihre Bodenmaterialien und Modelle zu laden
   (`prefetchCustomMapAssets`), während Engine, Straßen und Routen entstehen

@@ -208,23 +208,37 @@ function policyFor(requestUrl) {
 
 const NOT_FOUND_ERRORS = new Set(['ENOENT', 'ENOTDIR', 'EISDIR']);
 
+/** Where the map data lives beside the page (src/app/world/custom-map/map-data.ts) */
+const MAP_DATA_DIR = 'maps';
+
 /**
  * The handler for protocol.handle(). `readFile` is injected: fs.promises
  * reads inside the asar in Electron and a fake does in the tests.
+ * `mapDataRoot`, when given, is a folder holding `maps/` (the repo's
+ * `public`): a map data file missing from the build is read from there.
+ * The web build leaves the map data out (TODO E134), so an app run from a
+ * source checkout would otherwise find no catalogue and no shipped map.
  */
-function createAppProtocolHandler({ root, readFile }) {
+function createAppProtocolHandler({ root, readFile, mapDataRoot = null }) {
   return async function handleAppRequest(request) {
     const policy = policyFor(request.url);
     const headers = (extra) => ({ 'Content-Security-Policy': policy, ...CROSS_ORIGIN_ISOLATION, ...extra });
     const filePath = resolveFilePath(root, request.url);
     if (!filePath) return new Response(null, { status: 404, headers: headers() });
 
+    const mapDataPath = mapDataRoot ? resolveFilePath(mapDataRoot, request.url) : null;
+    const isMapData = !!mapDataPath && mapDataPath.startsWith(path.join(mapDataRoot, MAP_DATA_DIR) + path.sep);
     let data;
     try {
       data = await readFile(filePath);
     } catch (error) {
-      const status = NOT_FOUND_ERRORS.has(error?.code) ? 404 : 500;
-      return new Response(null, { status, headers: headers() });
+      const notFound = NOT_FOUND_ERRORS.has(error?.code);
+      if (!notFound || !isMapData) return new Response(null, { status: notFound ? 404 : 500, headers: headers() });
+      try {
+        data = await readFile(mapDataPath);
+      } catch (again) {
+        return new Response(null, { status: NOT_FOUND_ERRORS.has(again?.code) ? 404 : 500, headers: headers() });
+      }
     }
 
     const type = { 'Content-Type': mimeTypeFor(filePath), 'Accept-Ranges': 'bytes' };

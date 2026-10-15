@@ -44,6 +44,18 @@ const webRoot = path.join(__dirname, '..', 'app');
 // electron-builder.config.js); unpackaged runs read it from there directly.
 const version = app.isPackaged ? app.getVersion() : require('../../package.json').version;
 
+/**
+ * The repo's `public` folder when the app runs unpackaged from a checkout that
+ * has the map data, else null. The release loads the map data from the web
+ * server (TODO E134, `mapData` in runtime-config.json); a run from the
+ * checkout serves its own, so the editor has its catalogue and the shipped maps.
+ */
+function localMapDataRoot() {
+  if (app.isPackaged) return null;
+  const publicDir = path.join(__dirname, '..', '..', 'public');
+  return existsSync(path.join(publicDir, 'maps', 'assets', 'catalog.json')) ? publicDir : null;
+}
+
 /** %APPDATA%\3DTD\logs; main.log and, after rotation, main.old.log. */
 const logsDir = path.join(app.getPath('userData'), 'logs');
 
@@ -478,7 +490,7 @@ if (!app.requestSingleInstanceLock()) {
     nativeTheme.themeSource = 'dark';
 
     if (!isDev) {
-      protocol.handle(APP_SCHEME, createAppProtocolHandler({ root: webRoot, readFile: fs.readFile }));
+      protocol.handle(APP_SCHEME, createAppProtocolHandler({ root: webRoot, readFile: fs.readFile, mapDataRoot: localMapDataRoot() }));
     }
 
     session.defaultSession.setPermissionRequestHandler((_contents, permission, callback) =>
