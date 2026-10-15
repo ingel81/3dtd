@@ -90,7 +90,7 @@ const TOOLS = [
   ['catalog', 'What can be painted and placed: ground materials, object assets, landscape biomes, generator presets, landforms. Without a filter only the ids, grouped; with category (an object category or "Materials"), tag (e.g. winter, volcanic, coast) or search the full rows (size, tags, whether it blocks building).', { category: z.string().optional(), tag: z.string().optional(), search: z.string().optional() }, READ],
   ['script_api', 'The commands and reads a run_script script has (`map.*`), with their arguments. Read it before the first script.', {}, READ],
   ['view_picture', 'A picture of the app window as the player sees it (the editor view and its panels). Use it sparingly; the check and the numbers usually say enough.', { max_width: z.number().int().min(320).max(MAX_VIEW_WIDTH).optional() }, READ],
-  ['top_down_picture', 'The open map from straight above, north up, `size` pixels a side (default 512, at most 1024).', { size: z.number().int().min(128).max(1024).optional() }, READ],
+  ['top_down_picture', 'The open map from straight above, north up, `size` pixels a side (default 512, at most 1024): roads, spawns and the HQ drawn over the ground, the relief shaded with light from the north-west.', { size: z.number().int().min(128).max(1024).optional() }, READ],
   ['list_maps', "The player's own maps and the shipped ones; which is open.", {}, READ],
   ['read_map', 'Read any map without opening it: its summary, heights or objects (as map_summary, map_heights, map_objects). Never changes it.', { id: z.string(), what: z.enum(['summary', 'heights', 'objects']).optional(), ...optionalRect, samples: z.number().int().min(2).max(128).optional(), asset: z.string().optional() }, READ],
   [

@@ -556,6 +556,29 @@ describe('editor session and the AI agent', () => {
     s.ngOnDestroy();
   });
 
+  it('pictures the map from above with roads and markers drawn and the relief shaded', async () => {
+    const { s, agent } = await agentSession();
+    const g = s.editor!.doc.terrain.grid;
+    for (let k = 0; k < g.heights.length; k++) g.heights[k] = (k % g.columns) * 0.5;
+    const pixels = new Uint8ClampedArray(16 * 16 * 4).fill(100);
+    const canvas = {
+      width: 16,
+      height: 16,
+      getContext: () => ({ getImageData: () => ({ data: pixels }), putImageData: vi.fn() }),
+      toDataURL: () => 'data:image/jpeg;base64,AAAA',
+    };
+    const renderTopDown = vi.fn(async () => canvas);
+    s.viewport = { renderTopDown } as unknown as EditorSession['viewport'];
+    const answer = await call(agent, 'top_down_picture', { size: 128 });
+    expect(renderTopDown).toHaveBeenCalledWith(128, 128, true);
+    expect(answer.image).toEqual({ mimeType: 'image/jpeg', data: 'AAAA' });
+    expect(JSON.parse(answer.text).shows).toMatch(/roads, spawns and the HQ.*relief shaded/);
+    // Ground rising to the east faces west, half toward a north-west light
+    expect(pixels[0]).toBeGreaterThan(100);
+    s.viewport = null;
+    s.ngOnDestroy();
+  });
+
   it('answers every tool through the bridge reply as plain data, whatever its handler returns', async () => {
     // The desktop server's tools (desktop/src/agent-mcp.js TOOLS) that the editor answers
     const tools: [string, Record<string, unknown>][] = [

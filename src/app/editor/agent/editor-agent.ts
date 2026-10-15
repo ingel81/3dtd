@@ -175,7 +175,15 @@ export class EditorAgent {
     const [head, data] = url.split(',');
     const mimeType = /data:([^;]+)/.exec(head)?.[1] ?? 'image/jpeg';
     const t = this.doc().terrain;
-    return { text: JSON.stringify({ size, covers: { x0: -t.width / 2, y0: -t.depth / 2, x1: t.width / 2, y1: t.depth / 2 }, north: 'up' }), image: { mimeType, data } };
+    return {
+      text: JSON.stringify({
+        size,
+        covers: { x0: -t.width / 2, y0: -t.depth / 2, x1: t.width / 2, y1: t.depth / 2 },
+        north: 'up',
+        shows: 'the ground with roads, spawns and the HQ drawn over it; relief shaded, light from the north-west',
+      }),
+      image: { mimeType, data },
+    };
   }
 
   private async listMaps(): Promise<AgentAnswer> {

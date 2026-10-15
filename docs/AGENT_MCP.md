@@ -41,7 +41,7 @@ Server noch Schalter.
 | `catalog` | liest | Materialien, Objekt-Assets, Biome, Generator-Vorlagen, Landformen. Ohne Filter nur die Ids nach Kategorie (alles mit Zeilen wären rund 80 KB); mit category (Objekt-Kategorie oder `Materials`), tag oder search die vollen Zeilen (Größe, Tags, blockiert Bauen); eine unbekannte Kategorie nennt die vorhandenen. Ohne geladenen Katalog ein Fehler |
 | `script_api` | liest | Befehle und Lesefunktionen von `map` für Skripte (aus `SCRIPT_OPS`) |
 | `view_picture` | liest | Bild des App-Fensters (`webContents.capturePage`, JPEG, höchstens 1600 px breit) |
-| `top_down_picture` | liest | Karte von oben, Norden oben, höchstens 1024 px (JPEG) |
+| `top_down_picture` | liest | Karte von oben, Norden oben, höchstens 1024 px (JPEG), mit Straßen, Spawns und HQ darüber und Relief-Schattierung (Licht aus Nordwest, `agent/relief-shade.ts`): flach von oben beleuchtet war ein Hügel von 13 m nicht zu sehen |
 | `list_maps` | liest | eigene und mitgelieferte Karten, welche offen ist |
 | `read_map` | liest | Zusammenfassung, Höhen oder Objekte einer beliebigen Karte, ohne sie zu öffnen |
 | `run_script` | ändert | Skript gegen die offene Karte, ein Undo-Schritt, animiert abgespielt; `dry_run` nur auf der Kopie |

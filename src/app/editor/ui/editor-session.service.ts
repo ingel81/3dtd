@@ -54,6 +54,7 @@ import { DEFAULT_W3X_OPTIONS, loadW3xImporter, type W3xImportOptions, type W3xIm
 import { WORLD_URL_PARAM, worldUrlValue } from '../../world/world-ref';
 import { readAgentBridge } from '../../core/desktop-bridge';
 import { EditorAgent } from '../agent/editor-agent';
+import { shadeRelief } from '../agent/relief-shade';
 import { runScriptInSandbox } from '../agent/script-sandbox';
 import { START_WAVE_PARAM } from '../../world/custom-map/custom-map-world';
 
@@ -382,10 +383,18 @@ export class EditorSession implements OnDestroy {
   }
 
   /** The map from above for an AI agent, `size` pixels a side, as a JPEG data URL; null without a view */
+  /** The AI agent's picture from above: roads, spawns and the HQ drawn over it, the relief shaded */
   async topDownPicture(size: number): Promise<string | null> {
     const vp = this.viewport;
-    if (!vp || this.viewLost()) return null;
-    const canvas = await vp.renderTopDown(size, size, false);
+    const doc = this.doc;
+    if (!vp || !doc || this.viewLost()) return null;
+    const canvas = await vp.renderTopDown(size, size, true);
+    const c2d = canvas.getContext('2d');
+    if (c2d) {
+      const image = c2d.getImageData(0, 0, canvas.width, canvas.height);
+      shadeRelief(image.data, canvas.width, canvas.height, doc.terrain);
+      c2d.putImageData(image, 0, 0);
+    }
     return canvas.toDataURL('image/jpeg', 0.85);
   }
 
