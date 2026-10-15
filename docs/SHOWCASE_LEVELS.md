@@ -60,6 +60,13 @@ dem Boden). Bilder unter `docs/images/levels/`.
 
 ## Die Level
 
+### 0 Demo-Tal (`demo-valley`)
+Die generierte Beispielkarte (`src/app/world/custom-map/demo-map.ts`, so auch im Editor und in `/map-preview` ohne
+Karte), für die Auslieferung mit dem Level-Kit nachgearbeitet (`tools/maps/levels/demo-valley.ts`, `LevelKit` auf
+einer vorhandenen Karte, E184): der Ruinenhügel im Südwesten als Felsklotz mit Klippenfelsen und Burgruine (Bergfried,
+Mauern, Türme, Tor zum Dorf), ein Aussichtshügel südlich des Dorfs mit Kapelle und Wachturm, Lichtungen, Totholz und
+Unterholz in den Wäldern, Krähenschwärme. Wege, Spawns und HQ wie generiert.
+
 ### 1 Bergpass (`mountain-pass`)
 **Gebaut** (`tools/maps/levels/mountain-pass.ts`, Small 512 m). Kartenprobe 10 Wellen bestanden (HQ 448 von 500,
 19 Tower), Spielansicht 268 fps, Laden 5,8 s am Dev-Server. Spuren 765 und 770 m. Bilder:
