@@ -157,6 +157,8 @@ def dome(name, radius=6.0, glass=True, greenhouse=False):
     shell = Part(hull(), smooth=True, uv_scale=0.3)
     dark = Part(flat_material('hatch-dark', (0.06, 0.06, 0.07), 0.6))
     tube(struts, [Vector((0, 0, -0.3)), Vector((0, 0, 0.8))], [radius + 0.2, radius + 0.2], 24, cap=False)
+    # Ring wall top: closes the slot between the wall and the hemisphere
+    tube(struts, [Vector((0, 0, 0.8)), Vector((0, 0, 0.801))], [radius + 0.2, radius - 0.05], 24)
     for k in range(12):
         a = (k + 0.5) / 12 * math.tau
         box(dark, math.cos(a) * (radius + 0.22), math.sin(a) * (radius + 0.22), 0.25, 0.06, 0.9, 0.3, a)
@@ -173,10 +175,10 @@ def dome(name, radius=6.0, glass=True, greenhouse=False):
         for p, q in zip(pts, pts[1:]):
             oriented_box(struts, p, q, 0.1)
     tube(struts, [Vector((0, 0, 0.8 + radius - 0.05)), Vector((0, 0, 0.8 + radius + 0.15))], [0.9, 0.7], 12, cap=True)
-    # Airlock: a short tunnel out of the ring wall, ribs, a round hatch at its end
-    tube(shell, [Vector((0, -radius + 0.5, 1.4)), Vector((0, -radius - 2.0, 1.4))], [1.3, 1.3], 16)
+    # Airlock: a short tunnel out of the ring wall, ribs, an end plate with a round hatch
+    tube(shell, [Vector((0, -radius + 0.5, 1.4)), Vector((0, -radius - 2.0, 1.4))], [1.3, 1.3], 16, cap=True)
     for y in (-radius - 0.2, -radius - 1.9):
-        tube(struts, [Vector((0, y + 0.12, 1.4)), Vector((0, y - 0.12, 1.4))], [1.4, 1.4], 16)
+        tube(struts, [Vector((0, y + 0.12, 1.4)), Vector((0, y - 0.12, 1.4))], [1.4, 1.4], 16, cap=y < -radius - 1)
     box(struts, 0, -radius - 1.0, -0.3, 2.4, 2.8, 0.45)
     hatch(struts, dark, Vector((0, -radius - 2.1, 1.4)), Vector((0, -1, 0)), 0.8)
     # A cable reel and a tank against the ring wall
@@ -205,11 +207,16 @@ def tunnel(name, length=6.0):
     clear_scene()
     shell = Part(hull(), smooth=True, uv_scale=0.3)
     ribs = Part(trim(), smooth=True)
+    dark = Part(flat_material('hatch-dark', (0.06, 0.06, 0.07), 0.6))
     tube(shell, [Vector((-length / 2, 0, 1.6)), Vector((length / 2, 0, 1.6))], [1.1, 1.1], 14)
     for x in (-length / 2, 0, length / 2):
-        tube(ribs, [Vector((x - 0.1, 0, 1.6)), Vector((x + 0.1, 0, 1.6))], [1.2, 1.2], 14)
+        # The end ribs are closed plates facing outwards, each with a hatch
+        ends = [Vector((x + 0.1, 0, 1.6)), Vector((x - 0.1, 0, 1.6))] if x < 0 else [Vector((x - 0.1, 0, 1.6)), Vector((x + 0.1, 0, 1.6))]
+        tube(ribs, ends, [1.2, 1.2], 14, cap=x != 0)
         box(ribs, x, 0, 0, 0.3, 1.6, 0.6)
-    export(name, [shell.to_object(name), ribs.to_object(name + '-ribs')])
+    for sx in (-1, 1):
+        hatch(ribs, dark, Vector((sx * (length / 2 + 0.1), 0, 1.6)), Vector((sx, 0, 0)), 0.7)
+    export(name, [shell.to_object(name), ribs.to_object(name + '-ribs'), dark.to_object(name + '-hatch')])
 
 
 def antenna_dish(name):
