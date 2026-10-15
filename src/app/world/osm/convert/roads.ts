@@ -7,8 +7,11 @@
  * cross at an inner node connect, as on the real places
  * (OsmStreetService.parseOverpassResponse). Ways are cut at the map's edge
  * (a node of their own there) and where the answer cut their geometry off.
- * Bridges become bridge edges (the deck spans the ground the heights know);
- * tunnels are left out until they get their portals.
+ * Bridges become bridge edges (the deck spans the ground the heights know).
+ * Tunnels stay in the graph as tunnel edges (not drawn, levelled or painted),
+ * so routes run through them as on the real places; their mouths get portal
+ * models (convert/tunnels.ts). A tunnel shorter than MIN_TUNNEL_M (an
+ * underpass under an embankment the world does not draw) stays a road.
  */
 import { flattenUnderPaths } from '../../../editor/ops/path-terrain';
 import { MAX_LAYERS, readWeights, writeWeights } from '../../../editor/ops/paint-ops';
@@ -17,7 +20,7 @@ import type { OsmFeatures } from '../osm-parse';
 import { bridgeStyle, roadTags, type RoadSurface } from '../osm-tags';
 
 export interface RoadStats {
-  /** Road ways read, and of them left out as tunnels (with their length) */
+  /** Road ways read, and the tunnels (ways joined end to end) kept as tunnel edges, with their length */
   ways: number;
   tunnels: number;
   tunnelM: number;
@@ -30,6 +33,24 @@ export interface RoadStats {
   kmByType: Record<string, number>;
   /** Pieces cut at the map's edge */
   cutAtEdge: number;
+  /** Tunnel ways in tunnels shorter than MIN_TUNNEL_M, kept as roads */
+  shortTunnels: number;
+}
+
+/** A tunnel's mouth inside the map: where its portal stands */
+export interface TunnelMouth {
+  p: MapPoint;
+  /** Unit direction into the tunnel */
+  inward: MapPoint;
+  width: number;
+  /** Index of its tunnel in RoadBuild.tunnels */
+  tunnel: number;
+}
+
+/** A tunnel: its ways' lines (one per way) and their whole length */
+export interface TunnelLine {
+  lines: MapPoint[][];
+  length: number;
 }
 
 export interface RoadBuild {
@@ -37,12 +58,18 @@ export interface RoadBuild {
   /** Name of the way each edge came from ('' without one), for the spawns' names */
   names: Map<string, string>;
   stats: RoadStats;
+  tunnels: TunnelLine[];
+  mouths: TunnelMouth[];
 }
 
 /** Metres the roads stay inside the map's edge */
 const EDGE_INSET = 1;
 /** Curve points closer than this to the line through their neighbours are dropped, metres */
 const VIA_TOLERANCE = 0.2;
+/** Tunnels shorter than this stay roads, metres: two portals (a 1.6 m facade, a 14 m vault, the hill behind) need the room */
+export const MIN_TUNNEL_M = 40;
+/** Metres along the way the direction into a tunnel is measured over */
+const MOUTH_AIM_M = 10;
 
 interface Vertex {
   id: number | null;
@@ -52,21 +79,21 @@ interface Vertex {
 /** The road ways of `features` as the map's path graph */
 export function buildRoads(features: OsmFeatures): RoadBuild {
   const lim = features.half - EDGE_INSET;
-  const stats: RoadStats = { ways: 0, tunnels: 0, tunnelM: 0, nodes: 0, edges: 0, bridges: 0, km: { road: 0, path: 0, bridge: 0 }, kmByType: {}, cutAtEdge: 0 };
+  const stats: RoadStats = { ways: 0, tunnels: 0, tunnelM: 0, nodes: 0, edges: 0, bridges: 0, km: { road: 0, path: 0, bridge: 0 }, kmByType: {}, cutAtEdge: 0, shortTunnels: 0 };
   const roads = features.ways
     .filter((w) => w.nodes.length >= 2)
     .map((way) => ({ way, tags: roadTags(way.tags) }))
     .filter((r): r is { way: typeof r.way; tags: NonNullable<typeof r.tags> } => r.tags !== null);
+  const { tunnels, mouths, short } = findTunnels(roads, lim);
+  for (const r of roads) if (short.has(r.way)) r.tags = { ...r.tags, tunnel: false };
+  stats.tunnels = tunnels.length;
+  stats.tunnelM = tunnels.reduce((s, t) => s + t.length, 0);
+  stats.shortTunnels = short.size;
 
   // Nodes used twice or more: shared by ways, or a way's closing node
   const uses = new Map<number, number>();
-  for (const { way, tags } of roads) {
+  for (const { way } of roads) {
     stats.ways++;
-    if (tags.tunnel) {
-      stats.tunnels++;
-      stats.tunnelM += lineLength(way.points.filter((p): p is MapPoint => p !== null));
-      continue;
-    }
     for (const id of way.nodes) uses.set(id, (uses.get(id) ?? 0) + 1);
   }
 
@@ -81,7 +108,6 @@ export function buildRoads(features: OsmFeatures): RoadBuild {
   };
 
   for (const { way, tags } of roads) {
-    if (tags.tunnel) continue;
     const vertices: (Vertex | null)[] = way.points.map((p, k) => (p ? { id: way.nodes[k], p } : null));
     for (const piece of clipPieces(vertices, lim)) {
       if (piece.cut) stats.cutAtEdge++;
@@ -99,11 +125,12 @@ export function buildRoads(features: OsmFeatures): RoadBuild {
           const pts = span.map((s) => s.p);
           const length = lineLength(pts);
           if (length < 0.5) continue;
-          const kind = tags.bridge ? 'bridge' : tags.kind;
+          const kind = tags.bridge && !tags.tunnel ? 'bridge' : tags.kind;
           const via = thin(pts, VIA_TOLERANCE).slice(1, -1).map((p) => ({ x: round2(p.x), y: round2(p.y) }));
           const edge: MapPathEdge = { id: `e${edges.length + 1}`, a, b, width: tags.width, kind, street: tags.type };
           if (via.length) edge.via = via;
-          if (kind === 'bridge') edge.style = bridgeStyle(way.tags);
+          if (tags.tunnel) edge.tunnel = true;
+          else if (kind === 'bridge') edge.style = bridgeStyle(way.tags);
           else edge.surface = tags.surface;
           edges.push(edge);
           names.set(edge.id, way.tags['name'] ?? '');
@@ -117,10 +144,87 @@ export function buildRoads(features: OsmFeatures): RoadBuild {
   }
   stats.nodes = nodes.size;
   stats.edges = edges.length;
-  stats.tunnelM = Math.round(stats.tunnelM);
   for (const key of ['road', 'path', 'bridge'] as const) stats.km[key] = round2(stats.km[key]);
   for (const key of Object.keys(stats.kmByType)) stats.kmByType[key] = round2(stats.kmByType[key]);
-  return { paths: { nodes: [...nodes.values()], edges }, names, stats };
+  return { paths: { nodes: [...nodes.values()], edges }, names, stats, tunnels, mouths };
+}
+
+type RoadWay = OsmFeatures['ways'][number];
+
+/**
+ * The tunnels among `roads`: tunnel ways joined where they share a node,
+ * their length, and their mouths: the ends of a tunnel way that no other
+ * tunnel way continues from, inside the square |x|, |y| <= lim (where a
+ * tunnel runs off the map it has no portal). The ways of tunnels shorter
+ * than MIN_TUNNEL_M come back in `short`.
+ */
+export function findTunnels(
+  roads: readonly { way: RoadWay; tags: { tunnel: boolean; width: number } }[],
+  lim: number,
+): { tunnels: TunnelLine[]; mouths: TunnelMouth[]; short: Set<RoadWay> } {
+  const ways = roads.filter((r) => r.tags.tunnel);
+  // Join the ways over shared nodes (union-find over their indices)
+  const parent = ways.map((_, k) => k);
+  const find = (k: number): number => (parent[k] === k ? k : (parent[k] = find(parent[k])));
+  const byNode = new Map<number, number>();
+  // How often a node is a tunnel way's end (1) or inner node (2): once is a mouth
+  const ends = new Map<number, number>();
+  ways.forEach(({ way }, k) => {
+    way.nodes.forEach((id, i) => {
+      const seen = byNode.get(id);
+      if (seen === undefined) byNode.set(id, k);
+      else parent[find(seen)] = find(k);
+      ends.set(id, (ends.get(id) ?? 0) + (i === 0 || i === way.nodes.length - 1 ? 1 : 2));
+    });
+  });
+  const groups = new Map<number, number[]>();
+  ways.forEach((_, k) => {
+    const root = find(k);
+    const members = groups.get(root);
+    if (members) members.push(k);
+    else groups.set(root, [k]);
+  });
+
+  const tunnels: TunnelLine[] = [];
+  const mouths: TunnelMouth[] = [];
+  const short = new Set<RoadWay>();
+  for (const members of groups.values()) {
+    const lines = members.map((k) => ways[k].way.points.filter((p): p is MapPoint => p !== null));
+    const length = lines.reduce((s, l) => s + lineLength(l), 0);
+    if (length < MIN_TUNNEL_M) {
+      for (const k of members) short.add(ways[k].way);
+      continue;
+    }
+    const index = tunnels.length;
+    tunnels.push({ lines, length: Math.round(length) });
+    for (const k of members) {
+      const { way, tags } = ways[k];
+      for (const end of [0, way.nodes.length - 1]) {
+        const p = way.points[end];
+        if (!p || ends.get(way.nodes[end]) !== 1 || Math.abs(p.x) > lim || Math.abs(p.y) > lim) continue;
+        const line = (end === 0 ? way.points : [...way.points].reverse()).filter((q): q is MapPoint => q !== null);
+        const aim = pointAlong(line, Math.min(MOUTH_AIM_M, lineLength(line)));
+        const d = Math.hypot(aim.x - p.x, aim.y - p.y);
+        if (d < 1e-6) continue;
+        mouths.push({ p: { x: round2(p.x), y: round2(p.y) }, inward: { x: (aim.x - p.x) / d, y: (aim.y - p.y) / d }, width: tags.width, tunnel: index });
+      }
+    }
+  }
+  return { tunnels, mouths, short };
+}
+
+/** The point `along` metres down `line` */
+function pointAlong(line: readonly MapPoint[], along: number): MapPoint {
+  let walked = 0;
+  for (let k = 1; k < line.length; k++) {
+    const seg = Math.hypot(line[k].x - line[k - 1].x, line[k].y - line[k - 1].y);
+    if (walked + seg >= along && seg > 0) {
+      const s = (along - walked) / seg;
+      return { x: line[k - 1].x + (line[k].x - line[k - 1].x) * s, y: line[k - 1].y + (line[k].y - line[k - 1].y) * s };
+    }
+    walked += seg;
+  }
+  return line[line.length - 1];
 }
 
 /**
@@ -254,13 +358,13 @@ const round2 = (v: number): number => Math.round(v * 100) / 100;
 export const ROAD_LEVELLING = { shoulder: 3, smoothing: 20 } as const;
 
 /**
- * The ground levelled across every road and path (bridges span theirs):
+ * The ground levelled across every road and path (bridges span theirs, tunnels run under it):
  * paths first, then the roads from narrow to wide, so where they meet the
  * wider road's profile wins
  */
 export function levelRoads(terrain: MapTerrain, paths: MapPaths): void {
   const edges = paths.edges
-    .filter((e) => e.kind !== 'bridge')
+    .filter((e) => e.kind !== 'bridge' && !e.tunnel)
     .sort((a, b) => (a.kind === b.kind ? a.width - b.width : a.kind === 'path' ? -1 : 1));
   // flattenUnderPaths levels the edges in the order of the list it is given
   flattenUnderPaths(terrain, { nodes: paths.nodes, edges }, null, ROAD_LEVELLING);

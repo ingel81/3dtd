@@ -32,7 +32,7 @@ describe('OSM roads', () => {
     expect(paths.edges.find((e) => e.street === 'footway')).toMatchObject({ kind: 'path', width: 2.5, surface: 'sidewalk' });
   });
 
-  it('reads width, lanes and surface, makes bridges and leaves tunnels out', () => {
+  it('reads width, lanes and surface, makes bridges and keeps tunnels as tunnel edges', () => {
     const f = parseOsm({
       elements: [
         way(1, { highway: 'primary', lanes: '4' }, [[-50, 0, 1], [0, 0, 2]]),
@@ -42,14 +42,47 @@ describe('OSM roads', () => {
         way(5, { highway: 'construction' }, [[0, 0, 2], [0, 50, 6]]),
       ],
     }, frame, 1200);
-    const { paths, stats } = buildRoads(f);
+    const { paths, stats, mouths } = buildRoads(f);
     expect(stats.tunnels).toBe(1);
     expect(stats.tunnelM).toBe(260);
-    expect(paths.edges.map((e) => [e.street, e.kind, e.width, e.surface ?? e.style])).toEqual([
+    expect(paths.edges.map((e) => [e.street, e.kind, e.width, e.surface ?? e.style ?? (e.tunnel && 'tunnel')])).toEqual([
       ['primary', 'road', 12, 'asphalt'],
       ['primary', 'bridge', 9.5, 'stone'],
+      ['primary', 'road', 10, 'tunnel'],
       ['service', 'road', 4, 'cobblestone'],
     ]);
+    // Routes run through it: the graph stays one piece from the bridge to the far mouth
+    expect(routeBetween(paths, { x: -50, y: 0 }, { x: 300, y: 0 })!.length).toBeCloseTo(350, 0);
+    expect(mouths.map((m) => [m.p.x, m.inward.x, m.width])).toEqual([[40, 1, 10], [300, -1, 10]]);
+  });
+
+  it('joins tunnel ways end to end, puts mouths only at its open ends inside the map, and keeps short ones as roads', () => {
+    const f = parseOsm({
+      elements: [
+        way(1, { highway: 'primary', tunnel: 'yes' }, [[0, 0, 1], [100, 0, 2]]),
+        way(2, { highway: 'primary', tunnel: 'yes' }, [[100, 0, 2], [100, 100, 3], [1300, 100, 4]]),
+        way(3, { highway: 'footway', tunnel: 'yes' }, [[0, 50, 5], [0, 80, 6]]),
+      ],
+    }, frame, 1200);
+    const { paths, stats, tunnels, mouths } = buildRoads(f);
+    expect(stats).toMatchObject({ tunnels: 1, shortTunnels: 1 });
+    expect(tunnels[0].lines).toHaveLength(2);
+    // Node 2 joins the two ways, node 4 lies off the map: one mouth, at node 1, facing east
+    expect(mouths.map((m) => [m.p.x, m.p.y, m.inward.x])).toEqual([[0, 0, 1]]);
+    expect(paths.edges.find((e) => e.street === 'footway')).toMatchObject({ kind: 'path', surface: 'sidewalk' });
+    expect(paths.edges.find((e) => e.street === 'footway')!.tunnel).toBeUndefined();
+  });
+
+  it('neither levels nor paints a tunnel', () => {
+    const doc = createMapDocument({ id: 't', name: 't', width: 200, depth: 200, cellSize: 2, splatResolution: 256, starter: false });
+    const t = doc.terrain;
+    for (let j = 0; j < t.grid.rows; j++) for (let i = 0; i < t.grid.columns; i++) t.grid.heights[j * t.grid.columns + i] = j * t.grid.cellSize * 0.2;
+    const before = Float32Array.from(t.grid.heights);
+    const f = parseOsm({ elements: [way(1, { highway: 'residential', tunnel: 'yes' }, [[-80, 0, 1], [80, 0, 2]])] }, frame, 100);
+    doc.paths = buildRoads(f).paths;
+    levelRoads(t, doc.paths);
+    expect(t.grid.heights).toEqual(before);
+    expect(paintRoads(t, doc.paths)).toEqual([]);
   });
 
   it('cuts a way at the map edge with a node there, and where the answer cut its nodes off', () => {

@@ -83,6 +83,7 @@ export function mapStreetNetwork(doc: StreetMap): StreetNetwork {
       width: e.width,
     };
     if (e.kind === 'bridge') street.bridge = 'yes';
+    if (e.tunnel) street.tunnel = 'yes';
     streets.push(street);
   }
 

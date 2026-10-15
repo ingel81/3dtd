@@ -238,6 +238,12 @@ export interface MapPathEdge {
    */
   surface?: string;
   /**
+   * Runs in a tunnel (an OSM world's `tunnel=*`): not drawn, levelled or
+   * painted, a portal model stands at each mouth; routes run through it as
+   * through a tunnel on a real place, their height between the mouths
+   */
+  tunnel?: boolean;
+  /**
    * What the road brush built along this edge, so it can be laid anew when
    * the road moves (the editor's; the game ignores it): the ground levelled
    * into an embankment or cutting, the surface painted, the lamps and fences

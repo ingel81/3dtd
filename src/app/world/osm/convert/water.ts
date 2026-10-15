@@ -225,7 +225,7 @@ function roadMask(paths: MapPaths, grid: RasterGrid): Uint8Array {
   const mask = new Uint8Array(grid.n * grid.n);
   const nodes = new Map(paths.nodes.map((p) => [p.id, p]));
   for (const e of paths.edges) {
-    if (e.kind === 'bridge') continue;
+    if (e.kind === 'bridge' || e.tunnel) continue;
     const a = nodes.get(e.a);
     const b = nodes.get(e.b);
     if (!a || !b) continue;
