@@ -610,6 +610,48 @@ export class MapKit {
   }
 
   /**
+   * A quay along a line: the land on one side (`land`: left or right of the
+   * line's direction) level at `top` over 14 m, the water side at `bed` over
+   * `reach` metres (16 by default: wider where the land's slopes reach far into the water), one sheer
+   * step between them that the map's cliff material faces (stone blocks or
+   * concrete: a quay wall, no earth bank), and a promenade on top: bollards
+   * at the edge every `spacing` metres, lamps every second one a few metres
+   * in, where nothing stands in the way. Returns the dressing placed.
+   */
+  quay(
+    line: readonly MapPoint[],
+    o: { top: number; bed: number; land: 'left' | 'right'; reach?: number; spacing?: number; bollard?: string | null; lamp?: string | null },
+  ): MapObject[] {
+    const s = o.land === 'left' ? 1 : -1;
+    const offset = (d: number): MapPoint[] =>
+      resample(line, 2).map((p, k, all) => {
+        const a = all[Math.max(0, k - 1)];
+        const b = all[Math.min(all.length - 1, k + 1)];
+        const dl = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+        return { x: p.x - ((b.y - a.y) / dl) * d, y: p.y + ((b.x - a.x) / dl) * d };
+      });
+    // Land and water each as a strip whose hard edge is the line
+    this.level(offset(s * 7), { radius: 7, falloff: 0.05 }, o.top);
+    const reach = o.reach ?? 16;
+    this.level(offset((-s * reach) / 2), { radius: reach / 2, falloff: 0.05 }, o.bed);
+    const out: MapObject[] = [];
+    const spacing = o.spacing ?? 10;
+    const length = polylineLength(line);
+    for (let d = spacing / 2, n = 0; d < length; d += spacing, n++) {
+      const p = pointAt(line, d);
+      const q = pointAt(line, Math.min(length, d + 1));
+      const dl = Math.hypot(q.x - p.x, q.y - p.y) || 1;
+      const at = (off: number) => ({ x: p.x - ((q.y - p.y) / dl) * off * s, y: p.y + ((q.x - p.x) / dl) * off * s });
+      const water = at(-6);
+      const edge = at(1.4);
+      if (o.bollard !== null && this.free(edge.x, edge.y, 0.6)) out.push(this.place(o.bollard ?? 'bollards', edge.x, edge.y, { rotation: facing(edge, water) + Math.PI / 2 }));
+      const inner = at(4);
+      if (n % 2 === 0 && o.lamp !== null && this.free(inner.x, inner.y, 0.4)) out.push(this.place(o.lamp ?? 'street-lamp', inner.x, inner.y, { rotation: facing(inner, water) }));
+    }
+    return out;
+  }
+
+  /**
    * Walls along the road shoulders where the ground falls away beside the
    * road (an embankment): one piece every `spacing` metres, its front to the
    * drop. Placed with `place`, like a person setting them one by one.

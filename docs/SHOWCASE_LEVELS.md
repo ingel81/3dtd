@@ -22,7 +22,9 @@ geformt wurde, und bricht ab, wenn danach noch ein Objekt oder Wasser in der Luf
 Boote und Bojen über dem Wasser, Laternen neben einem Steg; `water-floating`: ein See, ein Becken oder ein Fluss ohne
 Ufer); `shipped-maps-check.spec.ts` verlangt dasselbe. Ändert ein späterer Schritt das Ufer eines Sees (ein Fluss, eine
 Straße), füllt `fillToRim` ihn bis knapp unter seinen Rand, `fill` lässt ihn bei seinem Spiegel über den tieferen Boden
-laufen.
+laufen. Wo Stadt an Wasser grenzt, baut `quay(line, { top, bed, land })` eine Kaimauer: das Land auf einer Seite eben auf
+`top`, das Wasser auf `bed`, eine senkrechte Stufe dazwischen, die das Klippenmaterial der Karte zeigt (Steinblöcke
+statt Erdböschung), Poller an der Kante und Laternen auf der Promenade.
 
 Packen: `npx vitest run tools/maps/shipped-maps.spec.ts -t <id>` (mit `LEVEL_LOG=1` Spuren, Objekte, Warnungen) (ein Level allein; die Liste in `index.json` behält
 die anderen). Ansehen: `/map-preview?map=<id>&cam=x,y,h,tx,ty,th&clean` (Kamera und Ziel in Kartenmetern, Höhen über

@@ -18,14 +18,17 @@ export function buildHarborTown(): CustomMapDocument {
     seed: 8818,
   });
   for (const m of ['pavers', 'asphalt', 'sidewalk', 'brick-paving', 'concrete', 'sand-coast', 'pebbles', 'grass-leafy']) k.layer(m);
-  k.cliffs('concrete', 45);
+  // The quay walls are the map's only sheer faces: stone blocks, not an earth bank
+  k.cliffs('stone-blocks', 45);
 
   // ---- The land: the town on level ground behind a quay wall, the bay to the south. The city brush levels each
   // block to one height while the streets keep theirs: on the gentle slope the town once stood on, the blocks
   // stood as terraces with earth walls up to 3 m over the streets
   const shore = -156;
+  // The quay's top over the water: a harbour wall, not a cliff
+  const quayTop = 2.6;
   for (let x = -300; x <= 300; x += 60) {
-    for (let y = shore + 20; y <= 300; y += 60) k.level({ x, y }, { radius: 70, falloff: 0.4 }, 4.4);
+    for (let y = shore + 20; y <= 300; y += 60) k.level({ x, y }, { radius: 70, falloff: 0.4 }, quayTop);
     for (let y = shore - 50; y >= -300; y -= 40) k.level({ x, y }, { radius: 45, falloff: 0.4 }, -7);
   }
 
@@ -49,14 +52,15 @@ export function buildHarborTown(): CustomMapDocument {
   k.scatter(['tree-oak', 'tree-maple', 'shrub-wide'], [{ x: -200, y: 230 }, { x: 200, y: 230 }], { radius: 36, strength: 0.8 }, { density: 3, minDistance: 6 });
 
   // ---- The quay: laid after the town's ground, whose smoothing would round its edge. The land's slopes reach
-  // into the bay (they left mounds by the piers): the whole basin first, then the quay wall as one straight step
+  // into the bay (they left mounds by the piers): the whole basin first, then the quay wall as one straight
+  // step from the beach to the east edge, bollards and lamps along its edge (the quay's promenade)
   k.level([{ x: -256, y: shore - 60 }, { x: 256, y: shore - 60 }], { radius: 46, falloff: 0.2 }, -7);
-  k.level([{ x: -256, y: shore + 10 }, { x: 256, y: shore + 10 }], { radius: 11, falloff: 0.05 }, 4.4);
-  k.level([{ x: -256, y: shore - 14 }, { x: 256, y: shore - 14 }], { radius: 12, falloff: 0.05 }, -6);
-  // A beach in the west corner
-  k.ramp({ x: -250, y: shore + 4, h: 4 }, { x: -250, y: shore - 30, h: -2 }, 30, 0.8);
-  // The mole out to the lighthouse
-  k.level([{ x: 150, y: shore }, { x: 190, y: -200 }, { x: 205, y: -228 }], { radius: 9, falloff: 0.3 }, 3);
+  k.quay([{ x: -234, y: shore }, { x: 258, y: shore }], { top: quayTop, bed: -6, land: 'left', reach: 40, spacing: 12 });
+  // A sandy beach in the west corner, down from the quay's end
+  k.ramp({ x: -250, y: shore + 4, h: quayTop }, { x: -250, y: shore - 30, h: -2 }, 30, 0.8);
+  k.paint('sand-coast', { x: -248, y: shore - 12 }, { radius: 18, falloff: 0.6 }, 1);
+  // The mole out to the lighthouse: sheer stone sides like the quay, its top a little under the quay's
+  k.level([{ x: 150, y: shore - 4 }, { x: 190, y: -200 }, { x: 205, y: -228 }], { radius: 6, falloff: 0.05 }, quayTop - 0.4);
   const sea = k.water(0, 'sea', '#24566a');
   k.sea(sea);
 
@@ -64,7 +68,6 @@ export function buildHarborTown(): CustomMapDocument {
   k.erase({ x: 0, y: -130 }, 30);
   k.paint('concrete', [{ x: -256, y: shore + 14 }, { x: 256, y: shore + 14 }], { radius: 16, falloff: 0.4 }, 1);
   k.paint('brick-paving', hq, { radius: 20, falloff: 0.5 }, 1);
-  k.row('harbor-quay', [{ x: -200, y: shore + 3 }, { x: 140, y: shore + 3 }], 12, { turn: Math.PI });
   for (const x of [-90, -40, 60]) if (k.free(x, shore + 12, 6)) k.place('harbor-crane', x, shore + 12, { rotation: Math.PI });
   // The container yard east of the HQ, stacks in rows
   const yard = { x: 100, y: -130 };
