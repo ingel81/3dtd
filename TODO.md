@@ -280,7 +280,6 @@ Nachtest-Liste in `tmp/NEXT_SESSION.md`, kommt nach PLAYTEST.md, wenn der User Z
       weitere Raum-Optionen aus dem Design (D45: Credits je Spieler oder geteilt, Gold senden an/aus, Startgeld,
       Difficulty, Regel bei Abbruch).
 - [ ] **E33 Relay-Rest**: Drain, C5b nach dem Playtest ([COOP_PLAN.md](docs/COOP_PLAN.md) C9).
-- [ ] **E34 Rest**: Perfect, Combo und Comeback für die ganze Welle statt je Spur.
 - [ ] **E101 Rest: weitere Tower-Pfade** (User, 2026-10-02; gebaut ist der Späher des Archers): je Tower ein Pfad, Forschung
       schaltet frei, je Tower einmal gekauft, Anbau oder Modelltausch. Archer: Scharfschütze (Modelltausch, etwa auf die
       Ironclad Ballista, E102), Brandpfeile. Ideen: Rakete Mehrzweck (Boden mit halbem Schaden), Magic Bannsiegel (hebt

@@ -169,6 +169,11 @@ Paket B6, 2026-10-15 nachmittags:
   *Hügel weg, „Stopped“, der Agent meldet „pressed Stop“.* „Let it go on“, dann Spiegeln mit Probelauf: *erst nur eine
   Beschreibung, danach ein Schritt im Verlauf, Ctrl+Z nimmt ihn ganz zurück.* „Öffne Demo Valley“: *eine Kopie öffnet.*
   Schalter aus: *Band weg.*
+- **B6.3 Kameraansichten:** im Spiel Shift+F1: *Meldung „Camera view 1 saved“.* Wegfahren, F1: *Kamera gleitet in
+  etwa 0,7 s zurück, Seite lädt nicht neu.* F3 auf leerem Platz: *Hinweis statt Browser-Suche.* F5 im Lauf: *kein
+  Reload* (Strg+F5 lädt neu). Spielstand speichern, neu laden, laden, F1: *Ansicht wieder da.* H: *Zeilen unter Camera.*
+- **B6.4 Forschung ziehen:** drei Forschungen einreihen, Q: *Griff je Zeile.* Unterste nach oben ziehen: *Reihe bleibt,
+  kein Zurückspringen;* wird ein Slot frei, *startet die oberste.* Pfeile per Tastatur gehen weiter.
 
 ## Eichtabelle
 
