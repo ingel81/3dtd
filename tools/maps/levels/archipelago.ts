@@ -83,7 +83,7 @@ export function buildArchipelago(): CustomMapDocument {
   k.cliffRocks(islands[5].at, { radius: 30 });
   // A sandbank in the open water south of the middle isle, a wreck stranded on it
   const bank = { x: -140, y: -95 };
-  k.level([bank, { x: bank.x + 22, y: bank.y - 8 }], { radius: 18, falloff: 0.5 }, 0.6);
+  k.level([bank, { x: bank.x + 22, y: bank.y - 8 }], { radius: 22, falloff: 0.4 }, 0.6);
   k.roughen(bank, { radius: 24, falloff: 0.8 }, 0.5, 77);
   k.sea(sea);
 
@@ -132,9 +132,8 @@ export function buildArchipelago(): CustomMapDocument {
   for (const [x, y, a] of [[48, shoreY - 50, 'buoy-red'], [96, shoreY - 50, 'buoy-green']] as const) k.place(a, x, y);
   k.place('jetty', -150, 30, { rotation: 0.4, z: 0 });
   // The wreck on the sandbank, heeled over, its cargo strewn on the sand
-  // TODO(E179): a ship wreck model; the rotten boat scaled up stands in
-  k.erase({ x: bank.x + 11, y: bank.y - 4 }, 26);
-  k.place('boat-rotten', bank.x + 11, bank.y - 4, { rotation: 2.2, scale: 4, roll: 0.35, pitch: 0.12, z: -0.3 });
+  k.erase({ x: bank.x + 11, y: bank.y - 4 }, 28);
+  k.place('shipwreck', bank.x + 11, bank.y - 4, { rotation: 1.9 });
   for (const [dx, dy, a] of [[-4, 4, 'barrels-broken'], [3, 6, 'crate'], [16, -6, 'barrel-old'], [-6, -2, 'crate-flat']] as const) k.place(a, bank.x + dx, bank.y + dy, { rotation: dx });
   // Ships out at sea as a backdrop, gulls over the lighthouse rock and the harbour
   // TODO(E190): the lighthouse's turning beam, surf spray on the rocks, gull calls and the sound of the sea
