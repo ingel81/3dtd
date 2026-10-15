@@ -1,4 +1,4 @@
-import { Injectable, computed, effect, signal, untracked } from '@angular/core';
+import { Injectable, Injector, computed, effect, inject, signal, untracked } from '@angular/core';
 import type { ThreeTilesEngine } from '../../three-engine';
 import {
   QUALITY_LEVELS, knobsWith, levelAfterMeasure, levelForGpu, levelValue, mixedOverrides, overrideWorld, qualityFromSearch,
@@ -6,6 +6,7 @@ import {
   type QualityOverrides, type QualitySetting, type QualityWorld, type StoredQuality,
 } from '../../three-engine/render-quality';
 import type { WorldRef } from '../../world/world-ref';
+import { IntroCameraFlightService } from '../world/intro-camera-flight.service';
 
 /**
  * Auto's first measurement: how long it waits after the world stood, GPU
@@ -58,6 +59,8 @@ export class RenderQualityService {
   private gpuName: string | null = null;
   private engine: { engine: ThreeTilesEngine; world: QualityWorld } | null = null;
   private measuring = false;
+  /** The intro flight, looked up when Auto stores its result (it holds the camera services) */
+  private readonly injector = inject(Injector);
 
   /** What the player chose, Auto by default */
   readonly setting = computed<QualitySetting>(() => this.override ?? this.stored().setting);
@@ -222,6 +225,11 @@ export class RenderQualityService {
         const step = QUALITY_LEVELS.indexOf(levelAfterMeasure(measured, p90)) - QUALITY_LEVELS.indexOf(measured);
         level = QUALITY_LEVELS[Math.min(QUALITY_LEVELS.length - 1, Math.max(0, QUALITY_LEVELS.indexOf(base) + step))];
       }
+      // A new level switches the picture (its programs compile, the resolution changes): after the intro
+      // flight, not in its middle, where the frames stood still for seconds on a first start
+      const intro = this.injector.get(IntroCameraFlightService);
+      while (intro.isRunning() && this.engine?.engine === engine && this.setting() === 'auto') await wait(250);
+      if (this.engine?.engine !== engine || this.setting() !== 'auto') return;
       this.store({ ...this.stored(), auto: { gpu, level, measured: true } });
     } finally {
       this.measuring = false;

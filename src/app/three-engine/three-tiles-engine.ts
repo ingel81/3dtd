@@ -1043,15 +1043,21 @@ export class ThreeTilesEngine {
     this.dynamic = range
       ? { controller: new DynamicResolution(knobs.general.scale, range), gpu: this.gpuMeter.open(), gpuTimes: [], intervals: [], lastFrameAt: 0, windowStart: performance.now(), pendingScale: null }
       : null;
-    this.setRenderScale(knobs.general.scale);
+    // Another level or part of one while the world stands: its programs (point lights, the output
+    // through the composer, a map effect switched) compile off the main thread before the next draw,
+    // instead of linking in it. The canvas keeps the last picture meanwhile; a new resolution resized
+    // (and so cleared) it at once, and the frames held back showed black for the seconds of the compile
+    const recompile = !!previous && JSON.stringify(previous.knobs) !== JSON.stringify(knobs) && !this.disposed;
+    if (!recompile) this.setRenderScale(knobs.general.scale);
     this.postProcessing?.setAntialias(knobs.general.antialias, this.canvasMsaa);
     this.postProcessing?.setBloomEnabled(this.bloomWanted && knobs.general.bloom);
     this.world.applyQuality?.(knobs);
-    // Another level or part of one while the world stands: its programs (point lights, the output
-    // through the composer, a map effect switched) compile off the main thread before the next draw,
-    // instead of linking in it
-    if (previous && JSON.stringify(previous.knobs) !== JSON.stringify(knobs) && !this.disposed) {
-      void this.qualityCompile.hold(() => this.compilingForOutput(() => this.renderer.compileAsync(this.scene, this.camera)));
+    if (recompile) {
+      void this.qualityCompile
+        .hold(() => this.compilingForOutput(() => this.renderer.compileAsync(this.scene, this.camera)))
+        .then(() => {
+          if (this.quality?.knobs === knobs && !this.disposed) this.setRenderScale(knobs.general.scale);
+        });
     }
   }
 

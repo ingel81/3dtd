@@ -10,6 +10,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { getTestBed, TestBed } from '@angular/core/testing';
 import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
 import { RenderQualityService } from './render-quality.service';
+import { IntroCameraFlightService } from '../world/intro-camera-flight.service';
 import { QUALITY_STORAGE_KEY, readStoredQuality } from '../../three-engine/render-quality';
 import type { ThreeTilesEngine } from '../../three-engine';
 
@@ -65,6 +66,23 @@ describe('RenderQualityService Auto measurement', () => {
     expect(readers).toHaveLength(0);
     expect(quality.autoMeasured()).toBe(true);
     expect(readStoredQuality().auto?.measured).toBe(true);
+  });
+
+  it('switches to the measured level only after the intro flight, not in its middle', async () => {
+    let flying = true;
+    TestBed.configureTestingModule({ providers: [{ provide: IntroCameraFlightService, useValue: { isRunning: () => flying } }] });
+    const quality = TestBed.inject(RenderQualityService);
+    const { engine, frames } = fakeEngine();
+    quality.attach(engine, { kind: 'custom-map', mapId: 'demo-valley' } as never);
+    quality.worldStood(engine);
+    await vi.advanceTimersByTimeAsync(2000);
+    for (let k = 0; k < 120; k++) frames.push(5);
+    // Measured, but the intro still flies: nothing stored, the level does not change under it
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(quality.autoMeasured()).toBe(false);
+    flying = false;
+    await vi.advanceTimersByTimeAsync(500);
+    expect(quality.autoMeasured()).toBe(true);
   });
 
   it('waits for the first frames, and stores nothing when too few came before the world went', async () => {

@@ -102,7 +102,9 @@ Ein Stufenwechsel zur Laufzeit (Menü oder Auto nach seiner Messung) ändert, wo
 Zahl der Punktlichter, die jedes beleuchtete Material durchläuft, und den Weg durch den Composer. Damit der nächste
 Frame sie nicht alle auf dem Hauptthread linkt (Hafenstadt in der Dämmerung: 2,7 bis 4,3 s Standbild), hält die
 Engine das Zeichnen an, bis `compileAsync` für den neuen Weg fertig ist (`ProgramCompileHold`, höchstens 5 s): das
-Bild steht kurz, die Seite bleibt bedienbar, längster Frame 60 bis 90 ms.
+Bild steht kurz, die Seite bleibt bedienbar, längster Frame 60 bis 90 ms. Eine neue Auflösung setzt sie erst danach: sofort
+gesetzt, leerte die Größenänderung den Canvas, und die angehaltenen Bilder zeigten für die Dauer des Kompilierens
+Schwarz (Ruined City, Hafenstadt: 2,5 s schwarz mitten im Einflug beim ersten Start, siehe unten).
 
 ## Dynamische Auflösung
 
@@ -135,6 +137,8 @@ Bilder je Sekunde) fällt es auf 60 %.
    auf Medium unter 3 ms, wird aus High Ultra (Tiles Ultra, eigene Karten High). Gespeichert mit dem GPU-Namen; eine
    andere GPU (Laptop auf dem anderen Chip) rät neu. Kamen zu wenige Bilder (Welt verlassen, Tab verborgen), bleibt
    nichts gespeichert und die nächste Welt misst neu. Ohne Timer bleibt die Vorauswahl und gilt als geprüft.
+   Das Ergebnis gilt erst nach dem Einflug der Kamera (`IntroCameraFlightService.isRunning`): mitten im Flug
+   wechselte die Stufe sonst Gras, Schatten, Sichtweite und Auflösung auf einmal, nach Sekunden Schwarz.
 3. **Eigene Karten eine Stufe vorsichtiger** als Tiles (`resolveLevel`).
 
 `&quality=<level>` in der URL spielt eine Stufe für diesen Seitenaufruf, ohne sie zu speichern (Grafik-Benchmark je
