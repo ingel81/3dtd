@@ -123,7 +123,7 @@ const FORMS = ['mountain', 'valley', 'plateau', 'crater', 'dunes'] as const;
 const BIOME_IDS = BIOMES.map((b) => b.id);
 const WATER_KINDS = ['water', 'sea', 'swamp', 'ice', 'lava'] as const;
 const PATH_KINDS = ['road', 'path', 'bridge'] as const;
-const BRIDGE_STYLES = ['wood', 'stone', 'lava'] as const;
+const BRIDGE_STYLES = ['wood', 'stone', 'concrete', 'lava'] as const;
 const SYMMETRIES = ['none', 'x', 'y', 'xy', 'rot2', 'rot4'] as const;
 const SOUND_IDS = Object.keys(AMBIENT_SOUNDS).join('|');
 const WAVE_SOUND_IDS = Object.keys(WAVE_SOUNDS).join('|');
@@ -244,8 +244,8 @@ export const SCRIPT_OPS: Readonly<Record<string, OpSpec>> = {
   mergeNodes: { args: [a('from', STRING), a('into', STRING)], doc: 'Join node `from` onto node `into`: its roads end there' },
   removeNode: { args: [a('node', STRING)], doc: 'Delete a road node with its roads' },
   dissolveNode: { args: [a('node', STRING)], doc: 'Remove a node between exactly two roads and join them into one, the curve kept' },
-  connectNodes: { args: [a('from', STRING), a('to', STRING), a('options', OBJECT, true)], doc: 'A road between two nodes; options { width 8, kind: road|path|bridge, style: wood|stone|lava }; returns the edge id' },
-  editRoads: { args: [a('edgeIds', STRINGS), a('patch', OBJECT)], doc: 'Width, kind or bridge style of roads: { width, kind: road|path|bridge, style: wood|stone|lava }; a road the brush built is laid anew' },
+  connectNodes: { args: [a('from', STRING), a('to', STRING), a('options', OBJECT, true)], doc: 'A road between two nodes; options { width 8, kind: road|path|bridge, style: wood|stone|concrete|lava }; returns the edge id' },
+  editRoads: { args: [a('edgeIds', STRINGS), a('patch', OBJECT)], doc: 'Width, kind or bridge style of roads: { width, kind: road|path|bridge, style: wood|stone|concrete|lava }; a road the brush built is laid anew' },
   roadSurface: { args: [a('edgeIds', STRINGS), a('material', STRING)], doc: "The roads' own ground material (asphalt, pavers, cobblestone, gravel ...), painted under them and kept when their dressing is laid anew; 'none' gives the drawn road with cobbles and ruts back; bridges and tunnels are left out" },
   smoothRoad: { args: [a('edge', STRING), a('spacing', num(1, 100), true)], doc: 'Round a road into a smooth curve (curve points every `spacing` metres, 8)' },
   straightenRoad: { args: [a('edge', STRING)], doc: 'A road straight from node to node' },

@@ -1147,7 +1147,7 @@ export class MapKit {
     }
   }
 
-  /** The bridge style (wood, stone, lava) of every bridge edge, or of those near a point */
+  /** The bridge style (wood, stone, concrete, lava) of every bridge edge, or of those near a point */
   bridgeStyle(style: MapBridgeStyle, near?: MapPoint, within = 40): void {
     const paths = this.doc.paths;
     for (const e of paths.edges) {

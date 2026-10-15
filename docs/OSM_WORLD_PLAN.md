@@ -825,6 +825,12 @@ Fall in `import-osm.spec.ts` auf der eingefrorenen Probe (Ausstattung im Anteil,
   ergänzten Laternen, dann die Punkte, dann die Gleise, zuletzt die Linien. Die Kosten je Asset rechnet `assetCosts`
   (früher `plantCosts`, jetzt Pflanzen und Ausstattung; Option `costs` statt `plantCosts`).
 - **Gruppen:** die Stücke einer Linie tragen `group: osm-w<Weg-Id>`, der Editor verschiebt einen Zaun im Ganzen.
+- **Brückenstil `concrete`:** neues Deckstück `bridge-deck-concrete` (`build_structures.py`, 332 Dreiecke: Asphalt auf
+  Betonplatte und Kastenträger, Betonkante und verzinktes Geländer an beiden Rändern; Format wie die anderen, 4 m
+  entlang X, 1 m breit, Oberkante 0). `MapBridgeStyle` kennt `concrete`, die Dateiprüfung und `map-script` auch. Die
+  OSM-Welt wählt nach `bridge:material` bzw. `material`: Holz, Stein (auch Mauerwerk, Ziegel, `bridge:structure=arch`),
+  Beton (auch Stahl); ohne Angabe ist eine Straßenbrücke aus Beton, eine Wegbrücke aus Stein (vorher alles ohne
+  Holz Stein). Miltenberg: die Mainbrücke (293 m) Beton, der Fußweg daneben Stein.
 
 ### Messungen O5 (2026-10-16)
 
@@ -859,8 +865,6 @@ Die Ausstattung kostet rund 1 bis 3 % Draw Calls und 3 bis 5 % Dreiecke; die Bil
 
 ### Offen nach O5
 
-- **Brückenstil `concrete`:** nicht gebaut; braucht ein Deckstück `bridge-deck-concrete` im Format der anderen
-  (4 m entlang X, 1 m breit, Oberkante 0) und den Stil in `MapBridgeStyle`, Dateiprüfung und Editor.
 - **Fehlende Modelle:** Leitplanke, Stromleitung zwischen den Masten, Bahnsteigkante, Oberleitung, Schaltkasten
   (`man_made=street_cabinet`, Miltenberg 154), Fahnenmast.
 - **Gleise am Hang:** die Stücke folgen dem Boden ohne Einebnen; auf einem steilen Bahndamm kippen sie nicht mit.

@@ -12,6 +12,7 @@ export const BRIDGE_ASSET = 'bridge-deck';
 export const BRIDGE_STYLE_ASSETS: Record<MapBridgeStyle, string> = {
   wood: BRIDGE_ASSET,
   stone: 'bridge-deck-stone',
+  concrete: 'bridge-deck-concrete',
   lava: 'bridge-deck-lava',
 };
 const PIECE_LENGTH = 4;
@@ -22,7 +23,8 @@ const PIECE_LENGTH = 4;
  * (bridgeDecks, the one the game and the editor walk on) runs from the
  * terrain height at each end (at least a little over the water) with a
  * slight arch, so roads on both banks meet it. The edge's `style`
- * picks the piece (wood, stone, basalt for lava maps).
+ * picks the piece (wood, stone, concrete with a railing, basalt for lava
+ * maps).
  */
 export class BridgeLayer {
   readonly group = new Group();

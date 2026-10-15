@@ -47,7 +47,7 @@ describe('OSM roads', () => {
     expect(stats.tunnelM).toBe(260);
     expect(paths.edges.map((e) => [e.street, e.kind, e.width, e.surface ?? e.style ?? (e.tunnel && 'tunnel')])).toEqual([
       ['primary', 'road', 12, 'asphalt'],
-      ['primary', 'bridge', 9.5, 'stone'],
+      ['primary', 'bridge', 9.5, 'concrete'],
       ['primary', 'road', 10, 'tunnel'],
       ['service', 'road', 4, 'cobblestone'],
     ]);
