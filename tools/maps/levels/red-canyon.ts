@@ -175,10 +175,18 @@ export function buildRedCanyon(): CustomMapDocument {
   }
   k.scatter(['bones', 'bone-pile', 'cactus', 'tree-dead-pale'], [{ x: -120, y: -100 }, { x: 60, y: 60 }, { x: -40, y: 160 }], { radius: 50, strength: 0.6 }, { density: 0.6, minDistance: 12 });
 
-  // Vultures circling over the junction and the temple
-  k.place('fx-birds', j.x, j.y, { z: 30, scale: 0.8, tint: '#2a2220' });
-  k.place('fx-birds', hq.x - 40, hq.y + 30, { z: 40, scale: 0.6, tint: '#2a2220' });
-  // TODO(E190): dust devils on the plain, heat shimmer over the canyon floor, wind through the canyon
+  // ---- Life: vultures circling over the junction and the temple, dust devils wandering the plain and the basins,
+  // heat shimmer over the canyon floors, the wind of the desert and louder through the canyons
+  const around = (c: MapPoint, r: number): MapPoint[] => Array.from({ length: 8 }, (_, i) => ({ x: c.x + Math.cos((i / 8) * Math.PI * 2) * r, y: c.y + Math.sin((i / 8) * Math.PI * 2) * r }));
+  k.lifeArea('birds', around(j, 60), { species: 'raptors' });
+  k.lifeArea('birds', around({ x: hq.x - 30, y: hq.y + 20 }, 55), { species: 'raptors', density: 0.7 });
+  k.lifeArea('dust', [{ x: 90, y: 175 }, { x: 240, y: 175 }, { x: 240, y: 245 }, { x: 90, y: 245 }]);
+  k.lifeArea('dust', [{ x: -245, y: -105 }, { x: -150, y: -125 }, { x: -130, y: -235 }, { x: -245, y: -235 }]);
+  k.lifeArea('dust', [{ x: -245, y: 40 }, { x: -110, y: 40 }, { x: -110, y: 130 }, { x: -245, y: 130 }], { density: 0.7 });
+  k.lifeArea('dust', around({ x: j.x + 10, y: j.y - 10 }, 32), { density: 0.6 });
+  for (const line of [westCanyon, northCanyon, southCanyon]) k.lifeRoute('haze', line, { density: 0.8 });
+  for (const line of [westCanyon, northCanyon]) k.lifeRoute('sound', line, { sound: 'wind', volume: 0.5 });
+  k.lifeSettings({ ambience: { sound: 'biome', volume: 0.4 } });
 
   // Seven ground materials: the least used goes (each one is 8 MB of pixels to load)
   k.trimLayers(7);
