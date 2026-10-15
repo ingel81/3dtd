@@ -312,6 +312,32 @@ Hochspannungsmast. Der Katalog hat heute Dorf-, Burg-, Wüsten- und einige Stadt
 `brick-block`, `office-tower`, `shop`, `warehouse`); eine deutsche Kleinstadt sähe ohne neue Modelle wie ein Dorf mit
 Plattenbauten aus.
 
+**Gebaut (O6, 2026-10-15, `build_modern.py`):** Maße der Wände als Breite (X, Front) mal Tiefe, für die
+Wahl nach `box` in O4; Dachüberstände, Vordächer, Anbauten und Rampen kommen dazu (gemessene Hüllen in `pack_models.py`,
+`report.json`). Stockwerke stehen im Namen.
+
+| OSM-Art (Vorschlag) | Modell | Maße, Geschosse |
+|---|---|---|
+| `house`, `detached` | `house-modern`, `house-modern-red` | 10 × 8,6 bzw. 9 × 8,2 m, 2 |
+| `semidetached_house` | `house-semi` | 14 × 9 m, 2 |
+| `terrace` | `house-terrace` (Modul, Seiten blind), `house-terrace-row` | 6 × 10 bzw. 24 × 10 m, 2 |
+| `garage`, `garages` | `garage`, `garage-row` | 3 × 6 bzw. 15 × 6 m |
+| `shed`, `hut` (Garten) | `garden-shed` | 2,2 × 2,6 m |
+| `carport`, `roof` | `carport`, `carport-double`, `station-canopy` | 3,2 × 5,6, 6,4 × 5,6, 22 × 13 m |
+| `apartments`, `residential` (Innenstadt) | `block-row-4`, `block-row-6`, `block-corner-4`, `block-corner-6` | 15 × 12, 16 × 13, 14 × 14, 15 × 15 m; 4 bzw. 6 |
+| `office`, `commercial` | `office-mid`, `office-high` | 24 × 14 m, 5; 22 × 18 m, 8 |
+| `retail`, `supermarket` | `supermarket`, `hall-flat` | 40 × 26, 30 × 20 m |
+| `industrial`, `warehouse` (groß) | `industrial-hall` | 60 × 30 m, dazu ein Bürotrakt 10 × 9 m an der Westseite |
+| `school`, `university`, `public` | `school` | 46 × 14 m, 3 |
+| `townhall`, `civic` | `town-hall` | 30 × 15 m, 3 |
+| `church` | `town-church` | Schiff 26 × 13 m mit Turm, gesamt rund 33 × 14 m |
+| `train_station` | `station` | 28 × 11 m, 2 |
+| `parking` (Parkhaus) | `parking-garage` | 32 × 40 m, 4 Decks, Treppenturm vorn links, Rampe hinten (Hülle 37 × 54 m) |
+| `greenhouse`, `kiosk`, `transformer_tower` | `greenhouse`, `kiosk`, `transformer-station` | 6 × 12 (Giebel vorn), 4 × 3, 3,6 × 2,6 m |
+
+Ohne Gebäude: `rail-track`, `rail-platform`, `catenary-mast`, `buffer-stop`, `power-pylon`, `vine-row`, `fruit-tree`,
+`playground-swing`, `playground-slide`, `football-goal`, `fountain` (CUSTOM_MAPS.md, Katalog).
+
 ## Phasen
 
 Aufwand in Arbeitstagen eines Workers, geschätzt.

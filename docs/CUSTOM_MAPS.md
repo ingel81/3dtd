@@ -708,6 +708,21 @@ Bestand baut der Asset-Worker aus; Stand beim Schreiben:
   sie nach dem AO-Backen ab (`blender_kit.split_spin`); spin-Materialien brauchen Werte, die kein anderes Material des
   Modells hat, sonst führt glTF-Transform sie zusammen. Gedreht wird noch nichts: `collectParts` backt alle Knoten
   flach und `merge-parts.ts` fasst einfarbige Materialien zusammen, das Drehen gehört zu E190
+- **Heutige Gebäude für OSM-Welten** (O6, `build_modern.py`, Tag `city`, einige auch `village`/`temperate`): ein Satz
+  Materialien für alle (gestrichener Putz in wenigen Tönen, anthrazit oder rote Dachziegel, weiße Fenster in echten
+  Laibungen, Rollläden, Zinkrinnen, Betonsockel). Wohnen: `house-modern` (10 × 8,6 m, PV), `house-modern-red`
+  (9 × 8,2 m), `house-semi` (14 × 9 m), `house-terrace` (6 × 10 m, Seiten blind und bündig für Reihen),
+  `house-terrace-row` (vier Häuser, 24 × 10 m), alle zwei Geschosse mit Satteldach. Nebengebäude: `garage` (3 × 6 m),
+  `garage-row` (15 × 6 m), `garden-shed`, `carport`, `carport-double`, `station-canopy` (22 × 13 m, ohne Marke),
+  `greenhouse` (6 × 12 m), `kiosk`, `transformer-station`. Innenstadt: `block-row-4` und `block-row-6` (15 × 12 bzw. 16 × 13 m,
+  Seiten blind) und `block-corner-4`/`-6` (14 × 14 bzw. 15 × 15 m, Straßenfront vorn und links), Läden im Erdgeschoss
+  der Straßenseiten. Gewerbe: `office-mid` (5 Geschosse, 24 × 14 m), `office-high` (8, 22 × 18 m), `supermarket`
+  (40 × 26 m), `hall-flat` (30 × 20 m), `industrial-hall` (60 × 30 m, Bürotrakt im Westen). Öffentlich: `school` (46 × 14 m,
+  3 Geschosse), `town-hall` (30 × 15 m), `town-church` (Schiff 26 × 13 m, Turm 50 m), `station` (28 × 11 m, Bahnsteigdach
+  hinten), `parking-garage` (32 × 40 m, 4 Decks, Rampe hinten). Ohne Gebäude: `rail-track` (10 m entlang X),
+  `rail-platform` (20 × 4 m, Kante vorn), `catenary-mast` (Ausleger nach hinten), `buffer-stop`, `power-pylon` (47 m),
+  `vine-row` (10 m entlang X), `fruit-tree`, `playground-swing`, `playground-slide`, `football-goal`, `fountain`.
+  Front ist die Tür- bzw. Ladenseite; Carports, Tankstellendach und Gewächshaus sperren keine Sicht
 - **9 Effekt-Marker** (`fx-*`, `file: ''`): Glühwürmchen, Rauch, Glut, Bodennebel, Laub, Schnee, Funkeln, Wasserfall
 - **Tags**: Biome `temperate`, `autumn`, `winter`, `mountain`, `desert`, `swamp`, `coast`, `volcanic`, `village`,
   `castle`, `crystal`, `arena`, `city`, `wasteland`, `moon`, `mars`, `arctic`, `hell`; Rollen für Pinsel `conifer`,

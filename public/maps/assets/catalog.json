@@ -14239,7 +14239,7 @@
     },
     {
       "id": "catenary-mast",
-      "name": "Overhead line mast (arm over +Z)",
+      "name": "Overhead line mast (arm reaches back over the track)",
       "category": "prop",
       "file": "models/catenary-mast.glb",
       "triangles": 174,
