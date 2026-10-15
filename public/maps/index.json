@@ -12,7 +12,7 @@
       "spawns": 2,
       "biome": "temperate",
       "updatedAt": "1970-01-01T00:00:00.000Z",
-      "contentHash": "bb01b335dc9425ad36fab86595b0e7f07a120d58c9cf90bfe12f595f9c8e0f7d"
+      "contentHash": "64fa949329aaa09d2783eb58fdb4918d902ccb8f9f5a444b51bc8ef611a4f7ea"
     },
     {
       "id": "mountain-pass",
@@ -26,7 +26,7 @@
       "spawns": 2,
       "biome": "mountain",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "775958cf8eb153515f8596e10d79afe345c76adb282a2832cc70181538586f6f"
+      "contentHash": "c6644306fd79af5397cd782b99dbbf48798caa54c5718de25248d029d56cb78c"
     },
     {
       "id": "witch-marsh",
@@ -40,7 +40,7 @@
       "spawns": 2,
       "biome": "swamp",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "1259622fc52d59cac070077ca8f74741cbf40cfe17b0394424d0384f4ff0d8ec"
+      "contentHash": "454496e7848c1480fdb5383088d4f6d53be57ceeb09f9b61461d5a875d0a60f6"
     },
     {
       "id": "autumn-keep",
@@ -54,7 +54,7 @@
       "spawns": 3,
       "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "9b83c38d7f43d2432bd549312fd60a24c940c58c04e797c42e409b3b04bfa80a"
+      "contentHash": "1bbeed394ac06f1a716a63b3b8b2ec57257d9c79e6259ae4c1735668e07ba9a4"
     },
     {
       "id": "red-canyon",
@@ -124,7 +124,7 @@
       "spawns": 4,
       "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "5e48e0820db5123c5c92e3c509c2239ba47e79d8033b02191d23ae5bb9380bb8"
+      "contentHash": "a025f9a4e2c5144e1f5c5345d447b4a08c6fa6ff771671b2340c46455d53ed65"
     },
     {
       "id": "moon-base",
