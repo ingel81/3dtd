@@ -192,6 +192,15 @@ describe('map scripts', () => {
     expect(heightAt(kit.doc.terrain, 40 + 4 * r + 12, 20)).toBeCloseTo((40 + 4 * r + 12) * 0.25, 3);
   });
 
+  it('levels no ground under a hut on stilts, which stands over its shore as it is', () => {
+    const kit = new MapKit(map(), index, { name: 't', seed: 7 });
+    const g = kit.doc.terrain.grid;
+    for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) g.heights[j * g.columns + i] = (i * g.cellSize - 128) * 0.25;
+    const before = Float32Array.from(g.heights);
+    kit.place('hut-stilts', 0, 20);
+    expect(Array.from(g.heights)).toEqual(Array.from(before));
+  });
+
   it('turns into the same kit run as a level script', () => {
     const doc = map();
     ok(run(`map.raise({ x: 0, y: 0 }, { radius: 20 }, 3);`, doc));

@@ -6405,6 +6405,7 @@
       "id": "hut-stilts",
       "name": "Hut on stilts",
       "category": "building",
+      "stilts": true,
       "file": "models/hut-stilts.glb",
       "triangles": 326,
       "footprint": 3.3,

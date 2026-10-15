@@ -14,6 +14,8 @@ export interface ObjectFooting {
   float?: boolean;
   /** Stands in the air by design (a bridge, a cable span) */
   aloft?: boolean;
+  /** Stands on legs over uneven or wet ground: placing it levels nothing */
+  stilts?: boolean;
 }
 
 /**

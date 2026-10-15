@@ -141,6 +141,11 @@ export interface CatalogObject {
    * of objects in the air leaves it out.
    */
   aloft?: boolean;
+  /**
+   * Stands on legs over uneven or wet ground (a hut on stilts at a shore):
+   * placing it levels no ground, which moved the bank and stranded water
+   */
+  stilts?: boolean;
   /** Lower detail models by camera distance */
   lod?: { file: string; distance: number; triangles?: number }[];
 }
