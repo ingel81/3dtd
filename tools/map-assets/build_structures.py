@@ -660,7 +660,9 @@ def chapel(name):
 
 
 def windmill(name):
-    """Tower mill: tapered plastered tower, thatched cap, four sails on the front (-Y)"""
+    """Tower mill: tapered plastered tower on a stone base, a reefing stage round it on struts with a
+    railing, a door with a canopy and windows climbing the tower, a thatched cap with a tail pole down to
+    the stage, four lattice sails on the front (-Y) with their cloth half furled"""
     clear_scene()
     walls = Part(pbr_material('wall-beige_wall_001', 'beige_wall_001'), smooth=True)
     stone = Part(pbr_material('stone-slates', 'castle_wall_slates'), uv_metres=2.0)
@@ -669,14 +671,40 @@ def windmill(name):
     cloth = Part(two_sided(pbr_material('cloth-hessian', 'hessian_230', (1.15, 1.1, 1.0))))
     dark = Part(flat_material('window', (0.05, 0.06, 0.07), 0.2, 0.3))
     h = 10.0
+
+    def radius(z):
+        return 3.5 - 0.9 * (z - 1.0) / (h - 1.0)
+
     tube(stone, [Vector((0, 0, -0.5)), Vector((0, 0, 1.0))], [3.7, 3.6], 16)
     tube(walls, [Vector((0, 0, 1.0)), Vector((0, 0, h))], [3.5, 2.6], 16)
     cone_roof(thatch, 0, 0, h, 3.0, 3.6, 16)
+    tube(wood, [Vector((0, 0, h - 0.1)), Vector((0, 0, h + 0.15))], [3.05, 3.05], 16)
+    # Door with a canopy, windows round the tower
     box(wood, 0, -3.5, 0, 1.3, 0.2, 2.4)
-    for z in (4.0, 7.0):
-        box(dark, 0, -3.2 + (z - 1) * 0.1, z, 0.7, 0.2, 0.9)
+    oriented_box(wood, Vector((-0.9, -3.9, 2.7)), Vector((0.9, -3.9, 2.7)), 0.12)
+    box(thatch, 0, -3.75, 2.6, 2.0, 0.8, 0.12)
+    for k, z in enumerate((3.2, 6.2, 8.4)):
+        a = -math.pi / 2 + (k - 1) * 1.2
+        r = radius(z) + 0.02
+        box(dark, math.cos(a) * r, math.sin(a) * r, z, 0.2, 0.7, 0.9, a)
+    # Stage at 4.6 m on struts, a railing round it
+    zs = 4.6
+    tube(wood, [Vector((0, 0, zs - 0.15)), Vector((0, 0, zs))], [radius(zs) + 1.4, radius(zs) + 1.4], 16, cap=True)
+    for k in range(8):
+        a = k / 8 * math.tau
+        d = Vector((math.cos(a), math.sin(a), 0))
+        oriented_box(wood, d * (radius(2.6) + 0.05) + Vector((0, 0, 2.6)), d * (radius(zs) + 1.2) + Vector((0, 0, zs - 0.15)), 0.14)
+        oriented_box(wood, d * (radius(zs) + 1.3) + Vector((0, 0, zs)), d * (radius(zs) + 1.3) + Vector((0, 0, zs + 1.0)), 0.08)
+    pts = [Vector((math.cos(k / 16 * math.tau) * (radius(zs) + 1.3), math.sin(k / 16 * math.tau) * (radius(zs) + 1.3), zs + 1.0)) for k in range(17)]
+    for a, b in zip(pts, pts[1:]):
+        oriented_box(wood, a, b, 0.07)
+    # Tail pole from the cap down to the stage at the back
+    oriented_box(wood, Vector((0, 2.4, h + 0.3)), Vector((0, radius(zs) + 1.1, zs + 0.3)), 0.22)
+    oriented_box(wood, Vector((0, 1.6, h - 0.2)), Vector((0, radius(zs) + 0.6, zs + 1.6)), 0.12)
+    # Sails: stock, whips, bars across, the cloth on the inner half
     hub = Vector((0, -3.3, h + 0.6))
     box(wood, 0, -2.9, h + 0.45, 0.4, 1.2, 0.4)
+    tube(wood, [hub + Vector((0, 0.3, 0)), hub + Vector((0, -0.3, 0))], [0.45, 0.35], 10, cap=True)
     for k in range(4):
         a = k / 4 * math.tau + math.radians(20)
         arm = Vector((math.cos(a), 0, math.sin(a)))
@@ -684,12 +712,13 @@ def windmill(name):
         tip = hub + arm * 7.0
         oriented_box(wood, hub, tip, 0.22)
         a0 = hub + arm * 1.4
-        corners = [a0, tip, tip + side * 1.6, a0 + side * 1.6]
+        oriented_box(wood, a0 + side * 1.6, tip + side * 1.6, 0.08)
+        for t in range(9):
+            p = hub + arm * (1.4 + 5.6 * t / 8)
+            oriented_box(wood, p, p + side * 1.6, 0.06)
+        corners = [a0, a0 + arm * 3.4, a0 + arm * 3.4 + side * 1.6, a0 + side * 1.6]
         corners = [c + Vector((0, -0.12, 0)) for c in corners]
-        cloth.quad(corners, [(0, 0), (2.8, 0), (2.8, 0.7), (0, 0.7)])
-        for t in (0.3, 0.55, 0.8, 1.0):
-            p = hub + arm * (1.4 + 5.6 * t)
-            oriented_box(wood, p, p + side * 1.6, 0.08)
+        cloth.quad(corners, [(0, 0), (1.7, 0), (1.7, 0.7), (0, 0.7)])
     export(name, [stone.to_object(name + '-base'), walls.to_object(name), thatch.to_object(name + '-roof'),
                   wood.to_object(name + '-wood'), cloth.to_object(name + '-sails'), dark.to_object(name + '-windows')])
 

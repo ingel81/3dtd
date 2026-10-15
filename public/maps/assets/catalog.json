@@ -6475,7 +6475,7 @@
       "name": "Windmill",
       "category": "building",
       "file": "models/windmill.glb",
-      "triangles": 1110,
+      "triangles": 3888,
       "footprint": 5.9,
       "height": 17.2,
       "blocksLos": true,
