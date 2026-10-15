@@ -129,8 +129,12 @@ export function heightFogFragment(worldPos: string): string {
   float amount = fogBaseDensity * (fogPath * (exp(-k * max(camHeight, -50.0)) * along + 0.1) + farPath * 0.9);
   float fogFactor = 1.0 - exp(-max(amount, 0.0));
   // Land beyond the map's border is backdrop: it sinks into the haze within 160 m, so the map stands out as the place
+  // (the backdrop range's upper flanks keep less of it, apron-material.ts)
+  #ifndef FOG_BEYOND_KEEP
+  #define FOG_BEYOND_KEEP 1.0
+  #endif
   vec2 beyond = abs(${worldPos}.xz - uFogMap.xy) - uFogMap.zw;
-  fogFactor = max(fogFactor, smoothstep(-20.0, 160.0, max(beyond.x, beyond.y)) * uFogBeyond);
+  fogFactor = max(fogFactor, smoothstep(-20.0, 160.0, max(beyond.x, beyond.y)) * uFogBeyond * FOG_BEYOND_KEEP);
   float sunward = pow(max(dot(fogRay / max(fogDist, 1e-3), uFogSunDir), 0.0), 8.0);
   // Fog is applied in output space (as three does). three hands fogColor over in that space already
   // (getUnlitUniformColorSpace: sRGB into the canvas, linear into a post target); only the sun's
