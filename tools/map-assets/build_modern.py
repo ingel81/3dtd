@@ -89,7 +89,7 @@ def punched_wall(part, face, u0, u1, z0, z1, openings, t=T):
         return not any(abs(cu - u) < w / 2 and zb < cz < zt for u, w, zb, zt in openings)
 
     bm = part.bm
-    out = face.n * (face.depth / 2)
+    out = face.n * (face.depth / 2) + getattr(face, 'off', Vector((0, 0, 0)))
     verts = {}
 
     def v(i, j, back):
@@ -636,8 +636,181 @@ def city_house(name, w, d, floors, tint, roof='gable', street=(0,), blank=(1, 3)
     export(name, kit.objects(name), lod=lod)
 
 
+def roof_plant(kit, w, d, z, rnd, units=3):
+    """Plant on a flat roof: a stair house, air handling boxes, vent pipes"""
+    box(kit.walls(PALE_GREY), -w * 0.28, d * 0.12, z, 3.0, 2.4, 2.6)
+    box(kit.metal, -w * 0.28, d * 0.12, z + 2.6, 3.2, 2.6, 0.12)
+    for k in range(units):
+        x, y = rnd.uniform(-w / 2 + 2, w / 2 - 2), rnd.uniform(-d / 2 + 1.5, d / 2 - 1.5)
+        box(kit.metal, x, y, z, 2.2, 1.2, 1.3)
+        tube(kit.door, [Vector((x, y, z + 1.3)), Vector((x, y, z + 1.36))], [0.4, 0.4], 10, cap=True)
+    for k in range(units + 1):
+        x, y = rnd.uniform(-w / 2 + 1, w / 2 - 1), rnd.uniform(-d / 2 + 1, d / 2 - 1)
+        tube(kit.metal, [Vector((x, y, z)), Vector((x, y, z + 1.0))], [0.12, 0.12], 8, cap=True)
+
+
+def office(name, w, d, floors, band_asset=None, band_tint=(1.0, 1.0, 1.0), fh=3.5, ground=4.5, fin=1.5, seed=0, lod=900):
+    """Office building with ribbon windows: solid spandrel bands between the storeys, a glass ribbon set
+    back behind them, vertical aluminium fins over the full height, a glazed lobby with a canopy, roof
+    plant behind a parapet"""
+    clear_scene()
+    rnd = random.Random(seed)
+    kit = Kit(frame=(0.16, 0.17, 0.18))
+    if band_asset:
+        bands = Part(pbr_material('band-' + band_asset, band_asset, band_tint), uv_metres=3.0, bevel=0.0)
+        kit.extra.append(bands)
+    else:
+        bands = kit.walls(WHITE)
+    top = PLINTH + ground + (floors - 1) * fh
+    base(kit, w, d)
+    # Glass core behind the bands, the lobby glazing on the ground floor
+    box(kit.glass, 0, 0, PLINTH, w - 0.5, d - 0.5, top - PLINTH)
+    for k in range(4):
+        face = Face(k, w, d)
+        L = face.length
+        face.box(kit.plinth, 0, -0.1, PLINTH + ground - 0.6, L, 0.2, 0.6)
+        for f in range(1, floors):
+            z = PLINTH + ground + (f - 1) * fh
+            face.box(bands, 0, -0.15, z + fh - 1.05, L, 0.3, 1.05)
+        face.box(bands, 0, -0.15, top, L, 0.3, 1.2)
+        n = max(2, int(L / fin))
+        for i in range(n + 1):
+            u = -L / 2 + i * L / n
+            face.box(kit.frames, u, 0.05, PLINTH + ground - 0.6, 0.1, 0.3, top - PLINTH - ground + 0.6)
+            face.box(kit.frames, u, -0.2, PLINTH, 0.08, 0.1, ground - 0.6)
+        face.box(kit.frames, 0, -0.2, PLINTH + 2.6, L, 0.1, 0.08)
+    front = Face(0, w, d)
+    front.box(kit.door, 0, -0.22, PLINTH, 3.2, 0.06, 2.6)
+    front.box(kit.metal, 0, 1.6, PLINTH + 3.4, 7.0, 3.6, 0.25)
+    for s in (-1, 1):
+        front.box(kit.frames, s * 3.2, 3.0, 0.0, 0.18, 0.18, PLINTH + 3.4)
+    flat = Part(pbr_material('roof-bitumen', 'bitumen', (0.8, 0.8, 0.8)), uv_metres=3.0, bevel=0.0)
+    box(flat, 0, 0, top + 0.9, w - 0.6, d - 0.6, 0.05)
+    kit.extra.append(flat)
+    for k in range(4):
+        face = Face(k, w, d)
+        face.box(kit.metal, 0, -0.1, top + 1.2, face.length + 0.04, 0.34, 0.05)
+    roof_plant(kit, w * 0.8, d * 0.7, top + 0.95, rnd)
+    export(name, kit.objects(name), lod=lod)
+
+
+class Moved:
+    """A Face whose boxes and walls land shifted by `off` (annexes beside the main body)"""
+
+    def __init__(self, face, off):
+        self.face, self.off = face, off
+        self.u, self.n, self.length, self.depth = face.u, face.n, face.length, face.depth
+
+    def box(self, part, u, n, z, su, sn, sz):
+        c = self.u * u + self.n * (self.depth / 2 + n) + self.off
+        box(part, c.x, c.y, z, su, sn, sz, self.face.angle)
+
+
+def hall(name, w, d, h, wall_asset, wall_tint=(1.0, 1.0, 1.0), roof='flat', shop=False, doors=2, annex=False, lod=300):
+    """Big shed of panels on a concrete base: `shop` gives a supermarket front (a glazed entrance with a
+    canopy, a fascia stripe, a trolley shelter); otherwise roller doors on the front. `roof`: flat behind a
+    parapet with roof lights, or a shallow gable (industrial). `annex`: a two-storey office block at the west
+    end. A band of high windows on the long sides, a loading door at the back"""
+    clear_scene()
+    kit = Kit(frame=(0.2, 0.21, 0.22))
+    panels = Part(pbr_material('panel-' + wall_asset + '-' + '-'.join('%.2f' % c for c in wall_tint), wall_asset, wall_tint),
+                  uv_metres=4.0, bevel=0.0)
+    shutter = Part(pbr_material('door-shutter', 'painted_metal_shutter', (1.2, 1.2, 1.2)), uv_metres=3.0, bevel=0.0)
+    kit.extra += [panels, shutter]
+    sock = 1.2
+    box(kit.plinth, 0, 0, -FOUNDATION, w + 0.1, d + 0.1, FOUNDATION + sock)
+    for k in range(4):
+        face = Face(k, w, d)
+        L = face.length
+        u0, u1 = (-L / 2, L / 2) if k % 2 == 0 else (-L / 2 + T, L / 2 - T)
+        ops = []
+        if k in (0, 2) and h > 6:
+            n = int(L // 6)
+            ops += [(u0 + (i + 0.5) * (u1 - u0) / n, 4.0, h - 2.4, h - 1.2) for i in range(n)]
+        if k == 0 and shop:
+            ops.append((u0 + 9.0, 12.0, sock, h - 1.0))
+        elif k == 0:
+            ops += [(u0 + (i + 1) * (u1 - u0) / (doors + 1), 4.5, sock, sock + 4.5) for i in range(doors)]
+        if k == 2:
+            ops.append((u1 - 6.0, 3.5, sock, sock + 3.8))
+        punched_wall(panels, face, u0, u1, sock, h, ops, t=0.2)
+        for u, ow, zb, zt in ops:
+            if zb == sock and k == 0 and shop:
+                face.box(kit.glass, u, -0.12, zb, ow, 0.02, zt - zb)
+                for i in range(7):
+                    face.box(kit.frames, u - ow / 2 + i * ow / 6, -0.1, zb, 0.1, 0.06, zt - zb)
+                face.box(kit.frames, u, -0.1, zb + 2.6, ow, 0.06, 0.1)
+                face.box(kit.door, u - 2.0, -0.08, zb, 2.2, 0.03, 2.4)
+                face.box(kit.metal, u, 2.0, h - 1.2, ow + 2.0, 4.0, 0.3)
+                for s in (-1, 1):
+                    face.box(kit.frames, u + s * (ow / 2 + 0.6), 3.7, 0.0, 0.2, 0.2, h - 1.2)
+            elif zb == sock:
+                face.box(shutter, u, -0.1, zb, ow, 0.05, zt - zb)
+                face.box(kit.metal, u, 0.15, zt, ow + 0.4, 0.3, 0.4)
+            else:
+                window(kit, face, u, zb, ow, zt - zb, reveal=0.08)
+    if roof == 'flat':
+        attic = 1.4 if shop else 0.9
+        for k in range(4):
+            face = Face(k, w, d)
+            face.box(kit.door if shop else panels, 0, -0.1, h, face.length + 0.02, 0.22, attic)
+            face.box(kit.metal, 0, 0.0, h + attic, face.length + 0.06, 0.3, 0.05)
+        felt = Part(pbr_material('roof-bitumen', 'bitumen', (0.8, 0.8, 0.8)), uv_metres=3.0, bevel=0.0)
+        box(felt, 0, 0, h - 0.1, w - 0.3, d - 0.3, 0.1)
+        for i in range(int(w // 8)):
+            x = -w / 2 + 4 + i * 8
+            box(kit.frames, x, 0, h, 1.6, d * 0.5, 0.4)
+            box(kit.glass, x, 0, h + 0.4, 1.4, d * 0.5 - 0.2, 0.05)
+        kit.extra.append(felt)
+        if shop:
+            # Brand-free fascia stripe and a trolley shelter beside the entrance
+            band = Part(flat_material('fascia-green', (0.08, 0.35, 0.18), 0.4, 0.1))
+            Face(0, w, d).box(band, 0, 0.12, h + 0.5, w, 0.04, 0.4)
+            kit.extra.append(band)
+            tx = -w / 2 + 20.0
+            for x in (tx - 2.5, tx + 2.5):
+                box(kit.frames, x, -d / 2 - 4.0, 0, 0.1, 0.1, 2.3)
+            prism(kit.metal, [Vector((tx - 2.7, -d / 2 - 5.0, 2.3)), Vector((tx + 2.7, -d / 2 - 5.0, 2.3)),
+                              Vector((tx + 2.7, -d / 2 - 3.2, 2.45)), Vector((tx - 2.7, -d / 2 - 3.2, 2.45))], Vector((0, 0, 0.05)))
+            for i in range(6):
+                box(kit.metal, tx - 2.0 + i * 0.8, -d / 2 - 4.1, 0.15, 0.55, 0.9, 0.9)
+    else:
+        pitch = d / 2 * math.tan(math.radians(6))
+        sheet = Part(pbr_material('roof-sheet', 'corrugated_iron_02', (0.8, 0.82, 0.84)))
+        gable_roof(sheet, w, d, h, pitch, 0.4)
+        for k in (1, 3):
+            gable_wall(panels, Face(k, w, d), h, pitch, d, t=0.2)
+        kit.extra.append(sheet)
+        for sy in (-1, 1):
+            tube(kit.metal, [Vector((-w / 2 - 0.4, sy * (d / 2 + 0.45), h - 0.1)), Vector((w / 2 + 0.4, sy * (d / 2 + 0.45), h - 0.1))],
+                 [0.1, 0.1], 6)
+    if annex:
+        aw, ad = 10.0, 9.0
+        ah = PLINTH + 2 * 3.2 + 0.4
+        off = Vector((-w / 2 - aw / 2, -d / 2 + ad / 2, 0))
+        box(kit.plinth, off.x, off.y, -FOUNDATION, aw + 0.1, ad + 0.1, FOUNDATION + PLINTH)
+        for k in (0, 2, 3):
+            face = Moved(Face(k, aw, ad), off)
+            L = face.length
+            u0, u1 = (-L / 2, L / 2) if k % 2 == 0 else (-L / 2 + T, L / 2 - T)
+            n = max(2, int(L // 2.5))
+            ops = [(u0 + (i + 0.5) * (u1 - u0) / n, 1.5, PLINTH + 0.9 + f * 3.2, PLINTH + 2.3 + f * 3.2) for i in range(n) for f in range(2)]
+            punched_wall(kit.walls(WHITE), face, u0, u1, PLINTH, ah, ops)
+            for u, ow, zb, zt in ops:
+                window(kit, face, u, zb, ow, zt - zb, reveal=0.1)
+        box(kit.metal, off.x, off.y, ah, aw + 0.2, ad + 0.2, 0.3)
+    export(name, kit.objects(name), lod=lod)
+
+
 def models():
     return {
+        'office-mid': lambda: office('office-mid', 24.0, 14.0, 5, seed=21, lod=450),
+        'office-high': lambda: office('office-high', 22.0, 18.0, 8, band_asset='concrete_slab_wall', band_tint=(1.1, 1.1, 1.1),
+                                      seed=22, lod=550),
+        'supermarket': lambda: hall('supermarket', 40.0, 26.0, 5.5, 'exterior_wall_cladding_03', shop=True),
+        'hall-flat': lambda: hall('hall-flat', 30.0, 20.0, 6.5, 'exterior_wall_cladding_03', (0.85, 0.88, 0.9)),
+        'industrial-hall': lambda: hall('industrial-hall', 60.0, 30.0, 9.0, 'box_profile_metal_sheet', (0.9, 0.95, 1.0), roof='gable',
+                                        doors=3, annex=True, lod=400),
         'block-row-4': lambda: city_house('block-row-4', 15.0, 12.0, 4, OCHRE, seed=11),
         'block-row-6': lambda: city_house('block-row-6', 16.0, 13.0, 6, PALE_GREY, roof='flat', seed=12, lod=1100),
         'block-corner-4': lambda: city_house('block-corner-4', 14.0, 14.0, 4, ROSE, roof='hip', street=(0, 3), blank=(1, 2), seed=13),

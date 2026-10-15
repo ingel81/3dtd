@@ -13725,6 +13725,152 @@
         }
       ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "office-mid",
+      "name": "Office building (5 floors, 24 x 14 m)",
+      "category": "building",
+      "file": "models/office-mid.glb",
+      "triangles": 2156,
+      "footprint": 11.0,
+      "height": 22.6,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/office-mid-lod1.glb",
+          "distance": 350,
+          "triangles": 670
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "office-high",
+      "name": "Office building (8 floors, 22 x 18 m)",
+      "category": "building",
+      "file": "models/office-high.glb",
+      "triangles": 2348,
+      "footprint": 10.1,
+      "height": 33.1,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/office-high-lod1.glb",
+          "distance": 350,
+          "triangles": 850
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "supermarket",
+      "name": "Supermarket (40 x 26 m)",
+      "category": "building",
+      "file": "models/supermarket.glb",
+      "triangles": 684,
+      "footprint": 18.1,
+      "height": 6.9,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/supermarket-lod1.glb",
+          "distance": 350,
+          "triangles": 586
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/exterior_wall_cladding_03; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "hall-flat",
+      "name": "Commercial hall, flat roof (30 x 20 m)",
+      "category": "building",
+      "file": "models/hall-flat.glb",
+      "triangles": 1368,
+      "footprint": 13.6,
+      "height": 7.4,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/hall-flat-lod1.glb",
+          "distance": 350,
+          "triangles": 504
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/exterior_wall_cladding_03; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "industrial-hall",
+      "name": "Industrial hall with office annex (60 x 30 m)",
+      "category": "building",
+      "file": "models/industrial-hall.glb",
+      "triangles": 4112,
+      "footprint": 31.7,
+      "height": 10.6,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city",
+        "wasteland"
+      ],
+      "lod": [
+        {
+          "file": "models/industrial-hall-lod1.glb",
+          "distance": 350,
+          "triangles": 757
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/box_profile_metal_sheet; https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/brushed_concrete"
     }
   ]
 }
