@@ -72,7 +72,7 @@ describe('cliff rocks', () => {
   it('keeps one colouring a list: tinted walls without the grey ones', () => {
     expect(CLIFF_MODELS.desert).toEqual(['cliff-wall-sandstone']);
     expect(CLIFF_MODELS.hell).toEqual(['cliff-wall-basalt']);
-    expect(CLIFF_MODELS.mars).toEqual(['mars-cliff']);
+    expect(CLIFF_MODELS.mars).toEqual(['mars-cliff', 'cliff-face-red']);
   });
 
   it('picks the models of the map look or the one chosen', () => {

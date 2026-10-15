@@ -785,6 +785,8 @@ def models():
         'cliff-wall-sandstone': lambda: import_model('namaqualand_cliff_01', 10.0, 5000, 'cliff-wall-sandstone', tint=tint_sand, desaturate=0.5, ground=True, close=True),
         'cliff-wall-basalt': lambda: import_model('namaqualand_cliff_02', 12.0, 6000, 'cliff-wall-basalt', tint=dark, desaturate=0.9, ground=True, close=True),
         'cliff-coast': lambda: import_model('coastal_cliff_02', None, 6000, 'cliff-coast', keep_scale=True, ground=True, close=True),
+        # Red rock for red deserts, hell and Mars, coloured like mars-cliff so the two stand side by side
+        'cliff-face-red': lambda: import_model('rock_face_02', 9.0, 4000, 'cliff-face-red', desaturate=0.8, tint=(0.95, 0.5, 0.3), ground=True, close=True),
         # Formations built from rock surfaces
         'sandstone-pillar': lambda: hoodoo('sandstone-pillar', 55),
         'sandstone-pillar-tall': lambda: hoodoo('sandstone-pillar-tall', 56, height=20.0),

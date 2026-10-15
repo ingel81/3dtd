@@ -250,6 +250,7 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | cliff-wall-sandstone | https://polyhaven.com/a/namaqualand_cliff_01 (getönt) |
 | cliff-wall-basalt | https://polyhaven.com/a/namaqualand_cliff_02 (getönt) |
 | cliff-coast | https://polyhaven.com/a/coastal_cliff_02 |
+| cliff-face-red | https://polyhaven.com/a/rock_face_02 (getönt) |
 | sandstone-pillar | procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/cliff_side |
 | sandstone-pillar-tall | procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/cliff_side |
 | mesa | procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/cliff_side |

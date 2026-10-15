@@ -5506,6 +5506,37 @@
       "source": "https://polyhaven.com/a/coastal_cliff_02"
     },
     {
+      "id": "cliff-face-red",
+      "name": "Red rock cliff face",
+      "category": "rock",
+      "file": "models/cliff-face-red.glb",
+      "triangles": 3998,
+      "footprint": 4.4,
+      "height": 8.3,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.5
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "desert",
+        "hell",
+        "mars"
+      ],
+      "lod": [
+        {
+          "file": "models/cliff-face-red-lod1.glb",
+          "distance": 350,
+          "triangles": 300
+        }
+      ],
+      "source": "https://polyhaven.com/a/rock_face_02 (getönt)"
+    },
+    {
       "id": "sandstone-pillar",
       "name": "Sandstone pillar",
       "category": "rock",
