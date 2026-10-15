@@ -170,9 +170,12 @@ würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben diese
 - Cliff rocks: gehalten über steilem Boden (steiler als der Klippenwinkel, höchstens 45 Grad) stehen Klippenmodelle des
   Katalogs entlang der Kante (`ops/landscape/cliff-rocks.ts`): auf einem Raster von Stellen alle 4 m, je Strich einmal
   entschieden; die Breite läuft längs der Höhenlinie, die Front zur tiefen Seite, die Größe folgt dem Gefälle über
-  die Modelltiefe (0,5- bis 1,8-fach), leicht eingesenkt, mit etwa halber Breite Abstand zueinander, nicht auf
-  Straßen. Die Modelle wählt der Look der Karte (Sandstein in der Wüste, Basalt in Hölle und Endzeit, Mars-Klippen auf
-  dem Mars, sonst Felswände) oder das Panel
+  die Modelltiefe (0,5- bis 1,8-fach), die Wand steht vom Fuß des Gefälles (dem tiefsten Boden davor, leicht
+  eingesenkt) bis etwa zu seiner Kante, mit etwa halber Breite Abstand zueinander, nicht auf Straßen und nicht im
+  Wasser. Die Modelle wählt der Look der Karte (Sandstein in der Wüste, Basalt in Hölle und Endzeit, Mars-Klippen
+  auf dem Mars, sonst die grauen Felswände und Felsflächen; je Look nur Modelle derselben Färbung, die Küstenklippe
+  nur über das Panel) oder das Panel. Die Klippenmodelle sind geschlossen (`close_shell` in
+  `tools/map-assets/blender_kit.py`), von oben und hinten Fels statt Loch
 - Glow cracks: der Boden bricht in ein Netz feiner Lavarisse mit Kruste auf verbranntem Fels; die Risse sinken etwas ein
 - Linien (ziehen, auch vom Kartenrand her): Cliff edge hebt den Boden links der Zeichenrichtung als Klippe, die
   Pinselgröße ist die Breite oben; River (Water oder Lava) legt einen Fluss an, der immer bergab fließt (bergauf

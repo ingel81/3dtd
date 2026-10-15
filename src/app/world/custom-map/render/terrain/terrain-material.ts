@@ -490,10 +490,11 @@ if (uPathLayer >= 0 && riverBank > 0.0) {
 float cliff = 0.0;
 if (uCliffLayer >= 0) {
   // The rock's edge is broken, not a height contour: blocks of rock reach down into the scree and the
-  // scree runs up the rock in tongues along the fall line, at several scales over the map
+  // scree runs up the rock in tongues along the fall line, at several scales over the map. Short tongues:
+  // 20 m long ones drew the grass and the rock as brush strokes down every flank
   vec2 fall = normalize(vec2(-nGeo.x, nGeo.z) + 1e-4);
-  float tongue = valueNoise(vec2(dot(mapPos, vec2(-fall.y, fall.x)) * 0.32, dot(mapPos, fall) * 0.05));
-  float broken = (n3 - 0.5) * 0.12 + (varFine.a - 0.5) * 0.1 + (varFiner.b - 0.5) * 0.07 + (tongue - 0.5) * 0.14;
+  float tongue = valueNoise(vec2(dot(mapPos, vec2(-fall.y, fall.x)) * 0.3, dot(mapPos, fall) * 0.14));
+  float broken = (n3 - 0.5) * 0.12 + (varFine.a - 0.5) * 0.1 + (varFiner.b - 0.5) * 0.07 + (tongue - 0.5) * 0.1;
   float c = uCliffCos + broken;
   cliff = smoothstep(c + 0.035, c - 0.035, nGeo.y);
   for (int k = 0; k < TERRAIN_LAYERS; k++) w[k] *= 1.0 - cliff;
@@ -656,9 +657,12 @@ if (cliff > 0.01) {
   // Bands show in patches, not around the whole mountain
   float patches = smoothstep(0.3, 0.7, valueNoise(mapPos * 0.009 + 11.0));
   float strata = mix(1.0, mix(0.78, 1.1, smoothstep(0.25, 0.75, bandNoise)) * (0.92 + 0.14 * fine), 0.35 + 0.65 * patches);
-  // Gullies: dark streaks running down the face, broken along their length
-  float streak = valueNoise(vec2(dot(mapPos, vec2(0.11, 0.07)) * 2.3, tPos.y * 0.012 + 5.0));
-  float gully = mix(0.74, 1.06, smoothstep(0.15, 0.65, streak));
+  // Gullies: dark streaks running down the face, a couple of metres wide across it and broken every
+  // dozen metres down it. Across a fixed map direction and 80 m long they were stripes pulled down the
+  // whole wall, or one shade on a wall along that direction
+  vec2 faceFall = normalize(vec2(-nGeo.x, nGeo.z) + 1e-4);
+  float streak = valueNoise(vec2(dot(mapPos, vec2(-faceFall.y, faceFall.x)) * 0.5, tPos.y * 0.08 + 5.0));
+  float gully = mix(0.84, 1.04, smoothstep(0.15, 0.65, streak));
   float shade = strata * gully;
   vec3 bandTint = mix(vec3(0.93, 0.95, 0.99), vec3(1.06, 1.0, 0.91), bandNoise);
   albedo = mix(albedo, albedo * shade * bandTint, cliff);

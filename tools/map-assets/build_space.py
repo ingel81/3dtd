@@ -498,5 +498,5 @@ def models():
         'mars-boulder': lambda: import_model('moon_rock_05', 2.4, 2000, 'mars-boulder', desaturate=1.0, tint=rust, ground=True),
         'mars-stone': lambda: import_model('namaqualand_boulder_03', 1.6, 1500, 'mars-stone', desaturate=0.8, tint=rust, ground=True),
         'mars-rock-large': lambda: import_model('namaqualand_boulder_06', 3.2, 2000, 'mars-rock-large', desaturate=0.8, tint=rust, ground=True),
-        'mars-cliff': lambda: import_model('namaqualand_cliff_02', 12.0, 6000, 'mars-cliff', desaturate=0.8, tint=rust, ground=True),
+        'mars-cliff': lambda: import_model('namaqualand_cliff_02', 12.0, 6000, 'mars-cliff', desaturate=0.8, tint=rust, ground=True, close=True),
     }

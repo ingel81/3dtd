@@ -4,24 +4,29 @@
  * not as stretched ground. On a grid of spots (decided once a stroke, as
  * the biome brush's plants) each spot steeper than the map's cliff angle
  * gets a wall, its width along the contour and its face to the low side,
- * scaled to how far the ground falls there and sunk a little into the
- * slope; walls keep apart by about half their width. The models come from
- * the map's look (desert sandstone, volcanic basalt, Mars …) or the one
- * chosen in the panel.
+ * scaled to how far the ground falls there and standing from the foot of
+ * the drop, a little sunk in; walls keep apart by about half their width,
+ * and none stands in water. The models come from the map's look (desert sandstone, volcanic
+ * basalt, Mars …) or the one chosen in the panel.
  */
 import type { MapBiome, MapPoint } from '../../../world/custom-map/map-document';
 import type { CatalogIndex } from '../../catalog/asset-catalog';
 import { brushWeight, type BrushSettings } from '../brush';
 import { heightAt, slopeAt } from '../../model/grid';
+import { waterLevelAt } from '../../../world/custom-map/water-level';
 import type { LandscapeStroke } from './landscape-stroke';
 
-/** Cliff models by the map's look; the first that the catalogue has */
+/**
+ * Cliff models by the map's look, those of them the catalogue has. One
+ * colouring a list: a tinted wall beside an untinted one read as rocks
+ * thrown together (the faces are toned down to the walls' grey)
+ */
 export const CLIFF_MODELS: Partial<Record<MapBiome, readonly string[]>> & { default: readonly string[] } = {
   default: ['cliff-wall', 'cliff-wall-b', 'cliff-face', 'cliff-face-b'],
-  desert: ['cliff-wall-sandstone', 'cliff-wall'],
-  hell: ['cliff-wall-basalt', 'cliff-wall-b'],
-  apocalypse: ['cliff-wall-basalt', 'cliff-wall'],
-  mars: ['mars-cliff', 'cliff-wall-b'],
+  desert: ['cliff-wall-sandstone'],
+  hell: ['cliff-wall-basalt'],
+  apocalypse: ['cliff-wall-basalt'],
+  mars: ['mars-cliff'],
   moon: ['cliff-wall', 'cliff-face'],
 };
 
@@ -62,6 +67,8 @@ export function cliffRocksDab(stroke: LandscapeStroke, center: MapPoint, brush: 
       stroke.decided.add(key);
       if (Math.abs(x) > t.width / 2 - 2 || Math.abs(y) > t.depth / 2 - 2) continue;
       if (slopeAt(t, x, y) < steep) continue;
+      // A rock in the water stands there without a cliff to hold it
+      if (waterLevelAt(t, x, y, heightAt(t, x, y)) !== null) continue;
       const asset = models[Math.floor(stroke.noise.hash(gx, gy, 74) * models.length) % models.length];
       const entry = catalog.object(asset);
       // Downhill along the gradient, measured over the wall's depth
@@ -71,9 +78,15 @@ export function cliffRocksDab(stroke: LandscapeStroke, center: MapPoint, brush: 
       const g = Math.hypot(gxh, gyh);
       if (g < 1e-3) continue;
       const down = { x: -gxh / g, y: -gyh / g };
-      const fall = heightAt(t, x - down.x * reach, y - down.y * reach) - heightAt(t, x + down.x * reach, y + down.y * reach);
+      // The lowest ground in front of the spot: a narrow ridge rises again within the reach
+      let foot = heightAt(t, x, y);
+      for (const k of [0.5, 1]) foot = Math.min(foot, heightAt(t, x + down.x * reach * k, y + down.y * reach * k));
+      const fall = heightAt(t, x - down.x * reach, y - down.y * reach) - foot;
       if (fall < MIN_FALL) continue;
-      const scale = Math.min(1.8, Math.max(0.5, (fall / entry.height) * 1.15 * (0.9 + 0.2 * stroke.noise.hash(gx, gy, 75))));
+      // From the foot of the drop to about its rim: seated on the spot's own height (mid-slope) the wall's front
+      // half hung over the drop and its top stood far over the rim
+      const scale = Math.min(1.8, Math.max(0.5, (fall / entry.height) * 1.1 * (0.9 + 0.2 * stroke.noise.hash(gx, gy, 75))));
+      const sink = Math.min(1, fall * 0.1);
       const width = entry.radius * scale;
       if (stroke.grid.near({ x, y }, width * 0.9)) continue;
       if (!stroke.freeForObject(x, y, width * 0.4)) continue;
@@ -83,7 +96,7 @@ export function cliffRocksDab(stroke: LandscapeStroke, center: MapPoint, brush: 
         asset,
         x: Math.round(x * 100) / 100,
         y: Math.round(y * 100) / 100,
-        z: Math.round(-fall * 0.25 * 100) / 100,
+        z: Math.round((foot - sink - heightAt(t, x, y)) * 100) / 100,
         rotation: Math.round((((rotation % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)) * 1000) / 1000,
         scale: Math.round(scale * 1000) / 1000,
       });

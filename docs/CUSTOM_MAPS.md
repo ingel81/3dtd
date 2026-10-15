@@ -100,7 +100,9 @@ Nebel der Szene wieder her.
   natürlicher Flecken (`variation-texture.ts`, 512², auf dem CPU mit verzerrtem fbm gebaut) in drei Maßstäben (512, 96
   und 28 m) statt rund zwölf Rechenrauschen je Pixel; das Gras liest dieselbe Textur. Klippen triplanar (die Seitenprojektion übernimmt ab etwa 35°; die Grenze zwischen Fels und
   Geröll folgt keiner Höhenlinie, sondern bricht: Felsblöcke greifen ins Geröll, Geröll läuft in Zungen entlang der
-  Falllinie den Fels hinauf, in mehreren Maßstäben). **Steile gemalte Hänge** (unter dem Klippenwinkel): von 25° an,
+  Falllinie den Fels hinauf, in mehreren Maßstäben; die Zungen sind etwa 7 m lang, 20 m lange zogen Gras und Fels wie
+  Pinselstriche die Flanken hinab; die dunklen Rinnen der Felswand laufen quer zur Falllinie gut 2 m breit und brechen
+  alle gut 12 m ab, vorher quer zu einer festen Kartenrichtung und 80 m lang: Streifen über die ganze Wand). **Steile gemalte Hänge** (unter dem Klippenwinkel): von 25° an,
   ganz ab 35°, liest die stärkste gemalte Schicht eines Pixels ebenfalls die zwei Seitenebenen, einmal vor der
   Schleife wie die Klippe (zwei Lookups mehr nur dort), bis `uSteepNear` vor der Kamera (Stufe: `steepNear`, Low 0);
   vorher zog die Draufsicht Geröll und Gras an Flanken zu Streifen. Makrovariation und in der Ferne die Durchschnittsfarbe. **Ferne billiger**: ab `uFarSingle`
