@@ -746,6 +746,7 @@ Bestand baut der Asset-Worker aus; Stand beim Schreiben:
   Tunnelmünder für Straßen: Fassade mit 8 m breiter Öffnung, Flügelmauern, ein 14 m tiefes Gewölbe mit Fahrbahn,
   das in ein schwarzes Ende ausläuft, Fels des Hangs darum; Ursprung am Fuß der Öffnung, die Straße läuft entlang +Z
   (glTF) hinein, ein Portal je Tunnelende. Bauwerke stehen auf dem Boden unter ihrer Mitte und ebnen nichts ein.
+  OSM-Welten setzen das Betonportal an jede Tunnelmündung (`tunnel: true` an der Kante, docs/OSM_WORLD_PLAN.md).
   `castle-ruin` (Gebäude, rund 36 mal 30 m, 22 m hoch) und `bell-tower(-snow)` (25 m) ebnen beim Setzen wie jedes
   Gebäude ein. `stone-circle` (15 m) und `highway-collapsed` (rund 50 m entlang X, Hochstraße auf 9 m) sind Bauwerke,
   `trebuchet` (wirft nach vorn, -Z in glTF), `floodlight-mast` und `beacon-post` (mit Katalog-Licht) Requisiten,

@@ -227,7 +227,7 @@ Dazu:
 | `track` | `path` | 3 m | Feldweg (`mud-tracks`, `dirt-path`) |
 | `footway`, `path`, `cycleway`, `steps` | `path` | 2 bis 3 m | nach `surface` (Kies, Platten, Erde) |
 | `bridge=*` | `bridge`, Stil nach Material (Beton, Stein, Holz) | wie die Straße | Deck |
-| `tunnel=*` | siehe offene Fragen | | |
+| `tunnel=*` | Tunnelkante (unsichtbar), Portal je Mündung, siehe „Tunnel, gebaut“ | wie die Straße | keiner |
 
 Breite aus `width`, sonst `lanes` × 3 m (beide liest `parseStreetTags`), sonst die Tabelle. Einebnen und Belag über `flattenUnderPaths` und
 `paintUnderPaths` für alle Kanten auf einmal, Straßen über Wasser ohne `bridge` werden Damm. Brücken brauchen einen
@@ -431,7 +431,7 @@ die Seite erzeugt die Karte im Worker, zeigt eine Statuszeile, speichert sie als
   Douglas-Peucker. Breite aus `width`, sonst `lanes` × 3 m, sonst `ROAD_TYPES` in `osm-tags.ts`, auf 1,5 bis 24 m.
   Jede Kante trägt ihren `highway`-Typ (`street`): Routen und Spawns wählen wie auf echten Orten.
 - **Brücken und Tunnel:** `bridge=*` wird Brückenkante (Stein, Holz bei `bridge:material` oder `material=wood`;
-  Beton kommt mit O5). Tunnel bleiben draußen, bis sie ihre Portale haben (Entscheidung 8); `tunnel=building_passage`
+  Beton kommt mit O5). Tunnel bekamen später ihre Portale (Entscheidung 8, „Tunnel, gebaut“); `tunnel=building_passage`
   bleibt Straße. Der Bericht nennt Zahl und Länge.
 - **Einebnen und Belag:** `flattenUnderPaths` mit 3 m Schulter und 20 m Glättung, erst Pfade, dann Straßen von
   schmal nach breit (die breitere gewinnt an Kreuzungen); Brücken nicht. Der Belag wird in die Bodenfarbe gemalt
@@ -731,6 +731,31 @@ Der Abtrag liegt meist bei der Neigung über das Haus (Median 0,6 m, 90 % unter 
 rund 1 % (Häuser im Weinberg, lange Bauten am Hang). Die Datei liegt bei den O1-Werten (5,95, 5,59, 6,22 MB),
 nicht darüber.
 
+## Tunnel, gebaut (2026-10-15)
+
+Entscheidung 8 umgesetzt (`convert/roads.ts` findTunnels, `convert/tunnels.ts`):
+
+- **Gegnerweg:** Tunnel bleiben im Straßengraph, als Kante mit `tunnel: true` (Art und `highway`-Typ der Straße, kein
+  Belag). `mapStreetNetwork` macht daraus eine Straße mit `tunnel=yes`, also laufen Routen hindurch wie auf echten
+  Orten: die Routenzellen sind Tunnelzellen und nehmen ihre Höhe zwischen dem Boden an den beiden Mündungen
+  (`RouteCellSampler.tunnelColumn`). Die Kante wird nicht gezeichnet (Wegmaske, Bodendecals), nicht eingeebnet, nicht
+  bemalt und baut keinen Damm durchs Wasser. HQ und Spawns meiden Tunnelkanten (`OsmLayout`, „Inside a tunnel“).
+- **Welche:** Tunnelwege werden über gemeinsame Knoten zu einem Tunnel verbunden. Unter 40 m (`MIN_TUNNEL_M`, eine
+  Unterführung unter einem Damm, den die Welt nicht zeichnet) bleibt er Straße, Fußwege und Pfade im Tunnel bleiben
+  Wege (das Portal ist das einer Straße). Der Bericht zählt `roads.tunnels`, `tunnelM`, `openTunnels`.
+- **Portale:** `tunnel-portal-concrete` an jeder Mündung, an der kein weiterer Tunnelweg anschließt und die in der
+  Karte liegt, gedreht in Wegrichtung (Modell +Z in den Tunnel), skaliert auf die Straßenbreite (Öffnung 8 m für 7 m
+  Straße, 1 bis 2,2). Zwei Mündungen unter 20 m Abstand in gleicher Richtung (zwei Röhren) teilen sich ein Portal.
+- **Gelände:** vor dem Wasser angehoben, nie abgesenkt: hinter jeder Mündung auf die Oberkante des Portals (9,6 m
+  mal Skala) über die Fassadenbreite, 20 m tief, seitlich und nach hinten 1:1 abfallend; entlang des übrigen Tunnels
+  4 m (`TUNNEL_COVER`) über der Linie zwischen den Mündungen. Wo der echte Hang höher ist, bleibt er. Ein Fluss über
+  einem Tunnel gräbt sein Bett danach.
+- Miltenberg (Probe): 1 Tunnel (353 m, `secondary`), 2 Portale, 342 Höhenpunkte angehoben; 6 Tunnelwege (Fußwege und
+  kurze) bleiben offen.
+- **Grenzen:** ein Tunnel unter flachem Boden (Stadt, Unterführung mit Rampe, die das Höhenmodell glättet) bekommt
+  einen 4 m hohen Rücken und an den Mündungen den Hügel des Portals. Gebäude meiden die Tunnellinie wie jede Straße,
+  nicht den Hügel des Portals.
+
 ### Offen nach O4
 
 - **Ohne Grenze (Stand nach dem Merge mit O2/O3, Pflanzen dabei):** Stuttgart 6 696 von 7 938 Grundrissen, 16 983
@@ -762,6 +787,6 @@ nicht darüber.
 6. Gebäude, für die kein Modell passt: in mehrere Modelle teilen, gestreckte Modelle erlauben (eine neue Skala je
    Achse im Dateiformat), oder einfache Blöcke mit Fassadenmaterial erzeugen?
 7. Sollen Gegner auch Fußwege, Pfade und Treppen nehmen dürfen (wie auf echten Orten), oder nur Straßen?
-8. Tunnel: weglassen (Routen laufen außen herum) oder als Straße über den Berg legen?
+8. Tunnel: weglassen (Routen laufen außen herum) oder als Straße über den Berg legen? (Entschieden: Portale, Routen hindurch)
 9. Auch Spieler mit Token bekommen den Eintrag „Play on a map of this place“?
 10. Feinere Bodenfarbe für OSM-Welten (Splat 2048 statt 1024, schärfere Ränder, mehr Grafikspeicher)?
