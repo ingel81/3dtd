@@ -768,6 +768,47 @@ def bell_tower(name, snow=False, w=4.6, shaft=15.0):
     export(name, objects, lod=500)
 
 
+def standing_stone(part, base, width, depth, height, turn, lean, seed):
+    """An upright slab of rough rock: a noisy lump stretched upwards, turned and leaning"""
+    before = len(part.bm.verts)
+    lump(part, Vector((0, 0, -0.6)), Vector((width / 2, depth / 2, height / 1.3)), seed, roughness=0.18, subdiv=2)
+    m = Matrix.Translation(base) @ Matrix.Rotation(turn, 4, 'Z') @ Matrix.Rotation(lean, 4, 'X')
+    part.bm.verts.ensure_lookup_table()
+    for v in part.bm.verts[before:]:
+        v.co = m @ v.co
+
+
+def stone_circle(name, seed=23, radius=7.5, count=13):
+    """A ring of weathered standing stones (about 15 m across): uprights, two pairs carrying lintels, one
+    fallen, a flat altar stone in the middle; lichen-grey rock, structure without a plate"""
+    clear_scene()
+    rnd = random.Random(seed)
+    rock = Part(pbr_material('rock-' + ROCK + '-lichen', 'rock_boulder_dry', (0.7, 0.72, 0.66)), uv_metres=2.5, smooth=True, bevel=0.0)
+    moss = Part(pbr_material('castle-' + RUIN, RUIN), uv_metres=2.0, smooth=True, bevel=0.0)
+    tops = []
+    for k in range(count):
+        a = k / count * math.tau + rnd.uniform(-0.05, 0.05)
+        p = Vector((math.cos(a) * radius, math.sin(a) * radius, 0))
+        if k == 5:
+            # Fallen outwards, half sunk
+            standing_stone(moss, p + Vector((math.cos(a), math.sin(a), 0)) * 1.6 + Vector((0, 0, 0.5)), 1.5, 0.8, 3.2, a + math.pi / 2,
+                           math.radians(84), seed + k)
+            continue
+        h = rnd.uniform(2.8, 4.2) * (1.25 if k in (0, 1, 7, 8) else 1.0)
+        standing_stone(rock, p, rnd.uniform(1.2, 1.7), rnd.uniform(0.6, 0.9), h, a + math.pi / 2, rnd.uniform(-0.08, 0.08), seed + k)
+        tops.append((k, p, h))
+    # Lintels across two neighbouring pairs
+    by = {k: (p, h) for k, p, h in tops}
+    for a, b in ((0, 1), (7, 8)):
+        pa, ha = by[a]
+        pb, hb = by[b]
+        z = min(ha, hb) - 0.15
+        oriented_box(rock, pa + Vector((0, 0, z)), pb + Vector((0, 0, z)), 0.9)
+    lump(moss, Vector((0, 0, -0.3)), Vector((1.6, 1.0, 0.55)), seed + 50, roughness=0.15, flat_top=0.7, subdiv=2)
+    objects = [smooth(rock.to_object(name)), smooth(moss.to_object(name + '-moss'))]
+    export(name, objects, lod=500)
+
+
 def models():
     return {
         'tunnel-portal': lambda: tunnel_portal('tunnel-portal'),
@@ -784,4 +825,5 @@ def models():
         'beacon-post': lambda: beacon_post('beacon-post'),
         'bell-tower': lambda: bell_tower('bell-tower'),
         'bell-tower-snow': lambda: bell_tower('bell-tower-snow', snow=True),
+        'stone-circle': lambda: stone_circle('stone-circle'),
     }

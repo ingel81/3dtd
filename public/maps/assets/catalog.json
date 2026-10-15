@@ -12859,6 +12859,37 @@
       "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/snow_02"
     },
     {
+      "id": "stone-circle",
+      "name": "Stone circle",
+      "category": "structure",
+      "file": "models/stone-circle.glb",
+      "triangles": 1144,
+      "footprint": 7.5,
+      "height": 4.8,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "swamp",
+        "temperate",
+        "mountain"
+      ],
+      "lod": [
+        {
+          "file": "models/stone-circle-lod1.glb",
+          "distance": 350,
+          "triangles": 504
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/rock_boulder_dry; https://polyhaven.com/a/mossy_stone_wall"
+    },
+    {
       "id": "fx-fireflies",
       "name": "Fireflies",
       "category": "fx",
