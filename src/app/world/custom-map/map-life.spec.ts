@@ -72,19 +72,22 @@ describe('map life', () => {
     const bad = lifeProblems({
       density: 3,
       ambience: { sound: 'wind' },
+      waveSound: { sound: 'bell', volume: 1.5 },
       areas: [
         { id: 'a', kind: 'dragons', shape: 'area', points: square },
         { id: 'a', kind: 'birds', shape: 'area', points: square.slice(0, 2) },
-        { id: 'b', kind: 'sound', shape: 'route', points: square, volume: 2, color: 'red' },
+        { id: 'b', kind: 'sound', shape: 'route', points: square, volume: 2, color: 'red', reach: 500 },
       ],
     });
     expect(bad).toEqual([
       'life.density must be 0 to 2',
       'life.ambience needs a sound and a volume 0 to 1',
+      'life.waveSound needs a sound, a volume 0 to 1 and, if it names one, the id of a life area',
       'life area a: kind dragons is unknown',
       'life area id "a" is missing or twice',
       'life area a needs 3 to 256 points',
       'life area b: volume must be 0 to 1',
+      'life area b: reach must be 10 to 300 metres',
       'life area b: color must be #rrggbb',
     ]);
   });

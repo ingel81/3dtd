@@ -79,6 +79,31 @@ describe('life tool', () => {
     expect(ctx.drawn()).toEqual([]);
   });
 
+  it('draws the images of a new area and line under symmetry, in the same step', () => {
+    const ed = fresh();
+    const ctx = context(ed);
+    const tool = new LifeTool();
+    tool.activate(ctx);
+    ctx.settings.symmetry = 'x';
+    ctx.settings.life.kind = 'fog';
+    for (const [x, y] of [[20, 0], [60, 0], [60, 40]]) tap(tool, ctx, x, y);
+    tool.key(key('Enter'), ctx);
+    expect(ed.doc.life?.areas?.map((a) => [a.id, a.points])).toEqual([
+      ['fog-1', [{ x: 20, y: 0 }, { x: 60, y: 0 }, { x: 60, y: 40 }]],
+      // Mirrored: runs backwards
+      ['fog-2', [{ x: -60, y: 40 }, { x: -60, y: 0 }, { x: -20, y: 0 }]],
+    ]);
+    expect(ed.historySteps).toBe(1);
+    expect(ctx.settings.life.chosen).toBe('fog-1');
+    // An outline around the axis is its own image: no copy
+    for (const [x, y] of [[-30, -80], [30, -80], [30, -40], [-30, -40]]) tap(tool, ctx, x, y);
+    tool.key(key('Enter'), ctx);
+    expect(ed.doc.life?.areas).toHaveLength(3);
+    ed.undo();
+    ed.undo();
+    expect(ed.doc.life).toBeUndefined();
+  });
+
   it('paints an outline freehand while held and draws a line for a route', () => {
     const ed = fresh();
     const ctx = context(ed);

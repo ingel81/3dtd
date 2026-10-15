@@ -93,6 +93,9 @@ export class SkyDome {
         // The planet's direction and its disc's radius (radians); 0 none
         uPlanetDir: { value: new Vector3(0, 1, 0) },
         uPlanet: { value: 0 },
+        // Its picture (sky-images.ts PLANET_IMAGE: equirect, alpha the sea's glint); until loaded a plain lit disc
+        uPlanetMap: { value: null },
+        uPlanetMapOn: { value: 0 },
         uAurora: { value: 0 },
         // An image sky: the upper hemisphere (top row the zenith), its turn about the vertical (radians)
         uSkyImage: { value: null },
@@ -179,6 +182,14 @@ export class SkyDome {
     this.bakeAge = SKY_BAKE_FRAMES;
   }
 
+  /** The planet's picture (sky-images.ts PLANET_IMAGE); null: a plain disc in its sea's colour */
+  setPlanetMap(texture: Texture | null): void {
+    const u = this.mesh.material.uniforms;
+    u['uPlanetMap'].value = texture;
+    u['uPlanetMapOn'].value = texture ? 1 : 0;
+    this.bakeAge = SKY_BAKE_FRAMES;
+  }
+
   /** Follows the camera and moves the clouds */
   update(dt: number, camera: Camera): void {
     camera.getWorldPosition(this.mesh.position);
@@ -236,6 +247,8 @@ uniform vec2 uCloudOffset;
 uniform float uStars;
 uniform float uPlanet;
 uniform vec3 uPlanetDir;
+uniform sampler2D uPlanetMap;
+uniform float uPlanetMapOn;
 uniform float uAurora;
 uniform sampler2D uSkyImage;
 uniform float uSkyImageOn;
@@ -259,7 +272,69 @@ float skyFbm(vec2 p) {
   return s;
 }
 
+// The Earth turned so Europe and Africa face the map, its north tilted a little towards the viewer and to the left
+const float PLANET_LON = 0.53;
+const float PLANET_TILT = 0.35;
+const float PLANET_ROLL = 0.25;
+
+/**
+ * A planet's disc in a direction (the Earth over the moon): its picture on
+ * a sphere, lit from the sun's side with a soft terminator, the sun's glint
+ * on open sea, a thin blue rim of air on the lit side that reaches a little
+ * past the disc. rgb premultiplied, a its cover.
+ */
+vec4 planetColor(vec3 dir) {
+  vec3 pd = uPlanetDir;
+  vec3 t1 = normalize(cross(pd, vec3(0.0, 1.0, 0.0)));
+  vec3 t2 = cross(t1, pd);
+  vec2 q = vec2(dot(dir, t1), dot(dir, t2)) / uPlanet;
+  float r = length(q);
+  // Outside the band for the air the rest is skipped; the picture's lookup stays above any branch on r
+  float rc = min(r, 1.0);
+  float facing = sqrt(1.0 - rc * rc);
+  // The sphere's normal, facing the viewer at the centre
+  vec3 nrm = normalize(q.x * t1 + q.y * t2 - pd * facing + 1e-6);
+  // The planet's own axes: north, east, and its meridian 0 at the equator
+  vec3 front = -pd;
+  vec3 up = t2 * cos(PLANET_ROLL) + t1 * sin(PLANET_ROLL);
+  vec3 north = up * cos(PLANET_TILT) + front * sin(PLANET_TILT);
+  vec3 east = normalize(cross(north, front));
+  vec3 meridian = cross(east, north);
+  // Longitude: of two lookups (jumping at the back meridian, or at the front one) the one that does not
+  // jump between neighbours, so the mip level stays right where the back meridian shows past the pole
+  float lon = atan(dot(nrm, east), dot(nrm, meridian)) / (2.0 * PI);
+  float lonWrapped = fract(lon);
+  lon = fwidth(lon) <= fwidth(lonWrapped) + 1e-6 ? lon : lonWrapped;
+  vec2 uv = vec2(PLANET_LON + lon, 0.5 - asin(clamp(dot(nrm, north), -1.0, 1.0)) / PI);
+  vec4 map = uPlanetMapOn > 0.5 ? texture2D(uPlanetMap, uv) : vec4(0.04, 0.09, 0.28, 1.0);
+  // The disc's edge over about one pixel
+  float aa = max(fwidth(r), 1e-4);
+  if (dot(dir, pd) <= 0.0 || r > 1.06) return vec4(0.0);
+  float ndl = dot(nrm, uSunDir);
+  // A soft terminator, warmer where the sun stands low
+  float lit = clamp((ndl + 0.08) / 1.08, 0.0, 1.0);
+  vec3 dusk = mix(vec3(1.0, 0.55, 0.35), vec3(1.0), smoothstep(0.0, 0.3, ndl));
+  vec3 surface = map.rgb * lit * dusk * 1.25;
+  // The sun's glint on the sea, sharp and a broader sheen
+  vec3 h = normalize(uSunDir - dir);
+  float nh = max(dot(nrm, h), 0.0);
+  surface += uSunColor * map.a * step(0.0, ndl) * (pow(nh, 120.0) * 1.2 + pow(nh, 12.0) * 0.06);
+  // Air: thicker towards the limb, only where the sun reaches; the night side a faint grey
+  float day = smoothstep(-0.15, 0.25, ndl);
+  vec3 air = vec3(0.32, 0.55, 1.0);
+  surface = mix(surface, air * day, (1.0 - facing) * (1.0 - facing) * 0.55 * day) + air * pow(1.0 - facing, 3.0) * 0.25 * day;
+  surface += vec3(0.006, 0.007, 0.01) * (1.0 - day);
+  float disc = 1.0 - smoothstep(1.0 - aa, 1.0 + aa, r);
+  // The rim of air past the disc, lit on the sun's side
+  vec3 limb = normalize(q.x * t1 + q.y * t2 + 1e-6);
+  float halo = exp(-(r - 1.0) / 0.012) * smoothstep(-0.2, 0.3, dot(limb, uSunDir)) * 0.7 * step(1.0, r);
+  return vec4(surface * disc + air * halo, disc);
+}
+
 vec3 skyColor(vec3 dir, bool withSun) {
+  // The planet first, before any branch on the direction: its picture's lookup needs the neighbours' coordinates
+  vec4 planet = vec4(0.0);
+  if (uPlanet > 0.0) planet = planetColor(dir);
   float up = max(dir.y, 0.0);
   // Gradient: haze at the horizon, deep colour at the zenith
   vec3 sky = mix(uHorizon, uZenith, pow(up, 0.45));
@@ -294,25 +369,8 @@ vec3 skyColor(vec3 dir, bool withSun) {
       float star = step(0.9965, h) * smoothstep(0.35, 0.0, length(f)) * (0.6 + 0.4 * sin(uSkyTime * 2.0 + h * 50.0));
       sky += vec3(0.9, 0.93, 1.0) * star * uStars * 1.6 * smoothstep(0.0, 0.25, dir.y);
     }
-    // A planet (the earth over the moon): a disc lit from the sun's side, oceans, land and clouds
-    if (uPlanet > 0.0) {
-      vec3 pd = uPlanetDir;
-      vec3 t1 = normalize(cross(pd, vec3(0.0, 1.0, 0.0)));
-      vec3 t2 = cross(t1, pd);
-      vec2 q = vec2(dot(dir, t1), dot(dir, t2)) / uPlanet;
-      float r = length(q);
-      if (dot(dir, pd) > 0.0 && r < 1.0) {
-        vec3 nrm = normalize(q.x * t1 + q.y * t2 - pd * sqrt(1.0 - r * r));
-        float lit = smoothstep(-0.1, 0.25, dot(-nrm, -uSunDir));
-        float land = smoothstep(0.5, 0.58, skyFbm(q * 2.2 + 4.0));
-        float clouds = smoothstep(0.55, 0.72, skyFbm(q * 3.5 + vec2(uSkyTime * 0.002, 9.0)));
-        vec3 surface = mix(vec3(0.06, 0.18, 0.5), vec3(0.28, 0.38, 0.2), land);
-        surface = mix(surface, vec3(0.92), clouds);
-        // A thin bright rim of atmosphere
-        surface += vec3(0.25, 0.45, 0.9) * pow(r, 6.0) * 0.6;
-        sky = mix(sky, surface * (0.04 + lit * 1.1), smoothstep(1.0, 0.97, r));
-      }
-    }
+    // A planet (the earth over the moon) covers the stars behind it
+    sky = sky * (1.0 - planet.a) + planet.rgb;
     // Aurora: green curtains waving along the sky at night
     if (uAurora > 0.0) {
       float az = atan(dir.z, dir.x);

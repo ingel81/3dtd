@@ -1,0 +1,116 @@
+<section class="td-group of-head">
+  <button type="button" class="td-link td-inline" (click)="back.emit()" [disabled]="phase() === 'making'">
+    <td-icon name="caretL" [size]="12"></td-icon>Back
+  </button>
+  <h3 class="td-section">A map of {{ place().name }}</h3>
+  <p class="td-note">
+    A {{ sideKm }} km square around the HQ, made from OpenStreetMap and free height data. Enemies walk its streets as on
+    the real place; drag a spawn to another street.
+  </p>
+</section>
+
+@if (phase() === 'loading') {
+  <div class="td-stack" role="status">
+    <p class="td-text"><span class="td-spin" aria-hidden="true"></span> {{ loadingText() }}…</p>
+    <p class="td-note">A city centre takes up to half a minute; the second time it comes from this device.</p>
+    <div class="td-actions is-start">
+      <button type="button" class="td-btn-secondary td-btn-sm" (click)="cancelLoad()">Cancel</button>
+    </div>
+  </div>
+}
+
+@if (phase() === 'failed') {
+  <div class="td-banner is-error td-stack" role="alert">
+    <p>{{ error() }}</p>
+    <div class="td-actions is-start">
+      <button type="button" class="td-btn-secondary td-btn-sm" (click)="load()">Try again</button>
+    </div>
+  </div>
+}
+
+@if (frame(); as f) {
+  <div class="of-map td-well" #mapHost data-test="osm-frame-map" aria-label="Map of the place with the HQ and the spawns" role="img"></div>
+  <p class="td-note of-credit">
+    {{ credits() }}. Data from {{ fetchedOn() }}{{ f.download.stored ? ', kept on this device' : '' }}.
+  </p>
+  @if (mapProblem(); as problem) {
+    <p class="td-note is-warn" role="status">{{ problem }}</p>
+  }
+  @if (dropNote(); as note) {
+    <p class="td-note is-warn" role="status" data-test="osm-drop-note">{{ note }}</p>
+  }
+
+  @if (phase() === 'ready') {
+    @if (error(); as e) {
+      <p class="td-banner is-warn" role="alert">{{ e }}</p>
+    }
+    <section class="td-group" aria-labelledby="of-spawns">
+      <div class="td-actions is-split">
+        <h3 class="td-section" id="of-spawns">Spawns</h3>
+        <div class="td-inline">
+          <button type="button" class="td-btn-ghost td-btn-sm" [disabled]="busy() || !f.hq" (click)="rollAll()">Roll all again</button>
+          <button type="button" class="td-btn-ghost td-btn-sm" [disabled]="busy() || !f.hq || spawns().length >= maxSpawns" (click)="addSpawn()">Add a spawn</button>
+        </div>
+      </div>
+      @if (spawns().length) {
+        <ul class="td-rows" aria-labelledby="of-spawns" data-test="osm-spawns">
+          @for (s of spawns(); track $index; let k = $index) {
+            <li class="td-row of-row" [class.is-selected]="selected() === k">
+              <button type="button" class="of-pick" (click)="select(selected() === k ? null : k)" [attr.aria-pressed]="selected() === k">
+                <span class="of-num td-num" aria-hidden="true">{{ k + 1 }}</span>
+                <span class="of-text">
+                  <span class="td-name td-trunc">{{ s.name }}</span>
+                  <span class="td-sub td-trunc">{{ spawnLine(s) }}{{ k === 0 ? ', open from the start' : ', the player may close it' }}</span>
+                </span>
+              </button>
+              <span class="td-inline">
+                <button type="button" class="td-btn-ghost td-btn-sm" [disabled]="busy()" (click)="rollOne(k)">Roll again</button>
+                <button type="button" class="td-btn-ghost td-btn-sm" [disabled]="busy() || spawns().length <= 1" (click)="removeSpawn(k)">Remove</button>
+              </span>
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="td-note">No spawn yet.</p>
+      }
+    </section>
+    <div class="td-actions">
+      <button type="button" class="td-btn-primary" [disabled]="busy() || !spawns().length" (click)="make()" data-test="osm-make">Make the map</button>
+    </div>
+  }
+
+  @if (phase() === 'making') {
+    <div class="td-stack" role="status" data-test="osm-making">
+      <p class="td-text" aria-live="polite">{{ makingStep().text }}…</p>
+      <div class="td-progress" aria-hidden="true">
+        <div [style.width.%]="(100 * makingStep().index) / (makingStep().of + 1)"></div>
+      </div>
+      <div class="td-actions is-start">
+        <button type="button" class="td-btn-secondary td-btn-sm" (click)="cancelMaking()">Cancel</button>
+      </div>
+    </div>
+  }
+
+  @if (phase() === 'made') {
+    @if (made(); as m) {
+      <section class="td-group" role="status" data-test="osm-made">
+        <p class="td-text"><b>{{ m.summary.name }}</b> is among your maps: {{ reportLine(m.report) }}.</p>
+        @if (m.report.warnings.length) {
+          <ul class="td-stack of-warnings">
+            @for (w of m.report.warnings; track w) {
+              <li class="td-note is-warn">{{ w }}</li>
+            }
+          </ul>
+        }
+        <div class="td-actions">
+          @if (context() === 'menu') {
+            <button type="button" class="td-btn-secondary" (click)="finish('edit')" data-test="osm-edit">Edit in the editor</button>
+            <button type="button" class="td-btn-primary" (click)="finish('play')" data-test="osm-play">Play</button>
+          } @else {
+            <button type="button" class="td-btn-primary" (click)="finish('edit')" data-test="osm-edit">Open the map</button>
+          }
+        </div>
+      </section>
+    }
+  }
+}

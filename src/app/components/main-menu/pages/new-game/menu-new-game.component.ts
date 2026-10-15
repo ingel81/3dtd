@@ -10,6 +10,10 @@ import { WorldChoiceService } from '../../../../world/world-choice.service';
 import { CUSTOM_MAPS_OPEN } from '../../../../world/custom-maps-open';
 import { MapPickerComponent } from './map-picker.component';
 import { PlacePickerComponent } from './place-picker.component';
+import { AddressAutocompleteComponent } from '../../../address-autocomplete.component';
+import { OsmFrameComponent } from '../../../osm-frame/osm-frame.component';
+import type { OsmFrameRequest } from '../../../osm-frame/osm-frame-request';
+import type { MapSummary } from '../../../../world/custom-map/map-store';
 
 /** What the page shows: real places of the 3D tiles, or the maps */
 export type NewGameView = 'places' | 'maps';
@@ -27,7 +31,7 @@ export type NewGameView = 'places' | 'maps';
 @Component({
   selector: 'app-menu-new-game',
   standalone: true,
-  imports: [PlacePickerComponent, MapPickerComponent, RovingGroupDirective],
+  imports: [PlacePickerComponent, MapPickerComponent, RovingGroupDirective, AddressAutocompleteComponent, OsmFrameComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (ui.coopMapLocked()) {
@@ -37,17 +41,19 @@ export type NewGameView = 'places' | 'maps';
         @if (!menu.tabsShown()) {
         <div class="td-seg" role="tablist" aria-label="Where to play" tdRovingGroup>
           <button type="button" role="tab" id="td-play-tab-places" aria-controls="td-play-panel"
-                  [attr.aria-selected]="view() === 'places'" (click)="view.set('places')">Real places</button>
+                  [attr.aria-selected]="view() === 'places'" (click)="showView('places')">Real places</button>
           <button type="button" role="tab" id="td-play-tab-maps" aria-controls="td-play-panel"
                   [attr.aria-selected]="view() === 'maps'" [disabled]="!mapsOpen && view() !== 'maps'"
-                  [attr.title]="mapsOpen ? null : 'Coming soon'" (click)="view.set('maps')">Maps</button>
+                  [attr.title]="mapsOpen ? null : 'Coming soon'" (click)="showView('maps')">Maps</button>
         </div>
         }
         <div role="tabpanel" id="td-play-panel" class="td-stack" [attr.aria-labelledby]="'td-play-tab-' + view()">
-          @if (view() === 'maps') {
-            <app-map-picker />
+          @if (frameFor(); as request) {
+            <app-osm-frame [place]="request.place" [spawnsAt]="request.spawnsAt" (back)="frameFor.set(null)" (done)="madeMap($event)" />
+          } @else if (view() === 'maps') {
+            <app-map-picker (toPlaces)="showView('places')" />
           } @else if (world.capabilities().realPlace) {
-            <app-place-picker (chosen)="choose($event)" />
+            <app-place-picker (chosen)="choose($event)" (mapOfPlace)="frameFor.set($event)" />
           } @else {
             <section class="td-group">
               <p class="td-note">This game plays on a map. Real places load the 3D tiles again and ask where.</p>
@@ -55,6 +61,17 @@ export type NewGameView = 'places' | 'maps';
                 <button type="button" class="td-btn-primary" (click)="worlds.playRealPlaces()">Play on real places</button>
               </div>
             </section>
+            @if (mapsOpen) {
+              <section class="td-group" aria-labelledby="td-play-osm">
+                <h3 class="td-section" id="td-play-osm">A map of a real place</h3>
+                <p class="td-note">Made from OpenStreetMap, no map key needed: search a town or an address.</p>
+                <app-td-address-autocomplete
+                  [placeholder]="'City, street or address…'"
+                  [currentValue]="null"
+                  (locationSelected)="frameFor.set({ place: { lat: $event.lat, lon: $event.lon, name: $event.name.split(',')[0], address: $event.name }, spawnsAt: [] })"
+                />
+              </section>
+            }
           }
         </div>
       </div>
@@ -79,6 +96,20 @@ export class MenuNewGameComponent {
   readonly view = signal<NewGameView>(
     this.menu.tabsShown() ? (this.menu.tab() === 'custom' ? 'maps' : 'places') : this.world.capabilities().realPlace ? 'places' : 'maps',
   );
+
+  /** The frame of a map of a real place (an OSM world) in place of the page's lists, null for none */
+  readonly frameFor = signal<OsmFrameRequest | null>(null);
+
+  showView(view: NewGameView): void {
+    this.view.set(view);
+    this.frameFor.set(null);
+  }
+
+  /** A map made in the frame: played, or opened in the editor */
+  madeMap({ summary, then }: { summary: MapSummary; then: 'play' | 'edit' }): void {
+    if (then === 'play') this.worlds.playMap(summary.id);
+    else this.worlds.editMap(summary.id);
+  }
 
   choose(choice: PlaceChoice): void {
     this.menu.home('start');

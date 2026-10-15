@@ -643,6 +643,8 @@ läuft also durch denselben Master-Bus mit Limiter; seine Lautstärke ist die SF
 `AudioBufferSourceNode`, ein `GainNode` und ein `StereoPannerNode`; keine `PositionalAudio`, kein Enemy- oder
 One-Shot-Budget: das Distanzmodell der Spiel-Sounds passt nicht zu einem Ton, der in einer Fläche überall gleich laut
 ist und den die Kamera aus 100 bis 400 m Höhe hört. Pause des Spiels hält ihn nicht an (die Welt lebt weiter).
+Der Ton zu jeder Welle (`life.waveSound`, Glocke, Sirene, Horn) läuft denselben Weg: eine Quelle ohne Schleife je
+Wellenstart, ausgelöst von `wave:started` (`PresentationHost` an `WorldProvider.waveStarted`).
 Die Dateien liegen unter `public/assets/sounds/ambient/` (Abschnitt Assets).
 
 ## Performance-Optimierungen
@@ -725,9 +727,10 @@ Sound-Dateien befinden sich unter `public/assets/sounds/` (Auszug, nicht
 vollständig). Hintergrundmusik liegt separat unter `public/assets/music/`:
 ```
 public/assets/sounds/
-├── ambient/                           # Umgebungston eigener Karten: synthetische Platzhalter (tools/ambient/make_placeholders.py)
+├── ambient/                           # Umgebungston eigener Karten: Loops mit ElevenLabs erzeugt (2026-10-15, wind/stream/surf je zwei),
+│                                      # ebenso die Wellentöne; Platzhalter für neue Klänge: tools/ambient/make_placeholders.py
 │   ├── wind.mp3, birdsong.mp3, night-insects.mp3, stream.mp3, surf.mp3
-│   └── swamp.mp3, lava.mp3, fire.mp3, city.mp3   # je 16 s Schleife plus 0,1 s davor und danach
+│   └── swamp.mp3, lava.mp3, fire.mp3, city.mp3, gulls.mp3, crows.mp3, radio-hiss.mp3   # je 16 s Schleife plus 0,1 s davor und danach
 ├── towers/
 │   ├── archer/shoot.mp3               # Pfeil-Schuss-Sound
 │   ├── gatling/shoot.mp3              # Gatling-Schuss-Sound

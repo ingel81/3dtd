@@ -13,7 +13,7 @@ import { RESEARCH_TREE } from './research/research-tree.config';
 
 /** Not yet released (user decision 2026-10-15): the new towers of E102 and the new paths of E101 */
 const UNRELEASED_TOWERS = ['bastion', 'sentinel', 'chainsaw', 'shawarma'];
-const UNRELEASED_PATHS = ['incendiary', 'multirole', 'seal', 'corrode'];
+const UNRELEASED_PATHS = ['incendiary', 'multirole', 'seal', 'corrode', 'sniper'];
 
 describe('release switch', () => {
   it('shows everything in a dev build', () => {
@@ -21,7 +21,7 @@ describe('release switch', () => {
     expect(releasedResearch(false)).toHaveLength(Object.keys(RESEARCH_TREE).length);
     for (const id of UNRELEASED_TOWERS) expect(isTowerReleased(id, false), id).toBe(true);
     for (const id of UNRELEASED_PATHS) expect(isPathReleased(id, false), id).toBe(true);
-    expect(releasedPathsOf('archer', false).map((p) => p.id)).toEqual(['scout', 'incendiary']);
+    expect(releasedPathsOf('archer', false).map((p) => p.id)).toEqual(['scout', 'incendiary', 'sniper']);
   });
 
   it('hides the unreleased towers and paths in a production build, and the research that unlocks them', () => {

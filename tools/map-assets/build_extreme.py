@@ -201,16 +201,26 @@ def ice_shapes(name, seed, kind):
 
 
 def icicles(name, seed, width=4.0):
-    """Ice ledge with icicles hanging below it: lay it along a cliff edge or a roof"""
+    """Ice ledge with icicles hanging below it: lay it along a cliff edge or a roof. The ledge a row of
+    rounded lumps, the icicles in clusters, each swelling under its root and running out to a point"""
     clear_scene()
     rnd = random.Random(seed)
     ice = Part(ice_material(), smooth=True)
-    box(ice, 0, 0, 2.6, width, 0.8, 0.35)
-    for k in range(int(width / 0.25)):
-        x = -width / 2 + 0.1 + k * 0.25 + rnd.uniform(-0.05, 0.05)
-        h = rnd.uniform(0.4, 2.2)
-        tube(ice, [Vector((x, -0.25, 2.62)), Vector((x, -0.25, 2.62 - h))], [rnd.uniform(0.06, 0.12), 0.0], 6)
-    export(name, [ice.to_object(name)])
+    tube(ice, [Vector((-width / 2 + 0.45, 0, 2.8)), Vector((width / 2 - 0.45, 0, 2.8))], [0.17, 0.17], 8, cap=True)
+    for k in range(7):
+        x = -width / 2 + 0.4 + k * (width - 0.8) / 6
+        lump(ice, Vector((x, 0, 2.76)), Vector((0.4, 0.36, 0.16)), seed + k, roughness=0.2, subdiv=1)
+    x = -width / 2 + 0.12
+    while x < width / 2 - 0.12:
+        cluster = rnd.random() < 0.35
+        h = rnd.uniform(0.5, 2.2) if cluster else rnd.uniform(0.2, 0.9)
+        r = rnd.uniform(0.07, 0.12) * (1.2 if cluster else 0.8)
+        top = 2.8
+        y = -0.22 + rnd.uniform(-0.06, 0.06)
+        tube(ice, [Vector((x, y, top)), Vector((x, y, top - h * 0.18)), Vector((x + rnd.uniform(-0.03, 0.03), y, top - h * 0.6)),
+                   Vector((x + rnd.uniform(-0.04, 0.04), y, top - h))], [r * 0.8, r, r * 0.45, 0.0], 6)
+        x += rnd.uniform(0.12, 0.3)
+    export(name, [smooth(ice.to_object(name))])
 
 
 def snow_drift(name, seed, length=8.0):

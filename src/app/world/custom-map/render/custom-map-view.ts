@@ -40,6 +40,7 @@ import { MapObjectLayer, type ObjectHit } from './objects/object-layer';
 import { IMPOSTOR_SUN } from './objects/impostor';
 import { BridgeLayer } from './paths/path-bridges';
 import { LAVA_GLOW_UNIFORMS } from './environment/height-fog';
+import { GRASS_AHEAD } from './grass/grass-field';
 import { MapTerrainLayer } from './terrain/map-terrain';
 import { ApronField, EDGE_TREE_BAND, edgeTreeObjects } from './objects/edge-trees';
 import { NIGHT_WINDOW_UNIFORMS } from './objects/night-windows';
@@ -597,8 +598,14 @@ export class CustomMapView {
     this.edgeTrees.shadowRadius = this.objects.shadowRadius;
     this.edgeTrees.update(dtSeconds, camera, this.shadowCenter);
     IMPOSTOR_SUN.uImpSun.value.copy(this.environment.sunDir);
-    // Grass between the camera's foot and the focus; from far up blades are below a pixel, skip them
-    this.grassCenter.copy(this.camPos).lerp(this.focusPoint, 0.6);
+    // Grass from the camera's foot towards the focus, its middle at most GRASS_AHEAD ahead: a low camera
+    // looking far (a tower's view) keeps grass at its feet and to the sides; from far up blades are below a
+    // pixel, skip them
+    const aheadX = this.focusPoint.x - this.camPos.x;
+    const aheadZ = this.focusPoint.z - this.camPos.z;
+    const ahead = Math.hypot(aheadX, aheadZ);
+    const step = ahead > 0 ? Math.min(0.6 * ahead, GRASS_AHEAD) / ahead : 0;
+    this.grassCenter.set(this.camPos.x + aheadX * step, this.focusPoint.y, this.camPos.z + aheadZ * step);
     this.terrain.grass.update(clock, this.grassCenter);
     this.terrain.grass.setNear(reach < this.grassDistance);
     // The weather's cover: at most four times a second, and only when something changed

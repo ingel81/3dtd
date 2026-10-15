@@ -370,6 +370,18 @@ Ein Pfad ist ein Ein-Klick-Upgrade, einmal je Tower, einer je Tower (`configs/to
 Ein Pfad kann einen Anbau mitbringen (`attachment`: GLB in den Einheiten des Tower-Modells, unter dessen Mesh gehängt,
 ein Knoten darf langsam schwenken) und einen Erkennungsradius (`detectionRadius`, türkiser Ring beim Auswählen).
 
+Ein Pfad kann das Modell tauschen (`swap`): Modell, Stand und Zielen (Turret, Mündung `firePoints`, Neigung) und die
+Basiswerte Schaden, Reichweite und Tempo. Der Tower läuft danach auf `towerConfigOf(typ, pfad)`, der Typ-Config mit
+dem Tausch darüber, je Pfad ein festes Objekt; `Tower.typeConfig` ist diese Config, sobald `Tower.pathId` gesetzt ist
+(Kauf, Snapshot, Schatten-Tower des Hauptthreads). Die Werte folgen aus den Stufen der Upgrade-Tracks (die bleiben), das
+Zielen aus `refitTowerAim` (ab dann wartet das Feuern auf das Drehen, wenn der Tausch einen Turret hat). Eine andere
+Reichweite fragt die Sicht an wie ein Range-Upgrade, ein Tower mit der Zielwahl seines Typs nimmt die des Tauschs. Der
+Renderer baut den Tower auf dem neuen Modell neu (`ThreeTowerRenderer.rebuild`). Zwei Regeln prüft
+`tower-model.spec.ts`: der Tausch behält die Mündungshöhe (`heightOffset + shootHeight`), so bleibt die Sicht gültig
+und ein Range-Recompute fügt nur Zellen hinzu, und seine Basis steht im `footprintRadius` des Typs (Sockel und
+Platzierung sind schon entschieden). Panzerbrechend (`armorPiercing`): der direkte Treffer zählt gegen das Bessere aus
+Rüstung und nächstleichterer (`LIGHTER_ARMOR`, wie bei Caustic), auch gegen Bosse.
+
 Was ein Pfad am Treffer tut, liest `CombatEffectService.applyPathHit` aus dem Pfad des Schusses: das Projektil trägt
 den Pfad seines Towers beim Abschuss (`Projectile.pathId`, im Wellen-Snapshot), ein danach gekaufter oder verkaufter
 Pfad ändert Schüsse in der Luft nicht. Die Verteidigungsanalyse des Wellenplaners rechnet den Pfad mit
@@ -382,6 +394,7 @@ Pfad ändert Schüsse in der Luft nicht. Die Verteidigungsanalyse des Wellenplan
 | Archer | Fire Arrows | Incendiary Arrows (W10, 2000, nach Fire Alchemy) | 250 | jeder direkte Treffer setzt einen Brand: 25 % des Pfeilschadens je Sekunde als Feuer, 3 s, ein Brand je Tower, der nächste Treffer erneuert ihn; ein brennender Gegner regeneriert nicht | Regen-Konter in der Ballistik-Linie, mehr Schaden gegen Weiches |
 | Rocket | Multirole | Multirole Warheads (W9, 1500, nach Rocketry) | 300 | schießt auch auf Boden, dort mit 50 % (Treffer und Splash); solange ein Flieger Kandidat ist, nimmt sie den, und von einem Bodenziel schaut sie beim periodischen Sichtcheck (bis 3/s) nach Fliegern | die Rocket steht in Bodenwellen nicht mehr still |
 | Magic | Binding Sigil | Binding Sigils (W15, 2500, nach Arcane Studies) | 250 | jeder direkte Treffer versiegelt sein Ziel 4 s (Status `seal`, einer je Gegner, ein neuer erneuert ihn): Phasing (`immuneToSlow`) ist aufgehoben, ein Slow greift; der Slow läuft danach seine eigene Dauer aus | Ice wirkt wieder auf Wraiths (ab W17) |
+| Archer | Sniper | Ballista Bolts (W12, 2500, nach Siege Engineering) | 300 | Modelltausch auf die Ironclad Ballista (`tools/blender/build_tower.py`, `towers/ballista.json`): Schaden 140 statt 30, alle 4 s, Reichweite 60 statt 30, panzerbrechend, Zielwahl stärkstes Ziel (`highest-hp`), Turret dreht | Schwere Ziele und Bosse auf Distanz |
 | Poison | Caustic | Caustic Compounds (W11, 2000, nach Toxic Compounds) | 250 | jeder direkte Treffer (nicht der Splash) zersetzt sein Ziel 3 s (Status `corrode`, einer je Gegner, kein Stapeln): Treffer zählen gegen die bessere von seiner Rüstung und der nächstleichteren (`LIGHTER_ARMOR`: Fortified zu Heavy zu Light zu Unarmored); Unarmored, Ethereal und Bosse nie | Panzerknacker für alle Tower, nicht nur Siege |
 
 Bodenziele per Pfad: `canTargetGroundEffective` und `groundDamageShareOf` in `entities/tower-targeting.util.ts`
@@ -393,6 +406,16 @@ Rechnung Fire Arrows (Archer L0, 30 Physical je Sekunde, Brand 7,5 Fire je Sekun
 Brand wächst mit dem Damage-Track. Dieselben +37 % gegen Unarmored kosten über den Damage-Track ab L0 etwa 6,5 Stufen
 (etwa 400 Gold), ab L5 etwa 1.200 Gold: der Pfad ist ein billiger Kauf für Archer, die schon ausgebaut sind, wie der
 Scout ein Einmalkauf.
+
+Rechnung Sniper (Matrix §2.3, Physical): Archer L0 30 DPS, Sniper L0 140 alle 4 s = 35 DPS, durch die Rüstung eine
+Klasse leichter. Gegen Unarmored und Light 35 zu 30, gegen Heavy 35 zu 15 (2,3-fach), gegen Fortified 17,5 zu 9
+(1,9-fach), Ethereal 3,5 zu 3. Doppelte Reichweite heißt auf gerader Strecke etwa doppelt so lange im Feuer. Die
+Upgrade-Stufen bleiben und multiplizieren die neuen Basiswerte: ein Archer auf Damage L10 und Fire Rate L10 (Faktor
+2,4) macht gegen Heavy 36, als Sniper 84. Gegen Schwärme verliert er: ein Ziel alle 4 s, ein Bolzen von 140 auf einen
+Zombie verschenkt den Rest; die Zielwahl `highest-hp` hält ihn auf den dicken. Die Cannon L0 (150 Gold) bleibt gegen
+Heavy am Boden mit 48 vor Splash vorn; der Sniper trifft dazu Flieger, steht auf einem Archer-Bauplatz und kostet als
+Pfad 300 auf den Archer (45). Der Wellenplaner rechnet ihn mit seinen Werten und der leichteren Klasse
+(`towerArmorMultipliers`).
 
 Rechnung Binding Sigil: der Slow der Ice (50 %, 3 s) verdoppelt die Zeit eines Wraiths (Basis 8 m/s) im Feuer
 aller Tower, solange er hält. Die Magic (1,5 Schuss/s) versiegelt jedes Ziel, das sie trifft, und hält es, bis es

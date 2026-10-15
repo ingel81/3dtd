@@ -19,6 +19,7 @@ import { waterLevelAt } from '../../world/custom-map/water-level';
 import { bridgeDecks, deckHeightAt } from '../../world/custom-map/bridge-decks';
 import { HeightField } from '../../world/custom-map/render/height-field';
 import { TOWER_SPOT_M2, TYPICAL_TOWER_RANGE, type BuildAreas } from './build-areas';
+import { waveEventProblems } from './wave-event-check';
 
 export type IssueSeverity = 'error' | 'warning';
 
@@ -54,6 +55,7 @@ export interface MapIssue {
     | 'path-steep'
     | 'wave-list'
     | 'unknown-tower'
+    | 'wave-events'
     | 'scene-cost';
   message: string;
   /** Where to look */
@@ -332,6 +334,10 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
     if (!gp.towers.some((t) => t in TOWER_TYPES && t !== 'research-center' && t !== 'missile-silo')) {
       issues.push({ severity: 'error', code: 'unknown-tower', message: 'No tower that shoots is allowed.' });
     }
+  }
+
+  for (const p of waveEventProblems(doc)) {
+    issues.push({ severity: p.severity, code: 'wave-events', message: p.message, focus: p.focus, target: p.target });
   }
 
   const lanes = gp?.lanes;

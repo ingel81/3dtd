@@ -428,7 +428,8 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   schwach, nachts voll); dazu ein fester Pool von 6 `PointLight`s für die Lichter nächst dem Kamerafokus, nach
   Dunkelheit eingeblendet (Nacht, Dämmerung, tiefe Sonne). Am Tag kosten sie nichts, die feste Poolgröße vermeidet
   Shader-Neubau. `blink` (Sekunden): ein kurzer Blitz je Periode (Schein und Punktlicht, auch am Tag gut sichtbar),
-  backt kein Licht auf den Boden; der Antennenmast blinkt alle 1,5 s, `fx-beacon` setzt ein blinkendes Licht frei
+  backt kein Licht auf den Boden; Antennenmast und Positionslicht (`beacon-post`) blinken alle 1,5 s (der
+  Flutlichtmast hat keine roten Lichter und leuchtet stetig), `fx-beacon` setzt ein blinkendes Licht frei
 - **Leben aus dem Karteninhalt** (`CustomMapView.refreshAmbient`, ohne Bearbeiten): Glühwürmchen nachts (ab
   Dunkelheit 0,35) über den Ufern von Seen und Sümpfen (alle 12 m) und mitten in Wäldern (30-m-Quadrate mit mindestens
   6 Bäumen), höchstens 60 Schwärme, in den Biomen temperate, swamp, mountain. Vogelschwärme am Tag
@@ -472,8 +473,10 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   blockieren weder Sicht noch Bauen und werfen keinen Schatten (die Schattenkarte der Sonne ist gecacht).
   Bewegte Dinge (`movers`, dieselbe Klasse): ein beliebiges Asset (`asset`, Pflicht; ein Rover, ein Karren, Tiere) auf
   dem Boden, mit ihm geneigt, im Umriss je eines auf eigener Schleife (3 je Dichte 1, höchstens 16) oder auf der Linie
-  in zwei Spuren 2,5 m neben ihr (2), mit `speed` m/s (Standard 1,5, je eines bis 20 % anders). Die Gegner und Tower
-  sehen sie nicht
+  in zwei Spuren 2,5 m neben ihr (2), mit `speed` m/s (Standard 1,5, je eines bis 20 % anders). Mit `height` hängen
+  sie an einer Geraden statt am Boden: auf einer Linie von `height` über dem Boden am Anfang zu `height` über dem Boden
+  am Ende (eine Gondel am Seil), im Umriss `height` über seiner Mitte; dann ungeneigt. Die Gegner und Tower sehen sie
+  nicht
   Schalter der Karte (`life.auto`): Schornsteinrauch, automatische Glühwürmchen und Vögel (an, wenn nichts gesetzt),
   Funken über Lava (aus, wenn nichts gesetzt); `life.density` 0 bis 2 als Faktor auf das alles. `life.flags`: das Tuch
   der Banner weht im Wind (`objects/cloth.ts`: die Karten `foliage-banner*` werden beim Laden zu einem Raster aus 6 x 14
@@ -493,15 +496,27 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   apocalypse und mars Wind, desert Wind und Grillen, swamp Frösche, city Stadtrauschen, hell Lavagrollen, moon keiner
   (`ambient-sounds.ts`, `BIOME_SOUNDS`). Ohne `ambience` keiner: eine Karte bleibt still, bis man ihn setzt
 - **Tonbereiche** (Lebensbereich der Art `sound` mit `sound` und `volume`, Standard 0,7): im Umriss oder auf der Linie
-  voll, darüber hinaus über 70 m leiser (`AREA_REACH`, quadratisch), aus der Seite, auf der er liegt (Stereo-Panner,
+  voll, darüber hinaus über seine Reichweite leiser (`reach` 10 bis 300 m, Standard 70 m, `AREA_REACH`, quadratisch), aus der Seite, auf der er liegt (Stereo-Panner,
   voll seitlich erst 30 m außerhalb); ein Bach entlang einer Linie, Brandung entlang einer Küste, Feuer in einem Hof
+- **Ton zu jeder Welle** (`life.waveSound`: `sound`, `volume`, optional `area`): einmal, wenn eine Welle beginnt
+  (`wave:started` auf dem Hauptbus, über `PresentationHost` an `WorldProvider.waveStarted`, nicht beim Vorspulen eines
+  Replays; die Simulation weiß nichts davon). Mit `area` (Id eines Lebensbereichs beliebiger Art) kommt er von dort:
+  über 400 m bis auf 35 % leiser (`WAVE_REACH`, `WAVE_FAR`) und aus seiner Seite; ohne, oder wenn der Bereich fehlt,
+  überall gleich. Klänge `WAVE_SOUNDS`: `bell` (Glockenschlag), `siren-distant` (ferne Sirene), `ship-horn`
+  (Schiffshorn), ganze Dateien ohne Schleifenpolster, mit ElevenLabs erzeugt und ausgewählt (2026-10-15).
+  Life-Panel: „At each wave“, Lautstärke, „Comes from“, „Play“ spielt ihn einmal im Editor
 - Von oben leiser: bis 80 m über dem Boden voll, ab 600 m ein Drittel (`lift`)
-- Klänge (`AMBIENT_SOUNDS`): `wind`, `birdsong`, `night-insects`, `stream`, `surf`, `swamp`, `lava`, `fire`, `city`, je mit
-  eigenem Pegel. Heute synthetische Platzhalter aus `tools/ambient/make_placeholders.py` (Rauschen im Frequenzraum über
-  die ganze Schleife gefiltert, Rufe und Hüllkurven laufen über das Ende herum, daher ohne Naht); die Datei trägt
-  0,1 s der Schleife davor und danach (`LOOP_PAD`), gespielt wird dazwischen, so verschluckt der MP3-Versatz nichts.
-  Echte Aufnahmen ersetzen später die Dateien unter denselben Ids. Eine unbekannte Id spielt nichts (eine Karte aus
-  einem neueren Spiel)
+- Klänge (`AMBIENT_SOUNDS`): `wind`, `birdsong`, `night-insects`, `stream`, `surf`, `swamp`, `lava`, `fire`, `city`,
+  `gulls`, `crows`, `radio-hiss`, `harbor`, `cowbells`, `pine-wind`, `rain`, `cave-wind`, je mit eigenem Pegel. Mit
+  ElevenLabs erzeugt und ausgewählt (2026-10-15): `wind`, `birdsong`, `stream`, `surf`, `swamp`, `lava`, `fire`, `city`,
+  `gulls`, `crows`, `radio-hiss`, `harbor`, `cowbells`, `pine-wind`, `rain`, `cave-wind`, `night-insects` (Grillen im
+  Gebüsch). `tools/ambient/make_placeholders.py` erzeugt synthetische Platzhalter für neue Klänge, bis eine Aufnahme
+  gewählt ist (Rauschen im Frequenzraum über die ganze Schleife gefiltert, daher ohne Naht). Die Datei trägt 0,1 s der Schleife davor
+  und danach (`LOOP_PAD`), gespielt wird dazwischen, so verschluckt der MP3-Versatz nichts. Eine unbekannte Id spielt
+  nichts (eine Karte aus einem neueren Spiel)
+- **Varianten**: `wind`, `stream` und `surf` haben je zwei Aufnahmen (`variants`, `wind-2.mp3` usw.). Sie spielen
+  abwechselnd: jede bis zum Ende ihrer Schleife, die nächste setzt 2 s vorher ein (`CROSSFADE`, Equal-Power-Blende,
+  eine Sekunde vorher eingeplant), so fällt die 20-s-Schleife beim langen Zuhören weniger auf
 - Kosten: je hörbarer Stimme eine Quelle (im Audio-Thread); Pegel und Panning rechnet die CPU zehnmal je Sekunde,
   eine Stimme, die drei Sekunden still ist, gibt ihre Quelle ab. Die Grafikstufe ändert nichts am Ton
 
@@ -602,8 +617,13 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   (heller Staub, dunkler Basaltsand, ockerfarbener Kies, rostige, graue und schwarze Steine); in der Dämmerung ein
   blauer Hof um die Sonne über braungrauem Himmel
 - **Planet** (`environment.planet`: `azimuth`, `elevation` in Grad, `size` als scheinbarer Durchmesser in Grad, 0
-  keiner; `planetOf`): eine Scheibe im prozeduralen Himmel, von der Sonnenseite beleuchtet, Ozeane, Land und Wolken,
-  ein heller Atmosphärensaum (Uniforms `uPlanetDir`, `uPlanet` = Radius in Bogenmaß). Ohne Einstellung zeigt der Look
+  keiner; `planetOf`): die Erde im prozeduralen Himmel (`planetColor` in `sky-dome.ts`, im Kuppel-Shader, kein
+  eigener Draw Call; Uniforms `uPlanetDir`, `uPlanet` = Radius in Bogenmaß). Bild: NASA Blue Marble mit Wolken
+  (`skies/earth.webp`, 1024 x 512, sRGB, Alpha = Glanz auf offenem Meer, gebaut von `tools/map-assets/build_planet.py`,
+  rund 240 KB), geladen erst, wenn eine Karte einen Planeten zeigt (`PLANET_IMAGE`, über den Kartendaten-Cache), mit
+  Mipmaps; bis dahin eine schlichte Scheibe in Meeresfarbe. Fest gedreht: Europa und Afrika zur Karte, Nordpol etwas
+  zum Betrachter geneigt. Licht nach der Sonnenrichtung mit weichem, zur Grenze hin wärmerem Terminator, Sonnenglanz
+  auf dem Meer, dünner blauer Luftsaum auf der Tagseite, der knapp über den Rand reicht. Ohne Einstellung zeigt der Look
   Moon die Erde (`DEFAULT_PLANET`: Nordosten, 33 Grad hoch, 4 Grad), andere Looks keinen. Ein Bildhimmel zeigt keinen.
   Auf dem Mond gilt der schwarze Himmel als dunkel genug für die Lichter der Karte: `darkness` mindestens 0,5 wie in
   der Hölle (Schein der Lampen, Fenster, Punktlichter-Pool)

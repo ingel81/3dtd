@@ -101,6 +101,40 @@ eigenen Karten, Coop-Protokoll 5). Vier Worker-Branches darauf laufen (Abschnitt
       Dachkanten, Sockel, Kantenfasen), Texturen in Blender (Verdeckung, Kantenabnutzung, Schmutz backen; höhere
       Auflösung wo es lohnt, heute WebP 512 px), LODs neu (`make_lods.py`, `match_lods.py`), im Budget (Scene cost,
       E169). Zuerst die Gebäude aus dem Showreel; Vorher/Nachher-Bilder je Modell zur Abnahme.
+- [ ] **E195 Spiel, Editor und Welten aus einem Guss** (User, 2026-10-15, für später; großer Punkt, erst Plan-Doku
+      und Abstimmung): Spiel und Editor fühlen sich wie zwei getrennte Anwendungen an, beide nicht richtig mit dem
+      Hauptmenü verknüpft; das Hin und Her zwischen Editor, Karte und Spiel und zwischen echten Orten (3D-Tiles), eigenen
+      Karten und OSM-Karten (im Grunde auch eigene Karten) ist nicht flüssig, teils lädt die Seite neu. Ziel:
+      - eine zusammenhängende Anwendung: Hauptmenü, Spiel und Editor als Teile eines Ganzen, Wechsel ohne Neuladen
+        und ohne Änderung der URL (die Desktop-App hat keine Adresszeile: jeder Weg muss über die Oberfläche gehen)
+      - jederzeit klar: wo man ist (Welt, Karte, Spiel oder Editor, laufender Lauf), wohin man kann, und was nicht geht
+        und warum (etwa kein Map-Key für 3D-Tiles: sichtbar, mit dem Weg zum Key, statt versteckt)
+      - möglichst viele Optionen von überall: aus dem Spiel in den Editor und zurück in denselben Lauf, aus dem Editor
+        in ein Probespiel, aus einem echten Ort eine Karte, Laden und Speichern quer über die Welten
+      - Idee (User): ein globaler Umschalter für das, was man gerade tut (echte Orte, eigene Karten, OSM-Karten, Editor),
+        und je Welt ein eigener Hintergrund hinter dem Menü statt immer des echten Globus, etwa ein eigener Globus oder
+        eine Kartenwelt für die Custom Maps, damit sichtbar ist, dass es mechanisch dasselbe Spiel in anderer Welt ist;
+        der Wechsel nahtlos, ohne Klick-und-Neuladen
+      Vorgehen: alle heutigen Wege aufnehmen (Startmenü-Reiter, New game, Pausemenü, Game over, Editor-Kopf, Testfenster,
+      Spielstände, Links, Desktop), Brüche und Neuladen benennen, ein durchgängiges Modell vorschlagen (Plan-Doku),
+      mit dem User per Baukasten/Entwürfen abstimmen, dann bauen.
+- [ ] **E196 Doppelseitige Stoffe von unten unsichtbar** (2026-10-15, Befund fx-models5): Materialien mit `two_sided`
+      (z. B. Marktstand-Dach) sind im Spiel von schräg unten nicht zu sehen; bestand schon vorher.
+- [ ] **E197 Echter Rauchsäulen-Effekt** (2026-10-15, Befund fx-maps-hot2): Rauchsäulen sind gestapelte `fx-smoke`
+      und wirken im Standbild fleckig; ein eigener Effekt für hohe, ziehende Säulen (Ember Crater, Brände).
+- [ ] **E198 OSM-Welt: Gebäude passend und vielfältig** (User, 2026-10-15, Erlenbach 74235 im Editor): Ein Ort aus
+      überwiegend Einfamilienhäusern mit Satteldach (rot oder schwarz) erscheint als Feld gleicher Wohnblöcke. Prüfen,
+      warum die Artwahl (`building-tags.ts`) dort Blöcke statt `house-modern`/`house-semi` nimmt (vermutlich `building=yes`
+      ohne Geschosse und Rückfall), und mehr Varianz: Dachfarben, Dachformen, Größen, Drehung, Nebengebäude. Fehlende
+      Arten aus dem O4-Bericht (kleines Geschäftshaus, Anbau, Nebengebäude, Unterstand, Scheune) mit E179.
+- [ ] **E199 New game auf einer Kartenwelt: Ergebnisliste abgeschnitten** (User, 2026-10-15): Unter „A map of a real
+      place“ ist der Dialog zu niedrig, die Treffer der Ortssuche scrollen in einem schmalen Streifen. Dialoghöhe bzw.
+      Trefferliste so, dass mehrere Treffer sichtbar sind.
+- [ ] **E200 Editor-Ansicht „Look“ auf OSM-Karten** (2026-10-15, Befund fx-osm2, im Bild bestätigt): die rund 2000
+      Wegknoten erscheinen als große helle Scheiben und decken die Karte zu; in Look ausblenden oder klein zeichnen.
+- [ ] **E201 Bauverbot um Gebäude als Kreis** (2026-10-15, Befund fx-osm4): Bauverbot und Sitzhöhe rechnen mit
+      footprint × Skala als Kreis; lange Gebäude sperren über die Straße hinaus (Schule 46 m: 21 m Radius). Grundriss
+      als Rechteck nehmen.
 - [ ] **E194 Erde am Mondhimmel sieht zu schlecht aus** (User, 2026-10-15, Bild Moon Base mit der Erde über dem
       Nordrand): Planet-Einstellung (`environment.planet`, `sky-dome.ts`) zeichnet die Erde zu grob. Besser: echte
       Erdtextur (Kontinente, Wolken, Ozeanglanz), Tag-Nacht-Grenze passend zur Sonne, Atmosphärensaum, scharf bei der

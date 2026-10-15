@@ -150,6 +150,19 @@ describe('damageMetresPerArmor()', () => {
     expect(damageMetresPerArmor([plain], false, metres).ground.unarmored).toBeCloseTo(dps * 10, 6);
   });
 
+  it('counts a Sniper with its own stats, through the armor one class lighter (TODO E101)', () => {
+    const sniper = new Tower(POS, 'archer');
+    sniper.pathId = 'sniper';
+    const metres = new Map([[sniper.id, { ground: 10, air: 0 }]]);
+    const swap = TOWER_PATHS.sniper.swap!;
+    const dps = swap.damage! * swap.fireRate!;
+    expect(computeTowerDPS(sniper)).toBeCloseTo(dps, 6);
+    const out = damageMetresPerArmor([sniper], false, metres);
+    expect(out.ground.heavy).toBeCloseTo(dps * DAMAGE_MATRIX.physical.light * 10, 6);
+    expect(out.ground.fortified).toBeCloseTo(dps * DAMAGE_MATRIX.physical.heavy * 10, 6);
+    expect(out.ground.unarmored).toBeCloseTo(dps * DAMAGE_MATRIX.physical.unarmored * 10, 6);
+  });
+
   it('counts a Multirole rocket on the ground at the path share (TODO E101)', () => {
     const rocket = new Tower(POS, 'rocket');
     const metres = new Map([[rocket.id, { ground: 10, air: 20 }]]);

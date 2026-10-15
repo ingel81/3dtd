@@ -57,6 +57,8 @@ import { SimCoords } from '../sim/core/sim-coords';
 import { SimOps } from '../sim/core/sim-sink';
 import type { SimWorld } from '../sim/protocol/messages';
 import { TowerLos } from './game-state/tower-los';
+import { WaveEvents } from './game-state/wave-events';
+import { reachedWave } from '../world/custom-map/wave-events';
 import { DebugEnemies } from './game-state/debug-enemies';
 
 /**
@@ -254,6 +256,18 @@ export class GameStateManager {
 
   /** The HP of a destructible world's structures (RunRules.structures, TODO E131), see StructureLedger */
   readonly structures = new StructureLedger(this.sink, (x, y, radius) => this.seeAroundFall(x, y, radius));
+
+  /** A custom map's wave events (RunRules.events, TODO E170): lanes that open later, objects that come and go */
+  readonly waveEvents = new WaveEvents(
+    this.sink,
+    this.eventBus,
+    // The lanes price every research (researchCost); the main thread's research hears it with research:state-changed only
+    () => {
+      for (const seat of this.researchSeats) seat.research.announceState();
+    },
+    (x, y, radius) => this.seeAroundFall(x, y, radius),
+    (spawnId) => this.waveManager.spawnPoints.find((point) => point.id === spawnId)?.name ?? spawnId,
+  );
 
   /** Place, sell and upgrade rules, range refresh and guard heading of the towers */
   private readonly towerLifecycle = new TowerLifecycle(
@@ -544,6 +558,7 @@ export class GameStateManager {
     localPlayerId: () => this.localPlayerId,
     leaveTowers: (playerId) => this.towerLifecycle.leave(playerId),
     spawnIds: () => this.waveManager.spawnPoints.map((point) => point.id),
+    laneOpen: (spawnId) => this.waveEvents.laneOpen(spawnId),
   }));
 
   /** The start credits once per lane of the player (docs/WAVE_SYSTEM.md (Spuren)); one share without a lane */
@@ -714,6 +729,8 @@ export class GameStateManager {
     }
     this.initialize(world.hq, world.spawns, this.routeWorld.cachedPaths());
     this.applyRunStart();
+    // The events before the first wave to play: wave 1's as the run begins, those of a later start quietly
+    this.syncWaveEvents(true);
     const ground = new Map(world.spawns.map((spawn) => [spawn.id, world.spawnGround[spawn.id] ?? null]));
     this.enemyManager.setSpawnGround((at) => {
       for (const spawn of world.spawns) {
@@ -736,8 +753,9 @@ export class GameStateManager {
     const same = runRulesKey({ ...next, structures: null }) === runRulesKey({ ...this.runRules, structures: null });
     const startedPast = this.startApplied;
     this.runRules = next;
-    // The world's structures, all standing (a world where nothing falls has none)
+    // The world's structures, all standing (a world where nothing falls has none), and its wave events
     this.structures.load(next.structures);
+    this.waveEvents.load(next.events);
     if (same) return;
     this.healthLedger.setStart(next.hqHealth);
     this.healthLedger.resetToStart();
@@ -852,8 +870,10 @@ export class GameStateManager {
 
     // Once a wave is over, turn the towers to where the route enters their
     // range. During the wave a tower keeps the heading of its last target.
-    this.eventBusSubs.add(this.eventBus.on('wave:completed', () => {
+    this.eventBusSubs.add(this.eventBus.on('wave:completed', (event) => {
       this.towerLifecycle.turnAllToGuard();
+      // The build phase before the next wave begins: its events happen (wave events of a custom map)
+      this.syncWaveEvents(true, event.wave + 1);
     }));
 
     // Outside a wave the last enemy leaving turns them as well
@@ -1181,6 +1201,8 @@ export class GameStateManager {
   /** Put the simulation back to `snapshot`, see SimSnapshots.restore */
   restoreSnapshot(snapshot: SimSnapshot, reason: 'replay' | 'live' = 'replay'): void {
     this.snapshots.restore(snapshot, reason);
+    // The wave events as the restored counter has them, quietly
+    this.syncWaveEvents(false);
   }
 
   /** Why the state now cannot be a wave snapshot, null when it can (wave-snapshot.ts) */
@@ -1196,6 +1218,7 @@ export class GameStateManager {
   /** Put the simulation back to a wave snapshot, see SimSnapshots.restoreWave */
   restoreWaveSnapshot(snapshot: WaveSnapshot, reason: 'replay' | 'live' = 'live'): void {
     this.snapshots.restoreWave(snapshot, reason);
+    this.syncWaveEvents(false);
   }
 
   /**
@@ -1215,7 +1238,7 @@ export class GameStateManager {
     replayCommand: (entry) => this.commandsHandler?.replay(entry),
     // Exact: a keyframe must not change the run it is taken from (HeroManager.captureState)
     captureWaveSnapshot: () => (this.snapshots.waveRefusal() === null ? this.snapshots.captureWave(true) : null),
-    restoreWaveSnapshot: (snapshot) => this.snapshots.restoreWave(snapshot, 'replay'),
+    restoreWaveSnapshot: (snapshot) => this.restoreWaveSnapshot(snapshot, 'replay'),
     applyLosMask: (towerId, mask) => {
       const tower = this.towerManager.getById(towerId);
       if (tower) this.towerLos.replayMask(tower, mask);
@@ -1246,6 +1269,9 @@ export class GameStateManager {
     this.towerManager.refreshInnerFires();
     this.towerLifecycle.announceBuilds();
     this.structures.publish();
+    // The wave events as the restored wave counter has them, quietly
+    this.syncWaveEvents(false);
+    this.waveEvents.publish();
     const phase = this.waveManager.phase();
     const wave = this.waveManager.waveNumber();
     for (const seat of this.abilitySeats) seat.announceState();
@@ -1487,6 +1513,7 @@ export class GameStateManager {
     if (credits > 0) this.creditsLedger.addEach(credits, 'wave-jump');
     for (const seat of this.abilitySeats) seat.advanceWaves(skipped);
     this.eventBus.emit({ type: 'wave:jumped', from, wave, skipped, credits });
+    this.syncWaveEvents(false);
     return true;
   }
 
@@ -1552,6 +1579,7 @@ export class GameStateManager {
 
     this.healthLedger.resetToStart();
     this.structures.reset();
+    this.waveEvents.load(this.runRules.events);
     this.creditsLedger.reset();
     this.clock.reset();
     // Coop: the new run goes on at the relay's next tick
@@ -1571,6 +1599,16 @@ export class GameStateManager {
     this.eventBus.emit({ type: 'game:reset' });
     // A restart on a world whose rules start past wave 1 starts there again
     this.applyRunStart();
+    this.syncWaveEvents(true);
+  }
+
+  /**
+   * The wave events up to `wave` (by default the one the wave counter stands
+   * at, reachedWave) happen: as the game runs into them (`live`, one wave on)
+   * with their messages, otherwise quietly (WaveEvents.sync)
+   */
+  private syncWaveEvents(live: boolean, wave = reachedWave(this.waveManager.waveNumber(), this.waveManager.phase() === 'setup')): void {
+    this.waveEvents.sync(wave, live);
   }
 
   /** Apply Wave-Completion-Bonus via EconomyService (delegates the math). */

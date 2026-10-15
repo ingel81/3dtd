@@ -263,6 +263,27 @@ export const ATTRIBUTIONS: AttributionCategory[] = [
         licenseUrl: 'https://www.openstreetmap.org/copyright',
         sourceUrl: 'https://www.openstreetmap.org',
       },
+      {
+        name: 'Maps from a real place: streets and land (Overpass API)',
+        author: 'OpenStreetMap contributors',
+        license: 'ODbL 1.0',
+        licenseUrl: 'https://www.openstreetmap.org/copyright',
+        sourceUrl: 'https://www.openstreetmap.org',
+      },
+      {
+        name: 'Maps from a real place: heights',
+        author: 'Mapterhorn and its sources; Terrain Tiles (Mapzen, AWS Open Data) as the fallback',
+        license: 'Per source, listed by Mapterhorn',
+        licenseUrl: 'https://download.mapterhorn.com/attribution.json',
+        sourceUrl: 'https://mapterhorn.com',
+      },
+      {
+        name: 'Flat map of the place before a map is made (vector tiles)',
+        author: 'OpenFreeMap, OpenMapTiles, OpenStreetMap contributors',
+        license: 'ODbL 1.0 (data)',
+        licenseUrl: 'https://www.openstreetmap.org/copyright',
+        sourceUrl: 'https://openfreemap.org',
+      },
     ],
   },
   {
@@ -280,6 +301,13 @@ export const ATTRIBUTIONS: AttributionCategory[] = [
         author: 'Google',
         license: 'MIT',
         sourceUrl: 'https://angular.dev',
+      },
+      {
+        name: 'MapLibre GL JS (flat map of a place before its map is made)',
+        author: 'MapLibre contributors',
+        license: 'BSD 3-Clause',
+        licenseUrl: 'https://github.com/maplibre/maplibre-gl-js/blob/main/LICENSE.txt',
+        sourceUrl: 'https://maplibre.org',
       },
       {
         name: '3DTilesRendererJS',

@@ -470,6 +470,12 @@ describe('CombatEffectService tower paths', () => {
     expect(applyCorrode.mock.calls).toEqual([[target, TOWER_PATHS.corrode.corrodeMs, 't-1']]);
   });
 
+  it('a Sniper bolt pierces armor on its direct hit, an arrow does not', () => {
+    hit('archer', 'sniper', enemyAt('tank', 0), 140);
+    hit('archer', null, enemyAt('tank', 0), 30);
+    expect(applyDamage.mock.calls.map((c) => c[7])).toEqual([true, false]);
+  });
+
   it('an archer without the path burns nothing', () => {
     hit('archer', null);
     hit('archer', 'scout');
