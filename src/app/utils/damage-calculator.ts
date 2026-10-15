@@ -19,7 +19,8 @@ import { getEffectiveness, matrixMultiplier } from '../configs/combat/damage-mat
  * @param damageType      Type of damage being dealt
  * @param armorType       Current armor type of the target (may be overridden by Armor Break)
  * @param bonusMultiplier Additional multiplier from future effects like Mark (default: 1.0)
- * @param corroded        The target is corroded (status `corrode`): the better of its armor and the next lighter
+ * @param corroded        The target is corroded (status `corrode`) or the hit pierces armor (TowerPath.armorPiercing):
+ *                        the better of its armor and the next lighter
  */
 export function calculateDamage(
   baseDamage: number,

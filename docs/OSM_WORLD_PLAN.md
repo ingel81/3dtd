@@ -1,7 +1,8 @@
 # Welt aus OpenStreetMap (Plan)
 
-**Status:** Plan, 2026-10-14; Phase O1 „Graue Welt“ gebaut 2026-10-15 (TODO E157), siehe [Phase O1](#phase-o1-gebaut-2026-10-15);
-Phase O4 „Gebäude“ gebaut 2026-10-15, siehe [Phase O4](#phase-o4-gebaut-2026-10-15)
+**Status:** Plan, 2026-10-14; Phase O1 „Graue Welt“, O2 „Ablauf“, O3 „Land und Wasser“ und O4 „Gebäude“ gebaut
+2026-10-15 (TODO E157), siehe [Phase O1](#phase-o1-gebaut-2026-10-15), [Phase O2](#phase-o2-gebaut-2026-10-15),
+[Phase O3](#phase-o3-gebaut-2026-10-15) und [Phase O4](#phase-o4-gebaut-2026-10-15)
 **Bezug:** [CUSTOM_MAPS.md](CUSTOM_MAPS.md) (Renderer, Katalog), [CUSTOM_MAP_WORLD.md](CUSTOM_MAP_WORLD.md) (Spiel),
 [LEVEL_EDITOR.md](LEVEL_EDITOR.md) (Editor), [W3X_IMPORT.md](W3X_IMPORT.md) (Vorbild für einen Importer im Worker),
 [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) (Ortssuche, Spawns auf echten Orten), [SHOWCASE_LEVELS.md](SHOWCASE_LEVELS.md)
@@ -44,7 +45,7 @@ Adresse suchen ─► flache Karte mit Rahmen, HQ und Spawns ─► Daten holen 
    des Rahmens.
 3. **Daten holen:** eine Overpass-Abfrage für alles (Rahmen plus Rand), Höhenkacheln für den Rahmen. Beides kommt in
    einen IndexedDB-Speicher je Rahmen (wie `StreetCacheService`), damit ein zweites Erzeugen nichts mehr abruft.
-4. **Erzeugen:** im Web Worker wie der W3X-Import (`importOsmInWorker`, Transferables, Abbruch, Zeitlimit), mit
+4. **Erzeugen:** im Web Worker wie der W3X-Import (`OsmFrameSession`, Transferables, Abbruch, Zeitlimit), mit
    Fortschritt je Schritt und einem Bericht (was übernommen, ersetzt, ausgedünnt, weggelassen wurde; fehlende
    Gebäudearten).
 5. **Speichern:** als eigene Karte im Map-Store, Name aus der Adresse, `meta.source = { kind: 'osm', … }`. Danach
@@ -196,7 +197,7 @@ Code in `src/app/world/osm/` ohne Angular und DOM (Worker, Node, Specs), wie `wo
 | `convert/buildings.ts` | Grundriss zu Katalog-Modell(en), Art raten, ausrichten, auf den Hang setzen |
 | `convert/furniture.ts` | Zäune, Mauern, Hecken, Laternen, Bahn, Brückenart, Kleinkram |
 | `convert/layout.ts` | HQ und Spawns (`StreetRouter` auf `mapStreetNetwork`), Kartenrahmen |
-| `import-osm.ts`, `osm.worker.ts`, `osm-import-client.ts` | Ablauf, Bericht, Worker, Abbruch |
+| `import-osm.ts`, `osm-frame-core.ts`, `osm-frame-store.ts`, `osm.worker.ts`, `osm-frame-session.ts` | Ablauf, Bericht, Rahmen-Sitzung, Speicher je Rahmen, Worker, Abbruch |
 
 Dazu:
 
@@ -394,11 +395,11 @@ und Bäumen); O3 bis O5 füllen sie; O6 läuft parallel, sobald O4 die Liste lie
 Code in `src/app/world/osm/` (ohne Angular und DOM): `overpass-client.ts` (aus `osm-street.service.ts` herausgelöst,
 die Straßen der echten Orte nutzen ihn mit ihren alten Grenzen), `osm-query.ts`, `osm-parse.ts`, `osm-tags.ts`,
 `dem-tiles.ts`, `convert/terrain.ts`, `convert/roads.ts`, `convert/layout.ts`, `import-osm.ts` (Ablauf und Bericht),
-`osm.worker.ts` mit `osm-import-client.ts`, `osm-link.ts` (Testeinstieg). Specs auf einer eingefrorenen Probe
+`osm.worker.ts` mit `osm-import-client.ts`, `osm-link.ts` (Testeinstieg; beide mit O2 ersetzt). Specs auf einer eingefrorenen Probe
 (`integration/fixtures/osm/world-miltenberg.*`, 1,2 km Quadrat, 400 kB gepackt); `tools/osm/osm-world.spec.ts` erzeugt
 Welten aus heruntergeladenen Rohdaten für Messungen (`--mode osm`).
 
-**Testeinstieg:** `?osm=<lat>,<lon>` (nur wo Links eigene Karten öffnen dürfen, also im Dev-Build bis zur Freigabe):
+**Testeinstieg (mit O2 entfernt):** `?osm=<lat>,<lon>` (nur wo Links eigene Karten öffnen dürfen, also im Dev-Build bis zur Freigabe):
 die Seite erzeugt die Karte im Worker, zeigt eine Statuszeile, speichert sie als eigene Karte (freie Id
 `osm-<lat>-<lon>`) und lädt neu auf `?world=map:<id>`. Der Bericht steht in der Konsole (`[OSM world]`).
 
@@ -489,7 +490,169 @@ Datei.
 - **Spuren zu Beginn:** alle Spawns sind beim Start offen (die Spurwahl öffnet optionale bis `max`); der Spieler
   schließt sie vor Welle 1. Ob eine OSM-Welt mit einer offenen Spur starten soll, ist offen.
 - **Steile Pfade:** die Prüfung meldet Treppen und Weinbergpfade über 30° (Oberbergen 52, Stuttgart 59) als Warnung.
-- **Namensnennung:** `meta.source.attribution` trägt die Zeilen (OSM, Höhenquelle); angezeigt werden sie mit O2.
+- **Namensnennung:** `meta.source.attribution` trägt die Zeilen (OSM, Höhenquelle); seit O2 in der Credit-Zeile des Spiels.
+
+## Phase O2, gebaut (2026-10-15)
+
+**Wege hinein** (nur wo die eigenen Karten offen sind, `CUSTOM_MAPS_OPEN`):
+
+- Menü, New game, Real places: ein Umschalter über der Suche wählt „3D city“ (die Kacheln, braucht einen Map-Key)
+  oder „Map from OpenStreetMap“ (auch mit Token, Entscheidung 9); bei OpenStreetMap heißt der Hauptknopf „Make the
+  map“ und führt in den Rahmen. Ohne neue Suche macht er die Karte des geladenen echten Orts, HQ auf dem Ort und die
+  Spawns des Laufs als Startpunkte (die nicht auf eine Straße der Karte passen, fallen weg; passt keiner, wird
+  gewürfelt). Standort, Zufallsstadt und Koordinaten sind Symbole neben dem Suchfeld; „Move only the spawn“ steht in der
+  Spawn-Auswahl.
+- Auf einer Welt ohne Kacheln (eigene Karte, Spieler ohne Token) unter Real places eine eigene Suche „A map of a real
+  place“; die Kartenliste (Your maps) verweist mit „Make a map of a real place…“ dorthin.
+- Editor, New map: „A landscape“ oder „From a real place“ (Suche, dann derselbe Rahmen), die Karte öffnet im Editor.
+
+**Rahmen** (`components/osm-frame/`): steht im Menü an Stelle der Listen, im Editor in der rechten Spalte.
+
+- Flache Karte mit MapLibre GL 6.11 (BSD-3) und dem Stil „dark“ von OpenFreeMap (Vektorkacheln aus OSM, ohne
+  Schlüssel, CORS offen); Straßen darin heller (`frameLight`, 45 %), damit ein Spawn seine Straße findet. Das Quadrat
+  der Karte (2,4 km) mit gedimmtem Land außen, HQ in Messing, Spawns rot mit Nummer und Route zum HQ, die gewählte
+  dicker. Namensnennung von MapLibre unten rechts (OpenFreeMap, OpenMapTiles, OpenStreetMap), darunter die Daten der
+  Karte selbst (OSM, Höhenquelle) und ihr Abrufdatum.
+- MapLibre wird nicht gebündelt: `angular.json` kopiert `maplibre-gl.mjs`, `-shared.mjs`, `-worker.mjs` und das CSS
+  nach `maplibre/` (1,2 MB roh); geladen beim ersten Rahmen, die Worker-URL per `setWorkerUrl` gesetzt (unter
+  `app://` der Desktop-App leitet MapLibre keine ab). Gebündelt käme das Shared-Modul zweimal (im Chunk und für den
+  Worker, der das gelieferte importiert).
+- Spawns: beim Öffnen vier wie auf echten Orten gewürfelt (`OsmLayout.draw`, 500 bis 1000 m, Route geprüft, 250 m
+  und 40° auseinander). Ziehen mit Maus oder Finger; losgelassen sucht der Worker die nächste Straße bis 100 m und
+  setzt den Spawn auf ihren Fußpunkt (`OsmLayout.at`), sonst bleibt er mit Grund stehen: „No street near here“, „Too
+  close to the HQ“ (unter 200 m), „Too far from the HQ“ (über 1500 m), „Too close to the edge of the map“ (40 m),
+  „No route to the HQ from here“, nach den Regeln eines gesetzten Spawns auf echten Orten
+  (`MapPlacementService.checkSpawn`, dort 30 m zur Straße). Ohne Karte bleibt die Liste: je Spawn „Roll again“ und
+  „Remove“, dazu „Roll all again“ und „Add a spawn“ (bis 8). Der erste ist offen, die übrigen `optional` wie in O1.
+- „Make the map“: Fortschritt je Schritt (Lesen, Gelände, Straßen, Einebnen, Belag, HQ und Spawns, Packen, Speichern)
+  mit Cancel; danach Name und Inhalt in einer Zeile, die Warnungen des Berichts, „Play“ und „Edit in the editor“.
+
+**Worker und Speicher** (`world/osm/`):
+
+- `OsmFrameCore` hält die Daten eines Orts zwischen den Aufrufen: öffnen (laden, Straßengraph, HQ, Spawns), würfeln,
+  ablegen, erzeugen und packen (die Karte bekommt ihre `uid` schon im Worker, der Store speichert die gepackte Datei,
+  ohne neu zu packen). `osm.worker.ts` führt sie aus, `OsmFrameSession` spricht mit ihm; ein Abbruch beendet den
+  Worker, der nächste Aufruf öffnet den Ort im neuen Worker zuerst wieder (aus dem Speicher).
+- Speicher je Rahmen: IndexedDB `3dtd-osm-frames`, Schlüssel Ort auf fünf Stellen plus Seite, die Overpass-Antwort
+  und das Höhenmosaik, die sechs zuletzt benutzten Rahmen. Ein zweites Öffnen oder Erzeugen ruft nichts ab; fehlten
+  die Höhen, fragt das nächste Öffnen sie neu.
+- Overpass-Fehler als Satz: „The OpenStreetMap servers did not answer (…). They are sometimes down for a while; try
+  again in a few minutes.“, bei 429 der Hinweis auf zu viele Anfragen; der Rahmen bietet „Try again“.
+- Name der Karte: der erste Teil der Suche („Miltenberg“), Id `osm-<name>` (belegt: mit Zahl); vorher „Map of …“,
+  das im Menüfuß als „Map Map of …“ las.
+- Namensnennung im Spiel: die Credit-Zeile einer OSM-Welt nennt `meta.source.attribution` (OSM-Daten, Höhenquelle)
+  zwischen Kartenname und Asset-Lizenz; die Liste der Lizenzen (Extras) führt OSM, Mapterhorn, OpenFreeMap und
+  MapLibre.
+- Der Testeinstieg `?osm=` ist entfernt.
+
+**Geprüft** (headless Chromium auf dem Dev-Server, Overpass aus der gespeicherten Miltenberg-Antwort, Nominatim mit
+einer festen Antwort, Höhen live von Mapterhorn, Kacheln live von OpenFreeMap): Suche, Rahmen mit vier Spawns, ein
+Spawn per Ziehen auf eine andere Straße, Erzeugen rund 1,9 s bis „is among your maps“, Play lädt
+`?world=map:osm-miltenberg` mit der Credit-Zeile; der Editor-Weg bis zur offenen Karte; Overpass mit 502 zeigt den Satz
+oben. Ein Rahmen kostete 7 Kachelanfragen bei OpenFreeMap und 9 Höhenkacheln.
+
+### Offen nach O2
+
+- Keine Vorschau im Kartenlisten-Eintrag (eine OSM-Welt hat kein Bild, bis der Editor eins macht).
+- Der Editor zeigt in der Ansicht „Look“ die Wegknoten einer OSM-Welt als helle Scheiben (Miltenberg rund 2 000); bei
+  dieser Dichte decken sie die Karte zu.
+- „Make a map of this place“ steht nur auf der Seite New game, nicht im Game-Over-Dialog.
+- Spieler ohne Token erreichen den Weg über „Play the maps“ und dann Real places; der Token-Dialog nennt ihn nicht.
+
+## Phase O3, gebaut (2026-10-15)
+
+Code in `src/app/world/osm/`: `land-tags.ts` (die Tabellen „Boden, Biome, Pflanzen“ und „Wasser“ als Daten),
+`convert/raster.ts` (Flächen auf ein Raster, Distanzfeld, Linien mit Breite), `convert/water.ts`, `convert/ground.ts`,
+`convert/vegetation.ts`. Ablauf in `convertOsm`: Gelände, Straßengraph, Wasser graben, Straßen einebnen, Wasser
+nachziehen (`settleWater`), Landnutzung malen, Betten und Ufer malen, Beläge malen, HQ und Spawns, Pflanzen. Der
+Bericht hat dafür `ground`, `water` und `plants`.
+
+### Beim Bau entschieden
+
+- **Boden:** jede Fläche mit einer Landklasse (`landClassOf`: `landuse`, `natural`, `leisure`, Parkplatz) füllt die
+  Splat-Texel in ihr, die kleinere Fläche über der größeren. `landuse=residential` malt nichts (Gärten bleiben das
+  Grundgras), benannte Gebiete wie `natural=mountain_range` und Naturschutzgebiete auch nicht. Die Schichten: Grundgras,
+  die Beläge der Straßen und die Materialien des Wassers sind gesetzt, die Landnutzung bekommt den Rest bis 12, nach
+  bedeckter Fläche; eine Klasse ohne eigene Schicht nimmt das nächste Material ihrer Liste, das eine hat (auch einen
+  Straßenbelag, etwa Kies für Bahngelände), sonst das Grundgras. Ränder mischen über einen Texel (3 × 3). An allen
+  drei Orten sind die 12 Schichten voll; der Bericht nennt, wer auf was fiel (`ground.fellBack`).
+- **Stimmung:** Biom `city`, wenn Gebäude 15 % der Karte bedecken (Stuttgart Mitte 30 %, Miltenberg 11 %), sonst
+  `temperate`; die Sonne so hoch wie mittags zur Tagundnachtgleiche (25 bis 65°), von Süden (südlich des Äquators von
+  Norden).
+- **Wasser vor dem Einebnen:** Flussflächen (`water=river`, `canal` …, `waterway=riverbank`) in eine Maske; jeder
+  zusammenhängende Teil wird entlang seiner Hauptachse in 60-m-Stücken gelesen und dort geteilt, wo sein Spiegel
+  0,75 m vom Anfang des Abschnitts abweicht. Der Spiegel eines Körpers ist das 30-%-Quantil der Höhen in ihm, ohne die
+  Randproben (das Vermessungsmodell hält die Wasserfläche flach, die Glättung zieht den Rand hoch). Hauptwasser ist das
+  Meer, sonst der größte Flussabschnitt; Seen, Teiche, Becken, Pools und Feuchtgebiete sind eigene Körper, unter 50 m²
+  weggelassen, über 64 die kleinsten. Das Bett liegt unter dem Spiegel (Schelf am Ufer, tiefer nach innen, Pools mit
+  steilen Wänden), der Rand 2 m breit 0,2 m über dem Spiegel, dann 3 m bis ins Land.
+- **Feuchtgebiete:** Sumpfboden aus der Bodenstufe; ab 400 m² ein Sumpfkörper mit Tümpeln, wo ein weiches Rauschen
+  (14 m) niedrig ist, mindestens 3 m vom Rand und höchstens 0,6 m über dem Spiegel.
+- **Bäche und Flüsse als Linien:** `waterway=river`, `canal`, `stream`, `drain`, `ditch` ohne Tunnel (Durchlässe) und
+  ohne `intermittent=yes`; Breite aus `width`, sonst 12, 8, 2,5, 1,6, 1,2 m. Sie laufen auf dem echten Verlauf (kein
+  Mäander wie der Flusspinsel), nur außerhalb der Wasserflächen (ein Schritt hinein, damit sie sich treffen), und enden
+  an einer Straße ohne Brücke (ein Durchlass, den die Daten nicht nennen). Der Spiegel kommt aus `bankLevels` des
+  Flusspinsels und fällt in Richtung des Wegs (gegen die Höhen gezeichnete Wege werden gedreht). Der Graben ist
+  mindestens eine Probe breit je Seite, sonst verfehlt das 2-m-Raster einen schmalen Graben.
+- **Küste:** `natural=coastline` zu Ketten verbunden, am Kartenrand geschnitten; jedes Stück, das die Karte quert, wird
+  im Uhrzeigersinn am Rand bis zum nächsten Stück geschlossen (OSM zeichnet das Land links), Inseln schneiden Löcher. Das
+  Meer ist Hauptwasser auf 0 m über dem Meer, der Kartennull wandert dorthin (`meta.source.zeroM` 0). Liegt das so
+  bestimmte Meer überwiegend über 3 m, ist die Küste in der Antwort kaputt: kein Meer, eine Warnung. Ein Strand
+  (`sand-coast`) bis 16 m ins Land, wo es flach bleibt. Ohne Küste in den Proben nur in einer Spec geprüft.
+- **Nach dem Einebnen** (`settleWater`): eine Straße durch einen Körper (ohne Brücke) wird Damm, ihre Proben verlassen
+  die Maske und liegen über dem Spiegel; ein Ufer, das die Schulter einer Straße aus dem Wasser hob, ist Land; jede
+  Probe neben einem Körper liegt wieder über seinem Spiegel; die Gräben der Bäche werden neben den Straßen neu
+  geschnitten. Die Editor-Prüfung meldet an den drei Orten weder `water-floating` noch `path-under-water`.
+- **Betten und Ufer:** `riverbed` unter dem Wasser und an den Ufern, `sand-coast` am Meer, nach der Landnutzung und vor
+  den Belägen gemalt.
+- **Pflanzen:** je Landklasse Arten mit Dichte je Hektar (Wald: Laubbäume 100, am Rand 200 auf 18 m, ein paar
+  Nadelbäume, Büsche am Rand, Farn, Stümpfe; Nadelwald 120 und 220; Gebüsch, Heide, Wiese mit Blumen, Park, Friedhof,
+  Kleingärten, Feuchtgebiet mit Schilf). Kandidaten aus einem verwackelten Gitter je Art, je Zelle ein Ort und ein Wurf
+  aus einem Hash (gleiche Daten, gleicher Wald). Fern der Routen dünner: bis 150 m voll, ab 700 m die Hälfte. Reben in
+  Reihen hangabwärts (2,4 m Abstand, Stücke von 10 m), Obstbäume in Reihen entlang der längsten Seite (8 × 7 m), Schilf
+  in 3 m um Seen, Teiche und Bäche, Einzelbäume nach `leaf_type` und `genus` (in der Stadt `tree-street`), Baumreihen
+  alle 9 m. Nichts wächst auf Straßen (Bäume 2 m, Büsche 1 m Abstand), im Wasser, in Gebäudegrundrissen, 25 m um das HQ
+  und 12 m um Spawns.
+- **Objektbudget nach Scene cost** (Entscheidung 5): die Pflanzen dürfen die Hälfte von `SCENE_BUDGET` kosten (6 M
+  Punkte; der Rest bleibt für Gebäude und Ausstattung), Reihen davon höchstens 40 % (ein Rebstück kostet so viel wie
+  drei Bäume, ein Weindorf gäbe sonst alles für Reben aus), höchstens 60 000 Objekte. Reicht es nicht, gehen
+  Einzelbäume und Baumreihen vor, dann die Reihen nach Nähe zur Route und die übrigen nach Wurf geteilt durch die
+  Routennähe. Die Kosten je Objekt rechnet `plantCosts` aus dem Katalog (`objectCost` auf 2,4 km); der Rahmen (`OsmFrameComponent.make`) liest den
+  Katalog und gibt sie als Option `plantCosts` in den Worker. Ohne sie zählt eine Pflanze wie ein unbekanntes Objekt
+  (lichter).
+
+### Messungen O3 (2026-10-15)
+
+Dieselben drei Orte und Rohdaten wie O1. Erzeugen in Node direkt hintereinander vorher und nachher (Rechner unter
+Last anderer Läufe, Richtwerte); Objekte und Scene cost mit dem Katalog. Die Spawns werden gewürfelt, die Pflanzen
+folgen den Routen: Objektzahlen schwanken zwischen Läufen um wenige Prozent.
+
+| | Oberbergen | Miltenberg | Stuttgart Mitte |
+|---|---|---|---|
+| Erzeugen vorher, nachher | 0,7 s, 1,5 s | 0,5 s, 1,1 s | 1,3 s, 1,9 s |
+| Datei vorher, nachher | 5,95, 7,36 MB | 5,59, 6,44 MB | 6,22, 7,16 MB |
+| Bodenschichten (mit Grundgras) | 12 | 12 | 12 |
+| Gewässer | 2 Seen, 2 Pools, 2 Feuchtgebiete, 20 Bachstücke (2,6 km) | Main als Hauptwasser, 3 Seen, 5 Pools, 11 Bachstücke (3,4 km) | 9 Seen und Teiche, 12 Pools und Brunnen |
+| Pflanzen, davon Einzelbäume und Baumreihen | 28 167, 45 | 16 129, 160 | 5 373, 2 416 |
+| größte Gruppen | Reben 9 360, Wald 7 337, Gebüsch 4 873, Heide 2 522, Obst 2 170 | Wald 10 461, Reben 1 854, Gebüsch 1 399 | Park 896, Reben 866, Wald 761 |
+| Scene cost der Pflanzen (Budget 6 M) | 2,93 M | 1,12 M | 0,47 M |
+
+Zum Vergleich die mitgelieferten Level (512 m): 0,7 bis 7,6 M Punkte, 460 bis 13 400 Objekte. Nur in Oberbergen
+reichte das Budget nicht für alles: die Reben stießen an ihre 40 %, fern der Routen fehlen sie (dort Rebboden ohne
+Stöcke). Laden im Dev-Server bis `load:ready`: 8 bis 13 s vorher wie nachher (Richtwert, Rechner unter Last).
+
+### Offen nach O3
+
+- **Bodenschichten:** die Beläge der Straßen nehmen sechs Schichten (Asphalt, Pflaster, Kopfstein, Gehweg, Kies,
+  Erdweg), Wasser eine, so bleiben der Landnutzung fünf; Wald fiel im 1,2-km-Ausschnitt von Miltenberg auf Gras, weil
+  Gewerbe und Wiese mehr Fläche hatten. Möglich: Gehweg und Pflaster zusammenlegen, oder Wald fest vorziehen.
+- **Stadtzentren:** `landuse=retail` und `commercial` (Stuttgart: eine Fläche von 0,78 km²) malen Platten unter alles;
+  bis die Gebäude aus O4 stehen, ist die Innenstadt eine graue Fläche mit Straßenbäumen.
+- **Flussabschnitte:** die Teilung geht entlang einer geraden Hauptachse; ein stark gewundener Fluss mit Gefälle wird
+  ungenau geteilt (in den Proben fällt der Main über die Karte kaum, ein Abschnitt).
+- **Küste:** nur synthetisch geprüft; ein Küstenort gehört in die Abnahme (O7).
+- **Bäche neben Wegen:** wo ein Weg dicht neben dem Bach läuft, schneidet der neu geschnittene Graben in dessen
+  Schulter.
 
 ## Phase O4, gebaut (2026-10-15)
 
@@ -525,9 +688,12 @@ eingefrorenen Probe (Katalog-Modelle, keine Objekte auf Straßen oder in der Luf
 - **Freihalten:** ein Modell, dessen Wandkasten eine Straße berührt (Pfade mit halber Breite, Gehwege laufen an den
   Wänden), schrumpft zur Rückseite hin bis Skala 0,8; sonst fällt es weg. Weg fällt auch, was mit einer Ecke in einer
   OSM-Wasserfläche oder im Wasser der Karte steht oder näher als 14 m am HQ.
-- **Budget:** Gebäude dürfen 60 % von `SCENE_BUDGET` ausgeben (`BUILDING_BUDGET_SHARE`), der Rest bleibt für
-  Bäume und Pflanzen aus O3. Darüber fallen ganze Grundrisse, die kleinsten fern vom HQ zuerst (Fläche geteilt
-  durch 1 + Abstand/400 m). Stützmauern kommen danach und zählen nicht in die Grenze (Stuttgart 65 % statt 60 %).
+- **Budget:** Gebäude kommen vor den Pflanzen (nach HQ und Spawns) und dürfen 60 % von `SCENE_BUDGET` ausgeben
+  (`BUILDING_BUDGET_SHARE`). Darüber fallen ganze Grundrisse, die kleinsten fern vom HQ zuerst (Fläche geteilt durch
+  1 + Abstand/400 m). Stützmauern kommen danach und zählen nicht in die Grenze (Stuttgart 65 % statt 60 %). Die
+  Pflanzen (O3) bekommen, was die Gebäude übrig lassen, höchstens ihre 50 % (`PLANT_BUDGET_SHARE`): zusammen nie über
+  100 %. Die Pflanzen meiden die OSM-Grundrisse selbst. Den Katalog bekommt der Worker aus `OsmFrameComponent.make()`
+  (`buildingCatalog`: nur die Gebäudemodelle und die Stützmauer).
 - **Hang:** der Boden unter Wandkasten plus 0,6 m wird auf die tiefste Ecke abgetragen (auch die acht Punkte, mit
   denen der Renderer ein Gebäude setzt, `object-seat.ts`), nie unter einer Straße (halbe Breite plus 0,5 m) oder im
   Wasser; `z` bleibt 0, die Prüfung findet nichts in der Luft. Aufgeschüttet wird nichts: mit der tiefsten Ecke liegt

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Group, Mesh, Object3D, PerspectiveCamera, Scene, Vector3 } from 'three';
 import { ThreeTowerRenderer, type TowerRenderData } from './three-tower.renderer';
 import { TOWER_TYPES, type TowerTypeId } from '../../configs/tower-types.config';
+import { TOWER_PATHS, towerConfigOf } from '../../configs/tower-paths.config';
 import { aimAt, aimIdle, createTowerAim, headingToLocalRotation, stepTowerAim, type TowerAim } from '../../entities/tower-aim';
 
 const STEP_MS = 1000 / 60;
@@ -473,5 +474,68 @@ describe('ThreeTowerRenderer range ring', () => {
 
     renderer.dispose();
     expect(scene.children.some((child) => child.name === 'range-ring')).toBe(false);
+  });
+});
+
+describe('ThreeTowerRenderer path swap', () => {
+  /** Each model a group named after its file, with the turret part the sniper's swap turns */
+  const loaded: string[] = [];
+  const assetManager = {
+    loadModel: async (url: string) => {
+      loaded.push(url);
+      return { animations: [] };
+    },
+    cloneModel: (url: string) => {
+      const model = new Group();
+      model.name = url;
+      const turret = new Object3D();
+      turret.name = 'turret_top';
+      model.add(turret);
+      return model;
+    },
+  };
+  const sync = {
+    geoToLocal: (lat: number, lon: number, height: number) => new Vector3(lon, height, lat),
+  };
+  const swap = () => TOWER_PATHS.sniper.swap!;
+
+  beforeEach(() => {
+    loaded.length = 0;
+  });
+
+  it('builds a standing tower again on the swapped model, selected and with its aim', async () => {
+    const scene = new Scene();
+    const renderer = new ThreeTowerRenderer(scene, sync as never, assetManager as never);
+    const aim = placedAim('archer', 0, null);
+    const before = (await renderer.create('a', 'archer', 0, 0, 0, 0, aim))!;
+    renderer.select('a');
+
+    renderer.setPath('a', 'sniper');
+    await vi.waitFor(() => expect(renderer.get('a')).not.toBe(before));
+    const after = renderer.get('a')!;
+    expect(after.mesh.name).toBe(swap().modelUrl);
+    expect(after.mesh.scale.x).toBe(swap().scale);
+    expect(after.typeConfig).toBe(towerConfigOf('archer', 'sniper'));
+    expect(after.aim).toBe(aim);
+    expect(after.isSelected).toBe(true);
+    expect(scene.children).not.toContain(before.mesh);
+    expect(scene.children).toContain(after.mesh);
+  });
+
+  it('builds a tower whose path came before its model on the swapped model at once', async () => {
+    const renderer = new ThreeTowerRenderer(new Scene(), sync as never, assetManager as never);
+    renderer.setPath('a', 'sniper');
+    const data = (await renderer.create('a', 'archer', 0, 0, 0, 0, placedAim('archer', 0, null)))!;
+    expect(data.mesh.name).toBe(swap().modelUrl);
+    expect(loaded).toEqual([swap().modelUrl]);
+  });
+
+  it('keeps the model of a path without a swap', async () => {
+    const renderer = new ThreeTowerRenderer(new Scene(), sync as never, assetManager as never);
+    const data = (await renderer.create('a', 'archer', 0, 0, 0, 0, placedAim('archer', 0, null)))!;
+    renderer.setPath('a', 'incendiary');
+    await new Promise((done) => setTimeout(done, 0));
+    expect(renderer.get('a')).toBe(data);
+    expect(data.mesh.name).toBe(TOWER_TYPES.archer.modelUrl);
   });
 });

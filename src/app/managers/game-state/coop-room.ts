@@ -11,6 +11,8 @@ export interface CoopRoomHost {
   localPlayerId(): string;
   /** The spawn points of the world, in order: alone, each is a lane of the player */
   spawnIds(): readonly string[];
+  /** Whether a spawn point is a lane yet: a custom map's portal may open at a later wave (WaveEvents) */
+  laneOpen?(spawnId: string): boolean;
   /** `playerId` left: out of a manned tower (TowerLifecycle.leave) */
   leaveTowers(playerId: string): void;
 }
@@ -74,8 +76,20 @@ export class CoopRoom {
     }));
   }
 
-  /** The lanes, roster order: the room's in coop, every spawn point of the player alone */
+  /**
+   * The lanes, roster order: the room's in coop, every spawn point of the
+   * player alone; of those, the ones open yet (laneOpen). Where none is open,
+   * all of them: a wave needs a lane (the editor's check refuses such a map)
+   */
   get lanes(): readonly Lane[] {
+    const all = this.allLanes();
+    const open = this.host.laneOpen;
+    if (!open) return all;
+    const now = all.filter((lane) => open(lane.spawnId));
+    return now.length > 0 ? now : all;
+  }
+
+  private allLanes(): readonly Lane[] {
     if (this.coopLanes.length > 0) return this.coopLanes;
     const players = this.host.players();
     if (players.length !== 1) return [];

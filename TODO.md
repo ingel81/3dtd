@@ -101,6 +101,14 @@ eigenen Karten, Coop-Protokoll 5). Vier Worker-Branches darauf laufen (Abschnitt
       Dachkanten, Sockel, Kantenfasen), Texturen in Blender (Verdeckung, Kantenabnutzung, Schmutz backen; höhere
       Auflösung wo es lohnt, heute WebP 512 px), LODs neu (`make_lods.py`, `match_lods.py`), im Budget (Scene cost,
       E169). Zuerst die Gebäude aus dem Showreel; Vorher/Nachher-Bilder je Modell zur Abnahme.
+- [ ] **E195 Welten wechseln: UX aus einem Guss** (User, 2026-10-15, für später): Der Wechsel zwischen echten Orten
+      (3D-Tiles), eigenen Karten und OSM-Karten (im Grunde auch eigene Karten) ist noch nicht flüssig und klar genug;
+      beim Umschalten wird teils die Seite neu geladen. Genau analysieren (alle Wege: Startmenü-Reiter, New game,
+      Pausemenü, Editor, Spielstände, Links) und ein durchgängiges Modell vorschlagen, mit möglichst wenig Neuladen.
+- [ ] **E196 Doppelseitige Stoffe von unten unsichtbar** (2026-10-15, Befund fx-models5): Materialien mit `two_sided`
+      (z. B. Marktstand-Dach) sind im Spiel von schräg unten nicht zu sehen; bestand schon vorher.
+- [ ] **E197 Echter Rauchsäulen-Effekt** (2026-10-15, Befund fx-maps-hot2): Rauchsäulen sind gestapelte `fx-smoke`
+      und wirken im Standbild fleckig; ein eigener Effekt für hohe, ziehende Säulen (Ember Crater, Brände).
 - [ ] **E194 Erde am Mondhimmel sieht zu schlecht aus** (User, 2026-10-15, Bild Moon Base mit der Erde über dem
       Nordrand): Planet-Einstellung (`environment.planet`, `sky-dome.ts`) zeichnet die Erde zu grob. Besser: echte
       Erdtextur (Kontinente, Wolken, Ozeanglanz), Tag-Nacht-Grenze passend zur Sonne, Atmosphärensaum, scharf bei der

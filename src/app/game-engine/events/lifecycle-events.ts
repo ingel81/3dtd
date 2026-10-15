@@ -230,6 +230,19 @@ export type LifecycleEvent =
       credits: number;
     }
 
+  | {
+      /**
+       * A custom map's wave events happened as the game ran into the build
+       * phase before `wave` (WaveEvents, TODO E170): its messages, and the
+       * names of the spawns whose lanes opened. Not on a quiet sync (a start
+       * past wave 1, a restore, a jump)
+       */
+      type: 'map:wave-events';
+      wave: number;
+      messages: string[];
+      opened: string[];
+    }
+
   // ==================== Game State Events ====================
   | {
       type: 'game:started';

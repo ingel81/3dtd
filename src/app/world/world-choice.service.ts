@@ -140,6 +140,11 @@ export class WorldChoiceService {
     this.navigate(new URL(document.baseURI).toString());
   }
 
+  /** Opens the map editor on this map */
+  editMap(mapId: string): void {
+    this.navigate(this.editUrl(mapId));
+  }
+
   /** The map editor's start, its list of maps */
   editorUrl(): string {
     return new URL('editor', document.baseURI).toString();

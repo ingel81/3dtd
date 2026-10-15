@@ -305,6 +305,24 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     effects: [{ kind: 'unlock-path', pathId: 'incendiary' }],
   },
 
+  // The archer's answer to armor, out of the siege line: the tower becomes a
+  // ballista, after the first tank and bear waves (W9, W11) and before the
+  // first mammoths (W14)
+  'ballista-bolts': {
+    id: 'ballista-bolts',
+    name: 'Ballista Bolts',
+    description: 'Archer towers can take the Sniper path: a ballista with twice the range and armor-piercing bolts',
+    category: 'global-perk',
+    branch: 'ballistics',
+    // A scope: siege engineering before it has the catapult
+    icon: 'search',
+    cost: 2500,
+    duration: 25,
+    prerequisites: ['siege-engineering'],
+    minWave: 12,
+    effects: [{ kind: 'unlock-path', pathId: 'sniper' }],
+  },
+
   // The rocket stands idle in every ground wave; this lets it help there at
   // half damage, from the first tank waves on (W9, W11)
   'multirole-warheads': {

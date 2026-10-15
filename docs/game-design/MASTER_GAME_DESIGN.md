@@ -222,8 +222,10 @@ in §12.3.
   Preisen aller Tower war jede Stufe des schwächsten Basis-Schadens der
   schlechteste Kauf (menschlicher Lauf bis W60: 3,6 Schaden je Gold, Fire 17,3).
 - Pfade (Einmalkauf je Tower, [TOWER_CREATION.md](../TOWER_CREATION.md#pfade-2026-10-03-todo-e101)): Scout
-  (Camo-Erkennung) oder Fire Arrows (jeder Treffer brennt mit 25 % des Pfeils als Feuer je Sekunde, 3 s; hält Regen
-  an). Der geplante Air-Upgrade-Pfad ist nicht gebaut (§12.3).
+  (Camo-Erkennung), Fire Arrows (jeder Treffer brennt mit 25 % des Pfeils als Feuer je Sekunde, 3 s; hält Regen
+  an) oder Sniper (seit 2026-10-15, Pfad 300: Modelltausch auf eine Ballista, 140 Schaden alle 4 s, 60 m,
+  panzerbrechend eine Klasse leichter, auf das stärkste Ziel; L0 35 DPS, gegen Heavy 2,3-fach des Archers). Der
+  geplante Air-Upgrade-Pfad ist nicht gebaut (§12.3).
 
 ### 3.4 Dual-Gatling: Pierce
 - Trifft Luft erst mit der Forschung AA Retrofit (`aa-retrofit`), die nur die
@@ -680,6 +682,7 @@ Jede öffnet einen Tower-Pfad (`unlock-path`), den danach jeder Tower des Typs e
 |---|---|---:|---:|---:|---|---|
 | `scouting` | Scouting | 3.000 | 25 s | 16 | Advanced Weaponry | Archer: Scout |
 | `incendiary-arrows` | Incendiary Arrows | 2.000 | 20 s | 10 | Fire Alchemy | Archer: Fire Arrows |
+| `ballista-bolts` | Ballista Bolts | 2.500 | 25 s | 12 | Siege Engineering | Archer: Sniper |
 | `multirole-warheads` | Multirole Warheads | 1.500 | 20 s | 9 | Rocketry | Rocket: Multirole |
 | `binding-sigils` | Binding Sigils | 2.500 | 25 s | 15 | Arcane Studies | Magic: Binding Sigil |
 | `caustic-compounds` | Caustic Compounds | 2.000 | 20 s | 11 | Toxic Compounds | Poison: Caustic |

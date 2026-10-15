@@ -22,6 +22,8 @@ export const MAX_LIFE_POINTS = 256;
 /** The density knobs' ranges: an area's, the map's */
 export const LIFE_AREA_DENSITY = { min: 0.1, max: 3 } as const;
 export const LIFE_DENSITY = { min: 0, max: 2 } as const;
+/** A sound area's reach beyond its outline or line, metres: its range and the default (soundscape.ts AREA_REACH) */
+export const LIFE_SOUND_REACH = { min: 10, max: 300, default: 70 } as const;
 
 /** What each kind is, for the editor and the agent: name, a line on what it does, the outline's colour in the editor */
 export const LIFE_KIND_INFO: Readonly<Record<MapLifeKind, { label: string; about: string; color: string }>> = {
@@ -84,6 +86,10 @@ export function lifeProblems(life: unknown): string[] {
   if (amb !== undefined && (!amb || typeof amb.sound !== 'string' || !finite(amb.volume) || amb.volume < 0 || amb.volume > 1)) {
     p.push('life.ambience needs a sound and a volume 0 to 1');
   }
+  const ws = l.waveSound;
+  if (ws !== undefined && (!ws || typeof ws.sound !== 'string' || !finite(ws.volume) || ws.volume < 0 || ws.volume > 1 || (ws.area !== undefined && typeof ws.area !== 'string'))) {
+    p.push('life.waveSound needs a sound, a volume 0 to 1 and, if it names one, the id of a life area');
+  }
   if (l.areas === undefined) return p;
   if (!Array.isArray(l.areas) || l.areas.length > MAX_LIFE_AREAS) return [...p, `life.areas must be a list of at most ${MAX_LIFE_AREAS}`];
   const ids = new Set<string>();
@@ -106,6 +112,9 @@ export function lifeProblems(life: unknown): string[] {
     }
     if (a.height !== undefined && !finite(a.height)) p.push(`${name}: height is not a number`);
     if (a.volume !== undefined && (!finite(a.volume) || a.volume < 0 || a.volume > 1)) p.push(`${name}: volume must be 0 to 1`);
+    if (a.reach !== undefined && (!finite(a.reach) || a.reach < LIFE_SOUND_REACH.min || a.reach > LIFE_SOUND_REACH.max)) {
+      p.push(`${name}: reach must be ${LIFE_SOUND_REACH.min} to ${LIFE_SOUND_REACH.max} metres`);
+    }
     if (a.color !== undefined && !/^#[0-9a-f]{6}$/i.test(a.color)) p.push(`${name}: color must be #rrggbb`);
     for (const key of ['sound', 'asset'] as const) {
       if (a[key] !== undefined && typeof a[key] !== 'string') p.push(`${name}: ${key} must be an id`);

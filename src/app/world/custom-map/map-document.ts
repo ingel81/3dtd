@@ -400,7 +400,30 @@ export interface MapGameplay {
    * missing. The pressure loop still works on top. A list of the map's own keeps its HP
    */
   difficulty?: number;
+  /** What happens before a wave (TODO E170, wave-events.ts), at most MAX_WAVE_EVENTS */
+  events?: MapWaveEvent[];
 }
+
+/**
+ * Something a map lets happen before wave `wave`: when the build phase
+ * before it begins (wave 1: at the start). A message on the screen, the
+ * weather or the time of day changing, a spawn portal that opens (its lane
+ * runs from that wave on, before it the spawn brings no enemies), objects
+ * that appear or go (a gate, a bridge, a wall). The game runs them in its
+ * simulation, so every coop client and every replay sees the same
+ * (world/custom-map/wave-events.ts).
+ */
+export type MapWaveEvent =
+  | { wave: number; kind: 'message'; text: string }
+  | { wave: number; kind: 'weather'; weather: MapWeather; strength?: number }
+  | { wave: number; kind: 'time'; hour: number }
+  | { wave: number; kind: 'portal'; spawn: string }
+  | { wave: number; kind: 'objects'; ids: string[]; show: boolean };
+
+export type MapWaveEventKind = MapWaveEvent['kind'];
+
+/** Wave events a map may have, the last wave one may name, and a message's length */
+export const WAVE_EVENT_LIMITS = { events: 64, wave: 200, text: 200, objects: 500 } as const;
 
 /** The difficulty a map may set, percent on the wave budget (MapGameplay.difficulty) */
 export const MAP_DIFFICULTY = { min: 50, max: 200, normal: 100 } as const;
@@ -444,6 +467,8 @@ export interface MapLifeArea {
   /** Sound: the ambient sound's id (ambience/ambient-sounds.ts) and its volume 0..1 (default 0.7) */
   sound?: string;
   volume?: number;
+  /** Sound: metres over which it fades out beyond the outline or the line (LIFE_SOUND_REACH, default 70) */
+  reach?: number;
   /** Boats: the floating asset that drifts (default a rowboat); movers: the asset that moves (required) */
   asset?: string;
   /** Birds: what flies (default songbirds) */
@@ -473,6 +498,13 @@ export interface MapLife {
   flags?: boolean;
   /** The ambient sound over the whole map: a sound id, or 'biome' for the biome's by day and by night; volume 0..1. None when missing */
   ambience?: { sound: string; volume: number };
+  /**
+   * A sound once at the start of every wave (a bell, a distant siren, a
+   * ship's horn; ambience/ambient-sounds.ts WAVE_SOUNDS), volume 0..1; from
+   * the life area `area` names (heard from its place, quieter far off) or
+   * everywhere alike. Heard only, the simulation never knows it
+   */
+  waveSound?: { sound: string; volume: number; area?: string };
   areas?: MapLifeArea[];
 }
 
@@ -490,7 +522,71 @@ export interface CustomMapDocument {
   gameplay?: MapGameplay;
   /** Life areas, ambient sound and the switches of the map's own life (map-life.ts); optional, no new version */
   life?: MapLife;
+  /**
+   * Prefabs and stamps kept with this map (the editor's; the game ignores
+   * them): they travel with its file. Not part of the content hash
+   */
+  prefabs?: MapPrefab[];
 }
+
+/** What a piece of a map holds, or what a paste takes of it */
+export interface MapPieceParts {
+  heights: boolean;
+  paint: boolean;
+  water: boolean;
+  objects: boolean;
+  roads: boolean;
+  /** Life areas (missing in pieces kept before they travelled: none) */
+  life?: boolean;
+}
+
+/**
+ * A piece of a map, centred on its own middle (the editor's Copy and stamps,
+ * editor/ops/stamp.ts): heights relative to its rim, paint per material,
+ * water, objects, the roads and the life areas inside.
+ */
+export interface MapPiece {
+  width: number;
+  depth: number;
+  /** Height samples: `columns` x `rows` every `cell` metres, relative to the rim */
+  cell: number;
+  columns: number;
+  rows: number;
+  heights: Float32Array;
+  /** Paint: `paintColumns` x `paintRows` cells of `materials.length` weights (0..255) */
+  paintCell: number;
+  paintColumns: number;
+  paintRows: number;
+  materials: string[];
+  paint: Uint8Array;
+  /** Water mask on the height samples and the water level relative to the rim; null without water */
+  water: { mask: Uint8Array; level: number; color: string } | null;
+  objects: Omit<MapObject, 'id'>[];
+  roads: { nodes: MapPathNode[]; edges: MapPathEdge[] };
+  /** Life areas and routes with all their points inside, relative to the middle; missing in pieces kept before */
+  life?: Omit<MapLifeArea, 'id'>[];
+  /** What the piece holds; all of it when missing (a rectangle copied whole) */
+  parts?: MapPieceParts;
+  /**
+   * Taken from a selection of objects (a prefab): a paste puts its objects
+   * down as one group of their own
+   */
+  prefab?: boolean;
+}
+
+/** A saved piece with its name and picture: the editor's stamp library, or a map's own (CustomMapDocument.prefabs) */
+export interface MapPrefab {
+  id: string;
+  name: string;
+  /** ISO time */
+  createdAt: string;
+  /** PNG data URL, the piece from above */
+  preview: string | null;
+  stamp: MapPiece;
+}
+
+/** Prefabs a map keeps (CustomMapDocument.prefabs) */
+export const MAX_MAP_PREFABS = 32;
 
 /** Synthetic lat/lon of a map point (origin (0, 0)) */
 export function mapToGeo(p: MapPoint): { lat: number; lon: number } {

@@ -34,6 +34,13 @@ import { ringArea, type OsmArea, type OsmFeatures } from '../osm-parse';
 /** A catalogue entry as far as the buildings read it */
 export type BuildingCatalogEntry = CostEntry & { id: string; footprint: number };
 
+/** The catalogue entries the buildings read (their models and the retaining wall), slim for the worker's message */
+export function buildingCatalog(objects: readonly (BuildingCatalogEntry & { id: string })[]): BuildingCatalogEntry[] {
+  return objects
+    .filter((o) => BUILDING_MODELS[o.id] || o.id === RETAINING_ASSET)
+    .map(({ id, category, height, drawDistance, file, triangles, lod, effects, footprint }) => ({ id, category, height, drawDistance, file, triangles, lod, effects, footprint }));
+}
+
 export interface BuildingOptions {
   /**
    * The asset catalogue: only its models are placed, and its triangles give

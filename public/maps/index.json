@@ -110,7 +110,7 @@
       "spawns": 3,
       "biome": "hell",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "15c1398a9b86cf4c4acbc2f9d69f09ed541b31cbf7fe48312e18eeb5fa94335a"
+      "contentHash": "450d74b1f30f43d8286c0d70de1c99a0639726ac3f6f06c71816adecdcbf2aae"
     },
     {
       "id": "twin-gates",
@@ -138,7 +138,7 @@
       "spawns": 3,
       "biome": "moon",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "2614828ad643b1b95005aea83450dc3d3933bc23a704946c65f58b7fd80da6d8"
+      "contentHash": "22a86e0b6223f6761962c7b381fb4ba8b57bd5c48b6c25b538cc40e5c5a81335"
     },
     {
       "id": "mars-canyon",
@@ -152,7 +152,7 @@
       "spawns": 3,
       "biome": "mars",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "7857ce4b7db51146fd67447b90ff2b695dc75acce0dcdd27889ff01d021af7d7"
+      "contentHash": "4f2b93f6dd3290bf181168afbb18d593e03a19859bec4deb6ed82d7857f850e8"
     },
     {
       "id": "ruined-city",

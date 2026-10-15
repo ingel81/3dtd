@@ -1,4 +1,5 @@
-import { skyPreset, timeOfDay } from './environment-panel.component';
+import { timeOfDay } from '../../../world/custom-map/time-of-day';
+import { skyPreset } from './environment-panel.component';
 
 describe('time of day', () => {
   it('puts the sun east at dawn, south and high at 13, west at dusk', () => {
