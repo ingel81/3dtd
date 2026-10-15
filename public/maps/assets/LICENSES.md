@@ -1,12 +1,13 @@
 # Lizenzen der Karten-Assets
 
-Alle Dateien unter `public/maps/assets/` stammen aus CC0-Quellen (gemeinfrei, keine Namensnennung nötig) oder sind
-daraus prozedural gebaut. Keine KI-Generatoren, keine Fremdmarken. Die Skripte, die sie erzeugen, liegen unter
-`tools/map-assets/` (siehe dort README.md); diese Datei schreibt `write_licenses.py` aus `catalog.json` und
-`skies/skies.json`.
+Alle Dateien unter `public/maps/assets/` stammen aus CC0-Quellen, aus gemeinfreien NASA-Bildern oder sind daraus
+prozedural gebaut. Keine KI-Generatoren, keine Fremdmarken. Die Skripte, die sie erzeugen, liegen unter
+`tools/map-assets/` (siehe dort README.md); diese Datei schreibt `write_licenses.py` aus `catalog.json`,
+`skies/skies.json` und der Erde.
 
 - Poly Haven (https://polyhaven.com), Lizenz CC0 1.0: https://polyhaven.com/license
 - ambientCG (https://ambientcg.com), Lizenz CC0 1.0: https://docs.ambientcg.com/license/
+- NASA Visible Earth (https://visibleearth.nasa.gov), gemeinfrei (Werk einer US-Bundesbehörde), Bildnachweis: NASA
 
 ## Bodenmaterialien (`materials/<id>/`)
 
@@ -609,3 +610,14 @@ HDRIs von Poly Haven (CC0), von `build_skies.py` skaliert, teils getönt, als ob
 | moonrise | https://polyhaven.com/a/qwantani_moonrise_puresky |
 | starry-night | https://polyhaven.com/a/rogland_clear_night |
 | deep-space | https://polyhaven.com/a/rogland_clear_night (nur Sterne) |
+
+## Erde über Mondkarten (`skies/earth.webp`)
+
+„The Blue Marble“ (Land, Ozean, Meereis, Wolken) von NASA Visible Earth, gemeinfrei; `build_planet.py` verkleinert es
+auf 1024 x 512 und legt die Glanzmaske des offenen Meers (aus der wolkenlosen Fassung) in den Alphakanal.
+Bildnachweis: NASA.
+
+| Datei | Quelle |
+|-------|--------|
+| earth.webp | https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57735/land_ocean_ice_cloud_2048.jpg |
+| earth.webp (Glanzmaske) | https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57730/land_ocean_ice_2048.jpg |

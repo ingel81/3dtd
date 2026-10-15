@@ -33,6 +33,9 @@ ohne die Datei zu laden), bietet ein Banner „Fresh copy“ (neue Kopie, die al
   editor“), das Formular bleibt bis zum Wechsel gesperrt und springt nicht (früher schob eine eigene Zeile dafür die
   Liste über die Höhe, ein Rollbalken kam und ging und die Vorlagen sprangen von sechs auf fünf Spalten und zurück);
   bis die Ansicht ihre Programme übersetzt hat, steht dort „Preparing the view“
+- **New map, From a real place:** der zweite Start neben „A landscape“: Ortssuche, dann derselbe Rahmen wie im Menü
+  (flache Karte mit dem 2,4-km-Quadrat, HQ, ziehbare Spawns, „Make the map“); die erzeugte Karte ist schon gespeichert
+  und öffnet sich im Editor. Ablauf und Regeln in [OSM_WORLD_PLAN.md](OSM_WORLD_PLAN.md#phase-o2-gebaut-2026-10-15)
 - **Import file:** `.3dtdmap` oder `.w3x` per Dateiwahl oder per Ablegen auf der Seite. Ein Warcraft-3-Import fragt
   erst nach Metern je Kachel (4), höchstens Objekten (6000), „Playable area only“, „Enhance ground“ (Boden nach
   Spielrolle neu malen, aus: Kacheln wie im Original) und „Take the map's waves“ (die Wellen der Karte als eigene
@@ -284,6 +287,8 @@ Tags des Katalogs und Suche (Name, Id oder Tag).
   hineinreichen), also ohne Lücke und ohne Überlappung. Zinnen links oder rechts der Zeichenrichtung; das Torhaus
   setzt man von Hand in die Mauer
 - Erase: entfernt, was der Pinsel trifft
+- Prefabs (über der Palette): die gewählten Objekte als Prefab ablegen und gespeicherte Prefabs setzen, siehe
+  [Copy and stamps](#werkzeuge) unten
 - Select: Klick wählt (die ganze Gruppe, Strg+Klick ein Mitglied), Shift+Klick ergänzt, Ziehen auf freiem Grund
   wählt per Rahmen, Alt+Ziehen per Lasso, Strg+A alles Sichtbare; Rahmen und Lasso nehmen, was auf dem Bildschirm darin steht. Ausgeblendete
   Kategorien (Auge in der Gliederung) bleiben bei allen dreien draußen, Entf trifft also nichts Unsichtbares.
@@ -388,8 +393,24 @@ Werkzeug setzt die letzte Kopie). Schalter wählen, was mitkommt: Höhen, Bodenf
 Rechteck; gedreht wie Objekte; Stempel von früher haben keine). Höhen
 gelten relativ zum Rand des Stücks: ein Hügel landet auf dem Boden, auf den man ihn setzt; der Rand blendet weich
 über (einstellbar). Bodenfarbe geht nach Material, nicht nach Schicht: fehlt es auf der Karte, kommt es als Schicht
-dazu, solange Platz ist. „Save the copy“ legt das Stück mit Name und Bild in die Stempel-Bibliothek (IndexedDB
-`3dtd-editor-stamps`); Stempel gelten auf jeder Karte, ein Klick wählt einen zum Setzen.
+dazu, solange Platz ist. „Save the copy“ legt das Stück mit Name und Bild ab, je nach „Every map“ in die
+Stempel-Bibliothek dieses Browsers (IndexedDB `3dtd-editor-stamps`, gilt auf jeder Karte) oder mit „This map“ in die
+Datei der Karte (`prefabs`, siehe [Datei](#speichern-und-dateien); höchstens 32, ein Schritt im Verlauf, reist mit der
+Karte mit). Die Liste „Stamps and prefabs“ zeigt die der Karte zuerst, ein Klick wählt einen zum Setzen. Gruppen im
+Stück werden beim Setzen eigene Gruppen der Karte (`g<n>`, die nächste freie); vorher landeten die Kopien in der
+Gruppe des Originals, und ein Klick wählte Original und alle Kopien zusammen. Auch die Symmetrie-Bilder eines gesetzten
+Objekts mit Gruppe bekommen je Bild eine eigene (`<Gruppe>m<Bild>`, wie „Mirror now“).
+
+**Prefabs.** Ein Prefab ist ein Stempel aus einer Auswahl von Objekten statt aus einem Rechteck (`capturePrefab` in
+`ops/stamp.ts`): im Objects-Werkzeug Objekte wählen, unter „Prefabs“ Namen geben und „Save as prefab“, wahlweise
+„With the ground under them“ (Höhen, Bodenfarbe und Wasser im Rechteck um die Fußabdrücke der Objekte plus 2 m) und
+„Every map“ oder „This map“ wie bei den Stempeln. Es hält nur die gewählten Objekte (keine Straßen), um die Mitte ihrer
+Fußabdrücke, mit Drehung, Größe, Neigung, Tönung und Schaltern. Darunter stehen die Prefabs der Karte und der
+Bibliothek mit Bild; ein Klick öffnet Copy and stamps im Modus Place mit dem Prefab: Umriss am Zeiger, R und Komma/Punkt
+drehen, ein Klick setzt es. Gesetzt bilden seine Objekte eine Gruppe (ab zwei Objekten), ein Klick wählt sie zusammen.
+Ohne Boden ändert das Setzen keinen Höhenpunkt und keine Farbe, egal was „Take along“ sagt (`parts` des Stücks: was es
+hält; das Setzen nimmt davon, was die Schalter erlauben). Prefabs stehen auch in der Stempel-Liste (Zusatz „Prefab“),
+Löschen geht in beiden Listen.
 
 **Rules (G).** Die eigenen Regeln der Karte: Startgeld und HQ-Leben (leer heißt Spiel-Standard: 100 und 500), die
 Spuren (wenigste und meiste offene, was der Koop mit Spuren macht, die niemand hält: Close / To the host / Share out;
@@ -398,6 +419,19 @@ ob Bauwerke durch Treffer fallen (World, [CUSTOM_MAP_WORLD.md](CUSTOM_MAP_WORLD.
 die erlaubten Tower und die Wellen: die Wellen des Spiels (Budget-Source) oder eine eigene Liste in der Form der Table-
 Source ([WAVE_SOURCE_PLAN.md](WAVE_SOURCE_PLAN.md)): je Welle Name, HP-Faktor, Abstand, Gegnertyp mit Anzahl, dazu die
 Wiederholregel nach der letzten Welle; „Start from the game's list“ übernimmt die Liste des Spiels als Anfang.
+Unter einer eigenen Liste steht eine Balance-Hilfe (`ui/panels/wave-curve.ts`, Kurve `wave-curve-chart`): die HP jeder
+Welle je Spur (Grund-HP mal HP-Faktor, Teilungen mitgezählt, `lineageHp`; nach der Liste die Wiederholregel) gegen die
+Liste des Spiels, logarithmisch, über die Liste plus zehn Wellen (mindestens 30). Unter dem Zeiger die Welle mit
+Gegnern, HP, HP der Spiel-Liste, dem Schaden am HQ, wenn alles durchkäme (`lineageLeakDamage`, gegen das HQ-Leben der
+Regeln), und der Spawn-Dauer; darunter die erste Welle der Liste, die allein auf einer Spur das ganze HQ nehmen könnte.
+Für die Wellen des Spiels (Budget) gibt es keine Kurve: deren HP richten sich nach der Abwehr. Wie viel Platz für Tower
+die Spuren haben, zeigt Build areas.
+„Wave events“ legt fest, was vor einer Welle geschieht ([CUSTOM_MAP_WORLD.md](CUSTOM_MAP_WORLD.md#ereignisse-je-welle-e170)):
+Art wählen, „Add event“; die Liste steht nach Wellen, ein Klick öffnet einen Eintrag. Message (Text), Weather (Clear,
+Rain, Snow, Fog mit Stärke), Time of day (Stunde), Portal opens (welcher Spawn ab dieser Welle Gegner bringt),
+Objects (die gewählten Objekte erscheinen oder gehen; „Use the selection“ ersetzt sie, „Select them“ wählt sie). Ein
+neues Objects-Ereignis nimmt die Auswahl des Objektwerkzeugs. Jede Änderung ein Schritt im Verlauf, Probleme stehen
+darunter und im Check.
 „Difficulty“ (50 bis 200 %, Standard 100) legt einen Faktor auf das Budget jeder Welle des Spiels, der Druck-Regler
 regelt weiter obendrauf ([WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md), Abschnitt 19); eine eigene Liste behält ihre HP. Prüfen
 meldet Fehler der Liste und Regeln ohne schießenden Tower. Sie stehen im Kartendokument (`gameplay`, siehe
@@ -479,6 +513,7 @@ den Routen (Fläche in Reichweite, Tower darauf, bei mehreren Spuren die engste)
 | `water-floating` | Warnung | Wasser, das in der Luft endet (`waterInAir`): eine nasse Probe eines Gewässers (Maske gesetzt, Boden unter dem Spiegel) neben einer außerhalb der Maske, wo der Boden auf halbem Weg und anderes Wasser dort mehr als 0,5 m unter dem Spiegel liegen (ein See am Hang, ein Ufer, das ein Fluss oder eine Straße durchschnitt, ein Becken auf zu tiefem Land); ein Flussband (alle 2 m zwischen seinen Punkten), dessen beide Ufer einen Meter neben ihm so tief liegen, außer einen Fall hinab und jenseits des Kartenrands. Nennt jedes Gewässer und zeigt die schlimmste Stelle. Abhilfe: Ufer heben, Spiegel senken (Strg-Klick mit Fill füllt bis zum Rand) oder die Maske dort abnehmen. Die Levelskripte brechen ab (`finish`), ausgelieferte Karten haben keine (`shipped-maps-check`) |
 | `danger-color` | Warnung | Deko in Gefahrenfarben (rote Pilze, rote Blüten; `DANGER_LOOK` in `render/asset-catalog.ts`, dieselbe Liste wie für die mitgelieferten Karten) bis 30 m an einer Straße: Rot steht im Spiel für Gegner, Treffer und Feuer |
 | `scene-cost` | Warnung | Szenenkosten über 100 % (unten): mehr, als eine Karte flüssig zeichnet |
+| `wave-events` | Fehler, Warnung | Wellen-Ereignisse (`validation/wave-event-check.ts`): ein Portal nennt einen Spawn, den es nicht mehr gibt (Fehler); alle Spawns öffnen erst später, Welle 1 hätte keine Spur (Fehler); Objekte eines Ereignisses fehlen; Tageszeit auf einer Karte mit Himmelsbild |
 
 ### Szenenkosten
 
@@ -560,10 +595,14 @@ Szenenkosten.
   4 Byte je Höhenpunkt, eine 300 m lange Straße auf 2-m-Raster rund 12 kB Text vor dem Zip; die mitgelieferten Level
   wachsen dadurch um 21 bis 54 kB, 2 bis 7 %; nur der Editor liest es); optionales Feld `gameplay` (`startCredits`, `hqHealth`, `towers`, `waves` als
   `{ kind: 'budget' }` oder `{ kind: 'table', table }` in der Form der Table-Source, `difficulty` in Prozent, ohne
-  Feld 100; später dazugekommene optionale Felder heben die Version nicht, so auch `environment.skyImage`, die Id
+  Feld 100, `events` die Wellen-Ereignisse; später dazugekommene optionale Felder heben die Version nicht, so auch `environment.skyImage`, die Id
   eines Himmelsbilds, ohne Feld prozedural, und `life`, das Leben der Karte (Werkzeug Life, CUSTOM_MAPS.md
   „Lebensbereiche“); ohne Feld sieht und klingt die Karte wie vorher, ihr `contentHash` bleibt); Version-1-Dateien lesen sich
   unverändert über die Migration 1 nach 2
+- Prefabs und Stempel der Karte (`prefabs`, optional, höchstens 32, `MAX_MAP_PREFABS`): je Eintrag Id, Name, Zeit, Bild
+  (PNG als Data-URL) und das Stück; dessen Arrays liegen im Zip unter `prefabs/<k>/heights.f32`, `paint.u8` und
+  `water.u8`. Nur der Editor liest sie, das Spiel nicht; sie zählen nicht zum `contentHash` (wie `meta.uid`), eine
+  Karte ohne Prefabs schreibt kein Feld. Hebt die Version nicht
 - Kartendokument Version 3: bis zu zwölf Bodenschichten. Die Gewichte der Schichten 9 bis 12 liegen in einer dritten
   Splat-Karte (`terrain/splat2.u8`), die es nur gibt, solange die Karte mehr als acht Schichten hat
   (`splatMapCount`, `fitSplatMaps`: die neunte Schicht legt sie leer an, das Entfernen bis auf acht wirft sie weg; im
@@ -644,7 +683,7 @@ src/app/editor/
   ops/              Operationen ohne Angular: Pinsel, Gelände, Farbe, Wasser, Objekte, Wegenetz, Straßen-Boden, Größe
   ops/landscape/    Landschafts-Pinsel: Biome, Formen, Erosion, Fluss, Straße, LandscapeStroke (ein Undo-Schritt)
   ops/symmetry.ts   Bilder der Symmetrie, Sektor des Zeigers, Kopieren der Zellen und Objekte
-  ops/stamp.ts      Stücke kopieren und setzen; model/stamp-store.ts die Stempel-Bibliothek
+  ops/stamp.ts      Stücke kopieren und setzen, Prefabs aus einer Auswahl; model/stamp-store.ts die Stempel-Bibliothek
   ops/generate.ts   Gelände-Generator; ops/contours.ts Höhenlinien
   ops/map-kit.ts    MapKit: die Operationen ohne Oberfläche für Skripte (Level-Skripte, KI-Agent)
   agent/            KI-Agent über MCP (Desktop-App): Werkzeuge, Skript-Sandbox, Abspielen als ein Undo-Schritt (AGENT_MCP.md)

@@ -2,7 +2,7 @@ import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { sunDirection } from './map-environment';
-import { chooseSkyImage, SKY_IMAGES, skyImageOf, skyImageYaw } from './sky-images';
+import { chooseSkyImage, PLANET_IMAGE, SKY_IMAGES, skyImageOf, skyImageYaw } from './sky-images';
 import { Vector3 } from 'three';
 
 const ASSETS = join(process.cwd(), 'public/maps/assets');
@@ -19,6 +19,12 @@ describe('image skies (TODO E172)', () => {
     expect(new Set(SKY_IMAGES.map((s) => s.id)).size).toBe(SKY_IMAGES.length);
     expect(SKY_IMAGES.length).toBeGreaterThanOrEqual(6);
     expect(bytes).toBeLessThan(15 * 1024 * 1024);
+  });
+
+  it('ships the Earth for moon maps small, with its source in the licence list (TODO E194)', () => {
+    const licences = readFileSync(join(ASSETS, 'LICENSES.md'), 'utf8');
+    expect(statSync(join(ASSETS, 'skies', PLANET_IMAGE.file)).size).toBeLessThan(400 * 1024);
+    expect(licences).toContain(`| ${PLANET_IMAGE.file} | ${PLANET_IMAGE.source} |`);
   });
 
   it('finds the map sky: none, a shipped id, an id this game does not ship', () => {

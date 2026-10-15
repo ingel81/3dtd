@@ -13,7 +13,7 @@ import { mapDataFetch, mapDataRoot } from './map-data';
 import { defaultMapBackend, FolderMapBackend, mapFolderId } from './folder-map-backend';
 import type { CustomMapDocument, MapBiome, MapMeta } from './map-document';
 import { contentHash, packMapFile, unpackMapFile } from './map-file';
-import { slugMapId } from './map-create';
+import { newMapUid, slugMapId } from './map-create';
 
 /**
  * Where a map came from: made or imported here ('own'), shipped with the
@@ -405,11 +405,6 @@ export function summarize(doc: CustomMapDocument, origin: MapOrigin, hash: strin
   };
 }
 
-/** A new lasting identity for a map */
-export function newMapUid(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
-  return Array.from({ length: 4 }, () => Math.floor(Math.random() * 0x100000000).toString(16).padStart(8, '0')).join('-');
-}
 
 function shippedSummary(e: ShippedMapEntry): MapSummary {
   return {

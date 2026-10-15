@@ -57,6 +57,11 @@
             },
             "assets": [
               {
+                "glob": "{maplibre-gl.mjs,maplibre-gl-shared.mjs,maplibre-gl-worker.mjs,maplibre-gl.css}",
+                "input": "node_modules/maplibre-gl/dist",
+                "output": "maplibre"
+              },
+              {
                 "glob": "**/*",
                 "input": "public"
               }
@@ -93,6 +98,11 @@
               ],
               "outputHashing": "all",
               "assets": [
+                {
+                  "glob": "{maplibre-gl.mjs,maplibre-gl-shared.mjs,maplibre-gl-worker.mjs,maplibre-gl.css}",
+                  "input": "node_modules/maplibre-gl/dist",
+                  "output": "maplibre"
+                },
                 {
                   "glob": "**/*",
                   "input": "public",

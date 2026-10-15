@@ -108,6 +108,14 @@ const TINTED: ReadonlySet<MapLifeKind> = new Set(['fireflies', 'fog', 'leaves', 
           </label>
           <app-editor-range label="Speed" unit="m/s" [min]="0.2" [max]="15" [step]="0.1" [value]="a.speed ?? 1.5"
                             (changing)="liveArea(a.id, { speed: $event })" (changed)="commitArea(a.id, { speed: $event }, 'Mover speed')" />
+          <label class="td-setting">
+            <span>Hangs from a line</span>
+            <input class="td-switch" type="checkbox" [checked]="a.height !== undefined" (change)="commitArea(a.id, { height: $any($event.target).checked ? 20 : undefined }, 'Mover on a line')" aria-label="Hangs from a line" />
+          </label>
+          @if (a.height !== undefined) {
+            <app-editor-range label="Over the ground" unit="m" [min]="1" [max]="150" [value]="a.height"
+                              (changing)="liveArea(a.id, { height: $event })" (changed)="commitArea(a.id, { height: $event }, 'Mover height')" />
+          }
           <p class="td-note">Goes round inside the outline, or up the line on one side and back on the other, over the ground. Drawn only: enemies and towers do not see it.</p>
         }
         @if (a.kind === 'boats') {

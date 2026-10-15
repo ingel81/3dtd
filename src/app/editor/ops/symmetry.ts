@@ -310,13 +310,16 @@ export function mirrorChange(
 export function objectImages<T extends MapObject>(objects: readonly T[], images: readonly SymmetryImage[], take: () => string, halfWidth: number, halfDepth: number): T[] {
   const out: T[] = [];
   for (const o of objects) {
-    for (const img of images.slice(1)) {
+    images.slice(1).forEach((img, k) => {
       const p = img.point(o);
-      if (Math.abs(p.x) > halfWidth || Math.abs(p.y) > halfDepth) continue;
-      if (Math.hypot(p.x - o.x, p.y - o.y) < 0.01) continue;
+      if (Math.abs(p.x) > halfWidth || Math.abs(p.y) > halfDepth) return;
+      if (Math.hypot(p.x - o.x, p.y - o.y) < 0.01) return;
       const turn = img.turn(o.rotation);
-      out.push({ ...o, id: take(), x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100, rotation: Math.round((((turn % TAU) + TAU) % TAU) * 1000) / 1000 });
-    }
+      const copy = { ...o, id: take(), x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100, rotation: Math.round((((turn % TAU) + TAU) % TAU) * 1000) / 1000 };
+      // A group of an image is a group of its own (as Mirror now does)
+      if (o.group) copy.group = `${o.group}m${k + 1}`;
+      out.push(copy);
+    });
   }
   return out;
 }

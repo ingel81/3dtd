@@ -17,6 +17,10 @@
     } @else {
       <p class="td-note">Maps you make in the <a class="td-link" [href]="worlds.editorUrl()">map editor</a> show up here.</p>
     }
+    <p class="td-note">
+      <button type="button" class="td-link" (click)="toPlaces.emit()" data-test="map-of-place-link">Make a map of a real place…</button>
+      Search a town or an address; the map comes from OpenStreetMap.
+    </p>
   </section>
 
   @if (maps.shared.length) {

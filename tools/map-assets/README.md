@@ -32,6 +32,10 @@ python -I tools/map-assets/match_lods.py public/maps/assets [<id> ...]
 python -I tools/map-assets/build_skies.py $DL/skies public/maps/assets [<id> ...]
 python -I tools/map-assets/write_licenses.py public/maps/assets
 
+# Erde über Mondkarten (NASA Blue Marble, gemeinfrei): skies/earth.webp 1024 x 512, Alpha = Glanz auf offenem Meer;
+# danach write_licenses.py
+python -I tools/map-assets/build_planet.py $DL/planet public/maps/assets
+
 # Unterseite der Felsen aus objects.json an den gepackten Modellen messen (bases.json)
 node tools/map-assets/measure_bases.mjs public/maps/assets
 

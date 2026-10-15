@@ -53,7 +53,8 @@ import {
 } from './object-ops';
 import { mirrorMap as mirrorWholeMap, type MirrorResult } from './mirror-map';
 import { pourWater } from './pour';
-import { ALL_PARTS, captureStamp, pasteStamp, type PasteOptions, type Stamp, type StampParts, type StampRect } from './stamp';
+import { ALL_PARTS, capturePrefab, captureStamp, pasteStamp, type PasteOptions, type Stamp, type StampParts, type StampRect } from './stamp';
+import { stampEntry } from '../model/stamp-store';
 import { MAX_LAYERS, autoPaint, defaultAutoRules, paintDab, readWeights, removeLayer, type AutoPaintRule } from './paint-ops';
 import { addNode, connect, edgePolyline, nearestNode, nearestOnEdges, pointAt, polylineLength, spawnRoutes, splitEdge } from './path-graph';
 import { flattenUnderPaths, paintUnderPaths } from './path-terrain';
@@ -66,6 +67,7 @@ import { assetCosts } from '../validation/map-budget';
 import { lifeProblems, newLifeId } from '../../world/custom-map/map-life';
 import {
   fitSplatMaps,
+  MAX_MAP_PREFABS,
   type CustomMapDocument,
   type MapEnvironment,
   type MapBridgeStyle,
@@ -553,6 +555,32 @@ export class MapKit {
       0,
     );
     this.freeCheck = null;
+  }
+
+  /**
+   * Keep objects as a prefab in the map's file (Copy and stamps, prefabs):
+   * them, and with `ground` the heights, paint and water under them; returns
+   * its id, `pf-<n>`, the same every time the script runs
+   */
+  savePrefab(name: string, ids: readonly string[], ground = false): string {
+    const list = this.doc.prefabs ?? [];
+    if (list.length >= MAX_MAP_PREFABS) throw new Error(`${this.name}: the map keeps ${MAX_MAP_PREFABS} prefabs at most`);
+    const known = new Set(this.doc.objects.map((o) => o.id));
+    const missing = ids.filter((id) => !known.has(id));
+    if (!ids.length || missing.length) throw new Error(`${this.name}: ${missing.length ? `there are no objects ${missing.slice(0, 10).join(', ')}` : 'no objects'}`);
+    const taken = capturePrefab(this.doc, ids, ground, (asset) => this.catalog.object(asset).radius)!;
+    let n = list.length + 1;
+    while (list.some((p) => p.id === `pf-${n}`)) n++;
+    this.doc.prefabs = [...list, { ...stampEntry(name, taken.stamp, null), id: `pf-${n}` }];
+    return `pf-${n}`;
+  }
+
+  /** Place a prefab or stamp the map keeps (by id or name) centred on `to`, turned (radians) */
+  placePrefab(key: string, to: MapPoint, o: { rotation?: number; feather?: number } = {}): void {
+    const list = this.doc.prefabs ?? [];
+    const saved = list.find((p) => p.id === key) ?? list.find((p) => p.name === key);
+    if (!saved) throw new Error(`${this.name}: the map keeps no prefab ${key}; it has ${list.map((p) => `${p.id} (${p.name})`).join(', ') || 'none'}`);
+    this.paste(saved.stamp, to, o);
   }
 
   // ---- Terrain tool --------------------------------------------------------------------------------------------

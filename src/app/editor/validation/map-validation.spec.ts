@@ -13,6 +13,20 @@ describe('validateMap', () => {
     expect(validateMap(doc).filter((i) => i.severity === 'error')).toEqual([]);
   });
 
+  it('checks the wave events against the map: a spawn gone, objects gone, no lane at wave 1 (TODO E170)', () => {
+    const doc = createMapDocument({ id: 'm', name: 'M', width: 800, depth: 400 });
+    const spawn = doc.spawns[0].id;
+    doc.objects.push({ id: 'o1', asset: 'tree-oak', x: 10, y: 10, z: 0, rotation: 0, scale: 1 });
+    doc.gameplay = { events: [{ wave: 3, kind: 'message', text: 'Hi' }, { wave: 4, kind: 'objects', ids: ['o1'], show: true }] };
+    expect(codes(doc)).not.toContain('wave-events');
+    doc.gameplay.events!.push({ wave: 5, kind: 'portal', spawn: 'nope' }, { wave: 6, kind: 'objects', ids: ['o1', 'gone'], show: false });
+    expect(validateMap(doc).filter((i) => i.code === 'wave-events').map((i) => i.severity)).toEqual(['error', 'warning']);
+    // Every spawn opens later: wave 1 has no lane
+    doc.gameplay.events = [{ wave: 2, kind: 'portal', spawn }];
+    const issue = validateMap(doc).find((i) => i.code === 'wave-events')!;
+    expect(issue).toMatchObject({ severity: 'error', target: { kind: 'spawn', id: spawn } });
+  });
+
   it('wants paths and spawns', () => {
     const doc = createMapDocument({ id: 'm', name: 'M', width: 400, depth: 400, starter: false });
     expect(codes(doc)).toEqual(expect.arrayContaining(['no-paths', 'no-spawns']));

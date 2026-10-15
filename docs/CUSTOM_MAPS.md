@@ -473,8 +473,10 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   blockieren weder Sicht noch Bauen und werfen keinen Schatten (die Schattenkarte der Sonne ist gecacht).
   Bewegte Dinge (`movers`, dieselbe Klasse): ein beliebiges Asset (`asset`, Pflicht; ein Rover, ein Karren, Tiere) auf
   dem Boden, mit ihm geneigt, im Umriss je eines auf eigener Schleife (3 je Dichte 1, höchstens 16) oder auf der Linie
-  in zwei Spuren 2,5 m neben ihr (2), mit `speed` m/s (Standard 1,5, je eines bis 20 % anders). Die Gegner und Tower
-  sehen sie nicht
+  in zwei Spuren 2,5 m neben ihr (2), mit `speed` m/s (Standard 1,5, je eines bis 20 % anders). Mit `height` hängen
+  sie an einer Geraden statt am Boden: auf einer Linie von `height` über dem Boden am Anfang zu `height` über dem Boden
+  am Ende (eine Gondel am Seil), im Umriss `height` über seiner Mitte; dann ungeneigt. Die Gegner und Tower sehen sie
+  nicht
   Schalter der Karte (`life.auto`): Schornsteinrauch, automatische Glühwürmchen und Vögel (an, wenn nichts gesetzt),
   Funken über Lava (aus, wenn nichts gesetzt); `life.density` 0 bis 2 als Faktor auf das alles. `life.flags`: das Tuch
   der Banner weht im Wind (`objects/cloth.ts`: die Karten `foliage-banner*` werden beim Laden zu einem Raster aus 6 x 14
@@ -504,8 +506,8 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   (Schiffshorn), ganze Dateien ohne Schleifenpolster, Platzhalter aus `make_placeholders.py` (`ONE_SHOTS`).
   Life-Panel: „At each wave“, Lautstärke, „Comes from“, „Play“ spielt ihn einmal im Editor
 - Von oben leiser: bis 80 m über dem Boden voll, ab 600 m ein Drittel (`lift`)
-- Klänge (`AMBIENT_SOUNDS`): `wind`, `birdsong`, `night-insects`, `stream`, `surf`, `swamp`, `lava`, `fire`, `city`, je mit
-  eigenem Pegel. Heute synthetische Platzhalter aus `tools/ambient/make_placeholders.py` (Rauschen im Frequenzraum über
+- Klänge (`AMBIENT_SOUNDS`): `wind`, `birdsong`, `night-insects`, `stream`, `surf`, `swamp`, `lava`, `fire`, `city`,
+  `gulls`, `crows`, `radio-hiss`, je mit eigenem Pegel. Heute synthetische Platzhalter aus `tools/ambient/make_placeholders.py` (Rauschen im Frequenzraum über
   die ganze Schleife gefiltert, Rufe und Hüllkurven laufen über das Ende herum, daher ohne Naht); die Datei trägt
   0,1 s der Schleife davor und danach (`LOOP_PAD`), gespielt wird dazwischen, so verschluckt der MP3-Versatz nichts.
   Echte Aufnahmen ersetzen später die Dateien unter denselben Ids. Eine unbekannte Id spielt nichts (eine Karte aus
@@ -610,8 +612,13 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   (heller Staub, dunkler Basaltsand, ockerfarbener Kies, rostige, graue und schwarze Steine); in der Dämmerung ein
   blauer Hof um die Sonne über braungrauem Himmel
 - **Planet** (`environment.planet`: `azimuth`, `elevation` in Grad, `size` als scheinbarer Durchmesser in Grad, 0
-  keiner; `planetOf`): eine Scheibe im prozeduralen Himmel, von der Sonnenseite beleuchtet, Ozeane, Land und Wolken,
-  ein heller Atmosphärensaum (Uniforms `uPlanetDir`, `uPlanet` = Radius in Bogenmaß). Ohne Einstellung zeigt der Look
+  keiner; `planetOf`): die Erde im prozeduralen Himmel (`planetColor` in `sky-dome.ts`, im Kuppel-Shader, kein
+  eigener Draw Call; Uniforms `uPlanetDir`, `uPlanet` = Radius in Bogenmaß). Bild: NASA Blue Marble mit Wolken
+  (`skies/earth.webp`, 1024 x 512, sRGB, Alpha = Glanz auf offenem Meer, gebaut von `tools/map-assets/build_planet.py`,
+  rund 240 KB), geladen erst, wenn eine Karte einen Planeten zeigt (`PLANET_IMAGE`, über den Kartendaten-Cache), mit
+  Mipmaps; bis dahin eine schlichte Scheibe in Meeresfarbe. Fest gedreht: Europa und Afrika zur Karte, Nordpol etwas
+  zum Betrachter geneigt. Licht nach der Sonnenrichtung mit weichem, zur Grenze hin wärmerem Terminator, Sonnenglanz
+  auf dem Meer, dünner blauer Luftsaum auf der Tagseite, der knapp über den Rand reicht. Ohne Einstellung zeigt der Look
   Moon die Erde (`DEFAULT_PLANET`: Nordosten, 33 Grad hoch, 4 Grad), andere Looks keinen. Ein Bildhimmel zeigt keinen.
   Auf dem Mond gilt der schwarze Himmel als dunkel genug für die Lichter der Karte: `darkness` mindestens 0,5 wie in
   der Hölle (Schein der Lampen, Fenster, Punktlichter-Pool)

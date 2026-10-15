@@ -155,6 +155,15 @@ export const SCRIPT_OPS: Readonly<Record<string, OpSpec>> = {
     doc: 'Copy a rectangle { x0, y0, x1, y1 } of the map and paste it centred on `to` (Copy and stamps tool); options { rotation (radians), feather 0..1 (0.25, how far the rim fades into the ground), parts { heights, paint, water, objects, roads, life } (all true) }',
     wholeGround: true,
   },
+  savePrefab: {
+    args: [a('name', STRING), a('ids', STRINGS), a('ground', BOOL, true)],
+    doc: "Keep objects as a prefab in the map's file (pasted, they go down as one group); ground: also the heights, paint and water under them (false). Returns its id",
+  },
+  placePrefab: {
+    args: [a('prefab', STRING), a('to', POINT), a('options', OBJECT, true)],
+    doc: 'Place a prefab or stamp the map keeps (id or name, map.prefabs() lists them) centred on `to`; options { rotation (radians), feather 0..1 }',
+    wholeGround: true,
+  },
   setSymmetry: { args: [a('mode', one(SYMMETRIES))], doc: 'Symmetry for the commands after it: strokes, lines, objects land at every image' },
   mirrorFrom: { args: [a('from', POINT)], doc: 'Copy the sector of a point (heights, paint, main water) to its symmetric images', wholeGround: true },
   // Landscape tool
@@ -258,7 +267,11 @@ export const SCRIPT_OPS: Readonly<Record<string, OpSpec>> = {
   lifeRoute: { args: [a('kind', one(LIFE_KINDS)), a('points', LINE), a('options', OBJECT, true)], doc: 'A life route: a line birds fly along and back, particles follow, boats go up and down or a sound follows (a stream); options as lifeArea; returns its id' },
   lifeSettings: { args: [a('patch', OBJECT)], doc: `The map's own life: { auto: { smoke, fireflies, birds (on unless false), sparks (over lava, off unless true) }, density 0..2 (a factor on all of it), flags (banners wave), ambience: { sound: biome (the look's own by day and night) or a sound, volume 0..1 }, waveSound: { sound: ${WAVE_SOUND_IDS}, volume 0..1, area (a life area's id it sounds from; everywhere alike without) }: once as each wave starts }` },
   removeLife: { args: [a('ids', STRINGS)], doc: 'Remove life areas by id (map.life() lists them)' },
-  gameplay: { args: [a('rules', OBJECT)], doc: "Rules: { startCredits, hqHealth, towers: [tower ids], destructible: true|false, difficulty 50..200 (percent on the wave budget) }; waves is { kind: 'budget' } (the game's waves, the default) or a map's own table, there is no wave count" },
+  gameplay: {
+    args: [a('rules', OBJECT)],
+    doc: "Rules: { startCredits, hqHealth, towers: [tower ids], destructible: true|false, difficulty 50..200 (percent on the wave budget), events: [wave events] }; waves is { kind: 'budget' } (the game's waves, the default) or a map's own table, there is no wave count. " +
+      'events: before wave N (its build phase) { wave, kind: message { text } | weather { weather, strength } | time { hour } | portal { spawn } | objects { ids, show } }',
+  },
 };
 
 /** The reference of `map` for the agent (the script_api tool) */
@@ -273,7 +286,7 @@ export function scriptReference(): string {
     'Globals: map, rng(seed) -> () => 0..1, facing(from, to) -> radians, log(...) (or console.log). `return` a value to get it back.',
     'Reads (see the copy as the script left it): map.width, map.depth, map.cellSize, map.half, map.h(x, y) (metres), map.slope(x, y),',
     '  map.noise(x, y, wave, octaves?) -> -1..1, map.ridged(x, y, wave, octaves?), map.objects(rect?), map.markers(), map.roads() (edges with their nodes a, b),',
-    '  map.nodes(), map.rivers() (points with width and height), map.layers(), map.waterBodies(), map.lanes(), map.issues(), map.life().',
+    '  map.nodes(), map.rivers() (points with width and height), map.layers(), map.waterBodies(), map.lanes(), map.prefabs(), map.issues(), map.life().',
     'An optional argument may be left out or passed as undefined or null; later ones still count by position.',
     'Commands (each checked; the whole script lands as one undo step and plays back animated):',
     ...lines,
@@ -478,6 +491,11 @@ export function applyCommand(kit: MapKit, command: ScriptCommand): unknown {
       return kit.mirrorMap(args[0] as MapKit['symmetry'], args[1] as MapPoint);
     case 'copyArea':
       kit.copyArea(args[0] as Rect, args[1] as MapPoint, (args[2] ?? {}) as Parameters<MapKit['copyArea']>[2]);
+      return undefined;
+    case 'savePrefab':
+      return kit.savePrefab(args[0] as string, args[1] as string[], args[2] === true);
+    case 'placePrefab':
+      kit.placePrefab(args[0] as string, args[1] as MapPoint, (args[2] ?? {}) as Parameters<MapKit['placePrefab']>[2]);
       return undefined;
     case 'line':
       return kit.line(args[0] as string, args[1] as MapPoint[], (args[2] ?? {}) as Parameters<MapKit['line']>[2]);
@@ -755,7 +773,11 @@ function applyHeightGrid(doc: CustomMapDocument, origin: MapPoint, step: number,
   }
 }
 
-const RULE_KEYS = ['startCredits', 'hqHealth', 'towers', 'waves', 'lanes', 'destructible', 'difficulty'];
+const RULE_KEYS = ['startCredits', 'hqHealth', 'towers', 'waves', 'lanes', 'destructible', 'difficulty', 'events'];
+const EVENTS_EXAMPLE =
+  "events is a list of what happens before a wave (its build phase), each { wave, kind } and: message { text }, weather { weather: clear|rain|snow|fog, strength 0..1 }, " +
+  'time { hour 0..24 }, portal { spawn: spawn id } (the spawn brings enemies only from that wave on), objects { ids: [object ids], show: true|false } (they appear or go). ' +
+  "Example: { events: [{ wave: 5, kind: 'message', text: 'The north gate falls' }, { wave: 5, kind: 'portal', spawn: 's2' }] }";
 const WAVES_EXAMPLE =
   "waves is { kind: 'budget' } (the game's waves, the default) or { kind: 'table', table } with a map's own list (read_map of a shipped map shows one); " +
   "there is no wave count. Example: { waves: { kind: 'budget' }, difficulty: 120 }";
@@ -772,6 +794,10 @@ export function checkRules(patch: Record<string, unknown>): Partial<NonNullable<
   if (waves !== undefined) {
     const ok = !!waves && typeof waves === 'object' && (waves.kind === 'budget' || (waves.kind === 'table' && !!waves.table && typeof waves.table === 'object'));
     if (!ok) throw new ScriptError(`rules: ${WAVES_EXAMPLE}, not ${JSON.stringify(waves)}`);
+  }
+  const events = patch['events'];
+  if (events !== undefined && (!Array.isArray(events) || events.some((e) => !e || typeof e !== 'object' || typeof (e as { wave?: unknown }).wave !== 'number'))) {
+    throw new ScriptError(`rules: ${EVENTS_EXAMPLE}`);
   }
   return patch as Partial<NonNullable<CustomMapDocument['gameplay']>>;
 }
@@ -862,6 +888,7 @@ export function scriptMap(kit: MapKit, kept: ScriptCommand[], options: Required<
         rivers: (t().rivers ?? []).map((r) => ({ id: r.id, kind: r.kind })),
       }),
     lanes: () => kit.lanes(),
+    prefabs: () => forScript((doc.prefabs ?? []).map((p) => ({ id: p.id, name: p.name, width: Math.round(p.stamp.width), depth: Math.round(p.stamp.depth), objects: p.stamp.objects.length, prefab: !!p.stamp.prefab }))),
     issues: () => kit.issues().map((i) => ({ severity: i.severity, message: i.message })),
     life: () => forScript(doc.life ?? {}),
   };

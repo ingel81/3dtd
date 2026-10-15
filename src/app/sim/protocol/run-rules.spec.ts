@@ -40,4 +40,15 @@ describe('run rules (a world\'s own gameplay)', () => {
     expect(runRulesKey(rules)).not.toBe(runRulesKey(runRulesOf({})));
     expect(runRulesKey(runRulesOf({ hqHealth: 80 }))).toBe('r=100,80,*');
   });
+
+  it('carries the wave events, checked, and puts them in the key; a world without keeps its key (TODO E170)', () => {
+    const portal = { wave: 4, kind: 'portal', spawn: 's2' } as const;
+    const rules = runRulesOf({ events: [portal, { wave: 0, kind: 'message', text: 'x' }, { wave: 2, kind: 'dance' }, { wave: 3, kind: 'objects', show: true, ids: ['g'], objects: [{ id: 'g' }] }] });
+    expect(rules.events).toEqual([portal]);
+    expect(runRulesOf({ events: [] })).not.toHaveProperty('events');
+    expect(runRulesKey(runRulesOf({ hqHealth: 80, events: [] }))).toBe('r=100,80,*');
+    expect(runRulesKey(rules)).toMatch(/^r=100,500,\*,e=1:[0-9a-f]+$/);
+    expect(runRulesKey(rules)).not.toBe(runRulesKey(runRulesOf({ events: [{ ...portal, wave: 5 }] })));
+  });
 });
+

@@ -1,27 +1,9 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { gunzipSync } from 'node:zlib';
 import { validateMap } from '../../editor/validation/map-validation';
 import { routeBetween } from '../../editor/ops/path-graph';
 import { packMapFile, unpackMapFile, validateMapDocument } from '../custom-map/map-file';
 import { mapStreetNetwork } from '../custom-map/custom-map-streets';
-import type { DemMosaic } from './dem-tiles';
-import { convertOsm, type OsmImportInput } from './import-osm';
-
-/** The frozen probe (integration/fixtures/osm/README.md, OSM worlds): Miltenberg, 1.2 km square, Overpass and heights */
-function probe(): OsmImportInput {
-  const dir = join(__dirname, '../../integration/fixtures/osm');
-  const read = (name: string) => JSON.parse(gunzipSync(readFileSync(join(dir, name))).toString('utf8'));
-  const over = read('world-miltenberg.overpass.json.gz');
-  const dem = read('world-miltenberg.dem.json.gz');
-  const bytes = Buffer.from(dem.heights, 'base64');
-  const raw = new Int16Array(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
-  const mosaic: DemMosaic = {
-    source: dem.source, zoom: dem.zoom, tileSize: dem.tileSize, left: dem.left, top: dem.top, columns: dem.columns, rows: dem.rows,
-    heights: Float32Array.from(raw, (v) => v * dem.unit),
-  };
-  return { lat: over.place.lat, lon: over.place.lon, address: 'Miltenberg', overpass: { elements: over.elements }, dem: mosaic, fetchedAt: over.source.fetchedAt };
-}
+import { osmProbe as probe } from '../../../../tools/osm/osm-probe';
+import { convertOsm } from './import-osm';
 
 describe('OSM world (frozen probe Miltenberg)', () => {
   // Spawns are drawn as on the real places (Math.random); a fixed sequence keeps the scene the same

@@ -1,6 +1,6 @@
 import { Group, InstancedMesh, type Material, Matrix4, Quaternion, Vector3 } from 'three';
 import type { MapLifeArea } from '../../map-document';
-import { areaDensity, DEFAULT_BOAT, lifeSeed, lifeRandom, loopInside } from '../../map-life';
+import { areaDensity, centroid, DEFAULT_BOAT, lifeSeed, lifeRandom, loopInside } from '../../map-life';
 import { addHeightFog } from '../environment/height-fog';
 import type { HeightField } from '../height-field';
 import type { MapAssetLibrary } from '../map-asset-library';
@@ -11,7 +11,8 @@ import { routeLoop } from './life-areas';
  * Things of the life areas (map-life.ts) that go round: boats (kind `boats`)
  * drifting on the water with the rocking of floating objects, and movers
  * (kind `movers`: a rover, a cart, grazing animals) going over the ground,
- * pitched with it. Each goes round a loop of its own inside an area's
+ * pitched with it, or with a `height` hanging from a straight line (a
+ * gondola on its cable). Each goes round a loop of its own inside an area's
  * outline, or up a route on one side and back on the other, front ahead. One
  * instanced mesh per part of each model; the CPU moves a few dozen matrices
  * a frame. Drawn only: they block neither sight nor building nor the
@@ -38,6 +39,8 @@ interface Mover {
   phase: number;
   /** Rocks like a boat */
   floats: boolean;
+  /** Tilts with the ground it goes over (not a boat, not hanging from a line) */
+  pitched: boolean;
 }
 
 interface Fleet {
@@ -126,8 +129,13 @@ export class LifeMovers {
       const flat = onArea ? loopInside(area.points, seed + k * 7919, LOOP_SAMPLES, 0.35 + random() * 0.5) : routeLoop(area.points, kind.lane);
       let level: number | null = null;
       const first = floats ? (flat.map((p) => this.waterLevelAt(p.x, p.y)).find((l) => l !== null) ?? null) : null;
+      const aloft = !floats && area.height !== undefined ? this.cable(area) : null;
       const loop = flat.map((p) => {
-        const h = floats ? (level = this.waterLevelAt(p.x, p.y) ?? level ?? first ?? this.field.heightAt(p.x, p.y)) : this.field.heightAt(p.x, p.y);
+        const h = floats
+          ? (level = this.waterLevelAt(p.x, p.y) ?? level ?? first ?? this.field.heightAt(p.x, p.y))
+          : aloft
+            ? aloft(p.x, p.y)
+            : this.field.heightAt(p.x, p.y);
         return mapToScene(p.x, p.y, h, new Vector3());
       });
       const along = [0];
@@ -135,9 +143,33 @@ export class LifeMovers {
       // In an area each goes its own way round; on a route all keep to their lane
       const way = onArea && random() < 0.5 ? -1 : 1;
       const speed = (slow + random() * (fast - slow)) * (floats ? 1 : MOVER_SPEED) * own;
-      out.push({ loop, along, speed: speed * way, phase: random(), floats });
+      out.push({ loop, along, speed: speed * way, phase: random(), floats, pitched: !floats && !aloft });
     }
     return out;
+  }
+
+  /**
+   * A mover with a height hangs from a line instead of going over the ground
+   * (a gondola on its cable): along a route straight from `height` over the
+   * ground at its start to `height` over the ground at its end, over an
+   * outline `height` over the ground at its middle
+   */
+  private cable(area: MapLifeArea): (x: number, y: number) => number {
+    const h = area.height ?? 0;
+    const pts = area.points;
+    if (area.shape === 'area') {
+      const c = centroid(pts);
+      const top = this.field.heightAt(c.x, c.y) + h;
+      return () => top;
+    }
+    const a = pts[0];
+    const b = pts[pts.length - 1];
+    const ha = this.field.heightAt(a.x, a.y) + h;
+    const hb = this.field.heightAt(b.x, b.y) + h;
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len2 = dx * dx + dy * dy || 1;
+    return (x, y) => ha + (hb - ha) * Math.min(1, Math.max(0, ((x - a.x) * dx + (y - a.y) * dy) / len2));
   }
 
   /** The mover's matrix now into `m`: on its loop, front ahead, a boat rocking, a mover pitched with the ground */
@@ -161,7 +193,7 @@ export class LifeMovers {
       this.q.multiply(this.tilt);
       this.tilt.setFromAxisAngle(this.axis.set(1, 0, 0), Math.sin(w * 0.55) * 0.025);
       this.q.multiply(this.tilt);
-    } else {
+    } else if (b.pitched) {
       const run = Math.hypot(c.x - a.x, c.z - a.z);
       if (run > 1e-3) {
         this.tilt.setFromAxisAngle(this.axis.set(1, 0, 0), -Math.atan2((c.y - a.y) * dir, run));

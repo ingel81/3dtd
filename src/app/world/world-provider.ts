@@ -371,6 +371,15 @@ export interface WorldProvider {
    * Presentation only, the simulation never hears it
    */
   waveStarted?(wave: number): void;
+  /**
+   * A world whose look follows the waves (a custom map's wave events, TODO
+   * E170): the events up to `wave` happened (op `waveEvents.setReached`, the
+   * simulation's WaveEvents); sky, weather and the objects they show or hide
+   * stand as then, out of the picture, the sight blockers and the build blocking
+   */
+  showWaveEvents?(wave: number): void;
+  /** The messages a world shows before `wave` (a custom map's wave events); the banner reads wave 1's as the HUD comes up */
+  waveMessages?(wave: number): string[];
   /** The world's own run rules (start credits, HQ health, tower types), null: the game's */
   runRules(): RunRules | null;
   /** The world's waves: the source it asks for and its own wave list, null: the game's choice */
