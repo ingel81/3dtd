@@ -94,7 +94,11 @@ Geländer), gelegt, wo die Linie übers Wasser läuft; Fackeln an den Stegen. Fe
 `temperate` bei Nacht, weil der Sumpf-Look nachts helle Wolken hat; an den Renderer gemeldet), tiefe Nebelbänke übers
 offene Wasser, Moos, Schlamm und Wurzeln auf den Inseln, Laternen an den Pfahlhütten, Kessel und Leuchtpilze. Lesbarkeit: Nacht im Sumpf-Look mit `moonlight: 1` (kühles Mondlicht des Renderers), dessen Dunst flach über dem
 Wasser liegt; Wege, Inseln und Stege sind aus der Spielkamera klar. Nebelbälle nur noch klein an den Spawns, Laternen
-und Fackeln alle 16 m an den Stegen, Lagerfeuer auf den großen Inseln, Glühwürmchen-Wolken über dem offenen Wasser.
+und Fackeln alle 16 m an den Stegen, Lagerfeuer auf den großen Inseln, Glühwürmchen-Wolken über dem offenen Wasser. Seit
+E184: eine Riesenweide (dreifache Größe) als Wahrzeichen auf der HQ-Insel, grüne Glut über dem Kessel der Hexe, eine
+Felskuppe mit Klippenfelsen und Steinkreis im Südwesten, drei versunkene Pfahlhütten (schräg, halb im Wasser), zwei
+Stelzenstege zwischen äußeren Inseln (keine Spuren), Irrlichter (bläuliche Glühwürmchen) und Nebelbänke in den
+Senken abseits der Stege.
 
 Biom Sumpf, Look `swamp`, Nacht mit Bodennebel und Glühwürmchen. Ein Bohlenweg über Sumpfwasser, Inseln mit
 Pfahlhütten, die Hexenhütte mit grün leuchtenden Fenstern als HQ-Kulisse, Laternen an den Stegen als einzige
