@@ -111,6 +111,10 @@ eigenen Karten, Coop-Protokoll 5). Vier Worker-Branches darauf laufen (Abschnitt
         und warum (etwa kein Map-Key für 3D-Tiles: sichtbar, mit dem Weg zum Key, statt versteckt)
       - möglichst viele Optionen von überall: aus dem Spiel in den Editor und zurück in denselben Lauf, aus dem Editor
         in ein Probespiel, aus einem echten Ort eine Karte, Laden und Speichern quer über die Welten
+      - Idee (User): ein globaler Umschalter für das, was man gerade tut (echte Orte, eigene Karten, OSM-Karten, Editor),
+        und je Welt ein eigener Hintergrund hinter dem Menü statt immer des echten Globus, etwa ein eigener Globus oder
+        eine Kartenwelt für die Custom Maps, damit sichtbar ist, dass es mechanisch dasselbe Spiel in anderer Welt ist;
+        der Wechsel nahtlos, ohne Klick-und-Neuladen
       Vorgehen: alle heutigen Wege aufnehmen (Startmenü-Reiter, New game, Pausemenü, Game over, Editor-Kopf, Testfenster,
       Spielstände, Links, Desktop), Brüche und Neuladen benennen, ein durchgängiges Modell vorschlagen (Plan-Doku),
       mit dem User per Baukasten/Entwürfen abstimmen, dann bauen.
