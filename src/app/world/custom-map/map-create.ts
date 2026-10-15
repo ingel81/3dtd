@@ -49,6 +49,12 @@ export const DEFAULT_ROAD_WIDTH = 8;
 /** Map ids: lowercase letters, digits and dashes */
 export const MAP_ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
 
+/** A new lasting identity for a map */
+export function newMapUid(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  return Array.from({ length: 4 }, () => Math.floor(Math.random() * 0x100000000).toString(16).padStart(8, '0')).join('-');
+}
+
 /** A map id from a name: "Lost Valley 2" -> "lost-valley-2" */
 export function slugMapId(name: string): string {
   const slug = name

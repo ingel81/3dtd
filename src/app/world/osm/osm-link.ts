@@ -9,7 +9,8 @@ import { TD_FONTS } from '../../styles/td-theme';
 import { MapStore } from '../custom-map/map-store';
 import { customMapsByLink } from '../custom-maps-open';
 import { WORLD_URL_PARAM } from '../world-ref';
-import { importOsmInWorker } from './osm-import-client';
+import { osmMapNames, OSM_SPAWNS } from './import-osm';
+import { OsmFrameSession } from './osm-frame-session';
 
 /** URL parameter of the test entry */
 export const OSM_URL_PARAM = 'osm';
@@ -42,15 +43,16 @@ export async function openOsmLink(place: { lat: number; lon: number }): Promise<
   say(`Making a map of ${where}: downloading the streets and heights`);
   try {
     const start = performance.now();
-    const result = await importOsmInWorker(place, {}, {
-      onStep: (step) => say(step === 'download' ? `Making a map of ${where}: downloading the streets and heights` : `Making a map of ${where}: building the ground and the roads`),
-    });
+    const session = new OsmFrameSession();
+    const frame = await session.open(place, OSM_SPAWNS);
+    say(`Making a map of ${where}: building the ground and the roads`);
     const store = new MapStore();
-    result.doc.meta.id = await store.freeId(result.doc.meta.id);
+    const result = await session.make(frame.spawns, { id: await store.freeId(osmMapNames(place).id) });
+    session.dispose();
     say(`Making a map of ${where}: saving`);
-    const summary = await store.save(result.doc);
+    const summary = await store.save(result.doc, null, result.file);
     const totalMs = Math.round(performance.now() - start);
-    console.warn(`[OSM world] ${summary.id} in ${totalMs} ms`, { download: result.download, convertMs: result.convertMs, report: result.report });
+    console.warn(`[OSM world] ${summary.id} in ${totalMs} ms`, { download: frame.download, convertMs: result.convertMs, report: result.report });
     const url = new URL(window.location.href);
     url.searchParams.delete(OSM_URL_PARAM);
     url.searchParams.set(WORLD_URL_PARAM, `map:${summary.id}`);
