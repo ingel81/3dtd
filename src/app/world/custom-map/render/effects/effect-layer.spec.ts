@@ -171,6 +171,24 @@ describe('EffectLayer', () => {
     layer.dispose();
   });
 
+  it('flies gulls, crows and birds of prey in their own colour and size; birds of prey few and high', () => {
+    const layer = new EffectLayer(flat());
+    const outline = [{ x: 0, y: 0 }, { x: 40, y: 0 }, { x: 40, y: 40 }, { x: 0, y: 40 }];
+    layer.setLife({ areas: [{ id: 'r', kind: 'birds', shape: 'area', points: outline, species: 'raptors' }, { id: 'g', kind: 'birds', shape: 'area', points: outline, species: 'gulls' }] });
+    layer.set([], catalog);
+    const g = layer.birds.mesh.geometry;
+    // 3 raptors (a third of 10), 10 gulls
+    expect(g.instanceCount).toBe(13);
+    expect(loopOf(layer, 0)[0].y).toBeCloseTo(4 + 80, 3);
+    const tint = g.getAttribute('aTint');
+    const look = g.getAttribute('aLook');
+    expect(tint.getX(0)).toBeLessThan(0.1);
+    expect(tint.getX(3)).toBeGreaterThan(0.6);
+    expect(look.getX(0)).toBeGreaterThan(2.3);
+    expect(look.getX(3)).toBeLessThan(1.7);
+    layer.dispose();
+  });
+
   it("spreads a particle area's emitters over its outline into the field of its kind, and fireflies only at night", () => {
     const layer = new EffectLayer(flat());
     layer.setAmbient({ fireflies: [new Vector3(0, 4, 0)], flocks: [] });

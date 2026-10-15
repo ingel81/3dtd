@@ -436,6 +436,10 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   Catmull-Rom-Kurve; ein stark eingebuchteter Umriss kann an einer Bucht etwas hinausragen), 10 Vögel je Dichte 1;
   eine Linie eine Schleife auf ihr hin auf der einen Seite und auf der anderen zurück (12 m daneben), 8 Vögel; Höhe
   über dem höchsten Boden der Nachbarpunkte der Schleife (Standard 40 m), damit ein Schwarm über einen Kamm fliegt.
+  Art (`species`, `BIRD_LOOK` in `bird-flocks.ts`, Farbe, Größe, Flügelschlag, Gleitanteil, Tempo je Vogel als
+  Instanzattribut, weiter ein Draw Call): Singvögel (Standard), Möwen (hell, 1,5-fach, gleiten öfter), Krähen und
+  Raben (schwarz, 1,3-fach), Greifvögel (braun, 2,6-fach, meist gleitend, 0,6-fach so schnell, ein Drittel der Zahl,
+  Standardhöhe 80 m, weiter gestreut).
   Partikel (`fireflies`, `fog`, `leaves`, `embers`, `sparks`): Emitter auf einem verwackelten Raster im Umriss oder
   entlang der Linie (Abstand je Art 8 bis 28 m, höchstens 160 je Bereich), auf dem Boden oder der Wasserfläche; sie
   gehen in das Feld ihrer Art (eine Art, die die Karte schon hat, kostet keinen Draw Call mehr); Glühwürmchen nur

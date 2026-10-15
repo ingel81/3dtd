@@ -374,7 +374,7 @@ export class EffectLayer {
     const placed = [...this.placedFlocks, ...this.lifeFlocks];
     const own = life.birds ? ambient.flocks.map((f) => ({ ...f, birds: Math.round(f.birds * life.density) })) : [];
     const flocks = placed.length ? placed : own;
-    this.birds.set(this.particleShare >= 0.7 ? flocks.filter((f) => f.birds > 0).map((f) => ({ ...f, birds: Math.max(2, Math.round(f.birds * this.particleShare)) })) : []);
+    this.birds.set(this.particleShare >= 0.7 ? flocks.filter((f) => f.birds > 0).map((f) => ({ ...f, birds: Math.max(Math.min(2, f.birds), Math.round(f.birds * this.particleShare)) })) : []);
     this.showAmbient();
   }
 

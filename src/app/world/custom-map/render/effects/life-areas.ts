@@ -79,7 +79,11 @@ export function lifeFlock(area: MapLifeArea, ground: SurfaceAt, factor: number):
     spread = 6;
     drift = 6;
   }
-  const height = area.height ?? FLOCK_HEIGHT;
+  const species = area.species ?? 'songbirds';
+  // Birds of prey circle high and alone or in twos and threes, wide apart
+  const raptors = species === 'raptors';
+  const height = area.height ?? (raptors ? 2 * FLOCK_HEIGHT : FLOCK_HEIGHT);
+  if (raptors) spread *= 1.6;
   const tops = loop.map((p) => ground(p.x, p.y));
   const path = loop.map((p, k) => {
     // The highest ground of the neighbouring points: a flock flies over a ridge, not into it
@@ -87,8 +91,8 @@ export function lifeFlock(area: MapLifeArea, ground: SurfaceAt, factor: number):
     for (let d = -3; d <= 3; d++) top = Math.max(top, tops[(k + d + tops.length) % tops.length]);
     return mapToScene(p.x, p.y, top + height, new Vector3());
   });
-  const birds = Math.max(2, Math.round((area.shape === 'area' ? AREA_BIRDS : ROUTE_BIRDS) * density));
-  return { path, birds, spread, drift, seed: (seed % 1000) / 1000 || 0.37 };
+  const birds = Math.max(raptors ? 1 : 2, Math.round((area.shape === 'area' ? AREA_BIRDS : ROUTE_BIRDS) * density * (raptors ? 0.3 : 1)));
+  return { path, birds, spread, drift, seed: (seed % 1000) / 1000 || 0.37, species };
 }
 
 /**

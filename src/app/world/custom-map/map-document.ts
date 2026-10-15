@@ -380,10 +380,14 @@ export function difficultyFactor(gameplay: Pick<MapGameplay, 'difficulty'> | und
 
 /**
  * What lives in a life area (map-life.ts): bird flocks, fireflies at night,
- * banks of ground fog, falling leaves, embers, sparks, boats drifting on the
- * water, or an ambient sound
+ * banks of ground fog, falling leaves, embers, sparks, snow flurries, dust
+ * devils, boats drifting on the water, things moving over the ground (a
+ * rover, a herd), or an ambient sound
  */
-export type MapLifeKind = 'birds' | 'fireflies' | 'fog' | 'leaves' | 'embers' | 'sparks' | 'boats' | 'sound';
+export type MapLifeKind = 'birds' | 'fireflies' | 'fog' | 'leaves' | 'embers' | 'sparks' | 'snow' | 'dust' | 'boats' | 'movers' | 'sound';
+
+/** What flies in a birds area: small songbirds, gulls, crows and ravens, big birds of prey (eagles, vultures) */
+export type MapBirdSpecies = 'songbirds' | 'gulls' | 'crows' | 'raptors';
 
 /**
  * A stretch of the map with life in it, drawn in the editor's Life tool:
@@ -406,8 +410,12 @@ export interface MapLifeArea {
   /** Sound: the ambient sound's id (ambience/ambient-sounds.ts) and its volume 0..1 (default 0.7) */
   sound?: string;
   volume?: number;
-  /** Boats: the floating asset that drifts (default a rowboat) */
+  /** Boats: the floating asset that drifts (default a rowboat); movers: the asset that moves (required) */
   asset?: string;
+  /** Birds: what flies (default songbirds) */
+  species?: MapBirdSpecies;
+  /** Movers: metres per second (default 1.5) */
+  speed?: number;
   /** The lowest quality level that shows it (default medium; Low shows no life areas) */
   quality?: 'medium' | 'high';
 }

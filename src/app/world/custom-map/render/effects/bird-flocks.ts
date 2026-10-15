@@ -15,9 +15,10 @@ import {
   Vector3,
 } from 'three';
 import { WIND_UNIFORMS } from '../environment/wind';
+import type { MapBirdSpecies } from '../../map-document';
 
 /**
- * Flocks of birds by day: one instanced mesh for all of them (one draw
+ * Flocks of birds by day (songbirds, gulls, crows, birds of prey: BIRD_LOOK): one instanced mesh for all of them (one draw
  * call), every bird moved and flapping in the vertex shader on the wind's
  * clock, so they cost no work per frame and stand still with a still frame.
  * Each flock flies a closed loop: a circle (a flock placed as an object, the
@@ -29,6 +30,18 @@ import { WIND_UNIFORMS } from '../environment/wind';
  * the camera as a flat shape. At night they are gone, with the player's
  * plant motion off as well (it stands for motion on the map).
  */
+
+/**
+ * How each kind of bird looks and flies: colour, size (wingspan factor),
+ * wing beats per second (radians), how much of the time it glides (added to
+ * the glide wave: 0 songbirds, near 1 mostly gliding), its speed as a share
+ */
+export const BIRD_LOOK: Readonly<Record<MapBirdSpecies, { color: number; size: number; beat: number; glide: number; speed: number }>> = {
+  songbirds: { color: 0x1d1d20, size: 1, beat: 11, glide: 0, speed: 1 },
+  gulls: { color: 0xd4d8dc, size: 1.5, beat: 6, glide: 0.35, speed: 0.9 },
+  crows: { color: 0x0e0e10, size: 1.3, beat: 8, glide: 0.1, speed: 0.85 },
+  raptors: { color: 0x3a2c22, size: 2.6, beat: 4, glide: 0.8, speed: 0.6 },
+};
 
 /** Birds nearer the camera than this fold away, metres */
 const BIRD_NEAR = 45;
@@ -46,6 +59,8 @@ export interface Flock {
   drift: number;
   /** 0..1, decides phases, speeds and the direction they fly */
   seed: number;
+  /** What flies (default songbirds) */
+  species?: MapBirdSpecies;
 }
 
 /** A flock circling `center` (scene space, at the height they fly) `radius` wide; its middle wanders about */
@@ -77,7 +92,7 @@ export class BirdFlocks {
     g.setAttribute('position', new BufferAttribute(new Float32Array(v), 3));
     g.instanceCount = 0;
     this.material = new ShaderMaterial({
-      uniforms: UniformsUtils.merge([UniformsLib.fog, { uColor: { value: new Color(0x1d1d20) }, uDay: { value: 1 } }]),
+      uniforms: UniformsUtils.merge([UniformsLib.fog, { uDay: { value: 1 } }]),
       vertexShader: BIRD_VERTEX,
       fragmentShader: BIRD_FRAGMENT,
       side: DoubleSide,
@@ -103,16 +118,23 @@ export class BirdFlocks {
     const texels = new Float32Array(PATH_SAMPLES * rows * 4);
     const flock = new Float32Array(total * 4);
     const bird = new Float32Array(total * 4);
+    const looks = new Float32Array(total * 4);
+    const tints = new Float32Array(total * 3);
+    const c = new Color();
     let k = 0;
     let seed = 1;
     const next = (): number => (seed = (seed * 16807) % 2147483647) / 2147483647;
     flocks.forEach((f, row) => {
       const length = writeLoop(f.path, texels, row * PATH_SAMPLES * 4);
       seed = Math.max(1, Math.floor(f.seed * 2147483646));
+      const look = BIRD_LOOK[f.species ?? 'songbirds'];
+      c.setHex(look.color);
       for (let b = 0; b < f.birds; b++, k++) {
         flock.set([(row + 0.5) / rows, length, f.spread, f.drift], k * 4);
         // Where on the loop it starts, speed in m/s (with direction), side and height offset
-        bird.set([next(), (7 + next() * 4) * (f.seed > 0.5 ? 1 : -1), next() * 2 - 1, (next() - 0.5) * 14], k * 4);
+        bird.set([next(), (7 + next() * 4) * look.speed * (f.seed > 0.5 ? 1 : -1), next() * 2 - 1, (next() - 0.5) * 14], k * 4);
+        looks.set([look.size * (0.9 + next() * 0.2), look.beat, look.glide, 0], k * 4);
+        tints.set([c.r, c.g, c.b], k * 3);
       }
     });
     this.paths.dispose();
@@ -124,6 +146,8 @@ export class BirdFlocks {
     const g = this.mesh.geometry;
     g.setAttribute('aFlock', new InstancedBufferAttribute(flock, 4));
     g.setAttribute('aBird', new InstancedBufferAttribute(bird, 4));
+    g.setAttribute('aLook', new InstancedBufferAttribute(looks, 4));
+    g.setAttribute('aTint', new InstancedBufferAttribute(tints, 3));
     g.instanceCount = total;
     this.mesh.visible = total > 0 && this.material.uniforms['uDay'].value > 0;
   }
@@ -175,6 +199,9 @@ const BIRD_VERTEX = /* glsl */ `
 #include <logdepthbuf_pars_vertex>
 attribute vec4 aFlock;
 attribute vec4 aBird;
+attribute vec4 aLook;
+attribute vec3 aTint;
+varying vec3 vTint;
 uniform float uWindTime;
 uniform float uPlantSway;
 uniform float uDay;
@@ -201,13 +228,14 @@ void main() {
   float stray = aBird.z * aFlock.z * (1.0 + 0.5 * sin(t * 0.21 + aBird.x * 19.0));
   vec3 at = on + drift + side * stray + vec3(0.0, aBird.w + sin(t * 0.4 + aBird.x * 31.0) * 3.0, 0.0);
   // Wings beat, now and then a glide
-  float glide = smoothstep(0.2, 0.6, sin(t * 0.35 + aBird.x * 44.0));
-  float beat = sin(t * 11.0 + aBird.x * 82.0) * (1.0 - glide * 0.85);
+  float glide = smoothstep(0.2, 0.6, sin(t * 0.35 + aBird.x * 44.0) + aLook.z);
+  float beat = sin(t * aLook.y + aBird.x * 82.0) * (1.0 - glide * 0.85);
+  vTint = aTint;
   vec3 p = position;
   p.y += abs(p.x) * 1.4 * beat;
   float dist = length((modelMatrix * vec4(at, 1.0)).xyz - cameraPosition);
   // At least a few pixels from far away, folded away near the camera, by night and without motion
-  float span = max(1.6, dist * 0.006) * smoothstep(${BIRD_NEAR.toFixed(1)}, ${(BIRD_NEAR * 1.6).toFixed(1)}, dist) * step(0.001, uPlantSway) * uDay;
+  float span = max(1.6, dist * 0.006) * aLook.x * smoothstep(${BIRD_NEAR.toFixed(1)}, ${(BIRD_NEAR * 1.6).toFixed(1)}, dist) * step(0.001, uPlantSway) * uDay;
   vec3 world = at + (side * p.x + vec3(0.0, p.y, 0.0) + fwd * p.z) * span;
   vec4 mvPosition = modelViewMatrix * vec4(world, 1.0);
   gl_Position = projectionMatrix * mvPosition;
@@ -220,10 +248,10 @@ const BIRD_FRAGMENT = /* glsl */ `
 #include <common>
 #include <fog_pars_fragment>
 #include <logdepthbuf_pars_fragment>
-uniform vec3 uColor;
+varying vec3 vTint;
 void main() {
   #include <logdepthbuf_fragment>
-  gl_FragColor = vec4(uColor, 1.0);
+  gl_FragColor = vec4(vTint, 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
   #include <fog_fragment>

@@ -8,9 +8,10 @@
  * and boats from them, the soundscape plays an area's sound by the
  * listener's distance to it; the game's rules never read them.
  */
-import type { MapLife, MapLifeArea, MapLifeKind, MapPoint } from './map-document';
+import type { MapBirdSpecies, MapLife, MapLifeArea, MapLifeKind, MapPoint } from './map-document';
 
-export const LIFE_KINDS: readonly MapLifeKind[] = ['birds', 'fireflies', 'fog', 'leaves', 'embers', 'sparks', 'boats', 'sound'];
+export const LIFE_KINDS: readonly MapLifeKind[] = ['birds', 'fireflies', 'fog', 'leaves', 'embers', 'sparks', 'snow', 'dust', 'boats', 'movers', 'sound'];
+export const BIRD_SPECIES: readonly MapBirdSpecies[] = ['songbirds', 'gulls', 'crows', 'raptors'];
 
 /** What drifts in a boats area that names no asset */
 export const DEFAULT_BOAT = 'rowboat';
@@ -30,7 +31,10 @@ export const LIFE_KIND_INFO: Readonly<Record<MapLifeKind, { label: string; about
   leaves: { label: 'Leaves', about: 'Leaves falling and drifting with the wind', color: '#d0903a' },
   embers: { label: 'Embers', about: 'Glowing embers rising from the ground', color: '#ff8a30' },
   sparks: { label: 'Sparks', about: 'Bright sparks bursting up and falling, strongest at night', color: '#ffd060' },
+  snow: { label: 'Snow', about: 'Snow flurries drifting down with the wind', color: '#f4f8ff' },
+  dust: { label: 'Dust devils', about: 'Whirls of dust wandering over the ground and rising', color: '#d8b080' },
   boats: { label: 'Boats', about: 'Boats drifting slowly on the water of the area, or along the route and back', color: '#6ab0ff' },
+  movers: { label: 'Movers', about: 'Any object going round the area or along the route and back over the ground: a rover, a cart, grazing animals', color: '#a0e070' },
   sound: { label: 'Sound', about: 'An ambient sound, loud inside the area or along the line, fading with distance', color: '#ff70d0' },
 };
 
@@ -106,6 +110,8 @@ export function lifeProblems(life: unknown): string[] {
       if (a[key] !== undefined && typeof a[key] !== 'string') p.push(`${name}: ${key} must be an id`);
     }
     if (a.quality !== undefined && a.quality !== 'medium' && a.quality !== 'high') p.push(`${name}: quality must be medium or high`);
+    if (a.species !== undefined && !BIRD_SPECIES.includes(a.species)) p.push(`${name}: species must be ${BIRD_SPECIES.join(', ')}`);
+    if (a.speed !== undefined && (!finite(a.speed) || a.speed <= 0 || a.speed > 30)) p.push(`${name}: speed must be above 0 and at most 30`);
   }
   return p;
 }

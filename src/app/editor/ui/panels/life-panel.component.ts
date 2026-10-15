@@ -57,7 +57,15 @@ const TINTED: ReadonlySet<MapLifeKind> = new Set(['fireflies', 'fog', 'leaves', 
         <app-editor-range label="Density" unit="%" [min]="density.min * 100" [max]="density.max * 100" [step]="10" [value]="(a.density ?? 1) * 100"
                           (changing)="liveArea(a.id, { density: $event / 100 })" (changed)="commitArea(a.id, { density: $event / 100 }, 'Life density')" />
         @if (a.kind === 'birds') {
-          <app-editor-range label="Flight height" unit="m" [min]="10" [max]="200" [value]="a.height ?? 40"
+          <label class="td-setting">
+            <span>Birds</span>
+            <select class="td-select is-auto" [value]="a.species ?? 'songbirds'" (change)="commitArea(a.id, { species: $any($event.target).value === 'songbirds' ? undefined : $any($event.target).value }, 'Birds')" aria-label="Birds" data-test="life-species">
+              @for (b of species; track b.id) {
+                <option [value]="b.id">{{ b.label }}</option>
+              }
+            </select>
+          </label>
+          <app-editor-range label="Flight height" unit="m" [min]="10" [max]="200" [value]="a.height ?? (a.species === 'raptors' ? 80 : 40)"
                             (changing)="liveArea(a.id, { height: $event })" (changed)="commitArea(a.id, { height: $event }, 'Flight height')" />
         }
         @if (tinted.has(a.kind)) {
@@ -217,6 +225,12 @@ export class LifePanelComponent {
   });
   readonly switches = computed(() => (this.session.doc ? lifeSwitches(this.life()) : null));
   readonly defaultBoat = DEFAULT_BOAT;
+  readonly species = [
+    { id: 'songbirds', label: 'Songbirds' },
+    { id: 'gulls', label: 'Gulls' },
+    { id: 'crows', label: 'Crows and ravens' },
+    { id: 'raptors', label: 'Birds of prey (eagles, vultures)' },
+  ];
   /** What floats and may drift: the catalogue's floating props (boats, buoys) */
   readonly boatAssets = computed(() => [...this.session.catalog().objects.values()].filter((o) => o.float && o.category === 'prop'));
   /** The map's life before a slider started moving */
