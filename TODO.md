@@ -115,6 +115,8 @@ eigenen Karten, Coop-Protokoll 5). Vier Worker-Branches darauf laufen (Abschnitt
         schematischer Globus für die OSM-Welt, ein comichafter in Engine-Grafik für die mitgelieferten und eigenen
         Karten. Ein Klick holt den Globus groß nach vorn (wie heute der Menü-Globus), geladen wird erst mit Start im
         Menü. Klick-Dummy dazu: `tmp/plan/mockups/world-globes/`
+      Plan: [WORLDS_NAVIGATION_PLAN.md](docs/WORLDS_NAVIGATION_PLAN.md) (Bestand, Zielmodell, 7 Phasen, offene Entscheidungen);
+      gewählte Darstellung: Globen, Menü links, letzte Welt groß, Globus mittel, Hintergrund je Welt, großzügig.
       Vorgehen: alle heutigen Wege aufnehmen (Startmenü-Reiter, New game, Pausemenü, Game over, Editor-Kopf, Testfenster,
       Spielstände, Links, Desktop), Brüche und Neuladen benennen, ein durchgängiges Modell vorschlagen (Plan-Doku),
       mit dem User per Baukasten/Entwürfen abstimmen, dann bauen.
