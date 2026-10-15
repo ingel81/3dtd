@@ -361,7 +361,7 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | tower-stump | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_floor_damaged_01; https://polyhaven.com/a/rectangular_facade_tiles |
 | shop | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/beige_wall_001; https://polyhaven.com/a/brushed_concrete |
 | warehouse | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/brushed_concrete |
-| warehouse-rusty | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/brushed_concrete |
+| warehouse-rusty | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/rusty_metal_03; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/brushed_concrete |
 | container-green | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/container_side |
 | container-red | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/container_side |
 | container-blue | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/container_side |

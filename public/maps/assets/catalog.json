@@ -8425,7 +8425,7 @@
       "name": "Warehouse",
       "category": "building",
       "file": "models/warehouse.glb",
-      "triangles": 186,
+      "triangles": 1918,
       "footprint": 8.4,
       "height": 7.6,
       "blocksLos": true,
@@ -8440,6 +8440,13 @@
       "tags": [
         "city"
       ],
+      "lod": [
+        {
+          "file": "models/warehouse-lod1.glb",
+          "distance": 350,
+          "triangles": 472
+        }
+      ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -8447,7 +8454,7 @@
       "name": "Rusty warehouse",
       "category": "building",
       "file": "models/warehouse-rusty.glb",
-      "triangles": 186,
+      "triangles": 1984,
       "footprint": 8.4,
       "height": 7.6,
       "blocksLos": true,
@@ -8462,7 +8469,14 @@
       "tags": [
         "wasteland"
       ],
-      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/brushed_concrete"
+      "lod": [
+        {
+          "file": "models/warehouse-rusty-lod1.glb",
+          "distance": 350,
+          "triangles": 479
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/rusty_metal_03; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/brushed_concrete"
     },
     {
       "id": "container-green",
