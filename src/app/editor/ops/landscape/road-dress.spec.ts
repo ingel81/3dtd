@@ -5,10 +5,11 @@ import { contentBytes } from '../../../world/custom-map/map-file';
 import { CatalogIndex, normalizeCatalog } from '../../catalog/asset-catalog';
 import { EditorDocument } from '../../model/editor-document';
 import { heightAt } from '../../model/grid';
-import { editRoads, rebuildRoads } from '../../tools/path-tool';
+import { editRoads, rebuildRoads, setRoadSurface } from '../../tools/path-tool';
 import { moveNode, nearestOnPolyline, edgePolyline } from '../path-graph';
 import { LandscapeStroke } from './landscape-stroke';
 import { DEFAULT_ROAD, buildRoad } from './road';
+import { readWeights } from '../paint-ops';
 import { DEFAULT_RIVER, carveRiver, moveRiverBed } from './river';
 
 const catalog = new CatalogIndex(
@@ -94,6 +95,69 @@ describe('roads laid anew', () => {
     const plain = doc.paths.edges.find((e) => e.id === 'plain')!;
     expect(plain.dress!.objects.length).toBeGreaterThan(3);
     expect(plain.dress!.ground).toBeDefined();
+  });
+
+  it("sets a road's own surface at once, keeps it when the dressing is laid anew, as one step", () => {
+    const doc = hills();
+    const editor = new EditorDocument(doc);
+    const stroke = new LandscapeStroke(editor, 'Road', 1, catalog);
+    const result = buildRoad(stroke, [{ x: -150, y: -20 }, { x: 150, y: -20 }], { ...DEFAULT_ROAD, lamps: true });
+    stroke.finish();
+    const id = result!.edgeId;
+    const edge = () => doc.paths.edges.find((e) => e.id === id)!;
+    expect(edge().dress!.surface).toBe('cobblestone');
+    const built = contentBytes(doc);
+    const lamps = edge().dress!.objects.length;
+    // The weight of a material on the road's middle
+    const t = doc.terrain;
+    const w = new Float32Array(8);
+    const weight = (material: string) => {
+      const res = t.splat.resolution;
+      readWeights(t, Math.floor(((-20 + 200) / 400) * res) * res + Math.floor(0.5 * res), w);
+      return w[t.layers.findIndex((l) => l.material === material)] ?? 0;
+    };
+
+    const steps = editor.historySteps;
+    setRoadSurface(editor, catalog, [id], 'asphalt');
+    expect(editor.historySteps).toBe(steps + 1);
+    expect(edge().surface).toBe('asphalt');
+    expect(edge().dress).toMatchObject({ surface: 'asphalt', lamps: true });
+    expect(weight('asphalt')).toBeGreaterThan(250);
+    expect(weight('cobblestone')).toBeLessThan(5);
+
+    // Laid anew: still asphalt, the lamps again
+    rebuildRoads(editor, catalog, [id], DEFAULT_ROAD);
+    expect(edge().surface).toBe('asphalt');
+    expect(edge().dress!.objects.length).toBe(lamps);
+    expect(weight('asphalt')).toBeGreaterThan(250);
+
+    // None: the drawn road again, the paint stays
+    setRoadSurface(editor, catalog, [id], null);
+    expect(edge().surface).toBeUndefined();
+    expect(edge().dress!.surface).toBeUndefined();
+
+    editor.undo();
+    editor.undo();
+    editor.undo();
+    expect(Buffer.from(contentBytes(doc)).equals(Buffer.from(built))).toBe(true);
+  });
+
+  it('gives a road without a record a surface of its own, bridges left out', () => {
+    const doc = hills();
+    const editor = new EditorDocument(doc);
+    editRoads(editor, catalog, 'Roads', (paths) => {
+      const a = { id: 'n1', x: -100, y: 50 };
+      const b = { id: 'n2', x: 100, y: 50 };
+      const c = { id: 'n3', x: 100, y: 120 };
+      paths.nodes.push(a, b, c);
+      paths.edges.push({ id: 'e1', a: 'n1', b: 'n2', width: 8, kind: 'road' }, { id: 'e2', a: 'n2', b: 'n3', width: 8, kind: 'bridge' });
+    });
+    expect(setRoadSurface(editor, catalog, ['e1', 'e2'], 'gravel')).toBe(1);
+    const [e1, e2] = doc.paths.edges;
+    expect(e1.surface).toBe('gravel');
+    expect(e1.dress).toMatchObject({ adapt: false, surface: 'gravel', lamps: false, fences: false });
+    expect(e2.surface).toBeUndefined();
+    expect(doc.terrain.layers.some((l) => l.material === 'gravel')).toBe(true);
   });
 
   it('moves a river bed with its course', () => {

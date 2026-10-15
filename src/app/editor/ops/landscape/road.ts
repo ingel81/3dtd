@@ -12,6 +12,7 @@ import { addNode, connect, edgePolyline, nearestNode, nearestOnEdges, nearestOnP
 import { flattenUnderPaths, paintUnderPaths } from '../path-terrain';
 import { chaikin, simplify } from './lines';
 import type { LandscapeStroke } from './landscape-stroke';
+import type { CatalogIndex } from '../../catalog/asset-catalog';
 
 export interface RoadOptions {
   width: number;
@@ -221,8 +222,21 @@ export function undressEdge(stroke: LandscapeStroke, edge: MapPathEdge, line: re
   if (gone.length) stroke.changed({ objects: gone });
 }
 
-/** Road surfaces the brush paints, for reading them back off the map */
-const ROAD_SURFACES = new Set(['cobblestone', 'paving', 'dirt-path', 'asphalt', 'asphalt-cracked', 'gravel', 'sidewalk', 'concrete']);
+/**
+ * Ground materials a road is paved with: the choice of the road brush and of
+ * a road's own surface, and what is read back off the map as a road's
+ */
+export const ROAD_SURFACES: readonly string[] = [
+  'asphalt', 'asphalt-cracked', 'concrete', 'concrete-damaged', 'pavers', 'sidewalk', 'brick-paving', 'herringbone',
+  'cobblestone', 'cobblestone-grey', 'cobblestone-mossy', 'paving', 'crazy-paving', 'sandstone-paving', 'red-paving',
+  'stone-path', 'stone-path-grey', 'gravel', 'gravel-light', 'gravel-path', 'dirt-path', 'dirt', 'planks-weathered', 'regolith-tracks', 'mars-gravel',
+];
+const ROAD_SURFACE_SET = new Set(ROAD_SURFACES);
+
+/** The road surfaces the catalogue has, in the order of ROAD_SURFACES */
+export function roadSurfaces(catalog: CatalogIndex): { id: string; name: string }[] {
+  return ROAD_SURFACES.filter((id) => catalog.materials.has(id)).map((id) => ({ id, name: catalog.material(id).name }));
+}
 
 /**
  * What the road brush built along a road that kept no record of it (built
@@ -261,7 +275,7 @@ export function inferDress(stroke: LandscapeStroke, edge: MapPathEdge, line: rea
   let best = -1;
   for (let k = 0; k < Math.min(MAX_LAYERS, t.layers.length); k++) if (best < 0 || middle[k] > middle[best]) best = k;
   const material = best >= 0 ? t.layers[best].material : undefined;
-  const surface = material && ROAD_SURFACES.has(material) && middle[best] > beside[best] * 2 ? material : undefined;
+  const surface = material && ROAD_SURFACE_SET.has(material) && middle[best] > beside[best] * 2 ? material : undefined;
   if (!sides.length && !surface) return null;
   return {
     adapt: true,
@@ -322,3 +336,35 @@ export function relayRoads(stroke: LandscapeStroke, before: MapPaths): number {
   return changed.length;
 }
 
+
+/**
+ * A road's own surface (`material`, or null for none): kept on the edge, so
+ * the road mask leaves it out and the painted ground shows, and in its dress,
+ * so laying the dressing anew paints it again; painted under the road at
+ * once. None gives the drawn road its cobbles and ruts back over the ground
+ * as it is. Bridges and tunnels are left out. Returns how many changed.
+ */
+export function surfaceRoads(stroke: LandscapeStroke, edgeIds: readonly string[], material: string | null): number {
+  const paths = stroke.doc.paths;
+  const edges = paths.edges.filter((e) => edgeIds.includes(e.id) && e.kind !== 'bridge' && !e.tunnel);
+  if (!edges.length) return 0;
+  stroke.markPaths();
+  for (const e of edges) {
+    // A road without a record keeps what the map shows of it, else only its surface
+    e.dress ??= inferDress(stroke, e, edgePolyline(paths, e)) ?? { adapt: false, lamps: false, fences: false, objects: [] };
+    if (material) {
+      e.surface = material;
+      e.dress.surface = material;
+    } else {
+      delete e.surface;
+      delete e.dress.surface;
+    }
+  }
+  const layer = material ? stroke.layerOf([material]) : null;
+  if (layer !== null) {
+    const rect = paintUnderPaths(stroke.doc.terrain, paths, layer, edges.map((e) => e.id), 1.5, (r) => stroke.touchSplat(r));
+    if (rect) stroke.changed({ splat: rect });
+  }
+  stroke.changed({ paths: true });
+  return edges.length;
+}

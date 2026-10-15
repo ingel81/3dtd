@@ -21,7 +21,8 @@ import { removeLayer } from '../ops/paint-ops';
 import { meanWidth, insertPoint, movePoint, removePoint, setMeanWidth, simplifyRiver } from '../ops/river-edit';
 import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
 import { recarveRiver, relevelRiver } from '../ops/landscape/river';
-import { editRoads } from '../tools/path-tool';
+import { roadSurfaces } from '../ops/landscape/road';
+import { editRoads, setRoadSurface } from '../tools/path-tool';
 import { relayRiver, removeWholeRiver } from '../tools/water-tool';
 import { contentFingerprint } from './agent-reads';
 import { dabCentres, facing, MapKit, rng, type Brush, type Where } from '../ops/map-kit';
@@ -245,6 +246,7 @@ export const SCRIPT_OPS: Readonly<Record<string, OpSpec>> = {
   dissolveNode: { args: [a('node', STRING)], doc: 'Remove a node between exactly two roads and join them into one, the curve kept' },
   connectNodes: { args: [a('from', STRING), a('to', STRING), a('options', OBJECT, true)], doc: 'A road between two nodes; options { width 8, kind: road|path|bridge, style: wood|stone|lava }; returns the edge id' },
   editRoads: { args: [a('edgeIds', STRINGS), a('patch', OBJECT)], doc: 'Width, kind or bridge style of roads: { width, kind: road|path|bridge, style: wood|stone|lava }; a road the brush built is laid anew' },
+  roadSurface: { args: [a('edgeIds', STRINGS), a('material', STRING)], doc: "The roads' own ground material (asphalt, pavers, cobblestone, gravel ...), painted under them and kept when their dressing is laid anew; 'none' gives the drawn road with cobbles and ruts back; bridges and tunnels are left out" },
   smoothRoad: { args: [a('edge', STRING), a('spacing', num(1, 100), true)], doc: 'Round a road into a smooth curve (curve points every `spacing` metres, 8)' },
   straightenRoad: { args: [a('edge', STRING)], doc: 'A road straight from node to node' },
   flattenRoads: { args: [a('edgeIds', STRINGS, true), a('shoulder', num(0, 50), true), a('smoothing', num(0, 100), true)], doc: 'Flatten the ground under roads (all, or the given edges)', wholeGround: true },
@@ -577,6 +579,13 @@ export function applyCommand(kit: MapKit, command: ScriptCommand): unknown {
       const ids = new Set((args[0] as string[]).map((id) => edgeOf(doc, id, 'editRoads')));
       const patch = roadPatch(args[1] as Record<string, unknown>, 'editRoads');
       editRoads(kit.editor, kit.catalog, 'Road', (paths) => (paths.edges = paths.edges.map((e) => (ids.has(e.id) ? { ...e, ...patch } : e))));
+      return undefined;
+    }
+    case 'roadSurface': {
+      const ids = (args[0] as string[]).map((id) => edgeOf(doc, id, 'roadSurface'));
+      const material = args[1] as string;
+      if (material !== 'none' && !kit.catalog.materials.has(material)) throw new ScriptError(`map.roadSurface: there is no material ${material}; road surfaces: ${roadSurfaces(kit.catalog).map((m) => m.id).join(', ')}`);
+      setRoadSurface(kit.editor, kit.catalog, ids, material === 'none' ? null : material);
       return undefined;
     }
     case 'smoothRoad': {

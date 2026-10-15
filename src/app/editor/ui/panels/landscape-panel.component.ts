@@ -5,6 +5,7 @@ import type { MapPathKind } from '../../../world/custom-map/map-document';
 import { BIOMES, type BiomeDef, type BiomeId } from '../../ops/landscape/biomes';
 import { randomSeed } from '../../ops/landscape/landscape-noise';
 import { cliffModelIds } from '../../ops/landscape/cliff-rocks';
+import { roadSurfaces } from '../../ops/landscape/road';
 import { LANDSCAPE_MODES, type LandscapeMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
 import { BrushPanelComponent } from './brush-panel.component';
@@ -25,12 +26,7 @@ export class LandscapePanelComponent {
   readonly modes = LANDSCAPE_MODES;
   readonly biomes = BIOMES;
   readonly s = computed(() => (this.session.settingsRev(), structuredClone(this.session.settings.landscape)));
-  readonly surfaces = computed(() =>
-    this.session
-      .catalog()
-      .catalog.materials.filter((m) => /path|paving|cobble|gravel|dirt|road/.test(m.id))
-      .map((m) => ({ id: m.id, name: m.name })),
-  );
+  readonly surfaces = computed(() => roadSurfaces(this.session.catalog()));
   readonly hasMaterials = computed(() => this.session.catalog().catalog.materials.length > 0);
   readonly cliffModels = computed(() => {
     const catalog = this.session.catalog();

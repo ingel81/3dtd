@@ -303,6 +303,7 @@ describe('map scripts', () => {
         map.editRoads([branch], { width: 6 });
         map.smoothRoad(road.id, 10);
         map.straightenRoad(branch);
+        map.roadSurface([road.id], 'asphalt');
         map.river([{ x: -120, y: -90 }, { x: 0, y: -70 }, { x: 120, y: -100 }], { width: 10 });
         const [river] = map.rivers();
         map.moveRiverPoint(river.id, 1, { x: 0, y: -60 });

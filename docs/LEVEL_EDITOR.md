@@ -199,7 +199,12 @@ würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben diese
   die ganze frühere Straße; an der Teilungsstelle kann der Boden danach um einige Zentimeter vom ersten Bau abweichen
   (im Fuzz-Test bis etwa 9 cm). Ein Profil über die Einmündung hinweg hieße, die Glättung über verbundene Kanten zu
   führen; das steht aus. „Rebuild road dressing“ im Roads-Panel legt die Ausstattung der gewählten Straßen neu an: aus ihrem `dress`,
-  aus der Karte oder, für eine bloße Linie, mit den Einstellungen des Straßenpinsels (Landscape, Road). Ebenso folgt das Flussbett
+  aus der Karte oder, für eine bloße Linie, mit den Einstellungen des Straßenpinsels (Landscape, Road). „Surface“ im
+  Roads-Panel (gewählte Straße, keine Brücke) stellt den Belag dieser Straßen sofort um (`setRoadSurface`, ein Schritt):
+  Asphalt, Pflaster, Platten, Kies, Feldweg und andere Straßenbeläge des Katalogs (`ROAD_SURFACES`) stehen in `edge.surface`
+  und im `dress`, werden unter die Straße gemalt, die Wegmaske lässt die Kante aus, und „Rebuild road dressing“ malt ihn
+  wieder; „None“ gibt die gezeichnete Straße mit Pflaster und Spuren über dem Boden zurück, der Anstrich bleibt. Agent:
+  `map.roadSurface(ids, material | 'none')`. Ebenso folgt das Flussbett
   seinem Lauf: einen Flusspunkt verschieben oder entfernen (Water, 4, Rivers), die Breite ändern oder „Fewer river
   points“ füllt das alte Bett und gräbt das neue (`moveRiverBed`): Schilf, Steine und Wasserfälle beider Bänder gehen,
   das neue Band bekommt Bodenanstrich, Schilf, Steine und Wasserfälle wie beim ersten Ziehen (`paintRiverBed`,
