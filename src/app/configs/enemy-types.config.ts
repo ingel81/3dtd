@@ -145,6 +145,13 @@ export interface EnemyTypeConfig {
    * Not for flyers or anything that leaves the ground on purpose.
    */
   groundedBake?: boolean;
+  /**
+   * Clothing looks of the type (TODO E185): cloth regions of its texture
+   * recoloured per instance in the VAT shader, no draw call more and no
+   * texture more. Each enemy wears one look picked by its id, the model's own
+   * look among them (vat-cloth.ts).
+   */
+  clothVariants?: ClothVariants;
   animationVariation?: boolean; // Switches between walk and run animation
   runSpeedMultiplier?: number; // Speed multiplier for run animation (default: 1.0)
   /**
@@ -485,6 +492,24 @@ export const CAMO_HP_FACTOR = 0.75;
 
 export const ELITE_SIZE = 1.25;
 
+/**
+ * A cloth region of an enemy's texture: texels near `color` (sRGB '#rrggbb',
+ * within `tolerance` in sRGB 0..1) on the part of the body between `from`
+ * and `to`, shares of the model's rest-pose height (0 the soles, 1 the top).
+ */
+export interface ClothRegion {
+  color: string;
+  tolerance: number;
+  from: number;
+  to: number;
+}
+
+/** Clothing looks: up to two regions, up to four looks of one colour per region ('#rrggbb', null keeps it) */
+export interface ClothVariants {
+  regions: readonly ClothRegion[];
+  looks: readonly (readonly (string | null)[])[];
+}
+
 export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   zombie: {
     id: 'zombie',
@@ -512,6 +537,19 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     movingSoundRefDistance: 25, // Zombies are quieter from distance
     // On the ground (E185): 0.5 m, a value from before the VAT bake, lifted the feet off it
     heightOffset: 0,
+    // Shirt and trousers of the palette texture (the trousers' brown is also the hair: kept to the legs)
+    clothVariants: {
+      regions: [
+        { color: '#e0d8d0', tolerance: 0.08, from: 0.53, to: 0.82 },
+        { color: '#705048', tolerance: 0.08, from: 0, to: 0.6 },
+      ],
+      looks: [
+        ['#7d9cc0', '#3b4150'],
+        ['#a8b07a', null],
+        ['#d9c49a', '#2f3a55'],
+        ['#b5574a', '#55524a'],
+      ],
+    },
     healthBarOffset: 5.5,
     canBleed: true, // Zombies bleed
     headingOffset: -0.349, // -20° rotation offset
@@ -548,6 +586,19 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     // dying_backwards stands still for its first 0.35 s; the walk floats 0.19 to 0.31 m, the deaths end in the ground
     clipStart: { dying_backwards: 0.35 },
     groundedBake: true,
+    // The red shirt (its red is also the blood on the face: kept to the torso) and the jeans
+    clothVariants: {
+      regions: [
+        { color: '#7a2c34', tolerance: 0.22, from: 0.5, to: 0.88 },
+        { color: '#46505a', tolerance: 0.18, from: 0.28, to: 0.58 },
+      ],
+      looks: [
+        ['#3d5a80', null],
+        ['#5f6b3a', '#4a3a2c'],
+        ['#c8c0b0', '#2c2c30'],
+        ['#9a7a3a', '#5a5a60'],
+      ],
+    },
     movingSound: 'assets/sounds/enemies/zombie/ambient.mp3',
     movingSoundVolume: 0.4,
     movingSoundRefDistance: 25,

@@ -161,6 +161,7 @@ const NEW_ENEMY_MODEL_URL = 'assets/models/enemies/new_enemy.glb';
 | `deathAnimations` | Optional | Pool von Todes-Clips, einer zufällig pro Kill; gekürzt wie `deathAnimation` |
 | `deathAnimationSpeed` | Optional | Abspieltempo der Todes-Clips, sonst `animationSpeed`. Das Gangtempo passt zum Schritt, ein Tod darin kann zu schnell sein (Zombie: 4,11, der Sturz von 3 s in 0,7 s) |
 | `clipStart` | Optional | Clip-Zeit in Sekunden, ab der ein Clip gebacken wird, je Name: ein Todes-Clip, der erst stillsteht (`zombie-v2`, `dying_backwards`: 0,35) |
+| `clothVariants` | Optional | Kleidung je Instanz ohne Draw Call: bis zu zwei Stoffbereiche (Farbe der Textur, Toleranz, Band der Körperhöhe) und bis zu vier Looks mit einer Farbe je Bereich (`null` behält ihn); siehe [INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md#per-instance-attribute). Zombie: Hemd und Hose, Zombie v2: Hemd und Jeans |
 | `groundedBake` | Optional | Jeder Frame mit seinem tiefsten Vertex auf y 0: beim Gehen der Standfuß am Boden, beim Fallen und Liegen der Körper. Für Bodentypen, deren Clips schweben oder einsinken (beide Zombies), nicht für Flieger |
 
 Idle-Clips werden nicht gebacken, das Spiel zeigt keine stehenden Gegner.

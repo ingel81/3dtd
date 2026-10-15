@@ -267,6 +267,20 @@ if (vUseMap > 0.5 && hasDiffuse > 0.5) {
 |----------|-----|-------------|
 | `aAnimFrame` | float | Aktueller VAT Frame |
 | `aTintColor` | vec3 | Tint-Overlay, 50 % gemischt (0,0,0 = keiner) |
+| `aClothLook` | float | Kleidung (`vat-cloth.ts`), 0 die des Modells; nur bei Typen mit `clothVariants` |
+
+**Kleidung je Instanz (E185, `vat-cloth.ts`):** Ein Typ mit `EnemyTypeConfig.clothVariants` hat
+bis zu zwei Stoffbereiche und bis zu vier Looks. Ein Bereich sind Texel nahe einer Farbe (sRGB,
+Toleranz) auf einem Band des Körpers (Anteil der Höhe der Ruhepose, 0 die Sohlen, 1 der Scheitel):
+das Braun der Zombie-Hose ist auch sein Haar, das Rot des Hemds von Zombie v2 auch das Blut im
+Gesicht. Der Fragment-Shader färbt so einen Texel in die Farbe des Looks und behält seine
+Helligkeit gegen die Bereichsfarbe (Falten, Schmutz und Schatten der Textur bleiben). Welchen
+Look eine Instanz trägt, folgt aus ihrer Id (`clothLook`, das eigene Aussehen zählt mit), sie
+behält ihn ihr Leben lang und auf jedem Rechner. Ohne Looks gibt es weder das Attribut noch den
+Shader-Zweig (`VAT_CLOTH`). Kosten: eine float je Instanz, im Fragment-Shader zwei Farbabstände;
+kein Draw Call und keine Textur mehr. Gemessen 2026-10-15 (DevWorld, Hälfte V1, Hälfte V2,
+belasteter Rechner): 16 Draw Calls je Bild vorher und nachher bei 500 und 5000 Zombies, die
+Bildzeit im Rauschen der Läufe.
 
 Tint-Priorität (`applyTint()`): Hit-Flash vor `iced` (Status `freeze`, eingefroren) vor
 `stunned` (Status `stun`) vor `frozen` (Slow des Ice Towers) vor Burn vor Poison. Den

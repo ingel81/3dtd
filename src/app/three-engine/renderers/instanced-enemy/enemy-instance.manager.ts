@@ -18,6 +18,7 @@ import { bloodMoonMultiplier } from '../../blood-moon/blood-moon-mood';
 import { EnemyTypeConfig } from '../../../configs/enemy-types.config';
 import { InstanceSlotAllocator, grownAttribute } from '../instance-slot-allocator';
 import { DrawGate } from '../draw-gate';
+import { clothLook } from './vat-cloth';
 
 /**
  * Instances a type's buffers hold at first; they double whenever an enemy
@@ -108,6 +109,8 @@ export interface TypePool {
   tintColorAttr: InstancedBufferAttribute;
   /** aPrevOffset (state-lerp.ts); goes out with the matrix */
   prevOffsetAttr: InstancedBufferAttribute;
+  /** aClothLook, the clothing look per instance (vat-cloth.ts); goes out with the tint. Null for a type without looks */
+  clothAttr: InstancedBufferAttribute | null;
 
   // Dirty flags for batched GPU buffer updates (set per-instance, flushed once per frame)
   matrixDirty: boolean;
@@ -270,6 +273,7 @@ export class EnemyInstanceManager {
       stateLerp: this.stateLerp.uniform,
       camoTime: this.camoTime,
       rimLight: this.rimLight,
+      cloth: config.clothVariants,
     });
     const instancedMesh = new InstancedMesh(
       vatData.geometry,
@@ -291,6 +295,8 @@ export class EnemyInstanceManager {
     instancedMesh.geometry.setAttribute('aAnimFrame', animFrameAttr);
     instancedMesh.geometry.setAttribute('aTintColor', tintColorAttr);
     instancedMesh.geometry.setAttribute('aPrevOffset', prevOffsetAttr);
+    const clothAttr = config.clothVariants?.looks.length ? new InstancedBufferAttribute(new Float32Array(INITIAL_INSTANCES_PER_TYPE), 1) : null;
+    if (clothAttr) instancedMesh.geometry.setAttribute('aClothLook', clothAttr);
 
     // count=0 → GPU renders nothing; slots are initialized on first use.
     // The gate keeps the empty mesh out of the render list.
@@ -310,6 +316,7 @@ export class EnemyInstanceManager {
       animFrameAttr,
       tintColorAttr,
       prevOffsetAttr,
+      clothAttr,
       matrixDirty: false,
       tintDirty: false,
       animFrameDirty: false,
@@ -347,6 +354,8 @@ export class EnemyInstanceManager {
     // Set initial attributes; they go out with the frame flush.
     pool.animFrameAttr.setX(index, 0);
     pool.tintColorAttr.setXYZW(index, baseTint?.[0] ?? 0, baseTint?.[1] ?? 0, baseTint?.[2] ?? 0, 0);
+    // The clothes it wears for its life, by its id (vat-cloth.ts)
+    if (pool.clothAttr) pool.clothAttr.setX(index, clothLook(id, pool.config.clothVariants!));
     pool.animFrameDirty = true;
     pool.tintDirty = true;
 
@@ -966,6 +975,10 @@ export class EnemyInstanceManager {
     mesh.geometry.setAttribute('aAnimFrame', pool.animFrameAttr);
     mesh.geometry.setAttribute('aTintColor', pool.tintColorAttr);
     mesh.geometry.setAttribute('aPrevOffset', pool.prevOffsetAttr);
+    if (pool.clothAttr) {
+      pool.clothAttr = grownAttribute(pool.clothAttr, capacity);
+      mesh.geometry.setAttribute('aClothLook', pool.clothAttr);
+    }
     pool.slots.grow(capacity);
   }
 
@@ -1115,6 +1128,11 @@ export class EnemyInstanceManager {
           pool.tintColorAttr.clearUpdateRanges();
           pool.tintColorAttr.addUpdateRange(0, activeCount * 4);
           pool.tintColorAttr.needsUpdate = true;
+          if (pool.clothAttr) {
+            pool.clothAttr.clearUpdateRanges();
+            pool.clothAttr.addUpdateRange(0, activeCount);
+            pool.clothAttr.needsUpdate = true;
+          }
         }
         pool.tintDirty = false;
       }

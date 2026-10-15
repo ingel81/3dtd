@@ -9,6 +9,8 @@ import type { VATAlphaMode } from './vat-surface';
 import { BLOOD_MOON_LOOK } from '../../../configs/blood-moon.config';
 import { DISPLAY_OUTPUT_GLSL } from '../display-output';
 import { createPortalClipUniforms, PORTAL_CLIP_GLSL, type PortalClipUniforms } from '../portal-clip';
+import type { ClothVariants } from '../../../configs/enemy-types.config';
+import { CLOTH_FRAGMENT_GLSL, CLOTH_VERTEX_GLSL, CLOTH_VERTEX_MAIN_GLSL, clothUniforms } from './vat-cloth';
 
 /** Shader switch per VAT alpha mode. */
 const ALPHA_DEFINES: Record<VATAlphaMode, Record<string, string>> = {
@@ -49,6 +51,8 @@ export interface VATMaterialOptions {
   camoTime?: IUniform<number>;
   /** Strength of the rim light (the world's enemyRimLight), shared by every type; without it none */
   rimLight?: IUniform<number>;
+  /** Clothing looks of the type (vat-cloth.ts); without them every instance wears the model's own */
+  cloth?: ClothVariants;
 }
 
 /**
@@ -116,6 +120,13 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
     alphaCutoff: { value: vatData.alpha.cutoff },
   };
 
+  // Clothing looks, picked per instance by aClothLook (vat-cloth.ts)
+  const clothDefines: Record<string, string> = {};
+  if (options?.cloth && options.cloth.looks.length > 0) {
+    Object.assign(uniforms, clothUniforms(options.cloth, vatData.geometry));
+    clothDefines['VAT_CLOTH'] = '';
+  }
+
   if (vatData.diffuseMap) {
     uniforms['diffuseMap'] = { value: vatData.diffuseMap };
     uniforms['hasDiffuse'] = { value: 1.0 };
@@ -137,6 +148,7 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
       attribute float aAnimFrame;
       attribute vec4 aTintColor;
       attribute vec3 aPrevOffset;
+      ${CLOTH_VERTEX_GLSL}
 
       uniform float uStateLerp;
 
@@ -170,6 +182,7 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
         vVertexColor = aVertexColor;
         vVertexAlpha = aVertexAlpha;
         vUseMap = aUseMap;
+        ${CLOTH_VERTEX_MAIN_GLSL}
 
         // Sample VAT for animated position (tiled layout for large vertex counts)
         float col = mod(aVertexIndex, vatWidth);
@@ -234,6 +247,8 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
 
       ${PORTAL_CLIP_GLSL}
 
+      ${CLOTH_FRAGMENT_GLSL}
+
       void main() {
         #include <logdepthbuf_fragment>
 
@@ -263,6 +278,9 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
           baseColor = vVertexColor;
           baseAlpha = vVertexAlpha;
         }
+        #ifdef VAT_CLOTH
+          baseColor = clothRecolor(baseColor);
+        #endif
 
         // Alpha as the model's materials use it (vatAlpha in vat-surface.ts)
         #if defined( VAT_ALPHA_BLEND )
@@ -369,7 +387,7 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
         #endif
       }
     `,
-    defines: { ...ALPHA_DEFINES[vatData.alpha.mode] },
+    defines: { ...ALPHA_DEFINES[vatData.alpha.mode], ...clothDefines },
     transparent: vatData.alpha.mode === 'blend',
     side: vatData.side,
     // One pass also for double-sided blending. ShaderMaterial's own default
