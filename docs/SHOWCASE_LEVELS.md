@@ -100,9 +100,11 @@ offene Wasser, Moos, Schlamm und Wurzeln auf den Inseln, Laternen an den Pfahlh�
 Wasser liegt; Wege, Inseln und Stege sind aus der Spielkamera klar. Nebelbälle nur noch klein an den Spawns, Laternen
 und Fackeln alle 16 m an den Stegen, Lagerfeuer auf den großen Inseln, Glühwürmchen-Wolken über dem offenen Wasser. Seit
 E184: eine Riesenweide (dreifache Größe) als Wahrzeichen auf der HQ-Insel, grüne Glut über dem Kessel der Hexe, eine
-Felskuppe mit Klippenfelsen und Steinkreis im Südwesten, drei versunkene Pfahlhütten (schräg, halb im Wasser), zwei
-Stelzenstege zwischen äußeren Inseln (keine Spuren), Irrlichter (bläuliche Glühwürmchen) und Nebelbänke in den
-Senken abseits der Stege.
+Felskuppe mit Klippenfelsen und Steinkreis (`stone-circle`, ein Feuer daneben) im Südwesten, drei versunkene Pfahlhütten (schräg, halb im Wasser), zwei
+Stelzenstege zwischen äußeren Inseln (keine Spuren), Irrlichter (bläuliche Glühwürmchen). Leben als
+Lebensbereiche: Glühwürmchen über acht Tümpeln offenen Wassers, ziehende Nebelbänke in sechs Senken abseits der Stege
+und kleine an den Spawns; Ton des Sumpfs (Frösche) über der Karte, Grillen auf den beiden großen Inseln, Feuerknistern
+an der Hexenhütte. Offen: Krähen bei Nacht (Vögel fliegen nur am Tag).
 
 Biom Sumpf, Look `swamp`, Nacht mit Bodennebel und Glühwürmchen. Ein Bohlenweg über Sumpfwasser, Inseln mit
 Pfahlhütten, die Hexenhütte mit grün leuchtenden Fenstern als HQ-Kulisse, Laternen an den Stegen als einzige
