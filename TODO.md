@@ -109,6 +109,19 @@ eigenen Karten, Coop-Protokoll 5). Vier Worker-Branches darauf laufen (Abschnitt
       (z. B. Marktstand-Dach) sind im Spiel von schräg unten nicht zu sehen; bestand schon vorher.
 - [ ] **E197 Echter Rauchsäulen-Effekt** (2026-10-15, Befund fx-maps-hot2): Rauchsäulen sind gestapelte `fx-smoke`
       und wirken im Standbild fleckig; ein eigener Effekt für hohe, ziehende Säulen (Ember Crater, Brände).
+- [ ] **E198 OSM-Welt: Gebäude passend und vielfältig** (User, 2026-10-15, Erlenbach 74235 im Editor): Ein Ort aus
+      überwiegend Einfamilienhäusern mit Satteldach (rot oder schwarz) erscheint als Feld gleicher Wohnblöcke. Prüfen,
+      warum die Artwahl (`building-tags.ts`) dort Blöcke statt `house-modern`/`house-semi` nimmt (vermutlich `building=yes`
+      ohne Geschosse und Rückfall), und mehr Varianz: Dachfarben, Dachformen, Größen, Drehung, Nebengebäude. Fehlende
+      Arten aus dem O4-Bericht (kleines Geschäftshaus, Anbau, Nebengebäude, Unterstand, Scheune) mit E179.
+- [ ] **E199 New game auf einer Kartenwelt: Ergebnisliste abgeschnitten** (User, 2026-10-15): Unter „A map of a real
+      place“ ist der Dialog zu niedrig, die Treffer der Ortssuche scrollen in einem schmalen Streifen. Dialoghöhe bzw.
+      Trefferliste so, dass mehrere Treffer sichtbar sind.
+- [ ] **E200 Editor-Ansicht „Look“ auf OSM-Karten** (2026-10-15, Befund fx-osm2, im Bild bestätigt): die rund 2000
+      Wegknoten erscheinen als große helle Scheiben und decken die Karte zu; in Look ausblenden oder klein zeichnen.
+- [ ] **E201 Bauverbot um Gebäude als Kreis** (2026-10-15, Befund fx-osm4): Bauverbot und Sitzhöhe rechnen mit
+      footprint × Skala als Kreis; lange Gebäude sperren über die Straße hinaus (Schule 46 m: 21 m Radius). Grundriss
+      als Rechteck nehmen.
 - [ ] **E194 Erde am Mondhimmel sieht zu schlecht aus** (User, 2026-10-15, Bild Moon Base mit der Erde über dem
       Nordrand): Planet-Einstellung (`environment.planet`, `sky-dome.ts`) zeichnet die Erde zu grob. Besser: echte
       Erdtextur (Kontinente, Wolken, Ozeanglanz), Tag-Nacht-Grenze passend zur Sonne, Atmosphärensaum, scharf bei der
