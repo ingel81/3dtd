@@ -74,6 +74,8 @@ describe('editor tools', () => {
     tool.pointerDown(at(50, 0, { hit: { x: 50, y: 0, z: 10 } }), ctx);
     expect(heightAt(ed.doc.terrain, 0, 0)).toBeCloseTo(5, 0);
     expect(ed.historySteps).toBe(1);
+    // The status line moves on from the first click's note
+    expect(ctx.messages).toEqual(['Ramp start set', 'Ramp built']);
   });
 
   it('places, scatters and deletes objects', () => {
