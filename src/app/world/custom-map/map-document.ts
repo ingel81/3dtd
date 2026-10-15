@@ -467,6 +467,8 @@ export interface MapLifeArea {
   /** Sound: the ambient sound's id (ambience/ambient-sounds.ts) and its volume 0..1 (default 0.7) */
   sound?: string;
   volume?: number;
+  /** Sound: metres over which it fades out beyond the outline or the line (LIFE_SOUND_REACH, default 70) */
+  reach?: number;
   /** Boats: the floating asset that drifts (default a rowboat); movers: the asset that moves (required) */
   asset?: string;
   /** Birds: what flies (default songbirds) */
@@ -496,6 +498,13 @@ export interface MapLife {
   flags?: boolean;
   /** The ambient sound over the whole map: a sound id, or 'biome' for the biome's by day and by night; volume 0..1. None when missing */
   ambience?: { sound: string; volume: number };
+  /**
+   * A sound once at the start of every wave (a bell, a distant siren, a
+   * ship's horn; ambience/ambient-sounds.ts WAVE_SOUNDS), volume 0..1; from
+   * the life area `area` names (heard from its place, quieter far off) or
+   * everywhere alike. Heard only, the simulation never knows it
+   */
+  waveSound?: { sound: string; volume: number; area?: string };
   areas?: MapLifeArea[];
 }
 
@@ -527,12 +536,14 @@ export interface MapPieceParts {
   water: boolean;
   objects: boolean;
   roads: boolean;
+  /** Life areas (missing in pieces kept before they travelled: none) */
+  life?: boolean;
 }
 
 /**
  * A piece of a map, centred on its own middle (the editor's Copy and stamps,
  * editor/ops/stamp.ts): heights relative to its rim, paint per material,
- * water, objects and the roads inside.
+ * water, objects, the roads and the life areas inside.
  */
 export interface MapPiece {
   width: number;
@@ -552,6 +563,8 @@ export interface MapPiece {
   water: { mask: Uint8Array; level: number; color: string } | null;
   objects: Omit<MapObject, 'id'>[];
   roads: { nodes: MapPathNode[]; edges: MapPathEdge[] };
+  /** Life areas and routes with all their points inside, relative to the middle; missing in pieces kept before */
+  life?: Omit<MapLifeArea, 'id'>[];
   /** What the piece holds; all of it when missing (a rectangle copied whole) */
   parts?: MapPieceParts;
   /**

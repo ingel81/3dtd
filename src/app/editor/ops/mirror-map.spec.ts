@@ -66,4 +66,21 @@ describe('mirrorMap', () => {
     expect(doc.paths.edges.find((e) => e.id === 'e1')!.dress).toBeDefined();
     expect(doc.paths.edges.find((e) => e.id !== 'e1')!.dress).toBeUndefined();
   });
+
+  it('copies life areas of the source half, drops those of the other, keeps those across the axis', () => {
+    const doc = map();
+    doc.life = {
+      density: 1.2,
+      areas: [
+        { id: 'birds-1', kind: 'birds', shape: 'area', points: [{ x: -80, y: 0 }, { x: -40, y: 0 }, { x: -40, y: 30 }], species: 'gulls' },
+        { id: 'fog-1', kind: 'fog', shape: 'area', points: [{ x: 40, y: 0 }, { x: 80, y: 0 }, { x: 80, y: 30 }] },
+        { id: 'sound-1', kind: 'sound', shape: 'route', points: [{ x: -50, y: -50 }, { x: 50, y: -50 }], sound: 'stream' },
+      ],
+    };
+    const result = mirrorMap(doc, 'x', { x: -50, y: 0 });
+    expect(doc.life.density).toBe(1.2);
+    expect(doc.life.areas?.map((a) => a.id)).toEqual(['birds-1', 'sound-1', 'birds-2']);
+    expect(doc.life.areas?.[2]).toMatchObject({ species: 'gulls', points: [{ x: 40, y: 30 }, { x: 40, y: 0 }, { x: 80, y: 0 }] });
+    expect(result.life).toBe(1);
+  });
 });

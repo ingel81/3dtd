@@ -144,8 +144,9 @@ Ein Skript ist schlichtes JavaScript (kein `import`, kein `await`) gegen `map`. 
 (`src/app/editor/ops/map-kit.ts`, dieselben Operationen, mit denen `tools/maps/levels/` die mitgelieferten Karten
 baut): Generator, Landschaftsstriche (Biome, Formen, Klippen, Erosion, Fluss, Straße), Terrain-, Paint- und
 Wasserpinsel entlang Punkten, Objekte setzen, streuen, in Reihen, Wege, Spawns, HQ, Symmetrie, Himmel, Regeln, Leben
-(`map.lifeArea(kind, punkte, optionen)`, `map.lifeRoute`, `map.lifeSettings`, `map.removeLife`; Arten und Optionen wie im
-Werkzeug Life, LEVEL_EDITOR.md; eine unbekannte Option, Art oder zu wenige Punkte brechen mit Grund ab).
+(`map.lifeArea(kind, punkte, optionen)`, `map.lifeRoute`, `map.lifeSettings` (auch `waveSound`), `map.removeLife`; Arten und Optionen wie im
+Werkzeug Life, LEVEL_EDITOR.md; mit `map.symmetry` entstehen die Bilder mit, die Id ist die des gezeichneten; eine
+unbekannte Option, Art oder zu wenige Punkte brechen mit Grund ab).
 Lesen: `map.h(x, y)`, `map.slope`, `map.noise`, `map.ridged`, `map.objects(rect)`, `map.markers()`, `map.roads()`,
 `map.layers()`, `map.waterBodies()`, `map.lanes()`, `map.issues()`, `map.life()`. `map_summary` nennt unter `life` die
 Schalter, die Dichte, den Umgebungston und die Bereiche (Id, Art, Form, Punkte, Dichte). Dazu `rng(seed)`, `facing(a, b)`, `log(...)`. Die volle

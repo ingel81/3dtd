@@ -366,6 +366,12 @@ export interface WorldProvider {
    */
   lanes(): WorldLanes | null;
   /**
+   * A wave started (the main bus's `wave:started`, not while a replay fast
+   * forwards): a world's own sound for it (a custom map's `life.waveSound`).
+   * Presentation only, the simulation never hears it
+   */
+  waveStarted?(wave: number): void;
+  /**
    * A world whose look follows the waves (a custom map's wave events, TODO
    * E170): the events up to `wave` happened (op `waveEvents.setReached`, the
    * simulation's WaveEvents); sky, weather and the objects they show or hide

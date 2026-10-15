@@ -66,6 +66,34 @@ describe('stamps', () => {
     expect(heightAt(t, 50, 50)).toBeCloseTo(20, 4);
   });
 
+  it('takes life areas wholly inside along, turned, as one undo step', () => {
+    const ed = source();
+    ed.doc.life = {
+      areas: [
+        { id: 'fireflies-1', kind: 'fireflies', shape: 'area', points: [{ x: -120, y: 80 }, { x: -80, y: 80 }, { x: -100, y: 120 }] },
+        { id: 'birds-1', kind: 'birds', shape: 'route', points: [{ x: -100, y: 100 }, { x: 0, y: 0 }] },
+      ],
+    };
+    const stamp = captureStamp(ed.doc, { x0: -130, y0: 70, x1: -70, y1: 130 });
+    expect(stamp.life?.map((a) => a.kind)).toEqual(['fireflies']);
+    const target = new EditorDocument(createMapDocument({ id: 't', name: 'T', width: 400, depth: 400, cellSize: 2, starter: false, now: new Date(0) }));
+    target.doc.life = { areas: [{ id: 'fireflies-1', kind: 'fireflies', shape: 'area', points: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 0, y: 10 }] }] };
+    const stroke = new LandscapeStroke(target, 'Paste', 0, catalog);
+    pasteStamp(stroke, stamp, { x: 50, y: 50 }, { parts: ALL_PARTS, rotation: Math.PI / 2, feather: 0.2 });
+    stroke.finish();
+    const pasted = target.doc.life.areas![1];
+    expect(pasted.id).toBe('fireflies-2');
+    // (-20, -20) from the middle, turned a quarter: (20, -20)
+    expect(pasted.points[0]).toEqual({ x: 70, y: 30 });
+    target.undo();
+    expect(target.doc.life.areas).toHaveLength(1);
+    // Left out by its switch
+    const off = new LandscapeStroke(target, 'Paste', 0, catalog);
+    pasteStamp(off, stamp, { x: 50, y: 50 }, { parts: { ...ALL_PARTS, life: false }, rotation: 0, feather: 0.2 });
+    off.finish();
+    expect(target.doc.life.areas).toHaveLength(1);
+  });
+
   it('bounds a turned stamp', () => {
     const stamp = captureStamp(source().doc, { x0: -130, y0: 70, x1: -70, y1: 110 });
     const b = stampBounds(stamp, { x: 0, y: 0 }, Math.PI / 2);
@@ -116,7 +144,7 @@ describe('prefabs', () => {
     const taken = capturePrefab(ed.doc, ['h1', 'h2'], false, radius)!;
     const st = taken.stamp;
     expect(st.prefab).toBe(true);
-    expect(st.parts).toEqual({ heights: false, paint: false, water: false, objects: true, roads: false });
+    expect(st.parts).toEqual({ heights: false, paint: false, water: false, objects: true, roads: false, life: false });
     expect(st.objects.map((o) => o.asset)).toEqual(['house', 'tree-oak']);
     // The rectangle holds both footprints and the margin; the objects sit relative to its middle
     expect(taken.rect.x0).toBeLessThan(60 - radius('house'));
@@ -150,5 +178,29 @@ describe('prefabs', () => {
     expect(heightAt(ed.doc.terrain, 100, 100)).toBeCloseTo(before, 5);
     ed.undo();
     expect(ed.doc.objects).toHaveLength(count);
+  });
+
+  it('carries the life areas around its objects, with the ground or without, as one undo step', () => {
+    const ed = village();
+    ed.doc.life = { areas: [{ id: 'fireflies-1', kind: 'fireflies', shape: 'area', points: [{ x: 58, y: -42 }, { x: 72, y: -42 }, { x: 65, y: -36 }] }] };
+    for (const ground of [false, true]) {
+      const prefab = capturePrefab(ed.doc, ['h1', 'h2'], ground, radius)!.stamp;
+      expect(prefab.parts?.life).toBe(true);
+      expect(prefab.life).toHaveLength(1);
+      const stroke = new LandscapeStroke(ed, 'Paste', 0, catalog);
+      pasteStamp(stroke, prefab, { x: -50, y: -100 }, { parts: ALL_PARTS, rotation: 0, feather: 0.25 });
+      stroke.finish();
+      expect(ed.doc.life.areas).toHaveLength(2);
+      expect(ed.doc.life.areas![1].id).toBe('fireflies-2');
+      ed.undo();
+      expect(ed.doc.life.areas).toHaveLength(1);
+    }
+    // A prefab kept before life areas travelled (parts without life) pastes none
+    const old = { ...capturePrefab(ed.doc, ['h1', 'h2'], false, radius)!.stamp };
+    old.parts = { heights: false, paint: false, water: false, objects: true, roads: false };
+    const stroke = new LandscapeStroke(ed, 'Paste', 0, catalog);
+    pasteStamp(stroke, old, { x: -50, y: -100 }, { parts: ALL_PARTS, rotation: 0, feather: 0.25 });
+    stroke.finish();
+    expect(ed.doc.life.areas).toHaveLength(1);
   });
 });

@@ -317,15 +317,19 @@ Dokument trägt (`life.areas`), und die Schalter dessen, was die Karte von selbs
   nimmt den gewählten Punkt (ein Umriss behält drei, eine Linie zwei) oder ohne gewählten Punkt den Bereich
 - Panel: Art des nächsten Bereichs; der gewählte mit Dichte (10 bis 300 %), Flughöhe (Vögel), Höhe und Farbe
   (Partikel), Vogelart (Singvögel, Möwen, Krähen und Raben, Greifvögel), Boot (die schwimmenden Requisiten des
-  Katalogs) oder Klang und Lautstärke, „Shows from“ Medium oder nur
+  Katalogs) oder Klang, Lautstärke und Reichweite (10 bis 300 m, wie weit er um den Bereich ausklingt, Standard 70), „Shows from“ Medium oder nur
   High, Show, Remove; die Liste der Bereiche; „One spot“ setzt ein
   Effekt-Objekt (Rauchsäule, kreisender Schwarm, Glühwürmchen, Glut) mit dem Objektwerkzeug; „What the map brings by
   itself“: Schornsteinrauch, Glühwürmchen an Ufern und in Wäldern, Vögel über offenem Land, Funken über Lava, wehende
   Banner, Dichte (0 bis 200 % auf alles); „Sound“: „Over the whole map“ (keiner, der des Looks bei Tag und Nacht oder
-  ein Klang) mit Lautstärke, „Hear it in the editor“ (spielt den Ton von der Mitte der Ansicht aus, Lautstärke 80 %;
+  ein Klang) mit Lautstärke, „At each wave“ (Glocke, ferne Sirene, Schiffshorn einmal je Wellenstart) mit Lautstärke,
+  „Comes from“ (ein Lebensbereich oder überall) und „Play“, „Hear it in the editor“ (spielt den Ton von der Mitte der Ansicht aus, Lautstärke 80 %;
   aus beim Öffnen, Browser starten Ton erst nach einem Klick). Regler wirken sofort und werden beim Loslassen ein Schritt
 - Die Bereiche stehen nur, solange das Werkzeug in der Hand ist, als Linien in der Farbe ihrer Art über dem Boden.
-  Symmetrie, Stempel und „Mirror now“ nehmen sie nicht mit; Größe ändern lässt sie, wo sie sind (die Mitte bleibt)
+  Mit Symmetrie entstehen an jedem Bild Kopien eines neuen Bereichs (gespiegelte Linien laufen rückwärts; ein Umriss,
+  der sein eigenes Bild ist, bleibt einer); Ändern und Löschen gilt danach nur dem einen Bereich. Stempel nehmen
+  Bereiche mit, deren Punkte alle im Rechteck liegen, „Mirror now“ behandelt sie wie Flüsse. Größe ändern lässt sie,
+  wo sie sind (die Mitte bleibt)
 
 **Roads (6).** Draw: jeder Klick setzt einen Knoten und verbindet ihn mit dem letzten; ein Klick nahe einem Knoten
 schließt dort an, nahe einer Straße entsteht eine Kreuzung (Alt setzt frei). Enter, Rechtsklick oder Doppelklick
@@ -385,7 +389,8 @@ sie trägt); ein Undo-Schritt (`ops/heightmap.ts`).
 
 **Copy and stamps (0).** Select: ein Rechteck auf der Karte ziehen, Strg+C kopiert es; danach folgt das Stück dem
 Zeiger als Umriss, R und Shift+R drehen um 90 Grad, Komma und Punkt um 15, ein Klick setzt es (Strg+V aus jedem
-Werkzeug setzt die letzte Kopie). Schalter wählen, was mitkommt: Höhen, Bodenfarbe, Wasser, Objekte, Straßen. Höhen
+Werkzeug setzt die letzte Kopie). Schalter wählen, was mitkommt: Höhen, Bodenfarbe, Wasser, Objekte, Straßen, Lebensbereiche (alle Punkte im
+Rechteck; gedreht wie Objekte; Stempel von früher haben keine). Höhen
 gelten relativ zum Rand des Stücks: ein Hügel landet auf dem Boden, auf den man ihn setzt; der Rand blendet weich
 über (einstellbar). Bodenfarbe geht nach Material, nicht nach Schicht: fehlt es auf der Karte, kommt es als Schicht
 dazu, solange Platz ist. „Save the copy“ legt das Stück mit Name und Bild ab, je nach „Every map“ in die
@@ -462,14 +467,15 @@ den Boden heben oder graben (Raise, Lower, Smooth, Roughen, Erode, Berg, Tal, Kr
 welligem Relief), geben dem Bild dieselbe Änderung auf seinem eigenen Boden; Pinsel, die Höhen setzen (Flatten, Level,
 Terrace, Cliff, Plateau, Biome, die ebnen oder Tümpel unter einen Spiegel senken), die Höhen der Quelle. Auf
 symmetrischem Boden sind die Kopien exakt. Gesetzte und gestreute Objekte, Spawns,
-gezeichnete Straßen und die Linien-Pinsel (Fluss, Straße, Klippe) entstehen an jedem Bild; gespiegelte Linien laufen
+gezeichnete Straßen, die Linien-Pinsel (Fluss, Straße, Klippe) und neue Lebensbereiche entstehen an jedem Bild; gespiegelte Linien laufen
 rückwärts, damit eine Klippe ihre Seite behält. Ein Strich mit seinen Kopien ist ein Schritt im Verlauf.
 
 „Mirror now“ (oben neben der Symmetrie, auch Strg+K) macht die ganze Karte auf einmal symmetrisch
 (`ops/mirror-map.ts`): der Teil der Karte, auf den die Mitte der Ansicht zeigt, wird in die anderen kopiert. Höhen,
 Bodenfarbe und Wassermasken Zelle für Zelle; Objekte, Spawns, Straßen und Flüsse der anderen Teile weichen den Bildern
 der Quelle (Objektgruppen eines Bilds werden eigene Gruppen). Eine Straße, die die Achse kreuzt, endet am Bild ihres
-Quell-Endes, so treffen sich die Hälften; ein Fluss über die Achse bleibt, wie er ist. Das HQ bleibt stehen. Ein
+Quell-Endes, so treffen sich die Hälften; ein Fluss über die Achse bleibt, wie er ist. Lebensbereiche wie Flüsse:
+ganz im Quellteil kopiert, ganz außerhalb entfernt, über die Achse bleiben sie. Das HQ bleibt stehen. Ein
 Schritt im Verlauf.
 
 ### Gelände-Generator

@@ -505,6 +505,9 @@ function prefabProblems(pf: MapPrefab, k: number): string[] {
   if (st.water && (!finite(st.water.level) || !isTyped(st.water.mask, 'Uint8Array') || st.water.mask.length !== st.columns * st.rows)) out.push(`${what}: water does not match its grid`);
   if (!Array.isArray(st.objects) || st.objects.some((o) => !o || typeof o.asset !== 'string' || ![o.x, o.y, o.z, o.rotation, o.scale].every(finite))) out.push(`${what} has a bad object`);
   if (!st.roads || !Array.isArray(st.roads.nodes) || !Array.isArray(st.roads.edges)) out.push(`${what}: roads must have lists of nodes and edges`);
+  if (st.life !== undefined && (!Array.isArray(st.life) || st.life.some((a) => !a || !Array.isArray(a.points) || a.points.some((q) => !finite(q?.x) || !finite(q?.y))))) {
+    out.push(`${what}: life must be a list of areas with points`);
+  }
   return out;
 }
 

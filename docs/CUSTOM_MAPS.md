@@ -428,7 +428,8 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   schwach, nachts voll); dazu ein fester Pool von 6 `PointLight`s für die Lichter nächst dem Kamerafokus, nach
   Dunkelheit eingeblendet (Nacht, Dämmerung, tiefe Sonne). Am Tag kosten sie nichts, die feste Poolgröße vermeidet
   Shader-Neubau. `blink` (Sekunden): ein kurzer Blitz je Periode (Schein und Punktlicht, auch am Tag gut sichtbar),
-  backt kein Licht auf den Boden; der Antennenmast blinkt alle 1,5 s, `fx-beacon` setzt ein blinkendes Licht frei
+  backt kein Licht auf den Boden; Antennenmast und Positionslicht (`beacon-post`) blinken alle 1,5 s (der
+  Flutlichtmast hat keine roten Lichter und leuchtet stetig), `fx-beacon` setzt ein blinkendes Licht frei
 - **Leben aus dem Karteninhalt** (`CustomMapView.refreshAmbient`, ohne Bearbeiten): Glühwürmchen nachts (ab
   Dunkelheit 0,35) über den Ufern von Seen und Sümpfen (alle 12 m) und mitten in Wäldern (30-m-Quadrate mit mindestens
   6 Bäumen), höchstens 60 Schwärme, in den Biomen temperate, swamp, mountain. Vogelschwärme am Tag
@@ -495,15 +496,27 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   apocalypse und mars Wind, desert Wind und Grillen, swamp Frösche, city Stadtrauschen, hell Lavagrollen, moon keiner
   (`ambient-sounds.ts`, `BIOME_SOUNDS`). Ohne `ambience` keiner: eine Karte bleibt still, bis man ihn setzt
 - **Tonbereiche** (Lebensbereich der Art `sound` mit `sound` und `volume`, Standard 0,7): im Umriss oder auf der Linie
-  voll, darüber hinaus über 70 m leiser (`AREA_REACH`, quadratisch), aus der Seite, auf der er liegt (Stereo-Panner,
+  voll, darüber hinaus über seine Reichweite leiser (`reach` 10 bis 300 m, Standard 70 m, `AREA_REACH`, quadratisch), aus der Seite, auf der er liegt (Stereo-Panner,
   voll seitlich erst 30 m außerhalb); ein Bach entlang einer Linie, Brandung entlang einer Küste, Feuer in einem Hof
+- **Ton zu jeder Welle** (`life.waveSound`: `sound`, `volume`, optional `area`): einmal, wenn eine Welle beginnt
+  (`wave:started` auf dem Hauptbus, über `PresentationHost` an `WorldProvider.waveStarted`, nicht beim Vorspulen eines
+  Replays; die Simulation weiß nichts davon). Mit `area` (Id eines Lebensbereichs beliebiger Art) kommt er von dort:
+  über 400 m bis auf 35 % leiser (`WAVE_REACH`, `WAVE_FAR`) und aus seiner Seite; ohne, oder wenn der Bereich fehlt,
+  überall gleich. Klänge `WAVE_SOUNDS`: `bell` (Glockenschlag), `siren-distant` (ferne Sirene), `ship-horn`
+  (Schiffshorn), ganze Dateien ohne Schleifenpolster, Platzhalter aus `make_placeholders.py` (`ONE_SHOTS`).
+  Life-Panel: „At each wave“, Lautstärke, „Comes from“, „Play“ spielt ihn einmal im Editor
 - Von oben leiser: bis 80 m über dem Boden voll, ab 600 m ein Drittel (`lift`)
 - Klänge (`AMBIENT_SOUNDS`): `wind`, `birdsong`, `night-insects`, `stream`, `surf`, `swamp`, `lava`, `fire`, `city`,
-  `gulls`, `crows`, `radio-hiss`, je mit eigenem Pegel. Heute synthetische Platzhalter aus `tools/ambient/make_placeholders.py` (Rauschen im Frequenzraum über
-  die ganze Schleife gefiltert, Rufe und Hüllkurven laufen über das Ende herum, daher ohne Naht); die Datei trägt
-  0,1 s der Schleife davor und danach (`LOOP_PAD`), gespielt wird dazwischen, so verschluckt der MP3-Versatz nichts.
-  Echte Aufnahmen ersetzen später die Dateien unter denselben Ids. Eine unbekannte Id spielt nichts (eine Karte aus
-  einem neueren Spiel)
+  `gulls`, `crows`, `radio-hiss`, `harbor`, `cowbells`, `pine-wind`, `rain`, `cave-wind`, je mit eigenem Pegel. Mit
+  ElevenLabs erzeugt und ausgewählt (2026-10-15): `wind`, `birdsong`, `stream`, `surf`, `swamp`, `lava`, `fire`, `city`,
+  `gulls`, `crows`, `radio-hiss`; noch synthetische Platzhalter aus `tools/ambient/make_placeholders.py` (Rauschen im
+  Frequenzraum über die ganze Schleife gefiltert, Rufe und Hüllkurven laufen über das Ende herum, daher ohne Naht):
+  `night-insects`, `harbor`, `cowbells`, `pine-wind`, `rain`, `cave-wind`. Die Datei trägt 0,1 s der Schleife davor
+  und danach (`LOOP_PAD`), gespielt wird dazwischen, so verschluckt der MP3-Versatz nichts. Eine unbekannte Id spielt
+  nichts (eine Karte aus einem neueren Spiel)
+- **Varianten**: `wind`, `stream` und `surf` haben je zwei Aufnahmen (`variants`, `wind-2.mp3` usw.). Sie spielen
+  abwechselnd: jede bis zum Ende ihrer Schleife, die nächste setzt 2 s vorher ein (`CROSSFADE`, Equal-Power-Blende,
+  eine Sekunde vorher eingeplant), so fällt die 20-s-Schleife beim langen Zuhören weniger auf
 - Kosten: je hörbarer Stimme eine Quelle (im Audio-Thread); Pegel und Panning rechnet die CPU zehnmal je Sekunde,
   eine Stimme, die drei Sekunden still ist, gibt ihre Quelle ab. Die Grafikstufe ändert nichts am Ton
 

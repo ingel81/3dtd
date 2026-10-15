@@ -123,6 +123,8 @@ export class PresentationHost implements SimPresenterApi {
     // After a snapshot restore or a replay's seek (GameStateManager.resyncPresentation),
     // in a replay too: the look and sound of the state as it stands
     this.subs.add(bus.on('sim:presented', (event) => this.resync(event.phase, event.wave, event.baseHealth)));
+    // The world's own sound for a new wave (a custom map's bell or horn)
+    this.subs.add(bus.onShow('wave:started', ({ wave }) => engine.world.waveStarted?.(wave)));
   }
 
   // ── SimPresenterApi ──

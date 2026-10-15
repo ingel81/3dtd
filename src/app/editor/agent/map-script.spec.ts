@@ -232,6 +232,16 @@ describe('map scripts', () => {
     expect(run(`map.removeLife(['nope'])`)).toMatchObject({ ok: false, error: expect.stringMatching(/no life areas nope/) });
   });
 
+  it('draws the images of a life area under symmetry', () => {
+    const kit = new MapKit(map(), index, { name: 't', seed: 7 });
+    kit.symmetry = 'rot2';
+    expect(kit.lifeRoute('boats', [{ x: 10, y: 20 }, { x: 60, y: 20.25 }])).toBe('boats-1');
+    expect(kit.doc.life?.areas?.map((a) => [a.id, a.points])).toEqual([
+      ['boats-1', [{ x: 10, y: 20 }, { x: 60, y: 20.25 }]],
+      ['boats-2', [{ x: -10, y: -20 }, { x: -60, y: -20.25 }]],
+    ]);
+  });
+
   it('turns into the same kit run as a level script', () => {
     const doc = map();
     ok(run(`map.raise({ x: 0, y: 0 }, { radius: 20 }, 3);`, doc));

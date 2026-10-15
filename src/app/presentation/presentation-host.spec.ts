@@ -138,6 +138,16 @@ describe('PresentationHost', () => {
     expect(engine.towers.create.mock.calls[0][6]).toBe(aim);
   });
 
+  it("tells the world a wave started, not while a replay fast-forwards (a custom map's wave sound)", () => {
+    const waveStarted = vi.fn();
+    (engine.world as { waveStarted?: (wave: number) => void }).waveStarted = waveStarted;
+    bus.emit({ type: 'wave:started', wave: 3, enemyCount: 10 });
+    expect(waveStarted).toHaveBeenCalledWith(3);
+    bus.setShowMuted(true);
+    bus.emit({ type: 'wave:started', wave: 4, enemyCount: 10 });
+    expect(waveStarted).toHaveBeenCalledTimes(1);
+  });
+
   it('builds an ooze\'s stations from its path and adds it with the grid\'s ground', () => {
     host.applyOps([['oozes.add', 'enemy-9', [{ lat: 0, lon: 0 }, { lat: 0, lon: 0.001 }]]]);
     const [id, stations, groundAt] = engine.oozes.add.mock.calls[0] as unknown as [string, { count: number }, (x: number, z: number) => number];

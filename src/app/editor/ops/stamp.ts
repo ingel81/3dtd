@@ -1,9 +1,10 @@
 /**
  * Copy and paste of map pieces, and stamps (saved pieces): a rectangle of
- * the map with its heights, ground paint, water, objects and roads,
- * independent of the map it came from. A prefab is a piece taken from a
- * selection of objects (capturePrefab): those objects, and the ground under
- * them when asked; a paste puts its objects down as one group.
+ * the map with its heights, ground paint, water, objects, roads and life
+ * areas, independent of the map it came from. A prefab is a piece taken
+ * from a selection of objects (capturePrefab): those objects, the life
+ * areas around them, and the ground under them when asked; a paste puts
+ * its objects down as one group.
  *
  * Heights are kept relative to the piece's rim (the mean height of its
  * border), so a hill pasted onto a plateau stands on the plateau. Ground
@@ -18,10 +19,11 @@ import { freeGroup } from './object-ops';
 import { edgePolyline, newId } from './path-graph';
 import type { LandscapeStroke } from './landscape/landscape-stroke';
 import { smooth } from './landscape/landscape-noise';
+import { MAX_LIFE_AREAS, newLifeId } from '../../world/custom-map/map-life';
 
-export type StampParts = MapPieceParts;
+export type StampParts = Required<MapPieceParts>;
 
-export const ALL_PARTS: StampParts = { heights: true, paint: true, water: true, objects: true, roads: true };
+export const ALL_PARTS: StampParts = { heights: true, paint: true, water: true, objects: true, roads: true, life: true };
 
 /** A piece of a map, centred on its own middle (map-document.ts) */
 export type Stamp = MapPiece;
@@ -121,7 +123,10 @@ export function captureStamp(doc: CustomMapDocument, rect: StampRect): Stamp {
     // Without the road brush's record (its objects and kept ground are those of this place): a pasted road reads it off the map when edited
     edges: edges.map(({ dress: _dress, ...e }) => ({ ...e, via: e.via?.map((v) => ({ x: v.x - cx, y: v.y - cy })) })),
   };
-  return { width, depth, cell, columns, rows, heights, paintCell, paintColumns, paintRows, materials, paint, water, objects, roads };
+  const life = (doc.life?.areas ?? [])
+    .filter((a) => a.points.every(inside))
+    .map(({ id: _id, ...a }) => ({ ...structuredClone(a), points: a.points.map((p) => ({ x: p.x - cx, y: p.y - cy })) }));
+  return { width, depth, cell, columns, rows, heights, paintCell, paintColumns, paintRows, materials, paint, water, objects, roads, life };
 }
 
 /** Metres a prefab's ground reaches past its objects' footprints */
@@ -155,7 +160,9 @@ export function capturePrefab(doc: CustomMapDocument, ids: readonly string[], gr
   const cy = (rect.y0 + rect.y1) / 2;
   const objects = chosen.map(({ id: _id, ...o }) => ({ ...o, x: Math.round((o.x - cx) * 100) / 100, y: Math.round((o.y - cy) * 100) / 100 }));
   const roads = { nodes: [], edges: [] };
-  if (ground) return { rect, stamp: { ...piece, objects, roads, prefab: true, parts: { heights: true, paint: true, water: !!piece.water, objects: true, roads: false } } };
+  // The life areas wholly around them come along, with the ground or without
+  const life = !!piece.life?.length;
+  if (ground) return { rect, stamp: { ...piece, objects, roads, prefab: true, parts: { heights: true, paint: true, water: !!piece.water, objects: true, roads: false, life } } };
   // Objects only: no ground to carry, a flat piece of the same size for its outline
   const stamp: Stamp = {
     ...piece,
@@ -171,7 +178,7 @@ export function capturePrefab(doc: CustomMapDocument, ids: readonly string[], gr
     objects,
     roads,
     prefab: true,
-    parts: { heights: false, paint: false, water: false, objects: true, roads: false },
+    parts: { heights: false, paint: false, water: false, objects: true, roads: false, life },
   };
   return { stamp, rect };
 }
@@ -262,6 +269,8 @@ export function pasteStamp(stroke: LandscapeStroke, stamp: Stamp, center: MapPoi
     water: options.parts.water && holds.water,
     objects: options.parts.objects && holds.objects,
     roads: options.parts.roads && holds.roads,
+    // A piece kept before life areas travelled holds none
+    life: options.parts.life && holds.life === true,
   };
   // The stamp's rim sits at the mean height of the ground along its outline
   const outline = stampOutline(stamp, center, options.rotation);
@@ -389,7 +398,25 @@ export function pasteStamp(stroke: LandscapeStroke, stamp: Stamp, center: MapPoi
     }
     stroke.refreshRoads();
   }
-  stroke.changed({ objects: placed.length ? placed : undefined, paths: parts.roads && stamp.roads.edges.length ? true : undefined });
+  // Life areas, turned with the piece; those with a point off the map and those past the map's limit stay out
+  let life = false;
+  if (parts.life && stamp.life?.length) {
+    const half = { x: t.width / 2, y: t.depth / 2 };
+    const areas = [...(doc.life?.areas ?? [])];
+    for (const a of stamp.life) {
+      if (areas.length >= MAX_LIFE_AREAS) break;
+      const points = a.points.map((q) => {
+        const p = place(q, center, cos, sin);
+        return { x: Math.round(p.x * 10) / 10, y: Math.round(p.y * 10) / 10 };
+      });
+      if (points.some((p) => Math.abs(p.x) > half.x || Math.abs(p.y) > half.y)) continue;
+      if (!life) stroke.markLife();
+      life = true;
+      areas.push({ ...structuredClone(a), id: newLifeId(areas, a.kind), points });
+    }
+    if (life) doc.life = { ...doc.life, areas };
+  }
+  stroke.changed({ objects: placed.length ? placed : undefined, paths: parts.roads && stamp.roads.edges.length ? true : undefined, life: life || undefined });
 }
 
 /** Total length of the roads in a stamp, for its description */

@@ -14,10 +14,10 @@
  * its own ground, one that sets heights (level, a cliff, pools at a water
  * level) the source's heights. Without it (the whole map mirrored) every
  * cell is copied. The grids are centred, so a mirrored sample is again
- * exactly a sample; the 90 degree turn needs a square map. Objects, roads
- * and spawns are copied as things.
+ * exactly a sample; the 90 degree turn needs a square map. Objects, roads,
+ * spawns and life areas are copied as things.
  */
-import type { CustomMapDocument, MapObject, MapPoint } from '../../world/custom-map/map-document';
+import type { CustomMapDocument, MapLifeArea, MapObject, MapPoint } from '../../world/custom-map/map-document';
 import { mergeChanges, type DocChange, type PatchTarget } from '../model/editor-document';
 import { sampleX, sampleY, texelX, texelY, type GridRect } from '../model/grid';
 import type { ArrayLayout, PatchArray } from '../model/region-patch';
@@ -320,6 +320,29 @@ export function objectImages<T extends MapObject>(objects: readonly T[], images:
       if (o.group) copy.group = `${o.group}m${k + 1}`;
       out.push(copy);
     });
+  }
+  return out;
+}
+
+/**
+ * Copies of life areas at the symmetry's images, with ids from `take`: a
+ * mirrored line runs backwards (as rivers do), an image with a point off
+ * the map or on its source (an area around the middle) drops out
+ */
+export function lifeAreaImages(areas: readonly MapLifeArea[], images: readonly SymmetryImage[], take: (area: MapLifeArea) => string, halfWidth: number, halfDepth: number): MapLifeArea[] {
+  const out: MapLifeArea[] = [];
+  for (const a of areas) {
+    for (const img of images.slice(1)) {
+      const points = a.points.map((p) => {
+        const q = img.point(p);
+        return { x: Math.round(q.x * 100) / 100, y: Math.round(q.y * 100) / 100 };
+      });
+      if (points.some((p) => Math.abs(p.x) > halfWidth || Math.abs(p.y) > halfDepth)) continue;
+      // An area its own image (an outline around the middle): the copy would lie on it
+      if (points.every((p) => a.points.some((q) => Math.hypot(p.x - q.x, p.y - q.y) < 0.5))) continue;
+      if (img.flips) points.reverse();
+      out.push({ ...structuredClone(a), id: take(a), points });
+    }
   }
   return out;
 }
