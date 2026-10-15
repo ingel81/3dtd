@@ -122,6 +122,14 @@ interface Waterline {
   level: number;
 }
 
+/**
+ * How much of the waterline's ground a point takes: all of it under the
+ * water (the shelf) and up to `band` over it, fading out by twice the band
+ */
+function waterlineShare(t: MapTerrain, waterline: Waterline, x: number, y: number): number {
+  return 1 - smooth(waterline.band, waterline.band * 2, heightAt(t, x, y) - waterline.level);
+}
+
 /** The pattern layers of a biome, resolved once per dab */
 interface PatternLayers {
   kind: BiomeDef['pattern'];
@@ -354,12 +362,15 @@ function paintBiome(
         c[o + FRAY] = Math.round(stroke.noise.fray(x, y) * 255);
       }
       const w = reach.weight(x, y, c[o + FRAY] / 255);
-      if (w <= 0) continue;
+      // The shelf under the water and the land up to four bands over it take the brush's full paint wherever it
+      // reaches at all, its frayed rim included: there the first layer (grass) stayed right at the water
+      const shore = waterline?.layer != null ? 1 - smooth(waterline.band * 2, waterline.band * 4, heightAt(t, x, y) - waterline.level) : 0;
+      if (w <= 0 && shore <= 0) continue;
       let sum = 0;
       for (let k = 0; k < MAX_LAYERS; k++) sum += c[o + k];
       for (let k = 0; k < MAX_LAYERS; k++) target[k] = sum > 0 ? c[o + k] / sum : 0;
       foldOver(t, biome, steep, mud, pattern, x, y, target, c[o + SHORE] / 255, c[o + CRACK] / 255, c[o + CRUST] / 255, waterline);
-      const a = Math.min(1, rate * w * (0.5 + 0.5 * strength));
+      const a = Math.min(1, rate * Math.max(w * (0.5 + 0.5 * strength), shore));
       const texel = v * res + u;
       readWeights(t, texel, w8);
       for (let k = 0; k < MAX_LAYERS; k++) w8[k] = w8[k] * (1 - a) + target[k] * 255 * a;
@@ -419,11 +430,7 @@ function foldOver(
     for (let k = 0; k < MAX_LAYERS; k++) out[k] *= 1 - share;
     out[layer] += share;
   };
-  if (waterline?.layer != null) {
-    // The wet strip: from `band` under the water to `band` over it, its edge frayed by the fine noise
-    const h = Math.abs(heightAt(t, x, y) - waterline.level);
-    fold(waterline.layer, 1 - smooth(waterline.band * 0.6, waterline.band * 1.2, h));
-  }
+  if (waterline?.layer != null) fold(waterline.layer, waterlineShare(t, waterline, x, y));
   if (steep !== null) fold(steep, smooth(24, 36, slopeAt(t, x, y)));
   if (mud !== null && biome.pools) fold(mud, shore * 0.9);
   if (pattern.kind === 'streets') {

@@ -148,10 +148,13 @@ würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben diese
   (`drainSpills`): ein Strich über einen Hang füllt nur die Becken in der Höhe seines Startpunkts. Beach arbeitet auf das
   Wasser zu, das dem Startpunkt des Strichs am nächsten liegt (bis 150 m, See, Meer oder Fluss,
   `LandscapeStroke.coastLevel`): Land bis 6 m über und unter dessen Spiegel wird zum flachen Strand und zur flachen
-  Uferbank zusammengedrückt (Relief `shore`), darüber niedrige Dünen; an der Wasserlinie (0,7 m darüber und darunter)
-  ein Streifen nassen Küstensands (`waterline`, nur bei echtem Wasser), sonst Sand mit Flecken von Kiessand (drei
-  Bodenschichten). Kiesel und Treibholz in ihrem Band über dem Wasser, Dünengras darüber, Palmen auf Karten mit warmem
-  Look (Wüste, Mars, Hölle, `mapClimate`), Strandkiefern auf allen anderen (Objekte mit `above` und `climate`). City legt ein Straßenraster fest auf die Karte (alle 64 m, Asphalt und Gehwege), Häuser stehen an
+  Uferbank zusammengedrückt (Relief `shore`), darüber niedrige Dünen; nasser Küstensand auf der Bank unter dem Wasser
+  und bis 0,35 m darüber (`waterline`, nur bei echtem Wasser), sonst Sand mit Flecken von Kiessand (drei
+  Bodenschichten). Unter dem Wasser und bis 0,7 m darüber malt der Pinsel überall, wo er hinreicht, mit voller Stärke,
+  auch an seinem ausgefransten Rand: sonst blieb dort die erste Schicht (Gras) direkt am Wasser. Eine lockere Reihe
+  Bäume hinter den Dünen (Palmen auf Karten mit warmem Look: Wüste, Mars, Hölle, `mapClimate`; Strandkiefern auf allen
+  anderen), Treibholz und Kiesel in ihrem Band über dem Wasser, dichtes Dünengras (Objekte mit `above` und `climate`;
+  die Bäume zuerst, das Gras ließe ihnen sonst keinen Abstand). Ein Level-Skript setzt den Look vor dem Strich. City legt ein Straßenraster fest auf die Karte (alle 64 m, Asphalt und Gehwege), Häuser stehen an
   den Blockrändern zur Straße gewandt, Laternen auf den Gehwegen; Hell legt Glutrisse über den Boden; Wasteland und
   Moon haben Kraterfelder. Mars mischt hellen Staub mit Dünen, ockerfarbenen Kies und dunklen Basaltsand, Ocker an
   steilen Hängen, dazu rostige, graue und schwarze Steine. Sind die zwölf Bodenschichten voll, macht der Strich Platz (`makeRoom`): eine Schicht, die schon vor dem Strich da war und die kein Boden mehr hält (überall übermalt, höchstens 4 von 255), nimmt das neue Material; sonst malt die Schicht, die ihm am nächsten aussieht (gemeinsamer Katalog-Tag zuerst, dann die mittlere Farbe), an seiner Stelle. Die Statuszeile nennt, was wohin ging; ein Undo stellt die Liste mit zurück. Die Levelskripte lassen ein solches Material weiter weg (`leftOut`). Unter dem Zeiger zeigen Punkte, wo der nächste

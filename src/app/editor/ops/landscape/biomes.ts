@@ -269,15 +269,18 @@ export const BIOMES: readonly BiomeDef[] = [
       { material: ['sand', 'sand-coast'], share: 0.82 },
       { material: ['sand-gravelly', 'pebbles', 'sand'], share: 0.18 },
     ],
-    waterline: { material: ['sand-coast', 'sand'], band: 0.7 },
+    waterline: { material: ['sand-coast', 'sand'], band: 0.35 },
     steepGround: ['sand-gravelly', 'pebbles', 'rocky-ground'],
     relief: { kind: 'shore', amplitude: 1.2, wave: 45 },
     objects: [
-      { assets: ['pebbles-scatter'], perHectare: 14, scale: [0.7, 1.3], zone: 'any', spacing: 3, clump: 0.75, above: [-0.2, 1.4] },
-      { assets: ['log-fallen', 'log'], perHectare: 3, scale: [0.7, 1.2], zone: 'any', spacing: 9, above: [0.25, 2.2] },
-      { assets: ['grass-tall-dry'], perHectare: 70, scale: [0.7, 1.3], zone: 'any', spacing: 1.8, clump: 0.8, above: [1.6, 9] },
-      { assets: ['tree-palm', 'tree-palm-tall'], perHectare: 6, scale: [0.85, 1.2], zone: 'core', spacing: 10, clump: 0.5, above: [1.2, 9], climate: 'warm' },
-      { assets: ['tree-pine'], perHectare: 7, scale: [0.8, 1.15], zone: 'core', spacing: 9, clump: 0.6, above: [1.6, 12], climate: 'cool' },
+      // A loose row of trees behind the dunes, then driftwood and pebbles along the band over the water and tufts
+      // of dune grass: dense enough that a beach reads at a glance. Trees first: an object keeps others at its
+      // spacing, and the grass would leave them no room
+      { assets: ['tree-palm', 'tree-palm-tall'], perHectare: 14, scale: [0.85, 1.25], zone: 'any', spacing: 8, clump: 0.5, above: [1.8, 12], climate: 'warm' },
+      { assets: ['tree-pine'], perHectare: 16, scale: [0.8, 1.2], zone: 'any', spacing: 7, clump: 0.55, above: [2.2, 14], climate: 'cool' },
+      { assets: ['log-fallen', 'log'], perHectare: 14, scale: [0.7, 1.3], zone: 'any', spacing: 6, clump: 0.4, above: [0.2, 2.2] },
+      { assets: ['pebbles-scatter'], perHectare: 45, scale: [0.7, 1.4], zone: 'any', spacing: 2.5, clump: 0.75, above: [-0.2, 1.4] },
+      { assets: ['grass-tall-dry'], perHectare: 260, scale: [0.8, 1.4], zone: 'any', spacing: 1.4, clump: 0.7, above: [1.2, 9] },
     ],
   },
   {
