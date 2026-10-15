@@ -344,12 +344,25 @@ und Bäumen); O3 bis O5 füllen sie; O6 läuft parallel, sobald O4 die Liste lie
 - **Objektbudget:** Miltenberg hat 1,6 km² Wald; ein Baum je 60 m² wären 27 000 Bäume. Dichte in der Ferne der Routen
   senken, Waldränder dichter, oder höheres Budget (offene Frage).
 - **Editor-Prüfung:** 32 s bzw. 312 s gemessen; ohne Raster unbrauchbar für OSM-Welten.
-- **Acht Bodenschichten:** fein gegliederte Orte verlieren Unterschiede.
+- **Zwölf Bodenschichten** (seit E175, vorher acht): fein gegliederte Orte können trotzdem Unterschiede verlieren.
 - **Optik:** ohne neue Modelle wirkt jede heutige Stadt wie ein Dorf; Grundrisse mit Höfen nur mit Modulen.
 - **Datenlage:** in vielen Gegenden fehlen Gebäude oder Landnutzung in OSM; der Bericht sagt das, die Karte bleibt
   spielbar, solange es Straßen gibt.
 
-## Offene Fragen an den User
+## Entschieden (User, 2026-10-15)
+
+1. Rahmen: Vektorkarte mit MapLibre.
+2. Kartengröße immer 2,4 km.
+3. Spawns wie auf echten Orten (mehrere, vor dem Start verschiebbar), danach im Editor bearbeitbar.
+4. Höhendaten: Mapterhorn und AWS an Proben vergleichen, die bessere Quelle nehmen.
+5. Objektbudget nach Scene cost, nicht fest 15 000.
+6. Gebäude ohne passendes Modell: je nach Fall teilen, strecken oder als Block mit Fassade.
+7. Wege der Gegner wie auf echten Orten (Straßen, Fußwege, Pfade, Treppen, dieselbe Liste).
+8. Tunnel: an beiden Enden ein Tunneleingang (eigenes Modell, nicht das Spawn-Portal), dazwischen unsichtbar.
+9. „Play on a map of this place“ auch für Spieler mit Token.
+10. Splat 2048 für OSM-Welten.
+
+## Offene Fragen an den User (beantwortet, siehe oben)
 
 1. Flache Karte für den Rahmen: OSM-Rasterkacheln in einem kleinen eigenen Betrachter, oder Vektorkarte mit MapLibre
    (schöner, rund 1 MB mehr Code), oder gar keine Karte, nur Adresse und Spawns im Text?

@@ -106,7 +106,7 @@ Regeln ist das Maximum `startHealth`, die Rechnung bleibt bitgleich: Tiles, DevW
 
 ## Viele Spuren: Optionen
 
-**Stand:** Rechnung und vorbereitete Option (2026-10-11), standardmäßig aus. Entscheidung offen für den User.
+**Stand:** Rechnung (2026-10-11); entschieden am selben Tag, siehe „Entschieden“ unten (die Option ist entfernt).
 
 **Wie das Spiel heute rechnet:**
 

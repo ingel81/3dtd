@@ -148,6 +148,16 @@ Paket B4, Koop mit eigener Karte (zwei Rechner, Relay auf Protokoll 5, also `:la
   Gast tritt mitten im Versand bei bzw. lädt neu: *bekommt die Karte.* Host geht mitten im Versand: *Gäste bekommen
   eine Meldung statt einer hängenden Zeile.*
 
+Paket B5, nach der Nachtschicht (2026-10-14 vormittags):
+
+- **B5.1 Baumschatten beim Schwenken:** Demo Valley im Spiel, Kamera flach, Blick über den Kartenrand, in kleinen
+  Schritten seitlich schieben. *Die Baumschatten bleiben, kein großflächiges Ein- und Ausblenden.*
+- **B5.2 Reiter im Hauptmenü** (eigene Karten freigeschaltet): eine eigene Karte laden, Menü öffnen. *Reiter „Custom
+  maps“ gewählt, Play spielt die Karte, kein Continue zu einem echten Ort darunter.* Reiter „Real places“: *Continue zum
+  Autosave des echten Orts; nach der Rückfrage lädt die Seite dort neu und spielt den Stand.* Ein paar Wellen auf einer
+  Karte, Menü: *unter Custom maps ein eigenes Continue mit Kartenname und Welle.* Load zeigt je Reiter nur dessen
+  Stände.
+
 ## Eichtabelle
 
 Fingerprints aus `__corridor.fingerprint()` für K2.1 und K2.2. Alle Werte vor 748 (Rothenburg `d8050177`, Tokyo
