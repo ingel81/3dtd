@@ -18,7 +18,8 @@ export function buildArchipelago(): CustomMapDocument {
     seed: 5505,
   });
   for (const m of ['grass', 'grass-lush', 'sand-coast', 'sand', 'rocky-ground', 'pebbles', 'cobblestone-grey', 'grass-dry']) k.layer(m);
-  k.cliffs('tidal-rocks', 36);
+  // Rock on the cliffs, grey with lichen as the coast's cliff rocks (tidal gravel read as earth on a wall)
+  k.cliffs('rock-mossy', 36);
 
   // ---- Sea floor and islands
   for (let y = -300; y <= 300; y += 110) for (let x = -300; x <= 300; x += 110) k.level({ x, y }, { radius: 130, falloff: 0.4 }, -7);
@@ -67,7 +68,8 @@ export function buildArchipelago(): CustomMapDocument {
   // ---- Rocky coasts on the weather sides, away from the bridges, beaches and the harbour: cliffs over the sea,
   // cliff rocks on their faces, stones in the surf. The lighthouse rock all round but for a landing to the west
   const deg = Math.PI / 180;
-  // Small islands take smaller cliff pieces: the long coastal wall drew their round shores as polygons
+  // Small islands take smaller cliff pieces: the long coastal wall drew their round shores as polygons. One look
+  // a coast: the grey pieces beside the mossy coastal cliff read as rocks thrown together
   const small = ['cliff-wall-b', 'cliff-wall', 'cliff-face', 'cliff-face-b'];
   const coasts: { at: MapPoint; from: number; to: number; top: number; rocks?: string[] }[] = [
     { at: islands[0].at, from: -35, to: 55, top: 7 },
@@ -75,7 +77,7 @@ export function buildArchipelago(): CustomMapDocument {
     { at: islands[2].at, from: 205, to: 330, top: 5, rocks: small },
     { at: islands[3].at, from: 120, to: 235, top: 6, rocks: small },
     { at: islands[4].at, from: -70, to: 45, top: 5, rocks: small },
-    { at: islands[5].at, from: -160, to: 160, top: 12, rocks: ['cliff-coast', 'cliff-wall-b', 'cliff-wall'] },
+    { at: islands[5].at, from: -160, to: 160, top: 12, rocks: small },
     { at: islands[6].at, from: 190, to: 345, top: 5, rocks: small },
   ];
   const coastLines = coasts.map((c) => k.shoreAround(c.at, c.from * deg, c.to * deg));

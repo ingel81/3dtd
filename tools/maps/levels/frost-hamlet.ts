@@ -147,7 +147,9 @@ export function buildFrostHamlet(): CustomMapDocument {
   // sunk: the trough's ice and the seracs carry it
   for (const p of resample(glacier, 6)) k.erase(p, 14);
   for (const [x, y, sc] of [[70, 240, 1], [64, 232, 0.8], [74, 228, 0.9], [69, 221, 0.7]] as const) k.place('seracs', x, y, { rotation: x * 0.3, scale: sc, align: true });
-  for (const [x, y, r, sc] of [[30, 232, 0.4, 1], [96, 214, 0.9, 1], [-60, 238, 2.5, 0.8]] as const) k.place('snowfield', x, y, { rotation: r, scale: sc, align: true });
+  // The middle one lies on the peak's steep flank: smaller and sunk in, or its low edge hangs in the air (the cliff walls
+  // stood in front of it and hid that)
+  for (const [x, y, r, sc, z] of [[30, 232, 0.4, 0.7, -1.5], [96, 214, 0.9, 1, 0], [-60, 238, 2.5, 0.8, 0]] as const) k.place('snowfield', x, y, { rotation: r, scale: sc, z, align: true });
   // The bell tower over the village square, the village's landmark beside the chapel
   if (k.free(-8, 190, 3)) k.place('bell-tower-snow', -8, 190, { rotation: facing({ x: -8, y: 190 }, hq) });
 
