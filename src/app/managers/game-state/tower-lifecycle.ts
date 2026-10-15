@@ -14,7 +14,7 @@ import type { GeoPosition } from '../../models/game.types';
 import { researchWave, type ResearchEffect } from '../../configs/research/research.types';
 import type { CreditsLedger } from './credits-ledger';
 import { canTargetAirEffective } from '../../entities/tower-targeting.util';
-import { releaseAim } from '../../entities/tower-aim';
+import { aimAfterBuild, releaseAim } from '../../entities/tower-aim';
 import { TowerTypeId, TOWER_TYPES, UpgradeId, buildTimeOf, requiredUpgradeTier, towerWaitsForWave } from '../../configs/tower-types.config';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
 import type { SavedTower } from '../../simulator/sim-snapshot';
@@ -197,6 +197,7 @@ export class TowerLifecycle {
     for (const tower of this.towerManager.getAll()) {
       if (tower.builtAtMs === 0 || gameTimeMs < tower.builtAtMs) continue;
       tower.builtAtMs = 0;
+      aimAfterBuild(tower.aim);
       this.sink.towers.setBuild(tower.id, 0, buildTimeOf(tower.typeConfig));
     }
   }

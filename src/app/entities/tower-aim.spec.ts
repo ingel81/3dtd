@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { TOWER_TYPES, type TowerTypeConfig } from '../configs/tower-types.config';
 import {
+  aimAfterBuild,
   aimAt, aimIdle, aimPitch, aimPitchTowards, createTowerAim, headingToLocalRotation, isAimAligned,
   localRotationToHeading, releaseAim, stepTowerAim, towerAimError, TURRET_ALIGN_TOLERANCE, type TowerAim,
 } from './tower-aim';
@@ -151,6 +152,24 @@ describe('stepTowerAim', () => {
     aimIdle(aim, 0);
     run(aim, 1000);
     expect(aim.pitch).toBe(0);
+  });
+});
+
+describe('aimAfterBuild', () => {
+  it('starts a sweep still to come once the scaffold is half down', () => {
+    const aim = aimOf({ scanPhase: 1, scanDelayRemaining: 0 });
+    aimAfterBuild(aim);
+    expect(aim.scanDelayRemaining).toBe(300);
+    run(aim, 290);
+    expect(aim.current).toBe(0);
+    run(aim, 30);
+    expect(aim.current).toBeGreaterThan(0);
+  });
+
+  it('leaves a tower without a sweep alone', () => {
+    const aim = aimOf({ scanPhase: 0, scanDelayRemaining: 0 });
+    aimAfterBuild(aim);
+    expect(aim.scanDelayRemaining).toBe(0);
   });
 });
 

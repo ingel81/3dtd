@@ -1140,8 +1140,8 @@ export class GameStateManager {
     for (const seat of this.heroSeats) seat.update(stepMs);
 
     // Turrets turn in game time towards where the combat above aims them;
-    // alignment gates the next shot (isAimAligned)
-    for (const tower of this.towerManager.getAll()) stepTowerAim(tower.aim, stepMs);
+    // alignment gates the next shot (isAimAligned). A tower in its scaffold holds (aimAfterBuild)
+    for (const tower of this.towerManager.getAll()) if (tower.builtAtMs === 0) stepTowerAim(tower.aim, stepMs);
   }
 
   // ============================================

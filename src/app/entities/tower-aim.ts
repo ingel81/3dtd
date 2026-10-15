@@ -25,6 +25,9 @@ const SCAN_ANGLE = 1.309;
 /** Game time after placement before the reference sweep starts, ms. */
 const SCAN_DELAY_MS = 800;
 
+/** Game time after the build ends before the sweep starts, ms: half of the scaffold's dismantle (SCAFFOLD_DISMANTLE_MS) */
+const SCAN_AFTER_BUILD_MS = 300;
+
 /** Gun tilt rate, rad/s game-time: as fast as the turn. */
 const PITCH_SPEED = Math.PI;
 
@@ -118,6 +121,14 @@ export function createTowerAim(typeConfig: TowerTypeConfig, customRotation: numb
     pitchMin: range.min,
     pitchMax: range.max,
   };
+}
+
+/**
+ * The build ended: a sweep still to come starts once the scaffold is half down. The turret holds while it
+ * stands in its scaffold (stepTowerAim is not called for a building tower).
+ */
+export function aimAfterBuild(aim: TowerAim): void {
+  if (aim.scanPhase > 0) aim.scanDelayRemaining = Math.max(aim.scanDelayRemaining, SCAN_AFTER_BUILD_MS);
 }
 
 /** Aim at a target at `heading`; the turn itself happens in stepTowerAim. */
