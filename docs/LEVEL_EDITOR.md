@@ -7,15 +7,21 @@ liegt im Browser (IndexedDB; in der Desktop-App zusätzlich als Datei in `Dokume
 öffnen (`?world=map:<id>`). Der Einstieg im Hauptmenü ist „Map editor“ (Lage Start, unter der Linie; mit laufendem Lauf
 fragt das Menü vorher). Die Oberfläche ist englisch wie das übrige Spiel.
 
+Spiel und Editor stehen seit E195 Phase 4 im selben Fenster (`AppShellComponent`, `world/app-screen.service.ts`,
+[WORLDS_NAVIGATION_PLAN.md](WORLDS_NAVIGATION_PLAN.md)): „Map editor“, „Edit“ in der Kartenwahl und „Edit this map“
+öffnen ihn ohne Neuladen, „Back to the game“ kehrt so zurück. `/editor` (mit `?map=<id>`) bleibt Einstieg für
+Entwicklung und AI-Agenten; die Route nennt nur, was zuerst steht, danach ändert kein Wechsel die Adresse. Die
+`EditorSession` hängt am Fenster, nicht an der Editor-Ansicht: zeigt das Spiel, gehen Ansicht, Renderer und Canvas des
+Editors, die offene Karte und ihr Verlauf bleiben (vorher gespeichert; scheitert das, bleibt der Editor).
+
 ## Kartenliste
 
 Die Startseite von `/editor` zeigt links die eigenen und die mitgelieferten Karten (Bild, Größe, Spawns, Objekte,
 zuletzt geändert), rechts die gewählte mit Beschreibung und den Knöpfen Open, Duplicate, Download, Delete (in den
 Papierkorb, siehe [Speichern](#speichern-und-dateien)). Mitgelieferte Karten (`public/maps/index.json`) und Karten eines Koop-Hosts sind schreibgeschützt: „Copy
 and edit“ legt eine eigene Kopie an und öffnet sie. Dasselbe gilt für jeden anderen Weg dorthin, etwa „Edit“ in der
-Kartenwahl des Spiels (`/editor?map=<id>`): `EditorSession.open` öffnet nie das Original, sondern speichert sofort eine
-eigene Kopie („Name (copy)“), sagt das in der Statuszeile und setzt deren Kennung in die Adresse, damit Neuladen die
-Kopie öffnet und keine zweite anlegt. Die Kopie merkt sich ihr Original mit dessen Inhalts-Hash (`meta.copyOf`, nicht
+Kartenwahl des Spiels: `EditorSession.open` öffnet nie das Original, sondern speichert sofort eine eigene Kopie
+(„Name (copy)“) und sagt das in der Statuszeile. Die Kopie merkt sich ihr Original mit dessen Inhalts-Hash (`meta.copyOf`, nicht
 Teil des `contentHash`); ein weiteres „Edit“ desselben Originals öffnet die neueste eigene Kopie wieder. Hat sich das
 Original seither geändert (Spiel-Update, neue Version des Hosts, verglichen über `index.json` bzw. die Zusammenfassung,
 ohne die Datei zu laden), bietet ein Banner „Fresh copy“ (neue Kopie, die alte bleibt) oder „Open your copy“.
@@ -48,9 +54,8 @@ ohne die Datei zu laden), bietet ein Banner „Fresh copy“ (neue Kopie, die al
   dieselbe `.w3x`-Datei), fragt die Liste „Replace“ oder „Keep both“: Replace legt den Inhalt an die Stelle der Karte
   (Kennung, `id` und Anlagezeit bleiben, also auch ihre Versionen; der alte Inhalt wird eine Version), Keep both legt
   die Datei als neue Karte mit eigener Kennung daneben
-- Die Adresse trägt die offene Karte (`/editor?map=<id>`); Neuladen öffnet sie wieder. Die Seite folgt der Adresse:
-  Zurück im Browser schließt die Karte wie der eigene Zurück-Knopf (erst speichern; scheitert das, bleibt sie offen),
-  Vor öffnet sie wieder
+- Die Adresse trägt die offene Karte nicht mehr; Neuladen öffnet die Karte, die dieser Tab offen hatte
+  (sessionStorage `3dtd-editor-map`), `/editor?map=<id>` öffnet eine Karte beim Start
 
 ## Bedienung
 

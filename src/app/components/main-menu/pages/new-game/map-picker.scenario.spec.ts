@@ -43,8 +43,7 @@ describe('Map picker of New game', () => {
     playMap: ReturnType<typeof vi.fn>;
     playTileset: ReturnType<typeof vi.fn>;
     isCurrent: (ref: WorldRef) => boolean;
-    editUrl: (id: string) => string;
-    editorUrl: () => string;
+    editMap: ReturnType<typeof vi.fn>;
     tilesets: ReturnType<typeof signal<readonly unknown[]>>;
   };
 
@@ -64,8 +63,7 @@ describe('Map picker of New game', () => {
       playMap: vi.fn(),
       playTileset: vi.fn(),
       isCurrent: (ref) => ref.kind === 'custom-map' && ref.mapId === setup.current,
-      editUrl: (id) => `http://x/editor?map=${id}`,
-      editorUrl: () => 'http://x/editor',
+      editMap: vi.fn(),
       tilesets: signal(setup.tilesets ? [TILESET] : []),
     };
     TestBed.configureTestingModule({
@@ -100,15 +98,17 @@ describe('Map picker of New game', () => {
     expect(parts(rows[0])).toEqual(['My bay', 'by Ann | 1024 x 512 m | 3 spawns | Desert', 'Edit', 'Play']);
     expect(rows[0].querySelector('img')!.getAttribute('src')).toBe('blob:bay');
     expect(parts(rows[2])).toEqual(['Demo Valley', 'by 3DTD | 512 x 512 m | 2 spawns | Temperate', 'Edit', 'Play']);
-    expect(rows[2].querySelector('a')!.getAttribute('href')).toBe('http://x/editor?map=demo-valley');
+    // Edit opens the editor in the window on that map
+    [...rows[2].querySelectorAll('button')].find((b) => b.textContent!.trim() === 'Edit')!.click();
+    expect(worlds.editMap).toHaveBeenCalledWith('demo-valley');
   });
 
   it('plays a map on Play, and the one played now says so', async () => {
     const f = await open({ current: 'demo-valley' });
-    (row(f, 'data-map="bay"').querySelector('button') as HTMLButtonElement).click();
+    [...row(f, 'data-map="bay"').querySelectorAll('button')].find((b) => b.textContent!.trim() === 'Play')!.click();
     expect(worlds.playMap).toHaveBeenCalledWith('bay');
     const playing = row(f, 'data-map="demo-valley"');
-    expect(playing.querySelector('button')).toBeNull();
+    expect([...playing.querySelectorAll('button')].map((b) => b.textContent!.trim())).toEqual(['Edit']);
     expect(line(playing)).toContain('Playing');
   });
 

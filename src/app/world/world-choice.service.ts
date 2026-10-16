@@ -6,9 +6,8 @@ import type { OwnTileset } from './tileset/own-tileset';
 import { WorldContext } from './world-context.service';
 import type { WorldRef } from './world-ref';
 import { PLAIN_START } from './world-start';
-import { WORLD_NAVIGATE, WorldSession } from './world-session.service';
-
-export { WORLD_NAVIGATE } from './world-session.service';
+import { WorldSession } from './world-session.service';
+import { AppScreen } from './app-screen.service';
 
 /** The shipped map a player without a tile key starts on (the token screen's "Play the maps") */
 export const FIRST_MAP_ID = 'mountain-pass';
@@ -37,12 +36,13 @@ export interface MapChoices {
  * custom maps (own from the map store, then the shipped ones) and the own
  * 3D Tiles sets of the config. A choice opens that world in the page
  * (WorldSession): the open one goes, engine and worker with it, and the new
- * one is made from the start. The map editor still loads its own page.
+ * one is made from the start. The map editor opens in the window too
+ * (AppScreen), the game goes meanwhile.
  */
 @Injectable({ providedIn: 'root' })
 export class WorldChoiceService {
   private readonly store = inject(MAP_STORE);
-  private readonly navigate = inject(WORLD_NAVIGATE);
+  private readonly screens = inject(AppScreen);
   private readonly config = inject(ConfigService);
   private readonly world = inject(WorldContext);
   private readonly session = inject(WorldSession);
@@ -136,20 +136,8 @@ export class WorldChoiceService {
     this.session.open(PLAIN_START);
   }
 
-  /** Opens the map editor on this map */
-  editMap(mapId: string): void {
-    this.navigate(this.editUrl(mapId));
-  }
-
-  /** The map editor's start, its list of maps */
-  editorUrl(): string {
-    return new URL('editor', document.baseURI).toString();
-  }
-
-  /** The map editor on this map (a shipped one opens there as a copy to save) */
-  editUrl(mapId: string): string {
-    const url = new URL('editor', document.baseURI);
-    url.searchParams.set('map', mapId);
-    return url.toString();
+  /** The map editor in this window on this map (a shipped one opens there as a copy to save); null: its list */
+  editMap(mapId: string | null): void {
+    this.screens.openEditor(mapId);
   }
 }

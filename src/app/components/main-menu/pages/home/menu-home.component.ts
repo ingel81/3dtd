@@ -236,7 +236,7 @@ export class MenuHomeComponent {
         return;
       case 'editor':
         if (this.menu.underWay() || this.menu.inCoop()) this.ask({ kind: 'editor' });
-        else openMapEditor();
+        else this.menu.openMapEditor();
         return;
       case 'edit-map':
         if (this.menu.underWay() || this.menu.inCoop()) this.ask({ kind: 'edit-map' });
@@ -274,7 +274,7 @@ export class MenuHomeComponent {
     if (!confirm) return;
     if (confirm.kind === 'leave') void this.loadAutosave();
     else if (confirm.kind === 'restart') this.menu.restart();
-    else if (confirm.kind === 'editor') openMapEditor();
+    else if (confirm.kind === 'editor') this.menu.openMapEditor();
     else if (confirm.kind === 'edit-map') this.menu.editThisMap();
     else this.menu.quit();
   }
@@ -354,9 +354,4 @@ export class MenuHomeComponent {
         return { question: 'Quit 3DTD? The run ends.', yes: 'Quit' };
     }
   }
-}
-
-/** The map editor is its own page (`/editor`): leave the game for it */
-export function openMapEditor(): void {
-  window.location.assign(new URL('editor', document.baseURI).toString());
 }

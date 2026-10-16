@@ -11,14 +11,14 @@ import { ResearchStore } from '../store/research.store';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { EngineInitializationService } from '../services/infrastructure/engine-initialization.service';
 import { LocationManagementService } from '../services/location/location-management.service';
-import { UrlLocationService } from '../services/location/url-location.service';
 import { GameHostComponent } from '../game-host.component';
 import { TowerDefenseComponent } from '../tower-defense.component';
 import { createMapDocument } from './custom-map/map-create';
 import { MapStore, MemoryMapBackend } from './custom-map/map-store';
 import { openCustomMap, openedCustomMap } from './custom-map/custom-map-world';
-import { WORLD_NAVIGATE, WorldSession, worldStartUrl } from './world-session.service';
-import { PLAIN_START, WorldStartService, worldStartFromSearch, type WorldStart } from './world-start';
+import { WorldSession } from './world-session.service';
+import { AppScreen } from './app-screen.service';
+import { PLAIN_START, WorldStartService, type WorldStart } from './world-start';
 
 const MAP: WorldStart = { ...PLAIN_START, world: { kind: 'custom-map', mapId: 'bay', contentHash: '' } };
 
@@ -29,7 +29,6 @@ const MAP: WorldStart = { ...PLAIN_START, world: { kind: 'custom-map', mapId: 'b
  * and listeners go is measured in a browser (e2e/perf/world-switch.ts).
  */
 describe('WorldSession', () => {
-  let went: string[];
   let start: WorldStartService;
   let session: WorldSession;
   let game: GameStore;
@@ -38,9 +37,9 @@ describe('WorldSession', () => {
   let places: LocationStore;
   let engineInit: { loading: ReturnType<typeof signal<boolean>>; error: ReturnType<typeof signal<string | null>>; reset: () => void };
   let location: { reset: ReturnType<typeof vi.fn> };
+  let screens: AppScreen;
 
   beforeEach(() => {
-    went = [];
     engineInit = { loading: signal(false), error: signal<string | null>(null), reset: () => engineInit.loading.set(true) };
     location = { reset: vi.fn() };
     let order: WorldStart = PLAIN_START;
@@ -52,10 +51,11 @@ describe('WorldSession', () => {
         { provide: EngineInitializationService, useValue: engineInit },
         { provide: LocationManagementService, useValue: location },
         { provide: WorldStartService, useValue: start },
-        { provide: WORLD_NAVIGATE, useValue: (url: string) => went.push(url) },
+        real(AppScreen),
       ],
     });
     session = runInInjectionContext(injector, () => new WorldSession());
+    screens = injector.get(AppScreen);
     game = injector.get(GameStore);
     ui = injector.get(UIStore);
     research = injector.get(ResearchStore);
@@ -63,45 +63,47 @@ describe('WorldSession', () => {
   });
 
   it('opens a world in the page: its order, and the game counted on to the next world', () => {
-    const leave = session.hostAttached();
     session.open(MAP);
     expect(start.current()).toEqual(MAP);
     expect(session.world()).toBe(1);
-    expect(went).toEqual([]);
-    leave();
   });
 
-  it('tells what outlives a world that the open one goes, while it still stands, and only in the page', () => {
+  it('tells what outlives a world that the open one goes, while it still stands', () => {
     const heard: WorldStart[] = [];
     const off = session.onLeaving(() => heard.push(start.current()));
-    session.open(MAP);
-    expect(heard).toEqual([]);
-    const leave = session.hostAttached();
     session.open({ ...MAP, startWave: 5 });
     expect(heard).toEqual([PLAIN_START]);
     off();
     session.open(MAP);
     expect(heard).toHaveLength(1);
-    leave();
   });
 
-  it('outside the game (the map editor) loads the game page on the order instead, a link the start reads back', () => {
-    const order: WorldStart = { ...MAP, place: { hq: { lat: 48.7758, lon: 9.1829 }, spawns: [] }, resume: 'slot-2' };
-    session.open(order);
+  it('from the map editor shows the game first, once the editor let go; an editor that stays keeps the world', async () => {
+    let lets = false;
+    const off = screens.guardEditor(async () => lets);
+    screens.openEditor('bay');
+    session.open(MAP);
+    await Promise.resolve();
+    expect(screens.screen()).toBe('editor');
     expect(session.world()).toBe(0);
-    expect(went).toHaveLength(1);
-    const back = worldStartFromSearch(new URL(went[0]).search, (q) => new UrlLocationService().parseLink(q), true);
-    expect(back).toEqual(order);
-    expect(worldStartUrl(PLAIN_START, 'http://h/play/')).toBe('http://h/play/');
+    lets = true;
+    session.open(MAP);
+    await vi.waitFor(() => expect(session.world()).toBe(1));
+    expect(screens.screen()).toBe('game');
+    expect(start.current()).toEqual(MAP);
+    off();
+    // Back from the editor without a world asked for: the game of the world before, made anew
+    screens.openEditor(null);
+    session.backToGame();
+    await vi.waitFor(() => expect(screens.screen()).toBe('game'));
+    expect(session.world()).toBe(1);
   });
 
   it('opens the same world anew for a new key, its save not loaded twice', () => {
-    const leave = session.hostAttached();
     session.open({ ...MAP, resume: 'slot-1' });
     session.reopen();
     expect(start.current()).toEqual(MAP);
     expect(session.world()).toBe(2);
-    leave();
   });
 
   it('two worlds started and closed: each closing leaves the root as a fresh page has it, the display choices stay', async () => {
@@ -176,7 +178,6 @@ describe('GameHostComponent', () => {
 
   it('makes the game anew for every world, the old one gone first, and one game at a time', () => {
     TestBed.overrideComponent(GameHostComponent, { remove: { imports: [TowerDefenseComponent] }, add: { imports: [FakeGame] } });
-    TestBed.configureTestingModule({ providers: [{ provide: WORLD_NAVIGATE, useValue: vi.fn() }] });
     const host = TestBed.createComponent(GameHostComponent);
     TestBed.tick();
     const session = TestBed.inject(WorldSession);
@@ -198,10 +199,8 @@ describe('GameHostComponent', () => {
     }
     expect(lives.slice(3)).toEqual(['gone game 2', 'made game 3', 'gone game 3', 'made game 4']);
 
-    // The route goes: the last game with it, and a world opened then loads the game's page
+    // The host goes (the editor shows): the last game with it
     host.destroy();
     expect(listeners).toBe(0);
-    session.open(PLAIN_START);
-    expect(TestBed.inject(WORLD_NAVIGATE)).toHaveBeenCalledTimes(1);
   });
 });

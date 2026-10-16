@@ -53,6 +53,7 @@ import { buildAreaInput, buildAreasOffThread, type BuildAreas } from '../validat
 import { EditorViewport, type CameraBookmark, type FrameStats, type HoverInfo } from '../view/editor-viewport';
 import { DEFAULT_W3X_OPTIONS, loadW3xImporter, type W3xImportOptions, type W3xImportReport } from '../import/w3x-seam';
 import { WORLD_URL_PARAM, worldUrlValue } from '../../world/world-ref';
+import { EDITOR_MAP_PARAM } from '../../world/world-start';
 import { readAgentBridge, type AgentStatus } from '../../core/desktop-bridge';
 import { AGENT_LABEL, EditorAgent, type AgentNewMap } from '../agent/editor-agent';
 import { templateById } from '../ops/landscape/templates';
@@ -232,6 +233,8 @@ export class EditorSession implements OnDestroy {
    * itself. `open` resolves why it did not open, or null
    */
   navigator: { open(id: string): Promise<string | null>; close(): Promise<boolean> } | null = null;
+  /** The id the open map was opened for, see isOpen */
+  private askedFor: string | null = null;
 
   constructor() {
     this.zone.runOutsideAngular(() => {
@@ -648,6 +651,18 @@ export class EditorSession implements OnDestroy {
    * nowhere)
    */
   async open(id: string): Promise<string> {
+    const opened = await this.openAs(id);
+    this.askedFor = id;
+    return opened;
+  }
+
+  /** The map `id` is the one open: itself, or the map it was opened for (a shipped map's own copy) */
+  isOpen(id: string): boolean {
+    const doc = this.editor?.doc;
+    return !!doc && (doc.meta.id === id || this.askedFor === id);
+  }
+
+  private async openAs(id: string): Promise<string> {
     await this.catalogReady;
     this.staleCopy.set(null);
     // A shipped or coop map edited before: its own copy opens again
@@ -833,6 +848,7 @@ export class EditorSession implements OnDestroy {
     this.staleCopy.set(null);
     this.readOnly.set(false);
     this.editor = null;
+    this.askedFor = null;
     this.meta.set(null);
     return true;
   }
@@ -875,11 +891,14 @@ export class EditorSession implements OnDestroy {
     } else this.flash('The view is back');
   }
 
-  /** The view does not come back: save, then load the page anew */
+  /** The view does not come back: save, then load the editor's page anew on this map (`/editor?map=`) */
   async reloadPage(): Promise<void> {
     this.refresh();
     if (this.dirty() && !this.readOnly()) await this.save(false);
-    location.reload();
+    const id = this.editor?.doc.meta.id;
+    const url = new URL('editor', document.baseURI);
+    if (id) url.searchParams.set(EDITOR_MAP_PARAM, id);
+    location.assign(url.toString());
   }
 
   detachViewport(): void {

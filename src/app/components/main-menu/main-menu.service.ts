@@ -151,13 +151,18 @@ export class MainMenuService {
   readonly editMapLabel = this.fromEditor ? 'Back to editor' : 'Edit this map';
 
   /**
-   * The map editor on the map this page plays (a shipped one opens there as an own copy). From the editor's
-   * test tab the editor that opened it comes back instead, the map still open in it.
+   * The map editor in this window on the map this page plays (a shipped one opens there as an own copy). From
+   * the editor's test tab the editor that opened it comes back instead, the map still open in it.
    */
   editThisMap(): void {
     const mapId = this.editableMapId();
     if (mapId === null || returnToEditor(mapId)) return;
-    window.location.assign(this.worlds.editUrl(mapId));
+    this.worlds.editMap(mapId);
+  }
+
+  /** The map editor in this window, on its list of maps (or the map open in it) */
+  openMapEditor(): void {
+    this.worlds.editMap(null);
   }
 
   /** A save the page was opened to load (?resume=), said when it went wrong */

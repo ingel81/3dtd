@@ -10,6 +10,7 @@ import { MAP_FILE_EXTENSION, packMapFile } from '../../../world/custom-map/map-f
 import { TRASH_DAYS, type MapSummary } from '../../../world/custom-map/map-store';
 import { download, EditorSession } from '../editor-session.service';
 import { WorldChoiceService } from '../../../world/world-choice.service';
+import { WorldSession } from '../../../world/world-session.service';
 import type { GroundMaterialEntry } from '../../catalog/asset-catalog';
 import { AddressAutocompleteComponent } from '../../../components/address-autocomplete.component';
 import { OsmFrameComponent } from '../../../components/osm-frame/osm-frame.component';
@@ -46,7 +47,8 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
   readonly session = inject(EditorSession);
   /** The desktop app's map folder (its button) */
   readonly worlds = inject(WorldChoiceService);
-  /** Why the map in the address did not open */
+  private readonly worldSession = inject(WorldSession);
+  /** Why the map asked for did not open */
   readonly problem = input<string | null>(null);
   readonly open = output<string>();
 
@@ -292,8 +294,9 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
     this.dragging.set(true);
   }
 
+  /** The game in this window again (WorldSession.backToGame) */
   backToGame(): void {
-    window.location.href = new URL('./', document.baseURI).toString();
+    this.worldSession.backToGame();
   }
 
   async startW3x(metresPerTile: number, maxObjects: number, cropToPlayable: boolean, enhance: boolean, waves: boolean): Promise<void> {

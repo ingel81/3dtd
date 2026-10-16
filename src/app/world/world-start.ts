@@ -12,9 +12,12 @@ import { WORLD_URL_PARAM, worldRefFromSearch, type WorldRef } from './world-ref'
 /** The URL parameter of a save to load once the page stands on its world (WorldChoiceService.openSave) */
 export const RESUME_URL_PARAM = 'resume';
 
+/** The map the editor's entry names (`/editor?map=<id>`), read once like a link (WorldStartService.editorMap) */
+export const EDITOR_MAP_PARAM = 'map';
+
 /**
  * The parameters of a link that say what to open: the place, the world, a
- * save, a coop room. Read once at the start into the WorldStart, then gone
+ * save, a coop room, the editor's map. Read once at the start into the WorldStart, then gone
  * from the address, so a reload does not carry them out again
  * (docs/WORLDS_NAVIGATION_PLAN.md, 3.8). So is a benchmark's `&benchmark`:
  * the menu starts one in the page, a link once. The switches of development
@@ -22,7 +25,7 @@ export const RESUME_URL_PARAM = 'resume';
  * does `&relay=`: hosts and bot seats name their relay with it, not only
  * invites.
  */
-export const LINK_PARAMS: readonly string[] = ['l', 's', WORLD_URL_PARAM, RESUME_URL_PARAM, 'room', 'lane', BENCHMARK_FLAG];
+export const LINK_PARAMS: readonly string[] = ['l', 's', WORLD_URL_PARAM, RESUME_URL_PARAM, 'room', 'lane', BENCHMARK_FLAG, EDITOR_MAP_PARAM];
 
 /** The coop room an invite link names */
 export interface StartRoom {
@@ -127,6 +130,8 @@ export class WorldStartService {
   /** Reads a link's place; it holds nothing */
   private readonly links = new UrlLocationService();
   private readonly devWorld = inject(DevWorldService);
+  /** The map the editor's entry named (`/editor?map=`), null without one; the editor opens it once */
+  readonly editorMap: string | null = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get(EDITOR_MAP_PARAM);
   private readonly order = signal<WorldStart>(this.fromAddress());
   /** The save of the order not yet loaded; taken once (takeResume) */
   private resume: string | null = this.order().resume;

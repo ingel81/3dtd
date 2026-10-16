@@ -56,7 +56,7 @@ describe('WorldStart', () => {
   it("takes the link's parameters out of the address and leaves the switches of development", () => {
     expect(addressWithoutLink('http://h/?l=1,2&s=3,4&world=map:x&resume=a&room=R&lane=s1&bot=trial&fromWave=3&relay=ws%3A%2F%2Fh&quality=low'))
       .toBe('http://h/?bot=trial&fromWave=3&relay=ws%3A%2F%2Fh&quality=low');
-    expect(addressWithoutLink('http://h/editor?map=demo')).toBe('http://h/editor?map=demo');
+    expect(addressWithoutLink('http://h/editor?map=demo')).toBe('http://h/editor');
     expect(addressWithoutLink('http://h/?devworld&terrain=flat')).toBe('http://h/?devworld&terrain=flat');
   });
 

@@ -31,7 +31,8 @@ vi.mock('../../../environments/environment', () => ({
 
 import { ConfigService } from '../../core/services/config.service';
 import { TokenSetupComponent } from './token-setup.component';
-import { WORLD_NAVIGATE } from '../../world/world-choice.service';
+import { WorldStartService } from '../../world/world-start';
+import { WorldSession } from '../../world/world-session.service';
 import { CUSTOM_MAPS_OPEN } from '../../world/custom-maps-open';
 
 const template = readFileSync(resolve('src/app/components/token-setup/token-setup.component.html'), 'utf8');
@@ -44,7 +45,6 @@ const screenShown = (config: ConfigService, awaitingCredentials: boolean) =>
 describe('Map Key and the token screen, playtest 161 (night 1) replayed', () => {
   let config: ConfigService;
   let fixture: ComponentFixture<TokenSetupComponent>;
-  let navigated: string[] = [];
 
   beforeAll(() => {
     getTestBed().initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
@@ -54,8 +54,7 @@ describe('Map Key and the token screen, playtest 161 (night 1) replayed', () => 
     localStorage.clear();
     // No runtime-config.json next to the page
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false })));
-    navigated = [];
-    TestBed.configureTestingModule({ providers: [{ provide: WORLD_NAVIGATE, useValue: (url: string) => navigated.push(url) }, { provide: CUSTOM_MAPS_OPEN, useValue: true }] });
+    TestBed.configureTestingModule({ providers: [{ provide: CUSTOM_MAPS_OPEN, useValue: true }] });
     TestBed.overrideComponent(TokenSetupComponent, {
       set: { template, templateUrl: undefined, styleUrl: undefined, styles: [], imports: [CdkTrapFocus] },
     });
@@ -183,13 +182,13 @@ describe('Map Key and the token screen, playtest 161 (night 1) replayed', () => 
     expect(root.querySelector('[cdkFocusInitial]')?.classList).toContain('token-input');
   });
 
-  it('without a key "Play the maps" loads the page on a shipped map, no key asked', () => {
+  it('without a key "Play the maps" opens a shipped map in the page, no key asked', () => {
     render();
     const root = fixture.nativeElement as HTMLElement;
     const play = [...root.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Play the maps')!;
     play.click();
-    expect(navigated).toHaveLength(1);
-    expect(new URL(navigated[0]).searchParams.get('world')).toBe('map:mountain-pass');
+    expect(TestBed.inject(WorldSession).world()).toBe(1);
+    expect(TestBed.inject(WorldStartService).current().world).toEqual({ kind: 'custom-map', mapId: 'mountain-pass', contentHash: '' });
     expect(config.setupRequested()).toBe(false);
   });
 });

@@ -73,7 +73,6 @@ test('imports a Reforged Lua map, opens it and plays a wave on it', async ({ bro
   await shot(testInfo, page, 'report');
 
   await page.locator('[data-test=open-imported]').click();
-  await page.waitForURL(/\/editor\?map=/);
   await expect(page.locator('[data-test=map-name]')).toHaveText(/Lane Test/);
 
   const [game] = await Promise.all([page.context().waitForEvent('page'), page.locator('[data-test=test-play]').click()]);
@@ -129,7 +128,6 @@ for (const file of REAL_MAPS) {
     await expect(page.locator('[data-test=import-panel]')).toContainText(/\d+ spawns/);
     await shot(testInfo, page, 'report');
     await page.locator('[data-test=open-imported]').click();
-    await page.waitForURL(/\/editor\?map=/);
     await expect(page.locator('[data-test=map-name]')).not.toBeEmpty();
     expect(errors).toEqual([]);
     await page.context().close();

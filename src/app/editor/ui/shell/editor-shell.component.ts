@@ -13,7 +13,6 @@ import {
   viewChild,
 } from '@angular/core';
 import type { DocChange } from '../../model/editor-document';
-import { ActivatedRoute, Router } from '@angular/router';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TdIconComponent, type TdIconName } from '../../../components/icon/icon.component';
 import { SYMMETRY_MODES, type SymmetryMode } from '../../ops/symmetry';
@@ -146,8 +145,6 @@ export const TOOL_ICON: Record<ToolId, TdIconName> = {
 })
 export class EditorShellComponent implements OnDestroy {
   readonly session = inject(EditorSession);
-  private readonly router = inject(Router);
-  private readonly route = inject(ActivatedRoute);
   readonly closed = output<void>();
   readonly tools = TOOLS;
   readonly toolGroups = TOOL_GROUPS;
@@ -266,10 +263,9 @@ export class EditorShellComponent implements OnDestroy {
     this.session.flash(mode === 'none' ? 'Symmetry off' : `Symmetry: ${SYMMETRY_MODES.find((m) => m.id === mode)!.label}`);
   }
 
-  /** A fresh copy of the changed original; the address names it, so a reload opens it */
+  /** A fresh copy of the changed original, opened in place of the copy (which stays in the list) */
   async freshCopy(): Promise<void> {
-    const id = await this.session.freshCopy();
-    if (id) await this.router.navigate([], { relativeTo: this.route, queryParams: { map: id }, replaceUrl: true });
+    await this.session.freshCopy();
   }
 
   /** Wind, water and particles stand still in the view, or move again */

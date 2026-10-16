@@ -1,29 +1,9 @@
-import { Injectable, InjectionToken, inject, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { LocationManagementService } from '../services/location/location-management.service';
 import { TowerDefenseStore } from '../store/tower-defense.store';
-import { coordKey } from '../utils/geo-utils';
 import { closeCustomMaps } from './custom-map/custom-map-world';
-import { WORLD_URL_PARAM, worldUrlValue } from './world-ref';
-import { RESUME_URL_PARAM, WorldStartService, type WorldStart } from './world-start';
-
-/** How the page loads another page: the map editor, a world from outside the game (a spec records it) */
-export const WORLD_NAVIGATE = new InjectionToken<(url: string) => void>('WORLD_NAVIGATE', {
-  providedIn: 'root',
-  factory: () => (url: string) => window.location.assign(url),
-});
-
-/** The game's page on the world of `order`, as a link names it (worldStartFromSearch reads it back) */
-export function worldStartUrl(order: WorldStart, base: string): string {
-  const url = new URL(base);
-  const world = order.world ? worldUrlValue(order.world) : null;
-  if (world) url.searchParams.set(WORLD_URL_PARAM, world);
-  if (order.place) {
-    url.searchParams.set('l', coordKey(order.place.hq));
-    if (order.place.spawns.length > 0) url.searchParams.set('s', order.place.spawns.map((s) => coordKey(s)).join(';'));
-  }
-  if (order.resume) url.searchParams.set(RESUME_URL_PARAM, order.resume);
-  return url.toString();
-}
+import { AppScreen } from './app-screen.service';
+import { WorldStartService, type WorldStart } from './world-start';
 
 /**
  * Opens worlds in this page, without a reload (docs/WORLDS_NAVIGATION_PLAN.md,
@@ -35,15 +15,14 @@ export function worldStartUrl(order: WorldStart, base: string): string {
  * goes when the old game is gone (closed), before the new one starts.
  *
  * At most one world is open: one engine, one sim worker, one game canvas.
+ * From the map editor (AppScreen) a world opens once the editor let go.
  */
 @Injectable({ providedIn: 'root' })
 export class WorldSession {
   private readonly start = inject(WorldStartService);
   private readonly store = inject(TowerDefenseStore);
   private readonly location = inject(LocationManagementService);
-  private readonly navigate = inject(WORLD_NAVIGATE);
-  /** The game host stands (the game's route); without it a world opens as a page */
-  private hosts = 0;
+  private readonly screens = inject(AppScreen);
   /** What hears that the open world goes for another one in the page, see onLeaving */
   private readonly leaving = new Set<() => void>();
 
@@ -51,18 +30,23 @@ export class WorldSession {
   readonly world = signal(0);
 
   /**
-   * Open the world of `order` in this page, the open one goes. Outside the
-   * game (the map editor, which asks about unsaved changes before its page
-   * goes) the game's page loads on the order's link instead.
+   * Open the world of `order` in this page, the open one goes. From the map
+   * editor the game shows first, once the editor saved (AppScreen.showGame);
+   * an editor that stays (its save failed) keeps the screen.
    */
   open(order: WorldStart): void {
-    if (this.hosts === 0) {
-      this.navigate(worldStartUrl(order, document.baseURI));
+    if (this.screens.screen() !== 'game') {
+      void this.screens.showGame().then((shown) => {
+        if (shown) this.openHere(order);
+      });
       return;
     }
-    for (const listener of [...this.leaving]) listener();
-    this.start.set(order);
-    this.world.update((n) => n + 1);
+    this.openHere(order);
+  }
+
+  /** From the map editor: the game in this window again, the world it played (its start order) made anew */
+  backToGame(): void {
+    void this.screens.showGame();
   }
 
   /**
@@ -83,12 +67,6 @@ export class WorldSession {
     return () => this.leaving.delete(listener);
   }
 
-  /** The game host came (GameHostComponent); returns its leave */
-  hostAttached(): () => void {
-    this.hosts++;
-    return () => this.hosts--;
-  }
-
   /**
    * The game of a world went (TowerDefenseComponent.ngOnDestroy, after its
    * facade disposed engine, worker and world): the run state the root
@@ -98,5 +76,11 @@ export class WorldSession {
     this.store.resetWorld();
     this.location.reset();
     closeCustomMaps();
+  }
+
+  private openHere(order: WorldStart): void {
+    for (const listener of [...this.leaving]) listener();
+    this.start.set(order);
+    this.world.update((n) => n + 1);
   }
 }

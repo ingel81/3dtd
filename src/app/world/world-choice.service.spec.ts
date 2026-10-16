@@ -3,7 +3,8 @@ import { ConfigService } from '../core/services/config.service';
 import { createMapDocument } from './custom-map/map-create';
 import { MapStore, MemoryMapBackend, type ShippedMapIndex } from './custom-map/map-store';
 import { parseOwnTilesets } from './tileset/own-tileset';
-import { MAP_STORE, WORLD_NAVIGATE, WorldChoiceService } from './world-choice.service';
+import { MAP_STORE, WorldChoiceService } from './world-choice.service';
+import { AppScreen } from './app-screen.service';
 import { WorldContext } from './world-context.service';
 import type { WorldRef } from './world-ref';
 import { WorldSession } from './world-session.service';
@@ -19,14 +20,14 @@ const TILESET = parseOwnTilesets([{ id: 'synth', url: 'http://localhost:4311/syn
 
 describe('WorldChoiceService', () => {
   let service: WorldChoiceService;
-  let went: string[];
+  let screens: AppScreen;
   /** The worlds opened in the page (WorldSession.open) */
   let opened: WorldStart[];
   let current: ReturnType<typeof signal<WorldRef>>;
   let store: MapStore;
 
   beforeEach(() => {
-    went = [];
+    screens = new AppScreen();
     opened = [];
     current = signal<WorldRef>({ kind: 'tiles', source: 'cesium' });
     store = new MapStore({
@@ -37,7 +38,7 @@ describe('WorldChoiceService', () => {
     const injector = Injector.create({
       providers: [
         { provide: MAP_STORE, useValue: store },
-        { provide: WORLD_NAVIGATE, useValue: (url: string) => went.push(url) },
+        { provide: AppScreen, useValue: screens },
         { provide: WorldSession, useValue: { open: (order: WorldStart) => opened.push(order) } },
         { provide: ConfigService, useValue: { ownTilesets: signal([TILESET]) } },
         { provide: WorldContext, useValue: { ref: current.asReadonly() } },
@@ -74,9 +75,10 @@ describe('WorldChoiceService', () => {
     expect(tileset.world).toEqual({ kind: 'tileset', id: 'synth' });
     expect(tileset.place).toEqual({ hq: { lat: 48.7784, lon: 9.18 }, spawns: [] });
     expect(places).toEqual(PLAIN_START);
-    expect(went).toEqual([]);
-    expect(new URL(service.editUrl('demo-valley')).pathname).toMatch(/\/editor$/);
-    expect(new URL(service.editUrl('demo-valley')).searchParams.get('map')).toBe('demo-valley');
+    // The editor opens in the window too
+    service.editMap('demo-valley');
+    expect(screens.screen()).toBe('editor');
+    expect(screens.takeEditorMap()).toBe('demo-valley');
   });
 
   it("opens a save's world in the page and loads the save there", () => {
@@ -110,7 +112,7 @@ describe('WorldChoiceService', () => {
       const injector = Injector.create({
         providers: [
           { provide: MAP_STORE, useValue: store },
-          { provide: WORLD_NAVIGATE, useValue: (url: string) => went.push(url) },
+          { provide: AppScreen, useValue: screens },
           { provide: WorldSession, useValue: { open: (order: WorldStart) => opened.push(order) } },
           { provide: ConfigService, useValue: { ownTilesets: signal([]) } },
           { provide: WorldContext, useValue: { ref: current.asReadonly() } },
