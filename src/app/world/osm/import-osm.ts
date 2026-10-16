@@ -17,7 +17,7 @@ import { DEM_SOURCES, downloadDem, type DemDecoder, type DemMosaic } from './dem
 import { OsmFrame, parseOsm, type OsmParseStats } from './osm-parse';
 import type { OsmFrameStore } from './osm-frame-store';
 import { downloadOsm, osmQueryBox } from './osm-query';
-import type { OverpassResponse } from './overpass-client';
+import type { OverpassResponse, OverpassRetry } from './overpass-client';
 import { buildRoads, levelRoads, paintRoads, type RoadStats } from './convert/roads';
 import { buildTunnels, type TunnelReport } from './convert/tunnels';
 import { fillOsmTerrain } from './convert/terrain';
@@ -288,7 +288,15 @@ export type OsmLoadStep = 'stored' | 'download';
  */
 export async function loadOsmInput(
   place: { lat: number; lon: number; address?: string },
-  options: { sideM?: number; store?: OsmFrameStore; decode?: DemDecoder; signal?: AbortSignal; onStep?: (step: OsmLoadStep) => void } = {},
+  options: {
+    sideM?: number;
+    store?: OsmFrameStore;
+    decode?: DemDecoder;
+    signal?: AbortSignal;
+    onStep?: (step: OsmLoadStep) => void;
+    /** Hears each round of the Overpass servers about to be asked again */
+    onRetry?: (retry: OverpassRetry) => void;
+  } = {},
 ): Promise<{ input: OsmImportInput; download: OsmDownloadStats }> {
   const { lat, lon } = place;
   const side = options.sideM ?? OSM_WORLD_SIDE;
@@ -301,7 +309,7 @@ export async function loadOsmInput(
       return { error: e.message };
     });
   const askOsm = () =>
-    downloadOsm(box, options.signal).catch((e: Error) => {
+    downloadOsm(box, options.signal, options.onRetry).catch((e: Error) => {
       if (options.signal?.aborted) throw e;
       throw new Error(overpassFailure(e.message));
     });

@@ -380,6 +380,8 @@ export class TilesWorld implements WorldProvider, WorldTiles {
   dispose(): void {
     // Remove event listeners, no settled load reaches a disposed engine
     this.tileLoading?.dispose();
+    // Nor a street load: it stops asking the servers (the service outlives the world)
+    this.streets.cancelLoads();
     this.groundChanged = null;
     if (this.tilesRenderer) {
       this.scene?.remove(this.tilesRenderer.group);

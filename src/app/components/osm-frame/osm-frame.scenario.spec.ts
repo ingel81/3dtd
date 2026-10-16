@@ -20,6 +20,7 @@ import { MemoryFrameBackend, OsmFrameStore } from '../../world/osm/osm-frame-sto
 import { OsmFrameSession } from '../../world/osm/osm-frame-session';
 import { OSM_PROBE_SIDE, osmProbe } from '../../../../tools/osm/osm-probe';
 import { OSM_FRAME_SESSION, OsmFrameComponent } from './osm-frame.component';
+import { overpassFailure } from '../../world/osm/import-osm';
 
 const template = readFileSync(resolve('src/app/components/osm-frame/osm-frame.component.html'), 'utf8');
 
@@ -119,5 +120,45 @@ describe('OSM world frame', () => {
     root.querySelector<HTMLButtonElement>('[data-test=osm-play]')!.click();
     expect(done).toEqual([{ summary: expect.objectContaining({ id: 'osm-miltenberg' }), then: 'play' }]);
     expect(fetch).not.toHaveBeenCalledWith(expect.stringContaining('overpass'), expect.anything());
+  });
+
+  it('says while the OSM servers are asked again, then the failure with Try again, which loads anew', async () => {
+    type Open = OsmFrameSession['open'];
+    const opens: { onRetry?: Parameters<Open>[5]; reject: (e: Error) => void }[] = [];
+    const session = {
+      open: vi.fn((...args: Parameters<Open>) => new Promise((_, reject) => opens.push({ onRetry: args[5], reject }))),
+      dispose: vi.fn(),
+    };
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: MAP_STORE, useValue: new MapStore({ backend: new MemoryMapBackend(), fetch: async () => new Response('{"maps":[]}') }) },
+        { provide: OSM_FRAME_SESSION, useValue: () => session },
+      ],
+    });
+    TestBed.overrideComponent(OsmFrameComponent, { set: { template, templateUrl: undefined, styleUrl: undefined, styles: [], imports: [IconStub] } });
+    const fixture = TestBed.createComponent(OsmFrameComponent);
+    fixture.componentRef.setInput('place', { lat: 49.7, lon: 9.26, name: 'Miltenberg' });
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const status = () => root.querySelector('[role=status]')?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+    expect(status()).toContain('Downloading the streets and heights of this place');
+
+    opens[0].onRetry!({ attempt: 2, of: 4, waitMs: 3000, kind: 'busy' });
+    fixture.detectChanges();
+    expect(status()).toContain('The map server is busy, trying again (2 of 4)…');
+
+    opens[0].reject(new Error(overpassFailure('overpass-api.de: HTTP 502; overpass.private.coffee: HTTP 500; 4 tries')));
+    await new Promise((r) => setTimeout(r, 0));
+    fixture.detectChanges();
+    const alert = root.querySelector('[role=alert]')!;
+    expect(alert.textContent).toContain('The OpenStreetMap servers did not answer (overpass-api.de: HTTP 502');
+
+    Array.from(alert.querySelectorAll<HTMLButtonElement>('button')).find((b) => b.textContent!.trim() === 'Try again')!.click();
+    fixture.detectChanges();
+    expect(session.open).toHaveBeenCalledTimes(2);
+    expect(root.querySelector('[role=alert]')).toBeNull();
+    // A fresh cycle: no retry line left from the one before
+    expect(status()).toContain('Downloading the streets and heights of this place');
+    fixture.destroy();
   });
 });

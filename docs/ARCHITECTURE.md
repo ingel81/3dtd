@@ -63,7 +63,7 @@ Server-Anteil und kein Modell:
 |---|---|
 | Google Maps 3D Tiles / Cesium-Tiles | extern, Pflicht (Kartendaten) |
 | OSM Nominatim | extern, nur beim Location-Wechsel |
-| OSM Overpass | extern, Straßen und Gebäude beim Laden eines Orts (IndexedDB-Cache, siehe [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md)) |
+| OSM Overpass | extern, Straßen und Gebäude beim Laden eines Orts (IndexedDB-Cache, Wiederholung bei vollen Servern, siehe [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md)) |
 | Python-Backend (`:3001`) | **nur Bot-Läufe**. Ohne Verbindung läuft das Spiel unverändert; Wellen kommen immer aus dem Client. |
 | Bots + WebSocket-Client (`bots/bot-session.ts`) | **nur Bot-Läufe**. Eigener Lazy-Chunk, lädt erst bei Bot-Start oder Backend-Verbindung ([BOT_SYSTEM.md](BOT_SYSTEM.md#integration)). |
 

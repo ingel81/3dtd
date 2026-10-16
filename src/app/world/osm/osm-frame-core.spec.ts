@@ -110,7 +110,7 @@ describe('OSM frame store', () => {
   });
 
   it('says in a sentence why no map came when the OSM servers do not answer', () => {
-    expect(overpassFailure('OSM API error: 429')).toMatch(/too many requests/);
-    expect(overpassFailure('OSM API error: 502')).toMatch(/did not answer \(OSM API error: 502\).*try again/);
+    expect(overpassFailure('overpass-api.de: HTTP 429; overpass.private.coffee: HTTP 429; 4 tries')).toMatch(/too many requests/);
+    expect(overpassFailure('overpass-api.de: HTTP 502; 4 tries')).toMatch(/did not answer \(overpass-api.de: HTTP 502; 4 tries\).*try again/);
   });
 });

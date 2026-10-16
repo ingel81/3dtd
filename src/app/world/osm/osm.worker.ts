@@ -13,6 +13,7 @@ import { browserDecoder } from './dem-tiles';
 import { OsmFrameCore, type OsmStep } from './osm-frame-core';
 import { OsmFrameStore } from './osm-frame-store';
 import type { OsmWorkerRequest, OsmWorkerResponse } from './osm-worker.types';
+import type { OverpassRetry } from './overpass-client';
 
 const core = new OsmFrameCore({ store: new OsmFrameStore(), decode: browserDecoder });
 
@@ -21,11 +22,12 @@ addEventListener('message', (event: MessageEvent<OsmWorkerRequest>) => {
   const { id } = request;
   const send = (response: OsmWorkerResponse, transfer: Transferable[] = []) => postMessage(response, transfer);
   const onStep = (step: OsmStep) => send({ id, kind: 'step', step });
+  const onRetry = (retry: OverpassRetry) => send({ id, kind: 'retry', retry });
   void (async () => {
     try {
       switch (request.kind) {
         case 'open':
-          send({ id, kind: 'opened', frame: await core.open(request.place, request.count, request.spawnsAt, onStep) });
+          send({ id, kind: 'opened', frame: await core.open(request.place, request.count, request.spawnsAt, onStep, undefined, onRetry) });
           break;
         case 'draw':
           send({ id, kind: 'spawns', spawns: core.draw(request.count, request.keep) });
