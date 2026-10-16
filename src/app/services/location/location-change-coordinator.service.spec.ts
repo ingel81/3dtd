@@ -63,6 +63,7 @@ function makeEngineInit() {
     setStepCurrent: vi.fn(async (_id: string) => undefined),
     setStepDone: vi.fn(async (_id: string, _meta?: string) => undefined),
     updateStepMeta: vi.fn(),
+    error: signal<string | null>(null),
     setError: vi.fn(),
     setLoading: vi.fn(),
     startWorldDiceLoading: vi.fn(),
@@ -166,6 +167,7 @@ describe('LocationChangeCoordinatorService', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
     engineInit = makeEngineInit();
+    engineInit.setError.mockImplementation((error: string | null) => engineInit.error.set(error));
     locationMgmt = makeLocationMgmt();
     engine = makeEngine();
     state = { spawnPoints: [] };
@@ -650,6 +652,61 @@ describe('LocationChangeCoordinatorService', () => {
       expect(uiStore.loadProblem()).toBeNull();
       expect(osm.loadStreets).toHaveBeenCalledTimes(3);
       expect(engine.setOrigin).toHaveBeenCalledWith(HQ.lat, HQ.lon);
+    });
+
+    it('says no place is loaded when the place before was left half way for one whose streets then do not come', async () => {
+      coordinator.initializeFlow(delegate);
+      // A's streets are ended by the choice of B; B's streets do not come
+      let endA!: (error: Error) => void;
+      osm.loadStreets.mockImplementationOnce(() => new Promise((_, reject) => { endA = reject; }));
+      const A = coordinator.choosePlace({ kind: 'stored', hq: { ...HQ }, spawns: [{ ...SPAWN }] });
+      await settle();
+      osm.cancelLoads.mockImplementationOnce(() => endA(new OverpassError('The OSM download was cancelled', 'cancelled')));
+      osm.loadStreets.mockRejectedValueOnce(new OverpassError('The map servers for the streets are busy or out of reach.', 'busy'));
+      await Promise.all([A, coordinator.choosePlace({ kind: 'place', hq: { lat: HQ.lat + 0.1, lon: HQ.lon, name: 'B' }, spawn: null })]);
+
+      // Not "You stay where you are": A was reset half way, Play stays blocked, Retry or another place goes on
+      expect(uiStore.loadProblem()?.text).toBe(streetsFailedText('B', true));
+      expect(uiStore.loadProblem()?.text).toContain('no place is loaded now');
+      expect(engineInit.error()).toBe('The place did not load: another place was chosen.');
+      expect(uiStore.loadProblem()?.retry).toBeTypeOf('function');
+    });
+
+    it('a change already past its streets stops at its next step for a place chosen meanwhile, which then loads', async () => {
+      coordinator.initializeFlow(delegate);
+      // A waits for its first tiles (step 4) when B is chosen
+      let tilesOfA!: () => void;
+      engine.setOnFirstTilesLoadedCallback.mockImplementationOnce((cb: () => void) => { tilesOfA = cb; });
+      const A = coordinator.choosePlace({ kind: 'stored', hq: { ...HQ }, spawns: [{ ...SPAWN }] });
+      await vi.waitFor(() => expect(tilesOfA).toBeTypeOf('function'));
+      const B = { lat: HQ.lat + 0.1, lon: HQ.lon };
+      const toB = coordinator.choosePlace({ kind: 'stored', hq: { ...B }, spawns: [{ ...SPAWN }] });
+      tilesOfA();
+      await Promise.all([A, toB]);
+
+      expect(engine.setOrigin.mock.calls).toEqual([[HQ.lat, HQ.lon], [B.lat, B.lon]]);
+      // A placed no spawn and built no cells: it stopped after the tiles; B did both
+      expect(world.buildCells).toHaveBeenCalledTimes(1);
+      expect(callbacks.addSpawnPoint).toHaveBeenCalledTimes(1);
+      expect(uiStore.loadProblem()).toBeNull();
+      expect(engineInit.error()).toBeNull();
+      expect(locationMgmt.isApplyingLocation()).toBe(false);
+    });
+
+    it('a place whose streets fail while the change before still runs says no place is loaded: that change stops for it', async () => {
+      coordinator.initializeFlow(delegate);
+      let tilesOfA!: () => void;
+      engine.setOnFirstTilesLoadedCallback.mockImplementationOnce((cb: () => void) => { tilesOfA = cb; });
+      const A = coordinator.choosePlace({ kind: 'stored', hq: { ...HQ }, spawns: [{ ...SPAWN }] });
+      await vi.waitFor(() => expect(tilesOfA).toBeTypeOf('function'));
+      osm.loadStreets.mockRejectedValueOnce(new OverpassError('The map servers for the streets are busy or out of reach.', 'busy'));
+      await coordinator.choosePlace({ kind: 'place', hq: { lat: HQ.lat + 0.1, lon: HQ.lon, name: 'B' }, spawn: null });
+      expect(uiStore.loadProblem()?.text).toBe(streetsFailedText('B', true));
+      tilesOfA();
+      await A;
+      expect(callbacks.addSpawnPoint).not.toHaveBeenCalled();
+      expect(engineInit.error()).toBe('The place did not load: another place was chosen.');
+      expect(uiStore.loadProblem()?.text).toBe(streetsFailedText('B', true));
     });
 
     describe('on the street service and busy servers (scenario)', () => {

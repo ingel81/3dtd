@@ -57,10 +57,12 @@ export class EditorPageComponent implements OnInit {
   readonly problem = signal<string | null>(null);
 
   constructor() {
-    // The game's chip names the map open here, saved or not
+    // The game's chip names the map open here, saved or not. A reload opens it again under its id now: a
+    // shipped or coop map's first save with a change makes it an own copy with an id of its own
     effect(() => {
       const meta = this.session.meta();
       this.screens.draft.set(meta ? { mapId: meta.id, name: meta.name, unsaved: this.session.dirty() } : null);
+      if (meta) keepOpenMap(meta.id);
     });
   }
 

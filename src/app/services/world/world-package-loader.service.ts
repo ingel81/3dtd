@@ -9,7 +9,7 @@ import { GlobalRouteGridService } from './global-route-grid.service';
 import { MainWorldService } from './main-world.service';
 import { packagePaths, packageWorldRef, type WorldPackage } from '../../coop/world-package';
 import { WorldContext } from '../../world/world-context.service';
-import { worldLabel, worldsMatch } from '../../world/world-ref';
+import { worldNotHere } from '../../world/world-ref';
 import { coordKey } from '../../utils/geo-utils';
 import type { GeoPosition } from '../../models/game.types';
 
@@ -48,13 +48,7 @@ export class WorldPackageLoader {
    * of a refusal (docs/WORLD_PROVIDER_PLAN.md).
    */
   worldHere(world: Pick<WorldPackage, 'world' | 'origin'>): string | null {
-    const theirs = packageWorldRef(world, this.config.tileProvider());
-    const mine = this.worldContext.ref();
-    if (worldsMatch(theirs, mine)) return null;
-    if (theirs.kind === 'custom-map') {
-      return `It plays the map "${theirs.name ?? theirs.mapId}", which is not open here. Open that map first.`;
-    }
-    return `It plays on another world (${worldLabel(theirs)}), this page on ${worldLabel(mine)}. Open the same one first.`;
+    return worldNotHere(packageWorldRef(world, this.config.tileProvider()), this.worldContext.ref());
   }
 
   /**

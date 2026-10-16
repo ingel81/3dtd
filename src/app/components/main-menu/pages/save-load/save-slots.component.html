@@ -17,6 +17,14 @@
           <button class="td-btn-primary" type="button" (click)="loadSlot(c.slotId)">Load</button>
         </div>
       }
+      @case ('ends') {
+        <p class="td-text" id="td-slot-ask">Load "{{ c.title }}"? {{ c.text }}</p>
+        <p class="td-note">{{ c.note }}</p>
+        <div class="td-actions">
+          <button class="td-btn-secondary" type="button" (click)="cancelConfirm()">Cancel</button>
+          <button class="td-btn-primary" type="button" (click)="loadSlot(c.slotId)">End it and load</button>
+        </div>
+      }
       @case ('import') {
         <p class="td-text" id="td-slot-ask">Load a save from a file?</p>
         <p class="td-note">The run under way ends; save it first to keep it.</p>

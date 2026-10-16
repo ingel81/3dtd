@@ -16,6 +16,7 @@ import {
   LocationChangeCallbacks,
   LocationChangeContext,
   LocationChangeInput,
+  PlaceChangeSuperseded,
 } from './location-change-executor.service';
 import { GLOBE_LINK } from '../world/globe-link';
 import { canonicalCoords } from '../../utils/geo-utils';
@@ -33,9 +34,17 @@ export interface LocationFlowDelegate {
   getChangeCallbacks(): LocationChangeCallbacks;
 }
 
-/** What the player reads when the streets of the place they go to did not load; they stay where they are */
-export function streetsFailedText(place: string): string {
-  return `The streets of ${place} did not load: the map server is busy or out of reach. You stay where you are; try again in a minute.`;
+/**
+ * What the player reads when the streets of the place they go to did not
+ * load. They stay where they are, unless the place before was already left
+ * (`lost`: a change to it was stopped or failed half way, Play is blocked):
+ * then no place is loaded, and Retry or another place is the way on.
+ */
+export function streetsFailedText(place: string, lost = false): string {
+  const why = `The streets of ${place} did not load: the map server is busy or out of reach.`;
+  return lost
+    ? `${why} The place before was already left, so no place is loaded now. Try again in a minute, or pick another place.`
+    : `${why} You stay where you are; try again in a minute.`;
 }
 
 /**
@@ -227,7 +236,10 @@ export class LocationChangeCoordinatorService {
           console.error('[LocationCoordinator] The streets of the new place did not load:', err);
           callbacks.appendDebugLog(`Streets of ${target.name} failed: ${err instanceof Error ? err.message : 'unknown'}`);
           this.engineInit.setLoading(false);
-          this.uiStore.loadProblem.set({ text: streetsFailedText(target.name), retry: () => void this.moveTo(target, spawn) });
+          // A change before this one stopped half way (its error blocks Play), or is under way and stops at
+          // its next step for this choice: there is no place to stay at
+          const lost = this.engineInit.error() !== null || this.locationMgmt.isApplyingLocation();
+          this.uiStore.loadProblem.set({ text: streetsFailedText(target.name, lost), retry: () => void this.moveTo(target, spawn) });
           return;
         }
 
@@ -453,16 +465,19 @@ export class LocationChangeCoordinatorService {
 
     this.uiStore.loadProblem.set(null);
     this.engineInit.setError(null);
+    // A place chosen after this one (supersede) stops it at its next step
+    const run = this.placeRun;
     try {
-      await this.executor.executeLocationChange(input, ctx, callbacks);
+      await this.executor.executeLocationChange(input, ctx, callbacks, () => run === this.placeRun);
     } catch (err) {
       console.error('[Location] Failed to apply location:', err);
       callbacks.appendDebugLog(`Error: ${err instanceof Error ? err.message : 'Unknown'}`);
       this.locationMgmt.isApplyingLocation.set(false);
-      if (isOverpassCancelled(err)) {
-        // Its streets were ended: by the world going (nothing to tell, nothing to write into the next
-        // one) or by a place chosen instead, which loads now and owns the plate. The old place was
-        // reset half way, so Play stays blocked until the next one stands; the error waits behind the load
+      if (isOverpassCancelled(err) || err instanceof PlaceChangeSuperseded) {
+        // Its streets were ended, or it stopped between two steps: by the world going (nothing to tell,
+        // nothing to write into the next one) or by a place chosen instead, which loads now and owns the
+        // plate. The old place was reset half way, so Play stays blocked until the next one stands; the
+        // error waits behind the load
         if (this.worldContext.provider() !== null) {
           this.engineInit.setError('The place did not load: another place was chosen.');
           // Its own flags; `loading` is the next load's

@@ -8,6 +8,7 @@ import {
   worldRefShape,
   worldUrlValue,
   worldsMatch,
+  worldNotHere,
   type WorldRef,
 } from './world-ref';
 
@@ -18,6 +19,16 @@ const MAP: WorldRef = { kind: 'custom-map', mapId: 'bay', contentHash: 'abc', na
 const TILESET: WorldRef = { kind: 'tileset', id: 'kalasatama' };
 
 describe('WorldRef', () => {
+  it('says why a run cannot stand here: another world, another map, or its map changed since', () => {
+    expect(worldNotHere(MAP, { ...MAP })).toBeNull();
+    // A file of before the content hash fits any content of its map
+    expect(worldNotHere({ ...MAP, contentHash: '' }, { ...MAP, contentHash: 'new' })).toBeNull();
+    expect(worldNotHere(MAP, { ...MAP, contentHash: 'edited' }))
+      .toBe('The map "Bay" was changed since this run was played on it, so the run cannot go on there.');
+    expect(worldNotHere(MAP, { kind: 'custom-map', mapId: 'reef', contentHash: 'x' })).toBe('It plays the map "Bay", which is not open here. Open that map first.');
+    expect(worldNotHere(DEV, CESIUM)).toContain('It plays on another world');
+  });
+
   it('reads a custom map from the link and writes it back', () => {
     expect(worldRefFromSearch('?world=map:bay')).toEqual({ kind: 'custom-map', mapId: 'bay', contentHash: '' });
     expect(worldRefFromSearch('?world=map:')).toBeNull();

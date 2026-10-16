@@ -407,7 +407,8 @@ export class WorldsStageService {
     then();
   }
 
-  private async endRun(run: AutosaveRun): Promise<void> {
+  /** A run ends for good: held, it goes without being kept; its autosave goes */
+  async endRun(run: AutosaveRun): Promise<void> {
     const held = this.session.parked();
     if (held && held.world === run.world) await this.session.leaveParked(false);
     const slot = run.slotId || this.autosaveOf(run.world)?.slotId;
@@ -455,23 +456,39 @@ export class WorldsStageService {
       play: true,
       label: slot.map?.name ?? shortPlaceName(slot.location),
     });
-    // A save is a start in its world: the run there (held or in its autosave) ends after the question, as for Start
-    const item = this.continueOf(world);
-    const own = item?.kind === 'saved' && item.run?.slotId === slot.id;
-    if (!item || item.kind === 'back' || !item.run || own) {
+    const ask = this.loadAsk(slot);
+    if (!ask) {
       load();
       return null;
     }
-    const run = item.run;
     this.confirm.set({
-      text: `${item.line} waits in ${WORLD_NAMES[world]}.`,
-      note: 'Each world keeps one run. Loading this save ends it now.',
+      text: ask.text,
+      note: ask.note,
       answers: [
-        { label: 'End it and load', primary: true, run: () => void this.endThenGo(run, load) },
+        { label: 'End it and load', primary: true, run: () => void this.endThenGo(ask.run, load) },
         { label: 'Cancel', run: () => undefined },
       ],
     });
     return null;
+  }
+
+  /**
+   * What loading `slot` ends, asked first: a save is a start in its world,
+   * so that world's run (held, or in its autosave) ends with it, as for
+   * Start (docs/WORLDS_STATE_PLAN.md, 3.5). Null when there is none, or it is
+   * this very save (its Continue). The one rule for the Load page of the
+   * globes and of the game.
+   */
+  loadAsk(slot: Pick<SaveSlotInfo, 'id' | 'world'>): { text: string; note: string; run: AutosaveRun } | null {
+    const world: WorldId = slot.world ?? 'real';
+    const item = this.continueOf(world);
+    if (!item || item.kind === 'back' || !item.run) return null;
+    if (item.kind === 'saved' && item.run.slotId === slot.id) return null;
+    return {
+      text: `${item.line} waits in ${WORLD_NAMES[world]}.`,
+      note: 'Each world keeps one run. Loading this save ends it now.',
+      run: item.run,
+    };
   }
 
   /**

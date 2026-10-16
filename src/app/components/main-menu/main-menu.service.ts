@@ -27,6 +27,7 @@ import { worldOfPage } from '../../world/world-of-page';
 import { recordRecentMap } from '../../worlds/recent-maps';
 import { autosaveSlotOf, type WorldId, type WorldPick } from '../../worlds/world-rules';
 import { whyNot } from '../../world/why-not';
+import { BackgroundMusicService } from '../../game-engine/background-music.service';
 
 export { startMenuSkipped } from './start-menu-skipped';
 
@@ -236,8 +237,10 @@ export class MainMenuService {
     if (!slot) return;
     const ref = this.worldContext.ref();
     const name = ref.kind === 'custom-map' ? (slot.map?.name ?? slot.location) : shortPlaceName(slot.location);
+    // A map opens as it is then, edited or not: whether the run still fits it is the save's to say (worldNotHere)
+    const world = ref.kind === 'tiles' ? null : ref.kind === 'custom-map' ? { ...ref, contentHash: '' } : ref;
     this.screens.waitingRun.set({
-      order: { ...PLAIN_START, world: ref.kind === 'tiles' ? null : ref, resume: slotId, play: true, label: name },
+      order: { ...PLAIN_START, world, resume: slotId, play: true, label: name },
       label: `${name} | wave ${slot.wave}`,
       mapId: ref.kind === 'custom-map' ? ref.mapId : null,
     });
@@ -282,19 +285,27 @@ export class MainMenuService {
 
   constructor() {
     this.resumeFromLink();
-    // Held behind the globes: no frames drawn, the pause menu shut once the game shows again
+    // Held behind the globes: no frames drawn, no sound; both back and the pause menu shut once the game shows
+    // again. A held game that goes for good (closed, another world opened) stays dark and quiet until it is gone.
     let held = false;
+    let heldIn = 0;
     effect(() => {
       const parked = this.parked();
       if (parked === held) return;
       held = parked;
       untracked(() => {
-        const loop = this.engineInit.getEngine()?.renderLoop;
+        const engine = this.engineInit.getEngine();
         if (parked) {
-          loop?.stop();
+          heldIn = this.session.world();
+          engine?.renderLoop?.stop();
+          engine?.spatialAudio.setHeld(true);
+          BackgroundMusicService.holdMainTheme(true);
           return;
         }
-        loop?.start();
+        if (!this.session.isOpen() || this.session.world() !== heldIn) return;
+        engine?.renderLoop?.start();
+        engine?.spatialAudio.setHeld(false);
+        BackgroundMusicService.holdMainTheme(false);
         this.close();
       });
     });
@@ -456,11 +467,24 @@ export class MainMenuService {
    */
   async loadSlot(slotId: string): Promise<LoadResult> {
     const slot = this.saves.slots().find((s) => s.id === slotId);
+    // The run of the save's world ends first (asked before, loadAsk), as on the globes
+    const ends = slot ? this.stage.loadAsk(slot) : null;
+    if (ends) await this.stage.endRun(ends.run);
     if (slot && this.needsOtherWorld(slot)) {
       this.worlds.openSave(slot);
       return { ok: true, note: null };
     }
     return this.saves.load(slotId);
+  }
+
+  /**
+   * What loading `slotId` ends, for the Load page to ask first: the run of
+   * the save's world, held or in its autosave (WorldsStageService.loadAsk,
+   * the globes' rule). Null when nothing ends but the run under way here.
+   */
+  loadAsk(slotId: string): { text: string; note: string } | null {
+    const slot = this.saves.slots().find((s) => s.id === slotId);
+    return slot ? this.stage.loadAsk(slot) : null;
   }
 
   /** The save plays on another world than this page's */
@@ -475,9 +499,14 @@ export class MainMenuService {
     const slotId = this.start.takeResume();
     if (!slotId) return;
     void this.saves.load(slotId).then((result) => {
-      if (!result.ok) this.notice.set(result.reason);
-      else if (result.note) this.notice.set(`Loaded. ${result.note}`);
-      else this.requestPlay();
+      if (result.ok) {
+        if (result.note) this.notice.set(`Loaded. ${result.note}`);
+        else this.requestPlay();
+        return;
+      }
+      // No run came of it: the start list instead of a loading that waits for nothing, its Play a fresh run
+      this.starting.set(false);
+      this.notice.set(`${result.reason} Play starts a fresh run here.`);
     });
   }
 

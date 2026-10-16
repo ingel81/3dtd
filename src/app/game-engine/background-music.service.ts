@@ -131,6 +131,19 @@ export class BackgroundMusicService {
   /** The gesture listener retryOnGesture left, null when none waits */
   private static pendingRetry: (() => void) | null = null;
 
+  /**
+   * The game held behind the globes (WorldSession.park): the main theme, if
+   * it still plays (a world left while it loads), pauses and goes on where it
+   * was with `held` false. It plays outside the Web Audio graph, so the
+   * listener's silence (SpatialAudioManager.setHeld) does not reach it.
+   */
+  static holdMainTheme(held: boolean): void {
+    const audio = BackgroundMusicService.mainThemeAudio;
+    if (!audio) return;
+    if (held) audio.pause();
+    else audio.play().catch(() => BackgroundMusicService.retryOnGesture(audio));
+  }
+
   /** Stop the main theme immediately */
   private static stopMainTheme(): void {
     const audio = BackgroundMusicService.mainThemeAudio;

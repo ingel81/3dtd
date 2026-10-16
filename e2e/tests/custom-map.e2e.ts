@@ -192,13 +192,25 @@ test('coop on an own map: a guest without it gets the map over the relay, both p
   const relay = await startRelay();
   try {
     const host = await openPage(browser, errors, 'Ann');
-    // An own copy of the demo valley: the guest has the shipped one, not this
+    // An own copy of the demo valley: the guest has the shipped one, not this. The shipped map opens as it
+    // is; its first save with a change makes the copy (docs/WORLDS_STATE_PLAN.md, decision 8), which the
+    // editor then holds open in this tab (sessionStorage, the address stays /editor)
+    await host.addInitScript(() => localStorage.setItem('3dtd-editor-tour', 'done'));
     await host.goto('/editor');
     await host.locator(`[data-map="${MAP}"]`).first().click();
     await host.locator('[data-test=open-map]').click();
-    // The address names the shipped map first, then the copy that opened in its place
-    await host.waitForURL((url) => !!url.searchParams.get('map') && url.searchParams.get('map') !== MAP);
-    const copy = new URL(host.url()).searchParams.get('map')!;
+    await expect(host.locator('[data-test=map-name]')).toHaveText(/Demo/);
+    const objects = await host.locator('[data-test=objects]').textContent();
+    const box = (await host.locator('[data-test=viewport]').boundingBox())!;
+    await host.waitForTimeout(800);
+    await host.keyboard.press('5');
+    await host.locator('[data-asset="tree-oak"]').click();
+    await host.mouse.click(box.x + box.width / 2 - 140, box.y + box.height / 2 + 90);
+    await expect(host.locator('[data-test=objects]')).not.toHaveText(objects!);
+    await host.keyboard.press('Control+s');
+    await expect(host.locator('[data-test=save-state]')).toHaveText('Saved');
+    const copy = await host.evaluate(() => sessionStorage.getItem('3dtd-editor-map'));
+    expect(copy).toBeTruthy();
     expect(copy).not.toBe(MAP);
 
     await host.goto(`/?world=map:${copy}${relayQuery()}`);

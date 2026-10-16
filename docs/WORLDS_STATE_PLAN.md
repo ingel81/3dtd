@@ -255,7 +255,9 @@ Entschieden (User, 2026-10-16): alle zwölf Empfehlungen unten übernommen.
   die Globen lesen sofort neu.
 - **Loswerden:** Discard an der ersten Zeile jedes Weltmenüs (`app-stage-continue`), Delete für Autosaves auf der
   Load-Seite, Game over löscht den Autosave des Laufs (`SaveGameService.dropContinue`), Start oder Load an anderer
-  Stelle der Welt fragt und beendet den alten Lauf sofort.
+  Stelle der Welt fragt und beendet den alten Lauf sofort. Load game im Spiel fragt nach derselben Regel wie auf den
+  Globen (`WorldsStageService.loadAsk`, „End it and load“ auf der Load-Seite), auch für einen Slot einer anderen Welt;
+  Laden aus einer Datei fragt nur nach dem Lauf hier (die Welt der Datei steht erst nach dem Lesen fest).
 - **Recent:** Real places nur gespielte Orte (`recentCandidate` wartet auf Welle oder Turm), Entfernen je Zeile;
   OpenStreetMap „Recent worlds“ = Karten mit `generated`, höchstens 10, ältere in den Papierkorb (`overflowWorlds`,
   `WorldChoiceService.trashMap`); Built Worlds mit Recent (5, `td_recent_maps_v1`, aufgezeichnet von
@@ -267,7 +269,19 @@ Entschieden (User, 2026-10-16): alle zwölf Empfehlungen unten übernommen.
   (`WorldSession.park`, `ParkedWorld`): Spiel verborgen, Bildschleife gestoppt, Pausemenü offen (Pause und Tasten),
   keine Rückfrage beim Verlassen. Continue „ready“ oder „Back to <Ort>“ zeigt es sofort; ein anderer Start, der
   Editor oder ein Coop-Beitritt lässt es gehen (`leaveParked`, Autosave zwischen den Wellen vorher). Das Probespiel
-  wird nie gehalten. Ton läuft beim Halten weiter (nicht angehalten).
+  wird nie gehalten. Der Ton schweigt beim Halten: der Listener der Welt blendet auf 0
+  (`SpatialAudioManager.setHeld`; Einzeltöne, Schleifen, Musik, Klangkulisse der Karte laufen alle über ihn), ein noch
+  spielendes Hauptthema pausiert (`BackgroundMusicService.holdMainTheme`). Back to stellt beides wieder her; geht die
+  gehaltene Welt (`close`, eine andere öffnet), bleibt sie stumm, bis sie abgebaut ist.
+- **Spielstand nach Kartenänderung (Frage 7, geprüft):** ein Spielstand trägt die Welt mit dem Inhalts-Hash seiner
+  Karte und deren Routen, Zellen und Höhen (Weltpaket). Nach einer Änderung im Editor (eigene Karte, bearbeitete
+  OSM-Erzeugung; dieselbe Id, neuer Hash) passen Routen und Höhen nicht mehr zum Boden; geladen wäre der Lauf kaputt
+  (Gegner durch neue Wände, Türme in neuen Hindernissen). Darum lädt er nicht: `worldNotHere` sagt „The map … was
+  changed since this run was played on it, so the run cannot go on there.“ (vorher „Open that map first“, obwohl sie
+  offen war). Die Karte öffnet wie sie jetzt ist (auch „Back to the run“, dessen Auftrag keinen Hash mehr trägt;
+  vorher scheiterte schon das Öffnen), die Startliste zeigt den Grund mit „Play starts a fresh run here.“ und Play;
+  vorher stand „Loading …“ ohne Ende. Der Spielstand bleibt (Discard, oder der nächste Autosave der Welt ersetzt
+  ihn). Eine mitgelieferte Karte wird beim Bearbeiten zur Kopie mit eigener Id; ihr Lauf lädt weiter auf dem Original.
 - **Chips:** eine Quelle `WorldsStageService.pathChips` für Globen, Spiel und Editor; aus dem Spiel sichert ein Chip
   den Lauf vorher (`MainMenuService.goElsewhere`).
 - **Alte Menüs:** Startliste ohne Reiter, New game nur Ortswahl der Welt (ohne Recent), auf einer Karte der Weg zu

@@ -5,7 +5,13 @@ import { defineConfig } from '@playwright/test';
  * (npm start); each test starts and stops its own coop relay. One test at a
  * time: they share the relay port and the GPU. Headed: the photorealistic
  * tiles need a real GPU context. SLOWMO=300 slows every action to watch.
+ * HEADLESS=1 runs without windows (beside someone working on the screen),
+ * on the real GPU through ANGLE on Direct3D 11 (Windows), in the full
+ * Chromium's headless mode: the headless shell draws with SwiftShader,
+ * under which a custom map plays too slowly for the tests' time limits.
  */
+const headless = process.env.HEADLESS === '1';
+
 export default defineConfig({
   testDir: './tests',
   testMatch: '**/*.e2e.ts',
@@ -21,12 +27,16 @@ export default defineConfig({
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: process.env.GAME_URL ?? 'http://localhost:4200',
-    headless: false,
+    headless,
+    ...(headless ? { channel: 'chromium' } : {}),
     // A click on something covered fails in half a minute, not at the test's end
     actionTimeout: 30_000,
     viewport: { width: 1600, height: 900 },
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
-    launchOptions: { slowMo: Number(process.env.SLOWMO ?? 0) },
+    launchOptions: {
+      slowMo: Number(process.env.SLOWMO ?? 0),
+      ...(headless ? { args: ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'] } : {}),
+    },
   },
 });

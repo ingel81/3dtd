@@ -294,6 +294,18 @@ describe('BackgroundMusicService.playMainTheme', () => {
     window.dispatchEvent(new Event('keydown'));
     expect(audio.play).toHaveBeenCalledTimes(2);
   });
+
+  it('a game held behind the globes pauses the main theme, shown again it goes on', () => {
+    BACKGROUND_MUSIC.main[0] = { id: 'main', url: 'main.mp3' };
+    BackgroundMusicService.playMainTheme();
+    const audio = FakeHtmlAudio.instances[0];
+
+    BackgroundMusicService.holdMainTheme(true);
+    expect(audio.paused).toBe(true);
+    BackgroundMusicService.holdMainTheme(false);
+    expect(audio.paused).toBe(false);
+    expect(audio.play).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('BackgroundMusicService', () => {

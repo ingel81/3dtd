@@ -10,6 +10,8 @@ import { MainMenuService } from '../../main-menu.service';
 export type SlotConfirm =
   | { kind: 'overwrite'; slotId: string; title: string }
   | { kind: 'load'; slotId: string; title: string }
+  /** The load ends the run of the save's world (MainMenuService.loadAsk): `text` names it, `note` says so */
+  | { kind: 'ends'; slotId: string; title: string; text: string; note: string }
   | { kind: 'import' }
   | { kind: 'delete'; slotId: string; title: string };
 
@@ -76,9 +78,14 @@ export class SaveSlotsComponent {
     });
   }
 
-  /** Load a slot; a run under way is asked about first */
+  /** Load a slot; the run of its world, or else a run under way, is asked about first */
   askLoad(slotId: string, title: string): void {
     if (!this.canLoad()) return;
+    const ends = this.menu?.loadAsk(slotId) ?? null;
+    if (ends) {
+      this.ask({ kind: 'ends', slotId, title, ...ends });
+      return;
+    }
     if (this.underWay()) {
       this.ask({ kind: 'load', slotId, title });
       return;

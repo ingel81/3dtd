@@ -241,9 +241,10 @@
 
         <!-- Coop, bottom left: the squad and the chat; empty outside a coop game -->
         <app-coop-squad />
-        <!-- Coop: the room dock right of the ability bar (Tab or the header chip) -->
+        <!-- Coop: the room dock right of the ability bar (Tab or the header chip). On immediate: the default
+             trigger (on idle) waited for an idle main thread, which a busy game may not give for long -->
         @if (uiStore.coopDockOpen() && (coop.room() || coop.intent() === 'join' || coop.error())) {
-          @defer {
+          @defer (on immediate) {
             <app-coop-dock />
           }
         }
