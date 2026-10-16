@@ -43,6 +43,10 @@ const STEPS: readonly { step: OsmStep | 'save'; text: string }[] = [
 
 type Phase = 'loading' | 'ready' | 'failed' | 'making' | 'made';
 
+/** Seconds of the first answer after which the frame says it is still waiting, and offers to ask again */
+const SLOW_S = 8;
+const RETRY_NOW_S = 15;
+
 /**
  * The frame of an OSM world (docs/OSM_WORLD_PLAN.md, O2): a flat map of the
  * place with the map's 2.4 km square, the HQ on the place and the spawns,
@@ -93,11 +97,28 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
   readonly mapProblem = signal<string | null>(null);
   readonly made = signal<{ summary: MapSummary; report: OsmImportReport } | null>(null);
 
+  /** The clock while loading (twice a second): the wait before the next round, the time spent waiting */
+  readonly now = signal(Date.now());
+  /** When the load began, when the servers are asked again (a retry's wait over) */
+  private loadStart = 0;
+  private retryAt = 0;
+  private ticker: ReturnType<typeof setInterval> | null = null;
+  /** The load under way; an older one that ends late (Try again now) changes nothing */
+  private loadGen = 0;
+
+  /** Seconds the load has waited so far */
+  readonly waited = computed(() => Math.max(0, Math.floor((this.now() - this.loadStart) / 1000)));
+
   readonly loadingText = computed(() => {
     const retry = this.retry();
-    if (retry) return overpassRetryText(retry);
-    return this.step() === 'stored' ? 'Opening the streets kept from last time' : 'Downloading the streets and heights of this place';
+    if (retry) return overpassRetryText(retry, (this.retryAt - this.now()) / 1000);
+    if (this.step() === 'stored') return 'Opening the streets kept from last time';
+    // The first answer can take long (a busy server keeps the request open): the player sees it is still waiting
+    if (this.waited() >= SLOW_S) return `Still waiting for the map server (${this.waited()} s)`;
+    return 'Downloading the streets and heights of this place';
   });
+  /** Ask again at once: offered while the servers are asked again, or when the first answer is slow */
+  readonly canRetryNow = computed(() => !!this.retry() || (this.step() !== 'stored' && this.waited() >= RETRY_NOW_S));
   readonly makingStep = computed(() => {
     const k = Math.max(0, STEPS.findIndex((s) => s.step === this.step()));
     return { text: STEPS[k].text, index: k + 1, of: STEPS.length };
@@ -126,6 +147,7 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.destroyed = true;
+    this.stopTicker();
     this.loading?.abort();
     this.making?.abort();
     this.session.dispose();
@@ -134,11 +156,16 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
 
   /** Loads the place's data (frame store or download) and lays out its spawns */
   async load(): Promise<void> {
+    const gen = ++this.loadGen;
     this.phase.set('loading');
     this.error.set(null);
     this.step.set(null);
     this.retry.set(null);
     this.loading = new AbortController();
+    this.loadStart = Date.now();
+    this.now.set(this.loadStart);
+    this.stopTicker();
+    this.ticker = setInterval(() => this.now.set(Date.now()), 500);
     const place = this.place();
     try {
       const frame = await this.session.open(
@@ -147,9 +174,13 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
         [...this.spawnsAt()],
         (step) => this.step.set(step),
         this.loading.signal,
-        (retry) => this.retry.set(retry),
+        (retry) => {
+          if (gen !== this.loadGen) return;
+          this.retryAt = Date.now() + retry.waitMs;
+          this.retry.set(retry);
+        },
       );
-      if (this.destroyed) return;
+      if (this.destroyed || gen !== this.loadGen) return;
       this.frame.set(frame);
       this.spawns.set(frame.spawns);
       this.phase.set('ready');
@@ -158,17 +189,31 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
       // The map's box exists once the phase is ready
       setTimeout(() => void this.showMap());
     } catch (e) {
-      if (this.destroyed) return;
+      if (this.destroyed || gen !== this.loadGen) return;
       this.phase.set('failed');
       this.error.set((e as Error).message === OSM_CANCELLED ? 'Cancelled.' : (e as Error).message);
     } finally {
-      this.loading = null;
-      this.retry.set(null);
+      if (gen === this.loadGen) {
+        this.loading = null;
+        this.retry.set(null);
+        this.stopTicker();
+      }
     }
   }
 
   cancelLoad(): void {
     this.loading?.abort();
+  }
+
+  /** Drops the load under way and asks the servers anew, without the wait */
+  retryNow(): void {
+    this.loading?.abort();
+    void this.load();
+  }
+
+  private stopTicker(): void {
+    if (this.ticker) clearInterval(this.ticker);
+    this.ticker = null;
   }
 
   /** The flat map, MapLibre loaded on first use */

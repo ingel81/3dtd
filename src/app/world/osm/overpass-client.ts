@@ -194,9 +194,24 @@ export interface OverpassRetry {
   kind: OverpassFailureKind;
 }
 
-/** What the player reads while a load asks again */
-export function overpassRetryText(retry: OverpassRetry): string {
-  return `The map server is busy, trying again (${retry.attempt} of ${retry.of})`;
+/** Why a round failed, as the player reads it */
+const RETRY_REASON: Partial<Record<OverpassFailureKind, string>> = {
+  busy: 'The map server is busy',
+  network: 'The map server cannot be reached',
+  timeout: 'The map server did not answer in time',
+  server: 'The map server answered with an error',
+  malformed: 'The map server sent a broken answer',
+};
+
+/**
+ * What the player reads while a load asks again: why, and with `secondsLeft` the wait before the next round
+ * (0 or less: the round is under way)
+ */
+export function overpassRetryText(retry: OverpassRetry, secondsLeft?: number): string {
+  const why = RETRY_REASON[retry.kind] ?? RETRY_REASON.busy!;
+  const round = `(${retry.attempt} of ${retry.of})`;
+  if (secondsLeft === undefined) return `${why}, trying again ${round}`;
+  return secondsLeft > 0 ? `${why}, trying again in ${Math.ceil(secondsLeft)} s ${round}` : `${why}, asking again ${round}`;
 }
 
 export interface OverpassRequest<T> {

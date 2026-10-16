@@ -14,6 +14,9 @@
     <p class="td-text"><span class="td-spin" aria-hidden="true"></span> {{ loadingText() }}…</p>
     <p class="td-note">A city centre takes up to half a minute; the second time it comes from this device.</p>
     <div class="td-actions is-start">
+      @if (canRetryNow()) {
+        <button type="button" class="td-btn-secondary td-btn-sm" (click)="retryNow()" data-test="osm-retry-now">Try again now</button>
+      }
       <button type="button" class="td-btn-secondary td-btn-sm" (click)="cancelLoad()">Cancel</button>
     </div>
   </div>
