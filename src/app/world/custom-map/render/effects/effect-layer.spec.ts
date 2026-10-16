@@ -281,6 +281,8 @@ describe('EffectLayer', () => {
     const at = beams.geometry.getAttribute('aBeam');
     expect([at.getY(0), at.getW(0)]).toEqual([4 + 20, 70]);
     expect(beams.geometry.getAttribute('aTurn').getX(0)).toBe(10);
+    // The light's height over its foot: the cone's lower side fades out before it sinks under the land or water
+    expect(beams.geometry.getAttribute('aTurn').getZ(0)).toBe(20);
     layer.setDarkness(0);
     expect(beams.visible).toBe(false);
     layer.setDarkness(1);
