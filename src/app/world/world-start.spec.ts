@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { Injector } from '@angular/core';
 import { UrlLocationService } from '../services/location/url-location.service';
 import { DevWorldService } from '../devworld/devworld.service';
-import { PLAIN_START, WorldStartService, addressWithoutLink, worldStartFromSearch } from './world-start';
+import { PLAIN_START, WorldStartService, addressWithoutLink, orderHere, worldStartFromSearch } from './world-start';
 
 /**
  * The start order (docs/WORLDS_NAVIGATION_PLAN.md, phase 1): a link is read
@@ -29,7 +29,22 @@ describe('WorldStart', () => {
       room: { code: 'ABC123', lane: 's2' },
       spawnLimit: 2,
       startWave: 5,
+      benchmark: null,
     });
+  });
+
+  it("reads a benchmark link's flag once: the load benchmark in DevWorld, the graphics one anywhere", () => {
+    expect(worldStartFromSearch('?devworld&bot=manual&benchmark', place, true).benchmark).toEqual({ kind: 'load', back: null });
+    expect(worldStartFromSearch('?world=map:demo&benchmark=render', place, true).benchmark).toEqual({ kind: 'render', back: null });
+    expect(worldStartFromSearch('?benchmark', place, true).benchmark).toBeNull();
+    expect(addressWithoutLink('http://h/?devworld=&bot=manual&benchmark=')).toBe('http://h/?devworld=&bot=manual');
+  });
+
+  it('makes the order of the world open now at its place: the tiles are the null world', () => {
+    const hq = { lat: 48.7758, lon: 9.1829 };
+    expect(orderHere({ kind: 'tiles', source: 'cesium' }, hq, [])).toEqual({ ...PLAIN_START, place: { hq, spawns: [] } });
+    const map = { kind: 'custom-map', mapId: 'demo', contentHash: 'h' } as const;
+    expect(orderHere(map, null, [])).toEqual({ ...PLAIN_START, world: map });
   });
 
   it('is the plain start without a link, and the real places for a map link before the maps are open', () => {

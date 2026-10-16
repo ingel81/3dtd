@@ -79,22 +79,6 @@ export class UrlLocationService {
   }
 
   /**
-   * This page's address with a place and its world put back in: the start
-   * took them out of it (WorldStartService), a page loaded on it opens the
-   * same world there. The switches of development stay as they are.
-   */
-  hereUrl(hq: { lat: number; lon: number } | null, spawns: readonly SavedSpawn[], world: WorldRef): string {
-    const url = new URL(window.location.href);
-    if (hq) {
-      url.searchParams.set('l', coordKey(hq));
-      if (spawns.length > 0) url.searchParams.set('s', spawns.map((s) => this.formatSpawn(s)).join(';'));
-    }
-    const worldValue = worldUrlValue(world);
-    if (worldValue) url.searchParams.set(WORLD_URL_PARAM, worldValue);
-    return url.toString();
-  }
-
-  /**
    * A place as a link for someone else: this page there, or from the
    * desktop build the same place on the web version (shareableUrl).
    */

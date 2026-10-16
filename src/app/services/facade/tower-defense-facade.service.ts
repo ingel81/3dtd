@@ -39,7 +39,6 @@ import { researchSnapshotOf, type ResearchSnapshot } from '../../managers/resear
 import { watchResearchOf } from '../../sim/client/mirror/mirror-research';
 import { Vector3 } from 'three';
 import { StreetNetwork } from '../location/osm-street.service';
-import { isBenchmarkSearch } from '../../benchmark/benchmark-report';
 
 // Sub-facades
 import { GameLoopFacadeService } from './game-loop-facade.service';
@@ -264,7 +263,7 @@ export class TowerDefenseFacadeService {
       this.store.directorEnabled.set(true);
       this.botClient.botCoop.set(true);
       this.botClient.enableBot('expert');
-    } else if (botWorld && isBenchmarkSearch(pageQuery())) {
+    } else if (botWorld && this.start.current().benchmark?.kind === 'load') {
       // The in-game benchmark (TODO E74): no bot, no bot server
     } else if (botWorld) {
       this.store.directorEnabled.set(true);

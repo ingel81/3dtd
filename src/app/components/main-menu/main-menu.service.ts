@@ -77,8 +77,8 @@ export class MainMenuService {
   /** The pages walked to the one showing, oldest first; Back pops it */
   private readonly history = signal<readonly MenuPage[]>([]);
 
-  /** Automated runs play without the start menu (startMenuSkipped) */
-  readonly automated = startMenuSkipped(pageQuery());
+  /** Automated runs play without the start menu (startMenuSkipped), so does a benchmark the menu started */
+  readonly automated = startMenuSkipped(pageQuery()) || this.start.current().benchmark !== null;
 
   /** The start order named the place (a link's ?l=): Play comes before Continue */
   readonly linkedPlace = this.start.current().place !== null;
