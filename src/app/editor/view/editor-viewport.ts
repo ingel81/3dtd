@@ -27,6 +27,7 @@ import type { MapIntro, MapIntroView, MapObject, MapPoint } from '../../world/cu
 import { emptyPose, introPoseAt } from '../../world/custom-map/map-intro';
 import { type BridgeDeck, bridgeDecks, deckHeightAt } from '../../world/custom-map/bridge-decks';
 import { HeightField } from '../../world/custom-map/render/height-field';
+import { waterLevelAt } from '../../world/custom-map/water-level';
 import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
 import type { CatalogIndex } from '../catalog/asset-catalog';
 import { mergeChanges, selectedEdges, selectedNodes, selectedSpawns, type DocChange, type EditorDocument } from '../model/editor-document';
@@ -222,6 +223,12 @@ export class EditorViewport {
     return gridHeight(this.editor.doc.terrain, x, y);
   }
 
+  /** The water's surface where water lies, else the ground: what the camera keeps above (CustomMapSurface.surfaceAtMap) */
+  private surfaceAt(x: number, y: number): number {
+    const ground = this.heightAt(x, y);
+    return waterLevelAt(this.editor.doc.terrain, x, y, ground) ?? ground;
+  }
+
   /**
    * Where an enemy walks at a map point: on a bridge deck where one spans
    * it, else on the ground. Routes and the trial wave go over a bridge, not
@@ -322,8 +329,8 @@ export class EditorViewport {
       return false;
     }
     const pose = introPoseAt(p.intro, p.hq, p.t, this.introPose);
-    // As the game keeps it (CustomMapWorld.introShot): never under the ground
-    const floor = this.heightAt(pose.x, pose.y) + 3;
+    // As the game keeps it (CustomMapWorld.introShot): never under the ground or the water
+    const floor = this.surfaceAt(pose.x, pose.y) + 3;
     this.camera.position.set(-pose.x, Math.max(floor, pose.h), pose.y);
     this.camera.up.set(0, 1, 0);
     this.camera.lookAt(-pose.lookX, pose.lookH, pose.lookY);
@@ -1112,7 +1119,8 @@ export class EditorViewport {
     const g = this.controller.goal.target;
     g.x = Math.max(-t.width / 2, Math.min(t.width / 2, g.x));
     g.z = Math.max(-t.depth / 2, Math.min(t.depth / 2, g.z));
-    this.controller.setGroundHeight(this.heightAt(-g.x, g.z));
+    // On the water's surface over a lake or the sea, so a close view stays above it, not under it on the bed
+    this.controller.setGroundHeight(this.surfaceAt(-g.x, g.z));
     if (this.controller.update(dt)) this.callbacks.camera();
     if (!this.playIntroPreview(dt)) this.controller.apply(this.camera);
     // The map's haze starts behind what the camera looks at: from afar the whole map stays readable

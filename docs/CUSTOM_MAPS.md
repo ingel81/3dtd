@@ -267,8 +267,11 @@ Lava spiegeln sich).
   Bildgröße, jedes zweite Bild; Ultra 50 %, jedes Bild), die nahe Ebene schräg in die Wasserebene gelegt (oblique
   Projektion, nichts unter Wasser spiegelt sich), höchstens 400 m weit; der Himmel bleibt (auf der fernen Ebene). Nur
   die Karte: Gruppe, Sichtblocker, Himmel und Lichter; Türme, Gegner und Overlays des Spiels nicht, innerhalb der
-  Karte ohne Wasser, Gras, Bodendecals, Partikel und Objekte, die keine Sicht blockieren (Streu, Requisiten, kleine
-  Pflanzen). Das Wasser liest es über seine projizierte Lage, von den Wellen verschoben; ruhiges Wasser zeigt es auch
+  Karte ohne Wasser, Gras, Bodendecals, Partikel, Hitzeflimmern und Objekte, die keine Sicht blockieren (Streu,
+  Requisiten, kleine Pflanzen). Im Spiegel-Durchgang wird keine Kopie des Bildes für die Brechung genommen
+  (`SceneCopy.without`): sonst nahm ein dort gezeichnetes Flimmern die Kopie vom Spiegelziel, und die Brechung las
+  das Spiegelbild in dessen Größe, an Breite und Höhe des Spiegels gerade abgeschnitten (rechteckige Flecken im
+  Wasser). Das Wasser liest es über seine projizierte Lage, von den Wellen verschoben; ruhiges Wasser zeigt es auch
   von oben (Anteil mindestens 30 %, Meer 16 %, in rauen Flecken weniger), statt des Himmels und des Landes darin. Das
   Spiegelbild rendert im Zeichnen des ersten Wasserkachels (`onBeforeRender`), so zählt es in die GPU-Zeit des Bildes.
   Kosten (RTX 5080, Dev-Build, Canvas 1100 × 752 High und Ultra, mittlere GPU-Zeit je Bild, Minimum aus zwei Läufen,

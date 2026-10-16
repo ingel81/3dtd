@@ -749,7 +749,9 @@ Karte zeichnet derselbe Renderer wie im Spiel (`CustomMapView`, [CUSTOM_MAPS.md]
 übersetzt Raster- und Texel-Rechtecke in Meter, sammelt geänderte Objekte (neue oder entfernte bauen die Batches einmal
 neu) und wählt Objekte per Strahl auf ihr Modell. Eine neue Schichtliste oder ein neues Gelände baut die Ansicht neu.
 Szene-Rahmen wie im Spiel: Szene x = minus Karte Ost,
-Szene z = Karte Nord, y oben.
+Szene z = Karte Nord, y oben. Der Drehpunkt der Kamera liegt auf dem Boden, über einem See oder dem Meer auf dessen
+Spiegel (`surfaceAt`, wie `CustomMapSurface.surfaceAtMap` im Spiel): eine nahe Ansicht bleibt über dem Wasser, nicht
+darunter auf dem Grund.
 
 **Leistung.** Ein Pinselschritt bleibt unter 2 ms auf Karten mit 256, 512 und 1024 Samples je Seite
 (`editor-brushes.perf.spec.ts`, Budgets in `npm run test:perf`): Biom-Pinsel merken sich je Strich das Rauschen jedes
