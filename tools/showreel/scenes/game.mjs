@@ -91,7 +91,7 @@ export const SCENES = [
       {
         do: 'par',
         steps: [
-          { do: 'follow', at: { at: 'enemy:herbert' }, dur: 300, back: 18, side: 9, h: 9, ahead: 8, label: 'boss' },
+          { do: 'seq', steps: [act('healthBars', { on: false }), { do: 'follow', at: { at: 'enemy:herbert' }, dur: 300, back: 18, side: 9, h: 9, ahead: 8, label: 'boss' }] },
           {
             do: 'seq',
             steps: [
@@ -105,6 +105,7 @@ export const SCENES = [
       },
       // The follow ends as the boss falls: the climax; what is left of the wave goes at speed (cut)
       { do: 'mark', name: 'boss down' },
+      act('healthBars', { on: true }),
       wait(1.5),
       act('speed', { value: 3 }),
       act('waveDone', { timeout: 120 }),
