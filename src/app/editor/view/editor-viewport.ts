@@ -211,7 +211,12 @@ export class EditorViewport {
       }),
     );
     this.bindInput();
-    this.resizeObserver = new ResizeObserver(() => this.resize());
+    // setSize clears the drawing buffer and the next frame is drawn only after this paint: drawn again at once,
+    // a panel shown or hidden does not flash a black view
+    this.resizeObserver = new ResizeObserver(() => {
+      this.resize();
+      if (this.shownView === this.view) this.renderer.render(this.scene, this.camera);
+    });
     this.resizeObserver.observe(canvas.parentElement ?? canvas);
     this.resize();
     this.frameMap(true);
