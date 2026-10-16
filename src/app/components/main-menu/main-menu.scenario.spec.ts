@@ -33,7 +33,7 @@ import { COOP } from '../../services/coop.token';
 import { AUTOSAVE_BUILT_SLOT, AUTOSAVE_SLOT, SAVE_GAME, type LoadResult, type SaveSlotInfo } from '../../services/save-game/save-game.port';
 import { CUSTOM_MAPS_OPEN } from '../../world/custom-maps-open';
 import { AppScreen } from '../../world/app-screen.service';
-import { PLAIN_START } from '../../world/world-start';
+import { PLAIN_START, WorldStartService, type WorldStart } from '../../world/world-start';
 import { WorldChoiceService } from '../../world/world-choice.service';
 import { WorldSession, type ParkedWorld } from '../../world/world-session.service';
 import { WorldsStageService } from '../../worlds/worlds-stage.service';
@@ -174,7 +174,7 @@ describe('The main menu', () => {
     TestBed.resetTestingModule();
   });
 
-  async function setup(layer: 'start' | 'pause' = 'start') {
+  async function setup(layer: 'start' | 'pause' = 'start', order: WorldStart | null = null) {
     TestBed.configureTestingModule({
       providers: [
         MainMenuService,
@@ -208,6 +208,7 @@ describe('The main menu', () => {
     TestBed.overrideComponent(MenuLoadingComponent, {
       set: { template: read('loading/menu-loading.component.html'), templateUrl: undefined, styleUrl: undefined, styles: [] },
     });
+    if (order) TestBed.inject(WorldStartService).set(order);
     menu = TestBed.inject(MainMenuService);
     ui = TestBed.inject(UIStore);
     game = TestBed.inject(GameStore);
@@ -737,6 +738,26 @@ describe('The main menu', () => {
     });
   });
 
+  describe('a save the world opened to load (Continue, Load game, Back to the run)', () => {
+    it('that did not load: the start list with Play for a fresh run and the reason, not a loading that waits for nothing', async () => {
+      mapsOpen = true;
+      world.useCustomMap('bay', 'Bay', 'edited');
+      locationMgmt.hq.set(HEILBRONN);
+      engineInit.loading.set(false);
+      const reason = 'That save cannot load here. The map "Bay" was changed since this run was played on it, so the run cannot go on there.';
+      saves.load.mockResolvedValueOnce({ ok: false, reason });
+      await setup('start', { ...PLAIN_START, world: { kind: 'custom-map', mapId: 'bay', contentHash: '' }, resume: AUTOSAVE_BUILT_SLOT, play: true, label: 'Bay' });
+      await vi.waitFor(() => expect(menu.notice()).not.toBeNull());
+      await settle();
+      expect(saves.load).toHaveBeenCalledWith(AUTOSAVE_BUILT_SLOT);
+      expect(menu.starting()).toBe(false);
+      expect(text()).not.toContain('Loading Bay');
+      expect(text()).toContain(`${reason} Play starts a fresh run here.`);
+      expect(entries()).toContain('Play');
+      expect(ui.mainMenuOpen()).toBe(true);
+    });
+  });
+
   describe('the pause layer', () => {
     beforeEach(() => {
       locationMgmt.hq.set(HEILBRONN);
@@ -851,7 +872,8 @@ describe('The main menu', () => {
 
     it('between waves Edit this map keeps the run as autosave, and Back to the run names it (E195 phase 4)', async () => {
       mapsOpen = true;
-      world.useCustomMap('ember-crater-copy', 'Ember Crater (copy)');
+      // Back to the run opens the map as it is then (no content hash): an edit since is the save's to refuse
+      world.useCustomMap('ember-crater-copy', 'Ember Crater (copy)', 'v1');
       await setup('pause');
       game.towerCount.set(1);
       game.waveNumber.set(3);

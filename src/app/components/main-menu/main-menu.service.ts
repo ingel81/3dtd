@@ -237,8 +237,10 @@ export class MainMenuService {
     if (!slot) return;
     const ref = this.worldContext.ref();
     const name = ref.kind === 'custom-map' ? (slot.map?.name ?? slot.location) : shortPlaceName(slot.location);
+    // A map opens as it is then, edited or not: whether the run still fits it is the save's to say (worldNotHere)
+    const world = ref.kind === 'tiles' ? null : ref.kind === 'custom-map' ? { ...ref, contentHash: '' } : ref;
     this.screens.waitingRun.set({
-      order: { ...PLAIN_START, world: ref.kind === 'tiles' ? null : ref, resume: slotId, play: true, label: name },
+      order: { ...PLAIN_START, world, resume: slotId, play: true, label: name },
       label: `${name} | wave ${slot.wave}`,
       mapId: ref.kind === 'custom-map' ? ref.mapId : null,
     });
@@ -497,9 +499,14 @@ export class MainMenuService {
     const slotId = this.start.takeResume();
     if (!slotId) return;
     void this.saves.load(slotId).then((result) => {
-      if (!result.ok) this.notice.set(result.reason);
-      else if (result.note) this.notice.set(`Loaded. ${result.note}`);
-      else this.requestPlay();
+      if (result.ok) {
+        if (result.note) this.notice.set(`Loaded. ${result.note}`);
+        else this.requestPlay();
+        return;
+      }
+      // No run came of it: the start list instead of a loading that waits for nothing, its Play a fresh run
+      this.starting.set(false);
+      this.notice.set(`${result.reason} Play starts a fresh run here.`);
     });
   }
 

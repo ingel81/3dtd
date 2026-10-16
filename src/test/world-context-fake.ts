@@ -44,8 +44,8 @@ export function fakeWorldContext(streets: Partial<WorldStreetSource> = {}) {
       ref.set(FAKE_DEV_WORLD_REF);
     },
     /** Play the custom map `mapId` from here on */
-    useCustomMap(mapId: string, name?: string): void {
-      ref.set({ kind: 'custom-map', mapId, contentHash: '', ...(name ? { name } : {}) });
+    useCustomMap(mapId: string, name?: string, contentHash = ''): void {
+      ref.set({ kind: 'custom-map', mapId, contentHash, ...(name ? { name } : {}) });
     },
     useTiles(): void {
       ref.set({ kind: 'tiles', source: 'cesium' });
