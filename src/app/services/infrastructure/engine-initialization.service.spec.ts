@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { Injector, NgZone, runInInjectionContext, signal } from '@angular/core';
 import { EngineInitializationService } from './engine-initialization.service';
 import { IntroLoadingGate, type IntroLoadingGateDeps } from '../world/intro-loading-gate';
+import { OverpassError } from '../../world/osm/overpass-client';
 
 /** Hands the NgZone a pass-through and every other service an empty object: the steps need none of them */
 class StubInjector extends Injector {
@@ -80,5 +81,23 @@ describe('EngineInitializationService loading steps', () => {
     expect(gate.hold()).toBe(false);
     expect(statuses().every((s) => s === 'done')).toBe(true);
     gate.dispose();
+  });
+});
+
+describe('EngineInitializationService street load', () => {
+  const load = (fail: Error) => {
+    const service = create();
+    const world = { streets: { loadStreets: vi.fn(async () => Promise.reject(fail)) } };
+    service.configure({} as HTMLCanvasElement, { lat: 48.78, lon: 9.18 }, world as never);
+    return service.loadStreets(48.78, 9.18);
+  };
+
+  it('says a failed load failed, and a load ended for a world that went or a place chosen instead only cancelled', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await expect(load(new OverpassError('The map servers for the streets are busy or out of reach.', 'busy')))
+      .resolves.toMatchObject({ count: 0, failed: true, cancelled: false });
+    await expect(load(new OverpassError('The OSM download was cancelled', 'cancelled')))
+      .resolves.toMatchObject({ count: 0, failed: false, cancelled: true });
+    vi.restoreAllMocks();
   });
 });

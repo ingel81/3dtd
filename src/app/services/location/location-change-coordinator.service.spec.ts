@@ -32,6 +32,9 @@ import type { StreetNetwork } from './osm-street.service';
 import { WorldContext } from '../../world/world-context.service';
 import { fakeWorldContext } from '../../../test/world-context-fake';
 import { outsideCoverageText } from '../../world/world-coverage';
+import { OverpassError } from '../../world/osm/overpass-client';
+import { OsmStreetService } from './osm-street.service';
+import { StreetCacheService } from './street-cache.service';
 
 /**
  * The coordinator runs the 7-step location change and the location UI flows
@@ -128,7 +131,7 @@ describe('LocationChangeCoordinatorService', () => {
   let worldContext: ReturnType<typeof fakeWorldContext>;
   let state: { spawnPoints: { id: string; name: string; lat: number; lon: number; color: number }[] };
 
-  const osm = { loadStreets: vi.fn(), prefetchStreets: vi.fn(), findRandomStreetPoint: vi.fn() };
+  const osm = { loadStreets: vi.fn(), prefetchStreets: vi.fn(), findRandomStreetPoint: vi.fn(), cancelLoads: vi.fn() };
   const heightUpdate = { heightsLoading: signal(false), stopHeightUpdates: vi.fn() };
   const markerViz = { initialize: vi.fn(), placeSpawnPortal: vi.fn(), addBaseMarker: vi.fn() };
   const pathRoute = {
@@ -464,7 +467,7 @@ describe('LocationChangeCoordinatorService', () => {
       expect(console.error).toHaveBeenCalledWith('[LocationCoordinator] No delegate registered');
     });
 
-    it('ignores a second change while one is being applied', async () => {
+    it('starts no second change while one is being applied', async () => {
       coordinator.initializeFlow(delegate);
       locationMgmt.isApplyingLocation.set(true);
 
@@ -472,6 +475,49 @@ describe('LocationChangeCoordinatorService', () => {
 
       expect(delegate.getChangeContext).not.toHaveBeenCalled();
       expect(engine.setOrigin).not.toHaveBeenCalled();
+    });
+
+    it('runs the latest change asked for meanwhile once the one applied ends', async () => {
+      coordinator.initializeFlow(delegate);
+      let release!: (n: StreetNetwork) => void;
+      osm.loadStreets.mockImplementationOnce(() => new Promise((resolve) => { release = resolve; }));
+      const first = coordinator.applyNewLocation(input());
+      await settle();
+      const other = { lat: HQ.lat + 0.1, lon: HQ.lon };
+      await coordinator.applyNewLocation({ hq: { ...other, name: 'B' }, spawn: { ...SPAWN, name: 'S' } });
+      const latest = { lat: HQ.lat + 0.2, lon: HQ.lon };
+      await coordinator.applyNewLocation({ hq: { ...latest, name: 'C' }, spawn: { ...SPAWN, name: 'S' } });
+      expect(engine.setOrigin).toHaveBeenCalledTimes(1);
+
+      release(network());
+      await first;
+      expect(engine.setOrigin.mock.calls).toEqual([[HQ.lat, HQ.lon], [latest.lat, latest.lon]]);
+    });
+
+    it('tells nothing when its streets were ended for a place chosen instead, and keeps Play blocked behind that load', async () => {
+      coordinator.initializeFlow(delegate);
+      osm.loadStreets.mockRejectedValueOnce(new OverpassError('The OSM download was cancelled', 'cancelled'));
+
+      await coordinator.applyNewLocation(input());
+
+      expect(uiStore.loadProblem()).toBeNull();
+      // The next load owns `loading`; the error waits behind it (MainMenuService.problem)
+      expect(engineInit.setLoading).not.toHaveBeenCalled();
+      expect(engineInit.setError).toHaveBeenLastCalledWith('The place did not load: another place was chosen.');
+      expect(locationMgmt.isApplyingLocation()).toBe(false);
+    });
+
+    it('writes nothing when its streets were ended because the world went', async () => {
+      coordinator.initializeFlow(delegate);
+      osm.loadStreets.mockImplementationOnce(async () => {
+        worldContext.setProvider(null);
+        throw new OverpassError('The OSM download was cancelled', 'cancelled');
+      });
+
+      await coordinator.applyNewLocation(input());
+
+      expect(uiStore.loadProblem()).toBeNull();
+      expect(engineInit.setError.mock.calls).toEqual([[null]]);
     });
 
     it('does nothing while the delegate has no engine', async () => {
@@ -563,6 +609,129 @@ describe('LocationChangeCoordinatorService', () => {
       // It used to close the loading overlay without a word
       expect(uiStore.loadProblem()?.text).toBe(WORLD_DICE_FAILED);
       expect(engineInit.loading()).toBe(false);
+    });
+
+    it('ends the street loads of the place before when another is chosen, and the earlier choice gives way', async () => {
+      coordinator.initializeFlow(delegate);
+      // A's streets wait on busy servers until they are ended
+      let endA!: (error: Error) => void;
+      osm.loadStreets.mockImplementationOnce(() => new Promise((_, reject) => { endA = reject; }));
+      osm.cancelLoads.mockImplementation(() => endA?.(new OverpassError('The OSM download was cancelled', 'cancelled')));
+      const toA = coordinator.choosePlace({ kind: 'place', hq: { ...HQ, name: 'A' }, spawn: null });
+      await settle();
+      expect(osm.cancelLoads).toHaveBeenCalledTimes(1);
+
+      const B = { lat: HQ.lat + 0.1, lon: HQ.lon };
+      const toB = coordinator.choosePlace({ kind: 'place', hq: { ...B, name: 'B' }, spawn: null });
+      await Promise.all([toA, toB]);
+
+      expect(osm.cancelLoads).toHaveBeenCalledTimes(2);
+      // A said nothing and closed nothing: B's load owned the plate
+      expect(uiStore.loadProblem()).toBeNull();
+      // Nothing of A's load was handed on (moveTo and the change both keep B's)
+      expect(callbacks.setStreetNetworkLocation).not.toHaveBeenCalledWith(HQ);
+      expect(callbacks.setStreetNetworkLocation).toHaveBeenCalledWith(B);
+      expect(engine.setOrigin.mock.calls).toEqual([[B.lat, B.lon]]);
+    });
+
+    it('stays where it is with a Retry when the streets of the new place do not come, and Retry asks anew', async () => {
+      coordinator.initializeFlow(delegate);
+      osm.loadStreets.mockRejectedValueOnce(new OverpassError('The map servers for the streets are busy or out of reach.', 'busy'));
+
+      await coordinator.choosePlace({ kind: 'place', hq: { ...HQ, name: 'Schlossplatz' }, spawn: null });
+
+      expect(uiStore.loadProblem()?.text).toBe(streetsFailedText('Schlossplatz'));
+      expect(engineInit.setLoading).toHaveBeenLastCalledWith(false);
+      expect(engine.setOrigin).not.toHaveBeenCalled();
+
+      uiStore.loadProblem()!.retry!();
+      await settle();
+      await settle();
+      expect(uiStore.loadProblem()).toBeNull();
+      expect(osm.loadStreets).toHaveBeenCalledTimes(3);
+      expect(engine.setOrigin).toHaveBeenCalledWith(HQ.lat, HQ.lon);
+    });
+
+    describe('on the street service and busy servers (scenario)', () => {
+      /** The servers' answers: busy until `serversBack`, then a street through the HQ */
+      let serversBack = false;
+      let asked = 0;
+      let streets: OsmStreetService;
+
+      beforeEach(() => {
+        serversBack = false;
+        asked = 0;
+        vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+        vi.stubGlobal('fetch', vi.fn(async () => {
+          asked++;
+          if (!serversBack) {
+            // overpass-api.de at capacity; the other server's error page without CORS header
+            if (asked % 2) return { ok: false, status: 502, headers: new Headers(), text: async () => 'at capacity' };
+            throw new TypeError('Failed to fetch');
+          }
+          const elements = [
+            { type: 'node', id: 1, lat: HQ.lat, lon: HQ.lon },
+            { type: 'node', id: 2, lat: HQ.lat + 0.005, lon: HQ.lon },
+            { type: 'way', id: 10, nodes: [1, 2], tags: { highway: 'residential', name: 'Königstraße' } },
+          ];
+          return { ok: true, status: 200, headers: new Headers(), text: async () => JSON.stringify({ elements }) };
+        }));
+        const cache = { getCacheKey: () => 'key', load: async () => null, save: async () => undefined };
+        streets = runInInjectionContext(
+          Injector.create({ providers: [{ provide: StreetCacheService, useValue: cache }] }),
+          () => new OsmStreetService(),
+        );
+        osm.loadStreets.mockImplementation((lat: number, lon: number, radius: number) => streets.loadStreets(lat, lon, radius));
+        osm.cancelLoads.mockImplementation(() => streets.cancelLoads());
+      });
+
+      afterEach(() => vi.unstubAllGlobals());
+
+      it('says the servers are busy while it asks again, offers Retry once all rounds failed, and Retry loads the place', async () => {
+        coordinator.initializeFlow(delegate);
+        const going = coordinator.choosePlace({ kind: 'place', hq: { ...HQ, name: 'Schlossplatz' }, spawn: null });
+        await vi.advanceTimersByTimeAsync(0);
+        expect(streets.retrying()).toMatchObject({ attempt: 2, of: 5 });
+        expect(engineInit.loading()).toBe(true);
+
+        // Five rounds of both servers within the budget, then the problem with its Retry
+        await vi.advanceTimersByTimeAsync(90_000);
+        await going;
+        expect(asked).toBe(10);
+        expect(streets.retrying()).toBeNull();
+        expect(uiStore.loadProblem()?.text).toBe(streetsFailedText('Schlossplatz'));
+        expect(engineInit.setLoading).toHaveBeenLastCalledWith(false);
+        expect(engine.setOrigin).not.toHaveBeenCalled();
+
+        // The servers are back: Retry starts a fresh cycle in the page and the place loads
+        serversBack = true;
+        uiStore.loadProblem()!.retry!();
+        await vi.advanceTimersByTimeAsync(0);
+        await vi.advanceTimersByTimeAsync(20_000);
+        expect(asked).toBe(11);
+        expect(uiStore.loadProblem()).toBeNull();
+        expect(engine.setOrigin).toHaveBeenCalledWith(HQ.lat, HQ.lon);
+        expect(callbacks.addSpawnPoint).toHaveBeenCalled();
+      });
+
+      it('asks nothing more for a place left while its servers were asked again', async () => {
+        coordinator.initializeFlow(delegate);
+        const going = coordinator.choosePlace({ kind: 'place', hq: { ...HQ, name: 'Schlossplatz' }, spawn: null });
+        await vi.advanceTimersByTimeAsync(0);
+        expect(asked).toBe(2);
+
+        serversBack = true;
+        const B = { lat: HQ.lat + 0.002, lon: HQ.lon };
+        const toB = coordinator.choosePlace({ kind: 'place', hq: { ...B, name: 'B' }, spawn: null });
+        await vi.advanceTimersByTimeAsync(20_000);
+        await Promise.all([going, toB]);
+        await vi.advanceTimersByTimeAsync(90_000);
+
+        // Two for A's first round, one for B: A's retries ended with the choice
+        expect(asked).toBe(3);
+        expect(uiStore.loadProblem()).toBeNull();
+        expect(engine.setOrigin.mock.calls).toEqual([[B.lat, B.lon]]);
+      });
     });
 
     it('goes to a place with the chosen spawn', async () => {
@@ -820,7 +989,7 @@ describe('LocationChangeCoordinatorService', () => {
 
     it('stays where it is and says so when the streets of the rolled city do not load', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => undefined);
-      osm.loadStreets.mockRejectedValue(new Error('OSM server unreachable. Check your internet connection.'));
+      osm.loadStreets.mockRejectedValue(new Error('The map servers for the streets are busy or out of reach.'));
       worldDice.rollRandomCity.mockResolvedValue({ name: 'Lyon', country: 'France', lat: 45.764, lon: 4.8357 });
       coordinator.initializeFlow(delegate);
 
