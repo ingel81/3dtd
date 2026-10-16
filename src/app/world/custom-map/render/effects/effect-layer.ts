@@ -209,8 +209,10 @@ export class EffectLayer {
         }
         if (fx.kind === 'beam') {
           // The light's beams, turning with the object's spinning parts
+          const rise = (fx.height ?? e.height * 0.9) * s;
           beams.push({
-            origin: origin.clone().setY(origin.y + (fx.height ?? e.height * 0.9) * s),
+            origin: origin.clone().setY(origin.y + rise),
+            rise,
             length: (fx.radius ?? 60) * s,
             color: fx.color ?? '#fff2cc',
             period: e.spin ?? DEFAULT_SPIN,
