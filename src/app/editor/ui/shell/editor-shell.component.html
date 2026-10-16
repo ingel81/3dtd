@@ -162,6 +162,9 @@
         <span class="es-legend-row"><td-icon name="mouseRight" [size]="14" /> drag: Turn</span>
         <span class="es-legend-row"><td-icon name="mouseWheel" [size]="14" /> drag: Pan, roll: Zoom</span>
         <span class="es-legend-row"><kbd class="td-kbd">Ctrl</kbd>+<td-icon name="mouseWheel" [size]="14" /> Brush size</span>
+        @if (placing()) {
+          <span class="es-legend-row" data-test="legend-turn"><kbd class="td-kbd">Shift</kbd>+<td-icon name="mouseWheel" [size]="14" /> or <kbd class="td-kbd">Q</kbd><kbd class="td-kbd">E</kbd> Turn</span>
+        }
         <span class="es-legend-row"><kbd class="td-kbd">RMB</kbd>+<kbd class="td-kbd">WASD</kbd> Fly</span>
         <span class="es-legend-row"><kbd class="td-kbd">F</kbd> Frame <kbd class="td-kbd">T</kbd> Top <kbd class="td-kbd">C</kbd> Game view</span>
         <button class="td-btn-ghost td-btn-sm es-legend-row es-still" type="button" [attr.aria-pressed]="still()" (click)="toggleStill()"

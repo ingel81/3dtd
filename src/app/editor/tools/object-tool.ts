@@ -8,9 +8,13 @@
  * inside the ring move freely; Ctrl snaps turns to 15 degrees, heights to
  * half metres and scales to tenths. Delete removes the selection, Ctrl+D
  * duplicates it, End drops it onto the ground. Rocks settle onto their
- * plate wherever they are set down (placed, scattered, dropped).
+ * plate wherever they are set down (placed, scattered, dropped). Place
+ * shows the object's ground under the pointer with its front, turns it with
+ * Q E, comma and period or Shift+wheel (in steps, Shift+Q E a quarter) and
+ * turns a building with a road near to face the road.
  */
 import type { MapObject, MapPoint } from '../../world/custom-map/map-document';
+import type { ObjectAssetEntry } from '../catalog/asset-catalog';
 import { ObjectsCommand, type ObjectEdit } from '../model/editor-document';
 import { insideMap } from '../model/grid';
 import {
@@ -27,6 +31,7 @@ import {
   wallKitOf,
   freeGroup,
   snapTo,
+  roadFacing,
   withGroups,
   levelForBuildings,
   withGround,
@@ -72,6 +77,8 @@ export class ObjectTool implements EditorTool {
   private drag: Drag | null = null;
   /** The line being drawn in Line mode (free), map points */
   private line: MapPoint[] | null = null;
+  /** Place: where the outline last stood and the road's turn there, null without one (asked again only when it moves) */
+  private placeAt: { x: number; y: number; asset: string; road: number | null } | null = null;
 
   brushVisible(ctx: ToolContext): boolean {
     const mode = ctx.settings.objects.mode;
@@ -216,6 +223,7 @@ export class ObjectTool implements EditorTool {
       gizmo.hide();
     }
     this.hoverFrame(p, ctx);
+    this.placeFrame(p, ctx);
 
     const b = this.brushing;
     if (!b || !p?.hit) return;
@@ -268,6 +276,11 @@ export class ObjectTool implements EditorTool {
     const s = ctx.settings.objects;
     const sel = this.selected(ctx);
     const k = e.key.toLowerCase();
+    // Place turns the next object: Q and comma to the left, E and period to the right, Shift a quarter
+    if (s.mode === 'place' && !e.ctrlKey && !e.metaKey && !e.altKey && (k === 'q' || k === 'e' || e.key === ',' || e.key === '.')) {
+      this.turnPlace(k === 'q' || e.key === ',' ? 1 : -1, e.shiftKey ? 90 : s.turnStep, ctx);
+      return true;
+    }
     if (!e.ctrlKey && !e.metaKey && k === 'l' && s.mode === 'select') {
       s.space = s.space === 'local' ? 'global' : 'local';
       ctx.settingsChanged();
@@ -326,6 +339,54 @@ export class ObjectTool implements EditorTool {
     return false;
   }
 
+  /** Place: Shift and the wheel turn the next object by a step, away from the user to the left */
+  wheel(step: number, p: ToolPointer, ctx: ToolContext): boolean {
+    const s = ctx.settings.objects;
+    if (s.mode !== 'place' || !p.shift || p.ctrl || p.alt) return false;
+    this.turnPlace(step < 0 ? 1 : -1, s.turnStep, ctx);
+    return true;
+  }
+
+  /** Turns the next placed object by `degrees` onto the grid of the turn step, `dir` 1 to the left (counter-clockwise from above) */
+  private turnPlace(dir: 1 | -1, degrees: number, ctx: ToolContext): void {
+    const s = ctx.settings.objects;
+    const deg = (s.rotation * 180) / Math.PI;
+    const next = Math.round((deg + dir * degrees) / s.turnStep) * s.turnStep;
+    s.rotation = round(wrap((next * Math.PI) / 180), 1000);
+    if (s.randomRotation) {
+      s.randomRotation = false;
+      ctx.status('Turn at random is off: the turn keys set the turn');
+    }
+    ctx.settingsChanged();
+  }
+
+  /** The road's turn for a building at a point when Face the road is on and one is near, else null */
+  private roadTurn(at: MapPoint, entry: ObjectAssetEntry, ctx: ToolContext): number | null {
+    return ctx.settings.objects.faceRoad && entry.footing?.category === 'building' ? roadFacing(ctx.editor.doc.paths, at, entry.radius) : null;
+  }
+
+  /** Place: the object's ground and front under the pointer, turned as a click would set it */
+  private placeFrame(p: ToolPointer | null, ctx: ToolContext): void {
+    const s = ctx.settings.objects;
+    if (s.mode !== 'place' || !s.asset || !p?.hit) {
+      if (this.placeAt) ctx.overlay.setDraft(null);
+      this.placeAt = null;
+      return;
+    }
+    const entry = ctx.catalog.object(s.asset);
+    const x = snapTo(p.hit.x, s.snap);
+    const y = snapTo(p.hit.y, s.snap);
+    const last = this.placeAt;
+    // Asked again only when the outline moves or the asset changes: an OSM world has thousands of roads
+    const road = last && last.asset === s.asset && Math.hypot(last.x - x, last.y - y) < 0.25 ? last.road : this.roadTurn({ x, y }, entry, ctx);
+    this.placeAt = { x, y, asset: s.asset, road };
+    // The status line says whether a road turns it
+    if ((road === null) !== ((last?.road ?? null) === null)) ctx.settingsChanged();
+    // A random turn is rolled on the click: the outline shows north until then
+    const rotation = road ?? (s.randomRotation ? 0 : s.rotation);
+    ctx.overlay.setDraft(placeOutline(entry, { x, y, rotation, scale: 1 }));
+  }
+
   /** In Select, a faint ring shows the object a click would take; picked only when the pointer moved */
   private hoverFrame(p: ToolPointer | null, ctx: ToolContext): void {
     if (ctx.settings.objects.mode !== 'select' || this.drag || !p?.hit) {
@@ -343,6 +404,8 @@ export class ObjectTool implements EditorTool {
 
   cancel(ctx: ToolContext): boolean {
     const busy = !!this.line || !!this.drag;
+    if (this.placeAt) ctx.overlay.setDraft(null);
+    this.placeAt = null;
     if (this.line) {
       this.line = null;
       ctx.overlay.setDraft(null);
@@ -365,8 +428,11 @@ export class ObjectTool implements EditorTool {
   hint(ctx: ToolContext): string {
     const s = ctx.settings.objects;
     switch (s.mode) {
-      case 'place':
-        return s.asset ? `Click to place ${ctx.catalog.object(s.asset).name}` : 'Choose an asset, then click to place it';
+      case 'place': {
+        if (!s.asset) return 'Choose an asset, then click to place it';
+        const turn = this.placeAt?.road != null ? 'facing the road' : s.randomRotation ? 'turned at random' : `turned ${Math.round((s.rotation * 180) / Math.PI) % 360} deg`;
+        return `Click to place ${ctx.catalog.object(s.asset).name}, ${turn} | Q E or Shift+wheel turn ${s.turnStep} deg, Shift+Q E 90`;
+      }
       case 'scatter':
         return 'Hold to scatter, Shift thins out | [ ] size';
       case 'erase':
@@ -443,20 +509,24 @@ export class ObjectTool implements EditorTool {
     const x = snapTo(p.hit!.x, s.snap);
     const y = snapTo(p.hit!.y, s.snap);
     if (!insideMap(doc.terrain, { x, y })) return;
+    const entry = ctx.catalog.object(s.asset);
     const object: MapObject = {
       id: new ObjectIds(doc.objects).take(),
       asset: s.asset,
       x: Math.round(x * 100) / 100,
       y: Math.round(y * 100) / 100,
       z: 0,
-      rotation: s.randomRotation ? Math.round(Math.random() * Math.PI * 2 * 1000) / 1000 : 0,
+      rotation: this.roadTurn({ x, y }, entry, ctx) ?? (s.randomRotation ? round(Math.random() * Math.PI * 2, 1000) : s.rotation),
       scale: 1,
     };
     const t = doc.terrain;
     const ids = new ObjectIds([...doc.objects, object]);
-    const images = objectImages([object], symmetryImages(ctx.settings.symmetry, t.grid.columns === t.grid.rows), () => ids.take(), t.width / 2, t.depth / 2);
+    // A building facing a road: each symmetric image faces its own nearest road (the mirrored turn would face the original's)
+    const images = objectImages([object], symmetryImages(ctx.settings.symmetry, t.grid.columns === t.grid.rows), () => ids.take(), t.width / 2, t.depth / 2).map((o) => {
+      const road = this.roadTurn(o, entry, ctx);
+      return road === null ? o : { ...o, rotation: road };
+    });
     // Each copy tilts with its own ground: a mirror image does not lean as the original does
-    const entry = ctx.catalog.object(s.asset);
     const label = `Place ${entry.name}`;
     // A building levels its ground first, in the same step
     const ground = levelForBuildings(doc, label, [object, ...images], entry);
@@ -648,6 +718,36 @@ export function insidePolygon(q: { x: number; y: number }, poly: readonly { x: n
     if (a.y > q.y !== b.y > q.y && q.x < ((b.x - a.x) * (q.y - a.y)) / (b.y - a.y) + a.x) inside = !inside;
   }
   return inside;
+}
+
+/**
+ * The ground an object takes as one line over the map: its rectangle (a
+ * catalogue `box`) or its footprint circle, with a spike out of the middle of
+ * its front (local +z), so Place shows where the object faces
+ */
+export function placeOutline(entry: Pick<ObjectAssetEntry, 'radius' | 'box'>, o: Pick<MapObject, 'x' | 'y' | 'rotation' | 'scale'>): MapPoint[] {
+  const cos = Math.cos(o.rotation);
+  const sin = Math.sin(o.rotation);
+  const sc = o.scale || 1;
+  // Model (x, z) to the map, as object-ground.ts turns it
+  const put = (mx: number, mz: number): MapPoint => ({ x: o.x - (mx * cos + mz * sin) * sc, y: o.y + (-mx * sin + mz * cos) * sc });
+  const b = entry.box;
+  const out: MapPoint[] = [];
+  let front: [number, number];
+  if (b) {
+    front = [b[0], b[1] + b[3]];
+    out.push(put(...front), put(b[0] + b[2], b[1] + b[3]), put(b[0] + b[2], b[1] - b[3]), put(b[0] - b[2], b[1] - b[3]), put(b[0] - b[2], b[1] + b[3]), put(...front));
+  } else {
+    const r = entry.radius;
+    front = [0, r];
+    for (let k = 0; k <= 24; k++) {
+      const a = (k / 24) * Math.PI * 2;
+      out.push(put(r * Math.sin(a), r * Math.cos(a)));
+    }
+  }
+  const spike = Math.max(1.5, entry.radius * 0.4);
+  out.push(put(front[0], front[1] + spike), put(...front));
+  return out;
 }
 
 function round(v: number, f = 100): number {

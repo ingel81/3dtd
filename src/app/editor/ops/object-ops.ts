@@ -3,7 +3,7 @@
  * minimum distance, sinking into slopes), its eraser, box selection, grid
  * snap and duplicates. Ids are `o<number>`, counted on from the highest.
  */
-import type { CustomMapDocument, MapObject, MapPoint, MapTerrain } from '../../world/custom-map/map-document';
+import type { CustomMapDocument, MapObject, MapPaths, MapPoint, MapTerrain } from '../../world/custom-map/map-document';
 import { CompoundCommand, PatchCommand, patchLayout, type EditCommand } from '../model/editor-document';
 import { heightAt, slopeAt, insideMap, sampleRectAround, sampleX, sampleY, type GridRect } from '../model/grid';
 import { RegionRecorder } from '../model/region-patch';
@@ -11,6 +11,7 @@ import { waterLevelAt } from '../../world/custom-map/water-level';
 import { boxDistance, groundRing, type GroundBox } from '../../world/custom-map/object-ground';
 import { HEIGHT_LIMITS } from './terrain-ops';
 import { brushWeight, type BrushSettings } from './brush';
+import { nearestOnPolyline } from './path-graph';
 
 /** Hands out fresh object ids, starting past the highest in the map */
 export class ObjectIds {
@@ -460,6 +461,39 @@ export function duplicateObjects(doc: CustomMapDocument, ids: readonly string[],
 
 export function snapTo(value: number, step: number): number {
   return step > 0 ? Math.round(value / step) * step : value;
+}
+
+/** Metres from a building's footprint to a road's edge within which Place turns its front to the road */
+export const ROAD_FACE_REACH = 20;
+
+/**
+ * The turn (radians, counter-clockwise from north) that makes a model at `p`
+ * face the nearest road: its front (local +z, as the catalogue's models and
+ * the OSM houses face) toward the nearest point on the road's centre line.
+ * Roads count from their edge, the object from its footprint radius; tunnels
+ * are left out. Null when no road is within `reach` or the point is on one
+ */
+export function roadFacing(paths: MapPaths, p: MapPoint, footprint: number, reach = ROAD_FACE_REACH): number | null {
+  let best: { gap: number; q: MapPoint } | null = null;
+  // Once per call, not per edge: an OSM world has thousands of nodes and Place asks as the pointer moves
+  const nodes = new Map(paths.nodes.map((n) => [n.id, n]));
+  for (const edge of paths.edges) {
+    if (edge.tunnel) continue;
+    const a = nodes.get(edge.a);
+    const b = nodes.get(edge.b);
+    if (!a || !b) continue;
+    const hit = nearestOnPolyline([a, ...(edge.via ?? []), b], p);
+    if (!hit) continue;
+    const gap = hit.dist - edge.width / 2 - footprint;
+    if (gap <= reach && (!best || gap < best.gap)) best = { gap, q: hit.point };
+  }
+  if (!best) return null;
+  const dx = best.q.x - p.x;
+  const dy = best.q.y - p.y;
+  if (Math.hypot(dx, dy) < 0.01) return null;
+  // Rounded before wrapping: a hair west of north is north, not a full turn
+  const a = Math.round(Math.atan2(-dx, dy) * 1000) / 1000;
+  return a < 0 ? Math.round((a + Math.PI * 2) * 1000) / 1000 : a + 0;
 }
 
 /** Centre of a set of objects */

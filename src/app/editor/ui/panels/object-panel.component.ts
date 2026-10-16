@@ -21,6 +21,8 @@ const MODES: { id: ObjectMode; label: string; key: string }[] = [
 ];
 
 const SNAPS = [0, 1, 2, 4, 8];
+/** Degrees one turn step of Place takes */
+const TURN_STEPS = [5, 15, 45, 90];
 
 /**
  * Objects: mode, the palette (categories, search, pictures), scatter
@@ -39,6 +41,7 @@ export class ObjectPanelComponent {
   readonly session = inject(EditorSession);
   readonly modes = MODES;
   readonly snaps = SNAPS;
+  readonly turnSteps = TURN_STEPS;
   readonly thumb = (a: ObjectAssetEntry) => this.session.objectPicture(a);
   readonly search = signal('');
   readonly category = signal<string>('All');
@@ -200,6 +203,26 @@ export class ObjectPanelComponent {
 
   setRandomRotation(on: boolean): void {
     this.session.patchSettings((s) => (s.objects.randomRotation = on));
+  }
+
+  placeTurnDegrees(): number {
+    return Math.round((this.s().rotation * 180) / Math.PI) % 360;
+  }
+
+  /** The turn of the next placed object, degrees counter-clockwise from north */
+  setPlaceTurn(e: Event): void {
+    const deg = Number((e.target as HTMLInputElement).value);
+    if (!Number.isFinite(deg)) return;
+    const turn = (((deg % 360) + 360) % 360) * (Math.PI / 180);
+    this.session.patchSettings((s) => (s.objects.rotation = Math.round(turn * 1000) / 1000));
+  }
+
+  setTurnStep(step: number): void {
+    this.session.patchSettings((s) => (s.objects.turnStep = step));
+  }
+
+  setFaceRoad(on: boolean): void {
+    this.session.patchSettings((s) => (s.objects.faceRoad = on));
   }
 
   /** Change the selected objects' values as one step */

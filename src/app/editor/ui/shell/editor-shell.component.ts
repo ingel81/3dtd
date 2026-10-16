@@ -212,6 +212,8 @@ export class EditorShellComponent implements OnDestroy {
   readonly symmetry = computed(() => (this.session.settingsRev(), this.session.settings.symmetry));
   /** The view shows a still frame (wind, water, particles stand) */
   readonly still = computed(() => (this.session.settingsRev(), this.session.settings.view.still));
+  /** Objects in Place: the legend shows how to turn the next object */
+  readonly placing = computed(() => (this.session.settingsRev(), this.session.tool() === 'objects' && this.session.settings.objects.mode === 'place'));
   readonly symmetryHint = computed(() => {
     const doc = (this.session.docRev(), this.session.doc);
     const m = SYMMETRY_MODES.find((s) => s.id === this.symmetry())!;
@@ -797,6 +799,8 @@ export const SHORTCUTS: readonly { group: string; keys: readonly [string, string
       ['Del', 'Delete the selection'],
       ['Ctrl+D', 'Duplicate objects'],
       ['Ctrl+A', 'Select all objects the view shows'],
+      ['Q E, comma period', 'Place: turn the next object by a step (Shift+Q E by 90 degrees)'],
+      ['Shift+wheel', 'Place: turn the next object by a step'],
       ['Alt', 'Place without snapping'],
       ['S X J', 'Smooth, straighten, join roads'],
       ['Enter, right click', 'End a road'],

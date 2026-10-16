@@ -187,6 +187,12 @@ export interface EditorSettings {
     snap: number;
     /** Turn a placed object at random */
     randomRotation: boolean;
+    /** Place: the turn of the next object (radians, counter-clockwise from north), changed with Q E, comma and period or Shift+wheel */
+    rotation: number;
+    /** Degrees one turn step of Place takes */
+    turnStep: number;
+    /** Place: a building with a road near turns its front to the road */
+    faceRoad: boolean;
     /** Move arrows along the map's axes, or turned with the first selected object */
     space: 'global' | 'local';
     /** Place tilts the object with the ground under it */
@@ -243,7 +249,7 @@ export function defaultSettings(): EditorSettings {
     terrain: { mode: 'raise', level: 0, step: 6, rampWidth: 16 },
     paint: { layer: 0, erase: false },
     water: { mode: 'fill', pour: 'water', body: -1, depth: 3, river: -1, riverPoint: -1 },
-    objects: { mode: 'select', gizmo: 'move', asset: null, scatter: { ...DEFAULT_SCATTER }, snap: 0, randomRotation: true, space: 'global', alignToSlope: false, line: { ...DEFAULT_LINE, follow: 'free' } },
+    objects: { mode: 'select', gizmo: 'move', asset: null, scatter: { ...DEFAULT_SCATTER }, snap: 0, randomRotation: true, rotation: 0, turnStep: 15, faceRoad: true, space: 'global', alignToSlope: false, line: { ...DEFAULT_LINE, follow: 'free' } },
     paths: { mode: 'draw', width: 8, kind: 'road', snap: 10, showRoutes: true },
     life: { mode: 'area', kind: 'birds', chosen: null, point: -1, hear: false },
     markers: { mode: 'spawn' },
@@ -317,6 +323,8 @@ export interface EditorTool {
   frame?(dt: number, p: ToolPointer | null, ctx: ToolContext): void;
   /** A key while the tool is active; true when it used it */
   key?(e: KeyboardEvent, ctx: ToolContext): boolean;
+  /** A wheel step over the view (-1 away from the user, 1 toward); true when the tool used it (the view does not zoom) */
+  wheel?(step: number, p: ToolPointer, ctx: ToolContext): boolean;
   /** Esc: drop what is half done; true when there was something (a further Esc then goes to Look) */
   cancel?(ctx: ToolContext): boolean;
   /** The line of help under the map */

@@ -941,6 +941,9 @@ export class EditorViewport {
       this.callbacks.settingsChanged();
       return;
     }
+    // A tool may take the wheel with a modifier (Place turns with Shift); with Shift some systems scroll sideways (deltaX)
+    const delta = e.deltaY || e.deltaX;
+    if (delta && this.tool?.wheel?.(Math.sign(delta), this.toolPointer(e, null), this.ctx)) return;
     const steps = Math.sign(e.deltaY) * Math.min(3, Math.abs(e.deltaY) / 100 || 1);
     const hit = this.raycastClient(e.clientX, e.clientY);
     this.controller.zoom(steps, hit ? mapToScene(hit.x, hit.y, hit.z) : null);

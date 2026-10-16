@@ -306,7 +306,18 @@ Tags des Katalogs und Suche (Name, Id oder Tag).
   sinken noch kippen mit dem Boden (Place, Line, Streuen, Biom-Pinsel): ihr z zählt ab der Wasserlinie
 - Place: ein Klick setzt das gewählte Objekt (Raster-Fang 1 bis 8 m, zufällige Drehung; „Align to slope“ kippt es mit
   dem Boden unter seinem Fußabdruck, bei Felsen unter ihrer Platte, `pitch` und `roll` aus `slopeTilt`, jedes
-  Symmetrie-Bild mit seinem eigenen Boden)
+  Symmetrie-Bild mit seinem eigenen Boden). Am Zeiger steht sein Grund als Umriss (Rechteck des Katalog-`box` oder
+  Fußabdruck-Kreis) mit einem Dorn aus der Mitte der Vorderseite (lokal +z, wie die Modelle und OSM-Häuser schauen).
+  Q und Komma drehen das nächste Objekt nach links, E und Punkt nach rechts, Shift+Mausrad ebenso, je um den Schritt
+  „Turn step“ (5, 15, 45 oder 90 Grad, anfangs 15) auf dessen Raster, Shift+Q/E um 90 Grad; eine Drehtaste schaltet
+  „Turn at random“ ab, das Feld „Turn“ nimmt die Gradzahl auch direkt. In Place drehen also Q und E, W und R wechseln
+  wie überall zu Select. „Face the road“ (anfangs an) dreht ein Gebäude (Katalog-Kategorie `building`) mit der
+  Vorderseite zum nächsten Punkt der nächsten Straße (`roadFacing` in `ops/object-ops.ts`: alle Kanten der Straßen
+  außer Tunneln, gemessen vom Fußabdruck bis zum Straßenrand, höchstens 20 m, `ROAD_FACE_REACH`); ist keine so nah,
+  gilt die eingestellte oder zufällige Drehung. Jedes Symmetrie-Bild schaut zu seiner eigenen nächsten Straße. Die
+  Statuszeile sagt, wie das Objekt gesetzt wird („facing the road“, „turned at random“, „turned 45 deg“), die Legende
+  zeigt im Modus Place die Drehtasten. `MapKit.place`, Levelskripte und das Platzieren des Agenten geben ihre Drehung
+  selbst an und bleiben davon unberührt
 - Scatter: halten streut die gewählten Assets (mehrere wählbar) mit Dichte, Größenbereich, Mindestabstand, zufälliger
   Drehung, Einsinken am Hang und „Align to slope“; Shift dünnt aus
 - Line: das gewählte Objekt in einer Reihe, frei gezogen oder per Klick entlang einer Straße oder eines Flusses: Abstand,
