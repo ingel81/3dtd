@@ -1,4 +1,5 @@
 import { Injectable, signal } from '@angular/core';
+import type { WorldStart } from './world-start';
 
 /** What the window shows: a world's game, or the map editor (docs/WORLDS_NAVIGATION_PLAN.md, 4.2) */
 export type Screen = 'game' | 'editor';
@@ -9,6 +10,20 @@ export interface EditorDraft {
   name: string;
   /** Changes not saved yet (the editor saves before the game shows) */
   unsaved: boolean;
+}
+
+/**
+ * A run that waits as its world's autosave while the editor shows
+ * (docs/WORLDS_NAVIGATION_PLAN.md, decision 2): "Back to the run" opens its
+ * world again and loads it there.
+ */
+export interface WaitingRun {
+  /** Its world with the autosave to load (WorldStart.resume) */
+  order: WorldStart;
+  /** "Demo Valley | wave 12", as the chip and the way back name it */
+  label: string;
+  /** The custom map it plays; null on the real places */
+  mapId: string | null;
 }
 
 /**
@@ -27,6 +42,8 @@ export class AppScreen {
   readonly screen = signal<Screen>('game');
   /** The map open in the editor, kept while the game shows; null when the editor has none open */
   readonly draft = signal<EditorDraft | null>(null);
+  /** The run the editor came from, waiting as autosave; null without one (WorldSession.backToGame opens it) */
+  readonly waitingRun = signal<WaitingRun | null>(null);
   /** The map the editor opens when it shows next, taken once; null: its list, or the map open in it */
   private editorMap: string | null = null;
   /** The editor's own question before it goes (a save, a job under way), see guardEditor */

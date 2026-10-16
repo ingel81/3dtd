@@ -44,9 +44,16 @@ export class WorldSession {
     this.openHere(order);
   }
 
-  /** From the map editor: the game in this window again, the world it played (its start order) made anew */
+  /**
+   * From the map editor: the game in this window again. A run that waits
+   * (AppScreen.waitingRun) opens in its world and loads its autosave there;
+   * without one the world before is made anew from its start order.
+   */
   backToGame(): void {
-    void this.screens.showGame();
+    const run = this.screens.waitingRun();
+    void this.screens.showGame().then((shown) => {
+      if (shown && run) this.openHere(run.order);
+    });
   }
 
   /**
@@ -79,6 +86,8 @@ export class WorldSession {
   }
 
   private openHere(order: WorldStart): void {
+    // The run that waited is this world's now, or stays only as its world's autosave (Continue)
+    this.screens.waitingRun.set(null);
     for (const listener of [...this.leaving]) listener();
     this.start.set(order);
     this.world.update((n) => n + 1);

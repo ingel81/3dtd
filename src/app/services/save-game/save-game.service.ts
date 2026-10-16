@@ -140,6 +140,21 @@ export class SaveGameService implements SaveGamePort {
     return this.game.continueAutosave();
   }
 
+  async autosaveNow(): Promise<boolean> {
+    const slot = this.autosaveSlot();
+    if (!slot || this.mirror.scalars.snapshotRefusal !== null || this.host.saveBlocked() !== null) return false;
+    return this.game.autosave(slot);
+  }
+
+  /**
+   * A real place and a custom map each keep their own autosave: the menu offers each under its tab, and the
+   * start guesses its place from the real one (startPlaceGuess); a bot run in DevWorld takes neither
+   */
+  private autosaveSlot(): string | null {
+    if (this.worldContext.capabilities().realPlace) return AUTOSAVE_SLOT;
+    return this.worldContext.ref().kind === 'custom-map' ? AUTOSAVE_MAP_SLOT : null;
+  }
+
   /** After a wave: the autosave as soon as the simulation stands still between the waves */
   private async autosaveWhenQuiet(current: () => boolean): Promise<void> {
     const end = performance.now() + AUTOSAVE_WAIT_MS;
@@ -148,11 +163,7 @@ export class SaveGameService implements SaveGamePort {
       await new Promise((resolve) => setTimeout(resolve, AUTOSAVE_POLL_MS));
       // The next wave started, or the run ended: nothing to save for this one
       if (!current() || this.gameStore.phase() !== 'setup') return;
-      // A real place and a custom map each keep their own autosave: the menu offers each under its tab, and the
-      // start guesses its place from the real one (startPlaceGuess); a bot run in DevWorld takes neither
-      const slot = this.worldContext.capabilities().realPlace
-        ? AUTOSAVE_SLOT
-        : this.worldContext.ref().kind === 'custom-map' ? AUTOSAVE_MAP_SLOT : null;
+      const slot = this.autosaveSlot();
       if (!slot) return;
       if (this.mirror.scalars.snapshotRefusal === null && this.host.saveBlocked() === null) {
         await this.game.autosave(slot);

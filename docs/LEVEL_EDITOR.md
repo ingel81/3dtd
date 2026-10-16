@@ -13,6 +13,10 @@ Spiel und Editor stehen seit E195 Phase 4 im selben Fenster (`AppShellComponent`
 Entwicklung und AI-Agenten; die Route nennt nur, was zuerst steht, danach ändert kein Wechsel die Adresse. Die
 `EditorSession` hängt am Fenster, nicht an der Editor-Ansicht: zeigt das Spiel, gehen Ansicht, Renderer und Canvas des
 Editors, die offene Karte und ihr Verlauf bleiben (vorher gespeichert; scheitert das, bleibt der Editor).
+Ein laufender Lauf endet dabei nicht (Entscheidung 2 des Plans): zwischen den Wellen schreibt das Menü sofort den
+Autosave seiner Welt (`SaveGamePort.autosaveNow`), in einer Welle gilt der Autosave vom Anfang dieser Welle; ohne
+einen von beiden endet er, und die Rückfrage sagt das. „Back to the run“ in der Kartenliste öffnet seine Welt wieder
+und lädt den Autosave dort (`AppScreen.waitingRun`, `WorldSession.backToGame`).
 
 ## Kartenliste
 

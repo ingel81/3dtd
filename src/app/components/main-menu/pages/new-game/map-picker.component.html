@@ -15,7 +15,7 @@
         }
       </ul>
     } @else {
-      <p class="td-note">Maps you make in the <button type="button" class="td-link" (click)="worlds.editMap(null)">map editor</button> show up here.</p>
+      <p class="td-note">Maps you make in the <button type="button" class="td-link" (click)="edit(null)">map editor</button> show up here.</p>
     }
     <p class="td-note">
       <button type="button" class="td-link" (click)="toPlaces.emit()" data-test="map-of-place-link">Make a map of a real place…</button>
@@ -84,7 +84,7 @@
       <span class="td-sub td-trunc">{{ mapLine(m.summary) }}</span>
     </span>
     <span class="td-actions mk-actions">
-      <button type="button" class="td-btn-ghost td-btn-sm" (click)="worlds.editMap(m.summary.id)">Edit</button>
+      <button type="button" class="td-btn-ghost td-btn-sm" (click)="edit(m.summary.id)">Edit</button>
       @if (isCurrentMap(m.summary)) {
         <span class="td-note">Playing</span>
       } @else {

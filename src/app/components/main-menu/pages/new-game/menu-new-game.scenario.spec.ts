@@ -61,7 +61,7 @@ describe('New game page', () => {
   afterEach(() => TestBed.resetTestingModule());
 
   function open(waiting: boolean, locked = false, onMap = false) {
-    const menu = { home: vi.fn(), close: vi.fn(), tabsShown: () => false, tab: () => 'real' };
+    const menu = { home: vi.fn(), close: vi.fn(), tabsShown: () => false, tab: () => 'real', editMap: vi.fn() };
     const coordinator = { awaitingStartChoice: signal(waiting), choosePlace: vi.fn(async () => true) };
     const world = fakeWorldContext();
     if (onMap) world.useCustomMap('demo-valley', 'Demo Valley');
@@ -126,7 +126,7 @@ describe('New game page', () => {
   });
 
   it('a place to make a map of opens its frame in place of the lists; the map made plays or goes to the editor', () => {
-    const { fixture, picker, worlds } = open(true);
+    const { fixture, picker, worlds, menu } = open(true);
     const root = fixture.nativeElement as HTMLElement;
     const request: OsmFrameRequest = { place: { lat: 49.7, lon: 9.26, name: 'Miltenberg', address: 'Miltenberg, Bayern' }, spawnsAt: [] };
     picker!.mapOfPlace.emit(request);
@@ -138,7 +138,7 @@ describe('New game page', () => {
     frame.done.emit({ summary, then: 'play' });
     expect(worlds.playMap).toHaveBeenCalledWith('osm-miltenberg');
     frame.done.emit({ summary, then: 'edit' });
-    expect(worlds.editMap).toHaveBeenCalledWith('osm-miltenberg');
+    expect(menu.editMap).toHaveBeenCalledWith('osm-miltenberg');
     frame.back.emit();
     fixture.detectChanges();
     expect(root.querySelector('app-place-picker')).not.toBeNull();

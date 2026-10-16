@@ -236,11 +236,11 @@ export class MenuHomeComponent {
         return;
       case 'editor':
         if (this.menu.underWay() || this.menu.inCoop()) this.ask({ kind: 'editor' });
-        else this.menu.openMapEditor();
+        else void this.menu.openMapEditor();
         return;
       case 'edit-map':
         if (this.menu.underWay() || this.menu.inCoop()) this.ask({ kind: 'edit-map' });
-        else this.menu.editThisMap();
+        else void this.menu.editThisMap();
         return;
       case 'quit':
         if (this.menu.underWay() || this.menu.inCoop()) this.ask({ kind: 'quit' });
@@ -274,8 +274,8 @@ export class MenuHomeComponent {
     if (!confirm) return;
     if (confirm.kind === 'leave') void this.loadAutosave();
     else if (confirm.kind === 'restart') this.menu.restart();
-    else if (confirm.kind === 'editor') this.menu.openMapEditor();
-    else if (confirm.kind === 'edit-map') this.menu.editThisMap();
+    else if (confirm.kind === 'editor') void this.menu.openMapEditor();
+    else if (confirm.kind === 'edit-map') void this.menu.editThisMap();
     else this.menu.quit();
   }
 
@@ -345,13 +345,25 @@ export class MenuHomeComponent {
       case 'restart':
         return { question: 'Restart here? The run ends.', yes: 'Restart' };
       case 'editor':
-        return { question: 'Open the map editor? The run ends.', yes: 'Open the editor' };
+        return { question: `Open the map editor? ${this.runWhenEditingText()}`, yes: 'Open the editor' };
       case 'edit-map':
         return this.menu.fromEditor
           ? { question: 'Back to the editor? The test run ends.', yes: 'Back to editor' }
-          : { question: 'Edit this map? The run ends.', yes: 'Open in the editor' };
+          : { question: `Edit this map? ${this.runWhenEditingText()}`, yes: 'Open in the editor' };
       case 'quit':
         return { question: 'Quit 3DTD? The run ends.', yes: 'Quit' };
+    }
+  }
+
+  /** What becomes of the run when the editor opens (MainMenuService.runWhenEditing) */
+  private runWhenEditingText(): string {
+    switch (this.menu.runWhenEditing()) {
+      case 'waits':
+        return 'The run waits as autosave; Back to the run comes back to it.';
+      case 'wave-start':
+        return 'The run waits as autosave from the start of this wave.';
+      default:
+        return this.menu.inCoop() ? 'You leave the coop game.' : 'The run ends.';
     }
   }
 }

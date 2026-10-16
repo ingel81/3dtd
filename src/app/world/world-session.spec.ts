@@ -99,6 +99,20 @@ describe('WorldSession', () => {
     expect(session.world()).toBe(1);
   });
 
+  it('back from the editor opens the run that waits in its world, with its autosave; another world lets it go', async () => {
+    const run = { order: { ...MAP, resume: 'autosave-map' }, label: 'Bay | wave 4', mapId: 'bay' };
+    screens.waitingRun.set(run);
+    screens.openEditor('bay');
+    session.backToGame();
+    await vi.waitFor(() => expect(session.world()).toBe(1));
+    expect(start.current()).toEqual(run.order);
+    expect(screens.waitingRun()).toBeNull();
+
+    screens.waitingRun.set(run);
+    session.open(PLAIN_START);
+    expect(screens.waitingRun()).toBeNull();
+  });
+
   it('opens the same world anew for a new key, its save not loaded twice', () => {
     session.open({ ...MAP, resume: 'slot-1' });
     session.reopen();

@@ -18,6 +18,7 @@ import { GameStore } from '../../../../store/game.store';
 import type { MapSummary } from '../../../../world/custom-map/map-store';
 import { parseOwnTilesets } from '../../../../world/tileset/own-tileset';
 import { WorldChoiceService, type MapChoices } from '../../../../world/world-choice.service';
+import { MainMenuService } from '../../main-menu.service';
 import type { WorldRef } from '../../../../world/world-ref';
 import { MapPickerComponent } from './map-picker.component';
 
@@ -69,6 +70,7 @@ describe('Map picker of New game', () => {
     TestBed.configureTestingModule({
       providers: [
         { provide: WorldChoiceService, useValue: worlds },
+        { provide: MainMenuService, useValue: { editMap: worlds.editMap } },
         { provide: GameStore, useValue: { gameStarted: signal(!!setup.underWay), towerCount: signal(0) } },
       ],
     });
