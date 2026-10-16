@@ -1,6 +1,6 @@
-import { Color, LinearMipmapLinearFilter, SRGBColorSpace, Vector3, type Texture, type WebGLRenderer } from 'three';
+import { Color, LinearMipmapLinearFilter, PerspectiveCamera, SRGBColorSpace, Vector3, type Texture, type WebGLRenderer } from 'three';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { CustomMapEnvironment } from './map-environment';
+import { CustomMapEnvironment, SKY_FADE_S } from './map-environment';
 import { HEIGHT_FOG_UNIFORMS } from './height-fog';
 import { SHADOW_PARTS } from './shadow-parts';
 import { SkyDome } from './sky-dome';
@@ -248,7 +248,14 @@ describe('tone mapping (custom maps only)', () => {
     e.apply(new Scene(), renderer as unknown as WebGLRenderer);
     expect(renderer.toneMapping).toBe(NeutralToneMapping);
     expect(renderer.toneMappingExposure).toBeCloseTo(1.4);
+    // A new sky preset fades: the exposure moves over SKY_FADE_S, then stands at the night's
     e.set({ ...env, sky: 'night' });
+    expect(renderer.toneMappingExposure).toBeCloseTo(1.4);
+    e.skyDome.bake = () => undefined;
+    e.update(SKY_FADE_S / 2, new PerspectiveCamera());
+    expect(renderer.toneMappingExposure).toBeGreaterThan(1.45);
+    expect(renderer.toneMappingExposure).toBeLessThan(1.65);
+    e.update(SKY_FADE_S, new PerspectiveCamera());
     expect(renderer.toneMappingExposure).toBeCloseTo(1.7);
     e.detach();
     expect(renderer.toneMapping).toBe(ACESFilmicToneMapping);

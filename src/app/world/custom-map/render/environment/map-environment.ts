@@ -33,7 +33,7 @@ import {
 } from 'three';
 import { planetOf, type MapEnvironment, type MapPlanet } from '../../map-document';
 import { HEIGHT_FOG_UNIFORMS } from './height-fog';
-import { biomeLook, type BiomeLook } from './biomes';
+import { biomeLook, mixLook, type BiomeLook } from './biomes';
 import { ShadowParts } from './shadow-parts';
 import { SkyDome } from './sky-dome';
 import { fetchPlanetImage, fetchSkyImage, skyImageOf, skyImageYaw, type SkyImage } from './sky-images';
@@ -72,6 +72,9 @@ import { setWind, windOf, WIND_UNIFORMS } from './wind';
 
 /** The shadow box shrinks only once the view needs less than this share of it */
 const SHRINK = 0.7;
+/** Seconds a change of the sky preset takes to fade (day to dusk to night) */
+export const SKY_FADE_S = 2.5;
+
 const SKY_WIDTH = 512;
 const SKY_HEIGHT = 256;
 
@@ -138,6 +141,12 @@ export class CustomMapEnvironment {
   private previousToneMapping: { mapping: ToneMapping; exposure: number } | null = null;
   private scene: Scene | null = null;
   private renderer: WebGLRenderer | null = null;
+  /** A change of the sky preset fades: the look shown when it began, null when none runs (mixLook) */
+  private fadeFrom: BiomeLook | null = null;
+  /** 0..1 how far the fade has come */
+  private fade = 1;
+  /** Seconds since the sky's pixels were last filled during a fade */
+  private fadeFill = 0;
   /** The scene's background: a plain clear in the haze's colour, the dome over it */
   private readonly backdrop = new Color();
   private previous: {
@@ -168,6 +177,21 @@ export class CustomMapEnvironment {
 
   /** Recomputes lights, fog and sky for a changed environment */
   set(env: MapEnvironment): void {
+    // A new sky preset (day, dusk, night, overcast) fades from the look shown now, once the map is on screen;
+    // a picture sky and a new biome switch at once
+    if (this.renderer && env.sky !== this.env.sky && env.biome === this.env.biome && !skyImageOf(env) && !skyImageOf(this.env)) {
+      this.fadeFrom = this.look();
+      this.fade = 0;
+      this.fadeFill = 0;
+    } else if (env.biome !== this.env.biome || skyImageOf(env)) {
+      this.fadeFrom = null;
+      this.fade = 1;
+    }
+    this.show(env, false);
+  }
+
+  /** Lights, fog and sky for `env`; `refill` fills the sky's pixels even when nothing in them changed (a fade) */
+  private show(env: MapEnvironment, refill: boolean): void {
     // A new sun builds the map over frames like any change: the shown map keeps the matrix it was drawn with, its
     // shadows stay where the old sun cast them for those frames (drawn in one frame: 100 to 180 ms in the editor)
     if (env.sunAzimuth !== this.env.sunAzimuth || env.sunElevation !== this.env.sunElevation) this.shadowDirty = true;
@@ -178,7 +202,8 @@ export class CustomMapEnvironment {
       env.sunAzimuth !== this.env.sunAzimuth ||
       env.sunElevation !== this.env.sunElevation ||
       // The tint colours the sky's pixels and so the environment map (fillSky)
-      (env.tint || '#ffffff') !== (this.env.tint || '#ffffff');
+      (env.tint || '#ffffff') !== (this.env.tint || '#ffffff') ||
+      refill;
     this.env = env;
     const p = this.look();
     if (this.renderer && this.previousToneMapping) this.renderer.toneMappingExposure = p.exposure;
@@ -449,7 +474,11 @@ export class CustomMapEnvironment {
 
   /** Sky preset with the biome's look on top */
   private look(): BiomeLook {
-    return biomeLook(this.env.biome, this.env.sky);
+    const look = biomeLook(this.env.biome, this.env.sky);
+    if (!this.fadeFrom) return look;
+    // Smoothstep: no kink where the fade starts and ends
+    const t = this.fade * this.fade * (3 - 2 * this.fade);
+    return mixLook(this.fadeFrom, look, t);
   }
 
   /** The map's extent in the scene: its centre and half sizes (x, z), for the haze over the land beyond */
@@ -470,6 +499,16 @@ export class CustomMapEnvironment {
 
   /** Per frame: the wind's clock runs, the sky dome follows the camera, clouds drift, weather follows the view */
   update(dt: number, camera: Camera): void {
+    if (this.fadeFrom) {
+      this.fade = Math.min(1, this.fade + dt / SKY_FADE_S);
+      this.fadeFill += dt;
+      const done = this.fade >= 1;
+      // Lights and air every frame, the sky's pixels and the environment map five times a second (10 to 20 ms each)
+      const refill = done || this.fadeFill >= 0.2;
+      if (refill) this.fadeFill = 0;
+      this.show(this.env, refill);
+      if (done) this.fadeFrom = null;
+    }
     WIND_UNIFORMS.uWindTime.value += dt;
     this.skyDome.update(dt, camera);
     if (this.renderer) this.skyDome.bake(this.renderer);
