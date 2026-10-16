@@ -368,7 +368,7 @@ export class ThreeTilesEngine {
     // again from its CPU copy, which the VATs drop after their first upload.
     this.enemies.rebakeOnContextRestore(this.renderer.domElement);
     this.towers = new ThreeTowerRenderer(this.scene, coordinateSync, this.assetManager);
-    this.plinths = new TowerPlinthRenderer(this.scene, coordinateSync);
+    this.plinths = new TowerPlinthRenderer(this.scene, coordinateSync, (x, z) => this.terrain.sampleColumn(x, z));
     this.towerBadges = new TowerBadgeRenderer(this.scene, (id) => this.towers.get(id)?.mesh ?? null);
     this.projectiles = new ThreeProjectileRenderer(this.scene, coordinateSync);
     // One clock for everything that slides between two states (state-lerp.ts)
@@ -690,10 +690,20 @@ export class ThreeTilesEngine {
    * header and sidebar.
    */
   fitToCanvas(): void {
-    const canvas = this.renderer.domElement;
-    if (canvas.clientWidth > 0 && canvas.clientHeight > 0) {
-      this.resize(canvas.clientWidth, canvas.clientHeight);
+    if (!this.fitBuffer()) return;
+    // Resizing clears the drawing buffer, and the observer reports after this frame's draw: the browser would show
+    // the empty buffer (a black frame each time header and sidebar come or go). The frame drawn again in its place.
+    if (this._renderingEnabled && this.world.ready() && !this.drawSuppressed && !this.qualityCompile.holding) {
+      this.drawFrame();
     }
+  }
+
+  /** The drawing buffer at the canvas' CSS size; false while the canvas has no size */
+  private fitBuffer(): boolean {
+    const canvas = this.renderer.domElement;
+    if (canvas.clientWidth <= 0 || canvas.clientHeight <= 0) return false;
+    this.resize(canvas.clientWidth, canvas.clientHeight);
+    return true;
   }
 
   /**
@@ -1098,7 +1108,8 @@ export class ThreeTilesEngine {
     const ratio = pixelRatioFor(q.knobs, q.world, window.devicePixelRatio, scale);
     if (Math.abs(ratio - this.renderer.getPixelRatio()) < 1e-3) return;
     this.renderer.setPixelRatio(ratio);
-    this.fitToCanvas();
+    // Called in render() before its draw: no extra frame
+    this.fitBuffer();
   }
 
   /**

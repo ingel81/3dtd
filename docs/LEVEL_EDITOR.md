@@ -218,7 +218,11 @@ würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben diese
 eingestellte Höhe; Strg+Klick nimmt sie vom Boden), Roughen (Rauschen), Erode (steile Hänge rutschen zu Geröll),
 Terrace (Stufen in einstellbarer Höhe), Cliff (Plateau eine Stufe über dem Strichanfang, Shift eine darunter, harte
 Kante wie Warcraft-Klippen), Ramp (zwei Klicks: Rampe zwischen den beiden Höhen, Breite einstellbar; nach dem zweiten
-Klick meldet die Statuszeile „Ramp built“ statt weiter „Ramp start set“ zu zeigen).
+Klick meldet die Statuszeile „Ramp built“ statt weiter „Ramp start set“ zu zeigen). Neben ihrer flachen Krone
+schüttet und schneidet die Rampe mit höchstens 0,75 m je Meter (`RAMP_SIDES`, rund 37°, auch um die Enden): über tiefem
+Grund steht sie als Damm auf Böschungen, durch einen Hügel bekommt sie geneigte Einschnitte. Vorher fiel der Rand nur
+über die Randweichheit des Pinsels ab, ein Damm 10 m über der Wiese stand als steile Keilwand da. Die Karten-Skripte
+(`map-kit.ts`, `k.ramp`) bauen ihre Rampen weiter ohne Böschung, die mitgelieferten Karten bleiben gleich.
 
 **Paint (3).** Bis zu zwölf Bodenschichten aus dem Katalog (beim Hinzufügen nach Biom gruppiert); die Liste wählt die Schicht zum Malen, tauscht ihr Material,
 verschiebt und entfernt sie (ihr Gewicht geht an die anderen). Halten malt, Shift oder der Schalter radiert. „Auto paint

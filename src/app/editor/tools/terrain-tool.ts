@@ -24,6 +24,8 @@ const RAISE_SPEED = 12;
 const NOISE_SPEED = 4;
 /** Share per second the pull brushes close toward their target */
 const PULL_RATE = 5;
+/** The ramp's cut and fill beside it, metres per metre (about 37 degrees, earth at rest) */
+const RAMP_SIDES = 0.75;
 
 export class TerrainTool implements EditorTool {
   readonly id = 'terrain' as const;
@@ -153,7 +155,7 @@ export class TerrainTool implements EditorTool {
     for (const img of symmetryImages(ctx.settings.symmetry, t.grid.columns === t.grid.rows)) {
       const ia = { ...img.point(a), h: a.h };
       const ib = { ...img.point(b), h: b.h };
-      const rect = rampBetween(t, ia, ib, ctx.settings.terrain.rampWidth, ctx.settings.brush.falloff, (r) => stroke.touch('heights', r));
+      const rect = rampBetween(t, ia, ib, ctx.settings.terrain.rampWidth, ctx.settings.brush.falloff, (r) => stroke.touch('heights', r), RAMP_SIDES);
       if (rect) stroke.changed({ heights: rect });
     }
     stroke.finish();
