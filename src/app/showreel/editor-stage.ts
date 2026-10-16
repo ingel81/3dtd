@@ -14,6 +14,7 @@ import type { TerrainPreset } from '../editor/ops/generate';
 import { packMapFile, unpackMapFile, MAP_FILE_EXTENSION } from '../world/custom-map/map-file';
 import type { MapEnvironment } from '../world/custom-map/map-document';
 import { poseToOrbit, type CameraPose, type MapPoint3 } from './camera-path';
+import { agentReplay } from './agent-bridge';
 import { CAMERA_FLOOR_M, flooredHeight } from './camera-floor';
 import type { ScreenPoint } from './pointer';
 import type { Stage } from './stage';
@@ -291,6 +292,10 @@ export class EditorStage implements Stage {
         }
         return;
       }
+      case 'agent':
+        // A recorded AI agent (tools/showreel/agent): its MCP calls replayed by the relay, answered by this editor
+        await agentReplay(String(args['replay']), args['reset'] === true);
+        return;
       case 'save':
         await session.save(true);
         return;

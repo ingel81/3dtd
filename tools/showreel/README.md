@@ -70,6 +70,23 @@ Editor storage: every run starts Chrome on a fresh profile, so no own copies or 
 A shipped map opened in the editor becomes an own copy; opened again (the map list's row, own copy or shipped)
 it is that copy, with no "original changed" notice while the shipped file is the same.
 
+## The AI agent take (round 4, `scenes/r4-k4.mjs`)
+
+The MCP server exists only in the desktop app, the showreel runs in Chrome. `tools/showreel/agent/relay.mjs` runs the
+app's own server (`desktop/src/agent-mcp.js`, unchanged) in Node and carries its IPC over a WebSocket to the page; a
+page with `agent=<port>` gets the desktop preload's `window.desktop.agent` from the hook (`src/app/showreel/agent-bridge.ts`),
+so the editor's Agent button and agent band work as in the app. `act('agent', { replay, reset })` has the relay send the
+recorded calls of `agent/fixtures/agent-<replay>.json` to that server as an MCP client over HTTP (`agent/replay.mjs`); no
+language model in the take. `reset` switches it off and on afterwards (the band forgets the agent: a warm-up before the
+take). The scene is a take with its own `page` (the bridge comes with the address), not a `start`.
+
+```bash
+node tools/agent/build-script-worker.mjs          # the script sandbox (npm start does it; a bare ng serve does not)
+node tools/showreel/agent/relay.mjs               # beside the dev server: MCP on 47171, page socket on 47190
+node tools/showreel/agent/replay.mjs --call map_summary '{}'   # development: one call against the open editor
+```
+
+## Output (one folder per run)
 ## Takes (one scene per take, 2026-10-16)
 
 Every scene can be recorded on its own, as often as needed; the cut picks a take per scene. A take starts on a
