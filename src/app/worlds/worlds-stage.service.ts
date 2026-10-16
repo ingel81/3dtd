@@ -85,6 +85,25 @@ function readLastWorld(): WorldId | null {
 
 const NO_PICKS: Readonly<Record<WorldId, WorldPick | null>> = { real: null, osm: null, maps: null };
 
+/** The pick of each world's menu, kept over a reload (decision 9) */
+const PICKS_KEY = 'td_world_picks_v1';
+
+function isPick(value: unknown): value is WorldPick {
+  const p = value as Partial<WorldPick> | null;
+  if (!p || typeof p.name !== 'string') return false;
+  if (p.kind === 'map' || p.kind === 'tileset') return typeof (p as { id?: unknown }).id === 'string';
+  if (p.kind !== 'place') return false;
+  const place = p as Partial<Extract<WorldPick, { kind: 'place' }>>;
+  return !!place.hq && Number.isFinite(place.hq.lat) && Number.isFinite(place.hq.lon) && Array.isArray(place.spawns);
+}
+
+function readPicks(): Readonly<Record<WorldId, WorldPick | null>> {
+  const stored = readJson(PICKS_KEY) as Partial<Record<WorldId, unknown>> | null;
+  if (!stored || typeof stored !== 'object') return NO_PICKS;
+  const of = (world: WorldId) => (isPick(stored[world]) ? (stored[world] as WorldPick) : null);
+  return { real: of('real'), osm: of('osm'), maps: of('maps') };
+}
+
 /**
  * The globes and the world menus (docs/WORLDS_NAVIGATION_PLAN.md, 3.1 and
  * phase 6): which view shows, what each world has picked, what is open over
@@ -107,7 +126,7 @@ export class WorldsStageService {
 
   readonly view = signal<'globes' | 'world'>('globes');
   readonly world = signal<WorldId>('real');
-  readonly picks = signal<Readonly<Record<WorldId, WorldPick | null>>>(NO_PICKS);
+  readonly picks = signal<Readonly<Record<WorldId, WorldPick | null>>>(readPicks());
   readonly realList = signal<RealList>('recent');
   readonly overlay = signal<StageOverlay | null>(null);
   readonly confirm = signal<StageConfirm | null>(null);
@@ -223,6 +242,7 @@ export class WorldsStageService {
 
   pick(world: WorldId, pick: WorldPick | null): void {
     this.picks.update((picks) => ({ ...picks, [world]: pick }));
+    writeJson(PICKS_KEY, this.picks());
     this.notice.set(null);
   }
 
@@ -489,11 +509,13 @@ export class WorldsStageService {
     const originals = new Map([...choices.shared, ...choices.shipped].map((c) => [c.summary.id, c.summary.name]));
     const own = choices.own.map((c) => ({ ...of(c), copyOf: c.summary.copyOf ? (originals.get(c.summary.copyOf.id) ?? null) : null }));
     this.maps.set([...own, ...choices.shared.map(of), ...choices.shipped.map(of)]);
-    // Picks made before the list (a link names a map by its id) take the map's name
+    // Picks made before the list (a link names a map by its id, a reload kept one) take the map's name; a map gone, or now of the other world, is no pick
     for (const world of ['osm', 'maps'] as const) {
       const pick = this.picks()[world];
-      const map = pick?.kind === 'map' ? this.maps().find((m) => m.id === pick.id) : undefined;
-      if (pick && map && pick.name !== map.name) this.pick(world, { ...pick, name: map.name });
+      if (pick?.kind !== 'map' || pick.id === this.pendingMap?.id) continue;
+      const map = this.maps().find((m) => m.id === pick.id);
+      if (!map || worldOfMap(map) !== world) this.pick(world, null);
+      else if (pick.name !== map.name) this.pick(world, { ...pick, name: map.name });
     }
     const pending = this.pendingMap;
     if (pending && this.mapWorld(pending.id) === 'osm') {

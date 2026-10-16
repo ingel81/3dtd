@@ -395,4 +395,26 @@ describe('Worlds stage', () => {
     expect(text(el(f).querySelector('.wm-body .td-group .td-section'))).toBe('Your built worlds');
     expect(localStorage.getItem('td_recent_maps_v1')).toBe('[]');
   });
+
+  it('each world menu keeps its pick over a reload; a map that is gone is no pick', async () => {
+    let f = await open({ key: true });
+    card(f, 'maps').click();
+    await settle(f);
+    button(f, /^Demo Valley/).click();
+    await settle(f);
+    TestBed.inject(WorldsStageService).pick('real', { kind: 'place', hq: { lat: 49.14, lon: 9.22 }, spawns: [], name: 'Heilbronn' });
+    TestBed.resetTestingModule();
+
+    f = await open({ key: true });
+    const stage = TestBed.inject(WorldsStageService);
+    expect(stage.picks().maps).toMatchObject({ kind: 'map', id: 'demo-valley' });
+    expect(stage.picks().real).toMatchObject({ kind: 'place', name: 'Heilbronn' });
+    card(f, 'maps').click();
+    await settle(f);
+    expect(text(el(f).querySelector('.ws-path'))).toBe('Worlds › Built Worlds › Demo Valley Play Edit');
+
+    stage.pick('osm', { kind: 'map', id: 'gone', name: 'Gone' });
+    await stage.refreshMaps();
+    expect(stage.picks().osm).toBeNull();
+  });
 });
