@@ -7,12 +7,10 @@ const customMapsOnly = () => customMapsByLink() || inject(Router).parseUrl('/');
 
 export const routes: Routes = [
   {
-    // The game; a world opened in the page makes it anew (WorldSession)
+    // The game and the map editor in one window, the game first (AppShellComponent, AppScreen)
     path: '',
-    loadComponent: () =>
-      import('./game-host.component').then(
-        m => m.GameHostComponent
-      ),
+    data: { screen: 'game' },
+    loadComponent: () => import('./app-shell.component').then((m) => m.AppShellComponent),
   },
   {
     // Dev page: the demo map in the custom map renderer
@@ -24,12 +22,11 @@ export const routes: Routes = [
       ),
   },
   {
+    // The same window with the editor first (`?map=` names its map, WorldStartService.editorMap)
     path: 'editor',
     canMatch: [customMapsOnly],
-    loadComponent: () =>
-      import('./editor/ui/editor-page.component').then(
-        m => m.EditorPageComponent
-      ),
+    data: { screen: 'editor' },
+    loadComponent: () => import('./app-shell.component').then((m) => m.AppShellComponent),
   },
   {
     path: 'engine-test',

@@ -9,6 +9,7 @@
  */
 // The component is partially compiled and needs the JIT compiler
 import '@angular/compiler';
+import { WorldPathComponent } from '../components/world-path/world-path.component';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -27,7 +28,7 @@ import type { SaveSlotStore, StoredSlotMeta } from '../services/save-game/save-s
 import { CUSTOM_MAPS_OPEN } from '../world/custom-maps-open';
 import type { MapSummary } from '../world/custom-map/map-store';
 import { WorldChoiceService } from '../world/world-choice.service';
-import { WORLD_NAVIGATE, WorldSession } from '../world/world-session.service';
+import { WorldSession } from '../world/world-session.service';
 import { PLAIN_START, WorldStartService, type WorldStart } from '../world/world-start';
 import { SettingsSectionsComponent } from '../components/main-menu/pages/settings/settings-sections.component';
 import { ExtrasListComponent } from '../components/main-menu/pages/extras/extras-list.component';
@@ -79,6 +80,10 @@ class SlotsStub {
   readonly mode = input('load');
 }
 for (const name of ['mode']) Input({ alias: name, isSignal: true } as Input)(SlotsStub.prototype, name);
+// The shared path bar (components/world-path) as the JIT transform would annotate it
+for (const name of ['world', 'worldHere', 'mode', 'modes', 'playLabel', 'editLabel', 'playWhy', 'editWhy', 'playHint', 'editHint', 'worldsHint', 'worldHint', 'chips']) {
+  Input({ alias: name, isSignal: true } as Input)(WorldPathComponent.prototype, name);
+}
 
 const summary = (s: Partial<MapSummary> & { id: string; name: string }): MapSummary => ({
   author: '', description: '', width: 0, depth: 0, updatedAt: '', origin: 'shipped', contentHash: '', objects: 0, spawns: 2, ...s,
@@ -130,7 +135,6 @@ describe('Worlds stage', () => {
         { provide: ConfigService, useValue: config },
         { provide: CUSTOM_MAPS_OPEN, useValue: true },
         { provide: STAGE_SLOT_STORE, useValue: new MemoryStore(setup.slots ?? []) },
-        { provide: WORLD_NAVIGATE, useValue: vi.fn() },
         { provide: MatDialog, useValue: { openDialogs: [] } },
         // The menu globe is off: the squares show discs, no WebGL in the spec
         { provide: GlobeDirectorService, useValue: { setting: signal('off') } },
@@ -143,7 +147,6 @@ describe('Worlds stage', () => {
           useValue: {
             listMaps: async () => ({ own: [], shared: [], shipped: [{ summary: summary({ id: 'demo-valley', name: 'Demo Valley', description: 'River valley.' }), picture: null }] }),
             tilesets: signal([]),
-            editorUrl: () => 'http://x/editor',
             editMap: vi.fn(),
           },
         },
@@ -155,7 +158,7 @@ describe('Worlds stage', () => {
         templateUrl: undefined,
         styleUrl: undefined,
         styles: [],
-        imports: [IconStub, RovingGroupDirective, TokenStub, SettingsStub, ExtrasStub, SlotsStub, StageCoopComponent, WorldRealComponent, WorldOsmComponent, WorldMapsComponent],
+        imports: [IconStub, RovingGroupDirective, TokenStub, SettingsStub, ExtrasStub, SlotsStub, StageCoopComponent, WorldRealComponent, WorldOsmComponent, WorldMapsComponent, WorldPathComponent],
       },
     });
     TestBed.overrideComponent(WorldsStageComponent, { remove: { imports: [TdIconComponent, SettingsSectionsComponent, ExtrasListComponent, SaveSlotsComponent, TokenSetupComponent] } });
@@ -222,7 +225,7 @@ describe('Worlds stage', () => {
     const row = el(f).querySelector<HTMLElement>('.wm-body .td-row')!;
     row.click();
     await settle(f);
-    expect(text(el(f).querySelector('.ws-path'))).toMatch(/^Worlds Real places New York/);
+    expect(text(el(f).querySelector('.ws-path'))).toBe('Worlds › Real places › New York Start Make map');
     const start = el(f).querySelector<HTMLElement>('[data-stage-start]')!;
     expect(start.getAttribute('aria-disabled')).toBe('true');
     expect(text(el(f).querySelector('.wm-detail .td-note.is-warn'))).toBe('Needs a map key (Cesium Ion or Google). Enter map key');
@@ -286,7 +289,7 @@ describe('Worlds stage', () => {
     TestBed.overrideProvider(WorldStartService, { useValue: { current: () => ({ ...PLAIN_START, world: { kind: 'custom-map', mapId: 'demo-valley', contentHash: '' } }) } });
     const f = await open();
     expect(TestBed.inject(WorldsStageService).view()).toBe('world');
-    expect(text(el(f).querySelector('.ws-path'))).toBe('Worlds Maps Demo Valley');
+    expect(text(el(f).querySelector('.ws-path'))).toBe('Worlds › Maps › Demo Valley Play Edit');
     expect(opened).toEqual([]);
   });
 });

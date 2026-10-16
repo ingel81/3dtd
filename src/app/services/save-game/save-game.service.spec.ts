@@ -24,6 +24,7 @@ import type { GamePhase } from '../../models/game.types';
 import { WorldContext } from '../../world/world-context.service';
 import { fakeWorldContext, TEST_WORLD_REF } from '../../../test/world-context-fake';
 import { CameraSlotsService } from '../camera-slots.service';
+import { PLAIN_START, WorldStartService } from '../../world/world-start';
 
 /**
  * The save game in the running game (TODO E110), on stand-ins: when saving
@@ -58,7 +59,7 @@ function saveFile(): SaveFile {
 
 interface Applying { apply(file: SaveFile): Promise<string | null> }
 
-function setup(options: { inCoop?: boolean } = {}) {
+function setup(options: { inCoop?: boolean; editorTest?: boolean } = {}) {
   const bus = createMainEventBus();
   const frames = new Set<() => void>();
   const order: string[] = [];
@@ -119,6 +120,9 @@ function setup(options: { inCoop?: boolean } = {}) {
   };
   const phase = signal<GamePhase>('setup');
   const world = { source: () => ({}), spawnPoints: [], sendToSim: vi.fn(() => order.push('fresh run')) };
+  // The editor's test plays a custom map
+  const context = fakeWorldContext();
+  if (options.editorTest) context.useCustomMap('m');
   const injector = Injector.create({
     providers: [
       SaveGameService,
@@ -130,11 +134,12 @@ function setup(options: { inCoop?: boolean } = {}) {
       { provide: EngineInitializationService, useValue: { getEngine: () => ({}), loading: signal(false) } },
       { provide: WaveDirector, useValue: director },
       { provide: RunLogFacade, useValue: runLog },
-      { provide: WorldContext, useValue: fakeWorldContext() },
+      { provide: WorldContext, useValue: context },
       { provide: GameStore, useValue: { phase, isGameOver: signal(false) } },
       { provide: UIStore, useValue: { replayMode: signal(false) } },
       { provide: CoopService, useValue: { room: signal(options.inCoop ? {} : null), inGame: signal(false) } },
       { provide: CameraSlotsService, useValue: cameraSlots },
+      { provide: WorldStartService, useValue: { current: () => ({ ...PLAIN_START, trial: options.editorTest ? { bot: null } : null }) } },
     ],
   });
   const service = injector.get(SaveGameService);
@@ -142,6 +147,12 @@ function setup(options: { inCoop?: boolean } = {}) {
 }
 
 describe('SaveGameService (TODO E110)', () => {
+  it("keeps no save of the editor's test of its map (E195 phase 5)", async () => {
+    const { service } = setup({ editorTest: true });
+    expect(service.cannotSaveReason()).toBe('A test of the map is not saved.');
+    expect(await service.autosaveNow()).toBe(false);
+  });
+
   it('saves between waves only, alone, not in co-op', () => {
     const { service, phase } = setup();
     expect(service.canSave()).toBe(true);

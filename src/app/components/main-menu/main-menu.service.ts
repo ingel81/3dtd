@@ -18,7 +18,8 @@ import { WorldChoiceService } from '../../world/world-choice.service';
 import { WorldStartService } from '../../world/world-start';
 import { pageQuery } from '../../core/page-switches';
 import { CUSTOM_MAPS_OPEN } from '../../world/custom-maps-open';
-import { MAP_TEST_WINDOW, returnToEditor } from '../../world/map-trial';
+import { AppScreen } from '../../world/app-screen.service';
+import { PLAIN_START } from '../../world/world-start';
 import { WorldsStageService } from '../../worlds/worlds-stage.service';
 import { openedCustomMap } from '../../world/custom-map/custom-map-world';
 import type { WorldId, WorldPick } from '../../worlds/world-rules';
@@ -70,6 +71,7 @@ export class MainMenuService {
   private readonly worldContext = inject(WorldContext);
   private readonly worlds = inject(WorldChoiceService);
   private readonly start = inject(WorldStartService);
+  private readonly screens = inject(AppScreen);
   /** The custom maps are open (CUSTOM_MAPS_OPEN): the start list has its two tabs */
   private readonly mapsOpen = inject(CUSTOM_MAPS_OPEN);
   private readonly bridge = readDesktopBridge();
@@ -81,8 +83,8 @@ export class MainMenuService {
   /** The pages walked to the one showing, oldest first; Back pops it */
   private readonly history = signal<readonly MenuPage[]>([]);
 
-  /** Automated runs play without the start menu (startMenuSkipped) */
-  readonly automated = startMenuSkipped(pageQuery());
+  /** Automated runs play without the start menu (startMenuSkipped), so do a benchmark and a bot check the game started */
+  readonly automated = startMenuSkipped(pageQuery()) || this.start.current().benchmark !== null || this.start.current().trial?.bot != null;
 
   /** The start order named the place (a link's ?l=): Play comes before Continue */
   readonly linkedPlace = this.start.current().place !== null;
@@ -147,10 +149,10 @@ export class MainMenuService {
 
   /** The page plays a custom map */
   readonly onMap = computed(() => this.worldContext.ref().kind === 'custom-map');
-  /** The custom map this page plays, to edit: while the maps are open, not in a replay; else null */
+  /** The custom map this page plays, to edit: while the maps are open (or back from the editor's test), not in a replay; else null */
   readonly editableMapId = computed(() => {
     const ref = this.worldContext.ref();
-    return this.mapsOpen && ref.kind === 'custom-map' && !this.ui.replayMode() ? ref.mapId : null;
+    return (this.mapsOpen || this.fromEditor) && ref.kind === 'custom-map' && !this.ui.replayMode() ? ref.mapId : null;
   });
   /**
    * Which kind of world the start list shows. It follows the world the
@@ -167,19 +169,82 @@ export class MainMenuService {
   /** The list shows the world of this page (or there are no tabs) */
   readonly onHomeTab = computed(() => !this.tabsShown() || this.tab() === this.homeTab());
 
-  /** The page is the editor's test tab ("Test map"), its editor still there: editing the map goes back to it */
-  readonly fromEditor = typeof window !== 'undefined' && window.name === MAP_TEST_WINDOW && !!window.opener;
+  /** The world is the editor's test of its map ("Test map", the bot check): editing the map goes back to the editor */
+  readonly fromEditor = this.start.current().trial !== null;
   /** The words of the way into the editor: back to it from its test tab, else the map opens there */
   readonly editMapLabel = this.fromEditor ? 'Back to editor' : 'Edit this map';
 
   /**
-   * The map editor on the map this page plays (a shipped one opens there as an own copy). From the editor's
-   * test tab the editor that opened it comes back instead, the map still open in it.
+   * The map editor in this window on the map this page plays (a shipped one opens there as an own copy); the
+   * run waits as autosave (runWaits). From the editor's test the editor comes back as it was, the map and its
+   * history still open in it; the test is not kept.
    */
-  editThisMap(): void {
+  async editThisMap(): Promise<void> {
     const mapId = this.editableMapId();
-    if (mapId === null || returnToEditor(mapId)) return;
-    window.location.assign(this.worlds.editUrl(mapId));
+    if (mapId === null) return;
+    if (this.fromEditor) this.screens.openEditor(null);
+    else await this.editMap(mapId);
+  }
+
+  /** The map editor in this window, on its list of maps (or the map open in it); the run waits as autosave */
+  openMapEditor(): Promise<void> {
+    return this.editMap(null);
+  }
+
+  /** The map editor in this window on `mapId` (null: its list); the run waits as autosave (runWaits) */
+  async editMap(mapId: string | null): Promise<void> {
+    await this.runWaits();
+    this.worlds.editMap(mapId);
+  }
+
+  /** This world's autosave slot: the real places' or the maps'; null where a run keeps none (DevWorld) */
+  private readonly autosaveSlotHere = computed(() => {
+    if (this.worldContext.capabilities().realPlace) return AUTOSAVE_SLOT;
+    return this.worldContext.ref().kind === 'custom-map' ? AUTOSAVE_MAP_SLOT : null;
+  });
+
+  /** The autosave that holds this run at the start of the wave under way, null without one */
+  private readonly autosaveOfThisWave = computed(() => {
+    const slotId = this.autosaveSlotHere();
+    const slot = slotId ? this.saves.slots().find((s) => s.id === slotId) : undefined;
+    if (!slot || slot.wave !== this.store.waveNumber()) return null;
+    const ref = this.worldContext.ref();
+    if (ref.kind === 'custom-map') return slot.map?.id === ref.mapId ? slot : null;
+    return autosaveElsewhere(slot, { hq: this.locationMgmt.hq(), name: this.placeName() ?? '' }) ? null : slot;
+  });
+
+  /**
+   * What happens to the run when the editor opens (decision 2 of docs/WORLDS_NAVIGATION_PLAN.md): it waits
+   * as autosave between waves, at the start of its wave in one; it ends without an autosave; null with no
+   * run under way.
+   */
+  readonly runWhenEditing = computed<'waits' | 'wave-start' | 'ends' | null>(() => {
+    if (!this.underWay() || this.store.isGameOver()) return null;
+    if (this.inCoop() || this.ui.replayMode() || !this.autosaveSlotHere()) return 'ends';
+    if (this.saves.canSave()) return 'waits';
+    return this.autosaveOfThisWave() ? 'wave-start' : 'ends';
+  });
+
+  /**
+   * The run waits as its world's autosave while the editor shows: saved now between waves, else the
+   * autosave of its wave's start; AppScreen.waitingRun names it for "Back to the run". Nothing waits when
+   * the run ends (runWhenEditing).
+   */
+  private async runWaits(): Promise<void> {
+    const when = this.runWhenEditing();
+    const slotId = this.autosaveSlotHere();
+    this.screens.waitingRun.set(null);
+    if (!slotId || (when !== 'waits' && when !== 'wave-start')) return;
+    const saved = when === 'waits' && (await this.saves.autosaveNow());
+    const slot = saved ? this.saves.slots().find((s) => s.id === slotId) : this.autosaveOfThisWave();
+    if (!slot) return;
+    const ref = this.worldContext.ref();
+    const name = ref.kind === 'custom-map' ? (slot.map?.name ?? slot.location) : shortPlaceName(slot.location);
+    this.screens.waitingRun.set({
+      order: { ...PLAIN_START, world: ref.kind === 'tiles' ? null : ref, resume: slotId, play: true, label: name },
+      label: `${name} | wave ${slot.wave}`,
+      mapId: ref.kind === 'custom-map' ? ref.mapId : null,
+    });
   }
 
   /** A save the page was opened to load (?resume=), said when it went wrong */

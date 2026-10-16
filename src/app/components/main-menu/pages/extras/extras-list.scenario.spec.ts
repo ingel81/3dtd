@@ -179,10 +179,10 @@ describe('Extras page', () => {
     row('Benchmark').click();
     await settle();
     expect(benchmark.start).not.toHaveBeenCalled();
-    expect(el.textContent).toContain('The page reloads into a test world');
+    expect(el.textContent).toContain('A test world opens');
     [...el.querySelectorAll('button')].find((b) => b.textContent!.trim() === 'Cancel')!.click();
     await settle();
-    expect(el.textContent).not.toContain('The page reloads into a test world');
+    expect(el.textContent).not.toContain('A test world opens');
     row('Benchmark').click();
     await settle();
     [...el.querySelectorAll('button')].find((b) => b.textContent!.trim() === 'Run')!.click();

@@ -1,6 +1,6 @@
 import { isBenchmarkSearch } from './benchmark-report';
 import {
-  formatRenderBenchmark, isRenderBenchmarkSearch, renderBenchmarkUrl, renderRow, viewPose, type Pose, type RenderBenchEnv,
+  formatRenderBenchmark, isRenderBenchmarkSearch, renderRow, viewPose, type Pose, type RenderBenchEnv,
 } from './render-benchmark';
 
 describe('render benchmark (docs/BENCHMARKS.md, Bildkosten)', () => {
@@ -9,10 +9,6 @@ describe('render benchmark (docs/BENCHMARKS.md, Bildkosten)', () => {
     expect(isRenderBenchmarkSearch('?devworld&benchmark')).toBe(false);
     expect(isBenchmarkSearch('?devworld&benchmark=render')).toBe(false);
     expect(isBenchmarkSearch('?devworld&benchmark')).toBe(true);
-    const url = new URL(renderBenchmarkUrl('http://x/?world=map:harbor-town#a'));
-    expect(url.searchParams.get('world')).toBe('map:harbor-town');
-    expect(url.searchParams.get('benchmark')).toBe('render');
-    expect(url.hash).toBe('');
   });
 
   it('flies the same paths around the HQ on every world', () => {

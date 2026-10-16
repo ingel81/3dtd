@@ -2,6 +2,8 @@ import { Component, ChangeDetectionStrategy, DestroyRef, inject } from '@angular
 import { RouterOutlet } from '@angular/router';
 import { WorldChoiceService } from './world/world-choice.service';
 import { GameStore } from './store/game.store';
+import { UIStore } from './store/ui.store';
+import { mayLeaveForOpenedMap } from './world/opened-map-leave';
 
 @Component({
   selector: 'app-root',
@@ -13,11 +15,10 @@ import { GameStore } from './store/game.store';
 })
 export class AppComponent {
   constructor() {
-    // A map double-clicked in the desktop app plays, wherever the page is (game or editor)
-    // In a run it asks first (the editor asks through its own unsaved-changes question, desktop/src/main.js)
-    const game = inject(GameStore);
-    const mayLeave = (name: string) =>
-      (game.phase() === 'setup' && game.waveNumber() === 0) || game.isGameOver() || window.confirm(`Leave this game and play ${name}?`);
+    // A map double-clicked in the desktop app plays, wherever the page is (game or editor), in this
+    // window (WorldSession). In a run it asks first (the editor asks through its own unsaved-changes
+    // question, desktop/src/main.js); a coop room's map is the host's to pick
+    const mayLeave = mayLeaveForOpenedMap(inject(GameStore), inject(UIStore), (question) => window.confirm(question));
     inject(DestroyRef).onDestroy(inject(WorldChoiceService).playOpenedMaps(mayLeave));
   }
 }

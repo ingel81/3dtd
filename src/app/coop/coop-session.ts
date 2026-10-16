@@ -410,6 +410,23 @@ export class CoopSession {
     this.out({ t: 'ping', lat, lon, height });
   }
 
+  /** The connection to the relay stands (a close or a silence ends it) */
+  get connected(): boolean {
+    return this.socket !== null;
+  }
+
+  /**
+   * Every handler off: the session waits for its next owner, the CoopService
+   * of the next world in the page (CoopRoomCarry). The room, its world and
+   * this player's id stay as the relay last told them.
+   */
+  unhook(): void {
+    const handlers = this as unknown as Record<string, unknown>;
+    for (const key of Object.keys(handlers)) {
+      if (/^on[A-Z]/.test(key)) handlers[key] = null;
+    }
+  }
+
   close(): void {
     const socket = this.socket;
     this.socket = null;

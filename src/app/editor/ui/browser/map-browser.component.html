@@ -4,7 +4,7 @@
       <h1 class="td-dlg-title" id="mb-title">Map editor</h1>
       <div class="td-actions">
         <app-agent-control />
-        <button class="td-btn-ghost" type="button" (click)="backToGame()">Back to the game</button>
+        <button class="td-btn-ghost" type="button" (click)="backToGame()" data-test="back-to-game">{{ waitingRun() ? 'Back to the run: ' + waitingRun()!.label : 'Back to the game' }}</button>
         @if (worlds.mapFolder) {
           <button class="td-btn-ghost" type="button" (click)="worlds.revealMapFolder()"
                   matTooltip="Your maps as .3dtdmap files in Documents/3DTD/Maps; put files there to add them" data-test="map-folder">Map folder</button>

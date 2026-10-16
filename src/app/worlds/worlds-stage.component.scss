@@ -64,25 +64,10 @@
   font-size: var(--td-fs-text);
   font-weight: 600;
   white-space: nowrap;
-  cursor: pointer;
-
-  &:hover {
-    color: var(--td-brass-light);
-  }
-
-  &[aria-current='page'] {
-    color: var(--td-text-primary);
-  }
-
   &.is-here {
+    color: var(--td-text-primary);
     cursor: default;
   }
-}
-
-.ws-modes {
-  display: flex;
-  gap: var(--td-sp-1);
-  padding-left: var(--td-sp-3);
 }
 
 .ws-bar-gap {

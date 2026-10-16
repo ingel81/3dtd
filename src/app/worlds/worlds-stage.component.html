@@ -5,27 +5,14 @@
 
   <header class="ws-bar td-topbar">
     <img class="ws-bar-logo" src="assets/images/logo/logo.svg" alt="3DTD" width="64" height="36">
-    <nav class="ws-path" aria-label="Where you are">
-      <button type="button" class="ws-crumb td-caps" [attr.aria-current]="view() === 'globes' ? 'page' : null"
-              (click)="stage.toGlobes()">Worlds</button>
-      @if (view() === 'world') {
-        <td-icon name="caretR" [size]="12" />
-        <button type="button" class="ws-crumb" [attr.aria-current]="pickName() ? null : 'page'"
-                (click)="stage.openWorld(world())">{{ names[world()] }}</button>
-        @if (pickName(); as name) {
-          <td-icon name="caretR" [size]="12" />
-          <span class="ws-crumb is-here" aria-current="page">{{ name }}</span>
-        }
+    <!-- The same path as over the game and the editor (components/world-path) -->
+    <app-world-path class="ws-path" [world]="view() === 'world' ? names[world()] : null" [worldHere]="!pickName()"
+                    [modes]="view() === 'world' && !!pick()" [playLabel]="playLabel()" [editLabel]="editLabel()"
+                    [playWhy]="playWhy()" [editWhy]="editWhy()" worldHint="This world's menu" (go)="onPath($event)">
+      @if (view() === 'world' && pickName(); as name) {
+        <span class="ws-crumb is-here" aria-current="page">{{ name }}</span>
       }
-    </nav>
-    @if (view() === 'world' && pick()) {
-      <div class="ws-modes td-line-left">
-        <button type="button" class="td-btn-ghost td-btn-sm" [attr.aria-disabled]="playWhy() ? true : null"
-                [attr.title]="playWhy()" (click)="stage.start()">{{ playLabel() }}</button>
-        <button type="button" class="td-btn-ghost td-btn-sm" [attr.aria-disabled]="editWhy() ? true : null"
-                [attr.title]="editWhy()" (click)="stage.edit()">{{ editLabel() }}</button>
-      </div>
-    }
+    </app-world-path>
     <span class="ws-bar-gap"></span>
     @for (run of stage.autosaves(); track run.slotId) {
       <button type="button" class="td-stone-chip ws-chip" [attr.aria-disabled]="stage.whyNot('play', run.world) ? true : null"

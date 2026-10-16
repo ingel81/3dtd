@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { TdIconComponent } from '../components/icon/icon.component';
 import { WorldChoiceService } from '../world/world-choice.service';
-import { WORLD_NAVIGATE } from '../world/world-session.service';
 import type { StageMap } from './worlds-stage.service';
 import { WorldsStageService } from './worlds-stage.service';
 
@@ -87,7 +86,6 @@ import { WorldsStageService } from './worlds-stage.service';
 export class WorldMapsComponent {
   readonly stage = inject(WorldsStageService);
   private readonly worlds = inject(WorldChoiceService);
-  private readonly navigate = inject(WORLD_NAVIGATE);
 
   readonly lock = computed(() => this.stage.lock('maps'));
   readonly groups = computed(() => {
@@ -113,9 +111,9 @@ export class WorldMapsComponent {
   readonly playWhy = computed(() => this.stage.whyNot('play', 'maps'));
   readonly continues = computed(() => this.stage.runHere('maps', this.stage.picks().maps) !== null);
 
-  /** The editor with a new map: its own page until it moves into the app (plan, phase 4) */
+  /** The editor with its list of maps, where a new map starts, in this window */
   newMap(): void {
     if (this.stage.whyNot('edit', 'maps')) return;
-    this.navigate(this.worlds.editorUrl());
+    this.worlds.editMap(null);
   }
 }

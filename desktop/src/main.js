@@ -112,31 +112,14 @@ function appWebPreferences() {
 
 /**
  * Keep every navigation on the app's origin, send http(s) links to the
- * system browser. The page may open one kind of window of its own: the map
- * editor's test window (classifyWindowOpen), with the same settings and the
- * same guards as the main window; a second test reloads it.
+ * system browser. The page opens no window of its own (classifyWindowOpen):
+ * game, editor and the editor's test share the one window.
  */
 function hardenContents(contents) {
-  contents.setWindowOpenHandler(({ url, frameName }) => {
-    const verdict = classifyWindowOpen(url, frameName, appOrigin);
-    if (verdict === 'window') {
-      log.info(`[window] opening ${frameName}`);
-      return {
-        action: 'allow',
-        overrideBrowserWindowOptions: {
-          width: 1600,
-          height: 900,
-          backgroundColor: BACKGROUND_COLOR,
-          title: '3DTD',
-          icon: app.isPackaged ? undefined : path.join(__dirname, '..', 'build', 'icon.png'),
-          webPreferences: appWebPreferences(),
-        },
-      };
-    }
-    if (verdict === 'external') void shell.openExternal(url);
+  contents.setWindowOpenHandler(({ url }) => {
+    if (classifyWindowOpen(url, appOrigin) === 'external') void shell.openExternal(url);
     return { action: 'deny' };
   });
-  contents.on('did-create-window', (child) => guardWindow(child));
   contents.on('will-navigate', (event, url) => {
     const verdict = classifyNavigation(url, appOrigin);
     if (verdict === 'allow') return;
@@ -515,7 +498,8 @@ if (!app.requestSingleInstanceLock()) {
       log,
     });
     // The editor holds the page while unsaved changes are written (beforeunload): ask instead of
-    // dropping the navigation silently, as Electron does without this (a double-clicked map, a reload)
+    // dropping the closing silently, as Electron does without this. Game, editor and a double-clicked map
+    // switch inside the page (E195) and ask through the editor's own save
     mainWindow.webContents.on('will-prevent-unload', (event) => {
       const choice = dialog.showMessageBoxSync(mainWindow, {
         type: 'question',

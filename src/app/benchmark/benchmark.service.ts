@@ -9,13 +9,15 @@ import {
   frameStats, placeTowers, routeSlices, settle, spawnUpTo, startLoadWave, type LoadDriver,
 } from './load-scene';
 import {
-  DEFAULT_BENCHMARK_PLAN, benchmarkUrl, browserOf, isBenchmarkSearch, osOf, shortGpu,
+  DEFAULT_BENCHMARK_PLAN, browserOf, osOf, shortGpu,
   type BenchmarkEnv, type BenchmarkPlan, type BenchmarkRow,
 } from './benchmark-report';
-import { pageQuery } from '../core/page-switches';
-import { UrlLocationService } from '../services/location/url-location.service';
 import { LocationManagementService } from '../services/location/location-management.service';
 import { WorldContext } from '../world/world-context.service';
+import { PLAIN_START, WorldStartService, orderHere } from '../world/world-start';
+import { WorldSession } from '../world/world-session.service';
+import { DevWorldService } from '../devworld/devworld.service';
+import { devWorldRef } from '../devworld/dev-world-provider';
 
 export type BenchmarkPhase = 'idle' | 'running' | 'done' | 'cancelled' | 'failed';
 
@@ -37,11 +39,11 @@ const IDLE: BenchmarkState = { phase: 'idle', index: 0, total: 0, doing: '', env
 /**
  * The in-game benchmark (TODO E74, docs/SIM_WORKER.md "Benchmark im Spiel").
  *
- * The game menu's entry reloads the page into the DevWorld with the URL flag
- * (benchmarkUrl): a fresh game on the same world every time, from a real map
- * as well as from the DevWorld, without tiles or a map session. Once the game
- * stands, the component calls runIfRequested(): the flag goes from the URL
- * (a reload plays normally), the scene of the load runner is built through
+ * The game menu's entry opens the DevWorld in the page with a benchmark
+ * order (WorldStart.benchmark; a link's `?devworld&benchmark` too): a fresh
+ * game on the same world every time, from a real map as well as from the
+ * DevWorld, without tiles or a map session. Once the game stands, the
+ * component calls runIfRequested(): the scene of the load runner is built through
  * the same steps (load-scene.ts: towers along the routes, enemies with a
  * million HP walking at 0.5 m/s, settle), and every step of the
  * plan is measured at every speed. The panel shows the table at the end;
@@ -50,69 +52,43 @@ const IDLE: BenchmarkState = { phase: 'idle', index: 0, total: 0, doing: '', env
  * Scoped to the game component, next to the GameLoopFacadeService whose
  * load handle it drives.
  */
-/** sessionStorage: the page the menu's entry left, to come back to */
-const RETURN_KEY = '3dtd-benchmark-return';
-
-function readReturnHref(): string | null {
-  try {
-    const href = sessionStorage.getItem(RETURN_KEY);
-    return href && new URL(href).origin === location.origin ? href : null;
-  } catch {
-    return null;
-  }
-}
-
 @Injectable()
 export class BenchmarkService {
   private readonly loop = inject(GameLoopFacadeService);
   private readonly intro = inject(IntroCameraFlightService);
   private readonly sim = inject(SimClient);
-  private readonly urls = inject(UrlLocationService);
   private readonly location = inject(LocationManagementService);
   private readonly world = inject(WorldContext);
+  private readonly session = inject(WorldSession);
+  private readonly devWorld = inject(DevWorldService);
+  private readonly order = inject(WorldStartService).current().benchmark;
 
-  /** This page was loaded to run the benchmark */
-  readonly requested = isBenchmarkSearch(pageQuery());
-  /** Where the menu's entry came from (its URL carries the place): the panel offers the way back */
-  readonly returnHref = this.requested ? readReturnHref() : null;
+  /** This world was opened to run the benchmark */
+  readonly requested = this.order?.kind === 'load';
+  /** Where the menu's entry came from: the panel offers the way back */
+  readonly back = this.requested ? this.order?.back ?? null : null;
   readonly state = signal<BenchmarkState>(IDLE);
   private cancelRequested = false;
 
-  /** The menu's entry: reload into the DevWorld with the flag */
+  /** The menu's entry: the DevWorld in this page, to measure; the world and place here to come back to */
   start(): void {
-    try {
-      // The world and place of this page: the address no longer carries them (WorldStartService)
-      sessionStorage.setItem(RETURN_KEY, this.urls.hereUrl(this.location.hq(), this.location.spawns(), this.world.ref()));
-    } catch {
-      // No storage: the panel only closes afterwards
-    }
-    location.assign(benchmarkUrl(location.href));
+    const back = orderHere(this.world.ref(), this.location.hq(), this.location.spawns());
+    this.session.open({ ...PLAIN_START, world: devWorldRef(this.devWorld), benchmark: { kind: 'load', back } });
   }
 
   cancel(): void {
     this.cancelRequested = true;
   }
 
-  /** The panel's Close: the results go; back to the place the benchmark was started from, if known */
+  /** The panel's Close: the results go; back to the world and place the benchmark was started from, if known */
   dismiss(): void {
     this.state.set(IDLE);
-    const back = this.returnHref;
-    if (!back) return;
-    try {
-      sessionStorage.removeItem(RETURN_KEY);
-    } catch {
-      // nothing to clean up
-    }
-    location.assign(back);
+    if (this.back) this.session.open(this.back);
   }
 
-  /** Once the game stands: run if the page was loaded for it, once */
+  /** Once the game stands: run if the world was opened for it, once */
   runIfRequested(plan: BenchmarkPlan = DEFAULT_BENCHMARK_PLAN): void {
     if (!this.requested || this.state().phase !== 'idle') return;
-    // A reload after this plays normally
-    const url = new URL(location.href);
-    url.searchParams.delete('benchmark');
-    history.replaceState(history.state, '', url.toString());
     void this.run(plan);
   }
 

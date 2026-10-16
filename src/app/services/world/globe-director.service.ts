@@ -21,6 +21,7 @@ import { cameraTimeline } from '../../utils/camera-timeline';
 import { GLOBE_LINK } from './globe-link';
 import { readJson, writeJson } from '../../utils/storage';
 import { pageQuery } from '../../core/page-switches';
+import { WorldStartService } from '../../world/world-start';
 
 /**
  * What the globe does (docs/GLOBE_PLAN.md, Ablauf):
@@ -131,6 +132,7 @@ export class GlobeDirectorService {
   private readonly coordinator = inject(LocationChangeCoordinatorService);
   private readonly bestWaves = inject(BestWaveService);
   private readonly worldContext = inject(WorldContext);
+  private readonly worldStart = inject(WorldStartService);
   private readonly diveFlight = inject(DiveFlightService);
   /** What the menu and a change of place see of the globe */
   private readonly link = inject(GLOBE_LINK);
@@ -156,7 +158,7 @@ export class GlobeDirectorService {
       // Only a real place on the earth lies on the globe (ECEF frame for the dive)
       this.worldContext.capabilities().realPlace &&
       this.worldContext.capabilities().ecef &&
-      !startMenuSkipped(pageQuery()) &&
+      !startMenuSkipped(pageQuery()) && this.worldStart.current().benchmark === null &&
       webgl2Available(),
   );
 

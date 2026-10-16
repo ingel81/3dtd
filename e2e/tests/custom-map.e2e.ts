@@ -74,17 +74,21 @@ test('the bot holds the first waves of the demo valley (map trial)', async ({ br
   await page.context().close();
 });
 
-test("the editor's Test map opens the game on the map it shows", async ({ browser }) => {
+test("the editor's Test map opens the game on the map it shows, in the same window, and comes back", async ({ browser }) => {
   test.setTimeout(5 * 60_000);
   const errors: string[] = [];
   const page = await openPage(browser, errors);
   await page.goto(`/editor?map=${MAP}`);
   await expect(page.locator('[data-test=map-name]')).toHaveText(/Demo/);
-  const [game] = await Promise.all([page.context().waitForEvent('page'), page.locator('[data-test=test-play]').click()]);
-  game.on('pageerror', (e) => errors.push(e.message));
-  await gameReady(game);
-  expect(await playedMap(game)).toBe(MAP);
-  await expect(game.locator('app-quick-actions')).toBeVisible();
+  const name = await page.locator('[data-test=map-name]').textContent();
+  await page.locator('[data-test=test-play]').click();
+  await gameReady(page);
+  expect(await playedMap(page)).toBe(MAP);
+  await expect(page.locator('app-quick-actions')).toBeVisible();
+  // Edit on the path goes back to the editor, the same map open
+  await page.locator('[data-test=path-edit]').click();
+  await expect(page.locator('[data-test=map-name]')).toHaveText(name!);
+  expect(page.context().pages()).toHaveLength(1);
   expect(errors).toEqual([]);
   await page.context().close();
 });

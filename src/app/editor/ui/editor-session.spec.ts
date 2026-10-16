@@ -17,6 +17,10 @@ import { STOPPED } from '../agent/editor-agent';
 import { MemoryStampBackend, StampLibrary } from '../model/stamp-store';
 import { encodePng16, gridToImage } from '../ops/heightmap';
 import type { ScriptRunResult } from '../agent/map-script';
+import { WorldSession } from '../../world/world-session.service';
+import { AppScreen } from '../../world/app-screen.service';
+import { PLAIN_START, type WorldStart } from '../../world/world-start';
+import type { MapTrialResult } from '../../world/map-trial';
 
 function session(): { s: EditorSession; backend: MemoryMapBackend; history: VersionHistory; versions: MemoryVersionBackend } {
   const s = TestBed.runInInjectionContext(() => new EditorSession());
@@ -249,7 +253,7 @@ describe('editor session saving', () => {
     s.ngOnDestroy();
   });
 
-  it('moves a map to the trash with its versions, back, and out for good; stops listening for the bot when it goes', async () => {
+  it('moves a map to the trash with its versions, back, and out for good', async () => {
     const { s, versions } = session();
     await s.save(true);
     await new Promise((r) => setTimeout(r, 0));
@@ -272,12 +276,7 @@ describe('editor session saving', () => {
     await s.deleteForGood((await s.listTrash())[0]);
     expect(await s.listTrash()).toEqual([]);
     expect(await versions.list('m-2')).toEqual([]);
-    const open = vi.spyOn(window, 'open').mockReturnValue(null);
-    const remove = vi.spyOn(window, 'removeEventListener');
-    await s.botCheck(2);
     s.ngOnDestroy();
-    expect(remove).toHaveBeenCalledWith('message', expect.any(Function));
-    open.mockRestore();
   });
 });
 
@@ -343,40 +342,37 @@ describe('editor session brushes', () => {
   });
 });
 
-describe('editor session test tab', () => {
-  it('takes the test tab within the click and sends it to the game once the map is saved', async () => {
+describe('editor session tests in the window (E195 phase 5)', () => {
+  it('plays the map in this window once it is saved, from the wave asked, and never as a run to keep', async () => {
     const { s } = session();
-    let saved = false;
-    const calls: string[] = [];
-    const tab = { closed: false, location: { href: 'about:blank' }, close: vi.fn() };
-    const open = vi.spyOn(window, 'open').mockImplementation(((url: string) => {
-      calls.push(`${url}|saved:${saved}`);
-      return tab as unknown as Window;
-    }) as typeof window.open);
-    vi.spyOn(s, 'save').mockImplementation(async () => {
-      saved = true;
-      return true;
-    });
-    const run = s.testPlay();
-    // Taken before the save could outlast the click's user activation
-    expect(calls).toEqual(['|saved:false']);
-    await run;
-    expect(tab.location.href).toContain('world=map');
-    expect(tab.location.href).not.toContain('fromWave');
-    expect(open).toHaveBeenCalledTimes(1);
-    // From a later wave: the link names it
+    const opened: WorldStart[] = [];
+    const open = vi.spyOn(TestBed.inject(WorldSession), 'open').mockImplementation((order) => void opened.push(order));
+    vi.spyOn(s, 'save').mockResolvedValue(true);
+    await s.testPlay();
+    expect(opened).toEqual([{ ...PLAIN_START, world: { kind: 'custom-map', mapId: 'm', contentHash: '' }, startWave: 1, trial: { bot: null } }]);
     s.testFromWave.set(15);
     await s.testPlay();
-    expect(tab.location.href).toContain('fromWave=15');
-    s.testFromWave.set(1);
-    // A failed save closes a tab opened blank for it, and leaves an earlier test's tab
+    expect(opened[1].startWave).toBe(15);
+    // A failed save keeps the editor
     vi.spyOn(s, 'save').mockResolvedValue(false);
-    tab.location.href = 'about:blank';
     await s.testPlay();
-    expect(tab.close).toHaveBeenCalledTimes(1);
-    tab.location.href = 'http://x/?world=map%3Am';
-    await s.testPlay();
-    expect(tab.close).toHaveBeenCalledTimes(1);
+    expect(open).toHaveBeenCalledTimes(2);
+    vi.restoreAllMocks();
+    s.ngOnDestroy();
+  });
+
+  it("runs the bot's check in this window and shows its result once it is back", async () => {
+    const { s } = session();
+    const opened: WorldStart[] = [];
+    vi.spyOn(TestBed.inject(WorldSession), 'open').mockImplementation((order) => void opened.push(order));
+    vi.spyOn(s, 'save').mockResolvedValue(true);
+    s.testFromWave.set(9);
+    await s.botCheck(3);
+    expect(opened[0]).toMatchObject({ startWave: 1, trial: { bot: 3 } });
+    expect(s.botTrial()).toEqual({ waves: 3, result: null });
+    const result: MapTrialResult = { outcome: 'passed', waves: 3, wavesHeld: 3, hqStart: 500, hqEnd: 480, hpLostByWave: [0, 20, 0], towers: 6, gameTimeMs: 1 };
+    TestBed.inject(AppScreen).trialEnded(result);
+    expect(s.botTrial()).toEqual({ waves: 3, result });
     vi.restoreAllMocks();
     s.ngOnDestroy();
   });

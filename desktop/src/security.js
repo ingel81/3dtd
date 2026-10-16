@@ -27,25 +27,16 @@ function classifyNavigation(targetUrl, appOrigin) {
 }
 
 /**
- * Windows the page may open on the app's own origin, by name: the map
- * editor's test window ("Test map" and the bot's check, MAP_TEST_WINDOW in
- * src/app/world/map-trial.ts). Every other window.open on the app's origin is
- * dropped, so the page cannot spawn windows at will.
+ * What to do with a window.open: 'external' hands an http(s) link to the
+ * system browser, 'deny' drops it. The page opens no window of its own: the
+ * map editor tests its map in the same window since E195 phase 5, so every
+ * window.open on the app's origin is dropped and the page cannot spawn
+ * windows at will.
  */
-const APP_WINDOW_NAMES = new Set(['3dtd-map-test']);
-
-/**
- * What to do with a window.open: 'window' opens an app window (same
- * origin, a known name), 'external' hands an http(s) link to the system
- * browser, 'deny' drops it.
- */
-function classifyWindowOpen(targetUrl, frameName, appOrigin) {
-  // The editor opens its test window blank within the click (a popup blocker lets only that through) and sends it
-  // to the game once the map is saved; the window keeps the app's settings, its navigation the app's rules
-  if (targetUrl === 'about:blank' || targetUrl === '') return APP_WINDOW_NAMES.has(frameName) ? 'window' : 'deny';
+function classifyWindowOpen(targetUrl, appOrigin) {
+  if (targetUrl === 'about:blank' || targetUrl === '') return 'deny';
   const verdict = classifyNavigation(targetUrl, appOrigin);
-  if (verdict === 'allow') return APP_WINDOW_NAMES.has(frameName) ? 'window' : 'deny';
-  return verdict;
+  return verdict === 'allow' ? 'deny' : verdict;
 }
 
 /**
@@ -61,4 +52,4 @@ function isPermissionAllowed(permission) {
   return ALLOWED_PERMISSIONS.has(permission);
 }
 
-module.exports = { ALLOWED_PERMISSIONS, APP_WINDOW_NAMES, classifyNavigation, classifyWindowOpen, isPermissionAllowed };
+module.exports = { ALLOWED_PERMISSIONS, classifyNavigation, classifyWindowOpen, isPermissionAllowed };
