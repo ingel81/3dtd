@@ -46,6 +46,8 @@ const key = (k, mods) => ({ do: 'key', key: k, ...(mods ? { mods } : {}) });
 const keys = (k, n, mods) => Array.from({ length: n }, () => [key(k, mods), wait(0.14)]).flat();
 const idle = (hold = 0) => [act('idle', { timeout: 60 }), ...(hold ? [wait(hold)] : [])];
 const pt = (p, h) => m(p.x, p.y, h);
+/** A hard cut to a pose (eye, look): no flight through hills and walls between two far shots */
+const cut = ([eye, look]) => [{ do: 'shot', dur: 0, keys: [{ eye, look }, { eye, look }] }, act('idle', { timeout: 30 }), wait(1.5), mark('cut')];
 
 /** The UI for a choice (tool, mode, values), then the clean frame again; the pointer stays for the strokes */
 const pick = (...steps) => [{ do: 'ui', on: true }, ...steps, wait(0.3), { do: 'ui', on: false }];
@@ -411,9 +413,11 @@ const B7 = stage('b7-life', 6, [
   ...idle(0.6),
   ringOff,
   { do: 'cursor', show: false },
-  // Low over the lake to the boat, then the herd
-  path(5, ['current', [{ m: [-120, -230], habs: 5 }, { m: [-150, -150], habs: 1 }], [{ m: [-170, -215], habs: 4 }, { m: [-150, -140], habs: 1 }]], { ease: 'inOut', label: 'effect:boat' }),
-  path(4, ['current', [m(290, 60, 6), m(330, 140, 2)], [m(320, 70, 5), m(330, 150, 2)]], { ease: 'inOut', label: 'effect:herd' }),
+  // Low over the lake to the boat, then the herd: cuts, the flights between went through the castle and a rock
+  ...cut([{ m: [-130, -200], habs: 14 }, { m: [-150, -150], habs: 0 }]),
+  path(5, ['current', [{ m: [-170, -195], habs: 10 }, { m: [-148, -148], habs: 0 }]], { ease: 'inOut', label: 'effect:boat' }),
+  ...cut([m(300, 92, 4), m(340, 145, 1)]),
+  path(4, ['current', [m(322, 90, 4), m(345, 150, 1)]], { ease: 'inOut', label: 'effect:herd' }),
   ...total('b7-life'),
 ], AFTERNOON);
 

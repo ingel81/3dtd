@@ -124,9 +124,9 @@ const TINTED: ReadonlySet<MapLifeKind> = new Set(['fireflies', 'fog', 'leaves', 
         @if (a.kind === 'boats') {
           <label class="td-setting">
             <span>Boat</span>
-            <select class="td-select is-auto" [value]="a.asset ?? defaultBoat" (change)="commitArea(a.id, { asset: $any($event.target).value === defaultBoat ? undefined : $any($event.target).value }, 'Boat')" aria-label="Boat" data-test="life-boat">
+            <select class="td-select is-auto" (change)="commitArea(a.id, { asset: $any($event.target).value === defaultBoat ? undefined : $any($event.target).value }, 'Boat')" aria-label="Boat" data-test="life-boat">
               @for (b of boatAssets(); track b.id) {
-                <option [value]="b.id">{{ b.name }}</option>
+                <option [value]="b.id" [selected]="b.id === (a.asset ?? defaultBoat)">{{ b.name }}</option>
               }
             </select>
           </label>
@@ -287,9 +287,9 @@ export class LifePanelComponent {
     { id: 'raptors', label: 'Birds of prey (eagles, vultures)' },
   ];
   /** What may move over the ground: the catalogue's props that do not float (vehicles, carts, animals) */
-  readonly moverAssets = computed(() => [...this.session.catalog().objects.values()].filter((o) => !o.float && o.category === 'prop').sort((a, b) => a.name.localeCompare(b.name)));
+  readonly moverAssets = computed(() => [...this.session.catalog().objects.values()].filter((o) => !o.float && o.footing?.category === 'prop').sort((a, b) => a.name.localeCompare(b.name)));
   /** What floats and may drift: the catalogue's floating props (boats, buoys) */
-  readonly boatAssets = computed(() => [...this.session.catalog().objects.values()].filter((o) => o.float && o.category === 'prop'));
+  readonly boatAssets = computed(() => [...this.session.catalog().objects.values()].filter((o) => o.float && o.footing?.category === 'prop'));
   /** The map's life before a slider started moving */
   private before: MapLife | undefined | null = null;
 
