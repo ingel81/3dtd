@@ -1,5 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import type { WorldStart } from './world-start';
+import type { MapTrialResult } from './map-trial';
 
 /** What the window shows: a world's game, or the map editor (docs/WORLDS_NAVIGATION_PLAN.md, 4.2) */
 export type Screen = 'game' | 'editor';
@@ -27,6 +28,18 @@ export interface WaitingRun {
 }
 
 /**
+ * The editor's test of its map in the game (Test map, the bot check), in
+ * this window: the editor waits with its map; the bot's result comes back here.
+ */
+export interface EditorTrial {
+  mapId: string;
+  /** The waves the bot plays, null for a test the player plays */
+  bot: number | null;
+  /** The bot's result once its waves are over */
+  result: MapTrialResult | null;
+}
+
+/**
  * The game and the map editor in one window (docs/WORLDS_NAVIGATION_PLAN.md,
  * phase 4): which of the two shows (AppShellComponent), and what the editor
  * opens next. The address names only the entry (`/editor`, `?map=`); from
@@ -44,6 +57,8 @@ export class AppScreen {
   readonly draft = signal<EditorDraft | null>(null);
   /** The run the editor came from, waiting as autosave; null without one (WorldSession.backToGame opens it) */
   readonly waitingRun = signal<WaitingRun | null>(null);
+  /** The editor's test under way or last run, null before the first */
+  readonly trial = signal<EditorTrial | null>(null);
   /** The map the editor opens when it shows next, taken once; null: its list, or the map open in it */
   private editorMap: string | null = null;
   /** The editor's own question before it goes (a save, a job under way), see guardEditor */
@@ -68,6 +83,11 @@ export class AppScreen {
     return () => {
       if (this.leaveEditor === leave) this.leaveEditor = null;
     };
+  }
+
+  /** The bot of the editor's check held its waves or not: the editor reads it when it comes back */
+  trialEnded(result: MapTrialResult): void {
+    this.trial.update((trial) => (trial ? { ...trial, result } : trial));
   }
 
   /** The game in this window, once the editor let go; false when the editor stays (its save failed) */

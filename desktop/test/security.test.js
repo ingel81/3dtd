@@ -33,28 +33,18 @@ describe('classifyNavigation', () => {
 describe('classifyWindowOpen', () => {
   const app = 'app://app';
 
-  it('opens the test window of the editor on the app origin', () => {
-    assert.equal(classifyWindowOpen('app://app/?world=map%3Amy-map', '3dtd-map-test', app), 'window');
-    assert.equal(classifyWindowOpen('http://localhost:4200/?world=map%3Ax&bot=trial', '3dtd-map-test', 'http://localhost:4200'), 'window');
+  it('opens no window on the app origin, blank or not: the editor tests its map in the same window', () => {
+    assert.equal(classifyWindowOpen('app://app/?world=map%3Amy-map', app), 'deny');
+    assert.equal(classifyWindowOpen('about:blank', app), 'deny');
+    assert.equal(classifyWindowOpen('', app), 'deny');
+    assert.equal(classifyWindowOpen('app://app/', app), 'deny');
+    assert.equal(classifyWindowOpen('http://localhost:4200/?world=map%3Ax', 'http://localhost:4200'), 'deny');
   });
 
-  it('opens the test window blank, to be sent to the game after the save, and no other blank window', () => {
-    assert.equal(classifyWindowOpen('about:blank', '3dtd-map-test', app), 'window');
-    assert.equal(classifyWindowOpen('', '3dtd-map-test', app), 'window');
-    assert.equal(classifyWindowOpen('about:blank', '_blank', app), 'deny');
-    assert.equal(classifyWindowOpen('about:blank', '', app), 'deny');
-  });
-
-  it('drops other windows on the app origin', () => {
-    assert.equal(classifyWindowOpen('app://app/', '', app), 'deny');
-    assert.equal(classifyWindowOpen('app://app/', '_blank', app), 'deny');
-    assert.equal(classifyWindowOpen('app://app/', 'anything', app), 'deny');
-  });
-
-  it('never opens a foreign page in an app window', () => {
-    assert.equal(classifyWindowOpen('https://example.com/', '3dtd-map-test', app), 'external');
-    assert.equal(classifyWindowOpen('file:///C:/Windows/System32/calc.exe', '3dtd-map-test', app), 'deny');
-    assert.equal(classifyWindowOpen('app://other/', '3dtd-map-test', app), 'deny');
+  it('sends web links to the system browser and drops the rest', () => {
+    assert.equal(classifyWindowOpen('https://example.com/', app), 'external');
+    assert.equal(classifyWindowOpen('file:///C:/Windows/System32/calc.exe', app), 'deny');
+    assert.equal(classifyWindowOpen('app://other/', app), 'deny');
   });
 });
 

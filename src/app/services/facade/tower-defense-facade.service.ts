@@ -21,7 +21,8 @@ import { TowerLosRegistry } from '../tower-los-registry';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { MainWorldService } from '../world/main-world.service';
 import { BotClientService } from '../../bots/bot-client.service';
-import { MAP_TRIAL_MESSAGE, MAP_TRIAL_TONE, MAP_TRIAL_SPEED, MapTrial, mapTrialSummary, mapTrialWaves, type MapTrialResult } from '../../world/map-trial';
+import { MAP_TRIAL_TONE, MAP_TRIAL_SPEED, MapTrial, mapTrialSummary, type MapTrialResult } from '../../world/map-trial';
+import { AppScreen } from '../../world/app-screen.service';
 import { GameStore } from '../../store/game.store';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { UIStore } from '../../store/ui.store';
@@ -46,7 +47,7 @@ import { LocationFacadeService } from './location-facade.service';
 import { LocationManagementService } from '../location/location-management.service';
 import { LocationChangeCoordinatorService } from '../location/location-change-coordinator.service';
 import { WorldStartService } from '../../world/world-start';
-import { pageQuery, pageSwitches } from '../../core/page-switches';
+import { pageSwitches } from '../../core/page-switches';
 import { storedPlace } from '../location/place-choice';
 import { AUTOSAVE_SLOT, SAVE_GAME } from '../save-game/save-game.port';
 import { startPlaceGuess, type StartPlaceGuess } from '../../components/main-menu/autosave-place';
@@ -151,6 +152,7 @@ export class TowerDefenseFacadeService {
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly locationCoordinator = inject(LocationChangeCoordinatorService);
   private readonly start = inject(WorldStartService);
+  private readonly screens = inject(AppScreen);
   /** The game component's: the autosave's place is the start's first guess */
   private readonly saves = inject(SAVE_GAME);
 
@@ -253,7 +255,7 @@ export class TowerDefenseFacadeService {
     // the bot plays there on its own, on no other world
     const botWorld = this.worldContext.ref().kind === 'devworld';
     // A trial of a world with no real place (a custom map, DevWorld): the bot plays its waves without a bot server
-    const trialWaves = this.worldContext.capabilities().realPlace ? null : mapTrialWaves(pageQuery());
+    const trialWaves = this.worldContext.capabilities().realPlace ? null : (this.start.current().trial?.bot ?? null);
     if (trialWaves !== null) {
       this.startMapTrial(trialWaves);
     } else if (botWorld && botMode === 'coop') {
@@ -336,10 +338,8 @@ export class TowerDefenseFacadeService {
     this.uiStore.notice.set({ text: mapTrialSummary(result), tone: MAP_TRIAL_TONE[result.outcome] });
     console.info('[MapTrial]', JSON.stringify(result));
     (window as { __mapTrial?: MapTrialResult }).__mapTrial = result;
-    // The page that opened the trial (the editor's check) hears the result
-    const message = { type: MAP_TRIAL_MESSAGE, result };
-    window.opener?.postMessage(message, window.location.origin);
-    if (window.parent !== window) window.parent.postMessage(message, window.location.origin);
+    // The editor that started the check hears the result in this window
+    this.screens.trialEnded(result);
   }
 
   /**

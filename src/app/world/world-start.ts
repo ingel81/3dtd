@@ -7,6 +7,7 @@ import { customMapSpawnLimit, customMapStartWave } from './custom-map/custom-map
 import { BENCHMARK_FLAG, isBenchmarkSearch } from '../benchmark/benchmark-report';
 import { isRenderBenchmarkSearch } from '../benchmark/render-benchmark';
 import { customMapsByLink } from './custom-maps-open';
+import { mapTrialWaves } from './map-trial';
 import { WORLD_URL_PARAM, worldRefFromSearch, type WorldRef } from './world-ref';
 
 /** The URL parameter of a save to load once the page stands on its world (WorldChoiceService.openSave) */
@@ -63,6 +64,13 @@ export interface WorldStart {
   startWave: number;
   /** A benchmark to run once the world stands (`&benchmark`), null for a game */
   benchmark: BenchmarkStart | null;
+  /**
+   * A test run of a map from the editor (Test map, the bot check): never
+   * saved, no autosave, no run to come back to; the editor waits with its
+   * map. `bot` is the waves the bot plays on its own (`?bot=trial&trialWaves=N`
+   * of a link), null for a test the player plays. Null for a game.
+   */
+  trial: { bot: number | null } | null;
 }
 
 /** The order of a start without a link: the 3D tiles, the place guessed or asked */
@@ -74,6 +82,7 @@ export const PLAIN_START: WorldStart = {
   spawnLimit: customMapSpawnLimit(''),
   startWave: 1,
   benchmark: null,
+  trial: null,
 };
 
 /**
@@ -100,6 +109,7 @@ export function worldStartFromSearch(
   const params = new URLSearchParams(search);
   const world = worldRefFromSearch(search);
   const code = params.get('room');
+  const bot = mapTrialWaves(search);
   return {
     world: world?.kind === 'custom-map' && !mapsByLink ? null : world,
     place: place(search),
@@ -108,6 +118,7 @@ export function worldStartFromSearch(
     spawnLimit: customMapSpawnLimit(search),
     startWave: customMapStartWave(search),
     benchmark: isBenchmarkSearch(search) ? { kind: 'load', back: null } : isRenderBenchmarkSearch(search) ? { kind: 'render', back: null } : null,
+    trial: bot === null ? null : { bot },
   };
 }
 

@@ -652,14 +652,13 @@ Szenenkosten.
   ihr `contentHash` bleibt; Version-2-Dateien lesen sich unverändert über die Migration 2 nach 3
 - Datei-Menü (drei Punkte): Download map file (`.3dtdmap`), Export top view as picture (PNG, 2048 px an der längeren
   Seite), Frame the whole map, Top view
-- „Test map“ speichert und öffnet das Spiel mit `?world=map:<id>` im Test-Tab: ein Fenster mit festem Namen
-  (`MAP_TEST_WINDOW`, `3dtd-map-test`), das jeder weitere Test und der Bot-Check wiederverwenden, statt Tabs zu stapeln;
-  in der Desktop-App ein eigenes, gleich gehärtetes App-Fenster ([ELECTRON_DESKTOP_PLAN.md](ELECTRON_DESKTOP_PLAN.md), E26c).
-  Das Fenster wird noch im Klick genommen (`window.open('', …)`: leer neu oder das vorhandene, ohne Neuladen) und erst
-  nach dem Speichern auf das Spiel geschickt; so greift keine Popup-Sperre, wenn das Speichern samt Vorschaubild länger
-  dauert als die Nutzer-Aktivierung des Browsers. Scheitert das Speichern, geht ein leer geöffnetes Fenster wieder zu.
+- „Test map“ speichert und spielt die Karte im selben Fenster (E195 Phase 5, Startauftrag mit `trial`): der Editor
+  wartet mit Karte, Verlauf und Kamera; „Edit“ im Pfad oder „Back to editor“ im Pausemenü und nach Game over kehrt
+  am selben Stand zurück. Das Probespiel wird nie gespeichert, auch nicht als Autosave, und ist kein Lauf, zu dem
+  man zurückkehrt. Der Bot-Check läuft ebenso im Fenster, sein Ergebnis steht danach in der Prüfung
+  (`AppScreen.trial`). Scheitert das Speichern, bleibt der Editor.
   „From wave“ neben dem Knopf (1 bis 200, gilt, solange der Editor offen ist) startet den Test bei Welle N
-  (`&fromWave=N`, `customMapStartWave`): die Wellen davor zählen als gespielt, der Spieler hat das Gold und die
+  (`WorldStart.startWave`, per Link `&fromWave=N`, `customMapStartWave`): die Wellen davor zählen als gespielt, der Spieler hat das Gold und die
   Forschung, die ein typischer Spieler bis dahin hat, und baut die Abwehr selbst. Die Rechnung (`runStartAt`,
   `sim/protocol/run-start.ts`, mit den Goldregeln der Wellen, die die Karte spielt):
   - Gold der Wellen 1 bis N−1: Kill-Gold, Abschlussgold und Meilensteine, ohne Skill-Boni, wie der Dev-Sprung

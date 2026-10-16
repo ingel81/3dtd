@@ -30,7 +30,10 @@ describe('WorldStart', () => {
       spawnLimit: 2,
       startWave: 5,
       benchmark: null,
+      trial: null,
     });
+    // The bot's check of a map by link: the order's trial
+    expect(worldStartFromSearch('?world=map:demo&bot=trial&trialWaves=3', place, true).trial).toEqual({ bot: 3 });
   });
 
   it("reads a benchmark link's flag once: the load benchmark in DevWorld, the graphics one anywhere", () => {

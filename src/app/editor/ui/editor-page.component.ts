@@ -3,7 +3,6 @@ import { MapBrowserComponent } from './browser/map-browser.component';
 import { EditorSession } from './editor-session.service';
 import { EditorShellComponent } from './shell/editor-shell.component';
 import { AgentBandComponent } from './agent/agent-band.component';
-import { MAP_EDITOR_WINDOW } from '../../world/map-trial';
 import { AppScreen } from '../../world/app-screen.service';
 
 /** sessionStorage: the map open in this tab's editor, so a reload of the page opens it again */
@@ -66,8 +65,6 @@ export class EditorPageComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    // A name the test tab can call it by to come back (returnToEditor); the test tab keeps its own
-    if (!window.name) window.name = MAP_EDITOR_WINDOW;
     // An AI agent opens and leaves maps the way the player does
     this.session.navigator = {
       open: async (id) => {

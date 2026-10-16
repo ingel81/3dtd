@@ -326,6 +326,10 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     const ref = this.worldContext.ref();
     const onMap = ref.kind === 'custom-map';
     const draft = this.screens.draft();
+    // The editor's test: Edit goes back to the editor, which waits with its map
+    if (this.mainMenu.fromEditor) {
+      return { world: worldName(ref), editLabel: 'Edit', editHint: 'Back to the editor, the map as you left it', editWhy: null, chips: [] };
+    }
     const editWhy = whyNot('edit', {
       mapsOpen: this.mapsOpen,
       inCoopRoom: this.coop.room() !== null || this.coop.inGame(),
@@ -357,7 +361,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
       this.mainMenu.open('new-game');
       return;
     }
-    if (this.mainMenu.runWhenEditing() === 'ends') this.mainMenu.open();
+    if (this.mainMenu.runWhenEditing() === 'ends' && !this.mainMenu.fromEditor) this.mainMenu.open();
     else void this.mainMenu.editThisMap();
   }
 

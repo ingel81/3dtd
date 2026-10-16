@@ -18,7 +18,6 @@ import { WorldChoiceService } from '../../world/world-choice.service';
 import { WorldStartService } from '../../world/world-start';
 import { pageQuery } from '../../core/page-switches';
 import { CUSTOM_MAPS_OPEN } from '../../world/custom-maps-open';
-import { MAP_TEST_WINDOW, returnToEditor } from '../../world/map-trial';
 import { AppScreen } from '../../world/app-screen.service';
 import { PLAIN_START } from '../../world/world-start';
 
@@ -80,8 +79,8 @@ export class MainMenuService {
   /** The pages walked to the one showing, oldest first; Back pops it */
   private readonly history = signal<readonly MenuPage[]>([]);
 
-  /** Automated runs play without the start menu (startMenuSkipped), so does a benchmark the menu started */
-  readonly automated = startMenuSkipped(pageQuery()) || this.start.current().benchmark !== null;
+  /** Automated runs play without the start menu (startMenuSkipped), so do a benchmark and a bot check the game started */
+  readonly automated = startMenuSkipped(pageQuery()) || this.start.current().benchmark !== null || this.start.current().trial?.bot != null;
 
   /** The start order named the place (a link's ?l=): Play comes before Continue */
   readonly linkedPlace = this.start.current().place !== null;
@@ -130,10 +129,10 @@ export class MainMenuService {
 
   /** The page plays a custom map */
   readonly onMap = computed(() => this.worldContext.ref().kind === 'custom-map');
-  /** The custom map this page plays, to edit: while the maps are open, not in a replay; else null */
+  /** The custom map this page plays, to edit: while the maps are open (or back from the editor's test), not in a replay; else null */
   readonly editableMapId = computed(() => {
     const ref = this.worldContext.ref();
-    return this.mapsOpen && ref.kind === 'custom-map' && !this.ui.replayMode() ? ref.mapId : null;
+    return (this.mapsOpen || this.fromEditor) && ref.kind === 'custom-map' && !this.ui.replayMode() ? ref.mapId : null;
   });
   /**
    * Which kind of world the start list shows. It follows the world the
@@ -148,20 +147,21 @@ export class MainMenuService {
   /** The list shows the world of this page (or there are no tabs) */
   readonly onHomeTab = computed(() => !this.tabsShown() || this.tab() === this.homeTab());
 
-  /** The page is the editor's test tab ("Test map"), its editor still there: editing the map goes back to it */
-  readonly fromEditor = typeof window !== 'undefined' && window.name === MAP_TEST_WINDOW && !!window.opener;
+  /** The world is the editor's test of its map ("Test map", the bot check): editing the map goes back to the editor */
+  readonly fromEditor = this.start.current().trial !== null;
   /** The words of the way into the editor: back to it from its test tab, else the map opens there */
   readonly editMapLabel = this.fromEditor ? 'Back to editor' : 'Edit this map';
 
   /**
    * The map editor in this window on the map this page plays (a shipped one opens there as an own copy); the
-   * run waits as autosave (runWaits). From the editor's test tab the editor that opened it comes back
-   * instead, the map still open in it.
+   * run waits as autosave (runWaits). From the editor's test the editor comes back as it was, the map and its
+   * history still open in it; the test is not kept.
    */
   async editThisMap(): Promise<void> {
     const mapId = this.editableMapId();
-    if (mapId === null || returnToEditor(mapId)) return;
-    await this.editMap(mapId);
+    if (mapId === null) return;
+    if (this.fromEditor) this.screens.openEditor(null);
+    else await this.editMap(mapId);
   }
 
   /** The map editor in this window, on its list of maps (or the map open in it); the run waits as autosave */

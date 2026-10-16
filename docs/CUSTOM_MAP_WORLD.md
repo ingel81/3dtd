@@ -184,9 +184,9 @@ Ergebnis landet an vier Stellen:
 - als Zeile im Banner
 - auf der Konsole (`[MapTrial] {...}`)
 - in `window.__mapTrial`
-- per `postMessage({ type: '3dtd-map-trial', result })` an das öffnende Fenster oder den Rahmen. Darüber
-  kann der Editor später mit „Karte prüfen“ die Probe in einem Tab oder iframe öffnen und das Ergebnis
-  lesen.
+- beim Editor, der die Probe gestartet hat: sein Bot-Check läuft seit E195 Phase 5 im selben Fenster
+  (Startauftrag `WorldStart.trial`), das Ergebnis geht an `AppScreen.trial` und steht in der Prüfung, sobald der
+  Editor wieder zeigt. Per Link (`?bot=trial&trialWaves=N`) wird der Schalter beim Start zum Startauftrag
 
 ## Zerstörbarkeit (E131)
 

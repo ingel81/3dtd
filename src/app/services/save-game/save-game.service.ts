@@ -19,6 +19,7 @@ import type { SaveFile } from '../../simulator/save-file';
 import type { SimSnapshot } from '../../simulator/sim-snapshot';
 import { downloadBlob } from '../../utils/download';
 import { CameraSlotsService } from '../camera-slots.service';
+import { WorldStartService } from '../../world/world-start';
 import { SaveGame, type SaveGameHost } from './save-game';
 import { IdbSaveSlotStore } from './save-slot.store';
 import { AUTOSAVE_MAP_SLOT, AUTOSAVE_SLOT, type LoadResult, type SaveGamePort, type SaveResult, type SaveSlotInfo, type StartPlace } from './save-game.port';
@@ -62,6 +63,11 @@ export class SaveGameService implements SaveGamePort {
   private readonly uiStore = inject(UIStore);
   private readonly cameraSlots = inject(CameraSlotsService);
   private readonly coop = inject(CoopService, { optional: true });
+  /** The editor's test of its map is no run: it is never saved, not even as autosave */
+  private readonly editorTest = (() => {
+    const trial = inject(WorldStartService).current().trial;
+    return trial !== null && !this.worldContext.capabilities().realPlace;
+  })();
 
   /** A load at a start without a place: the menu hands this place to the start (see StartPlace) */
   private readonly pendingPlace = signal<StartPlace | null>(null);
@@ -72,6 +78,7 @@ export class SaveGameService implements SaveGamePort {
   private readonly host: SaveGameHost = {
     saveBlocked: computed(() => {
       if (this.inCoop()) return 'Saving is off in co-op.';
+      if (this.editorTest) return 'A test of the map is not saved.';
       if (this.uiStore.replayMode()) return 'Saving is off while a replay plays.';
       if (this.gameStore.isGameOver()) return 'The run is over.';
       if (this.gameStore.phase() !== 'setup') return 'Saving works only between waves.';

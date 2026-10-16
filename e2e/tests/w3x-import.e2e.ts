@@ -75,8 +75,9 @@ test('imports a Reforged Lua map, opens it and plays a wave on it', async ({ bro
   await page.locator('[data-test=open-imported]').click();
   await expect(page.locator('[data-test=map-name]')).toHaveText(/Lane Test/);
 
-  const [game] = await Promise.all([page.context().waitForEvent('page'), page.locator('[data-test=test-play]').click()]);
-  game.on('pageerror', (e) => errors.push(e.message));
+  // The test plays in the same window
+  await page.locator('[data-test=test-play]').click();
+  const game = page;
   await gameReady(game);
   expect(await playedMap(game)).toMatch(/^lane-test/);
   await waveButton(game).click();
