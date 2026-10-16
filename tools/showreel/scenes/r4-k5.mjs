@@ -7,11 +7,11 @@
 //   w-moon     Moon Base: symmetry on level ground (fixture moon-flat: the south plain and the north band levelled
 //              and cleared): Mirror X, two craters of one stroke; Both, four
 //   w-canyon   Red Canyon: the oasis taken along with heights, paint, water and objects, stamped turned on the
-//              mesa west of it
+//              mesa west of it (its pool comes along as a pool of its own on the mesa)
 //   w-valley   Demo Valley: the game's pause menu, Edit this map, the confirm; w-valley-edit (its own take, the cut
 //              joins them on the click) at once a hill raised on the west meadow
 //   w-w3x      a Warcraft 3 map imported straight to the map, a trial wave at 2x, beside the runners
-import { act, click, clickMap, m, settings, stroke, wait } from './common.mjs';
+import { act, click, clickMap, m, seq, settings, stroke, wait } from './common.mjs';
 import { W3X_FILE } from './w3x.mjs';
 
 /** Every take on the recording display's size (2048x1152 CSS at 125 %) */
@@ -43,8 +43,11 @@ const tool = (id, opts = {}) => click(`[data-tool=${id}]`, opts);
 const mode = (id, opts = {}) => click(`[data-mode=${id}]`, opts);
 const effect = (what) => ({ do: 'mark', name: `effect:${what}` });
 const settle = (hold) => [act('idle', { timeout: 30 }), wait(hold)];
-/** The editor's frame on for a pick, off for what follows */
-const ui = (on) => ({ do: 'ui', on });
+/**
+ * The editor's frame on for a pick, off for what follows; then a moment for the view to take its new size (a
+ * stroke at once hit the ground where the old, narrower view had it: a crater landed 20 m off its point)
+ */
+const ui = (on) => seq({ do: 'ui', on }, wait(0.5));
 
 /** Mars: the volcano's middle on the plain (40 m up, flat round it) */
 const VOLCANO = m(150, 40);
@@ -78,15 +81,15 @@ export const SCENES = [
       stroke(4, [VOLCANO, m(151, 41)]),
       ...settle(0.6),
       effect('mountain'),
-      // Closer on the top for the crater, the cracks and the lava
-      frame([VOLCANO], { from: 330, pitch: 42, margin: 48, glide: 1.2 }),
       ui(true),
       mode('crater', { label: 'crater' }),
       settings({ brush: { radius: 40, strength: 1 } }),
       ui(false),
       // Held: a deep bowl with a closed rim
       stroke(3, [VOLCANO, VOLCANO]),
-      ...settle(0.8),
+      ...settle(0.4),
+      // Closer on the top for the crater, the cracks and the lava
+      frame([VOLCANO], { from: 330, pitch: 42, margin: 48, glide: 1.2 }),
       effect('crater'),
       ui(true),
       mode('cracks', { label: 'glow cracks' }),
@@ -104,7 +107,13 @@ export const SCENES = [
       clickMap(VOLCANO, { mods: { ctrl: true } }),
       ...settle(1.2),
       effect('lava'),
+      // Over the rim into the lava, before the smoke covers it
+      { do: 'cursor', show: false },
+      { do: 'shot', dur: 2.5, ease: 'inOut', keys: ['current', { eye: m(112, 2, 62), look: m(150, 40, 18) }] },
+      effect('lava crater'),
+      wait(1),
       ui(true),
+      { do: 'cursor', show: true },
       tool('objects', { label: 'smoke' }),
       mode('place'),
       settings({ objects: { asset: 'fx-smoke-column', randomRotation: false } }),
@@ -113,10 +122,6 @@ export const SCENES = [
       ...settle(1),
       // Down to the plain: from low the cone stands in the lower third, its smoke against the sky
       { do: 'cursor', show: false },
-      // Over the rim into the lava, then down to the plain: from low the cone stands in the lower third
-      { do: 'shot', dur: 2.5, ease: 'inOut', keys: ['current', { eye: m(110, 0, 70), look: m(150, 40, 20) }] },
-      effect('lava crater'),
-      wait(0.8),
       { do: 'shot', dur: 3.5, ease: 'inOut', keys: ['current', { eye: m(80, -20, 8), look: m(150, 40, 16) }] },
       effect('volcano'),
       wait(1.5),
@@ -133,25 +138,25 @@ export const SCENES = [
       { do: 'mark', name: 'Moon Base' },
       tool('landscape', { label: 'symmetry' }),
       mode('crater'),
-      settings({ brush: { radius: 30, strength: 1 } }),
+      settings({ brush: { radius: 60, strength: 1 } }),
       { do: 'select', sel: '[data-test=symmetry]', value: 'x', label: 'mirror' },
       ...settle(0.3),
       ui(false),
-      frame([m(-80, -205), m(80, -205)], { from: 0, pitch: 36, margin: 0, glide: 0.8 }),
-      stroke(3, [m(40, -205), m(40, -205)], { label: 'two' }),
+      frame([m(-100, -200), m(100, -200)], { from: 0, pitch: 38, margin: 10, glide: 0.8 }),
+      stroke(3, [m(50, -195), m(50, -195)], { label: 'two' }),
       ...settle(2),
       effect('mirror'),
       // Both: the two taken back, then four craters of one stroke over the whole map
       key('z', { ctrl: true }),
       ...settle(0.8),
       // From the east: the four lie across the picture, two near, two far
-      frame([m(-70, -195), m(70, -195), m(-70, 195), m(70, 195)], { from: 90, pitch: 52, margin: -20, glide: 1.6 }),
+      frame([m(-80, -185), m(80, -185), m(-80, 185), m(80, 185)], { from: 90, pitch: 50, margin: 0, glide: 1.6 }),
       ui(true),
       { do: 'select', sel: '[data-test=symmetry]', value: 'xy', label: 'both' },
-      settings({ brush: { radius: 40, strength: 1 } }),
+      settings({ brush: { radius: 65, strength: 1 } }),
       ...settle(0.3),
       ui(false),
-      stroke(3, [m(70, -195), m(70, -195)], { label: 'four' }),
+      stroke(3, [m(80, -185), m(80, -185)], { label: 'four' }),
       ...settle(2),
       effect('four'),
     ],
@@ -178,17 +183,9 @@ export const SCENES = [
       key('r'),
       wait(0.4),
       clickMap(MESA, { label: 'stamp' }),
-      ...settle(1.2),
-      key('Escape'),
-      // The copy's hollow lies 40 m over the oasis's water level (water keeps its level): water of its own, filled to the rim
-      ui(true),
-      tool('water', { label: 'water' }),
-      mode('fill'),
-      click('[data-test=add-lake]'),
-      ui(false),
-      clickMap(MESA, { mods: { ctrl: true } }),
       ...settle(1.5),
       effect('stamp'),
+      key('Escape'),
       act('overlay', { on: false }),
       { do: 'cursor', show: false },
       frame([m(108, -202), MESA], { from: 10, turn: 10, pitch: 34, margin: 26, glide: 1.6, dur: 4.5 }),

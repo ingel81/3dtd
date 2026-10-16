@@ -6,8 +6,8 @@ import { act, m, path, wait } from './common.mjs';
 
 /** The Sentinel Laser's spot on the station crater's south rim (the HQ at 30, -20, the rim some 82 m round it) */
 const TOWER = m(10, -98);
-/** Low behind the rim west of the tower: the Earth upper left, the tower in the right third, the station's lamps between */
-const FIRST = { eye: m(-15, -118, 12), look: m(55, 60, 8) };
+/** Close behind the tower on the rim: the tower large in the lower right, the station's lamps beyond, the Earth upper left */
+const FIRST = { eye: m(-5, -114, 14), look: m(40, 60, 6) };
 
 /** The start state (fixtures.mjs): the tower stands, built through the sidebar before the save; normal credits */
 export const FIXTURES = [
@@ -36,9 +36,9 @@ export const SCENES = [
       ui: false,
       markers: false,
       routes: false,
-      // Raking light: the sun low in the south-east lights the rims from the side; the Earth larger and lower over
+      // Raking light: the sun low in the south-west, behind the camera's left, lights the tower and the rims from the side; the Earth larger and lower over
       // the north rim; a little fill so the shadows are not black (F174)
-      sky: { sunAzimuth: 135, sunElevation: 18, moonlight: 0.5, planet: { azimuth: 5, elevation: 10, size: 14 } },
+      sky: { sunAzimuth: 215, sunElevation: 22, moonlight: 0.8, planet: { azimuth: 5, elevation: 10, size: 14 } },
       camera: FIRST,
     },
     steps: [
@@ -47,7 +47,7 @@ export const SCENES = [
       { do: 'mark', name: 'Outro' },
       wait(0.5),
       // Past the tower and over the station toward the Earth, the look rising onto it
-      path(7.5, [[FIRST.eye, FIRST.look], [m(-6, -94, 18), m(50, 130, 30)], [m(12, -62, 24), m(42, 230, 62)]], { ease: 'inOut', label: 'effect:earth' }),
+      path(7.5, [[FIRST.eye, FIRST.look], [m(-6, -96, 20), m(46, 130, 30)], [m(12, -64, 24), m(42, 230, 62)]], { ease: 'inOut', label: 'effect:earth' }),
       wait(1.5),
       { do: 'fade', to: 1, dur: 1.2, label: 'fade out' },
       wait(0.3),
