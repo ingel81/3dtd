@@ -6283,6 +6283,7 @@
       "randomRotation": false,
       "wind": 0,
       "drawDistance": 3000,
+      "roadThrough": true,
       "tags": [
         "castle"
       ],
@@ -7334,6 +7335,7 @@
       "randomRotation": false,
       "wind": 0,
       "drawDistance": 800,
+      "roadThrough": true,
       "tags": [
         "village"
       ],
@@ -13033,6 +13035,7 @@
       "randomRotation": false,
       "wind": 0,
       "drawDistance": 3000,
+      "roadThrough": true,
       "tags": [
         "castle",
         "autumn"

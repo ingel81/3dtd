@@ -1270,6 +1270,7 @@ export class MapKit {
   issues(): MapIssue[] {
     return validateMap(this.doc, {
       blocksBuild: (a) => this.catalog.object(a).blocksBuild,
+      roadThrough: (a) => !!this.catalog.object(a).roadThrough,
       footingOf: (a) => this.catalog.object(a).footing,
       costOf: assetCosts(this.catalog, this.doc),
     });
