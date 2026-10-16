@@ -25,7 +25,7 @@ export class HeightTexture {
     this.texture.magFilter = this.texture.minFilter = NearestFilter;
     this.texture.wrapS = this.texture.wrapT = ClampToEdgeWrapping;
     this.texture.generateMipmaps = false;
-    this.texture.needsUpdate = true;
+    uploadRect(this.texture, undefined);
     this.uniforms = {
       uTerrainHeights: { value: this.texture },
       uTerrainGrid: { value: new Vector4(field.originX, field.originY, field.cellSize, 0) },
