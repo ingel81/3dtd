@@ -587,8 +587,11 @@ export interface MapPiece {
   paintRows: number;
   materials: string[];
   paint: Uint8Array;
-  /** Water mask on the height samples and the water level relative to the rim; null without water */
-  water: { mask: Uint8Array; level: number; color: string } | null;
+  /**
+   * Water mask on the height samples and the water level relative to the rim; null without water. `kind`: the
+   * body it came from, when that was not the main water (missing: the main water, as pieces kept before)
+   */
+  water: { mask: Uint8Array; level: number; color: string; kind?: MapWaterKind } | null;
   objects: Omit<MapObject, 'id'>[];
   roads: { nodes: MapPathNode[]; edges: MapPathEdge[] };
   /** Life areas and routes with all their points inside, relative to the middle; missing in pieces kept before */

@@ -292,6 +292,36 @@ export class LandscapeStroke {
   }
 
   /**
+   * Water at a level for a pasted piece: the main water for plain water when the map has none (made at
+   * `level`) or it lies within half a metre of it, else a body of that kind within half a metre, else a new body
+   * there (with the map full of bodies, the one of that kind nearest the level). Returns it and a function that
+   * records a rect of its mask before the stroke writes there.
+   */
+  waterAt(level: number, kind: MapWaterKind, color?: string): { water: MapWater; touch: (rect: GridRect) => void } {
+    const t = this.doc.terrain;
+    if (kind === 'water' && (!t.water || Math.abs(t.water.level - level) <= 0.5)) {
+      this.ensureWater(level);
+      return { water: t.water!, touch: (r) => this.touchWater(r) };
+    }
+    const bodies = (t.waterBodies ??= []);
+    let index = bodies.findIndex((b) => (b.kind ?? 'water') === kind && Math.abs(b.level - level) <= 0.5);
+    if (index < 0 && bodies.length >= MAX_WATER_BODIES) index = bodies.reduce((best, b, n) => ((b.kind ?? 'water') === kind && (best < 0 || Math.abs(b.level - level) < Math.abs(bodies[best].level - level)) ? n : best), -1);
+    if (index < 0) {
+      bodies.push({ ...emptyWater(t, Math.round(level * 10) / 10), color: color ?? BODY_COLORS[kind], kind });
+      index = bodies.length - 1;
+      this.bodiesAdded.push(index);
+      this.editor.emit({ water: true });
+    }
+    let recorder = this.bodyRecorders.get(index);
+    if (!recorder) {
+      recorder = new RegionRecorder(bodies[index].mask, patchLayout(this.doc, `body${index}`));
+      this.bodyRecorders.set(index, recorder);
+    }
+    const r = recorder;
+    return { water: bodies[index], touch: (rect) => r.touch(rect) };
+  }
+
+  /**
    * The water pools of a kind fill: the main water for plain water (created
    * at `level` when there is none), else a body of that kind at most 2 m
    * below `level` (one above would stand over the land the stroke starts

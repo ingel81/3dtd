@@ -95,21 +95,28 @@ export function captureStamp(doc: CustomMapDocument, rect: StampRect): Stamp {
     }
   }
 
-  // Water on the height samples
+  // Water on the height samples: the main water's, else the further body that covers most of the piece (an
+  // oasis pool, a crater's lava)
   let water: Stamp['water'] = null;
-  if (t.water) {
+  let most = 0;
+  for (const [k, body] of [t.water, ...(t.waterBodies ?? [])].entries()) {
+    if (!body) continue;
     const mask = new Uint8Array(columns * rows);
-    let any = false;
+    let count = 0;
     for (let j = 0; j < rows; j++) for (let i = 0; i < columns; i++) {
       const p = at(i, j);
       const si = clamp(Math.round((p.x + t.width / 2) / g.cellSize), 0, g.columns - 1);
       const sj = clamp(Math.round((p.y + t.depth / 2) / g.cellSize), 0, g.rows - 1);
-      if (t.water.mask[sj * g.columns + si]) {
+      if (body.mask[sj * g.columns + si]) {
         mask[j * columns + i] = 255;
-        any = true;
+        count++;
       }
     }
-    if (any) water = { mask, level: t.water.level - rim, color: t.water.color };
+    if (count > most) {
+      most = count;
+      water = { mask, level: body.level - rim, color: body.color, ...(k > 0 ? { kind: body.kind ?? 'water' } : {}) };
+    }
+    if (k === 0 && count > 0) break;
   }
 
   const inside = (p: MapPoint) => p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1;
@@ -306,9 +313,13 @@ export function pasteStamp(stroke: LandscapeStroke, stamp: Stamp, center: MapPoi
   }
 
   if (parts.water && stamp.water) {
-    const level = stroke.ensureWater(zero + stamp.water.level);
-    stroke.touchWater(rect);
-    const mask = t.water!.mask;
+    // The water stands where the piece puts it, relative to the ground there: in the main water when that lies
+    // at this level (or the map has none), else in a body at this level (a pool taken from a basin and put on a
+    // mesa stays a pool on the mesa; the main water's level dug its bed down to the old one)
+    const { water, touch } = stroke.waterAt(zero + stamp.water.level, stamp.water.kind ?? 'water', stamp.water.color);
+    const level = water.level;
+    touch(rect);
+    const mask = water.mask;
     for (let j = rect.j0; j <= rect.j1; j++) {
       for (let i = rect.i0; i <= rect.i1; i++) {
         const l = local(stamp, { x: sampleX(t, i), y: sampleY(t, j) }, center, cos, sin, 0);
