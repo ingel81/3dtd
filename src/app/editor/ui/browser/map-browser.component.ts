@@ -16,6 +16,8 @@ import type { GroundMaterialEntry } from '../../catalog/asset-catalog';
 import { AddressAutocompleteComponent } from '../../../components/address-autocomplete.component';
 import { OsmFrameComponent } from '../../../components/osm-frame/osm-frame.component';
 import type { OsmFrameRequest } from '../../../components/osm-frame/osm-frame-request';
+import { placeLabel } from '../../../services/location/place-label';
+import type { NominatimAddress } from '../../../services/location/geocoding.service';
 
 export interface SizePreset {
   id: string;
@@ -230,8 +232,8 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
     this.osmPlace.set(null);
   }
 
-  choosePlace(found: { lat: number; lon: number; name: string }): void {
-    this.osmPlace.set({ place: { lat: found.lat, lon: found.lon, name: found.name.split(',')[0], address: found.name }, spawnsAt: [] });
+  choosePlace(found: { lat: number; lon: number; name: string; address?: NominatimAddress }): void {
+    this.osmPlace.set({ place: { lat: found.lat, lon: found.lon, name: placeLabel(found.name, found.address), address: found.name }, spawnsAt: [] });
   }
 
   /** A map made from a real place: stored already, it opens */

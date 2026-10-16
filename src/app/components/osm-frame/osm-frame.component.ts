@@ -261,11 +261,12 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
     this.making = new AbortController();
     const signal = this.making.signal;
     try {
-      const id = await this.store.freeId(osmMapNames(this.place()).id);
+      const names = osmMapNames(this.place());
+      const id = await this.store.freeId(names.id);
       const catalog = await catalogObjects();
       const made = await this.session.make(
         this.spawns(),
-        { id, costs: catalog && assetCosts(catalog, OSM_WORLD_SIDE), catalog: catalog && buildingCatalog(catalog) },
+        { id, name: names.name, costs: catalog && assetCosts(catalog, OSM_WORLD_SIDE), catalog: catalog && buildingCatalog(catalog) },
         (step) => this.step.set(step),
         signal,
       );

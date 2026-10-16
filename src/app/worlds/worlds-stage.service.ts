@@ -23,6 +23,7 @@ import {
   type WorldPick,
 } from './world-rules';
 import { whyNot, type WhyNotFacts } from '../world/why-not';
+import { placeLabel } from '../services/location/place-label';
 
 /** The lists of the real places' menu */
 export type RealList = 'recent' | 'favorites' | 'showcase' | 'search' | 'records' | 'tilesets';
@@ -294,7 +295,7 @@ export class WorldsStageService {
   makeMapOf(pick: Extract<WorldPick, { kind: 'place' }>, from: WorldId = this.world()): void {
     this.frameFrom.set(from);
     this.frame.set({
-      place: { lat: pick.hq.lat, lon: pick.hq.lon, name: shortPlaceName(pick.name), address: pick.name },
+      place: { lat: pick.hq.lat, lon: pick.hq.lon, name: placeLabel(pick.name), address: pick.name },
       spawnsAt: pick.spawns.map(({ lat, lon }) => ({ lat, lon })),
     });
     this.openWorld('osm');

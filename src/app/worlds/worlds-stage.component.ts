@@ -37,6 +37,7 @@ import { WorldOsmComponent } from './world-osm.component';
 import { WorldRealComponent } from './world-real.component';
 import { WORLD_IDS, WORLD_NAMES, type AutosaveRun, type WorldId, type WorldPick } from './world-rules';
 import { WorldsStageService, type StageOverlay } from './worlds-stage.service';
+import { placeLabel } from '../services/location/place-label';
 
 /** An entry of the menu on the globes */
 interface StartItem {
@@ -125,7 +126,10 @@ export class WorldsStageComponent {
   readonly background = computed(() => (this.view() === 'world' ? this.world() : null));
 
   readonly pick = computed(() => this.stage.picks()[this.world()]);
-  readonly pickName = computed(() => this.pick()?.name.split(',')[0] ?? null);
+  readonly pickName = computed(() => {
+    const pick = this.pick();
+    return pick ? (pick.kind === 'place' ? placeLabel(pick.name) : pick.name) : null;
+  });
 
   /** The other two worlds beside the big globe */
   readonly otherWorlds = computed(() => WORLD_IDS.filter((w) => w !== this.world()));

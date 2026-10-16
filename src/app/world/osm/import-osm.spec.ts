@@ -3,7 +3,7 @@ import { routeBetween, spawnRoutes } from '../../editor/ops/path-graph';
 import { packMapFile, unpackMapFile, validateMapDocument } from '../custom-map/map-file';
 import { mapStreetNetwork } from '../custom-map/custom-map-streets';
 import { osmProbe as probe } from '../../../../tools/osm/osm-probe';
-import { convertOsm } from './import-osm';
+import { convertOsm, osmMapNames } from './import-osm';
 import { MAX_GROUND_LAYERS } from '../custom-map/map-document';
 import { readWeights } from '../../editor/ops/paint-ops';
 import { heightAt } from '../../editor/model/grid';
@@ -221,3 +221,17 @@ function segmentDistance(p: { x: number; y: number }, a: { x: number; y: number 
   const u = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2));
   return Math.hypot(p.x - a.x - u * dx, p.y - a.y - u * dy);
 }
+
+describe('osmMapNames', () => {
+  it('names the map as the search list showed the place, never after a bare house number', () => {
+    const line = '6, Am Thorwengert, Miltenberg-Nord, Miltenberg, Landkreis Miltenberg, Bayern, 63897, Deutschland';
+    expect(osmMapNames({ lat: 49.7036, lon: 9.2649, address: line, name: 'Am Thorwengert 6, Miltenberg' })).toEqual({
+      address: line,
+      name: 'Am Thorwengert 6, Miltenberg',
+      id: 'osm-am-thorwengert-6-miltenberg',
+    });
+    // Without the list's name: the line's label, the house number behind its street
+    expect(osmMapNames({ lat: 49.7036, lon: 9.2649, address: line }).name).toBe('Am Thorwengert 6, Miltenberg-Nord');
+    expect(osmMapNames({ lat: 49.7036, lon: 9.2649, address: 'Miltenberg, Bayern, Deutschland' }).id).toBe('osm-miltenberg');
+  });
+});

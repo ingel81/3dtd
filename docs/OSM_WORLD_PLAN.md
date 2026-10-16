@@ -49,7 +49,7 @@ Adresse suchen ─► flache Karte mit Rahmen, HQ und Spawns ─► Daten holen 
 4. **Erzeugen:** im Web Worker wie der W3X-Import (`OsmFrameSession`, Transferables, Abbruch, Zeitlimit), mit
    Fortschritt je Schritt und einem Bericht (was übernommen, ersetzt, ausgedünnt, weggelassen wurde; fehlende
    Gebäudearten).
-5. **Speichern:** als eigene Karte im Map-Store, Name aus der Adresse, `meta.source = { kind: 'osm', … }`. Danach
+5. **Speichern:** als eigene Karte im Map-Store, Name wie in der Suchliste (Straße mit Hausnummer, Ort: „Am Thorwengert 6, Miltenberg“, `placeLabel`; nie der erste Komma-Teil, Nominatim schreibt die Hausnummer zuerst), `meta.source = { kind: 'osm', … }`. Danach
    „Play“ (Spiel mit `?world=map:<id>`) oder „Edit“ (Editor). Weiter wie jede eigene Karte: Koop-Versand bis 32 MB,
    Versionen, Download.
 
