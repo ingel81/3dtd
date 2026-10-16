@@ -1,0 +1,9 @@
+{
+  "client": "Claude Code",
+  "request": "Build a castle with a moat on the hill in the west meadow",
+  "calls": [
+    { "tool": "map_summary", "args": {}, "hold": 1.4 },
+    { "tool": "run_script", "args": { "label": "castle", "dry_run": true }, "source": "agent-castle.js", "hold": 1.4 },
+    { "tool": "run_script", "args": { "label": "castle" }, "source": "agent-castle.js" }
+  ]
+}

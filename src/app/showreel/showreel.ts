@@ -8,6 +8,7 @@
  */
 import type { Injector, Provider } from '@angular/core';
 import { CUSTOM_MAPS_OPEN } from '../world/custom-maps-open';
+import { installAgentBridge } from './agent-bridge';
 import { AudioRecording, installAudioTap } from './audio-tap';
 import { Director, type Mark, type Scene } from './director';
 import { EditorStage } from './editor-stage';
@@ -35,6 +36,8 @@ html.showreel.sr-clean .es-trial { display: none !important; }
 html.showreel.sr-clean .es-root { grid-template: 'view' minmax(0, 1fr) / minmax(0, 1fr) !important; }
 /* The editor's map list, new-map form and import report: larger, so their text reads in the video */
 html.showreel .mb-panel { zoom: 1.25; }
+/* The agent band (the AI agent take): larger, so the agent's name and its call read in the video */
+html.showreel app-agent-band { zoom: 1.4; }
 /* An intro page (?showreel=intro): the game's HUD out from the first frame, as photo mode has it, before photo
    mode can be entered; the scene (route lines, HQ and spawn markers) and the loading globe stay */
 html.showreel.sr-hud-off app-game-header,
@@ -82,6 +85,9 @@ export function installShowreelEarly(): void {
       clearInterval(off);
     }, 20);
   }
+  // `agent=<port>`: the desktop app's agent bridge, over the showreel's relay (tools/showreel/agent)
+  const agentPort = Number(new URLSearchParams(location.search).get('agent'));
+  if (agentPort) installAgentBridge(agentPort);
   const style = document.createElement('style');
   style.textContent = STYLE;
   document.head.append(style);

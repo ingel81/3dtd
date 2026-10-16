@@ -1,0 +1,7 @@
+{
+  "client": "Claude Code",
+  "calls": [
+    { "tool": "run_script", "args": { "label": "castle", "animate": false }, "source": "agent-castle.js", "hold": 3 },
+    { "tool": "undo_last", "args": {} }
+  ]
+}

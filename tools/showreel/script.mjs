@@ -30,6 +30,10 @@ import { SCENES as W3X } from './scenes/w3x.mjs';
 import { SCENES as WORLDS } from './scenes/worlds.mjs';
 import { SCENES as GAME } from './scenes/game.mjs';
 import { SCENES as OUTRO } from './scenes/outro.mjs';
+// Round 4 (tmp/showreel/DREHBUCH_R4.md): each chapter's scenes on pages of their own
+import { SCENES as R4_K4 } from './scenes/r4-k4.mjs';
+import { SCENES as R4_K5 } from './scenes/r4-k5.mjs';
+import { SCENES as R4_K7 } from './scenes/r4-k7.mjs';
 
 /** The programme in order; each part lives in scenes/ (common.mjs has the helpers) */
-export const SCENES = [...INTRO, ...EDITOR, ...EDITOR2, ...W3X, ...WORLDS, ...GAME, ...OUTRO];
+export const SCENES = [...INTRO, ...EDITOR, ...EDITOR2, ...W3X, ...WORLDS, ...GAME, ...OUTRO, ...R4_K4, ...R4_K5, ...R4_K7];

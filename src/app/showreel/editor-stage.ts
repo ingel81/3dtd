@@ -9,6 +9,7 @@ import type { EditorViewport } from '../editor/view/editor-viewport';
 import type { EditorSettings } from '../editor/tools/tool';
 import { mapToScene } from '../editor/view/map-view';
 import { poseToOrbit, type CameraPose, type MapPoint3 } from './camera-path';
+import { agentReplay } from './agent-bridge';
 import type { ScreenPoint } from './pointer';
 import type { Stage } from './stage';
 import { waitSeconds, waitUntil } from './hands';
@@ -214,6 +215,10 @@ export class EditorStage implements Stage {
         }
         return;
       }
+      case 'agent':
+        // A recorded AI agent (tools/showreel/agent): its MCP calls replayed by the relay, answered by this editor
+        await agentReplay(String(args['replay']), args['reset'] === true);
+        return;
       case 'save':
         await session.save(true);
         return;
