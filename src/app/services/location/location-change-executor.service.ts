@@ -23,6 +23,7 @@ import { UIStore } from '../../store/ui.store';
 import { LocationConfig, SavedSpawn } from '../../models/location.types';
 import { GeoPosition } from '../../models/game.types';
 import { corridorTrace } from '../../utils/corridor-trace';
+import { placeLabel } from './place-label';
 
 /**
  * Input data for location change
@@ -337,7 +338,8 @@ export class LocationChangeExecutorService {
 
     // Add the spawn points (component handles signal update and visualization),
     // one lane each, in the colours and ids a reload gives them
-    const spawnName = input.spawn.name?.split(',')[0] || 'Spawn';
+    // The street of a geocoded spawn ("Am Thorwengert 6" of "6, Am Thorwengert, ..."), never a bare house number
+    const spawnName = (input.spawn.name ? placeLabel(input.spawn.name).split(',')[0] : '') || 'Spawn';
     const spawns = spawnsOf(input);
     spawns.forEach((spawn, i) => callbacks.addSpawnPoint(
       `spawn-${i + 1}`, i === 0 ? spawnName : `Spawn ${i + 1}`, spawn.lat, spawn.lon,

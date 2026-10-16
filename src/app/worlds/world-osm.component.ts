@@ -3,6 +3,8 @@ import { AddressAutocompleteComponent } from '../components/address-autocomplete
 import { TdIconComponent } from '../components/icon/icon.component';
 import { OsmFrameComponent } from '../components/osm-frame/osm-frame.component';
 import { WorldsStageService } from './worlds-stage.service';
+import { placeLabel } from '../services/location/place-label';
+import type { NominatimAddress } from '../services/location/geocoding.service';
 
 /**
  * OpenStreetMap's menu (docs/WORLDS_NAVIGATION_PLAN.md, user decision 5):
@@ -38,7 +40,7 @@ import { WorldsStageService } from './worlds-stage.service';
         <section class="td-group" aria-labelledby="wm-osm-place">
           <h3 class="td-section" id="wm-osm-place">A map of a real place</h3>
           <app-td-address-autocomplete [placeholder]="'Town, street or address'" [currentValue]="null"
-                                       (locationSelected)="frameAt($event.lat, $event.lon, $event.name)" />
+                                       (locationSelected)="frameAt($event.lat, $event.lon, placeName($event))" />
           @if (realPlace(); as place) {
             <div class="td-rows">
               <button type="button" class="td-row wm-row" (click)="frameAt(place.hq.lat, place.hq.lon, place.name, place.spawns)">
@@ -117,6 +119,11 @@ export class WorldOsmComponent {
   readonly run = computed(() => this.stage.autosaveOf('osm'));
   readonly playWhy = computed(() => this.stage.whyNot('play', 'osm'));
   readonly continues = computed(() => this.stage.runHere('osm', this.stage.picks().osm) !== null);
+
+  /** A searched place's name as the search list showed it */
+  placeName(found: { name: string; address?: NominatimAddress }): string {
+    return placeLabel(found.name, found.address);
+  }
 
   /** The frame on a place, its spawns drawn there (none: the frame rolls them) */
   frameAt(lat: number, lon: number, name: string, spawns: readonly { lat: number; lon: number }[] = []): void {
