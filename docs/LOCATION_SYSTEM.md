@@ -715,6 +715,16 @@ Status. Darum sortiert `overpass-client.ts` jeden Fehler in eine Art und wiederh
   hören auf, `moveTo` des früheren gibt nach (`placeRun`) und schreibt weder Straßen noch ein Problem. Ein Wechsel,
   der während eines laufenden angefordert wird, läuft danach, nur der letzte (`pendingChange`); bis 2026-10-16 wurde er
   verworfen. Wurde der laufende dabei abgebrochen, sperrt ein Fehler hinter der Ladung Play, bis der neue Ort steht
+- Ein Wechsel, der schon hinter seinen Straßen ist (Tiles, Spawns, Routen), hält für einen neu gewählten Ort am Ende
+  seines laufenden Schritts an (`executeLocationChange(…, stillWanted)`, `PlaceChangeSuperseded`), statt Routen und
+  Höhen eines Orts fertig zu bauen, den keiner mehr will; danach läuft der neue. Ein laufender Schritt endet erst
+  (das Warten auf die ersten Tiles höchstens 15 s). Nur eine Wahl im Menü (`choosePlace`, Favorit, Würfel) löst das
+  aus; ein Wechsel ohne Wahl (HQ-Umzug, Coop, Spielstand) wartet wie bisher hinter dem laufenden
+- Kommen die Straßen des neuen Orts dann nicht, während der alte schon halb zurückgesetzt ist (sein Wechsel wurde
+  abgebrochen, scheiterte, oder läuft noch und hält für diese Wahl an), sagt die Meldung nicht mehr „You stay where you
+  are“, sondern „The place before was already left, so no place is loaded now. Try again in a minute, or pick another
+  place.“ mit Retry und Other place; Play bleibt gesperrt (`streetsFailedText(place, lost)`). Den alten Ort wieder
+  herzustellen hieße ihn neu zu laden, mit denselben Servern; das ist nicht gebaut
 - Die Welt geht während der Ladung (Esc, andere Welt): die Ladung endet, `loadStreetsInternal` und der Koordinator
   schreiben nichts mehr
 
