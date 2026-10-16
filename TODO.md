@@ -56,6 +56,11 @@ eigenen Karten, Coop-Protokoll 5). Die Worker-Runden vom 2026-10-15 sind überno
       Dachkanten, Sockel, Kantenfasen), Texturen in Blender (Verdeckung, Kantenabnutzung, Schmutz backen; höhere
       Auflösung wo es lohnt, heute WebP 512 px), LODs neu (`make_lods.py`, `match_lods.py`), im Budget (Scene cost,
       E169). Zuerst die Gebäude aus dem Showreel; Vorher/Nachher-Bilder je Modell zur Abnahme.
+- [ ] **E203 Straßen der OSM-Welt aus der Ferne lesbar** (User, 2026-10-16, Test Binswangen): Der Nachbau aus OSM
+      klappt schon sehr gut, die Straßen sehen von weitem aber nicht wie Straßen aus (graue Bänder, die Textur
+      scheint nicht entlang der Straße zu laufen). Belag in Fahrtrichtung ausrichten (UV entlang der Straße),
+      Randlinien und Mittelstreifen je Straßenklasse, damit Straßen auch aus der Distanz lesbar sind. Verwandt:
+      „OSM: Gehweg und Pflaster eine Schicht“ (Abschnitt 2).
 - [ ] **E195 Rest:** Menü und Weltwechsel sind gebaut (Abschnitt 2). Offen: Speichermessung über 10 Weltwechsel
       für die Phasen 3 bis 5 im Production-Build (braucht lokal `CUSTOM_MAPS_RELEASED = true`, die Freigabe-Sperre
       blockierte es; sonst im Dev-Build messen); OSM-Karten heißen im Pfad noch „Maps“ (`worldName` kennt nur den WorldRef).
