@@ -490,11 +490,17 @@ const B9 = stage('b9-rules', 8, [
   key('v'),
   wait(2),
   effect('check'),
+  // The check's list closed again: it stayed over the picture to the end
+  click('[aria-label="Close the check"]'),
+  wait(0.3),
+  // The build areas are an overlay in the world: on with the markers while they show
+  ringOn,
   ...pick(tool('measure', { label: 'build areas' }), click('[data-test=build-areas]')),
   frame([m(-140, 0), pt(P.table)], { from: 0, pitch: 50, margin: 40, pad: 1, glide: 1.4 }),
   wait(2),
   effect('build areas'),
   ...pick(click('[data-test=build-areas]')),
+  ringOff,
   // The map's own intro flight: an orbit round the HQ, previewed
   frame([{ at: 'hq' }], { from: 200, pitch: 25, margin: 200, pad: 1, glide: 1.4 }),
   ...pick(
