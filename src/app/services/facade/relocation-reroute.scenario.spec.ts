@@ -260,7 +260,6 @@ describe('Moving the HQ where the kept spawn has no route (playtest 542)', () =>
         store.spawnPoints.update((points) => [...points, { id, name, lat, lon, color }]);
         pathRoute.showPathFromSpawn({ id, name, lat, lon, color });
       },
-      syncUrlWithLocation: vi.fn(),
     };
     // The location as loaded: the spawn's route runs to the HQ on the south bank
     initRoutes();

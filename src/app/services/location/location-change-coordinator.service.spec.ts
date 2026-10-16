@@ -79,6 +79,8 @@ function makeLocationMgmt() {
     moveFavorite: vi.fn(),
     deleteFavorite: vi.fn(),
     setLocation: vi.fn(),
+    hq: signal<{ lat: number; lon: number } | null>({ lat: 1, lon: 2 }),
+    spawns: signal<{ lat: number; lon: number }[]>([]),
   };
 }
 
@@ -102,7 +104,6 @@ function makeCallbacks(state: { spawnPoints: { id: string; name: string; lat: nu
     setStreetCount: vi.fn(),
     setStreetNetwork: vi.fn(),
     setStreetNetworkLocation: vi.fn(),
-    syncUrlWithLocation: vi.fn(),
     clearMapEntities: vi.fn(),
     appendDebugLog: vi.fn(),
     initializeTowerPlacement: vi.fn(),
@@ -275,7 +276,6 @@ describe('LocationChangeCoordinatorService', () => {
       expect(callbacks.setBaseCoords).toHaveBeenCalledWith(HQ);
       expect(callbacks.setCenterCoords).toHaveBeenCalledWith({ ...HQ, height: 400 });
       expect(locationMgmt.setLocation).toHaveBeenCalledWith(HQ, [SPAWN]);
-      expect(callbacks.syncUrlWithLocation).toHaveBeenCalled();
     });
 
     it('frames the camera on HQ and spawn with the lens of the live camera', async () => {
@@ -368,7 +368,6 @@ describe('LocationChangeCoordinatorService', () => {
     it('turns the spawn by the bearing it brought along and keeps it in location and URL', async () => {
       await executor.executeLocationChange({ hq: HQ, spawn: { ...SPAWN, name: 'Spawn', portalBearing: 187.5 } }, ctx, callbacks);
       expect(locationMgmt.setLocation).toHaveBeenCalledWith(HQ, [{ ...SPAWN, portalBearing: 187.5 }]);
-      expect(callbacks.syncUrlWithLocation).toHaveBeenCalled();
       expect(callbacks.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Spawn', SPAWN.lat, SPAWN.lon, SPAWN_COLORS[0], 187.5);
     });
 
@@ -751,7 +750,6 @@ describe('LocationChangeCoordinatorService', () => {
       await coordinator.onSelectFavorite(favA);
 
       expect(locationMgmt.setLocation).toHaveBeenCalledWith(HQ, [SPAWN]);
-      expect(callbacks.syncUrlWithLocation).toHaveBeenCalled();
       expect(engine.setOrigin).toHaveBeenCalledWith(HQ.lat, HQ.lon);
       expect(callbacks.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Spawn', SPAWN.lat, SPAWN.lon, SPAWN_COLORS[0], undefined);
     });
@@ -764,7 +762,6 @@ describe('LocationChangeCoordinatorService', () => {
       expect(callbacks.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Spawn', SPAWN.lat, SPAWN.lon, SPAWN_COLORS[0], 93.5);
       // The change sets location and URL again: the bearing stays in both
       expect(locationMgmt.setLocation).toHaveBeenLastCalledWith(HQ, [{ ...SPAWN, portalBearing: 93.5 }]);
-      expect(callbacks.syncUrlWithLocation).toHaveBeenCalledTimes(2);
     });
 
     it('places every lane of a favorite, not only the first', async () => {
@@ -791,13 +788,14 @@ describe('LocationChangeCoordinatorService', () => {
   });
 
   describe('share and world dice', () => {
-    it('copies the share URL to the clipboard', () => {
+    it('copies a link to the current place and its world to the clipboard', () => {
       const writeText = vi.fn();
       vi.stubGlobal('navigator', { clipboard: { writeText } });
       coordinator.initializeFlow(delegate);
 
       coordinator.onShareLocation();
 
+      expect(urlLocation.getShareUrl).toHaveBeenCalledWith({ lat: 1, lon: 2 }, [], worldContext.ref());
       expect(writeText).toHaveBeenCalledWith('https://example.test/?l=1,2');
       expect(callbacks.appendDebugLog).toHaveBeenCalledWith('Link copied: https://example.test/?l=1,2');
       vi.unstubAllGlobals();

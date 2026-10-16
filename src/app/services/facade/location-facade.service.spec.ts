@@ -11,7 +11,7 @@ import { PathAndRouteService } from '../world/path-route.service';
 import { LocationManagementService } from '../location/location-management.service';
 import { HeightUpdateService } from '../world/height-update.service';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
-import { UrlLocationService } from '../location/url-location.service';
+import { WorldStartService, PLAIN_START, type WorldStart } from '../../world/world-start';
 import { WorldContext } from '../../world/world-context.service';
 import { TILES_CAPABILITIES } from '../../world/tiles/tiles-world';
 import { DEV_WORLD_CAPABILITIES } from '../../devworld/dev-world-provider';
@@ -149,7 +149,8 @@ describe('LocationFacadeService', () => {
     setError: vi.fn(),
     setLoading: vi.fn(),
   };
-  const urlLocation = { parseFromUrl: vi.fn(), updateUrl: vi.fn() };
+  let order: WorldStart = PLAIN_START;
+  const start = { current: () => order };
   const routeAnimation = { stopAnimation: vi.fn(), startAnimation: vi.fn() };
   const streetRendering = { dispose: vi.fn() };
   const debugFacade = { appendDebugLog: vi.fn() };
@@ -207,7 +208,7 @@ describe('LocationFacadeService', () => {
     osm.findPath.mockReturnValue([OLD_SPAWN, HQ]);
     osm.haversineDistance.mockReturnValue(0);
     mapPlacement.handlePlacementClick.mockReturnValue(null);
-    urlLocation.parseFromUrl.mockReturnValue(null);
+    order = PLAIN_START;
     worldContext.setCoverage(null);
     uiStore.notice.set(null);
     locationMgmt.hq.set(null);
@@ -245,7 +246,7 @@ describe('LocationFacadeService', () => {
         { provide: LocationManagementService, useValue: locationMgmt },
         { provide: HeightUpdateService, useValue: heightUpdate },
         { provide: EngineInitializationService, useValue: engineInit },
-        { provide: UrlLocationService, useValue: urlLocation },
+        { provide: WorldStartService, useValue: start },
         { provide: RouteAnimationService, useValue: routeAnimation },
         { provide: StreetRenderingService, useValue: streetRendering },
         { provide: WaveDebugService, useValue: {} },
@@ -336,12 +337,10 @@ describe('LocationFacadeService', () => {
       expect(store.baseCoords()).toEqual(origin);
       expect(store.centerCoords()).toEqual({ ...origin, height: 400 });
       expect(engineInit.setStepDone).toHaveBeenCalledWith('location', 'devworld flat/42');
-      expect(urlLocation.parseFromUrl).not.toHaveBeenCalled();
-      expect(urlLocation.updateUrl).not.toHaveBeenCalled();
     });
 
-    it('takes HQ and spawns from the URL first', async () => {
-      urlLocation.parseFromUrl.mockReturnValue({ hq: INSIDE, spawns: [OUTSIDE] });
+    it("takes HQ and spawns from the start order's link first", async () => {
+      order = { ...PLAIN_START, place: { hq: INSIDE, spawns: [OUTSIDE] } };
 
       await facade.initializeLocation();
 
@@ -349,7 +348,6 @@ describe('LocationFacadeService', () => {
       expect(locationMgmt.setLocation).toHaveBeenCalledWith(INSIDE, [OUTSIDE]);
       expect(engineInit.setStepDone).toHaveBeenCalledWith('location', 'from URL');
       expect(coordinator.waitForStartChoice).not.toHaveBeenCalled();
-      expect(urlLocation.updateUrl).toHaveBeenCalledWith(INSIDE, [OUTSIDE]);
       expect(store.baseCoords()).toEqual(INSIDE);
       expect(store.centerCoords()).toEqual({ ...INSIDE, height: 400 });
     });
@@ -357,7 +355,7 @@ describe('LocationFacadeService', () => {
     it("starts in the middle of a world's area when the link's place lies outside it, and says so", async () => {
       const middle = { lat: INSIDE.lat + 0.1, lon: INSIDE.lon };
       worldContext.setCoverage({ center: middle, radiusM: 500 });
-      urlLocation.parseFromUrl.mockReturnValue({ hq: INSIDE, spawns: [OUTSIDE] });
+      order = { ...PLAIN_START, place: { hq: INSIDE, spawns: [OUTSIDE] } };
 
       await facade.initializeLocation();
 
@@ -389,7 +387,6 @@ describe('LocationFacadeService', () => {
       expect(coordinator.cancelStartChoice).toHaveBeenCalled();
       expect(engineInit.setStepDone).not.toHaveBeenCalled();
       expect(engineInit.setError).not.toHaveBeenCalled();
-      expect(urlLocation.updateUrl).not.toHaveBeenCalled();
     });
   });
 
@@ -418,22 +415,6 @@ describe('LocationFacadeService', () => {
       choose(storedPlace(INSIDE, [OUTSIDE]));
       await settle();
       expect(locationMgmt.setLocation).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('syncUrlWithLocation', () => {
-    it('writes HQ and spawns into the URL', () => {
-      locationMgmt.setLocation(INSIDE, [OUTSIDE]);
-      facade.syncUrlWithLocation();
-      expect(urlLocation.updateUrl).toHaveBeenCalledWith(INSIDE, [OUTSIDE]);
-    });
-
-    it('skips without an HQ and in DevWorld', () => {
-      facade.syncUrlWithLocation();
-      useDevWorld();
-      locationMgmt.setLocation(INSIDE, []);
-      facade.syncUrlWithLocation();
-      expect(urlLocation.updateUrl).not.toHaveBeenCalled();
     });
   });
 
@@ -534,7 +515,6 @@ describe('LocationFacadeService', () => {
 
       expect(osm.findRandomStreetPoint).toHaveBeenCalledWith(streetNetwork, HQ.lat, HQ.lon, 500, 1000, null);
       expect(locationMgmt.setGeneratedSpawns).toHaveBeenCalledWith([{ lat: 48.781, lon: 9.19 }]);
-      expect(urlLocation.updateUrl).toHaveBeenCalled();
       expect(store.spawnPoints()).toEqual([
         { id: 'spawn-1', name: 'Damrak', lat: 48.781, lon: 9.19, color: SPAWN_COLORS[0] },
       ]);
@@ -658,7 +638,6 @@ describe('LocationFacadeService', () => {
         expect(vizCallbacks.reframeCameraWithRoutes).toHaveBeenCalled();
         expect(vizCallbacks.saveInitialCameraPosition).toHaveBeenCalled();
         expect(locationMgmt.setLocation).toHaveBeenCalledWith(INSIDE, [{ lat: OLD_SPAWN.lat, lon: OLD_SPAWN.lon }]);
-        expect(urlLocation.updateUrl).toHaveBeenCalledWith(INSIDE, [{ lat: OLD_SPAWN.lat, lon: OLD_SPAWN.lon }]);
         expect(routeAnimation.startAnimation).toHaveBeenCalledWith(cachedPaths, [OLD_SPAWN]);
         expect(mapPlacement.updateDependencies).toHaveBeenCalledWith(streetNetwork, INSIDE);
       });
@@ -802,7 +781,6 @@ describe('LocationFacadeService', () => {
           { id: 'spawn-1', name: 'Damrak', ...INSIDE, color: SPAWN_COLORS[0] },
         ]);
         expect(locationMgmt.setLocation).toHaveBeenCalledWith(HQ, [INSIDE]);
-        expect(urlLocation.updateUrl).toHaveBeenCalledWith(HQ, [INSIDE]);
         expect(world.attach).toHaveBeenCalledWith(
           engine, HQ, [{ id: 'spawn-1', name: 'Damrak', ...INSIDE }],
         );

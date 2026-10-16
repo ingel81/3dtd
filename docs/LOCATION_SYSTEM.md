@@ -2,12 +2,12 @@
 
 **Stand:** 2026-09-16
 
-Das Location-System ermöglicht es Spielern, ihren eigenen Spielort zu wählen. Die URL ist die Single Source of Truth für die aktuelle Location.
+Das Location-System ermöglicht es Spielern, ihren eigenen Spielort zu wählen. Ein Link (`?l=…&s=…`) wird beim Start einmal in den Startauftrag gelesen (`WorldStartService`, [WORLDS_NAVIGATION_PLAN.md](WORLDS_NAVIGATION_PLAN.md) Phase 1) und verlässt dann die Adresse; ein Ortswechsel schreibt die URL nicht mehr. Der Ort steht in `LocationManagementService`.
 
 ## Übersicht
 
 ```
-URL (?l=...&s=...)                  ← Source of Truth
+Link (?l=...&s=...)                 ← beim Start einmal gelesen (WorldStart.place)
   ↓
 UrlLocationService                  ← Parse/Update URL
   ↓
@@ -242,7 +242,7 @@ Quelle: Natural Earth 1:110m, Version 5.1.2, `ne_110m_coastline` und `ne_110m_ad
 
 ## UrlLocationService
 
-URL ist die Single Source of Truth. Format:
+Liest und baut Links zu einem Ort. Format:
 
 ```
 ?l=49.17327,9.26859&s=49.17555,9.26387,187.5;49.18000,9.27000
@@ -252,23 +252,23 @@ URL ist die Single Source of Truth. Format:
 - `s` = Spawns (Semikolon-getrennt), optional; je Spawn `lat,lon` und, wenn der Spieler sein Portal beim Setzen mit R gedreht hat, der Kompasskurs des Portals in Grad (im Uhrzeigersinn ab Nord, 1 Dezimalstelle, `SavedSpawn.portalBearing`)
 - Kein `s`-Parameter = Random Spawn wird generiert
 - Ein Spawn ohne Kurs (auch in allen URLs von vor 2026-09-14) folgt mit seinem Portal der Route. Ein Kurs, der keine Zahl ist, fällt weg, der Spawn bleibt
-- Auf einer Welt ohne echten Ort schreibt `LocationFacadeService.syncUrlWithLocation()` nichts in die URL (sie behält `?devworld…` oder `?world=map:<id>`)
+- Der Link wird beim Start gelesen (`WorldStartService` mit `parseLink`) und danach aus der Adresse genommen; Neuladen startet ohne ihn (Startort-Raten: Autosave, zuletzt gespielt). Teilen baut den Link aus dem aktuellen Ort (`getShareUrl(hq, spawns, world)`), eine Welt mit eigenem Link (eigener Tileset) kommt als `&world=` dazu
 
 Die Drehung des Spawn-Portals:
 
 | Weg | Kurs |
 |-----|------|
-| Spawn setzen mit R-Drehung (`MapRelocationService.applySpawnInPlace`) | `portalHeadingToBearing` der Drehung, in `LocationManagementService.spawns`, von dort in die URL und in einen danach gespeicherten Favoriten |
-| Reload, geteilter Link | aus `s`, `addPredefinedSpawns` → `addSpawnPoint(…, portalBearing)` |
-| Favorit laden | aus `FavoriteLocation.spawns[0]`, über `applyNewLocation` (Schritt 2 schreibt ihn in Ort und URL, Schritt 5 an den Spawn) |
+| Spawn setzen mit R-Drehung (`MapRelocationService.applySpawnInPlace`) | `portalHeadingToBearing` der Drehung, in `LocationManagementService.spawns`, von dort in einen geteilten Link und einen danach gespeicherten Favoriten |
+| Geteilter Link | aus `s`, `addPredefinedSpawns` → `addSpawnPoint(…, portalBearing)` |
+| Favorit laden | aus `FavoriteLocation.spawns[0]`, über `applyNewLocation` (Schritt 2 schreibt ihn in den Ort, Schritt 5 an den Spawn) |
 | HQ versetzen (in place und außerhalb der Straßen), Ortswahl im Menü, Zuletzt gespielt, Weltkarte, World Dice | keiner, das Portal folgt der Route (ein Showcase-Ort mit festem Kurs bringt ihn mit) |
 
-`LocationFacadeService.addSpawnPoint` dreht das Portal nach dem Bau der Route (`MarkerVisualizationService.setPortalHeading`); jeder Bau der Route hält den Kurs im Drehbereich dieser Route (`clampPortalHeading`). Hat sich die Route seit dem Speichern geändert, steht das Portal an der Grenze; im Ort, in der URL und im Favoriten bleibt der Kurs, wie er gegeben wurde. Mehr zum Drehbereich in [SPAWN_PORTAL.md](SPAWN_PORTAL.md#drehbereich).
+`LocationFacadeService.addSpawnPoint` dreht das Portal nach dem Bau der Route (`MarkerVisualizationService.setPortalHeading`); jeder Bau der Route hält den Kurs im Drehbereich dieser Route (`clampPortalHeading`). Hat sich die Route seit dem Speichern geändert, steht das Portal an der Grenze; im Ort, im Link und im Favoriten bleibt der Kurs, wie er gegeben wurde. Mehr zum Drehbereich in [SPAWN_PORTAL.md](SPAWN_PORTAL.md#drehbereich).
 
 ```typescript
-parseFromUrl(): { hq, spawns } | null   // URL parsen
-updateUrl(hq, spawns): void              // URL ohne Reload aktualisieren (replaceState), Spawns samt Kurs
-getShareUrl(): string                    // Aktuelle URL für Sharing
+parseLink(link): { hq, spawns } | null        // Link oder Query lesen (Start, eingefügter Link)
+urlFor(hq, spawns, world?): string            // Pfad mit Query zu einem Ort, Spawns samt Kurs
+getShareUrl(hq, spawns, world?): string       // Link zum Teilen (Desktop: auf die Web-Version)
 ```
 
 ## Kanonische Koordinaten
@@ -364,8 +364,8 @@ Beim App-Start in `LocationFacadeService.initializeLocation()`:
    → dieses HQ ohne Spawn setzen, fertig (die Spawns kommen später aus der
      Startaufstellung der Welt); fehlt die Karte hier, Fehlermeldung statt Laden
 
-2. URL-Parameter vorhanden? (UrlLocationService.parseFromUrl())
-   → Location aus URL laden, fertig
+2. Nennt der Startauftrag einen Ort? (WorldStartService.current().place, aus dem Link)
+   → Location daraus laden, fertig
 
 3. Sonst auf die Wahl im Menü warten (waitForPlaceChoice)
    → LocationChangeCoordinatorService.waitForStartChoice(), awaitingStartChoice() ist true
@@ -375,7 +375,6 @@ Beim App-Start in `LocationFacadeService.initializeLocation()`:
    → Geht die Komponente vorher weg: Abbruch ohne Fehler
 ```
 
-Nach Erkennung wird die URL synchronisiert (`syncUrlWithLocation()`).
 
 ## LocationChangeCoordinatorService - 7-Step Sequence
 

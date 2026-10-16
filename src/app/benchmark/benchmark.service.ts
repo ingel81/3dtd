@@ -12,6 +12,10 @@ import {
   DEFAULT_BENCHMARK_PLAN, benchmarkUrl, browserOf, isBenchmarkSearch, osOf, shortGpu,
   type BenchmarkEnv, type BenchmarkPlan, type BenchmarkRow,
 } from './benchmark-report';
+import { pageQuery } from '../core/page-switches';
+import { UrlLocationService } from '../services/location/url-location.service';
+import { LocationManagementService } from '../services/location/location-management.service';
+import { WorldContext } from '../world/world-context.service';
 
 export type BenchmarkPhase = 'idle' | 'running' | 'done' | 'cancelled' | 'failed';
 
@@ -63,9 +67,12 @@ export class BenchmarkService {
   private readonly loop = inject(GameLoopFacadeService);
   private readonly intro = inject(IntroCameraFlightService);
   private readonly sim = inject(SimClient);
+  private readonly urls = inject(UrlLocationService);
+  private readonly location = inject(LocationManagementService);
+  private readonly world = inject(WorldContext);
 
   /** This page was loaded to run the benchmark */
-  readonly requested = isBenchmarkSearch(location.search);
+  readonly requested = isBenchmarkSearch(pageQuery());
   /** Where the menu's entry came from (its URL carries the place): the panel offers the way back */
   readonly returnHref = this.requested ? readReturnHref() : null;
   readonly state = signal<BenchmarkState>(IDLE);
@@ -74,7 +81,8 @@ export class BenchmarkService {
   /** The menu's entry: reload into the DevWorld with the flag */
   start(): void {
     try {
-      sessionStorage.setItem(RETURN_KEY, location.href);
+      // The world and place of this page: the address no longer carries them (WorldStartService)
+      sessionStorage.setItem(RETURN_KEY, this.urls.hereUrl(this.location.hq(), this.location.spawns(), this.world.ref()));
     } catch {
       // No storage: the panel only closes afterwards
     }

@@ -71,7 +71,6 @@ export interface LocationChangeCallbacks {
   setStreetNetworkLocation(loc: GeoPosition | null): void;
 
   // Actions
-  syncUrlWithLocation(): void;
   clearMapEntities(): void;
   appendDebugLog(msg: string): void;
   initializeTowerPlacement(): void;
@@ -205,9 +204,8 @@ export class LocationChangeExecutorService {
     callbacks.setBaseCoords({ lat: input.hq.lat, lon: input.hq.lon });
     callbacks.setCenterCoords({ lat: input.hq.lat, lon: input.hq.lon, height: 400 });
 
-    // Update location service and URL, the bearing of the spawn's portal with it
+    // Update the location service, the bearing of the spawn's portal with it
     this.locationMgmt.setLocation({ lat: input.hq.lat, lon: input.hq.lon }, spawnsOf(input));
-    callbacks.syncUrlWithLocation();
 
     // Compute and apply optimal camera framing IMMEDIATELY (before tiles load)
     this.engineInit.updateStepMeta('engine', 'Positioning camera...');

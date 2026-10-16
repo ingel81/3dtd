@@ -7,10 +7,11 @@ const customMapsOnly = () => customMapsByLink() || inject(Router).parseUrl('/');
 
 export const routes: Routes = [
   {
+    // The game; a world opened in the page makes it anew (WorldSession)
     path: '',
     loadComponent: () =>
-      import('./tower-defense.component').then(
-        m => m.TowerDefenseComponent
+      import('./game-host.component').then(
+        m => m.GameHostComponent
       ),
   },
   {

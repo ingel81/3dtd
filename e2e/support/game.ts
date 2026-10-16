@@ -59,7 +59,7 @@ export async function openGame(browser: Browser, options: OpenOptions = {}): Pro
 }
 
 /**
- * Wait until the place stands and the game shows: the start menu stands in
+ * Wait until the place stands and the game shows: Start on the globes, the start menu stands in
  * front while the place loads (docs/MAIN_MENU_UI_PLAN.md), Play (or Continue
  * of a run loaded) is pressed, which waits for the load, and the menu is
  * gone for good (a change of place opens it again). A problem in the
@@ -68,6 +68,10 @@ export async function openGame(browser: Browser, options: OpenOptions = {}): Pro
  * a bot) only the wait is left.
  */
 export async function gameReady(page: Page): Promise<void> {
+  // A link only picks: the page starts on the globes with its place chosen, Start loads it
+  // (docs/WORLDS_NAVIGATION_PLAN.md, 3.8); a run's start (a room, a bot, menu=skip) opens the game at once
+  await page.waitForSelector('app-worlds-stage, app-main-menu, app-quick-actions', { timeout: 30_000 }).catch(() => undefined);
+  if (await page.locator('app-worlds-stage').count()) await page.locator('app-worlds-stage [data-stage-start]').click();
   await page.waitForSelector('app-main-menu', { timeout: 30_000 }).catch(() => undefined);
   const end = Date.now() + 300_000;
   let gone = 0;
@@ -402,5 +406,19 @@ export async function runState(page: Page): Promise<{ towers: number; credits: n
       health: c.store.baseHealth(),
       wave: c.store.waveNumber(),
     };
+  });
+}
+
+/**
+ * The custom map the page plays (WorldContext.ref), null on another world.
+ * The address no longer says it: a link's world leaves it at the start
+ * (docs/WORLDS_NAVIGATION_PLAN.md, phase 1).
+ */
+export async function playedMap(page: Page): Promise<string | null> {
+  return page.evaluate(() => {
+    const w = window as unknown as { ng?: { getComponent(el: Element | null): any } };
+    const el = document.querySelector('app-tower-defense');
+    const ref = el && w.ng ? w.ng.getComponent(el)?.worldContext.ref() : null;
+    return ref?.kind === 'custom-map' ? ref.mapId : null;
   });
 }

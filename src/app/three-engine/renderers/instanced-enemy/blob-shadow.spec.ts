@@ -1,5 +1,5 @@
 import { BoxGeometry, DataTexture, Group, InstancedBufferAttribute, InstancedMesh, MeshBasicMaterial, ShaderMaterial, Vector2, Vector3, Vector4, type Camera, type Scene, type WebGLRenderer } from 'three';
-import { attachBlobShadow, setBlobGround } from './blob-shadow';
+import { attachBlobShadow, disposeBlobShadows, setBlobGround, singleBlobShadow } from './blob-shadow';
 
 describe('attachBlobShadow', () => {
   it('sits beside the pool and follows its count, matrices and slide offsets', () => {
@@ -51,3 +51,30 @@ describe('blob shadows on the ground', () => {
     expect(blob.geometry.getAttribute('position').count).toBe(25);
   });
 });
+
+describe('blob shadows of an engine that goes', () => {
+  it('give up their shared materials, with the listeners renderers hung on them, and the ground: the next engine makes its own', () => {
+    const pool = new InstancedMesh(new BoxGeometry(), new MeshBasicMaterial(), 4);
+    new Group().add(pool);
+    const enemies = attachBlobShadow(pool, 0.5, { value: 1 }).material as ShaderMaterial;
+    const hero = singleBlobShadow(new Group(), 0.4).material as ShaderMaterial;
+    let rendererHolds = 0;
+    for (const material of [enemies, hero]) {
+      // As a WebGLRenderer does for every material it draws: a listener that holds the renderer
+      const onDispose = () => {
+        rendererHolds--;
+        material.removeEventListener('dispose', onDispose);
+      };
+      material.addEventListener('dispose', onDispose);
+      rendererHolds++;
+    }
+    setBlobGround(() => null);
+
+    disposeBlobShadows();
+
+    expect(rendererHolds).toBe(0);
+    expect(attachBlobShadow(pool, 0.5, { value: 1 }).material).not.toBe(enemies);
+    expect(singleBlobShadow(new Group(), 0.4).material).not.toBe(hero);
+  });
+});
+

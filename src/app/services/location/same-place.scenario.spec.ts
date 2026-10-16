@@ -3,6 +3,7 @@ import { Injector, signal } from '@angular/core';
 import { Group, Vector2 } from 'three';
 
 import { UrlLocationService } from './url-location.service';
+import { PLAIN_START, WorldStartService, worldStartFromSearch, type WorldStart } from '../../world/world-start';
 import { StartShowService } from '../world/start-show.service';
 import { LocationManagementService } from './location-management.service';
 import { LocationChangeCoordinatorService } from './location-change-coordinator.service';
@@ -116,13 +117,17 @@ describe('One place, one set of coordinates (playtest 747 a)', () => {
 
   const point = ({ lat, lon }: { lat: number; lon: number }) => ({ lat, lon });
 
-  /** Where the place stands: engine origin, base and spawns in the store, the location service, the URL */
+  /** The start order of the page load (loadPage) */
+  let startOrder: WorldStart = PLAIN_START;
+  const links = new UrlLocationService();
+
+  /** Where the place stands: engine origin, base and spawns in the store, the location service, its link */
   const place = () => ({
     origin: origins.at(-1),
     hq: point(store.baseCoords()),
     spawns: store.spawnPoints().map(point),
     location: { hq: locationMgmt.hq() && point(locationMgmt.hq()!), spawns: locationMgmt.spawns().map(point) },
-    url: window.location.search,
+    url: locationMgmt.hq() ? new URL(links.urlFor(locationMgmt.hq()!, locationMgmt.spawns()), 'http://page').search : null,
   });
 
   /**
@@ -131,7 +136,7 @@ describe('One place, one set of coordinates (playtest 747 a)', () => {
    * map placement on the new HQ.
    */
   const loadPage = async (search: string) => {
-    window.history.replaceState({}, '', `/${search}`);
+    startOrder = worldStartFromSearch(search, (query) => links.parseLink(query), true);
     expect(await facade.initializeLocation()).toBe(true);
     origins.push(point(store.baseCoords()));
     streetNetwork = NETWORK;
@@ -279,6 +284,7 @@ describe('One place, one set of coordinates (playtest 747 a)', () => {
         { provide: UIStore, useValue: { routesVisible: signal(true), notice: signal(null), loadProblem: signal(null), mapPlacementMode: signal(null), coopMapLocked: signal(false) } },
         // The real services, as factories: a class provider would need the JIT compiler
         { provide: UrlLocationService, useFactory: () => new UrlLocationService() },
+        { provide: WorldStartService, useValue: { current: () => startOrder } },
         { provide: LocationManagementService, useFactory: () => new LocationManagementService() },
         { provide: LocationChangeExecutorService, useFactory: () => new LocationChangeExecutorService() },
         { provide: LocationChangeCoordinatorService, useFactory: () => new LocationChangeCoordinatorService() },
@@ -296,7 +302,7 @@ describe('One place, one set of coordinates (playtest 747 a)', () => {
   });
 
   afterEach(() => {
-    window.history.replaceState({}, '', '/');
+    startOrder = PLAIN_START;
     vi.restoreAllMocks();
   });
 

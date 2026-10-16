@@ -12,6 +12,7 @@ import { HealthBarInstanceManager } from './health-bar-instance.manager';
 import { createPortalClipUniforms, type PortalClipUniforms } from '../portal-clip';
 import { StateLerp, stateLerpParam } from '../state-lerp';
 import { bakeEnemyVAT } from './vat-baker';
+import { pageQuery } from '../../../core/page-switches';
 
 // Dummy Object3D shared across all instanced enemy stubs
 const DUMMY_OBJECT = new Object3D();
@@ -83,7 +84,7 @@ export class InstancedEnemyRenderer {
     portalClip: PortalClipUniforms = createPortalClipUniforms(),
   ) {
     // The slide between two states, one clock for the enemies and their bars (state-lerp.ts)
-    this.stateLerp = new StateLerp(stateLerpParam(typeof location === 'undefined' ? '' : location.search));
+    this.stateLerp = new StateLerp(stateLerpParam(pageQuery()));
     this.instanceManager = new EnemyInstanceManager(scene, portalClip, this.stateLerp);
     this.healthBarManager = new HealthBarInstanceManager(scene, portalClip, this.stateLerp.uniform);
   }

@@ -345,6 +345,21 @@ export class TowerDefenseStore {
   }
 
   /**
+   * The world went and another opens in this page (WorldSession): its run,
+   * research, the engine's numbers and loading steps, the place and what of
+   * the UI belongs to it. The player's choices (display toggles, volumes)
+   * stay, as they do across a restart.
+   */
+  resetWorld(): void {
+    this.gameStore.resetAll();
+    this.researchStore.resetResearchState();
+    this.engineStore.resetAll();
+    this.engineInit.reset();
+    this.locationStore.resetAll();
+    this.uiStore.resetWorld();
+  }
+
+  /**
    * Full reset including UI state.
    * Used for complete teardown.
    */

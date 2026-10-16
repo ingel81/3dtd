@@ -43,6 +43,12 @@ import { GLOBE_ASSETS, GlobeTextures, type GlobeMaps, type GlobeQuality, type Re
 export interface GlobeViewOptions {
   pixelRatio: number;
   baseUrl: string;
+  /**
+   * The renderer of the globes' stage (globe-stage.ts, docs/WORLDS_NAVIGATION_PLAN.md
+   * 4.3): one canvas draws three globes into their squares. The view draws the
+   * earth with it and keeps it; no stars and no sun around it, no sharp stage
+   */
+  renderer?: WebGLRenderer;
 }
 
 /** Clouds are gone below this altitude and full above the other, metres */
@@ -170,6 +176,8 @@ export class GlobeView {
   private readonly sun: Mesh<PlaneGeometry, ShaderMaterial>;
   private stars: Points<BufferGeometry, ShaderMaterial> | null = null;
   private readonly tier: (typeof TIERS)[GlobeQuality];
+  /** The view made its renderer (the menu globe), not the stage */
+  private readonly ownsRenderer: boolean;
   private maps: GlobeMaps | null = null;
   private regionTextures: CompressedTexture[] = [];
   private regionFor: string | null = null;
@@ -196,14 +204,16 @@ export class GlobeView {
     quality: GlobeQuality,
     private readonly options: GlobeViewOptions,
   ) {
-    this.tier = TIERS[quality];
-    this.renderer = new WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance', depth: false, stencil: false });
-    this.renderer.setClearColor(0x000000, 1);
+    const shared = options.renderer;
+    this.tier = shared ? { ...TIERS[quality], sharp: false } : TIERS[quality];
+    this.ownsRenderer = !shared;
+    this.renderer = shared ?? new WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance', depth: false, stencil: false });
+    if (!shared) this.renderer.setClearColor(0x000000, 1);
     this.renderer.outputColorSpace = SRGBColorSpace;
     this.renderer.toneMapping = ACESFilmicToneMapping;
     // The ground is lit physically (albedo E / pi under a sun of 22): bright, the exposure takes it down
     this.renderer.toneMappingExposure = 0.21;
-    this.renderer.setPixelRatio(Math.min(options.pixelRatio, this.tier.pixelRatio));
+    if (!shared) this.renderer.setPixelRatio(Math.min(options.pixelRatio, this.tier.pixelRatio));
     this.scene.matrixAutoUpdate = false;
     this.textures = new GlobeTextures(this.renderer, options.baseUrl);
 
@@ -238,6 +248,7 @@ export class GlobeView {
           nightGain: { value: 14 },
           nightAmbient: { value: 0.14 },
           bumpScale: { value: 60_000 },
+          saturation: { value: 1 },
         },
         side: FrontSide,
         depthTest: false,
@@ -253,7 +264,7 @@ export class GlobeView {
         vertexShader: RIM_VERTEX,
         fragmentShader: RIM_FRAGMENT,
         // The thin blue band at the limb reads stronger than one scattering pass gives
-        uniforms: { ...common, rimGain: { value: 3 }, airglow: { value: 1.6 }, glowHeight: { value: RIM_HEIGHT / 1000 } },
+        uniforms: { ...common, rimGain: { value: 3 }, airglow: { value: 1.6 }, glowHeight: { value: RIM_HEIGHT / 1000 }, saturation: { value: 1 } },
         side: BackSide,
         transparent: true,
         blending: CustomBlending,
@@ -281,7 +292,7 @@ export class GlobeView {
     this.sun.renderOrder = 1;
     this.sun.frustumCulled = false;
 
-    for (const object of [this.earth, this.rim, this.sun]) {
+    for (const object of shared ? [this.earth, this.rim] : [this.earth, this.rim, this.sun]) {
       object.matrixAutoUpdate = false;
       object.updateMatrixWorld();
       this.scene.add(object);
@@ -289,7 +300,7 @@ export class GlobeView {
     this.earth.frustumCulled = false;
     this.rim.frustumCulled = false;
 
-    this.ready = Promise.all([this.loadStage('base'), this.loadStars()])
+    this.ready = Promise.all([this.loadStage('base'), shared ? Promise.resolve() : this.loadStars()])
       // The programs compile off the main thread where the driver can, before the first frame needs them
       .then(() => (this.disposed ? undefined : this.renderer.compileAsync(this.scene, this.camera)))
       .then(() => {
@@ -376,6 +387,17 @@ export class GlobeView {
     return { earth: this.earth.material.uniforms, rim: this.rim.material.uniforms, renderer: this.renderer };
   }
 
+  /** The day and night maps once loaded: the stage's OpenStreetMap globe draws its water and towns from them */
+  surfaceMaps(): GlobeMaps | null {
+    return this.maps;
+  }
+
+  /** 1 in colour, 0 grey: a locked world on the stage */
+  setSaturation(value: number): void {
+    this.earth.material.uniforms['saturation'].value = value;
+    this.rim.material.uniforms['saturation'].value = value;
+  }
+
   /** Where the sun stands overhead, and the time for the stars and the clouds' drift */
   setSky(subsolar: LatLon, date: Date, cloudShift: number): void {
     directionOf(subsolar.lat, subsolar.lon, this.sunDir);
@@ -429,7 +451,7 @@ export class GlobeView {
     if (width <= 0 || height <= 0) return;
     this.width = width;
     this.height = height;
-    this.renderer.setSize(width, height, false);
+    if (this.ownsRenderer) this.renderer.setSize(width, height, false);
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
   }
@@ -487,6 +509,11 @@ export class GlobeView {
       if (!object) continue;
       object.geometry.dispose();
       object.material.dispose();
+    }
+    // The stage's renderer is the stage's to free
+    if (!this.ownsRenderer) {
+      GlobeView.note('dispose', performance.now() - t0);
+      return;
     }
     this.renderer.dispose();
     // On the main thread the context goes back to the browser at once, not with the next GC. Never in a worker:
