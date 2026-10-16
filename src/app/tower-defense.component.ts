@@ -645,9 +645,10 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   private async startGameSequence(): Promise<void> {
     this.gameStarted = true;
     // The start menu stands in front while the place loads behind it; an
-    // invite link opens it on the coop page, where the join shows
+    // invite link, or a room that came along from the world before, opens
+    // it on the coop page, where the join shows
     this.mainMenu.openStart();
-    if (this.uiStore.mainMenuOpen() && this.worldStart.current().room) this.mainMenu.open('coop');
+    if (this.uiStore.mainMenuOpen() && (this.worldStart.current().room || this.coop.room())) this.mainMenu.open('coop');
     await this.facade.startGame(this.gameCanvas.nativeElement);
     this.applyAudioVolumes();
     this.controlsHintArmed.set(true);

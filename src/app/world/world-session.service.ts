@@ -44,6 +44,8 @@ export class WorldSession {
   private readonly navigate = inject(WORLD_NAVIGATE);
   /** The game host stands (the game's route); without it a world opens as a page */
   private hosts = 0;
+  /** What hears that the open world goes for another one in the page, see onLeaving */
+  private readonly leaving = new Set<() => void>();
 
   /** Counts the worlds this page opened; the game host makes the game anew when it changes */
   readonly world = signal(0);
@@ -58,6 +60,7 @@ export class WorldSession {
       this.navigate(worldStartUrl(order, document.baseURI));
       return;
     }
+    for (const listener of [...this.leaving]) listener();
     this.start.set(order);
     this.world.update((n) => n + 1);
   }
@@ -68,6 +71,16 @@ export class WorldSession {
    */
   reopen(): void {
     this.open({ ...this.start.current(), resume: null });
+  }
+
+  /**
+   * `listener` hears that the open world goes for another one in this page,
+   * while its game still stands: what outlives a world (a coop room in the
+   * lobby, CoopRoomCarry) is handed on there. Returns the unsubscribe.
+   */
+  onLeaving(listener: () => void): () => void {
+    this.leaving.add(listener);
+    return () => this.leaving.delete(listener);
   }
 
   /** The game host came (GameHostComponent); returns its leave */

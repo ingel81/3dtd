@@ -71,6 +71,20 @@ describe('WorldSession', () => {
     leave();
   });
 
+  it('tells what outlives a world that the open one goes, while it still stands, and only in the page', () => {
+    const heard: WorldStart[] = [];
+    const off = session.onLeaving(() => heard.push(start.current()));
+    session.open(MAP);
+    expect(heard).toEqual([]);
+    const leave = session.hostAttached();
+    session.open({ ...MAP, startWave: 5 });
+    expect(heard).toEqual([PLAIN_START]);
+    off();
+    session.open(MAP);
+    expect(heard).toHaveLength(1);
+    leave();
+  });
+
   it('outside the game (the map editor) loads the game page on the order instead, a link the start reads back', () => {
     const order: WorldStart = { ...MAP, place: { hq: { lat: 48.7758, lon: 9.1829 }, spawns: [] }, resume: 'slot-2' };
     session.open(order);
