@@ -6,6 +6,7 @@
 //           stored as an own map first; from a save in the app's own format),
 //   net     'fixtures/x.har.zip': outside requests answered from a recorded HAR, every other outside one aborted
 //           or none: the scene's own `page` (a fly-over, the programme's scenes that load their page)
+//   warm    director steps played before the settle and the flash, outside the picture (shaders warmed, assets loaded)
 //   env     the environment, set before the first frame and checked: window 'WxH', dpr, quality, seed, sky (a
 //           MapEnvironment patch: time of day, weather, sky image), camera { eye, look }, ui, routes, los,
 //           healthBars, markers (spawn and HQ signs), globe (menu globes 'high'|'low'|'off'), credits (the HUD's sum), floor (camera metres over the
@@ -229,6 +230,9 @@ async function recordTake(scene, opts) {
     state = await page.evaluate(() => window.__showreel.take.state());
     const off = differences(kind, env, state, headless);
     if (off.length) throw new Error(`the start is not the scene's: ${off.join('; ')}`);
+    // `warm`: steps before the picture counts (night, rain, an asset set and undone once: shaders compiled, the
+    // first placement's stall out of the take); the settle below waits for them to come to rest
+    if (scene.warm?.length) await page.evaluate((s) => window.__showreel.run(s), { name: 'warm', steps: scene.warm });
     settled = await settle(page, open);
     if (!settled.ok) problems.push(`not settled: renderer ${settled.renderer}`);
     const view = await logView(page);

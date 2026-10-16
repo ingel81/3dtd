@@ -34,7 +34,7 @@ const WINDOW = { window: '2048x1152', dpr: 1.25, quality: 'ultra' };
  * 900 m: from that far the ground away from the view's middle reads blurred (the terrain's detail follows the
  * point the camera looks at)
  */
-const TOTAL = { eye: { m: [-150, -470], habs: 200 }, look: { m: [20, 100], habs: 0 } };
+const TOTAL = { eye: { m: [-130, -420], habs: 500 }, look: { m: [0, 60], habs: 0 } };
 
 /** The sun of the wide shots and the work: low from the south-east, so relief casts shadows */
 const SUN = { sky: 'day', sunAzimuth: 135, sunElevation: 25, weather: 'clear' };
@@ -64,9 +64,10 @@ const total = (stage, glide = 2.2) => [
 ];
 
 /** A stage's take: its fixture, the sun, the camera on the wide shot from the first frame, no UI */
-const stage = (name, n, steps, sky = SUN) => ({
+const stage = (name, n, steps, sky = SUN, warm = []) => ({
   name,
   start: { editor: FIX(n) },
+  warm,
   env: { ...WINDOW, sky, camera: TOTAL, ui: false, markers: false, seed: 7 },
   steps: [mark(`Stillwater ${name}`), wait(2), mark(`total:${name}:start`), { do: 'cursor', show: true }, ...steps],
 });
@@ -436,21 +437,18 @@ function tween(seconds, at, label) {
 const SKY_VIEW = [m(-170, -360, 45), m(20, 150, 50)];
 const WOOD_VIEW = [m(30, 110, 10), m(100, 260, 14)];
 
+/** Morning: the sun up far enough for daylight (6:00 is dusk, the fog would read orange) */
+const MORNING = 7.5;
+
 const B8 = stage('b8-sky', 7, [
-  // Before the picture counts: night, rain and fog once, so their shaders are warm
-  act('environment', { patch: { sky: 'night', weather: 'rain', weatherStrength: 1 } }),
-  wait(1.5),
-  act('environment', { patch: { weather: 'fog', weatherStrength: 0.8 } }),
-  wait(1.5),
-  act('environment', { patch: { ...timeOfDay(6), weather: 'fog', weatherStrength: 0.8, moonlight: 0.6 } }),
   { do: 'cursor', show: false },
   path(2, ['current', SKY_VIEW], { ease: 'inOut' }),
   ...idle(2),
   mark('morning fog'),
   // The fog lifts, then the sun climbs
-  ...tween(6, (k) => ({ weatherStrength: Math.max(0.05, 0.8 * (1 - k)) }), 'fog lifts'),
+  ...tween(6, (k) => ({ weatherStrength: Math.max(0.02, 1 - k) }), 'fog lifts'),
   act('environment', { patch: { weather: 'clear' } }),
-  ...tween(6, (k) => timeOfDay(6 + 4 * k), 'sunrise'),
+  ...tween(6, (k) => timeOfDay(MORNING + 3 * k), 'sunrise'),
   wait(1.5),
   // Rain under a closed sky
   act('environment', { patch: { sky: 'overcast', weather: 'rain', weatherStrength: 1 } }),
@@ -469,6 +467,14 @@ const B8 = stage('b8-sky', 7, [
   ...tween(12, (k) => timeOfDay(15 + 7 * k), 'night'),
   wait(1.5),
   orbit(5, { m: [70, 0] }, { from: 340, to: 358, radius: 260, height: 70, ease: 'inOut', label: 'effect:lights' }),
+  wait(1),
+], { ...SUN, ...timeOfDay(MORNING), weather: 'fog', weatherStrength: 1, moonlight: 0.6 }, [
+  // Before the picture counts: night, rain and fog once, so their shaders are warm; then the morning fog
+  act('environment', { patch: { sky: 'night', weather: 'rain', weatherStrength: 1 } }),
+  wait(1.5),
+  act('environment', { patch: { sky: 'overcast', weather: 'snow', weatherStrength: 1 } }),
+  wait(1.5),
+  act('environment', { patch: { ...timeOfDay(MORNING), weather: 'fog', weatherStrength: 1, moonlight: 0.6 } }),
   wait(1),
 ]);
 
@@ -510,7 +516,7 @@ const B10 = stage('b10-trial', 9, [
   act('trialSpeed', { value: 2 }),
   path(2, ['current', [m(-160, -40, 30), m(-90, 0, 0)]], { ease: 'inOut' }),
   // Behind a runner over the bridge and on to the ramp
-  { do: 'follow', at: 'runner:0', dur: 12, back: 8, side: 3, h: 3, label: 'effect:runner' },
+  { do: 'follow', at: { at: 'runner:0' }, dur: 12, back: 8, side: 3, h: 3, label: 'effect:runner' },
   { do: 'ui', on: true },
   { do: 'cursor', show: true },
   click('[data-test=test-play]', { label: 'test map' }),
