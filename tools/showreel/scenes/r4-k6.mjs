@@ -4,14 +4,14 @@
 // nothing of it in a take; lead's decision 2026-10-16: the research of these towers opens at waves 8 to 12, a
 // normal run has none of them before wave 5). Wave events of the map: night at wave 7, rain at 9, clear at 10.
 //
-// Places (reel-k3's map, 2026-10-16, starter road along y = 0 to the HQ at (256, 0)): P1 the bridge's east end,
-// P2 the village street by the market (north side), P3 the castle table at the ramp, P4 the lake's north shore,
-// P5 the pass of the north road. The village street between bridge and chapel stays free (camera), and so do
+// Places (Stillwater F-B9, 2026-10-16, starter road along y = 0 to the HQ at (256, 0)): P1 the bridge's east end,
+// P2 the village street by the market (north side), P3 the castle table at the ramp, P4 the meadow between the
+// starter road and the lake, P5 the north road's bend below the pass (both flat, clear of water and trees). The village street between bridge and chapel stays free (camera), and so do
 // 15 m round each P until its tower comes.
 import { act, click, clickMap, m, path, wait } from './common.mjs';
 
 const MAP = 'fixtures/stillwater-b9.3dtdmap';
-export const P = { P1: m(-40, 12), P2: m(70, 14), P3: m(262, -30), P4: m(-150, -78), P5: m(-110, 250) };
+export const P = { P1: m(-40, 12), P2: m(70, 14), P3: m(262, -30), P4: m(-170, -25), P5: m(-30, 200) };
 
 const frame = (points, opts = {}) => ({ do: 'frame', points, ...opts });
 
@@ -29,7 +29,7 @@ const NEW_TOWERS = [
   { tower: 'sentinel', at: P.P3, name: 'Sentinel Laser', from: 90, reach: 58, pitch: 30 },
   // From over the lake, the road behind the tower
   { tower: 'bastion', at: P.P4, name: 'Iron Bastion', from: 0, reach: 62 },
-  // Above the pass's trees
+  // Beside the north road's bend, the pass behind
   { tower: 'archer', at: P.P5, name: 'Ballista', from: 300, reach: 30, pitch: 34 },
 ];
 
