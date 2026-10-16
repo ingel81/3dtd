@@ -186,8 +186,9 @@ export class CustomMapView {
     this.decals.mesh,
     this.effects.group,
     this.movers.group,
+    this.haze.group,
     ...this.objects.decorMeshes(),
-  ], () => [this.group, this.losBlockers, this.environment.lights, this.environment.skyDome.mesh]);
+  ], () => [this.group, this.losBlockers, this.environment.lights, this.environment.skyDome.mesh], this.sceneCopy);
   /** The body the reflection mirrors, picked a few times a second */
   private mirrored: WaterSurface | null = null;
   private mirrorAge = Infinity;
