@@ -77,6 +77,8 @@ export class ShowreelPointer {
   moveTo(p: ScreenPoint, mods: Mods = {}): void {
     this.place(p);
     this.fire('pointermove', mods);
+    // A browser follows each pointer move with a mouse move (MapLibre's map events listen to those)
+    this.fireMouse('mousemove', 0, mods);
   }
 
   private place(p: ScreenPoint): void {

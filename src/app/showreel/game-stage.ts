@@ -23,7 +23,8 @@ import type { Tower } from '../entities/tower.entity';
 import { headingOfLocal } from '../utils/manual-aim';
 import type { MapEnvironment } from '../world/custom-map/map-document';
 import { waterLevelAt } from '../world/custom-map/water-level';
-import type { CameraPose, MapPoint3 } from './camera-path';
+import { ease, type CameraPose, type Ease, type MapPoint3 } from './camera-path';
+import { timeOfDay } from '../world/custom-map/time-of-day';
 import { CAMERA_FLOOR_M, flooredHeight } from './camera-floor';
 import type { ScreenPoint } from './pointer';
 import type { Stage } from './stage';
@@ -54,6 +55,14 @@ interface IntroFlight {
   state(): { running: boolean; skipReason: string | null };
 }
 
+/** What the director uses of the OSM frame in the menu (its flat MapLibre map kept to itself) */
+interface OsmFrameView {
+  frame(): { hq: { lat: number; lon: number } | null } | null;
+  spawns(): { lat: number; lon: number }[];
+  busy(): boolean;
+  map: { map: { project(p: [number, number]): { x: number; y: number }; getCanvas(): HTMLCanvasElement } } | null;
+}
+
 const flight = (): IntroFlight | undefined => (globalThis as { __flight?: IntroFlight }).__flight;
 
 /** The marker service's renderers, which it keeps to itself */
@@ -80,6 +89,8 @@ export class GameStage implements Stage {
   private readonly los: LosDebugService;
   /** The environment the last `environment` action put on the view (the map's own until then) */
   private applied: MapEnvironment | null = null;
+  /** The map's environment before the first environment action */
+  private startEnvironment: MapEnvironment | null = null;
   /** Tower spots found ahead (planTowers), map metres; `spot:<i>` and `spots` in a script */
   private spots: { x: number; y: number }[] = [];
   /** The enemy each `enemy:<key>` follows, by its number, while it lives */
@@ -455,8 +466,10 @@ export class GameStage implements Stage {
       case 'enemiesNear': {
         // Until an enemy walks within `radius` m of a named spot `near` (`spots`: the towers), to skip the long walk
         // `near: 'any'`: within `radius` of any planned tower spot (a boss may come in on another lane)
+        // `at`: a map point instead (a tunnel's mouth)
         const name = String(args['near'] ?? 'spots');
-        const targets = name === 'any' ? this.spots : [this.named(name)].filter((p): p is { x: number; y: number } => !!p);
+        const point = args['at'] as { x: number; y: number } | undefined;
+        const targets = point ? [point] : name === 'any' ? this.spots : [this.named(name)].filter((p): p is { x: number; y: number } => !!p);
         if (!targets.length) throw new Error(`showreel: no spot ${name} for enemiesNear`);
         const radius = Number(args['radius'] ?? 60);
         // `kind`: only an enemy of that type counts (the boss, not the swarm ahead of it)
@@ -481,10 +494,39 @@ export class GameStage implements Stage {
         const w = this.world;
         const view = (w as unknown as { view: WorldView | null } | null)?.view;
         if (!w || !view) throw new Error('showreel: no map view to set the environment on');
-        this.applied = { ...w.doc.environment, ...(args['patch'] as Partial<MapEnvironment>) };
+        // `fresh`: the patch on the map's environment as it was before the scene's first change (the view keeps
+        // each change in the map), not on the last one
+        this.startEnvironment ??= { ...w.doc.environment };
+        const base = args['fresh'] ? this.startEnvironment : w.doc.environment;
+        this.applied = { ...base, ...((args['patch'] as Partial<MapEnvironment> | undefined) ?? {}) };
         view.setEnvironment(this.applied);
-        return;
+        // A change over `dur` seconds from there: numbers (also of wind and planet) toward `to`, the hour of day
+        // through `hours` [from, to] as the editor's time slider sets sun and sky (a time-lapse), each frame
+        const to = (args['to'] as Partial<MapEnvironment> | undefined) ?? {};
+        const hours = args['hours'] as [number, number] | undefined;
+        const seconds = Number(args['dur'] ?? 0);
+        if (!hours && !Object.keys(to).length) return;
+        const from = this.applied;
+        const at = (u: number): MapEnvironment => ({
+          ...(lerpFields(from, to, u) as unknown as MapEnvironment),
+          ...(hours ? timeOfDay(hours[0] + (hours[1] - hours[0]) * u, from.sky) : {}),
+        });
+        // Without a duration: the end at once (an hour of day as the time slider sets it)
+        if (seconds <= 0) {
+          this.applied = at(1);
+          view.setEnvironment(this.applied);
+          return;
+        }
+        const start = await nextFrame();
+        for (;;) {
+          const t = Math.min(1, ((await nextFrame()) - start) / (seconds * 1000));
+          this.applied = at(ease((args['ease'] as Ease | undefined) ?? 'inOut', t));
+          view.setEnvironment(this.applied);
+          if (t >= 1) return;
+        }
       }
+      case 'osmDrag':
+        return this.osmDrag(Number(args['spawn'] ?? 0), args['to'] as [number, number], Number(args['dur'] ?? 1.6), Number(args['hold'] ?? 0.4));
       case 'los':
         // The line-of-sight debugger's cells (the selected tower's view of the route)
         this.los.setEnabled(args['on'] !== false);
@@ -495,6 +537,36 @@ export class GameStage implements Stage {
       default:
         throw new Error(`showreel: the game knows no action ${name}`);
     }
+  }
+
+  /**
+   * The menu's OSM frame: spawn `index` dragged on the flat map to `to` (metres east and north of the HQ) and let
+   * go there, held `hold` seconds before; resolves once the frame has laid it on its street
+   */
+  private async osmDrag(index: number, to: [number, number], seconds: number, hold: number): Promise<void> {
+    const ng = (window as unknown as { ng?: { getComponent(el: Element | null): unknown } }).ng;
+    const frame = ng?.getComponent(document.querySelector('app-osm-frame')) as OsmFrameView | null | undefined;
+    await waitUntil(() => !!frame?.map, 30, "the OSM frame's map");
+    const map = frame!.map!.map;
+    const screen = (p: { lat: number; lon: number }): ScreenPoint => {
+      const at = map.project([p.lon, p.lat]);
+      const r = map.getCanvas().getBoundingClientRect();
+      return { x: r.left + at.x, y: r.top + at.y };
+    };
+    const hq = frame!.frame()?.hq;
+    const spawn = frame!.spawns()[index];
+    if (!hq || !spawn) throw new Error(`showreel: the OSM frame has no HQ or no spawn ${index}`);
+    const target = { lat: hq.lat + to[1] / MAP_METERS_PER_DEGREE, lon: hq.lon + to[0] / (MAP_METERS_PER_DEGREE * Math.cos((hq.lat * Math.PI) / 180)) };
+    const pointer = this.hands.pointer;
+    pointer.show(true);
+    await pointer.glide(() => screen(spawn), 0.7, nextFrame);
+    await waitSeconds(0.15);
+    pointer.down();
+    await waitSeconds(0.15);
+    await pointer.glide(() => screen(target), seconds, nextFrame);
+    await waitSeconds(hold);
+    pointer.up();
+    await waitUntil(() => !frame!.busy(), 15, 'the dropped spawn');
   }
 
   /**
@@ -684,4 +756,16 @@ export class GameStage implements Stage {
 function wrap(a: number): number {
   const turn = Math.PI * 2;
   return a - turn * Math.floor((a + Math.PI) / turn);
+}
+
+/** `from` with the numbers of `to` (nested ones too: wind, planet) a share `u` of the way there, the rest of `to` at the end */
+function lerpFields(from: object, to: object, u: number): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...from };
+  for (const [key, goal] of Object.entries(to)) {
+    const was = (from as Record<string, unknown>)[key];
+    if (typeof goal === 'number') out[key] = (typeof was === 'number' ? was : goal) + (goal - (typeof was === 'number' ? was : goal)) * u;
+    else if (goal && typeof goal === 'object') out[key] = lerpFields(was && typeof was === 'object' ? was : goal, goal, u);
+    else out[key] = u >= 1 ? goal : (was ?? goal);
+  }
+  return out;
 }
