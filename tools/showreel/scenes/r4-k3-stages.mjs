@@ -53,7 +53,8 @@ export const P = {
   ],
   chapel: { x: 70, y: -50 },
   stalls: [['market-stall-red', 62, -17], ['market-stall-blue', 78, -17]],
-  windmill: { x: 150, y: 190 },
+  // On the hill's free south-east flank: on its top it stood in the wood of b5, a tree through it
+  windmill: { x: 185, y: 150 },
   // Open at the west for the road up the ramp: the ends clear of it (the check found a wall end on it)
   ring: { r: 54, from: 200, to: 518 },
   gate: { x: 246, y: 0 },
@@ -106,7 +107,7 @@ export const STAGES = [
     map.layer('rock-lichen');
     map.layer('snow-fresh');
     map.autoPaint();
-    map.cliffs('limestone', 50);
+    map.cliffs('limestone', 62);
     let top = 0;
     for (let x = -500; x <= 500; x += 4) for (let y = 150; y <= 510; y += 4) top = Math.max(top, map.h(x, y));
     return { top: Math.round(top) };

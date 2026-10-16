@@ -192,12 +192,15 @@ const B2 = stage('b2-mountains', 1, [
     click('[data-material=snow-fresh]', { timeout: 8 }),
     click('[data-test=auto-paint]'),
     { do: 'select', sel: 'select[aria-label="Cliff material"]', value: 'limestone' },
+    // Cliff rock from 62 degrees: from the editor's 40 it covered the summits, where the snow lies up to 50
+    { do: 'range', sel: 'app-editor-range[label=From]', to: 62, dur: 0.5 },
   ),
   ...idle(1.2),
   effect('auto paint'),
   { do: 'cursor', show: false },
   // Along the ridge, below the peaks
-  path(6, ['current', [m(-330, 200, 70), m(-100, 360, 60)], [m(80, 210, 70), m(240, 340, 60)]], { ease: 'inOut', label: 'ridge' }),
+  // The peaks fill the picture: the look on their flanks, not the sky over them
+  path(6, ['current', [m(-330, 190, 90), m(-150, 340, 20)], [m(80, 200, 90), m(200, 330, 20)]], { ease: 'inOut', label: 'ridge' }),
   ...total('b2-mountains'),
 ]);
 
@@ -320,7 +323,8 @@ const B5 = stage('b5-biomes', 4, [
 
 /** One building from the palette, set down: the camera on its place first */
 const place = (asset, x, y, label) => [
-  frame([m(x, y)], { from: 0, pitch: 30, margin: 45, pad: 1, glide: 0.9 }),
+  // From the street's north side, close: the houses face the street, from the south only their backs showed, small
+  frame([m(x, y)], { from: 180, pitch: 26, margin: 16, pad: 1, glide: 0.9 }),
   ...pick({ do: 'type', sel: 'input[aria-label="Search assets"]', text: asset, cps: 400 }, click(`[data-asset=${asset}]`, label ? { label } : {})),
   clickMap(m(x, y)),
   ...idle(0.5),
@@ -331,7 +335,8 @@ const AFTERNOON = { sky: 'day', sunAzimuth: 219, sunElevation: 47, weather: 'cle
 const search = (text) => ({ do: 'type', sel: 'input[aria-label="Search assets"]', text, cps: 400 });
 
 const B6 = stage('b6-village', 5, [
-  ringOn,
+  // Markers off while the houses go down: the route's dots lay big on the street in front of them
+  ringOff,
   ...pick(tool('objects', { label: 'objects' }), mode('place'), settings({ objects: { randomRotation: false, alignToSlope: false } })),
   ...P.houses.flatMap(([asset, x, y], i) => place(asset, x, y, i === 0 ? 'houses' : null)),
   effect('houses'),
@@ -340,7 +345,8 @@ const B6 = stage('b6-village', 5, [
   effect('chapel'),
   ...place('windmill', P.windmill.x, P.windmill.y, 'windmill'),
   effect('windmill'),
-  // The castle ring round the table: towers at the corners, battlements outward
+  // The castle ring round the table: towers at the corners, battlements outward; the line's preview is a marker
+  ringOn,
   frame([pt(P.table)], { from: 330, pitch: 26, margin: 80, pad: 1, glide: 1.6 }),
   ...pick(
     mode('line', { label: 'castle' }),
