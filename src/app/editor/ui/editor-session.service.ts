@@ -1128,6 +1128,7 @@ export class EditorSession implements OnDestroy {
     const catalog = this.catalog();
     return validateMap(doc, {
       blocksBuild: (asset) => catalog.object(asset).blocksBuild,
+      roadThrough: (asset) => !!catalog.object(asset).roadThrough,
       footingOf: (asset) => catalog.object(asset).footing,
       buildAreas: this.buildAreas(),
       costOf: assetCosts(catalog, doc),

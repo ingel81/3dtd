@@ -172,6 +172,11 @@ export interface CatalogObject {
    */
   stilts?: boolean;
   /**
+   * A road may run through it (a gatehouse, a farm gate): the editor's check
+   * does not report it standing on a road
+   */
+  roadThrough?: boolean;
+  /**
    * Seconds a full turn of its parts with materials named `spin-…` takes,
    * round the model's upright axis (a radar dish, a lighthouse's lens; its
    * `beam` turns with them). Default 8 where such parts exist

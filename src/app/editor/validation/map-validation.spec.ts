@@ -82,6 +82,13 @@ describe('validateMap', () => {
     doc.objects.push({ id: 'o1', asset: 'house', x: 0, y: 1, z: 0, rotation: 0, scale: 1, blocksBuild: true });
     expect(codes(doc)).toEqual(expect.arrayContaining(['lane-short', 'path-under-water', 'object-on-path']));
   });
+
+  it('lets a road run through a gatehouse', () => {
+    const doc = createMapDocument({ id: 'm', name: 'M', width: 800, depth: 800 });
+    doc.objects.push({ id: 'g', asset: 'castle-gate', x: 0, y: 0, z: 0, rotation: Math.PI / 2, scale: 1, blocksBuild: true });
+    expect(validateMap(doc).map((i) => i.code)).toContain('object-on-path');
+    expect(validateMap(doc, { roadThrough: (a) => a === 'castle-gate' }).map((i) => i.code)).not.toContain('object-on-path');
+  });
 });
 
 describe('validateMap, objects in the air', () => {

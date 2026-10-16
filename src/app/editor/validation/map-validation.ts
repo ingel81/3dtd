@@ -105,6 +105,8 @@ export interface ValidationOptions {
   blocksBuild?: (asset: string) => boolean;
   /** Whether an asset wears the colours of danger (default: the renderer's danger list, dangerLook) */
   dangerColor?: (asset: string) => boolean;
+  /** Whether a road may run through an asset (a gatehouse): not reported standing on a road */
+  roadThrough?: (asset: string) => boolean;
   /** How the renderer stands an asset on the map (`ObjectFooting`, a catalogue entry is one); without it no object is checked for hanging in the air */
   footingOf?: (asset: string) => ObjectFooting | undefined;
   /** Where towers may stand (computeBuildAreas, judged in a worker); without it the room along the lanes is not checked */
@@ -270,6 +272,7 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
   let firstBlocked: { id: string; x: number; y: number } | null = null;
   for (const o of doc.objects) {
     if (!(o.blocksBuild ?? blocks(o.asset)) && !o.blocksLos) continue;
+    if (options.roadThrough?.(o.asset)) continue;
     const hit = edges.nearest(o, 30);
     if (!hit) continue;
     if (hit.dist < hit.edge.width / 2) {
