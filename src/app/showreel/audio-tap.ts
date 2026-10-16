@@ -38,6 +38,22 @@ export function installAudioTap(): void {
     }
     return result;
   } as AudioNode['connect'];
+  // Media elements (the main theme during loading) play outside the Web Audio graph: on their first play each
+  // goes through the game's context to the speakers, so the connection above taps it too. Its volume still applies
+  const play = HTMLMediaElement.prototype.play;
+  const routed = new WeakSet<HTMLMediaElement>();
+  HTMLMediaElement.prototype.play = function (this: HTMLMediaElement) {
+    if (!routed.has(this)) {
+      routed.add(this);
+      try {
+        const ctx = ThreeAudioContext.getContext() as unknown as AudioContext;
+        ctx.createMediaElementSource(this).connect(ctx.destination);
+      } catch {
+        // an element of another origin or already routed: it plays as it is, untapped
+      }
+    }
+    return play.call(this);
+  };
 }
 
 /** One recording of the page's sound, from start() to stop() */
