@@ -14,9 +14,9 @@
       }
     </app-world-path>
     <span class="ws-bar-gap"></span>
-    @for (go of stage.continues(); track go.world) {
-      <button type="button" class="td-stone-chip ws-chip" [attr.aria-disabled]="stage.whyNot('play', go.world) ? true : null"
-              [attr.title]="stage.whyNot('play', go.world) ?? 'Continue from the autosave'" (click)="stage.resume(go)">{{ chipLine(go) }}</button>
+    @for (chip of chips(); track chip.id) {
+      <button type="button" class="td-stone-chip ws-chip" [attr.data-chip]="chip.id" [attr.title]="chip.hint"
+              (click)="stage.goChip(chip.id)">{{ chip.label }}</button>
     }
     <button type="button" class="td-tool" aria-label="Settings" title="Settings" (click)="stage.openOverlay('settings')">
       <td-icon name="cog" [size]="18" />

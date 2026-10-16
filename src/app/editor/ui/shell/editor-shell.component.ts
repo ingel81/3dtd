@@ -156,11 +156,8 @@ export class EditorShellComponent implements OnDestroy {
   private readonly stage = inject(WorldsStageService);
   /** The run the editor came from, waiting as autosave (AppScreen.waitingRun) */
   private readonly waitingRun = this.screens.waitingRun;
-  /** The path's chip of that run: a click goes back to it */
-  readonly pathChips = computed<readonly PathChip[]>(() => {
-    const run = this.waitingRun();
-    return run ? [{ id: 'run', label: `${run.label} | autosave`, hint: 'Back to the run, loaded from its autosave' }] : [];
-  });
+  /** The path's chips, the same as on the globes and over the game: every world's Continue (the run that waits among them) */
+  readonly pathChips = computed<readonly PathChip[]>(() => this.stage.pathChips(null, false));
   readonly playHint = computed(() => (this.runOfThisMap() ? 'Back to the run on this map' : 'Play this map'));
   readonly closed = output<void>();
   readonly tools = TOOLS;
@@ -700,14 +697,14 @@ export class EditorShellComponent implements OnDestroy {
   }
 
   /**
-   * A step of the path: Worlds to the globes (the editor saves first), the run's chip back to the run that
-   * waits, Maps to the editor's list, Play back to this map's run or a new run on it
+   * A step of the path: Worlds to the globes (the editor saves first), a chip to its world's Continue (the
+   * game shows once the editor saved), Built Worlds to the editor's list, Play back to this map's run or a new run on it
    */
   onPath(action: PathAction): void {
     if (action === 'worlds') {
       void this.screens.showGame().then((shown) => shown && this.stage.leaveGame(null));
-    } else if (typeof action === 'object' && action.chip === 'run') {
-      this.worlds.backToGame();
+    } else if (typeof action === 'object') {
+      this.stage.goChip(action.chip);
     } else if (action === 'world') {
       void this.leave();
     } else if (action === 'play') {

@@ -131,6 +131,9 @@ export class WorldsStageComponent {
     return pick ? (pick.kind === 'place' ? placeLabel(pick.name) : pick.name) : null;
   });
 
+  /** The path's chips: every world's Continue, the editor's map (WorldsStageService.pathChips) */
+  readonly chips = computed(() => this.stage.pathChips(null, true));
+
   /** The other two worlds beside the big globe */
   readonly otherWorlds = computed(() => WORLD_IDS.filter((w) => w !== this.world()));
 

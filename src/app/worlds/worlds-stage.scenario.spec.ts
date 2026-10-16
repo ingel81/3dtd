@@ -31,6 +31,7 @@ import { CUSTOM_MAPS_OPEN } from '../world/custom-maps-open';
 import type { MapSummary } from '../world/custom-map/map-store';
 import { WorldChoiceService } from '../world/world-choice.service';
 import { WorldSession, type ParkedWorld } from '../world/world-session.service';
+import { AppScreen } from '../world/app-screen.service';
 import { PLAIN_START, WorldStartService, type WorldStart } from '../world/world-start';
 import { SettingsSectionsComponent } from '../components/main-menu/pages/settings/settings-sections.component';
 import { ExtrasListComponent } from '../components/main-menu/pages/extras/extras-list.component';
@@ -498,5 +499,20 @@ describe('Worlds stage', () => {
     await settle(f);
     expect(session.leaveParked).toHaveBeenCalledWith(false);
     expect(store.ids()).toEqual([]);
+  });
+
+  it('one source of chips for the globes, the game and the editor: the other worlds, the map in the editor', async () => {
+    const f = await open({ key: true, slots: [heilbronn()] });
+    session.park({ world: 'maps', pick: { kind: 'map', id: 'demo-valley', name: 'Demo Valley' }, label: 'Demo Valley', wave: 3, run: true });
+    TestBed.inject(AppScreen).draft.set({ mapId: 'bay', name: 'Bay', unsaved: true });
+    await settle(f);
+    const stage = TestBed.inject(WorldsStageService);
+    expect([...el(f).querySelectorAll('.ws-chip')].map((c) => text(c))).toEqual(['Demo Valley | wave 3 | ready', 'Heilbronn | wave 12 | autosave', 'Editor: Bay | unsaved']);
+    // Over the game of the real places: its own world is on screen
+    expect(stage.pathChips('real', true).map((c) => c.id)).toEqual(['continue-maps', 'editor']);
+    // In the editor: no chip of the editor
+    expect(stage.pathChips(null, false).map((c) => c.id)).toEqual(['continue-maps', 'continue-real']);
+    el(f).querySelector<HTMLElement>('.ws-chip[data-chip="continue-real"]')!.click();
+    expect(opened[0]).toMatchObject({ resume: AUTOSAVE_SLOT, play: true });
   });
 });

@@ -191,6 +191,15 @@ export class MainMenuService {
     else await this.editMap(mapId);
   }
 
+  /**
+   * Off to another world's Continue (a chip of the path): the run here is kept as autosave first when it
+   * stands between the waves, then `go`; in a wave the autosave of its start stays its Continue
+   */
+  async goElsewhere(go: () => void): Promise<void> {
+    if (this.underWay() && !this.inCoop() && !this.store.isGameOver() && this.saves.canSave()) await this.saves.autosaveNow();
+    go();
+  }
+
   /** The map editor in this window, on its list of maps (or the map open in it); the run waits as autosave */
   openMapEditor(): Promise<void> {
     return this.editMap(null);

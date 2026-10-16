@@ -11,6 +11,8 @@ import type { MapSummary } from '../world/custom-map/map-store';
 import { WorldChoiceService, type MapChoice } from '../world/world-choice.service';
 import type { WorldRef } from '../world/world-ref';
 import { WorldSession, type ParkedWorld } from '../world/world-session.service';
+import { AppScreen } from '../world/app-screen.service';
+import type { PathChip } from '../components/world-path/world-path.component';
 import { PLAIN_START, WorldStartService, type WorldStart } from '../world/world-start';
 import type { OsmFrameRequest } from '../components/osm-frame/osm-frame-request';
 import { StageSaves } from './stage-saves';
@@ -128,6 +130,7 @@ function readPicks(): Readonly<Record<WorldId, WorldPick | null>> {
 @Injectable({ providedIn: 'root' })
 export class WorldsStageService {
   private readonly session = inject(WorldSession);
+  private readonly screens = inject(AppScreen);
   private readonly config = inject(ConfigService);
   private readonly worlds = inject(WorldChoiceService);
   private readonly dice = inject(WorldDiceService);
@@ -252,6 +255,36 @@ export class WorldsStageService {
     const worlds = [...new Set([...(held ? [held] : []), ...this.autosaves().map((run) => run.world)])];
     return worlds.map((world) => this.continueOf(world)).filter((c): c is StageContinue => c !== null);
   });
+
+  /**
+   * The chips of the path, the same on the globes, over the game and in the
+   * editor (docs/WORLDS_STATE_PLAN.md, 3.3): every world's Continue or Back
+   * to but `except` (the world on screen), and the map open in the editor
+   * unless the editor shows
+   */
+  pathChips(except: WorldId | null, editor: boolean): PathChip[] {
+    const hints: Record<StageContinue['kind'], string> = {
+      ready: 'Back to the run, as you left it',
+      back: 'Back to the place, still loaded',
+      saved: 'Continue from the autosave',
+    };
+    const chips: PathChip[] = this.continues()
+      .filter((go) => go.world !== except)
+      .map((go) => ({ id: `continue-${go.world}`, label: chipLine(go), hint: this.whyNot('play', go.world) ?? hints[go.kind] }));
+    const draft = this.screens.draft();
+    if (editor && draft) chips.push({ id: 'editor', label: `Editor: ${draft.name}${draft.unsaved ? ' | unsaved' : ''}`, hint: 'Back to the map editor, the map as you left it' });
+    return chips;
+  }
+
+  /** A chip of pathChips was clicked: its Continue, or the editor on the map open in it */
+  goChip(id: string): void {
+    if (id === 'editor') {
+      this.worlds.editMap(null);
+      return;
+    }
+    const go = this.continues().find((c) => `continue-${c.world}` === id);
+    if (go && !this.whyNot('play', go.world)) this.resume(go);
+  }
 
   /** Go on with it: the world held shows at once, a saved run loads */
   resume(item: StageContinue): void {
