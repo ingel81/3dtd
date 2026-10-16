@@ -271,9 +271,10 @@ const B4 = stage('b4-roads', 3, [
   wait(1.5),
   { do: 'cursor', show: true },
   clickMap(pt(P.village), { label: 'surface' }),
-  ...pick({ do: 'select', sel: '[data-test=road-surface]', value: 'cobblestone' }),
+  // Brick paving: the starter road without a surface already draws cobbles, a cobblestone surface hardly showed
+  ...pick({ do: 'select', sel: '[data-test=road-surface]', value: 'brick-paving' }),
   ...idle(1.5),
-  effect('cobblestone'),
+  effect('paving'),
   key('Escape'),
   // The east road and its spawn
   // From the east looking in: from the south the map's edge filled half the picture

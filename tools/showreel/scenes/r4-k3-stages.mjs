@@ -54,7 +54,8 @@ export const P = {
   chapel: { x: 70, y: -50 },
   stalls: [['market-stall-red', 62, -17], ['market-stall-blue', 78, -17]],
   windmill: { x: 150, y: 190 },
-  ring: { r: 54, from: 194, to: 526 },
+  // Open at the west for the road up the ramp: the ends clear of it (the check found a wall end on it)
+  ring: { r: 54, from: 200, to: 518 },
   gate: { x: 246, y: 0 },
   lake: [{ x: -190, y: -150 }, { x: -150, y: -110 }, { x: -110, y: -150 }, { x: -150, y: -190 }],
   pasture: [{ x: 290, y: 110 }, { x: 370, y: 105 }, { x: 380, y: 170 }, { x: 300, y: 180 }],
@@ -100,6 +101,8 @@ export const STAGES = [
     { erode: 0.2, seed: 11 },
     `
     map.smooth(${j(P.hill)}, { radius: 170, strength: 1, falloff: 0.7 }, 4);
+    // The erosion furrows the ramp from b1 (a dip and a 30-degree step under the road to the HQ): laid again
+    map.ramp({ ...${j(P.rampFoot)}, h: 0 }, { ...${j(P.rampTop)}, h: 14 }, 22, 1);
     map.layer('rock-lichen');
     map.layer('snow-fresh');
     map.autoPaint();
@@ -115,6 +118,8 @@ export const STAGES = [
   const made = map.river(${j(P.river)}, { width: 16, depth: 2.5, bank: 10, reeds: true, bridges: true });
   map.water(-0.6);
   map.fill(${j(P.hollow)});
+  // The east shore by the autumn wood is lower than the rim: the lake stood 0.7 m over it (the check)
+  map.raise({ x: -60, y: -170 }, { radius: 22, strength: 1, falloff: 0.6 }, 1.5);
   return { rivers: made.length, waterfalls: made.map((r) => r.waterfalls), bridges: made.map((r) => r.bridges) };
   `,
   // b4-roads: the north road (gravel, lamps) through the pass to the starter road, its spawn; the bend moved round
@@ -135,7 +140,7 @@ export const STAGES = [
   const north = map.roads().filter((r) => r.a === bend.id || r.b === bend.id);
   for (const r of north) map.smoothRoad(r.id);
   map.editRoads(north.map((r) => r.id), { width: 8 });
-  map.roadSurface([through(${j(P.village)}).id], 'cobblestone');
+  map.roadSurface([through(${j(P.village)}).id], 'brick-paving');
   map.road(${j(P.eastRoad)}, { width: 8, surface: ['gravel'], lamps: true });
   map.spawn('East', ${P.eastRoad[0].x}, ${P.eastRoad[0].y});
   log(JSON.stringify(map.roads().map((r) => [r.id, r.kind, r.width, r.points.map((q) => [Math.round(q.x), Math.round(q.y)]).filter((_, i, a) => i === 0 || i === a.length - 1)])));
@@ -188,6 +193,6 @@ export const STAGES = [
   // b9-rules: the map's own intro flight, an orbit round the HQ
   `
   map.intro({ kind: 'orbit', seconds: 10, radius: 220, height: 90, angle: Math.PI, sweep: 360 });
-  return map.issues().filter((i) => i.severity === 'error').map((i) => i.message);
+  return map.issues().filter((i) => i.severity !== 'info').map((i) => [i.severity, i.code, i.message, i.focus && [Math.round(i.focus.x), Math.round(i.focus.y)], i.target]);
   `,
 ];
