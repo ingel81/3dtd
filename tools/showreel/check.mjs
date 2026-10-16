@@ -171,7 +171,8 @@ export function checkTake(dir) {
     const held = t1 - t0;
     if (t0 < from || t1 > sceneEnd + 0.05) continue;
     // Inside the held stretch only: a camera that starts to move ends the hold a frame later, not during it
-    const camMoves = moved(t0 + 2 / fps, t1 - 2 / fps) > 0.05;
+    // 0.3 m: the editor's held camera drifts by centimetres while the ground under it changes (strokes, jobs)
+    const camMoves = moved(t0 + 2 / fps, t1 - 2 / fps) > 0.3;
     const between = changing(a - 10, a - 1) >= 0.5 && changing(b + 1, b + 10) >= 0.5;
     if (held >= FROZEN_S && camMoves) frozen.push({ at: +t0.toFixed(3), held: +held.toFixed(3) });
     else if (held >= STUTTER_S && (camMoves || (between && held < FROZEN_S))) stutters.push({ at: +t0.toFixed(3), held: +held.toFixed(3), camera: camMoves });
