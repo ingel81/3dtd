@@ -264,6 +264,17 @@ describe('tone mapping (custom maps only)', () => {
   });
 });
 
+describe('clear air in the editor', () => {
+  it('pushes the haze behind the camera in clear weather, but leaves a thick fog its near air', () => {
+    const e = new CustomMapEnvironment(env);
+    e.setClearAir(2000);
+    expect(HEIGHT_FOG_UNIFORMS.uFogStart.value).toBe(2000);
+    e.set({ ...env, weather: 'fog', weatherStrength: 1 });
+    expect(HEIGHT_FOG_UNIFORMS.uFogStart.value).toBeCloseTo(450 * 0.15);
+    e.dispose();
+  });
+});
+
 describe('Mars (TODO E170)', () => {
   it('rings a setting sun with a blue glow while its light stays near white; by day the glow is the sun', () => {
     const e = new CustomMapEnvironment({ ...env, biome: 'mars', sky: 'dusk' });

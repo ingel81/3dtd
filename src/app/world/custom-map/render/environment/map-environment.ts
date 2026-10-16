@@ -280,7 +280,7 @@ export class CustomMapEnvironment {
     this.backdrop.copy(this.fog.color);
     // Clear air before the haze: shorter in fog weather and in a swamp
     this.fogStart = weather === 'fog' ? 450 * (1 - 0.85 * k) : env.biome === 'swamp' ? 120 : 450;
-    HEIGHT_FOG_UNIFORMS.uFogStart.value = Math.max(this.fogStart, this.clearAir);
+    HEIGHT_FOG_UNIFORMS.uFogStart.value = this.fogStartWithClearAir();
     // Snow on everything facing up, wetness in rain (and a little in a swamp)
     const snowFromWeather = weather === 'snow' ? k * 0.9 : 0;
     const snowFromBiome = env.biome === 'arctic' ? 0.65 : 0;
@@ -432,6 +432,15 @@ export class CustomMapEnvironment {
     return { dir: sunDirection(planet.azimuth, elevation, new Vector3()), radius: (Math.min(40, planet.size) * Math.PI) / 360 };
   }
 
+  /**
+   * Where the haze begins: the map's start, or the editor's clear air when that is farther. Fog weather keeps
+   * its share of the near air (a thick fog the whole of it): the editor shows the fog the game will have
+   */
+  private fogStartWithClearAir(): number {
+    const fog = (this.env.weather ?? 'clear') === 'fog' ? Math.min(1, Math.max(0, this.env.weatherStrength ?? 0.6)) : 0;
+    return Math.max(this.fogStart, this.clearAir * (1 - fog));
+  }
+
   /** 0 by day, 1 at night: how much map lights (lanterns, torches) matter */
   get darkness(): number {
     let base = { day: 0, overcast: 0.2, dusk: 0.6, night: 1 }[this.env.sky] ?? 0;
@@ -448,7 +457,7 @@ export class CustomMapEnvironment {
    */
   setClearAir(distance: number): void {
     this.clearAir = Math.max(0, distance);
-    HEIGHT_FOG_UNIFORMS.uFogStart.value = Math.max(this.fogStart, this.clearAir);
+    HEIGHT_FOG_UNIFORMS.uFogStart.value = this.fogStartWithClearAir();
   }
 
   /**
