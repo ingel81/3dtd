@@ -184,7 +184,8 @@ export class SplatTextures {
     t.magFilter = LinearFilter;
     t.minFilter = LinearFilter;
     t.generateMipmaps = false;
-    t.needsUpdate = true;
+    // Whole on its first upload, even when a stroke paints a rectangle before it is drawn
+    uploadRect(t, undefined);
     return t;
   }
 }
