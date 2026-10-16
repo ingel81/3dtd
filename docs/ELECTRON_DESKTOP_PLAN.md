@@ -192,8 +192,9 @@ genau eine Desktop-Stelle, den Update-Hinweis (E32); alles andere lebt in
   vorgeschlagenen Kennung bekommen zwei Kennungen. Fehlen auf einmal alle oder viele markierte Dateien (Ordner verschoben,
   anderes Dokumente-Verzeichnis), schreibt es die Karten wieder hinaus statt sie zu löschen. Karten aus dem Coop bleiben
   im Browser-Speicher. Doppelklick auf eine `.3dtdmap` (`fileAssociations`) kopiert sie in den Ordner und startet sie
-  (`desktop:open-map`); in einem laufenden Spiel fragt das Spiel vorher, im Editor mit offenen Änderungen fragt die App
-  (`will-prevent-unload`). Der Hauptprozess prüft jeden Namen (`mapFileName`: ein Name ohne Pfadteile, keine unter
+  (`desktop:open-map`) im selben Fenster ohne Neuladen (`WorldSession`, E195); in einem laufenden Spiel fragt das Spiel
+  vorher, in einem Coop-Raum, dessen Karte der Host wählt, bleibt die Welt und ein Hinweis sagt, dass die Karte im
+  Ordner liegt (`mayLeaveForOpenedMap`), im Editor mit offenen Änderungen fragt die App (`will-prevent-unload`). Der Hauptprozess prüft jeden Namen (`mapFileName`: ein Name ohne Pfadteile, keine unter
   Windows verbotenen Zeichen oder Gerätenamen), nichts verlässt den Ordner. „Map folder“ in der Kartenliste des
   Editors öffnet ihn im Explorer.
 - **E26c Test-Fenster des Editors** (2026-10-14, `classifyWindowOpen` in `desktop/src/security.js`): „Test map“ und
