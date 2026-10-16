@@ -1,5 +1,5 @@
 // Whether a world opened in the page frees the one before (docs/WORLDS_NAVIGATION_PLAN.md, phase 2): opens a custom
-// map by link, then switches N times between two maps in the page (WorldChoiceService.playMap, no reload) and prints,
+// map by link, then switches N times between two maps in the page (Esc, New game, Maps, Play: no reload) and prints,
 // after each switch and a forced GC, the JS heap, the live web workers, the live WebGL contexts, the listeners on
 // window and document, the open intervals and the GPU resources of the game's renderer. A leak shows as a stair.
 //
@@ -8,7 +8,11 @@
 //
 // --trace prints where each WebGL context still alive at the end was made.
 //
-// Headless by default (Chrome draws WebGL in software then). The custom maps need no tile key.
+// Headless by default (Chrome draws WebGL in software then). The custom maps need no tile key, but the menu shows
+// them only once they are released (CUSTOM_MAPS_RELEASED, a local switch for this run). Measure a production build
+// (ng build, public/maps copied into it, node e2e/perf/serve.mjs dist/3DTD/browser <port> --isolate): the dev
+// build's DI debugging (Angular's injector profiler) keeps every game component it saw. Geometries and textures
+// need the dev build's `ng` and read -1 in production.
 import { chromium } from '@playwright/test';
 
 function argument(name: string, fallback: string): string {
@@ -45,6 +49,8 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 const errors: string[] = [];
 page.on('pageerror', (e) => errors.push(e.message));
 
+// tsx keeps function names with an `__name` helper the page does not have; without it the counters below never install
+await page.addInitScript('window.__name = (fn) => fn');
 // Counts what a teardown must give back: workers made and ended, WebGL contexts made and lost,
 // listeners on window and document added and removed, intervals set and cleared
 await page.addInitScript(() => {
@@ -111,28 +117,37 @@ await page.addInitScript(() => {
   };
 });
 
-/** The game component through the dev build's `ng` */
+/** The game component through the dev build's `ng`; null in a production build */
 const GAME = `(() => { const el = document.querySelector('app-tower-defense'); return el && window.ng ? window.ng.getComponent(el) : null; })()`;
 
+/** The shipped maps' names, which the credit line shows once a map stands */
+const NAMES = new Map<string, string>(
+  ((await (await fetch(`${URL_BASE}/maps/index.json`)).json()) as { maps: { id: string; name: string }[] }).maps.map((m) => [m.id, m.name]),
+);
+
+/** The map stands: its credit line shows, nothing loads, no menu over it (menu=skip starts the game) */
 async function worldStands(map: string): Promise<void> {
-  await page.waitForFunction(
-    ({ game, id }) => {
-      const c = eval(game);
-      const ref = c?.worldContext.ref();
-      return !!c && ref?.kind === 'custom-map' && ref.mapId === id && c.worldContext.provider() !== null && !c.store.loading();
-    },
-    { game: GAME, id: map },
-    { timeout: 300_000, polling: 500 },
-  ).catch(async (err) => {
-    const state = await page.evaluate((game) => {
-      const c = eval(game);
-      return c && { ref: c.worldContext.ref(), provider: c.worldContext.provider() !== null, loading: c.store.loading(), error: c.store.error() };
-    }, GAME);
-    console.log('[stuck]', JSON.stringify(state), errors);
-    throw err;
+  const name = NAMES.get(map) ?? map;
+  await page.locator('.td-map-attribution', { hasText: name }).waitFor({ timeout: 300_000 });
+  await page.waitForFunction(() => !document.querySelector('app-menu-loading') && !document.querySelector('app-main-menu'), null, {
+    timeout: 300_000,
+    polling: 500,
   });
   // A few seconds on the new world: its models and textures decoded, the old one's freed
   await page.waitForTimeout(3000);
+}
+
+/** Another map through the menu, as a player: Esc, New game, Maps, Play */
+async function playMap(map: string): Promise<void> {
+  const menu = page.locator('app-main-menu');
+  await page.mouse.move(650, 600);
+  for (let i = 0; i < 10 && !(await menu.count()); i++) {
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(600);
+  }
+  await menu.getByRole('menuitem', { name: /^New game/i }).first().click();
+  await menu.getByRole('tab', { name: 'Maps' }).click();
+  await menu.locator(`app-map-picker [data-map="${map}"]`).getByRole('button', { name: 'Play' }).click();
 }
 
 async function sample(step: number): Promise<Sample> {
@@ -145,11 +160,10 @@ async function sample(step: number): Promise<Sample> {
     }
     const live = (window as any).__leaks;
     const c = eval(game);
-    const ref = c?.worldContext.ref();
     const memory = c?.engine?.getRenderer?.().info.memory ?? { geometries: -1, textures: -1 };
     return {
       step,
-      map: ref?.kind === 'custom-map' ? ref.mapId : null,
+      map: document.querySelector('.td-map-attribution')?.textContent?.split(' by ')[0]?.trim() ?? null,
       heapMB: Math.round((performance as any).memory.usedJSHeapSize / 104857.6) / 10,
       workers: live.workers.size,
       contexts: [...live.contexts].filter((ctx: any) => !ctx.isContextLost()).length,
@@ -173,7 +187,7 @@ const address = new URL(page.url());
 console.log(`address after the start: ${address.pathname}${address.search}`);
 for (let step = 1; step <= SWITCHES; step++) {
   const map = MAPS[step % MAPS.length];
-  await page.evaluate(({ game, id }) => eval(game).mainMenu.worlds.playMap(id), { game: GAME, id: map });
+  await playMap(map);
   await worldStands(map);
   samples.push(await sample(step));
   console.log(JSON.stringify(samples.at(-1)));
