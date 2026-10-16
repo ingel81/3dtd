@@ -7,7 +7,7 @@ const frame = (points, opts = {}) => ({ do: 'frame', points, ...opts });
 
 /** One tower: the camera over its spot, the card, the spot held a moment, one click */
 const build = (tower, spot, opts = {}) => [
-  frame([{ at: `spot:${spot}` }], { from: 200, pitch: 42, margin: 18, glide: 0.9 }),
+  frame([{ at: `spot:${spot}` }], { from: 200, pitch: 68, margin: 22, glide: 0.9 }),
   act('build', { tower, spot, hold: 0.8, ...opts }),
 ];
 
@@ -34,7 +34,7 @@ export const SCENES = [
       ...build('bastion', 1),
       ...build('lightning', 0),
       // The last scaffold down, the turrets sweeping
-      frame([{ at: 'spot:2' }, { at: 'spot:3' }, { at: 'spot:4' }, { at: 'spot:5' }], { from: 210, pitch: 42, margin: 6, glide: 1.6 }),
+      frame([{ at: 'spot:2' }, { at: 'spot:3' }, { at: 'spot:4' }, { at: 'spot:5' }], { from: 210, pitch: 50, margin: 6, glide: 1.6 }),
       wait(1.6),
       { do: 'mark', name: 'effect:new towers' },
       // The archer rebuilt as a heavy ballista: the tower clicked, its Sniper path bought in the panel
