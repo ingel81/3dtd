@@ -7,15 +7,25 @@ liegt im Browser (IndexedDB; in der Desktop-App zusätzlich als Datei in `Dokume
 öffnen (`?world=map:<id>`). Der Einstieg im Hauptmenü ist „Map editor“ (Lage Start, unter der Linie; mit laufendem Lauf
 fragt das Menü vorher). Die Oberfläche ist englisch wie das übrige Spiel.
 
+Spiel und Editor stehen seit E195 Phase 4 im selben Fenster (`AppShellComponent`, `world/app-screen.service.ts`,
+[WORLDS_NAVIGATION_PLAN.md](WORLDS_NAVIGATION_PLAN.md)): „Map editor“, „Edit“ in der Kartenwahl und „Edit this map“
+öffnen ihn ohne Neuladen, „Back to the game“ kehrt so zurück. `/editor` (mit `?map=<id>`) bleibt Einstieg für
+Entwicklung und AI-Agenten; die Route nennt nur, was zuerst steht, danach ändert kein Wechsel die Adresse. Die
+`EditorSession` hängt am Fenster, nicht an der Editor-Ansicht: zeigt das Spiel, gehen Ansicht, Renderer und Canvas des
+Editors, die offene Karte und ihr Verlauf bleiben (vorher gespeichert; scheitert das, bleibt der Editor).
+Ein laufender Lauf endet dabei nicht (Entscheidung 2 des Plans): zwischen den Wellen schreibt das Menü sofort den
+Autosave seiner Welt (`SaveGamePort.autosaveNow`), in einer Welle gilt der Autosave vom Anfang dieser Welle; ohne
+einen von beiden endet er, und die Rückfrage sagt das. „Back to the run“ in der Kartenliste öffnet seine Welt wieder
+und lädt den Autosave dort (`AppScreen.waitingRun`, `WorldSession.backToGame`).
+
 ## Kartenliste
 
 Die Startseite von `/editor` zeigt links die eigenen und die mitgelieferten Karten (Bild, Größe, Spawns, Objekte,
 zuletzt geändert), rechts die gewählte mit Beschreibung und den Knöpfen Open, Duplicate, Download, Delete (in den
 Papierkorb, siehe [Speichern](#speichern-und-dateien)). Mitgelieferte Karten (`public/maps/index.json`) und Karten eines Koop-Hosts sind schreibgeschützt: „Copy
 and edit“ legt eine eigene Kopie an und öffnet sie. Dasselbe gilt für jeden anderen Weg dorthin, etwa „Edit“ in der
-Kartenwahl des Spiels (`/editor?map=<id>`): `EditorSession.open` öffnet nie das Original, sondern speichert sofort eine
-eigene Kopie („Name (copy)“), sagt das in der Statuszeile und setzt deren Kennung in die Adresse, damit Neuladen die
-Kopie öffnet und keine zweite anlegt. Die Kopie merkt sich ihr Original mit dessen Inhalts-Hash (`meta.copyOf`, nicht
+Kartenwahl des Spiels: `EditorSession.open` öffnet nie das Original, sondern speichert sofort eine eigene Kopie
+(„Name (copy)“) und sagt das in der Statuszeile. Die Kopie merkt sich ihr Original mit dessen Inhalts-Hash (`meta.copyOf`, nicht
 Teil des `contentHash`); ein weiteres „Edit“ desselben Originals öffnet die neueste eigene Kopie wieder. Hat sich das
 Original seither geändert (Spiel-Update, neue Version des Hosts, verglichen über `index.json` bzw. die Zusammenfassung,
 ohne die Datei zu laden), bietet ein Banner „Fresh copy“ (neue Kopie, die alte bleibt) oder „Open your copy“.
@@ -50,9 +60,8 @@ ohne die Datei zu laden), bietet ein Banner „Fresh copy“ (neue Kopie, die al
   dieselbe `.w3x`-Datei), fragt die Liste „Replace“ oder „Keep both“: Replace legt den Inhalt an die Stelle der Karte
   (Kennung, `id` und Anlagezeit bleiben, also auch ihre Versionen; der alte Inhalt wird eine Version), Keep both legt
   die Datei als neue Karte mit eigener Kennung daneben
-- Die Adresse trägt die offene Karte (`/editor?map=<id>`); Neuladen öffnet sie wieder. Die Seite folgt der Adresse:
-  Zurück im Browser schließt die Karte wie der eigene Zurück-Knopf (erst speichern; scheitert das, bleibt sie offen),
-  Vor öffnet sie wieder
+- Die Adresse trägt die offene Karte nicht mehr; Neuladen öffnet die Karte, die dieser Tab offen hatte
+  (sessionStorage `3dtd-editor-map`), `/editor?map=<id>` öffnet eine Karte beim Start
 
 ## Bedienung
 
@@ -652,14 +661,13 @@ Szenenkosten.
   ihr `contentHash` bleibt; Version-2-Dateien lesen sich unverändert über die Migration 2 nach 3
 - Datei-Menü (drei Punkte): Download map file (`.3dtdmap`), Export top view as picture (PNG, 2048 px an der längeren
   Seite), Frame the whole map, Top view
-- „Test map“ speichert und öffnet das Spiel mit `?world=map:<id>` im Test-Tab: ein Fenster mit festem Namen
-  (`MAP_TEST_WINDOW`, `3dtd-map-test`), das jeder weitere Test und der Bot-Check wiederverwenden, statt Tabs zu stapeln;
-  in der Desktop-App ein eigenes, gleich gehärtetes App-Fenster ([ELECTRON_DESKTOP_PLAN.md](ELECTRON_DESKTOP_PLAN.md), E26c).
-  Das Fenster wird noch im Klick genommen (`window.open('', …)`: leer neu oder das vorhandene, ohne Neuladen) und erst
-  nach dem Speichern auf das Spiel geschickt; so greift keine Popup-Sperre, wenn das Speichern samt Vorschaubild länger
-  dauert als die Nutzer-Aktivierung des Browsers. Scheitert das Speichern, geht ein leer geöffnetes Fenster wieder zu.
+- „Test map“ speichert und spielt die Karte im selben Fenster (E195 Phase 5, Startauftrag mit `trial`): der Editor
+  wartet mit Karte, Verlauf und Kamera; „Edit“ im Pfad oder „Back to editor“ im Pausemenü und nach Game over kehrt
+  am selben Stand zurück. Das Probespiel wird nie gespeichert, auch nicht als Autosave, und ist kein Lauf, zu dem
+  man zurückkehrt. Der Bot-Check läuft ebenso im Fenster, sein Ergebnis steht danach in der Prüfung
+  (`AppScreen.trial`). Scheitert das Speichern, bleibt der Editor.
   „From wave“ neben dem Knopf (1 bis 200, gilt, solange der Editor offen ist) startet den Test bei Welle N
-  (`&fromWave=N`, `customMapStartWave`): die Wellen davor zählen als gespielt, der Spieler hat das Gold und die
+  (`WorldStart.startWave`, per Link `&fromWave=N`, `customMapStartWave`): die Wellen davor zählen als gespielt, der Spieler hat das Gold und die
   Forschung, die ein typischer Spieler bis dahin hat, und baut die Abwehr selbst. Die Rechnung (`runStartAt`,
   `sim/protocol/run-start.ts`, mit den Goldregeln der Wellen, die die Karte spielt):
   - Gold der Wellen 1 bis N−1: Kill-Gold, Abschlussgold und Meilensteine, ohne Skill-Boni, wie der Dev-Sprung

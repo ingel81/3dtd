@@ -9,6 +9,7 @@
  * downloads what it reads (Overpass, elevation tiles) or takes it from the
  * frame store.
  */
+import { placeLabel } from '../../services/location/place-label';
 import { OSM_MAP_ATTRIBUTION } from '../../configs/attributions.config';
 import { createMapDocument, slugMapId } from '../custom-map/map-create';
 import type { CustomMapDocument } from '../custom-map/map-document';
@@ -232,14 +233,16 @@ export function convertOsm(input: OsmImportInput, options: OsmImportOptions = {}
 const round1 = (v: number): number => Math.round(v * 10) / 10;
 
 /**
- * The address line, name and id of a place's map: the first part of the
- * search ("Miltenberg" of "Miltenberg, Bayern, Deutschland"), `osm-miltenberg`
- * (a taken id gets a number in the store); the coordinates without a search
+ * The address line, name and id of a place's map: the place's name as the
+ * search list showed it when given ("Am Thorwengert 6, Miltenberg"), else
+ * the label of the search line (placeLabel: never a bare house number),
+ * `osm-am-thorwengert-6-miltenberg` (a taken id gets a number in the store);
+ * the coordinates without a search
  */
-export function osmMapNames(place: { lat: number; lon: number; address?: string }): { address: string; id: string; name: string } {
+export function osmMapNames(place: { lat: number; lon: number; address?: string; name?: string }): { address: string; id: string; name: string } {
   const searched = place.address?.trim();
   const address = searched || `${place.lat.toFixed(5)}, ${place.lon.toFixed(5)}`;
-  const name = searched ? searched.split(',')[0].trim() || searched : address;
+  const name = place.name?.trim() || (searched ? placeLabel(searched) : address);
   return { address, name, id: `osm-${slugMapId(name)}`.slice(0, 64) };
 }
 

@@ -41,7 +41,8 @@ test('builds, checks, saves and reloads a map in the editor', async ({ page }, t
   await page.locator('[data-template=""]').click();
   await page.locator('[data-test=create-map]').click();
   await expect(page.locator('[data-test=map-name]')).toHaveText(name);
-  await expect(page).toHaveURL(/\/editor\?map=e2e-map-/);
+  // The address stays the editor's entry; a reload opens the map this tab had open (sessionStorage)
+  await expect(page).toHaveURL(/\/editor$/);
   const viewport = page.locator('[data-test=viewport]');
   const box = (await viewport.boundingBox())!;
   const cx = box.x + box.width / 2;

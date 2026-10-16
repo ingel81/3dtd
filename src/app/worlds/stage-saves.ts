@@ -79,4 +79,9 @@ export class StageSaves implements SaveGamePort {
   continueAutosave(): Promise<LoadResult> {
     return this.load('autosave');
   }
+
+  /** No game stands on the globes: nothing to save */
+  async autosaveNow(): Promise<boolean> {
+    return false;
+  }
 }

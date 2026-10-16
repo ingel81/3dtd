@@ -5,11 +5,13 @@ import { GameStore } from '../../../../store/game.store';
 import type { MapSummary } from '../../../../world/custom-map/map-store';
 import type { OwnTileset } from '../../../../world/tileset/own-tileset';
 import { WorldChoiceService, type MapChoices } from '../../../../world/world-choice.service';
+import { MainMenuService } from '../../main-menu.service';
 
 /**
  * The menu's maps: own maps, the shipped ones and the own 3D Tiles sets,
  * each with its picture, name, author and size. Play loads the page on it
- * (WorldChoiceService), Edit opens the map editor on it.
+ * (WorldChoiceService), Edit opens the map editor on it in the window, the
+ * run waiting as autosave (MainMenuService.editMap).
  */
 @Component({
   selector: 'app-map-picker',
@@ -22,6 +24,7 @@ import { WorldChoiceService, type MapChoices } from '../../../../world/world-cho
 export class MapPickerComponent implements OnInit {
   readonly worlds = inject(WorldChoiceService);
   private readonly game = inject(GameStore);
+  private readonly menu = inject(MainMenuService);
   /** To the real places, where a searched place becomes a map of its own */
   readonly toPlaces = output<void>();
 
@@ -34,6 +37,11 @@ export class MapPickerComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     this.maps.set(await this.worlds.listMaps());
+  }
+
+  /** The map editor on this map, null: on its list */
+  edit(mapId: string | null): void {
+    void this.menu.editMap(mapId);
   }
 
   isCurrentMap(m: MapSummary): boolean {

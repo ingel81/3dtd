@@ -72,8 +72,8 @@ festen Kamerawegen um das HQ (`src/app/benchmark/render-benchmark.ts`), damit �
   heben), `CPU` Hauptthread-Zeit für Update und Zeichnen, `Calls` und `Triangles` je Bild über alle Durchgänge
   (Schatten, Szene, Nachbearbeitung). Ohne Timer-Query (Firefox, Safari) bleibt die GPU-Spalte leer; dann zählt
   `Frame` bei ungedeckelter Bildrate.
-- **Im Spiel:** Menü Extras, „Graphics benchmark“ lädt die Seite mit `benchmark=render` auf derselben Welt neu und
-  zeigt am Ende die Tabelle zum Kopieren. Ohne Bildratendeckel (Skript unten) ist `Frame` aussagekräftig, im normalen
+- **Im Spiel:** Menü Extras, „Graphics benchmark“ öffnet dieselbe Welt am selben Ort in der Seite neu (Startauftrag
+  `WorldStart.benchmark`, ohne Neuladen; per Link `benchmark=render`) und zeigt am Ende die Tabelle zum Kopieren. Ohne Bildratendeckel (Skript unten) ist `Frame` aussagekräftig, im normalen
   Browser deckelt der Monitor, dann zählt `GPU`.
 - **Per Skript** (Nachtschicht, reproduzierbar): Build mit Entwicklungs-Umgebung, aber optimiert (der
   Produktions-Build öffnet eigene Karten per Link erst nach der Freigabe, E134), statisch ausliefern, dann

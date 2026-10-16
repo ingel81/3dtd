@@ -5,12 +5,23 @@
     <img class="logo" src="assets/images/logo/logo.svg" alt="3DTD menu">
   </button>
   <div class="header-left">
-    <button class="location-btn td-sunk" (click)="!locationLocked() && locationClick.emit()" [attr.aria-disabled]="locationLocked() ? true : null"
-            [matTooltip]="locationLocked() ? 'The coop room plays this map' : 'Change place'">
-      <td-icon class="location-pin" name="pin" [size]="16"></td-icon>
-      <span class="td-loc-label">Defend</span>
-      <span class="location-name td-loc-name">{{ locationName() }}</span>
-    </button>
+    <!-- Where the window is: Worlds › world › the place › Play | Edit, and what waits elsewhere (E195) -->
+    <ng-template #placeButton>
+      <button class="location-btn td-sunk" (click)="!locationLocked() && locationClick.emit()" [attr.aria-disabled]="locationLocked() ? true : null"
+              [matTooltip]="locationLocked() ? 'The coop room plays this map' : 'Change place'">
+        <td-icon class="location-pin" name="pin" [size]="16"></td-icon>
+        <span class="td-loc-label">Defend</span>
+        <span class="location-name td-loc-name">{{ locationName() }}</span>
+      </button>
+    </ng-template>
+    @if (path(); as p) {
+      <app-world-path class="header-path" [world]="p.world" mode="play" [editLabel]="p.editLabel" [editWhy]="p.editWhy"
+                      [editHint]="p.editHint" [chips]="p.chips" (go)="pathGo.emit($event)">
+        <ng-container *ngTemplateOutlet="placeButton" />
+      </app-world-path>
+    } @else {
+      <ng-container *ngTemplateOutlet="placeButton" />
+    }
 
     <!-- Location actions, in three groups: the place, editing the map, coop -->
     <div class="location-actions">

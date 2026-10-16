@@ -18,14 +18,6 @@ export function isRenderBenchmarkSearch(search: string): boolean {
   return new URLSearchParams(search).get(BENCHMARK_FLAG) === RENDER_BENCHMARK_VALUE;
 }
 
-/** `href` with the render benchmark's flag; the world (place or map) stays */
-export function renderBenchmarkUrl(href: string): string {
-  const url = new URL(href);
-  url.hash = '';
-  url.searchParams.set(BENCHMARK_FLAG, RENDER_BENCHMARK_VALUE);
-  return url.toString();
-}
-
 export type RenderViewId = 'game' | 'close' | 'pan' | 'top';
 
 export interface RenderView {

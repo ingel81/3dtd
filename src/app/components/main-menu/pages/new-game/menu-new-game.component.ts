@@ -14,6 +14,8 @@ import { AddressAutocompleteComponent } from '../../../address-autocomplete.comp
 import { OsmFrameComponent } from '../../../osm-frame/osm-frame.component';
 import type { OsmFrameRequest } from '../../../osm-frame/osm-frame-request';
 import type { MapSummary } from '../../../../world/custom-map/map-store';
+import { placeLabel } from '../../../../services/location/place-label';
+import type { NominatimAddress } from '../../../../services/location/geocoding.service';
 
 /** What the page shows: real places of the 3D tiles, or the maps */
 export type NewGameView = 'places' | 'maps';
@@ -68,7 +70,7 @@ export type NewGameView = 'places' | 'maps';
                 <app-td-address-autocomplete
                   [placeholder]="'City, street or address…'"
                   [currentValue]="null"
-                  (locationSelected)="frameFor.set({ place: { lat: $event.lat, lon: $event.lon, name: $event.name.split(',')[0], address: $event.name }, spawnsAt: [] })"
+                  (locationSelected)="frameOf($event)"
                 />
               </section>
             }
@@ -100,6 +102,11 @@ export class MenuNewGameComponent {
   /** The frame of a map of a real place (an OSM world) in place of the page's lists, null for none */
   readonly frameFor = signal<OsmFrameRequest | null>(null);
 
+  /** The frame on a searched place, named as the search list showed it */
+  frameOf(found: { lat: number; lon: number; name: string; address?: NominatimAddress }): void {
+    this.frameFor.set({ place: { lat: found.lat, lon: found.lon, name: placeLabel(found.name, found.address), address: found.name }, spawnsAt: [] });
+  }
+
   showView(view: NewGameView): void {
     this.view.set(view);
     this.frameFor.set(null);
@@ -108,7 +115,7 @@ export class MenuNewGameComponent {
   /** A map made in the frame: played, or opened in the editor */
   madeMap({ summary, then }: { summary: MapSummary; then: 'play' | 'edit' }): void {
     if (then === 'play') this.worlds.playMap(summary.id, summary.name);
-    else this.worlds.editMap(summary.id);
+    else void this.menu.editMap(summary.id);
   }
 
   choose(choice: PlaceChoice): void {

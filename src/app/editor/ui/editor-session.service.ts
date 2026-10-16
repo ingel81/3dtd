@@ -8,12 +8,15 @@
 import type { GridRect } from '../model/grid';
 import { erodeJob, startTerrainJob, type TerrainJob, type TerrainJobMessage } from '../workers/terrain-job';
 import type { DocChange } from '../model/editor-document';
-import { MAP_TEST_WINDOW, MAP_TRIAL_MESSAGE, MAP_TRIAL_WAVES_PARAM, type MapTrialResult } from '../../world/map-trial';
+import type { MapTrialResult } from '../../world/map-trial';
+import { AppScreen } from '../../world/app-screen.service';
+import { WorldSession } from '../../world/world-session.service';
+import { PLAIN_START } from '../../world/world-start';
 import { VersionHistory, type MapVersion } from '../model/version-store';
 import { DOWNLOAD_REMINDER_MS, storageSafety, type StorageSafety } from '../model/storage-safety';
 import { biomeById } from '../ops/landscape/biomes';
 import { applyTemplate, type MapTemplate } from '../ops/landscape/templates';
-import { Injectable, NgZone, OnDestroy, inject, signal } from '@angular/core';
+import { Injectable, NgZone, OnDestroy, computed, inject, signal } from '@angular/core';
 import { MAX_MAP_PREFABS, type CustomMapDocument, type MapIntro, type MapIntroView, type MapLife, type MapMeta } from '../../world/custom-map/map-document';
 import { createMapDocument, slugMapId, type NewMapOptions } from '../../world/custom-map/map-create';
 import { MAP_FILE_EXTENSION, MapFileError, packMapFile, unpackMapFile } from '../../world/custom-map/map-file';
@@ -52,7 +55,7 @@ import { validateMap, type MapIssue } from '../validation/map-validation';
 import { buildAreaInput, buildAreasOffThread, type BuildAreas } from '../validation/build-areas';
 import { EditorViewport, type CameraBookmark, type FrameStats, type HoverInfo } from '../view/editor-viewport';
 import { DEFAULT_W3X_OPTIONS, loadW3xImporter, type W3xImportOptions, type W3xImportReport } from '../import/w3x-seam';
-import { WORLD_URL_PARAM, worldUrlValue } from '../../world/world-ref';
+import { EDITOR_MAP_PARAM } from '../../world/world-start';
 import { readAgentBridge, type AgentStatus } from '../../core/desktop-bridge';
 import { AGENT_LABEL, EditorAgent, type AgentNewMap } from '../agent/editor-agent';
 import { templateById } from '../ops/landscape/templates';
@@ -60,7 +63,6 @@ import { DEFAULT_CELL_SIZE } from '../../world/custom-map/map-create';
 import type { SavedStamp } from '../model/stamp-store';
 import { shadeRelief } from '../agent/relief-shade';
 import { runScriptInSandbox } from '../agent/script-sandbox';
-import { START_WAVE_PARAM } from '../../world/custom-map/custom-map-world';
 
 export const AUTOSAVE_DELAY_MS = 2000;
 /** The build areas are judged again this long after the last change (a large map takes a worker a few hundred ms) */
@@ -112,8 +114,14 @@ export class EditorSession implements OnDestroy {
   readonly viewRev = signal(0);
   /** Whether the view drew its map once (programs compiled); until then it says it is getting ready */
   readonly viewShown = signal(false);
-  /** The bot's check of the map: running (no result yet) or done */
-  readonly botTrial = signal<{ waves: number; result: MapTrialResult | null } | null>(null);
+  private readonly screens = inject(AppScreen);
+  private readonly worlds = inject(WorldSession);
+  /** The bot's check of the open map: running (no result yet) or done; it plays in this window (AppScreen.trial) */
+  readonly botTrial = computed<{ waves: number; result: MapTrialResult | null } | null>(() => {
+    const trial = this.screens.trial();
+    this.meta();
+    return trial?.bot != null && this.isOpen(trial.mapId) ? { waves: trial.bot, result: trial.result } : null;
+  });
   /** The wave "Test map" starts at (1 a normal run): the run gets the gold and research of the waves before */
   readonly testFromWave = signal(1);
   /** Where towers may stand (validation/build-areas.ts), for the overlay and the check; null before the first judgement */
@@ -123,7 +131,6 @@ export class EditorSession implements OnDestroy {
   private buildAreaMap = 0;
   private buildAreaTimer: ReturnType<typeof setTimeout> | null = null;
   private buildAreaRunning = false;
-  private stopBotListener: (() => void) | null = null;
   private readonly history = new VersionHistory();
   /** The open map's kept versions, newest first */
   readonly versions = signal<MapVersion[]>([]);
@@ -232,6 +239,10 @@ export class EditorSession implements OnDestroy {
    * itself. `open` resolves why it did not open, or null
    */
   navigator: { open(id: string): Promise<string | null>; close(): Promise<boolean> } | null = null;
+  /** The id the open map was opened for, see isOpen */
+  private askedFor: string | null = null;
+  /** The camera of the view that went while the map stayed open, for the next view (attachViewport) */
+  private keptView: CameraBookmark | null = null;
 
   constructor() {
     this.zone.runOutsideAngular(() => {
@@ -648,6 +659,18 @@ export class EditorSession implements OnDestroy {
    * nowhere)
    */
   async open(id: string): Promise<string> {
+    const opened = await this.openAs(id);
+    this.askedFor = id;
+    return opened;
+  }
+
+  /** The map `id` is the one open: itself, or the map it was opened for (a shipped map's own copy) */
+  isOpen(id: string): boolean {
+    const doc = this.editor?.doc;
+    return !!doc && (doc.meta.id === id || this.askedFor === id);
+  }
+
+  private async openAs(id: string): Promise<string> {
     await this.catalogReady;
     this.staleCopy.set(null);
     // A shipped or coop map edited before: its own copy opens again
@@ -774,8 +797,9 @@ export class EditorSession implements OnDestroy {
   private showDocument(doc: CustomMapDocument, frame: boolean): void {
     for (const u of this.unsubscribe) u();
     this.unsubscribe = [];
-    // A spot Look described belongs to the map before
+    // A spot Look described belongs to the map before, a kept camera too
     this.settings.look.at = null;
+    if (frame) this.keptView = null;
     if (this.editor) this.editor.replace(doc);
     else this.editor = new EditorDocument(doc);
     const editor = this.editor;
@@ -833,6 +857,8 @@ export class EditorSession implements OnDestroy {
     this.staleCopy.set(null);
     this.readOnly.set(false);
     this.editor = null;
+    this.askedFor = null;
+    this.keptView = null;
     this.meta.set(null);
     return true;
   }
@@ -861,6 +887,9 @@ export class EditorSession implements OnDestroy {
       });
       this.viewport.setTool(this.tools[this.tool()]);
       if (this.readOnly()) this.viewport.setLocked(true);
+      // Back from the game: the camera where it was
+      if (this.keptView) this.viewport.showView(this.keptView, true);
+      this.keptView = null;
       this.showBuildAreas();
     });
     this.hint.set(this.tools[this.tool()].hint(this.viewport!.ctx));
@@ -875,14 +904,19 @@ export class EditorSession implements OnDestroy {
     } else this.flash('The view is back');
   }
 
-  /** The view does not come back: save, then load the page anew */
+  /** The view does not come back: save, then load the editor's page anew on this map (`/editor?map=`) */
   async reloadPage(): Promise<void> {
     this.refresh();
     if (this.dirty() && !this.readOnly()) await this.save(false);
-    location.reload();
+    const id = this.editor?.doc.meta.id;
+    const url = new URL('editor', document.baseURI);
+    if (id) url.searchParams.set(EDITOR_MAP_PARAM, id);
+    location.assign(url.toString());
   }
 
   detachViewport(): void {
+    // The game shows (the view goes, the map stays): the next view of this map stands where this one stood
+    this.keptView = this.viewport && this.editor ? this.viewport.cameraView() : null;
     this.viewport?.dispose();
     this.viewport = null;
     // The sound stopped with the view; a new view starts it only from a click
@@ -1382,49 +1416,36 @@ export class EditorSession implements OnDestroy {
   }
 
   /**
-   * The game's bot plays the first waves of this map in the test tab at high
-   * speed (`?bot=trial&trialWaves=N`) and sends its result back
+   * The game's bot plays the first waves of this map at high speed, in this
+   * window (WorldStart.trial); its result comes back to AppScreen.trial and
+   * shows in the check once the editor is back
    */
-  async botCheck(waves = BOT_CHECK_WAVES): Promise<void> {
-    const doc = this.doc;
-    if (!doc || this.blocked('The bot check')) return;
-    const test = openTestWindow();
-    if (!(await this.save(true))) return dropTestWindow(test);
-    const url = new URL(document.baseURI);
-    url.searchParams.set(WORLD_URL_PARAM, worldUrlValue({ kind: 'custom-map', mapId: doc.meta.id, contentHash: '' })!);
-    url.searchParams.set('bot', 'trial');
-    url.searchParams.set(MAP_TRIAL_WAVES_PARAM, String(waves));
-    this.botTrial.set({ waves, result: null });
-    this.stopBotListener?.();
-    const listen = (e: MessageEvent) => {
-      const data = e.data as { type?: string; result?: MapTrialResult } | null;
-      if (e.origin !== window.location.origin || data?.type !== MAP_TRIAL_MESSAGE || !data.result) return;
-      this.zone.run(() => this.botTrial.set({ waves, result: data.result! }));
-      this.stopBotListener?.();
-    };
-    window.addEventListener('message', listen);
-    this.stopBotListener = () => {
-      window.removeEventListener('message', listen);
-      this.stopBotListener = null;
-    };
-    showInTestWindow(test, url);
+  botCheck(waves = BOT_CHECK_WAVES): Promise<void> {
+    return this.trial('The bot check', waves);
   }
 
   /**
-   * Saves, then opens the game on this map in the test tab (the one tab each
-   * test reuses); from wave `testFromWave` on when that is past 1
-   * (`?fromWave=N`, customMapStartWave)
+   * Saves, then plays this map in the game in this window, from wave
+   * `testFromWave` on when that is past 1 (WorldStart.startWave). The editor
+   * waits with the map and its history; "Back to the editor" in the game
+   * comes back to them. The test is never saved.
    */
-  async testPlay(): Promise<void> {
+  testPlay(): Promise<void> {
+    return this.trial('The test', null);
+  }
+
+  private async trial(what: string, bot: number | null): Promise<void> {
     const doc = this.doc;
-    if (!doc || this.blocked('The test')) return;
-    const test = openTestWindow();
-    if (!(await this.save(true))) return dropTestWindow(test);
-    const url = new URL(document.baseURI);
-    url.searchParams.set(WORLD_URL_PARAM, worldUrlValue({ kind: 'custom-map', mapId: doc.meta.id, contentHash: '' })!);
-    const from = this.testFromWave();
-    if (from > 1) url.searchParams.set(START_WAVE_PARAM, String(from));
-    showInTestWindow(test, url);
+    if (!doc || this.blocked(what)) return;
+    if (!(await this.save(true))) return;
+    const mapId = doc.meta.id;
+    this.screens.trial.set({ mapId, bot, result: null });
+    this.worlds.open({
+      ...PLAIN_START,
+      world: { kind: 'custom-map', mapId, contentHash: '' },
+      startWave: bot === null ? this.testFromWave() : 1,
+      trial: { bot },
+    });
   }
 
   // ---------------------------------------------------------------- import
@@ -1617,7 +1638,6 @@ export class EditorSession implements OnDestroy {
     // Leaving the page (another route): what is not saved yet goes now
     if (this.editor && this.dirty() && !this.readOnly()) void this.save(false);
     this.lock?.close();
-    this.stopBotListener?.();
     for (const u of this.unlistenAgent) u();
     if (this.statusTimer) clearTimeout(this.statusTimer);
     this.detachViewport();
@@ -1647,28 +1667,3 @@ export function saveErrorText(e: unknown): string {
   return `The map was not saved (${err?.message ?? 'unknown error'}). Your changes are still here; try again or download the map (File menu).`;
 }
 
-/**
- * The test tab, taken at once, still inside the click: a browser lets a
- * window open only within the click's short user activation, and saving a
- * big map (with its thumbnail) can outlast it. An empty address opens a
- * blank tab, or returns the test tab of an earlier test without reloading
- * it. Null when the browser refused.
- */
-export function openTestWindow(): Window | null {
-  return window.open('', MAP_TEST_WINDOW);
-}
-
-/** Closes a test tab opened for nothing (the save failed); one that shows an earlier test stays */
-function dropTestWindow(test: Window | null): void {
-  try {
-    if (test && !test.closed && test.location.href === 'about:blank') test.close();
-  } catch {
-    // Not ours to read: leave it
-  }
-}
-
-/** Sends the test tab opened in the click to `url`; without one (refused), tries to open it now */
-export function showInTestWindow(test: Window | null, url: URL): void {
-  if (test && !test.closed) test.location.href = url.toString();
-  else window.open(url.toString(), MAP_TEST_WINDOW);
-}

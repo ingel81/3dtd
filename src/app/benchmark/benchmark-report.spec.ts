@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  benchmarkUrl, browserOf, formatBenchmark, isBenchmarkSearch, osOf, shortGpu, type BenchmarkEnv, type BenchmarkRow,
+  browserOf, formatBenchmark, isBenchmarkSearch, osOf, shortGpu, type BenchmarkEnv, type BenchmarkRow,
 } from './benchmark-report';
 
 const env: BenchmarkEnv = {
@@ -25,10 +25,8 @@ const row = (enemies: number, speedSet: number, settled = true): BenchmarkRow =>
 });
 
 describe('benchmark report', () => {
-  it('sends the page into the DevWorld with the flag and the bot off, and knows the flag again', () => {
-    const url = benchmarkUrl('https://3dtd.example/?l=48.7,9.1#x');
-    expect(url).toBe('https://3dtd.example/?devworld=&bot=manual&benchmark=');
-    expect(isBenchmarkSearch(new URL(url).search)).toBe(true);
+  it('knows the flag of a link, in the DevWorld only', () => {
+    expect(isBenchmarkSearch('?devworld=&bot=manual&benchmark=')).toBe(true);
     expect(isBenchmarkSearch('?benchmark')).toBe(false);
     expect(isBenchmarkSearch('?devworld')).toBe(false);
   });

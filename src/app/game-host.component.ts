@@ -1,10 +1,10 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, Injector, afterNextRender, effect, inject, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Injector, afterNextRender, effect, inject, signal, untracked } from '@angular/core';
 import { TowerDefenseComponent } from './tower-defense.component';
 import { WorldsStageComponent } from './worlds/worlds-stage.component';
 import { WorldSession } from './world/world-session.service';
 
 /**
- * The game route: the globes while no world is open, else one game per
+ * The game screen: the globes while no world is open, else one game per
  * world the page opens (WorldSession). A new world takes the game down,
  * with its engine, worker and canvas, and makes a new one; closing it goes
  * back to the globes. The page does not reload.
@@ -32,7 +32,6 @@ export class GameHostComponent {
   protected readonly shown = signal<number | null>(this.session.isOpen() ? this.session.world() : null);
 
   constructor() {
-    inject(DestroyRef).onDestroy(this.session.hostAttached());
     const injector = inject(Injector);
     effect(() => {
       const world = this.session.world();

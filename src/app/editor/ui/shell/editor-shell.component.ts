@@ -13,7 +13,6 @@ import {
   viewChild,
 } from '@angular/core';
 import type { DocChange } from '../../model/editor-document';
-import { ActivatedRoute, Router } from '@angular/router';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TdIconComponent, type TdIconName } from '../../../components/icon/icon.component';
 import { SYMMETRY_MODES, type SymmetryMode } from '../../ops/symmetry';
@@ -50,6 +49,11 @@ import { WaterPanelComponent } from '../panels/water-panel.component';
 import { MAX_START_WAVE } from '../../../sim/protocol/run-start';
 import { AgentBandComponent } from '../agent/agent-band.component';
 import { AgentControlComponent } from '../agent/agent-control.component';
+import { WorldPathComponent, type PathAction, type PathChip } from '../../../components/world-path/world-path.component';
+import { AppScreen } from '../../../world/app-screen.service';
+import { WorldSession } from '../../../world/world-session.service';
+import { PLAIN_START } from '../../../world/world-start';
+import { WorldsStageService } from '../../../worlds/worlds-stage.service';
 
 const LEGEND_KEY = '3dtd-editor-legend';
 const SIDE_KEY = '3dtd-editor-side';
@@ -134,6 +138,7 @@ export const TOOL_ICON: Record<ToolId, TdIconName> = {
     ContextHintComponent,
     AgentBandComponent,
     AgentControlComponent,
+    WorldPathComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './editor-shell.component.html',
@@ -146,8 +151,17 @@ export const TOOL_ICON: Record<ToolId, TdIconName> = {
 })
 export class EditorShellComponent implements OnDestroy {
   readonly session = inject(EditorSession);
-  private readonly router = inject(Router);
-  private readonly route = inject(ActivatedRoute);
+  private readonly screens = inject(AppScreen);
+  private readonly worlds = inject(WorldSession);
+  private readonly stage = inject(WorldsStageService);
+  /** The run the editor came from, waiting as autosave (AppScreen.waitingRun) */
+  private readonly waitingRun = this.screens.waitingRun;
+  /** The path's chip of that run: a click goes back to it */
+  readonly pathChips = computed<readonly PathChip[]>(() => {
+    const run = this.waitingRun();
+    return run ? [{ id: 'run', label: `${run.label} | autosave`, hint: 'Back to the run, loaded from its autosave' }] : [];
+  });
+  readonly playHint = computed(() => (this.runOfThisMap() ? 'Back to the run on this map' : 'Play this map'));
   readonly closed = output<void>();
   readonly tools = TOOLS;
   readonly toolGroups = TOOL_GROUPS;
@@ -266,10 +280,9 @@ export class EditorShellComponent implements OnDestroy {
     this.session.flash(mode === 'none' ? 'Symmetry off' : `Symmetry: ${SYMMETRY_MODES.find((m) => m.id === mode)!.label}`);
   }
 
-  /** A fresh copy of the changed original; the address names it, so a reload opens it */
+  /** A fresh copy of the changed original, opened in place of the copy (which stays in the list) */
   async freshCopy(): Promise<void> {
-    const id = await this.session.freshCopy();
-    if (id) await this.router.navigate([], { relativeTo: this.route, queryParams: { map: id }, replaceUrl: true });
+    await this.session.freshCopy();
   }
 
   /** Wind, water and particles stand still in the view, or move again */
@@ -678,6 +691,30 @@ export class EditorShellComponent implements OnDestroy {
 
   async leave(): Promise<void> {
     this.closed.emit();
+  }
+
+  /** The run that waits plays this map (or the map this copy was opened for) */
+  private runOfThisMap(): boolean {
+    const mapId = this.waitingRun()?.mapId;
+    return !!mapId && this.session.isOpen(mapId);
+  }
+
+  /**
+   * A step of the path: Worlds to the globes (the editor saves first), the run's chip back to the run that
+   * waits, Maps to the editor's list, Play back to this map's run or a new run on it
+   */
+  onPath(action: PathAction): void {
+    if (action === 'worlds') {
+      void this.screens.showGame().then((shown) => shown && this.stage.leaveGame(null));
+    } else if (typeof action === 'object' && action.chip === 'run') {
+      this.worlds.backToGame();
+    } else if (action === 'world') {
+      void this.leave();
+    } else if (action === 'play') {
+      const id = this.session.doc?.meta.id;
+      if (this.runOfThisMap()) this.worlds.backToGame();
+      else if (id) this.worlds.open({ ...PLAIN_START, world: { kind: 'custom-map', mapId: id, contentHash: '' }, play: true, label: this.title() });
+    }
   }
 
   toggleFile(): void {

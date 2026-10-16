@@ -50,7 +50,7 @@ const isManual = (id: string): boolean => ORDER.indexOf(id) >= AUTOSAVES.length;
  * part is the slots, the names, the notes and one action at a time. The
  * port's startPlace is the game's (SaveGameService).
  */
-export class SaveGame implements Omit<SaveGamePort, 'startPlace'> {
+export class SaveGame implements Omit<SaveGamePort, 'startPlace' | 'autosaveNow'> {
   private readonly stored = signal<readonly StoredSlotMeta[]>([]);
   /** A save or load in flight: a second one waits its turn */
   private busy: Promise<unknown> = Promise.resolve();

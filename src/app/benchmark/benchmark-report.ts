@@ -67,17 +67,6 @@ export interface BenchmarkRow {
   settled: boolean;
 }
 
-/** `href` with the flag and the DevWorld on, the bot off: where the menu's entry sends the page */
-export function benchmarkUrl(href: string): string {
-  const url = new URL(href);
-  url.search = '';
-  url.hash = '';
-  url.searchParams.set('devworld', '');
-  url.searchParams.set('bot', 'manual');
-  url.searchParams.set(BENCHMARK_FLAG, '');
-  return url.toString();
-}
-
 /** The page was loaded to run the benchmark (search string of the location) */
 export function isBenchmarkSearch(search: string): boolean {
   const params = new URLSearchParams(search);

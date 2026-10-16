@@ -34,6 +34,8 @@
     [placementMode]="mapPlacementMode()"
     [canPlace]="canPlaceOnMap()"
     [locationLocked]="uiStore.coopMapLocked()"
+    [path]="gamePath()"
+    (pathGo)="onPath($event)"
     (locationClick)="openPlaceChoice()"
     (closeClick)="close()"
     (menuClick)="mainMenu.open()"

@@ -79,6 +79,11 @@ export interface SaveGamePort {
   importFile(file: File): Promise<LoadResult>;
   /** Load the autosave */
   continueAutosave(): Promise<LoadResult>;
+  /**
+   * Write this world's autosave now, between waves (the map editor opens and the run waits as it,
+   * docs/WORLDS_NAVIGATION_PLAN.md decision 2); false when nothing was written (in a wave, no such world)
+   */
+  autosaveNow(): Promise<boolean>;
 }
 
 const NOT_BUILT = 'Saving is not built yet.';
@@ -105,6 +110,9 @@ export class SaveGameStub implements SaveGamePort {
   }
   async exportFile(): Promise<SaveResult> {
     return { ok: false, reason: NOT_BUILT };
+  }
+  async autosaveNow(): Promise<boolean> {
+    return false;
   }
   async importFile(): Promise<LoadResult> {
     return { ok: false, reason: NOT_BUILT };

@@ -1,3 +1,4 @@
+import { WorldPathComponent, type PathAction } from '../components/world-path/world-path.component';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -26,7 +27,6 @@ import { readDesktopBridge } from '../core/desktop-bridge';
 import { GlobeDirectorService, homeLongitude } from '../services/world/globe-director.service';
 import { SAVE_GAME } from '../services/save-game/save-game.port';
 import { WorldChoiceService } from '../world/world-choice.service';
-import { WORLD_NAVIGATE } from '../world/world-session.service';
 import type { LatLon } from '../globe/globe-geo';
 import type { StageGlobeId } from '../globe/globe-stage';
 import { focusQuietly } from '../utils/keyboard-target';
@@ -37,6 +37,7 @@ import { WorldOsmComponent } from './world-osm.component';
 import { WorldRealComponent } from './world-real.component';
 import { WORLD_IDS, WORLD_NAMES, type AutosaveRun, type WorldId, type WorldPick } from './world-rules';
 import { WorldsStageService, type StageOverlay } from './worlds-stage.service';
+import { placeLabel } from '../services/location/place-label';
 
 /** An entry of the menu on the globes */
 interface StartItem {
@@ -78,6 +79,7 @@ const OVERLAY_TITLES: Record<Exclude<StageOverlay, 'key'>, string> = {
   selector: 'app-worlds-stage',
   standalone: true,
   imports: [
+    WorldPathComponent,
     CdkTrapFocus,
     TdIconComponent,
     RovingGroupDirective,
@@ -103,7 +105,6 @@ export class WorldsStageComponent {
   readonly stage = inject(WorldsStageService);
   private readonly config = inject(ConfigService);
   private readonly worlds = inject(WorldChoiceService);
-  private readonly navigate = inject(WORLD_NAVIGATE);
   private readonly globeSetting = inject(GlobeDirectorService).setting;
   private readonly dialog = inject(MatDialog);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
@@ -125,7 +126,10 @@ export class WorldsStageComponent {
   readonly background = computed(() => (this.view() === 'world' ? this.world() : null));
 
   readonly pick = computed(() => this.stage.picks()[this.world()]);
-  readonly pickName = computed(() => this.pick()?.name.split(',')[0] ?? null);
+  readonly pickName = computed(() => {
+    const pick = this.pick();
+    return pick ? (pick.kind === 'place' ? placeLabel(pick.name) : pick.name) : null;
+  });
 
   /** The other two worlds beside the big globe */
   readonly otherWorlds = computed(() => WORLD_IDS.filter((w) => w !== this.world()));
@@ -245,10 +249,18 @@ export class WorldsStageComponent {
     item.run();
   }
 
-  /** The map editor, its own page until it moves into the app (plan, phase 4) */
+  /** A step of the path: the globes, this world's menu, Start or Edit of the pick */
+  onPath(action: PathAction): void {
+    if (action === 'worlds') this.stage.toGlobes();
+    else if (action === 'world') this.stage.openWorld(this.world());
+    else if (action === 'play') this.stage.start();
+    else if (action === 'edit') this.stage.edit();
+  }
+
+  /** The map editor in this window */
   openEditor(): void {
     if (this.stage.whyNot('edit', null)) return;
-    this.navigate(this.worlds.editorUrl());
+    this.worlds.editMap(null);
   }
 
   closeOverlay(): void {

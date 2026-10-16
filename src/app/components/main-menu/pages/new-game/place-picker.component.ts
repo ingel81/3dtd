@@ -4,6 +4,7 @@ import { TdIconComponent } from '../../../icon/icon.component';
 import { RovingGroupDirective } from '../../../roving-group.directive';
 import { WorldGlobeComponent } from '../../../world-globe/world-globe.component';
 import { GeocodingService, NominatimAddress, UNKNOWN_LOCATION_NAME } from '../../../../services/location/geocoding.service';
+import { placeLabel } from '../../../../services/location/place-label';
 import { GeolocationService } from '../../../../services/location/geolocation.service';
 import { LocationManagementService } from '../../../../services/location/location-management.service';
 import { LocationChangeCoordinatorService } from '../../../../services/location/location-change-coordinator.service';
@@ -277,14 +278,12 @@ export class PlacePickerComponent {
     const current = this.current();
     if (!current) return;
     const spawnsAt = this.locationMgmt.spawns().map((s) => ({ lat: s.lat, lon: s.lon }));
-    this.mapOfPlace.emit({ place: { lat: current.lat, lon: current.lon, name: shortName(current.name), address: current.name }, spawnsAt });
+    this.mapOfPlace.emit({ place: { lat: current.lat, lon: current.lon, name: placeLabel(current.name), address: current.name }, spawnsAt });
   }
 
-  /** A searched place's name as the list shows it: its own, the place from its address, or the coordinates */
+  /** A searched place's name as the search list shows it (street and number, locality), or the coordinates */
   private placeName(hq: SearchedPlace): string {
-    const extracted = hq.address ? this.geocoding.extractLocationName(hq.address) : UNKNOWN_LOCATION_NAME;
-    if (extracted !== UNKNOWN_LOCATION_NAME) return extracted;
-    return hq.name ? shortName(hq.name) : `${hq.lat.toFixed(4)}, ${hq.lon.toFixed(4)}`;
+    return hq.name ? placeLabel(hq.name, hq.address) : `${hq.lat.toFixed(4)}, ${hq.lon.toFixed(4)}`;
   }
 
   // ---- One click ----

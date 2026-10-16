@@ -285,13 +285,14 @@ export class EditorViewport {
     return { x: g.target.x, y: g.target.y, z: g.target.z, distance: g.distance, yaw: g.yaw, pitch: g.pitch };
   }
 
-  /** Fly to a kept view */
-  showView(v: CameraBookmark): void {
+  /** Fly to a kept view; `snap` stands there at once (a view made anew) */
+  showView(v: CameraBookmark, snap = false): void {
     const g = this.controller.goal;
     g.target.set(v.x, v.y, v.z);
     g.distance = v.distance;
     g.yaw = v.yaw;
     g.pitch = v.pitch;
+    if (snap) this.controller.snap();
   }
 
   /** Where the camera stands and the point it looks at now, in map space (the intro's views) */
