@@ -203,7 +203,8 @@ const B2 = stage('b2-mountains', 1, [
 
 const B3 = stage('b3-water', 2, [
   ringOn,
-  path(2, ['current', [m(170, 230, 230), m(30, 380, 40)]], { ease: 'inOut' }),
+  // Steep onto the step: flatter, the view went over the map's north edge
+  path(2, ['current', [m(110, 250, 280), m(40, 370, 40)]], { ease: 'inOut' }),
   ...pick(tool('landscape', { label: 'river' }), mode('river'), settings({ landscape: { river: { width: 16, depth: 2.5, bank: 10, reeds: true, bridges: true, kind: 'water' } } })),
   // The camera goes down the river with the pointer
   par(stroke(5, P.river.map((p) => pt(p)), { settle: 0.3 }), path(5, ['current', [m(80, -260, 260), m(-80, -40, 0)]], { ease: 'inOut' })),
@@ -275,7 +276,8 @@ const B4 = stage('b4-roads', 3, [
   effect('cobblestone'),
   key('Escape'),
   // The east road and its spawn
-  frame([pt(P.eastRoad[0]), pt(P.eastRoad[P.eastRoad.length - 1])], { from: 340, pitch: 42, margin: 20, pad: 1, glide: 1.6 }),
+  // From the east looking in: from the south the map's edge filled half the picture
+  frame([pt(P.eastRoad[0]), pt(P.eastRoad[P.eastRoad.length - 1])], { from: 80, pitch: 42, margin: 20, pad: 1, glide: 1.6 }),
   ...pick(tool('landscape'), mode('road', { label: 'east road' }), settings({ landscape: { road: { width: 8 } } })),
   stroke(2.4, P.eastRoad.map((p) => pt(p)), { settle: 0.3 }),
   ...idle(0.6),
