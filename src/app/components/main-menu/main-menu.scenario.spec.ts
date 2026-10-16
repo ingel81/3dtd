@@ -33,6 +33,7 @@ import { COOP } from '../../services/coop.token';
 import { AUTOSAVE_MAP_SLOT, AUTOSAVE_SLOT, SAVE_GAME, type LoadResult, type SaveSlotInfo } from '../../services/save-game/save-game.port';
 import { CUSTOM_MAPS_OPEN } from '../../world/custom-maps-open';
 import { WorldChoiceService } from '../../world/world-choice.service';
+import { WorldSession } from '../../world/world-session.service';
 import { EngineInitializationService } from '../../services/infrastructure/engine-initialization.service';
 import { LocationManagementService } from '../../services/location/location-management.service';
 import { LocationChangeCoordinatorService } from '../../services/location/location-change-coordinator.service';
@@ -127,6 +128,7 @@ describe('The main menu', () => {
   });
 
   let world = fakeWorldContext();
+  const session = { reopen: vi.fn() };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -165,6 +167,7 @@ describe('The main menu', () => {
         { provide: MatDialog, useValue: dialog },
         { provide: CUSTOM_MAPS_OPEN, useValue: mapsOpen },
         { provide: WorldChoiceService, useValue: worlds },
+        { provide: WorldSession, useValue: session },
       ],
     });
     TestBed.overrideComponent(MainMenuComponent, {
@@ -472,6 +475,18 @@ describe('The main menu', () => {
 
       await click(Array.from(alert.querySelectorAll<HTMLElement>('button')).find((b) => b.textContent === 'Other place')!);
       expect(menu.page()).toBe('new-game');
+    });
+
+    it('Retry on a load without its own retry opens the world anew in the page, not the page without its link', async () => {
+      session.reopen.mockClear();
+      engineInit.loading.set(false);
+      await setup();
+      ui.loadProblem.set({ text: 'Outside the 3D tiles.', blocksPlay: true });
+      await settle();
+
+      const alert = el().querySelector('app-menu-loading [role="alert"]')!;
+      await click(Array.from(alert.querySelectorAll<HTMLElement>('button')).find((b) => b.textContent === 'Retry')!);
+      expect(session.reopen).toHaveBeenCalledTimes(1);
     });
 
     it('a place that did not load beside the one standing leaves Play to it', async () => {

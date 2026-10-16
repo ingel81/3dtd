@@ -4,6 +4,7 @@ import { LocationManagementService } from '../../../services/location/location-m
 import { ConfigService } from '../../../core/services/config.service';
 import { UIStore } from '../../../store/ui.store';
 import { WorldContext } from '../../../world/world-context.service';
+import { WorldSession } from '../../../world/world-session.service';
 import { worldPlaceName } from '../../../world/world-ref';
 import { MainMenuService } from '../main-menu.service';
 import { loadingPlateView, mapDataLine } from './loading-plate';
@@ -34,6 +35,7 @@ export class MenuLoadingComponent {
   private readonly config = inject(ConfigService);
   private readonly ui = inject(UIStore);
   private readonly world = inject(WorldContext);
+  private readonly session = inject(WorldSession);
   readonly menu = inject(MainMenuService);
 
   readonly steps = this.engineInit.loadingSteps;
@@ -84,11 +86,11 @@ export class MenuLoadingComponent {
     this.stepsOpen.update((open) => !open);
   }
 
-  /** Try the load again: its own retry, else the page anew (the link keeps the place) */
+  /** Try the load again: its own retry, else the world anew in the page (its start order keeps the place) */
   retry(): void {
     const retry = this.ui.loadProblem()?.retry;
     if (retry) retry();
-    else window.location.reload();
+    else this.session.reopen();
   }
 
   otherPlace(): void {
