@@ -1,6 +1,6 @@
 # Welten und Navigation aus einem Guss (Plan)
 
-Status: Phase 1 bis 3 gebaut (Abschnitt 7), Rest Plan. Entscheidungen des Users in Abschnitt 6.
+Status: Phase 1 bis 5 gebaut (Abschnitt 7), Rest Plan. Entscheidungen des Users in Abschnitt 6.
 Grundlagen: TODO E195, Klick-Dummy `tmp/plan/mockups/world-globes/index.html` (Datenmodell, Regeln, Navigationskarte,
 Abgleichsliste „heute vorhanden → im Dummy“), die gewählte Darstellung aus dem Dummy.
 
@@ -439,5 +439,61 @@ Dev-Build (`ng`), im Produktions-Build stehen sie auf -1.
   (`LINK_PARAMS`), einmal gelesen; Startmenü und Menü-Globus bleiben bei einem Benchmark-Auftrag weg wie beim Link.
   `benchmarkUrl`, `renderBenchmarkUrl`, `hereUrl` und die Rückkehr über `sessionStorage` sind entfernt.
 - Bleibt bis zu den späteren Phasen: der Editor ist eine eigene Seite (Phase 4), Doppelklick aus dem Editor lädt die
-  Spielseite; das Probespiel öffnet einen Tab (Phase 5).
+  Spielseite; das Probespiel öffnet einen Tab (Phase 5). Beides ist mit Phase 4 und 5 erledigt.
+
+### Phase 4: Editor in der App (2026-10-16)
+
+- **Hülle:** beide Routen (`/` und `/editor`) zeigen `AppShellComponent`; die Route sagt nur, was zuerst steht.
+  `world/app-screen.service.ts` (`AppScreen`, root) hält den Bildschirm (`game` oder `editor`), die Karte, die der
+  Editor als Nächstes öffnet, den wartenden Lauf und den Editor-Entwurf. Kein Wechsel ändert die Adresse.
+  `/editor?map=<id>` wird beim Start einmal gelesen (`WorldStartService.editorMap`, `map` ist ein Link-Parameter).
+- **Editor ohne Route-Wechsel:** der Code des Editors lädt beim ersten Zeigen; seine `EditorSession` lebt in einem
+  eigenen Injector der Hülle, die offene Karte samt Rückgängig-Liste bleibt, während das Spiel zeigt. Ansicht,
+  Renderer und Canvas gehen mit der Editor-Seite. Bevor das Spiel zeigt, speichert der Editor (`guardEditor`;
+  scheitert das, bleibt er). Eine Welt, die aus dem Editor geöffnet wird (Doppelklick, Token-Dialog), zeigt zuerst
+  das Spiel; `WORLD_NAVIGATE`, `worldStartUrl` und das Zählen der Spiel-Hosts sind entfernt. Neuladen öffnet die
+  Karte, die dieser Tab offen hatte (sessionStorage), weil die Adresse sie nicht mehr trägt.
+- **Edit this map und Back to the run:** Map editor, Edit in der Kartenwahl, Edit nach dem OSM-Rahmen und Edit this
+  map gehen über `MainMenuService.editMap`: der Lauf wartet als Autosave seiner Welt (Entscheidung 2), zwischen den
+  Wellen sofort geschrieben (`SaveGamePort.autosaveNow`), in einer Welle der Autosave vom Anfang dieser Welle; ohne
+  beide endet er, und die Rückfrage sagt es. „Back to the run“ (Kartenliste, Pfad, Chip) öffnet seine Welt und lädt
+  den Autosave dort (`WorldSession.backToGame`). Jede andere Welt lässt ihn los; er bleibt das Continue seiner Welt.
+- **Pfad und Chips:** `components/world-path/` zeigt `Worlds › Welt ›` Ort oder Karte `› Play | Edit` und Chips,
+  im Spiel um den Ort-Knopf der Kopfleiste, im Editor um den Kartennamen. Im Spiel: Worlds öffnet das Menü, die
+  Welt ihr New game, Edit den Editor (auf echten Orten „Make map“, dann New game); Chip „Editor: Karte“. Im Editor:
+  Worlds und der Chip des Laufs zurück zum Lauf, Maps zur Kartenliste, Play zum Lauf dieser Karte oder einem neuen.
+  Gesperrte Wege bleiben sichtbar, inaktiv, mit Grund (`world/why-not.ts`, `whyNot('play' | 'edit')`, für Phase 6
+  zum Erweitern). Ein Coop-Chip im Editor entfällt: wer den Editor öffnet, verlässt den Raum.
+- Bleibt bis Phase 6: Worlds öffnet das Pausen- bzw. Startmenü statt der Globen; der Pfad nennt die OSM-Welt noch
+  „Maps“.
+
+### Phase 5: Probespiel im Fenster (2026-10-16)
+
+- „Test map“ und der Bot-Check speichern, setzen `AppScreen.trial` und öffnen die Karte mit einem Startauftrag mit
+  `trial` (Bot-Wellen, From wave als `startWave`) im selben Fenster. Der Editor wartet mit Karte, Verlauf und Kamera
+  (`EditorSession.keptView`); Edit im Pfad, „Back to editor“ im Pausemenü und nach Game over zeigen ihn wieder. Ein
+  Probespiel wird nie gespeichert, auch nicht als Autosave („A test of the map is not saved.“), und ist kein Lauf.
+  Das Ergebnis des Bots geht an `AppScreen.trial` und steht in der Prüfung, sobald der Editor zurück ist.
+- `?bot=trial&trialWaves=N` eines Links wird beim Start zum `trial` des Auftrags; die Facade liest nur den Auftrag.
+- Entfernt: Test-Tab (`openTestWindow`, `showInTestWindow`, `MAP_TEST_WINDOW`, `MAP_EDITOR_WINDOW`), `returnToEditor`,
+  das `postMessage` des Ergebnisses, das Test-Fenster der Desktop-App (`classifyWindowOpen` verwirft jedes Fenster
+  auf dem App-Ursprung) und `e2e/tests/desktop-test-window.e2e.ts`. Die Editor-E2E spielen ihren Test in derselben
+  Seite.
+
+#### Messung: zehnmal Spiel und Editor im Wechsel
+
+Dev-Build (`ng serve`), Chrome headless, Demo Valley: Spiel, Editor auf derselben Karte (Ansicht fertig), über
+Worlds im Pfad zurück ins Spiel, nach jedem Wechsel sechsmal GC. Gezählt wie in `e2e/perf/world-switch.ts`.
+
+| Stand | Worker | lebende WebGL-Kontexte | Listener `window` | Listener `document` | Intervalle | Spielkomponenten |
+|---|---|---|---|---|---|---|
+| Start (Spiel) | 3 | 2 | 14 | 23 | 3 | 1 |
+| nach Wechsel 1 bis 10 | 4 | 3 | 16 | 24 | 4 | 1 |
+
+Der Sprung nach dem ersten Wechsel passt zur `EditorSession`, die in der Hülle lebt, solange die Seite steht: ihr
+Takt ist das Intervall; Worker und Kontext sind nach dem Code der Bauflächen-Worker und der Renderer der
+Vorschaubilder (nicht einzeln nachgewiesen). Danach bleibt jede Zahl über alle Wechsel gleich, keine Fehler, kein
+Neuladen. Der Heap ist im Dev-Build nicht aussagekräftig (Abschnitt Phase 2). Die Messung von
+`e2e/perf/world-switch.ts` auf dem Produktions-Build braucht den lokalen Schalter `CUSTOM_MAPS_RELEASED` und steht
+nach Phase 4 noch aus.
 
