@@ -1,5 +1,5 @@
 // Round 4, K1 "Your address as a map" (tmp/showreel/DREHBUCH_R4.md 2.3): an OSM world made from an address in the
-// menu, then flown over in the game. The network comes from a recording (fixtures/osm-miltenberg.har.zip, made by
+// OpenStreetMap world's menu (picked on the globes, where K0 ends), then flown over in the game. The network comes from a recording (fixtures/osm-miltenberg.har.zip, made by
 // net-fixture.mjs): Nominatim, Overpass, the Mapterhorn heights and the OpenFreeMap tiles of the frame, so the take
 // never waits on a server (Overpass was down on 2026-10-16).
 //
@@ -22,22 +22,17 @@ const NET = 'fixtures/osm-miltenberg.har.zip';
 export const SCENES = [
   {
     name: 'osm-make',
-    // Today's way in (K0's globe menu hands over later, wt/e195-p6): the pause menu over a map, New game, Real places
-    page: '/?world=map:demo-valley',
-    noIntro: true,
+    // From the world menu's globes, as K0 hands over: the OpenStreetMap globe picked opens its world menu
+    start: { menu: true },
     net: NET,
-    env: { window: '2048x1152', dpr: 1.25 },
-    leave: '[data-test=osm-play]',
+    env: { window: '2048x1152', dpr: 1.25, globe: 'high' },
     steps: [
-      // The menu, then the HUD out behind it (photo mode)
-      click('.sb-menu', { dur: 0.01 }),
-      { do: 'ui', on: false },
-      wait(0.6),
-      click('app-main-menu button', { withText: 'New game', label: 'new game' }),
-      wait(0.3),
-      click('app-main-menu [role=tab]', { withText: 'Real places' }),
-      wait(0.3),
-      { do: 'type', sel: 'app-main-menu app-td-address-autocomplete input', text: ADDRESS, cps: 100000, label: 'address' },
+      { do: 'mark', name: 'globes' },
+      wait(0.8),
+      click('[data-world=osm]', { dur: 0.8, label: 'osm world' }),
+      { do: 'waitFor', sel: 'app-world-osm app-td-address-autocomplete input', timeout: 15 },
+      wait(1.2),
+      { do: 'type', sel: 'app-world-osm app-td-address-autocomplete input', text: ADDRESS, cps: 100000, label: 'address' },
       { do: 'waitFor', sel: 'app-td-address-autocomplete .result-item', timeout: 15 },
       wait(0.5),
       click('app-td-address-autocomplete .result-item'),
@@ -51,7 +46,6 @@ export const SCENES = [
       { do: 'waitFor', sel: '[data-test=osm-made]', timeout: 180 },
       { ...wait(2), label: 'effect:made' },
     ],
-    arrives: '/?world=map:osm-am-thorwengert-6',
   },
   {
     name: 'osm-fly',

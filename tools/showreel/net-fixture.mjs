@@ -38,11 +38,11 @@ function playwright() {
 /** A request that leaves the dev server */
 const external = (url, base) => /^https?:/.test(url) && new URL(url).origin !== new URL(base).origin;
 
-/** The page's address as the runner gives it: the hook on, the start menu skipped */
-function pageUrl(base, page, noIntro) {
+/** The page's address as the runner gives it: the hook on, the start menu skipped (not for a scene on the world menu) */
+function pageUrl(base, page, noIntro, menu = false) {
   const url = new URL(page, base);
   url.searchParams.set('showreel', noIntro ? 'nointro' : '');
-  if (!url.pathname.startsWith('/editor')) url.searchParams.set('menu', 'skip');
+  if (!url.pathname.startsWith('/editor') && !menu) url.searchParams.set('menu', 'skip');
   return url.toString();
 }
 
@@ -116,12 +116,14 @@ async function main() {
     deviceScaleFactor: Number(option('dpr', 1.25)),
     args: ['--ignore-gpu-blocklist', '--use-angle=d3d11', '--autoplay-policy=no-user-gesture-required'],
   });
-  await context.addInitScript(() => {
+  // A scene on the world menu (start.menu) shows its globes as a take does
+  const globe = scenes[0]?.start?.menu ? 'high' : 'off';
+  await context.addInitScript((globeQuality) => {
     localStorage.setItem('td_render_quality_v1', JSON.stringify({ setting: 'ultra', auto: null }));
     localStorage.setItem('td_seen_version', '9999.0.0');
     localStorage.setItem('td_onboarding_v2', JSON.stringify({ done: true, completed: [] }));
-    localStorage.setItem('td_globe_quality_v1', '"off"');
-  });
+    localStorage.setItem('td_globe_quality_v1', JSON.stringify(globeQuality));
+  }, globe);
 
   const entries = [];
   const missing = [];
@@ -164,8 +166,8 @@ async function main() {
   };
   try {
     for (const [i, scene] of scenes.entries()) {
-      if (scene.page && i === 0) {
-        await page.goto(pageUrl(base, scene.page, !!scene.noIntro));
+      if ((scene.page || scene.start?.menu) && i === 0) {
+        await page.goto(pageUrl(base, scene.start?.menu ? '/' : scene.page, !!scene.noIntro, !!scene.start?.menu));
         await page.waitForFunction(() => !!window.__showreel, null, { timeout: 60_000 });
         await page.evaluate(() => window.__showreel.ready(180));
         await page.waitForTimeout(1500);
