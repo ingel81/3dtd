@@ -201,11 +201,10 @@ export class VersionHistory {
    * (thinVersions) and drops those of an earlier map of the same id.
    * Returns the new version, or null when nothing was kept.
    */
-  async record(mapId: string, created: string, bytes: Uint8Array, manual: boolean, now = new Date()): Promise<MapVersion | null> {
+  async record(mapId: string, created: string, bytes: Uint8Array, manual: boolean, now = new Date(), sum = fingerprint(bytes)): Promise<MapVersion | null> {
     const all = await this.backend.list(mapId);
     const stale = all.filter((v) => v.created !== created).map((v) => v.key);
     const list = all.filter((v) => v.created === created).sort((a, b) => b.savedAt.localeCompare(a.savedAt));
-    const sum = fingerprint(bytes);
     const newest = list[0];
     if (stale.length) await this.backend.delete(stale);
     if (newest && newest.sum === sum && newest.size === bytes.byteLength) return null;

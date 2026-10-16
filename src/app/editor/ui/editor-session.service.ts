@@ -7,6 +7,7 @@
  */
 import type { GridRect } from '../model/grid';
 import { erodeJob, startTerrainJob, type TerrainJob, type TerrainJobMessage } from '../workers/terrain-job';
+import { packOffThread } from '../workers/map-pack';
 import type { DocChange } from '../model/editor-document';
 import type { MapTrialResult } from '../../world/map-trial';
 import { AppScreen } from '../../world/app-screen.service';
@@ -1221,13 +1222,14 @@ export class EditorSession implements OnDestroy {
       const doc = editor.doc;
       doc.meta.updatedAt = new Date().toISOString();
       const preview = manual ? await this.thumbnail() : null;
-      // An autosave packs fast and leaves the hash for when the game asks for it
-      const file = packMapFile(doc, { level: manual ? 6 : 1 });
+      // An autosave packs fast and leaves the hash for when the game asks for it; packed in a worker, so a
+      // save costs the view no frame
+      const { file, sum } = await packOffThread(doc, { level: manual ? 6 : 1 });
       await this.store.save(doc, preview, file, { hash: manual });
       // A version for the history; a full browser store must not fail the save
       const id = doc.meta.id;
       void this.history
-        .record(id, doc.meta.createdAt, file, manual)
+        .record(id, doc.meta.createdAt, file, manual, undefined, sum)
         .then((v) => (v ? this.loadVersions() : undefined))
         .catch(() => undefined);
       this.savedState = state;
