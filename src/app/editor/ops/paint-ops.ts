@@ -117,7 +117,7 @@ export interface AutoPaintRule {
  * a map without water: low ground away from any shore stays as it is), a
  * rock-like one slopes from 30 degrees on (gentler flanks keep their
  * grass, as on real mountains), a snow-like one the peaks, over the rock up
- * to 40 degrees so a steep summit stays white. Of several candidates a
+ * to 50 degrees so a steep summit stays white (a Mountain stroke's are that steep). Of several candidates a
  * rock is taken before a stone, a stone before a cliff.
  */
 export function defaultAutoRules(terrain: MapTerrain): AutoPaintRule[] {
@@ -145,7 +145,7 @@ export function defaultAutoRules(terrain: MapTerrain): AutoPaintRule[] {
   const rock = find('rock', 'stone', 'cliff');
   if (rock >= 0) rules.push({ layer: rock, minSlope: 35, maxSlope: 90, minHeight: -Infinity, maxHeight: Infinity, blend: 5 });
   const snow = find('snow', 'ice');
-  if (snow >= 0) rules.push({ layer: snow, minSlope: 0, maxSlope: 40, minHeight: min + span * 0.8, maxHeight: Infinity, blend: span * 0.04 });
+  if (snow >= 0) rules.push({ layer: snow, minSlope: 0, maxSlope: 50, minHeight: min + span * 0.8, maxHeight: Infinity, blend: span * 0.04 });
   return rules;
 }
 
