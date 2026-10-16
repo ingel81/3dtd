@@ -1,14 +1,12 @@
-import { Injectable, InjectionToken, Injector, computed, inject } from '@angular/core';
+import { Injectable, InjectionToken, computed, inject } from '@angular/core';
 import { ConfigService } from '../core/services/config.service';
 import { readDesktopBridge } from '../core/desktop-bridge';
 import { MapStore, type MapSummary } from './custom-map/map-store';
 import type { OwnTileset } from './tileset/own-tileset';
-import { WorldContext } from './world-context.service';
 import type { WorldRef } from './world-ref';
 import { PLAIN_START } from './world-start';
 import { WorldSession } from './world-session.service';
 import { AppScreen } from './app-screen.service';
-import { WorldsStageService } from '../worlds/worlds-stage.service';
 
 /** The shipped map a player without a tile key starts on (the token screen's "Play the maps") */
 export const FIRST_MAP_ID = 'mountain-pass';
@@ -45,17 +43,12 @@ export class WorldChoiceService {
   private readonly store = inject(MAP_STORE);
   private readonly screens = inject(AppScreen);
   private readonly config = inject(ConfigService);
-  private readonly world = inject(WorldContext);
   private readonly session = inject(WorldSession);
-  private readonly injector = inject(Injector);
   /** Object URLs of own maps' pictures, given back with the next list */
   private pictureUrls: string[] = [];
 
   /** The own tilesets the config lists */
   readonly tilesets = computed<readonly OwnTileset[]>(() => this.config.ownTilesets());
-
-  /** The world the page plays on */
-  readonly current = this.world.ref;
 
   /** Own, received and shipped maps with their pictures; a stored list that does not load is empty */
   async listMaps(): Promise<MapChoices> {
@@ -79,14 +72,6 @@ export class WorldChoiceService {
       shared: stored.filter((m) => m.summary.origin === 'shared'),
       shipped: shippedChoices,
     };
-  }
-
-  /** Whether the page plays this map or set now */
-  isCurrent(ref: WorldRef): boolean {
-    const current = this.current();
-    if (ref.kind === 'custom-map') return current.kind === 'custom-map' && current.mapId === ref.mapId;
-    if (ref.kind === 'tileset') return current.kind === 'tileset' && current.id === ref.id;
-    return current.kind === ref.kind;
   }
 
   /** Play a custom map: the game shows once it stands */
@@ -137,12 +122,6 @@ export class WorldChoiceService {
   openSave(slot: { id: string; map: { id: string; name?: string } | null }): void {
     const world: WorldRef | null = slot.map ? { kind: 'custom-map', mapId: slot.map.id, contentHash: '' } : null;
     this.session.open({ ...PLAIN_START, world, resume: slot.id, play: true, label: slot.map?.name ?? null });
-  }
-
-  /** Back to the real places of the 3D tiles: their menu on the globes asks where, the game goes */
-  playRealPlaces(): void {
-    // Looked up here: the globes' service lists the maps through this one
-    this.injector.get(WorldsStageService).leaveGame({ world: 'real', pick: null });
   }
 
   /** An own map to the editor's trash (an OpenStreetMap map off the Recent worlds); false when it did not go */

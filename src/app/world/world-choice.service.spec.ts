@@ -70,19 +70,16 @@ describe('WorldChoiceService', () => {
     expect(maps.shipped[0].summary).toMatchObject({ author: '3DTD', spawns: 2, biome: 'temperate' });
   });
 
-  it('opens the chosen map or set in the page and plays it once it stands; the real places on their menu of the globes', () => {
+  it('opens the chosen map or set in the page and plays it once it stands', () => {
     service.playMap('demo-valley', 'Demo Valley');
     service.playTileset(TILESET);
-    service.playRealPlaces();
     const [map, tileset] = opened;
     expect(map).toEqual({ ...PLAIN_START, world: { kind: 'custom-map', mapId: 'demo-valley', contentHash: '' }, play: true, label: 'Demo Valley' });
     // A set starts at the middle of its area
     expect(tileset.world).toEqual({ kind: 'tileset', id: 'synth' });
     expect(tileset.place).toEqual({ hq: { lat: 48.7784, lon: 9.18 }, spawns: [] });
     expect(tileset.play).toBe(true);
-    // The real places ask where on the globes: the game goes, their menu shows
     expect(opened).toHaveLength(2);
-    expect(stage.leaveGame).toHaveBeenCalledWith({ world: 'real', pick: null });
     // The editor opens in the window too
     service.editMap('demo-valley');
     expect(screens.screen()).toBe('editor');
@@ -98,11 +95,7 @@ describe('WorldChoiceService', () => {
     ]);
   });
 
-  it('knows the world the page plays on', () => {
-    current.set({ kind: 'custom-map', mapId: 'demo-valley', contentHash: 'abc' });
-    expect(service.isCurrent({ kind: 'custom-map', mapId: 'demo-valley', contentHash: '' })).toBe(true);
-    expect(service.isCurrent({ kind: 'custom-map', mapId: 'bay', contentHash: '' })).toBe(false);
-    expect(service.isCurrent({ kind: 'tileset', id: 'synth' })).toBe(false);
+  it('lists the own tilesets of the config', () => {
     expect(service.tilesets()).toEqual([TILESET]);
   });
 

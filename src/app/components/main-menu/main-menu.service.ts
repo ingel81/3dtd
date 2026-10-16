@@ -150,8 +150,6 @@ export class MainMenuService {
 
   // ---- Real places and custom maps ----
 
-  /** The page plays a custom map */
-  readonly onMap = computed(() => this.worldContext.ref().kind === 'custom-map');
   /** The custom map this page plays, to edit: while the maps are open (or back from the editor's test), not in a replay; else null */
   readonly editableMapId = computed(() => {
     const ref = this.worldContext.ref();
