@@ -1,6 +1,6 @@
 # Welten und Navigation aus einem Guss (Plan)
 
-Status: Phase 1 und 2 gebaut (Abschnitt 7), Rest Plan. Entscheidungen des Users in Abschnitt 6.
+Status: Phase 1 bis 3 gebaut (Abschnitt 7), Rest Plan. Entscheidungen des Users in Abschnitt 6.
 Grundlagen: TODO E195, Klick-Dummy `tmp/plan/mockups/world-globes/index.html` (Datenmodell, Regeln, Navigationskarte,
 Abgleichsliste „heute vorhanden → im Dummy“), die gewählte Darstellung aus dem Dummy.
 
@@ -417,4 +417,27 @@ Neuladen. Die ersten Wechsel steigen um rund 8 MB (übersetzter Code, Caches der
 0,25 MB je Wechsel bleibt; ein Heap-Vergleich zeigt noch abgelöstes DOM alter Spiele (Seitenleiste, Icons,
 Vorschau-Canvas), sein Halter ist nicht gefunden. Geometrien und Texturen des Renderers liest das Skript nur im
 Dev-Build (`ng`), im Produktions-Build stehen sie auf -1.
+
+### Phase 3: Coop und Desktop folgen (2026-10-16)
+
+- **Raum über den Weltwechsel:** `WorldSession.onLeaving` meldet, dass die offene Welt für eine andere in der Seite
+  geht, solange ihr Spiel noch steht. Ein `CoopService` in der Lobby gibt dort seine Relay-Verbindung samt Chat und
+  LAN-Relay an `coop/coop-room-carry.ts` (`CoopSession.unhook` nimmt die alten Handler ab), der `CoopService` der
+  nächsten Welt nimmt sie auf (`takeUpRoom`). Der Host sagt dem Raum „changing the map“ und schickt die neue Welt,
+  sobald sie steht; der Gast meldet „loading“ und nimmt die Welt, die die Sitzung behielt, nur wenn sie die neue ist
+  (sonst wäre es die alte des Hosts, und er spränge zurück). Das Startmenü der neuen Welt öffnet auf der Coop-Seite.
+  Ein laufendes Coop-Spiel geht nicht mit: wer die Welt wechselt, verlässt es wie bisher.
+- **Gast folgt in der Seite:** `reloadAtMap` und `reloadAt` sind entfernt (`followTo`): auf die Karte des Hosts, an
+  den Ort des Hosts, wenn das Hingehen in der Welt scheiterte, und neu von einer Karte in die Echtwelt, wenn der Host
+  auf echten Orten spielt (vorher nur eine Meldung). Specs: `coop.service.scenario.spec.ts` (Host wechselt die Welt,
+  Gast folgt von einer Karte an den Ort, beide über einen echten Relay, ohne „left“).
+- **Desktop:** die doppelt geklickte Karte öffnet seit Phase 2 im Fenster; in einem Coop-Raum, dessen Karte der Host
+  wählt, bleibt jetzt die Welt und ein Hinweis nennt den Kartenordner (`world/opened-map-leave.ts`).
+- **Benchmarks im Fenster:** der Startauftrag trägt `benchmark` (`load` oder `render` und den Rückweg `back`).
+  „Benchmark“ öffnet die DevWorld in der Seite, „Back to your place“ Welt und Ort davor (`orderHere`); „Graphics
+  benchmark“ öffnet dieselbe Welt am selben Ort neu. `&benchmark` eines Links ist jetzt ein Link-Parameter
+  (`LINK_PARAMS`), einmal gelesen; Startmenü und Menü-Globus bleiben bei einem Benchmark-Auftrag weg wie beim Link.
+  `benchmarkUrl`, `renderBenchmarkUrl`, `hereUrl` und die Rückkehr über `sessionStorage` sind entfernt.
+- Bleibt bis zu den späteren Phasen: der Editor ist eine eigene Seite (Phase 4), Doppelklick aus dem Editor lädt die
+  Spielseite; das Probespiel öffnet einen Tab (Phase 5).
 
