@@ -33,4 +33,15 @@ describe('uploadRect', () => {
       { start: (5 * 8 + 2) * 4, count: 2 * 4 },
     ]);
   });
+
+  it('keeps a whole upload whole until the renderer made it: a rectangle asked before adds no ranges', () => {
+    const t = texture(8, 6);
+    uploadRect(t, undefined);
+    uploadRect(t, { i0: 2, j0: 4, i1: 3, j1: 5 });
+    expect(t.updateRanges).toEqual([]);
+    // The renderer uploaded it (three calls onUpdate): rectangles go up on their own again
+    t.onUpdate?.(t);
+    uploadRect(t, { i0: 2, j0: 4, i1: 3, j1: 4 });
+    expect(t.updateRanges).toEqual([{ start: (4 * 8 + 2) * 4, count: 2 * 4 }]);
+  });
 });

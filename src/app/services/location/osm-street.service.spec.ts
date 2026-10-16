@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { OsmStreetService, BuildingFootprint, StreetNetwork, STREET_RADIUS_M, thinRoute } from './osm-street.service';
+import { OsmStreetService, BuildingFootprint, StreetNetwork, STREET_RADIUS_M, STREETS_UNREACHABLE, thinRoute } from './osm-street.service';
+import { isOverpassCancelled } from '../../world/osm/overpass-client';
 import { boxAround } from './street-box';
 import { ROUTE_START_NODE_ID } from '../../utils/route-start';
 import { extendPathToOptimalTurnoff, leavePathForBase } from '../../utils/route-geometry';
@@ -428,6 +429,20 @@ describe('OsmStreetService', () => {
       ]),
     });
     const logged = (): string[] => warn.mock.calls.map((call: unknown[]) => String(call[0]));
+    /**
+     * Fail every request as it comes until the load gives up: the rounds of
+     * the retries (overpass-client.ts) and their waits, on fake timers
+     */
+    const failAll = async (from = 0, error = () => new TypeError('Failed to fetch')) => {
+      let next = from;
+      for (let s = 0; s < 150; s++) {
+        await flush();
+        while (next < requests.length) requests[next++].fail(error());
+        await vi.advanceTimersByTimeAsync(1000);
+      }
+      return next - from;
+    };
+    const fakeTime = () => vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
 
     beforeEach(() => {
       requests = [];
@@ -474,7 +489,7 @@ describe('OsmStreetService', () => {
 
       expect(network.streets.map((street) => street.id)).toEqual([1]);
       expect(logged()).toContainEqual(expect.stringMatching(
-        /^\[OSM\] streets from overpass-api\.de failed after \d+ms: OSM API error: 504$/,
+        /^\[OSM\] streets from overpass-api\.de failed after \d+ms \(try 1 of 5\): busy, HTTP 504$/,
       ));
       expect(logged()).toContainEqual(expect.stringMatching(
         /^\[OSM\] streets from overpass\.private\.coffee: headers=\d+ body=\d+ms size=\d+\.\dMB ways=1 nodes=2 remark="runtime error: out of memory"$/,
@@ -515,7 +530,7 @@ describe('OsmStreetService', () => {
 
       expect(requests).toHaveLength(2);
       expect(requests[0].signal.aborted).toBe(true);
-      expect(logged()).toContainEqual(expect.stringMatching(/overpass-api\.de failed after \d+ms: no answer within 15000ms$/));
+      expect(logged()).toContainEqual(expect.stringMatching(/overpass-api\.de failed after \d+ms \(try 1 of 5\): timeout, no answer within 15000ms$/));
       requests[1].answer(overpass([1, 48.78, 9.18, 48.781, 9.18]));
       await expect(loading).resolves.toMatchObject({ streets: [{ id: 1 }] });
     });
@@ -551,7 +566,7 @@ describe('OsmStreetService', () => {
 
       expect(requests[0].signal.aborted).toBe(true);
       expect(logged()).toContainEqual(expect.stringMatching(
-        /overpass-api\.de failed after \d+ms: answer not complete within 30000ms$/,
+        /overpass-api\.de failed after \d+ms \(try 1 of 5\): timeout, answer not complete within 30000ms$/,
       ));
       expect(requests.map((request) => request.host)).toEqual(['overpass-api.de', 'overpass.private.coffee']);
       requests[1].answer(overpass([1, 48.78, 9.18, 48.781, 9.18]));
@@ -650,13 +665,69 @@ describe('OsmStreetService', () => {
       });
     });
 
-    it('says the servers are unreachable when all of them fail', async () => {
+    it('asks every server again in rounds, says so while it waits, and says the servers are unreachable when all rounds fail', async () => {
+      fakeTime();
       const loading = service.loadStreets(48.78, 9.18, 500);
-      for (let i = 0; i < 2; i++) {
-        await flush();
-        requests[i].fail(new TypeError('Failed to fetch'));
-      }
-      await expect(loading).rejects.toThrow('OSM server unreachable');
+      const failed = expect(loading).rejects.toThrow(STREETS_UNREACHABLE);
+      await flush();
+      requests[0].fail(new TypeError('Failed to fetch'));
+      await flush();
+      requests[1].answer({}, 502);
+      await flush();
+      expect(service.retrying()).toMatchObject({ attempt: 2, of: 5, kind: 'network' });
+
+      // Five rounds of both servers, then the load gives up and the plate's line goes
+      expect(2 + await failAll(2)).toBe(10);
+      await failed;
+      expect(service.retrying()).toBeNull();
+      await expect(loading).rejects.toMatchObject({ kind: 'network', transient: true });
+    });
+
+    it('takes the answer of a later round', async () => {
+      fakeTime();
+      const loading = service.loadStreets(48.78, 9.18, 500);
+      await flush();
+      requests[0].answer({}, 502);
+      await flush();
+      requests[1].answer({}, 500);
+      await flush();
+      expect(service.retrying()).toMatchObject({ attempt: 2 });
+      // Round 2 after at most 3 s, led by the second server
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(requests.map((request) => request.host).slice(2)).toEqual(['overpass.private.coffee']);
+      requests[2].answer(overpass([1, 48.78, 9.18, 48.781, 9.18]));
+      await expect(loading).resolves.toMatchObject({ streets: [{ id: 1 }] });
+      expect(service.retrying()).toBeNull();
+    });
+
+    it('ends its loads on cancelLoads: they reject as cancelled, ask nothing more and leave nothing behind', async () => {
+      fakeTime();
+      const saves = () =>
+        (service as unknown as { streetCache: { save: { mock: { calls: unknown[] } } } }).streetCache.save.mock.calls.length;
+      const before = saves();
+      const loading = service.loadStreets(48.78, 9.18, 500);
+      const cancelled = expect(loading).rejects.toSatisfy(isOverpassCancelled);
+      await flush();
+      requests[0].answer({}, 502);
+      await flush();
+      requests[1].answer({}, 502);
+      await flush();
+      // In the wait before round 2
+      expect(service.retrying()).not.toBeNull();
+      service.cancelLoads();
+      await cancelled;
+      expect(service.retrying()).toBeNull();
+      await vi.advanceTimersByTimeAsync(120_000);
+      expect(requests).toHaveLength(2);
+      expect(saves()).toBe(before);
+
+      // A load in a round: its requests are aborted
+      const again = service.loadStreets(48.9, 9.3, 500);
+      const ended = expect(again).rejects.toSatisfy(isOverpassCancelled);
+      await flush();
+      service.cancelLoads();
+      await ended;
+      expect(requests[2].signal.aborted).toBe(true);
     });
     describe('begun early (prefetchStreets, TODO H13)', () => {
       const WAYS = overpass([1, 48.78, 9.18, 48.781, 9.18], [2, 48.785, 9.19, 48.786, 9.19]);
@@ -776,13 +847,10 @@ describe('OsmStreetService', () => {
       });
 
       it('hands a failure to the caller that takes the load, and to nobody else', async () => {
+        fakeTime();
         service.prefetchStreets(48.78, 9.18, 500);
-        for (let i = 0; i < 2; i++) {
-          await flush();
-          requests[i].fail(new TypeError('Failed to fetch'));
-        }
-        await flush();
-        await expect(service.loadStreets(48.78, 9.18, 500)).rejects.toThrow('OSM server unreachable');
+        await failAll();
+        await expect(service.loadStreets(48.78, 9.18, 500)).rejects.toThrow(STREETS_UNREACHABLE);
         // Taken once: the next call loads anew
         const again = service.loadStreets(48.78, 9.18, 500);
         await flush();

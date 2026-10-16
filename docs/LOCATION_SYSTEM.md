@@ -422,13 +422,15 @@ STEP 3: Load Streets
   - OSM-Straßendaten laden (2000m Radius)
   - Cache-Check: Wenn gleiche Location (~100m), Cache wiederverwenden
   - Sonst OsmStreetService.loadStreets(): erst IndexedDB (StreetCacheService,
-    Key v2_<lat>_<lon>_<radius>, max. 5 Orte, LRU), dann Overpass mit drei
-    Servern der Reihe nach (`OsmStreetService.fetchOverpass`): Scheitert
+    Key v2_<lat>_<lon>_<radius>, max. 5 Orte, LRU), dann Overpass mit zwei
+    Servern der Reihe nach (`world/osm/overpass-client.ts`, `fetchOverpass`): Scheitert
     einer, kommt sofort der nächste dran; hat einer nach 4 s noch nicht zu
-    antworten begonnen (`OVERPASS_HEDGE_MS`, eine Annahme), wird der nächste
+    antworten begonnen (`STREET_LIMITS.hedgeMs`, eine Annahme), wird der nächste
     zusätzlich gefragt. Die erste brauchbare Antwort gewinnt, die anderen
     Anfragen werden abgebrochen. Jeder Server hat 15 s bis zu den Headern
-    und danach 30 s für den Body, sonst kommt der nächste dran. Jeder Versuch steht als
+    und danach 30 s für den Body, sonst kommt der nächste dran. Das ist eine
+    Runde; scheitert sie und darf einer der Fehler vorübergehen, folgt nach
+    einer Wartezeit die nächste, siehe "Wiederholen" unten. Jeder Versuch steht als
     `[OSM] streets from ...` in der Konsole, siehe "Zeiten" unten
   - Überlappt die Box die zuletzt geladenen Straßen (`lastLoaded`, eine im
     Speicher, aus Overpass oder dem IndexedDB-Cache), übernimmt
@@ -650,15 +652,81 @@ Jeder Versuch bei einem Overpass-Server (`OsmStreetService.fetchOverpass`, für 
 
 ```
 [OSM] streets from <host>: headers= body=ms size=MB ways= nodes= [remark="..."]
-[OSM] streets from <host> failed after ms: <Grund>
+[OSM] streets from <host> failed after ms (try <Runde> of 5): <Art>, <Grund>
+[OSM] streets: no server answered (<Art>), trying again in 2.3s (try 2 of 5)
+[OSM] streets: no time left to ask again (...)
 ```
 
-- `headers` = Anfrage bis zu den Headern, also bis der Server zu antworten beginnt; bis dahin wartet der Versuch höchstens 15 s (`OVERPASS_HEADER_TIMEOUT_MS`, Grund dann `no answer within 15000ms`). `body` = von dort bis zum Ende der Antwort, höchstens 30 s (`OVERPASS_BODY_TIMEOUT_MS`, Grund dann `answer not complete within 30000ms`)
+- `headers` = Anfrage bis zu den Headern, also bis der Server zu antworten beginnt; bis dahin wartet der Versuch höchstens 15 s (`STREET_LIMITS.headerTimeoutMs`, Grund dann `timeout, no answer within 15000ms`). `body` = von dort bis zum Ende der Antwort, höchstens 30 s (`STREET_LIMITS.bodyTimeoutMs`, Grund dann `timeout, answer not complete within 30000ms`)
 - `size` = Länge des JSON-Texts in Millionen Zeichen, bei OSM-Daten etwa die Bytes entpackt. `ways`/`nodes` = was kam, vor dem Filter auf die Routen (`[OSM] Filtered: ...`)
 - `remark` nur, wenn der Server an eine Grenze stieß (Speicher `maxsize` 4 MB, Zeit 25 s); die Antwort kann dann unvollständig sein und wird trotzdem genommen, sobald sie Straßen enthält
-- Gründe beim Scheitern: `OSM API error: <Status>` (z. B. 429, 504), `no answer within 15000ms`, `answer not complete within 30000ms`, `No streets found ...` (Antwort ohne Straßen, der nächste Server wird gefragt) oder der Netzwerkfehler des Browsers
+- Gründe beim Scheitern, je mit ihrer Art (`OverpassFailureKind`): `busy, HTTP <Status>`, `server, HTTP <Status>`, `refused, HTTP <Status>`, `timeout, ...`, `network, <Fehler des Browsers>`, `malformed, ...`, `busy, too busy: "<remark>"`, `rejected, No streets found ...` (Antwort ohne Straßen, der nächste Server wird gefragt)
 - Ein Server, der abgebrochen wird, weil ein anderer zuerst antwortete, schreibt keine Zeile. Zwei Antwortzeilen zu einer Ladung heißen, dass beide fast gleichzeitig kamen
 - Beginnt ein Server erst nach mehr als 4 s zu antworten (`headers=` über 4000), wurde der nächste schon zusätzlich gefragt
+
+#### Wiederholen
+
+Die öffentlichen Overpass-Server sind oft voll: am 2026-10-16 antwortete overpass-api.de mit 502 „server is
+currently at capacity, request queue full“ (manchmal 406), overpass.private.coffee mit 500; Minuten später lud derselbe
+Ort. Ihre Fehlerseiten tragen keinen CORS-Header, der Browser meldet dann nur `TypeError: Failed to fetch` statt des
+Status. Darum sortiert `overpass-client.ts` jeden Fehler in eine Art und wiederholt, solange einer vorübergehen kann:
+
+| Art | Woran | Wiederholt |
+|-----|-------|------------|
+| `busy` | HTTP 429, 502, 503, 504, 406, 408, 425; eine 200 mit `remark` „too busy“/`Dispatcher_Client`/`rate_limited` | ja |
+| `server` | HTTP 500 und die übrigen 5xx | ja |
+| `network` | keine lesbare Antwort (Status 0, `TypeError`, auch die CORS-verdeckten Fehlerseiten), Body abgerissen | ja |
+| `timeout` | keine Header in 15 s, kein Body-Ende in 30 s danach | ja |
+| `malformed` | kein JSON (abgeschnitten, HTML), kein `elements` | ja |
+| `refused` | HTTP 400 und die übrigen 4xx | nein |
+| `rejected` | `accept` warf (Antwort ohne Straßen) | nein |
+| `cancelled` | der Aufrufer brach ab (`cancelLoads`) | nein, kein Fehler für den Spieler |
+
+- Eine Runde fragt alle Server wie oben. Hat sie mindestens einen wiederholbaren Fehler, wartet die Ladung und fragt
+  neu; die k-te Runde beginnt beim k-ten Server. Wartezeit nach Runde r: `min(24 s, 3 s · 2^(r-1))`, davon zufällig
+  zwischen der Hälfte und dem Ganzen (Jitter), mindestens das `Retry-After` des Servers, wo der Browser es lesen kann.
+  Die Straßen haben `STREET_RETRY`: höchstens 5 Runden, keine neue Runde nach 90 s ab Beginn (eine laufende darf
+  länger dauern), Wartezeiten also etwa 1,5 bis 3, 3 bis 6, 6 bis 12 und 12 bis 24 s. Die Gebäude-Abfrage wiederholt
+  genauso, ohne Zeile in der Ladeplatte
+- Scheitern alle Runden, wirft die Ladung `OverpassError` mit dem, was jeder Server zuletzt sagte
+  (`overpass-api.de: HTTP 502; overpass.private.coffee: Failed to fetch; 5 tries`); `OsmStreetService` macht daraus
+  `STREETS_UNREACHABLE`. Lehnte jeder Server ab, weil die Antwort keine Straßen hatte, bleibt es bei „No streets found“
+- Während gewartet wird, steht `OsmStreetService.retrying` (Runde, von wie vielen, Art). Die Ladeplatte im Menü zeigt
+  darunter „The map server is busy, trying again (2 of 5)…“, der Hinweis über der Karte beim HQ-Umzug dieselbe Zeile
+  (`RelocationStatusComponent`)
+- `OsmStreetService.cancelLoads()` (über `WorldStreetSource.cancelLoads`) bricht jede laufende Overpass-Ladung samt
+  Wartezeit ab, ihr Promise wirft `cancelled` (`isOverpassCancelled`), nichts wird gespeichert. Aufgerufen von
+  `TilesWorld.dispose` (die Welt geht) und vom Koordinator, sobald ein anderer Ort gewählt wird (`supersede`)
+- Gespeicherte Kopie: jede geladene Box liegt schon im IndexedDB-Cache (5 Orte) und wird vor Overpass genommen, eine
+  OSM-Welt im Rahmen-Speicher (6 Rahmen). Ein zweiter Speicher „letzte Antwort je Abfrage-Box“ für den Fall, dass alle
+  Server scheitern, ist nicht gebaut: er hülfe nur bei einer Box, die schon einmal kam, und die nimmt der Cache schon
+
+**Was der Spieler sieht, wenn die Straßen nicht kommen:**
+
+- Ort im Menü gewählt (Zufalls-Spawn): die Ladeplatte zeigt die Wiederholungen; nach dem letzten Versuch „The streets
+  of X did not load …“ mit Retry (neue Runde von vorn, ohne Seiten-Reload) und Other place. Der alte Ort spielt weiter
+- Ort mit festem Spawn, Favorit: der Ortswechsel hat den alten Ort schon zurückgesetzt, „The place did not load: …“
+  sperrt Play, Retry versucht denselben Wechsel
+- Erster Ort der Seite: „The streets of this place did not load …“ sperrt Play, Retry öffnet die Welt neu in der Seite
+- HQ-Umzug außerhalb der Straßen: der Hinweis über der Karte zeigt die Wiederholungen; scheitern sie, bleibt das HQ
+  stehen und eine Meldung sagt es (`HQ_STREETS_FAILED`), statt dass der Ortswechsel dieselben Server noch einmal fragt.
+  Hat der neue Ort keine Straßen, geht es wie bisher mit einem Ersatz-Spawn weiter und der Wechsel sagt, was fehlt
+- Ein anderer Ort, während die Straßen des einen noch laden: dessen Ladung endet (`cancelLoads`), seine Wiederholungen
+  hören auf, `moveTo` des früheren gibt nach (`placeRun`) und schreibt weder Straßen noch ein Problem. Ein Wechsel,
+  der während eines laufenden angefordert wird, läuft danach, nur der letzte (`pendingChange`); bis 2026-10-16 wurde er
+  verworfen. Wurde der laufende dabei abgebrochen, sperrt ein Fehler hinter der Ladung Play, bis der neue Ort steht
+- Ein Wechsel, der schon hinter seinen Straßen ist (Tiles, Spawns, Routen), hält für einen neu gewählten Ort am Ende
+  seines laufenden Schritts an (`executeLocationChange(…, stillWanted)`, `PlaceChangeSuperseded`), statt Routen und
+  Höhen eines Orts fertig zu bauen, den keiner mehr will; danach läuft der neue. Ein laufender Schritt endet erst
+  (das Warten auf die ersten Tiles höchstens 15 s). Nur eine Wahl im Menü (`choosePlace`, Favorit, Würfel) löst das
+  aus; ein Wechsel ohne Wahl (HQ-Umzug, Coop, Spielstand) wartet wie bisher hinter dem laufenden
+- Kommen die Straßen des neuen Orts dann nicht, während der alte schon halb zurückgesetzt ist (sein Wechsel wurde
+  abgebrochen, scheiterte, oder läuft noch und hält für diese Wahl an), sagt die Meldung nicht mehr „You stay where you
+  are“, sondern „The place before was already left, so no place is loaded now. Try again in a minute, or pick another
+  place.“ mit Retry und Other place; Play bleibt gesperrt (`streetsFailedText(place, lost)`). Den alten Ort wieder
+  herzustellen hieße ihn neu zu laden, mit denselben Servern; das ist nicht gebaut
+- Die Welt geht während der Ladung (Esc, andere Welt): die Ladung endet, `loadStreetsInternal` und der Koordinator
+  schreiben nichts mehr
 
 ### HQ-Placement-Validierung (`MapPlacementService`)
 

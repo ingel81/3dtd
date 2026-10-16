@@ -9,6 +9,7 @@
  */
 // The component is partially compiled and needs the JIT compiler
 import '@angular/compiler';
+import { WorldPathComponent } from '../components/world-path/world-path.component';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -23,11 +24,14 @@ import { WorldDiceService } from '../services/location/world-dice.service';
 import { LocationManagementService } from '../services/location/location-management.service';
 import { BestWaveService } from '../services/location/best-wave.service';
 import { AUTOSAVE_SLOT } from '../services/save-game/save-game.port';
-import type { SaveSlotStore, StoredSlotMeta } from '../services/save-game/save-slot.store';
+import { SAVE_SLOT_STORE, type StoredSlotMeta } from '../services/save-game/save-slot.store';
+import { MemorySlotStore } from '../../test/memory-slot-store';
+import { StageContinueComponent } from './stage-continue.component';
 import { CUSTOM_MAPS_OPEN } from '../world/custom-maps-open';
 import type { MapSummary } from '../world/custom-map/map-store';
 import { WorldChoiceService } from '../world/world-choice.service';
-import { WORLD_NAVIGATE, WorldSession } from '../world/world-session.service';
+import { WorldSession, type ParkedWorld } from '../world/world-session.service';
+import { AppScreen } from '../world/app-screen.service';
 import { PLAIN_START, WorldStartService, type WorldStart } from '../world/world-start';
 import { SettingsSectionsComponent } from '../components/main-menu/pages/settings/settings-sections.component';
 import { ExtrasListComponent } from '../components/main-menu/pages/extras/extras-list.component';
@@ -37,7 +41,6 @@ import { TdIconComponent } from '../components/icon/icon.component';
 import { RovingGroupDirective } from '../components/roving-group.directive';
 import { AddressAutocompleteComponent } from '../components/address-autocomplete.component';
 import { StageCoopComponent } from './stage-coop.component';
-import { STAGE_SLOT_STORE } from './stage-saves';
 import { WorldMapsComponent } from './world-maps.component';
 import { WorldOsmComponent } from './world-osm.component';
 import { WorldRealComponent } from './world-real.component';
@@ -79,30 +82,28 @@ class SlotsStub {
   readonly mode = input('load');
 }
 for (const name of ['mode']) Input({ alias: name, isSignal: true } as Input)(SlotsStub.prototype, name);
+// The shared path bar (components/world-path) as the JIT transform would annotate it
+for (const name of ['world', 'worldHere', 'mode', 'modes', 'playLabel', 'editLabel', 'playWhy', 'editWhy', 'playHint', 'editHint', 'worldsHint', 'worldHint', 'chips']) {
+  Input({ alias: name, isSignal: true } as Input)(WorldPathComponent.prototype, name);
+}
+
+Input({ alias: 'world', isSignal: true } as Input)(StageContinueComponent.prototype, 'world');
 
 const summary = (s: Partial<MapSummary> & { id: string; name: string }): MapSummary => ({
   author: '', description: '', width: 0, depth: 0, updatedAt: '', origin: 'shipped', contentHash: '', objects: 0, spawns: 2, ...s,
 });
 
-class MemoryStore implements SaveSlotStore {
-  constructor(private readonly slots: StoredSlotMeta[]) {}
-  async list(): Promise<StoredSlotMeta[]> {
-    return this.slots;
-  }
-  async read(): Promise<string | null> {
-    return null;
-  }
-  async write(): Promise<boolean> {
-    return true;
-  }
-  async remove(): Promise<void> {
-    // Nothing kept
-  }
-}
-
 describe('Worlds stage', () => {
   let opened: WorldStart[];
-  let session: { isOpen: ReturnType<typeof signal<boolean>>; open: (order: WorldStart) => void; close: ReturnType<typeof vi.fn> };
+  let session: {
+    isOpen: ReturnType<typeof signal<boolean>>;
+    parked: ReturnType<typeof signal<ParkedWorld | null>>;
+    open: (order: WorldStart) => void;
+    close: ReturnType<typeof vi.fn>;
+    park: (held: ParkedWorld) => void;
+    unpark: () => void;
+    leaveParked: ReturnType<typeof vi.fn>;
+  };
   let config: { cesiumIonToken: ReturnType<typeof signal<string>>; needsCredentials: () => boolean; setupRequested: ReturnType<typeof signal<boolean>> };
 
   beforeAll(() => {
@@ -116,11 +117,31 @@ describe('Worlds stage', () => {
   afterEach(() => {
     TestBed.resetTestingModule();
     localStorage.clear();
+    own = [];
   });
+
+  let store: MemorySlotStore;
+  const shipped = () => [{ summary: summary({ id: 'demo-valley', name: 'Demo Valley', description: 'River valley.' }), picture: 'maps/demo-valley.png' }];
+  let own: { summary: MapSummary; picture: string | null }[] = [];
+  let trashMap: ReturnType<typeof vi.fn<(id: string) => Promise<boolean>>>;
 
   async function open(setup: { key?: boolean; slots?: StoredSlotMeta[] } = {}): Promise<ComponentFixture<WorldsStageComponent>> {
     opened = [];
-    session = { isOpen: signal(false), open: (order) => opened.push(order), close: vi.fn() };
+    store = new MemorySlotStore(setup.slots ?? []);
+    trashMap = vi.fn(async (id: string) => {
+      own = own.filter((m) => m.summary.id !== id);
+      return true;
+    });
+    const parked = signal<ParkedWorld | null>(null);
+    session = {
+      isOpen: signal(false),
+      parked,
+      open: (order) => opened.push(order),
+      close: vi.fn(),
+      park: (held) => parked.set(held),
+      unpark: () => parked.set(null),
+      leaveParked: vi.fn(async () => parked.set(null)),
+    };
     const token = signal(setup.key ? 'ion-token' : '');
     config = { cesiumIonToken: token, needsCredentials: computed(() => !token()), setupRequested: signal(false) };
     TestBed.configureTestingModule({
@@ -129,8 +150,7 @@ describe('Worlds stage', () => {
         { provide: WorldStartService, useValue: { current: () => PLAIN_START } },
         { provide: ConfigService, useValue: config },
         { provide: CUSTOM_MAPS_OPEN, useValue: true },
-        { provide: STAGE_SLOT_STORE, useValue: new MemoryStore(setup.slots ?? []) },
-        { provide: WORLD_NAVIGATE, useValue: vi.fn() },
+        { provide: SAVE_SLOT_STORE, useValue: store },
         { provide: MatDialog, useValue: { openDialogs: [] } },
         // The menu globe is off: the squares show discs, no WebGL in the spec
         { provide: GlobeDirectorService, useValue: { setting: signal('off') } },
@@ -141,10 +161,10 @@ describe('Worlds stage', () => {
         {
           provide: WorldChoiceService,
           useValue: {
-            listMaps: async () => ({ own: [], shared: [], shipped: [{ summary: summary({ id: 'demo-valley', name: 'Demo Valley', description: 'River valley.' }), picture: null }] }),
+            listMaps: async () => ({ own: [...own], shared: [], shipped: shipped() }),
             tilesets: signal([]),
-            editorUrl: () => 'http://x/editor',
             editMap: vi.fn(),
+            trashMap: (id: string) => trashMap(id),
           },
         },
       ],
@@ -155,17 +175,18 @@ describe('Worlds stage', () => {
         templateUrl: undefined,
         styleUrl: undefined,
         styles: [],
-        imports: [IconStub, RovingGroupDirective, TokenStub, SettingsStub, ExtrasStub, SlotsStub, StageCoopComponent, WorldRealComponent, WorldOsmComponent, WorldMapsComponent],
+        imports: [IconStub, RovingGroupDirective, TokenStub, SettingsStub, ExtrasStub, SlotsStub, StageCoopComponent, WorldRealComponent, WorldOsmComponent, WorldMapsComponent, WorldPathComponent],
       },
     });
     TestBed.overrideComponent(WorldsStageComponent, { remove: { imports: [TdIconComponent, SettingsSectionsComponent, ExtrasListComponent, SaveSlotsComponent, TokenSetupComponent] } });
     for (const world of [WorldRealComponent, WorldOsmComponent, WorldMapsComponent]) {
       TestBed.overrideComponent(world, { set: { styleUrl: undefined, styles: [] } });
     }
-    TestBed.overrideComponent(WorldRealComponent, { set: { imports: [IconStub, SearchStub, RovingGroupDirective] } });
+    TestBed.overrideComponent(WorldRealComponent, { set: { imports: [IconStub, SearchStub, RovingGroupDirective, StageContinueComponent] } });
     TestBed.overrideComponent(WorldRealComponent, { remove: { imports: [AddressAutocompleteComponent, TdIconComponent] } });
-    TestBed.overrideComponent(WorldMapsComponent, { set: { imports: [IconStub] } });
-    TestBed.overrideComponent(WorldOsmComponent, { set: { imports: [IconStub, SearchStub, FrameStub] } });
+    TestBed.overrideComponent(WorldMapsComponent, { set: { imports: [IconStub, StageContinueComponent] } });
+    TestBed.overrideComponent(WorldOsmComponent, { set: { imports: [IconStub, SearchStub, FrameStub, StageContinueComponent] } });
+    TestBed.overrideComponent(StageContinueComponent, { set: { imports: [IconStub] } });
     const fixture = TestBed.createComponent(WorldsStageComponent);
     await settle(fixture);
     return fixture;
@@ -222,7 +243,7 @@ describe('Worlds stage', () => {
     const row = el(f).querySelector<HTMLElement>('.wm-body .td-row')!;
     row.click();
     await settle(f);
-    expect(text(el(f).querySelector('.ws-path'))).toMatch(/^Worlds Real places New York/);
+    expect(text(el(f).querySelector('.ws-path'))).toBe('Worlds › Real places › New York Start Make map');
     const start = el(f).querySelector<HTMLElement>('[data-stage-start]')!;
     expect(start.getAttribute('aria-disabled')).toBe('true');
     expect(text(el(f).querySelector('.wm-detail .td-note.is-warn'))).toBe('Needs a map key (Cesium Ion or Google). Enter map key');
@@ -272,21 +293,250 @@ describe('Worlds stage', () => {
 
     card(f, 'real').click();
     await settle(f);
-    el(f).querySelector<HTMLElement>('.wm-body .td-row:not(:first-child)')!.click();
+    el(f).querySelector<HTMLElement>('.wm-body .td-row:not([data-stage-continue])')!.click();
     await settle(f);
     el(f).querySelector<HTMLElement>('[data-stage-start]')!.click();
     await settle(f);
     expect(opened).toEqual([]);
-    expect(text(el(f).querySelector('.ws-confirm'))).toContain('Heilbronn | wave 12 waits in the autosave.');
+    expect(text(el(f).querySelector('.ws-confirm'))).toContain('Heilbronn | wave 12 waits in Real places.');
     button(f, 'Continue Heilbronn').click();
     expect(opened[0]).toMatchObject({ world: null, resume: AUTOSAVE_SLOT, play: true, label: 'Heilbronn' });
+  });
+
+  const heilbronn = (): StoredSlotMeta => ({
+    id: AUTOSAVE_SLOT, name: 'Heilbronn, wave 12', wave: 12, location: 'Heilbronn, Germany', savedAt: '2026-10-16T08:00:00Z',
+    gameVersion: 'test', configHash: 'x', hq: { lat: 49.14, lon: 9.22 },
+  });
+
+  it('a start elsewhere in the world ends its run at once when the player says so (decision 2)', async () => {
+    const f = await open({ key: true, slots: [heilbronn()] });
+    card(f, 'real').click();
+    await settle(f);
+    el(f).querySelector<HTMLElement>('.wm-body .td-row:not([data-stage-continue])')!.click();
+    await settle(f);
+    el(f).querySelector<HTMLElement>('[data-stage-start]')!.click();
+    await settle(f);
+    button(f, 'End it and start').click();
+    await settle(f);
+    expect(store.ids()).toEqual([]);
+    expect(opened).toHaveLength(1);
+    expect(opened[0]).toMatchObject({ resume: null, play: true });
+  });
+
+  it('the world menu discards its Continue after asking; the globes forget it at once', async () => {
+    const f = await open({ key: true, slots: [heilbronn()] });
+    card(f, 'real').click();
+    await settle(f);
+    expect(text(el(f).querySelector('[data-stage-continue]'))).toBe('Continue Heilbronn | wave 12');
+    el(f).querySelector<HTMLElement>('[data-stage-discard]')!.click();
+    await settle(f);
+    expect(text(el(f).querySelector('.ws-confirm'))).toContain('Discard Heilbronn | wave 12? It cannot be continued.');
+    button(f, 'Cancel').click();
+    await settle(f);
+    expect(store.ids()).toEqual([AUTOSAVE_SLOT]);
+    el(f).querySelector<HTMLElement>('[data-stage-discard]')!.click();
+    await settle(f);
+    button(f, 'Discard').click();
+    await settle(f);
+    expect(store.ids()).toEqual([]);
+    expect(el(f).querySelector('[data-stage-continue]')).toBeNull();
+    esc();
+    await settle(f);
+    expect(text(el(f).querySelector('.ws-menu'))).not.toContain('Continue');
+  });
+
+  it('an autosave written while the globes stand shows at once: Continue, chip and the line under its globe', async () => {
+    const f = await open({ key: true });
+    expect(text(el(f).querySelector('.ws-menu'))).not.toContain('Continue');
+    await store.write({ ...heilbronn(), id: 'autosave-built', name: 'Demo Valley, wave 4', wave: 4, location: 'Demo Valley', map: { id: 'demo-valley', name: 'Demo Valley' }, world: 'maps' }, 'save');
+    await settle(f);
+    expect(text(el(f).querySelector('.ws-menu [role="menuitem"]'))).toBe('Continue Demo Valley | wave 4');
+    expect(text(el(f).querySelector('.ws-chip'))).toBe('Demo Valley | wave 4 | autosave');
+    expect(text(card(f, 'maps'))).toContain('Demo Valley | wave 4 | autosave');
+    expect(card(f, 'maps').classList).toContain('is-hero');
   });
 
   it('a link only picks: its map stands chosen in its world, nothing loads', async () => {
     TestBed.overrideProvider(WorldStartService, { useValue: { current: () => ({ ...PLAIN_START, world: { kind: 'custom-map', mapId: 'demo-valley', contentHash: '' } }) } });
     const f = await open();
     expect(TestBed.inject(WorldsStageService).view()).toBe('world');
-    expect(text(el(f).querySelector('.ws-path'))).toBe('Worlds Maps Demo Valley');
+    expect(text(el(f).querySelector('.ws-path'))).toBe('Worlds › Built Worlds › Demo Valley Play Edit');
     expect(opened).toEqual([]);
+  });
+
+  const ownMap = (id: string, name: string, extra: Partial<MapSummary> = {}) =>
+    ({ summary: summary({ id, name, origin: 'own', updatedAt: '2026-10-16T08:00:00Z', ...extra }), picture: `blob:${id}` });
+
+  it('OpenStreetMap lists its unchanged maps as Recent worlds; Remove asks, then the map goes to the trash', async () => {
+    own = [
+      ownMap('miltenberg', 'Miltenberg', { generated: true, osm: { lat: 49.7, lon: 9.26 } }),
+      ownMap('binswangen', 'Binswangen', { osm: { lat: 48.5, lon: 10.6 } }),
+    ];
+    const f = await open({ key: true });
+    card(f, 'osm').click();
+    await settle(f);
+    const rows = () => [...el(f).querySelectorAll<HTMLElement>('[data-map]')].map((r) => r.dataset['map']);
+    expect(text(el(f).querySelector('#wm-osm-mine'))).toBe('Recent worlds');
+    expect(rows()).toEqual(['miltenberg']);
+    expect(el(f).querySelector<HTMLImageElement>('[data-map="miltenberg"] img')!.getAttribute('src')).toBe('blob:miltenberg');
+    el(f).querySelector<HTMLElement>('[data-recent-remove]')!.click();
+    await settle(f);
+    expect(text(el(f).querySelector('.ws-confirm'))).toContain('Remove Miltenberg from Recent worlds?');
+    button(f, 'Remove').click();
+    await settle(f);
+    expect(trashMap).toHaveBeenCalledWith('miltenberg');
+    expect(rows()).toEqual([]);
+  });
+
+  it('Built Worlds lists every other map with its picture and where it comes from; Recent shows the maps played lately', async () => {
+    own = [
+      ownMap('miltenberg', 'Miltenberg', { generated: true, osm: { lat: 49.7, lon: 9.26 } }),
+      ownMap('binswangen', 'Binswangen', { osm: { lat: 48.5, lon: 10.6 } }),
+      ownMap('demo-valley-copy', 'Demo Valley (copy)', { copyOf: { id: 'demo-valley', hash: 'h' } }),
+    ];
+    localStorage.setItem('td_recent_maps_v1', JSON.stringify(['demo-valley']));
+    const f = await open({ key: true });
+    card(f, 'maps').click();
+    await settle(f);
+    const sections = [...el(f).querySelectorAll('.wm-body .td-group')].map((g) => [text(g.querySelector('.td-section')), [...g.querySelectorAll<HTMLElement>('[data-map]')].map((r) => r.dataset['map'])]);
+    expect(sections).toEqual([
+      ['Recent', ['demo-valley']],
+      ['Your built worlds', ['binswangen', 'demo-valley-copy']],
+      ['From coop hosts', []],
+      ['Shipped', ['demo-valley']],
+    ]);
+    expect(text(el(f).querySelector('[data-map="binswangen"]'))).toContain('from OpenStreetMap');
+    expect(text(el(f).querySelector('[data-map="demo-valley-copy"]'))).toContain('copy of Demo Valley');
+    expect(el(f).querySelector<HTMLImageElement>('[data-map="demo-valley"] img')!.getAttribute('src')).toBe('maps/demo-valley.png');
+    el(f).querySelector<HTMLElement>('[data-recent-remove]')!.click();
+    await settle(f);
+    expect(text(el(f).querySelector('.wm-body .td-group .td-section'))).toBe('Your built worlds');
+    expect(localStorage.getItem('td_recent_maps_v1')).toBe('[]');
+  });
+
+  it('each world menu keeps its pick over a reload; a map that is gone is no pick', async () => {
+    let f = await open({ key: true });
+    card(f, 'maps').click();
+    await settle(f);
+    button(f, /^Demo Valley/).click();
+    await settle(f);
+    TestBed.inject(WorldsStageService).pick('real', { kind: 'place', hq: { lat: 49.14, lon: 9.22 }, spawns: [], name: 'Heilbronn' });
+    TestBed.resetTestingModule();
+
+    f = await open({ key: true });
+    const stage = TestBed.inject(WorldsStageService);
+    expect(stage.picks().maps).toMatchObject({ kind: 'map', id: 'demo-valley' });
+    expect(stage.picks().real).toMatchObject({ kind: 'place', name: 'Heilbronn' });
+    card(f, 'maps').click();
+    await settle(f);
+    expect(text(el(f).querySelector('.ws-path'))).toBe('Worlds › Built Worlds › Demo Valley Play Edit');
+
+    stage.pick('osm', { kind: 'map', id: 'gone', name: 'Gone' });
+    await stage.refreshMaps();
+    expect(stage.picks().osm).toBeNull();
+  });
+
+  const held = (run: boolean): ParkedWorld => ({
+    world: 'real', pick: { kind: 'place', hq: { lat: 49.14, lon: 9.22 }, spawns: [], name: 'Heilbronn, Germany' }, label: 'Heilbronn', wave: 4, run,
+  });
+
+  it('a place held behind the globes without a run is Back to it: at once, nothing loads (point 7)', async () => {
+    const f = await open({ key: true });
+    session.park(held(false));
+    await settle(f);
+    expect(text(el(f).querySelector('.ws-menu [role="menuitem"]'))).toBe('Back to Heilbronn Still loaded, no run yet');
+    expect(text(el(f).querySelector('.ws-chip'))).toBe('Back to Heilbronn');
+    expect(card(f, 'real').classList).toContain('is-hero');
+    // Its world menu offers the same, its pick says Back to
+    card(f, 'real').click();
+    await settle(f);
+    expect(text(el(f).querySelector('[data-stage-continue]'))).toBe('Back to Heilbronn Still loaded, no run yet');
+    expect(el(f).querySelector('[data-stage-discard]')).toBeNull();
+    TestBed.inject(WorldsStageService).pick('real', held(false).pick);
+    await settle(f);
+    expect(text(el(f).querySelector('[data-stage-start]'))).toBe('Back to Heilbronn');
+    el(f).querySelector<HTMLElement>('[data-stage-start]')!.click();
+    await settle(f);
+    expect(session.parked()).toBeNull();
+    expect(opened).toEqual([]);
+  });
+
+  it('a run held is Continue, ready at once; a start elsewhere in its world asks and ends it without keeping it', async () => {
+    const f = await open({ key: true, slots: [heilbronn()] });
+    session.park(held(true));
+    await settle(f);
+    expect(text(el(f).querySelector('.ws-menu [role="menuitem"]'))).toBe('Continue Heilbronn | wave 4');
+    expect(text(el(f).querySelector('.ws-chip'))).toBe('Heilbronn | wave 4 | ready');
+    card(f, 'real').click();
+    await settle(f);
+    el(f).querySelector<HTMLElement>('.wm-body .td-row:not([data-stage-continue])')!.click();
+    await settle(f);
+    el(f).querySelector<HTMLElement>('[data-stage-start]')!.click();
+    await settle(f);
+    expect(text(el(f).querySelector('.ws-confirm'))).toContain('Heilbronn | wave 4 waits in Real places.');
+    button(f, 'End it and start').click();
+    await settle(f);
+    expect(session.leaveParked).toHaveBeenCalledWith(false);
+    expect(store.ids()).toEqual([]);
+    expect(opened).toHaveLength(1);
+  });
+
+  it('Continue of a run held shows it at once; Discard ends it and its autosave', async () => {
+    const f = await open({ key: true, slots: [heilbronn()] });
+    session.park(held(true));
+    await settle(f);
+    el(f).querySelector<HTMLElement>('.ws-menu [role="menuitem"]')!.click();
+    await settle(f);
+    expect(session.parked()).toBeNull();
+    expect(opened).toEqual([]);
+
+    session.park(held(true));
+    card(f, 'real').click();
+    await settle(f);
+    el(f).querySelector<HTMLElement>('[data-stage-discard]')!.click();
+    await settle(f);
+    button(f, 'Discard').click();
+    await settle(f);
+    expect(session.leaveParked).toHaveBeenCalledWith(false);
+    expect(store.ids()).toEqual([]);
+  });
+
+  it('one source of chips for the globes, the game and the editor: the other worlds, the map in the editor', async () => {
+    const f = await open({ key: true, slots: [heilbronn()] });
+    session.park({ world: 'maps', pick: { kind: 'map', id: 'demo-valley', name: 'Demo Valley' }, label: 'Demo Valley', wave: 3, run: true });
+    TestBed.inject(AppScreen).draft.set({ mapId: 'bay', name: 'Bay', unsaved: true });
+    await settle(f);
+    const stage = TestBed.inject(WorldsStageService);
+    expect([...el(f).querySelectorAll('.ws-chip')].map((c) => text(c))).toEqual(['Demo Valley | wave 3 | ready', 'Heilbronn | wave 12 | autosave', 'Editor: Bay | unsaved']);
+    // Over the game of the real places: its own world is on screen
+    expect(stage.pathChips('real', true).map((c) => c.id)).toEqual(['continue-maps', 'editor']);
+    // In the editor: no chip of the editor
+    expect(stage.pathChips(null, false).map((c) => c.id)).toEqual(['continue-maps', 'continue-real']);
+    el(f).querySelector<HTMLElement>('.ws-chip[data-chip="continue-real"]')!.click();
+    expect(opened[0]).toMatchObject({ resume: AUTOSAVE_SLOT, play: true });
+  });
+
+  it('a save loaded from the globes is a start in its world: its run there ends after the question', async () => {
+    const slot = { ...heilbronn(), id: 'slot-1', name: 'Paris, wave 3', wave: 3, location: 'Paris', hq: { lat: 48.86, lon: 2.29 }, world: 'real' as const };
+    const f = await open({ key: true, slots: [heilbronn(), slot] });
+    const stage = TestBed.inject(WorldsStageService);
+    const info = stage.saves.slots().find((s) => s.id === 'slot-1')!;
+    // The rule the game's Load page asks by too (MainMenuService.loadAsk); its own Continue ends nothing
+    expect(stage.loadAsk(info)).toMatchObject({ text: 'Heilbronn | wave 12 waits in Real places.', run: { slotId: AUTOSAVE_SLOT } });
+    expect(stage.loadAsk(stage.saves.slots().find((s) => s.id === AUTOSAVE_SLOT)!)).toBeNull();
+    expect(stage.continueSlot(info)).toBeNull();
+    await settle(f);
+    expect(opened).toEqual([]);
+    expect(text(el(f).querySelector('.ws-confirm'))).toContain('Heilbronn | wave 12 waits in Real places. Each world keeps one run. Loading this save ends it now.');
+    button(f, 'End it and load').click();
+    await settle(f);
+    expect(store.ids()).toEqual(['slot-1']);
+    expect(opened[0]).toMatchObject({ resume: 'slot-1', play: true, label: 'Paris' });
+    // The autosave of the world itself loads at once
+    opened.length = 0;
+    await store.write({ ...heilbronn() }, 'save');
+    await settle(f);
+    stage.continueSlot(stage.saves.slots().find((s) => s.id === AUTOSAVE_SLOT)!);
+    expect(opened[0]).toMatchObject({ resume: AUTOSAVE_SLOT });
   });
 });

@@ -67,7 +67,7 @@ export function worldName(ref: WorldRef): string {
     case 'tiles':
       return 'Real places';
     case 'custom-map':
-      return 'Maps';
+      return 'Built Worlds';
     case 'tileset':
       return 'Own tilesets';
     case 'devworld':

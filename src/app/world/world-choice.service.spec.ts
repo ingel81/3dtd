@@ -3,7 +3,8 @@ import { ConfigService } from '../core/services/config.service';
 import { createMapDocument } from './custom-map/map-create';
 import { MapStore, MemoryMapBackend, type ShippedMapIndex } from './custom-map/map-store';
 import { parseOwnTilesets } from './tileset/own-tileset';
-import { MAP_STORE, WORLD_NAVIGATE, WorldChoiceService } from './world-choice.service';
+import { MAP_STORE, WorldChoiceService } from './world-choice.service';
+import { AppScreen } from './app-screen.service';
 import { WorldContext } from './world-context.service';
 import type { WorldRef } from './world-ref';
 import { WorldSession } from './world-session.service';
@@ -20,7 +21,7 @@ const TILESET = parseOwnTilesets([{ id: 'synth', url: 'http://localhost:4311/syn
 
 describe('WorldChoiceService', () => {
   let service: WorldChoiceService;
-  let went: string[];
+  let screens: AppScreen;
   /** The worlds opened in the page (WorldSession.open) */
   let opened: WorldStart[];
   /** The globes: the real places' menu is where Play on real places goes */
@@ -29,7 +30,7 @@ describe('WorldChoiceService', () => {
   let store: MapStore;
 
   beforeEach(() => {
-    went = [];
+    screens = new AppScreen();
     opened = [];
     stage = { leaveGame: vi.fn() };
     current = signal<WorldRef>({ kind: 'tiles', source: 'cesium' });
@@ -41,8 +42,8 @@ describe('WorldChoiceService', () => {
     const injector = Injector.create({
       providers: [
         { provide: MAP_STORE, useValue: store },
-        { provide: WORLD_NAVIGATE, useValue: (url: string) => went.push(url) },
-        { provide: WorldSession, useValue: { open: (order: WorldStart) => opened.push(order) } },
+        { provide: AppScreen, useValue: screens },
+        { provide: WorldSession, useValue: { open: (order: WorldStart) => opened.push(order), parked: () => null } },
         { provide: WorldsStageService, useValue: stage },
         { provide: ConfigService, useValue: { ownTilesets: signal([TILESET]) } },
         { provide: WorldContext, useValue: { ref: current.asReadonly() } },
@@ -69,22 +70,20 @@ describe('WorldChoiceService', () => {
     expect(maps.shipped[0].summary).toMatchObject({ author: '3DTD', spawns: 2, biome: 'temperate' });
   });
 
-  it('opens the chosen map or set in the page and plays it once it stands; the real places on their menu of the globes', () => {
+  it('opens the chosen map or set in the page and plays it once it stands', () => {
     service.playMap('demo-valley', 'Demo Valley');
     service.playTileset(TILESET);
-    service.playRealPlaces();
     const [map, tileset] = opened;
     expect(map).toEqual({ ...PLAIN_START, world: { kind: 'custom-map', mapId: 'demo-valley', contentHash: '' }, play: true, label: 'Demo Valley' });
     // A set starts at the middle of its area
     expect(tileset.world).toEqual({ kind: 'tileset', id: 'synth' });
     expect(tileset.place).toEqual({ hq: { lat: 48.7784, lon: 9.18 }, spawns: [] });
     expect(tileset.play).toBe(true);
-    // The real places ask where on the globes: the game goes, their menu shows
     expect(opened).toHaveLength(2);
-    expect(stage.leaveGame).toHaveBeenCalledWith({ world: 'real', pick: null });
-    expect(went).toEqual([]);
-    expect(new URL(service.editUrl('demo-valley')).pathname).toMatch(/\/editor$/);
-    expect(new URL(service.editUrl('demo-valley')).searchParams.get('map')).toBe('demo-valley');
+    // The editor opens in the window too
+    service.editMap('demo-valley');
+    expect(screens.screen()).toBe('editor');
+    expect(screens.takeEditorMap()).toBe('demo-valley');
   });
 
   it("opens a save's world in the page and loads the save there", () => {
@@ -96,11 +95,7 @@ describe('WorldChoiceService', () => {
     ]);
   });
 
-  it('knows the world the page plays on', () => {
-    current.set({ kind: 'custom-map', mapId: 'demo-valley', contentHash: 'abc' });
-    expect(service.isCurrent({ kind: 'custom-map', mapId: 'demo-valley', contentHash: '' })).toBe(true);
-    expect(service.isCurrent({ kind: 'custom-map', mapId: 'bay', contentHash: '' })).toBe(false);
-    expect(service.isCurrent({ kind: 'tileset', id: 'synth' })).toBe(false);
+  it('lists the own tilesets of the config', () => {
     expect(service.tilesets()).toEqual([TILESET]);
   });
 
@@ -118,8 +113,8 @@ describe('WorldChoiceService', () => {
       const injector = Injector.create({
         providers: [
           { provide: MAP_STORE, useValue: store },
-          { provide: WORLD_NAVIGATE, useValue: (url: string) => went.push(url) },
-          { provide: WorldSession, useValue: { open: (order: WorldStart) => opened.push(order) } },
+          { provide: AppScreen, useValue: screens },
+          { provide: WorldSession, useValue: { open: (order: WorldStart) => opened.push(order), parked: () => null } },
           { provide: ConfigService, useValue: { ownTilesets: signal([]) } },
           { provide: WorldContext, useValue: { ref: current.asReadonly() } },
         ],

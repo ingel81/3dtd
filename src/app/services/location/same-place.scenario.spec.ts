@@ -1,3 +1,5 @@
+// The location service reaches for the game's store (partially compiled): the JIT compiler
+import '@angular/compiler';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Injector, signal } from '@angular/core';
 import { Group, Vector2 } from 'three';
@@ -211,6 +213,7 @@ describe('One place, one set of coordinates (playtest 747 a)', () => {
     const osm = {
       loadStreets: vi.fn(async () => NETWORK),
       prefetchStreets: vi.fn(),
+      cancelLoads: vi.fn(),
       findRandomStreetPoint: vi.fn(() => randomSpawn && { ...randomSpawn, distance: 416, streetName: 'Galgengasse', nodeId: 1 }),
       findPath: vi.fn(() => STREET),
       haversineDistance: (lat1: number, lon1: number, lat2: number, lon2: number) => haversineDistance(lat1, lon1, lat2, lon2),

@@ -10,14 +10,12 @@ Import aus Warcraft 3 [W3X_IMPORT.md](W3X_IMPORT.md).
 ## Start
 
 - `?world=map:<id>` wählt die Karte (`worldRefFromSearch`), `?spawns=N` begrenzt die Spawns
-- Im Hauptmenü: New game, Reiter „Maps“ (`MapPickerComponent`, `WorldChoiceService`).
-  - Gelistet sind eigene Karten aus dem Map-Store, die mitgelieferten aus `maps/index.json` (eine eigene
-    gleicher id verdeckt sie) und die eigenen Tilesets der Konfiguration.
-  - Jede Zeile zeigt Bild, Name, Autor, Größe, Spawn-Zahl und Biom (`MapSummary.spawns`, `biome`; der Index
-    trägt beide).
-  - „Play“ lädt die Seite mit `?world=…` neu, ein Tileset in der Mitte seines Gebiets. „Edit“ öffnet
-    `/editor?map=<id>`.
-  - Auf einer Karte zeigt der Reiter „Real places“ statt der Ortswahl den Weg zurück zu den Kacheln.
+- Auf den Globen: die Welt Built Worlds (`worlds/world-maps.component.ts`), unbearbeitete OSM-Karten unter
+  OpenStreetMap (`world-osm.component.ts`), siehe [WORLDS_STATE_PLAN.md](WORLDS_STATE_PLAN.md).
+  - Gelistet sind eigene Karten aus dem Map-Store, die von Coop-Hosts und die mitgelieferten aus `maps/index.json`
+    (eine eigene gleicher id verdeckt sie); die eigenen Tilesets stehen unter Real places.
+  - Jede Zeile zeigt Bild, Name, Herkunft (from OpenStreetMap, copy of …) und Spawn-Zahl.
+  - „Play“ öffnet die Karte in der Seite (Startauftrag), „Edit in the editor“ den Editor im Fenster.
 - `WorldFactory.startHq` öffnet die Karte über den `MapStore`: eigene Karten aus IndexedDB, sonst
   mitgelieferte aus `public/maps/`. Trägt der Ref einen `contentHash` und passt er nicht, bricht der
   Start ab. Fehlt die Karte, zeigt der Startablauf die Meldung (`WorldUnavailableError`) statt eines
@@ -184,9 +182,9 @@ Ergebnis landet an vier Stellen:
 - als Zeile im Banner
 - auf der Konsole (`[MapTrial] {...}`)
 - in `window.__mapTrial`
-- per `postMessage({ type: '3dtd-map-trial', result })` an das öffnende Fenster oder den Rahmen. Darüber
-  kann der Editor später mit „Karte prüfen“ die Probe in einem Tab oder iframe öffnen und das Ergebnis
-  lesen.
+- beim Editor, der die Probe gestartet hat: sein Bot-Check läuft seit E195 Phase 5 im selben Fenster
+  (Startauftrag `WorldStart.trial`), das Ergebnis geht an `AppScreen.trial` und steht in der Prüfung, sobald der
+  Editor wieder zeigt. Per Link (`?bot=trial&trialWaves=N`) wird der Schalter beim Start zum Startauftrag
 
 ## Zerstörbarkeit (E131)
 
@@ -403,7 +401,7 @@ Ufer (`global-route-grid.spec.ts`),
 Startaufstellung, Spawn-Grenze, Spielwerte und Wellen der Karte, Fallen und Aufstehen von Bauwerken auf
 der eigenen Kopie, Öffnen einer gespeicherten, fehlenden und geänderten Karte; dazu
 `custom-map-destruction.spec.ts`, `world-damage-presenter.spec.ts`, `map-trial.spec.ts`,
-`world-choice.service.spec.ts`, `map-picker.scenario.spec.ts`.
+`world-choice.service.spec.ts`, `worlds/worlds-stage.scenario.spec.ts`.
 
 E2E ohne Kartensitzung (`e2e/tests/custom-map.e2e.ts`): Demo-Tal per Link mit Tower und Welle, Kartenprobe
 des Bots, „Test map“ aus dem Editor, Spielstand speichern und laden, Replay einer Welle, ein Bauwerk von

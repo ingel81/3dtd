@@ -7,15 +7,25 @@ liegt im Browser (IndexedDB; in der Desktop-App zusätzlich als Datei in `Dokume
 öffnen (`?world=map:<id>`). Der Einstieg im Hauptmenü ist „Map editor“ (Lage Start, unter der Linie; mit laufendem Lauf
 fragt das Menü vorher). Die Oberfläche ist englisch wie das übrige Spiel.
 
+Spiel und Editor stehen seit E195 Phase 4 im selben Fenster (`AppShellComponent`, `world/app-screen.service.ts`,
+[WORLDS_NAVIGATION_PLAN.md](WORLDS_NAVIGATION_PLAN.md)): „Map editor“, „Edit“ in der Kartenwahl und „Edit this map“
+öffnen ihn ohne Neuladen, „Back to the game“ kehrt so zurück. `/editor` (mit `?map=<id>`) bleibt Einstieg für
+Entwicklung und AI-Agenten; die Route nennt nur, was zuerst steht, danach ändert kein Wechsel die Adresse. Die
+`EditorSession` hängt am Fenster, nicht an der Editor-Ansicht: zeigt das Spiel, gehen Ansicht, Renderer und Canvas des
+Editors, die offene Karte und ihr Verlauf bleiben (vorher gespeichert; scheitert das, bleibt der Editor).
+Ein laufender Lauf endet dabei nicht (Entscheidung 2 des Plans): zwischen den Wellen schreibt das Menü sofort den
+Autosave seiner Welt (`SaveGamePort.autosaveNow`), in einer Welle gilt der Autosave vom Anfang dieser Welle; ohne
+einen von beiden endet er, und die Rückfrage sagt das. „Back to the run“ in der Kartenliste öffnet seine Welt wieder
+und lädt den Autosave dort (`AppScreen.waitingRun`, `WorldSession.backToGame`).
+
 ## Kartenliste
 
 Die Startseite von `/editor` zeigt links die eigenen und die mitgelieferten Karten (Bild, Größe, Spawns, Objekte,
 zuletzt geändert), rechts die gewählte mit Beschreibung und den Knöpfen Open, Duplicate, Download, Delete (in den
 Papierkorb, siehe [Speichern](#speichern-und-dateien)). Mitgelieferte Karten (`public/maps/index.json`) und Karten eines Koop-Hosts sind schreibgeschützt: „Copy
 and edit“ legt eine eigene Kopie an und öffnet sie. Dasselbe gilt für jeden anderen Weg dorthin, etwa „Edit“ in der
-Kartenwahl des Spiels (`/editor?map=<id>`): `EditorSession.open` öffnet nie das Original, sondern speichert sofort eine
-eigene Kopie („Name (copy)“), sagt das in der Statuszeile und setzt deren Kennung in die Adresse, damit Neuladen die
-Kopie öffnet und keine zweite anlegt. Die Kopie merkt sich ihr Original mit dessen Inhalts-Hash (`meta.copyOf`, nicht
+Kartenwahl des Spiels: `EditorSession.open` öffnet nie das Original, sondern speichert sofort eine eigene Kopie
+(„Name (copy)“) und sagt das in der Statuszeile. Die Kopie merkt sich ihr Original mit dessen Inhalts-Hash (`meta.copyOf`, nicht
 Teil des `contentHash`); ein weiteres „Edit“ desselben Originals öffnet die neueste eigene Kopie wieder. Hat sich das
 Original seither geändert (Spiel-Update, neue Version des Hosts, verglichen über `index.json` bzw. die Zusammenfassung,
 ohne die Datei zu laden), bietet ein Banner „Fresh copy“ (neue Kopie, die alte bleibt) oder „Open your copy“.
@@ -50,9 +60,8 @@ ohne die Datei zu laden), bietet ein Banner „Fresh copy“ (neue Kopie, die al
   dieselbe `.w3x`-Datei), fragt die Liste „Replace“ oder „Keep both“: Replace legt den Inhalt an die Stelle der Karte
   (Kennung, `id` und Anlagezeit bleiben, also auch ihre Versionen; der alte Inhalt wird eine Version), Keep both legt
   die Datei als neue Karte mit eigener Kennung daneben
-- Die Adresse trägt die offene Karte (`/editor?map=<id>`); Neuladen öffnet sie wieder. Die Seite folgt der Adresse:
-  Zurück im Browser schließt die Karte wie der eigene Zurück-Knopf (erst speichern; scheitert das, bleibt sie offen),
-  Vor öffnet sie wieder
+- Die Adresse trägt die offene Karte nicht mehr; Neuladen öffnet die Karte, die dieser Tab offen hatte
+  (sessionStorage `3dtd-editor-map`), `/editor?map=<id>` öffnet eine Karte beim Start
 
 ## Bedienung
 
@@ -168,7 +177,8 @@ würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben diese
   steilen Hängen, dazu rostige, graue und schwarze Steine. Sind die zwölf Bodenschichten voll, macht der Strich Platz (`makeRoom`): eine Schicht, die schon vor dem Strich da war und die kein Boden mehr hält (überall übermalt, höchstens 4 von 255), nimmt das neue Material; sonst malt die Schicht, die ihm am nächsten aussieht (gemeinsamer Katalog-Tag zuerst, dann die mittlere Farbe), an seiner Stelle. Die Statuszeile nennt, was wohin ging; ein Undo stellt die Liste mit zurück. Die Levelskripte lassen ein solches Material weiter weg (`leftOut`). Unter dem Zeiger zeigen Punkte, wo der nächste
   Strich Pflanzen setzen würde
 - Mountain (gratige Gipfel, Höhe nach Größe und Stärke), Valley, Plateau (Tafel mit steilem Rand), Crater (Schüssel mit
-  Wall am Startpunkt des Strichs), Dunes (runde Kämme quer zum Wind, flache Luv-, steile Leeseite), Erode (Regen gräbt
+  Wall am Startpunkt des Strichs; die Schüssel hängt am mittleren Boden ihres Walls, der Wall steht rundum mindestens
+  so hoch: auf einem Gipfel oder Hang entsteht ein geschlossenes Becken, das Wasser oder Lava bis zum Rand hält), Dunes (runde Kämme quer zum Wind, flache Luv-, steile Leeseite), Erode (Regen gräbt
   Rinnen und Schuttfächer). Halten lässt die Form bis zu ihrer vollen Größe wachsen, nicht darüber hinaus
 - Cliff rocks: gehalten über steilem Boden (steiler als der Klippenwinkel, höchstens 45 Grad) stehen Klippenmodelle des
   Katalogs entlang der Kante (`ops/landscape/cliff-rocks.ts`): auf einem Raster von Stellen alle 4 m, je Strich einmal
@@ -180,7 +190,9 @@ würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben diese
   Felsflächen; je Look nur Modelle derselben Färbung, die Küstenklippe und die rote Felsfläche für rote Wüsten und die
   Hölle nur über das Panel) oder das Panel. Die Klippenmodelle sind geschlossen (`close_shell` in
   `tools/map-assets/blender_kit.py`), von oben und hinten Fels statt Loch
-- Glow cracks: der Boden bricht in ein Netz feiner Lavarisse mit Kruste auf verbranntem Fels; die Risse sinken etwas ein
+- Glow cracks: der Boden bricht in ein Netz feiner Lavarisse mit Kruste auf verbranntem Fels; die Risse sinken etwas ein.
+  Glühende Bodenschichten (Lava) deckt das Klippenmaterial nicht zu: Risse auf Flanken und Kraterwänden steiler als der
+  Klippenwinkel glühen weiter
 - Linien (ziehen, auch vom Kartenrand her): Cliff edge hebt den Boden links der Zeichenrichtung als Klippe, die
   Pinselgröße ist die Breite oben; River (Water oder Lava) legt einen Fluss an, der immer bergab fließt (bergauf
   gezeichnet wird er umgedreht): mäandernd, mit wechselnder Breite und schmalen Enden, Bett mit Sand- und
@@ -294,7 +306,18 @@ Tags des Katalogs und Suche (Name, Id oder Tag).
   sinken noch kippen mit dem Boden (Place, Line, Streuen, Biom-Pinsel): ihr z zählt ab der Wasserlinie
 - Place: ein Klick setzt das gewählte Objekt (Raster-Fang 1 bis 8 m, zufällige Drehung; „Align to slope“ kippt es mit
   dem Boden unter seinem Fußabdruck, bei Felsen unter ihrer Platte, `pitch` und `roll` aus `slopeTilt`, jedes
-  Symmetrie-Bild mit seinem eigenen Boden)
+  Symmetrie-Bild mit seinem eigenen Boden). Am Zeiger steht sein Grund als Umriss (Rechteck des Katalog-`box` oder
+  Fußabdruck-Kreis) mit einem Dorn aus der Mitte der Vorderseite (lokal +z, wie die Modelle und OSM-Häuser schauen).
+  Q und Komma drehen das nächste Objekt nach links, E und Punkt nach rechts, Shift+Mausrad ebenso, je um den Schritt
+  „Turn step“ (5, 15, 45 oder 90 Grad, anfangs 15) auf dessen Raster, Shift+Q/E um 90 Grad; eine Drehtaste schaltet
+  „Turn at random“ ab, das Feld „Turn“ nimmt die Gradzahl auch direkt. In Place drehen also Q und E, W und R wechseln
+  wie überall zu Select. „Face the road“ (anfangs an) dreht ein Gebäude (Katalog-Kategorie `building`) mit der
+  Vorderseite zum nächsten Punkt der nächsten Straße (`roadFacing` in `ops/object-ops.ts`: alle Kanten der Straßen
+  außer Tunneln, gemessen vom Fußabdruck bis zum Straßenrand, höchstens 20 m, `ROAD_FACE_REACH`); ist keine so nah,
+  gilt die eingestellte oder zufällige Drehung. Jedes Symmetrie-Bild schaut zu seiner eigenen nächsten Straße. Die
+  Statuszeile sagt, wie das Objekt gesetzt wird („facing the road“, „turned at random“, „turned 45 deg“), die Legende
+  zeigt im Modus Place die Drehtasten. `MapKit.place`, Levelskripte und das Platzieren des Agenten geben ihre Drehung
+  selbst an und bleiben davon unberührt
 - Scatter: halten streut die gewählten Assets (mehrere wählbar) mit Dichte, Größenbereich, Mindestabstand, zufälliger
   Drehung, Einsinken am Hang und „Align to slope“; Shift dünnt aus
 - Line: das gewählte Objekt in einer Reihe, frei gezogen oder per Klick entlang einer Straße oder eines Flusses: Abstand,
@@ -605,7 +628,9 @@ Szenenkosten.
 
 - Autosave schreibt zwei Sekunden nach der letzten Änderung in IndexedDB; die Kopfzeile zeigt „Unsaved changes“,
   „Saving“ oder „Saved“. Strg+S speichert sofort mit neuem Vorschaubild; beim Verlassen der Karte wird das Bild
-  ebenfalls erneuert
+  ebenfalls erneuert. Prüfen, Packen und der Fingerabdruck für den Verlauf laufen in einem Worker
+  (`workers/map-pack.ts`, eine Kopie der Karte wie beim Speichern): vorher kostete jedes Speichern auf einer 512-m-Karte
+  ein Bild von 60 bis 140 ms, jetzt keines (headless gemessen, längstes Bild beim Speichern 7 ms wie im Leerlauf)
 - Ein Tab je Karte (`editor/model/map-lock.ts`): wer eine Karte zuerst öffnet, hält ihre Web-Sperre
   (`navigator.locks`, Name `3dtd-map:<id>`). Ein zweiter Tab öffnet sie schreibgeschützt: Banner „Another tab edits
   this map“, Kopfzeile „Read only“, die Panels aus, Werkzeuge und Werkzeugtasten aus, Rückgängig, Speichern, Einfügen,
@@ -649,14 +674,13 @@ Szenenkosten.
   ihr `contentHash` bleibt; Version-2-Dateien lesen sich unverändert über die Migration 2 nach 3
 - Datei-Menü (drei Punkte): Download map file (`.3dtdmap`), Export top view as picture (PNG, 2048 px an der längeren
   Seite), Frame the whole map, Top view
-- „Test map“ speichert und öffnet das Spiel mit `?world=map:<id>` im Test-Tab: ein Fenster mit festem Namen
-  (`MAP_TEST_WINDOW`, `3dtd-map-test`), das jeder weitere Test und der Bot-Check wiederverwenden, statt Tabs zu stapeln;
-  in der Desktop-App ein eigenes, gleich gehärtetes App-Fenster ([ELECTRON_DESKTOP_PLAN.md](ELECTRON_DESKTOP_PLAN.md), E26c).
-  Das Fenster wird noch im Klick genommen (`window.open('', …)`: leer neu oder das vorhandene, ohne Neuladen) und erst
-  nach dem Speichern auf das Spiel geschickt; so greift keine Popup-Sperre, wenn das Speichern samt Vorschaubild länger
-  dauert als die Nutzer-Aktivierung des Browsers. Scheitert das Speichern, geht ein leer geöffnetes Fenster wieder zu.
+- „Test map“ speichert und spielt die Karte im selben Fenster (E195 Phase 5, Startauftrag mit `trial`): der Editor
+  wartet mit Karte, Verlauf und Kamera; „Edit“ im Pfad oder „Back to editor“ im Pausemenü und nach Game over kehrt
+  am selben Stand zurück. Das Probespiel wird nie gespeichert, auch nicht als Autosave, und ist kein Lauf, zu dem
+  man zurückkehrt. Der Bot-Check läuft ebenso im Fenster, sein Ergebnis steht danach in der Prüfung
+  (`AppScreen.trial`). Scheitert das Speichern, bleibt der Editor.
   „From wave“ neben dem Knopf (1 bis 200, gilt, solange der Editor offen ist) startet den Test bei Welle N
-  (`&fromWave=N`, `customMapStartWave`): die Wellen davor zählen als gespielt, der Spieler hat das Gold und die
+  (`WorldStart.startWave`, per Link `&fromWave=N`, `customMapStartWave`): die Wellen davor zählen als gespielt, der Spieler hat das Gold und die
   Forschung, die ein typischer Spieler bis dahin hat, und baut die Abwehr selbst. Die Rechnung (`runStartAt`,
   `sim/protocol/run-start.ts`, mit den Goldregeln der Wellen, die die Karte spielt):
   - Gold der Wellen 1 bis N−1: Kill-Gold, Abschlussgold und Meilensteine, ohne Skill-Boni, wie der Dev-Sprung
@@ -837,7 +861,12 @@ Wasserfälle im Band gehen mit, eine Brücke darüber wird wieder Straße; ein R
 Wassermaske aus dem Sektor des Zeigers in die Bilder (das Raster ist um die Mitte gelegt, ein gespiegeltes Sample ist
 wieder ein Sample) und meldet die Rechtecke der Bilder an die Ansicht; `BrushStroke` und `LandscapeStroke` sichern
 die Ziel-Kacheln vorher. Ein Stück (`Stamp`) hält Höhen relativ zum Rand, Farbe je Material, Wasser, Objekte und die
-Straßen, deren beide Enden darin liegen; `pasteStamp` setzt es gedreht über einen `LandscapeStroke`.
+Straßen, deren beide Enden darin liegen; `pasteStamp` setzt es gedreht über einen `LandscapeStroke`. Das Wasser ist
+das der Hauptwasserfläche oder, ohne sie im Stück, das des Gewässers, das den größten Teil davon bedeckt (ein
+Oasenteich, ein Lavakrater; `kind` im Stück), mit seinem Spiegel relativ zum Rand. Beim Einsetzen steht es relativ zum
+Boden dort: in der Hauptwasserfläche, wenn sie auf dieser Höhe liegt (oder fehlt), sonst in einem Gewässer dieser Art
+auf dieser Höhe, neu angelegt, wenn keines da ist (`LandscapeStroke.waterAt`). Vorher grub ein Teich, auf eine Mesa
+gesetzt, sein Bett bis zum Spiegel des Meers hinunter, und ein Gewässer außer dem Hauptwasser kam gar nicht mit.
 
 **Angular.** `EditorSession` (je Seite) hält Karte, Werkzeuge, Einstellungen und Signale für die Panels; Viewport und
 Taktgeber laufen außerhalb der Zone, Änderungen am Dokument erreichen die Panels höchstens alle 150 ms.

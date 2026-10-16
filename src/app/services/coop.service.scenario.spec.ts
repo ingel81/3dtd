@@ -43,6 +43,7 @@ vi.mock('./infrastructure/engine-initialization.service', () => ({ EngineInitial
 vi.mock('./location/location-management.service', () => ({ LocationManagementService: class {} }));
 vi.mock('./location/url-location.service', () => ({ UrlLocationService: class {} }));
 vi.mock('../world/world-start', () => ({ WorldStartService: class {}, PLAIN_START: { world: null, place: null, resume: null, room: null, spawnLimit: 4, startWave: 1 } }));
+vi.mock('../world/world-session.service', () => ({ WorldSession: class {} }));
 vi.mock('./world/path-route.service', () => ({ PathAndRouteService: class {} }));
 vi.mock('./facade/location-facade.service', () => ({ LocationFacadeService: class {} }));
 vi.mock('./location/location-change-coordinator.service', () => ({ LocationChangeCoordinatorService: class {} }));
@@ -58,7 +59,8 @@ vi.mock('../coop/world-package', () => ({
   worldPackageRefusalText: () => 'refused',
 }));
 
-import { PLAIN_START, WorldStartService } from '../world/world-start';
+import { PLAIN_START, WorldStartService, type WorldStart } from '../world/world-start';
+import { WorldSession } from '../world/world-session.service';
 import { CoopService } from './coop.service';
 import { WorldPackageLoader } from './world/world-package-loader.service';
 import { CoopSession } from '../coop/coop-session';
@@ -95,8 +97,12 @@ const SPAWNS = [
   { id: 'spawn-2', name: 'South', lat: 48.767, lon: 9.182 },
 ];
 
-/** One player's CoopService on fakes of the game */
-function player(relayPort: number, waveSource?: WaveSourceId) {
+/**
+ * One player's CoopService on fakes of the game. `mapId` plays that custom
+ * map instead of the tiles; `destroy` takes the game down, as a world
+ * switch in the page does (WorldSession, GameHostComponent).
+ */
+function player(relayPort: number, waveSource?: WaveSourceId, mapId?: string) {
   localStorage.setItem('3dtd-coop-relay', `ws://localhost:${relayPort}`);
   const hq = signal(HQ);
   const closedRun = signal<RunLog | null>(null);
@@ -145,6 +151,17 @@ function player(relayPort: number, waveSource?: WaveSourceId) {
   const director = waveSource
     ? { sourceNextRun: waveSource, useSourceNextRun: vi.fn(function (this: { sourceNextRun: WaveSourceId }, id: WaveSourceId) { this.sourceNextRun = id; }) }
     : null;
+  const context = fakeWorldContext();
+  if (mapId) context.useCustomMap(mapId);
+  // Worlds opened in the page: the old game hears it while it stands (onLeaving)
+  const leaving = new Set<() => void>();
+  const worlds = {
+    onLeaving: (listener: () => void) => {
+      leaving.add(listener);
+      return () => leaving.delete(listener);
+    },
+    open: vi.fn((_order: WorldStart) => [...leaving].forEach((listener) => listener())),
+  };
   const injector = Injector.create({
     parent: TestBed.inject(EnvironmentInjector),
     providers: [
@@ -158,7 +175,8 @@ function player(relayPort: number, waveSource?: WaveSourceId) {
       { provide: TowerLosRegistry, useValue: los },
       { provide: PresentationService, useValue: { host: null } },
       { provide: ConfigService, useValue: { coopRelay: signal(null), coopLobbies: signal(null), needsCredentials: signal(false), tileProvider: signal('cesium') } },
-      { provide: WorldContext, useValue: fakeWorldContext() },
+      { provide: WorldContext, useValue: context },
+      { provide: WorldSession, useValue: worlds },
       { provide: GameStore, useValue: gameStore },
       { provide: UIStore, useValue: { coopMapLocked: signal(false), notice: signal<UiNotice | null>(null), coopDockOpen: signal(false) } },
       { provide: EngineInitializationService, useValue: { getEngine: () => ({ renderLoop }), loading: () => false } },
@@ -180,7 +198,8 @@ function player(relayPort: number, waveSource?: WaveSourceId) {
     const head = coopHead();
     if (head) runLog.collector.markCoop(head.players, head.you);
   });
-  return { coop, sim, los, mirror, hq, locationChange, closedRun, director, runs, renderLoop, gameStore, dialog };
+  const destroy = () => (injector as unknown as { destroy(): void }).destroy();
+  return { coop, sim, los, mirror, hq, locationChange, closedRun, director, runs, renderLoop, gameStore, dialog, worlds, destroy };
 }
 
 /** Wait for `ok`, flushing effects, up to 15 s: under a loaded suite the sockets answer late */
@@ -413,6 +432,39 @@ describe('CoopService over a real relay (review R21)', () => {
     await until(() => guest.coop.worldReady() && guest.hq().lat === place.lat);
     expect(guest.coop.room()?.code).toBe(host.coop.room()!.code);
     await until(() => host.coop.room()!.players.find((p) => p.name === 'Bob')!.status === 'ready');
+  });
+
+  it('keeps the room when the host opens another world in the page, and sends the new one (E195)', async () => {
+    const { host, guest } = await lobby();
+    const code = host.coop.room()!.code;
+    // New game > Maps in the host's menu: the old game hears it, then goes
+    host.worlds.open({ ...PLAIN_START, world: { kind: 'custom-map', mapId: 'demo-valley', contentHash: '' } });
+    host.destroy();
+    await until(() => guest.coop.chat().some((line) => line.text === 'Ann is changing the map, it comes here next'));
+    const next = player(relay!.port);
+    await until(() => next.coop.room()?.code === code && next.coop.worldReady());
+    expect(next.coop.isHost()).toBe(true);
+    expect(next.coop.room()!.players.map((p) => p.name)).toEqual(['Ann', 'Bob']);
+    expect(next.coop.chat().some((line) => line.text === `Room ${code} opened`)).toBe(true);
+    expect(guest.coop.chat().some((line) => line.text === 'Ann left')).toBe(false);
+  });
+
+  it('follows the host from a map to its real place in the page, in the room (E195)', async () => {
+    relay = await startRelay({ port: 0 });
+    const host = player(relay.port);
+    const guest = player(relay.port, undefined, 'demo-valley');
+    await host.coop.host('Ann');
+    await until(() => host.coop.room() !== null && host.coop.worldReady());
+    await guest.coop.join('Bob', host.coop.room()!.code);
+    // The host's world is the tiles: the guest's game opens there, at the host's place
+    await until(() => guest.worlds.open.mock.calls.length > 0);
+    expect(guest.worlds.open.mock.calls[0][0]).toMatchObject({ world: null, place: { hq: HQ } });
+    guest.destroy();
+    const next = player(relay.port);
+    await until(() => next.coop.worldReady() && next.coop.room()?.code === host.coop.room()!.code);
+    await until(() => host.coop.room()!.players.find((p) => p.name === 'Bob')!.status === 'ready');
+    expect(host.coop.chat().some((line) => line.text === 'Bob left')).toBe(false);
+    expect(next.worlds.open).not.toHaveBeenCalled();
   });
 
   it('takes the options from the host, asks the guest for ready again and tells both in the chat (D38)', async () => {

@@ -78,7 +78,9 @@ import { toJsonl } from '../run-log/run-log.export';
 import type { RunLog } from '../run-log/run-log.types';
 import { CoopRunCounts } from './coop-run-counts';
 import { ResettableSignals } from '../utils/resettable-signals';
-import { WorldStartService } from '../world/world-start';
+import { PLAIN_START, WorldStartService, type WorldStart } from '../world/world-start';
+import { WorldSession } from '../world/world-session.service';
+import { CoopRoomCarry, type CarriedRoom } from '../coop/coop-room-carry';
 import { pageSwitches } from '../core/page-switches';
 
 /** A mark on the map one player set for all (review R13) */
@@ -261,6 +263,10 @@ export class CoopService {
   /** Standing on the host's world package (C1) */
   private readonly loader = inject(WorldPackageLoader);
   private readonly worldContext = inject(WorldContext);
+  /** Opens the world the host plays in this page; the room goes along (CoopRoomCarry) */
+  private readonly worlds = inject(WorldSession);
+  private readonly carry = inject(CoopRoomCarry);
+  private readonly worldStart = inject(WorldStartService);
   /** Guest: the pieces of the host's custom map as they come */
   private readonly mapAssembler = new MapAssembler();
   /** Host: the map (id and hash) this room has from us already, sent once per room */
@@ -515,8 +521,12 @@ export class CoopService {
     const offFailure = this.sim.onFailure(() => {
       if (this.session) this.ngZone.run(() => this.leave());
     });
-    // The game component goes (another route): out of the room, the LAN relay and scan with it
+    // Another world in the page: a room in the lobby goes along to the next game's CoopService
+    const offLeaving = this.worlds.onLeaving(() => this.carryRoom());
+    // The game component goes (another world, another route): out of the room, the LAN relay
+    // and scan with it, unless the room went along
     inject(DestroyRef).onDestroy(() => {
+      offLeaving();
       offFailure();
       this.runLog.setCoopHead(() => null);
       this.scanLan(false);
@@ -524,7 +534,7 @@ export class CoopService {
       this.subs.disposeAll();
     });
     // The start order's room (an invite link's ?room=, &lane=); the other switches stay in the address
-    const room = inject(WorldStartService).current().room;
+    const room = this.worldStart.current().room;
     const params = pageSwitches();
     this.roomFromUrl = room?.code ?? null;
     // An invite link opens the start menu on its Coop page (TowerDefenseComponent.startGameSequence);
@@ -681,6 +691,70 @@ export class CoopService {
       untracked(() => this.followLocalSpeed(speed, paused));
     }, { injector: this.injector });
 
+    // The room of the world before, in this page (carryRoom)
+    const carried = this.carry.take();
+    if (carried) this.takeUpRoom(carried);
+  }
+
+  /**
+   * The open world goes for another one in this page (WorldSession.onLeaving):
+   * a room in the lobby goes along, its connection open, to the CoopService
+   * of the next world (takeUpRoom). The host's guests hear that the map
+   * changes; the guests' room hears this one loads. A running coop game does
+   * not go along: leaving it closes this player's lane, as before.
+   */
+  private carryRoom(): void {
+    const session = this.session;
+    // A join under way goes along too: the host's world can come before the room's answer
+    if (!session || !session.connected || this.inGame()) return;
+    if (this.isHost()) session.moving();
+    else this.tellStatus('loading');
+    session.unhook();
+    this.carry.keep({
+      session,
+      relay: this.relay(),
+      intent: this.intent(),
+      chat: this.chat(),
+      chatId: this.chatId,
+      lan: this.lanHosting ? this.lanAddresses() : null,
+    });
+    // The relay and the LAN relay stay with the room: leave() on the way out leaves them
+    this.session = null;
+    this.lanHosting = false;
+  }
+
+  /**
+   * The room of the world before (carryRoom), in this world: the session's
+   * handlers here, the room and chat as they were. Once the place stands
+   * the host sends it to the room; a guest takes the host's world, which
+   * the session kept, if it is this one, else waits for the next.
+   */
+  private takeUpRoom(carried: CarriedRoom): void {
+    const { session } = carried;
+    this.session = session;
+    this.wire(session);
+    this.playerId.set(session.playerId);
+    this.relay.set(carried.relay);
+    this.intent.set(carried.intent);
+    this.chat.set(carried.chat);
+    this.chatId = carried.chatId;
+    if (carried.lan) {
+      this.lanHosting = true;
+      this.lanAddresses.set(carried.lan);
+    }
+    this.room.set(session.room);
+    this.status.set('lobby');
+    if (!session.connected) {
+      // It closed on the way: as a close in the lobby would have said
+      session.onClosed?.(null);
+      return;
+    }
+    const stillInRoom = this.stillInRoom();
+    queueMicrotask(() => {
+      if (!stillInRoom()) return;
+      if (this.isHost()) void this.placeLoaded().then((ok) => ok && stillInRoom() && this.ngZone.run(() => this.shareWorld()));
+      else if (session.world) void this.takeWorld(session.world, false);
+    });
   }
 
   /** Add an online lobby and make it the active one; false when the address is no ws:// or wss:// one */
@@ -1360,7 +1434,7 @@ export class CoopService {
     const piece = { mapId, hash };
     const ref: WorldRef = { kind: 'custom-map', mapId: piece.mapId, contentHash: piece.hash };
     if (!worldsMatch(ref, this.worldContext.ref())) {
-      this.ngZone.run(() => this.reloadAtMap(piece.mapId));
+      this.ngZone.run(() => this.followTo({ ...PLAIN_START, world: { kind: 'custom-map', mapId: piece.mapId, contentHash: '' } }));
       return;
     }
     // This page is on the map already: it stands, or its start failed for want of it (an
@@ -1369,19 +1443,19 @@ export class CoopService {
     while (this.worldContext.provider() === null && this.engineInit.error() === null && performance.now() < end) {
       await new Promise((resolve) => setTimeout(resolve, 200));
     }
-    if (generation === this.generation && this.worldContext.provider() === null) this.ngZone.run(() => this.reloadAtMap(piece.mapId));
+    if (generation === this.generation && this.worldContext.provider() === null) {
+      this.ngZone.run(() => this.followTo({ ...PLAIN_START, world: { kind: 'custom-map', mapId: piece.mapId, contentHash: '' } }));
+    }
   }
 
-  /** This page on the host's custom map, back into the room (as reloadAt for a place) */
-  private reloadAtMap(mapId: string): void {
-    const room = this.room()?.code ?? this.roomFromUrl ?? '';
-    const lane = this.room()?.players.find((p) => p.id === this.playerId())?.spawnIds[0] ?? null;
-    let params = `${this.roomParams(room)}${lane ? `&lane=${encodeURIComponent(lane)}` : ''}`;
-    // The relay this page was sent to stays, also one on this machine (roomParams leaves that out)
-    if (!params.includes('&relay=') && this.relayFromUrl) params += `&relay=${encodeURIComponent(this.relayFromUrl)}`;
-    this.tellStatus('reloading');
-    this.leave();
-    window.location.assign(`${window.location.pathname}?${WORLD_URL_PARAM}=${encodeURIComponent(`map:${mapId}`)}${params}`);
+  /**
+   * This player into the host's world, in this page: the world opens anew
+   * (WorldSession) and the room goes along (carryRoom). Without a session
+   * any more (it closed meanwhile) there is nothing to follow.
+   */
+  private followTo(order: WorldStart): void {
+    if (!this.session) return;
+    this.worlds.open(order);
   }
 
   /** `&room=` and, where the guest could not find it alone, `&relay=` (R7) */
@@ -1632,10 +1706,13 @@ export class CoopService {
 
   /**
    * Joiner: the host's world came. Here the same place must stand: if not,
-   * load it with the room in the URL; once it stands, take routes, cells and
-   * heights over and check the world key.
+   * go there in this page, the room with it; once it stands, take routes,
+   * cells and heights over and check the world key. `live` is false for the
+   * world the session kept over a world switch (takeUpRoom): it may be the
+   * host's world before the one it moves to, so another world than this
+   * one waits for the host's next instead of being followed back.
    */
-  private async takeWorld(data: unknown): Promise<void> {
+  private async takeWorld(data: unknown, live = true): Promise<void> {
     if (this.isHost()) return;
     this.hostChangingMap.set(false);
     const read = readWorldPackage(JSON.stringify(data), this.head());
@@ -1665,6 +1742,15 @@ export class CoopService {
       }, MAP_WANT_WAIT_MS);
       return;
     }
+    if (otherWorld && !live) {
+      this.status.set('loading-world');
+      return;
+    }
+    // The host plays on the real places: there in this page
+    if (otherWorld && hostRef.kind === 'tiles') {
+      this.followTo({ ...PLAIN_START, place: { hq: read.world.hq, spawns: read.world.spawns.map(({ lat, lon }) => ({ lat, lon })) } });
+      return;
+    }
     if (otherWorld) {
       this.error.set(`The host's game: ${otherWorld}`);
       return;
@@ -1692,35 +1778,23 @@ export class CoopService {
     // Another place: go there in this page, as the host did (D35); every
     // reload is a new map session with the tile provider (User, 2026-09-25)
     if (!this.loader.standsOn(world) && !(await this.moveToWorld(world))) {
-      this.reloadAt(world);
+      // Not as the world's: this world once more, made anew at the host's place
+      const place = { hq: world.hq, spawns: world.spawns.map(({ lat, lon }) => ({ lat, lon })) };
+      if (this.stillInRoom()()) this.followTo({ ...PLAIN_START, world: this.worldStart.current().world, place });
       return;
     }
     this.adoptWorld(world);
   }
 
   /**
-   * Go to the world's place without a reload (WorldPackageLoader.moveTo);
-   * false when it did not come out as the world's, the caller reloads then.
+   * Go to the world's place in this world (WorldPackageLoader.moveTo);
+   * false when it did not come out as the world's, the caller opens the
+   * world anew then.
    */
   private async moveToWorld(world: WorldPackage): Promise<boolean> {
     // The room hears "loading the map" and, once adoptWorld is done, "ready"
     this.worldReady.set(false);
     return this.loader.moveTo(world, 'Loading...', this.stillInRoom());
-  }
-
-  /** The fallback of moveToWorld: this page at the world's place, back into the room */
-  private reloadAt(world: WorldPackage): void {
-    const room = this.room()?.code ?? this.roomFromUrl ?? '';
-    const url = this.urlLocation.urlFor(world.hq, world.spawns.map(({ lat, lon }) => ({ lat, lon })));
-    // The lane goes along: autoPick takes it again after the reload
-    const lane = this.room()?.players.find((p) => p.id === this.playerId())?.spawnIds[0] ?? null;
-    const params = `${this.roomParams(room)}${lane ? `&lane=${encodeURIComponent(lane)}` : ''}`;
-    // The room hears why this player goes, then out of it: the browser
-    // closes the socket of a page it leaves late, and the relay kept this
-    // player in the list till then
-    this.tellStatus('reloading');
-    this.leave();
-    window.location.assign(`${url}${params}`);
   }
 
   /**

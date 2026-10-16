@@ -26,7 +26,7 @@ import { FLOW_MAP_MAX, SHORE_FIELD_MAX, SLOPE_FIELD_MAX } from './flow-map';
 import { SHORE_PHASE_GLSL, shoreWaves } from './shore-waves';
 import { lavaNoiseTexture } from './lava-noise';
 import { SCENE_COPY_GLSL, type SceneCopy } from './scene-copy';
-import { SHORE_CUT_SCALE } from './shore-cut';
+import { SHORE_CUT_DEPTH, SHORE_CUT_SCALE } from './shore-cut';
 import type { MapEffects } from '../map-effects';
 import type { WaterReflection } from './water-reflection';
 
@@ -500,7 +500,12 @@ void main() {
   if (uHasMask > 0.5 && !outside) {
     vec2 maskCut = texture2D(uMask, m * uMaskUv.xy + uMaskUv.zw).rg;
     // The shore cut in cells (positive on the wet side): a soft edge a quarter cell wide
-    edge = smoothstep(0.3, 0.6, maskCut.r) * smoothstep(0.0, 0.25, (maskCut.g * 255.0 - 128.0) / ${SHORE_CUT_SCALE.toFixed(1)});
+    float cut = (maskCut.g * 255.0 - 128.0) / ${SHORE_CUT_SCALE.toFixed(1)};
+    edge = smoothstep(0.3, 0.6, maskCut.r) * smoothstep(0.0, 0.25, cut);
+    // Where the cut lies inside the drawn waterline (a wall, a bank in teeth) the water there reads as shallow
+    // as at a shore, so it ends in its clear rim and foam instead of a hard line of deep water; from two cells
+    // in (the cut's values stop at SHORE_CUT_REACH) the depth per pixel again
+    depth = mix(min(depth, max(cut, 0.0) * ${SHORE_CUT_DEPTH.toFixed(2)}), depth, smoothstep(1.5, 2.5, cut));
   }
 #if RIVER == 1
   edge *= 1.0 - smoothstep(0.82, 1.0, abs(vAcross));

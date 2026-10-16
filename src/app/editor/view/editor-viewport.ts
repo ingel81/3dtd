@@ -285,13 +285,14 @@ export class EditorViewport {
     return { x: g.target.x, y: g.target.y, z: g.target.z, distance: g.distance, yaw: g.yaw, pitch: g.pitch };
   }
 
-  /** Fly to a kept view */
-  showView(v: CameraBookmark): void {
+  /** Fly to a kept view; `snap` stands there at once (a view made anew) */
+  showView(v: CameraBookmark, snap = false): void {
     const g = this.controller.goal;
     g.target.set(v.x, v.y, v.z);
     g.distance = v.distance;
     g.yaw = v.yaw;
     g.pitch = v.pitch;
+    if (snap) this.controller.snap();
   }
 
   /** Where the camera stands and the point it looks at now, in map space (the intro's views) */
@@ -940,6 +941,9 @@ export class EditorViewport {
       this.callbacks.settingsChanged();
       return;
     }
+    // A tool may take the wheel with a modifier (Place turns with Shift); with Shift some systems scroll sideways (deltaX)
+    const delta = e.deltaY || e.deltaX;
+    if (delta && this.tool?.wheel?.(Math.sign(delta), this.toolPointer(e, null), this.ctx)) return;
     const steps = Math.sign(e.deltaY) * Math.min(3, Math.abs(e.deltaY) / 100 || 1);
     const hit = this.raycastClient(e.clientX, e.clientY);
     this.controller.zoom(steps, hit ? mapToScene(hit.x, hit.y, hit.z) : null);

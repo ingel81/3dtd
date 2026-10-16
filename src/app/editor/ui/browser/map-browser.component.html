@@ -4,7 +4,7 @@
       <h1 class="td-dlg-title" id="mb-title">Map editor</h1>
       <div class="td-actions">
         <app-agent-control />
-        <button class="td-btn-ghost" type="button" (click)="backToGame()">Back to the game</button>
+        <button class="td-btn-ghost" type="button" (click)="backToGame()" data-test="back-to-game">{{ waitingRun() ? 'Back to the run: ' + waitingRun()!.label : 'Back to the game' }}</button>
         @if (worlds.mapFolder) {
           <button class="td-btn-ghost" type="button" (click)="worlds.revealMapFolder()"
                   matTooltip="Your maps as .3dtdmap files in Documents/3DTD/Maps; put files there to add them" data-test="map-folder">Map folder</button>
@@ -144,7 +144,7 @@
           </p>
         }
 
-        <h2 class="td-head mb-gap">Shipped maps <span class="td-note">open as a copy of your own</span></h2>
+        <h2 class="td-head mb-gap">Shipped maps <span class="td-note">your own copy comes with the first change</span></h2>
         @for (m of shipped(); track m.id) {
           <button class="td-row mb-row" type="button" role="option" [attr.aria-selected]="chosen()?.id === m.id && chosen()?.origin === 'shipped'"
                   (click)="choose(m)" [attr.data-map]="m.id">

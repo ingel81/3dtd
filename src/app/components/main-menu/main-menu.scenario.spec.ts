@@ -30,10 +30,13 @@ import type { BootStep } from './loading/boot-step.model';
 import { UIStore } from '../../store/ui.store';
 import { GameStore } from '../../store/game.store';
 import { COOP } from '../../services/coop.token';
-import { AUTOSAVE_MAP_SLOT, AUTOSAVE_SLOT, SAVE_GAME, type LoadResult, type SaveSlotInfo } from '../../services/save-game/save-game.port';
+import { AUTOSAVE_BUILT_SLOT, AUTOSAVE_SLOT, SAVE_GAME, type LoadResult, type SaveSlotInfo } from '../../services/save-game/save-game.port';
 import { CUSTOM_MAPS_OPEN } from '../../world/custom-maps-open';
+import { AppScreen } from '../../world/app-screen.service';
+import { PLAIN_START, WorldStartService, type WorldStart } from '../../world/world-start';
 import { WorldChoiceService } from '../../world/world-choice.service';
-import { WorldSession } from '../../world/world-session.service';
+import { WorldSession, type ParkedWorld } from '../../world/world-session.service';
+import { WorldsStageService } from '../../worlds/worlds-stage.service';
 import { EngineInitializationService } from '../../services/infrastructure/engine-initialization.service';
 import { LocationManagementService } from '../../services/location/location-management.service';
 import { LocationChangeCoordinatorService } from '../../services/location/location-change-coordinator.service';
@@ -43,6 +46,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { focusIsQuiet, focusedByKeyboard } from '../../utils/keyboard-target';
 import { WorldContext } from '../../world/world-context.service';
 import { fakeWorldContext } from '../../../test/world-context-fake';
+import type { OverpassRetry } from '../../world/osm/overpass-client';
 import { GLOBE_LINK } from '../../services/world/globe-link';
 
 const read = (path: string) => readFileSync(resolve('src/app/components/main-menu', path), 'utf8');
@@ -85,7 +89,7 @@ function steps(done: number, total = 10): BootStep[] {
 function autosaveAt(hq: { lat: number; lon: number } | null, location: string, wave = 7): SaveSlotInfo {
   return {
     id: AUTOSAVE_SLOT, name: `${location}, wave ${wave}`, autosave: true, wave, location,
-    savedAt: '2026-10-08T20:00:00Z', gameVersion: '0.6.0', note: null,
+    savedAt: '2026-10-08T20:00:00Z', gameVersion: '0.6.0', note: null, world: 'real',
     hq,
     map: null,
   };
@@ -96,8 +100,11 @@ describe('The main menu', () => {
   let menu: MainMenuService;
   let ui: UIStore;
   let game: GameStore;
+  /** The engine's frames and sound, as the hold behind the globes stops them */
+  const engine = { renderLoop: { start: vi.fn(), stop: vi.fn() }, spatialAudio: { setHeld: vi.fn() } };
   const engineInit = {
     loading: signal(true),
+    getEngine: () => engine,
     error: signal<string | null>(null),
     loadingSteps: signal<BootStep[]>(steps(3)),
   };
@@ -105,6 +112,7 @@ describe('The main menu', () => {
     hq: signal<{ lat: number; lon: number } | null>(null),
     displayName: signal('Kiliansplatz, Heilbronn, Deutschland'),
     missionInfo: signal<{ city: string } | null>({ city: 'Heilbronn' }),
+    spawns: signal<{ lat: number; lon: number }[]>([]),
   };
   const coordinator = { awaitingStartChoice: signal(false), choosePlace: vi.fn(async () => true) };
   const saves = {
@@ -113,8 +121,11 @@ describe('The main menu', () => {
     startPlace: signal(null),
     continueAutosave: vi.fn(async (): Promise<LoadResult> => ({ ok: true, note: null })),
     load: vi.fn(async (): Promise<LoadResult> => ({ ok: true, note: null })),
+    canSave: signal(false),
+    autosaveNow: vi.fn(async () => false),
+    newRun: vi.fn(),
   };
-  const worlds = { openSave: vi.fn() };
+  const worlds = { openSave: vi.fn(), editMap: vi.fn() };
   /** The custom maps open: the start list has its tabs */
   let mapsOpen = false;
   const coop = { inGame: signal(false), hostPlace: signal(null), room: signal<{ code: string } | null>(null) };
@@ -128,7 +139,14 @@ describe('The main menu', () => {
   });
 
   let world = fakeWorldContext();
-  const session = { reopen: vi.fn() };
+  const session = {
+    reopen: vi.fn(), parked: signal<ParkedWorld | null>(null), onLeaveParked: vi.fn(() => () => undefined),
+    world: signal(1), isOpen: signal(true),
+  };
+  const stage = {
+    leaveGame: vi.fn(), makeMapOf: vi.fn(),
+    loadAsk: vi.fn((): { text: string; note: string; run: unknown } | null => null), endRun: vi.fn(async () => undefined),
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -140,11 +158,15 @@ describe('The main menu', () => {
     locationMgmt.hq.set(null);
     saves.slots.set([]);
     saves.hasAutosave.set(false);
+    saves.canSave.set(false);
     coop.inGame.set(false);
     coop.room.set(null);
     config.setupRequested.set(false);
     dialog.openDialogs = [];
     mapsOpen = false;
+    session.parked.set(null);
+    session.world.set(1);
+    session.isOpen.set(true);
   });
 
   afterEach(() => {
@@ -152,7 +174,7 @@ describe('The main menu', () => {
     TestBed.resetTestingModule();
   });
 
-  async function setup(layer: 'start' | 'pause' = 'start') {
+  async function setup(layer: 'start' | 'pause' = 'start', order: WorldStart | null = null) {
     TestBed.configureTestingModule({
       providers: [
         MainMenuService,
@@ -168,6 +190,7 @@ describe('The main menu', () => {
         { provide: CUSTOM_MAPS_OPEN, useValue: mapsOpen },
         { provide: WorldChoiceService, useValue: worlds },
         { provide: WorldSession, useValue: session },
+        { provide: WorldsStageService, useValue: stage },
       ],
     });
     TestBed.overrideComponent(MainMenuComponent, {
@@ -185,6 +208,7 @@ describe('The main menu', () => {
     TestBed.overrideComponent(MenuLoadingComponent, {
       set: { template: read('loading/menu-loading.component.html'), templateUrl: undefined, styleUrl: undefined, styles: [] },
     });
+    if (order) TestBed.inject(WorldStartService).set(order);
     menu = TestBed.inject(MainMenuService);
     ui = TestBed.inject(UIStore);
     game = TestBed.inject(GameStore);
@@ -216,46 +240,28 @@ describe('The main menu', () => {
     await settle();
   }
 
-  describe('the tabs for real places and custom maps', () => {
+  describe('one world per start list (docs/WORLDS_STATE_PLAN.md 3.3)', () => {
     const mapAutosave = (wave = 4): SaveSlotInfo => ({
-      ...autosaveAt(null, 'Ember Crater', wave), id: AUTOSAVE_MAP_SLOT, map: { id: 'ember-crater-copy', name: 'Ember Crater (copy)' },
+      ...autosaveAt(null, 'Ember Crater', wave), id: AUTOSAVE_BUILT_SLOT, world: 'maps', map: { id: 'ember-crater-copy', name: 'Ember Crater (copy)' },
     });
 
-    it('a map behind the menu: the maps tab, its own Continue, and no autosave of a real place in it', async () => {
+    it('a map behind the menu: its own Continue, no tabs, and no autosave of a real place in it', async () => {
       // The screenshot of the review: a map loaded behind the menu, the autosave of a real place stood above its Play
       mapsOpen = true;
       world.useCustomMap('ember-crater-copy', 'Ember Crater (copy)');
       locationMgmt.hq.set(HEILBRONN);
       engineInit.loading.set(false);
       saves.hasAutosave.set(true);
-      saves.slots.set([autosaveAt(HEILBRONN, 'Binswangen', 3)]);
+      saves.slots.set([autosaveAt(HEILBRONN, 'Binswangen', 3), mapAutosave(4)]);
       await setup();
 
-      expect(el().querySelector('[data-tab="custom"]')?.getAttribute('aria-selected')).toBe('true');
-      expect(entries()).toEqual(['Play', 'Play a map', 'Coop', 'Load game', 'Map editor', 'Settings', 'Extras']);
+      expect(el().querySelector('[role="tablist"]')).toBeNull();
+      expect(entries()).toEqual(['Continue', 'Play', 'New game', 'Coop', 'Load game', 'Settings', 'Extras', 'Map editor']);
+      expect(entry('continue')?.querySelector('.mh-sub')?.textContent).toBe('Ember Crater (copy) | wave 4');
       expect(text()).not.toContain('Binswangen');
     });
 
-    it('the real places tab offers their autosave, which loads the page anew on them', async () => {
-      mapsOpen = true;
-      world.useCustomMap('ember-crater-copy');
-      locationMgmt.hq.set(HEILBRONN);
-      engineInit.loading.set(false);
-      saves.hasAutosave.set(true);
-      saves.slots.set([autosaveAt(HEILBRONN, 'Binswangen', 3)]);
-      await setup();
-
-      await click(el().querySelector('[data-tab="real"]'));
-      expect(entries()).toEqual(['Continue', 'New game', 'Coop', 'Load game', 'Settings', 'Extras']);
-      expect(entry('continue')?.querySelector('.mh-sub')?.textContent).toBe('in Binswangen | wave 3');
-      // Leaving the map is asked first, then the page goes to the save's world
-      await click(entry('continue'));
-      await click(el().querySelector<HTMLElement>('.mh-confirm .td-btn-primary'));
-      expect(worlds.openSave).toHaveBeenCalledWith(expect.objectContaining({ id: AUTOSAVE_SLOT, map: null }));
-      expect(saves.continueAutosave).not.toHaveBeenCalled();
-    });
-
-    it('on a real place the maps tab offers the maps autosave and the map editor', async () => {
+    it('on a real place the list is its world only: the maps autosave stays on the globes and in the chips', async () => {
       mapsOpen = true;
       locationMgmt.hq.set(HEILBRONN);
       engineInit.loading.set(false);
@@ -263,15 +269,13 @@ describe('The main menu', () => {
       saves.slots.set([autosaveAt(HEILBRONN, 'Kiliansplatz, Heilbronn, Deutschland', 12), mapAutosave(4)]);
       await setup();
 
-      expect(el().querySelector('[data-tab="real"]')?.getAttribute('aria-selected')).toBe('true');
-      expect(entries()).toEqual(['Continue', 'Play', 'New game', 'Coop', 'Load game', 'Settings', 'Extras']);
-      await click(el().querySelector('[data-tab="custom"]'));
-      expect(entries()).toEqual(['Continue', 'Play a map', 'Coop', 'Load game', 'Map editor', 'Settings', 'Extras']);
-      expect(entry('continue')?.querySelector('.mh-sub')?.textContent).toBe('in Ember Crater (copy) | wave 4');
-      expect(menu.loadableSlots().map((slot) => slot.id)).toEqual([AUTOSAVE_MAP_SLOT]);
+      expect(el().querySelector('[role="tablist"]')).toBeNull();
+      expect(entries()).toEqual(['Continue', 'Play', 'New game', 'Coop', 'Load game', 'Settings', 'Extras', 'Map editor']);
+      expect(entry('continue')?.querySelector('.mh-sub')?.textContent).toBe('Heilbronn | wave 12');
+      expect(text()).not.toContain('Ember Crater');
     });
 
-    it('without the maps open there are no tabs and the list is as before', async () => {
+    it('without the maps open the list is as before, the editor said to come', async () => {
       locationMgmt.hq.set(HEILBRONN);
       engineInit.loading.set(false);
       await setup();
@@ -393,6 +397,25 @@ describe('The main menu', () => {
       TestBed.inject(GLOBE_LINK).descent.set(0);
       await settle();
       expect(plate.textContent).toContain('Loading the descent | 0%');
+    });
+
+    it('says in the plate while the street servers are asked again, and the line goes with the load', async () => {
+      locationMgmt.hq.set(HEILBRONN);
+      const retrying = signal<OverpassRetry | null>(null);
+      world.setProvider({ streets: { retrying } } as never);
+      await setup();
+      const plate = el().querySelector('app-menu-loading')!;
+      expect(plate.querySelector('[data-test="streets-busy"]')).toBeNull();
+
+      retrying.set({ attempt: 2, of: 5, waitMs: 2250, kind: 'busy' });
+      await settle();
+      expect(plate.querySelector('[data-test="streets-busy"]')?.textContent?.trim()).toBe('The map server is busy, trying again (2 of 5)…');
+      // The load goes on under it: the bar, the step
+      expect(plate.querySelector('[role="progressbar"]')).not.toBeNull();
+
+      retrying.set(null);
+      await settle();
+      expect(plate.querySelector('[data-test="streets-busy"]')).toBeNull();
     });
 
     it('moves an untouched focus to Play when the place comes in above New game (TODO E151)', async () => {
@@ -715,6 +738,26 @@ describe('The main menu', () => {
     });
   });
 
+  describe('a save the world opened to load (Continue, Load game, Back to the run)', () => {
+    it('that did not load: the start list with Play for a fresh run and the reason, not a loading that waits for nothing', async () => {
+      mapsOpen = true;
+      world.useCustomMap('bay', 'Bay', 'edited');
+      locationMgmt.hq.set(HEILBRONN);
+      engineInit.loading.set(false);
+      const reason = 'That save cannot load here. The map "Bay" was changed since this run was played on it, so the run cannot go on there.';
+      saves.load.mockResolvedValueOnce({ ok: false, reason });
+      await setup('start', { ...PLAIN_START, world: { kind: 'custom-map', mapId: 'bay', contentHash: '' }, resume: AUTOSAVE_BUILT_SLOT, play: true, label: 'Bay' });
+      await vi.waitFor(() => expect(menu.notice()).not.toBeNull());
+      await settle();
+      expect(saves.load).toHaveBeenCalledWith(AUTOSAVE_BUILT_SLOT);
+      expect(menu.starting()).toBe(false);
+      expect(text()).not.toContain('Loading Bay');
+      expect(text()).toContain(`${reason} Play starts a fresh run here.`);
+      expect(entries()).toContain('Play');
+      expect(ui.mainMenuOpen()).toBe(true);
+    });
+  });
+
   describe('the pause layer', () => {
     beforeEach(() => {
       locationMgmt.hq.set(HEILBRONN);
@@ -731,13 +774,89 @@ describe('The main menu', () => {
       expect(el().querySelector('.mh-pause-place')?.textContent).toBe('Heilbronn | wave 1');
     });
 
+    it('All worlds asks nothing: the run stays held behind the globes, the menu keeps it paused; Esc there is not the menu', async () => {
+      await setup('pause');
+      game.towerCount.set(2);
+      await settle();
+      await click(entry('worlds'));
+      expect(el().querySelector('.mh-confirm')).toBeNull();
+      expect(stage.leaveGame).toHaveBeenCalledWith(null, expect.objectContaining({ world: 'real', label: 'Heilbronn', wave: 1, run: true }));
+      // Held: the stage parks it (stand-in), the menu stays and Esc belongs to the globes; no frames, no sound
+      session.parked.set(stage.leaveGame.mock.calls[0][1] as ParkedWorld);
+      await settle();
+      expect(engine.renderLoop.stop).toHaveBeenCalled();
+      expect(engine.spatialAudio.setHeld).toHaveBeenLastCalledWith(true);
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await settle();
+      expect(ui.mainMenuOpen()).toBe(true);
+      expect(game.paused()).toBe(true);
+      // Shown again: the menu goes, the game goes on
+      session.parked.set(null);
+      await settle();
+      expect(ui.mainMenuOpen()).toBe(false);
+      expect(game.paused()).toBe(false);
+      expect(engine.renderLoop.start).toHaveBeenCalled();
+      expect(engine.spatialAudio.setHeld).toHaveBeenLastCalledWith(false);
+    });
+
+    it('a held game that goes for good stays quiet and paused until it is gone (closed, or another world opened)', async () => {
+      for (const drop of [() => session.isOpen.set(false), () => session.world.update((n) => n + 1)]) {
+        await setup('pause');
+        game.towerCount.set(2);
+        await settle();
+        session.parked.set({ world: 'real', pick: null, label: 'Heilbronn', wave: 1, run: true });
+        await settle();
+        engine.spatialAudio.setHeld.mockClear();
+        // The session drops it (WorldSession.close or openHere): parked goes null with it
+        session.parked.set(null);
+        drop();
+        await settle();
+        expect(engine.spatialAudio.setHeld).not.toHaveBeenCalled();
+        expect(engine.renderLoop.start).not.toHaveBeenCalled();
+        expect(ui.mainMenuOpen()).toBe(true);
+        expect(game.paused()).toBe(true);
+        fixture.destroy();
+        TestBed.resetTestingModule();
+        vi.clearAllMocks();
+        session.world.set(1);
+        session.isOpen.set(true);
+      }
+    });
+
+    it('Load of a save of another world ends the run of that world first (the rule of the globes), then opens it there', async () => {
+      await setup('pause');
+      const save: SaveSlotInfo = { ...autosaveAt(null, 'Ember Crater', 3), id: 'slot-2', autosave: false, world: 'maps', map: { id: 'ember-crater', name: 'Ember Crater' } };
+      saves.slots.set([save]);
+      const run = { slotId: AUTOSAVE_BUILT_SLOT, world: 'maps', pick: null, name: 'Demo Valley', wave: 4, savedAt: '' };
+      stage.loadAsk.mockReturnValueOnce({ text: 'Demo Valley | wave 4 waits in Built Worlds.', note: '', run });
+      expect(menu.loadAsk('slot-2')?.text).toBe('Demo Valley | wave 4 waits in Built Worlds.');
+      expect(stage.loadAsk).toHaveBeenCalledWith(save);
+
+      stage.loadAsk.mockReturnValueOnce({ text: '', note: '', run });
+      await menu.loadSlot('slot-2');
+      expect(stage.endRun).toHaveBeenCalledWith(run);
+      expect(worlds.openSave).toHaveBeenCalledWith(save);
+      expect(stage.endRun.mock.invocationCallOrder[0]).toBeLessThan(worlds.openSave.mock.invocationCallOrder[0]);
+    });
+
+    it('Make map on a real place opens its OpenStreetMap frame on the globes, the game held behind them', async () => {
+      await setup('pause');
+      menu.close();
+      await settle();
+      menu.makeMapOf();
+      expect(stage.leaveGame).toHaveBeenCalledWith(null, expect.objectContaining({ world: 'real', run: false }));
+      expect(stage.makeMapOf).toHaveBeenCalledWith(expect.objectContaining({ kind: 'place', hq: HEILBRONN }), 'real');
+      // Held behind the globes, the pause menu keeps it paused
+      expect(ui.mainMenuOpen()).toBe(true);
+    });
+
     it('on a custom map offers Edit this map, asking first while a run is under way; not in a replay', async () => {
       mapsOpen = true;
       world.useCustomMap('ember-crater-copy', 'Ember Crater (copy)');
       await setup('pause');
       game.towerCount.set(1);
       await settle();
-      const edit = vi.spyOn(menu, 'editThisMap').mockImplementation(() => undefined);
+      const edit = vi.spyOn(menu, 'editThisMap').mockResolvedValue(undefined);
 
       expect(entries()).toEqual(['Continue', 'Save game', 'Load game', 'Settings', 'Extras', 'New game', 'Coop', 'Edit this map', 'World menu', 'All worlds', 'Restart here']);
       await click(entry('edit-map'));
@@ -749,6 +868,54 @@ describe('The main menu', () => {
       ui.replayMode.set(true);
       await settle();
       expect(entries()).not.toContain('Edit this map');
+    });
+
+    it('between waves Edit this map keeps the run as autosave, and Back to the run names it (E195 phase 4)', async () => {
+      mapsOpen = true;
+      // Back to the run opens the map as it is then (no content hash): an edit since is the save's to refuse
+      world.useCustomMap('ember-crater-copy', 'Ember Crater (copy)', 'v1');
+      await setup('pause');
+      game.towerCount.set(1);
+      game.waveNumber.set(3);
+      saves.canSave.set(true);
+      saves.autosaveNow.mockImplementation(async () => {
+        saves.slots.set([{ ...autosaveAt(null, 'Ember Crater', 4), id: AUTOSAVE_BUILT_SLOT, world: 'maps', map: { id: 'ember-crater-copy', name: 'Ember Crater (copy)' } }]);
+        return true;
+      });
+      await settle();
+
+      await click(entry('edit-map'));
+      expect(text()).toContain('Edit this map? The run waits as autosave; Back to the run comes back to it.');
+      await click(Array.from(el().querySelectorAll<HTMLElement>('.mh-confirm button')).find((b) => b.textContent === 'Open in the editor')!);
+      await vi.waitFor(() => expect(worlds.editMap).toHaveBeenCalledWith('ember-crater-copy'));
+      expect(saves.autosaveNow).toHaveBeenCalledTimes(1);
+      expect(TestBed.inject(AppScreen).waitingRun()).toEqual({
+        order: { ...PLAIN_START, world: { kind: 'custom-map', mapId: 'ember-crater-copy', contentHash: '', name: 'Ember Crater (copy)' }, resume: AUTOSAVE_BUILT_SLOT, play: true, label: 'Ember Crater (copy)' },
+        label: 'Ember Crater (copy) | wave 4',
+        mapId: 'ember-crater-copy',
+      });
+    });
+
+    it('in a wave Edit this map keeps the autosave of its start, an older one does not count', async () => {
+      mapsOpen = true;
+      world.useCustomMap('ember-crater-copy', 'Ember Crater (copy)');
+      await setup('pause');
+      game.towerCount.set(1);
+      game.waveNumber.set(5);
+      saves.slots.set([{ ...autosaveAt(null, 'Ember Crater', 4), id: AUTOSAVE_BUILT_SLOT, world: 'maps', map: { id: 'ember-crater-copy', name: 'Ember Crater (copy)' } }]);
+      await settle();
+      await click(entry('edit-map'));
+      expect(text()).toContain('Edit this map? The run ends.');
+      await click(Array.from(el().querySelectorAll<HTMLElement>('.mh-confirm button')).find((b) => b.textContent === 'Cancel')!);
+
+      game.waveNumber.set(4);
+      await settle();
+      await click(entry('edit-map'));
+      expect(text()).toContain('Edit this map? The run waits as autosave from the start of this wave.');
+      await click(Array.from(el().querySelectorAll<HTMLElement>('.mh-confirm button')).find((b) => b.textContent === 'Open in the editor')!);
+      await vi.waitFor(() => expect(worlds.editMap).toHaveBeenCalledWith('ember-crater-copy'));
+      expect(saves.autosaveNow).not.toHaveBeenCalled();
+      expect(TestBed.inject(AppScreen).waitingRun()?.label).toBe('Ember Crater (copy) | wave 4');
     });
 
     it('Continue and Esc go back to the game', async () => {

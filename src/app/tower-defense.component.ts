@@ -59,6 +59,12 @@ import { BossBarComponent } from './components/boss-bar/boss-bar.component';
 import { CoopSquadComponent } from './components/coop-squad/coop-squad.component';
 import { CoopDockComponent } from './components/coop-dock/coop-dock.component';
 import { WorldContext } from './world/world-context.service';
+import { CUSTOM_MAPS_OPEN } from './world/custom-maps-open';
+import { whyNot, worldName } from './world/why-not';
+import type { GamePath } from './components/game-header/game-header.component';
+import type { PathAction } from './components/world-path/world-path.component';
+import { WorldsStageService } from './worlds/worlds-stage.service';
+import { worldOfPage } from './world/world-of-page';
 import { WaveDebugService } from './services/debug/wave-debug.service';
 import { EnemyDebugService } from './services/debug/enemy-debug.service';
 import { DebugFacadeService } from './services/debug/debug-facade.service';
@@ -312,6 +318,58 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   /** The main menu: start layer in front of the loading place, pause layer on Esc */
   readonly mainMenu = inject(MainMenuService);
+  /** The globes' Continues and the editor's map name the chips of the path */
+  private readonly stage = inject(WorldsStageService);
+  private readonly mapsOpen = inject(CUSTOM_MAPS_OPEN);
+
+  /** The path over the game (docs/WORLDS_NAVIGATION_PLAN.md, 3.4): the world, the way into the editor, the editor's map */
+  readonly gamePath = computed<GamePath>(() => {
+    const ref = this.worldContext.ref();
+    const onMap = ref.kind === 'custom-map';
+    // The editor's test: Edit goes back to the editor, which waits with its map
+    if (this.mainMenu.fromEditor) {
+      return { world: worldName(ref), editLabel: 'Edit', editHint: 'Back to the editor, the map as you left it', editWhy: null, chips: [] };
+    }
+    const editWhy = whyNot('edit', {
+      mapsOpen: this.mapsOpen,
+      inCoopRoom: this.coop.room() !== null || this.coop.inGame(),
+      coopGuest: this.uiStore.coopMapLocked(),
+      replay: this.uiStore.replayMode(),
+    });
+    return {
+      world: worldName(ref),
+      editLabel: onMap ? 'Edit' : 'Make map',
+      editHint: onMap ? 'Edit this map in the editor' : 'Make a map of this place from OpenStreetMap',
+      editWhy: editWhy ?? (onMap || ref.kind === 'tiles' ? null : 'There is no map to edit here'),
+      // The same chips as on the globes and in the editor: the other worlds' Continues and the editor's map
+      chips: this.stage.pathChips(worldOfPage(ref), true),
+    };
+  });
+
+  /** A step of the path: the globes or this world's menu (the pause menu asks for a run), the editor (Edit, its chip) */
+  onPath(action: PathAction): void {
+    // To the globes, or this world's menu there: nothing ends, the game stays held behind them; a coop room says why not
+    if (action === 'worlds' || action === 'world') {
+      if (this.mainMenu.leaveWhy()) this.mainMenu.open();
+      else this.mainMenu.leaveTo(action === 'worlds' ? 'globes' : 'world');
+    }
+    else if (action === 'edit') this.editFromPath();
+    else if (action !== 'play' && action.chip === 'editor') void this.mainMenu.openMapEditor();
+    else if (action !== 'play') void this.mainMenu.goElsewhere(() => this.stage.goChip(action.chip));
+  }
+
+  /**
+   * Edit on the path: a map opens in the editor, unless the run would end (the menu asks then); on a real
+   * place Make map opens its OpenStreetMap frame on the globes, the game held behind them
+   */
+  private editFromPath(): void {
+    if (this.worldContext.ref().kind !== 'custom-map') {
+      this.mainMenu.makeMapOf();
+      return;
+    }
+    if (this.mainMenu.runWhenEditing() === 'ends' && !this.mainMenu.fromEditor) this.mainMenu.open();
+    else void this.mainMenu.editThisMap();
+  }
 
   // Debug services
   readonly waveDebug = inject(WaveDebugService);
@@ -645,9 +703,10 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   private async startGameSequence(): Promise<void> {
     this.gameStarted = true;
     // The start menu stands in front while the place loads behind it; an
-    // invite link opens it on the coop page, where the join shows
+    // invite link, or a room that came along from the world before, opens
+    // it on the coop page, where the join shows
     this.mainMenu.openStart();
-    if (this.uiStore.mainMenuOpen() && this.worldStart.current().room) this.mainMenu.open('coop');
+    if (this.uiStore.mainMenuOpen() && (this.worldStart.current().room || this.coop.room())) this.mainMenu.open('coop');
     await this.facade.startGame(this.gameCanvas.nativeElement);
     this.applyAudioVolumes();
     this.controlsHintArmed.set(true);

@@ -3,11 +3,14 @@
     <button class="td-tool" type="button" aria-label="Back to the maps" matTooltip="Back to the maps" (click)="leave()" data-test="back">
       <td-icon name="caretL" [size]="18" />
     </button>
-    <div class="es-name td-sunk">
-      <span class="td-loc-label">Map</span>
-      <span class="td-loc-name td-trunc" data-test="map-name">{{ title() }}</span>
-      <span class="es-save td-note" [class.is-warn]="session.dirty() && !session.readOnly()" data-test="save-state">{{ saveLine() }}</span>
-    </div>
+    <app-world-path class="es-path" world="Built Worlds" mode="edit" [chips]="pathChips()" worldsHint="All worlds: the editor saves, the map stays open"
+                    worldHint="Back to the maps" [playHint]="playHint()" (go)="onPath($event)">
+      <div class="es-name td-sunk">
+        <span class="td-loc-label">Map</span>
+        <span class="td-loc-name td-trunc" data-test="map-name">{{ title() }}</span>
+        <span class="es-save td-note" [class.is-warn]="session.dirty() && !session.readOnly()" data-test="save-state">{{ saveLine() }}</span>
+      </div>
+    </app-world-path>
     <button class="td-tool" type="button" aria-label="Undo" [matTooltip]="session.undoLabel() ? 'Undo ' + session.undoLabel() + ' (Ctrl+Z)' : 'Nothing to undo'"
             [attr.aria-disabled]="!session.canUndo() || null" (click)="session.undo()" data-test="undo">
       <td-icon name="undo" [size]="18" />
@@ -159,6 +162,9 @@
         <span class="es-legend-row"><td-icon name="mouseRight" [size]="14" /> drag: Turn</span>
         <span class="es-legend-row"><td-icon name="mouseWheel" [size]="14" /> drag: Pan, roll: Zoom</span>
         <span class="es-legend-row"><kbd class="td-kbd">Ctrl</kbd>+<td-icon name="mouseWheel" [size]="14" /> Brush size</span>
+        @if (placing()) {
+          <span class="es-legend-row" data-test="legend-turn"><kbd class="td-kbd">Shift</kbd>+<td-icon name="mouseWheel" [size]="14" /> or <kbd class="td-kbd">Q</kbd><kbd class="td-kbd">E</kbd> Turn</span>
+        }
         <span class="es-legend-row"><kbd class="td-kbd">RMB</kbd>+<kbd class="td-kbd">WASD</kbd> Fly</span>
         <span class="es-legend-row"><kbd class="td-kbd">F</kbd> Frame <kbd class="td-kbd">T</kbd> Top <kbd class="td-kbd">C</kbd> Game view</span>
         <button class="td-btn-ghost td-btn-sm es-legend-row es-still" type="button" [attr.aria-pressed]="still()" (click)="toggleStill()"

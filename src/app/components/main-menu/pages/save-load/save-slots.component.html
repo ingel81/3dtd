@@ -17,6 +17,14 @@
           <button class="td-btn-primary" type="button" (click)="loadSlot(c.slotId)">Load</button>
         </div>
       }
+      @case ('ends') {
+        <p class="td-text" id="td-slot-ask">Load "{{ c.title }}"? {{ c.text }}</p>
+        <p class="td-note">{{ c.note }}</p>
+        <div class="td-actions">
+          <button class="td-btn-secondary" type="button" (click)="cancelConfirm()">Cancel</button>
+          <button class="td-btn-primary" type="button" (click)="loadSlot(c.slotId)">End it and load</button>
+        </div>
+      }
       @case ('import') {
         <p class="td-text" id="td-slot-ask">Load a save from a file?</p>
         <p class="td-note">The run under way ends; save it first to keep it.</p>
@@ -85,12 +93,11 @@
                     [attr.aria-label]="'Save ' + row.title + ' as a file'" matTooltip="Save as a file">
               <td-icon name="download" [size]="16"></td-icon>
             </button>
-            @if (!row.autosave) {
-              <button class="mp-slot-tool td-tool" type="button" [disabled]="busy()" (click)="askDelete(row.id, row.title)"
-                      [attr.aria-label]="'Delete ' + row.title" matTooltip="Delete">
-                <td-icon name="trash" [size]="16"></td-icon>
-              </button>
-            }
+            <!-- An autosave is its world's Continue: deleting it is how that goes too -->
+            <button class="mp-slot-tool td-tool" type="button" [disabled]="busy()" (click)="askDelete(row.id, row.title)"
+                    [attr.aria-label]="'Delete ' + row.title" matTooltip="Delete">
+              <td-icon name="trash" [size]="16"></td-icon>
+            </button>
           </li>
         }
       </ul>

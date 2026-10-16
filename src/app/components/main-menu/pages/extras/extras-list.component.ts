@@ -61,7 +61,7 @@ export class ExtrasListComponent {
   readonly confirmRenderBenchmark = signal(false);
 
   private readonly inCoop = computed(() => !!this.coop && (this.coop.inGame() || this.coop.room() !== null));
-  /** The benchmark reloads the page: not in coop, where the room would lose the player */
+  /** The benchmark opens another world in the page: not in coop, where the room would lose the player */
   readonly canBenchmark = computed(() => this.benchmark !== null && !this.inCoop());
   /** The graphics benchmark measures the world loaded here */
   readonly canRenderBenchmark = computed(() => this.renderBenchmark !== null && !this.inCoop() && this.locationMgmt.hq() !== null);
@@ -140,7 +140,7 @@ export class ExtrasListComponent {
     void openAttributionsDialog(this.dialog);
   }
 
-  /** Reload into the DevWorld and measure (BenchmarkService.start), asked first */
+  /** Open the DevWorld in the page and measure (BenchmarkService.start), asked first */
   runBenchmark(): void {
     if (!this.canBenchmark()) return;
     if (!this.confirmBenchmark()) {
@@ -150,7 +150,7 @@ export class ExtrasListComponent {
     this.benchmark?.start();
   }
 
-  /** Reload on this world and fly the fixed camera paths (RenderBenchmarkService.start), asked first */
+  /** Open this world anew and fly the fixed camera paths (RenderBenchmarkService.start), asked first */
   runRenderBenchmark(): void {
     if (!this.canRenderBenchmark()) return;
     if (!this.confirmRenderBenchmark()) {

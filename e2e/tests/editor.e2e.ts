@@ -41,7 +41,8 @@ test('builds, checks, saves and reloads a map in the editor', async ({ page }, t
   await page.locator('[data-template=""]').click();
   await page.locator('[data-test=create-map]').click();
   await expect(page.locator('[data-test=map-name]')).toHaveText(name);
-  await expect(page).toHaveURL(/\/editor\?map=e2e-map-/);
+  // The address stays the editor's entry; a reload opens the map this tab had open (sessionStorage)
+  await expect(page).toHaveURL(/\/editor$/);
   const viewport = page.locator('[data-test=viewport]');
   const box = (await viewport.boundingBox())!;
   const cx = box.x + box.width / 2;
@@ -205,14 +206,13 @@ test('makes a map from a template and uses the pro tools on it', async ({ page }
   await expect(page.locator('.mb-row', { hasText: name })).toHaveCount(0);
 });
 
-test("the check's bot test plays a fresh map in a new tab and reports back", async ({ page, context }) => {
+test("the check's bot test plays a fresh map in the same window and reports back", async ({ page }) => {
   test.setTimeout(10 * 60_000);
   await page.addInitScript(() => {
     localStorage.setItem('td_seen_version', '9999.0.0');
     // The editor's first-run tour has its own test
     localStorage.setItem('3dtd-editor-tour', 'done');
   });
-  await context.addInitScript(() => localStorage.setItem('td_seen_version', '9999.0.0'));
   await page.goto('/editor');
   const name = `E2E bot ${Date.now()}`;
   await page.locator('[data-test=new-map]').click();
@@ -221,13 +221,15 @@ test("the check's bot test plays a fresh map in a new tab and reports back", asy
   await page.locator('[data-test=create-map]').click();
   await expect(page.locator('[data-test=map-name]')).toHaveText(name, { timeout: 60_000 });
   await page.locator('[data-test=check]').click();
-  const game = context.waitForEvent('page');
   await page.getByRole('button', { name: 'Bot test' }).click();
-  // The game plays in its own tab; the result comes back to the check
-  const tab = await game;
-  await expect(page.locator('[data-test=bot-result]')).toContainText(/passed|failed|stuck/i, { timeout: 8 * 60_000 });
+  // The game plays the trial in this window (docs/WORLDS_NAVIGATION_PLAN.md, phase 5); Edit on the path
+  // brings the editor back, its check shows the result
+  await page.waitForFunction(() => (window as { __mapTrial?: unknown }).__mapTrial ?? null, null, { timeout: 8 * 60_000, polling: 1000 });
+  await page.locator('[data-test=path-edit]').click();
+  await expect(page.locator('[data-test=map-name]')).toHaveText(name);
+  if (!(await page.locator('[data-test=bot-result]').count())) await page.locator('[data-test=check]').click();
   await expect(page.locator('[data-test=bot-result]')).toContainText(/passed/i);
-  await tab.close();
+  expect(page.context().pages()).toHaveLength(1);
   await page.locator('[data-test=back]').click();
   await page.locator('.mb-row', { hasText: name }).click();
   // Own maps go to the trash at once

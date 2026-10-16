@@ -84,6 +84,22 @@ describe('shore cut', () => {
     expect(both).toEqual(mesh);
   });
 
+  it('ends the water on a smooth line along a gentle bank in teeth', () => {
+    // A bowl rising 0.3 m per metre with ribs of 0.3 m every 10 degrees (a crater wall, Stillwater's lake): the
+    // drawn waterline zigzags a cell in and out
+    const h = new Float32Array(N * N);
+    for (let j = 0; j < N; j++) {
+      for (let i = 0; i < N; i++) h[j * N + i] = 12 + Math.hypot(i - 40, j - 40) * 0.6 + 0.3 * Math.sin(Math.atan2(j - 40, i - 40) * 36);
+    }
+    const out = bake(h);
+    const mesh = radii((x, y) => meshAt(h, x, y) < LEVEL);
+    const both = radii((x, y) => meshAt(h, x, y) < LEVEL && cutAt(out, x, y) > 0);
+    expect(roughness(mesh)).toBeGreaterThan(0.1);
+    expect(roughness(both)).toBeLessThan(roughness(mesh) * 0.4);
+    // Inside the teeth, by no more than the cap
+    for (let k = 0; k < mesh.length; k++) expect(mesh[k] - both[k]).toBeLessThan(2.6);
+  });
+
   it('keeps the mask beside the cut', () => {
     const h = hollow((r) => (r < 12 ? 0 : 20));
     const mask = new Uint8Array(N * N);

@@ -1,5 +1,5 @@
 import { CompressedArrayTexture, CompressedTexture, DataArrayTexture, RGBA_BPTC_Format, SRGBColorSpace } from 'three';
-import { MaterialArrays, compressedTogether } from './terrain-textures';
+import { MaterialArrays, SplatTextures, compressedTogether } from './terrain-textures';
 import type { MaterialCompressed, MaterialPixels } from '../map-asset-library';
 
 const material = (id: string, v: number): MaterialPixels =>
@@ -51,5 +51,16 @@ describe('MaterialArrays', () => {
     // The array's copy goes once it is on the GPU
     color.onUpdate?.(color);
     expect(color.mipmaps).toEqual([]);
+  });
+});
+
+describe('SplatTextures', () => {
+  it('uploads new maps whole even when a stroke paints a rectangle before they are drawn', () => {
+    // A stroke that adds layers past eight makes the splat textures anew, then paints on: the ground outside
+    // its rectangle went up empty (three allocates on the first upload and writes only the ranges)
+    const splat = { resolution: 8, maps: [new Uint8Array(8 * 8 * 4), new Uint8Array(8 * 8 * 4), new Uint8Array(8 * 8 * 4)] };
+    const textures = new SplatTextures(splat);
+    textures.refresh(splat, { i0: 2, j0: 2, i1: 3, j1: 3 });
+    for (const t of textures.maps) expect(t.updateRanges).toEqual([]);
   });
 });

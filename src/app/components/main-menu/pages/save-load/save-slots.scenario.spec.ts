@@ -17,6 +17,7 @@ import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-
 import { GameStore } from '../../../../store/game.store';
 import { AUTOSAVE_SLOT, SAVE_GAME, manualSlotId, type LoadResult, type SaveSlotInfo } from '../../../../services/save-game/save-game.port';
 import { SaveSlotsComponent } from './save-slots.component';
+import { MainMenuService } from '../../main-menu.service';
 
 const template = readFileSync(resolve('src/app/components/main-menu/pages/save-load/save-slots.component.html'), 'utf8');
 
@@ -26,7 +27,7 @@ Input({ alias: 'mode', required: true, isSignal: true } as Input)(SaveSlotsCompo
 ViewChild('importInput', { isSignal: true } as unknown as ViewChild)(SaveSlotsComponent.prototype, 'fileInput');
 
 const slot = (id: string, name: string, wave: number, note: string | null = null): SaveSlotInfo => ({
-  id, name, wave, note,
+  id, name, wave, note, world: 'real',
   autosave: id === AUTOSAVE_SLOT,
   location: 'Heilbronn', hq: { lat: 49.14, lon: 9.21 }, map: null,
   savedAt: '2026-10-05T14:32:00Z',
@@ -41,6 +42,8 @@ interface Setup {
   started?: boolean;
   waveRunning?: boolean;
   loadResult?: LoadResult;
+  /** In the game: the menu, which says what a load ends (MainMenuService.loadAsk) */
+  menu?: { loadAsk: (slotId: string) => { text: string; note: string } | null; loadSlot: (slotId: string) => Promise<LoadResult> };
 }
 
 describe('Save and Load pages', () => {
@@ -50,7 +53,7 @@ describe('Save and Load pages', () => {
 
   afterEach(() => TestBed.resetTestingModule());
 
-  async function setup({ mode, canSave = false, slots = SLOTS, started = false, waveRunning = false, loadResult = { ok: true, note: null } }: Setup) {
+  async function setup({ mode, canSave = false, slots = SLOTS, started = false, waveRunning = false, loadResult = { ok: true, note: null }, menu }: Setup) {
     const saves = {
       canSave: signal(canSave),
       cannotSaveReason: signal(canSave ? null : 'Saving works only between waves.'),
@@ -65,7 +68,9 @@ describe('Save and Load pages', () => {
       importFile: vi.fn(async () => loadResult),
       continueAutosave: vi.fn(async () => loadResult),
     };
-    TestBed.configureTestingModule({ providers: [{ provide: SAVE_GAME, useValue: saves }] });
+    TestBed.configureTestingModule({
+      providers: [{ provide: SAVE_GAME, useValue: saves }, ...(menu ? [{ provide: MainMenuService, useValue: menu }] : [])],
+    });
     TestBed.overrideComponent(SaveSlotsComponent, {
       // The icon's signal inputs need the AOT compiler; the icon is no part of this test
       set: { template, templateUrl: undefined, styleUrl: undefined, styles: [], imports: [], schemas: [NO_ERRORS_SCHEMA] },
@@ -143,9 +148,9 @@ describe('Save and Load pages', () => {
   describe('Load', () => {
     it('lists the autosave first and loads at once when no run is under way', async () => {
       const { el, click, saves, loaded } = await setup({ mode: 'load' });
-      expect([...el.querySelectorAll('.mp-slot-title')].map((t) => t.textContent!.trim())).toEqual(['Autosave', 'Mine']);
+      expect([...el.querySelectorAll('.mp-slot-title')].map((t) => t.textContent!.trim())).toEqual(['Autosave | Real places', 'Mine']);
       expect(el.querySelector('.mp-slot-detail')!.textContent).toContain('Wave 12 | Heilbronn');
-      await click('Autosave');
+      await click('Autosave | Real places');
       expect(saves.load).toHaveBeenCalledWith(AUTOSAVE_SLOT);
       expect(loaded).toHaveBeenCalledTimes(1);
     });
@@ -157,6 +162,28 @@ describe('Save and Load pages', () => {
       expect(el.textContent).toContain('Load "Mine"?');
       await click('Load');
       expect(saves.load).toHaveBeenCalledWith('slot-1');
+    });
+
+    it('in the game a save whose world has a run asks as the globes do, and only then loads (the run ends there)', async () => {
+      const ends = { text: 'Demo Valley | wave 4 waits in Built Worlds.', note: 'Each world keeps one run. Loading this save ends it now.' };
+      const menu = {
+        loadAsk: vi.fn((id: string) => (id === 'slot-1' ? ends : null)),
+        loadSlot: vi.fn(async (): Promise<LoadResult> => ({ ok: true, note: null })),
+      };
+      const { el, click, loaded } = await setup({ mode: 'load', menu });
+      await click('Mine');
+      expect(menu.loadSlot).not.toHaveBeenCalled();
+      expect(el.textContent).toContain('Load "Mine"? Demo Valley | wave 4 waits in Built Worlds.');
+      expect(el.textContent).toContain('Each world keeps one run. Loading this save ends it now.');
+      await click('Cancel');
+      expect(menu.loadSlot).not.toHaveBeenCalled();
+      await click('Mine');
+      await click('End it and load');
+      expect(menu.loadSlot).toHaveBeenCalledWith('slot-1');
+      expect(loaded).toHaveBeenCalledTimes(1);
+      // Its own Continue asks nothing
+      await click('Autosave | Real places');
+      expect(menu.loadSlot).toHaveBeenLastCalledWith(AUTOSAVE_SLOT);
     });
 
     it('asks before a file while a run is under way; the file input stays for Pick file', async () => {
@@ -191,9 +218,9 @@ describe('Save and Load pages', () => {
       expect(byText('Load from a file')!.disabled).toBe(true);
     });
 
-    it('exports a slot and deletes a manual one after asking; the autosave has no delete', async () => {
+    it('exports a slot and deletes one after asking, an autosave too (it is the Continue of its world)', async () => {
       const { el, click, saves, settle } = await setup({ mode: 'load' });
-      expect(el.querySelector('[aria-label="Delete Autosave"]')).toBeNull();
+      expect(el.querySelector('[aria-label="Delete Autosave | Real places"]')).not.toBeNull();
       el.querySelector<HTMLButtonElement>('[aria-label="Save Mine as a file"]')!.click();
       await settle();
       expect(saves.exportFile).toHaveBeenCalledWith('slot-1');

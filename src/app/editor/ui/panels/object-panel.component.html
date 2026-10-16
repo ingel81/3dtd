@@ -172,6 +172,22 @@
         <span>Turn at random</span>
         <input class="td-switch" type="checkbox" [checked]="s().randomRotation" (change)="setRandomRotation($any($event.target).checked)" aria-label="Turn at random" />
       </div>
+      @if (!s().randomRotation) {
+        <label class="td-field"><span class="td-label">Turn</span>
+          <input class="td-input is-sm" type="number" [step]="s().turnStep" [value]="placeTurnDegrees()" (change)="setPlaceTurn($event)" aria-label="Turn of the next object in degrees" data-test="place-turn" /></label>
+      }
+      <div class="td-field">
+        <span class="td-label" id="op-turn-step" matTooltip="Q E, comma and period or Shift+wheel turn by this much; Shift+Q E by 90">Turn step</span>
+        <div class="td-seg is-sm" role="radiogroup" aria-labelledby="op-turn-step">
+          @for (step of turnSteps; track step) {
+            <button type="button" role="radio" [attr.aria-checked]="s().turnStep === step" (click)="setTurnStep(step)">{{ step }}°</button>
+          }
+        </div>
+      </div>
+      <div class="td-setting">
+        <span matTooltip="A building with a road within 20 m turns its front to the road">Face the road</span>
+        <input class="td-switch" type="checkbox" [checked]="s().faceRoad" (change)="setFaceRoad($any($event.target).checked)" aria-label="Face the road" data-test="place-face-road" />
+      </div>
     }
   </div>
 }

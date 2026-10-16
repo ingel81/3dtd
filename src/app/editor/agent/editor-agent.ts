@@ -8,7 +8,8 @@
  * Every change is one undo step whose label starts with AGENT_LABEL, and
  * shows in the view as it happens. Every change can run as a dry run first:
  * on a copy of the map, answered with what it would change. Other maps are
- * only read or copied, never changed; a shipped map opens as an own copy.
+ * only read or copied, never changed; a shipped map opens as it is and its
+ * first saved change makes an own copy.
  */
 import type { AgentAnswer, AgentCall } from '../../core/desktop-bridge';
 import type { CatalogIndex } from '../catalog/asset-catalog';
@@ -83,7 +84,7 @@ export interface AgentHost {
   /** The map from above as a JPEG data URL, or null without a view */
   topDownPicture(size: number): Promise<string | null>;
   flash(message: string): void;
-  /** Opens a map as the player would (an own copy of a shipped one); resolves the id that opened */
+  /** Opens a map as the player would (a shipped one as it is, copied on its first saved change); resolves the id that opened */
   openMap(id: string): Promise<string>;
   /** Makes a new own map and opens it; resolves its id */
   createMap(options: AgentNewMap): Promise<string>;
@@ -344,7 +345,7 @@ export class EditorAgent {
     return json({
       open,
       maps: [...own.map(row), ...shipped.map(row)],
-      note: 'Only the open map can be changed. open_map opens an own map, or a shipped one as a new own copy; any map can be read (read_map) or copied (copy_map).',
+      note: 'Only the open map can be changed. open_map opens an own map, or a shipped one, whose first saved change makes a new own copy; any map can be read (read_map) or copied (copy_map).',
     });
   }
 
@@ -403,7 +404,9 @@ export class EditorAgent {
       id: opened,
       name: doc.meta.name,
       open: true,
-      ...(opened !== id ? { note: `${id} is a shipped map: it opened as your own copy ${opened}; the original stays as it is` } : {}),
+      ...(opened !== id
+        ? { note: `${id} is a shipped map: it opened as your own copy ${opened}; the original stays as it is` }
+        : shipped ? { note: `${id} is a shipped map: it opened as it ships; the first saved change makes your own copy, the original stays as it is` } : {}),
     });
   }
 

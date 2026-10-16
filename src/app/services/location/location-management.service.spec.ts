@@ -4,6 +4,7 @@ import { getTestBed, TestBed } from '@angular/core/testing';
 import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
 import { LocationManagementService, formatShowcaseLine } from './location-management.service';
 import { GeocodingService } from './geocoding.service';
+import { GameStore } from '../../store/game.store';
 import { PathAndRouteService } from '../world/path-route.service';
 import { WorldContext } from '../../world/world-context.service';
 import { fakeWorldContext, type FakeWorldContext } from '../../../test/world-context-fake';
@@ -183,6 +184,37 @@ describe('LocationManagementService', () => {
         spawns: [{ lat: 49.175, lon: 9.26 }],
         name: 'Heilbronn',
       });
+    });
+
+    it('offers a place only once it is played: the first wave or the first tower (decision 12)', () => {
+      const game = { gameStarted: signal(false), towerCount: signal(0) };
+      const injector = Injector.create({
+        providers: [
+          { provide: GeocodingService, useValue: {} },
+          { provide: PathAndRouteService, useValue: { hasRoutes } },
+          { provide: WorldContext, useValue: world },
+          { provide: GameStore, useValue: game },
+        ],
+      });
+      const played = runInInjectionContext(injector, () => new LocationManagementService());
+      hasRoutes.set(true);
+      played.hq.set({ lat: 49.17, lon: 9.26 });
+      played.spawns.set([{ lat: 49.175, lon: 9.26 }]);
+      played.displayName.set('Heilbronn');
+      expect(played.recentCandidate()).toBeNull();
+      game.towerCount.set(1);
+      expect(played.recentCandidate()?.name).toBe('Heilbronn');
+      game.towerCount.set(0);
+      game.gameStarted.set(true);
+      expect(played.recentCandidate()?.name).toBe('Heilbronn');
+    });
+
+    it('forgets a place taken off the list, and keeps it so', () => {
+      service.recordRecent({ lat: 49.17, lon: 9.26 }, [{ lat: 49.175, lon: 9.26 }], 'Heilbronn');
+      service.recordRecent({ lat: 48.87, lon: 2.33 }, [{ lat: 48.875, lon: 2.33 }], 'Paris');
+      service.forgetRecent({ lat: 49.17001, lon: 9.26001 });
+      expect(service.recents().map((r) => r.name)).toEqual(['Paris']);
+      expect(create().recents().map((r) => r.name)).toEqual(['Paris']);
     });
 
     it('offers nothing while the name still resolves or no spawn is set', () => {

@@ -8,11 +8,11 @@ import { BUILD_VERSION } from '../configs/build-info.config';
 import type { ThreeTilesEngine } from '../three-engine/three-tiles-engine';
 import { RenderQualityService, qualityWorldOf } from '../services/infrastructure/render-quality.service';
 import {
-  RENDER_VIEWS, RENDER_VIEW_SECONDS, envOf, isRenderBenchmarkSearch, renderBenchmarkUrl, renderRow, viewPose,
+  RENDER_VIEWS, RENDER_VIEW_SECONDS, envOf, renderRow, viewPose,
   type Pose, type RenderBenchEnv, type RenderRow, type Vec3,
 } from './render-benchmark';
-import { pageQuery } from '../core/page-switches';
-import { UrlLocationService } from '../services/location/url-location.service';
+import { WorldStartService, orderHere } from '../world/world-start';
+import { WorldSession } from '../world/world-session.service';
 
 export type RenderBenchPhase = 'idle' | 'running' | 'done' | 'failed';
 
@@ -35,8 +35,9 @@ const SETTLE_MS = 2000;
 const TILES_SETTLE_MAX_MS = 20_000;
 
 /**
- * The render benchmark (docs/BENCHMARKS.md "Bildkosten"): on the world the
- * page opened with `benchmark=render` (a place, a custom map, the DevWorld),
+ * The render benchmark (docs/BENCHMARKS.md "Bildkosten"): on the world
+ * opened for it (WorldStart.benchmark, a link's `benchmark=render`; a place,
+ * a custom map, the DevWorld),
  * the camera takes the fixed paths of render-benchmark.ts around the HQ, and
  * each view is measured: time between frames, GPU time of the draw through a
  * timer query (where the browser has one), main thread time, draw calls and
@@ -53,28 +54,26 @@ export class RenderBenchmarkService {
   private readonly location = inject(LocationManagementService);
   private readonly worldContext = inject(WorldContext);
   private readonly quality = inject(RenderQualityService);
-  private readonly urls = inject(UrlLocationService);
+  private readonly session = inject(WorldSession);
 
-  /** This page was loaded to run it */
-  readonly requested = isRenderBenchmarkSearch(pageQuery());
+  /** This world was opened to run it */
+  readonly requested = inject(WorldStartService).current().benchmark?.kind === 'render';
   readonly state = signal<RenderBenchState>(IDLE);
 
-  /** The menu's entry: this world again, with the flag */
+  /** The menu's entry: this world anew in the page at its place here, to measure */
   start(): void {
-    location.assign(renderBenchmarkUrl(this.urls.hereUrl(this.location.hq(), this.location.spawns(), this.worldContext.ref())));
+    const here = orderHere(this.worldContext.ref(), this.location.hq(), this.location.spawns());
+    this.session.open({ ...here, benchmark: { kind: 'render', back: null } });
   }
 
-  /** The panel's Close: the flag goes from the URL, the camera is the player's again */
+  /** The panel's Close: the camera is the player's again, the world stays */
   dismiss(): void {
     this.state.set(IDLE);
   }
 
-  /** Once the game stands: run if the page was loaded for it, once */
+  /** Once the game stands: run if the world was opened for it, once */
   runIfRequested(): void {
     if (!this.requested || this.state().phase !== 'idle') return;
-    const url = new URL(location.href);
-    url.searchParams.delete('benchmark');
-    history.replaceState(history.state, '', url.toString());
     void this.run();
   }
 

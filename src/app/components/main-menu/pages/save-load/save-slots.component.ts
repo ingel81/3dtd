@@ -10,14 +10,16 @@ import { MainMenuService } from '../../main-menu.service';
 export type SlotConfirm =
   | { kind: 'overwrite'; slotId: string; title: string }
   | { kind: 'load'; slotId: string; title: string }
+  /** The load ends the run of the save's world (MainMenuService.loadAsk): `text` names it, `note` says so */
+  | { kind: 'ends'; slotId: string; title: string; text: string; note: string }
   | { kind: 'import' }
   | { kind: 'delete'; slotId: string; title: string };
 
 /**
  * The slots of the menu's Save and Load pages (docs/SAVE_LOAD_PLAN.md, from
  * the former game menu): Save lists every manual slot and asks before it
- * overwrites one; Load lists the filled slots, the autosave first, each with
- * a file download and, but for the autosave, Delete, and below Load from a
+ * overwrites one; Load lists the filled slots, the autosaves first, each with
+ * a file download and Delete (an autosave is its world's Continue), and below Load from a
  * file. A load that ends the run under way asks first. A load works before
  * the first place too: the save's place loads (SAVE_GAME.startPlace) and
  * the load goes on there. A line under the list says what came of the last
@@ -34,7 +36,7 @@ export type SlotConfirm =
 })
 export class SaveSlotsComponent {
   readonly saves = inject(SAVE_GAME);
-  /** The menu's tab (real places or custom maps) picks the slots to load, and a slot of another world loads there */
+  /** A slot of another world loads there (MainMenuService.loadSlot) */
   private readonly menu = inject(MainMenuService, { optional: true });
   private readonly store = inject(GameStore);
   private readonly injector = inject(Injector);
@@ -57,7 +59,7 @@ export class SaveSlotsComponent {
   readonly cannotLoadReason = computed(() => (this.canLoad() ? null : 'Loads between waves.'));
 
   readonly saveRows = computed(() => saveSlotRows(this.saves.slots()));
-  readonly loadRows = computed(() => loadSlotRows(this.menu?.loadableSlots() ?? this.saves.slots()));
+  readonly loadRows = computed(() => loadSlotRows(this.saves.slots()));
 
   constructor() {
     void this.saves.refresh();
@@ -76,9 +78,14 @@ export class SaveSlotsComponent {
     });
   }
 
-  /** Load a slot; a run under way is asked about first */
+  /** Load a slot; the run of its world, or else a run under way, is asked about first */
   askLoad(slotId: string, title: string): void {
     if (!this.canLoad()) return;
+    const ends = this.menu?.loadAsk(slotId) ?? null;
+    if (ends) {
+      this.ask({ kind: 'ends', slotId, title, ...ends });
+      return;
+    }
     if (this.underWay()) {
       this.ask({ kind: 'load', slotId, title });
       return;

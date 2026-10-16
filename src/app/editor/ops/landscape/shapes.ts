@@ -72,6 +72,10 @@ export function formDab(stroke: LandscapeStroke, kind: FormKind, pointer: MapPoi
   const n = stroke.noise;
   const height = formHeight(kind, brush);
   const a = 1 - Math.exp(-FORM_RATE * Math.min(dt, 0.1));
+  // A crater's bowl hangs from the mean ground of its rim, not from the ground under each point, and its rim
+  // stands at least that high all round: on a peak or a slope the middle stood higher than the rim, a ridge
+  // left gaps in it, and the bowl held nothing (lava filled a sliver)
+  const rimRef = kind === 'crater' ? meanOnRing(stroke, center, brush.radius * CRATER_SHARE) : 0;
   for (let j = rect.j0; j <= rect.j1; j++) {
     const y = sampleY(t, j);
     for (let i = rect.i0; i <= rect.i1; i++) {
@@ -95,7 +99,12 @@ export function formDab(stroke: LandscapeStroke, kind: FormKind, pointer: MapPoi
       } else if (kind === 'crater') {
         const rc = brush.radius * CRATER_SHARE * (0.92 + 0.16 * n.fbm(x, y, 12, 2, 'n4'));
         const edge = 1 - smooth(brush.radius * 0.8, brush.radius, d);
-        target = base + height * craterProfile(d / rc) * edge;
+        // The ground the crater is cut into: the rim's mean inside, joining the ground (raised to that mean
+        // where it lies lower) toward the rim, the raise fading out beyond it
+        const r = d / rc;
+        const raised = Math.max(base, rimRef);
+        const ground = r < 1 ? rimRef + (raised - rimRef) * smooth(0.75, 1, r) : base + (raised - base) * (1 - smooth(1, 1.4, r));
+        target = ground + height * craterProfile(d / rc) * edge;
       } else if (kind === 'dunes') {
         const w = brushWeight(d, brush.radius, Math.max(0.3, brush.falloff));
         const wave = Math.max(16, brush.radius * 0.45);
@@ -111,6 +120,20 @@ export function formDab(stroke: LandscapeStroke, kind: FormKind, pointer: MapPoi
     }
   }
   return rect;
+}
+
+/** The mean ground before the stroke on a ring of radius `r` round `c` */
+function meanOnRing(stroke: LandscapeStroke, c: MapPoint, r: number): number {
+  const t = stroke.doc.terrain;
+  const g = t.grid;
+  let sum = 0;
+  for (let q = 0; q < 32; q++) {
+    const a = (q / 32) * Math.PI * 2;
+    const i = Math.min(g.columns - 1, Math.max(0, Math.round((c.x + Math.cos(a) * r + t.width / 2) / g.cellSize)));
+    const j = Math.min(g.rows - 1, Math.max(0, Math.round((c.y + Math.sin(a) * r + t.depth / 2) / g.cellSize)));
+    sum += stroke.baseHeight(i, j);
+  }
+  return sum / 32;
 }
 
 /**

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { Injector } from '@angular/core';
 import { UrlLocationService } from '../services/location/url-location.service';
 import { DevWorldService } from '../devworld/devworld.service';
-import { PLAIN_START, WorldStartService, addressWithoutLink, worldStartFromSearch } from './world-start';
+import { PLAIN_START, WorldStartService, addressWithoutLink, orderHere, worldStartFromSearch } from './world-start';
 
 /**
  * The start order (docs/WORLDS_NAVIGATION_PLAN.md, phase 1): a link is read
@@ -29,10 +29,28 @@ describe('WorldStart', () => {
       room: { code: 'ABC123', lane: 's2' },
       spawnLimit: 2,
       startWave: 5,
+      benchmark: null,
+      trial: null,
       // A link only picks: never played at once (docs/WORLDS_NAVIGATION_PLAN.md, 3.8)
       play: false,
       label: null,
     });
+    // The bot's check of a map by link: the order's trial
+    expect(worldStartFromSearch('?world=map:demo&bot=trial&trialWaves=3', place, true).trial).toEqual({ bot: 3 });
+  });
+
+  it("reads a benchmark link's flag once: the load benchmark in DevWorld, the graphics one anywhere", () => {
+    expect(worldStartFromSearch('?devworld&bot=manual&benchmark', place, true).benchmark).toEqual({ kind: 'load', back: null });
+    expect(worldStartFromSearch('?world=map:demo&benchmark=render', place, true).benchmark).toEqual({ kind: 'render', back: null });
+    expect(worldStartFromSearch('?benchmark', place, true).benchmark).toBeNull();
+    expect(addressWithoutLink('http://h/?devworld=&bot=manual&benchmark=')).toBe('http://h/?devworld=&bot=manual');
+  });
+
+  it('makes the order of the world open now at its place: the tiles are the null world', () => {
+    const hq = { lat: 48.7758, lon: 9.1829 };
+    expect(orderHere({ kind: 'tiles', source: 'cesium' }, hq, [])).toEqual({ ...PLAIN_START, place: { hq, spawns: [] } });
+    const map = { kind: 'custom-map', mapId: 'demo', contentHash: 'h' } as const;
+    expect(orderHere(map, null, [])).toEqual({ ...PLAIN_START, world: map });
   });
 
   it('is the plain start without a link, and the real places for a map link before the maps are open', () => {
@@ -44,7 +62,7 @@ describe('WorldStart', () => {
   it("takes the link's parameters out of the address and leaves the switches of development", () => {
     expect(addressWithoutLink('http://h/?l=1,2&s=3,4&world=map:x&resume=a&room=R&lane=s1&bot=trial&fromWave=3&relay=ws%3A%2F%2Fh&quality=low'))
       .toBe('http://h/?bot=trial&fromWave=3&relay=ws%3A%2F%2Fh&quality=low');
-    expect(addressWithoutLink('http://h/editor?map=demo')).toBe('http://h/editor?map=demo');
+    expect(addressWithoutLink('http://h/editor?map=demo')).toBe('http://h/editor');
     expect(addressWithoutLink('http://h/?devworld&terrain=flat')).toBe('http://h/?devworld&terrain=flat');
   });
 

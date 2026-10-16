@@ -251,6 +251,7 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
       if (meta[key] !== undefined && typeof meta[key] !== 'string') p.push(`meta.${key} must be text`);
     }
     if (meta.copyOf !== undefined && (typeof meta.copyOf?.id !== 'string' || typeof meta.copyOf?.hash !== 'string')) p.push('meta.copyOf must name an id and a hash');
+    if (meta.generated !== undefined && typeof meta.generated !== 'boolean') p.push('meta.generated must be true or false');
     for (const key of ['createdAt', 'updatedAt'] as const) {
       if (typeof meta[key] !== 'string' || !Number.isFinite(Date.parse(meta[key]))) p.push(`meta.${key} must be a date`);
     }

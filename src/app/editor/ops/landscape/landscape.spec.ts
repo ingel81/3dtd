@@ -527,6 +527,26 @@ describe('crater, dunes and glow cracks', () => {
     expect(craterProfile(1)).toBeGreaterThan(craterProfile(1.4));
   });
 
+  it('cuts a crater on a peak into a bowl that holds lava up to its lowest rim', () => {
+    const ed = map();
+    const g = ed.doc.terrain.grid;
+    const t = ed.doc.terrain;
+    // A cone 40 m high at (50, -100), falling off over 80 m
+    for (let j = 0; j < g.rows; j++)
+      for (let i = 0; i < g.columns; i++) {
+        const x = i * g.cellSize - t.width / 2;
+        const y = j * g.cellSize - t.depth / 2;
+        g.heights[j * g.columns + i] = Math.max(0, 40 * (1 - Math.hypot(x - 50, y + 100) / 80));
+      }
+    const stroke = new LandscapeStroke(ed, 'Crater', 2, catalog);
+    for (let k = 0; k < 80; k++) formDab(stroke, 'crater', { x: 50, y: -100 }, brush, 0.1);
+    stroke.finish();
+    const rc = brush.radius * 0.6;
+    const ring = Array.from({ length: 24 }, (_, q) => heightAt(t, 50 + Math.cos(q * 0.26) * rc, -100 + Math.sin(q * 0.26) * rc));
+    // The middle lies well under the lowest point of the rim: a basin, not a dent in the top
+    expect(heightAt(t, 50, -100)).toBeLessThan(Math.min(...ring) - formHeight('crater', brush) * 0.5);
+  });
+
   it('heaps dunes in rows across the wind', () => {
     const ed = map();
     const stroke = new LandscapeStroke(ed, 'Dunes', 4, catalog);

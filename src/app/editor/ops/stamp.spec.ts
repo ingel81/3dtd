@@ -66,6 +66,47 @@ describe('stamps', () => {
     expect(heightAt(t, 50, 50)).toBeCloseTo(20, 4);
   });
 
+  it('carries a pool of a further body and puts it at the ground where it lands, not at the old level', () => {
+    // A pool 2 m deep in a basin at -10 m (a body of its own, as an oasis is); the main water is the sea at 0
+    const ed = new EditorDocument(createMapDocument({ id: 'm', name: 'M', width: 400, depth: 400, cellSize: 2, starter: false, now: new Date(0) }));
+    const t = ed.doc.terrain;
+    const g = t.grid;
+    t.grid.heights.fill(-10);
+    t.water = emptyWater(t, 0);
+    const pool = { ...emptyWater(t, -9), kind: 'water' as const, color: '#3a7a8a' };
+    for (let j = 0; j < g.rows; j++)
+      for (let i = 0; i < g.columns; i++) {
+        const x = i * g.cellSize - 200;
+        const y = j * g.cellSize - 200;
+        if (Math.hypot(x + 100, y - 100) < 10) {
+          g.heights[j * g.columns + i] = -11;
+          pool.mask[j * g.columns + i] = 255;
+        }
+      }
+    t.waterBodies = [pool];
+    const stamp = captureStamp(ed.doc, { x0: -130, y0: 70, x1: -70, y1: 130 });
+    expect(stamp.water).toMatchObject({ kind: 'water' });
+    expect(stamp.water!.level).toBeCloseTo(1, 1);
+    // Onto a mesa 40 m up: a pool of its own there, a metre over the ground round it
+    const target = new EditorDocument(createMapDocument({ id: 't', name: 'T', width: 400, depth: 400, cellSize: 2, starter: false, now: new Date(0) }));
+    const tt = target.doc.terrain;
+    tt.grid.heights.fill(40);
+    tt.water = emptyWater(tt, 0);
+    const stroke = new LandscapeStroke(target, 'Paste', 0, catalog);
+    pasteStamp(stroke, stamp, { x: 50, y: 50 }, { parts: ALL_PARTS, rotation: 0, feather: 0.2 });
+    stroke.finish();
+    expect(tt.water.level).toBe(0);
+    expect(tt.waterBodies).toHaveLength(1);
+    expect(tt.waterBodies![0].level).toBeCloseTo(41, 0);
+    const k = (j: number, i: number) => j * tt.grid.columns + i;
+    const mid = k(Math.round((50 + 200) / 2), Math.round((50 + 200) / 2));
+    expect(tt.waterBodies![0].mask[mid]).toBe(255);
+    // The bed stays on the mesa, under its own water, not dug down to the sea
+    expect(tt.grid.heights[mid]).toBeGreaterThan(38);
+    target.undo();
+    expect(tt.waterBodies ?? []).toHaveLength(0);
+  });
+
   it('takes life areas wholly inside along, turned, as one undo step', () => {
     const ed = source();
     ed.doc.life = {

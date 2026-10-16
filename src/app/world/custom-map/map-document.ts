@@ -51,6 +51,13 @@ export interface MapMeta {
    * a fresh one when the original changed since. Not part of the content hash
    */
   copyOf?: { id: string; hash: string };
+  /**
+   * Made from OpenStreetMap and not changed in the editor since: such a map
+   * belongs to the world OpenStreetMap (its Recent worlds); the first save
+   * with a change drops it, and the map is a Built World from then on
+   * (docs/WORLDS_STATE_PLAN.md, 3.6). Not part of the content hash
+   */
+  generated?: boolean;
 }
 
 /** Where a map came from: a Warcraft 3 map, or a real place made from OpenStreetMap (world/osm) */
@@ -587,8 +594,11 @@ export interface MapPiece {
   paintRows: number;
   materials: string[];
   paint: Uint8Array;
-  /** Water mask on the height samples and the water level relative to the rim; null without water */
-  water: { mask: Uint8Array; level: number; color: string } | null;
+  /**
+   * Water mask on the height samples and the water level relative to the rim; null without water. `kind`: the
+   * body it came from, when that was not the main water (missing: the main water, as pieces kept before)
+   */
+  water: { mask: Uint8Array; level: number; color: string; kind?: MapWaterKind } | null;
   objects: Omit<MapObject, 'id'>[];
   roads: { nodes: MapPathNode[]; edges: MapPathEdge[] };
   /** Life areas and routes with all their points inside, relative to the middle; missing in pieces kept before */

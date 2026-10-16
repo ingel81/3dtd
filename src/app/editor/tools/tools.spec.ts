@@ -6,7 +6,7 @@ import type { EditorOverlay } from '../view/editor-overlay';
 import { freeGroup, withGroups } from '../ops/object-ops';
 import { describeGround, LookTool } from './look-tool';
 import { MarkerTool } from './marker-tool';
-import { ObjectTool, insidePolygon } from './object-tool';
+import { ObjectTool, insidePolygon, placeOutline } from './object-tool';
 import { paintCommands } from './paint-tool';
 import { PathTool } from './path-tool';
 import { craterProfile } from '../ops/landscape/shapes';
@@ -132,6 +132,85 @@ describe('editor tools', () => {
     expect(ed.doc.objects.find((o) => o.id === house.id)).toBeUndefined();
     expect(Array.from(g.heights)).toEqual(Array.from(slope));
     expect(ed.historySteps).toBe(steps - 1);
+  });
+
+  it('turns the object being placed by keys and Shift+wheel, and a building near a road faces it', () => {
+    const ed = fresh();
+    const ctx = context(ed);
+    const objects = [
+      { id: 'house', name: 'House', category: 'building', file: 'h.glb', footprint: 5, height: 8, blocksLos: true, blocksBuild: true, box: [0, 0, 4, 3] as [number, number, number, number] },
+      { id: 'crate', name: 'Crate', category: 'prop', file: 'c.glb', footprint: 1, height: 1, blocksLos: false, blocksBuild: true },
+    ];
+    Object.assign(ctx, { catalog: new CatalogIndex(normalizeCatalog({ objects }, 'http://x/')) });
+    // One road along the x axis from -150 to 150, 8 m wide
+    ed.doc.paths = { nodes: [{ id: 'a', x: -150, y: 0 }, { id: 'b', x: 150, y: 0 }], edges: [{ id: 'e', a: 'a', b: 'b', width: 8, kind: 'road' }] };
+    const tool = new ObjectTool();
+    const s = ctx.settings.objects;
+    s.mode = 'place';
+    s.asset = 'crate';
+    const key = (k: string, shift = false) => tool.key(new KeyboardEvent('keydown', { key: k, shiftKey: shift }), ctx);
+    const deg = () => (s.rotation * 180) / Math.PI;
+    // A turn key ends the random turn and steps from the set turn, 15 degrees by default
+    expect(key('q')).toBe(true);
+    expect(s.randomRotation).toBe(false);
+    expect(deg()).toBeCloseTo(15, 1);
+    key('e');
+    key('e');
+    expect(deg()).toBeCloseTo(345, 1);
+    key('Q', true);
+    expect(deg()).toBeCloseTo(75, 1);
+    // Shift and the wheel away from the user turn left by a step; without Shift the wheel zooms
+    expect(tool.wheel(-1, at(0, 0, { shift: true }), ctx)).toBe(true);
+    expect(deg()).toBeCloseTo(90, 1);
+    expect(tool.wheel(-1, at(0, 0), ctx)).toBe(false);
+    // Off the step grid, a step lands on it
+    s.turnStep = 45;
+    s.rotation = (100 * Math.PI) / 180;
+    key('.');
+    expect(deg()).toBeCloseTo(45, 1);
+    // A crate takes the set turn, also beside the road
+    tool.pointerDown(at(100, 12), ctx);
+    expect(ed.doc.objects.at(-1)!.rotation).toBeCloseTo(Math.PI / 4, 2);
+    // A house north of the road faces south to it, one south of it north; the set turn does not count there
+    s.asset = 'house';
+    tool.pointerDown(at(0, 15), ctx);
+    expect(ed.doc.objects.at(-1)!.rotation).toBeCloseTo(Math.PI, 2);
+    tool.pointerDown(at(-60, -14), ctx);
+    expect(ed.doc.objects.at(-1)!.rotation).toBeCloseTo(0, 2);
+    // Far from the road (gap 60 m over the 20 m reach) the set turn again
+    tool.pointerDown(at(0, 69), ctx);
+    expect(ed.doc.objects.at(-1)!.rotation).toBeCloseTo(Math.PI / 4, 2);
+    // Off: the set turn beside the road too
+    s.faceRoad = false;
+    tool.pointerDown(at(40, 15), ctx);
+    expect(ed.doc.objects.at(-1)!.rotation).toBeCloseTo(Math.PI / 4, 2);
+    // Mirrored north-south, each image faces its own side of the road
+    s.faceRoad = true;
+    ctx.settings.symmetry = 'y';
+    const before = ed.doc.objects.length;
+    tool.pointerDown(at(80, 16), ctx);
+    const placed = ed.doc.objects.slice(before);
+    expect(placed).toHaveLength(2);
+    expect(placed.find((o) => o.y > 0)!.rotation).toBeCloseTo(Math.PI, 2);
+    expect(placed.find((o) => o.y < 0)!.rotation).toBeCloseTo(0, 2);
+    expect(tool.hint(ctx)).toContain('Q E or Shift+wheel');
+  });
+
+  it('outlines the object being placed with a spike out of its front', () => {
+    // A box 8 m wide (x) and 6 m deep (z), turned a quarter to the left: the front (+z) points west
+    const line = placeOutline({ radius: 5, box: [0, 0, 4, 3] }, { x: 10, y: 20, rotation: Math.PI / 2, scale: 1 });
+    const tip = line.at(-2)!;
+    expect(tip.x).toBeCloseTo(10 - 3 - 2, 3);
+    expect(tip.y).toBeCloseTo(20, 3);
+    // The rectangle: x within 3 m of the middle, y within 4 m
+    for (const p of line.slice(0, 6)) {
+      expect(Math.abs(p.x - 10)).toBeLessThanOrEqual(3 + 1e-6);
+      expect(Math.abs(p.y - 20)).toBeLessThanOrEqual(4 + 1e-6);
+    }
+    // Without a box the footprint circle; at rotation 0 the spike points north
+    const round = placeOutline({ radius: 2 }, { x: 0, y: 0, rotation: 0, scale: 1 });
+    expect(round.at(-2)!.y).toBeCloseTo(2 + 1.5, 3);
+    expect(round.at(-2)!.x).toBeCloseTo(0, 3);
   });
 
   it('selects by lasso on the screen, moves along an arrow and lifts with the blue one', () => {

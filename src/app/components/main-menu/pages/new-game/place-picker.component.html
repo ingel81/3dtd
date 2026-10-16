@@ -123,22 +123,6 @@
 
     <div role="tabpanel" id="td-places-panel" [attr.aria-labelledby]="'td-places-tab-' + list()">
     @switch (list()) {
-      @case ('recent') {
-        @if (recentLocations().length) {
-          <ul class="td-rows pp-list" aria-label="Recent places">
-            @for (recent of recentLocations(); track recent.visitedAt) {
-              <li>
-                <button type="button" class="td-row mp-row" (click)="loadRecent(recent)">
-                  <span class="td-name mp-name">{{ recent.name }}</span>
-                  <span class="td-note td-num mp-meta">{{ visitAge(recent) }}</span>
-                </button>
-              </li>
-            }
-          </ul>
-        } @else {
-          <p class="td-note">Every place you play shows up here.</p>
-        }
-      }
       @case ('favorites') {
         @if (favorites().length) {
           <ul class="td-rows pp-list" aria-label="Favorites">

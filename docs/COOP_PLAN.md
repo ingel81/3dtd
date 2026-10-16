@@ -232,9 +232,17 @@ Die Reihenfolge hält jeden Schritt ohne Netz testbar, bis C4 den echten Relay b
   N %“ beim Schritt „Loading the host's map“ (`CoopService.mapTransfer`)
 - Der Gast setzt die Stücke zusammen (`coop/map-transfer.ts`), prüft Kartenkennung und Inhalts-Hash und legt die
   Karte in den Kartenspeicher (`world/custom-map/map-share.ts`; eine eigene Karte mit derselben Kennung und anderem
-  Inhalt wird nie überschrieben, der Gast soll sie umbenennen). Danach öffnet die Seite `?world=map:<id>` mit Raum,
-  Spur und Relay im Link und tritt wieder bei. Eine Seite, die schon auf der Karte steht, lädt nur neu, wenn ihr
-  Start an der fehlenden Karte gescheitert war (Einladungslink vor der Karte)
+  Inhalt wird nie überschrieben, der Gast soll sie umbenennen). Danach öffnet er die Karte in der Seite
+  (`WorldSession`, seit E195 Phase 3 ohne Neuladen), der Raum geht mit (unten). Eine Seite, die schon auf der Karte
+  steht, öffnet sie nur neu, wenn ihr Start an der fehlenden Karte gescheitert war (Einladungslink vor der Karte)
+- **Raum über einen Weltwechsel (E195 Phase 3, 2026-10-16):** Öffnet die Seite eine andere Welt (Menü des Hosts,
+  Gast folgt dem Host), geht die Spielkomponente samt `CoopService` ab, die Verbindung zum Relay nicht: in der
+  Lobby übergibt der alte `CoopService` die Sitzung (`CoopSession.unhook`, `coop/coop-room-carry.ts`), der neue
+  nimmt sie mit Raum, Chat und LAN-Relay auf. Der Host sagt dem Raum „changing the map“ und schickt die neue Welt,
+  sobald sie steht; der Gast meldet „loading“ und nimmt die Welt, die die Sitzung behielt, nur wenn sie die neue ist,
+  sonst wartet er auf die nächste. Spielt der Host auf echten Orten und der Gast auf einer Karte, folgt der Gast in
+  die Echtwelt (vorher nur eine Meldung). Ein laufendes Coop-Spiel geht nicht mit: wer die Welt wechselt, verlässt es.
+  Das Neuladen mit `&room=`/`&lane=` (`reloadAt`, `reloadAtMap`) ist entfernt
 - Der Einladungslink eines Kartenraums ist `?world=map:<id>&room=…`
 - Eine Karte über 32 MB geht nicht über das Relay: der Host liest es im Chat, Gäste mit der Karte können beitreten.
   Der Editor zeigt die Dateigröße gegen diese Grenze im Map-Panel ([LEVEL_EDITOR.md](LEVEL_EDITOR.md))

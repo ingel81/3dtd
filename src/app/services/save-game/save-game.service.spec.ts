@@ -24,6 +24,10 @@ import type { GamePhase } from '../../models/game.types';
 import { WorldContext } from '../../world/world-context.service';
 import { fakeWorldContext, TEST_WORLD_REF } from '../../../test/world-context-fake';
 import { CameraSlotsService } from '../camera-slots.service';
+import { PLAIN_START, WorldStartService } from '../../world/world-start';
+import { SAVE_SLOT_STORE, type StoredSlotMeta } from './save-slot.store';
+import { AUTOSAVE_SLOT } from './save-game.port';
+import { MemorySlotStore } from '../../../test/memory-slot-store';
 
 /**
  * The save game in the running game (TODO E110), on stand-ins: when saving
@@ -58,7 +62,8 @@ function saveFile(): SaveFile {
 
 interface Applying { apply(file: SaveFile): Promise<string | null> }
 
-function setup(options: { inCoop?: boolean } = {}) {
+function setup(options: { inCoop?: boolean; editorTest?: boolean; slots?: StoredSlotMeta[] } = {}) {
+  const store = new MemorySlotStore(options.slots);
   const bus = createMainEventBus();
   const frames = new Set<() => void>();
   const order: string[] = [];
@@ -119,6 +124,9 @@ function setup(options: { inCoop?: boolean } = {}) {
   };
   const phase = signal<GamePhase>('setup');
   const world = { source: () => ({}), spawnPoints: [], sendToSim: vi.fn(() => order.push('fresh run')) };
+  // The editor's test plays a custom map
+  const context = fakeWorldContext();
+  if (options.editorTest) context.useCustomMap('m');
   const injector = Injector.create({
     providers: [
       SaveGameService,
@@ -130,18 +138,26 @@ function setup(options: { inCoop?: boolean } = {}) {
       { provide: EngineInitializationService, useValue: { getEngine: () => ({}), loading: signal(false) } },
       { provide: WaveDirector, useValue: director },
       { provide: RunLogFacade, useValue: runLog },
-      { provide: WorldContext, useValue: fakeWorldContext() },
+      { provide: WorldContext, useValue: context },
       { provide: GameStore, useValue: { phase, isGameOver: signal(false) } },
       { provide: UIStore, useValue: { replayMode: signal(false) } },
       { provide: CoopService, useValue: { room: signal(options.inCoop ? {} : null), inGame: signal(false) } },
       { provide: CameraSlotsService, useValue: cameraSlots },
+      { provide: SAVE_SLOT_STORE, useValue: store },
+      { provide: WorldStartService, useValue: { current: () => ({ ...PLAIN_START, trial: options.editorTest ? { bot: null } : null }) } },
     ],
   });
   const service = injector.get(SaveGameService);
-  return { service, apply: (file: SaveFile) => (service as unknown as Applying).apply(file), order, phase, director, mirror, runLog, loader, bus, sim, cameraSlots };
+  return { service, apply: (file: SaveFile) => (service as unknown as Applying).apply(file), order, phase, director, mirror, runLog, loader, bus, sim, cameraSlots, store };
 }
 
 describe('SaveGameService (TODO E110)', () => {
+  it("keeps no save of the editor's test of its map (E195 phase 5)", async () => {
+    const { service } = setup({ editorTest: true });
+    expect(service.cannotSaveReason()).toBe('A test of the map is not saved.');
+    expect(await service.autosaveNow()).toBe(false);
+  });
+
   it('saves between waves only, alone, not in co-op', () => {
     const { service, phase } = setup();
     expect(service.canSave()).toBe(true);
@@ -248,5 +264,25 @@ describe('SaveGameService (TODO E110)', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('game over drops the Continue of this run: the autosave of this place goes, one of another place or a test stays (decision 1)', async () => {
+    const meta = (lat: number): StoredSlotMeta => ({
+      id: AUTOSAVE_SLOT, name: 'Heilbronn, wave 5', wave: 5, location: 'Heilbronn', savedAt: '2026-10-16T08:00:00Z',
+      gameVersion: BUILD_VERSION, configHash: 'x', hq: { lat, lon: 9.2 },
+    });
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+    const here = setup({ slots: [meta(49.1)] });
+    await here.service.refresh();
+    here.bus.emit({ type: 'game:over', reason: 'base-destroyed' } as never);
+    await settle();
+    await settle();
+    expect(here.store.ids()).toEqual([]);
+
+    const elsewhere = setup({ slots: [meta(48.5)] });
+    await elsewhere.service.refresh();
+    elsewhere.bus.emit({ type: 'game:over', reason: 'base-destroyed' } as never);
+    await settle();
+    expect(elsewhere.store.ids()).toEqual([AUTOSAVE_SLOT]);
   });
 });

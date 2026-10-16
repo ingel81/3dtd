@@ -123,6 +123,26 @@ export function worldsMatch(a: WorldRef, b: WorldRef): boolean {
   return sameWorld(a, b);
 }
 
+/**
+ * Why a run of `theirs` (a save, a replay, a coop room) cannot stand on
+ * `mine`, null when it can (worldsMatch). The same map changed since the
+ * run (its content hash differs: edited in the editor, or a new version of
+ * a shipped map) says so: its routes and heights would no longer fit the
+ * ground, so the run does not go on there (docs/WORLDS_STATE_PLAN.md,
+ * decision 7).
+ */
+export function worldNotHere(theirs: WorldRef, mine: WorldRef): string | null {
+  if (worldsMatch(theirs, mine)) return null;
+  if (theirs.kind === 'custom-map') {
+    const name = theirs.name ?? theirs.mapId;
+    if (mine.kind === 'custom-map' && mine.mapId === theirs.mapId) {
+      return `The map "${name}" was changed since this run was played on it, so the run cannot go on there.`;
+    }
+    return `It plays the map "${name}", which is not open here. Open that map first.`;
+  }
+  return `It plays on another world (${worldLabel(theirs)}), this page on ${worldLabel(mine)}. Open the same one first.`;
+}
+
 /** A WorldRef read from a file: the shape checked, null for anything else */
 export function worldRefShape(data: unknown): WorldRef | null {
   if (typeof data !== 'object' || data === null) return null;

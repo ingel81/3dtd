@@ -71,14 +71,6 @@ describe('UrlLocationService', () => {
     expect(url.urlFor(HQ, [], { kind: 'tiles', source: 'cesium' })).toBe('/?l=48.77580,9.18290');
   });
 
-  it("puts a place and its world back into this page's address, the switches kept", () => {
-    open('?bot=manual');
-    const here = new URL(url.hereUrl(HQ, [{ lat: 48.78, lon: 9.19 }], { kind: 'custom-map', mapId: 'demo', contentHash: 'h' }));
-    expect(here.searchParams.get('bot')).toBe('manual');
-    expect(url.parseLink(here.search)).toEqual({ hq: HQ, spawns: [{ lat: 48.78, lon: 9.19 }] });
-    expect(here.searchParams.get('world')).toBe('map:demo');
-  });
-
   it('makes a share link of a place without writing the address', () => {
     open('');
     expect(url.getShareUrl(HQ, [])).toBe(`${window.location.origin}/?l=48.77580,9.18290`);

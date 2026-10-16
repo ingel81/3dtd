@@ -8,6 +8,7 @@ import { RenderQualityService, qualityWorldOf } from './render-quality.service';
 import { STREET_RADIUS_M, StreetNetwork } from '../location/osm-street.service';
 import { GLOBE_LINK } from '../world/globe-link';
 import type { WorldProvider } from '../../world/world-provider';
+import { isOverpassCancelled } from '../../world/osm/overpass-client';
 import { BootStep } from '../../components/main-menu/loading/boot-step.model';
 
 /**
@@ -373,26 +374,29 @@ export class EngineInitializationService {
   /**
    * Load the street network of the engine's world around the given centre:
    * OSM on the tiles, the generated streets in DevWorld.
-   * @returns the network and its street count; `failed` when it did not load
+   * @returns the network and its street count; `failed` when it did not
+   *   load, `cancelled` when its load was ended (the world went, a place was
+   *   chosen instead: WorldStreetSource.cancelLoads), which is nobody's failure
    */
   async loadStreets(
     centerLat: number,
     centerLon: number,
-  ): Promise<{ network: StreetNetwork; count: number; failed: boolean }> {
+  ): Promise<{ network: StreetNetwork; count: number; failed: boolean; cancelled: boolean }> {
     try {
       const world = this.engine?.world ?? this.world;
       if (!world) throw new Error('No world to load streets from');
       const network = await world.streets.loadStreets(centerLat, centerLon, STREET_RADIUS_M);
-      return { network, count: network.streets.length, failed: false };
+      return { network, count: network.streets.length, failed: false, cancelled: false };
     } catch (err) {
-      console.error('[EngineInit] Failed to load streets:', err);
+      const cancelled = isOverpassCancelled(err);
+      if (!cancelled) console.error('[EngineInit] Failed to load streets:', err);
       const emptyNetwork: StreetNetwork = {
         streets: [],
         nodes: new Map(),
         bounds: { minLat: 0, maxLat: 0, minLon: 0, maxLon: 0 },
       };
       // The map loads without streets; `failed` lets the caller say so
-      return { network: emptyNetwork, count: 0, failed: true };
+      return { network: emptyNetwork, count: 0, failed: !cancelled, cancelled };
     }
   }
 

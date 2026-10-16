@@ -23,6 +23,7 @@ import { UIStore } from '../../store/ui.store';
 import { LocationConfig, SavedSpawn } from '../../models/location.types';
 import { GeoPosition } from '../../models/game.types';
 import { corridorTrace } from '../../utils/corridor-trace';
+import { placeLabel } from './place-label';
 
 /**
  * Input data for location change
@@ -98,6 +99,14 @@ export interface LocationChangeCallbacks {
  * LocationChangeCoordinatorService guards against concurrent changes and
  * unwinds the loading flags on error.
  */
+/** A change of place stopped between two steps: another place was chosen meanwhile (executeLocationChange) */
+export class PlaceChangeSuperseded extends Error {
+  constructor() {
+    super('The change of place gave way to another place');
+    this.name = 'PlaceChangeSuperseded';
+  }
+}
+
 @Injectable({ providedIn: 'root' })
 export class LocationChangeExecutorService {
   private readonly engineInit = inject(EngineInitializationService);
@@ -120,13 +129,22 @@ export class LocationChangeExecutorService {
   private readonly globe = inject(GLOBE_LINK, { optional: true });
 
   /**
-   * Execute the complete location change sequence
+   * Execute the complete location change sequence. `stillWanted` is asked
+   * after every step from the reset on: once another place was chosen the
+   * change stops there with PlaceChangeSuperseded (the next one resets
+   * again), instead of finishing tiles, routes and heights of a place no
+   * one wants. A step under way runs to its end first (the wait for the
+   * first tiles at most 15 s).
    */
   async executeLocationChange(
     input: LocationChangeInput,
     ctx: LocationChangeContext,
-    callbacks: LocationChangeCallbacks
+    callbacks: LocationChangeCallbacks,
+    stillWanted: () => boolean = () => true,
   ): Promise<void> {
+    const goOn = () => {
+      if (!stillWanted()) throw new PlaceChangeSuperseded();
+    };
     // The streets of the new place load while the engine resets and the tiles
     // stream (TODO H13): the request starts now, step 3 takes it, the same one
     if (!this.isSameStreetNetworkLocation(ctx, input.hq.lat, input.hq.lon)) {
@@ -138,18 +156,23 @@ export class LocationChangeExecutorService {
 
     // STEP 2: Reset and configure engine
     await this.step2_ResetAndConfigureEngine(input, ctx, callbacks);
+    goOn();
 
     // STEP 3: Load streets (with cache check)
     const streetNetwork = await this.step3_LoadStreets(input, ctx, callbacks);
+    goOn();
 
     // STEP 4: Place HQ marker (after the first tiles) and initialize services
     await this.step4_PlaceHQMarker(input, ctx, streetNetwork);
+    goOn();
 
     // STEP 5: Place spawn point
     await this.step5_PlaceSpawnPoint(input, callbacks);
+    goOn();
 
     // STEP 6: Calculate routes and initialize grid
     await this.step6_CalculateRoutes(ctx, callbacks);
+    goOn();
 
     // STEP 7: Finalize (heights, save, animation)
     await this.step7_Finalize(ctx, callbacks);
@@ -337,7 +360,8 @@ export class LocationChangeExecutorService {
 
     // Add the spawn points (component handles signal update and visualization),
     // one lane each, in the colours and ids a reload gives them
-    const spawnName = input.spawn.name?.split(',')[0] || 'Spawn';
+    // The street of a geocoded spawn ("Am Thorwengert 6" of "6, Am Thorwengert, ..."), never a bare house number
+    const spawnName = (input.spawn.name ? placeLabel(input.spawn.name).split(',')[0] : '') || 'Spawn';
     const spawns = spawnsOf(input);
     spawns.forEach((spawn, i) => callbacks.addSpawnPoint(
       `spawn-${i + 1}`, i === 0 ? spawnName : `Spawn ${i + 1}`, spawn.lat, spawn.lon,

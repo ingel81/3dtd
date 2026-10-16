@@ -230,6 +230,23 @@ Hinweis: nach dem Wechsel auf diesen Stand den Dev-Server einmal neu starten (Ma
 - **D5 OSM:** Miltenberg neu erzeugen. *Zäune, Laternen, Gleise mit Oberleitung, Betonbrücke, Betonportal am Tunnel.*
 - **D6 Welle:** Welle 1, Kill All, sofort im Wave Debugger auf 10. *Nächster Start Welle 10.*
 
+## E Welten, Continue und Kartenserver (2026-10-16)
+
+Dev-Server nach dem Wechsel auf diesen Stand einmal neu starten.
+
+- **E1 Globen:** Start landet auf drei Globen. Ohne Key (Token aus `environment.ts` nehmen) ist Real places grau mit
+  „Enter map key“. Die Menü-Erde zeigt eine Nachtseite mit Stadtlichtern.
+- **E2 Back to:** Built Worlds › Demo Valley › Play, oben „Worlds“. *„Back to Demo Valley“, ein Klick, Spiel sofort da,
+  ohne Ton hinter den Globen.*
+- **E3 Continue:** eine Welle spielen, Esc › All worlds. *„Demo Valley | wave 2 | ready“.* Mountain Pass › Play. *Rückfrage
+  „End it and start / Continue / Cancel“.* Mülleimer neben einem Continue. *Danach überall weg.*
+- **E4 OSM:** OpenStreetMap, Adresse suchen (Hausnummer), Make the map. *Name „Straße Nr, Ort“, Karte mit Bild unter Recent
+  worlds; nach einer Änderung im Editor unter Built Worlds mit „from OpenStreetMap“.*
+- **E5 Kartenserver:** DevTools › Network › Request blocking „overpass“, Ort wählen. *„The map server is busy, trying
+  again (2 of 5)…“, nach 30-60 s Meldung mit Retry.* Blockierung aufheben, Retry. *Ort lädt ohne Reload.*
+- **E6 Editor:** Place, Q/E dreht, Gebäude richten sich zur Straße („Face the road“); Seeufer ohne Sägezahn; Speichern
+  ohne Ruckler; Vulkan mit Glow cracks glüht, Krater auf Gipfeln hält Lava; Stempel nimmt Teiche mit.
+
 ## Eichtabelle
 
 Fingerprints aus `__corridor.fingerprint()` für K2.1 und K2.2. Alle Werte vor 748 (Rothenburg `d8050177`, Tokyo

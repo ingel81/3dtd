@@ -1,24 +1,27 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, Injector, afterNextRender, effect, inject, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Injector, afterNextRender, effect, inject, signal, untracked } from '@angular/core';
 import { TowerDefenseComponent } from './tower-defense.component';
 import { WorldsStageComponent } from './worlds/worlds-stage.component';
 import { WorldSession } from './world/world-session.service';
 
 /**
- * The game route: the globes while no world is open, else one game per
+ * The game screen: the globes while no world is open, else one game per
  * world the page opens (WorldSession). A new world takes the game down,
  * with its engine, worker and canvas, and makes a new one; closing it goes
- * back to the globes. The page does not reload.
+ * back to the globes. A world held (WorldSession.parked) stays behind the
+ * globes, hidden, until it shows again or goes. The page does not reload.
  */
 @Component({
   selector: 'app-game-host',
   standalone: true,
   imports: [TowerDefenseComponent, WorldsStageComponent],
   template: `@if (shown() !== null) {
-    <app-tower-defense />
-  } @else if (!session.isOpen()) {
+    <app-tower-defense [class.is-parked]="session.parked() !== null" />
+  }
+  @if (!session.isOpen() || session.parked()) {
     <app-worlds-stage />
   }`,
-  styles: [`:host { display: contents; }`],
+  // A world held behind the globes keeps its size (its canvas, its camera) but takes no room, no pointer and no eye
+  styles: [`:host { display: contents; } .is-parked { position: fixed; inset: 0; visibility: hidden; pointer-events: none; }`],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class GameHostComponent {
@@ -32,7 +35,6 @@ export class GameHostComponent {
   protected readonly shown = signal<number | null>(this.session.isOpen() ? this.session.world() : null);
 
   constructor() {
-    inject(DestroyRef).onDestroy(this.session.hostAttached());
     const injector = inject(Injector);
     effect(() => {
       const world = this.session.world();

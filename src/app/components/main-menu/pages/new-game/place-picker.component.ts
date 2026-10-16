@@ -4,11 +4,12 @@ import { TdIconComponent } from '../../../icon/icon.component';
 import { RovingGroupDirective } from '../../../roving-group.directive';
 import { WorldGlobeComponent } from '../../../world-globe/world-globe.component';
 import { GeocodingService, NominatimAddress, UNKNOWN_LOCATION_NAME } from '../../../../services/location/geocoding.service';
+import { placeLabel } from '../../../../services/location/place-label';
 import { GeolocationService } from '../../../../services/location/geolocation.service';
 import { LocationManagementService } from '../../../../services/location/location-management.service';
 import { LocationChangeCoordinatorService } from '../../../../services/location/location-change-coordinator.service';
 import { UrlLocationService } from '../../../../services/location/url-location.service';
-import { RecentLocation, formatVisitAge, isSamePlace } from '../../../../services/location/recent-locations';
+import { isSamePlace } from '../../../../services/location/recent-locations';
 import { BestWaveService } from '../../../../services/location/best-wave.service';
 import { BestWave, byBestWave } from '../../../../services/location/best-waves';
 import { parseCoordinates, storedPlace, type PlaceChoice, type SpawnPick } from '../../../../services/location/place-choice';
@@ -22,11 +23,14 @@ import type { OsmFrameRequest } from '../../../osm-frame/osm-frame-request';
 
 type SpawnMode = 'random' | 'manual';
 
-/** The lists under the search: one at a time behind a switch */
-export type PlaceList = 'recent' | 'favorites' | 'showcase' | 'world';
+/**
+ * The lists under the search: one at a time behind a switch. Recent places
+ * are the world menu's of Real places (docs/WORLDS_STATE_PLAN.md, 3.3), not
+ * this page's
+ */
+export type PlaceList = 'favorites' | 'showcase' | 'world';
 
 const LISTS: readonly { id: PlaceList; label: string }[] = [
-  { id: 'recent', label: 'Recent' },
   { id: 'favorites', label: 'Favorites' },
   { id: 'showcase', label: 'Showcase' },
   { id: 'world', label: 'World' },
@@ -96,16 +100,9 @@ export class PlacePickerComponent {
   });
 
   readonly lists = LISTS;
-  readonly list = signal<PlaceList>(this.locationMgmt.recents().length > 0 ? 'recent' : 'showcase');
-
-  /** Recent places except the one loaded, which would only restart it */
-  readonly recentLocations = computed(() => {
-    const current = this.current();
-    return this.locationMgmt.recents().filter((r) => !current || !isSamePlace(r.hq, current));
-  });
+  readonly list = signal<PlaceList>(this.locationMgmt.favorites().length > 0 ? 'favorites' : 'showcase');
   readonly favorites = this.locationMgmt.favorites;
   readonly showcase = SHOWCASE_LOCATIONS;
-  private readonly openedAt = Date.now();
 
   /** Defended places, highest wave first; the globe turns to the row under the pointer or the focus */
   readonly worldRecords = computed(() => [...this.bestWaves.records()].sort(byBestWave));
@@ -277,14 +274,12 @@ export class PlacePickerComponent {
     const current = this.current();
     if (!current) return;
     const spawnsAt = this.locationMgmt.spawns().map((s) => ({ lat: s.lat, lon: s.lon }));
-    this.mapOfPlace.emit({ place: { lat: current.lat, lon: current.lon, name: shortName(current.name), address: current.name }, spawnsAt });
+    this.mapOfPlace.emit({ place: { lat: current.lat, lon: current.lon, name: placeLabel(current.name), address: current.name }, spawnsAt });
   }
 
-  /** A searched place's name as the list shows it: its own, the place from its address, or the coordinates */
+  /** A searched place's name as the search list shows it (street and number, locality), or the coordinates */
   private placeName(hq: SearchedPlace): string {
-    const extracted = hq.address ? this.geocoding.extractLocationName(hq.address) : UNKNOWN_LOCATION_NAME;
-    if (extracted !== UNKNOWN_LOCATION_NAME) return extracted;
-    return hq.name ? shortName(hq.name) : `${hq.lat.toFixed(4)}, ${hq.lon.toFixed(4)}`;
+    return hq.name ? placeLabel(hq.name, hq.address) : `${hq.lat.toFixed(4)}, ${hq.lon.toFixed(4)}`;
   }
 
   // ---- One click ----
@@ -305,15 +300,6 @@ export class PlacePickerComponent {
 
   rollDice(): void {
     this.chosen.emit({ kind: 'dice' });
-  }
-
-  visitAge(recent: RecentLocation): string {
-    return formatVisitAge(recent.visitedAt, this.openedAt);
-  }
-
-  /** A recent place with the spawn it was played with */
-  loadRecent(recent: RecentLocation): void {
-    this.chosen.emit(this.listed(recent.hq, recent.name, recent.spawns[0]));
   }
 
   favoriteName(fav: FavoriteLocation): string {

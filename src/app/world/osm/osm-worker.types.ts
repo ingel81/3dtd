@@ -1,5 +1,6 @@
 import type { OsmImportOptions } from './import-osm';
 import type { FrameSpawn, GeoPoint, OsmFrameInfo, OsmMade, OsmStep } from './osm-frame-core';
+import type { OverpassRetry } from './overpass-client';
 
 /** A call of the frame on the OSM worker (OsmFrameCore's methods) */
 export type OsmWorkerRequest =
@@ -10,6 +11,7 @@ export type OsmWorkerRequest =
 
 export type OsmWorkerResponse =
   | { id: number; kind: 'step'; step: OsmStep }
+  | { id: number; kind: 'retry'; retry: OverpassRetry }
   | { id: number; kind: 'opened'; frame: OsmFrameInfo }
   | { id: number; kind: 'spawns'; spawns: FrameSpawn[] }
   | { id: number; kind: 'dropped'; spawn: FrameSpawn | { reason: string } }

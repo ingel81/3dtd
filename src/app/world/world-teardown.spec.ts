@@ -22,6 +22,8 @@ import { InputHandlerService } from '../services/input-handler.service';
 import { HeightUpdateService } from '../services/world/height-update.service';
 import { SimClient } from '../sim/client/sim-client.service';
 import { StateSnapshotService } from '../director/state-snapshot.service';
+import { CoopRoomCarry } from '../coop/coop-room-carry';
+import type { CoopSession } from '../coop/coop-session';
 
 /** Answers every property and call with another stub; not a promise, not iterable */
 function anything(): unknown {
@@ -199,5 +201,30 @@ describe('A world started and taken down twice', () => {
       expect([input['canvas'], input['engine'], heights['engine']], `world ${world}: root services`).toEqual([null, null, null]);
       expect((root.get(SimClient) as SimClient).started).toBe(false);
     }
+  });
+});
+
+/**
+ * What outlives a world in the page (phases 3 and 4): a coop room in the
+ * lobby goes along to the next world's CoopService (CoopRoomCarry) and the
+ * editor's session to its next page (AppShellComponent, its own spec). A
+ * room is held only between two worlds: taken once, and one kept and never
+ * taken leaves its relay connection when the next comes.
+ */
+describe('a coop room between two worlds', () => {
+  it('is taken once, and one never taken closes its connection', () => {
+    const carry = new CoopRoomCarry();
+    const session = (closed: string[], name: string) => ({ close: () => closed.push(name) }) as unknown as CoopSession;
+    const closed: string[] = [];
+    const room = (s: CoopSession) => ({ session: s, relay: null, intent: 'join' as const, chat: [], chatId: 1, lan: null });
+    const first = session(closed, 'first');
+    carry.keep(room(first));
+    expect(carry.take()?.session).toBe(first);
+    expect(carry.take()).toBeNull();
+    carry.keep(room(first));
+    carry.keep(room(session(closed, 'second')));
+    expect(closed).toEqual(['first']);
+    expect(carry.take()?.session).not.toBe(first);
+    expect(closed).toEqual(['first']);
   });
 });

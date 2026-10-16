@@ -24,6 +24,7 @@ import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { WorldContext } from '../../world/world-context.service';
 import { PulseThrottle } from '../../utils/pulse-throttle';
 import { TdIconComponent } from '../icon/icon.component';
+import { WorldPathComponent, type PathAction, type PathChip } from '../world-path/world-path.component';
 import { creditsRefusals } from '../../services/credits-refusal';
 import {
   COUNT_EXACT_BELOW,
@@ -68,10 +69,20 @@ function prefersReducedMotion(): boolean {
   return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
+/** What the game's path shows (WorldPathComponent): the world, the way into the editor, the chips */
+export interface GamePath {
+  world: string;
+  /** "Edit" on a map, "Make map" on a real place */
+  editLabel: string;
+  editHint: string;
+  editWhy: string | null;
+  chips: readonly PathChip[];
+}
+
 @Component({
   selector: 'app-game-header',
   standalone: true,
-  imports: [CommonModule, MatTooltipModule, TdIconComponent],
+  imports: [CommonModule, MatTooltipModule, TdIconComponent, WorldPathComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './game-header.component.html',
   styleUrl: './game-header.component.scss',
@@ -171,6 +182,9 @@ export class GameHeaderComponent {
   /** Coop: the room while in one (code, a lane colour per player or null without a lane, seats), null otherwise */
   readonly coopChip = input<{ code: string; colors: (string | null)[]; max: number } | null>(null);
   readonly coopClick = output<void>();
+  /** The path over the game (docs/WORLDS_NAVIGATION_PLAN.md, 3.4); null shows the place alone */
+  readonly path = input<GamePath | null>(null);
+  readonly pathGo = output<PathAction>();
 
   // Internal state
   readonly favMenuExpanded = signal(false);
