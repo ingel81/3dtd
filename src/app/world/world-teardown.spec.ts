@@ -113,8 +113,10 @@ describe('A world started and taken down twice', () => {
     hold.workers.clear();
     hold.intervals.clear();
     for (const [name, target] of [['window', window], ['document', document]] as const) {
-      const add = target.addEventListener.bind(target);
-      const remove = target.removeEventListener.bind(target);
+      const ownAdd = target.addEventListener;
+      const ownRemove = target.removeEventListener;
+      const add = ownAdd.bind(target);
+      const remove = ownRemove.bind(target);
       target.addEventListener = ((type: string, fn: EventListener, options?: unknown) => {
         hold.listeners.add(key(name, type, fn, options));
         add(type, fn, options as AddEventListenerOptions);
@@ -124,8 +126,8 @@ describe('A world started and taken down twice', () => {
         remove(type, fn, options as EventListenerOptions);
       }) as typeof target.removeEventListener;
       restore.push(() => {
-        delete (target as unknown as Record<string, unknown>)['addEventListener'];
-        delete (target as unknown as Record<string, unknown>)['removeEventListener'];
+        target.addEventListener = ownAdd;
+        target.removeEventListener = ownRemove;
       });
     }
     const setInterval = window.setInterval;
