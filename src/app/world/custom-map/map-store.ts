@@ -341,6 +341,17 @@ export class MapStore {
    * shipped or coop map (ownCopyOf finds it), otherwise a copy names no origin
    */
   async saveCopy({ doc, preview }: Pick<LoadedMap, 'doc' | 'preview'>, name?: string, copyOf?: MapMeta['copyOf']): Promise<LoadedMap> {
+    await this.makeCopy(doc, name, copyOf);
+    const summary = await this.save(doc, preview);
+    return { doc, summary, preview };
+  }
+
+  /**
+   * Turns `doc` into a new own map, not stored yet: a fresh id and identity,
+   * new times, "(copy)" after the name unless `name` is given, `copyOf` as
+   * in saveCopy. The editor's first save of a shipped map's changes stores it
+   */
+  async makeCopy(doc: CustomMapDocument, name?: string, copyOf?: MapMeta['copyOf']): Promise<void> {
     // A copy is a map of its own: a file of it read in later must not replace the original
     doc.meta.uid = newMapUid();
     if (copyOf) doc.meta.copyOf = { ...copyOf };
@@ -350,8 +361,6 @@ export class MapStore {
     doc.meta.id = await this.freeId(slugMapId(doc.meta.name));
     doc.meta.createdAt = now;
     doc.meta.updatedAt = now;
-    const summary = await this.save(doc, preview);
-    return { doc, summary, preview };
   }
 
   /**

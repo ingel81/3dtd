@@ -161,7 +161,7 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
   async openChosen(): Promise<void> {
     const m = this.chosen();
     if (!m) return;
-    // Shipped maps and coop hosts' maps open as an own copy (EditorSession.open)
+    // Shipped maps and coop hosts' maps open as they are; the first change makes an own copy (EditorSession.open)
     this.open.emit(m.id);
   }
 

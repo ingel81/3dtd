@@ -144,7 +144,7 @@
           </p>
         }
 
-        <h2 class="td-head mb-gap">Shipped maps <span class="td-note">open as a copy of your own</span></h2>
+        <h2 class="td-head mb-gap">Shipped maps <span class="td-note">your own copy comes with the first change</span></h2>
         @for (m of shipped(); track m.id) {
           <button class="td-row mb-row" type="button" role="option" [attr.aria-selected]="chosen()?.id === m.id && chosen()?.origin === 'shipped'"
                   (click)="choose(m)" [attr.data-map]="m.id">

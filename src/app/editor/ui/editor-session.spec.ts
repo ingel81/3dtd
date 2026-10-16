@@ -39,7 +39,7 @@ beforeAll(() => {
 afterAll(() => getTestBed().resetTestEnvironment());
 
 describe('editor session opening', () => {
-  it('opens a shipped or a coop map as an own copy at once', async () => {
+  it('opens a shipped or a coop map as it is; the first save with a change makes the own copy (decision 8)', async () => {
     const { s, backend } = session();
     const shipped = createMapDocument({ id: 'harbour', name: 'Harbour', width: 32, depth: 32 });
     const files: Record<string, Uint8Array> = { 'http://x/maps/harbour.3dtdmap': packMapFile(shipped) };
@@ -49,15 +49,25 @@ describe('editor session opening', () => {
         : new Response(files[url] as Uint8Array<ArrayBuffer>, { status: files[url] ? 200 : 404 });
     Object.assign(s, { store: new MapStore({ backend, fetch, baseUrl: 'http://x/' }), catalogReady: Promise.resolve() });
     const id = await s.open('harbour');
-    expect(id).toBe('harbour-copy');
-    expect(s.doc!.meta).toMatchObject({ id: 'harbour-copy', name: 'Harbour (copy)' });
+    expect(id).toBe('harbour');
+    expect(s.doc!.meta).toMatchObject({ id: 'harbour', name: 'Harbour' });
     expect(s.readOnly()).toBe(false);
+    expect(s.status()).toContain('your own copy comes with the first change');
+    // Saving with nothing changed keeps nothing
+    expect(await s.save(true)).toBe(true);
+    expect(await s.store.listOwn()).toEqual([]);
+    s.editMeta({ description: 'Mine' });
+    expect(await s.save(false)).toBe(true);
+    expect(s.doc!.meta).toMatchObject({ id: 'harbour-copy', name: 'Harbour (copy)', description: 'Mine' });
     expect((await backend.get('harbour-copy'))?.summary.origin).toBe('own');
     expect(s.status()).toContain('own copy of Harbour');
 
     const host = createMapDocument({ id: 'hosts-map', name: 'Host', width: 32, depth: 32 });
     await s.store.saveShared(host, null, packMapFile(host));
-    expect(await s.open('hosts-map')).toBe('host-copy');
+    expect(await s.open('hosts-map')).toBe('hosts-map');
+    s.editMeta({ description: 'Ours' });
+    await s.save(true);
+    expect(s.doc!.meta.id).toBe('host-copy');
     expect((await backend.get('hosts-map'))?.summary.origin).toBe('shared');
     expect(await s.open('harbour-copy')).toBe('harbour-copy');
     s.ngOnDestroy();
@@ -65,6 +75,21 @@ describe('editor session opening', () => {
 });
 
 describe('editor session and copies', () => {
+  it('an OpenStreetMap map leaves its world with the first save that changes it (decision 5)', async () => {
+    const { s } = session();
+    const made = createMapDocument({ id: 'miltenberg', name: 'Miltenberg', width: 32, depth: 32 });
+    made.meta.generated = true;
+    await s.store.save(made);
+    await s.open('miltenberg');
+    expect(await s.save(true)).toBe(true);
+    expect((await s.store.listOwn()).find((m) => m.id === 'miltenberg')?.generated).toBe(true);
+    s.editMeta({ description: 'Mine now' });
+    await s.save(true);
+    expect(s.doc!.meta.generated).toBeUndefined();
+    expect((await s.store.listOwn()).find((m) => m.id === 'miltenberg')?.generated).toBeUndefined();
+    s.ngOnDestroy();
+  });
+
   it('opens the copy made before on a second Edit, and offers a fresh one when the original changed', async () => {
     const { s, backend } = session();
     let shipped = createMapDocument({ id: 'harbour', name: 'Harbour', width: 32, depth: 32 });
@@ -74,10 +99,10 @@ describe('editor session and copies', () => {
         ? Response.json({ maps: [{ id: 'harbour', name: 'Harbour', file: 'harbour.3dtdmap', contentHash: hash }] })
         : new Response(packMapFile(shipped) as Uint8Array<ArrayBuffer>, { status: 200 });
     Object.assign(s, { store: new MapStore({ backend, fetch, baseUrl: 'http://x/' }), catalogReady: Promise.resolve() });
-    expect(await s.open('harbour')).toBe('harbour-copy');
-    expect(s.doc!.meta.copyOf).toEqual({ id: 'harbour', hash });
+    expect(await s.open('harbour')).toBe('harbour');
     s.editMeta({ description: 'Mine' });
     await s.save(true);
+    expect(s.doc!.meta.copyOf).toEqual({ id: 'harbour', hash });
     expect(await s.open('harbour')).toBe('harbour-copy');
     expect(s.doc!.meta.description).toBe('Mine');
     expect(s.staleCopy()).toBeNull();
