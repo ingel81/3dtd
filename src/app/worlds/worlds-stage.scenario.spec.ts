@@ -30,7 +30,7 @@ import { StageContinueComponent } from './stage-continue.component';
 import { CUSTOM_MAPS_OPEN } from '../world/custom-maps-open';
 import type { MapSummary } from '../world/custom-map/map-store';
 import { WorldChoiceService } from '../world/world-choice.service';
-import { WorldSession } from '../world/world-session.service';
+import { WorldSession, type ParkedWorld } from '../world/world-session.service';
 import { PLAIN_START, WorldStartService, type WorldStart } from '../world/world-start';
 import { SettingsSectionsComponent } from '../components/main-menu/pages/settings/settings-sections.component';
 import { ExtrasListComponent } from '../components/main-menu/pages/extras/extras-list.component';
@@ -94,7 +94,15 @@ const summary = (s: Partial<MapSummary> & { id: string; name: string }): MapSumm
 
 describe('Worlds stage', () => {
   let opened: WorldStart[];
-  let session: { isOpen: ReturnType<typeof signal<boolean>>; open: (order: WorldStart) => void; close: ReturnType<typeof vi.fn> };
+  let session: {
+    isOpen: ReturnType<typeof signal<boolean>>;
+    parked: ReturnType<typeof signal<ParkedWorld | null>>;
+    open: (order: WorldStart) => void;
+    close: ReturnType<typeof vi.fn>;
+    park: (held: ParkedWorld) => void;
+    unpark: () => void;
+    leaveParked: ReturnType<typeof vi.fn>;
+  };
   let config: { cesiumIonToken: ReturnType<typeof signal<string>>; needsCredentials: () => boolean; setupRequested: ReturnType<typeof signal<boolean>> };
 
   beforeAll(() => {
@@ -123,7 +131,16 @@ describe('Worlds stage', () => {
       own = own.filter((m) => m.summary.id !== id);
       return true;
     });
-    session = { isOpen: signal(false), open: (order) => opened.push(order), close: vi.fn() };
+    const parked = signal<ParkedWorld | null>(null);
+    session = {
+      isOpen: signal(false),
+      parked,
+      open: (order) => opened.push(order),
+      close: vi.fn(),
+      park: (held) => parked.set(held),
+      unpark: () => parked.set(null),
+      leaveParked: vi.fn(async () => parked.set(null)),
+    };
     const token = signal(setup.key ? 'ion-token' : '');
     config = { cesiumIonToken: token, needsCredentials: computed(() => !token()), setupRequested: signal(false) };
     TestBed.configureTestingModule({
@@ -416,5 +433,70 @@ describe('Worlds stage', () => {
     stage.pick('osm', { kind: 'map', id: 'gone', name: 'Gone' });
     await stage.refreshMaps();
     expect(stage.picks().osm).toBeNull();
+  });
+
+  const held = (run: boolean): ParkedWorld => ({
+    world: 'real', pick: { kind: 'place', hq: { lat: 49.14, lon: 9.22 }, spawns: [], name: 'Heilbronn, Germany' }, label: 'Heilbronn', wave: 4, run,
+  });
+
+  it('a place held behind the globes without a run is Back to it: at once, nothing loads (point 7)', async () => {
+    const f = await open({ key: true });
+    session.park(held(false));
+    await settle(f);
+    expect(text(el(f).querySelector('.ws-menu [role="menuitem"]'))).toBe('Back to Heilbronn Still loaded, no run yet');
+    expect(text(el(f).querySelector('.ws-chip'))).toBe('Back to Heilbronn');
+    expect(card(f, 'real').classList).toContain('is-hero');
+    // Its world menu offers the same, its pick says Back to
+    card(f, 'real').click();
+    await settle(f);
+    expect(text(el(f).querySelector('[data-stage-continue]'))).toBe('Back to Heilbronn Still loaded, no run yet');
+    expect(el(f).querySelector('[data-stage-discard]')).toBeNull();
+    TestBed.inject(WorldsStageService).pick('real', held(false).pick);
+    await settle(f);
+    expect(text(el(f).querySelector('[data-stage-start]'))).toBe('Back to Heilbronn');
+    el(f).querySelector<HTMLElement>('[data-stage-start]')!.click();
+    await settle(f);
+    expect(session.parked()).toBeNull();
+    expect(opened).toEqual([]);
+  });
+
+  it('a run held is Continue, ready at once; a start elsewhere in its world asks and ends it without keeping it', async () => {
+    const f = await open({ key: true, slots: [heilbronn()] });
+    session.park(held(true));
+    await settle(f);
+    expect(text(el(f).querySelector('.ws-menu [role="menuitem"]'))).toBe('Continue Heilbronn | wave 4');
+    expect(text(el(f).querySelector('.ws-chip'))).toBe('Heilbronn | wave 4 | ready');
+    card(f, 'real').click();
+    await settle(f);
+    el(f).querySelector<HTMLElement>('.wm-body .td-row:not([data-stage-continue])')!.click();
+    await settle(f);
+    el(f).querySelector<HTMLElement>('[data-stage-start]')!.click();
+    await settle(f);
+    expect(text(el(f).querySelector('.ws-confirm'))).toContain('Heilbronn | wave 4 waits in Real places.');
+    button(f, 'End it and start').click();
+    await settle(f);
+    expect(session.leaveParked).toHaveBeenCalledWith(false);
+    expect(store.ids()).toEqual([]);
+    expect(opened).toHaveLength(1);
+  });
+
+  it('Continue of a run held shows it at once; Discard ends it and its autosave', async () => {
+    const f = await open({ key: true, slots: [heilbronn()] });
+    session.park(held(true));
+    await settle(f);
+    el(f).querySelector<HTMLElement>('.ws-menu [role="menuitem"]')!.click();
+    await settle(f);
+    expect(session.parked()).toBeNull();
+    expect(opened).toEqual([]);
+
+    session.park(held(true));
+    card(f, 'real').click();
+    await settle(f);
+    el(f).querySelector<HTMLElement>('[data-stage-discard]')!.click();
+    await settle(f);
+    button(f, 'Discard').click();
+    await settle(f);
+    expect(session.leaveParked).toHaveBeenCalledWith(false);
+    expect(store.ids()).toEqual([]);
   });
 });

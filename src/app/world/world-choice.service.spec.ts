@@ -43,7 +43,7 @@ describe('WorldChoiceService', () => {
       providers: [
         { provide: MAP_STORE, useValue: store },
         { provide: AppScreen, useValue: screens },
-        { provide: WorldSession, useValue: { open: (order: WorldStart) => opened.push(order) } },
+        { provide: WorldSession, useValue: { open: (order: WorldStart) => opened.push(order), parked: () => null } },
         { provide: WorldsStageService, useValue: stage },
         { provide: ConfigService, useValue: { ownTilesets: signal([TILESET]) } },
         { provide: WorldContext, useValue: { ref: current.asReadonly() } },
@@ -121,7 +121,7 @@ describe('WorldChoiceService', () => {
         providers: [
           { provide: MAP_STORE, useValue: store },
           { provide: AppScreen, useValue: screens },
-          { provide: WorldSession, useValue: { open: (order: WorldStart) => opened.push(order) } },
+          { provide: WorldSession, useValue: { open: (order: WorldStart) => opened.push(order), parked: () => null } },
           { provide: ConfigService, useValue: { ownTilesets: signal([]) } },
           { provide: WorldContext, useValue: { ref: current.asReadonly() } },
         ],

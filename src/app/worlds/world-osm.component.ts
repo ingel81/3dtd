@@ -90,7 +90,7 @@ import type { NominatimAddress } from '../services/location/geocoding.service';
           }
           <div class="td-actions is-start wm-actions">
             <button type="button" class="td-btn-primary" data-stage-start [attr.aria-disabled]="playWhy() ? true : null" (click)="stage.start('osm')">
-              <td-icon name="play" [size]="14" /><span>{{ continues() ? 'Continue' : 'Play' }}</span>
+              <td-icon name="play" [size]="14" /><span>{{ playWord() }}</span>
             </button>
             <button type="button" class="td-btn-secondary" [attr.aria-disabled]="stage.whyNot('edit', 'osm') ? true : null"
                     [attr.title]="stage.whyNot('edit', 'osm')" (click)="stage.edit('osm')">Edit in the editor</button>
@@ -129,7 +129,8 @@ export class WorldOsmComponent {
     return pick?.kind === 'place' ? pick : null;
   });
   readonly playWhy = computed(() => this.stage.whyNot('play', 'osm'));
-  readonly continues = computed(() => this.stage.runHere('osm', this.stage.picks().osm) !== null);
+  /** Start's word: Continue of a run, Back to the place held, else Play */
+  readonly playWord = computed(() => this.stage.playWord('osm', this.stage.picks().osm, 'Play'));
 
   /** A searched place's name as the search list showed it */
   placeName(found: { name: string; address?: NominatimAddress }): string {

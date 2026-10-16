@@ -69,6 +69,37 @@ describe('WorldSession', () => {
     expect(session.world()).toBe(1);
   });
 
+  it('holds the open world behind the globes; another start keeps its run first, then opens (docs/WORLDS_STATE_PLAN.md 3.7)', async () => {
+    const held = { world: 'real' as const, pick: null, label: 'Heilbronn', wave: 4, run: true };
+    session.park(held);
+    // Nothing open: nothing to hold
+    expect(session.parked()).toBeNull();
+    session.open(MAP);
+    session.park(held);
+    expect(session.parked()).toEqual(held);
+    session.unpark();
+    expect(session.parked()).toBeNull();
+
+    const kept: boolean[] = [];
+    session.onLeaveParked(async (keep) => {
+      kept.push(keep);
+    });
+    session.park(held);
+    session.open({ ...MAP, startWave: 3 });
+    // The held game is asked first, the new world after
+    expect(session.world()).toBe(1);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(kept).toEqual([true]);
+    expect(session.world()).toBe(2);
+    expect(session.parked()).toBeNull();
+    expect(session.isOpen()).toBe(true);
+
+    session.park(held);
+    await session.leaveParked(false);
+    expect(kept).toEqual([true, false]);
+    expect(session.isOpen()).toBe(false);
+  });
+
   it('tells what outlives a world that the open one goes, while it still stands', () => {
     const heard: WorldStart[] = [];
     const off = session.onLeaving(() => heard.push(start.current()));

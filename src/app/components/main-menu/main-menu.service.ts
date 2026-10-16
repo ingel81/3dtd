@@ -1,4 +1,4 @@
-import { Injectable, Injector, computed, effect, inject, signal, untracked } from '@angular/core';
+import { DestroyRef, Injectable, Injector, computed, effect, inject, signal, untracked } from '@angular/core';
 import { UIStore } from '../../store/ui.store';
 import { GameStore } from '../../store/game.store';
 import { COOP } from '../../services/coop.token';
@@ -19,6 +19,7 @@ import { WorldStartService } from '../../world/world-start';
 import { pageQuery } from '../../core/page-switches';
 import { CUSTOM_MAPS_OPEN } from '../../world/custom-maps-open';
 import { AppScreen } from '../../world/app-screen.service';
+import { WorldSession } from '../../world/world-session.service';
 import { PLAIN_START } from '../../world/world-start';
 import { WorldsStageService } from '../../worlds/worlds-stage.service';
 import { worldOfPage } from '../../world/world-of-page';
@@ -73,6 +74,9 @@ export class MainMenuService {
   private readonly worlds = inject(WorldChoiceService);
   private readonly start = inject(WorldStartService);
   private readonly screens = inject(AppScreen);
+  private readonly session = inject(WorldSession);
+  /** This game stands held behind the globes (WorldSession.parked): paused, its frames stopped, the keys not its own */
+  readonly parked = computed(() => this.session.parked() !== null);
   /** The custom maps are open (CUSTOM_MAPS_OPEN): the start list has its two tabs */
   private readonly mapsOpen = inject(CUSTOM_MAPS_OPEN);
   private readonly bridge = readDesktopBridge();
@@ -299,6 +303,24 @@ export class MainMenuService {
       untracked(() => this.tab.set(home));
     });
     this.resumeFromLink();
+    // Held behind the globes: no frames drawn, the pause menu shut once the game shows again
+    let held = false;
+    effect(() => {
+      const parked = this.parked();
+      if (parked === held) return;
+      held = parked;
+      untracked(() => {
+        const loop = this.engineInit.getEngine()?.renderLoop;
+        if (parked) {
+          loop?.stop();
+          return;
+        }
+        loop?.start();
+        this.close();
+      });
+    });
+    const offHeld = this.session.onLeaveParked((keep) => this.leaveHeld(keep));
+    inject(DestroyRef).onDestroy(offHeld);
     // A Built World played (its first wave or tower) goes on top of that world's Recent; a test of the map does not
     effect(() => {
       const ref = this.worldContext.ref();
@@ -519,25 +541,35 @@ export class MainMenuService {
   });
 
   /**
-   * The wave whose autosave holds this run, null without one: the autosave
-   * comes after every wave, so between waves it holds the last one, during a
-   * wave the one before
-   */
-  readonly autosavedWave = computed(() => {
-    if (!this.underWay() || this.inCoop()) return null;
-    const wave = this.store.phase() === 'setup' ? this.store.waveNumber() : this.store.waveNumber() - 1;
-    return wave >= 1 ? wave : null;
-  });
-
-  /**
    * Leave the game for the globes: `world` to this world's menu with its
-   * place or map picked, else the three globes. The run stays in its
-   * autosave; the game goes (WorldSession.close).
+   * place or map picked, else the three globes. Nothing ends: the game stays
+   * held behind them (WorldSession.park), Continue or Back to shows it at
+   * once, and it goes only when something else starts (docs/WORLDS_STATE_PLAN.md, 3.7).
+   * The pause menu stays open meanwhile, so the game stays paused and its keys are the menu's.
    */
   leaveTo(target: 'world' | 'globes'): void {
     if (this.leaveWhy()) return;
     const world = this.worldOfPage();
-    this.stage.leaveGame(target === 'world' && world ? { world, pick: this.pickOfPage() } : null);
+    if (!this.isOpen()) this.open('home', 'pause');
+    const pick = this.pickOfPage();
+    const held = {
+      world,
+      pick,
+      label: pick ? (pick.kind === 'place' ? shortPlaceName(pick.name) : pick.name) : (this.placeName() ?? 'this place'),
+      wave: Math.max(1, this.store.waveNumber() + (this.store.phase() === 'setup' ? 1 : 0)),
+      run: this.underWay() && !this.store.isGameOver(),
+    };
+    // The editor's test is no run to hold: it ends
+    this.stage.leaveGame(target === 'world' && world ? { world, pick } : null, this.fromEditor ? null : held);
+  }
+
+  /**
+   * The held game goes for good (another start, the editor, a coop room):
+   * its run is kept as autosave when it stands between the waves; in a wave
+   * the autosave of that wave's start stays. With `keep` false the run ends.
+   */
+  private async leaveHeld(keep: boolean): Promise<void> {
+    if (keep && this.underWay() && !this.store.isGameOver()) await this.saves.autosaveNow();
   }
 
   /** The loading of a Start stopped: back to the world's menu with its pick */

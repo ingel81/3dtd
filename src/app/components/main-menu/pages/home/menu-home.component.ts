@@ -63,7 +63,6 @@ export type HomeConfirm =
   | { kind: 'restart' }
   | { kind: 'editor' }
   | { kind: 'edit-map' }
-  | { kind: 'leave-world'; to: 'world' | 'globes' }
   | { kind: 'quit' };
 
 const PAGE_OF: Partial<Record<HomeEntryId, MenuPage>> = {
@@ -253,12 +252,10 @@ export class MenuHomeComponent {
         else void this.menu.editThisMap();
         return;
       case 'world-menu':
-      case 'worlds': {
-        const to = entry.id === 'worlds' ? 'globes' : 'world';
-        if (this.menu.underWay()) this.ask({ kind: 'leave-world', to });
-        else this.menu.leaveTo(to);
+      case 'worlds':
+        // Nothing ends: the game stays held behind the globes (MainMenuService.leaveTo)
+        this.menu.leaveTo(entry.id === 'worlds' ? 'globes' : 'world');
         return;
-      }
       case 'quit':
         if (this.menu.underWay() || this.menu.inCoop()) this.ask({ kind: 'quit' });
         else this.menu.quit();
@@ -293,7 +290,6 @@ export class MenuHomeComponent {
     else if (confirm.kind === 'restart') this.menu.restart();
     else if (confirm.kind === 'editor') void this.menu.openMapEditor();
     else if (confirm.kind === 'edit-map') void this.menu.editThisMap();
-    else if (confirm.kind === 'leave-world') this.menu.leaveTo(confirm.to);
     else this.menu.quit();
   }
 
@@ -303,7 +299,6 @@ export class MenuHomeComponent {
     this.confirm.set(null);
     // Back on the entry that asked
     const id: HomeEntryId = kind === 'leave' ? 'continue'
-      : kind === 'leave-world' ? (confirm?.kind === 'leave-world' && confirm.to === 'globes' ? 'worlds' : 'world-menu')
       : kind ?? 'continue';
     afterNextRender(() => this.focusEntry(id), { injector: this.injector });
   }
@@ -371,12 +366,6 @@ export class MenuHomeComponent {
         return this.menu.fromEditor
           ? { question: 'Back to the editor? The test run ends.', yes: 'Back to editor' }
           : { question: `Edit this map? ${this.runWhenEditingText()}`, yes: 'Open in the editor' };
-      case 'leave-world': {
-        const wave = this.menu.autosavedWave();
-        return wave !== null
-          ? { question: `Leave the run? It waits in the autosave, before wave ${wave + 1}.`, yes: 'Leave' }
-          : { question: 'Leave the run? It has no autosave yet, so it ends.', yes: 'Leave' };
-      }
       case 'quit':
         return { question: 'Quit 3DTD? The run ends.', yes: 'Quit' };
     }

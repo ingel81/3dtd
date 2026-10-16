@@ -349,9 +349,9 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   /** A step of the path: the globes or this world's menu (the pause menu asks for a run), the editor (Edit, its chip) */
   onPath(action: PathAction): void {
-    // To the globes, or this world's menu there; a run under way asks first in the pause menu (All worlds)
+    // To the globes, or this world's menu there: nothing ends, the game stays held behind them; a coop room says why not
     if (action === 'worlds' || action === 'world') {
-      if (this.mainMenu.underWay() || this.mainMenu.leaveWhy()) this.mainMenu.open();
+      if (this.mainMenu.leaveWhy()) this.mainMenu.open();
       else this.mainMenu.leaveTo(action === 'worlds' ? 'globes' : 'world');
     }
     else if (action === 'edit') this.editFromPath();

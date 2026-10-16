@@ -154,7 +154,7 @@ const LISTS: readonly { id: RealList; label: string }[] = [
         <p class="td-note">{{ spawnLine() }}</p>
         <div class="td-actions is-start wm-actions">
           <button type="button" class="td-btn-primary" data-stage-start [attr.aria-disabled]="playWhy() ? true : null" (click)="stage.start('real')">
-            <td-icon name="play" [size]="14" /><span>{{ continues() ? 'Continue' : 'Start' }}</span>
+            <td-icon name="play" [size]="14" /><span>{{ playWord() }}</span>
           </button>
           @if (pick.kind === 'place') {
             <button type="button" class="td-btn-secondary" [attr.aria-disabled]="stage.whyNot('edit', 'osm') ? true : null"
@@ -188,7 +188,8 @@ export class WorldRealComponent {
   readonly pick = computed(() => this.stage.picks().real);
   readonly noKey = computed(() => this.stage.lock('real') !== null);
   readonly playWhy = computed(() => this.stage.whyNot('play', 'real'));
-  readonly continues = computed(() => this.stage.runHere('real', this.pick()) !== null);
+  /** Start's word: Continue of a run, Back to the place held, else Start */
+  readonly playWord = computed(() => this.stage.playWord('real', this.pick(), 'Start'));
   private readonly openedAt = Date.now();
 
   readonly spawnLine = computed(() => {

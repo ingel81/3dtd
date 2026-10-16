@@ -10,7 +10,7 @@ import { CUSTOM_MAPS_OPEN } from '../world/custom-maps-open';
 import type { MapSummary } from '../world/custom-map/map-store';
 import { WorldChoiceService, type MapChoice } from '../world/world-choice.service';
 import type { WorldRef } from '../world/world-ref';
-import { WorldSession } from '../world/world-session.service';
+import { WorldSession, type ParkedWorld } from '../world/world-session.service';
 import { PLAIN_START, WorldStartService, type WorldStart } from '../world/world-start';
 import type { OsmFrameRequest } from '../components/osm-frame/osm-frame-request';
 import { StageSaves } from './stage-saves';
@@ -66,13 +66,23 @@ export interface StageMap {
  */
 export interface StageContinue {
   world: WorldId;
-  /** 'saved': the run loads from its autosave */
-  kind: 'saved';
+  /**
+   * 'ready': the run is held behind the globes and shows at once; 'back':
+   * the place is held with no run yet (Back to); 'saved': the run loads from
+   * its autosave
+   */
+  kind: 'ready' | 'back' | 'saved';
   label: string;
   /** "Heilbronn | wave 12" */
   line: string;
   /** The run behind it, for Discard */
   run: AutosaveRun | null;
+}
+
+/** A Continue as a chip or a globe's line says it (the same everywhere, docs/WORLDS_STATE_PLAN.md 3.3) */
+export function chipLine(go: StageContinue): string {
+  if (go.kind === 'back') return go.label;
+  return `${go.line} | ${go.kind === 'ready' ? 'ready' : 'autosave'}`;
 }
 
 /** The world last started, for the globes' order of sizes */
@@ -175,7 +185,7 @@ export class WorldsStageService {
   });
 
   /** The world that stands large on the globes */
-  readonly hero = computed(() => heroWorld(this.autosaves(), this.lastPlayed()));
+  readonly hero = computed(() => this.session.parked()?.world ?? heroWorld(this.autosaves(), this.lastPlayed()));
 
   constructor() {
     // The page starts on the globes with a link: its place or map is picked, nothing loads
@@ -199,23 +209,58 @@ export class WorldsStageService {
     return this.autosaves().find((r) => r.world === world && r.pick !== null && samePick(r.pick, pick)) ?? null;
   }
 
+  /** The world held behind the globes is this pick */
+  heldHere(world: WorldId, pick: WorldPick | null): boolean {
+    const held = this.session.parked();
+    return !!pick && !!held && held.world === world && !!held.pick && samePick(held.pick, pick);
+  }
+
+  /** What Start says for a pick: Continue of its run, Back to the place held, else `fresh` (Start, Play) */
+  playWord(world: WorldId, pick: WorldPick | null, fresh: string): string {
+    if (this.heldHere(world, pick)) return this.session.parked()!.run ? 'Continue' : `Back to ${this.session.parked()!.label}`;
+    return this.runHere(world, pick) ? 'Continue' : fresh;
+  }
+
   /** The autosave of a world, for its menu's Continue */
   autosaveOf(world: WorldId): AutosaveRun | null {
     return this.autosaves().find((r) => r.world === world) ?? null;
   }
 
-  /** What `world` offers to go on with, null for nothing */
+  /** What `world` offers to go on with, null for nothing: the world held first, else its autosave */
   continueOf(world: WorldId): StageContinue | null {
+    const held = this.session.parked();
     const run = this.autosaveOf(world);
+    if (held && held.world === world) {
+      // The autosave of the held run is the one Discard drops with it
+      const own = run && held.pick && run.pick && samePick(run.pick, held.pick) ? run : null;
+      return held.run
+        ? { world, kind: 'ready', label: 'Continue', line: `${held.label} | wave ${held.wave}`, run: own ?? this.heldRun(held) }
+        : { world, kind: 'back', label: `Back to ${held.label}`, line: 'Still loaded, no run yet', run: null };
+    }
     return run ? { world, kind: 'saved', label: 'Continue', line: `${run.name} | wave ${run.wave}`, run } : null;
   }
 
-  /** Every world's, newest first: the Continue entries of the globes and the chips */
-  readonly continues = computed<readonly StageContinue[]>(() =>
-    this.autosaves().map((run) => this.continueOf(run.world)).filter((c): c is StageContinue => c !== null));
+  /** A held run with no autosave of its own yet, as Discard and a start elsewhere see it */
+  private heldRun(held: ParkedWorld): AutosaveRun | null {
+    if (!held.world) return null;
+    return { slotId: '', world: held.world, pick: held.pick, name: held.label, wave: held.wave, savedAt: new Date().toISOString() };
+  }
 
-  /** Go on with it */
+  /** Every world's, the one held first, then newest first: the Continue entries of the globes and the chips */
+  readonly continues = computed<readonly StageContinue[]>(() => {
+    const held = this.session.parked()?.world ?? null;
+    const worlds = [...new Set([...(held ? [held] : []), ...this.autosaves().map((run) => run.world)])];
+    return worlds.map((world) => this.continueOf(world)).filter((c): c is StageContinue => c !== null);
+  });
+
+  /** Go on with it: the world held shows at once, a saved run loads */
   resume(item: StageContinue): void {
+    if (item.kind !== 'saved') {
+      this.confirm.set(null);
+      this.overlay.set(null);
+      this.session.unpark();
+      return;
+    }
     if (item.run) this.continueRun(item.run);
   }
 
@@ -295,31 +340,45 @@ export class WorldsStageService {
       this.notice.set(why);
       return;
     }
+    // The world held behind the globes is this pick: it shows at once
+    if (this.heldHere(world, pick)) {
+      this.session.unpark();
+      return;
+    }
     const here = this.runHere(world, pick);
     if (here) {
       this.continueRun(here);
       return;
     }
-    const risk = runAtRisk(world, pick, this.autosaves());
-    if (!risk) {
+    // The run of this world elsewhere: held behind the globes, or in its autosave
+    const item = this.continueOf(world);
+    const risk = item && item.kind !== 'back' ? item.run : runAtRisk(world, pick, this.autosaves());
+    if (!risk || !item) {
       this.go(world, pick);
       return;
     }
     this.confirm.set({
-      text: `${risk.name} | wave ${risk.wave} waits in ${WORLD_NAMES[world]}.`,
+      text: `${item.line} waits in ${WORLD_NAMES[world]}.`,
       note: 'Each world keeps one run. Starting something new here ends it now.',
       answers: [
         { label: 'End it and start', primary: true, run: () => void this.endThenGo(risk, () => this.go(world, pick)) },
-        { label: `Continue ${risk.name}`, run: () => this.continueRun(risk) },
+        { label: `Continue ${risk.name}`, run: () => this.resume(item) },
         { label: 'Cancel', run: () => undefined },
       ],
     });
   }
 
-  /** The run's autosave goes, then `then` (a start in its world replaces it, decision 2) */
+  /** The run ends: a held one goes without being kept, its autosave goes; then `then` (decision 2) */
   private async endThenGo(run: AutosaveRun, then: () => void): Promise<void> {
-    await this.saves.deleteSlot(run.slotId);
+    await this.endRun(run);
     then();
+  }
+
+  private async endRun(run: AutosaveRun): Promise<void> {
+    const held = this.session.parked();
+    if (held && held.world === run.world) await this.session.leaveParked(false);
+    const slot = run.slotId || this.autosaveOf(run.world)?.slotId;
+    if (slot) await this.saves.deleteSlot(slot);
   }
 
   /** Discard a world's Continue, asked first: its autosave goes for good (docs/WORLDS_STATE_PLAN.md, 3.4) */
@@ -328,7 +387,7 @@ export class WorldsStageService {
       text: `Discard ${run.name} | wave ${run.wave}?`,
       note: 'It cannot be continued.',
       answers: [
-        { label: 'Discard', primary: true, run: () => void this.saves.deleteSlot(run.slotId) },
+        { label: 'Discard', primary: true, run: () => void this.endRun(run) },
         { label: 'Cancel', run: () => undefined },
       ],
     });
@@ -467,10 +526,12 @@ export class WorldsStageService {
 
   /**
    * The game goes back to the globes (pause menu: All worlds, World menu):
-   * the world it played is picked in its menu, or the globes show. Its
-   * engine, worker and canvas go with WorldSession.close.
+   * the world it played is picked in its menu, or the globes show. With
+   * `held` the game stays behind the globes, paused (WorldSession.park:
+   * Continue or Back to shows it at once); without, its engine, worker and
+   * canvas go with WorldSession.close.
    */
-  leaveGame(to: { world: WorldId; pick: WorldPick | null } | null): void {
+  leaveGame(to: { world: WorldId; pick: WorldPick | null } | null, held: ParkedWorld | null = null): void {
     this.confirm.set(null);
     this.overlay.set(null);
     this.frame.set(null);
@@ -482,7 +543,8 @@ export class WorldsStageService {
     } else {
       this.toGlobes();
     }
-    this.session.close();
+    if (held) this.session.park(held);
+    else this.session.close();
   }
 
   /** The world a listed map belongs to (worldOfMap); a map not listed (yet) is a Built World */

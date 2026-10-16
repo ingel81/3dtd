@@ -199,6 +199,8 @@ export class MainMenuComponent {
    * listener had it (it comes from inside), not under a dialog over the menu.
    */
   onDocumentEscape(event: Event): void {
+    // Held behind the globes: their Esc chain has the key
+    if (this.menu.parked()) return;
     if (event.defaultPrevented || this.dialog.openDialogs.length > 0) return;
     if (event.target instanceof Node && this.root()?.contains(event.target)) return;
     this.onEscape(event);

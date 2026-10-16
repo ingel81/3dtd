@@ -36,7 +36,7 @@ import { WorldMapsComponent } from './world-maps.component';
 import { WorldOsmComponent } from './world-osm.component';
 import { WorldRealComponent } from './world-real.component';
 import { WORLD_IDS, WORLD_NAMES, type WorldId, type WorldPick } from './world-rules';
-import { WorldsStageService, type StageContinue, type StageOverlay } from './worlds-stage.service';
+import { WorldsStageService, chipLine, type StageContinue, type StageOverlay } from './worlds-stage.service';
 import { placeLabel } from '../services/location/place-label';
 
 /** An entry of the menu on the globes */
@@ -135,10 +135,7 @@ export class WorldsStageComponent {
   readonly otherWorlds = computed(() => WORLD_IDS.filter((w) => w !== this.world()));
 
   /** Start or Continue, as the header and the detail call it */
-  readonly playLabel = computed(() => {
-    if (this.stage.runHere(this.world(), this.pick())) return 'Continue';
-    return this.world() === 'real' ? 'Start' : 'Play';
-  });
+  readonly playLabel = computed(() => this.stage.playWord(this.world(), this.pick(), this.world() === 'real' ? 'Start' : 'Play'));
   readonly editLabel = computed(() => (this.pick()?.kind === 'map' ? 'Edit' : 'Make map'));
   readonly playWhy = computed(() => this.stage.whyNot('play', this.world()));
   readonly editWhy = computed(() => (this.pick()?.kind === 'tileset' ? 'An own tileset has no map to make' : this.stage.whyNot('edit', this.world())));
@@ -240,9 +237,9 @@ export class WorldsStageComponent {
     return world === 'real' ? '3D tiles' : world === 'osm' ? 'No key needed' : 'Shipped and yours';
   }
 
-  /** A Continue as chip and globe line: "Heilbronn | wave 12 | autosave" */
+  /** A Continue as chip and globe line: "Heilbronn | wave 12 | autosave", "... | ready" when held, "Back to Heilbronn" */
   chipLine(go: StageContinue): string {
-    return `${go.line} | autosave`;
+    return chipLine(go);
   }
 
   activate(item: StartItem): void {

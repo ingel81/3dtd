@@ -35,7 +35,8 @@ import { CUSTOM_MAPS_OPEN } from '../../world/custom-maps-open';
 import { AppScreen } from '../../world/app-screen.service';
 import { PLAIN_START } from '../../world/world-start';
 import { WorldChoiceService } from '../../world/world-choice.service';
-import { WorldSession } from '../../world/world-session.service';
+import { WorldSession, type ParkedWorld } from '../../world/world-session.service';
+import { WorldsStageService } from '../../worlds/worlds-stage.service';
 import { EngineInitializationService } from '../../services/infrastructure/engine-initialization.service';
 import { LocationManagementService } from '../../services/location/location-management.service';
 import { LocationChangeCoordinatorService } from '../../services/location/location-change-coordinator.service';
@@ -101,6 +102,7 @@ describe('The main menu', () => {
   let game: GameStore;
   const engineInit = {
     loading: signal(true),
+    getEngine: () => null,
     error: signal<string | null>(null),
     loadingSteps: signal<BootStep[]>(steps(3)),
   };
@@ -108,6 +110,7 @@ describe('The main menu', () => {
     hq: signal<{ lat: number; lon: number } | null>(null),
     displayName: signal('Kiliansplatz, Heilbronn, Deutschland'),
     missionInfo: signal<{ city: string } | null>({ city: 'Heilbronn' }),
+    spawns: signal<{ lat: number; lon: number }[]>([]),
   };
   const coordinator = { awaitingStartChoice: signal(false), choosePlace: vi.fn(async () => true) };
   const saves = {
@@ -134,7 +137,8 @@ describe('The main menu', () => {
   });
 
   let world = fakeWorldContext();
-  const session = { reopen: vi.fn() };
+  const session = { reopen: vi.fn(), parked: signal<ParkedWorld | null>(null), onLeaveParked: vi.fn(() => () => undefined) };
+  const stage = { leaveGame: vi.fn() };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -152,6 +156,7 @@ describe('The main menu', () => {
     config.setupRequested.set(false);
     dialog.openDialogs = [];
     mapsOpen = false;
+    session.parked.set(null);
   });
 
   afterEach(() => {
@@ -175,6 +180,7 @@ describe('The main menu', () => {
         { provide: CUSTOM_MAPS_OPEN, useValue: mapsOpen },
         { provide: WorldChoiceService, useValue: worlds },
         { provide: WorldSession, useValue: session },
+        { provide: WorldsStageService, useValue: stage },
       ],
     });
     TestBed.overrideComponent(MainMenuComponent, {
@@ -755,6 +761,27 @@ describe('The main menu', () => {
       expect(entries()).toEqual(['Continue', 'Save game', 'Load game', 'Settings', 'Extras', 'New game', 'Coop', 'World menu', 'All worlds', 'Restart here']);
       expect(el().querySelector('.mh-pause-word')?.textContent).toBe('Paused');
       expect(el().querySelector('.mh-pause-place')?.textContent).toBe('Heilbronn | wave 1');
+    });
+
+    it('All worlds asks nothing: the run stays held behind the globes, the menu keeps it paused; Esc there is not the menu', async () => {
+      await setup('pause');
+      game.towerCount.set(2);
+      await settle();
+      await click(entry('worlds'));
+      expect(el().querySelector('.mh-confirm')).toBeNull();
+      expect(stage.leaveGame).toHaveBeenCalledWith(null, expect.objectContaining({ world: 'real', label: 'Heilbronn', wave: 1, run: true }));
+      // Held: the stage parks it (stand-in), the menu stays and Esc belongs to the globes
+      session.parked.set(stage.leaveGame.mock.calls[0][1] as ParkedWorld);
+      await settle();
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await settle();
+      expect(ui.mainMenuOpen()).toBe(true);
+      expect(game.paused()).toBe(true);
+      // Shown again: the menu goes, the game goes on
+      session.parked.set(null);
+      await settle();
+      expect(ui.mainMenuOpen()).toBe(false);
+      expect(game.paused()).toBe(false);
     });
 
     it('on a custom map offers Edit this map, asking first while a run is under way; not in a replay', async () => {

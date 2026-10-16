@@ -78,7 +78,7 @@ import { WorldsStageService } from './worlds-stage.service';
         }
         <div class="td-actions is-start wm-actions">
           <button type="button" class="td-btn-primary" data-stage-start [attr.aria-disabled]="playWhy() ? true : null" (click)="stage.start('maps')">
-            <td-icon name="play" [size]="14" /><span>{{ continues() ? 'Continue' : 'Play' }}</span>
+            <td-icon name="play" [size]="14" /><span>{{ playWord() }}</span>
           </button>
           <span>
             <button type="button" class="td-btn-secondary" [attr.aria-disabled]="stage.whyNot('edit', 'maps') ? true : null"
@@ -137,7 +137,8 @@ export class WorldMapsComponent {
     return this.stage.maps().find((m) => m.id === id) ?? { id, name: pick.name, description: '', spawns: 0, origin: 'own' as const, picture: null };
   });
   readonly playWhy = computed(() => this.stage.whyNot('play', 'maps'));
-  readonly continues = computed(() => this.stage.runHere('maps', this.stage.picks().maps) !== null);
+  /** Start's word: Continue of a run, Back to the place held, else Play */
+  readonly playWord = computed(() => this.stage.playWord('maps', this.stage.picks().maps, 'Play'));
 
   /** The editor with its list of maps, where a new map starts, in this window */
   newMap(): void {
