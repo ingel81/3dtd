@@ -37,13 +37,15 @@ import { SCENES as GAME } from './scenes/game.mjs';
 import { SCENES as OUTRO } from './scenes/outro.mjs';
 import { FIXTURES as PROOF_FIXTURES, SCENES as PROOF } from './scenes/proof.mjs';
 import { SCENES as R4_K0 } from './scenes/r4-k0.mjs';
+import { SCENES as R4_K1 } from './scenes/r4-k1.mjs';
+import { SCENES as R4_K2 } from './scenes/r4-k2.mjs';
 import { FIXTURES as R4_K6_FIXTURES, SCENES as R4_K6 } from './scenes/r4-k6.mjs';
 
 /** The programme in order; each part lives in scenes/ (common.mjs has the helpers) */
 export const SCENES = [...INTRO, ...EDITOR, ...EDITOR2, ...W3X, ...WORLDS, ...GAME, ...OUTRO];
 
 /** Scenes taken on their own only (run.mjs --scene), not part of the programme's run */
-export const TAKES = [...PROOF, ...R4_K0, ...R4_K6];
+export const TAKES = [...PROOF, ...R4_K0, ...R4_K1, ...R4_K2, ...R4_K6];
 
 /** The generated start states of the takes, made in this order by fixtures.mjs (a later one may start from an earlier) */
 export const FIXTURES = [...PROOF_FIXTURES, ...R4_K6_FIXTURES];

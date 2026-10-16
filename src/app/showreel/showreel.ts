@@ -142,7 +142,7 @@ export function startShowreel(injector: Injector): void {
     location.pathname.startsWith('/editor')
       ? (editor ??= new EditorStage())
       : document.querySelector('app-worlds-stage')
-        ? (menu ??= new MenuStage())
+        ? (menu ??= new MenuStage(hands()))
         : (game ??= new GameStage(injector, hands()));
   let director: Director | null = null;
   const directorOf = (): Director => (director ??= new Director(stage, hands()));

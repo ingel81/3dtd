@@ -7,10 +7,14 @@ import type { CameraPose, MapPoint3 } from './camera-path';
 import { CAMERA_FLOOR_M } from './camera-floor';
 import type { ScreenPoint } from './pointer';
 import type { Stage } from './stage';
+import type { Hands } from './hands';
+import { dragOsmSpawn } from './osm-frame-drag';
 
 export class MenuStage implements Stage {
   readonly kind = 'menu';
   cameraFloor = CAMERA_FLOOR_M;
+
+  constructor(private readonly hands: Hands) {}
 
   /** The cards of the worlds stand (the globes draw into their squares) */
   ready(): boolean {
@@ -59,9 +63,10 @@ export class MenuStage implements Stage {
     return document.querySelector<HTMLCanvasElement>('app-worlds-stage canvas');
   }
 
-  /** The menu knows only `ui` (its UI is its content: always on) */
-  async act(name: string): Promise<void> {
+  /** The menu knows `ui` (its UI is its content: always on) and `osmDrag` (a spawn of the OpenStreetMap world's frame) */
+  async act(name: string, args: Record<string, unknown> = {}): Promise<void> {
     if (name === 'ui') return;
+    if (name === 'osmDrag') return dragOsmSpawn(this.hands.pointer, args);
     throw new Error(`showreel: the menu knows no action ${name}`);
   }
 

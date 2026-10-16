@@ -93,7 +93,9 @@ found it).
   sky patched in (no history step for it) and opened; `start: { game: '<shipped id>' | 'fixtures/x.3dtdmap', save:
   'fixtures/x.3dtdsave' }`: the game on the map (a map file stored as an own map first), the save loaded as the
   menu's Load from file does. `net: 'fixtures/x.har.zip'` on a scene answers its outside requests (page and
-  workers) from a recorded HAR and aborts every other outside request, so an OSM world needs no network. Without a start, a scene with its own
+  workers) from a recorded HAR and aborts every other outside request, so an OSM world needs no network
+  (`net-fixture.mjs record` plays the scene once and writes the HAR, `--overpass <answer.json>` answers Overpass
+  from a saved answer; `check` plays it from the HAR alone and lists what is missing). Without a start, a scene with its own
   `page` loads that page (fly-overs, the fight, the outro); one that plays on from the scene before cannot be
   taken alone and says so.
 - `env`: `window` (headless size, default 1600x900), `dpr`, `quality` (ultra), `seed` (the page's `Math.random`,
@@ -215,7 +217,7 @@ game `spot:<i>`, `spots`, `enemy:<i>` or `enemy:<type>` (an enemy alive, held wh
 | `ui`, `legend`, `markers` | UI in the picture (see above) |
 | `follow` `{ at, dur, back, side, h, ahead }` | Chase camera on a moving spot (editor `runner:<i>`, a trial runner) |
 | `upload` `{ sel, file }` | A local file into a file input (the runner's `setInputFiles`; the W3X import) |
-| `act` `{ name, ... }` | Stage action. Game: `intro` (wait for the game's intro flight to land), `man` `{ dur, wait, spot? }` (into a tower's first-person view, aim and shoot, out), `photo`, `routes`, `markers`, `hints`, `credits`, `research`, `jumpWave`, `speed`, `planTowers` `{count, tower, from, to, route, offsets, step}`, `build` `{tower, spot, hold}`, `wave`, `waveDone` `{timeout}` (until none alive and none to come), `enemiesNear` `{near, radius, kind?, timeout}` (until an enemy, of that type when given, is within `radius` m of a named spot), `upgradeAll` (every tower to its last level), `healthBars` `{on}`, `environment` `{patch}`. Editor: `settings` `{patch}` (EditorSettings, deep merge), `environment`, `trialSpeed`, `viewReady`, `idle`, `save`, `history` `{ to: 0 \| 'end', stepS }` |
+| `act` `{ name, ... }` | Stage action. Game: `intro` (wait for the game's intro flight to land), `man` `{ dur, wait, spot? }` (into a tower's first-person view, aim and shoot, out), `photo`, `routes`, `markers`, `hints`, `credits`, `research`, `jumpWave`, `speed`, `planTowers` `{count, tower, from, to, route, offsets, step}`, `build` `{tower, spot, hold}`, `wave`, `waveDone` `{timeout}` (until none alive and none to come), `enemiesNear` `{near | at, radius, kind?, timeout}` (until an enemy, of that type when given, is within `radius` m of a named spot or a map point `at`), `upgradeAll` (every tower to its last level), `healthBars` `{on}`, `environment` `{patch, fresh?, to?, hours?, dur?, ease?}` (`fresh`: on the map's environment before the scene's first change; `to` numbers, wind and planet too, and `hours` [from, to] as the time slider sets sun and sky, over `dur` s, each frame), `osmDrag` `{spawn, to: [east, north] m from the HQ, dur, hold}` (a spawn of the menu's OSM frame dragged on its map). Editor: `settings` `{patch}` (EditorSettings, deep merge), `environment`, `trialSpeed`, `viewReady`, `idle`, `save`, `history` `{ to: 0 \| 'end', stepS }` |
 
 Intro pages: a scene with `intro: true` loads its page with `showreel=intro`: the hook hides the game's HUD from the
 first frame (lane lines, HQ and spawns stay), the runner starts the sound and the sync flash while the map loads, and
