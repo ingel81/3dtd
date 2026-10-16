@@ -154,6 +154,35 @@ export function biomeLook(biome: MapBiome | undefined, sky: MapEnvironment['sky'
   return look;
 }
 
+/** `a` and `b` (sRGB hex) mixed by `t` per channel */
+function mixHex(a: number, b: number, t: number): number {
+  const ch = (shift: number): number => Math.round(((a >> shift) & 255) * (1 - t) + ((b >> shift) & 255) * t);
+  return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+}
+
+const LOOK_COLOURS = ['zenith', 'horizon', 'ground', 'sun', 'hemiSky', 'hemiGround', 'cloudColor', 'cloudShadow'] as const;
+const LOOK_NUMBERS = ['sunIntensity', 'hemiIntensity', 'ambient', 'envIntensity', 'glow', 'cover', 'fogScale', 'fogFalloff', 'stars', 'aurora', 'exposure', 'beyondHaze'] as const;
+
+/**
+ * Two looks mixed by `t` (0 = `from`, 1 = `to`): colours per channel, numbers linear; what has no middle
+ * (the ambient particles) is `to`'s from the half on. A change of the sky preset (day to dusk to night, as a
+ * time of day or a wave's event sets it) fades through these instead of jumping
+ */
+export function mixLook(from: BiomeLook, to: BiomeLook, t: number): BiomeLook {
+  const k = Math.min(1, Math.max(0, t));
+  const look: BiomeLook = { ...(k < 0.5 ? from : to) };
+  for (const key of LOOK_COLOURS) look[key] = mixHex(from[key], to[key], k);
+  for (const key of LOOK_NUMBERS) {
+    const a = from[key];
+    const b = to[key];
+    if (a !== undefined && b !== undefined) look[key] = a * (1 - k) + b * k;
+  }
+  look.grade = [from.grade[0] * (1 - k) + to.grade[0] * k, from.grade[1] * (1 - k) + to.grade[1] * k, mixHex(from.grade[2], to.grade[2], k)];
+  look.split = [mixHex(from.split[0], to.split[0], k), mixHex(from.split[1], to.split[1], k)];
+  if (from.glowColor !== undefined && to.glowColor !== undefined) look.glowColor = mixHex(from.glowColor, to.glowColor, k);
+  return look;
+}
+
 /** `color` scaled down to the luminance of `limit` when it is brighter, keeping its hue */
 function noBrighterThan(color: number, limit: number): number {
   const lum = (c: number): number => (((c >> 16) & 255) * 0.299 + ((c >> 8) & 255) * 0.587 + (c & 255) * 0.114) / 255;
