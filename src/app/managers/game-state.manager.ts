@@ -304,6 +304,13 @@ export class GameStateManager {
    */
   private runStarted = false;
 
+  /**
+   * A dev wave jump asked for while a wave still ran (its last enemies
+   * dying, a strike pending): it takes effect when that wave ends, see
+   * jumpToWave
+   */
+  private pendingJump: { wave: number; grantGold: boolean } | null = null;
+
   /** Game time stands still, from the main thread when it changes (SimInput.paused). */
   readonly paused = signal<boolean>(false);
 
@@ -1037,6 +1044,12 @@ export class GameStateManager {
       if (!this.replaying) this.simRecorder.end(this.clock.subStep);
       this.triggerGameOver();
     }
+    // A jump asked for during the wave, now that it is over (refused after a game over)
+    const jump = this.pendingJump;
+    if (jump && this.waveManager.phase() !== 'wave') {
+      this.pendingJump = null;
+      this.jumpToWave(jump.wave, jump.grantGold);
+    }
 
     // The boundary: what came in during the step takes effect now
     commands?.endStep();
@@ -1495,17 +1508,24 @@ export class GameStateManager {
 
   /**
    * Debug: the next wave to start is `wave`; the waves before it are skipped
-   * without spawning. Between waves only and only forward. What counts
+   * without spawning. Between waves and only forward. What counts
    * completed waves moves with the counter: the ability recharge, and with
    * `grantGold` the gold the skipped waves would have paid (skippedWavesGold).
    * What runs on game time (research, auto-start countdown) stays, as no game
    * time passes. The wave director keeps its state, see docs/WAVE_SYSTEM.md.
-   * Announced as `wave:jumped`.
-   * @returns false when refused: a wave running, game over, or `wave` not past the next wave
+   * Announced as `wave:jumped`. Asked for during a wave (to the player it
+   * is often over already: its last enemies still dying) the jump waits and
+   * takes effect as the wave ends; a later request replaces it.
+   * @returns false when refused: game over, or `wave` not past the next wave
    */
   jumpToWave(wave: number, grantGold: boolean): boolean {
     const from = this.waveManager.waveNumber();
-    if (this.waveManager.phase() !== 'setup' || !Number.isInteger(wave) || wave <= from + 1) return false;
+    const phase = this.waveManager.phase();
+    if (phase === 'gameover' || !Number.isInteger(wave) || wave <= from + 1) return false;
+    if (phase === 'wave') {
+      this.pendingJump = { wave, grantGold };
+      return true;
+    }
 
     const skipped = wave - 1 - from;
     const credits = grantGold ? skippedWavesGold(from + 1, wave - 1) : 0;
@@ -1591,6 +1611,7 @@ export class GameStateManager {
     this.room.clearReady();
     this.economy.reset();
     this.runStarted = false;
+    this.pendingJump = null;
     this.startApplied = false;
 
     GameObject.resetIdCounter();

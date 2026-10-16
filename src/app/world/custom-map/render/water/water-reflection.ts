@@ -13,6 +13,7 @@ import {
   type Scene,
   type WebGLRenderer,
 } from 'three';
+import type { SceneCopy } from './scene-copy';
 
 /**
  * The scene mirrored in one flat water level (the waterReflection effect,
@@ -33,9 +34,10 @@ import {
  * group, its sight blockers, sky and lights) and any that holds a light
  * (hiding a light would compile every material anew); towers, enemies and
  * the game's overlays stay out. Within the map `hide` (water, grass, decals,
- * the map's particles and the objects that block no sight: scatter, props,
- * small plants) is hidden. Nothing beyond `far` is drawn and the shadow map
- * is not updated.
+ * the map's particles, heat shimmer and the objects that block no sight:
+ * scatter, props, small plants) is hidden. Nothing beyond `far` is drawn,
+ * the shadow map is not updated and the frame's copy is not taken in the
+ * mirror's pass (`copy`, scene-copy.ts).
  */
 export class WaterReflection {
   readonly uniforms = {
@@ -65,6 +67,8 @@ export class WaterReflection {
   constructor(
     private readonly hide: () => Object3D[],
     private readonly keep: () => Object3D[],
+    /** The frame's copy (refraction, heat haze): not taken in the mirror's pass */
+    private readonly copy: SceneCopy | null = null,
   ) {}
 
   /**
@@ -116,7 +120,8 @@ export class WaterReflection {
       renderer.setRenderTarget(this.target);
       renderer.state.buffers.depth.setMask(true);
       renderer.clear(true, true, false);
-      renderer.render(scene, m);
+      if (this.copy) this.copy.without(() => renderer.render(scene, m));
+      else renderer.render(scene, m);
     } finally {
       renderer.setRenderTarget(current);
       renderer.shadowMap.autoUpdate = shadowAuto;

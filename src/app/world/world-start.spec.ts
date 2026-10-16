@@ -31,6 +31,9 @@ describe('WorldStart', () => {
       startWave: 5,
       benchmark: null,
       trial: null,
+      // A link only picks: never played at once (docs/WORLDS_NAVIGATION_PLAN.md, 3.8)
+      play: false,
+      label: null,
     });
     // The bot's check of a map by link: the order's trial
     expect(worldStartFromSearch('?world=map:demo&bot=trial&trialWaves=3', place, true).trial).toEqual({ bot: 3 });

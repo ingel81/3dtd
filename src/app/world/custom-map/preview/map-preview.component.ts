@@ -37,7 +37,7 @@ const VIEWS: Record<string, [number, number, number, number, number, number]> = 
  * Dev page `/map-preview`: the demo map in the custom map renderer with an
  * orbit camera and frame numbers. `?view=village` picks a camera spot
  * (VIEWS), `?seed=3` another demo map, `?sky=dusk` another sky preset, `?skyImage=starry-night` a picture sky,
- * `?weather=rain|snow|fog` (`&strength=0.7`), `?effects=refraction,seaWaves` (map-effects.ts), `?quality=low|medium|high|ultra` (the level's custom map knobs, render-quality.ts), `?biome=hell|moon|mars|arctic|…`, `?post=bloom` through the game's
+ * `?weather=rain|snow|fog` (`&strength=0.7`), `?moonlight=1`, `?effects=refraction,seaWaves` (map-effects.ts), `?quality=low|medium|high|ultra` (the level's custom map knobs, render-quality.ts), `?biome=hell|moon|mars|arctic|…`, `?post=bloom` through the game's
  * post-processing chain. `?showcase=winter` (a catalogue tag) or
  * `?assets=tree-*,rock-large&materials=snow,ice` lines up catalogue assets on a
  * flat map instead (asset-showcase.ts). `?map=<id>` shows a shipped map instead
@@ -149,6 +149,9 @@ export class MapPreviewComponent implements OnDestroy {
       doc.environment.sky = sky;
       if (sky === 'dusk') doc.environment.sunElevation = 9;
     }
+    // `?moonlight=1`: the cool moonlight of a night map (MapEnvironment.moonlight)
+    const moonlight = params.get('moonlight');
+    if (moonlight !== null) doc.environment.moonlight = Number(moonlight);
     // `?skyImage=starry-night`: a picture sky (render/environment/sky-images.ts), as the editor chooses it
     const skyImage = params.get('skyImage');
     if (skyImage) doc.environment = { ...doc.environment, ...chooseSkyImage(skyImage) };

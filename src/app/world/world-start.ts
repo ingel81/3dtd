@@ -71,6 +71,14 @@ export interface WorldStart {
    * of a link), null for a test the player plays. Null for a game.
    */
   trial: { bot: number | null } | null;
+  /**
+   * The player pressed Start (a world menu, Continue, a map picked in the
+   * game): the game shows as soon as the world stands, no Play in between.
+   * A link only picks (docs/WORLDS_NAVIGATION_PLAN.md, 3.8), so never from one
+   */
+  play: boolean;
+  /** What loads, as the loading view names it ("Heilbronn", "Demo Valley"); null: the world names itself */
+  label: string | null;
 }
 
 /** The order of a start without a link: the 3D tiles, the place guessed or asked */
@@ -83,6 +91,8 @@ export const PLAIN_START: WorldStart = {
   startWave: 1,
   benchmark: null,
   trial: null,
+  play: false,
+  label: null,
 };
 
 /**
@@ -119,6 +129,8 @@ export function worldStartFromSearch(
     startWave: customMapStartWave(search),
     benchmark: isBenchmarkSearch(search) ? { kind: 'load', back: null } : isRenderBenchmarkSearch(search) ? { kind: 'render', back: null } : null,
     trial: bot === null ? null : { bot },
+    play: false,
+    label: null,
   };
 }
 

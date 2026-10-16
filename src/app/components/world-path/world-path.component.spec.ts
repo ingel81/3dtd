@@ -6,8 +6,8 @@ import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-
 import { WorldPathComponent, type PathAction } from './world-path.component';
 
 // The @Input annotation the JIT transform adds for input()
-for (const name of ['world', 'mode', 'editLabel', 'playWhy', 'editWhy', 'playHint', 'editHint', 'worldsHint', 'worldHint', 'chips']) {
-  Input({ alias: name, required: name === 'world' || name === 'mode', isSignal: true } as Input)(WorldPathComponent.prototype, name);
+for (const name of ['world', 'worldHere', 'mode', 'modes', 'playLabel', 'editLabel', 'playWhy', 'editWhy', 'playHint', 'editHint', 'worldsHint', 'worldHint', 'chips']) {
+  Input({ alias: name, isSignal: true } as Input)(WorldPathComponent.prototype, name);
 }
 
 /** The path over game and editor (docs/WORLDS_NAVIGATION_PLAN.md, 3.4) */
@@ -47,6 +47,16 @@ describe('WorldPathComponent', () => {
     expect(button('path-edit').getAttribute('aria-disabled')).toBe('true');
     button('path-edit').click();
     expect(went).toEqual([]);
+  });
+
+  it('on the globes ends at Worlds, or at the world with nothing picked, and offers no Play or Edit there', () => {
+    const globes = render({ world: null, modes: false });
+    expect([...globes.el.querySelectorAll('button')].map((e) => e.textContent!.trim())).toEqual(['Worlds']);
+    expect(globes.button('path-worlds').getAttribute('aria-current')).toBe('page');
+    TestBed.resetTestingModule();
+    const menu = render({ world: 'Maps', worldHere: true, modes: false });
+    expect([...menu.el.querySelectorAll('button, .wp-sep')].map((e) => e.textContent!.trim())).toEqual(['Worlds', '›', 'Maps']);
+    expect(menu.button('path-world').getAttribute('aria-current')).toBe('page');
   });
 
   it('shows the chips of what waits elsewhere, a click goes there', () => {

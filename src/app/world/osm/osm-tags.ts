@@ -121,8 +121,16 @@ export function roadTags(tags: Record<string, string>): RoadTags | null {
   };
 }
 
-/** A bridge's deck: wood where its tags say so, else stone (a concrete style comes with phase O5) */
-export function bridgeStyle(tags: Record<string, string>): 'wood' | 'stone' {
+/**
+ * A bridge's deck from its material (`bridge:material`, `material`): wood,
+ * stone (masonry, brick, an arch), concrete (also steel); a road bridge
+ * without a material is concrete, a path's stone
+ */
+export function bridgeStyle(tags: Record<string, string>, kind: MapPathKind): 'wood' | 'stone' | 'concrete' {
   const material = tags['bridge:material'] ?? tags['material'] ?? '';
-  return material === 'wood' ? 'wood' : 'stone';
+  if (material === 'wood') return 'wood';
+  if (/stone|masonry|brick/.test(material)) return 'stone';
+  if (/concrete|steel|metal|iron/.test(material)) return 'concrete';
+  if (tags['bridge:structure'] === 'arch') return 'stone';
+  return kind === 'path' ? 'stone' : 'concrete';
 }

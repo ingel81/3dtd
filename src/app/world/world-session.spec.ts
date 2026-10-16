@@ -12,11 +12,12 @@ import { TowerDefenseStore } from '../store/tower-defense.store';
 import { EngineInitializationService } from '../services/infrastructure/engine-initialization.service';
 import { LocationManagementService } from '../services/location/location-management.service';
 import { GameHostComponent } from '../game-host.component';
+import { WorldsStageComponent } from '../worlds/worlds-stage.component';
 import { TowerDefenseComponent } from '../tower-defense.component';
 import { createMapDocument } from './custom-map/map-create';
 import { MapStore, MemoryMapBackend } from './custom-map/map-store';
 import { openCustomMap, openedCustomMap } from './custom-map/custom-map-world';
-import { WorldSession } from './world-session.service';
+import { WorldSession, opensAtOnce } from './world-session.service';
 import { AppScreen } from './app-screen.service';
 import { PLAIN_START, WorldStartService, type WorldStart } from './world-start';
 
@@ -154,6 +155,24 @@ describe('WorldSession', () => {
   });
 });
 
+describe('opensAtOnce', () => {
+  it('opens the game at once for the start of a run, and on the globes for a pick or none (docs/WORLDS_NAVIGATION_PLAN.md, 3.8)', () => {
+    const place = { hq: { lat: 48.7758, lon: 9.1829 }, spawns: [] };
+    // A link with a place or a map only picks, nothing loads
+    expect(opensAtOnce(PLAIN_START, '')).toBe(false);
+    expect(opensAtOnce({ ...PLAIN_START, place }, '')).toBe(false);
+    expect(opensAtOnce(MAP, '')).toBe(false);
+    // A run: an invite, a save, the editor's test, bots, the benchmark, menu=skip, DevWorld
+    expect(opensAtOnce({ ...PLAIN_START, room: { code: 'ABC123', lane: null } }, '')).toBe(true);
+    expect(opensAtOnce({ ...PLAIN_START, resume: 'slot-1' }, '')).toBe(true);
+    expect(opensAtOnce({ ...MAP, startWave: 5 }, '')).toBe(true);
+    expect(opensAtOnce({ ...MAP, trial: { bot: null } }, '')).toBe(true);
+    expect(opensAtOnce({ ...PLAIN_START, benchmark: { kind: 'render', back: null } }, '')).toBe(true);
+    for (const search of ['?bot=trial&trialWaves=10', '?bot=manual', '?benchmark', '?menu=skip']) expect(opensAtOnce(PLAIN_START, search)).toBe(true);
+    expect(opensAtOnce({ ...PLAIN_START, world: { kind: 'devworld', terrain: 'flat', seed: 1, buildings: 'none', spawns: 1 } }, '?devworld')).toBe(true);
+  });
+});
+
 /** The game as the host makes it: counts its lives, and holds what a game holds until it goes */
 const lives: string[] = [];
 let made = 0;
@@ -174,6 +193,9 @@ class FakeGame {
   }
 }
 
+@Component({ selector: 'app-worlds-stage', standalone: true, template: '' })
+class FakeStage {}
+
 describe('GameHostComponent', () => {
   beforeAll(() => {
     try {
@@ -190,12 +212,24 @@ describe('GameHostComponent', () => {
     TestBed.resetTestingModule();
   });
 
-  it('makes the game anew for every world, the old one gone first, and one game at a time', () => {
-    TestBed.overrideComponent(GameHostComponent, { remove: { imports: [TowerDefenseComponent] }, add: { imports: [FakeGame] } });
+  it('starts on the globes, makes the game anew for every world, the old one gone first, one game at a time, and goes back to the globes', () => {
+    TestBed.overrideComponent(GameHostComponent, {
+      remove: { imports: [TowerDefenseComponent, WorldsStageComponent] },
+      add: { imports: [FakeGame, FakeStage] },
+    });
     const host = TestBed.createComponent(GameHostComponent);
     TestBed.tick();
     const session = TestBed.inject(WorldSession);
+    const stage = () => host.nativeElement.querySelectorAll('app-worlds-stage').length;
+    // A page without a run's switches starts on the globes: no game, nothing loads
+    expect(lives).toEqual([]);
+    expect(stage()).toBe(1);
+
+    session.open(PLAIN_START);
+    TestBed.tick();
+    TestBed.tick();
     expect(lives).toEqual(['made game 1']);
+    expect(stage()).toBe(0);
 
     // Two worlds opened before a render: only the last one is made
     session.open(PLAIN_START);
@@ -213,7 +247,14 @@ describe('GameHostComponent', () => {
     }
     expect(lives.slice(3)).toEqual(['gone game 2', 'made game 3', 'gone game 3', 'made game 4']);
 
-    // The host goes (the editor shows): the last game with it
+    // Back to the globes: the game goes with its listeners
+    session.close();
+    TestBed.tick();
+    expect(lives.slice(7)).toEqual(['gone game 4']);
+    expect(listeners).toBe(0);
+    expect(stage()).toBe(1);
+
+    // The host goes (the editor shows): the globes with it
     host.destroy();
     expect(listeners).toBe(0);
   });

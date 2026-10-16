@@ -10,11 +10,13 @@ import { Group, Vector2, Vector3 } from 'three';
  * sibling PathAndRouteService spec.
  */
 const lift = vi.hoisted(() => ({ value: 1 }));
+const routes = vi.hoisted(() => ({ visible: true }));
 
 vi.mock('@angular/core', async () => {
   const actual = await vi.importActual<Record<string, unknown>>('@angular/core');
   const stubs: Record<string, unknown> = {
     PathAndRouteService: { routeLineLift: () => lift.value },
+    UIStore: { routesVisible: () => routes.visible },
   };
   return {
     ...actual,
@@ -60,5 +62,26 @@ describe('RouteAnimationService', () => {
       .geometry.attributes.instanceStart;
     // pos.height (10) - origin.height (0) + lift (3), not the old hard-wired 1.
     expect(start.getY(0)).toBeCloseTo(13);
+  });
+
+  it('follows the route overlay: routes off hide the running animation, routes on show it again', () => {
+    routes.visible = false;
+    const overlay = new Group();
+    const service = new RouteAnimationService();
+    service.initialize(makeEngine(overlay));
+    service.setHoldUntilReleased(true);
+    service.startAnimation(new Map([['spawn-1', [{ lat: 48.0, lon: 9.0, height: 0 }, { lat: 48.001, lon: 9.0, height: 0 }]]]), []);
+    expect(overlay.children.length).toBe(2);
+    expect(overlay.children.every((c) => !c.visible)).toBe(true);
+
+    routes.visible = true;
+    service.update(16);
+    expect(overlay.children.every((c) => c.visible)).toBe(true);
+
+    routes.visible = false;
+    service.update(16);
+    expect(overlay.children.every((c) => !c.visible)).toBe(true);
+    service.setHoldUntilReleased(false);
+    routes.visible = true;
   });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { Matrix4, PerspectiveCamera, Vector4 } from 'three';
-import { placeMirror } from './water-reflection';
+import { Matrix4, PerspectiveCamera, Scene, Vector2, Vector4, type WebGLRenderer, type WebGLRenderTarget } from 'three';
+import { SceneCopy } from './scene-copy';
+import { placeMirror, WaterReflection } from './water-reflection';
 
 function setup(): { camera: PerspectiveCamera; mirror: PerspectiveCamera; toTexture: Matrix4 } {
   const camera = new PerspectiveCamera(50, 1.5, 0.5, 2000);
@@ -40,5 +41,53 @@ describe('placeMirror', () => {
     const over = clipOf(mirror, 0, 7, -10);
     expect(under.z / under.w).toBeLessThan(-1);
     expect(Math.abs(over.z / over.w)).toBeLessThanOrEqual(1);
+  });
+});
+
+/** Just enough of a renderer for the mirror's pass and the frame's copy: the canvas 1200 x 800 */
+function fakeRenderer(): { renderer: WebGLRenderer; draws: (() => void)[] } {
+  let target: WebGLRenderTarget | null = null;
+  const draws: (() => void)[] = [];
+  const gl = { getParameter: () => null, bindFramebuffer: () => undefined, blitFramebuffer: () => undefined };
+  const renderer = {
+    info: { render: { frame: 1 } },
+    shadowMap: { autoUpdate: true, needsUpdate: false },
+    xr: { enabled: false },
+    state: { buffers: { depth: { setMask: () => undefined } } },
+    getContext: () => gl,
+    getRenderTarget: () => target,
+    setRenderTarget: (t: WebGLRenderTarget | null) => (target = t),
+    getDrawingBufferSize: (v: Vector2) => v.set(1200, 800),
+    initRenderTarget: () => undefined,
+    properties: { get: () => ({ __webglFramebuffer: {} }) },
+    clear: () => undefined,
+    // A nested render counts a frame, as three's does; what the scene draws runs in it
+    render: () => {
+      renderer.info.render.frame++;
+      for (const d of draws) d();
+    },
+  };
+  return { renderer: renderer as unknown as WebGLRenderer, draws };
+}
+
+describe('WaterReflection', () => {
+  it('takes no copy of the frame in its own pass: a shimmer in the mirror leaves the copy to the frame', () => {
+    const { renderer, draws } = fakeRenderer();
+    const copy = new SceneCopy();
+    const reflection = new WaterReflection(() => [], () => [], copy);
+    reflection.scale = 0.5;
+    const camera = new PerspectiveCamera(50, 1.5, 0.5, 2000);
+    camera.position.set(0, 20, 30);
+    camera.lookAt(0, 0, 0);
+    camera.updateMatrixWorld();
+    const owner = {};
+    // A heat shimmer seen in the mirror reads the copy too
+    draws.push(() => copy.capture(renderer));
+    reflection.arm(camera, 2, owner);
+    reflection.render(renderer, new Scene(), camera, owner);
+    expect(copy.uniforms.uSceneCopy.value).toBeNull();
+    // The water's tile then copies the frame, at the canvas's size
+    copy.capture(renderer);
+    expect(copy.uniforms.uSceneSize.value.toArray()).toEqual([1200, 800]);
   });
 });

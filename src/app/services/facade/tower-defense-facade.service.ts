@@ -373,6 +373,8 @@ export class TowerDefenseFacadeService {
    * Full cleanup: dispose engine, pool, preview, animations, sub-facades, EventBus subs.
    */
   dispose(): void {
+    // A load under way stops and frees the engine it was building
+    this.engineInit.abandon();
     if (this.autoRestartTimeout !== null) {
       clearTimeout(this.autoRestartTimeout);
       this.autoRestartTimeout = null;
@@ -472,6 +474,8 @@ export class TowerDefenseFacadeService {
         onCheckAllLoaded: () => this.vizFacade.checkAllLoaded(),
       });
 
+      // The game went while the engine was built: abandon() freed it
+      if (!this.initialized) return;
       const engine = this.engineInit.getEngine();
       this.bridge.setEngine(engine);
 
@@ -540,6 +544,8 @@ export class TowerDefenseFacadeService {
         this.profiler.setEngine(engine);
       }
     } catch (err) {
+      // The game went while it loaded (Esc on the loading): its failure is nobody's
+      if (!this.initialized) return;
       console.error('[TD] Engine init error:', err);
       this.engineInit.setError(err instanceof Error ? err.message : 'Error loading 3D map');
       this.engineInit.setLoading(false);

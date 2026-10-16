@@ -127,6 +127,8 @@ steht die Burg auf einem Felssporn: die Krone 7 m über dem alten Hügel, steile
 (`cliffRocks`, vor dem Bewuchs gesetzt, der Pinsel hält Abstand zu anderen Objekten), der Torweg als Rampe durch die
 Südflanke; ein Wassergraben fünf Meter um die Mauern, offen am Torweg; Feuerschalen, Lagerfeuer, Fackeln und Banner in
 Burghof und Tor; eine Windmühle auf einem Hügel östlich mit Feld; Rotwild am Waldrand (ein Hirsch, Grasende).
+In den beiden Nordecken steigen bewaldete Hügel
+(20 bis 30 m) zu beiden Seiten der Burg an, keiner dahinter: von Süden steht der Bergfried weiter vor dem Himmel.
 Leben als Lebensbereiche: Morgennebel in acht Senken, fallendes Laub über den Wäldern, Krähen über beiden Waldseiten,
 wehende Banner (`life.flags`); Vogelgesang am Tag, Grillen nachts, Feuerknistern im Burghof. Offen: beleuchtete
 Fenster an Bergfried und Türmen.
@@ -141,8 +143,9 @@ Nebel in den Senken am Morgen. Spawns: 3. Bauflächen: Mauerkronen-Nähe, Lichtu
 Kakteengruppen, Steinstreu und weitere Felstürme auf der Hochebene. Spuren 506 und 553 m. Bilder:
 `docs/images/levels/red-canyon.jpg` (Tempelbecken), `red-canyon-floor.jpg`, `red-canyon-game.jpg`. Die Schluchten
 sind mit dem Level-Pinsel entlang einer Linie geschnitten und mit dem Terrace-Pinsel gestuft; Tafelberge mit dem
-Cliff-Pinsel (Plateau) und einer Rampe. Am Kartenrand steht abseits der Spawns eine Reihe großer Tafelberge (`mesa`, 1,6- bis
-2-fach) und hoher Felsnadeln als Kulisse vor der fernen Bergkette.
+Cliff-Pinsel (Plateau) und einer Rampe. An den Ecken und Rändern stehen abseits der Spawns acht Felstürme aus Gelände (40 bis
+60 m über der Ebene, Cliff-Pinsel mit Terrassen und Klippenfelsen aus Sandstein), ganz innerhalb der Karte, als
+Kulisse vor der fernen Bergkette.
 
 Biom Wüste, Look `desert`, harte Mittagssonne mit Hitzedunst. Ein verzweigter Canyon mit Tafelbergen; die Wege laufen
 im Canyon-Boden, Türme stehen oben auf den Tafelbergen (Plateaus mit Rampen). Tempelruine als HQ, Oase mit Palmen,
@@ -157,7 +160,9 @@ Sandbank knapp unter dem Spiegel (die Prüfung warnt dort bewusst „under water
 
 Biom gemäßigt/Küste, Meer rundum, Look `day` klar. Fünf Inseln, verbunden durch Holzbrücken und Furten; Hafen mit
 Kaimauer, Kran, Fischerhütten, Leuchtturm. Gegner kommen über zwei Brückenketten zur Hauptinsel. Spawns: 2. Bauflächen:
-Inselränder an den Brückenköpfen.
+Inselränder an den Brückenköpfen. Am Rand des Sunds stehen sieben schlanke Brandungspfeiler (einzeln und zu zweit,
+15 bis 30 m, mit einer Schulter, aus dem Meeresboden gehoben) als Tiefe vor dem Horizont; die Klippenschicht der
+Karte ist heller Kalkstein (`limestone`) statt dunklem Moosfels.
 Leben (Werkzeug Life, im Level-Skript): Vögel über Leuchtturmfels, Hafen und Wrack, Ruderboote im Hafen, ein
 Fischerboot auf einer Route um die Hauptinsel; Brandung entlang der Felsküsten, Möwenrufe am Leuchtturmfels und
 über dem Hafen, Vogelgesang des Looks.
@@ -181,8 +186,9 @@ Dorfplatz. Neben beiden Schlitten im Dorf wartet ein Hundegespann (`dog-sled`).
 der Lavasee mit „Dig lake“ in einen Lava-Körper gegraben; die Lavabrücke ist eine Wegkante der Art Bridge mit
 `style: 'lava'` vom Ufer zur Insel. Lavaströme nur außen am Hang (sie würden die Spirale
 schneiden). Look `hell` (bis E154 lief die Karte versehentlich mit `temperate`, ohne die Glut des Bioms), Sonne 22°
-in der Dämmerung. Auf den Höllenfeldern der vier Außenhänge stehen Gruppen aus Obsidiantürmen und
-schwarzen Nadeln, über jeder eine Rauchsäule (`fx-smoke-column`).
+in der Dämmerung. Vier Lavaströme laufen zwischen den Pässen die Außenhänge hinab, neben jedem eine
+Gruppe hoher Obsidiantürme und Nadeln mit Feuerschale und Rauchsäule (`fx-smoke-column`), aus der Spielkamera über den
+Rand hinweg zu sehen.
 
 Biom Hölle/Vulkan, Look `hell`. Ein großer Krater mit Lavasee; ein Spiralweg führt vom Kraterrand hinab zum HQ auf
 einer Obsidianinsel im Lavasee, über eine Lavabrücke. Glutrisse, Lavaströme, Schmiede am Rand, Rauchsäulen. Spawns: 3
@@ -254,13 +260,16 @@ die Hafenstadt 38 s (noch nicht untersucht). Offen: Augen-Nachtest im Spiel.
 Krater auf einer grauen Ebene voller Krater; drei Rover-Pisten von Landezonen im Norden, Westen und Osten winden
 sich zwischen den Kratern zum Hub. Kuppeln, Module und Tunnel um das HQ, Landeplatz mit Lander und Tanks,
 Solarfelder auf dem Kraterrand, Antennen, Rover. Bauflächen: die Kraterränder und Rücken zwischen den Kratern.
-Look `moon`, tiefe Sonne (22°), schwarzer Himmel.
+Look `moon`, tiefe Sonne (22°), schwarzer Himmel. In drei Ecken heben sich abseits der Landezonen breite Hochland-Kuppen (26 bis
+32 m, mit Schulter, geglättet) als Horizont hinter den Kratern.
 
 ### 10 Mars-Canyon (`mars-canyon`)
 `tools/maps/levels/mars-canyon.ts`, Small 512 m. Spuren 365, 417 und 358 m. Zwei rostrote Canyons treffen sich in
 einem Becken, eine dritte Spur kommt vom Ostrand; die Kolonie (Hub, Gewächshauskuppeln, Landeplatz, Windräder,
 Solarfeld auf einer Bank darüber) steht am Südende. Dünen, Krater und Tafelberge auf der Ebene. Look `mars`, staubiger
-Nachmittag.
+Nachmittag. An den Rändern stehen abseits der Spawns acht Felstürme aus Gelände (40 bis 55 m über
+der Ebene, vom breiten Schuttfuß über einen schmaleren Körper zur kleineren, versetzten Spitze, gestuft, von Rinnen
+zerschnitten, Mars-Klippenfelsen an Wand und Fuß), ganz innerhalb der Karte, als Kulisse vor der fernen Bergkette.
 
 ### 11 Endzeit-Stadt (`ruined-city`)
 `tools/maps/levels/ruined-city.ts`, Small 512 m. Spuren 572, 444 und 444 m. Das Straßenraster der Stadt (64 m)
@@ -274,7 +283,8 @@ Blöcken.
 ### 12 Hafenstadt (`harbor-town`)
 `tools/maps/levels/harbor-town.ts`, Small 512 m. Spuren 444, 380 und 508 m. Eine Stadt am Hang über einer Bucht, die
 Straßen im Raster hinunter zum Kai; das HQ hält den Platz am Wasser zwischen Kai, Kränen und Containerlager. Piers mit
-Fischerbooten, ein Schiff am Kai, eine Mole mit Leuchtturm, Bojen an der Hafeneinfahrt. Look `city`, Abend. Das
+Fischerbooten, ein Schiff am Kai, eine Mole mit Leuchtturm, Bojen an der Hafeneinfahrt. Look `city`, Nacht mit kühlem Mondlicht (`moonlight: 1`): Fenster und Laternen
+brennen, ihr Licht liegt auf dem Wasser (bis E184 Abend). Das
 Hafenbecken und die Kaimauer entstehen nach dem Stadtboden (dessen Glätten rundete sonst die Kante): erst das ganze
 Becken auf -7 m (die Hänge der Stadt reichten sonst als Erdhügel ins Wasser), dann die Kaimauer als eine gerade Stufe
 von 4,4 auf -6 m über einen Höhenpunkt; die Piers durchgehend aus Abschnitten alle 3 m. Ton: Möwenrufe über dem Hafen, Wasser und

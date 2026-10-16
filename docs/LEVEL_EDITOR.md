@@ -42,7 +42,9 @@ ohne die Datei zu laden), bietet ein Banner „Fresh copy“ (neue Kopie, die al
   Während des Anlegens steht der Stand in der Knopfzeile des Formulars („Painting the land 40 %“, dann „Opening the
   editor“), das Formular bleibt bis zum Wechsel gesperrt und springt nicht (früher schob eine eigene Zeile dafür die
   Liste über die Höhe, ein Rollbalken kam und ging und die Vorlagen sprangen von sechs auf fünf Spalten und zurück);
-  bis die Ansicht ihre Programme übersetzt hat, steht dort „Preparing the view“
+  bis die Ansicht ihre Programme übersetzt hat, steht dort „Preparing the view“; bis dahin zeichnet die Ansicht
+  nichts (vorher stand gut eine Sekunde der grüne Ersatzboden, bevor die Bodenfarben da waren), ein neu gebauter
+  Boden (Größe geändert, Kontext zurück) behält bis dahin das letzte Bild
 - **New map, From a real place:** der zweite Start neben „A landscape“: Ortssuche, dann derselbe Rahmen wie im Menü
   (flache Karte mit dem 2,4-km-Quadrat, HQ, ziehbare Spawns, „Make the map“); die erzeugte Karte ist schon gespeichert
   und öffnet sich im Editor. Ablauf und Regeln in [OSM_WORLD_PLAN.md](OSM_WORLD_PLAN.md#phase-o2-gebaut-2026-10-15)
@@ -225,7 +227,11 @@ würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben diese
 eingestellte Höhe; Strg+Klick nimmt sie vom Boden), Roughen (Rauschen), Erode (steile Hänge rutschen zu Geröll),
 Terrace (Stufen in einstellbarer Höhe), Cliff (Plateau eine Stufe über dem Strichanfang, Shift eine darunter, harte
 Kante wie Warcraft-Klippen), Ramp (zwei Klicks: Rampe zwischen den beiden Höhen, Breite einstellbar; nach dem zweiten
-Klick meldet die Statuszeile „Ramp built“ statt weiter „Ramp start set“ zu zeigen).
+Klick meldet die Statuszeile „Ramp built“ statt weiter „Ramp start set“ zu zeigen). Neben ihrer flachen Krone
+schüttet und schneidet die Rampe mit höchstens 0,75 m je Meter (`RAMP_SIDES`, rund 37°, auch um die Enden): über tiefem
+Grund steht sie als Damm auf Böschungen, durch einen Hügel bekommt sie geneigte Einschnitte. Vorher fiel der Rand nur
+über die Randweichheit des Pinsels ab, ein Damm 10 m über der Wiese stand als steile Keilwand da. Die Karten-Skripte
+(`map-kit.ts`, `k.ramp`) bauen ihre Rampen weiter ohne Böschung, die mitgelieferten Karten bleiben gleich.
 
 **Paint (3).** Bis zu zwölf Bodenschichten aus dem Katalog (beim Hinzufügen nach Biom gruppiert); die Liste wählt die Schicht zum Malen, tauscht ihr Material,
 verschiebt und entfernt sie (ihr Gewicht geht an die anderen). Halten malt, Shift oder der Schalter radiert. „Auto paint
@@ -751,7 +757,9 @@ Karte zeichnet derselbe Renderer wie im Spiel (`CustomMapView`, [CUSTOM_MAPS.md]
 übersetzt Raster- und Texel-Rechtecke in Meter, sammelt geänderte Objekte (neue oder entfernte bauen die Batches einmal
 neu) und wählt Objekte per Strahl auf ihr Modell. Eine neue Schichtliste oder ein neues Gelände baut die Ansicht neu.
 Szene-Rahmen wie im Spiel: Szene x = minus Karte Ost,
-Szene z = Karte Nord, y oben.
+Szene z = Karte Nord, y oben. Der Drehpunkt der Kamera liegt auf dem Boden, über einem See oder dem Meer auf dessen
+Spiegel (`surfaceAt`, wie `CustomMapSurface.surfaceAtMap` im Spiel): eine nahe Ansicht bleibt über dem Wasser, nicht
+darunter auf dem Grund.
 
 **Leistung.** Ein Pinselschritt bleibt unter 2 ms auf Karten mit 256, 512 und 1024 Samples je Seite
 (`editor-brushes.perf.spec.ts`, Budgets in `npm run test:perf`): Biom-Pinsel merken sich je Strich das Rauschen jedes

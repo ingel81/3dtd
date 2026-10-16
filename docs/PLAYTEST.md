@@ -215,6 +215,21 @@ Paket C4, Kampf:
 
 Hinweis: nach dem Wechsel auf diesen Stand den Dev-Server einmal neu starten (MapLibre neu in den Abhängigkeiten).
 
+## D Nachtschicht 2026-10-15/16
+
+- **D1 Karten:** Red Canyon und Mars Canyon (Felstürme am Rand, zerklüftet), Ember Crater aus der Spielkamera
+  (Lavaströme hinter dem Rand, Asche statt Laub), Archipelago (helle Felsnadeln im Meer), Autumn Keep von Süden (Hügel
+  neben der Burg), Ruined City (Rauchsäulen), Twin Gates (Belagerungsturm), Frost Hamlet (Hundeschlitten). *Spuren und
+  Spawns wie vorher.*
+- **D2 Nacht:** Harbor Town, Witch Marsh nachts. *Wasser dunkel, Laternenschein darauf; Leuchtturmstrahl von oben ein
+  schwacher Streifen, flach gut sichtbar.* Autumn Keep nachts an den Fackeln entlang schwenken: *Licht wechselt weich.*
+- **D3 Editor:** Map-Panel, „Intro flight“, Orbit the HQ, Preview, dann Test map. *Das Spiel fliegt den eigenen Orbit.*
+  Karte öffnen: *kein grüner Boden, „Preparing the view“ bis der Boden steht.* Hölle-Pinsel: *Asche und Basalt.* Schule am
+  Hang setzen: *geebnet nach dem Rechteck.*
+- **D4 Modelle:** `/map-preview?assets=shop-small,shop-office,office-ribbon,barn-modern,outbuilding,shelter-lean-to,annex`.
+- **D5 OSM:** Miltenberg neu erzeugen. *Zäune, Laternen, Gleise mit Oberleitung, Betonbrücke, Betonportal am Tunnel.*
+- **D6 Welle:** Welle 1, Kill All, sofort im Wave Debugger auf 10. *Nächster Start Welle 10.*
+
 ## Eichtabelle
 
 Fingerprints aus `__corridor.fingerprint()` für K2.1 und K2.2. Alle Werte vor 748 (Rothenburg `d8050177`, Tokyo

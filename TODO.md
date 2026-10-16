@@ -142,12 +142,28 @@ eigenen Karten, Coop-Protokoll 5). Die Worker-Runden vom 2026-10-15 sind überno
       - Windows-Installer und Auto-Update ohne Code-Signierung. Entschieden (User, 2026-10-01): vorerst nicht, wieder
         ansehen, wenn die App mehr Nutzer hat.
       - Der LAN-Relay der Desktop-App lauscht auf allen Schnittstellen (für LAN-Spiel nötig) und nimmt Verbindungen
-        ohne Origin an.
-      - Testlücke: `tower-defense.component` selbst.
+        ohne Origin an. Vorschlag (Nachtschicht 2026-10-16): so lassen; ein Programm im LAN setzt den Origin
+        beliebig, eine Pflicht auf Origin schützt nur gegen Browser, und die prüft die Liste schon.
+      - Testlücke `tower-defense.component`: geschlossen (22 Tests, 2026-10-16).
 
 ---
 
 ## 2. Gebaut, wartet auf Test
+
+### Nachtschicht 2026-10-15/16 (übernommen, Nachtests in PLAYTEST.md D)
+
+- [ ] **E184/E190 Karten**: Felstürme Red Canyon und Mars, Lavaströme außen Ember Crater, Rauch Ruined City, Kuppen Mond,
+      Hügel Autumn Keep, Felsnadeln Archipelago (Kalkstein), Belagerungsturm, Schlittenhunde, Kuhglocken, Möwen (PLAYTEST D).
+- [ ] **E179 Modelle**: Laden, Geschäftshaus, Bürohaus mit Bandfenstern, Scheune, Nebengebäude, Unterstand, Anbau (auch
+      OSM); Betonportal für Tunnel, Brandungsfels geschlossen, rote Klippe; Betonbrücke (PLAYTEST D).
+- [ ] **E157 O5**: Zäune, Mauern, Gleise, Laternen, Stadtmöbel, Oberleitung in OSM-Welten; O7 und LoD2 gemessen (OSM_WORLD_PLAN).
+- [ ] **E170 Intro-Flug je Karte**, **E201** Ebnen nach Rechteck, Fackellicht weich, Wasser nachts dunkler, Leuchtturmstrahl
+      weich, Hölle-Biom Asche, kein grüner Boden beim Öffnen, Routenanimation folgt dem Schalter, Sprung zur Welle (PLAYTEST D).
+- [ ] **E195 Phase 1 und 2** auf `wt/e195-nav` (nicht gemergt): Startauftrag statt URL, Weltwechsel ohne Neuladen.
+      Entschieden (User, 2026-10-16): Phasen 3 bis 7 (neues Menü) bauen, danach alles auf `next`; Push erst dann.
+      Harbor Town nachts (User, 2026-10-16). LAN-Relay ohne Origin: später ansehen.
+- [ ] **Offen aus der Prüfung:** Mond-Basalt (`moon-basalt`) fast schwarz, Steilhänge der Mondkarten lesen sich als Löcher;
+      Textur aufhellen braucht `ktx.exe` zum Packen.
 
 ### Worker-Runden 2026-10-15 (übernommen, Nachtests in PLAYTEST.md C)
 
@@ -246,8 +262,8 @@ Nachtest-Liste in `tmp/NEXT_SESSION.md`, kommt nach PLAYTEST.md, wenn der User Z
 
 ## 3. Später und Ideen
 
-- [ ] **E170 Rest (C)**: Intro-Kameraflug, DevWorld durch Testkarten ersetzen; KTX2 für Modelltexturen nur mit
-      Roh-GLBs ([CUSTOM_MAPS_NEXT_PLAN.md](docs/CUSTOM_MAPS_NEXT_PLAN.md)). Prefabs, Ereignisse je Welle und HP-Kurve gebaut.
+- [ ] **E170 Rest (C)**: DevWorld durch Testkarten ersetzen; KTX2 für Modelltexturen nur mit
+      Roh-GLBs ([CUSTOM_MAPS_NEXT_PLAN.md](docs/CUSTOM_MAPS_NEXT_PLAN.md)). Prefabs, Ereignisse je Welle, HP-Kurve und Intro-Flug gebaut.
 - [ ] **E169 Rest**: einmalig 5,09 ms auf Ultra im Demo-Tal (`dda5daf4`), ungeklärt; nur mit neuem Beleg angehen.
 - [ ] **E171 Teil 2 KI-Agent baut Karten** (Desktop-App, Entscheide in [AGENT_MCP.md](docs/AGENT_MCP.md)): Rest nach
       Teil 1, Umfang offen (Abschnitt 1, „Mit dem User klären“).

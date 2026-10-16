@@ -8,6 +8,7 @@ import {
   createPlinthGeometry,
   PLINTH_EMBED_M,
   PLINTH_RIM_M,
+  PLINTH_SKIRT_M,
   plinthWallRadius,
 } from './plinth-geometry';
 
@@ -165,5 +166,34 @@ describe('createPlinthGeometry with a corbel (E18)', () => {
   it('bounds the corbel too, for culling', () => {
     const low = corbel.reduce((a, v) => (v.y < a.y ? v : a));
     expect(geometry.boundingSphere!.containsPoint(low)).toBe(true);
+  });
+});
+
+describe('createPlinthGeometry on a slope beyond the footprint', () => {
+  const RADIUS = 3.6;
+  const HEIGHT = 2.5;
+  /** The wall's foot: the first ring, one vertex per segment */
+  const foot = (groundAt?: (x: number, z: number) => number | null) => {
+    const geometry = createPlinthGeometry(RADIUS, HEIGHT, [], groundAt);
+    const position = geometry.getAttribute('position');
+    const flat = createPlinthGeometry(RADIUS, HEIGHT).getAttribute('position');
+    const segments = Array.from({ length: flat.count }, (_, i) => flat.getY(i)).filter((y) => Math.abs(y + PLINTH_EMBED_M) < 1e-6).length;
+    return Array.from({ length: segments }, (_, i) => new Vector3().fromBufferAttribute(position, i));
+  };
+
+  it('reaches down into ground that falls away beside it, the embed deep', () => {
+    // Falling 0.5 m per metre towards +x: at the wall the ground lies up to 2 m below the flat bottom
+    const ground = (x: number) => -0.5 * Math.max(0, x);
+    const ring = foot(ground);
+    for (const v of ring) {
+      expect(v.y).toBeCloseTo(Math.min(-PLINTH_EMBED_M, ground(v.x) - PLINTH_EMBED_M), 1);
+    }
+    expect(Math.min(...ring.map((v) => v.y))).toBeLessThan(-PLINTH_EMBED_M - 1.5);
+  });
+
+  it('keeps the flat bottom where the ground is higher, unknown or past a drop', () => {
+    const drop = (x: number) => (x > 0 ? -PLINTH_SKIRT_M - 2 : 0.3);
+    for (const v of foot(drop)) expect(v.y).toBeCloseTo(-PLINTH_EMBED_M, 6);
+    for (const v of foot(() => null)) expect(v.y).toBeCloseTo(-PLINTH_EMBED_M, 6);
   });
 });

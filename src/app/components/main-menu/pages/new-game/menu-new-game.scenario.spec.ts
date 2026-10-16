@@ -136,7 +136,7 @@ describe('New game page', () => {
     expect(frame.place).toEqual(request.place);
     const summary = { id: 'osm-miltenberg' } as MapSummary;
     frame.done.emit({ summary, then: 'play' });
-    expect(worlds.playMap).toHaveBeenCalledWith('osm-miltenberg');
+    expect(worlds.playMap).toHaveBeenCalledWith('osm-miltenberg', undefined);
     frame.done.emit({ summary, then: 'edit' });
     expect(menu.editMap).toHaveBeenCalledWith('osm-miltenberg');
     frame.back.emit();

@@ -1,6 +1,6 @@
 # Welten und Navigation aus einem Guss (Plan)
 
-Status: Phase 1 bis 5 gebaut (Abschnitt 7), Rest Plan. Entscheidungen des Users in Abschnitt 6.
+Status: Phase 1 bis 7 gebaut (Abschnitt 7). Entscheidungen des Users in Abschnitt 6.
 Grundlagen: TODO E195, Klick-Dummy `tmp/plan/mockups/world-globes/index.html` (Datenmodell, Regeln, Navigationskarte,
 Abgleichsliste „heute vorhanden → im Dummy“), die gewählte Darstellung aus dem Dummy.
 
@@ -459,13 +459,17 @@ Dev-Build (`ng`), im Produktions-Build stehen sie auf -1.
   beide endet er, und die Rückfrage sagt es. „Back to the run“ (Kartenliste, Pfad, Chip) öffnet seine Welt und lädt
   den Autosave dort (`WorldSession.backToGame`). Jede andere Welt lässt ihn los; er bleibt das Continue seiner Welt.
 - **Pfad und Chips:** `components/world-path/` zeigt `Worlds › Welt ›` Ort oder Karte `› Play | Edit` und Chips,
-  im Spiel um den Ort-Knopf der Kopfleiste, im Editor um den Kartennamen. Im Spiel: Worlds öffnet das Menü, die
-  Welt ihr New game, Edit den Editor (auf echten Orten „Make map“, dann New game); Chip „Editor: Karte“. Im Editor:
-  Worlds und der Chip des Laufs zurück zum Lauf, Maps zur Kartenliste, Play zum Lauf dieser Karte oder einem neuen.
+  im Spiel um den Ort-Knopf der Kopfleiste, im Editor um den Kartennamen, auf den Globen (nach dem Zusammenführen mit
+  Phase 6) statt deren eigener Leiste. Im Spiel: Worlds zu den Globen, die Welt zu ihrem Weltmenü (läuft ein Lauf,
+  öffnet erst das Pausemenü mit „All worlds“ und seiner Rückfrage), Edit den Editor (auf echten Orten „Make map“,
+  dann New game); Chip „Editor: Karte“. Im Editor: Worlds zu den Globen (der Editor speichert, die Karte bleibt
+  offen), der Chip des Laufs zurück zum Lauf, Maps zur Kartenliste, Play zum Lauf dieser Karte oder einem neuen.
   Gesperrte Wege bleiben sichtbar, inaktiv, mit Grund (`world/why-not.ts`, `whyNot('play' | 'edit')`, für Phase 6
   zum Erweitern). Ein Coop-Chip im Editor entfällt: wer den Editor öffnet, verlässt den Raum.
-- Bleibt bis Phase 6: Worlds öffnet das Pausen- bzw. Startmenü statt der Globen; der Pfad nennt die OSM-Welt noch
-  „Maps“.
+- Bleibt: der Pfad im Spiel nennt eine OSM-Karte „Maps“ (`worldName` kennt nur den `WorldRef`). Globen gehören zum
+  Spielbildschirm der Hülle (GameHost, `WorldSession.isOpen`), einen eigenen Zustand der Hülle brauchen sie nicht;
+  `/editor` mit „Back to the game“ ohne offenen Lauf landet auf den Globen. `opensAtOnce` zählt Benchmark und
+  Probespiel über den Startauftrag (`benchmark`, `trial`).
 
 ### Phase 5: Probespiel im Fenster (2026-10-16)
 
@@ -497,3 +501,61 @@ Neuladen. Der Heap ist im Dev-Build nicht aussagekräftig (Abschnitt Phase 2). D
 `e2e/perf/world-switch.ts` auf dem Produktions-Build braucht den lokalen Schalter `CUSTOM_MAPS_RELEASED` und steht
 nach Phase 4 noch aus.
 
+### Phase 6: Start auf den Globen, Weltmenüs (2026-10-16)
+
+- `WorldSession.isOpen`: die Seite startet auf den Globen, nichts aus einem Spiel lädt. Direkt ins Spiel geht nur ein
+  Start, der einem Lauf gehört (`opensAtOnce`): Bot, Benchmark, `menu=skip`, DevWorld, Testlauf des Editors
+  (`fromWave`, `trial` des Startauftrags), Coop-Einladung (`?room=`), Spielstand (`?resume=`). Der Host zeigt ohne
+  offene Welt `app-worlds-stage`; `WorldSession.close()` führt zurück, das Spiel geht mit Engine, Worker und Canvas.
+- `worlds/world-rules.ts`: `worldLock`, `runAtRisk`
+  (Autosave desselben Slots an anderer Stelle), `heroWorld`; die Gründe gesperrter Wege erweitert `world/why-not.ts`
+  (aus Phase 4) um save, load, restart, replay, leave und Key und Freigabe je Welt. `worlds/worlds-stage.service.ts` (root, die Wahl bleibt
+  über ein Spiel hinweg): Ansicht, Welt, Wahl je Welt, Overlays, Rückfrage, Esc-Kette (`back`: Rückfrage, Overlay,
+  OSM-Rahmen, Weltmenü, auf den Globen nichts), Start, Continue, Edit, OSM-Rahmen, `leaveGame`.
+- `WorldStart` hat `play` und `label`: Start, Continue, Load und eine im Spiel gewählte Karte öffnen mit `play`. Die
+  Start-Lage zeigt dann „Loading <Name>“ mit Balken und Cancel (Esc); das Spiel erscheint, sobald der Ort steht.
+  Cancel, Esc und „Other place“ der Ladeplatte führen ins Weltmenü zurück, die Wahl steht noch dort. Links setzen nie
+  `play`: `?l=` wählt den Ort unter Real places (Name per Nominatim nachgereicht), `?world=map:` die Karte unter Maps
+  (eine OSM-Karte unter OpenStreetMap, sobald die Liste das weiß), `?world=tileset:` das Tileset.
+- Weltmenüs: Real places mit Recent, Favorites, Showcase, Search (mit Würfel), World map (verteidigte Orte),
+  Tilesets; OpenStreetMap mit Suche oder dem Ort aus Real places, dann der OSM-Rahmen im Panel, und den eigenen
+  OSM-Karten (`MapSummary.osm`, gesetzt beim Speichern; ältere OSM-Karten erst nach dem nächsten Speichern); Maps mit
+  eigenen, von Coop-Hosts und mitgelieferten Karten (OSM-Karten mit Etikett). Unten Coop, Load game, Settings,
+  Extras; rechts die zwei anderen Welten als Mini-Globen und All worlds.
+- Ohne Key: der Echtwelt-Globus grau, darunter der Grund und „Enter map key“ (Token-Dialog als Overlay, mit „Back to
+  the worlds“); das Weltmenü listet die Orte, Start bleibt sichtbar und gesperrt, mit Grund und Link zum Key.
+- Autosaves: oben im Menü je Autosave „Continue“ mit Ort und Welle (die Echtwelt hat ihren eigenen, OSM und Maps
+  teilen einen), als Chip in der Kopfzeile, als Zeile im Weltmenü. Groß steht die zuletzt gestartete Welt
+  (`td_last_world_v1`), sonst die des neuesten Autosaves. Ein Start an anderer Stelle desselben Autosaves fragt
+  („Start anyway“, „Continue …“, „Cancel“). Load game auf den Globen listet die Slots (`StageSaves`); ein Slot öffnet
+  seine Welt und lädt ihn dort, Laden aus einer Datei geht erst im Spiel.
+- Pausemenü: „World menu“ (mit dem Namen der Welt) und „All worlds“ unter der Linie; mit Lauf fragt es und nennt die
+  Welle, vor der der Autosave steht; im Coop gesperrt („Leave the coop room first“). „Play on real places“ im Spiel
+  öffnet das Weltmenü der Echtwelt.
+- Coop auf den Globen: Beitritt per Code (öffnet das Spiel wie ein Einladungslink); gehostet wird aus dem Spiel einer
+  Welt. Der Map editor bleibt bis Phase 4 eine eigene Seite.
+- Abbruch beim Laden: `EngineInitializationService.abandon()` (aus `TowerDefenseFacadeService.dispose`) lässt einen
+  laufenden Aufbau an seinem nächsten Schritt enden, gibt die halb gebaute Engine frei und schreibt keinen Fehler
+  mehr. Vorher zeigte Esc und gleich wieder Start „No world is open“ im nächsten Spiel.
+- Specs: `worlds/world-rules.spec.ts`, `worlds/worlds-stage.scenario.spec.ts` (ohne Key, Esc-Kette, Start einer
+  Karte, Continue und Rückfrage, ein Link wählt nur), `world/world-session.spec.ts` (`opensAtOnce`, Host mit den
+  Globen). `e2e/support/game.ts` drückt Start auf den Globen.
+
+### Phase 7: Globus-Stile und Hintergründe (2026-10-16)
+
+- `globe/globe-stage.ts`: ein `WebGLRenderer` auf einem Canvas (durchsichtig, über der Seite, unter Kopfzeile und
+  Overlays) zeichnet bis zu drei Globen per Viewport und Scissor in die Quadrate `[data-globe]` der Seite; Lage und
+  Größe liest `worlds/stage-globes.ts` je Bild, ein Globus dreht langsam oder zu seiner Wahl, im Leerlauf 30 Bilder je
+  Sekunde. Die Erde ist die `GlobeView` der Menü-Erde auf diesem Renderer, ohne Sterne, Sonne und 8k-Stufe; die Sonne
+  steht 58 Grad westlich der Mitte, rechts liegt die Nachtseite mit Stadtlichtern. `saturation` macht sie grau.
+- `globe/style-globes.ts`: OpenStreetMap als Shader auf den Karten der Erde (Wasser aus der Relief-Maske, Wald, Sand
+  und Eis aus der Tageskarte, Orte und ein Straßennetz aus den Stadtlichtern), Farben von OSM Carto, gestrichelte
+  Grenzen aus den Natural-Earth-Umrissen (CanvasTexture, eigener Chunk), Gradnetz auf dem Meer, Nachtseite mit
+  leuchtenden Orten. Maps als Low-Poly-Ikosaeder (Stufe 14, bei Low 9) mit Höhenrauschen in den Farben der Engine,
+  Bäumen, Wolken und je Karte einem Turm an einem festen Landplatz aus ihrer Id; die gewählte Karte in Messing mit Ring.
+- Hintergründe je Welt und Scheiben als Ersatz: `td-world-bg` (`is-real`, `is-osm`, `is-maps`) und `td-world-disc`
+  (`is-grey`) im Design System. Settings › Menu globe gilt: Low mit Pixelrate 1, sechs Streuschritten und weniger
+  Segmenten; Off und ohne WebGL 2 zeigen die Scheiben. Die Marke der Wahl ist `td-globe-mark is-target`.
+- Noch nicht: der Abtauchflug aus dem Globus der Globen (die Bühne geht beim Start, die Spiel-Erde des
+  `GlobeDirectorService` blendet beim Laden neu ein und taucht wie bisher ab); Drehen mit der Maus; Ortsnamen auf dem
+  OSM-Globus.

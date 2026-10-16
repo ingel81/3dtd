@@ -53,6 +53,7 @@ import { WorldPathComponent, type PathAction, type PathChip } from '../../../com
 import { AppScreen } from '../../../world/app-screen.service';
 import { WorldSession } from '../../../world/world-session.service';
 import { PLAIN_START } from '../../../world/world-start';
+import { WorldsStageService } from '../../../worlds/worlds-stage.service';
 
 const LEGEND_KEY = '3dtd-editor-legend';
 const SIDE_KEY = '3dtd-editor-side';
@@ -152,6 +153,7 @@ export class EditorShellComponent implements OnDestroy {
   readonly session = inject(EditorSession);
   private readonly screens = inject(AppScreen);
   private readonly worlds = inject(WorldSession);
+  private readonly stage = inject(WorldsStageService);
   /** The run the editor came from, waiting as autosave (AppScreen.waitingRun) */
   private readonly waitingRun = this.screens.waitingRun;
   /** The path's chip of that run: a click goes back to it */
@@ -698,18 +700,20 @@ export class EditorShellComponent implements OnDestroy {
   }
 
   /**
-   * A step of the path: Worlds and the run's chip go back to the game (the run that waits loaded), Maps to
-   * the editor's list, Play back to this map's run or a new run on it
+   * A step of the path: Worlds to the globes (the editor saves first), the run's chip back to the run that
+   * waits, Maps to the editor's list, Play back to this map's run or a new run on it
    */
   onPath(action: PathAction): void {
-    if (action === 'worlds' || (typeof action === 'object' && action.chip === 'run')) {
+    if (action === 'worlds') {
+      void this.screens.showGame().then((shown) => shown && this.stage.leaveGame(null));
+    } else if (typeof action === 'object' && action.chip === 'run') {
       this.worlds.backToGame();
     } else if (action === 'world') {
       void this.leave();
     } else if (action === 'play') {
       const id = this.session.doc?.meta.id;
       if (this.runOfThisMap()) this.worlds.backToGame();
-      else if (id) this.worlds.open({ ...PLAIN_START, world: { kind: 'custom-map', mapId: id, contentHash: '' } });
+      else if (id) this.worlds.open({ ...PLAIN_START, world: { kind: 'custom-map', mapId: id, contentHash: '' }, play: true, label: this.title() });
     }
   }
 

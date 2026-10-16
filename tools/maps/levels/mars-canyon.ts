@@ -35,6 +35,29 @@ export function buildMarsCanyon(): CustomMapDocument {
     }
     k.erode({ x, y }, { radius: r * 1.3, strength: 1 }, 8);
   }
+  // Buttes at the map's edges, away from the spawns: towers of layered rock 40 to 55 m over the plain, worn down
+  // from a broad talus foot through a narrower body to a smaller top off its middle, terraced, cut by gullies, their
+  // walls in Mars cliff rocks; each whole inside the map, so no side runs down to the apron
+  k.environment({ biome: 'mars' });
+  const inside = (v: number, r: number) => Math.sign(v) * Math.min(Math.abs(v), 250 - r * 1.4);
+  const buttes = ([[-230, 230, 22, 52], [-20, 238, 16, 44], [236, 150, 24, 55], [238, 10, 15, 40], [110, -238, 17, 42], [-130, -238, 20, 46], [-236, -190, 22, 50], [-238, 150, 14, 40]] as const).map(
+    ([x, y, r, h]) => [inside(x, r), inside(y, r), r, h] as const,
+  );
+  for (const [n, [x, y, r, h]] of buttes.entries()) {
+    const c = { x, y };
+    const a = k.noise.hash(n, 1, 41) * Math.PI * 2;
+    const off = (f: number, turn = 0) => ({ x: x + Math.cos(a + turn) * r * f, y: y + Math.sin(a + turn) * r * f });
+    // The talus foot, the body, a second shoulder and the top, each smaller and off the middle
+    k.raise(c, { radius: r * 1.45, falloff: 0.95 }, h * 0.3);
+    k.plateau(c, { radius: r * 0.95, falloff: 0.55 }, plain + h * 0.7);
+    k.plateau(off(0.45, 2.2), { radius: r * 0.6, falloff: 0.5 }, plain + h * 0.82);
+    k.plateau(off(0.3), { radius: r * 0.5, falloff: 0.45 }, plain + h);
+    k.terrace(c, { radius: r * 1.4, falloff: 0.5 }, 6, plain, 0.45);
+    k.roughen(c, { radius: r * 1.4, falloff: 0.6 }, 4, 6300 + n);
+    k.erode(c, { radius: r * 1.7, strength: 1 }, 6);
+  }
+  const rim = (c: MapPoint, r: number) => Array.from({ length: 19 }, (_, i) => ({ x: c.x + Math.cos((i / 18) * Math.PI * 2) * r, y: c.y + Math.sin((i / 18) * Math.PI * 2) * r }));
+  for (const [x, y, r] of buttes) for (const f of [0.85, 1.15]) k.cliffRocks(rim({ x, y }, r * f), { radius: 10 });
 
   // ---- Two canyons meeting in a basin, the colony on its south side
   const west = { x: -252, y: 30 };

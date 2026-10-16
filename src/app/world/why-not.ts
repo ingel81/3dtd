@@ -1,10 +1,11 @@
 import type { WorldRef } from './world-ref';
+import type { WorldId } from '../worlds/world-rules';
 
 /**
  * A way the path and the menus offer (docs/WORLDS_NAVIGATION_PLAN.md, 3.2).
  * Phase 4 needs play and edit; the world menus (phase 6) add their own.
  */
-export type PathWay = 'play' | 'edit';
+export type PathWay = 'play' | 'edit' | 'save' | 'load' | 'restart' | 'replay' | 'leave';
 
 /** What decides whether a way is open now */
 export interface WhyNotFacts {
@@ -16,6 +17,16 @@ export interface WhyNotFacts {
   coopGuest: boolean;
   /** A replay plays */
   replay: boolean;
+  /** The world the way goes to (the globes ask per world); absent for the world open now */
+  world?: WorldId | null;
+  /** A tile key (Cesium Ion or Google) is there; absent where it does not matter */
+  hasKey?: boolean;
+  /** A run is loaded in the page (the game, not the globes) */
+  runLoaded?: boolean;
+  /** The run is an editor's trial run: never saved */
+  trial?: boolean;
+  /** A wave of the run was played: a replay exists */
+  waveRecorded?: boolean;
 }
 
 /**
@@ -25,12 +36,28 @@ export interface WhyNotFacts {
 export function whyNot(way: PathWay, facts: WhyNotFacts): string | null {
   switch (way) {
     case 'play':
-      return facts.coopGuest ? 'In a coop room the host picks the map' : null;
+      if (facts.coopGuest) return 'In a coop room the host picks the map';
+      if (facts.world === 'real' && facts.hasKey === false) return 'Needs a map key (Cesium Ion or Google)';
+      if ((facts.world === 'osm' || facts.world === 'maps') && !facts.mapsOpen) return 'Maps are coming soon';
+      return null;
     case 'edit':
       if (!facts.mapsOpen) return 'Coming soon';
       if (facts.inCoopRoom) return 'Leave the coop room to edit';
       if (facts.replay) return 'Leave the replay first';
       return null;
+    case 'save':
+      if (facts.coopGuest) return 'In coop the host saves';
+      if (facts.trial) return 'A trial run is not saved';
+      if (facts.runLoaded === false) return 'No run to save';
+      return null;
+    case 'load':
+      return facts.coopGuest ? "The room plays the host's map" : null;
+    case 'restart':
+      return facts.coopGuest ? 'The host restarts' : null;
+    case 'replay':
+      return facts.waveRecorded === false ? 'After the first wave' : null;
+    case 'leave':
+      return facts.inCoopRoom ? 'Leave the coop room first' : null;
   }
 }
 

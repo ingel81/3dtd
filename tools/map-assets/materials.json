@@ -95,7 +95,7 @@
   {"id": "regolith-rough", "name": "Rough regolith", "category": "sand", "source": "polyhaven", "asset": "moon_01", "scale": 6, "tags": ["moon"], "desaturate": 0.8, "shade": 0.7},
   {"id": "crater-floor", "name": "Cratered regolith", "category": "sand", "source": "polyhaven", "asset": "moon_meteor_01", "scale": 10, "tags": ["moon"], "desaturate": 0.8, "shade": 0.8},
   {"id": "regolith-tracks", "name": "Regolith with tracks", "category": "road", "source": "polyhaven", "asset": "moon_track_01", "scale": 6, "tags": ["moon"], "desaturate": 0.8, "shade": 0.7},
-  {"id": "moon-basalt", "name": "Lunar basalt", "category": "rock", "source": "polyhaven", "asset": "dark_rock", "scale": 8, "tags": ["moon"], "desaturate": 1.0, "tint": [1.3, 1.3, 1.3]},
+  {"id": "moon-basalt", "name": "Lunar basalt", "category": "rock", "source": "polyhaven", "asset": "dark_rock", "scale": 8, "tags": ["moon"], "desaturate": 1.0, "tint": [2.5, 2.5, 2.5]},
   {"id": "mars-dust", "name": "Martian dust", "category": "sand", "source": "polyhaven", "asset": "moon_dusted_04", "scale": 6, "tags": ["mars"], "desaturate": 1.0, "tint": [1.25, 0.72, 0.45], "shade": 0.6},
   {"id": "mars-regolith", "name": "Martian regolith", "category": "sand", "source": "polyhaven", "asset": "moon_01", "scale": 6, "tags": ["mars"], "desaturate": 1.0, "tint": [1.2, 0.68, 0.42], "shade": 0.7},
   {"id": "mars-dunes", "name": "Martian dunes", "category": "sand", "source": "polyhaven", "asset": "aerial_sand", "scale": 14, "tags": ["mars"], "desaturate": 0.8, "tint": [1.15, 0.7, 0.48]},

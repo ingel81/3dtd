@@ -1,4 +1,4 @@
-import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
+import { Injectable, Injector, computed, effect, inject, signal, untracked } from '@angular/core';
 import { UIStore } from '../../store/ui.store';
 import { GameStore } from '../../store/game.store';
 import { COOP } from '../../services/coop.token';
@@ -20,6 +20,10 @@ import { pageQuery } from '../../core/page-switches';
 import { CUSTOM_MAPS_OPEN } from '../../world/custom-maps-open';
 import { AppScreen } from '../../world/app-screen.service';
 import { PLAIN_START } from '../../world/world-start';
+import { WorldsStageService } from '../../worlds/worlds-stage.service';
+import { openedCustomMap } from '../../world/custom-map/custom-map-world';
+import type { WorldId, WorldPick } from '../../worlds/world-rules';
+import { whyNot } from '../../world/why-not';
 
 export { startMenuSkipped } from './start-menu-skipped';
 
@@ -85,6 +89,22 @@ export class MainMenuService {
   /** The start order named the place (a link's ?l=): Play comes before Continue */
   readonly linkedPlace = this.start.current().place !== null;
 
+  /**
+   * The world was opened with Start (the globes, Continue, a map picked in
+   * the game): the start layer is its loading, the game shows once it
+   * stands, Esc or Cancel goes back to the world's menu (docs/WORLDS_NAVIGATION_PLAN.md, 3.3)
+   */
+  readonly fromStart = this.start.current().play;
+  /** The Start's loading stands: until the game shows the first time */
+  readonly starting = signal(this.fromStart);
+  /** What loads, as the loading names it */
+  readonly startLabel = this.start.current().label;
+  /** The globes, looked up when the game goes back to them */
+  private readonly injector = inject(Injector);
+  private get stage(): WorldsStageService {
+    return this.injector.get(WorldsStageService);
+  }
+
   // ---- The place behind the menu ----
 
   /** A place is chosen and loads or stands; false while the game waits for the first one */
@@ -141,7 +161,9 @@ export class MainMenuService {
    */
   readonly tab = signal<MenuWorldTab>('real');
   /** The start list shows the tabs: the maps are open, and the player picks the world (not in coop) */
-  readonly tabsShown = computed(() => this.mapsOpen && this.layer() === 'start' && !this.inCoop() && !this.ui.coopMapLocked());
+  readonly tabsShown = computed(
+    () => this.mapsOpen && this.layer() === 'start' && !this.starting() && !this.inCoop() && !this.ui.coopMapLocked(),
+  );
   /** The tab that is the world of this page */
   readonly homeTab = computed<MenuWorldTab>(() => (this.onMap() ? 'custom' : 'real'));
   /** The list shows the world of this page (or there are no tabs) */
@@ -219,7 +241,7 @@ export class MainMenuService {
     const ref = this.worldContext.ref();
     const name = ref.kind === 'custom-map' ? (slot.map?.name ?? slot.location) : shortPlaceName(slot.location);
     this.screens.waitingRun.set({
-      order: { ...PLAIN_START, world: ref.kind === 'tiles' ? null : ref, resume: slotId },
+      order: { ...PLAIN_START, world: ref.kind === 'tiles' ? null : ref, resume: slotId, play: true, label: name },
       label: `${name} | wave ${slot.wave}`,
       mapId: ref.kind === 'custom-map' ? ref.mapId : null,
     });
@@ -276,6 +298,15 @@ export class MainMenuService {
       untracked(() => this.tab.set(home));
     });
     this.resumeFromLink();
+    // Started from a world's menu: played as soon as the place is there (a save's Continue plays once loaded)
+    if (this.fromStart && !this.start.current().resume) {
+      let asked = false;
+      effect(() => {
+        if (asked || !this.hasPlace()) return;
+        asked = true;
+        untracked(() => this.requestPlay());
+      });
+    }
     // Play waiting for the landing makes the dive quicker
     effect(() => this.globe?.playWaits.set(this.pendingPlay()));
     effect(() => {
@@ -368,6 +399,11 @@ export class MainMenuService {
       this.close();
       return true;
     }
+    // The loading of a Start: Esc cancels it, back to the world's menu, nothing changed
+    if (this.starting() && !this.inCoop()) {
+      this.cancelStart();
+      return true;
+    }
     return false;
   }
 
@@ -377,6 +413,7 @@ export class MainMenuService {
     if (!state.open) return;
     this.history.set([]);
     this.pendingPlay.set(false);
+    this.starting.set(false);
     // Said and gone: the place played on is the old one
     if (!this.playBlocked()) this.ui.loadProblem.set(null);
     this.ui.mainMenu.set({ ...state, open: false, page: 'home' });
@@ -453,6 +490,79 @@ export class MainMenuService {
   /** End the desktop app */
   quit(): void {
     this.bridge?.quit?.();
+  }
+
+  // ---- Back to the worlds ----
+
+  /** Why the game cannot go back to the worlds now (a coop room would lose the player), null when it can */
+  readonly leaveWhy = computed(() =>
+    whyNot('leave', {
+      mapsOpen: this.mapsOpen,
+      inCoopRoom: this.inCoop() || (this.coop?.room() ?? null) !== null,
+      coopGuest: this.ui.coopMapLocked(),
+      replay: this.ui.replayMode(),
+    }),
+  );
+
+  /** The world menu of this world's kind, as the pause menu names it */
+  readonly worldMenuLabel = computed(() => {
+    const world = this.worldOfPage();
+    return world === 'real' ? 'Real places' : world === 'osm' ? 'OpenStreetMap' : world === 'maps' ? 'Maps' : 'Worlds';
+  });
+
+  /**
+   * The wave whose autosave holds this run, null without one: the autosave
+   * comes after every wave, so between waves it holds the last one, during a
+   * wave the one before
+   */
+  readonly autosavedWave = computed(() => {
+    if (!this.underWay() || this.inCoop()) return null;
+    const wave = this.store.phase() === 'setup' ? this.store.waveNumber() : this.store.waveNumber() - 1;
+    return wave >= 1 ? wave : null;
+  });
+
+  /**
+   * Leave the game for the globes: `world` to this world's menu with its
+   * place or map picked, else the three globes. The run stays in its
+   * autosave; the game goes (WorldSession.close).
+   */
+  leaveTo(target: 'world' | 'globes'): void {
+    if (this.leaveWhy()) return;
+    const world = this.worldOfPage();
+    this.stage.leaveGame(target === 'world' && world ? { world, pick: this.pickOfPage() } : null);
+  }
+
+  /** The loading of a Start stopped: back to the world's menu with its pick */
+  cancelStart(): void {
+    const world = this.worldOfPage();
+    this.stage.leaveGame(world ? { world, pick: this.pickOfPage() } : null);
+  }
+
+  /** The world of the globes this page plays in (a map made of a real place is OpenStreetMap's); null for DevWorld */
+  private worldOfPage(): WorldId | null {
+    const ref = this.worldContext.ref();
+    if (ref.kind === 'custom-map') return openedCustomMap(ref)?.doc.meta.source?.kind === 'osm' ? 'osm' : 'maps';
+    return ref.kind === 'devworld' ? null : 'real';
+  }
+
+  /** The place or map this page plays, as a world's menu picks it */
+  private pickOfPage(): WorldPick | null {
+    const ref = this.worldContext.ref();
+    if (ref.kind === 'custom-map') return { kind: 'map', id: ref.mapId, name: ref.name ?? this.startLabel ?? ref.mapId };
+    if (ref.kind === 'tileset') {
+      const set = this.worlds.tilesets().find((t) => t.id === ref.id);
+      return { kind: 'tileset', id: ref.id, name: set?.name ?? ref.id };
+    }
+    const hq = this.locationMgmt.hq() ?? this.start.current().place?.hq ?? null;
+    if (!hq) return null;
+    const spawns = this.locationMgmt.hq() ? this.locationMgmt.spawns() : (this.start.current().place?.spawns ?? []);
+    const name = this.hasPlace() ? this.locationMgmt.displayName() : (this.startLabel ?? `${hq.lat.toFixed(4)}, ${hq.lon.toFixed(4)}`);
+    return {
+      kind: 'place',
+      hq: { lat: hq.lat, lon: hq.lon },
+      spawns: spawns.map(({ lat, lon, portalBearing }) => (portalBearing === undefined ? { lat, lon } : { lat, lon, portalBearing })),
+      name,
+    };
   }
 
   // ---- Pause ----

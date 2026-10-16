@@ -1,0 +1,351 @@
+// Layout of the globes and the world menus (docs/WORLDS_NAVIGATION_PLAN.md,
+// phases 6 and 7): the bar on top; on the globes the menu column left and
+// the three globes in a row; in a world its menu as a panel left, the globe
+// large, the other two small top right. The look comes from the td-* classes;
+// the canvas behind draws into the squares marked [data-globe].
+
+:host {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+}
+
+.ws-root {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ws-canvas {
+  position: absolute;
+  inset: 0;
+  // Over the page's own layer: a small globe stands on its switcher button; under the bar and the overlays
+  z-index: 2;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+
+// ---- The bar ----
+
+.ws-bar {
+  position: relative;
+  z-index: 3;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--td-sp-3);
+  padding: 0 var(--td-sp-4);
+}
+
+.ws-bar-logo {
+  display: block;
+  width: 64px;
+  height: auto;
+}
+
+.ws-path {
+  display: flex;
+  align-items: center;
+  gap: var(--td-sp-2);
+  min-width: 0;
+  color: var(--td-text-muted);
+}
+
+.ws-crumb {
+  padding: 4px 6px;
+  border: 0;
+  background: none;
+  color: var(--td-text-muted);
+  font-size: var(--td-fs-text);
+  font-weight: 600;
+  white-space: nowrap;
+  &.is-here {
+    color: var(--td-text-primary);
+    cursor: default;
+  }
+}
+
+.ws-bar-gap {
+  flex: 1 1 auto;
+}
+
+.ws-chip {
+  white-space: nowrap;
+}
+
+// ---- The globes ----
+
+.ws-globes {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 auto;
+  display: flex;
+  gap: 56px;
+  align-items: center;
+  box-sizing: border-box;
+  min-height: 0;
+  padding: 32px 72px 48px 90px;
+}
+
+.ws-col {
+  display: flex;
+  flex: 0 0 var(--td-menu-width);
+  flex-direction: column;
+  gap: 32px;
+}
+
+.ws-logo {
+  display: block;
+  align-self: center;
+  width: 180px;
+  height: auto;
+}
+
+.ws-tagline {
+  align-self: center;
+  margin: -20px 0 0;
+  text-align: center;
+}
+
+.ws-menu {
+  padding: 14px;
+}
+
+.ws-item {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ws-stagearea {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--td-sp-5);
+  min-width: 0;
+}
+
+.ws-cards {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(24px, 3vw, 64px);
+  width: 100%;
+}
+
+// A globe with its name: the square for the canvas, the lines under it
+.ws-card {
+  --ws-globe: clamp(150px, 15vw, 330px);
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--td-sp-1);
+  max-width: calc(var(--ws-globe) + 80px);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--td-text-secondary);
+  text-align: center;
+  cursor: pointer;
+
+  &.is-hero {
+    --ws-globe: clamp(220px, 23vw, 520px);
+  }
+
+  .ws-slot {
+    width: var(--ws-globe);
+    height: var(--ws-globe);
+    margin-bottom: var(--td-sp-3);
+    transition: transform var(--td-dur-mid) var(--td-ease-out);
+  }
+
+  &:hover .ws-slot,
+  &:focus-visible .ws-slot {
+    transform: scale(1.04);
+  }
+
+  &:hover .ws-card-name,
+  &:focus-visible .ws-card-name {
+    color: var(--td-brass-light);
+  }
+}
+
+.ws-card-name {
+  font-size: var(--td-fs-title);
+  font-weight: 700;
+  color: var(--td-text-title);
+}
+
+.ws-card.is-hero .ws-card-name {
+  font-size: var(--td-fs-hud);
+}
+
+.ws-card-sub,
+.ws-card-line {
+  max-width: 100%;
+}
+
+.ws-key {
+  justify-content: center;
+}
+
+.ws-hint {
+  margin: 0;
+}
+
+// A square the canvas draws a globe into; the disc stands in where none is drawn
+.ws-slot {
+  position: relative;
+  display: block;
+  flex: 0 0 auto;
+}
+
+.ws-disc {
+  position: absolute;
+  inset: 7%;
+}
+
+// ---- A world ----
+
+.ws-world {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: minmax(360px, 440px) 1fr auto;
+  gap: var(--td-sp-5);
+  box-sizing: border-box;
+  min-height: 0;
+  padding: 24px 32px 24px 24px;
+}
+
+.ws-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 100%;
+  padding: 18px 20px 14px;
+}
+
+.ws-panel-head {
+  flex: 0 0 auto;
+}
+
+.ws-back {
+  flex: 0 0 auto;
+}
+
+.ws-content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.ws-more {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--td-sp-1);
+  margin-top: var(--td-sp-3);
+  padding-top: var(--td-sp-3);
+}
+
+.ws-big {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+}
+
+.ws-slot.is-big {
+  width: min(100%, 72vh);
+  aspect-ratio: 1;
+}
+
+.ws-switch {
+  display: flex;
+  flex-direction: column;
+  gap: var(--td-sp-3);
+  width: 220px;
+}
+
+.ws-mini {
+  justify-content: flex-start;
+  gap: var(--td-sp-3);
+  height: auto;
+  min-height: 56px;
+  padding: 6px 12px 6px 6px;
+  text-align: left;
+
+  &.is-all {
+    justify-content: center;
+    min-height: 0;
+    padding: 8px 12px;
+  }
+}
+
+.ws-slot.is-mini {
+  width: 44px;
+  height: 44px;
+}
+
+.ws-mini-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+// ---- Over it ----
+
+.ws-mark {
+  z-index: 3;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.ws-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: calc(var(--td-h-topbar) + 32px) var(--td-sp-4) 32px;
+}
+
+.ws-dlg {
+  width: min(720px, 100%);
+  max-height: calc(100vh - var(--td-h-topbar) - 64px);
+}
+
+.ws-confirm {
+  width: min(480px, 100%);
+}
+
+// Smaller windows: the globes in a column under the menu, the world's switcher under its globe
+@media (max-width: 1100px) {
+  .ws-globes {
+    flex-direction: column;
+    overflow: auto;
+    padding: 24px var(--td-sp-4);
+  }
+
+  .ws-world {
+    grid-template-columns: minmax(320px, 400px) 1fr;
+  }
+
+  .ws-switch {
+    grid-column: 2;
+    flex-direction: row;
+    width: auto;
+  }
+}

@@ -107,7 +107,7 @@ export class MenuNewGameComponent {
 
   /** A map made in the frame: played, or opened in the editor */
   madeMap({ summary, then }: { summary: MapSummary; then: 'play' | 'edit' }): void {
-    if (then === 'play') this.worlds.playMap(summary.id);
+    if (then === 'play') this.worlds.playMap(summary.id, summary.name);
     else void this.menu.editMap(summary.id);
   }
 

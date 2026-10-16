@@ -6,6 +6,15 @@ import { BufferGeometry, Float32BufferAttribute } from 'three';
  */
 export const PLINTH_EMBED_M = 0.4;
 
+/**
+ * How far (m) the wall may reach below its flat bottom, down to the ground
+ * beside it: on a slope the ground falls on beyond the outermost probes, and
+ * a flat bottom left a gap under the downhill side (Red Canyon). Ground any
+ * deeper is past a drop, where the flat bottom stays (with braces, if the
+ * probes saw the drop).
+ */
+export const PLINTH_SKIRT_M = 6;
+
 /** Plinth radius beyond the footprint (m), so the corners of a square base stay on it. */
 export const PLINTH_RIM_M = 0.2;
 
@@ -75,7 +84,8 @@ function bulge(theta: number, y: number): number {
 export function plinthWallRadius(footprintRadius: number, height: number, theta: number, y: number): number {
   const wallHeight = height + PLINTH_EMBED_M;
   const batter = Math.min(BATTER_PER_M * wallHeight, MAX_BATTER_M);
-  const lean = batter * ((height - y) / wallHeight);
+  // Below the flat bottom (a wall reaching down a slope) it leans on, at most MAX_BATTER_M
+  const lean = Math.min(batter * ((height - y) / wallHeight), MAX_BATTER_M);
   return (footprintRadius + PLINTH_RIM_M + lean) * (1 + BULGE * bulge(theta, y));
 }
 
@@ -90,17 +100,37 @@ export function plinthWallRadius(footprintRadius: number, height: number, theta:
  * With `braces` the plinth hangs over a drop somewhere: its bottom gets a
  * face, seen from below there, and the braces go under it. Each face of a
  * brace has vertices of its own, so its edges stay hard.
+ *
+ * `groundAt` gives the ground (local y, null: unknown) at a point of the
+ * wall's foot (local x, z): where it lies lower than the flat bottom, by up
+ * to PLINTH_SKIRT_M, the wall reaches down into it there.
  */
 export function createPlinthGeometry(
   footprintRadius: number,
   height: number,
   braces: readonly PlinthBrace[] = [],
+  groundAt?: (x: number, z: number) => number | null,
 ): BufferGeometry {
   const topRadius = footprintRadius + PLINTH_RIM_M;
   const bottomY = -PLINTH_EMBED_M;
-  const wallHeight = height - bottomY;
 
   const segments = Math.max(16, Math.ceil((2 * Math.PI * topRadius) / SEGMENT_M));
+  // The wall's foot per segment: the flat bottom, or lower where the ground beside it is
+  const foot = Array.from({ length: segments }, (_, i) => {
+    if (!groundAt) return bottomY;
+    const theta = (i / segments) * Math.PI * 2;
+    // Twice: lower down the wall leans out further, the ground there is asked again
+    let y = bottomY;
+    for (let pass = 0; pass < 2; pass++) {
+      const r = plinthWallRadius(footprintRadius, height, theta, y);
+      const ground = groundAt(Math.cos(theta) * r, Math.sin(theta) * r);
+      if (ground === null) return bottomY;
+      y = ground - PLINTH_EMBED_M;
+      if (y >= bottomY || y < bottomY - PLINTH_SKIRT_M) return bottomY;
+    }
+    return y;
+  });
+  const wallHeight = height - Math.min(...foot);
   const rows = Math.max(2, Math.ceil(wallHeight / SEGMENT_M));
 
   const positions: number[] = [];
@@ -113,8 +143,8 @@ export function createPlinthGeometry(
   // Wall: rows + 1 rings from the bottom up, `segments` vertices each, the
   // last one joined to the first.
   for (let j = 0; j <= rows; j++) {
-    const y = bottomY + (wallHeight * j) / rows;
     for (let i = 0; i < segments; i++) {
+      const y = foot[i] + ((height - foot[i]) * j) / rows;
       positions.push(...ringPoint((i / segments) * Math.PI * 2, y));
     }
   }

@@ -156,7 +156,8 @@ export function buildHarborTown(): CustomMapDocument {
   k.lifeSettings({ flags: true, ambience: { sound: 'city', volume: 0.4 }, waveSound: { sound: 'ship-horn', volume: 0.7, area: bay } });
 
   k.trimLayers(7);
-  // Dusk over the bay: the lamps come on in the streets, the sea catches the last light
-  k.environment({ biome: 'city', sky: 'dusk', sunAzimuth: 250, sunElevation: 20, fogDensity: 0.0008, tint: '#ffe2c8' });
+  // Night over the bay: the windows and the street lamps lit, their light on the water, the lighthouse turning; a cool
+  // moonlight keeps the streets and the quay readable from the game's camera
+  k.environment({ biome: 'city', sky: 'night', sunAzimuth: 250, sunElevation: 40, fogDensity: 0.0006, tint: '#ffffff', moonlight: 1 });
   return k.finish();
 }

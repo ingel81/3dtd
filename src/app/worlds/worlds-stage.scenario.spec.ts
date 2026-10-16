@@ -1,0 +1,295 @@
+/**
+ * The start of the game on the globes (docs/WORLDS_NAVIGATION_PLAN.md,
+ * phase 6): nothing loads until Start; without a map key the real places'
+ * globe is grey and the way to the key stands beside it, its world menu
+ * still lists the places and says why Start is locked; Esc goes one step
+ * up; a map picked plays with the Start order; an autosave is Continue at
+ * the top and a start elsewhere in its world asks first. Real template read
+ * from disk, globes off (the discs), the overlays and the session stand in.
+ */
+// The component is partially compiled and needs the JIT compiler
+import '@angular/compiler';
+import { WorldPathComponent } from '../components/world-path/world-path.component';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { Component, Input, computed, input, output, signal } from '@angular/core';
+import { getTestBed, TestBed, type ComponentFixture } from '@angular/core/testing';
+import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
+import { MatDialog } from '@angular/material/dialog';
+import { ConfigService } from '../core/services/config.service';
+import { GlobeDirectorService } from '../services/world/globe-director.service';
+import { GeocodingService } from '../services/location/geocoding.service';
+import { WorldDiceService } from '../services/location/world-dice.service';
+import { LocationManagementService } from '../services/location/location-management.service';
+import { BestWaveService } from '../services/location/best-wave.service';
+import { AUTOSAVE_SLOT } from '../services/save-game/save-game.port';
+import type { SaveSlotStore, StoredSlotMeta } from '../services/save-game/save-slot.store';
+import { CUSTOM_MAPS_OPEN } from '../world/custom-maps-open';
+import type { MapSummary } from '../world/custom-map/map-store';
+import { WorldChoiceService } from '../world/world-choice.service';
+import { WorldSession } from '../world/world-session.service';
+import { PLAIN_START, WorldStartService, type WorldStart } from '../world/world-start';
+import { SettingsSectionsComponent } from '../components/main-menu/pages/settings/settings-sections.component';
+import { ExtrasListComponent } from '../components/main-menu/pages/extras/extras-list.component';
+import { SaveSlotsComponent } from '../components/main-menu/pages/save-load/save-slots.component';
+import { TokenSetupComponent } from '../components/token-setup/token-setup.component';
+import { TdIconComponent } from '../components/icon/icon.component';
+import { RovingGroupDirective } from '../components/roving-group.directive';
+import { AddressAutocompleteComponent } from '../components/address-autocomplete.component';
+import { StageCoopComponent } from './stage-coop.component';
+import { STAGE_SLOT_STORE } from './stage-saves';
+import { WorldMapsComponent } from './world-maps.component';
+import { WorldOsmComponent } from './world-osm.component';
+import { WorldRealComponent } from './world-real.component';
+import { WorldsStageComponent } from './worlds-stage.component';
+import { WorldsStageService } from './worlds-stage.service';
+
+const template = readFileSync(resolve('src/app/worlds/worlds-stage.component.html'), 'utf8');
+
+@Component({ selector: 'td-icon', standalone: true, template: '' })
+class IconStub {
+  readonly name = input('');
+  readonly size = input(16);
+}
+for (const name of ['name', 'size']) Input({ alias: name, isSignal: true } as Input)(IconStub.prototype, name);
+
+@Component({ selector: 'td-token-setup', standalone: true, template: '<p class="token-stub">Map key</p>' })
+class TokenStub {
+  readonly fromWorlds = input(false);
+  readonly tokenSaved = output<void>();
+}
+for (const name of ['fromWorlds']) Input({ alias: name, isSignal: true } as Input)(TokenStub.prototype, name);
+
+@Component({ selector: 'app-td-address-autocomplete', standalone: true, template: '' })
+class SearchStub {}
+@Component({ selector: 'app-osm-frame', standalone: true, template: '' })
+class FrameStub {
+  readonly place = input<unknown>(null);
+  readonly spawnsAt = input<unknown>([]);
+  readonly back = output<void>();
+  readonly done = output<unknown>();
+}
+for (const name of ['place', 'spawnsAt']) Input({ alias: name, isSignal: true } as Input)(FrameStub.prototype, name);
+@Component({ selector: 'app-settings-sections', standalone: true, template: '' })
+class SettingsStub {}
+@Component({ selector: 'app-extras-list', standalone: true, template: '' })
+class ExtrasStub {}
+@Component({ selector: 'app-save-slots', standalone: true, template: '' })
+class SlotsStub {
+  readonly mode = input('load');
+}
+for (const name of ['mode']) Input({ alias: name, isSignal: true } as Input)(SlotsStub.prototype, name);
+// The shared path bar (components/world-path) as the JIT transform would annotate it
+for (const name of ['world', 'worldHere', 'mode', 'modes', 'playLabel', 'editLabel', 'playWhy', 'editWhy', 'playHint', 'editHint', 'worldsHint', 'worldHint', 'chips']) {
+  Input({ alias: name, isSignal: true } as Input)(WorldPathComponent.prototype, name);
+}
+
+const summary = (s: Partial<MapSummary> & { id: string; name: string }): MapSummary => ({
+  author: '', description: '', width: 0, depth: 0, updatedAt: '', origin: 'shipped', contentHash: '', objects: 0, spawns: 2, ...s,
+});
+
+class MemoryStore implements SaveSlotStore {
+  constructor(private readonly slots: StoredSlotMeta[]) {}
+  async list(): Promise<StoredSlotMeta[]> {
+    return this.slots;
+  }
+  async read(): Promise<string | null> {
+    return null;
+  }
+  async write(): Promise<boolean> {
+    return true;
+  }
+  async remove(): Promise<void> {
+    // Nothing kept
+  }
+}
+
+describe('Worlds stage', () => {
+  let opened: WorldStart[];
+  let session: { isOpen: ReturnType<typeof signal<boolean>>; open: (order: WorldStart) => void; close: ReturnType<typeof vi.fn> };
+  let config: { cesiumIonToken: ReturnType<typeof signal<string>>; needsCredentials: () => boolean; setupRequested: ReturnType<typeof signal<boolean>> };
+
+  beforeAll(() => {
+    try {
+      getTestBed().initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
+    } catch {
+      // Another spec of this worker set it up
+    }
+  });
+
+  afterEach(() => {
+    TestBed.resetTestingModule();
+    localStorage.clear();
+  });
+
+  async function open(setup: { key?: boolean; slots?: StoredSlotMeta[] } = {}): Promise<ComponentFixture<WorldsStageComponent>> {
+    opened = [];
+    session = { isOpen: signal(false), open: (order) => opened.push(order), close: vi.fn() };
+    const token = signal(setup.key ? 'ion-token' : '');
+    config = { cesiumIonToken: token, needsCredentials: computed(() => !token()), setupRequested: signal(false) };
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: WorldSession, useValue: session },
+        { provide: WorldStartService, useValue: { current: () => PLAIN_START } },
+        { provide: ConfigService, useValue: config },
+        { provide: CUSTOM_MAPS_OPEN, useValue: true },
+        { provide: STAGE_SLOT_STORE, useValue: new MemoryStore(setup.slots ?? []) },
+        { provide: MatDialog, useValue: { openDialogs: [] } },
+        // The menu globe is off: the squares show discs, no WebGL in the spec
+        { provide: GlobeDirectorService, useValue: { setting: signal('off') } },
+        { provide: GeocodingService, useValue: { reverseGeocodeDetailed: async () => null } },
+        { provide: WorldDiceService, useValue: { rollRandomCity: async () => null } },
+        { provide: LocationManagementService, useValue: { recents: signal([]), favorites: signal([]) } },
+        { provide: BestWaveService, useValue: { records: signal([]) } },
+        {
+          provide: WorldChoiceService,
+          useValue: {
+            listMaps: async () => ({ own: [], shared: [], shipped: [{ summary: summary({ id: 'demo-valley', name: 'Demo Valley', description: 'River valley.' }), picture: null }] }),
+            tilesets: signal([]),
+            editMap: vi.fn(),
+          },
+        },
+      ],
+    });
+    TestBed.overrideComponent(WorldsStageComponent, {
+      set: {
+        template,
+        templateUrl: undefined,
+        styleUrl: undefined,
+        styles: [],
+        imports: [IconStub, RovingGroupDirective, TokenStub, SettingsStub, ExtrasStub, SlotsStub, StageCoopComponent, WorldRealComponent, WorldOsmComponent, WorldMapsComponent, WorldPathComponent],
+      },
+    });
+    TestBed.overrideComponent(WorldsStageComponent, { remove: { imports: [TdIconComponent, SettingsSectionsComponent, ExtrasListComponent, SaveSlotsComponent, TokenSetupComponent] } });
+    for (const world of [WorldRealComponent, WorldOsmComponent, WorldMapsComponent]) {
+      TestBed.overrideComponent(world, { set: { styleUrl: undefined, styles: [] } });
+    }
+    TestBed.overrideComponent(WorldRealComponent, { set: { imports: [IconStub, SearchStub, RovingGroupDirective] } });
+    TestBed.overrideComponent(WorldRealComponent, { remove: { imports: [AddressAutocompleteComponent, TdIconComponent] } });
+    TestBed.overrideComponent(WorldMapsComponent, { set: { imports: [IconStub] } });
+    TestBed.overrideComponent(WorldOsmComponent, { set: { imports: [IconStub, SearchStub, FrameStub] } });
+    const fixture = TestBed.createComponent(WorldsStageComponent);
+    await settle(fixture);
+    return fixture;
+  }
+
+  async function settle(fixture: ComponentFixture<unknown>): Promise<void> {
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await new Promise((r) => setTimeout(r, 0));
+    fixture.detectChanges();
+  }
+
+  const el = (f: ComponentFixture<unknown>) => f.nativeElement as HTMLElement;
+  /** The words of a node, its text pieces apart as they show (the template drops the space between tags) */
+  const text = (node: Element | null): string => {
+    if (!node) return '';
+    const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+    const parts: string[] = [];
+    for (let t = walker.nextNode(); t; t = walker.nextNode()) parts.push(t.textContent ?? '');
+    return parts.join(' ').replace(/\s+/g, ' ').replace(/ ([.,])/g, '$1').trim();
+  };
+  const card = (f: ComponentFixture<unknown>, world: string) => el(f).querySelector<HTMLElement>(`.ws-card[data-world="${world}"]`)!;
+  const button = (f: ComponentFixture<unknown>, label: string | RegExp) =>
+    [...el(f).querySelectorAll<HTMLElement>('button')].find((b) => (typeof label === 'string' ? text(b) === label : label.test(text(b))))!;
+  const esc = () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+  it('without a map key: the real places stand grey with the way to the key, nothing loads', async () => {
+    const f = await open();
+    expect(card(f, 'real').querySelector('.td-world-disc')!.classList).toContain('is-grey');
+    expect(card(f, 'maps').querySelector('.td-world-disc')!.classList).not.toContain('is-grey');
+    expect(text(card(f, 'real'))).toContain('No map key: the 3D tiles need a Cesium Ion token or a Google Maps key');
+    expect(text(el(f).querySelector('.ws-hint'))).toBe('Pick a world. Nothing loads until you start.');
+    // The first entry has the focus, as in the start menu
+    expect((document.activeElement as HTMLElement).dataset['entry']).toBe('coop');
+
+    button(f, 'Enter map key').click();
+    await settle(f);
+    expect(config.setupRequested()).toBe(true);
+    expect(el(f).querySelector('.token-stub')).not.toBeNull();
+    esc();
+    await settle(f);
+    expect(config.setupRequested()).toBe(false);
+    expect(el(f).querySelector('.token-stub')).toBeNull();
+    expect(opened).toEqual([]);
+  });
+
+  it('without a map key the real places\' menu lists places, Start says why and leads to the key; Esc goes back up', async () => {
+    const f = await open();
+    card(f, 'real').click();
+    await settle(f);
+    expect(text(el(f).querySelector('.ws-panel .td-dlg-title'))).toBe('Real places');
+    expect(text(el(f).querySelector('.ws-panel .td-banner'))).toContain('No map key');
+    // An empty Recent list starts on the showcase; a row picks, the path names it
+    const row = el(f).querySelector<HTMLElement>('.wm-body .td-row')!;
+    row.click();
+    await settle(f);
+    expect(text(el(f).querySelector('.ws-path'))).toBe('Worlds › Real places › New York Start Make map');
+    const start = el(f).querySelector<HTMLElement>('[data-stage-start]')!;
+    expect(start.getAttribute('aria-disabled')).toBe('true');
+    expect(text(el(f).querySelector('.wm-detail .td-note.is-warn'))).toBe('Needs a map key (Cesium Ion or Google). Enter map key');
+    start.click();
+    await settle(f);
+    expect(opened).toEqual([]);
+    el(f).querySelector<HTMLElement>('.wm-detail .td-link')!.click();
+    await settle(f);
+    expect(config.setupRequested()).toBe(true);
+
+    // Esc: the key screen, then the world menu, then on the globes nothing
+    esc();
+    await settle(f);
+    expect(el(f).querySelector('.ws-panel')).not.toBeNull();
+    esc();
+    await settle(f);
+    expect(el(f).querySelector('.ws-panel')).toBeNull();
+    expect(el(f).querySelector('.ws-cards')).not.toBeNull();
+    esc();
+    await settle(f);
+    expect(el(f).querySelector('.ws-cards')).not.toBeNull();
+  });
+
+  it('a map picked under Maps plays with the Start order: its world, played once it stands, named in the loading', async () => {
+    const f = await open();
+    card(f, 'maps').click();
+    await settle(f);
+    button(f, /^Demo Valley/).click();
+    await settle(f);
+    expect(text(el(f).querySelector('.wm-detail'))).toContain('River valley.');
+    el(f).querySelector<HTMLElement>('[data-stage-start]')!.click();
+    expect(opened).toHaveLength(1);
+    expect(opened[0]).toMatchObject({ world: { kind: 'custom-map', mapId: 'demo-valley' }, play: true, label: 'Demo Valley', resume: null });
+    expect(localStorage.getItem('td_last_world_v1')).toBe('"maps"');
+  });
+
+  it('an autosave is Continue at the top; a start at another place of its world asks first', async () => {
+    const slots: StoredSlotMeta[] = [{
+      id: AUTOSAVE_SLOT, name: 'Heilbronn, wave 12', wave: 12, location: 'Heilbronn, Germany', savedAt: '2026-10-16T08:00:00Z',
+      gameVersion: 'test', configHash: 'x', hq: { lat: 49.14, lon: 9.22 },
+    }];
+    const f = await open({ key: true, slots });
+    const first = el(f).querySelector<HTMLElement>('.ws-menu [role="menuitem"]')!;
+    expect(text(first)).toBe('Continue Heilbronn | wave 12');
+    expect(text(card(f, 'real'))).toContain('Heilbronn | wave 12 | autosave');
+    expect(card(f, 'real').classList).toContain('is-hero');
+
+    card(f, 'real').click();
+    await settle(f);
+    el(f).querySelector<HTMLElement>('.wm-body .td-row:not(:first-child)')!.click();
+    await settle(f);
+    el(f).querySelector<HTMLElement>('[data-stage-start]')!.click();
+    await settle(f);
+    expect(opened).toEqual([]);
+    expect(text(el(f).querySelector('.ws-confirm'))).toContain('Heilbronn | wave 12 waits in the autosave.');
+    button(f, 'Continue Heilbronn').click();
+    expect(opened[0]).toMatchObject({ world: null, resume: AUTOSAVE_SLOT, play: true, label: 'Heilbronn' });
+  });
+
+  it('a link only picks: its map stands chosen in its world, nothing loads', async () => {
+    TestBed.overrideProvider(WorldStartService, { useValue: { current: () => ({ ...PLAIN_START, world: { kind: 'custom-map', mapId: 'demo-valley', contentHash: '' } }) } });
+    const f = await open();
+    expect(TestBed.inject(WorldsStageService).view()).toBe('world');
+    expect(text(el(f).querySelector('.ws-path'))).toBe('Worlds › Maps › Demo Valley Play Edit');
+    expect(opened).toEqual([]);
+  });
+});

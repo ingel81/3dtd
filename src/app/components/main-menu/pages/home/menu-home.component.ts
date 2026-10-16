@@ -21,7 +21,8 @@ import { CUSTOM_MAPS_OPEN } from '../../../../world/custom-maps-open';
 
 /** An entry of the list */
 export type HomeEntryId =
-  | 'continue' | 'play' | 'new-game' | 'coop' | 'save' | 'load' | 'settings' | 'extras' | 'editor' | 'edit-map' | 'restart' | 'quit';
+  | 'continue' | 'play' | 'new-game' | 'coop' | 'save' | 'load' | 'settings' | 'extras' | 'editor' | 'edit-map' | 'restart'
+  | 'world-menu' | 'worlds' | 'quit';
 
 export interface HomeEntry {
   id: HomeEntryId;
@@ -34,6 +35,8 @@ export interface HomeEntry {
   loads: boolean;
   /** Shown but not yet open (the map editor before its release) */
   off?: boolean;
+  /** Why it is locked now (back to the worlds in a coop room): said under it, the entry stays */
+  why?: string | null;
 }
 
 /** The icon before each entry */
@@ -49,6 +52,8 @@ export const HOME_ENTRY_ICON: Record<HomeEntryId, TdIconName> = {
   editor: 'terrain',
   'edit-map': 'terrain',
   restart: 'refresh',
+  'world-menu': 'layers',
+  worlds: 'globe',
   quit: 'power',
 };
 
@@ -58,6 +63,7 @@ export type HomeConfirm =
   | { kind: 'restart' }
   | { kind: 'editor' }
   | { kind: 'edit-map' }
+  | { kind: 'leave-world'; to: 'world' | 'globes' }
   | { kind: 'quit' };
 
 const PAGE_OF: Partial<Record<HomeEntryId, MenuPage>> = {
@@ -155,6 +161,10 @@ export class MenuHomeComponent {
       if (menu.canChangePlace()) list.push(entry('new-game', 'New game', null, true));
       list.push(entry('coop', 'Coop', null, true));
       if (menu.editableMapId() !== null) list.push(entry('edit-map', menu.editMapLabel, null, true));
+      // Back to the worlds: the run waits in its autosave (docs/WORLDS_NAVIGATION_PLAN.md, 3.5)
+      const why = menu.leaveWhy();
+      list.push({ ...entry('world-menu', 'World menu', why ?? menu.worldMenuLabel(), true), why });
+      list.push({ ...entry('worlds', 'All worlds', why, true), why });
       if (menu.canRestart()) list.push(entry('restart', 'Restart here', null, true));
       if (menu.canQuit) list.push(entry('quit', 'Quit 3DTD', null, true));
       return list;
@@ -215,7 +225,7 @@ export class MenuHomeComponent {
   }
 
   activate(entry: HomeEntry): void {
-    if (entry.off) return;
+    if (entry.off || entry.why) return;
     this.status.set(null);
     if (entry.loads) this.chosen.set(entry.id);
     const page = PAGE_OF[entry.id];
@@ -242,6 +252,13 @@ export class MenuHomeComponent {
         if (this.menu.underWay() || this.menu.inCoop()) this.ask({ kind: 'edit-map' });
         else void this.menu.editThisMap();
         return;
+      case 'world-menu':
+      case 'worlds': {
+        const to = entry.id === 'worlds' ? 'globes' : 'world';
+        if (this.menu.underWay()) this.ask({ kind: 'leave-world', to });
+        else this.menu.leaveTo(to);
+        return;
+      }
       case 'quit':
         if (this.menu.underWay() || this.menu.inCoop()) this.ask({ kind: 'quit' });
         else this.menu.quit();
@@ -276,14 +293,18 @@ export class MenuHomeComponent {
     else if (confirm.kind === 'restart') this.menu.restart();
     else if (confirm.kind === 'editor') void this.menu.openMapEditor();
     else if (confirm.kind === 'edit-map') void this.menu.editThisMap();
+    else if (confirm.kind === 'leave-world') this.menu.leaveTo(confirm.to);
     else this.menu.quit();
   }
 
   cancelConfirm(): void {
-    const kind = this.confirm()?.kind;
+    const confirm = this.confirm();
+    const kind = confirm?.kind;
     this.confirm.set(null);
     // Back on the entry that asked
-    const id: HomeEntryId = kind === 'leave' ? 'continue' : kind ?? 'continue';
+    const id: HomeEntryId = kind === 'leave' ? 'continue'
+      : kind === 'leave-world' ? (confirm?.kind === 'leave-world' && confirm.to === 'globes' ? 'worlds' : 'world-menu')
+      : kind ?? 'continue';
     afterNextRender(() => this.focusEntry(id), { injector: this.injector });
   }
 
@@ -350,6 +371,12 @@ export class MenuHomeComponent {
         return this.menu.fromEditor
           ? { question: 'Back to the editor? The test run ends.', yes: 'Back to editor' }
           : { question: `Edit this map? ${this.runWhenEditingText()}`, yes: 'Open in the editor' };
+      case 'leave-world': {
+        const wave = this.menu.autosavedWave();
+        return wave !== null
+          ? { question: `Leave the run? It waits in the autosave, before wave ${wave + 1}.`, yes: 'Leave' }
+          : { question: 'Leave the run? It has no autosave yet, so it ends.', yes: 'Leave' };
+      }
       case 'quit':
         return { question: 'Quit 3DTD? The run ends.', yes: 'Quit' };
     }

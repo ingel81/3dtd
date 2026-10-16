@@ -1,0 +1,179 @@
+<div class="ws-root td-world-bg" [class.is-real]="background() === 'real'" [class.is-osm]="background() === 'osm'"
+     [class.is-maps]="background() === 'maps'">
+  <!-- One canvas draws every globe into the squares the page holds for them -->
+  <canvas #globes class="ws-canvas" aria-hidden="true" [hidden]="globesOff()"></canvas>
+
+  <header class="ws-bar td-topbar">
+    <img class="ws-bar-logo" src="assets/images/logo/logo.svg" alt="3DTD" width="64" height="36">
+    <!-- The same path as over the game and the editor (components/world-path) -->
+    <app-world-path class="ws-path" [world]="view() === 'world' ? names[world()] : null" [worldHere]="!pickName()"
+                    [modes]="view() === 'world' && !!pick()" [playLabel]="playLabel()" [editLabel]="editLabel()"
+                    [playWhy]="playWhy()" [editWhy]="editWhy()" worldHint="This world's menu" (go)="onPath($event)">
+      @if (view() === 'world' && pickName(); as name) {
+        <span class="ws-crumb is-here" aria-current="page">{{ name }}</span>
+      }
+    </app-world-path>
+    <span class="ws-bar-gap"></span>
+    @for (run of stage.autosaves(); track run.slotId) {
+      <button type="button" class="td-stone-chip ws-chip" [attr.aria-disabled]="stage.whyNot('play', run.world) ? true : null"
+              [attr.title]="stage.whyNot('play', run.world) ?? 'Continue from the autosave'" (click)="stage.continueRun(run)">{{ runLine(run) }}</button>
+    }
+    <button type="button" class="td-tool" aria-label="Settings" title="Settings" (click)="stage.openOverlay('settings')">
+      <td-icon name="cog" [size]="18" />
+    </button>
+  </header>
+
+  @if (view() === 'globes') {
+    <div class="ws-globes">
+      <div class="ws-col">
+        <img class="ws-logo" src="assets/images/logo/logo.svg" alt="3DTD" width="480" height="272">
+        <p class="ws-tagline td-caps">Tower defense on real streets</p>
+        <nav class="ws-menu td-panel" aria-label="Main menu">
+          <div class="td-menu" role="menu" aria-label="Menu" aria-orientation="vertical" tdRovingGroup>
+            @for (item of startItems(); track item.id) {
+              @if (item.rule) {
+                <div class="td-menu-rule" role="separator"></div>
+              }
+              <button type="button" role="menuitem" class="td-menu-item" [attr.data-entry]="item.id"
+                      [attr.aria-disabled]="item.why ? true : null" [attr.title]="item.why" (click)="activate(item)">
+                <td-icon [name]="item.icon" [size]="18" />
+                <span class="ws-item">
+                  <span>{{ item.label }}</span>
+                  @if (item.why ?? item.sub; as line) {
+                    <small>{{ line }}</small>
+                  }
+                </span>
+              </button>
+            }
+          </div>
+        </nav>
+      </div>
+
+      <div class="ws-stagearea">
+        <div class="ws-cards" role="group" aria-label="Worlds">
+          @for (w of worldIds; track w) {
+            <button type="button" class="ws-card" [class.is-hero]="stage.hero() === w" [attr.data-world]="w"
+                    [attr.aria-label]="names[w] + (lock(w) ? ', ' + lock(w) : '')" (click)="stage.openWorld(w)">
+              <span class="ws-slot" [attr.data-globe]="w">
+                @if (globesOff()) {
+                  <span class="ws-disc td-world-disc" [class.is-osm]="w === 'osm'" [class.is-maps]="w === 'maps'" [class.is-grey]="!!lock(w)"></span>
+                }
+              </span>
+              <span class="ws-card-name">{{ names[w] }}</span>
+              <span class="td-note ws-card-sub">{{ cardSub(w) }}</span>
+              @if (lock(w); as why) {
+                <span class="td-note is-warn ws-card-line">{{ why === 'No map key' ? 'No map key: the 3D tiles need a Cesium Ion token or a Google Maps key' : why + ' in this build' }}</span>
+              } @else if (stage.autosaveOf(w); as run) {
+                <span class="td-note ws-card-line">{{ runLine(run) }}</span>
+              }
+            </button>
+          }
+        </div>
+        @if (lock('real') === 'No map key') {
+          <div class="ws-key td-actions">
+            <button type="button" class="td-btn-secondary td-btn-sm" (click)="stage.openOverlay('key')">Enter map key</button>
+          </div>
+        }
+        <p class="td-note ws-hint">Pick a world. Nothing loads until you start.</p>
+      </div>
+    </div>
+  } @else {
+    <div class="ws-world">
+      <section class="ws-panel td-panel" [attr.aria-label]="names[world()]">
+        <header class="td-dlg-head ws-panel-head">
+          <h2 class="td-dlg-title">{{ world() === 'osm' && stage.frame() ? stage.frame()!.place.name : names[world()] }}</h2>
+          <button type="button" class="td-btn-secondary td-btn-sm ws-back" (click)="stage.back()">
+            <td-icon name="caretL" [size]="12" />
+            <span>{{ world() === 'osm' && stage.frame() ? 'Back' : 'Worlds' }}</span>
+            <kbd class="td-kbd">Esc</kbd>
+          </button>
+        </header>
+        @switch (world()) {
+          @case ('real') { <app-world-real class="ws-content" /> }
+          @case ('osm') { <app-world-osm class="ws-content" /> }
+          @case ('maps') { <app-world-maps class="ws-content" /> }
+        }
+        <nav class="ws-more td-line-top" aria-label="More">
+          <button type="button" class="td-btn-ghost td-btn-sm" (click)="stage.openOverlay('coop')"><td-icon name="users" [size]="14" /><span>Coop</span></button>
+          <button type="button" class="td-btn-ghost td-btn-sm" (click)="stage.openOverlay('load')"><td-icon name="filing" [size]="14" /><span>Load game</span></button>
+          <button type="button" class="td-btn-ghost td-btn-sm" (click)="stage.openOverlay('settings')"><td-icon name="cog" [size]="14" /><span>Settings</span></button>
+          <button type="button" class="td-btn-ghost td-btn-sm" (click)="stage.openOverlay('extras')"><td-icon name="manual" [size]="14" /><span>Extras</span></button>
+        </nav>
+      </section>
+
+      <div class="ws-big">
+        <span class="ws-slot is-big" [attr.data-globe]="world()" data-globe-mark>
+          @if (globesOff()) {
+            <span class="ws-disc td-world-disc" [class.is-osm]="world() === 'osm'" [class.is-maps]="world() === 'maps'" [class.is-grey]="!!lock(world())"></span>
+          }
+        </span>
+      </div>
+
+      <nav class="ws-switch" aria-label="Other worlds">
+        @for (w of otherWorlds(); track w) {
+          <button type="button" class="td-btn-secondary ws-mini" (click)="stage.openWorld(w)">
+            <span class="ws-slot is-mini" [attr.data-globe]="w">
+              @if (globesOff()) {
+                <span class="ws-disc td-world-disc" [class.is-osm]="w === 'osm'" [class.is-maps]="w === 'maps'" [class.is-grey]="!!lock(w)"></span>
+              }
+            </span>
+            <span class="ws-mini-text">
+              <span>{{ names[w] }}</span>
+              <small class="td-note" [class.is-warn]="!!lock(w)">{{ miniSub(w) }}</small>
+            </span>
+          </button>
+        }
+        <button type="button" class="td-btn-secondary ws-mini is-all" (click)="stage.toGlobes()">
+          <td-icon name="globe" [size]="16" /><span>All worlds</span>
+        </button>
+      </nav>
+    </div>
+  }
+
+  <!-- The pick's place on the big globe, moved by StageGlobes -->
+  <span class="td-globe-mark is-target ws-mark" data-mark aria-hidden="true" [hidden]="!markName() || globesOff()"><i></i>{{ markName() }}</span>
+
+  @if (stage.overlay(); as overlay) {
+    @if (overlay === 'key') {
+      <td-token-setup [fromWorlds]="true" (tokenSaved)="closeOverlay()" />
+    } @else {
+      <div class="ws-overlay td-backdrop">
+        <section class="ws-dlg td-dlg" role="dialog" aria-modal="true" aria-labelledby="ws-dlg-title" cdkTrapFocus [cdkTrapFocusAutoCapture]="true">
+          <header class="td-dlg-head">
+            <h2 class="td-dlg-title" id="ws-dlg-title">{{ overlayTitles[overlay] }}</h2>
+            <button type="button" class="td-close" aria-label="Back (Esc)" (click)="closeOverlay()">
+              <td-icon name="close" [size]="12" />
+            </button>
+          </header>
+          <div class="td-dlg-body">
+            @switch (overlay) {
+              @case ('settings') { <app-settings-sections /> }
+              @case ('extras') { <app-extras-list /> }
+              @case ('load') { <app-save-slots mode="load" /> }
+              @case ('coop') { <app-stage-coop /> }
+            }
+          </div>
+        </section>
+      </div>
+    }
+  }
+
+  @if (stage.confirm(); as confirm) {
+    <div class="ws-overlay td-backdrop">
+      <section class="ws-confirm td-dlg" role="alertdialog" aria-modal="true" aria-labelledby="ws-confirm-text" cdkTrapFocus [cdkTrapFocusAutoCapture]="true">
+        <div class="td-dlg-body">
+          <p class="td-text" id="ws-confirm-text">{{ confirm.text }}</p>
+          @if (confirm.note) {
+            <p class="td-note">{{ confirm.note }}</p>
+          }
+        </div>
+        <footer class="td-dlg-foot">
+          @for (answer of confirm.answers; track answer.label) {
+            <button type="button" [class]="answer.primary ? 'td-btn-primary' : 'td-btn-secondary'"
+                    (click)="stage.confirm.set(null); answer.run()">{{ answer.label }}</button>
+          }
+        </footer>
+      </section>
+    </div>
+  }
+</div>

@@ -27,6 +27,7 @@ import type { MapIntro, MapIntroView, MapObject, MapPoint } from '../../world/cu
 import { emptyPose, introPoseAt } from '../../world/custom-map/map-intro';
 import { type BridgeDeck, bridgeDecks, deckHeightAt } from '../../world/custom-map/bridge-decks';
 import { HeightField } from '../../world/custom-map/render/height-field';
+import { waterLevelAt } from '../../world/custom-map/water-level';
 import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
 import type { CatalogIndex } from '../catalog/asset-catalog';
 import { mergeChanges, selectedEdges, selectedNodes, selectedSpawns, type DocChange, type EditorDocument } from '../model/editor-document';
@@ -120,6 +121,12 @@ export class EditorViewport {
   private waterAt = 0;
   private waterWaiting = false;
   private routesDirty = true;
+  /**
+   * The view whose ground is in and programs built (warmUpView): frames draw
+   * only then, so a map opening shows the page's "Preparing the view" and a
+   * rebuilt view the last frame, not the terrain's green stand-in ground
+   */
+  private shownView: EditorMapView | null = null;
   /** The bridge decks of the map as it stands, laid again after a change (walkHeightAt) */
   private decks: BridgeDeck[] | null = null;
   /** The symmetry the guides show, and whether the ground under them moved */
@@ -214,6 +221,12 @@ export class EditorViewport {
 
   heightAt(x: number, y: number): number {
     return gridHeight(this.editor.doc.terrain, x, y);
+  }
+
+  /** The water's surface where water lies, else the ground: what the camera keeps above (CustomMapSurface.surfaceAtMap) */
+  private surfaceAt(x: number, y: number): number {
+    const ground = this.heightAt(x, y);
+    return waterLevelAt(this.editor.doc.terrain, x, y, ground) ?? ground;
   }
 
   /**
@@ -317,8 +330,8 @@ export class EditorViewport {
       return false;
     }
     const pose = introPoseAt(p.intro, p.hq, p.t, this.introPose);
-    // As the game keeps it (CustomMapWorld.introShot): never under the ground
-    const floor = this.heightAt(pose.x, pose.y) + 3;
+    // As the game keeps it (CustomMapWorld.introShot): never under the ground or the water
+    const floor = this.surfaceAt(pose.x, pose.y) + 3;
     this.camera.position.set(-pose.x, Math.max(floor, pose.h), pose.y);
     this.camera.up.set(0, 1, 0);
     this.camera.lookAt(-pose.lookX, pose.lookH, pose.lookY);
@@ -471,6 +484,7 @@ export class EditorViewport {
     try {
       await view.warmUp(this.renderer, this.scene, this.camera);
       if (this.disposed || view !== this.view) return;
+      this.shownView = view;
       this.callbacks.viewReady();
       await idle(2000);
       if (this.disposed || view !== this.view) return;
@@ -487,7 +501,8 @@ export class EditorViewport {
       // What was compiled ahead does its first-use work now, not in the frame of a click that first draws it
       await firstUsePrograms(this.renderer, () => this.disposed || view !== this.view);
     } catch {
-      // A view replaced or lost while compiling
+      // A view replaced or lost while compiling; a view still current draws as it is
+      if (!this.disposed && view === this.view) this.shownView = view;
     } finally {
       topDownWarm();
     }
@@ -997,6 +1012,8 @@ export class EditorViewport {
     this.canvas.style.height = `${h}px`;
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    // The resize cleared the drawing buffer after this frame's draw: drawn again, else the browser shows it black
+    if (this.shownView === this.view) this.renderer.render(this.scene, this.camera);
   }
 
   private applyWater(): void {
@@ -1103,7 +1120,8 @@ export class EditorViewport {
     const g = this.controller.goal.target;
     g.x = Math.max(-t.width / 2, Math.min(t.width / 2, g.x));
     g.z = Math.max(-t.depth / 2, Math.min(t.depth / 2, g.z));
-    this.controller.setGroundHeight(this.heightAt(-g.x, g.z));
+    // On the water's surface over a lake or the sea, so a close view stays above it, not under it on the bed
+    this.controller.setGroundHeight(this.surfaceAt(-g.x, g.z));
     if (this.controller.update(dt)) this.callbacks.camera();
     if (!this.playIntroPreview(dt)) this.controller.apply(this.camera);
     // The map's haze starts behind what the camera looks at: from afar the whole map stays readable
@@ -1137,7 +1155,7 @@ export class EditorViewport {
     this.view.update(dt, this.camera, this.controller.current.target);
     this.hearAmbience(dt);
     this.trial.update(dt);
-    this.renderer.render(this.scene, this.camera);
+    if (this.shownView === this.view) this.renderer.render(this.scene, this.camera);
 
     this.reportHover(time, tp?.hit ?? null);
     this.reportStats(time);

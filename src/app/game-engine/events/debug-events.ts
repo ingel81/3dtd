@@ -64,7 +64,7 @@ export type DebugEvent =
     }
   | {
       // The next wave to start is `wave`, the ones before it are skipped.
-      // Between waves only, see GameStateManager.jumpToWave.
+      // Between waves; asked for during a wave it waits for its end, see GameStateManager.jumpToWave.
       type: 'debug:jump-to-wave';
       wave: number;
       /** Pay what the skipped waves would have paid, see skippedWavesGold */

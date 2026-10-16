@@ -108,7 +108,7 @@ describe('Map picker of New game', () => {
   it('plays a map on Play, and the one played now says so', async () => {
     const f = await open({ current: 'demo-valley' });
     [...row(f, 'data-map="bay"').querySelectorAll('button')].find((b) => b.textContent!.trim() === 'Play')!.click();
-    expect(worlds.playMap).toHaveBeenCalledWith('bay');
+    expect(worlds.playMap).toHaveBeenCalledWith('bay', 'My bay');
     const playing = row(f, 'data-map="demo-valley"');
     expect([...playing.querySelectorAll('button')].map((b) => b.textContent!.trim())).toEqual(['Edit']);
     expect(line(playing)).toContain('Playing');

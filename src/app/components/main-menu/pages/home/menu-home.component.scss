@@ -68,3 +68,26 @@
 .mh-confirm p {
   margin: 0;
 }
+
+/* The loading of a Start: what loads, the bar, Cancel */
+.mh-start {
+  display: flex;
+  flex-direction: column;
+  gap: var(--td-sp-2);
+  padding: 4px 6px;
+
+  p {
+    margin: 0;
+  }
+}
+
+.mh-start-title {
+  margin: 0;
+  font-size: var(--td-fs-title);
+  font-weight: 700;
+  color: var(--td-text-title);
+}
+
+.mh-start .mh-bar {
+  width: 100%;
+}

@@ -69,7 +69,7 @@ export class MapPickerComponent implements OnInit {
   }
 
   play(m: MapSummary): void {
-    this.worlds.playMap(m.id);
+    this.worlds.playMap(m.id, m.name);
   }
 
   playTileset(t: OwnTileset): void {

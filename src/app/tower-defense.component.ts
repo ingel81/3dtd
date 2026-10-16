@@ -347,10 +347,13 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     };
   });
 
-  /** A step of the path: the menu (all worlds, this world's New game), the editor (Edit, its chip) */
+  /** A step of the path: the globes or this world's menu (the pause menu asks for a run), the editor (Edit, its chip) */
   onPath(action: PathAction): void {
-    if (action === 'worlds') this.mainMenu.open();
-    else if (action === 'world') this.mainMenu.open('new-game');
+    // To the globes, or this world's menu there; a run under way asks first in the pause menu (All worlds)
+    if (action === 'worlds' || action === 'world') {
+      if (this.mainMenu.underWay() || this.mainMenu.leaveWhy()) this.mainMenu.open();
+      else this.mainMenu.leaveTo(action === 'worlds' ? 'globes' : 'world');
+    }
     else if (action === 'edit') this.editFromPath();
     else if (action !== 'play' && action.chip === 'editor') void this.mainMenu.openMapEditor();
   }

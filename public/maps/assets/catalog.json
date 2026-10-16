@@ -1992,7 +1992,7 @@
         }
       },
       "scale": 8,
-      "average": "#252525",
+      "average": "#484848",
       "tags": [
         "moon"
       ],
@@ -3110,6 +3110,29 @@
         "hell"
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/dark_rock"
+    },
+    {
+      "id": "bridge-deck-concrete",
+      "name": "Bridge piece (concrete, railing)",
+      "category": "prop",
+      "file": "models/bridge-deck-concrete.glb",
+      "triangles": 332,
+      "footprint": 2.0,
+      "height": 1.1,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city",
+        "wasteland"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/asphalt_02; https://polyhaven.com/a/brushed_concrete"
     },
     {
       "id": "tree-oak-autumn",
