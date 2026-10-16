@@ -37,6 +37,7 @@ import { SCENES as GAME } from './scenes/game.mjs';
 import { SCENES as OUTRO } from './scenes/outro.mjs';
 import { FIXTURES as PROOF_FIXTURES, SCENES as PROOF } from './scenes/proof.mjs';
 // Round 4 (tmp/showreel/DREHBUCH_R4.md): each chapter's scenes as takes of their own
+import { SCENES as R4_K0 } from './scenes/r4-k0.mjs';
 import { SCENES as R4_K4 } from './scenes/r4-k4.mjs';
 import { FIXTURES as R4_K5_FIXTURES, SCENES as R4_K5 } from './scenes/r4-k5.mjs';
 import { FIXTURES as R4_K7_FIXTURES, SCENES as R4_K7 } from './scenes/r4-k7.mjs';
@@ -45,7 +46,7 @@ import { FIXTURES as R4_K7_FIXTURES, SCENES as R4_K7 } from './scenes/r4-k7.mjs'
 export const SCENES = [...INTRO, ...EDITOR, ...EDITOR2, ...W3X, ...WORLDS, ...GAME, ...OUTRO];
 
 /** Scenes taken on their own only (run.mjs --scene), not part of the programme's run */
-export const TAKES = [...PROOF, ...R4_K4, ...R4_K5, ...R4_K7];
+export const TAKES = [...PROOF, ...R4_K0, ...R4_K4, ...R4_K5, ...R4_K7];
 
 /** The generated start states of the takes, made in this order by fixtures.mjs (a later one may start from an earlier) */
 export const FIXTURES = [...PROOF_FIXTURES, ...R4_K5_FIXTURES, ...R4_K7_FIXTURES];

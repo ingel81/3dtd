@@ -24,8 +24,13 @@ export interface StageSlot {
 
 /** How much of its square a globe fills, the earth's air included */
 const FILL = 0.86;
-/** The sun stands this far west of the middle of each globe: the night side with its lights on the right */
+/** The sun stands this far west of the middle of each styled globe: lit from the left, shaded on the right */
 const SUN_WEST = 58;
+/**
+ * The real Earth's sun stands further west: the dusk line runs just right of the middle, so about a third of the
+ * disc is night with its city lights (the lights come on past the dusk, which a sun at SUN_WEST left to a rim)
+ */
+const EARTH_SUN_WEST = 82;
 const SUN_LAT = 14;
 /** Cloud drift, texture widths per second (as the menu globe) */
 const CLOUD_DRIFT = 1 / 2400;
@@ -110,7 +115,7 @@ export class GlobeStage {
     view.setShift(0);
     view.setPose(this.pose.position, this.pose.target.set(0, 0, 0), this.pose.up);
     // The sun of the stage, not of the hour: day on the left, the night with its lights on the right
-    view.setSky({ lat: SUN_LAT, lon: slot.center.lon - SUN_WEST }, date, ((date.getTime() / 1000) * CLOUD_DRIFT) % 1);
+    view.setSky({ lat: SUN_LAT, lon: slot.center.lon - EARTH_SUN_WEST }, date, ((date.getTime() / 1000) * CLOUD_DRIFT) % 1);
     view.setSaturation(slot.saturation);
     view.render();
     if (!slot.mark) return null;

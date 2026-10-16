@@ -1,13 +1,13 @@
 /**
  * What the director needs of a page: the map, the camera and the page's own
- * actions. The game (`?world=map:<id>`) and the editor (`/editor`) each have
- * one.
+ * actions. The game (`?world=map:<id>`), the editor (`/editor`) and the
+ * world menu (the globes) each have one.
  */
 import type { CameraPose, MapPoint3 } from './camera-path';
 import type { ScreenPoint } from './pointer';
 
 export interface Stage {
-  readonly kind: 'game' | 'editor';
+  readonly kind: 'game' | 'editor' | 'menu';
   /** Whether the map shows and takes input */
   ready(): boolean;
   /** The open map's extent (m), null while none is open */
