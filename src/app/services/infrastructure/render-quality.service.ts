@@ -7,6 +7,7 @@ import {
 } from '../../three-engine/render-quality';
 import type { WorldRef } from '../../world/world-ref';
 import { IntroCameraFlightService } from '../world/intro-camera-flight.service';
+import { pageQuery } from '../../core/page-switches';
 
 /**
  * Auto's first measurement: how long it waits after the world stood, GPU
@@ -55,7 +56,7 @@ function probeGpuName(): string {
 export class RenderQualityService {
   private readonly stored = signal<StoredQuality>(readStoredQuality());
   /** This load's level from the URL, not stored */
-  private readonly override = typeof location === 'undefined' ? null : qualityFromSearch(location.search);
+  private readonly override = qualityFromSearch(pageQuery());
   private gpuName: string | null = null;
   private engine: { engine: ThreeTilesEngine; world: QualityWorld } | null = null;
   private measuring = false;

@@ -5,7 +5,7 @@ import { PathAndRouteService } from '../world/path-route.service';
 import { LocationManagementService } from '../location/location-management.service';
 import { HeightUpdateService } from '../world/height-update.service';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
-import { UrlLocationService } from '../location/url-location.service';
+import { WorldStartService } from '../../world/world-start';
 import { WorldContext } from '../../world/world-context.service';
 import { worldLabel } from '../../world/world-ref';
 import { RouteAnimationService } from '../world/route-animation.service';
@@ -81,7 +81,7 @@ export class LocationFacadeService {
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly heightUpdate = inject(HeightUpdateService);
   private readonly engineInit = inject(EngineInitializationService);
-  private readonly urlLocation = inject(UrlLocationService);
+  private readonly start = inject(WorldStartService);
   private readonly worldContext = inject(WorldContext);
   private readonly uiStore = inject(UIStore);
   private readonly routeAnimation = inject(RouteAnimationService);
@@ -109,7 +109,6 @@ export class LocationFacadeService {
     context: () => this.ctx,
     vizCallbacks: () => this.vizCallbacks,
     addSpawnPoint: (id, name, lat, lon, color, portalBearing) => this.addSpawnPoint(id, name, lat, lon, color, portalBearing),
-    syncUrlWithLocation: () => this.syncUrlWithLocation(),
   };
 
   /**
@@ -168,7 +167,6 @@ export class LocationFacadeService {
         setStreetCount: (c) => this.store.streetCount.set(c),
         setStreetNetwork: (n) => this.ctx?.bridge.setStreetNetwork(n),
         setStreetNetworkLocation: (l) => this.ctx?.bridge.setStreetNetworkLocation(l),
-        syncUrlWithLocation: () => this.syncUrlWithLocation(),
         clearMapEntities: () => this.clearMapEntities(),
         appendDebugLog: (msg) => this.debugFacade.appendDebugLog(msg),
         initializeTowerPlacement: () => vizCallbacks.initializeTowerPlacement(),
@@ -213,8 +211,8 @@ export class LocationFacadeService {
       return true;
     }
 
-    // URL is source of truth
-    const urlData = this.urlLocation.parseFromUrl();
+    // The place the start order names (a link's ?l=) comes first
+    const urlData = this.start.current().place;
 
     const coverage = this.worldContext.coverage();
     if (urlData && isInsideCoverage(coverage, urlData.hq.lat, urlData.hq.lon)) {
@@ -238,10 +236,8 @@ export class LocationFacadeService {
       await this.engineInit.setStepDone('location', 'chosen');
     }
 
-    // Sync URL with current location
     const hq = this.locationMgmt.hq();
     if (hq) {
-      this.syncUrlWithLocation();
       this.store.baseCoords.set({ lat: hq.lat, lon: hq.lon });
       this.store.centerCoords.set({ lat: hq.lat, lon: hq.lon, height: 400 });
     }
@@ -265,18 +261,6 @@ export class LocationFacadeService {
     });
     const choice = await Promise.race([this.locationCoordinator.waitForStartChoice(), gone]);
     this.locationMgmt.setLocation({ lat: choice.hq.lat, lon: choice.hq.lon }, startSpawns(choice));
-  }
-
-  /**
-   * Sync URL with current location (without reload).
-   * Only for a real place: a world of its own keeps its link (`?devworld…`, `?world=`).
-   */
-  syncUrlWithLocation(): void {
-    if (!this.worldContext.capabilities().realPlace) return;
-    const hq = this.locationMgmt.hq();
-    if (!hq) return;
-    const spawns = this.locationMgmt.spawns();
-    this.urlLocation.updateUrl(hq, spawns);
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -314,7 +298,6 @@ export class LocationFacadeService {
       );
       if (randomSpawn) {
         this.locationMgmt.setGeneratedSpawns([{ lat: randomSpawn.lat, lon: randomSpawn.lon }]);
-        this.syncUrlWithLocation();
         this.addSpawnPoint('spawn-1', randomSpawn.streetName || 'Spawn', randomSpawn.lat, randomSpawn.lon, SPAWN_COLORS[0]);
         return 1;
       } else {

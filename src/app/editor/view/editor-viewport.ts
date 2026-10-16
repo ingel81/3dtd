@@ -1011,6 +1011,8 @@ export class EditorViewport {
     this.canvas.style.height = `${h}px`;
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    // The resize cleared the drawing buffer after this frame's draw: drawn again, else the browser shows it black
+    if (this.shownView === this.view) this.renderer.render(this.scene, this.camera);
   }
 
   private applyWater(): void {

@@ -443,10 +443,18 @@ if (outside > 0.0) {
   float along = e.y >= e.x
     ? (mapPos.y < 0.0 ? q.x + hm.x : 2.0 * uMapSize.x + uMapSize.y - (q.x + hm.x))
     : (mapPos.x > 0.0 ? uMapSize.x + q.y + hm.y : 2.0 * (uMapSize.x + uMapSize.y) - (q.y + hm.y));
-  float au = along / (2.0 * (uMapSize.x + uMapSize.y));
+  float perimeter = 2.0 * (uMapSize.x + uMapSize.y);
+  float au = along / perimeter;
+  // Further out the paint blurs along the border as the apron's heights do (terrain-apron.ts: 0.6 of the
+  // distance either way, a quarter of the border at most): a change of ground at the border fans out into a
+  // soft blend on the backdrop range instead of a straight seam running to the horizon
+  float spread = min(max(e.x, e.y) * 0.6 / perimeter, 0.25) / 3.0;
   float apron = 0.0;
   for (int r = 0; r < TERRAIN_SPLATS / 4; r++) {
-    vec4 a = textureLod(uApronPaint, vec2(au, (float(r) + 0.5) / 3.0), 0.0);
+    float v = (float(r) + 0.5) / 3.0;
+    vec4 a = vec4(0.0);
+    for (int t = -3; t <= 3; t++) a += textureLod(uApronPaint, vec2(au + float(t) * spread, v), 0.0) * float(4 - abs(t));
+    a /= 16.0;
     for (int c = 0; c < 4; c++) {
       int layer = uSplatLayer[r * 4 + c];
       if (layer >= 0) {

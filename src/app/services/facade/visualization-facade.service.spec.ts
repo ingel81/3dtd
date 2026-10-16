@@ -254,6 +254,7 @@ describe('VisualizationFacadeService', () => {
     initKeyboard: vi.fn(),
     armPick: vi.fn(),
     setCellReportCallbacks: vi.fn(),
+    dispose: vi.fn(),
   };
   const cellReport = {
     active: signal(false),
@@ -283,7 +284,7 @@ describe('VisualizationFacadeService', () => {
     deselect: vi.fn(),
     initialize: vi.fn(),
   };
-  const heightUpdate = { initialize: vi.fn(), scheduleOverlayHeightUpdate: vi.fn(async () => undefined), heightsLoading: signal(false) };
+  const heightUpdate = { initialize: vi.fn(), scheduleOverlayHeightUpdate: vi.fn(async () => undefined), heightsLoading: signal(false), dispose: vi.fn() };
   const engineInit = {
     getEngine: vi.fn((): unknown => engine),
     setStepCurrent: vi.fn(async (_id: string) => undefined),
@@ -1412,6 +1413,8 @@ describe('VisualizationFacadeService', () => {
       expect(viz.disposed).toBe(true);
       expect(scene.remove).toHaveBeenCalledWith(viz.mesh);
       expect(buildingRendering.reset).toHaveBeenCalled();
+      expect(inputHandler.dispose).toHaveBeenCalled();
+      expect(heightUpdate.dispose).toHaveBeenCalled();
     });
 
     it('cancels a held loading screen frame on dispose', () => {

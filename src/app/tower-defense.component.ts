@@ -147,6 +147,9 @@ import { MAX_PLAYERS } from './coop/protocol';
 import { COOP } from './services/coop.token';
 import { MainMenuComponent } from './components/main-menu/main-menu.component';
 import { MainMenuService } from './components/main-menu/main-menu.service';
+import { pageSwitches } from './core/page-switches';
+import { WorldStartService } from './world/world-start';
+import { WorldSession } from './world/world-session.service';
 
 @Component({
   selector: 'app-tower-defense',
@@ -283,6 +286,10 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   private readonly locationCoordinator = inject(LocationChangeCoordinatorService);
   /** The world the game plays: its credentials, its logos */
   readonly worldContext = inject(WorldContext);
+  /** What the world was opened with: an invite's room opens the coop page */
+  private readonly worldStart = inject(WorldStartService);
+  /** Opens worlds in this page: a new key builds this one anew */
+  private readonly session = inject(WorldSession);
   readonly facade = inject(TowerDefenseFacadeService);
   private readonly vizFacade = inject(VisualizationFacadeService);
   /** A real place's streets and buildings for the minimap (TODO E142) */
@@ -601,7 +608,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     // `?tokensetup` forces the screen even when credentials are already there.
     // It is how you swap a key without clearing site data, and the only way to
     // reach the first-run flow on a dev machine that has a token in environment.ts.
-    const forceTokenSetup = new URLSearchParams(window.location.search).has('tokensetup');
+    const forceTokenSetup = pageSwitches().has('tokensetup');
 
     // No tile credentials yet: ask for them before the engine starts, otherwise
     // the player lands on an error overlay telling them to edit a source file
@@ -616,14 +623,14 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   /**
    * Credentials arrived from the token screen. Before the engine ever started we
-   * can just start it; if it is already up (a token was rejected mid-flight) a
-   * reload is the honest way to rebuild the whole tile pipeline.
+   * can just start it; if it is already up (a token was rejected mid-flight)
+   * the world opens anew in the page, the whole tile pipeline with it.
    */
   async onCredentialsSaved(): Promise<void> {
     this.awaitingCredentials.set(false);
 
     if (this.gameStarted) {
-      window.location.reload();
+      this.session.reopen();
       return;
     }
 
@@ -640,7 +647,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     // The start menu stands in front while the place loads behind it; an
     // invite link opens it on the coop page, where the join shows
     this.mainMenu.openStart();
-    if (this.uiStore.mainMenuOpen() && new URLSearchParams(window.location.search).has('room')) this.mainMenu.open('coop');
+    if (this.uiStore.mainMenuOpen() && this.worldStart.current().room) this.mainMenu.open('coop');
     await this.facade.startGame(this.gameCanvas.nativeElement);
     this.applyAudioVolumes();
     this.controlsHintArmed.set(true);
@@ -717,6 +724,8 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     if (this.controlsHintTimer) clearTimeout(this.controlsHintTimer);
     this.facade.dispose();
+    // What the root keeps of this world's run goes before the next world starts
+    this.session.closed();
   }
 
   /**

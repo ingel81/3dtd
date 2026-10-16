@@ -45,4 +45,16 @@ describe('HeightUpdateService', () => {
     await vi.advanceTimersByTimeAsync(5000);
     expect(renders).toBe(5);
   });
+
+  it('stops with its world: no timer runs on, and the end of the cycle reaches none of its callbacks', async () => {
+    let ends = 0;
+    service.initialize(engine(true), () => undefined, () => renders++, () => ends++, () => undefined, () => ends++, () => ends++);
+    let waited = false;
+    void service.scheduleOverlayHeightUpdate().then(() => (waited = true));
+    await vi.advanceTimersByTimeAsync(500);
+    service.dispose();
+    expect(vi.getTimerCount()).toBe(0);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect([renders, ends, waited]).toEqual([1, 0, false]);
+  });
 });

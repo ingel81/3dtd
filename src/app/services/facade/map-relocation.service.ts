@@ -28,7 +28,6 @@ export interface RelocationHost {
   vizCallbacks(): VizCallbacks | null;
   /** @param portalBearing Which way its portal faces, see SavedSpawn; along its route without one */
   addSpawnPoint(id: string, name: string, lat: number, lon: number, color: number, portalBearing?: number): void;
-  syncUrlWithLocation(): void;
 }
 
 /** Title of the hint over the map while the HQ moves */
@@ -344,7 +343,6 @@ export class MapRelocationService {
         { lat, lon },
         spawns.map(s => ({ lat: s.lat, lon: s.lon })),
       );
-      host.syncUrlWithLocation();
 
       // 14. Update map placement dependencies
       this.mapPlacement.updateDependencies(streetNetwork, { lat, lon });
@@ -504,9 +502,8 @@ export class MapRelocationService {
     // location and so in the URL and in favorites saved from here.
     for (const e of entries) host.addSpawnPoint(e.id, e.name, e.lat, e.lon, e.color, e.portalBearing);
 
-    // 5. Update location service + URL
+    // 5. Update location service
     this.locationMgmt.setLocation(hq, spawns);
-    host.syncUrlWithLocation();
 
     // 6. Re-initialize game state with new routes
     const waveSpawns = this.store.spawnPoints().map((spawn) => ({ id: spawn.id, name: spawn.name, lat: spawn.lat, lon: spawn.lon }));
@@ -568,7 +565,6 @@ export class MapRelocationService {
     host.addSpawnPoint(id, 'Spawn', lat, lon, SPAWN_COLORS[index], portalBearing);
 
     this.locationMgmt.setLocation(hq, [...this.locationMgmt.spawns(), { lat, lon, portalBearing }]);
-    host.syncUrlWithLocation();
 
     const waveSpawns = this.store.spawnPoints().map((spawn) => ({ id: spawn.id, name: spawn.name, lat: spawn.lat, lon: spawn.lon }));
     this.world.attach(engine, { lat: hq.lat, lon: hq.lon }, waveSpawns);

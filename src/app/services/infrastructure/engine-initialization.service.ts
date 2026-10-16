@@ -73,6 +73,10 @@ export class EngineInitializationService {
 
   /** Reference to the 3D engine */
   private engine: ThreeTilesEngine | null = null;
+  /** The engine a load is building, until the load hands it over (abandon frees it) */
+  private building: ThreeTilesEngine | null = null;
+  /** Counts the loads given up (abandon): a load of an earlier count stops at its next step */
+  private run = 0;
 
   /** Base coordinates for engine origin */
   private baseCoords: GeoPosition | null = null;
@@ -217,6 +221,9 @@ export class EngineInitializationService {
     onSetupClickHandler: () => void;
     onCheckAllLoaded: () => void;
   }): Promise<void> {
+    // The load this call makes; a world taken down meanwhile (abandon) leaves it behind
+    const run = this.run;
+    const gone = () => run !== this.run;
     try {
       // Reset loading steps for fresh start
       this.resetLoadingSteps();
@@ -242,6 +249,8 @@ export class EngineInitializationService {
       this.engine = new ThreeTilesEngine(this.canvas, this.world, this.assetManager, {
         antialias: this.quality.canvasMsaa(qualityWorldOf(this.world.ref)),
       });
+      // Not yet the game's (the facade takes it when this returns): abandon() frees it until then
+      this.building = this.engine;
       this.quality.attach(this.engine, this.world.ref);
       // Behind the menu globe the game draws nothing, not even its first frame
       if (this.globe?.coversGame()) this.engine.setDrawSuppressed(true);
@@ -254,9 +263,11 @@ export class EngineInitializationService {
 
       // Put the world into the scene: tiles or terrain, camera controls
       await this.engine.initialize();
+      if (gone()) return;
       this.engine.resize(rect.width, rect.height);
 
       await this.setStepDone('engine');
+      if (gone()) return;
 
       // Register callback for first tiles loaded
       this.engine.setOnFirstTilesLoadedCallback(() => {
@@ -282,7 +293,9 @@ export class EngineInitializationService {
       await this.setStepCurrent('streets');
       this.updateStepMeta('streets', 'Loading OSM data...');
       const streetCnt = await callbacks.onLoadStreets();
+      if (gone()) return;
       await this.setStepDone('streets', streetCnt > 0 ? `${streetCnt} Streets` : undefined);
+      if (gone()) return;
 
       // Initialize services that depend on engine and street network
       // Must be called before adding markers/spawns
@@ -313,14 +326,34 @@ export class EngineInitializationService {
       // (VisualizationFacadeService.scheduleOverlayHeightUpdate).
       await this.setStepCurrent('view');
       await callbacks.onScheduleHeightUpdate();
+      if (gone()) return;
 
       // Final check (heights should trigger hiding overlay)
       callbacks.onCheckAllLoaded();
     } catch (err) {
+      // A load left behind fails in the half taken down: no word of it on the next world
+      if (gone()) return;
       console.error('[EngineInit] Engine init error:', err);
       this.error.set(err instanceof Error ? err.message : 'Error loading 3D map');
       this.loading.set(false);
+    } finally {
+      if (!gone()) this.building = null;
     }
+  }
+
+  /**
+   * The world goes (its game is taken down, TowerDefenseFacadeService.dispose):
+   * a load still under way is left behind and writes nothing more, and an
+   * engine it was still building is freed here, the facade never got it
+   * (docs/WORLDS_NAVIGATION_PLAN.md, 4.4: Esc cancels a load).
+   */
+  abandon(): void {
+    this.run++;
+    if (this.engine) this.quality.detach(this.engine);
+    const building = this.building;
+    this.building = null;
+    building?.dispose();
+    this.engine = null;
   }
 
   // ========================================
@@ -405,6 +438,7 @@ export class EngineInitializationService {
    * Dispose engine and cleanup
    */
   dispose(): void {
+    this.run++;
     if (this.engine) this.quality.detach(this.engine);
     this.engine = null;
     this.baseCoords = null;
