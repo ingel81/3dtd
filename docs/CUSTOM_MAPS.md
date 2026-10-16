@@ -120,7 +120,9 @@ Nebel der Szene wieder her.
   flache Hügel über; Wasser am Rand läuft darüber weiter, bis das geglättete Bett über den Spiegel steigt. Bemalt mit
   dem natürlichen Boden des Kartenrands (`apron-paint.ts`: je 1/512 des Rands die Splat-Gewichte eines 24 m tiefen
   Streifens, 30 m entlang geglättet, ohne Straßen, Pflaster und Lava; ein gepflasterter Rand nimmt den natürlichen Boden,
-  den die Karte am meisten hat; eine Textur 512 × 3, ein Lookup je Zeile nur jenseits des Rands), vorher die erste
+  den die Karte am meisten hat; eine Textur 512 × 3, nur jenseits des Rands gelesen, sieben Lookups je Zeile, die mit
+  dem Abstand wie das Höhenprofil entlang des Rands verwischen, 0,6 des Abstands je Seite, höchstens ein Viertel des
+  Rands: ein Bodenwechsel am Rand wird auf der Bergkette ein weicher Übergang statt einer senkrechten Naht), vorher die erste
   Schicht (Harbor Town: Pflaster bis zum Horizont). Ab 250 m hinter dem Rand steigt eine **Bergkette** (ab 900 m voll,
   Grat-Rauschen entlang des Rands, Höhe nach Look `BACKDROP_HEIGHT`: Gebirge 420 m, Mond 80 m, Sumpf 40 m; nicht über dem Meer
   (nasser Rand ab 160 m am Stück, `SEA_RUN`; eine schmalere Flussmündung behält das Profil, der Fluss endet kurz hinter dem
