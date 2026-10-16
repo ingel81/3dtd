@@ -267,7 +267,10 @@ Entschieden (User, 2026-10-16): alle zwölf Empfehlungen unten übernommen.
   (`WorldSession.park`, `ParkedWorld`): Spiel verborgen, Bildschleife gestoppt, Pausemenü offen (Pause und Tasten),
   keine Rückfrage beim Verlassen. Continue „ready“ oder „Back to <Ort>“ zeigt es sofort; ein anderer Start, der
   Editor oder ein Coop-Beitritt lässt es gehen (`leaveParked`, Autosave zwischen den Wellen vorher). Das Probespiel
-  wird nie gehalten. Ton läuft beim Halten weiter (nicht angehalten).
+  wird nie gehalten. Der Ton schweigt beim Halten: der Listener der Welt blendet auf 0
+  (`SpatialAudioManager.setHeld`; Einzeltöne, Schleifen, Musik, Klangkulisse der Karte laufen alle über ihn), ein noch
+  spielendes Hauptthema pausiert (`BackgroundMusicService.holdMainTheme`). Back to stellt beides wieder her; geht die
+  gehaltene Welt (`close`, eine andere öffnet), bleibt sie stumm, bis sie abgebaut ist.
 - **Chips:** eine Quelle `WorldsStageService.pathChips` für Globen, Spiel und Editor; aus dem Spiel sichert ein Chip
   den Lauf vorher (`MainMenuService.goElsewhere`).
 - **Alte Menüs:** Startliste ohne Reiter, New game nur Ortswahl der Welt (ohne Recent), auf einer Karte der Weg zu

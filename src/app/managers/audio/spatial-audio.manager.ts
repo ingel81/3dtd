@@ -79,6 +79,9 @@ const DEFAULT_CONFIG: Required<SpatialSoundConfig> = {
   feedback: false,
 };
 
+/** Time constant of the fade when a held game goes quiet or sounds again (setHeld): out within about 0.15 s */
+const HELD_FADE_SECONDS = 0.03;
+
 /**
  * Sound pool statistics for debugging
  */
@@ -289,6 +292,20 @@ export class SpatialAudioManager {
     this._masterVolume = Math.max(0, Math.min(1, vol));
     this.playback.setMasterVolume(this._masterVolume);
     this.loops.setMasterVolume(this._masterVolume);
+  }
+
+  /**
+   * The game held behind the globes (WorldSession.park): its whole sound goes
+   * quiet at the listener, which every voice of this game passes (one-shots,
+   * loops, the music's channels, a map's ambience), and comes back as it was
+   * with `held` false. Volumes and running loops stay untouched meanwhile.
+   */
+  setHeld(held: boolean): void {
+    const listener = this.voices.getListener();
+    const gain = listener.gain.gain;
+    const now = listener.context.currentTime;
+    gain.cancelScheduledValues(now);
+    gain.setTargetAtTime(held ? 0 : 1, now, HELD_FADE_SECONDS);
   }
 
   /** Game speed: one-shots thin out with it (SpatialAudioPlayback.setTimescale). */

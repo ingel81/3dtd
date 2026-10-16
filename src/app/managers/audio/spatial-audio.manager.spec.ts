@@ -27,7 +27,7 @@ interface FakeContext {
 }
 interface FakeListener extends Object3D {
   context: FakeContext;
-  gain: { connect: Mock; disconnect: Mock };
+  gain: { connect: Mock; disconnect: Mock; gain: { cancelScheduledValues: Mock; setTargetAtTime: Mock } };
 }
 interface FakeAudio extends Object3D {
   isPlaying: boolean;
@@ -56,7 +56,7 @@ vi.mock('three', async (importOriginal) => {
 
   class Listener extends three.Object3D {
     context: FakeContext;
-    gain = { connect: vi.fn(), disconnect: vi.fn() };
+    gain = { connect: vi.fn(), disconnect: vi.fn(), gain: { cancelScheduledValues: vi.fn(), setTargetAtTime: vi.fn() } };
     constructor() {
       super();
       const context: FakeContext = {
@@ -956,6 +956,23 @@ describe('SpatialAudioManager', () => {
       expect(manager.getActiveSoundCount()).toBe(0);
       expect(manager.getSoundConfig('fire')).toBeNull();
       expect(() => manager.dispose()).not.toThrow();
+    });
+
+    it('held behind the globes the listener fades to silence and back, volumes and loops untouched', async () => {
+      const { manager, listener, ready } = setup();
+      await ready('fire', 'fire.mp3');
+      await manager.createLoop('fire', NEAR);
+      manager.setMasterVolume(0.6);
+      listener.context.currentTime = 12;
+
+      manager.setHeld(true);
+      expect(listener.gain.gain.cancelScheduledValues).toHaveBeenLastCalledWith(12);
+      expect(listener.gain.gain.setTargetAtTime).toHaveBeenLastCalledWith(0, 12, expect.any(Number));
+      expect(manager.masterVolume).toBe(0.6);
+      expect(manager.getActiveSoundCount()).toBe(1);
+
+      manager.setHeld(false);
+      expect(listener.gain.gain.setTargetAtTime).toHaveBeenLastCalledWith(1, 12, expect.any(Number));
     });
 
     it('dispose stops listening for the tab coming back', () => {

@@ -100,9 +100,11 @@ describe('The main menu', () => {
   let menu: MainMenuService;
   let ui: UIStore;
   let game: GameStore;
+  /** The engine's frames and sound, as the hold behind the globes stops them */
+  const engine = { renderLoop: { start: vi.fn(), stop: vi.fn() }, spatialAudio: { setHeld: vi.fn() } };
   const engineInit = {
     loading: signal(true),
-    getEngine: () => null,
+    getEngine: () => engine,
     error: signal<string | null>(null),
     loadingSteps: signal<BootStep[]>(steps(3)),
   };
@@ -137,7 +139,10 @@ describe('The main menu', () => {
   });
 
   let world = fakeWorldContext();
-  const session = { reopen: vi.fn(), parked: signal<ParkedWorld | null>(null), onLeaveParked: vi.fn(() => () => undefined) };
+  const session = {
+    reopen: vi.fn(), parked: signal<ParkedWorld | null>(null), onLeaveParked: vi.fn(() => () => undefined),
+    world: signal(1), isOpen: signal(true),
+  };
   const stage = { leaveGame: vi.fn(), makeMapOf: vi.fn() };
 
   beforeEach(() => {
@@ -157,6 +162,8 @@ describe('The main menu', () => {
     dialog.openDialogs = [];
     mapsOpen = false;
     session.parked.set(null);
+    session.world.set(1);
+    session.isOpen.set(true);
   });
 
   afterEach(() => {
@@ -750,9 +757,11 @@ describe('The main menu', () => {
       await click(entry('worlds'));
       expect(el().querySelector('.mh-confirm')).toBeNull();
       expect(stage.leaveGame).toHaveBeenCalledWith(null, expect.objectContaining({ world: 'real', label: 'Heilbronn', wave: 1, run: true }));
-      // Held: the stage parks it (stand-in), the menu stays and Esc belongs to the globes
+      // Held: the stage parks it (stand-in), the menu stays and Esc belongs to the globes; no frames, no sound
       session.parked.set(stage.leaveGame.mock.calls[0][1] as ParkedWorld);
       await settle();
+      expect(engine.renderLoop.stop).toHaveBeenCalled();
+      expect(engine.spatialAudio.setHeld).toHaveBeenLastCalledWith(true);
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       await settle();
       expect(ui.mainMenuOpen()).toBe(true);
@@ -762,6 +771,32 @@ describe('The main menu', () => {
       await settle();
       expect(ui.mainMenuOpen()).toBe(false);
       expect(game.paused()).toBe(false);
+      expect(engine.renderLoop.start).toHaveBeenCalled();
+      expect(engine.spatialAudio.setHeld).toHaveBeenLastCalledWith(false);
+    });
+
+    it('a held game that goes for good stays quiet and paused until it is gone (closed, or another world opened)', async () => {
+      for (const drop of [() => session.isOpen.set(false), () => session.world.update((n) => n + 1)]) {
+        await setup('pause');
+        game.towerCount.set(2);
+        await settle();
+        session.parked.set({ world: 'real', pick: null, label: 'Heilbronn', wave: 1, run: true });
+        await settle();
+        engine.spatialAudio.setHeld.mockClear();
+        // The session drops it (WorldSession.close or openHere): parked goes null with it
+        session.parked.set(null);
+        drop();
+        await settle();
+        expect(engine.spatialAudio.setHeld).not.toHaveBeenCalled();
+        expect(engine.renderLoop.start).not.toHaveBeenCalled();
+        expect(ui.mainMenuOpen()).toBe(true);
+        expect(game.paused()).toBe(true);
+        fixture.destroy();
+        TestBed.resetTestingModule();
+        vi.clearAllMocks();
+        session.world.set(1);
+        session.isOpen.set(true);
+      }
     });
 
     it('Make map on a real place opens its OpenStreetMap frame on the globes, the game held behind them', async () => {

@@ -27,6 +27,7 @@ import { worldOfPage } from '../../world/world-of-page';
 import { recordRecentMap } from '../../worlds/recent-maps';
 import { autosaveSlotOf, type WorldId, type WorldPick } from '../../worlds/world-rules';
 import { whyNot } from '../../world/why-not';
+import { BackgroundMusicService } from '../../game-engine/background-music.service';
 
 export { startMenuSkipped } from './start-menu-skipped';
 
@@ -282,19 +283,27 @@ export class MainMenuService {
 
   constructor() {
     this.resumeFromLink();
-    // Held behind the globes: no frames drawn, the pause menu shut once the game shows again
+    // Held behind the globes: no frames drawn, no sound; both back and the pause menu shut once the game shows
+    // again. A held game that goes for good (closed, another world opened) stays dark and quiet until it is gone.
     let held = false;
+    let heldIn = 0;
     effect(() => {
       const parked = this.parked();
       if (parked === held) return;
       held = parked;
       untracked(() => {
-        const loop = this.engineInit.getEngine()?.renderLoop;
+        const engine = this.engineInit.getEngine();
         if (parked) {
-          loop?.stop();
+          heldIn = this.session.world();
+          engine?.renderLoop?.stop();
+          engine?.spatialAudio.setHeld(true);
+          BackgroundMusicService.holdMainTheme(true);
           return;
         }
-        loop?.start();
+        if (!this.session.isOpen() || this.session.world() !== heldIn) return;
+        engine?.renderLoop?.start();
+        engine?.spatialAudio.setHeld(false);
+        BackgroundMusicService.holdMainTheme(false);
         this.close();
       });
     });
