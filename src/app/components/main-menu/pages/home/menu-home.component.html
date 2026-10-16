@@ -6,15 +6,6 @@
     </p>
   }
 
-  @if (layer() === 'start' && menu.tabsShown()) {
-    <div class="mh-tabs td-seg" role="tablist" aria-label="Kind of world" tdRovingGroup>
-      <button type="button" role="tab" id="td-world-tab-real" data-tab="real"
-              [attr.aria-selected]="menu.tab() === 'real'" (click)="showTab('real')">Real places</button>
-      <button type="button" role="tab" id="td-world-tab-custom" data-tab="custom"
-              [attr.aria-selected]="menu.tab() === 'custom'" (click)="showTab('custom')">Custom maps</button>
-    </div>
-  }
-
   @if (layer() === 'start' && menu.starting()) {
     <!-- The loading of a Start from the worlds: Cancel (Esc) goes back to the world's menu, nothing changed -->
     <div class="mh-start" role="status">

@@ -374,7 +374,7 @@ describe('editor session tests in the window (E195 phase 5)', () => {
     const open = vi.spyOn(TestBed.inject(WorldSession), 'open').mockImplementation((order) => void opened.push(order));
     vi.spyOn(s, 'save').mockResolvedValue(true);
     await s.testPlay();
-    expect(opened).toEqual([{ ...PLAIN_START, world: { kind: 'custom-map', mapId: 'm', contentHash: '' }, startWave: 1, trial: { bot: null } }]);
+    expect(opened).toEqual([{ ...PLAIN_START, world: { kind: 'custom-map', mapId: 'm', contentHash: '' }, startWave: 1, trial: { bot: null }, play: true, label: 'M' }]);
     s.testFromWave.set(15);
     await s.testPlay();
     expect(opened[1].startWave).toBe(15);

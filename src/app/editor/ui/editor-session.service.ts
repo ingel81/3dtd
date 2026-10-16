@@ -1462,11 +1462,14 @@ export class EditorSession implements OnDestroy {
     if (!(await this.save(true))) return;
     const mapId = doc.meta.id;
     this.screens.trial.set({ mapId, bot, result: null });
+    // A Start as from the worlds: it loads, the game shows once it stands, Esc there comes back here
     this.worlds.open({
       ...PLAIN_START,
       world: { kind: 'custom-map', mapId, contentHash: '' },
       startWave: bot === null ? this.testFromWave() : 1,
       trial: { bot },
+      play: true,
+      label: doc.meta.name,
     });
   }
 

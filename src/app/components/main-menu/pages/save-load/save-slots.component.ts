@@ -34,7 +34,7 @@ export type SlotConfirm =
 })
 export class SaveSlotsComponent {
   readonly saves = inject(SAVE_GAME);
-  /** The menu's tab (real places or custom maps) picks the slots to load, and a slot of another world loads there */
+  /** A slot of another world loads there (MainMenuService.loadSlot) */
   private readonly menu = inject(MainMenuService, { optional: true });
   private readonly store = inject(GameStore);
   private readonly injector = inject(Injector);
@@ -57,7 +57,7 @@ export class SaveSlotsComponent {
   readonly cannotLoadReason = computed(() => (this.canLoad() ? null : 'Loads between waves.'));
 
   readonly saveRows = computed(() => saveSlotRows(this.saves.slots()));
-  readonly loadRows = computed(() => loadSlotRows(this.menu?.loadableSlots() ?? this.saves.slots()));
+  readonly loadRows = computed(() => loadSlotRows(this.saves.slots()));
 
   constructor() {
     void this.saves.refresh();

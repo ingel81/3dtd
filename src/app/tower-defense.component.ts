@@ -339,7 +339,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     return {
       world: worldName(ref),
       editLabel: onMap ? 'Edit' : 'Make map',
-      editHint: onMap ? 'Edit this map in the editor' : 'Make a map of a real place (New game)',
+      editHint: onMap ? 'Edit this map in the editor' : 'Make a map of this place from OpenStreetMap',
       editWhy: editWhy ?? (onMap || ref.kind === 'tiles' ? null : 'There is no map to edit here'),
       // The same chips as on the globes and in the editor: the other worlds' Continues and the editor's map
       chips: this.stage.pathChips(worldOfPage(ref), true),
@@ -358,10 +358,13 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     else if (action !== 'play') void this.mainMenu.goElsewhere(() => this.stage.goChip(action.chip));
   }
 
-  /** Edit on the path: a map opens in the editor, unless the run would end (the menu asks then); a real place goes to New game */
+  /**
+   * Edit on the path: a map opens in the editor, unless the run would end (the menu asks then); on a real
+   * place Make map opens its OpenStreetMap frame on the globes, the game held behind them
+   */
   private editFromPath(): void {
     if (this.worldContext.ref().kind !== 'custom-map') {
-      this.mainMenu.open('new-game');
+      this.mainMenu.makeMapOf();
       return;
     }
     if (this.mainMenu.runWhenEditing() === 'ends' && !this.mainMenu.fromEditor) this.mainMenu.open();

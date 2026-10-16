@@ -138,7 +138,7 @@ describe('The main menu', () => {
 
   let world = fakeWorldContext();
   const session = { reopen: vi.fn(), parked: signal<ParkedWorld | null>(null), onLeaveParked: vi.fn(() => () => undefined) };
-  const stage = { leaveGame: vi.fn() };
+  const stage = { leaveGame: vi.fn(), makeMapOf: vi.fn() };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -229,46 +229,28 @@ describe('The main menu', () => {
     await settle();
   }
 
-  describe('the tabs for real places and custom maps', () => {
+  describe('one world per start list (docs/WORLDS_STATE_PLAN.md 3.3)', () => {
     const mapAutosave = (wave = 4): SaveSlotInfo => ({
       ...autosaveAt(null, 'Ember Crater', wave), id: AUTOSAVE_BUILT_SLOT, world: 'maps', map: { id: 'ember-crater-copy', name: 'Ember Crater (copy)' },
     });
 
-    it('a map behind the menu: the maps tab, its own Continue, and no autosave of a real place in it', async () => {
+    it('a map behind the menu: its own Continue, no tabs, and no autosave of a real place in it', async () => {
       // The screenshot of the review: a map loaded behind the menu, the autosave of a real place stood above its Play
       mapsOpen = true;
       world.useCustomMap('ember-crater-copy', 'Ember Crater (copy)');
       locationMgmt.hq.set(HEILBRONN);
       engineInit.loading.set(false);
       saves.hasAutosave.set(true);
-      saves.slots.set([autosaveAt(HEILBRONN, 'Binswangen', 3)]);
+      saves.slots.set([autosaveAt(HEILBRONN, 'Binswangen', 3), mapAutosave(4)]);
       await setup();
 
-      expect(el().querySelector('[data-tab="custom"]')?.getAttribute('aria-selected')).toBe('true');
-      expect(entries()).toEqual(['Play', 'Play a map', 'Coop', 'Load game', 'Map editor', 'Settings', 'Extras']);
+      expect(el().querySelector('[role="tablist"]')).toBeNull();
+      expect(entries()).toEqual(['Continue', 'Play', 'New game', 'Coop', 'Load game', 'Settings', 'Extras', 'Map editor']);
+      expect(entry('continue')?.querySelector('.mh-sub')?.textContent).toBe('Ember Crater (copy) | wave 4');
       expect(text()).not.toContain('Binswangen');
     });
 
-    it('the real places tab offers their autosave, which loads the page anew on them', async () => {
-      mapsOpen = true;
-      world.useCustomMap('ember-crater-copy');
-      locationMgmt.hq.set(HEILBRONN);
-      engineInit.loading.set(false);
-      saves.hasAutosave.set(true);
-      saves.slots.set([autosaveAt(HEILBRONN, 'Binswangen', 3)]);
-      await setup();
-
-      await click(el().querySelector('[data-tab="real"]'));
-      expect(entries()).toEqual(['Continue', 'New game', 'Coop', 'Load game', 'Settings', 'Extras']);
-      expect(entry('continue')?.querySelector('.mh-sub')?.textContent).toBe('in Binswangen | wave 3');
-      // Leaving the map is asked first, then the page goes to the save's world
-      await click(entry('continue'));
-      await click(el().querySelector<HTMLElement>('.mh-confirm .td-btn-primary'));
-      expect(worlds.openSave).toHaveBeenCalledWith(expect.objectContaining({ id: AUTOSAVE_SLOT, map: null }));
-      expect(saves.continueAutosave).not.toHaveBeenCalled();
-    });
-
-    it('on a real place the maps tab offers the maps autosave and the map editor', async () => {
+    it('on a real place the list is its world only: the maps autosave stays on the globes and in the chips', async () => {
       mapsOpen = true;
       locationMgmt.hq.set(HEILBRONN);
       engineInit.loading.set(false);
@@ -276,15 +258,13 @@ describe('The main menu', () => {
       saves.slots.set([autosaveAt(HEILBRONN, 'Kiliansplatz, Heilbronn, Deutschland', 12), mapAutosave(4)]);
       await setup();
 
-      expect(el().querySelector('[data-tab="real"]')?.getAttribute('aria-selected')).toBe('true');
-      expect(entries()).toEqual(['Continue', 'Play', 'New game', 'Coop', 'Load game', 'Settings', 'Extras']);
-      await click(el().querySelector('[data-tab="custom"]'));
-      expect(entries()).toEqual(['Continue', 'Play a map', 'Coop', 'Load game', 'Map editor', 'Settings', 'Extras']);
-      expect(entry('continue')?.querySelector('.mh-sub')?.textContent).toBe('in Ember Crater (copy) | wave 4');
-      expect(menu.loadableSlots().map((slot) => slot.id)).toEqual([AUTOSAVE_BUILT_SLOT]);
+      expect(el().querySelector('[role="tablist"]')).toBeNull();
+      expect(entries()).toEqual(['Continue', 'Play', 'New game', 'Coop', 'Load game', 'Settings', 'Extras', 'Map editor']);
+      expect(entry('continue')?.querySelector('.mh-sub')?.textContent).toBe('Heilbronn | wave 12');
+      expect(text()).not.toContain('Ember Crater');
     });
 
-    it('without the maps open there are no tabs and the list is as before', async () => {
+    it('without the maps open the list is as before, the editor said to come', async () => {
       locationMgmt.hq.set(HEILBRONN);
       engineInit.loading.set(false);
       await setup();
@@ -782,6 +762,17 @@ describe('The main menu', () => {
       await settle();
       expect(ui.mainMenuOpen()).toBe(false);
       expect(game.paused()).toBe(false);
+    });
+
+    it('Make map on a real place opens its OpenStreetMap frame on the globes, the game held behind them', async () => {
+      await setup('pause');
+      menu.close();
+      await settle();
+      menu.makeMapOf();
+      expect(stage.leaveGame).toHaveBeenCalledWith(null, expect.objectContaining({ world: 'real', run: false }));
+      expect(stage.makeMapOf).toHaveBeenCalledWith(expect.objectContaining({ kind: 'place', hq: HEILBRONN }), 'real');
+      // Held behind the globes, the pause menu keeps it paused
+      expect(ui.mainMenuOpen()).toBe(true);
     });
 
     it('on a custom map offers Edit this map, asking first while a run is under way; not in a replay', async () => {

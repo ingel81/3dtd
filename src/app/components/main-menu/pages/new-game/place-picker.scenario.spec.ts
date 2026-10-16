@@ -248,16 +248,11 @@ describe('Place picker of New game', () => {
     ]);
   });
 
-  it('recent places leave out the one loaded and load with the spawn they were played with', () => {
-    const recents = [
-      { hq: HEILBRONN, spawns: [{ lat: 49.15, lon: 9.21 }], name: 'Heilbronn', visitedAt: 2 },
-      { hq: { lat: 48.78, lon: 9.18 }, spawns: [{ lat: 48.79, lon: 9.19 }], name: 'Stuttgart', visitedAt: 1 },
-    ] as RecentLocation[];
+  it('has no Recent of its own: the recent places are the world menu of Real places', () => {
+    const recents = [{ hq: HEILBRONN, spawns: [{ lat: 49.15, lon: 9.21 }], name: 'Heilbronn', visitedAt: 2 }] as RecentLocation[];
     const fixture = open({ hq: HEILBRONN, recents });
-    const rows = Array.from(el(fixture).querySelectorAll<HTMLButtonElement>('.mp-row'));
-    expect(rows.map((r) => r.querySelector('.mp-name')!.textContent!.trim())).toEqual(['Stuttgart']);
-    rows[0].click();
-    expect(chosen).toEqual([{ kind: 'place', hq: { lat: 48.78, lon: 9.18, name: 'Stuttgart' }, spawn: { lat: 48.79, lon: 9.19 } }]);
+    const tabs = Array.from(el(fixture).querySelectorAll('[role="tab"]')).map((t) => t.textContent!.trim());
+    expect(tabs).toEqual(['Favorites', 'Showcase', 'World']);
   });
 
   it('a favorite loads with every spawn it was saved with; the one loaded is greyed', () => {
