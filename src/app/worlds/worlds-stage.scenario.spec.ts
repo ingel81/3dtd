@@ -289,7 +289,7 @@ describe('Worlds stage', () => {
     TestBed.overrideProvider(WorldStartService, { useValue: { current: () => ({ ...PLAIN_START, world: { kind: 'custom-map', mapId: 'demo-valley', contentHash: '' } }) } });
     const f = await open();
     expect(TestBed.inject(WorldsStageService).view()).toBe('world');
-    expect(text(el(f).querySelector('.ws-path'))).toBe('Worlds › Maps › Demo Valley Play Edit');
+    expect(text(el(f).querySelector('.ws-path'))).toBe('Worlds › Built Worlds › Demo Valley Play Edit');
     expect(opened).toEqual([]);
   });
 });

@@ -20,7 +20,7 @@ import { WorldsStageService } from './worlds-stage.service';
     <div class="wm-body">
       <p class="td-note">Shipped maps and your own: the same game in the engine's own look.</p>
       @if (lock()) {
-        <p class="td-banner is-warn">Maps and the editor are coming soon in this build.</p>
+        <p class="td-banner is-warn">Built worlds and the editor are coming soon in this build.</p>
       }
       @if (run(); as run) {
         <div class="td-rows">

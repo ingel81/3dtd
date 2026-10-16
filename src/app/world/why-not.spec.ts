@@ -37,7 +37,7 @@ describe('whyNot', () => {
 
   it('names the worlds as the path does', () => {
     expect(worldName({ kind: 'tiles', source: 'google' })).toBe('Real places');
-    expect(worldName({ kind: 'custom-map', mapId: 'bay', contentHash: '' })).toBe('Maps');
+    expect(worldName({ kind: 'custom-map', mapId: 'bay', contentHash: '' })).toBe('Built Worlds');
     expect(worldName({ kind: 'tileset', id: 'campus' })).toBe('Own tilesets');
   });
 });

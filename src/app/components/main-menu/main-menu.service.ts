@@ -507,7 +507,7 @@ export class MainMenuService {
   /** The world menu of this world's kind, as the pause menu names it */
   readonly worldMenuLabel = computed(() => {
     const world = this.worldOfPage();
-    return world === 'real' ? 'Real places' : world === 'osm' ? 'OpenStreetMap' : world === 'maps' ? 'Maps' : 'Worlds';
+    return world === 'real' ? 'Real places' : world === 'osm' ? 'OpenStreetMap' : world === 'maps' ? 'Built Worlds' : 'Worlds';
   });
 
   /**

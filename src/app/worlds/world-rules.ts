@@ -15,7 +15,7 @@ export const WORLD_IDS: readonly WorldId[] = ['real', 'osm', 'maps'];
 export const WORLD_NAMES: Readonly<Record<WorldId, string>> = {
   real: 'Real places',
   osm: 'OpenStreetMap',
-  maps: 'Maps',
+  maps: 'Built Worlds',
 };
 
 /**
