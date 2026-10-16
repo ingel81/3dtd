@@ -159,7 +159,9 @@ eigenen Karten, Coop-Protokoll 5). Die Worker-Runden vom 2026-10-15 sind überno
 - [ ] **E157 O5**: Zäune, Mauern, Gleise, Laternen, Stadtmöbel, Oberleitung in OSM-Welten; O7 und LoD2 gemessen (OSM_WORLD_PLAN).
 - [ ] **E170 Intro-Flug je Karte**, **E201** Ebnen nach Rechteck, Fackellicht weich, Wasser nachts dunkler, Leuchtturmstrahl
       weich, Hölle-Biom Asche, kein grüner Boden beim Öffnen, Routenanimation folgt dem Schalter, Sprung zur Welle (PLAYTEST D).
-- [ ] **E195 Phase 1 und 2** auf `wt/e195-nav` (nicht gemergt, eigenes Review): Startauftrag statt URL, Weltwechsel ohne Neuladen.
+- [ ] **E195 Phase 1 und 2** auf `wt/e195-nav` (nicht gemergt): Startauftrag statt URL, Weltwechsel ohne Neuladen.
+      Entschieden (User, 2026-10-16): Phasen 3 bis 7 (neues Menü) bauen, danach alles auf `next`; Push erst dann.
+      Harbor Town nachts (User, 2026-10-16). LAN-Relay ohne Origin: später ansehen.
 - [ ] **Offen aus der Prüfung:** Mond-Basalt (`moon-basalt`) fast schwarz, Steilhänge der Mondkarten lesen sich als Löcher;
       Textur aufhellen braucht `ktx.exe` zum Packen.
 
