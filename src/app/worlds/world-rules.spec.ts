@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { AUTOSAVE_MAP_SLOT, AUTOSAVE_SLOT } from '../services/save-game/save-game.port';
-import { heroWorld, runAtRisk, samePick, whyNot, worldLock, type AutosaveRun, type WorldPick, type WorldRuleState } from './world-rules';
+import { heroWorld, runAtRisk, samePick, worldLock, type AutosaveRun, type WorldPick } from './world-rules';
 
-const OPEN: WorldRuleState = {
-  hasKey: true, mapsOpen: true, coopGuest: false, inCoop: false, runLoaded: true, trial: false, waveRecorded: true,
-};
 const HEILBRONN: WorldPick = { kind: 'place', hq: { lat: 49.14, lon: 9.22 }, spawns: [], name: 'Heilbronn' };
 const PARIS: WorldPick = { kind: 'place', hq: { lat: 48.86, lon: 2.29 }, spawns: [], name: 'Paris' };
 const VALLEY: WorldPick = { kind: 'map', id: 'demo-valley', name: 'Demo Valley' };
@@ -18,22 +15,6 @@ describe('world rules', () => {
     expect(worldLock('real', { hasKey: true, mapsOpen: false })).toBeNull();
     expect(worldLock('osm', { hasKey: false, mapsOpen: false })).toBe('Coming soon');
     expect(worldLock('maps', { hasKey: false, mapsOpen: true })).toBeNull();
-  });
-
-  it('says why a way is locked, and nothing where it is open', () => {
-    expect(whyNot('play', 'real', { ...OPEN, hasKey: false })).toBe('Needs a map key (Cesium Ion or Google)');
-    expect(whyNot('play', 'maps', { ...OPEN, hasKey: false })).toBeNull();
-    expect(whyNot('play', 'osm', { ...OPEN, mapsOpen: false })).toBe('Maps are coming soon');
-    expect(whyNot('play', 'real', { ...OPEN, coopGuest: true })).toBe('In a coop room the host picks the map');
-    expect(whyNot('edit', 'maps', { ...OPEN, mapsOpen: false })).toBe('The editor is coming soon');
-    expect(whyNot('edit', 'maps', { ...OPEN, coopGuest: true })).toBe('Leave the coop room to edit');
-    expect(whyNot('save', null, { ...OPEN, trial: true })).toBe('A trial run is not saved');
-    expect(whyNot('save', null, { ...OPEN, runLoaded: false })).toBe('No run to save');
-    expect(whyNot('replay', null, { ...OPEN, waveRecorded: false })).toBe('After the first wave');
-    expect(whyNot('leave', null, { ...OPEN, inCoop: true })).toBe('Leave the coop room first');
-    for (const action of ['play', 'edit', 'save', 'load', 'restart', 'replay', 'leave'] as const) {
-      expect(whyNot(action, 'maps', OPEN)).toBeNull();
-    }
   });
 
   it('a start asks about the run in its own autosave only: the real places keep theirs, OpenStreetMap and the maps share one', () => {

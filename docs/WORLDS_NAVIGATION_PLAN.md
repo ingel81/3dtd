@@ -424,8 +424,9 @@ Dev-Build (`ng`), im Produktions-Build stehen sie auf -1.
   Start, der einem Lauf gehört (`opensAtOnce`): Bot, Benchmark, `menu=skip`, DevWorld, Testlauf des Editors
   (`fromWave`, `trialWaves`, Testfenster), Coop-Einladung (`?room=`), Spielstand (`?resume=`). Der Host zeigt ohne
   offene Welt `app-worlds-stage`; `WorldSession.close()` führt zurück, das Spiel geht mit Engine, Worker und Canvas.
-- `worlds/world-rules.ts`: `worldLock`, `whyNot` (play, edit, save, load, restart, replay, leave), `runAtRisk`
-  (Autosave desselben Slots an anderer Stelle), `heroWorld`. `worlds/worlds-stage.service.ts` (root, die Wahl bleibt
+- `worlds/world-rules.ts`: `worldLock`, `runAtRisk`
+  (Autosave desselben Slots an anderer Stelle), `heroWorld`; die Gründe gesperrter Wege erweitert `world/why-not.ts`
+  (aus Phase 4) um save, load, restart, replay, leave und Key und Freigabe je Welt. `worlds/worlds-stage.service.ts` (root, die Wahl bleibt
   über ein Spiel hinweg): Ansicht, Welt, Wahl je Welt, Overlays, Rückfrage, Esc-Kette (`back`: Rückfrage, Overlay,
   OSM-Rahmen, Weltmenü, auf den Globen nichts), Start, Continue, Edit, OSM-Rahmen, `leaveGame`.
 - `WorldStart` hat `play` und `label`: Start, Continue, Load und eine im Spiel gewählte Karte öffnen mit `play`. Die

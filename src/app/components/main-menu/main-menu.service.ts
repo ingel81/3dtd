@@ -21,7 +21,8 @@ import { CUSTOM_MAPS_OPEN } from '../../world/custom-maps-open';
 import { MAP_TEST_WINDOW, returnToEditor } from '../../world/map-trial';
 import { WorldsStageService } from '../../worlds/worlds-stage.service';
 import { openedCustomMap } from '../../world/custom-map/custom-map-world';
-import { whyNot, type WorldId, type WorldPick } from '../../worlds/world-rules';
+import type { WorldId, WorldPick } from '../../worlds/world-rules';
+import { whyNot } from '../../world/why-not';
 
 export { startMenuSkipped } from './start-menu-skipped';
 
@@ -430,14 +431,11 @@ export class MainMenuService {
 
   /** Why the game cannot go back to the worlds now (a coop room would lose the player), null when it can */
   readonly leaveWhy = computed(() =>
-    whyNot('leave', null, {
-      hasKey: true,
+    whyNot('leave', {
       mapsOpen: this.mapsOpen,
+      inCoopRoom: this.inCoop() || (this.coop?.room() ?? null) !== null,
       coopGuest: this.ui.coopMapLocked(),
-      inCoop: this.inCoop() || (this.coop?.room() ?? null) !== null,
-      runLoaded: true,
-      trial: false,
-      waveRecorded: false,
+      replay: this.ui.replayMode(),
     }),
   );
 
