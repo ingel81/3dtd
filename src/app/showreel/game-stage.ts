@@ -134,8 +134,8 @@ export class GameStage implements Stage {
   }
 
   surfaceAt(x: number, y: number): number {
-    const ground = this.groundAt(x, y);
-    return Math.max(ground, this.waterAt(x, y) ?? ground);
+    // The water surface where water lies, else the ground: what the game's own camera counts from
+    return this.world?.surface.surfaceAtMap(x, y) ?? 0;
   }
 
   rendererState(): string | null {
