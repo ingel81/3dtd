@@ -2,7 +2,8 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { ConfigService } from '../core/services/config.service';
 import { GeocodingService } from '../services/location/geocoding.service';
 import { WorldDiceService } from '../services/location/world-dice.service';
-import { AUTOSAVE_MAP_SLOT, AUTOSAVE_SLOT, type SaveSlotInfo } from '../services/save-game/save-game.port';
+import { AUTOSAVE_SLOTS, type SaveSlotInfo } from '../services/save-game/save-game.port';
+import { SAVE_SLOT_STORE } from '../services/save-game/save-slot.store';
 import { shortPlaceName } from '../services/save-game/slot-name';
 import { readJson, writeJson } from '../utils/storage';
 import { CUSTOM_MAPS_OPEN } from '../world/custom-maps-open';
@@ -12,12 +13,14 @@ import type { WorldRef } from '../world/world-ref';
 import { WorldSession } from '../world/world-session.service';
 import { PLAIN_START, WorldStartService, type WorldStart } from '../world/world-start';
 import type { OsmFrameRequest } from '../components/osm-frame/osm-frame-request';
-import { STAGE_SLOT_STORE, StageSaves } from './stage-saves';
+import { StageSaves } from './stage-saves';
 import {
   heroWorld,
   runAtRisk,
   samePick,
   worldLock,
+  worldOfMap,
+  WORLD_NAMES,
   type AutosaveRun,
   type WorldId,
   type WorldPick,
@@ -45,9 +48,27 @@ export interface StageMap {
   description: string;
   spawns: number;
   origin: MapSummary['origin'];
-  /** The real place an OpenStreetMap map was made of: it belongs to that world too */
+  /** The real place an OpenStreetMap map was made of, null for another map */
   osm: { lat: number; lon: number } | null;
+  /** Made from OpenStreetMap and unchanged since: OpenStreetMap's, not a Built World (worldOfMap) */
+  generated: boolean;
   picture: string | null;
+}
+
+/**
+ * What a world offers to go on with (docs/WORLDS_STATE_PLAN.md, 3.1): its
+ * run from the autosave; the one source of the globes' Continue entries,
+ * the world menus' first row and the chips
+ */
+export interface StageContinue {
+  world: WorldId;
+  /** 'saved': the run loads from its autosave */
+  kind: 'saved';
+  label: string;
+  /** "Heilbronn | wave 12" */
+  line: string;
+  /** The run behind it, for Discard */
+  run: AutosaveRun | null;
 }
 
 /** The world last started, for the globes' order of sizes */
@@ -100,7 +121,8 @@ export class WorldsStageService {
   private pendingMap: Extract<WorldPick, { kind: 'map' }> | null = null;
 
   /** The slots as the globes see them: Load opens a slot's world with it */
-  readonly saves = new StageSaves(inject(STAGE_SLOT_STORE), (slot) => this.continueSlot(slot));
+  private readonly slotStore = inject(SAVE_SLOT_STORE);
+  readonly saves = new StageSaves(this.slotStore, (slot) => this.continueSlot(slot));
 
   /** What the ways of the globes hang on: the key and the release; no room, no run, no replay here */
   readonly rules = computed<WhyNotFacts & { hasKey: boolean }>(() => ({
@@ -112,15 +134,15 @@ export class WorldsStageService {
     runLoaded: false,
   }));
 
-  /** The runs the autosaves hold, the real places' and the maps' (OpenStreetMap maps share it) */
+  /** The runs the autosaves hold, one per world at most, newest first */
   readonly autosaves = computed<readonly AutosaveRun[]>(() => {
     const runs: AutosaveRun[] = [];
     for (const slot of this.saves.slots()) {
-      if (slot.id !== AUTOSAVE_SLOT && slot.id !== AUTOSAVE_MAP_SLOT) continue;
+      if (!AUTOSAVE_SLOTS.includes(slot.id)) continue;
       const run = this.runOf(slot);
       if (run) runs.push(run);
     }
-    return runs;
+    return runs.sort((a, b) => b.savedAt.localeCompare(a.savedAt));
   });
 
   /** The world that stands large on the globes */
@@ -129,7 +151,9 @@ export class WorldsStageService {
   constructor() {
     // The page starts on the globes with a link: its place or map is picked, nothing loads
     if (!this.session.isOpen()) this.pickFromOrder(inject(WorldStartService).current());
+    // Read at once and again whenever a slot is written or removed (the game's autosave, a discard)
     void this.saves.refresh();
+    this.slotStore.watch?.(() => void this.saves.refresh());
   }
 
   lock(world: WorldId): string | null {
@@ -149,6 +173,26 @@ export class WorldsStageService {
   /** The autosave of a world, for its menu's Continue */
   autosaveOf(world: WorldId): AutosaveRun | null {
     return this.autosaves().find((r) => r.world === world) ?? null;
+  }
+
+  /** What `world` offers to go on with, null for nothing */
+  continueOf(world: WorldId): StageContinue | null {
+    const run = this.autosaveOf(world);
+    return run ? { world, kind: 'saved', label: 'Continue', line: `${run.name} | wave ${run.wave}`, run } : null;
+  }
+
+  /** Every world's, newest first: the Continue entries of the globes and the chips */
+  readonly continues = computed<readonly StageContinue[]>(() =>
+    this.autosaves().map((run) => this.continueOf(run.world)).filter((c): c is StageContinue => c !== null));
+
+  /** Go on with it */
+  resume(item: StageContinue): void {
+    if (item.run) this.continueRun(item.run);
+  }
+
+  /** Discard its run, asked first */
+  discard(item: StageContinue): void {
+    if (item.run) this.discardRun(item.run);
   }
 
   // ---- Views ----
@@ -231,13 +275,29 @@ export class WorldsStageService {
       return;
     }
     this.confirm.set({
-      text: `${risk.name} | wave ${risk.wave} waits in the autosave.`,
-      note: risk.world === world
-        ? 'A new run in this world takes its place after its first wave.'
-        : 'Maps and OpenStreetMap share one autosave: a new run takes its place after its first wave.',
+      text: `${risk.name} | wave ${risk.wave} waits in ${WORLD_NAMES[world]}.`,
+      note: 'Each world keeps one run. Starting something new here ends it now.',
       answers: [
-        { label: 'Start anyway', primary: true, run: () => this.go(world, pick) },
+        { label: 'End it and start', primary: true, run: () => void this.endThenGo(risk, () => this.go(world, pick)) },
         { label: `Continue ${risk.name}`, run: () => this.continueRun(risk) },
+        { label: 'Cancel', run: () => undefined },
+      ],
+    });
+  }
+
+  /** The run's autosave goes, then `then` (a start in its world replaces it, decision 2) */
+  private async endThenGo(run: AutosaveRun, then: () => void): Promise<void> {
+    await this.saves.deleteSlot(run.slotId);
+    then();
+  }
+
+  /** Discard a world's Continue, asked first: its autosave goes for good (docs/WORLDS_STATE_PLAN.md, 3.4) */
+  discardRun(run: AutosaveRun): void {
+    this.confirm.set({
+      text: `Discard ${run.name} | wave ${run.wave}?`,
+      note: 'It cannot be continued.',
+      answers: [
+        { label: 'Discard', primary: true, run: () => void this.saves.deleteSlot(run.slotId) },
         { label: 'Cancel', run: () => undefined },
       ],
     });
@@ -261,7 +321,7 @@ export class WorldsStageService {
 
   /** A slot of the Load page: its world opens and loads it; the reason when it cannot */
   continueSlot(slot: SaveSlotInfo): string | null {
-    const world: WorldId = slot.map ? this.worldOfMap(slot.map.id) : 'real';
+    const world: WorldId = slot.world ?? 'real';
     const why = this.whyNot('play', world);
     if (why) return why;
     this.overlay.set(null);
@@ -354,9 +414,9 @@ export class WorldsStageService {
     this.session.close();
   }
 
-  /** The world a map belongs to: OpenStreetMap for one made from a real place, else the maps */
-  worldOfMap(id: string): WorldId {
-    return this.maps().find((m) => m.id === id)?.osm ? 'osm' : 'maps';
+  /** The world a listed map belongs to (worldOfMap); a map not listed (yet) is a Built World */
+  mapWorld(id: string): WorldId {
+    return worldOfMap(this.maps().find((m) => m.id === id));
   }
 
   /** Read the maps again (own ones change in the editor), and put an OpenStreetMap map's pick in its world */
@@ -370,6 +430,7 @@ export class WorldsStageService {
       spawns: choice.summary.spawns,
       origin: choice.summary.origin,
       osm: choice.summary.osm ?? null,
+      generated: choice.summary.generated === true,
       picture: choice.picture,
     });
     this.maps.set([...choices.own.map(of), ...choices.shared.map(of), ...choices.shipped.map(of)]);
@@ -380,7 +441,7 @@ export class WorldsStageService {
       if (pick && map && pick.name !== map.name) this.pick(world, { ...pick, name: map.name });
     }
     const pending = this.pendingMap;
-    if (pending && this.worldOfMap(pending.id) === 'osm') {
+    if (pending && this.mapWorld(pending.id) === 'osm') {
       this.pendingMap = null;
       this.pick('osm', { ...pending, name: this.maps().find((m) => m.id === pending.id)?.name ?? pending.name });
       const under = this.picks().maps;
@@ -396,7 +457,7 @@ export class WorldsStageService {
    */
   private pickMap(pick: Extract<WorldPick, { kind: 'map' }>): void {
     const known = this.maps().find((m) => m.id === pick.id);
-    const world = known ? this.worldOfMap(pick.id) : 'maps';
+    const world = known ? this.mapWorld(pick.id) : 'maps';
     this.pendingMap = known ? null : pick;
     this.pick(world, known ? { ...pick, name: known.name } : pick);
     this.openWorld(world);
@@ -427,7 +488,7 @@ export class WorldsStageService {
   private runOf(slot: SaveSlotInfo): AutosaveRun | null {
     if (slot.map) {
       const pick: WorldPick = { kind: 'map', id: slot.map.id, name: slot.map.name };
-      return { slotId: slot.id, world: this.worldOfMap(slot.map.id), pick, name: slot.map.name, wave: slot.wave, savedAt: slot.savedAt };
+      return { slotId: slot.id, world: slot.world ?? 'maps', pick, name: slot.map.name, wave: slot.wave, savedAt: slot.savedAt };
     }
     const name = shortPlaceName(slot.location);
     const pick: WorldPick | null = slot.hq ? { kind: 'place', hq: slot.hq, spawns: [], name: slot.location } : null;

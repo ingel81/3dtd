@@ -35,8 +35,8 @@ import { StageCoopComponent } from './stage-coop.component';
 import { WorldMapsComponent } from './world-maps.component';
 import { WorldOsmComponent } from './world-osm.component';
 import { WorldRealComponent } from './world-real.component';
-import { WORLD_IDS, WORLD_NAMES, type AutosaveRun, type WorldId, type WorldPick } from './world-rules';
-import { WorldsStageService, type StageOverlay } from './worlds-stage.service';
+import { WORLD_IDS, WORLD_NAMES, type WorldId, type WorldPick } from './world-rules';
+import { WorldsStageService, type StageContinue, type StageOverlay } from './worlds-stage.service';
 import { placeLabel } from '../services/location/place-label';
 
 /** An entry of the menu on the globes */
@@ -147,10 +147,10 @@ export class WorldsStageComponent {
     const items: StartItem[] = [];
     const item = (id: string, label: string, icon: TdIconName, run: () => void, extra: Partial<StartItem> = {}): StartItem =>
       ({ id, label, icon, sub: null, why: null, rule: false, run, ...extra });
-    for (const run of this.stage.autosaves()) {
-      items.push(item(`continue-${run.slotId}`, 'Continue', 'play', () => this.stage.continueRun(run), {
-        sub: `${run.name} | wave ${run.wave}`,
-        why: this.stage.whyNot('play', run.world),
+    for (const go of this.stage.continues()) {
+      items.push(item(`continue-${go.world}`, go.label, 'play', () => this.stage.resume(go), {
+        sub: go.line,
+        why: this.stage.whyNot('play', go.world),
       }));
     }
     items.push(
@@ -235,13 +235,14 @@ export class WorldsStageComponent {
   miniSub(world: WorldId): string {
     const lock = this.lock(world);
     if (lock) return lock;
-    const run = this.stage.autosaveOf(world);
-    if (run) return `${run.name} | wave ${run.wave}`;
+    const go = this.stage.continueOf(world);
+    if (go) return go.line;
     return world === 'real' ? '3D tiles' : world === 'osm' ? 'No key needed' : 'Shipped and yours';
   }
 
-  runLine(run: AutosaveRun): string {
-    return `${run.name} | wave ${run.wave} | autosave`;
+  /** A Continue as chip and globe line: "Heilbronn | wave 12 | autosave" */
+  chipLine(go: StageContinue): string {
+    return `${go.line} | autosave`;
   }
 
   activate(item: StartItem): void {

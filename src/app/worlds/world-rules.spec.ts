@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { AUTOSAVE_MAP_SLOT, AUTOSAVE_SLOT } from '../services/save-game/save-game.port';
-import { heroWorld, runAtRisk, samePick, worldLock, type AutosaveRun, type WorldPick } from './world-rules';
+import { AUTOSAVE_BUILT_SLOT, AUTOSAVE_OSM_SLOT, AUTOSAVE_SLOT } from '../services/save-game/save-game.port';
+import { autosaveSlotOf, heroWorld, runAtRisk, samePick, worldLock, worldOfMap, type AutosaveRun, type WorldPick } from './world-rules';
 
 const HEILBRONN: WorldPick = { kind: 'place', hq: { lat: 49.14, lon: 9.22 }, spawns: [], name: 'Heilbronn' };
 const PARIS: WorldPick = { kind: 'place', hq: { lat: 48.86, lon: 2.29 }, spawns: [], name: 'Paris' };
@@ -17,15 +17,24 @@ describe('world rules', () => {
     expect(worldLock('maps', { hasKey: false, mapsOpen: true })).toBeNull();
   });
 
-  it('a start asks about the run in its own autosave only: the real places keep theirs, OpenStreetMap and the maps share one', () => {
-    const autosaves = [run(AUTOSAVE_SLOT, 'real', HEILBRONN), run(AUTOSAVE_MAP_SLOT, 'osm', { kind: 'map', id: 'heilbronn-osm', name: 'Heilbronn (OSM)' })];
+  it('a start asks about the run in its own world only: each world keeps its own autosave', () => {
+    const osm = run(AUTOSAVE_OSM_SLOT, 'osm', { kind: 'map', id: 'heilbronn-osm', name: 'Heilbronn' });
+    const autosaves = [run(AUTOSAVE_SLOT, 'real', HEILBRONN), osm];
     expect(runAtRisk('real', PARIS, autosaves)?.name).toBe('Heilbronn');
     // The same place is Continue, nothing at risk
     expect(runAtRisk('real', { ...HEILBRONN, hq: { lat: 49.14001, lon: 9.22001 } }, autosaves)).toBeNull();
-    expect(runAtRisk('maps', VALLEY, autosaves)?.name).toBe('Heilbronn (OSM)');
-    expect(runAtRisk('maps', VALLEY, autosaves.slice(0, 1))).toBeNull();
+    // OpenStreetMap's run is none of the Built Worlds'
+    expect(runAtRisk('maps', VALLEY, autosaves)).toBeNull();
+    expect(runAtRisk('osm', { kind: 'map', id: 'other-osm', name: 'Other' }, autosaves)?.slotId).toBe(AUTOSAVE_OSM_SLOT);
     // A save of before the place was kept is at risk from any place
     expect(runAtRisk('real', HEILBRONN, [{ ...autosaves[0], pick: null }])?.slotId).toBe(AUTOSAVE_SLOT);
+  });
+
+  it('gives each world its slot and a map its world: an unchanged OpenStreetMap map is of OpenStreetMap, every other a Built World', () => {
+    expect(['real', 'osm', 'maps'].map((w) => autosaveSlotOf(w as 'real'))).toEqual([AUTOSAVE_SLOT, AUTOSAVE_OSM_SLOT, AUTOSAVE_BUILT_SLOT]);
+    expect(worldOfMap({ generated: true })).toBe('osm');
+    expect(worldOfMap({})).toBe('maps');
+    expect(worldOfMap(undefined)).toBe('maps');
   });
 
   it('names the same pick across kinds only when kind and place or id match', () => {
@@ -34,10 +43,10 @@ describe('world rules', () => {
     expect(samePick({ kind: 'tileset', id: 'a', name: 'A' }, { kind: 'tileset', id: 'a', name: 'B' })).toBe(true);
   });
 
-  it('stands the last world played large, else the one of the newest autosave, else the real places', () => {
-    const autosaves = [run(AUTOSAVE_SLOT, 'real', HEILBRONN, '2026-10-15T08:00:00Z'), run(AUTOSAVE_MAP_SLOT, 'maps', VALLEY, '2026-10-16T08:00:00Z')];
-    expect(heroWorld(autosaves, 'osm')).toBe('osm');
-    expect(heroWorld(autosaves, null)).toBe('maps');
+  it('stands the world of the newest Continue large, else the last world played, else the real places', () => {
+    const autosaves = [run(AUTOSAVE_SLOT, 'real', HEILBRONN, '2026-10-15T08:00:00Z'), run(AUTOSAVE_BUILT_SLOT, 'maps', VALLEY, '2026-10-16T08:00:00Z')];
+    expect(heroWorld(autosaves, 'osm')).toBe('maps');
+    expect(heroWorld([], 'osm')).toBe('osm');
     expect(heroWorld([], null)).toBe('real');
   });
 });

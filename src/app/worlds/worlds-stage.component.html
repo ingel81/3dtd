@@ -14,9 +14,9 @@
       }
     </app-world-path>
     <span class="ws-bar-gap"></span>
-    @for (run of stage.autosaves(); track run.slotId) {
-      <button type="button" class="td-stone-chip ws-chip" [attr.aria-disabled]="stage.whyNot('play', run.world) ? true : null"
-              [attr.title]="stage.whyNot('play', run.world) ?? 'Continue from the autosave'" (click)="stage.continueRun(run)">{{ runLine(run) }}</button>
+    @for (go of stage.continues(); track go.world) {
+      <button type="button" class="td-stone-chip ws-chip" [attr.aria-disabled]="stage.whyNot('play', go.world) ? true : null"
+              [attr.title]="stage.whyNot('play', go.world) ?? 'Continue from the autosave'" (click)="stage.resume(go)">{{ chipLine(go) }}</button>
     }
     <button type="button" class="td-tool" aria-label="Settings" title="Settings" (click)="stage.openOverlay('settings')">
       <td-icon name="cog" [size]="18" />
@@ -63,8 +63,8 @@
               <span class="td-note ws-card-sub">{{ cardSub(w) }}</span>
               @if (lock(w); as why) {
                 <span class="td-note is-warn ws-card-line">{{ why === 'No map key' ? 'No map key: the 3D tiles need a Cesium Ion token or a Google Maps key' : why + ' in this build' }}</span>
-              } @else if (stage.autosaveOf(w); as run) {
-                <span class="td-note ws-card-line">{{ runLine(run) }}</span>
+              } @else if (stage.continueOf(w); as go) {
+                <span class="td-note ws-card-line">{{ chipLine(go) }}</span>
               }
             </button>
           }

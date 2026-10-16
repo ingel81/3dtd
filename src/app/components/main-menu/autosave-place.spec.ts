@@ -8,7 +8,7 @@ const PARIS = { lat: 48.85341, lon: 2.3488 };
 
 const autosave = (hq: { lat: number; lon: number } | null, location = 'Kiliansplatz, Heilbronn, Deutschland'): SaveSlotInfo => ({
   id: AUTOSAVE_SLOT, name: 'Heilbronn, wave 3', autosave: true, wave: 3, location,
-  savedAt: '2026-10-08T20:00:00Z', gameVersion: '0.6.0', note: null,
+  savedAt: '2026-10-08T20:00:00Z', gameVersion: '0.6.0', note: null, world: 'real',
   hq,
   map: null,
 });

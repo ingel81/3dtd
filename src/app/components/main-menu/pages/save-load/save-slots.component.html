@@ -85,12 +85,11 @@
                     [attr.aria-label]="'Save ' + row.title + ' as a file'" matTooltip="Save as a file">
               <td-icon name="download" [size]="16"></td-icon>
             </button>
-            @if (!row.autosave) {
-              <button class="mp-slot-tool td-tool" type="button" [disabled]="busy()" (click)="askDelete(row.id, row.title)"
-                      [attr.aria-label]="'Delete ' + row.title" matTooltip="Delete">
-                <td-icon name="trash" [size]="16"></td-icon>
-              </button>
-            }
+            <!-- An autosave is its world's Continue: deleting it is how that goes too -->
+            <button class="mp-slot-tool td-tool" type="button" [disabled]="busy()" (click)="askDelete(row.id, row.title)"
+                    [attr.aria-label]="'Delete ' + row.title" matTooltip="Delete">
+              <td-icon name="trash" [size]="16"></td-icon>
+            </button>
           </li>
         }
       </ul>

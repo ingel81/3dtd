@@ -2,10 +2,13 @@
  * The save slots in IndexedDB when the browser does not play along: an open
  * that never answers gives up and is tried again, another tab's newer
  * version is let through, and a slot the browser would not hand out is
- * unreadable, not empty.
+ * unreadable, not empty. The shared store over it moves the slot of
+ * before and tells its watchers.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { IdbSaveSlotStore, UNREADABLE } from './save-slot.store';
+import { IdbSaveSlotStore, UNREADABLE, WatchedSlotStore, type StoredSlotMeta } from './save-slot.store';
+import { AUTOSAVE_BUILT_SLOT, LEGACY_AUTOSAVE_MAP_SLOT } from './save-game.port';
+import { MemorySlotStore } from '../../../test/memory-slot-store';
 
 interface FakeDb {
   onclose: (() => void) | null;
@@ -93,5 +96,40 @@ describe('IdbSaveSlotStore', () => {
     vi.unstubAllGlobals();
     stubIndexedDb(['ok'], { slot: 'text' }, true);
     expect(await new IdbSaveSlotStore().read('slot')).toBe(UNREADABLE);
+  });
+});
+
+describe('WatchedSlotStore', () => {
+  const meta = (id: string): StoredSlotMeta => ({
+    id, name: 'Demo Valley, wave 4', wave: 4, location: 'Demo Valley', savedAt: '2026-10-15T08:00:00Z', gameVersion: 'v', configHash: 'x',
+    map: { id: 'demo-valley', name: 'Demo Valley' },
+  });
+
+  it('moves the shared map autosave of before to the Built Worlds\' own, once, before the first list', async () => {
+    const inner = new MemorySlotStore([meta(LEGACY_AUTOSAVE_MAP_SLOT)]);
+    inner.texts.set(LEGACY_AUTOSAVE_MAP_SLOT, 'save');
+    const store = new WatchedSlotStore(inner);
+    expect((await store.list()).map((m) => [m.id, m.world])).toEqual([[AUTOSAVE_BUILT_SLOT, 'maps']]);
+    expect(await store.read(AUTOSAVE_BUILT_SLOT)).toBe('save');
+    expect(await store.read(LEGACY_AUTOSAVE_MAP_SLOT)).toBeNull();
+  });
+
+  it('keeps a Built Worlds autosave there already and drops the old one', async () => {
+    const inner = new MemorySlotStore([meta(LEGACY_AUTOSAVE_MAP_SLOT), { ...meta(AUTOSAVE_BUILT_SLOT), wave: 9 }]);
+    inner.texts.set(LEGACY_AUTOSAVE_MAP_SLOT, 'old');
+    const store = new WatchedSlotStore(inner);
+    expect((await store.list()).map((m) => [m.id, m.wave])).toEqual([[AUTOSAVE_BUILT_SLOT, 9]]);
+  });
+
+  it('tells its watchers of every write and removal', async () => {
+    const store = new WatchedSlotStore(new MemorySlotStore());
+    const heard = vi.fn();
+    const off = store.watch(heard);
+    await store.write(meta('slot-1'), 'save');
+    await store.remove('slot-1');
+    expect(heard).toHaveBeenCalledTimes(2);
+    off();
+    await store.write(meta('slot-1'), 'save');
+    expect(heard).toHaveBeenCalledTimes(2);
   });
 });

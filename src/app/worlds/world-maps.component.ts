@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { TdIconComponent } from '../components/icon/icon.component';
+import { StageContinueComponent } from './stage-continue.component';
 import { WorldChoiceService } from '../world/world-choice.service';
 import type { StageMap } from './worlds-stage.service';
 import { WorldsStageService } from './worlds-stage.service';
@@ -13,7 +14,7 @@ import { WorldsStageService } from './worlds-stage.service';
 @Component({
   selector: 'app-world-maps',
   standalone: true,
-  imports: [TdIconComponent],
+  imports: [TdIconComponent, StageContinueComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './world-menu.scss',
   template: `
@@ -22,14 +23,7 @@ import { WorldsStageService } from './worlds-stage.service';
       @if (lock()) {
         <p class="td-banner is-warn">Built worlds and the editor are coming soon in this build.</p>
       }
-      @if (run(); as run) {
-        <div class="td-rows">
-          <button type="button" class="td-row wm-row" (click)="stage.continueRun(run)">
-            <span class="td-name">Continue</span>
-            <span class="td-note td-num wm-meta">{{ run.name }} | wave {{ run.wave }}</span>
-          </button>
-        </div>
-      }
+      <app-stage-continue world="maps" />
       @for (group of groups(); track group.title) {
         <section class="td-group" [attr.aria-labelledby]="'wm-maps-' + $index">
           <h3 class="td-section" [id]="'wm-maps-' + $index">{{ group.title }}</h3>
@@ -107,7 +101,6 @@ export class WorldMapsComponent {
     if (!id || !pick) return null;
     return this.stage.maps().find((m) => m.id === id) ?? { id, name: pick.name, description: '', spawns: 0, origin: 'own' as const };
   });
-  readonly run = computed(() => this.stage.autosaveOf('maps'));
   readonly playWhy = computed(() => this.stage.whyNot('play', 'maps'));
   readonly continues = computed(() => this.stage.runHere('maps', this.stage.picks().maps) !== null);
 

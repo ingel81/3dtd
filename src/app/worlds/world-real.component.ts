@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { AddressAutocompleteComponent } from '../components/address-autocomplete.component';
 import { TdIconComponent } from '../components/icon/icon.component';
+import { StageContinueComponent } from './stage-continue.component';
 import { RovingGroupDirective } from '../components/roving-group.directive';
 import { SHOWCASE_LOCATIONS } from '../configs/showcase-locations.config';
 import { BestWaveService } from '../services/location/best-wave.service';
@@ -30,7 +31,7 @@ const LISTS: readonly { id: RealList; label: string }[] = [
 @Component({
   selector: 'app-world-real',
   standalone: true,
-  imports: [AddressAutocompleteComponent, TdIconComponent, RovingGroupDirective],
+  imports: [AddressAutocompleteComponent, TdIconComponent, RovingGroupDirective, StageContinueComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './world-menu.scss',
   template: `
@@ -46,14 +47,7 @@ const LISTS: readonly { id: RealList; label: string }[] = [
           </div>
         </div>
       }
-      @if (stage.autosaveOf('real'); as run) {
-        <div class="td-rows">
-          <button type="button" class="td-row wm-row" (click)="stage.continueRun(run)">
-            <span class="td-name">Continue</span>
-            <span class="td-note td-num wm-meta">{{ run.name }} | wave {{ run.wave }}</span>
-          </button>
-        </div>
-      }
+      <app-stage-continue world="real" />
 
       <div class="td-seg is-sm wm-tabs" role="tablist" aria-label="Places" tdRovingGroup>
         @for (list of lists; track list.id) {

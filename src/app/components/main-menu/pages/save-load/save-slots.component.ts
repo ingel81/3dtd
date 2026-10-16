@@ -16,8 +16,8 @@ export type SlotConfirm =
 /**
  * The slots of the menu's Save and Load pages (docs/SAVE_LOAD_PLAN.md, from
  * the former game menu): Save lists every manual slot and asks before it
- * overwrites one; Load lists the filled slots, the autosave first, each with
- * a file download and, but for the autosave, Delete, and below Load from a
+ * overwrites one; Load lists the filled slots, the autosaves first, each with
+ * a file download and Delete (an autosave is its world's Continue), and below Load from a
  * file. A load that ends the run under way asks first. A load works before
  * the first place too: the save's place loads (SAVE_GAME.startPlace) and
  * the load goes on there. A line under the list says what came of the last

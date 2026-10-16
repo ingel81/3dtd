@@ -21,8 +21,11 @@ import { downloadBlob } from '../../utils/download';
 import { CameraSlotsService } from '../camera-slots.service';
 import { WorldStartService } from '../../world/world-start';
 import { SaveGame, type SaveGameHost } from './save-game';
-import { IdbSaveSlotStore } from './save-slot.store';
-import { AUTOSAVE_MAP_SLOT, AUTOSAVE_SLOT, type LoadResult, type SaveGamePort, type SaveResult, type SaveSlotInfo, type StartPlace } from './save-game.port';
+import { SAVE_SLOT_STORE } from './save-slot.store';
+import { AUTOSAVE_SLOT, type LoadResult, type SaveGamePort, type SaveResult, type SaveSlotInfo, type StartPlace } from './save-game.port';
+import { autosaveSlotOf, type WorldId } from '../../worlds/world-rules';
+import { worldOfPage } from '../../world/world-of-page';
+import { isSamePlace } from '../location/recent-locations';
 
 /** How long the autosave waits after a wave for the last shots and events to settle, ms */
 const AUTOSAVE_WAIT_MS = 10_000;
@@ -94,9 +97,11 @@ export class SaveGameService implements SaveGamePort {
     collect: () => this.collect(),
     apply: (file) => this.apply(file),
     download: (blob, fileName) => downloadBlob(blob, fileName),
+    world: () => this.runWorld(),
   };
 
-  private readonly game = new SaveGame(this.host, new IdbSaveSlotStore(), {
+  private readonly store = inject(SAVE_SLOT_STORE);
+  private readonly game = new SaveGame(this.host, this.store, {
     gameVersion: BUILD_VERSION,
     configHash: balanceConfigHash(),
   });
@@ -106,7 +111,18 @@ export class SaveGameService implements SaveGamePort {
   readonly slots: Signal<readonly SaveSlotInfo[]> = this.game.slots;
   readonly hasAutosave = this.game.hasAutosave;
 
+  /**
+   * The world of the autosave this run was loaded from: the run stays in it
+   * until it ends, even when its OpenStreetMap map was changed in the editor
+   * meanwhile (docs/WORLDS_STATE_PLAN.md, 3.2 rule 1); null for a run begun here
+   */
+  private resumedWorld: WorldId | null = null;
+
   constructor() {
+    // A slot written or removed anywhere (the globes, another list): the list reads it again
+    const offSlots = this.store.watch?.(() => void this.game.refresh());
+    // A run lost is over: its world has no Continue any more (decision 1)
+    const offOver = this.sim.bus.onLive('game:over', () => void this.dropContinue());
     // The autosave after every wave, once the last shots and events have settled
     let attempt = 0;
     const off = this.sim.bus.onLive('wave:completed', () => {
@@ -116,6 +132,8 @@ export class SaveGameService implements SaveGamePort {
     inject(DestroyRef).onDestroy(() => {
       attempt++;
       off.dispose();
+      offOver.dispose();
+      offSlots?.();
     });
   }
 
@@ -127,8 +145,14 @@ export class SaveGameService implements SaveGamePort {
     return this.game.save(slotId, name);
   }
 
-  load(slotId: string): Promise<LoadResult> {
-    return this.game.load(slotId);
+  async load(slotId: string): Promise<LoadResult> {
+    const result = await this.game.load(slotId);
+    if (result.ok) this.resumedWorld = this.slots().find((slot) => slot.id === slotId && slot.autosave)?.world ?? null;
+    return result;
+  }
+
+  newRun(): void {
+    this.resumedWorld = null;
   }
 
   deleteSlot(slotId: string): Promise<void> {
@@ -144,7 +168,7 @@ export class SaveGameService implements SaveGamePort {
   }
 
   continueAutosave(): Promise<LoadResult> {
-    return this.game.continueAutosave();
+    return this.load(AUTOSAVE_SLOT);
   }
 
   async autosaveNow(): Promise<boolean> {
@@ -153,13 +177,34 @@ export class SaveGameService implements SaveGamePort {
     return this.game.autosave(slot);
   }
 
+  /** The world this run plays in: the one of the autosave it came from, else the page's */
+  private runWorld(): WorldId | null {
+    return this.resumedWorld ?? worldOfPage(this.worldContext.ref());
+  }
+
   /**
-   * A real place and a custom map each keep their own autosave: the menu offers each under its tab, and the
-   * start guesses its place from the real one (startPlaceGuess); a bot run in DevWorld takes neither
+   * Each world keeps its own autosave (docs/WORLDS_STATE_PLAN.md, 3.2): the
+   * run's world's; a bot run in DevWorld takes none
    */
   private autosaveSlot(): string | null {
-    if (this.worldContext.capabilities().realPlace) return AUTOSAVE_SLOT;
-    return this.worldContext.ref().kind === 'custom-map' ? AUTOSAVE_MAP_SLOT : null;
+    const world = this.runWorld();
+    return world ? autosaveSlotOf(world) : null;
+  }
+
+  /**
+   * Game over: the autosave of this run goes, so its world offers no
+   * Continue of a run that is lost. Not for a test of the map, a coop game or
+   * a replay, and not when the autosave holds another place or map.
+   */
+  private async dropContinue(): Promise<void> {
+    if (this.editorTest || this.inCoop() || this.uiStore.replayMode()) return;
+    const slotId = this.autosaveSlot();
+    const slot = slotId ? this.game.slots().find((s) => s.id === slotId) : undefined;
+    if (!slot) return;
+    const ref = this.worldContext.ref();
+    const hq = this.locationMgmt.hq();
+    const mine = ref.kind === 'custom-map' ? slot.map?.id === ref.mapId : !!slot.hq && !!hq && isSamePlace(slot.hq, hq);
+    if (mine) await this.game.deleteSlot(slot.id);
   }
 
   /** After a wave: the autosave as soon as the simulation stands still between the waves */

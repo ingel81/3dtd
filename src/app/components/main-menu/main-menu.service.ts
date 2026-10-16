@@ -2,7 +2,7 @@ import { Injectable, Injector, computed, effect, inject, signal, untracked } fro
 import { UIStore } from '../../store/ui.store';
 import { GameStore } from '../../store/game.store';
 import { COOP } from '../../services/coop.token';
-import { AUTOSAVE_MAP_SLOT, AUTOSAVE_SLOT, SAVE_GAME, type LoadResult, type SaveSlotInfo } from '../../services/save-game/save-game.port';
+import { AUTOSAVE_BUILT_SLOT, AUTOSAVE_SLOT, SAVE_GAME, type LoadResult, type SaveSlotInfo } from '../../services/save-game/save-game.port';
 import { shortPlaceName } from '../../services/save-game/slot-name';
 import { EngineInitializationService } from '../../services/infrastructure/engine-initialization.service';
 import { LocationManagementService } from '../../services/location/location-management.service';
@@ -21,8 +21,8 @@ import { CUSTOM_MAPS_OPEN } from '../../world/custom-maps-open';
 import { AppScreen } from '../../world/app-screen.service';
 import { PLAIN_START } from '../../world/world-start';
 import { WorldsStageService } from '../../worlds/worlds-stage.service';
-import { openedCustomMap } from '../../world/custom-map/custom-map-world';
-import type { WorldId, WorldPick } from '../../worlds/world-rules';
+import { worldOfPage } from '../../world/world-of-page';
+import { autosaveSlotOf, type WorldId, type WorldPick } from '../../worlds/world-rules';
 import { whyNot } from '../../world/why-not';
 
 export { startMenuSkipped } from './start-menu-skipped';
@@ -197,10 +197,10 @@ export class MainMenuService {
     this.worlds.editMap(mapId);
   }
 
-  /** This world's autosave slot: the real places' or the maps'; null where a run keeps none (DevWorld) */
+  /** This world's autosave slot (each world keeps its own); null where a run keeps none (DevWorld) */
   private readonly autosaveSlotHere = computed(() => {
-    if (this.worldContext.capabilities().realPlace) return AUTOSAVE_SLOT;
-    return this.worldContext.ref().kind === 'custom-map' ? AUTOSAVE_MAP_SLOT : null;
+    const world = worldOfPage(this.worldContext.ref());
+    return world ? autosaveSlotOf(world) : null;
   });
 
   /** The autosave that holds this run at the start of the wave under way, null without one */
@@ -270,7 +270,7 @@ export class MainMenuService {
     // The run under way here is this tab's to continue; the other tab offers its own autosave
     if (this.inCoop() || (this.underWay() && this.onHomeTab())) return null;
     const custom = this.tabsShown() && this.tab() === 'custom';
-    const autosave = this.saves.slots().find((slot) => slot.id === (custom ? AUTOSAVE_MAP_SLOT : AUTOSAVE_SLOT));
+    const autosave = this.saves.slots().find((slot) => slot.id === (custom ? AUTOSAVE_BUILT_SLOT : AUTOSAVE_SLOT));
     if (!autosave) return null;
     const place = custom ? (autosave.map?.name ?? shortPlaceName(autosave.location)) : shortPlaceName(autosave.location);
     const elsewhere = this.needsOtherWorld(autosave) || (!custom && this.autosavePlaceDiffers());
@@ -483,6 +483,7 @@ export class MainMenuService {
   /** Restart at the same place (the list asks first while a run is under way) */
   restart(): void {
     if (!this.canRestart()) return;
+    this.saves.newRun();
     this.facade?.restartGame();
     this.close();
   }
@@ -538,11 +539,9 @@ export class MainMenuService {
     this.stage.leaveGame(world ? { world, pick: this.pickOfPage() } : null);
   }
 
-  /** The world of the globes this page plays in (a map made of a real place is OpenStreetMap's); null for DevWorld */
+  /** The world of the globes this page plays in (worldOfPage); null for DevWorld */
   private worldOfPage(): WorldId | null {
-    const ref = this.worldContext.ref();
-    if (ref.kind === 'custom-map') return openedCustomMap(ref)?.doc.meta.source?.kind === 'osm' ? 'osm' : 'maps';
-    return ref.kind === 'devworld' ? null : 'real';
+    return worldOfPage(this.worldContext.ref());
   }
 
   /** The place or map this page plays, as a world's menu picks it */

@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { AddressAutocompleteComponent } from '../components/address-autocomplete.component';
 import { TdIconComponent } from '../components/icon/icon.component';
+import { StageContinueComponent } from './stage-continue.component';
 import { OsmFrameComponent } from '../components/osm-frame/osm-frame.component';
 import { WorldsStageService } from './worlds-stage.service';
 import { placeLabel } from '../services/location/place-label';
@@ -16,7 +17,7 @@ import type { NominatimAddress } from '../services/location/geocoding.service';
 @Component({
   selector: 'app-world-osm',
   standalone: true,
-  imports: [AddressAutocompleteComponent, TdIconComponent, OsmFrameComponent],
+  imports: [AddressAutocompleteComponent, TdIconComponent, OsmFrameComponent, StageContinueComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './world-menu.scss',
   template: `
@@ -29,14 +30,7 @@ import type { NominatimAddress } from '../services/location/geocoding.service';
         @if (lock()) {
           <p class="td-banner is-warn">Maps from OpenStreetMap are coming soon in this build.</p>
         }
-        @if (run(); as run) {
-          <div class="td-rows">
-            <button type="button" class="td-row wm-row" (click)="stage.continueRun(run)">
-              <span class="td-name">Continue</span>
-              <span class="td-note td-num wm-meta">{{ run.name }} | wave {{ run.wave }}</span>
-            </button>
-          </div>
-        }
+        <app-stage-continue world="osm" />
         <section class="td-group" aria-labelledby="wm-osm-place">
           <h3 class="td-section" id="wm-osm-place">A map of a real place</h3>
           <app-td-address-autocomplete [placeholder]="'Town, street or address'" [currentValue]="null"
@@ -116,7 +110,6 @@ export class WorldOsmComponent {
     const pick = this.stage.picks().real;
     return pick?.kind === 'place' ? pick : null;
   });
-  readonly run = computed(() => this.stage.autosaveOf('osm'));
   readonly playWhy = computed(() => this.stage.whyNot('play', 'osm'));
   readonly continues = computed(() => this.stage.runHere('osm', this.stage.picks().osm) !== null);
 

@@ -1,16 +1,10 @@
-import { InjectionToken, computed, signal, type Signal } from '@angular/core';
+import { computed, signal, type Signal } from '@angular/core';
 import { BUILD_VERSION } from '../configs/build-info.config';
 import { balanceConfigHash } from '../run-log/config-hash';
 import { downloadBlob } from '../utils/download';
 import { SaveGame } from '../services/save-game/save-game';
 import type { LoadResult, SaveGamePort, SaveResult, SaveSlotInfo, StartPlace } from '../services/save-game/save-game.port';
-import { IdbSaveSlotStore, type SaveSlotStore } from '../services/save-game/save-slot.store';
-
-/** Where the globes read the slots from: this browser's IndexedDB; a spec hands in its own */
-export const STAGE_SLOT_STORE = new InjectionToken<SaveSlotStore>('STAGE_SLOT_STORE', {
-  providedIn: 'root',
-  factory: () => new IdbSaveSlotStore(),
-});
+import type { SaveSlotStore } from '../services/save-game/save-slot.store';
 
 /**
  * The save slots as the globes see them (docs/WORLDS_NAVIGATION_PLAN.md, 3.1):
@@ -83,5 +77,9 @@ export class StageSaves implements SaveGamePort {
   /** No game stands on the globes: nothing to save */
   async autosaveNow(): Promise<boolean> {
     return false;
+  }
+
+  newRun(): void {
+    // No run here
   }
 }

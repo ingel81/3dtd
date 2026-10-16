@@ -49,6 +49,8 @@ export interface MapSummary {
   uid?: string;
   /** The shipped or coop map this own map is a copy of (MapMeta.copyOf) */
   copyOf?: { id: string; hash: string };
+  /** Made from OpenStreetMap and not changed since (MapMeta.generated): OpenStreetMap's, not yet a Built World */
+  generated?: boolean;
   /** In the trash: the id the map had, when it was deleted, its creation time (the life its versions belong to) */
   trash?: { from: string; at: string; created: string };
 }
@@ -405,6 +407,7 @@ export function summarize(doc: CustomMapDocument, origin: MapOrigin, hash: strin
     ...(doc.meta.source?.kind === 'osm' ? { osm: { lat: doc.meta.source.lat, lon: doc.meta.source.lon } } : {}),
     ...(doc.meta.uid ? { uid: doc.meta.uid } : {}),
     ...(doc.meta.copyOf ? { copyOf: { ...doc.meta.copyOf } } : {}),
+    ...(doc.meta.generated ? { generated: true } : {}),
   };
 }
 

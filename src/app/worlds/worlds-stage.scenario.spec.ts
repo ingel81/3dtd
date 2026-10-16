@@ -24,7 +24,9 @@ import { WorldDiceService } from '../services/location/world-dice.service';
 import { LocationManagementService } from '../services/location/location-management.service';
 import { BestWaveService } from '../services/location/best-wave.service';
 import { AUTOSAVE_SLOT } from '../services/save-game/save-game.port';
-import type { SaveSlotStore, StoredSlotMeta } from '../services/save-game/save-slot.store';
+import { SAVE_SLOT_STORE, type StoredSlotMeta } from '../services/save-game/save-slot.store';
+import { MemorySlotStore } from '../../test/memory-slot-store';
+import { StageContinueComponent } from './stage-continue.component';
 import { CUSTOM_MAPS_OPEN } from '../world/custom-maps-open';
 import type { MapSummary } from '../world/custom-map/map-store';
 import { WorldChoiceService } from '../world/world-choice.service';
@@ -38,7 +40,6 @@ import { TdIconComponent } from '../components/icon/icon.component';
 import { RovingGroupDirective } from '../components/roving-group.directive';
 import { AddressAutocompleteComponent } from '../components/address-autocomplete.component';
 import { StageCoopComponent } from './stage-coop.component';
-import { STAGE_SLOT_STORE } from './stage-saves';
 import { WorldMapsComponent } from './world-maps.component';
 import { WorldOsmComponent } from './world-osm.component';
 import { WorldRealComponent } from './world-real.component';
@@ -85,25 +86,11 @@ for (const name of ['world', 'worldHere', 'mode', 'modes', 'playLabel', 'editLab
   Input({ alias: name, isSignal: true } as Input)(WorldPathComponent.prototype, name);
 }
 
+Input({ alias: 'world', isSignal: true } as Input)(StageContinueComponent.prototype, 'world');
+
 const summary = (s: Partial<MapSummary> & { id: string; name: string }): MapSummary => ({
   author: '', description: '', width: 0, depth: 0, updatedAt: '', origin: 'shipped', contentHash: '', objects: 0, spawns: 2, ...s,
 });
-
-class MemoryStore implements SaveSlotStore {
-  constructor(private readonly slots: StoredSlotMeta[]) {}
-  async list(): Promise<StoredSlotMeta[]> {
-    return this.slots;
-  }
-  async read(): Promise<string | null> {
-    return null;
-  }
-  async write(): Promise<boolean> {
-    return true;
-  }
-  async remove(): Promise<void> {
-    // Nothing kept
-  }
-}
 
 describe('Worlds stage', () => {
   let opened: WorldStart[];
@@ -123,8 +110,11 @@ describe('Worlds stage', () => {
     localStorage.clear();
   });
 
+  let store: MemorySlotStore;
+
   async function open(setup: { key?: boolean; slots?: StoredSlotMeta[] } = {}): Promise<ComponentFixture<WorldsStageComponent>> {
     opened = [];
+    store = new MemorySlotStore(setup.slots ?? []);
     session = { isOpen: signal(false), open: (order) => opened.push(order), close: vi.fn() };
     const token = signal(setup.key ? 'ion-token' : '');
     config = { cesiumIonToken: token, needsCredentials: computed(() => !token()), setupRequested: signal(false) };
@@ -134,7 +124,7 @@ describe('Worlds stage', () => {
         { provide: WorldStartService, useValue: { current: () => PLAIN_START } },
         { provide: ConfigService, useValue: config },
         { provide: CUSTOM_MAPS_OPEN, useValue: true },
-        { provide: STAGE_SLOT_STORE, useValue: new MemoryStore(setup.slots ?? []) },
+        { provide: SAVE_SLOT_STORE, useValue: store },
         { provide: MatDialog, useValue: { openDialogs: [] } },
         // The menu globe is off: the squares show discs, no WebGL in the spec
         { provide: GlobeDirectorService, useValue: { setting: signal('off') } },
@@ -165,10 +155,11 @@ describe('Worlds stage', () => {
     for (const world of [WorldRealComponent, WorldOsmComponent, WorldMapsComponent]) {
       TestBed.overrideComponent(world, { set: { styleUrl: undefined, styles: [] } });
     }
-    TestBed.overrideComponent(WorldRealComponent, { set: { imports: [IconStub, SearchStub, RovingGroupDirective] } });
+    TestBed.overrideComponent(WorldRealComponent, { set: { imports: [IconStub, SearchStub, RovingGroupDirective, StageContinueComponent] } });
     TestBed.overrideComponent(WorldRealComponent, { remove: { imports: [AddressAutocompleteComponent, TdIconComponent] } });
-    TestBed.overrideComponent(WorldMapsComponent, { set: { imports: [IconStub] } });
-    TestBed.overrideComponent(WorldOsmComponent, { set: { imports: [IconStub, SearchStub, FrameStub] } });
+    TestBed.overrideComponent(WorldMapsComponent, { set: { imports: [IconStub, StageContinueComponent] } });
+    TestBed.overrideComponent(WorldOsmComponent, { set: { imports: [IconStub, SearchStub, FrameStub, StageContinueComponent] } });
+    TestBed.overrideComponent(StageContinueComponent, { set: { imports: [IconStub] } });
     const fixture = TestBed.createComponent(WorldsStageComponent);
     await settle(fixture);
     return fixture;
@@ -275,14 +266,67 @@ describe('Worlds stage', () => {
 
     card(f, 'real').click();
     await settle(f);
-    el(f).querySelector<HTMLElement>('.wm-body .td-row:not(:first-child)')!.click();
+    el(f).querySelector<HTMLElement>('.wm-body .td-row:not([data-stage-continue])')!.click();
     await settle(f);
     el(f).querySelector<HTMLElement>('[data-stage-start]')!.click();
     await settle(f);
     expect(opened).toEqual([]);
-    expect(text(el(f).querySelector('.ws-confirm'))).toContain('Heilbronn | wave 12 waits in the autosave.');
+    expect(text(el(f).querySelector('.ws-confirm'))).toContain('Heilbronn | wave 12 waits in Real places.');
     button(f, 'Continue Heilbronn').click();
     expect(opened[0]).toMatchObject({ world: null, resume: AUTOSAVE_SLOT, play: true, label: 'Heilbronn' });
+  });
+
+  const heilbronn = (): StoredSlotMeta => ({
+    id: AUTOSAVE_SLOT, name: 'Heilbronn, wave 12', wave: 12, location: 'Heilbronn, Germany', savedAt: '2026-10-16T08:00:00Z',
+    gameVersion: 'test', configHash: 'x', hq: { lat: 49.14, lon: 9.22 },
+  });
+
+  it('a start elsewhere in the world ends its run at once when the player says so (decision 2)', async () => {
+    const f = await open({ key: true, slots: [heilbronn()] });
+    card(f, 'real').click();
+    await settle(f);
+    el(f).querySelector<HTMLElement>('.wm-body .td-row:not([data-stage-continue])')!.click();
+    await settle(f);
+    el(f).querySelector<HTMLElement>('[data-stage-start]')!.click();
+    await settle(f);
+    button(f, 'End it and start').click();
+    await settle(f);
+    expect(store.ids()).toEqual([]);
+    expect(opened).toHaveLength(1);
+    expect(opened[0]).toMatchObject({ resume: null, play: true });
+  });
+
+  it('the world menu discards its Continue after asking; the globes forget it at once', async () => {
+    const f = await open({ key: true, slots: [heilbronn()] });
+    card(f, 'real').click();
+    await settle(f);
+    expect(text(el(f).querySelector('[data-stage-continue]'))).toBe('Continue Heilbronn | wave 12');
+    el(f).querySelector<HTMLElement>('[data-stage-discard]')!.click();
+    await settle(f);
+    expect(text(el(f).querySelector('.ws-confirm'))).toContain('Discard Heilbronn | wave 12? It cannot be continued.');
+    button(f, 'Cancel').click();
+    await settle(f);
+    expect(store.ids()).toEqual([AUTOSAVE_SLOT]);
+    el(f).querySelector<HTMLElement>('[data-stage-discard]')!.click();
+    await settle(f);
+    button(f, 'Discard').click();
+    await settle(f);
+    expect(store.ids()).toEqual([]);
+    expect(el(f).querySelector('[data-stage-continue]')).toBeNull();
+    esc();
+    await settle(f);
+    expect(text(el(f).querySelector('.ws-menu'))).not.toContain('Continue');
+  });
+
+  it('an autosave written while the globes stand shows at once: Continue, chip and the line under its globe', async () => {
+    const f = await open({ key: true });
+    expect(text(el(f).querySelector('.ws-menu'))).not.toContain('Continue');
+    await store.write({ ...heilbronn(), id: 'autosave-built', name: 'Demo Valley, wave 4', wave: 4, location: 'Demo Valley', map: { id: 'demo-valley', name: 'Demo Valley' }, world: 'maps' }, 'save');
+    await settle(f);
+    expect(text(el(f).querySelector('.ws-menu [role="menuitem"]'))).toBe('Continue Demo Valley | wave 4');
+    expect(text(el(f).querySelector('.ws-chip'))).toBe('Demo Valley | wave 4 | autosave');
+    expect(text(card(f, 'maps'))).toContain('Demo Valley | wave 4 | autosave');
+    expect(card(f, 'maps').classList).toContain('is-hero');
   });
 
   it('a link only picks: its map stands chosen in its world, nothing loads', async () => {

@@ -1,13 +1,16 @@
 import { computed, signal, type Signal } from '@angular/core';
 import {
-  AUTOSAVE_MAP_SLOT,
+  AUTOSAVE_BUILT_SLOT,
+  AUTOSAVE_OSM_SLOT,
   AUTOSAVE_SLOT,
+  AUTOSAVE_SLOTS,
   MANUAL_SLOT_COUNT,
   manualSlotId,
   type LoadResult,
   type SaveGamePort,
   type SaveResult,
   type SaveSlotInfo,
+  type SlotWorld,
 } from './save-game.port';
 import { UNREADABLE, type SaveSlotStore, type StoredSlotMeta } from './save-slot.store';
 import { defaultSlotName } from './slot-name';
@@ -37,9 +40,13 @@ export interface SaveGameHost {
   /** Put the save in place: place, world, simulation, director, run log; the reason when it failed */
   apply(file: SaveFile): Promise<string | null>;
   download(blob: Blob, fileName: string): void;
+  /** The world the run plays in, kept with each save; null where none (DevWorld) */
+  world?(): SlotWorld | null;
 }
 
-const AUTOSAVES = [AUTOSAVE_SLOT, AUTOSAVE_MAP_SLOT];
+const AUTOSAVES = AUTOSAVE_SLOTS;
+/** An autosave's world is its own */
+const AUTOSAVE_WORLD: Readonly<Record<string, SlotWorld>> = { [AUTOSAVE_SLOT]: 'real', [AUTOSAVE_OSM_SLOT]: 'osm', [AUTOSAVE_BUILT_SLOT]: 'maps' };
 const ORDER = [...AUTOSAVES, ...Array.from({ length: MANUAL_SLOT_COUNT }, (_, i) => manualSlotId(i + 1))];
 const isManual = (id: string): boolean => ORDER.indexOf(id) >= AUTOSAVES.length;
 
@@ -50,7 +57,7 @@ const isManual = (id: string): boolean => ORDER.indexOf(id) >= AUTOSAVES.length;
  * part is the slots, the names, the notes and one action at a time. The
  * port's startPlace is the game's (SaveGameService).
  */
-export class SaveGame implements Omit<SaveGamePort, 'startPlace' | 'autosaveNow'> {
+export class SaveGame implements Omit<SaveGamePort, 'startPlace' | 'autosaveNow' | 'newRun'> {
   private readonly stored = signal<readonly StoredSlotMeta[]>([]);
   /** A save or load in flight: a second one waits its turn */
   private busy: Promise<unknown> = Promise.resolve();
@@ -84,7 +91,7 @@ export class SaveGame implements Omit<SaveGamePort, 'startPlace' | 'autosaveNow'
     return this.queue(() => this.write(slotId, name));
   }
 
-  /** After a wave: an autosave slot (the real places' or the maps'), quietly; false when nothing was written */
+  /** After a wave: an autosave slot (its world's), quietly; false when nothing was written */
   async autosave(slotId: string = AUTOSAVE_SLOT): Promise<boolean> {
     if (!AUTOSAVES.includes(slotId)) return false;
     const result = await this.queue(() => this.write(slotId));
@@ -151,6 +158,8 @@ export class SaveGame implements Omit<SaveGamePort, 'startPlace' | 'autosaveNow'
     };
     const world = file.world.world;
     if (world?.kind === 'custom-map') meta.map = { id: world.mapId, name: world.name ?? world.mapId };
+    const of = AUTOSAVE_WORLD[slotId] ?? this.host.world?.() ?? null;
+    if (of) meta.world = of;
     const written = await this.store.write(meta, JSON.stringify(file));
     await this.refresh();
     return written ? { ok: true } : { ok: false, reason: 'This browser did not keep the save (storage full or blocked).' };
@@ -175,6 +184,7 @@ export class SaveGame implements Omit<SaveGamePort, 'startPlace' | 'autosaveNow'
       id: meta.id,
       name: meta.name,
       autosave: AUTOSAVES.includes(meta.id),
+      world: AUTOSAVE_WORLD[meta.id] ?? meta.world ?? (meta.map ? 'maps' : 'real'),
       wave: meta.wave,
       location: meta.location,
       hq: meta.hq ? { lat: meta.hq.lat, lon: meta.hq.lon } : null,

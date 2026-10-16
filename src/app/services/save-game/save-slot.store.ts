@@ -1,3 +1,6 @@
+import { InjectionToken } from '@angular/core';
+import { LEGACY_AUTOSAVE_MAP_SLOT, AUTOSAVE_BUILT_SLOT } from './save-game.port';
+
 /**
  * Where the save game's slots are kept in this browser: IndexedDB, the head
  * of each slot apart from its text, so the menu's list does not read every
@@ -27,10 +30,14 @@ export interface StoredSlotMeta {
   hq?: { lat: number; lon: number };
   /** The custom map the run plays on; absent on a real place */
   map?: { id: string; name: string };
+  /** The world of the globes the run plays in (an autosave's is its slot's); absent in slots of before */
+  world?: 'real' | 'osm' | 'maps';
 }
 
 /** The slots, wherever they are kept */
 export interface SaveSlotStore {
+  /** `listener` hears every write and removal, so who lists the slots reads them again (WatchedSlotStore); returns the unsubscribe */
+  watch?(listener: () => void): () => void;
   list(): Promise<StoredSlotMeta[]>;
   /** The save's text, null for an empty slot, UNREADABLE when the browser would not hand it out */
   read(id: string): Promise<string | null | typeof UNREADABLE>;
@@ -162,3 +169,66 @@ export class IdbSaveSlotStore implements SaveSlotStore {
     }
   }
 }
+
+/**
+ * The slots of this browser as the game and the globes share them: every
+ * write and removal is told to the watchers, so a list shown anywhere (the
+ * globes' Continue, the Load page, a game kept behind the globes) reads them
+ * again at once (docs/WORLDS_STATE_PLAN.md, 6). Before the first list, a
+ * slot of the shared map autosave of before (LEGACY_AUTOSAVE_MAP_SLOT) moves
+ * to the Built Worlds' autosave: the OpenStreetMap maps of then count as
+ * Built Worlds (decision 6).
+ */
+export class WatchedSlotStore implements SaveSlotStore {
+  private readonly listeners = new Set<() => void>();
+  private migrated: Promise<void> | null = null;
+
+  constructor(private readonly inner: SaveSlotStore) {}
+
+  async list(): Promise<StoredSlotMeta[]> {
+    await (this.migrated ??= this.migrate());
+    return this.inner.list();
+  }
+
+  async read(id: string): Promise<string | null | typeof UNREADABLE> {
+    await (this.migrated ??= this.migrate());
+    return this.inner.read(id);
+  }
+
+  async write(meta: StoredSlotMeta, text: string): Promise<boolean> {
+    const written = await this.inner.write(meta, text);
+    this.changed();
+    return written;
+  }
+
+  async remove(id: string): Promise<void> {
+    await this.inner.remove(id);
+    this.changed();
+  }
+
+  watch(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  private changed(): void {
+    for (const listener of [...this.listeners]) listener();
+  }
+
+  private async migrate(): Promise<void> {
+    const slots = await this.inner.list();
+    const legacy = slots.find((m) => m.id === LEGACY_AUTOSAVE_MAP_SLOT);
+    if (!legacy) return;
+    if (!slots.some((m) => m.id === AUTOSAVE_BUILT_SLOT)) {
+      const text = await this.inner.read(LEGACY_AUTOSAVE_MAP_SLOT);
+      if (typeof text !== 'string' || !(await this.inner.write({ ...legacy, id: AUTOSAVE_BUILT_SLOT, world: 'maps' }, text))) return;
+    }
+    await this.inner.remove(LEGACY_AUTOSAVE_MAP_SLOT);
+  }
+}
+
+/** The slots of this browser, one store for the game and the globes; a spec hands in its own */
+export const SAVE_SLOT_STORE = new InjectionToken<SaveSlotStore>('SAVE_SLOT_STORE', {
+  providedIn: 'root',
+  factory: () => new WatchedSlotStore(new IdbSaveSlotStore()),
+});

@@ -1,5 +1,5 @@
 import { isSamePlace } from '../services/location/recent-locations';
-import { AUTOSAVE_MAP_SLOT, AUTOSAVE_SLOT } from '../services/save-game/save-game.port';
+import { AUTOSAVE_BUILT_SLOT, AUTOSAVE_OSM_SLOT, AUTOSAVE_SLOT } from '../services/save-game/save-game.port';
 
 /**
  * The three worlds of the start (docs/WORLDS_NAVIGATION_PLAN.md, 3): the
@@ -48,12 +48,21 @@ export interface AutosaveRun {
 }
 
 /**
- * The autosave a run in `world` writes after its waves. The real places
- * keep their own; OpenStreetMap maps and the other maps share one, both are
- * custom maps (docs/WORLDS_NAVIGATION_PLAN.md, 3.5).
+ * The autosave a run in `world` writes after its waves: each world keeps its
+ * own, one run each (docs/WORLDS_STATE_PLAN.md, 3.2)
  */
 export function autosaveSlotOf(world: WorldId): string {
-  return world === 'real' ? AUTOSAVE_SLOT : AUTOSAVE_MAP_SLOT;
+  return world === 'real' ? AUTOSAVE_SLOT : world === 'osm' ? AUTOSAVE_OSM_SLOT : AUTOSAVE_BUILT_SLOT;
+}
+
+/**
+ * The world a map belongs to: one made from OpenStreetMap and not changed in
+ * the editor since (MapMeta.generated) is OpenStreetMap's, every other map a
+ * Built World (docs/WORLDS_STATE_PLAN.md, 3.6). The one rule for the globes,
+ * the game's menus and the autosave.
+ */
+export function worldOfMap(map: { generated?: boolean } | null | undefined): WorldId {
+  return map?.generated ? 'osm' : 'maps';
 }
 
 /** Two picks name the same place or map */
@@ -78,12 +87,11 @@ export function runAtRisk(world: WorldId, pick: WorldPick, autosaves: readonly A
 }
 
 /**
- * The world that stands large on the globes (user decision 4): the one of
- * the last run started, else the one of the newest autosave, else the real
- * places.
+ * The world that stands large on the globes: the one of the newest
+ * Continue, else the one of the last run started, else the real places
+ * (docs/WORLDS_STATE_PLAN.md, 4)
  */
 export function heroWorld(autosaves: readonly AutosaveRun[], lastPlayed: WorldId | null): WorldId {
-  if (lastPlayed) return lastPlayed;
   const newest = [...autosaves].sort((a, b) => b.savedAt.localeCompare(a.savedAt))[0];
-  return newest?.world ?? 'real';
+  return newest?.world ?? lastPlayed ?? 'real';
 }

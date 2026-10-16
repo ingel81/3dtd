@@ -30,7 +30,7 @@ import type { BootStep } from './loading/boot-step.model';
 import { UIStore } from '../../store/ui.store';
 import { GameStore } from '../../store/game.store';
 import { COOP } from '../../services/coop.token';
-import { AUTOSAVE_MAP_SLOT, AUTOSAVE_SLOT, SAVE_GAME, type LoadResult, type SaveSlotInfo } from '../../services/save-game/save-game.port';
+import { AUTOSAVE_BUILT_SLOT, AUTOSAVE_SLOT, SAVE_GAME, type LoadResult, type SaveSlotInfo } from '../../services/save-game/save-game.port';
 import { CUSTOM_MAPS_OPEN } from '../../world/custom-maps-open';
 import { AppScreen } from '../../world/app-screen.service';
 import { PLAIN_START } from '../../world/world-start';
@@ -88,7 +88,7 @@ function steps(done: number, total = 10): BootStep[] {
 function autosaveAt(hq: { lat: number; lon: number } | null, location: string, wave = 7): SaveSlotInfo {
   return {
     id: AUTOSAVE_SLOT, name: `${location}, wave ${wave}`, autosave: true, wave, location,
-    savedAt: '2026-10-08T20:00:00Z', gameVersion: '0.6.0', note: null,
+    savedAt: '2026-10-08T20:00:00Z', gameVersion: '0.6.0', note: null, world: 'real',
     hq,
     map: null,
   };
@@ -118,6 +118,7 @@ describe('The main menu', () => {
     load: vi.fn(async (): Promise<LoadResult> => ({ ok: true, note: null })),
     canSave: signal(false),
     autosaveNow: vi.fn(async () => false),
+    newRun: vi.fn(),
   };
   const worlds = { openSave: vi.fn(), editMap: vi.fn() };
   /** The custom maps open: the start list has its tabs */
@@ -224,7 +225,7 @@ describe('The main menu', () => {
 
   describe('the tabs for real places and custom maps', () => {
     const mapAutosave = (wave = 4): SaveSlotInfo => ({
-      ...autosaveAt(null, 'Ember Crater', wave), id: AUTOSAVE_MAP_SLOT, map: { id: 'ember-crater-copy', name: 'Ember Crater (copy)' },
+      ...autosaveAt(null, 'Ember Crater', wave), id: AUTOSAVE_BUILT_SLOT, world: 'maps', map: { id: 'ember-crater-copy', name: 'Ember Crater (copy)' },
     });
 
     it('a map behind the menu: the maps tab, its own Continue, and no autosave of a real place in it', async () => {
@@ -274,7 +275,7 @@ describe('The main menu', () => {
       await click(el().querySelector('[data-tab="custom"]'));
       expect(entries()).toEqual(['Continue', 'Play a map', 'Coop', 'Load game', 'Map editor', 'Settings', 'Extras']);
       expect(entry('continue')?.querySelector('.mh-sub')?.textContent).toBe('in Ember Crater (copy) | wave 4');
-      expect(menu.loadableSlots().map((slot) => slot.id)).toEqual([AUTOSAVE_MAP_SLOT]);
+      expect(menu.loadableSlots().map((slot) => slot.id)).toEqual([AUTOSAVE_BUILT_SLOT]);
     });
 
     it('without the maps open there are no tabs and the list is as before', async () => {
@@ -784,7 +785,7 @@ describe('The main menu', () => {
       game.waveNumber.set(3);
       saves.canSave.set(true);
       saves.autosaveNow.mockImplementation(async () => {
-        saves.slots.set([{ ...autosaveAt(null, 'Ember Crater', 4), id: AUTOSAVE_MAP_SLOT, map: { id: 'ember-crater-copy', name: 'Ember Crater (copy)' } }]);
+        saves.slots.set([{ ...autosaveAt(null, 'Ember Crater', 4), id: AUTOSAVE_BUILT_SLOT, world: 'maps', map: { id: 'ember-crater-copy', name: 'Ember Crater (copy)' } }]);
         return true;
       });
       await settle();
@@ -795,7 +796,7 @@ describe('The main menu', () => {
       await vi.waitFor(() => expect(worlds.editMap).toHaveBeenCalledWith('ember-crater-copy'));
       expect(saves.autosaveNow).toHaveBeenCalledTimes(1);
       expect(TestBed.inject(AppScreen).waitingRun()).toEqual({
-        order: { ...PLAIN_START, world: { kind: 'custom-map', mapId: 'ember-crater-copy', contentHash: '', name: 'Ember Crater (copy)' }, resume: AUTOSAVE_MAP_SLOT, play: true, label: 'Ember Crater (copy)' },
+        order: { ...PLAIN_START, world: { kind: 'custom-map', mapId: 'ember-crater-copy', contentHash: '', name: 'Ember Crater (copy)' }, resume: AUTOSAVE_BUILT_SLOT, play: true, label: 'Ember Crater (copy)' },
         label: 'Ember Crater (copy) | wave 4',
         mapId: 'ember-crater-copy',
       });
@@ -807,7 +808,7 @@ describe('The main menu', () => {
       await setup('pause');
       game.towerCount.set(1);
       game.waveNumber.set(5);
-      saves.slots.set([{ ...autosaveAt(null, 'Ember Crater', 4), id: AUTOSAVE_MAP_SLOT, map: { id: 'ember-crater-copy', name: 'Ember Crater (copy)' } }]);
+      saves.slots.set([{ ...autosaveAt(null, 'Ember Crater', 4), id: AUTOSAVE_BUILT_SLOT, world: 'maps', map: { id: 'ember-crater-copy', name: 'Ember Crater (copy)' } }]);
       await settle();
       await click(entry('edit-map'));
       expect(text()).toContain('Edit this map? The run ends.');
