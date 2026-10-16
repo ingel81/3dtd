@@ -17,13 +17,12 @@ import {
   heroWorld,
   runAtRisk,
   samePick,
-  whyNot,
   worldLock,
   type AutosaveRun,
   type WorldId,
   type WorldPick,
-  type WorldRuleState,
 } from './world-rules';
+import { whyNot, type WhyNotFacts } from '../world/why-not';
 
 /** The lists of the real places' menu */
 export type RealList = 'recent' | 'favorites' | 'showcase' | 'search' | 'records' | 'tilesets';
@@ -102,14 +101,14 @@ export class WorldsStageService {
   /** The slots as the globes see them: Load opens a slot's world with it */
   readonly saves = new StageSaves(inject(STAGE_SLOT_STORE), (slot) => this.continueSlot(slot));
 
-  readonly rules = computed<WorldRuleState>(() => ({
+  /** What the ways of the globes hang on: the key and the release; no room, no run, no replay here */
+  readonly rules = computed<WhyNotFacts & { hasKey: boolean }>(() => ({
     hasKey: !this.config.needsCredentials(),
     mapsOpen: this.mapsOpen,
+    inCoopRoom: false,
     coopGuest: false,
-    inCoop: false,
+    replay: false,
     runLoaded: false,
-    trial: false,
-    waveRecorded: false,
   }));
 
   /** The runs the autosaves hold, the real places' and the maps' (OpenStreetMap maps share it) */
@@ -137,7 +136,7 @@ export class WorldsStageService {
   }
 
   whyNot(action: 'play' | 'edit', world: WorldId | null): string | null {
-    return whyNot(action, world, this.rules());
+    return whyNot(action, { ...this.rules(), world });
   }
 
   /** The run an autosave holds for this world and pick: Start continues it */

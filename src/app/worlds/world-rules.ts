@@ -18,66 +18,15 @@ export const WORLD_NAMES: Readonly<Record<WorldId, string>> = {
   maps: 'Maps',
 };
 
-/** What the rules look at; the stage and the game each fill it from their services */
-export interface WorldRuleState {
-  /** A tile key (Cesium Ion or Google) is there */
-  hasKey: boolean;
-  /** The custom maps and the editor are released (CUSTOM_MAPS_OPEN) */
-  mapsOpen: boolean;
-  /** In a coop room as a guest: the host picks the map */
-  coopGuest: boolean;
-  /** A coop room or game is open at all */
-  inCoop: boolean;
-  /** A run is loaded in the page (the game, not the globes) */
-  runLoaded: boolean;
-  /** The run is an editor's trial run: never saved */
-  trial: boolean;
-  /** A wave of the run was played: a replay exists */
-  waveRecorded: boolean;
-}
-
 /**
  * Why a whole world is locked, or null. A locked globe is grey and stays
  * clickable: its menu shows the list, Start is locked with this reason.
+ * Why a single way is blocked is world/why-not.ts, one list of reasons for
+ * the path, the game's menus and the globes.
  */
-export function worldLock(world: WorldId, state: Pick<WorldRuleState, 'hasKey' | 'mapsOpen'>): string | null {
+export function worldLock(world: WorldId, state: { hasKey: boolean; mapsOpen: boolean }): string | null {
   if (world === 'real') return state.hasKey ? null : 'No map key';
   return state.mapsOpen ? null : 'Coming soon';
-}
-
-/** What the player may want to do somewhere */
-export type WorldAction = 'play' | 'edit' | 'save' | 'load' | 'restart' | 'replay' | 'leave';
-
-/**
- * The sentence beside a locked button, or null when the way is open. A
- * locked way is never hidden: the reason says why, and where there is a way
- * out (a map key), the caller shows it beside.
- */
-export function whyNot(action: WorldAction, world: WorldId | null, state: WorldRuleState): string | null {
-  switch (action) {
-    case 'play':
-      if (state.coopGuest) return 'In a coop room the host picks the map';
-      if (world === 'real' && !state.hasKey) return 'Needs a map key (Cesium Ion or Google)';
-      if (world !== null && world !== 'real' && !state.mapsOpen) return 'Maps are coming soon';
-      return null;
-    case 'edit':
-      if (!state.mapsOpen) return 'The editor is coming soon';
-      if (state.coopGuest) return 'Leave the coop room to edit';
-      return null;
-    case 'save':
-      if (state.coopGuest) return 'In coop the host saves';
-      if (state.trial) return 'A trial run is not saved';
-      if (!state.runLoaded) return 'No run to save';
-      return null;
-    case 'load':
-      return state.coopGuest ? "The room plays the host's map" : null;
-    case 'restart':
-      return state.coopGuest ? 'The host restarts' : null;
-    case 'replay':
-      return state.waveRecorded ? null : 'After the first wave';
-    case 'leave':
-      return state.inCoop ? 'Leave the coop room first' : null;
-  }
 }
 
 /** What a world menu has chosen: a place of the real places, an own tileset there, or a map */
