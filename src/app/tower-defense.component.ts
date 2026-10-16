@@ -59,6 +59,11 @@ import { BossBarComponent } from './components/boss-bar/boss-bar.component';
 import { CoopSquadComponent } from './components/coop-squad/coop-squad.component';
 import { CoopDockComponent } from './components/coop-dock/coop-dock.component';
 import { WorldContext } from './world/world-context.service';
+import { AppScreen } from './world/app-screen.service';
+import { CUSTOM_MAPS_OPEN } from './world/custom-maps-open';
+import { whyNot, worldName } from './world/why-not';
+import type { GamePath } from './components/game-header/game-header.component';
+import type { PathAction } from './components/world-path/world-path.component';
 import { WaveDebugService } from './services/debug/wave-debug.service';
 import { EnemyDebugService } from './services/debug/enemy-debug.service';
 import { DebugFacadeService } from './services/debug/debug-facade.service';
@@ -312,6 +317,49 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   /** The main menu: start layer in front of the loading place, pause layer on Esc */
   readonly mainMenu = inject(MainMenuService);
+  /** The map editor beside the game in this window: its map names a chip of the path */
+  private readonly screens = inject(AppScreen);
+  private readonly mapsOpen = inject(CUSTOM_MAPS_OPEN);
+
+  /** The path over the game (docs/WORLDS_NAVIGATION_PLAN.md, 3.4): the world, the way into the editor, the editor's map */
+  readonly gamePath = computed<GamePath>(() => {
+    const ref = this.worldContext.ref();
+    const onMap = ref.kind === 'custom-map';
+    const draft = this.screens.draft();
+    const editWhy = whyNot('edit', {
+      mapsOpen: this.mapsOpen,
+      inCoopRoom: this.coop.room() !== null || this.coop.inGame(),
+      coopGuest: this.uiStore.coopMapLocked(),
+      replay: this.uiStore.replayMode(),
+    });
+    return {
+      world: worldName(ref),
+      editLabel: onMap ? 'Edit' : 'Make map',
+      editHint: onMap ? 'Edit this map in the editor' : 'Make a map of a real place (New game)',
+      editWhy: editWhy ?? (onMap || ref.kind === 'tiles' ? null : 'There is no map to edit here'),
+      chips: draft
+        ? [{ id: 'editor', label: `Editor: ${draft.name}${draft.unsaved ? ' | unsaved' : ''}`, hint: 'Back to the map editor, the map as you left it' }]
+        : [],
+    };
+  });
+
+  /** A step of the path: the menu (all worlds, this world's New game), the editor (Edit, its chip) */
+  onPath(action: PathAction): void {
+    if (action === 'worlds') this.mainMenu.open();
+    else if (action === 'world') this.mainMenu.open('new-game');
+    else if (action === 'edit') this.editFromPath();
+    else if (action !== 'play' && action.chip === 'editor') void this.mainMenu.openMapEditor();
+  }
+
+  /** Edit on the path: a map opens in the editor, unless the run would end (the menu asks then); a real place goes to New game */
+  private editFromPath(): void {
+    if (this.worldContext.ref().kind !== 'custom-map') {
+      this.mainMenu.open('new-game');
+      return;
+    }
+    if (this.mainMenu.runWhenEditing() === 'ends') this.mainMenu.open();
+    else void this.mainMenu.editThisMap();
+  }
 
   // Debug services
   readonly waveDebug = inject(WaveDebugService);
