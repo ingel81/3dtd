@@ -113,6 +113,8 @@
 
   // === Surfaces ===
   .td-backdrop { background: var(--td-backdrop); }
+  .td-world-bg { @include surface.world-bg; }
+  .td-world-disc { @include surface.world-disc; }
   .td-panel { @include surface.panel; }
   .td-overlay { @include surface.panel-overlay; }
   .td-chip { @include surface.chip; }

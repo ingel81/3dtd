@@ -1,8 +1,11 @@
 import { Injectable, InjectionToken, inject, signal } from '@angular/core';
+import { pageQuery } from '../core/page-switches';
+import { startMenuSkipped } from '../components/main-menu/start-menu-skipped';
 import { LocationManagementService } from '../services/location/location-management.service';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { coordKey } from '../utils/geo-utils';
 import { closeCustomMaps } from './custom-map/custom-map-world';
+import { MAP_TEST_WINDOW } from './map-trial';
 import { WORLD_URL_PARAM, worldUrlValue } from './world-ref';
 import { RESUME_URL_PARAM, WorldStartService, type WorldStart } from './world-start';
 
@@ -26,6 +29,28 @@ export function worldStartUrl(order: WorldStart, base: string): string {
 }
 
 /**
+ * Whether the page opens straight into the game instead of on the globes
+ * (docs/WORLDS_NAVIGATION_PLAN.md, 3.8): a start that is a run's, not the
+ * player's pick. An automated run (a bot, the benchmark, `menu=skip`),
+ * DevWorld, the editor's test run (`fromWave`, its test window), a coop
+ * invite and a save to load. A link with a place or a map only picks: the
+ * globes show with it chosen in its world's menu.
+ */
+export function opensAtOnce(order: WorldStart, search: string, windowName: string): boolean {
+  const params = new URLSearchParams(search);
+  return (
+    startMenuSkipped(search) ||
+    params.has('bot') ||
+    order.world?.kind === 'devworld' ||
+    order.startWave > 1 ||
+    params.has('trialWaves') ||
+    windowName === MAP_TEST_WINDOW ||
+    order.room !== null ||
+    order.resume !== null
+  );
+}
+
+/**
  * Opens worlds in this page, without a reload (docs/WORLDS_NAVIGATION_PLAN.md,
  * phase 2). A world is the game component with everything it provides: its
  * engine and canvas, the sim worker, the presentation, the menus. Opening
@@ -35,6 +60,8 @@ export function worldStartUrl(order: WorldStart, base: string): string {
  * goes when the old game is gone (closed), before the new one starts.
  *
  * At most one world is open: one engine, one sim worker, one game canvas.
+ * None is open on the globes (phase 6): the page starts there, unless its
+ * start is a run's (opensAtOnce), and goes back there with close().
  */
 @Injectable({ providedIn: 'root' })
 export class WorldSession {
@@ -47,6 +74,10 @@ export class WorldSession {
 
   /** Counts the worlds this page opened; the game host makes the game anew when it changes */
   readonly world = signal(0);
+  /** A world is open (the game shows); false on the globes, where nothing of a game loads */
+  readonly isOpen = signal(
+    opensAtOnce(this.start.current(), pageQuery(), typeof window === 'undefined' ? '' : window.name),
+  );
 
   /**
    * Open the world of `order` in this page, the open one goes. Outside the
@@ -60,6 +91,12 @@ export class WorldSession {
     }
     this.start.set(order);
     this.world.update((n) => n + 1);
+    this.isOpen.set(true);
+  }
+
+  /** Back to the globes: the open world goes, engine, worker and canvas with it */
+  close(): void {
+    this.isOpen.set(false);
   }
 
   /**

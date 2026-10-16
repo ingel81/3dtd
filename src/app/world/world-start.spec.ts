@@ -29,6 +29,9 @@ describe('WorldStart', () => {
       room: { code: 'ABC123', lane: 's2' },
       spawnLimit: 2,
       startWave: 5,
+      // A link only picks: never played at once (docs/WORLDS_NAVIGATION_PLAN.md, 3.8)
+      play: false,
+      label: null,
     });
   });
 

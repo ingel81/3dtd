@@ -1,4 +1,4 @@
-import { Injectable, InjectionToken, computed, inject } from '@angular/core';
+import { Injectable, InjectionToken, Injector, computed, inject } from '@angular/core';
 import { ConfigService } from '../core/services/config.service';
 import { readDesktopBridge } from '../core/desktop-bridge';
 import { MapStore, type MapSummary } from './custom-map/map-store';
@@ -7,6 +7,7 @@ import { WorldContext } from './world-context.service';
 import type { WorldRef } from './world-ref';
 import { PLAIN_START } from './world-start';
 import { WORLD_NAVIGATE, WorldSession } from './world-session.service';
+import { WorldsStageService } from '../worlds/worlds-stage.service';
 
 export { WORLD_NAVIGATE } from './world-session.service';
 
@@ -46,6 +47,7 @@ export class WorldChoiceService {
   private readonly config = inject(ConfigService);
   private readonly world = inject(WorldContext);
   private readonly session = inject(WorldSession);
+  private readonly injector = inject(Injector);
   /** Object URLs of own maps' pictures, given back with the next list */
   private pictureUrls: string[] = [];
 
@@ -87,15 +89,21 @@ export class WorldChoiceService {
     return current.kind === ref.kind;
   }
 
-  /** Play a custom map */
-  playMap(mapId: string): void {
-    this.session.open({ ...PLAIN_START, world: { kind: 'custom-map', mapId, contentHash: '' } });
+  /** Play a custom map: the game shows once it stands */
+  playMap(mapId: string, name: string | null = null): void {
+    this.session.open({ ...PLAIN_START, world: { kind: 'custom-map', mapId, contentHash: '' }, play: true, label: name });
   }
 
   /** Play an own tileset, starting at the middle of its area */
   playTileset(tileset: OwnTileset): void {
     const { lat, lon } = tileset.coverage.center;
-    this.session.open({ ...PLAIN_START, world: { kind: 'tileset', id: tileset.id }, place: { hq: { lat, lon }, spawns: [] } });
+    this.session.open({
+      ...PLAIN_START,
+      world: { kind: 'tileset', id: tileset.id },
+      place: { hq: { lat, lon }, spawns: [] },
+      play: true,
+      label: tileset.name,
+    });
   }
 
   /** The desktop app's map folder, or null in a browser */
@@ -126,14 +134,15 @@ export class WorldChoiceService {
    * or the real places) opens in the page and loads the save once it stands
    * (WorldStart.resume, MainMenuService).
    */
-  openSave(slot: { id: string; map: { id: string } | null }): void {
+  openSave(slot: { id: string; map: { id: string; name?: string } | null }): void {
     const world: WorldRef | null = slot.map ? { kind: 'custom-map', mapId: slot.map.id, contentHash: '' } : null;
-    this.session.open({ ...PLAIN_START, world, resume: slot.id });
+    this.session.open({ ...PLAIN_START, world, resume: slot.id, play: true, label: slot.map?.name ?? null });
   }
 
-  /** Back to the real places of the 3D tiles; the menu then asks where */
+  /** Back to the real places of the 3D tiles: their menu on the globes asks where, the game goes */
   playRealPlaces(): void {
-    this.session.open(PLAIN_START);
+    // Looked up here: the globes' service lists the maps through this one
+    this.injector.get(WorldsStageService).leaveGame({ world: 'real', pick: null });
   }
 
   /** Opens the map editor on this map */

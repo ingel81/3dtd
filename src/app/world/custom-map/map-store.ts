@@ -43,6 +43,8 @@ export interface MapSummary {
   biome?: MapBiome;
   /** The w3x file a map came from */
   importedFrom?: string;
+  /** The real place an OpenStreetMap map was made of (MapSource 'osm'): the globes list it in that world */
+  osm?: { lat: number; lon: number };
   /** The map's lasting identity (MapMeta.uid); absent in summaries of maps not saved since the field */
   uid?: string;
   /** The shipped or coop map this own map is a copy of (MapMeta.copyOf) */
@@ -400,6 +402,7 @@ export function summarize(doc: CustomMapDocument, origin: MapOrigin, hash: strin
     spawns: doc.spawns.length,
     biome: doc.environment.biome ?? 'temperate',
     importedFrom: doc.meta.source?.kind === 'w3x' ? doc.meta.source.file : undefined,
+    ...(doc.meta.source?.kind === 'osm' ? { osm: { lat: doc.meta.source.lat, lon: doc.meta.source.lon } } : {}),
     ...(doc.meta.uid ? { uid: doc.meta.uid } : {}),
     ...(doc.meta.copyOf ? { copyOf: { ...doc.meta.copyOf } } : {}),
   };

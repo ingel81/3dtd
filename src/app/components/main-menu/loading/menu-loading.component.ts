@@ -93,8 +93,10 @@ export class MenuLoadingComponent {
     else this.session.reopen();
   }
 
+  /** Another place or map: the New game page, or for a Start from the worlds that world's menu */
   otherPlace(): void {
-    this.menu.open('new-game');
+    if (this.menu.starting()) this.menu.cancelStart();
+    else this.menu.open('new-game');
   }
 
   mapKey(): void {

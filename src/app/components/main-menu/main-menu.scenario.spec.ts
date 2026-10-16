@@ -726,7 +726,7 @@ describe('The main menu', () => {
       game.towerCount.set(2);
       await settle();
 
-      expect(entries()).toEqual(['Continue', 'Save game', 'Load game', 'Settings', 'Extras', 'New game', 'Coop', 'Restart here']);
+      expect(entries()).toEqual(['Continue', 'Save game', 'Load game', 'Settings', 'Extras', 'New game', 'Coop', 'World menu', 'All worlds', 'Restart here']);
       expect(el().querySelector('.mh-pause-word')?.textContent).toBe('Paused');
       expect(el().querySelector('.mh-pause-place')?.textContent).toBe('Heilbronn | wave 1');
     });
@@ -739,7 +739,7 @@ describe('The main menu', () => {
       await settle();
       const edit = vi.spyOn(menu, 'editThisMap').mockImplementation(() => undefined);
 
-      expect(entries()).toEqual(['Continue', 'Save game', 'Load game', 'Settings', 'Extras', 'New game', 'Coop', 'Edit this map', 'Restart here']);
+      expect(entries()).toEqual(['Continue', 'Save game', 'Load game', 'Settings', 'Extras', 'New game', 'Coop', 'Edit this map', 'World menu', 'All worlds', 'Restart here']);
       await click(entry('edit-map'));
       expect(edit).not.toHaveBeenCalled();
       expect(text()).toContain('Edit this map? The run ends.');
@@ -785,7 +785,10 @@ describe('The main menu', () => {
       menu.open('home', 'pause');
       await settle();
       expect(game.paused()).toBe(false);
-      expect(entries()).toEqual(['Continue', 'Settings', 'Extras', 'Coop']);
+      // Back to the worlds stays, locked: the room would lose the player
+      expect(entries()).toEqual(['Continue', 'Settings', 'Extras', 'Coop', 'World menu', 'All worlds']);
+      expect(entry('worlds')!.getAttribute('aria-disabled')).toBe('true');
+      expect(entry('worlds')!.textContent).toContain('Leave the coop room first');
       expect(el().querySelector('.mh-pause-word')?.textContent).toBe('Coop');
       expect(el().querySelector('.mh-pause-place')?.textContent).toContain('Heilbronn');
     });

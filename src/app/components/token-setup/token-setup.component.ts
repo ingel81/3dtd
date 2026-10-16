@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, isDevMode, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, isDevMode, output, signal } from '@angular/core';
 import { CdkTrapFocus } from '@angular/cdk/a11y';
 import { ConfigService } from '../../core/services/config.service';
 import { RovingGroupDirective } from '../roving-group.directive';
@@ -52,9 +52,15 @@ export class TokenSetupComponent {
   readonly value = signal('');
   readonly rejected = this.config.credentialsRejected;
 
-  /** A voluntary visit can be left again; a missing key cannot. */
+  /**
+   * Opened from the globes (docs/WORLDS_NAVIGATION_PLAN.md): there is no game
+   * waiting for the key, so it can always be left, back to the worlds
+   */
+  readonly fromWorlds = input(false);
+
+  /** A voluntary visit can be left again; a missing key cannot, unless the globes stand behind it. */
   readonly dismissible = computed(
-    () => this.config.setupRequested() && !this.config.needsCredentials()
+    () => this.fromWorlds() || (this.config.setupRequested() && !this.config.needsCredentials())
   );
 
   readonly testing = signal(false);

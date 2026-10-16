@@ -47,6 +47,14 @@ export interface WorldStart {
   spawnLimit: number;
   /** The wave a test run of a map starts at (`?fromWave=`, customMapStartWave) */
   startWave: number;
+  /**
+   * The player pressed Start (a world menu, Continue, a map picked in the
+   * game): the game shows as soon as the world stands, no Play in between.
+   * A link only picks (docs/WORLDS_NAVIGATION_PLAN.md, 3.8), so never from one
+   */
+  play: boolean;
+  /** What loads, as the loading view names it ("Heilbronn", "Demo Valley"); null: the world names itself */
+  label: string | null;
 }
 
 /** The order of a start without a link: the 3D tiles, the place guessed or asked */
@@ -57,6 +65,8 @@ export const PLAIN_START: WorldStart = {
   room: null,
   spawnLimit: customMapSpawnLimit(''),
   startWave: 1,
+  play: false,
+  label: null,
 };
 
 /**
@@ -78,6 +88,8 @@ export function worldStartFromSearch(
     room: code ? { code, lane: params.get('lane') } : null,
     spawnLimit: customMapSpawnLimit(search),
     startWave: customMapStartWave(search),
+    play: false,
+    label: null,
   };
 }
 
