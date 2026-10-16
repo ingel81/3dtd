@@ -80,6 +80,11 @@ export class EditorStage implements Stage {
     return t ? waterLevelAt(t, x, y, this.groundAt(x, y)) : null;
   }
 
+  surfaceAt(x: number, y: number): number {
+    const ground = this.groundAt(x, y);
+    return Math.max(ground, this.waterAt(x, y) ?? ground);
+  }
+
   rendererState(): string | null {
     const info = this.viewport?.renderer.info;
     return info ? `${info.programs?.length ?? 0}:${info.memory.geometries}:${info.memory.textures}` : null;

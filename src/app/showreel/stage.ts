@@ -15,6 +15,11 @@ export interface Stage {
   groundAt(x: number, y: number): number;
   /** The water surface over the ground at a map point, null on dry ground */
   waterAt(x: number, y: number): number | null;
+  /**
+   * What a camera height counts from: the water surface where water lies, else the ground (a script's `h`, a
+   * frame's centre, a chase camera); clicks and strokes stay on the ground
+   */
+  surfaceAt(x: number, y: number): number;
   /** Metres the director's camera keeps above the ground (camera-floor.ts); a scene may set less */
   cameraFloor: number;
   /**

@@ -202,7 +202,7 @@ opens a second window; under the hook the runner opens it in the same one.
 
 Every step may carry `label` (a time mark). Points: `[fx, fy, h?]` shares of the map around its middle, `{ at, dx,
 dy, h }` from a named spot (`hq`, `center`, `spawn:<i>`; editor `node:<i>`, `river:<r>:<p>`, `object:<asset|last>`;
-game `spot:<i>`, `spots`, `enemy:<i>` or `enemy:<type>` (an enemy alive, held while it lives; a follow ends as it falls)), `{ m: [x, y], h }` metres; `h` above the ground, `habs` absolute, none: on the ground.
+game `spot:<i>`, `spots`, `enemy:<i>` or `enemy:<type>` (an enemy alive, held while it lives; a follow ends as it falls)), `{ m: [x, y], h }` metres; `h` above the ground (above the water surface where water lies), `habs` absolute, none: on the ground.
 
 | Step | Does |
 |------|------|

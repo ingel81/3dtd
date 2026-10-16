@@ -6,7 +6,7 @@
 // `effect:<what>` the moment a change has visibly taken effect (the cut ends a beat after it, not mid-action).
 //
 // Points: [fx, fy, h] are shares of the map's width and depth around its middle (east, north) with h metres
-// above the ground there; { at, dx, dy, h } metres from a named spot: 'hq', 'center', 'spawn:0', in the editor
+// above the ground there (the water surface where water lies); { at, dx, dy, h } metres from a named spot: 'hq', 'center', 'spawn:0', in the editor
 // 'node:-1' (newest road node), 'river:0:3' (a river point), 'object:<asset>' or 'object:last', in the game
 // 'spot:<i>' and 'spots' (tower spots from planTowers); { m: [x, y], h } metres on the map. Without h: on the
 // ground, followed live. Orbit angles in degrees, 0 = the camera south of the centre looking north,
