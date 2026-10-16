@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { TERRAIN_PRESETS, TerrainPreset } from './terrain-presets';
+import { pageSwitches } from '../core/page-switches';
 
 /**
  * DevWorld Configuration
@@ -82,7 +83,7 @@ export class DevWorldService {
   readonly config: DevWorldConfig;
 
   constructor() {
-    const params = new URLSearchParams(window.location.search);
+    const params = pageSwitches();
     this.inUrl = params.has('devworld');
 
     if (this.inUrl) {

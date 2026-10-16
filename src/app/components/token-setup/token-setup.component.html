@@ -107,7 +107,7 @@
   @if (dismissible()) {
     <footer class="td-dlg-foot">
       <button class="td-btn-secondary token-back" type="button" (click)="dismiss()">
-        Back to the game
+        {{ fromWorlds() ? 'Back to the worlds' : 'Back to the game' }}
         <kbd class="td-kbd">Esc</kbd>
       </button>
     </footer>

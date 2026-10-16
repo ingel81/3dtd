@@ -3,6 +3,7 @@ import { dropOldMapData, setMapDataBase, setMapDataFresh } from '../../world/cus
 import { environment } from '../../../environments/environment';
 import { readJson, removeKey, writeJson } from '../../utils/storage';
 import { parseOwnTilesets, type OwnTileset } from '../../world/tileset/own-tileset';
+import { pageSwitches } from '../page-switches';
 
 /** Shape of the optional `runtime-config.json` next to `index.html`. */
 interface RuntimeConfig {
@@ -98,7 +99,7 @@ export class ConfigService {
    */
   private static withoutBuildKeys(): boolean {
     try {
-      return new URLSearchParams(window.location.search).has('nokey');
+      return pageSwitches().has('nokey');
     } catch {
       return false;
     }

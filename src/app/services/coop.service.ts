@@ -78,6 +78,8 @@ import { toJsonl } from '../run-log/run-log.export';
 import type { RunLog } from '../run-log/run-log.types';
 import { CoopRunCounts } from './coop-run-counts';
 import { ResettableSignals } from '../utils/resettable-signals';
+import { WorldStartService } from '../world/world-start';
+import { pageSwitches } from '../core/page-switches';
 
 /** A mark on the map one player set for all (review R13) */
 export interface CoopPing {
@@ -521,8 +523,10 @@ export class CoopService {
       this.leave();
       this.subs.disposeAll();
     });
-    const params = new URLSearchParams(window.location.search);
-    this.roomFromUrl = params.get('room');
+    // The start order's room (an invite link's ?room=, &lane=); the other switches stay in the address
+    const room = inject(WorldStartService).current().room;
+    const params = pageSwitches();
+    this.roomFromUrl = room?.code ?? null;
     // An invite link opens the start menu on its Coop page (TowerDefenseComponent.startGameSequence);
     // in a browser the page says the room is played in the app (E114)
     if (this.roomFromUrl && this.access !== 'hint') {
@@ -533,7 +537,7 @@ export class CoopService {
       queueMicrotask(() => void this.joinFromUrl());
     }
     this.relayFromUrl = params.get('relay');
-    this.laneFromUrl = params.get('lane');
+    this.laneFromUrl = room?.lane ?? null;
     this.hashEveryFromUrl = hashEveryParam(params.get('hashEvery'));
     this.resync.partChars = resyncPartParam(params.get('resyncPart')) ?? this.resync.partChars;
 

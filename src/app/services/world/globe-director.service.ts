@@ -20,6 +20,7 @@ import { HANDOVER_ALTITUDE, diveDurations, type DivePlan } from '../../globe/div
 import { cameraTimeline } from '../../utils/camera-timeline';
 import { GLOBE_LINK } from './globe-link';
 import { readJson, writeJson } from '../../utils/storage';
+import { pageQuery } from '../../core/page-switches';
 
 /**
  * What the globe does (docs/GLOBE_PLAN.md, Ablauf):
@@ -155,7 +156,7 @@ export class GlobeDirectorService {
       // Only a real place on the earth lies on the globe (ECEF frame for the dive)
       this.worldContext.capabilities().realPlace &&
       this.worldContext.capabilities().ecef &&
-      !startMenuSkipped(typeof window === 'undefined' ? '' : window.location.search) &&
+      !startMenuSkipped(pageQuery()) &&
       webgl2Available(),
   );
 

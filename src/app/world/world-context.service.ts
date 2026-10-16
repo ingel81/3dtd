@@ -1,11 +1,9 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, computed, inject, linkedSignal, signal } from '@angular/core';
 import { ConfigService } from '../core/services/config.service';
-import { devWorldRef } from '../devworld/dev-world-provider';
-import { DevWorldService } from '../devworld/devworld.service';
 import type { WorldCapabilities, WorldLogo, WorldProvider, WorldStreetSource } from './world-provider';
 import { WorldProviderRegistry } from './world-provider-registry';
-import { worldRefFromSearch, type WorldRef } from './world-ref';
-import { customMapsByLink } from './custom-maps-open';
+import type { WorldRef } from './world-ref';
+import { WorldStartService } from './world-start';
 import { DEFAULT_RUN_RULES, type RunRules } from '../sim/protocol/run-rules';
 import type { WorldCoverage } from './world-coverage';
 
@@ -24,9 +22,9 @@ const NO_CAPABILITIES: WorldCapabilities = {
 };
 
 /**
- * The world the game plays on: its WorldRef (from the link at the start:
- * `?devworld…`, `?world=map:<id>`, else the 3D tiles of the configured
- * source), what it can do, and once the engine is made, its provider. The
+ * The world the game plays on: its WorldRef (the start order's,
+ * WorldStartService: `?devworld…`, `?world=map:<id>` at the page's start,
+ * else the 3D tiles of the configured source), what it can do, and once the engine is made, its provider. The
  * one place services reach the world through; nothing else asks which
  * world it is (docs/WORLD_PROVIDER_PLAN.md).
  */
@@ -34,10 +32,10 @@ const NO_CAPABILITIES: WorldCapabilities = {
 export class WorldContext {
   private readonly registry = inject(WorldProviderRegistry);
   private readonly config = inject(ConfigService);
-  private readonly devWorld = inject(DevWorldService);
+  private readonly start = inject(WorldStartService);
 
-  /** A world other than the tiles, chosen by the link or later; null: the tiles */
-  private readonly chosen = signal<WorldRef | null>(this.refFromUrl());
+  /** A world other than the tiles, the start order's; null: the tiles. A new order sets it anew */
+  private readonly chosen = linkedSignal<WorldRef | null>(() => this.start.current().world);
   private readonly active = signal<WorldProvider | null>(null);
 
   /** Which world the run plays on; the tiles follow the configured source */
@@ -91,12 +89,5 @@ export class WorldContext {
   refreshRef(): void {
     const provider = this.active();
     if (provider && provider.ref.kind !== 'tiles') this.chosen.set(provider.ref);
-  }
-
-  private refFromUrl(): WorldRef | null {
-    if (this.devWorld.inUrl) return devWorldRef(this.devWorld);
-    const ref = typeof window === 'undefined' ? null : worldRefFromSearch(window.location.search);
-    // A map link of a release before the maps are: the real places
-    return ref?.kind === 'custom-map' && !customMapsByLink() ? null : ref;
   }
 }

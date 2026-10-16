@@ -11,6 +11,8 @@ import {
   RENDER_VIEWS, RENDER_VIEW_SECONDS, envOf, isRenderBenchmarkSearch, renderBenchmarkUrl, renderRow, viewPose,
   type Pose, type RenderBenchEnv, type RenderRow, type Vec3,
 } from './render-benchmark';
+import { pageQuery } from '../core/page-switches';
+import { UrlLocationService } from '../services/location/url-location.service';
 
 export type RenderBenchPhase = 'idle' | 'running' | 'done' | 'failed';
 
@@ -51,14 +53,15 @@ export class RenderBenchmarkService {
   private readonly location = inject(LocationManagementService);
   private readonly worldContext = inject(WorldContext);
   private readonly quality = inject(RenderQualityService);
+  private readonly urls = inject(UrlLocationService);
 
   /** This page was loaded to run it */
-  readonly requested = isRenderBenchmarkSearch(location.search);
+  readonly requested = isRenderBenchmarkSearch(pageQuery());
   readonly state = signal<RenderBenchState>(IDLE);
 
   /** The menu's entry: this world again, with the flag */
   start(): void {
-    location.assign(renderBenchmarkUrl(location.href));
+    location.assign(renderBenchmarkUrl(this.urls.hereUrl(this.location.hq(), this.location.spawns(), this.worldContext.ref())));
   }
 
   /** The panel's Close: the flag goes from the URL, the camera is the player's again */

@@ -90,6 +90,22 @@ export function attachBlobShadow(pool: InstancedMesh, radius: number, stateLerp:
   return blob;
 }
 
+/**
+ * The engine goes (ThreeTilesEngine.dispose): the shared materials go with it
+ * and the next engine makes its own. Every renderer that drew them hangs a
+ * dispose listener on them, which holds that renderer and its canvas; left
+ * standing, they kept every engine of the worlds opened before, and the
+ * ground source the last world's heights.
+ */
+export function disposeBlobShadows(): void {
+  blobMaterial?.dispose();
+  single?.dispose();
+  blobMaterial = null;
+  single = null;
+  GROUND = null;
+  groundSource = null;
+}
+
 /** One blob under a single object (the hero), its own mesh; follows `target` each frame */
 export function singleBlobShadow(target: Object3D, radius: number): Mesh {
   const blob = new Mesh(new PlaneGeometry(radius * 2, radius * 2, 4, 4).rotateX(-Math.PI / 2), SINGLE_MATERIAL());

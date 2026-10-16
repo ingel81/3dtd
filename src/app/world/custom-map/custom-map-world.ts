@@ -100,7 +100,7 @@ export function customMapStartWave(search: string): number {
 /**
  * The map opened before its world is made (WorldFactory.startHq loads,
  * create takes; the coop host packs it), by map id. Only the last one:
- * a page plays one map, and another world reloads the page
+ * a page plays one map at a time, another world closes it (closeCustomMaps)
  */
 const opened = new Map<string, LoadedCustomMap>();
 
@@ -122,6 +122,11 @@ export async function openCustomMap(ref: WorldRef & { kind: 'custom-map' }, stor
   opened.clear();
   opened.set(ref.mapId, loaded);
   return loaded;
+}
+
+/** The opened map goes with its world (WorldSession): the next world opens its own */
+export function closeCustomMaps(): void {
+  opened.clear();
 }
 
 /**
@@ -489,7 +494,7 @@ export class CustomMapWorld implements WorldProvider {
   private runStart(): RunStart | null {
     if (this.startWave <= 1) return null;
     const waves = this.worldWaves();
-    const source = waves?.source ?? initialWaveSourceId(typeof window === 'undefined' ? '' : window.location.search);
+    const source = waves?.source ?? initialWaveSourceId();
     return runStartAt(this.startWave, createWaveSource(source, waves?.table ? { table: waves.table } : {}).rules);
   }
 

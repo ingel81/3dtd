@@ -11,6 +11,7 @@ import {
   Matrix4,
   Vector4,
   WebGLRenderTarget,
+  Sprite,
 } from 'three';
 import type { GlobeControls } from '3d-tiles-renderer';
 import { ColorGradingPreset } from './post-processing/color-grading';
@@ -36,7 +37,7 @@ import {
 } from './renderers';
 import { InstancedEnemyRenderer } from './renderers/instanced-enemy/instanced-enemy.renderer';
 import { LaserBeamRenderer } from './renderers/laser-beam.renderer';
-import { setBlobGround } from './renderers/instanced-enemy/blob-shadow';
+import { disposeBlobShadows, setBlobGround } from './renderers/instanced-enemy/blob-shadow';
 import { TowerPlinthRenderer } from './renderers/tower-plinth/tower-plinth.renderer';
 import { TowerBadgeRenderer } from './renderers/tower-badge/tower-badge.renderer';
 import { AbilityMarkerRenderer } from './renderers/ability-marker.renderer';
@@ -1338,6 +1339,8 @@ export class ThreeTilesEngine {
     this.hero.dispose();
     for (const partner of this.partnerHeroes) partner.dispose();
     this.partnerHeroes.clear();
+    // After the enemies and heroes that drew them
+    disposeBlobShadows();
     this.frostBursts.dispose();
     this.empPulses.dispose();
     this.orbitalBeams.dispose();
@@ -1374,8 +1377,17 @@ export class ThreeTilesEngine {
     // The sky cube is the scene background, the traverse above does not reach it
     this.sky?.dispose();
 
-    // Dispose renderer
+    // three's sprites share one geometry for the page; every renderer that drew
+    // it hangs a dispose listener on it, which held that renderer, its context
+    // and canvas, and with them the game of every world opened before. Its
+    // dispose drops them; the next renderer uploads it again
+    new Sprite().geometry.dispose();
+
+    // Dispose renderer; its context goes at once, not when the canvas is
+    // collected: the next world of the page makes a canvas of its own
+    // (WorldSession) and the browser keeps only a few contexts alive
     this.renderer.dispose();
     this.restoreGLDeletes();
+    this.renderer.forceContextLoss();
   }
 }

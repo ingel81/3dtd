@@ -32,15 +32,16 @@ export function autosaveElsewhere(
  * The place a start without a link loads behind the main menu
  * (docs/MAIN_MENU_UI_PLAN.md, Menü 5): the autosave's, with the spawns its
  * entry on the recent list has (all lanes of the run), so Continue is quick;
- * else the last one played; none for an invite link (`?room=`), which loads
- * the host's, and none for a first visit: the menu asks.
+ * else the last one played; none for a start into a coop room (an invite
+ * link's `?room=`, `inRoom`), which loads the host's, and none for a first
+ * visit: the menu asks.
  */
 export function startPlaceGuess(
   autosave: SaveSlotInfo | null,
   recents: readonly RecentLocation[],
-  search: string,
+  inRoom: boolean,
 ): StartPlaceGuess | null {
-  if (new URLSearchParams(search).has('room')) return null;
+  if (inRoom) return null;
   const autosaveHq = autosave?.hq ?? null;
   if (autosaveHq) {
     const recent = recents.find((entry) => isSamePlace(entry.hq, autosaveHq));
