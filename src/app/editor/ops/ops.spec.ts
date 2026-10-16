@@ -96,6 +96,21 @@ describe('terrain brushes', () => {
     expect(heightAt(t, 30, 0)).toBeCloseTo(14, 0);
     expect(heightAt(t, 0, 30)).toBe(0);
   });
+
+  it('stands a ramp over low ground on cut and fill slopes when it has sides', () => {
+    // A level causeway 10 m up over flat ground: crest 3.5 m either side, then 0.75 m per metre down
+    const steep = flat().terrain;
+    rampBetween(steep, { x: -40, y: 0, h: 10 }, { x: 40, y: 0, h: 10 }, 10, 0.3);
+    expect(heightAt(steep, 0, 6)).toBe(0);
+    const t = flat().terrain;
+    const rect = rampBetween(t, { x: -40, y: 0, h: 10 }, { x: 40, y: 0, h: 10 }, 10, 0.3, undefined, 0.75);
+    expect(heightAt(t, 0, 0)).toBeCloseTo(10, 1);
+    expect(heightAt(t, 0, 10)).toBeCloseTo(10 - 6.5 * 0.75, 1);
+    expect(heightAt(t, 0, 20)).toBeCloseTo(0, 1);
+    // Round the end too, and the touched samples hold the slopes
+    expect(heightAt(t, 50, 0)).toBeCloseTo(10 - 6.5 * 0.75, 1);
+    expect(rect!.j1 - rect!.j0).toBeGreaterThan(30 / 2);
+  });
 });
 
 describe('ground paint', () => {

@@ -179,6 +179,12 @@ export interface RampEnd {
  * A ramp from `a` to `b`: samples within `width / 2` of the line take the
  * height interpolated along it, fading into the ground over `falloff` of
  * the half width. Returns the touched samples.
+ *
+ * With `sides` (metres of height per metre across) the ramp is cut and
+ * filled like an embankment: beyond its flat crest the ground may differ
+ * from the ramp's height by at most `sides` per metre, round its ends too,
+ * so a ramp over low ground stands on slopes down to it and one through a
+ * hill gets sloped cuts, instead of the falloff's few metres of near-wall.
  */
 export function rampBetween(
   t: MapTerrain,
@@ -187,36 +193,61 @@ export function rampBetween(
   width: number,
   falloff: number,
   beforeWrite?: (rect: GridRect) => void,
+  sides?: number,
 ): GridRect | null {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
   const len2 = dx * dx + dy * dy;
   if (len2 < 1e-6) return null;
+  const len = Math.sqrt(len2);
   const half = width / 2;
+  const crest = half * (1 - falloff);
   const g = t.grid;
-  const minX = Math.min(a.x, b.x) - half;
-  const maxX = Math.max(a.x, b.x) + half;
-  const minY = Math.min(a.y, b.y) - half;
-  const maxY = Math.max(a.y, b.y) + half;
-  const rect: GridRect = {
-    i0: clamp(Math.floor((minX + t.width / 2) / g.cellSize), 0, g.columns - 1),
-    i1: clamp(Math.ceil((maxX + t.width / 2) / g.cellSize), 0, g.columns - 1),
-    j0: clamp(Math.floor((minY + t.depth / 2) / g.cellSize), 0, g.rows - 1),
-    j1: clamp(Math.ceil((maxY + t.depth / 2) / g.cellSize), 0, g.rows - 1),
+  const rectAround = (pad: number): GridRect => ({
+    i0: clamp(Math.floor((Math.min(a.x, b.x) - pad + t.width / 2) / g.cellSize), 0, g.columns - 1),
+    i1: clamp(Math.ceil((Math.max(a.x, b.x) + pad + t.width / 2) / g.cellSize), 0, g.columns - 1),
+    j0: clamp(Math.floor((Math.min(a.y, b.y) - pad + t.depth / 2) / g.cellSize), 0, g.rows - 1),
+    j1: clamp(Math.ceil((Math.max(a.y, b.y) + pad + t.depth / 2) / g.cellSize), 0, g.rows - 1),
+  });
+  /** Along the line (0..1, unclamped) and the ramp's height there, at sample (i, j) */
+  const along = (i: number, j: number): [number, number] => {
+    const s = ((sampleX(t, i) - a.x) * dx + (sampleY(t, j) - a.y) * dy) / len2;
+    return [s, a.h + (b.h - a.h) * clamp(s, 0, 1)];
   };
+  // How far the embankment reaches: the largest step between the ground and the ramp under it
+  let reach = 0;
+  if (sides && sides > 0) {
+    const strip = rectAround(half);
+    let step = 0;
+    for (let j = strip.j0; j <= strip.j1; j++) {
+      for (let i = strip.i0; i <= strip.i1; i++) {
+        const [, target] = along(i, j);
+        step = Math.max(step, Math.abs(g.heights[j * g.columns + i] - target));
+      }
+    }
+    reach = Math.min(step / sides, 4 * width + 20);
+  }
+  const rect = rectAround(half + reach);
   beforeWrite?.(rect);
   for (let j = rect.j0; j <= rect.j1; j++) {
     for (let i = rect.i0; i <= rect.i1; i++) {
       const px = sampleX(t, i) - a.x;
       const py = sampleY(t, j) - a.y;
-      const s = (px * dx + py * dy) / len2;
-      if (s < 0 || s > 1) continue;
-      const side = Math.abs(px * dy - py * dx) / Math.sqrt(len2);
-      const w = brushWeight(side, half, falloff);
-      if (w <= 0) continue;
+      const [s, target] = along(i, j);
       const k = j * g.columns + i;
-      const target = a.h + (b.h - a.h) * s;
-      g.heights[k] += (target - g.heights[k]) * w;
+      let h = g.heights[k];
+      if (reach > 0) {
+        // Distance from the segment, round its ends; beyond the crest the slope holds the ground to the ramp
+        const sc = clamp(s, 0, 1);
+        const d = Math.hypot(px - dx * sc, py - dy * sc);
+        const allow = Math.max(0, d - crest) * sides!;
+        h = clamp(h, target - allow, target + allow);
+      }
+      if (s >= 0 && s <= 1) {
+        const side = Math.abs(px * dy - py * dx) / len;
+        h += (target - h) * brushWeight(side, half, falloff);
+      }
+      g.heights[k] = h;
     }
   }
   return rect;
