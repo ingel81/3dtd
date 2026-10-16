@@ -446,9 +446,31 @@ export class GameStage implements Stage {
         return;
       case 'build': {
         const tower = String(args['tower'] ?? 'archer');
-        const at = (args['at'] as MapPoint3 | undefined) ?? this.spotFor(Number(args['spot'] ?? 0), tower);
+        // `near`: the buildable spot closest to a map point (a placement named by place, P1 to P5 of a story)
+        const near = args['near'] as MapPoint3 | undefined;
+        const at = near
+          ? this.spotNear(near, tower, Number(args['within'] ?? 30))
+          : ((args['at'] as MapPoint3 | undefined) ?? this.spotFor(Number(args['spot'] ?? 0), tower));
         return this.build(tower, at, Number(args['dur'] ?? 0.9), Number(args['hold'] ?? 1.5));
       }
+      case 'command':
+        // One of the game's own commands as the UI sends it (research, hero, upgrades): for fixtures, not in a take
+        c.sim.bus.emit(args['command'] as Record<string, unknown>);
+        await waitSeconds(0.2);
+        return;
+      case 'hero': {
+        // The hero hired, walked to a map point, its ammo chosen (fixtures: a save with the hero in place)
+        c.sim.bus.emit({ type: 'command:hire-hero' });
+        await waitSeconds(0.5);
+        const at = args['at'] as MapPoint3;
+        c.sim.bus.emit({ type: 'command:hero-move', target: { lat: at.y / MAP_METERS_PER_DEGREE, lon: at.x / MAP_METERS_PER_DEGREE } });
+        if (args['ammo']) c.sim.bus.emit({ type: 'command:hero-ammo', ammo: String(args['ammo']) });
+        await waitSeconds(Number(args['walk'] ?? 8));
+        return;
+      }
+      case 'readyAbility':
+        c.sim.bus.emit({ type: 'debug:ready-ability', abilityId: String(args['ability']) });
+        return;
       case 'wave':
         await this.hands.click('.td-wave-btn', Number(args['dur'] ?? 0.8));
         return;
@@ -591,6 +613,20 @@ export class GameStage implements Stage {
       if (d <= range && (!best || d < best.distance)) best = { lat: e.position.lat, lon: e.position.lon, height: e.position.height ?? 0, distance: d };
     }
     return best;
+  }
+
+  /** The buildable spot nearest `at` within `within` m (rings of 3 m), by the rules a click uses */
+  private spotNear(at: MapPoint3, tower: string, within: number): MapPoint3 {
+    for (let r = 0; r <= within; r += 3) {
+      const steps = r ? Math.ceil((2 * Math.PI * r) / 3) : 1;
+      for (let k = 0; k < steps; k++) {
+        const a = (k / steps) * Math.PI * 2;
+        const x = at.x + Math.cos(a) * r;
+        const y = at.y + Math.sin(a) * r;
+        if (this.buildableAround(x, y, tower)) return { x, y, h: Number.NaN };
+      }
+    }
+    throw new Error(`showreel: no spot for a ${tower} within ${within} m of ${Math.round(at.x)}, ${Math.round(at.y)}`);
   }
 
   /** A planned spot, checked again now (an earlier tower may stand near it); a new one beside the routes if not */

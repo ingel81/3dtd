@@ -9,7 +9,8 @@
 // A map fixture: { file: 'fixtures/x.3dtdmap', from: '<shipped id>' | 'fixtures/y.3dtdmap' | { new: { name, size
 //   (1024 or [w, d]), ground (a generator preset, 'flat'), material (the base material id), seed } }, script:
 //   '<map script>', seed } (the script runs as the editor's agent's run_script, docs/AGENT_MCP.md: JavaScript against `map`)
-// A save fixture: { file: 'fixtures/x.3dtdsave', game: '<shipped id>', steps: [director steps], credits } (the steps
+// A save fixture: { file: 'fixtures/x.3dtdsave', game: '<shipped id>' | 'fixtures/x.3dtdmap', save?: an earlier save
+//   to go on from, steps: [director steps], credits } (the steps
 //   play in the game as a scene would, e.g. towers built through the sidebar; then the credits are set to a
 //   normal sum and the run is saved between waves and exported as the menu's Save to file does)
 import { createHash } from 'node:crypto';
@@ -60,9 +61,22 @@ async function mapFixture(page, base, fx) {
 }
 
 async function saveFixture(page, base, fx) {
-  await page.goto(pageUrl(base, `/?world=map:${fx.game}`, '', false, true));
+  // A map file (an own map, Stillwater) stored through the editor first, then played by its id
+  let mapId = fx.game;
+  if (/[\\/]|\.3dtdmap$/.test(fx.game)) {
+    await page.goto(pageUrl(base, '/editor'));
+    await hook(page);
+    await page.evaluate(() => window.__showreel.ready(120));
+    mapId = await page.evaluate((b64) => window.__showreel.take.importMap(b64), readFileSync(fixturePath(fx.game)).toString('base64'));
+  }
+  await page.goto(pageUrl(base, `/?world=map:${encodeURIComponent(mapId)}`, '', false, true));
   await hook(page);
   await page.evaluate(() => window.__showreel.ready(180));
+  // `save`: on from an earlier save of the same run (a chain A, B, C, D)
+  if (fx.save) {
+    const loaded = await page.evaluate(([b64, name]) => window.__showreel.take.loadSave(b64, name), [readFileSync(fixturePath(fx.save)).toString('base64'), fx.save.split('/').pop()]);
+    if (!loaded.ok) throw new Error(`${fx.file}: ${fx.save} did not load: ${loaded.reason}`);
+  }
   await page.waitForTimeout(1500);
   if (fx.steps?.length) await page.evaluate((s) => window.__showreel.run(s), { name: 'fixture', steps: fx.steps });
   if (fx.credits !== undefined) await page.evaluate((v) => window.__showreel.take.setCredits(v), fx.credits);
