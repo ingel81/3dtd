@@ -8,6 +8,7 @@
  */
 import type { Injector, Provider } from '@angular/core';
 import { CUSTOM_MAPS_OPEN } from '../world/custom-maps-open';
+import { pageSwitches } from '../core/page-switches';
 import { installAgentBridge } from './agent-bridge';
 import { AudioRecording, installAudioTap } from './audio-tap';
 import { Director, type Mark, type Scene } from './director';
@@ -102,7 +103,7 @@ export function installShowreelEarly(): void {
   installAudioTap();
   document.documentElement.classList.add('showreel', 'sr-no-legend');
   // The runner asks for an intro page with `showreel=intro`: the game's intro flight plays without its HUD
-  const asked = new URLSearchParams(location.search).get('showreel');
+  const asked = pageSwitches().get('showreel');
   if (asked === 'intro' || asked === 'clean') document.documentElement.classList.add('sr-hud-off');
   // `showreel=nointro`: the flight is switched off as soon as the engine offers its handle, before the map stands
   if (asked === 'nointro') {
@@ -114,7 +115,7 @@ export function installShowreelEarly(): void {
     }, 20);
   }
   // `agent=<port>`: the desktop app's agent bridge, over the showreel's relay (tools/showreel/agent)
-  const agentPort = Number(new URLSearchParams(location.search).get('agent'));
+  const agentPort = Number(pageSwitches().get('agent'));
   if (agentPort) installAgentBridge(agentPort);
   const style = document.createElement('style');
   style.textContent = STYLE;
