@@ -283,7 +283,8 @@ Blöcken.
 ### 12 Hafenstadt (`harbor-town`)
 `tools/maps/levels/harbor-town.ts`, Small 512 m. Spuren 444, 380 und 508 m. Eine Stadt am Hang über einer Bucht, die
 Straßen im Raster hinunter zum Kai; das HQ hält den Platz am Wasser zwischen Kai, Kränen und Containerlager. Piers mit
-Fischerbooten, ein Schiff am Kai, eine Mole mit Leuchtturm, Bojen an der Hafeneinfahrt. Look `city`, Abend. Das
+Fischerbooten, ein Schiff am Kai, eine Mole mit Leuchtturm, Bojen an der Hafeneinfahrt. Look `city`, Nacht mit kühlem Mondlicht (`moonlight: 1`): Fenster und Laternen
+brennen, ihr Licht liegt auf dem Wasser (bis E184 Abend). Das
 Hafenbecken und die Kaimauer entstehen nach dem Stadtboden (dessen Glätten rundete sonst die Kante): erst das ganze
 Becken auf -7 m (die Hänge der Stadt reichten sonst als Erdhügel ins Wasser), dann die Kaimauer als eine gerade Stufe
 von 4,4 auf -6 m über einen Höhenpunkt; die Piers durchgehend aus Abschnitten alle 3 m. Ton: Möwenrufe über dem Hafen, Wasser und
