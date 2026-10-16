@@ -222,9 +222,17 @@ einer Zelle steigt (mit Terrain Lower gegrabene Grube, Kaimauer), schneidet den 
 Samples, eine Fase je Zelle (`cellSplit`). Dafür trägt die Maskentextur (RG8 statt R8, ein Byte mehr je Sample und Gewässer) im G-Kanal den Uferschnitt
 (`shore-cut.ts`): je Sample der Abstand zur Wasserlinie des Dreiecksnetzes in Zellen (bis 3, nass positiv), zweimal mit
 [1 2 1] geglättet, an steilen Ufern (größter Höhenschritt zum Nachbarn ab 1,5 bis 3 je Meter) um 0,5 Zellen nach innen
-geschoben, an flachen um 0,5 nach außen. Das Material schneidet, wo der bilineare Wert unter 0 fällt (weich über eine
+geschoben, an flachen um 0,5 nach außen. Zähne an jedem Ufer: wo die Wasserlinie des Netzes auch an einem flachen Hang
+zickzackt (Buckel von einer Zelle, die Rippen einer Kraterwand; Stillwaters See hatte so einen Sägezahnrand), weicht der
+rohe Abstand vom geglätteten um etwa die Zahntiefe ab; der Schnitt rückt um das Vierfache der größten Abweichung über
+0,1 Zellen in zwei Samples Umkreis nach innen (gezählt bis 1,5 Zellen von der Linie, höchstens 2,5 Zellen), also auf
+die geglättete Linie innerhalb der Zähne. Ein glattes Ufer weicht um Hundertstel ab (eine runde Schüssel höchstens
+0,08) und behält seinen Schnitt. Innerhalb des Schnitts liest das Material die Tiefe höchstens als 0,3 m je Zelle
+Abstand zum Schnitt (ab 1,5 bis 2,5 Zellen wieder die Tiefe je Pixel): wo der Schnitt vor der gezeichneten
+Wasserlinie liegt (Wand, Zähne), endet das Wasser mit dem hellen Saum und Schaum eines Ufers statt mit einer harten
+Kante tiefen Wassers. Das Material schneidet, wo der bilineare Wert unter 0 fällt (weich über eine
 Viertelzelle): an der Wand endet das Wasser auf einer glatten Linie knapp vor den Zähnen, ein schmaler Streifen Wand
-bleibt sichtbar; am flachen Ufer schneidet weiter die Tiefe je Pixel. Kein zusätzlicher Texturzugriff (derselbe
+bleibt sichtbar; am glatten flachen Ufer schneidet weiter die Tiefe je Pixel. Kein zusätzlicher Texturzugriff (derselbe
 Maskenzugriff liest R und G). Gebacken über die Maskengrenzen bei neuem Spiegel, neuer Maske oder Ganzneubau (rund 40
 bis 70 ms auf einem 1025er-Raster mit Ufer überall; ein kleiner See nur sein Rechteck): beim Laden auf dem Hauptthread,
 danach (Level-Regler, Rückgängig) in einem Worker (`shore-cut.worker.ts`, Kopien von Höhen und Maske), bis dahin zeigt

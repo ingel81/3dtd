@@ -26,6 +26,8 @@ import type { GridRect } from '../terrain/terrain-chunks';
 export const SHORE_CUT_REACH = 3;
 /** Encoding: 128 + cells * SCALE in a byte, so ±4 cells at 1/32 */
 export const SHORE_CUT_SCALE = 32;
+/** Metres of depth the water reads per cell inside its cut at most (the material): it ends in a shore's rim there */
+export const SHORE_CUT_DEPTH = 0.3;
 /** Cells the cut stays inside the waterline at a steep bank (the smoothed line inside the teeth) */
 const STEEP_INSET = 0.5;
 /** Cells it stays outside at a gentle one (the depth per pixel cuts there) */
@@ -33,10 +35,25 @@ const GENTLE_OUTSET = 0.5;
 /** Rise per run (largest step to a neighbour, around a sample) from which a bank counts as steep, and fully */
 const STEEP_FROM = 1.5;
 const STEEP_FULL = 3;
+/**
+ * Teeth on any bank: where the drawn waterline zigzags (a gentle bank with
+ * bumps of a cell, the ribs of a crater wall), the raw distance strays from
+ * the smoothed one by about the teeth's depth. The cut moves inward by
+ * TOOTH_GAIN times the largest stray within TOOTH_SPREAD samples beyond
+ * TOOTH_FREE (strays counted within TOOTH_NEAR cells of the line), at most
+ * TOOTH_INSET_MAX cells: inside the teeth, on the smoothed line. A smooth
+ * shore strays by hundredths of a cell (a round bowl at most 0.08) and
+ * keeps its cut
+ */
+const TOOTH_NEAR = 1.5;
+const TOOTH_SPREAD = 2;
+const TOOTH_FREE = 0.1;
+const TOOTH_GAIN = 4;
+const TOOTH_INSET_MAX = 2.5;
 /** Smoothing passes over the distances */
 const BLUR = 2;
 /** Samples around a change of heights or level whose cut changes with it */
-export const SHORE_CUT_RADIUS = SHORE_CUT_REACH + BLUR + 1;
+export const SHORE_CUT_RADIUS = SHORE_CUT_REACH + BLUR + TOOTH_SPREAD + 1;
 
 /**
  * Writes the mask (R) and the shore cut (G) of the samples in `rect` into
@@ -55,10 +72,10 @@ export function bakeShoreCut(
 ): void {
   const { i0, j0, i1, j1 } = rect;
   // The distances are smoothed (BLUR passes reaching a sample each): measured that far around rect
-  const a0 = Math.max(0, i0 - BLUR);
-  const b0 = Math.max(0, j0 - BLUR);
-  const a1 = Math.min(columns - 1, i1 + BLUR);
-  const b1 = Math.min(rows - 1, j1 + BLUR);
+  const a0 = Math.max(0, i0 - BLUR - TOOTH_SPREAD);
+  const b0 = Math.max(0, j0 - BLUR - TOOTH_SPREAD);
+  const a1 = Math.min(columns - 1, i1 + BLUR + TOOTH_SPREAD);
+  const b1 = Math.min(rows - 1, j1 + BLUR + TOOTH_SPREAD);
   const w = a1 - a0 + 1;
   const hgt = b1 - b0 + 1;
   const dist = new Float32Array(w * hgt).fill(SHORE_CUT_REACH);
@@ -126,6 +143,7 @@ export function bakeShoreCut(
   for (let j = b0; j <= b1; j++) {
     for (let i = a0; i <= a1; i++) if (heights[j * columns + i] >= level) signed[(j - b0) * w + i - a0] *= -1;
   }
+  const raw = Float32Array.from(signed);
   const tmp = new Float32Array(signed.length);
   for (let pass = 0; pass < BLUR; pass++) {
     for (let j = 0; j < hgt; j++) {
@@ -138,6 +156,19 @@ export function bakeShoreCut(
       for (let i = 0; i < w; i++) {
         const k = j * w + i;
         signed[k] = (tmp[j > 0 ? k - w : k] + 2 * tmp[k] + tmp[j < hgt - 1 ? k + w : k]) / 4;
+      }
+    }
+  }
+  // Teeth: where the waterline runs in teeth the raw distance strays from the smoothed one, by about their depth
+  const tooth = new Float32Array(signed.length);
+  for (let k = 0; k < tooth.length; k++) if (Math.abs(raw[k]) < TOOTH_NEAR) tooth[k] = Math.abs(raw[k] - signed[k]);
+  for (let pass = 0; pass < TOOTH_SPREAD; pass++) {
+    tmp.set(tooth);
+    for (let j = 0; j < hgt; j++) {
+      for (let i = 0; i < w; i++) {
+        let v = 0;
+        for (let jj = Math.max(0, j - 1); jj <= Math.min(hgt - 1, j + 1); jj++) for (let ii = Math.max(0, i - 1); ii <= Math.min(w - 1, i + 1); ii++) v = Math.max(v, tmp[jj * w + ii]);
+        tooth[j * w + i] = v;
       }
     }
   }
@@ -159,7 +190,10 @@ export function bakeShoreCut(
         }
         const s = Math.min(1, Math.max(0, (step / cellSize - STEEP_FROM) / (STEEP_FULL - STEEP_FROM)));
         const steep = s * s * (3 - 2 * s);
-        cells -= -GENTLE_OUTSET + (STEEP_INSET + GENTLE_OUTSET) * steep;
+        const inset = -GENTLE_OUTSET + (STEEP_INSET + GENTLE_OUTSET) * steep;
+        // Teeth move it inward too, as far as they reach
+        const teeth = tooth[(j - b0) * w + i - a0] - TOOTH_FREE;
+        cells -= teeth > 0 ? Math.max(inset, Math.min(TOOTH_INSET_MAX, teeth * TOOTH_GAIN)) : inset;
       }
       out[k * 2 + 1] = Math.max(0, Math.min(255, Math.round(128 + cells * SHORE_CUT_SCALE)));
     }
