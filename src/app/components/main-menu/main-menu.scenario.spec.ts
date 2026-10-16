@@ -33,6 +33,7 @@ import { COOP } from '../../services/coop.token';
 import { AUTOSAVE_MAP_SLOT, AUTOSAVE_SLOT, SAVE_GAME, type LoadResult, type SaveSlotInfo } from '../../services/save-game/save-game.port';
 import { CUSTOM_MAPS_OPEN } from '../../world/custom-maps-open';
 import { WorldChoiceService } from '../../world/world-choice.service';
+import { WorldSession } from '../../world/world-session.service';
 import { EngineInitializationService } from '../../services/infrastructure/engine-initialization.service';
 import { LocationManagementService } from '../../services/location/location-management.service';
 import { LocationChangeCoordinatorService } from '../../services/location/location-change-coordinator.service';
@@ -127,6 +128,7 @@ describe('The main menu', () => {
   });
 
   let world = fakeWorldContext();
+  const session = { reopen: vi.fn() };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -165,6 +167,7 @@ describe('The main menu', () => {
         { provide: MatDialog, useValue: dialog },
         { provide: CUSTOM_MAPS_OPEN, useValue: mapsOpen },
         { provide: WorldChoiceService, useValue: worlds },
+        { provide: WorldSession, useValue: session },
       ],
     });
     TestBed.overrideComponent(MainMenuComponent, {
@@ -474,6 +477,18 @@ describe('The main menu', () => {
       expect(menu.page()).toBe('new-game');
     });
 
+    it('Retry on a load without its own retry opens the world anew in the page, not the page without its link', async () => {
+      session.reopen.mockClear();
+      engineInit.loading.set(false);
+      await setup();
+      ui.loadProblem.set({ text: 'Outside the 3D tiles.', blocksPlay: true });
+      await settle();
+
+      const alert = el().querySelector('app-menu-loading [role="alert"]')!;
+      await click(Array.from(alert.querySelectorAll<HTMLElement>('button')).find((b) => b.textContent === 'Retry')!);
+      expect(session.reopen).toHaveBeenCalledTimes(1);
+    });
+
     it('a place that did not load beside the one standing leaves Play to it', async () => {
       locationMgmt.hq.set(HEILBRONN);
       engineInit.loading.set(false);
@@ -711,7 +726,7 @@ describe('The main menu', () => {
       game.towerCount.set(2);
       await settle();
 
-      expect(entries()).toEqual(['Continue', 'Save game', 'Load game', 'Settings', 'Extras', 'New game', 'Coop', 'Restart here']);
+      expect(entries()).toEqual(['Continue', 'Save game', 'Load game', 'Settings', 'Extras', 'New game', 'Coop', 'World menu', 'All worlds', 'Restart here']);
       expect(el().querySelector('.mh-pause-word')?.textContent).toBe('Paused');
       expect(el().querySelector('.mh-pause-place')?.textContent).toBe('Heilbronn | wave 1');
     });
@@ -724,7 +739,7 @@ describe('The main menu', () => {
       await settle();
       const edit = vi.spyOn(menu, 'editThisMap').mockImplementation(() => undefined);
 
-      expect(entries()).toEqual(['Continue', 'Save game', 'Load game', 'Settings', 'Extras', 'New game', 'Coop', 'Edit this map', 'Restart here']);
+      expect(entries()).toEqual(['Continue', 'Save game', 'Load game', 'Settings', 'Extras', 'New game', 'Coop', 'Edit this map', 'World menu', 'All worlds', 'Restart here']);
       await click(entry('edit-map'));
       expect(edit).not.toHaveBeenCalled();
       expect(text()).toContain('Edit this map? The run ends.');
@@ -770,7 +785,10 @@ describe('The main menu', () => {
       menu.open('home', 'pause');
       await settle();
       expect(game.paused()).toBe(false);
-      expect(entries()).toEqual(['Continue', 'Settings', 'Extras', 'Coop']);
+      // Back to the worlds stays, locked: the room would lose the player
+      expect(entries()).toEqual(['Continue', 'Settings', 'Extras', 'Coop', 'World menu', 'All worlds']);
+      expect(entry('worlds')!.getAttribute('aria-disabled')).toBe('true');
+      expect(entry('worlds')!.textContent).toContain('Leave the coop room first');
       expect(el().querySelector('.mh-pause-word')?.textContent).toBe('Coop');
       expect(el().querySelector('.mh-pause-place')?.textContent).toContain('Heilbronn');
     });

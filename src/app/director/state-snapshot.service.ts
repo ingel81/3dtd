@@ -18,7 +18,7 @@
  */
 
 import type { HeroDefenseProfile } from '../configs/hero.config';
-import { Injectable, inject, signal } from '@angular/core';
+import { DestroyRef, Injectable, inject, signal } from '@angular/core';
 import { GamePhase } from '../models/game.types';
 import { SubscriptionBag } from '../game-engine/game-event-bus';
 import type { EnemyView } from '../sim/client/views';
@@ -98,6 +98,8 @@ export class StateSnapshotService {
   constructor() {
     // Auto-start collecting when service is created
     this.startCollecting();
+    // The simulation's bus outlives the game: left subscribed, it kept the whole game of a world opened before
+    inject(DestroyRef).onDestroy(() => this.stopCollecting());
   }
 
   /**

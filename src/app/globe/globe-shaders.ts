@@ -160,6 +160,7 @@ uniform float holeRadius;
 uniform float nightGain;
 uniform float nightAmbient;
 uniform float bumpScale;
+uniform float saturation;
 varying vec2 vUv;
 varying vec3 vPos;
 
@@ -243,6 +244,8 @@ void main() {
   vec3 through;
   scatter(os, ds, length(ps - os), ls, ign(gl_FragCoord.xy), inscatter, through);
   color = color * through + inscatter;
+  // A world that is locked shows grey (the globes, docs/WORLDS_NAVIGATION_PLAN.md)
+  color = mix(vec3(dot(color, vec3(0.2126, 0.7152, 0.0722))), color, saturation);
 
   gl_FragColor = vec4(color, 1.0);
   #include <tonemapping_fragment>
@@ -265,6 +268,7 @@ uniform vec3 camPos;
 uniform float rimGain;
 uniform float airglow;
 uniform float glowHeight;
+uniform float saturation;
 varying vec3 vPos;
 
 void main() {
@@ -283,7 +287,9 @@ void main() {
   float edge = (length(cross(os, ds)) - RP) / glowHeight;
   float air = edge > 0.0 ? exp(-edge * 7.0) * smoothstep(1.0, 0.5, edge) : 0.0;
   vec3 glow = vec3(0.3, 0.55, 1.0) * airglow * air;
-  gl_FragColor = vec4(inscatter * rimGain + glow, max(alpha, air * 0.6));
+  vec3 color = inscatter * rimGain + glow;
+  color = mix(vec3(dot(color, vec3(0.2126, 0.7152, 0.0722))), color, saturation);
+  gl_FragColor = vec4(color, max(alpha, air * 0.6));
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
 }

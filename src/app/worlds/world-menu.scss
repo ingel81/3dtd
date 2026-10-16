@@ -1,0 +1,84 @@
+// Layout of a world's menu (docs/WORLDS_NAVIGATION_PLAN.md, 3.1): the lists
+// scroll, the pick with its Start stands under them. Shared by the three
+// worlds' menus; the look comes from the td-* classes.
+
+:host {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.wm-body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--td-sp-4);
+  min-height: 0;
+  margin-top: var(--td-sp-3);
+  padding-right: 6px;
+  overflow-y: auto;
+}
+
+.wm-body > p {
+  margin: 0;
+}
+
+.wm-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+}
+
+.wm-search {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--td-sp-2);
+
+  > :first-child {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+
+.wm-row {
+  justify-content: space-between;
+  gap: var(--td-sp-3);
+}
+
+.wm-row-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.wm-meta {
+  flex: 0 0 auto;
+}
+
+.wm-detail {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--td-sp-2);
+  margin-top: var(--td-sp-3);
+  padding-top: var(--td-sp-4);
+
+  p {
+    margin: 0;
+  }
+}
+
+.wm-name {
+  font-size: var(--td-fs-lead);
+  font-weight: 700;
+  color: var(--td-text-title);
+}
+
+.wm-actions {
+  align-items: flex-start;
+}
+
+.wm-sub {
+  display: block;
+  margin-top: 2px;
+}

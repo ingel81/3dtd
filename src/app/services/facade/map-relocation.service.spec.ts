@@ -106,7 +106,6 @@ describe('MapRelocationService', () => {
       vizCallbacks: vi.fn(() => viz),
       addSpawnPoint: vi.fn((id: string, name: string, lat: number, lon: number, color: number) =>
         store.spawnPoints.update((p) => [...p, { id, name, lat, lon, color }])),
-      syncUrlWithLocation: vi.fn(),
     } as unknown as typeof host;
     markerViz = noop();
 
@@ -147,7 +146,6 @@ describe('MapRelocationService', () => {
     expect(host.addSpawnPoint).toHaveBeenCalledWith(OLD_SPAWN.id, OLD_SPAWN.name, OLD_SPAWN.lat, OLD_SPAWN.lon, OLD_SPAWN.color);
     expect(viz.initializeVisualizationServices).toHaveBeenCalled();
     expect(viz.initializeTowerPlacement).toHaveBeenCalled();
-    expect(host.syncUrlWithLocation).toHaveBeenCalled();
     expect(world.attach).toHaveBeenCalledWith(
       engine, INSIDE, [{ id: OLD_SPAWN.id, name: OLD_SPAWN.name, lat: OLD_SPAWN.lat, lon: OLD_SPAWN.lon }],
     );
@@ -316,10 +314,8 @@ describe('MapRelocationService', () => {
     expect(host.addSpawnPoint).toHaveBeenCalledWith(
       'spawn-1', 'Spawn', INSIDE.lat, INSIDE.lon, SPAWN_COLORS[0], expect.closeTo(90, 9),
     );
-    // Into the location before the URL is written from it
+    // Into the location with its bearing
     expect(locationMgmt.setLocation).toHaveBeenCalledWith(HQ, [{ ...INSIDE, portalBearing: expect.closeTo(90, 9) }]);
-    expect(locationMgmt.setLocation.mock.invocationCallOrder[0])
-      .toBeLessThan(host.syncUrlWithLocation.mock.invocationCallOrder[0]);
 
     await click('spawn', INSIDE);
     expect(host.addSpawnPoint).toHaveBeenLastCalledWith('spawn-1', 'Spawn', INSIDE.lat, INSIDE.lon, SPAWN_COLORS[0], undefined);

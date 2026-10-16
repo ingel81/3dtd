@@ -18,24 +18,24 @@ const recent = (hq: { lat: number; lon: number }, spawns = [{ lat: hq.lat + 0.00
 describe('startPlaceGuess', () => {
   it('takes the autosave\'s place with the spawns of its recent entry', () => {
     const lanes = [{ lat: 49.15, lon: 9.22 }, { lat: 49.13, lon: 9.2 }];
-    expect(startPlaceGuess(autosave(HEILBRONN), [recent(PARIS), recent(HEILBRONN, lanes)], '')).toEqual({
+    expect(startPlaceGuess(autosave(HEILBRONN), [recent(PARIS), recent(HEILBRONN, lanes)], false)).toEqual({
       hq: HEILBRONN, spawns: lanes, source: 'last run',
     });
   });
 
   it('takes the autosave\'s place with a random spawn when no recent entry knows it', () => {
-    expect(startPlaceGuess(autosave(HEILBRONN), [recent(PARIS)], '')).toEqual({ hq: HEILBRONN, spawns: [], source: 'last run' });
+    expect(startPlaceGuess(autosave(HEILBRONN), [recent(PARIS)], false)).toEqual({ hq: HEILBRONN, spawns: [], source: 'last run' });
   });
 
   it('takes the last place played without an autosave, or one saved before slots kept the HQ', () => {
     const last = recent(PARIS);
-    expect(startPlaceGuess(null, [last], '')).toEqual({ hq: PARIS, spawns: last.spawns, source: 'last played' });
-    expect(startPlaceGuess(autosave(null), [last], '')?.hq).toEqual(PARIS);
+    expect(startPlaceGuess(null, [last], false)).toEqual({ hq: PARIS, spawns: last.spawns, source: 'last played' });
+    expect(startPlaceGuess(autosave(null), [last], false)?.hq).toEqual(PARIS);
   });
 
   it('has none on a first visit and for an invite link', () => {
-    expect(startPlaceGuess(null, [], '')).toBeNull();
-    expect(startPlaceGuess(autosave(HEILBRONN), [recent(PARIS)], '?room=ABCD')).toBeNull();
+    expect(startPlaceGuess(null, [], false)).toBeNull();
+    expect(startPlaceGuess(autosave(HEILBRONN), [recent(PARIS)], true)).toBeNull();
   });
 });
 

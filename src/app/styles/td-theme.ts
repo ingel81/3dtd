@@ -304,6 +304,21 @@ export const TD_LAYERS = {
   dock: 7,
 } as const;
 
+/**
+ * The backgrounds of the worlds on the globes (docs/WORLDS_NAVIGATION_PLAN.md,
+ * 4.3): a few stars over deep blue for the real places, a grid on dark paper
+ * for OpenStreetMap, a green depth for the maps; drawn in CSS, no WebGL
+ */
+const TD_WORLD_BG = {
+  stars: [
+    'radial-gradient(1px 1px at 24px 38px, rgba(230,225,207,.55), transparent)',
+    'radial-gradient(1px 1px at 131px 92px, rgba(230,225,207,.35), transparent)',
+    'radial-gradient(1.5px 1.5px at 197px 23px, rgba(230,225,207,.5), transparent)',
+    'radial-gradient(1px 1px at 76px 171px, rgba(230,225,207,.3), transparent)',
+    'radial-gradient(1px 1px at 213px 199px, rgba(230,225,207,.45), transparent)',
+  ].map((dot) => `${dot} 0 0 / 240px 240px`).join(', '),
+} as const;
+
 const R = TD_RELIEF;
 const T = TD_TINT;
 
@@ -395,6 +410,14 @@ export const TD_CSS_VARS = `
 
   --td-backdrop: linear-gradient(90deg, rgba(${T.rgb}, ${T.menuFade}) 0%, rgba(${T.rgb}, ${(T.menuFade * 0.75).toFixed(2)}) ${T.menuFadeWidth * 0.55}%, rgba(${T.rgb}, ${T.menuBase}) ${T.menuFadeWidth}%, rgba(${T.rgb}, ${T.menuBase}) 100%);
   --td-backdrop-start: linear-gradient(90deg, rgba(${T.rgb}, ${T.menuFade}) 0, rgba(${T.rgb}, ${(T.menuFade * 0.75).toFixed(2)}) ${T.startFadeFrom}px, rgba(${T.rgb}, 0) ${T.startFadeTo}px);
+
+  --td-world-all: ${TD_WORLD_BG.stars}, radial-gradient(ellipse at 62% 46%, #18201d 0%, #111512 55%, ${TD_THEME.bgDark} 100%);
+  --td-world-real: ${TD_WORLD_BG.stars}, radial-gradient(ellipse at 66% 48%, #152235 0%, #0c131d 52%, #070a0f 100%);
+  --td-world-osm: repeating-linear-gradient(0deg, rgba(230,225,207,.035) 0 1px, transparent 1px 48px), repeating-linear-gradient(90deg, rgba(230,225,207,.035) 0 1px, transparent 1px 48px), radial-gradient(ellipse at 66% 48%, #242823 0%, #171a16 60%, #101210 100%);
+  --td-world-maps: radial-gradient(ellipse at 66% 48%, #1f3d2a 0%, #13261b 50%, #0b140f 100%);
+  --td-world-disc-real: radial-gradient(circle at 34% 32%, #6fa6d2 0%, #2f6699 30%, #163b63 62%, #0a1a2c 100%);
+  --td-world-disc-osm: radial-gradient(circle at 34% 32%, #f2efe9 0%, #cfe2e8 38%, #a6c9d5 70%, #7fa9b8 100%);
+  --td-world-disc-maps: radial-gradient(circle at 34% 32%, #86ad52 0%, #4a9a98 36%, #1d4a60 72%, #10303f 100%);
 
   --td-surface: linear-gradient(var(--td-tint), var(--td-tint)), var(--td-tex-plaster) 0 0 / var(--td-tex-size), ${TD_THEME.panelMain};
   --td-surface-overlay: linear-gradient(var(--td-tint-overlay), var(--td-tint-overlay)), var(--td-tex-plaster) 0 0 / var(--td-tex-size), ${TD_THEME.panelMain};

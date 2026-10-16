@@ -191,6 +191,9 @@ export class GameLoopFacadeService {
    * Reset state on dispose.
    */
   dispose(): void {
+    // The page's handle goes with this game: it held the whole game of a world opened before (WorldSession)
+    const page = globalThis as Record<string, unknown>;
+    if (page['__load'] === this.loadHandle) delete page['__load'];
     this.eventBusSubs.disposeAll();
     this.autoWave.cancel();
     this.pendingAIWaveRequest = false;

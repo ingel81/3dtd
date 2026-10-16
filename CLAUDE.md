@@ -50,7 +50,7 @@ src/app/
 ├── director/                   # Wellenquellen: Vertrag (wave-source.ts), Regeln je Welle (wave-rules.ts), WaveDirector,
 │                               # Druck-Regler, Snapshot, Verteidigungsanalyse; sources/budget (Standard) + sources/table
 ├── game-engine/                # Event Bus, VFX/Audio/BackgroundMusic/ScreenShake Services (Three.js-coupled, Angular-frei)
-├── globe/                      # Weltkugel hinter dem Menü: Ansicht, Shader, Texturen, Sonnenstand (docs/GLOBE_PLAN.md)
+├── globe/                      # Weltkugel hinter dem Menü (docs/GLOBE_PLAN.md) und die drei Globen der Welten (globe-stage, style-globes)
 ├── coop/                       # Coop: Lockstep, Relay-Protokoll, Weltpaket, Prüfsummen, Raum-Optionen (docs/COOP_PLAN.md)
 ├── components/                 # UI Components (compass, game-header, game-sidebar, etc.)
 ├── configs/                    # Tower/Enemy/Projectile/Combat/Research/Audio + Kampagne (campaign.config.ts)
@@ -72,6 +72,7 @@ src/app/
 ├── styles/                     # Design System: Tokens (td-theme.ts), Rezepte und td-*-Klassen (ui/), Wächter-Spec
 ├── three-engine/               # 3D Rendering: Engine, CameraRig, Tiles, renderers/ (inkl. Shader), post-processing/
 ├── utils/                      # Shared Utilities (geo-utils, damage-calculator, global-route-grid, route-corridor, game-rng)
+├── worlds/                     # Start auf den Globen: Weltmenüs, Regeln (worldLock, whyNot), docs/WORLDS_NAVIGATION_PLAN.md
 └── workers/                    # Web Worker: Heartbeat für den Loop im versteckten Tab
 
 bot-server/                     # Python Bot-Server (nur für Bot-Läufe, plant keine Wellen)

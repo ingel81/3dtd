@@ -170,6 +170,7 @@ Bei `prefers-reduced-motion` springen alle Übergänge (globale Regel); Animatio
 | `td-popup` | Kleines Popup: Tooltip, Dropdown, Menü am Knopf |
 | `td-chip` (`is-error`), `td-chip-slot` | Hinweis über der Karte mit Symbol, Titel, Zeile (Blutmond mit rotem Rand, HQ-Umzug); sein Platz 18 % unter der Oberkante (als Host-Klasse) |
 | `td-backdrop` | Verlauf hinter Menü und Connection lost |
+| `td-world-bg` (`is-real`, `is-osm`, `is-maps`), `td-world-disc` (`is-osm`, `is-maps`, `is-grey`) | Grund der Globen und Weltmenüs je Welt (Sterne, Papierraster, grüne Tiefe); ein Globus als Scheibe, wo keiner gezeichnet wird (Menu globe Off, kein WebGL 2), grau für eine gesperrte Welt |
 | `td-gameover-veil`, `td-gameover-word`, `td-gameover-sub`, `td-gameover-rise` | Game Over über der Karte: rote Vignette über der entsättigten Karte, GAME OVER groß, die Zeile darunter, der nachsteigende Dialog (siehe [Game Over](#game-over-und-connection-lost)) |
 | `td-well` (`is-deep`), `td-card` | Vertiefte Fläche, tief wie ein Feld; Karte im Raster (gewählt mit Messingkante; als `<button>` ganz anklickbar, Hover hellt den Text) |
 | `td-reveal` (`is-up`, `is-fade`, `is-open`) | Popup, das auf Wunsch aufgeht: verborgen, mit `is-open` blendet es ein und rückt an seinen Platz (4 px von oben, `is-up` 8 px von unten, `is-fade` ohne Verschieben) |
@@ -611,6 +612,15 @@ kam, sagt `FocusOrigin` (`utils/keyboard-target.ts`). Stapelung über `--td-z-ma
 ---
 
 ## Hauptmenü
+
+Vor jedem Spiel stehen die Globen (`worlds/`, [WORLDS_NAVIGATION_PLAN.md](WORLDS_NAVIGATION_PLAN.md)): Kopfleiste
+`td-topbar` mit Pfad (Worlds › Welt › Wahl), Play und Edit, Autosave-Chips (`td-stone-chip`) und Settings; links Logo,
+Zeile und die Liste als `td-panel` mit `td-menu`; rechts die drei Globen in fester Reihenfolge, der zuletzt gespielte
+größer. Ein Weltmenü ist ein `td-panel` links mit Kopf (Titel, „Worlds“ mit `td-kbd` Esc), Listen (`td-seg is-sm`,
+`td-rows`), der Wahl mit dem Hauptknopf Start oder Play und den Wegen Coop, Load, Settings, Extras als `td-btn-ghost`;
+rechts der große Globus, oben rechts die zwei anderen Welten als `td-btn-secondary` mit Mini-Globus. Overlays
+(Settings, Extras, Load, Coop) sind `td-dlg` über `td-backdrop`. Das Hauptmenü unten ist danach die Ladeanzeige eines
+Starts und die Pause.
 
 Ein Menü für alles, was nicht Spielen ist (`components/main-menu/`, Plan [MAIN_MENU_UI_PLAN.md](MAIN_MENU_UI_PLAN.md)),
 als Overlay über dem ganzen Fenster, Rolle `dialog` mit dem Namen der Seite, Fokusfalle. Hintergrund `td-backdrop`.

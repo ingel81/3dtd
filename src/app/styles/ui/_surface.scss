@@ -226,3 +226,26 @@
     color: var(--td-brass-light);
   }
 }
+
+// The page behind the globes (docs/WORLDS_NAVIGATION_PLAN.md): the worlds'
+// own background, by the world showing; the globes before one is picked
+@mixin world-bg {
+  background: var(--td-world-all);
+  background-color: var(--td-bg-dark);
+
+  &.is-real { background: var(--td-world-real); }
+  &.is-osm { background: var(--td-world-osm); }
+  &.is-maps { background: var(--td-world-maps); }
+}
+
+// A globe as a picture, where none is drawn (Menu globe off, no WebGL 2):
+// a lit disc in the world's colours, grey while the world is locked
+@mixin world-disc {
+  border-radius: 50%;
+  background: var(--td-world-disc-real);
+  box-shadow: var(--td-panel-drop);
+
+  &.is-osm { background: var(--td-world-disc-osm); }
+  &.is-maps { background: var(--td-world-disc-maps); }
+  &.is-grey { filter: grayscale(1) brightness(.8); }
+}
