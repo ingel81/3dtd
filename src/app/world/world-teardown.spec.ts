@@ -1,15 +1,16 @@
 /**
  * A world started and taken down twice in a row leaves nothing behind
- * (docs/WORLDS_NAVIGATION_PLAN.md, phase 2): no listener on window or
- * document, no worker, no interval, no handle on the page, and no root
- * service still reaching the old world's canvas or engine. The game's own
- * facades, the input handler, the height cycle and the simulation client
- * are real; every other service is a stub that answers anything. Engine,
- * WebGL contexts and GPU resources need a browser: e2e/perf/world-switch.ts.
+ * (docs/WORLDS_NAVIGATION_PLAN.md, phase 2): no listener on window,
+ * document or the simulation's bus, no worker, no interval, no handle on
+ * the page, and no root service still reaching the old world's canvas or
+ * engine. The game's own facades, the state snapshots, the input handler,
+ * the height cycle and the simulation client are real; every other service
+ * is a stub that answers anything. Engine, WebGL contexts and GPU resources
+ * need a browser: e2e/perf/world-switch.ts.
  */
 import '@angular/compiler';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Injector, runInInjectionContext, type ProviderToken } from '@angular/core';
+import { DestroyRef, Injector, runInInjectionContext, type ProviderToken } from '@angular/core';
 
 // InputHandlerService imports MatDialog; the real module is partially compiled and needs the JIT compiler
 vi.mock('@angular/material/dialog', () => ({ MatDialog: class MatDialog {} }));
@@ -20,6 +21,7 @@ import { GameLoopFacadeService } from '../services/facade/game-loop-facade.servi
 import { InputHandlerService } from '../services/input-handler.service';
 import { HeightUpdateService } from '../services/world/height-update.service';
 import { SimClient } from '../sim/client/sim-client.service';
+import { StateSnapshotService } from '../director/state-snapshot.service';
 
 /** Answers every property and call with another stub; not a promise, not iterable */
 function anything(): unknown {
@@ -41,19 +43,28 @@ const REAL: ProviderToken<unknown>[] = [
   InputHandlerService,
   HeightUpdateService,
   SimClient,
+  StateSnapshotService,
 ];
+
+/** The game's own services, made anew per world; the rest are the root's */
+const GAME: unknown[] = [TowerDefenseFacadeService, VisualizationFacadeService, GameLoopFacadeService, StateSnapshotService];
 
 /** The real services of one game, the rest stubs; a new one per world, as the game component's injector is */
 class GameInjector extends Injector {
   private readonly made = new Map<unknown, unknown>();
+  private readonly leaving: (() => void)[] = [];
+  private readonly destroyRef = { onDestroy: (fn: () => void) => (this.leaving.push(fn), () => undefined) };
   constructor(private readonly root: Map<unknown, unknown>) {
     super();
   }
+  /** The game component goes: what its services hooked on DestroyRef runs, as Angular does after ngOnDestroy */
+  destroy(): void {
+    for (const fn of this.leaving.splice(0)) fn();
+  }
   override get(token: unknown): unknown {
-    // The root services outlive the game; the facades are the game's
-    const scope = token === TowerDefenseFacadeService || token === VisualizationFacadeService || token === GameLoopFacadeService
-      ? this.made
-      : this.root;
+    if (token === DestroyRef) return this.destroyRef;
+    // The root services outlive the game
+    const scope = GAME.includes(token) ? this.made : this.root;
     if (!scope.has(token)) {
       scope.set(token, REAL.includes(token as ProviderToken<unknown>)
         ? runInInjectionContext(this, () => new (token as new () => unknown)())
@@ -147,11 +158,15 @@ describe('A world started and taken down twice', () => {
     const root = new Map<unknown, unknown>();
     const pageBefore = new Set(Object.keys(window));
     const listenersBefore = new Set(hold.listeners);
+    // The simulation's bus is the root's: the games come and go on it
+    const bus = (new GameInjector(root).get(SimClient) as SimClient).bus;
+    const busBefore = bus.getListenerCount();
     for (let world = 1; world <= 2; world++) {
       const injector = new GameInjector(root);
       const facade = injector.get(TowerDefenseFacadeService) as TowerDefenseFacadeService;
       const viz = injector.get(VisualizationFacadeService) as VisualizationFacadeService;
       const canvas = document.createElement('canvas');
+      injector.get(StateSnapshotService);
       const engine = anything();
       const bridge = anything() as Record<string, unknown>;
       bridge['getCanvasElement'] = () => canvas;
@@ -166,11 +181,15 @@ describe('A world started and taken down twice', () => {
       expect(hold.intervals.size).toBe(1);
       expect(Object.keys(window).filter((k) => !pageBefore.has(k))).toContain('__load');
 
+      expect(bus.getListenerCount()).toBeGreaterThan(busBefore);
+
       // The game goes
       facade.dispose();
+      injector.destroy();
 
       expect([...hold.listeners].filter((l) => !listenersBefore.has(l)), `world ${world}: listeners`).toEqual([]);
       expect(hold.workers.size, `world ${world}: workers`).toBe(0);
+      expect(bus.getListenerCount(), `world ${world}: on the simulation's bus`).toBe(busBefore);
       expect(hold.intervals.size, `world ${world}: intervals`).toBe(0);
       expect(Object.keys(window).filter((k) => !pageBefore.has(k)), `world ${world}: page handles`).toEqual([]);
       const input = root.get(InputHandlerService) as Record<string, unknown>;
