@@ -117,8 +117,13 @@ const B1 = stage('b1-terrain', 0, [
   // The hollow for the lake
   frame([pt(P.hollow)], { from: 15, pitch: 34, margin: 100, glide: 1.8 }),
   ...pick(mode('lower'), settings({ brush: { radius: 90, strength: 1, falloff: 0.4 } })),
+  // The stroke shows a dark cross along the tile edges for about 1 s (app bug, TODO E204): the edit cuts from here
+  // to the settled hollow
+  mark('lower-from'),
   stroke(1, [pt(P.hollow), m(P.hollow.x + 1, P.hollow.y)], { label: 'lower' }),
   ...idle(),
+  wait(0.5),
+  mark('cut'),
   effect('lower'),
   wait(1),
   // The table for the castle by the HQ: one cliff step of 14 m
