@@ -505,6 +505,11 @@ if (uCliffLayer >= 0) {
   float broken = (n3 - 0.5) * 0.12 + (varFine.a - 0.5) * 0.1 + (varFiner.b - 0.5) * 0.07 + (tongue - 0.5) * 0.1;
   float c = uCliffCos + broken;
   cliff = smoothstep(c + 0.035, c - 0.035, nGeo.y);
+  // Glowing ground (lava cracks) keeps its paint however steep: a volcano's flanks and crater walls lie past
+  // the cliff angle, and the rock covered every crack painted on them
+  float hotPaint = 0.0;
+  for (int k = 0; k < TERRAIN_LAYERS; k++) hotPaint += uEmissive[k] > 0.0 ? w[k] : 0.0;
+  cliff *= 1.0 - clamp(hotPaint, 0.0, 1.0);
   for (int k = 0; k < TERRAIN_LAYERS; k++) w[k] *= 1.0 - cliff;
   w[uCliffLayer] += cliff;
 }
