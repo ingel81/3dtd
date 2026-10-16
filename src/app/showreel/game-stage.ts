@@ -12,6 +12,8 @@ import { UIStore } from '../store/ui.store';
 import { MarkerVisualizationService } from '../services/world/marker-visualization.service';
 import { TowerPlacementService } from '../services/tower-placement.service';
 import { DebugFacadeService } from '../services/debug/debug-facade.service';
+import { LosDebugService } from '../services/debug/los-debug.service';
+import { SAVE_GAME, manualSlotId, type LoadResult, type SaveResult } from '../services/save-game/save-game.port';
 import { MAP_METERS_PER_DEGREE } from '../world/custom-map/map-document';
 import type { TowerTypeId } from '../configs/tower-types.config';
 import type { CustomMapWorld } from '../world/custom-map/custom-map-world';
@@ -20,7 +22,9 @@ import type { SimMirror } from '../sim/client/mirror/sim-mirror';
 import type { Tower } from '../entities/tower.entity';
 import { headingOfLocal } from '../utils/manual-aim';
 import type { MapEnvironment } from '../world/custom-map/map-document';
+import { waterLevelAt } from '../world/custom-map/water-level';
 import type { CameraPose, MapPoint3 } from './camera-path';
+import { CAMERA_FLOOR_M, flooredHeight } from './camera-floor';
 import type { ScreenPoint } from './pointer';
 import type { Stage } from './stage';
 import { element, nextFrame, waitSeconds, waitUntil, type Hands } from './hands';
@@ -65,6 +69,7 @@ interface WorldView {
 
 export class GameStage implements Stage {
   readonly kind = 'game';
+  cameraFloor = CAMERA_FLOOR_M;
   private readonly engineInit: EngineInitializationService;
   private readonly worlds: WorldContext;
   private readonly routes: PathAndRouteService;
@@ -72,6 +77,9 @@ export class GameStage implements Stage {
   private readonly markers: MarkerVisualizationService;
   private readonly placement: TowerPlacementService;
   private readonly debug: DebugFacadeService;
+  private readonly los: LosDebugService;
+  /** The environment the last `environment` action put on the view (the map's own until then) */
+  private applied: MapEnvironment | null = null;
   /** Tower spots found ahead (planTowers), map metres; `spot:<i>` and `spots` in a script */
   private spots: { x: number; y: number }[] = [];
   /** The enemy each `enemy:<key>` follows, by its number, while it lives */
@@ -88,6 +96,7 @@ export class GameStage implements Stage {
     this.markers = injector.get(MarkerVisualizationService);
     this.placement = injector.get(TowerPlacementService);
     this.debug = injector.get(DebugFacadeService);
+    this.los = injector.get(LosDebugService);
   }
 
   private get world(): CustomMapWorld | null {
@@ -119,6 +128,16 @@ export class GameStage implements Stage {
     return this.world?.surface.heightAtMap(x, y) ?? 0;
   }
 
+  waterAt(x: number, y: number): number | null {
+    const t = this.world?.doc.terrain;
+    return t ? waterLevelAt(t, x, y, this.groundAt(x, y)) : null;
+  }
+
+  rendererState(): string | null {
+    const info = this.engineInit.getEngine()?.getRenderer().info;
+    return info ? `${info.programs?.length ?? 0}:${info.memory.geometries}:${info.memory.textures}` : null;
+  }
+
   named(name: string): { x: number; y: number } | null {
     const doc = this.world?.doc;
     if (!doc) return null;
@@ -131,6 +150,12 @@ export class GameStage implements Stage {
     }
     const spot = /^spot:(\d+)$/.exec(name);
     if (spot) return this.spots[Number(spot[1])] ?? null;
+    // tower:<i> a tower standing, in the order they were built (a take that starts from a save has no planned spots)
+    const tower = /^tower:(\d+)$/.exec(name);
+    if (tower) {
+      const t = (this.component.towerControl as unknown as TowerSeat).mirror.towers()[Number(tower[1])];
+      return t ? { x: t.position.lon * MAP_METERS_PER_DEGREE, y: t.position.lat * MAP_METERS_PER_DEGREE } : null;
+    }
     const enemy = /^enemy:([\w-]+)$/.exec(name);
     if (enemy) return this.enemySpot(enemy[1]);
     if (name === 'spots' && this.spots.length) {
@@ -249,6 +274,8 @@ export class GameStage implements Stage {
     const eye = this.toScene(pose.eye, new Vector3());
     const look = this.toScene(pose.look, this.scratch);
     if (!eye || !look) return;
+    // Over the camera floor: the ground there plus cameraFloor, any water surface
+    eye.y = flooredHeight(eye.y, this.groundAt(pose.eye.x, pose.eye.y), this.waterAt(pose.eye.x, pose.eye.y), this.cameraFloor);
     camera.position.copy(eye);
     camera.up.set(0, 1, 0);
     camera.lookAt(look);
@@ -279,6 +306,49 @@ export class GameStage implements Stage {
     if (v.z > 1 || v.z < -1) return null;
     const r = canvas.getBoundingClientRect();
     return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height };
+  }
+
+  /** The save game the game component provides (SAVE_GAME), read through Angular's dev API */
+  private get saves(): { importFile(file: File): Promise<LoadResult>; save(slotId: string, name?: string): Promise<SaveResult>; exportFile(slotId: string): Promise<SaveResult> } {
+    const ng = (window as unknown as { ng?: { getInjector(el: Element | null): Injector } }).ng;
+    const el = document.querySelector('app-tower-defense');
+    if (!ng || !el) throw new Error('showreel: no game component (dev build only)');
+    return ng.getInjector(el).get(SAVE_GAME);
+  }
+
+  /** A take's start: a save file (base64, the app's own format) loaded as the menu's Load from file would */
+  async loadSave(base64: string, name: string): Promise<LoadResult> {
+    const bytes = Uint8Array.from(atob(base64), (ch) => ch.charCodeAt(0));
+    return this.saves.importFile(new File([bytes], name));
+  }
+
+  /** The run saved into the first manual slot and downloaded as a file (fixtures.mjs takes the download) */
+  async exportSave(name: string): Promise<SaveResult> {
+    const saved = await this.saves.save(manualSlotId(1), name);
+    return saved.ok ? this.saves.exportFile(manualSlotId(1)) : saved;
+  }
+
+  /** The player's credits set to `value` (a cheat's change, so the HUD shows a normal sum, not cheat credits) */
+  async setCredits(value: number): Promise<number> {
+    const c = this.component;
+    const change = value - c.store.credits();
+    if (change) c.sim.bus.emit({ type: 'debug:add-credits', amount: change });
+    await waitUntil(() => c.store.credits() === value, 5, `credits ${value}`);
+    return c.store.credits();
+  }
+
+  /** What a take's start can be checked against: the environment on the view, the overlays, the credits */
+  state(): Record<string, unknown> {
+    const c = this.component;
+    const m = this.markers as unknown as MarkerParts;
+    return {
+      environment: this.applied ?? this.world?.doc.environment ?? null,
+      ui: !c.photoMode.active(),
+      routes: this.ui.routesVisible(),
+      markers: m.markerManager?.diamondMesh.visible ?? null,
+      healthBars: this.debug.healthBarsVisible(),
+      credits: c.store.credits(),
+    };
   }
 
   async act(name: string, args: Record<string, unknown>): Promise<void> {
@@ -405,9 +475,15 @@ export class GameStage implements Stage {
       case 'environment': {
         const w = this.world;
         const view = (w as unknown as { view: WorldView | null } | null)?.view;
-        if (w && view) view.setEnvironment({ ...w.doc.environment, ...(args['patch'] as Partial<MapEnvironment>) });
+        if (!w || !view) throw new Error('showreel: no map view to set the environment on');
+        this.applied = { ...w.doc.environment, ...(args['patch'] as Partial<MapEnvironment>) };
+        view.setEnvironment(this.applied);
         return;
       }
+      case 'los':
+        // The line-of-sight debugger's cells (the selected tower's view of the route)
+        this.los.setEnabled(args['on'] !== false);
+        return;
       case 'escape':
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
         return;

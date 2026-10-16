@@ -15,6 +15,9 @@ import { GameStage } from './game-stage';
 import { Hands, nextFrame, waitUntil } from './hands';
 import { ShowreelPointer } from './pointer';
 import type { Stage } from './stage';
+import { cameraRow, type CameraRow } from './camera-floor';
+import type { MapEnvironment } from '../world/custom-map/map-document';
+import type { LoadResult, SaveResult } from '../services/save-game/save-game.port';
 
 /** Frame counters and dev overlays out of the picture, the real pointer hidden */
 const STYLE = `
@@ -61,6 +64,29 @@ export interface ShowreelApi {
   /** Addresses the page asked to open in another window (the editor's Test map), newest last */
   opened: string[];
   marks: Mark[];
+  /** The camera log of a take: one row per frame (camera-floor.ts CameraRow), whoever holds the camera */
+  camera: { start(): void; stop(): CameraRow[] };
+  /** A take's fixed start (tools/showreel/take.mjs): the map or save, its state to check, the camera floor */
+  take: {
+    /** Editor: a `.3dtdmap` stored as an own map with the environment patched in; its id */
+    importMap(base64: string, environment?: Partial<MapEnvironment>): Promise<string>;
+    /** Editor: one agent call (run_script plays MapKit commands on the open map) */
+    agent(tool: string, args: Record<string, unknown>): Promise<{ text: string; isError?: boolean }>;
+    /** Editor: the open map as a file */
+    mapFile(): { name: string; base64: string };
+    /** Game: a save file loaded */
+    loadSave(base64: string, name: string): Promise<LoadResult>;
+    /** Game: the run saved and downloaded as a file */
+    exportSave(name: string): Promise<SaveResult>;
+    /** Game: the credits set to a normal sum */
+    setCredits(value: number): Promise<number>;
+    /** Metres the director's camera keeps above the ground */
+    floor(metres: number): void;
+    /** The page's state for the runner's check of the start: window, environment, overlays */
+    state(): Record<string, unknown>;
+    /** The renderer's programs, geometries and textures: unchanged while nothing more loads */
+    renderer(): string | null;
+  };
 }
 
 /** What the showreel's app gets on top of its own: the custom maps open (the pause menu's Edit this map, the editor) */
@@ -111,6 +137,24 @@ export function startShowreel(injector: Injector): void {
   const directorOf = (): Director => (director ??= new Director(stage, hands()));
   let recording: AudioRecording | null = null;
   const marks: Mark[] = [];
+  let cameraRows: CameraRow[] = [];
+  let cameraLoop = 0;
+  const logCamera = (t: number): void => {
+    cameraLoop = requestAnimationFrame(logCamera);
+    const s = stage();
+    const pose = s.pose();
+    if (pose) cameraRows.push(cameraRow(t, pose, s.groundAt(pose.eye.x, pose.eye.y), s.waterAt(pose.eye.x, pose.eye.y)));
+  };
+  const asEditor = (): EditorStage => {
+    const s = stage();
+    if (!(s instanceof EditorStage)) throw new Error('showreel: not the editor');
+    return s;
+  };
+  const asGame = (): GameStage => {
+    const s = stage();
+    if (!(s instanceof GameStage)) throw new Error('showreel: not the game');
+    return s;
+  };
 
   const api: ShowreelApi = {
     async ready(timeoutS = 120) {
@@ -150,6 +194,40 @@ export function startShowreel(injector: Injector): void {
     },
     opened,
     marks,
+    camera: {
+      start() {
+        cancelAnimationFrame(cameraLoop);
+        cameraRows = [];
+        cameraLoop = requestAnimationFrame(logCamera);
+      },
+      stop() {
+        cancelAnimationFrame(cameraLoop);
+        return cameraRows;
+      },
+    },
+    take: {
+      importMap: (base64, environment) => asEditor().importMap(base64, environment),
+      agent: (tool, args) => asEditor().agent(tool, args),
+      mapFile: () => asEditor().mapFile(),
+      loadSave: (base64, name) => asGame().loadSave(base64, name),
+      exportSave: (name) => asGame().exportSave(name),
+      setCredits: (value) => asGame().setCredits(value),
+      floor(metres) {
+        stage().cameraFloor = metres;
+      },
+      state() {
+        const s = stage();
+        return {
+          kind: s.kind,
+          window: `${innerWidth}x${innerHeight}`,
+          dpr: devicePixelRatio,
+          quality: localStorage.getItem('td_render_quality_v1'),
+          floor: s.cameraFloor,
+          ...(s instanceof EditorStage ? s.state() : (s as GameStage).state()),
+        };
+      },
+      renderer: () => stage().rendererState(),
+    },
   };
   (globalThis as Record<string, unknown>)['__showreel'] = api;
 }
