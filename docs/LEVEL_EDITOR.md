@@ -848,7 +848,12 @@ Wasserfälle im Band gehen mit, eine Brücke darüber wird wieder Straße; ein R
 Wassermaske aus dem Sektor des Zeigers in die Bilder (das Raster ist um die Mitte gelegt, ein gespiegeltes Sample ist
 wieder ein Sample) und meldet die Rechtecke der Bilder an die Ansicht; `BrushStroke` und `LandscapeStroke` sichern
 die Ziel-Kacheln vorher. Ein Stück (`Stamp`) hält Höhen relativ zum Rand, Farbe je Material, Wasser, Objekte und die
-Straßen, deren beide Enden darin liegen; `pasteStamp` setzt es gedreht über einen `LandscapeStroke`.
+Straßen, deren beide Enden darin liegen; `pasteStamp` setzt es gedreht über einen `LandscapeStroke`. Das Wasser ist
+das der Hauptwasserfläche oder, ohne sie im Stück, das des Gewässers, das den größten Teil davon bedeckt (ein
+Oasenteich, ein Lavakrater; `kind` im Stück), mit seinem Spiegel relativ zum Rand. Beim Einsetzen steht es relativ zum
+Boden dort: in der Hauptwasserfläche, wenn sie auf dieser Höhe liegt (oder fehlt), sonst in einem Gewässer dieser Art
+auf dieser Höhe, neu angelegt, wenn keines da ist (`LandscapeStroke.waterAt`). Vorher grub ein Teich, auf eine Mesa
+gesetzt, sein Bett bis zum Spiegel des Meers hinunter, und ein Gewässer außer dem Hauptwasser kam gar nicht mit.
 
 **Angular.** `EditorSession` (je Seite) hält Karte, Werkzeuge, Einstellungen und Signale für die Panels; Viewport und
 Taktgeber laufen außerhalb der Zone, Änderungen am Dokument erreichen die Panels höchstens alle 150 ms.
