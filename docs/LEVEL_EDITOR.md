@@ -168,7 +168,8 @@ würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben diese
   steilen Hängen, dazu rostige, graue und schwarze Steine. Sind die zwölf Bodenschichten voll, macht der Strich Platz (`makeRoom`): eine Schicht, die schon vor dem Strich da war und die kein Boden mehr hält (überall übermalt, höchstens 4 von 255), nimmt das neue Material; sonst malt die Schicht, die ihm am nächsten aussieht (gemeinsamer Katalog-Tag zuerst, dann die mittlere Farbe), an seiner Stelle. Die Statuszeile nennt, was wohin ging; ein Undo stellt die Liste mit zurück. Die Levelskripte lassen ein solches Material weiter weg (`leftOut`). Unter dem Zeiger zeigen Punkte, wo der nächste
   Strich Pflanzen setzen würde
 - Mountain (gratige Gipfel, Höhe nach Größe und Stärke), Valley, Plateau (Tafel mit steilem Rand), Crater (Schüssel mit
-  Wall am Startpunkt des Strichs), Dunes (runde Kämme quer zum Wind, flache Luv-, steile Leeseite), Erode (Regen gräbt
+  Wall am Startpunkt des Strichs; die Schüssel hängt am mittleren Boden ihres Walls, der Wall steht rundum mindestens
+  so hoch: auf einem Gipfel oder Hang entsteht ein geschlossenes Becken, das Wasser oder Lava bis zum Rand hält), Dunes (runde Kämme quer zum Wind, flache Luv-, steile Leeseite), Erode (Regen gräbt
   Rinnen und Schuttfächer). Halten lässt die Form bis zu ihrer vollen Größe wachsen, nicht darüber hinaus
 - Cliff rocks: gehalten über steilem Boden (steiler als der Klippenwinkel, höchstens 45 Grad) stehen Klippenmodelle des
   Katalogs entlang der Kante (`ops/landscape/cliff-rocks.ts`): auf einem Raster von Stellen alle 4 m, je Strich einmal
@@ -180,7 +181,9 @@ würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben diese
   Felsflächen; je Look nur Modelle derselben Färbung, die Küstenklippe und die rote Felsfläche für rote Wüsten und die
   Hölle nur über das Panel) oder das Panel. Die Klippenmodelle sind geschlossen (`close_shell` in
   `tools/map-assets/blender_kit.py`), von oben und hinten Fels statt Loch
-- Glow cracks: der Boden bricht in ein Netz feiner Lavarisse mit Kruste auf verbranntem Fels; die Risse sinken etwas ein
+- Glow cracks: der Boden bricht in ein Netz feiner Lavarisse mit Kruste auf verbranntem Fels; die Risse sinken etwas ein.
+  Glühende Bodenschichten (Lava) deckt das Klippenmaterial nicht zu: Risse auf Flanken und Kraterwänden steiler als der
+  Klippenwinkel glühen weiter
 - Linien (ziehen, auch vom Kartenrand her): Cliff edge hebt den Boden links der Zeichenrichtung als Klippe, die
   Pinselgröße ist die Breite oben; River (Water oder Lava) legt einen Fluss an, der immer bergab fließt (bergauf
   gezeichnet wird er umgedreht): mäandernd, mit wechselnder Breite und schmalen Enden, Bett mit Sand- und
