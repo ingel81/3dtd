@@ -143,7 +143,10 @@ describe('The main menu', () => {
     reopen: vi.fn(), parked: signal<ParkedWorld | null>(null), onLeaveParked: vi.fn(() => () => undefined),
     world: signal(1), isOpen: signal(true),
   };
-  const stage = { leaveGame: vi.fn(), makeMapOf: vi.fn() };
+  const stage = {
+    leaveGame: vi.fn(), makeMapOf: vi.fn(),
+    loadAsk: vi.fn((): { text: string; note: string; run: unknown } | null => null), endRun: vi.fn(async () => undefined),
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -797,6 +800,22 @@ describe('The main menu', () => {
         session.world.set(1);
         session.isOpen.set(true);
       }
+    });
+
+    it('Load of a save of another world ends the run of that world first (the rule of the globes), then opens it there', async () => {
+      await setup('pause');
+      const save: SaveSlotInfo = { ...autosaveAt(null, 'Ember Crater', 3), id: 'slot-2', autosave: false, world: 'maps', map: { id: 'ember-crater', name: 'Ember Crater' } };
+      saves.slots.set([save]);
+      const run = { slotId: AUTOSAVE_BUILT_SLOT, world: 'maps', pick: null, name: 'Demo Valley', wave: 4, savedAt: '' };
+      stage.loadAsk.mockReturnValueOnce({ text: 'Demo Valley | wave 4 waits in Built Worlds.', note: '', run });
+      expect(menu.loadAsk('slot-2')?.text).toBe('Demo Valley | wave 4 waits in Built Worlds.');
+      expect(stage.loadAsk).toHaveBeenCalledWith(save);
+
+      stage.loadAsk.mockReturnValueOnce({ text: '', note: '', run });
+      await menu.loadSlot('slot-2');
+      expect(stage.endRun).toHaveBeenCalledWith(run);
+      expect(worlds.openSave).toHaveBeenCalledWith(save);
+      expect(stage.endRun.mock.invocationCallOrder[0]).toBeLessThan(worlds.openSave.mock.invocationCallOrder[0]);
     });
 
     it('Make map on a real place opens its OpenStreetMap frame on the globes, the game held behind them', async () => {

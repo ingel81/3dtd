@@ -255,7 +255,9 @@ Entschieden (User, 2026-10-16): alle zwölf Empfehlungen unten übernommen.
   die Globen lesen sofort neu.
 - **Loswerden:** Discard an der ersten Zeile jedes Weltmenüs (`app-stage-continue`), Delete für Autosaves auf der
   Load-Seite, Game over löscht den Autosave des Laufs (`SaveGameService.dropContinue`), Start oder Load an anderer
-  Stelle der Welt fragt und beendet den alten Lauf sofort.
+  Stelle der Welt fragt und beendet den alten Lauf sofort. Load game im Spiel fragt nach derselben Regel wie auf den
+  Globen (`WorldsStageService.loadAsk`, „End it and load“ auf der Load-Seite), auch für einen Slot einer anderen Welt;
+  Laden aus einer Datei fragt nur nach dem Lauf hier (die Welt der Datei steht erst nach dem Lesen fest).
 - **Recent:** Real places nur gespielte Orte (`recentCandidate` wartet auf Welle oder Turm), Entfernen je Zeile;
   OpenStreetMap „Recent worlds“ = Karten mit `generated`, höchstens 10, ältere in den Papierkorb (`overflowWorlds`,
   `WorldChoiceService.trashMap`); Built Worlds mit Recent (5, `td_recent_maps_v1`, aufgezeichnet von

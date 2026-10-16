@@ -465,11 +465,24 @@ export class MainMenuService {
    */
   async loadSlot(slotId: string): Promise<LoadResult> {
     const slot = this.saves.slots().find((s) => s.id === slotId);
+    // The run of the save's world ends first (asked before, loadAsk), as on the globes
+    const ends = slot ? this.stage.loadAsk(slot) : null;
+    if (ends) await this.stage.endRun(ends.run);
     if (slot && this.needsOtherWorld(slot)) {
       this.worlds.openSave(slot);
       return { ok: true, note: null };
     }
     return this.saves.load(slotId);
+  }
+
+  /**
+   * What loading `slotId` ends, for the Load page to ask first: the run of
+   * the save's world, held or in its autosave (WorldsStageService.loadAsk,
+   * the globes' rule). Null when nothing ends but the run under way here.
+   */
+  loadAsk(slotId: string): { text: string; note: string } | null {
+    const slot = this.saves.slots().find((s) => s.id === slotId);
+    return slot ? this.stage.loadAsk(slot) : null;
   }
 
   /** The save plays on another world than this page's */

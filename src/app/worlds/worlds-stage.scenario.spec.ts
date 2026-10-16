@@ -521,6 +521,9 @@ describe('Worlds stage', () => {
     const f = await open({ key: true, slots: [heilbronn(), slot] });
     const stage = TestBed.inject(WorldsStageService);
     const info = stage.saves.slots().find((s) => s.id === 'slot-1')!;
+    // The rule the game's Load page asks by too (MainMenuService.loadAsk); its own Continue ends nothing
+    expect(stage.loadAsk(info)).toMatchObject({ text: 'Heilbronn | wave 12 waits in Real places.', run: { slotId: AUTOSAVE_SLOT } });
+    expect(stage.loadAsk(stage.saves.slots().find((s) => s.id === AUTOSAVE_SLOT)!)).toBeNull();
     expect(stage.continueSlot(info)).toBeNull();
     await settle(f);
     expect(opened).toEqual([]);
