@@ -23,9 +23,13 @@ const STILL_NOTE_S = 6;
 /** Short stutters a take may have and stay ok; one held this long while the camera moves is red on its own, s */
 const MAX_STUTTERS = 2;
 const HITCH_S = 0.25;
-/** Mean luma (limited range) of a black and of a white frame */
+/**
+ * Mean luma (limited range) of a black and of a white frame, and how even it is: a night scene is dark too, but
+ * a black or white frame has (next to) no detail (standard deviation of the small grey picture)
+ */
 const BLACK_Y = 20;
 const WHITE_Y = 225;
+const FLAT_SD = 4;
 /** Sound: silence below, jumps over this many dB in one window, clipping at */
 const SILENCE_DB = -60;
 const SILENCE_S = 2;
@@ -41,26 +45,30 @@ const fpsOf = (file) => {
   return b ? a / b : a;
 };
 
-/** Per frame: mean luma and mean difference to the frame before */
+/** Per frame: mean luma, its standard deviation and the mean difference to the frame before */
 function frameStats(file) {
   const raw = execFileSync('ffmpeg', ['-hide_banner', '-v', 'error', '-i', file, '-an', '-vf', `scale=${AW}:${AH}:flags=area,format=gray`, '-f', 'rawvideo', '-'], { maxBuffer: 2 ** 31 });
   const n = AW * AH;
   const count = Math.floor(raw.length / n);
   const luma = new Float32Array(count);
+  const sd = new Float32Array(count);
   const diff = new Float32Array(count);
   for (let f = 0; f < count; f++) {
     let sum = 0;
+    let sq = 0;
     let d = 0;
     const o = f * n;
     for (let i = 0; i < n; i++) {
       const v = raw[o + i];
       sum += v;
+      sq += v * v;
       if (f) d += Math.abs(v - raw[o - n + i]);
     }
     luma[f] = sum / n;
+    sd[f] = Math.sqrt(Math.max(0, sq / n - luma[f] * luma[f]));
     diff[f] = f ? d / n : 255;
   }
-  return { luma, diff, count };
+  return { luma, sd, diff, count };
 }
 
 /** RMS levels in dBFS per `win` seconds of a sound file (mono, 48 kHz), and the clipped samples */
@@ -143,7 +151,7 @@ export function checkTake(dir) {
 
   // --- picture
   const fps = fpsOf(video);
-  const { luma, diff, count } = frameStats(video);
+  const { luma, sd, diff, count } = frameStats(video);
   const time = (f) => f / fps;
   const cam = (meta.camera?.frames ?? []).filter((r) => r[0] !== null);
   const rows = existsSync(join(dir, 'camera.json')) ? JSON.parse(readFileSync(join(dir, 'camera.json'), 'utf8')) : [];
@@ -180,8 +188,8 @@ export function checkTake(dir) {
   }
   const dark = [];
   const bright = [];
-  for (const [a, b] of runs(count, (f) => time(f) >= from && time(f) <= to && time(f) < fadeAt && luma[f] < BLACK_Y)) dark.push({ at: +time(a).toFixed(3), frames: b - a + 1 });
-  for (const [a, b] of runs(count, (f) => time(f) >= from && time(f) <= to && luma[f] > WHITE_Y)) bright.push({ at: +time(a).toFixed(3), frames: b - a + 1 });
+  for (const [a, b] of runs(count, (f) => time(f) >= from && time(f) <= to && time(f) < fadeAt && luma[f] < BLACK_Y && sd[f] < FLAT_SD)) dark.push({ at: +time(a).toFixed(3), frames: b - a + 1 });
+  for (const [a, b] of runs(count, (f) => time(f) >= from && time(f) <= to && luma[f] > WHITE_Y && sd[f] < FLAT_SD)) bright.push({ at: +time(a).toFixed(3), frames: b - a + 1 });
   const hitches = stutters.filter((s) => s.camera && s.held >= HITCH_S);
   if (hitches.length) reasons.push(`hitch while the camera moves: ${hitches.map((s) => `${Math.round(s.held * 1000)} ms at ${fmt(s.at)}`).join(', ')}`);
   else if (stutters.length > MAX_STUTTERS) reasons.push(`${stutters.length} stutters (held ${stutters.slice(0, 4).map((s) => `${Math.round(s.held * 1000)} ms at ${fmt(s.at)}`).join(', ')}${stutters.length > 4 ? ', ...' : ''})`);

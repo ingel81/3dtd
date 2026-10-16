@@ -127,8 +127,8 @@ settle, the capture, the steps, duration, camera `[video s, eye height, ground, 
 - picture: a frame within 0.3 of the one before (mean of 0-255, on a 160x90 grey copy, what mpdecimate would drop)
   repeats it; a held picture of 120 ms or more is a stutter while the camera moves (its log) or between moving
   frames; red with more than 2 stutters, or one of 250 ms while the camera moves (a hitch), or a picture held 1 s
-  while the camera moves (frozen); a still picture of 6 s with the camera still is a warning only (an idle map)
-- black (mean luma under 20) or white (over 225) frames after the flash: red; black after a step labelled
+  while the camera moves 0.3 m or more (frozen; the editor's held camera drifts by centimetres under strokes); a still picture of 6 s with the camera still is a warning only (an idle map)
+- black (mean luma under 20) or white (over 225) frames without detail (standard deviation under 4: a night scene is dark but not flat) after the flash: red; black after a step labelled
   `fade...` is meant
 - sound: a game scene (or `env.sound`) without sound or silent 2 s (under -60 dBFS): red; level jumps of 30 dB
   within 50 ms and clipping: warnings

@@ -266,7 +266,10 @@ async function recordTake(scene, opts) {
     run.pages.push(segment);
   } catch (e) {
     failure = e;
-    console.error(`take stopped: ${e.message}`);
+    console.error(`take stopped: ${e.message.split(/\r?\n/)[0]}`);
+    // The marks the page left before it stopped: where in the scene it was
+    const left = await page.evaluate(() => window.__showreel?.progress() ?? []).catch(() => []);
+    run.marks.push(...left.filter((m) => m.scene === scene.name).map((m) => ({ ...m, segment: 0 })));
   } finally {
     letDisplaySleep();
     const stopped = capture ? await capture.stop() : null;
@@ -297,7 +300,8 @@ async function recordTake(scene, opts) {
     writeFileSync(join(out, 'meta.json'), JSON.stringify(meta, null, 2));
     if (!recording) writeFileSync(join(out, 'marks.json'), JSON.stringify({ marks: run.marks, problems }, null, 2));
     if (failure) {
-      indexLine(join(takes, scene.name), { id, at: meta.at, status: 'red', reasons: [`stopped: ${failure.message}`], warnings: [] });
+      const last = run.marks.filter((m) => m.label).pop();
+      indexLine(join(takes, scene.name), { id, at: meta.at, status: 'red', reasons: [`stopped${last ? ` after ${last.label}` : ''}: ${failure.message.split(/\r?\n/)[0]}`], warnings: [] });
       throw failure;
     }
     console.log(`rehearsal done: ${out}`);

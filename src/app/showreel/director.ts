@@ -268,7 +268,8 @@ export class Director {
         const { do: _do, label: _label, name, ...args } = step;
         // A spot for the action (where to build) as a map point
         if (args['at'] !== undefined) args['at'] = this.point(args['at'] as PointSpec);
-        if (args['near'] !== undefined) args['near'] = this.point(args['near'] as PointSpec);
+        // `near` as a point (build near a place); enemiesNear names its spot by a string and keeps it
+        if (args['near'] !== undefined && typeof args['near'] !== 'string') args['near'] = this.point(args['near'] as PointSpec);
         return stage.act(String(name), args);
       }
       default:

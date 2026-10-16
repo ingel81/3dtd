@@ -164,6 +164,11 @@ export class GameStage implements Stage {
       const t = all[i < 0 ? all.length + i : i];
       return t ? { x: t.position.lon * MAP_METERS_PER_DEGREE, y: t.position.lat * MAP_METERS_PER_DEGREE } : null;
     }
+    // hero: where the hero stands now (null while none is hired)
+    if (name === 'hero') {
+      const h = (this.component.towerControl as unknown as TowerSeat).mirror.heroFrame();
+      return h ? { x: h.lon * MAP_METERS_PER_DEGREE, y: h.lat * MAP_METERS_PER_DEGREE } : null;
+    }
     const enemy = /^enemy:([\w-]+)$/.exec(name);
     if (enemy) return this.enemySpot(enemy[1]);
     if (name === 'spots' && this.spots.length) {
@@ -490,7 +495,9 @@ export class GameStage implements Stage {
         // Until an enemy walks within `radius` m of a named spot `near` (`spots`: the towers), to skip the long walk
         // `near: 'any'`: within `radius` of any planned tower spot (a boss may come in on another lane)
         const name = String(args['near'] ?? 'spots');
-        const targets = name === 'any' ? this.spots : [this.named(name)].filter((p): p is { x: number; y: number } => !!p);
+        // `any` without planned spots (a take from a save): any standing tower
+        const standing = () => (c.towerControl as unknown as TowerSeat).mirror.towers().map((t) => ({ x: t.position.lon * MAP_METERS_PER_DEGREE, y: t.position.lat * MAP_METERS_PER_DEGREE }));
+        const targets = name === 'any' ? (this.spots.length ? this.spots : standing()) : [this.named(name)].filter((p): p is { x: number; y: number } => !!p);
         if (!targets.length) throw new Error(`showreel: no spot ${name} for enemiesNear`);
         const radius = Number(args['radius'] ?? 60);
         // `kind`: only an enemy of that type counts (the boss, not the swarm ahead of it)
@@ -503,7 +510,10 @@ export class GameStage implements Stage {
         ).catch((e: unknown) => {
           // What there was instead: the kinds alive
           const kinds = [...new Set(mirror.aliveEnemies().map((v) => v.typeConfig.id))].join(', ') || 'none';
-          throw new Error(`${e instanceof Error ? e.message : String(e)} (${kind ?? 'any kind'}; alive: ${kinds})`);
+          const why = `${e instanceof Error ? e.message : String(e)} (${kind ?? 'any kind'}; alive: ${kinds})`;
+          // `optional`: the scene goes on without that enemy (a tower shown without a target is cut later)
+          if (args['optional'] === true) console.warn(`[showreel] ${why}, going on`);
+          else throw new Error(why);
         });
         return;
       }
@@ -745,7 +755,10 @@ export class GameStage implements Stage {
     );
     if (!stood) {
       console.warn(`[showreel] the ${tower} was refused at ${Math.round(at.x)}, ${Math.round(at.y)}: ${this.ui.buildValidationReason() ?? 'no reason given'}`);
-      // Out of the build mode, so the next card shows
+    }
+    // Out of the build mode (it stays for the next of the same kind), so the next click is the next card's or
+    // the wave button's; only while it is on: Escape outside it opens the pause menu
+    if (document.querySelector('.bp-cancel')) {
       pressKey('Escape');
       await waitSeconds(0.2);
     }

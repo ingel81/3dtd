@@ -65,6 +65,8 @@ export interface ShowreelApi {
   /** Addresses the page asked to open in another window (the editor's Test map), newest last */
   opened: string[];
   marks: Mark[];
+  /** Every mark the director left so far, also of a scene that stopped half way */
+  progress(): Mark[];
   /** The camera log of a take: one row per frame (camera-floor.ts CameraRow), whoever holds the camera */
   camera: { start(): void; stop(): CameraRow[] };
   /** A take's fixed start (tools/showreel/take.mjs): the map or save, its state to check, the camera floor */
@@ -203,6 +205,7 @@ export function startShowreel(injector: Injector): void {
     },
     opened,
     marks,
+    progress: () => director?.marks.slice() ?? [],
     camera: {
       start() {
         cancelAnimationFrame(cameraLoop);
