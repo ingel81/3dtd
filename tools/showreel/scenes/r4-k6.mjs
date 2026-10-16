@@ -25,8 +25,8 @@ const defence = (spots) => spots.map((at) => act('build', { tower: 'archer', nea
 const NEW_TOWERS = [
   { tower: 'chainsaw', at: P.P1, name: 'Chainsaw', from: 160, reach: 14 },
   { tower: 'shawarma', at: P.P2, name: 'Shawarma Slicer', from: 200, reach: 30 },
-  // Inside the castle ring (the camera east of it, over the table, above the wall)
-  { tower: 'sentinel', at: P.P3, name: 'Sentinel Laser', from: 90, reach: 58, pitch: 30 },
+  // Inside the castle ring, the camera west of it: the east road and its enemies beyond the tower
+  { tower: 'sentinel', at: P.P3, name: 'Sentinel Laser', from: 205, reach: 58, pitch: 24 },
   // From over the lake, the road behind the tower
   { tower: 'bastion', at: P.P4, name: 'Iron Bastion', from: 0, reach: 62 },
   // Beside the north road's bend, the pass behind
