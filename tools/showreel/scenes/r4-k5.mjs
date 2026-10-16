@@ -220,12 +220,13 @@ export const SCENES = [
     steps: [
       // The flat west meadow (the south one is too narrow for the brush on this 512 m map), at once a hill raised
       // on it with a 90 m brush; the ruin crag behind it
-      frame([m(-240, -10), m(-100, -10)], { from: 190, pitch: 36, margin: 20, glide: 1 }),
+      // From the west edge toward the map's middle, so the edge's haze stays behind the camera
+      { do: 'shot', dur: 1, ease: 'inOut', keys: ['current', { eye: m(-245, -95, 85), look: m(-170, -10, 5) }] },
       tool('terrain', { label: 'raise' }),
       mode('raise'),
-      settings({ brush: { radius: 90, strength: 0.7 } }),
+      settings({ brush: { radius: 90, strength: 1 } }),
       ui(false),
-      stroke(2.4, [m(-170, -10), m(-169, -10)]),
+      stroke(3.2, [m(-170, -10), m(-169, -10)]),
       ...settle(1.2),
       effect('hill'),
     ],
