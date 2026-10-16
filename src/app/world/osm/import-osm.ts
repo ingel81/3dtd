@@ -205,6 +205,8 @@ export function convertOsm(input: OsmImportInput, options: OsmImportOptions = {}
     zeroM,
     attribution: [OSM_MAP_ATTRIBUTION.replace(/^Routes /, 'Map data '), ...(input.dem ? [DEM_SOURCES[input.dem.source].attribution] : [])],
   };
+  // OpenStreetMap's own until the editor changes it (docs/WORLDS_STATE_PLAN.md, 3.6)
+  doc.meta.generated = true;
 
   const g = t0.grid;
   return {

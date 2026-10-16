@@ -12,7 +12,7 @@ import {
 } from '@angular/core';
 import { RovingGroupDirective } from '../../../roving-group.directive';
 import { TdIconComponent, type TdIconName } from '../../../icon/icon.component';
-import { MainMenuService, type MenuWorldTab } from '../../main-menu.service';
+import { MainMenuService } from '../../main-menu.service';
 import { EngineInitializationService } from '../../../../services/infrastructure/engine-initialization.service';
 import { GameStore } from '../../../../store/game.store';
 import { loadingPlateView } from '../../loading/loading-plate';
@@ -63,7 +63,6 @@ export type HomeConfirm =
   | { kind: 'restart' }
   | { kind: 'editor' }
   | { kind: 'edit-map' }
-  | { kind: 'leave-world'; to: 'world' | 'globes' }
   | { kind: 'quit' };
 
 const PAGE_OF: Partial<Record<HomeEntryId, MenuPage>> = {
@@ -170,34 +169,29 @@ export class MenuHomeComponent {
       return list;
     }
 
-    // With the tabs the list is one kind of world's: the page's own (its run, its place) or the other
-    // (its autosave and saves, which load the page anew there); the map editor belongs to the maps
-    const tabs = menu.tabsShown();
-    const maps = tabs && menu.tab() === 'custom';
-    const home = menu.onHomeTab();
-    const newGame = maps ? 'Play a map' : 'New game';
+    // The start list of a game opened at once (a link, a coop room, a save): this world's Continue and
+    // Play; the other worlds are the globes' (World menu, All worlds), the place picker is New game
     const offer = menu.autosaveOffer();
     const head: HomeEntry[] = [];
     if (offer) {
       const line = `${offer.place} | wave ${offer.wave}`;
       head.push(entry('continue', 'Continue', offer.elsewhere ? `in ${line}` : line, false, !offer.elsewhere));
-    } else if (home && menu.hasPlace() && menu.underWay()) {
+    } else if (menu.hasPlace() && menu.underWay()) {
       head.push(entry('continue', 'Continue', this.runLine(), false, true));
     }
-    if (home && menu.hasPlace() && !menu.underWay()) head.push(entry('play', 'Play', menu.placeName(), false, true));
+    if (menu.hasPlace() && !menu.underWay()) head.push(entry('play', 'Play', menu.placeName(), false, true));
     // A place in the link: it is what the player came for
     if (menu.linkedPlace) head.reverse();
     // No place yet: choosing one comes first
     const choose = menu.canChangePlace();
-    if (choose && (!menu.hasPlace() || !home)) head.push(entry('new-game', newGame));
+    if (choose && !menu.hasPlace()) head.push(entry('new-game', 'New game'));
     list.push(...head);
-    if (choose && menu.hasPlace() && home) list.push(entry('new-game', newGame));
+    if (choose && menu.hasPlace()) list.push(entry('new-game', 'New game'));
     list.push(entry('coop', 'Coop'));
-    if (solo && menu.underWay() && home) list.push(entry('save', 'Save game'));
+    if (solo && menu.underWay()) list.push(entry('save', 'Save game'));
     if (solo) list.push(entry('load', 'Load game'));
-    if (maps) list.push(entry('editor', 'Map editor'));
-    list.push(entry('settings', 'Settings', null, tabs), entry('extras', 'Extras', null, tabs));
-    if (!tabs) list.push({ ...entry('editor', 'Map editor', this.mapsOpen ? null : 'Coming soon', true), off: !this.mapsOpen });
+    list.push(entry('settings', 'Settings'), entry('extras', 'Extras'));
+    list.push({ ...entry('editor', 'Map editor', this.mapsOpen ? null : 'Coming soon', true), off: !this.mapsOpen });
     if (menu.canQuit) list.push(entry('quit', 'Quit 3DTD', null, true));
     return list;
   });
@@ -253,12 +247,10 @@ export class MenuHomeComponent {
         else void this.menu.editThisMap();
         return;
       case 'world-menu':
-      case 'worlds': {
-        const to = entry.id === 'worlds' ? 'globes' : 'world';
-        if (this.menu.underWay()) this.ask({ kind: 'leave-world', to });
-        else this.menu.leaveTo(to);
+      case 'worlds':
+        // Nothing ends: the game stays held behind the globes (MainMenuService.leaveTo)
+        this.menu.leaveTo(entry.id === 'worlds' ? 'globes' : 'world');
         return;
-      }
       case 'quit':
         if (this.menu.underWay() || this.menu.inCoop()) this.ask({ kind: 'quit' });
         else this.menu.quit();
@@ -293,7 +285,6 @@ export class MenuHomeComponent {
     else if (confirm.kind === 'restart') this.menu.restart();
     else if (confirm.kind === 'editor') void this.menu.openMapEditor();
     else if (confirm.kind === 'edit-map') void this.menu.editThisMap();
-    else if (confirm.kind === 'leave-world') this.menu.leaveTo(confirm.to);
     else this.menu.quit();
   }
 
@@ -303,7 +294,6 @@ export class MenuHomeComponent {
     this.confirm.set(null);
     // Back on the entry that asked
     const id: HomeEntryId = kind === 'leave' ? 'continue'
-      : kind === 'leave-world' ? (confirm?.kind === 'leave-world' && confirm.to === 'globes' ? 'worlds' : 'world-menu')
       : kind ?? 'continue';
     afterNextRender(() => this.focusEntry(id), { injector: this.injector });
   }
@@ -327,13 +317,6 @@ export class MenuHomeComponent {
 
   private focusEntry(id: HomeEntryId): void {
     this.host.querySelector<HTMLElement>(`[data-entry="${id}"]`)?.focus();
-  }
-
-  /** Show the other kind of world's list: the scene behind stays until one of its entries loads it */
-  showTab(tab: MenuWorldTab): void {
-    this.status.set(null);
-    this.confirm.set(null);
-    this.menu.tab.set(tab);
   }
 
   /**
@@ -371,12 +354,6 @@ export class MenuHomeComponent {
         return this.menu.fromEditor
           ? { question: 'Back to the editor? The test run ends.', yes: 'Back to editor' }
           : { question: `Edit this map? ${this.runWhenEditingText()}`, yes: 'Open in the editor' };
-      case 'leave-world': {
-        const wave = this.menu.autosavedWave();
-        return wave !== null
-          ? { question: `Leave the run? It waits in the autosave, before wave ${wave + 1}.`, yes: 'Leave' }
-          : { question: 'Leave the run? It has no autosave yet, so it ends.', yes: 'Leave' };
-      }
       case 'quit':
         return { question: 'Quit 3DTD? The run ends.', yes: 'Quit' };
     }

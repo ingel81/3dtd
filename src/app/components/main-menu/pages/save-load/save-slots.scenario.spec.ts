@@ -26,7 +26,7 @@ Input({ alias: 'mode', required: true, isSignal: true } as Input)(SaveSlotsCompo
 ViewChild('importInput', { isSignal: true } as unknown as ViewChild)(SaveSlotsComponent.prototype, 'fileInput');
 
 const slot = (id: string, name: string, wave: number, note: string | null = null): SaveSlotInfo => ({
-  id, name, wave, note,
+  id, name, wave, note, world: 'real',
   autosave: id === AUTOSAVE_SLOT,
   location: 'Heilbronn', hq: { lat: 49.14, lon: 9.21 }, map: null,
   savedAt: '2026-10-05T14:32:00Z',
@@ -143,9 +143,9 @@ describe('Save and Load pages', () => {
   describe('Load', () => {
     it('lists the autosave first and loads at once when no run is under way', async () => {
       const { el, click, saves, loaded } = await setup({ mode: 'load' });
-      expect([...el.querySelectorAll('.mp-slot-title')].map((t) => t.textContent!.trim())).toEqual(['Autosave', 'Mine']);
+      expect([...el.querySelectorAll('.mp-slot-title')].map((t) => t.textContent!.trim())).toEqual(['Autosave | Real places', 'Mine']);
       expect(el.querySelector('.mp-slot-detail')!.textContent).toContain('Wave 12 | Heilbronn');
-      await click('Autosave');
+      await click('Autosave | Real places');
       expect(saves.load).toHaveBeenCalledWith(AUTOSAVE_SLOT);
       expect(loaded).toHaveBeenCalledTimes(1);
     });
@@ -191,9 +191,9 @@ describe('Save and Load pages', () => {
       expect(byText('Load from a file')!.disabled).toBe(true);
     });
 
-    it('exports a slot and deletes a manual one after asking; the autosave has no delete', async () => {
+    it('exports a slot and deletes one after asking, an autosave too (it is the Continue of its world)', async () => {
       const { el, click, saves, settle } = await setup({ mode: 'load' });
-      expect(el.querySelector('[aria-label="Delete Autosave"]')).toBeNull();
+      expect(el.querySelector('[aria-label="Delete Autosave | Real places"]')).not.toBeNull();
       el.querySelector<HTMLButtonElement>('[aria-label="Save Mine as a file"]')!.click();
       await settle();
       expect(saves.exportFile).toHaveBeenCalledWith('slot-1');

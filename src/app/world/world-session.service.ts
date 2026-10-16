@@ -6,6 +6,24 @@ import { TowerDefenseStore } from '../store/tower-defense.store';
 import { closeCustomMaps } from './custom-map/custom-map-world';
 import { AppScreen } from './app-screen.service';
 import { WorldStartService, type WorldStart } from './world-start';
+import type { WorldId, WorldPick } from '../worlds/world-rules';
+
+/**
+ * The world held behind the globes (docs/WORLDS_STATE_PLAN.md, 3.7): what
+ * its Continue or Back to says, and what a start in its world weighs
+ */
+export interface ParkedWorld {
+  /** Its world on the globes; null for DevWorld */
+  world: WorldId | null;
+  /** Its place or map, as the world's menu picks it */
+  pick: WorldPick | null;
+  /** "Heilbronn", "Demo Valley" */
+  label: string;
+  /** The wave the run stands before */
+  wave: number;
+  /** A run is under way (a wave or a tower): Continue; else only Back to the place */
+  run: boolean;
+}
 
 /**
  * Whether the page opens straight into the game instead of on the globes
@@ -56,6 +74,15 @@ export class WorldSession {
   readonly world = signal(0);
   /** A world is open (the game shows); false on the globes, where nothing of a game loads */
   readonly isOpen = signal(opensAtOnce(this.start.current(), pageQuery()));
+  /**
+   * The open world stands held behind the globes (All worlds, World menu):
+   * its game paused and hidden, engine and worker kept, so Continue or Back
+   * to shows it at once. At most this one world; it goes when another
+   * starts, the editor opens or a coop room is joined (docs/WORLDS_STATE_PLAN.md, 3.7)
+   */
+  readonly parked = signal<ParkedWorld | null>(null);
+  /** What the held game does before it goes for good: keep its run as autosave, or let it end (see leaveParked) */
+  private readonly parkLeaving = new Set<(keep: boolean) => Promise<void>>();
 
   /**
    * Open the world of `order` in this page, the open one goes. From the map
@@ -63,6 +90,11 @@ export class WorldSession {
    * an editor that stays (its save failed) keeps the screen.
    */
   open(order: WorldStart): void {
+    // A world held behind the globes keeps its run as autosave, then goes
+    if (this.parked()) {
+      void this.leaveParked(true).then(() => this.open(order));
+      return;
+    }
     if (this.screens.screen() !== 'game') {
       void this.screens.showGame().then((shown) => {
         if (shown) this.openHere(order);
@@ -86,7 +118,35 @@ export class WorldSession {
 
   /** Back to the globes: the open world goes, engine, worker and canvas with it */
   close(): void {
+    this.parked.set(null);
     this.isOpen.set(false);
+  }
+
+  /** The open world to the globes, held: its game stays, paused and hidden (`info` says what it holds) */
+  park(info: ParkedWorld): void {
+    if (this.isOpen()) this.parked.set(info);
+  }
+
+  /** The held world in front again, at once */
+  unpark(): void {
+    this.parked.set(null);
+  }
+
+  /**
+   * The held world goes for good: its game first keeps its run as autosave
+   * (`keep`, between the waves) or lets it end; then it closes. Nothing when
+   * no world is held.
+   */
+  async leaveParked(keep: boolean): Promise<void> {
+    if (!this.parked()) return;
+    for (const leaving of [...this.parkLeaving]) await leaving(keep).catch(() => undefined);
+    this.close();
+  }
+
+  /** `listener` runs when the held world goes for good (leaveParked); returns the unsubscribe */
+  onLeaveParked(listener: (keep: boolean) => Promise<void>): () => void {
+    this.parkLeaving.add(listener);
+    return () => this.parkLeaving.delete(listener);
   }
 
   /**
@@ -119,6 +179,7 @@ export class WorldSession {
   }
 
   private openHere(order: WorldStart): void {
+    this.parked.set(null);
     // The run that waited is this world's now, or stays only as its world's autosave (Continue)
     this.screens.waitingRun.set(null);
     for (const listener of [...this.leaving]) listener();

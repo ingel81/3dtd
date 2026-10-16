@@ -2,7 +2,7 @@
 
 Stand 2026-10-16. Grundlage: Punkte 7 bis 12 des Users (`tmp/plan/PUNKTE_2026-10-16.md`), gebaut ist
 [WORLDS_NAVIGATION_PLAN.md](WORLDS_NAVIGATION_PLAN.md) Phasen 1 bis 7. Klick-Dummy:
-`tmp/plan/mockups/world-state/index.html`. Noch nichts davon ist gebaut.
+`tmp/plan/mockups/world-state/index.html`. Gebaut am 2026-10-16 (Abschnitt 7); Abschnitt 2 beschreibt den Stand davor.
 
 ## 1. Grundsatz
 
@@ -240,3 +240,54 @@ Entschieden (User, 2026-10-16): alle zwölf Empfehlungen unten übernommen.
   Kartenwahl gehen über die Weltmenüs.
 - Probespiel mit `play` im Startauftrag.
 - Vorschaubilder in den Kartenlisten; „Make the map“ speichert eine Vorschau.
+
+## 7. Gebaut (2026-10-16)
+
+- **Ein Continue je Welt:** Slots `autosave` (Real places), `autosave-osm`, `autosave-built`
+  (`AUTOSAVE_SLOTS`, `autosaveSlotOf`); jeder Slot trägt seine Welt (`StoredSlotMeta.world`, `SaveSlotInfo.world`).
+  Die Welt einer Karte entscheidet `worldOfMap`: `MapMeta.generated` (gesetzt von `import-osm.ts`, auch in der
+  Zusammenfassung) heißt OpenStreetMap, sonst Built Worlds; Globen, Pausemenü und Autosave lesen dieselbe Regel
+  (`world/world-of-page.ts`). Ein aus einem Autosave geladener Lauf schreibt weiter in dessen Slot, bis Restart
+  (`SaveGamePort.newRun`).
+- **Migration:** `WatchedSlotStore` (`SAVE_SLOT_STORE`, root) verschiebt `autosave-map` vor der ersten Liste nach
+  `autosave-built`. Vorhandene OSM-Karten haben kein `generated` und stehen unter Built Worlds (Frage 6).
+- **Live:** Spiel und Globen teilen den Slot-Speicher; jedes Schreiben und Löschen geht an die Beobachter (`watch`),
+  die Globen lesen sofort neu.
+- **Loswerden:** Discard an der ersten Zeile jedes Weltmenüs (`app-stage-continue`), Delete für Autosaves auf der
+  Load-Seite, Game over löscht den Autosave des Laufs (`SaveGameService.dropContinue`), Start oder Load an anderer
+  Stelle der Welt fragt und beendet den alten Lauf sofort.
+- **Recent:** Real places nur gespielte Orte (`recentCandidate` wartet auf Welle oder Turm), Entfernen je Zeile;
+  OpenStreetMap „Recent worlds“ = Karten mit `generated`, höchstens 10, ältere in den Papierkorb (`overflowWorlds`,
+  `WorldChoiceService.trashMap`); Built Worlds mit Recent (5, `td_recent_maps_v1`, aufgezeichnet von
+  `MainMenuService`), eigenen Karten mit Abzeichen (from OpenStreetMap, copy of …), Coop, mitgelieferten.
+  Jede Kartenzeile mit Bild; „Make the map“ speichert eine Skizze (`map-sketch.ts`: Relief, Wasser, Wege).
+- **Editor:** eine mitgelieferte oder Coop-Karte öffnet wie sie ist, die erste Speicherung mit Änderung legt die
+  Kopie an (`MapStore.makeCopy`, Sperre zieht mit); die erste Speicherung mit Änderung nimmt `generated` weg.
+- **Halten (Punkt 7):** Worlds, All worlds, World menu und Make map halten das Spiel hinter den Globen
+  (`WorldSession.park`, `ParkedWorld`): Spiel verborgen, Bildschleife gestoppt, Pausemenü offen (Pause und Tasten),
+  keine Rückfrage beim Verlassen. Continue „ready“ oder „Back to <Ort>“ zeigt es sofort; ein anderer Start, der
+  Editor oder ein Coop-Beitritt lässt es gehen (`leaveParked`, Autosave zwischen den Wellen vorher). Das Probespiel
+  wird nie gehalten. Ton läuft beim Halten weiter (nicht angehalten).
+- **Chips:** eine Quelle `WorldsStageService.pathChips` für Globen, Spiel und Editor; aus dem Spiel sichert ein Chip
+  den Lauf vorher (`MainMenuService.goElsewhere`).
+- **Alte Menüs:** Startliste ohne Reiter, New game nur Ortswahl der Welt (ohne Recent), auf einer Karte der Weg zu
+  den Welten; die alte Kartenwahl ist entfernt. „Make map“ und die Ortswahl öffnen den OSM-Rahmen der Globen;
+  Test map startet mit `play` (Ladezeile, Cancel zurück in den Editor).
+- **Wahl je Welt** bleibt über Neuladen (`td_world_picks_v1`).
+- **Specs:** `worlds/worlds-stage.scenario.spec.ts` (Continue, Discard, live, Start/Load mit Rückfrage, gehaltene
+  Welt, Chips, Recent worlds, Built Worlds, Wahl nach Neuladen), `world-rules.spec.ts`, `recent-maps.spec.ts`,
+  `save-slot.store.spec.ts` (Migration, Beobachter), `save-game.service.spec.ts` (Game over),
+  `location-management.service.spec.ts`, `editor-session.spec.ts` (Kopie, `generated`),
+  `world-session.spec.ts` (Halten), `main-menu.scenario.spec.ts`, `menu-new-game.scenario.spec.ts`.
+
+Messung (Dev-Build, Chrome headless mit SwiftShader, Demo Valley, Globus-Stufe Low, nach GC):
+
+| Stand | Heap | lebende WebGL-Kontexte |
+|---|---|---|
+| Globen | 122,9 MB | 1 |
+| Spiel | 263,9 MB | 1 |
+| Globen, Spiel gehalten | 273,5 MB | 2 |
+| Weiter in einem anderen Lauf (Halten aufgelöst) | 265,6 MB | 1 |
+
+Back to brauchte 447 ms bis das Spiel stand (Klick bis Globen weg). Der Dev-Build taugt für den Heap nur grob
+(siehe WORLDS_NAVIGATION_PLAN Phase 2); GPU-Speicher ist nicht gemessen.

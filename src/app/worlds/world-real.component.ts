@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { AddressAutocompleteComponent } from '../components/address-autocomplete.component';
 import { TdIconComponent } from '../components/icon/icon.component';
+import { StageContinueComponent } from './stage-continue.component';
 import { RovingGroupDirective } from '../components/roving-group.directive';
 import { SHOWCASE_LOCATIONS } from '../configs/showcase-locations.config';
 import { BestWaveService } from '../services/location/best-wave.service';
@@ -30,7 +31,7 @@ const LISTS: readonly { id: RealList; label: string }[] = [
 @Component({
   selector: 'app-world-real',
   standalone: true,
-  imports: [AddressAutocompleteComponent, TdIconComponent, RovingGroupDirective],
+  imports: [AddressAutocompleteComponent, TdIconComponent, RovingGroupDirective, StageContinueComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './world-menu.scss',
   template: `
@@ -46,14 +47,7 @@ const LISTS: readonly { id: RealList; label: string }[] = [
           </div>
         </div>
       }
-      @if (stage.autosaveOf('real'); as run) {
-        <div class="td-rows">
-          <button type="button" class="td-row wm-row" (click)="stage.continueRun(run)">
-            <span class="td-name">Continue</span>
-            <span class="td-note td-num wm-meta">{{ run.name }} | wave {{ run.wave }}</span>
-          </button>
-        </div>
-      }
+      <app-stage-continue world="real" />
 
       <div class="td-seg is-sm wm-tabs" role="tablist" aria-label="Places" tdRovingGroup>
         @for (list of lists; track list.id) {
@@ -66,15 +60,21 @@ const LISTS: readonly { id: RealList; label: string }[] = [
           @if (locations.recents().length) {
             <div class="td-rows" role="group" aria-label="Recent places">
               @for (recent of locations.recents(); track recent.visitedAt) {
-                <button type="button" class="td-row wm-row" [class.is-selected]="isPicked(recent.hq)"
-                        (click)="pickPlace(recent.hq, recent.spawns.slice(0, 1), recent.name)">
-                  <span class="td-name">{{ recent.name }}</span>
-                  <span class="td-note td-num wm-meta">{{ age(recent.visitedAt) }}</span>
-                </button>
+                <div class="wm-line">
+                  <button type="button" class="td-row wm-row" [class.is-selected]="isPicked(recent.hq)"
+                          (click)="pickPlace(recent.hq, recent.spawns.slice(0, 1), recent.name)">
+                    <span class="td-name">{{ recent.name }}</span>
+                    <span class="td-note td-num wm-meta">{{ age(recent.visitedAt) }}</span>
+                  </button>
+                  <button type="button" class="td-tool" data-recent-remove [attr.aria-label]="'Remove ' + recent.name + ' from Recent'"
+                          title="Remove from Recent" (click)="locations.forgetRecent(recent.hq)">
+                    <td-icon name="close" [size]="12" />
+                  </button>
+                </div>
               }
             </div>
           } @else {
-            <p class="td-note">Every place you play shows up here.</p>
+            <p class="td-note">Every place you play shows up here, once its first wave or tower is in.</p>
           }
         }
         @case ('favorites') {
@@ -154,7 +154,7 @@ const LISTS: readonly { id: RealList; label: string }[] = [
         <p class="td-note">{{ spawnLine() }}</p>
         <div class="td-actions is-start wm-actions">
           <button type="button" class="td-btn-primary" data-stage-start [attr.aria-disabled]="playWhy() ? true : null" (click)="stage.start('real')">
-            <td-icon name="play" [size]="14" /><span>{{ continues() ? 'Continue' : 'Start' }}</span>
+            <td-icon name="play" [size]="14" /><span>{{ playWord() }}</span>
           </button>
           @if (pick.kind === 'place') {
             <button type="button" class="td-btn-secondary" [attr.aria-disabled]="stage.whyNot('edit', 'osm') ? true : null"
@@ -188,7 +188,8 @@ export class WorldRealComponent {
   readonly pick = computed(() => this.stage.picks().real);
   readonly noKey = computed(() => this.stage.lock('real') !== null);
   readonly playWhy = computed(() => this.stage.whyNot('play', 'real'));
-  readonly continues = computed(() => this.stage.runHere('real', this.pick()) !== null);
+  /** Start's word: Continue of a run, Back to the place held, else Start */
+  readonly playWord = computed(() => this.stage.playWord('real', this.pick(), 'Start'));
   private readonly openedAt = Date.now();
 
   readonly spawnLine = computed(() => {

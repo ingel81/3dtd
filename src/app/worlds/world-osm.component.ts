@@ -1,8 +1,10 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { AddressAutocompleteComponent } from '../components/address-autocomplete.component';
 import { TdIconComponent } from '../components/icon/icon.component';
+import { StageContinueComponent } from './stage-continue.component';
 import { OsmFrameComponent } from '../components/osm-frame/osm-frame.component';
 import { WorldsStageService } from './worlds-stage.service';
+import { MAX_RECENT_WORLDS } from './recent-maps';
 import { placeLabel } from '../services/location/place-label';
 import type { NominatimAddress } from '../services/location/geocoding.service';
 
@@ -10,13 +12,14 @@ import type { NominatimAddress } from '../services/location/geocoding.service';
  * OpenStreetMap's menu (docs/WORLDS_NAVIGATION_PLAN.md, user decision 5):
  * a world of its own. A real place searched (or the one picked under Real
  * places) opens the frame with its HQ and spawns; the map made there is
- * played or opened in the editor, and it stands under Maps too. No map key
- * is needed.
+ * played or opened in the editor. The maps made here and not changed since
+ * are its Recent worlds (docs/WORLDS_STATE_PLAN.md, 3.6); one changed in the
+ * editor is a Built World. No map key is needed.
  */
 @Component({
   selector: 'app-world-osm',
   standalone: true,
-  imports: [AddressAutocompleteComponent, TdIconComponent, OsmFrameComponent],
+  imports: [AddressAutocompleteComponent, TdIconComponent, OsmFrameComponent, StageContinueComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './world-menu.scss',
   template: `
@@ -29,14 +32,7 @@ import type { NominatimAddress } from '../services/location/geocoding.service';
         @if (lock()) {
           <p class="td-banner is-warn">Maps from OpenStreetMap are coming soon in this build.</p>
         }
-        @if (run(); as run) {
-          <div class="td-rows">
-            <button type="button" class="td-row wm-row" (click)="stage.continueRun(run)">
-              <span class="td-name">Continue</span>
-              <span class="td-note td-num wm-meta">{{ run.name }} | wave {{ run.wave }}</span>
-            </button>
-          </div>
-        }
+        <app-stage-continue world="osm" />
         <section class="td-group" aria-labelledby="wm-osm-place">
           <h3 class="td-section" id="wm-osm-place">A map of a real place</h3>
           <app-td-address-autocomplete [placeholder]="'Town, street or address'" [currentValue]="null"
@@ -53,19 +49,33 @@ import type { NominatimAddress } from '../services/location/geocoding.service';
           }
         </section>
         <section class="td-group" aria-labelledby="wm-osm-mine">
-          <h3 class="td-section" id="wm-osm-mine">Your OpenStreetMap maps</h3>
+          <h3 class="td-section" id="wm-osm-mine">Recent worlds</h3>
           @if (mine().length) {
             <div class="td-rows">
               @for (map of mine(); track map.id) {
-                <button type="button" class="td-row wm-row" [class.is-selected]="pickedId() === map.id"
-                        (click)="stage.pick('osm', { kind: 'map', id: map.id, name: map.name })">
-                  <span class="td-name">{{ map.name }}</span>
-                  <span class="td-note td-num wm-meta">{{ map.spawns }} {{ map.spawns === 1 ? 'spawn' : 'spawns' }}</span>
-                </button>
+                <div class="wm-line">
+                  <button type="button" class="td-row wm-row" [class.is-selected]="pickedId() === map.id" [attr.data-map]="map.id"
+                          (click)="stage.pick('osm', { kind: 'map', id: map.id, name: map.name })">
+                    <span class="wm-map">
+                      @if (map.picture) {
+                        <img class="wm-thumb td-well" [src]="map.picture" alt="" />
+                      } @else {
+                        <span class="wm-thumb td-well" aria-hidden="true"></span>
+                      }
+                      <span class="td-name">{{ map.name }}</span>
+                    </span>
+                    <span class="td-note td-num wm-meta">{{ map.spawns }} {{ map.spawns === 1 ? 'spawn' : 'spawns' }}</span>
+                  </button>
+                  <button type="button" class="td-tool" data-recent-remove [attr.aria-label]="'Remove ' + map.name + ' from Recent worlds'"
+                          title="Remove from Recent worlds" (click)="stage.removeWorld(map)">
+                    <td-icon name="close" [size]="12" />
+                  </button>
+                </div>
               }
             </div>
+            <p class="td-note">The last {{ max }} maps made here. Change one in the editor and it becomes a Built World.</p>
           } @else {
-            <p class="td-note">None yet. A map made here stands under Maps too.</p>
+            <p class="td-note">None yet. A map you make here shows first.</p>
           }
         </section>
       }
@@ -80,7 +90,7 @@ import type { NominatimAddress } from '../services/location/geocoding.service';
           }
           <div class="td-actions is-start wm-actions">
             <button type="button" class="td-btn-primary" data-stage-start [attr.aria-disabled]="playWhy() ? true : null" (click)="stage.start('osm')">
-              <td-icon name="play" [size]="14" /><span>{{ continues() ? 'Continue' : 'Play' }}</span>
+              <td-icon name="play" [size]="14" /><span>{{ playWord() }}</span>
             </button>
             <button type="button" class="td-btn-secondary" [attr.aria-disabled]="stage.whyNot('edit', 'osm') ? true : null"
                     [attr.title]="stage.whyNot('edit', 'osm')" (click)="stage.edit('osm')">Edit in the editor</button>
@@ -101,7 +111,9 @@ export class WorldOsmComponent {
   readonly stage = inject(WorldsStageService);
 
   readonly lock = computed(() => this.stage.lock('osm'));
-  readonly mine = computed(() => this.stage.maps().filter((m) => m.osm !== null));
+  /** The maps made here and not changed since, newest first (Recent worlds) */
+  readonly mine = this.stage.recentWorlds;
+  readonly max = MAX_RECENT_WORLDS;
   readonly pickedId = computed(() => {
     const pick = this.stage.picks().osm;
     return pick?.kind === 'map' ? pick.id : null;
@@ -116,9 +128,9 @@ export class WorldOsmComponent {
     const pick = this.stage.picks().real;
     return pick?.kind === 'place' ? pick : null;
   });
-  readonly run = computed(() => this.stage.autosaveOf('osm'));
   readonly playWhy = computed(() => this.stage.whyNot('play', 'osm'));
-  readonly continues = computed(() => this.stage.runHere('osm', this.stage.picks().osm) !== null);
+  /** Start's word: Continue of a run, Back to the place held, else Play */
+  readonly playWord = computed(() => this.stage.playWord('osm', this.stage.picks().osm, 'Play'));
 
   /** A searched place's name as the search list showed it */
   placeName(found: { name: string; address?: NominatimAddress }): string {

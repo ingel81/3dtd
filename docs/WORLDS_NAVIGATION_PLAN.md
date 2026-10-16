@@ -4,6 +4,9 @@ Status: Phase 1 bis 7 gebaut (Abschnitt 7). Entscheidungen des Users in Abschnit
 Grundlagen: TODO E195, Klick-Dummy `tmp/plan/mockups/world-globes/index.html` (Datenmodell, Regeln, Navigationskarte,
 Abgleichsliste „heute vorhanden → im Dummy“), die gewählte Darstellung aus dem Dummy.
 
+Die Welt „Maps“ heißt seit 2026-10-16 **Built Worlds** (Id `maps` bleibt); Lauf, Continue und Recent je Welt regelt
+[WORLDS_STATE_PLAN.md](WORLDS_STATE_PLAN.md). Die Abschnitte unten nennen sie noch Maps.
+
 ## 1. Ziel und Grundsätze
 
 Hauptmenü, Spiel und Editor sind heute zwei Anwendungen (`/` und `/editor`), verbunden über Seitenwechsel. Ziel ist

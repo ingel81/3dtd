@@ -59,11 +59,12 @@ import { BossBarComponent } from './components/boss-bar/boss-bar.component';
 import { CoopSquadComponent } from './components/coop-squad/coop-squad.component';
 import { CoopDockComponent } from './components/coop-dock/coop-dock.component';
 import { WorldContext } from './world/world-context.service';
-import { AppScreen } from './world/app-screen.service';
 import { CUSTOM_MAPS_OPEN } from './world/custom-maps-open';
 import { whyNot, worldName } from './world/why-not';
 import type { GamePath } from './components/game-header/game-header.component';
 import type { PathAction } from './components/world-path/world-path.component';
+import { WorldsStageService } from './worlds/worlds-stage.service';
+import { worldOfPage } from './world/world-of-page';
 import { WaveDebugService } from './services/debug/wave-debug.service';
 import { EnemyDebugService } from './services/debug/enemy-debug.service';
 import { DebugFacadeService } from './services/debug/debug-facade.service';
@@ -317,15 +318,14 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   /** The main menu: start layer in front of the loading place, pause layer on Esc */
   readonly mainMenu = inject(MainMenuService);
-  /** The map editor beside the game in this window: its map names a chip of the path */
-  private readonly screens = inject(AppScreen);
+  /** The globes' Continues and the editor's map name the chips of the path */
+  private readonly stage = inject(WorldsStageService);
   private readonly mapsOpen = inject(CUSTOM_MAPS_OPEN);
 
   /** The path over the game (docs/WORLDS_NAVIGATION_PLAN.md, 3.4): the world, the way into the editor, the editor's map */
   readonly gamePath = computed<GamePath>(() => {
     const ref = this.worldContext.ref();
     const onMap = ref.kind === 'custom-map';
-    const draft = this.screens.draft();
     // The editor's test: Edit goes back to the editor, which waits with its map
     if (this.mainMenu.fromEditor) {
       return { world: worldName(ref), editLabel: 'Edit', editHint: 'Back to the editor, the map as you left it', editWhy: null, chips: [] };
@@ -339,29 +339,32 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     return {
       world: worldName(ref),
       editLabel: onMap ? 'Edit' : 'Make map',
-      editHint: onMap ? 'Edit this map in the editor' : 'Make a map of a real place (New game)',
+      editHint: onMap ? 'Edit this map in the editor' : 'Make a map of this place from OpenStreetMap',
       editWhy: editWhy ?? (onMap || ref.kind === 'tiles' ? null : 'There is no map to edit here'),
-      chips: draft
-        ? [{ id: 'editor', label: `Editor: ${draft.name}${draft.unsaved ? ' | unsaved' : ''}`, hint: 'Back to the map editor, the map as you left it' }]
-        : [],
+      // The same chips as on the globes and in the editor: the other worlds' Continues and the editor's map
+      chips: this.stage.pathChips(worldOfPage(ref), true),
     };
   });
 
   /** A step of the path: the globes or this world's menu (the pause menu asks for a run), the editor (Edit, its chip) */
   onPath(action: PathAction): void {
-    // To the globes, or this world's menu there; a run under way asks first in the pause menu (All worlds)
+    // To the globes, or this world's menu there: nothing ends, the game stays held behind them; a coop room says why not
     if (action === 'worlds' || action === 'world') {
-      if (this.mainMenu.underWay() || this.mainMenu.leaveWhy()) this.mainMenu.open();
+      if (this.mainMenu.leaveWhy()) this.mainMenu.open();
       else this.mainMenu.leaveTo(action === 'worlds' ? 'globes' : 'world');
     }
     else if (action === 'edit') this.editFromPath();
     else if (action !== 'play' && action.chip === 'editor') void this.mainMenu.openMapEditor();
+    else if (action !== 'play') void this.mainMenu.goElsewhere(() => this.stage.goChip(action.chip));
   }
 
-  /** Edit on the path: a map opens in the editor, unless the run would end (the menu asks then); a real place goes to New game */
+  /**
+   * Edit on the path: a map opens in the editor, unless the run would end (the menu asks then); on a real
+   * place Make map opens its OpenStreetMap frame on the globes, the game held behind them
+   */
   private editFromPath(): void {
     if (this.worldContext.ref().kind !== 'custom-map') {
-      this.mainMenu.open('new-game');
+      this.mainMenu.makeMapOf();
       return;
     }
     if (this.mainMenu.runWhenEditing() === 'ends' && !this.mainMenu.fromEditor) this.mainMenu.open();

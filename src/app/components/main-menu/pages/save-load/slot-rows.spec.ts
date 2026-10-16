@@ -3,7 +3,7 @@ import { loadSlotRows, saveSlotRows, slotDetail, slotWhen } from './slot-rows';
 import { AUTOSAVE_SLOT, manualSlotId, type SaveSlotInfo } from '../../../../services/save-game/save-game.port';
 
 const slot = (id: string, name: string, wave: number, savedAt = '2026-10-05T14:32:00'): SaveSlotInfo => ({
-  id, name, wave, savedAt,
+  id, name, wave, savedAt, world: 'real',
   autosave: id === AUTOSAVE_SLOT,
   location: 'Heilbronn', hq: null, map: null,
   gameVersion: '0.6.0',
@@ -29,10 +29,10 @@ describe('slot rows of the Save and Load pages', () => {
     expect(rows[0].detail).toBe('Empty');
   });
 
-  it('Load shows the filled slots, the autosave first and named so', () => {
+  it('Load shows the filled slots, the autosave first and named with its world', () => {
     const rows = loadSlotRows([slot(manualSlotId(1), 'Mine', 4), slot(AUTOSAVE_SLOT, 'auto', 6)]);
     expect(rows.map((r) => [r.id, r.title, r.autosave])).toEqual([
-      ['autosave', 'Autosave', true],
+      ['autosave', 'Autosave | Real places', true],
       ['slot-1', 'Mine', false],
     ]);
   });

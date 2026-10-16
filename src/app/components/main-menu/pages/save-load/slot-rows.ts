@@ -1,5 +1,6 @@
 import { MANUAL_SLOT_COUNT, manualSlotId, type SaveSlotInfo } from '../../../../services/save-game/save-game.port';
 import { shortPlaceName } from '../../../../services/save-game/slot-name';
+import { WORLD_NAMES } from '../../../../worlds/world-rules';
 
 /**
  * The slot lists of the menu's Save and Load pages (docs/SAVE_LOAD_PLAN.md): Save shows every
@@ -10,7 +11,7 @@ import { shortPlaceName } from '../../../../services/save-game/slot-name';
 /** One line of a slot list */
 export interface SlotRow {
   id: string;
-  /** "Slot 2" for an empty one, the save's name otherwise; "Autosave" for the autosave */
+  /** "Slot 2" for an empty one, the save's name otherwise; "Autosave | Real places" for a world's autosave */
   title: string;
   /** "Wave 7 | Heilbronn"; "Empty" for an empty slot */
   detail: string;
@@ -38,7 +39,7 @@ export function slotWhen(info: SaveSlotInfo): string {
 function rowOf(info: SaveSlotInfo): SlotRow {
   return {
     id: info.id,
-    title: info.autosave ? 'Autosave' : info.name,
+    title: info.autosave ? (info.world ? `Autosave | ${WORLD_NAMES[info.world]}` : 'Autosave') : info.name,
     detail: slotDetail(info),
     when: slotWhen(info),
     filled: true,
@@ -58,7 +59,7 @@ export function saveSlotRows(slots: readonly SaveSlotInfo[], count = MANUAL_SLOT
   });
 }
 
-/** Load: the filled slots, the autosave first, as the port lists them */
+/** Load: the filled slots, the autosaves first (one per world, each a Continue), as the port lists them */
 export function loadSlotRows(slots: readonly SaveSlotInfo[]): SlotRow[] {
   return [...slots].sort((a, b) => Number(b.autosave) - Number(a.autosave)).map(rowOf);
 }

@@ -242,6 +242,8 @@ export class EditorSession implements OnDestroy {
   navigator: { open(id: string): Promise<string | null>; close(): Promise<boolean> } | null = null;
   /** The id the open map was opened for, see isOpen */
   private askedFor: string | null = null;
+  /** The open map is a shipped or a coop map: the first save with a change stores it as an own copy of this one */
+  private pendingCopy: { id: string; hash: string } | null = null;
   /** The camera of the view that went while the map stayed open, for the next view (attachViewport) */
   private keptView: CameraBookmark | null = null;
 
@@ -655,9 +657,10 @@ export class EditorSession implements OnDestroy {
 
   /**
    * Opens a map for editing and returns the id of what opened: an own map
-   * itself, a shipped or a coop host's map as a new own copy at once (saving
-   * under their id would make them one's own, and edits to the original went
-   * nowhere)
+   * itself; a shipped or a coop host's map as it is, and the first save with
+   * a change stores it as a new own copy (saving under their id would make
+   * them one's own, and edits to the original went nowhere). Opening alone
+   * makes no copy (docs/WORLDS_STATE_PLAN.md, decision 8).
    */
   async open(id: string): Promise<string> {
     const opened = await this.openAs(id);
@@ -690,10 +693,10 @@ export class EditorSession implements OnDestroy {
       return id;
     }
     const name = loaded.doc.meta.name;
-    const copy = await this.store.saveCopy(loaded, undefined, { id, hash: loaded.summary.contentHash });
-    this.setDocument(copy.doc);
-    this.flash(`This is your own copy of ${name}; the original stays as it is`);
-    return copy.doc.meta.id;
+    this.setDocument(loaded.doc);
+    this.pendingCopy = { id, hash: loaded.summary.contentHash };
+    this.flash(`${name} as it ships; your own copy comes with the first change, the original stays as it is`);
+    return id;
   }
 
   /**
@@ -739,9 +742,18 @@ export class EditorSession implements OnDestroy {
 
   /** Puts a map into the editor (opened, created or imported) and takes its lock, or opens it read-only */
   setDocument(doc: CustomMapDocument): void {
+    this.pendingCopy = null;
+    this.takeLock(doc.meta.id);
+    this.showDocument(doc, true);
+    // Every map opens on Look: a first click only looks
+    this.selectTool('look');
+  }
+
+  /** The lock of the map `id` (its own tab edits it), in place of the one held */
+  private takeLock(id: string): void {
     this.lock?.close();
     this.readOnly.set(false);
-    const lock = new MapLock(doc.meta.id, {
+    const lock = new MapLock(id, {
       granted: () => this.zone.run(() => void this.lockGranted(lock)),
       lost: () => this.zone.run(() => this.lockLost(lock)),
       beforeRelease: () => this.zone.run(() => this.letGo()),
@@ -750,9 +762,6 @@ export class EditorSession implements OnDestroy {
     void lock.start().then((editing) => {
       if (this.lock === lock && !editing) this.zone.run(() => this.lockLost(lock));
     });
-    this.showDocument(doc, true);
-    // Every map opens on Look: a first click only looks
-    this.selectTool('look');
   }
 
   /** Asks the tab that edits this map to save and let go; this one edits then */
@@ -1218,8 +1227,20 @@ export class EditorSession implements OnDestroy {
     this.clearAutosave();
     this.saving.set(true);
     const state = editor.stateId;
+    const changed = state !== this.savedState;
     try {
       const doc = editor.doc;
+      const copyOf = this.pendingCopy;
+      // A shipped map unchanged: nothing of one's own to keep
+      if (copyOf && !changed) return true;
+      const original = doc.meta.name;
+      if (copyOf) {
+        await this.store.makeCopy(doc, undefined, copyOf);
+        this.pendingCopy = null;
+        this.takeLock(doc.meta.id);
+      }
+      // An OpenStreetMap map changed is a Built World from now on (docs/WORLDS_STATE_PLAN.md, decision 5)
+      if (changed && doc.meta.generated) delete doc.meta.generated;
       doc.meta.updatedAt = new Date().toISOString();
       const preview = manual ? await this.thumbnail() : null;
       // An autosave packs fast and leaves the hash for when the game asks for it; packed in a worker, so a
@@ -1235,7 +1256,8 @@ export class EditorSession implements OnDestroy {
       this.savedState = state;
       editor.markSaved();
       this.savedAt.set(doc.meta.updatedAt);
-      if (manual) this.flash('Saved');
+      if (copyOf) this.flash(`Saved as your own copy of ${original}; the original stays as it is`);
+      else if (manual) this.flash('Saved');
       this.guardStorage();
       return true;
     } catch (e) {
@@ -1442,11 +1464,14 @@ export class EditorSession implements OnDestroy {
     if (!(await this.save(true))) return;
     const mapId = doc.meta.id;
     this.screens.trial.set({ mapId, bot, result: null });
+    // A Start as from the worlds: it loads, the game shows once it stands, Esc there comes back here
     this.worlds.open({
       ...PLAIN_START,
       world: { kind: 'custom-map', mapId, contentHash: '' },
       startWave: bot === null ? this.testFromWave() : 1,
       trial: { bot },
+      play: true,
+      label: doc.meta.name,
     });
   }
 

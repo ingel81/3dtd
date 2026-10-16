@@ -1,8 +1,8 @@
-import { Injectable, Injector, computed, effect, inject, signal, untracked } from '@angular/core';
+import { DestroyRef, Injectable, Injector, computed, effect, inject, signal, untracked } from '@angular/core';
 import { UIStore } from '../../store/ui.store';
 import { GameStore } from '../../store/game.store';
 import { COOP } from '../../services/coop.token';
-import { AUTOSAVE_MAP_SLOT, AUTOSAVE_SLOT, SAVE_GAME, type LoadResult, type SaveSlotInfo } from '../../services/save-game/save-game.port';
+import { AUTOSAVE_SLOT, SAVE_GAME, type LoadResult, type SaveSlotInfo } from '../../services/save-game/save-game.port';
 import { shortPlaceName } from '../../services/save-game/slot-name';
 import { EngineInitializationService } from '../../services/infrastructure/engine-initialization.service';
 import { LocationManagementService } from '../../services/location/location-management.service';
@@ -19,16 +19,16 @@ import { WorldStartService } from '../../world/world-start';
 import { pageQuery } from '../../core/page-switches';
 import { CUSTOM_MAPS_OPEN } from '../../world/custom-maps-open';
 import { AppScreen } from '../../world/app-screen.service';
+import { WorldSession, type ParkedWorld } from '../../world/world-session.service';
+import type { OsmFrameRequest } from '../osm-frame/osm-frame-request';
 import { PLAIN_START } from '../../world/world-start';
 import { WorldsStageService } from '../../worlds/worlds-stage.service';
-import { openedCustomMap } from '../../world/custom-map/custom-map-world';
-import type { WorldId, WorldPick } from '../../worlds/world-rules';
+import { worldOfPage } from '../../world/world-of-page';
+import { recordRecentMap } from '../../worlds/recent-maps';
+import { autosaveSlotOf, type WorldId, type WorldPick } from '../../worlds/world-rules';
 import { whyNot } from '../../world/why-not';
 
 export { startMenuSkipped } from './start-menu-skipped';
-
-/** What the start list shows: the real places of the 3D tiles, or the custom maps */
-export type MenuWorldTab = 'real' | 'custom';
 
 /** The autosave as the list offers it: "Heilbronn | wave 12" */
 export interface AutosaveOffer {
@@ -72,6 +72,9 @@ export class MainMenuService {
   private readonly worlds = inject(WorldChoiceService);
   private readonly start = inject(WorldStartService);
   private readonly screens = inject(AppScreen);
+  private readonly session = inject(WorldSession);
+  /** This game stands held behind the globes (WorldSession.parked): paused, its frames stopped, the keys not its own */
+  readonly parked = computed(() => this.session.parked() !== null);
   /** The custom maps are open (CUSTOM_MAPS_OPEN): the start list has its two tabs */
   private readonly mapsOpen = inject(CUSTOM_MAPS_OPEN);
   private readonly bridge = readDesktopBridge();
@@ -147,27 +150,11 @@ export class MainMenuService {
 
   // ---- Real places and custom maps ----
 
-  /** The page plays a custom map */
-  readonly onMap = computed(() => this.worldContext.ref().kind === 'custom-map');
   /** The custom map this page plays, to edit: while the maps are open (or back from the editor's test), not in a replay; else null */
   readonly editableMapId = computed(() => {
     const ref = this.worldContext.ref();
     return (this.mapsOpen || this.fromEditor) && ref.kind === 'custom-map' && !this.ui.replayMode() ? ref.mapId : null;
   });
-  /**
-   * Which kind of world the start list shows. It follows the world the
-   * page plays; the player may look at the other: its Continue and Load
-   * then load the page anew on that world.
-   */
-  readonly tab = signal<MenuWorldTab>('real');
-  /** The start list shows the tabs: the maps are open, and the player picks the world (not in coop) */
-  readonly tabsShown = computed(
-    () => this.mapsOpen && this.layer() === 'start' && !this.starting() && !this.inCoop() && !this.ui.coopMapLocked(),
-  );
-  /** The tab that is the world of this page */
-  readonly homeTab = computed<MenuWorldTab>(() => (this.onMap() ? 'custom' : 'real'));
-  /** The list shows the world of this page (or there are no tabs) */
-  readonly onHomeTab = computed(() => !this.tabsShown() || this.tab() === this.homeTab());
 
   /** The world is the editor's test of its map ("Test map", the bot check): editing the map goes back to the editor */
   readonly fromEditor = this.start.current().trial !== null;
@@ -186,6 +173,15 @@ export class MainMenuService {
     else await this.editMap(mapId);
   }
 
+  /**
+   * Off to another world's Continue (a chip of the path): the run here is kept as autosave first when it
+   * stands between the waves, then `go`; in a wave the autosave of its start stays its Continue
+   */
+  async goElsewhere(go: () => void): Promise<void> {
+    if (this.underWay() && !this.inCoop() && !this.store.isGameOver() && this.saves.canSave()) await this.saves.autosaveNow();
+    go();
+  }
+
   /** The map editor in this window, on its list of maps (or the map open in it); the run waits as autosave */
   openMapEditor(): Promise<void> {
     return this.editMap(null);
@@ -197,10 +193,10 @@ export class MainMenuService {
     this.worlds.editMap(mapId);
   }
 
-  /** This world's autosave slot: the real places' or the maps'; null where a run keeps none (DevWorld) */
+  /** This world's autosave slot (each world keeps its own); null where a run keeps none (DevWorld) */
   private readonly autosaveSlotHere = computed(() => {
-    if (this.worldContext.capabilities().realPlace) return AUTOSAVE_SLOT;
-    return this.worldContext.ref().kind === 'custom-map' ? AUTOSAVE_MAP_SLOT : null;
+    const world = worldOfPage(this.worldContext.ref());
+    return world ? autosaveSlotOf(world) : null;
   });
 
   /** The autosave that holds this run at the start of the wave under way, null without one */
@@ -263,26 +259,19 @@ export class MainMenuService {
   readonly canQuit = typeof this.bridge?.quit === 'function';
 
   /**
-   * The autosave, offered while the new run has not begun; once the run is
-   * under way the autosave is this run's
+   * This world's autosave, offered while the new run has not begun (the
+   * start list of a game opened at once: a link, a coop room); once the run
+   * is under way the autosave is this run's. The other worlds' Continues are
+   * the globes' and the chips' (docs/WORLDS_STATE_PLAN.md, 3.3).
    */
   readonly autosaveOffer = computed<AutosaveOffer | null>(() => {
-    // The run under way here is this tab's to continue; the other tab offers its own autosave
-    if (this.inCoop() || (this.underWay() && this.onHomeTab())) return null;
-    const custom = this.tabsShown() && this.tab() === 'custom';
-    const autosave = this.saves.slots().find((slot) => slot.id === (custom ? AUTOSAVE_MAP_SLOT : AUTOSAVE_SLOT));
+    if (this.inCoop() || this.underWay()) return null;
+    const slotId = this.autosaveSlotHere();
+    const autosave = slotId ? this.saves.slots().find((slot) => slot.id === slotId) : undefined;
     if (!autosave) return null;
-    const place = custom ? (autosave.map?.name ?? shortPlaceName(autosave.location)) : shortPlaceName(autosave.location);
-    const elsewhere = this.needsOtherWorld(autosave) || (!custom && this.autosavePlaceDiffers());
+    const place = autosave.map?.name ?? shortPlaceName(autosave.location);
+    const elsewhere = this.needsOtherWorld(autosave) || (!autosave.map && this.autosavePlaceDiffers());
     return { slotId: autosave.id, place, wave: autosave.wave, elsewhere };
-  });
-
-  /** The slots the Load page lists: under a tab only that world's */
-  readonly loadableSlots = computed<readonly SaveSlotInfo[]>(() => {
-    const slots = this.saves.slots();
-    if (!this.tabsShown()) return slots;
-    const custom = this.tab() === 'custom';
-    return slots.filter((slot) => (slot.map !== null) === custom);
   });
 
   /** The place loaded here, as the list names it */
@@ -292,12 +281,31 @@ export class MainMenuService {
   private pausedByMenu = false;
 
   constructor() {
-    // The tab follows the world the page plays
-    effect(() => {
-      const home = this.homeTab();
-      untracked(() => this.tab.set(home));
-    });
     this.resumeFromLink();
+    // Held behind the globes: no frames drawn, the pause menu shut once the game shows again
+    let held = false;
+    effect(() => {
+      const parked = this.parked();
+      if (parked === held) return;
+      held = parked;
+      untracked(() => {
+        const loop = this.engineInit.getEngine()?.renderLoop;
+        if (parked) {
+          loop?.stop();
+          return;
+        }
+        loop?.start();
+        this.close();
+      });
+    });
+    const offHeld = this.session.onLeaveParked((keep) => this.leaveHeld(keep));
+    inject(DestroyRef).onDestroy(offHeld);
+    // A Built World played (its first wave or tower) goes on top of that world's Recent; a test of the map does not
+    effect(() => {
+      const ref = this.worldContext.ref();
+      if (!this.underWay() || this.fromEditor || ref.kind !== 'custom-map' || worldOfPage(ref) !== 'maps') return;
+      untracked(() => recordRecentMap(ref.mapId));
+    });
     // Started from a world's menu: played as soon as the place is there (a save's Continue plays once loaded)
     if (this.fromStart && !this.start.current().resume) {
       let asked = false;
@@ -483,6 +491,7 @@ export class MainMenuService {
   /** Restart at the same place (the list asks first while a run is under way) */
   restart(): void {
     if (!this.canRestart()) return;
+    this.saves.newRun();
     this.facade?.restartGame();
     this.close();
   }
@@ -507,42 +516,77 @@ export class MainMenuService {
   /** The world menu of this world's kind, as the pause menu names it */
   readonly worldMenuLabel = computed(() => {
     const world = this.worldOfPage();
-    return world === 'real' ? 'Real places' : world === 'osm' ? 'OpenStreetMap' : world === 'maps' ? 'Maps' : 'Worlds';
-  });
-
-  /**
-   * The wave whose autosave holds this run, null without one: the autosave
-   * comes after every wave, so between waves it holds the last one, during a
-   * wave the one before
-   */
-  readonly autosavedWave = computed(() => {
-    if (!this.underWay() || this.inCoop()) return null;
-    const wave = this.store.phase() === 'setup' ? this.store.waveNumber() : this.store.waveNumber() - 1;
-    return wave >= 1 ? wave : null;
+    return world === 'real' ? 'Real places' : world === 'osm' ? 'OpenStreetMap' : world === 'maps' ? 'Built Worlds' : 'Worlds';
   });
 
   /**
    * Leave the game for the globes: `world` to this world's menu with its
-   * place or map picked, else the three globes. The run stays in its
-   * autosave; the game goes (WorldSession.close).
+   * place or map picked, else the three globes. Nothing ends: the game stays
+   * held behind them (WorldSession.park), Continue or Back to shows it at
+   * once, and it goes only when something else starts (docs/WORLDS_STATE_PLAN.md, 3.7).
+   * The pause menu stays open meanwhile, so the game stays paused and its keys are the menu's.
    */
   leaveTo(target: 'world' | 'globes'): void {
     if (this.leaveWhy()) return;
     const world = this.worldOfPage();
-    this.stage.leaveGame(target === 'world' && world ? { world, pick: this.pickOfPage() } : null);
+    this.stage.leaveGame(target === 'world' && world ? { world, pick: this.pickOfPage() } : null, this.hold());
   }
 
-  /** The loading of a Start stopped: back to the world's menu with its pick */
+  /**
+   * A map of a real place (Make map in the path, the place picker): its
+   * OpenStreetMap frame on the globes, this game held behind them. `request`
+   * names the place; none: the one loaded here, with the spawns of its run.
+   */
+  makeMapOf(request: OsmFrameRequest | null = null): void {
+    if (this.leaveWhy()) return;
+    const pick = this.pickOfPage();
+    const place: Extract<WorldPick, { kind: 'place' }> | null = request
+      ? { kind: 'place', hq: { lat: request.place.lat, lon: request.place.lon }, spawns: [...(request.spawnsAt ?? [])], name: request.place.address ?? request.place.name }
+      : pick?.kind === 'place' ? pick : null;
+    if (!place) return;
+    this.stage.leaveGame(null, this.hold());
+    this.stage.makeMapOf(place, 'real');
+  }
+
+  /**
+   * What the globes hold of this game when it leaves for them (WorldSession.park); null for the editor's
+   * test, which is no run to hold and ends. The pause menu opens, so the game stays paused behind them.
+   */
+  private hold(): ParkedWorld | null {
+    if (this.fromEditor) return null;
+    if (!this.isOpen()) this.open('home', 'pause');
+    const pick = this.pickOfPage();
+    return {
+      world: this.worldOfPage(),
+      pick,
+      label: pick ? (pick.kind === 'place' ? shortPlaceName(pick.name) : pick.name) : (this.placeName() ?? 'this place'),
+      wave: Math.max(1, this.store.waveNumber() + (this.store.phase() === 'setup' ? 1 : 0)),
+      run: this.underWay() && !this.store.isGameOver(),
+    };
+  }
+
+  /**
+   * The held game goes for good (another start, the editor, a coop room):
+   * its run is kept as autosave when it stands between the waves; in a wave
+   * the autosave of that wave's start stays. With `keep` false the run ends.
+   */
+  private async leaveHeld(keep: boolean): Promise<void> {
+    if (keep && this.underWay() && !this.store.isGameOver()) await this.saves.autosaveNow();
+  }
+
+  /** The loading of a Start stopped: back to the world's menu with its pick; the editor's test back to the editor */
   cancelStart(): void {
+    if (this.fromEditor) {
+      this.screens.openEditor(null);
+      return;
+    }
     const world = this.worldOfPage();
     this.stage.leaveGame(world ? { world, pick: this.pickOfPage() } : null);
   }
 
-  /** The world of the globes this page plays in (a map made of a real place is OpenStreetMap's); null for DevWorld */
+  /** The world of the globes this page plays in (worldOfPage); null for DevWorld */
   private worldOfPage(): WorldId | null {
-    const ref = this.worldContext.ref();
-    if (ref.kind === 'custom-map') return openedCustomMap(ref)?.doc.meta.source?.kind === 'osm' ? 'osm' : 'maps';
-    return ref.kind === 'devworld' ? null : 'real';
+    return worldOfPage(this.worldContext.ref());
   }
 
   /** The place or map this page plays, as a world's menu picks it */

@@ -10,18 +10,30 @@ import { InjectionToken, signal, type Signal } from '@angular/core';
  * builds the save from the simulation and the world and loads it back.
  */
 
-/** The slot written after every wave on its own, on a real place */
+/**
+ * The slots written after every wave on their own, one per world: each world
+ * keeps its own run to continue (docs/WORLDS_STATE_PLAN.md, 3.2). The real
+ * places', OpenStreetMap's and the Built Worlds'.
+ */
 export const AUTOSAVE_SLOT = 'autosave';
-/** The same on a custom map: each kind of world keeps its own run to continue */
-export const AUTOSAVE_MAP_SLOT = 'autosave-map';
+export const AUTOSAVE_OSM_SLOT = 'autosave-osm';
+export const AUTOSAVE_BUILT_SLOT = 'autosave-built';
+export const AUTOSAVE_SLOTS: readonly string[] = [AUTOSAVE_SLOT, AUTOSAVE_OSM_SLOT, AUTOSAVE_BUILT_SLOT];
+/** Before each world had its own: OpenStreetMap and the maps shared it; moved to AUTOSAVE_BUILT_SLOT once (WatchedSlotStore) */
+export const LEGACY_AUTOSAVE_MAP_SLOT = 'autosave-map';
+
+/** The worlds of the globes, as a slot names its own (worlds/world-rules.ts WorldId) */
+export type SlotWorld = 'real' | 'osm' | 'maps';
 /** The slots the player saves to by hand: slot-1 to slot-N */
 export const MANUAL_SLOT_COUNT = 5;
 export const manualSlotId = (n: number): string => `slot-${n}`;
 
 /** One filled slot, for the menu's list */
 export interface SaveSlotInfo {
-  /** AUTOSAVE_SLOT, AUTOSAVE_MAP_SLOT or manualSlotId(n) */
+  /** One of AUTOSAVE_SLOTS or manualSlotId(n) */
   id: string;
+  /** The world the run plays in: the autosave's own, else as kept with the save; null for DevWorld */
+  world: SlotWorld | null;
   /** The player's name for it, or the place and wave when they gave none */
   name: string;
   autosave: boolean;
@@ -79,6 +91,8 @@ export interface SaveGamePort {
   importFile(file: File): Promise<LoadResult>;
   /** Load the autosave */
   continueAutosave(): Promise<LoadResult>;
+  /** A new run starts here (Restart): its autosave goes to its world's slot again, not to the one it was loaded from */
+  newRun(): void;
   /**
    * Write this world's autosave now, between waves (the map editor opens and the run waits as it,
    * docs/WORLDS_NAVIGATION_PLAN.md decision 2); false when nothing was written (in a wave, no such world)
@@ -119,6 +133,9 @@ export class SaveGameStub implements SaveGamePort {
   }
   async continueAutosave(): Promise<LoadResult> {
     return { ok: false, reason: NOT_BUILT };
+  }
+  newRun(): void {
+    // Nothing kept
   }
 }
 
