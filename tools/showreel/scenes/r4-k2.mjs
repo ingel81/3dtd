@@ -91,9 +91,9 @@ export const SCENES = [
   ], { sky: { skyImage: 'afterglow', sky: 'dusk', sunElevation: 13, sunAzimuth: 250 } }),
   // Witch Marsh at night: low over the marsh water to a stilt hut, its lanterns and the jetty's mirrored in the water,
   // fireflies over the reeds
-  world('wx-marsh', 'witch-marsh', 'Witch Marsh', still({ m: [-12, 158], habs: 2.5 }, { m: [-30, 182], habs: 3 }), [wait(1.5)], [
+  world('wx-marsh', 'witch-marsh', 'Witch Marsh', still({ m: [-16, 164], habs: 2.2 }, { m: [-30, 182], habs: 2.5 }), [wait(1.5)], [
     wait(1),
-    path(9, ['current', [{ m: [-2, 165], habs: 2.5 }, { m: [-27, 184], habs: 3 }]], { ease: 'inOut', label: 'effect:fireflies' }),
+    path(9, ['current', [{ m: [-10, 170], habs: 2.2 }, { m: [-28, 184], habs: 2.5 }]], { ease: 'inOut', label: 'effect:fireflies' }),
   ]),
   // Ember Crater: flat over the lava ring, its crust cracking, the smoke columns against the dark sky
   world('wx-ember', 'ember-crater', 'Ember Crater', still({ m: [80, 15], habs: 18 }, { m: [0, 0], habs: 5 }), [wait(1.5)], [
