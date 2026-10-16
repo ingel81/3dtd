@@ -120,7 +120,9 @@ Nebel der Szene wieder her.
   flache Hügel über; Wasser am Rand läuft darüber weiter, bis das geglättete Bett über den Spiegel steigt. Bemalt mit
   dem natürlichen Boden des Kartenrands (`apron-paint.ts`: je 1/512 des Rands die Splat-Gewichte eines 24 m tiefen
   Streifens, 30 m entlang geglättet, ohne Straßen, Pflaster und Lava; ein gepflasterter Rand nimmt den natürlichen Boden,
-  den die Karte am meisten hat; eine Textur 512 × 3, ein Lookup je Zeile nur jenseits des Rands), vorher die erste
+  den die Karte am meisten hat; eine Textur 512 × 3, nur jenseits des Rands gelesen, sieben Lookups je Zeile, die mit
+  dem Abstand wie das Höhenprofil entlang des Rands verwischen, 0,6 des Abstands je Seite, höchstens ein Viertel des
+  Rands: ein Bodenwechsel am Rand wird auf der Bergkette ein weicher Übergang statt einer senkrechten Naht), vorher die erste
   Schicht (Harbor Town: Pflaster bis zum Horizont). Ab 250 m hinter dem Rand steigt eine **Bergkette** (ab 900 m voll,
   Grat-Rauschen entlang des Rands, Höhe nach Look `BACKDROP_HEIGHT`: Gebirge 420 m, Mond 80 m, Sumpf 40 m; nicht über dem Meer
   (nasser Rand ab 160 m am Stück, `SEA_RUN`; eine schmalere Flussmündung behält das Profil, der Fluss endet kurz hinter dem
@@ -265,8 +267,11 @@ Lava spiegeln sich).
   Bildgröße, jedes zweite Bild; Ultra 50 %, jedes Bild), die nahe Ebene schräg in die Wasserebene gelegt (oblique
   Projektion, nichts unter Wasser spiegelt sich), höchstens 400 m weit; der Himmel bleibt (auf der fernen Ebene). Nur
   die Karte: Gruppe, Sichtblocker, Himmel und Lichter; Türme, Gegner und Overlays des Spiels nicht, innerhalb der
-  Karte ohne Wasser, Gras, Bodendecals, Partikel und Objekte, die keine Sicht blockieren (Streu, Requisiten, kleine
-  Pflanzen). Das Wasser liest es über seine projizierte Lage, von den Wellen verschoben; ruhiges Wasser zeigt es auch
+  Karte ohne Wasser, Gras, Bodendecals, Partikel, Hitzeflimmern und Objekte, die keine Sicht blockieren (Streu,
+  Requisiten, kleine Pflanzen). Im Spiegel-Durchgang wird keine Kopie des Bildes für die Brechung genommen
+  (`SceneCopy.without`): sonst nahm ein dort gezeichnetes Flimmern die Kopie vom Spiegelziel, und die Brechung las
+  das Spiegelbild in dessen Größe, an Breite und Höhe des Spiegels gerade abgeschnitten (rechteckige Flecken im
+  Wasser). Das Wasser liest es über seine projizierte Lage, von den Wellen verschoben; ruhiges Wasser zeigt es auch
   von oben (Anteil mindestens 30 %, Meer 16 %, in rauen Flecken weniger), statt des Himmels und des Landes darin. Das
   Spiegelbild rendert im Zeichnen des ersten Wasserkachels (`onBeforeRender`), so zählt es in die GPU-Zeit des Bildes.
   Kosten (RTX 5080, Dev-Build, Canvas 1100 × 752 High und Ultra, mittlere GPU-Zeit je Bild, Minimum aus zwei Läufen,

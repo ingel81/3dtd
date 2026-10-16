@@ -14,8 +14,8 @@ import type { Stage } from './stage';
  * A map point as the script writes it: `[fx, fy, h?]` shares of the map's
  * width and depth around its middle; `{ at: 'hq' | 'center' | 'spawn:0', dx, dy }`
  * metres from a named spot; `{ m: [x, y] }` metres. `h` is metres above the
- * ground there, `habs` an absolute height; neither: on the ground, followed
- * live while it changes.
+ * ground there (the water surface where water lies), `habs` an absolute
+ * height; neither: on the ground, followed live while it changes.
  */
 export type PointSpec =
   | [number, number]
@@ -99,14 +99,14 @@ export class Director {
       habs = spec.habs;
     }
     if (habs !== undefined) return { x, y, h: habs };
-    if (h !== undefined) return { x, y, h: stage.groundAt(x, y) + h };
+    if (h !== undefined) return { x, y, h: stage.surfaceAt(x, y) + h };
     return { x, y, h: Number.NaN };
   }
 
   /** A point with its height fixed now (the ground's where it had none) */
   private fixed(spec: PointSpec): MapPoint3 {
     const p = this.point(spec);
-    return Number.isNaN(p.h) ? { ...p, h: this.stage().groundAt(p.x, p.y) } : p;
+    return Number.isNaN(p.h) ? { ...p, h: this.stage().surfaceAt(p.x, p.y) } : p;
   }
 
   private async step(step: Step): Promise<void> {
@@ -318,7 +318,7 @@ export class Director {
     const margin = Number(step['margin'] ?? 30);
     const cx = points.reduce((n, p) => n + p.x, 0) / points.length;
     const cy = points.reduce((n, p) => n + p.y, 0) / points.length;
-    const ch = stage.groundAt(cx, cy);
+    const ch = stage.surfaceAt(cx, cy);
     const radius = Math.max(...points.map((p) => Math.hypot(p.x - cx, p.y - cy))) + margin;
     const fov = Number(step['fov'] ?? (stage.kind === 'editor' ? 50 : 60));
     const distance = (radius * Number(step['pad'] ?? 1.25)) / Math.tan(((fov / 2) * Math.PI) / 180);
@@ -370,7 +370,7 @@ export class Director {
     if (!pose) return;
     const cx = points.reduce((n, p) => n + p.x, 0) / points.length;
     const cy = points.reduce((n, p) => n + p.y, 0) / points.length;
-    const ch = stage.groundAt(cx, cy);
+    const ch = stage.surfaceAt(cx, cy);
     let off = { x: pose.eye.x - pose.look.x, y: pose.eye.y - pose.look.y, h: Math.max(20, pose.eye.h - pose.look.h) };
     for (let attempt = 0; attempt < 5; attempt++) {
       const goal = { look: { x: cx, y: cy, h: ch }, eye: { x: cx + off.x, y: cy + off.y, h: ch + off.h } };
@@ -427,8 +427,8 @@ export class Director {
       const lx = at.x + dir.x * ahead;
       const ly = at.y + dir.y * ahead;
       stage.setPose({
-        eye: { x: ex, y: ey, h: stage.groundAt(ex, ey) + up },
-        look: { x: lx, y: ly, h: stage.groundAt(lx, ly) + 1.5 },
+        eye: { x: ex, y: ey, h: stage.surfaceAt(ex, ey) + up },
+        look: { x: lx, y: ly, h: stage.surfaceAt(lx, ly) + 1.5 },
       });
       if (now - start >= seconds * 1000) return;
     }

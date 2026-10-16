@@ -262,10 +262,12 @@ export class LocationChangeCoordinatorService {
   }
 
   /**
-   * Copy shareable URL to clipboard (URL already reflects current location)
+   * Copy a link to the current place to the clipboard
    */
   onShareLocation(): void {
-    const url = this.urlLocation.getShareUrl();
+    const hq = this.locationMgmt.hq();
+    if (!hq) return;
+    const url = this.urlLocation.getShareUrl(hq, this.locationMgmt.spawns(), this.worldContext.ref());
     navigator.clipboard.writeText(url);
     this.delegate?.getChangeCallbacks().appendDebugLog('Link copied: ' + url);
   }
@@ -352,9 +354,8 @@ export class LocationChangeCoordinatorService {
     const fav = { hq: hqAt, spawns };
     const spawn: SavedSpawn = fav.spawns[0] || { lat: fav.hq.lat + 0.005, lon: fav.hq.lon };
 
-    // Update service and URL
+    // Update the location service
     this.locationMgmt.setLocation(fav.hq, fav.spawns);
-    this.delegate?.getChangeCallbacks().syncUrlWithLocation();
 
     // Apply to game; a portal the player turned faces the way it was saved
     await this.applyNewLocation({

@@ -1,4 +1,5 @@
 import { Mesh, type Camera, type Material, type Object3D, type Scene, type WebGLRenderer } from 'three';
+import type { ColumnSampler } from '../../column-sample';
 import type { CoordinateSync } from '../index';
 import { plinthBraces } from './plinth-braces';
 import { createPlinthGeometry } from './plinth-geometry';
@@ -16,9 +17,10 @@ export function createPlinthMesh(
   height: number,
   material: Material,
   overhang: readonly number[] = [],
+  groundAt?: (x: number, z: number) => number | null,
 ): Mesh {
   const braces = plinthBraces(footprintRadius, height, overhang);
-  const mesh = new Mesh(createPlinthGeometry(footprintRadius, height, braces), material);
+  const mesh = new Mesh(createPlinthGeometry(footprintRadius, height, braces, groundAt), material);
   mesh.name = 'tower-plinth';
   return mesh;
 }
@@ -39,13 +41,17 @@ export class TowerPlinthRenderer {
   constructor(
     private readonly scene: Scene,
     private readonly sync: CoordinateSync,
+    /** The world's column at a local point: its top surface is the ground the wall reaches down to */
+    private readonly columnAt: ColumnSampler | null = null,
   ) {}
 
   /**
    * Plinth under tower `id`: its top at `footY` (the tower's foot, local
    * Y), reaching `height` down to the lowest point of the footprint. The
    * width follows the tower's footprintRadius, braces go under it where it
-   * hangs over a drop at the footprint probes `overhang`. Replaces an
+   * hangs over a drop at the footprint probes `overhang`. Where the ground
+   * beside the wall lies lower than the footprint's lowest probe (a slope
+   * beyond them) the wall reaches down into it (PLINTH_SKIRT_M). Replaces an
    * earlier one.
    */
   create(
@@ -58,8 +64,17 @@ export class TowerPlinthRenderer {
     overhang: readonly number[] = [],
   ): void {
     this.remove(id);
-    const mesh = createPlinthMesh(footprintRadius, height, this.material, overhang);
-    mesh.position.copy(this.sync.geoToLocal(lat, lon, footY - height));
+    const origin = this.sync.geoToLocal(lat, lon, footY - height);
+    // The top surface, not the ground under it: beside a roof the wall stays on the roof, not down the facade
+    const columnAt = this.columnAt;
+    const groundAt = columnAt
+      ? (x: number, z: number) => {
+          const column = columnAt(origin.x + x, origin.z + z);
+          return column ? column.topY - origin.y : null;
+        }
+      : undefined;
+    const mesh = createPlinthMesh(footprintRadius, height, this.material, overhang, groundAt);
+    mesh.position.copy(origin);
     // It never moves: one matrix, no recompose every frame
     mesh.updateMatrix();
     mesh.matrixAutoUpdate = false;

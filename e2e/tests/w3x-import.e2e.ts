@@ -7,7 +7,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
-import { gameReady, shot, waveButton } from '../support/game';
+import { gameReady, playedMap, shot, waveButton } from '../support/game';
 
 type Fixtures = typeof import('../../src/test/w3x-synthetic-map') & typeof import('../../src/test/w3x-fixtures');
 
@@ -78,8 +78,8 @@ test('imports a Reforged Lua map, opens it and plays a wave on it', async ({ bro
 
   const [game] = await Promise.all([page.context().waitForEvent('page'), page.locator('[data-test=test-play]').click()]);
   game.on('pageerror', (e) => errors.push(e.message));
-  await expect(game).toHaveURL(/world=map(:|%3A)lane-test/);
   await gameReady(game);
+  expect(await playedMap(game)).toMatch(/^lane-test/);
   await waveButton(game).click();
   await expect(waveButton(game)).toContainText(/left/i);
   // The wave walks the imported road to the HQ and ends

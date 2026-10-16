@@ -1,6 +1,10 @@
-"""Contact sheets of a --verify run: one sheet per scene, every step's picture after it, labelled.
+"""Contact sheets: of a --verify run (one sheet per scene, every step's picture after it, labelled), or of a take.
 
     python tools/showreel/sheets.py <run folder> [--cols 4] [--width 480]
+    python tools/showreel/sheets.py --take <take folder> [--cols 6]
+
+A take's sheet (check.mjs picks the frames into <take>/sheet/frames.json): one frame a second of the scene and one
+half a second after every labelled step, in time order; a step's caption is yellow. Written to <take>/sheet.jpg.
 
 Reads <run>/verify.txt (scene, step, what, changed) and <run>/verify/<scene>-NN.png, writes
 <run>/sheets/<scene>.jpg. A tile's caption is red when the step should change the map (stroke, clickMap)
@@ -25,12 +29,43 @@ def font(size):
     return ImageFont.load_default()
 
 
+def take_sheet(take, cols, width):
+    import json
+    frames = json.loads((take / 'sheet' / 'frames.json').read_text(encoding='utf-8'))
+    tiles = []
+    for f in frames:
+        p = Path(f['file'])
+        if not p.exists():
+            continue
+        img = Image.open(p).convert('RGB')
+        tiles.append((f, img.resize((width, round(img.height * width / img.width)), Image.LANCZOS)))
+    if not tiles:
+        return
+    cap = 24
+    th = tiles[0][1].height
+    rows = (len(tiles) + cols - 1) // cols
+    sheet = Image.new('RGB', (cols * width, rows * (th + cap)), (20, 20, 20))
+    d = ImageDraw.Draw(sheet)
+    fnt = font(14)
+    for n, (f, img) in enumerate(tiles):
+        x, y = (n % cols) * width, (n // cols) * (th + cap)
+        sheet.paste(img, (x, y + cap))
+        colour = (255, 210, 90) if f['step'] else (200, 200, 200)
+        d.text((x + 4, y + 4), f"{f['t']:7.2f}  {f['label']}"[:60], fill=colour, font=fnt)
+    sheet.save(take / 'sheet.jpg', quality=85)
+    print(f'{take / "sheet.jpg"}: {len(tiles)} frames')
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('run')
+    ap.add_argument('run', nargs='?')
+    ap.add_argument('--take')
     ap.add_argument('--cols', type=int, default=4)
     ap.add_argument('--width', type=int, default=480)
     a = ap.parse_args()
+    if a.take:
+        take_sheet(Path(a.take), a.cols if a.cols != 4 else 6, 320 if a.width == 480 else a.width)
+        return
     run = Path(a.run)
     scenes = {}
     for raw in (run / 'verify.txt').read_text(encoding='utf-8').splitlines():

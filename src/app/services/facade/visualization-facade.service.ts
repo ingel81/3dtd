@@ -353,6 +353,9 @@ export class VisualizationFacadeService {
     const engine = this.initialized ? this.bridge.getEngine() : null;
     this.dpsBins.dispose(engine);
     this.buildings.reset();
+    // Root services this world set up: their document listeners and timers held its canvas, engine and facades
+    this.inputHandler.dispose();
+    this.heightUpdate.dispose();
     this.initialized = false;
   }
 

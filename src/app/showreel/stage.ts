@@ -13,6 +13,20 @@ export interface Stage {
   /** The open map's extent (m), null while none is open */
   mapSize(): { width: number; depth: number } | null;
   groundAt(x: number, y: number): number;
+  /** The water surface over the ground at a map point, null on dry ground */
+  waterAt(x: number, y: number): number | null;
+  /**
+   * What a camera height counts from: the water surface where water lies, else the ground (a script's `h`, a
+   * frame's centre, a chase camera); clicks and strokes stay on the ground
+   */
+  surfaceAt(x: number, y: number): number;
+  /** Metres the director's camera keeps above the ground (camera-floor.ts); a scene may set less */
+  cameraFloor: number;
+  /**
+   * What the renderer holds (shader programs, geometries, textures): the runner waits until it stops
+   * changing, so a take starts with grass, shadows and textures in place
+   */
+  rendererState(): string | null;
   /** A named spot of the map: `hq`, `center`, `spawn:<index>` */
   named(name: string): { x: number; y: number } | null;
   /** Take the camera to a pose every frame; null gives it back to the player's controls where it is */

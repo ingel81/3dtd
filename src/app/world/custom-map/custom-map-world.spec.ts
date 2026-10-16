@@ -368,6 +368,23 @@ describe('CustomMapWorld', () => {
     expect(b.maxHeight).toBeGreaterThan(280);
   });
 
+  it('keeps the camera above a water surface, not above the bed under it', () => {
+    const doc = testMap();
+    const g = doc.terrain.grid;
+    // Water up to 12 m in the ditch at x = 40 (bed 8 m); the bank at x = 70 (17 m) stands above it
+    const mask = new Uint8Array(g.columns * g.rows);
+    for (let j = 0; j < g.rows; j++) {
+      for (let i = 0; i < g.columns; i++) if (Math.abs(-100 + i * 2 - 40) <= 10) mask[j * g.columns + i] = 255;
+    }
+    doc.terrain.water = { level: 12, mask, color: '#335566' };
+    const world = new CustomMapWorld({ doc, contentHash: 'abc' }, hqOrigin(doc), 3);
+    const b = world.cameraBounds();
+    const sceneX = (x: number) => world.frame.sceneX(x);
+    expect(world.surface.heightAtMap(40, 0)).toBeCloseTo(8);
+    expect(b.groundAt(sceneX(40), 0)).toBeCloseTo(12);
+    expect(b.groundAt(sceneX(70), 0)).toBeCloseTo(17);
+  });
+
   it('tours from the HQ past every spawn of the run, farthest first and round the HQ', () => {
     const doc = testMap();
     doc.spawns = [

@@ -6,11 +6,16 @@
 // `effect:<what>` the moment a change has visibly taken effect (the cut ends a beat after it, not mid-action).
 //
 // Points: [fx, fy, h] are shares of the map's width and depth around its middle (east, north) with h metres
-// above the ground there; { at, dx, dy, h } metres from a named spot: 'hq', 'center', 'spawn:0', in the editor
+// above the ground there (the water surface where water lies); { at, dx, dy, h } metres from a named spot: 'hq', 'center', 'spawn:0', in the editor
 // 'node:-1' (newest road node), 'river:0:3' (a river point), 'object:<asset>' or 'object:last', in the game
 // 'spot:<i>' and 'spots' (tower spots from planTowers); { m: [x, y], h } metres on the map. Without h: on the
 // ground, followed live. Orbit angles in degrees, 0 = the camera south of the centre looking north,
 // counter-clockwise.
+//
+// Takes (take.mjs, run.mjs --scene): a scene with `start` begins on its own fixed state (`{ editor: map }` or
+// `{ game: map, save }`, fixtures in tmp/showreel/fixtures) with its `env` set and checked first; one without a
+// start but with its own `page` loads that page. The others build on the scene before them and run in the
+// programme only, until they get a start.
 //
 // UI per step: { do: 'ui', on } the page's UI or a clean frame (game: photo mode; editor: without header, tool
 // column, side column, status bar and minimap), { do: 'legend', on } the editor's mouse legend (off by default),
@@ -30,10 +35,17 @@ import { SCENES as W3X } from './scenes/w3x.mjs';
 import { SCENES as WORLDS } from './scenes/worlds.mjs';
 import { SCENES as GAME } from './scenes/game.mjs';
 import { SCENES as OUTRO } from './scenes/outro.mjs';
-// Round 4 (tmp/showreel/DREHBUCH_R4.md): each chapter's scenes on pages of their own
+import { FIXTURES as PROOF_FIXTURES, SCENES as PROOF } from './scenes/proof.mjs';
+// Round 4 (tmp/showreel/DREHBUCH_R4.md): each chapter's scenes as takes of their own
 import { SCENES as R4_K4 } from './scenes/r4-k4.mjs';
-import { SCENES as R4_K5 } from './scenes/r4-k5.mjs';
+import { FIXTURES as R4_K5_FIXTURES, SCENES as R4_K5 } from './scenes/r4-k5.mjs';
 import { SCENES as R4_K7 } from './scenes/r4-k7.mjs';
 
 /** The programme in order; each part lives in scenes/ (common.mjs has the helpers) */
-export const SCENES = [...INTRO, ...EDITOR, ...EDITOR2, ...W3X, ...WORLDS, ...GAME, ...OUTRO, ...R4_K4, ...R4_K5, ...R4_K7];
+export const SCENES = [...INTRO, ...EDITOR, ...EDITOR2, ...W3X, ...WORLDS, ...GAME, ...OUTRO];
+
+/** Scenes taken on their own only (run.mjs --scene), not part of the programme's run */
+export const TAKES = [...PROOF, ...R4_K4, ...R4_K5, ...R4_K7];
+
+/** The generated start states of the takes, made in this order by fixtures.mjs (a later one may start from an earlier) */
+export const FIXTURES = [...PROOF_FIXTURES, ...R4_K5_FIXTURES];

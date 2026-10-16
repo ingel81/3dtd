@@ -476,9 +476,10 @@ export class ModelPreviewService {
     }
     this.loadedModelUrls.clear();
 
-    // Dispose renderer
+    // Dispose renderer; its context goes at once, the next world's game makes its own
     if (this.renderer) {
       this.renderer.dispose();
+      this.renderer.forceContextLoss();
       this.renderer = null;
       this.rendererCapacityCss = 0;
     }

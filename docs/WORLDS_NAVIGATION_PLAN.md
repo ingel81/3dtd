@@ -1,6 +1,6 @@
 # Welten und Navigation aus einem Guss (Plan)
 
-Status: Plan, nicht gebaut. Abstimmung mit dem User offen (Abschnitt 6).
+Status: Phase 1, 2, 6 und 7 gebaut (Abschnitt 7), Rest Plan. Entscheidungen des Users in Abschnitt 6.
 Grundlagen: TODO E195, Klick-Dummy `tmp/plan/mockups/world-globes/index.html` (Datenmodell, Regeln, Navigationskarte,
 Abgleichsliste „heute vorhanden → im Dummy“), die gewählte Darstellung aus dem Dummy.
 
@@ -335,3 +335,144 @@ Nachtseite an; Kreis- und Minimal-Varianten sind raus.
 9. **Fokus im Startmenü:** der erste Eintrag bekommt den Fokus wie heute.
 
 Offen bleibt nur, was beim Bauen auffällt; die Reihenfolge der Phasen steht in Abschnitt 5.
+
+## 7. Gebaut
+
+### Phase 1: Startauftrag (2026-10-16)
+
+- `world/world-start.ts`: `WorldStart` (Welt, Ort, Spielstand, Coop-Raum, Spawn-Grenze, Startwelle) und
+  `WorldStartService` (root). Beim ersten Zugriff liest er die Adresse einmal (`worldStartFromSearch`), nimmt die
+  Link-Parameter heraus (`LINK_PARAMS`: `l`, `s`, `world`, `resume`, `room`, `lane`) und schreibt die bereinigte
+  Adresse per `replaceState`. Neuladen startet danach ohne Auftrag: Startort-Raten (Autosave, zuletzt gespielt) wie
+  beim Start ohne Link. Ein Spielstand des Auftrags lädt einmal (`takeResume`). DevWorld (`?devworld`) bleibt ein
+  Schalter, sein `WorldRef` ist die Welt des Auftrags.
+- Schalter der Entwicklung bleiben in der Adresse, weil Bot-Tabs auf ihnen neu laden: `devworld` samt Parametern,
+  `bot`, `benchmark`, `quality`, `interp`, `waves`, `tokensetup`, `nokey`, `menu`, `fromWave`, `spawns`,
+  `trialWaves`, `relay` (Hosts und Bot-Sitze nennen ihren Relay damit, nicht nur Einladungen), `hashEvery`,
+  `resyncPart`, `previewsheets`, Kartenvorschau. Gelesen werden sie nur über `core/page-switches.ts`
+  (`pageSwitches`, `pageQuery`); `fromWave` und `spawns` gehen über den Auftrag in die Kartenwelt.
+- Leser umgestellt: `WorldContext` (`chosen` ist ein `linkedSignal` des Auftrags, ein neuer Auftrag setzt es neu),
+  Kartenfabrik (Spawn-Grenze, Startwelle), `LocationFacadeService` (Ort), Facade (Startort-Raten, Kartenprobe),
+  `MainMenuService` (`linkedPlace`, Spielstand), `CoopService` (Raum, Bahn), Token-Dialog (Raum), Spielkomponente
+  (Coop-Seite beim Einladungslink). `page-switches.guard.spec.ts` verbietet `location.search` außerhalb der zwei
+  Leser.
+- Die Adresse wird nicht mehr geschrieben: `UrlLocationService.updateUrl` und `syncUrlWithLocation` sind entfernt
+  (die offene Frage aus 3.8 so entschieden). „Copy link“ baut den Link aus dem aktuellen Ort und der Welt
+  (`getShareUrl(hq, spawns, world)`); Benchmark-Rückweg und Grafik-Benchmark setzen Ort und Welt wieder in die
+  Adresse (`hereUrl`), bis Phase 3 sie ins Fenster holt.
+- Bleibt wie heute bis zu den späteren Phasen: Weltwechsel und Editor laden neu (`WORLD_NAVIGATE`, `?world=…`,
+  `/editor?map=`); der Editor liest `?map=` weiter selbst. Debug-Berichte (`cell-report`, `corridor-snapshot`)
+  nehmen die Adresse ohne Ort.
+
+### Phase 2: Welt wechseln ohne Neuladen (2026-10-16)
+
+- `world/world-session.service.ts`: `WorldSession` (root) öffnet Welten in der Seite. `open(order)` setzt den
+  Startauftrag und zählt `world` hoch; `reopen()` macht die offene Welt neu (neuer Tile-Key, Retry), ohne ihren
+  Spielstand ein zweites Mal zu laden. Höchstens eine Welt ist offen: eine Engine, ein Sim-Worker, ein Spiel-Canvas.
+  Außerhalb des Spiels (Editor, der vor dem Verlassen nach ungespeicherten Änderungen fragt) lädt `open` die
+  Spielseite auf dem Link des Auftrags (`worldStartUrl`, `WORLD_NAVIGATE`).
+- `game-host.component.ts`: die Spielroute. Ändert sich `world`, nimmt der Host die Spielkomponente mit allem, was sie
+  bereitstellt (Facades, Coop, Menüs, Speichern), herunter und baut eine neue auf frischem Canvas; MSAA folgt so der
+  Welt. Zwischen beiden liegt ein Render ohne Spiel, weil Angular sonst die neue vor dem Abbau der alten baut.
+- Nach dem Abbau (`TowerDefenseComponent.ngOnDestroy`: `facade.dispose()`, dann `WorldSession.closed()`) gehen der
+  Laufzustand der Root-Stores (`TowerDefenseStore.resetWorld`: Spiel, Forschung, Engine-Zahlen und Ladeschritte,
+  Ort, `UIStore.resetWorld`), `LocationManagementService.reset()` und die geöffnete Karte (`closeCustomMaps`).
+  Anzeige-Schalter und Lautstärken bleiben.
+- In der Seite öffnen jetzt: New game › Maps, eigene Tilesets, Play on real places, Load eines Spielstands einer
+  anderen Welt, ein neuer Tile-Key, Retry im Ladeplakat bei einem Problem ohne eigenen Retry (vorher Neuladen, das
+  seit Phase 1 den Ort des Links verlor). Engine und Modellvorschau geben ihren WebGL-Kontext beim Abbau sofort ab
+  (`forceContextLoss`).
+- Abbau-Lecks, die das Neuladen bisher verdeckte, behoben: die vier Dokument-Listener des `InputHandlerService` (sie
+  hielten Canvas und Engine der alten Welt bis zum nächsten Aufbau), ein laufender Höhenzyklus (`HeightUpdateService`,
+  sein Timer lief weiter und rief am Ende Facades und Kamera der alten Welt; `dispose` stoppt jetzt ohne diese
+  Rückrufe), der Seitengriff `__load`, der das ganze alte Spiel erreichbar hielt, der `StateSnapshotService` (zum
+  Spiel gehörig, aber am Bus des Root-`SimClient` angemeldet; über ihn hingen Wave-Director, Facade und Injector
+  jedes alten Spiels), dazu die geteilten Blob-Schatten-Materialien und die eine Sprite-Geometrie von three: jeder
+  `WebGLRenderer` hängt an alles, was er zeichnet, einen Dispose-Listener, der ihn samt Kontext und Canvas hält.
+  Die Engine gibt beide beim Abbau frei (`disposeBlobShadows`, `new Sprite().geometry.dispose()`).
+- Abnahme: `world/world-teardown.spec.ts` startet eine Welt zweimal und baut sie ab, mit echten Facades
+  (Spiel, Darstellung, Spielschleife), Eingabe, Höhenzyklus und `SimClient`; danach kein Listener auf `window` und
+  `document`, kein Worker, kein Intervall, kein Seitengriff, kein Root-Dienst mehr an Canvas oder Engine.
+  Gezählt wird auch der Bus der Simulation. `world/world-session.spec.ts` prüft Auftrag, Reset der Root-Stores und den Host (eine Spielkomponente zur Zeit).
+  Engine, WebGL-Kontexte und GPU-Ressourcen misst `e2e/perf/world-switch.ts` im Browser (unten).
+- Bleibt wie heute bis zu den späteren Phasen: Coop folgt dem Host per Neuladen (`reloadAtMap`, `reloadAt`) und ein
+  Weltwechsel verlässt den Raum (Phase 3); Benchmarks laden ihre Seite (Phase 3); der Editor ist eine eigene Seite
+  (Phase 4); das Nachladen des Token-Dialogs, wenn sein Chunk nicht kam, lädt die Seite neu.
+
+#### Messung: zehn Weltwechsel
+
+`e2e/perf/world-switch.ts` auf einem Produktions-Build (`ng build`, `public/maps` hineinkopiert,
+`node e2e/perf/serve.mjs dist/3DTD/browser <port> --isolate`), Chrome headless, Demo Valley und Mountain Pass im
+Wechsel über das Menü (Esc, New game, Maps, Play), nach jedem Wechsel sechsmal GC. Der Dev-Build taugt für den Heap
+nicht: Angulars Injector-Profiler hält jede Spielkomponente, die er sah.
+
+| Stand | Heap Start | nach 4 | nach 10 | nach 20 | Zuwachs je Wechsel ab 4 |
+|---|---|---|---|---|---|
+| vor den Lecks des Bus und der Engine | 158,0 MB | 168,4 MB | 171,5 MB | 178,0 MB | ~0,6 MB |
+| mit allen Korrekturen (2026-10-16) | 158,9 MB | 167,0 MB | 167,9 MB | 170,9 MB | ~0,25 MB |
+
+(Heap jeweils auf Demo Valley; Mountain Pass liegt 2 bis 3 MB darunter.) Gleich über alle Wechsel: 3 Worker, 2 lebende
+WebGL-Kontexte, eine Spielkomponente, 25 Listener auf `window`, 24 auf `document`, 2 Intervalle, keine Fehler, kein
+Neuladen. Die ersten Wechsel steigen um rund 8 MB (übersetzter Code, Caches der Modelle und Shader). Ein Rest von etwa
+0,25 MB je Wechsel bleibt; ein Heap-Vergleich zeigt noch abgelöstes DOM alter Spiele (Seitenleiste, Icons,
+Vorschau-Canvas), sein Halter ist nicht gefunden. Geometrien und Texturen des Renderers liest das Skript nur im
+Dev-Build (`ng`), im Produktions-Build stehen sie auf -1.
+
+### Phase 6: Start auf den Globen, Weltmenüs (2026-10-16)
+
+- `WorldSession.isOpen`: die Seite startet auf den Globen, nichts aus einem Spiel lädt. Direkt ins Spiel geht nur ein
+  Start, der einem Lauf gehört (`opensAtOnce`): Bot, Benchmark, `menu=skip`, DevWorld, Testlauf des Editors
+  (`fromWave`, `trialWaves`, Testfenster), Coop-Einladung (`?room=`), Spielstand (`?resume=`). Der Host zeigt ohne
+  offene Welt `app-worlds-stage`; `WorldSession.close()` führt zurück, das Spiel geht mit Engine, Worker und Canvas.
+- `worlds/world-rules.ts`: `worldLock`, `runAtRisk`
+  (Autosave desselben Slots an anderer Stelle), `heroWorld`; die Gründe gesperrter Wege erweitert `world/why-not.ts`
+  (aus Phase 4) um save, load, restart, replay, leave und Key und Freigabe je Welt. `worlds/worlds-stage.service.ts` (root, die Wahl bleibt
+  über ein Spiel hinweg): Ansicht, Welt, Wahl je Welt, Overlays, Rückfrage, Esc-Kette (`back`: Rückfrage, Overlay,
+  OSM-Rahmen, Weltmenü, auf den Globen nichts), Start, Continue, Edit, OSM-Rahmen, `leaveGame`.
+- `WorldStart` hat `play` und `label`: Start, Continue, Load und eine im Spiel gewählte Karte öffnen mit `play`. Die
+  Start-Lage zeigt dann „Loading <Name>“ mit Balken und Cancel (Esc); das Spiel erscheint, sobald der Ort steht.
+  Cancel, Esc und „Other place“ der Ladeplatte führen ins Weltmenü zurück, die Wahl steht noch dort. Links setzen nie
+  `play`: `?l=` wählt den Ort unter Real places (Name per Nominatim nachgereicht), `?world=map:` die Karte unter Maps
+  (eine OSM-Karte unter OpenStreetMap, sobald die Liste das weiß), `?world=tileset:` das Tileset.
+- Weltmenüs: Real places mit Recent, Favorites, Showcase, Search (mit Würfel), World map (verteidigte Orte),
+  Tilesets; OpenStreetMap mit Suche oder dem Ort aus Real places, dann der OSM-Rahmen im Panel, und den eigenen
+  OSM-Karten (`MapSummary.osm`, gesetzt beim Speichern; ältere OSM-Karten erst nach dem nächsten Speichern); Maps mit
+  eigenen, von Coop-Hosts und mitgelieferten Karten (OSM-Karten mit Etikett). Unten Coop, Load game, Settings,
+  Extras; rechts die zwei anderen Welten als Mini-Globen und All worlds.
+- Ohne Key: der Echtwelt-Globus grau, darunter der Grund und „Enter map key“ (Token-Dialog als Overlay, mit „Back to
+  the worlds“); das Weltmenü listet die Orte, Start bleibt sichtbar und gesperrt, mit Grund und Link zum Key.
+- Autosaves: oben im Menü je Autosave „Continue“ mit Ort und Welle (die Echtwelt hat ihren eigenen, OSM und Maps
+  teilen einen), als Chip in der Kopfzeile, als Zeile im Weltmenü. Groß steht die zuletzt gestartete Welt
+  (`td_last_world_v1`), sonst die des neuesten Autosaves. Ein Start an anderer Stelle desselben Autosaves fragt
+  („Start anyway“, „Continue …“, „Cancel“). Load game auf den Globen listet die Slots (`StageSaves`); ein Slot öffnet
+  seine Welt und lädt ihn dort, Laden aus einer Datei geht erst im Spiel.
+- Pausemenü: „World menu“ (mit dem Namen der Welt) und „All worlds“ unter der Linie; mit Lauf fragt es und nennt die
+  Welle, vor der der Autosave steht; im Coop gesperrt („Leave the coop room first“). „Play on real places“ im Spiel
+  öffnet das Weltmenü der Echtwelt.
+- Coop auf den Globen: Beitritt per Code (öffnet das Spiel wie ein Einladungslink); gehostet wird aus dem Spiel einer
+  Welt. Der Map editor bleibt bis Phase 4 eine eigene Seite.
+- Abbruch beim Laden: `EngineInitializationService.abandon()` (aus `TowerDefenseFacadeService.dispose`) lässt einen
+  laufenden Aufbau an seinem nächsten Schritt enden, gibt die halb gebaute Engine frei und schreibt keinen Fehler
+  mehr. Vorher zeigte Esc und gleich wieder Start „No world is open“ im nächsten Spiel.
+- Specs: `worlds/world-rules.spec.ts`, `worlds/worlds-stage.scenario.spec.ts` (ohne Key, Esc-Kette, Start einer
+  Karte, Continue und Rückfrage, ein Link wählt nur), `world/world-session.spec.ts` (`opensAtOnce`, Host mit den
+  Globen). `e2e/support/game.ts` drückt Start auf den Globen.
+
+### Phase 7: Globus-Stile und Hintergründe (2026-10-16)
+
+- `globe/globe-stage.ts`: ein `WebGLRenderer` auf einem Canvas (durchsichtig, über der Seite, unter Kopfzeile und
+  Overlays) zeichnet bis zu drei Globen per Viewport und Scissor in die Quadrate `[data-globe]` der Seite; Lage und
+  Größe liest `worlds/stage-globes.ts` je Bild, ein Globus dreht langsam oder zu seiner Wahl, im Leerlauf 30 Bilder je
+  Sekunde. Die Erde ist die `GlobeView` der Menü-Erde auf diesem Renderer, ohne Sterne, Sonne und 8k-Stufe; die Sonne
+  steht 58 Grad westlich der Mitte, rechts liegt die Nachtseite mit Stadtlichtern. `saturation` macht sie grau.
+- `globe/style-globes.ts`: OpenStreetMap als Shader auf den Karten der Erde (Wasser aus der Relief-Maske, Wald, Sand
+  und Eis aus der Tageskarte, Orte und ein Straßennetz aus den Stadtlichtern), Farben von OSM Carto, gestrichelte
+  Grenzen aus den Natural-Earth-Umrissen (CanvasTexture, eigener Chunk), Gradnetz auf dem Meer, Nachtseite mit
+  leuchtenden Orten. Maps als Low-Poly-Ikosaeder (Stufe 14, bei Low 9) mit Höhenrauschen in den Farben der Engine,
+  Bäumen, Wolken und je Karte einem Turm an einem festen Landplatz aus ihrer Id; die gewählte Karte in Messing mit Ring.
+- Hintergründe je Welt und Scheiben als Ersatz: `td-world-bg` (`is-real`, `is-osm`, `is-maps`) und `td-world-disc`
+  (`is-grey`) im Design System. Settings › Menu globe gilt: Low mit Pixelrate 1, sechs Streuschritten und weniger
+  Segmenten; Off und ohne WebGL 2 zeigen die Scheiben. Die Marke der Wahl ist `td-globe-mark is-target`.
+- Noch nicht: der Abtauchflug aus dem Globus der Globen (die Bühne geht beim Start, die Spiel-Erde des
+  `GlobeDirectorService` blendet beim Laden neu ein und taucht wie bisher ab); Drehen mit der Maus; Ortsnamen auf dem
+  OSM-Globus; die Kopfzeile mit Pfad und Chips im Spiel (Phase 4).

@@ -100,7 +100,7 @@ export function customMapStartWave(search: string): number {
 /**
  * The map opened before its world is made (WorldFactory.startHq loads,
  * create takes; the coop host packs it), by map id. Only the last one:
- * a page plays one map, and another world reloads the page
+ * a page plays one map at a time, another world closes it (closeCustomMaps)
  */
 const opened = new Map<string, LoadedCustomMap>();
 
@@ -122,6 +122,11 @@ export async function openCustomMap(ref: WorldRef & { kind: 'custom-map' }, stor
   opened.clear();
   opened.set(ref.mapId, loaded);
   return loaded;
+}
+
+/** The opened map goes with its world (WorldSession): the next world opens its own */
+export function closeCustomMaps(): void {
+  opened.clear();
 }
 
 /**
@@ -489,7 +494,7 @@ export class CustomMapWorld implements WorldProvider {
   private runStart(): RunStart | null {
     if (this.startWave <= 1) return null;
     const waves = this.worldWaves();
-    const source = waves?.source ?? initialWaveSourceId(typeof window === 'undefined' ? '' : window.location.search);
+    const source = waves?.source ?? initialWaveSourceId();
     return runStartAt(this.startWave, createWaveSource(source, waves?.table ? { table: waves.table } : {}).rules);
   }
 
@@ -576,7 +581,7 @@ export class CustomMapWorld implements WorldProvider {
 
   /**
    * The map's own intro flight (its `intro`), in scene space; the camera
-   * stays at least INTRO_GROUND_CLEARANCE above the ground under it
+   * stays at least INTRO_GROUND_CLEARANCE above the ground or water under it
    */
   introShot(): IntroShot | null {
     const intro = this.doc.intro;
@@ -588,7 +593,7 @@ export class CustomMapWorld implements WorldProvider {
       seconds: intro.seconds,
       poseAt: (t, position, look) => {
         introPoseAt(intro, at, t, pose);
-        const floor = this.surface.heightAtMap(pose.x, pose.y) + INTRO_GROUND_CLEARANCE;
+        const floor = this.surface.surfaceAtMap(pose.x, pose.y) + INTRO_GROUND_CLEARANCE;
         position.set(this.frame.sceneX(pose.x), Math.max(floor, pose.h), this.frame.sceneZ(pose.y));
         look.set(this.frame.sceneX(pose.lookX), pose.lookH, this.frame.sceneZ(pose.lookY));
       },
@@ -642,8 +647,8 @@ export class CustomMapWorld implements WorldProvider {
   /**
    * The camera over the map: its position at most a third of the map's
    * larger side beyond the edge (the steep view from there still shows the
-   * edge), at least 3 m over the ground, at most high enough for the whole
-   * map in view
+   * edge), at least 3 m over the ground or the water on it (never under a
+   * sea's surface), at most high enough for the whole map in view
    */
   cameraBounds(): CameraBounds {
     const { width, depth } = this.doc.terrain;
@@ -657,7 +662,7 @@ export class CustomMapWorld implements WorldProvider {
       maxZ: this.frame.sceneZ(depth / 2) + margin,
       minHeight: 3,
       maxHeight: Math.max(0, top) + Math.max(300, size * 1.4),
-      groundAt: (x, z) => this.surface.heightAtMap(this.frame.mapX(x), this.frame.mapY(z)),
+      groundAt: (x, z) => this.surface.surfaceAtMap(this.frame.mapX(x), this.frame.mapY(z)),
     };
   }
 

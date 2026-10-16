@@ -11,6 +11,12 @@ import { LinearFilter, UnsignedByteType, Vector2, WebGLRenderTarget, type Textur
  * The copy holds the frame's colours as the target stores them: display
  * values on the canvas, linear light in the post target (readers decode
  * with `SCENE_COPY_GLSL`).
+ *
+ * A pass into another target in the middle of the frame (the water's
+ * mirror, water-reflection.ts) runs `without` the copy: a heat shimmer it
+ * drew took the copy of the mirror at the mirror's size and the frame
+ * then kept it, so the water's refraction read the mirror stretched, cut
+ * off in straight lines at the mirror's width and height.
  */
 export class SceneCopy {
   readonly uniforms = {
@@ -20,9 +26,12 @@ export class SceneCopy {
   private target: WebGLRenderTarget | null = null;
   private frame = -1;
   private readonly size = new Vector2();
+  /** Passes running `without` the copy */
+  private held = 0;
 
-  /** Copies the frame drawn so far, at most once per frame */
+  /** Copies the frame drawn so far, at most once per frame; not within `without` */
   capture(renderer: WebGLRenderer): void {
+    if (this.held > 0) return;
     const frame = renderer.info.render.frame;
     if (frame === this.frame) return;
     this.frame = frame;
@@ -54,6 +63,16 @@ export class SceneCopy {
     gl.blitFramebuffer(0, 0, this.size.x, this.size.y, 0, 0, this.size.x, this.size.y, gl.COLOR_BUFFER_BIT, gl.NEAREST);
     // Both bindings back as three left them: its state cache stays true
     gl.bindFramebuffer(gl.FRAMEBUFFER, source);
+  }
+
+  /** Runs `draw`, another pass into its own target, without taking the copy there */
+  without(draw: () => void): void {
+    this.held++;
+    try {
+      draw();
+    } finally {
+      this.held--;
+    }
   }
 
   dispose(): void {

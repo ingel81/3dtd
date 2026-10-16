@@ -8,8 +8,14 @@ import type { EditorSession } from '../editor/ui/editor-session.service';
 import type { EditorViewport } from '../editor/view/editor-viewport';
 import type { EditorSettings } from '../editor/tools/tool';
 import { mapToScene } from '../editor/view/map-view';
+import { waterLevelAt } from '../world/custom-map/water-level';
+import { DEFAULT_CELL_SIZE } from '../world/custom-map/map-create';
+import type { TerrainPreset } from '../editor/ops/generate';
+import { packMapFile, unpackMapFile, MAP_FILE_EXTENSION } from '../world/custom-map/map-file';
+import type { MapEnvironment } from '../world/custom-map/map-document';
 import { poseToOrbit, type CameraPose, type MapPoint3 } from './camera-path';
 import { agentReplay } from './agent-bridge';
+import { CAMERA_FLOOR_M, flooredHeight } from './camera-floor';
 import type { ScreenPoint } from './pointer';
 import type { Stage } from './stage';
 import { waitSeconds, waitUntil } from './hands';
@@ -31,6 +37,7 @@ function merge(into: Record<string, unknown>, patch: Record<string, unknown>): v
 
 export class EditorStage implements Stage {
   readonly kind = 'editor';
+  cameraFloor = CAMERA_FLOOR_M;
   private posed: CameraPose | null = null;
   /** The viewport whose camera the stage holds, and its own apply */
   private held: { viewport: EditorViewport; apply: (camera: PerspectiveCamera) => void } | null = null;
@@ -67,6 +74,21 @@ export class EditorStage implements Stage {
 
   groundAt(x: number, y: number): number {
     return this.viewport?.heightAt(x, y) ?? 0;
+  }
+
+  waterAt(x: number, y: number): number | null {
+    const t = this.session.doc?.terrain;
+    return t ? waterLevelAt(t, x, y, this.groundAt(x, y)) : null;
+  }
+
+  surfaceAt(x: number, y: number): number {
+    const ground = this.groundAt(x, y);
+    return Math.max(ground, this.waterAt(x, y) ?? ground);
+  }
+
+  rendererState(): string | null {
+    const info = this.viewport?.renderer.info;
+    return info ? `${info.programs?.length ?? 0}:${info.memory.geometries}:${info.memory.textures}` : null;
   }
 
   named(name: string): { x: number; y: number } | null {
@@ -139,8 +161,15 @@ export class EditorStage implements Stage {
     }
   }
 
+  /** The pose with its eye over the camera floor (the ground there plus cameraFloor, any water surface) */
+  private floored(pose: CameraPose): CameraPose {
+    const ground = this.groundAt(pose.eye.x, pose.eye.y);
+    const h = Number.isNaN(pose.eye.h) ? ground : pose.eye.h;
+    return { eye: { ...pose.eye, h: flooredHeight(h, ground, this.waterAt(pose.eye.x, pose.eye.y), this.cameraFloor) }, look: pose.look };
+  }
+
   private applyPose(camera: PerspectiveCamera): void {
-    const pose = this.posed!;
+    const pose = this.floored(this.posed!);
     const viewport = this.viewport;
     if (viewport) this.syncController(viewport, pose);
     const eye = mapToScene(pose.eye.x, pose.eye.y, this.ground(pose.eye), new Vector3());
@@ -173,6 +202,54 @@ export class EditorStage implements Stage {
     const viewport = this.viewport;
     if (!viewport) return null;
     return viewport.ctx.toScreen(p.x, p.y, this.ground(p));
+  }
+
+  /**
+   * A take's start: a `.3dtdmap` (base64) stored as an own map, its environment patched first (so the map opens
+   * in the scene's light, with no step of the scene's history for it); returns its id for `/editor?map=<id>`
+   */
+  async importMap(base64: string, environment?: Partial<MapEnvironment>): Promise<string> {
+    const loaded = unpackMapFile(Uint8Array.from(atob(base64), (ch) => ch.charCodeAt(0)));
+    if (environment) loaded.doc.environment = { ...loaded.doc.environment, ...environment };
+    return (await this.session.store.importDocument(loaded)).doc.meta.id;
+  }
+
+  /**
+   * A new own map as the editor's New map form makes it (`size` metres square or [width, depth], `ground` a
+   * generator preset, `material` the base material's id); returns its id. A fixture chain's first state
+   */
+  async newMap(options: { name: string; size?: number | [number, number]; ground?: string; material?: string; seed?: number; strength?: number }): Promise<string> {
+    const [width, depth] = Array.isArray(options.size) ? options.size : [options.size ?? 1024, options.size ?? 1024];
+    return this.session.createNew(
+      { name: options.name, width, depth, cellSize: DEFAULT_CELL_SIZE, ground: 'flat', baseMaterial: options.material },
+      { preset: (options.ground ?? 'flat') as TerrainPreset, seed: options.seed ?? 1, strength: options.strength ?? 0.5 },
+    );
+  }
+
+  /** One call of the editor's agent (docs/AGENT_MCP.md): `run_script` plays MapKit commands on the open map */
+  agent(tool: string, args: Record<string, unknown>): Promise<{ text: string; isError?: boolean }> {
+    const agent = (this.session as unknown as { agent: { handle(call: { tool: string; args: Record<string, unknown> }): Promise<{ text: string; isError?: boolean }> } }).agent;
+    return agent.handle({ tool, args });
+  }
+
+  /** The open map as a `.3dtdmap` file, base64, and the file name it would download under */
+  mapFile(): { name: string; base64: string } {
+    const doc = this.session.doc;
+    if (!doc) throw new Error('showreel: no map open');
+    const bytes = packMapFile(doc);
+    let text = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) text += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return { name: `${doc.meta.id}${MAP_FILE_EXTENSION}`, base64: btoa(text) };
+  }
+
+  /** What a take's start can be checked against: the map's environment, the editor's frame and overlay */
+  state(): Record<string, unknown> {
+    return {
+      environment: this.session.doc?.environment ?? null,
+      ui: !document.documentElement.classList.contains('sr-clean'),
+      markers: this.viewport?.overlay.group.visible ?? null,
+      busy: this.session.busyReason(),
+    };
   }
 
   async act(name: string, args: Record<string, unknown>): Promise<void> {

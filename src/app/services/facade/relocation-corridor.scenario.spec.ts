@@ -196,7 +196,6 @@ describe('Moving the HQ while the corridor is built (playtest 543)', () => {
         store.spawnPoints.update((points) => [...points, { id, name, lat, lon, color }]);
         pathRoute.showPathFromSpawn({ id, name, lat, lon, color });
       },
-      syncUrlWithLocation: vi.fn(),
     };
     // The location as loaded
     initRoutes();
