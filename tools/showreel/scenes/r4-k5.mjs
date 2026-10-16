@@ -4,17 +4,38 @@
 //
 //   w-mars     Mars Canyon: a volcano on the sunlit plain north-east of the colony: mountain, crater, glow cracks,
 //              lava filled to the rim, a smoke column; the cone seen from low on the plain
-//   w-moon     Moon Base: symmetry on level ground (the relay levels the south plain and the north band before the
-//              take, fixtures/moon-flat.js): Mirror X, two craters of one stroke; Both, four
+//   w-moon     Moon Base: symmetry on level ground (fixture moon-flat: the south plain and the north band levelled
+//              and cleared): Mirror X, two craters of one stroke; Both, four
 //   w-canyon   Red Canyon: the oasis taken along with heights, paint, water and objects, stamped turned on the
 //              mesa west of it
-//   w-valley   Demo Valley: the game's pause menu, Edit this map, and at once a hill raised on the west meadow
-//   w-w3x      a Warcraft 3 map imported straight to the map, a trial wave at 2x, low behind a runner
-//
-// w-moon needs the agent relay (tools/showreel/agent/relay.mjs) beside the dev server.
+//   w-valley   Demo Valley: the game's pause menu, Edit this map, the confirm; w-valley-edit (its own take, the cut
+//              joins them on the click) at once a hill raised on the west meadow
+//   w-w3x      a Warcraft 3 map imported straight to the map, a trial wave at 2x, beside the runners
 import { act, click, clickMap, m, settings, stroke, wait } from './common.mjs';
-import { AGENT_WS } from './r4-k4.mjs';
 import { W3X_FILE } from './w3x.mjs';
+
+/** Every take on the recording display's size (2048x1152 CSS at 125 %) */
+const WINDOW = { window: '2048x1152', dpr: 1.25 };
+
+/** The start states (fixtures.mjs): Moon Base with its south plain and north band level, cleared of rocks */
+export const FIXTURES = [
+  {
+    file: 'fixtures/moon-flat.3dtdmap',
+    from: 'moon-base',
+    seed: 1,
+    script: `
+const x0 = -172;
+const step = 4;
+const cols = 87;
+for (const b of [{ y0: -250, y1: -140 }, { y0: 140, y1: 248 }]) {
+  const rows = Math.round((b.y1 - b.y0) / step) + 1;
+  map.heightGrid({ x: x0, y: b.y0 }, step, Array.from({ length: rows }, () => new Array(cols).fill(0)), { blend: 1, edge: 24 });
+  const ids = map.objects({ x0: x0 - 10, y0: b.y0 - 10, x1: x0 + (cols - 1) * step + 10, y1: b.y1 + 10 }).map((o) => o.id);
+  if (ids.length) map.removeObjects(ids);
+  map.paint('regolith', [{ x: -150, y: (b.y0 + b.y1) / 2 }, { x: 150, y: (b.y0 + b.y1) / 2 }], { radius: (b.y1 - b.y0) / 2, falloff: 0.3 }, 1);
+}`,
+  },
+];
 
 const frame = (points, opts = {}) => ({ do: 'frame', points, ...opts });
 const key = (k, mods) => ({ do: 'key', key: k, ...(mods ? { mods } : {}) });
@@ -34,11 +55,11 @@ const MESA = m(25, -205);
 export const SCENES = [
   {
     name: 'w-mars',
-    page: '/editor?map=mars-canyon',
+    // Sun 35 degrees over the plain (from the south-west, behind the closing shot); the map's name signs out (the
+    // brush ring with them)
+    start: { editor: 'mars-canyon' },
+    env: { ...WINDOW, sky: { sunElevation: 35 }, markers: false },
     steps: [
-      act('viewReady', { timeout: 90 }),
-      // Sun 35 degrees over the plain (from the south-west, behind the closing shot), held while the light settles
-      act('environment', { patch: { sunElevation: 35 } }),
       frame([m(105, 40), m(195, 40)], { from: 330, pitch: 30, margin: 20, glide: 0.2 }),
       // Warm-up: the smoke column placed once and undone (its first placement stalls)
       tool('objects'),
@@ -48,8 +69,6 @@ export const SCENES = [
       ...settle(1.2),
       key('z', { ctrl: true }),
       ...settle(1.2),
-      // The map's name signs out of the picture (the brush ring with them)
-      act('overlay', { on: false }),
       { do: 'mark', name: 'Mars Canyon' },
       tool('landscape', { label: 'volcano' }),
       mode('mountain'),
@@ -93,7 +112,6 @@ export const SCENES = [
       clickMap(VOLCANO),
       ...settle(1),
       // Down to the plain: from low the cone stands in the lower third, its smoke against the sky
-      act('overlay', { on: false }),
       { do: 'cursor', show: false },
       // Over the rim into the lava, then down to the plain: from low the cone stands in the lower third
       { do: 'shot', dur: 2.5, ease: 'inOut', keys: ['current', { eye: m(110, 0, 70), look: m(150, 40, 20) }] },
@@ -106,13 +124,10 @@ export const SCENES = [
   },
   {
     name: 'w-moon',
-    page: `/editor?map=moon-base&agent=${AGENT_WS}`,
+    start: { editor: 'fixtures/moon-flat.3dtdmap' },
+    // The name signs out (the brush ring with them)
+    env: { ...WINDOW, markers: false },
     steps: [
-      act('viewReady', { timeout: 90 }),
-      // The level ground (fixtures/moon-flat.js), the switch off and on so the band forgets it; the map's name signs out
-      act('agent', { replay: 'moon-flat', reset: true }),
-      ...settle(0.5),
-      act('overlay', { on: false }),
       frame([m(-110, -240), m(110, -160)], { from: 0, pitch: 40, margin: 10, glide: 0.2 }),
       wait(1.2),
       { do: 'mark', name: 'Moon Base' },
@@ -122,29 +137,31 @@ export const SCENES = [
       { do: 'select', sel: '[data-test=symmetry]', value: 'x', label: 'mirror' },
       ...settle(0.3),
       ui(false),
-      // The name signs stay out (the brush ring with them)
       frame([m(-80, -205), m(80, -205)], { from: 0, pitch: 36, margin: 0, glide: 0.8 }),
       stroke(3, [m(40, -205), m(40, -205)], { label: 'two' }),
       ...settle(2),
       effect('mirror'),
-      // Both: four craters of one stroke over the whole map
+      // Both: the two taken back, then four craters of one stroke over the whole map
+      key('z', { ctrl: true }),
+      ...settle(0.8),
       // From the east: the four lie across the picture, two near, two far
-      frame([m(-105, -200), m(105, -200), m(-105, 200), m(105, 200)], { from: 90, pitch: 58, margin: -45, glide: 1.6 }),
+      frame([m(-70, -195), m(70, -195), m(-70, 195), m(70, 195)], { from: 90, pitch: 52, margin: -20, glide: 1.6 }),
       ui(true),
       { do: 'select', sel: '[data-test=symmetry]', value: 'xy', label: 'both' },
-      settings({ brush: { radius: 30, strength: 1 } }),
+      settings({ brush: { radius: 40, strength: 1 } }),
       ...settle(0.3),
       ui(false),
-      stroke(3, [m(105, -200), m(105, -200)], { label: 'four' }),
+      stroke(3, [m(70, -195), m(70, -195)], { label: 'four' }),
       ...settle(2),
       effect('four'),
     ],
   },
   {
     name: 'w-canyon',
-    page: '/editor?map=red-canyon',
+    start: { editor: 'red-canyon' },
+    // The markers on: the selection's outline is one of them
+    env: { ...WINDOW, markers: true },
     steps: [
-      act('viewReady', { timeout: 90 }),
       // Steep, so the mesas do not hide the basin floor from the selection's corners
       frame([m(OASIS[0], OASIS[1]), m(OASIS[2], OASIS[3]), MESA], { from: 0, pitch: 62, margin: 24, glide: 0.2 }),
       wait(1.2),
@@ -179,15 +196,13 @@ export const SCENES = [
     ],
   },
   {
-    // The game on Demo Valley: wave 1 runs, the pause menu's Edit this map, asked first; "Open in the editor"
-    // leaves for the editor on an own copy, where w-valley-edit goes on
+    // The game on Demo Valley: wave 1 runs, the pause menu's Edit this map, asked first; the take ends on the
+    // pointer over "Open in the editor" (a take stays on its page), w-valley-edit starts in the editor
     name: 'w-valley',
     page: '/?world=map:demo-valley',
     noIntro: true,
-    arrives: '/editor?map=demo-valley',
-    leave: '.mh-confirm .td-btn-primary',
+    env: { ...WINDOW, routes: false },
     steps: [
-      act('routes', { on: false }),
       wait(0.6),
       { do: 'mark', name: 'Demo Valley' },
       act('wave', { label: 'wave 1' }),
@@ -197,23 +212,23 @@ export const SCENES = [
       click('[data-entry=edit-map]', { label: 'edit this map' }),
       { do: 'waitFor', sel: '.mh-confirm' },
       wait(0.3),
-      { do: 'move', to: '.mh-confirm .td-btn-primary', dur: 0.5 },
+      { do: 'move', to: '.mh-confirm .td-btn-primary', dur: 0.5, label: 'open in the editor' },
       wait(0.5),
     ],
   },
   {
     name: 'w-valley-edit',
+    start: { editor: 'demo-valley' },
+    env: { ...WINDOW, markers: false, camera: { eye: m(-170, 150, 120), look: m(-170, -10) } },
     steps: [
-      act('viewReady', { timeout: 90 }),
       // The flat west meadow (the south one is too narrow for the brush on this 512 m map), at once a hill raised
       // on it with a 90 m brush; the ruin crag behind it
       frame([m(-240, -10), m(-100, -10)], { from: 190, pitch: 36, margin: 20, glide: 1 }),
       tool('terrain', { label: 'raise' }),
       mode('raise'),
-      settings({ brush: { radius: 90, strength: 1 } }),
+      settings({ brush: { radius: 90, strength: 0.7 } }),
       ui(false),
-      act('overlay', { on: false }),
-      stroke(3.2, [m(-170, -10), m(-169, -10)]),
+      stroke(2.4, [m(-170, -10), m(-169, -10)]),
       ...settle(1.2),
       effect('hill'),
     ],
@@ -221,6 +236,7 @@ export const SCENES = [
   {
     name: 'w-w3x',
     page: '/editor',
+    env: { ...WINDOW },
     steps: [
       wait(0.5),
       { do: 'mark', name: 'Warcraft 3 import' },

@@ -1,4 +1,0 @@
-{
-  "client": "Showreel setup",
-  "calls": [{ "tool": "run_script", "args": { "label": "flat plains", "animate": false }, "source": "moon-flat.js" }]
-}

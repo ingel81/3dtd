@@ -1,7 +1,7 @@
 // K4 "Oder lass die KI bauen" (DREHBUCH_R4 2.5): an AI agent builds a castle with a moat while the editor shows it,
 // its agent band reading "Claude Code" and each call. No language model in the take: the relay
 // (tools/showreel/agent/relay.mjs, started beside the dev server) runs the desktop app's own MCP server and replays
-// the recorded calls of fixtures/agent-castle.json over MCP: map_summary, run_script as a dry run, run_script.
+// the recorded calls of agent/fixtures/agent-castle.json over MCP: map_summary, run_script as a dry run, run_script.
 // The request line ("request" in the fixture) goes over the picture in the cut, at the mark `request`.
 //
 // Map: Demo Valley's own copy, the castle on the west meadow (a stand-in until Stillwater's F-B9 copy exists; then
@@ -20,7 +20,9 @@ const around = (r) => [m(C[0] - r, C[1]), m(C[0] + r, C[1]), m(C[0], C[1] - r), 
 export const SCENES = [
   {
     name: 'ai-agent',
+    // A page of its own, not a take start: the agent bridge comes with the address (agent=<port>)
     page: `/editor?map=${MAP}&agent=${AGENT_WS}`,
+    env: { window: '2048x1152', dpr: 1.25 },
     steps: [
       act('viewReady', { timeout: 90 }),
       // The map big, without the editor's frame and its markers; the band stays (it lies over the view)

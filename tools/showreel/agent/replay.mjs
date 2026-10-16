@@ -1,4 +1,4 @@
-// A recorded agent: the MCP calls of a fixture (tools/showreel/fixtures/agent-<name>.json) sent again, one after
+// A recorded agent: the MCP calls of a fixture (tools/showreel/agent/fixtures/agent-<name>.json) sent again, one after
 // the other, as an MCP client over Streamable HTTP (JSON-RPC posts, as the SDK's client sends them). No language
 // model in the take: the same calls on the same map give the same result. The relay (relay.mjs) calls it when the
 // scene asks; for development it also runs alone against a relay with a page connected:
@@ -14,7 +14,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), '../fixtures');
+const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
 
 /** One JSON-RPC message to the server; the answer of an SSE or JSON response, null for a notification */
 async function post(url, message) {
