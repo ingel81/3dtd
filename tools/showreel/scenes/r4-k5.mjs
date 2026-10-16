@@ -63,7 +63,7 @@ export const SCENES = [
     start: { editor: 'mars-canyon' },
     env: { ...WINDOW, sky: { sunElevation: 35 }, markers: false },
     steps: [
-      frame([m(105, 40), m(195, 40)], { from: 330, pitch: 30, margin: 20, glide: 0.2 }),
+      frame([m(105, 40), m(195, 40)], { from: 330, pitch: 26, margin: 20, pad: 0.85, glide: 0.2 }),
       // Warm-up: the smoke column placed once and undone (its first placement stalls)
       tool('objects'),
       mode('place'),
@@ -89,7 +89,7 @@ export const SCENES = [
       stroke(3, [VOLCANO, VOLCANO]),
       ...settle(0.4),
       // Closer on the top for the crater, the cracks and the lava
-      frame([VOLCANO], { from: 330, pitch: 42, margin: 48, glide: 1.2 }),
+      frame([VOLCANO], { from: 330, pitch: 42, margin: 48, pad: 0.8, glide: 1.2 }),
       effect('crater'),
       ui(true),
       mode('cracks', { label: 'glow cracks' }),
