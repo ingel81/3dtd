@@ -34,7 +34,7 @@ export interface CameraBounds {
   minHeight: number;
   /** Most height above the local zero (m) */
   maxHeight: number;
-  /** Ground height under a local point, for minHeight */
+  /** Height of the ground (or the water on it) under a local point, for minHeight */
   groundAt(x: number, z: number): number;
 }
 

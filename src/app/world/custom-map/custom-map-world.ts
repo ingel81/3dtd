@@ -576,7 +576,7 @@ export class CustomMapWorld implements WorldProvider {
 
   /**
    * The map's own intro flight (its `intro`), in scene space; the camera
-   * stays at least INTRO_GROUND_CLEARANCE above the ground under it
+   * stays at least INTRO_GROUND_CLEARANCE above the ground or water under it
    */
   introShot(): IntroShot | null {
     const intro = this.doc.intro;
@@ -588,7 +588,7 @@ export class CustomMapWorld implements WorldProvider {
       seconds: intro.seconds,
       poseAt: (t, position, look) => {
         introPoseAt(intro, at, t, pose);
-        const floor = this.surface.heightAtMap(pose.x, pose.y) + INTRO_GROUND_CLEARANCE;
+        const floor = this.surface.surfaceAtMap(pose.x, pose.y) + INTRO_GROUND_CLEARANCE;
         position.set(this.frame.sceneX(pose.x), Math.max(floor, pose.h), this.frame.sceneZ(pose.y));
         look.set(this.frame.sceneX(pose.lookX), pose.lookH, this.frame.sceneZ(pose.lookY));
       },
@@ -642,8 +642,8 @@ export class CustomMapWorld implements WorldProvider {
   /**
    * The camera over the map: its position at most a third of the map's
    * larger side beyond the edge (the steep view from there still shows the
-   * edge), at least 3 m over the ground, at most high enough for the whole
-   * map in view
+   * edge), at least 3 m over the ground or the water on it (never under a
+   * sea's surface), at most high enough for the whole map in view
    */
   cameraBounds(): CameraBounds {
     const { width, depth } = this.doc.terrain;
@@ -657,7 +657,7 @@ export class CustomMapWorld implements WorldProvider {
       maxZ: this.frame.sceneZ(depth / 2) + margin,
       minHeight: 3,
       maxHeight: Math.max(0, top) + Math.max(300, size * 1.4),
-      groundAt: (x, z) => this.surface.heightAtMap(this.frame.mapX(x), this.frame.mapY(z)),
+      groundAt: (x, z) => this.surface.surfaceAtMap(this.frame.mapX(x), this.frame.mapY(z)),
     };
   }
 

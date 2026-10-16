@@ -8,6 +8,7 @@ import { BUILD_BLOCKED_OBJECT, BUILD_BLOCKED_WATER, WATER_DEPTH_M, type WorldSur
 import type { CustomMapDocument } from './map-document';
 import { MAP_METERS_PER_DEGREE } from './map-document';
 import { HeightField } from './render/height-field';
+import { waterLevelAt } from './water-level';
 import { type BridgeDeck, bridgeDecks, deckHeightAt } from './bridge-decks';
 import { FALLEN_SCALE } from './custom-map-destruction';
 import type { GroundBox } from './object-ground';
@@ -107,6 +108,16 @@ export class CustomMapSurface implements WorldSurface {
   /** Terrain height at a map point */
   heightAtMap(x: number, y: number): number {
     return this.field.heightAt(x, y);
+  }
+
+  /**
+   * The top of what the camera sees at a map point: a water surface (sea,
+   * lake, river, lava, ice) over the terrain, else the terrain. The camera
+   * keeps its least height above this, not above a sea floor
+   */
+  surfaceAtMap(x: number, y: number): number {
+    const ground = this.field.heightAt(x, y);
+    return waterLevelAt(this.doc.terrain, x, y, ground) ?? ground;
   }
 
   /**
