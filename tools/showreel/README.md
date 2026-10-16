@@ -14,9 +14,15 @@ marks in video time.
 | `game-stage.ts`, `editor-stage.ts` | The game on a custom map and the editor: camera held per frame (game: controls off; editor: the orbit camera's `apply`), map points to the screen, actions (`photo`, `routes`, `hints`, `credits`, `research`, `build`, `wave`, `speed`, `environment`; `settings`, `environment`, `trialSpeed`, `viewReady`, `idle`, `save`) |
 | `pointer.ts`, `hands.ts` | The drawn pointer (the real one hidden) and synthetic pointer, mouse and key events |
 | `audio-tap.ts` | Every connection to the speakers also feeds a MediaStream; a MediaRecorder writes it as Opus/WebM. The sync mark turns the page white for 120 ms (held by time: two frames at 144 Hz slipped between the frames of a 60 fps capture) and puts a full-scale 1 kHz click into the recording only, in its first frame |
-| `tools/showreel/run.mjs` | The runner: Chrome (channel `chrome`, fresh profile, `--kiosk` on a display), ddagrab + hevc_nvenc, the scenes, the sound files, then the alignment and a preview |
-| `tools/showreel/script.mjs` | The programme: scenes as data, reorder or trim there |
-| `tools/showreel/capture.mjs` | Displays, which ddagrab output shows the window (a test colour, one frame per output), recording, flash and click detection, the mix |
+| `camera-floor.ts` | The camera floor (3 m over the ground, 0.5 m over water) the stages lift every pose to, and the camera log's rows |
+| `tools/showreel/run.mjs` | The runner: takes (`--scene`, take.mjs) or the programme in one browser; `--finish`, `--check` |
+| `tools/showreel/take.mjs` | One take per scene from its fixed start (see Takes) |
+| `tools/showreel/fixtures.mjs` | The takes' generated start states: map files by MapKit commands, game saves |
+| `tools/showreel/check.mjs` | The automatic check of a take and its contact sheet |
+| `tools/showreel/quiet.mjs` | One recording on the display at a time: queue, lock, `--wait` for the others' heavy work |
+| `tools/showreel/browser.mjs` | Chrome on a fresh profile, Playwright, the page's sound, the editor map's fingerprint |
+| `tools/showreel/script.mjs` | The programme (`SCENES`), the takes outside it (`TAKES`), the fixtures (`FIXTURES`) |
+| `tools/showreel/capture.mjs` | Displays, which ddagrab output shows the window (a test colour, one frame per output), recording, the headless screencast, flash and click detection, the alignment, the mix |
 
 ## Run
 
@@ -26,9 +32,9 @@ hevc_nvenc. playwright-core from `e2e/node_modules` (of this checkout, else of t
 ```bash
 node tools/showreel/run.mjs --list                                     # scenes and their step lengths
 node tools/showreel/run.mjs --displays                                 # the displays Windows has
-node tools/showreel/run.mjs --scene ember-flyover --rehearse           # one scene on the screen, nothing recorded
-node tools/showreel/run.mjs --scene ember-flyover --out <dir>          # one scene recorded
-node tools/showreel/run.mjs --out <dir>                                # the whole programme
+node tools/showreel/run.mjs --scene ember-flyover --rehearse           # one take on the screen, nothing recorded
+node tools/showreel/run.mjs --scene ember-flyover --display DISPLAY2   # one take recorded (see Takes)
+node tools/showreel/run.mjs --out <dir>                                # the whole programme in one browser
 node tools/showreel/run.mjs --from dv-sculpt --to rc-water --headless 1600x900 --verify --url http://localhost:4307   # development
 ```
 
@@ -41,7 +47,7 @@ The dev server for a recording should run without live reload (`npx ng serve --p
 --hmr=false`): a source change during a run reloads the page under the runner.
 
 Options: `--display DISPLAY2` (default the primary), `--quality ultra|high` (default ultra; Auto would play custom maps a level lower), `--output-idx N` (skips the colour test), `--dpr 1` (headless: the scaling to stand in for, e.g. `--headless 2048x1152 --dpr 1.25`),
-`--cq 18`, `--chroma 444`, `--from <scene>`, `--to <scene>`, `--scene a,b`.
+`--cq 18`, `--chroma 444`, `--from <scene>`, `--to <scene>` (the programme), `--scene a,b` (takes).
 
 UI per step: `{ do: 'ui', on }` (game: photo mode; editor: without header, tool column, side column, status bar,
 minimap), `{ do: 'legend', on }` (the editor's mouse legend, off at the start), `{ do: 'markers', on }` (HQ diamond and
@@ -52,8 +58,8 @@ last `--disable-features`), `--lang=en-US`, and `translate.enabled: false` in th
 prints the flags and the pref.
 
 A scene with `page` loads it (`opened`: the address the editor's Test map asked for, opened in the same window);
-one without plays on. `--scene` loads the page the scene needs, but editor scenes build on the ones before
-(`--from` for those). A scene with `leave: <selector>` ends by the app's own navigation: after its steps the runner
+one without plays on. Editor scenes of the programme build on the ones before (`--from` for those, or a `start`
+of their own, see Takes). A scene with `leave: <selector>` ends by the app's own navigation: after its steps the runner
 keeps the page's sound, clicks that element (the pause menu's "Open in the editor") and follows the page the app
 goes to; a redirect of that navigation adds `showreel`, so the hook loads there too (the app's link is left as it
 is). `arrives: <address>` names the page a scene ends on (after a leave, or after the editor opened another map
@@ -64,7 +70,86 @@ Editor storage: every run starts Chrome on a fresh profile, so no own copies or 
 A shipped map opened in the editor becomes an own copy; opened again (the map list's row, own copy or shipped)
 it is that copy, with no "original changed" notice while the shipped file is the same.
 
-## Output (one folder per run)
+## Takes (one scene per take, 2026-10-16)
+
+Every scene can be recorded on its own, as often as needed; the cut picks a take per scene. A take starts on a
+fixed state, not on what the scene before left.
+
+```bash
+node tools/showreel/fixtures.mjs --url http://localhost:4307                # the generated start states (missing ones; --force all)
+node tools/showreel/run.mjs --scene proof-editor --headless --url http://localhost:4307   # one take, headless
+node tools/showreel/run.mjs --scene a,b --display DISPLAY2 --url ...        # takes on the real display (queued, quiet.mjs)
+node tools/showreel/run.mjs --check <take folder>                           # the check again
+python D:/Source/3dtd/tmp/showreel/edit/build.py cut-long.json [--dry] [--limit 20]
+```
+
+The dev server needs the agent's script worker for map fixtures (`node tools/agent/build-script-worker.mjs`,
+which `npm start` runs; a server started before it was written must be restarted, it serves `public/` as it
+found it).
+
+**Start and environment** (scene fields in `script.mjs`, see the head of `take.mjs`):
+- `start: { editor: 'fixtures/x.3dtdmap' | '<shipped id>' }`: the file is stored as an own map with the scene's
+  sky patched in (no history step for it) and opened; `start: { game: '<shipped id>', save: 'fixtures/x.3dtdsave' }`:
+  the game on the map, the save loaded as the menu's Load from file does. Without a start, a scene with its own
+  `page` loads that page (fly-overs, the fight, the outro); one that plays on from the scene before cannot be
+  taken alone and says so.
+- `env`: `window` (headless size, default 1600x900), `dpr`, `quality` (ultra), `seed` (the page's `Math.random`,
+  default 1), `sky` (a MapEnvironment patch: `sky`, `sunAzimuth`, `sunElevation`, `weather`, `skyImage`, ...),
+  `camera` `{ eye, look }` (the pose held from the first frame), `ui`, `markers` (spawn and HQ signs; the editor's
+  overlay), `routes`, `healthBars`, `los` (the LOS debugger), `credits` (the HUD's sum), `floor` (camera metres
+  over the ground, default 3), `sound` (whether the take must have sound; default game scenes). After setting them
+  the runner reads them back from the page; a difference stops the take.
+- Fixtures (`FIXTURES` in script.mjs, files in `tmp/showreel/fixtures/` of the main checkout): a map fixture is
+  `from` (a shipped id or an earlier fixture) plus a map `script` (the editor agent's `run_script`, MapKit commands,
+  docs/AGENT_MCP.md); a build-up story makes one per scene, each from the one before plus the commands of the scene
+  before. A save fixture plays director `steps` in the game (towers through the sidebar), sets `credits` to a
+  normal sum and saves between waves in the app's own format. Saves made by hand work as well (Save to file).
+
+**A take**: fresh Chrome profile, the start, the environment, wait until settled (no request open for 1 s; the
+renderer's programs, geometries and textures unchanged for 1.5 s: grass, shadows, textures in; the editor idle;
+after 90 s it goes on and notes it), 1 s still, the sync flash and click, the steps, 1 s still. Headless the
+picture is Chrome's screencast at 60 fps (a frame the page did not draw repeats, as on a display); on a display
+ddagrab as in the programme. The camera floor: the stages lift every pose of the director to 3 m over the ground
+and 0.5 m over a water surface (`env.floor` sets less for a close-up); the camera log has every frame, whoever
+holds the camera (intro flight, boss camera, tower view too).
+
+Files in `tmp/showreel/takes/<scene>/<time>/`: `video.mkv`, `sound.flac` (as recorded) and `sound.wav` (on the
+video's time line), `preview.mp4`, `marks.json` (marks in video seconds, `head`, `tail`, `end` included),
+`meta.json` (app and script commit with a dirty flag, start, fixture sha256, environment, the page's state, the
+settle, the capture, the steps, duration, camera `[video s, eye height, ground, water]` per frame),
+`camera.json` (the full rows), `check.json`, `sheet.jpg` and `sheet/`. Takes are never overwritten.
+
+**The check** (check.mjs, written to `check.json`, one line per take in `takes/<scene>/index.json`):
+- picture: a frame within 0.3 of the one before (mean of 0-255, on a 160x90 grey copy, what mpdecimate would drop)
+  repeats it; a held picture of 120 ms or more is a stutter while the camera moves (its log) or between moving
+  frames; red with more than 2 stutters, or one of 250 ms while the camera moves (a hitch), or a picture held 1 s
+  while the camera moves (frozen); a still picture of 6 s with the camera still is a warning only (an idle map)
+- black (mean luma under 20) or white (over 225) frames after the flash: red; black after a step labelled
+  `fade...` is meant
+- sound: a game scene (or `env.sound`) without sound or silent 2 s (under -60 dBFS): red; level jumps of 30 dB
+  within 50 ms and clipping: warnings
+- camera: under a water surface or less than 0.3 m over the ground: red; under the floor (a camera the director
+  does not hold): warning. Buildings and objects are not in the log (terrain only).
+- contact sheet: a frame a second of the scene and one half a second after every labelled step (yellow).
+  `"accepted": true` set by hand on a line marks the take the cut takes for `best`.
+
+**The cut** (`tmp/showreel/edit/build.py`, the old take-wide one is `build_v3.py`): reads only an edit list
+(`cut-long.json`, `cut-short.json`): per shot scene, take (`best` or an id), in and out (a mark with +/- seconds,
+or seconds after the scene's start), transition (`hard` or `fade`, 0.3 s crossfade), title. Game sound per shot
+to `gameLufs` (-26, one gain, lifted 10 dB at most), the music its own track at `musicLufs` (-17): pieces with
+`at` and `gain`, their silent heads and tails cut, 3.5 s crossfades, a fade at the end. No dip to black (the card
+crossfades in); the watermark bottom left in game scenes and pages, off in the editor; titles bottom centre.
+Changing a take is one line in the list and a new build.
+
+**One recording at a time**: a take on the display queues in `tmp/showreel/record-queue/` and holds
+`tmp/showreel/record.lock`; others call `node tools/showreel/quiet.mjs --wait` before heavy work (probes, vitest,
+builds), `--status` shows who records and who waits. Headless takes do not queue.
+
+`scenes/proof.mjs` has two short takes that prove the flow: `proof-editor` (Demo Valley from a fixture with a
+first hill raised by MapKit, a second one with the Terrain tool) and `proof-game` (Red Canyon from a save with
+three towers and 420 credits, the first wave).
+
+## Output (one folder per programme run)
 
 - `video.mkv`: HEVC, 60 fps, the display as it was, without the real pointer
 - `sound-NN.webm`: the game's sound per page (Opus 256 kbit/s, as the recorder wrote it), `sound-NN.flac` the same with a proper length; the alignment and the mix read the FLAC

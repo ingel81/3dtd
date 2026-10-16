@@ -12,6 +12,11 @@
 // ground, followed live. Orbit angles in degrees, 0 = the camera south of the centre looking north,
 // counter-clockwise.
 //
+// Takes (take.mjs, run.mjs --scene): a scene with `start` begins on its own fixed state (`{ editor: map }` or
+// `{ game: map, save }`, fixtures in tmp/showreel/fixtures) with its `env` set and checked first; one without a
+// start but with its own `page` loads that page. The others build on the scene before them and run in the
+// programme only, until they get a start.
+//
 // UI per step: { do: 'ui', on } the page's UI or a clean frame (game: photo mode; editor: without header, tool
 // column, side column, status bar and minimap), { do: 'legend', on } the editor's mouse legend (off by default),
 // { do: 'markers', on } the game's HQ diamond and name signs. Fly-overs and the outro play clean, editor and
@@ -30,6 +35,13 @@ import { SCENES as W3X } from './scenes/w3x.mjs';
 import { SCENES as WORLDS } from './scenes/worlds.mjs';
 import { SCENES as GAME } from './scenes/game.mjs';
 import { SCENES as OUTRO } from './scenes/outro.mjs';
+import { FIXTURES as PROOF_FIXTURES, SCENES as PROOF } from './scenes/proof.mjs';
 
 /** The programme in order; each part lives in scenes/ (common.mjs has the helpers) */
 export const SCENES = [...INTRO, ...EDITOR, ...EDITOR2, ...W3X, ...WORLDS, ...GAME, ...OUTRO];
+
+/** Scenes taken on their own only (run.mjs --scene), not part of the programme's run */
+export const TAKES = [...PROOF];
+
+/** The generated start states of the takes, made in this order by fixtures.mjs (a later one may start from an earlier) */
+export const FIXTURES = [...PROOF_FIXTURES];
