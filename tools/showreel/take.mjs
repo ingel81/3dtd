@@ -1,14 +1,14 @@
 // One scene per take (run.mjs --scene a,b): each scene from its own fixed start in a fresh browser, so it can be
 // recorded again on its own and the cut picks a take per scene. See README.md, "Takes".
 //
-//   start   what the scene starts on: { editor: 'fixtures/x.3dtdmap' | '<shipped id>' } (the editor on an own copy),
+//   start   what the scene starts on: { menu: true } (the app's world menu with its globes), { editor: 'fixtures/x.3dtdmap' | '<shipped id>' } (the editor on an own copy),
 //           { game: '<shipped id>' | 'fixtures/x.3dtdmap', save?: 'fixtures/x.3dtdsave' } (the game; a map file is
 //           stored as an own map first; from a save in the app's own format),
 //   net     'fixtures/x.har.zip': outside requests answered from a recorded HAR, every other outside one aborted
 //           or none: the scene's own `page` (a fly-over, the programme's scenes that load their page)
 //   env     the environment, set before the first frame and checked: window 'WxH', dpr, quality, seed, sky (a
 //           MapEnvironment patch: time of day, weather, sky image), camera { eye, look }, ui, routes, los,
-//           healthBars, markers (spawn and HQ signs), credits (the HUD's sum), floor (camera metres over the
+//           healthBars, markers (spawn and HQ signs), globe (menu globes 'high'|'low'|'off'), credits (the HUD's sum), floor (camera metres over the
 //           ground), sound (whether the take must have sound; default: game scenes)
 //
 // A take: load, start, environment, the page settled (no requests, the renderer's programs, geometries and
@@ -54,6 +54,7 @@ function commitOf(path) {
 
 /** Where a scene starts: the editor, the game or its own page */
 function startOf(scene) {
+  if (scene.start?.menu) return { kind: 'menu', page: '/' };
   if (scene.start?.editor) return { kind: 'editor', map: scene.start.editor };
   if (scene.start?.game) return { kind: 'game', map: scene.start.game, save: scene.start.save ?? null };
   if (scene.page) return { kind: 'page', page: scene.page };
@@ -145,7 +146,10 @@ async function recordTake(scene, opts) {
   // scenes); headless work waits while someone records (quiet.mjs)
   const slot = recording && display && !opts.slotHeld ? await recordSlot(`${scene.name} ${id}`) : null;
   if (!display) await waitQuiet(`the take of ${scene.name}`);
-  const browser = await launch({ display, size, dpr: opts.dpr || env.dpr || '', quality: opts.quality || env.quality, seed: env.seed, dcomp: opts.dcomp, playwrightDir: opts.playwrightDir });
+  const browser = await launch({
+    display, size, dpr: opts.dpr || env.dpr || '', quality: opts.quality || env.quality, seed: env.seed,
+    globe: env.globe ?? (start.kind === 'menu' ? 'high' : 'off'), dcomp: opts.dcomp, playwrightDir: opts.playwrightDir,
+  });
   const { page } = browser;
   const problems = [];
   logConsole(page, problems);
@@ -204,6 +208,13 @@ async function recordTake(scene, opts) {
         const loaded = await page.evaluate(([b64, name]) => window.__showreel.take.loadSave(b64, name), [readFileSync(fixture).toString('base64'), start.save.split(/[\\/]/).pop()]);
         if (!loaded.ok) throw new Error(`the save did not load: ${loaded.reason}`);
       }
+    } else if (start.kind === 'menu') {
+      // The app's start as a player sees it: the world menu with its globes (no menu=skip)
+      const url = new URL('/', opts.base);
+      url.searchParams.set('showreel', '');
+      await page.goto(url.toString());
+      await hook();
+      await page.evaluate(() => window.__showreel.ready(120));
     } else {
       await page.goto(pageUrl(opts.base, scene.page, '', false, !!scene.noIntro, !!scene.clean));
       await hook();

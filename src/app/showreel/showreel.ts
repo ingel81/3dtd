@@ -12,6 +12,7 @@ import { AudioRecording, installAudioTap } from './audio-tap';
 import { Director, type Mark, type Scene } from './director';
 import { EditorStage } from './editor-stage';
 import { GameStage } from './game-stage';
+import { MenuStage } from './menu-stage';
 import { Hands, nextFrame, waitUntil } from './hands';
 import { ShowreelPointer } from './pointer';
 import type { Stage } from './stage';
@@ -133,8 +134,14 @@ export function startShowreel(injector: Injector): void {
   const hands = (): Hands => new Hands((pointer ??= new ShowreelPointer()));
   let game: GameStage | null = null;
   let editor: EditorStage | null = null;
+  let menu: MenuStage | null = null;
+  // The world menu stands while no world is open (game-host.component.ts), the game once one is
   const stage = (): Stage =>
-    location.pathname.startsWith('/editor') ? (editor ??= new EditorStage()) : (game ??= new GameStage(injector, hands()));
+    location.pathname.startsWith('/editor')
+      ? (editor ??= new EditorStage())
+      : document.querySelector('app-worlds-stage')
+        ? (menu ??= new MenuStage())
+        : (game ??= new GameStage(injector, hands()));
   let director: Director | null = null;
   const directorOf = (): Director => (director ??= new Director(stage, hands()));
   let recording: AudioRecording | null = null;
@@ -160,9 +167,9 @@ export function startShowreel(injector: Injector): void {
 
   const api: ShowreelApi = {
     async ready(timeoutS = 120) {
-      const s = stage();
-      await waitUntil(() => s.ready(), timeoutS, `the ${s.kind} to show its map`);
-      return s.kind;
+      // Asked anew each time: while the app starts, the menu or the game may not stand yet
+      await waitUntil(() => stage().ready(), timeoutS, `the ${stage().kind} to show its map`);
+      return stage().kind;
     },
     async run(scene) {
       const run = await directorOf().run(scene);
@@ -226,7 +233,7 @@ export function startShowreel(injector: Injector): void {
           dpr: devicePixelRatio,
           quality: localStorage.getItem('td_render_quality_v1'),
           floor: s.cameraFloor,
-          ...(s instanceof EditorStage ? s.state() : (s as GameStage).state()),
+          ...(s instanceof EditorStage || s instanceof MenuStage ? s.state() : (s as GameStage).state()),
         };
       },
       renderer: () => stage().rendererState(),

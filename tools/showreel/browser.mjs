@@ -50,10 +50,11 @@ export function playwright(dir = '') {
 /**
  * Chrome on a fresh profile: fullscreen (kiosk) on `display`, or headless at `size` ([w, h] CSS px). `quality`
  * the render quality (not Auto: Auto plays custom maps a level lower, render-quality.ts resolveLevel); `seed`
- * replaces Math.random with a seeded one in every page, so particles and scatter come out the same per take.
+ * replaces Math.random with a seeded one in every page, so particles and scatter come out the same per take;
+ * `globe` the menu globes' quality ('off' outside the menu scenes: the globes would draw behind every load).
  * Returns the context, its first page and `close()`, which also deletes the profile.
  */
-export async function launch({ display = null, size = null, dpr = '', quality = 'ultra', seed = null, dcomp = false, playwrightDir = '' } = {}) {
+export async function launch({ display = null, size = null, dpr = '', quality = 'ultra', seed = null, globe = 'off', dcomp = false, playwrightDir = '' } = {}) {
   const headless = !display;
   const profile = mkdtempSync(join(tmpdir(), '3dtd-showreel-profile-'));
   // No "Translate this page?" bubble in the picture: off in the profile as well as by feature flag
@@ -93,11 +94,11 @@ export async function launch({ display = null, size = null, dpr = '', quality = 
     args,
   });
   await context.addInitScript(
-    ([level, seeded]) => {
+    ([level, seeded, globeQuality]) => {
       localStorage.setItem('td_render_quality_v1', JSON.stringify({ setting: level, auto: null }));
       localStorage.setItem('td_seen_version', '9999.0.0');
       localStorage.setItem('td_onboarding_v2', JSON.stringify({ done: true, completed: [] }));
-      localStorage.setItem('td_globe_quality_v1', '"off"');
+      localStorage.setItem('td_globe_quality_v1', JSON.stringify(globeQuality));
       if (seeded !== null) {
         // mulberry32: the page's Math.random the same every take (the sim keeps its own random source)
         let a = seeded >>> 0;
@@ -110,7 +111,7 @@ export async function launch({ display = null, size = null, dpr = '', quality = 
         };
       }
     },
-    [quality, seed],
+    [quality, seed, globe],
   );
   const page = context.pages()[0] ?? (await context.newPage());
   return {

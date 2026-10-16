@@ -166,10 +166,13 @@ export class GameStage implements Stage {
     }
     const spot = /^spot:(\d+)$/.exec(name);
     if (spot) return this.spots[Number(spot[1])] ?? null;
-    // tower:<i> a tower standing, in the order they were built (a take that starts from a save has no planned spots)
-    const tower = /^tower:(\d+)$/.exec(name);
+    // tower:<i> a tower standing, in the order they were built (tower:-1 the newest) (a take that starts from a save has no planned spots)
+    const tower = /^tower:(-?\d+)$/.exec(name);
     if (tower) {
-      const t = (this.component.towerControl as unknown as TowerSeat).mirror.towers()[Number(tower[1])];
+      // Negative from the end: tower:-1 the newest
+      const all = (this.component.towerControl as unknown as TowerSeat).mirror.towers();
+      const i = Number(tower[1]);
+      const t = all[i < 0 ? all.length + i : i];
       return t ? { x: t.position.lon * MAP_METERS_PER_DEGREE, y: t.position.lat * MAP_METERS_PER_DEGREE } : null;
     }
     const enemy = /^enemy:([\w-]+)$/.exec(name);
@@ -457,12 +460,43 @@ export class GameStage implements Stage {
         return;
       case 'build': {
         const tower = String(args['tower'] ?? 'archer');
-        const at = (args['at'] as MapPoint3 | undefined) ?? this.spotFor(Number(args['spot'] ?? 0), tower);
-        return this.build(tower, at, Number(args['dur'] ?? 0.9), Number(args['hold'] ?? 1.5));
+        // `near`: the buildable spot closest to a map point (a placement named by place, P1 to P5 of a story)
+        const near = args['near'] as MapPoint3 | undefined;
+        const at = near
+          ? this.spotNear(near, tower, Number(args['within'] ?? 30))
+          : ((args['at'] as MapPoint3 | undefined) ?? this.spotFor(Number(args['spot'] ?? 0), tower));
+        // `optional`: a tower the credits may not cover yet is left out (a run played by a fixture)
+        return this.build(tower, at, Number(args['dur'] ?? 0.9), Number(args['hold'] ?? 1.5), args['optional'] === true);
       }
+      case 'command':
+        // One of the game's own commands as the UI sends it (research, hero, upgrades): for fixtures, not in a take
+        c.sim.bus.emit(args['command'] as Record<string, unknown>);
+        await waitSeconds(0.2);
+        return;
+      case 'hero': {
+        // The hero hired, walked to a map point, its ammo chosen (fixtures: a save with the hero in place)
+        c.sim.bus.emit({ type: 'command:hire-hero' });
+        await waitSeconds(0.5);
+        const at = args['at'] as MapPoint3;
+        c.sim.bus.emit({ type: 'command:hero-move', target: { lat: at.y / MAP_METERS_PER_DEGREE, lon: at.x / MAP_METERS_PER_DEGREE } });
+        if (args['ammo']) c.sim.bus.emit({ type: 'command:hero-ammo', ammo: String(args['ammo']) });
+        await waitSeconds(Number(args['walk'] ?? 8));
+        return;
+      }
+      case 'readyAbility':
+        c.sim.bus.emit({ type: 'debug:ready-ability', abilityId: String(args['ability']) });
+        return;
       case 'wave':
+        // `ifIdle`: only between waves (a scene that shows several towers starts the next wave when one ends)
+        if (args['ifIdle'] === true && document.querySelector('.td-wave-btn.td-wave-running')) return;
         await this.hands.click('.td-wave-btn', Number(args['dur'] ?? 0.8));
         return;
+      case 'ability': {
+        // An ability fired at a map point (an enemy's spot), as its button and a click on the map would
+        const at = args['at'] as MapPoint3;
+        c.sim.bus.emit({ type: 'command:use-ability', abilityId: String(args['ability']), target: { lat: at.y / MAP_METERS_PER_DEGREE, lon: at.x / MAP_METERS_PER_DEGREE } });
+        return;
+      }
       case 'enemiesNear': {
         // Until an enemy walks within `radius` m of a named spot `near` (`spots`: the towers), to skip the long walk
         // `near: 'any'`: within `radius` of any planned tower spot (a boss may come in on another lane)
@@ -486,10 +520,30 @@ export class GameStage implements Stage {
         });
         return;
       }
-      case 'waveDone':
-        // The running wave beaten: none alive and none still to come
-        await waitUntil(() => c.store.enemiesAlive() === 0 && c.store.waveEnemiesLeft() === 0, Number(args['timeout'] ?? 90), 'the wave to be beaten');
+      case 'waveDone': {
+        // The running wave beaten: none alive, none still to come and the wave button free again. Right after the
+        // wave's start nothing has spawned yet, which read as beaten: the wave has to run first
+        const running = () => !!document.querySelector('.td-wave-btn.td-wave-running') || c.store.enemiesAlive() > 0 || c.store.waveEnemiesLeft() > 0;
+        await waitUntil(running, 10, 'the wave to start').catch(() => console.warn('[showreel] waveDone: no wave running'));
+        await waitUntil(() => !running(), Number(args['timeout'] ?? 90), 'the wave to be beaten');
         return;
+      }
+      case 'choosePath': {
+        // A tower's path bought by the game's command (fixtures; a take shows the panel's button instead)
+        const all = (c.towerControl as unknown as TowerSeat).mirror.towers();
+        const i = Number(args['tower'] ?? -1);
+        const t = all[i < 0 ? all.length + i : i];
+        if (!t) throw new Error('showreel: no tower for choosePath');
+        // Refused while the tower still stands in its scaffold: asked again until the path is there
+        const path = String(args['path']);
+        await waitUntil(() => {
+          const now = (c.towerControl as unknown as TowerSeat).mirror.towers().find((x) => x.id === t.id);
+          if (now?.pathId === path) return true;
+          c.sim.bus.emit({ type: 'command:choose-path', towerId: t.id, pathId: path });
+          return false;
+        }, 30, `the ${path} path`);
+        return;
+      }
       case 'environment': {
         const w = this.world;
         const view = (w as unknown as { view: WorldView | null } | null)?.view;
@@ -665,6 +719,20 @@ export class GameStage implements Stage {
     return best;
   }
 
+  /** The buildable spot nearest `at` within `within` m (rings of 3 m), by the rules a click uses */
+  private spotNear(at: MapPoint3, tower: string, within: number): MapPoint3 {
+    for (let r = 0; r <= within; r += 3) {
+      const steps = r ? Math.ceil((2 * Math.PI * r) / 3) : 1;
+      for (let k = 0; k < steps; k++) {
+        const a = (k / steps) * Math.PI * 2;
+        const x = at.x + Math.cos(a) * r;
+        const y = at.y + Math.sin(a) * r;
+        if (this.buildableAround(x, y, tower)) return { x, y, h: Number.NaN };
+      }
+    }
+    throw new Error(`showreel: no spot for a ${tower} within ${within} m of ${Math.round(at.x)}, ${Math.round(at.y)}`);
+  }
+
   /** A planned spot, checked again now (an earlier tower may stand near it); a new one beside the routes if not */
   private spotFor(index: number, tower: string): MapPoint3 {
     let p = this.spots[index];
@@ -712,13 +780,18 @@ export class GameStage implements Stage {
    * spot, one click each. The spot was checked by the game's rules before
    * the pointer moved (planTowers, spotFor)
    */
-  private async build(tower: string, at: MapPoint3, seconds: number, hold: number): Promise<void> {
+  private async build(tower: string, at: MapPoint3, seconds: number, hold: number, optional = false): Promise<void> {
     const c = this.component;
     const selector = `.bp-card:has(canvas[data-tower-id="${tower}"])`;
-    await waitUntil(() => {
+    const usable = () => {
       const card = document.querySelector(selector);
       return !!card && card.getAttribute('aria-disabled') !== 'true' && !card.classList.contains('is-locked');
-    }, 10, `the ${tower} card`);
+    };
+    if (optional && !usable()) {
+      console.warn(`[showreel] no ${tower} now (credits or research), left out`);
+      return;
+    }
+    await waitUntil(usable, 10, `the ${tower} card`);
     // A card below the panel's fold (the new towers come last) scrolls up first, as a hand on the wheel would
     const card = element(selector);
     const list = card.getBoundingClientRect();
