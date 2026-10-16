@@ -36,6 +36,11 @@ eigenen Karten, Coop-Protokoll 5). Die Worker-Runden vom 2026-10-15 sind überno
 
 ### Bugs
 
+- [ ] **E204 Dunkles Kreuz im Gelände beim Absenken** (Showreel-Probe 2026-10-16, Stillwater b1): Während eines
+      Lower-Strichs liegt etwa 1 s ein dunkles Kreuz entlang der Terrain-Kachelränder, es wächst mit der Tiefe und
+      ist nach dem Strich weg. Normalen und Skirts werden synchron aktualisiert (`terrain-chunks.ts` updateGeometry);
+      Ursache offen, Kandidaten: Schatten-Teilaufbau während des Strichs, Geomorph/LOD im Shadow-Pass, Skirts. Im
+      Browser mit Schatten aus/an gegenprüfen. Im Showreel vorerst umschnitten.
 - [ ] **E188 Objekte poppen beim Zoomen und Bewegen auf** (User, 2026-10-15, eigene Karten): stellenweise erscheinen
       Objekte sichtbar spät. User sieht es sich genauer an und liefert Screenshots; erst dann untersuchen (LOD-Wechsel,
       Sichtweite je Objekt, Culling). Verwandt: Bäume poppen nach `viewReady` (E183, `wt/fx-engine`).
