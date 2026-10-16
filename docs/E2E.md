@@ -14,6 +14,10 @@ npm run e2e:report  # HTML-Bericht mit Screenshots und Relay-Log je Test
 Einmalig: `npm install` in `e2e/` und `npm run setup` dort (Chromium von Playwright). Ein einzelner Test:
 `npm run e2e -- tests/coop-lobby.e2e.ts` oder `npm run e2e -- -g "pause off"`. Zum Zusehen `SLOWMO=300 npm run e2e`.
 Ein ganzer Lauf dauert rund eine halbe Stunde; das meiste ist das Laden der Karte und Warten auf Wellen.
+Ohne Fenster (neben jemandem, der am Bildschirm arbeitet): `HEADLESS=1 npm run e2e`. Das läuft auf der echten GPU
+(ANGLE auf Direct3D 11, Windows, Chromium im Headless-Modus statt der Headless-Shell); deren Standard SwiftShader
+spielt eine eigene Karte zu langsam für die Zeitgrenzen der Tests (am 2026-10-16: keine Kills in 4 Minuten, Editor
+über 5 Minuten).
 
 Kein Relay darf auf Port 3003 laufen: jeder Test startet seinen eigenen (`npm run coop-server`, bei Bedarf
 `--no-cheats`) und stoppt ihn danach. Neben einem anderen Lauf nimmt `E2E_RELAY_PORT=<port>` einen anderen Port; die
