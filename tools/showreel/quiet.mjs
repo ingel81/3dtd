@@ -1,7 +1,9 @@
 // One recording on the real display at a time, the others' heavy work held meanwhile (several workers prepare
-// their scenes and rehearse headless; a recording beside a build or a test run stutters). A take on a display
-// queues in tmp/showreel/record-queue/ (first come, first served) and holds tmp/showreel/record.lock while it
-// records. Headless takes and rehearsals do not queue.
+// their scenes and rehearse headless; a recording beside a build or a test run stutters). A recording on the
+// display (run.mjs --record) queues in tmp/showreel/record-queue/ (one file per request, first come, first
+// served) and holds tmp/showreel/record.lock (pid, scene, start) while it records; a lock or ticket whose process
+// is gone is removed. Headless takes, rehearsals and fixtures wait while the lock is held (between scenes when
+// they run already); other heavy work calls --wait first.
 //
 //   node tools/showreel/quiet.mjs --wait      returns once no recording runs (before probes, vitest, builds)
 //   node tools/showreel/quiet.mjs --status    who records, who waits
@@ -54,17 +56,31 @@ function tickets() {
     });
 }
 
-/** The display for one recording: waits in the queue, then holds the lock until `release()` */
+/**
+ * Until no recording runs: heavy work (a headless take or rehearsal, fixtures, vitest, a build) waits here, and
+ * a rehearsal already running asks between its scenes. The process holding the lock itself never waits.
+ */
+export async function waitQuiet(what = 'this run') {
+  let told = false;
+  for (let held = holder(); held && held.pid !== process.pid; held = holder()) {
+    if (!told) console.log(`a recording runs (${held.scene}, since ${held.since}): ${what} waits`);
+    told = true;
+    await sleep(5000);
+  }
+  if (told) console.log(`recording done, ${what} goes on`);
+}
+
+/** The display for one recording: waits in the queue, then holds the lock (pid, scene, start) until `release()` */
 export async function recordSlot(what) {
   mkdirSync(QUEUE, { recursive: true });
   const ticket = `${Date.now()}-${process.pid}.json`;
-  writeFileSync(join(QUEUE, ticket), JSON.stringify({ pid: process.pid, what, since: new Date().toISOString() }));
+  writeFileSync(join(QUEUE, ticket), JSON.stringify({ pid: process.pid, scene: what, since: new Date().toISOString() }));
   let told = false;
   for (;;) {
     if (tickets()[0] === ticket && !holder()) {
       try {
         const fd = openSync(LOCK, 'wx');
-        writeFileSync(fd, JSON.stringify({ pid: process.pid, what, since: new Date().toISOString() }));
+        writeFileSync(fd, JSON.stringify({ pid: process.pid, scene: what, since: new Date().toISOString() }));
         closeSync(fd);
         rmSync(join(QUEUE, ticket), { force: true });
         return { release: () => rmSync(LOCK, { force: true }) };
@@ -73,7 +89,8 @@ export async function recordSlot(what) {
       }
     }
     if (!told) {
-      console.log(`waiting for the display: ${holder()?.what ?? 'the queue'} first`);
+      const ahead = tickets().indexOf(ticket);
+      console.log(`waiting for the display: ${holder()?.scene ?? 'nobody records'}, ${ahead} ahead in the queue`);
       told = true;
     }
     await sleep(2000);
@@ -82,15 +99,11 @@ export async function recordSlot(what) {
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   if (process.argv.includes('--status')) {
-    console.log(`recording: ${holder()?.what ?? 'none'}`);
-    for (const t of tickets()) console.log(`waiting: ${read(join(QUEUE, t))?.what}`);
+    const held = holder();
+    console.log(`recording: ${held ? `${held.scene} (pid ${held.pid}, since ${held.since})` : 'none'}`);
+    for (const t of tickets()) console.log(`waiting: ${read(join(QUEUE, t))?.scene}`);
   } else if (process.argv.includes('--wait')) {
-    let told = false;
-    while (holder()) {
-      if (!told) console.log(`a recording runs (${holder()?.what}), waiting`);
-      told = true;
-      await sleep(5000);
-    }
+    await waitQuiet('quiet.mjs --wait');
   } else {
     console.log('--wait or --status');
   }

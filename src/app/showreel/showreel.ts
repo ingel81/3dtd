@@ -70,6 +70,8 @@ export interface ShowreelApi {
   take: {
     /** Editor: a `.3dtdmap` stored as an own map with the environment patched in; its id */
     importMap(base64: string, environment?: Partial<MapEnvironment>): Promise<string>;
+    /** Editor: a new own map as the New map form makes it; its id */
+    newMap(options: Parameters<EditorStage['newMap']>[0]): Promise<string>;
     /** Editor: one agent call (run_script plays MapKit commands on the open map) */
     agent(tool: string, args: Record<string, unknown>): Promise<{ text: string; isError?: boolean }>;
     /** Editor: the open map as a file */
@@ -207,6 +209,7 @@ export function startShowreel(injector: Injector): void {
     },
     take: {
       importMap: (base64, environment) => asEditor().importMap(base64, environment),
+      newMap: (options) => asEditor().newMap(options),
       agent: (tool, args) => asEditor().agent(tool, args),
       mapFile: () => asEditor().mapFile(),
       loadSave: (base64, name) => asGame().loadSave(base64, name),

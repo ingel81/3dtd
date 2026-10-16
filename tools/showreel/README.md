@@ -83,14 +83,17 @@ node tools/showreel/run.mjs --check <take folder>                           # th
 python D:/Source/3dtd/tmp/showreel/edit/build.py cut-long.json [--dry] [--limit 20]
 ```
 
-The dev server needs the agent's script worker for map fixtures (`node tools/agent/build-script-worker.mjs`,
+Rehearsals and fixtures run against a dev server of one's own port; recordings use `--record` (below). The dev
+server needs the agent's script worker for map fixtures (`node tools/agent/build-script-worker.mjs`,
 which `npm start` runs; a server started before it was written must be restarted, it serves `public/` as it
 found it).
 
 **Start and environment** (scene fields in `script.mjs`, see the head of `take.mjs`):
 - `start: { editor: 'fixtures/x.3dtdmap' | '<shipped id>' }`: the file is stored as an own map with the scene's
-  sky patched in (no history step for it) and opened; `start: { game: '<shipped id>', save: 'fixtures/x.3dtdsave' }`:
-  the game on the map, the save loaded as the menu's Load from file does. Without a start, a scene with its own
+  sky patched in (no history step for it) and opened; `start: { game: '<shipped id>' | 'fixtures/x.3dtdmap', save:
+  'fixtures/x.3dtdsave' }`: the game on the map (a map file stored as an own map first), the save loaded as the
+  menu's Load from file does. `net: 'fixtures/x.har.zip'` on a scene answers its outside requests (page and
+  workers) from a recorded HAR and aborts every other outside request, so an OSM world needs no network. Without a start, a scene with its own
   `page` loads that page (fly-overs, the fight, the outro); one that plays on from the scene before cannot be
   taken alone and says so.
 - `env`: `window` (headless size, default 1600x900), `dpr`, `quality` (ultra), `seed` (the page's `Math.random`,
@@ -100,7 +103,8 @@ found it).
   over the ground, default 3), `sound` (whether the take must have sound; default game scenes). After setting them
   the runner reads them back from the page; a difference stops the take.
 - Fixtures (`FIXTURES` in script.mjs, files in `tmp/showreel/fixtures/` of the main checkout): a map fixture is
-  `from` (a shipped id or an earlier fixture) plus a map `script` (the editor agent's `run_script`, MapKit commands,
+  `from` (a shipped id, an earlier fixture, or `{ new: { name, size, ground, material } }` for a new map as the New
+  map form makes it) plus a map `script` (the editor agent's `run_script`, MapKit commands,
   docs/AGENT_MCP.md); a build-up story makes one per scene, each from the one before plus the commands of the scene
   before. A save fixture plays director `steps` in the game (towers through the sidebar), sets `credits` to a
   normal sum and saves between waves in the app's own format. Saves made by hand work as well (Save to file).
@@ -141,9 +145,29 @@ to `gameLufs` (-26, one gain, lifted 10 dB at most), the music its own track at 
 crossfades in); the watermark bottom left in game scenes and pages, off in the editor; titles bottom centre.
 Changing a take is one line in the list and a new build.
 
-**One recording at a time**: a take on the display queues in `tmp/showreel/record-queue/` and holds
-`tmp/showreel/record.lock`; others call `node tools/showreel/quiet.mjs --wait` before heavy work (probes, vitest,
-builds), `--status` shows who records and who waits. Headless takes do not queue.
+**One recording at a time** (several agents prepare and rehearse headless in parallel, one records):
+
+```bash
+node tools/showreel/run.mjs --record --scene a,b --display DISPLAY2   # build, queue, lock, serve on 4307, record, release
+node tools/showreel/quiet.mjs --wait                                   # before vitest, ng build, headless runs: returns when nobody records
+node tools/showreel/quiet.mjs --status                                 # who records (pid, scene, since), who waits
+```
+
+- `--record` first builds this checkout (`dist/showreel-record`: the agent's script worker, build info, `ng build
+  --configuration development`, which keeps the hook), after `quiet --wait`, so no build runs under someone else's
+  recording. Then it puts a ticket into `tmp/showreel/record-queue/` (one file per request, first come, first
+  served), waits for its turn, takes `tmp/showreel/record.lock` (pid, scene, start time), serves its build on
+  port 4307 itself (the dev server's isolation headers, `index.html` for app routes), records its scenes on the
+  display, stops serving and releases the lock. A lock or ticket whose process is gone is removed (stale).
+- Why a build per agent and not one shared dev server: each agent records exactly its own code from its own
+  worktree, nothing reloads or rebuilds under a recording, and no server is left running or owned by someone
+  else; port 4307 is only in use while the lock is held. Nothing else may listen on 4307 then (the serve fails
+  loudly). `--bundle <dir>` or `--no-build` take an existing build, `--url <server>` plays a running server instead
+  (still queued), `--port` another port.
+- While the lock is held: headless takes and rehearsals (`--scene ... --headless`, the programme run headless) and
+  `fixtures.mjs` wait before each scene or fixture, so a run that is already going pauses between scenes; other
+  heavy work calls `quiet.mjs --wait` first. A recording on the display without `--record` (the programme on a
+  display, a take with `--url`) queues and locks the same way.
 
 `scenes/proof.mjs` has two short takes that prove the flow: `proof-editor` (Demo Valley from a fixture with a
 first hill raised by MapKit, a second one with the Terrain tool) and `proof-game` (Red Canyon from a save with

@@ -6,8 +6,9 @@
 //   node tools/showreel/fixtures.mjs --url http://localhost:4307          the missing ones
 //   node tools/showreel/fixtures.mjs --url ... --force [--only <file>]    made again (all, or one)
 //
-// A map fixture: { file: 'fixtures/x.3dtdmap', from: '<shipped id>' | 'fixtures/y.3dtdmap', script: '<map script>',
-//   seed } (the script runs as the editor's agent's run_script, docs/AGENT_MCP.md: JavaScript against `map`)
+// A map fixture: { file: 'fixtures/x.3dtdmap', from: '<shipped id>' | 'fixtures/y.3dtdmap' | { new: { name, size
+//   (1024 or [w, d]), ground (a generator preset, 'flat'), material (the base material id), seed } }, script:
+//   '<map script>', seed } (the script runs as the editor's agent's run_script, docs/AGENT_MCP.md: JavaScript against `map`)
 // A save fixture: { file: 'fixtures/x.3dtdsave', game: '<shipped id>', steps: [director steps], credits } (the steps
 //   play in the game as a scene would, e.g. towers built through the sidebar; then the credits are set to a
 //   normal sum and the run is saved between waves and exported as the menu's Save to file does)
@@ -17,6 +18,7 @@ import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { HERE, launch, logConsole, pageUrl } from './browser.mjs';
 import { fixturePath } from './take.mjs';
+import { waitQuiet } from './quiet.mjs';
 
 const argv = process.argv.slice(2);
 const option = (name, fallback) => {
@@ -27,12 +29,18 @@ const option = (name, fallback) => {
 const hook = (page) => page.waitForFunction(() => !!window.__showreel, null, { timeout: 60_000 });
 
 async function mapFixture(page, base, fx) {
-  const from = fixturePath(fx.from);
-  if (!existsSync(from)) throw new Error(`${fx.file}: no ${from}`);
   await page.goto(pageUrl(base, '/editor'));
   await hook(page);
   await page.evaluate(() => window.__showreel.ready(120));
-  const id = await page.evaluate((b64) => window.__showreel.take.importMap(b64), readFileSync(from).toString('base64'));
+  let id;
+  if (fx.from?.new) {
+    // A new map as the New map form makes it: the first state of a chain
+    id = await page.evaluate((options) => window.__showreel.take.newMap(options), fx.from.new);
+  } else {
+    const from = fixturePath(fx.from);
+    if (!existsSync(from)) throw new Error(`${fx.file}: no ${from}`);
+    id = await page.evaluate((b64) => window.__showreel.take.importMap(b64), readFileSync(from).toString('base64'));
+  }
   await page.goto(pageUrl(base, `/editor?map=${encodeURIComponent(id)}`));
   await hook(page);
   await page.evaluate(() => window.__showreel.ready(120));
@@ -86,6 +94,7 @@ async function main() {
   }
   let failed = false;
   for (const fx of todo) {
+    await waitQuiet(`the fixture ${fx.file}`);
     // A fresh browser each: nothing of the one before in its storage
     const browser = await launch({ size: [1600, 900], quality: 'high', seed: fx.seed ?? 1 });
     const problems = [];

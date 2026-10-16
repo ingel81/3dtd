@@ -2,7 +2,9 @@
 // recorded again on its own and the cut picks a take per scene. See README.md, "Takes".
 //
 //   start   what the scene starts on: { editor: 'fixtures/x.3dtdmap' | '<shipped id>' } (the editor on an own copy),
-//           { game: '<shipped id>', save?: 'fixtures/x.3dtdsave' } (the game, from a save in the app's own format),
+//           { game: '<shipped id>' | 'fixtures/x.3dtdmap', save?: 'fixtures/x.3dtdsave' } (the game; a map file is
+//           stored as an own map first; from a save in the app's own format),
+//   net     'fixtures/x.har.zip': outside requests answered from a recorded HAR, every other outside one aborted
 //           or none: the scene's own `page` (a fly-over, the programme's scenes that load their page)
 //   env     the environment, set before the first frame and checked: window 'WxH', dpr, quality, seed, sky (a
 //           MapEnvironment patch: time of day, weather, sky image), camera { eye, look }, ui, routes, los,
@@ -21,7 +23,7 @@ import { execFileSync } from 'node:child_process';
 import { alignRun, chooseDisplay, duration, keepDisplayOn, recordDisplay, startScreencast } from './capture.mjs';
 import { DATA, ROOT, fetchSound, launch, logConsole, logView, pageUrl, verifySteps } from './browser.mjs';
 import { checkAndIndex, indexLine } from './check.mjs';
-import { recordSlot } from './quiet.mjs';
+import { recordSlot, waitQuiet } from './quiet.mjs';
 
 /** What a take's environment is when the scene says nothing */
 const DEFAULT_ENV = { window: '1600x900', quality: 'ultra', seed: 1, floor: 3 };
@@ -29,9 +31,12 @@ const DEFAULT_ENV = { window: '1600x900', quality: 'ultra', seed: 1, floor: 3 };
 /** Seconds the picture stays still before the sync flash and after the last step: room for the cut */
 const STILL_S = 1;
 
+/** A fixture is a file (`fixtures/x...`), else a shipped map's id */
+const isFile = (spec) => /[\\/]/.test(spec) || /\.[a-z0-9]+$/i.test(spec);
+
 /** A fixture's path: `fixtures/x` in the working folder, a shipped map by its id */
 export function fixturePath(spec) {
-  if (/[\\/]/.test(spec) || /\.3dtd(map|save)$/.test(spec)) return resolve(DATA, spec);
+  if (isFile(spec)) return resolve(DATA, spec);
   return join(ROOT, 'public/maps', `${spec}.3dtdmap`);
 }
 
@@ -133,18 +138,30 @@ async function recordTake(scene, opts) {
   console.log(`take ${scene.name} ${id}: ${start.kind} ${start.map ?? start.page}${start.save ? ` from ${start.save}` : ''}, ${headless ? `headless ${size.join('x')}` : display.name}${recording ? '' : ', rehearsal'}`);
 
   // The file the scene starts from: the editor's map, the game's save (a shipped map's game needs none)
-  const fixture = start.kind === 'editor' ? fixturePath(start.map) : start.save ? fixturePath(start.save) : null;
+  const fixture = start.kind === 'editor' ? fixturePath(start.map) : start.save ? fixturePath(start.save) : isFile(start.map ?? '') ? fixturePath(start.map) : null;
   if (fixture && !existsSync(fixture)) throw new Error(`no fixture ${fixture} (node tools/showreel/fixtures.mjs makes the generated ones)`);
 
-  // A recording on the display waits its turn: one at a time, the others hold their heavy work (quiet.mjs)
-  const slot = recording && display ? await recordSlot(`${scene.name} ${id}`) : null;
+  // A recording on the display waits its turn: one at a time (run.mjs --record holds the slot for all its
+  // scenes); headless work waits while someone records (quiet.mjs)
+  const slot = recording && display && !opts.slotHeld ? await recordSlot(`${scene.name} ${id}`) : null;
+  if (!display) await waitQuiet(`the take of ${scene.name}`);
   const browser = await launch({ display, size, dpr: opts.dpr || env.dpr || '', quality: opts.quality || env.quality, seed: env.seed, dcomp: opts.dcomp, playwrightDir: opts.playwrightDir });
   const { page } = browser;
   const problems = [];
   logConsole(page, problems);
   await page.exposeFunction('__showreelUpload', (sel, file) => page.setInputFiles(sel, file));
+  // `net`: the scene's outside requests answered from a recorded HAR (an OSM world without Overpass), the rest
+  // of the outside aborted; at the context, so the page's workers are answered too
+  if (scene.net) {
+    const har = fixturePath(scene.net);
+    if (!existsSync(har)) throw new Error(`no HAR ${har}`);
+    await browser.context.routeFromHAR(har, { notFound: 'abort', url: /^https?:\/\/(?!localhost[:/]|127\.0\.0\.1[:/])/ });
+  }
   const open = new Set();
-  page.on('request', (r) => open.add(r));
+  page.on('request', (r) => {
+    // data: and blob: never end as requests do
+    if (/^https?:/.test(r.url())) open.add(r);
+  });
   page.on('requestfinished', (r) => open.delete(r));
   page.on('requestfailed', (r) => open.delete(r));
   const hook = () => page.waitForFunction(() => !!window.__showreel, null, { timeout: 60_000 });
@@ -172,7 +189,15 @@ async function recordTake(scene, opts) {
       await page.evaluate(() => window.__showreel.ready(120));
       await page.evaluate(() => window.__showreel.run({ name: 'start', steps: [{ do: 'act', name: 'viewReady', timeout: 120 }] }));
     } else if (start.kind === 'game') {
-      await page.goto(pageUrl(opts.base, `/?world=map:${start.map}`, '', false, true));
+      // A map file (an own map, e.g. a generated OSM world): stored through the editor first, then played by its id
+      let mapId = start.map;
+      if (isFile(start.map)) {
+        await page.goto(pageUrl(opts.base, '/editor'));
+        await hook();
+        await page.evaluate(() => window.__showreel.ready(120));
+        mapId = await page.evaluate((b64) => window.__showreel.take.importMap(b64), readFileSync(fixturePath(start.map)).toString('base64'));
+      }
+      await page.goto(pageUrl(opts.base, `/?world=map:${encodeURIComponent(mapId)}`, '', false, true));
       await hook();
       await page.evaluate(() => window.__showreel.ready(180));
       if (start.save) {

@@ -9,6 +9,8 @@ import type { EditorViewport } from '../editor/view/editor-viewport';
 import type { EditorSettings } from '../editor/tools/tool';
 import { mapToScene } from '../editor/view/map-view';
 import { waterLevelAt } from '../world/custom-map/water-level';
+import { DEFAULT_CELL_SIZE } from '../world/custom-map/map-create';
+import type { TerrainPreset } from '../editor/ops/generate';
 import { packMapFile, unpackMapFile, MAP_FILE_EXTENSION } from '../world/custom-map/map-file';
 import type { MapEnvironment } from '../world/custom-map/map-document';
 import { poseToOrbit, type CameraPose, type MapPoint3 } from './camera-path';
@@ -204,6 +206,18 @@ export class EditorStage implements Stage {
     const loaded = unpackMapFile(Uint8Array.from(atob(base64), (ch) => ch.charCodeAt(0)));
     if (environment) loaded.doc.environment = { ...loaded.doc.environment, ...environment };
     return (await this.session.store.importDocument(loaded)).doc.meta.id;
+  }
+
+  /**
+   * A new own map as the editor's New map form makes it (`size` metres square or [width, depth], `ground` a
+   * generator preset, `material` the base material's id); returns its id. A fixture chain's first state
+   */
+  async newMap(options: { name: string; size?: number | [number, number]; ground?: string; material?: string; seed?: number; strength?: number }): Promise<string> {
+    const [width, depth] = Array.isArray(options.size) ? options.size : [options.size ?? 1024, options.size ?? 1024];
+    return this.session.createNew(
+      { name: options.name, width, depth, cellSize: DEFAULT_CELL_SIZE, ground: 'flat', baseMaterial: options.material },
+      { preset: (options.ground ?? 'flat') as TerrainPreset, seed: options.seed ?? 1, strength: options.strength ?? 0.5 },
+    );
   }
 
   /** One call of the editor's agent (docs/AGENT_MCP.md): `run_script` plays MapKit commands on the open map */

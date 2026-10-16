@@ -9,7 +9,7 @@
 //              on the one before and have no start of their own yet)
 //
 //   node tools/showreel/run.mjs --scene proof-game --headless --url http://localhost:4307   one take, headless
-//   node tools/showreel/run.mjs --scene ember-flyover --display DISPLAY2                     one take on a display
+//   node tools/showreel/run.mjs --record --scene ember-flyover --display DISPLAY2            one take on the display, queued
 //   node tools/showreel/run.mjs --url http://localhost:4200 --out <dir>            the whole programme, recorded
 //   node tools/showreel/run.mjs --from dv-sculpt --to dv-night ...                 a stretch of the programme
 //   node tools/showreel/run.mjs --finish <run folder>                            align and mix a run that stopped early
@@ -19,7 +19,7 @@
 //
 // Options: --display DISPLAY2 (default: the primary), --quality ultra|high (default ultra), --output-idx N (ddagrab output, default: found by a test
 // colour), --dpr 1 (device scale factor), --cq 18, --chroma 420|444, --headless [WxH] (no window: takes record
-// the page's screencast, the programme records nothing; --sound records the pages' sound, --verify plays step by step and logs what each changed, --verify-only a,b only those scenes; --shots N takes a picture every N seconds), --rehearse (play, record nothing), --takes <dir> (default tmp/showreel/takes of the main checkout), --check-browser (print Chrome's flags and translate pref), --playwright <dir> (where playwright-core lies, default e2e/node_modules of this checkout or
+// the page's screencast, the programme records nothing; --sound records the pages' sound, --verify plays step by step and logs what each changed, --verify-only a,b only those scenes; --shots N takes a picture every N seconds), --rehearse (play, record nothing), --record (on the display, queued: this checkout built and served on --port 4307 under the lock; --url <server> plays a running server instead, --bundle <dir> or --no-build an existing build), --takes <dir> (default tmp/showreel/takes of the main checkout), --check-browser (print Chrome's flags and translate pref), --playwright <dir> (where playwright-core lies, default e2e/node_modules of this checkout or
 // of the main checkout).
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -29,6 +29,8 @@ import { alignRun, chooseDisplay, displays, keepDisplayOn, recordDisplay } from 
 import { HERE, fetchSound, launch, logConsole, logView, pageUrl, startSound, verifySteps } from './browser.mjs';
 import { checkAndIndex } from './check.mjs';
 import { recordTakes } from './take.mjs';
+import { recordSlot, waitQuiet } from './quiet.mjs';
+import { BUNDLE, buildBundle, serveBundle } from './bundle.mjs';
 
 const argv = process.argv.slice(2);
 const flag = (name) => argv.includes(`--${name}`);
@@ -107,21 +109,46 @@ async function main() {
   // --scene a,b: one take per scene, each from its own start in a fresh browser (take.mjs)
   const only = option('scene', '');
   if (only && !flag('list')) {
-    const failed = await recordTakes(only.split(','), [...SCENES, ...TAKES], {
-      base: option('url', 'http://localhost:4200'),
-      headless: headlessSize(),
-      rehearse: flag('rehearse'),
-      verify: flag('verify'),
-      takes: option('takes', ''),
-      display: option('display', ''),
-      quality: option('quality', ''),
-      dpr: option('dpr', ''),
-      outputIdx: option('output-idx', ''),
-      cq: Number(option('cq', 18)),
-      chroma: option('chroma', '420'),
-      dcomp: flag('dcomp'),
-      playwrightDir: option('playwright', ''),
-    });
+    // --record: on the real display, one recording at a time (quiet.mjs): this checkout built first (while
+    // nobody records), then in the queue, then the build served on the recording port under the lock
+    let slot = null;
+    let served = null;
+    let base = option('url', 'http://localhost:4200');
+    if (flag('record')) {
+      if (flag('headless')) throw new Error('--record records on the display; leave out --headless');
+      if (!option('url', '')) {
+        await waitQuiet('the build for the recording');
+        const dir = option('bundle', '') || (flag('no-build') ? join(BUNDLE, 'browser') : buildBundle());
+        slot = await recordSlot(only);
+        served = await serveBundle(dir, Number(option('port', 4307))).catch((e) => {
+          slot.release();
+          throw e;
+        });
+        base = served.url;
+      } else slot = await recordSlot(only);
+    }
+    let failed;
+    try {
+      failed = await recordTakes(only.split(','), [...SCENES, ...TAKES], {
+        base,
+        slotHeld: !!slot,
+        headless: headlessSize(),
+        rehearse: flag('rehearse'),
+        verify: flag('verify'),
+        takes: option('takes', ''),
+        display: option('display', ''),
+        quality: option('quality', ''),
+        dpr: option('dpr', ''),
+        outputIdx: option('output-idx', ''),
+        cq: Number(option('cq', 18)),
+        chroma: option('chroma', '420'),
+        dcomp: flag('dcomp'),
+        playwrightDir: option('playwright', ''),
+      });
+    } finally {
+      await served?.close();
+      slot?.release();
+    }
     if (failed) process.exitCode = 1;
     return;
   }
@@ -172,6 +199,8 @@ async function main() {
     return;
   }
 
+  // A recording on the display waits its turn (quiet.mjs); a headless run waits while one records
+  const slot = !rehearse && display ? await recordSlot(`programme ${scenes[0]?.name ?? ''}`) : null;
   let recorder = null;
   // The monitors stay on while a run records (they went off with nobody there and the capture froze)
   const letDisplaySleep = display ? keepDisplayOn() : () => undefined;
@@ -278,6 +307,7 @@ async function main() {
     const asked = option('verify-only', '').split(',').filter(Boolean);
     const last = asked.length ? Math.max(...asked.map((n) => scenes.findIndex((x) => x.name === n))) : scenes.length - 1;
     for (const scene of scenes.slice(0, last + 1)) {
+      if (!display) await waitQuiet(`the rehearsal before ${scene.name}`);
       const target = scene.page ?? (current === null ? scene.needs : null);
       if (target) {
         await openPage(target, !!scene.intro && target === scene.page, !!scene.noIntro, !!scene.clean);
@@ -326,6 +356,7 @@ async function main() {
     save();
     recorder?.release();
     await browser.close();
+    slot?.release();
   }
 
   if (rehearse || !capture) {
