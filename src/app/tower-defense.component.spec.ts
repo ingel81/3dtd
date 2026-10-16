@@ -45,6 +45,7 @@ import { ReplayService } from './services/replay.service';
 import { CoopService } from './services/coop.service';
 import { TowerControlService } from './services/tower-control.service';
 import { MainMenuService } from './components/main-menu/main-menu.service';
+import { WorldsStageService } from './worlds/worlds-stage.service';
 import { WaveDebugService } from './services/debug/wave-debug.service';
 import { EnemyDebugService } from './services/debug/enemy-debug.service';
 import { DebugFacadeService } from './services/debug/debug-facade.service';
@@ -195,6 +196,7 @@ describe('TowerDefenseComponent', () => {
       [CoopService, s.coop],
       [TowerControlService, {}],
       [MainMenuService, s.menu],
+      [WorldsStageService, { pathChips: () => [], goChip: vi.fn() }],
       [WaveDebugService, {}],
       [EnemyDebugService, {}],
       [DebugFacadeService, {}],
