@@ -21,8 +21,9 @@ export const SCENES = [
   ]),
   flyover('archipelago-dusk', 'archipelago', 'Archipelago', [
     // The harbour at dusk, the buoys blinking red and green; then round the lighthouse rock, its cliffs closed
-    sky('afterglow', 'dusk', 8, { sunAzimuth: 250 }),
-    path(6, [[m(15, -210, 6), m(72, -168, 4)], [m(50, -215, 7), m(82, -160, 4)]], { ease: 'inOut', label: 'effect:buoys' }),
+    sky('afterglow', 'dusk', 13, { sunAzimuth: 250 }),
+    // Between the two buoys (48, -185 and 96, -185) close over the water, the lighthouse's beam beyond
+    path(6, [[m(30, -205, 3.5), m(48, -185, 2)], [m(72, -212, 4), m(96, -185, 2.5)]], { ease: 'inOut', label: 'effect:buoys' }),
     path(6, [[m(140, 0, 40), m(205, 78, 15)], [m(275, 50, 42), m(205, 80, 15)]], { ease: 'inOut', label: 'effect:cliffs' }),
   ]),
 ];

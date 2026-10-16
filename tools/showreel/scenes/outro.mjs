@@ -11,11 +11,14 @@ export const SCENES = [
       { do: 'ui', on: false },
       { do: 'markers', on: false },
       act('routes', { on: false }),
-      // The map's own sky: black, the sun low from the south-east, the Earth over the north rim. A slow push from
-      // the south over the station toward it, rising as it closes in
-      wait(1),
+      // Raking light: the sun low in the south-east, behind the camera's right, lights the crater rims from the side, long shadows across the floor;
+      // the Earth larger and lower over the north rim. Held still while the new light settles
+      act('environment', { patch: { sunAzimuth: 135, sunElevation: 18, planet: { azimuth: 5, elevation: 10, size: 14 } } }),
+      wait(1.8),
       { do: 'mark', name: 'Outro' },
-      path(16, [[m(20, -175, 14), m(40, 250, 70)], [m(26, -125, 20), m(40, 250, 80)], [m(30, -80, 28), m(40, 250, 90)]], { ease: 'inOut', label: 'effect:earth' }),
+      // A slow push from the south over the station toward the Earth, the look rising onto it; it ends on the Earth
+      path(18, [[m(25, -170, 9), m(40, 300, 45)], [m(30, -110, 14), m(40, 300, 62)], [m(34, -60, 20), m(40, 300, 88)]], { ease: 'inOut', label: 'effect:earth' }),
+      wait(1.5),
       { do: 'fade', to: 1, dur: 2, label: 'fade out' },
       wait(0.5),
     ],
