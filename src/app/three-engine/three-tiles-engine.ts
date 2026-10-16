@@ -367,7 +367,7 @@ export class ThreeTilesEngine {
     // again from its CPU copy, which the VATs drop after their first upload.
     this.enemies.rebakeOnContextRestore(this.renderer.domElement);
     this.towers = new ThreeTowerRenderer(this.scene, coordinateSync, this.assetManager);
-    this.plinths = new TowerPlinthRenderer(this.scene, coordinateSync);
+    this.plinths = new TowerPlinthRenderer(this.scene, coordinateSync, (x, z) => this.terrain.sampleColumn(x, z));
     this.towerBadges = new TowerBadgeRenderer(this.scene, (id) => this.towers.get(id)?.mesh ?? null);
     this.projectiles = new ThreeProjectileRenderer(this.scene, coordinateSync);
     // One clock for everything that slides between two states (state-lerp.ts)

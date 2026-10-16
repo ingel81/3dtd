@@ -1169,7 +1169,12 @@ steht oder über einem Abbruch hängt (Wand und Abbruch in den Regeln oben):
   Der Trainings-Bot geht denselben Weg (`placementAt`, dann `GameStateManager.placeTower`).
 - **Darstellung:** `TowerPlinthRenderer` (`engine.plinths`, `three-engine/renderers/tower-plinth/`)
   baut pro Sockel ein Mesh: runde, leicht geböschte Säule, 0,2 m breiter als die Grundfläche,
-  0,4 m tiefer als die tiefste Probe. Das Bruchsteinmauerwerk zeichnet ein
+  0,4 m tiefer als die tiefste Probe. Fällt der Grund neben der Wand weiter ab als die tiefste
+  Probe (ein Hang jenseits des äußeren Rings), reicht der Fuß der Wand je Segment bis 0,4 m in die
+  oberste Fläche der Säule dort, höchstens `PLINTH_SKIRT_M` (6 m) unter den flachen Boden; tiefer
+  ist es ein Abbruch und der Boden bleibt flach. Vorher hing der Sockel auf der Talseite bis knapp
+  3 m über dem Hang (Red Canyon). Nur Darstellung, die Simulation sieht davon nichts; die
+  Bauvorschau zeigt den flachen Boden. Das Bruchsteinmauerwerk zeichnet ein
   `MeshStandardMaterial` mit `onBeforeCompile` prozedural in Weltkoordinaten (Steine als
   3D-Voronoi-Zellen, Kalkmörtel, Laufspuren, Moos in Fugen, oben und am Fuß). Als Standard-Material
   bekommt der Sockel dieselben Lichter wie die Tower-Modelle, Log-Depth und die Farbraum-Wandlung.
