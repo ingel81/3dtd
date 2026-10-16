@@ -41,6 +41,8 @@ export const SCENES = [
       act('agent', { replay: 'castle', label: 'agent' }),
       act('idle', { timeout: 30 }),
       { do: 'mark', name: 'effect:castle' },
+      // Held still while the editor saves the change (two seconds after it, with a picture: a hitch in a moving shot)
+      wait(2.5),
       // The result held while the camera turns a little round it
       frame(around(50), { from: 35, turn: 14, pitch: 34, margin: 4, glide: 0.1, dur: 4 }),
       // The step in the editor's history: "Agent: castle"
