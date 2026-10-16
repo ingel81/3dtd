@@ -56,30 +56,9 @@ eigenen Karten, Coop-Protokoll 5). Die Worker-Runden vom 2026-10-15 sind überno
       Dachkanten, Sockel, Kantenfasen), Texturen in Blender (Verdeckung, Kantenabnutzung, Schmutz backen; höhere
       Auflösung wo es lohnt, heute WebP 512 px), LODs neu (`make_lods.py`, `match_lods.py`), im Budget (Scene cost,
       E169). Zuerst die Gebäude aus dem Showreel; Vorher/Nachher-Bilder je Modell zur Abnahme.
-- [ ] **E195 Spiel, Editor und Welten aus einem Guss** (User, 2026-10-15, für später; großer Punkt, erst Plan-Doku
-      und Abstimmung): Spiel und Editor fühlen sich wie zwei getrennte Anwendungen an, beide nicht richtig mit dem
-      Hauptmenü verknüpft; das Hin und Her zwischen Editor, Karte und Spiel und zwischen echten Orten (3D-Tiles), eigenen
-      Karten und OSM-Karten (im Grunde auch eigene Karten) ist nicht flüssig, teils lädt die Seite neu. Ziel:
-      - eine zusammenhängende Anwendung: Hauptmenü, Spiel und Editor als Teile eines Ganzen, Wechsel ohne Neuladen
-        und ohne Änderung der URL (die Desktop-App hat keine Adresszeile: jeder Weg muss über die Oberfläche gehen)
-      - jederzeit klar: wo man ist (Welt, Karte, Spiel oder Editor, laufender Lauf), wohin man kann, und was nicht geht
-        und warum (etwa kein Map-Key für 3D-Tiles: sichtbar, mit dem Weg zum Key, statt versteckt)
-      - möglichst viele Optionen von überall: aus dem Spiel in den Editor und zurück in denselben Lauf, aus dem Editor
-        in ein Probespiel, aus einem echten Ort eine Karte, Laden und Speichern quer über die Welten
-      - Idee (User): ein globaler Umschalter für das, was man gerade tut (echte Orte, eigene Karten, OSM-Karten, Editor),
-        und je Welt ein eigener Hintergrund hinter dem Menü statt immer des echten Globus, etwa ein eigener Globus oder
-        eine Kartenwelt für die Custom Maps, damit sichtbar ist, dass es mechanisch dasselbe Spiel in anderer Welt ist;
-        der Wechsel nahtlos, ohne Klick-und-Neuladen
-      - Idee (User, 2026-10-15 abends): Neuladen landet heute immer gleich in der Echtwelt (Tiles laden). Stattdessen
-        zum Start drei Globen nebeneinander: echte 3D-Tiles (ausgegraut ohne Token, mit dem Weg zum Token), ein
-        schematischer Globus für die OSM-Welt, ein comichafter in Engine-Grafik für die mitgelieferten und eigenen
-        Karten. Ein Klick holt den Globus groß nach vorn (wie heute der Menü-Globus), geladen wird erst mit Start im
-        Menü. Klick-Dummy dazu: `tmp/plan/mockups/world-globes/`
-      Plan: [WORLDS_NAVIGATION_PLAN.md](docs/WORLDS_NAVIGATION_PLAN.md) (Bestand, Zielmodell, 7 Phasen, offene Entscheidungen);
-      gewählte Darstellung: Globen, Menü links, letzte Welt groß, Globus mittel, Hintergrund je Welt, großzügig.
-      Vorgehen: alle heutigen Wege aufnehmen (Startmenü-Reiter, New game, Pausemenü, Game over, Editor-Kopf, Testfenster,
-      Spielstände, Links, Desktop), Brüche und Neuladen benennen, ein durchgängiges Modell vorschlagen (Plan-Doku),
-      mit dem User per Baukasten/Entwürfen abstimmen, dann bauen.
+- [ ] **E195 Rest:** Menü und Weltwechsel sind gebaut (Abschnitt 2). Offen: Speichermessung über 10 Weltwechsel
+      für die Phasen 3 bis 5 im Production-Build (braucht lokal `CUSTOM_MAPS_RELEASED = true`, die Freigabe-Sperre
+      blockierte es; sonst im Dev-Build messen); OSM-Karten heißen im Pfad noch „Maps“ (`worldName` kennt nur den WorldRef).
 - [ ] **E184 Mitgelieferte Karten imposanter** (User, 2026-10-15): die meisten Karten sind noch zu langweilig, es muss
       deutlich mehr gehen (Kulisse, Höhenunterschiede, Blickpunkte, Wahrzeichen, dichtere und abwechslungsreichere
       Gestaltung). Bekannte Stellen aus dem Showreel: Wald in Autumn Keep trüb und aus der Distanz braun, Burg in der
@@ -92,13 +71,13 @@ eigenen Karten, Coop-Protokoll 5). Die Worker-Runden vom 2026-10-15 sind überno
       Vorschläge je Karte zusammen mit E184. Entschieden (User, 2026-10-15): allgemeine Mechanismen, auch im Editor
       setzbar und einstellbar (Katalog/Effekt-Objekte, Bereiche, Map-Kit- und MCP-Befehle); die mitgelieferten Karten
       bekommen ihr Leben nur über dieselben Editor-Funktionen, keine Sonderwege je Karte. Gilt ebenso für E184.
-- [ ] **E182 Showreel-Video, nächste Runde** (User, 2026-10-15; geparkt, bis Fixes, Karten und offene Features stehen):
-      Rig auf `wt/showreel` (`tools/showreel/`), Take 8 sauber, lange (12 min) und kurze Fassung (1:30) abgelehnt:
-      zu lahm, noch Fehler. Wünsche: kurzes Intro bis zum Editor; Editor-Funktionen auf vier Karten im Wechsel, auch
-      Mars und Mond; „Fire and Ice“ mit passendem Grundmaterial statt Wiese (weniger Grün); Kampf am Schluss nicht
-      abrupt enden lassen; Outro auf Mars, Mond oder einem anderen Planeten mit eindrucksvoller Kulisse, nicht dieselbe
-      Karte wie am Anfang. Kurze Fassung: zeigt das Wichtige nicht, lässt zu viel aus und schneidet teils im falschen
-      Moment (mitten in der Aktion statt nach der sichtbaren Wirkung). Schnitt mit `tmp/showreel/edit/build.py long|short`.
+- [ ] **E182 Showreel Runde 4** (User, 2026-10-16: v3 abgelehnt, „nicht gut“; Runde 4 pausiert, bis das Spiel rund ist):
+      Drehbuch freigegeben `tmp/showreel/DREHBUCH_R4.md` (lang 6:52, kurz 1:50, englische Texte), Gesamtliste
+      `tmp/showreel/GESAMTLISTE_v3.md`, Wünsche `tmp/showreel/ACCEPT.md` (Punkte 1-21), Konzept einzeln drehbarer Szenen
+      `tmp/showreel/CONCEPT_SCENES.md` (gebaut auf `wt/showreel2`: Takes, Fixtures, Prüfung, Schnittliste, Warteschlange).
+      Kapitel geprobt auf `wt/reel-k12` (K1, K2), `wt/reel-k3` (K3 Stillwater, wip), `wt/reel-k457` (K4, K5, K7),
+      `wt/showreel2` (K0, K6). Weiter: Branches mit `next` zusammenführen, osm-fly überarbeiten (Review Lead), K0 zoomen,
+      K3 fertig proben, dann je Szene über die Warteschlange auf DISPLAY2 drehen, schneiden, NAS.
 - [ ] **E103 Ego-Steuerung des Helden** (User, 2026-10-02).
 - [ ] **E83 AppImage und AUR** (2026-09-30): gebaut 2026-10-05 (statische Laufzeit, Update-Information und `.zsync`,
       AUR-Paket `3dtd-bin` mit CI-Job). AUR ok, der Job lief im Release 0.7.0 grün. Offen beim User nur: das AppImage
@@ -159,9 +138,9 @@ eigenen Karten, Coop-Protokoll 5). Die Worker-Runden vom 2026-10-15 sind überno
 - [ ] **E157 O5**: Zäune, Mauern, Gleise, Laternen, Stadtmöbel, Oberleitung in OSM-Welten; O7 und LoD2 gemessen (OSM_WORLD_PLAN).
 - [ ] **E170 Intro-Flug je Karte**, **E201** Ebnen nach Rechteck, Fackellicht weich, Wasser nachts dunkler, Leuchtturmstrahl
       weich, Hölle-Biom Asche, kein grüner Boden beim Öffnen, Routenanimation folgt dem Schalter, Sprung zur Welle (PLAYTEST D).
-- [ ] **E195 Phase 1 und 2** auf `wt/e195-nav` (nicht gemergt): Startauftrag statt URL, Weltwechsel ohne Neuladen.
-      Entschieden (User, 2026-10-16): Phasen 3 bis 7 (neues Menü) bauen, danach alles auf `next`; Push erst dann.
-      Harbor Town nachts (User, 2026-10-16). LAN-Relay ohne Origin: später ansehen.
+- [ ] **E195 Welten aus einem Guss** gebaut (alle 7 Phasen, Plan `docs/WORLDS_NAVIGATION_PLAN.md`) plus Zustandsmodell
+      (`docs/WORLDS_STATE_PLAN.md`: Built Worlds, Continue und Recent je Welt, Back to ohne Abbau), Overpass-Retry, Editor
+      Drehen beim Setzen, glatte Ufer, Ruckler beim Speichern weg (PLAYTEST E).
 - [ ] **Offen aus der Prüfung:** Mond-Basalt (`moon-basalt`) fast schwarz, Steilhänge der Mondkarten lesen sich als Löcher;
       Textur aufhellen braucht `ktx.exe` zum Packen.
 
