@@ -60,15 +60,21 @@ const LISTS: readonly { id: RealList; label: string }[] = [
           @if (locations.recents().length) {
             <div class="td-rows" role="group" aria-label="Recent places">
               @for (recent of locations.recents(); track recent.visitedAt) {
-                <button type="button" class="td-row wm-row" [class.is-selected]="isPicked(recent.hq)"
-                        (click)="pickPlace(recent.hq, recent.spawns.slice(0, 1), recent.name)">
-                  <span class="td-name">{{ recent.name }}</span>
-                  <span class="td-note td-num wm-meta">{{ age(recent.visitedAt) }}</span>
-                </button>
+                <div class="wm-line">
+                  <button type="button" class="td-row wm-row" [class.is-selected]="isPicked(recent.hq)"
+                          (click)="pickPlace(recent.hq, recent.spawns.slice(0, 1), recent.name)">
+                    <span class="td-name">{{ recent.name }}</span>
+                    <span class="td-note td-num wm-meta">{{ age(recent.visitedAt) }}</span>
+                  </button>
+                  <button type="button" class="td-tool" data-recent-remove [attr.aria-label]="'Remove ' + recent.name + ' from Recent'"
+                          title="Remove from Recent" (click)="locations.forgetRecent(recent.hq)">
+                    <td-icon name="close" [size]="12" />
+                  </button>
+                </div>
               }
             </div>
           } @else {
-            <p class="td-note">Every place you play shows up here.</p>
+            <p class="td-note">Every place you play shows up here, once its first wave or tower is in.</p>
           }
         }
         @case ('favorites') {

@@ -1,3 +1,5 @@
+// The location service reaches for the game's store (partially compiled): the JIT compiler
+import '@angular/compiler';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Injector, signal } from '@angular/core';
 import { Group, Vector2 } from 'three';

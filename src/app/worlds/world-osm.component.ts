@@ -4,6 +4,7 @@ import { TdIconComponent } from '../components/icon/icon.component';
 import { StageContinueComponent } from './stage-continue.component';
 import { OsmFrameComponent } from '../components/osm-frame/osm-frame.component';
 import { WorldsStageService } from './worlds-stage.service';
+import { MAX_RECENT_WORLDS } from './recent-maps';
 import { placeLabel } from '../services/location/place-label';
 import type { NominatimAddress } from '../services/location/geocoding.service';
 
@@ -11,8 +12,9 @@ import type { NominatimAddress } from '../services/location/geocoding.service';
  * OpenStreetMap's menu (docs/WORLDS_NAVIGATION_PLAN.md, user decision 5):
  * a world of its own. A real place searched (or the one picked under Real
  * places) opens the frame with its HQ and spawns; the map made there is
- * played or opened in the editor, and it stands under Maps too. No map key
- * is needed.
+ * played or opened in the editor. The maps made here and not changed since
+ * are its Recent worlds (docs/WORLDS_STATE_PLAN.md, 3.6); one changed in the
+ * editor is a Built World. No map key is needed.
  */
 @Component({
   selector: 'app-world-osm',
@@ -47,19 +49,33 @@ import type { NominatimAddress } from '../services/location/geocoding.service';
           }
         </section>
         <section class="td-group" aria-labelledby="wm-osm-mine">
-          <h3 class="td-section" id="wm-osm-mine">Your OpenStreetMap maps</h3>
+          <h3 class="td-section" id="wm-osm-mine">Recent worlds</h3>
           @if (mine().length) {
             <div class="td-rows">
               @for (map of mine(); track map.id) {
-                <button type="button" class="td-row wm-row" [class.is-selected]="pickedId() === map.id"
-                        (click)="stage.pick('osm', { kind: 'map', id: map.id, name: map.name })">
-                  <span class="td-name">{{ map.name }}</span>
-                  <span class="td-note td-num wm-meta">{{ map.spawns }} {{ map.spawns === 1 ? 'spawn' : 'spawns' }}</span>
-                </button>
+                <div class="wm-line">
+                  <button type="button" class="td-row wm-row" [class.is-selected]="pickedId() === map.id" [attr.data-map]="map.id"
+                          (click)="stage.pick('osm', { kind: 'map', id: map.id, name: map.name })">
+                    <span class="wm-map">
+                      @if (map.picture) {
+                        <img class="wm-thumb td-well" [src]="map.picture" alt="" />
+                      } @else {
+                        <span class="wm-thumb td-well" aria-hidden="true"></span>
+                      }
+                      <span class="td-name">{{ map.name }}</span>
+                    </span>
+                    <span class="td-note td-num wm-meta">{{ map.spawns }} {{ map.spawns === 1 ? 'spawn' : 'spawns' }}</span>
+                  </button>
+                  <button type="button" class="td-tool" data-recent-remove [attr.aria-label]="'Remove ' + map.name + ' from Recent worlds'"
+                          title="Remove from Recent worlds" (click)="stage.removeWorld(map)">
+                    <td-icon name="close" [size]="12" />
+                  </button>
+                </div>
               }
             </div>
+            <p class="td-note">The last {{ max }} maps made here. Change one in the editor and it becomes a Built World.</p>
           } @else {
-            <p class="td-note">None yet. A map made here stands under Maps too.</p>
+            <p class="td-note">None yet. A map you make here shows first.</p>
           }
         </section>
       }
@@ -95,7 +111,9 @@ export class WorldOsmComponent {
   readonly stage = inject(WorldsStageService);
 
   readonly lock = computed(() => this.stage.lock('osm'));
-  readonly mine = computed(() => this.stage.maps().filter((m) => m.osm !== null));
+  /** The maps made here and not changed since, newest first (Recent worlds) */
+  readonly mine = this.stage.recentWorlds;
+  readonly max = MAX_RECENT_WORLDS;
   readonly pickedId = computed(() => {
     const pick = this.stage.picks().osm;
     return pick?.kind === 'map' ? pick.id : null;

@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, InjectionToken, OnDestroy, OnInit, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { TdIconComponent } from '../icon/icon.component';
 import type { MapSummary } from '../../world/custom-map/map-store';
+import { sketchMapPicture } from '../../world/custom-map/map-sketch';
 import { MAP_STORE } from '../../world/world-choice.service';
 import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
 import type { CatalogObject } from '../../world/custom-map/render/asset-catalog';
@@ -282,7 +283,9 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
       );
       if (signal.aborted) throw new Error(OSM_CANCELLED);
       this.step.set('save');
-      const summary = await this.store.save(made.doc, null, made.file);
+      // A picture for the lists until the editor renders its own (docs/WORLDS_STATE_PLAN.md, 6)
+      const preview = await sketchMapPicture(made.doc).catch(() => null);
+      const summary = await this.store.save(made.doc, preview, made.file);
       console.warn(`[OSM world] ${summary.id}: made in ${made.convertMs} ms`, { download: this.frame()?.download, report: made.report });
       if (this.destroyed) return;
       this.made.set({ summary, report: made.report });

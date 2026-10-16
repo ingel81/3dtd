@@ -108,13 +108,21 @@ describe('Worlds stage', () => {
   afterEach(() => {
     TestBed.resetTestingModule();
     localStorage.clear();
+    own = [];
   });
 
   let store: MemorySlotStore;
+  const shipped = () => [{ summary: summary({ id: 'demo-valley', name: 'Demo Valley', description: 'River valley.' }), picture: 'maps/demo-valley.png' }];
+  let own: { summary: MapSummary; picture: string | null }[] = [];
+  let trashMap: ReturnType<typeof vi.fn<(id: string) => Promise<boolean>>>;
 
   async function open(setup: { key?: boolean; slots?: StoredSlotMeta[] } = {}): Promise<ComponentFixture<WorldsStageComponent>> {
     opened = [];
     store = new MemorySlotStore(setup.slots ?? []);
+    trashMap = vi.fn(async (id: string) => {
+      own = own.filter((m) => m.summary.id !== id);
+      return true;
+    });
     session = { isOpen: signal(false), open: (order) => opened.push(order), close: vi.fn() };
     const token = signal(setup.key ? 'ion-token' : '');
     config = { cesiumIonToken: token, needsCredentials: computed(() => !token()), setupRequested: signal(false) };
@@ -135,9 +143,10 @@ describe('Worlds stage', () => {
         {
           provide: WorldChoiceService,
           useValue: {
-            listMaps: async () => ({ own: [], shared: [], shipped: [{ summary: summary({ id: 'demo-valley', name: 'Demo Valley', description: 'River valley.' }), picture: null }] }),
+            listMaps: async () => ({ own: [...own], shared: [], shipped: shipped() }),
             tilesets: signal([]),
             editMap: vi.fn(),
+            trashMap: (id: string) => trashMap(id),
           },
         },
       ],
@@ -335,5 +344,55 @@ describe('Worlds stage', () => {
     expect(TestBed.inject(WorldsStageService).view()).toBe('world');
     expect(text(el(f).querySelector('.ws-path'))).toBe('Worlds › Built Worlds › Demo Valley Play Edit');
     expect(opened).toEqual([]);
+  });
+
+  const ownMap = (id: string, name: string, extra: Partial<MapSummary> = {}) =>
+    ({ summary: summary({ id, name, origin: 'own', updatedAt: '2026-10-16T08:00:00Z', ...extra }), picture: `blob:${id}` });
+
+  it('OpenStreetMap lists its unchanged maps as Recent worlds; Remove asks, then the map goes to the trash', async () => {
+    own = [
+      ownMap('miltenberg', 'Miltenberg', { generated: true, osm: { lat: 49.7, lon: 9.26 } }),
+      ownMap('binswangen', 'Binswangen', { osm: { lat: 48.5, lon: 10.6 } }),
+    ];
+    const f = await open({ key: true });
+    card(f, 'osm').click();
+    await settle(f);
+    const rows = () => [...el(f).querySelectorAll<HTMLElement>('[data-map]')].map((r) => r.dataset['map']);
+    expect(text(el(f).querySelector('#wm-osm-mine'))).toBe('Recent worlds');
+    expect(rows()).toEqual(['miltenberg']);
+    expect(el(f).querySelector<HTMLImageElement>('[data-map="miltenberg"] img')!.getAttribute('src')).toBe('blob:miltenberg');
+    el(f).querySelector<HTMLElement>('[data-recent-remove]')!.click();
+    await settle(f);
+    expect(text(el(f).querySelector('.ws-confirm'))).toContain('Remove Miltenberg from Recent worlds?');
+    button(f, 'Remove').click();
+    await settle(f);
+    expect(trashMap).toHaveBeenCalledWith('miltenberg');
+    expect(rows()).toEqual([]);
+  });
+
+  it('Built Worlds lists every other map with its picture and where it comes from; Recent shows the maps played lately', async () => {
+    own = [
+      ownMap('miltenberg', 'Miltenberg', { generated: true, osm: { lat: 49.7, lon: 9.26 } }),
+      ownMap('binswangen', 'Binswangen', { osm: { lat: 48.5, lon: 10.6 } }),
+      ownMap('demo-valley-copy', 'Demo Valley (copy)', { copyOf: { id: 'demo-valley', hash: 'h' } }),
+    ];
+    localStorage.setItem('td_recent_maps_v1', JSON.stringify(['demo-valley']));
+    const f = await open({ key: true });
+    card(f, 'maps').click();
+    await settle(f);
+    const sections = [...el(f).querySelectorAll('.wm-body .td-group')].map((g) => [text(g.querySelector('.td-section')), [...g.querySelectorAll<HTMLElement>('[data-map]')].map((r) => r.dataset['map'])]);
+    expect(sections).toEqual([
+      ['Recent', ['demo-valley']],
+      ['Your built worlds', ['binswangen', 'demo-valley-copy']],
+      ['From coop hosts', []],
+      ['Shipped', ['demo-valley']],
+    ]);
+    expect(text(el(f).querySelector('[data-map="binswangen"]'))).toContain('from OpenStreetMap');
+    expect(text(el(f).querySelector('[data-map="demo-valley-copy"]'))).toContain('copy of Demo Valley');
+    expect(el(f).querySelector<HTMLImageElement>('[data-map="demo-valley"] img')!.getAttribute('src')).toBe('maps/demo-valley.png');
+    el(f).querySelector<HTMLElement>('[data-recent-remove]')!.click();
+    await settle(f);
+    expect(text(el(f).querySelector('.wm-body .td-group .td-section'))).toBe('Your built worlds');
+    expect(localStorage.getItem('td_recent_maps_v1')).toBe('[]');
   });
 });

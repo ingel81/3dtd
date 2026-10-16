@@ -145,6 +145,16 @@ export class WorldChoiceService {
     this.injector.get(WorldsStageService).leaveGame({ world: 'real', pick: null });
   }
 
+  /** An own map to the editor's trash (an OpenStreetMap map off the Recent worlds); false when it did not go */
+  async trashMap(id: string): Promise<boolean> {
+    try {
+      await this.store.trash(id);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   /** The map editor in this window on this map (a shipped one opens there as a copy to save); null: its list */
   editMap(mapId: string | null): void {
     this.screens.openEditor(mapId);

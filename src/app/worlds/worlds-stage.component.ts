@@ -182,9 +182,9 @@ export class WorldsStageComponent {
         if (!requested && this.stage.overlay() === 'key') this.stage.overlay.set(null);
       });
     });
-    // The maps' globe: a tower for every map that is not of OpenStreetMap, the pick in brass
+    // The maps' globe: a tower for every Built World, the pick in brass
     effect(() => {
-      const maps = this.stage.maps().filter((m) => !m.osm);
+      const maps = this.stage.maps().filter((m) => !m.generated);
       const pick = this.stage.picks().maps;
       untracked(() => this.globes?.setMaps(maps, pick?.kind === 'map' ? pick.id : null));
     });
@@ -201,7 +201,7 @@ export class WorldsStageComponent {
       );
       this.globes = globes;
       zone.runOutsideAngular(() => globes.start(this.globeSetting() === 'low' ? 'low' : 'high', homeLongitude()));
-      globes.setMaps(this.stage.maps().filter((m) => !m.osm), null);
+      globes.setMaps(this.stage.maps().filter((m) => !m.generated), null);
     }, { injector: this.injector });
     // The menu globe switched off in Settings: the discs from now on
     effect(() => {
@@ -227,7 +227,7 @@ export class WorldsStageComponent {
     if (world === 'osm') return 'Maps made from OpenStreetMap, no key needed';
     const maps = this.stage.maps();
     const shipped = maps.filter((m) => m.origin === 'shipped').length;
-    const own = maps.filter((m) => m.origin !== 'shipped' && !m.osm).length;
+    const own = maps.filter((m) => m.origin !== 'shipped' && !m.generated).length;
     return maps.length === 0 ? 'Shipped maps and your own' : `${shipped} shipped maps, ${own} of yours`;
   }
 

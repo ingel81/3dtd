@@ -14,6 +14,7 @@ import { WorldSession } from '../world/world-session.service';
 import { PLAIN_START, WorldStartService, type WorldStart } from '../world/world-start';
 import type { OsmFrameRequest } from '../components/osm-frame/osm-frame-request';
 import { StageSaves } from './stage-saves';
+import { forgetRecentMap, loadRecentMaps, overflowWorlds } from './recent-maps';
 import {
   heroWorld,
   runAtRisk,
@@ -52,6 +53,9 @@ export interface StageMap {
   osm: { lat: number; lon: number } | null;
   /** Made from OpenStreetMap and unchanged since: OpenStreetMap's, not a Built World (worldOfMap) */
   generated: boolean;
+  /** The shipped or coop map this own one is a copy of, by its name; null for another */
+  copyOf: string | null;
+  updatedAt: string;
   picture: string | null;
 }
 
@@ -112,6 +116,12 @@ export class WorldsStageService {
   private readonly frameFrom = signal<WorldId>('osm');
   /** Own, received and shipped maps, filled when a world of maps shows */
   readonly maps = signal<readonly StageMap[]>([]);
+  /** The Built Worlds' Recent: the maps played lately, newest first (recent-maps.ts) */
+  readonly recentMaps = signal<readonly string[]>(loadRecentMaps());
+  /** OpenStreetMap's Recent worlds: the maps made there and not changed since, newest first */
+  readonly recentWorlds = computed(() =>
+    this.maps().filter((m) => m.generated).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)));
+
   /** Why the last Start did not happen, said under its button */
   readonly notice = signal<string | null>(null);
   /** The dice rolls */
@@ -201,6 +211,7 @@ export class WorldsStageService {
     this.world.set(world);
     this.view.set('world');
     this.notice.set(null);
+    this.recentMaps.set(loadRecentMaps());
     if (world !== 'real') void this.refreshMaps();
   }
 
@@ -366,9 +377,49 @@ export class WorldsStageService {
     this.frame.set(null);
     const pick: WorldPick = { kind: 'map', id: summary.id, name: summary.name };
     this.pick('osm', pick);
-    void this.refreshMaps();
+    void this.refreshMaps().then(() => this.pruneWorlds());
     if (then === 'play') this.go('osm', pick);
     else this.worlds.editMap(summary.id);
+  }
+
+  /** Recent worlds keep ten: the oldest beyond go to the editor's trash, but none a run plays on (decision 3, 4) */
+  private async pruneWorlds(): Promise<void> {
+    const playing = new Set(this.autosaves().map((r) => (r.pick?.kind === 'map' ? r.pick.id : '')));
+    const out = overflowWorlds(this.recentWorlds(), playing);
+    if (out.length === 0) return;
+    for (const map of out) await this.worlds.trashMap(map.id);
+    await this.refreshMaps();
+  }
+
+  /**
+   * Remove a map from OpenStreetMap's Recent worlds: asked first, it goes to
+   * the editor's trash; not while a run plays on it (its Continue first)
+   */
+  removeWorld(map: StageMap): void {
+    if (this.autosaves().some((r) => r.pick?.kind === 'map' && r.pick.id === map.id)) {
+      this.notice.set(`A run plays on ${map.name}: discard its Continue first.`);
+      return;
+    }
+    this.confirm.set({
+      text: `Remove ${map.name} from Recent worlds?`,
+      note: "The map goes to the editor's trash.",
+      answers: [
+        { label: 'Remove', primary: true, run: () => void this.trashThen(map.id) },
+        { label: 'Cancel', run: () => undefined },
+      ],
+    });
+  }
+
+  private async trashThen(id: string): Promise<void> {
+    if (!(await this.worlds.trashMap(id))) return;
+    const pick = this.picks().osm;
+    if (pick?.kind === 'map' && pick.id === id) this.pick('osm', null);
+    await this.refreshMaps();
+  }
+
+  /** A map off the Built Worlds' Recent; the map itself stays */
+  forgetMap(id: string): void {
+    this.recentMaps.set(forgetRecentMap(id));
   }
 
   /** Out of the frame, back to where it was opened */
@@ -431,9 +482,13 @@ export class WorldsStageService {
       origin: choice.summary.origin,
       osm: choice.summary.osm ?? null,
       generated: choice.summary.generated === true,
+      copyOf: null,
+      updatedAt: choice.summary.updatedAt,
       picture: choice.picture,
     });
-    this.maps.set([...choices.own.map(of), ...choices.shared.map(of), ...choices.shipped.map(of)]);
+    const originals = new Map([...choices.shared, ...choices.shipped].map((c) => [c.summary.id, c.summary.name]));
+    const own = choices.own.map((c) => ({ ...of(c), copyOf: c.summary.copyOf ? (originals.get(c.summary.copyOf.id) ?? null) : null }));
+    this.maps.set([...own, ...choices.shared.map(of), ...choices.shipped.map(of)]);
     // Picks made before the list (a link names a map by its id) take the map's name
     for (const world of ['osm', 'maps'] as const) {
       const pick = this.picks()[world];

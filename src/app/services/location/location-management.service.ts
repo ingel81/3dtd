@@ -6,9 +6,11 @@ import { WorldContext } from '../../world/world-context.service';
 import { worldPlaceName } from '../../world/world-ref';
 import { COORD_DECIMALS, canonicalCoords } from '../../utils/geo-utils';
 import { PathAndRouteService } from '../world/path-route.service';
+import { GameStore } from '../../store/game.store';
 import {
   RecentLocation,
   addRecentLocation,
+  isSamePlace,
   loadRecentLocations,
   saveRecentLocations,
 } from './recent-locations';
@@ -55,6 +57,8 @@ export class LocationManagementService {
   private readonly geocoding = inject(GeocodingService);
   private readonly worldContext = inject(WorldContext);
   private readonly pathRoute = inject(PathAndRouteService);
+  /** The run on the place: a place is Recent once it is played; absent outside a game (a spec), then any playable place counts */
+  private readonly game = inject(GameStore, { optional: true });
 
   // Current location (just coordinates) - null means no location set
   readonly hq = signal<{ lat: number; lon: number } | null>(null);
@@ -272,9 +276,11 @@ export class LocationManagementService {
   // ==================== RECENT LOCATIONS ====================
 
   /**
-   * The location as it goes on the recent list, once it is playable: HQ, a
-   * spawn, a resolved name, and a route between spawn and HQ. A place whose
-   * route fails stays off the list. Null until then.
+   * The location as it goes on the recent list, once it is played: HQ, a
+   * spawn, a resolved name, a route between spawn and HQ, and a run begun
+   * (the first wave or the first tower, docs/WORLDS_STATE_PLAN.md decision
+   * 12). A place only loaded, or whose route fails, stays off the list.
+   * Null until then.
    */
   readonly recentCandidate = computed(() => {
     const hq = this.hq();
@@ -282,6 +288,7 @@ export class LocationManagementService {
     const name = this.displayName();
     if (!hq || spawns.length === 0 || name === NO_LOCATION_NAME || name === LOADING_NAME) return null;
     if (!this.pathRoute.hasRoutes()) return null;
+    if (this.game && !this.game.gameStarted() && this.game.towerCount() === 0) return null;
     return { hq, spawns, name };
   });
 
@@ -335,6 +342,13 @@ export class LocationManagementService {
       name,
       visitedAt: Date.now(),
     });
+    this.recents.set(next);
+    saveRecentLocations(next);
+  }
+
+  /** Take a place off the recent list (its row's Remove); a run or a favorite of it stays */
+  forgetRecent(hq: { lat: number; lon: number }): void {
+    const next = this.recents().filter((r) => !isSamePlace(r.hq, hq));
     this.recents.set(next);
     saveRecentLocations(next);
   }

@@ -22,6 +22,7 @@ import { AppScreen } from '../../world/app-screen.service';
 import { PLAIN_START } from '../../world/world-start';
 import { WorldsStageService } from '../../worlds/worlds-stage.service';
 import { worldOfPage } from '../../world/world-of-page';
+import { recordRecentMap } from '../../worlds/recent-maps';
 import { autosaveSlotOf, type WorldId, type WorldPick } from '../../worlds/world-rules';
 import { whyNot } from '../../world/why-not';
 
@@ -298,6 +299,12 @@ export class MainMenuService {
       untracked(() => this.tab.set(home));
     });
     this.resumeFromLink();
+    // A Built World played (its first wave or tower) goes on top of that world's Recent; a test of the map does not
+    effect(() => {
+      const ref = this.worldContext.ref();
+      if (!this.underWay() || this.fromEditor || ref.kind !== 'custom-map' || worldOfPage(ref) !== 'maps') return;
+      untracked(() => recordRecentMap(ref.mapId));
+    });
     // Started from a world's menu: played as soon as the place is there (a save's Continue plays once loaded)
     if (this.fromStart && !this.start.current().resume) {
       let asked = false;
