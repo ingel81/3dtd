@@ -1,6 +1,6 @@
 # Welten und Navigation aus einem Guss (Plan)
 
-Status: Phase 1 gebaut (Abschnitt 7), Rest Plan. Entscheidungen des Users in Abschnitt 6.
+Status: Phase 1 und 2 gebaut (Abschnitt 7), Rest Plan. Entscheidungen des Users in Abschnitt 6.
 Grundlagen: TODO E195, Klick-Dummy `tmp/plan/mockups/world-globes/index.html` (Datenmodell, Regeln, Navigationskarte,
 Abgleichsliste „heute vorhanden → im Dummy“), die gewählte Darstellung aus dem Dummy.
 
@@ -363,3 +363,58 @@ Offen bleibt nur, was beim Bauen auffällt; die Reihenfolge der Phasen steht in 
 - Bleibt wie heute bis zu den späteren Phasen: Weltwechsel und Editor laden neu (`WORLD_NAVIGATE`, `?world=…`,
   `/editor?map=`); der Editor liest `?map=` weiter selbst. Debug-Berichte (`cell-report`, `corridor-snapshot`)
   nehmen die Adresse ohne Ort.
+
+### Phase 2: Welt wechseln ohne Neuladen (2026-10-16)
+
+- `world/world-session.service.ts`: `WorldSession` (root) öffnet Welten in der Seite. `open(order)` setzt den
+  Startauftrag und zählt `world` hoch; `reopen()` macht die offene Welt neu (neuer Tile-Key, Retry), ohne ihren
+  Spielstand ein zweites Mal zu laden. Höchstens eine Welt ist offen: eine Engine, ein Sim-Worker, ein Spiel-Canvas.
+  Außerhalb des Spiels (Editor, der vor dem Verlassen nach ungespeicherten Änderungen fragt) lädt `open` die
+  Spielseite auf dem Link des Auftrags (`worldStartUrl`, `WORLD_NAVIGATE`).
+- `game-host.component.ts`: die Spielroute. Ändert sich `world`, nimmt der Host die Spielkomponente mit allem, was sie
+  bereitstellt (Facades, Coop, Menüs, Speichern), herunter und baut eine neue auf frischem Canvas; MSAA folgt so der
+  Welt. Zwischen beiden liegt ein Render ohne Spiel, weil Angular sonst die neue vor dem Abbau der alten baut.
+- Nach dem Abbau (`TowerDefenseComponent.ngOnDestroy`: `facade.dispose()`, dann `WorldSession.closed()`) gehen der
+  Laufzustand der Root-Stores (`TowerDefenseStore.resetWorld`: Spiel, Forschung, Engine-Zahlen und Ladeschritte,
+  Ort, `UIStore.resetWorld`), `LocationManagementService.reset()` und die geöffnete Karte (`closeCustomMaps`).
+  Anzeige-Schalter und Lautstärken bleiben.
+- In der Seite öffnen jetzt: New game › Maps, eigene Tilesets, Play on real places, Load eines Spielstands einer
+  anderen Welt, ein neuer Tile-Key, Retry im Ladeplakat bei einem Problem ohne eigenen Retry (vorher Neuladen, das
+  seit Phase 1 den Ort des Links verlor). Engine und Modellvorschau geben ihren WebGL-Kontext beim Abbau sofort ab
+  (`forceContextLoss`).
+- Abbau-Lecks, die das Neuladen bisher verdeckte, behoben: die vier Dokument-Listener des `InputHandlerService` (sie
+  hielten Canvas und Engine der alten Welt bis zum nächsten Aufbau), ein laufender Höhenzyklus (`HeightUpdateService`,
+  sein Timer lief weiter und rief am Ende Facades und Kamera der alten Welt; `dispose` stoppt jetzt ohne diese
+  Rückrufe), der Seitengriff `__load`, der das ganze alte Spiel erreichbar hielt, der `StateSnapshotService` (zum
+  Spiel gehörig, aber am Bus des Root-`SimClient` angemeldet; über ihn hingen Wave-Director, Facade und Injector
+  jedes alten Spiels), dazu die geteilten Blob-Schatten-Materialien und die eine Sprite-Geometrie von three: jeder
+  `WebGLRenderer` hängt an alles, was er zeichnet, einen Dispose-Listener, der ihn samt Kontext und Canvas hält.
+  Die Engine gibt beide beim Abbau frei (`disposeBlobShadows`, `new Sprite().geometry.dispose()`).
+- Abnahme: `world/world-teardown.spec.ts` startet eine Welt zweimal und baut sie ab, mit echten Facades
+  (Spiel, Darstellung, Spielschleife), Eingabe, Höhenzyklus und `SimClient`; danach kein Listener auf `window` und
+  `document`, kein Worker, kein Intervall, kein Seitengriff, kein Root-Dienst mehr an Canvas oder Engine.
+  Gezählt wird auch der Bus der Simulation. `world/world-session.spec.ts` prüft Auftrag, Reset der Root-Stores und den Host (eine Spielkomponente zur Zeit).
+  Engine, WebGL-Kontexte und GPU-Ressourcen misst `e2e/perf/world-switch.ts` im Browser (unten).
+- Bleibt wie heute bis zu den späteren Phasen: Coop folgt dem Host per Neuladen (`reloadAtMap`, `reloadAt`) und ein
+  Weltwechsel verlässt den Raum (Phase 3); Benchmarks laden ihre Seite (Phase 3); der Editor ist eine eigene Seite
+  (Phase 4); das Nachladen des Token-Dialogs, wenn sein Chunk nicht kam, lädt die Seite neu.
+
+#### Messung: zehn Weltwechsel
+
+`e2e/perf/world-switch.ts` auf einem Produktions-Build (`ng build`, `public/maps` hineinkopiert,
+`node e2e/perf/serve.mjs dist/3DTD/browser <port> --isolate`), Chrome headless, Demo Valley und Mountain Pass im
+Wechsel über das Menü (Esc, New game, Maps, Play), nach jedem Wechsel sechsmal GC. Der Dev-Build taugt für den Heap
+nicht: Angulars Injector-Profiler hält jede Spielkomponente, die er sah.
+
+| Stand | Heap Start | nach 4 | nach 10 | nach 20 | Zuwachs je Wechsel ab 4 |
+|---|---|---|---|---|---|
+| vor den Lecks des Bus und der Engine | 158,0 MB | 168,4 MB | 171,5 MB | 178,0 MB | ~0,6 MB |
+| mit allen Korrekturen (2026-10-16) | 158,9 MB | 167,0 MB | 167,9 MB | 170,9 MB | ~0,25 MB |
+
+(Heap jeweils auf Demo Valley; Mountain Pass liegt 2 bis 3 MB darunter.) Gleich über alle Wechsel: 3 Worker, 2 lebende
+WebGL-Kontexte, eine Spielkomponente, 25 Listener auf `window`, 24 auf `document`, 2 Intervalle, keine Fehler, kein
+Neuladen. Die ersten Wechsel steigen um rund 8 MB (übersetzter Code, Caches der Modelle und Shader). Ein Rest von etwa
+0,25 MB je Wechsel bleibt; ein Heap-Vergleich zeigt noch abgelöstes DOM alter Spiele (Seitenleiste, Icons,
+Vorschau-Canvas), sein Halter ist nicht gefunden. Geometrien und Texturen des Renderers liest das Skript nur im
+Dev-Build (`ng`), im Produktions-Build stehen sie auf -1.
+
