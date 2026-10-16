@@ -232,16 +232,22 @@ export class HeightUpdateService {
   // ========================================
 
   /**
-   * Dispose and cleanup
+   * The world goes (VisualizationFacadeService.dispose): its timer stops
+   * without the end of a cycle, whose callbacks and waiter belong to that
+   * world's facades and engine.
    */
   dispose(): void {
-    this.stopHeightUpdates();
+    if (this.heightUpdateIntervalId !== null) {
+      clearInterval(this.heightUpdateIntervalId);
+      this.heightUpdateIntervalId = null;
+    }
     this.engine = null;
     this.onUpdateMarkersCallback = null;
     this.onRenderStreetsCallback = null;
     this.onFinalizeCallback = null;
     this.onUpdateDetailCallback = null;
     this.onCheckAllLoadedCallback = null;
+    this.onCameraCorrectionCallback = null;
     this.heightStableResolve = null;
   }
 

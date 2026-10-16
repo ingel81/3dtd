@@ -1,0 +1,182 @@
+/**
+ * A world started and taken down twice in a row leaves nothing behind
+ * (docs/WORLDS_NAVIGATION_PLAN.md, phase 2): no listener on window or
+ * document, no worker, no interval, no handle on the page, and no root
+ * service still reaching the old world's canvas or engine. The game's own
+ * facades, the input handler, the height cycle and the simulation client
+ * are real; every other service is a stub that answers anything. Engine,
+ * WebGL contexts and GPU resources need a browser: e2e/perf/world-switch.ts.
+ */
+import '@angular/compiler';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { Injector, runInInjectionContext, type ProviderToken } from '@angular/core';
+
+// InputHandlerService imports MatDialog; the real module is partially compiled and needs the JIT compiler
+vi.mock('@angular/material/dialog', () => ({ MatDialog: class MatDialog {} }));
+
+import { TowerDefenseFacadeService } from '../services/facade/tower-defense-facade.service';
+import { VisualizationFacadeService } from '../services/facade/visualization-facade.service';
+import { GameLoopFacadeService } from '../services/facade/game-loop-facade.service';
+import { InputHandlerService } from '../services/input-handler.service';
+import { HeightUpdateService } from '../services/world/height-update.service';
+import { SimClient } from '../sim/client/sim-client.service';
+
+/** Answers every property and call with another stub; not a promise, not iterable */
+function anything(): unknown {
+  const kids = new Map<PropertyKey, unknown>();
+  return new Proxy(() => undefined, {
+    get(_target, key) {
+      if (key === 'then' || typeof key === 'symbol') return undefined;
+      if (!kids.has(key)) kids.set(key, anything());
+      return kids.get(key);
+    },
+    apply: () => anything(),
+  });
+}
+
+const REAL: ProviderToken<unknown>[] = [
+  TowerDefenseFacadeService,
+  VisualizationFacadeService,
+  GameLoopFacadeService,
+  InputHandlerService,
+  HeightUpdateService,
+  SimClient,
+];
+
+/** The real services of one game, the rest stubs; a new one per world, as the game component's injector is */
+class GameInjector extends Injector {
+  private readonly made = new Map<unknown, unknown>();
+  constructor(private readonly root: Map<unknown, unknown>) {
+    super();
+  }
+  override get(token: unknown): unknown {
+    // The root services outlive the game; the facades are the game's
+    const scope = token === TowerDefenseFacadeService || token === VisualizationFacadeService || token === GameLoopFacadeService
+      ? this.made
+      : this.root;
+    if (!scope.has(token)) {
+      scope.set(token, REAL.includes(token as ProviderToken<unknown>)
+        ? runInInjectionContext(this, () => new (token as new () => unknown)())
+        : anything());
+    }
+    return scope.get(token);
+  }
+}
+
+/** What a world leaves on the page: listeners, workers, intervals, handles */
+interface PageHold {
+  listeners: Set<string>;
+  workers: Set<FakeWorker>;
+  intervals: Set<unknown>;
+}
+const hold: PageHold = { listeners: new Set(), workers: new Set(), intervals: new Set() };
+const ids = new WeakMap<object, number>();
+let nextId = 0;
+const idOf = (fn: unknown) => {
+  if (!ids.has(fn as object)) ids.set(fn as object, ++nextId);
+  return ids.get(fn as object)!;
+};
+const key = (target: string, type: string, fn: unknown, options: unknown) =>
+  `${target} ${type} #${idOf(fn)} ${typeof options === 'boolean' ? options : !!(options as { capture?: boolean } | undefined)?.capture}`;
+
+class FakeWorker {
+  onmessage: unknown = null;
+  onerror: unknown = null;
+  onmessageerror: unknown = null;
+  constructor() {
+    hold.workers.add(this);
+  }
+  postMessage(): void {
+    // The simulation does not run here
+  }
+  terminate(): void {
+    hold.workers.delete(this);
+  }
+}
+
+describe('A world started and taken down twice', () => {
+  const restore: (() => void)[] = [];
+
+  beforeEach(() => {
+    hold.listeners.clear();
+    hold.workers.clear();
+    hold.intervals.clear();
+    for (const [name, target] of [['window', window], ['document', document]] as const) {
+      const add = target.addEventListener.bind(target);
+      const remove = target.removeEventListener.bind(target);
+      target.addEventListener = ((type: string, fn: EventListener, options?: unknown) => {
+        hold.listeners.add(key(name, type, fn, options));
+        add(type, fn, options as AddEventListenerOptions);
+      }) as typeof target.addEventListener;
+      target.removeEventListener = ((type: string, fn: EventListener, options?: unknown) => {
+        hold.listeners.delete(key(name, type, fn, options));
+        remove(type, fn, options as EventListenerOptions);
+      }) as typeof target.removeEventListener;
+      restore.push(() => {
+        delete (target as unknown as Record<string, unknown>)['addEventListener'];
+        delete (target as unknown as Record<string, unknown>)['removeEventListener'];
+      });
+    }
+    const setInterval = window.setInterval;
+    const clearInterval = window.clearInterval;
+    window.setInterval = ((fn: TimerHandler, ms?: number) => {
+      const id = setInterval(fn, ms);
+      hold.intervals.add(id);
+      return id;
+    }) as typeof window.setInterval;
+    window.clearInterval = ((id?: number) => {
+      hold.intervals.delete(id);
+      clearInterval(id);
+    }) as typeof window.clearInterval;
+    restore.push(() => {
+      window.setInterval = setInterval;
+      window.clearInterval = clearInterval;
+    });
+    vi.stubGlobal('Worker', FakeWorker);
+    restore.push(() => vi.unstubAllGlobals());
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    for (const undo of restore.splice(0).reverse()) undo();
+    vi.restoreAllMocks();
+  });
+
+  it('leaves no listener, worker, interval or page handle, and no root service on the old world', () => {
+    const root = new Map<unknown, unknown>();
+    const pageBefore = new Set(Object.keys(window));
+    const listenersBefore = new Set(hold.listeners);
+    for (let world = 1; world <= 2; world++) {
+      const injector = new GameInjector(root);
+      const facade = injector.get(TowerDefenseFacadeService) as TowerDefenseFacadeService;
+      const viz = injector.get(VisualizationFacadeService) as VisualizationFacadeService;
+      const canvas = document.createElement('canvas');
+      const engine = anything();
+      const bridge = anything() as Record<string, unknown>;
+      bridge['getCanvasElement'] = () => canvas;
+      bridge['getEngine'] = () => engine;
+
+      // The world stands: its simulation, the pointer on its canvas, its height cycle under way
+      (facade as unknown as { initialize(bridge: unknown, injector: Injector): void }).initialize(bridge, injector);
+      viz.setupClickHandlerWithGameState();
+      void viz.scheduleOverlayHeightUpdate();
+      expect(hold.workers.size).toBe(1);
+      expect(hold.listeners.size).toBeGreaterThan(listenersBefore.size);
+      expect(hold.intervals.size).toBe(1);
+      expect(Object.keys(window).filter((k) => !pageBefore.has(k))).toContain('__load');
+
+      // The game goes
+      facade.dispose();
+
+      expect([...hold.listeners].filter((l) => !listenersBefore.has(l)), `world ${world}: listeners`).toEqual([]);
+      expect(hold.workers.size, `world ${world}: workers`).toBe(0);
+      expect(hold.intervals.size, `world ${world}: intervals`).toBe(0);
+      expect(Object.keys(window).filter((k) => !pageBefore.has(k)), `world ${world}: page handles`).toEqual([]);
+      const input = root.get(InputHandlerService) as Record<string, unknown>;
+      const heights = root.get(HeightUpdateService) as Record<string, unknown>;
+      expect([input['canvas'], input['engine'], heights['engine']], `world ${world}: root services`).toEqual([null, null, null]);
+      expect((root.get(SimClient) as SimClient).started).toBe(false);
+    }
+  });
+});
