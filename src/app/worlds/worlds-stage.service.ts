@@ -448,12 +448,28 @@ export class WorldsStageService {
     const why = this.whyNot('play', world);
     if (why) return why;
     this.overlay.set(null);
-    this.open(world, {
+    const load = () => this.open(world, {
       ...PLAIN_START,
       world: slot.map ? mapRef(slot.map.id) : null,
       resume: slot.id,
       play: true,
       label: slot.map?.name ?? shortPlaceName(slot.location),
+    });
+    // A save is a start in its world: the run there (held or in its autosave) ends after the question, as for Start
+    const item = this.continueOf(world);
+    const own = item?.kind === 'saved' && item.run?.slotId === slot.id;
+    if (!item || item.kind === 'back' || !item.run || own) {
+      load();
+      return null;
+    }
+    const run = item.run;
+    this.confirm.set({
+      text: `${item.line} waits in ${WORLD_NAMES[world]}.`,
+      note: 'Each world keeps one run. Loading this save ends it now.',
+      answers: [
+        { label: 'End it and load', primary: true, run: () => void this.endThenGo(run, load) },
+        { label: 'Cancel', run: () => undefined },
+      ],
     });
     return null;
   }

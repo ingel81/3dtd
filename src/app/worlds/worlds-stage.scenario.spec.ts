@@ -515,4 +515,25 @@ describe('Worlds stage', () => {
     el(f).querySelector<HTMLElement>('.ws-chip[data-chip="continue-real"]')!.click();
     expect(opened[0]).toMatchObject({ resume: AUTOSAVE_SLOT, play: true });
   });
+
+  it('a save loaded from the globes is a start in its world: its run there ends after the question', async () => {
+    const slot = { ...heilbronn(), id: 'slot-1', name: 'Paris, wave 3', wave: 3, location: 'Paris', hq: { lat: 48.86, lon: 2.29 }, world: 'real' as const };
+    const f = await open({ key: true, slots: [heilbronn(), slot] });
+    const stage = TestBed.inject(WorldsStageService);
+    const info = stage.saves.slots().find((s) => s.id === 'slot-1')!;
+    expect(stage.continueSlot(info)).toBeNull();
+    await settle(f);
+    expect(opened).toEqual([]);
+    expect(text(el(f).querySelector('.ws-confirm'))).toContain('Heilbronn | wave 12 waits in Real places. Each world keeps one run. Loading this save ends it now.');
+    button(f, 'End it and load').click();
+    await settle(f);
+    expect(store.ids()).toEqual(['slot-1']);
+    expect(opened[0]).toMatchObject({ resume: 'slot-1', play: true, label: 'Paris' });
+    // The autosave of the world itself loads at once
+    opened.length = 0;
+    await store.write({ ...heilbronn() }, 'save');
+    await settle(f);
+    stage.continueSlot(stage.saves.slots().find((s) => s.id === AUTOSAVE_SLOT)!);
+    expect(opened[0]).toMatchObject({ resume: AUTOSAVE_SLOT });
+  });
 });
