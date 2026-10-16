@@ -7,7 +7,14 @@
  * are merged. docs/OSM_WORLD_PLAN.md
  */
 import { boxAround, type GeoBox } from '../../services/location/street-box';
-import { fetchOverpass, type OverpassElement, type OverpassLimits, type OverpassResponse } from './overpass-client';
+import {
+  fetchOverpass,
+  type OverpassElement,
+  type OverpassLimits,
+  type OverpassResponse,
+  type OverpassRetry,
+  type OverpassRetryPolicy,
+} from './overpass-client';
 
 /** Keys whose ways and multipolygons the world reads */
 const WAY_KEYS = [
@@ -47,6 +54,13 @@ export const OSM_QUERY_LIMITS: OverpassLimits = {
   bodyTimeoutMs: 60_000,
   hedgeMs: 8000,
 };
+
+/**
+ * Retries of the world's query: four rounds within two minutes, waits of
+ * about 3, 6 and 12 s. Fewer than the street loads' within a longer budget,
+ * as a round of this query may take long by itself (a city centre's answer)
+ */
+export const OSM_QUERY_RETRY: OverpassRetryPolicy = { rounds: 4, budgetMs: 120_000, baseDelayMs: 4000, maxDelayMs: 30_000 };
 
 const fixed = (v: number): string => v.toFixed(6);
 
@@ -144,10 +158,11 @@ export interface OsmDownload {
 
 /**
  * Asks the world's query for `box`; an answer cut short by the server's
- * limits is asked again in four quarters (once, not deeper). Rejects when no
- * server answers.
+ * limits is asked again in four quarters (once, not deeper). Busy servers
+ * are asked again (OSM_QUERY_RETRY), `onRetry` hears each round about to be
+ * asked again. Rejects when no server answers.
  */
-export async function downloadOsm(box: GeoBox, signal?: AbortSignal): Promise<OsmDownload> {
+export async function downloadOsm(box: GeoBox, signal?: AbortSignal, onRetry?: (retry: OverpassRetry) => void): Promise<OsmDownload> {
   const start = performance.now();
   let chars = 0;
   const ask = (b: GeoBox, what: string) =>
@@ -155,6 +170,8 @@ export async function downloadOsm(box: GeoBox, signal?: AbortSignal): Promise<Os
       what,
       query: osmWorldQuery(b),
       limits: OSM_QUERY_LIMITS,
+      retry: OSM_QUERY_RETRY,
+      onRetry,
       signal,
       accept: (data, length) => {
         chars += length;

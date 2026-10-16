@@ -558,7 +558,10 @@ export class TowerDefenseFacadeService {
   private async loadStreetsInternal(): Promise<number> {
     const center = this.store.centerCoords();
     const result = await this.engineInit.loadStreets(center.lat, center.lon);
-    // Said in the main menu; the map stands, without a route
+    // The game went meanwhile: nothing of this load is written
+    if (!this.initialized) return 0;
+    // Said in the main menu; the map stands, without a route. A load ended for a place chosen in the
+    // menu instead (cancelled) is nobody's failure: that place brings its own streets
     if (result.failed) this.uiStore.loadProblem.set({ text: FIRST_STREETS_FAILED, blocksPlay: true });
     this.bridge.setStreetNetwork(result.network);
     this.store.streetCount.set(result.count);

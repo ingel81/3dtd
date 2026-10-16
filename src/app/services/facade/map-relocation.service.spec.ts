@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Injector, runInInjectionContext, signal } from '@angular/core';
 
-import { MapRelocationService, RelocationHost } from './map-relocation.service';
+import { HQ_STREETS_FAILED, MapRelocationService, RelocationHost } from './map-relocation.service';
 import { MarkerVisualizationService, SpawnPoint } from '../world/marker-visualization.service';
 import { PathAndRouteService } from '../world/path-route.service';
 import { LocationManagementService } from '../location/location-management.service';
@@ -17,6 +17,8 @@ import { SPAWN_COLORS } from '../../configs/map-constants.config';
 import type { VizCallbacks } from './location-facade.service';
 import { WorldContext } from '../../world/world-context.service';
 import { fakeWorldContext } from '../../../test/world-context-fake';
+import { UIStore, type UiNotice } from '../../store/ui.store';
+import { OverpassError } from '../../world/osm/overpass-client';
 
 /**
  * The relocation flows against a fake host. The location facade spec runs
@@ -55,6 +57,7 @@ describe('MapRelocationService', () => {
   const world = { resetRun: vi.fn(), attach: vi.fn(), buildCells: vi.fn() };
   const osm = { loadStreets: vi.fn(), findRandomStreetPoint: vi.fn(), findPath: vi.fn(), haversineDistance: vi.fn() };
   const coordinator = { applyNewLocation: vi.fn(async () => undefined) };
+  const uiStore = { notice: signal<UiNotice | null>(null) };
   const mapPlacement = { handlePlacementClick: vi.fn(() => placementClick), updateDependencies: vi.fn() };
   const noop = () => ({
     clearAllMarkers: vi.fn(), clearSpawnMarkers: vi.fn(), addBaseMarker: vi.fn(),
@@ -126,6 +129,7 @@ describe('MapRelocationService', () => {
         { provide: RelocationStatusService, useValue: relocationStatus },
         { provide: TowerDefenseStore, useValue: store },
         { provide: MainWorldService, useValue: world },
+        { provide: UIStore, useValue: uiStore },
       ],
     });
     relocation = runInInjectionContext(injector, () => new MapRelocationService());
@@ -229,7 +233,7 @@ describe('MapRelocationService', () => {
 
     await click('hq', OUTSIDE);
 
-    expect(relocationStatus.show).toHaveBeenCalledWith('Moving HQ', 'Loading streets');
+    expect(relocationStatus.show).toHaveBeenCalledWith('Moving HQ', 'Loading streets', true);
     expect(relocationStatus.show.mock.invocationCallOrder[0]).toBeLessThan(osm.loadStreets.mock.invocationCallOrder[0]);
     expect(relocationStatus.clear.mock.invocationCallOrder[0])
       .toBeLessThan(coordinator.applyNewLocation.mock.invocationCallOrder[0]);
@@ -260,6 +264,38 @@ describe('MapRelocationService', () => {
       spawn: { lat: 49.505, lon: 9.2, name: 'Hauptstraße' },
     });
     expect(world.resetRun).not.toHaveBeenCalled();
+  });
+
+  it('leaves the HQ where it is and says so when the street servers stay busy through their retries', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    uiStore.notice.set(null);
+    osm.loadStreets.mockRejectedValue(new OverpassError('The map servers for the streets are busy or out of reach.', 'busy'));
+
+    await click('hq', OUTSIDE);
+
+    expect(coordinator.applyNewLocation).not.toHaveBeenCalled();
+    expect(world.resetRun).not.toHaveBeenCalled();
+    expect(relocationStatus.clear).toHaveBeenCalled();
+    expect(uiStore.notice()).toEqual({ text: HQ_STREETS_FAILED, tone: 'warn' });
+  });
+
+  it('does nothing more when its street load was cancelled (the world went, a place was chosen instead)', async () => {
+    uiStore.notice.set(null);
+    osm.loadStreets.mockRejectedValue(new OverpassError('The OSM download was cancelled', 'cancelled'));
+
+    await click('hq', OUTSIDE);
+
+    expect(coordinator.applyNewLocation).not.toHaveBeenCalled();
+    expect(relocationStatus.clear).toHaveBeenCalled();
+    expect(uiStore.notice()).toBeNull();
+  });
+
+  it('goes on with a fallback spawn when the new place has no streets: the change says what is wrong', async () => {
+    osm.loadStreets.mockRejectedValue(new Error('No streets found in this area. Choose a different location.'));
+
+    await click('hq', OUTSIDE);
+
+    expect(coordinator.applyNewLocation).toHaveBeenCalledWith(expect.objectContaining({ spawn: expect.objectContaining({ name: 'Spawn' }) }));
   });
 
   it('does not hand the new streets to a component that went away during the load', async () => {

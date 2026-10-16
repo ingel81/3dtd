@@ -1,4 +1,4 @@
-import { inject, Injectable, isDevMode } from '@angular/core';
+import { inject, Injectable, isDevMode, signal } from '@angular/core';
 import { UNNAMED_STREET, type Street, type StreetNetwork, type StreetNode } from '../../interfaces/street-network-provider.interface';
 import { StreetCacheService } from './street-cache.service';
 import { GeoBox, boxAreaKm2, boxAround, boxMinus, boxesOverlap, mergeStreets } from './street-box';
@@ -6,7 +6,15 @@ import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 import { StreetRouter } from './street-router';
 import { spawnLabel } from '../../utils/spawn-label';
 import type { WorldStreetSource } from '../../world/world-provider';
-import { OVERPASS_SERVERS, fetchOverpass, type OverpassElement, type OverpassResponse } from '../../world/osm/overpass-client';
+import {
+  OVERPASS_SERVERS,
+  OverpassError,
+  fetchOverpass,
+  isOverpassCancelled,
+  type OverpassElement,
+  type OverpassResponse,
+  type OverpassRetry,
+} from '../../world/osm/overpass-client';
 
 export type { Street, StreetNetwork, StreetNode } from '../../interfaces/street-network-provider.interface';
 
@@ -23,6 +31,9 @@ export interface BuildingData {
 
 /** Radius of the street box around the HQ, m: the one every place of the game loads its streets with */
 export const STREET_RADIUS_M = 2000;
+
+/** What a street load rejects with when every round of the Overpass servers failed (overpass-client.ts) */
+export const STREETS_UNREACHABLE = 'The map servers for the streets are busy or out of reach.';
 
 /** Streets fetched for a load, with the cache key to save them under (null: they came from the cache) */
 interface LoadedStreets {
@@ -152,6 +163,31 @@ export class OsmStreetService extends StreetRouter implements WorldStreetSource 
    */
   private prefetched: { key: string; after: StreetNetwork | null; promise: Promise<LoadedStreets> } | null = null;
 
+  /** The Overpass loads under way, street and building loads; cancelLoads() aborts them */
+  private readonly loads = new Set<AbortController>();
+  /** Counts the street loads begun, so a load clears only the retry it set itself */
+  private loadSeq = 0;
+  private retryOf = 0;
+  /**
+   * The street load under way asks the servers again (overpass-client.ts):
+   * which round of how many, for the loading plate. Null while none does.
+   */
+  readonly retrying = signal<OverpassRetry | null>(null);
+
+  /**
+   * End every Overpass load under way: its promise rejects with an
+   * OverpassError of kind `cancelled` (isOverpassCancelled), its waits and
+   * requests stop. For a world that goes and a place the player chose
+   * instead, so nothing that loads for them lands later. A prefetch is
+   * dropped with it.
+   */
+  cancelLoads(): void {
+    for (const controller of [...this.loads]) controller.abort();
+    this.loads.clear();
+    this.prefetched = null;
+    this.retrying.set(null);
+  }
+
   /**
    * Begin loadStreets(`centerLat`, `centerLon`, `radiusMeters`) now, while
    * other things load (the tiles), so that the loadStreets() call with the
@@ -231,6 +267,7 @@ export class OsmStreetService extends StreetRouter implements WorldStreetSource 
       network = mergeStreets(loaded, null, bounds);
       if (network.streets.length === 0) throw noStreets();
     } else {
+      const seq = ++this.loadSeq;
       try {
         // An answer without streets hands over to the next server as well.
         network = await this.fetchOverpass('streets', streetQuery(missing), (data) => {
@@ -238,14 +275,17 @@ export class OsmStreetService extends StreetRouter implements WorldStreetSource 
           const streets = loaded ? mergeStreets(loaded, fetched, bounds) : fetched;
           if (streets.streets.length === 0) throw noStreets();
           return streets;
+        }, (retry) => {
+          this.retryOf = seq;
+          this.retrying.set(retry);
         });
       } catch (error) {
+        if (isOverpassCancelled(error)) throw error;
         console.error('[OSM] All Overpass servers failed');
-        // Provide user-friendly error message
-        const userMessage = 'OSM server unreachable. Check your internet connection.';
-        throw error instanceof Error && error.message.includes('No streets')
-          ? error
-          : new Error(userMessage);
+        if (error instanceof Error && error.message.includes('No streets')) throw error;
+        throw new OverpassError(STREETS_UNREACHABLE, error instanceof OverpassError ? error.kind : 'network', { cause: error });
+      } finally {
+        if (this.retryOf === seq) this.retrying.set(null);
       }
     }
 
@@ -264,9 +304,23 @@ export class OsmStreetService extends StreetRouter implements WorldStreetSource 
     return network;
   }
 
-  /** The Overpass client (overpass-client.ts) on this service's servers, with the street loads' limits */
-  private fetchOverpass<T>(what: string, query: string, accept: (data: OverpassResponse) => T): Promise<T> {
-    return fetchOverpass({ what, query, accept: (data) => accept(data), servers: this.OVERPASS_SERVERS });
+  /**
+   * The Overpass client (overpass-client.ts) on this service's servers, with
+   * the street loads' limits and retries; cancelLoads() ends it
+   */
+  private async fetchOverpass<T>(
+    what: string,
+    query: string,
+    accept: (data: OverpassResponse) => T,
+    onRetry?: (retry: OverpassRetry) => void,
+  ): Promise<T> {
+    const controller = new AbortController();
+    this.loads.add(controller);
+    try {
+      return await fetchOverpass({ what, query, accept: (data) => accept(data), servers: this.OVERPASS_SERVERS, signal: controller.signal, onRetry });
+    } finally {
+      this.loads.delete(controller);
+    }
   }
 
   private parseOverpassResponse(
@@ -346,6 +400,7 @@ export class OsmStreetService extends StreetRouter implements WorldStreetSource 
     try {
       buildings = await this.fetchOverpass('buildings', query, (data) => this.parseBuildingResponse(data));
     } catch (error) {
+      if (isOverpassCancelled(error)) throw error;
       console.error('[OSM] All Overpass servers failed for buildings');
       throw error instanceof Error ? error : new Error('Failed to load buildings');
     }

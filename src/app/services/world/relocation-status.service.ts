@@ -8,6 +8,8 @@ export interface RelocationStatus {
   step: string;
   /** Share of the step done, whole percent; null where there is none */
   percent: number | null;
+  /** The step loads the world's streets: while their servers are asked again the hint says so instead */
+  streets?: boolean;
 }
 
 /** A step and its share, as the corridor build reports them (CorridorBuild). */
@@ -26,10 +28,10 @@ export class RelocationStatusService {
   /** Bumped by show() and clear(), so what follow() handed out for an earlier move does nothing. */
   private generation = 0;
 
-  /** Show the hint with `step` under way. */
-  show(title: string, step: string): void {
+  /** Show the hint with `step` under way; `streets` when the step loads the streets (RelocationStatus.streets) */
+  show(title: string, step: string, streets = false): void {
     this.generation++;
-    this.status.set({ title, step, percent: null });
+    this.status.set({ title, step, percent: null, ...(streets ? { streets } : {}) });
   }
 
   clear(): void {

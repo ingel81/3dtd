@@ -1,8 +1,9 @@
 /**
  * The frame's line to the OSM worker (osm.worker.ts): one worker per frame,
  * holding the place's data from the opening to the making. Each call answers
- * by its id; steps go to the call's `onStep`. Aborting a call's signal or
- * running past `timeoutMs` ends the worker and every call waiting on it; the
+ * by its id; steps go to the call's `onStep`, the Overpass servers asked
+ * again to its `onRetry`. Aborting a call's signal or a call that sends
+ * nothing for `timeoutMs` ends the worker and every call waiting on it; the
  * next call starts a new one and opens the place again first (from the frame
  * store, nothing fetched). Where workers are missing (Node, specs) the work
  * runs on the calling thread, like the Warcraft import (w3x-import-client.ts).
@@ -10,8 +11,12 @@
 import type { OsmImportOptions } from './import-osm';
 import { OsmFrameCore, type FrameSpawn, type GeoPoint, type OsmFrameInfo, type OsmMade, type OsmStep } from './osm-frame-core';
 import type { OsmWorkerRequest, OsmWorkerResponse } from './osm-worker.types';
+import type { OverpassRetry } from './overpass-client';
 
-/** A call that has not answered after this long is ended (the Overpass limits are 105 s to the headers and 60 s for the body) */
+/**
+ * A call that sends nothing for this long is ended (the Overpass limits are 105 s to the headers and 60 s for the
+ * body); a step or a retry of the servers starts the time anew, so the retries (OSM_QUERY_RETRY) may take longer
+ */
 export const OSM_CALL_TIMEOUT_MS = 180_000;
 
 /** What an aborted call rejects with */
@@ -24,6 +29,9 @@ interface Waiting {
   resolve: (response: OsmWorkerResponse) => void;
   reject: (error: Error) => void;
   onStep?: (step: OsmStep) => void;
+  onRetry?: (retry: OverpassRetry) => void;
+  /** The worker sent something for this call: its time starts anew */
+  alive: () => void;
 }
 
 export interface OsmFrameSessionOptions {
@@ -54,11 +62,18 @@ export class OsmFrameSession {
   }
 
   /** Loads the place and lays out its spawns (OsmFrameCore.open) */
-  async open(place: GeoPoint & { address?: string }, count: number, spawnsAt: GeoPoint[] = [], onStep?: (step: OsmStep) => void, signal?: AbortSignal): Promise<OsmFrameInfo> {
+  async open(
+    place: GeoPoint & { address?: string },
+    count: number,
+    spawnsAt: GeoPoint[] = [],
+    onStep?: (step: OsmStep) => void,
+    signal?: AbortSignal,
+    onRetry?: (retry: OverpassRetry) => void,
+  ): Promise<OsmFrameInfo> {
     const call = { kind: 'open', place, count, spawnsAt } as const;
     this.opening = call;
     this.loaded = false;
-    const r = await this.call(call, onStep, signal);
+    const r = await this.call(call, onStep, signal, onRetry);
     this.loaded = true;
     return (r as Extract<OsmWorkerResponse, { kind: 'opened' }>).frame;
   }
@@ -93,18 +108,19 @@ export class OsmFrameSession {
     return this.call(call, onStep, signal);
   }
 
-  private call(call: Call, onStep?: (step: OsmStep) => void, signal?: AbortSignal): Promise<OsmWorkerResponse> {
+  private call(call: Call, onStep?: (step: OsmStep) => void, signal?: AbortSignal, onRetry?: (retry: OverpassRetry) => void): Promise<OsmWorkerResponse> {
     if (signal?.aborted) return Promise.reject(new Error(OSM_CANCELLED));
     if (!this.worker && !this.local) {
       this.worker = this.createWorker();
       if (this.worker) this.listen(this.worker);
       else this.local = new OsmFrameCore();
     }
-    if (this.local) return this.runLocal(this.local, call, onStep, signal);
+    if (this.local) return this.runLocal(this.local, call, onStep, signal, onRetry);
     const worker = this.worker!;
     const id = this.nextId++;
     return new Promise<OsmWorkerResponse>((resolve, reject) => {
-      const timer = setTimeout(() => this.stop(new Error(`No answer within ${Math.round(this.timeoutMs / 1000)} s; the work was stopped`)), this.timeoutMs);
+      const expire = () => this.stop(new Error(`No answer within ${Math.round(this.timeoutMs / 1000)} s; the work was stopped`));
+      let timer = setTimeout(expire, this.timeoutMs);
       const onAbort = () => this.stop(new Error(OSM_CANCELLED));
       signal?.addEventListener('abort', onAbort, { once: true });
       const done = () => {
@@ -114,6 +130,11 @@ export class OsmFrameSession {
       };
       this.waiting.set(id, {
         onStep,
+        onRetry,
+        alive: () => {
+          clearTimeout(timer);
+          timer = setTimeout(expire, this.timeoutMs);
+        },
         resolve: (r) => {
           done();
           resolve(r);
@@ -132,8 +153,13 @@ export class OsmFrameSession {
       const r = event.data;
       const waiting = this.waiting.get(r.id);
       if (!waiting) return;
-      if (r.kind === 'step') waiting.onStep?.(r.step);
-      else if (r.kind === 'error') waiting.reject(new Error(r.error));
+      if (r.kind === 'step') {
+        waiting.alive();
+        waiting.onStep?.(r.step);
+      } else if (r.kind === 'retry') {
+        waiting.alive();
+        waiting.onRetry?.(r.retry);
+      } else if (r.kind === 'error') waiting.reject(new Error(r.error));
       else waiting.resolve(r);
     };
     worker.onerror = (event) => this.stop(new Error(event.message || 'The OSM worker failed'));
@@ -148,11 +174,17 @@ export class OsmFrameSession {
     this.waiting.clear();
   }
 
-  private async runLocal(core: OsmFrameCore, call: Call, onStep?: (step: OsmStep) => void, signal?: AbortSignal): Promise<OsmWorkerResponse> {
+  private async runLocal(
+    core: OsmFrameCore,
+    call: Call,
+    onStep?: (step: OsmStep) => void,
+    signal?: AbortSignal,
+    onRetry?: (retry: OverpassRetry) => void,
+  ): Promise<OsmWorkerResponse> {
     const id = 0;
     switch (call.kind) {
       case 'open':
-        return { id, kind: 'opened', frame: await core.open(call.place, call.count, call.spawnsAt, onStep, signal) };
+        return { id, kind: 'opened', frame: await core.open(call.place, call.count, call.spawnsAt, onStep, signal, onRetry) };
       case 'draw':
         return { id, kind: 'spawns', spawns: core.draw(call.count, call.keep) };
       case 'drop':

@@ -1,3 +1,4 @@
+import type { Signal } from '@angular/core';
 import type { Group, Matrix4, Object3D, PerspectiveCamera, Raycaster, Scene, Texture, Vector2, Vector3, Vector4, WebGLRenderer } from 'three';
 import type { LaneChoice } from './custom-map/lane-choice';
 import type { TilesRenderer } from '3d-tiles-renderer';
@@ -10,6 +11,7 @@ import type { StreetSurface } from '../utils/carried-height';
 import type { StationProbe } from '../utils/route-corridor';
 import type { ApproachPoint } from '../utils/route-cell';
 import type { SegmentRoutes } from '../utils/route-start';
+import type { OverpassRetry } from './osm/overpass-client';
 import type { FootprintColumn } from '../utils/tower-footprint';
 import type { NearestStreetPoint, Street, StreetNetwork, StreetNode } from '../interfaces/street-network-provider.interface';
 import type { RandomSpawnCandidate } from '../models/location.types';
@@ -146,6 +148,19 @@ export interface WorldStreetSource {
   /** Begin the load loadStreets() with the same place will take (TODO H13) */
   prefetchStreets(centerLat: number, centerLon: number, radiusMeters: number): void;
   loadStreets(centerLat: number, centerLon: number, radiusMeters?: number): Promise<StreetNetwork>;
+  /**
+   * End the loads under way (tiles: the Overpass requests and their
+   * retries): they reject as cancelled and write nothing. For a world that
+   * goes and a place chosen instead; a world whose streets come with it has
+   * nothing to end
+   */
+  cancelLoads(): void;
+  /**
+   * The street load under way asks its servers again (tiles: Overpass,
+   * overpass-client.ts), for the loading plate and the hint over the map;
+   * absent where streets do not load from a server
+   */
+  readonly retrying?: Signal<OverpassRetry | null>;
   findNearestStreetPoint(
     network: StreetNetwork, lat: number, lon: number,
     accept?: (node: StreetNode, street: Street) => boolean,

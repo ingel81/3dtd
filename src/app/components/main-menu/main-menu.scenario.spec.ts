@@ -45,6 +45,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { focusIsQuiet, focusedByKeyboard } from '../../utils/keyboard-target';
 import { WorldContext } from '../../world/world-context.service';
 import { fakeWorldContext } from '../../../test/world-context-fake';
+import type { OverpassRetry } from '../../world/osm/overpass-client';
 import { GLOBE_LINK } from '../../services/world/globe-link';
 
 const read = (path: string) => readFileSync(resolve('src/app/components/main-menu', path), 'utf8');
@@ -398,6 +399,25 @@ describe('The main menu', () => {
       TestBed.inject(GLOBE_LINK).descent.set(0);
       await settle();
       expect(plate.textContent).toContain('Loading the descent | 0%');
+    });
+
+    it('says in the plate while the street servers are asked again, and the line goes with the load', async () => {
+      locationMgmt.hq.set(HEILBRONN);
+      const retrying = signal<OverpassRetry | null>(null);
+      world.setProvider({ streets: { retrying } } as never);
+      await setup();
+      const plate = el().querySelector('app-menu-loading')!;
+      expect(plate.querySelector('[data-test="streets-busy"]')).toBeNull();
+
+      retrying.set({ attempt: 2, of: 5, waitMs: 2250, kind: 'busy' });
+      await settle();
+      expect(plate.querySelector('[data-test="streets-busy"]')?.textContent?.trim()).toBe('The map server is busy, trying again (2 of 5)…');
+      // The load goes on under it: the bar, the step
+      expect(plate.querySelector('[role="progressbar"]')).not.toBeNull();
+
+      retrying.set(null);
+      await settle();
+      expect(plate.querySelector('[data-test="streets-busy"]')).toBeNull();
     });
 
     it('moves an untouched focus to Play when the place comes in above New game (TODO E151)', async () => {

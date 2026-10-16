@@ -41,6 +41,10 @@ export class CustomMapStreets extends StreetRouter implements WorldStreetSource 
     return Promise.resolve(this.network);
   }
 
+  cancelLoads(): void {
+    // nothing loads
+  }
+
   /** The map draws its own roads; the overlay keeps all of them */
   override filterStreetsNearRoutes(network: StreetNetwork): StreetNetwork {
     return network;

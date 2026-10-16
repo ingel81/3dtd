@@ -10,12 +10,14 @@ import { MainMenuService } from '../main-menu.service';
 import { loadingPlateView, mapDataLine } from './loading-plate';
 import { tilesProgress, type TilesProgress } from '../../../three-engine/tile-loading-tracker';
 import { onMapDataProgress, type MapDataProgress } from '../../../world/custom-map/map-data';
+import { overpassRetryText } from '../../../world/osm/overpass-client';
 
 /**
  * The loading plate of the start menu, bottom right (docs/MAIN_MENU_UI_PLAN.md,
  * Menü 6): the place, a brass bar of the boot steps done, the step under
  * way with its detail, the map tiles while they stream in (a thin bar with
- * the share and the count) and the steps as a list to open. A load that went
+ * the share and the count), a line while the street servers are asked
+ * again (overpass-client.ts) and the steps as a list to open. A load that went
  * wrong shows here as a banner with the ways on: Retry, Other place (Other
  * map on a world of its own), Map key (where the world needs one).
  */
@@ -64,6 +66,12 @@ export class MenuLoadingComponent {
   private readonly mapData = signal<MapDataProgress>({ requested: 0, done: 0, fetched: 0, bytes: 0 });
   /** "Map data 12 of 48 files, 3.4 MB" while files still come, null otherwise */
   readonly mapDataLine = computed(() => mapDataLine(this.mapData()));
+
+  /** "The map server is busy, trying again (2 of 5)…" while the streets' servers are asked again, null otherwise */
+  readonly streetsBusy = computed(() => {
+    const retry = this.world.provider()?.streets.retrying?.() ?? null;
+    return retry ? `${overpassRetryText(retry)}…` : null;
+  });
 
   /** The map tiles while they stream in, read twice a second (the engine keeps its count 500 ms) */
   readonly tiles = signal<TilesProgress | null>(null);

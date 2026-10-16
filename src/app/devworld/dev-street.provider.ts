@@ -61,6 +61,10 @@ export class DevStreetProvider extends StreetRouter implements WorldStreetSource
     // nothing to begin
   }
 
+  cancelLoads(): void {
+    // nothing loads
+  }
+
   async loadStreets(
     _centerLat: number,
     _centerLon: number,

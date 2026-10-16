@@ -9,6 +9,7 @@ import { assetCosts } from '../../world/osm/convert/vegetation';
 import { OSM_SPAWNS, OSM_WORLD_SIDE, osmMapNames, type OsmImportReport } from '../../world/osm/import-osm';
 import type { FrameSpawn, GeoPoint, OsmFrameInfo, OsmStep } from '../../world/osm/osm-frame-core';
 import { OSM_CANCELLED, OsmFrameSession } from '../../world/osm/osm-frame-session';
+import { overpassRetryText, type OverpassRetry } from '../../world/osm/overpass-client';
 import { OsmFrameMap } from './osm-frame-map';
 import type { OsmFramePlace } from './osm-frame-request';
 
@@ -77,6 +78,8 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
   /** The step under way while loading or making */
   readonly step = signal<OsmStep | 'save' | null>(null);
   readonly error = signal<string | null>(null);
+  /** The OSM servers are asked again while loading: which round of how many (overpass-client.ts) */
+  readonly retry = signal<OverpassRetry | null>(null);
   readonly frame = signal<OsmFrameInfo | null>(null);
   readonly spawns = signal<FrameSpawn[]>([]);
   /** The spawn the list and the map point at */
@@ -89,7 +92,11 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
   readonly mapProblem = signal<string | null>(null);
   readonly made = signal<{ summary: MapSummary; report: OsmImportReport } | null>(null);
 
-  readonly loadingText = computed(() => (this.step() === 'stored' ? 'Opening the streets kept from last time' : 'Downloading the streets and heights of this place'));
+  readonly loadingText = computed(() => {
+    const retry = this.retry();
+    if (retry) return overpassRetryText(retry);
+    return this.step() === 'stored' ? 'Opening the streets kept from last time' : 'Downloading the streets and heights of this place';
+  });
   readonly makingStep = computed(() => {
     const k = Math.max(0, STEPS.findIndex((s) => s.step === this.step()));
     return { text: STEPS[k].text, index: k + 1, of: STEPS.length };
@@ -129,6 +136,7 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
     this.phase.set('loading');
     this.error.set(null);
     this.step.set(null);
+    this.retry.set(null);
     this.loading = new AbortController();
     const place = this.place();
     try {
@@ -138,6 +146,7 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
         [...this.spawnsAt()],
         (step) => this.step.set(step),
         this.loading.signal,
+        (retry) => this.retry.set(retry),
       );
       if (this.destroyed) return;
       this.frame.set(frame);
@@ -153,6 +162,7 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
       this.error.set((e as Error).message === OSM_CANCELLED ? 'Cancelled.' : (e as Error).message);
     } finally {
       this.loading = null;
+      this.retry.set(null);
     }
   }
 

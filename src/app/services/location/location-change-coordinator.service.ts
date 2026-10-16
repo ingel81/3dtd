@@ -20,6 +20,7 @@ import {
 import { GLOBE_LINK } from '../world/globe-link';
 import { canonicalCoords } from '../../utils/geo-utils';
 import type { NominatimAddress } from './geocoding.service';
+import { isOverpassCancelled } from '../../world/osm/overpass-client';
 
 /**
  * Delegate interface for component-specific state the coordinator needs
@@ -73,6 +74,11 @@ export class LocationChangeCoordinatorService {
   private startWaiter: ((choice: PlacedChoice) => void) | null = null;
   /** The start waits for a place to be chosen in the menu */
   readonly awaitingStartChoice = signal(false);
+
+  /** Counts the places chosen in this page (supersede); a load for an earlier count gives way */
+  private placeRun = 0;
+  /** The change asked for while another was applied: it runs when that one ends, the latest one only */
+  private pendingChange: LocationChangeInput | null = null;
 
   // ==================== Initialization ====================
 
@@ -191,6 +197,7 @@ export class LocationChangeCoordinatorService {
     target: { lat: number; lon: number; name: string; address?: NominatimAddress },
     spawn: { lat: number; lon: number; name?: string; portalBearing?: number } | null,
   ): Promise<void> {
+      const run = this.supersede();
       this.uiStore.loadProblem.set(null);
       // The globe turns to the place while its streets load
       this.globe?.nextPlace.set({ lat: target.lat, lon: target.lon });
@@ -215,6 +222,8 @@ export class LocationChangeCoordinatorService {
         try {
           newNetwork = await this.worldContext.streets.loadStreets(hq.lat, hq.lon, STREET_RADIUS_M);
         } catch (err) {
+          // Another place was chosen meanwhile (its load ended this one): that one owns the plate
+          if (run !== this.placeRun) return;
           console.error('[LocationCoordinator] The streets of the new place did not load:', err);
           callbacks.appendDebugLog(`Streets of ${target.name} failed: ${err instanceof Error ? err.message : 'unknown'}`);
           this.engineInit.setLoading(false);
@@ -222,6 +231,7 @@ export class LocationChangeCoordinatorService {
           return;
         }
 
+        if (run !== this.placeRun) return;
         // Store for reuse in executeLocationChange to avoid double-loading
         callbacks.setStreetNetwork(newNetwork);
         callbacks.setStreetNetworkLocation({ lat: hq.lat, lon: hq.lon });
@@ -259,6 +269,16 @@ export class LocationChangeCoordinatorService {
           portalBearing: spawn?.portalBearing,
         },
       });
+  }
+
+  /**
+   * A place is chosen: the street loads under way for the one before stop
+   * (their retries could otherwise land minutes later), and a moveTo still
+   * waiting for them gives way. Returns this choice's count.
+   */
+  private supersede(): number {
+    this.worldContext.streets.cancelLoads();
+    return ++this.placeRun;
   }
 
   /**
@@ -351,6 +371,7 @@ export class LocationChangeCoordinatorService {
 
   /** A stored place with all its spawns: a favourite, a pasted link, a coop host's or a save's place */
   private async loadPlace(hqAt: { lat: number; lon: number }, spawns: SavedSpawn[]): Promise<void> {
+    this.supersede();
     const fav = { hq: hqAt, spawns };
     const spawn: SavedSpawn = fav.spawns[0] || { lat: fav.hq.lat + 0.005, lon: fav.hq.lon };
 
@@ -404,9 +425,10 @@ export class LocationChangeCoordinatorService {
    * place, world map) gets the origin, routes and corridor its URL gives it.
    */
   async applyNewLocation(data: LocationChangeInput): Promise<void> {
-    // Prevent concurrent location changes (guard against rapid clicks)
+    // One change at a time: a change asked for meanwhile runs after it, the latest only (rapid clicks)
     if (this.locationMgmt.isApplyingLocation()) {
-      console.warn('[LocationCoordinator] Location change already in progress, ignoring');
+      console.warn('[LocationCoordinator] Location change already in progress, the new one runs after it');
+      this.pendingChange = data;
       return;
     }
 
@@ -436,17 +458,33 @@ export class LocationChangeCoordinatorService {
     } catch (err) {
       console.error('[Location] Failed to apply location:', err);
       callbacks.appendDebugLog(`Error: ${err instanceof Error ? err.message : 'Unknown'}`);
-      const message = err instanceof Error ? err.message : 'Error changing location';
-      // The old place may be gone half way: the run cannot go on, the menu says so and offers the way back
-      this.engineInit.setError(message);
-      this.uiStore.loadProblem.set({ text: `The place did not load: ${message}`, retry: () => void this.applyNewLocation(data) });
-
-      // Reset loading flags on error; without `loading` the menu's plate stood on its last step for good
-      this.engineInit.setLoading(false);
-      this.engineInit.tilesLoading.set(false);
-      this.engineInit.osmLoading.set(false);
-      this.heightUpdate.heightsLoading.set(false);
       this.locationMgmt.isApplyingLocation.set(false);
+      if (isOverpassCancelled(err)) {
+        // Its streets were ended: by the world going (nothing to tell, nothing to write into the next
+        // one) or by a place chosen instead, which loads now and owns the plate. The old place was
+        // reset half way, so Play stays blocked until the next one stands; the error waits behind the load
+        if (this.worldContext.provider() !== null) {
+          this.engineInit.setError('The place did not load: another place was chosen.');
+          // Its own flags; `loading` is the next load's
+          this.engineInit.tilesLoading.set(false);
+          this.engineInit.osmLoading.set(false);
+          this.heightUpdate.heightsLoading.set(false);
+        }
+      } else {
+        const message = err instanceof Error ? err.message : 'Error changing location';
+        // The old place may be gone half way: the run cannot go on, the menu says so and offers the way back
+        this.engineInit.setError(message);
+        this.uiStore.loadProblem.set({ text: `The place did not load: ${message}`, retry: () => void this.applyNewLocation(data) });
+
+        // Reset loading flags on error; without `loading` the menu's plate stood on its last step for good
+        this.engineInit.setLoading(false);
+        this.engineInit.tilesLoading.set(false);
+        this.engineInit.osmLoading.set(false);
+        this.heightUpdate.heightsLoading.set(false);
+      }
     }
+    const next = this.pendingChange;
+    this.pendingChange = null;
+    if (next) await this.applyNewLocation(next);
   }
 }

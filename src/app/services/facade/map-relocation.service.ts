@@ -19,6 +19,8 @@ import { corridorTrace } from '../../utils/corridor-trace';
 import type { FacadeComponentBridge } from './tower-defense-facade.service';
 import type { VizCallbacks } from './location-facade.service';
 import type { SavedSpawn } from '../../models/location.types';
+import { UIStore } from '../../store/ui.store';
+import { OverpassError, isOverpassCancelled } from '../../world/osm/overpass-client';
 
 /** What a relocation needs from the location facade, read at the moment it is needed. */
 export interface RelocationHost {
@@ -32,6 +34,10 @@ export interface RelocationHost {
 
 /** Title of the hint over the map while the HQ moves */
 const MOVING_HQ = 'Moving HQ';
+
+/** What the player reads when the streets around a moved HQ did not load; the HQ stays */
+export const HQ_STREETS_FAILED =
+  'The streets there did not load: the map server is busy or out of reach. The HQ stays where it is; try again in a minute.';
 
 /** Title of the hint over the map while the spawn moves */
 const MOVING_SPAWN = 'Moving spawn';
@@ -66,6 +72,7 @@ export class MapRelocationService {
   private readonly mapPlacement = inject(MapPlacementService);
   private readonly relocationStatus = inject(RelocationStatusService);
   private readonly store = inject(TowerDefenseStore);
+  private readonly uiStore = inject(UIStore);
 
   /**
    * Handle a map placement click.
@@ -155,9 +162,10 @@ export class MapRelocationService {
       spawnFrom = 'old';
     } else {
       // Old spawn too far or none exists — pre-load streets and find a random spawn
-      // (as a random spawn of a place chosen in the menu). Up to three
-      // Overpass servers at 15 s each before the loading screen: say so.
-      this.relocationStatus.show(MOVING_HQ, 'Loading streets');
+      // (as a random spawn of a place chosen in the menu). The Overpass
+      // servers and their retries (up to 90 s) before the loading screen: say
+      // so, and when they are asked again (RelocationStatusComponent).
+      this.relocationStatus.show(MOVING_HQ, 'Loading streets', true);
       try {
         const newNetwork = await this.worldContext.streets.loadStreets(lat, lon, STREET_RADIUS_M);
         times.lap('streets');
@@ -184,8 +192,21 @@ export class MapRelocationService {
           spawnName = 'Fallback Spawn';
           spawnFrom = 'fallback';
         }
-      } catch {
-        // Street loading failed — use fallback offset
+      } catch (error) {
+        // The world went or a place was chosen instead: this move is nobody's now
+        if (isOverpassCancelled(error)) {
+          this.relocationStatus.clear();
+          return;
+        }
+        // Every server busy or out of reach after its retries: nothing changed yet, the HQ stays
+        // (the change would only ask them all again behind a loading screen)
+        if (error instanceof OverpassError) {
+          console.warn('[Relocation] the streets around the new HQ did not load:', error.message);
+          this.relocationStatus.clear();
+          this.uiStore.notice.set({ text: HQ_STREETS_FAILED, tone: 'warn' });
+          return;
+        }
+        // No streets there: the fallback spawn, the change says what is wrong
         times.lap('streets');
         spawnLat = lat + 0.0063;
         spawnLon = lon;

@@ -367,8 +367,8 @@ und Bäumen); O3 bis O5 füllen sie; O6 läuft parallel, sobald O4 die Liste lie
 ## Risiken
 
 - **Overpass:** eine Abfrage je Ort, 1,5 bis 3 s in den Proben; dichte Weltstädte liefern mehr (Stuttgart Mitte 15 MB
-  JSON). Teilung in Viertel bei `remark`, Speicher je Rahmen. Fällt Overpass aus, gibt es keine neue Welt; bereits
-  erzeugte bleiben.
+  JSON). Teilung in Viertel bei `remark`, Speicher je Rahmen, Wiederholung bei busy Servern (`OSM_QUERY_RETRY`).
+  Fällt Overpass länger aus, gibt es keine neue Welt; bereits erzeugte bleiben.
 - **Höhendaten außerhalb Europas:** Mapterhorn fällt dort oft auf GLO-30 (30 m) zurück, ein Oberflächenmodell mit
   Gebäuden und Wald als Buckeln. Glätten, unter Straßen und Gebäuden einebnen; Ergebnis an Orten außerhalb Europas
   ansehen (O7).
@@ -544,7 +544,13 @@ Datei.
   und das Höhenmosaik, die sechs zuletzt benutzten Rahmen. Ein zweites Öffnen oder Erzeugen ruft nichts ab; fehlten
   die Höhen, fragt das nächste Öffnen sie neu.
 - Overpass-Fehler als Satz: „The OpenStreetMap servers did not answer (…). They are sometimes down for a while; try
-  again in a few minutes.“, bei 429 der Hinweis auf zu viele Anfragen; der Rahmen bietet „Try again“.
+  again in a few minutes.“, bei 429 der Hinweis auf zu viele Anfragen; der Rahmen bietet „Try again“ (ein neuer
+  Durchgang von vorn). Davor fragt die Abfrage busy Server erneut (`OSM_QUERY_RETRY` in `osm-query.ts`: höchstens 4
+  Runden, keine neue nach 120 s, Wartezeiten etwa 2 bis 4, 4 bis 8 und 8 bis 16 s; Arten der Fehler und Ablauf in
+  [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md), „Wiederholen“). Der Worker meldet jede Wiederholung (`kind: 'retry'`), der
+  Rahmen zeigt „The map server is busy, trying again (2 of 4)…“ statt der Ladezeile. Die Wache der Sitzung
+  (`OSM_CALL_TIMEOUT_MS`, 180 s) zählt ab der letzten Meldung des Workers (Schritt oder Wiederholung), nicht ab dem
+  Aufruf, damit die Wiederholungen sie nicht auslösen. Abbrechen oder Zurück beenden den Worker samt Wartezeit.
 - Name der Karte: der erste Teil der Suche („Miltenberg“), Id `osm-<name>` (belegt: mit Zahl); vorher „Map of …“,
   das im Menüfuß als „Map Map of …“ las.
 - Namensnennung im Spiel: die Credit-Zeile einer OSM-Welt nennt `meta.source.attribution` (OSM-Daten, Höhenquelle)

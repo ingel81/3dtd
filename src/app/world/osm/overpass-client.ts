@@ -1,9 +1,13 @@
 /**
  * The Overpass API as the game asks it: two EU servers in order, the next
  * asked alongside a server that is slow to start its answer, time limits for
- * the headers and the body, a log line per attempt. The street loads of the
- * real places (OsmStreetService) and the OSM worlds (world/osm) share it.
- * Angular-free and DOM-free, so it runs in a Web Worker and in Node.
+ * the headers and the body, every failure sorted into one that may pass
+ * (busy, out of reach, cut off) and one that will not, and the round of
+ * servers asked again after a wait that grows while the failures may pass,
+ * within a number of rounds and a time budget. A log line per attempt. The
+ * street loads of the real places (OsmStreetService) and the OSM worlds
+ * (world/osm) share it. Angular-free and DOM-free, so it runs in a Web Worker
+ * and in Node.
  */
 
 /** An element of an Overpass answer, as far as the parsers read it */
@@ -83,16 +87,134 @@ export interface OverpassLimits {
  */
 export const STREET_LIMITS: OverpassLimits = { headerTimeoutMs: 15000, bodyTimeoutMs: 30000, hedgeMs: 4000 };
 
+/**
+ * Why an attempt failed:
+ * - `busy`: the server is at capacity (HTTP 429, 502, 503, 504, 406, 408, 425, or a 200 whose remark says it is too busy)
+ * - `server`: it failed in itself (HTTP 500 and the other 5xx)
+ * - `network`: no answer the page can read; a busy server's error page without a CORS header ends here too (status 0, TypeError)
+ * - `timeout`: no headers, or no end of the body, within the limits
+ * - `malformed`: the body is no Overpass answer (cut off, HTML, no `elements`)
+ * - `refused`: the server refuses the query itself (HTTP 400 and the other 4xx)
+ * - `rejected`: the caller's `accept` threw on the answer (no streets in it)
+ * - `cancelled`: the caller's signal ended the load
+ */
+export type OverpassFailureKind = 'busy' | 'server' | 'network' | 'timeout' | 'malformed' | 'refused' | 'rejected' | 'cancelled';
+
+/** The kinds that may pass when asked again a little later */
+const TRANSIENT: ReadonlySet<OverpassFailureKind> = new Set(['busy', 'server', 'network', 'timeout', 'malformed']);
+
+/** What a failed attempt, or a failed load, rejects with */
+export class OverpassError extends Error {
+  /** The kind may pass when asked again a little later */
+  readonly transient: boolean;
+  /** The HTTP status, where one came */
+  readonly status?: number;
+  /** The server's Retry-After, ms, where it sent one the page can read */
+  readonly retryAfterMs?: number;
+
+  constructor(
+    message: string,
+    readonly kind: OverpassFailureKind,
+    options: { status?: number; retryAfterMs?: number; cause?: unknown } = {},
+  ) {
+    super(message, options.cause === undefined ? undefined : { cause: options.cause });
+    this.name = 'OverpassError';
+    this.transient = TRANSIENT.has(kind);
+    this.status = options.status;
+    this.retryAfterMs = options.retryAfterMs;
+  }
+}
+
+/** The load was cancelled by the caller's signal */
+export function isOverpassCancelled(error: unknown): boolean {
+  return error instanceof OverpassError && error.kind === 'cancelled';
+}
+
+/** The kind of an HTTP status that is not ok */
+export function httpFailureKind(status: number): OverpassFailureKind {
+  if (status === 429 || status === 502 || status === 503 || status === 504) return 'busy';
+  // overpass-api.de answers 406 when its queue is full; 408 and 425 ask to come back
+  if (status === 406 || status === 408 || status === 425) return 'busy';
+  if (status >= 500) return 'server';
+  return 'refused';
+}
+
+/** A remark of a 200 that says the server was too busy to run the query, not that the query ran into its limits */
+export function busyRemark(remark: string | undefined): boolean {
+  return !!remark && /too busy|Dispatcher_Client|rate_limited/i.test(remark);
+}
+
+/** Retry-After as ms: seconds or an HTTP date; null when absent or unreadable */
+export function retryAfterMs(value: string | null | undefined, now = Date.now()): number | null {
+  if (!value) return null;
+  const seconds = Number(value.trim());
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+  const at = Date.parse(value);
+  return Number.isNaN(at) ? null : Math.max(0, at - now);
+}
+
+/**
+ * How often and how long a load asks again. A round asks every server
+ * (hedged as above); a round where at least one failure may pass is
+ * followed by a wait and the next round, up to `rounds`. The wait doubles
+ * from `baseDelayMs` up to `maxDelayMs`, each drawn between half and all of
+ * it (jitter, so the players a busy server sent away do not come back in
+ * step), and is at least the server's Retry-After. No round starts past
+ * `budgetMs` from the first; a round under way may end later.
+ */
+export interface OverpassRetryPolicy {
+  rounds: number;
+  budgetMs: number;
+  baseDelayMs: number;
+  maxDelayMs: number;
+}
+
+/**
+ * The retries of the street loads: five rounds within 90 s, waits of about
+ * 2, 4, 9 and 18 s between them. The public servers that sent a busy answer
+ * on 2026-10-16 answered again minutes later; the budget is what a player
+ * waits on a loading plate that says so.
+ */
+export const STREET_RETRY: OverpassRetryPolicy = { rounds: 5, budgetMs: 90_000, baseDelayMs: 3000, maxDelayMs: 24_000 };
+
+/** One round, no retries */
+export const NO_RETRY: OverpassRetryPolicy = { rounds: 1, budgetMs: 0, baseDelayMs: 0, maxDelayMs: 0 };
+
+/** The wait after the failed round `round` (1-based); `random` in [0, 1) */
+export function retryDelayMs(round: number, policy: OverpassRetryPolicy, random: number): number {
+  const full = Math.min(policy.maxDelayMs, policy.baseDelayMs * 2 ** (round - 1));
+  return Math.round(full / 2 + (random * full) / 2);
+}
+
+/** A load asks again: the round it starts after `waitMs`, of how many, and why the last failed */
+export interface OverpassRetry {
+  attempt: number;
+  of: number;
+  waitMs: number;
+  kind: OverpassFailureKind;
+}
+
+/** What the player reads while a load asks again */
+export function overpassRetryText(retry: OverpassRetry): string {
+  return `The map server is busy, trying again (${retry.attempt} of ${retry.of})`;
+}
+
 export interface OverpassRequest<T> {
   /** What is loaded, for the log */
   what: string;
   query: string;
-  /** Makes the result of an answer; a throw hands over to the next server */
+  /** Makes the result of an answer; a throw hands over to the next server and counts as `rejected` */
   accept: (data: OverpassResponse, chars: number) => T;
   limits?: OverpassLimits;
   servers?: readonly string[];
-  /** Aborting ends every attempt; the promise rejects with the abort's reason */
+  /** STREET_RETRY when absent */
+  retry?: OverpassRetryPolicy;
+  /** Hears each round that is about to be asked again */
+  onRetry?: (retry: OverpassRetry) => void;
+  /** Aborting ends every attempt and the wait; the promise rejects with an OverpassError of kind `cancelled` */
   signal?: AbortSignal;
+  /** The jitter's draw, [0, 1); Math.random when absent */
+  random?: () => number;
 }
 
 /** `[OSM] <what> from <host>: ...` for an answer: where its time went and what came */
@@ -110,36 +232,114 @@ function logOverpassAnswer(what: string, server: string, answer: OverpassAnswer)
   );
 }
 
+const cancelled = (): OverpassError => new OverpassError('The OSM download was cancelled', 'cancelled');
+
+/** A round in which no server answered, with the failure of each server asked */
+class RoundFailed extends Error {
+  constructor(readonly failures: { server: string; error: OverpassError }[]) {
+    super('No Overpass server answered');
+  }
+}
+
+/** Any throw of an attempt as an OverpassError; a plain throw of `accept` is `rejected` */
+function asOverpassError(error: unknown, fromAccept: boolean): OverpassError {
+  if (error instanceof OverpassError) return error;
+  const message = error instanceof Error ? error.message : String(error);
+  return new OverpassError(message, fromAccept ? 'rejected' : 'network', { cause: error });
+}
+
+/** The failure of a whole load: what each server said in the last round, how many rounds */
+function loadFailed(failures: { server: string; error: OverpassError }[], rounds: number): Error {
+  const transient = failures.find((f) => f.error.transient);
+  // Every server took the query and the caller refused each answer (no streets): say that, as it said it
+  const rejected = failures.find((f) => f.error.kind === 'rejected');
+  if (!transient && rejected) return rejected.error.cause instanceof Error ? rejected.error.cause : rejected.error;
+  const said = failures.map((f) => `${new URL(f.server).host}: ${f.error.message}`).join('; ');
+  const lead = (transient ?? failures[0]).error;
+  return new OverpassError(`${said}${rounds > 1 ? `; ${rounds} tries` : ''}`, lead.kind, { status: lead.status, cause: lead });
+}
+
+/** Resolves after `ms`; rejects at once when `signal` aborts */
+function wait(ms: number, signal: AbortSignal | undefined): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(cancelled());
+      return;
+    }
+    const onAbort = (): void => {
+      clearTimeout(timer);
+      reject(cancelled());
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
 /**
  * Post the request's query to the Overpass servers and return what `accept`
- * makes of the first answer it takes. The servers are asked in order. One
- * that fails (a 429 too: its slots for this IP are taken), does not start
- * its answer within the header limit, does not finish it within the body
- * limit after that or whose answer `accept` throws on hands over to the next
- * at once. One that has not started its answer after the hedge time gets the
+ * makes of the first answer it takes, asking again in rounds while the
+ * failures may pass (OverpassRetryPolicy, STREET_RETRY by default). Round k
+ * begins with the k-th server, so a server that failed first does not lead
+ * the next round. Every failure is logged with its server, its time, its
+ * kind and its try; every wait before a round with its length. Rejects with
+ * an OverpassError naming what each server said in the last round, or with
+ * `accept`'s own error where every server answered and `accept` refused each;
+ * with kind `cancelled` when the signal aborts, in a round or in a wait.
+ */
+export async function fetchOverpass<T>(request: OverpassRequest<T>): Promise<T> {
+  const { what, signal } = request;
+  const servers = request.servers ?? OVERPASS_SERVERS;
+  const policy = request.retry ?? STREET_RETRY;
+  const random = request.random ?? Math.random;
+  const start = Date.now();
+  for (let round = 1; ; round++) {
+    const k = (round - 1) % servers.length;
+    const order = [...servers.slice(k), ...servers.slice(0, k)];
+    try {
+      return await askRound(request, order, round, policy.rounds);
+    } catch (error) {
+      if (!(error instanceof RoundFailed)) throw error;
+      const transient = error.failures.filter((f) => f.error.transient);
+      if (!transient.length || round >= policy.rounds) throw loadFailed(error.failures, round);
+      const after = Math.max(retryDelayMs(round, policy, random()), ...transient.map((f) => f.error.retryAfterMs ?? 0));
+      if (Date.now() - start + after > policy.budgetMs) {
+        console.warn(`[OSM] ${what}: no time left to ask again (${((Date.now() - start) / 1000).toFixed(0)}s of ${policy.budgetMs / 1000}s, next wait ${(after / 1000).toFixed(1)}s)`);
+        throw loadFailed(error.failures, round);
+      }
+      const retry: OverpassRetry = { attempt: round + 1, of: policy.rounds, waitMs: after, kind: transient[0].error.kind };
+      console.warn(`[OSM] ${what}: no server answered (${retry.kind}), trying again in ${(after / 1000).toFixed(1)}s (try ${retry.attempt} of ${retry.of})`);
+      request.onRetry?.(retry);
+      await wait(after, signal);
+    }
+  }
+}
+
+/**
+ * One round: the servers asked in order. One that fails, does not start its
+ * answer within the header limit, does not finish it within the body limit
+ * after that or whose answer `accept` throws on hands over to the next at
+ * once. One that has not started its answer after the hedge time gets the
  * next asked alongside it, so a server that waits out its limit no longer
  * holds the others back that long; the first answer taken aborts the rest.
- * Every attempt is logged: an answer with the time to its headers and on to
- * the end of its body, its size and what came (logOverpassAnswer), a failure
- * with its time and reason. So a slow load shows whether a server was slow
- * to start or its answer was long. Rejects with the last error when none
- * answered.
+ * Rejects with RoundFailed when none answered.
  */
-export function fetchOverpass<T>(request: OverpassRequest<T>): Promise<T> {
+function askRound<T>(request: OverpassRequest<T>, servers: readonly string[], round: number, rounds: number): Promise<T> {
   const { what, query, accept, signal } = request;
-  const servers = request.servers ?? OVERPASS_SERVERS;
   const limits = request.limits ?? STREET_LIMITS;
   return new Promise<T>((resolve, reject) => {
     const controllers: AbortController[] = [];
+    const failures: { server: string; error: OverpassError }[] = [];
     let asked = 0;
-    let failed = 0;
     let done = false;
 
     const onAbort = (): void => {
       if (done) return;
       done = true;
       for (const controller of controllers) controller.abort();
-      reject(new Error('The OSM download was cancelled'));
+      reject(cancelled());
     };
     if (signal?.aborted) {
       onAbort();
@@ -158,9 +358,11 @@ export function fetchOverpass<T>(request: OverpassRequest<T>): Promise<T> {
       controllers.push(controller);
       const start = performance.now();
       const hedge = setTimeout(askNext, limits.hedgeMs);
+      let answered = false;
       const attempt = async (): Promise<T> => {
         const answer = await askOverpass(server, query, controller, limits, () => clearTimeout(hedge));
         logOverpassAnswer(what, server, answer);
+        answered = true;
         return accept(answer.data, answer.chars);
       };
       attempt().then(
@@ -170,20 +372,21 @@ export function fetchOverpass<T>(request: OverpassRequest<T>): Promise<T> {
           for (const other of controllers) if (other !== controller) other.abort();
           resolve(result);
         },
-        (error: unknown) => {
+        (thrown: unknown) => {
           clearTimeout(hedge);
           // A server aborted because another answered first
           if (done) return;
-          const reason = error instanceof Error ? error : new Error(String(error));
+          const error = asOverpassError(thrown, answered);
+          const tries = rounds > 1 ? ` (try ${round} of ${rounds})` : '';
           console.warn(
-            `[OSM] ${what} from ${new URL(server).host} failed after ${(performance.now() - start).toFixed(0)}ms: ${reason.message}`,
+            `[OSM] ${what} from ${new URL(server).host} failed after ${(performance.now() - start).toFixed(0)}ms${tries}: ${error.kind}, ${error.message}`,
           );
-          failed++;
+          failures.push({ server, error });
           if (asked < servers.length) {
             askNext();
-          } else if (failed === asked) {
+          } else if (failures.length === asked) {
             finish();
-            reject(reason);
+            reject(new RoundFailed(failures));
           }
         },
       );
@@ -196,6 +399,7 @@ export function fetchOverpass<T>(request: OverpassRequest<T>): Promise<T> {
  * Post `query` to one Overpass server and read its answer. Aborted through
  * `controller`, and by itself when the headers or the body after them take
  * longer than their limits; `onHeaders` is called when the headers are there.
+ * Every failure rejects with an OverpassError of its kind.
  */
 async function askOverpass(
   server: string,
@@ -222,7 +426,9 @@ async function askOverpass(
       signal: controller.signal,
     });
   } catch (error) {
-    throw timedOut ? new Error(`no answer within ${limits.headerTimeoutMs}ms`) : error;
+    if (timedOut) throw new OverpassError(`no answer within ${limits.headerTimeoutMs}ms`, 'timeout');
+    // A busy server's error page without a CORS header reaches the page as this, not as its status
+    throw new OverpassError(error instanceof Error ? error.message : String(error), 'network', { cause: error });
   } finally {
     clearTimeout(timeoutId);
   }
@@ -230,7 +436,11 @@ async function askOverpass(
   onHeaders();
   const headersAt = performance.now();
   if (!response.ok) {
-    throw new Error(`OSM API error: ${response.status}`);
+    const after = retryAfterMs(response.headers?.get('Retry-After'));
+    throw new OverpassError(`HTTP ${response.status}`, response.status === 0 ? 'network' : httpFailureKind(response.status), {
+      status: response.status,
+      ...(after !== null ? { retryAfterMs: after } : {}),
+    });
   }
   const bodyTimeoutId = setTimeout(() => {
     timedOut = true;
@@ -240,12 +450,21 @@ async function askOverpass(
   try {
     text = await response.text();
   } catch (error) {
-    throw timedOut ? new Error(`answer not complete within ${limits.bodyTimeoutMs}ms`) : error;
+    if (timedOut) throw new OverpassError(`answer not complete within ${limits.bodyTimeoutMs}ms`, 'timeout');
+    throw new OverpassError(`answer cut off (${error instanceof Error ? error.message : String(error)})`, 'network', { cause: error });
   } finally {
     clearTimeout(bodyTimeoutId);
   }
+  let data: OverpassResponse;
+  try {
+    data = JSON.parse(text) as OverpassResponse;
+  } catch {
+    throw new OverpassError(`no JSON in the answer (${text.length} characters)`, 'malformed');
+  }
+  if (!data || !Array.isArray(data.elements)) throw new OverpassError('no elements in the answer', 'malformed');
+  if (busyRemark(data.remark)) throw new OverpassError(`too busy: "${data.remark}"`, 'busy');
   return {
-    data: JSON.parse(text) as OverpassResponse,
+    data,
     chars: text.length,
     headersMs: headersAt - start,
     bodyMs: performance.now() - headersAt,

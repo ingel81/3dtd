@@ -11,6 +11,7 @@ import { packMapFile } from '../custom-map/map-file';
 import type { MapPoint } from '../custom-map/map-document';
 import type { DemDecoder } from './dem-tiles';
 import type { OsmFrameStore } from './osm-frame-store';
+import type { OverpassRetry } from './overpass-client';
 import {
   convertOsm,
   loadOsmInput,
@@ -82,9 +83,10 @@ export class OsmFrameCore {
     spawnsAt: readonly GeoPoint[] = [],
     onStep?: (step: OsmStep) => void,
     signal?: AbortSignal,
+    onRetry?: (retry: OverpassRetry) => void,
   ): Promise<OsmFrameInfo> {
     const side = this.deps.sideM ?? OSM_WORLD_SIDE;
-    const { input, download } = await loadOsmInput(place, { sideM: side, store: this.deps.store, decode: this.deps.decode, signal, onStep });
+    const { input, download } = await loadOsmInput(place, { sideM: side, store: this.deps.store, decode: this.deps.decode, signal, onStep, onRetry });
     return this.read(input, download, count, spawnsAt);
   }
 

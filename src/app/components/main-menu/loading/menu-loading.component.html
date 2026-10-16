@@ -42,6 +42,9 @@
         </div>
       }
     }
+    @if (streetsBusy(); as busy) {
+      <p class="ml-step td-note is-warn" role="status" data-test="streets-busy">{{ busy }}</p>
+    }
     @if (mapDataLine(); as line) {
       <p class="ml-step td-note" role="status">{{ line }}</p>
     }
