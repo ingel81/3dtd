@@ -9,6 +9,8 @@
 import { Vector3, type Camera, type Mesh, type Object3D, type Ray, type Scene, type WebGLRenderer } from 'three';
 import type { CustomMapDocument, MapObject } from '../../world/custom-map/map-document';
 import { CustomMapView, type MapRect } from '../../world/custom-map/render/custom-map-view';
+import type { RoadCover } from '../../world/custom-map/render/paths/path-mask';
+import type { TexelRect } from '../../world/custom-map/render/terrain/texture-ranges';
 import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
 import { mapToScene as toScene } from '../../world/custom-map/render/map-coords';
 import type { GridRect } from '../../map-ops/grid';
@@ -134,6 +136,21 @@ export class EditorMapView {
 
   updatePaths(): void {
     this.view.updatePaths();
+  }
+
+  /** Hears when the path mask was painted from the map as it is now (EditorPathMask takes over from there) */
+  onPathMaskBuilt(fn: () => void): void {
+    this.view.pathMaskBuilt = fn;
+  }
+
+  /** Where the paved road surface hides the ground, as laid now */
+  roadCovers(): readonly RoadCover[] {
+    return this.view.roadCovers();
+  }
+
+  /** Texels of the path mask the editor's worker painted; false when they are of another mask */
+  setPathMask(m: { width: number; depth: number; resolution: number; rect: TexelRect; data: Uint8Array }): boolean {
+    return this.view.setPathMask(m);
   }
 
   setEnvironment(): void {

@@ -217,11 +217,15 @@ weichen Ränder werden von Rauschen angefressen (Gras wächst herein). So folgt
 ein Weg jeder Unebenheit ohne Z-Fighting, und der Höhen-Blend lässt Pflastersteine am Rand ins Gras auslaufen.
 Flussufer liegen in der Alpha der Maske: nasser Kies und Erde beidseits jedes Flusses, ungleichmäßig breit (an
 der Innenseite einer Biegung bis 2,4-fach, außen schmal, entlang des Flusses wandernd), die Kante vom Rauschen
-angefressen. Die Maske merkt sich, was sie malte (`PathMaskRaster`: je gemalte Kante Art, Breite und Linie, je Fluss
-die Punkte), und malt bei einer Änderung nur das Rechteck um alte und neue Lage dessen, was sich bewegte, kam oder
-ging, neu und lädt nur dessen Zeilen hoch; eine Wasseränderung ohne geänderte Wege malt nichts. Das Rechteck kommt
-genau wie ein Ganzaufbau heraus (gleiche Reihenfolge der Kanten; ändert sie sich, malt sie ganz). Einen Knoten auf
-einer 1024-m-Karte mit 220 Straßen ziehen: 1,4 statt 20 ms je Bild, dazu der Upload. Brücken (`kind: 'bridge'`) bekommen ein Deck aus instanzierten `bridge-deck`-Stücken zwischen den Uferhöhen, mit
+angefressen. Die Ansicht malt die Maske einmal mit der Karte (`rasterizePathMask`); im Editor hält sie danach der
+Editor-Worker (`editor/workers/path-mask-job.ts`, `EditorPathMask`): er merkt sich, was er malte (`PathMaskRaster`: je
+gemalte Kante Art, Breite und Linie, je Fluss die Punkte), und malt bei einer Änderung nur das Rechteck um alte und
+neue Lage dessen, was sich bewegte, kam oder ging, neu; die Ansicht schreibt dessen Texel in ihre Textur und lädt nur
+dessen Zeilen hoch, eine Wasseränderung ohne geänderte Wege malt nichts. Das Rechteck kommt genau wie ein Ganzaufbau
+heraus (gleiche Reihenfolge der Kanten; ändert sie sich, malt sie ganz). Einen Knoten ziehen kostete im Hauptthread
+auf einer 1024-m-Karte mit 220 Straßen 1,4 ms je Bild, auf einem Netz von 7 500 Knoten und 11 000 Kanten (OSM-Stadt)
+30 ms; jetzt nur den Abgleich des Spiegels (1,9 ms auf dem großen Netz) und den Upload. Neue Bodenschichten behalten
+die Maske. Brücken (`kind: 'bridge'`) bekommen ein Deck aus instanzierten `bridge-deck`-Stücken zwischen den Uferhöhen, mit
 leichtem Bogen und mindestens 1 m über dem Wasser. `style: 'stone' | 'concrete' | 'lava'` an der Kante nimmt
 `bridge-deck-stone`, `bridge-deck-concrete` (Asphalt auf Betonplatte, Geländer) bzw. `bridge-deck-lava`; fehlt das
 Stück im Katalog, bleibt es beim Holzdeck.

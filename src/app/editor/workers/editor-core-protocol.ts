@@ -13,6 +13,7 @@ import type { CustomMapDocument } from '../../world/custom-map/map-document';
 import type { PackOptions } from '../../world/custom-map/map-file';
 import type { PackedMap, PackError } from '../../world/custom-map/map-pack';
 import type { MirrorSync, PartVersions } from '../model/doc-mirror';
+import type { PathMaskInput, PathMaskRect } from './path-mask-job';
 
 /** The jobs the worker takes, what each gets and gives */
 export interface CoreJobs {
@@ -25,6 +26,8 @@ export interface CoreJobs {
   check: { input: { areas: boolean; doc?: CustomMapDocument }; output: MapIssue[] };
   /** Where towers may stand (build-areas.ts), along the routes of the open map; the check reads them after */
   buildAreas: { input: Record<string, never>; output: BuildAreas };
+  /** The texels of the path mask that changed since the last (path-mask-job.ts), null when none did or when primed */
+  pathMask: { input: PathMaskInput; output: PathMaskRect | null };
   /** Each spawn's route to the HQ (path-graph.ts spawnRoutes), by spawn id */
   routes: { input: Record<string, never>; output: Map<string, Route | null> };
 }

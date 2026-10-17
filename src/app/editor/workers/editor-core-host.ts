@@ -19,6 +19,7 @@ import type { CustomMapDocument } from '../../world/custom-map/map-document';
 import { packErrorReply, packForSave } from '../../world/custom-map/map-pack';
 import { DocMirror } from '../model/doc-mirror';
 import type { CoreInput, CoreJobKind, CoreOutput, CoreReply, CoreRequest } from './editor-core-protocol';
+import { PathMaskState } from './path-mask-job';
 
 /** What the jobs work with */
 interface CoreContext {
@@ -26,6 +27,7 @@ interface CoreContext {
   catalog: CatalogIndex;
   /** Where towers may stand, as judged last (the check reads them) */
   buildAreas: BuildAreas | null;
+  pathMask: PathMaskState;
 }
 
 interface JobDef<K extends CoreJobKind> {
@@ -33,6 +35,8 @@ interface JobDef<K extends CoreJobKind> {
   now?: boolean;
   /** Higher runs first */
   priority: number;
+  /** What the job brings that must reach the worker even when a newer job takes its place, as it comes */
+  take?(ctx: CoreContext, input: CoreInput<K>): void;
   run(ctx: CoreContext, input: CoreInput<K>): CoreOutput<K> | Promise<CoreOutput<K>>;
   /** The buffers of the result that go back transferred */
   transfer?(output: CoreOutput<K>): ArrayBuffer[];
@@ -60,6 +64,13 @@ const JOBS: { [K in CoreJobKind]: JobDef<K> } = {
     priority: 50,
     run: (ctx, input) => checkMap(input.doc ?? ctx.mirror.doc, ctx.catalog, input.areas ? ctx.buildAreas : null),
   },
+  pathMask: {
+    // The ground under a dragged road follows the drag: before the panels' jobs
+    priority: 60,
+    take: (ctx, input) => ctx.pathMask.take(input),
+    run: (ctx, input) => ctx.pathMask.run(ctx.mirror.doc, input),
+    transfer: (rect) => (rect ? [rect.data.buffer as ArrayBuffer] : []),
+  },
   routes: {
     priority: 40,
     run: (ctx) => spawnRoutes(ctx.mirror.doc),
@@ -83,7 +94,7 @@ interface Waiting {
 }
 
 export class EditorCoreHost {
-  private readonly ctx: CoreContext = { mirror: new DocMirror(), catalog: new CatalogIndex(EMPTY_CATALOG), buildAreas: null };
+  private readonly ctx: CoreContext = { mirror: new DocMirror(), catalog: new CatalogIndex(EMPTY_CATALOG), buildAreas: null, pathMask: new PathMaskState() };
   private readonly waiting = new Map<CoreJobKind, Waiting>();
   private draining = false;
 
@@ -112,6 +123,7 @@ export class EditorCoreHost {
       return;
     }
     const job = { id: msg.id, kind: msg.kind, input: msg.input };
+    (JOBS[msg.kind] as JobDef<CoreJobKind>).take?.(this.ctx, msg.input);
     if (JOBS[msg.kind].now) {
       void this.run(job);
       return;

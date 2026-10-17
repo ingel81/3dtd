@@ -10,7 +10,7 @@ import {
 import { MAX_GROUND_LAYERS, type MapBiome, type MapTerrain as MapTerrainDoc, type MapPaths } from '../../map-document';
 import type { HeightField } from '../height-field';
 import type { MapAssetLibrary } from '../map-asset-library';
-import { pathMaskResolution, PathMaskRaster } from '../paths/path-mask';
+import { pathMaskResolution, rasterizePathMask } from '../paths/path-mask';
 import { addHeightFog } from '../environment/height-fog';
 import { ApronProfile, BACKDROP_HEIGHT, buildTerrainApron, writeApronGeometry } from './terrain-apron';
 import { APRON_LOOK, ApronMaterial } from './apron-material';
@@ -26,7 +26,7 @@ import { FarShadow } from './far-shadow';
 import { TerrainCuts } from './terrain-cuts';
 import { RoadSurfaceLayer } from '../paths/road-surface';
 import { GridNormalTexture, MaterialArrays, SplatTextures, loadMaterialArrays, maskTexture } from './terrain-textures';
-import { uploadRect } from './texture-ranges';
+import { uploadRect, type TexelRect } from './texture-ranges';
 
 /** Materials the path mask paints, by channel */
 export const ROAD_MATERIAL = 'cobblestone';
@@ -99,9 +99,13 @@ export class MapTerrainLayer {
   private farShadowBake = 0;
   private arrays: MaterialArrays | null = null;
   private splat: SplatTextures | null = null;
+  /**
+   * The roads, river banks and road covers painted into the ground (path-mask.ts), painted once with the
+   * map; the editor's worker paints what changes and hands the texels over (setPathMask)
+   */
   private pathMask: DataTexture | null = null;
-  /** The path mask's texels, painted again only where the paths changed (PathMaskRaster) */
-  private pathRaster: PathMaskRaster | null = null;
+  /** Hears when the path mask was painted from the map as it is now (the editor's worker takes over from there) */
+  pathMaskBuilt: (() => void) | null = null;
   private readonly normals: GridNormalTexture;
   readonly occlusion: GroundOcclusion;
   /** The far cascade of the sun's shadow (the shadowCascade effect), shared with the material */
@@ -178,12 +182,14 @@ export class MapTerrainLayer {
     this.apronMaterial?.dispose();
     this.arrays?.dispose();
     this.splat?.dispose();
-    this.pathMask?.dispose();
     this.arrays = arrays;
     this.splat = new SplatTextures(t.splat);
-    // The roads first: the mask leaves the ground under their surface to them
+    // The roads first: the mask leaves the ground under their surface to them. New layers keep the mask
     this.roads.set(paths);
-    this.pathMask = this.buildPathMask(paths);
+    if (!this.pathMask) {
+      this.pathMask = this.buildPathMask(paths);
+      this.pathMaskBuilt?.();
+    }
     this.refreshApronPaint();
     this.materialParams = {
       colorArray: this.arrays.color,
@@ -319,10 +325,8 @@ export class MapTerrainLayer {
     this.apronMaterial?.setRange(this.apronProfile.base, BACKDROP_HEIGHT[this.biome], APRON_LOOK[this.biome]);
   }
 
-  /** Water changed: wet banks follow the mask and level, river banks the rivers */
-  refreshWater(paths?: MapPaths): void {
-    // The rivers' banks in the mask; the roads keep what they laid (their paths did not change)
-    if (paths) this.refreshMask(paths);
+  /** Water changed: wet banks follow the mask and level (the rivers' banks are the path mask's, setPathMask) */
+  refreshWater(): void {
     // The apron's sea floor follows the water
     this.refreshApron();
     this.normals.setWater(this.terrain.water?.mask ?? null);
@@ -362,26 +366,24 @@ export class MapTerrainLayer {
     if (this.material) this.material.terrainUniforms.uApronPaint.value = this.apronPaint;
   }
 
-  /** The paths changed: the roads lay what changed, the mask paints and uploads only the texels round it */
+  /** The paths changed: the roads lay what changed (the mask follows from the editor's worker, setPathMask) */
   refreshPaths(paths: MapPaths): void {
     this.roads.set(paths);
-    this.refreshMask(paths);
   }
 
-  /** The path mask painted again where paths, rivers or the roads' covers changed */
-  private refreshMask(paths: MapPaths): void {
-    if (!this.material || !this.pathMask) return;
-    const raster = this.pathRasterFor();
-    const rect = raster.update(paths, this.terrain.rivers ?? [], this.roads.covers());
-    if (this.pathMask.image.data !== raster.data) {
-      this.pathMask.dispose();
-      this.pathMask = maskTexture(raster.data, raster.resolution);
-      uploadRect(this.pathMask, undefined);
-      this.material.terrainUniforms.uPathMask.value = this.pathMask;
-      this.updateGrassInputs();
-    } else if (rect) {
-      uploadRect(this.pathMask, rect);
-    }
+  /**
+   * Texels of the path mask painted elsewhere (the editor's worker, path-mask-job.ts): `data` holds the RGBA rows
+   * of `rect` of a mask of `resolution`² over `width` x `depth` metres. False when this mask is not that one
+   */
+  setPathMask(width: number, depth: number, resolution: number, rect: TexelRect, data: Uint8Array): boolean {
+    const mask = this.pathMask;
+    const t = this.terrain;
+    if (!mask || t.width !== width || t.depth !== depth || mask.image.width !== resolution) return false;
+    const texels = mask.image.data as Uint8Array;
+    const row = (rect.i1 - rect.i0 + 1) * 4;
+    for (let j = rect.j0; j <= rect.j1; j++) texels.set(data.subarray((j - rect.j0) * row, (j - rect.j0 + 1) * row), (j * resolution + rect.i0) * 4);
+    uploadRect(mask, rect);
+    return true;
   }
 
   dispose(): void {
@@ -397,6 +399,7 @@ export class MapTerrainLayer {
     this.arrays?.dispose();
     this.splat?.dispose();
     this.pathMask?.dispose();
+    this.pathMask = null;
     this.apronPaint?.dispose();
     this.normals.dispose();
     this.occlusion.dispose();
@@ -405,23 +408,13 @@ export class MapTerrainLayer {
     this.heightTexture.dispose();
     this.cuts.dispose();
     this.roads.dispose();
-    // The path mask's texels (up to 16 MB) go with it
-    this.pathRaster = null;
   }
 
   private buildPathMask(paths: MapPaths): DataTexture {
-    const raster = this.pathRasterFor();
-    raster.update(paths, this.terrain.rivers ?? [], this.roads.covers());
-    const texture = maskTexture(raster.data, raster.resolution);
+    const t = this.terrain;
+    const resolution = pathMaskResolution(t.width, t.depth);
+    const texture = maskTexture(rasterizePathMask(paths, t.width, t.depth, resolution, t.rivers ?? [], this.roads.covers()), resolution);
     uploadRect(texture, undefined);
     return texture;
-  }
-
-  /** The raster for the map's extent; a new one when the extent changed */
-  private pathRasterFor(): PathMaskRaster {
-    const t = this.terrain;
-    const r = this.pathRaster;
-    if (r && r.width === t.width && r.depth === t.depth) return r;
-    return (this.pathRaster = new PathMaskRaster(t.width, t.depth, pathMaskResolution(t.width, t.depth)));
   }
 }

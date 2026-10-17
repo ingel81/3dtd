@@ -1,6 +1,6 @@
 import type { MapPathEdge, MapPaths, MapPoint, MapRiver, MapRiverPoint } from '../../map-document';
 import type { TexelRect } from '../terrain/texture-ranges';
-import { sampleRiver } from '../water/river-surface';
+import { sampleRiver } from '../water/river-line';
 
 /**
  * Paths are painted into the terrain, not laid on it as strips: an RGBA

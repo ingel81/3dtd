@@ -237,9 +237,9 @@ describe('CustomMapView', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const view = new CustomMapView(createDemoMap(), offlineLibrary());
     await view.ready;
-    expect(view['terrain']['pathRaster']).not.toBeNull();
+    expect(view['terrain']['pathMask']).not.toBeNull();
     view.dispose();
-    expect(view['terrain']['pathRaster']).toBeNull();
+    expect(view['terrain']['pathMask']).toBeNull();
   });
 
   /** M9: the editor gave the view a proxy of its document, because the view wrote its object list into it */

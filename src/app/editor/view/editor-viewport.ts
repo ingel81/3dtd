@@ -68,6 +68,10 @@ export interface ViewportCallbacks {
   viewReady(): void;
   /** The WebGL context went (a driver reset, the GPU process restarted) or came back with a rebuilt view */
   contextLost(lost: boolean): void;
+  /** The view painted its path mask from the map as it is now: the editor's worker keeps it from there (EditorPathMask) */
+  pathMaskBuilt(view: EditorMapView): void;
+  /** The view laid new roads or water: the path mask's texels that changed come from the worker */
+  pathMaskChanged(): void;
 }
 
 export class EditorViewport {
@@ -156,10 +160,16 @@ export class EditorViewport {
       layers: () => this.view.updateLayers(),
       heights: (rect) => this.view.updateHeights(rect),
       splat: (rect) => this.view.updateSplat(rect),
-      water: () => this.view.updateWater(),
+      water: () => {
+        this.view.updateWater();
+        this.callbacks.pathMaskChanged();
+      },
       waterBody: (k, rect) => this.view.updateWaterBody(k, rect),
       objects: (ids) => (ids === 'all' ? this.view.setObjects() : this.view.objectsChanged(ids)),
-      paths: () => this.view.updatePaths(),
+      paths: () => {
+        this.view.updatePaths();
+        this.callbacks.pathMaskChanged();
+      },
       environment: () => this.view.setEnvironment(),
       life: () => this.view.setLife(),
       soundChanged: () => this.extras.sound.mapChanged(),
@@ -310,6 +320,7 @@ export class EditorViewport {
   private makeView(): EditorMapView {
     const view = new EditorMapView(this.editor.doc, this.scene, this.renderer);
     view.view.applyQuality(this.quality.customMaps);
+    view.onPathMaskBuilt(() => this.callbacks.pathMaskBuilt(view));
     return view;
   }
 

@@ -1004,8 +1004,10 @@ Auftrag bringt mit, was sich seit dem letzten geändert hat (`MirrorTracker.sync
   es gerechnet wurde, `EditorCore.current` sagt, ob sie noch gelten.
 - Aufträge: was den Stand genau so sehen muss, wie er erbeten wurde (Packen), läuft sofort beim Eintreffen und liest
   den Spiegel vor seinem ersten `await`; alles andere wartet auf einen ruhigen Moment, je Art gewinnt der neueste (ein
-  älterer wird mit `null` beantwortet), die dringlichste Art zuerst: `pack`, `check` (Prüfen), `routes` (Routen der
-  Spawns), `buildAreas` (Bauflächen; der Worker behält sie für die nächste Prüfung).
+  älterer wird mit `null` beantwortet), die dringlichste Art zuerst: `pack`, `pathMask` (Wegmaske, CUSTOM_MAPS.md),
+  `check` (Prüfen), `routes` (Routen der Spawns), `buildAreas` (Bauflächen; der Worker behält sie für die nächste
+  Prüfung). Was ein Auftrag mitbringt und nicht verloren gehen darf, wenn ein neuerer seinen Platz nimmt (die Covers
+  der Wegmaske), nimmt der Worker beim Eintreffen (`take`).
 - Ohne Worker (Tests) läuft derselbe Code im Prozess, die Nachrichten geklont wie bei einem Worker. Der Zufallslauf
   (`editor-fuzz.spec.ts`) gleicht nebenbei den Spiegel ab: eine Datei aus dem Spiegel muss Byte für Byte die aus dem
   Dokument sein.

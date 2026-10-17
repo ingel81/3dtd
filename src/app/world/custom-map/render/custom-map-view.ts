@@ -40,13 +40,16 @@ import { prepareFoamNoise } from './water/foam-noise';
 import { MapObjectLayer, type ObjectHit } from './objects/object-layer';
 import { IMPOSTOR_SUN } from './objects/impostor';
 import { BridgeLayer } from './paths/path-bridges';
+import type { RoadCover } from './paths/path-mask';
+import type { TexelRect } from './terrain/texture-ranges';
 import { LAVA_GLOW_UNIFORMS } from './environment/height-fog';
 import { groundCuts } from './terrain/terrain-cuts';
 import { MapTerrainLayer } from './terrain/map-terrain';
 import { ApronField, EDGE_TREE_BAND, edgeTreeObjects } from './objects/edge-trees';
 import { NIGHT_WINDOW_UNIFORMS } from './objects/night-windows';
 import type { HeightTexture } from './terrain/height-texture';
-import { RiverSurface, sampleRiver } from './water/river-surface';
+import { RiverSurface } from './water/river-surface';
+import { sampleRiver } from './water/river-line';
 import { WaterSurface } from './water/water-surface';
 import type { CustomMapQuality } from '../../../three-engine/render-quality';
 import { SceneCopy } from './water/scene-copy';
@@ -842,7 +845,7 @@ export class CustomMapView {
       this.updateMainMask(rect);
       return;
     }
-    this.terrain.refreshWater(this.doc.paths);
+    this.terrain.refreshWater();
     // Rain stops and grass ends at the new surfaces, the mirrored trees beyond the border at the sea
     this.coverDirty = true;
     this.edgeTreesLater(this.shownObjects());
@@ -1029,9 +1032,25 @@ export class CustomMapView {
     this.edgeTreesLater(all);
   }
 
+  /** The roads and bridges follow the paths; the path mask follows from the editor's worker (setPathMask) */
   updatePaths(): void {
     this.terrain.refreshPaths(this.doc.paths);
     void this.refreshBridges();
+  }
+
+  /** Hears when the path mask was painted from the map as it is now (the editor's worker keeps it from there) */
+  set pathMaskBuilt(fn: (() => void) | null) {
+    this.terrain.pathMaskBuilt = fn;
+  }
+
+  /** Where the paved road surface hides the ground, as laid now (the path mask's covers) */
+  roadCovers(): RoadCover[] {
+    return this.terrain.roads.covers();
+  }
+
+  /** Texels of the path mask painted elsewhere (MapTerrainLayer.setPathMask); false when they are of another mask */
+  setPathMask(m: { width: number; depth: number; resolution: number; rect: TexelRect; data: Uint8Array }): boolean {
+    return this.terrain.setPathMask(m.width, m.depth, m.resolution, m.rect, m.data);
   }
 
   /** Shows `env` (the owner keeps its document's environment) */

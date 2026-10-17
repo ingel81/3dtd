@@ -11,6 +11,7 @@ import type { MapIntro, MapIntroView, MapPoint } from '../../world/custom-map/ma
 import type { CatalogIndex } from '../../map-ops/asset-catalog';
 import type { BuildAreas } from '../../map-ops/validation/build-areas';
 import type { SpawnRoutes } from './editor-routes';
+import type { EditorPathMask } from './editor-path-mask';
 import type { EditorDocument } from '../model/editor-document';
 import { patch, type EditorSettings, type EditorTool, type ToolContext } from '../tools/tool';
 import { EditorViewport, type CameraBookmark, type FrameStats, type HoverInfo } from '../view/editor-viewport';
@@ -86,6 +87,8 @@ export interface ViewHostDeps {
   contextLost(lost: boolean): void;
   /** The tool's line of help says something new */
   hintChanged(): void;
+  /** The view's path mask, kept by the editor's worker */
+  pathMask: EditorPathMask;
 }
 
 export class ViewHost implements EditorViewPort {
@@ -143,6 +146,8 @@ export class ViewHost implements EditorViewPort {
             this.viewLost.set(lost);
             d.contextLost(lost);
           }),
+        pathMaskBuilt: (view) => d.pathMask.built(view),
+        pathMaskChanged: () => d.pathMask.changed(),
       });
       this.viewport = vp;
       this.refreshRoutes();
@@ -160,6 +165,7 @@ export class ViewHost implements EditorViewPort {
     this.keptView = this.viewport && keepCamera ? this.viewport.cameraView() : null;
     this.viewport?.dispose();
     this.viewport = null;
+    this.deps.pathMask.detach();
     // The sound stopped with the view; a new view starts it only from a click
     patch(this.deps.settings.life, { hear: false });
     this.attached.update((n) => n + 1);
