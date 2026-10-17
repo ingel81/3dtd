@@ -111,6 +111,19 @@ describe('TileLoadingTracker', () => {
       expect(enough.onFirstLoaded).toHaveBeenCalledTimes(1);
     });
 
+    it('ruft jeden vor dem ersten Load registrierten Callback einmal auf, keiner ersetzt einen anderen', () => {
+      // Ladebildschirm und Warm-up der Engine warten beide auf die ersten Tiles (E215)
+      const { tiles, tracker, onFirstLoaded } = setup({ ground: 12 });
+      const warmup = vi.fn();
+      tracker.setOnFirstTilesLoaded(warmup);
+      tiles.loadEnd();
+      vi.advanceTimersByTime(500);
+      tiles.loadEnd();
+      vi.advanceTimersByTime(500);
+      expect(onFirstLoaded).toHaveBeenCalledTimes(1);
+      expect(warmup).toHaveBeenCalledTimes(1);
+    });
+
     it('ruft einen erst danach registrierten Callback sofort auf', () => {
       const { tiles, tracker } = setup({ ground: 12 });
       tiles.loadEnd();
@@ -223,12 +236,17 @@ describe('TileLoadingTracker', () => {
       tiles.loadEnd();
       vi.advanceTimersByTime(200);
       tracker.reset();
+      // Der neue Ort meldet sich neu an (LocationChangeExecutor); ein Callback des alten Orts feuert nur einmal
+      const next = vi.fn();
+      tracker.setOnFirstTilesLoaded(next);
       vi.advanceTimersByTime(1000);
       expect(hooks.onTileSetSettled).toHaveBeenCalledTimes(1);
+      expect(next).not.toHaveBeenCalled();
 
       tiles.loadEnd();
       vi.advanceTimersByTime(500);
-      expect(onFirstLoaded).toHaveBeenCalledTimes(2);
+      expect(next).toHaveBeenCalledTimes(1);
+      expect(onFirstLoaded).toHaveBeenCalledTimes(1);
       expect(hooks.onTileSetSettled).toHaveBeenCalledTimes(2);
     });
 

@@ -113,7 +113,8 @@ export class TileLoadingTracker {
   private tilesRenderer: TilesRenderer | null = null;
 
   // Callback when first tiles are loaded (for loading indicator)
-  private onFirstTilesLoadedCallback: (() => void) | null = null;
+  /** Waiting for the first tiles: each is called once, then dropped (several wait: the loading screen, the warm-up) */
+  private firstTilesWaiters: (() => void)[] = [];
   private firstTilesLoaded = false;
 
   // Callback when the root tileset failed: credentials refused or server not
@@ -217,15 +218,14 @@ export class TileLoadingTracker {
   }
 
   /**
-   * Register a callback to be called when first tiles are loaded
-   * Used by component to hide "loading tiles" indicator
+   * Register a callback to be called once when the first tiles are loaded,
+   * at once when they are: the loading screen and the engine's warm-up each
+   * wait for them, and a later registration (a change of place) adds to the
+   * ones waiting instead of taking their place
    */
   setOnFirstTilesLoaded(callback: () => void): void {
-    this.onFirstTilesLoadedCallback = callback;
-    // If tiles already loaded, call immediately
-    if (this.firstTilesLoaded) {
-      callback();
-    }
+    if (this.firstTilesLoaded) callback();
+    else this.firstTilesWaiters.push(callback);
   }
 
   /**
@@ -247,9 +247,7 @@ export class TileLoadingTracker {
    */
   markFirstTilesLoaded(): void {
     this.firstTilesLoaded = true;
-    if (this.onFirstTilesLoadedCallback) {
-      this.onFirstTilesLoadedCallback();
-    }
+    for (const waiter of this.firstTilesWaiters.splice(0)) waiter();
   }
 
   /**
