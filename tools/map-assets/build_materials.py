@@ -12,7 +12,10 @@ the command line rebuild only those files; the catalogue is always written
 whole. `tint` (RGB multiplier) and `desaturate` (0..1) in materials.json
 adjust the albedo, e.g. to turn a greenish ice scan blue; `shade` (0..1)
 darkens the albedo in the hollows of the height map (flat lunar dust).
-Sources: Poly Haven (polyhaven.com) and ambientCG (ambientcg.com), both CC0.
+Sources: Poly Haven (polyhaven.com) and ambientCG (ambientcg.com), both CC0, and
+`baked`: a ground built from geometry in Blender (bake_grounds.py, recipes in
+ground_recipes.py), read from <download-dir>/grounds/<id>/ (bake it first); `target` (hex) is
+the mean colour it is brought to (calibrate).
 """
 import io
 import json
@@ -26,6 +29,8 @@ import numpy as np
 from PIL import Image, ImageFilter, ImageOps
 
 SIZE = 1024
+# Root mean square of a normal map's x and y the bakes are scaled to: about what the scans of grass, sand and soil show
+NORMAL_RMS = 0.25
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -86,7 +91,72 @@ def ambientcg(asset, dl):
 def gray(img, fallback):
     if img is None:
         return Image.new('L', (SIZE, SIZE), fallback)
+    if img.mode in ('I;16', 'I;16B', 'I'):
+        # 16-bit bakes (height): to 8 bit without clipping
+        img = Image.fromarray((np.asarray(img, dtype=np.float32) / 257).clip(0, 255).astype(np.uint8), 'L')
     return img.convert('L').resize((SIZE, SIZE), Image.LANCZOS)
+
+
+def linear(c):
+    return np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
+
+
+def srgb(c):
+    c = np.clip(c, 0, 1)
+    return np.where(c <= 0.0031308, c * 12.92, 1.055 * c ** (1 / 2.4) - 0.055)
+
+
+def calibrate(color, target):
+    """Brings a bake's mean colour to `target` (hex): its brightness fully, its hue half way, in linear light.
+    The maps, their lighting and their grade were tuned against the scans these bakes replace: a snow field twice
+    as bright would blow out, while the bake keeps its own colours within (an autumn floor stays orange and gold)"""
+    rgb = linear(np.asarray(color, dtype=np.float32) / 255)
+    want = linear(np.array([int(target[k:k + 2], 16) for k in (1, 3, 5)], dtype=np.float32) / 255)
+    have = rgb.reshape(-1, 3).mean(axis=0)
+    lum = np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
+    lw, lh = float(want @ lum), float(have @ lum)
+    hue = ((want / max(lw, 1e-6)) / np.maximum(have / max(lh, 1e-6), 1e-6)) ** 0.5
+    scale = hue * lw / max(float((have * hue) @ lum), 1e-6)
+    return Image.fromarray((srgb(rgb * scale) * 255).round().astype(np.uint8), 'RGB')
+
+
+def baked(mid, dl, target=None):
+    """Maps of a ground baked from geometry (bake_grounds.py), its mean colour brought to `target`"""
+    folder = os.path.join(dl, 'grounds', mid)
+
+    def get(name):
+        path = os.path.join(folder, name + '.png')
+        return Image.open(path) if os.path.exists(path) else None
+
+    if get('color') is None:
+        raise SystemExit(f'{mid}: no bake in {folder} (run bake_grounds.py first)')
+    normal = get('normal')
+    # The relief to the strength the terrain shader was tuned for (the scans' typical slope, NORMAL_RMS): blade by
+    # blade a sward's normals turn every way and would read as noise, settled snow or sand would read flat
+    n = np.asarray(normal.convert('RGB'), dtype=np.float32) / 255 * 2 - 1
+    rms = float(np.sqrt((n[..., :2] ** 2).sum(axis=2).mean()))
+    n[..., :2] *= min(3.0, max(0.4, NORMAL_RMS / max(rms, 1e-6)))
+    n /= np.linalg.norm(n, axis=2, keepdims=True) + 1e-6
+    normal = Image.fromarray(((n * 0.5 + 0.5) * 255).round().astype(np.uint8), 'RGB')
+    # A photo carries its light in its colour (the shade in every hollow); a bake's colour is pure albedo, and
+    # from the game camera the normal map alone no longer shapes it: part of the occlusion and the small relief
+    # go into the colour as a scan would have them
+    color = np.asarray(get('color').convert('RGB'), dtype=np.float32)
+    # The occlusion pass has single black samples on open ground (rays that found the patch's own surface)
+    ao_img = gray(get('ao'), 255).filter(ImageFilter.MedianFilter(3))
+    ao = np.asarray(ao_img, dtype=np.float32) / 255
+    hi = gray(get('height'), 128)
+    h = np.asarray(hi, dtype=np.float32) - np.asarray(hi.filter(ImageFilter.GaussianBlur(6)), dtype=np.float32)
+    h = np.clip(h / (3 * h.std() + 4), -1, 1)
+    shade = (0.5 + 0.5 * ao) * (1 + 0.18 * h)
+    # Same brightness as the albedo the recipe chose: the shade moves light into the hollows, it does not darken
+    shade /= shade.mean()
+    color = Image.fromarray((color * shade[..., None]).clip(0, 255).astype(np.uint8), 'RGB')
+    if target:
+        color = calibrate(color, target)
+    # The colour carries part of the occlusion now: the occlusion channel keeps the rest, or the hollows darken twice
+    ao_img = Image.fromarray((150 + ao * 105).round().astype(np.uint8), 'L')
+    return {'color': color, 'normal': normal, 'height': get('height'), 'ao': ao_img, 'rough': get('rough')}
 
 
 def adjust(color, m):
@@ -103,7 +173,8 @@ def adjust(color, m):
 
 
 def build(m, dl, out):
-    maps = polyhaven(m['asset'], dl) if m['source'] == 'polyhaven' else ambientcg(m['asset'], dl)
+    maps = (polyhaven(m['asset'], dl) if m['source'] == 'polyhaven' else baked(m['id'], dl, m.get('target')) if m['source'] == 'baked'
+            else ambientcg(m['asset'], dl))
     target = os.path.join(out, 'materials', m['id'])
     os.makedirs(target, exist_ok=True)
     color = adjust(maps['color'].convert('RGB').resize((SIZE, SIZE), Image.LANCZOS), m)
@@ -132,6 +203,7 @@ def entry(m, out):
     color = Image.open(os.path.join(target, 'color.jpg')).convert('RGB')
     avg = color.resize((1, 1), Image.BOX).getpixel((0, 0))
     url = (f'https://polyhaven.com/a/{m["asset"]}' if m['source'] == 'polyhaven'
+           else 'procedural (tools/map-assets/bake_grounds.py)' if m['source'] == 'baked'
            else f'https://ambientcg.com/view?id={m["asset"]}')
     files = {f: f'materials/{m["id"]}/{f}.jpg' for f in ('color', 'normal', 'arh')}
     e = {'id': m['id'], 'name': m['name'], 'category': m['category'], 'files': files}

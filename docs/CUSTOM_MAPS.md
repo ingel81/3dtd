@@ -115,7 +115,7 @@ Nebel der Szene wieder her.
   einmal von flach zu texturiert (E193). `CustomMapView.setFarGround(single, flat, steep)` für die Qualitätsstufen Jede Schicht blendet so weich wie
   ihre Katalog-Kategorie (`MATERIAL_LOOK`: Gras und Sand laufen in die Nachbarn, Fels und Eis schneiden) und bekommt
   deren Rauheitsbereich (Schlamm und Eis glänzender, Gras und Sand matt); der Glanz läuft zum Blickrand hin aus (keine
-  weißen Flächen im Gegenlicht). **Grobe Eigenstruktur** (E214): die stärkste Schicht eines Pixels liest ihre Farbtextur
+  weißen Flächen im Gegenlicht). **Eigene Böden** (E214): 28 Materialien (Gras, Wiese, Laub, Moos, Erde, Schlamm, Sumpf, Sand, Dünen, Kies, Schnee und ihre Varianten) sind keine Scans mehr, sondern in Blender aus Geometrie gebacken (`tools/map-assets/bake_grounds.py`, Rezepte `ground_recipes.py`); ihre Höhe ist echte Geometrie (Halme stehen über der Erde, Steine über dem Sand), so wirkt der Höhen-Blend zwischen Schichten wie gewachsen. Gleiche Auflösung und Formate, zusammen 21 statt 25 MB KTX2. **Grobe Eigenstruktur** (E214): die stärkste Schicht eines Pixels liest ihre Farbtextur
   ein zweites Mal im 6,4-fachen Maßstab (rund 20 bis 30 m je Wiederholung, ein Zugriff in jeder Entfernung) und formt
   den Boden mit der verstärkten Abweichung dieses Bilds von ihrer Mittelfarbe in Helligkeit und Ton: Gras zeigt aus
   Spielhöhe Horste und Flecken aus dem eigenen Foto, Erde Steinnester (Stärke je Kategorie, `MATERIAL_LOOK.coarse`;

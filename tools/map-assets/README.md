@@ -1,13 +1,21 @@
 # Karten-Assets bauen
 
 Erzeugt Bodenmaterialien und Objektmodelle für eigene Karten (`public/maps/assets/`, Katalog `catalog.json`,
-Lizenzen `LICENSES.md`). Alle Quellen CC0 (Poly Haven, ambientCG), keine KI-Generatoren. Downloads in ein eigenes
+Lizenzen `LICENSES.md`). Alle Quellen CC0 (Poly Haven, ambientCG) oder in Blender gebaut, keine KI-Generatoren. Downloads in ein eigenes
 Verzeichnis außerhalb des Repos (`$DL`). Python mit PIL/numpy/scipy, Blender 5.1 headless, Node (gltf-transform).
 
 ```bash
 # Bodenmaterialien (materials.json): color.jpg, normal.jpg, arh.jpg (AO, Rauheit, Höhe), emissive.jpg bei Lava,
 # 1024 px; schreibt die Materialien in catalog.json. Ids am Ende bauen nur diese neu.
 python -I tools/map-assets/build_materials.py $DL/materials public/maps/assets [<id> ...]
+
+# Gebackene Böden (E214, `source: "baked"` in materials.json): ein Stück Boden aus Geometrie (Relief aus kachelbarem
+# Rauschen, Halme in Horsten, Klee, Blüten, Laub, Nadeln, Zweige, Wurzeln, Kiesel, Steine, Rippel, Risse,
+# Windgangeln), von oben in fünf Durchgängen gerendert (Farbe, Normale, Höhe, AO, Rauheit); Rezepte in
+# ground_recipes.py. build_materials.py liest sie aus $DL/grounds/<id>/, legt einen Teil der Verdeckung und des
+# kleinen Reliefs in die Farbe (wie ein Foto sie trägt), bringt die Normalen auf die Stärke der Scans (NORMAL_RMS)
+# und die Mittelfarbe auf `target` (Helligkeit ganz, Ton halb: die Karten sind darauf abgestimmt)
+blender --background --factory-startup --python tools/map-assets/bake_grounds.py -- $DL/grounds [<id> ...]
 
 # Dieselben als KTX2 (Basis ETC1S) in den zwei Ebenen des Geländes, je Material nicht größer als die drei JPGs
 python -I tools/map-assets/pack_textures.py --ktx <ktx.exe> public/maps/assets [<id> ...] [--psnr]

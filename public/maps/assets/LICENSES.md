@@ -13,47 +13,47 @@ prozedural gebaut. Keine KI-Generatoren, keine Fremdmarken. Die Skripte, die sie
 
 | Id | Quelle |
 |----|--------|
-| grass | https://ambientcg.com/view?id=Grass004 |
-| grass-lush | https://ambientcg.com/view?id=Grass001 |
-| grass-dry | https://ambientcg.com/view?id=Ground037 |
-| meadow | https://ambientcg.com/view?id=Ground003 |
-| dirt | https://polyhaven.com/a/brown_mud_dry |
-| mud | https://polyhaven.com/a/brown_mud_02 |
-| forest-floor | https://polyhaven.com/a/forest_leaves_04 |
+| grass | procedural (tools/map-assets/bake_grounds.py) |
+| grass-lush | procedural (tools/map-assets/bake_grounds.py) |
+| grass-dry | procedural (tools/map-assets/bake_grounds.py) |
+| meadow | procedural (tools/map-assets/bake_grounds.py) |
+| dirt | procedural (tools/map-assets/bake_grounds.py) |
+| mud | procedural (tools/map-assets/bake_grounds.py) |
+| forest-floor | procedural (tools/map-assets/bake_grounds.py) |
 | forest-ground | https://polyhaven.com/a/forest_ground_04 |
-| rocky-ground | https://polyhaven.com/a/rocky_trail |
+| rocky-ground | procedural (tools/map-assets/bake_grounds.py) |
 | gravel | https://polyhaven.com/a/rock_ground |
 | cliff | https://polyhaven.com/a/aerial_rocks_02 |
 | rock-mossy | https://polyhaven.com/a/mossy_rock |
-| sand | https://polyhaven.com/a/sand_01 |
-| snow | https://polyhaven.com/a/snow_01 |
+| sand | procedural (tools/map-assets/bake_grounds.py) |
+| snow | procedural (tools/map-assets/bake_grounds.py) |
 | cobblestone | https://polyhaven.com/a/cobblestone_floor_05 |
 | paving | https://polyhaven.com/a/stone_tiles_02 |
 | dirt-path | https://polyhaven.com/a/grass_path_2 |
 | grass-sparse | https://polyhaven.com/a/sparse_grass |
 | grass-leafy | https://polyhaven.com/a/leafy_grass |
-| grass-withered | https://polyhaven.com/a/withered_grass |
-| moss | https://ambientcg.com/view?id=Moss002 |
+| grass-withered | procedural (tools/map-assets/bake_grounds.py) |
+| moss | procedural (tools/map-assets/bake_grounds.py) |
 | forest-twigs | https://polyhaven.com/a/forrest_ground_01 |
-| forest-moss | https://polyhaven.com/a/forest_leaves_02 |
-| leaves-autumn | https://polyhaven.com/a/leaves_forest_ground |
-| leaves-scattered | https://polyhaven.com/a/forest_floor |
-| leaves-brown | https://polyhaven.com/a/dry_decay_leaves |
+| forest-moss | procedural (tools/map-assets/bake_grounds.py) |
+| leaves-autumn | procedural (tools/map-assets/bake_grounds.py) |
+| leaves-scattered | procedural (tools/map-assets/bake_grounds.py) |
+| leaves-brown | procedural (tools/map-assets/bake_grounds.py) |
 | mud-wet | https://polyhaven.com/a/brown_mud_03 |
 | mud-dark | https://polyhaven.com/a/mud_forest |
-| swamp-ground | https://polyhaven.com/a/brown_mud_leaves_01 |
+| swamp-ground | procedural (tools/map-assets/bake_grounds.py) |
 | mud-tracks | https://polyhaven.com/a/muddy_tracks |
 | farmland | https://polyhaven.com/a/farm_furrows |
 | farm-soil | https://polyhaven.com/a/farm_soil |
-| sand-dunes | https://polyhaven.com/a/aerial_sand |
+| sand-dunes | procedural (tools/map-assets/bake_grounds.py) |
 | sand-coast | https://polyhaven.com/a/coast_sand_01 |
 | sand-gravelly | https://polyhaven.com/a/gravelly_sand |
-| sand-red | https://polyhaven.com/a/red_sand |
+| sand-red | procedural (tools/map-assets/bake_grounds.py) |
 | desert-cracked | https://polyhaven.com/a/mud_cracked_dry_03 |
-| desert-cracked-red | https://polyhaven.com/a/cracked_red_ground |
+| desert-cracked-red | procedural (tools/map-assets/bake_grounds.py) |
 | desert-hardpan | https://polyhaven.com/a/dry_ground_01 |
-| desert-stony | https://polyhaven.com/a/dry_ground_rocks |
-| red-earth | https://polyhaven.com/a/red_laterite_soil_stones |
+| desert-stony | procedural (tools/map-assets/bake_grounds.py) |
+| red-earth | procedural (tools/map-assets/bake_grounds.py) |
 | cliff-granite | https://polyhaven.com/a/rock_face |
 | cliff-pale | https://polyhaven.com/a/rock_face_03 |
 | cliff-sandstone | https://polyhaven.com/a/cliff_side |
@@ -67,10 +67,10 @@ prozedural gebaut. Keine KI-Generatoren, keine Fremdmarken. Die Skripte, die sie
 | scorched-ground | https://polyhaven.com/a/burned_ground_01 |
 | lava | https://ambientcg.com/view?id=Lava004 |
 | lava-crust | https://ambientcg.com/view?id=Lava001 |
-| snow-fresh | https://polyhaven.com/a/snow_02 |
-| snow-rocky | https://polyhaven.com/a/snow_03 |
-| snow-windswept | https://polyhaven.com/a/snow_field_aerial |
-| frozen-ground | https://polyhaven.com/a/asphalt_snow |
+| snow-fresh | procedural (tools/map-assets/bake_grounds.py) |
+| snow-rocky | procedural (tools/map-assets/bake_grounds.py) |
+| snow-windswept | procedural (tools/map-assets/bake_grounds.py) |
+| frozen-ground | procedural (tools/map-assets/bake_grounds.py) |
 | ice | https://ambientcg.com/view?id=Ice002 |
 | ice-cracked | https://ambientcg.com/view?id=Ice003 |
 | cobblestone-mossy | https://polyhaven.com/a/mossy_cobblestone |
@@ -90,7 +90,7 @@ prozedural gebaut. Keine KI-Generatoren, keine Fremdmarken. Die Skripte, die sie
 | riverbed | https://polyhaven.com/a/river_small_rocks |
 | pebbles | https://polyhaven.com/a/ganges_river_pebbles |
 | pebbles-coarse | https://polyhaven.com/a/dry_river_pebbles |
-| riverbed-dry | https://polyhaven.com/a/dry_riverbed_rock |
+| riverbed-dry | procedural (tools/map-assets/bake_grounds.py) |
 | tidal-rocks | https://polyhaven.com/a/low_tide_rocks |
 | coast-mossy | https://polyhaven.com/a/coast_sand_rocks_02 |
 | asphalt | https://polyhaven.com/a/asphalt_02 |
@@ -126,7 +126,7 @@ prozedural gebaut. Keine KI-Generatoren, keine Fremdmarken. Die Skripte, die sie
 | salt-crust | https://polyhaven.com/a/mud_cracked_dry_riverbed_002 |
 | meadow-earthy | https://polyhaven.com/a/grass_ground |
 | alpine-meadow-rocks | https://polyhaven.com/a/aerial_grass_rock |
-| forest-roots | https://polyhaven.com/a/roots |
+| forest-roots | procedural (tools/map-assets/bake_grounds.py) |
 | leaf-gravel | https://polyhaven.com/a/leaf_scattered_gravel |
 | desert-gravel | https://polyhaven.com/a/sandy_gravel_02 |
 | rocky-terrain | https://polyhaven.com/a/rocky_terrain_02 |

@@ -15,11 +15,11 @@
         }
       },
       "scale": 3,
-      "average": "#606d30",
+      "average": "#59652d",
       "tags": [
         "temperate"
       ],
-      "source": "https://ambientcg.com/view?id=Grass004"
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
       "id": "grass-lush",
@@ -35,12 +35,12 @@
         }
       },
       "scale": 3,
-      "average": "#445c28",
+      "average": "#405726",
       "tags": [
         "temperate",
         "swamp"
       ],
-      "source": "https://ambientcg.com/view?id=Grass001"
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
       "id": "grass-dry",
@@ -56,12 +56,12 @@
         }
       },
       "scale": 4,
-      "average": "#989358",
+      "average": "#978c58",
       "tags": [
         "temperate",
         "desert"
       ],
-      "source": "https://ambientcg.com/view?id=Ground037"
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
       "id": "meadow",
@@ -77,11 +77,11 @@
         }
       },
       "scale": 4,
-      "average": "#837d4b",
+      "average": "#74783f",
       "tags": [
         "temperate"
       ],
-      "source": "https://ambientcg.com/view?id=Ground003"
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
       "id": "dirt",
@@ -97,11 +97,11 @@
         }
       },
       "scale": 4,
-      "average": "#735b3e",
+      "average": "#715a3e",
       "tags": [
         "temperate"
       ],
-      "source": "https://polyhaven.com/a/brown_mud_dry"
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
       "id": "mud",
@@ -117,12 +117,12 @@
         }
       },
       "scale": 4,
-      "average": "#4d4437",
+      "average": "#4e4133",
       "tags": [
         "temperate",
         "swamp"
       ],
-      "source": "https://polyhaven.com/a/brown_mud_02"
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
       "id": "forest-floor",
@@ -138,12 +138,12 @@
         }
       },
       "scale": 3,
-      "average": "#825f3b",
+      "average": "#7c5a37",
       "tags": [
         "temperate",
         "autumn"
       ],
-      "source": "https://polyhaven.com/a/forest_leaves_04"
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
       "id": "forest-ground",
@@ -179,12 +179,12 @@
         }
       },
       "scale": 4,
-      "average": "#93806b",
+      "average": "#907d62",
       "tags": [
         "temperate",
         "mountain"
       ],
-      "source": "https://polyhaven.com/a/rocky_trail"
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
       "id": "gravel",
@@ -263,12 +263,12 @@
         }
       },
       "scale": 4,
-      "average": "#a5956f",
+      "average": "#a39473",
       "tags": [
         "coast",
         "desert"
       ],
-      "source": "https://polyhaven.com/a/sand_01"
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
       "id": "snow",
@@ -284,11 +284,11 @@
         }
       },
       "scale": 5,
-      "average": "#b9b6b5",
+      "average": "#b6b6b8",
       "tags": [
         "winter"
       ],
-      "source": "https://polyhaven.com/a/snow_01"
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
       "id": "cobblestone",
@@ -409,13 +409,13 @@
         }
       },
       "scale": 4,
-      "average": "#ac9379",
+      "average": "#a68e64",
       "tags": [
         "autumn",
         "desert",
         "winter"
       ],
-      "source": "https://polyhaven.com/a/withered_grass"
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
       "id": "moss",
@@ -431,12 +431,12 @@
         }
       },
       "scale": 2,
-      "average": "#4a6519",
+      "average": "#4a631f",
       "tags": [
         "swamp",
         "temperate"
       ],
-      "source": "https://ambientcg.com/view?id=Moss002"
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
       "id": "forest-twigs",
@@ -473,13 +473,13 @@
         }
       },
       "scale": 3,
-      "average": "#8e703a",
+      "average": "#886c3b",
       "tags": [
         "temperate",
         "autumn",
         "swamp"
       ],
-      "source": "https://polyhaven.com/a/forest_leaves_02"
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
       "id": "leaves-autumn",
@@ -495,11 +495,11 @@
         }
       },
       "scale": 3,
-      "average": "#725730",
+      "average": "#764c23",
       "tags": [
         "autumn"
       ],
-      "source": "https://polyhaven.com/a/leaves_forest_ground"
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
       "id": "leaves-scattered",
@@ -515,12 +515,12 @@
         }
       },
       "scale": 4,
-      "average": "#a18058",
+      "average": "#937a46",
       "tags": [
         "autumn",
         "temperate"
       ],
-      "source": "https://polyhaven.com/a/forest_floor"
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
       "id": "leaves-brown",
@@ -536,12 +536,12 @@
         }
       },
       "scale": 3,
-      "average": "#724d34",
+      "average": "#6b4d33",
       "tags": [
         "autumn",
         "swamp"
       ],
-      "source": "https://polyhaven.com/a/dry_decay_leaves"
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
       "id": "mud-wet",
@@ -597,11 +597,11 @@
         }
       },
       "scale": 4,
-      "average": "#655433",
+      "average": "#5a4f2f",
       "tags": [
         "swamp"
       ],
-      "source": "https://polyhaven.com/a/brown_mud_leaves_01"
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
       "id": "mud-tracks",
@@ -678,11 +678,11 @@
         }
       },
       "scale": 12,
-      "average": "#9f8a81",
+      "average": "#9d897f",
       "tags": [
         "desert"
       ],
-      "source": "https://polyhaven.com/a/aerial_sand"
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
       "id": "sand-coast",
@@ -739,11 +739,11 @@
         }
       },
       "scale": 5,
-      "average": "#815946",
+      "average": "#86563c",
       "tags": [
         "desert"
       ],
-      "source": "https://polyhaven.com/a/red_sand"
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
       "id": "desert-cracked",
@@ -779,11 +779,11 @@
         }
       },
       "scale": 4,
-      "average": "#654a34",
+      "average": "#6a462e",
       "tags": [
         "desert"
       ],
-      "source": "https://polyhaven.com/a/cracked_red_ground"
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
       "id": "desert-hardpan",
@@ -819,11 +819,11 @@
         }
       },
       "scale": 4,
-      "average": "#95734e",
+      "average": "#93714f",
       "tags": [
         "desert"
       ],
-      "source": "https://polyhaven.com/a/dry_ground_rocks"
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
       "id": "red-earth",
@@ -839,11 +839,11 @@
         }
       },
       "scale": 4,
-      "average": "#653e2e",
+      "average": "#693a27",
       "tags": [
         "desert"
       ],
-      "source": "https://polyhaven.com/a/red_laterite_soil_stones"
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
       "id": "cliff-granite",
@@ -1080,11 +1080,11 @@
         "color": "materials/lava/color.jpg",
         "normal": "materials/lava/normal.jpg",
         "arh": "materials/lava/arh.jpg",
-        "emissive": "materials/lava/emissive.jpg",
         "packed": {
           "color": "materials/lava/color.ktx2",
           "data": "materials/lava/data.ktx2"
-        }
+        },
+        "emissive": "materials/lava/emissive.jpg"
       },
       "emissive": 1,
       "scale": 6,
@@ -1104,11 +1104,11 @@
         "color": "materials/lava-crust/color.jpg",
         "normal": "materials/lava-crust/normal.jpg",
         "arh": "materials/lava-crust/arh.jpg",
-        "emissive": "materials/lava-crust/emissive.jpg",
         "packed": {
           "color": "materials/lava-crust/color.ktx2",
           "data": "materials/lava-crust/data.ktx2"
-        }
+        },
+        "emissive": "materials/lava-crust/emissive.jpg"
       },
       "emissive": 1,
       "scale": 5,
@@ -1133,12 +1133,12 @@
         }
       },
       "scale": 6,
-      "average": "#a5a5a7",
+      "average": "#a4a5a8",
       "tags": [
         "winter",
         "mountain"
       ],
-      "source": "https://polyhaven.com/a/snow_02"
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
       "id": "snow-rocky",
@@ -1154,12 +1154,12 @@
         }
       },
       "scale": 4,
-      "average": "#9d9b95",
+      "average": "#939290",
       "tags": [
         "winter",
         "mountain"
       ],
-      "source": "https://polyhaven.com/a/snow_03"
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
       "id": "snow-windswept",
@@ -1175,12 +1175,12 @@
         }
       },
       "scale": 10,
-      "average": "#878694",
+      "average": "#86868f",
       "tags": [
         "winter",
         "mountain"
       ],
-      "source": "https://polyhaven.com/a/snow_field_aerial"
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
       "id": "frozen-ground",
@@ -1196,11 +1196,11 @@
         }
       },
       "scale": 4,
-      "average": "#797477",
+      "average": "#6f6a67",
       "tags": [
         "winter"
       ],
-      "source": "https://polyhaven.com/a/asphalt_snow"
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
       "id": "ice",
@@ -1620,12 +1620,12 @@
         }
       },
       "scale": 5,
-      "average": "#66554a",
+      "average": "#655243",
       "tags": [
         "desert",
         "mountain"
       ],
-      "source": "https://polyhaven.com/a/dry_riverbed_rock"
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
       "id": "tidal-rocks",
@@ -2359,13 +2359,13 @@
         }
       },
       "scale": 3,
-      "average": "#735f44",
+      "average": "#755a3c",
       "tags": [
         "temperate",
         "autumn",
         "swamp"
       ],
-      "source": "https://polyhaven.com/a/roots"
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
       "id": "leaf-gravel",
