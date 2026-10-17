@@ -136,7 +136,13 @@ async function main() {
         entries.push(entry(request, 200, { 'content-type': 'application/json' }, overpass));
         return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: overpass });
       }
-      const response = await route.fetch();
+      // Overpass takes a minute for a large square: longer than Playwright's 30 s; a request that fails is
+      // aborted as the network would (the app tries its next server) and not recorded
+      const response = await route.fetch({ timeout: 240_000 }).catch((e) => {
+        console.log(`  failed: ${request.method()} ${request.url().slice(0, 100)}: ${String(e.message).split(String.fromCharCode(10))[0]}`);
+        return null;
+      });
+      if (!response) return route.abort().catch(() => undefined);
       const body = await response.body();
       if (!entries.some((e) => e.request.url === request.url() && e.request.method === request.method() && (e.request.postData?.text ?? null) === (request.postData() ?? null))) {
         entries.push(entry(request, response.status(), response.headers(), body));
