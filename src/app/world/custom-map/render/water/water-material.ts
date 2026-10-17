@@ -165,17 +165,16 @@ export function setWaterEffects(
   const reflects = !!reflection && effects.reflection && (kind === 'water' || kind === 'sea' || kind === 'swamp');
   const d = material.defines as Record<string, unknown>;
   const was = `${'REFRACT' in d}|${'SEA_WAVES' in d}|${'LAVA_GLOW' in d}|${'WATER_DETAIL' in d}|${'REFLECT_SCENE' in d}`;
+  // Always set again in one order: the order of the defines is part of the program's key, and one switched
+  // off and on again went to the end and made a program of its own for the same shader (a level made
+  // ready ahead and put back linked the water anew in the next frame, 280 ms)
+  for (const name of ['REFLECT_SCENE', 'LAVA_GLOW', 'WATER_DETAIL', 'REFRACT', 'SEA_WAVES']) delete d[name];
   if (reflects) d['REFLECT_SCENE'] = '';
-  else delete d['REFLECT_SCENE'];
   if (reflection) Object.assign(material.uniforms, reflection.uniforms);
   if (lavaGlow) d['LAVA_GLOW'] = '';
-  else delete d['LAVA_GLOW'];
   if (detail) d['WATER_DETAIL'] = '';
-  else delete d['WATER_DETAIL'];
   if (refraction) d['REFRACT'] = '';
-  else delete d['REFRACT'];
   if (seaWaves) d['SEA_WAVES'] = '';
-  else delete d['SEA_WAVES'];
   Object.assign(material.uniforms, copy.uniforms);
   if (was !== `${refraction}|${seaWaves}|${lavaGlow}|${detail}|${reflects}`) material.needsUpdate = true;
   return { refraction, reflects };
