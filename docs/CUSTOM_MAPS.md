@@ -271,9 +271,21 @@ Lava spiegeln sich).
 
 - **Tiefe**: Absorption nach Beer-Lambert aus der Tiefe je Pixel (Rot zuerst, dann Grün): flaches Wasser wird
   grünblau, bevor die Körperfarbe übernimmt, und lässt den Grund durchscheinen (Deckkraft 0,5 bis 0,96). Der Saum, an
-  dem das Gelände den Spiegel schneidet, ist 12 cm Tiefe weich
+  dem das Gelände den Spiegel schneidet, ist 12 cm Tiefe weich; der helle Flachwasserton nur, wo es wirklich flach ist (nach
+  dem Quadrat des Durchscheinens): ein Bach oder eine Stufe von zwei Metern zeigt die Körperfarbe statt eines hellen
+  Türkis. Flüsse tragen Schwebstoff (etwas grüner und stumpfer als ein See) und sind in der Rinne dunkler als an den
+  Rändern
+- **Nasser Uferfilm** (Wasser, Meer, Sumpf als weitere Körper, `uWetFilm`): das Gelände macht nur die Ufer des
+  Hauptwassers nass. Ein See am Hang oder ein gegossenes Becken traf ein trockenes Ufer: jetzt zeichnet das Wasser über
+  der Linie einen dunklen Film mit Glanz zum flachen Blick, 8 bis 40 cm hoch und bis etwa eineinhalb Zellen (Uferschnitt
+  auf der trockenen Seite) breit, entlang des Ufers wechselnd und mit ausgefranster Oberkante, ab 150 m ausgeblendet.
+  Pixel über der Linie, die vorher verworfen wurden, nehmen einen kurzen Pfad (ein Schaumtexturzugriff)
 - **Wellen**: drei Lagen der gekachelten Normalentextur; die feinste blendet zwischen 30 und 160 m Abstand aus (dort
-  war sie nur Körnung), Böen (die großräumige Aufbruch-Textur, 17 m) machen Flecken rauer und ruhiger
+  war sie nur Körnung), Böen (die großräumige Aufbruch-Textur, 17 m) machen Flecken rauer und ruhiger. Auf Flüssen
+  liegen die Wellen im Rahmen der Strömung, längs 2,4-fach gestreckt (lange Linien stromab statt runder Kabbelung),
+  und statt der Böen treiben Bahnen mit der Strömung (glatte Spiegel und raue Streifen nebeneinander, 9 m breit, 70 m
+  lang, in den zwei überblendeten Phasen), in der Rinne ruhiger: der Fluss liest sich auch aus der Spielkamera als
+  fließend. Schaumstreifen längs der Strömung erst bei schneller Strömung (langsam wirkten sie wie aufgemalt)
 - **Detail ab Medium** (`waterDetail` der Stufe, kein Schalter; Wasser, Meer, Sumpf): tiefes Wasser dunkler (bis
   28 % zwischen 2 und 10 m), der Körper von den Wellen schattiert (Hänge zur Sonne heller, ±20 %), Licht durch die
   Wellen (gegen eine tiefe Sonne leuchten die zum Betrachter gewandten Hänge im Flachwasserton), das Land in der

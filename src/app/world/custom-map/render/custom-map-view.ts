@@ -800,7 +800,7 @@ export class CustomMapView {
       if (surface) {
         surface.set(body, apron);
       } else {
-        const created = new WaterSurface(this.heights, this.terrain.heightTexture, body, apron);
+        const created = new WaterSurface(this.heights, this.terrain.heightTexture, body, apron, k === 0);
         this.waters[k] = created;
         this.group.add(created.object);
       }

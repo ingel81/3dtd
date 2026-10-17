@@ -85,6 +85,8 @@ export class WaterSurface {
     private readonly heights: HeightTexture,
     water: MapWater,
     apron: ApronProfile | null,
+    /** The map's main body: the terrain wets its banks itself, the water draws no wet film of its own */
+    private readonly main = false,
   ) {
     this.kind = water.kind ?? 'water';
     this.mask = new DataTexture(new Uint8Array(field.columns * field.rows * 2), field.columns, field.rows, RGFormat, UnsignedByteType);
@@ -334,6 +336,7 @@ export class WaterSurface {
     const sy = 1 / (f.cellSize * f.rows);
     setWaterMask(m, this.mask, new Vector4(sx, sy, -f.originX * sx + 0.5 / f.columns, -f.originY * sy + 0.5 / f.rows));
     setWaterFlow(m, (water.kind ?? 'water') === 'ice' ? null : this.flow);
+    m.uniforms['uWetFilm'].value = this.main ? 0 : 1;
     return m;
   }
 

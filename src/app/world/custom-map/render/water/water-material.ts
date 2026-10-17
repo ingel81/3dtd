@@ -95,6 +95,8 @@ export function createWaterMaterial(o: WaterMaterialOptions): ShaderMaterial {
         uHasFlow: { value: 0 },
         uLavaNoise: { value: null },
         uFoam: { value: null },
+        // 1: the bank above the waterline gets a wet film from the water (bodies whose banks the terrain does not wet)
+        uWetFilm: { value: 0 },
         // The scene mirrored in this body's level (water-reflection.ts): on while it is the level mirrored
         uReflectOn: { value: 0 },
         uReflection: { value: null },
@@ -386,6 +388,7 @@ uniform sampler2D uFlowMap;
 uniform float uHasFlow;
 uniform sampler2D uLavaNoise;
 uniform sampler2D uFoam;
+uniform float uWetFilm;
 #ifdef SEA_WAVES
 varying vec3 vSwellNormal;
 #endif
@@ -518,10 +521,16 @@ void main() {
   // Depth per pixel: the shore is where the terrain cuts the surface
   float depth = outside ? vApronDepth : vMapPos.y - terrainHeightAt(m);
   float edge = 1.0;
+  // The bilinear mask on its own (1 without one): how far the bank's wet film may reach
+  float maskReach = 1.0;
+  // The shore cut in cells, negative on the dry side (3 without a mask)
+  float shoreCut = 3.0;
   if (uHasMask > 0.5 && !outside) {
     vec2 maskCut = texture2D(uMask, m * uMaskUv.xy + uMaskUv.zw).rg;
+    maskReach = smoothstep(0.02, 0.45, maskCut.r);
     // The shore cut in cells (positive on the wet side): a soft edge a quarter cell wide
     float cut = (maskCut.g * 255.0 - 128.0) / ${SHORE_CUT_SCALE.toFixed(1)};
+    shoreCut = cut;
     edge = smoothstep(0.3, 0.6, maskCut.r) * smoothstep(0.0, 0.25, cut);
     // Where the cut lies inside the drawn waterline (a wall, a bank in teeth) the water there reads as shallow
     // as at a shore, so it ends in its clear rim and foam instead of a hard line of deep water; from two cells
@@ -543,6 +552,35 @@ void main() {
   bool hasField = uHasFlow > 0.5 && !outside;
   vec4 field = hasField ? texture2D(uFlowMap, m * uMaskUv.xy + uMaskUv.zw) : vec4(0.5, 0.5, 0.0, 0.0);
   vel = (field.rg * 2.0 - 1.0) * ${FLOW_MAP_MAX.toFixed(2)};
+#endif
+#if RIVER == 1 || !(KIND == 0 || KIND == 3 || KIND == 4)
+  float gradSlope = surfaceSlope(depth);
+#endif
+#if RIVER == 0 && (KIND == 0 || KIND == 3 || KIND == 4)
+  // The bank just above the waterline is wet: a dark film with a sheen, a hand's breadth to some 40 cm high,
+  // changing along the shore. Every body, so a lake up a hill or a poured basin no longer meets a dry bank
+  // (the terrain wets only the main water's banks). A cheap path for pixels that were thrown away
+  // Derivatives before any branch on the pixel
+  float gradSlope = surfaceSlope(depth);
+  if (depth <= 0.0) {
+    if (outside || maskReach <= 0.0) discard;
+    // As high as the waves lap, and no farther from the waterline than about a cell (the shore cut, its
+    // distance on the dry side): a steep bank a band some 40 cm high, a flat one a ragged strip
+    vec4 wetNoise = texture2D(uFoam, vWorldPos.xz / 9.0 + 0.31);
+    float rag = (wetNoise.a - 0.5) * 0.9;
+    float wetHeight = mix(0.08, 0.4, wetNoise.b);
+    // Some stretches stay nearly dry, others are soaked a cell and more up the bank
+    float wetCells = mix(0.05, 1.5, wetNoise.g * wetNoise.g);
+    float wet = (1.0 - smoothstep(0.55, 1.0, -depth / wetHeight + rag)) * (1.0 - smoothstep(0.5, 1.0, -shoreCut / wetCells + rag))
+      * maskReach * (1.0 - smoothstep(150.0, 450.0, length(cameraPosition - vWorldPos)));
+    if (wet <= 0.01) discard;
+    vec3 wv = normalize(cameraPosition - vWorldPos);
+    float wetFresnel = pow(1.0 - max(wv.y, 0.0), 4.0);
+    vec3 sheen = skyTex(reflect(-wv, vec3(0.0, 1.0, 0.0))) * wetFresnel * 0.35 * uLight;
+    gl_FragColor = vec4(sheen, wet * mix(0.3, 0.5, wetFresnel));
+    #include <colorspace_fragment>
+    return;
+  }
 #endif
   if (depth <= 0.0 || edge <= 0.001) discard;
   vec3 v = normalize(cameraPosition - vWorldPos);
@@ -678,10 +716,27 @@ void main() {
   // Gusts: patches of rougher and calmer water drifting over the surface (the foam's break-up below)
   float foamBreak = texture2D(uWaves, vWorldPos.xz / 17.0 - uTime * 0.01).y;
   float gust = smoothstep(0.3, 0.7, foamBreak);
+  #if RIVER == 1
+  // A stream's surface in lanes: long smooth slicks and rough streaks side by side, drifting down with the
+  // current (its two cross-faded phases), so the river reads as flowing even from the game's camera. Calmer in
+  // the channel's middle than over the shallows at its sides
+  vec2 laneDir = normalize(vFlow + vec2(1e-4));
+  vec2 laneAt = vec2(dot(vWorldPos.xz, vec2(-laneDir.y, laneDir.x)) / 9.0, dot(vWorldPos.xz, laneDir) / 70.0);
+  float lt = uTime / FLOW_PERIOD;
+  float laneShift = length(vFlow) * 0.5 * FLOW_PERIOD / 70.0;
+  float lanes = mix(texture2D(uFoam, laneAt - vec2(0.0, laneShift * fract(lt + 0.5)) + 0.5).g, texture2D(uFoam, laneAt - vec2(0.0, laneShift * fract(lt))).g, 1.0 - abs(2.0 * fract(lt) - 1.0));
+  gust = smoothstep(0.3, 0.75, lanes) * mix(1.0, 0.6, 1.0 - abs(vAcross));
+  #endif
   waveStrength *= mix(0.6, 1.3, gust);
   float fine = 1.0 - smoothstep(30.0, 160.0, length(cameraPosition - vWorldPos));
   #if RIVER == 1
-  vec3 n = flowNormal(vWorldPos.xz, vel, flow, waveStrength, fine);
+  // In the current's own frame, stretched along it: the ripples of a stream are long lines down the flow,
+  // not the round chop of a lake
+  vec2 alongFlow = normalize(vFlow + vec2(1e-4));
+  vec2 acrossFlow = vec2(-alongFlow.y, alongFlow.x);
+  vec2 inFlow = vec2(dot(vWorldPos.xz, acrossFlow), dot(vWorldPos.xz, alongFlow) / 2.4);
+  vec3 nf = flowNormal(inFlow, vec2(dot(vel, acrossFlow), dot(vel, alongFlow) / 2.4), flow, waveStrength, fine);
+  vec3 n = normalize(vec3(acrossFlow.x * nf.x + alongFlow.x * nf.z * 0.6, nf.y, acrossFlow.y * nf.x + alongFlow.y * nf.z * 0.6));
   #else
   // Lakes and seas: a slow drift, and along their baked current where they have one
   vec3 n = uHasFlow > 0.5 && !outside ? flowNormal(vWorldPos.xz, vel, flow * 0.3, waveStrength, fine) : waveNormal(vWorldPos.xz, flow, waveStrength, fine);
@@ -699,7 +754,13 @@ void main() {
   // takes over; how much of the ground still shows through
   vec3 absorbed = exp(-depth * vec3(0.6, 0.25, 0.16));
   float see = (absorbed.r + absorbed.g + absorbed.b) / 3.0;
-  vec3 body = mix(uDeep, uShallow, see) * mix(vec3(1.0), absorbed / max(see, 1e-3), 0.25) * uLight * mix(0.55, 1.0, sunShade);
+  // The light the water scatters back: the light shallow tone only where it is really shallow (see squared),
+  // so a stream or a shelf two metres deep reads in the body's own colour instead of a bright turquoise
+  vec3 body = mix(uDeep, uShallow, see * see) * mix(vec3(1.0), absorbed / max(see, 1e-3), 0.25) * uLight * mix(0.55, 1.0, sunShade);
+  #if RIVER == 1
+  // A stream carries silt: a little greener and duller than a lake, darkest down its channel
+  body = mix(body, vec3(dot(body, vec3(0.3, 0.5, 0.2))) * vec3(0.92, 1.05, 0.88), 0.3) * mix(1.0, 0.82, 1.0 - abs(vAcross));
+  #endif
   // The body takes the hue of the light: under a warm low sun (dusk) it reads muted and warm from above, as
   // the reflection does close in, not the body's own blue. A near-white day sun and a blue night leave it
   vec3 sunHue = uSunColor / max(max(uSunColor.r, uSunColor.g), max(uSunColor.b, 1e-3));
@@ -823,12 +884,10 @@ void main() {
   vec4 laceA = texture2D(uFoam, (fp - vel * fract(ft) * FLOW_PERIOD) / 7.0);
   vec4 laceB = texture2D(uFoam, (fp - vel * fract(ft + 0.5) * FLOW_PERIOD) / 7.0 + 0.5);
   vec4 foamNear = mix(laceB, laceA, 1.0 - abs(2.0 * fract(ft) - 1.0));
-  float bankSlope = surfaceSlope(depth);
+  float bankSlope = gradSlope;
   float wall = 0.0;
   #else
   vec4 foamNear = texture2D(uFoam, fp / 7.0 + flow * 0.04);
-  // Derivatives outside the branch: hasField may differ between the pixels of a quad
-  float gradSlope = surfaceSlope(depth);
   float bankSlope = hasField ? field.a * ${SLOPE_FIELD_MAX.toFixed(2)} : gradSlope;
   float wall = hasField ? smoothstep(1.3, 2.3, bankSlope) : 0.0;
   #endif
@@ -900,10 +959,10 @@ void main() {
   // Ripples where the river runs fast and shallow
   foam = max(foam, smoothstep(0.7, 0.95, foamNoise) * smoothstep(1.2, 0.3, depth) * min(length(vFlow), 1.0));
     #ifdef WATER_DETAIL
-  // Streaks along the current over the whole river, so it reads as flowing from the game's camera too;
-  // white water where it runs fast (rapids, below a fall)
+  // Streaks along the current where it runs on (none on a slow stream: they read as paint), white water
+  // where it runs fast (rapids, below a fall)
   float speed = length(vFlow);
-  foam = max(foam, smoothstep(0.58, 0.88, foamNoise) * mix(0.35, 0.85, smoothstep(0.8, 3.0, speed)));
+  foam = max(foam, smoothstep(0.6, 0.9, foamNoise) * 0.8 * smoothstep(0.7, 3.0, speed));
   foam = max(foam, smoothstep(0.5, 0.8, foamNoise) * smoothstep(2.0, 3.5, speed) * 0.6);
     #endif
   #endif
