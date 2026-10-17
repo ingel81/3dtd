@@ -4,6 +4,7 @@ import { raiseDab } from '../ops/terrain-ops';
 import {
   CompoundCommand,
   EditorDocument,
+  EditorHeldError,
   ObjectsCommand,
   PatchCommand,
   SnapshotCommand,
@@ -144,6 +145,32 @@ describe('EditorDocument', () => {
     expect(ed.historySteps).toBe(3);
     while (ed.undo());
     expect(ed.doc.hq.x).toBe(2);
+  });
+
+  it('refuses every step while held and leaves the map and the history as they were', () => {
+    const ed = new EditorDocument(map());
+    stroke(ed, -20, 20);
+    const heights = ed.doc.terrain.grid.heights.slice();
+    const steps = ed.historySteps;
+    const refused: string[] = [];
+    ed.onRefused((e) => refused.push(e.message));
+    const release = ed.hold('a job runs');
+    expect(ed.heldReason).toBe('a job runs');
+    // A stroke already written (push) is taken back
+    expect(() => stroke(ed, 40, 80)).toThrow(EditorHeldError);
+    expect(ed.doc.terrain.grid.heights).toEqual(heights);
+    // A step whose edit already ran (record) is taken back, a plain one never lands
+    expect(() => ed.execute(SnapshotCommand.record(ed.doc, 'Rename', ['meta'], (d) => (d.meta = { ...d.meta, name: 'X' })))).toThrow(EditorHeldError);
+    expect(ed.doc.meta.name).toBe('M');
+    expect(() => ed.execute(ObjectsCommand.add('Add', ed.doc, [{ id: 'o', asset: 'tree', x: 0, y: 0, z: 0, rotation: 0, scale: 1 }]))).toThrow(/Add waits: a job runs/);
+    expect(ed.doc.objects).toEqual([]);
+    expect(ed.undo()).toBe(false);
+    expect(ed.jumpTo(0)).toBe(false);
+    expect(ed.historySteps).toBe(steps);
+    expect(refused).toEqual(['Raise waits: a job runs', 'Rename waits: a job runs', 'Add waits: a job runs']);
+    release();
+    expect(ed.heldReason).toBeNull();
+    expect(ed.undo()).toBe(true);
   });
 
   it('runs compound commands in order and back', () => {

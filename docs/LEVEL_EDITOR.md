@@ -438,6 +438,13 @@ Einfügen (Strg+V), „Restore“, „Test map“, der Bot-Check und das Verlass
 („Undo waits: finish the stroke or drag first“). Sonst holte etwa ein Rückgängig unter einem laufenden Job beim Cancel
 die Höhen von vor dem Job über bereits zurückgenommene Schritte zurück.
 
+Läuft ein Job (Generieren, Erodieren, das Abspielen eines Agenten, `EditorSession.withJob`) oder bearbeitet ein
+anderer Tab die Karte, ist das Dokument gehalten (`EditorDocument.hold`): jeder neue Schritt, Rückgängig und
+Wiederholen wird dort abgelehnt, ein Schritt, dessen Änderung schon im Dokument steht (ein Strich, `record`), wird
+zurückgenommen, und die Statuszeile sagt warum („Flatten roads waits: a job runs“). Die Sperre sitzt damit an einer
+Stelle statt in jeder Panel-Methode; zusätzlich sind die Panels während des Jobs ausgegraut, der Job steht mit
+Fortschritt und Cancel über ihnen. Der Job selbst legt seinen Schritt erst nach dem Halten ab.
+
 Heightmap (im Map-Panel): „Export 16-bit PNG“ und „Export RAW“ schreiben die Höhen als 16-Bit-Graustufen (oberste
 Zeile = Nordrand, schwarz die tiefste, weiß die höchste Höhe; RAW 16 Bit Little Endian, quadratisch wie bei Gaea und
 World Machine); der Dateiname trägt den Bereich (`<id>-heights-<tief>m-<hoch>m.png`). „Import…“ liest eine solche Datei

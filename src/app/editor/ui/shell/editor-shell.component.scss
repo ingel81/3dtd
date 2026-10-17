@@ -377,6 +377,20 @@
   background: none;
 }
 
+// The running job above the panels, with Cancel
+.es-job {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.es-job-progress {
+  flex: 1 1 auto;
+  height: 6px;
+  accent-color: var(--td-brass);
+}
+
 // Only there to switch the panels' controls off together; it takes no part in the layout
 .es-fieldset {
   display: contents;

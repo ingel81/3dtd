@@ -81,15 +81,8 @@ import { IntroPanelComponent } from './intro-panel.component';
         <span>Repaint by slope and height</span>
         <input class="td-switch" type="checkbox" [checked]="repaint()" (change)="repaint.set($any($event.target).checked)" aria-label="Repaint" />
       </div>
-      @if (job(); as j) {
-        <div class="mp-job" role="status" data-test="terrain-job">
-          <span class="td-note">{{ j.label }} {{ percent(j.progress) }} %</span>
-          <progress class="mp-progress" max="100" [value]="percent(j.progress)"></progress>
-          <button class="td-btn-ghost td-btn-sm" type="button" (click)="cancel()" data-test="terrain-cancel">Cancel</button>
-        </div>
-      } @else {
-        <button class="td-btn-secondary td-btn-sm" type="button" (click)="generate()" data-test="generate">Generate</button>
-      }
+      <!-- A running job shows above the panels (the shell), with Cancel -->
+      <button class="td-btn-secondary td-btn-sm" type="button" [disabled]="!!job()" (click)="generate()" data-test="generate">Generate</button>
       <p class="td-note">Roads keep a level bed; one undo step takes it all back. Big maps build in the background, band by band.</p>
     </div>
     <div class="td-group">
@@ -157,8 +150,7 @@ import { IntroPanelComponent } from './intro-panel.component';
     </div>
   `,
   styles: [
-    `.mp-job { display: flex; align-items: center; gap: 8px; } .mp-progress { flex: 1 1 auto; height: 6px; accent-color: var(--td-brass); }
-     .mp-warn { color: var(--td-warn-text); } .mp-file { position: relative; overflow: hidden; } .mp-file > input { position: absolute; inset: 0; opacity: 0; cursor: pointer; } .mp-version { gap: 8px; min-height: 30px; } .mp-version > .td-trunc { flex: 1 1 auto; }
+    `.mp-warn { color: var(--td-warn-text); } .mp-file { position: relative; overflow: hidden; } .mp-file > input { position: absolute; inset: 0; opacity: 0; cursor: pointer; } .mp-version { gap: 8px; min-height: 30px; } .mp-version > .td-trunc { flex: 1 1 auto; }
      .mp-text { height: auto; padding-top: 8px; resize: vertical; } .mp-size { display: flex; align-items: flex-end; gap: 8px; }
      .mp-presets { flex-wrap: wrap; height: auto; } .mp-presets > * { flex: 1 0 30%; }`,
   ],
@@ -265,10 +257,6 @@ export class MapPanelComponent {
   readonly job = this.session.terrainJob;
   readonly rain = signal(50);
 
-  percent(p: number): number {
-    return Math.round(p * 100);
-  }
-
   async generate(): Promise<void> {
     const done = await this.session.generate({ preset: this.preset(), seed: this.seed(), strength: this.strength() / 100, add: this.add() }, this.repaint());
     if (done) this.session.flash('Terrain generated; Ctrl+Z takes it back');
@@ -276,10 +264,6 @@ export class MapPanelComponent {
 
   async erode(): Promise<void> {
     if (await this.session.erodeWholeMap(this.rain() / 100)) this.session.flash('The map is eroded; Ctrl+Z takes it back');
-  }
-
-  cancel(): void {
-    this.session.cancelTerrainJob();
   }
 
   num(e: Event): number {

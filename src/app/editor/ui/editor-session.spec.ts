@@ -7,6 +7,8 @@ import { MemoryVersionBackend, VersionHistory } from '../model/version-store';
 import { DOWNLOAD_REMINDER_MS } from '../model/storage-safety';
 import { MapFileError, contentHash, packMapFile } from '../../world/custom-map/map-file';
 import { EditorSession, saveErrorText } from './editor-session.service';
+import { EditorHeldError, SnapshotCommand } from '../model/editor-document';
+import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { CatalogIndex, normalizeCatalog } from '../catalog/asset-catalog';
@@ -145,9 +147,11 @@ describe('editor session and other tabs', () => {
     const lock = s['lock']!;
     s['lockLost'](lock);
     expect(s.readOnly()).toBe(true);
+    // The map is held: nothing here writes to it, the status bar says why
     s.editMeta({ name: 'Mine' });
+    expect(s.doc!.meta.name).toBe('M');
+    expect(s.status()).toContain('Map details waits: another tab edits');
     s.undo();
-    expect(s.doc!.meta.name).toBe('Mine');
     expect(await s.save(true)).toBe(false);
     expect(s.status()).toContain('another tab edits');
     // The other tab saved a change and let go
@@ -301,6 +305,44 @@ describe('editor session saving', () => {
     await s.deleteForGood((await s.listTrash())[0]);
     expect(await s.listTrash()).toEqual([]);
     expect(await versions.list('m-2')).toEqual([]);
+    s.ngOnDestroy();
+  });
+});
+
+describe('editor session holds the map during a job', () => {
+  it('refuses ground edits from the panels while a job runs, so Cancel leaves map and history matching', async () => {
+    const { s } = session();
+    const editor = s.editor!;
+    s.editMeta({ name: 'Before' });
+    const steps = editor.historySteps;
+    const heights = editor.doc.terrain.grid.heights.slice();
+    let finish!: () => void;
+    const job = s.agentEdit('Agent: slow', (_ed, signal) =>
+      new Promise<void>((resolve, reject) => {
+        finish = resolve;
+        signal.addEventListener('abort', () => reject(new DOMException('stopped', 'AbortError')));
+      }),
+    );
+    // The panels' road and river buttons write the ground directly (path-panel flatten, water-panel recarve)
+    const stroke = new LandscapeStroke(editor, 'Carve the river bed', 1, s.catalog());
+    const all = { i0: 0, j0: 0, i1: 4, j1: 4 };
+    stroke.touchHeights(all);
+    editor.doc.terrain.grid.heights.fill(-3, 0, 4);
+    stroke.changed({ heights: all });
+    expect(() => stroke.finish()).toThrow(EditorHeldError);
+    s.execute(SnapshotCommand.record(editor.doc, 'Map details', ['meta'], (d) => (d.meta = { ...d.meta, name: 'During' })));
+    expect(s.status()).toBe('Map details waits: a job runs (Cancel stops it)');
+    expect(editor.doc.meta.name).toBe('Before');
+    expect(editor.doc.terrain.grid.heights).toEqual(heights);
+    expect(editor.historySteps).toBe(steps);
+    s.cancelTerrainJob();
+    await expect(job).rejects.toThrow('stopped');
+    expect(editor.historySteps).toBe(steps);
+    expect(editor.heldReason).toBeNull();
+    // Free again: the next step lands
+    s.editMeta({ name: 'After' });
+    expect(editor.historySteps).toBe(steps + 1);
+    void finish;
     s.ngOnDestroy();
   });
 });

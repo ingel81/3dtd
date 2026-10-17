@@ -7,6 +7,11 @@
  * The document knows whether it differs from the last save (`dirty`): every
  * state gets an id, undo and redo move between them, and a save remembers
  * the id it saved.
+ *
+ * While something else owns the map (a terrain job, an agent's play, another
+ * tab) the document is held (`hold`): every new step, undo and redo is
+ * refused, a step whose effect is already written is taken back, and the
+ * refusal listeners hear why. No caller has to remember the check.
  */
 import type {
   CustomMapDocument,
@@ -143,6 +148,17 @@ export const DEFAULT_HISTORY_LIMITS: HistoryLimits = { steps: 300, bytes: 192 * 
 
 export type ChangeListener = (change: DocChange, doc: CustomMapDocument) => void;
 
+/** A step refused because the document is held; the map is as it was before the step */
+export class EditorHeldError extends Error {
+  constructor(
+    readonly label: string,
+    readonly reason: string,
+  ) {
+    super(`${label} waits: ${reason}`);
+    this.name = 'EditorHeldError';
+  }
+}
+
 export class EditorDocument {
   private undoStack: Entry[] = [];
   private redoStack: Entry[] = [];
@@ -152,7 +168,10 @@ export class EditorDocument {
   private heldBytes = 0;
   private readonly listeners = new Set<ChangeListener>();
   private readonly selectionListeners = new Set<(s: Selection) => void>();
+  private readonly refusalListeners = new Set<(e: EditorHeldError) => void>();
   private currentSelection: Selection = null;
+  /** Why the document is held, the latest hold first; empty when free */
+  private holds: { reason: string }[] = [];
 
   constructor(
     private current: CustomMapDocument,
@@ -190,6 +209,7 @@ export class EditorDocument {
 
   /** Undoes or redoes until `steps` steps are done; false when that is not in the history */
   jumpTo(steps: number): boolean {
+    if (this.holds.length) return false;
     if (steps < 0 || steps > this.undoStack.length + this.redoStack.length) return false;
     while (this.undoStack.length > steps) this.undo();
     while (this.undoStack.length < steps) this.redo();
@@ -214,6 +234,30 @@ export class EditorDocument {
     return () => this.listeners.delete(listener);
   }
 
+  /** Hears every step the hold refused (after the map is back as it was) */
+  onRefused(listener: (e: EditorHeldError) => void): () => void {
+    this.refusalListeners.add(listener);
+    return () => this.refusalListeners.delete(listener);
+  }
+
+  /**
+   * Holds the document for `reason` until the returned release runs: steps,
+   * undo and redo are refused meanwhile. The holder writes through `emit`
+   * and keeps its own step after the release. Holds nest.
+   */
+  hold(reason: string): () => void {
+    const entry = { reason };
+    this.holds.push(entry);
+    return () => {
+      this.holds = this.holds.filter((h) => h !== entry);
+    };
+  }
+
+  /** Why the document is held now, null when free */
+  get heldReason(): string | null {
+    return this.holds.at(-1)?.reason ?? null;
+  }
+
   onSelection(listener: (s: Selection) => void): () => void {
     this.selectionListeners.add(listener);
     return () => this.selectionListeners.delete(listener);
@@ -231,8 +275,15 @@ export class EditorDocument {
     this.emit({ terrain: true, objects: 'all', paths: true, markers: true, environment: true, life: true, meta: true, layers: true, water: true });
   }
 
-  /** Apply a command and keep it */
+  /**
+   * Apply a command and keep it. Held, it is refused: applied and reverted
+   * at once, so a step whose edit already ran (SnapshotCommand.record) is
+   * taken back too, and EditorHeldError is thrown.
+   */
   execute(command: EditCommand): DocChange {
+    if (this.holds.length) {
+      this.refuse(command, mergeChanges(command.apply(this.current), command.revert(this.current)));
+    }
     const change = command.apply(this.current);
     this.record(command);
     this.emit(change);
@@ -246,11 +297,14 @@ export class EditorDocument {
    * areas wait for.
    */
   push(command: EditCommand, change?: DocChange): void {
+    if (this.holds.length) this.refuse(command, mergeChanges(change ?? {}, command.revert(this.current)));
     this.record(command);
     this.emit(change ?? {});
   }
 
+  /** Held, nothing is undone (false) */
   undo(): boolean {
+    if (this.holds.length) return false;
     const entry = this.undoStack.pop();
     if (!entry) return false;
     const change = entry.command.revert(this.current);
@@ -262,6 +316,7 @@ export class EditorDocument {
   }
 
   redo(): boolean {
+    if (this.holds.length) return false;
     const entry = this.redoStack.pop();
     if (!entry) return false;
     const change = entry.command.apply(this.current);
@@ -289,6 +344,14 @@ export class EditorDocument {
     if (sameSelection(selection, this.currentSelection)) return;
     this.currentSelection = selection;
     for (const l of this.selectionListeners) l(selection);
+  }
+
+  /** The map is back as it was before `command`; tell the view and the refusal listeners, and stop the caller */
+  private refuse(command: EditCommand, change: DocChange): never {
+    this.emit(change);
+    const error = new EditorHeldError(command.label, this.heldReason!);
+    for (const l of this.refusalListeners) l(error);
+    throw error;
   }
 
   private record(command: EditCommand): void {

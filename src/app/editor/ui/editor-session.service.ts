@@ -27,7 +27,7 @@ import { CatalogIndex, EMPTY_CATALOG, loadAssetCatalog, type GroundMaterialEntry
 import type { BiomeDef } from '../ops/landscape/biomes';
 import { ThumbnailRenderer } from '../view/thumbnail-renderer';
 import { biomeThumbnail, materialThumbnail, objectThumbnail } from './thumbnails';
-import { EditorDocument, SnapshotCommand, type EditCommand, type Selection } from '../model/editor-document';
+import { EditorDocument, EditorHeldError, SnapshotCommand, type EditCommand, type Selection } from '../model/editor-document';
 import { resizeMap } from '../ops/resize';
 import { detailTarget, increaseMapDetail } from '../ops/detail';
 import { mirrorMap, type MirrorResult } from '../ops/mirror-map';
@@ -103,6 +103,10 @@ export class EditorSession implements OnDestroy {
   /** The terrain job running (generate, erode the map) and how far it is */
   readonly terrainJob = signal<{ label: string; progress: number } | null>(null);
   private terrainAbort: AbortController | null = null;
+  /** Settles when the running job (withJob) ended, however it ended */
+  private jobRun: Promise<void> = Promise.resolve();
+  /** Releases the document's hold while another tab edits the map */
+  private readOnlyHold: (() => void) | null = null;
   /** The 3D view lost its WebGL context and waits for it to come back; the map in memory is untouched */
   readonly viewLost = signal(false);
   /** The map's intro flight plays in the view (Preview) */
@@ -476,25 +480,54 @@ export class EditorSession implements OnDestroy {
     if (busy) throw new Error(`The map cannot change now: ${busy}`);
     const parts = ['terrain', 'objects', 'paths', 'spawns', 'hq', 'environment', 'gameplay', 'life', 'intro', 'prefabs'] as const;
     const before = SnapshotCommand.capture(editor.doc, parts);
+    let out: T;
+    try {
+      out = await this.withJob(label, (signal) => play(editor, signal, (progress) => this.terrainJob.set({ label, progress })));
+    } catch (e) {
+      editor.emit(new SnapshotCommand(label, before, {}).revert(editor.doc));
+      const stopped = (e as Error).name === 'AbortError';
+      this.flash(stopped ? `${label} stopped; the map is as it was` : `${label} failed; the map is as it was`);
+      this.refresh();
+      throw stopped ? new Error('The player stopped it; the map is as it was') : e;
+    }
+    editor.push(new SnapshotCommand(label, before, SnapshotCommand.capture(editor.doc, parts)));
+    this.flash(`${label} done; Ctrl+Z takes it back`);
+    this.refresh();
+    return out;
+  }
+
+  /**
+   * The frame of every job that changes the map over a while (a terrain job,
+   * an agent's play): one at a time, shown with Cancel, the view locked and
+   * the document held, so no panel, key or agent call writes under it (a
+   * job puts its land back on Cancel, over anything changed meanwhile). The
+   * job keeps its own step after it, once the hold is gone. A stopped job
+   * rejects with an AbortError.
+   */
+  private withJob<T>(label: string, run: (signal: AbortSignal) => Promise<T>): Promise<T> {
+    const editor = this.editor!;
     const abort = new AbortController();
+    const release = editor.hold('a job runs (Cancel stops it)');
     this.terrainAbort = abort;
     this.terrainJob.set({ label, progress: 0 });
     this.viewport?.setLocked(true);
-    try {
-      const out = await play(editor, abort.signal, (progress) => this.terrainJob.set({ label, progress }));
-      editor.push(new SnapshotCommand(label, before, SnapshotCommand.capture(editor.doc, parts)));
-      this.flash(`${label} done; Ctrl+Z takes it back`);
-      return out;
-    } catch (e) {
-      editor.emit(new SnapshotCommand(label, before, {}).revert(editor.doc));
-      this.flash(abort.signal.aborted ? `${label} stopped; the map is as it was` : `${label} failed; the map is as it was`);
-      throw abort.signal.aborted ? new Error('The player stopped it; the map is as it was') : e;
-    } finally {
-      this.terrainAbort = null;
-      this.terrainJob.set(null);
-      this.viewport?.setLocked(false);
-      this.refresh();
-    }
+    const job = (async () => {
+      try {
+        const out = await run(abort.signal);
+        if (abort.signal.aborted) throw new DOMException('The job was stopped', 'AbortError');
+        return out;
+      } finally {
+        release();
+        this.terrainAbort = null;
+        this.terrainJob.set(null);
+        if (!this.readOnly()) this.viewport?.setLocked(false);
+      }
+    })();
+    this.jobRun = job.then(
+      () => undefined,
+      () => undefined,
+    );
+    return job;
   }
 
   /** The map from above for an AI agent, `size` pixels a side, as a JPEG data URL; null without a view */
@@ -513,24 +546,22 @@ export class EditorSession implements OnDestroy {
     return canvas.toDataURL('image/jpeg', 0.85);
   }
 
-  /** Runs a job, the viewport locked meanwhile; on Cancel or an error the heights go back */
+  /** Runs a terrain job in the worker (withJob); on Cancel or an error the heights go back */
   private async runTerrainJob(label: string, job: TerrainJob, onMessage: (m: TerrainJobMessage) => void): Promise<boolean> {
     const editor = this.editor!;
     const heights = editor.doc.terrain.grid.heights;
     const before = heights.slice();
-    const abort = new AbortController();
-    this.terrainAbort = abort;
-    this.terrainJob.set({ label, progress: 0 });
-    this.viewport?.setLocked(true);
     try {
-      await startTerrainJob(
-        job,
-        (m) =>
-          this.zone.run(() => {
-            if (m.kind !== 'done') this.terrainJob.set({ label, progress: m.progress });
-            onMessage(m);
-          }),
-        abort.signal,
+      await this.withJob(label, (signal) =>
+        startTerrainJob(
+          job,
+          (m) =>
+            this.zone.run(() => {
+              if (m.kind !== 'done') this.terrainJob.set({ label, progress: m.progress });
+              onMessage(m);
+            }),
+          signal,
+        ),
       );
       return true;
     } catch (e) {
@@ -539,10 +570,6 @@ export class EditorSession implements OnDestroy {
       if ((e as Error).name === 'AbortError') this.flash(`${label.replace(/^\w/, (c) => c.toUpperCase())} stopped; the land is as it was`);
       else this.error.set(`${label} failed (${(e as Error).message}); the land is as it was.`);
       return false;
-    } finally {
-      this.terrainAbort = null;
-      this.terrainJob.set(null);
-      this.viewport?.setLocked(false);
     }
   }
 
@@ -752,7 +779,7 @@ export class EditorSession implements OnDestroy {
   /** The lock of the map `id` (its own tab edits it), in place of the one held */
   private takeLock(id: string): void {
     this.lock?.close();
-    this.readOnly.set(false);
+    this.setReadOnly(false);
     const lock = new MapLock(id, {
       granted: () => this.zone.run(() => void this.lockGranted(lock)),
       lost: () => this.zone.run(() => this.lockLost(lock)),
@@ -781,15 +808,22 @@ export class EditorSession implements OnDestroy {
       this.error.set(`The map could not be read again (${(e as Error).message}). Reload the page before you change it.`);
       return;
     }
-    this.readOnly.set(false);
+    this.setReadOnly(false);
     this.viewport?.setLocked(false);
     this.flash('You edit this map now');
+  }
+
+  /** Read-only (another tab edits the map) holds the document, so nothing here writes to it */
+  private setReadOnly(on: boolean): void {
+    this.readOnly.set(on);
+    this.readOnlyHold?.();
+    this.readOnlyHold = on && this.editor ? this.editor.hold('another tab edits this map (Take over editing)') : null;
   }
 
   /** Another tab edits this map: this one turns read-only */
   private lockLost(lock: MapLock): void {
     if (this.lock !== lock) return;
-    this.readOnly.set(true);
+    this.setReadOnly(true);
     this.clearAutosave();
     this.viewport?.setLocked(true);
     this.refresh();
@@ -799,7 +833,7 @@ export class EditorSession implements OnDestroy {
   private async letGo(): Promise<void> {
     this.viewport?.setLocked(true);
     this.terrainAbort?.abort();
-    while (this.terrainJob()) await new Promise((r) => setTimeout(r, 20));
+    await this.jobRun;
     if (this.dirty() || this.saveRun) await this.save(false);
     this.flash('Another tab took over this map; this one is read-only now');
   }
@@ -811,7 +845,11 @@ export class EditorSession implements OnDestroy {
     this.settings.look.at = null;
     if (frame) this.keptView = null;
     if (this.editor) this.editor.replace(doc);
-    else this.editor = new EditorDocument(doc);
+    else {
+      this.editor = new EditorDocument(doc);
+      // One document serves every map: its refusals reach the status bar
+      this.editor.onRefused((e) => this.flash(e.message));
+    }
     const editor = this.editor;
     this.savedState = editor.stateId;
     this.loadBookmarks(doc.meta.id);
@@ -865,7 +903,7 @@ export class EditorSession implements OnDestroy {
     this.lock?.close();
     this.lock = null;
     this.staleCopy.set(null);
-    this.readOnly.set(false);
+    this.setReadOnly(false);
     this.editor = null;
     this.askedFor = null;
     this.keptView = null;
@@ -969,8 +1007,13 @@ export class EditorSession implements OnDestroy {
 
   // ---------------------------------------------------------------- editing
 
+  /** A step from a panel; refused while the document is held (the status bar says why) */
   execute(command: EditCommand): void {
-    this.editor?.execute(command);
+    try {
+      this.editor?.execute(command);
+    } catch (e) {
+      if (!(e instanceof EditorHeldError)) throw e;
+    }
     this.refresh();
   }
 

@@ -274,6 +274,10 @@ export class EditorShellComponent implements OnDestroy {
     this.session.detachViewport();
   }
 
+  jobPercent(share: number): number {
+    return Math.round(share * 100);
+  }
+
   setSymmetry(mode: SymmetryMode): void {
     this.session.patchSettings((s) => (s.symmetry = mode));
     this.session.flash(mode === 'none' ? 'Symmetry off' : `Symmetry: ${SYMMETRY_MODES.find((m) => m.id === mode)!.label}`);
