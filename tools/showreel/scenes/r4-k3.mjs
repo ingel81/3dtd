@@ -363,7 +363,7 @@ const B6 = stage('b6-village', 5, [
   ...idle(1),
   effect('castle'),
   // The gate at the ramp, turned to face it
-  ...pick(mode('place'), search('castle gate'), click('[data-asset=castle-gate]')),
+  ...pick(mode('place'), search('gatehouse'), click('[data-asset=castle-gate]')),
   clickMap(pt(P.gate)),
   ...idle(0.3),
   ...pick(mode('select'), clickMap(pt(P.gate)), { do: 'type', sel: '.op-grid input[step="5"]', text: '90', cps: 400 }),

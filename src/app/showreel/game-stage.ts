@@ -147,6 +147,10 @@ export class GameStage implements Stage {
     return info ? `${info.programs?.length ?? 0}:${info.memory.geometries}:${info.memory.textures}` : null;
   }
 
+  gl(): WebGLRenderingContext | WebGL2RenderingContext | null {
+    return this.engineInit.getEngine()?.getRenderer().getContext() ?? null;
+  }
+
   named(name: string): { x: number; y: number } | null {
     const doc = this.world?.doc;
     if (!doc) return null;

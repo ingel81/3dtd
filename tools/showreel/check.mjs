@@ -12,8 +12,11 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { HERE } from './browser.mjs';
 
-/** Mean difference (0-255) under which a frame repeats the one before */
-const HOLD_DIFF = 0.3;
+/**
+ * Mean difference (0-255) under which a frame repeats the one before: a page that stalls gives the capture the same
+ * picture again (0.000 at this size); a slow move in a dark or calm shot changes by 0.05 to 0.1 a frame
+ */
+const HOLD_DIFF = 0.03;
 /** A held picture this long is a stutter, s (eight frames at 60 fps) */
 const STUTTER_S = 0.12;
 /** A held picture this long with the camera moving is a frozen stretch, s */

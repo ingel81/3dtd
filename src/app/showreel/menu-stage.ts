@@ -43,6 +43,10 @@ export class MenuStage implements Stage {
     return canvas ? `${canvas.width}x${canvas.height}` : null;
   }
 
+  gl(): null {
+    return null;
+  }
+
   named(): { x: number; y: number } | null {
     return null;
   }

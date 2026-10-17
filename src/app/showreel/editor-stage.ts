@@ -91,6 +91,10 @@ export class EditorStage implements Stage {
     return info ? `${info.programs?.length ?? 0}:${info.memory.geometries}:${info.memory.textures}` : null;
   }
 
+  gl(): WebGLRenderingContext | WebGL2RenderingContext | null {
+    return this.viewport?.renderer.getContext() ?? null;
+  }
+
   named(name: string): { x: number; y: number } | null {
     const doc = this.session.doc;
     if (!doc) return null;

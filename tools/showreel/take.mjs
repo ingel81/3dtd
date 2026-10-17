@@ -99,7 +99,8 @@ function differences(kind, env, state, headless) {
 
 /**
  * Until nothing more comes in: no request open for a second, the renderer's programs, geometries and textures
- * unchanged for 1.5 s (grass chunks, shadow maps, textures, shaders), the editor idle. Gives up after
+ * unchanged for 1.5 s (grass chunks, shadow maps, textures, shaders), the GPU process caught up (a pixel read back
+ * in under 50 ms: it compiles the programs after the page asked for them), the editor idle. Gives up after
  * `timeoutS` and says what still changed.
  */
 async function settle(page, open, timeoutS = 90) {
@@ -109,8 +110,9 @@ async function settle(page, open, timeoutS = 90) {
   let quietSince = Date.now();
   for (;;) {
     const now = Date.now();
-    const state = await page.evaluate(() => ({ renderer: window.__showreel.take.renderer(), busy: window.__showreel.take.state().busy ?? null }));
+    const state = await page.evaluate(() => ({ renderer: window.__showreel.take.renderer(), busy: window.__showreel.take.state().busy ?? null, gpu: window.__showreel.take.gpu() }));
     const sig = `${state.renderer}|${state.busy}`;
+    if (state.gpu !== null && state.gpu > 50) since = now;
     if (sig !== last) {
       last = sig;
       since = now;

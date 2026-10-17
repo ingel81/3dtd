@@ -27,6 +27,8 @@ export interface Stage {
    * changing, so a take starts with grass, shadows and textures in place
    */
   rendererState(): string | null;
+  /** The renderer's WebGL context, null where the stage has none of its own (the menu's globes) */
+  gl(): WebGLRenderingContext | WebGL2RenderingContext | null;
   /** A named spot of the map: `hq`, `center`, `spawn:<index>` */
   named(name: string): { x: number; y: number } | null;
   /** Take the camera to a pose every frame; null gives it back to the player's controls where it is */

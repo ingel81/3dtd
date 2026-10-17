@@ -95,6 +95,8 @@ export interface ShowreelApi {
     state(): Record<string, unknown>;
     /** The renderer's programs, geometries and textures: unchanged while nothing more loads */
     renderer(): string | null;
+    /** Milliseconds a pixel takes to read back (the GPU process caught up), null without a context */
+    gpu(): number | null;
   };
 }
 
@@ -247,6 +249,17 @@ export function startShowreel(injector: Injector): void {
         };
       },
       renderer: () => stage().rendererState(),
+      /**
+       * Milliseconds one pixel takes to read back: the read waits for the GPU process, where ANGLE compiles a
+       * program's shaders on its first draw while the page's frames run on (the picture holds for seconds then)
+       */
+      gpu(): number | null {
+        const gl = stage().gl();
+        if (!gl) return null;
+        const t0 = performance.now();
+        gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4));
+        return performance.now() - t0;
+      },
     },
   };
   (globalThis as Record<string, unknown>)['__showreel'] = api;

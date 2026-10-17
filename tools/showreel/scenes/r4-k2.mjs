@@ -16,17 +16,26 @@ const env = (patch, opts = {}) => act('environment', { patch, ...opts });
  * The looks a scene will use, each set once and the map's own with `base` on it back (its first frames compile the new programs and
  * stall, here and not in the shot), then a still moment for the cut's start
  */
-const warm = (base, ...looks) => [...looks.flatMap((look) => [env(look), wait(0.5)]), act('environment', { patch: base, fresh: true }), wait(1.5)];
+const warm = (base, ...looks) => [
+  // A look with `hours` sets the clock too (the torches burn by the hour)
+  ...looks.flatMap(({ hours, ...look }) => [hours ? env(look, { hours }) : env(look), wait(0.5)]),
+  act('environment', { patch: base, fresh: true }),
+  wait(1.5),
+];
 
 /** The camera held still at a pose */
 const still = (eye, look) => path(0.1, [[eye, look], [eye, look]]);
 
-/** A shipped map in the game, clean, from its own start state: the first pose, the looks warmed there, the steps */
+/**
+ * A shipped map in the game, clean, from its own start state: the first pose and the looks warmed there before the
+ * picture counts (the runner then waits until the GPU has compiled them), the steps
+ */
 const world = (name, map, label, pose, looks, steps, extra = {}) => ({
   name,
   start: { game: map },
   env: { ...VIEW, ...extra },
-  steps: [{ do: 'ui', on: false }, { do: 'markers', on: false }, act('routes', { on: false }), act('healthBars', { on: false }), pose, ...looks, { do: 'mark', name: label }, ...steps],
+  warm: [{ do: 'ui', on: false }, { do: 'markers', on: false }, act('routes', { on: false }), act('healthBars', { on: false }), pose, ...looks],
+  steps: [{ do: 'mark', name: label }, ...steps],
 });
 
 const NIGHT = { sky: 'night', sunElevation: 30 };
@@ -39,7 +48,7 @@ export const SCENES = [
   // change and a `dissolve:` mark there for the cut's cross-fade: the sun sinks from 13:00 to 17:45 (day, the shadows
   // swing), dusk from 19:00 to 20:00, night at 21:30 with the torches and braziers on; then closer up to the
   // walls closer. Moonlight full, so the night reads (F092)
-  world('wx-autumn', 'autumn-keep', 'Autumn Keep', still(m(8, -12, 30), m(18, 80, 14)), warm({ sky: 'day', moonlight: 1, sunAzimuth: 180, sunElevation: 60 }, NIGHT, { sky: 'dusk', sunElevation: 8 }), [
+  world('wx-autumn', 'autumn-keep', 'Autumn Keep', still(m(8, -12, 30), m(18, 80, 14)), warm({ sky: 'day', moonlight: 1, sunAzimuth: 180, sunElevation: 60 }, { ...NIGHT, hours: [21.5, 21.5] }, { sky: 'dusk', sunElevation: 8, hours: [19.5, 19.5] }), [
     wait(1),
     env({}, { hours: [13, 17.75], dur: 9, ease: 'linear', label: 'effect:afternoon' }),
     wait(0.8),
@@ -56,7 +65,7 @@ export const SCENES = [
   ]),
   // Mountain Pass: morning fog over the pasture lifts in 8 s, the cattle on the slope below, a cable car pylon and the
   // huts beyond. The gondolas hang still (props; no mover runs them)
-  world('wx-mountain', 'mountain-pass', 'Mountain Pass', still(m(-62, 8, 18), m(-130, -40, 14)), warm({ weather: 'fog', weatherStrength: 1, sky: 'day', sunAzimuth: 116, sunElevation: 26 }, NIGHT), [
+  world('wx-mountain', 'mountain-pass', 'Mountain Pass', still(m(-62, 8, 18), m(-130, -40, 14)), warm({ weather: 'fog', weatherStrength: 1, sky: 'day', sunAzimuth: 116, sunElevation: 26 }, NIGHT, { sky: 'day', weather: 'fog', weatherStrength: 0, hours: [10, 10] }), [
     wait(1.5),
     env({}, { to: { weatherStrength: 0 }, hours: [8, 10], dur: 8, label: 'effect:fog lifts' }),
     path(7, ['current', [m(-74, -4, 16), m(-140, -46, 12)]], { ease: 'inOut', label: 'effect:pasture' }),
