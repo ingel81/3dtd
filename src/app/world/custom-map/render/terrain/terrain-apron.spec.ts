@@ -1,7 +1,8 @@
 import { createMapDocument } from '../../map-create';
 import { HeightField } from '../height-field';
 import { apronPaintWeights, APRON_PAINT_SAMPLES } from './apron-paint';
-import { APRON_RINGS, ApronProfile } from './terrain-apron';
+import { APRON_RINGS, ApronProfile, buildTerrainApron, writeApronGeometry } from './terrain-apron';
+import { BufferGeometry, MeshBasicMaterial, Vector3, type BufferAttribute } from 'three';
 import { MAX_GROUND_LAYERS } from '../../map-document';
 import { edgeTreeObjects } from '../objects/edge-trees';
 
@@ -115,5 +116,34 @@ describe('edgeTreeObjects', () => {
     const tree = (id: string, x: number, y: number) => ({ id, asset: 'tree-pine', x, y, z: 0, rotation: 0, scale: 1 });
     const out = edgeTreeObjects([tree('e', 90, 20), tree('w', -90, 20)], () => true, 200, 200, (x, y) => !apron.underWater(x, y, 0.3));
     expect(out.map((o) => o.id)).toEqual(['edge:w:w']);
+  });
+});
+
+describe('writeApronGeometry', () => {
+  it('lights the apron as computeVertexNormals would, and rewrites it in place for the same border', () => {
+    const field = flatField();
+    const mesh = buildTerrainApron(new ApronProfile(field, null, 400), new MeshBasicMaterial());
+    const g = mesh.geometry;
+    const position = g.getAttribute('position');
+    const index = g.getIndex();
+    // three's own normals of the same triangles
+    const reference = new BufferGeometry();
+    reference.setAttribute('position', position.clone());
+    reference.setIndex(index!.clone());
+    reference.computeVertexNormals();
+    const ours = g.getAttribute('normal') as BufferAttribute;
+    const theirs = reference.getAttribute('normal') as BufferAttribute;
+    const a = new Vector3();
+    const b = new Vector3();
+    let worst = 1;
+    for (let v = 0; v < ours.count; v++) worst = Math.min(worst, a.fromBufferAttribute(ours, v).dot(b.fromBufferAttribute(theirs, v)));
+    expect(worst).toBeGreaterThan(0.99999);
+    for (let v = 0; v < ours.count; v++) expect(a.fromBufferAttribute(ours, v).y).toBeGreaterThan(0);
+
+    field.grid.heights.fill(9);
+    writeApronGeometry(g, new ApronProfile(field, null, 400));
+    expect(g.getAttribute('position')).toBe(position);
+    expect(g.getIndex()).toBe(index);
+    expect(position.getY(0)).toBeCloseTo(9, 3);
   });
 });

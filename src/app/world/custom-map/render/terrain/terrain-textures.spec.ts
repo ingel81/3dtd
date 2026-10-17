@@ -1,5 +1,6 @@
-import { CompressedArrayTexture, CompressedTexture, DataArrayTexture, RGBA_BPTC_Format, SRGBColorSpace } from 'three';
-import { MaterialArrays, SplatTextures, compressedTogether } from './terrain-textures';
+import { CompressedArrayTexture, CompressedTexture, DataArrayTexture, DataUtils, RGBA_BPTC_Format, SRGBColorSpace } from 'three';
+import { GridNormalTexture, MaterialArrays, SplatTextures, compressedTogether } from './terrain-textures';
+import { HeightField } from '../height-field';
 import type { MaterialCompressed, MaterialPixels } from '../map-asset-library';
 
 const material = (id: string, v: number): MaterialPixels =>
@@ -62,5 +63,32 @@ describe('SplatTextures', () => {
     const textures = new SplatTextures(splat);
     textures.refresh(splat, { i0: 2, j0: 2, i1: 3, j1: 3 });
     for (const t of textures.maps) expect(t.updateRanges).toEqual([]);
+  });
+});
+
+describe('GridNormalTexture', () => {
+  it('holds the normalised normal of each sample, clamped at the border, and the wet banks', () => {
+    const columns = 7;
+    const rows = 5;
+    const heights = Float32Array.from({ length: columns * rows }, (_, k) => Math.sin(k * 1.7) * 6 + (k % columns) * 0.5);
+    const field = new HeightField({ columns, rows, cellSize: 2, heights }, 12, 8);
+    const texture = new GridNormalTexture(field);
+    const mask = new Uint8Array(columns * rows);
+    mask[3 * columns + 5] = 1;
+    texture.setWater(mask);
+    const pixels = texture.texture.image.data as Uint16Array;
+    for (let j = 0; j < rows; j++) {
+      for (let i = 0; i < columns; i++) {
+        const dx = (field.sample(i + 1, j) - field.sample(i - 1, j)) / 4;
+        const dy = (field.sample(i, j + 1) - field.sample(i, j - 1)) / 4;
+        const len = Math.hypot(dx, 1, dy);
+        const q = (j * columns + i) * 4;
+        expect(DataUtils.fromHalfFloat(pixels[q])).toBeCloseTo(dx / len, 2);
+        expect(DataUtils.fromHalfFloat(pixels[q + 1])).toBeCloseTo(1 / len, 2);
+        expect(DataUtils.fromHalfFloat(pixels[q + 2])).toBeCloseTo(-dy / len, 2);
+        const wet = Math.abs(i - 5) <= 2 && Math.abs(j - 3) <= 2 ? 1 : 0;
+        expect(DataUtils.fromHalfFloat(pixels[q + 3])).toBe(wet);
+      }
+    }
   });
 });

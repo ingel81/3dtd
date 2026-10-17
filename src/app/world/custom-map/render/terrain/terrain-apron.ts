@@ -58,6 +58,15 @@ export const BACKDROP_HEIGHT: Record<MapBiome, number> = {
   mars: 200,
 };
 
+/** The height terms of an apron that come from its points' places (ApronProfile.shape), for one map size and backdrop */
+interface ApronShape {
+  key: string;
+  hills: Float64Array;
+  ridges: Float64Array | null;
+}
+/** The last map's shape: the editor's map and the game's, one at a time */
+let shapeCache: ApronShape | null = null;
+
 export class ApronProfile {
   /** Ring points as (side, fraction along the side), counter-clockwise from the south-west corner */
   readonly along: [number, number][] = [];
@@ -128,25 +137,48 @@ export class ApronProfile {
     this.wet = wetAt;
     this.waterLevel = water ? water.level : null;
     this.heights = new Float32Array(APRON_RINGS.length * n);
+    const shape = this.shape(backdrop);
     APRON_RINGS.forEach((dist, r) => {
       const radius = Math.min(Math.floor(n / 4), Math.round((dist * 0.6) / field.cellSize));
       const keep = Math.exp(-dist / 300);
-      this.along.forEach(([side, f], k) => {
-        const [x, y] = this.point(side, f, dist);
-        const hills = this.base + (smoothNoise(x * 0.004, y * 0.004) - 0.5) * 40 * Math.min(1, dist / 600);
+      for (let k = 0; k < n; k++) {
+        const hills = this.base + shape.hills[r * n + k];
         let h = windowMean(k, radius) * keep + hills * (1 - keep);
-        if (backdrop > 0) {
-          // Ridges along the border at three scales, the peaks where they crest; the finest cuts spurs and
-          // gullies into the flanks
-          const ridge = (f: number) => 1 - Math.abs(2 * smoothNoise(x * f + 17.3, y * f - 4.1) - 1);
-          const crest = Math.pow(0.58 * ridge(1 / 350) + 0.3 * ridge(1 / 140) + 0.12 * ridge(1 / 60), 1.5);
-          h += backdrop * smoothstepRange(BACKDROP_FROM, BACKDROP_FULL, dist) * (0.3 + 0.7 * crest);
-        }
+        if (shape.ridges) h += shape.ridges[r * n + k];
         // Sea beyond a coast (and everywhere around a mostly wet border): the floor falls off; a river's mouth keeps the profile
         if (water && r > 0 && (sea[k] || this.wetShare > 0.5)) h = Math.min(h, water.level - 1.5 - dist * 0.01);
         this.heights[r * n + k] = h;
+      }
+    });
+  }
+
+  /**
+   * What the heights take from where the points lie, not from the border:
+   * the hills' noise and the backdrop range, by ring and point. The same for
+   * every profile of a map size and backdrop, so kept for the next (a brush
+   * at the border makes a profile each frame of its stroke; the noise was
+   * most of its 27 ms on a 1024 m map)
+   */
+  private shape(backdrop: number): ApronShape {
+    const n = this.along.length;
+    const key = `${this.w}|${this.d}|${n}|${backdrop}`;
+    if (shapeCache?.key === key) return shapeCache;
+    const hills = new Float64Array(APRON_RINGS.length * n);
+    const ridges = backdrop > 0 ? new Float64Array(APRON_RINGS.length * n) : null;
+    APRON_RINGS.forEach((dist, r) => {
+      this.along.forEach(([side, f], k) => {
+        const [x, y] = this.point(side, f, dist);
+        hills[r * n + k] = (smoothNoise(x * 0.004, y * 0.004) - 0.5) * 40 * Math.min(1, dist / 600);
+        if (!ridges) return;
+        // Ridges along the border at three scales, the peaks where they crest; the finest cuts spurs and
+        // gullies into the flanks
+        const ridge = (f: number) => 1 - Math.abs(2 * smoothNoise(x * f + 17.3, y * f - 4.1) - 1);
+        const crest = Math.pow(0.58 * ridge(1 / 350) + 0.3 * ridge(1 / 140) + 0.12 * ridge(1 / 60), 1.5);
+        ridges[r * n + k] = backdrop * smoothstepRange(BACKDROP_FROM, BACKDROP_FULL, dist) * (0.3 + 0.7 * crest);
       });
     });
+    shapeCache = { key, hills, ridges };
+    return shapeCache;
   }
 
   get count(): number {
@@ -247,9 +279,38 @@ export class ApronProfile {
 }
 
 export function buildTerrainApron(profile: ApronProfile, material: Material): Mesh {
+  const g = new BufferGeometry();
+  writeApronGeometry(g, profile);
+  const mesh = new Mesh(g, material);
+  mesh.name = 'custom-map-apron';
+  mesh.receiveShadow = true;
+  mesh.userData['losTransparent'] = true;
+  mesh.matrixAutoUpdate = false;
+  return mesh;
+}
+
+/**
+ * Writes `profile`'s rings into `g`: positions, normals and bounds, in place
+ * when `g` holds as many points (a brush at the border rebuilds the apron
+ * every frame of its stroke; a new geometry, its index and three's
+ * computeVertexNormals over some 170 000 triangles cost a 1024 m map 25 ms
+ * of each), a new layout otherwise. The normals as computeVertexNormals
+ * makes them, straight on the arrays.
+ */
+export function writeApronGeometry(g: BufferGeometry, profile: ApronProfile): void {
   const n = profile.count;
-  const pos = new Float32Array(APRON_RINGS.length * n * 3);
-  for (let r = 0; r < APRON_RINGS.length; r++) {
+  const rings = APRON_RINGS.length;
+  let position = g.getAttribute('position') as BufferAttribute | undefined;
+  let normal = g.getAttribute('normal') as BufferAttribute | undefined;
+  if (!position || !normal || position.count !== rings * n) {
+    position = new BufferAttribute(new Float32Array(rings * n * 3), 3);
+    normal = new BufferAttribute(new Float32Array(rings * n * 3), 3);
+    g.setAttribute('position', position);
+    g.setAttribute('normal', normal);
+    g.setIndex(new BufferAttribute(apronIndex(n, rings), 1));
+  }
+  const pos = position.array as Float32Array;
+  for (let r = 0; r < rings; r++) {
     for (let k = 0; k < n; k++) {
       const [x, y] = profile.position(r, k);
       const v = (r * n + k) * 3;
@@ -258,28 +319,64 @@ export function buildTerrainApron(profile: ApronProfile, material: Material): Me
       pos[v + 2] = y;
     }
   }
-  const index: number[] = [];
-  for (let r = 0; r < APRON_RINGS.length - 1; r++) {
+  // three's computeVertexNormals on the arrays: each face's normal, area weighted, summed at its corners
+  const nor = normal.array as Float32Array;
+  nor.fill(0);
+  const index = g.getIndex()!.array;
+  for (let t = 0; t < index.length; t += 3) {
+    const ia = index[t] * 3;
+    const ib = index[t + 1] * 3;
+    const ic = index[t + 2] * 3;
+    const ux = pos[ic] - pos[ib];
+    const uy = pos[ic + 1] - pos[ib + 1];
+    const uz = pos[ic + 2] - pos[ib + 2];
+    const wx = pos[ia] - pos[ib];
+    const wy = pos[ia + 1] - pos[ib + 1];
+    const wz = pos[ia + 2] - pos[ib + 2];
+    const nx = uy * wz - uz * wy;
+    const ny = uz * wx - ux * wz;
+    const nz = ux * wy - uy * wx;
+    nor[ia] += nx;
+    nor[ia + 1] += ny;
+    nor[ia + 2] += nz;
+    nor[ib] += nx;
+    nor[ib + 1] += ny;
+    nor[ib + 2] += nz;
+    nor[ic] += nx;
+    nor[ic + 1] += ny;
+    nor[ic + 2] += nz;
+  }
+  for (let v = 0; v < nor.length; v += 3) {
+    const len = Math.sqrt(nor[v] * nor[v] + nor[v + 1] * nor[v + 1] + nor[v + 2] * nor[v + 2]) || 1;
+    nor[v] /= len;
+    nor[v + 1] /= len;
+    nor[v + 2] /= len;
+  }
+  position.needsUpdate = true;
+  normal.needsUpdate = true;
+  g.computeBoundingSphere();
+}
+
+/** The apron's triangles: between each ring and the next, two per point, counter-clockwise in map space */
+function apronIndex(n: number, rings: number): Uint16Array | Uint32Array {
+  const index = rings * n > 65535 ? new Uint32Array((rings - 1) * n * 6) : new Uint16Array((rings - 1) * n * 6);
+  let q = 0;
+  for (let r = 0; r < rings - 1; r++) {
     for (let k = 0; k < n; k++) {
       const a = r * n + k;
       const b = r * n + ((k + 1) % n);
       const c = (r + 1) * n + k;
       const e = (r + 1) * n + ((k + 1) % n);
       // Points run counter-clockwise in map space; scene x is mirrored, so this winding faces up
-      index.push(a, c, b, b, c, e);
+      index[q++] = a;
+      index[q++] = c;
+      index[q++] = b;
+      index[q++] = b;
+      index[q++] = c;
+      index[q++] = e;
     }
   }
-  const g = new BufferGeometry();
-  g.setAttribute('position', new BufferAttribute(pos, 3));
-  g.setIndex(index);
-  g.computeVertexNormals();
-  g.computeBoundingSphere();
-  const mesh = new Mesh(g, material);
-  mesh.name = 'custom-map-apron';
-  mesh.receiveShadow = true;
-  mesh.userData['losTransparent'] = true;
-  mesh.matrixAutoUpdate = false;
-  return mesh;
+  return index;
 }
 
 /** 0 below `a`, 1 above `b`, smooth between */

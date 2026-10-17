@@ -226,6 +226,9 @@ export function maskTexture(pixels: Uint8Array, resolution: number): DataTexture
   return t;
 }
 
+/** 1 as a half float */
+const HALF_ONE = DataUtils.toHalfFloat(1);
+
 /**
  * Surface normals of the height grid, one texel per sample (x and z of the
  * scene-space normal in RGB, half floats; alpha: near water, for wet banks). The terrain shader reads them bilinearly:
@@ -291,18 +294,29 @@ export class GridNormalTexture {
     const j0 = Math.max(0, rect?.j0 ?? 0);
     const i1 = Math.min(f.columns - 1, rect?.i1 ?? f.columns - 1);
     const j1 = Math.min(f.rows - 1, rect?.j1 ?? f.rows - 1);
-    const c2 = 2 * f.cellSize;
+    const inv = 1 / (2 * f.cellSize);
+    const h = f.grid.heights;
+    const cols = f.columns;
+    const last = cols - 1;
+    const lastRow = f.rows - 1;
+    const pixels = this.pixels;
+    const wet = this.wet;
+    // Per brush frame over the whole brush (a 200 m mountain: some 160 000 samples), so the samples are read
+    // straight from the grid (clamped at the border as HeightField.sample does) and normalised without Math.hypot
     for (let j = j0; j <= j1; j++) {
+      const row = j * cols;
+      const up = (j > 0 ? j - 1 : 0) * cols;
+      const down = (j < lastRow ? j + 1 : lastRow) * cols;
       for (let i = i0; i <= i1; i++) {
-        const dhdx = (f.sample(i + 1, j) - f.sample(i - 1, j)) / c2;
-        const dhdy = (f.sample(i, j + 1) - f.sample(i, j - 1)) / c2;
+        const dhdx = (h[row + (i < last ? i + 1 : last)] - h[row + (i > 0 ? i - 1 : 0)]) * inv;
+        const dhdy = (h[down + i] - h[up + i]) * inv;
         // Scene normal (dhdx, 1, -dhdy), normalised
-        const len = Math.hypot(dhdx, 1, dhdy);
-        const q = (j * f.columns + i) * 4;
-        this.pixels[q] = DataUtils.toHalfFloat(dhdx / len);
-        this.pixels[q + 1] = DataUtils.toHalfFloat(1 / len);
-        this.pixels[q + 2] = DataUtils.toHalfFloat(-dhdy / len);
-        this.pixels[q + 3] = this.wet ? DataUtils.toHalfFloat(this.wet[j * f.columns + i]) : 0;
+        const k = 1 / Math.sqrt(dhdx * dhdx + 1 + dhdy * dhdy);
+        const q = (row + i) * 4;
+        pixels[q] = DataUtils.toHalfFloat(dhdx * k);
+        pixels[q + 1] = DataUtils.toHalfFloat(k);
+        pixels[q + 2] = DataUtils.toHalfFloat(-dhdy * k);
+        pixels[q + 3] = wet && wet[row + i] ? HALF_ONE : 0;
       }
     }
     uploadRect(this.texture, rect ? { i0, j0, i1, j1 } : undefined);

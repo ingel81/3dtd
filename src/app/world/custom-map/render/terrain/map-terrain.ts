@@ -5,7 +5,6 @@ import {
   SRGBColorSpace,
   Vector4,
   type DataTexture,
-  type Material,
   type Vector3,
 } from 'three';
 import { MAX_GROUND_LAYERS, type MapBiome, type MapTerrain as MapTerrainDoc, type MapPaths } from '../../map-document';
@@ -13,7 +12,7 @@ import type { HeightField } from '../height-field';
 import type { MapAssetLibrary } from '../map-asset-library';
 import { pathMaskResolution, PathMaskRaster } from '../paths/path-mask';
 import { addHeightFog } from '../environment/height-fog';
-import { ApronProfile, BACKDROP_HEIGHT, buildTerrainApron } from './terrain-apron';
+import { ApronProfile, BACKDROP_HEIGHT, buildTerrainApron, writeApronGeometry } from './terrain-apron';
 import { APRON_LOOK, ApronMaterial } from './apron-material';
 import { APRON_PAINT_BAND, apronPaintTexture, apronPaintWeights } from './apron-paint';
 import { TerrainChunks, type GridRect } from './terrain-chunks';
@@ -297,8 +296,7 @@ export class MapTerrainLayer {
     const f = this.field;
     if (!rect || rect.i0 <= 0 || rect.j0 <= 0 || rect.i1 >= f.columns - 1 || rect.j1 >= f.rows - 1) {
       this.apronProfile = new ApronProfile(f, this.terrain.water, BACKDROP_HEIGHT[this.biome]);
-      this.apron.geometry.dispose();
-      this.apron.geometry = buildTerrainApron(this.apronProfile, this.apron.material as Material).geometry;
+      writeApronGeometry(this.apron.geometry, this.apronProfile);
       this.setApronRange();
     }
   }

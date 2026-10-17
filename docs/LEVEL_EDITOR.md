@@ -809,7 +809,10 @@ Texels (Grundmischung, Ufer, Risse, Rand) in Kacheln von 64 x 64 (`FieldCache`),
 rechnen (Wald 2,3 auf 1,1 ms). Die Landformen (Gebirge, Tal, Plateau, Krater, Dünen) merken sich ebenso je Strich und Sample ihr Rauschen und
 den Halt der Straßen (als Gleitkommazahlen, also dieselbe Form wie ohne Speicher); den Abstand zu den Straßen sucht ein
 Strich in einem Raster der Straßenstücke (16 m) statt über alle Straßen. Ein Tupfer mit 200 m Radius auf einer
-1024-m-Karte mit 220 Straßen kostet so 1,6 bis 2,8 statt 13 bis 16 ms. Objekte gehen sofort in ihre Zelle: die Zell-Meshes halten Platz frei (die Hälfte
+1024-m-Karte mit 220 Straßen kostet so 1,6 bis 2,8 statt 13 bis 16 ms. Ein Pinsel am Kartenrand schreibt die
+Schürze in ihre Geometrie zurück (`writeApronGeometry`, Normalen wie `computeVertexNormals` direkt auf den Arrays),
+deren lagebedingte Höhen (Hügelrauschen, Gebirgskulisse) einmal je Kartengröße gerechnet sind: 54 auf 6 ms je Bild
+bei 1024 m; die Normalen-Textur des Höhenrasters liest das Raster direkt (400 x 400 Samples 6,8 auf 2,5 ms). Objekte gehen sofort in ihre Zelle: die Zell-Meshes halten Platz frei (die Hälfte
 mehr, mindestens 16), neue Objekte landen in freien Slots, ein entferntes ersetzt der letzte der Zelle; neu gebaut
 wird eine Zelle erst, wenn der Platz ausgeht. Pinsel auf einer Wassermaske bauen nur die Wasserkacheln (64 Zellen)
 und das Ufer in ihrem Rechteck neu, das Hauptwasser wie die weiteren Gewässer; ganz neu (höchstens alle 120 ms)
