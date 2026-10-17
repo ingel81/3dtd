@@ -501,6 +501,41 @@ describe('Worlds stage', () => {
     expect(store.ids()).toEqual([]);
   });
 
+  it('out of the map editor list (E219): to the menu it came from; a world left open for it closes into its menu', async () => {
+    const order = signal<WorldStart>(PLAIN_START);
+    TestBed.overrideProvider(WorldStartService, { useValue: { current: order } });
+    const f = await open({ key: true });
+    const stage = TestBed.inject(WorldsStageService);
+    // Opened from the globes or a world menu: back there, as it stood
+    expect(stage.editorExit()).toBe('Back to the worlds');
+    stage.openWorld('maps');
+    expect(stage.editorExit()).toBe('Back to Built Worlds');
+    stage.leaveEditor();
+    expect(session.close).not.toHaveBeenCalled();
+    expect(stage.view()).toBe('world');
+    // The editor's test of a map stands open behind the editor: it closes, the map picked in its world's menu
+    stage.toGlobes();
+    order.set({ ...PLAIN_START, world: { kind: 'custom-map', mapId: 'demo-valley', contentHash: '' }, trial: { bot: null } });
+    session.isOpen.set(true);
+    expect(stage.editorExit()).toBe('Back to Built Worlds');
+    stage.leaveEditor();
+    expect(session.close).toHaveBeenCalledTimes(1);
+    expect(stage.view()).toBe('world');
+    expect(stage.world()).toBe('maps');
+    expect(stage.picks().maps).toMatchObject({ kind: 'map', id: 'demo-valley' });
+    // A real place left for the editor keeps the name it was picked by
+    const hq = { lat: 49.14, lon: 9.22 };
+    stage.pick('real', { kind: 'place', hq, spawns: [], name: 'Heilbronn' });
+    order.set({ ...PLAIN_START, place: { hq, spawns: [] } });
+    stage.toGlobes();
+    expect(stage.editorExit()).toBe('Back to Real places');
+    stage.leaveEditor();
+    expect(stage.world()).toBe('real');
+    expect(stage.picks().real).toMatchObject({ name: 'Heilbronn' });
+    await settle(f);
+    expect(opened).toEqual([]);
+  });
+
   it('one source of chips for the globes, the game and the editor: the other worlds, the map in the editor', async () => {
     const f = await open({ key: true, slots: [heilbronn()] });
     session.park({ world: 'maps', pick: { kind: 'map', id: 'demo-valley', name: 'Demo Valley' }, label: 'Demo Valley', wave: 3, run: true });

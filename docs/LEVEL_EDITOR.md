@@ -9,7 +9,12 @@ fragt das Menü vorher). Die Oberfläche ist englisch wie das übrige Spiel.
 
 Spiel und Editor stehen seit E195 Phase 4 im selben Fenster (`AppShellComponent`, `world/app-screen.service.ts`,
 [WORLDS_NAVIGATION_PLAN.md](WORLDS_NAVIGATION_PLAN.md)): „Map editor“, „Edit“ in der Kartenwahl und „Edit this map“
-öffnen ihn ohne Neuladen, „Back to the game“ kehrt so zurück. `/editor` (mit `?map=<id>`) bleibt Einstieg für
+öffnen ihn ohne Neuladen. Die Kartenliste trägt oben den Pfad `Worlds › Built Worlds › Map editor` mit den Chips und
+einen Rückweg (Knopf mit Esc, E219): mit wartendem Lauf „Back to the run“, sonst dorthin, woher der Editor kam
+(`WorldsStageService.editorExit`, `leaveEditor`): Globen oder Weltmenü, aus denen er geöffnet wurde; eine Welt, die für
+den Editor offen blieb (Spiel ohne Lauf, Probespiel), schließt ins Menü ihrer Welt mit ihrer Karte oder ihrem Ort
+gewählt, statt im Hintergrund neu zu starten. Esc geht vorher eine Ebene zurück (Rückfrage, Import, Formular New map,
+Rahmen eines echten Orts). `/editor` (mit `?map=<id>`) bleibt Einstieg für
 Entwicklung und AI-Agenten; die Route nennt nur, was zuerst steht, danach ändert kein Wechsel die Adresse. Die
 `EditorSession` hängt am Fenster, nicht an der Editor-Ansicht: zeigt das Spiel, gehen Ansicht, Renderer und Canvas des
 Editors, die offene Karte und ihr Verlauf bleiben (vorher gespeichert; scheitert das, bleibt der Editor).

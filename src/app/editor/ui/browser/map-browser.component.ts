@@ -12,6 +12,9 @@ import { download, EditorSession } from '../editor-session.service';
 import { WorldChoiceService } from '../../../world/world-choice.service';
 import { WorldSession } from '../../../world/world-session.service';
 import { AppScreen } from '../../../world/app-screen.service';
+import { WorldsStageService } from '../../../worlds/worlds-stage.service';
+import { WorldPathComponent, type PathAction } from '../../../components/world-path/world-path.component';
+import { MatDialog } from '@angular/material/dialog';
 import type { GroundMaterialEntry } from '../../catalog/asset-catalog';
 import { AddressAutocompleteComponent } from '../../../components/address-autocomplete.component';
 import { OsmFrameComponent } from '../../../components/osm-frame/osm-frame.component';
@@ -41,8 +44,9 @@ export const SIZE_PRESETS: readonly SizePreset[] = [
 @Component({
   selector: 'app-map-browser',
   standalone: true,
-  imports: [TdIconComponent, MatTooltipModule, AgentControlComponent, AddressAutocompleteComponent, OsmFrameComponent],
+  imports: [TdIconComponent, MatTooltipModule, AgentControlComponent, AddressAutocompleteComponent, OsmFrameComponent, WorldPathComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '(document:keydown.escape)': 'onEscape($event)' },
   templateUrl: './map-browser.component.html',
   styleUrl: './map-browser.component.scss',
 })
@@ -51,8 +55,17 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
   /** The desktop app's map folder (its button) */
   readonly worlds = inject(WorldChoiceService);
   private readonly worldSession = inject(WorldSession);
+  private readonly screens = inject(AppScreen);
+  private readonly stage = inject(WorldsStageService);
+  private readonly dialog = inject(MatDialog);
   /** The run the editor came from, waiting as autosave: the way back goes to it */
-  readonly waitingRun = inject(AppScreen).waitingRun;
+  readonly waitingRun = this.screens.waitingRun;
+  /** The way back, as its button says it: the run that waits, else where the editor was opened from */
+  readonly backLabel = computed(() => {
+    const run = this.waitingRun();
+    return run ? `Back to the run: ${run.label}` : this.stage.editorExit();
+  });
+  readonly pathChips = computed(() => this.stage.pathChips(null, false));
   /** Why the map asked for did not open */
   readonly problem = input<string | null>(null);
   readonly open = output<string>();
@@ -299,9 +312,45 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
     this.dragging.set(true);
   }
 
-  /** The game in this window again, the run that waits loaded (WorldSession.backToGame) */
-  backToGame(): void {
-    this.worldSession.backToGame();
+  /**
+   * Back to where the editor was opened from (E219): the run that waits loads (WorldSession.backToGame);
+   * without one the world menu or the globes it came from (WorldsStageService.leaveEditor)
+   */
+  back(): void {
+    if (this.waitingRun()) {
+      this.worldSession.backToGame();
+      return;
+    }
+    void this.screens.showGame().then((shown) => shown && this.stage.leaveEditor());
+  }
+
+  /** A step of the path: Worlds to the globes, Built Worlds to its menu, a chip to its world's Continue */
+  onPath(action: PathAction): void {
+    if (typeof action === 'object') this.stage.goChip(action.chip);
+    else if (action === 'worlds' || action === 'world') {
+      const to = action === 'world' ? { world: 'maps' as const, pick: null } : null;
+      void this.screens.showGame().then((shown) => shown && this.stage.leaveGame(to));
+    }
+  }
+
+  /**
+   * Esc steps back one level: a question, the import panel, the new-map form (the frame of a real place
+   * first), then out of the editor (back)
+   */
+  onEscape(event: Event): void {
+    // A dialog over the list and a list of addresses keep their own Esc
+    if (event.defaultPrevented || this.dialog.openDialogs.length > 0) return;
+    event.preventDefault();
+    if (this.session.importMatch()) void this.resolveImport('cancel');
+    else if (this.session.importState()) this.closeImport();
+    else if (this.confirmDelete() || this.confirmPurge()) {
+      this.confirmDelete.set(null);
+      this.confirmPurge.set(null);
+    } else if (this.mode() === 'new') {
+      if (this.busy()) return;
+      if (this.osmPlace()) this.osmPlace.set(null);
+      else this.mode.set('details');
+    } else this.back();
   }
 
   async startW3x(metresPerTile: number, maxObjects: number, cropToPlayable: boolean, enhance: boolean, waves: boolean): Promise<void> {

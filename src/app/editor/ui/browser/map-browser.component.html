@@ -1,10 +1,17 @@
 <div class="mb-page td-backdrop" (dragover)="onDragOver($event)" (dragleave)="dragging.set(false)" (drop)="onDrop($event)">
   <section class="mb-panel td-panel" aria-labelledby="mb-title" [class.is-drop]="dragging()">
     <header class="mb-head td-line-bottom">
-      <h1 class="td-dlg-title" id="mb-title">Map editor</h1>
+      <app-world-path world="Built Worlds" [mode]="null" [modes]="false" [chips]="pathChips()" worldHint="The Built Worlds' menu"
+                      worldsHint="All worlds" (go)="onPath($event)">
+        <h1 class="td-dlg-title" id="mb-title">Map editor</h1>
+      </app-world-path>
       <div class="td-actions">
         <app-agent-control />
-        <button class="td-btn-ghost" type="button" (click)="backToGame()" data-test="back-to-game">{{ waitingRun() ? 'Back to the run: ' + waitingRun()!.label : 'Back to the game' }}</button>
+        <button class="td-btn-secondary td-btn-sm" type="button" (click)="back()" data-test="back-to-game">
+          <td-icon name="caretL" [size]="12" />
+          <span>{{ backLabel() }}</span>
+          <kbd class="td-kbd">Esc</kbd>
+        </button>
         @if (worlds.mapFolder) {
           <button class="td-btn-ghost" type="button" (click)="worlds.revealMapFolder()"
                   matTooltip="Your maps as .3dtdmap files in Documents/3DTD/Maps; put files there to add them" data-test="map-folder">Map folder</button>

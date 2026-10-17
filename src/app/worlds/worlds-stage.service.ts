@@ -135,6 +135,7 @@ export class WorldsStageService {
   private readonly worlds = inject(WorldChoiceService);
   private readonly dice = inject(WorldDiceService);
   private readonly geocoding = inject(GeocodingService);
+  private readonly startOrder = inject(WorldStartService);
   readonly mapsOpen = inject(CUSTOM_MAPS_OPEN);
 
   readonly view = signal<'globes' | 'world'>('globes');
@@ -187,12 +188,43 @@ export class WorldsStageService {
     return runs.sort((a, b) => b.savedAt.localeCompare(a.savedAt));
   });
 
+  /**
+   * Where the map editor goes back to when no run waits for it (E219), as its button names it: the world
+   * whose game left for the editor (with nothing under way, or the editor's test) to that world's menu;
+   * else the globes or the world menu the editor was opened from, which stand as they were
+   */
+  readonly editorExit = computed(() => {
+    if (this.session.isOpen()) return `Back to ${WORLD_NAMES[this.worldOfOrder(this.startOrder.current())]}`;
+    return this.view() === 'world' ? `Back to ${WORLD_NAMES[this.world()]}` : 'Back to the worlds';
+  });
+
+  /**
+   * Out of the map editor to editorExit, once the game screen shows again (AppScreen.showGame): a world
+   * left open for the editor closes, its map or place picked in its world's menu, so the editor's test
+   * does not start again and the game of the world before is not made anew behind the player's back
+   */
+  leaveEditor(): void {
+    this.confirm.set(null);
+    this.overlay.set(null);
+    if (!this.session.isOpen()) return;
+    const order = this.startOrder.current();
+    this.frame.set(null);
+    this.session.close();
+    this.pickFromOrder(order);
+    if (!order.world && !order.place) this.openWorld('real');
+  }
+
+  /** The world of the globes a start order plays in: a map's by the list, else the real places */
+  private worldOfOrder(order: WorldStart): WorldId {
+    return order.world?.kind === 'custom-map' ? this.mapWorld(order.world.mapId) : 'real';
+  }
+
   /** The world that stands large on the globes */
   readonly hero = computed(() => this.session.parked()?.world ?? heroWorld(this.autosaves(), this.lastPlayed()));
 
   constructor() {
     // The page starts on the globes with a link: its place or map is picked, nothing loads
-    if (!this.session.isOpen()) this.pickFromOrder(inject(WorldStartService).current());
+    if (!this.session.isOpen()) this.pickFromOrder(this.startOrder.current());
     // Read at once and again whenever a slot is written or removed (the game's autosave, a discard)
     void this.saves.refresh();
     this.slotStore.watch?.(() => void this.saves.refresh());
@@ -716,6 +748,12 @@ export class WorldsStageService {
     }
     const place = order.place;
     if (!place) return;
+    // The place picked already keeps its name (a game left for its menu, the editor)
+    const picked = this.picks().real;
+    if (picked && samePick(picked, { kind: 'place', hq: place.hq, spawns: place.spawns, name: '' })) {
+      this.openWorld('real');
+      return;
+    }
     const name = `${place.hq.lat.toFixed(4)}, ${place.hq.lon.toFixed(4)}`;
     this.pick('real', { kind: 'place', hq: place.hq, spawns: place.spawns, name });
     this.openWorld('real');
