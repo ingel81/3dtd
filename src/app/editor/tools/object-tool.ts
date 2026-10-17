@@ -49,6 +49,8 @@ type Drag =
       start: MapPoint;
       center: MapPoint;
       before: Map<string, MapObject>;
+      /** Where each of them stands in the list: a frame of the drag changes only those */
+      at: Map<string, number>;
       /** The handle taken, null for a drag inside the ring */
       handle: GizmoHandle | null;
       startY: number;
@@ -579,13 +581,20 @@ export class ObjectTool implements EditorTool {
   private startGizmo(p: ToolPointer, ctx: ToolContext, ids: string[], handle: GizmoHandle | null = null): void {
     const doc = ctx.editor.doc;
     const set = new Set(ids);
-    const before = new Map(doc.objects.filter((o) => set.has(o.id)).map((o) => [o.id, { ...o }]));
+    const before = new Map<string, MapObject>();
+    const at = new Map<string, number>();
+    doc.objects.forEach((o, k) => {
+      if (!set.has(o.id)) return;
+      before.set(o.id, { ...o });
+      at.set(o.id, k);
+    });
     const center = centroid(doc, ids)!;
     this.drag = {
       kind: 'gizmo',
       start: p.hit ? { x: p.hit.x, y: p.hit.y } : { ...center },
       center,
       before,
+      at,
       handle,
       startY: p.clientY,
       yaw: this.axisYaw(ctx, ids),
@@ -627,10 +636,7 @@ export class ObjectTool implements EditorTool {
       if (p.ctrl) dz = Math.round(dz * 2) / 2;
     }
     const changed: string[] = [];
-    doc.objects = doc.objects.map((o) => {
-      const b = drag.before.get(o.id);
-      if (!b) return o;
-      changed.push(o.id);
+    const moved = (b: MapObject): MapObject => {
       switch (s.gizmo) {
         case 'move':
           return { ...b, x: round(b.x + dx), y: round(b.y + dy), z: round(b.z + dz) };
@@ -650,7 +656,15 @@ export class ObjectTool implements EditorTool {
             y: round(c.y + (b.y - c.y) * (drag.before.size > 1 ? factorSnapped : 1)),
           };
       }
-    });
+    };
+    // Only the dragged objects, in their places: a copy of the whole list each frame cost a big map's frame
+    for (const [id, b] of drag.before) {
+      let k = drag.at.get(id)!;
+      if (doc.objects[k]?.id !== id) drag.at.set(id, (k = doc.objects.findIndex((o) => o.id === id)));
+      if (k < 0) continue;
+      doc.objects[k] = moved(b);
+      changed.push(id);
+    }
     ctx.editor.emit({ objects: changed });
   }
 
@@ -703,9 +717,13 @@ export class ObjectTool implements EditorTool {
     this.brushing = null;
     if (!b || (!b.added.length && !b.removed.length)) return;
     const doc = ctx.editor.doc;
+    // Places of the new objects, looked up once instead of a search of the list for each
+    const added = new Set(b.added.map((o) => o.id));
+    const at = new Map<string, number>();
+    doc.objects.forEach((o, k) => added.has(o.id) && at.set(o.id, k));
     const edits: ObjectEdit[] = [
       ...b.removed,
-      ...b.added.map((o) => ({ before: null, after: { ...o }, index: doc.objects.findIndex((x) => x.id === o.id) })),
+      ...b.added.map((o) => ({ before: null, after: { ...o }, index: at.get(o.id) ?? -1 })),
     ];
     const label = b.erase ? `Remove ${b.removed.length} objects` : `Scatter ${b.added.length} objects`;
     ctx.editor.push(new ObjectsCommand(label, edits));
