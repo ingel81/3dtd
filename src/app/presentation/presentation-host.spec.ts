@@ -89,6 +89,7 @@ function makeEngine() {
       createLoop: vi.fn(() => Promise.resolve(++handles)),
       updateLoopPosition: vi.fn(() => true),
       stopLoop: vi.fn(),
+      setLoopVolume: vi.fn(),
       stopOneShots: vi.fn(),
       holdLoops: vi.fn(),
       playAt: vi.fn(() => Promise.resolve(null)),
@@ -171,14 +172,47 @@ describe('PresentationHost', () => {
     expect(host.flames.size).toBe(0);
   });
 
-  it('runs the laser hum with the laser ops', async () => {
+  it('ignites the laser and runs its hum with the laser ops', async () => {
     host.applyOps([['laserBeams.startBeam', 'tower-3', { x: 1, y: 2, z: 3 }, { x: 4, y: 5, z: 6 }, 0.5]]);
     await settle();
     expect(engine.laserBeams.startBeam).toHaveBeenCalledTimes(1);
+    expect((engine.spatialAudio.playAt.mock.calls[0] as unknown[])[0]).toBe('laser-start');
     expect((engine.spatialAudio.createLoop.mock.calls[0] as unknown[])[0]).toBe('laser-loop');
     host.applyOps([['laserBeams.clear']]);
     expect(engine.laserBeams.clear).toHaveBeenCalled();
     expect(host.lasers.size).toBe(0);
+  });
+
+  it('spins the saws up at the tower, cuts at the first target and lets them idle on after the last', async () => {
+    host.applyOps([['towers.setSawTargets', 'tower-5', [{ x: 9, y: 1, z: 9 }, null, null]]]);
+    await settle();
+    const [start, at] = engine.spatialAudio.playAt.mock.calls[0] as unknown as [string, Vector3];
+    expect(start).toBe('saw-spinup');
+    // At the tower (geo 1, 2, 3 -> local x = lon, z = lat; its tip's height)
+    expect(at).toMatchObject({ x: 2, y: 12, z: 1 });
+    const loops = engine.spatialAudio.createLoop.mock.calls.map((c) => c as unknown as [string, Vector3]);
+    expect(loops.map((c) => c[0])).toEqual(['saw-loop', 'saw-cut']);
+    expect(loops[1][1]).toMatchObject({ x: 9, y: 1, z: 9 });
+    // Docked: the cut ends at once, the motors run on until the linger is over
+    host.applyOps([['towers.setSawTargets', 'tower-5', []]]);
+    expect(engine.spatialAudio.stopLoop).toHaveBeenCalledWith(2);
+    expect(engine.spatialAudio.stopLoop).not.toHaveBeenCalledWith(1);
+    host.advance(2500);
+    expect(engine.spatialAudio.stopLoop).toHaveBeenCalledWith(1);
+    expect(host.saws.size).toBe(0);
+  });
+
+  it('runs the slicer with its drive at the tower and stops it when the drive is out', async () => {
+    host.applyOps([['towers.setStream', 'tower-6', null, 0.2]]);
+    await settle();
+    expect((engine.spatialAudio.playAt.mock.calls[0] as unknown[])[0]).toBe('doner-spinup');
+    expect((engine.spatialAudio.createLoop.mock.calls[0] as unknown[])[0]).toBe('doner-loop');
+    expect(engine.spatialAudio.setLoopVolume).toHaveBeenLastCalledWith(1, 0.2);
+    host.applyOps([['towers.setStream', 'tower-6', { x: 1, y: 1, z: 1 }, 0.9]]);
+    expect(engine.spatialAudio.setLoopVolume).toHaveBeenLastCalledWith(1, 0.9);
+    expect(engine.spatialAudio.playAt).toHaveBeenCalledTimes(1);
+    host.applyOps([['towers.setStream', 'tower-6', null, 0]]);
+    expect(engine.spatialAudio.stopLoop).toHaveBeenCalledWith(1);
   });
 
   it('starts a new enemy instance on its walk clip once its model is there, unless it stands', async () => {

@@ -1010,7 +1010,19 @@ Prüfsumme (`state-hash.ts`, nur beim Laser, die Zeilen aller anderen Tower blei
 Koop-Beitritt oder ein Replay-Sprung mitten im Strahl geht also heiß weiter. Verkaufen und Feuerpause löschen den
 Strahl über `stopTowerBeam`. Ans Bild gehen die Strahlen wie die Flammen einmal je Frame
 (`laserBeams.startBeam/stopBeam/clear`, `flushBeams`), gezeichnet vom `LaserBeamRenderer`; die Präsentation lässt
-dazu die Schleife `laser-loop` laufen (`FlameSounds` mit eigener Sound-ID).
+dazu ihren Ton laufen (`presentation/tower-loop-sounds.ts`, `TowerLoopSounds` mit `LASER_SOUND` aus
+`combat-sounds.ts`): beim ersten Strahl aus der Ruhe einmal `laser-start` am Turm, darunter blendet `laser-loop` in
+0,5 s ein und wird mit der Hitze lauter (75 % kalt, voll heiß).
+
+### Ton der laufenden Tower (`TowerLoopSounds`)
+
+Flamme, Laser, Kettensäge und Shawarma Slicer klingen nicht je Schuss, sondern solange sie arbeiten. Je Tower-Art
+ein `TowerLoopSound` (`combat-sounds.ts`): `loop` läuft, solange der Tower arbeitet (`work` je Frame, `rest` beim
+Ende); `start` spielt einmal, wenn er aus der Ruhe anläuft; `ramp` blendet die Schleife danach in so vielen Sekunden
+ein, damit man den Anlauf hört; `load` ist eine zweite Schleife, solange er beißt (an der Stelle, wo er beißt);
+`linger` lässt die Schleife nach dem Ende so viele Sekunden Spielzeit leiser weiterlaufen, ein neuer Einsatz darin
+ist kein neuer Anlauf. Rampe und Nachlauf zählt `PresentationHost.advance` in Spielzeit. Die Dateien sind wie alle
+auf -14 LUFS gebracht (Schleifen mit linearer Verstärkung, damit die Naht bleibt).
 
 ## Beispiel: Chainsaw (Saw Attack)
 
@@ -1019,7 +1031,9 @@ dazu die Schleife `laser-loop` laufen (`FlameSounds` mit eigener Sound-ID).
 gibt sie den Armen in ihrer Reihenfolge, freie Arme an das fernste. Jeder Arm trifft sein Ziel mit
 `damage × fireRate × dt` (`applyBeamDamage`). Kein eigener Zustand je Tower: die Wahl ist jeden Sub-Step neu. Ans
 Bild geht einmal je Frame `towers.setSawTargets(id, Ziele)` (leer: alle Arme heim), `SawArms` im
-`ThreeTowerRenderer` fährt die Arme aus und ein; die Präsentation lässt `saw-loop` laufen, solange ein Arm sägt.
+`ThreeTowerRenderer` fährt die Arme aus und ein. Ton (`SAW_SOUND`): mit dem ersten Ziel `saw-spinup` am Turm
+(Servos, Kupplung, drei Sägen laufen an), `saw-loop` blendet in 1,4 s ein; solange ein Arm sägt, `saw-cut` am
+ersten Ziel, mit einem Arm 73 %, mit dreien voll. Ohne Ziel endet die Last sofort, die Motoren laufen 2 s nach.
 
 ## Beispiel: Shawarma Slicer (Stream Attack)
 
@@ -1028,8 +1042,9 @@ Ausgerichtet steigt der Antrieb (`Tower.streamDrive`, im Snapshot und in der Pr�
 am Wellenende 0), sonst fällt er; mit Ziel trifft der Strom jeden Bodengegner im schmalen Kegel vom Turm zum Ziel in dessen Höhe
 (`getEnemiesInCone`, Breite `width`) mit `damage × fireRate × Antrieb × dt`. Ans Bild geht einmal je Frame
 `towers.setStream(id, Ziel oder null, Antrieb)`, ein auslaufender Turm bekommt zuletzt `(null, 0)`;
-`DonerStream` im `ThreeTowerRenderer` dreht Spieß und Arm und fliegt die Stücke, die Präsentation lässt
-`doner-loop` laufen, solange ein Ziel da ist.
+`DonerStream` im `ThreeTowerRenderer` dreht Spieß und Arm und fliegt die Stücke. Ton (`STREAM_SOUND`): aus dem
+Stand `doner-spinup` am Turm (2,5 s wie der Anlauf), `doner-loop` läuft am Turm mit dem Antrieb als Lautstärke,
+auch ohne Ziel, bis der Antrieb 0 ist.
 
 ## Tower-Placement-System
 

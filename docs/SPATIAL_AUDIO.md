@@ -746,6 +746,9 @@ public/assets/sounds/
 │   ├── poison/poison_spit.mp3         # Poison-Glob-Schuss-Sound
 │   ├── fire/flame_loop.mp3            # Flammenwerfer-Loop-Sound
 │   ├── tentacle/tentacle-01.mp3       # Tentacle-Griff, Saugnäpfe (ElevenLabs, 2026-10-03)
+│   ├── sentinel/beam_start.mp3, beam_loop.mp3          # Sentinel Laser: Zünden, Generator unter dem Strahl (E222)
+│   ├── chainsaw/spinup.mp3, run_loop.mp3, cut_loop.mp3 # Chainsaw: Anlauf, Lauf, Last beim Schneiden (E222)
+│   ├── shawarma/spinup.mp3, run_loop.mp3               # Shawarma Slicer: Anlauf, Maschine im Volllauf (E222)
 │   └── lightning/lightning_chain.mp3  # Lightning-Chain-Sound
 ├── abilities/                         # mit ElevenLabs erzeugt (E18, 2026-09-15)
 │   ├── nuke_siren.mp3                 # Warnsirene des Nuklearschlags (Loop)

@@ -1,4 +1,4 @@
-import type { Vector3 } from 'three';
+import { Vector3 } from 'three';
 import type { ThreeTilesEngine } from '../three-engine';
 import { clearStrikeEffects } from '../three-engine/strike-effects';
 import type { RouteWaypoint, GamePhase, GeoPosition } from '../models/game.types';
@@ -18,7 +18,8 @@ import type { SimFramePacket, SimScalars } from '../sim/protocol/packet';
 import type { PresentationOp } from '../sim/protocol/ops';
 import { OpPlayer } from './op-player';
 import { FramePresenter } from './frame-presenter';
-import { FlameSounds } from './flame-sounds';
+import { TowerLoopSounds } from './tower-loop-sounds';
+import { FLAME_SOUND, LASER_SOUND, SAW_SOUND, STREAM_SOUND } from './combat-sounds';
 import { HqDamagePresenter } from './hq-damage-presenter';
 import { WorldDamagePresenter } from './world-damage-presenter';
 import { DEFAULT_RUN_RULES } from '../sim/protocol/run-rules';
@@ -66,18 +67,19 @@ export class PresentationHost implements SimPresenterApi {
   readonly worldDamage: WorldDamagePresenter;
   readonly frame: FramePresenter;
   readonly ops: OpPlayer;
-  readonly flames: FlameSounds;
-  /** The lasers' hum, run like the flame loops */
-  readonly lasers: FlameSounds;
-  /** The saw arms' motors while they cut, run like the flame loops */
-  readonly saws: FlameSounds;
-  /** The Shawarma Slicer's sizzle while its stream runs */
-  readonly streams: FlameSounds;
+  readonly flames: TowerLoopSounds;
+  /** The lasers' ignition and hum */
+  readonly lasers: TowerLoopSounds;
+  /** The Chainsaw's spin-up, motors and the saws under load */
+  readonly saws: TowerLoopSounds;
+  /** The Shawarma Slicer's spin-up and machine */
+  readonly streams: TowerLoopSounds;
   readonly manualShots: ManualShots;
 
   private readonly engine: ThreeTilesEngine;
   private readonly subs = new SubscriptionBag();
   private gameSpeed = 1;
+  private readonly towerAt = new Vector3();
 
   constructor(options: PresentationHostOptions) {
     const { engine, bus, source, ground } = options;
@@ -105,10 +107,11 @@ export class PresentationHost implements SimPresenterApi {
     engine.orbitalBeams.setGround(ground);
 
     this.frame = new FramePresenter(engine, ground);
-    this.flames = new FlameSounds(() => engine.spatialAudio ?? null);
-    this.lasers = new FlameSounds(() => engine.spatialAudio ?? null, 'laser-loop');
-    this.saws = new FlameSounds(() => engine.spatialAudio ?? null, 'saw-loop');
-    this.streams = new FlameSounds(() => engine.spatialAudio ?? null, 'doner-loop');
+    const audio = () => engine.spatialAudio ?? null;
+    this.flames = new TowerLoopSounds(audio, FLAME_SOUND);
+    this.lasers = new TowerLoopSounds(audio, LASER_SOUND);
+    this.saws = new TowerLoopSounds(audio, SAW_SOUND);
+    this.streams = new TowerLoopSounds(audio, STREAM_SOUND);
     this.ops = new OpPlayer(engine);
     this.installOverrides(source, bus);
 
@@ -141,6 +144,10 @@ export class PresentationHost implements SimPresenterApi {
   advance(gameTimeDeltaMs: number): void {
     // The rumbling tail of a strike that already hit, a beam's burn, a missile's flight
     this.audio.update(gameTimeDeltaMs);
+    // The towers' ramps and the saws idling on
+    this.lasers.advance(gameTimeDeltaMs);
+    this.saws.advance(gameTimeDeltaMs);
+    this.streams.advance(gameTimeDeltaMs);
   }
 
   /**
@@ -249,6 +256,15 @@ export class PresentationHost implements SimPresenterApi {
   }
 
   /** Where the main thread supplies what an op cannot carry (sim/core/sim-sink.ts says which). */
+  /** Where a tower's machine sounds, local (its tip's height over its foot); null before its model stands */
+  private towerPoint(towerId: string): Vector3 | null {
+    const tower = this.engine.towers.get(towerId);
+    if (!tower) return null;
+    this.engine.sync.geoToLocalSimpleInto(tower.lat, tower.lon, tower.height, this.towerAt);
+    this.towerAt.y = tower.tipY;
+    return this.towerAt;
+  }
+
   private installOverrides(source: PresentationSource, bus: MainEventBus): void {
     const ops = this.ops;
     const engine = this.engine;
@@ -303,40 +319,48 @@ export class PresentationHost implements SimPresenterApi {
     // The flame loop runs with the beam
     ops.override('flameBeams.startBeam', (args, call) => {
       call(...args);
-      this.flames.burn(args[0] as string, args[1] as Vector3);
+      this.flames.work(args[0] as string, args[1] as Vector3);
     });
     ops.override('flameBeams.stopBeam', (args, call) => {
       call(...args);
-      this.flames.stop(args[0] as string);
+      this.flames.rest(args[0] as string);
     });
     ops.override('flameBeams.clear', (args, call) => {
       call(...args);
       this.flames.clear();
     });
-    // The saw motors run while an arm cuts, at the first arm's target
+    // The saws run at the tower while an arm cuts and bite at the first arm's target, harder the more arms cut
     ops.override('towers.setSawTargets', (args, call) => {
       call(...args);
-      const at = (args[1] as (Vector3 | null)[]).find((target) => target !== null);
-      if (at) this.saws.burn(args[0] as string, at);
-      else this.saws.stop(args[0] as string);
+      const towerId = args[0] as string;
+      const targets = args[1] as (Vector3 | null)[];
+      const at = targets.find((target) => target !== null);
+      const tower = at && this.towerPoint(towerId);
+      if (!at || !tower) {
+        this.saws.rest(towerId);
+        return;
+      }
+      const cutting = targets.filter((target) => target !== null).length / targets.length;
+      this.saws.work(towerId, tower, 1, 0.6 + 0.4 * cutting, at);
     });
 
-    // The sizzle runs while the stream has a target, at the target
+    // The machine runs at the tower with its drive, spinning up or running down, with or without a target
     ops.override('towers.setStream', (args, call) => {
       call(...args);
-      const target = args[1] as Vector3 | null;
-      if (target) this.streams.burn(args[0] as string, target);
-      else this.streams.stop(args[0] as string);
+      const towerId = args[0] as string;
+      const tower = (args[2] as number) > 0 && this.towerPoint(towerId);
+      if (tower) this.streams.work(towerId, tower, args[2] as number);
+      else this.streams.rest(towerId);
     });
 
-    // The laser's hum runs with its beam
+    // The laser ignites with its beam and hums, louder as it heats up
     ops.override('laserBeams.startBeam', (args, call) => {
       call(...args);
-      this.lasers.burn(args[0] as string, args[1] as Vector3);
+      this.lasers.work(args[0] as string, args[1] as Vector3, 0.75 + 0.25 * (args[3] as number));
     });
     ops.override('laserBeams.stopBeam', (args, call) => {
       call(...args);
-      this.lasers.stop(args[0] as string);
+      this.lasers.rest(args[0] as string);
     });
     ops.override('laserBeams.clear', (args, call) => {
       call(...args);
