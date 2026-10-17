@@ -500,6 +500,30 @@ export interface DocParts {
   prefabs: MapPrefab[] | undefined;
 }
 
+/** The parts that make the map's content: every field of the document but its format, version and `meta` (id, name, dates) */
+type ContentPart = Exclude<keyof CustomMapDocument, 'format' | 'version' | 'meta'>;
+
+// A Record over the document's own fields: a new field fails to compile until it is listed
+const CONTENT_PART: Record<ContentPart, true> = {
+  terrain: true,
+  objects: true,
+  paths: true,
+  spawns: true,
+  hq: true,
+  environment: true,
+  gameplay: true,
+  life: true,
+  intro: true,
+  prefabs: true,
+};
+
+/**
+ * The whole map as one snapshot (a version put back, an agent's play): every
+ * part but `meta`. The one list for "all of the map"; a copy of it by hand
+ * forgot life, intro and prefabs once
+ */
+export const ALL_DOC_PARTS = Object.keys(CONTENT_PART) as readonly (ContentPart & keyof DocParts)[];
+
 const PART_CHANGE: Record<keyof DocParts, DocChange> = {
   objects: { objects: 'all' },
   gameplay: { meta: true },
@@ -543,6 +567,11 @@ export class SnapshotCommand implements EditCommand {
     const before = pick(doc, keys);
     edit(doc);
     return new SnapshotCommand(label, before, pick(doc, keys), extra);
+  }
+
+  /** Puts all of `from` (ALL_DOC_PARTS, a kept version) over `doc` as one step; `doc` keeps its meta */
+  static restore(doc: CustomMapDocument, from: CustomMapDocument, label: string): SnapshotCommand {
+    return new SnapshotCommand(label, pick(doc, ALL_DOC_PARTS), pick(from, ALL_DOC_PARTS));
   }
 
   apply(doc: CustomMapDocument): DocChange {

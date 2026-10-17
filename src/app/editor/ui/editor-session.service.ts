@@ -27,7 +27,7 @@ import { CatalogIndex, EMPTY_CATALOG, loadAssetCatalog, type GroundMaterialEntry
 import type { BiomeDef } from '../ops/landscape/biomes';
 import { ThumbnailRenderer } from '../view/thumbnail-renderer';
 import { biomeThumbnail, materialThumbnail, objectThumbnail } from './thumbnails';
-import { EditorDocument, EditorHeldError, SnapshotCommand, type EditCommand, type Selection } from '../model/editor-document';
+import { ALL_DOC_PARTS, EditorDocument, EditorHeldError, SnapshotCommand, type EditCommand, type Selection } from '../model/editor-document';
 import { resizeMap } from '../ops/resize';
 import { detailTarget, increaseMapDetail } from '../ops/detail';
 import { mirrorMap, type MirrorResult } from '../ops/mirror-map';
@@ -478,8 +478,7 @@ export class EditorSession implements OnDestroy {
     if (!editor) throw new Error('No map is open in the editor');
     const busy = this.busyReason();
     if (busy) throw new Error(`The map cannot change now: ${busy}`);
-    const parts = ['terrain', 'objects', 'paths', 'spawns', 'hq', 'environment', 'gameplay', 'life', 'intro', 'prefabs'] as const;
-    const before = SnapshotCommand.capture(editor.doc, parts);
+    const before = SnapshotCommand.capture(editor.doc, ALL_DOC_PARTS);
     let out: T;
     try {
       out = await this.withJob(label, (signal) => play(editor, signal, (progress) => this.terrainJob.set({ label, progress })));
@@ -490,7 +489,7 @@ export class EditorSession implements OnDestroy {
       this.refresh();
       throw stopped ? new Error('The player stopped it; the map is as it was') : e;
     }
-    editor.push(new SnapshotCommand(label, before, SnapshotCommand.capture(editor.doc, parts)));
+    editor.push(new SnapshotCommand(label, before, SnapshotCommand.capture(editor.doc, ALL_DOC_PARTS)));
     this.flash(`${label} done; Ctrl+Z takes it back`);
     this.refresh();
     return out;
@@ -1372,7 +1371,7 @@ export class EditorSession implements OnDestroy {
     await this.loadVersions();
   }
 
-  /** Puts a kept version back as one undo step (terrain, objects, roads, markers, look, rules) */
+  /** Puts a kept version back as one undo step: all of the map (SnapshotCommand.restore) but its name and details */
   async restoreVersion(version: MapVersion): Promise<void> {
     const editor = this.editor;
     if (!editor || this.blocked('Restore')) return;
@@ -1381,12 +1380,7 @@ export class EditorSession implements OnDestroy {
       if (!bytes) throw new Error('the version is gone');
       if (this.editor !== editor) return;
       const { doc } = unpackMapFile(bytes);
-      const parts = ['terrain', 'objects', 'paths', 'spawns', 'hq', 'environment', 'gameplay'] as const;
-      editor.execute(
-        SnapshotCommand.record(editor.doc, 'Restore version', parts, (d) => {
-          for (const k of parts) (d as unknown as Record<string, unknown>)[k] = structuredClone(doc[k]);
-        }),
-      );
+      this.execute(SnapshotCommand.restore(editor.doc, doc, 'Restore version'));
       this.flash(`Back to the version of ${new Date(version.savedAt).toLocaleString()}`);
     } catch (e) {
       this.error.set(`This version could not be read (${(e as Error).message}). The map is as it was.`);

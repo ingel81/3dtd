@@ -716,7 +716,9 @@ Szenenkosten.
   es spielen die Spuren, die die Karte offen startet. Nur allein: ein Koop-Gast öffnet die Karte ohne den Parameter
 - Versionen: jedes Speichern und höchstens alle drei Minuten ein Autosave landen als gepackte Datei in IndexedDB
   (`3dtd-editor-history`; die frühere `3dtd-editor-versions` wird beim Öffnen gelöscht); das Map-Panel (9) listet sie,
-  „Restore“ holt eine zurück (ein Undo-Schritt). Ein Absturz kostet so höchstens die Minuten seit dem letzten Autosave.
+  „Restore“ holt eine zurück (ein Undo-Schritt): die ganze Karte samt Leben, Intro-Flug und Prefabs
+  (`ALL_DOC_PARTS`, dieselbe Liste wie beim Abspielen eines Agenten und `restore_version`), nur Name und Beschreibung
+  bleiben, wie sie sind. Ein Absturz kostet so höchstens die Minuten seit dem letzten Autosave.
   Ältere Versionen dünnen aus, statt hinten herauszufallen (`thinVersions`): alle der letzten Stunde, je Stunde des
   letzten Tages, je Tag des letzten Monats und je Woche davor nur die neueste, höchstens 40; wer oft speichert, hat
   so trotzdem einen Weg zur letzten Woche. „Pin“ hält eine Version fest, die Ausdünnung lässt sie stehen

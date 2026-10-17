@@ -783,13 +783,7 @@ export class EditorAgent {
     if (!version) throw new AgentError(`There is no version ${id}; list_versions lists them`);
     const old = await this.host.versionDoc(version);
     const doc = this.changeableEditor().doc;
-    const parts = ['terrain', 'objects', 'paths', 'spawns', 'hq', 'environment', 'gameplay'] as const;
-    const answer = this.commit(
-      SnapshotCommand.record(doc, `${AGENT_LABEL}restore version`, parts, (d) => {
-        for (const k of parts) (d as unknown as Record<string, unknown>)[k] = structuredClone(old[k]);
-      }),
-      `back to the version of ${version.savedAt}`,
-    );
+    const answer = this.commit(SnapshotCommand.restore(doc, old, `${AGENT_LABEL}restore version`), `back to the version of ${version.savedAt}`);
     this.host.mapReshaped();
     return answer;
   }

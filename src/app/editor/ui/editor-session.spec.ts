@@ -309,6 +309,29 @@ describe('editor session saving', () => {
   });
 });
 
+describe('editor session versions', () => {
+  it('restores all of a kept version: life, intro flight and prefabs too, the name stays', async () => {
+    const { s } = session();
+    s.editLife((life) => (life.flags = true), 'Banners wave');
+    await s.save(true);
+    await s.loadVersions();
+    const [version] = s.versions();
+    s.editLife((life) => (life.flags = false), 'Banners still');
+    s.editIntro({ kind: 'orbit', distance: 80, height: 40, angle: 0, seconds: 10 } as never);
+    s.editMeta({ name: 'Renamed' });
+    s.editor!.doc.prefabs = [];
+    await s.restoreVersion(version);
+    expect(s.doc!.life?.flags).toBe(true);
+    expect(s.doc!.intro).toBeUndefined();
+    expect(s.doc!.prefabs).toBeUndefined();
+    expect(s.doc!.meta.name).toBe('Renamed');
+    expect(s.undoLabel()).toBe('Restore version');
+    s.undo();
+    expect(s.doc!.intro).toBeDefined();
+    s.ngOnDestroy();
+  });
+});
+
 describe('editor session holds the map during a job', () => {
   it('refuses ground edits from the panels while a job runs, so Cancel leaves map and history matching', async () => {
     const { s } = session();
@@ -829,10 +852,12 @@ describe('editor session and the AI agent', () => {
     const [first] = JSON.parse((await call(agent, 'list_versions')).text).versions;
     expect(first).toMatchObject({ manual: true });
     await call(agent, 'move_marker', { target: 'hq', x: 9, y: 9 });
+    s.editIntro({ kind: 'orbit', distance: 80, height: 40, angle: 0, seconds: 10 } as never);
     const hq = { ...editor.doc.hq };
     const restored = JSON.parse((await call(agent, 'restore_version', { id: first.id })).text);
     expect(restored).toMatchObject({ ok: true, step: 'Agent: restore version' });
     expect(editor.doc.hq).not.toEqual(hq);
+    expect(editor.doc.intro).toBeUndefined();
     expect((await call(agent, 'restore_version', { id: 'never' })).text).toMatch(/no version never/);
     s.ngOnDestroy();
   });
