@@ -55,6 +55,8 @@ export class RoadSurfaceLayer {
   /** The surfaces the textures hold, in layer order, and the arrays */
   private loaded: { ids: string[]; arrays: MaterialArrays } | null = null;
   private generation = 0;
+  /** What the last load asked for */
+  private requested: { library: MapAssetLibrary; anisotropy: number; ids: string } | null = null;
   /** The network as laid, kept between changes (it lays again only what a change reaches) */
   private network = new RoadNetworkBuilder();
 
@@ -68,7 +70,7 @@ export class RoadSurfaceLayer {
     this.material = new RoadSurfaceMaterial(heights, gridNormals, field);
   }
 
-  /** Where the surfaces' textures come from; loads those the roads use */
+  /** Where the surfaces' textures come from; loads those the roads use (nothing when they are in or on the way) */
   setAssets(library: MapAssetLibrary, anisotropy: number): void {
     this.assets = { library, anisotropy };
     void this.loadTextures();
@@ -86,9 +88,10 @@ export class RoadSurfaceLayer {
       else this.remove(tile.key);
     }
     this.group.visible = this.tiles.size > 0;
-    const grew = net.surfaces.length !== this.surfaces.length;
+    // The surfaces only ever grow at the end (RoadNetworkBuilder): the layers loaded keep their place, a new one
+    // draws its mean colour (layer >= uRoadLayers) until the textures with it are in
     this.surfaces = net.surfaces;
-    if (grew || !this.loaded) void this.loadTextures();
+    void this.loadTextures();
   }
 
   /** Where the surface hides the ground, as laid now (the path mask's covers) */
@@ -109,6 +112,7 @@ export class RoadSurfaceLayer {
     this.clear();
     this.loaded?.arrays.dispose();
     this.loaded = null;
+    this.requested = null;
     this.material.dispose();
   }
 
@@ -148,6 +152,11 @@ export class RoadSurfaceLayer {
     const assets = this.assets;
     const ids = this.surfaces.slice(0, MAX_ROAD_SURFACES);
     if (!assets || !ids.length) return;
+    // The same library and surfaces as the textures in or on the way: nothing to fetch, decode or upload
+    const wanted = { library: assets.library, anisotropy: assets.anisotropy, ids: ids.join('|') };
+    const r = this.requested;
+    if (r && r.library === wanted.library && r.anisotropy === wanted.anisotropy && r.ids === wanted.ids) return;
+    this.requested = wanted;
     const generation = ++this.generation;
     const [{ arrays, materials }, catalog] = await Promise.all([loadMaterialArrays(assets.library, ids, assets.anisotropy), assets.library.catalog()]);
     if (generation !== this.generation) {
