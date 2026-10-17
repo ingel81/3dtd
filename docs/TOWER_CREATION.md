@@ -1035,6 +1035,16 @@ Bild geht einmal je Frame `towers.setSawTargets(id, Ziele)` (leer: alle Arme hei
 (Servos, Kupplung, drei Sägen laufen an), `saw-loop` blendet in 1,4 s ein; solange ein Arm sägt, `saw-cut` am
 ersten Ziel, mit einem Arm 73 %, mit dreien voll. Ohne Ziel endet die Last sofort, die Motoren laufen 2 s nach.
 
+Die Bewegung der Arme (E221, `tower-saw-arms.ts`, nur Bild): Ausfahren in zwei Stufen, 0,7 s: erst entfaltet sich
+die Säge vom Dock zu einem Punkt im eigenen Viertel des Arms (entlang `out`, um `lift` angehoben, frei vom Rumpf),
+dann greift sie über die Straße zum Gegner; heim denselben Weg zurück. Bei der Arbeit folgt die Säge ihrem Gegner an
+einer kritisch gedämpften Feder (9 rad/s): ein Gegner, der weiterläuft, oder ein neuer schwenkt den Arm hinüber,
+statt ihn springen zu lassen. Welcher Arm welchen Gegner nimmt, entscheidet das Bild (die Simulation zählt nur
+Treffer je Gegner): die Zuordnung mit dem kürzesten Weg und den wenigsten Gegnern außerhalb des Viertels eines Arms,
+so bleibt jeder Arm auf seiner Seite und die Arme kreuzen nicht; einen Gegner zu behalten kostet keinen Weg, die
+Arme tauschen also nicht, nur weil die Simulation die Liste anders ordnet. Zwei Sägen halten 0,55 Modelleinheiten
+Abstand, die Mitten zweier Arme 0,45 (sie biegen sich auseinander).
+
 ## Beispiel: Shawarma Slicer (Stream Attack)
 
 `attackType: 'stream'`: `TowerCombatService.updateStreamTowers` hält ein Ziel wie die Flamme und dreht den Turm.
