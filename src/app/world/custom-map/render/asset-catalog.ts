@@ -198,6 +198,12 @@ export interface CatalogObject {
    * `beam` turns with them). Default 8 where such parts exist
    */
   spin?: number;
+  /**
+   * Looks of the model in its baked texture atlas (a grid, 2 x 2 for four):
+   * each instance shows the one its place picks (objects/atlas-variants.ts),
+   * a herd of one cow model shows several breeds
+   */
+  variants?: number;
   /** Lower detail models by camera distance */
   lod?: { file: string; distance: number; triangles?: number }[];
 }

@@ -26,6 +26,7 @@ import { addHeightFog } from '../environment/height-fog';
 import { WIND_GLSL, WIND_UNIFORMS, windSwayAtTop } from '../environment/wind';
 import { mapToScene } from '../map-coords';
 import { seatHeight } from './object-seat';
+import { addAtlasVariants } from './atlas-variants';
 import { instanceVariation } from './instance-variation';
 import { bakeImpostor, type Impostor } from './impostor';
 import { addVertexRoughMetal, mergeParts } from './merge-parts';
@@ -1096,7 +1097,9 @@ export class MapObjectLayer {
     const wind = waterfall ? 0 : entry.wind;
     // Floating objects that are not moored structures rock on the water
     const bob = !!entry.float && entry.category !== 'structure';
-    const key = `${source.uuid}|${wind}|${wind > 0 ? entry.height : 0}|${card ? entry.drawDistance : 0}|${bob ? 1 : 0}|${cloth ? 1 : 0}|${spin ? (entry.spin ?? DEFAULT_SPIN) : 0}`;
+    // Several looks in one atlas (a herd of several breeds): only for objects that stay where they are
+    const variants = !card && !bob && (entry.variants ?? 1) > 1 ? entry.variants! : 1;
+    const key = `${source.uuid}|${wind}|${wind > 0 ? entry.height : 0}|${card ? entry.drawDistance : 0}|${bob ? 1 : 0}|${cloth ? 1 : 0}|${spin ? (entry.spin ?? DEFAULT_SPIN) : 0}|${variants}`;
     const cached = this.materials.get(key);
     if (cached) return cached;
     // Always an own copy: the library's material is shared (other views, the editor's thumbnails)
@@ -1110,6 +1113,7 @@ export class MapObjectLayer {
     }
     if (!card && wind <= 0 && !bob && !spin) {
       if (m.userData['roughMetal']) addVertexRoughMetal(m);
+      if (variants > 1) addAtlasVariants(m, variants);
       addWindowGlow(m, source);
       addLodFade(m);
       addHeightFog(m);
@@ -1272,6 +1276,7 @@ transformed.xz = spinTurn * transformed.xz;
     };
     m.customProgramCacheKey = () => `custom-map-object-${variant}`;
     if (m.userData['roughMetal']) addVertexRoughMetal(m);
+    if (variants > 1) addAtlasVariants(m, variants);
     // Window glass on parts that move lights up at night as well (a ship rocking on the water, a turning part)
     if (!card) addWindowGlow(m, source);
     addLodFade(m);

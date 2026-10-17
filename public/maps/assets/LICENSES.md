@@ -321,9 +321,9 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | shrine | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/clay_roof_tiles_02 |
 | graves | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/dark_rock |
 | statue-horse | https://polyhaven.com/a/horse_statue_01; Sockel procedural (tools/map-assets/build_structures.py) |
-| cow | procedural (tools/map-assets/build_extras.py) |
-| cow-grazing | procedural (tools/map-assets/build_extras.py) |
-| cow-lying | procedural (tools/map-assets/build_extras.py) |
+| cow | procedural (tools/map-assets/build_cattle.py) |
+| cow-grazing | procedural (tools/map-assets/build_cattle.py) |
+| cow-lying | procedural (tools/map-assets/build_cattle.py) |
 | sheep | procedural (tools/map-assets/build_extras.py) |
 | sheep-grazing | procedural (tools/map-assets/build_extras.py) |
 | sheep-lying | procedural (tools/map-assets/build_extras.py) |

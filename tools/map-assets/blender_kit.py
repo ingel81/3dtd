@@ -500,6 +500,14 @@ class Nodes:
         self.nt.links.new(self.coords(), n.inputs[0])
         return n.outputs[which]
 
+    def near(self, point, inner, outer):
+        """1 within `inner` metres of a model point, 0 beyond `outer`, smooth between"""
+        n = self.nt.nodes.new('ShaderNodeVectorMath')
+        n.operation = 'DISTANCE'
+        self.nt.links.new(self.coords(), n.inputs[0])
+        n.inputs[1].default_value = point
+        return self.ramp(n.outputs['Value'], outer, inner)
+
     def math(self, op, a, b=0.0, clamp=False):
         n = self.nt.nodes.new('ShaderNodeMath')
         n.operation = op
@@ -679,8 +687,8 @@ def bake_surface(name, objects, keep=(), size=1024, samples=24, ao_distance=1.5,
     Grime, worn edges and streaks the materials compute from the geometry end up painted into the model:
     one draw call, no shader cost in the game.
 
-    `variants` (n, set_look): n looks of the same mesh in a grid atlas (2 x 2 for four); `set_look(k)`
-    changes the materials before look k is baked. The UVs show the first cell, the renderer picks a cell
+    `variants` (n, set_look): n looks of the same mesh in a grid atlas (2 x 2 for four); `set_look(obj, k)`
+    changes the materials of the joined object before look k is baked. The UVs show the first cell, the renderer picks a cell
     per instance (catalogue `variants`). `keep` (window glass, lamps, alpha cards) goes out as it is.
     Returns the joined object"""
     import numpy as np
@@ -717,7 +725,7 @@ def bake_surface(name, objects, keep=(), size=1024, samples=24, ao_distance=1.5,
         img.colorspace_settings.name = 'Non-Color'
     for k in range(count):
         if set_look:
-            set_look(k)
+            set_look(obj, k)
         _bake_pass(obj, work['colour'], 'EMIT', samples, 'Base Color')
         _bake_pass(obj, work['r'], 'EMIT', max(4, samples // 3), 'Roughness')
         _bake_pass(obj, work['m'], 'EMIT', 4, 'Metallic')
@@ -737,8 +745,9 @@ def bake_surface(name, objects, keep=(), size=1024, samples=24, ao_distance=1.5,
         orm[..., 2] = _pixels(work['m'])[..., 0]
         atlas['orm'][y0:y0 + cell, x0:x0 + cell] = orm
     if count > 1:
-        # The UVs show the first cell (bottom left in Blender's image space, top left once glTF flips v)
-        for d in bake_uv.data:
+        # The UVs show the first cell (bottom left in Blender's image space, top left once glTF flips v);
+        # edit mode rebuilt the mesh data, so the layer is looked up again
+        for d in mesh.uv_layers['Bake'].data:
             d.uv = d.uv / grid
     images = {
         'colour': _saved_image(name + '-colour', np.clip(atlas['colour'], 0, 1), False),

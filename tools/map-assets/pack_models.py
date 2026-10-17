@@ -3,7 +3,8 @@
     python -I tools/map-assets/pack_models.py <glb-raw-dir> public/maps/assets [<id> ...]
 
 Per model: gltf-transform optimize (meshopt geometry, WebP textures at 512 px,
-1024 px for the ids in objects.json with `"textureSize": 1024`) into
+1024 px for the ids in objects.json with `"textureSize": 1024`, half of that for their
+-lod1 copies) into
 <out>/models/<id>.glb, and its bounds and triangle count (read from the raw
 GLB) into <glb-raw-dir>/report.json, which update_catalog.py turns into
 footprint and height. Needs Node (npx @gltf-transform/cli).
@@ -54,6 +55,9 @@ def main():
         if only and mid not in only:
             continue
         size = spec.get(mid, {}).get('textureSize', 512)
+        if mid.endswith('-lod1'):
+            # A textured LOD (blender_kit.export_lod textured=True) is seen from afar: half its model's textures
+            size = max(256, spec.get(mid[:-5], {}).get('textureSize', 512) // 2)
         target = os.path.join(out, 'models', name)
         subprocess.run(
             ['npx', '-y', '@gltf-transform/cli@4.5.1', 'optimize', os.path.join(raw, name), target,

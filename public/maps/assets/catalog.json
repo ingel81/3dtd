@@ -8076,9 +8076,9 @@
       "name": "Cow",
       "category": "prop",
       "file": "models/cow.glb",
-      "triangles": 528,
+      "triangles": 2354,
       "footprint": 1.1,
-      "height": 1.5,
+      "height": 1.4,
       "blocksLos": false,
       "blocksBuild": false,
       "scaleRange": [
@@ -8088,21 +8088,29 @@
       "randomRotation": true,
       "wind": 0,
       "drawDistance": 600,
+      "variants": 4,
       "tags": [
         "temperate",
         "village",
         "mountain"
       ],
-      "source": "procedural (tools/map-assets/build_extras.py)"
+      "lod": [
+        {
+          "file": "models/cow-lod1.glb",
+          "distance": 240,
+          "triangles": 331
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_cattle.py)"
     },
     {
       "id": "cow-grazing",
       "name": "Cow, grazing",
       "category": "prop",
       "file": "models/cow-grazing.glb",
-      "triangles": 528,
+      "triangles": 2394,
       "footprint": 1.1,
-      "height": 1.5,
+      "height": 1.4,
       "blocksLos": false,
       "blocksBuild": false,
       "scaleRange": [
@@ -8112,21 +8120,29 @@
       "randomRotation": true,
       "wind": 0,
       "drawDistance": 600,
+      "variants": 4,
       "tags": [
         "temperate",
         "village",
         "mountain"
       ],
-      "source": "procedural (tools/map-assets/build_extras.py)"
+      "lod": [
+        {
+          "file": "models/cow-grazing-lod1.glb",
+          "distance": 240,
+          "triangles": 331
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_cattle.py)"
     },
     {
       "id": "cow-lying",
       "name": "Cow, lying",
       "category": "prop",
       "file": "models/cow-lying.glb",
-      "triangles": 422,
+      "triangles": 1885,
       "footprint": 1.1,
-      "height": 1.2,
+      "height": 1.1,
       "blocksLos": false,
       "blocksBuild": false,
       "scaleRange": [
@@ -8136,12 +8152,20 @@
       "randomRotation": true,
       "wind": 0,
       "drawDistance": 600,
+      "variants": 4,
       "tags": [
         "temperate",
         "village",
         "mountain"
       ],
-      "source": "procedural (tools/map-assets/build_extras.py)"
+      "lod": [
+        {
+          "file": "models/cow-lying-lod1.glb",
+          "distance": 240,
+          "triangles": 309
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_cattle.py)"
     },
     {
       "id": "sheep",

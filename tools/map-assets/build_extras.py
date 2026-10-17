@@ -1,5 +1,5 @@
-"""Mars ascent vehicle, livestock, deer, a dog sled and a siege tower of the map
-asset catalogue (loaded by build_models.py).
+"""Mars ascent vehicle, sheep, deer, a dog sled and a siege tower of the map
+asset catalogue (loaded by build_models.py); cattle are in build_cattle.py.
 
 Animals are cheap on purpose (a few hundred triangles, two or three flat
 materials, no textures) so a herd at the map edge instances into a few draw
@@ -144,7 +144,6 @@ def mars_lander(name):
 # Per kind: body length and radius (round, then squashed across by `wide` and up by `deep`), height of the
 # body's axis standing, leg radius, neck and head length, head radius, how upright the neck is carried
 # (0 level, 1 upright) and how steeply the head points down (0 level, 1 straight down)
-COW = dict(length=1.75, radius=0.4, wide=0.8, deep=1.2, axis=0.98, leg=0.08, neck=0.42, head=0.5, head_r=0.15, carriage=0.3, nose=0.75)
 SHEEP = dict(length=0.95, radius=0.33, wide=0.9, deep=1.0, axis=0.62, leg=0.035, neck=0.3, head=0.3, head_r=0.09, carriage=0.6, nose=0.6)
 DEER = dict(length=1.15, radius=0.25, wide=0.8, deep=1.15, axis=0.95, leg=0.035, neck=0.55, head=0.32, head_r=0.08, carriage=0.85, nose=0.5)
 
@@ -243,27 +242,6 @@ def ears(part, poll, ahead, size, droop=0.3):
         a = poll + side * s * size * 0.4 - ahead * size * 0.2
         b = a + side * s * size + Vector((0, 0, -droop * size)) - ahead * size * 0.2
         oriented_box(part, a, b, size * 0.35)
-
-
-def cow(name, pose, seed):
-    """Hereford-style cow: red-brown coat, white face and chest, short pale horns"""
-    clear_scene()
-    coat = Part(flat_material('cow-coat', (0.17, 0.065, 0.03), 0.85), smooth=True)
-    white = Part(flat_material('cow-white', (0.62, 0.6, 0.55), 0.85), smooth=True)
-    hoof = Part(flat_material('animal-hoof', (0.05, 0.045, 0.04), 0.6), smooth=True)
-    poll, ahead = quadruped(COW, pose, coat, coat, white, hoof, seed)
-    ears(coat, poll, ahead, 0.16)
-    side, up = head_frame(ahead)
-    for s in (-1, 1):
-        base = poll + side * s * 0.08 + up * 0.06
-        tube(white, [base, base + side * s * 0.12 + up * 0.03, base + side * s * 0.17 + up * 0.1 + ahead * 0.04],
-             [0.03, 0.022, 0.008], 5)
-    # The white blaze down the chest
-    L, z = COW['length'], body_axis(COW, pose)
-    tube(white, [Vector((0, -L / 2 + 0.1, z + 0.1)), Vector((0, -L / 2 - 0.01, z - 0.12))], [0.18, 0.12], 8, cap=True)
-    objects = [coat.to_object(name), white.to_object(name + '-white'), hoof.to_object(name + '-hoof')]
-    # Lying, the hooves are folded under: no hoof part
-    export(name, [o for o in objects if o.data.polygons])
 
 
 def sheep(name, pose, seed):
@@ -502,9 +480,6 @@ def siege_tower(name):
 def models():
     return {
         'mars-lander': lambda: mars_lander('mars-lander'),
-        'cow': lambda: cow('cow', 'stand', 1),
-        'cow-grazing': lambda: cow('cow-grazing', 'graze', 2),
-        'cow-lying': lambda: cow('cow-lying', 'lie', 3),
         'sheep': lambda: sheep('sheep', 'stand', 4),
         'sheep-grazing': lambda: sheep('sheep-grazing', 'graze', 5),
         'sheep-lying': lambda: sheep('sheep-lying', 'lie', 6),

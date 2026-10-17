@@ -477,6 +477,11 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   die senkrechte Achse durch den Ursprung des Modells, eine Umdrehung in `spin` Sekunden (Katalog, Standard 8), jedes
   Objekt mit eigenem Startwinkel aus seiner Lage, auf der Uhr des Winds (das Standbild hält sie an); sie werden nicht
   mit anderen Teilen zusammengelegt (`mergeKey`). Radarschüssel und Leuchtturm-Linse liefert die Modellseite (E179)
+- **Ansichten im Atlas** (`variants`, `objects/atlas-variants.ts`): die gebackenen Texturen eines Modells halten
+  `variants` Ansichten desselben Netzes im Raster (2 x 2 für vier; `blender_kit.bake_surface`), die UVs zeigen die
+  erste Zelle. Jede Instanz liest im Vertex-Shader die Zelle, die ein Hash ihres Standorts wählt: eine Herde aus einem
+  Kuhmodell zeigt Holstein, Fleckvieh, Braunvieh und Angus ohne Draw Call, Textur oder Instanzdaten mehr, auf jedem
+  Client gleich. Nur für Objekte, die stehen bleiben (nicht für schwimmende)
 - **Lichter** (`light`: Farbe, Stärke, Reichweite, Höhe, `flicker`, `blink`): jedes bekommt einen additiven Schein (am Tag
   schwach, nachts voll); dazu ein fester Pool von 6 `PointLight`s für die Lichter nächst dem Kamerafokus, nach
   Dunkelheit eingeblendet (Nacht, Dämmerung, tiefe Sonne). Am Tag kosten sie nichts, die feste Poolgröße vermeidet

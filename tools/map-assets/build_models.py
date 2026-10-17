@@ -70,6 +70,7 @@ def wanted(name):
 
 def main():
     import build_boats
+    import build_cattle
     import build_city
     import build_extras
     import build_extreme
@@ -84,7 +85,7 @@ def main():
     import build_vehicles
     registry = base_models()
     for module in (build_nature, build_structures, build_props, build_city, build_space, build_extreme, build_vehicles, build_levels,
-                   build_landmarks, build_modern, build_modern2, build_extras, build_boats):
+                   build_landmarks, build_modern, build_modern2, build_extras, build_boats, build_cattle):
         for name, fn in module.models().items():
             assert name not in registry, name
             registry[name] = fn
