@@ -47,6 +47,15 @@ const NO_RENDER = [
   { group: ["three", "three/**"], message: "The map library (map-ops) computes on the map document only: no three.js." },
   { group: ["@angular/**"], message: "The map library (map-ops) runs in workers, tools and the sandbox: no Angular." },
 ];
+/**
+ * The editor's layers (docs/LEVEL_EDITOR.md): the document and its commands
+ * (model) and the edits on it (ops) are the core; tools turn input into
+ * those edits, view draws, ui is the page
+ */
+const EDITOR_CORE = {
+  group: ["**/editor/tools/**", "**/editor/view/**", "**/editor/ui/**", "../tools/**", "../view/**", "../ui/**", "../../tools/**", "../../view/**", "../../ui/**"],
+  message: "The editor's model and ops import no tools, view or ui: move what both need into editor/model or editor/ops.",
+};
 
 module.exports = defineConfig([
   {
@@ -145,6 +154,13 @@ module.exports = defineConfig([
     ignores: ["**/*.spec.ts"],
     rules: {
       "no-restricted-imports": ["error", { patterns: [NO_EDITOR, ...NO_RENDER] }],
+    },
+  },
+  {
+    files: ["src/app/editor/model/**/*.ts", "src/app/editor/ops/**/*.ts"],
+    ignores: ["**/*.spec.ts"],
+    rules: {
+      "no-restricted-imports": ["error", { patterns: [EDITOR_CORE] }],
     },
   },
   {

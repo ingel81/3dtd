@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { ENEMY_TYPES } from '../../../configs/enemy-types.config';
 import { polylineLength, spawnRoutes } from '../../../map-ops/path-graph';
-import { measureLine } from '../../tools/measure-tool';
+import { measureLine } from '../../ops/measure';
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
 import { TOWER_SPOT_M2, TYPICAL_TOWER_RANGE } from '../../../map-ops/validation/build-areas';

@@ -6,7 +6,9 @@
 import type { CustomMapDocument, MapObject } from '../../world/custom-map/map-document';
 import type { GroundBox } from '../../world/custom-map/object-ground';
 import { levelsGround, levelUnderBuilding } from '../../map-ops/object-ops';
-import { CompoundCommand, PatchCommand, patchLayout, type EditCommand } from '../model/editor-document';
+import { CompoundCommand } from '../model/commands/compound';
+import { PatchCommand, patchLayout } from '../model/commands/patch';
+import type { EditCommand } from '../model/editor-document';
 import { RegionRecorder } from '../model/region-patch';
 
 /**

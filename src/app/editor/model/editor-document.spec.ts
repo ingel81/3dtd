@@ -1,16 +1,11 @@
 import { createMapDocument } from '../../world/custom-map/map-create';
 import type { CustomMapDocument } from '../../world/custom-map/map-document';
 import { raiseDab } from '../../map-ops/terrain-ops';
-import {
-  CompoundCommand,
-  EditorDocument,
-  EditorHeldError,
-  ObjectsCommand,
-  PatchCommand,
-  SnapshotCommand,
-  mergeChanges,
-  type DocChange,
-} from './editor-document';
+import { CompoundCommand } from './commands/compound';
+import { EditorDocument, EditorHeldError, mergeChanges, type DocChange } from './editor-document';
+import { ObjectsCommand } from './commands/objects';
+import { PatchCommand } from './commands/patch';
+import { SnapshotCommand } from './commands/snapshot';
 import { sampleRectAround } from '../../map-ops/grid';
 import { PATCH_TILE, RegionRecorder } from './region-patch';
 

@@ -15,7 +15,7 @@
  */
 import type { MapObject, MapPoint } from '../../world/custom-map/map-document';
 import type { ObjectAssetEntry } from '../../map-ops/asset-catalog';
-import { ObjectsCommand, type ObjectEdit } from '../model/editor-document';
+import { ObjectsCommand, type ObjectEdit } from '../model/commands/objects';
 import { insideMap } from '../../map-ops/grid';
 import {
   ObjectGrid,

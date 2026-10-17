@@ -13,7 +13,9 @@
  */
 import type { AgentAnswer, AgentCall } from '../../core/desktop-bridge';
 import type { CatalogIndex } from '../../map-ops/asset-catalog';
-import { EditorDocument, ObjectsCommand, SnapshotCommand, type EditCommand } from '../model/editor-document';
+import { EditorDocument, type EditCommand } from '../model/editor-document';
+import { ObjectsCommand } from '../model/commands/objects';
+import { SnapshotCommand } from '../model/commands/snapshot';
 import type { MapVersion } from '../model/version-store';
 import type { SavedStamp, StampKeep } from '../model/stamp-store';
 import { ObjectIds, rockShape, settled } from '../../map-ops/object-ops';

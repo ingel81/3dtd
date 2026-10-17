@@ -4,7 +4,7 @@ import type { MapPathKind } from '../../../world/custom-map/map-document';
 import { edgePolyline, polylineLength, smoothEdge, straightenEdge } from '../../../map-ops/path-graph';
 import { selectedEdges, selectedNodes } from '../../model/editor-document';
 import { roadSurfaces } from '../../ops/landscape/road';
-import { editRoads, flattenRoads, paintRoads, pathCommands, rebuildRoads, setRoadSurface, setRoads } from '../../tools/path-tool';
+import { editRoads, flattenRoads, paintRoads, pathCommands, rebuildRoads, setRoadSurface, setRoads } from '../../ops/road-commands';
 import type { PathMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';

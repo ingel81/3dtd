@@ -22,8 +22,8 @@ import { meanWidth, insertPoint, movePoint, removePoint, setMeanWidth, simplifyR
 import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
 import { recarveRiver, relevelRiver } from '../ops/landscape/river';
 import { roadSurfaces } from '../ops/landscape/road';
-import { editRoads, setRoadSurface } from '../tools/path-tool';
-import { relayRiver, removeWholeRiver } from '../tools/water-tool';
+import { editRoads, setRoadSurface } from '../ops/road-commands';
+import { relayRiver, removeWholeRiver } from '../ops/water-commands';
 import { contentFingerprint } from './agent-reads';
 import { dabCentres, facing, MapKit, rng, type Brush, type Where } from '../ops/map-kit';
 import { strictMapProblems } from '../../world/custom-map/map-file';

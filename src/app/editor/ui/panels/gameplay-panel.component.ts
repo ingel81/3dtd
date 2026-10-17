@@ -7,7 +7,7 @@ import { GAME_BALANCE } from '../../../configs/game-balance.config';
 import { TOWER_TYPES } from '../../../configs/tower-types.config';
 import { WAVE_TABLE, validateWaveTable, type WaveTable } from '../../../director/sources/table/wave-table';
 import { MAP_DIFFICULTY, type MapGameplay, type MapWaveRow, type MapWaveTable } from '../../../world/custom-map/map-document';
-import { SnapshotCommand } from '../../model/editor-document';
+import { SnapshotCommand } from '../../model/commands/snapshot';
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
 import { RangeRowComponent } from './range-row.component';

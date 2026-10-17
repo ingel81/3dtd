@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { TdIconComponent } from '../../../components/icon/icon.component';
 import type { MapLife, MapLifeArea, MapLifeKind } from '../../../world/custom-map/map-document';
 import { centroid, DEFAULT_BOAT, LIFE_AREA_DENSITY, LIFE_KIND_INFO, LIFE_KINDS, LIFE_SOUND_REACH, lifeSwitches, outlineArea, shapeLength } from '../../../world/custom-map/map-life';
-import { SnapshotCommand } from '../../model/editor-document';
+import { SnapshotCommand } from '../../model/commands/snapshot';
 import type { LifeMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';

@@ -3,7 +3,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { TdIconComponent } from '../../../components/icon/icon.component';
 import { SPAWN_COLORS } from '../../../configs/map-constants.config';
 import { spawnRoutes } from '../../../map-ops/path-graph';
-import { markerCommands } from '../../tools/marker-tool';
+import { markerCommands } from '../../ops/marker-commands';
 import type { MarkerMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';

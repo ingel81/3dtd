@@ -9,24 +9,14 @@
  */
 import { fitSplatMaps, type CustomMapDocument, type MapGroundLayer, type MapLife, type MapObject, type MapPaths, type MapPoint, type MapRiver, type MapWater, type MapWaterKind } from '../../../world/custom-map/map-document';
 import type { CatalogIndex } from '../../../map-ops/asset-catalog';
-import {
-  CompoundCommand,
-  ObjectsCommand,
-  PatchCommand,
-  SnapshotCommand,
-  mergeChanges,
-  patchArray,
-  patchLayout,
-  splatTargets,
-  type DocChange,
-  type PatchTarget,
-  type SplatTarget,
-  type EditCommand,
-  type EditorDocument,
-} from '../../model/editor-document';
+import { CompoundCommand } from '../../model/commands/compound';
+import { ObjectsCommand } from '../../model/commands/objects';
+import { PatchCommand, patchArray, patchLayout, splatTargets, type PatchTarget, type SplatTarget } from '../../model/commands/patch';
+import { SnapshotCommand } from '../../model/commands/snapshot';
+import { mergeChanges, type DocChange, type EditCommand, type EditorDocument } from '../../model/editor-document';
 import type { GridRect } from '../../../map-ops/grid';
 import { RegionRecorder } from '../../model/region-patch';
-import { BodyAddCommand, LayerListCommand, RiverListCommand, WaterSwapCommand } from '../../model/terrain-commands';
+import { BodyAddCommand, LayerListCommand, RiverListCommand, WaterSwapCommand } from '../../model/commands/terrain';
 import { MAX_LAYERS } from '../../../map-ops/paint-ops';
 import { ObjectGrid, ObjectIds, rockShape, settled } from '../../../map-ops/object-ops';
 import { BODY_COLORS, emptyWater } from '../../../map-ops/water-ops';

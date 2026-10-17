@@ -4,8 +4,9 @@
  * dab reaches are saved first; at the end the stroke becomes one undo step.
  */
 import type { CustomMapDocument, MapPoint } from '../../world/custom-map/map-document';
-import { mirrorChange, type SymmetryMode } from '../ops/symmetry';
-import { PatchCommand, patchArray, patchLayout, type DocChange, type EditorDocument, type PatchTarget } from '../model/editor-document';
+import { mirrorChange, type SymmetryMode } from './symmetry';
+import { PatchCommand, patchArray, patchLayout, type PatchTarget } from '../model/commands/patch';
+import type { DocChange, EditorDocument } from '../model/editor-document';
 import { rectUnion, type GridRect } from '../../map-ops/grid';
 import { RegionRecorder, type PatchArray } from '../model/region-patch';
 

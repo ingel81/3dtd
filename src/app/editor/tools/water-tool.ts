@@ -9,19 +9,18 @@
  * (Shift reverses). Sea floods the body in from the map's edge. The body
  * list, kinds, levels and colours live in the panel (`waterCommands`).
  */
-import type { CatalogIndex } from '../../map-ops/asset-catalog';
-import type { CustomMapDocument, MapRiver, MapTerrain, MapWater, MapWaterKind } from '../../world/custom-map/map-document';
-import type { DocChange, EditCommand, EditorDocument, PatchTarget } from '../model/editor-document';
+import type { MapRiver } from '../../world/custom-map/map-document';
+import type { DocChange } from '../model/editor-document';
+import type { PatchTarget } from '../model/commands/patch';
 import { nearestSample, sampleRectAround, type GridRect } from '../../map-ops/grid';
-import { addPouredBodies, basinBrim, BODY_COLORS, emptyWater, fillBasin, fillFromEdge, hollowFloor, lakeDab, waterBody, waterMaskDab, wetSamples } from '../../map-ops/water-ops';
+import { addPouredBodies, basinBrim, emptyWater, fillBasin, hollowFloor, lakeDab, waterBody, waterMaskDab, wetSamples } from '../../map-ops/water-ops';
 import { pourOffThread, POUR_MAX_LAKES } from '../ops/pour';
 import { MAX_WATER_BODIES } from '../../world/custom-map/map-file';
-import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
-import { moveRiverBed, removeRiver } from '../ops/landscape/river';
 import { insertPoint, movePoint, nearestRiverPoint, nearestRiverSegment, removePoint } from '../ops/river-edit';
 import { symmetryImages } from '../ops/symmetry';
-import { RiverListCommand } from '../model/terrain-commands';
-import { BrushStroke } from './brush-stroke';
+import { recordWater, relayRiver, removeWholeRiver, waterCommands } from '../ops/water-commands';
+import { WaterStateCommand, setWaterState, waterState } from '../model/commands/terrain';
+import { BrushStroke } from '../ops/brush-stroke';
 import type { EditorTool, ToolContext, ToolPointer } from './tool';
 
 export { BODY_COLORS } from '../../map-ops/water-ops';
@@ -31,7 +30,6 @@ const LOW_FILL = 1;
 /** Share per second a lake bed sinks toward its depth at full strength */
 const DIG_RATE = 3;
 
-const ADD_LABELS: Record<MapWaterKind, string> = { water: 'Add lake', sea: 'Add sea', swamp: 'Add swamp', ice: 'Add ice', lava: 'Add lava' };
 
 /** The patch target of a body's mask */
 function maskTarget(body: number): PatchTarget {
@@ -303,130 +301,6 @@ export class WaterTool implements EditorTool {
     this.stroke?.finish();
     this.stroke = null;
   }
-}
-
-/** All water of a map: the main body and the further ones */
-export interface WaterState {
-  water: MapWater | null;
-  bodies: MapWater[] | undefined;
-}
-
-export function waterState(t: MapTerrain): WaterState {
-  return { water: t.water ? structuredClone(t.water) : null, bodies: t.waterBodies ? structuredClone(t.waterBodies) : undefined };
-}
-
-function setWaterState(t: MapTerrain, s: WaterState): void {
-  t.water = s.water ? structuredClone(s.water) : null;
-  if (s.bodies?.length) t.waterBodies = structuredClone(s.bodies);
-  else delete t.waterBodies;
-}
-
-/** Swaps all water of the map before and after: levels, kinds, colours, masks, the body list */
-export class WaterStateCommand implements EditCommand {
-  readonly bytes: number;
-
-  constructor(
-    readonly label: string,
-    private readonly before: WaterState,
-    private readonly after: WaterState,
-  ) {
-    const size = (s: WaterState) => (s.water?.mask.byteLength ?? 0) + (s.bodies ?? []).reduce((n, b) => n + b.mask.byteLength, 0);
-    this.bytes = size(before) + size(after);
-  }
-
-  apply(doc: CustomMapDocument): DocChange {
-    setWaterState(doc.terrain, this.after);
-    return { water: true };
-  }
-
-  revert(doc: CustomMapDocument): DocChange {
-    setWaterState(doc.terrain, this.before);
-    return { water: true };
-  }
-}
-
-/** Changes all water in place and records it as one step */
-function recordWater(editor: EditorDocument, label: string, edit: (t: MapTerrain) => void): EditCommand {
-  const t = editor.doc.terrain;
-  const before = waterState(t);
-  edit(t);
-  const after = waterState(t);
-  setWaterState(t, before);
-  return new WaterStateCommand(label, before, after);
-}
-
-export const waterCommands = {
-  enable(editor: EditorDocument, level: number): EditCommand {
-    return recordWater(editor, 'Add water', (t) => (t.water = emptyWater(t, level)));
-  },
-  remove(editor: EditorDocument, body = -1): EditCommand {
-    return recordWater(editor, body < 0 ? 'Remove water' : 'Remove body', (t) => {
-      if (body < 0) t.water = null;
-      else t.waterBodies?.splice(body, 1);
-    });
-  },
-  /** A new, empty body of a kind; its level comes with its first fill */
-  addBody(editor: EditorDocument, kind: MapWaterKind, level: number): EditCommand {
-    return recordWater(editor, ADD_LABELS[kind], (t) => {
-      const body: MapWater = { ...emptyWater(t, level), color: BODY_COLORS[kind], kind };
-      t.waterBodies = [...(t.waterBodies ?? []), body];
-    });
-  },
-  set(editor: EditorDocument, body: number, patch: Partial<Pick<MapWater, 'level' | 'color' | 'kind'>>, label: string): EditCommand {
-    return recordWater(editor, label, (t) => {
-      const w = waterBody(t, body);
-      if (!w) return;
-      const oldKind = w.kind ?? 'water';
-      Object.assign(w, patch);
-      // A body that kept its kind's colour takes the new kind's
-      if (patch.kind && !patch.color && w.color === BODY_COLORS[oldKind]) w.color = BODY_COLORS[patch.kind];
-    });
-  },
-  /** The body floods in from the map's edge over everything below its level: a sea or a coast */
-  sea(editor: EditorDocument, body: number): EditCommand {
-    return recordWater(editor, 'Sea from the edge', (t) => {
-      if (body < 0 && !t.water) t.water = emptyWater(t, 0);
-      fillFromEdge(t, body);
-    });
-  },
-  clearMask(editor: EditorDocument, body: number): EditCommand {
-    return recordWater(editor, 'Clear water', (t) => waterBody(t, body)?.mask.fill(0));
-  },
-};
-
-/** Changes the rivers in place and records it as one step */
-/** Takes a river off the map with its bed filled, as one undo step */
-export function removeWholeRiver(editor: EditorDocument, index: number, catalog: CatalogIndex): void {
-  const stroke = new LandscapeStroke(editor, 'Remove river', 1, catalog);
-  removeRiver(stroke, index);
-  stroke.finish();
-}
-
-/**
- * A river reshaped in place (`rivers` hold the new shape, `before` the old
- * list): its bed moves with it, the old one filled, the new one carved
- * (moveRiverBed), as one undo step with the river list
- */
-export function relayRiver(editor: EditorDocument, catalog: CatalogIndex, label: string, index: number, before: MapRiver[] | undefined): void {
-  const t = editor.doc.terrain;
-  const after = t.rivers;
-  t.rivers = before ? structuredClone(before) : undefined;
-  const stroke = new LandscapeStroke(editor, label, 1, catalog);
-  stroke.markRivers();
-  t.rivers = after;
-  const old = before?.[index];
-  const now = after?.[index];
-  if (old && now) moveRiverBed(stroke, old, now);
-  else stroke.changed({ water: true });
-  stroke.finish();
-}
-
-export function riverEdit(editor: EditorDocument, label: string, edit: (rivers: MapRiver[]) => void): EditCommand {
-  const t = editor.doc.terrain;
-  const before = t.rivers ? structuredClone(t.rivers) : undefined;
-  const list = structuredClone(t.rivers ?? []);
-  edit(list);
-  return new RiverListCommand(label, before, list.length ? list : undefined);
 }
 
 /**

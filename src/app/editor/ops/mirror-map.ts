@@ -13,7 +13,7 @@
  */
 import type { CustomMapDocument, MapLifeArea, MapPathEdge, MapPathNode, MapRiver, MapSpawn } from '../../world/custom-map/map-document';
 import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
-import { spawnName } from '../tools/marker-tool';
+import { spawnName } from './marker-commands';
 import { ObjectIds } from '../../map-ops/object-ops';
 import { newId } from '../../map-ops/path-graph';
 import { MAX_LIFE_AREAS, newLifeId } from '../../world/custom-map/map-life';

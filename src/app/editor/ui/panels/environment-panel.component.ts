@@ -3,7 +3,7 @@ import { planetOf, type MapBiome, type MapEnvironment, type MapPlanet, type MapW
 import { chooseSkyImage, SKY_IMAGES } from '../../../world/custom-map/render/environment/sky-images';
 import { windOf } from '../../../world/custom-map/render/environment/wind';
 import { DAY_SUN, timeOfDay } from '../../../world/custom-map/time-of-day';
-import { SnapshotCommand } from '../../model/editor-document';
+import { SnapshotCommand } from '../../model/commands/snapshot';
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
 import { RangeRowComponent } from './range-row.component';

@@ -7,27 +7,14 @@
  * places freely; several dragged together keep their places to each other).
  */
 import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
-import type { MapPoint, MapSpawn } from '../../world/custom-map/map-document';
-import { SnapshotCommand, selectedSpawns, spawnSelection, type DocParts, type EditCommand, type EditorDocument } from '../model/editor-document';
+import type { MapPoint } from '../../world/custom-map/map-document';
+import { SnapshotCommand, type DocParts } from '../model/commands/snapshot';
+import { selectedSpawns, spawnSelection } from '../model/editor-document';
 import { insideMap } from '../../map-ops/grid';
-import { nearestOnEdges, newId } from '../../map-ops/path-graph';
+import { nearestOnEdges } from '../../map-ops/path-graph';
 import { symmetryImages } from '../ops/symmetry';
+import { markerCommands } from '../ops/marker-commands';
 import type { EditorTool, ToolContext, ToolPointer } from './tool';
-
-/** Names for new spawns by compass side */
-export function spawnName(doc: { terrain: { width: number; depth: number } }, p: MapPoint, taken: readonly MapSpawn[]): string {
-  const ax = p.x / (doc.terrain.width / 2);
-  const ay = p.y / (doc.terrain.depth / 2);
-  const ns = ay > 0.33 ? 'North' : ay < -0.33 ? 'South' : '';
-  const ew = ax > 0.33 ? 'east' : ax < -0.33 ? 'west' : '';
-  let base = ns && ew ? `${ns}${ew}` : ns || (ew ? ew[0].toUpperCase() + ew.slice(1) : 'Centre');
-  if (taken.some((s) => s.name === base)) {
-    let n = 2;
-    while (taken.some((s) => s.name === `${base} ${n}`)) n++;
-    base = `${base} ${n}`;
-  }
-  return base;
-}
 
 export class MarkerTool implements EditorTool {
   readonly id = 'markers' as const;
@@ -174,43 +161,3 @@ export class MarkerTool implements EditorTool {
     return on ? { x: Math.round(on.point.x * 10) / 10, y: Math.round(on.point.y * 10) / 10 } : hit;
   }
 }
-
-export const markerCommands = {
-  moveHq(editor: EditorDocument, p: MapPoint): EditCommand {
-    return SnapshotCommand.record(editor.doc, 'Move HQ', ['hq'], (d) => (d.hq = { x: p.x, y: p.y }));
-  },
-  /** Spawns at the points (the first is the one clicked, the rest its symmetric images); returns the first id */
-  addSpawn(editor: EditorDocument, points: readonly MapPoint[]): { command: EditCommand; id: string } {
-    let first = '';
-    const command = SnapshotCommand.record(editor.doc, points.length > 1 ? 'Add spawns' : 'Add spawn', ['spawns'], (d) => {
-      for (const p of points) {
-        const id = newId('s', d.spawns);
-        first ||= id;
-        d.spawns.push({ id, name: spawnName(d, p, d.spawns), x: p.x, y: p.y });
-      }
-    });
-    return { command, id: first };
-  },
-  removeSpawn(editor: EditorDocument, id: string): EditCommand {
-    return markerCommands.removeSpawns(editor, [id]);
-  },
-  removeSpawns(editor: EditorDocument, ids: readonly string[]): EditCommand {
-    const gone = new Set(ids);
-    return SnapshotCommand.record(editor.doc, ids.length > 1 ? 'Delete spawns' : 'Delete spawn', ['spawns'], (d) => (d.spawns = d.spawns.filter((s) => !gone.has(s.id))));
-  },
-  /** The player may close the lane before wave 1, or it is always open (TODO E130) */
-  setSpawnOptional(editor: EditorDocument, id: string, optional: boolean): EditCommand {
-    return SnapshotCommand.record(editor.doc, optional ? 'Lane optional' : 'Lane always open', ['spawns'], (d) => {
-      d.spawns = d.spawns.map((s) => {
-        if (s.id !== id) return s;
-        const { optional: _, ...rest } = s;
-        return optional ? { ...rest, optional: true } : rest;
-      });
-    });
-  },
-  renameSpawn(editor: EditorDocument, id: string, name: string): EditCommand {
-    return SnapshotCommand.record(editor.doc, 'Rename spawn', ['spawns'], (d) => {
-      d.spawns = d.spawns.map((s) => (s.id === id ? { ...s, name } : s));
-    });
-  },
-};

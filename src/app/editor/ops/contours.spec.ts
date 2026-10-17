@@ -1,5 +1,5 @@
 import { createMapDocument } from '../../world/custom-map/map-create';
-import { measureLine } from '../tools/measure-tool';
+import { measureLine } from './measure';
 import { contourLines } from './contours';
 import { raiseDab } from '../../map-ops/terrain-ops';
 

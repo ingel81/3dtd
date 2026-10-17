@@ -11,31 +11,18 @@
  * With symmetry on, a new outline or line gets its images too (in the same
  * step); edits of one area later stay on that area.
  */
-import type { CustomMapDocument, MapLife, MapLifeArea, MapPoint } from '../../world/custom-map/map-document';
+import type { MapLife, MapLifeArea, MapPoint } from '../../world/custom-map/map-document';
 import { LIFE_KIND_INFO, MAX_LIFE_AREAS, MAX_LIFE_POINTS, nearestOnShape, newLifeId, outlineArea, shapeLength } from '../../world/custom-map/map-life';
-import { SnapshotCommand } from '../model/editor-document';
+import { SnapshotCommand } from '../model/commands/snapshot';
 import { insideMap } from '../../map-ops/grid';
 import { lifeAreaImages, symmetryImages } from '../ops/symmetry';
+import { newLifeArea, withLife } from '../ops/life';
 import type { EditorTool, ToolContext, ToolPointer } from './tool';
 
 /** Screen pixels a handle or a route's line takes a click from */
 const PICK_PX = 12;
 /** Metres between two points of a freehand outline */
 const FREEHAND_STEP = 6;
-
-/** The map's life with a change, a fresh copy (the document keeps undo snapshots of the old one) */
-export function withLife(doc: CustomMapDocument, change: (life: MapLife) => void): MapLife {
-  const life: MapLife = structuredClone(doc.life ?? {});
-  change(life);
-  return life;
-}
-
-/** Defaults a new area of a kind starts with */
-export function newLifeArea(id: string, kind: MapLifeArea['kind'], shape: MapLifeArea['shape'], points: MapPoint[]): MapLifeArea {
-  const area: MapLifeArea = { id, kind, shape, points };
-  if (kind === 'sound') area.sound = shape === 'route' ? 'stream' : 'birdsong';
-  return area;
-}
 
 export class LifeTool implements EditorTool {
   readonly id = 'life' as const;

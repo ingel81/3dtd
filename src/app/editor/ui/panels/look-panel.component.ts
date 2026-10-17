@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { selectedEdges, selectedNodes, selectedSpawns } from '../../model/editor-document';
-import { describeGround, describePick } from '../../tools/look-tool';
-import type { PickResult, ToolId } from '../../tools/tool';
+import { describeGround, describePick } from '../../ops/describe';
+import type { PickResult } from '../../model/editor-document';
+import type { ToolId } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
 
@@ -54,7 +55,6 @@ export class LookPanelComponent {
     const sel = this.session.selection();
     const editor = this.session.editor;
     if (!sel || !editor) return null;
-    const ctx = { editor, catalog: this.session.catalog() };
     const doc = editor.doc;
     const at = (q: { x: number; y: number } | undefined) => (q ? `${Math.round(q.x)} m E, ${Math.round(q.y)} m N` : '');
     let first: PickResult;
@@ -86,7 +86,7 @@ export class LookPanelComponent {
       [tool, toolLabel] = ['paths', 'Roads'];
       where = at(doc.paths.nodes.find((n) => n.id === nodes[0]));
     }
-    return { what: describePick(first, ctx), count, at: where, tool, toolLabel };
+    return { what: describePick(first, doc, this.session.catalog()), count, at: where, tool, toolLabel };
   });
 
   /** The ground point a click found nothing on (LookTool), described */

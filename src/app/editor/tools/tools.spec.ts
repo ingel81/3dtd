@@ -4,15 +4,17 @@ import { EditorDocument } from '../model/editor-document';
 import { heightAt } from '../../map-ops/grid';
 import type { EditorOverlay } from '../view/editor-overlay';
 import { freeGroup, withGroups } from '../../map-ops/object-ops';
-import { describeGround, LookTool } from './look-tool';
+import { describeGround } from '../ops/describe';
+import { LookTool } from './look-tool';
 import { MarkerTool } from './marker-tool';
 import { ObjectTool, insidePolygon, placeOutline } from './object-tool';
-import { paintCommands } from './paint-tool';
+import { paintCommands } from '../ops/ground-commands';
 import { PathTool } from './path-tool';
 import { craterProfile } from '../ops/landscape/shapes';
 import { TerrainTool } from './terrain-tool';
 import { defaultSettings, type ToolContext, type ToolPointer } from './tool';
-import { WaterTool, waterCommands } from './water-tool';
+import { WaterTool } from './water-tool';
+import { waterCommands } from '../ops/water-commands';
 
 function context(editor: EditorDocument): ToolContext & { messages: string[] } {
   const messages: string[] = [];

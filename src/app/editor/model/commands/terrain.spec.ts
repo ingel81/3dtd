@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { createMapDocument } from '../../world/custom-map/map-create';
-import { contentBytes } from '../../world/custom-map/map-file';
-import { RiverListCommand } from './terrain-commands';
+import { createMapDocument } from '../../../world/custom-map/map-create';
+import { contentBytes } from '../../../world/custom-map/map-file';
+import { RiverListCommand } from './terrain';
 
 describe('RiverListCommand', () => {
   it('gives back the river list exactly as it was, an empty one too', () => {

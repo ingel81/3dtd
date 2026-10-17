@@ -18,7 +18,8 @@
  * spawns and life areas are copied as things.
  */
 import type { CustomMapDocument, MapLifeArea, MapObject, MapPoint } from '../../world/custom-map/map-document';
-import { mergeChanges, type DocChange, type PatchTarget } from '../model/editor-document';
+import { mergeChanges, type DocChange } from '../model/editor-document';
+import type { PatchTarget } from '../model/commands/patch';
 import { sampleX, sampleY, texelX, texelY, type GridRect } from '../../map-ops/grid';
 import type { ArrayLayout, PatchArray } from '../model/region-patch';
 import { HEIGHT_LIMITS } from '../../map-ops/terrain-ops';

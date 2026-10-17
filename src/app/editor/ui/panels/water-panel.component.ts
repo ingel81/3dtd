@@ -5,7 +5,7 @@ import type { MapRiver, MapWaterKind } from '../../../world/custom-map/map-docum
 import { recarveRiver, relevelRiver } from '../../ops/landscape/river';
 import { LandscapeStroke } from '../../ops/landscape/landscape-stroke';
 import { meanWidth, riverLength, setMeanWidth, simplifyRiver } from '../../ops/river-edit';
-import { relayRiver, removeWholeRiver, riverEdit, waterCommands } from '../../tools/water-tool';
+import { relayRiver, removeWholeRiver, riverEdit, waterCommands } from '../../ops/water-commands';
 import type { WaterMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';

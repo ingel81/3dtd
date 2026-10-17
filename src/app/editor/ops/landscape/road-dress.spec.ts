@@ -5,7 +5,7 @@ import { contentBytes } from '../../../world/custom-map/map-file';
 import { CatalogIndex, normalizeCatalog } from '../../../map-ops/asset-catalog';
 import { EditorDocument } from '../../model/editor-document';
 import { heightAt } from '../../../map-ops/grid';
-import { editRoads, rebuildRoads, setRoadSurface } from '../../tools/path-tool';
+import { editRoads, rebuildRoads, setRoadSurface } from '../road-commands';
 import { moveNode, nearestOnPolyline, edgePolyline } from '../../../map-ops/path-graph';
 import { LandscapeStroke } from './landscape-stroke';
 import { DEFAULT_ROAD, buildRoad } from './road';

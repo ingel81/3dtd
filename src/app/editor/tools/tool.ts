@@ -8,6 +8,7 @@ import type { MapLifeKind, MapObject, MapPathKind, MapPoint } from '../../world/
 import type { MapProblemPart } from '../../world/custom-map/map-file';
 import type { CatalogIndex } from '../../map-ops/asset-catalog';
 import type { EditorDocument } from '../model/editor-document';
+import type { PickResult } from '../model/editor-document';
 import { DEFAULT_BRUSH, type BrushSettings } from '../../map-ops/brush';
 import { DEFAULT_LINE, DEFAULT_SCATTER, type LineOptions, type ScatterOptions } from '../../map-ops/object-ops';
 import type { BiomeId } from '../ops/landscape/biomes';
@@ -288,14 +289,6 @@ export interface ToolPointer {
   ctrl: boolean;
   alt: boolean;
 }
-
-/** Something on the map the pointer is over */
-export type PickResult =
-  | { kind: 'spawn'; id: string }
-  | { kind: 'hq' }
-  | { kind: 'object'; id: string }
-  | { kind: 'node'; id: string }
-  | { kind: 'edge'; id: string };
 
 export interface ToolContext {
   readonly editor: EditorDocument;

@@ -779,18 +779,25 @@ src/app/map-ops/    gemeinsame Kartenbibliothek ohne Angular, ohne three, ohne E
   validation/       Prüfen: map-validation, build-areas, wave-event-check, map-budget
 src/app/editor/
   model/            EditorDocument (Befehle, Verlauf, Auswahl), Kachel-Patches, Versionen, Stempel-Bibliothek
+  model/commands/   alle Befehlsklassen: Kachel-Patch, Snapshot (ALL_DOC_PARTS), Objekte, Verbund, Boden-Schichten,
+                    Wasser, Flüsse
   ops/              Operationen auf dem EditorDocument: Größe, Details, Höhenkarte, Spiegeln, Höhenlinien, Gießen,
-                    object-commands.ts (Planieren unter neuen Gebäuden als Undo-Schritt)
+                    die Schritte je Teil (ground-, water-, road-, marker-commands; object-commands: Planieren unter
+                    neuen Gebäuden), Messen, Beschreiben eines Punkts; Werkzeuge, Panels, Agent und Skripte rufen dieselben
   ops/landscape/    Landschafts-Pinsel: Biome, Formen, Erosion, Fluss, Straße, LandscapeStroke (ein Undo-Schritt)
   ops/symmetry.ts   Bilder der Symmetrie, Sektor des Zeigers, Kopieren der Zellen und Objekte
   ops/stamp.ts      Stücke kopieren und setzen, Prefabs aus einer Auswahl; model/stamp-store.ts die Stempel-Bibliothek
   ops/map-kit.ts    MapKit: die Operationen ohne Oberfläche für Skripte (Level-Skripte, KI-Agent)
   agent/            KI-Agent über MCP (Desktop-App): Werkzeuge, Skript-Sandbox, Abspielen als ein Undo-Schritt (AGENT_MCP.md)
-  tools/            Werkzeuge: Zeigereingaben zu Befehlen; PART_TOOL ordnet einem Prüfbefund das Werkzeug zu
+  tools/            Werkzeuge: nur Zeigereingaben zu ops und Befehlen; PART_TOOL ordnet einem Prüfbefund das Werkzeug zu
   view/             EditorViewport (Renderer, Kamera, Eingabe), Overlay, Kamera, EditorMapView, ThumbnailRenderer
   import/           Warcraft-3-Import: lädt importW3xInWorker beim ersten Gebrauch, fasst den Bericht zusammen
   ui/               Angular: Seite, Kartenliste, Shell, Panels
 ```
+
+**Schichten.** `model/` und `ops/` sind der Kern des Editors und kennen weder Eingabe noch Ansicht noch Seite: sie
+importieren nichts aus `tools/`, `view/` und `ui/` (Lint-Regel in `eslint.config.js`). Ein Werkzeug übersetzt nur Zeiger
+und Tasten in dieselben Schritte, die Panels, Agent und Skripte auch rufen.
 
 **Dokument und Verlauf.** `EditorDocument` hält das `CustomMapDocument` und einen Verlauf aus Befehlen (`apply`,
 `revert`, `bytes`). Jeder Befehl meldet, was er änderte (`DocChange`: Höhen- und Splat-Rechtecke, Objekt-Ids, Teile).

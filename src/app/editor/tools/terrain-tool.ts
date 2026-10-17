@@ -16,7 +16,7 @@ import {
   type RampEnd,
 } from '../../map-ops/terrain-ops';
 import { symmetryImages } from '../ops/symmetry';
-import { BrushStroke } from './brush-stroke';
+import { BrushStroke } from '../ops/brush-stroke';
 import { TERRAIN_MODES, type EditorTool, type ToolContext, type ToolPointer } from './tool';
 
 /** Metres per second at full strength */
