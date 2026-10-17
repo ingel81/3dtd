@@ -783,6 +783,9 @@ src/app/world/custom-map/
   map-store.ts      eigene Karten in IndexedDB, mitgelieferte aus maps/index.json
   map-pack.ts       .3dtdmap packen für den Verlauf (packForSave, im Editor-Worker), im eigenen Worker (Karte des
                     Koop-Hosts), Fingerabdruck der Datei
+  map-unpack.ts     .3dtdmap lesen im eigenen Worker je Aufruf (unpackOffThread): jeder Leseweg von Spiel und Editor
+                    (MapStore.load, Import, Kartenordner, Karte des Koop-Hosts, Version), mit contentHash auf Wunsch;
+                    die Arrays kommen ohne Kopie zurück
 src/app/map-ops/    gemeinsame Kartenbibliothek ohne Angular, ohne three, ohne Editor-Zustand (Editor, OSM-Import,
                     Demo-Karte, Level-Skripte, Skript-Sandbox)
   grid.ts           Raster-Helfer (Höhe, Hang, Samples, Texel, Rechtecke)

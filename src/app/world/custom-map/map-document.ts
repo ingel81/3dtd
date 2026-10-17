@@ -665,6 +665,26 @@ export function isTypedArray(v: unknown, kind: 'Float32Array' | 'Uint8Array'): b
   return Object.prototype.toString.call(v) === `[object ${kind}]`;
 }
 
+/** The document's array buffers, handed over instead of copied when it leaves a worker (prefabs included) */
+export function documentTransferables(doc: CustomMapDocument): ArrayBuffer[] {
+  const t = doc.terrain;
+  const arrays: ArrayBufferView[] = [t.grid.heights, ...t.splat.maps];
+  if (t.water) arrays.push(t.water.mask);
+  for (const body of t.waterBodies ?? []) arrays.push(body.mask);
+  for (const { stamp } of doc.prefabs ?? []) {
+    arrays.push(stamp.heights, stamp.paint);
+    if (stamp.water) arrays.push(stamp.water.mask);
+  }
+  const buffers = new Set<ArrayBuffer>();
+  // A shared buffer cannot be handed over; checked across realms like isTypedArray
+  for (const a of arrays) if (isArrayBuffer(a.buffer)) buffers.add(a.buffer);
+  return [...buffers];
+}
+
+function isArrayBuffer(b: ArrayBufferLike): b is ArrayBuffer {
+  return Object.prototype.toString.call(b) === '[object ArrayBuffer]';
+}
+
 /** Synthetic lat/lon of a map point (origin (0, 0)) */
 export function mapToGeo(p: MapPoint): { lat: number; lon: number } {
   return { lat: p.y / MAP_METERS_PER_DEGREE, lon: p.x / MAP_METERS_PER_DEGREE };

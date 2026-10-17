@@ -12,7 +12,8 @@
 import { mapDataFetch, mapDataRoot } from './map-data';
 import { defaultMapBackend, FolderMapBackend, mapFolderId } from './folder-map-backend';
 import type { CustomMapDocument, MapBiome, MapMeta } from './map-document';
-import { contentHash, mapFileMeta, packMapFile, unpackMapFile, withMapFileMeta } from './map-file';
+import { contentHash, mapFileMeta, packMapFile, withMapFileMeta } from './map-file';
+import { unpackOffThread } from './map-unpack';
 import { newMapUid, slugMapId } from './map-create';
 import { summarize } from './map-summary';
 
@@ -239,9 +240,9 @@ export class MapStore {
       // A map in the trash plays nowhere until it comes back
       const own = stored?.summary.origin === 'trashed' ? undefined : stored;
       if (own) {
-        const { doc, preview, repaired } = unpackMapFile(own.file);
         // Set right as it was read: the content is the corrected map's, a coop guest checks the hash of that
-        const summary = own.summary.contentHash && !repaired.length ? own.summary : { ...own.summary, contentHash: await contentHash(doc) };
+        const { doc, preview, repaired, contentHash: hash } = await unpackOffThread(own.file, { hash: !own.summary.contentHash });
+        const summary = hash ? { ...own.summary, contentHash: hash } : own.summary;
         return { doc, summary, preview: own.preview ?? preview, ...(repaired.length ? { repaired } : {}) };
       }
       if (origin === 'own') throw new MapStoreError(`There is no own map "${id}" in this browser; it may have been deleted.`);
@@ -252,8 +253,7 @@ export class MapStore {
     const version = entry.contentHash ? `?v=${encodeURIComponent(entry.contentHash)}` : '';
     const response = await this.fetcher(this.url(`maps/${entry.file}${version}`));
     if (!response.ok) throw new MapStoreError(`The map "${entry.name}" did not load (${response.status}).`);
-    const { doc, preview } = unpackMapFile(new Uint8Array(await response.arrayBuffer()));
-    const hash = await contentHash(doc);
+    const { doc, preview, contentHash: hash } = await unpackOffThread(new Uint8Array(await response.arrayBuffer()), { hash: true, transfer: true });
     return { doc, summary: { ...summarize(doc, 'shipped', hash) }, preview };
   }
 
@@ -284,10 +284,10 @@ export class MapStore {
   /**
    * Stores a map a coop host sent (`file` as it came) as 'shared': the
    * host's next version replaces it, an own map is never written over
-   * (map-share.ts decides)
+   * (map-share.ts decides); `hash` is its content hash where the caller has it
    */
-  async saveShared(doc: CustomMapDocument, preview: Uint8Array | null, file: Uint8Array): Promise<MapSummary> {
-    const summary = summarize(doc, 'shared', await contentHash(doc));
+  async saveShared(doc: CustomMapDocument, preview: Uint8Array | null, file: Uint8Array, hash?: string): Promise<MapSummary> {
+    const summary = summarize(doc, 'shared', hash ?? (await contentHash(doc)));
     await this.backend.put({ summary, file, preview });
     return summary;
   }
@@ -315,7 +315,7 @@ export class MapStore {
 
   /** Stores a `.3dtdmap` file as a new own map (importDocument) */
   async importFile(bytes: Uint8Array): Promise<LoadedMap> {
-    return this.importDocument(unpackMapFile(bytes));
+    return this.importDocument(await unpackOffThread(bytes));
   }
 
   /**

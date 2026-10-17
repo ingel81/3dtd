@@ -1,6 +1,6 @@
 import { buildSyntheticMap } from '../../../test/w3x-synthetic-map';
 import { importW3xInWorker } from './w3x-import-client';
-import { documentTransferables } from './w3x-worker.types';
+import { documentTransferables } from '../custom-map/map-document';
 
 describe('importW3xInWorker', () => {
   it('imports on the calling thread where there are no workers, keeping the caller buffer', async () => {

@@ -1,7 +1,7 @@
 import { packOffThread } from './map-pack';
 import type { CustomMapDocument } from './map-document';
-import { contentHash, unpackMapFile } from './map-file';
 import { MapStore } from './map-store';
+import { unpackOffThread, type UnpackedFile } from './map-unpack';
 
 /**
  * A custom map handed from one player to another (coop: the host sends the
@@ -42,15 +42,15 @@ export async function storeSharedMap(
   expected: { mapId: string; hash: string },
   store: MapStore = new MapStore(),
 ): Promise<string | null> {
-  let unpacked: ReturnType<typeof unpackMapFile>;
+  let unpacked: UnpackedFile;
   try {
-    unpacked = unpackMapFile(bytes);
+    unpacked = await unpackOffThread(bytes, { hash: true });
   } catch (error) {
     return `The host's map did not arrive whole (${error instanceof Error ? error.message : String(error)}).`;
   }
-  const { doc, preview } = unpacked;
+  const { doc, preview, contentHash: hash } = unpacked;
   try {
-    if (doc.meta.id !== expected.mapId || (await contentHash(doc)) !== expected.hash) {
+    if (doc.meta.id !== expected.mapId || hash !== expected.hash) {
       return 'The host\'s map did not arrive as the host has it.';
     }
     const here = await store.load(expected.mapId).catch(() => null);
@@ -63,7 +63,7 @@ export async function storeSharedMap(
       return `The host plays a changed copy of the shipped map "${doc.meta.name}" under its id (${expected.mapId}). `
         + 'The host can save it under another name in the editor and open the room again.';
     }
-    await store.saveShared(doc, preview, bytes);
+    await store.saveShared(doc, preview, bytes, hash);
     return null;
   } catch (error) {
     return `The host's map could not be kept here (${error instanceof Error ? error.message : String(error)}).`;

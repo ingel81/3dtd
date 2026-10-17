@@ -8,7 +8,7 @@
 
 /// <reference lib="webworker" />
 
-import { documentTransferables } from '../w3x/w3x-worker.types';
+import { documentTransferables } from '../custom-map/map-document';
 import { browserDecoder } from './dem-tiles';
 import { OsmFrameCore } from './osm-frame-core';
 import { thinProgress } from './osm-progress';
