@@ -14,7 +14,7 @@ python -I tools/map-assets/build_materials.py $DL/materials public/maps/assets [
 # Windgangeln), von oben in fünf Durchgängen gerendert (Farbe, Normale, Höhe, AO, Rauheit); Rezepte in
 # ground_recipes.py. build_materials.py liest sie aus $DL/grounds/<id>/, legt einen Teil der Verdeckung und des
 # kleinen Reliefs in die Farbe (wie ein Foto sie trägt), bringt die Normalen auf die Stärke der Scans (NORMAL_RMS)
-# und die Mittelfarbe auf `target` (Helligkeit ganz, Ton halb: die Karten sind darauf abgestimmt)
+# übermalt die Farbe mit einem Kuwahara-Filter (Pinselflächen statt Render-Rauschen, kachelbar) und bringt die Mittelfarbe auf `target` (Helligkeit ganz, Ton halb: die Karten sind darauf abgestimmt)
 blender --background --factory-startup --python tools/map-assets/bake_grounds.py -- $DL/grounds [<id> ...]
 
 # Dieselben als KTX2 (Basis ETC1S) in den zwei Ebenen des Geländes, je Material nicht größer als die drei JPGs

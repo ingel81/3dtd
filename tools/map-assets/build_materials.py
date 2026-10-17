@@ -120,6 +120,30 @@ def calibrate(color, target):
     return Image.fromarray((srgb(rgb * scale) * 255).round().astype(np.uint8), 'RGB')
 
 
+def painted(rgb, radius=3):
+    """A painter's hand over a bake (Kuwahara filter, wrapping so it still tiles): each pixel takes the mean of the
+    calmest of the four squares round it, so blades, leaves and stones become strokes of flat colour with crisp
+    edges between them instead of a render's fine noise"""
+    from scipy.ndimage import uniform_filter
+    size = radius + 1
+    lum = rgb @ np.array([0.299, 0.587, 0.114], dtype=np.float32)
+    mean = [uniform_filter(rgb[..., c], size, mode='wrap') for c in range(3)]
+    mean_l = uniform_filter(lum, size, mode='wrap')
+    var = uniform_filter(lum * lum, size, mode='wrap') - mean_l * mean_l
+    best = np.full(lum.shape, np.inf, dtype=np.float32)
+    out = np.zeros_like(rgb)
+    # The four squares are the box means shifted by half a box towards each corner
+    h = radius // 2 + 1
+    for dy in (-h, h):
+        for dx in (-h, h):
+            v = np.roll(var, (dy, dx), (0, 1))
+            pick = v < best
+            best = np.where(pick, v, best)
+            for c in range(3):
+                out[..., c] = np.where(pick, np.roll(mean[c], (dy, dx), (0, 1)), out[..., c])
+    return out
+
+
 def baked(mid, dl, target=None):
     """Maps of a ground baked from geometry (bake_grounds.py), its mean colour brought to `target`"""
     folder = os.path.join(dl, 'grounds', mid)
@@ -151,7 +175,7 @@ def baked(mid, dl, target=None):
     shade = (0.5 + 0.5 * ao) * (1 + 0.18 * h)
     # Same brightness as the albedo the recipe chose: the shade moves light into the hollows, it does not darken
     shade /= shade.mean()
-    color = Image.fromarray((color * shade[..., None]).clip(0, 255).astype(np.uint8), 'RGB')
+    color = Image.fromarray(painted((color * shade[..., None]).clip(0, 255)).astype(np.uint8), 'RGB')
     if target:
         color = calibrate(color, target)
     # The colour carries part of the occlusion now: the occlusion channel keeps the rest, or the hollows darken twice

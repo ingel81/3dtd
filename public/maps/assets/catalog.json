@@ -15,7 +15,7 @@
         }
       },
       "scale": 3,
-      "average": "#59652d",
+      "average": "#5b672e",
       "tags": [
         "temperate"
       ],
@@ -35,7 +35,7 @@
         }
       },
       "scale": 3,
-      "average": "#405726",
+      "average": "#415926",
       "tags": [
         "temperate",
         "swamp"
@@ -56,7 +56,7 @@
         }
       },
       "scale": 4,
-      "average": "#978c58",
+      "average": "#998e5a",
       "tags": [
         "temperate",
         "desert"
@@ -77,7 +77,7 @@
         }
       },
       "scale": 4,
-      "average": "#74783f",
+      "average": "#767b40",
       "tags": [
         "temperate"
       ],
@@ -97,7 +97,7 @@
         }
       },
       "scale": 4,
-      "average": "#715a3e",
+      "average": "#725a3e",
       "tags": [
         "temperate"
       ],
@@ -117,7 +117,7 @@
         }
       },
       "scale": 4,
-      "average": "#4e4133",
+      "average": "#504234",
       "tags": [
         "temperate",
         "swamp"
@@ -138,7 +138,7 @@
         }
       },
       "scale": 3,
-      "average": "#7c5a37",
+      "average": "#7c5b37",
       "tags": [
         "temperate",
         "autumn"
@@ -179,7 +179,7 @@
         }
       },
       "scale": 4,
-      "average": "#907d62",
+      "average": "#917d63",
       "tags": [
         "temperate",
         "mountain"
@@ -284,7 +284,7 @@
         }
       },
       "scale": 5,
-      "average": "#b6b6b8",
+      "average": "#b6b6b7",
       "tags": [
         "winter"
       ],
@@ -409,7 +409,7 @@
         }
       },
       "scale": 4,
-      "average": "#a68e64",
+      "average": "#a99066",
       "tags": [
         "autumn",
         "desert",
@@ -473,7 +473,7 @@
         }
       },
       "scale": 3,
-      "average": "#886c3b",
+      "average": "#8a6c3c",
       "tags": [
         "temperate",
         "autumn",
@@ -515,7 +515,7 @@
         }
       },
       "scale": 4,
-      "average": "#937a46",
+      "average": "#967b47",
       "tags": [
         "autumn",
         "temperate"
@@ -597,7 +597,7 @@
         }
       },
       "scale": 4,
-      "average": "#5a4f2f",
+      "average": "#5b5030",
       "tags": [
         "swamp"
       ],
@@ -678,7 +678,7 @@
         }
       },
       "scale": 12,
-      "average": "#9d897f",
+      "average": "#9d897e",
       "tags": [
         "desert"
       ],
@@ -779,7 +779,7 @@
         }
       },
       "scale": 4,
-      "average": "#6a462e",
+      "average": "#6b462f",
       "tags": [
         "desert"
       ],
@@ -839,7 +839,7 @@
         }
       },
       "scale": 4,
-      "average": "#693a27",
+      "average": "#6a3a26",
       "tags": [
         "desert"
       ],
@@ -1196,7 +1196,7 @@
         }
       },
       "scale": 4,
-      "average": "#6f6a67",
+      "average": "#78726e",
       "tags": [
         "winter"
       ],
@@ -2359,7 +2359,7 @@
         }
       },
       "scale": 3,
-      "average": "#755a3c",
+      "average": "#755b3c",
       "tags": [
         "temperate",
         "autumn",
