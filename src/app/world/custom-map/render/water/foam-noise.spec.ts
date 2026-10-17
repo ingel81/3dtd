@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { foamLace } from './foam-noise';
+import { foamLace, foamNoiseTexture, prepareFoamNoise } from './foam-noise';
 
 describe('foamLace', () => {
   it('runs from 0 on the bubbles walls to 1 in their middles, with bubbles of more than one size', () => {
@@ -23,5 +23,19 @@ describe('foamLace', () => {
       across = Math.max(across, Math.abs(lace[y * size + size - 1] - lace[y * size]));
     }
     expect(across).toBeLessThanOrEqual(inside);
+  });
+});
+
+describe('foamNoiseTexture', () => {
+  it('holds no foam until its bake is in, then the lace', async () => {
+    const texture = foamNoiseTexture();
+    const data = texture.image.data as Uint8Array;
+    expect(data[0]).toBe(255);
+    expect(data[4 * 1000]).toBe(255);
+    await prepareFoamNoise();
+    expect(foamNoiseTexture()).toBe(texture);
+    let walls = 0;
+    for (let k = 0; k < data.length; k += 4) if (data[k] < 64) walls++;
+    expect(walls).toBeGreaterThan(data.length / 4 / 10);
   });
 });

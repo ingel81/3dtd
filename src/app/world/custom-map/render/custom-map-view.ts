@@ -36,6 +36,7 @@ import { areaShown, lifeSwitches } from '../map-life';
 import type { MapBiome } from '../map-document';
 import { CoverMap } from './environment/cover-map';
 import { setPlantSway, WIND_UNIFORMS } from './environment/wind';
+import { prepareFoamNoise } from './water/foam-noise';
 import { MapObjectLayer, type ObjectHit } from './objects/object-layer';
 import { IMPOSTOR_SUN } from './objects/impostor';
 import { BridgeLayer } from './paths/path-bridges';
@@ -1446,6 +1447,8 @@ export class CustomMapView {
       this.refreshContact(),
       this.bridges.set(this.doc.paths, this.doc.terrain),
       this.refreshDecals(),
+      // The shore foam's texture, in a worker: water poured later (the editor) finds it baked
+      prepareFoamNoise(),
     ]);
   }
 }

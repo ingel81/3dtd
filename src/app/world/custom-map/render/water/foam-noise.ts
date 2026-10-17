@@ -40,8 +40,8 @@ export function foamLace(size: number): Float32Array {
   return out;
 }
 
-export function foamNoiseTexture(): DataTexture {
-  if (texture) return texture;
+/** The texture's texels (RGBA8, SIZE²): the bake, on whichever thread runs it */
+export function bakeFoamNoise(): Uint8Array {
   const data = new Uint8Array(SIZE * SIZE * 4);
   const lace = foamLace(SIZE);
   const patches = tilingFbm(SIZE, 4, 4, 83, 1.8, 24);
@@ -53,6 +53,18 @@ export function foamNoiseTexture(): DataTexture {
     data[k * 4 + 2] = Math.round(reach[k] * 255);
     data[k * 4 + 3] = Math.round(jitter[k] * 255);
   }
+  return data;
+}
+
+/**
+ * The shared texture, at once: until its bake is in (prepareFoamNoise) it
+ * holds no foam (every texel in a bubble's middle), so a water material made
+ * meanwhile draws without shore foam instead of waiting for it
+ */
+export function foamNoiseTexture(): DataTexture {
+  if (texture) return texture;
+  const data = new Uint8Array(SIZE * SIZE * 4);
+  for (let k = 0; k < SIZE * SIZE; k++) data[k * 4] = 255;
   const t = new DataTexture(data, SIZE, SIZE, RGBAFormat, UnsignedByteType);
   t.colorSpace = NoColorSpace;
   t.wrapS = t.wrapT = RepeatWrapping;
@@ -62,4 +74,39 @@ export function foamNoiseTexture(): DataTexture {
   t.needsUpdate = true;
   texture = t;
   return t;
+}
+
+let baked: Promise<void> | null = null;
+
+/**
+ * Bakes the texture once (some 50 to 100 ms), in a worker where there are
+ * workers (foam-noise.worker.ts), inline where not. A view starts it as it
+ * loads (CustomMapView, game and editor alike) and its `ready` waits for
+ * it, so neither the first frames nor the first pour of water in the editor
+ * bake it on the page's thread.
+ */
+export function prepareFoamNoise(): Promise<void> {
+  if (baked) return baked;
+  const fill = (data: Uint8Array): void => {
+    const t = foamNoiseTexture();
+    (t.image.data as Uint8Array).set(data);
+    t.needsUpdate = true;
+  };
+  if (typeof Worker === 'undefined') {
+    fill(bakeFoamNoise());
+    return (baked = Promise.resolve());
+  }
+  baked = new Promise<void>((resolve) => {
+    const worker = new Worker(new URL('./foam-noise.worker', import.meta.url), { type: 'module' });
+    const done = (data: Uint8Array): void => {
+      fill(data);
+      worker.terminate();
+      resolve();
+    };
+    worker.onmessage = (e: MessageEvent<Uint8Array>) => done(e.data);
+    // A worker that fails: the bake here after all
+    worker.onerror = () => done(bakeFoamNoise());
+    worker.postMessage(null);
+  });
+  return baked;
 }
