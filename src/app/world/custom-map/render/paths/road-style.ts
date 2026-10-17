@@ -33,14 +33,34 @@ export interface RoadStyle {
   wear: number;
   /** A junction's surface: the roads' markings stop at its mouths */
   junction: boolean;
+  /**
+   * Which road is drawn over which where two overlap without meeting (a
+   * footway mapped into a street's width): 0 paths up to 7 motorways
+   */
+  rank: number;
 }
+
+/** Rank by street type (RoadStyle.rank) */
+const RANKS: Readonly<Record<string, number>> = {
+  motorway: 7,
+  trunk: 7,
+  primary: 6,
+  secondary: 5,
+  tertiary: 4,
+  unclassified: 3,
+  residential: 3,
+  living_street: 3,
+  service: 2,
+  pedestrian: 2,
+  cycleway: 1,
+};
 
 /** The look of a paved edge (one with a surface of PAVED_SURFACES) */
 export function roadStyle(edge: Pick<MapPathEdge, 'surface' | 'street' | 'width' | 'kind'>, junction = false): RoadStyle {
   const surface = edge.surface ?? 'asphalt';
   const sealed = SEALED.has(surface);
   const street = (edge.street ?? '').replace(/_link$/, '');
-  const style: RoadStyle = { surface, markings: 'none', lanes: 0, gutter: false, wear: 0.45, junction };
+  const style: RoadStyle = { surface, markings: 'none', lanes: 0, gutter: false, wear: 0.45, junction, rank: RANKS[street] ?? (edge.kind === 'path' ? 0 : 3) };
   switch (street) {
     case 'motorway':
     case 'trunk':
@@ -79,7 +99,7 @@ export function roadStyle(edge: Pick<MapPathEdge, 'surface' | 'street' | 'width'
 
 /** One key per look: the styles a map's roads use, each once */
 export function styleKey(s: RoadStyle): string {
-  return `${s.surface}|${s.markings}|${s.lanes}|${s.gutter ? 1 : 0}|${s.wear}|${s.junction ? 1 : 0}`;
+  return `${s.surface}|${s.markings}|${s.lanes}|${s.gutter ? 1 : 0}|${s.wear}|${s.junction ? 1 : 0}|${s.rank}`;
 }
 
 /** Surfaces one map's road textures can hold (4 bits of the code) */
@@ -89,14 +109,14 @@ export const MAX_ROAD_SURFACES = 15;
  * A look packed into one exact float for the vertices (road-surface.ts
  * decodes it): the surface's layer in the road textures (4 bits, 15 none),
  * markings (2), lanes (3), gutter, sealed asphalt, junction (1 each), wear
- * in 32 steps (5): 18 bits, no table and no limit on looks
+ * in 32 steps (5), rank (3): 20 bits, no table and no limit on looks
  */
 export function encodeRoadStyle(s: RoadStyle, layer: number): number {
   const marks = { none: 0, centre: 1, 'centre-edges': 2, lanes: 3 }[s.markings];
   const sealed = SEALED.has(s.surface) ? 1 : 0;
   const wear = Math.round(Math.max(0, Math.min(1, s.wear)) * 31);
   const l = layer >= 0 && layer < MAX_ROAD_SURFACES ? layer : MAX_ROAD_SURFACES;
-  return l + 16 * (marks + 4 * (Math.min(7, s.lanes) + 8 * ((s.gutter ? 1 : 0) + 2 * (sealed + 2 * ((s.junction ? 1 : 0) + 2 * wear)))));
+  return l + 16 * (marks + 4 * (Math.min(7, s.lanes) + 8 * ((s.gutter ? 1 : 0) + 2 * (sealed + 2 * ((s.junction ? 1 : 0) + 2 * (wear + 32 * Math.min(7, s.rank)))))));
 }
 
 /**

@@ -39,6 +39,9 @@ import { MAX_ROAD_SURFACES } from './road-style';
 const PULL = 0.03;
 const PULL_FROM = 200;
 const PULL_PER_METRE = 0.004;
+/** Metres more per rank, and per metre of distance, where two roads overlap without meeting */
+const RANK_PULL = 0.004;
+const RANK_PULL_PER_METRE = 0.00004;
 
 export class RoadSurfaceLayer {
   readonly group = new Group();
@@ -115,6 +118,7 @@ export class RoadSurfaceLayer {
     g.setAttribute('position', new BufferAttribute(pos, 3));
     g.setAttribute('aRoad', new BufferAttribute(tile.road, 4));
     g.setAttribute('aDir', new BufferAttribute(tile.dir, 2));
+    g.setAttribute('aArm', new BufferAttribute(tile.arm, 4));
     g.setIndex(new BufferAttribute(tile.index, 1));
     const mesh = new Mesh(g, this.material);
     mesh.name = `custom-map-roads-${tile.key}`;
@@ -227,6 +231,8 @@ export class RoadSurfaceMaterial extends MeshStandardMaterial {
 const ROAD_VERTEX_PARS = /* glsl */ `
 attribute vec4 aRoad;
 attribute vec2 aDir;
+attribute vec4 aArm;
+varying vec4 vRoadArm;
 varying vec3 vRoad;
 flat varying float vRoadLook;
 varying vec2 vRoadDir;
@@ -243,6 +249,7 @@ vec3 objectNormal = normalize(texture2D(uGridNormals, roadMap * uRoadGridUv.xy +
 vRoadNormal = objectNormal;
 vRoad = aRoad.xyz;
 vRoadLook = aRoad.w;
+vRoadArm = aArm;
 vRoadDir = aDir;
 vRoadMap = roadMap;
 `;
@@ -251,11 +258,14 @@ const ROAD_BEGIN_VERTEX = /* glsl */ `
 vec3 transformed = vec3(position.x, terrainHeightAt(roadMap), position.z);
 `;
 
-// Drawn towards the camera along the view ray: where it lands on screen stays, its depth comes before the ground's
+// Drawn towards the camera along the view ray: where it lands on screen stays, its depth comes before the ground's;
+// a higher road a little more than a lower one where two overlap without meeting (RoadStyle.rank, the code's top bits)
 const ROAD_PROJECT_VERTEX = /* glsl */ `
 vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.0);
 float roadDist = length(mvPosition.xyz);
-mvPosition.xyz *= 1.0 - min(0.5, (${PULL.toFixed(4)} + max(0.0, roadDist - ${PULL_FROM.toFixed(1)}) * ${PULL_PER_METRE.toFixed(5)}) / max(roadDist, 1e-3));
+float roadRank = floor((aRoad.w + 0.5) / 131072.0);
+float roadPull = ${PULL.toFixed(4)} + max(0.0, roadDist - ${PULL_FROM.toFixed(1)}) * ${PULL_PER_METRE.toFixed(5)} + roadRank * (${RANK_PULL.toFixed(4)} + roadDist * ${RANK_PULL_PER_METRE.toFixed(6)});
+mvPosition.xyz *= 1.0 - min(0.5, roadPull / max(roadDist, 1e-3));
 gl_Position = projectionMatrix * mvPosition;
 `;
 
@@ -263,6 +273,7 @@ const ROAD_FRAGMENT_PARS = /* glsl */ `
 precision highp sampler2DArray;
 varying vec3 vRoad;
 flat varying float vRoadLook;
+varying vec4 vRoadArm;
 varying vec2 vRoadDir;
 varying vec2 vRoadMap;
 varying vec3 vRoadNormal;
@@ -277,6 +288,24 @@ ${SHADER_NOISE}
 float roadDash(float along, float paint, float gap, float aa) {
   float p = mod(along, paint + gap);
   return smoothstep(-aa, aa, p) * (1.0 - smoothstep(paint - aa, paint + aa, p));
+}
+
+// The surface's texture at (across, along): up close two lookups shifted by a slow noise so the tile never repeats
+void roadLookup(float across, float along, float layer, float invScale, float near, out vec4 rc, out vec4 rd) {
+  vec2 ruv = vec2(across, along) * invScale;
+  vec2 rdx = dFdx(ruv);
+  vec2 rdy = dFdy(ruv);
+  float l = valueNoise(vec2(along * 0.035, across * 0.05 + layer * 7.0)) * 6.0;
+  float ia = floor(l);
+  vec2 oa = sin(vec2(3.0, 7.0) * ia);
+  rc = textureGrad(uRoadColor, vec3(ruv + oa, layer), rdx, rdy);
+  rd = textureGrad(uRoadData, vec3(ruv + oa, layer), rdx, rdy);
+  float b = smoothstep(0.3, 0.7, fract(l)) * step(0.001, near);
+  if (b > 0.0) {
+    vec2 ob = sin(vec2(3.0, 7.0) * (ia + 1.0));
+    rc = mix(rc, textureGrad(uRoadColor, vec3(ruv + ob, layer), rdx, rdy), b);
+    rd = mix(rd, textureGrad(uRoadData, vec3(ruv + ob, layer), rdx, rdy), b);
+  }
 }
 
 // A line across at offset c with width w: 1 on it, soft over a pixel
@@ -300,7 +329,11 @@ bool sealed = mod(code, 2.0) > 0.5;
 code = floor(code / 2.0);
 // Lanes, patches and cracks follow a ribbon's lanes; a junction has none of its own
 bool ribbon = mod(code, 2.0) < 0.5;
-float wear = floor(code / 2.0) / 31.0;
+code = floor(code / 2.0);
+float wear = mod(code, 32.0) / 31.0;
+// In a junction, the road this point runs into: its texture takes over towards its end
+float armWeight = fract(vRoadArm.w) / 0.99;
+wear = mix(wear, floor(vRoadArm.w) / 31.0, armWeight);
 int li = min(int(layer), ${MAX_ROAD_SURFACES - 1});
 float across = vRoad.x;
 float along = vRoad.y;
@@ -310,24 +343,22 @@ float edgeDist = vRoad.z;
 float aa = max(length(vec2(dFdx(along), dFdy(along))), length(vec2(dFdx(across), dFdy(across)))) * 0.75 + 1e-4;
 float near = 1.0 - smoothstep(0.04, 0.12, aa);
 
-// The material along the road: u across, v along; up close two lookups shifted by a slow noise so the tile
-// never repeats
-vec2 ruv = vec2(across, along) * uRoadInvScale[li];
-vec2 rdx = dFdx(ruv);
-vec2 rdy = dFdy(ruv);
+// The material along the road: u across, v along
 vec4 rc;
 vec4 rd;
 if (layer < uRoadLayers) {
-  float l = valueNoise(vec2(along * 0.035, across * 0.05 + layer * 7.0)) * 6.0;
-  float ia = floor(l);
-  vec2 oa = sin(vec2(3.0, 7.0) * ia);
-  rc = textureGrad(uRoadColor, vec3(ruv + oa, layer), rdx, rdy);
-  rd = textureGrad(uRoadData, vec3(ruv + oa, layer), rdx, rdy);
-  float b = smoothstep(0.3, 0.7, fract(l)) * step(0.001, near);
-  if (b > 0.0) {
-    vec2 ob = sin(vec2(3.0, 7.0) * (ia + 1.0));
-    rc = mix(rc, textureGrad(uRoadColor, vec3(ruv + ob, layer), rdx, rdy), b);
-    rd = mix(rd, textureGrad(uRoadData, vec3(ruv + ob, layer), rdx, rdy), b);
+  roadLookup(across, along, layer, uRoadInvScale[li], near, rc, rd);
+  if (armWeight > 0.001) {
+    // The road's own frame, its normal turned into the junction's
+    vec4 ac;
+    vec4 ad;
+    roadLookup(vRoadArm.x, vRoadArm.y, layer, uRoadInvScale[li], near, ac, ad);
+    float c = cos(vRoadArm.z);
+    float s = sin(vRoadArm.z);
+    vec2 an = ad.xy * 2.0 - 1.0;
+    ad.xy = vec2(an.x * c - an.y * s, an.x * s + an.y * c) * 0.5 + 0.5;
+    rc = mix(rc, ac, armWeight);
+    rd = mix(rd, ad, armWeight);
   }
 } else {
   rc = vec4(uRoadAverage[li], 0.5);

@@ -15,7 +15,8 @@ import { encodeRoadStyle, PAVED_SURFACES, roadStyle, styleKey, type RoadStyle } 
  * running on, no seam); anywhere else the node is a junction. A junction's
  * ribbons end where their kerbs meet the next road's, plus a kerb radius;
  * the polygon between their ends is the junction's own surface, its texture
- * running on from the widest road's, its kerbs quadratic curves from one
+ * running on from the widest road's and blending into each other road's
+ * towards its end (no seam at any), its kerbs quadratic curves from one
  * road's edge to the next.
  *
  * Map space throughout: x east, y north, triangles counter-clockwise seen
@@ -33,7 +34,12 @@ const PIECE = 48;
 /** Points per kerb curve and per half of a path's round end */
 const CURVE_POINTS = 6;
 
-/** One tile's geometry; per vertex: map position (2), across, along, distance to the edge, look (encodeRoadStyle) (4), direction along (2) */
+/**
+ * One tile's geometry; per vertex: map position (2), across, along, distance
+ * to the edge, look (encodeRoadStyle) (4), direction along (2), and in a
+ * junction the frame of the road it runs into: across and along in it, its
+ * turn against the junction's, its wear plus the weight of its texture (4)
+ */
 export interface RoadTile {
   key: string;
   /** Lower corner of the tile, map metres */
@@ -42,6 +48,7 @@ export interface RoadTile {
   position: Float32Array;
   road: Float32Array;
   dir: Float32Array;
+  arm: Float32Array;
   index: Uint32Array;
 }
 
@@ -91,6 +98,8 @@ interface Vertex {
   style: number;
   dx: number;
   dy: number;
+  /** In a junction: across and along in the frame of the road it runs into, that frame's turn, wear + weight */
+  arm?: [number, number, number, number];
 }
 
 type Section = Vertex[];
@@ -109,6 +118,7 @@ class TileData {
   v = new Float32Array(64);
   r = new Float32Array(128);
   d = new Float32Array(64);
+  a = new Float32Array(128);
   i = new Uint32Array(192);
   vertices = 0;
   indices = 0;
@@ -119,6 +129,7 @@ class TileData {
       this.v = grow(this.v);
       this.r = grow(this.r);
       this.d = grow(this.d);
+      this.a = grow(this.a);
     }
     this.v[n * 2] = p.x;
     this.v[n * 2 + 1] = p.y;
@@ -128,6 +139,7 @@ class TileData {
     this.r[n * 4 + 3] = p.style;
     this.d[n * 2] = p.dx;
     this.d[n * 2 + 1] = p.dy;
+    if (p.arm) this.a.set(p.arm, n * 4);
     this.vertices++;
   }
 
@@ -446,6 +458,7 @@ export class RoadNetworkBuilder {
       position: new Float32Array(vertices * 2),
       road: new Float32Array(vertices * 4),
       dir: new Float32Array(vertices * 2),
+      arm: new Float32Array(vertices * 4),
       index: new Uint32Array(indices),
     };
     let v = 0;
@@ -454,6 +467,7 @@ export class RoadNetworkBuilder {
       tile.position.set(p.v.subarray(0, p.vertices * 2), v * 2);
       tile.road.set(p.r.subarray(0, p.vertices * 4), v * 4);
       tile.dir.set(p.d.subarray(0, p.vertices * 2), v * 2);
+      tile.arm.set(p.a.subarray(0, p.vertices * 4), v * 4);
       for (let k = 0; k < p.indices; k++) tile.index[i + k] = p.i[k] + v;
       v += p.vertices;
       i += p.indices;
@@ -628,55 +642,79 @@ function emitJunction(c: MapPoint, list: End[], out: TileBuilder, styleOf: (s: R
     return e.start ? s : [...s].reverse();
   });
   if (sides.some((s) => !s)) return;
-  // The widest road's texture runs on over the junction
+  // The widest road's texture runs on over the junction; its kerbs go round the corners where any road has them
   let main = 0;
   for (let k = 1; k < list.length; k++) if (list[k].chain.half > list[main].chain.half) main = k;
   const m = list[main];
-  const mainSection = sides[main]!;
-  const anchor = mainSection[(mainSection.length - 1) / 2];
-  const style = styleOf(roadStyle(m.chain.edge, true));
-  // Along the ribbon's own direction at its end, so its texture runs on without a seam
-  const fx = anchor.dx;
-  const fy = anchor.dy;
-  const frame = (x: number, y: number, edge: number): Vertex => ({
-    x,
-    y,
-    across: (x - anchor.x) * -fy + (y - anchor.y) * fx,
-    along: anchor.along + (x - anchor.x) * fx + (y - anchor.y) * fy,
-    edge,
-    style,
-    dx: fx,
-    dy: fy,
-  });
-  const ring: Vertex[] = [];
+  const look = roadStyle(m.chain.edge, true);
+  look.gutter ||= list.some((e) => roadStyle(e.chain.edge).gutter);
+  const style = styleOf(look);
+  // Each road's frame at its end: the middle of its end section and its direction there (the ribbon's own)
+  const frames = sides.map((side) => side![(side!.length - 1) / 2]);
+  const wears = list.map((e) => Math.round(roadStyle(e.chain.edge).wear * 31));
+  const at = (x: number, y: number, f: Vertex): [number, number] => [(x - f.x) * -f.dy + (y - f.y) * f.dx, f.along + (x - f.x) * f.dx + (y - f.y) * f.dy];
+  const mf = frames[main];
+  const vertex = (p: RingPoint, arm: number, weight: number): Vertex => {
+    const [across, along] = at(p.x, p.y, mf);
+    const f = frames[arm];
+    const [armAcross, armAlong] = at(p.x, p.y, f);
+    return {
+      x: p.x,
+      y: p.y,
+      across,
+      along,
+      edge: p.edge,
+      style,
+      dx: mf.dx,
+      dy: mf.dy,
+      arm: [armAcross, armAlong, Math.atan2(f.dy, f.dx) - Math.atan2(mf.dy, mf.dx), wears[arm] + weight * 0.99],
+    };
+  };
+  // The ring: each road's end section, then the kerb to the next road (a curve through where both kerbs would meet,
+  // else straight); a point of a section belongs to its road, a kerb point to the nearer of the two
+  interface RingPoint {
+    x: number;
+    y: number;
+    edge: number;
+    arm: number;
+    side: boolean;
+  }
+  const ring: RingPoint[] = [];
   const n = list.length;
+  // A kerb between two roads without one gets none: its points lie past the gutter's width from the edge
+  const kerbs = list.map((e) => roadStyle(e.chain.edge).gutter);
   for (let k = 0; k < n; k++) {
+    const kerbEdge = look.gutter && !kerbs[k] && !kerbs[(k + 1) % n] ? 0.6 : 0;
     const side = sides[k]!;
-    for (const v of side) ring.push(frame(v.x, v.y, v.edge));
-    // The kerb to the next road: a curve through where both kerbs would meet, else straight
+    for (const v of side) ring.push({ x: v.x, y: v.y, edge: v.edge, arm: k, side: true });
     const a = side[side.length - 1];
-    const next = sides[(k + 1) % n]!;
-    const b = next[0];
-    const ea = list[k];
-    const eb = list[(k + 1) % n];
-    const cross = n > 1 ? lineMeet(a, ea, b, eb) : null;
+    const b = sides[(k + 1) % n]![0];
+    const cross = lineMeet(a, list[k], b, list[(k + 1) % n]);
     if (cross) {
       for (let s = 1; s < CURVE_POINTS; s++) {
         const t = s / CURVE_POINTS;
         const u = 1 - t;
-        ring.push(frame(u * u * a.x + 2 * u * t * cross.x + t * t * b.x, u * u * a.y + 2 * u * t * cross.y + t * t * b.y, 0));
+        ring.push({ x: u * u * a.x + 2 * u * t * cross.x + t * t * b.x, y: u * u * a.y + 2 * u * t * cross.y + t * t * b.y, edge: kerbEdge, arm: s * 2 <= CURVE_POINTS ? k : (k + 1) % n, side: false });
       }
+    } else {
+      // A straight kerb: its middle parts the two roads' frames
+      ring.push({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, edge: kerbEdge, arm: k, side: false });
     }
   }
-  const centre = frame(c.x, c.y, Math.min(...list.map((e) => e.chain.half)));
-  const verts = [centre, ...ring];
+  const centre: RingPoint = { x: c.x, y: c.y, edge: Math.min(...list.map((e) => e.chain.half)), arm: main, side: false };
+  // Fanned from the node, each triangle in one road's frame: near a road's end its texture takes over from the
+  // junction's (the weight, 1 on the end section, 0 at the node and on the kerbs), so no seam shows at any end
+  const verts: Vertex[] = [];
   const tris: number[] = [];
   for (let k = 0; k < ring.length; k++) {
     const p = ring[k];
     const q = ring[(k + 1) % ring.length];
     // Skip slivers the wrong way round (a ring folding over the node at a very sharp junction)
     if ((p.x - c.x) * (q.y - c.y) - (p.y - c.y) * (q.x - c.x) <= 0) continue;
-    tris.push(0, 1 + k, 1 + ((k + 1) % ring.length));
+    const arm = p.side ? p.arm : q.side ? q.arm : p.arm;
+    const base = verts.length;
+    verts.push(vertex(centre, arm, 0), vertex(p, arm, p.side && p.arm === arm ? 1 : 0), vertex(q, arm, q.side && q.arm === arm ? 1 : 0));
+    tris.push(base, base + 1, base + 2);
   }
   out.add(verts, tris);
 }

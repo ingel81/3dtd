@@ -46,6 +46,10 @@ describe('road network', () => {
     expect(total).toBeLessThan(200 * 9 + 95.5 * 6 + 40);
     // Markings stop at the junction: its own look
     expect(net.styles.filter((s) => s.junction).length).toBe(1);
+    // In the junction each triangle blends into one road's frame: weight 1 at that road's end section only
+    const weights = net.tiles.flatMap((t) => Array.from({ length: t.arm.length / 4 }, (_, k) => t.arm[k * 4 + 3] % 1));
+    expect(Math.max(...weights)).toBeCloseTo(0.99, 3);
+    expect(weights.filter((w) => w > 0).length).toBeGreaterThan(3);
     expect(net.styles.find((s) => !s.junction && s.markings === 'centre-edges')).toBeTruthy();
   });
 

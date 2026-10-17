@@ -228,7 +228,11 @@ als eigene Fläche über dem Boden (`paths/road-network.ts`, `paths/road-surface
 geraden Kanten, der Belag läuft entlang der Mittellinie, Kanten mit Abstand gleichen Aussehens laufen ohne Naht als
 ein Band weiter; wo Straßen sich treffen, enden die Bänder hinter dem Punkt, an dem sich ihre Bordsteinkanten
 treffen, plus einem Bordsteinradius, und eine Kreuzungsfläche mit gerundeten Ecken (quadratische Kurven) füllt den
-Raum dazwischen, ihr Belag läuft vom breitesten Band weiter. Ein Pfad, an dessen Ende nichts anschließt, endet rund.
+Raum dazwischen, ihr Belag läuft vom breitesten Band weiter und geht zu jedem anderen Arm hin in dessen Belag über
+(jedes Dreieck der Kreuzung trägt die Koordinaten seines Arms und ein Gewicht, 1 an dessen Endquerschnitt, 0 am Knoten
+und an den Bordsteinen): keine Naht an einem Arm. Bordsteine laufen um die Ecken, an denen ein Arm einen hat.
+Überlappen sich zwei Bänder ohne gemeinsamen Knoten (ein Gehweg in die Breite einer Straße gezeichnet), liegt die
+höhere Straßenklasse oben (Rang 0 Pfad bis 7 Autobahn, je Rang ein paar Millimeter mehr zur Kamera hin). Ein Pfad, an dessen Ende nichts anschließt, endet rund.
 Das Aussehen folgt der Straßenart (`street`): Spurlinien auf Autobahnen, Rand- und gestrichelte Mittellinie auf
 Haupt- und Kreisstraßen (`primary`, `secondary`), Mittellinie auf `tertiary`, keine in Wohnstraßen, deren Asphalt in
 einen Bordstein mit einer Rinne aus Pflastersteinen ausläuft; Fahrspuren dunkler, Flickstellen, Querrisse und eine

@@ -7,7 +7,7 @@ function decode(code: number) {
     code = Math.floor(code / n);
     return v;
   };
-  return { layer: take(16), markings: take(4), lanes: take(8), gutter: take(2), sealed: take(2), junction: take(2), wear: code / 31 };
+  return { layer: take(16), markings: take(4), lanes: take(8), gutter: take(2), sealed: take(2), junction: take(2), wear: take(32) / 31, rank: code };
 }
 
 describe('road style', () => {
@@ -24,9 +24,9 @@ describe('road style', () => {
 
   it('packs a look into one float the shader takes apart again', () => {
     const s = roadStyle({ street: 'motorway', width: 12, surface: 'asphalt', kind: 'road' });
-    expect(decode(encodeRoadStyle(s, 3))).toEqual({ layer: 3, markings: 3, lanes: 3, gutter: 0, sealed: 1, junction: 0, wear: Math.round(s.wear * 31) / 31 });
+    expect(decode(encodeRoadStyle(s, 3))).toEqual({ layer: 3, markings: 3, lanes: 3, gutter: 0, sealed: 1, junction: 0, wear: Math.round(s.wear * 31) / 31, rank: 7 });
     const town = roadStyle({ street: 'residential', width: 6, surface: 'asphalt', kind: 'road' }, true);
-    expect(decode(encodeRoadStyle(town, 0))).toMatchObject({ layer: 0, gutter: 1, junction: 1 });
+    expect(decode(encodeRoadStyle(town, 0))).toMatchObject({ layer: 0, gutter: 1, junction: 1, rank: 3 });
     // A surface past the textures' layers draws its mean colour (layer 15)
     expect(decode(encodeRoadStyle(town, 20)).layer).toBe(15);
   });
