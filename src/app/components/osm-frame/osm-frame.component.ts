@@ -116,7 +116,7 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
   /** Ask again at once: offered while the servers are asked again, or when the first answer is slow */
   readonly canRetryNow = computed(() => !!this.retry() || (this.askingOverpass() && this.waited() >= RETRY_NOW_S));
   /** The making: its stages, the weighted share, the step under way */
-  readonly makingNow = computed(() => makingView(this.progress()));
+  readonly makingNow = computed(() => makingView(this.progress(), this.now()));
   readonly percent = computed(() => Math.round(this.makingNow().share * 100));
   readonly fetchedOn = computed(() => {
     const at = this.frame()?.fetchedAt;

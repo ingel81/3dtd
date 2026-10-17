@@ -137,6 +137,8 @@ export interface VegetationOptions {
   /** Points the plants may cost, default PLANT_BUDGET_SHARE of SCENE_BUDGET */
   budget?: number;
   limit?: number;
+  /** Hears the share of the land classes sown, one after the other (the frame's progress, osm-progress.ts) */
+  onShare?: (share: number) => void;
 }
 
 export interface VegetationReport {
@@ -235,7 +237,9 @@ export function growVegetation(doc: CustomMapDocument, features: OsmFeatures, la
   const lerp = (r: readonly [number, number], u: number) => r[0] + (r[1] - r[0]) * u;
 
   // Areas: a jittered grid per kind over the whole map, kept where its class is
-  (Object.entries(PLANTS) as [LandClass, PlantKind[]][]).forEach(([cls, kinds], c) => {
+  const classes = Object.entries(PLANTS) as [LandClass, PlantKind[]][];
+  classes.forEach(([cls, kinds], c) => {
+    options.onShare?.((0.9 * c) / classes.length);
     const index = LAND_CLASSES.indexOf(cls) + 1;
     if (!land.includes(index)) return;
     kinds.forEach((kind, kk) => scatter(kind, cls, index, 100 + c * 16 + kk));

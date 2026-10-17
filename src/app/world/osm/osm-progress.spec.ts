@@ -1,9 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { loadingRows, makingView, reduceProgress, thinProgress, PROGRESS_EVERY_MS, OSM_MAKE_STEPS, type OsmProgress, type OsmProgressState } from './osm-progress';
+import { loadingRows, makingView, reduceProgress, thinProgress, PROGRESS_EVERY_MS, OSM_MAKE_STEPS, OSM_STEPS, type OsmProgress, type OsmProgressState } from './osm-progress';
 
 /** The events of the making and the load as the worker sends them, added up and drawn (E218) */
 describe('OSM world progress', () => {
-  const add = (events: OsmProgress[], from: OsmProgressState = {}) => events.reduce(reduceProgress, from);
+  const add = (events: OsmProgress[], from: OsmProgressState = {}) => events.reduce((s, e) => reduceProgress(s, e), from);
+
+  it('a step without a share of its own moves by its time against its weight, short of its end', () => {
+    const parse = { ...add([{ step: 'parse' }]).parse!, since: 0 };
+    const total = OSM_MAKE_STEPS.reduce((sum, s) => sum + OSM_STEPS[s].weight, 0);
+    const at = (ms: number, share = 0) => makingView({ parse: { ...parse, share } }, ms).share;
+    expect(at(0)).toBe(0);
+    expect(at(OSM_STEPS.parse.weight / 2)).toBeCloseTo((0.5 * OSM_STEPS.parse.weight) / total, 6);
+    // Never past 90 % of the step on time alone; a share it reports counts when it is further
+    expect(at(1e9)).toBeCloseTo((0.9 * OSM_STEPS.parse.weight) / total, 6);
+    expect(at(0, 0.95)).toBeCloseTo((0.95 * OSM_STEPS.parse.weight) / total, 6);
+  });
 
   it('a step of the making that begins ends the ones before it; the bar goes by weight', () => {
     const state = add([{ step: 'parse' }, { step: 'terrain' }, { step: 'roads' }, { step: 'water' }, { step: 'level', share: 0.5 }]);

@@ -50,6 +50,8 @@ export interface BuildingOptions {
    * the cost is not held to the budget (a warning says so).
    */
   catalog?: readonly BuildingCatalogEntry[];
+  /** Hears the share of the footprints gone through, now and then (the frame's progress, osm-progress.ts) */
+  onShare?: (share: number) => void;
   /** Points of the scene budget the buildings may spend (default BUILDING_BUDGET_SHARE of SCENE_BUDGET) */
   budget?: number;
 }
@@ -217,7 +219,9 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
   const footprints: Footprint[] = [];
   const around = new AroundIndex(features.areas.filter((a) => a.tags['building'] && isGroundBuilding(a.tags) && a.area >= AROUND_FROM));
 
+  let seen = 0;
   for (const area of features.areas) {
+    if (options.onShare && ++seen % 256 === 0) options.onShare((0.9 * seen) / features.areas.length);
     if (!area.tags['building'] || !isGroundBuilding(area.tags)) continue;
     report.footprints++;
     if (area.area < MIN_AREA) {

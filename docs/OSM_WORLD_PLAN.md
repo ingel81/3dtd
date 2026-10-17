@@ -553,7 +553,9 @@ Datei.
   Overpass-Antwort („asking (6 s)“, dann „2.1 MB received“, gelesen als Strom) und die Höhenkacheln („6 of 9 tiles“;
   ohne Kacheln „none came, the ground will be flat“) nebeneinander, dann Straßen, HQ und Spawns; Wartezeiten und
   Wiederholungen der Server stehen darunter. Ein Ereignis je Schritt (`OsmProgress`: Schritt, Zustand, Anteil,
-  Zusatz) kommt als Nachricht aus dem Worker (`kind: 'progress'`), Zählerstände höchstens alle 100 ms
+  Zusatz) kommt als Nachricht aus dem Worker (`kind: 'progress'`), Zählerstände höchstens alle 100 ms. Anteile
+  innerhalb eines Schritts melden Gebäude (je 256 Flächen), Pflanzen (je Landklasse) und Packen; ein Schritt ohne
+  eigenen Anteil (Einebnen in `convert/roads.ts`) läuft nach seiner Zeit gegen sein Gewicht, höchstens bis 90 %
   (`thinProgress`); die Oberfläche faltet sie mit `reduceProgress`. Hash und Skizze rechnet der Worker beim Packen
   (`OsmMade.hash`, `preview` auf einem OffscreenCanvas); die Seite speichert nur noch (`SaveOptions.contentHash`),
   vorher lief das kanonische JSON der ganzen Welt auf dem Hauptthread; danach Name und Inhalt in einer Zeile, die Warnungen des Berichts, „Play“ und „Edit in the editor“.

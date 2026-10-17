@@ -53,7 +53,13 @@ describe('OSM world frame (frozen probe Miltenberg)', () => {
     const { core, frame } = opened();
     const chosen = frame.spawns.slice(0, 2);
     const steps: string[] = [];
-    const made = await core.make(chosen, { ...options, id: 'osm-test' }, (p) => steps.push(p.step));
+    const shares: string[] = [];
+    const made = await core.make(chosen, { ...options, id: 'osm-test' }, (p) => {
+      steps.push(p.step);
+      if (p.share !== undefined) shares.push(p.step);
+    });
+    // The long loops say how far they are: the footprints, the plants by land class, the packing
+    expect(new Set(shares)).toEqual(new Set(['buildings', 'plants', 'pack']));
     // Each step reports its beginning in the order of the making (OSM_MAKE_STEPS); packing twice, the file then hash and sketch
     expect([...new Set(steps)]).toEqual(['parse', 'terrain', 'roads', 'water', 'level', 'ground', 'shores', 'paint', 'layout', 'buildings', 'furniture', 'plants', 'pack']);
     expect(made.hash).toBe(await contentHash(made.doc));

@@ -182,7 +182,7 @@ export class OsmFrameCore {
     if (!input) throw new Error('The place is not loaded');
     const start = performance.now();
     onProgress?.({ step: 'parse' });
-    const result = convertOsm(input, { ...options, sideM: this.area?.sideM ?? options.sideM, spawnsAt: [...spawnsAt] }, (step) => onProgress?.({ step }));
+    const result = convertOsm(input, { ...options, sideM: this.area?.sideM ?? options.sideM, spawnsAt: [...spawnsAt] }, (step) => onProgress?.({ step }), (step, share) => onProgress?.({ step, share }));
     onProgress?.({ step: 'pack' });
     // The store gives a map its identity at the first save; the file packed here carries it already
     result.doc.meta.uid = newMapUid();

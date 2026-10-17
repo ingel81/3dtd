@@ -109,8 +109,13 @@ export interface OsmImportResult {
   report: OsmImportReport;
 }
 
-/** The map of `input`'s place; `onStep` hears each step as it begins */
-export function convertOsm(input: OsmImportInput, options: OsmImportOptions = {}, onStep?: (step: OsmConvertStep) => void): OsmImportResult {
+/** The map of `input`'s place; `onStep` hears each step as it begins, `onShare` how far the long ones are */
+export function convertOsm(
+  input: OsmImportInput,
+  options: OsmImportOptions = {},
+  onStep?: (step: OsmConvertStep) => void,
+  onShare?: (step: OsmConvertStep, share: number) => void,
+): OsmImportResult {
   const ms: Record<string, number> = {};
   let t = performance.now();
   const order: OsmConvertStep[] = ['parse', 'terrain', 'roads', 'water', 'level', 'ground', 'shores', 'paint', 'layout', 'buildings', 'furniture', 'plants'];
@@ -186,7 +191,7 @@ export function convertOsm(input: OsmImportInput, options: OsmImportOptions = {}
   step('layout');
 
   // After the HQ (they keep clear of it) and the water; their pads cut the ground the roads levelled, never the roads
-  const buildings = placeBuildings(doc, features, { catalog: options.catalog });
+  const buildings = placeBuildings(doc, features, { catalog: options.catalog, onShare: onShare && ((share) => onShare('buildings', share)) });
   doc.objects.push(...buildings.objects);
   warnings.push(...buildings.warnings);
   step('buildings');
@@ -198,7 +203,7 @@ export function convertOsm(input: OsmImportInput, options: OsmImportOptions = {}
   step('furniture');
 
   // The plants keep off the footprints and hold their own share of the scene budget (the buildings have no cap for now)
-  const plants = growVegetation(doc, features, ground.land, water, { costOf });
+  const plants = growVegetation(doc, features, ground.land, water, { costOf, onShare: onShare && ((share) => onShare('plants', share)) });
   step('plants');
 
   const dem = input.dem ? input.dem.source : null;

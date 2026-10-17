@@ -87,6 +87,8 @@ export interface OsmStepState {
   status: OsmStepStatus;
   share: number;
   detail: string | null;
+  /** When it began (ms, the reducer's clock): a step that reports no share moves by its time against its weight */
+  since: number;
 }
 
 /** The steps heard of so far; a step not in it waits */
@@ -97,7 +99,7 @@ export type OsmProgressState = Readonly<Partial<Record<OsmStep, OsmStepState>>>;
  * ones before it in OSM_MAKE_STEPS (the conversion reports only beginnings);
  * the downloads side by side end each on its own
  */
-export function reduceProgress(state: OsmProgressState, event: OsmProgress): OsmProgressState {
+export function reduceProgress(state: OsmProgressState, event: OsmProgress, now: number = Date.now()): OsmProgressState {
   const next: Partial<Record<OsmStep, OsmStepState>> = { ...state };
   const status = event.state ?? 'active';
   const before = state[event.step];
@@ -105,13 +107,14 @@ export function reduceProgress(state: OsmProgressState, event: OsmProgress): Osm
     const at = OSM_MAKE_STEPS.indexOf(event.step);
     for (let k = 0; k < at; k++) {
       const s = OSM_MAKE_STEPS[k];
-      if (next[s]?.status === 'active' || !next[s]) next[s] = { status: 'done', share: 1, detail: next[s]?.detail ?? null };
+      if (next[s]?.status === 'active' || !next[s]) next[s] = { status: 'done', share: 1, detail: next[s]?.detail ?? null, since: next[s]?.since ?? now };
     }
   }
   next[event.step] = {
     status,
     share: status === 'done' ? 1 : (event.share ?? before?.share ?? 0),
     detail: event.detail ?? before?.detail ?? null,
+    since: before?.since ?? now,
   };
   return next;
 }
@@ -131,14 +134,24 @@ export interface OsmMakingView {
   of: number;
 }
 
-export function makingView(state: OsmProgressState): OsmMakingView {
+/** How far a step under way stands: its own share, else its time against its weight, never past ESTIMATE_CAP */
+const ESTIMATE_CAP = 0.9;
+
+function shareOf(step: OsmStep, st: OsmStepState, now: number): number {
+  if (st.status === 'done') return 1;
+  const estimate = st.status === 'active' ? Math.min(ESTIMATE_CAP, (now - st.since) / OSM_STEPS[step].weight) : 0;
+  return Math.max(st.share, estimate);
+}
+
+/** The making at `now` (the bar moves on between reports by the steps' weights) */
+export function makingView(state: OsmProgressState, now: number = Date.now()): OsmMakingView {
   const total = OSM_MAKE_STEPS.reduce((sum, s) => sum + OSM_STEPS[s].weight, 0);
   let done = 0;
   let current: OsmStep | null = null;
   for (const s of OSM_MAKE_STEPS) {
     const st = state[s];
     if (!st) continue;
-    done += OSM_STEPS[s].weight * (st.status === 'done' ? 1 : st.share);
+    done += OSM_STEPS[s].weight * shareOf(s, st, now);
     if (st.status === 'active' || st.status === 'failed') current = s;
   }
   const stages = OSM_STAGES.map(({ id, label }): OsmStageView => {
