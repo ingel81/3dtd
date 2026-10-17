@@ -1,6 +1,8 @@
 import { MeshBasicMaterial, Ray, Raycaster, Vector3, type Mesh } from 'three';
 import { describe, expect, it } from 'vitest';
 import { cellHeight, cellSplit, HeightField } from './height-field';
+import { heightAt } from '../../../map-ops/grid';
+import { createMapDocument } from '../map-create';
 import { mapToScene, sceneToMap } from './map-coords';
 import { TerrainChunks } from './terrain/terrain-chunks';
 
@@ -123,6 +125,24 @@ describe('HeightField', () => {
     expect(d).not.toBeNull();
     expect(hit.y).toBeCloseTo(f.heightAt(5, 0), 3);
     expect(f.raycast(new Ray(new Vector3(-500, 100, 0), new Vector3(0, -1, 0)), hit)).toBeNull();
+  });
+});
+
+describe('one height model', () => {
+  it('gives the editor, the check and the map operations the surface the game draws and walks', () => {
+    const doc = createMapDocument({ id: 'twist', name: 'Twist', width: 16, depth: 16, cellSize: 2 });
+    const t = doc.terrain;
+    // A cell whose diagonals rise unlike: bilinear would read 1 in its middle, the drawn triangles 0 or 2
+    t.grid.heights.forEach((_, k) => (t.grid.heights[k] = ((k * 7919) % 13) * 0.37));
+    const c = t.grid.columns;
+    t.grid.heights.set([0, 4], 0);
+    t.grid.heights.set([0, 0], c);
+    const field = new HeightField(t.grid, t.width, t.depth);
+    for (let y = -9; y <= 9; y += 0.37) {
+      for (let x = -9; x <= 9; x += 0.41) expect(heightAt(t, x, y)).toBe(field.heightAt(x, y));
+    }
+    expect(heightAt(t, -7, -7)).toBe(cellHeight(0, 4, 0, 0, 0.5, 0.5));
+    expect(heightAt(t, -7, -7)).not.toBe(1);
   });
 });
 

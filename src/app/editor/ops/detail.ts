@@ -5,7 +5,7 @@
  * metres per height point and the splat resolution that goes with it. The
  * extent stays exact (the cell is the old one divided by a whole number),
  * every old height point keeps its height, the points between come
- * bilinear from their neighbours; splat weights and water masks are
+ * on the triangles of the old cells (map-ops/grid.ts heightAt); splat weights and water masks are
  * resampled the same way. Objects, roads and markers stand in metres and
  * need nothing; the ground roads keep for taking them back (dress.ground)
  * is refined with the heights (increaseMapDetail).

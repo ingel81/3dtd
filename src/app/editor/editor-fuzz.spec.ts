@@ -457,7 +457,10 @@ function fuzz(seed: number, count: number): Run {
       const now = editor.doc.terrain.grid.heights;
       let worst = 0;
       for (let k = 0; k < now.length; k++) worst = Math.max(worst, Math.abs(now[k] - built[k]));
-      if (worst > 0.002) throw new Error(`seed ${seed}: rebuilding a road moved the ground by ${worst.toFixed(4)} m`);
+      // 5 mm: the kept ground is stored to the millimetre (packGround), and the surface the road's profile reads
+      // (cellHeight, the game's) takes a cell's diagonal by its corner heights, so a millimetre at a corner of a cell
+      // whose two diagonals rise alike can move a road end on it by a few more
+      if (worst > 0.005) throw new Error(`seed ${seed}: rebuilding a road moved the ground by ${worst.toFixed(4)} m`);
       steps.push('road round trip');
     },
     jump: () => {

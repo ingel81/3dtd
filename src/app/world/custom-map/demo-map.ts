@@ -9,6 +9,7 @@ import {
   type MapTerrain,
 } from './map-document';
 import { settled, type RockShape } from '../../map-ops/object-ops';
+import { gridHeightAt } from './render/height-field';
 
 /**
  * A rich sample map, generated: rolling hills, a terraced mountain with
@@ -316,21 +317,9 @@ export function createDemoMap(seed = 7): CustomMapDocument {
     }
   }
 
-  const heightAt = (x: number, y: number): number => {
-    const fx = Math.min(COLS - 1.001, Math.max(0, (x + SIZE / 2) / CELL));
-    const fy = Math.min(COLS - 1.001, Math.max(0, (y + SIZE / 2) / CELL));
-    const i = Math.floor(fx);
-    const j = Math.floor(fy);
-    const u = fx - i;
-    const v = fy - j;
-    const k = j * COLS + i;
-    return (
-      heights[k] * (1 - u) * (1 - v) +
-      heights[k + 1] * u * (1 - v) +
-      heights[k + COLS] * (1 - u) * v +
-      heights[k + COLS + 1] * u * v
-    );
-  };
+  // The surface the game draws and walks (render/height-field.ts), not one of its own
+  const grid = { columns: COLS, rows: COLS, cellSize: CELL, heights };
+  const heightAt = (x: number, y: number): number => gridHeightAt(grid, -SIZE / 2, -SIZE / 2, x, y);
   const slopeAt = (x: number, y: number): number => {
     const dx = (heightAt(x + CELL, y) - heightAt(x - CELL, y)) / (2 * CELL);
     const dy = (heightAt(x, y + CELL) - heightAt(x, y - CELL)) / (2 * CELL);

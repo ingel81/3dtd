@@ -15,6 +15,7 @@
  */
 import type { MapHeightGrid, MapPoint, MapRoadGround } from '../../../world/custom-map/map-document';
 import { nearestOnPolyline } from '../../../map-ops/path-graph';
+import { cellHeight } from '../../../world/custom-map/render/height-field';
 
 /** Height samples (row-major indices) within `reach` metres of a line */
 export function bandSamples(grid: MapHeightGrid, width: number, depth: number, line: readonly MapPoint[], reach: number): number[] {
@@ -125,8 +126,8 @@ export function shiftGround(ground: MapRoadGround, from: MapHeightGrid, to: Grid
 
 /**
  * The kept ground on a finer grid over the same extent (Increase detail):
- * each new sample bilinear between the four old ones around it, as the
- * refined heights are. An old sample the ground does not hold (beyond the
+ * each new sample on the triangles of the old cell around it
+ * (cellHeight), as the refined heights are. An old sample the ground does not hold (beyond the
  * band) counts with its height on `from` as both before and built: the
  * road never touched it. Null when the ground is not of `from`.
  */
@@ -164,14 +165,11 @@ export function refineGround(ground: MapRoadGround, from: MapHeightGrid, to: Gri
       const weights = [(1 - u) * (1 - v), u * (1 - v), (1 - u) * v, u * v];
       // Only where the band reaches: some weighed corner is kept
       if (!corners.some((k, n) => weights[n] > 1e-9 && kept.has(k))) continue;
-      let before = 0;
-      let built = 0;
-      corners.forEach((k, n) => {
-        if (weights[n] <= 1e-9) return;
-        const q = at(k);
-        before += q.before * weights[n];
-        built += q.built * weights[n];
-      });
+      // On the cell's two triangles, as the refined heights are (map-ops/grid.ts heightAt): the ground before and the
+      // ground built each on its own surface
+      const [q00, q10, q01, q11] = corners.map(at);
+      const before = cellHeight(q00.before, q10.before, q01.before, q11.before, u, v);
+      const built = cellHeight(q00.built, q10.built, q01.built, q11.built, u, v);
       out.push({ k: j * to.columns + i, before, built });
     }
   }

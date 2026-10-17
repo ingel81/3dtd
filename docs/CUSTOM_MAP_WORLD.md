@@ -340,7 +340,9 @@ dem Build fehlt, aus dem `public/maps` des Checkouts (`mapDataRoot` in `createAp
 ## Abfragen (`CustomMapSurface`)
 
 - Höhen aus dem Höhenraster der Karte über `HeightField`, dieselben zwei Dreiecke je Zelle, die der
-  Renderer zeichnet (Diagonale je Zelle nach `cellSplit`, der kürzeren Höhendifferenz, aus den vier Eckhöhen,
+  Renderer zeichnet (eine Funktion `gridHeightAt` in `render/height-field.ts`; seit E225 rechnen auch Editor, Prüfung,
+  Kartenoperationen, Level-Bake, Agent `map.h()` und die OSM-Umwandlung damit statt bilinear;
+  Diagonale je Zelle nach `cellSplit`, der kürzeren Höhendifferenz, aus den vier Eckhöhen,
   deterministisch); allokationsfrei bis auf das Spalten-Objekt, das die Schnittstelle zurückgibt. Seit der Diagonale
   je Zelle liegen Gegner an steilen Wänden anders als vorher: Prüfsummen und Replays eigener Karten von davor passen
   nicht mehr; echte Orte und DevWorld nutzen `HeightField` nicht

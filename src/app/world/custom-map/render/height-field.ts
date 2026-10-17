@@ -41,6 +41,33 @@ export function cellHeight(h00: number, h10: number, h01: number, h11: number, u
   return u + v <= 1 ? h00 + u * (h10 - h00) + v * (h01 - h00) : h11 + (1 - u) * (h01 - h11) + (1 - v) * (h10 - h11);
 }
 
+/**
+ * Surface height of a height grid at map point (x, y), on the triangles the
+ * mesh draws (`cellHeight`); outside the grid the nearest edge's.
+ * `originX`, `originY`: map position of sample (0, 0). The one height model
+ * of a map: the renderer, the sim, the editor and its check, the map
+ * operations, the level bake and the OSM conversion all read it
+ * (HeightField.heightAt, map-ops/grid.ts heightAt). Allocation-free
+ */
+export function gridHeightAt(grid: MapHeightGrid, originX: number, originY: number, x: number, y: number): number {
+  const h = grid.heights;
+  const cols = grid.columns;
+  let fx = (x - originX) / grid.cellSize;
+  let fy = (y - originY) / grid.cellSize;
+  const maxX = cols - 1;
+  const maxY = grid.rows - 1;
+  fx = fx < 0 ? 0 : fx > maxX ? maxX : fx;
+  fy = fy < 0 ? 0 : fy > maxY ? maxY : fy;
+  let i = Math.floor(fx);
+  let j = Math.floor(fy);
+  if (i >= maxX) i = maxX - 1;
+  if (j >= maxY) j = maxY - 1;
+  const u = fx - i;
+  const v = fy - j;
+  const k = j * cols + i;
+  return cellHeight(h[k], h[k + 1], h[k + cols], h[k + cols + 1], u, v);
+}
+
 export class HeightField {
   readonly columns: number;
   readonly rows: number;
@@ -70,22 +97,7 @@ export class HeightField {
 
   /** Surface height at map point (x, y); allocation-free */
   heightAt(x: number, y: number): number {
-    const h = this.grid.heights;
-    const cols = this.columns;
-    let fx = (x - this.originX) / this.cellSize;
-    let fy = (y - this.originY) / this.cellSize;
-    const maxX = cols - 1;
-    const maxY = this.rows - 1;
-    fx = fx < 0 ? 0 : fx > maxX ? maxX : fx;
-    fy = fy < 0 ? 0 : fy > maxY ? maxY : fy;
-    let i = Math.floor(fx);
-    let j = Math.floor(fy);
-    if (i >= maxX) i = maxX - 1;
-    if (j >= maxY) j = maxY - 1;
-    const u = fx - i;
-    const v = fy - j;
-    const k = j * cols + i;
-    return cellHeight(h[k], h[k + 1], h[k + cols], h[k + cols + 1], u, v);
+    return gridHeightAt(this.grid, this.originX, this.originY, x, y);
   }
 
   /**

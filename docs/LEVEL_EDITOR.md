@@ -210,7 +210,7 @@ würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben diese
   Straße (Roads, 6), legt der Editor das alles neu an: der alte Streifen wird zurückgebaut (die Höhen genau wie vor der
   Straße: `dress.ground` hält je Höhenpunkt des Bands die Höhe vorher und nach dem Einebnen, auf den Millimeter;
   danach Geformtes bleibt als Unterschied erhalten; „Resize“ verschiebt die gemerkten Höhen mit dem Raster und schneidet
-  ab, was aus der Karte fällt, „Increase detail“ verfeinert sie bilinear wie die Höhen selbst (`shiftGround`,
+  ab, was aus der Karte fällt, „Increase detail“ verfeinert sie auf den Dreiecken der alten Zellen wie die Höhen selbst (`shiftGround`,
   `refineGround`); ohne gemerkte Höhen gerade vom Land am einen Rand zum anderen, `restoreBand`; der Bodenanstrich blendet immer so), seine Laternen und Zäune gehen,
   entlang der neuen Linie entstehen Damm, Belag und Ausstattung neu; ein Schritt im Verlauf. Straßen ohne `dress` (aus Karten von
   vorher, aus Level-Skripten) liest der Editor beim ersten Bearbeiten von der Karte ab (`inferDress`): Laternen und Zäune
@@ -423,7 +423,7 @@ ein Schritt im Verlauf.
 **Map (9).** Name, Autor, Beschreibung; Größe ändern (die Mitte bleibt, kleiner schneidet die Ränder ab, größer setzt
 sie in Randhöhe fort); „Increase detail“ bei Karten mit gröberem Boden als neue Karten (ältere mit 4 m, Importe):
 Höhenpunkte auf höchstens 2 m (alte Zellgröße durch eine ganze Zahl, die Ausdehnung bleibt genau, jeder alte Punkt
-behält seine Höhe, die neuen kommen bilinear), Bodenfarbe und Wassermasken bilinear auf die neue Auflösung
+behält seine Höhe, die neuen liegen auf den zwei Dreiecken der alten Zelle, die das Spiel zeichnet), Bodenfarbe und Wassermasken bilinear auf die neue Auflösung
 (`ops/detail.ts`), ein Undo-Schritt; Gelände-Generator über die offene Karte und „Erode the whole map“ (Regen gräbt Rinnen an allen
 Hängen, Stärke „Rain“). Beide laufen im Terrain-Worker (`editor/workers/terrain.worker.ts`): der Generator schickt
 Bänder von 48 Zeilen, die Ansicht zeigt sie sofort; die Erosion läuft in Scheiben zu 4000 Tropfen, die Ansicht zeigt
@@ -984,7 +984,7 @@ Flusspunkte samt neuem Schilf und neuen Steinen, alte Straßen ohne gemerkte Aus
 Stempel mit Drehung, Symmetrie, „Mirror now“, Heightmap-Import, Größe ändern, „Increase detail“,
 Restore, Umgebung, Sprünge im Verlauf) und verlangt: alle Undos ergeben `contentBytes` des Anfangs bytegleich, alle
 Redos die des Endes, und jeder Zustand unterwegs (Undo, Redo, Sprung) ist die Karte, wie sie nach diesem Schritt war;
-eine neue Straße, deren Ausstattung abgebaut und neu gebaut wird, lässt den Boden auf 2 mm gleich (gemerkter Boden;
+eine neue Straße, deren Ausstattung abgebaut und neu gebaut wird, lässt den Boden auf 5 mm gleich (gemerkter Boden auf den Millimeter, die Fläche des Spiels wählt die Diagonale einer Zelle nach ihren Ecken;
 ohne Straßen, die sie geteilt hat, siehe die bekannte Grenze oben); neben fünf festen Seeds laufen fünf weitere, die
 einmal an Annahmen des Tests selbst scheiterten (ein Lauf, der mit einem Sprung zurück endet, wird erst zu Ende
 wiederholt);

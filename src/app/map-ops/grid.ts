@@ -6,6 +6,7 @@
  * northwards like j.
  */
 import type { MapPoint, MapTerrain } from '../world/custom-map/map-document';
+import { gridHeightAt } from '../world/custom-map/render/height-field';
 
 /** Inclusive rectangle of samples or texels */
 export interface GridRect {
@@ -79,22 +80,14 @@ export function nearestSample(t: MapTerrain, x: number, y: number): { i: number;
   };
 }
 
-/** Bilinear terrain height at a map point, clamped to the edge */
+/**
+ * Terrain height at a map point, clamped to the edge: on the two triangles
+ * per cell the game draws and walks (render/height-field.ts gridHeightAt),
+ * so a check, a placement or an OSM building sees the surface the player
+ * sees
+ */
 export function heightAt(t: MapTerrain, x: number, y: number): number {
-  const g = t.grid;
-  const fi = clamp((x + t.width / 2) / g.cellSize, 0, g.columns - 1);
-  const fj = clamp((y + t.depth / 2) / g.cellSize, 0, g.rows - 1);
-  const i = Math.min(Math.floor(fi), g.columns - 2);
-  const j = Math.min(Math.floor(fj), g.rows - 2);
-  const u = fi - i;
-  const v = fj - j;
-  const h = g.heights;
-  const c = g.columns;
-  const a = h[j * c + i];
-  const b = h[j * c + i + 1];
-  const d = h[(j + 1) * c + i];
-  const e = h[(j + 1) * c + i + 1];
-  return (a * (1 - u) + b * u) * (1 - v) + (d * (1 - u) + e * u) * v;
+  return gridHeightAt(t.grid, -t.width / 2, -t.depth / 2, x, y);
 }
 
 /** Slope at a map point in degrees, from central differences */
