@@ -245,6 +245,26 @@ describe('bakeVAT', () => {
     expect(bakeVAT(skinnedTriangle(), [walk, die], clips, 1e6)!.animations.get('walk')!.frameCount).toBe(30);
   });
 
+  it('keeps the pace of an open loop: its frames stay at their clip times, the tail only adds the closing step (E213)', () => {
+    // The walk speed was tuned to clip time: a frame before the clip's end must show the pose at its own time, so the
+    // feet move as fast as before; the player maps game time to frames by fps (totalTime = frames / fps)
+    const times = Array.from({ length: 24 }, (_, k) => k / 24);
+    const track = new VectorKeyframeTrack('root.position', times, times.flatMap((t) => [Math.sin(t * Math.PI * 2), 0, 0]));
+    const open = new AnimationClip('walk', 23 / 24, [track]);
+    const vat = bakeVAT(skinnedTriangle(), [open, die], clips, 1e6)!;
+    const entry = vat.animations.get('walk')!;
+    expect(entry.totalTime).toBeCloseTo(entry.frameCount / vat.fps, 12);
+    // The track between its keys, linearly
+    const at = (t: number): number => {
+      const i = Math.min(22, Math.floor(t * 24));
+      const f = t * 24 - i;
+      return track.values[i * 3] * (1 - f) + track.values[(i + 1) * 3] * f;
+    };
+    for (let k = 0; k / vat.fps < 23 / 24; k++) {
+      expect(vatPosition(vat, 0, entry.frameStart + k)[0]).toBeCloseTo(at(k / vat.fps), 4);
+    }
+  });
+
   it('bakes from the clip start, and grounded puts each frame on y 0 (E185)', () => {
     // The triangle (y 0 to 1) floats up from 0.5 to 1.5 over the walk
     const float = new AnimationClip('walk', 1, [new VectorKeyframeTrack('root.position', [0, 1], [0, 0.5, 0, 0, 1.5, 0])]);

@@ -96,6 +96,10 @@ backt seit der Runde vom 2026-09-14 über Skinning.
   Frames schließt der Loop selbst; bis 3 Frames läuft er so lange über sein Ende weiter (`VATClip.tail`) und
   blendet dort die Endpose in die Startpose; darüber (Wurzelbewegung, ein Schnitt, der nicht loopt) bleibt er,
   wie er ist. Betroffen (2026-10-17): Zombie, Zombie v2, Herbert, Mammut, Hornisse, Mech, Bär, je 1 bis 2 Frames.
+  Das Tempo bleibt: jeder Frame vor dem Clip-Ende zeigt die Pose seiner Clip-Zeit (Frame k bei k / fps, der Spieler
+  rechnet Spielzeit über fps in Frames um), die auf den Schritt abgestimmte `animationSpeed` gilt also weiter; der
+  Schwanz fügt nur den schließenden Schritt im Tempo der Naht an, das Fußgleiten ändert sich nicht (Spec
+  `vat-baker.spec.ts`). Die Schleife wird so lang wie der echte Zyklus, vorher war sie um diesen Schritt zu kurz.
 - Todes-Clips laufen mit `deathAnimationSpeed` (sonst `animationSpeed`), bis `EnemyManager` den Gegner nach
   `enemyDeathDuration()` entfernt (`EnemyTypeConfig.deathDuration`, sonst
   `TIMING.deathAnimationDuration`, 2 s). Gebacken wird nur diese Clip-Zeit
