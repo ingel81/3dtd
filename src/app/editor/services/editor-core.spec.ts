@@ -11,6 +11,7 @@ import { ObjectsCommand } from '../model/commands/objects';
 import { SnapshotCommand } from '../model/commands/snapshot';
 import { EditorDocument } from '../model/editor-document';
 import { EditorCore } from './editor-core';
+import { runTerrainJob } from '../workers/terrain-job';
 
 const same = (a: Uint8Array, b: Uint8Array) => Buffer.from(a).equals(Buffer.from(b));
 
@@ -116,6 +117,32 @@ describe('EditorCore', () => {
     const copy = structuredClone(doc);
     copy.spawns = [];
     expect((await core.run('check', { areas: false, doc: copy }))!.value).toEqual(validateMap(copy, options));
+    core.dispose();
+  });
+
+  it('runs a terrain job on its mirror slice by slice, the same as on the page, and stops when told to', async () => {
+    const editor = editorOf();
+    const core = new EditorCore();
+    core.open(editor, EMPTY_CATALOG);
+    const g = editor.doc.terrain.grid;
+    const want = runTerrainJob({ kind: 'erode', columns: g.columns, rows: g.rows, cellSize: g.cellSize, heights: g.heights.slice(), seed: 4, strength: 0.4 + 0.6 * 0.5, drops: Math.round(g.columns * g.rows * (0.15 + 0.85 * 0.5)) });
+    let last: Float32Array | null = null;
+    for (const m of want) if (m.kind === 'heights') last = m.heights;
+    let got: Float32Array | null = null;
+    await core.terrain({ kind: 'erode', strength: 0.5, seed: 4 }, (m) => {
+      if (m.kind === 'heights') got = m.heights;
+    });
+    expect(same(new Uint8Array(got!.buffer), new Uint8Array(last!.buffer))).toBe(true);
+    // The map itself is untouched: the job worked on copies
+    expect(editor.doc.terrain.grid.heights).toBe(g.heights);
+    const stop = new AbortController();
+    let seen = 0;
+    const run = core.terrain({ kind: 'generate', options: { preset: 'hills', seed: 1, strength: 0.5 } }, () => {
+      if (++seen === 1) stop.abort();
+    }, stop.signal);
+    await expect(run).rejects.toMatchObject({ name: 'AbortError' });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(seen).toBe(1);
     core.dispose();
   });
 

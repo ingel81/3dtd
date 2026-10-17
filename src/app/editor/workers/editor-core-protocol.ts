@@ -16,6 +16,8 @@ import type { MirrorSync, PartVersions } from '../model/doc-mirror';
 import type { PathMaskInput, PathMaskRect } from './path-mask-job';
 import type { FarShadowTexels, SampleRect, ShapePatch } from '../../world/custom-map/render/terrain/ground-shape';
 import type { Contours } from '../ops/contours';
+import type { GenerateOptions } from '../../map-ops/generate';
+import type { TerrainJobMessage } from './terrain-job';
 
 /** The jobs the worker takes, what each gets and gives */
 export interface CoreJobs {
@@ -46,16 +48,31 @@ export type CoreJobKind = keyof CoreJobs;
 export type CoreInput<K extends CoreJobKind> = CoreJobs[K]['input'];
 export type CoreOutput<K extends CoreJobKind> = CoreJobs[K]['output'];
 
+/**
+ * A terrain job (terrain-job.ts) on the map as the mirror holds it: generating a preset (finishing the map too
+ * when `finish` names the catalogue's materials), or eroding all heights; `heights` erodes a copy's instead
+ * (an agent's dry run) on a grid of `columns` x `rows`
+ */
+export type TerrainStream =
+  | { kind: 'generate'; options: GenerateOptions; finish?: { materials: string[]; repaint: boolean } }
+  | { kind: 'erode'; strength: number; seed: number; copy?: { heights: Float32Array; columns: number; rows: number; cellSize: number } };
+
 export type CoreRequest =
   /** The worker's start: the asset catalogue the checks read */
   | { type: 'start'; catalog: MapAssetCatalog }
   | { type: 'job'; id: number; kind: CoreJobKind; input: CoreInput<CoreJobKind>; sync: MirrorSync }
   /** Jobs of `kind` waiting are dropped */
-  | { type: 'cancel'; kind: CoreJobKind };
+  | { type: 'cancel'; kind: CoreJobKind }
+  /** A terrain job: its slices come back one by one (`part`), the last of kind 'done' */
+  | { type: 'stream'; id: number; input: TerrainStream; sync: MirrorSync }
+  /** The stream `id` stops after the slice it is in (answered `dropped`) */
+  | { type: 'stop'; id: number };
 
 export type CoreReply =
   | { id: number; value: CoreOutput<CoreJobKind>; state: number; versions: PartVersions }
   /** `lost`: the sync did not fit the mirror, the next job brings the whole map */
   | { id: number; error: PackError; lost?: true }
   /** A newer job of the same kind came first, or the kind was cancelled */
-  | { id: number; dropped: true };
+  | { id: number; dropped: true }
+  /** A slice of a terrain job */
+  | { id: number; part: TerrainJobMessage };

@@ -147,6 +147,10 @@ export class AgentAdapter implements AgentHost {
     return this.s.jobs.erodeWholeMap(strength, seed, label);
   }
 
+  erodeCopy(g: { columns: number; rows: number; cellSize: number; heights: Float32Array }, strength: number, seed: number): Promise<Float32Array | null> {
+    return this.s.jobs.erodeCopy(g, strength, seed);
+  }
+
   cancelAgentJob(): void {
     this.s.jobs.cancelAgentJob();
   }

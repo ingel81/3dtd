@@ -1,6 +1,7 @@
 /**
  * Jobs that change the map over a while: generating terrain and eroding the
- * whole map in the terrain worker, an AI agent's play. One at a time, shown
+ * whole map in the editor's worker (EditorCore.terrain, on its mirror of
+ * the map: the page sends no copy), an AI agent's play. One at a time, shown
  * with its progress and Cancel; meanwhile the document is held and the
  * view's tools take no input, so no panel, key or agent call writes under
  * it. Each job writes into a transaction: done, it is one undo step;
@@ -14,7 +15,8 @@ import type { GenerateOptions, GenerateResult } from '../../map-ops/generate';
 import type { EditorDocument } from '../model/editor-document';
 import { ALL_DOC_PARTS } from '../model/commands/snapshot';
 import { LandscapeContext } from '../ops/landscape/landscape-context';
-import { erodeJob, startTerrainJob, type TerrainJob, type TerrainJobMessage } from '../workers/terrain-job';
+import type { TerrainJobMessage } from '../workers/terrain-job';
+import type { TerrainStream } from '../workers/editor-core-protocol';
 import { AGENT_LABEL } from '../agent/editor-agent';
 import type { EditorNotices } from './editor-notices';
 
@@ -34,6 +36,8 @@ export interface JobHost {
   readOnly(): boolean;
   /** The panels read the map again */
   refresh(): void;
+  /** Runs a terrain job in the editor's worker (EditorCore.terrain) */
+  terrain(input: TerrainStream, onPart: (m: TerrainJobMessage) => void, signal?: AbortSignal): Promise<void>;
 }
 
 export class JobRunner {
@@ -82,13 +86,11 @@ export class JobRunner {
     const g = t.grid;
     let result: GenerateResult | null = null;
     let finished: Extract<TerrainJobMessage, { kind: 'finished' }> | null = null;
-    // The worker finishes the map too (roads levelled, layers, auto paint): over a big map that stood the page
-    const { grid: _grid, ...ground } = t;
-    const finish = { terrain: ground, paths: editor.doc.paths, materials: [...catalog.materials.keys()], repaint };
+    // The worker finishes the map too (roads levelled, layers, auto paint) from its mirror: over a big map that stood the page
     const ok = await this.terrainJob(
       'Generating the terrain',
       stroke,
-      { kind: 'generate', width: t.width, depth: t.depth, columns: g.columns, rows: g.rows, cellSize: g.cellSize, heights: g.heights, options, finish },
+      { kind: 'generate', options, finish: { materials: [...catalog.materials.keys()], repaint } },
       (m) => {
         if (m.kind === 'rows') {
           g.heights.set(m.heights, m.j0 * g.columns);
@@ -120,7 +122,7 @@ export class JobRunner {
     stroke.tx.touch('heights', all);
     let latest: Float32Array | null = null;
     let shownAt = performance.now();
-    const ok = await this.terrainJob(label.startsWith(AGENT_LABEL) ? label : 'Eroding the map', stroke, erodeJob(g, strength, seed), (m) => {
+    const ok = await this.terrainJob(label.startsWith(AGENT_LABEL) ? label : 'Eroding the map', stroke, { kind: 'erode', strength, seed }, (m) => {
       // The whole ground redraws for each look: about one a second, and the last one always
       if (m.kind === 'heights') {
         latest = m.heights;
@@ -196,11 +198,21 @@ export class JobRunner {
     return job;
   }
 
+  /** The heights of a copy of the map eroded as erodeWholeMap would (an agent's dry run); the open map stays as it is */
+  async erodeCopy(g: { columns: number; rows: number; cellSize: number; heights: Float32Array }, strength: number, seed: number): Promise<Float32Array | null> {
+    let latest: Float32Array | null = null;
+    const copy = { columns: g.columns, rows: g.rows, cellSize: g.cellSize, heights: g.heights.slice() };
+    await this.host.terrain({ kind: 'erode', strength, seed, copy }, (m) => {
+      if (m.kind === 'heights') latest = m.heights;
+    });
+    return latest;
+  }
+
   /** Runs a terrain job in the worker (withJob) into `stroke`; on Cancel or an error the stroke goes back */
-  private async terrainJob(label: string, stroke: LandscapeContext, job: TerrainJob, onMessage: (m: TerrainJobMessage) => void): Promise<boolean> {
+  private async terrainJob(label: string, stroke: LandscapeContext, job: TerrainStream, onMessage: (m: TerrainJobMessage) => void): Promise<boolean> {
     try {
       await this.withJob(stroke.tx.editor, label, (signal) =>
-        startTerrainJob(
+        this.host.terrain(
           job,
           (m) =>
             this.zone.run(() => {

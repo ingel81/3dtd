@@ -136,6 +136,7 @@ export class EditorSession implements OnDestroy {
         lockView: (on) => this.viewHost.lock(on),
         readOnly: () => this.maps.readOnly(),
         refresh: () => this.state.refresh(),
+        terrain: (input, onPart, signal) => this.core.terrain(input, onPart, signal),
       },
       this.zone,
       this.notices,

@@ -18,7 +18,8 @@ import { validateMap } from '../../map-ops/validation/map-validation';
 import type { CustomMapDocument } from '../../world/custom-map/map-document';
 import { packErrorReply, packForSave } from '../../world/custom-map/map-pack';
 import { DocMirror } from '../model/doc-mirror';
-import type { CoreInput, CoreJobKind, CoreOutput, CoreReply, CoreRequest } from './editor-core-protocol';
+import type { CoreInput, CoreJobKind, CoreOutput, CoreReply, CoreRequest, TerrainStream } from './editor-core-protocol';
+import { erodeJob, runTerrainJob, transferList, type TerrainJob, type TerrainJobMessage } from './terrain-job';
 import { PathMaskState } from './path-mask-job';
 import { HeightField } from '../../world/custom-map/render/height-field';
 import { farShadowData, lavaCloseness, lavaSamples, shapePatch } from '../../world/custom-map/render/terrain/ground-shape';
@@ -129,6 +130,19 @@ const JOBS: { [K in CoreJobKind]: JobDef<K> } = {
   },
 };
 
+/** The terrain job a stream asks for, on the mirror's map (copies: the job writes its own arrays) */
+function terrainJob(doc: CustomMapDocument, input: TerrainStream): TerrainJob {
+  const t = doc.terrain;
+  const g = t.grid;
+  if (input.kind === 'erode') {
+    const c = input.copy;
+    return erodeJob(c ? { ...c, heights: c.heights } : { ...g, heights: g.heights.slice() }, input.strength, input.seed);
+  }
+  const { grid: _grid, ...ground } = t;
+  const finish = input.finish && { terrain: structuredClone(ground), paths: structuredClone(doc.paths), ...input.finish };
+  return { kind: 'generate', width: t.width, depth: t.depth, columns: g.columns, rows: g.rows, cellSize: g.cellSize, heights: g.heights.slice(), options: input.options, finish };
+}
+
 interface Waiting {
   id: number;
   kind: CoreJobKind;
@@ -139,6 +153,8 @@ export class EditorCoreHost {
   private readonly ctx: CoreContext = { mirror: new DocMirror(), catalog: new CatalogIndex(EMPTY_CATALOG), buildAreas: null, pathMask: new PathMaskState(), shape: {} };
   private readonly waiting = new Map<CoreJobKind, Waiting>();
   private draining = false;
+  /** Terrain jobs under way, by id: true once told to stop */
+  private readonly streams = new Map<number, boolean>();
 
   constructor(
     private readonly post: (reply: CoreReply, transfer?: ArrayBuffer[]) => void,
@@ -149,6 +165,14 @@ export class EditorCoreHost {
   receive(msg: CoreRequest): void {
     if (msg.type === 'start') {
       this.ctx.catalog = new CatalogIndex(msg.catalog);
+      return;
+    }
+    if (msg.type === 'stop') {
+      if (this.streams.has(msg.id)) this.streams.set(msg.id, true);
+      return;
+    }
+    if (msg.type === 'stream') {
+      this.stream(msg);
       return;
     }
     if (msg.type === 'cancel') {
@@ -177,6 +201,44 @@ export class EditorCoreHost {
       this.draining = true;
       this.later(() => this.drain());
     }
+  }
+
+  /**
+   * A terrain job slice by slice, a quiet moment between two: the messages that come meanwhile (a stop, a sync,
+   * another job) are in before the next slice
+   */
+  private stream(msg: Extract<CoreRequest, { type: 'stream' }>): void {
+    const id = msg.id;
+    let slices: Generator<TerrainJobMessage>;
+    try {
+      this.ctx.mirror.apply(msg.sync);
+      slices = runTerrainJob(terrainJob(this.ctx.mirror.doc, msg.input));
+    } catch (e) {
+      this.post({ id, error: packErrorReply(e), lost: true });
+      return;
+    }
+    this.streams.set(id, false);
+    const step = (): void => {
+      if (this.streams.get(id)) {
+        this.streams.delete(id);
+        this.post({ id, dropped: true });
+        return;
+      }
+      try {
+        const next = slices.next();
+        if (next.done) {
+          this.streams.delete(id);
+          return;
+        }
+        this.post({ id, part: next.value }, transferList(next.value));
+        if (next.value.kind === 'done') this.streams.delete(id);
+        else this.later(step);
+      } catch (e) {
+        this.streams.delete(id);
+        this.post({ id, error: packErrorReply(e) });
+      }
+    };
+    this.later(step);
   }
 
   /** The most urgent job waiting, then the next in another quiet moment */

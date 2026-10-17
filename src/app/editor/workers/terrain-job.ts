@@ -2,9 +2,9 @@
  * Heavy terrain work off the page: generating a preset over a big map and
  * eroding the whole map. A job runs in slices; each slice hands back what
  * changed (a band of rows, or all heights), so the editor shows the land
- * as it forms and can stop the job at any time. The same job runs in the
- * terrain worker (`terrain.worker.ts`) or, without workers, in slices on
- * the page.
+ * as it forms and can stop the job at any time. The job runs in the
+ * editor's worker (editor-core-host.ts, EditorCore.terrain) on its mirror of
+ * the map, a quiet moment between two slices.
  */
 import type { CustomMapDocument, MapGroundLayer, MapPaths, MapTerrain } from '../../world/custom-map/map-document';
 import { finishGenerated, generateRows, presetResult, type GenerateOptions, type GenerateResult } from '../../map-ops/generate';
@@ -118,53 +118,4 @@ function finish(f: GenerateFinish, grid: MapTerrain['grid'], result: GenerateRes
   const hasMaterial = new Set(f.materials);
   finishGenerated({ terrain, paths: f.paths } as CustomMapDocument, { ...result, water: null }, (m) => hasMaterial.has(m), f.repaint);
   return { kind: 'finished', heights: grid.heights, layers: terrain.layers, splat: terrain.splat.maps, progress: 1 };
-}
-
-/**
- * Runs a job in the terrain worker (or on the page when there are no
- * workers), calling `onMessage` for each slice. Resolves when it is done;
- * rejects with an AbortError when `signal` stops it.
- */
-export function startTerrainJob(job: TerrainJob, onMessage: (m: TerrainJobMessage) => void, signal?: AbortSignal): Promise<void> {
-  if (typeof Worker === 'undefined') return runInline(job, onMessage, signal);
-  return new Promise<void>((resolve, reject) => {
-    const worker = new Worker(new URL('./terrain.worker', import.meta.url), { type: 'module' });
-    const stop = () => {
-      worker.terminate();
-      reject(new DOMException('The terrain job was stopped', 'AbortError'));
-    };
-    if (signal?.aborted) return stop();
-    signal?.addEventListener('abort', stop, { once: true });
-    worker.onmessage = (e: MessageEvent<TerrainJobMessage | { kind: 'error'; message: string }>) => {
-      const m = e.data;
-      if (m.kind === 'error') {
-        worker.terminate();
-        reject(new Error(m.message));
-        return;
-      }
-      onMessage(m);
-      if (m.kind === 'done') {
-        signal?.removeEventListener('abort', stop);
-        worker.terminate();
-        resolve();
-      }
-    };
-    worker.onerror = (e) => {
-      worker.terminate();
-      reject(new Error(e.message || 'The terrain worker failed'));
-    };
-    // The worker gets its own copy; the page keeps showing its heights meanwhile
-    const copy = { ...job, heights: job.heights.slice() };
-    worker.postMessage(copy, [copy.heights.buffer]);
-  });
-}
-
-async function runInline(job: TerrainJob, onMessage: (m: TerrainJobMessage) => void, signal?: AbortSignal): Promise<void> {
-  // A copy as the worker gets one: the map's own ground stays as it is until the result lands
-  const copy = job.kind === 'generate' ? { ...job, heights: job.heights.slice(), finish: job.finish && structuredClone(job.finish) } : { ...job, heights: job.heights.slice() };
-  for (const m of runTerrainJob(copy)) {
-    if (signal?.aborted) throw new DOMException('The terrain job was stopped', 'AbortError');
-    onMessage(m);
-    await new Promise((r) => setTimeout(r, 0));
-  }
 }

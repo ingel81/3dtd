@@ -58,7 +58,7 @@ Desktop-App: die Webversion hat weder Server noch Schalter, Agent-Knopf und Band
 | `set_rules` | ändert | Regeln (`gameplay`), verworfen, wenn die Karte so nicht speicherbar wäre; unbekannte Schlüssel, `waves` in falscher Form (es gibt keine Wellenzahl) und `events` ohne Liste mit Beispiel abgelehnt (`checkRules`, auch für `map.gameplay`); `events` sind die Wellen-Ereignisse (Nachricht, Wetter, Tageszeit, Portal, Objekte), die ganze Liste ersetzt die der Karte |
 | `set_sky` | ändert | Himmel und Luft (`environment`), nur bekannte Schlüssel und Werte |
 | `set_map_info` | ändert | Name und Beschreibung der offenen Karte (Id und Datei bleiben), ein Schritt |
-| `erode_map` | ändert | Erosion der ganzen Karte wie im Map-Panel, im Terrain-Worker, sichtbar während sie läuft |
+| `erode_map` | ändert | Erosion der ganzen Karte wie im Map-Panel, im Editor-Worker, sichtbar während sie läuft |
 | `resize_map` | ändert | Größe ändern oder beschneiden um die Mitte, wie im Map-Panel |
 | `increase_detail` | ändert | grobes Gelände alter Karten auf 2 m verfeinern |
 | `import_heightmap` | ändert | Höhen aus einer 16-Bit-PNG- oder RAW-Datei (base64), schwarz `low`, weiß `high` |
@@ -108,8 +108,8 @@ ist, was der echte Aufruf geantwortet hätte, `changes` der Unterschied der Kopi
 `agent-reads.ts`: verschobene Höhenpunkte mit größtem Heben und Senken und Rechteck, Farbe, Wasser, Objekte neu,
 weg, geändert je Asset, Straßen, Spawns, HQ, Himmel, Regeln, Intro-Flug, Name, Größe), `check` die Befunde des Prüfens der Kopie.
 Ein abgelehnter Aufruf antwortet wie ohne `dry_run`. `run_script` spielt im Probelauf auf der Kopie ab (ohne Animation),
-statt wie bis Teil 1 nur die Sandbox laufen zu lassen; die Erosion läuft im eigenen Terrain-Worker auf den Höhen der
-Kopie.
+statt wie bis Teil 1 nur die Sandbox laufen zu lassen; die Erosion läuft im Editor-Worker auf den Höhen der Kopie
+(sie gehen mit dem Auftrag hinüber).
 
 ## Im Editor: Agent-Knopf und Agenten-Band
 

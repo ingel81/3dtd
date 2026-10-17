@@ -3,7 +3,7 @@ import { finishGenerated, generateTerrain } from '../../map-ops/generate';
 import { addNode, connect } from '../../map-ops/path-graph';
 import { emptyWater } from '../../map-ops/water-ops';
 import { erodeMap } from '../ops/landscape/erosion';
-import { runTerrainJob, startTerrainJob, transferList, type TerrainJob } from './terrain-job';
+import { runTerrainJob, transferList, type TerrainJob } from './terrain-job';
 
 function terrain() {
   return createMapDocument({ id: 'm', name: 'M', width: 400, depth: 400, cellSize: 2, now: new Date(0) }).terrain;
@@ -86,20 +86,5 @@ describe('terrain jobs', () => {
     let moved = 0;
     for (let k = 0; k < before.length; k++) moved += Math.abs(before[k] - a.grid.heights[k]);
     expect(moved).toBeGreaterThan(1);
-  });
-
-  it('stops when told to, on the page as in a worker', async () => {
-    const t = terrain();
-    const stop = new AbortController();
-    let seen = 0;
-    const run = startTerrainJob(
-      { kind: 'generate', width: t.width, depth: t.depth, columns: t.grid.columns, rows: t.grid.rows, cellSize: 2, heights: t.grid.heights, options: { preset: 'hills', seed: 1, strength: 0.5 } },
-      () => {
-        if (++seen === 1) stop.abort();
-      },
-      stop.signal,
-    );
-    await expect(run).rejects.toMatchObject({ name: 'AbortError' });
-    expect(seen).toBe(1);
   });
 });

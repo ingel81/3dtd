@@ -27,7 +27,6 @@ import { detailCommand, environmentCommand, heightmapRangeOk, importHeights, met
 import { MAP_TEMPLATES } from '../ops/landscape/templates';
 import { TERRAIN_PRESETS, type TerrainPreset } from '../../map-ops/generate';
 import { ALL_PARTS, capturePrefab, captureStamp, pasteStamp, type Stamp, type StampParts, type StampRect } from '../ops/stamp';
-import { erodeJob, startTerrainJob } from '../workers/terrain-job';
 import type { MapIssue } from '../../map-ops/validation/map-validation';
 import { strictMapProblems } from '../../world/custom-map/map-file';
 import type { MapStore } from '../../world/custom-map/map-store';
@@ -78,8 +77,10 @@ export interface AgentHost {
   refresh(): void;
   /** An edit that plays over a while, as one undo step; the map goes back when `play` throws */
   agentEdit<T>(label: string, play: (editor: EditorDocument, signal: AbortSignal, progress: (share: number) => void) => Promise<T>): Promise<T>;
-  /** Erosion of the whole map in the terrain worker as one undo step named `label`; false when it was stopped */
+  /** Erosion of the whole map in the editor's worker as one undo step named `label`; false when it was stopped */
   erodeWholeMap(strength: number, seed: number, label: string): Promise<boolean>;
+  /** The heights of a copy eroded the same way (a dry run); null when nothing came back */
+  erodeCopy(g: { columns: number; rows: number; cellSize: number; heights: Float32Array }, strength: number, seed: number): Promise<Float32Array | null>;
   /** Stops a job of the agent's that is running (a script playing, the erosion) */
   cancelAgentJob(): void;
   /** The map changed its size: the view frames it anew */
@@ -846,15 +847,16 @@ class DryHost implements AgentHost {
     return play(this.editor, new AbortController().signal, () => undefined);
   }
 
-  /** The erosion job on the copy's heights, in its own worker */
+  /** The erosion job on the copy's heights, in the editor's worker */
   async erodeWholeMap(strength: number, seed: number): Promise<boolean> {
     const g = this.editor.doc.terrain.grid;
-    let latest: Float32Array | null = null;
-    await startTerrainJob(erodeJob(g, strength, seed), (m) => {
-      if (m.kind === 'heights') latest = m.heights;
-    });
-    if (latest) g.heights.set(latest);
+    const eroded = await this.real.erodeCopy(g, strength, seed);
+    if (eroded) g.heights.set(eroded);
     return true;
+  }
+
+  erodeCopy(g: { columns: number; rows: number; cellSize: number; heights: Float32Array }, strength: number, seed: number): Promise<Float32Array | null> {
+    return this.real.erodeCopy(g, strength, seed);
   }
 
   cancelAgentJob(): void {
