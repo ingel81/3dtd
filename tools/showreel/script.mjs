@@ -1,0 +1,56 @@
+// The showreel programme: scenes as data, played in order by run.mjs. A scene with `page` loads that page
+// (`opened`: the window the editor's Test map asked for); one without plays on where the last one ended.
+// `leave` on a scene: after its steps the runner clicks that element and follows the page the app goes to
+// (Edit this map from the pause menu); `arrives` names the page a scene ends on, for a run that starts after it.
+// Steps run on the page's frame clock (src/app/showreel/director.ts); `label` leaves a time mark for the cut,
+// `effect:<what>` the moment a change has visibly taken effect (the cut ends a beat after it, not mid-action).
+//
+// Points: [fx, fy, h] are shares of the map's width and depth around its middle (east, north) with h metres
+// above the ground there (the water surface where water lies); { at, dx, dy, h } metres from a named spot: 'hq', 'center', 'spawn:0', in the editor
+// 'node:-1' (newest road node), 'river:0:3' (a river point), 'object:<asset>' or 'object:last', in the game
+// 'spot:<i>' and 'spots' (tower spots from planTowers); { m: [x, y], h } metres on the map. Without h: on the
+// ground, followed live. Orbit angles in degrees, 0 = the camera south of the centre looking north,
+// counter-clockwise.
+//
+// Takes (take.mjs, run.mjs --scene): a scene with `start` begins on its own fixed state (`{ editor: map }` or
+// `{ game: map, save }`, fixtures in tmp/showreel/fixtures) with its `env` set and checked first; one without a
+// start but with its own `page` loads that page. The others build on the scene before them and run in the
+// programme only, until they get a start.
+//
+// UI per step: { do: 'ui', on } the page's UI or a clean frame (game: photo mode; editor: without header, tool
+// column, side column, status bar and minimap), { do: 'legend', on } the editor's mouse legend (off by default),
+// { do: 'markers', on } the game's HQ diamond and name signs. Fly-overs and the outro play clean, editor and
+// game with their full UI.
+//
+// Programme (round 3, 2026-10-16): a short intro over Ember Crater, Red Canyon and Demo Valley; into the editor from
+// Demo Valley's pause menu, hopping between Demo Valley, Mars Canyon, Moon Base and Red Canyon (own copies of the
+// shipped maps); Fire and Ice built from frozen ground; the Warcraft 3 import; the shipped maps after today's round
+// (autumn, lights at night, buoys, cliffs); a fight on Red Canyon with the new towers, played to the boss's fall;
+// the outro on Moon Base under the Earth.
+
+import { SCENES as INTRO } from './scenes/intro.mjs';
+import { SCENES as EDITOR } from './scenes/editor.mjs';
+import { SCENES as EDITOR2 } from './scenes/editor2.mjs';
+import { SCENES as W3X } from './scenes/w3x.mjs';
+import { SCENES as WORLDS } from './scenes/worlds.mjs';
+import { SCENES as GAME } from './scenes/game.mjs';
+import { SCENES as OUTRO } from './scenes/outro.mjs';
+import { FIXTURES as PROOF_FIXTURES, SCENES as PROOF } from './scenes/proof.mjs';
+// Round 4 (tmp/showreel/DREHBUCH_R4.md): each chapter's scenes as takes of their own
+import { SCENES as R4_K0 } from './scenes/r4-k0.mjs';
+import { SCENES as R4_K1 } from './scenes/r4-k1.mjs';
+import { SCENES as R4_K2 } from './scenes/r4-k2.mjs';
+import { FIXTURES as R4_K3_FIXTURES, SCENES as R4_K3 } from './scenes/r4-k3.mjs';
+import { SCENES as R4_K4 } from './scenes/r4-k4.mjs';
+import { FIXTURES as R4_K5_FIXTURES, SCENES as R4_K5 } from './scenes/r4-k5.mjs';
+import { FIXTURES as R4_K6_FIXTURES, SCENES as R4_K6 } from './scenes/r4-k6.mjs';
+import { FIXTURES as R4_K7_FIXTURES, SCENES as R4_K7 } from './scenes/r4-k7.mjs';
+
+/** The programme in order; each part lives in scenes/ (common.mjs has the helpers) */
+export const SCENES = [...INTRO, ...EDITOR, ...EDITOR2, ...W3X, ...WORLDS, ...GAME, ...OUTRO];
+
+/** Scenes taken on their own only (run.mjs --scene), not part of the programme's run */
+export const TAKES = [...PROOF, ...R4_K0, ...R4_K1, ...R4_K2, ...R4_K3, ...R4_K4, ...R4_K5, ...R4_K6, ...R4_K7];
+
+/** The generated start states of the takes, made in this order by fixtures.mjs (a later one may start from an earlier) */
+export const FIXTURES = [...PROOF_FIXTURES, ...R4_K3_FIXTURES, ...R4_K5_FIXTURES, ...R4_K6_FIXTURES, ...R4_K7_FIXTURES];

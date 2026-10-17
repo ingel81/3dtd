@@ -1,0 +1,266 @@
+/**
+ * The showreel hook (tools/showreel, README.md there): loaded by main.ts
+ * only in a development build and only with `?showreel` in the address. It
+ * taps the game's sound before the app starts, hides the real pointer and
+ * the frame counters, and puts `__showreel` on the page for the runner:
+ * scenes to play, the sync mark, the sound recording, the windows the page
+ * asked to open.
+ */
+import type { Injector, Provider } from '@angular/core';
+import { CUSTOM_MAPS_OPEN } from '../world/custom-maps-open';
+import { pageSwitches } from '../core/page-switches';
+import { installAgentBridge } from './agent-bridge';
+import { AudioRecording, installAudioTap } from './audio-tap';
+import { Director, type Mark, type Scene } from './director';
+import { EditorStage } from './editor-stage';
+import { GameStage } from './game-stage';
+import { MenuStage } from './menu-stage';
+import { Hands, nextFrame, waitUntil } from './hands';
+import { ShowreelPointer } from './pointer';
+import type { Stage } from './stage';
+import { cameraRow, type CameraRow } from './camera-floor';
+import type { MapEnvironment } from '../world/custom-map/map-document';
+import type { LoadResult, SaveResult } from '../services/save-game/save-game.port';
+
+/** Frame counters and dev overlays out of the picture, the real pointer hidden */
+const STYLE = `
+html.showreel, html.showreel * { cursor: none !important; }
+html.showreel app-info-overlay,
+html.showreel .td-photo-bar,
+html.showreel [data-test=fps],
+html.showreel span:has(+ [data-test=fps]) { display: none !important; }
+/* Script switches (director steps ui, legend): the editor's legend, and the editor without its frame */
+html.showreel.sr-no-legend [data-test=legend],
+html.showreel.sr-no-legend [data-test=legend-open],
+html.showreel.sr-clean .es-top,
+html.showreel.sr-clean .es-tools,
+html.showreel.sr-clean .es-side,
+html.showreel.sr-clean .es-status,
+html.showreel.sr-clean .es-minimap,
+html.showreel.sr-clean .es-trial { display: none !important; }
+html.showreel.sr-clean .es-root { grid-template: 'view' minmax(0, 1fr) / minmax(0, 1fr) !important; }
+/* The editor's map list, new-map form and import report: larger, so their text reads in the video */
+html.showreel .mb-panel { zoom: 1.25; }
+/* The agent band (the AI agent take): larger, so the agent's name and its call read in the video */
+html.showreel app-agent-band { zoom: 1.4; }
+/* An intro page (?showreel=intro): the game's HUD out from the first frame, as photo mode has it, before photo
+   mode can be entered; the scene (route lines, HQ and spawn markers) and the loading globe stay */
+html.showreel.sr-hud-off app-game-header,
+html.showreel.sr-hud-off app-game-sidebar,
+html.showreel.sr-hud-off .notice-banner,
+html.showreel.sr-hud-off .td-canvas-area > :not(canvas):not(app-globe-backdrop):not(.td-error-overlay):not(td-token-setup) { display: none !important; }
+`;
+
+/** How long the sync flash stays white: several frames of a 60 fps capture */
+const FLASH_MS = 120;
+
+export interface ShowreelApi {
+  /** Resolves once the page's stage (game or editor) shows its map */
+  ready(timeoutS?: number): Promise<string>;
+  run(scene: Scene): Promise<Mark[]>;
+  /** The sync mark: white for FLASH_MS and a click into the recording at its first frame; resolves with that frame's time */
+  sync(): Promise<{ t: number; audioT: number }>;
+  audio: {
+    start(): Promise<{ mimeType: string; state: string; startedAt: number }>;
+    stop(): Promise<number>;
+    piece(offset: number, length: number): string;
+    length(): number;
+  };
+  /** Addresses the page asked to open in another window (the editor's Test map), newest last */
+  opened: string[];
+  marks: Mark[];
+  /** Every mark the director left so far, also of a scene that stopped half way */
+  progress(): Mark[];
+  /** The camera log of a take: one row per frame (camera-floor.ts CameraRow), whoever holds the camera */
+  camera: { start(): void; stop(): CameraRow[] };
+  /** A take's fixed start (tools/showreel/take.mjs): the map or save, its state to check, the camera floor */
+  take: {
+    /** Editor: a `.3dtdmap` stored as an own map with the environment patched in; its id */
+    importMap(base64: string, environment?: Partial<MapEnvironment>): Promise<string>;
+    /** Editor: a new own map as the New map form makes it; its id */
+    newMap(options: Parameters<EditorStage['newMap']>[0]): Promise<string>;
+    /** Editor: one agent call (run_script plays MapKit commands on the open map) */
+    agent(tool: string, args: Record<string, unknown>): Promise<{ text: string; isError?: boolean }>;
+    /** Editor: the open map as a file */
+    mapFile(): { name: string; base64: string };
+    /** Game: a save file loaded */
+    loadSave(base64: string, name: string): Promise<LoadResult>;
+    /** Game: the run saved and downloaded as a file */
+    exportSave(name: string): Promise<SaveResult>;
+    /** Game: the credits set to a normal sum */
+    setCredits(value: number): Promise<number>;
+    /** Metres the director's camera keeps above the ground */
+    floor(metres: number): void;
+    /** The page's state for the runner's check of the start: window, environment, overlays */
+    state(): Record<string, unknown>;
+    /** The renderer's programs, geometries and textures: unchanged while nothing more loads */
+    renderer(): string | null;
+    /** Milliseconds a pixel takes to read back (the GPU process caught up), null without a context */
+    gpu(): number | null;
+  };
+}
+
+/** What the showreel's app gets on top of its own: the custom maps open (the pause menu's Edit this map, the editor) */
+export const SHOWREEL_PROVIDERS: Provider[] = [{ provide: CUSTOM_MAPS_OPEN, useValue: true }];
+
+/** Before the app starts: the sound tap and the page's look; the editor's tour stays away, its legend until a script shows it */
+export function installShowreelEarly(): void {
+  installAudioTap();
+  document.documentElement.classList.add('showreel', 'sr-no-legend');
+  // The runner asks for an intro page with `showreel=intro`: the game's intro flight plays without its HUD
+  const asked = pageSwitches().get('showreel');
+  if (asked === 'intro' || asked === 'clean') document.documentElement.classList.add('sr-hud-off');
+  // `showreel=nointro`: the flight is switched off as soon as the engine offers its handle, before the map stands
+  if (asked === 'nointro') {
+    const off = setInterval(() => {
+      const f = (globalThis as { __flight?: { setEnabled(v: boolean): void } }).__flight;
+      if (!f) return;
+      f.setEnabled(false);
+      clearInterval(off);
+    }, 20);
+  }
+  // `agent=<port>`: the desktop app's agent bridge, over the showreel's relay (tools/showreel/agent)
+  const agentPort = Number(pageSwitches().get('agent'));
+  if (agentPort) installAgentBridge(agentPort);
+  const style = document.createElement('style');
+  style.textContent = STYLE;
+  document.head.append(style);
+  try {
+    localStorage.setItem('3dtd-editor-tour', 'done');
+  } catch {
+    // storage blocked: the tour shows, the script can still skip it
+  }
+}
+
+/** Once the app runs: the director on `__showreel` */
+export function startShowreel(injector: Injector): void {
+  const opened: string[] = [];
+  // The editor's Test map opens the game in another window; the runner opens it in this one instead
+  window.open = ((url?: string | URL) => {
+    if (url) opened.push(String(url));
+    return null;
+  }) as typeof window.open;
+
+  let pointer: ShowreelPointer | null = null;
+  const hands = (): Hands => new Hands((pointer ??= new ShowreelPointer()));
+  let game: GameStage | null = null;
+  let editor: EditorStage | null = null;
+  let menu: MenuStage | null = null;
+  // The world menu stands while no world is open (game-host.component.ts), the game once one is
+  const stage = (): Stage =>
+    location.pathname.startsWith('/editor')
+      ? (editor ??= new EditorStage())
+      : document.querySelector('app-worlds-stage')
+        ? (menu ??= new MenuStage(hands()))
+        : (game ??= new GameStage(injector, hands()));
+  let director: Director | null = null;
+  const directorOf = (): Director => (director ??= new Director(stage, hands()));
+  let recording: AudioRecording | null = null;
+  const marks: Mark[] = [];
+  let cameraRows: CameraRow[] = [];
+  let cameraLoop = 0;
+  const logCamera = (t: number): void => {
+    cameraLoop = requestAnimationFrame(logCamera);
+    const s = stage();
+    const pose = s.pose();
+    if (pose) cameraRows.push(cameraRow(t, pose, s.groundAt(pose.eye.x, pose.eye.y), s.waterAt(pose.eye.x, pose.eye.y)));
+  };
+  const asEditor = (): EditorStage => {
+    const s = stage();
+    if (!(s instanceof EditorStage)) throw new Error('showreel: not the editor');
+    return s;
+  };
+  const asGame = (): GameStage => {
+    const s = stage();
+    if (!(s instanceof GameStage)) throw new Error('showreel: not the game');
+    return s;
+  };
+
+  const api: ShowreelApi = {
+    async ready(timeoutS = 120) {
+      // Asked anew each time: while the app starts, the menu or the game may not stand yet
+      await waitUntil(() => stage().ready(), timeoutS, `the ${stage().kind} to show its map`);
+      return stage().kind;
+    },
+    async run(scene) {
+      const run = await directorOf().run(scene);
+      marks.push(...run);
+      return run;
+    },
+    async sync() {
+      const flash = document.createElement('div');
+      Object.assign(flash.style, { position: 'fixed', inset: '0', background: '#fff', zIndex: '2147483647', pointerEvents: 'none' });
+      // Appended in a frame's callback, the flash shows in that frame: the click goes with it
+      const t = await nextFrame();
+      document.body.append(flash);
+      const audioT = recording?.click() ?? 0;
+      marks.push({ t, kind: 'mark', scene: '', label: 'sync' });
+      // Held by time, not frames: on a 144 Hz display two frames are 14 ms, which a 60 fps capture can miss
+      while ((await nextFrame()) - t < FLASH_MS) {
+        // white on screen
+      }
+      flash.remove();
+      return { t, audioT };
+    },
+    audio: {
+      async start() {
+        recording = new AudioRecording();
+        const started = await recording.start();
+        return { ...started, startedAt: recording.startedAt };
+      },
+      stop: () => recording?.stop() ?? Promise.resolve(0),
+      piece: (offset, length) => recording?.piece(offset, length) ?? '',
+      length: () => recording?.base64Length ?? 0,
+    },
+    opened,
+    marks,
+    progress: () => director?.marks.slice() ?? [],
+    camera: {
+      start() {
+        cancelAnimationFrame(cameraLoop);
+        cameraRows = [];
+        cameraLoop = requestAnimationFrame(logCamera);
+      },
+      stop() {
+        cancelAnimationFrame(cameraLoop);
+        return cameraRows;
+      },
+    },
+    take: {
+      importMap: (base64, environment) => asEditor().importMap(base64, environment),
+      newMap: (options) => asEditor().newMap(options),
+      agent: (tool, args) => asEditor().agent(tool, args),
+      mapFile: () => asEditor().mapFile(),
+      loadSave: (base64, name) => asGame().loadSave(base64, name),
+      exportSave: (name) => asGame().exportSave(name),
+      setCredits: (value) => asGame().setCredits(value),
+      floor(metres) {
+        stage().cameraFloor = metres;
+      },
+      state() {
+        const s = stage();
+        return {
+          kind: s.kind,
+          window: `${innerWidth}x${innerHeight}`,
+          dpr: devicePixelRatio,
+          quality: localStorage.getItem('td_render_quality_v1'),
+          floor: s.cameraFloor,
+          ...(s instanceof EditorStage || s instanceof MenuStage ? s.state() : (s as GameStage).state()),
+        };
+      },
+      renderer: () => stage().rendererState(),
+      /**
+       * Milliseconds one pixel takes to read back: the read waits for the GPU process, where ANGLE compiles a
+       * program's shaders on its first draw while the page's frames run on (the picture holds for seconds then)
+       */
+      gpu(): number | null {
+        const gl = stage().gl();
+        if (!gl) return null;
+        const t0 = performance.now();
+        gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4));
+        return performance.now() - t0;
+      },
+    },
+  };
+  (globalThis as Record<string, unknown>)['__showreel'] = api;
+}
