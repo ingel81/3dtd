@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { Injector } from '@angular/core';
 import { UrlLocationService } from '../services/location/url-location.service';
 import { DevWorldService } from '../devworld/devworld.service';
-import { PLAIN_START, WorldStartService, addressWithoutLink, orderHere, worldStartFromSearch } from './world-start';
+import { PLAIN_START, WorldStartService, addressWithoutLink, orderHere, pageTakesLinks, worldStartFromSearch } from './world-start';
 
 /**
  * The start order (docs/WORLDS_NAVIGATION_PLAN.md, phase 1): a link is read
@@ -79,6 +79,18 @@ describe('WorldStart', () => {
 
     // A reload: the same page without the link
     expect(page().get(WorldStartService).current()).toEqual(PLAIN_START);
+  });
+
+  it('leaves the address of a page of its own as it is: /map-preview keeps its map', () => {
+    window.history.replaceState({}, '', '/map-preview?map=mountain-pass&l=1,2');
+    expect(page().get(WorldStartService).current()).toEqual(PLAIN_START);
+    expect(window.location.search).toBe('?map=mountain-pass&l=1,2');
+    expect(pageTakesLinks('http://h/', 'http://h/')).toBe(true);
+    expect(pageTakesLinks('http://h/editor?map=x', 'http://h/')).toBe(true);
+    expect(pageTakesLinks('http://h/play/?l=1,2', 'http://h/play/')).toBe(true);
+    expect(pageTakesLinks('http://h/play', 'http://h/play/')).toBe(true);
+    expect(pageTakesLinks('http://h/play/map-preview?map=x', 'http://h/play/')).toBe(false);
+    expect(pageTakesLinks('http://h/engine-test', 'http://h/')).toBe(false);
   });
 
   it("has DevWorld's ref as the world of a `?devworld` start", () => {

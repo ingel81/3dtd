@@ -143,6 +143,21 @@ export function addressWithoutLink(href: string): string {
   return url.toString();
 }
 
+/** The pages of the game's window (app.routes.ts: the shell's game and editor), the only ones a link opens */
+const LINK_PAGES = ['', 'editor'];
+
+/**
+ * Whether the page at `href` is one of the game's window, whose address is a
+ * link to read (LINK_PAGES); a page of its own (`/map-preview`,
+ * `/engine-test`) keeps its parameters, `map` among them
+ */
+export function pageTakesLinks(href: string, base: string): boolean {
+  const root = new URL(base).pathname.replace(/\/?$/, '/');
+  const path = new URL(href).pathname;
+  if (!path.startsWith(root) && `${path}/` !== root) return false;
+  return LINK_PAGES.includes(path.slice(root.length).replace(/\/$/, ''));
+}
+
 /**
  * The start order of the open world. The page's start reads it from the
  * link once and takes the link's parameters out of the address
@@ -177,6 +192,10 @@ export class WorldStartService {
 
   private fromAddress(): WorldStart {
     if (typeof window === 'undefined') return PLAIN_START;
+    // Another page's parameters are its own: nothing read, nothing taken out of its address
+    // The app's root from <base href> (index.html), not the page's own address where there is none
+    const base = new URL(document.querySelector('base')?.getAttribute('href') ?? '/', window.location.href).href;
+    if (!pageTakesLinks(window.location.href, base)) return PLAIN_START;
     const search = window.location.search;
     const order = worldStartFromSearch(search, (query) => this.links.parseLink(query));
     const clean = addressWithoutLink(window.location.href);

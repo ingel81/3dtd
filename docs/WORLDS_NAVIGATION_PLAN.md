@@ -346,7 +346,8 @@ Offen bleibt nur, was beim Bauen auffällt; die Reihenfolge der Phasen steht in 
 - `world/world-start.ts`: `WorldStart` (Welt, Ort, Spielstand, Coop-Raum, Spawn-Grenze, Startwelle) und
   `WorldStartService` (root). Beim ersten Zugriff liest er die Adresse einmal (`worldStartFromSearch`), nimmt die
   Link-Parameter heraus (`LINK_PARAMS`: `l`, `s`, `world`, `resume`, `room`, `lane`) und schreibt die bereinigte
-  Adresse per `replaceState`. Neuladen startet danach ohne Auftrag: Startort-Raten (Autosave, zuletzt gespielt) wie
+  Adresse per `replaceState` (nur auf den Seiten des Spielfensters, `/` und `/editor` relativ zur base href,
+  `pageTakesLinks`; eigene Seiten wie `/map-preview?map=` behalten ihre Parameter). Neuladen startet danach ohne Auftrag: Startort-Raten (Autosave, zuletzt gespielt) wie
   beim Start ohne Link. Ein Spielstand des Auftrags lädt einmal (`takeResume`). DevWorld (`?devworld`) bleibt ein
   Schalter, sein `WorldRef` ist die Welt des Auftrags.
 - Schalter der Entwicklung bleiben in der Adresse, weil Bot-Tabs auf ihnen neu laden: `devworld` samt Parametern,
