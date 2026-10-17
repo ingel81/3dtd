@@ -40,7 +40,7 @@ function world(areas: OsmArea[], slope = 0): { doc: CustomMapDocument; features:
   doc.hq = { x: 90, y: 0 };
   doc.spawns = [];
   doc.objects = [];
-  return { doc, features: { frame: new OsmFrame(0, 0), half: 100, ways: [], areas, points: [], stats: { elements: 0, ways: 0, relations: 0, points: 0, areas: 0, forcedRings: 0, areasOutside: 0 } } };
+  return { doc, features: { frame: new OsmFrame(0, 0), half: 100, ways: [], areas, points: [], stats: { elements: 0, ways: 0, relations: 0, points: 0, areas: 0, forcedRings: 0, cutAreas: 0, turnedAreas: 0, areasOutside: 0 } } };
 }
 
 describe('OSM buildings: shapes and models', () => {

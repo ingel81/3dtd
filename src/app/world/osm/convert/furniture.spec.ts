@@ -20,7 +20,7 @@ function world(ways: OsmWay[], points: OsmPoint[] = [], areas: OsmArea[] = []): 
   doc.objects = [];
   const n = sampleGrid(200, 2).n * sampleGrid(200, 2).n;
   const water = { wet: new Uint8Array(n), sea: new Uint8Array(n) } as WaterResult;
-  const features: OsmFeatures = { frame: new OsmFrame(0, 0), half: 100, ways, areas, points, stats: { elements: 0, ways: 0, relations: 0, points: 0, areas: 0, forcedRings: 0, areasOutside: 0 } };
+  const features: OsmFeatures = { frame: new OsmFrame(0, 0), half: 100, ways, areas, points, stats: { elements: 0, ways: 0, relations: 0, points: 0, areas: 0, forcedRings: 0, cutAreas: 0, turnedAreas: 0, areasOutside: 0 } };
   return { doc, features, water };
 }
 

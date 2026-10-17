@@ -2,7 +2,8 @@ import { heightAt } from '../../../map-ops/grid';
 import { createMapDocument } from '../../custom-map/map-create';
 import type { MapPaths, MapPoint, MapTerrain } from '../../custom-map/map-document';
 import { landClassOf, waterClassOf, waterwayOf } from '../land-tags';
-import { OsmFrame, ringArea, type OsmArea, type OsmFeatures, type OsmWay } from '../osm-parse';
+import { OsmFrame, type OsmArea, type OsmFeatures, type OsmWay } from '../osm-parse';
+import { ringArea } from '../square-clip';
 import { carveWater, coastMask, settleWater } from './water';
 import { sampleGrid } from './raster';
 
@@ -19,7 +20,7 @@ function terrain(ground: (x: number, y: number) => number): MapTerrain {
 function features(o: { ways?: Partial<OsmWay>[]; areas?: Partial<OsmArea>[] }): OsmFeatures {
   const areas = (o.areas ?? []).map((a, k) => ({ id: k + 1, from: 'way' as const, tags: {}, outer: [], inner: [], ...a, area: Math.abs(ringArea(a.outer![0])) }));
   const ways = (o.ways ?? []).map((w, k) => ({ id: 100 + k, tags: {}, nodes: [], points: [], ...w }));
-  return { frame: new OsmFrame(50, 10), half: SIDE / 2, ways, areas, points: [], stats: { elements: 0, ways: 0, relations: 0, points: 0, areas: 0, forcedRings: 0, areasOutside: 0 } };
+  return { frame: new OsmFrame(50, 10), half: SIDE / 2, ways, areas, points: [], stats: { elements: 0, ways: 0, relations: 0, points: 0, areas: 0, forcedRings: 0, cutAreas: 0, turnedAreas: 0, areasOutside: 0 } };
 }
 
 const square = (x: number, y: number, r: number): MapPoint[] => [
