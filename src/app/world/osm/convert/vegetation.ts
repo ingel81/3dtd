@@ -15,10 +15,10 @@
  * go by priority (single trees and rows first, then by nearness to a route
  * and their roll), and so does a cap on their number.
  */
-import { hashCell } from '../../../editor/ops/landscape/landscape-noise';
-import { resample } from '../../../editor/ops/landscape/lines';
-import { ObjectIds } from '../../../editor/ops/object-ops';
-import { spawnRoutes } from '../../../editor/ops/path-graph';
+import { hashCell } from '../../../map-ops/landscape-noise';
+import { resample } from '../../../map-ops/lines';
+import { ObjectIds } from '../../../map-ops/object-ops';
+import { spawnRoutes } from '../../../map-ops/path-graph';
 import type { CustomMapDocument, MapObject, MapPoint } from '../../custom-map/map-document';
 import { objectCost, SCENE_BUDGET, type CostEntry } from '../../custom-map/render/objects/scene-cost';
 import type { LandClass } from '../land-tags';

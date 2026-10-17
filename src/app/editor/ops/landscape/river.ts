@@ -12,11 +12,11 @@
  * width and surface height that the renderer draws as a flowing ribbon.
  */
 import type { MapPoint, MapRiver } from '../../../world/custom-map/map-document';
-import { heightAt, sampleX, sampleY, slopeAt, texelX, texelY, type GridRect } from '../../model/grid';
-import { MAX_LAYERS, readWeights, writeWeights } from '../paint-ops';
-import { edgePolyline, nearestOnPolyline, newId, pointAt, polylineLength, splitEdge } from '../path-graph';
-import { resample, segmentCross } from './lines';
-import { smooth } from './landscape-noise';
+import { heightAt, sampleX, sampleY, slopeAt, texelX, texelY, type GridRect } from '../../../map-ops/grid';
+import { MAX_LAYERS, readWeights, writeWeights } from '../../../map-ops/paint-ops';
+import { edgePolyline, nearestOnPolyline, newId, pointAt, polylineLength, splitEdge } from '../../../map-ops/path-graph';
+import { resample, segmentCross } from '../../../map-ops/lines';
+import { smooth } from '../../../map-ops/landscape-noise';
 import type { LandscapeStroke } from './landscape-stroke';
 
 export interface RiverOptions {

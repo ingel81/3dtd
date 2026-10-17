@@ -4,12 +4,12 @@ import { createMapDocument } from '../../../world/custom-map/map-create';
 import { contentBytes } from '../../../world/custom-map/map-file';
 import { CatalogIndex, normalizeCatalog } from '../../catalog/asset-catalog';
 import { EditorDocument } from '../../model/editor-document';
-import { heightAt } from '../../model/grid';
+import { heightAt } from '../../../map-ops/grid';
 import { editRoads, rebuildRoads, setRoadSurface } from '../../tools/path-tool';
-import { moveNode, nearestOnPolyline, edgePolyline } from '../path-graph';
+import { moveNode, nearestOnPolyline, edgePolyline } from '../../../map-ops/path-graph';
 import { LandscapeStroke } from './landscape-stroke';
 import { DEFAULT_ROAD, buildRoad } from './road';
-import { readWeights } from '../paint-ops';
+import { readWeights } from '../../../map-ops/paint-ops';
 import { DEFAULT_RIVER, carveRiver, moveRiverBed } from './river';
 
 const catalog = new CatalogIndex(

@@ -5,7 +5,7 @@
  * pixel is darkened or brightened by how its ground faces a light from the
  * north-west, as on a relief map; flat ground keeps its colour.
  */
-import { heightAt } from '../model/grid';
+import { heightAt } from '../../map-ops/grid';
 import type { MapTerrain } from '../../world/custom-map/map-document';
 
 /** Light from the north-west, 45 degrees up (x east, y north, z up) */

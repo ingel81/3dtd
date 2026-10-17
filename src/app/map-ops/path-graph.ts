@@ -6,7 +6,7 @@
  * the nearest point. Everything here edits `MapPaths` in place; the tool
  * wraps it in a snapshot command.
  */
-import { MinHeap } from '../../utils/street-astar';
+import { MinHeap } from '../utils/street-astar';
 import type {
   CustomMapDocument,
   MapPathEdge,
@@ -14,7 +14,7 @@ import type {
   MapPathNode,
   MapPaths,
   MapPoint,
-} from '../../world/custom-map/map-document';
+} from '../world/custom-map/map-document';
 
 export const DEFAULT_PATH_WIDTH = 8;
 

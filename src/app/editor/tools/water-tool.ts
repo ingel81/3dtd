@@ -12,8 +12,8 @@
 import type { CatalogIndex } from '../catalog/asset-catalog';
 import type { CustomMapDocument, MapRiver, MapTerrain, MapWater, MapWaterKind } from '../../world/custom-map/map-document';
 import type { DocChange, EditCommand, EditorDocument, PatchTarget } from '../model/editor-document';
-import { nearestSample, sampleRectAround, type GridRect } from '../model/grid';
-import { addPouredBodies, basinBrim, BODY_COLORS, emptyWater, fillBasin, fillFromEdge, hollowFloor, lakeDab, waterBody, waterMaskDab, wetSamples } from '../ops/water-ops';
+import { nearestSample, sampleRectAround, type GridRect } from '../../map-ops/grid';
+import { addPouredBodies, basinBrim, BODY_COLORS, emptyWater, fillBasin, fillFromEdge, hollowFloor, lakeDab, waterBody, waterMaskDab, wetSamples } from '../../map-ops/water-ops';
 import { pourOffThread, POUR_MAX_LAKES } from '../ops/pour';
 import { MAX_WATER_BODIES } from '../../world/custom-map/map-file';
 import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
@@ -24,7 +24,7 @@ import { RiverListCommand } from '../model/terrain-commands';
 import { BrushStroke } from './brush-stroke';
 import type { EditorTool, ToolContext, ToolPointer } from './tool';
 
-export { BODY_COLORS } from '../ops/water-ops';
+export { BODY_COLORS } from '../../map-ops/water-ops';
 
 /** Metres a fill may stay below the hollow's rim before the status line says so */
 const LOW_FILL = 1;

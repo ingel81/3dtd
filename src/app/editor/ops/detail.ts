@@ -13,7 +13,7 @@
 import type { CustomMapDocument, MapTerrain, MapWater } from '../../world/custom-map/map-document';
 import { refineGround } from './landscape/road-ground';
 import { DEFAULT_CELL_SIZE, splatResolutionFor } from '../../world/custom-map/map-create';
-import { heightAt } from '../model/grid';
+import { heightAt } from '../../map-ops/grid';
 
 export interface DetailTarget {
   cellSize: number;

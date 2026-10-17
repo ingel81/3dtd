@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { ENEMY_TYPES } from '../../../configs/enemy-types.config';
-import { polylineLength, spawnRoutes } from '../../ops/path-graph';
+import { polylineLength, spawnRoutes } from '../../../map-ops/path-graph';
 import { measureLine } from '../../tools/measure-tool';
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';

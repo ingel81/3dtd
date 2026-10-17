@@ -3,7 +3,7 @@
  * and along the ground, and the height climbed. Esc or a right click clears.
  */
 import type { MapPoint, MapTerrain } from '../../world/custom-map/map-document';
-import { heightAt } from '../model/grid';
+import { heightAt } from '../../map-ops/grid';
 import type { EditorTool, ToolContext, ToolPointer } from './tool';
 
 export interface MeasureResult {

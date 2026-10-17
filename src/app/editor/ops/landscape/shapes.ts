@@ -6,12 +6,12 @@
  * and no further.
  */
 import type { MapPoint } from '../../../world/custom-map/map-document';
-import { sampleRectAround, sampleX, sampleY, type GridRect } from '../../model/grid';
-import { brushWeight, type BrushSettings } from '../brush';
-import { nearestOnPolyline, polylineLength } from '../path-graph';
-import { HEIGHT_LIMITS } from '../terrain-ops';
+import { sampleRectAround, sampleX, sampleY, type GridRect } from '../../../map-ops/grid';
+import { brushWeight, type BrushSettings } from '../../../map-ops/brush';
+import { nearestOnPolyline, polylineLength } from '../../../map-ops/path-graph';
+import { HEIGHT_LIMITS } from '../../../map-ops/terrain-ops';
 import { FieldCache } from './field-cache';
-import { smooth } from './landscape-noise';
+import { smooth } from '../../../map-ops/landscape-noise';
 import type { LandscapeStroke } from './landscape-stroke';
 
 /** Share per second a form closes toward its target */

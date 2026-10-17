@@ -11,7 +11,7 @@
  * The same areas fill a land grid on the height samples, for the plants
  * (vegetation.ts): which class grows where.
  */
-import { MAX_LAYERS } from '../../../editor/ops/paint-ops';
+import { MAX_LAYERS } from '../../../map-ops/paint-ops';
 import { fitSplatMaps, type MapEnvironment, type MapTerrain } from '../../custom-map/map-document';
 import { LAND_GROUND, landClassOf, type LandClass } from '../land-tags';
 import type { OsmFeatures } from '../osm-parse';

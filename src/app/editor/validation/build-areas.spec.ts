@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createMapDocument } from '../../world/custom-map/map-create';
-import { emptyWater } from '../ops/water-ops';
-import { spawnRoutes } from '../ops/path-graph';
+import { emptyWater } from '../../map-ops/water-ops';
+import { spawnRoutes } from '../../map-ops/path-graph';
 import { BuildCell, TYPICAL_TOWER_RANGE, buildAreaInput, computeBuildAreas, type BuildAreas } from './build-areas';
 
 /** A 600 x 400 m starter map: a road from the west edge (spawn at -296, 0) to the HQ at (150, 0) */

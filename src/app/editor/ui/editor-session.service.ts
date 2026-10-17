@@ -5,7 +5,7 @@
  * the map check and the file actions. The panels read its signals; the
  * editing itself happens in the Angular-free model, ops and tools.
  */
-import type { GridRect } from '../model/grid';
+import type { GridRect } from '../../map-ops/grid';
 import { erodeJob, startTerrainJob, type TerrainJob, type TerrainJobMessage } from '../workers/terrain-job';
 import { packOffThread } from '../workers/map-pack';
 import type { DocChange } from '../model/editor-document';
@@ -33,7 +33,7 @@ import { ALL_DOC_PARTS, EditorDocument, EditorHeldError, SnapshotCommand, type E
 import { resizeMap } from '../ops/resize';
 import { detailTarget, increaseMapDetail } from '../ops/detail';
 import { mirrorMap, type MirrorResult } from '../ops/mirror-map';
-import { spawnRoutes } from '../ops/path-graph';
+import { spawnRoutes } from '../../map-ops/path-graph';
 import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
 import { decodePng, decodeRaw16, encodePng16, encodeRaw16, gridToImage, heightmapName, imageToHeights, squareImage } from '../ops/heightmap';
 import { LandscapeTool } from '../tools/landscape-tool';
@@ -43,7 +43,7 @@ import { StampTool } from '../tools/stamp-tool';
 import { MeasureTool } from '../tools/measure-tool';
 import { StampLibrary, stampEntry, type StampKeep } from '../model/stamp-store';
 import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
-import { finishGenerated, generateTerrain, type GenerateOptions, type GenerateResult } from '../ops/generate';
+import { finishGenerated, generateTerrain, type GenerateOptions, type GenerateResult } from '../../map-ops/generate';
 import type { Stamp, StampRect } from '../ops/stamp';
 import { ObjectTool } from '../tools/object-tool';
 import { PaintTool } from '../tools/paint-tool';
@@ -51,7 +51,7 @@ import { PathTool } from '../tools/path-tool';
 import { LifeTool, withLife } from '../tools/life-tool';
 import { TerrainTool } from '../tools/terrain-tool';
 import { PanelTool, TOOL_BRUSH_RADIUS, TOOLS, defaultSettings, type EditorSettings, type EditorTool, type ToolId } from '../tools/tool';
-import { DEFAULT_BRUSH, type BrushSettings } from '../ops/brush';
+import { DEFAULT_BRUSH, type BrushSettings } from '../../map-ops/brush';
 import { WaterTool } from '../tools/water-tool';
 import { assetCosts } from '../validation/map-budget';
 import { validateMap, type MapIssue } from '../validation/map-validation';

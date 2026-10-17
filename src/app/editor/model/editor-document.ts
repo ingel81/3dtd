@@ -27,7 +27,7 @@ import type {
   MapSpawn,
   MapTerrain,
 } from '../../world/custom-map/map-document';
-import { rectUnion, type GridRect } from './grid';
+import { rectUnion, type GridRect } from '../../map-ops/grid';
 import { applyPatches, patchBytes, type ArrayLayout, type PatchArray, type TilePatch } from './region-patch';
 
 /** What an edit touched; the view refreshes just that */

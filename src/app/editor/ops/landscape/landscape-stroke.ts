@@ -24,16 +24,16 @@ import {
   type EditCommand,
   type EditorDocument,
 } from '../../model/editor-document';
-import type { GridRect } from '../../model/grid';
+import type { GridRect } from '../../../map-ops/grid';
 import { RegionRecorder } from '../../model/region-patch';
 import { BodyAddCommand, LayerListCommand, RiverListCommand, WaterSwapCommand } from '../../model/terrain-commands';
-import { MAX_LAYERS } from '../paint-ops';
-import { ObjectGrid, ObjectIds, rockShape, settled } from '../object-ops';
-import { BODY_COLORS, emptyWater } from '../water-ops';
+import { MAX_LAYERS } from '../../../map-ops/paint-ops';
+import { ObjectGrid, ObjectIds, rockShape, settled } from '../../../map-ops/object-ops';
+import { BODY_COLORS, emptyWater } from '../../../map-ops/water-ops';
 import { MAX_WATER_BODIES } from '../../../world/custom-map/map-file';
 import { mirrorChange, objectImages, sameSector, symmetryImages, type SymmetryMode } from '../symmetry';
 import { FieldCache } from './field-cache';
-import { LandscapeNoise } from './landscape-noise';
+import { LandscapeNoise } from '../../../map-ops/landscape-noise';
 
 /** Metres from where a stroke begins within which it finds the water it works by (coastLevel) */
 const COAST_REACH = 150;

@@ -4,7 +4,7 @@
  * mouse stopped, so a stroke gives the same land however it was painted.
  */
 import type { NoiseFunction2D } from 'simplex-noise';
-import { billowed, createSeededNoise, fbm, ridged, type SeededNoiseCollection } from '../../../devworld/utils/seeded-random';
+import { billowed, createSeededNoise, fbm, ridged, type SeededNoiseCollection } from '../devworld/utils/seeded-random';
 
 export class LandscapeNoise {
   private readonly n: SeededNoiseCollection;

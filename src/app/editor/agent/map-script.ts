@@ -13,11 +13,11 @@
  * references into the map.
  */
 import { CatalogIndex, type MapAssetCatalog } from '../catalog/asset-catalog';
-import { TERRAIN_PRESETS } from '../ops/generate';
+import { TERRAIN_PRESETS } from '../../map-ops/generate';
 import { BIOMES } from '../ops/landscape/biomes';
-import { connect, deleteEdge, deleteNode, dissolveNode, edgePolyline, mergeNodes, moveNode, nodeById, smoothEdge, splitEdge, straightenEdge } from '../ops/path-graph';
-import { alignedToSlope, duplicateObjects, freeGroup } from '../ops/object-ops';
-import { removeLayer } from '../ops/paint-ops';
+import { connect, deleteEdge, deleteNode, dissolveNode, edgePolyline, mergeNodes, moveNode, nodeById, smoothEdge, splitEdge, straightenEdge } from '../../map-ops/path-graph';
+import { alignedToSlope, duplicateObjects, freeGroup } from '../../map-ops/object-ops';
+import { removeLayer } from '../../map-ops/paint-ops';
 import { meanWidth, insertPoint, movePoint, removePoint, setMeanWidth, simplifyRiver } from '../ops/river-edit';
 import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
 import { recarveRiver, relevelRiver } from '../ops/landscape/river';

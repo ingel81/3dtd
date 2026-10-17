@@ -3,7 +3,7 @@ import { createMapDocument } from '../../world/custom-map/map-create';
 import type { MapLifeArea } from '../../world/custom-map/map-document';
 import { CatalogIndex } from '../catalog/asset-catalog';
 import { EditorDocument } from '../model/editor-document';
-import { heightAt } from '../model/grid';
+import { heightAt } from '../../map-ops/grid';
 import type { EditorOverlay } from '../view/editor-overlay';
 import { LifeTool, pickArea } from './life-tool';
 import { defaultSettings, type ToolContext, type ToolPointer } from './tool';

@@ -4,7 +4,7 @@ import { createMapDocument } from '../../world/custom-map/map-create';
 import type { CustomMapDocument } from '../../world/custom-map/map-document';
 import { CatalogIndex, normalizeCatalog } from '../catalog/asset-catalog';
 import { EditorDocument } from '../model/editor-document';
-import { heightAt } from '../model/grid';
+import { heightAt } from '../../map-ops/grid';
 import { contentFingerprint } from './agent-reads';
 import { checkCommand, runMapScript, scriptReference, SCRIPT_OPS, type ScriptRunResult } from './map-script';
 import { MapKit } from '../ops/map-kit';

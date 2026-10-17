@@ -27,13 +27,13 @@
  *    where the hill then stands higher than RETAINING_FROM beside a wall, a
  *    retaining wall holds the cut.
  */
-import { heightAt } from '../../../editor/model/grid';
+import { heightAt } from '../../../map-ops/grid';
 import type { CustomMapDocument, MapObject, MapPoint } from '../../custom-map/map-document';
 import { objectCost, SCENE_BUDGET, type CostEntry } from '../../custom-map/render/objects/scene-cost';
 import { waterLevelAt } from '../../custom-map/water-level';
 import { groundRing, type GroundBox } from '../../custom-map/object-ground';
 import type { ObjectFooting } from '../../custom-map/render/objects/object-seat';
-import { EdgeIndex } from '../../../editor/ops/path-graph';
+import { EdgeIndex } from '../../../map-ops/path-graph';
 import { objectsOnPaths, PATH_WALL_SHARE } from '../../../editor/validation/map-validation';
 import { BUILDING_MODELS, buildingKind, buildingLandOf, buildingLevels, isGroundBuilding, KIND_MODELS, type BuildingKind, type BuildingModel } from '../building-tags';
 import { ringArea, type OsmArea, type OsmFeatures } from '../osm-parse';

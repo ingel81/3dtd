@@ -11,7 +11,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { ENEMY_TYPES, type EnemyTypeConfig } from '../../configs/enemy-types.config';
 import type { MapPoint } from '../../world/custom-map/map-document';
-import { pointAt } from '../ops/path-graph';
+import { pointAt } from '../../map-ops/path-graph';
 
 /** Ground enemies of different speeds for a trial when the map names none */
 export const TRIAL_TYPES = ['zombie', 'rat', 'tank', 'spider', 'skeleton'];

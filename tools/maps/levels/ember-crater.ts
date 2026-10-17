@@ -7,7 +7,7 @@
  * on the rim, smoke and embers.
  */
 import type { CustomMapDocument, MapPoint } from '../../../src/app/world/custom-map/map-document';
-import { nearestOnPolyline } from '../../../src/app/editor/ops/path-graph';
+import { nearestOnPolyline } from '../../../src/app/map-ops/path-graph';
 import { facing, LevelKit } from './kit';
 
 export function buildEmberCrater(): CustomMapDocument {

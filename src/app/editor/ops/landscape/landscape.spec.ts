@@ -4,8 +4,8 @@ import { createMapDocument } from '../../../world/custom-map/map-create';
 import { fitSplatMaps, type CustomMapDocument } from '../../../world/custom-map/map-document';
 import { CatalogIndex, normalizeCatalog } from '../../catalog/asset-catalog';
 import { EditorDocument, mergeChanges, type DocChange } from '../../model/editor-document';
-import { heightAt, slopeAt } from '../../model/grid';
-import { addNode, connect, edgePolyline, nearestOnEdges, nearestOnPolyline } from '../path-graph';
+import { heightAt, slopeAt } from '../../../map-ops/grid';
+import { addNode, connect, edgePolyline, nearestOnEdges, nearestOnPolyline } from '../../../map-ops/path-graph';
 import { biomeDab, finishBiome, previewSpots } from './biome-brush';
 import { biomeById, BIOMES } from './biomes';
 import { erosionDab } from './erosion';
@@ -16,7 +16,7 @@ import { buildRoad, DEFAULT_ROAD } from './road';
 import { citySlots, streetDistance } from './city';
 import { cliffAlong, craterProfile, formDab, formHeight } from './shapes';
 import { cracksDab } from './cracks';
-import { readWeights } from '../paint-ops';
+import { readWeights } from '../../../map-ops/paint-ops';
 import { waterInAir } from '../../validation/map-validation';
 
 const catalog = new CatalogIndex(

@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { MatTooltipModule } from '@angular/material/tooltip';
 import type { MapIntro } from '../../../world/custom-map/map-document';
 import { INTRO_ORBIT, INTRO_SECONDS, MAX_INTRO_VIEWS } from '../../../world/custom-map/map-intro';
-import { heightAt } from '../../model/grid';
+import { heightAt } from '../../../map-ops/grid';
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
 import { RangeRowComponent } from './range-row.component';

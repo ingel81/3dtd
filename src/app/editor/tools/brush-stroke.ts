@@ -6,7 +6,7 @@
 import type { CustomMapDocument, MapPoint } from '../../world/custom-map/map-document';
 import { mirrorChange, type SymmetryMode } from '../ops/symmetry';
 import { PatchCommand, patchArray, patchLayout, type DocChange, type EditorDocument, type PatchTarget } from '../model/editor-document';
-import { rectUnion, type GridRect } from '../model/grid';
+import { rectUnion, type GridRect } from '../../map-ops/grid';
 import { RegionRecorder, type PatchArray } from '../model/region-patch';
 
 export class BrushStroke {

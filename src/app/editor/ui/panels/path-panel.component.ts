@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import type { MapPathKind } from '../../../world/custom-map/map-document';
-import { edgePolyline, polylineLength, smoothEdge, straightenEdge } from '../../ops/path-graph';
+import { edgePolyline, polylineLength, smoothEdge, straightenEdge } from '../../../map-ops/path-graph';
 import { selectedEdges, selectedNodes } from '../../model/editor-document';
 import { roadSurfaces } from '../../ops/landscape/road';
 import { editRoads, flattenRoads, paintRoads, pathCommands, rebuildRoads, setRoadSurface, setRoads } from '../../tools/path-tool';

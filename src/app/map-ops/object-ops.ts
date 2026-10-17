@@ -3,12 +3,12 @@
  * minimum distance, sinking into slopes), its eraser, box selection, grid
  * snap and duplicates. Ids are `o<number>`, counted on from the highest.
  */
-import type { CustomMapDocument, MapObject, MapPaths, MapPoint, MapTerrain } from '../../world/custom-map/map-document';
-import { CompoundCommand, PatchCommand, patchLayout, type EditCommand } from '../model/editor-document';
-import { heightAt, slopeAt, insideMap, sampleRectAround, sampleX, sampleY, type GridRect } from '../model/grid';
-import { RegionRecorder } from '../model/region-patch';
-import { waterLevelAt } from '../../world/custom-map/water-level';
-import { boxDistance, groundRing, type GroundBox } from '../../world/custom-map/object-ground';
+import type { CustomMapDocument, MapObject, MapPaths, MapPoint, MapTerrain } from '../world/custom-map/map-document';
+import { CompoundCommand, PatchCommand, patchLayout, type EditCommand } from '../editor/model/editor-document';
+import { heightAt, slopeAt, insideMap, sampleRectAround, sampleX, sampleY, type GridRect } from './grid';
+import { RegionRecorder } from '../editor/model/region-patch';
+import { waterLevelAt } from '../world/custom-map/water-level';
+import { boxDistance, groundRing, type GroundBox } from '../world/custom-map/object-ground';
 import { HEIGHT_LIMITS } from './terrain-ops';
 import { brushWeight, type BrushSettings } from './brush';
 import { nearestOnPolyline } from './path-graph';

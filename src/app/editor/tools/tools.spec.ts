@@ -1,9 +1,9 @@
 import { createMapDocument } from '../../world/custom-map/map-create';
 import { CatalogIndex, normalizeCatalog } from '../catalog/asset-catalog';
 import { EditorDocument } from '../model/editor-document';
-import { heightAt } from '../model/grid';
+import { heightAt } from '../../map-ops/grid';
 import type { EditorOverlay } from '../view/editor-overlay';
-import { freeGroup, withGroups } from '../ops/object-ops';
+import { freeGroup, withGroups } from '../../map-ops/object-ops';
 import { describeGround, LookTool } from './look-tool';
 import { MarkerTool } from './marker-tool';
 import { ObjectTool, insidePolygon, placeOutline } from './object-tool';

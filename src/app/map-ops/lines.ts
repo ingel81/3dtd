@@ -3,8 +3,8 @@
  * jitter of the hand, even resampling, and Douglas-Peucker simplification
  * for road curve points.
  */
-import type { MapPoint } from '../../../world/custom-map/map-document';
-import { pointAt, polylineLength } from '../path-graph';
+import type { MapPoint } from '../world/custom-map/map-document';
+import { pointAt, polylineLength } from './path-graph';
 
 export function chaikin(line: readonly MapPoint[], rounds = 2): MapPoint[] {
   let pts = line.map((p) => ({ x: p.x, y: p.y }));

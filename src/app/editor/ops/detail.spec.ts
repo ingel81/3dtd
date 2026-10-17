@@ -1,7 +1,7 @@
 import { createMapDocument } from '../../world/custom-map/map-create';
-import { heightAt } from '../model/grid';
+import { heightAt } from '../../map-ops/grid';
 import { detailTarget, increaseDetail } from './detail';
-import { emptyWater } from './water-ops';
+import { emptyWater } from '../../map-ops/water-ops';
 
 describe('increase detail', () => {
   it('refines a 4 m map to 2 m with the splat of new maps, the extent and every old height kept', () => {

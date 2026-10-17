@@ -3,7 +3,7 @@
  * turns raise into lower (and back) and a cliff one level down; Ctrl click
  * picks the height under the pointer for Level. Ramp takes two clicks.
  */
-import { sampleRectAround, type GridRect } from '../model/grid';
+import { sampleRectAround, type GridRect } from '../../map-ops/grid';
 import {
   erodeDab,
   flattenDab,
@@ -14,7 +14,7 @@ import {
   smoothDab,
   terraceDab,
   type RampEnd,
-} from '../ops/terrain-ops';
+} from '../../map-ops/terrain-ops';
 import { symmetryImages } from '../ops/symmetry';
 import { BrushStroke } from './brush-stroke';
 import { TERRAIN_MODES, type EditorTool, type ToolContext, type ToolPointer } from './tool';

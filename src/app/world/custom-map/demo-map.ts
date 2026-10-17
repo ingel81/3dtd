@@ -8,7 +8,7 @@ import {
   type MapPoint,
   type MapTerrain,
 } from './map-document';
-import { settled, type RockShape } from '../../editor/ops/object-ops';
+import { settled, type RockShape } from '../../map-ops/object-ops';
 
 /**
  * A rich sample map, generated: rolling hills, a terraced mountain with

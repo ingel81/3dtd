@@ -1,5 +1,5 @@
 import { createMapDocument } from '../../world/custom-map/map-create';
-import { heightAt } from '../model/grid';
+import { heightAt } from '../../map-ops/grid';
 import { shadeRelief } from './relief-shade';
 
 describe('shadeRelief', () => {

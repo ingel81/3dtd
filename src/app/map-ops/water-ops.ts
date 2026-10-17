@@ -6,9 +6,9 @@
  * across every connected sample below its level, the lake brush digs a bed
  * under it, the sea fill floods in from the map's edge.
  */
-import type { MapTerrain, MapWater, MapWaterKind } from '../../world/custom-map/map-document';
-import { sampleRectAround, sampleX, sampleY, type GridRect } from '../model/grid';
-import { waterLevelAt } from '../../world/custom-map/water-level';
+import type { MapTerrain, MapWater, MapWaterKind } from '../world/custom-map/map-document';
+import { sampleRectAround, sampleX, sampleY, type GridRect } from './grid';
+import { waterLevelAt } from '../world/custom-map/water-level';
 import { brushWeight, type BrushSettings } from './brush';
 
 export const DEFAULT_WATER_COLOR = '#2f5f6f';

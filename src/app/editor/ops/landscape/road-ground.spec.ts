@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { createMapDocument } from '../../../world/custom-map/map-create';
 import { CatalogIndex, normalizeCatalog } from '../../catalog/asset-catalog';
 import { EditorDocument } from '../../model/editor-document';
-import { edgePolyline } from '../path-graph';
+import { edgePolyline } from '../../../map-ops/path-graph';
 import { LandscapeStroke } from './landscape-stroke';
 import { DEFAULT_ROAD, buildRoad, undressEdge } from './road';
 import { bandSamples, packGround, unpackGround } from './road-ground';

@@ -1,5 +1,5 @@
 import { contentHash, unpackMapFile } from '../custom-map/map-file';
-import { routeBetween } from '../../editor/ops/path-graph';
+import { routeBetween } from '../../map-ops/path-graph';
 import { OSM_PROBE_SIDE, osmProbe } from '../../../../tools/osm/osm-probe';
 import { loadOsmInput, overpassFailure, type OsmDownloadStats } from './import-osm';
 import { OsmFrameCore, type FrameSpawn } from './osm-frame-core';

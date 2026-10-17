@@ -13,7 +13,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CatalogIndex, normalizeCatalog } from '../../../src/app/editor/catalog/asset-catalog';
 import { MapKit } from '../../../src/app/editor/ops/map-kit';
-import { EdgeIndex } from '../../../src/app/editor/ops/path-graph';
+import { EdgeIndex } from '../../../src/app/map-ops/path-graph';
 import { objectsOnPaths } from '../../../src/app/editor/validation/map-validation';
 import { createMapDocument } from '../../../src/app/world/custom-map/map-create';
 import type { CustomMapDocument, MapObject, MapPoint } from '../../../src/app/world/custom-map/map-document';

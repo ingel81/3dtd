@@ -35,7 +35,7 @@ import { TD_THEME } from '../../styles/td-theme';
 import type { CustomMapDocument, MapLifeArea, MapPoint, MapRiver } from '../../world/custom-map/map-document';
 import { LIFE_KIND_INFO } from '../../world/custom-map/map-life';
 import { selectedEdges, selectedNodes, selectedSpawns, type Selection } from '../model/editor-document';
-import { pointAt, polylineLength, type Route } from '../ops/path-graph';
+import { pointAt, polylineLength, type Route } from '../../map-ops/path-graph';
 import type { SymmetryMode } from '../ops/symmetry';
 import type { Contours } from '../ops/contours';
 import { BuildCell, type BuildAreas } from '../validation/build-areas';

@@ -1,4 +1,4 @@
-import type { MapPaths } from '../../world/custom-map/map-document';
+import type { MapPaths } from '../world/custom-map/map-document';
 import {
   addNode,
   components,

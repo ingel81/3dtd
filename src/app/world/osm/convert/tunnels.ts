@@ -21,8 +21,8 @@
  * vault, the terrain shader leaves out (catalogue `groundCut`,
  * terrain-cuts.ts).
  */
-import { heightAt, sampleX, sampleY } from '../../../editor/model/grid';
-import { nearestOnPolyline } from '../../../editor/ops/path-graph';
+import { heightAt, sampleX, sampleY } from '../../../map-ops/grid';
+import { nearestOnPolyline } from '../../../map-ops/path-graph';
 import type { MapObject, MapPoint, MapTerrain } from '../../custom-map/map-document';
 import type { TunnelLine, TunnelMouth } from './roads';
 

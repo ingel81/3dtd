@@ -1,4 +1,4 @@
-import { ObjectIds, WALL_KITS, simplifyLine, wallAlong, wallKitOf } from './object-ops';
+import { ObjectIds, WALL_KITS, simplifyLine, wallAlong, wallKitOf } from '../../map-ops/object-ops';
 
 const kit = WALL_KITS[0];
 const options = { corners: 'blocks', front: 'left' } as const;

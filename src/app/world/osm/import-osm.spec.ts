@@ -1,12 +1,12 @@
 import { objectsInAir, validateMap } from '../../editor/validation/map-validation';
-import { routeBetween, spawnRoutes } from '../../editor/ops/path-graph';
+import { routeBetween, spawnRoutes } from '../../map-ops/path-graph';
 import { packMapFile, unpackMapFile, validateMapDocument } from '../custom-map/map-file';
 import { mapStreetNetwork } from '../custom-map/custom-map-streets';
 import { osmProbe as probe } from '../../../../tools/osm/osm-probe';
 import { convertOsm, osmMapNames } from './import-osm';
 import { MAX_GROUND_LAYERS } from '../custom-map/map-document';
-import { readWeights } from '../../editor/ops/paint-ops';
-import { heightAt } from '../../editor/model/grid';
+import { readWeights } from '../../map-ops/paint-ops';
+import { heightAt } from '../../map-ops/grid';
 import { assetCosts, PLANT_BUDGET_SHARE } from './convert/vegetation';
 import { FURNITURE_BUDGET_SHARE } from './convert/furniture';
 import { buildingCatalog } from './convert/buildings';

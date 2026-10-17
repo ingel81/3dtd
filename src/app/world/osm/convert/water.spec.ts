@@ -1,4 +1,4 @@
-import { heightAt } from '../../../editor/model/grid';
+import { heightAt } from '../../../map-ops/grid';
 import { createMapDocument } from '../../custom-map/map-create';
 import type { MapPaths, MapPoint, MapTerrain } from '../../custom-map/map-document';
 import { landClassOf, waterClassOf, waterwayOf } from '../land-tags';

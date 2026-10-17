@@ -15,10 +15,10 @@
  * the lit-road lamps go first, then the points, then the tracks; the lines
  * go last.
  */
-import { resample } from '../../../editor/ops/landscape/lines';
-import { ObjectIds, objectsAlong, wallAlong, WALL_KITS, DEFAULT_LINE } from '../../../editor/ops/object-ops';
-import { EdgeIndex } from '../../../editor/ops/path-graph';
-import { hashCell } from '../../../editor/ops/landscape/landscape-noise';
+import { resample } from '../../../map-ops/lines';
+import { ObjectIds, objectsAlong, wallAlong, WALL_KITS, DEFAULT_LINE } from '../../../map-ops/object-ops';
+import { EdgeIndex } from '../../../map-ops/path-graph';
+import { hashCell } from '../../../map-ops/landscape-noise';
 import type { CustomMapDocument, MapObject, MapPathEdge, MapPathNode, MapPoint } from '../../custom-map/map-document';
 import { SCENE_BUDGET } from '../../custom-map/render/objects/scene-cost';
 import { runs, type OsmFeatures, type OsmWay } from '../osm-parse';

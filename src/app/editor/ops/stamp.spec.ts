@@ -3,13 +3,13 @@ import { resolve } from 'node:path';
 import { createMapDocument } from '../../world/custom-map/map-create';
 import { CatalogIndex, normalizeCatalog } from '../catalog/asset-catalog';
 import { EditorDocument } from '../model/editor-document';
-import { heightAt } from '../model/grid';
+import { heightAt } from '../../map-ops/grid';
 import { MemoryStampBackend, StampLibrary } from '../model/stamp-store';
 import { LandscapeStroke } from './landscape/landscape-stroke';
-import { dominantLayer, paintDab } from './paint-ops';
+import { dominantLayer, paintDab } from '../../map-ops/paint-ops';
 import { ALL_PARTS, capturePrefab, captureStamp, pasteStamp, stampBounds } from './stamp';
-import { raiseDab } from './terrain-ops';
-import { emptyWater } from './water-ops';
+import { raiseDab } from '../../map-ops/terrain-ops';
+import { emptyWater } from '../../map-ops/water-ops';
 
 const catalog = new CatalogIndex(
   normalizeCatalog(JSON.parse(readFileSync(resolve('public/maps/assets/catalog.json'), 'utf8')), 'http://x/maps/assets/'),

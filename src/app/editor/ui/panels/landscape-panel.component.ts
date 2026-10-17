@@ -3,7 +3,7 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { MatTooltipModule } from '@angular/material/tooltip';
 import type { MapPathKind } from '../../../world/custom-map/map-document';
 import { BIOMES, type BiomeDef, type BiomeId } from '../../ops/landscape/biomes';
-import { randomSeed } from '../../ops/landscape/landscape-noise';
+import { randomSeed } from '../../../map-ops/landscape-noise';
 import { cliffModelIds } from '../../ops/landscape/cliff-rocks';
 import { roadSurfaces } from '../../ops/landscape/road';
 import { LANDSCAPE_MODES, type LandscapeMode } from '../../tools/tool';

@@ -20,7 +20,7 @@
  * On a 1025² map the flood takes a few hundred ms: the editor runs it in a
  * worker (`pourOffThread`, `workers/pour.worker.ts`).
  */
-import { MinHeap } from './water-ops';
+import { MinHeap } from '../../map-ops/water-ops';
 
 export interface PourInput {
   columns: number;

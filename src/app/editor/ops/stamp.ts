@@ -13,12 +13,12 @@
  * turns the piece by any angle and fades its rim into the ground.
  */
 import type { CustomMapDocument, MapObject, MapPathEdge, MapPieceParts, MapPiece, MapPoint } from '../../world/custom-map/map-document';
-import { clamp, heightAt, sampleX, sampleY, texelX, texelY, type GridRect } from '../model/grid';
-import { MAX_LAYERS, readWeights, writeWeights } from './paint-ops';
-import { freeGroup } from './object-ops';
-import { edgePolyline, newId } from './path-graph';
+import { clamp, heightAt, sampleX, sampleY, texelX, texelY, type GridRect } from '../../map-ops/grid';
+import { MAX_LAYERS, readWeights, writeWeights } from '../../map-ops/paint-ops';
+import { freeGroup } from '../../map-ops/object-ops';
+import { edgePolyline, newId } from '../../map-ops/path-graph';
 import type { LandscapeStroke } from './landscape/landscape-stroke';
-import { smooth } from './landscape/landscape-noise';
+import { smooth } from '../../map-ops/landscape-noise';
 import { MAX_LIFE_AREAS, newLifeId } from '../../world/custom-map/map-life';
 
 export type StampParts = Required<MapPieceParts>;

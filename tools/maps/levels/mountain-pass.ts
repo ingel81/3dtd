@@ -6,8 +6,8 @@
  * the village. Two spawns in the valley meet at the first hairpin.
  */
 import type { CustomMapDocument, MapPoint } from '../../../src/app/world/custom-map/map-document';
-import { pointAt, polylineLength } from '../../../src/app/editor/ops/path-graph';
-import { undersideGap } from '../../../src/app/editor/ops/object-ops';
+import { pointAt, polylineLength } from '../../../src/app/map-ops/path-graph';
+import { undersideGap } from '../../../src/app/map-ops/object-ops';
 import { facing, LevelKit } from './kit';
 
 export function buildMountainPass(): CustomMapDocument {

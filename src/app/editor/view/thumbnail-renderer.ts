@@ -39,7 +39,7 @@ import { idle } from './idle';
 import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
 import type { CatalogIndex, GroundMaterialEntry, ObjectAssetEntry } from '../catalog/asset-catalog';
 import type { BiomeDef } from '../ops/landscape/biomes';
-import { hashCell } from '../ops/landscape/landscape-noise';
+import { hashCell } from '../../map-ops/landscape-noise';
 
 const SIZE = 128;
 const DB_NAME = '3dtd-editor-thumbs';

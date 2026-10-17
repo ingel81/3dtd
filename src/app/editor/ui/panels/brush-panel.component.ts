@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { BRUSH_LIMITS } from '../../ops/brush';
+import { BRUSH_LIMITS } from '../../../map-ops/brush';
 import { EditorSession } from '../editor-session.service';
 import { RangeRowComponent } from './range-row.component';
 

@@ -19,9 +19,9 @@
  */
 import type { CustomMapDocument, MapLifeArea, MapObject, MapPoint } from '../../world/custom-map/map-document';
 import { mergeChanges, type DocChange, type PatchTarget } from '../model/editor-document';
-import { sampleX, sampleY, texelX, texelY, type GridRect } from '../model/grid';
+import { sampleX, sampleY, texelX, texelY, type GridRect } from '../../map-ops/grid';
 import type { ArrayLayout, PatchArray } from '../model/region-patch';
-import { HEIGHT_LIMITS } from './terrain-ops';
+import { HEIGHT_LIMITS } from '../../map-ops/terrain-ops';
 
 export type SymmetryMode = 'none' | 'x' | 'y' | 'xy' | 'rot2' | 'rot4';
 

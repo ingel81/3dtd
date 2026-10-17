@@ -1,7 +1,7 @@
 import { createMapDocument } from '../../world/custom-map/map-create';
-import { finishGenerated, generateTerrain } from '../ops/generate';
-import { addNode, connect } from '../ops/path-graph';
-import { emptyWater } from '../ops/water-ops';
+import { finishGenerated, generateTerrain } from '../../map-ops/generate';
+import { addNode, connect } from '../../map-ops/path-graph';
+import { emptyWater } from '../../map-ops/water-ops';
 import { erodeMap } from '../ops/landscape/erosion';
 import { runTerrainJob, startTerrainJob, transferList, type TerrainJob } from './terrain-job';
 

@@ -4,9 +4,9 @@
  * with the time between dabs so a held brush works at the same speed at any
  * frame rate.
  */
-import type { MapTerrain } from '../../world/custom-map/map-document';
-import { valueNoise } from '../../world/custom-map/map-create';
-import { clamp, sampleRectAround, sampleX, sampleY, type GridRect } from '../model/grid';
+import type { MapTerrain } from '../world/custom-map/map-document';
+import { valueNoise } from '../world/custom-map/map-create';
+import { clamp, sampleRectAround, sampleX, sampleY, type GridRect } from './grid';
 import { brushWeight, type BrushSettings } from './brush';
 
 /** Lowest and highest height the editor writes, metres */

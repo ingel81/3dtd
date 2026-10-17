@@ -4,8 +4,8 @@
  * levels across its width, fading into the ground at the shoulders. The
  * paint variant lays a ground layer under the path.
  */
-import type { MapPathEdge, MapPaths, MapPoint, MapTerrain } from '../../world/custom-map/map-document';
-import { clamp, heightAt, rectUnion, sampleX, sampleY, texelX, texelY, type GridRect } from '../model/grid';
+import type { MapPathEdge, MapPaths, MapPoint, MapTerrain } from '../world/custom-map/map-document';
+import { clamp, heightAt, rectUnion, sampleX, sampleY, texelX, texelY, type GridRect } from './grid';
 import { brushWeight } from './brush';
 import { MAX_LAYERS, readWeights, writeWeights } from './paint-ops';
 import { edgePolyline, nearestOnPolyline, pointAt, polylineLength } from './path-graph';

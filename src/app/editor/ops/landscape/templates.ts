@@ -6,7 +6,7 @@
 import type { CustomMapDocument, MapEnvironment } from '../../../world/custom-map/map-document';
 import type { CatalogIndex } from '../../catalog/asset-catalog';
 import { EditorDocument } from '../../model/editor-document';
-import { finishGenerated, generateTerrain, type TerrainPreset } from '../generate';
+import { finishGenerated, generateTerrain, type TerrainPreset } from '../../../map-ops/generate';
 import { biomeBand } from './biome-brush';
 import { biomeById, type BiomeId } from './biomes';
 import { LandscapeStroke } from './landscape-stroke';

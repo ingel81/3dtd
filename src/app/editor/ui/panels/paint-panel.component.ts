@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { tagName } from '../../catalog/asset-catalog';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TdIconComponent } from '../../../components/icon/icon.component';
-import { MAX_LAYERS } from '../../ops/paint-ops';
+import { MAX_LAYERS } from '../../../map-ops/paint-ops';
 import { paintCommands } from '../../tools/paint-tool';
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';

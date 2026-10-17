@@ -11,7 +11,7 @@
  */
 import type { CatalogIndex } from '../catalog/asset-catalog';
 import { mergeChanges, type DocChange, type EditorDocument } from '../model/editor-document';
-import { rectUnion, sampleRectAround, texelRectAround, type GridRect } from '../model/grid';
+import { rectUnion, sampleRectAround, texelRectAround, type GridRect } from '../../map-ops/grid';
 import { contentFingerprint } from './agent-reads';
 import { applyCommand, changesWholeGround, strokeArgs, type ScriptCommand } from './map-script';
 import { dabCentres, MapKit, type Brush, type Where } from '../ops/map-kit';

@@ -17,7 +17,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { objectsOnPaths, validateMap, waterInAir } from '../../src/app/editor/validation/map-validation';
-import { rockShape } from '../../src/app/editor/ops/object-ops';
+import { rockShape } from '../../src/app/map-ops/object-ops';
 import { CustomMapStreets } from '../../src/app/world/custom-map/custom-map-streets';
 import { MAP_METERS_PER_DEGREE, mapToGeo, type CustomMapDocument } from '../../src/app/world/custom-map/map-document';
 import { contentHash, unpackMapFile, validateMapDocument } from '../../src/app/world/custom-map/map-file';

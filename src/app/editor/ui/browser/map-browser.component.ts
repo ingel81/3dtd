@@ -5,7 +5,7 @@ import { MAP_TEMPLATES, templateById, type MapTemplate } from '../../ops/landsca
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TdIconComponent } from '../../../components/icon/icon.component';
 import { DEFAULT_CELL_SIZE } from '../../../world/custom-map/map-create';
-import { TERRAIN_PRESETS, type TerrainPreset } from '../../ops/generate';
+import { TERRAIN_PRESETS, type TerrainPreset } from '../../../map-ops/generate';
 import { MAP_FILE_EXTENSION, packMapFile } from '../../../world/custom-map/map-file';
 import { TRASH_DAYS, type MapSummary } from '../../../world/custom-map/map-store';
 import { download, EditorSession } from '../editor-session.service';

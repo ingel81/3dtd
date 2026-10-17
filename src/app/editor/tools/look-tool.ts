@@ -6,9 +6,9 @@
  */
 import type { CatalogIndex } from '../catalog/asset-catalog';
 import type { MapTerrain } from '../../world/custom-map/map-document';
-import { nearestSample, slopeAt, heightAt } from '../model/grid';
-import { withGroups } from '../ops/object-ops';
-import { dominantLayer } from '../ops/paint-ops';
+import { nearestSample, slopeAt, heightAt } from '../../map-ops/grid';
+import { withGroups } from '../../map-ops/object-ops';
+import { dominantLayer } from '../../map-ops/paint-ops';
 import type { EditorTool, PickResult, ToolContext, ToolPointer } from './tool';
 
 /** A ground point in words: its ground layer, height, slope and the water over it */

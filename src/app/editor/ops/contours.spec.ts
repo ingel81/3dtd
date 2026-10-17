@@ -1,7 +1,7 @@
 import { createMapDocument } from '../../world/custom-map/map-create';
 import { measureLine } from '../tools/measure-tool';
 import { contourLines } from './contours';
-import { raiseDab } from './terrain-ops';
+import { raiseDab } from '../../map-ops/terrain-ops';
 
 describe('height lines and measuring', () => {
   it('draws a closed ring of lines around a hill, every fifth level major', () => {

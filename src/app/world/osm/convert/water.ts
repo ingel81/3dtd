@@ -22,11 +22,11 @@
  * (`paintWater`, after the land and before the roads).
  */
 import { bankLevels, riverPoints } from '../../../editor/ops/landscape/river';
-import { resample } from '../../../editor/ops/landscape/lines';
-import { hashCell, smooth } from '../../../editor/ops/landscape/landscape-noise';
-import { MAX_LAYERS, readWeights, writeWeights } from '../../../editor/ops/paint-ops';
-import { polylineLength } from '../../../editor/ops/path-graph';
-import { BODY_COLORS } from '../../../editor/ops/water-ops';
+import { resample } from '../../../map-ops/lines';
+import { hashCell, smooth } from '../../../map-ops/landscape-noise';
+import { MAX_LAYERS, readWeights, writeWeights } from '../../../map-ops/paint-ops';
+import { polylineLength } from '../../../map-ops/path-graph';
+import { BODY_COLORS } from '../../../map-ops/water-ops';
 import { fitSplatMaps, type MapPaths, type MapPoint, type MapRiver, type MapTerrain, type MapWater, type MapWaterKind } from '../../custom-map/map-document';
 import { MAX_WATER_BODIES } from '../../custom-map/map-file';
 import { landClassOf, waterClassOf, waterwayOf, type WaterClass } from '../land-tags';

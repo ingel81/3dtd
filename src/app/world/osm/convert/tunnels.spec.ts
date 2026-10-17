@@ -1,4 +1,4 @@
-import { heightAt } from '../../../editor/model/grid';
+import { heightAt } from '../../../map-ops/grid';
 import { createMapDocument } from '../../custom-map/map-create';
 import { mapStreetNetwork } from '../../custom-map/custom-map-streets';
 import { OsmFrame, parseOsm } from '../osm-parse';

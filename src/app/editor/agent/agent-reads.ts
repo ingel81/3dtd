@@ -5,11 +5,11 @@
  * map needs (centimetres, decimetres of height).
  */
 import type { CatalogIndex } from '../catalog/asset-catalog';
-import { heightAt } from '../model/grid';
-import { TERRAIN_PRESETS } from '../ops/generate';
+import { heightAt } from '../../map-ops/grid';
+import { TERRAIN_PRESETS } from '../../map-ops/generate';
 import { BIOMES } from '../ops/landscape/biomes';
 import { MAP_TEMPLATES } from '../ops/landscape/templates';
-import { edgePolyline, polylineLength, spawnRoutes } from '../ops/path-graph';
+import { edgePolyline, polylineLength, spawnRoutes } from '../../map-ops/path-graph';
 import { mapSceneCost } from '../validation/map-budget';
 import type { MapIssue } from '../validation/map-validation';
 import { SCENE_BUDGET } from '../../world/custom-map/render/objects/scene-cost';

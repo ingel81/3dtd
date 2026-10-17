@@ -16,7 +16,7 @@
 import type { MapObject, MapPoint } from '../../world/custom-map/map-document';
 import type { ObjectAssetEntry } from '../catalog/asset-catalog';
 import { ObjectsCommand, type ObjectEdit } from '../model/editor-document';
-import { insideMap } from '../model/grid';
+import { insideMap } from '../../map-ops/grid';
 import {
   ObjectGrid,
   ObjectIds,
@@ -35,9 +35,9 @@ import {
   withGroups,
   levelForBuildings,
   withGround,
-} from '../ops/object-ops';
+} from '../../map-ops/object-ops';
 import { objectImages, sameSector, symmetryImages } from '../ops/symmetry';
-import { edgePolyline, nearestOnEdges } from '../ops/path-graph';
+import { edgePolyline, nearestOnEdges } from '../../map-ops/path-graph';
 import { TransformGizmo, gizmoAnchor, type GizmoHandle } from '../view/transform-gizmo';
 import type { EditorTool, ToolContext, ToolPointer } from './tool';
 

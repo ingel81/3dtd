@@ -9,13 +9,13 @@
  * - Canyon: a high plain cut by a winding canyon with stepped walls
  * - Terraces: hills in flat steps with steep risers
  */
-import { fitSplatMaps, type CustomMapDocument, type MapTerrain } from '../../world/custom-map/map-document';
+import { fitSplatMaps, type CustomMapDocument, type MapTerrain } from '../world/custom-map/map-document';
 import { MAX_LAYERS, autoPaint, defaultAutoRules } from './paint-ops';
 import { edgePolyline, nearestOnPolyline } from './path-graph';
 import { flattenUnderPaths } from './path-terrain';
 import { emptyWater } from './water-ops';
-import { sampleX, sampleY } from '../model/grid';
-import { LandscapeNoise, smooth } from './landscape/landscape-noise';
+import { sampleX, sampleY } from './grid';
+import { LandscapeNoise, smooth } from './landscape-noise';
 import { HEIGHT_LIMITS } from './terrain-ops';
 
 export type TerrainPreset = 'flat' | 'hills' | 'valleys' | 'islands' | 'canyon' | 'terraces';

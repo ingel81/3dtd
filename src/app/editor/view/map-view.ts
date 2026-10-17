@@ -10,7 +10,7 @@ import type { CustomMapDocument, MapObject } from '../../world/custom-map/map-do
 import { CustomMapView, type MapRect } from '../../world/custom-map/render/custom-map-view';
 import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
 import { mapToScene as toScene } from '../../world/custom-map/render/map-coords';
-import type { GridRect } from '../model/grid';
+import type { GridRect } from '../../map-ops/grid';
 
 /** Scene position of a map point at a height */
 export function mapToScene(x: number, y: number, height: number, target = new Vector3()): Vector3 {

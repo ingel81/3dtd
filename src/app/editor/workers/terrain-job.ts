@@ -7,9 +7,9 @@
  * the page.
  */
 import type { CustomMapDocument, MapGroundLayer, MapPaths, MapTerrain } from '../../world/custom-map/map-document';
-import { finishGenerated, generateRows, presetResult, type GenerateOptions, type GenerateResult } from '../ops/generate';
+import { finishGenerated, generateRows, presetResult, type GenerateOptions, type GenerateResult } from '../../map-ops/generate';
 import { erodeMap } from '../ops/landscape/erosion';
-import { emptyWater } from '../ops/water-ops';
+import { emptyWater } from '../../map-ops/water-ops';
 
 /**
  * What a generate job needs to finish the map as well (finishGenerated):

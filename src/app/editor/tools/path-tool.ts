@@ -10,7 +10,7 @@
  */
 import type { MapPaths, MapPoint } from '../../world/custom-map/map-document';
 import { SnapshotCommand, pathSelection, splatTargets, selectedEdges, selectedNodes, type EditCommand, type EditorDocument, type Selection } from '../model/editor-document';
-import { insideMap } from '../model/grid';
+import { insideMap } from '../../map-ops/grid';
 import {
   addNode,
   connect,
@@ -25,8 +25,8 @@ import {
   smoothEdge,
   splitEdge,
   straightenEdge,
-} from '../ops/path-graph';
-import { flattenUnderPaths, paintUnderPaths } from '../ops/path-terrain';
+} from '../../map-ops/path-graph';
+import { flattenUnderPaths, paintUnderPaths } from '../../map-ops/path-terrain';
 import { rebuildDressing, relayRoads, surfaceRoads, type RoadOptions } from '../ops/landscape/road';
 import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
 import type { CatalogIndex } from '../catalog/asset-catalog';

@@ -5,7 +5,7 @@
  * texel (u, v) centred at ((u + 0.5) / resolution) of the width, row v
  * northwards like j.
  */
-import type { MapPoint, MapTerrain } from '../../world/custom-map/map-document';
+import type { MapPoint, MapTerrain } from '../world/custom-map/map-document';
 
 /** Inclusive rectangle of samples or texels */
 export interface GridRect {

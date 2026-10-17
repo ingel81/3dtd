@@ -6,7 +6,7 @@
  * northern walk splits round two islands, all meet on the big island.
  */
 import type { CustomMapDocument, MapPoint } from '../../../src/app/world/custom-map/map-document';
-import { edgePolyline, pointAt, polylineLength } from '../../../src/app/editor/ops/path-graph';
+import { edgePolyline, pointAt, polylineLength } from '../../../src/app/map-ops/path-graph';
 import { bridgeDecks, deckHeightAt } from '../../../src/app/world/custom-map/bridge-decks';
 import { HeightField } from '../../../src/app/world/custom-map/render/height-field';
 import { facing, LevelKit } from './kit';

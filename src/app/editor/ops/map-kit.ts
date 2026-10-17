@@ -18,17 +18,17 @@
  */
 import { CatalogIndex } from '../catalog/asset-catalog';
 import { EditorDocument } from '../model/editor-document';
-import { heightAt, insideMap, nearestSample, slopeAt, type GridRect } from '../model/grid';
-import { BRUSH_LIMITS, type BrushSettings } from './brush';
-import { finishGenerated, generateTerrain, type TerrainPreset } from './generate';
+import { heightAt, insideMap, nearestSample, slopeAt, type GridRect } from '../../map-ops/grid';
+import { BRUSH_LIMITS, type BrushSettings } from '../../map-ops/brush';
+import { finishGenerated, generateTerrain, type TerrainPreset } from '../../map-ops/generate';
 import { biomeBand, biomeDab, finishBiome } from './landscape/biome-brush';
 import { cliffModelsFor, cliffRocksDab } from './landscape/cliff-rocks';
 import { biomeById, type BiomeId } from './landscape/biomes';
 import { cracksDab } from './landscape/cracks';
 import { erosionDab } from './landscape/erosion';
-import { hashCell, LandscapeNoise } from './landscape/landscape-noise';
+import { hashCell, LandscapeNoise } from '../../map-ops/landscape-noise';
 import { LandscapeStroke } from './landscape/landscape-stroke';
-import { resample, simplify } from './landscape/lines';
+import { resample, simplify } from '../../map-ops/lines';
 import { carveRiver, DEFAULT_RIVER, type RiverOptions, type RiverResult } from './landscape/river';
 import { buildRoad, DEFAULT_ROAD, type RoadOptions, type RoadResult } from './landscape/road';
 import { cliffAlong, coastAlong, formDab, type FormKind } from './landscape/shapes';
@@ -50,17 +50,17 @@ import {
   type ScatterOptions,
   DEFAULT_LINE,
   DEFAULT_SCATTER,
-} from './object-ops';
+} from '../../map-ops/object-ops';
 import { mirrorMap as mirrorWholeMap, type MirrorResult } from './mirror-map';
 import { pourWater } from './pour';
 import { ALL_PARTS, capturePrefab, captureStamp, pasteStamp, type PasteOptions, type Stamp, type StampParts, type StampRect } from './stamp';
 import { stampEntry } from '../model/stamp-store';
-import { MAX_LAYERS, autoPaint, defaultAutoRules, paintDab, readWeights, removeLayer, type AutoPaintRule } from './paint-ops';
-import { addNode, connect, edgePolyline, nearestNode, nearestOnEdges, pointAt, polylineLength, spawnRoutes, splitEdge } from './path-graph';
-import { flattenUnderPaths, paintUnderPaths } from './path-terrain';
+import { MAX_LAYERS, autoPaint, defaultAutoRules, paintDab, readWeights, removeLayer, type AutoPaintRule } from '../../map-ops/paint-ops';
+import { addNode, connect, edgePolyline, nearestNode, nearestOnEdges, pointAt, polylineLength, spawnRoutes, splitEdge } from '../../map-ops/path-graph';
+import { flattenUnderPaths, paintUnderPaths } from '../../map-ops/path-terrain';
 import { lifeAreaImages, mirrorChange, objectImages, symmetryImages, type SymmetryMode } from './symmetry';
-import { flattenDab, noiseDab, plateauDab, raiseDab, rampBetween, smoothDab, terraceDab, erodeDab } from './terrain-ops';
-import { addPouredBodies, basinSpillHeight, BODY_COLORS, emptyWater, fillBasin, fillFromEdge, lakeDab, RIM_MARGIN, waterBody, waterMaskDab, wetSamples } from './water-ops';
+import { flattenDab, noiseDab, plateauDab, raiseDab, rampBetween, smoothDab, terraceDab, erodeDab } from '../../map-ops/terrain-ops';
+import { addPouredBodies, basinSpillHeight, BODY_COLORS, emptyWater, fillBasin, fillFromEdge, lakeDab, RIM_MARGIN, waterBody, waterMaskDab, wetSamples } from '../../map-ops/water-ops';
 import { MAX_WATER_BODIES } from '../../world/custom-map/map-file';
 import { objectsOnMoverWays, validateMap, type MapIssue } from '../validation/map-validation';
 import { assetCosts } from '../validation/map-budget';

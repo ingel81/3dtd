@@ -5,8 +5,8 @@
  */
 import { fitSplatMaps, type CustomMapDocument, type MapGroundLayer, type MapTerrain } from '../../world/custom-map/map-document';
 import { splatTargets, type DocChange, type EditCommand, type EditorDocument } from '../model/editor-document';
-import { texelRectAround } from '../model/grid';
-import { autoPaint, defaultAutoRules, moveLayer, paintDab, removeLayer, type AutoPaintRule } from '../ops/paint-ops';
+import { texelRectAround } from '../../map-ops/grid';
+import { autoPaint, defaultAutoRules, moveLayer, paintDab, removeLayer, type AutoPaintRule } from '../../map-ops/paint-ops';
 import { BrushStroke } from './brush-stroke';
 import type { EditorTool, ToolContext, ToolPointer } from './tool';
 

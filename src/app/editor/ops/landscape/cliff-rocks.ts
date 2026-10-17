@@ -11,8 +11,8 @@
  */
 import type { MapBiome, MapPoint } from '../../../world/custom-map/map-document';
 import type { CatalogIndex } from '../../catalog/asset-catalog';
-import { brushWeight, type BrushSettings } from '../brush';
-import { heightAt, slopeAt } from '../../model/grid';
+import { brushWeight, type BrushSettings } from '../../../map-ops/brush';
+import { heightAt, slopeAt } from '../../../map-ops/grid';
 import { waterLevelAt } from '../../../world/custom-map/water-level';
 import type { LandscapeStroke } from './landscape-stroke';
 

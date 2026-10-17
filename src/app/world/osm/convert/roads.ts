@@ -14,8 +14,8 @@
  * underpass under an embankment the world does not draw) stays a road, and a
  * footway or path through one stays a path (the portal is a road's).
  */
-import { flattenUnderPaths } from '../../../editor/ops/path-terrain';
-import { MAX_LAYERS, readWeights, writeWeights } from '../../../editor/ops/paint-ops';
+import { flattenUnderPaths } from '../../../map-ops/path-terrain';
+import { MAX_LAYERS, readWeights, writeWeights } from '../../../map-ops/paint-ops';
 import { fitSplatMaps, type MapPathEdge, type MapPathNode, type MapPaths, type MapPoint, type MapTerrain } from '../../custom-map/map-document';
 import type { OsmFeatures } from '../osm-parse';
 import { bridgeStyle, roadTags, type RoadSurface } from '../osm-tags';

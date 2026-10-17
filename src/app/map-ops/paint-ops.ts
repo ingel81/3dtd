@@ -6,8 +6,8 @@
  * The third map (layers 9 to 12) exists only on maps with more than 8
  * layers; without it those weights read as 0 and are not written.
  */
-import { MAX_GROUND_LAYERS, fitSplatMaps, type MapTerrain, type MapWater } from '../../world/custom-map/map-document';
-import { heightAt, slopeAt, texelRectAround, texelX, texelY, type GridRect } from '../model/grid';
+import { MAX_GROUND_LAYERS, fitSplatMaps, type MapTerrain, type MapWater } from '../world/custom-map/map-document';
+import { heightAt, slopeAt, texelRectAround, texelX, texelY, type GridRect } from './grid';
 import { brushWeight, type BrushSettings } from './brush';
 
 export const MAX_LAYERS = MAX_GROUND_LAYERS;

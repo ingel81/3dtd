@@ -14,7 +14,7 @@
 import type { CustomMapDocument, MapLife, MapLifeArea, MapPoint } from '../../world/custom-map/map-document';
 import { LIFE_KIND_INFO, MAX_LIFE_AREAS, MAX_LIFE_POINTS, nearestOnShape, newLifeId, outlineArea, shapeLength } from '../../world/custom-map/map-life';
 import { SnapshotCommand } from '../model/editor-document';
-import { insideMap } from '../model/grid';
+import { insideMap } from '../../map-ops/grid';
 import { lifeAreaImages, symmetryImages } from '../ops/symmetry';
 import type { EditorTool, ToolContext, ToolPointer } from './tool';
 

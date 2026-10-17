@@ -5,7 +5,7 @@
  * before and after: a stroke over a corner of a big map stores a few KB,
  * not the whole grid.
  */
-import type { GridRect } from './grid';
+import type { GridRect } from '../../map-ops/grid';
 
 export type PatchArray = Float32Array | Uint8Array;
 

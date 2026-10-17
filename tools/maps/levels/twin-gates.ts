@@ -7,7 +7,7 @@
  * same lanes and the same build places.
  */
 import type { CustomMapDocument, MapPoint } from '../../../src/app/world/custom-map/map-document';
-import { edgePolyline, pointAt, polylineLength } from '../../../src/app/editor/ops/path-graph';
+import { edgePolyline, pointAt, polylineLength } from '../../../src/app/map-ops/path-graph';
 import { facing, LevelKit } from './kit';
 
 export function buildTwinGates(): CustomMapDocument {

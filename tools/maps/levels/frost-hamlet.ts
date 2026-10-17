@@ -6,7 +6,7 @@
  * are the build ground.
  */
 import type { CustomMapDocument, MapPoint } from '../../../src/app/world/custom-map/map-document';
-import { resample } from '../../../src/app/editor/ops/landscape/lines';
+import { resample } from '../../../src/app/map-ops/lines';
 import { facing, LevelKit } from './kit';
 
 export function buildFrostHamlet(): CustomMapDocument {

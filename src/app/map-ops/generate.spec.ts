@@ -1,5 +1,5 @@
-import { createMapDocument } from '../../world/custom-map/map-create';
-import { heightAt } from '../model/grid';
+import { createMapDocument } from '../world/custom-map/map-create';
+import { heightAt } from './grid';
 import { nearestOnEdges } from './path-graph';
 import { finishGenerated, generateTerrain, TERRAIN_PRESETS, type TerrainPreset } from './generate';
 

@@ -6,11 +6,11 @@
  */
 import type { MapPathEdge, MapPathKind, MapPaths, MapPoint, MapRoadDress, MapRoadGround } from '../../../world/custom-map/map-document';
 import { restoreBand } from './river';
-import { MAX_LAYERS, readWeights } from '../paint-ops';
+import { MAX_LAYERS, readWeights } from '../../../map-ops/paint-ops';
 import { bandSamples, packGround, unpackGround } from './road-ground';
-import { addNode, connect, edgePolyline, nearestNode, nearestOnEdges, nearestOnPolyline, pointAt, polylineLength, splitEdge } from '../path-graph';
-import { flattenUnderPaths, paintUnderPaths } from '../path-terrain';
-import { chaikin, simplify } from './lines';
+import { addNode, connect, edgePolyline, nearestNode, nearestOnEdges, nearestOnPolyline, pointAt, polylineLength, splitEdge } from '../../../map-ops/path-graph';
+import { flattenUnderPaths, paintUnderPaths } from '../../../map-ops/path-terrain';
+import { chaikin, simplify } from '../../../map-ops/lines';
 import { roadPaintBands } from '../../../world/custom-map/render/paths/road-style';
 import type { LandscapeStroke } from './landscape-stroke';
 import type { CatalogIndex } from '../../catalog/asset-catalog';

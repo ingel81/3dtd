@@ -1,5 +1,5 @@
 import { createMapDocument } from '../../custom-map/map-create';
-import { components, routeBetween } from '../../../editor/ops/path-graph';
+import { components, routeBetween } from '../../../map-ops/path-graph';
 import { OsmFrame, parseOsm } from '../osm-parse';
 import type { OverpassElement } from '../overpass-client';
 import { buildRoads, clipPieces, levelRoads, paintRoads } from './roads';

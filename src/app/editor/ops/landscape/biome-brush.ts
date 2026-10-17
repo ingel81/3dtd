@@ -19,18 +19,18 @@
  */
 import type { DocChange } from '../../model/editor-document';
 import type { MapTerrain } from '../../../world/custom-map/map-document';
-import { heightAt, sampleX, sampleY, slopeAt, texelX, texelY, type GridRect } from '../../model/grid';
-import { brushWeight, type BrushSettings } from '../brush';
-import { drainSpills } from '../water-ops';
-import { MAX_LAYERS, readWeights, writeWeights } from '../paint-ops';
-import { HEIGHT_LIMITS } from '../terrain-ops';
+import { heightAt, sampleX, sampleY, slopeAt, texelX, texelY, type GridRect } from '../../../map-ops/grid';
+import { brushWeight, type BrushSettings } from '../../../map-ops/brush';
+import { drainSpills } from '../../../map-ops/water-ops';
+import { MAX_LAYERS, readWeights, writeWeights } from '../../../map-ops/paint-ops';
+import { HEIGHT_LIMITS } from '../../../map-ops/terrain-ops';
 import { CITY_GRID, mapClimate, type BiomeDef, type BiomeObject } from './biomes';
 import { citySlots, streetDistance } from './city';
 import { crackAt } from './cracks';
 import { FieldCache } from './field-cache';
 import { craterProfile } from './shapes';
 import type { CatalogIndex } from '../../catalog/asset-catalog';
-import { smooth, type LandscapeNoise } from './landscape-noise';
+import { smooth, type LandscapeNoise } from '../../../map-ops/landscape-noise';
 import type { LandscapeStroke } from './landscape-stroke';
 
 /** Share per second the ground and paint close toward the biome at full strength */

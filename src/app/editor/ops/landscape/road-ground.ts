@@ -14,7 +14,7 @@
  * Size: some 4 bytes a sample plus 6 a run, a third more as text.
  */
 import type { MapHeightGrid, MapPoint, MapRoadGround } from '../../../world/custom-map/map-document';
-import { nearestOnPolyline } from '../path-graph';
+import { nearestOnPolyline } from '../../../map-ops/path-graph';
 
 /** Height samples (row-major indices) within `reach` metres of a line */
 export function bandSamples(grid: MapHeightGrid, width: number, depth: number, line: readonly MapPoint[], reach: number): number[] {

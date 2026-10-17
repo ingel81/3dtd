@@ -1,7 +1,7 @@
 import { createMapDocument } from '../../world/custom-map/map-create';
-import { LandscapeNoise } from './landscape/landscape-noise';
+import { LandscapeNoise } from '../../map-ops/landscape-noise';
 import { filledHeights, holdsLake, pourWater } from './pour';
-import { addPouredBodies, emptyWater, wetSamples } from './water-ops';
+import { addPouredBodies, emptyWater, wetSamples } from '../../map-ops/water-ops';
 
 /** A slope falling 0.25 m per metre to the east with three pits 4 m deep in a row along y = 0 */
 function cascade() {

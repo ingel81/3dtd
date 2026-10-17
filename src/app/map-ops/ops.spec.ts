@@ -1,6 +1,6 @@
-import { createMapDocument } from '../../world/custom-map/map-create';
-import type { MapObject } from '../../world/custom-map/map-document';
-import { heightAt } from '../model/grid';
+import { createMapDocument } from '../world/custom-map/map-create';
+import type { MapObject } from '../world/custom-map/map-document';
+import { heightAt } from './grid';
 import { brushWeight, stepRadius } from './brush';
 import { autoPaint, defaultAutoRules, dominantLayer, moveLayer, paintDab, readWeights, removeLayer } from './paint-ops';
 import { erodeDab, flattenDab, noiseDab, raiseDab, rampBetween, smoothDab, terraceDab } from './terrain-ops';
@@ -8,7 +8,7 @@ import { basinSpillHeight, drainSpills, emptyWater, fillBasin, waterMaskDab } fr
 import { DEFAULT_SCATTER, MAX_SINK, ObjectGrid, ObjectIds, duplicateObjects, objectsInBox, scatterDab, settled, slopeTilt, alignedToSlope, undersideGap, variedTint, type RockShape } from './object-ops';
 import { Euler, Quaternion, Vector3 } from 'three';
 import { flattenUnderPaths, paintUnderPaths } from './path-terrain';
-import { resizeMap } from './resize';
+import { resizeMap } from '../editor/ops/resize';
 
 const flat = () => createMapDocument({ id: 'm', name: 'M', width: 200, depth: 200, cellSize: 2, starter: false });
 const brush = { radius: 10, strength: 1, falloff: 0.5 };

@@ -7,7 +7,7 @@
  */
 import type { CustomMapDocument, MapTerrain } from '../../world/custom-map/map-document';
 import { splatResolutionFor } from '../../world/custom-map/map-create';
-import { clamp } from '../model/grid';
+import { clamp } from '../../map-ops/grid';
 import { shiftGround } from './landscape/road-ground';
 
 export interface ResizeResult {

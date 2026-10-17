@@ -6,9 +6,9 @@
  * stroke erodes the same way every time.
  */
 import type { MapPoint } from '../../../world/custom-map/map-document';
-import { sampleRectAround, type GridRect } from '../../model/grid';
-import type { BrushSettings } from '../brush';
-import { hashCell } from './landscape-noise';
+import { sampleRectAround, type GridRect } from '../../../map-ops/grid';
+import type { BrushSettings } from '../../../map-ops/brush';
+import { hashCell } from '../../../map-ops/landscape-noise';
 import type { LandscapeStroke } from './landscape-stroke';
 
 const INERTIA = 0.3;

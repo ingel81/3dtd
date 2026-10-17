@@ -3,8 +3,8 @@ import { resolve } from 'node:path';
 import { createMapDocument } from '../../../world/custom-map/map-create';
 import { CatalogIndex, normalizeCatalog } from '../../catalog/asset-catalog';
 import { EditorDocument } from '../../model/editor-document';
-import { heightAt } from '../../model/grid';
-import { emptyWater } from '../water-ops';
+import { heightAt } from '../../../map-ops/grid';
+import { emptyWater } from '../../../map-ops/water-ops';
 import { CLIFF_MODELS, cliffModelIds, cliffModelsFor, cliffRocksDab } from './cliff-rocks';
 import { LandscapeStroke } from './landscape-stroke';
 

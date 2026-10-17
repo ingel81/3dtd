@@ -1,6 +1,6 @@
 import { createMapDocument } from '../../world/custom-map/map-create';
 import { contentBytes } from '../../world/custom-map/map-file';
-import { heightAt } from '../model/grid';
+import { heightAt } from '../../map-ops/grid';
 import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
 import { mirrorMap } from './mirror-map';
 

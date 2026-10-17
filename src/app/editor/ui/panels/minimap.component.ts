@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, computed, Component, ElementRef, OnDestroy, ef
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { SPAWN_COLORS } from '../../../configs/map-constants.config';
 import { TD_THEME } from '../../../styles/td-theme';
-import { edgePolyline } from '../../ops/path-graph';
+import { edgePolyline } from '../../../map-ops/path-graph';
 import { EditorSession } from '../editor-session.service';
 
 const SIZE = 200;

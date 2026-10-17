@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TdIconComponent } from '../../../components/icon/icon.component';
 import { SPAWN_COLORS } from '../../../configs/map-constants.config';
-import { spawnRoutes } from '../../ops/path-graph';
+import { spawnRoutes } from '../../../map-ops/path-graph';
 import { markerCommands } from '../../tools/marker-tool';
 import type { MarkerMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';

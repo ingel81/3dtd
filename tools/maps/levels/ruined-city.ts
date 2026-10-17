@@ -7,7 +7,7 @@
  * and in the gaps where blocks have fallen.
  */
 import type { CustomMapDocument, MapObject, MapPoint } from '../../../src/app/world/custom-map/map-document';
-import { resample } from '../../../src/app/editor/ops/landscape/lines';
+import { resample } from '../../../src/app/map-ops/lines';
 import { facing, LevelKit } from './kit';
 
 /** Ruined stand-ins for the city biome's whole buildings */

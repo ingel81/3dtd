@@ -2,9 +2,9 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createMapDocument } from '../../world/custom-map/map-create';
 import { CatalogIndex, normalizeCatalog } from '../catalog/asset-catalog';
-import { heightAt } from '../model/grid';
+import { heightAt } from '../../map-ops/grid';
 import { MapKit } from './map-kit';
-import { readWeights } from './paint-ops';
+import { readWeights } from '../../map-ops/paint-ops';
 import { waterInAir } from '../validation/map-validation';
 
 const index = new CatalogIndex(normalizeCatalog(JSON.parse(readFileSync(resolve('public/maps/assets/catalog.json'), 'utf8')), 'http://x/maps/assets/'));

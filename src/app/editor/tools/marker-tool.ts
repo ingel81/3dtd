@@ -9,8 +9,8 @@
 import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
 import type { MapPoint, MapSpawn } from '../../world/custom-map/map-document';
 import { SnapshotCommand, selectedSpawns, spawnSelection, type DocParts, type EditCommand, type EditorDocument } from '../model/editor-document';
-import { insideMap } from '../model/grid';
-import { nearestOnEdges, newId } from '../ops/path-graph';
+import { insideMap } from '../../map-ops/grid';
+import { nearestOnEdges, newId } from '../../map-ops/path-graph';
 import { symmetryImages } from '../ops/symmetry';
 import type { EditorTool, ToolContext, ToolPointer } from './tool';
 

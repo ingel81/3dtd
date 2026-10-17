@@ -5,10 +5,10 @@
  * the cracks sink a little into the ground.
  */
 import type { MapPoint } from '../../../world/custom-map/map-document';
-import { sampleRectAround, sampleX, sampleY, texelRectAround, texelX, texelY, type GridRect } from '../../model/grid';
-import { brushWeight, type BrushSettings } from '../brush';
-import { MAX_LAYERS, readWeights, writeWeights } from '../paint-ops';
-import { smooth } from './landscape-noise';
+import { sampleRectAround, sampleX, sampleY, texelRectAround, texelX, texelY, type GridRect } from '../../../map-ops/grid';
+import { brushWeight, type BrushSettings } from '../../../map-ops/brush';
+import { MAX_LAYERS, readWeights, writeWeights } from '../../../map-ops/paint-ops';
+import { smooth } from '../../../map-ops/landscape-noise';
 import type { LandscapeStroke } from './landscape-stroke';
 
 /** Share per second the ground closes toward the cracked look */

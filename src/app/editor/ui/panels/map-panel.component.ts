@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import type { MapVersion } from '../../model/version-store';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { TERRAIN_PRESETS, type TerrainPreset } from '../../ops/generate';
+import { TERRAIN_PRESETS, type TerrainPreset } from '../../../map-ops/generate';
 import { detailTarget } from '../../ops/detail';
 import { rangeFromName } from '../../ops/heightmap';
 import { RangeRowComponent } from './range-row.component';
