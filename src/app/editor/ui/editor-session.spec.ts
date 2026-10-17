@@ -229,7 +229,7 @@ describe('editor session while busy', () => {
     expect(s.edit('Changing the water', () => undefined)).toBe(true);
 
     // A held stroke in the view
-    Object.assign(s['viewHost'], { viewport: { dragging: true, dispose: () => undefined } });
+    Object.assign(s['viewHost'], { viewport: { input: { dragging: true }, dispose: () => undefined } });
     s.undo();
     expect(s.doc!.meta.name).toBe('Renamed');
     expect(s.notices.status()).toContain('finish the stroke');
@@ -251,8 +251,8 @@ describe('editor session check', () => {
       const { s } = session();
       s.check.runCheck();
       const check = vi.spyOn(s.check, 'runCheck');
-      const viewport = { dragging: true, dispose: () => undefined };
-      Object.assign(s['viewHost'], { viewport });
+      const input = { dragging: true };
+      Object.assign(s['viewHost'], { viewport: { input, dispose: () => undefined } });
       // Every poll of a stroke finds a change: the check waits for the stroke's end
       for (let k = 0; k < 10; k++) {
         s.editMeta({ description: `step ${k}` });
@@ -261,7 +261,7 @@ describe('editor session check', () => {
       }
       vi.advanceTimersByTime(CHECK_DELAY_MS * 3);
       expect(check).not.toHaveBeenCalled();
-      viewport.dragging = false;
+      input.dragging = false;
       vi.advanceTimersByTime(CHECK_DELAY_MS);
       expect(check).toHaveBeenCalledTimes(1);
       Object.assign(s['viewHost'], { viewport: null });
@@ -751,7 +751,7 @@ describe('editor session and the AI agent', () => {
       toDataURL: () => 'data:image/jpeg;base64,AAAA',
     };
     const renderTopDown = vi.fn(async () => canvas);
-    Object.assign(s['viewHost'], { viewport: { renderTopDown, dispose: () => undefined } });
+    Object.assign(s['viewHost'], { viewport: { topDown: { render: renderTopDown }, dispose: () => undefined } });
     const answer = await call(agent, 'top_down_picture', { size: 128 });
     expect(renderTopDown).toHaveBeenCalledWith(128, 128, true, undefined);
     expect(answer.image).toEqual({ mimeType: 'image/jpeg', data: 'AAAA' });

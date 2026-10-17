@@ -143,7 +143,7 @@ export class ViewHost implements EditorViewPort {
       });
       this.viewport = vp;
       vp.setTool(d.tool());
-      if (d.locked()) vp.setLocked(true);
+      if (d.locked()) vp.input.setLocked(true);
       // Back from the game: the camera where it was
       if (this.keptView) vp.showView(this.keptView, true);
       this.keptView = null;
@@ -175,7 +175,7 @@ export class ViewHost implements EditorViewPort {
 
   /** The tools take input or not (a job runs, another tab edits) */
   lock(on: boolean): void {
-    this.viewport?.setLocked(on);
+    this.viewport?.input.setLocked(on);
   }
 
   setTool(tool: EditorTool): void {
@@ -206,23 +206,23 @@ export class ViewHost implements EditorViewPort {
   previewIntro(intro: MapIntro | null): void {
     const vp = this.viewport;
     if (!intro || !vp) {
-      vp?.stopIntroPreview();
+      vp?.extras.intro.stop();
       return;
     }
     this.introPreviewing.set(true);
-    vp.previewIntro(intro, () => this.deps.zone.run(() => this.introPreviewing.set(false)));
+    vp.extras.intro.start(intro, () => this.deps.zone.run(() => this.introPreviewing.set(false)));
   }
 
   /** The map's ambient sound on or off (from a click: browsers start audio only then) */
   setAmbience(on: boolean): void {
     patch(this.deps.settings.life, { hear: on });
-    this.viewport?.setAmbience(on);
+    this.viewport?.extras.sound.set(on);
   }
 
   /** The map's wave sound once, its sound on from then (from a click) */
   playWaveSound(): void {
     patch(this.deps.settings.life, { hear: true });
-    this.viewport?.playWaveSound();
+    this.viewport?.extras.sound.playWave();
   }
 
   /** Calls `fn` in each frame the camera moved (the minimap's frame); returns the unsubscribe */
@@ -270,11 +270,11 @@ export class ViewHost implements EditorViewPort {
   }
 
   get dragging(): boolean {
-    return !!this.viewport?.dragging;
+    return !!this.viewport?.input.dragging;
   }
 
   get flying(): boolean {
-    return !!this.viewport?.flying;
+    return !!this.viewport?.input.flying;
   }
 
   get topDown(): boolean {
@@ -282,7 +282,7 @@ export class ViewHost implements EditorViewPort {
   }
 
   get trialRunning(): boolean {
-    return !!this.viewport?.trialRunning;
+    return !!this.viewport?.extras.trial.running;
   }
 
   frameMap(): void {
@@ -311,7 +311,7 @@ export class ViewHost implements EditorViewPort {
   }
 
   viewFootprint(): MapPoint[] {
-    return this.viewport?.viewFootprint() ?? [];
+    return this.viewport?.picker.footprint() ?? [];
   }
 
   showView(view: CameraBookmark, snap = false): void {
@@ -323,36 +323,37 @@ export class ViewHost implements EditorViewPort {
   }
 
   toggleGameView(): void {
-    this.viewport?.toggleGameView();
+    this.viewport?.extras.gameView.toggle();
   }
 
   toggleTrial(speed: number): boolean {
     const vp = this.viewport;
     if (!vp) return false;
-    vp.trialSpeed = speed;
-    vp.toggleTrial();
-    return vp.trialRunning;
+    const trial = vp.extras.trial;
+    trial.speed = speed;
+    trial.toggle();
+    return trial.running;
   }
 
   setTrialSpeed(speed: number): void {
-    if (this.viewport) this.viewport.trialSpeed = speed;
+    if (this.viewport) this.viewport.extras.trial.speed = speed;
   }
 
   renderTopDown(width: number, height = width, overlay = false, area?: { x0: number; y0: number; x1: number; y1: number }): Promise<HTMLCanvasElement> {
     const vp = this.viewport;
-    return vp ? vp.renderTopDown(width, height, overlay, area) : Promise.reject(new Error('No view'));
+    return vp ? vp.topDown.render(width, height, overlay, area) : Promise.reject(new Error('No view'));
   }
 
   warmUpAssets(assetIds: string[]): void {
-    this.viewport?.warmUpAssets(assetIds);
+    this.viewport?.warmup.assets(assetIds);
   }
 
   key(e: KeyboardEvent): boolean {
-    return !!this.viewport?.key(e);
+    return !!this.viewport?.input.key(e);
   }
 
   keyUp(e: KeyboardEvent): void {
-    this.viewport?.keyUp(e);
+    this.viewport?.input.keyUp(e);
   }
 
   focusCanvas(): void {
@@ -360,6 +361,6 @@ export class ViewHost implements EditorViewPort {
   }
 
   refreshRoutes(): void {
-    this.viewport?.refreshRoutes();
+    this.viewport?.changes.routesChanged();
   }
 }

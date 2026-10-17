@@ -1,51 +1,36 @@
 /**
  * The editor's 3D view: its own renderer, scene and camera, independent of
- * the game's engine. It feeds pointer input to the active tool, raycasts the
- * ground once per frame, collects the document's change notices and hands
- * them to the map view once per frame (only the touched chunks), and keeps
- * the overlay (brush, markers, routes) in step.
+ * the game's engine, and the frame loop. The parts do the rest: InputRouter
+ * (pointer, wheel, keys to the tool or the camera), ViewPicker (what lies
+ * under a screen point), ChangeApplier (the document's change notices to the
+ * map view and the overlay, once a frame), ProgramWarmup (shader programs
+ * ahead), TopDownRenderer (the map from above) and ViewExtras (trial wave,
+ * sound, intro flight, game view).
  */
-import { TRIAL_TYPES, TrialRunners } from './trial-runners';
-import {
-  Color,
-  Group,
-  MathUtils,
-  type Object3D,
-  PCFShadowMap,
-  OrthographicCamera,
-  PerspectiveCamera,
-  Raycaster,
-  SRGBColorSpace,
-  Scene,
-  Vector2,
-  Vector3,
-  WebGLRenderTarget,
-  WebGLRenderer,
-} from 'three';
-import { SPAWN_COLORS } from '../../configs/map-constants.config';
-import type { MapIntro, MapIntroView, MapObject, MapPoint } from '../../world/custom-map/map-document';
-import { emptyPose, introPoseAt } from '../../world/custom-map/map-intro';
+import { PCFShadowMap, PerspectiveCamera, SRGBColorSpace, Scene, Vector3, WebGLRenderer } from 'three';
+import type { MapIntroView, MapObject, MapPoint } from '../../world/custom-map/map-document';
 import { type BridgeDeck, bridgeDecks, deckHeightAt } from '../../world/custom-map/bridge-decks';
 import { HeightField } from '../../world/custom-map/render/height-field';
 import { waterLevelAt } from '../../world/custom-map/water-level';
 import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
 import type { CatalogIndex } from '../../map-ops/asset-catalog';
-import { mergeChanges, type DocChange } from '../model/doc-change';
-import { selectedEdges, selectedNodes, selectedSpawns, type EditorDocument } from '../model/editor-document';
+import { selectedEdges, selectedNodes, selectedSpawns, type EditorDocument, type Selection } from '../model/editor-document';
+import type { CustomMapDocument } from '../../world/custom-map/map-document';
 import { heightAt as gridHeight } from '../../map-ops/grid';
-import { stepRadius } from '../../map-ops/brush';
 import { dominantLayer } from '../../map-ops/paint-ops';
-import { edgePolyline, nearestOnPolyline, spawnRoutes } from '../../map-ops/path-graph';
-import { patch, type EditorSettings, type EditorTool, type MapHit, type ToolContext, type ToolPointer } from '../tools/tool';
-import type { PickResult } from '../model/editor-document';
-import { CameraController, type OrbitState } from './camera-controller';
+import { edgePolyline, spawnRoutes } from '../../map-ops/path-graph';
+import type { EditorSettings, EditorTool, MapHit, ToolContext } from '../tools/tool';
+import { CameraController } from './camera-controller';
+import { ChangeApplier } from './change-applier';
 import { EditorOverlay } from './editor-overlay';
-import { idle } from './idle';
+import { InputRouter } from './input-router';
 import { EditorMapView, mapToScene } from './map-view';
+import { ProgramWarmup } from './program-warmup';
+import { TopDownRenderer } from './top-down-renderer';
+import { EDITOR_FOV, ViewExtras } from './view-extras';
+import { ViewPicker } from './view-picker';
 import { pixelRatioFor, readStoredQuality, storedKnobsFor, type QualityKnobs } from '../../three-engine/render-quality';
 import { contourLines } from '../ops/contours';
-import { firstUsePrograms, programsReady } from '../../three-engine/programs-ready';
-import { Soundscape } from '../../world/custom-map/ambience/soundscape';
 
 export interface HoverInfo {
   x: number;
@@ -85,53 +70,20 @@ export interface ViewportCallbacks {
   contextLost(lost: boolean): void;
 }
 
-
-/** Milliseconds between two sky rebuilds while an environment slider moves */
-const ENV_INTERVAL_MS = 100;
-/** The editor's level of the map's ambient sound (it has no volume setting of its own) */
-const AMBIENCE_VOLUME = 0.8;
-/** Milliseconds between two water rebuilds while a brush changes the masks */
-const WATER_INTERVAL_MS = 120;
-/** Milliseconds at least between two layings of the overlay on moving ground (a height stroke) */
-const DRAPE_INTERVAL_MS = 200;
-const FOV = 50;
-/**
- * The game's start view (three-engine/camera-rig.ts applyStartPosition):
- * over the HQ from the south, 400 m up and 145 m back, about 70 degrees
- * down, with the game camera's 60 degree field of view
- */
-const GAME_VIEW = { height: 400, back: 145, fov: 60 };
-/** Keys that fly the view while the right button is held */
-const FLY_KEYS = new Set(['w', 'a', 's', 'd', 'q', 'e']);
-
 export class EditorViewport {
   readonly renderer: WebGLRenderer;
   readonly scene = new Scene();
-  readonly camera = new PerspectiveCamera(FOV, 1, 1, 20000);
+  readonly camera = new PerspectiveCamera(EDITOR_FOV, 1, 1, 20000);
   readonly controller = new CameraController();
   readonly overlay: EditorOverlay;
   view: EditorMapView;
-  private tool: EditorTool | null = null;
-  private pending: DocChange | null = null;
-  /** When the view last took the environment, and whether a newer one waits (sliders move faster than the sky rebuilds) */
-  private envAt = 0;
-  private envWaiting = false;
-  /** The map's ambient sound while the Life panel's "Hear it" is on, in a context of the editor's own */
-  private ambience: { sound: Soundscape; context: AudioContext } | null = null;
-  private readonly ambienceRight = new Vector3();
-  /** The same for the map's life: its sliders rebuild the effects */
-  private lifeAt = 0;
-  private lifeWaiting = false;
-  /** The same for water: a brush that fills pools changes the masks every frame */
-  private waterAt = 0;
-  private waterWaiting = false;
-  private routesDirty = true;
-  /**
-   * The view whose ground is in and programs built (warmUpView): frames draw
-   * only then, so a map opening shows the page's "Preparing the view" and a
-   * rebuilt view the last frame, not the terrain's green stand-in ground
-   */
-  private shownView: EditorMapView | null = null;
+  readonly ctx: ToolContext;
+  readonly input: InputRouter;
+  readonly picker: ViewPicker;
+  readonly changes: ChangeApplier;
+  readonly warmup: ProgramWarmup;
+  readonly topDown: TopDownRenderer;
+  readonly extras: ViewExtras;
   /** The bridge decks of the map as it stands, laid again after a change (walkHeightAt) */
   private decks: BridgeDeck[] | null = null;
   /** The symmetry the guides show, and whether the ground under them moved */
@@ -139,49 +91,15 @@ export class EditorViewport {
   /** What the height lines and grid show, and when they were drawn */
   private overlayKey = '';
   private overlayTime = 0;
-  private markersDirty = true;
-  /** The ground under the overlay moved since it was laid, and when it was laid last (redrape) */
-  private drapeWaiting = false;
-  private drapeAt = 0;
-  private pointer: { clientX: number; clientY: number; shift: boolean; ctrl: boolean; alt: boolean; button: number } | null = null;
-  private pointerMoved = false;
-  private toolDrag = false;
-  private cameraDrag: { mode: 'rotate' | 'pan'; x: number; y: number } | null = null;
-  private lastHit: MapHit | null = null;
+  /** The hidden categories the view last showed */
+  private hiddenKey = '';
   private raf = 0;
   private lastTime = 0;
-  /** The map's intro flight playing in the view (Preview), until it ends or a click or the wheel stops it */
-  private introPreview: { intro: MapIntro; t: number; hq: { x: number; y: number; h: number }; done: () => void } | null = null;
-  private readonly introPose = emptyPose();
   private frames = 0;
   private statsTime = 0;
   private hoverTime = 0;
-  private readonly keysDown = new Set<string>();
-  /** Set once the viewport is gone: late promises (the warm-up) must not reach the page */
-  private disposed = false;
-  /** Assets whose programs were compiled ahead */
-  private readonly warmed = new Set<string>();
-  /**
-   * Settles once the top-down picture's programs are built (warmUpView):
-   * renderTopDown waits for it, a picture before would link them all in one
-   * frame (1.2 s at the editor's start)
-   */
-  private topDownWarm: Promise<void> = Promise.resolve();
-  /** Stands in for renderTopDown's target when compiling its programs ahead (sRGB, any size) */
-  private readonly topDownProbe = new WebGLRenderTarget(1, 1, { colorSpace: SRGBColorSpace });
-  /** Tools take no input (a terrain job runs) */
-  private locked = false;
-  /** The view before the game camera took over, to go back to */
-  private beforeGameView: OrbitState | null = null;
-  /** The trial wave's runners */
-  private readonly trial: TrialRunners;
-  /** The hidden categories the view last showed */
-  private hiddenKey = '';
-  private readonly raycaster = new Raycaster();
-  private readonly ndc = new Vector2();
   private readonly unsubscribe: (() => void)[] = [];
   private readonly resizeObserver: ResizeObserver;
-  readonly ctx: ToolContext;
   /** The game's quality level for custom maps (render-quality.ts) */
   private readonly quality: QualityKnobs;
 
@@ -198,28 +116,84 @@ export class EditorViewport {
     this.quality = storedKnobsFor(readStoredQuality(), gpuNameOf(this.renderer), 'custom-map');
     this.renderer.setPixelRatio(pixelRatioFor({ ...this.quality, general: { ...this.quality.general, scale: 1 } }, 'custom-map', window.devicePixelRatio));
     this.renderer.outputColorSpace = SRGBColorSpace;
-    this.overlay = new EditorOverlay((x, y) => this.heightAt(x, y), (x, y) => this.walkHeightAt(x, y));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = PCFShadowMap;
     MapAssetLibrary.useCompressedTextures(this.renderer);
-    this.view = new EditorMapView(editor.doc, this.scene, this.renderer);
-    this.view.view.applyQuality(this.quality.customMaps);
-    void this.warmUpView();
+    const heightAt = (x: number, y: number) => this.heightAt(x, y);
+    const walkHeightAt = (x: number, y: number) => this.walkHeightAt(x, y);
+    this.overlay = new EditorOverlay(heightAt, walkHeightAt);
+    this.view = this.makeView();
+    this.warmup = new ProgramWarmup(this.renderer, this.scene, this.camera, () => this.view);
+    void this.warmup.view(() => callbacks.viewReady());
     this.scene.add(this.overlay.group);
-    void this.warmOverlay();
-    this.trial = new TrialRunners((x, y) => this.walkHeightAt(x, y));
-    this.scene.add(this.trial.group);
+    void this.warmup.overlay(this.overlay.group);
+    this.extras = new ViewExtras({
+      editor,
+      camera: this.camera,
+      controller: this.controller,
+      heightAt,
+      surfaceAt: (x, y) => this.surfaceAt(x, y),
+      walkHeightAt,
+      darkness: () => this.view.view.environment.darkness,
+      status: (m) => callbacks.status(m),
+    });
+    this.scene.add(this.extras.trial.runners.group);
+    this.picker = new ViewPicker(canvas, this.camera, this.controller, editor, catalog, this.overlay, () => this.view, heightAt);
     this.ctx = this.buildContext();
+    this.input = new InputRouter({
+      canvas,
+      controller: this.controller,
+      editor,
+      settings,
+      ctx: this.ctx,
+      fov: () => this.camera.fov,
+      ground: (x, y) => this.picker.ground(x, y),
+      interrupt: () => this.extras.intro.stop(),
+      left: () => callbacks.hover(null),
+    });
+    this.changes = new ChangeApplier({
+      rebuild: () => this.rebuildView(),
+      layers: () => this.view.updateLayers(),
+      heights: (rect) => this.view.updateHeights(rect),
+      splat: (rect) => this.view.updateSplat(rect),
+      water: () => this.view.updateWater(),
+      waterBody: (k, rect) => this.view.updateWaterBody(k, rect),
+      objects: (ids) => (ids === 'all' ? this.view.setObjects() : this.view.updateObjects(ids)),
+      paths: () => this.view.updatePaths(),
+      environment: () => this.view.setEnvironment(),
+      life: () => this.view.setLife(),
+      soundChanged: () => this.extras.sound.mapChanged(),
+      groundMoved: () => {
+        this.guideMode = null;
+        this.overlayKey = '';
+      },
+      redrape: () => this.overlay.redrape(),
+      markers: (routes) => {
+        const doc = editor.doc;
+        this.overlay.updateMarkers(doc, editor.selection);
+        this.overlay.updateSelection(doc, editor.selection, (asset) => catalog.object(asset).radius);
+        if (routes) this.overlay.setRoutes(settings.paths().showRoutes ? [...spawnRoutes(doc).values()] : []);
+      },
+      selection: () => this.overlay.updateSelection(editor.doc, editor.selection, (asset) => catalog.object(asset).radius),
+    });
+    this.topDown = new TopDownRenderer({
+      renderer: this.renderer,
+      scene: this.scene,
+      warmup: this.warmup,
+      overlay: this.overlay.group,
+      hidden: this.extras.trial.runners.group,
+      view: () => this.view,
+      terrain: () => editor.doc.terrain,
+      flush: () => this.changes.flush(),
+    });
     this.unsubscribe.push(
       editor.onChange((change) => {
-        this.pending = this.pending ? mergeChanges(this.pending, change) : change;
+        this.changes.add(change);
         this.decks = null;
       }),
-      editor.onSelection(() => {
-        this.markersDirty = true;
-      }),
+      editor.onSelection(() => this.changes.selectionChanged()),
     );
-    this.bindInput();
+    this.bindContext();
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(canvas.parentElement ?? canvas);
     this.resize();
@@ -252,42 +226,30 @@ export class EditorViewport {
   }
 
   setTool(tool: EditorTool): void {
-    if (this.tool === tool) return;
-    this.tool?.deactivate?.(this.ctx);
-    this.tool = tool;
-    tool.activate?.(this.ctx);
+    if (!this.input.setTool(tool)) return;
     this.overlay.setBrush(null, 0, 0);
     // Road nodes are handles only where they are edited
     this.overlay.setNodeHandles(tool.id === 'paths');
-  }
-
-  get activeTool(): EditorTool | null {
-    return this.tool;
   }
 
   /** The whole document changed (opened another map, resized): rebuild the view */
   rebuildView(): void {
     this.decks = null;
     this.view.dispose();
-    this.view = new EditorMapView(this.editor.doc, this.scene, this.renderer);
-    this.view.view.applyQuality(this.quality.customMaps);
-    void this.warmUpView();
-    // The old view's materials went with it, and with them their programs
-    this.warmed.clear();
+    this.view = this.makeView();
+    void this.warmup.view(() => this.callbacks.viewReady());
     // The new view shows everything until the hidden categories are applied again
     this.hiddenKey = '';
-    this.pending = null;
-    this.routesDirty = true;
-    this.markersDirty = true;
+    this.changes.reset();
   }
 
-  /** Where the camera looks from, to keep as a bookmark */
   /** The map point the view looks at (the camera's target) */
   viewCenter(): { x: number; y: number } {
     const g = this.controller.goal.target;
     return { x: -g.x, y: g.z };
   }
 
+  /** Where the camera looks from, to keep as a bookmark */
   cameraView(): CameraBookmark {
     const g = this.controller.goal;
     return { x: g.target.x, y: g.target.y, z: g.target.z, distance: g.distance, yaw: g.yaw, pitch: g.pitch };
@@ -311,44 +273,6 @@ export class EditorViewport {
     return { x: r(-c.x), y: r(c.z), h: r(c.y), lookX: r(-t.x), lookY: r(t.z), lookH: r(t.y) };
   }
 
-  /**
-   * Plays the map's intro flight in the view as the game does (without the
-   * game's swing in and out), then hands the view back as it was; `done`
-   * when it ends or a click or the wheel stops it
-   */
-  previewIntro(intro: MapIntro, done: () => void): void {
-    this.stopIntroPreview();
-    const hq = this.editor.doc.hq;
-    this.introPreview = { intro, t: 0, hq: { x: hq.x, y: hq.y, h: this.heightAt(hq.x, hq.y) }, done };
-  }
-
-  stopIntroPreview(): void {
-    const p = this.introPreview;
-    this.introPreview = null;
-    p?.done();
-  }
-
-  /** One frame of the preview; false when there is none (the controller has the camera) */
-  private playIntroPreview(dt: number): boolean {
-    const p = this.introPreview;
-    if (!p) return false;
-    p.t += dt;
-    if (p.t > p.intro.seconds) {
-      this.stopIntroPreview();
-      return false;
-    }
-    const pose = introPoseAt(p.intro, p.hq, p.t, this.introPose);
-    // As the game keeps it (CustomMapWorld.introShot): never under the ground or the water
-    const floor = this.surfaceAt(pose.x, pose.y) + 3;
-    this.camera.position.set(-pose.x, Math.max(floor, pose.h), pose.y);
-    this.camera.up.set(0, 1, 0);
-    this.camera.lookAt(-pose.lookX, pose.lookH, pose.lookY);
-    this.camera.near = 0.5;
-    this.camera.far = 20000;
-    this.camera.updateProjectionMatrix();
-    return true;
-  }
-
   /** Frame the whole map */
   frameMap(snap = false): void {
     const t = this.editor.doc.terrain;
@@ -363,434 +287,20 @@ export class EditorViewport {
 
   /** Frame what is selected, else the whole map */
   focusSelection(): void {
-    const doc = this.editor.doc;
-    const s = this.editor.selection;
-    if (s?.kind === 'objects') {
-      const objs = doc.objects.filter((o) => s.ids.includes(o.id));
-      if (objs.length) {
-        const xs = objs.map((o) => o.x);
-        const ys = objs.map((o) => o.y);
-        const c = { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 };
-        this.focusOn(c, Math.max(30, (Math.max(...xs) - Math.min(...xs)) / 2, (Math.max(...ys) - Math.min(...ys)) / 2));
-        return;
-      }
-    }
-    if (s?.kind === 'paths' || s?.kind === 'spawns') {
-      // Several nodes, roads or spawns: the box around them
-      const nodeIds = new Set(selectedNodes(s));
-      const edgeIds = new Set(selectedEdges(s));
-      const spawnIds = new Set(selectedSpawns(s));
-      const pts = [
-        ...doc.paths.nodes.filter((n) => nodeIds.has(n.id)),
-        ...doc.paths.edges.filter((e) => edgeIds.has(e.id)).flatMap((e) => edgePolyline(doc.paths, e)),
-        ...doc.spawns.filter((sp) => spawnIds.has(sp.id)),
-      ];
-      if (pts.length) {
-        const xs = pts.map((p) => p.x);
-        const ys = pts.map((p) => p.y);
-        const c = { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 };
-        this.focusOn(c, Math.max(40, (Math.max(...xs) - Math.min(...xs)) / 2, (Math.max(...ys) - Math.min(...ys)) / 2));
-        return;
-      }
-    }
-    if (s?.kind === 'spawn') {
-      const sp = doc.spawns.find((x) => x.id === s.id);
-      if (sp) return this.focusOn(sp);
-    }
-    if (s?.kind === 'hq') return this.focusOn(doc.hq);
-    if (s?.kind === 'node') {
-      const n = doc.paths.nodes.find((x) => x.id === s.id);
-      if (n) return this.focusOn(n, 40);
-    }
-    if (s?.kind === 'edge') {
-      const e = doc.paths.edges.find((x) => x.id === s.id);
-      if (e) {
-        const line = edgePolyline(doc.paths, e);
-        const xs = line.map((p) => p.x);
-        const ys = line.map((p) => p.y);
-        return this.focusOn(
-          { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 },
-          Math.max(40, (Math.max(...xs) - Math.min(...xs)) / 2, (Math.max(...ys) - Math.min(...ys)) / 2),
-        );
-      }
-    }
-    this.frameMap();
-  }
-
-  /**
-   * Global keys the shell passes on: the tool first, then the camera.
-   * Esc drops what is half done and the selection; false when there was
-   * neither (the shell then goes to Look).
-   */
-  key(e: KeyboardEvent): boolean {
-    // Flying with the right button held takes W A S D Q E before any tool
-    const k = e.key.toLowerCase();
-    if (this.cameraDrag?.mode === 'rotate' && FLY_KEYS.has(k) && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      this.keysDown.add(`fly:${k}`);
-      return true;
-    }
-    // A locked view (a terrain job, a map another tab edits) takes no edits by key either: Delete, Ctrl+D, End …
-    if (!this.locked && this.tool?.key?.(e, this.ctx)) return true;
-    if (e.key === 'Escape') {
-      const dropped = this.tool?.cancel?.(this.ctx) ?? false;
-      const selected = this.editor.selection !== null;
-      this.editor.select(null);
-      return dropped || selected;
-    }
-    if (e.ctrlKey || e.metaKey || e.altKey) return false;
-    const b = this.settings.brush();
-    switch (e.key) {
-      case '[':
-        patch(this.settings.brush, { radius: stepRadius(b.radius, -1) });
-        return true;
-      case ']':
-        patch(this.settings.brush, { radius: stepRadius(b.radius, 1) });
-        return true;
-      case '{':
-        patch(this.settings.brush, { strength: Math.max(0.05, Math.round((b.strength - 0.1) * 100) / 100) });
-        return true;
-      case '}':
-        patch(this.settings.brush, { strength: Math.min(1, Math.round((b.strength + 0.1) * 100) / 100) });
-        return true;
-      case 'ArrowUp':
-      case 'ArrowDown':
-      case 'ArrowLeft':
-      case 'ArrowRight':
-        this.keysDown.add(e.key);
-        return true;
-    }
-    return false;
-  }
-
-  keyUp(e: KeyboardEvent): void {
-    this.keysDown.delete(e.key);
-    this.keysDown.delete(`fly:${e.key.toLowerCase()}`);
-  }
-
-  /**
-   * Compiles the overlay's programs (brush rings, handles, gizmo, lines)
-   * before a tool first shows them: a first compile stalled the frame of a
-   * tool switch by up to 70 ms on the GPU
-   */
-  /**
-   * Compiles the map's programs, then tells the page the view is ready.
-   * After that, in idle moments, what the editor will need next: the
-   * top-down picture's programs (minimap, previews; a render target and no
-   * fog make them programs of their own) and the terrain shader's variants
-   * with more material layers, which a first stroke with a new biome or
-   * material switches to. All of it off the main thread where the driver
-   * allows (compileAsync); linked in the frame they cost seconds.
-   */
-  private async warmUpView(): Promise<void> {
-    const view = this.view;
-    let topDownWarm!: () => void;
-    this.topDownWarm = new Promise<void>((resolve) => (topDownWarm = resolve));
-    try {
-      await view.warmUp(this.renderer, this.scene, this.camera);
-      if (this.disposed || view !== this.view) return;
-      this.shownView = view;
-      this.callbacks.viewReady();
-      await idle(2000);
-      if (this.disposed || view !== this.view) return;
-      await this.compileForViews(this.scene, false);
-      topDownWarm();
-      await idle(2000);
-      if (this.disposed || view !== this.view) return;
-      const twins = [...view.terrainLayerTwins(), ...view.effectTwins()];
-      if (twins.length) {
-        const group = new Group();
-        for (const t of twins) group.add(t);
-        await this.compileForViews(group);
-      }
-      // What was compiled ahead does its first-use work now, not in the frame of a click that first draws it
-      await firstUsePrograms(this.renderer, () => this.disposed || view !== this.view);
-    } catch {
-      // A view replaced or lost while compiling; a view still current draws as it is
-      if (!this.disposed && view === this.view) this.shownView = view;
-    } finally {
-      topDownWarm();
-    }
-  }
-
-  /**
-   * Compiles `object`'s programs for the pictures the editor draws: the view
-   * and renderTopDown, whose render target, missing fog and hidden effects
-   * (their point lights with them) give other programs. The view's twice:
-   * with the map's point lights as they are (`screen`) and in the other
-   * state, as a night (or a first lamp after dark) changes their number and
-   * every lit material links new programs in that frame (3.9 s in the
-   * showreel review). compileAsync builds them before it returns its
-   * promise, so target, fog and lights change only around the call.
-   */
-  private compileForViews(object: Object3D, screen = true): Promise<unknown> {
-    const r = this.renderer;
-    const jobs: Promise<unknown>[] = [];
-    this.view.withEitherLights((current) => {
-      if (screen || !current) jobs.push(r.compileAsync(object, this.camera, this.scene));
-    });
-    const fog = this.scene.fog;
-    const previous = r.getRenderTarget();
-    try {
-      this.scene.fog = null;
-      this.view.setParticlesVisible(false);
-      r.setRenderTarget(this.topDownProbe);
-      jobs.push(r.compileAsync(object, this.camera, this.scene));
-    } finally {
-      r.setRenderTarget(previous);
-      this.view.setParticlesVisible(true);
-      this.scene.fog = fog;
-    }
-    // The view keeps drawing meanwhile, which makes compileAsync settle early (programsReady)
-    return Promise.all(jobs).then(() => programsReady(r));
-  }
-
-  private async warmOverlay(): Promise<void> {
-    const hidden: { visible: boolean }[] = [];
-    this.overlay.group.traverse((o) => {
-      if (!o.visible) {
-        hidden.push(o);
-        o.visible = true;
-      }
-    });
-    // compileAsync gathers the programs at once; the parts hide again before the next frame draws
-    let done: Promise<unknown>;
-    try {
-      done = this.renderer.compileAsync(this.overlay.group, this.camera, this.scene);
-    } finally {
-      for (const o of hidden) o.visible = false;
-    }
-    await done.catch(() => undefined);
-  }
-
-  /** While a terrain job runs or another tab edits the map, tools take no input (the view still turns and zooms) */
-  setLocked(on: boolean): void {
-    this.locked = on;
-    if (on && this.toolDrag) {
-      this.toolDrag = false;
-      this.tool?.cancel?.(this.ctx);
-    }
-  }
-
-  /** Whether a tool holds the pointer (a stroke, a drag): slow extras wait */
-  get dragging(): boolean {
-    return this.toolDrag;
-  }
-
-  /** Compiles the programs of assets before they are placed, so the first stroke with them does not stall */
-  warmUpAssets(assetIds: string[]): void {
-    const fresh = assetIds.filter((id) => !this.warmed.has(id));
-    if (!fresh.length) return;
-    for (const id of fresh) this.warmed.add(id);
-    const view = this.view;
-    void view
-      .warmUpAssets(this.renderer, this.scene, this.camera, fresh, (o) => this.compileForViews(o))
-      .then(() => firstUsePrograms(this.renderer, () => this.disposed || view !== this.view))
-      .catch(() => undefined);
-  }
-
-  /** Whether the trial wave walks */
-  get trialRunning(): boolean {
-    return this.trial.active;
-  }
-
-  /** How much faster than real time the trial wave walks (1, 2, 4, 8); changes a running wave at once */
-  get trialSpeed(): number {
-    return this.trial.speed;
-  }
-
-  set trialSpeed(speed: number) {
-    this.trial.speed = speed;
-  }
-
-  /**
-   * The trial wave on or off: the enemies of the map's first wave (or a
-   * mix of speeds) walk every spawn's route at their real speed.
-   */
-  toggleTrial(): void {
-    if (this.trial.active) {
-      this.trial.stop();
-      this.callbacks.status('Trial wave stopped');
-      return;
-    }
-    const doc = this.editor.doc;
-    // Each route's runners in the colour of its spawn, as on the minimap
-    const found = spawnRoutes(doc);
-    const routes = doc.spawns.flatMap((sp, k) => {
-      const r = found.get(sp.id);
-      return r ? [{ ...r, color: '#' + new Color(SPAWN_COLORS[k % SPAWN_COLORS.length]).getHexString() }] : [];
-    });
-    if (!routes.length) {
-      this.callbacks.status('No spawn reaches the HQ: draw a road first');
-      return;
-    }
-    const waves = doc.gameplay?.waves;
-    const first = waves?.kind === 'table' ? waves.table.waves[0] : undefined;
-    const types = this.trial.start(routes, first ? Object.keys(first.enemies) : TRIAL_TYPES);
-    const t = TrialRunners.timing(routes, types);
-    this.callbacks.status(
-      `Trial wave: ${types.map((x) => x.name).join(', ')} on ${routes.length} ${routes.length === 1 ? 'route' : 'routes'}; ` +
-        `the HQ in ${Math.round(t.fastest)} to ${Math.round(t.slowest)} s (P stops, + and - change the speed)`,
-    );
-  }
-
-  /** Whether the right button is turning the view (keys fly then) */
-  get flying(): boolean {
-    return this.cameraDrag?.mode === 'rotate';
-  }
-
-  /** Whether the view shows what the game shows at the start */
-  get inGameView(): boolean {
-    return this.beforeGameView !== null;
-  }
-
-  /** The game's start view over the HQ, or back to the view before */
-  toggleGameView(): void {
-    const c = this.controller;
-    if (this.beforeGameView) {
-      c.setGoal(this.beforeGameView);
-      this.beforeGameView = null;
-      this.setFov(FOV);
-      this.callbacks.status('Editor view');
-      return;
-    }
-    this.beforeGameView = c.saveGoal();
-    const hq = this.editor.doc.hq;
-    c.setGoal({
-      target: mapToScene(hq.x, hq.y, this.heightAt(hq.x, hq.y)),
-      distance: Math.hypot(GAME_VIEW.height, GAME_VIEW.back),
-      yaw: 0,
-      pitch: Math.atan2(GAME_VIEW.height, GAME_VIEW.back),
-    });
-    this.setFov(GAME_VIEW.fov);
-    this.callbacks.status('Game view: where the game starts (C goes back)');
-  }
-
-  private setFov(fov: number): void {
-    this.camera.fov = fov;
-    this.camera.updateProjectionMatrix();
-  }
-
-  /**
-   * The map from straight above into a canvas: the minimap, the PNG preview
-   * and the thumbnails. `overlay` adds spawns, HQ and roads' markers. Once
-   * its programs are built (topDownWarm); the pixels come back without
-   * waiting for the GPU (readRenderTargetPixelsAsync): a synchronous read
-   * held the main thread 65 to 140 ms until the whole map was drawn, after
-   * every stroke (the minimap) and every autosave (the thumbnail)
-   */
-  async renderTopDown(width: number, height = width, overlay = false, area?: { x0: number; y0: number; x1: number; y1: number }): Promise<HTMLCanvasElement> {
-    await this.topDownWarm;
-    if (this.disposed) throw new Error('The view is gone');
-    const t = this.editor.doc.terrain;
-    this.flush();
-    const a = area ?? { x0: -t.width / 2, y0: -t.depth / 2, x1: t.width / 2, y1: t.depth / 2 };
-    const hw = Math.abs(a.x1 - a.x0) / 2;
-    const hd = Math.abs(a.y1 - a.y0) / 2;
-    const cam = new OrthographicCamera(-hw, hw, hd, -hd, 1, 20000);
-    const c = mapToScene((a.x0 + a.x1) / 2, (a.y0 + a.y1) / 2, 0);
-    cam.position.set(c.x, 5000, c.z);
-    // North (+z) at the top, east (-x) to the right
-    cam.up.set(0, 0, 1);
-    cam.lookAt(c.x, 0, c.z);
-    const target = new WebGLRenderTarget(width, height, { colorSpace: SRGBColorSpace });
-    const fog = this.scene.fog;
-    this.scene.fog = null;
-    // Put back as they were after: someone else may hold the overlay hidden
-    const overlayShown = this.overlay.group.visible;
-    this.overlay.group.visible = overlay;
-    // Particles and glows seen from above would cover the ground as a bright square
-    this.view.setParticlesVisible(false);
-    this.trial.group.visible = false;
-    this.renderer.setRenderTarget(target);
-    this.renderer.render(this.scene, cam);
-    this.view.setParticlesVisible(true);
-    this.trial.group.visible = true;
-    const pixels = new Uint8Array(width * height * 4);
-    const read = this.renderer.readRenderTargetPixelsAsync(target, 0, 0, width, height, pixels);
-    this.renderer.setRenderTarget(null);
-    this.overlay.group.visible = overlayShown;
-    this.scene.fog = fog;
-    try {
-      await read;
-    } finally {
-      target.dispose();
-    }
-    if (this.disposed) throw new Error('The view is gone');
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const c2d = canvas.getContext('2d')!;
-    const image = c2d.createImageData(width, height);
-    // Render targets read bottom row first
-    for (let row = 0; row < height; row++) {
-      image.data.set(pixels.subarray((height - 1 - row) * width * 4, (height - row) * width * 4), row * width * 4);
-    }
-    c2d.putImageData(image, 0, 0);
-    return canvas;
-  }
-
-  /** The ground point the camera looks at and how far the view reaches (minimap frame) */
-  viewFootprint(): MapPoint[] {
-    const out: MapPoint[] = [];
-    for (const [x, y] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
-      const hit = this.rayAtNdc(x, y);
-      if (hit) out.push(hit);
-    }
-    return out;
-  }
-
-  /**
-   * Plays the map's ambient sound (soundscape.ts) heard from where the view
-   * looks, or stops it. Call it from a click: a browser starts audio only
-   * after the person did something on the page
-   */
-  setAmbience(on: boolean): void {
-    if (!on) {
-      this.ambience?.sound.dispose();
-      void this.ambience?.context.close();
-      this.ambience = null;
-      return;
-    }
-    if (this.ambience) return;
-    const context = new AudioContext();
-    const sound = new Soundscape({ context, destination: context.destination });
-    sound.setMap(this.editor.doc);
-    sound.setVolume(AMBIENCE_VOLUME);
-    this.ambience = { sound, context };
-  }
-
-  /** The map's wave sound once, as at a wave's start; turns the editor's sound on (from a click) */
-  playWaveSound(): void {
-    this.setAmbience(true);
-    void this.ambience?.sound.playWave();
-  }
-
-  /** The soundscape heard from the ground the view orbits */
-  private hearAmbience(dt: number): void {
-    const a = this.ambience;
-    if (!a) return;
-    const target = this.controller.current.target;
-    this.ambienceRight.setFromMatrixColumn(this.camera.matrixWorld, 0);
-    const len = Math.hypot(this.ambienceRight.x, this.ambienceRight.z) || 1;
-    a.sound.update(dt, {
-      at: { x: -target.x, y: target.z },
-      height: this.camera.position.y - this.heightAt(-target.x, target.z),
-      right: { x: -this.ambienceRight.x / len, y: this.ambienceRight.z / len },
-      darkness: this.view.view.environment.darkness,
-    });
+    const focus = selectionFocus(this.editor.doc, this.editor.selection);
+    if (focus) this.focusOn(focus.center, focus.radius);
+    else this.frameMap();
   }
 
   dispose(): void {
-    this.disposed = true;
-    this.setAmbience(false);
+    this.warmup.dispose();
+    this.extras.dispose();
     cancelAnimationFrame(this.raf);
     this.resizeObserver.disconnect();
     for (const u of this.unsubscribe) u();
-    this.tool?.deactivate?.(this.ctx);
+    this.input.dispose();
     this.view.dispose();
     this.overlay.dispose();
-    this.trial.dispose();
-    this.topDownProbe.dispose();
     this.renderer.dispose();
     // Browsers keep only a few WebGL contexts: give this one back now, not when it is collected
     this.renderer.forceContextLoss();
@@ -798,54 +308,39 @@ export class EditorViewport {
 
   // -------------------------------------------------------------------------
 
+  private makeView(): EditorMapView {
+    const view = new EditorMapView(this.editor.doc, this.scene, this.renderer);
+    view.view.applyQuality(this.quality.customMaps);
+    return view;
+  }
+
   private buildContext(): ToolContext {
+    const p = this.picker;
     return {
       editor: this.editor,
       settings: this.settings,
       catalog: this.catalog,
       overlay: this.overlay,
       heightAt: (x, y) => this.heightAt(x, y),
-      pick: (p) => this.pick(p),
+      pick: (q) => p.pick(q),
       status: (m) => this.callbacks.status(m),
       hintChanged: () => this.callbacks.hintChanged(),
       setBox: (b) => this.callbacks.box(b),
       setLasso: (points) => this.callbacks.lasso(points),
       objectVisible: (o) => this.objectVisible(o),
-      pickGizmo: (p) => {
-        const rect = this.canvas.getBoundingClientRect();
-        if (!rect.width) return null;
-        this.ndc.set(((p.clientX - rect.left) / rect.width) * 2 - 1, -((p.clientY - rect.top) / rect.height) * 2 + 1);
-        this.raycaster.setFromCamera(this.ndc, this.camera);
-        return this.overlay.transform.pick(this.raycaster);
-      },
-      metresPerPixel: (at) => {
-        const d = this.camera.position.distanceTo(mapToScene(at.x, at.y, this.heightAt(at.x, at.y)));
-        return (2 * d * Math.tan(MathUtils.degToRad(this.camera.fov / 2))) / Math.max(1, this.canvas.clientHeight);
-      },
-      toScreen: (x, y, z) => {
-        const v = mapToScene(x, y, z).project(this.camera);
-        if (v.z > 1 || v.z < -1) return null;
-        const rect = this.canvas.getBoundingClientRect();
-        return { x: rect.left + ((v.x + 1) / 2) * rect.width, y: rect.top + ((1 - v.y) / 2) * rect.height };
-      },
-      boxToMap: (box) => {
-        const rect = this.canvas.getBoundingClientRect();
-        const corners = [
-          [box.x0, box.y0],
-          [box.x1, box.y0],
-          [box.x1, box.y1],
-          [box.x0, box.y1],
-        ].map(([cx, cy]) => this.rayAtNdc(((cx - rect.left) / rect.width) * 2 - 1, -((cy - rect.top) / rect.height) * 2 + 1));
-        return corners.every((c) => c) ? (corners as MapPoint[]) : null;
-      },
+      pickGizmo: (q) => p.gizmo(q),
+      metresPerPixel: (at) => p.metresPerPixel(at),
+      toScreen: (x, y, z) => p.toScreen(x, y, z),
+      boxToMap: (box) => p.boxToMap(box),
     };
   }
 
-  private bindInput(): void {
+  /** The canvas's own events; pointer, wheel and keys go to the InputRouter */
+  private bindContext(): void {
     const c = this.canvas;
     type CanvasEvents = HTMLElementEventMap & { webglcontextlost: WebGLContextEvent; webglcontextrestored: Event };
-    const on = <K extends keyof CanvasEvents & string>(type: K, fn: (e: CanvasEvents[K]) => void, opts?: AddEventListenerOptions) => {
-      c.addEventListener(type, fn as EventListener, opts);
+    const on = <K extends keyof CanvasEvents & string>(type: K, fn: (e: CanvasEvents[K]) => void) => {
+      c.addEventListener(type, fn as EventListener);
       this.unsubscribe.push(() => c.removeEventListener(type, fn as EventListener));
     };
     on('contextmenu', (e) => e.preventDefault());
@@ -858,154 +353,6 @@ export class EditorViewport {
       this.rebuildView();
       this.callbacks.contextLost(false);
     });
-    on('pointerdown', (e) => this.onPointerDown(e));
-    on('pointermove', (e) => this.onPointerMove(e));
-    on('pointerup', (e) => this.onPointerUp(e));
-    on('pointercancel', (e) => this.onPointerUp(e));
-    on('pointerleave', () => {
-      if (!this.toolDrag && !this.cameraDrag) {
-        this.pointer = null;
-        this.callbacks.hover(null);
-      }
-    });
-    on('wheel', (e) => this.onWheel(e), { passive: false });
-  }
-
-  private toolPointer(e: { clientX: number; clientY: number; button: number; shiftKey: boolean; ctrlKey: boolean; metaKey: boolean; altKey: boolean }, hit: MapHit | null): ToolPointer {
-    return { hit, clientX: e.clientX, clientY: e.clientY, button: e.button, shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey, alt: e.altKey };
-  }
-
-  private onPointerDown(e: PointerEvent): void {
-    this.canvas.focus({ preventScroll: true });
-    if (this.introPreview) {
-      this.stopIntroPreview();
-      e.preventDefault();
-      return;
-    }
-    this.trackPointer(e);
-    const pan = e.button === 1 || (e.button === 2 && e.shiftKey);
-    if (e.button === 0 && this.tool && !this.locked) {
-      const hit = this.raycastClient(e.clientX, e.clientY);
-      this.lastHit = hit;
-      if (this.tool.pointerDown?.(this.toolPointer(e, hit), this.ctx)) {
-        this.toolDrag = true;
-        this.canvas.setPointerCapture(e.pointerId);
-        e.preventDefault();
-        return;
-      }
-    }
-    if (e.button === 2 && !pan && this.tool) {
-      // A right click may end something in the tool (a road being drawn); a drag still turns the view
-      const hit = this.lastHit;
-      this.tool.pointerDown?.(this.toolPointer(e, hit), this.ctx);
-    }
-    if (e.button === 1 || e.button === 2) {
-      this.cameraDrag = { mode: pan ? 'pan' : 'rotate', x: e.clientX, y: e.clientY };
-      this.canvas.setPointerCapture(e.pointerId);
-      e.preventDefault();
-    }
-  }
-
-  private onPointerMove(e: PointerEvent): void {
-    this.trackPointer(e);
-    const drag = this.cameraDrag;
-    if (drag) {
-      const dx = e.clientX - drag.x;
-      const dy = e.clientY - drag.y;
-      drag.x = e.clientX;
-      drag.y = e.clientY;
-      if (drag.mode === 'rotate') this.controller.rotate(dx, dy);
-      else this.controller.pan(dx, dy, this.canvas.clientHeight, this.camera.fov);
-    }
-  }
-
-  private onPointerUp(e: PointerEvent): void {
-    this.trackPointer(e);
-    if (this.canvas.hasPointerCapture(e.pointerId)) this.canvas.releasePointerCapture(e.pointerId);
-    if (this.toolDrag) {
-      this.toolDrag = false;
-      const hit = this.raycastClient(e.clientX, e.clientY);
-      this.tool?.pointerMove?.(this.toolPointer(e, hit), this.ctx);
-      this.tool?.pointerUp?.(this.toolPointer(e, hit), this.ctx);
-    }
-    if (this.cameraDrag) for (const k of FLY_KEYS) this.keysDown.delete(`fly:${k}`);
-    this.cameraDrag = null;
-  }
-
-  private onWheel(e: WheelEvent): void {
-    e.preventDefault();
-    if (this.introPreview) {
-      this.stopIntroPreview();
-      return;
-    }
-    // Ctrl and the wheel size the brush where one shows (Ctrl+wheel would zoom the page otherwise)
-    if ((e.ctrlKey || e.metaKey) && this.tool?.brushVisible(this.ctx)) {
-      patch(this.settings.brush, { radius: stepRadius(this.settings.brush().radius, e.deltaY < 0 ? 1 : -1) });
-      return;
-    }
-    // A tool may take the wheel with a modifier (Place turns with Shift); with Shift some systems scroll sideways (deltaX)
-    const delta = e.deltaY || e.deltaX;
-    if (delta && this.tool?.wheel?.(Math.sign(delta), this.toolPointer(e, null), this.ctx)) return;
-    const steps = Math.sign(e.deltaY) * Math.min(3, Math.abs(e.deltaY) / 100 || 1);
-    const hit = this.raycastClient(e.clientX, e.clientY);
-    this.controller.zoom(steps, hit ? mapToScene(hit.x, hit.y, hit.z) : null);
-  }
-
-  private trackPointer(e: PointerEvent): void {
-    this.pointer = { clientX: e.clientX, clientY: e.clientY, shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey, alt: e.altKey, button: e.button };
-    this.pointerMoved = true;
-  }
-
-  private raycastClient(clientX: number, clientY: number): MapHit | null {
-    const rect = this.canvas.getBoundingClientRect();
-    if (!rect.width || !rect.height) return null;
-    return this.rayAtNdc(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
-  }
-
-  private rayAtNdc(x: number, y: number): MapHit | null {
-    this.ndc.set(x, y);
-    this.raycaster.setFromCamera(this.ndc, this.camera);
-    return this.view.raycast(this.raycaster.ray);
-  }
-
-  private pick(p: ToolPointer): PickResult | null {
-    const hit = p.hit;
-    if (!hit) return null;
-    const doc = this.editor.doc;
-    // A pick radius that grows with the view distance, so markers stay clickable from far
-    const reach = Math.max(4, this.controller.current.distance * 0.015);
-    let best: { d: number; r: PickResult } | null = null;
-    const consider = (d: number, r: PickResult) => {
-      if (!best || d < best.d) best = { d, r };
-    };
-    const hq = Math.hypot(doc.hq.x - hit.x, doc.hq.y - hit.y);
-    if (hq <= Math.max(8, reach)) consider(hq - 4, { kind: 'hq' });
-    for (const s of doc.spawns) {
-      const d = Math.hypot(s.x - hit.x, s.y - hit.y);
-      if (d <= Math.max(6, reach)) consider(d - 3, { kind: 'spawn', id: s.id });
-    }
-    for (const n of doc.paths.nodes) {
-      const d = Math.hypot(n.x - hit.x, n.y - hit.y);
-      if (d <= reach) consider(d - 2, { kind: 'node', id: n.id });
-    }
-    // Objects by their models; the footprint where the ray misses a thin one
-    const rect = this.canvas.getBoundingClientRect();
-    this.ndc.set(((p.clientX - rect.left) / rect.width) * 2 - 1, -((p.clientY - rect.top) / rect.height) * 2 + 1);
-    this.raycaster.setFromCamera(this.ndc, this.camera);
-    const modelHit = this.view.pickObject(this.raycaster.ray);
-    if (modelHit) consider(0, { kind: 'object', id: modelHit });
-    for (const o of doc.objects) {
-      const r = this.catalog.object(o.asset).radius * o.scale;
-      const d = Math.hypot(o.x - hit.x, o.y - hit.y);
-      if (d <= Math.max(r, 1)) consider(d + 0.5, { kind: 'object', id: o.id });
-    }
-    if (!best) {
-      for (const e of doc.paths.edges) {
-        const on = nearestOnPolyline(edgePolyline(doc.paths, e), hit);
-        if (on && on.dist <= e.width / 2 + reach * 0.5) consider(on.dist + 1, { kind: 'edge', id: e.id });
-      }
-    }
-    return (best as { d: number; r: PickResult } | null)?.r ?? null;
   }
 
   private resize(): void {
@@ -1018,107 +365,7 @@ export class EditorViewport {
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     // The resize cleared the drawing buffer after this frame's draw: drawn again, else the browser shows it black
-    if (this.shownView === this.view) this.renderer.render(this.scene, this.camera);
-  }
-
-  private applyWater(): void {
-    this.waterWaiting = false;
-    this.waterAt = performance.now();
-    this.view.updateWater();
-  }
-
-  private applyLife(): void {
-    this.lifeWaiting = false;
-    this.lifeAt = performance.now();
-    this.view.setLife();
-  }
-
-  private applyEnvironment(): void {
-    this.envWaiting = false;
-    this.envAt = performance.now();
-    this.view.setEnvironment();
-  }
-
-  /** Hand the collected changes to the view */
-  private flush(): void {
-    if (this.envWaiting && performance.now() - this.envAt >= ENV_INTERVAL_MS) this.applyEnvironment();
-    if (this.lifeWaiting && performance.now() - this.lifeAt >= ENV_INTERVAL_MS) this.applyLife();
-    if (this.waterWaiting && performance.now() - this.waterAt >= WATER_INTERVAL_MS) this.applyWater();
-    if (this.drapeWaiting && performance.now() - this.drapeAt >= DRAPE_INTERVAL_MS) {
-      this.drapeWaiting = false;
-      this.drapeAt = performance.now();
-      this.overlay.redrape();
-    }
-    const c = this.pending;
-    if (!c) {
-      if (this.markersDirty) this.refreshMarkers();
-      return;
-    }
-    this.pending = null;
-    const v = this.view;
-    if (c.terrain) {
-      // A new terrain (resize): the renderer builds its ground anew
-      this.rebuildView();
-    } else {
-      if (c.layers) v.updateLayers();
-      if (c.heights) v.updateHeights(c.heights);
-      if (c.splat) v.updateSplat(c.splat);
-      if (c.water) {
-        if (performance.now() - this.waterAt >= WATER_INTERVAL_MS) this.applyWater();
-        else this.waterWaiting = true;
-      } else if (c.bodies && c.bodyRect) {
-        // A pool brush on one body: just that surface (about a millisecond)
-        for (const k of c.bodies) v.updateWaterBody(k, c.bodyRect);
-      }
-      if (c.objects) {
-        // A list goes in place where it can; new objects rebuild at most every few frames
-        if (c.objects === 'all') v.setObjects();
-        else v.updateObjects(c.objects);
-      }
-      if (c.paths) v.updatePaths();
-      if (c.environment) {
-        if (performance.now() - this.envAt >= ENV_INTERVAL_MS) this.applyEnvironment();
-        else this.envWaiting = true;
-      }
-      if (c.life) {
-        if (performance.now() - this.lifeAt >= ENV_INTERVAL_MS) this.applyLife();
-        else this.lifeWaiting = true;
-      }
-      // The sound areas and the bed (its biome's sounds) follow at once: setMap only changes gains
-      if (c.life || c.environment) this.ambience?.sound.setMap(this.editor.doc);
-    }
-    if (c.heights || c.terrain) {
-      this.guideMode = null;
-      this.overlayKey = '';
-    }
-    // Spawns, HQ and roads are built anew when they changed; ground and water under them (a deck rises over
-    // water) only lay them again on the new heights, at most every DRAPE_INTERVAL_MS while a stroke goes on
-    if (c.paths || c.markers || c.terrain) {
-      this.routesDirty = true;
-      this.markersDirty = true;
-    } else if (c.heights || c.water || c.bodies) {
-      this.drapeWaiting = true;
-    }
-    if (this.markersDirty) this.refreshMarkers();
-    // Objects leave the rest as it is (a gizmo drag every frame): the rings follow
-    else if (c.objects) this.overlay.updateSelection(this.editor.doc, this.editor.selection, (asset) => this.catalog.object(asset).radius);
-  }
-
-  private refreshMarkers(): void {
-    const doc = this.editor.doc;
-    this.markersDirty = false;
-    this.overlay.updateMarkers(doc, this.editor.selection);
-    this.overlay.updateSelection(doc, this.editor.selection, (asset) => this.catalog.object(asset).radius);
-    if (this.routesDirty) {
-      this.routesDirty = false;
-      this.overlay.setRoutes(this.settings.paths().showRoutes ? [...spawnRoutes(doc).values()] : []);
-    }
-  }
-
-  /** Routes on or off (the switch in the path panel) */
-  refreshRoutes(): void {
-    this.routesDirty = true;
-    this.markersDirty = true;
+    if (this.warmup.shows(this.view)) this.renderer.render(this.scene, this.camera);
   }
 
   private loop(time: number): void {
@@ -1126,7 +373,7 @@ export class EditorViewport {
     const dt = this.lastTime ? Math.min(0.1, (time - this.lastTime) / 1000) : 1 / 60;
     this.lastTime = time;
 
-    this.moveByKeys(dt);
+    this.input.moveByKeys(dt);
     this.syncHidden();
     const t = this.editor.doc.terrain;
     const g = this.controller.goal.target;
@@ -1135,22 +382,13 @@ export class EditorViewport {
     // On the water's surface over a lake or the sea, so a close view stays above it, not under it on the bed
     this.controller.setGroundHeight(this.surfaceAt(-g.x, g.z));
     if (this.controller.update(dt)) this.callbacks.camera();
-    if (!this.playIntroPreview(dt)) this.controller.apply(this.camera);
+    if (!this.extras.intro.frame(dt)) this.controller.apply(this.camera);
     // The map's haze starts behind what the camera looks at: from afar the whole map stays readable
     this.view.view.environment.setClearAir(this.controller.current.distance * 1.15);
 
     // One ground raycast per frame for the tool and the cursor
-    const p = this.pointer;
-    let tp: ToolPointer | null = null;
-    if (p && !this.cameraDrag) {
-      const hit = this.pointerMoved || this.toolDrag ? this.raycastClient(p.clientX, p.clientY) : this.lastHit;
-      this.lastHit = hit;
-      tp = { hit, clientX: p.clientX, clientY: p.clientY, button: p.button, shift: p.shift, ctrl: p.ctrl, alt: p.alt };
-      if (this.toolDrag && this.pointerMoved) this.tool?.pointerMove?.(tp, this.ctx);
-      this.pointerMoved = false;
-    }
-    this.tool?.frame?.(dt, tp, this.ctx);
-    this.flush();
+    const tp = this.input.frame(dt);
+    this.changes.flush();
     this.refreshOverlays(time);
     if (this.guideMode !== this.settings.symmetry()) {
       this.guideMode = this.settings.symmetry();
@@ -1159,15 +397,14 @@ export class EditorViewport {
     }
 
     const brush = this.settings.brush();
-    const showBrush = !!tp?.hit && !!this.tool?.brushVisible(this.ctx);
+    const showBrush = !!tp?.hit && !!this.input.tool?.brushVisible(this.ctx);
     this.overlay.setBrush(showBrush ? tp!.hit : null, brush.radius, brush.falloff);
     this.overlay.setViewDistance(this.controller.current.distance);
     this.overlay.update(dt);
     this.view.view.setAnimationPaused(this.settings.view().still);
     this.view.update(dt, this.camera, this.controller.current.target);
-    this.hearAmbience(dt);
-    this.trial.update(dt);
-    if (this.shownView === this.view) this.renderer.render(this.scene, this.camera);
+    this.extras.update(dt);
+    if (this.warmup.shows(this.view)) this.renderer.render(this.scene, this.camera);
 
     this.reportHover(time, tp?.hit ?? null);
     this.reportStats(time);
@@ -1198,27 +435,6 @@ export class EditorViewport {
     this.view.setVisible(key ? (o) => this.objectVisible(o) : null);
   }
 
-  private moveByKeys(dt: number): void {
-    if (!this.keysDown.size) return;
-    const speed = this.controller.goal.distance * 0.9 * dt;
-    let right = 0;
-    let forward = 0;
-    if (this.keysDown.has('ArrowUp')) forward += speed;
-    if (this.keysDown.has('ArrowDown')) forward -= speed;
-    if (this.keysDown.has('ArrowRight')) right += speed;
-    if (this.keysDown.has('ArrowLeft')) right -= speed;
-    // Flying: faster with Shift, Q and E change the height above the ground
-    const fly = (this.pointer?.shift ? 3 : 1) * speed;
-    let up = 0;
-    if (this.keysDown.has('fly:w')) forward += fly;
-    if (this.keysDown.has('fly:s')) forward -= fly;
-    if (this.keysDown.has('fly:d')) right += fly;
-    if (this.keysDown.has('fly:a')) right -= fly;
-    if (this.keysDown.has('fly:e')) up += fly;
-    if (this.keysDown.has('fly:q')) up -= fly;
-    this.controller.fly(forward, right, up);
-  }
-
   private reportHover(time: number, hit: MapHit | null): void {
     if (time - this.hoverTime < 80) return;
     this.hoverTime = time;
@@ -1241,6 +457,60 @@ export class EditorViewport {
     const info = this.renderer.info.render;
     this.callbacks.stats({ fps: Math.round(fps), triangles: info.triangles, drawCalls: info.calls });
   }
+}
+
+/** The middle of points and half the larger side of the box around them */
+function boundsOf(points: readonly MapPoint[], least: number): { center: MapPoint; radius: number } | null {
+  if (!points.length) return null;
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -Infinity;
+  let y1 = -Infinity;
+  for (const p of points) {
+    x0 = Math.min(x0, p.x);
+    y0 = Math.min(y0, p.y);
+    x1 = Math.max(x1, p.x);
+    y1 = Math.max(y1, p.y);
+  }
+  return { center: { x: (x0 + x1) / 2, y: (y0 + y1) / 2 }, radius: Math.max(least, (x1 - x0) / 2, (y1 - y0) / 2) };
+}
+
+/** Where the camera frames a selection and how wide; null frames the whole map */
+function selectionFocus(doc: CustomMapDocument, s: Selection): { center: MapPoint; radius: number } | null {
+  if (s?.kind === 'objects') {
+    const ids = new Set(s.ids);
+    const found = boundsOf(doc.objects.filter((o) => ids.has(o.id)), 30);
+    if (found) return found;
+  }
+  if (s?.kind === 'paths' || s?.kind === 'spawns') {
+    // Several nodes, roads or spawns: the box around them
+    const nodeIds = new Set(selectedNodes(s));
+    const edgeIds = new Set(selectedEdges(s));
+    const spawnIds = new Set(selectedSpawns(s));
+    const found = boundsOf(
+      [
+        ...doc.paths.nodes.filter((n) => nodeIds.has(n.id)),
+        ...doc.paths.edges.filter((e) => edgeIds.has(e.id)).flatMap((e) => edgePolyline(doc.paths, e)),
+        ...doc.spawns.filter((sp) => spawnIds.has(sp.id)),
+      ],
+      40,
+    );
+    if (found) return found;
+  }
+  if (s?.kind === 'spawn') {
+    const sp = doc.spawns.find((x) => x.id === s.id);
+    if (sp) return { center: sp, radius: 60 };
+  }
+  if (s?.kind === 'hq') return { center: doc.hq, radius: 60 };
+  if (s?.kind === 'node') {
+    const n = doc.paths.nodes.find((x) => x.id === s.id);
+    if (n) return { center: n, radius: 40 };
+  }
+  if (s?.kind === 'edge') {
+    const e = doc.paths.edges.find((x) => x.id === s.id);
+    if (e) return boundsOf(edgePolyline(doc.paths, e), 40);
+  }
+  return null;
 }
 
 /** The GPU's name as WebGL reports it */
