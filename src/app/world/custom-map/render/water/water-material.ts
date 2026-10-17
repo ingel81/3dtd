@@ -415,15 +415,19 @@ varying vec2 vFlow;
 varying float vAcross;
 #endif
 
-// How steeply the depth changes over the surface (rise over run): its screen derivatives solved for the
-// gradient in the scene's x/z plane
-float surfaceSlope(float depth) {
+// The gradient of a value over the surface, per metre in the scene's x/z plane: its screen derivatives solved
+// for the plane. Independent of the mesh's own triangles
+vec2 surfaceGradient(float f) {
   vec2 dx = dFdx(vWorldPos.xz);
   vec2 dy = dFdy(vWorldPos.xz);
   float det = dx.x * dy.y - dx.y * dy.x;
-  vec2 dd = vec2(dFdx(depth), dFdy(depth));
-  vec2 g = vec2(dy.y * dd.x - dx.y * dd.y, dx.x * dd.y - dy.x * dd.x) / (sign(det) * max(abs(det), 1e-8));
-  return length(g);
+  vec2 df = vec2(dFdx(f), dFdy(f));
+  return vec2(dy.y * df.x - dx.y * df.y, dx.x * df.y - dy.x * df.x) / (sign(det) * max(abs(det), 1e-8));
+}
+
+// How steeply the depth changes over the surface (rise over run)
+float surfaceSlope(float depth) {
+  return length(surfaceGradient(depth));
 }
 
 // Three layers of waves; the finest (weight fine) fades with distance, where it only turned into grain
@@ -436,13 +440,15 @@ vec3 waveNormal(vec2 p, vec2 flow, float strength, float fine) {
   return normalize(vec3(n.x, n.z, n.y));
 }
 
-// Lava's heat field (x) and the distance to the nearest crack between its crust plates (y, 0 on the crack, 1
-// half a plate away) at a point: the baked noise, its coordinates warped by a slowly drifting field whose
-// strength breathes, so the cracks bend and the crust tears open and closes again
-vec2 lavaAt(vec2 p, vec2 drift) {
+// Lava's heat field (x), the distance to the nearest crack between its crust plates (y, 0 on the crack, 1
+// half a plate away) and how open that crack is (z, the heat field at the crack lookup's own scale, so it
+// changes from crack to crack) at a point: the baked noise, its coordinates warped by a slowly drifting field
+// whose strength breathes, so the cracks bend and the crust tears open and closes again
+vec3 lavaAt(vec2 p, vec2 drift) {
   vec2 w = texture2D(uLavaNoise, p * 0.008 + vec2(uTime * 0.004, -uTime * 0.003)).ba - 0.5;
   vec2 q = p * 0.035 + drift * 0.15 + w * (0.07 + 0.03 * sin(uTime * 0.21));
-  return vec2(texture2D(uLavaNoise, q).r, texture2D(uLavaNoise, q * 1.7 + w * 0.05 + 0.37).g);
+  vec2 c = texture2D(uLavaNoise, q * 1.7 + w * 0.05 + 0.37).rg;
+  return vec3(texture2D(uLavaNoise, q).r, c.y, c.x);
 }
 
 // Seconds per cycle of the flow map's two phases: long enough that the waves do not visibly stretch
@@ -549,7 +555,10 @@ void main() {
   // ridges
   vec2 lp = vWorldPos.xz;
   vec2 drift = flow * 0.12 + uFlow * uTime * 0.03;
-  vec2 lv;
+  // Two phases of the crust (one where it stands still) and the weight of the first
+  vec3 lv0;
+  vec3 lv1;
+  float lw = 1.0;
   #if RIVER == 1
   bool flows = true;
   #else
@@ -559,14 +568,15 @@ void main() {
     // The crust rides the river's current or the baked convection cells in two phases that cross-fade (see
     // flowNormal)
     float lt = uTime / (FLOW_PERIOD * 3.0);
-    float lw = 1.0 - abs(2.0 * fract(lt) - 1.0);
-    vec2 l1 = lp - vel * fract(lt + 0.5) * FLOW_PERIOD * 3.0 + vec2(11.0, 5.0);
-    lv = mix(lavaAt(l1, drift), lavaAt(lp - vel * fract(lt) * FLOW_PERIOD * 3.0, drift), lw);
+    lw = 1.0 - abs(2.0 * fract(lt) - 1.0);
+    lv0 = lavaAt(lp - vel * fract(lt) * FLOW_PERIOD * 3.0, drift);
+    lv1 = lavaAt(lp - vel * fract(lt + 0.5) * FLOW_PERIOD * 3.0 + vec2(11.0, 5.0), drift);
   } else {
-    lv = lavaAt(lp, drift);
+    lv0 = lavaAt(lp, drift);
+    lv1 = lv0;
   }
-  float heatField = lv.x;
-  float crackDist = lv.y;
+  float heatField = mix(lv1.x, lv0.x, lw);
+  float crackDist = mix(lv1.y, lv0.y, lw);
   // Hot zones drift with the heat field and breathe slowly, a little apart from place to place
   float breath = sin(uTime * 0.4 + heatField * 8.0 + (lp.x - lp.y) * 0.04);
   float hot = smoothstep(0.4, 0.8, heatField + breath * 0.05);
@@ -574,34 +584,45 @@ void main() {
   float margin = smoothstep(1.3, 0.15, depth + (heatField - 0.5) * 0.6);
   // The cracks: wider where it is hot, closed in the cooled margin; their core hottest. At least about a
   // pixel wide, so far away they do not thin out into a dark crust
-  float width = mix(0.06, 0.24, hot) * (1.0 - margin * 0.85) * (0.9 + 0.1 * breath) + fwidth(crackDist) * 1.2;
-  float crack = 1.0 - smoothstep(width * 0.3, width, crackDist);
-  // Where it is hottest the crust melts away in open patches, and over hot zones the thin crust glows dull red
-  float molten = smoothstep(0.68, 0.86, heatField + breath * 0.04) * (1.0 - margin);
-  float heat = max(max(crack * mix(0.65, 1.0, hot), molten * 0.85), hot * 0.3 * (1.0 - margin)) * smoothstep(0.0, 0.7, depth);
+  // Not one net of cracks alike: some stand open and glow, others have closed to dark seams, more of them
+  // open over hot zones
+  float open = smoothstep(0.45, 0.8, mix(lv1.z, lv0.z, lw) + hot * 0.4);
+  float width = mix(0.05, 0.22, hot) * mix(0.35, 1.0, open) * (1.0 - margin * 0.85) * (0.9 + 0.1 * breath) + fwidth(crackDist) * 1.2;
+  // Each phase's cracks on their own, then blended: blending the distances instead smoothed the crust into
+  // plastic without cracks halfway through each cycle
+  float seam = mix(1.0 - smoothstep(width * 0.25, width, lv1.y), 1.0 - smoothstep(width * 0.25, width, lv0.y), lw);
+  float crack = seam * open;
+  // Where it is hottest the crust melts away in open patches; rafts of crust still float in them (the plates'
+  // middles)
+  float molten = smoothstep(0.68, 0.86, heatField + breath * 0.04) * (1.0 - margin) * (1.0 - 0.85 * smoothstep(0.5, 0.75, crackDist));
+  // Over hot zones the thin crust only smoulders: a dull glow, not a red wash over the whole pool
+  float heat = max(max(crack * mix(0.6, 1.0, hot), molten * 0.8), hot * 0.12 * (1.0 - margin)) * smoothstep(0.0, 0.7, depth);
   // The cracks' glow spills onto the plates' edges
-  float halo = exp(-crackDist / max(width, 0.02) * 1.2) * (1.0 - crack) * mix(0.4, 1.0, hot) * (1.0 - margin * 0.7);
-  // Relief: each plate domed up from its cracks and rough with the heat field, lit by the sun from its own slopes
+  float halo = exp(-crackDist / max(width, 0.02) * 1.4) * (1.0 - crack) * mix(0.35, 1.0, hot) * open * (1.0 - margin * 0.7);
+  // Relief: each plate domed up from its cracks and rough with the heat field. Its normal comes from the
+  // thickness's gradient over the surface, so a river's ribbon never shows its triangles as facets
   float thick = smoothstep(0.0, 0.6, crackDist) * 0.5 + heatField * 0.3 + margin * 0.45 * (0.5 + 0.5 * sin(depth * 9.0 + heatField * 7.0));
-  vec3 rp = vWorldPos + vec3(0.0, thick * 0.6, 0.0);
-  vec3 rn = normalize(cross(dFdx(rp), dFdy(rp)));
-  rn *= sign(rn.y + 1e-4);
+  vec2 tg = surfaceGradient(thick) * 0.6;
+  vec3 rn = normalize(vec3(-tg.x, 1.0, -tg.y));
   float sunLit = max(dot(rn, uSunDir), 0.0) * sunShade;
-  // Dark basalt, greyer where it cooled at the margin, its edges lit red from the cracks
-  vec3 basalt = mix(vec3(0.06, 0.05, 0.048), vec3(0.11, 0.1, 0.095), margin) * (0.8 + 0.4 * heatField);
-  vec3 crustColor = basalt * (uSunColor * sunLit * 0.9 + uLight * 0.35) + vec3(0.55, 0.1, 0.02) * halo * 0.7;
+  // Dark glassy basalt, greyer where it cooled at the margin, its edges lit red from the cracks; the plates'
+  // tops catch the sun and the sky in a soft glint
+  vec3 basalt = mix(vec3(0.045, 0.04, 0.038), vec3(0.1, 0.092, 0.088), margin) * (0.75 + 0.5 * heatField);
+  // Closed cracks are dark seams between the plates
+  basalt *= 1.0 - seam * (1.0 - open) * 0.6;
+  vec3 crustColor = basalt * (uSunColor * sunLit * 0.9 + uLight * 0.3) + vec3(0.6, 0.11, 0.02) * halo * halo * 0.8;
+  vec3 rr = reflect(-v, rn);
+  crustColor += (uSunColor * pow(max(dot(rr, uSunDir), 0.0), 28.0) * 0.22 * sunShade + skyTex(vec3(rr.x, max(rr.y, 0.05), rr.z)) * 0.05 * uLight) * (1.0 - margin * 0.6);
   // Ramp: crust, deep red, orange, yellow; capped so only the hottest cracks pass a bloom threshold
-  vec3 red = uDeep * vec3(0.55, 0.09, 0.02);
+  vec3 red = uDeep * vec3(0.42, 0.06, 0.015);
   vec3 orange = vec3(1.0, 0.36, 0.06);
-  vec3 yellow = vec3(1.0, 0.72, 0.28);
-  color = heat < 0.4 ? mix(crustColor, red, heat / 0.4) : heat < 0.75 ? mix(red, orange, (heat - 0.4) / 0.35) : mix(orange, yellow, (heat - 0.75) / 0.25);
+  vec3 yellow = vec3(1.0, 0.74, 0.32);
+  color = heat < 0.35 ? mix(crustColor, red, heat / 0.35) : heat < 0.72 ? mix(red, orange, (heat - 0.35) / 0.37) : mix(orange, yellow, (heat - 0.72) / 0.28);
   color *= 1.0 + heat * 0.25;
   #ifdef LAVA_GLOW
   // The hottest cracks go past 1: the bloom pass picks them up
   color *= 1.0 + smoothstep(0.7, 1.0, heat) * 1.8;
   #endif
-  // A faint sheen on the crust
-  color += skyTex(vec3(0.0, 1.0, 0.0)) * 0.03 * (1.0 - heat) * uLight;
   alpha = edge;
 #elif KIND == 2
   // Ice: light over shallows, dark over depth, fresnel glint, cracks, snow drifted into the shallows
@@ -823,6 +844,10 @@ void main() {
   float foamScale = 0.6;
   #else
   float foamScale = 1.0;
+  #endif
+  #if RIVER == 1
+  // A river's banks: the current carries the foam off, it gathers less
+  foamScale *= 0.7;
   #endif
   float foamReach = mix(0.3, 3.0, foamFar.b * foamFar.b) * foamScale * mix(1.0, 0.35, smoothstep(0.4, 2.0, bankSlope));
   // The front runs up the bank and back, out of step along the shore

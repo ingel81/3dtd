@@ -371,11 +371,17 @@ Lava spiegeln sich).
 - `lava`: deckend und glühend; dunkle Basaltplatten mit glühenden Rissen dazwischen aus einer gebackenen
   Rauschtextur (`lava-noise.ts`, 256²: R Hitzefeld, G Abstand zum nächsten Riss eines verzerrten, kachelnden
   Zellrasters mit 5 Platten je Seite, BA Verzerrung), deren Koordinaten ein langsam treibendes, atmendes Feld verzieht:
-  die Kruste reißt auf und schließt sich. Über heißen Zonen (Hitzefeld, atmet langsam, örtlich versetzt) sind die Risse
-  breiter und heller, die dünne Kruste glüht dunkelrot, am heißesten schmilzt sie zu offenen Flecken; die Glut der
-  Risse greift auf die Plattenränder über. Risse bleiben mindestens etwa ein Pixel breit (`fwidth`), so werden ferne
-  Ströme nicht schwarz. Die Platten wölben sich von ihren Rissen auf (Relief als Höhenfeld, Normale per `dFdx/dFdy`)
-  und werden von der Sonne beleuchtet. Farbverlauf Kruste, Dunkelrot, Orange, Gelb nur in den heißesten Rissen (die
+  die Kruste reißt auf und schließt sich. Nicht jeder Riss glüht: wie offen er ist, liest der Shader aus dem Hitzefeld
+  am Ort des Riss-Zugriffs (derselbe Texturzugriff, R neben G), also von Riss zu Riss verschieden; geschlossene Risse
+  sind dunkle Fugen zwischen den Platten, über heißen Zonen stehen mehr offen (vorher glühte das ganze Netz gleich,
+  ein Wabenmuster). Über heißen Zonen sind die offenen Risse breiter und heller, die dünne Kruste schwelt nur leicht
+  (vorher färbte sie den ganzen Pool rot), am heißesten schmilzt sie zu offenen Flecken, in denen Krustenschollen
+  treiben; die Glut der Risse greift auf die Plattenränder über. Risse bleiben mindestens etwa ein Pixel breit
+  (`fwidth`), so werden ferne Ströme nicht schwarz. Die Platten wölben sich von ihren Rissen auf (Relief als
+  Höhenfeld; die Normale aus dessen Gradienten über die Fläche, nicht aus den Dreiecken: auf Strömen zeigte das Band
+  sonst seine Facetten), glasiger Basalt mit weichem Glanz von Sonne und Himmel. Fließt die Kruste (Strom,
+  Konvektion), werden die Risse jeder der zwei Phasen für sich bestimmt und dann überblendet: überblendete Abstände
+  glätteten die Kruste mitten im Takt zu rissfreiem Plastik. Farbverlauf Kruste, Dunkelrot, Orange, Gelb nur in den heißesten Rissen (die
   Bloom-Schwelle fängt nur diese; mit `lavaGlow` über 1). Gleich viele Texturzugriffe wie vorher, auf allen Stufen.
   Zum Ufer hin (bis etwa 1,3 m Tiefe) erkaltet sie zu geschlossener, grauerer Kruste, die Risse schließen sich, in
   Wülsten entlang des Ufers. Lava-Körper und -Ströme bekommen
