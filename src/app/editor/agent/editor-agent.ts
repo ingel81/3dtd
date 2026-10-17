@@ -12,7 +12,7 @@
  * first saved change makes an own copy.
  */
 import type { AgentAnswer, AgentCall } from '../../core/desktop-bridge';
-import type { CatalogIndex } from '../catalog/asset-catalog';
+import type { CatalogIndex } from '../../map-ops/asset-catalog';
 import { EditorDocument, ObjectsCommand, SnapshotCommand, type EditCommand } from '../model/editor-document';
 import type { MapVersion } from '../model/version-store';
 import type { SavedStamp, StampKeep } from '../model/stamp-store';
@@ -26,7 +26,7 @@ import { MAP_TEMPLATES } from '../ops/landscape/templates';
 import { TERRAIN_PRESETS, type TerrainPreset } from '../../map-ops/generate';
 import { ALL_PARTS, capturePrefab, captureStamp, pasteStamp, type Stamp, type StampParts, type StampRect } from '../ops/stamp';
 import { erodeJob, startTerrainJob } from '../workers/terrain-job';
-import type { MapIssue } from '../validation/map-validation';
+import type { MapIssue } from '../../map-ops/validation/map-validation';
 import { strictMapProblems } from '../../world/custom-map/map-file';
 import type { MapStore } from '../../world/custom-map/map-store';
 import { MAX_MAP_PREFABS, type CustomMapDocument, type MapObject } from '../../world/custom-map/map-document';

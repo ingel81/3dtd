@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { MAX_MAP_BYTES } from '../../coop/protocol';
 import { createMapDocument } from '../../world/custom-map/map-create';
 import { SCENE_BUDGET } from '../../world/custom-map/render/objects/scene-cost';
-import { CatalogIndex, normalizeCatalog } from '../catalog/asset-catalog';
+import { CatalogIndex, normalizeCatalog } from '../asset-catalog';
 import { assetCosts, mapBudget, mapSceneCost } from './map-budget';
 import { validateMap } from './map-validation';
 

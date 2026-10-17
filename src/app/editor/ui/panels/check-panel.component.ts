@@ -2,9 +2,9 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MAP_TRIAL_TONE, mapTrialSummary, type MapTrialResult } from '../../../world/map-trial';
 import { TdIconComponent } from '../../../components/icon/icon.component';
-import type { MapIssue } from '../../validation/map-validation';
+import type { MapIssue } from '../../../map-ops/validation/map-validation';
 import { EditorSession, TOOL_INFO } from '../editor-session.service';
-import { TOWER_SPOT_M2, TYPICAL_TOWER_RANGE } from '../../validation/build-areas';
+import { TOWER_SPOT_M2, TYPICAL_TOWER_RANGE } from '../../../map-ops/validation/build-areas';
 
 /**
  * The result of "Check" over the view: errors first, then warnings; a

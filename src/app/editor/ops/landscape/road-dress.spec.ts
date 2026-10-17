@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createMapDocument } from '../../../world/custom-map/map-create';
 import { contentBytes } from '../../../world/custom-map/map-file';
-import { CatalogIndex, normalizeCatalog } from '../../catalog/asset-catalog';
+import { CatalogIndex, normalizeCatalog } from '../../../map-ops/asset-catalog';
 import { EditorDocument } from '../../model/editor-document';
 import { heightAt } from '../../../map-ops/grid';
 import { editRoads, rebuildRoads, setRoadSurface } from '../../tools/path-tool';

@@ -16,7 +16,7 @@ import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { objectsOnPaths, validateMap, waterInAir } from '../../src/app/editor/validation/map-validation';
+import { objectsOnPaths, validateMap, waterInAir } from '../../src/app/map-ops/validation/map-validation';
 import { rockShape } from '../../src/app/map-ops/object-ops';
 import { CustomMapStreets } from '../../src/app/world/custom-map/custom-map-streets';
 import { MAP_METERS_PER_DEGREE, mapToGeo, type CustomMapDocument } from '../../src/app/world/custom-map/map-document';
@@ -24,7 +24,7 @@ import { contentHash, unpackMapFile, validateMapDocument } from '../../src/app/w
 import type { ShippedMapIndex } from '../../src/app/world/custom-map/map-store';
 import { dangerLook, type CatalogObject } from '../../src/app/world/custom-map/render/asset-catalog';
 import { objectCost, sceneCost, SCENE_BUDGET } from '../../src/app/world/custom-map/render/objects/scene-cost';
-import { WARN_SHARE } from '../../src/app/editor/validation/map-budget';
+import { WARN_SHARE } from '../../src/app/map-ops/validation/map-budget';
 import { DEMO_ROCKS } from '../../src/app/world/custom-map/demo-map';
 
 const MAPS_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../../public/maps');

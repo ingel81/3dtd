@@ -15,7 +15,7 @@ import { AppScreen } from '../../../world/app-screen.service';
 import { WorldsStageService } from '../../../worlds/worlds-stage.service';
 import { WorldPathComponent, type PathAction } from '../../../components/world-path/world-path.component';
 import { MatDialog } from '@angular/material/dialog';
-import type { GroundMaterialEntry } from '../../catalog/asset-catalog';
+import type { GroundMaterialEntry } from '../../../map-ops/asset-catalog';
 import { AddressAutocompleteComponent } from '../../../components/address-autocomplete.component';
 import { OsmFrameComponent } from '../../../components/osm-frame/osm-frame.component';
 import type { OsmFrameRequest } from '../../../components/osm-frame/osm-frame-request';

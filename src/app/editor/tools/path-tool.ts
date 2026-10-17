@@ -29,7 +29,7 @@ import {
 import { flattenUnderPaths, paintUnderPaths } from '../../map-ops/path-terrain';
 import { rebuildDressing, relayRoads, surfaceRoads, type RoadOptions } from '../ops/landscape/road';
 import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
-import type { CatalogIndex } from '../catalog/asset-catalog';
+import type { CatalogIndex } from '../../map-ops/asset-catalog';
 import { symmetryImages } from '../ops/symmetry';
 import { BrushStroke } from './brush-stroke';
 import type { EditorTool, ToolContext, ToolPointer } from './tool';

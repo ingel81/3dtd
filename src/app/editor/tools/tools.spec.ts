@@ -1,5 +1,5 @@
 import { createMapDocument } from '../../world/custom-map/map-create';
-import { CatalogIndex, normalizeCatalog } from '../catalog/asset-catalog';
+import { CatalogIndex, normalizeCatalog } from '../../map-ops/asset-catalog';
 import { EditorDocument } from '../model/editor-document';
 import { heightAt } from '../../map-ops/grid';
 import type { EditorOverlay } from '../view/editor-overlay';

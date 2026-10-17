@@ -9,7 +9,7 @@
  * The kit runs the same code with the same seed as in the sandbox, so the
  * map comes out as the sandbox saw it; the fingerprint says whether it did.
  */
-import type { CatalogIndex } from '../catalog/asset-catalog';
+import type { CatalogIndex } from '../../map-ops/asset-catalog';
 import { mergeChanges, type DocChange, type EditorDocument } from '../model/editor-document';
 import { rectUnion, sampleRectAround, texelRectAround, type GridRect } from '../../map-ops/grid';
 import { contentFingerprint } from './agent-reads';

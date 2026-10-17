@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { heightAt } from '../../../map-ops/grid';
-import { objectsInAir } from '../../../editor/validation/map-validation';
+import { objectsInAir } from '../../../map-ops/validation/map-validation';
 import { createMapDocument } from '../../custom-map/map-create';
 import type { CustomMapDocument, MapPoint } from '../../custom-map/map-document';
 import { seatHeight } from '../../custom-map/render/objects/object-seat';

@@ -16,7 +16,7 @@
  * spawns and HQ, then biomes and paint (they leave roads and markers alone),
  * then single objects.
  */
-import { CatalogIndex } from '../catalog/asset-catalog';
+import { CatalogIndex } from '../../map-ops/asset-catalog';
 import { EditorDocument } from '../model/editor-document';
 import { heightAt, insideMap, nearestSample, slopeAt, type GridRect } from '../../map-ops/grid';
 import { BRUSH_LIMITS, type BrushSettings } from '../../map-ops/brush';
@@ -62,8 +62,8 @@ import { lifeAreaImages, mirrorChange, objectImages, symmetryImages, type Symmet
 import { flattenDab, noiseDab, plateauDab, raiseDab, rampBetween, smoothDab, terraceDab, erodeDab } from '../../map-ops/terrain-ops';
 import { addPouredBodies, basinSpillHeight, BODY_COLORS, emptyWater, fillBasin, fillFromEdge, lakeDab, RIM_MARGIN, waterBody, waterMaskDab, wetSamples } from '../../map-ops/water-ops';
 import { MAX_WATER_BODIES } from '../../world/custom-map/map-file';
-import { objectsOnMoverWays, validateMap, type MapIssue } from '../validation/map-validation';
-import { assetCosts } from '../validation/map-budget';
+import { objectsOnMoverWays, validateMap, type MapIssue } from '../../map-ops/validation/map-validation';
+import { assetCosts } from '../../map-ops/validation/map-budget';
 import { lifeProblems, newLifeId } from '../../world/custom-map/map-life';
 import { introProblems } from '../../world/custom-map/map-intro';
 import {

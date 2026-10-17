@@ -38,7 +38,7 @@ import { selectedEdges, selectedNodes, selectedSpawns, type Selection } from '..
 import { pointAt, polylineLength, type Route } from '../../map-ops/path-graph';
 import type { SymmetryMode } from '../ops/symmetry';
 import type { Contours } from '../ops/contours';
-import { BuildCell, type BuildAreas } from '../validation/build-areas';
+import { BuildCell, type BuildAreas } from '../../map-ops/validation/build-areas';
 import { TransformGizmo } from './transform-gizmo';
 
 const RING_SEGMENTS = 72;

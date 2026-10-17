@@ -8,7 +8,7 @@
  * piling up dab by dab.
  */
 import { fitSplatMaps, type CustomMapDocument, type MapGroundLayer, type MapLife, type MapObject, type MapPaths, type MapPoint, type MapRiver, type MapWater, type MapWaterKind } from '../../../world/custom-map/map-document';
-import type { CatalogIndex } from '../../catalog/asset-catalog';
+import type { CatalogIndex } from '../../../map-ops/asset-catalog';
 import {
   CompoundCommand,
   ObjectsCommand,

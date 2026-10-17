@@ -11,7 +11,7 @@ import { EditorHeldError, SnapshotCommand } from '../model/editor-document';
 import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { CatalogIndex, normalizeCatalog } from '../catalog/asset-catalog';
+import { CatalogIndex, normalizeCatalog } from '../../map-ops/asset-catalog';
 import { EditorAgent, type ScriptSandbox } from '../agent/editor-agent';
 import { runMapScript } from '../agent/map-script';
 import { contentFingerprint } from '../agent/agent-reads';

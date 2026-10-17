@@ -1,7 +1,7 @@
 import { MAX_MAP_BYTES } from '../../coop/protocol';
 import type { CustomMapDocument } from '../../world/custom-map/map-document';
 import { objectCost, sceneCost, SCENE_BUDGET } from '../../world/custom-map/render/objects/scene-cost';
-import type { CatalogIndex } from '../catalog/asset-catalog';
+import type { CatalogIndex } from '../asset-catalog';
 
 /**
  * What a map spends of its budget, for the Map panel: the scene cost of its

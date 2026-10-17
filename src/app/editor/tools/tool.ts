@@ -5,7 +5,7 @@
  */
 import type { GizmoHandle } from '../view/transform-gizmo';
 import type { MapLifeKind, MapObject, MapPathKind, MapPoint } from '../../world/custom-map/map-document';
-import type { CatalogIndex } from '../catalog/asset-catalog';
+import type { CatalogIndex } from '../../map-ops/asset-catalog';
 import type { EditorDocument } from '../model/editor-document';
 import { DEFAULT_BRUSH, type BrushSettings } from '../../map-ops/brush';
 import { DEFAULT_LINE, DEFAULT_SCATTER, type LineOptions, type ScatterOptions } from '../../map-ops/object-ops';

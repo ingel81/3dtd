@@ -5,7 +5,7 @@
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
-import { CatalogIndex, normalizeCatalog } from '../../src/app/editor/catalog/asset-catalog';
+import { CatalogIndex, normalizeCatalog } from '../../src/app/map-ops/asset-catalog';
 import { biomeById } from '../../src/app/editor/ops/landscape/biomes';
 import { applyTemplate, MAP_TEMPLATES } from '../../src/app/editor/ops/landscape/templates';
 import { createMapDocument } from '../../src/app/world/custom-map/map-create';

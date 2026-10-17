@@ -5,7 +5,7 @@ import { TOWER_TYPES } from '../../configs/tower-types.config';
 import { checkTowerPlacement, type TowerPlacementContext } from '../../utils/tower-placement-rules';
 import { footprintSampleOffsets, footprintSurroundingOffsets, resolveTowerFootprint } from '../../utils/tower-footprint';
 import { BUILD_BLOCKED_OBJECT } from '../world-provider';
-import { computeBuildAreas, BuildCell } from '../../editor/validation/build-areas';
+import { computeBuildAreas, BuildCell } from '../../map-ops/validation/build-areas';
 import { CustomMapFrame, CustomMapSurface } from './custom-map-surface';
 import { createMapDocument } from './map-create';
 import { type CustomMapDocument, type MapObject, MAP_METERS_PER_DEGREE, mapToGeo } from './map-document';

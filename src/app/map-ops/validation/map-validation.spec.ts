@@ -1,5 +1,5 @@
 import { createMapDocument } from '../../world/custom-map/map-create';
-import { emptyWater } from '../../map-ops/water-ops';
+import { emptyWater } from '../water-ops';
 import type { ObjectFooting } from '../../world/custom-map/render/objects/object-seat';
 import { bridgeDecks, deckHeightAt } from '../../world/custom-map/bridge-decks';
 import { HeightField } from '../../world/custom-map/render/height-field';

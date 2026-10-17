@@ -4,7 +4,7 @@
  * renderer's look for sky, light, haze and particles. The starting point for themed maps.
  */
 import type { CustomMapDocument, MapEnvironment } from '../../../world/custom-map/map-document';
-import type { CatalogIndex } from '../../catalog/asset-catalog';
+import type { CatalogIndex } from '../../../map-ops/asset-catalog';
 import { EditorDocument } from '../../model/editor-document';
 import { finishGenerated, generateTerrain, type TerrainPreset } from '../../../map-ops/generate';
 import { biomeBand } from './biome-brush';

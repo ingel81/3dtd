@@ -13,7 +13,7 @@ import { flattenUnderPaths, paintUnderPaths } from '../../../map-ops/path-terrai
 import { chaikin, simplify } from '../../../map-ops/lines';
 import { roadPaintBands } from '../../../world/custom-map/render/paths/road-style';
 import type { LandscapeStroke } from './landscape-stroke';
-import type { CatalogIndex } from '../../catalog/asset-catalog';
+import type { CatalogIndex } from '../../../map-ops/asset-catalog';
 
 export interface RoadOptions {
   width: number;

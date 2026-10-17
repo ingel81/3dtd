@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createMapDocument } from '../../world/custom-map/map-create';
 import type { MapLifeArea } from '../../world/custom-map/map-document';
-import { CatalogIndex } from '../catalog/asset-catalog';
+import { CatalogIndex } from '../../map-ops/asset-catalog';
 import { EditorDocument } from '../model/editor-document';
 import { heightAt } from '../../map-ops/grid';
 import type { EditorOverlay } from '../view/editor-overlay';

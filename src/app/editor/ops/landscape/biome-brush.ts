@@ -29,7 +29,7 @@ import { citySlots, streetDistance } from './city';
 import { crackAt } from './cracks';
 import { FieldCache } from './field-cache';
 import { craterProfile } from './shapes';
-import type { CatalogIndex } from '../../catalog/asset-catalog';
+import type { CatalogIndex } from '../../../map-ops/asset-catalog';
 import { smooth, type LandscapeNoise } from '../../../map-ops/landscape-noise';
 import type { LandscapeStroke } from './landscape-stroke';
 

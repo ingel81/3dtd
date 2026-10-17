@@ -19,7 +19,7 @@ import { contentHash, packMapFile } from '../../src/app/world/custom-map/map-fil
 import { summarize } from '../../src/app/world/custom-map/map-summary';
 import { convertOsm } from '../../src/app/world/osm/import-osm';
 import type { DemMosaic } from '../../src/app/world/osm/dem-tiles';
-import { validateMap } from '../../src/app/editor/validation/map-validation';
+import { validateMap } from '../../src/app/map-ops/validation/map-validation';
 import { renderTopDown } from '../w3x/top-down';
 import { assetCosts } from '../../src/app/world/osm/convert/vegetation';
 import { buildingCatalog } from '../../src/app/world/osm/convert/buildings';

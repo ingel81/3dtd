@@ -3,11 +3,11 @@
  * object assets of the renderer's catalogue, with what the palettes need on
  * top (a colour, a rough shape for pictures, category names).
  */
-import type { CatalogObject, ObjectCategory } from '../../world/custom-map/render/asset-catalog';
-import type { CatalogRoof } from '../../world/custom-map/object-roof';
-import type { ObjectFooting } from '../../world/custom-map/render/objects/object-seat';
-import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
-import type { CostEntry } from '../../world/custom-map/render/objects/scene-cost';
+import type { CatalogObject, ObjectCategory } from '../world/custom-map/render/asset-catalog';
+import type { CatalogRoof } from '../world/custom-map/object-roof';
+import type { ObjectFooting } from '../world/custom-map/render/objects/object-seat';
+import { MapAssetLibrary } from '../world/custom-map/render/map-asset-library';
+import type { CostEntry } from '../world/custom-map/render/objects/scene-cost';
 
 export interface GroundMaterialEntry {
   id: string;

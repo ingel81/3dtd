@@ -10,7 +10,7 @@ import { resolve } from 'node:path';
 import { createMapDocument } from '../world/custom-map/map-create';
 import { CustomMapStreets } from '../world/custom-map/custom-map-streets';
 import { mapToGeo, type CustomMapDocument } from '../world/custom-map/map-document';
-import { CatalogIndex, normalizeCatalog } from '../editor/catalog/asset-catalog';
+import { CatalogIndex, normalizeCatalog } from '../map-ops/asset-catalog';
 import { biomeById } from '../editor/ops/landscape/biomes';
 import { applyTemplate, MAP_TEMPLATES } from '../editor/ops/landscape/templates';
 

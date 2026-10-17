@@ -37,7 +37,7 @@ import {
 } from 'three';
 import { idle } from './idle';
 import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
-import type { CatalogIndex, GroundMaterialEntry, ObjectAssetEntry } from '../catalog/asset-catalog';
+import type { CatalogIndex, GroundMaterialEntry, ObjectAssetEntry } from '../../map-ops/asset-catalog';
 import type { BiomeDef } from '../ops/landscape/biomes';
 import { hashCell } from '../../map-ops/landscape-noise';
 

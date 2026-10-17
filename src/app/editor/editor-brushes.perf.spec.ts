@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { medianMs, perfBudget } from '../../test/perf-budget';
 import { createMapDocument } from '../world/custom-map/map-create';
-import { CatalogIndex, normalizeCatalog } from './catalog/asset-catalog';
+import { CatalogIndex, normalizeCatalog } from '../map-ops/asset-catalog';
 import { EditorDocument } from './model/editor-document';
 import { heightAt } from '../map-ops/grid';
 import { addNode, connect } from '../map-ops/path-graph';

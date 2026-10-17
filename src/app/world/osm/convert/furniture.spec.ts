@@ -1,4 +1,4 @@
-import { validateMap } from '../../../editor/validation/map-validation';
+import { validateMap } from '../../../map-ops/validation/map-validation';
 import { createMapDocument } from '../../custom-map/map-create';
 import type { CustomMapDocument, MapPoint } from '../../custom-map/map-document';
 import { OsmFrame, type OsmArea, type OsmFeatures, type OsmPoint, type OsmWay } from '../osm-parse';

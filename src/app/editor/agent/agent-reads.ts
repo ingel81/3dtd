@@ -4,14 +4,14 @@
  * plain data small enough for a tool answer. Numbers are rounded to what a
  * map needs (centimetres, decimetres of height).
  */
-import type { CatalogIndex } from '../catalog/asset-catalog';
+import type { CatalogIndex } from '../../map-ops/asset-catalog';
 import { heightAt } from '../../map-ops/grid';
 import { TERRAIN_PRESETS } from '../../map-ops/generate';
 import { BIOMES } from '../ops/landscape/biomes';
 import { MAP_TEMPLATES } from '../ops/landscape/templates';
 import { edgePolyline, polylineLength, spawnRoutes } from '../../map-ops/path-graph';
-import { mapSceneCost } from '../validation/map-budget';
-import type { MapIssue } from '../validation/map-validation';
+import { mapSceneCost } from '../../map-ops/validation/map-budget';
+import type { MapIssue } from '../../map-ops/validation/map-validation';
 import { SCENE_BUDGET } from '../../world/custom-map/render/objects/scene-cost';
 import type { CustomMapDocument, MapObject, MapWater } from '../../world/custom-map/map-document';
 import { lifeSwitches } from '../../world/custom-map/map-life';

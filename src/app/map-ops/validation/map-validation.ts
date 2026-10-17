@@ -11,9 +11,9 @@ import { WATER_DEPTH_M } from '../../world/world-provider';
 import { dangerLook } from '../../world/custom-map/render/asset-catalog';
 import { sceneCost, SCENE_BUDGET } from '../../world/custom-map/render/objects/scene-cost';
 import { validateWaveTable, type WaveTable } from '../../director/sources/table/wave-table';
-import { heightAt, insideMap, sampleX, sampleY, slopeAt } from '../../map-ops/grid';
-import { components, EdgeIndex, nearestOnPolyline, routeBetween } from '../../map-ops/path-graph';
-import { undersideGap } from '../../map-ops/object-ops';
+import { heightAt, insideMap, sampleX, sampleY, slopeAt } from '../grid';
+import { components, EdgeIndex, nearestOnPolyline, routeBetween } from '../path-graph';
+import { undersideGap } from '../object-ops';
 import { seatHeight, type ObjectFooting } from '../../world/custom-map/render/objects/object-seat';
 import { boxDistance } from '../../world/custom-map/object-ground';
 import { waterLevelAt } from '../../world/custom-map/water-level';
@@ -24,7 +24,7 @@ import { waveEventProblems } from './wave-event-check';
 import { MOVER_CLEARANCE, moverWays } from '../../world/custom-map/map-life';
 import { mapProblems, type MapProblem, type MapProblemPart } from '../../world/custom-map/map-file';
 import { mapRepairs } from '../../world/custom-map/map-repair';
-import type { ToolId } from '../tools/tool';
+import type { ToolId } from '../../editor/tools/tool';
 
 export type IssueSeverity = 'error' | 'warning';
 

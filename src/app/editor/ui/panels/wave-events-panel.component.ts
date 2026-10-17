@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { WAVE_EVENT_LIMITS, type MapGameplay, type MapWaveEvent, type MapWaveEventKind, type MapWeather } from '../../../world/custom-map/map-document';
 import { SnapshotCommand } from '../../model/editor-document';
-import { waveEventProblems } from '../../validation/wave-event-check';
+import { waveEventProblems } from '../../../map-ops/validation/wave-event-check';
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
 

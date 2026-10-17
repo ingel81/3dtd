@@ -19,7 +19,7 @@ import { checkTowerPlacement, type TowerPlacementContext } from '../../utils/tow
 import { footprintSampleOffsets, footprintSurroundingOffsets, resolveTowerFootprint } from '../../utils/tower-footprint';
 import { type BuildCatalogEntry, CustomMapFrame, CustomMapSurface } from '../../world/custom-map/custom-map-surface';
 import { passingObjectIds } from '../../world/custom-map/custom-map-destruction';
-import type { ObjectAssetEntry } from '../catalog/asset-catalog';
+import type { ObjectAssetEntry } from '../asset-catalog';
 import {
   MAP_METERS_PER_DEGREE,
   type CustomMapDocument,
@@ -288,7 +288,7 @@ export function buildAreaInput(
 export function buildAreasOffThread(input: BuildAreaInput): Promise<BuildAreas> {
   if (typeof Worker === 'undefined') return Promise.resolve(computeBuildAreas(input));
   return new Promise((resolve, reject) => {
-    const worker = new Worker(new URL('../workers/build-areas.worker', import.meta.url), { type: 'module' });
+    const worker = new Worker(new URL('../../editor/workers/build-areas.worker', import.meta.url), { type: 'module' });
     worker.onmessage = (e: MessageEvent<BuildAreas | { error: string }>) => {
       worker.terminate();
       if ('error' in e.data) reject(new Error(e.data.error));

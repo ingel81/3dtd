@@ -34,7 +34,7 @@ import { waterLevelAt } from '../../custom-map/water-level';
 import { groundRing, type GroundBox } from '../../custom-map/object-ground';
 import type { ObjectFooting } from '../../custom-map/render/objects/object-seat';
 import { EdgeIndex } from '../../../map-ops/path-graph';
-import { objectsOnPaths, PATH_WALL_SHARE } from '../../../editor/validation/map-validation';
+import { objectsOnPaths, PATH_WALL_SHARE } from '../../../map-ops/validation/map-validation';
 import { BUILDING_MODELS, buildingKind, buildingLandOf, buildingLevels, isGroundBuilding, KIND_MODELS, type BuildingKind, type BuildingModel } from '../building-tags';
 import { ringArea, type OsmArea, type OsmFeatures } from '../osm-parse';
 

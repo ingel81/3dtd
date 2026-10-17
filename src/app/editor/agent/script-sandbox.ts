@@ -4,7 +4,7 @@
  * the map, the time limit. Resolves with the kept commands or why there are
  * none; the worker is ended either way.
  */
-import type { MapAssetCatalog } from '../catalog/asset-catalog';
+import type { MapAssetCatalog } from '../../map-ops/asset-catalog';
 import type { CustomMapDocument } from '../../world/custom-map/map-document';
 import type { ScriptRunResult } from './map-script';
 import type { SandboxRequest } from './script-sandbox.worker';

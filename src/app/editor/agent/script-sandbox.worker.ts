@@ -7,7 +7,7 @@
  * loading (desktop/src/protocol.js). The page starts a fresh worker per
  * script and ends it on the answer or at the time limit.
  */
-import type { MapAssetCatalog } from '../catalog/asset-catalog';
+import type { MapAssetCatalog } from '../../map-ops/asset-catalog';
 import type { CustomMapDocument } from '../../world/custom-map/map-document';
 import { runMapScript, type ScriptRunResult } from './map-script';
 import { lockDown, lockedEnough } from './sandbox-lockdown';

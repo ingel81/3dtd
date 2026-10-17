@@ -12,7 +12,7 @@ import { resolve } from 'node:path';
 import { createMapDocument } from '../world/custom-map/map-create';
 import { contentBytes } from '../world/custom-map/map-file';
 import type { CustomMapDocument } from '../world/custom-map/map-document';
-import { CatalogIndex, normalizeCatalog } from './catalog/asset-catalog';
+import { CatalogIndex, normalizeCatalog } from '../map-ops/asset-catalog';
 import { EditorDocument, ObjectsCommand, SnapshotCommand } from './model/editor-document';
 import { alignedToSlope, variedTint } from '../map-ops/object-ops';
 import { mirrorMap } from './ops/mirror-map';

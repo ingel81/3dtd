@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import type { MapObject } from '../../../world/custom-map/map-document';
-import { tagName, type ObjectAssetEntry } from '../../catalog/asset-catalog';
+import { tagName, type ObjectAssetEntry } from '../../../map-ops/asset-catalog';
 import { ObjectsCommand } from '../../model/editor-document';
 import { setDown, rockShape, duplicateObjects, variedTint, wallKitOf } from '../../../map-ops/object-ops';
 import type { EditorSettings, GizmoMode, ObjectMode } from '../../tools/tool';

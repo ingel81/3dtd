@@ -9,7 +9,7 @@
  * (Shift reverses). Sea floods the body in from the map's edge. The body
  * list, kinds, levels and colours live in the panel (`waterCommands`).
  */
-import type { CatalogIndex } from '../catalog/asset-catalog';
+import type { CatalogIndex } from '../../map-ops/asset-catalog';
 import type { CustomMapDocument, MapRiver, MapTerrain, MapWater, MapWaterKind } from '../../world/custom-map/map-document';
 import type { DocChange, EditCommand, EditorDocument, PatchTarget } from '../model/editor-document';
 import { nearestSample, sampleRectAround, type GridRect } from '../../map-ops/grid';

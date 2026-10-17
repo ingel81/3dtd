@@ -3,7 +3,7 @@
  * material as its colour with some grain, an object as its stand-in shape
  * in its colour. Drawn once per entry into a data URL.
  */
-import type { CatalogIndex, GroundMaterialEntry, ObjectAssetEntry } from '../catalog/asset-catalog';
+import type { CatalogIndex, GroundMaterialEntry, ObjectAssetEntry } from '../../map-ops/asset-catalog';
 import type { BiomeDef } from '../ops/landscape/biomes';
 
 const SIZE = 64;

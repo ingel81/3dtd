@@ -2,7 +2,7 @@ import { createMapDocument } from './map-create';
 import { packMapFile, unpackMapFile } from './map-file';
 import { MAX_MAP_TEXT, mapRepairs } from './map-repair';
 import { MapStore, MemoryMapBackend } from './map-store';
-import { validateMap } from '../../editor/validation/map-validation';
+import { validateMap } from '../../map-ops/validation/map-validation';
 
 /** A map with values a file from outside may carry: none of them refused the map before the soft checks */
 function untidy() {

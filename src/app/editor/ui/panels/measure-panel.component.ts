@@ -4,7 +4,7 @@ import { polylineLength, spawnRoutes } from '../../../map-ops/path-graph';
 import { measureLine } from '../../tools/measure-tool';
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
-import { TOWER_SPOT_M2, TYPICAL_TOWER_RANGE } from '../../validation/build-areas';
+import { TOWER_SPOT_M2, TYPICAL_TOWER_RANGE } from '../../../map-ops/validation/build-areas';
 
 /** Walking speeds of the ground enemies, metres per second */
 const SPEEDS = (() => {

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createMapDocument } from '../../../world/custom-map/map-create';
 import { fitSplatMaps, type CustomMapDocument } from '../../../world/custom-map/map-document';
-import { CatalogIndex, normalizeCatalog } from '../../catalog/asset-catalog';
+import { CatalogIndex, normalizeCatalog } from '../../../map-ops/asset-catalog';
 import { EditorDocument, mergeChanges, type DocChange } from '../../model/editor-document';
 import { heightAt, slopeAt } from '../../../map-ops/grid';
 import { addNode, connect, edgePolyline, nearestOnEdges, nearestOnPolyline } from '../../../map-ops/path-graph';
@@ -18,7 +18,7 @@ import { citySlots, streetDistance } from './city';
 import { cliffAlong, craterProfile, formDab, formHeight } from './shapes';
 import { cracksDab } from './cracks';
 import { readWeights } from '../../../map-ops/paint-ops';
-import { waterInAir } from '../../validation/map-validation';
+import { waterInAir } from '../../../map-ops/validation/map-validation';
 
 const catalog = new CatalogIndex(
   normalizeCatalog(JSON.parse(readFileSync(resolve('public/maps/assets/catalog.json'), 'utf8')), 'http://x/maps/assets/'),

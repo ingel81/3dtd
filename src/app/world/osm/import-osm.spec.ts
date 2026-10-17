@@ -1,4 +1,4 @@
-import { objectsInAir, validateMap } from '../../editor/validation/map-validation';
+import { objectsInAir, validateMap } from '../../map-ops/validation/map-validation';
 import { routeBetween, spawnRoutes } from '../../map-ops/path-graph';
 import { packMapFile, unpackMapFile, validateMapDocument } from '../custom-map/map-file';
 import { mapStreetNetwork } from '../custom-map/custom-map-streets';

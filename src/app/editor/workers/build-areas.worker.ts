@@ -4,7 +4,7 @@
  * buildAreasOffThread): judges every cell of the map by the game's placement
  * rules; the raster goes back transferred.
  */
-import { computeBuildAreas, type BuildAreaInput } from '../validation/build-areas';
+import { computeBuildAreas, type BuildAreaInput } from '../../map-ops/validation/build-areas';
 
 addEventListener('message', (e: MessageEvent<BuildAreaInput>) => {
   try {

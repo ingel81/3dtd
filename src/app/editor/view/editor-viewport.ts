@@ -29,7 +29,7 @@ import { type BridgeDeck, bridgeDecks, deckHeightAt } from '../../world/custom-m
 import { HeightField } from '../../world/custom-map/render/height-field';
 import { waterLevelAt } from '../../world/custom-map/water-level';
 import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
-import type { CatalogIndex } from '../catalog/asset-catalog';
+import type { CatalogIndex } from '../../map-ops/asset-catalog';
 import { mergeChanges, selectedEdges, selectedNodes, selectedSpawns, type DocChange, type EditorDocument } from '../model/editor-document';
 import { heightAt as gridHeight } from '../../map-ops/grid';
 import { stepRadius } from '../../map-ops/brush';

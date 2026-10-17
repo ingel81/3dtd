@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
-import { mapBudget, mapSceneCost } from '../../validation/map-budget';
+import { mapBudget, mapSceneCost } from '../../../map-ops/validation/map-budget';
 
 /** The Map panel's budget: the objects' scene cost against what keeps a map fluid, the file against what coop sends */
 @Component({

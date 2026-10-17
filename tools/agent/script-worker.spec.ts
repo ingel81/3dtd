@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createContext, runInContext } from 'node:vm';
 import { createMapDocument } from '../../src/app/world/custom-map/map-create';
-import { normalizeCatalog } from '../../src/app/editor/catalog/asset-catalog';
+import { normalizeCatalog } from '../../src/app/map-ops/asset-catalog';
 import type { ScriptRunResult } from '../../src/app/editor/agent/map-script';
 import { buildScriptWorker } from './build-script-worker.mjs';
 

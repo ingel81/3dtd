@@ -4,7 +4,7 @@
  * what it is; nothing on the map moves, grows or gets painted. The editor
  * opens with it, and Esc comes back to it once nothing is half done.
  */
-import type { CatalogIndex } from '../catalog/asset-catalog';
+import type { CatalogIndex } from '../../map-ops/asset-catalog';
 import type { MapTerrain } from '../../world/custom-map/map-document';
 import { nearestSample, slopeAt, heightAt } from '../../map-ops/grid';
 import { withGroups } from '../../map-ops/object-ops';
