@@ -114,6 +114,30 @@ export class LevelKit extends MapKit {
     }
   }
 
+  /**
+   * The nearest spot to `p` where `asset` stands clear of every road and
+   * bridge with its whole footprint (MapKit.free), searched in rings out to
+   * `reach` metres; a spot meant for the water's edge (`onWater`) may be wet.
+   * Null when there is none: a level then leaves the object out
+   */
+  clearSpot(asset: string, p: MapPoint, o: { reach?: number; onWater?: boolean; scale?: number } = {}): MapPoint | null {
+    // A building's ground rectangle may reach past its footprint radius (a porch, a landing): the circle round it counts
+    const entry = this.catalog.object(asset);
+    const box = entry.box;
+    const footprint = (box ? Math.max(entry.radius, Math.hypot(Math.abs(box[0]) + box[2], Math.abs(box[1]) + box[3])) : entry.radius) * (o.scale ?? 1);
+    const onWater = o.onWater ?? false;
+    if (this.free(p.x, p.y, footprint, onWater)) return p;
+    for (let r = 1; r <= (o.reach ?? 12); r++) {
+      const n = Math.max(8, Math.round(r * 2 * Math.PI));
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2;
+        const q = { x: p.x + Math.cos(a) * r, y: p.y + Math.sin(a) * r };
+        if (this.free(q.x, q.y, footprint, onWater)) return q;
+      }
+    }
+    return null;
+  }
+
   /** The finished document; throws on the editor check's errors, on objects or water in the air (object-floating, water-floating) and on objects in a mover route's way */
   finish(): CustomMapDocument {
     this.settleRocks();

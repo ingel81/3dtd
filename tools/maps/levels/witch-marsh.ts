@@ -112,7 +112,9 @@ export function buildWitchMarsh(): CustomMapDocument {
   k.place('mushroom-giant', 136, -205, { rotation: 1.2 });
   k.place('campfire', 112, -158);
   for (const [x, y] of [[-30, 182], [70, 70], [-200, 30], [150, -130], [-110, -160], [200, 30], [-150, 140]] as const) {
-    const shore = { x, y };
+    // At the shore beside the walk, never on it: the hut moves off until its whole footprint is clear of the deck
+    const shore = k.clearSpot('hut-stilts', { x, y }, { onWater: true });
+    if (!shore) continue;
     k.place('hut-stilts', shore.x, shore.y, { rotation: facing(shore, j) });
     // A lantern at every hut's door
     k.place('lantern', shore.x + 3, shore.y - 2, { z: 2.4 });

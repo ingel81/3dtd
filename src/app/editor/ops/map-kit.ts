@@ -840,10 +840,10 @@ export class MapKit {
     return addPouredBodies(t, result.lakes, kind, MAX_WATER_BODIES);
   }
 
-  free(x: number, y: number, footprint: number): boolean {
+  free(x: number, y: number, footprint: number, onWater = false): boolean {
     this.freeCheck ??= new LandscapeStroke(this.editor, 'check', 1, this.catalog);
     this.freeCheck.refreshRoads();
-    return this.freeCheck.freeForObject(x, y, footprint);
+    return this.freeCheck.freeForObject(x, y, footprint, onWater);
   }
 
   /** Place one object (and its symmetric images); a rock settles onto its plate as in the editor */
