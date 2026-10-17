@@ -14,6 +14,7 @@ import { defaultMapBackend, FolderMapBackend, mapFolderId } from './folder-map-b
 import type { CustomMapDocument, MapBiome, MapMeta } from './map-document';
 import { contentHash, packMapFile, unpackMapFile } from './map-file';
 import { newMapUid, slugMapId } from './map-create';
+import { summarize } from './map-summary';
 
 /**
  * Where a map came from: made or imported here ('own'), shipped with the
@@ -84,6 +85,12 @@ export interface MapStorageBackend {
 export interface SaveOptions {
   /** Work out the content hash now (default); an autosave leaves it for loading */
   hash?: boolean;
+  /**
+   * The summary of the copy `file` was packed from (packOffThread), hash
+   * included: stored as it is, so file, hash and numbers are one state of
+   * the map though the document changed since
+   */
+  summary?: MapSummary;
 }
 
 /** An entry of `maps/index.json` */
@@ -247,12 +254,15 @@ export class MapStore {
     options: SaveOptions = {},
   ): Promise<MapSummary> {
     // The first save gives the map its identity; a file packed before carries none yet
+    let packed = options.summary;
     if (!doc.meta.uid) {
       doc.meta.uid = newMapUid();
       file = undefined;
+      packed = undefined;
     }
+    if (!file) packed = undefined;
     file ??= packMapFile(doc);
-    const summary = summarize(doc, 'own', options.hash === false ? '' : await contentHash(doc));
+    const summary = packed ? { ...packed, origin: 'own' as const } : summarize(doc, 'own', options.hash === false ? '' : await contentHash(doc));
     // Without a new picture the stored one stays: the file is not read for it
     await this.backend.put({ summary, file, ...(preview ? { preview } : {}) });
     return summary;
@@ -398,27 +408,6 @@ export class MapStore {
   }
 }
 
-export function summarize(doc: CustomMapDocument, origin: MapOrigin, hash: string): MapSummary {
-  return {
-    id: doc.meta.id,
-    name: doc.meta.name,
-    author: doc.meta.author,
-    description: doc.meta.description,
-    width: doc.terrain.width,
-    depth: doc.terrain.depth,
-    updatedAt: doc.meta.updatedAt,
-    origin,
-    contentHash: hash,
-    objects: doc.objects.length,
-    spawns: doc.spawns.length,
-    biome: doc.environment.biome ?? 'temperate',
-    importedFrom: doc.meta.source?.kind === 'w3x' ? doc.meta.source.file : undefined,
-    ...(doc.meta.source?.kind === 'osm' ? { osm: { lat: doc.meta.source.lat, lon: doc.meta.source.lon } } : {}),
-    ...(doc.meta.uid ? { uid: doc.meta.uid } : {}),
-    ...(doc.meta.copyOf ? { copyOf: { ...doc.meta.copyOf } } : {}),
-    ...(doc.meta.generated ? { generated: true } : {}),
-  };
-}
 
 
 function shippedSummary(e: ShippedMapEntry): MapSummary {

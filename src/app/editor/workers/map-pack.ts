@@ -7,18 +7,28 @@
  * no workers (tests).
  */
 import type { CustomMapDocument } from '../../world/custom-map/map-document';
-import { MapFileError, packMapFile, type PackOptions } from '../../world/custom-map/map-file';
+import { MapFileError, contentHash, packMapFile, type PackOptions } from '../../world/custom-map/map-file';
+import type { MapSummary } from '../../world/custom-map/map-store';
+import { summarize } from '../../world/custom-map/map-summary';
 import { fingerprint } from '../model/version-store';
 
 export interface PackedMap {
   file: Uint8Array;
   /** fingerprint(file), for the version history */
   sum: number;
+  /**
+   * The store's summary of the very copy packed, with its content hash
+   * when asked for (empty otherwise): file, hash and the list's numbers
+   * never mix two states of a map the editor went on changing
+   */
+  summary: MapSummary;
 }
 
 export interface PackRequest {
   doc: CustomMapDocument;
   options: PackOptions;
+  /** Work out the content hash too (a manual save; an autosave leaves it for loading) */
+  hash?: boolean;
 }
 
 /** A failed pack as data: an invalid map keeps its kind and its list of problems across the worker's edge */
@@ -39,21 +49,22 @@ export function packReplyError(reply: PackError): Error {
   return reply.problems ? new MapFileError(reply.error, reply.problems) : new Error(reply.error);
 }
 
-/** What the worker does with a request; also the inline path */
-export function packForSave(request: PackRequest): PackedMap {
-  const file = packMapFile(request.doc, request.options);
-  return { file, sum: fingerprint(file) };
+/**
+ * What the worker does with a request; also the inline path. Everything is
+ * read from the document before the first await (contentHash reads its
+ * bytes at once), so inline it is one state of the map too
+ */
+export async function packForSave(request: PackRequest): Promise<PackedMap> {
+  const { doc } = request;
+  const file = packMapFile(doc, request.options);
+  const summary = summarize(doc, 'own', '');
+  const hash = request.hash ? contentHash(doc) : null;
+  return { file, sum: fingerprint(file), summary: { ...summary, contentHash: hash ? await hash : '' } };
 }
 
-/** The packed file of `doc` and its fingerprint; rejects as packMapFile throws (an invalid map) */
-export function packOffThread(doc: CustomMapDocument, options: PackOptions = {}): Promise<PackedMap> {
-  if (typeof Worker === 'undefined') {
-    try {
-      return Promise.resolve(packForSave({ doc, options }));
-    } catch (e) {
-      return Promise.reject(e);
-    }
-  }
+/** The packed file of `doc`, its fingerprint and summary; rejects as packMapFile throws (an invalid map) */
+export function packOffThread(doc: CustomMapDocument, options: PackOptions = {}, hash = false): Promise<PackedMap> {
+  if (typeof Worker === 'undefined') return packForSave({ doc, options, hash });
   return new Promise((resolve, reject) => {
     const worker = new Worker(new URL('./map-pack.worker', import.meta.url), { type: 'module' });
     worker.onmessage = (e: MessageEvent<PackReply>) => {
@@ -66,6 +77,6 @@ export function packOffThread(doc: CustomMapDocument, options: PackOptions = {})
       reject(new Error(e.message || 'The map pack worker failed'));
     };
     // Structured clone: the worker packs the map as it is now
-    worker.postMessage({ doc, options } satisfies PackRequest);
+    worker.postMessage({ doc, options, hash } satisfies PackRequest);
   });
 }

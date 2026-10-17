@@ -10,7 +10,7 @@ import { biomeById } from '../../src/app/editor/ops/landscape/biomes';
 import { applyTemplate, MAP_TEMPLATES } from '../../src/app/editor/ops/landscape/templates';
 import { createMapDocument } from '../../src/app/world/custom-map/map-create';
 import { contentHash, packMapFile, unpackMapFile } from '../../src/app/world/custom-map/map-file';
-import { summarize } from '../../src/app/world/custom-map/map-store';
+import { summarize } from '../../src/app/world/custom-map/map-summary';
 
 const mode = (import.meta as { env?: Record<string, string> }).env?.['MODE'];
 const outDir = resolve(__dirname, '../../tmp/w3x-out');

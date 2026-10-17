@@ -19,7 +19,7 @@ import { biomeById } from '../ops/landscape/biomes';
 import { applyTemplate, type MapTemplate } from '../ops/landscape/templates';
 import { Injectable, NgZone, OnDestroy, computed, inject, signal } from '@angular/core';
 import { MAX_MAP_PREFABS, type CustomMapDocument, type MapIntro, type MapIntroView, type MapLife, type MapMeta } from '../../world/custom-map/map-document';
-import { createMapDocument, slugMapId, type NewMapOptions } from '../../world/custom-map/map-create';
+import { createMapDocument, newMapUid, slugMapId, type NewMapOptions } from '../../world/custom-map/map-create';
 import { MAP_FILE_EXTENSION, MapFileError, packMapFile, unpackMapFile } from '../../world/custom-map/map-file';
 import { MapStore, type LoadedMap, type MapSummary } from '../../world/custom-map/map-store';
 import { MapLock, whileMapFree } from '../model/map-lock';
@@ -1285,11 +1285,13 @@ export class EditorSession implements OnDestroy {
       // An OpenStreetMap map changed is a Built World from now on (docs/WORLDS_STATE_PLAN.md, decision 5)
       if (changed && doc.meta.generated) delete doc.meta.generated;
       doc.meta.updatedAt = new Date().toISOString();
+      // The identity first: the copy packed below must carry it (the store would pack the live map again)
+      doc.meta.uid ??= newMapUid();
       const preview = manual ? await this.thumbnail() : null;
       // An autosave packs fast and leaves the hash for when the game asks for it; packed in a worker, so a
-      // save costs the view no frame
-      const { file, sum } = await packOffThread(doc, { level: manual ? 6 : 1 });
-      await this.store.save(doc, preview, file, { hash: manual });
+      // save costs the view no frame. File, hash and summary all come from the one copy the worker got
+      const { file, sum, summary } = await packOffThread(doc, { level: manual ? 6 : 1 }, manual);
+      await this.store.save(doc, preview, file, { summary });
       // A version for the history; a full browser store must not fail the save
       const id = doc.meta.id;
       void this.history

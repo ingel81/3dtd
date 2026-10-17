@@ -1,7 +1,8 @@
 import { readDesktopBridge, type DesktopMapFolder } from '../../core/desktop-bridge';
 import { contentHash, MAP_FILE_EXTENSION, packMapFile, unpackMapFile } from './map-file';
 import { MAP_ID_PATTERN, slugMapId } from './map-create';
-import { IndexedDbMapBackend, summarize, type MapStorageBackend, type MapSummary, type StoredMap } from './map-store';
+import { IndexedDbMapBackend, type MapStorageBackend, type MapSummary, type StoredMap } from './map-store';
+import { summarize } from './map-summary';
 
 /** An own map's file in the folder and its modification time when the game last read or wrote it */
 export interface FolderMark {

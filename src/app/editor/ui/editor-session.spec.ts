@@ -5,7 +5,7 @@ import { createMapDocument } from '../../world/custom-map/map-create';
 import { MapStore, MemoryMapBackend } from '../../world/custom-map/map-store';
 import { MemoryVersionBackend, VersionHistory } from '../model/version-store';
 import { DOWNLOAD_REMINDER_MS } from '../model/storage-safety';
-import { MapFileError, contentHash, packMapFile } from '../../world/custom-map/map-file';
+import { MapFileError, contentHash, packMapFile, unpackMapFile } from '../../world/custom-map/map-file';
 import { EditorSession, saveErrorText } from './editor-session.service';
 import { EditorHeldError, SnapshotCommand } from '../model/editor-document';
 import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
@@ -305,6 +305,27 @@ describe('editor session saving', () => {
     await s.deleteForGood((await s.listTrash())[0]);
     expect(await s.listTrash()).toEqual([]);
     expect(await versions.list('m-2')).toEqual([]);
+    s.ngOnDestroy();
+  });
+});
+
+describe('editor session saving', () => {
+  it('stores file, content hash and summary of one state, though the map changes while it saves', async () => {
+    const { s, backend } = session();
+    s.editMeta({ name: 'Packed' });
+    const save = s.store.save.bind(s.store);
+    // The player renames the map right after the copy for the file was taken
+    vi.spyOn(s.store, 'save').mockImplementation((doc, preview, file, options) => {
+      s.editMeta({ name: 'Later' });
+      return save(doc, preview, file, options);
+    });
+    expect(await s.save(true)).toBe(true);
+    const stored = (await backend.get('m'))!;
+    const { doc } = unpackMapFile(stored.file);
+    expect(doc.meta.name).toBe('Packed');
+    expect(stored.summary.name).toBe('Packed');
+    expect(stored.summary.contentHash).toBe(await contentHash(doc));
+    expect(s.dirty()).toBe(true);
     s.ngOnDestroy();
   });
 });

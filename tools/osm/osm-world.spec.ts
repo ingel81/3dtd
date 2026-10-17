@@ -16,7 +16,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
 import { contentHash, packMapFile } from '../../src/app/world/custom-map/map-file';
-import { summarize } from '../../src/app/world/custom-map/map-store';
+import { summarize } from '../../src/app/world/custom-map/map-summary';
 import { convertOsm } from '../../src/app/world/osm/import-osm';
 import type { DemMosaic } from '../../src/app/world/osm/dem-tiles';
 import { validateMap } from '../../src/app/editor/validation/map-validation';

@@ -15,7 +15,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { basename, join, resolve } from 'path';
 import { contentHash, packMapFile } from '../../src/app/world/custom-map/map-file';
-import { summarize } from '../../src/app/world/custom-map/map-store';
+import { summarize } from '../../src/app/world/custom-map/map-summary';
 import { importW3x } from '../../src/app/world/w3x/import-w3x';
 import { findTestMap } from '../../src/test/w3x-fixtures';
 import { renderTopDown } from './top-down';

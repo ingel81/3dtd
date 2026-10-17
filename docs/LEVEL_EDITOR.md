@@ -638,7 +638,9 @@ Szenenkosten.
   „Saving“ oder „Saved“. Strg+S speichert sofort mit neuem Vorschaubild; beim Verlassen der Karte wird das Bild
   ebenfalls erneuert. Prüfen, Packen und der Fingerabdruck für den Verlauf laufen in einem Worker
   (`workers/map-pack.ts`, eine Kopie der Karte wie beim Speichern): vorher kostete jedes Speichern auf einer 512-m-Karte
-  ein Bild von 60 bis 140 ms, jetzt keines (headless gemessen, längstes Bild beim Speichern 7 ms wie im Leerlauf)
+  ein Bild von 60 bis 140 ms, jetzt keines (headless gemessen, längstes Bild beim Speichern 7 ms wie im Leerlauf).
+  Der Worker liefert auch Zusammenfassung und (bei Strg+S) Inhalts-Hash derselben Kopie: ändert der Spieler während
+  des Speicherns etwas, passen Datei, Hash und Listenzahlen trotzdem zusammen
 - Ein Tab je Karte (`editor/model/map-lock.ts`): wer eine Karte zuerst öffnet, hält ihre Web-Sperre
   (`navigator.locks`, Name `3dtd-map:<id>`). Ein zweiter Tab öffnet sie schreibgeschützt: Banner „Another tab edits
   this map“, Kopfzeile „Read only“, die Panels aus, Werkzeuge und Werkzeugtasten aus, Rückgängig, Speichern, Einfügen,
