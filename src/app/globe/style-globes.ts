@@ -2,7 +2,6 @@ import {
   AmbientLight,
   BufferAttribute,
   BufferGeometry,
-  CanvasTexture,
   Color,
   ConeGeometry,
   CylinderGeometry,
@@ -18,9 +17,9 @@ import {
   Object3D,
   Quaternion,
   Scene,
-  SRGBColorSpace,
   ShaderMaterial,
   TorusGeometry,
+  Vector2,
   Vector3,
   type Material,
 } from 'three';
@@ -31,8 +30,8 @@ import { ellipsoidGeometry } from './globe-view';
 
 /**
  * The two drawn globes of the stage (docs/WORLDS_NAVIGATION_PLAN.md, 4.3),
- * beside the real earth (GlobeView): OpenStreetMap as a schematic map on
- * the earth's own maps, the maps as a low-poly world in the engine's
+ * beside the real earth (GlobeView): OpenStreetMap painted from the earth's
+ * own maps as the maps made from it look, the maps as a low-poly world in the engine's
  * colours with a small tower for every map. Both live in a frame of radius
  * 1, Z through the north pole like the earth's ECEF; GlobeStage draws them
  * with its one renderer.
@@ -48,20 +47,42 @@ export interface StageGlobeScene {
 
 // ---- OpenStreetMap ----
 
-/** OSM Carto's colours, which say "map" at a glance: water, land, wood, built-up, roads */
+/**
+ * The ground as the maps made from OpenStreetMap paint it, in the engine's colours (the terrain's, water-material.ts),
+ * so the globe looks like what comes out of it (E208, chosen from four looks)
+ */
 const OSM_COLORS = {
-  water: '#aad3df',
-  coast: '#86b5c6',
-  land: '#f2efe9',
-  wood: '#add19e',
-  ice: '#f7f9fa',
-  sand: '#f5e9c6',
-  town: '#e0dfdf',
-  road: '#f6b38f',
-  border: '#a598b8',
-  grid: '#c4d7de',
-  night: '#2a3550',
+  grass: '#6f9a46',
+  meadow: '#86ad52',
+  forest: '#3f6332',
+  steppe: '#a59a63',
+  sand: '#cdbb8a',
+  rock: '#8d887e',
+  snow: '#e9edf0',
+  wheat: '#c2ac62',
+  plough: '#8a6c4a',
+  roofRed: '#9a4a3a',
+  roofGrey: '#7c7a76',
+  asphalt: '#4d4f52',
+  verge: '#b9b4a6',
+  deep: '#1d4a60',
+  sea: '#2c6a7c',
+  shallow: '#4a9a98',
+  night: '#16202e',
+  window: '#ffb85a',
 };
+
+/** An sRGB channel (0 to 1) in linear light, as three's Color holds it: the shader's output is converted back */
+function linear(c: number): number {
+  return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+}
+
+/** `#rrggbb` as a GLSL vec3 in linear light */
+function vec3Of(hex: string): string {
+  const n = parseInt(hex.slice(1), 16);
+  const c = (k: number) => linear(((n >> k) & 255) / 255).toFixed(4);
+  return `vec3(${c(16)}, ${c(8)}, ${c(0)})`;
+}
 
 const OSM_VERTEX = /* glsl */ `
 varying vec2 vUv;
@@ -77,72 +98,99 @@ const OSM_FRAGMENT = /* glsl */ `
 uniform sampler2D dayMap;
 uniform sampler2D reliefMap;
 uniform sampler2D nightMap;
-uniform sampler2D linesMap;
 uniform float hasMaps;
-uniform float hasLines;
 uniform vec3 sunDir;
 uniform float saturation;
-uniform vec3 cWater;
-uniform vec3 cCoast;
-uniform vec3 cLand;
-uniform vec3 cWood;
-uniform vec3 cIce;
-uniform vec3 cSand;
-uniform vec3 cTown;
-uniform vec3 cRoad;
-uniform vec3 cGrid;
-uniform vec3 cNight;
+uniform vec2 reliefTexel;
 varying vec2 vUv;
 varying vec3 vNormal;
 
+/** 1 on the lines at whole x, width of a cell wide (at least a pixel), 0 between them */
 float lineOf(float x, float width) {
   float d = abs(fract(x) - 0.5) * 2.0;
-  float w = fwidth(x) * 1.5;
-  return 1.0 - smoothstep(1.0 - width - w, 1.0 - width, d);
+  float w = max(fwidth(x) * 2.0, width);
+  return smoothstep(1.0 - w, 1.0 - w * 0.4, d);
+}
+
+float cellHash(vec2 p) {
+  p = fract(p * vec2(0.1031, 0.1030));
+  p += dot(p, p.yx + 33.33);
+  return fract((p.x + p.y) * p.x);
+}
+
+/** 1 where cells of this many per uv are at least a few pixels wide, 0 where they would only shimmer */
+float shows(vec2 cells) {
+  vec2 f = fwidth(vUv * cells);
+  return 1.0 - smoothstep(0.25, 0.6, max(f.x, f.y));
+}
+
+/** Light from the north-west on the relief: above 0 where the ground faces it */
+float hillShade(float h, float gain) {
+  float hE = texture2D(reliefMap, vUv + vec2(reliefTexel.x, 0.0)).r - h;
+  float hN = texture2D(reliefMap, vUv + vec2(0.0, reliefTexel.y)).r - h;
+  return clamp((hE - hN) * gain, -1.0, 1.0);
+}
+
+/** The main roads: a net bent by the land, only where many live (the city lights over a wider area) */
+float roadNet(float width, float lightsArea) {
+  vec2 g = vUv * vec2(120.0, 60.0);
+  g += vec2(sin(vUv.y * 83.0 + vUv.x * 17.0), cos(vUv.x * 59.0 - vUv.y * 11.0)) * 0.3;
+  return max(lineOf(g.x, width), lineOf(g.y, width)) * smoothstep(0.06, 0.14, lightsArea);
 }
 
 void main() {
   vec3 day = texture2D(dayMap, vUv).rgb;
+  float h = texture2D(reliefMap, vUv).r;
   // The water mask a little blurred: its texels would show as steps along the coast
   float water = hasMaps > 0.5 ? smoothstep(0.3, 0.7, texture2D(reliefMap, vUv, 1.5).a) : 1.0;
-  // Towns from the city lights; their wider area from a coarser mip
   float lightsHere = dot(texture2D(nightMap, vUv).rgb, vec3(0.333)) * hasMaps;
   float lightsArea = dot(texture2D(nightMap, vUv, 3.0).rgb, vec3(0.333)) * hasMaps;
-  float town = smoothstep(0.12, 0.3, lightsHere);
-
-  // Land by what the day map shows: wood where it is clearly green, sand where it is warm, ice where it is bright
   float green = day.g - max(day.r, day.b);
   float bright = dot(day, vec3(0.333));
-  vec3 land = cLand;
-  land = mix(land, cSand, smoothstep(0.08, 0.16, day.r - day.b) * (1.0 - smoothstep(0.0, 0.02, green)) * 0.7);
-  land = mix(land, cWood, smoothstep(0.004, 0.03, green));
-  land = mix(land, cIce, smoothstep(0.4, 0.55, bright));
-  land = mix(land, cTown, town);
+  float warm = day.r - day.b;
 
-  // Main roads: a warped net, drawn only where many live
-  vec2 g = vUv * vec2(120.0, 60.0);
-  g += vec2(sin(vUv.y * 83.0 + vUv.x * 17.0), cos(vUv.x * 59.0 - vUv.y * 11.0)) * 0.3;
-  float roads = max(lineOf(g.x, 0.1), lineOf(g.y, 0.1)) * smoothstep(0.06, 0.14, lightsArea);
-  land = mix(land, cRoad, roads * 0.9);
-  // Borders, dashed as on the map
-  vec4 lines = texture2D(linesMap, vUv);
-  land = mix(land, lines.rgb, lines.a * hasLines);
+  // The land's cover from what the day map shows, in the engine's ground colours
+  vec3 land = mix(${vec3Of(OSM_COLORS.grass)}, ${vec3Of(OSM_COLORS.meadow)}, smoothstep(0.0, 0.02, green));
+  land = mix(land, ${vec3Of(OSM_COLORS.steppe)}, smoothstep(0.05, 0.13, warm) * (1.0 - smoothstep(0.0, 0.02, green)));
+  land = mix(land, ${vec3Of(OSM_COLORS.sand)}, smoothstep(0.12, 0.22, warm) * smoothstep(0.32, 0.48, bright));
+  land = mix(land, ${vec3Of(OSM_COLORS.forest)}, smoothstep(0.012, 0.04, green) * (1.0 - smoothstep(0.16, 0.28, bright)));
+  // Fields where the land is farmed: parcels of crop, ploughed earth and meadow, irregular, seen only when big enough
+  vec2 fieldCells = vec2(700.0, 350.0);
+  vec2 fc = vUv * fieldCells;
+  fc += vec2(sin(fc.y * 0.37 + vUv.x * 40.0), cos(fc.x * 0.29 - vUv.y * 30.0)) * 0.45;
+  float pick = cellHash(floor(fc));
+  vec3 crop = pick < 0.36 ? ${vec3Of(OSM_COLORS.wheat)} : pick < 0.62 ? ${vec3Of(OSM_COLORS.plough)} : ${vec3Of(OSM_COLORS.meadow)};
+  float farmed = smoothstep(-0.005, 0.01, green) * (1.0 - smoothstep(0.02, 0.045, green)) * (1.0 - smoothstep(0.1, 0.18, warm));
+  land = mix(land, mix(land, crop, 0.5), farmed * shows(fieldCells));
+  land = mix(land, ${vec3Of(OSM_COLORS.rock)}, smoothstep(0.5, 0.72, h) * (1.0 - smoothstep(0.02, 0.05, green)));
+  land = mix(land, ${vec3Of(OSM_COLORS.snow)}, smoothstep(0.42, 0.58, bright));
 
-  vec3 color = mix(land, cWater, water);
-  // The coast as a darker line along the water's edge
-  float edge = clamp(fwidth(water) * 2.0, 0.0, 1.0);
-  color = mix(color, cCoast, edge);
-  // A faint graticule, every 15 degrees, over the sea
-  vec2 deg = vUv * vec2(24.0, 12.0);
-  float grid = max(lineOf(deg.x, 0.015), lineOf(deg.y, 0.015));
-  color = mix(color, cGrid, grid * 0.45 * water);
+  // Towns: roofs and streets where the lights are
+  float town = smoothstep(0.1, 0.32, lightsHere);
+  vec2 roofCells = vec2(2600.0, 1300.0);
+  float roof = cellHash(floor(vUv * roofCells));
+  vec3 block = roof < 0.45 ? ${vec3Of(OSM_COLORS.roofRed)} : roof < 0.8 ? ${vec3Of(OSM_COLORS.roofGrey)} : ${vec3Of(OSM_COLORS.asphalt)};
+  vec3 townColor = mix(mix(${vec3Of(OSM_COLORS.asphalt)}, ${vec3Of(OSM_COLORS.roofRed)}, 0.5), block, shows(roofCells));
+  land = mix(land, townColor, town * 0.85);
+  // Main roads in asphalt with a light verge, as the maps' streets
+  land = mix(land, ${vec3Of(OSM_COLORS.verge)}, roadNet(0.16, lightsArea) * 0.55);
+  land = mix(land, ${vec3Of(OSM_COLORS.asphalt)}, roadNet(0.07, lightsArea) * 0.9);
 
-  // Day and night: the paper darkens, the towns glow
+  // The relief lit from the north-west, as the editor's top view
+  land *= 0.88 + 0.3 * hillShade(h, 60.0);
+  // Sand along the shore, the water deeper away from it (the mask's coarse mips)
+  float nearWater = texture2D(reliefMap, vUv, 2.5).a;
+  land = mix(land, ${vec3Of(OSM_COLORS.sand)}, smoothstep(0.08, 0.4, nearWater) * (1.0 - water) * 0.55);
+  float open = texture2D(reliefMap, vUv, 5.0).a;
+  vec3 sea = mix(${vec3Of(OSM_COLORS.shallow)}, ${vec3Of(OSM_COLORS.sea)}, smoothstep(0.55, 0.85, nearWater));
+  sea = mix(sea, ${vec3Of(OSM_COLORS.deep)}, smoothstep(0.85, 1.0, open));
+  vec3 color = mix(land, sea, water);
+
+  // Sunlight on the ground, the night side dark with the towns' windows
   float ndl = dot(normalize(vNormal), normalize(sunDir));
-  float lit = smoothstep(-0.15, 0.25, ndl);
-  vec3 dark = mix(cNight, color, 0.3);
-  color = mix(dark, color * (0.86 + 0.14 * max(ndl, 0.0)), lit);
-  color += vec3(1.0, 0.72, 0.35) * smoothstep(0.05, 0.3, lightsHere) * (1.0 - lit) * 0.6;
+  float lit = smoothstep(-0.12, 0.22, ndl);
+  color = mix(${vec3Of(OSM_COLORS.night)} + color * 0.06, color * (0.72 + 0.4 * max(ndl, 0.0)), lit);
+  color += ${vec3Of(OSM_COLORS.window)} * smoothstep(0.06, 0.3, lightsHere) * (1.0 - lit) * 0.7;
 
   color = mix(vec3(dot(color, vec3(0.2126, 0.7152, 0.0722))), color, saturation);
   gl_FragColor = vec4(color, 1.0);
@@ -150,17 +198,14 @@ void main() {
 }
 `;
 
-/** OpenStreetMap's globe: the earth as a schematic map, water and towns from the menu earth's own maps */
+/** OpenStreetMap's globe: the earth as the maps made from it look, from the menu earth's own maps */
 export class OsmGlobe implements StageGlobeScene {
   readonly scene = new Scene();
   private readonly mesh: Mesh<BufferGeometry, ShaderMaterial>;
-  private lines: CanvasTexture | null = null;
-  private disposed = false;
 
   constructor(segments: [number, number]) {
     const geometry = ellipsoidGeometry(segments[0], segments[1]);
     geometry.scale(1 / EARTH_A, 1 / EARTH_A, 1 / EARTH_A);
-    const color = (hex: string) => ({ value: new Color(hex) });
     this.mesh = new Mesh(
       geometry,
       new ShaderMaterial({
@@ -170,40 +215,19 @@ export class OsmGlobe implements StageGlobeScene {
           dayMap: { value: null },
           reliefMap: { value: null },
           nightMap: { value: null },
-          linesMap: { value: null },
+          reliefTexel: { value: new Vector2(1 / 2048, 1 / 1024) },
           hasMaps: { value: 0 },
-          hasLines: { value: 0 },
           sunDir: { value: new Vector3(1, 0, 0) },
           saturation: { value: 1 },
-          cWater: color(OSM_COLORS.water),
-          cCoast: color(OSM_COLORS.coast),
-          cLand: color(OSM_COLORS.land),
-          cWood: color(OSM_COLORS.wood),
-          cIce: color(OSM_COLORS.ice),
-          cSand: color(OSM_COLORS.sand),
-          cTown: color(OSM_COLORS.town),
-          cRoad: color(OSM_COLORS.road),
-          cGrid: color(OSM_COLORS.grid),
-          cNight: color(OSM_COLORS.night),
         },
         toneMapped: false,
       }),
     );
     this.mesh.frustumCulled = false;
     this.scene.add(this.mesh);
-    void osmLinesTexture().then((texture) => {
-      if (!texture) return;
-      if (this.disposed) {
-        texture.dispose();
-        return;
-      }
-      this.lines = texture;
-      this.mesh.material.uniforms['linesMap'].value = texture;
-      this.mesh.material.uniforms['hasLines'].value = 1;
-    });
   }
 
-  /** The earth's maps arrived (GlobeView.surfaceMaps): water, wood and towns come from them */
+  /** The earth's maps arrived (GlobeView.surfaceMaps): land cover, water, relief and towns come from them */
   setMaps(maps: GlobeMaps | null): void {
     const u = this.mesh.material.uniforms;
     if (u['dayMap'].value === (maps?.day ?? null)) return;
@@ -211,6 +235,8 @@ export class OsmGlobe implements StageGlobeScene {
     u['reliefMap'].value = maps?.relief ?? null;
     u['nightMap'].value = maps?.night ?? null;
     u['hasMaps'].value = maps ? 1 : 0;
+    const relief = maps?.relief.image as { width?: number; height?: number } | undefined;
+    if (relief?.width && relief.height) (u['reliefTexel'].value as Vector2).set(1 / relief.width, 1 / relief.height);
   }
 
   /** Drawn at all: without the maps it would be a blue ball */
@@ -227,54 +253,9 @@ export class OsmGlobe implements StageGlobeScene {
   }
 
   dispose(): void {
-    this.disposed = true;
     this.mesh.geometry.dispose();
     this.mesh.material.dispose();
-    this.lines?.dispose();
   }
-}
-
-/** Width of the borders' texture; the globe shows a hemisphere of it across a few hundred pixels */
-const LINES_WIDTH = 4096;
-
-/**
- * The countries' borders, dashed as on OpenStreetMap's map, drawn once into
- * an equirectangular texture from the world outlines (Natural Earth, loaded
- * as its own chunk). Null where there is no canvas to draw on.
- */
-async function osmLinesTexture(): Promise<CanvasTexture | null> {
-  if (typeof document === 'undefined') return null;
-  const [{ BORDERS, OUTLINE_FACTOR }, { decodePolyline }] = await Promise.all([
-    import('../components/world-globe/world-outlines.data'),
-    import('../components/world-globe/globe-projection'),
-  ]);
-  const canvas = document.createElement('canvas');
-  canvas.width = LINES_WIDTH;
-  canvas.height = LINES_WIDTH / 2;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return null;
-  const x = (lon: number) => ((lon + 180) / 360) * canvas.width;
-  const y = (lat: number) => ((90 - lat) / 180) * canvas.height;
-  ctx.strokeStyle = OSM_COLORS.border;
-  ctx.lineWidth = 3;
-  ctx.lineJoin = 'round';
-  ctx.setLineDash([12, 7]);
-  for (const line of BORDERS) {
-    const points = decodePolyline(line, OUTLINE_FACTOR);
-    ctx.beginPath();
-    for (let i = 0; i < points.length; i += 2) {
-      const lat = points[i];
-      const lon = points[i + 1];
-      // A line over the date line starts anew on the other side
-      if (i === 0 || Math.abs(lon - points[i - 1]) > 180) ctx.moveTo(x(lon), y(lat));
-      else ctx.lineTo(x(lon), y(lat));
-    }
-    ctx.stroke();
-  }
-  const texture = new CanvasTexture(canvas);
-  texture.colorSpace = SRGBColorSpace;
-  texture.anisotropy = 4;
-  return texture;
 }
 
 // ---- The maps: a low-poly world ----

@@ -555,10 +555,12 @@ nach Phase 4 noch aus.
   und er dreht schneller (4 auf 36 Grad je Sekunde, weich an- und auslaufend, E207); solange sich ein Quadrat bewegt
   oder ein Globus anläuft, zeichnet die Bühne jedes Bild. Die Erde ist die `GlobeView` der Menü-Erde auf diesem Renderer, ohne Sterne, Sonne und 8k-Stufe; die Sonne
   steht 58 Grad westlich der Mitte, rechts liegt die Nachtseite mit Stadtlichtern. `saturation` macht sie grau.
-- `globe/style-globes.ts`: OpenStreetMap als Shader auf den Karten der Erde (Wasser aus der Relief-Maske, Wald, Sand
-  und Eis aus der Tageskarte, Orte und ein Straßennetz aus den Stadtlichtern), Farben von OSM Carto, gestrichelte
-  Grenzen aus den Natural-Earth-Umrissen (CanvasTexture, eigener Chunk), Gradnetz auf dem Meer, Nachtseite mit
-  leuchtenden Orten. Maps als Low-Poly-Ikosaeder (Stufe 14, bei Low 9) mit Höhenrauschen in den Farben der Engine,
+- `globe/style-globes.ts`: OpenStreetMap als Shader auf den Karten der Erde, so wie die daraus erzeugten Karten
+  aussehen (E208, vom User aus vier Looks gewählt: aerial): Bodenbedeckung aus der Tageskarte in den Bodenfarben der
+  Engine (Wiese, Wald, Steppe, Sand, Fels, Schnee, Felder als unregelmäßige Parzellen, nur wenn groß genug), Städte
+  aus den Stadtlichtern mit Dächern und Asphalt, Hauptstraßen in Asphalt mit hellem Rand, Relief von Nordwest
+  beleuchtet, Sand am Ufer, Wasser zur Küste hin heller, Nachtseite mit Fensterlicht. Die frühere Karte im Stil von
+  OSM Carto mit Grenzen und Gradnetz ist entfernt. Maps als Low-Poly-Ikosaeder (Stufe 14, bei Low 9) mit Höhenrauschen in den Farben der Engine,
   Bäumen, Wolken und je Karte einem Turm an einem festen Landplatz aus ihrer Id; die gewählte Karte in Messing mit Ring.
 - Hintergründe je Welt und Scheiben als Ersatz: `td-world-bg` (`is-real`, `is-osm`, `is-maps`) und `td-world-disc`
   (`is-grey`) im Design System. Settings › Menu globe gilt: Low mit Pixelrate 1, sechs Streuschritten und weniger
