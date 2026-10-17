@@ -493,21 +493,29 @@ export const CAMO_HP_FACTOR = 0.75;
 export const ELITE_SIZE = 1.25;
 
 /**
- * A cloth region of an enemy's texture: texels near `color` (sRGB '#rrggbb',
- * within `tolerance` in sRGB 0..1) on the part of the body between `from`
- * and `to`, shares of the model's rest-pose height (0 the soles, 1 the top).
+ * A region of an enemy's texture recoloured per instance (skin, a shirt,
+ * trousers, hair): texels near `color` (sRGB '#rrggbb', within `tolerance`
+ * in sRGB 0..1) on the part of the body between `from` and `to`, shares of
+ * the model's rest-pose height (0 the soles, 1 the top).
  */
 export interface ClothRegion {
   color: string;
   tolerance: number;
   from: number;
   to: number;
+  /** Colours an instance may take ('#rrggbb', 1 to 6), each made darker or lighter per instance */
+  palette: readonly string[];
+  /** How far an instance may bleach the region toward a light grey, 0..1 (washed and sun-faded cloth); 0 when missing */
+  fade?: number;
 }
 
-/** Clothing looks: up to two regions, up to four looks of one colour per region ('#rrggbb', null keeps it) */
+/**
+ * The look per instance (vat-cloth.ts): up to four regions, and dirt and
+ * dried blood over the body (0..1 each; none when missing)
+ */
 export interface ClothVariants {
   regions: readonly ClothRegion[];
-  looks: readonly (readonly (string | null)[])[];
+  grime?: { dirt: number; blood: number };
 }
 
 export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
@@ -538,17 +546,20 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     // On the ground (E185): 0.5 m, a value from before the VAT bake, lifted the feet off it
     heightOffset: 0,
     // Shirt and trousers of the palette texture (the trousers' brown is also the hair: kept to the legs)
+    // A palette model (flat swatches): skin, shirt, trousers and hair by their swatch and band (E220)
     clothVariants: {
       regions: [
-        { color: '#e0d8d0', tolerance: 0.08, from: 0.53, to: 0.82 },
-        { color: '#705048', tolerance: 0.08, from: 0, to: 0.6 },
+        // Skin: pale and dead, grey-green, ashen, sallow yellow, bluish, dusky olive, bruised grey-violet. The VAT
+        // lights lift these well over the swatch values (the model's own #acbbb6 showed near white)
+        { color: '#acbbb6', tolerance: 0.06, from: 0, to: 1, palette: ['#6e7864', '#7a7770', '#807754', '#66737c', '#646650', '#6f6670'] },
+        // Shirt: dirty off-white, faded denim, washed flannel red, khaki, drab green, grey
+        { color: '#e0d8d0', tolerance: 0.06, from: 0.53, to: 0.82, palette: ['#8f887a', '#53606a', '#6e4740', '#6e6750', '#545b4b', '#605d58'], fade: 0.5 },
+        // Trousers (the same brown as the hair, below it): dark denim, brown, grey, olive, faded black, tan
+        { color: '#705048', tolerance: 0.08, from: 0, to: 0.6, palette: ['#38404d', '#574434', '#4d4b48', '#4b4b39', '#302f2d', '#6a5d48'], fade: 0.4 },
+        // Hair: dark brown, grey, black, dirty blond, auburn, ash
+        { color: '#705048', tolerance: 0.08, from: 0.84, to: 1, palette: ['#3b2e26', '#5e5b56', '#1f1d1c', '#6e5e45', '#4a2c20', '#6a6762'] },
       ],
-      looks: [
-        ['#7d9cc0', '#3b4150'],
-        ['#a8b07a', null],
-        ['#d9c49a', '#2f3a55'],
-        ['#b5574a', '#55524a'],
-      ],
+      grime: { dirt: 0.85, blood: 0.9 },
     },
     healthBarOffset: 5.5,
     canBleed: true, // Zombies bleed
@@ -587,17 +598,17 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     clipStart: { dying_backwards: 0.35 },
     groundedBake: true,
     // The red shirt (its red is also the blood on the face: kept to the torso) and the jeans
+    // A painted texture with its own dirt and blood: subtler shifts on top (E220)
     clothVariants: {
       regions: [
-        { color: '#7a2c34', tolerance: 0.22, from: 0.5, to: 0.88 },
-        { color: '#46505a', tolerance: 0.18, from: 0.28, to: 0.58 },
+        // Shirt (its red is also the blood on the face): faded maroon, dirty grey, faded navy, mustard, olive, dirty white
+        { color: '#7a2c34', tolerance: 0.22, from: 0.5, to: 0.88, palette: ['#6b3a3a', '#6a6862', '#3e4653', '#85764a', '#555a42', '#9e988a'], fade: 0.45 },
+        // Jeans: as painted, dark, grey, brown, faded black, washed blue
+        { color: '#46505a', tolerance: 0.18, from: 0.28, to: 0.58, palette: ['#46505a', '#343b46', '#53514e', '#4b3f33', '#2c2b2a', '#646e78'], fade: 0.35 },
+        // Skin: the painted grey-green, bluish, sallow, greener, ashen
+        { color: '#7a7a60', tolerance: 0.14, from: 0, to: 1, palette: ['#7a7a60', '#7b8072', '#837e66', '#6e755e', '#878475'] },
       ],
-      looks: [
-        ['#3d5a80', null],
-        ['#5f6b3a', '#4a3a2c'],
-        ['#c8c0b0', '#2c2c30'],
-        ['#9a7a3a', '#5a5a60'],
-      ],
+      grime: { dirt: 0.6, blood: 0.45 },
     },
     movingSound: 'assets/sounds/enemies/zombie/ambient.mp3',
     movingSoundVolume: 0.4,

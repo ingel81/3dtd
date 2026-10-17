@@ -122,9 +122,9 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
     alphaCutoff: { value: vatData.alpha.cutoff },
   };
 
-  // Clothing looks, picked per instance by aClothLook (vat-cloth.ts)
+  // The look per instance from its seed, aClothSeed (vat-cloth.ts)
   const clothDefines: Record<string, string> = {};
-  if (options?.cloth && options.cloth.looks.length > 0) {
+  if (options?.cloth && options.cloth.regions.length > 0) {
     Object.assign(uniforms, clothUniforms(options.cloth, vatData.geometry));
     clothDefines['VAT_CLOTH'] = '';
   }

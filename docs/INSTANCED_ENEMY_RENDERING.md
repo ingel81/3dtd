@@ -274,20 +274,27 @@ if (vUseMap > 0.5 && hasDiffuse > 0.5) {
 |----------|-----|-------------|
 | `aAnimFrame` | vec3 | VAT-Frame, nächster Frame (beim Loop nach dem letzten der erste, beim Tod am Ende derselbe) und Anteil dazwischen |
 | `aTintColor` | vec3 | Tint-Overlay, 50 % gemischt (0,0,0 = keiner) |
-| `aClothLook` | float | Kleidung (`vat-cloth.ts`), 0 die des Modells; nur bei Typen mit `clothVariants` |
+| `aClothSeed` | float | Saat des Aussehens in [0, 1) (`vat-cloth.ts`); nur bei Typen mit `clothVariants` |
 
-**Kleidung je Instanz (E185, `vat-cloth.ts`):** Ein Typ mit `EnemyTypeConfig.clothVariants` hat
-bis zu zwei Stoffbereiche und bis zu vier Looks. Ein Bereich sind Texel nahe einer Farbe (sRGB,
-Toleranz) auf einem Band des Körpers (Anteil der Höhe der Ruhepose, 0 die Sohlen, 1 der Scheitel):
-das Braun der Zombie-Hose ist auch sein Haar, das Rot des Hemds von Zombie v2 auch das Blut im
-Gesicht. Der Fragment-Shader färbt so einen Texel in die Farbe des Looks und behält seine
-Helligkeit gegen die Bereichsfarbe (Falten, Schmutz und Schatten der Textur bleiben). Welchen
-Look eine Instanz trägt, folgt aus ihrer Id (`clothLook`, das eigene Aussehen zählt mit), sie
-behält ihn ihr Leben lang und auf jedem Rechner. Ohne Looks gibt es weder das Attribut noch den
-Shader-Zweig (`VAT_CLOTH`). Kosten: eine float je Instanz, im Fragment-Shader zwei Farbabstände;
-kein Draw Call und keine Textur mehr. Gemessen 2026-10-15 (DevWorld, Hälfte V1, Hälfte V2,
-belasteter Rechner): 16 Draw Calls je Bild vorher und nachher bei 500 und 5000 Zombies, die
-Bildzeit im Rauschen der Läufe.
+**Aussehen je Instanz (E185, E220, `vat-cloth.ts`):** Ein Typ mit `EnemyTypeConfig.clothVariants` hat bis zu vier
+Bereiche (Haut, Hemd, Hose, Haar) und darüber Schmutz und getrocknetes Blut. Ein Bereich sind Texel nahe einer Farbe
+(sRGB, Toleranz) auf einem Band des Körpers (Anteil der Höhe der Ruhepose, 0 die Sohlen, 1 der Scheitel): das Braun der
+Zombie-Hose ist unterhalb 0,6 die Hose, oberhalb 0,84 das Haar, das Rot des Hemds von Zombie v2 auch das Blut im
+Gesicht. Alles folgt aus einer Saat je Instanz (`clothSeed`, aus der Id: dieselbe ihr Leben lang und auf jedem Rechner):
+
+- je Bereich eine Farbe der Palette (bis 6, entsättigt: fahle Haut grau-grün, gelblich, bläulich, aschfahl,
+  verwaschene Kleidung), heller oder dunkler (0,8 bis 1,2), bis `fade` zu ihrem Grau gebleicht; der Texel behält
+  seine Helligkeit gegen die Bereichsfarbe (Falten, Schmutz und Schatten der Textur bleiben)
+- ein langsames Fleckenrauschen über den Körper (±14 %), keine Fläche in einer Farbe
+- Schmutz, der von den Füßen steigt (seine Grenze je Instanz anders hoch), in Flecken braun abgedunkelt (`grime.dirt`)
+- getrocknetes Blut an Brust und Mund in senkrecht gezogenen Schlieren, dunkel rotbraun (`grime.blood`); die eigenen
+  hellen Rottöne des Modells (gemalte Wunden, Blutfelder), die kein Bereich nimmt, trocknen ebenso dunkel
+
+Das Rauschen liegt in der Ruhepose (es läuft mit dem Körper, nicht mit dem Bildschirm), je Instanz verschoben.
+Zombie V1 ist ein Palettenmodell (flache Farbfelder, sein Weiß als Haut wirkte unter dem Licht fast weiß, seine Looks
+waren satte Farben): seine Paletten liegen dunkler, das Licht des VAT-Shaders hebt sie an. Ohne `clothVariants`
+gibt es weder das Attribut noch den Shader-Zweig (`VAT_CLOTH`). Kosten: eine float je Instanz; im Fragment-Shader je
+Bereich zwei Farbabstände, dazu zwei Rauschsummen zu drei Oktaven (Werterauschen); kein Draw Call und keine Textur.
 
 Tint-Priorität (`applyTint()`): Hit-Flash vor `iced` (Status `freeze`, eingefroren) vor
 `stunned` (Status `stun`) vor `frozen` (Slow des Ice Towers) vor Burn vor Poison. Den
