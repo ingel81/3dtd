@@ -57,6 +57,7 @@ import { createWaterMaterial, setWaterEffects, setWaterSky } from './water/water
 import { setHeatHaze } from './water/heat-haze';
 import { ParticleField } from './effects/particle-field';
 import { WaterReflection } from './water/water-reflection';
+import { MirrorChoice, type MirrorCandidate } from './water/mirror-choice';
 import { GroundDecals } from './terrain/ground-decals';
 import { NO_MAP_EFFECTS, type MapEffects } from './map-effects';
 import type { GridRect } from './terrain/terrain-chunks';
@@ -194,9 +195,8 @@ export class CustomMapView {
     this.haze.group,
     ...this.objects.decorMeshes(),
   ], () => [this.group, this.losBlockers, this.environment.lights, this.environment.skyDome.mesh], this.sceneCopy);
-  /** The body the reflection mirrors, picked a few times a second */
-  private mirrored: WaterSurface | null = null;
-  private mirrorAge = Infinity;
+  /** Which level the reflection mirrors and how strongly (mirror-choice.ts) */
+  private readonly mirrorChoice = new MirrorChoice<WaterSurface>();
   private readonly mirrorLevel = new Vector3();
   private lavaDue: ReturnType<typeof setTimeout> | null = null;
   /** Leaves, trodden soil and puddles from the map's rules (ground-decals.ts) */
@@ -670,7 +670,7 @@ export class CustomMapView {
     }
     this.terrain.update(this.camPos, clock, this.focusPoint);
     const reach = this.camPos.distanceTo(this.focusPoint);
-    this.armReflection(camera, reach, dtSeconds);
+    this.armReflection(camera, dtSeconds);
     // Shadow box fitted to the ground the camera sees: sharp up close, wide from high up or looking far
     const fit = fitShadowBox(camera, this.group, this.focusPoint, this.shadowCenter);
     // The box's radius in its steps (shrinking only well below it), for the casters round its centre too:
@@ -1479,54 +1479,25 @@ export class CustomMapView {
   }
 
   /**
-   * The reflection for this frame: the area body with the most water round
-   * the focus (picked four times a second) mirrored in its level
+   * The reflection for this frame: the level of the reflective bodies the
+   * camera sees most of, faded in and out (mirror-choice.ts)
    */
-  private armReflection(camera: Camera, reach: number, dt: number): void {
-    if (!this.mapEffects.reflection) {
+  private armReflection(camera: Camera, dt: number): void {
+    if (!this.mapEffects.reflection || this.reflection.scale <= 0) {
       this.reflection.arm(null, 0, null);
+      for (const w of this.waters) w?.setMirrored(0);
       return;
     }
-    this.mirrorAge += dt;
-    if (this.mirrorAge > 0.25) {
-      this.mirrorAge = 0;
-      const picked = this.pickMirrored(reach);
-      if (picked !== this.mirrored) {
-        this.mirrored = picked;
-        for (const w of this.waters) w?.setMirrored(w === picked);
-      }
-    }
-    const s = this.mirrored;
-    this.reflection.arm(s ? camera : null, s ? this.group.localToWorld(this.mirrorLevel.set(0, s.level, 0)).y : 0, s);
-  }
-
-  /** The reflective body with the most wet samples within reach of the focus (a sparse grid), or none */
-  private pickMirrored(reach: number): WaterSurface | null {
-    const f = this.heights;
     const bodies = [this.doc.terrain.water, ...(this.doc.terrain.waterBodies ?? [])];
-    const radius = Math.min(250, Math.max(40, reach * 0.8));
-    const step = Math.max(1, Math.round(radius / f.cellSize / 10));
-    const ci = Math.round((-this.focusPoint.x - f.originX) / f.cellSize);
-    const cj = Math.round((this.focusPoint.z - f.originY) / f.cellSize);
-    const r = Math.ceil(radius / f.cellSize);
-    let best: WaterSurface | null = null;
-    let most = 0;
+    const candidates: MirrorCandidate<WaterSurface>[] = [];
     bodies.forEach((body, k) => {
       const surface = this.waters[k];
-      if (!body || !surface?.reflective) return;
-      let wet = 0;
-      for (let j = Math.max(0, cj - r); j <= Math.min(f.rows - 1, cj + r); j += step) {
-        for (let i = Math.max(0, ci - r); i <= Math.min(f.columns - 1, ci + r); i += step) {
-          const at = j * f.columns + i;
-          if (body.mask[at] > 0 && f.grid.heights[at] < body.level) wet++;
-        }
-      }
-      if (wet > most) {
-        most = wet;
-        best = surface;
-      }
+      if (body && surface?.reflective) candidates.push({ owner: surface, level: body.level, meshes: surface.meshes() });
     });
-    return best;
+    const pick = this.mirrorChoice.update(dt, camera, this.reflection.far, candidates);
+    for (const w of this.waters) w?.setMirrored(pick?.owners.has(w) ? pick.weight : 0);
+    const on = pick && pick.weight > 0 ? pick : null;
+    this.reflection.arm(on ? camera : null, on ? this.group.localToWorld(this.mirrorLevel.set(0, on.level, 0)).y : 0, on?.owners ?? null);
   }
 
   /** Share of the frame's size the reflection renders at (quality levels), 0 off */
