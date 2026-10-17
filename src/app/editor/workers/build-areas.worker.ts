@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 /**
- * The editor's build area worker (validation/build-areas.ts
+ * The editor's build area worker (map-ops/validation/build-areas.ts
  * buildAreasOffThread): judges every cell of the map by the game's placement
  * rules; the raster goes back transferred.
  */

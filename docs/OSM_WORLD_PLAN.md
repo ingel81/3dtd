@@ -63,7 +63,7 @@ Adresse suchen ─► flache Karte mit Rahmen, HQ und Spawns ─► Daten holen 
 | Straßen der Karte als Spielnetz, Routen, Korridor, Routengitter | `world/custom-map/custom-map-streets.ts`, Routengitter wie für jede Welt | nichts Neues: eine OSM-Welt ist eine eigene Karte |
 | Kartendokument, Datei, Store, Koop-Versand | `world/custom-map/` | `meta.source` bekommt die Art `osm` |
 | Importer im Worker mit Bericht | `world/w3x/` (`import-w3x.ts`, `w3x.worker.ts`, `w3x-import-client.ts`) | Vorbild für Aufbau, Optionen, Bericht |
-| Editor-Operationen ohne Oberfläche | `editor/ops/` über `tools/maps/levels/kit.ts` (`LevelKit`) | Wege einebnen und bemalen (`flattenUnderPaths`, `paintUnderPaths`), Fluss (`carveRiver`, Ufer, Schilf, Brücken), Becken (`fillBasin`, `ops/pour.ts`), Biom-Streuung (`biome-brush.ts`), Streuen (`scatterDab`), Linien (`objectsAlong`, `wallAlong`), Laternen (`dressEdge`), Felsen absetzen (`settled`), Prüfung (`validateMap`) |
+| Editor-Operationen ohne Oberfläche | `map-ops/` und `editor/ops/` über `tools/maps/levels/kit.ts` (`LevelKit`) | Wege einebnen und bemalen (`flattenUnderPaths`, `paintUnderPaths`), Fluss (`carveRiver`, Ufer, Schilf, Brücken), Becken (`fillBasin`, `ops/pour.ts`), Biom-Streuung (`biome-brush.ts`), Streuen (`scatterDab`), Linien (`objectsAlong`, `wallAlong`), Laternen (`dressEdge`), Felsen absetzen (`settled`), Prüfung (`validateMap`) |
 | Höhen-Import | `editor/ops/heightmap.ts` | bilineares Umrechnen auf das Raster |
 | Namensnennung | `configs/attributions.config.ts` (`OSM_MAP_ATTRIBUTION`) | Zeile für OSM-Welten und Höhendaten |
 
@@ -453,7 +453,7 @@ die Seite erzeugt die Karte im Worker, zeigt eine Statuszeile, speichert sie als
   über `StreetRouter.findRandomStreetPoint` auf dem Netz der Karte (500 bis 1000 m, Route geprüft, Portal gerade
   gerückt), mindestens 250 m und 40° auseinander; der erste immer offen, die anderen `optional`. Name nach der
   Straße, sonst nach der Himmelsrichtung.
-- **Prüfung:** `EdgeIndex` in `editor/ops/path-graph.ts` (Kanten-Segmente in 32-m-Zellen, Linien vorgehalten);
+- **Prüfung:** `EdgeIndex` in `map-ops/path-graph.ts` (Kanten-Segmente in 32-m-Zellen, Linien vorgehalten);
   `validateMap`, `routeBetween`, `components` und `spawnRoutes` nutzen es, Dijkstra läuft auf einem Heap.
 
 ### Messungen O1 (2026-10-15)

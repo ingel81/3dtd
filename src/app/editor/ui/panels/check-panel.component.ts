@@ -79,7 +79,7 @@ export class CheckPanelComponent {
   });
 
   readonly bot = this.session.botTrial;
-  /** The buildable area in reach of any route (validation/build-areas.ts) and the lane with the least of it */
+  /** The buildable area in reach of any route (map-ops/validation/build-areas.ts) and the lane with the least of it */
   readonly room = computed(() => {
     const a = this.session.buildAreas();
     if (!a) return 'judging the map …';

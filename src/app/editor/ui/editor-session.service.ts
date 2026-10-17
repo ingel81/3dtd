@@ -139,7 +139,7 @@ export class EditorSession implements OnDestroy {
   });
   /** The wave "Test map" starts at (1 a normal run): the run gets the gold and research of the waves before */
   readonly testFromWave = signal(1);
-  /** Where towers may stand (validation/build-areas.ts), for the overlay and the check; null before the first judgement */
+  /** Where towers may stand (map-ops/validation/build-areas.ts), for the overlay and the check; null before the first judgement */
   readonly buildAreas = signal<BuildAreas | null>(null);
   /** The map and document state the build areas were judged on, and whether a judgement runs */
   private buildAreaOf = { map: 0, state: -1 };

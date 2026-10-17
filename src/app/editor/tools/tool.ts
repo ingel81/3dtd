@@ -158,7 +158,7 @@ export interface EditorSettings {
     gridStep: number;
     /** Object categories the view leaves out (Trees, Plants …); the map keeps them */
     hidden: string[];
-    /** Where a tower may stand, green and red on the ground (validation/build-areas.ts) */
+    /** Where a tower may stand, green and red on the ground (map-ops/validation/build-areas.ts) */
     buildAreas: boolean;
     /** A still frame: wind, water, lava, waterfalls and particles stand still in the view (the game is not touched) */
     still: boolean;

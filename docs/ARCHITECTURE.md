@@ -30,6 +30,7 @@ Component-basierte Game Engine Architektur mit **Three.js + 3DTilesRendererJS** 
 | UI, Tasten, Photo Mode, Onboarding | `components/`, `services/` | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) |
 | Welten: Tiles, DevWorld, eigene Karten (WorldProvider, WorldRef) | `world/`, `devworld/` | [WORLD_PROVIDER_PLAN.md](WORLD_PROVIDER_PLAN.md) |
 | Offline-Welt | `devworld/` | [DEVWORLD.md](DEVWORLD.md) |
+| Eigene Karten: Kartenbibliothek (rein, ohne Angular und three), Editor | `map-ops/`, `editor/`, `world/custom-map/`; `world/` und `map-ops/` importieren nichts aus `editor/` (Lint-Regel) | [LEVEL_EDITOR.md](LEVEL_EDITOR.md#architektur), [CUSTOM_MAPS.md](CUSTOM_MAPS.md) |
 
 Offen aus der früheren Feature-Liste: Projektil-LoS (ein Projektil trifft nur bei
 Sichtverbindung).

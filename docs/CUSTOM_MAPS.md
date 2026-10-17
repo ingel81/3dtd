@@ -5,7 +5,9 @@
 Der Renderer zeichnet ein Kartendokument (`src/app/world/custom-map/map-document.ts`) mit Gelände, Bodentexturen,
 Wasser, Objekten, Wegen und Himmel. Editor und Spiel benutzen dieselbe Ansicht. Code unter
 `src/app/world/custom-map/render/` (ohne Angular), Assets unter `public/maps/assets/`, Werkzeuge unter
-`tools/map-assets/`. Vorschau: `/map-preview` (Demo-Tal, `?view=village|forest|trees|bridge|game|…`,
+`tools/map-assets/`. Rechnen auf dem Dokument (Raster, Wegenetz, Gelände, Objekte, Generator, Prüfung) liegt in
+`src/app/map-ops/`, das Editor, OSM-Import, Demo-Karte und Level-Skripte teilen; Welt und `map-ops` importieren
+nichts aus `src/app/editor/` (Lint-Regel). Vorschau: `/map-preview` (Demo-Tal, `?view=village|forest|trees|bridge|game|…`,
 `?sky=dusk|night|overcast`, `?skyImage=starry-night`, `?weather=rain|snow|fog`, `?post=bloom`, `?seed=3`).
 
 ## Koordinaten

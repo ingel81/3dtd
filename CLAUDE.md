@@ -62,6 +62,8 @@ src/app/
 ├── integration/                # Cross-System Integration-Tests
 ├── interfaces/                 # Provider-Interfaces (StreetNetwork, Terrain)
 ├── managers/                   # Manager (Enemy, Tower, Wave, Research, Ability, Hero usw., event-driven), game-state/ (Ledger, Lifecycle, Clock), worm/, audio/ (Spatial Audio)
+├── map-ops/                    # Kartenbibliothek ohne Angular/three: Raster, Wegenetz, Gelände, Objekte, Generator, Prüfung
+│                               # (Editor, OSM-Import, Level-Skripte); world/ und map-ops/ importieren nicht aus editor/
 ├── models/                     # Type Definitions (game.types, location.types, status-effects)
 ├── presentation/               # Darstellung auf dem Hauptthread: PresentationHost, OpPlayer, FramePresenter, Ton, HQ-Feuer
 ├── replay/                     # Replay-Leiste: Marken, Zeitformat (docs/REPLAY.md)

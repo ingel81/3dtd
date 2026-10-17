@@ -109,7 +109,7 @@ export class EditorOverlay {
   /** Height lines and the metre grid */
   private readonly contours = new Group();
   private readonly grid = new Group();
-  /** Where a tower may stand (validation/build-areas.ts), a coloured sheet on the ground */
+  /** Where a tower may stand (map-ops/validation/build-areas.ts), a coloured sheet on the ground */
   private readonly buildAreas = new Group();
   private readonly contourMinor = new LineBasicMaterial({ color: TD_THEME.knobLight, transparent: true, opacity: 0.35 });
   private readonly contourMajor = new LineBasicMaterial({ color: TD_THEME.brassLight, transparent: true, opacity: 0.7 });

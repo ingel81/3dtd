@@ -292,7 +292,7 @@ Tags des Katalogs und Suche (Name, Id oder Tag).
   Schornstein rauchen von selbst, ein von Hand gesetzter Rauch über dem Haus ersetzt den Schornsteinrauch.
   Bereiche, Wege und Umgebungston setzt das Werkzeug Life (N)
 - Gebäude (Katalog-Kategorie `building`) und Objekte mit Drehteil (Katalog `spin`: die Radarschüssel drehte sonst am Hang in den Boden dahinter), beide nicht schwimmend, nicht auf Stelzen: Katalog `stilts`, die Pfahlhütte am Ufer verschob sonst ihr Ufer und ließ Wasser in der Luft stehen) ebnen beim ersten Setzen ihren Boden (`levelUnderBuilding`
-  in `ops/object-ops.ts`): sein Grund (`object-ground.ts`: der Fußabdruck-Kreis, bei Gebäuden mit Katalog `box`
+  in `map-ops/object-ops.ts`): sein Grund (`object-ground.ts`: der Fußabdruck-Kreis, bei Gebäuden mit Katalog `box`
   geschnitten mit dem gedrehten Rechteck, wie Bauverbot und Sitz), 1,5 m und eine Gitterzelle mehr gehen auf die
   Grundhöhe (Mittel des Bodens unter der Mitte und acht Randpunkten des Grunds, `groundRing`, Abtrag und Auftrag),
   darüber hinaus läuft der Boden weich in das Gelände aus, über den Fußabdruck-Radius, mit Rechteck über seine halbe
@@ -305,7 +305,7 @@ Tags des Katalogs und Suche (Name, Id oder Tag).
   Levelskripte und `run_script`. Verschieben, Drehen, Kopieren und Streuen ebnen nichts: ein Haus halb im Hang ist
   danach eine freie Wahl.
 - Felsen mit Unterseite (Katalog `base`, siehe [CUSTOM_MAPS.md](CUSTOM_MAPS.md), Assets) setzt der Editor auf ihre
-  Platte (`settled` in `ops/object-ops.ts`): Wo die Platte über dem Hang hängt (`undersideGap`: Ebene der Platte,
+  Platte (`settled` in `map-ops/object-ops.ts`): Wo die Platte über dem Hang hängt (`undersideGap`: Ebene der Platte,
   gekippt mit `pitch`/`roll`, gegen den Boden auf zwei Ellipsen unter ihr), sinkt der Fels, bis sie überall aufliegt,
   höchstens 35 % seiner Höhe (`MAX_SINK`); müsste er tiefer, kippt er zuerst in Vierteln zum Hang hin, bis der Rest
   passt. Das gilt beim Setzen (Place, Line), beim Streuen mit „Sink on slope“, für Felsen der Landscape-Pinsel und
@@ -321,7 +321,7 @@ Tags des Katalogs und Suche (Name, Id oder Tag).
   „Turn step“ (5, 15, 45 oder 90 Grad, anfangs 15) auf dessen Raster, Shift+Q/E um 90 Grad; eine Drehtaste schaltet
   „Turn at random“ ab, das Feld „Turn“ nimmt die Gradzahl auch direkt. In Place drehen also Q und E, W und R wechseln
   wie überall zu Select. „Face the road“ (anfangs an) dreht ein Gebäude (Katalog-Kategorie `building`) mit der
-  Vorderseite zum nächsten Punkt der nächsten Straße (`roadFacing` in `ops/object-ops.ts`: alle Kanten der Straßen
+  Vorderseite zum nächsten Punkt der nächsten Straße (`roadFacing` in `map-ops/object-ops.ts`: alle Kanten der Straßen
   außer Tunneln, gemessen vom Fußabdruck bis zum Straßenrand, höchstens 20 m, `ROAD_FACE_REACH`); ist keine so nah,
   gilt die eingestellte oder zufällige Drehung. Jedes Symmetrie-Bild schaut zu seiner eigenen nächsten Straße. Die
   Statuszeile sagt, wie das Objekt gesetzt wird („facing the road“, „turned at random“, „turned 45 deg“), die Legende
@@ -519,7 +519,7 @@ Darunter Höhenlinien (alle 1 bis 10 m, jede fünfte heller) und ein Raster (10 
 „Build areas“ legt eine Fläche auf den Boden, wo ein Spieler einen Tower bauen darf: kräftig grün, wo er steht und
 eine Route in Reichweite hat (60 m, die mittlere Grundreichweite der schießenden Tower, `TYPICAL_TOWER_RANGE`), blass
 grün außer Reichweite, rot, wo keiner steht: Wasser, zu steil, ein Objekt, die Route selbst, HQ oder Spawn
-(`validation/build-areas.ts`). Darunter die Fläche in Reichweite der Routen in m² und wie viele Tower darauf passen
+(`map-ops/validation/build-areas.ts`). Darunter die Fläche in Reichweite der Routen in m² und wie viele Tower darauf passen
 (eine Fläche von 8 x 8 m je Tower, der Mindestabstand des Spiels). Es sind die Regeln des Spiels, nicht nachgebaut:
 je Zelle (4 m, auf Karten über 2048 m die längere Seite durch 512) prüft `checkTowerPlacement` Spielfeld, HQ (30 m)
 und Spawns (60 m), die Route (10 m, `MIN_DISTANCE_TO_ROUTE`), `CustomMapSurface.buildBlocker` mit
@@ -594,7 +594,7 @@ den Routen (Fläche in Reichweite, Tower darauf, bei mehreren Spuren die engste)
 | `water-floating` | Warnung | Wasser, das in der Luft endet (`waterInAir`): eine nasse Probe eines Gewässers (Maske gesetzt, Boden unter dem Spiegel) neben einer außerhalb der Maske, wo der Boden auf halbem Weg und anderes Wasser dort mehr als 0,5 m unter dem Spiegel liegen (ein See am Hang, ein Ufer, das ein Fluss oder eine Straße durchschnitt, ein Becken auf zu tiefem Land); ein Flussband (alle 2 m zwischen seinen Punkten), dessen beide Ufer einen Meter neben ihm so tief liegen, außer einen Fall hinab und jenseits des Kartenrands. Nennt jedes Gewässer und zeigt die schlimmste Stelle. Abhilfe: Ufer heben, Spiegel senken (Strg-Klick mit Fill füllt bis zum Rand) oder die Maske dort abnehmen. Die Levelskripte brechen ab (`finish`), ausgelieferte Karten haben keine (`shipped-maps-check`) |
 | `danger-color` | Warnung | Deko in Gefahrenfarben (rote Pilze, rote Blüten; `DANGER_LOOK` in `render/asset-catalog.ts`, dieselbe Liste wie für die mitgelieferten Karten) bis 30 m an einer Straße: Rot steht im Spiel für Gegner, Treffer und Feuer |
 | `scene-cost` | Warnung | Szenenkosten über 100 % (unten): mehr, als eine Karte flüssig zeichnet |
-| `wave-events` | Fehler, Warnung | Wellen-Ereignisse (`validation/wave-event-check.ts`): ein Portal nennt einen Spawn, den es nicht mehr gibt (Fehler); alle Spawns öffnen erst später, Welle 1 hätte keine Spur (Fehler); Objekte eines Ereignisses fehlen; Tageszeit auf einer Karte mit Himmelsbild |
+| `wave-events` | Fehler, Warnung | Wellen-Ereignisse (`map-ops/validation/wave-event-check.ts`): ein Portal nennt einen Spawn, den es nicht mehr gibt (Fehler); alle Spawns öffnen erst später, Welle 1 hätte keine Spur (Fehler); Objekte eines Ereignisses fehlen; Tageszeit auf einer Karte mit Himmelsbild |
 
 ### Szenenkosten
 
@@ -651,7 +651,7 @@ Szenenkosten.
 - Autosave schreibt zwei Sekunden nach der letzten Änderung in IndexedDB; die Kopfzeile zeigt „Unsaved changes“,
   „Saving“ oder „Saved“. Strg+S speichert sofort mit neuem Vorschaubild; beim Verlassen der Karte wird das Bild
   ebenfalls erneuert. Prüfen, Packen und der Fingerabdruck für den Verlauf laufen in einem Worker
-  (`workers/map-pack.ts`, eine Kopie der Karte wie beim Speichern): vorher kostete jedes Speichern auf einer 512-m-Karte
+  (`world/custom-map/map-pack.ts`, eine Kopie der Karte wie beim Speichern): vorher kostete jedes Speichern auf einer 512-m-Karte
   ein Bild von 60 bis 140 ms, jetzt keines (headless gemessen, längstes Bild beim Speichern 7 ms wie im Leerlauf).
   Der Worker liefert auch Zusammenfassung und (bei Strg+S) Inhalts-Hash derselben Kopie: ändert der Spieler während
   des Speicherns etwas, passen Datei, Hash und Listenzahlen trotzdem zusammen
@@ -746,7 +746,7 @@ Szenenkosten.
   lange stehen. Spielen lässt sich eine Karte im Papierkorb nicht (`MapStore.load` kennt sie nicht). Nach 30 Tagen (`TRASH_DAYS`) oder mit
   „Delete for good“ (zweimal) geht sie samt Versionen endgültig. Karten eines Koop-Hosts gehen nach Rückfrage gleich
   endgültig, der Host schickt sie beim nächsten Beitritt wieder
-- Budget im Map-Panel (`editor/validation/map-budget.ts`): die Szenenkosten der Objekte („Prüfen“, Szenenkosten) und
+- Budget im Map-Panel (`map-ops/validation/map-budget.ts`): die Szenenkosten der Objekte („Prüfen“, Szenenkosten) und
   die Dateigröße gegen die 32 MB, die ein Koop-Raum verschickt
   ([COOP_PLAN.md](COOP_PLAN.md), C1c). Die Größe ist die des letzten manuellen Speicherns (gleiche Packstufe wie der
   Koop-Versand; Autosaves packen leichter und größer); ab 80 % gelb, über 100 % rot mit Hinweis
@@ -767,19 +767,27 @@ src/app/world/custom-map/
   map-create.ts     neue Karte, Id aus Name, Rauschen
   map-file.ts       .3dtdmap packen und lesen, contentHash, Prüfung, Migrationen
   map-store.ts      eigene Karten in IndexedDB, mitgelieferte aus maps/index.json
+  map-pack.ts       .3dtdmap im Worker packen (Speichern im Editor, Karte des Koop-Hosts), Fingerabdruck der Datei
+src/app/map-ops/    gemeinsame Kartenbibliothek ohne Angular, ohne three, ohne Editor-Zustand (Editor, OSM-Import,
+                    Demo-Karte, Level-Skripte, Skript-Sandbox)
+  grid.ts           Raster-Helfer (Höhe, Hang, Samples, Texel, Rechtecke)
+  brush.ts          runder Pinsel und sein Abfall; terrain-ops, paint-ops, water-ops: Gelände, Farbe, Wasser
+  object-ops.ts     Objekte: Streuen, Setzen auf den Hang, Planieren unter Gebäuden, Linien, Mauern
+  path-graph.ts     Wegenetz, Routen; path-terrain.ts Boden unter Straßen
+  generate.ts       Gelände-Generator; landscape-noise.ts, lines.ts, river-levels.ts (Spiegel und Punkte eines Flusses)
+  asset-catalog.ts  Paletten aus dem Katalog des Renderers (maps/assets/catalog.json), Farben, Formen, Kategorien
+  validation/       Prüfen: map-validation, build-areas, wave-event-check, map-budget
 src/app/editor/
-  model/            EditorDocument (Befehle, Verlauf, Auswahl), Raster-Helfer, Kachel-Patches
-  ops/              Operationen ohne Angular: Pinsel, Gelände, Farbe, Wasser, Objekte, Wegenetz, Straßen-Boden, Größe
+  model/            EditorDocument (Befehle, Verlauf, Auswahl), Kachel-Patches, Versionen, Stempel-Bibliothek
+  ops/              Operationen auf dem EditorDocument: Größe, Details, Höhenkarte, Spiegeln, Höhenlinien, Gießen,
+                    object-commands.ts (Planieren unter neuen Gebäuden als Undo-Schritt)
   ops/landscape/    Landschafts-Pinsel: Biome, Formen, Erosion, Fluss, Straße, LandscapeStroke (ein Undo-Schritt)
   ops/symmetry.ts   Bilder der Symmetrie, Sektor des Zeigers, Kopieren der Zellen und Objekte
   ops/stamp.ts      Stücke kopieren und setzen, Prefabs aus einer Auswahl; model/stamp-store.ts die Stempel-Bibliothek
-  ops/generate.ts   Gelände-Generator; ops/contours.ts Höhenlinien
   ops/map-kit.ts    MapKit: die Operationen ohne Oberfläche für Skripte (Level-Skripte, KI-Agent)
   agent/            KI-Agent über MCP (Desktop-App): Werkzeuge, Skript-Sandbox, Abspielen als ein Undo-Schritt (AGENT_MCP.md)
-  tools/            Werkzeuge: Zeigereingaben zu Befehlen
-  validation/       Prüfen
+  tools/            Werkzeuge: Zeigereingaben zu Befehlen; PART_TOOL ordnet einem Prüfbefund das Werkzeug zu
   view/             EditorViewport (Renderer, Kamera, Eingabe), Overlay, Kamera, EditorMapView, ThumbnailRenderer
-  catalog/          Paletten aus dem Katalog des Renderers (maps/assets/catalog.json), Farben, Formen, Kategorien
   import/           Warcraft-3-Import: lädt importW3xInWorker beim ersten Gebrauch, fasst den Bericht zusammen
   ui/               Angular: Seite, Kartenliste, Shell, Panels
 ```
@@ -964,10 +972,10 @@ der nicht aktualisiert hat):
    gelesene Datei ersetzen.
 
 **Tests.** Vitest: `map-file.spec.ts`, `map-store.spec.ts`, `editor-document.spec.ts`, `ops.spec.ts`,
-`path-graph.spec.ts`, `map-validation.spec.ts`, `validation/build-areas.spec.ts` (jede Zellart nach den Regeln des
+`path-graph.spec.ts`, `map-validation.spec.ts`, `map-ops/validation/build-areas.spec.ts` (jede Zellart nach den Regeln des
 Spiels, Platz je Spur), `tools.spec.ts`, `ops/landscape/landscape.spec.ts` (Gleichheit bei
 gleichem Seed, Rand, Dichte, Freihalten von Straßen und Markern, ein Undo-Schritt, Formen, Erosion, Fluss mit Brücke,
-Straße), `ops/symmetry.spec.ts`, `ops/stamp.spec.ts`, `ops/generate.spec.ts`, `ops/contours.spec.ts`. `editor-fuzz.spec.ts`
+Straße), `ops/symmetry.spec.ts`, `ops/stamp.spec.ts`, `map-ops/generate.spec.ts`, `ops/contours.spec.ts`. `editor-fuzz.spec.ts`
 spielt je Seed (1, 7, 42, 99, 2026) 90 zufällige Schritte über die Werkzeuge und Befehle (Gelände- und Farbpinsel,
 Wasser, Setzen auch am Hang ausgerichtet, Streuen und Ausdünnen, Radieren, Reihen entlang Linien und Straßen, Gizmo
 verschieben, drehen und skalieren, Löschen, Duplizieren, Gruppieren, Ende, Tönen, Straßen zeichnen, ziehen, glätten
