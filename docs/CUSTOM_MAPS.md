@@ -449,6 +449,13 @@ Ein Asset mit wenigen Objekten (Häuser, Autos, Laternen, der größte Teil eine
 Detailstufe und Modellteil ein `InstancedMesh`; die Teile einer Stufe teilen sich die Instanzdaten. Seine Objekte
 werden je Objekt nach ihrem Abstand in die Stufen sortiert, erneut sobald die Kamera 2 m weiter steht
 (`writePacked`); geschrieben werden nur Stufen, deren Objekte wechselten, und die Schattenkarte rendert nur dann neu.
+Je Frame sortiert die Ebene höchstens 1500 gepackte Objekte (`REPACK_PER_FRAME`), die übrigen fälligen Assets folgen
+in den nächsten Frames, das zuletzt liegen gebliebene zuerst: die Kamera bringt alle gepackten Assets im selben Frame
+ihren Schritt weiter, und eine Stadt sortierte sie bisher alle darin. Hochgeladen werden nur die belegten Instanzen
+einer Stufe. Ohne Kamerabewegung, mit ausgelaufenen Bändern und ohne wartendes Asset tut `update` nichts; die
+Stufenwahl schreibt in feste Objekte (`blendAt`, `settleBlend` mit Ziel) statt je Zelle und Objekt neue anzulegen.
+Autumn Keep, `MapObjectLayer.update` bei 0,5 m Kamerafahrt je Frame: 0,26 → 0,11 ms je Aufruf, 665 → 20 KB
+allokiert; in Ruhe 31 → unter 1 KB (das Rauschen der Messung).
 Der Editor pickt über eigene, nie gezeichnete Meshes mit allen Objekten. Dazu werden die Teile eines Modells ohne
 Farbtextur mit gleichen übrigen Texturen (oft nur die gebackene Verdeckung des Modells), gleichem Glühen, gleicher
 Transparenz und Seitenwahl zu einem Teil zusammengeführt (`merge-parts.ts`): die Farbe als Vertex-Farbe, Rauheit

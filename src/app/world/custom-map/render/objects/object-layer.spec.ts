@@ -127,6 +127,24 @@ describe('MapObjectLayer packed assets (few objects, no cells)', () => {
     layer.dispose();
   });
 
+  it('does nothing on a camera at rest once its bands settled', async () => {
+    const field = new HeightField({ columns: 2, rows: 2, cellSize: 1000, heights: new Float32Array(4) }, 1000, 1000);
+    const los = new Group();
+    const layer = new MapObjectLayer(field, library(), los);
+    await layer.setObjects(Array.from({ length: 20 }, (_, k) => ({ id: `t${k}`, asset: 'tree', x: k * 20, y: 0, z: 0, rotation: 0, scale: 1 })));
+    const camera = new PerspectiveCamera();
+    camera.position.set(-400, 5, 0);
+    camera.updateMatrixWorld();
+    for (let k = 0; k < 60; k++) layer.update(0.016, camera);
+    const meshes = los.children.filter((c): c is InstancedMesh => c instanceof InstancedMesh);
+    const versions = meshes.map((m) => m.instanceMatrix.version);
+    const version = layer.version;
+    for (let k = 0; k < 30; k++) layer.update(0.016, camera);
+    expect(layer.version).toBe(version);
+    expect(meshes.map((m) => m.instanceMatrix.version)).toEqual(versions);
+    layer.dispose();
+  });
+
   it('lets a band settle on a camera at rest, so nothing dithers there, and opens it again on a move', async () => {
     const field = new HeightField({ columns: 2, rows: 2, cellSize: 1000, heights: new Float32Array(4) }, 1000, 1000);
     const los = new Group();

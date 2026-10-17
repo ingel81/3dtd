@@ -33,7 +33,7 @@ import { addVertexRoughMetal, mergeParts } from './merge-parts';
 import { clothGeometry, isCloth } from './cloth';
 import { DEFAULT_SPIN, SPIN_GLSL } from './spin';
 import { addNightWindows, isWindowGlass } from './night-windows';
-import { addLodFade, blendAt, disposeFadeGeometry, fadeGeometry, REST_S, SETTLE_S, settleBlend } from './lod-fade';
+import { addLodFade, blendAt, disposeFadeGeometry, fadeGeometry, REST_S, SETTLE_S, settleBlend, type LodBlend } from './lod-fade';
 
 /**
  * The placed objects of a map, drawn instanced. An asset with many objects
@@ -69,12 +69,40 @@ import { addLodFade, blendAt, disposeFadeGeometry, fadeGeometry, REST_S, SETTLE_
  * not look cloned.
  */
 
+/** Distance from the point at `at` in `xyz` to `p`; not Math.hypot, a builtin call whose result V8 boxes, per object and frame */
+function distance(xyz: Float32Array, at: number, p: Vector3): number {
+  const dx = xyz[at] - p.x;
+  const dy = xyz[at + 1] - p.y;
+  const dz = xyz[at + 2] - p.z;
+  return Math.sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+/** `n` values of `from` at `at` into `to` at `into` */
+function copyValues(from: Float32Array, at: number, to: Float32Array, into: number, n: number): void {
+  for (let k = 0; k < n; k++) to[into + k] = from[at + k];
+}
+
+/** Marks the first `count` values of an instance attribute for upload, not the room behind them; none for an empty level (hidden) */
+function uploadFirst(attribute: InstancedBufferAttribute, count: number): void {
+  if (count === 0) return;
+  attribute.clearUpdateRanges();
+  attribute.addUpdateRange(0, count);
+  attribute.needsUpdate = true;
+}
+
 /** Edge of an object cell in metres */
 export const CELL_SIZE = 192;
 /** Assets with at most this many objects draw without cells, sorted into levels per object */
 export const PACK_MAX = 512;
 /** A packed asset sorts its objects into levels again once the camera moved this far, m */
 const REPACK_STEP = 2;
+/**
+ * Packed objects sorted again per frame at most, over all assets: the
+ * camera moves every packed asset its step at once, and a town's assets
+ * all sorted in that one frame; the rest wait for the next frames, oldest
+ * first (applyLevels)
+ */
+const REPACK_PER_FRAME = 1500;
 /** The cell key of a packed asset's one cell */
 const PACKED = Number.MIN_SAFE_INTEGER;
 /** An object outside every band (Packed.nextOf) */
@@ -190,7 +218,20 @@ export class MapObjectLayer {
   private settle = 0;
   /** The camera's position at the last frame, and how long it has stood there, s */
   private readonly lastCamPos = new Vector3(Infinity, 0, 0);
+  private readonly lastFocus = new Vector3(Infinity, 0, 0);
+  private lastShadowRadius = 0;
   private restFor = 0;
+  /** The levels being worked out for a cell or packed object (blendAt, settleBlend), one object for all */
+  private readonly blend: LodBlend = { level: 0, next: null, t: 0 };
+  /** Which levels of a packed asset writePacked writes again, one array for all */
+  private dirtyLevels = new Uint8Array(8);
+  /** Packed cells due for their sort this frame, with their assets and their place among all packed cells (applyLevels) */
+  private readonly due: { batch: AssetBatch; cell: Cell; order: number }[] = [];
+  private dueCount = 0;
+  /** The place among the packed cells the next frame's sort starts at: the first one left waiting */
+  private repackFrom = 0;
+  /** A packed cell waits for its sort: the next frame sorts on though the camera stands */
+  private repackDue = false;
   private readonly tmpMatrix = new Matrix4();
   private readonly tmpPos = new Vector3();
   /** Ground and water for seatHeight, bound once */
@@ -438,12 +479,16 @@ export class MapObjectLayer {
     this.focus.copy(focus ?? this.camPos);
     // At rest the bands settle, moving they open again (settleBlend)
     const moved = this.camPos.distanceToSquared(this.lastCamPos) > 1e-6;
+    const focusMoved = this.focus.distanceToSquared(this.lastFocus) > 1e-6 || this.shadowRadius !== this.lastShadowRadius;
     this.lastCamPos.copy(this.camPos);
+    this.lastFocus.copy(this.focus);
+    this.lastShadowRadius = this.shadowRadius;
     this.restFor = moved ? 0 : this.restFor + dt;
     const settle = Math.min(1, Math.max(0, this.settle + (this.restFor >= REST_S ? dt : -dt) / SETTLE_S));
     const settling = settle !== this.settle;
     this.settle = settle;
-    this.applyLevels(false, settling);
+    // A camera at rest with its bands settled and no packed asset waiting for its sort changes nothing
+    if (moved || focusMoved || settling || this.repackDue) this.applyLevels(false, settling);
   }
 
   /**
@@ -840,34 +885,46 @@ export class MapObjectLayer {
     const levels = b.levels.length;
     const { lodBias, impostorFrom } = this.detail;
     const draw = b.blocksLos ? b.entry.drawDistance : b.entry.drawDistance * lodBias;
-    const dirty = new Array<boolean>(levels).fill(pack.stale || all);
+    if (this.dirtyLevels.length < levels) this.dirtyLevels = new Uint8Array(levels);
+    const dirty = this.dirtyLevels;
+    dirty.fill(pack.stale || all ? 1 : 0, 0, levels);
     let moved = pack.stale || all;
     let banded = 0;
     const casts = b.entry.category !== 'plant' || b.entry.height > 0.8;
+    const blend = this.blend;
     for (let i = 0; i < n; i++) {
       const s = i * 4;
-      const d = all ? 0 : Math.max(0, Math.hypot(b.spheres[s] - this.camPos.x, b.spheres[s + 1] - this.camPos.y, b.spheres[s + 2] - this.camPos.z) - b.spheres[s + 3]);
-      const band = all ? { level: 0, next: null, t: 0 } : blendAt(b.levels, d, draw, lodBias, impostorFrom);
-      if (band.next !== null) banded++;
-      const blend = settleBlend(band, this.settle);
+      if (all) {
+        blend.level = 0;
+        blend.next = null;
+        blend.t = 0;
+      } else {
+        const d = Math.max(0, distance(b.spheres, s, this.camPos) - b.spheres[s + 3]);
+        blendAt(b.levels, d, draw, lodBias, impostorFrom, blend);
+      }
+      if (blend.next !== null) banded++;
+      settleBlend(blend, this.settle, blend);
       const next = blend.next ?? NO_NEXT;
       // In a band the level that covers more of the pixels casts, and only near the focus
-      const near = Math.hypot(b.spheres[s] - this.focus.x, b.spheres[s + 1] - this.focus.y, b.spheres[s + 2] - this.focus.z) - b.spheres[s + 3] < this.shadowRadius;
+      const near = distance(b.spheres, s, this.focus) - b.spheres[s + 3] < this.shadowRadius;
       const caster = !casts || !near ? -1 : next !== NO_NEXT && blend.t >= 0.5 ? next : blend.level;
       if (caster !== pack.shadowOf[i]) {
         moved = true;
-        if (pack.shadowOf[i] >= 0) dirty[pack.shadowOf[i]] = true;
-        if (caster >= 0) dirty[caster] = true;
+        if (pack.shadowOf[i] >= 0) dirty[pack.shadowOf[i]] = 1;
+        if (caster >= 0) dirty[caster] = 1;
         pack.shadowOf[i] = caster;
       }
       const was = pack.levelOf[i];
       const wasNext = pack.nextOf[i];
       if (blend.level !== was || next !== wasNext) {
         moved = true;
-        for (const l of [was, wasNext, blend.level, next]) if (l >= 0) dirty[l] = true;
+        if (was >= 0) dirty[was] = 1;
+        if (wasNext >= 0) dirty[wasNext] = 1;
+        if (blend.level >= 0) dirty[blend.level] = 1;
+        if (next >= 0) dirty[next] = 1;
       } else if (next !== NO_NEXT && pack.fadeOf[i] !== blend.t) {
-        if (blend.level >= 0) dirty[blend.level] = true;
-        if (next >= 0) dirty[next] = true;
+        if (blend.level >= 0) dirty[blend.level] = 1;
+        if (next >= 0) dirty[next] = 1;
       }
       pack.levelOf[i] = blend.level;
       pack.nextOf[i] = next;
@@ -875,7 +932,7 @@ export class MapObjectLayer {
     }
     pack.stale = false;
     pack.banded = banded;
-    if (!dirty.some(Boolean)) return false;
+    if (dirty.indexOf(1) < 0 || dirty.indexOf(1) >= levels) return false;
     for (let l = 0; l < levels; l++) {
       if (!dirty[l]) continue;
       const matrices = pack.matrices[l].array as Float32Array;
@@ -884,14 +941,16 @@ export class MapObjectLayer {
       const bounds = pack.bounds[l].makeEmpty();
       let count = 0;
       // The level's casters first, then the rest: the shadow pass draws the first `casters` (buildCell)
-      for (const casting of [true, false]) {
+      for (let pass = 0; pass < 2; pass++) {
+        const casting = pass === 0;
         for (let i = 0; i < n; i++) {
           const outgoing = pack.levelOf[i] === l;
           if (!all && !outgoing && pack.nextOf[i] !== l) continue;
           if (!all && (pack.shadowOf[i] === l) !== casting) continue;
           if (all && !casting) continue;
-          matrices.set(b.matrices.subarray(i * 16, i * 16 + 16), count * 16);
-          if (colors && b.colors) colors.set(b.colors.subarray(i * 3, i * 3 + 3), count * 3);
+          // Copied value by value: a subarray per object was a view object each, most of what a sort allocated
+          copyValues(b.matrices, i * 16, matrices, count * 16, 16);
+          if (colors && b.colors) copyValues(b.colors, i * 3, colors, count * 3, 3);
           // Outgoing: drop a share t of the pixels; incoming: keep a share t
           fades[count] = all || pack.nextOf[i] === NO_NEXT ? 0 : outgoing ? pack.fadeOf[i] : pack.fadeOf[i] - 1;
           this.sphere.set(this.tmpPos.fromArray(b.spheres, i * 4), b.spheres[i * 4 + 3]);
@@ -901,9 +960,10 @@ export class MapObjectLayer {
         }
         if (casting) pack.casters[l] = count;
       }
-      pack.matrices[l].needsUpdate = true;
-      if (pack.colors[l]) pack.colors[l]!.needsUpdate = true;
-      cell.fades[l].needsUpdate = true;
+      // Only the instances the level holds now go up
+      uploadFirst(pack.matrices[l], count * 16);
+      if (pack.colors[l]) uploadFirst(pack.colors[l]!, count * 3);
+      uploadFirst(cell.fades[l], count);
       for (const m of cell.levels[l]) {
         m.count = count;
         m.visible = count > 0;
@@ -980,32 +1040,44 @@ export class MapObjectLayer {
     this.applyLevels(true);
   }
 
-  /** Per cell: the level for its distance, hidden beyond the draw distance, shadows only near the focus */
+  /**
+   * Per cell: the level for its distance, hidden beyond the draw distance,
+   * shadows only near the focus. Packed assets sort their objects again
+   * once the camera moved a step, at most REPACK_PER_FRAME objects a frame
+   * (forced ones and settling bands all at once); one left waiting sets
+   * `repackDue` and goes first in the next frame
+   */
   private applyLevels(force: boolean, settling = false): void {
     if (force) this.version++;
     const { lodBias, impostorFrom } = this.detail;
+    let packed = 0;
+    this.dueCount = 0;
     for (const b of this.batches) {
       const draw = b.blocksLos ? b.entry.drawDistance : b.entry.drawDistance * lodBias;
       for (const cell of b.cells.values()) {
         const pack = cell.packed;
         if (pack) {
+          const order = packed++;
           // Sorted again once the camera moved a step; the shadow map follows what changed
           if (force) pack.stale = true;
           // A band that settles or opens is written anew though the camera stands
-          if (!pack.stale && !(settling && pack.banded > 0) && pack.at.distanceToSquared(this.camPos) < REPACK_STEP * REPACK_STEP) continue;
-          pack.at.copy(this.camPos);
-          if (this.writePacked(b, cell, pack)) this.version++;
+          if (pack.stale || (settling && pack.banded > 0)) {
+            pack.at.copy(this.camPos);
+            if (this.writePacked(b, cell, pack)) this.version++;
+          } else if (pack.at.distanceToSquared(this.camPos) >= REPACK_STEP * REPACK_STEP) {
+            this.addDue(b, cell, order);
+          }
           continue;
         }
         const d = Math.max(0, cell.sphere.distanceToPoint(this.camPos));
-        const { level, next, t } = settleBlend(blendAt(b.levels, d, draw, lodBias, impostorFrom), this.settle);
+        const { level, next, t } = settleBlend(blendAt(b.levels, d, draw, lodBias, impostorFrom, this.blend), this.settle, this.blend);
         if (level !== cell.level || next !== cell.next || force) {
-          cell.levels.forEach((meshes, l) => {
-            for (const m of meshes) {
+          for (let l = 0; l < cell.levels.length; l++) {
+            for (const m of cell.levels[l]) {
               m.visible = l === level || l === next;
               m.frustumCulled = true;
             }
-          });
+          }
           cell.level = level;
           cell.next = next;
           cell.fade = -1;
@@ -1025,17 +1097,52 @@ export class MapObjectLayer {
         if (caster >= 0) {
           const shadow = cell.sphere.distanceToPoint(this.focus) < this.shadowRadius;
           const casts = b.entry.category !== 'plant' || b.entry.height > 0.8;
-          cell.levels.forEach((meshes, l) => {
-            for (const m of meshes) {
+          for (let l = 0; l < cell.levels.length; l++) {
+            for (const m of cell.levels[l]) {
               const on = l === caster && casts && shadow;
               if (m.castShadow === on) continue;
               m.castShadow = on;
               this.version++;
             }
-          });
+          }
         }
       }
     }
+    this.sortDue();
+  }
+
+  private addDue(batch: AssetBatch, cell: Cell, order: number): void {
+    const slot = this.due[this.dueCount];
+    if (slot) {
+      slot.batch = batch;
+      slot.cell = cell;
+      slot.order = order;
+    } else {
+      this.due.push({ batch, cell, order });
+    }
+    this.dueCount++;
+  }
+
+  /** The due packed cells sorted, from where the last frame stopped round, until REPACK_PER_FRAME objects are */
+  private sortDue(): void {
+    const n = this.dueCount;
+    this.repackDue = false;
+    if (!n) return;
+    let start = 0;
+    while (start < n && this.due[start].order < this.repackFrom) start++;
+    let budget = REPACK_PER_FRAME;
+    for (let k = 0; k < n; k++) {
+      const { batch, cell, order } = this.due[(start + k) % n];
+      if (budget <= 0) {
+        this.repackFrom = order;
+        this.repackDue = true;
+        return;
+      }
+      budget -= cell.indices.length;
+      cell.packed!.at.copy(this.camPos);
+      if (this.writePacked(batch, cell, cell.packed!)) this.version++;
+    }
+    this.repackFrom = 0;
   }
 
   /** Every instance of a cell's level at one dissolve */

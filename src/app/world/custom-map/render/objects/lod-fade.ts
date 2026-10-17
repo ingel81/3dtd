@@ -44,10 +44,20 @@ export function levelAt(levels: readonly FadeLevel[], d: number, draw: number, l
   return 0;
 }
 
+/** The levels an object shows (blendAt, settleBlend) */
+export interface LodBlend {
+  level: number;
+  next: number | null;
+  t: number;
+}
+
 /**
  * The levels to show at distance `d`: `level`, and inside a band `next`
  * (the level beyond, -1 for none at the draw distance) with `t` from 0 at
- * the band's near edge to 1 at its far edge; outside a band `next` is null
+ * the band's near edge to 1 at its far edge; outside a band `next` is null.
+ * Written into `out`: the object layer asks for every cell and packed
+ * object each frame the camera moves, and a new object each time was most
+ * of what it allocated
  */
 export function blendAt(
   levels: readonly FadeLevel[],
@@ -55,19 +65,27 @@ export function blendAt(
   draw: number,
   lodBias: number,
   impostorFrom: number,
-): { level: number; next: number | null; t: number } {
-  const edges: [number, number][] = [];
-  for (let l = 1; l < levels.length; l++) edges.push([levelStart(levels[l], lodBias, impostorFrom), l]);
-  edges.push([draw, -1]);
-  for (const [at, next] of edges) {
+  out: LodBlend = { level: 0, next: null, t: 0 },
+): LodBlend {
+  // The switch distances in order, the draw distance last
+  for (let l = 1; l <= levels.length; l++) {
+    const last = l === levels.length;
+    const at = last ? draw : levelStart(levels[l], lodBias, impostorFrom);
+    const next = last ? -1 : l;
     const half = (at * LOD_BAND) / 2;
     if (Math.abs(d - at) < half && at > 0) {
       const level = levelAt(levels, at - half, draw, lodBias, impostorFrom);
       if (level === next) continue;
-      return { level, next, t: (d - (at - half)) / (2 * half) };
+      out.level = level;
+      out.next = next;
+      out.t = (d - (at - half)) / (2 * half);
+      return out;
     }
   }
-  return { level: levelAt(levels, d, draw, lodBias, impostorFrom), next: null, t: 0 };
+  out.level = levelAt(levels, d, draw, lodBias, impostorFrom);
+  out.next = null;
+  out.t = 0;
+  return out;
 }
 
 /** How long a band takes to settle at rest, or to open again once the camera moves, s */
@@ -78,18 +96,23 @@ export const REST_S = 0.15;
 /**
  * A band's blend `settle` of the way (0 moving .. 1 at rest) towards the
  * level nearer the object's distance: past the middle the next level, else
- * its own. Fully settled it shows that one level alone
+ * its own. Fully settled it shows that one level alone. Written into `out`,
+ * which may be `blend` itself
  */
-export function settleBlend(
-  blend: { level: number; next: number | null; t: number },
-  settle: number,
-): { level: number; next: number | null; t: number } {
-  if (blend.next === null || settle <= 0) return blend;
+export function settleBlend(blend: LodBlend, settle: number, out: LodBlend = { level: 0, next: null, t: 0 }): LodBlend {
+  const { level, next } = blend;
+  if (next === null || settle <= 0) {
+    out.level = level;
+    out.next = next;
+    out.t = blend.t;
+    return out;
+  }
   const target = blend.t >= 0.5 ? 1 : 0;
   const t = blend.t + (target - blend.t) * Math.min(1, settle);
-  if (t <= 0) return { level: blend.level, next: null, t: 0 };
-  if (t >= 1) return { level: blend.next, next: null, t: 0 };
-  return { level: blend.level, next: blend.next, t };
+  out.level = t >= 1 ? next : level;
+  out.next = t <= 0 || t >= 1 ? null : next;
+  out.t = t <= 0 || t >= 1 ? 0 : t;
+  return out;
 }
 
 /**

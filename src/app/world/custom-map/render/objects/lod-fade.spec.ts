@@ -60,3 +60,15 @@ describe('lod-fade (soft detail switches)', () => {
     expect(m.customProgramCacheKey()).toBe('object-lod-fade');
   });
 });
+
+describe('blendAt and settleBlend into one object', () => {
+  it('write into the object given, settleBlend also into the blend itself', () => {
+    const levels = [{ from: 0 }, { from: 100 }];
+    const out = { level: 9, next: 9 as number | null, t: 9 };
+    expect(blendAt(levels, 100, 1000, 1, 380, out)).toBe(out);
+    expect(out).toEqual({ level: 0, next: 1, t: 0.5 });
+    expect(settleBlend(out, 1, out)).toBe(out);
+    expect(out).toEqual({ level: 1, next: null, t: 0 });
+    expect(blendAt(levels, 10, 1000, 1, 380, out)).toEqual({ level: 0, next: null, t: 0 });
+  });
+});
