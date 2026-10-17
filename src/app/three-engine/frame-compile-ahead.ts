@@ -77,6 +77,8 @@ export interface FrameAheadOptions {
    * first draw) and a switch later draws without them as fast
    */
   compileOnly?: boolean;
+  /** What each compile task and each program's first use waits for: the next frame (default), or a quiet moment */
+  pace?: () => Promise<void>;
 }
 
 /**
@@ -267,14 +269,14 @@ export class FrameAhead {
     for (;;) {
       this.within(task);
       if (d >= this.draws.length) break;
-      await afterNextFrame();
+      await (options.pace ?? afterNextFrame)();
       if (this.gone()) return false;
     }
     await Promise.all(jobs);
     // Frames drawn meanwhile let compileAsync settle before every program is built
     await programsReady(renderer);
     if (this.gone()) return false;
-    await firstUsePrograms(renderer, () => this.gone(), afterNextFrame);
+    await firstUsePrograms(renderer, () => this.gone(), this.options.pace ?? afterNextFrame);
     return !this.gone();
   }
 

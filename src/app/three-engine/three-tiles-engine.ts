@@ -85,13 +85,10 @@ const ENEMY_RIM_LIGHT = 0.2;
 const AHEAD_DRAW_MS = 3;
 /** Materials a frame draws for the first time there at most: the GPU process builds each program again (ANGLE) */
 const AHEAD_FIRST_DRAWS = 1;
-/** Main-thread time a frame's task gives the background's compile (prepareSwitchStates) */
+/** Main-thread time a quiet moment gives the background's compile (prepareSwitchStates), and how long it must be */
 const BACKGROUND_COMPILE_MS = 1;
+const QUIET_MS = 4;
 
-/** Resolves after the next frame (a task after it) */
-function afterFrame(): Promise<void> {
-  return new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve)));
-}
 
 /** Called right before and right after a frame is drawn (ThreeTilesEngine.setFrameProbe) */
 export interface FrameProbe {
@@ -1471,6 +1468,50 @@ export class ThreeTilesEngine {
   }
 
   /**
+   * Resolves in a quiet moment for the background's work (prepareSwitchStates):
+   * after a drawn frame, with no enemy on the map (a fight's frames stay its
+   * own), no switch being made ready (it goes first), the browser idle with
+   * QUIET_MS left before the next frame (requestIdleCallback) and the GPU
+   * process through with that frame (a fence set after it has signalled,
+   * asked without waiting). A program's first use asks the GPU process for
+   * its logs and locations and waits for its answers, which come behind all
+   * the work queued before them: in frames that were busy anyway one to ten
+   * frames per run took 21 to 30 ms. Left over: the GPU process finishes a
+   * program on its first query (getProgramInfoLog waits 5 to 20 ms though
+   * the link reported done), now and then past the idle time. Without
+   * requestIdleCallback the fence alone decides
+   */
+  private quietMoment(gone: () => boolean): Promise<void> {
+    const gl = this.renderer.getContext() as WebGL2RenderingContext;
+    const idle = (globalThis as { requestIdleCallback?: (run: (deadline: { timeRemaining(): number }) => void) => number }).requestIdleCallback;
+    return new Promise((resolve) => {
+      let fence: WebGLSync | null = null;
+      const drained = (): boolean => {
+        if (!fence) return true;
+        if (gl.getSyncParameter(fence, gl.SYNC_STATUS) !== gl.SIGNALED) return false;
+        gl.deleteSync(fence);
+        fence = null;
+        return true;
+      };
+      const again = () => requestAnimationFrame(() => setTimeout(look));
+      const look = () => {
+        if (gone()) {
+          if (fence) gl.deleteSync(fence);
+          return resolve();
+        }
+        if (!this.drewFrame || this.ahead.size || this.enemies.count > 0) return void again();
+        // After the frame just drawn: once this fence has signalled, the GPU process has nothing of it left
+        if (fence) gl.deleteSync(fence);
+        fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+        gl.flush();
+        if (!idle) return void (drained() ? resolve() : again());
+        idle((deadline) => (deadline.timeRemaining() >= QUIET_MS && drained() ? resolve() : again()));
+      };
+      again();
+    });
+  }
+
+  /**
    * The states a switch in play can bring, made ready in the background once
    * the game draws: each quality level (the world's part as the level sets
    * it, WorldProvider.withQuality, and the output its antialiasing draws to)
@@ -1478,11 +1519,11 @@ export class ThreeTilesEngine {
    * the screen, without passes; the likeliest first (the levels next to the
    * one drawn now, the lower one first as Auto steps down when frames are
    * dear, then bloom and grading at this level, then the rest). Each is
-   * recorded and compiled by a FrameAhead in slices, a task per frame of
-   * 2 ms that ends at the first program it built (KHR_parallel_shader_compile
-   * links it beside the frames, the status polled), each program's first use
-   * a frame of its own; no first draws (they cost frames, and a switch draws
-   * as fast without). The programs stay (ProgramPins). A switch made ready
+   * recorded and compiled by a FrameAhead in slices, one task of 1 ms per
+   * quiet moment (quietMoment) that ends at the first program it built
+   * (KHR_parallel_shader_compile links it beside the frames, the status
+   * polled), each program's first use a quiet moment of its own; no first
+   * draws (they cost frames, and a switch draws as fast without). The programs stay (ProgramPins). A switch made ready
    * ahead goes first; one that comes before its state is ready makes it
    * ready itself (switchPasses, applyQuality). Done, the switch builds
    * nothing: some ten frames of 40 ms per level switch on autumn keep before.
@@ -1522,10 +1563,9 @@ export class ThreeTilesEngine {
       }
     }
     const gone = () => this.disposed || this.quality?.world !== current.world;
-    while (!this.drewFrame && !gone()) await afterFrame();
+    const pace = () => this.quietMoment(gone);
     for (const { knobs, passes } of states) {
-      // A switch made ready now goes first
-      while (this.ahead.size && !gone()) await afterFrame();
+      await pace();
       if (gone()) return;
       const inState = withQuality && ((run: () => void) => withQuality(knobs, run));
       const record = () => post.withPasses(passes, () => recordDraws(this.renderer, () => this.drawFrame()));
@@ -1539,6 +1579,7 @@ export class ThreeTilesEngine {
         gone,
         compileOnly: true,
         budgetMs: BACKGROUND_COMPILE_MS,
+        pace,
       });
       if (!(await frame.compiled)) return;
       this.pins.pinPrograms(this.renderer);

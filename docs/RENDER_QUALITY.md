@@ -114,10 +114,13 @@ Composer, dazu kommen die Programme der Pässe selbst. In beiden Fällen läuft 
   Stufe auf den Schirm zeichnet, ohne Pässe; die Nachbarstufen zuerst (die tiefere vor der höheren, Auto stuft eher
   ab), dann Bloom und Farbkorrektur auf der aktuellen Stufe, dann der Rest. Je Zustand zeichnet sie einen Frame nur
   zum Schein auf (`recordDraws` in `frame-compile-ahead.ts`: jeder Pass richtet sich ein wie im echten Frame,
-  gezeichnet wird nichts) und kompiliert ihn (`FrameAhead`, `compileOnly`): eine Aufgabe je Frame von 1 ms, die vor
-  dem nächsten neuen Programm endet, `KHR_parallel_shader_compile` linkt neben den Frames, der Status wird abgefragt,
-  ohne zu warten; die erste Nutzung jedes Programms bekommt einen Frame für sich. Keine ersten Zeichnungen: sie
-  kosteten Frames, und der Wechsel kommt ohne sie genauso schnell.
+  gezeichnet wird nichts) und kompiliert ihn (`FrameAhead`, `compileOnly`): eine Aufgabe von 1 ms je ruhigem Moment,
+  die vor dem nächsten neuen Programm endet, `KHR_parallel_shader_compile` linkt neben den Frames, der Status wird
+  abgefragt, ohne zu warten; die erste Nutzung jedes Programms bekommt einen ruhigen Moment für sich. Ruhig heißt
+  (`quietMoment`): kein Gegner auf der Karte (der Kampf bleibt unberührt), kein Wechsel in Arbeit, der Browser idle
+  mit 4 ms bis zum nächsten Frame (`requestIdleCallback`) und der GPU-Prozess mit dem letzten Frame durch (ein Fence
+  danach hat signalisiert). Keine ersten Zeichnungen: sie kosteten Frames, und der Wechsel kommt ohne sie genauso
+  schnell. Ein Rechner ohne Leerlauf zwischen den Frames bereitet nichts vor; ein Wechsel geht dort den Weg unten.
 - `ProgramPins` (`program-pins.ts`) hält das Warm-up und den Hintergrund fest: Ohne Material frei three ein Programm, und die Id eines eigenen
   Shader-Texts (Teil jedes Programmschlüssels) verfällt mit dem letzten Material dieses Texts. Eine Schicht, die ihre
   Materialien neu baut (Effekte einer Karte beim Stufenwechsel, die Routenlinien), baute ihre Programme im Spiel
@@ -132,10 +135,12 @@ Composer, dazu kommen die Programme der Pässe selbst. In beiden Fällen läuft 
 Die Schattenkarte einer neuen Größe baut wie jede Änderung über einige Frames (`ShadowParts`), die alte bleibt bis
 dahin; der Fernschatten einer eingeschalteten Kaskade backt verteilt; das Licht der Laternen auf dem Boden backt nur
 neu, wenn sich die Lichter oder der Boden darunter ändern (`LampLight.bake`). Gemessen auf Autumn Keep und Harbor
-Town (RTX 5080, headless, der Rechner geteilt): Laden wie zuvor (11,6 bis 14,5 s, einzelne Läufe streuen bis 21 s);
-der Hintergrund braucht 15 bis 21 s für fünf Zustände mit 320 bis 350 Programmen, längster Frame dabei 21 bis 30 ms
-(ohne ihn 15 bis 23 ms), keiner über 30 ms. Danach kommt ein Wechsel nach 33 bis 90 ms, längster Frame 10 bis 25 ms,
-keiner über 30 ms (vor E215 stand das Bild 3,9 s). Kommt ein Wechsel, bevor sein Zustand fertig ist, geht er den Weg
+Town (RTX 5080, headless mit V-Sync, der Rechner geteilt): Laden wie zuvor (12,7 bis 14,7 s); der Hintergrund
+braucht 25 bis 29 s für fünf Zustände mit 320 bis 350 Programmen, längster Frame dabei 24 bis 31 ms, ohne ihn 22 bis
+23 ms (Takt-Zittern des Headless-V-Sync). Was bleibt: der GPU-Prozess schließt ein Programm erst bei seiner ersten
+Abfrage ab (`getProgramInfoLog` wartet 5 bis 20 ms, obwohl der Link als fertig gemeldet war), ab und zu länger als
+der Leerlauf vor dem nächsten Frame. Danach kommt ein Wechsel nach 80 bis 120 ms, längster Frame meist 22 bis 25 ms,
+in zwei von zehn Wechseln 33 und 36 ms (vor E215 stand das Bild 3,9 s). Kommt ein Wechsel, bevor sein Zustand fertig ist, geht er den Weg
 von `FrameAhead` mit ersten Zeichnungen (einige Sekunden bis zur Umschaltung, rund zehn Frames um 45 ms). Den Halt
 (`ProgramCompileHold`) gibt es nur noch für eine Stufe vor dem ersten Frame: eine neue Auflösung setzt er erst nach
 dem Kompilieren, sofort gesetzt leerte die Größenänderung den Canvas, und die angehaltenen Bilder zeigten Schwarz.
