@@ -10,33 +10,11 @@
  */
 import { computed, signal, type Signal } from '@angular/core';
 import type { MapMeta } from '../../world/custom-map/map-document';
-import type { DocChange } from '../model/doc-change';
+import { DOC_PARTS, changedParts, type DocChange, type DocPart } from '../model/doc-change';
 import type { EditorDocument, Selection } from '../model/editor-document';
-
-/** The parts of the map a panel can follow */
-export type DocPart = 'terrain' | 'water' | 'objects' | 'paths' | 'markers' | 'environment' | 'life' | 'meta' | 'gameplay' | 'intro' | 'prefabs';
-
-export const DOC_PARTS: readonly DocPart[] = ['terrain', 'water', 'objects', 'paths', 'markers', 'environment', 'life', 'meta', 'gameplay', 'intro', 'prefabs'];
 
 /** Milliseconds at least between two showings of a running stroke's dabs */
 export const LIVE_MS = 150;
-
-/** The parts a change touched */
-export function changedParts(c: DocChange): DocPart[] {
-  const out: DocPart[] = [];
-  if (c.terrain || c.heights || c.splat || c.layers) out.push('terrain');
-  if (c.terrain || c.water || c.bodies) out.push('water');
-  if (c.objects) out.push('objects');
-  if (c.paths) out.push('paths');
-  if (c.markers) out.push('markers');
-  if (c.environment) out.push('environment');
-  if (c.life) out.push('life');
-  if (c.meta) out.push('meta');
-  if (c.gameplay) out.push('gameplay');
-  if (c.intro) out.push('intro');
-  if (c.prefabs) out.push('prefabs');
-  return out;
-}
 
 export class EditorState {
   private readonly revs = new Map<DocPart, ReturnType<typeof signal<number>>>(DOC_PARTS.map((p) => [p, signal(0)]));

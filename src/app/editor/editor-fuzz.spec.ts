@@ -8,14 +8,19 @@
  * of kept (every transaction aborts): the map has to be byte for byte as it
  * was before them, the history untouched. A failure names the seed and the
  * steps, so it can be played again.
+ *
+ * Along the way the editor worker's mirror (model/doc-mirror.ts) follows the
+ * map by its syncs, now and then: a map packed from the mirror has to be the
+ * map packed from the document, byte for byte.
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createMapDocument } from '../world/custom-map/map-create';
-import { contentBytes } from '../world/custom-map/map-file';
+import { contentBytes, packMapFile } from '../world/custom-map/map-file';
 import type { CustomMapDocument } from '../world/custom-map/map-document';
 import { CatalogIndex, normalizeCatalog } from '../map-ops/asset-catalog';
 import { EditorDocument } from './model/editor-document';
+import { DocMirror, MirrorTracker } from './model/doc-mirror';
 import { EditTransaction } from './model/edit-transaction';
 import { ObjectsCommand } from './model/commands/objects';
 import { SnapshotCommand } from './model/commands/snapshot';
@@ -120,6 +125,22 @@ interface Run {
   editor: EditorDocument;
   steps: string[];
   states: Map<number, { bytes: Uint8Array; step: string }>;
+  /** Syncs the worker's mirror now and then (every time with `always`) and holds its file against the document's */
+  mirrored(where: string, always?: boolean): void;
+}
+
+/** The editor worker's mirror of `editor`, synced as the worker gets it (cloned, buffers moved) */
+function mirrorOf(editor: EditorDocument, seed: number): (where: string, always?: boolean) => void {
+  const tracker = new MirrorTracker(editor);
+  const mirror = new DocMirror();
+  // Its own dice: the run's stay as they were
+  const r = rng(seed * 31 + 5);
+  return (where, always = false) => {
+    if (!always && r() < 0.5) return;
+    const { sync, transfer } = tracker.sync();
+    mirror.apply(structuredClone(sync, { transfer }));
+    expect(same(packMapFile(mirror.doc, { level: 0 }), packMapFile(editor.doc, { level: 0 })), `the mirror's file, ${where}`).toBe(true);
+  };
 }
 
 const same = (a: Uint8Array, b: Uint8Array) => Buffer.from(a).equals(Buffer.from(b));
@@ -130,6 +151,7 @@ function fuzz(seed: number, count: number): Run {
   const states = new Map<number, { bytes: Uint8Array; step: string }>();
   const doc = createMapDocument({ id: 'fuzz', name: 'Fuzz', width: 256, depth: 256, cellSize: 4, seed, ground: 'noise', relief: 6, now: new Date(0) });
   const editor = new EditorDocument(doc);
+  const mirrored = mirrorOf(editor, seed);
   const ctx = context(editor);
   const tools = {
     terrain: new TerrainTool(),
@@ -558,8 +580,9 @@ function fuzz(seed: number, count: number): Run {
     ops[name]();
     editor.select(null);
     states.set(editor.stateId, { bytes: contentBytes(editor.doc), step: `${k} ${steps.at(-1)}` });
+    mirrored(`seed ${seed}, after step ${k} ${steps.at(-1)}`);
   }
-  return { editor, steps, states };
+  return { editor, steps, states, mirrored };
 }
 
 describe('undo and redo under random work', () => {
@@ -569,7 +592,7 @@ describe('undo and redo under random work', () => {
       const start = contentBytes(createMapDocument({ id: 'fuzz', name: 'Fuzz', width: 256, depth: 256, cellSize: 4, seed, ground: 'noise', relief: 6, now: new Date(0) }));
       // The tools roll their own dice (turns, scatter spots, thinning): seeded too, so a seed plays the same run
       const dice = vi.spyOn(Math, 'random').mockImplementation(rng(seed * 7919 + 1));
-      const { editor, steps, states } = fuzz(seed, 90);
+      const { editor, steps, states, mirrored } = fuzz(seed, 90);
       dice.mockRestore();
       const where = `seed ${seed}, steps: ${steps.join(', ')}`;
       // A run that ended on a jump back leaves steps to redo: redone first, each to its state, the run's end is after them
@@ -587,6 +610,7 @@ describe('undo and redo under random work', () => {
         undos++;
         const want = states.get(editor.stateId);
         if (want) expect(same(contentBytes(editor.doc), want.bytes), `undo to step ${want.step}, ${where}`).toBe(true);
+        mirrored(`undo ${undos}, ${where}`);
       }
       expect(undos, where).toBe(recorded);
       expect(same(contentBytes(editor.doc), start), `undo all, ${where}`).toBe(true);
@@ -596,6 +620,7 @@ describe('undo and redo under random work', () => {
         if (want) expect(same(contentBytes(editor.doc), want.bytes), `redo to step ${want.step}, ${where}`).toBe(true);
       }
       expect(same(contentBytes(editor.doc), end), `redo all, ${where}`).toBe(true);
+      mirrored(`redo all, ${where}`, true);
     });
   }
 });

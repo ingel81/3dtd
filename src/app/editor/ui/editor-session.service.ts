@@ -7,6 +7,7 @@
  *   tools     the tool in hand, the settings, the line of help (ToolHost)
  *   view      the 3D view on the page, as far as the page may use it (EditorViewPort)
  *   saves     autosave, Ctrl+S, versions, storage safety, the download (SaveService)
+ *   core      the editor's worker with its mirror of the map: packing, checks (EditorCore)
  *   jobs      generating, eroding, an agent's play: one at a time with Cancel (JobRunner)
  *   check     the map check, build areas, test and bot check in the game (CheckService)
  *   library   maps and stamps kept, the trash, reading files in (MapLibrary)
@@ -38,6 +39,7 @@ import { AgentAdapter } from '../services/agent-adapter';
 import { CheckService } from '../services/check-service';
 import { EditorNotices } from '../services/editor-notices';
 import { EditorPictures } from '../services/editor-pictures';
+import { EditorCore } from '../services/editor-core';
 import { EditorState } from '../services/editor-state';
 import { JobRunner } from '../services/job-runner';
 import { MapLibrary } from '../services/map-library';
@@ -54,6 +56,7 @@ export class EditorSession implements OnDestroy {
   readonly catalogReady: Promise<void> = loadAssetCatalog().then((c) => this.catalog.set(new CatalogIndex(c)));
 
   readonly notices = new EditorNotices();
+  readonly core = new EditorCore();
   readonly library = new MapLibrary(this.notices);
   readonly state: EditorState = new EditorState(() => {
     this.saves.changed();
@@ -99,6 +102,11 @@ export class EditorSession implements OnDestroy {
         busyReason,
         blocked,
         thumbnail: () => this.pictures.thumbnail(),
+        pack: async (options, hash) => {
+          const packed = await this.core.run('pack', { options, hash });
+          if (!packed) throw new Error('The map closed while it was packed');
+          return packed.value;
+        },
         copied: (id) => this.maps.copied(id),
         showCheck: () => void this.check.runCheck(),
         refresh: () => this.state.refresh(),
@@ -140,6 +148,7 @@ export class EditorSession implements OnDestroy {
     this.maps = new MapLifecycle({
       zone: this.zone,
       notices: this.notices,
+      core: this.core,
       library: this.library,
       saves: this.saves,
       jobs: this.jobs,
@@ -451,6 +460,7 @@ export class EditorSession implements OnDestroy {
     this.saves.dispose();
     this.check.dispose();
     this.maps.dispose();
+    this.core.dispose();
     this.agent.dispose();
     this.library.dispose();
     this.notices.dispose();

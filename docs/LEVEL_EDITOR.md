@@ -651,11 +651,13 @@ Szenenkosten.
 
 - Autosave schreibt zwei Sekunden nach der letzten Änderung in IndexedDB; die Kopfzeile zeigt „Unsaved changes“,
   „Saving“ oder „Saved“. Strg+S speichert sofort mit neuem Vorschaubild; beim Verlassen der Karte wird das Bild
-  ebenfalls erneuert. Prüfen, Packen und der Fingerabdruck für den Verlauf laufen in einem Worker
-  (`world/custom-map/map-pack.ts`, eine Kopie der Karte wie beim Speichern): vorher kostete jedes Speichern auf einer 512-m-Karte
-  ein Bild von 60 bis 140 ms, jetzt keines (headless gemessen, längstes Bild beim Speichern 7 ms wie im Leerlauf).
-  Der Worker liefert auch Zusammenfassung und (bei Strg+S) Inhalts-Hash derselben Kopie: ändert der Spieler während
-  des Speicherns etwas, passen Datei, Hash und Listenzahlen trotzdem zusammen
+  ebenfalls erneuert. Prüfen, Packen und der Fingerabdruck für den Verlauf laufen im Editor-Worker auf seinem Spiegel
+  der Karte (siehe „Editor-Worker“ unter Architektur): vorher kostete jedes Speichern auf einer 512-m-Karte ein Bild von
+  60 bis 140 ms, mit einem Pack-Worker je Speichern noch die Kopie der ganzen Karte (1025² mit 50 000 Objekten in Node
+  rund 40 ms), jetzt nur die geänderten Kacheln und Objekte (unter 1 ms ohne Änderung, eine Strichkachel und ein
+  Objekt unter 4 ms, `doc-mirror.perf.spec.ts`). Der Worker liefert auch Zusammenfassung und (bei Strg+S) Inhalts-Hash
+  desselben Stands: ändert der Spieler während des Speicherns etwas, passen Datei, Hash und Listenzahlen trotzdem
+  zusammen. Auch der Download packt dort
 - Ein Tab je Karte (`editor/model/map-lock.ts`): wer eine Karte zuerst öffnet, hält ihre Web-Sperre
   (`navigator.locks`, Name `3dtd-map:<id>`). Ein zweiter Tab öffnet sie schreibgeschützt: Banner „Another tab edits
   this map“, Kopfzeile „Read only“, die Panels aus, Werkzeuge und Werkzeugtasten aus, Rückgängig, Speichern, Einfügen,
@@ -768,7 +770,8 @@ src/app/world/custom-map/
   map-create.ts     neue Karte, Id aus Name, Rauschen
   map-file.ts       .3dtdmap packen und lesen, contentHash, Prüfung, Migrationen
   map-store.ts      eigene Karten in IndexedDB, mitgelieferte aus maps/index.json
-  map-pack.ts       .3dtdmap im Worker packen (Speichern im Editor, Karte des Koop-Hosts), Fingerabdruck der Datei
+  map-pack.ts       .3dtdmap packen für den Verlauf (packForSave, im Editor-Worker), im eigenen Worker (Karte des
+                    Koop-Hosts), Fingerabdruck der Datei
 src/app/map-ops/    gemeinsame Kartenbibliothek ohne Angular, ohne three, ohne Editor-Zustand (Editor, OSM-Import,
                     Demo-Karte, Level-Skripte, Skript-Sandbox)
   grid.ts           Raster-Helfer (Höhe, Hang, Samples, Texel, Rechtecke)
@@ -779,7 +782,8 @@ src/app/map-ops/    gemeinsame Kartenbibliothek ohne Angular, ohne three, ohne E
   asset-catalog.ts  Paletten aus dem Katalog des Renderers (maps/assets/catalog.json), Farben, Formen, Kategorien
   validation/       Prüfen: map-validation, build-areas, wave-event-check, map-budget
 src/app/editor/
-  model/            EditorDocument (Befehle, Verlauf, Auswahl), Kachel-Patches, Versionen, Stempel-Bibliothek
+  model/            EditorDocument (Befehle, Verlauf, Auswahl), Kachel-Patches, Versionen, Stempel-Bibliothek,
+                    Spiegel der Karte für den Editor-Worker (doc-mirror.ts)
   model/commands/   alle Befehlsklassen: Kachel-Patch, Snapshot (ALL_DOC_PARTS), Objekte, Verbund, Boden-Schichten,
                     Wasser, Flüsse
   ops/              Operationen auf dem EditorDocument: Größe, Details, Höhenkarte, Spiegeln, Höhenlinien, Gießen,
@@ -795,7 +799,8 @@ src/app/editor/
                     ui/shell/tool-panels.ts; PART_TOOL ordnet einem Prüfbefund das Werkzeug zu
   view/             EditorViewport (Renderer, Kamera, Eingabe), Overlay, Kamera, EditorMapView, ThumbnailRenderer
   import/           Warcraft-3-Import: lädt importW3xInWorker beim ersten Gebrauch, fasst den Bericht zusammen
-  services/         die Dienste der Session (siehe Angular unten)
+  services/         die Dienste der Session (Angular-frei bis auf Signale), EditorCore: der Editor-Worker von hier aus
+  workers/          Editor-Worker (editor-core.worker.ts, editor-core-host.ts, Protokoll), Terrain, Gießen, Bauflächen
   ui/               Angular: Seite, Kartenliste, Shell, Panels; ui/shell/actions.ts ist das Aktionsregister, aus dem
                     Befehlspalette, änderbare Tasten, Hilfe und Dateimenü entstehen
 ```
@@ -951,6 +956,32 @@ folgt nur ihm. `EditorState` sammelt die Änderungen des Dokuments und erhöht d
 Bild; die Tupfer eines laufenden Strichs höchstens alle 150 ms. Ein Timer läuft nur, solange sich etwas ändert. Ansicht und
 Taktgeber laufen außerhalb der Zone. Die Seite zeigt den Editor, solange `openMap` eine Karte nennt; der Agent öffnet
 und schließt Karten über denselben `MapLifecycle`.
+
+**Editor-Worker.** Ein dauerhafter Modul-Worker (`editor/workers/editor-core.worker.ts`) startet mit der Karte und endet
+beim Schließen, wenn er beantwortet hat, was er schuldet (`EditorCore`, von `MapLifecycle` geöffnet und geschlossen; ein
+Speichern beim Verlassen bekommt noch seinen eigenen). Er hält einen Spiegel der Karte (`model/doc-mirror.ts`): jeder
+Auftrag bringt mit, was sich seit dem letzten geändert hat (`MirrorTracker.sync`), der Worker spielt es ein
+(`DocMirror.apply`) und rechnet auf genau dem Stand, für den der Auftrag gestellt wurde.
+- Kleine Teile (Meta, Umgebung, Regeln, Leben, Intro, Spawns, HQ, die eigenen Felder des Geländes wie Schichten, Klippe,
+  Wasserspiegel, Flüsse) gehen jedes Mal ganz mit: billiger als sie zu verfolgen. Die Schlüssel stehen dabei an ihrer
+  Stelle, damit eine Datei aus dem Spiegel ihre Felder in derselben Reihenfolge schreibt.
+- Höhen, Splat-Karten und Wassermasken gehen in Kacheln zu 64 Samples: die Kacheln, die die `DocChange`-Rechtecke seit
+  dem letzten Auftrag nannten; ein neues Array (Größe, Detail, ein neues Gewässer) ganz, eine geänderte Schichtliste
+  alle Splat-Karten, `water` ohne Rechteck alle Masken. Die Kopien werden übertragen, nicht geklont.
+- Objekte als Patch gegen die zuletzt geschickte Liste: an der Identität erkannt (ein ersetztes Objekt ist ein neues),
+  dazu die Ids, die die Änderungen nannten (eins in place geändert); Straßen und Prefabs ganz, wenn sie sich geändert
+  haben.
+- Der Spiegel teilt keinen Speicher mit dem Dokument. Die Arrays des Dokuments selbst auf `SharedArrayBuffer` zu legen
+  hieße: jeder `structuredClone` (Undo-Schnappschüsse, Skript-Sandbox, Terrain-Worker) teilte den Puffer statt ihn zu
+  kopieren; ein eigener geteilter Spiegel kostete dieselbe Kopie wie das Übertragen der Kacheln.
+- Jeder Teil hat eine Version (`DocPart`), die mit jeder Änderung steigt; ein Ergebnis kommt mit den Versionen, auf denen
+  es gerechnet wurde, `EditorCore.current` sagt, ob sie noch gelten.
+- Aufträge: was den Stand genau so sehen muss, wie er erbeten wurde (Packen), läuft sofort beim Eintreffen und liest
+  den Spiegel vor seinem ersten `await`; alles andere wartet auf einen ruhigen Moment, je Art gewinnt der neueste (ein
+  älterer wird mit `null` beantwortet), die dringlichste Art zuerst.
+- Ohne Worker (Tests) läuft derselbe Code im Prozess, die Nachrichten geklont wie bei einem Worker. Der Zufallslauf
+  (`editor-fuzz.spec.ts`) gleicht nebenbei den Spiegel ab: eine Datei aus dem Spiegel muss Byte für Byte die aus dem
+  Dokument sein.
 
 **Datei.** `.3dtdmap` ist ein Zip (fflate) mit `map.json` und den Arrays als Little-Endian-Binärdateien
 (`terrain/heights.f32`, `terrain/splat0.u8`, `terrain/splat1.u8`, ab neun Bodenschichten `terrain/splat2.u8`,

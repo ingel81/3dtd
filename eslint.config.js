@@ -157,7 +157,7 @@ module.exports = defineConfig([
     },
   },
   {
-    files: ["src/app/editor/model/**/*.ts", "src/app/editor/ops/**/*.ts"],
+    files: ["src/app/editor/model/**/*.ts", "src/app/editor/ops/**/*.ts", "src/app/editor/workers/**/*.ts"],
     ignores: ["**/*.spec.ts"],
     rules: {
       "no-restricted-imports": ["error", { patterns: [EDITOR_CORE] }],

@@ -1,6 +1,6 @@
 import { computed, Directive, inject, input, type Signal } from '@angular/core';
 import { EditorSession } from '../editor-session.service';
-import type { DocPart } from '../../services/editor-state';
+import type { DocPart } from '../../model/doc-change';
 
 /**
  * Whether the panel under this element is in sight. Every tool's panel

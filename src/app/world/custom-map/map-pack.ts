@@ -1,10 +1,10 @@
 /**
- * Packing a map off the page's thread (the editor's saves, a coop host's map):
- * the check, the split into JSON and arrays, the zip and the version
- * fingerprint took a frame of 60 to 140 ms on a 512 m map, a hitch two
- * seconds after every change. The worker gets a copy of the document as it
- * was asked for (the editor may go on changing it); inline where there are
- * no workers (tests).
+ * Packing a map off the page's thread: the check, the split into JSON and
+ * arrays, the zip and the version fingerprint took a frame of 60 to 140 ms
+ * on a 512 m map. `packForSave` is what the editor's worker runs on its
+ * mirror of the open map (editor/workers/editor-core-host.ts);
+ * `packOffThread` packs a map the page holds (a coop host's) in a worker of
+ * its own that gets a copy of it; inline where there are no workers (tests).
  */
 import type { CustomMapDocument } from './map-document';
 import { MapFileError, contentHash, packMapFile, type PackOptions } from './map-file';

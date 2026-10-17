@@ -19,6 +19,7 @@ import { biomeById } from '../ops/landscape/biomes';
 import { applyTemplate, type MapTemplate } from '../ops/landscape/templates';
 import { patch, type EditorSettings } from '../tools/tool';
 import type { CheckService } from './check-service';
+import type { EditorCore } from './editor-core';
 import type { EditorNotices } from './editor-notices';
 import type { EditorPictures } from './editor-pictures';
 import type { EditorState } from './editor-state';
@@ -31,6 +32,8 @@ import type { ViewHost } from './view-host';
 export interface LifecycleParts {
   zone: NgZone;
   notices: EditorNotices;
+  /** The editor's worker: starts with a map, ends when it closes */
+  core: EditorCore;
   library: MapLibrary;
   saves: SaveService;
   jobs: JobRunner;
@@ -184,6 +187,7 @@ export class MapLifecycle {
       }
     }
     this.leaveView(false);
+    p.core.close();
     this.lock?.close();
     this.lock = null;
     this.staleCopy.set(null);
@@ -325,6 +329,7 @@ export class MapLifecycle {
       this.current.onRefused((e) => p.notices.flash(e.message));
     }
     const editor = this.current;
+    p.core.open(editor, p.catalog().catalog);
     p.saves.opened(editor, true);
     p.check.opened();
     p.state.attach(editor);

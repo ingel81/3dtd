@@ -7,8 +7,8 @@
 import { signal } from '@angular/core';
 import type { CustomMapDocument } from '../../world/custom-map/map-document';
 import { newMapUid } from '../../world/custom-map/map-create';
-import { MAP_FILE_EXTENSION, MapFileError, packMapFile, unpackMapFile } from '../../world/custom-map/map-file';
-import { packOffThread } from '../../world/custom-map/map-pack';
+import { MAP_FILE_EXTENSION, MapFileError, unpackMapFile, type PackOptions } from '../../world/custom-map/map-file';
+import type { PackedMap } from '../../world/custom-map/map-pack';
 import { FolderWriteError } from '../../world/custom-map/folder-map-backend';
 import type { EditorDocument } from '../model/editor-document';
 import { DOWNLOAD_REMINDER_MS, storageSafety, type StorageSafety } from '../model/storage-safety';
@@ -33,6 +33,12 @@ export interface SaveHost {
   thumbnail(): Promise<Uint8Array | null>;
   /** A shipped map's own copy was stored under `id`: the tab's lock follows it */
   copied(id: string): void;
+  /**
+   * The open map packed off the page's thread (the editor's worker, which
+   * mirrors it): the file, its fingerprint and the store's summary of the
+   * very state packed, with the content hash when `hash`
+   */
+  pack(options: PackOptions, hash: boolean): Promise<PackedMap>;
   /** The map file did not take the map: the check lists each problem */
   showCheck(): void;
   /** The panels read the map again (its meta changed with the save) */
@@ -156,9 +162,9 @@ export class SaveService {
       // The identity first: the copy packed below must carry it (the store would pack the live map again)
       doc.meta.uid ??= newMapUid();
       const preview = manual ? await this.host.thumbnail() : null;
-      // An autosave packs fast and leaves the hash for when the game asks for it; packed in a worker, so a
-      // save costs the view no frame. File, hash and summary all come from the one copy the worker got
-      const { file, sum, summary } = await packOffThread(doc, { level: manual ? 6 : 1 }, manual);
+      // An autosave packs fast and leaves the hash for when the game asks for it; packed in the editor's worker
+      // from its mirror of the map, so a save costs the view no frame. File, hash and summary are of one state
+      const { file, sum, summary } = await this.host.pack({ level: manual ? 6 : 1 }, manual);
       // Kept in the game either way; a map folder that refuses the file is said, the next save writes it again
       const folderRefused = await store.save(doc, preview, file, { summary }).then(
         () => null,
@@ -229,11 +235,12 @@ export class SaveService {
   }
 
   /** The map as a `.3dtdmap` download; the reminder waits for the next stretch of work */
-  downloadFile(): void {
+  async downloadFile(): Promise<void> {
     const doc = this.host.editor?.doc;
     if (!doc) return;
     try {
-      downloadBlob(new Blob([packMapFile(doc) as Uint8Array<ArrayBuffer>], { type: 'application/zip' }), `${doc.meta.id}${MAP_FILE_EXTENSION}`);
+      const { file } = await this.host.pack({}, false);
+      downloadBlob(new Blob([file as Uint8Array<ArrayBuffer>], { type: 'application/zip' }), `${doc.meta.id}${MAP_FILE_EXTENSION}`);
       this.laterReminder();
     } catch (e) {
       this.notices.error.set(saveErrorText(e, 'downloaded'));
