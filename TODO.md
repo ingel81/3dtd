@@ -137,6 +137,21 @@ jeder Gruppe zuerst die Fehler, dann das Kleine, dann das Große.
       Licht und Farbstimmung. Größeres Thema, eigener Plan mit Vorher/Nachher-Bildern zur Abnahme. Verwandt: E173
       (Wasser, Lava), E179 (Modelle), E184 (Karten).
 
+**G7 Umbau Editor und Kartenformat** (Entscheide User 2026-10-17, Plan `tmp/plan/r4/UMBAU_PLAN.md`)
+- [ ] **E223 Kartenformat**: neue Pflichtfelder heben `MAP_VERSION` („Update the game“), neue Aufzählungswerte fallen
+      beim Lesen auf den Standard mit Meldung; harte Struktur- und weiche Inhaltsprüfung (kaputtes Objekt fällt weg);
+      Papierkorb ohne volle Prüfung.
+- [ ] **E224 Level-Bake als Befehl**: `npm run maps:bake` baut die mitgelieferten Level, `npm test` prüft nur den Hash.
+- [ ] **E225 Ein Höhenmodell**: Editor rechnet wie Spiel und Renderer (`cellHeight`), bewusster Bake, vor Video R5.
+- [ ] **E226 Gemeinsame Kartenbibliothek**: reine Operationen aus `editor/ops` und `editor/model` nach `src/app/map-ops/`,
+      Lint-Verbot `world/** -> editor/**`.
+- [ ] **E227 Editor-Kern**: Befehle aus `tools/` nach `ops/`/`model/commands` (Lint), ein Transaktionsmodell mit
+      Abbruch, `EditorSession` in Dienste schneiden (Bibliothek, Speichern zuerst), Reaktivität je Teil statt Zähler
+      und Polling, Panels ändern nur über `session.edit`, `TOOL_DEFS`, Viewport schneiden, Renderer ohne Proxy.
+- [ ] **E228 Editor-Worker**: Spiegel der Karte im Worker; Speichern, Check, Routen, Wegmaske, Verdeckung,
+      Generieren, Entpacken, Minikarte vom Hauptthread. Nach E227.
+- [ ] **E229 Gelände auf der GPU**: Höhe im Vertex-Shader aus der Höhentextur, Editor, Spiel und Schattenpass. Nach E228.
+
 ### Danach: Showreel Runde 5
 
 - [ ] **E182 Showreel Runde 4** (User, 2026-10-16: v3 abgelehnt, „nicht gut“; Runde 4 pausiert, bis das Spiel rund ist):
@@ -352,6 +367,10 @@ Nachtest-Liste in `tmp/NEXT_SESSION.md`, kommt nach PLAYTEST.md, wenn der User Z
 ---
 
 ## 3. Später und Ideen
+
+- [ ] **E230 BVH für Google-Tiles**: Strahltests (Boss-Intro, Säulen, Pick) mit `three-mesh-bvh` je Tile, im Worker.
+      Nur Echtwelt; erst wenn nach dem Zeitbudget noch Spitzen bleiben.
+- [ ] **E231 VAT im Worker backen**: Ladezeit, Hauptthread frei. Kein Bake beim Build (rund 98 MB roh mehr Download).
 
 - [ ] **E170 Rest (C)**: DevWorld durch Testkarten ersetzen; KTX2 für Modelltexturen nur mit
       Roh-GLBs ([CUSTOM_MAPS_NEXT_PLAN.md](docs/CUSTOM_MAPS_NEXT_PLAN.md)). Prefabs, Ereignisse je Welle, HP-Kurve und Intro-Flug gebaut.
