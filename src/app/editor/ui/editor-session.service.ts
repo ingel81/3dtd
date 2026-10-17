@@ -8,6 +8,7 @@
  *   view      the 3D view on the page, as far as the page may use it (EditorViewPort)
  *   saves     autosave, Ctrl+S, versions, storage safety, the download (SaveService)
  *   core      the editor's worker with its mirror of the map: packing, checks (EditorCore)
+ *   routes    each spawn's route to the HQ, found in that worker (EditorRoutes)
  *   jobs      generating, eroding, an agent's play: one at a time with Cancel (JobRunner)
  *   check     the map check, build areas, test and bot check in the game (CheckService)
  *   library   maps and stamps kept, the trash, reading files in (MapLibrary)
@@ -40,6 +41,7 @@ import { CheckService } from '../services/check-service';
 import { EditorNotices } from '../services/editor-notices';
 import { EditorPictures } from '../services/editor-pictures';
 import { EditorCore } from '../services/editor-core';
+import { EditorRoutes } from '../services/editor-routes';
 import { EditorState } from '../services/editor-state';
 import { JobRunner } from '../services/job-runner';
 import { MapLibrary } from '../services/map-library';
@@ -61,6 +63,7 @@ export class EditorSession implements OnDestroy {
   readonly state: EditorState = new EditorState(() => {
     this.saves.changed();
     this.check.changed();
+    this.routes.changed();
   });
   private readonly viewHost: ViewHost;
   /** The 3D view as far as the page may use it */
@@ -69,6 +72,7 @@ export class EditorSession implements OnDestroy {
   readonly saves: SaveService;
   readonly jobs: JobRunner;
   readonly check: CheckService;
+  readonly routes: EditorRoutes;
   readonly pictures: EditorPictures;
   readonly maps: MapLifecycle;
   readonly agent: AgentAdapter;
@@ -91,6 +95,7 @@ export class EditorSession implements OnDestroy {
       hintChanged: () => this.tools.hintChanged(),
     });
     this.view = this.viewHost;
+    this.routes = new EditorRoutes(this.core, (routes) => this.viewHost.showRoutes(routes));
     this.tools = new ToolHost(settings, this.viewHost, this.state.anyRev);
     this.pictures = new EditorPictures(this.zone, this.viewHost, catalog, () => this.doc);
     this.saves = new SaveService(
@@ -149,6 +154,7 @@ export class EditorSession implements OnDestroy {
       zone: this.zone,
       notices: this.notices,
       core: this.core,
+      routes: this.routes,
       library: this.library,
       saves: this.saves,
       jobs: this.jobs,
@@ -460,6 +466,7 @@ export class EditorSession implements OnDestroy {
     this.saves.dispose();
     this.check.dispose();
     this.maps.dispose();
+    this.routes.dispose();
     this.core.dispose();
     this.agent.dispose();
     this.library.dispose();

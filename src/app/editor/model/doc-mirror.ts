@@ -13,7 +13,10 @@
  *     rectangles), an array that is a new one (resize, a new body) whole;
  *   - the objects as a patch against the list sent last: by identity (an
  *     object replaced is a new one) and by the ids the changes named (one
- *     changed in place); the roads and the prefabs whole when they changed.
+ *     changed in place); the road nodes and edges the same way, those
+ *     changed in place found by their fields (a change of the roads names
+ *     none; a node dragged moves in place); the prefabs whole when they
+ *     changed.
  *
  * Every part has a version (DocPart, doc-change.ts) that rises with each
  * change of it; the mirror holds the versions of the state it was told, and
@@ -66,7 +69,8 @@ export interface MirrorSync {
   water?: ArraySync<Uint8Array> | null;
   bodies?: (ArraySync<Uint8Array> | null)[];
   objects?: ListPatch<MapObject>;
-  paths?: MapPaths;
+  /** The roads whole (a new mirror, a new list), or their nodes and edges as patches */
+  paths?: { whole?: MapPaths; nodes?: ListPatch<MapPaths['nodes'][number]>; edges?: ListPatch<MapPaths['edges'][number]> };
   /** The prefabs whole when they changed; null for none */
   prefabs?: MapPrefab[] | null;
 }
@@ -211,6 +215,46 @@ export function applyListPatch<T>(list: T[], patch: ListPatch<T>): T[] {
   return list;
 }
 
+/** Fields of an entry as sent, two levels deep (an edge's dress), to find one changed in place */
+type Fields = Record<string, unknown>;
+
+function isPlain(v: unknown): v is Fields {
+  return typeof v === 'object' && v !== null && !Array.isArray(v) && !ArrayBuffer.isView(v);
+}
+
+function fieldsOf(o: object, depth = 2): Fields {
+  const out: Fields = {};
+  for (const [k, v] of Object.entries(o)) out[k] = depth > 1 && isPlain(v) ? fieldsOf(v, depth - 1) : v;
+  return out;
+}
+
+function sameFields(o: object, was: Fields, depth = 2): boolean {
+  const keys = Object.keys(o);
+  if (keys.length !== Object.keys(was).length) return false;
+  for (const k of keys) {
+    const v = (o as Fields)[k];
+    const w = was[k];
+    if (v === w) continue;
+    if (!(depth > 1 && isPlain(v) && isPlain(w) && sameFields(v, w, depth - 1))) return false;
+  }
+  return true;
+}
+
+/** The fields of the entries of a list as sent, by entry */
+class SentFields<T extends object> {
+  private readonly fields = new WeakMap<T, Fields>();
+
+  /** Whether `item` changed in place since it was sent (one never seen counts as changed) */
+  changed(item: T): boolean {
+    const was = this.fields.get(item);
+    return !was || !sameFields(item, was);
+  }
+
+  keep(items: readonly T[]): void {
+    for (const item of items) this.fields.set(item, fieldsOf(item));
+  }
+}
+
 /** What the tracker sent last, by identity */
 interface Sent {
   doc: CustomMapDocument;
@@ -242,6 +286,8 @@ export class MirrorTracker {
   private allObjects = false;
   private paths = false;
   private prefabs = false;
+  private nodeFields = new SentFields<MapPaths['nodes'][number]>();
+  private edgeFields = new SentFields<MapPaths['edges'][number]>();
   private readonly unsubscribe: () => void;
 
   constructor(private readonly editor: EditorDocument) {
@@ -331,8 +377,25 @@ export class MirrorTracker {
       if (patch) sync.objects = patch;
     }
     const p = doc.paths;
-    // The roads whole: a change names no node or edge, and nodes move in place
-    if (!sent || this.paths || sent.pathsRef !== p || listPatch(sent.nodes, p.nodes) || listPatch(sent.edges, p.edges)) sync.paths = p;
+    if (!sent || sent.pathsRef !== p) {
+      sync.paths = { whole: p };
+      this.nodeFields = new SentFields();
+      this.edgeFields = new SentFields();
+      this.nodeFields.keep(p.nodes);
+      this.edgeFields.keep(p.edges);
+    } else {
+      // A change of the roads names no node or edge: their fields tell, only then worth the walk
+      const roads = <T extends object>(before: readonly T[], after: readonly T[], fields: SentFields<T>): ListPatch<T> | undefined => {
+        const patch = listPatch(before, after, this.paths ? (item) => fields.changed(item) : undefined);
+        if (!patch) return undefined;
+        if (patch.splice) fields.keep(patch.splice.items);
+        if (patch.set) fields.keep(patch.set.map(([, item]) => item));
+        return patch;
+      };
+      const nodes = roads(sent.nodes, p.nodes, this.nodeFields);
+      const edges = roads(sent.edges, p.edges, this.edgeFields);
+      if (nodes || edges) sync.paths = { ...(nodes ? { nodes } : {}), ...(edges ? { edges } : {}) };
+    }
     if (!sent || this.prefabs || sent.prefabs !== doc.prefabs) sync.prefabs = doc.prefabs ?? null;
     this.sent = {
       doc,
@@ -398,7 +461,13 @@ export class DocMirror {
     t.waterBodies?.forEach((b, k) => (b.mask = array(sync.bodies?.[k], was?.terrain.waterBodies?.[k]?.mask, g.columns, g.rows, 1, `the mask of body ${k + 1}`)));
     if (!sync.objects && !was) throw new Error('The mirror misses the objects');
     doc.objects = sync.objects ? applyListPatch(was?.objects ?? [], sync.objects) : was!.objects;
-    doc.paths = sync.paths ?? was!.paths;
+    const roads = sync.paths;
+    if (roads?.whole) doc.paths = roads.whole;
+    else {
+      doc.paths = was!.paths;
+      if (roads?.nodes) doc.paths.nodes = applyListPatch(doc.paths.nodes, roads.nodes);
+      if (roads?.edges) doc.paths.edges = applyListPatch(doc.paths.edges, roads.edges);
+    }
     if ('prefabs' in doc) doc.prefabs = (sync.prefabs !== undefined ? sync.prefabs : was?.prefabs) ?? undefined;
     this.current = doc;
     this.state = sync.state;

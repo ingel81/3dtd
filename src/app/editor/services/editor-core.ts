@@ -122,6 +122,11 @@ export class EditorCore {
     this.tracker?.reset();
   }
 
+  /** The versions of the open map's parts now, null before a map opened */
+  get versions(): Readonly<PartVersions> | null {
+    return this.closed ? null : (this.tracker?.now ?? null);
+  }
+
   /** Whether `parts` of the open map are still as `versions` says (a result worked out on them is current) */
   current(versions: Readonly<PartVersions>, parts: readonly DocPart[]): boolean {
     return !!this.tracker?.current(versions, parts);

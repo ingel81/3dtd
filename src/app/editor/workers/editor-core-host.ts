@@ -60,6 +60,10 @@ const JOBS: { [K in CoreJobKind]: JobDef<K> } = {
     priority: 50,
     run: (ctx, input) => checkMap(input.doc ?? ctx.mirror.doc, ctx.catalog, input.areas ? ctx.buildAreas : null),
   },
+  routes: {
+    priority: 40,
+    run: (ctx) => spawnRoutes(ctx.mirror.doc),
+  },
   buildAreas: {
     priority: 30,
     run: (ctx) => {

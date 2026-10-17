@@ -393,7 +393,11 @@ Enden darin), Strg+A alles; einen von mehreren gewählten Knoten zu ziehen versc
 Breite und Art gelten für alle gewählten Straßen; Breite und Art
 (Road, Path, Bridge), S glättet als Kurve, X begradigt, J löst einen Knoten zwischen zwei Straßen auf, Entf löscht.
 „Flatten road“ ebnet den Boden quer und glättet ihn längs, „Paint road“ malt eine Schicht darunter (gewählte Straße oder
-alle). Die Routen von jedem Spawn zum HQ laufen als Punkte über die Karte (abschaltbar). Routen, Straßenlinien, die
+alle). Die Routen von jedem Spawn zum HQ laufen als Punkte über die Karte (abschaltbar). Gefunden werden sie im
+Editor-Worker (`EditorRoutes`, Auftrag `routes`), sobald sich Straßen oder Marker geändert haben, höchstens so oft, wie
+die Panels der Karte folgen (je Schritt im nächsten Bild, während eines Ziehens alle 150 ms); Overlay, Probewelle und
+die Spurlängen in Measure und Markers lesen dasselbe Ergebnis. Vorher suchte der Hauptthread sie bei jedem Bild eines
+Knoten-Ziehens neu (Netz von 7 500 Knoten und 11 000 Kanten in Node 25 ms). Routen, Straßenlinien, die
 gewählte Straße und eine gezogene Linie liegen in Schritten von 2 m auf dem Boden (`drapedLine`), nicht gerade
 zwischen weit entfernten Punkten durch einen Hügel; Routen, Straßen und Punkte über einer Brücke auf ihrem Deck
 (`walkHeightAt`, dasselbe Deck wie im Spiel, `bridge-decks.ts`). Nur in Roads sind die Knoten Griffe, die mit dem
@@ -657,8 +661,8 @@ Szenenkosten.
   ebenfalls erneuert. Prüfen, Packen und der Fingerabdruck für den Verlauf laufen im Editor-Worker auf seinem Spiegel
   der Karte (siehe „Editor-Worker“ unter Architektur): vorher kostete jedes Speichern auf einer 512-m-Karte ein Bild von
   60 bis 140 ms, mit einem Pack-Worker je Speichern noch die Kopie der ganzen Karte (1025² mit 50 000 Objekten in Node
-  rund 40 ms), jetzt nur die geänderten Kacheln und Objekte (unter 1 ms ohne Änderung, eine Strichkachel und ein
-  Objekt unter 4 ms, `doc-mirror.perf.spec.ts`). Der Worker liefert auch Zusammenfassung und (bei Strg+S) Inhalts-Hash
+  rund 40 ms), jetzt nur die geänderten Kacheln und Objekte (0,3 ms ohne Änderung, eine Strichkachel und ein
+  Objekt 0,8 ms, `doc-mirror.perf.spec.ts`). Der Worker liefert auch Zusammenfassung und (bei Strg+S) Inhalts-Hash
   desselben Stands: ändert der Spieler während des Speicherns etwas, passen Datei, Hash und Listenzahlen trotzdem
   zusammen. Auch der Download packt dort
 - Ein Tab je Karte (`editor/model/map-lock.ts`): wer eine Karte zuerst öffnet, hält ihre Web-Sperre
@@ -972,8 +976,10 @@ Auftrag bringt mit, was sich seit dem letzten geändert hat (`MirrorTracker.sync
   dem letzten Auftrag nannten; ein neues Array (Größe, Detail, ein neues Gewässer) ganz, eine geänderte Schichtliste
   alle Splat-Karten, `water` ohne Rechteck alle Masken. Die Kopien werden übertragen, nicht geklont.
 - Objekte als Patch gegen die zuletzt geschickte Liste: an der Identität erkannt (ein ersetztes Objekt ist ein neues),
-  dazu die Ids, die die Änderungen nannten (eins in place geändert); Straßen und Prefabs ganz, wenn sie sich geändert
-  haben.
+  dazu die Ids, die die Änderungen nannten (eins in place geändert). Straßenknoten und -kanten ebenso, die in place
+  geänderten an ihren Feldern (zwei Ebenen tief, etwa `dress`), denn eine Änderung der Straßen nennt keine Ids und ein
+  gezogener Knoten bewegt sich in place: ein Knoten gezogen auf einem Netz von 7 500 Knoten und 11 000 Kanten kostet
+  den Abgleich 1,9 ms statt 10,5 ms für die ganzen Straßen. Prefabs ganz, wenn sie sich geändert haben.
 - Der Spiegel teilt keinen Speicher mit dem Dokument. Die Arrays des Dokuments selbst auf `SharedArrayBuffer` zu legen
   hieße: jeder `structuredClone` (Undo-Schnappschüsse, Skript-Sandbox, Terrain-Worker) teilte den Puffer statt ihn zu
   kopieren; ein eigener geteilter Spiegel kostete dieselbe Kopie wie das Übertragen der Kacheln.
@@ -981,8 +987,8 @@ Auftrag bringt mit, was sich seit dem letzten geändert hat (`MirrorTracker.sync
   es gerechnet wurde, `EditorCore.current` sagt, ob sie noch gelten.
 - Aufträge: was den Stand genau so sehen muss, wie er erbeten wurde (Packen), läuft sofort beim Eintreffen und liest
   den Spiegel vor seinem ersten `await`; alles andere wartet auf einen ruhigen Moment, je Art gewinnt der neueste (ein
-  älterer wird mit `null` beantwortet), die dringlichste Art zuerst: `pack`, `check` (Prüfen), `buildAreas`
-  (Bauflächen; der Worker behält sie für die nächste Prüfung).
+  älterer wird mit `null` beantwortet), die dringlichste Art zuerst: `pack`, `check` (Prüfen), `routes` (Routen der
+  Spawns), `buildAreas` (Bauflächen; der Worker behält sie für die nächste Prüfung).
 - Ohne Worker (Tests) läuft derselbe Code im Prozess, die Nachrichten geklont wie bei einem Worker. Der Zufallslauf
   (`editor-fuzz.spec.ts`) gleicht nebenbei den Spiegel ab: eine Datei aus dem Spiegel muss Byte für Byte die aus dem
   Dokument sein.

@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { ENEMY_TYPES } from '../../../configs/enemy-types.config';
-import { polylineLength, spawnRoutes } from '../../../map-ops/path-graph';
+import { polylineLength } from '../../../map-ops/path-graph';
 import { measureLine } from '../../ops/measure';
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
@@ -114,7 +114,7 @@ export class MeasurePanelComponent {
     this.rev();
     const doc = this.session.doc;
     if (!doc) return [];
-    const routes = spawnRoutes(doc);
+    const routes = this.session.routes.routes();
     return doc.spawns.map((s) => {
       const r = routes.get(s.id);
       const length = r ? Math.round(polylineLength(r.points)) : null;

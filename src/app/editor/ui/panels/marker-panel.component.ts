@@ -2,7 +2,6 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TdIconComponent } from '../../../components/icon/icon.component';
 import { SPAWN_COLORS } from '../../../configs/map-constants.config';
-import { spawnRoutes } from '../../../map-ops/path-graph';
 import { markerCommands } from '../../ops/marker-commands';
 import { patch, type MarkerMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
@@ -72,7 +71,7 @@ export class MarkerPanelComponent {
     this.rev();
     const doc = this.session.doc;
     if (!doc) return [];
-    const routes = spawnRoutes(doc);
+    const routes = this.session.routes.routes();
     return doc.spawns.map((s, k) => {
       const r = routes.get(s.id);
       return {

@@ -18,7 +18,7 @@ import { selectedEdges, selectedNodes, selectedSpawns, type EditorDocument, type
 import type { CustomMapDocument } from '../../world/custom-map/map-document';
 import { heightAt as gridHeight } from '../../map-ops/grid';
 import { dominantLayer } from '../../map-ops/paint-ops';
-import { edgePolyline, spawnRoutes } from '../../map-ops/path-graph';
+import { edgePolyline } from '../../map-ops/path-graph';
 import type { EditorSettings, EditorTool, MapHit, ToolContext } from '../tools/tool';
 import { CameraController } from './camera-controller';
 import { ChangeApplier } from './change-applier';
@@ -168,11 +168,10 @@ export class EditorViewport {
         this.overlayKey = '';
       },
       redrape: () => this.overlay.redrape(),
-      markers: (routes) => {
+      markers: () => {
         const doc = editor.doc;
         this.overlay.updateMarkers(doc, editor.selection);
         this.overlay.updateSelection(doc, editor.selection, (asset) => catalog.object(asset).radius);
-        if (routes) this.overlay.setRoutes(settings.paths().showRoutes ? [...spawnRoutes(doc).values()] : []);
       },
       selection: () => this.overlay.updateSelection(editor.doc, editor.selection, (asset) => catalog.object(asset).radius),
     });

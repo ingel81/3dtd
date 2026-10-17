@@ -37,8 +37,8 @@ export interface ChangeTarget {
   groundMoved(): void;
   /** The ground under the overlay moved: it takes the new heights */
   redrape(): void;
-  /** Markers and selection built anew, with `routes` the routes too */
-  markers(routes: boolean): void;
+  /** Markers and selection built anew (the routes come from the editor's worker, EditorRoutes) */
+  markers(): void;
   /** Only the selection's rings follow (objects moved) */
   selection(): void;
 }
@@ -78,7 +78,6 @@ export class Throttle {
 
 export class ChangeApplier {
   private pending: DocChange | null = null;
-  private routesDirty = true;
   private markersDirty = true;
   private readonly env: Throttle;
   private readonly life: Throttle;
@@ -104,16 +103,9 @@ export class ChangeApplier {
     this.markersDirty = true;
   }
 
-  /** The routes again (their switch in the path panel) */
-  routesChanged(): void {
-    this.routesDirty = true;
-    this.markersDirty = true;
-  }
-
-  /** A new view shows the document as it is: nothing waits, markers and routes are laid anew */
+  /** A new view shows the document as it is: nothing waits, the markers are laid anew */
   reset(): void {
     this.pending = null;
-    this.routesDirty = true;
     this.markersDirty = true;
   }
 
@@ -150,10 +142,11 @@ export class ChangeApplier {
     }
     if (c.heights || c.terrain) t.groundMoved();
     // Spawns, HQ and roads are built anew when they changed; ground and water under them (a deck rises over
-    // water) only lay them again on the new heights, at most every DRAPE_INTERVAL_MS while a stroke goes on
+    // water) only lay them again on the new heights, at most every DRAPE_INTERVAL_MS while a stroke goes on.
+    // The routes stay as the worker found them and lie again on a new terrain
     if (c.paths || c.markers || c.terrain) {
-      this.routesDirty = true;
       this.markersDirty = true;
+      if (c.terrain) this.drape.defer();
     } else if (c.heights || c.water || c.bodies) {
       this.drape.defer();
     }
@@ -164,8 +157,6 @@ export class ChangeApplier {
 
   private markers(): void {
     this.markersDirty = false;
-    const routes = this.routesDirty;
-    this.routesDirty = false;
-    this.target.markers(routes);
+    this.target.markers();
   }
 }

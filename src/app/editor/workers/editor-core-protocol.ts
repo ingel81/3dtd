@@ -6,6 +6,7 @@
  * result goes back with the parts' versions it was worked out on.
  */
 import type { MapAssetCatalog } from '../../map-ops/asset-catalog';
+import type { Route } from '../../map-ops/path-graph';
 import type { BuildAreas } from '../../map-ops/validation/build-areas';
 import type { MapIssue } from '../../map-ops/validation/map-validation';
 import type { CustomMapDocument } from '../../world/custom-map/map-document';
@@ -24,6 +25,8 @@ export interface CoreJobs {
   check: { input: { areas: boolean; doc?: CustomMapDocument }; output: MapIssue[] };
   /** Where towers may stand (build-areas.ts), along the routes of the open map; the check reads them after */
   buildAreas: { input: Record<string, never>; output: BuildAreas };
+  /** Each spawn's route to the HQ (path-graph.ts spawnRoutes), by spawn id */
+  routes: { input: Record<string, never>; output: Map<string, Route | null> };
 }
 
 export type CoreJobKind = keyof CoreJobs;

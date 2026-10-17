@@ -10,6 +10,7 @@ import { signal, type NgZone, type Signal } from '@angular/core';
 import type { MapIntro, MapIntroView, MapPoint } from '../../world/custom-map/map-document';
 import type { CatalogIndex } from '../../map-ops/asset-catalog';
 import type { BuildAreas } from '../../map-ops/validation/build-areas';
+import type { SpawnRoutes } from './editor-routes';
 import type { EditorDocument } from '../model/editor-document';
 import { patch, type EditorSettings, type EditorTool, type ToolContext } from '../tools/tool';
 import { EditorViewport, type CameraBookmark, type FrameStats, type HoverInfo } from '../view/editor-viewport';
@@ -110,6 +111,8 @@ export class ViewHost implements EditorViewPort {
   private keptView: CameraBookmark | null = null;
   private readonly cameraListeners = new Set<() => void>();
   private mapId: string | null = null;
+  /** The open map's routes as found last (EditorRoutes), for a new view and the trial wave */
+  private routes: SpawnRoutes = new Map();
 
   constructor(private readonly deps: ViewHostDeps) {}
 
@@ -142,6 +145,7 @@ export class ViewHost implements EditorViewPort {
           }),
       });
       this.viewport = vp;
+      this.refreshRoutes();
       vp.setTool(d.tool());
       if (d.locked()) vp.input.setLocked(true);
       // Back from the game: the camera where it was
@@ -190,6 +194,12 @@ export class ViewHost implements EditorViewPort {
   /** Where towers may stand on the ground, or nothing */
   showBuildAreas(areas: BuildAreas | null): void {
     this.viewport?.overlay.setBuildAreas(areas);
+  }
+
+  /** The spawns' routes, drawn while the path panel's switch shows them */
+  showRoutes(routes: SpawnRoutes): void {
+    this.routes = routes;
+    this.refreshRoutes();
   }
 
   /** The map point the view looks at (the middle of a mirror) */
@@ -331,7 +341,7 @@ export class ViewHost implements EditorViewPort {
     if (!vp) return false;
     const trial = vp.extras.trial;
     trial.speed = speed;
-    trial.toggle();
+    trial.toggle(this.routes);
     return trial.running;
   }
 
@@ -360,7 +370,8 @@ export class ViewHost implements EditorViewPort {
     this.viewport?.canvas.focus({ preventScroll: true });
   }
 
+  /** The routes drawn again (the switch in the path panel) */
   refreshRoutes(): void {
-    this.viewport?.changes.routesChanged();
+    this.viewport?.overlay.setRoutes(this.deps.settings.paths().showRoutes ? [...this.routes.values()] : []);
   }
 }

@@ -8,7 +8,7 @@ import { SPAWN_COLORS } from '../../configs/map-constants.config';
 import type { MapIntro } from '../../world/custom-map/map-document';
 import { emptyPose, introPoseAt } from '../../world/custom-map/map-intro';
 import { Soundscape } from '../../world/custom-map/ambience/soundscape';
-import { spawnRoutes } from '../../map-ops/path-graph';
+import type { Route } from '../../map-ops/path-graph';
 import type { EditorDocument } from '../model/editor-document';
 import type { CameraController, OrbitState } from './camera-controller';
 import { mapToScene } from './map-view';
@@ -66,7 +66,8 @@ export class TrialWave {
     this.runners.speed = speed;
   }
 
-  toggle(): void {
+  /** Starts it on the spawns' routes (EditorRoutes, found in the editor's worker), or stops it */
+  toggle(found: ReadonlyMap<string, Route | null>): void {
     const { editor, status } = this.host;
     if (this.runners.active) {
       this.runners.stop();
@@ -75,7 +76,6 @@ export class TrialWave {
     }
     const doc = editor.doc;
     // Each route's runners in the colour of its spawn, as on the minimap
-    const found = spawnRoutes(doc);
     const routes = doc.spawns.flatMap((sp, k) => {
       const r = found.get(sp.id);
       return r ? [{ ...r, color: '#' + new Color(SPAWN_COLORS[k % SPAWN_COLORS.length]).getHexString() }] : [];

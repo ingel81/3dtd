@@ -33,18 +33,18 @@ function setup() {
 const rect = { i0: 0, j0: 0, i1: 4, j1: 4 };
 
 describe('ChangeApplier', () => {
-  it('lays markers and routes once at the start, then only after a change to them', () => {
+  it('lays the markers once at the start, then only after a change to them', () => {
     const { applier, take } = setup();
     applier.flush();
-    expect(take()).toEqual(['markers:true']);
+    expect(take()).toEqual(['markers']);
     applier.flush();
     expect(take()).toEqual([]);
     applier.selectionChanged();
     applier.flush();
-    expect(take()).toEqual(['markers:false']);
+    expect(take()).toEqual(['markers']);
     applier.add({ paths: true });
     applier.flush();
-    expect(take()).toEqual(['paths', 'markers:true']);
+    expect(take()).toEqual(['paths', 'markers']);
   });
 
   it('merges the changes of a frame and hands each part over once', () => {
@@ -113,11 +113,14 @@ describe('ChangeApplier', () => {
     take();
     applier.add({ terrain: true, heights: rect, objects: 'all' });
     applier.flush();
-    expect(take()).toEqual(['rebuild', 'ground', 'markers:true']);
+    // The routes the worker found lie again on the new ground
+    expect(take()).toEqual(['rebuild', 'ground', 'markers']);
+    applier.flush();
+    expect(take()).toEqual(['redrape']);
     applier.add({ objects: ['x'] });
     applier.reset();
     applier.flush();
-    expect(take()).toEqual(['markers:true']);
+    expect(take()).toEqual(['markers']);
   });
 
   it('draws one water body alone when only its mask changed', () => {
