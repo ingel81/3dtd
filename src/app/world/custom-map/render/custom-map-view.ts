@@ -897,6 +897,7 @@ export class CustomMapView {
    */
   updateObjects(objects: readonly MapObject[], before: readonly MapObject[] = objects): void {
     if (!objects.length) return;
+    this.decalsMoved();
     const rest = this.objects.updateObjects(objects);
     if (rest.length) {
       this.objects.removeObjects(rest.map((o) => o.id));
@@ -1170,7 +1171,18 @@ export class CustomMapView {
     this.decals.set(this.doc, new Map(catalog.objects.map((o) => [o.id, o])));
   }
 
-  /** Objects or paths added or removed (the editor): the decals follow once the changes pause. A move keeps them */
+  /**
+   * Objects moved in place (a gizmo drag changes `doc.objects` without a new
+   * list): the decals under them follow once the moves pause
+   */
+  private decalsMoved(): void {
+    if (this.decalsFor.count < 0) return;
+    if (this.decalsDue) clearTimeout(this.decalsDue);
+    this.decalsDue = null;
+    this.decalsFor.objects = null;
+  }
+
+  /** Objects or paths added, removed or moved (the editor): the decals follow once the changes pause */
   private watchDecals(): void {
     const f = this.decalsFor;
     if (f.count < 0 || this.decalsDue) return;

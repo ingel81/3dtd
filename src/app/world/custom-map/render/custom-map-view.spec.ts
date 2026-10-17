@@ -233,6 +233,31 @@ describe('demo map', () => {
 });
 
 describe('CustomMapView', () => {
+  it('lays the ground decals again once objects moved in place stop moving', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const doc = createDemoMap();
+    const view = new CustomMapView(doc, offlineLibrary());
+    await view.ready;
+    const set = vi.spyOn(view['decals'], 'set');
+    vi.useFakeTimers();
+    try {
+      // A gizmo drag: the same list, an object replaced in its place, frame by frame
+      for (let k = 0; k < 5; k++) {
+        const before = doc.objects[0];
+        doc.objects[0] = { ...before, x: before.x + 1 };
+        view.updateObjects([doc.objects[0]], [before]);
+        view['watchDecals']();
+        await vi.advanceTimersByTimeAsync(100);
+      }
+      expect(set).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(500);
+      expect(set).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+      view.dispose();
+    }
+  });
+
   it('renders the demo map offline with placeholders and answers queries', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const doc = createDemoMap();
