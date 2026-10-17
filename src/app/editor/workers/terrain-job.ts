@@ -6,8 +6,24 @@
  * terrain worker (`terrain.worker.ts`) or, without workers, in slices on
  * the page.
  */
-import { generateRows, presetResult, type GenerateOptions, type GenerateResult } from '../ops/generate';
+import type { CustomMapDocument, MapGroundLayer, MapPaths, MapTerrain } from '../../world/custom-map/map-document';
+import { finishGenerated, generateRows, presetResult, type GenerateOptions, type GenerateResult } from '../ops/generate';
 import { erodeMap } from '../ops/landscape/erosion';
+import { emptyWater } from '../ops/water-ops';
+
+/**
+ * What a generate job needs to finish the map as well (finishGenerated):
+ * water, roads levelled, extra layers and the auto paint, all over the map,
+ * off the page too
+ */
+export interface GenerateFinish {
+  /** The map's ground; its heights are the job's */
+  terrain: Omit<MapTerrain, 'grid'>;
+  paths: MapPaths;
+  /** The catalogue's materials */
+  materials: string[];
+  repaint: boolean;
+}
 
 export type TerrainJob =
   | {
@@ -20,6 +36,8 @@ export type TerrainJob =
       /** The current heights (the preset adds to them with `options.add`) */
       heights: Float32Array;
       options: GenerateOptions;
+      /** Finish the map after the rows (the editor's Generate) */
+      finish?: GenerateFinish;
     }
   | {
       kind: 'erode';
@@ -38,6 +56,8 @@ export type TerrainJobMessage =
   | { kind: 'rows'; j0: number; j1: number; heights: Float32Array; progress: number }
   /** All heights as they stand now */
   | { kind: 'heights'; heights: Float32Array; progress: number }
+  /** The finished map (GenerateFinish): all heights, the layer list and the splat maps */
+  | { kind: 'finished'; heights: Float32Array; layers: MapGroundLayer[]; splat: Uint8Array[]; progress: number }
   | { kind: 'done'; result: GenerateResult | null };
 
 /**
@@ -63,7 +83,9 @@ export function* runTerrainJob(job: TerrainJob): Generator<TerrainJobMessage> {
       generateRows(t, job.options, j0, j1);
       yield { kind: 'rows', j0, j1, heights: job.heights.slice(j0 * job.columns, j1 * job.columns), progress: j1 / job.rows };
     }
-    yield { kind: 'done', result: presetResult(job.options) };
+    const result = presetResult(job.options);
+    if (job.finish) yield finish(job.finish, { ...t.grid }, result);
+    yield { kind: 'done', result };
     return;
   }
   for (let from = 0; from < job.drops; from += DROPS_PER_SLICE) {
@@ -72,6 +94,19 @@ export function* runTerrainJob(job: TerrainJob): Generator<TerrainJobMessage> {
     yield { kind: 'heights', heights: job.heights.slice(), progress: to / job.drops };
   }
   yield { kind: 'done', result: null };
+}
+
+/** The finished map from its generated heights, as the editor finishes it (EditorSession.finishGenerate) */
+function finish(f: GenerateFinish, grid: MapTerrain['grid'], result: GenerateResult): TerrainJobMessage {
+  const terrain = { ...f.terrain, grid } as MapTerrain;
+  // The water the editor makes for the preset (LandscapeStroke.ensureWater): the roads rise over it
+  if (result.water !== null) {
+    terrain.water ??= emptyWater(terrain, Math.round(result.water * 10) / 10);
+    terrain.water.mask.fill(255);
+  }
+  const hasMaterial = new Set(f.materials);
+  finishGenerated({ terrain, paths: f.paths } as CustomMapDocument, { ...result, water: null }, (m) => hasMaterial.has(m), f.repaint);
+  return { kind: 'finished', heights: grid.heights, layers: terrain.layers, splat: terrain.splat.maps, progress: 1 };
 }
 
 /**
@@ -114,7 +149,8 @@ export function startTerrainJob(job: TerrainJob, onMessage: (m: TerrainJobMessag
 }
 
 async function runInline(job: TerrainJob, onMessage: (m: TerrainJobMessage) => void, signal?: AbortSignal): Promise<void> {
-  const copy = { ...job, heights: job.heights.slice() };
+  // A copy as the worker gets one: the map's own ground stays as it is until the result lands
+  const copy = job.kind === 'generate' ? { ...job, heights: job.heights.slice(), finish: job.finish && structuredClone(job.finish) } : { ...job, heights: job.heights.slice() };
   for (const m of runTerrainJob(copy)) {
     if (signal?.aborted) throw new DOMException('The terrain job was stopped', 'AbortError');
     onMessage(m);

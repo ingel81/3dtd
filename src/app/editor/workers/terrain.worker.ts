@@ -9,6 +9,7 @@ addEventListener('message', (e: MessageEvent<TerrainJob>) => {
   try {
     for (const m of runTerrainJob(e.data)) {
       if (m.kind === 'done') postMessage(m);
+      else if (m.kind === 'finished') postMessage(m, [m.heights.buffer, ...m.splat.map((s) => s.buffer)]);
       else postMessage(m, [m.heights.buffer]);
     }
   } catch (err) {

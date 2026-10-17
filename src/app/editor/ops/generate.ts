@@ -141,8 +141,17 @@ export function finishGenerated(doc: CustomMapDocument, result: GenerateResult, 
     const lift = t.water.level + 0.8;
     for (const e of doc.paths.edges) {
       const line = edgePolyline(doc.paths, e);
-      for (let j = 0; j < g.rows; j++) {
-        for (let i = 0; i < g.columns; i++) {
+      if (!line.length) continue;
+      // Only the samples within reach of the road: its line's bounds and the width
+      const reach = e.width / 2 + 3;
+      const xs = line.map((p) => p.x);
+      const ys = line.map((p) => p.y);
+      const i0 = Math.max(0, Math.floor((Math.min(...xs) - reach + t.width / 2) / g.cellSize));
+      const i1 = Math.min(g.columns - 1, Math.ceil((Math.max(...xs) + reach + t.width / 2) / g.cellSize));
+      const j0 = Math.max(0, Math.floor((Math.min(...ys) - reach + t.depth / 2) / g.cellSize));
+      const j1 = Math.min(g.rows - 1, Math.ceil((Math.max(...ys) + reach + t.depth / 2) / g.cellSize));
+      for (let j = j0; j <= j1; j++) {
+        for (let i = i0; i <= i1; i++) {
           const k = j * g.columns + i;
           if (g.heights[k] >= lift) continue;
           const hit = nearestOnPolyline(line, { x: sampleX(t, i), y: sampleY(t, j) });

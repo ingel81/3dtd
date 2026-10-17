@@ -18,7 +18,7 @@ import { DOWNLOAD_REMINDER_MS, storageSafety, type StorageSafety } from '../mode
 import { biomeById } from '../ops/landscape/biomes';
 import { applyTemplate, type MapTemplate } from '../ops/landscape/templates';
 import { Injectable, NgZone, OnDestroy, computed, inject, signal } from '@angular/core';
-import { MAX_MAP_PREFABS, type CustomMapDocument, type MapIntro, type MapIntroView, type MapLife, type MapMeta } from '../../world/custom-map/map-document';
+import { fitSplatMaps, MAX_MAP_PREFABS, type CustomMapDocument, type MapIntro, type MapIntroView, type MapLife, type MapMeta } from '../../world/custom-map/map-document';
 import { createMapDocument, newMapUid, slugMapId, type NewMapOptions } from '../../world/custom-map/map-create';
 import { MAP_FILE_EXTENSION, MAX_FILE_BYTES, MapFileError, packMapFile, unpackMapFile } from '../../world/custom-map/map-file';
 import { MapStore, type LoadedMap, type MapSummary } from '../../world/custom-map/map-store';
@@ -404,18 +404,23 @@ export class EditorSession implements OnDestroy {
     stroke.touchSplat(texels);
     const g = t.grid;
     let result: GenerateResult | null = null;
+    let finished: Extract<TerrainJobMessage, { kind: 'finished' }> | null = null;
+    // The worker finishes the map too (roads levelled, layers, auto paint): over a big map that stood the page
+    const { grid: _grid, ...ground } = t;
+    const finish = { terrain: ground, paths: editor.doc.paths, materials: [...catalog.materials.keys()], repaint };
     const ok = await this.runTerrainJob(
       'Generating the terrain',
-      { kind: 'generate', width: t.width, depth: t.depth, columns: g.columns, rows: g.rows, cellSize: g.cellSize, heights: g.heights, options },
+      { kind: 'generate', width: t.width, depth: t.depth, columns: g.columns, rows: g.rows, cellSize: g.cellSize, heights: g.heights, options, finish },
       (m) => {
         if (m.kind === 'rows') {
           g.heights.set(m.heights, m.j0 * g.columns);
           editor.emit({ heights: { i0: 0, i1: g.columns - 1, j0: m.j0, j1: m.j1 - 1 } });
-        } else if (m.kind === 'done') result = m.result;
+        } else if (m.kind === 'finished') finished = m;
+        else if (m.kind === 'done') result = m.result;
       },
     );
-    if (!ok || !result) return false;
-    this.finishGenerate(stroke, result, repaint, all, texels);
+    if (!ok || !result || !finished) return false;
+    this.finishGenerate(stroke, result, finished, all, texels);
     return true;
   }
 
@@ -582,16 +587,25 @@ export class EditorSession implements OnDestroy {
     }
   }
 
-  private finishGenerate(stroke: LandscapeStroke, result: GenerateResult, repaint: boolean, all: GridRect, texels: GridRect): void {
+  /** Lands the map the terrain worker finished: its water, heights, layers and paint, as one undo step */
+  private finishGenerate(
+    stroke: LandscapeStroke,
+    result: GenerateResult,
+    finished: Extract<TerrainJobMessage, { kind: 'finished' }>,
+    all: GridRect,
+    texels: GridRect,
+  ): void {
     const editor = this.editor!;
     const t = editor.doc.terrain;
-    const catalog = this.catalog();
     if (result.water !== null) {
       stroke.ensureWater(result.water);
       stroke.touchWater(all);
       t.water!.mask.fill(255);
     }
-    finishGenerated(editor.doc, { ...result, water: null }, (m) => catalog.materials.has(m), repaint);
+    t.grid.heights.set(finished.heights);
+    t.layers = finished.layers;
+    fitSplatMaps(t);
+    finished.splat.forEach((map, k) => t.splat.maps[k].set(map));
     stroke.changed({ heights: all, splat: texels, water: true, layers: true });
     stroke.finish();
     this.refresh();

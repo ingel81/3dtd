@@ -553,7 +553,11 @@ Schritt im Verlauf.
 Presets aus Seed und Stärke auf dem Rauschen von DevWorld: Hills (Hügel in zwei Größen), Valleys (Hügel mit scharfen
 Tälern), Islands (Land aus dem Meer, zum Rand hin abfallend, Wasser auf 0 m), Canyon (Hochebene mit gewundener Schlucht
 und gestuften Wänden), Terraces (Hügel in flachen Stufen). Im Map-Panel über die offene Karte: Boden ersetzen oder
-dazurechnen, wahlweise neu bemalen nach Neigung und Höhe; ein Schritt im Verlauf.
+dazurechnen, wahlweise neu bemalen nach Neigung und Höhe; ein Schritt im Verlauf. Der Terrain-Worker rechnet die Reihen
+in Bändern und danach auch den Abschluss (Wasser des Presets, Straßen einebnen und über Wasser heben, weitere Schichten,
+Bemalen); die Seite übernimmt nur die fertigen Höhen, Schichten und Splat-Karten (1024-m-Karte, Islands, 30 Straßen:
+vorher 840 ms Abschluss im Bild, jetzt im Worker 390 ms, weil das Heben über Wasser nur noch die Samples in Reichweite
+jeder Straße prüft).
 
 ## Prüfen
 

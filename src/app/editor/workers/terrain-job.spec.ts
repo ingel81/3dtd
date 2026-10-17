@@ -1,5 +1,7 @@
 import { createMapDocument } from '../../world/custom-map/map-create';
-import { generateTerrain } from '../ops/generate';
+import { finishGenerated, generateTerrain } from '../ops/generate';
+import { addNode, connect } from '../ops/path-graph';
+import { emptyWater } from '../ops/water-ops';
 import { erodeMap } from '../ops/landscape/erosion';
 import { runTerrainJob, startTerrainJob, type TerrainJob } from './terrain-job';
 
@@ -21,6 +23,38 @@ describe('terrain jobs', () => {
     }
     expect(Array.from(b.grid.heights)).toEqual(Array.from(a.grid.heights));
     expect(last).toEqual(result);
+  });
+
+  it('finishes the map off the page as the editor did on it: water, levelled roads, layers, paint', () => {
+    const make = () => {
+      const doc = createMapDocument({ id: 'm', name: 'M', width: 400, depth: 400, cellSize: 2, now: new Date(0) });
+      const a = addNode(doc.paths, { x: -150, y: -40 });
+      const b = addNode(doc.paths, { x: 150, y: 60 });
+      connect(doc.paths, a.id, b.id, 8);
+      return doc;
+    };
+    const materials = ['grass', 'sand', 'rocky-ground', 'gravel', 'dirt', 'rock'];
+    const options = { preset: 'islands' as const, seed: 4, strength: 0.8 };
+    // On the page: generate, then the preset's water and finishGenerated
+    const page = make();
+    const result = generateTerrain(page.terrain, options);
+    page.terrain.water = emptyWater(page.terrain, Math.round(result.water! * 10) / 10);
+    page.terrain.water.mask.fill(255);
+    finishGenerated(page, { ...result, water: null }, (m) => materials.includes(m), true);
+    // In the job
+    const doc = make();
+    const t = doc.terrain;
+    const { grid: _grid, ...ground } = t;
+    const job: TerrainJob = {
+      kind: 'generate', width: t.width, depth: t.depth, columns: t.grid.columns, rows: t.grid.rows, cellSize: 2, heights: t.grid.heights.slice(), options,
+      finish: { terrain: structuredClone(ground), paths: doc.paths, materials, repaint: true },
+    };
+    const finished = [...runTerrainJob(job)].find((m) => m.kind === 'finished')!;
+    expect(finished.kind).toBe('finished');
+    if (finished.kind !== 'finished') return;
+    expect(Array.from(finished.heights)).toEqual(Array.from(page.terrain.grid.heights));
+    expect(finished.layers).toEqual(page.terrain.layers);
+    expect(finished.splat.map((m) => Array.from(m))).toEqual(page.terrain.splat.maps.map((m) => Array.from(m)));
   });
 
   it('erode in slices like at once, the land worn down a little', () => {
