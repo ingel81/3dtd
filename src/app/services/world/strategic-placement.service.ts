@@ -277,6 +277,8 @@ export class StrategicPlacementService {
    * come first, best on top; the rest follow as they were.
    */
   private standingFirst(candidates: PlacementCandidate[], typeId: TowerTypeId): PlacementCandidate[] {
+    // Spots moved onto a crown's centre line replace theirs in this copy
+    candidates = candidates.slice();
     const probing = !!TOWER_TYPES[typeId].range && this.los.canProbeSight();
     const standing: { candidate: PlacementCandidate; footY: number }[] = [];
     let first = -1;
@@ -285,6 +287,10 @@ export class StrategicPlacementService {
       const { position } = candidates[i];
       const placement = this.towerPlacement.placementAt(position.lat, position.lon, typeId);
       if (!placement?.result.valid) continue;
+      // A crown moves the spot onto its centre line: the candidate goes on from there
+      if (placement.lat !== position.lat || placement.lon !== position.lon) {
+        candidates[i] = { ...candidates[i], position: { ...position, lat: placement.lat, lon: placement.lon } };
+      }
       if (first < 0) first = i;
       last = i;
       standing.push({ candidate: candidates[i], footY: placement.footprint.footY });

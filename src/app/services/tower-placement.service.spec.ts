@@ -76,6 +76,7 @@ describe('TowerPlacementService', () => {
       y: height,
       z: (lat - HQ.lat) * METERS_PER_DEGREE_LAT,
     }),
+    localSimpleToGeo: (x: number, z: number) => ({ lat: HQ.lat + z / METERS_PER_DEGREE_LAT, lon: HQ.lon + x / M_PER_DEG_LON }),
   };
   /** DevWorld terrain whose surface and ground both follow `height`: no buildings. */
   const devWorld = (height: (x: number) => number) => ({
@@ -917,12 +918,26 @@ describe('TowerPlacementService', () => {
       devTerrain = devWorld(() => 42);
       init();
       expect(service.placementAt(FREE.lat, FREE.lon, 'archer')).toEqual({
+        lat: FREE.lat,
+        lon: FREE.lon,
         footprint: { footY: 42, plinthHeight: 0 },
         result: { valid: true },
       });
       expect(service.placementAt(NEAR_HQ.lat, NEAR_HQ.lon, 'archer')?.result).toEqual({
         valid: false, reason: 'Too close to HQ',
       });
+    });
+
+    it('on a crown, stands it on the centre line and says where, for the place command (E217)', () => {
+      init();
+      const local = sync.geoToLocalSimple(FREE.lat, FREE.lon, 0);
+      // A wall along scene z whose centre line runs 2 m to the side of the asked spot
+      Object.assign(terrain, { crownAt: (x: number, z: number) => ({ x: local.x + 2, z, axisX: 0, axisZ: 1, halfWidth: 1.5, top: 0 }) });
+      const placement = service.placementAt(FREE.lat, FREE.lon, 'archer')!;
+      const line = sync.localSimpleToGeo(local.x + 2, local.z);
+      expect(placement.lat).toBeCloseTo(line.lat, 9);
+      expect(placement.lon).toBeCloseTo(line.lon, 9);
+      expect(placement.lon).not.toBeCloseTo(FREE.lon, 6);
     });
 
     it('on the tiles, stands it on the terrain height and refuses a spot its footprint rules out', () => {
@@ -932,6 +947,8 @@ describe('TowerPlacementService', () => {
       terrainHeight.mockReturnValue(3);
       init();
       expect(service.placementAt(FREE.lat, FREE.lon, 'archer')).toEqual({
+        lat: FREE.lat,
+        lon: FREE.lon,
         footprint: { footY: 3, plinthHeight: 0, refusal: 'wall' },
         result: { valid: false, reason: 'Not enough room' },
       });

@@ -285,9 +285,10 @@ export class BotSession {
           }
 
           const { footprint, result: validation } = placement;
+          // Where the rules stood it: on a crown its centre line, not the asked spot
           const geoPos: GeoPosition = {
-            lat: action.position.z,
-            lon: action.position.x,
+            lat: placement.lat,
+            lon: placement.lon,
             height: footprint.footY
           };
 

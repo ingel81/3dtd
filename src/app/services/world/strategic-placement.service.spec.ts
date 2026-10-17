@@ -100,7 +100,7 @@ describe('StrategicPlacementService candidate filter', () => {
       (_lat, lon) => ({ valid: lon > hq.lon }),
     );
     placementChecker = vi.fn(() => check);
-    placementAt = vi.fn(() => ({ footprint: { footY: 0, plinthHeight: 0 }, result: { valid: true } }));
+    placementAt = vi.fn((lat: number, lon: number) => ({ lat, lon, footprint: { footY: 0, plinthHeight: 0 }, result: { valid: true } }));
     injectionRegistry['TowerPlacementService'] = { placementChecker, placementAt };
 
     service = new StrategicPlacementService();
@@ -153,6 +153,17 @@ describe('StrategicPlacementService candidate filter', () => {
     }
   });
 
+  it('moves a spot on a crown onto its centre line, where the tower then goes (E217)', () => {
+    const all = service.findStrategicPositions(spawnPoints, paths, 'archer');
+    const first = all[0].position;
+    placementAt.mockImplementationOnce((lat: number, lon: number) => ({ lat: lat + 1e-5, lon, footprint: { footY: 8, plinthHeight: 1 }, result: { valid: true } }));
+    const moved = service.findStrategicPositions(spawnPoints, paths, 'archer');
+    expect(moved[0].position.lat).toBeCloseTo(first.lat + 1e-5, 9);
+    expect(moved[0].position.lon).toBe(first.lon);
+    // The search's own list is not changed
+    expect(all[0].position).toEqual(first);
+  });
+
   it('returns no candidates when no footprint stands', () => {
     placementAt.mockReturnValue({ footprint: { footY: 0, plinthHeight: 0, refusal: 'edge' }, result: { valid: false } });
     expect(service.findStrategicPositions(spawnPoints, paths, 'archer')).toEqual([]);
@@ -179,7 +190,7 @@ describe('StrategicPlacementService candidate filter', () => {
     });
 
     it('probes the best four standing spots, from the foot the placement gives them', () => {
-      placementAt.mockReturnValue({ footprint: { footY: 7, plinthHeight: 0 }, result: { valid: true } });
+      placementAt.mockImplementation((lat: number, lon: number) => ({ lat, lon, footprint: { footY: 7, plinthHeight: 0 }, result: { valid: true } }));
       service.findStrategicPositions(spawnPoints, paths, 'archer');
 
       expect(placementAt).toHaveBeenCalledTimes(4);

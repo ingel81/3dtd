@@ -399,19 +399,21 @@ export class TowerPlacementService {
    * rules let it, from the ground there: the surface (in DevWorld the roof,
    * on the tiles the terrain height), the footprint on it (resolveFootprint)
    * and the placement rules with that footprint. The bot's way to a spot,
-   * with the answer preview and click give. Null without an engine or
-   * without a terrain height there.
+   * with the answer preview and click give. On a crown (a custom map's wall)
+   * the tower stands on its centre line: `lat`, `lon` say where, and the
+   * place command goes there. Null without an engine or without a terrain
+   * height there.
    */
   placementAt(
     lat: number,
     lon: number,
     typeId: TowerTypeId,
-  ): { footprint: TowerFootprint; result: TowerPlacementResult } | null {
+  ): { lat: number; lon: number; footprint: TowerFootprint; result: TowerPlacementResult } | null {
     ({ lat, lon } = this.onCrownLine(lat, lon));
     const terrainHeight = this.engine?.getTerrainHeightAtGeo(lat, lon) ?? null;
     if (terrainHeight === null) return null;
     const footprint = this.resolveFootprint(lat, lon, typeId, this.resolvePlacementHeight(lat, lon, terrainHeight));
-    return { footprint, result: this.validateTowerPosition(lat, lon, footprint) };
+    return { lat, lon, footprint, result: this.validateTowerPosition(lat, lon, footprint) };
   }
 
   /**
