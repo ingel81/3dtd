@@ -29,7 +29,6 @@ import { RegionRecorder } from '../../model/region-patch';
 import { BodyAddCommand, LayerListCommand, RiverListCommand, WaterSwapCommand } from '../../model/terrain-commands';
 import { MAX_LAYERS } from '../paint-ops';
 import { ObjectGrid, ObjectIds, rockShape, settled } from '../object-ops';
-import { edgePolyline, nearestOnPolyline } from '../path-graph';
 import { BODY_COLORS, emptyWater } from '../water-ops';
 import { MAX_WATER_BODIES } from '../../../world/custom-map/map-file';
 import { mirrorChange, objectImages, sameSector, symmetryImages, type SymmetryMode } from '../symmetry';
@@ -41,13 +40,77 @@ const COAST_REACH = 150;
 /** Metres the coast's distance field reaches; further counts as this far */
 const COAST_FAR = 120;
 
-interface RoadLine {
-  points: MapPoint[];
-  half: number;
-  minX: number;
-  maxX: number;
-  minY: number;
-  maxY: number;
+/** Side of the cells the stroke files the roads' segments in, metres */
+const ROAD_CELL = 16;
+
+/**
+ * The roads' segments, each with its road's half width, filed in cells of
+ * ROAD_CELL by their bounds grown by that half width: a point looks only at
+ * the cells within the distance it asks about, not at every road.
+ */
+class RoadSegments {
+  /** Ends and half width per segment: ax, ay, bx, by, half */
+  private readonly parts: Float64Array;
+  private readonly cells = new Map<number, number[]>();
+
+  constructor(roads: readonly { points: readonly MapPoint[]; half: number }[]) {
+    let count = 0;
+    for (const r of roads) count += Math.max(0, r.points.length - 1);
+    this.parts = new Float64Array(count * 5);
+    let s = 0;
+    for (const r of roads) {
+      for (let k = 1; k < r.points.length; k++, s++) {
+        const a = r.points[k - 1];
+        const b = r.points[k];
+        this.parts.set([a.x, a.y, b.x, b.y, r.half], s * 5);
+        const i0 = Math.floor((Math.min(a.x, b.x) - r.half) / ROAD_CELL);
+        const i1 = Math.floor((Math.max(a.x, b.x) + r.half) / ROAD_CELL);
+        const j0 = Math.floor((Math.min(a.y, b.y) - r.half) / ROAD_CELL);
+        const j1 = Math.floor((Math.max(a.y, b.y) + r.half) / ROAD_CELL);
+        for (let j = j0; j <= j1; j++) {
+          for (let i = i0; i <= i1; i++) {
+            const key = roadCellKey(i, j);
+            const list = this.cells.get(key);
+            if (list) list.push(s);
+            else this.cells.set(key, [s]);
+          }
+        }
+      }
+    }
+  }
+
+  /** Metres from a point to the nearest road's edge (negative on it), where under `within`; else Infinity or at least `within` */
+  distance(x: number, y: number, within: number): number {
+    if (!this.cells.size) return Infinity;
+    const p = this.parts;
+    const i0 = Math.floor((x - within) / ROAD_CELL);
+    const i1 = Math.floor((x + within) / ROAD_CELL);
+    const j0 = Math.floor((y - within) / ROAD_CELL);
+    const j1 = Math.floor((y + within) / ROAD_CELL);
+    let best = Infinity;
+    for (let j = j0; j <= j1; j++) {
+      for (let i = i0; i <= i1; i++) {
+        const list = this.cells.get(roadCellKey(i, j));
+        if (!list) continue;
+        for (const s of list) {
+          const o = s * 5;
+          const ax = p[o];
+          const ay = p[o + 1];
+          const dx = p[o + 2] - ax;
+          const dy = p[o + 3] - ay;
+          const len2 = dx * dx + dy * dy;
+          const t = len2 > 0 ? Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / len2)) : 0;
+          const d = Math.hypot(ax + dx * t - x, ay + dy * t - y) - p[o + 4];
+          if (d < best) best = d;
+        }
+      }
+    }
+    return best;
+  }
+}
+
+function roadCellKey(i: number, j: number): number {
+  return (i + 1_000_000) * 2_000_003 + (j + 1_000_000);
 }
 
 /** Spawns and the HQ keep this much free ground */
@@ -78,7 +141,7 @@ export class LandscapeStroke {
   private readonly removed: ObjectsCommand[] = [];
   readonly grid: ObjectGrid;
   private readonly ids: ObjectIds;
-  private roads: RoadLine[] = [];
+  private roads = new RoadSegments([]);
   private readonly markers: MapPoint[];
   private change: DocChange = {};
   /** Copy every dab and object to the symmetric images; objects grow only in the sector the stroke began in */
@@ -102,6 +165,8 @@ export class LandscapeStroke {
   readonly strongest = new Map<string, number>();
   /** Position-only values the brushes worked out already (noise per texel), by name */
   readonly fields = new Map<string, FieldCache>();
+  /** The same as doubles, where the values feed heights (a landform's noise and the roads' hold), by name */
+  readonly floatFields = new Map<string, FieldCache<Float64Array>>();
   /** Materials the stroke wanted but found no room for in the full layer list */
   readonly layersFull: string[] = [];
   /** Materials of a full list that took over a layer no ground used any more (`hell-ground for snow-drift`) */
@@ -140,24 +205,25 @@ export class LandscapeStroke {
   /** Re-read the roads (a brush that lays one wants the others to avoid it) */
   refreshRoads(): void {
     const paths = this.doc.paths;
-    this.roads = paths.edges.map((e) => {
-      const points = edgePolyline(paths, e);
-      const xs = points.map((p) => p.x);
-      const ys = points.map((p) => p.y);
-      return { points, half: e.width / 2, minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
-    });
+    const nodes = new Map(paths.nodes.map((n) => [n.id, n]));
+    this.roads = new RoadSegments(
+      paths.edges.map((e) => {
+        const a = nodes.get(e.a);
+        const b = nodes.get(e.b);
+        return { points: a && b ? [a, ...(e.via ?? []), b] : [], half: e.width / 2 };
+      }),
+    );
+    // The roads' hold is kept per sample with the forms' noise
+    this.floatFields.clear();
   }
 
-  /** Metres from a point to the edge of the nearest road (negative on it); Infinity without roads nearby */
+  /**
+   * Metres from a point to the edge of the nearest road (negative on it);
+   * beyond `within` the answer only says "at least that far" (Infinity
+   * without roads nearby)
+   */
   roadDistance(x: number, y: number, within = 30): number {
-    let best = Infinity;
-    for (const r of this.roads) {
-      const pad = r.half + within;
-      if (x < r.minX - pad || x > r.maxX + pad || y < r.minY - pad || y > r.maxY + pad) continue;
-      const hit = nearestOnPolyline(r.points, { x, y });
-      if (hit) best = Math.min(best, hit.dist - r.half);
-    }
-    return best;
+    return this.roads.distance(x, y, within);
   }
 
   /** Whether an object may stand here: off roads, away from spawns and HQ, not in water (unless it floats) */

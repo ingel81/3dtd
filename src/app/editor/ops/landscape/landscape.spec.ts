@@ -5,7 +5,7 @@ import { fitSplatMaps, type CustomMapDocument } from '../../../world/custom-map/
 import { CatalogIndex, normalizeCatalog } from '../../catalog/asset-catalog';
 import { EditorDocument, mergeChanges, type DocChange } from '../../model/editor-document';
 import { heightAt, slopeAt } from '../../model/grid';
-import { edgePolyline, nearestOnEdges } from '../path-graph';
+import { addNode, connect, edgePolyline, nearestOnEdges, nearestOnPolyline } from '../path-graph';
 import { biomeDab, finishBiome, previewSpots } from './biome-brush';
 import { biomeById, BIOMES } from './biomes';
 import { erosionDab } from './erosion';
@@ -445,6 +445,27 @@ describe('landforms', () => {
     plateau.finish();
     expect(heightAt(ed.doc.terrain, 0, -100)).toBeGreaterThan(5);
     expect(heightAt(ed.doc.terrain, 5, -100)).toBeCloseTo(heightAt(ed.doc.terrain, -5, -100), 0);
+  });
+
+  it('the distance to the roads matches every road measured on its own, within what is asked', () => {
+    const ed = map();
+    const paths = ed.doc.paths;
+    const a = addNode(paths, { x: -150, y: -20 });
+    const b = addNode(paths, { x: 140, y: 30 });
+    const c = addNode(paths, { x: 10, y: 160 });
+    connect(paths, a.id, b.id, 6)!.via = [{ x: -40, y: 40 }, { x: 60, y: -30 }];
+    connect(paths, b.id, c.id, 14);
+    const stroke = new LandscapeStroke(ed, 'Mountain', 1, catalog);
+    const lines = paths.edges.map((e) => ({ line: edgePolyline(paths, e), half: e.width / 2 }));
+    for (let k = 0; k < 2000; k++) {
+      const p = { x: ((k * 7919) % 400) - 200, y: ((k * 104729) % 400) - 200 };
+      const truth = Math.min(...lines.map((l) => nearestOnPolyline(l.line, p)!.dist - l.half));
+      for (const within of [4, 6, 30]) {
+        const d = stroke.roadDistance(p.x, p.y, within);
+        if (truth < within) expect(d).toBeCloseTo(truth, 9);
+        else expect(d).toBeGreaterThanOrEqual(within);
+      }
+    }
   });
 
   it('a cliff rises left of the drawn line', () => {

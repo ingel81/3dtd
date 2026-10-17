@@ -10,6 +10,7 @@ import { sampleRectAround, sampleX, sampleY, type GridRect } from '../../model/g
 import { brushWeight, type BrushSettings } from '../brush';
 import { nearestOnPolyline, polylineLength } from '../path-graph';
 import { HEIGHT_LIMITS } from '../terrain-ops';
+import { FieldCache } from './field-cache';
 import { smooth } from './landscape-noise';
 import type { LandscapeStroke } from './landscape-stroke';
 
@@ -76,14 +77,27 @@ export function formDab(stroke: LandscapeStroke, kind: FormKind, pointer: MapPoi
   // stands at least that high all round: on a peak or a slope the middle stood higher than the rim, a ridge
   // left gaps in it, and the bowl held nothing (lava filled a sliver)
   const rimRef = kind === 'crater' ? meanOnRing(stroke, center, brush.radius * CRATER_SHARE) : 0;
+  // The form's noise and the roads' hold depend only on the position: worked out once per stroke and sample
+  const wave = kind === 'mountain' ? Math.max(20, brush.radius * 0.6) : kind === 'dunes' ? Math.max(16, brush.radius * 0.45) : brush.radius;
+  const key = `form:${kind}:${wave}`;
+  let cache = stroke.floatFields.get(key);
+  if (!cache) stroke.floatFields.set(key, (cache = new FieldCache(g.columns, 2, (length) => new Float64Array(length))));
   for (let j = rect.j0; j <= rect.j1; j++) {
     const y = sampleY(t, j);
     for (let i = rect.i0; i <= rect.i1; i++) {
       const x = sampleX(t, i);
       const d = Math.hypot(x - center.x, y - center.y);
       if (d >= brush.radius) continue;
-      const keep = stroke.roadKeep(x, y);
+      cache.at(i, j);
+      const c = cache.data;
+      const o = cache.offset;
+      if (cache.fresh) {
+        c[o] = formNoise(n, kind, x, y, wave);
+        c[o + 1] = stroke.roadKeep(x, y);
+      }
+      const keep = c[o + 1];
       if (keep <= 0) continue;
+      const noise = c[o];
       const base = stroke.baseHeight(i, j);
       const k = j * g.columns + i;
       const cur = g.heights[k];
@@ -91,13 +105,12 @@ export function formDab(stroke: LandscapeStroke, kind: FormKind, pointer: MapPoi
       if (kind === 'mountain') {
         // A cone softened to a bell, broken up by ridges; wider brushes make broader ridges
         const bell = Math.pow(brushWeight(d, brush.radius, 1), 1.3);
-        const ridges = n.ridged(x, y, Math.max(20, brush.radius * 0.6));
-        target = Math.max(cur, base + height * bell * (0.45 + 0.75 * ridges));
+        target = Math.max(cur, base + height * bell * (0.45 + 0.75 * noise));
       } else if (kind === 'valley') {
         const bowl = brushWeight(d, brush.radius, 1);
-        target = Math.min(cur, base - height * bowl * (0.8 + 0.2 * n.fbm(x, y, brush.radius, 3)));
+        target = Math.min(cur, base - height * bowl * (0.8 + 0.2 * noise));
       } else if (kind === 'crater') {
-        const rc = brush.radius * CRATER_SHARE * (0.92 + 0.16 * n.fbm(x, y, 12, 2, 'n4'));
+        const rc = brush.radius * CRATER_SHARE * (0.92 + 0.16 * noise);
         const edge = 1 - smooth(brush.radius * 0.8, brush.radius, d);
         // The ground the crater is cut into: the rim's mean inside, joining the ground (raised to that mean
         // where it lies lower) toward the rim, the raise fading out beyond it
@@ -107,11 +120,10 @@ export function formDab(stroke: LandscapeStroke, kind: FormKind, pointer: MapPoi
         target = ground + height * craterProfile(d / rc) * edge;
       } else if (kind === 'dunes') {
         const w = brushWeight(d, brush.radius, Math.max(0.3, brush.falloff));
-        const wave = Math.max(16, brush.radius * 0.45);
-        target = Math.max(cur, base + height * w * duneHeight(n, x, y, wave));
+        target = Math.max(cur, base + height * w * noise);
       } else {
         // A table with a steep frayed rim at about two thirds of the radius
-        const rim = brush.radius * (0.62 + 0.12 * n.fbm(x, y, 14, 3, 'n4'));
+        const rim = brush.radius * (0.62 + 0.12 * noise);
         const top = 1 - smooth(rim - 2 * g.cellSize, rim + g.cellSize, d);
         target = Math.max(cur, stroke.anchor.h + height * top + (base - stroke.anchor.h) * (1 - top));
       }
@@ -120,6 +132,22 @@ export function formDab(stroke: LandscapeStroke, kind: FormKind, pointer: MapPoi
     }
   }
   return rect;
+}
+
+/** The noise a form reads at a point (ridges, a bowl's wobble, a frayed rim, dune crests) */
+function formNoise(n: LandscapeStroke['noise'], kind: FormKind, x: number, y: number, wave: number): number {
+  switch (kind) {
+    case 'mountain':
+      return n.ridged(x, y, wave);
+    case 'valley':
+      return n.fbm(x, y, wave, 3);
+    case 'crater':
+      return n.fbm(x, y, 12, 2, 'n4');
+    case 'dunes':
+      return duneHeight(n, x, y, wave);
+    case 'plateau':
+      return n.fbm(x, y, 14, 3, 'n4');
+  }
 }
 
 /** The mean ground before the stroke on a ring of radius `r` round `c` */

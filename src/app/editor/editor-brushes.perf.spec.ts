@@ -5,6 +5,7 @@ import { createMapDocument } from '../world/custom-map/map-create';
 import { CatalogIndex, normalizeCatalog } from './catalog/asset-catalog';
 import { EditorDocument } from './model/editor-document';
 import { heightAt } from './model/grid';
+import { addNode, connect } from './ops/path-graph';
 import { LandscapeTool } from './tools/landscape-tool';
 import { PaintTool } from './tools/paint-tool';
 import { TerrainTool } from './tools/terrain-tool';
@@ -123,5 +124,48 @@ describe('brush steps', () => {
         expect(ms).toBeLessThan(perfBudget(c.budget));
       });
     }
+  }
+});
+
+/**
+ * The landforms at the largest brush (200 m, 31 000 samples) on a 1024 m
+ * map crossed by a road grid of 220 edges: noise and the distance to the
+ * roads per sample are what such a dab costs.
+ */
+describe('big landform steps', () => {
+  for (const mode of ['mountain', 'valley', 'plateau', 'crater', 'dunes'] as const) {
+    it(`${mode} at 200 m`, () => {
+      const cell = 2;
+      const columns = 512;
+      const editor = new EditorDocument(
+        createMapDocument({ id: 'p', name: 'P', width: columns * cell, depth: columns * cell, cellSize: cell, now: new Date(0) }),
+      );
+      const paths = editor.doc.paths;
+      const half = (columns * cell) / 2;
+      // Eleven roads each way, 90 m apart, joined at every crossing
+      const ids: string[][] = [];
+      for (let j = 0; j <= 10; j++) {
+        ids.push([]);
+        for (let i = 0; i <= 10; i++) ids[j].push(addNode(paths, { x: -450 + i * 90, y: -450 + j * 90 }).id);
+      }
+      for (let j = 0; j <= 10; j++) {
+        for (let i = 0; i < 10; i++) {
+          connect(paths, ids[j][i], ids[j][i + 1]);
+          connect(paths, ids[i][j], ids[i + 1][j]);
+        }
+      }
+      const ctx = context(editor);
+      ctx.settings.brush = { radius: 200, strength: 0.8, falloff: 0.5 };
+      ctx.settings.landscape.mode = mode;
+      const tool = new LandscapeTool();
+      let x = -half * 0.3;
+      const y = half * 0.1;
+      tool.pointerDown?.(pointer(x, y), ctx);
+      for (let k = 0; k < 3; k++) tool.frame?.(1 / 144, pointer((x += 1), y), ctx);
+      const ms = medianMs(() => tool.frame?.(1 / 144, pointer((x += 1.5), y), ctx), 15);
+      tool.pointerUp?.(pointer(x, y), ctx);
+      console.log(`[brush] ${mode} 200 m: ${ms.toFixed(2)} ms`);
+      expect(ms).toBeLessThan(perfBudget(4));
+    });
   }
 });
