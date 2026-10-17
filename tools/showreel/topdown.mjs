@@ -1,3 +1,7 @@
+// A map fixture seen from straight above, the whole map in one picture (the editor's top-down render), to read
+// coordinates for a scene's camera off it; prints size, HQ, spawns and the number of objects.
+//
+//   node tools/showreel/topdown.mjs <dev server> fixtures/<x>.3dtdmap <out>.png
 import { readFileSync, writeFileSync } from 'node:fs';
 import { launch, pageUrl } from './browser.mjs';
 import { fixturePath } from './take.mjs';
