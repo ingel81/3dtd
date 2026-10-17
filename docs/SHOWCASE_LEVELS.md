@@ -5,8 +5,13 @@ bis zur Freigabe (TODO E134); Nachtest im Spiel offen, Optik-Arbeit in [CUSTOM_M
 
 Zwölf Karten (dazu das Demo-Tal), die zeigen, was der Editor kann, und die sich gut spielen. Jede wird mit den Werkzeugen des Editors gebaut
 (dieselben Operationen wie im Editor: Landschafts-Pinsel, Fluss, Straße, Biome, Objekte), als Bauskript unter
-`tools/maps/levels/<id>.ts`, damit sie nachvollziehbar und reproduzierbar ist. `tools/maps/shipped-maps.spec.ts` packt
-sie nach `public/maps/` mit Vorschaubild und Eintrag in `index.json`.
+`tools/maps/levels/<id>.ts`, damit sie nachvollziehbar und reproduzierbar ist. `npm run maps:bake`
+(`tools/maps/shipped-maps.spec.ts` im vitest-Modus `maps`) packt sie nach `public/maps/` mit Vorschaubild und Eintrag in
+`index.json`. `npm test` schreibt nichts: es baut jede Karte und wird rot, wenn ihr Inhalts-Hash oder ihr Eintrag nicht
+zu `index.json` passt („run npm run maps:bake, this changes the shipped maps' hashes“). So ändert eine Änderung an
+einer Editor-Operation, die die Level benutzen, die mitgelieferten Karten nie still: ein neuer Hash macht Replays,
+Spielstände und eigene Kopien dieser Karten alt („stale copy“), er kommt nur mit einem bewussten Bake und gehört in den
+Commit.
 
 ## Bauskripte
 
@@ -38,7 +43,7 @@ Schneefeld vom Kopf zur Zunge: ein ebener Strang von Punkt zu Punkt, etwas einge
 der Zunge und Moränenschutt an den Rändern. Breite Modelle (Zäune, Mauern) sitzen am tiefsten Punkt ihrer Grundfläche:
 am Steilhang versinken sie, dort schmale Stücke nehmen.
 
-Packen: `npx vitest run tools/maps/shipped-maps.spec.ts -t <id>` (mit `LEVEL_LOG=1` Spuren, Objekte, Warnungen) (ein Level allein; die Liste in `index.json` behält
+Packen: `npm run maps:bake -- -t <id>` (mit `LEVEL_LOG=1` Spuren, Objekte, Warnungen) (ein Level allein; die Liste in `index.json` behält
 die anderen). Ansehen: `/map-preview?map=<id>&cam=x,y,h,tx,ty,th&clean` (Kamera und Ziel in Kartenmetern, Höhen über
 dem Boden). Bilder unter `docs/images/levels/`.
 

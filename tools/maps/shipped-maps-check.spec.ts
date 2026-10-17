@@ -85,11 +85,14 @@ describe('shipped maps check', () => {
   for (const entry of index.maps) {
     describe(entry.id, () => {
       const path = resolve(MAPS_DIR, entry.file);
-      const doc = existsSync(path) ? unpackMapFile(readFileSync(path)).doc : null;
+      const read = existsSync(path) ? unpackMapFile(readFileSync(path)) : null;
+      const doc = read?.doc ?? null;
 
       it('reads, validates and matches its entry in index.json', async () => {
         expect(doc, `${entry.file} missing`).not.toBeNull();
         expect(validateMapDocument(doc!)).toEqual([]);
+        // Nothing for reading to set right or leave out: a shipped map opens without a banner
+        expect(read!.repaired).toEqual([]);
         expect(doc!.meta.id).toBe(entry.id);
         expect(await contentHash(doc!)).toBe(entry.contentHash);
         expect([doc!.terrain.width, doc!.terrain.depth, doc!.spawns.length]).toEqual([entry.width, entry.depth, entry.spawns]);

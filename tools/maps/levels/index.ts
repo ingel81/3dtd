@@ -1,6 +1,6 @@
 /**
  * The showcase levels (docs/SHOWCASE_LEVELS.md), each built by its script
- * with the editor's operations; tools/maps/shipped-maps.spec.ts packs them.
+ * with the editor's operations; `npm run maps:bake` packs them (tools/maps/shipped-maps.spec.ts).
  */
 import type { CustomMapDocument } from '../../../src/app/world/custom-map/map-document';
 import { buildArchipelago } from './archipelago';
