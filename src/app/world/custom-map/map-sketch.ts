@@ -8,19 +8,33 @@ export const MAP_SKETCH_PX = 256;
  * its relief shaded from the north-west, the water, and the roads and paths
  * as lines. For a map that has no picture of the editor yet (one made
  * from OpenStreetMap, docs/WORLDS_STATE_PLAN.md 6); a save by hand in the
- * editor puts its rendered one in place. PNG bytes, null where the page has
- * no 2D canvas (a spec).
+ * editor puts its rendered one in place. PNG bytes, null where there is no
+ * 2D canvas (a spec); in a worker on an OffscreenCanvas.
  */
 export async function sketchMapPicture(doc: CustomMapDocument, size = MAP_SKETCH_PX): Promise<Uint8Array | null> {
+  // An OffscreenCanvas where there is one: the OSM worker draws the sketch beside the making (E218)
+  if (typeof OffscreenCanvas !== 'undefined') {
+    const canvas = new OffscreenCanvas(size, size);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    draw(ctx, doc, size);
+    return new Uint8Array(await (await canvas.convertToBlob({ type: 'image/png' })).arrayBuffer());
+  }
   const canvas = typeof document === 'undefined' ? null : document.createElement('canvas');
   const ctx = canvas?.getContext('2d') ?? null;
   if (!canvas || !ctx) return null;
   canvas.width = size;
   canvas.height = size;
-  drawGround(ctx, doc, size);
-  drawPaths(ctx, doc, size);
+  draw(ctx, doc, size);
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
   return blob ? new Uint8Array(await blob.arrayBuffer()) : null;
+}
+
+type Sketch2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+
+function draw(ctx: Sketch2D, doc: CustomMapDocument, size: number): void {
+  drawGround(ctx, doc, size);
+  drawPaths(ctx, doc, size);
 }
 
 /** Map metres to the picture: the map's middle in the middle, its longer side across */
@@ -30,7 +44,7 @@ function toPixel(doc: CustomMapDocument, size: number): (p: MapPoint) => [number
   return (p) => [size / 2 + p.x * k, size / 2 + p.y * k];
 }
 
-function drawGround(ctx: CanvasRenderingContext2D, doc: CustomMapDocument, size: number): void {
+function drawGround(ctx: Sketch2D, doc: CustomMapDocument, size: number): void {
   const { grid, water } = doc.terrain;
   const { columns, rows, heights } = grid;
   let low = Infinity;
@@ -73,7 +87,7 @@ function drawGround(ctx: CanvasRenderingContext2D, doc: CustomMapDocument, size:
   ctx.putImageData(image, 0, 0);
 }
 
-function drawPaths(ctx: CanvasRenderingContext2D, doc: CustomMapDocument, size: number): void {
+function drawPaths(ctx: Sketch2D, doc: CustomMapDocument, size: number): void {
   const at = toPixel(doc, size);
   const nodes = new Map(doc.paths.nodes.map((n) => [n.id, n]));
   const k = size / Math.max(doc.terrain.width, doc.terrain.depth, 1);

@@ -8,7 +8,8 @@ import type { CatalogObject } from '../../world/custom-map/render/asset-catalog'
 import { buildingCatalog } from '../../world/osm/convert/buildings';
 import { assetCosts } from '../../world/osm/convert/vegetation';
 import { OSM_SPAWNS, OSM_WORLD_SIDE, osmMapNames, type OsmImportReport } from '../../world/osm/import-osm';
-import type { FrameSpawn, GeoPoint, OsmFrameInfo, OsmOpenRequest, OsmStep } from '../../world/osm/osm-frame-core';
+import type { FrameSpawn, GeoPoint, OsmFrameInfo, OsmOpenRequest } from '../../world/osm/osm-frame-core';
+import { loadingRows, makingView, reduceProgress, type OsmLoadRow, type OsmProgress, type OsmProgressState, type OsmStepStatus } from '../../world/osm/osm-progress';
 import { fitArea, OSM_HQ_EDGE_M, OSM_MIN_SIDE, sameArea, type OsmArea } from '../../world/osm/osm-area';
 import { OSM_CANCELLED, OsmFrameSession } from '../../world/osm/osm-frame-session';
 import { overpassRetryText, type OverpassRetry } from '../../world/osm/overpass-client';
@@ -23,24 +24,6 @@ export const OSM_FRAME_SESSION = new InjectionToken<() => OsmFrameSession>('OSM_
 
 /** Most spawns a frame lays out */
 export const OSM_FRAME_MAX_SPAWNS = 8;
-
-/** What a step reads as in the progress line, in the order they come */
-const STEPS: readonly { step: OsmStep | 'save'; text: string }[] = [
-  { step: 'parse', text: 'Reading the OpenStreetMap data' },
-  { step: 'terrain', text: 'Ground from the heights' },
-  { step: 'roads', text: 'Streets and bridges' },
-  { step: 'water', text: 'Rivers, lakes and the coast' },
-  { step: 'level', text: 'Levelling the ground under the streets' },
-  { step: 'ground', text: 'Painting the land' },
-  { step: 'shores', text: 'Painting the shores' },
-  { step: 'paint', text: 'Painting the road surfaces' },
-  { step: 'layout', text: 'HQ and spawns' },
-  { step: 'buildings', text: 'Buildings' },
-  { step: 'furniture', text: 'Fences, walls, tracks and lamps' },
-  { step: 'plants', text: 'Forests and trees' },
-  { step: 'pack', text: 'Packing the map' },
-  { step: 'save', text: 'Saving' },
-];
 
 type Phase = 'loading' | 'ready' | 'failed' | 'making' | 'made';
 
@@ -86,8 +69,8 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
   readonly hqEdge = OSM_HQ_EDGE_M;
   readonly maxSpawns = OSM_FRAME_MAX_SPAWNS;
   readonly phase = signal<Phase>('loading');
-  /** The step under way while loading or making */
-  readonly step = signal<OsmStep | 'save' | null>(null);
+  /** The steps of the load or the making under way, as the worker reported them (osm-progress.ts, E218) */
+  readonly progress = signal<OsmProgressState>({});
   readonly error = signal<string | null>(null);
   /** The OSM servers are asked again while loading: which round of how many (overpass-client.ts) */
   readonly retry = signal<OverpassRetry | null>(null);
@@ -103,9 +86,9 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
   readonly mapProblem = signal<string | null>(null);
   readonly made = signal<{ summary: MapSummary; report: OsmImportReport } | null>(null);
 
-  /** The clock while loading (twice a second): the wait before the next round, the time spent waiting */
+  /** The clock while loading or making (twice a second): the wait before the next round, the time spent */
   readonly now = signal(Date.now());
-  /** When the load began, when the servers are asked again (a retry's wait over) */
+  /** When the load or the making began, when the servers are asked again (a retry's wait over) */
   private loadStart = 0;
   private retryAt = 0;
   private ticker: ReturnType<typeof setInterval> | null = null;
@@ -115,20 +98,26 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
   /** Seconds the load has waited so far */
   readonly waited = computed(() => Math.max(0, Math.floor((this.now() - this.loadStart) / 1000)));
 
-  readonly loadingText = computed(() => {
+  /** The rows of the load: the data kept here, or the OpenStreetMap answer and the heights side by side, then the streets */
+  readonly loadRows = computed(() => loadingRows(this.progress()));
+  /** The OpenStreetMap answer has not begun to come yet: the servers are asked, or asked again */
+  private readonly askingOverpass = computed(() => {
+    const overpass = this.progress().overpass;
+    return overpass?.status === 'active' && !overpass.detail;
+  });
+  /** What the player reads under the rows while the OpenStreetMap servers keep them waiting; null while all goes on */
+  readonly waitText = computed(() => {
     const retry = this.retry();
     if (retry) return overpassRetryText(retry, (this.retryAt - this.now()) / 1000);
-    if (this.step() === 'stored') return 'Opening the streets kept from last time';
     // The first answer can take long (a busy server keeps the request open): the player sees it is still waiting
-    if (this.waited() >= SLOW_S) return `Still waiting for the map server (${this.waited()} s)`;
-    return 'Downloading the streets and heights of this place';
+    if (this.askingOverpass() && this.waited() >= SLOW_S) return `Still waiting for the OpenStreetMap server (${this.waited()} s)`;
+    return null;
   });
   /** Ask again at once: offered while the servers are asked again, or when the first answer is slow */
-  readonly canRetryNow = computed(() => !!this.retry() || (this.step() !== 'stored' && this.waited() >= RETRY_NOW_S));
-  readonly makingStep = computed(() => {
-    const k = Math.max(0, STEPS.findIndex((s) => s.step === this.step()));
-    return { text: STEPS[k].text, index: k + 1, of: STEPS.length };
-  });
+  readonly canRetryNow = computed(() => !!this.retry() || (this.askingOverpass() && this.waited() >= RETRY_NOW_S));
+  /** The making: its stages, the weighted share, the step under way */
+  readonly makingNow = computed(() => makingView(this.progress()));
+  readonly percent = computed(() => Math.round(this.makingNow().share * 100));
   readonly fetchedOn = computed(() => {
     const at = this.frame()?.fetchedAt;
     return at ? new Date(at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
@@ -171,20 +160,17 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
     this.phase.set('loading');
     this.error.set(null);
     this.dropNote.set(null);
-    this.step.set(null);
+    this.progress.set({});
     this.retry.set(null);
     this.loading = new AbortController();
-    this.loadStart = Date.now();
-    this.now.set(this.loadStart);
-    this.stopTicker();
-    this.ticker = setInterval(() => this.now.set(Date.now()), 500);
+    this.startClock();
     const place = this.place();
     const standing = before ? this.spawns().map(({ lat, lon }) => ({ lat, lon })) : [];
     const request: OsmOpenRequest = before
       ? { place: { lat: place.lat, lon: place.lon, address: place.address }, count: Math.max(1, standing.length), spawnsAt: standing, topUp: true, area }
       : { place: { lat: place.lat, lon: place.lon, address: place.address }, count: OSM_SPAWNS, spawnsAt: [...this.spawnsAt()] };
     try {
-      const frame = await this.session.open(request, (step) => this.step.set(step), this.loading.signal, (retry) => {
+      const frame = await this.session.open(request, (p) => gen === this.loadGen && this.hear(p), this.loading.signal, (retry) => {
         if (gen !== this.loadGen) return;
         this.retryAt = Date.now() + retry.waitMs;
         this.retry.set(retry);
@@ -234,9 +220,33 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
     void this.load();
   }
 
+  /** A step reported: into the state the rows and the bar show; a step that comes ends the wait for the servers */
+  private hear(progress: OsmProgress): void {
+    this.progress.update((state) => reduceProgress(state, progress));
+    if (progress.step === 'overpass' && progress.detail) this.retry.set(null);
+  }
+
+  private startClock(): void {
+    this.loadStart = Date.now();
+    this.now.set(this.loadStart);
+    this.stopTicker();
+    this.ticker = setInterval(() => this.now.set(Date.now()), 500);
+  }
+
   private stopTicker(): void {
     if (this.ticker) clearInterval(this.ticker);
     this.ticker = null;
+  }
+
+  /** The mark before a row or stage, as the loading plate draws its steps */
+  mark(status: OsmStepStatus): string {
+    return status === 'done' ? '+' : status === 'active' ? '>' : status === 'failed' ? '!' : '-';
+  }
+
+  /** What a row of the load says beside its words; the OpenStreetMap row counts the wait while no byte came */
+  rowDetail(row: OsmLoadRow): string {
+    if (row.step === 'overpass' && row.status === 'active' && !row.detail) return this.retry() ? 'busy, asking again' : `asking (${this.waited()} s)`;
+    return row.detail ?? (row.status === 'done' ? 'done' : '');
   }
 
   /** The flat map, MapLibre loaded on first use */
@@ -350,7 +360,9 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
     if (!this.spawns().length) return;
     this.phase.set('making');
     this.error.set(null);
-    this.step.set('parse');
+    this.progress.set({});
+    this.hear({ step: 'parse' });
+    this.startClock();
     this.making = new AbortController();
     const signal = this.making.signal;
     try {
@@ -360,14 +372,16 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
       const made = await this.session.make(
         this.spawns(),
         { id, name: names.name, costs: catalog && assetCosts(catalog, this.area()?.sideM ?? OSM_WORLD_SIDE), catalog: catalog && buildingCatalog(catalog) },
-        (step) => this.step.set(step),
+        (p) => this.hear(p),
         signal,
       );
       if (signal.aborted) throw new Error(OSM_CANCELLED);
-      this.step.set('save');
-      // A picture for the lists until the editor renders its own (docs/WORLDS_STATE_PLAN.md, 6)
-      const preview = await sketchMapPicture(made.doc).catch(() => null);
-      const summary = await this.store.save(made.doc, preview, made.file);
+      this.hear({ step: 'save' });
+      // A picture for the lists until the editor renders its own (docs/WORLDS_STATE_PLAN.md, 6); the worker drew it
+      // and worked out the content hash, so the page only stores (a sketch here only where the worker had no canvas)
+      const preview = made.preview ?? (await sketchMapPicture(made.doc).catch(() => null));
+      const summary = await this.store.save(made.doc, preview, made.file, { contentHash: made.hash });
+      this.hear({ step: 'save', state: 'done' });
       console.warn(`[OSM world] ${summary.id}: made in ${made.convertMs} ms`, { download: this.frame()?.download, report: made.report });
       if (this.destroyed) return;
       this.made.set({ summary, report: made.report });
@@ -379,6 +393,7 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
       this.error.set(message === OSM_CANCELLED ? null : `The map was not made: ${message}`);
     } finally {
       this.making = null;
+      this.stopTicker();
     }
   }
 

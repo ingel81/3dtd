@@ -18,6 +18,7 @@ import { OsmFrame, parseOsm, type OsmParseStats } from './osm-parse';
 import type { OsmFrameStore } from './osm-frame-store';
 import { downloadOsm, osmQueryBox } from './osm-query';
 import type { OverpassResponse, OverpassRetry } from './overpass-client';
+import { sizeText, type OsmProgress } from './osm-progress';
 import { buildRoads, levelRoads, paintRoads, type RoadStats } from './convert/roads';
 import { buildTunnels, seatPortals, type TunnelReport } from './convert/tunnels';
 import { fillOsmTerrain } from './convert/terrain';
@@ -285,8 +286,6 @@ export interface OsmDownloadStats {
   demBytes: number;
 }
 
-/** Which download is under way, for the progress line */
-export type OsmLoadStep = 'stored' | 'download';
 
 /**
  * What convertOsm reads for a place: from the frame store when it holds the
@@ -302,7 +301,8 @@ export async function loadOsmInput(
     store?: OsmFrameStore;
     decode?: DemDecoder;
     signal?: AbortSignal;
-    onStep?: (step: OsmLoadStep) => void;
+    /** Hears the steps: the store, the Overpass answer and the heights side by side (osm-progress.ts) */
+    onProgress?: (progress: OsmProgress) => void;
     /** Hears each round of the Overpass servers about to be asked again */
     onRetry?: (retry: OverpassRetry) => void;
   } = {},
@@ -310,18 +310,38 @@ export async function loadOsmInput(
   const { lat, lon } = place;
   const side = options.sideM ?? OSM_WORLD_SIDE;
   const box = osmQueryBox(lat, lon, side, OSM_QUERY_MARGIN);
+  const report = options.onProgress ?? (() => undefined);
+  report({ step: 'stored' });
   const stored = await options.store?.load(lat, lon, side);
-  options.onStep?.(stored ? 'stored' : 'download');
-  const askDem = () =>
-    downloadDem(box, { decode: options.decode, signal: options.signal }).catch((e: Error) => {
-      if (options.signal?.aborted) throw e;
-      return { error: e.message };
-    });
-  const askOsm = () =>
-    downloadOsm(box, options.signal, options.onRetry).catch((e: Error) => {
-      if (options.signal?.aborted) throw e;
-      throw new Error(overpassFailure(e.message));
-    });
+  report({ step: 'stored', state: 'done', detail: stored ? 'found' : 'nothing kept yet' });
+  const askDem = () => {
+    report({ step: 'heights' });
+    return downloadDem(box, { decode: options.decode, signal: options.signal, onTile: (done, of) => report({ step: 'heights', share: done / of, detail: `${done} of ${of} tiles` }) }).then(
+      (got) => {
+        report({ step: 'heights', state: 'done', detail: `${got.tiles} tiles` });
+        return got;
+      },
+      (e: Error) => {
+        if (options.signal?.aborted) throw e;
+        report({ step: 'heights', state: 'failed', detail: 'none came, the ground will be flat' });
+        return { error: e.message };
+      },
+    );
+  };
+  const askOsm = () => {
+    report({ step: 'overpass' });
+    return downloadOsm(box, options.signal, options.onRetry, (bytes) => report({ step: 'overpass', detail: `${sizeText(bytes)} received` })).then(
+      (got) => {
+        report({ step: 'overpass', state: 'done', detail: sizeText(got.chars) });
+        return got;
+      },
+      (e: Error) => {
+        if (options.signal?.aborted) throw e;
+        report({ step: 'overpass', state: 'failed' });
+        throw new Error(overpassFailure(e.message));
+      },
+    );
+  };
   const [osm, dem] = await Promise.all([stored ? null : askOsm(), stored?.dem ? null : askDem()]);
   const got = dem && !('error' in dem) ? dem : null;
   const mosaic = stored?.dem ?? got?.mosaic ?? null;

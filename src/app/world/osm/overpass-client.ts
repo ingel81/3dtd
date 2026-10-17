@@ -226,6 +226,8 @@ export interface OverpassRequest<T> {
   retry?: OverpassRetryPolicy;
   /** Hears each round that is about to be asked again */
   onRetry?: (retry: OverpassRetry) => void;
+  /** Hears the bytes of an answer as they come (the body is then read as a stream) */
+  onBytes?: (bytes: number) => void;
   /** Aborting ends every attempt and the wait; the promise rejects with an OverpassError of kind `cancelled` */
   signal?: AbortSignal;
   /** The jitter's draw, [0, 1); Math.random when absent */
@@ -375,7 +377,7 @@ function askRound<T>(request: OverpassRequest<T>, servers: readonly string[], ro
       const hedge = setTimeout(askNext, limits.hedgeMs);
       let answered = false;
       const attempt = async (): Promise<T> => {
-        const answer = await askOverpass(server, query, controller, limits, () => clearTimeout(hedge));
+        const answer = await askOverpass(server, query, controller, limits, () => clearTimeout(hedge), request.onBytes);
         logOverpassAnswer(what, server, answer);
         answered = true;
         return accept(answer.data, answer.chars);
@@ -422,6 +424,7 @@ async function askOverpass(
   controller: AbortController,
   limits: OverpassLimits,
   onHeaders: () => void,
+  onBytes?: (bytes: number) => void,
 ): Promise<OverpassAnswer> {
   const start = performance.now();
   let timedOut = false;
@@ -463,7 +466,7 @@ async function askOverpass(
   }, limits.bodyTimeoutMs);
   let text: string;
   try {
-    text = await response.text();
+    text = onBytes && response.body ? await readStream(response.body, onBytes) : await response.text();
   } catch (error) {
     if (timedOut) throw new OverpassError(`answer not complete within ${limits.bodyTimeoutMs}ms`, 'timeout');
     throw new OverpassError(`answer cut off (${error instanceof Error ? error.message : String(error)})`, 'network', { cause: error });
@@ -484,4 +487,21 @@ async function askOverpass(
     headersMs: headersAt - start,
     bodyMs: performance.now() - headersAt,
   };
+}
+
+/** A body read as it comes, `onBytes` told the bytes so far after each piece */
+async function readStream(body: ReadableStream<Uint8Array>, onBytes: (bytes: number) => void): Promise<string> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  const parts: string[] = [];
+  let bytes = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    bytes += value.byteLength;
+    parts.push(decoder.decode(value, { stream: true }));
+    onBytes(bytes);
+  }
+  parts.push(decoder.decode());
+  return parts.join('');
 }

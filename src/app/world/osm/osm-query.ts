@@ -160,9 +160,14 @@ export interface OsmDownload {
  * Asks the world's query for `box`; an answer cut short by the server's
  * limits is asked again in four quarters (once, not deeper). Busy servers
  * are asked again (OSM_QUERY_RETRY), `onRetry` hears each round about to be
- * asked again. Rejects when no server answers.
+ * asked again, `onBytes` the bytes received so far. Rejects when no server answers.
  */
-export async function downloadOsm(box: GeoBox, signal?: AbortSignal, onRetry?: (retry: OverpassRetry) => void): Promise<OsmDownload> {
+export async function downloadOsm(
+  box: GeoBox,
+  signal?: AbortSignal,
+  onRetry?: (retry: OverpassRetry) => void,
+  onBytes?: (bytes: number) => void,
+): Promise<OsmDownload> {
   const start = performance.now();
   let chars = 0;
   const ask = (b: GeoBox, what: string) =>
@@ -172,6 +177,8 @@ export async function downloadOsm(box: GeoBox, signal?: AbortSignal, onRetry?: (
       limits: OSM_QUERY_LIMITS,
       retry: OSM_QUERY_RETRY,
       onRetry,
+      // The bytes of all requests together (four quarters after a cut answer)
+      onBytes: onBytes && ((bytes) => onBytes(chars + bytes)),
       signal,
       accept: (data, length) => {
         chars += length;

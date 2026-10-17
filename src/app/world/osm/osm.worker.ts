@@ -10,7 +10,8 @@
 
 import { documentTransferables } from '../w3x/w3x-worker.types';
 import { browserDecoder } from './dem-tiles';
-import { OsmFrameCore, type OsmStep } from './osm-frame-core';
+import { OsmFrameCore } from './osm-frame-core';
+import { thinProgress } from './osm-progress';
 import { OsmFrameStore } from './osm-frame-store';
 import type { OsmWorkerRequest, OsmWorkerResponse } from './osm-worker.types';
 import type { OverpassRetry } from './overpass-client';
@@ -21,13 +22,14 @@ addEventListener('message', (event: MessageEvent<OsmWorkerRequest>) => {
   const request = event.data;
   const { id } = request;
   const send = (response: OsmWorkerResponse, transfer: Transferable[] = []) => postMessage(response, transfer);
-  const onStep = (step: OsmStep) => send({ id, kind: 'step', step });
+  // A step that only counts on goes at most every PROGRESS_EVERY_MS
+  const onProgress = thinProgress((progress) => send({ id, kind: 'progress', progress }));
   const onRetry = (retry: OverpassRetry) => send({ id, kind: 'retry', retry });
   void (async () => {
     try {
       switch (request.kind) {
         case 'open':
-          send({ id, kind: 'opened', frame: await core.open(request.request, onStep, undefined, onRetry) });
+          send({ id, kind: 'opened', frame: await core.open(request.request, onProgress, undefined, onRetry) });
           break;
         case 'draw':
           send({ id, kind: 'spawns', spawns: core.draw(request.count, request.keep) });
@@ -36,9 +38,10 @@ addEventListener('message', (event: MessageEvent<OsmWorkerRequest>) => {
           send({ id, kind: 'dropped', spawn: core.drop(request.at) });
           break;
         case 'make': {
-          const made = core.make(request.spawnsAt, request.options, onStep);
+          const made = await core.make(request.spawnsAt, request.options, onProgress);
           const buffers = documentTransferables(made.doc);
           if (made.file.buffer instanceof ArrayBuffer) buffers.push(made.file.buffer);
+          if (made.preview?.buffer instanceof ArrayBuffer) buffers.push(made.preview.buffer);
           send({ id, kind: 'made', made }, buffers);
           break;
         }

@@ -38,7 +38,7 @@ describe('OsmFrameSession', () => {
     vi.advanceTimersByTime(800);
     worker.say({ id, kind: 'retry', retry: { attempt: 2, of: 4, waitMs: 3000, kind: 'busy' } });
     vi.advanceTimersByTime(800);
-    worker.say({ id, kind: 'step', step: 'download' });
+    worker.say({ id, kind: 'progress', progress: { step: 'overpass', detail: '1.2 MB received' } });
     vi.advanceTimersByTime(999);
     expect(worker.terminated).toBe(false);
     expect(retries).toEqual([{ attempt: 2, of: 4, waitMs: 3000, kind: 'busy' }]);

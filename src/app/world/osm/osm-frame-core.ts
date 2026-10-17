@@ -7,7 +7,8 @@
  * (osm.worker.ts), or on the calling thread where workers are missing.
  */
 import { newMapUid } from '../custom-map/map-create';
-import { packMapFile } from '../custom-map/map-file';
+import { contentHash, packMapFile } from '../custom-map/map-file';
+import { sketchMapPicture } from '../custom-map/map-sketch';
 import type { MapPoint } from '../custom-map/map-document';
 import type { DemDecoder } from './dem-tiles';
 import type { OsmFrameStore } from './osm-frame-store';
@@ -17,14 +18,13 @@ import {
   loadOsmInput,
   osmStreets,
   OSM_WORLD_SIDE,
-  type OsmConvertStep,
   type OsmDownloadStats,
   type OsmImportInput,
   type OsmImportOptions,
   type OsmImportResult,
-  type OsmLoadStep,
   type OsmStreets,
 } from './import-osm';
+import type { OsmProgress } from './osm-progress';
 import type { LaidSpawn } from './convert/layout';
 import { areaWithin, type OsmArea } from './osm-area';
 
@@ -33,9 +33,6 @@ export interface GeoPoint {
   lat: number;
   lon: number;
 }
-
-/** One step of loading or making, for the progress list */
-export type OsmStep = OsmLoadStep | OsmConvertStep | 'pack';
 
 /** A spawn as the frame draws it, in real coordinates */
 export interface FrameSpawn extends GeoPoint {
@@ -81,9 +78,13 @@ export interface OsmFrameInfo {
   dem: string | null;
 }
 
-/** A map made and packed, ready for the map store */
+/** A map made and packed, ready for the map store: its file, content hash and sketch worked out beside the making */
 export interface OsmMade extends OsmImportResult {
   file: Uint8Array;
+  /** MapStore.save takes it (SaveOptions.contentHash) instead of working it out on the page */
+  hash: string;
+  /** The sketch for the lists (map-sketch.ts), null where there is no 2D canvas */
+  preview: Uint8Array | null;
   convertMs: number;
 }
 
@@ -109,18 +110,21 @@ export class OsmFrameCore {
    * round it loads (frame store or download), so sizing down and small moves
    * after it fetch nothing either. A failed load keeps what was laid out.
    */
-  async open(request: OsmOpenRequest, onStep?: (step: OsmStep) => void, signal?: AbortSignal, onRetry?: (retry: OverpassRetry) => void): Promise<OsmFrameInfo> {
+  async open(request: OsmOpenRequest, onProgress?: (progress: OsmProgress) => void, signal?: AbortSignal, onRetry?: (retry: OverpassRetry) => void): Promise<OsmFrameInfo> {
     const { place } = request;
     const area = request.area ?? { lat: place.lat, lon: place.lon, sideM: this.side };
     if (!this.data || !areaWithin(area, this.data.area)) {
       const wanted = request.data && areaWithin(area, request.data) ? request.data : { lat: area.lat, lon: area.lon, sideM: Math.max(area.sideM, this.side) };
       const { input, download } = await loadOsmInput(
         { lat: wanted.lat, lon: wanted.lon, address: place.address },
-        { sideM: wanted.sideM, store: this.deps.store, decode: this.deps.decode, signal, onStep, onRetry },
+        { sideM: wanted.sideM, store: this.deps.store, decode: this.deps.decode, signal, onProgress, onRetry },
       );
       this.data = { input, area: wanted, download };
     }
-    return this.lay(place, area, request.count, request.spawnsAt ?? [], request.topUp ?? false);
+    onProgress?.({ step: 'streets' });
+    const info = this.lay(place, area, request.count, request.spawnsAt ?? [], request.topUp ?? false);
+    onProgress?.({ step: 'streets', state: 'done', detail: `${info.roads.roadKm} km of road, ${info.spawns.length} ${info.spawns.length === 1 ? 'spawn' : 'spawns'}` });
+    return info;
   }
 
   /** As `open`, with the data in hand (specs, tools): its square round its centre */
@@ -172,17 +176,20 @@ export class OsmFrameCore {
     return 'reason' in laid ? laid : this.geo(laid);
   }
 
-  /** The map with the spawns at `spawnsAt`, packed */
-  make(spawnsAt: readonly GeoPoint[], options: OsmImportOptions, onStep?: (step: OsmStep) => void): OsmMade {
+  /** The map with the spawns at `spawnsAt`, packed, with its content hash and sketch (the page only stores them) */
+  async make(spawnsAt: readonly GeoPoint[], options: OsmImportOptions, onProgress?: (progress: OsmProgress) => void): Promise<OsmMade> {
     const input = this.input;
     if (!input) throw new Error('The place is not loaded');
     const start = performance.now();
-    const result = convertOsm(input, { ...options, sideM: this.area?.sideM ?? options.sideM, spawnsAt: [...spawnsAt] }, onStep);
-    onStep?.('pack');
+    onProgress?.({ step: 'parse' });
+    const result = convertOsm(input, { ...options, sideM: this.area?.sideM ?? options.sideM, spawnsAt: [...spawnsAt] }, (step) => onProgress?.({ step }));
+    onProgress?.({ step: 'pack' });
     // The store gives a map its identity at the first save; the file packed here carries it already
     result.doc.meta.uid = newMapUid();
     const file = packMapFile(result.doc);
-    return { ...result, file, convertMs: Math.round(performance.now() - start) };
+    onProgress?.({ step: 'pack', share: 0.8, detail: 'its picture and fingerprint' });
+    const [hash, preview] = await Promise.all([contentHash(result.doc), sketchMapPicture(result.doc).catch(() => null)]);
+    return { ...result, file, hash, preview, convertMs: Math.round(performance.now() - start) };
   }
 
   private opened(): OsmStreets {

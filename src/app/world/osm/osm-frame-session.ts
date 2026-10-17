@@ -1,7 +1,7 @@
 /**
  * The frame's line to the OSM worker (osm.worker.ts): one worker per frame,
  * holding the place's data from the opening to the making. Each call answers
- * by its id; steps go to the call's `onStep`, the Overpass servers asked
+ * by its id; progress goes to the call's `onProgress`, the Overpass servers asked
  * again to its `onRetry`. Aborting a call's signal or a call that sends
  * nothing for `timeoutMs` ends the worker and every call waiting on it; the
  * next call starts a new one and opens the place again first (from the frame
@@ -9,7 +9,8 @@
  * runs on the calling thread, like the Warcraft import (w3x-import-client.ts).
  */
 import type { OsmImportOptions } from './import-osm';
-import { OsmFrameCore, type FrameSpawn, type GeoPoint, type OsmFrameInfo, type OsmMade, type OsmOpenRequest, type OsmStep } from './osm-frame-core';
+import { OsmFrameCore, type FrameSpawn, type GeoPoint, type OsmFrameInfo, type OsmMade, type OsmOpenRequest } from './osm-frame-core';
+import type { OsmProgress } from './osm-progress';
 import type { OsmWorkerRequest, OsmWorkerResponse } from './osm-worker.types';
 import type { OverpassRetry } from './overpass-client';
 
@@ -28,7 +29,7 @@ type Call = OsmWorkerRequest extends infer R ? (R extends OsmWorkerRequest ? Omi
 interface Waiting {
   resolve: (response: OsmWorkerResponse) => void;
   reject: (error: Error) => void;
-  onStep?: (step: OsmStep) => void;
+  onProgress?: (progress: OsmProgress) => void;
   onRetry?: (retry: OverpassRetry) => void;
   /** The worker sent something for this call: its time starts anew */
   alive: () => void;
@@ -67,8 +68,8 @@ export class OsmFrameSession {
    * opening standing: the next call works on it (a new worker opens it from
    * the store first)
    */
-  async open(request: OsmOpenRequest, onStep?: (step: OsmStep) => void, signal?: AbortSignal, onRetry?: (retry: OverpassRetry) => void): Promise<OsmFrameInfo> {
-    const r = await this.call({ kind: 'open', request }, onStep, signal, onRetry);
+  async open(request: OsmOpenRequest, onProgress?: (progress: OsmProgress) => void, signal?: AbortSignal, onRetry?: (retry: OverpassRetry) => void): Promise<OsmFrameInfo> {
+    const r = await this.call({ kind: 'open', request }, onProgress, signal, onRetry);
     const frame = (r as Extract<OsmWorkerResponse, { kind: 'opened' }>).frame;
     // A new worker loads the data this one holds (from the store) and lays out the same square and spawns
     this.opening = { kind: 'open', request: { ...request, area: frame.area, data: frame.data, spawnsAt: frame.spawns.map(({ lat, lon }) => ({ lat, lon })), topUp: false } };
@@ -86,8 +87,8 @@ export class OsmFrameSession {
     return (r as Extract<OsmWorkerResponse, { kind: 'dropped' }>).spawn;
   }
 
-  async make(spawnsAt: GeoPoint[], options: OsmImportOptions, onStep?: (step: OsmStep) => void, signal?: AbortSignal): Promise<OsmMade> {
-    const r = await this.callLoaded({ kind: 'make', spawnsAt, options }, onStep, signal);
+  async make(spawnsAt: GeoPoint[], options: OsmImportOptions, onProgress?: (progress: OsmProgress) => void, signal?: AbortSignal): Promise<OsmMade> {
+    const r = await this.callLoaded({ kind: 'make', spawnsAt, options }, onProgress, signal);
     return (r as Extract<OsmWorkerResponse, { kind: 'made' }>).made;
   }
 
@@ -97,23 +98,23 @@ export class OsmFrameSession {
   }
 
   /** A call that needs the place: a new worker opens it first */
-  private async callLoaded(call: Call, onStep?: (step: OsmStep) => void, signal?: AbortSignal): Promise<OsmWorkerResponse> {
+  private async callLoaded(call: Call, onProgress?: (progress: OsmProgress) => void, signal?: AbortSignal): Promise<OsmWorkerResponse> {
     if (!this.loaded) {
       if (!this.opening) throw new Error('The place is not loaded');
-      await this.call(this.opening, onStep, signal);
+      await this.call(this.opening, onProgress, signal);
       this.loaded = true;
     }
-    return this.call(call, onStep, signal);
+    return this.call(call, onProgress, signal);
   }
 
-  private call(call: Call, onStep?: (step: OsmStep) => void, signal?: AbortSignal, onRetry?: (retry: OverpassRetry) => void): Promise<OsmWorkerResponse> {
+  private call(call: Call, onProgress?: (progress: OsmProgress) => void, signal?: AbortSignal, onRetry?: (retry: OverpassRetry) => void): Promise<OsmWorkerResponse> {
     if (signal?.aborted) return Promise.reject(new Error(OSM_CANCELLED));
     if (!this.worker && !this.local) {
       this.worker = this.createWorker();
       if (this.worker) this.listen(this.worker);
       else this.local = new OsmFrameCore();
     }
-    if (this.local) return this.runLocal(this.local, call, onStep, signal, onRetry);
+    if (this.local) return this.runLocal(this.local, call, onProgress, signal, onRetry);
     const worker = this.worker!;
     const id = this.nextId++;
     return new Promise<OsmWorkerResponse>((resolve, reject) => {
@@ -127,7 +128,7 @@ export class OsmFrameSession {
         this.waiting.delete(id);
       };
       this.waiting.set(id, {
-        onStep,
+        onProgress,
         onRetry,
         alive: () => {
           clearTimeout(timer);
@@ -151,9 +152,9 @@ export class OsmFrameSession {
       const r = event.data;
       const waiting = this.waiting.get(r.id);
       if (!waiting) return;
-      if (r.kind === 'step') {
+      if (r.kind === 'progress') {
         waiting.alive();
-        waiting.onStep?.(r.step);
+        waiting.onProgress?.(r.progress);
       } else if (r.kind === 'retry') {
         waiting.alive();
         waiting.onRetry?.(r.retry);
@@ -175,20 +176,20 @@ export class OsmFrameSession {
   private async runLocal(
     core: OsmFrameCore,
     call: Call,
-    onStep?: (step: OsmStep) => void,
+    onProgress?: (progress: OsmProgress) => void,
     signal?: AbortSignal,
     onRetry?: (retry: OverpassRetry) => void,
   ): Promise<OsmWorkerResponse> {
     const id = 0;
     switch (call.kind) {
       case 'open':
-        return { id, kind: 'opened', frame: await core.open(call.request, onStep, signal, onRetry) };
+        return { id, kind: 'opened', frame: await core.open(call.request, onProgress, signal, onRetry) };
       case 'draw':
         return { id, kind: 'spawns', spawns: core.draw(call.count, call.keep) };
       case 'drop':
         return { id, kind: 'dropped', spawn: core.drop(call.at) };
       case 'make':
-        return { id, kind: 'made', made: core.make(call.spawnsAt, call.options, onStep) };
+        return { id, kind: 'made', made: await core.make(call.spawnsAt, call.options, onProgress) };
     }
   }
 }

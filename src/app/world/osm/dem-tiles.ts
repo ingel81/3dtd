@@ -176,6 +176,7 @@ export async function downloadMosaic(
   box: GeoBox,
   decode: DemDecoder = browserDecoder,
   signal?: AbortSignal,
+  onTile?: (done: number, of: number) => void,
 ): Promise<{ mosaic: DemMosaic; tiles: number; bytes: number }> {
   const { x0, y0, x1, y1 } = tilesFor(box, source.zoom);
   const size = source.tileSize;
@@ -185,6 +186,7 @@ export async function downloadMosaic(
   const jobs: { x: number; y: number }[] = [];
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) jobs.push({ x, y });
   let bytes = 0;
+  let done = 0;
   const one = async ({ x, y }: { x: number; y: number }) => {
     const response = await fetch(source.url(source.zoom, x, y), { signal });
     if (!response.ok) throw new Error(`tile ${source.zoom}/${x}/${y}: HTTP ${response.status}`);
@@ -196,6 +198,7 @@ export async function downloadMosaic(
     const ox = (x - x0) * size;
     const oy = (y - y0) * size;
     for (let r = 0; r < size; r++) heights.set(tile.subarray(r * size, (r + 1) * size), (oy + r) * columns + ox);
+    onTile?.(++done, jobs.length);
   };
   for (let k = 0; k < jobs.length; k += PARALLEL_TILES) await Promise.all(jobs.slice(k, k + PARALLEL_TILES).map(one));
   return { mosaic: { source: source.id, zoom: source.zoom, tileSize: size, left: x0 * size, top: y0 * size, columns, rows, heights }, tiles: jobs.length, bytes };
@@ -204,13 +207,13 @@ export async function downloadMosaic(
 /** The heights over `box` from the first source in `order` that delivers every tile; throws when none does */
 export async function downloadDem(
   box: GeoBox,
-  options: { order?: readonly DemSourceId[]; decode?: DemDecoder; signal?: AbortSignal } = {},
+  options: { order?: readonly DemSourceId[]; decode?: DemDecoder; signal?: AbortSignal; onTile?: (done: number, of: number) => void } = {},
 ): Promise<DemDownload> {
   const start = performance.now();
   const failed: DemDownload['failed'] = [];
   for (const id of options.order ?? DEM_ORDER) {
     try {
-      const got = await downloadMosaic(DEM_SOURCES[id], box, options.decode, options.signal);
+      const got = await downloadMosaic(DEM_SOURCES[id], box, options.decode, options.signal, options.onTile);
       return { ...got, ms: performance.now() - start, failed };
     } catch (e) {
       if (options.signal?.aborted) throw e;

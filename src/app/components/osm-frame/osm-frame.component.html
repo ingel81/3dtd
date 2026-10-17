@@ -10,16 +10,30 @@
   </p>
 </section>
 
-@if (phase() === 'loading') {
-  <div class="td-stack" role="status">
-    <p class="td-text"><span class="td-spin" aria-hidden="true"></span> {{ loadingText() }}…</p>
-    <p class="td-note">A city centre takes up to half a minute; the second time it comes from this device.</p>
-    <div class="td-actions is-start">
-      @if (canRetryNow()) {
-        <button type="button" class="td-btn-secondary td-btn-sm" (click)="retryNow()" data-test="osm-retry-now">Try again now</button>
+@if (phase() === 'loading' || (phase() === 'failed' && loadRows().length)) {
+  <div class="td-stack" role="status" data-test="osm-loading">
+    <ol class="of-steps td-note" aria-label="Loading the place">
+      @for (row of loadRows(); track row.step) {
+        <li class="of-step" [class.is-done]="row.status === 'done'" [class.is-active]="row.status === 'active'" [class.is-failed]="row.status === 'failed'">
+          <span class="of-mark" aria-hidden="true">{{ mark(row.status) }}</span>
+          <span class="td-trunc">{{ row.text }}</span>
+          <span class="td-num of-detail">{{ rowDetail(row) }}</span>
+          <span class="td-sr-only">{{ row.status === 'done' ? 'done' : row.status === 'active' ? 'under way' : row.status === 'failed' ? 'failed' : 'waiting' }}</span>
+        </li>
       }
-      <button type="button" class="td-btn-secondary td-btn-sm" (click)="cancelLoad()">Cancel</button>
-    </div>
+    </ol>
+    @if (phase() === 'loading') {
+      @if (waitText(); as wait) {
+        <p class="td-note is-warn" aria-live="polite" data-test="osm-wait">{{ wait }}</p>
+      }
+      <p class="td-note">A city centre takes up to half a minute; the second time it comes from this device.</p>
+      <div class="td-actions is-start">
+        @if (canRetryNow()) {
+          <button type="button" class="td-btn-secondary td-btn-sm" (click)="retryNow()" data-test="osm-retry-now">Try again now</button>
+        }
+        <button type="button" class="td-btn-secondary td-btn-sm" (click)="cancelLoad()">Cancel</button>
+      </div>
+    }
   </div>
 }
 
@@ -85,10 +99,24 @@
 
   @if (phase() === 'making') {
     <div class="td-stack" role="status" data-test="osm-making">
-      <p class="td-text" aria-live="polite">{{ makingStep().text }}…</p>
-      <div class="td-progress" aria-hidden="true">
-        <div [style.width.%]="(100 * makingStep().index) / (makingStep().of + 1)"></div>
-      </div>
+      @if (makingNow(); as m) {
+        <div class="of-making-head">
+          <span class="td-text td-trunc" aria-live="polite">{{ m.current?.text ?? 'Starting' }}@if (m.current?.detail; as detail) {<span class="td-note">, {{ detail }}</span>}</span>
+          <span class="td-figure">{{ percent() }}%</span>
+        </div>
+        <div class="td-progress" role="progressbar" aria-label="Making the map" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="percent()">
+          <div [style.width.%]="percent()"></div>
+        </div>
+        <ol class="of-stages td-note" aria-label="Stages">
+          @for (stage of m.stages; track stage.id) {
+            <li class="of-step" [class.is-done]="stage.status === 'done'" [class.is-active]="stage.status === 'active'" [class.is-failed]="stage.status === 'failed'">
+              <span class="of-mark" aria-hidden="true">{{ mark(stage.status) }}</span>
+              <span>{{ stage.label }}</span>
+            </li>
+          }
+        </ol>
+        <p class="td-note td-num">Stage {{ m.index }} of {{ m.of }} | {{ waited() }} s</p>
+      }
       <div class="td-actions is-start">
         <button type="button" class="td-btn-secondary td-btn-sm" (click)="cancelMaking()">Cancel</button>
       </div>

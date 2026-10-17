@@ -545,8 +545,18 @@ Datei.
   „No route to the HQ from here“, nach den Regeln eines gesetzten Spawns auf echten Orten
   (`MapPlacementService.checkSpawn`, dort 30 m zur Straße). Ohne Karte bleibt die Liste: je Spawn „Roll again“ und
   „Remove“, dazu „Roll all again“ und „Add a spawn“ (bis 8). Der erste ist offen, die übrigen `optional` wie in O1.
-- „Make the map“: Fortschritt je Schritt (Lesen, Gelände, Straßen, Einebnen, Belag, HQ und Spawns, Packen, Speichern)
-  mit Cancel; danach Name und Inhalt in einer Zeile, die Warnungen des Berichts, „Play“ und „Edit in the editor“.
+- „Make the map“: Fortschritt in Stufen (E218, 2026-10-17; `world/osm/osm-progress.ts`): Data, Terrain, Streets,
+  Water, Ground, HQ and spawns, Buildings, Trees and details, Bake, jede mit Marke (+ fertig, > läuft, - wartet,
+  ! gescheitert) wie die Ladeplatte, darüber der Schritt im Klartext mit Zusatz („Packing the map file, its picture and
+  fingerprint“), Prozent und ein Balken nach dem Gewicht der Schritte (Richtwerte aus O1/O7), darunter „Stage 5 of 9 |
+  3 s“, mit Cancel. Beim Laden (Öffnen, neues Quadrat) Zeilen statt einer Ladezeile: Daten auf diesem Gerät, die
+  Overpass-Antwort („asking (6 s)“, dann „2.1 MB received“, gelesen als Strom) und die Höhenkacheln („6 of 9 tiles“;
+  ohne Kacheln „none came, the ground will be flat“) nebeneinander, dann Straßen, HQ und Spawns; Wartezeiten und
+  Wiederholungen der Server stehen darunter. Ein Ereignis je Schritt (`OsmProgress`: Schritt, Zustand, Anteil,
+  Zusatz) kommt als Nachricht aus dem Worker (`kind: 'progress'`), Zählerstände höchstens alle 100 ms
+  (`thinProgress`); die Oberfläche faltet sie mit `reduceProgress`. Hash und Skizze rechnet der Worker beim Packen
+  (`OsmMade.hash`, `preview` auf einem OffscreenCanvas); die Seite speichert nur noch (`SaveOptions.contentHash`),
+  vorher lief das kanonische JSON der ganzen Welt auf dem Hauptthread; danach Name und Inhalt in einer Zeile, die Warnungen des Berichts, „Play“ und „Edit in the editor“.
 
 **Worker und Speicher** (`world/osm/`):
 

@@ -1,4 +1,4 @@
-import { unpackMapFile } from '../custom-map/map-file';
+import { contentHash, unpackMapFile } from '../custom-map/map-file';
 import { routeBetween } from '../../editor/ops/path-graph';
 import { OSM_PROBE_SIDE, osmProbe } from '../../../../tools/osm/osm-probe';
 import { loadOsmInput, overpassFailure, type OsmDownloadStats } from './import-osm';
@@ -49,12 +49,14 @@ describe('OSM world frame (frozen probe Miltenberg)', () => {
     expect(core.drop(geo.geo({ x: 595, y: 0 }))).toMatchObject({ reason: expect.stringMatching(/edge|street/) });
   });
 
-  it('makes the map with the spawns the frame chose, the first open, and packs it with its identity', () => {
+  it('makes the map with the spawns the frame chose, the first open, and packs it with its identity and content hash', async () => {
     const { core, frame } = opened();
     const chosen = frame.spawns.slice(0, 2);
     const steps: string[] = [];
-    const made = core.make(chosen, { ...options, id: 'osm-test' }, (step) => steps.push(step));
-    expect(steps).toEqual(['parse', 'terrain', 'roads', 'water', 'level', 'ground', 'shores', 'paint', 'layout', 'buildings', 'furniture', 'plants', 'pack']);
+    const made = await core.make(chosen, { ...options, id: 'osm-test' }, (p) => steps.push(p.step));
+    // Each step reports its beginning in the order of the making (OSM_MAKE_STEPS); packing twice, the file then hash and sketch
+    expect([...new Set(steps)]).toEqual(['parse', 'terrain', 'roads', 'water', 'level', 'ground', 'shores', 'paint', 'layout', 'buildings', 'furniture', 'plants', 'pack']);
+    expect(made.hash).toBe(await contentHash(made.doc));
     const { doc } = made;
     expect(doc.meta.id).toBe('osm-test');
     expect(doc.spawns.map((s) => s.name)).toEqual(chosen.map((s) => s.name));
@@ -86,7 +88,7 @@ describe('OSM world frame (frozen probe Miltenberg)', () => {
     // The HQ stays by the place, not by the square's middle
     const hq = geo.point(moved.hq!);
     expect(Math.hypot(hq.x, hq.y)).toBeLessThanOrEqual(Math.hypot(geo.point(first.hq!).x, geo.point(first.hq!).y) + 1);
-    const made = core.make(moved.spawns, options);
+    const made = await core.make(moved.spawns, options);
     expect(made.doc.terrain.width).toBe(1000);
     expect(made.doc.meta.source).toMatchObject({ kind: 'osm', sideM: 1000, lat: area.lat, lon: area.lon });
     // The map's HQ is the place's, in the map's own metres round the square's middle
@@ -102,8 +104,8 @@ describe('OSM world frame (frozen probe Miltenberg)', () => {
     await store.save({ lat: input.lat, lon: input.lon, sideM: OSM_PROBE_SIDE, fetchedAt: input.fetchedAt, overpass: input.overpass, dem: input.dem, demFailed: [] });
     const session = new OsmFrameSession({ createWorker: () => null, core: new OsmFrameCore({ store, sideM: OSM_PROBE_SIDE }) });
     const steps: string[] = [];
-    const frame = await session.open({ place: input, count: 2 }, (s) => steps.push(s));
-    expect(steps).toEqual(['stored']);
+    const frame = await session.open({ place: input, count: 2 }, (p) => steps.push(`${p.step} ${p.state ?? 'active'}`));
+    expect(steps).toEqual(['stored active', 'stored done', 'streets active', 'streets done']);
     expect(frame.download.stored).toBe(true);
     const more = await session.draw(1, frame.spawns);
     expect(more.length).toBeLessThanOrEqual(1);

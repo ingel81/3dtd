@@ -84,7 +84,8 @@ describe('OSM world frame', () => {
 
   it('opens the place without fetching, lists its spawns, rolls and removes one, makes and stores the map, Play hands it on', async () => {
     const { fixture, root, settle, button, maps, done, fetch } = await open();
-    expect(root.textContent).toContain('Downloading the streets and heights');
+    fixture.detectChanges();
+    expect(root.querySelector('[data-test=osm-loading]')!.textContent).toContain('Opening the data kept on this device');
     await settle();
     expect(root.textContent).toContain('A map of Miltenberg');
     expect(root.textContent).toContain('kept on this device');
@@ -126,7 +127,11 @@ describe('OSM world frame', () => {
     type Open = OsmFrameSession['open'];
     const opens: { onRetry?: Parameters<Open>[3]; reject: (e: Error) => void }[] = [];
     const session = {
-      open: vi.fn((...args: Parameters<Open>) => new Promise((_, reject) => opens.push({ onRetry: args[3], reject }))),
+      open: vi.fn((...args: Parameters<Open>) => {
+        // The OpenStreetMap servers are asked: the row says so until the first bytes come
+        args[1]?.({ step: 'overpass' });
+        return new Promise((_, reject) => opens.push({ onRetry: args[3], reject }));
+      }),
       dispose: vi.fn(),
     };
     TestBed.configureTestingModule({
@@ -141,22 +146,23 @@ describe('OSM world frame', () => {
     fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
     const status = () => root.querySelector('[role=status]')?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
-    expect(status()).toContain('Downloading the streets and heights of this place');
+    fixture.detectChanges();
+    expect(status()).toMatch(/Streets, water and buildings from OpenStreetMap ?asking \(0 s\)/);
 
     // A slow first answer: the frame says it still waits, and offers to ask again
     const frame = fixture.componentInstance;
     frame.now.set(Date.now() + 20_000);
     fixture.detectChanges();
-    expect(status()).toMatch(/Still waiting for the map server \((19|20) s\)/);
+    expect(status()).toMatch(/Still waiting for the OpenStreetMap server \((19|20) s\)/);
     expect(root.querySelector('[data-test=osm-retry-now]')).not.toBeNull();
 
     opens[0].onRetry!({ attempt: 2, of: 4, waitMs: 3000, kind: 'busy' });
     frame.now.set(Date.now());
     fixture.detectChanges();
-    expect(status()).toContain('The map server is busy, trying again in 3 s (2 of 4)…');
+    expect(status()).toContain('The map server is busy, trying again in 3 s (2 of 4)');
     frame.now.set(Date.now() + 5000);
     fixture.detectChanges();
-    expect(status()).toContain('The map server is busy, asking again (2 of 4)…');
+    expect(status()).toContain('The map server is busy, asking again (2 of 4)');
 
     // Try again now: a fresh load; the old one ending late changes nothing
     root.querySelector<HTMLButtonElement>('[data-test=osm-retry-now]')!.click();
@@ -167,7 +173,8 @@ describe('OSM world frame', () => {
     await new Promise((r) => setTimeout(r, 0));
     fixture.detectChanges();
     expect(root.querySelector('[role=alert]')).toBeNull();
-    expect(status()).toContain('Downloading the streets and heights of this place');
+    expect(status()).toMatch(/Streets, water and buildings from OpenStreetMap ?asking/);
+    expect(status()).not.toContain('busy');
     opens.shift();
 
     opens[0].reject(new Error(overpassFailure('overpass-api.de: HTTP 502; overpass.private.coffee: HTTP 500; 4 tries')));
@@ -181,7 +188,9 @@ describe('OSM world frame', () => {
     expect(session.open).toHaveBeenCalledTimes(3);
     expect(root.querySelector('[role=alert]')).toBeNull();
     // A fresh cycle: no retry line left from the one before
-    expect(status()).toContain('Downloading the streets and heights of this place');
+    fixture.detectChanges();
+    expect(status()).toMatch(/Streets, water and buildings from OpenStreetMap ?asking/);
+    expect(status()).not.toContain('busy');
     fixture.destroy();
   });
 });

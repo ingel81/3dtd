@@ -91,6 +91,8 @@ export interface SaveOptions {
    * the map though the document changed since
    */
   summary?: MapSummary;
+  /** The content hash worked out already (the OSM worker beside its making): taken, not worked out again */
+  contentHash?: string;
 }
 
 /** An entry of `maps/index.json` */
@@ -264,7 +266,9 @@ export class MapStore {
     }
     if (!file) packed = undefined;
     file ??= packMapFile(doc);
-    const summary = packed ? { ...packed, origin: 'own' as const } : summarize(doc, 'own', options.hash === false ? '' : await contentHash(doc));
+    const summary = packed
+      ? { ...packed, origin: 'own' as const }
+      : summarize(doc, 'own', options.hash === false ? '' : (options.contentHash ?? (await contentHash(doc))));
     // Without a new picture the stored one stays: the file is not read for it
     await this.backend.put({ summary, file, ...(preview ? { preview } : {}) });
     return summary;
