@@ -33,9 +33,8 @@ import {
   snapTo,
   roadFacing,
   withGroups,
-  levelForBuildings,
-  withGround,
 } from '../../map-ops/object-ops';
+import { levelForBuildings, withGround } from '../ops/object-commands';
 import { objectImages, sameSector, symmetryImages } from '../ops/symmetry';
 import { edgePolyline, nearestOnEdges } from '../../map-ops/path-graph';
 import { TransformGizmo, gizmoAnchor, type GizmoHandle } from '../view/transform-gizmo';

@@ -21,7 +21,7 @@
  * the shore is where the mask ends. The beds and shores are painted later
  * (`paintWater`, after the land and before the roads).
  */
-import { bankLevels, riverPoints } from '../../../editor/ops/landscape/river';
+import { bankLevels, riverPoints } from '../../../map-ops/river-levels';
 import { resample } from '../../../map-ops/lines';
 import { hashCell, smooth } from '../../../map-ops/landscape-noise';
 import { MAX_LAYERS, readWeights, writeWeights } from '../../../map-ops/paint-ops';

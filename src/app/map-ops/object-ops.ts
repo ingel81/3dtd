@@ -4,9 +4,7 @@
  * snap and duplicates. Ids are `o<number>`, counted on from the highest.
  */
 import type { CustomMapDocument, MapObject, MapPaths, MapPoint, MapTerrain } from '../world/custom-map/map-document';
-import { CompoundCommand, PatchCommand, patchLayout, type EditCommand } from '../editor/model/editor-document';
 import { heightAt, slopeAt, insideMap, sampleRectAround, sampleX, sampleY, type GridRect } from './grid';
-import { RegionRecorder } from '../editor/model/region-patch';
 import { waterLevelAt } from '../world/custom-map/water-level';
 import { boxDistance, groundRing, type GroundBox } from '../world/custom-map/object-ground';
 import { HEIGHT_LIMITS } from './terrain-ops';
@@ -272,30 +270,6 @@ export function levelUnderBuilding(terrain: MapTerrain, o: MapObject, entry: Lev
     }
   }
   return rect;
-}
-
-/**
- * Levels the ground under buildings placed anew (levelUnderBuilding), each
- * of them, and returns that change as a command already in the map: the
- * editor's Place and line, and the agent's place put it in one step with
- * the placement (withGround). Null for any other asset or level ground.
- */
-export function levelForBuildings(
-  doc: CustomMapDocument,
-  label: string,
-  objects: readonly MapObject[],
-  entry: { footing?: { category: string; float?: boolean; box?: GroundBox }; radius: number },
-): EditCommand | null {
-  if (!levelsGround(entry)) return null;
-  const recorder = new RegionRecorder(doc.terrain.grid.heights, patchLayout(doc, 'heights'));
-  let changed = false;
-  for (const o of objects) changed = !!levelUnderBuilding(doc.terrain, o, entry, (r) => recorder.touch(r)) || changed;
-  return changed ? new PatchCommand(label, [{ target: 'heights', patches: recorder.finish() }]) : null;
-}
-
-/** The placement and the levelled ground under it as one undo step */
-export function withGround(label: string, ground: EditCommand | null, add: EditCommand): EditCommand {
-  return ground ? new CompoundCommand(label, [ground, add]) : add;
 }
 
 function smoothstep(t: number): number {
