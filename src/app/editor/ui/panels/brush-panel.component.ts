@@ -24,9 +24,9 @@ import { patch } from '../../tools/tool';
 export class BrushPanelComponent {
   private readonly session = inject(EditorSession);
   readonly limits = BRUSH_LIMITS;
-  readonly brush = this.session.settings.brush;
+  readonly brush = this.session.tools.settings.brush;
 
   set(key: 'radius' | 'strength' | 'falloff', value: number): void {
-    patch(this.session.settings.brush, { [key]: value });
+    patch(this.session.tools.settings.brush, { [key]: value });
   }
 }

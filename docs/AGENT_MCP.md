@@ -133,9 +133,9 @@ Kopie.
 
 ## Karten öffnen und anlegen
 
-`open_map`, `create_map`, `close_map` und `copy_map` mit `open` gehen über die Seite (`EditorSession.navigator`, gesetzt
-von `EditorPageComponent`), wie die Knöpfe des Menschen: die Adresse (`?map=`) folgt, die offene Karte wird vorher
-gespeichert, eine mitgelieferte öffnet als eigene Kopie (`EditorSession.open`). Läuft gerade ein Job oder ein Strich,
+`open_map`, `create_map`, `close_map` und `copy_map` mit `open` gehen über `MapLifecycle` wie die Knöpfe des
+Menschen (`switchTo`, `close`): die offene Karte wird vorher gespeichert, eine mitgelieferte öffnet so, wie sie
+ausgeliefert ist, und wird beim ersten Speichern mit einer Änderung zur eigenen Kopie; die Seite folgt `openMap`. Läuft gerade ein Job oder ein Strich,
 lehnt der Agent ab. `create_map` legt die Karte wie der Dialog „New map“ an (Starter-Straße, Spawn, HQ; Vorlage aus
 `MAP_TEMPLATES`, die `catalog` als `mapTemplates` nennt, sonst Generator, Boden `grass`).
 
@@ -179,7 +179,7 @@ Ablauf:
    als würden sie gezogen; Landschaftsstriche, Straßen und Flüsse landen je als ein Schritt. Animiert dauert ein
    Skript 140 ms je Schritt, höchstens 8 s (`animate: false` so schnell, wie die Bilder es zulassen). Die Ansicht
    bekommt nach jedem Schritt mit, was sich änderte.
-3. **Ein Undo-Schritt**: `EditorSession.agentEdit` hält den Ablauf wie einen Geländejob (Ansicht gesperrt, Job mit
+3. **Ein Undo-Schritt**: `JobRunner.agentEdit` hält den Ablauf wie einen Geländejob (Ansicht gesperrt, Job mit
    Cancel im Map-Panel, Speichern und Undo warten) in einer Transaktion, die alle Teile vorher behält. Fertig wird sie ein Schritt
    (Gelände, Objekte, Wege, Spawns, HQ, Himmel, Regeln, Leben, Intro-Flug). Bei Fehler oder Cancel geht die Karte auf den Stand davor
    zurück.
@@ -244,7 +244,7 @@ desktop/src/agent-mcp.js          MCP-Server (SDK @modelcontextprotocol/server 2
 desktop/src/preload.js            window.desktop.agent: onCall, status, setEnabled, onStatus, stop, resume; ohne offenen Editor antwortet er selbst
 src/app/core/desktop-bridge.ts    AgentBridge, AgentCall, AgentAnswer, AgentStatus, readAgentBridge
 src/app/editor/agent/
-  editor-agent.ts                 Werkzeuge gegen die offene Karte (EditorSession als AgentHost), DryHost, Stop
+  editor-agent.ts                 Werkzeuge gegen die offene Karte (AgentAdapter als AgentHost), DryHost, Stop
   map-script.ts                   Befehlsliste SCRIPT_OPS, Prüfen, runMapScript, Referenztext
   script-playback.ts              Abspielen mit Animation, Änderungen an die Ansicht
   script-sandbox.ts               Worker starten, Zeitlimit; script-sandbox.worker.ts dessen Einstieg
@@ -255,7 +255,7 @@ src/app/editor/ops/map-kit.ts     MapKit (vorher Kern von LevelKit); tools/maps/
 tools/agent/                      Bau des Sandbox-Workers und sein Test
 ```
 
-Der Editor meldet sich in `EditorSession` an (`readAgentBridge()?.onCall`), beim Verlassen ab. Er antwortet über den
+Der Editor meldet sich in `AgentAdapter` an (`readAgentBridge()?.onCall`), beim Verlassen ab. Er antwortet über den
 Rückruf `reply(answer)`, den das Preload ihm mitgibt, nicht über den Rückgabewert: ein Promise der Seite ist unter
 zone.js nicht das native und kommt über die contextBridge als Objekt ohne `then` an, die Antwort ging verloren (jedes
 Werkzeug außer `view_picture` lieferte leeren Text, gefunden 2026-10-15). Das Preload schickt je Aufruf genau eine

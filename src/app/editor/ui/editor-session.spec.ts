@@ -6,7 +6,9 @@ import { MapStore, MemoryMapBackend } from '../../world/custom-map/map-store';
 import { MemoryVersionBackend, VersionHistory } from '../model/version-store';
 import { DOWNLOAD_REMINDER_MS } from '../model/storage-safety';
 import { MAX_FILE_BYTES, MapFileError, contentHash, packMapFile, unpackMapFile } from '../../world/custom-map/map-file';
-import { CHECK_DELAY_MS, EditorSession, saveErrorText } from './editor-session.service';
+import { EditorSession } from './editor-session.service';
+import { CHECK_DELAY_MS } from '../services/check-service';
+import { saveErrorText } from '../services/save-service';
 import { EditorHeldError } from '../model/editor-document';
 import { SnapshotCommand } from '../model/commands/snapshot';
 import { LandscapeContext } from '../ops/landscape/landscape-context';
@@ -31,8 +33,8 @@ function session(): { s: EditorSession; backend: MemoryMapBackend; history: Vers
   const backend = new MemoryMapBackend();
   const versions = new MemoryVersionBackend();
   const history = new VersionHistory(versions);
-  Object.assign(s, { store: new MapStore({ backend, fetch: async () => new Response('', { status: 404 }), baseUrl: 'http://x/' }), history });
-  s.setDocument(createMapDocument({ id: 'm', name: 'M', width: 64, depth: 64, now: new Date(0) }));
+  Object.assign(s.library, { store: new MapStore({ backend, fetch: async () => new Response('', { status: 404 }), baseUrl: 'http://x/' }), history });
+  s.maps.setDocument(createMapDocument({ id: 'm', name: 'M', width: 64, depth: 64, now: new Date(0) }));
   return { s, backend, history, versions };
 }
 
@@ -51,29 +53,30 @@ describe('editor session opening', () => {
       url.endsWith('index.json')
         ? Response.json({ maps: [{ id: 'harbour', name: 'Harbour', file: 'harbour.3dtdmap' }] })
         : new Response(files[url] as Uint8Array<ArrayBuffer>, { status: files[url] ? 200 : 404 });
-    Object.assign(s, { store: new MapStore({ backend, fetch, baseUrl: 'http://x/' }), catalogReady: Promise.resolve() });
-    const id = await s.open('harbour');
+    Object.assign(s.library, { store: new MapStore({ backend, fetch, baseUrl: 'http://x/' }) });
+    Object.assign(s, { catalogReady: Promise.resolve() });
+    const id = await s.maps.open('harbour');
     expect(id).toBe('harbour');
     expect(s.doc!.meta).toMatchObject({ id: 'harbour', name: 'Harbour' });
-    expect(s.readOnly()).toBe(false);
-    expect(s.status()).toContain('your own copy comes with the first change');
+    expect(s.maps.readOnly()).toBe(false);
+    expect(s.notices.status()).toContain('your own copy comes with the first change');
     // Saving with nothing changed keeps nothing
-    expect(await s.save(true)).toBe(true);
-    expect(await s.store.listOwn()).toEqual([]);
+    expect(await s.saves.save(true)).toBe(true);
+    expect(await s.library.store.listOwn()).toEqual([]);
     s.editMeta({ description: 'Mine' });
-    expect(await s.save(false)).toBe(true);
+    expect(await s.saves.save(false)).toBe(true);
     expect(s.doc!.meta).toMatchObject({ id: 'harbour-copy', name: 'Harbour (copy)', description: 'Mine' });
     expect((await backend.get('harbour-copy'))?.summary.origin).toBe('own');
-    expect(s.status()).toContain('own copy of Harbour');
+    expect(s.notices.status()).toContain('own copy of Harbour');
 
     const host = createMapDocument({ id: 'hosts-map', name: 'Host', width: 32, depth: 32 });
-    await s.store.saveShared(host, null, packMapFile(host));
-    expect(await s.open('hosts-map')).toBe('hosts-map');
+    await s.library.store.saveShared(host, null, packMapFile(host));
+    expect(await s.maps.open('hosts-map')).toBe('hosts-map');
     s.editMeta({ description: 'Ours' });
-    await s.save(true);
+    await s.saves.save(true);
     expect(s.doc!.meta.id).toBe('host-copy');
     expect((await backend.get('hosts-map'))?.summary.origin).toBe('shared');
-    expect(await s.open('harbour-copy')).toBe('harbour-copy');
+    expect(await s.maps.open('harbour-copy')).toBe('harbour-copy');
     s.ngOnDestroy();
   });
 });
@@ -83,14 +86,14 @@ describe('editor session and copies', () => {
     const { s } = session();
     const made = createMapDocument({ id: 'miltenberg', name: 'Miltenberg', width: 32, depth: 32 });
     made.meta.generated = true;
-    await s.store.save(made);
-    await s.open('miltenberg');
-    expect(await s.save(true)).toBe(true);
-    expect((await s.store.listOwn()).find((m) => m.id === 'miltenberg')?.generated).toBe(true);
+    await s.library.store.save(made);
+    await s.maps.open('miltenberg');
+    expect(await s.saves.save(true)).toBe(true);
+    expect((await s.library.store.listOwn()).find((m) => m.id === 'miltenberg')?.generated).toBe(true);
     s.editMeta({ description: 'Mine now' });
-    await s.save(true);
+    await s.saves.save(true);
     expect(s.doc!.meta.generated).toBeUndefined();
-    expect((await s.store.listOwn()).find((m) => m.id === 'miltenberg')?.generated).toBeUndefined();
+    expect((await s.library.store.listOwn()).find((m) => m.id === 'miltenberg')?.generated).toBeUndefined();
     s.ngOnDestroy();
   });
 
@@ -102,29 +105,30 @@ describe('editor session and copies', () => {
       url.endsWith('index.json')
         ? Response.json({ maps: [{ id: 'harbour', name: 'Harbour', file: 'harbour.3dtdmap', contentHash: hash }] })
         : new Response(packMapFile(shipped) as Uint8Array<ArrayBuffer>, { status: 200 });
-    Object.assign(s, { store: new MapStore({ backend, fetch, baseUrl: 'http://x/' }), catalogReady: Promise.resolve() });
-    expect(await s.open('harbour')).toBe('harbour');
+    Object.assign(s.library, { store: new MapStore({ backend, fetch, baseUrl: 'http://x/' }) });
+    Object.assign(s, { catalogReady: Promise.resolve() });
+    expect(await s.maps.open('harbour')).toBe('harbour');
     s.editMeta({ description: 'Mine' });
-    await s.save(true);
+    await s.saves.save(true);
     expect(s.doc!.meta.copyOf).toEqual({ id: 'harbour', hash });
-    expect(await s.open('harbour')).toBe('harbour-copy');
+    expect(await s.maps.open('harbour')).toBe('harbour-copy');
     expect(s.doc!.meta.description).toBe('Mine');
-    expect(s.staleCopy()).toBeNull();
+    expect(s.maps.staleCopy()).toBeNull();
     // A game update changes the original
     shipped = createMapDocument({ id: 'harbour', name: 'Harbour', width: 48, depth: 48 });
     hash = await contentHash(shipped);
-    Object.assign(s, { store: new MapStore({ backend, fetch, baseUrl: 'http://x/' }) });
-    expect(await s.open('harbour')).toBe('harbour-copy');
-    expect(s.staleCopy()).toMatchObject({ original: 'harbour' });
+    Object.assign(s.library, { store: new MapStore({ backend, fetch, baseUrl: 'http://x/' }) });
+    expect(await s.maps.open('harbour')).toBe('harbour-copy');
+    expect(s.maps.staleCopy()).toMatchObject({ original: 'harbour' });
     // Saved a moment later than the first copy, so it is the newest
     await new Promise((r) => setTimeout(r, 5));
-    expect(await s.freshCopy()).toBe('harbour-copy-2');
+    expect(await s.maps.freshCopy()).toBe('harbour-copy-2');
     expect(s.doc!.terrain.width).toBe(48);
     expect(s.doc!.meta.copyOf).toEqual({ id: 'harbour', hash });
-    expect((await s.store.listOwn()).map((m) => m.id).sort()).toEqual(['harbour-copy', 'harbour-copy-2']);
+    expect((await s.library.store.listOwn()).map((m) => m.id).sort()).toEqual(['harbour-copy', 'harbour-copy-2']);
     // The newest copy opens from now on
-    expect(await s.open('harbour')).toBe('harbour-copy-2');
-    expect(s.staleCopy()).toBeNull();
+    expect(await s.maps.open('harbour')).toBe('harbour-copy-2');
+    expect(s.maps.staleCopy()).toBeNull();
     s.ngOnDestroy();
   });
 });
@@ -137,7 +141,7 @@ describe('editor session heightmap import', () => {
     expect(await s.importHeightmap(raw, Number.NaN, 20)).toBe(false);
     expect(await s.importHeightmap(raw, 0, 1e6)).toBe(false);
     expect(s.doc!.terrain.grid.heights).toEqual(before);
-    expect(s.error()).toContain('lowest and a highest height');
+    expect(s.notices.error()).toContain('lowest and a highest height');
     s.ngOnDestroy();
   });
 });
@@ -145,23 +149,23 @@ describe('editor session heightmap import', () => {
 describe('editor session and other tabs', () => {
   it('turns read-only when another tab takes the map, and reads it again when it gets it back', async () => {
     const { s } = session();
-    await s.save(true);
-    const lock = s['lock']!;
-    s['lockLost'](lock);
-    expect(s.readOnly()).toBe(true);
+    await s.saves.save(true);
+    const lock = s.maps['lock']!;
+    s.maps['lockLost'](lock);
+    expect(s.maps.readOnly()).toBe(true);
     // The map is held: nothing here writes to it, the status bar says why
     s.editMeta({ name: 'Mine' });
     expect(s.doc!.meta.name).toBe('M');
-    expect(s.status()).toContain('Map details waits: another tab edits');
+    expect(s.notices.status()).toContain('Map details waits: another tab edits');
     s.undo();
-    expect(await s.save(true)).toBe(false);
-    expect(s.status()).toContain('another tab edits');
+    expect(await s.saves.save(true)).toBe(false);
+    expect(s.notices.status()).toContain('another tab edits');
     // The other tab saved a change and let go
     const theirs = structuredClone(s.doc!);
     theirs.meta.name = 'Theirs';
-    await s.store.save(theirs);
-    await s['lockGranted'](lock);
-    expect(s.readOnly()).toBe(false);
+    await s.library.store.save(theirs);
+    await s.maps['lockGranted'](lock);
+    expect(s.maps.readOnly()).toBe(false);
     expect(s.doc!.meta.name).toBe('Theirs');
     s.editMeta({ name: 'Mine' });
     expect(s.doc!.meta.name).toBe('Mine');
@@ -175,28 +179,28 @@ describe('editor session importing', () => {
     const file = new File([], 'huge.3dtdmap');
     Object.defineProperty(file, 'size', { value: MAX_FILE_BYTES + 1 });
     const read = vi.spyOn(file, 'arrayBuffer');
-    expect(await s.importFile(file)).toBeNull();
+    expect(await s.library.importFile(file)).toBeNull();
     expect(read).not.toHaveBeenCalled();
-    expect(s.error()).toMatch(/too large for a map/);
+    expect(s.notices.error()).toMatch(/too large for a map/);
     s.ngOnDestroy();
   });
 
   it('asks about a file of an own map: Replace keeps the id and makes the old content a version, Keep both adds a map', async () => {
     const { s, versions } = session();
-    await s.save(true);
+    await s.saves.save(true);
     await new Promise((r) => setTimeout(r, 0));
     const file = packMapFile(s.doc!);
     const read = () => new File([file as Uint8Array<ArrayBuffer>], 'm.3dtdmap');
-    expect(await s.importFile(read())).toBeNull();
-    expect(s.importMatch()?.existing.id).toBe('m');
-    expect(await s.resolveImport('replace')).toBe('m');
-    expect((await s.store.listOwn()).map((m) => m.id)).toEqual(['m']);
+    expect(await s.library.importFile(read())).toBeNull();
+    expect(s.library.importMatch()?.existing.id).toBe('m');
+    expect(await s.library.resolveImport('replace')).toBe('m');
+    expect((await s.library.store.listOwn()).map((m) => m.id)).toEqual(['m']);
     expect((await versions.list('m')).length).toBeGreaterThanOrEqual(1);
-    await s.importFile(read());
-    expect(await s.resolveImport('copy')).toBe('m-2');
-    await s.importFile(read());
-    expect(await s.resolveImport('cancel')).toBeNull();
-    expect((await s.store.listOwn()).map((m) => m.id).sort()).toEqual(['m', 'm-2']);
+    await s.library.importFile(read());
+    expect(await s.library.resolveImport('copy')).toBe('m-2');
+    await s.library.importFile(read());
+    expect(await s.library.resolveImport('cancel')).toBeNull();
+    expect((await s.library.store.listOwn()).map((m) => m.id).sort()).toEqual(['m', 'm-2']);
     s.ngOnDestroy();
   });
 });
@@ -205,35 +209,35 @@ describe('editor session while busy', () => {
   it('holds undo, redo, saving and restoring while a terrain job runs or a stroke is held', async () => {
     const { s, backend } = session();
     s.editMeta({ name: 'Renamed' });
-    s.terrainJob.set({ label: 'Eroding the map', progress: 0.3 });
+    s.jobs.job.set({ label: 'Eroding the map', progress: 0.3 });
     s.undo();
     expect(s.doc!.meta.name).toBe('Renamed');
-    expect(s.status()).toContain('Undo waits');
+    expect(s.notices.status()).toContain('Undo waits');
     const puts = vi.spyOn(backend, 'put');
-    expect(await s.save(true)).toBe(false);
-    expect(await s.save(false)).toBe(false);
+    expect(await s.saves.save(true)).toBe(false);
+    expect(await s.saves.save(false)).toBe(false);
     expect(puts).not.toHaveBeenCalled();
-    expect(await s.close()).toBe(false);
+    expect(await s.maps.close()).toBe(false);
     // Changes to the ground from the panels wait too: Cancel would put the heights of before the job back over them
     const grid = s.doc!.terrain.grid;
     s.resize(s.doc!.terrain.width / 2, s.doc!.terrain.depth / 2);
     s.increaseDetail();
     expect(s.doc!.terrain.grid).toBe(grid);
-    expect(s.groundEditor('Changing the water')).toBeNull();
-    expect(s.status()).toContain('Changing the water waits');
-    s.terrainJob.set(null);
-    expect(s.groundEditor('Changing the water')).toBe(s.editor);
+    expect(s.edit('Changing the water', () => undefined)).toBe(false);
+    expect(s.notices.status()).toContain('Changing the water waits');
+    s.jobs.job.set(null);
+    expect(s.edit('Changing the water', () => undefined)).toBe(true);
 
     // A held stroke in the view
-    Object.assign(s, { viewport: { dragging: true, dispose: () => undefined } });
+    Object.assign(s['viewHost'], { viewport: { dragging: true, dispose: () => undefined } });
     s.undo();
     expect(s.doc!.meta.name).toBe('Renamed');
-    expect(s.status()).toContain('finish the stroke');
+    expect(s.notices.status()).toContain('finish the stroke');
     const version = { key: 'k', mapId: 'm', savedAt: '', manual: true, size: 1 };
-    const bytes = vi.spyOn(s['history'], 'bytes');
+    const bytes = vi.spyOn(s.library.history, 'bytes');
     await s.restoreVersion(version as never);
     expect(bytes).not.toHaveBeenCalled();
-    Object.assign(s, { viewport: null });
+    Object.assign(s['viewHost'], { viewport: null });
     s.undo();
     expect(s.doc!.meta.name).toBe('M');
     s.ngOnDestroy();
@@ -245,14 +249,14 @@ describe('editor session check', () => {
     vi.useFakeTimers();
     try {
       const { s } = session();
-      s.runCheck();
-      const check = vi.spyOn(s, 'runCheck');
+      s.check.runCheck();
+      const check = vi.spyOn(s.check, 'runCheck');
       const viewport = { dragging: true, dispose: () => undefined };
-      Object.assign(s, { viewport });
+      Object.assign(s['viewHost'], { viewport });
       // Every poll of a stroke finds a change: the check waits for the stroke's end
       for (let k = 0; k < 10; k++) {
         s.editMeta({ description: `step ${k}` });
-        s['pollChanges']();
+        s.state.refresh();
         vi.advanceTimersByTime(150);
       }
       vi.advanceTimersByTime(CHECK_DELAY_MS * 3);
@@ -260,7 +264,7 @@ describe('editor session check', () => {
       viewport.dragging = false;
       vi.advanceTimersByTime(CHECK_DELAY_MS);
       expect(check).toHaveBeenCalledTimes(1);
-      Object.assign(s, { viewport: null });
+      Object.assign(s['viewHost'], { viewport: null });
       s.ngOnDestroy();
     } finally {
       vi.useRealTimers();
@@ -271,18 +275,18 @@ describe('editor session check', () => {
 describe('editor session saving', () => {
   it('reminds of a download after long work where the browser may clear maps', async () => {
     const { s } = session();
-    s.storage.set('evictable');
-    await s.save(true);
-    expect(s.downloadReminder()).toBe(false);
-    Object.assign(s, { workSince: Date.now() - DOWNLOAD_REMINDER_MS - 1 });
-    await s.save(true);
-    expect(s.downloadReminder()).toBe(true);
-    s.laterReminder();
-    expect(s.downloadReminder()).toBe(false);
-    s.storage.set('kept');
-    Object.assign(s, { workSince: 0 });
-    await s.save(true);
-    expect(s.downloadReminder()).toBe(false);
+    s.saves.storage.set('evictable');
+    await s.saves.save(true);
+    expect(s.saves.downloadReminder()).toBe(false);
+    Object.assign(s.saves, { workSince: Date.now() - DOWNLOAD_REMINDER_MS - 1 });
+    await s.saves.save(true);
+    expect(s.saves.downloadReminder()).toBe(true);
+    s.saves.laterReminder();
+    expect(s.saves.downloadReminder()).toBe(false);
+    s.saves.storage.set('kept');
+    Object.assign(s.saves, { workSince: 0 });
+    await s.saves.save(true);
+    expect(s.saves.downloadReminder()).toBe(false);
     s.ngOnDestroy();
   });
 
@@ -291,8 +295,8 @@ describe('editor session saving', () => {
     const { s, backend } = session();
     const puts = vi.spyOn(backend, 'put');
     s.editor!.doc.meta.name = 'Changed';
-    s.dirty.set(true);
-    const [a, b] = await Promise.all([s.save(false), s.save(true)]);
+    s.saves.dirty.set(true);
+    const [a, b] = await Promise.all([s.saves.save(false), s.saves.save(true)]);
     expect([a, b]).toEqual([true, true]);
     expect(puts).toHaveBeenCalledTimes(2);
     s.ngOnDestroy();
@@ -300,23 +304,23 @@ describe('editor session saving', () => {
 
   it('keeps the map open when it cannot be saved', async () => {
     const { s } = session();
-    vi.spyOn(s.store, 'save').mockRejectedValue(new Error('disk full'));
-    s.dirty.set(true);
-    expect(await s.close()).toBe(false);
+    vi.spyOn(s.library.store, 'save').mockRejectedValue(new Error('disk full'));
+    s.saves.dirty.set(true);
+    expect(await s.maps.close()).toBe(false);
     expect(s.editor).not.toBeNull();
     s.ngOnDestroy();
   });
 
   it('deletes no map another tab edits: its next save would bring the map back', async () => {
     const { s } = session();
-    await s.save(true);
+    await s.saves.save(true);
     // The map's lock is held elsewhere
     const busy = { request: async (_n: string, _o: unknown, cb: (lock: unknown) => unknown) => cb(null) };
     Object.defineProperty(navigator, 'locks', { value: busy, configurable: true });
     try {
-      expect(await s.deleteMap('m', 'M')).toBeNull();
-      expect((await s.store.listOwn()).map((m) => m.id)).toEqual(['m']);
-      expect(s.error()).toContain('open in another tab');
+      expect(await s.library.deleteMap('m', 'M')).toBeNull();
+      expect((await s.library.store.listOwn()).map((m) => m.id)).toEqual(['m']);
+      expect(s.notices.error()).toContain('open in another tab');
     } finally {
       delete (navigator as unknown as Record<string, unknown>)['locks'];
     }
@@ -325,26 +329,26 @@ describe('editor session saving', () => {
 
   it('moves a map to the trash with its versions, back, and out for good', async () => {
     const { s, versions } = session();
-    await s.save(true);
+    await s.saves.save(true);
     await new Promise((r) => setTimeout(r, 0));
     expect(await versions.list('m')).toHaveLength(1);
-    const key = await s.deleteMap('m');
-    expect((await s.store.listOwn()).map((m) => m.id)).toEqual([]);
-    expect((await s.listTrash()).map((m) => m.id)).toEqual([key]);
+    const key = await s.library.deleteMap('m');
+    expect((await s.library.store.listOwn()).map((m) => m.id)).toEqual([]);
+    expect((await s.library.listTrash()).map((m) => m.id)).toEqual([key]);
     expect(await versions.list('m')).toHaveLength(1);
-    expect(await s.restoreMap(key!)).toBe('m');
-    expect((await s.store.listOwn()).map((m) => m.id)).toEqual(['m']);
-    expect(await s.listTrash()).toEqual([]);
+    expect(await s.library.restoreMap(key!)).toBe('m');
+    expect((await s.library.store.listOwn()).map((m) => m.id)).toEqual(['m']);
+    expect(await s.library.listTrash()).toEqual([]);
     // A new map takes the id meanwhile: the old one comes back under a free id, its versions with it
-    const key2 = await s.deleteMap('m');
-    await s.store.save(createMapDocument({ id: 'm', name: 'Other', width: 64, depth: 64 }));
-    expect(await s.restoreMap(key2!)).toBe('m-2');
+    const key2 = await s.library.deleteMap('m');
+    await s.library.store.save(createMapDocument({ id: 'm', name: 'Other', width: 64, depth: 64 }));
+    expect(await s.library.restoreMap(key2!)).toBe('m-2');
     expect(await versions.list('m-2')).toHaveLength(1);
     expect(await versions.list('m')).toEqual([]);
-    await s.store.delete('m');
-    await s.deleteMap('m-2');
-    await s.deleteForGood((await s.listTrash())[0]);
-    expect(await s.listTrash()).toEqual([]);
+    await s.library.store.delete('m');
+    await s.library.deleteMap('m-2');
+    await s.library.deleteForGood((await s.library.listTrash())[0]);
+    expect(await s.library.listTrash()).toEqual([]);
     expect(await versions.list('m-2')).toEqual([]);
     s.ngOnDestroy();
   });
@@ -354,19 +358,19 @@ describe('editor session saving', () => {
   it('stores file, content hash and summary of one state, though the map changes while it saves', async () => {
     const { s, backend } = session();
     s.editMeta({ name: 'Packed' });
-    const save = s.store.save.bind(s.store);
+    const save = s.library.store.save.bind(s.library.store);
     // The player renames the map right after the copy for the file was taken
-    vi.spyOn(s.store, 'save').mockImplementation((doc, preview, file, options) => {
+    vi.spyOn(s.library.store, 'save').mockImplementation((doc, preview, file, options) => {
       s.editMeta({ name: 'Later' });
       return save(doc, preview, file, options);
     });
-    expect(await s.save(true)).toBe(true);
+    expect(await s.saves.save(true)).toBe(true);
     const stored = (await backend.get('m'))!;
     const { doc } = unpackMapFile(stored.file);
     expect(doc.meta.name).toBe('Packed');
     expect(stored.summary.name).toBe('Packed');
     expect(stored.summary.contentHash).toBe(await contentHash(doc));
-    expect(s.dirty()).toBe(true);
+    expect(s.saves.dirty()).toBe(true);
     s.ngOnDestroy();
   });
 });
@@ -375,24 +379,24 @@ describe('editor session versions', () => {
   it('keeps no second version for Ctrl+S on a map that did not change', async () => {
     const { s, versions } = session();
     s.editMeta({ name: 'Once' });
-    expect(await s.save(true)).toBe(true);
+    expect(await s.saves.save(true)).toBe(true);
     await new Promise((r) => setTimeout(r, 0));
     expect(await versions.list('m')).toHaveLength(1);
     const updated = s.doc!.meta.updatedAt;
-    expect(await s.save(true)).toBe(true);
+    expect(await s.saves.save(true)).toBe(true);
     await new Promise((r) => setTimeout(r, 0));
     expect(await versions.list('m')).toHaveLength(1);
     expect(s.doc!.meta.updatedAt).toBe(updated);
-    expect(s.status()).toBe('Saved');
+    expect(s.notices.status()).toBe('Saved');
     s.ngOnDestroy();
   });
 
   it('restores all of a kept version: life, intro flight and prefabs too, the name stays', async () => {
     const { s } = session();
     s.editLife((life) => (life.flags = true), 'Banners wave');
-    await s.save(true);
-    await s.loadVersions();
-    const [version] = s.versions();
+    await s.saves.save(true);
+    await s.saves.loadVersions();
+    const [version] = s.saves.versions();
     s.editLife((life) => (life.flags = false), 'Banners still');
     s.editIntro({ kind: 'orbit', distance: 80, height: 40, angle: 0, seconds: 10 } as never);
     s.editMeta({ name: 'Renamed' });
@@ -402,7 +406,7 @@ describe('editor session versions', () => {
     expect(s.doc!.intro).toBeUndefined();
     expect(s.doc!.prefabs).toBeUndefined();
     expect(s.doc!.meta.name).toBe('Renamed');
-    expect(s.undoLabel()).toBe('Restore version');
+    expect(s.state.undoLabel()).toBe('Restore version');
     s.undo();
     expect(s.doc!.intro).toBeDefined();
     s.ngOnDestroy();
@@ -419,7 +423,7 @@ describe('editor session holds the map during a job', () => {
     // A stroke begun before the job: it may write, but not land while the job runs
     const early = new LandscapeContext(editor.begin('Raise'), 1, s.catalog());
     let finish!: () => void;
-    const job = s.agentEdit('Agent: slow', (_ed, signal) =>
+    const job = s.jobs.agentEdit('Agent: slow', (_ed, signal) =>
       new Promise<void>((resolve, reject) => {
         finish = resolve;
         signal.addEventListener('abort', () => reject(new DOMException('stopped', 'AbortError')));
@@ -427,18 +431,18 @@ describe('editor session holds the map during a job', () => {
     );
     // The panels' road and river buttons write the ground in a transaction (path-panel flatten, water-panel recarve)
     expect(() => editor.begin('Carve the river bed')).toThrow(EditorHeldError);
-    expect(s.status()).toBe('Carve the river bed waits: a job runs (Cancel stops it)');
+    expect(s.notices.status()).toBe('Carve the river bed waits: a job runs (Cancel stops it)');
     const all = { i0: 0, j0: 0, i1: 4, j1: 4 };
     early.tx.touch('heights', all);
     editor.doc.terrain.grid.heights.fill(-3, 0, 4);
     early.changed({ heights: all });
     expect(() => early.finish()).toThrow(EditorHeldError);
-    s.execute(SnapshotCommand.record(editor.doc, 'Map details', ['meta'], (d) => (d.meta = { ...d.meta, name: 'During' })));
-    expect(s.status()).toBe('Map details waits: a job runs (Cancel stops it)');
+    s['execute'](SnapshotCommand.record(editor.doc, 'Map details', ['meta'], (d) => (d.meta = { ...d.meta, name: 'During' })));
+    expect(s.notices.status()).toBe('Map details waits: a job runs (Cancel stops it)');
     expect(editor.doc.meta.name).toBe('Before');
     expect(editor.doc.terrain.grid.heights).toEqual(heights);
     expect(editor.historySteps).toBe(steps);
-    s.cancelTerrainJob();
+    s.jobs.cancel();
     await expect(job).rejects.toThrow('stopped');
     expect(editor.historySteps).toBe(steps);
     expect(editor.heldReason).toBeNull();
@@ -468,15 +472,15 @@ describe('terrain jobs in the session', () => {
     const { s } = session();
     const heights = () => Array.from(s.editor!.doc.terrain.grid.heights);
     const flat = heights();
-    expect(await s.generate({ preset: 'hills', seed: 4, strength: 0.6 }, false)).toBe(true);
+    expect(await s.jobs.generate({ preset: 'hills', seed: 4, strength: 0.6 }, false)).toBe(true);
     expect(heights()).not.toEqual(flat);
-    expect(s.terrainJob()).toBeNull();
+    expect(s.jobs.job()).toBeNull();
     s.undo();
     expect(heights()).toEqual(flat);
     // Stopped after its first band: nothing changed, nothing to undo
     const steps = s.editor!.historySteps;
-    const run = s.generate({ preset: 'valleys', seed: 2, strength: 0.6 }, false);
-    s.cancelTerrainJob();
+    const run = s.jobs.generate({ preset: 'valleys', seed: 2, strength: 0.6 }, false);
+    s.jobs.cancel();
     expect(await run).toBe(false);
     expect(heights()).toEqual(flat);
     expect(s.editor!.historySteps).toBe(steps);
@@ -485,9 +489,9 @@ describe('terrain jobs in the session', () => {
 
   it('erodes the whole map as one undo step', async () => {
     const { s } = session();
-    await s.generate({ preset: 'hills', seed: 4, strength: 0.9 }, false);
+    await s.jobs.generate({ preset: 'hills', seed: 4, strength: 0.9 }, false);
     const before = Array.from(s.editor!.doc.terrain.grid.heights);
-    expect(await s.erodeWholeMap(0.3, 7)).toBe(true);
+    expect(await s.jobs.erodeWholeMap(0.3, 7)).toBe(true);
     expect(Array.from(s.editor!.doc.terrain.grid.heights)).not.toEqual(before);
     s.undo();
     expect(Array.from(s.editor!.doc.terrain.grid.heights)).toEqual(before);
@@ -499,17 +503,17 @@ describe('editor session brushes', () => {
   it('gives each tool its own brush, kept while another is in hand', () => {
     const { s } = session();
     // A map opens on Look; Landscape's brush starts at its own size
-    expect(s.tool()).toBe('look');
-    s.selectTool('landscape');
-    expect(s.settings.brush().radius).toBe(40);
-    patch(s.settings.brush, { radius: 70 });
-    s.selectTool('paint');
-    expect(s.settings.brush().radius).toBe(12);
-    patch(s.settings.brush, { radius: 5 });
-    s.selectTool('landscape');
-    expect(s.settings.brush().radius).toBe(70);
-    s.selectTool('paint');
-    expect(s.settings.brush().radius).toBe(5);
+    expect(s.tools.tool()).toBe('look');
+    s.tools.select('landscape');
+    expect(s.tools.settings.brush().radius).toBe(40);
+    patch(s.tools.settings.brush, { radius: 70 });
+    s.tools.select('paint');
+    expect(s.tools.settings.brush().radius).toBe(12);
+    patch(s.tools.settings.brush, { radius: 5 });
+    s.tools.select('landscape');
+    expect(s.tools.settings.brush().radius).toBe(70);
+    s.tools.select('paint');
+    expect(s.tools.settings.brush().radius).toBe(5);
     s.ngOnDestroy();
   });
 });
@@ -519,15 +523,15 @@ describe('editor session tests in the window (E195 phase 5)', () => {
     const { s } = session();
     const opened: WorldStart[] = [];
     const open = vi.spyOn(TestBed.inject(WorldSession), 'open').mockImplementation((order) => void opened.push(order));
-    vi.spyOn(s, 'save').mockResolvedValue(true);
-    await s.testPlay();
+    vi.spyOn(s.saves, 'save').mockResolvedValue(true);
+    await s.check.testPlay();
     expect(opened).toEqual([{ ...PLAIN_START, world: { kind: 'custom-map', mapId: 'm', contentHash: '' }, startWave: 1, trial: { bot: null }, play: true, label: 'M' }]);
-    s.testFromWave.set(15);
-    await s.testPlay();
+    s.check.testFromWave.set(15);
+    await s.check.testPlay();
     expect(opened[1].startWave).toBe(15);
     // A failed save keeps the editor
-    vi.spyOn(s, 'save').mockResolvedValue(false);
-    await s.testPlay();
+    vi.spyOn(s.saves, 'save').mockResolvedValue(false);
+    await s.check.testPlay();
     expect(open).toHaveBeenCalledTimes(2);
     vi.restoreAllMocks();
     s.ngOnDestroy();
@@ -537,14 +541,14 @@ describe('editor session tests in the window (E195 phase 5)', () => {
     const { s } = session();
     const opened: WorldStart[] = [];
     vi.spyOn(TestBed.inject(WorldSession), 'open').mockImplementation((order) => void opened.push(order));
-    vi.spyOn(s, 'save').mockResolvedValue(true);
-    s.testFromWave.set(9);
-    await s.botCheck(3);
+    vi.spyOn(s.saves, 'save').mockResolvedValue(true);
+    s.check.testFromWave.set(9);
+    await s.check.botCheck(3);
     expect(opened[0]).toMatchObject({ startWave: 1, trial: { bot: 3 } });
-    expect(s.botTrial()).toEqual({ waves: 3, result: null });
+    expect(s.check.botTrial()).toEqual({ waves: 3, result: null });
     const result: MapTrialResult = { outcome: 'passed', waves: 3, wavesHeld: 3, hqStart: 500, hqEnd: 480, hpLostByWave: [0, 20, 0], towers: 6, gameTimeMs: 1 };
     TestBed.inject(AppScreen).trialEnded(result);
-    expect(s.botTrial()).toEqual({ waves: 3, result });
+    expect(s.check.botTrial()).toEqual({ waves: 3, result });
     vi.restoreAllMocks();
     s.ngOnDestroy();
   });
@@ -559,7 +563,7 @@ describe('editor session and the AI agent', () => {
     // The page's catalogue does not load here; the shipped one stands in after it gave up
     await s.catalogReady.catch(() => undefined);
     s.catalog.set(catalog);
-    return { s, agent: new EditorAgent(s, sandbox) };
+    return { s, agent: new EditorAgent(s.agent, sandbox) };
   }
 
   const call = (agent: EditorAgent, tool: string, args: Record<string, unknown> = {}) => agent.handle({ tool, args });
@@ -580,7 +584,7 @@ describe('editor session and the AI agent', () => {
     expect(editor.historySteps).toBe(steps + 1);
     expect(editor.undoLabel).toBe('Agent: hill');
     expect(editor.doc.environment.sky).toBe('dusk');
-    expect(s.terrainJob()).toBeNull();
+    expect(s.jobs.job()).toBeNull();
     s.undo();
     expect(Array.from(editor.doc.terrain.grid.heights)).toEqual(Array.from(heights));
     expect(editor.doc.spawns).toEqual(spawns);
@@ -605,11 +609,11 @@ describe('editor session and the AI agent', () => {
     const editor = s.editor!;
     const heights = editor.doc.terrain.grid.heights.slice();
     const steps = editor.historySteps;
-    const play = s.agentEdit('Agent: long', async (ed, signal) => {
+    const play = s.jobs.agentEdit('Agent: long', async (ed, signal) => {
       ed.doc.terrain.grid.heights.fill(9);
       const second = await call(agent, 'move_marker', { target: 'hq', x: 1, y: 1 });
       expect(second).toMatchObject({ isError: true, text: expect.stringMatching(/cannot change now/) });
-      s.cancelTerrainJob();
+      s.jobs.cancel();
       if (signal.aborted) throw new DOMException('stopped', 'AbortError');
     });
     await expect(play).rejects.toThrow(/stopped/);
@@ -647,14 +651,14 @@ describe('editor session and the AI agent', () => {
     expect(heights.heights).toHaveLength(heights.rows);
     expect(JSON.parse((await call(agent, 'check_map')).text)).toHaveProperty('issues');
     expect((await call(agent, 'script_api')).text).toContain('map.raise(');
-    await s.save(true);
+    await s.saves.save(true);
     const copied = JSON.parse((await call(agent, 'copy_map', { id: 'm', name: 'Agent copy' })).text);
     expect(copied).toMatchObject({ id: 'agent-copy', name: 'Agent copy' });
     expect(s.editor!.doc.meta.id).toBe('m');
     expect(JSON.parse((await call(agent, 'read_map', { id: 'agent-copy' })).text).meta.name).toBe('Agent copy');
     expect(JSON.parse((await call(agent, 'list_maps')).text).maps.map((m: { id: string }) => m.id)).toEqual(expect.arrayContaining(['m', 'agent-copy']));
     expect((await call(agent, 'teleport')).isError).toBe(true);
-    s.editor = null;
+    Object.assign(s.maps, { current: null });
     expect((await call(agent, 'map_summary')).text).toMatch(/No map is open/);
     s.ngOnDestroy();
   });
@@ -662,7 +666,7 @@ describe('editor session and the AI agent', () => {
   it('says the asset catalogue did not load instead of answering with empty lists', async () => {
     const { s } = session();
     await s.catalogReady.catch(() => undefined);
-    const agent = new EditorAgent(s, inProcess);
+    const agent = new EditorAgent(s.agent, inProcess);
     for (const answer of [await call(agent, 'catalog'), await call(agent, 'place_object', { asset: 'tree-fir', x: 0, y: 0 })]) {
       expect(answer.isError).toBe(true);
       expect(answer.text).toMatch(/asset catalogue did not load/);
@@ -747,14 +751,14 @@ describe('editor session and the AI agent', () => {
       toDataURL: () => 'data:image/jpeg;base64,AAAA',
     };
     const renderTopDown = vi.fn(async () => canvas);
-    s.viewport = { renderTopDown } as unknown as EditorSession['viewport'];
+    Object.assign(s['viewHost'], { viewport: { renderTopDown, dispose: () => undefined } });
     const answer = await call(agent, 'top_down_picture', { size: 128 });
-    expect(renderTopDown).toHaveBeenCalledWith(128, 128, true);
+    expect(renderTopDown).toHaveBeenCalledWith(128, 128, true, undefined);
     expect(answer.image).toEqual({ mimeType: 'image/jpeg', data: 'AAAA' });
     expect(JSON.parse(answer.text).shows).toMatch(/roads, spawns and the HQ.*relief shaded/);
     // Ground rising to the east faces west, half toward a north-west light
     expect(pixels[0]).toBeGreaterThan(100);
-    s.viewport = null;
+    Object.assign(s['viewHost'], { viewport: null });
     s.ngOnDestroy();
   });
 
@@ -812,7 +816,7 @@ describe('editor session and the AI agent', () => {
 
   it('sets the ground from a heightmap and pastes pieces of this map, another map or a stamp', async () => {
     const { s, agent } = await agentSession();
-    Object.assign(s, { stamps: new StampLibrary(new MemoryStampBackend()) });
+    Object.assign(s.library, { stamps: new StampLibrary(new MemoryStampBackend()) });
     const editor = s.editor!;
     const g = editor.doc.terrain.grid;
     const ramp = { ...g, heights: Float32Array.from(g.heights, (_, k) => (k % g.columns) * 0.25) };
@@ -850,7 +854,7 @@ describe('editor session and the AI agent', () => {
 
   it('opens, creates, saves and closes maps; a shipped map only as an own copy', async () => {
     const { s, agent } = await agentSession();
-    await s.save(true);
+    await s.saves.save(true);
     const made = JSON.parse((await call(agent, 'create_map', { name: 'Agent Isle', width: 128, depth: 96, preset: 'hills', seed: 4, strength: 0.4 })).text);
     expect(made).toMatchObject({ id: 'agent-isle', open: true, width: 128, depth: 96 });
     expect(s.editor!.doc.meta.id).toBe('agent-isle');
@@ -868,22 +872,12 @@ describe('editor session and the AI agent', () => {
     s.ngOnDestroy();
   });
 
-  it('opens a map through the page when it has one, so the address follows', async () => {
+  it('opens a map in place of the open one, which the page follows (openMap)', async () => {
     const { s, agent } = await agentSession();
-    await s.save(true);
-    const opened: string[] = [];
-    s.navigator = {
-      open: async (id) => {
-        opened.push(id);
-        await s.close();
-        await s.open(id);
-        return null;
-      },
-      close: async () => s.close(),
-    };
+    await s.saves.save(true);
     await call(agent, 'copy_map', { id: 'm', name: 'Second' });
     expect(JSON.parse((await call(agent, 'open_map', { id: 'second' })).text)).toMatchObject({ id: 'second' });
-    expect(opened).toEqual(['second']);
+    expect(s.maps.openMap()).toBe('second');
     s.ngOnDestroy();
   });
 
@@ -917,20 +911,20 @@ describe('editor session and the AI agent', () => {
     const editor = s.editor!;
     const before = contentFingerprint(editor.doc);
     const answer = call(agent, 'run_script', { source: `for (let k = 0; k < 40; k++) map.raise({ x: k - 20, y: 0 }, { radius: 6 }, 1);` });
-    while (!s.terrainJob()) await new Promise((r) => setTimeout(r, 5));
-    expect(s.terrainJob()!.label).toBe('Agent: script');
+    while (!s.jobs.job()) await new Promise((r) => setTimeout(r, 5));
+    expect(s.jobs.job()!.label).toBe('Agent: script');
     agent.stop();
     expect(await answer).toEqual({ text: STOPPED, isError: true });
     expect(contentFingerprint(editor.doc)).toBe(before);
-    expect(s.terrainJob()).toBeNull();
+    expect(s.jobs.job()).toBeNull();
     s.ngOnDestroy();
   });
 
   it('lists the kept versions and puts one back as one step', async () => {
     const { s, agent } = await agentSession();
     const editor = s.editor!;
-    await s.save(true);
-    await s.loadVersions();
+    await s.saves.save(true);
+    await s.saves.loadVersions();
     const [first] = JSON.parse((await call(agent, 'list_versions')).text).versions;
     expect(first).toMatchObject({ manual: true });
     await call(agent, 'move_marker', { target: 'hq', x: 9, y: 9 });
@@ -990,10 +984,10 @@ describe('editor session and the AI agent', () => {
     };
     try {
       const { s } = session();
-      Object.assign(s, { stamps: new StampLibrary(new MemoryStampBackend()) });
+      Object.assign(s.library, { stamps: new StampLibrary(new MemoryStampBackend()) });
       await s.catalogReady.catch(() => undefined);
       s.catalog.set(catalog);
-      await s.save(true);
+      await s.saves.save(true);
       expect(handler).not.toBeNull();
       for (const [tool, args] of tools) {
         const answer = await new Promise<unknown>((resolve) => handler!({ tool, args }, resolve));

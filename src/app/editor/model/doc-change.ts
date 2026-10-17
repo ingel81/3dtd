@@ -24,7 +24,14 @@ export interface DocChange {
   environment?: boolean;
   /** Life areas and the map's life switches (map-life.ts) */
   life?: boolean;
+  /** Name, author, description */
   meta?: boolean;
+  /** The map's rules and wave list */
+  gameplay?: boolean;
+  /** The intro flight */
+  intro?: boolean;
+  /** The stamps and prefabs the map keeps */
+  prefabs?: boolean;
   /** Ground layer list (materials, order) */
   layers?: boolean;
   /** The whole terrain was replaced (resize, new grid) */
@@ -50,6 +57,9 @@ export function mergeChanges(a: DocChange, b: DocChange): DocChange {
     environment: a.environment || b.environment || undefined,
     life: a.life || b.life || undefined,
     meta: a.meta || b.meta || undefined,
+    gameplay: a.gameplay || b.gameplay || undefined,
+    intro: a.intro || b.intro || undefined,
+    prefabs: a.prefabs || b.prefabs || undefined,
     layers: a.layers || b.layers || undefined,
     terrain: a.terrain || b.terrain || undefined,
   };

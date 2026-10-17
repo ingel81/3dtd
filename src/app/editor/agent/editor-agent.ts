@@ -21,10 +21,9 @@ import type { MapVersion } from '../model/version-store';
 import type { SavedStamp, StampKeep } from '../model/stamp-store';
 import { ObjectIds, rockShape, settled } from '../../map-ops/object-ops';
 import { levelForBuildings, withGround } from '../ops/object-commands';
-import { resizeMap } from '../ops/resize';
-import { detailTarget, increaseMapDetail } from '../ops/detail';
-import { decodePng, decodeRaw16, imageToHeights } from '../ops/heightmap';
+import { decodePng, decodeRaw16 } from '../ops/heightmap';
 import { LandscapeContext } from '../ops/landscape/landscape-context';
+import { detailCommand, environmentCommand, heightmapRangeOk, importHeights, metaCommand, resizeCommand, rulesCommand } from '../ops/map-operations';
 import { MAP_TEMPLATES } from '../ops/landscape/templates';
 import { TERRAIN_PRESETS, type TerrainPreset } from '../../map-ops/generate';
 import { ALL_PARTS, capturePrefab, captureStamp, pasteStamp, type Stamp, type StampParts, type StampRect } from '../ops/stamp';
@@ -598,7 +597,7 @@ export class EditorAgent {
     const rules = args['rules'];
     if (!rules || typeof rules !== 'object' || Array.isArray(rules)) throw new AgentError('rules must be an object');
     const checked = checkRules(rules as Record<string, unknown>);
-    return this.commit(SnapshotCommand.record(doc, `${AGENT_LABEL}rules`, ['gameplay'], (d) => (d.gameplay = { ...(d.gameplay ?? {}), ...checked })), 'rules set');
+    return this.commit(rulesCommand(doc, checked, `${AGENT_LABEL}rules`), 'rules set');
   }
 
   private setSky(args: Args): AgentAnswer {
@@ -606,7 +605,7 @@ export class EditorAgent {
     const patch = args['environment'];
     if (!patch || typeof patch !== 'object' || Array.isArray(patch)) throw new AgentError('environment must be an object');
     const checked = checkEnvironment(patch as Record<string, unknown>);
-    return this.commit(SnapshotCommand.record(doc, `${AGENT_LABEL}sky`, ['environment'], (d) => (d.environment = { ...d.environment, ...checked })), 'environment set');
+    return this.commit(environmentCommand(doc, checked, `${AGENT_LABEL}sky`), 'environment set');
   }
 
   private setMapInfo(args: Args): AgentAnswer {
@@ -615,7 +614,7 @@ export class EditorAgent {
     if (args['name'] !== undefined) patch.name = text(args, 'name').trim().slice(0, 80);
     if (typeof args['description'] === 'string') patch.description = args['description'].trim().slice(0, 500);
     if (!Object.keys(patch).length) throw new AgentError('Give a name, a description or both');
-    return this.commit(SnapshotCommand.record(doc, `${AGENT_LABEL}map details`, ['meta'], (d) => (d.meta = { ...d.meta, ...patch })), `map details set (id ${doc.meta.id} stays)`);
+    return this.commit(metaCommand(doc, patch, `${AGENT_LABEL}map details`), `map details set (id ${doc.meta.id} stays)`);
   }
 
   private async erodeMap(args: Args): Promise<AgentAnswer> {
@@ -637,10 +636,10 @@ export class EditorAgent {
     };
     const width = side('width');
     const depth = side('depth');
-    let dropped = { droppedObjects: 0, droppedNodes: 0 };
+    const step = resizeCommand(doc, width, depth, `${AGENT_LABEL}resize the map`);
     const answer = this.commit(
-      SnapshotCommand.record(doc, `${AGENT_LABEL}resize the map`, ['terrain', 'objects', 'paths', 'spawns', 'hq'], (d) => (dropped = resizeMap(d, width, depth))),
-      `${doc.terrain.width} x ${doc.terrain.depth} m around the centre; ${dropped.droppedObjects} objects and ${dropped.droppedNodes} road nodes fell outside`,
+      step.command,
+      `${doc.terrain.width} x ${doc.terrain.depth} m around the centre; ${step.dropped.droppedObjects} objects and ${step.dropped.droppedNodes} road nodes fell outside`,
     );
     this.host.mapReshaped();
     return answer;
@@ -648,12 +647,9 @@ export class EditorAgent {
 
   private increaseDetail(): AgentAnswer {
     const doc = this.changeableEditor().doc;
-    const target = detailTarget(doc.terrain);
-    if (!target) throw new AgentError(`The ground has the detail of new maps already (height points every ${doc.terrain.grid.cellSize} m)`);
-    return this.commit(
-      SnapshotCommand.record(doc, `${AGENT_LABEL}increase detail`, ['terrain', 'paths'], (d) => increaseMapDetail(d, target)),
-      `height points every ${+target.cellSize.toFixed(2)} m, ground paint ${target.splatResolution} px`,
-    );
+    const step = detailCommand(doc, `${AGENT_LABEL}increase detail`);
+    if (!step) throw new AgentError(`The ground has the detail of new maps already (height points every ${doc.terrain.grid.cellSize} m)`);
+    return this.commit(step.command, `height points every ${+step.target.cellSize.toFixed(2)} m, ground paint ${step.target.splatResolution} px`);
   }
 
   private importHeightmap(args: Args): AgentAnswer {
@@ -661,7 +657,7 @@ export class EditorAgent {
     const format = args['format'] === 'raw' ? 'raw' : 'png';
     const low = num(args, 'low');
     const high = num(args, 'high');
-    if (Math.abs(high - low) > 10000) throw new AgentError('low and high may lie at most 10 km apart');
+    if (!heightmapRangeOk(low, high)) throw new AgentError('low and high may lie at most 10 km apart');
     let bytes: Uint8Array;
     try {
       bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
@@ -675,13 +671,11 @@ export class EditorAgent {
       throw new AgentError(`Not a heightmap: ${(e as Error).message}`);
     }
     const label = `${AGENT_LABEL}import heightmap`;
-    const editor = this.stroke(label, (s) => {
-      const g = s.doc.terrain.grid;
-      const all = { i0: 0, j0: 0, i1: g.columns - 1, j1: g.rows - 1 };
-      s.tx.touch('heights', all);
-      g.heights.set(imageToHeights(image, g.columns, g.rows, low, high));
-      s.changed({ heights: all });
-    });
+    const editor = this.changeableEditor();
+    const steps = editor.historySteps;
+    importHeights(editor, this.host.catalog(), image, low, high, label);
+    this.host.refresh();
+    if (editor.historySteps !== steps) this.keepIfSavable(editor);
     const g = editor.doc.terrain.grid;
     return json({ ok: true, step: label, done: `${image.width} x ${image.height} on the ${g.columns} x ${g.rows} grid, black ${low} m, white ${high} m` });
   }

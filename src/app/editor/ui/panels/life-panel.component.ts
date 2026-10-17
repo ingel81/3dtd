@@ -239,12 +239,12 @@ const TINTED: ReadonlySet<MapLifeKind> = new Set(['fireflies', 'fog', 'leaves', 
           </label>
           <div class="td-setting">
             <span>Hear it once</span>
-            <button class="td-btn-secondary td-btn-sm" type="button" (click)="session.playWaveSound()" data-test="life-wave-play">Play</button>
+            <button class="td-btn-secondary td-btn-sm" type="button" (click)="session.view.playWaveSound()" data-test="life-wave-play">Play</button>
           </div>
         }
         <div class="td-setting">
           <span>Hear it in the editor</span>
-          <input class="td-switch" type="checkbox" [checked]="settings().hear" (change)="session.hearAmbience($any($event.target).checked)" aria-label="Hear the map's sound" data-test="life-hear" />
+          <input class="td-switch" type="checkbox" [checked]="settings().hear" (change)="session.view.setAmbience($any($event.target).checked)" aria-label="Hear the map's sound" data-test="life-hear" />
         </div>
       <p class="td-note">The look's own plays its sounds by day and by night. Sound areas and lines add a sound where you draw them (pick Sound above). The wave sound plays once as each wave starts, from the area it comes from (quieter far off) or alike everywhere.</p>
     </div>
@@ -258,8 +258,8 @@ const TINTED: ReadonlySet<MapLifeKind> = new Set(['fireflies', 'fog', 'leaves', 
 })
 export class LifePanelComponent {
   readonly session = inject(EditorSession);
-  /** The map's revision while this panel is in sight (PanelShown) */
-  private readonly rev = panelRev();
+  /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
+  private readonly rev = panelRev('life');
   readonly info = LIFE_KIND_INFO;
   readonly kinds = LIFE_KINDS;
   readonly sounds = Object.entries(AMBIENT_SOUNDS).map(([id, s]) => ({ id, label: s.label }));
@@ -274,7 +274,7 @@ export class LifePanelComponent {
     { id: 'route', label: 'Line' },
     { id: 'edit', label: 'Edit' },
   ];
-  readonly settings = this.session.settings.life;
+  readonly settings = this.session.tools.settings.life;
   readonly life = computed(() => (this.rev(), this.session.doc?.life));
   readonly areas = computed(() => this.life()?.areas ?? []);
   readonly chosen = computed(() => {
@@ -301,31 +301,31 @@ export class LifePanelComponent {
   }
 
   setMode(mode: LifeMode): void {
-    patch(this.session.settings.life, { mode });
+    patch(this.session.tools.settings.life, { mode });
   }
 
   setKind(kind: MapLifeKind): void {
-    patch(this.session.settings.life, { kind });
+    patch(this.session.tools.settings.life, { kind });
   }
 
   choose(id: string): void {
-    patch(this.session.settings.life, { chosen: id, point: -1 });
+    patch(this.session.tools.settings.life, { chosen: id, point: -1 });
   }
 
   show(a: MapLifeArea): void {
     const c = centroid(a.points);
     const r = Math.max(...a.points.map((p) => Math.hypot(p.x - c.x, p.y - c.y)), 30);
-    this.session.viewport?.focusOn(c, r * 1.2);
+    this.session.view.focusOn(c, r * 1.2);
   }
 
   remove(a: MapLifeArea): void {
     this.session.editLife((life) => (life.areas = life.areas?.filter((x) => x.id !== a.id)), `Remove ${LIFE_KIND_INFO[a.kind].label.toLowerCase()}`);
-    if (this.settings().chosen === a.id) patch(this.session.settings.life, { chosen: null });
+    if (this.settings().chosen === a.id) patch(this.session.tools.settings.life, { chosen: null });
   }
 
   placeSpot(asset: string): void {
-    patch(this.session.settings.objects, { asset, mode: 'place' });
-    this.session.selectTool('objects');
+    patch(this.session.tools.settings.objects, { asset, mode: 'place' });
+    this.session.tools.select('objects');
   }
 
   setAmbience(sound: string): void {
@@ -384,7 +384,7 @@ export class LifePanelComponent {
     const life = structuredClone(editor.doc.life ?? {});
     change(life);
     editor.doc.life = life;
-    this.session.execute(new SnapshotCommand(label, { life: before }, { life: structuredClone(life) }));
+    this.session.edit('Changing the life', (e) => e.execute(new SnapshotCommand(label, { life: before }, { life: structuredClone(life) })));
   }
 }
 

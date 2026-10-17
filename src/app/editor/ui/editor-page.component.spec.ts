@@ -26,7 +26,8 @@ describe('EditorPageComponent', () => {
 
   it('a reload opens the own copy a save made of a shipped map, not the shipped one', () => {
     const meta = signal<Pick<MapMeta, 'id' | 'name'> | null>({ id: 'demo-valley', name: 'Demo Valley' });
-    const session = { editor: { doc: { meta: meta() } }, meta, dirty: signal(false), navigator: null };
+    const openMap = signal<string | null>('demo-valley');
+    const session = { editor: { doc: { meta: meta() } }, state: { meta }, saves: { dirty: signal(false) }, maps: { openMap } };
     const screens = { draft: signal(null), guardEditor: () => () => undefined, takeEditorMap: () => null };
     TestBed.configureTestingModule({
       providers: [{ provide: EditorSession, useValue: session }, { provide: AppScreen, useValue: screens }],
@@ -38,6 +39,7 @@ describe('EditorPageComponent', () => {
     expect(sessionStorage.getItem('3dtd-editor-map')).toBe('demo-valley');
 
     meta.set({ id: 'demo-valley-copy', name: 'Demo Valley (copy)' });
+    openMap.set('demo-valley-copy');
     TestBed.tick();
     expect(sessionStorage.getItem('3dtd-editor-map')).toBe('demo-valley-copy');
     expect(screens.draft()).toMatchObject({ mapId: 'demo-valley-copy' });

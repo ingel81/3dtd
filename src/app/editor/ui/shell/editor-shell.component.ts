@@ -183,7 +183,7 @@ export class EditorShellComponent implements OnDestroy {
   /** The command palette's list while it is open */
   readonly palette = signal<readonly EditorCommand[] | null>(null);
   /** The single keys inside the tools (W E R …): no action may take them */
-  private readonly fixedKeys = toolKeys(Object.values(this.session.tools));
+  private readonly fixedKeys = toolKeys(Object.values(this.session.tools.all));
   /** The keys of the rebindable actions, and the action waiting for its new key */
   readonly keymap = signal<Keymap>(loadKeymap(undefined, this.fixedKeys));
   readonly capturing = signal<string | null>(null);
@@ -213,26 +213,27 @@ export class EditorShellComponent implements OnDestroy {
   readonly tourRing = signal<{ left: number; top: number; width: number; height: number } | null>(null);
   readonly shortcuts = SHORTCUTS;
   readonly symmetryModes = SYMMETRY_MODES;
-  readonly symmetry = computed(() => this.session.settings.symmetry());
+  readonly symmetry = computed(() => this.session.tools.settings.symmetry());
   /** The view shows a still frame (wind, water, particles stand) */
-  readonly still = computed(() => this.session.settings.view().still);
+  readonly still = computed(() => this.session.tools.settings.view().still);
   /** Objects in Place: the legend shows how to turn the next object */
-  readonly placing = computed(() => this.session.tool() === 'objects' && this.session.settings.objects().mode === 'place');
+  readonly placing = computed(() => this.session.tools.tool() === 'objects' && this.session.tools.settings.objects().mode === 'place');
+  private readonly terrainRev = this.session.state.rev('terrain');
   readonly symmetryHint = computed(() => {
-    const doc = (this.session.docRev(), this.session.doc);
+    const doc = (this.terrainRev(), this.session.doc);
     const m = SYMMETRY_MODES.find((s) => s.id === this.symmetry())!;
     const square = !doc || doc.terrain.grid.columns === doc.terrain.grid.rows;
     return m.id === 'rot4' && !square ? 'Turn 4 needs a square map: this one turns by 180 degrees' : `${m.hint} (M cycles)`;
   });
   private readonly canvas = viewChild.required<ElementRef<HTMLCanvasElement>>('canvas');
 
-  readonly title = computed(() => this.session.meta()?.name ?? '');
-  readonly toolLabel = computed(() => TOOLS.find((t) => t.id === this.session.tool())?.label ?? '');
-  readonly issueCount = computed(() => this.session.issues()?.filter((i) => i.severity === 'error').length ?? 0);
+  readonly title = computed(() => this.session.state.meta()?.name ?? '');
+  readonly toolLabel = computed(() => TOOLS.find((t) => t.id === this.session.tools.tool())?.label ?? '');
+  readonly issueCount = computed(() => this.session.check.issues()?.filter((i) => i.severity === 'error').length ?? 0);
   readonly saveLine = computed(() => {
-    if (this.session.readOnly()) return 'Read only';
-    if (this.session.saving()) return 'Saving';
-    return this.session.dirty() ? 'Unsaved changes' : 'Saved';
+    if (this.session.maps.readOnly()) return 'Read only';
+    if (this.session.saves.saving()) return 'Saving';
+    return this.session.saves.dirty() ? 'Unsaved changes' : 'Saved';
   });
 
   constructor() {
@@ -242,7 +243,7 @@ export class EditorShellComponent implements OnDestroy {
       if (tourPending()) this.startTour();
     });
     effect(() => {
-      const tool = this.session.tool();
+      const tool = this.session.tools.tool();
       untracked(() => {
         if (!this.mounted().has(tool)) this.mounted.set(new Set([...this.mounted(), tool]));
       });
@@ -250,12 +251,12 @@ export class EditorShellComponent implements OnDestroy {
     afterNextRender(() => this.mountIdlePanels());
     // The assets a biome or the object palette is about to place get their programs compiled ahead
     effect(() => {
-      const tool = this.session.tool();
+      const tool = this.session.tools.tool();
       const catalog = this.session.catalog();
       untracked(() => {
-        const vp = this.session.viewport;
-        const st = this.session.settings;
-        if (!vp) return;
+        const vp = this.session.view;
+        const st = this.session.tools.settings;
+        if (!vp.shown) return;
         const ids: string[] = [];
         if (tool === 'landscape' && st.landscape().mode === 'biome') ids.push(...biomeById(st.landscape().biome).objects.flatMap((o) => o.assets));
         if (tool === 'objects') ids.push(...(st.objects().asset ? [st.objects().asset!] : []), ...st.objects().scatter.assets);
@@ -264,7 +265,7 @@ export class EditorShellComponent implements OnDestroy {
       });
     });
     // A change of the map may finish the step the tour is on
-    this.offChange = this.session.onDocChange((change) => this.tourEvent('change', change));
+    this.offChange = this.session.state.onDocChange((change) => this.tourEvent('change', change));
   }
 
   private readonly offChange: () => void;
@@ -282,20 +283,20 @@ export class EditorShellComponent implements OnDestroy {
   }
 
   setSymmetry(mode: SymmetryMode): void {
-    this.session.settings.symmetry.set(mode);
-    this.session.flash(mode === 'none' ? 'Symmetry off' : `Symmetry: ${SYMMETRY_MODES.find((m) => m.id === mode)!.label}`);
+    this.session.tools.settings.symmetry.set(mode);
+    this.session.notices.flash(mode === 'none' ? 'Symmetry off' : `Symmetry: ${SYMMETRY_MODES.find((m) => m.id === mode)!.label}`);
   }
 
   /** A fresh copy of the changed original, opened in place of the copy (which stays in the list) */
   async freshCopy(): Promise<void> {
-    await this.session.freshCopy();
+    await this.session.maps.freshCopy();
   }
 
   /** Wind, water and particles stand still in the view, or move again */
   toggleStill(): void {
     const s = this.session;
-    patch(s.settings.view, { still: !s.settings.view().still });
-    s.flash(s.settings.view().still ? `Still frame: nothing moves (${this.keyOf('view:still')} moves it again)` : 'Wind and water move again');
+    patch(s.tools.settings.view, { still: !s.tools.settings.view().still });
+    s.notices.flash(s.tools.settings.view().still ? `Still frame: nothing moves (${this.keyOf('view:still')} moves it again)` : 'Wind and water move again');
   }
 
   setLegend(on: boolean): void {
@@ -353,11 +354,11 @@ export class EditorShellComponent implements OnDestroy {
 
   /** Whether a tool's panel is in sight: its tool in hand and the tool tab open */
   panelShown(id: ToolId): boolean {
-    return this.sideView() === 'tool' && this.session.tool() === id;
+    return this.sideView() === 'tool' && this.session.tools.tool() === id;
   }
 
   pick(id: ToolId): void {
-    this.session.selectTool(id);
+    this.session.tools.select(id);
     this.sideView.set('tool');
   }
 
@@ -437,10 +438,7 @@ export class EditorShellComponent implements OnDestroy {
   }
 
   trial(): void {
-    const vp = this.session.viewport;
-    if (vp) vp.trialSpeed = this.trialSpeed();
-    vp?.toggleTrial();
-    const on = !!this.session.viewport?.trialRunning;
+    const on = this.session.view.toggleTrial(this.trialSpeed());
     this.trialOn.set(on);
     if (on) this.tourEvent('trial');
   }
@@ -448,13 +446,12 @@ export class EditorShellComponent implements OnDestroy {
   /** The trial wave's speed, also while it walks */
   setTrialSpeed(speed: number): void {
     this.trialSpeed.set(speed);
-    const vp = this.session.viewport;
-    if (vp) vp.trialSpeed = speed;
-    this.session.flash(`Trial wave at ${speed}x`);
+    this.session.view.setTrialSpeed(speed);
+    this.session.notices.flash(`Trial wave at ${speed}x`);
   }
 
   testPlay(): void {
-    void this.session.testPlay();
+    void this.session.check.testPlay();
     this.tourEvent('test');
   }
 
@@ -465,14 +462,14 @@ export class EditorShellComponent implements OnDestroy {
     const input = e.target as HTMLInputElement;
     const v = Math.round(Number(input.value));
     const wave = Number.isFinite(v) ? Math.min(MAX_START_WAVE, Math.max(1, v)) : 1;
-    this.session.testFromWave.set(wave);
+    this.session.check.testFromWave.set(wave);
     input.value = String(wave);
   }
 
   async check(): Promise<void> {
     this.tourEvent('check');
-    const issues = this.session.runCheck();
-    this.session.flash(issues.length ? `${issues.length} ${issues.length === 1 ? 'thing' : 'things'} to look at` : 'The map checks out');
+    const issues = this.session.check.runCheck();
+    this.session.notices.flash(issues.length ? `${issues.length} ${issues.length === 1 ? 'thing' : 'things'} to look at` : 'The map checks out');
   }
 
   onKeyDown(e: KeyboardEvent): void {
@@ -483,7 +480,7 @@ export class EditorShellComponent implements OnDestroy {
       const key = e.key.toLowerCase();
       const fixed = this.fixedKeys.get(key);
       // A tool's own key stays the tool's: say whose it is and wait for another
-      if (fixed) return this.handled(e, () => this.session.flash(`${key.toUpperCase()} stays fixed: ${fixed}. Press another key, Esc keeps the old one`));
+      if (fixed) return this.handled(e, () => this.session.notices.flash(`${key.toUpperCase()} stays fixed: ${fixed}. Press another key, Esc keeps the old one`));
       return this.handled(e, () => {
         const before = this.keymap();
         const next = rebind(before, waiting, key);
@@ -492,7 +489,7 @@ export class EditorShellComponent implements OnDestroy {
         this.capturing.set(null);
         const label = (id: string) => KEY_ACTIONS.find((a) => a.id === id)?.label ?? id;
         const swapped = Object.keys(next).find((id) => id !== waiting && before[id] === key);
-        this.session.flash(
+        this.session.notices.flash(
           swapped
             ? `${key.toUpperCase()}: ${label(waiting)}; ${label(swapped)} takes ${next[swapped].toUpperCase() || 'no key'}`
             : `${key.toUpperCase()}: ${label(waiting)}`,
@@ -508,32 +505,32 @@ export class EditorShellComponent implements OnDestroy {
     }
     const s = this.session;
     // While the right button turns the view, W A S D Q E fly instead of choosing tools
-    if (s.viewport?.flying && s.viewport.key(e)) return this.handled(e, () => undefined);
+    if (s.view.flying && s.view.key(e)) return this.handled(e, () => undefined);
     const ctrl = e.ctrlKey || e.metaKey;
     const k = e.key.toLowerCase();
     if (ctrl && k === 'z' && !e.shiftKey) return this.handled(e, () => s.undo());
     if (ctrl && (k === 'y' || (k === 'z' && e.shiftKey))) return this.handled(e, () => s.redo());
-    if (ctrl && k === 's') return this.handled(e, () => void s.save(true));
+    if (ctrl && k === 's') return this.handled(e, () => void s.saves.save(true));
     // Ctrl+G groups objects; the browser must not open its find bar for it, whatever the tool
     if (ctrl && k === 'g') {
       e.preventDefault();
-      s.viewport?.key(e);
-      s.refresh();
+      s.view.key(e);
+      s.state.refresh();
       return;
     }
     // Camera views: Alt or Ctrl with a digit keeps the view (Ctrl only where the browser leaves it), Shift with a digit shows it
     const digit = /^Digit([1-9])$/.exec(e.code);
     if (digit) {
       const slot = Number(digit[1]) - 1;
-      if (e.altKey || ctrl) return this.handled(e, () => s.saveBookmark(slot));
-      if (e.shiftKey) return this.handled(e, () => s.showBookmark(slot));
+      if (e.altKey || ctrl) return this.handled(e, () => s.view.saveBookmark(slot));
+      if (e.shiftKey) return this.handled(e, () => s.view.showBookmark(slot));
     }
     if (ctrl && k === 'v' && s.blocked('Paste')) return this.handled(e, () => undefined);
     // Ctrl+V from any tool places the last copy
-    if (ctrl && k === 'v' && s.tool() !== 'stamp' && s.settings.stamp().current) {
+    if (ctrl && k === 'v' && s.tools.tool() !== 'stamp' && s.tools.settings.stamp().current) {
       return this.handled(e, () => {
         this.pick('stamp');
-        patch(s.settings.stamp, { mode: 'paste' });
+        patch(s.tools.settings.stamp, { mode: 'paste' });
       });
     }
     if (!ctrl && !e.altKey) {
@@ -544,19 +541,19 @@ export class EditorShellComponent implements OnDestroy {
       const action = e.shiftKey ? null : actionFor(this.keymap(), e.key);
       if (action && this.runAction(action)) return this.handled(e, () => undefined);
     }
-    if (s.viewport?.key(e)) {
+    if (s.view.key(e)) {
       e.preventDefault();
-      s.refresh();
+      s.state.refresh();
       return;
     }
     // Esc with nothing half done and nothing selected: the hand goes to Look
-    if (e.key === 'Escape' && !ctrl && s.tool() !== 'look') this.handled(e, () => this.pick('look'));
+    if (e.key === 'Escape' && !ctrl && s.tools.tool() !== 'look') this.handled(e, () => this.pick('look'));
   }
 
   /** Runs a rebindable action; false when it does not apply now (the key then goes on to the view) */
   private runAction(id: string): boolean {
     const s = this.session;
-    const vp = s.viewport;
+    const vp = s.view;
     if (id.startsWith('tool:')) {
       this.pick(id.slice(5) as ToolId);
       return true;
@@ -566,25 +563,25 @@ export class EditorShellComponent implements OnDestroy {
         void this.check();
         return true;
       case 'map:symmetry': {
-        const i = SYMMETRY_MODES.findIndex((m) => m.id === s.settings.symmetry());
+        const i = SYMMETRY_MODES.findIndex((m) => m.id === s.tools.settings.symmetry());
         this.setSymmetry(SYMMETRY_MODES[(i + 1) % SYMMETRY_MODES.length].id);
         return true;
       }
       case 'view:frame':
-        vp?.focusSelection();
-        return !!vp;
+        vp.focusSelection();
+        return vp.shown;
       case 'view:top':
-        vp?.controller.setTopDown(!vp.controller.isTopDown);
-        return !!vp;
+        vp.setTopDown(!vp.topDown);
+        return vp.shown;
       case 'view:game':
-        vp?.toggleGameView();
-        return !!vp;
+        vp.toggleGameView();
+        return vp.shown;
       case 'view:still':
         this.toggleStill();
         return true;
       case 'map:trial':
         this.trial();
-        return !!vp;
+        return vp.shown;
     }
     return false;
   }
@@ -617,46 +614,46 @@ export class EditorShellComponent implements OnDestroy {
 
   closePalette(): void {
     this.palette.set(null);
-    this.session.viewport?.canvas.focus({ preventScroll: true });
+    this.session.view.focusCanvas();
   }
 
   /** Everything the palette offers, built when it opens: tools, brushes, view, map, objects on the map, markers */
   private buildCommands(): EditorCommand[] {
     const s = this.session;
-    const vp = s.viewport;
+    const vp = s.view;
     const out: EditorCommand[] = [];
     const add = (group: string, label: string, run: () => void, keys?: string) => out.push({ id: `${group}:${label}`, group, label, keys, run });
     add('Edit', 'Undo', () => s.undo(), 'Ctrl+Z');
     add('Edit', 'Redo', () => s.redo(), 'Ctrl+Y');
     add('Edit', 'History: jump to a step', () => this.sideView.set('history'));
-    add('Map', 'Save', () => void s.save(true), 'Ctrl+S');
+    add('Map', 'Save', () => void s.saves.save(true), 'Ctrl+S');
     add('Map', 'Check the map', () => void this.check(), this.keyOf('map:check'));
-    add('Map', 'Test the map in the game', () => void s.testPlay());
-    add('Map', 'Download the map file', () => s.downloadFile());
-    add('Map', 'Download a picture of the map', () => void s.downloadPng());
+    add('Map', 'Test the map in the game', () => void s.check.testPlay());
+    add('Map', 'Download the map file', () => s.saves.downloadFile());
+    add('Map', 'Download a picture of the map', () => void s.pictures.downloadPng());
     for (const t of TOOLS) add('Tools', t.label, () => this.pick(t.id), this.keyOf(`tool:${t.id}`) || t.key);
     for (const m of LANDSCAPE_MODES) {
       add('Landscape', m.label, () => {
         this.pick('landscape');
-        patch(s.settings.landscape, { mode: m.id });
+        patch(s.tools.settings.landscape, { mode: m.id });
       });
     }
     for (const b of BIOMES) {
       add('Biome', b.label, () => {
         this.pick('landscape');
-        patch(s.settings.landscape, { mode: 'biome', biome: b.id });
+        patch(s.tools.settings.landscape, { mode: 'biome', biome: b.id });
       });
     }
-    if (vp) {
+    if (vp.shown) {
       add('View', 'Frame the map', () => vp.frameMap());
       add('View', 'Frame the selection', () => vp.focusSelection(), this.keyOf('view:frame'));
-      add('View', 'Top view on or off', () => vp.controller.setTopDown(!vp.controller.isTopDown), this.keyOf('view:top'));
+      add('View', 'Top view on or off', () => vp.setTopDown(!vp.topDown), this.keyOf('view:top'));
       add('View', 'Game view on or off', () => vp.toggleGameView(), this.keyOf('view:game'));
       add('View', 'Still frame on or off', () => this.toggleStill(), this.keyOf('view:still'));
       add('Map', 'Trial wave: enemies walk the routes', () => this.trial(), this.keyOf('map:trial'));
     }
-    add('View', 'Height lines on or off', () => patch(s.settings.view, { contours: !s.settings.view().contours }));
-    add('View', 'Grid on or off', () => patch(s.settings.view, { grid: !s.settings.view().grid }));
+    add('View', 'Height lines on or off', () => patch(s.tools.settings.view, { contours: !s.tools.settings.view().contours }));
+    add('View', 'Grid on or off', () => patch(s.tools.settings.view, { grid: !s.tools.settings.view().grid }));
     for (const m of SYMMETRY_MODES) add('Symmetry', m.label, () => this.setSymmetry(m.id), 'M');
     add('Symmetry', 'Mirror the map now (from the part in view)', () => s.mirrorNow());
     add('Editor', 'Keys', () => this.help.set(true), '?');
@@ -665,7 +662,7 @@ export class EditorShellComponent implements OnDestroy {
     if (resume !== null) add('Editor', `Tour: resume at step ${resume + 1}`, () => this.startTour(resume));
     add('Editor', 'How to build a good level', () => this.openGuide());
     const doc = s.doc;
-    if (doc && vp) {
+    if (doc && vp.shown) {
       add('Go to', 'HQ', () => vp.focusOn(doc.hq));
       for (const sp of doc.spawns) add('Go to', `Spawn ${sp.name}`, () => vp.focusOn(sp));
       // Every asset on the map: select all of its objects and frame them
@@ -681,26 +678,26 @@ export class EditorShellComponent implements OnDestroy {
       for (const [group, ids] of groups) {
         add('Select', `Group ${group} (${ids.length})`, () => {
           this.pick('objects');
-          patch(s.settings.objects, { mode: 'select' });
+          patch(s.tools.settings.objects, { mode: 'select' });
           s.editor?.select({ kind: 'objects', ids });
           vp.focusSelection();
         });
       }
       for (const category of catalog.categories()) {
-        const hidden = s.settings.view().hidden?.includes(category);
+        const hidden = s.tools.settings.view().hidden?.includes(category);
         add('View', `${hidden ? 'Show' : 'Hide'} ${category.toLowerCase()}`, () =>
         {
-          const set = new Set(s.settings.view().hidden ?? []);
+          const set = new Set(s.tools.settings.view().hidden ?? []);
           if (set.has(category)) set.delete(category);
           else set.add(category);
-          patch(s.settings.view, { hidden: [...set] });
+          patch(s.tools.settings.view, { hidden: [...set] });
         },
         );
       }
       for (const [asset, ids] of byAsset) {
         add('Select', `${catalog.object(asset).name} (${ids.length})`, () => {
           this.pick('objects');
-          patch(s.settings.objects, { mode: 'select' });
+          patch(s.tools.settings.objects, { mode: 'select' });
           s.editor?.select({ kind: 'objects', ids });
           vp.focusSelection();
         });
@@ -710,12 +707,12 @@ export class EditorShellComponent implements OnDestroy {
   }
 
   onKeyUp(e: KeyboardEvent): void {
-    this.session.viewport?.keyUp(e);
+    this.session.view.keyUp(e);
   }
 
   onBeforeUnload(e: BeforeUnloadEvent): void {
-    if (this.session.dirty() && !this.session.readOnly()) {
-      void this.session.save(false);
+    if (this.session.saves.dirty() && !this.session.maps.readOnly()) {
+      void this.session.saves.save(false);
       e.preventDefault();
     }
   }
@@ -727,7 +724,7 @@ export class EditorShellComponent implements OnDestroy {
   /** The run that waits plays this map (or the map this copy was opened for) */
   private runOfThisMap(): boolean {
     const mapId = this.waitingRun()?.mapId;
-    return !!mapId && this.session.isOpen(mapId);
+    return !!mapId && this.session.maps.isOpen(mapId);
   }
 
   /**
@@ -757,16 +754,16 @@ export class EditorShellComponent implements OnDestroy {
     const s = this.session;
     switch (action) {
       case 'download':
-        s.downloadFile();
+        s.saves.downloadFile();
         return;
       case 'png':
-        void s.downloadPng();
+        void s.pictures.downloadPng();
         return;
       case 'frame':
-        s.viewport?.frameMap();
+        s.view.frameMap();
         return;
       case 'top':
-        s.viewport?.controller.setTopDown(!s.viewport.controller.isTopDown);
+        s.view.setTopDown(!s.view.topDown);
         return;
     }
   }

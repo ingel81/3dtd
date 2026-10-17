@@ -67,7 +67,7 @@ if (OPEN_AT) {
 
 interface Probe { programs(): number; start(): void; stop(): { longest: number; stalled: number; frames: number; long: number[][] } }
 await page.evaluate(() => {
-  const shell = (globalThis as unknown as { ng: { getComponent(e: Element): { session: { viewport: { renderer: { info: { programs?: unknown[] } } } } } } }).ng.getComponent(
+  const shell = (globalThis as unknown as { ng: { getComponent(e: Element): { session: { viewHost: { viewport: { renderer: { info: { programs?: unknown[] } } } } } } } }).ng.getComponent(
     document.querySelector('app-editor-shell')!,
   );
   let gaps: number[] = [];
@@ -85,7 +85,7 @@ await page.evaluate(() => {
     requestAnimationFrame(tick);
   };
   const probe: Probe = {
-    programs: () => shell.session.viewport.renderer.info.programs?.length ?? 0,
+    programs: () => shell.session.viewHost.viewport.renderer.info.programs?.length ?? 0,
     start: () => {
       gaps = [];
       at = [];

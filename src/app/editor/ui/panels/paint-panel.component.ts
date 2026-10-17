@@ -29,11 +29,11 @@ const GROUND = 'Changing the ground paint';
 })
 export class PaintPanelComponent {
   readonly session = inject(EditorSession);
-  /** The map's revision while this panel is in sight (PanelShown) */
-  private readonly rev = panelRev();
+  /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
+  private readonly rev = panelRev('terrain');
   readonly max = MAX_LAYERS;
-  readonly thumb = (m: GroundMaterialEntry) => this.session.materialPicture(m);
-  readonly settings = this.session.settings.paint;
+  readonly thumb = (m: GroundMaterialEntry) => this.session.pictures.materialPicture(m);
+  readonly settings = this.session.tools.settings.paint;
   readonly layers = computed(() => {
     this.rev();
     const doc = this.session.doc;
@@ -66,11 +66,11 @@ export class PaintPanelComponent {
   });
 
   pick(index: number): void {
-    patch(this.session.settings.paint, { layer: index });
+    patch(this.session.tools.settings.paint, { layer: index });
   }
 
   setErase(on: boolean): void {
-    patch(this.session.settings.paint, { erase: on });
+    patch(this.session.tools.settings.paint, { erase: on });
   }
 
   add(material: string): void {
@@ -97,7 +97,7 @@ export class PaintPanelComponent {
   }
 
   autoPaint(): void {
-    if (this.session.edit(GROUND, (e) => paintCommands.autoPaint(e))) this.session.flash('Painted by slope and height; undo brings back the old paint');
+    if (this.session.edit(GROUND, (e) => paintCommands.autoPaint(e))) this.session.notices.flash('Painted by slope and height; undo brings back the old paint');
   }
 
   setCliff(material: string, angle: number): void {

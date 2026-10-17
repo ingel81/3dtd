@@ -20,9 +20,9 @@ import { agentLine, agentName, agentState, bandShown } from './agent-state';
         <span class="ab-name td-name">{{ v.name }}</span>
         <span class="ab-line td-trunc" [class.td-tone-teal]="v.state === 'working'" data-test="agent-line">{{ v.line }}</span>
         @if (v.state === 'stopped') {
-          <button class="td-btn-secondary td-btn-sm" type="button" (click)="session.resumeAgent()" data-test="agent-resume">Let it go on</button>
+          <button class="td-btn-secondary td-btn-sm" type="button" (click)="session.agent.resume()" data-test="agent-resume">Let it go on</button>
         } @else {
-          <button class="td-btn-danger td-btn-sm" type="button" (click)="session.stopAgent()" data-test="agent-stop">Stop</button>
+          <button class="td-btn-danger td-btn-sm" type="button" (click)="session.agent.stop()" data-test="agent-stop">Stop</button>
         }
         @if (v.progress !== null) {
           <div class="td-progress is-edge" aria-hidden="true"><i [style.width.%]="v.progress * 100"></i></div>
@@ -46,11 +46,11 @@ export class AgentBandComponent {
   private readonly now = signal(Date.now());
 
   readonly view = computed(() => {
-    const status = this.session.agentStatus();
+    const status = this.session.agent.status();
     const now = this.now();
     if (!status || !bandShown(status, now)) return null;
     const state = agentState(status, now);
-    const job = this.session.terrainJob();
+    const job = this.session.jobs.job();
     // A script playing or the erosion: how far it is
     const progress = state === 'working' && job?.label.startsWith(AGENT_LABEL) ? job.progress : null;
     return { state, name: agentName(status), line: agentLine(status, now), progress };
@@ -58,7 +58,7 @@ export class AgentBandComponent {
 
   constructor() {
     const timer = setInterval(() => {
-      if (this.session.agentStatus()?.enabled) this.now.set(Date.now());
+      if (this.session.agent.status()?.enabled) this.now.set(Date.now());
     }, 1000);
     inject(DestroyRef).onDestroy(() => clearInterval(timer));
   }

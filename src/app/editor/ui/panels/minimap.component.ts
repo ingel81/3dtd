@@ -23,7 +23,7 @@ const PICTURE_EVERY_MS = 1200;
   template: `<canvas #canvas class="mm-canvas" [width]="size" [height]="size" aria-label="Minimap, click to move the view"
                      (pointerdown)="down($event)" (pointermove)="move($event)" (pointerup)="up($event)" data-test="minimap"></canvas>
     <div class="mm-views" role="group" aria-label="Kept views">
-      @for (v of session.bookmarks(); track $index) {
+      @for (v of session.view.bookmarks(); track $index) {
         @if (v) {
           <button class="td-tool is-sm mm-view td-tone-brass" type="button" [attr.aria-label]="'View ' + ($index + 1)"
                   [matTooltip]="'Fly to view ' + ($index + 1) + ' (Shift+' + ($index + 1) + '); Alt click keeps the current view here instead'"
@@ -61,8 +61,8 @@ export class MinimapComponent implements OnDestroy {
 
   constructor() {
     effect(() => {
-      const rev = this.session.docRev() * 1000 + this.session.viewRev();
-      this.session.selection();
+      const rev = this.session.state.anyRev() * 1000 + this.session.view.viewRev();
+      this.session.state.selection();
       this.drawnRev = rev;
       this.schedulePicture(rev);
       this.draw();
@@ -70,20 +70,20 @@ export class MinimapComponent implements OnDestroy {
   }
 
   /** The first slot without a kept view, -1 when all nine hold one */
-  readonly freeSlot = computed(() => this.session.bookmarks().findIndex((v) => !v));
+  readonly freeSlot = computed(() => this.session.view.bookmarks().findIndex((v) => !v));
 
   keep(): void {
     const slot = this.freeSlot();
-    if (slot >= 0) this.session.saveBookmark(slot);
+    if (slot >= 0) this.session.view.saveBookmark(slot);
   }
 
   view(slot: number, e: MouseEvent): void {
-    if (e.altKey || e.ctrlKey || e.metaKey) this.session.saveBookmark(slot);
-    else this.session.showBookmark(slot);
+    if (e.altKey || e.ctrlKey || e.metaKey) this.session.view.saveBookmark(slot);
+    else this.session.view.showBookmark(slot);
   }
 
   /** The camera's frame follows the view outside Angular: a flight moves it every frame */
-  private readonly offCamera = this.session.onCamera(() => this.draw());
+  private readonly offCamera = this.session.view.onCamera(() => this.draw());
 
   ngOnDestroy(): void {
     this.destroyed = true;
@@ -108,17 +108,14 @@ export class MinimapComponent implements OnDestroy {
 
   private jump(e: PointerEvent): void {
     const doc = this.session.doc;
-    const vp = this.session.viewport;
-    if (!doc || !vp) return;
+    if (!doc || !this.session.view.shown) return;
     const rect = (e.target as HTMLElement).getBoundingClientRect();
     const box = this.box(doc.terrain.width, doc.terrain.depth);
     const u = (e.clientX - rect.left) * (SIZE / rect.width);
     const v = (e.clientY - rect.top) * (SIZE / rect.height);
     const x = ((u - box.x) / box.w - 0.5) * doc.terrain.width;
     const y = (0.5 - (v - box.y) / box.h) * doc.terrain.depth;
-    const c = vp.controller.goal;
-    c.target.x = -Math.max(-doc.terrain.width / 2, Math.min(doc.terrain.width / 2, x));
-    c.target.z = Math.max(-doc.terrain.depth / 2, Math.min(doc.terrain.depth / 2, y));
+    this.session.view.lookAt(Math.max(-doc.terrain.width / 2, Math.min(doc.terrain.width / 2, x)), Math.max(-doc.terrain.depth / 2, Math.min(doc.terrain.depth / 2, y)));
   }
 
   /** The map's rectangle inside the square canvas */
@@ -135,20 +132,20 @@ export class MinimapComponent implements OnDestroy {
     if (this.timer) return;
     this.timer = setTimeout(() => {
       this.timer = null;
-      const vp = this.session.viewport;
+      const view = this.session.view;
       const doc = this.session.doc;
-      if (!vp || !doc) return;
+      if (!view.shown || !doc) return;
       // A whole-map render costs a frame: not while a brush is held
-      if (vp.dragging) {
+      if (view.dragging) {
         this.schedulePicture(rev);
         return;
       }
       const b = this.box(doc.terrain.width, doc.terrain.depth);
       // The picture is of the map as it is now; later changes ask for the next one
-      const now = this.session.docRev() * 1000 + this.session.viewRev();
+      const now = this.session.state.anyRev() * 1000 + this.session.view.viewRev();
       this.pictureAt = performance.now();
       this.rendering = true;
-      vp.renderTopDown(Math.max(8, Math.round(b.w)), Math.max(8, Math.round(b.h)), false)
+      view.renderTopDown(Math.max(8, Math.round(b.w)), Math.max(8, Math.round(b.h)), false)
         .then((picture) => {
           if (this.destroyed) return;
           this.picture = picture;
@@ -158,7 +155,7 @@ export class MinimapComponent implements OnDestroy {
         .catch(() => undefined)
         .finally(() => {
           this.rendering = false;
-          const rev = this.session.docRev() * 1000 + this.session.viewRev();
+          const rev = this.session.state.anyRev() * 1000 + this.session.view.viewRev();
           if (!this.destroyed && rev !== this.pictureRev) this.schedulePicture(rev);
         });
     }, wait || 50);
@@ -197,7 +194,7 @@ export class MinimapComponent implements OnDestroy {
     c.fillStyle = TD_THEME.brass;
     c.fillRect(px(doc.hq.x) - 4, py(doc.hq.y) - 4, 8, 8);
 
-    const foot = this.session.viewport?.viewFootprint() ?? [];
+    const foot = this.session.view.viewFootprint();
     if (foot.length >= 3) {
       c.strokeStyle = TD_THEME.brassLight;
       c.lineWidth = 1;
@@ -206,11 +203,11 @@ export class MinimapComponent implements OnDestroy {
       c.closePath();
       c.stroke();
     }
-    const target = this.session.viewport?.controller.current.target;
+    const target = this.session.view.cameraTarget();
     if (target) {
       c.strokeStyle = TD_THEME.brassLight;
       c.beginPath();
-      c.arc(px(-target.x), py(target.z), 3, 0, Math.PI * 2);
+      c.arc(px(target.x), py(target.y), 3, 0, Math.PI * 2);
       c.stroke();
     }
   }

@@ -29,13 +29,13 @@
     @if (problem(); as problem) {
       <p class="td-banner is-warn" role="alert">{{ problem }}</p>
     }
-    @if (session.error(); as error) {
+    @if (session.notices.error(); as error) {
       <p class="td-banner is-error is-row" role="alert">
         <span>{{ error }}</span>
-        <button class="td-btn-ghost td-btn-sm" type="button" (click)="session.error.set(null)">Dismiss</button>
+        <button class="td-btn-ghost td-btn-sm" type="button" (click)="session.notices.error.set(null)">Dismiss</button>
       </p>
     }
-    @if (session.importMatch(); as match) {
+    @if (session.library.importMatch(); as match) {
       <div class="td-banner is-warn td-stack" role="group" data-test="import-match">
         <p>{{ match.file }} is another version of your map <b>{{ match.existing.name }}</b>{{ match.existing.updatedAt ? ' (changed ' + when(match.existing.updatedAt) + ')' : '' }}.
           Replace puts the file's content in its place (what it was stays among its versions); Keep both adds the file as a new map.</p>
@@ -46,7 +46,7 @@
         </div>
       </div>
     }
-    @if (session.importState(); as imp) {
+    @if (session.library.importState(); as imp) {
       <div class="mb-import td-banner td-stack" [class.is-error]="!!imp.error" [class.is-ok]="imp.phase === 'done'" role="status" data-test="import-panel">
         <div class="td-inline mb-import-head">
           <strong class="td-trunc">{{ imp.file }}</strong>

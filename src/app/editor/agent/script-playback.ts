@@ -140,7 +140,8 @@ function stepChange(doc: CustomMapDocument, step: Step, before: Marks, symmetric
   if (after.paths !== before.paths) change = mergeChanges(change, { paths: true });
   if (after.markers !== before.markers) change = mergeChanges(change, { markers: true });
   if (after.environment !== before.environment) change = mergeChanges(change, { environment: true });
-  if (after.gameplay !== before.gameplay || after.intro !== before.intro) change = mergeChanges(change, { meta: true });
+  if (after.gameplay !== before.gameplay) change = mergeChanges(change, { gameplay: true });
+  if (after.intro !== before.intro) change = mergeChanges(change, { intro: true });
   if (after.life !== before.life) change = mergeChanges(change, { life: true });
   if (after.layers !== before.layers) change = mergeChanges(change, { layers: true, splat: wholeGround(doc).splat });
   if (after.water !== before.water) change = mergeChanges(change, { water: true });

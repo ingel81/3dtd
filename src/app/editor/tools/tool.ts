@@ -387,3 +387,6 @@ export class PanelTool implements EditorTool {
     return this.help;
   }
 }
+
+/** Tool info by id, for the toolbar */
+export const TOOL_INFO = new Map(TOOLS.map((t) => [t.id, t]));

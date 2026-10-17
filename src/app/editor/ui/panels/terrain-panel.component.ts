@@ -35,13 +35,13 @@ import { RangeRowComponent } from './range-row.component';
 export class TerrainPanelComponent {
   private readonly session = inject(EditorSession);
   readonly modes = TERRAIN_MODES;
-  readonly t = this.session.settings.terrain;
+  readonly t = this.session.tools.settings.terrain;
 
   setMode(mode: TerrainMode): void {
-    patch(this.session.settings.terrain, { mode });
+    patch(this.session.tools.settings.terrain, { mode });
   }
 
   set(key: 'level' | 'step' | 'rampWidth', value: number): void {
-    patch(this.session.settings.terrain, { [key]: value });
+    patch(this.session.tools.settings.terrain, { [key]: value });
   }
 }

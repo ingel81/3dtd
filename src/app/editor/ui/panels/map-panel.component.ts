@@ -158,9 +158,9 @@ import { IntroPanelComponent } from './intro-panel.component';
 })
 export class MapPanelComponent {
   private readonly session = inject(EditorSession);
-  /** The map's revision while this panel is in sight (PanelShown) */
-  private readonly rev = panelRev();
-  readonly meta = computed(() => this.session.meta());
+  /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
+  private readonly rev = panelRev('meta', 'terrain');
+  readonly meta = computed(() => this.session.state.meta());
   readonly presets = TERRAIN_PRESETS;
   readonly preset = signal<TerrainPreset>('hills');
   readonly seed = signal(Math.floor(Math.random() * 100000));
@@ -186,8 +186,8 @@ export class MapPanelComponent {
     };
   });
 
-  readonly versions = this.session.versions;
-  readonly storage = this.session.storage;
+  readonly versions = this.session.saves.versions;
+  readonly storage = this.session.saves.storage;
   /** Height range for a heightmap import, metres */
   readonly low = signal(0);
   readonly high = signal(50);
@@ -211,7 +211,7 @@ export class MapPanelComponent {
   }
 
   download(): void {
-    this.session.downloadFile();
+    this.session.saves.downloadFile();
   }
 
   when(iso: string): string {
@@ -225,7 +225,7 @@ export class MapPanelComponent {
   }
 
   pin(v: MapVersion): void {
-    void this.session.pinVersion(v, !v.pinned);
+    void this.session.saves.pinVersion(v, !v.pinned);
   }
 
   restore(v: MapVersion): void {
@@ -257,16 +257,16 @@ export class MapPanelComponent {
     this.seed.set(Math.floor(Math.random() * 100000));
   }
 
-  readonly job = this.session.terrainJob;
+  readonly job = this.session.jobs.job;
   readonly rain = signal(50);
 
   async generate(): Promise<void> {
-    const done = await this.session.generate({ preset: this.preset(), seed: this.seed(), strength: this.strength() / 100, add: this.add() }, this.repaint());
-    if (done) this.session.flash('Terrain generated; Ctrl+Z takes it back');
+    const done = await this.session.jobs.generate({ preset: this.preset(), seed: this.seed(), strength: this.strength() / 100, add: this.add() }, this.repaint());
+    if (done) this.session.notices.flash('Terrain generated; Ctrl+Z takes it back');
   }
 
   async erode(): Promise<void> {
-    if (await this.session.erodeWholeMap(this.rain() / 100)) this.session.flash('The map is eroded; Ctrl+Z takes it back');
+    if (await this.session.jobs.erodeWholeMap(this.rain() / 100)) this.session.notices.flash('The map is eroded; Ctrl+Z takes it back');
   }
 
   num(e: Event): number {

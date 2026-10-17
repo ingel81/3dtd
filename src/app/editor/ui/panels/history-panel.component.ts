@@ -29,12 +29,12 @@ import { EditorSession } from '../editor-session.service';
 export class HistoryPanelComponent {
   private readonly session = inject(EditorSession);
   readonly steps = computed(() => {
-    const { done, undone } = this.session.steps();
+    const { done, undone } = this.session.state.steps();
     return { done: done.length, total: done.length + undone.length };
   });
   /** Newest first: what the eye looks for is the last thing done */
   readonly rows = computed(() => {
-    const { done, undone } = this.session.steps();
+    const { done, undone } = this.session.state.steps();
     const rows = [
       { index: 0, label: 'Opened', undone: false, current: done.length === 0 },
       ...done.map((label, k) => ({ index: k + 1, label, undone: false, current: k === done.length - 1 })),

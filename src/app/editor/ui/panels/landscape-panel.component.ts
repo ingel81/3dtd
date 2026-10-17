@@ -26,7 +26,7 @@ export class LandscapePanelComponent {
   readonly session = inject(EditorSession);
   readonly modes = LANDSCAPE_MODES;
   readonly biomes = BIOMES;
-  readonly s = this.session.settings.landscape;
+  readonly s = this.session.tools.settings.landscape;
   readonly surfaces = computed(() => roadSurfaces(this.session.catalog()));
   readonly hasMaterials = computed(() => this.session.catalog().catalog.materials.length > 0);
   readonly cliffModels = computed(() => {
@@ -35,32 +35,32 @@ export class LandscapePanelComponent {
   });
 
   setCliffModel(id: string): void {
-    patch(this.session.settings.landscape, { cliffModel: id });
+    patch(this.session.tools.settings.landscape, { cliffModel: id });
   }
 
   thumb(b: BiomeDef): string {
-    return this.session.biomePicture(b);
+    return this.session.pictures.biomePicture(b);
   }
 
   setMode(mode: LandscapeMode): void {
-    patch(this.session.settings.landscape, { mode });
+    patch(this.session.tools.settings.landscape, { mode });
   }
 
   setBiome(id: BiomeId): void {
-    patch(this.session.settings.landscape, { biome: id, mode: 'biome' });
+    patch(this.session.tools.settings.landscape, { biome: id, mode: 'biome' });
   }
 
   roll(): void {
-    patch(this.session.settings.landscape, { seed: randomSeed() });
+    patch(this.session.tools.settings.landscape, { seed: randomSeed() });
   }
 
   setSeed(e: Event): void {
     const v = Math.abs(Math.round(Number((e.target as HTMLInputElement).value)));
-    if (Number.isFinite(v)) patch(this.session.settings.landscape, { seed: v });
+    if (Number.isFinite(v)) patch(this.session.tools.settings.landscape, { seed: v });
   }
 
   setReroll(on: boolean): void {
-    patch(this.session.settings.landscape, { reroll: on });
+    patch(this.session.tools.settings.landscape, { reroll: on });
   }
 
   setRiver(key: 'width' | 'depth' | 'bank', v: number): void {
@@ -92,15 +92,15 @@ export class LandscapePanelComponent {
   }
 
   private setRiverOption(changes: Partial<RiverOptions>): void {
-    patch(this.session.settings.landscape, { river: { ...this.session.settings.landscape().river, ...changes } });
+    patch(this.session.tools.settings.landscape, { river: { ...this.session.tools.settings.landscape().river, ...changes } });
   }
 
   private setRoadOption(changes: Partial<RoadOptions>): void {
-    patch(this.session.settings.landscape, { road: { ...this.session.settings.landscape().road, ...changes } });
+    patch(this.session.tools.settings.landscape, { road: { ...this.session.tools.settings.landscape().road, ...changes } });
   }
 
   setCliff(v: number): void {
-    patch(this.session.settings.landscape, { cliffHeight: v });
+    patch(this.session.tools.settings.landscape, { cliffHeight: v });
   }
 
   checked(e: Event): boolean {

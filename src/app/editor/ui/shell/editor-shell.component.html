@@ -8,20 +8,20 @@
       <div class="es-name td-sunk">
         <span class="td-loc-label">Map</span>
         <span class="td-loc-name td-trunc" data-test="map-name">{{ title() }}</span>
-        <span class="es-save td-note" [class.is-warn]="session.dirty() && !session.readOnly()" data-test="save-state">{{ saveLine() }}</span>
+        <span class="es-save td-note" [class.is-warn]="session.saves.dirty() && !session.maps.readOnly()" data-test="save-state">{{ saveLine() }}</span>
       </div>
     </app-world-path>
-    <button class="td-tool" type="button" aria-label="Undo" [matTooltip]="session.undoLabel() ? 'Undo ' + session.undoLabel() + ' (Ctrl+Z)' : 'Nothing to undo'"
-            [attr.aria-disabled]="!session.canUndo() || null" (click)="session.undo()" data-test="undo">
+    <button class="td-tool" type="button" aria-label="Undo" [matTooltip]="session.state.undoLabel() ? 'Undo ' + session.state.undoLabel() + ' (Ctrl+Z)' : 'Nothing to undo'"
+            [attr.aria-disabled]="!session.state.canUndo() || null" (click)="session.undo()" data-test="undo">
       <td-icon name="undo" [size]="18" />
     </button>
-    <button class="td-tool es-redo" type="button" aria-label="Redo" [matTooltip]="session.redoLabel() ? 'Redo ' + session.redoLabel() + ' (Ctrl+Y)' : 'Nothing to redo'"
-            [attr.aria-disabled]="!session.canRedo() || null" (click)="session.redo()" data-test="redo">
+    <button class="td-tool es-redo" type="button" aria-label="Redo" [matTooltip]="session.state.redoLabel() ? 'Redo ' + session.state.redoLabel() + ' (Ctrl+Y)' : 'Nothing to redo'"
+            [attr.aria-disabled]="!session.state.canRedo() || null" (click)="session.redo()" data-test="redo">
       <td-icon name="undo" [size]="18" />
     </button>
     <span class="td-tool-gap"></span>
     <button class="td-tool" type="button" aria-label="Save" matTooltip="Save now (Ctrl+S); the editor also saves on its own"
-            [attr.aria-disabled]="session.readOnly() || null" (click)="session.save(true)" data-test="save">
+            [attr.aria-disabled]="session.maps.readOnly() || null" (click)="session.saves.save(true)" data-test="save">
       <td-icon name="download" [size]="18" />
     </button>
     <div class="es-file">
@@ -57,7 +57,7 @@
     </button>
     <button class="td-btn-secondary td-btn-sm" type="button" (click)="check()" matTooltip="Check the map for problems (V)" data-test="check" data-tour="check">
       Check
-      @if (session.issues(); as issues) {
+      @if (session.check.issues(); as issues) {
         <span class="td-tag" [class.is-error]="issueCount() > 0" [class.is-ok]="!issues.length">{{ issues.length }}</span>
       }
     </button>
@@ -67,7 +67,7 @@
     </button>
     <label class="es-sym" matTooltip="Start the test at this wave, with the credits and research a player typically has by then; you build the defense">
       <span class="td-caps">From wave</span>
-      <input class="td-input is-sm es-wave" type="number" min="1" [max]="maxStartWave" step="1" [value]="session.testFromWave()"
+      <input class="td-input is-sm es-wave" type="number" min="1" [max]="maxStartWave" step="1" [value]="session.check.testFromWave()"
              (change)="setTestFromWave($event)" aria-label="Test from wave" data-test="test-from-wave" />
     </label>
     <button class="td-btn-primary td-btn-sm" type="button" (click)="testPlay()" matTooltip="Save and play this map in the test tab (each test reuses it)" data-test="test-play" data-tour="test-play">
@@ -82,7 +82,7 @@
       }
       @for (t of g.tools; track t.id) {
         @let info = toolInfo(t.id);
-        <button class="es-tool" type="button" [attr.aria-pressed]="session.tool() === t.id" [attr.aria-label]="info.label"
+        <button class="es-tool" type="button" [attr.aria-pressed]="session.tools.tool() === t.id" [attr.aria-label]="info.label"
                 [matTooltip]="info.label + ' (' + info.key + '): ' + info.about" matTooltipPosition="right" (click)="pick(t.id)" [attr.data-tool]="t.id" [attr.data-tour]="'tool-' + t.id">
           <td-icon [name]="icons[t.id]" [size]="18" />
           <span class="es-tool-name">{{ t.short }}</span>
@@ -100,48 +100,48 @@
                         [actions]="tourActions()" (actionClicked)="onTourAction($event)" />
     </div>
   }
-  @if (session.error(); as error) {
+  @if (session.notices.error(); as error) {
     <p class="td-banner is-error is-row es-error" role="alert" data-test="editor-error">
       <span>{{ error }}</span>
-      <button class="td-btn-ghost td-btn-sm" type="button" (click)="session.error.set(null)">Dismiss</button>
+      <button class="td-btn-ghost td-btn-sm" type="button" (click)="session.notices.error.set(null)">Dismiss</button>
     </p>
   }
-  @if (session.viewLost()) {
+  @if (session.view.viewLost()) {
     <p class="td-banner is-warn is-row td-overlay es-reminder" role="alert" data-test="view-lost">
       <span>View lost: the graphics driver reset it. Your map is safe; the view comes back by itself in a moment.</span>
-      <button class="td-btn-ghost td-btn-sm" type="button" (click)="session.reloadPage()">Reload the page</button>
+      <button class="td-btn-ghost td-btn-sm" type="button" (click)="session.maps.reloadPage()">Reload the page</button>
     </p>
-  } @else if (session.readOnly()) {
+  } @else if (session.maps.readOnly()) {
     <p class="td-banner is-warn is-row td-overlay es-reminder" role="status" data-test="read-only">
       <span>Another tab edits this map. Here you can look around; changes wait until this tab takes over.</span>
-      <button class="td-btn-secondary td-btn-sm" type="button" (click)="session.takeOver()" data-test="take-over">Take over editing</button>
+      <button class="td-btn-secondary td-btn-sm" type="button" (click)="session.maps.takeOver()" data-test="take-over">Take over editing</button>
     </p>
-  } @else if (session.staleCopy(); as stale) {
+  } @else if (session.maps.staleCopy(); as stale) {
     <p class="td-banner is-warn is-row td-overlay es-reminder" role="status" data-test="stale-copy">
       <span>The original of {{ stale.name }} changed since you copied it (a game update or the host's new version).</span>
       <button class="td-btn-secondary td-btn-sm" type="button" (click)="freshCopy()" data-test="fresh-copy">Fresh copy</button>
-      <button class="td-btn-ghost td-btn-sm" type="button" (click)="session.staleCopy.set(null)" data-test="keep-copy">Open your copy</button>
+      <button class="td-btn-ghost td-btn-sm" type="button" (click)="session.maps.staleCopy.set(null)" data-test="keep-copy">Open your copy</button>
     </p>
-  } @else if (session.downloadReminder()) {
+  } @else if (session.saves.downloadReminder()) {
     <p class="td-banner is-warn is-row td-overlay es-reminder" role="status" data-test="download-reminder">
       <span>This browser has not promised to keep your maps: clearing site data or a full disk removes them. Download the map file now and then.</span>
-      <button class="td-btn-secondary td-btn-sm" type="button" (click)="session.downloadFile()">Download</button>
-      <button class="td-btn-ghost td-btn-sm" type="button" (click)="session.laterReminder()">Later</button>
+      <button class="td-btn-secondary td-btn-sm" type="button" (click)="session.saves.downloadFile()">Download</button>
+      <button class="td-btn-ghost td-btn-sm" type="button" (click)="session.saves.laterReminder()">Later</button>
     </p>
   }
   <main class="es-view">
     <canvas #canvas class="es-canvas" tabindex="0" aria-label="Map view" data-test="viewport"></canvas>
-    @if (!session.viewShown()) {
+    @if (!session.view.viewShown()) {
       <p class="es-preparing td-note" role="status" data-test="view-preparing"><span class="td-spin" aria-hidden="true"></span> Preparing the view</p>
     }
-    @if (session.box(); as b) {
+    @if (session.view.box(); as b) {
       <div class="es-box" [style.left.px]="b.x0 < b.x1 ? b.x0 : b.x1" [style.top.px]="b.y0 < b.y1 ? b.y0 : b.y1"
            [style.width.px]="b.x1 > b.x0 ? b.x1 - b.x0 : b.x0 - b.x1" [style.height.px]="b.y1 > b.y0 ? b.y1 - b.y0 : b.y0 - b.y1"></div>
     }
-    @if (session.lasso(); as points) {
+    @if (session.view.lasso(); as points) {
       <svg class="es-lasso" aria-hidden="true"><polygon [attr.points]="points" /></svg>
     }
-    @if (session.issues()) {
+    @if (session.check.issues()) {
       <app-editor-check class="es-check" />
     }
     <app-editor-minimap class="es-minimap" />
@@ -187,8 +187,8 @@
       </div>
     }
     <app-agent-band />
-    @if (session.status()) {
-      <p class="es-flash td-chip" role="status">{{ session.status() }}</p>
+    @if (session.notices.status()) {
+      <p class="es-flash td-chip" role="status">{{ session.notices.status() }}</p>
     }
   </main>
 
@@ -206,57 +206,57 @@
     <section class="td-side-section es-options is-fill" id="es-panel-tool" role="tabpanel" aria-labelledby="es-tab-tool" [hidden]="sideView() !== 'tool'">
       <div class="td-side-body">
       <!-- A job changes the map (generate, erode, an agent's play): it shows here with Cancel, the panels wait -->
-      @if (session.terrainJob(); as j) {
+      @if (session.jobs.job(); as j) {
         <div class="es-job" role="status" data-test="terrain-job">
           <span class="td-note">{{ j.label }} {{ jobPercent(j.progress) }} %</span>
           <progress class="es-job-progress" max="100" [value]="jobPercent(j.progress)"></progress>
-          <button class="td-btn-ghost td-btn-sm" type="button" (click)="session.cancelTerrainJob()" data-test="terrain-cancel">Cancel</button>
+          <button class="td-btn-ghost td-btn-sm" type="button" (click)="session.jobs.cancel()" data-test="terrain-cancel">Cancel</button>
         </div>
       }
       <!-- Read-only (another tab edits the map) or a job running: every control of the panels is off -->
-      <fieldset class="es-fieldset" [disabled]="session.readOnly() || !!session.terrainJob()">
+      <fieldset class="es-fieldset" [disabled]="session.maps.readOnly() || !!session.jobs.job()">
         <!-- Panels stay once made and only hide: switching tools does not build them again -->
         @if (mounted().has('look')) {
-          <div class="es-panel" [class.is-off]="session.tool() !== 'look'" [appPanelShown]="panelShown('look')"><app-look-panel /></div>
+          <div class="es-panel" [class.is-off]="session.tools.tool() !== 'look'" [appPanelShown]="panelShown('look')"><app-look-panel /></div>
         }
         @if (mounted().has('landscape')) {
-          <div class="es-panel" [class.is-off]="session.tool() !== 'landscape'" [appPanelShown]="panelShown('landscape')"><app-landscape-panel /></div>
+          <div class="es-panel" [class.is-off]="session.tools.tool() !== 'landscape'" [appPanelShown]="panelShown('landscape')"><app-landscape-panel /></div>
         }
         @if (mounted().has('terrain')) {
-          <div class="es-panel" [class.is-off]="session.tool() !== 'terrain'" [appPanelShown]="panelShown('terrain')"><app-terrain-panel /></div>
+          <div class="es-panel" [class.is-off]="session.tools.tool() !== 'terrain'" [appPanelShown]="panelShown('terrain')"><app-terrain-panel /></div>
         }
         @if (mounted().has('paint')) {
-          <div class="es-panel" [class.is-off]="session.tool() !== 'paint'" [appPanelShown]="panelShown('paint')"><app-paint-panel /></div>
+          <div class="es-panel" [class.is-off]="session.tools.tool() !== 'paint'" [appPanelShown]="panelShown('paint')"><app-paint-panel /></div>
         }
         @if (mounted().has('water')) {
-          <div class="es-panel" [class.is-off]="session.tool() !== 'water'" [appPanelShown]="panelShown('water')"><app-water-panel /></div>
+          <div class="es-panel" [class.is-off]="session.tools.tool() !== 'water'" [appPanelShown]="panelShown('water')"><app-water-panel /></div>
         }
         @if (mounted().has('objects')) {
-          <div class="es-panel" [class.is-off]="session.tool() !== 'objects'" [appPanelShown]="panelShown('objects')"><app-object-panel /></div>
+          <div class="es-panel" [class.is-off]="session.tools.tool() !== 'objects'" [appPanelShown]="panelShown('objects')"><app-object-panel /></div>
         }
         @if (mounted().has('life')) {
-          <div class="es-panel" [class.is-off]="session.tool() !== 'life'" [appPanelShown]="panelShown('life')"><app-life-panel /></div>
+          <div class="es-panel" [class.is-off]="session.tools.tool() !== 'life'" [appPanelShown]="panelShown('life')"><app-life-panel /></div>
         }
         @if (mounted().has('paths')) {
-          <div class="es-panel" [class.is-off]="session.tool() !== 'paths'" [appPanelShown]="panelShown('paths')"><app-path-panel /></div>
+          <div class="es-panel" [class.is-off]="session.tools.tool() !== 'paths'" [appPanelShown]="panelShown('paths')"><app-path-panel /></div>
         }
         @if (mounted().has('markers')) {
-          <div class="es-panel" [class.is-off]="session.tool() !== 'markers'" [appPanelShown]="panelShown('markers')"><app-marker-panel /></div>
+          <div class="es-panel" [class.is-off]="session.tools.tool() !== 'markers'" [appPanelShown]="panelShown('markers')"><app-marker-panel /></div>
         }
         @if (mounted().has('environment')) {
-          <div class="es-panel" [class.is-off]="session.tool() !== 'environment'" [appPanelShown]="panelShown('environment')"><app-environment-panel /></div>
+          <div class="es-panel" [class.is-off]="session.tools.tool() !== 'environment'" [appPanelShown]="panelShown('environment')"><app-environment-panel /></div>
         }
         @if (mounted().has('settings')) {
-          <div class="es-panel" [class.is-off]="session.tool() !== 'settings'" [appPanelShown]="panelShown('settings')"><app-map-panel /></div>
+          <div class="es-panel" [class.is-off]="session.tools.tool() !== 'settings'" [appPanelShown]="panelShown('settings')"><app-map-panel /></div>
         }
         @if (mounted().has('stamp')) {
-          <div class="es-panel" [class.is-off]="session.tool() !== 'stamp'" [appPanelShown]="panelShown('stamp')"><app-stamp-panel /></div>
+          <div class="es-panel" [class.is-off]="session.tools.tool() !== 'stamp'" [appPanelShown]="panelShown('stamp')"><app-stamp-panel /></div>
         }
         @if (mounted().has('gameplay')) {
-          <div class="es-panel" [class.is-off]="session.tool() !== 'gameplay'" [appPanelShown]="panelShown('gameplay')"><app-gameplay-panel /></div>
+          <div class="es-panel" [class.is-off]="session.tools.tool() !== 'gameplay'" [appPanelShown]="panelShown('gameplay')"><app-gameplay-panel /></div>
         }
         @if (mounted().has('measure')) {
-          <div class="es-panel" [class.is-off]="session.tool() !== 'measure'" [appPanelShown]="panelShown('measure')"><app-measure-panel /></div>
+          <div class="es-panel" [class.is-off]="session.tools.tool() !== 'measure'" [appPanelShown]="panelShown('measure')"><app-measure-panel /></div>
         }
       </fieldset>
       </div>

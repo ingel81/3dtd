@@ -27,7 +27,7 @@ import { AGENT_STATE_LABEL, agentLine, agentName, agentState } from './agent-sta
         <div class="ac-panel td-popup td-stack" role="dialog" aria-label="AI agents" data-test="agent-panel">
           <label class="td-setting">
             <span>Allow AI agents to edit maps</span>
-            <input class="td-switch" type="checkbox" [checked]="v.enabled" (change)="session.setAgentEnabled($any($event.target).checked)" data-test="agent-switch" />
+            <input class="td-switch" type="checkbox" [checked]="v.enabled" (change)="session.agent.setEnabled($any($event.target).checked)" data-test="agent-switch" />
           </label>
           @if (v.url; as url) {
             <div class="td-setting">
@@ -62,7 +62,7 @@ export class AgentControlComponent {
   private readonly now = signal(Date.now());
 
   readonly view = computed(() => {
-    const status = this.session.agentStatus();
+    const status = this.session.agent.status();
     if (!status) return null;
     const now = this.now();
     const state = agentState(status, now);
@@ -71,7 +71,7 @@ export class AgentControlComponent {
 
   constructor() {
     const timer = setInterval(() => {
-      if (this.session.agentStatus()?.enabled) this.now.set(Date.now());
+      if (this.session.agent.status()?.enabled) this.now.set(Date.now());
     }, 1000);
     inject(DestroyRef).onDestroy(() => clearInterval(timer));
   }

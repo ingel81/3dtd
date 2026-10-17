@@ -53,11 +53,13 @@ describe('agent band and button', () => {
 
   function fakeSession(status: AgentStatus | null) {
     return {
-      agentStatus: signal(status),
-      terrainJob: signal<{ label: string; progress: number } | null>(null),
-      stopAgent: vi.fn(async () => undefined),
-      resumeAgent: vi.fn(async () => undefined),
-      setAgentEnabled: vi.fn(async () => undefined),
+      agent: {
+        status: signal(status),
+        stop: vi.fn(async () => undefined),
+        resume: vi.fn(async () => undefined),
+        setEnabled: vi.fn(async () => undefined),
+      },
+      jobs: { job: signal<{ label: string; progress: number } | null>(null) },
     };
   }
 
@@ -71,7 +73,7 @@ describe('agent band and button', () => {
   it('shows the running call with its progress and Stop, then Let it go on once stopped', () => {
     vi.useFakeTimers({ now: NOW });
     const session = fakeSession(on({ client: { name: 'claude-code', lastSeen: NOW }, current: { tool: 'run_script', what: 'runs the script "hill"', at: NOW } }));
-    session.terrainJob.set({ label: 'Agent: hill', progress: 0.4 });
+    session.jobs.job.set({ label: 'Agent: hill', progress: 0.4 });
     const fixture = render(AgentBandComponent, session);
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('[data-test=agent-band]')?.getAttribute('data-state')).toBe('working');
@@ -79,13 +81,13 @@ describe('agent band and button', () => {
     expect(el.querySelector('[data-test=agent-line]')?.textContent).toContain('runs the script "hill"');
     expect((el.querySelector('.td-progress i') as HTMLElement).style.width).toBe('40%');
     (el.querySelector('[data-test=agent-stop]') as HTMLButtonElement).click();
-    expect(session.stopAgent).toHaveBeenCalled();
-    session.agentStatus.set(on({ held: true, client: { name: 'claude-code', lastSeen: NOW } }));
+    expect(session.agent.stop).toHaveBeenCalled();
+    session.agent.status.set(on({ held: true, client: { name: 'claude-code', lastSeen: NOW } }));
     fixture.detectChanges();
     (el.querySelector('[data-test=agent-resume]') as HTMLButtonElement).click();
-    expect(session.resumeAgent).toHaveBeenCalled();
+    expect(session.agent.resume).toHaveBeenCalled();
     // Off: no band
-    session.agentStatus.set({ enabled: false, url: null });
+    session.agent.status.set({ enabled: false, url: null });
     fixture.detectChanges();
     expect(el.querySelector('[data-test=agent-band]')).toBeNull();
   });
@@ -102,8 +104,8 @@ describe('agent band and button', () => {
     const toggle = el.querySelector('[data-test=agent-switch]') as HTMLInputElement;
     toggle.checked = true;
     toggle.dispatchEvent(new Event('change'));
-    expect(session.setAgentEnabled).toHaveBeenCalledWith(true);
-    session.agentStatus.set(on());
+    expect(session.agent.setEnabled).toHaveBeenCalledWith(true);
+    session.agent.status.set(on());
     fixture.detectChanges();
     expect(el.querySelector('[data-test=agent-url]')?.textContent).toContain('47171');
     expect(el.querySelector('[data-test=agent-state]')?.textContent?.trim()).toBe('On');

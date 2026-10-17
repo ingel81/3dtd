@@ -27,11 +27,11 @@ import { mapBudget, mapSceneCost } from '../../../map-ops/validation/map-budget'
 })
 export class MapBudgetComponent {
   private readonly session = inject(EditorSession);
-  /** The map's revision while this panel is in sight (PanelShown) */
-  private readonly rev = panelRev();
+  /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
+  private readonly rev = panelRev('objects', 'terrain');
 
   /** The file as the last manual save packed it (the one a coop room sends); autosaves pack lighter */
-  private readonly fileBytes = computed(() => this.session.versions().find((v) => v.manual)?.size ?? null);
+  private readonly fileBytes = computed(() => this.session.saves.versions().find((v) => v.manual)?.size ?? null);
   readonly budget = computed(() => {
     this.rev();
     const doc = this.session.doc;

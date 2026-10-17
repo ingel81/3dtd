@@ -3,8 +3,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MAP_TRIAL_TONE, mapTrialSummary, type MapTrialResult } from '../../../world/map-trial';
 import { TdIconComponent } from '../../../components/icon/icon.component';
 import type { MapIssue } from '../../../map-ops/validation/map-validation';
-import { EditorSession, TOOL_INFO } from '../editor-session.service';
-import { patch, PART_TOOL } from '../../tools/tool';
+import { EditorSession } from '../editor-session.service';
+import { patch, PART_TOOL, TOOL_INFO } from '../../tools/tool';
 import { TOWER_SPOT_M2, TYPICAL_TOWER_RANGE } from '../../../map-ops/validation/build-areas';
 
 /**
@@ -67,7 +67,7 @@ import { TOWER_SPOT_M2, TYPICAL_TOWER_RANGE } from '../../../map-ops/validation/
 })
 export class CheckPanelComponent {
   private readonly session = inject(EditorSession);
-  readonly issues = computed(() => this.session.issues() ?? []);
+  readonly issues = computed(() => this.session.check.issues() ?? []);
   readonly summary = computed(() => {
     const list = this.issues();
     const errors = list.filter((i) => i.severity === 'error').length;
@@ -78,10 +78,10 @@ export class CheckPanelComponent {
       .join(' | ');
   });
 
-  readonly bot = this.session.botTrial;
+  readonly bot = this.session.check.botTrial;
   /** The buildable area in reach of any route (map-ops/validation/build-areas.ts) and the lane with the least of it */
   readonly room = computed(() => {
-    const a = this.session.buildAreas();
+    const a = this.session.check.buildAreas();
     if (!a) return 'judging the map …';
     const lanes = a.lanes.filter((l) => l.routed);
     const least = lanes.length > 1 ? lanes.reduce((m, l) => (l.area < m.area ? l : m)) : null;
@@ -91,7 +91,7 @@ export class CheckPanelComponent {
   });
 
   botCheck(): void {
-    void this.session.botCheck();
+    void this.session.check.botCheck();
   }
 
   summaryOf(r: MapTrialResult): string {
@@ -104,26 +104,25 @@ export class CheckPanelComponent {
 
   focus(issue: MapIssue): void {
     const editor = this.session.editor;
-    const vp = this.session.viewport;
-    if (!editor || !vp) return;
+    if (!editor || !this.session.view.shown) return;
     const t = issue.target;
     if (t?.kind === 'spawn' && t.id) {
       editor.select({ kind: 'spawn', id: t.id });
-      this.session.selectTool('markers');
+      this.session.tools.select('markers');
     } else if (t?.kind === 'hq') {
       editor.select({ kind: 'hq' });
-      this.session.selectTool('markers');
+      this.session.tools.select('markers');
     } else if ((t?.kind === 'edge' || t?.kind === 'node') && t.id) {
       editor.select({ kind: t.kind, id: t.id });
-      this.session.selectTool('paths');
-      patch(this.session.settings.paths, { mode: 'edit' });
+      this.session.tools.select('paths');
+      patch(this.session.tools.settings.paths, { mode: 'edit' });
     } else if (t?.kind === 'object' && t.id) {
       editor.select({ kind: 'objects', ids: [t.id] });
-      this.session.selectTool('objects');
-      patch(this.session.settings.objects, { mode: 'select' });
+      this.session.tools.select('objects');
+      patch(this.session.tools.settings.objects, { mode: 'select' });
     }
-    else if (issue.part) this.session.selectTool(PART_TOOL[issue.part]);
-    if (issue.focus) vp.focusOn(issue.focus, 80);
+    else if (issue.part) this.session.tools.select(PART_TOOL[issue.part]);
+    if (issue.focus) this.session.view.focusOn(issue.focus, 80);
   }
 
   /** The tool an issue without a thing to select is fixed with, as the toolbar names it */
@@ -133,6 +132,6 @@ export class CheckPanelComponent {
   }
 
   close(): void {
-    this.session.issues.set(null);
+    this.session.check.issues.set(null);
   }
 }

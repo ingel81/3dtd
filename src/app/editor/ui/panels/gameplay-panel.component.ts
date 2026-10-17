@@ -37,8 +37,8 @@ function pruned(lanes: MapLanes): MapLanes | undefined {
 })
 export class GameplayPanelComponent {
   private readonly session = inject(EditorSession);
-  /** The map's revision while this panel is in sight (PanelShown) */
-  private readonly rev = panelRev();
+  /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
+  private readonly rev = panelRev('gameplay');
   readonly defaults = { credits: GAME_BALANCE.player.startCredits, health: GAME_BALANCE.player.startHealth };
   readonly towers = Object.values(TOWER_TYPES).map((t) => ({ id: t.id, name: t.name }));
   readonly enemies = Object.entries(ENEMY_TYPES)
@@ -60,14 +60,14 @@ export class GameplayPanelComponent {
   private edit(label: string, fn: (g: MapGameplay) => void): void {
     const editor = this.session.editor;
     if (!editor) return;
-    this.session.execute(
+    this.session.edit('Changing the rules', (e) => e.execute(
       SnapshotCommand.record(editor.doc, label, ['gameplay'], (d) => {
         const g: MapGameplay = d.gameplay ?? {};
         fn(g);
         for (const k of Object.keys(g) as (keyof MapGameplay)[]) if (g[k] === undefined) delete g[k];
         d.gameplay = Object.keys(g).length ? g : undefined;
       }),
-    );
+    ));
   }
 
   setNumber(key: 'startCredits' | 'hqHealth', e: Event): void {

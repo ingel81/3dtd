@@ -61,11 +61,11 @@ import { panelRev } from './panel-shown';
 })
 export class MarkerPanelComponent {
   private readonly session = inject(EditorSession);
-  /** The map's revision while this panel is in sight (PanelShown) */
-  private readonly rev = panelRev();
-  readonly mode = computed(() => this.session.settings.markers().mode);
+  /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
+  private readonly rev = panelRev('markers', 'paths');
+  readonly mode = computed(() => this.session.tools.settings.markers().mode);
   readonly selectedSpawn = computed(() => {
-    const s = this.session.selection();
+    const s = this.session.state.selection();
     return s?.kind === 'spawn' ? s.id : null;
   });
   readonly spawns = computed(() => {
@@ -91,33 +91,33 @@ export class MarkerPanelComponent {
   });
 
   setMode(mode: MarkerMode): void {
-    patch(this.session.settings.markers, { mode });
+    patch(this.session.tools.settings.markers, { mode });
   }
 
   select(id: string): void {
     this.session.editor?.select({ kind: 'spawn', id });
-    this.session.viewport?.focusSelection();
+    this.session.view.focusSelection();
   }
 
   rename(id: string, name: string): void {
     const editor = this.session.editor;
-    if (editor && name.trim()) this.session.execute(markerCommands.renameSpawn(editor, id, name.trim()));
+    if (editor && name.trim()) this.session.edit('Changing the spawns', (e) => e.execute(markerCommands.renameSpawn(editor, id, name.trim())));
   }
 
   setOptional(id: string, optional: boolean): void {
     const editor = this.session.editor;
-    if (editor) this.session.execute(markerCommands.setSpawnOptional(editor, id, optional));
+    if (editor) this.session.edit('Changing the spawns', (e) => e.execute(markerCommands.setSpawnOptional(editor, id, optional)));
   }
 
   remove(id: string): void {
     const editor = this.session.editor;
     if (!editor) return;
-    this.session.execute(markerCommands.removeSpawn(editor, id));
+    this.session.edit('Changing the spawns', (e) => e.execute(markerCommands.removeSpawn(editor, id)));
     if (this.selectedSpawn() === id) editor.select(null);
   }
 
   focusHq(): void {
     this.session.editor?.select({ kind: 'hq' });
-    this.session.viewport?.focusSelection();
+    this.session.view.focusSelection();
   }
 }

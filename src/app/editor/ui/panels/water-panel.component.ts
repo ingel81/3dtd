@@ -140,14 +140,14 @@ const KIND_NAMES: Record<MapWaterKind, string> = { water: 'Water', sea: 'Sea', s
 })
 export class WaterPanelComponent {
   private readonly session = inject(EditorSession);
-  /** The map's revision while this panel is in sight (PanelShown) */
-  private readonly rev = panelRev();
+  /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
+  private readonly rev = panelRev('water', 'terrain');
   readonly kinds: MapWaterKind[] = ['water', 'sea', 'swamp', 'ice', 'lava'];
   readonly modes = WATER_MODES;
-  readonly mode = computed(() => this.session.settings.water().mode);
-  readonly active = computed(() => this.session.settings.water().body);
-  readonly pour = computed(() => this.session.settings.water().pour);
-  readonly depth = computed(() => this.session.settings.water().depth);
+  readonly mode = computed(() => this.session.tools.settings.water().mode);
+  readonly active = computed(() => this.session.tools.settings.water().body);
+  readonly pour = computed(() => this.session.tools.settings.water().pour);
+  readonly depth = computed(() => this.session.tools.settings.water().depth);
 
   readonly bodies = computed(() => {
     this.rev();
@@ -169,10 +169,10 @@ export class WaterPanelComponent {
   }
 
   choose(index: number): void {
-    patch(this.session.settings.water, { body: index });
+    patch(this.session.tools.settings.water, { body: index });
   }
 
-  readonly river = computed(() => this.session.settings.water().river);
+  readonly river = computed(() => this.session.tools.settings.water().river);
   readonly rivers = computed(() => {
     this.rev();
     return (this.session.doc?.terrain.rivers ?? []).map((r, index) => ({
@@ -189,9 +189,9 @@ export class WaterPanelComponent {
   });
 
   chooseRiver(index: number): void {
-    patch(this.session.settings.water, { river: index, riverPoint: -1 });
+    patch(this.session.tools.settings.water, { river: index, riverPoint: -1 });
     const r = this.session.doc?.terrain.rivers?.[index];
-    if (r) this.session.viewport?.focusOn(r.points[Math.floor(r.points.length / 2)], Math.max(60, riverLength(r) / 2));
+    if (r) this.session.view.focusOn(r.points[Math.floor(r.points.length / 2)], Math.max(60, riverLength(r) / 2));
   }
 
   setRiverWidth(width: number): void {
@@ -216,13 +216,13 @@ export class WaterPanelComponent {
 
   simplify(): void {
     this.reshapeRiver('Fewer river points', (r) => simplifyRiver(r, Math.max(1.5, meanWidth(r) / 6)));
-    patch(this.session.settings.water, { riverPoint: -1 });
+    patch(this.session.tools.settings.water, { riverPoint: -1 });
   }
 
   removeRiver(): void {
     const index = this.river();
     if (index < 0 || !this.session.edit(RIVER, (e) => removeWholeRiver(e, index, this.session.catalog()))) return;
-    patch(this.session.settings.water, { river: -1, riverPoint: -1 });
+    patch(this.session.tools.settings.water, { river: -1, riverPoint: -1 });
   }
 
   /** A change of the river's course or width: its bed follows (one step) */
@@ -242,23 +242,23 @@ export class WaterPanelComponent {
   }
 
   setMode(mode: WaterMode): void {
-    patch(this.session.settings.water, { mode });
+    patch(this.session.tools.settings.water, { mode });
   }
 
   setPour(kind: 'water' | 'lava'): void {
-    patch(this.session.settings.water, { pour: kind });
+    patch(this.session.tools.settings.water, { pour: kind });
   }
 
   setDepth(v: number): void {
-    patch(this.session.settings.water, { depth: v });
+    patch(this.session.tools.settings.water, { depth: v });
   }
 
   add(kind: MapWaterKind): void {
-    const level = Math.round((this.session.hover()?.height ?? 0) * 10) / 10;
+    const level = Math.round((this.session.view.hover()?.height ?? 0) * 10) / 10;
     if (!this.session.edit(WATER, (e) => waterCommands.addBody(e, kind, level))) return;
     const index = (this.session.doc!.terrain.waterBodies?.length ?? 1) - 1;
-    patch(this.session.settings.water, { body: index, mode: 'fill' });
-    this.session.flash(`${KIND_NAMES[kind]} ${index + 1} added: click a hollow to fill it, or dig a lake`);
+    patch(this.session.tools.settings.water, { body: index, mode: 'fill' });
+    this.session.notices.flash(`${KIND_NAMES[kind]} ${index + 1} added: click a hollow to fill it, or dig a lake`);
   }
 
   remove(index: number): void {

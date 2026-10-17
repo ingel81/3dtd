@@ -101,8 +101,8 @@ import { patch } from '../../tools/tool';
 })
 export class OutlinerComponent {
   private readonly session = inject(EditorSession);
-  /** The map's revision while this panel is in sight (PanelShown) */
-  private readonly rev = panelRev();
+  /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
+  private readonly rev = panelRev('objects', 'paths', 'markers');
   readonly query = signal('');
 
   readonly data = computed(() => {
@@ -112,7 +112,7 @@ export class OutlinerComponent {
     const q = this.query().trim().toLowerCase();
     const has = (text: string) => !q || text.toLowerCase().includes(q);
     const catalog = this.session.catalog();
-    const hidden = new Set(this.session.settings.view().hidden ?? []);
+    const hidden = new Set(this.session.tools.settings.view().hidden ?? []);
     const byAsset = new Map<string, number>();
     const groups = new Map<string, { count: number; names: Set<string> }>();
     for (const o of doc.objects) {
@@ -174,18 +174,18 @@ export class OutlinerComponent {
   }
 
   isSel(kind: 'hq' | 'spawn', id?: string): boolean {
-    const s = this.session.selection();
+    const s = this.session.state.selection();
     return !!s && s.kind === kind && (kind === 'hq' || (s as { id: string }).id === id);
   }
 
   selectHq(): void {
     this.session.editor?.select({ kind: 'hq' });
-    this.session.viewport?.focusSelection();
+    this.session.view.focusSelection();
   }
 
   selectSpawn(id: string): void {
     this.session.editor?.select({ kind: 'spawn', id });
-    this.session.viewport?.focusSelection();
+    this.session.view.focusSelection();
   }
 
   selectAsset(asset: string): void {
@@ -201,16 +201,16 @@ export class OutlinerComponent {
   }
 
   toggleCategory(name: string): void {
-    const hidden = new Set(this.session.settings.view().hidden ?? []);
+    const hidden = new Set(this.session.tools.settings.view().hidden ?? []);
     if (hidden.has(name)) hidden.delete(name);
     else hidden.add(name);
-    patch(this.session.settings.view, { hidden: [...hidden] });
+    patch(this.session.tools.settings.view, { hidden: [...hidden] });
   }
 
   private selectObjects(ids: string[]): void {
     this.session.editor?.select({ kind: 'objects', ids });
-    this.session.selectTool('objects');
-    patch(this.session.settings.objects, { mode: 'select' });
-    this.session.viewport?.focusSelection();
+    this.session.tools.select('objects');
+    patch(this.session.tools.settings.objects, { mode: 'select' });
+    this.session.view.focusSelection();
   }
 }

@@ -60,16 +60,16 @@ export const ALL_DOC_PARTS = Object.keys(CONTENT_PART) as readonly (ContentPart 
 
 const PART_CHANGE: Record<keyof DocParts, DocChange> = {
   objects: { objects: 'all' },
-  gameplay: { meta: true },
+  gameplay: { gameplay: true },
   paths: { paths: true },
   spawns: { markers: true },
   hq: { markers: true },
   environment: { environment: true },
   life: { life: true },
-  intro: { meta: true },
+  intro: { intro: true },
   meta: { meta: true },
   terrain: { terrain: true, layers: true, water: true },
-  prefabs: { meta: true },
+  prefabs: { prefabs: true },
 };
 
 /** Swaps parts of the document between two copies */

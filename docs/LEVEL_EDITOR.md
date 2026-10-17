@@ -31,7 +31,7 @@ Die Startseite von `/editor` zeigt links die eigenen und die mitgelieferten Kart
 zuletzt geändert), rechts die gewählte mit Beschreibung und den Knöpfen Open, Duplicate, Download, Delete (in den
 Papierkorb, siehe [Speichern](#speichern-und-dateien)). Mitgelieferte Karten (`public/maps/index.json`) und Karten eines Koop-Hosts sind schreibgeschützt: „Copy
 and edit“ legt eine eigene Kopie an und öffnet sie. Dasselbe gilt für jeden anderen Weg dorthin, etwa „Edit“ in der
-Kartenwahl des Spiels: `EditorSession.open` öffnet nie das Original, sondern speichert sofort eine eigene Kopie
+Kartenwahl des Spiels: `MapLifecycle.open` öffnet nie das Original, sondern speichert sofort eine eigene Kopie
 („Name (copy)“) und sagt das in der Statuszeile. Die Kopie merkt sich ihr Original mit dessen Inhalts-Hash (`meta.copyOf`, nicht
 Teil des `contentHash`); ein weiteres „Edit“ desselben Originals öffnet die neueste eigene Kopie wieder. Hat sich das
 Original seither geändert (Spiel-Update, neue Version des Hosts, verglichen über `index.json` bzw. die Zusammenfassung,
@@ -442,12 +442,12 @@ Ausschwenken des Spiels), ein Klick oder das Rad hält ihn an. Jede Änderung is
 ändern lassen den Flug, wie er ist.
 
 **Was wartet.** Solange ein Strich oder ein Ziehen in der Ansicht gehalten wird oder ein Gelände-Job läuft
-(`EditorSession.busyReason`), warten Rückgängig, Wiederholen, Speichern (Strg+S; ein Autosave kommt später wieder),
+(`EditorSession.busyReason`, geprüft an der Tür `session.edit`), warten Rückgängig, Wiederholen, Speichern (Strg+S; ein Autosave kommt später wieder),
 Einfügen (Strg+V), „Restore“, „Test map“, der Bot-Check und das Verlassen der Karte; die Statuszeile sagt, worauf
 („Undo waits: finish the stroke or drag first“). Sonst holte etwa ein Rückgängig unter einem laufenden Job beim Cancel
 die Höhen von vor dem Job über bereits zurückgenommene Schritte zurück.
 
-Läuft ein Job (Generieren, Erodieren, das Abspielen eines Agenten, `EditorSession.withJob`) oder bearbeitet ein
+Läuft ein Job (Generieren, Erodieren, das Abspielen eines Agenten, `JobRunner`) oder bearbeitet ein
 anderer Tab die Karte, ist das Dokument gehalten (`EditorDocument.hold`): jeder neue Schritt, jede neue Transaktion
 (`begin`, bevor sie etwas schreibt), Rückgängig und Wiederholen wird dort abgelehnt, ein Schritt, dessen Änderung schon
 im Dokument steht (ein Strich, der vor dem Job begann, `record`), wird zurückgenommen, und die Statuszeile sagt warum
@@ -844,9 +844,10 @@ nur bei Spiegel, Art oder Symmetrie. Die Geländeverdeckung (Horizontsuche) eine
 Höhen ruhen (120 ms, höchstens 500 ms), und arbeitet dann einige Millisekunden je Bild ab. Das Overlay baut Marker, Knoten (Instanzen, eine Menge je Farbe) und Straßen
 (alle Kanten in einem `LineSegments`) nur neu, wenn sich Wege, Spawns, HQ oder die Auswahl ändern, und sucht die
 Routen nur dann neu; Höhen und Wasser darunter legen es nur auf die neuen Höhen (`redrape`, höchstens alle 200 ms im
-Strich). Auf einem Wegenetz von 7 600 Knoten und 8 700 Kanten: Neubau 19 statt 1 500 ms, Nachlegen 3 ms. Die Panels der Werkzeuge bleiben gemountet, folgen der
-Kartenrevision (`docRev`, alle 150 ms im Strich) aber nur, solange sie zu sehen sind (`PanelShown`), und holen sie beim
-Zeigen nach. Änderungen je Tupfer und Kamerabilder gehen an Zuhörer (`onDocChange`, `onCamera`: Tour, Minikarte) statt
+Strich). Auf einem Wegenetz von 7 600 Knoten und 8 700 Kanten: Neubau 19 statt 1 500 ms, Nachlegen 3 ms. Die Panels der Werkzeuge bleiben gemountet, folgen den
+Revisionen der Kartenteile, die sie zeigen (`panelRev('objects', 'paths')`, `EditorState`), aber nur, solange sie zu
+sehen sind (`PanelShown`), und holen sie beim Zeigen nach; ein Geländestrich lässt Outliner, Objekt-Panel und Budget in
+Ruhe. Änderungen je Tupfer und Kamerabilder gehen an Zuhörer (`onDocChange`, `onCamera`: Tour, Minikarte) statt
 an Signale, die Angular sonst in jedem Bild alles prüfen ließen. Gehaltener Gebirgspinsel auf einer kleinen Stadtkarte,
 16 s: 603 statt 1 388 Prüfläufe, Template-Zeit 65 statt 220 ms. Den Himmel baut die
 Ansicht höchstens alle 100 ms neu; die Minikarte wartet, bis kein Pinsel mehr gehalten wird.
@@ -935,8 +936,17 @@ Boden dort: in der Hauptwasserfläche, wenn sie auf dieser Höhe liegt (oder feh
 auf dieser Höhe, neu angelegt, wenn keines da ist (`LandscapeContext.waterAt`). Vorher grub ein Teich, auf eine Mesa
 gesetzt, sein Bett bis zum Spiegel des Meers hinunter, und ein Gewässer außer dem Hauptwasser kam gar nicht mit.
 
-**Angular.** `EditorSession` (je Seite) hält Karte, Werkzeuge, Einstellungen und Signale für die Panels; Viewport und
-Taktgeber laufen außerhalb der Zone, Änderungen am Dokument erreichen die Panels höchstens alle 150 ms.
+**Angular.** `EditorSession` ist eine dünne Fassade über je einem Dienst (`editor/services/`): `MapLifecycle`
+(welche Karte offen ist, `openMap`, öffnen, schließen, eigene Kopie, Tab-Sperre), `EditorState` (Revision je Kartenteil,
+Verlauf), `ToolHost` (Werkzeug, Einstellungen, Hinweiszeile), `ViewHost` (die Ansicht, für die Seite nur als
+`EditorViewPort`), `SaveService`, `JobRunner`, `CheckService`, `MapLibrary` (Karten, Papierkorb, Import, Stempel-
+Bibliothek, auch ohne offene Karte), `EditorPictures`, `AgentAdapter` (der `AgentHost` des KI-Agenten) und
+`EditorNotices` (Statuszeile, Banner). Jede Änderung aus einem Panel geht durch `session.edit(what, fn)`; die
+Einstellungen sind je Teil ein Signal mit unveränderlichen Werten (`patch(settings.water, { mode })`), wer einen Teil liest,
+folgt nur ihm. `EditorState` sammelt die Änderungen des Dokuments und erhöht die Revisionen der berührten Teile einmal je
+Bild; die Tupfer eines laufenden Strichs höchstens alle 150 ms. Ein Timer läuft nur, solange sich etwas ändert. Ansicht und
+Taktgeber laufen außerhalb der Zone. Die Seite zeigt den Editor, solange `openMap` eine Karte nennt; der Agent öffnet
+und schließt Karten über denselben `MapLifecycle`.
 
 **Datei.** `.3dtdmap` ist ein Zip (fflate) mit `map.json` und den Arrays als Little-Endian-Binärdateien
 (`terrain/heights.f32`, `terrain/splat0.u8`, `terrain/splat1.u8`, ab neun Bodenschichten `terrain/splat2.u8`,

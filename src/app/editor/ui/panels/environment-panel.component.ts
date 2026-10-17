@@ -171,8 +171,8 @@ const SKIES: { id: MapEnvironment['sky']; label: string }[] = [
 })
 export class EnvironmentPanelComponent {
   private readonly session = inject(EditorSession);
-  /** The map's revision while this panel is in sight (PanelShown) */
-  private readonly rev = panelRev();
+  /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
+  private readonly rev = panelRev('environment');
   readonly skies = SKIES;
   readonly skyImages = SKY_IMAGES;
   readonly chooseSkyImage = chooseSkyImage;
@@ -221,6 +221,6 @@ export class EnvironmentPanelComponent {
     const before = this.before ?? { ...editor.doc.environment };
     this.before = null;
     editor.doc.environment = { ...editor.doc.environment, ...patch };
-    this.session.execute(new SnapshotCommand(label, { environment: before }, { environment: { ...editor.doc.environment } }));
+    this.session.edit('Changing the environment', (e) => e.execute(new SnapshotCommand(label, { environment: before }, { environment: { ...editor.doc.environment } })));
   }
 }

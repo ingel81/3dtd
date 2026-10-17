@@ -102,10 +102,10 @@ const KINDS: { id: MapPathKind; label: string }[] = [
 })
 export class PathPanelComponent {
   private readonly session = inject(EditorSession);
-  /** The map's revision while this panel is in sight (PanelShown) */
-  private readonly rev = panelRev();
+  /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
+  private readonly rev = panelRev('paths', 'terrain');
   readonly kinds = KINDS;
-  readonly s = this.session.settings.paths;
+  readonly s = this.session.tools.settings.paths;
   readonly layer = signal(0);
   readonly surfaces = computed(() => roadSurfaces(this.session.catalog()));
   readonly layers = computed(() => {
@@ -115,7 +115,7 @@ export class PathPanelComponent {
   });
   readonly edgeIds = computed(() => {
     this.rev();
-    const sel = this.session.selection();
+    const sel = this.session.state.selection();
     const doc = this.session.doc;
     if (!doc) return [];
     // The selected roads and those at the selected nodes
@@ -125,7 +125,7 @@ export class PathPanelComponent {
   });
   readonly edge = computed(() => {
     this.rev();
-    const sel = this.session.selection();
+    const sel = this.session.state.selection();
     const doc = this.session.doc;
     const ids = new Set(selectedEdges(sel));
     if (!ids.size || !doc) return null;
@@ -137,20 +137,20 @@ export class PathPanelComponent {
   });
 
   setMode(mode: PathMode): void {
-    patch(this.session.settings.paths, { mode });
+    patch(this.session.tools.settings.paths, { mode });
   }
 
   set(key: 'width' | 'snap', v: number): void {
-    patch(this.session.settings.paths, { [key]: v });
+    patch(this.session.tools.settings.paths, { [key]: v });
   }
 
   setKind(kind: MapPathKind): void {
-    patch(this.session.settings.paths, { kind });
+    patch(this.session.tools.settings.paths, { kind });
   }
 
   setRoutes(on: boolean): void {
-    patch(this.session.settings.paths, { showRoutes: on });
-    this.session.viewport?.refreshRoutes();
+    patch(this.session.tools.settings.paths, { showRoutes: on });
+    this.session.view.refreshRoutes();
   }
 
   setEdge(patch: { width?: number; kind?: MapPathKind }): void {
@@ -174,7 +174,7 @@ export class PathPanelComponent {
   }
 
   remove(): void {
-    const sel = this.session.selection();
+    const sel = this.session.state.selection();
     const nodes = selectedNodes(sel);
     const edges = selectedEdges(sel);
     if (!nodes.length && !edges.length) return;
@@ -184,8 +184,8 @@ export class PathPanelComponent {
   rebuild(): void {
     const ids = this.edgeIds();
     if (!ids.length) return;
-    if (this.session.edit('Rebuilding roads', (e) => rebuildRoads(e, this.session.catalog(), ids, this.session.settings.landscape().road))) {
-      this.session.flash(`Dressing laid anew along ${ids.length} ${ids.length === 1 ? 'road' : 'roads'}`);
+    if (this.session.edit('Rebuilding roads', (e) => rebuildRoads(e, this.session.catalog(), ids, this.session.tools.settings.landscape().road))) {
+      this.session.notices.flash(`Dressing laid anew along ${ids.length} ${ids.length === 1 ? 'road' : 'roads'}`);
     }
   }
 
@@ -193,7 +193,7 @@ export class PathPanelComponent {
     const ids = this.edgeIds();
     let done = false;
     if (this.session.edit('Flattening roads', (e) => (done = flattenRoads(e, ids.length ? ids : null)))) {
-      this.session.flash(done ? 'Ground under the roads flattened' : 'No road to flatten');
+      this.session.notices.flash(done ? 'Ground under the roads flattened' : 'No road to flatten');
     }
   }
 

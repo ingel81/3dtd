@@ -8,14 +8,14 @@ import { EditorSession } from '../editor-session.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'td-topbar' },
   template: `
-    <span class="sb-hint td-trunc">{{ session.hint() }}</span>
-    @if (session.hover(); as h) {
+    <span class="sb-hint td-trunc">{{ session.tools.hint() }}</span>
+    @if (session.view.hover(); as h) {
       <span class="td-num" data-test="cursor">{{ round(h.x) }}, {{ round(h.y) }} m</span>
       <span class="td-num" data-test="height">height {{ h.height.toFixed(1) }} m</span>
       <span class="sb-mat td-trunc">{{ h.material }}</span>
     }
     <span class="td-num" data-test="objects">{{ objects() }} objects</span>
-    @if (session.stats(); as s) {
+    @if (session.view.stats(); as s) {
       <span class="td-num">{{ thousands(s.triangles) }} triangles</span>
       <span class="td-num" data-test="fps">{{ s.fps }} fps</span>
     }
@@ -28,7 +28,8 @@ import { EditorSession } from '../editor-session.service';
 })
 export class StatusBarComponent {
   readonly session = inject(EditorSession);
-  readonly objects = computed(() => (this.session.docRev(), this.session.doc?.objects.length ?? 0));
+  private readonly objectsRev = this.session.state.rev('objects');
+  readonly objects = computed(() => (this.objectsRev(), this.session.doc?.objects.length ?? 0));
 
   round(v: number): number {
     return Math.round(v);

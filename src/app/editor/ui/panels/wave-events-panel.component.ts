@@ -129,8 +129,8 @@ const WEATHERS: { id: MapWeather; label: string }[] = [
 })
 export class WaveEventsPanelComponent {
   private readonly session = inject(EditorSession);
-  /** The map's revision while this panel is in sight (PanelShown) */
-  private readonly rev = panelRev();
+  /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
+  private readonly rev = panelRev('gameplay', 'markers', 'objects');
   readonly kinds = KINDS;
   readonly weathers = WEATHERS;
   readonly limits = WAVE_EVENT_LIMITS;
@@ -146,7 +146,7 @@ export class WaveEventsPanelComponent {
   );
   readonly spawns = computed(() => (this.rev(), this.session.doc?.spawns ?? []).map((s) => ({ id: s.id, name: s.name })));
   readonly selected = computed<string[]>(() => {
-    const sel = this.session.selection();
+    const sel = this.session.state.selection();
     return sel?.kind === 'objects' ? sel.ids : [];
   });
   readonly problems = computed(() => {
@@ -178,7 +178,7 @@ export class WaveEventsPanelComponent {
   private edit(label: string, fn: (events: MapWaveEvent[]) => MapWaveEvent[]): void {
     const editor = this.session.editor;
     if (!editor) return;
-    this.session.execute(
+    this.session.edit('Changing the wave events', (e) => e.execute(
       SnapshotCommand.record(editor.doc, label, ['gameplay'], (d) => {
         const g: MapGameplay = { ...(d.gameplay ?? {}) };
         const next = fn(structuredClone(g.events ?? []));
@@ -186,14 +186,14 @@ export class WaveEventsPanelComponent {
         else delete g.events;
         d.gameplay = Object.keys(g).length ? g : undefined;
       }),
-    );
+    ));
   }
 
   add(): void {
     const kind = this.kind();
     const list = this.events();
     if (list.length >= WAVE_EVENT_LIMITS.events) {
-      this.session.flash(`A map has ${WAVE_EVENT_LIMITS.events} wave events at most`);
+      this.session.notices.flash(`A map has ${WAVE_EVENT_LIMITS.events} wave events at most`);
       return;
     }
     const wave = Math.min(WAVE_EVENT_LIMITS.wave, Math.max(2, ...list.map((e) => e.wave + 1)));
@@ -211,7 +211,7 @@ export class WaveEventsPanelComponent {
       case 'portal': {
         const spawn = this.session.doc?.spawns.at(-1);
         if (!spawn) {
-          this.session.flash('The map has no spawn to open');
+          this.session.notices.flash('The map has no spawn to open');
           return;
         }
         event = { wave, kind, spawn: spawn.id };
@@ -220,7 +220,7 @@ export class WaveEventsPanelComponent {
       case 'objects': {
         const ids = this.selected();
         if (!ids.length) {
-          this.session.flash('Select the objects first (Objects tool), then add the event');
+          this.session.notices.flash('Select the objects first (Objects tool), then add the event');
           return;
         }
         event = { wave, kind, ids: ids.slice(0, WAVE_EVENT_LIMITS.objects), show: true };
@@ -251,7 +251,7 @@ export class WaveEventsPanelComponent {
     if (!editor) return;
     const known = new Set(editor.doc.objects.map((o) => o.id));
     editor.select({ kind: 'objects', ids: ids.filter((id) => known.has(id)) });
-    this.session.refresh();
+    this.session.state.refresh();
   }
 
   remove(index: number): void {

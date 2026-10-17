@@ -8,7 +8,8 @@ import { DEFAULT_CELL_SIZE } from '../../../world/custom-map/map-create';
 import { TERRAIN_PRESETS, type TerrainPreset } from '../../../map-ops/generate';
 import { MAP_FILE_EXTENSION, packMapFile } from '../../../world/custom-map/map-file';
 import { TRASH_DAYS, type MapSummary } from '../../../world/custom-map/map-store';
-import { download, EditorSession } from '../editor-session.service';
+import { EditorSession } from '../editor-session.service';
+import { downloadBlob } from '../../../utils/download';
 import { WorldChoiceService } from '../../../world/world-choice.service';
 import { WorldSession } from '../../../world/world-session.service';
 import { AppScreen } from '../../../world/app-screen.service';
@@ -103,14 +104,14 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
   /** A ready landscape by default: an empty plain says little about what the editor can do */
   readonly newTemplate = signal('meadows');
   readonly templates = MAP_TEMPLATES;
-  readonly templatePicture = (t: MapTemplate) => this.session.biomePicture(biomeById(t.biome));
-  readonly progress = this.session.templateProgress;
+  readonly templatePicture = (t: MapTemplate) => this.session.pictures.biomePicture(biomeById(t.biome));
+  readonly progress = this.session.maps.templateProgress;
   readonly percent = computed(() => Math.round((this.progress() ?? 0) * 100));
   readonly newSeed = signal(Math.floor(Math.random() * 100000));
   readonly newStrength = signal(60);
   readonly newMaterial = signal('grass');
   readonly materials = computed(() => this.session.catalog().catalog.materials);
-  readonly thumb = (m: GroundMaterialEntry) => this.session.materialPicture(m);
+  readonly thumb = (m: GroundMaterialEntry) => this.session.pictures.materialPicture(m);
 
   private urls: string[] = [];
 
@@ -123,8 +124,8 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
   }
 
   async reload(select?: string): Promise<void> {
-    const store = this.session.store;
-    const [stored, shipped, trash] = await Promise.all([store.listOwn().catch(() => []), store.listShipped(), this.session.listTrash().catch(() => [])]);
+    const store = this.session.library.store;
+    const [stored, shipped, trash] = await Promise.all([store.listOwn().catch(() => []), store.listShipped(), this.session.library.listTrash().catch(() => [])]);
     this.trash.set(trash);
     const own = stored.filter((m) => m.origin !== 'shared');
     const shared = stored.filter((m) => m.origin === 'shared');
@@ -181,7 +182,7 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
   async duplicate(m: MapSummary): Promise<void> {
     this.busy.set(true);
     try {
-      const copy = await this.session.store.duplicate(m.id, undefined, m.origin);
+      const copy = await this.session.library.store.duplicate(m.id, undefined, m.origin);
       await this.reload(copy.doc.meta.id);
     } finally {
       this.busy.set(false);
@@ -191,7 +192,7 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
   /** An own map goes to the trash at once (it can come back); a coop host's map is asked about and goes for good */
   async remove(m: MapSummary): Promise<void> {
     if (m.origin === 'own') {
-      const key = await this.session.deleteMap(m.id, m.name);
+      const key = await this.session.library.deleteMap(m.id, m.name);
       if (!key) return;
       this.trashed.set({ key, name: m.name });
       await this.reload();
@@ -202,12 +203,12 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
       return;
     }
     this.confirmDelete.set(null);
-    await this.session.store.delete(m.id);
+    await this.session.library.store.delete(m.id);
     await this.reload();
   }
 
   async restore(key: string): Promise<void> {
-    const id = await this.session.restoreMap(key);
+    const id = await this.session.library.restoreMap(key);
     this.trashed.set(null);
     await this.reload(id);
   }
@@ -218,7 +219,7 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
       return;
     }
     this.confirmPurge.set(null);
-    await this.session.deleteForGood(m);
+    await this.session.library.deleteForGood(m);
     await this.reload();
   }
 
@@ -231,8 +232,8 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
   }
 
   async downloadMap(m: MapSummary): Promise<void> {
-    const loaded = await this.session.store.load(m.id, m.origin);
-    download(packMapFile(loaded.doc, { preview: loaded.preview ?? undefined }), `${m.id}${MAP_FILE_EXTENSION}`, 'application/zip');
+    const loaded = await this.session.library.store.load(m.id, m.origin);
+    downloadBlob(new Blob([packMapFile(loaded.doc, { preview: loaded.preview ?? undefined }) as Uint8Array<ArrayBuffer>], { type: 'application/zip' }), `${m.id}${MAP_FILE_EXTENSION}`);
   }
 
   rollSeed(): void {
@@ -259,7 +260,7 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
     const preset = SIZE_PRESETS.find((p) => p.id === this.newSize()) ?? SIZE_PRESETS[1];
     this.busy.set(true);
     try {
-      const id = await this.session.createNew(
+      const id = await this.session.maps.createNew(
         {
           name: this.newName().trim() || 'New map',
           author: this.newAuthor().trim(),
@@ -286,9 +287,9 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
     try {
       let last: string | null = null;
       for (const f of Array.from(files)) {
-        last = (await this.session.importFile(f)) ?? last;
+        last = (await this.session.library.importFile(f)) ?? last;
         // A file that matches an own map waits for the answer; the rest can come again after
-        if (this.session.importMatch()) break;
+        if (this.session.library.importMatch()) break;
       }
       await this.reload(last ?? undefined);
     } finally {
@@ -341,8 +342,8 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
     // A dialog over the list and a list of addresses keep their own Esc
     if (event.defaultPrevented || this.dialog.openDialogs.length > 0) return;
     event.preventDefault();
-    if (this.session.importMatch()) void this.resolveImport('cancel');
-    else if (this.session.importState()) this.closeImport();
+    if (this.session.library.importMatch()) void this.resolveImport('cancel');
+    else if (this.session.library.importState()) this.closeImport();
     else if (this.confirmDelete() || this.confirmPurge()) {
       this.confirmDelete.set(null);
       this.confirmPurge.set(null);
@@ -356,7 +357,7 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
   async startW3x(metresPerTile: number, maxObjects: number, cropToPlayable: boolean, enhance: boolean, waves: boolean): Promise<void> {
     this.busy.set(true);
     try {
-      const id = await this.session.importW3x({
+      const id = await this.session.library.importW3x({
         metresPerTile: Math.min(16, Math.max(1, metresPerTile || 4)),
         maxObjects: Math.min(20000, Math.max(0, Math.round(maxObjects))),
         cropToPlayable,
@@ -370,7 +371,7 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
   }
 
   async resolveImport(choice: 'replace' | 'copy' | 'cancel'): Promise<void> {
-    const id = await this.session.resolveImport(choice);
+    const id = await this.session.library.resolveImport(choice);
     if (id) await this.reload(id);
   }
 
@@ -380,7 +381,7 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
 
   /** Closes the panel; a running import stops */
   closeImport(): void {
-    this.session.cancelImport();
+    this.session.library.cancelImport();
   }
 
   readonly asValue = (e: Event) => (e.target as HTMLInputElement).value;

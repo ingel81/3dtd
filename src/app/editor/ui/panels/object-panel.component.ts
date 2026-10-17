@@ -40,12 +40,12 @@ const TURN_STEPS = [5, 15, 45, 90];
 })
 export class ObjectPanelComponent {
   readonly session = inject(EditorSession);
-  /** The map's revision while this panel is in sight (PanelShown) */
-  private readonly rev = panelRev();
+  /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
+  private readonly rev = panelRev('objects', 'terrain');
   readonly modes = MODES;
   readonly snaps = SNAPS;
   readonly turnSteps = TURN_STEPS;
-  readonly thumb = (a: ObjectAssetEntry) => this.session.objectPicture(a);
+  readonly thumb = (a: ObjectAssetEntry) => this.session.pictures.objectPicture(a);
   readonly search = signal('');
   readonly category = signal<string>('All');
   /** Biome tag the palette shows, '' for all */
@@ -53,7 +53,7 @@ export class ObjectPanelComponent {
   readonly biomes = computed(() => this.session.catalog().biomes());
   readonly tagName = tagName;
 
-  readonly s = this.session.settings.objects;
+  readonly s = this.session.tools.settings.objects;
   /** The wall kit the chosen asset belongs to: Line mode fits the kit's pieces instead of spacing one asset */
   readonly kit = computed(() => wallKitOf(this.s().asset));
   readonly categories = computed(() => ['All', ...this.session.catalog().categories()]);
@@ -73,7 +73,7 @@ export class ObjectPanelComponent {
   });
   readonly selected = computed<MapObject[]>(() => {
     this.rev();
-    const sel = this.session.selection();
+    const sel = this.session.state.selection();
     const doc = this.session.doc;
     if (sel?.kind !== 'objects' || !doc) return [];
     const ids = new Set(sel.ids);
@@ -82,22 +82,22 @@ export class ObjectPanelComponent {
   readonly single = computed(() => (this.selected().length === 1 ? this.selected()[0] : null));
 
   setMode(mode: ObjectMode): void {
-    patch(this.session.settings.objects, { mode });
+    patch(this.session.tools.settings.objects, { mode });
   }
 
   setGizmo(g: GizmoMode): void {
-    patch(this.session.settings.objects, { mode: 'select', gizmo: g });
+    patch(this.session.tools.settings.objects, { mode: 'select', gizmo: g });
   }
 
   chooseAsset(a: ObjectAssetEntry): void {
-    const o = this.session.settings.objects();
+    const o = this.session.tools.settings.objects();
     if (o.mode === 'scatter') {
       const set = new Set(o.scatter.assets);
       if (set.has(a.id)) set.delete(a.id);
       else set.add(a.id);
-      patch(this.session.settings.objects, { scatter: { ...o.scatter, assets: [...set] }, asset: a.id });
+      patch(this.session.tools.settings.objects, { scatter: { ...o.scatter, assets: [...set] }, asset: a.id });
     } else {
-      patch(this.session.settings.objects, { asset: a.id, mode: o.mode === 'select' || o.mode === 'erase' ? 'place' : o.mode });
+      patch(this.session.tools.settings.objects, { asset: a.id, mode: o.mode === 'select' || o.mode === 'erase' ? 'place' : o.mode });
     }
   }
 
@@ -133,7 +133,7 @@ export class ObjectPanelComponent {
   }
 
   setScatter(key: 'density' | 'scaleMin' | 'scaleMax' | 'minDistance' | 'tintVariation', value: number): void {
-    const scatter = this.session.settings.objects().scatter;
+    const scatter = this.session.tools.settings.objects().scatter;
     this.setScatterOption({
       [key]: value,
       ...(key === 'scaleMin' && scatter.scaleMax < value ? { scaleMax: value } : {}),
@@ -142,15 +142,15 @@ export class ObjectPanelComponent {
   }
 
   setLine(changes: Partial<ObjectToolSettings['line']>): void {
-    patch(this.session.settings.objects, { line: { ...this.session.settings.objects().line, ...changes } });
+    patch(this.session.tools.settings.objects, { line: { ...this.session.tools.settings.objects().line, ...changes } });
   }
 
   private setScatterOption(changes: Partial<ObjectToolSettings['scatter']>): void {
-    patch(this.session.settings.objects, { scatter: { ...this.session.settings.objects().scatter, ...changes } });
+    patch(this.session.tools.settings.objects, { scatter: { ...this.session.tools.settings.objects().scatter, ...changes } });
   }
 
   setAlign(on: boolean): void {
-    patch(this.session.settings.objects, { alignToSlope: on });
+    patch(this.session.tools.settings.objects, { alignToSlope: on });
   }
 
   /** Each selected object tilted with the ground under it; a rock lies down on it anew, settled onto its plate */
@@ -191,7 +191,7 @@ export class ObjectPanelComponent {
   }
 
   setSpace(space: 'global' | 'local'): void {
-    patch(this.session.settings.objects, { space });
+    patch(this.session.tools.settings.objects, { space });
   }
 
   dropToGround(): void {
@@ -199,11 +199,11 @@ export class ObjectPanelComponent {
   }
 
   setSnap(step: number): void {
-    patch(this.session.settings.objects, { snap: step });
+    patch(this.session.tools.settings.objects, { snap: step });
   }
 
   setRandomRotation(on: boolean): void {
-    patch(this.session.settings.objects, { randomRotation: on });
+    patch(this.session.tools.settings.objects, { randomRotation: on });
   }
 
   placeTurnDegrees(): number {
@@ -215,15 +215,15 @@ export class ObjectPanelComponent {
     const deg = Number((e.target as HTMLInputElement).value);
     if (!Number.isFinite(deg)) return;
     const turn = (((deg % 360) + 360) % 360) * (Math.PI / 180);
-    patch(this.session.settings.objects, { rotation: Math.round(turn * 1000) / 1000 });
+    patch(this.session.tools.settings.objects, { rotation: Math.round(turn * 1000) / 1000 });
   }
 
   setTurnStep(step: number): void {
-    patch(this.session.settings.objects, { turnStep: step });
+    patch(this.session.tools.settings.objects, { turnStep: step });
   }
 
   setFaceRoad(on: boolean): void {
-    patch(this.session.settings.objects, { faceRoad: on });
+    patch(this.session.tools.settings.objects, { faceRoad: on });
   }
 
   /** Change the selected objects' values as one step */
@@ -231,7 +231,7 @@ export class ObjectPanelComponent {
     const editor = this.session.editor;
     const ids = this.selected().map((o) => o.id);
     if (!editor || !ids.length) return;
-    this.session.execute(ObjectsCommand.change(label, editor.doc, ids, update));
+    this.session.edit('Changing objects', (e) => e.execute(ObjectsCommand.change(label, editor.doc, ids, update)));
   }
 
   setNumber(key: 'x' | 'y' | 'z' | 'scale', e: Event): void {
@@ -273,7 +273,7 @@ export class ObjectPanelComponent {
     const editor = this.session.editor;
     const ids = this.selected().map((o) => o.id);
     if (!editor || !ids.length) return;
-    this.session.execute(ObjectsCommand.remove(ids.length === 1 ? 'Delete object' : `Delete ${ids.length} objects`, editor.doc, ids));
+    this.session.edit('Changing objects', (e) => e.execute(ObjectsCommand.remove(ids.length === 1 ? 'Delete object' : `Delete ${ids.length} objects`, editor.doc, ids)));
     editor.select(null);
   }
 
@@ -283,7 +283,7 @@ export class ObjectPanelComponent {
     if (!editor || !ids.length) return;
     const step = Math.max(2, this.s().snap || 4);
     const copies = duplicateObjects(editor.doc, ids, { x: step, y: -step });
-    this.session.execute(ObjectsCommand.add('Duplicate', editor.doc, copies));
+    this.session.edit('Changing objects', (e) => e.execute(ObjectsCommand.add('Duplicate', editor.doc, copies)));
     editor.select({ kind: 'objects', ids: copies.map((o) => o.id) });
   }
 

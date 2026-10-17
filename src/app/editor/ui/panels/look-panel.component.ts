@@ -47,12 +47,12 @@ import { panelRev } from './panel-shown';
 })
 export class LookPanelComponent {
   private readonly session = inject(EditorSession);
-  /** The map's revision while this panel is in sight (PanelShown) */
-  private readonly rev = panelRev();
+  /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
+  private readonly rev = panelRev('objects', 'markers', 'paths', 'terrain', 'water');
 
   readonly picked = computed(() => {
     this.rev();
-    const sel = this.session.selection();
+    const sel = this.session.state.selection();
     const editor = this.session.editor;
     if (!sel || !editor) return null;
     const doc = editor.doc;
@@ -92,17 +92,17 @@ export class LookPanelComponent {
   /** The ground point a click found nothing on (LookTool), described */
   readonly ground = computed(() => {
     this.rev();
-    const at = this.session.settings.look().at;
+    const at = this.session.tools.settings.look().at;
     const editor = this.session.editor;
-    if (!at || !editor || this.session.selection()) return null;
+    if (!at || !editor || this.session.state.selection()) return null;
     return { ...describeGround(editor.doc.terrain, at.x, at.y, this.session.catalog()), at: `${Math.round(at.x)} m E, ${Math.round(at.y)} m N` };
   });
 
   /** Hands the selection to the tool that edits it, in the mode that moves it */
   edit(tool: ToolId): void {
     const s = this.session;
-    s.selectTool(tool);
-    if (tool === 'objects') patch(s.settings.objects, { mode: 'select' });
-    if (tool === 'paths') patch(s.settings.paths, { mode: 'edit' });
+    s.tools.select(tool);
+    if (tool === 'objects') patch(s.tools.settings.objects, { mode: 'select' });
+    if (tool === 'paths') patch(s.tools.settings.paths, { mode: 'edit' });
   }
 }

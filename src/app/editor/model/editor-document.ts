@@ -83,6 +83,22 @@ export interface HistoryLimits {
 
 export const DEFAULT_HISTORY_LIMITS: HistoryLimits = { steps: 300, bytes: 192 * 1024 * 1024 };
 
+/** What a map put in whole changed: everything */
+export const WHOLE_MAP_CHANGE: DocChange = {
+  terrain: true,
+  objects: 'all',
+  paths: true,
+  markers: true,
+  environment: true,
+  life: true,
+  meta: true,
+  gameplay: true,
+  intro: true,
+  prefabs: true,
+  layers: true,
+  water: true,
+};
+
 export type ChangeListener = (change: DocChange, doc: CustomMapDocument) => void;
 
 /** A step refused because the document is held; the map is as it was before the step */
@@ -209,7 +225,7 @@ export class EditorDocument {
     this.state = this.nextState++;
     this.savedState = saved ? this.state : -1;
     this.select(null);
-    this.emit({ terrain: true, objects: 'all', paths: true, markers: true, environment: true, life: true, meta: true, layers: true, water: true });
+    this.emit(WHOLE_MAP_CHANGE);
   }
 
   /**

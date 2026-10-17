@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { MapBrowserComponent } from './browser/map-browser.component';
 import { EditorSession } from './editor-session.service';
 import { EditorShellComponent } from './shell/editor-shell.component';
@@ -53,84 +53,60 @@ export class EditorPageComponent implements OnInit {
   private readonly session = inject(EditorSession);
   private readonly screens = inject(AppScreen);
   private readonly destroyRef = inject(DestroyRef);
-  readonly opened = signal(this.session.editor !== null);
+  /** A map is open: the editor shows (MapLifecycle.openMap is the one source of it) */
+  readonly opened = computed(() => this.session.maps.openMap() !== null);
   readonly problem = signal<string | null>(null);
 
   constructor() {
     // The game's chip names the map open here, saved or not. A reload opens it again under its id now: a
     // shipped or coop map's first save with a change makes it an own copy with an id of its own
     effect(() => {
-      const meta = this.session.meta();
-      this.screens.draft.set(meta ? { mapId: meta.id, name: meta.name, unsaved: this.session.dirty() } : null);
-      if (meta) keepOpenMap(meta.id);
+      const meta = this.session.state.meta();
+      this.screens.draft.set(meta ? { mapId: meta.id, name: meta.name, unsaved: this.session.saves.dirty() } : null);
+    });
+    // The tab's map follows what is open; a map closed (by the player or an agent) is not opened by a reload
+    let was: string | null = null;
+    effect(() => {
+      const id = this.session.maps.openMap();
+      if (id) keepOpenMap(id);
+      else if (was) keepOpenMap(null);
+      was = id;
     });
   }
 
   ngOnInit(): void {
-    // An AI agent opens and leaves maps the way the player does
-    this.session.navigator = {
-      open: async (id) => {
-        await this.open(id);
-        return this.session.editor ? null : (this.problem() ?? 'it could not be read');
-      },
-      close: async () => {
-        await this.close();
-        return !this.opened();
-      },
-    };
-    this.destroyRef.onDestroy(() => (this.session.navigator = null));
     // Before the game shows: the map is saved, a job under way finishes first; the map stays open here
     this.destroyRef.onDestroy(this.screens.guardEditor(() => this.letGo()));
     const wanted = this.screens.takeEditorMap() ?? (this.session.editor ? null : openMapOfTab());
     if (wanted) void this.open(wanted);
   }
 
+  /** Opens the map `id` in place of the open one (saved and closed first) */
   async open(id: string): Promise<void> {
-    const editor = this.session.editor;
-    if (editor && this.session.isOpen(id)) {
-      keepOpenMap(editor.doc.meta.id);
-      this.opened.set(true);
-      return;
+    this.problem.set(null);
+    try {
+      await this.session.maps.switchTo(id);
+    } catch (e) {
+      if (!this.session.editor) keepOpenMap(null);
+      this.problem.set((e as Error).message);
     }
-    // Another map: the open one is saved and closed first
-    if (editor) {
-      if (!(await this.session.close())) return;
-      this.opened.set(false);
-      // The shell goes before the next map opens, so the new one builds its own view
-      await new Promise((r) => setTimeout(r));
-    }
-    await this.load(id);
   }
 
   async close(): Promise<void> {
-    if (!(await this.session.close())) return;
-    keepOpenMap(null);
-    this.opened.set(false);
+    await this.session.maps.close();
   }
 
   /** The editor may go for the game: what changed is saved first; a save that fails keeps the editor */
   private async letGo(): Promise<boolean> {
     const session = this.session;
-    if (!session.editor || session.readOnly()) return true;
+    if (!session.editor || session.maps.readOnly()) return true;
     if (session.blocked('Leaving the editor')) return false;
-    if (session.dirty() || session.saving()) {
-      if (!(await session.save(true)) || session.dirty()) {
-        session.flash('The map could not be saved; the editor stays open');
+    if (session.saves.dirty() || session.saves.saving()) {
+      if (!(await session.saves.save(true)) || session.saves.dirty()) {
+        session.notices.flash('The map could not be saved; the editor stays open');
         return false;
       }
     }
     return true;
-  }
-
-  private async load(id: string): Promise<void> {
-    this.problem.set(null);
-    try {
-      keepOpenMap(await this.session.open(id));
-      this.opened.set(true);
-    } catch (e) {
-      keepOpenMap(null);
-      this.problem.set((e as Error).message);
-      this.opened.set(false);
-    }
   }
 }

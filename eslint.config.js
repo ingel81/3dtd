@@ -164,6 +164,22 @@ module.exports = defineConfig([
     },
   },
   {
+    // The session's services know no page
+    files: ["src/app/editor/services/**/*.ts"],
+    ignores: ["**/*.spec.ts"],
+    rules: {
+      "no-restricted-imports": ["error", { patterns: [{ group: ["**/editor/ui/**", "../ui/**"], message: "The editor's services import no ui: the page builds on them." }] }],
+    },
+  },
+  {
+    // The page reaches the 3D view only through EditorViewPort (session.view)
+    files: ["src/app/editor/ui/**/*.ts"],
+    ignores: ["**/*.spec.ts"],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": ["error", { patterns: [{ group: ["**/view/editor-viewport"], allowTypeImports: true, message: "The page uses the view through EditorViewPort (session.view), not EditorViewport itself." }] }],
+    },
+  },
+  {
     files: ["**/*.html"],
     extends: [
       angular.configs.templateRecommended,

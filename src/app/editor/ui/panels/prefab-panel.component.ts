@@ -71,19 +71,19 @@ export interface KeptStamp {
 })
 export class PrefabPanelComponent implements OnInit {
   private readonly session = inject(EditorSession);
-  /** The map's revision while this panel is in sight (PanelShown) */
-  private readonly rev = panelRev();
+  /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
+  private readonly rev = panelRev('prefabs');
   readonly name = signal('');
   readonly ground = signal(false);
   readonly keep = signal<StampKeep>('library');
   /** Objects selected now */
   readonly count = computed(() => {
-    const sel = this.session.selection();
+    const sel = this.session.state.selection();
     return sel?.kind === 'objects' ? sel.ids.length : 0;
   });
   /** The piece Copy and stamps places now, if any */
   readonly placing = computed(() => {
-    const st = this.session.settings.stamp();
+    const st = this.session.tools.settings.stamp();
     return st.mode === 'paste' ? st.current : null;
   });
   /** The map's prefabs first, then the library's */
@@ -91,7 +91,7 @@ export class PrefabPanelComponent implements OnInit {
     this.rev();
     return [
       ...this.session.mapStamps().filter((s) => s.stamp.prefab).map((saved) => ({ saved, keep: 'map' as const })),
-      ...this.session.libraryStamps().filter((s) => s.stamp.prefab).map((saved) => ({ saved, keep: 'library' as const })),
+      ...this.session.library.libraryStamps().filter((s) => s.stamp.prefab).map((saved) => ({ saved, keep: 'library' as const })),
     ];
   });
 
@@ -100,11 +100,11 @@ export class PrefabPanelComponent implements OnInit {
   }
 
   async reload(): Promise<void> {
-    await this.session.reloadStamps();
+    await this.session.library.reloadStamps();
   }
 
   async save(): Promise<void> {
-    const sel = this.session.selection();
+    const sel = this.session.state.selection();
     const doc = this.session.doc;
     if (sel?.kind !== 'objects' || !doc) return;
     const catalog = this.session.catalog();
@@ -114,17 +114,17 @@ export class PrefabPanelComponent implements OnInit {
     const saved = await this.session.saveStamp(name, taken.stamp, taken.rect, this.keep());
     if (!saved) return;
     this.name.set('');
-    this.session.flash(`Saved prefab ${saved.name}${this.keep() === 'map' ? ' in this map' : ''}: click it below to place it`);
+    this.session.notices.flash(`Saved prefab ${saved.name}${this.keep() === 'map' ? ' in this map' : ''}: click it below to place it`);
   }
 
   /** Place it with Copy and stamps */
   use(k: KeptStamp): void {
-    this.session.selectTool('stamp');
-    patch(this.session.settings.stamp, { current: k.saved.stamp, currentName: k.saved.name, rotation: 0, mode: 'paste' });
+    this.session.tools.select('stamp');
+    patch(this.session.tools.settings.stamp, { current: k.saved.stamp, currentName: k.saved.name, rotation: 0, mode: 'paste' });
   }
 
   async remove(k: KeptStamp): Promise<void> {
     if (k.keep === 'map') this.session.removeMapStamp(k.saved.id);
-    else await this.session.deleteStamp(k.saved.id);
+    else await this.session.library.deleteStamp(k.saved.id);
   }
 }

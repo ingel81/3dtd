@@ -92,19 +92,19 @@ const SPEEDS = (() => {
 })
 export class MeasurePanelComponent {
   private readonly session = inject(EditorSession);
-  /** The map's revision while this panel is in sight (PanelShown) */
-  private readonly rev = panelRev();
+  /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
+  private readonly rev = panelRev('markers', 'paths', 'terrain');
   readonly speeds = SPEEDS;
   readonly range = TYPICAL_TOWER_RANGE;
   /** The buildable area in reach of any route, and how many towers fit on it at the least spacing */
   readonly room = computed(() => {
-    const a = this.session.buildAreas();
+    const a = this.session.check.buildAreas();
     return a ? { area: Math.round(a.inReach).toLocaleString('en-US'), spots: Math.floor(a.inReach / TOWER_SPOT_M2).toLocaleString('en-US') } : null;
   });
-  readonly view = this.session.settings.view;
+  readonly view = this.session.tools.settings.view;
   readonly result = computed(() => {
     this.rev();
-    const pts = this.session.settings.measure();
+    const pts = this.session.tools.settings.measure();
     const doc = this.session.doc;
     if (!doc || pts.length < 2) return null;
     const r = measureLine(doc.terrain, pts);
@@ -127,18 +127,18 @@ export class MeasurePanelComponent {
   });
 
   setBuildAreas(on: boolean): void {
-    this.session.setBuildAreaOverlay(on);
+    this.session.check.setBuildAreaOverlay(on);
   }
 
   set(key: 'contours' | 'grid', on: boolean): void {
-    patch(this.session.settings.view, { [key]: on });
+    patch(this.session.tools.settings.view, { [key]: on });
   }
 
   setStep(key: 'contourStep' | 'gridStep', v: number): void {
-    patch(this.session.settings.view, { [key]: v, [key === 'contourStep' ? 'contours' : 'grid']: true });
+    patch(this.session.tools.settings.view, { [key]: v, [key === 'contourStep' ? 'contours' : 'grid']: true });
   }
 
   clear(): void {
-    this.session.settings.measure.set([]);
+    this.session.tools.settings.measure.set([]);
   }
 }

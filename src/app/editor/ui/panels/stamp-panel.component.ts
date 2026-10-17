@@ -104,8 +104,8 @@ const PARTS: { id: keyof StampParts; label: string }[] = [
 })
 export class StampPanelComponent implements OnInit {
   private readonly session = inject(EditorSession);
-  /** The map's revision while this panel is in sight (PanelShown) */
-  private readonly rev = panelRev();
+  /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
+  private readonly rev = panelRev('prefabs');
   readonly parts = PARTS;
   readonly name = signal('');
   readonly keep = signal<StampKeep>('library');
@@ -114,10 +114,10 @@ export class StampPanelComponent implements OnInit {
     this.rev();
     return [
       ...this.session.mapStamps().map((saved) => ({ saved, keep: 'map' as const })),
-      ...this.session.libraryStamps().map((saved) => ({ saved, keep: 'library' as const })),
+      ...this.session.library.libraryStamps().map((saved) => ({ saved, keep: 'library' as const })),
     ];
   });
-  readonly s = this.session.settings.stamp;
+  readonly s = this.session.tools.settings.stamp;
   readonly degrees = computed(() => Math.round((((this.s().rotation * 180) / Math.PI) % 360 + 360) % 360));
 
   ngOnInit(): void {
@@ -125,46 +125,46 @@ export class StampPanelComponent implements OnInit {
   }
 
   async reload(): Promise<void> {
-    await this.session.reloadStamps();
+    await this.session.library.reloadStamps();
   }
 
   setMode(mode: 'select' | 'paste'): void {
-    patch(this.session.settings.stamp, { mode });
+    patch(this.session.tools.settings.stamp, { mode });
   }
 
   copy(): void {
-    const vp = this.session.viewport;
-    if (vp) (this.session.tools.stamp as StampTool).copy(vp.ctx);
+    const ctx = this.session.tools.context();
+    if (ctx) (this.session.tools.all.stamp as StampTool).copy(ctx);
   }
 
   turn(deg: number): void {
-    patch(this.session.settings.stamp, { rotation: this.session.settings.stamp().rotation + (deg * Math.PI) / 180 });
+    patch(this.session.tools.settings.stamp, { rotation: this.session.tools.settings.stamp().rotation + (deg * Math.PI) / 180 });
   }
 
   setFeather(v: number): void {
-    patch(this.session.settings.stamp, { feather: v });
+    patch(this.session.tools.settings.stamp, { feather: v });
   }
 
   setPart(id: keyof StampParts, on: boolean): void {
-    patch(this.session.settings.stamp, { parts: { ...this.session.settings.stamp().parts, [id]: on } });
+    patch(this.session.tools.settings.stamp, { parts: { ...this.session.tools.settings.stamp().parts, [id]: on } });
   }
 
   async save(): Promise<void> {
-    const st = this.session.settings.stamp();
+    const st = this.session.tools.settings.stamp();
     if (!st.current) return;
     const name = this.name().trim() || `Stamp ${this.stamps().length + 1}`;
     if (!(await this.session.saveStamp(name, st.current, st.region, this.keep()))) return;
     this.name.set('');
-    this.session.flash(`Saved stamp ${name}${this.keep() === 'map' ? ' in this map' : ''}`);
+    this.session.notices.flash(`Saved stamp ${name}${this.keep() === 'map' ? ' in this map' : ''}`);
   }
 
   use(st: SavedStamp): void {
-    patch(this.session.settings.stamp, { current: st.stamp, currentName: st.name, rotation: 0, mode: 'paste' });
+    patch(this.session.tools.settings.stamp, { current: st.stamp, currentName: st.name, rotation: 0, mode: 'paste' });
   }
 
   async remove(k: KeptStamp): Promise<void> {
     if (k.keep === 'map') this.session.removeMapStamp(k.saved.id);
-    else await this.session.deleteStamp(k.saved.id);
+    else await this.session.library.deleteStamp(k.saved.id);
   }
 
   size(v: number): number {

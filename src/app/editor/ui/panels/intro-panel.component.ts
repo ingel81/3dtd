@@ -53,7 +53,7 @@ type IntroKind = 'default' | MapIntro['kind'];
     }
     @if (intro(); as i) {
       <app-editor-range label="Length" unit="s" [min]="seconds.min" [max]="seconds.max" [value]="i.seconds" (changed)="setSeconds($event)" />
-      <button class="td-btn-secondary td-btn-sm" type="button" (click)="preview()" data-test="intro-preview">{{ session.introPreviewing() ? 'Stop' : 'Preview' }}</button>
+      <button class="td-btn-secondary td-btn-sm" type="button" (click)="preview()" data-test="intro-preview">{{ session.view.introPreviewing() ? 'Stop' : 'Preview' }}</button>
       <p class="td-note">A click or the wheel in the view stops the preview. In the game the flight swings in from the start view and ends in the overview; a click skips it.</p>
     }
   `,
@@ -71,8 +71,8 @@ type IntroKind = 'default' | MapIntro['kind'];
 })
 export class IntroPanelComponent {
   readonly session = inject(EditorSession);
-  /** The map's revision while this panel is in sight (PanelShown) */
-  private readonly rev = panelRev();
+  /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
+  private readonly rev = panelRev('intro', 'terrain');
   readonly seconds = INTRO_SECONDS;
   readonly sweep = INTRO_ORBIT.sweep;
   readonly maxViews = MAX_INTRO_VIEWS;
@@ -96,12 +96,12 @@ export class IntroPanelComponent {
 
   choose(kind: IntroKind): void {
     if (kind === this.kind()) return;
-    this.session.previewIntro(false);
+    this.session.view.previewIntro(null);
     const seconds = this.intro()?.seconds ?? INTRO_SECONDS.default;
     if (kind === 'default') this.session.editIntro(undefined, 'Default intro flight');
     else if (kind === 'orbit') this.orbitFromView(seconds);
     else {
-      const view = this.session.introView();
+      const view = this.session.view.introView();
       if (view) this.session.editIntro({ kind: 'path', seconds, views: [view] }, 'Intro camera path');
     }
   }
@@ -109,7 +109,7 @@ export class IntroPanelComponent {
   /** The orbit through the current view: its distance from the HQ, its height above it, its bearing */
   orbitFromView(seconds = this.intro()?.seconds ?? INTRO_SECONDS.default): void {
     const doc = this.session.doc;
-    const view = this.session.introView();
+    const view = this.session.view.introView();
     if (!doc || !view) return;
     const { hq } = doc;
     const { radius, height } = INTRO_ORBIT;
@@ -130,7 +130,7 @@ export class IntroPanelComponent {
 
   addView(): void {
     const i = this.intro();
-    const view = this.session.introView();
+    const view = this.session.view.introView();
     if (i?.kind !== 'path' || !view || i.views.length >= MAX_INTRO_VIEWS) return;
     this.session.editIntro({ ...i, views: [...i.views, view] }, 'Intro view');
   }
@@ -151,7 +151,7 @@ export class IntroPanelComponent {
     const horizontal = Math.hypot(dx, dy);
     const distance = Math.hypot(horizontal, v.h - v.lookH);
     // CameraController: scene x is west, yaw 0 looks north, the camera stands behind the target
-    this.session.viewport?.showView({
+    this.session.view.showView({
       x: -v.lookX,
       y: v.lookH,
       z: v.lookY,
@@ -172,6 +172,6 @@ export class IntroPanelComponent {
   }
 
   preview(): void {
-    this.session.previewIntro(!this.session.introPreviewing());
+    this.session.view.previewIntro(this.session.view.introPreviewing() ? null : (this.session.doc?.intro ?? null));
   }
 }

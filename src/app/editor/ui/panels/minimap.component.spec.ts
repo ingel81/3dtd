@@ -15,13 +15,9 @@ function fakeSession() {
   const pending: ((canvas: HTMLCanvasElement) => void)[] = [];
   const renderTopDown = vi.fn(() => new Promise<HTMLCanvasElement>((resolve) => pending.push(resolve)));
   const session = {
-    docRev: signal(1),
-    viewRev: signal(1),
-    onCamera: () => () => undefined,
-    selection: signal([]),
-    bookmarks: signal(Array(9).fill(null)),
+    state: { anyRev: signal(1), selection: signal([]) },
+    view: { viewRev: signal(1), onCamera: () => () => undefined, bookmarks: signal(Array(9).fill(null)), renderTopDown, shown: true, dragging: false, viewFootprint: () => [], cameraTarget: () => null },
     doc: { terrain: { width: 512, depth: 512 }, paths: { nodes: [], edges: [] }, spawns: [], hq: { x: 0, y: 0 } },
-    viewport: { renderTopDown, dragging: false, viewFootprint: () => [], controller: { current: { target: null } } },
   };
   return { session, renderTopDown, pending };
 }
@@ -57,10 +53,10 @@ describe('MinimapComponent picture', () => {
     expect(renderTopDown).toHaveBeenCalledTimes(1);
 
     // Strokes while the picture is on its way: no second render beside it
-    session.docRev.set(2);
+    session.state.anyRev.set(2);
     fixture.detectChanges();
     await vi.advanceTimersByTimeAsync(3000);
-    session.docRev.set(3);
+    session.state.anyRev.set(3);
     fixture.detectChanges();
     await vi.advanceTimersByTimeAsync(3000);
     expect(renderTopDown).toHaveBeenCalledTimes(1);
@@ -78,7 +74,7 @@ describe('MinimapComponent picture', () => {
   it('asks nothing more once it is gone', async () => {
     const { session, renderTopDown, pending, fixture } = create();
     await vi.advanceTimersByTimeAsync(1300);
-    session.docRev.set(2);
+    session.state.anyRev.set(2);
     fixture.detectChanges();
     fixture.destroy();
     pending[0](document.createElement('canvas'));
