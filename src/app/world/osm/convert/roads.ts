@@ -19,6 +19,8 @@ import { MAX_LAYERS, readWeights, writeWeights } from '../../../editor/ops/paint
 import { fitSplatMaps, type MapPathEdge, type MapPathNode, type MapPaths, type MapPoint, type MapTerrain } from '../../custom-map/map-document';
 import type { OsmFeatures } from '../osm-parse';
 import { bridgeStyle, roadTags, type RoadSurface } from '../osm-tags';
+import { pavedEdge } from '../../custom-map/render/paths/road-network';
+import { roadStyle } from '../../custom-map/render/paths/road-style';
 
 export interface RoadStats {
   /** Road ways read, and the tunnels (ways joined end to end) kept as tunnel edges, with their length */
@@ -376,11 +378,41 @@ export function levelRoads(terrain: MapTerrain, paths: MapPaths): void {
 
 /** Metres a painted road fades into the ground beside it */
 const PAINT_SOFT_EDGE = 0.75;
+/**
+ * Metres a paved road's own material stops short of its edge under the road
+ * surface (at most this share of its half width), where its verge begins:
+ * the ground's splat edges wander up to about two metres by noise, and the
+ * road's own material wandering out past the surface's edge read as frayed
+ */
+const PAVED_CORE_INSET = 1.5;
+const PAVED_CORE_SHARE = 0.6;
+
+/** The verge painted beside a paved road (paintRoads) */
+function roadVerge(edge: MapPathEdge): RoadSurface {
+  if (edge.kind === 'path') return 'dirt-path';
+  return roadStyle(edge).gutter || edge.surface !== 'asphalt' ? 'sidewalk' : 'gravel';
+}
+
+/** The ground materials paintRoads paints for `paths`: the surfaces, and the verges of the paved roads */
+export function roadPaintMaterials(paths: MapPaths): Set<string> {
+  const out = new Set<string>();
+  for (const edge of paths.edges) {
+    if (!edge.surface || edge.kind === 'bridge') continue;
+    out.add(edge.surface);
+    if (pavedEdge(edge)) out.add(roadVerge(edge));
+  }
+  return out;
+}
 
 /**
  * The roads' surfaces painted into the ground (edges with `surface`): each
  * texel takes the material of the road that covers it most, full inside the
- * half width and fading over PAINT_SOFT_EDGE. Adds the materials to the
+ * half width and fading over PAINT_SOFT_EDGE. A paved road (PAVED_SURFACES)
+ * is drawn as a surface over the ground (road-surface.ts): under it its own
+ * material stops PAVED_CORE_INSET short of its edge and a verge runs out
+ * from there, gravel along a country road, slabs along a town street, earth
+ * along a path, so no grass grows through the surface and its ragged rim
+ * reads as a shoulder, not as a frayed road. Adds the materials to the
  * layer list as needed; returns them.
  */
 export function paintRoads(terrain: MapTerrain, paths: MapPaths): RoadSurface[] {
@@ -401,16 +433,28 @@ export function paintRoads(terrain: MapTerrain, paths: MapPaths): RoadSurface[] 
   const nodes = new Map(paths.nodes.map((n) => [n.id, n]));
   const sx = res / terrain.width;
   const sy = res / terrain.depth;
+  // Bands to paint: the paved roads' cores first, so where a verge meets a core the core keeps the texel
+  const cores: { line: MapPoint[]; material: string; half: number; soft: number }[] = [];
+  const rims: typeof cores = [];
   for (const edge of paths.edges) {
     if (!edge.surface || edge.kind === 'bridge') continue;
     const a = nodes.get(edge.a);
     const b = nodes.get(edge.b);
     if (!a || !b) continue;
-    const layer = layerIndex(edge.surface);
-    if (layer < 0) continue;
     const line = [a, ...(edge.via ?? []), b];
     const half = edge.width / 2;
-    const outer = half + PAINT_SOFT_EDGE;
+    if (!pavedEdge(edge)) {
+      rims.push({ line, material: edge.surface, half, soft: PAINT_SOFT_EDGE });
+      continue;
+    }
+    cores.push({ line, material: edge.surface, half: Math.max(0.3, half - Math.min(PAVED_CORE_INSET, half * PAVED_CORE_SHARE)), soft: 0.05 });
+    rims.push({ line, material: roadVerge(edge), half, soft: edge.kind === 'path' ? 0.4 : PAINT_SOFT_EDGE });
+  }
+  for (const band of [...cores, ...rims]) {
+    const layer = layerIndex(band.material);
+    if (layer < 0) continue;
+    const { line, half, soft } = band;
+    const outer = half + soft;
     for (let s = 0; s + 1 < line.length; s++) {
       const p = line[s];
       const q = line[s + 1];
@@ -428,7 +472,7 @@ export function paintRoads(terrain: MapTerrain, paths: MapPaths): RoadSurface[] 
           const t = Math.max(0, Math.min(1, ((x - p.x) * dx + (y - p.y) * dy) / len2));
           const d = Math.hypot(x - (p.x + t * dx), y - (p.y + t * dy));
           if (d >= outer) continue;
-          const f = d <= half ? 1 : 1 - (d - half) / PAINT_SOFT_EDGE;
+          const f = d <= half ? 1 : 1 - (d - half) / soft;
           const k = ty * res + tx;
           if (f <= alpha[k]) continue;
           alpha[k] = f;

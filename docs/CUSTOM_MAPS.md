@@ -222,8 +222,25 @@ einer 1024-m-Karte mit 220 Straßen ziehen: 1,4 statt 20 ms je Bild, dazu der Up
 leichtem Bogen und mindestens 1 m über dem Wasser. `style: 'stone' | 'concrete' | 'lava'` an der Kante nimmt
 `bridge-deck-stone`, `bridge-deck-concrete` (Asphalt auf Betonplatte, Geländer) bzw. `bridge-deck-lava`; fehlt das
 Stück im Katalog, bleibt es beim Holzdeck.
-Eine Kante mit `surface` (ein Bodenmaterial, OSM-Welten: Asphalt, Pflaster, Kies) lässt die Maske aus: ihr Belag ist
-in die Bodenfarbe gemalt und zeigt sich statt Kopfsteinen und Spurrillen. `street` an der Kante (der `highway`-Typ des
+Eine Kante mit `surface` (ein Bodenmaterial, OSM-Welten: Asphalt, Pflaster, Kies) lässt die Maske aus. Ist der Belag
+befestigt (Asphalt, Beton, Pflaster, Kopfstein, Platten: `PAVED_SURFACES` in `paths/road-style.ts`), liegt die Straße
+als eigene Fläche über dem Boden (`paths/road-network.ts`, `paths/road-surface.ts`): ein Band je Straße mit
+geraden Kanten, der Belag läuft entlang der Mittellinie, Kanten mit Abstand gleichen Aussehens laufen ohne Naht als
+ein Band weiter; wo Straßen sich treffen, enden die Bänder hinter dem Punkt, an dem sich ihre Bordsteinkanten
+treffen, plus einem Bordsteinradius, und eine Kreuzungsfläche mit gerundeten Ecken (quadratische Kurven) füllt den
+Raum dazwischen, ihr Belag läuft vom breitesten Band weiter. Ein Pfad, an dessen Ende nichts anschließt, endet rund.
+Das Aussehen folgt der Straßenart (`street`): Spurlinien auf Autobahnen, Rand- und gestrichelte Mittellinie auf
+Haupt- und Kreisstraßen (`primary`, `secondary`), Mittellinie auf `tertiary`, keine in Wohnstraßen, deren Asphalt in
+einen Bordstein mit einer Rinne aus Pflastersteinen ausläuft; Fahrspuren dunkler, Flickstellen, Querrisse und eine
+vergossene Mittelnaht, mit der Abnutzung zur kleineren Straßenart mehr. Markierungen enden an Kreuzungen. Ein Material
+für alle Straßen, ein Mesh je 512-m-Kachel; die Texturen sind die Bodenmaterialien des Katalogs als eigenes Array
+(nur die Beläge, die die Karte nutzt), Markierungen und Abnutzung zeichnet der Shader aus den Straßenkoordinaten
+(quer, längs, Abstand zur Kante, Aussehen in einer Zahl gepackt). Ab etwa 12 cm je Pixel entfallen die feinen Details
+(eine Texturabfrage). Die Höhe nimmt jeder Vertex aus der Höhentextur des Geländes (ein Pinsel braucht keinen Neubau),
+gezeichnet wird er ein Stück zur Kamera hin statt angehoben (3 cm bis 200 m Abstand, darüber wachsend, wo das Gelände
+gröber wird), so kämpft die Fläche nicht mit dem Boden und schwebt von der Seite nicht. Das Netz baut sich bei
+Änderungen höchstens alle 150 ms neu (Miltenberg rund 35 ms, 160 000 Vertices). Ein Belag ohne Befestigung (Kies,
+Erde) ist in die Bodenfarbe gemalt und zeigt sich statt Kopfsteinen und Spurrillen. `street` an der Kante (der `highway`-Typ des
 echten Wegs) gibt im Spiel den Straßentyp, nach dem Routen gewichtet und Spawns gewählt werden
 (`custom-map-streets.ts`); ohne ihn entscheidet die Art. Beides fehlt auf allen bisherigen Karten
 ([OSM_WORLD_PLAN.md](OSM_WORLD_PLAN.md)).

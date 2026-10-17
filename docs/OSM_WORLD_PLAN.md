@@ -442,7 +442,11 @@ die Seite erzeugt die Karte im Worker, zeigt eine Statuszeile, speichert sie als
   bleibt Straße. Der Bericht nennt Zahl und Länge.
 - **Einebnen und Belag:** `flattenUnderPaths` mit 3 m Schulter und 20 m Glättung, erst Pfade, dann Straßen von
   schmal nach breit (die breitere gewinnt an Kreuzungen); Brücken nicht. Der Belag wird in die Bodenfarbe gemalt
-  (Asphalt, Platten `sidewalk`, Kopfstein, Kies, Erdweg nach `highway` und `surface`, 0,75 m weicher Rand),
+  (Asphalt, Platten `sidewalk`, Kopfstein, Kies, Erdweg nach `highway` und `surface`, 0,75 m weicher Rand; seit E203
+  liegen befestigte Beläge als Straßenfläche darüber, docs/CUSTOM_MAPS.md „Wege“: unter ihr endet der eigene Belag
+  bis 1,5 m vor der Kante, dort beginnt ein Bankett, Kies an Landstraßen, Platten an Wohnstraßen und gepflasterten
+  Straßen, Erde an Pfaden; so wächst kein Gras durch die Fläche, und der unruhige Rand der Bodenfarbe liest sich als
+  Bankett statt als ausgefranste Straße),
   die Kante bekommt `surface`, und die Wegmaske lässt solche Kanten aus (sonst lägen Kopfsteine mit Spurrillen
   darüber). Sechs Bodenschichten mit Gras (bis 2026-10-15 sieben); die dritte Splat-Karte bleibt für O3 frei. Splat 2048².
 - **HQ und Spawns:** HQ auf dem nächsten Punkt einer Straße bis 250 m um den Ort, sonst eines Pfads. Vier Spawns

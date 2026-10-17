@@ -16,7 +16,7 @@ import {
 } from 'three';
 import type { MapSplat } from '../../map-document';
 import type { HeightField } from '../height-field';
-import type { MaterialCompressed, MaterialPixels } from '../map-asset-library';
+import type { MapAssetLibrary, MaterialCompressed, MaterialPixels } from '../map-asset-library';
 import { uploadRect, type TexelRect } from './texture-ranges';
 
 /**
@@ -43,6 +43,30 @@ export function compressedTogether(materials: readonly (MaterialPixels | Materia
 /** A material that came GPU-compressed */
 export function isCompressed(m: MaterialPixels | MaterialCompressed): m is MaterialCompressed {
   return !(m.color instanceof Uint8Array);
+}
+
+/**
+ * The ground materials `ids` as texture arrays: GPU-compressed layers where
+ * every one came so, else the pixels of all (an array is never mixed); the
+ * materials come back too (their mean colours)
+ */
+export async function loadMaterialArrays(
+  assets: MapAssetLibrary,
+  ids: readonly string[],
+  anisotropy: number,
+): Promise<{ arrays: MaterialArrays; materials: MaterialPixels[] | MaterialCompressed[] }> {
+  const textures = await Promise.all(ids.map((id) => assets.materialTextures(id)));
+  let materials: MaterialPixels[] | MaterialCompressed[];
+  if (compressedTogether(textures)) {
+    materials = textures;
+  } else {
+    for (const m of textures.filter(isCompressed)) {
+      m.color.dispose();
+      m.data.dispose();
+    }
+    materials = await Promise.all(ids.map((id) => assets.material(id)));
+  }
+  return { arrays: new MaterialArrays(materials, anisotropy), materials };
 }
 
 /** Texture arrays of the materials a map uses, in layer order */

@@ -10,7 +10,7 @@ import {
 } from 'three';
 import { MAX_GROUND_LAYERS, type MapBiome, type MapTerrain as MapTerrainDoc, type MapPaths } from '../../map-document';
 import type { HeightField } from '../height-field';
-import type { MapAssetLibrary, MaterialCompressed, MaterialPixels } from '../map-asset-library';
+import type { MapAssetLibrary } from '../map-asset-library';
 import { pathMaskResolution, PathMaskRaster } from '../paths/path-mask';
 import { addHeightFog } from '../environment/height-fog';
 import { ApronProfile, BACKDROP_HEIGHT, buildTerrainApron } from './terrain-apron';
@@ -25,7 +25,8 @@ import { HeightTexture } from './height-texture';
 import { setGroundColors } from './ground-color';
 import { FarShadow } from './far-shadow';
 import { TerrainCuts } from './terrain-cuts';
-import { GridNormalTexture, MaterialArrays, SplatTextures, compressedTogether, isCompressed, maskTexture } from './terrain-textures';
+import { RoadSurfaceLayer } from '../paths/road-surface';
+import { GridNormalTexture, MaterialArrays, SplatTextures, loadMaterialArrays, maskTexture } from './terrain-textures';
 import { uploadRect } from './texture-ranges';
 
 /** Materials the path mask paints, by channel */
@@ -112,6 +113,8 @@ export class MapTerrainLayer {
   readonly heightTexture: HeightTexture;
   /** The ground cut away inside the openings of models set into it (tunnel portals), shared with the material */
   readonly cuts: TerrainCuts;
+  /** The paved roads as a surface over the ground, on the terrain's textures and heights (road-surface.ts) */
+  readonly roads: RoadSurfaceLayer;
   private grassInputs: Omit<GrassInputs, 'splat' | 'pathMask'> | null = null;
   /** The border's natural ground for the apron, and which map layers count as natural */
   private apronPaint: DataTexture | null = null;
@@ -132,6 +135,7 @@ export class MapTerrainLayer {
     this.occlusion = new GroundOcclusion(field);
     this.heightTexture = new HeightTexture(field);
     this.cuts = new TerrainCuts(terrain.width, terrain.depth);
+    this.roads = new RoadSurfaceLayer(field, this.heightTexture, this.normals.texture);
     this.grass = new GrassLayers(this.heightTexture);
     for (const m of this.grass.meshes) m.visible = false;
     this.normals.setWater(terrain.water?.mask ?? null);
@@ -145,18 +149,7 @@ export class MapTerrainLayer {
     const t = this.terrain;
     const generation = ++this.generation;
     const { ids, slots } = assignLayerSlots(t);
-    // GPU-compressed layers where every one came so; else the pixels of all (an array is never mixed)
-    const [textures, catalog] = await Promise.all([Promise.all(ids.map((id) => assets.materialTextures(id))), assets.catalog()]);
-    let pixels: MaterialPixels[] | MaterialCompressed[];
-    if (compressedTogether(textures)) {
-      pixels = textures;
-    } else {
-      for (const m of textures.filter(isCompressed)) {
-        m.color.dispose();
-        m.data.dispose();
-      }
-      pixels = await Promise.all(ids.map((id) => assets.material(id)));
-    }
+    const [{ arrays, materials: pixels }, catalog] = await Promise.all([loadMaterialArrays(assets, ids, anisotropy), assets.catalog()]);
     const scales = ids.map((id) => {
       const layer = t.layers.find((l) => l.material === id && l.scale);
       return layer?.scale ?? catalog.materials.find((m) => m.id === id)?.scale ?? 4;
@@ -177,13 +170,16 @@ export class MapTerrainLayer {
       return entry?.category !== 'road' && !(entry?.emissive ?? 0);
     });
 
-    if (generation !== this.generation) return;
+    if (generation !== this.generation) {
+      arrays.dispose();
+      return;
+    }
     this.material?.dispose();
     this.apronMaterial?.dispose();
     this.arrays?.dispose();
     this.splat?.dispose();
     this.pathMask?.dispose();
-    this.arrays = new MaterialArrays(pixels, anisotropy);
+    this.arrays = arrays;
     this.splat = new SplatTextures(t.splat);
     this.pathMask = this.buildPathMask(paths);
     this.refreshApronPaint();
@@ -218,6 +214,8 @@ export class MapTerrainLayer {
     this.material.setFarDistances(this.far[0], this.far[1], this.far[2]);
     this.material.setWaterLevel(t.water?.level ?? null, t.water?.kind);
     this.chunks.setMaterial(this.material);
+    this.roads.setAssets(assets, anisotropy);
+    this.roads.set(paths);
     this.apronMaterial = new ApronMaterial(this.materialParams, this.material);
     addHeightFog(this.apronMaterial);
     this.setApronRange();
@@ -282,6 +280,10 @@ export class MapTerrainLayer {
 
   rebuild(rect?: GridRect): void {
     this.chunks.rebuild(rect);
+    const f = this.field;
+    this.roads.refreshBounds(
+      rect && { minX: f.originX + rect.i0 * f.cellSize, minY: f.originY + rect.j0 * f.cellSize, maxX: f.originX + rect.i1 * f.cellSize, maxY: f.originY + rect.j1 * f.cellSize },
+    );
     this.normals.update(rect);
     if (rect) this.occlusion.queueTerrain(rect);
     else this.occlusion.updateTerrain();
@@ -360,6 +362,7 @@ export class MapTerrainLayer {
 
   /** The paths or rivers changed: the mask paints and uploads only the texels round what changed */
   refreshPaths(paths: MapPaths): void {
+    this.roads.set(paths);
     if (!this.material || !this.pathMask) return;
     const raster = this.pathRasterFor();
     const rect = raster.update(paths, this.terrain.rivers ?? []);
@@ -394,6 +397,7 @@ export class MapTerrainLayer {
     this.farShadow.dispose();
     this.heightTexture.dispose();
     this.cuts.dispose();
+    this.roads.dispose();
   }
 
   private buildPathMask(paths: MapPaths): DataTexture {

@@ -229,6 +229,7 @@ export class CustomMapView {
     this.terrain = new MapTerrainLayer(t, this.heights, doc.environment.biome ?? 'temperate');
     this.losBlockers.add(this.terrain.chunks.group);
     this.group.add(this.terrain.apron);
+    this.group.add(this.terrain.roads.group);
     if (options.grass !== false) this.group.add(...this.terrain.grass.meshes);
 
     this.mapEffects = { ...NO_MAP_EFFECTS, ...options.effects };

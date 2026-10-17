@@ -224,7 +224,7 @@ würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben diese
   Roads-Panel (gewählte Straße, keine Brücke) stellt den Belag dieser Straßen sofort um (`setRoadSurface`, ein Schritt):
   Asphalt, Pflaster, Platten, Kies, Feldweg und andere Straßenbeläge des Katalogs (`ROAD_SURFACES`) stehen in `edge.surface`
   und im `dress`, werden unter die Straße gemalt, die Wegmaske lässt die Kante aus, und „Rebuild road dressing“ malt ihn
-  wieder; „None“ gibt die gezeichnete Straße mit Pflaster und Spuren über dem Boden zurück, der Anstrich bleibt. Agent:
+  wieder; ein befestigter Belag liegt außerdem als Straßenfläche mit geraden Kanten darüber (CUSTOM_MAPS.md „Wege“); „None“ gibt die gezeichnete Straße mit Pflaster und Spuren über dem Boden zurück, der Anstrich bleibt. Agent:
   `map.roadSurface(ids, material | 'none')`. Ebenso folgt das Flussbett
   seinem Lauf: einen Flusspunkt verschieben oder entfernen (Water, 4, Rivers), die Breite ändern oder „Fewer river
   points“ füllt das alte Bett und gräbt das neue (`moveRiverBed`): Schilf, Steine und Wasserfälle beider Bänder gehen,

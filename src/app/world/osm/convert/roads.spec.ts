@@ -113,9 +113,11 @@ describe('OSM roads', () => {
     levelRoads(t, doc.paths);
     const h = (x: number, y: number) => t.grid.heights[Math.round((y + 100) / 2) * t.grid.columns + Math.round((x + 100) / 2)];
     expect(Math.abs(h(0, 2) - h(0, -2))).toBeLessThan(0.05);
-    expect(paintRoads(t, doc.paths)).toEqual(['asphalt']);
+    // The asphalt under the road surface, slabs along a residential street's edge (its verge)
+    expect(paintRoads(t, doc.paths)).toEqual(['asphalt', 'sidewalk']);
     const texel = (x: number, y: number) => Math.floor(((y + 100) / 200) * 256) * 256 + Math.floor(((x + 100) / 200) * 256);
     expect(t.splat.maps[0][texel(0, 0) * 4 + 1]).toBe(255);
+    expect(t.splat.maps[0][texel(0, 2.85) * 4 + 2]).toBe(255);
     expect(t.splat.maps[0][texel(0, 20) * 4]).toBe(255);
   });
 
@@ -135,7 +137,7 @@ describe('OSM roads', () => {
     }, frame, 100);
     doc.paths = buildRoads(f).paths;
     expect(doc.paths.edges.map((e) => e.surface)).toEqual(['asphalt', 'sidewalk', 'sidewalk', 'sidewalk', 'sidewalk', 'cobblestone', 'gravel', 'dirt-path']);
-    expect(paintRoads(doc.terrain, doc.paths)).toEqual(['asphalt', 'sidewalk', 'cobblestone', 'gravel', 'dirt-path']);
+    expect(paintRoads(doc.terrain, doc.paths)).toEqual(['asphalt', 'sidewalk', 'cobblestone', 'dirt-path', 'gravel']);
     expect(doc.terrain.layers.length).toBe(6);
   });
 });

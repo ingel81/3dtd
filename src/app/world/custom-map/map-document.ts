@@ -239,9 +239,11 @@ export interface MapPathEdge {
    */
   street?: string;
   /**
-   * A ground material painted under the road at its width (an OSM world's
-   * asphalt, pavers, gravel): the road mask leaves the edge out, so the
-   * painted ground shows instead of the cobbles and ruts of a drawn road
+   * The road's ground material (an OSM world's asphalt, pavers, gravel): the
+   * road mask leaves the edge out. A paved one (asphalt, concrete, pavers,
+   * setts, slabs: road-style.ts PAVED_SURFACES) is laid as a road surface
+   * over the ground (render/paths/road-surface.ts), gravel and earth show as
+   * the ground painted under the road
    */
   surface?: string;
   /**
