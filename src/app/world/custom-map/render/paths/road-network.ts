@@ -46,11 +46,17 @@ export interface RoadTile {
 }
 
 export interface RoadNetwork {
+  /** The tiles built anew (all on the first build; a tile rebuilt to nothing comes back empty) */
   tiles: RoadTile[];
   /** The looks the roads have, each once */
   styles: RoadStyle[];
-  /** The surfaces in the order the looks name their layers (encodeRoadStyle) */
+  /** The surfaces in the order the looks name their layers (encodeRoadStyle): new ones join at the end */
   surfaces: string[];
+}
+
+/** The key of the tile holding a map point */
+export function tileKey(x: number, y: number): string {
+  return `${Math.floor(x / ROAD_TILE)},${Math.floor(y / ROAD_TILE)}`;
 }
 
 /** Whether an edge is drawn by the road surface */
@@ -59,7 +65,11 @@ export function pavedEdge(edge: MapPathEdge): boolean {
 }
 
 interface Chain {
+  /** Its least edge id: the same whatever else changes */
+  id: string;
   edge: MapPathEdge;
+  edges: string[];
+  nodes: [string, string];
   line: MapPoint[];
   /** Distance along at each point of `line` */
   at: number[];
@@ -96,17 +106,12 @@ interface End {
 
 /** A tile's vertices and triangles as they grow */
 class TileData {
-  v = new Float32Array(1024);
-  r = new Float32Array(2048);
-  d = new Float32Array(1024);
-  i = new Uint32Array(3072);
+  v = new Float32Array(64);
+  r = new Float32Array(128);
+  d = new Float32Array(64);
+  i = new Uint32Array(192);
   vertices = 0;
   indices = 0;
-
-  constructor(
-    readonly x: number,
-    readonly y: number,
-  ) {}
 
   vertex(p: Vertex): void {
     const n = this.vertices;
@@ -140,17 +145,16 @@ function grow<T extends Float32Array | Uint32Array>(a: T): T {
   return b;
 }
 
+/** The geometry of one ribbon or junction, by the tiles its pieces start in */
 class TileBuilder {
-  private readonly tiles = new Map<string, TileData>();
+  readonly tiles = new Map<string, TileData>();
 
   /** The tile holding a map point */
   tileAt(p: MapPoint): TileData {
-    const tx = Math.floor(p.x / ROAD_TILE);
-    const ty = Math.floor(p.y / ROAD_TILE);
-    const key = `${tx},${ty}`;
+    const key = tileKey(p.x, p.y);
     let t = this.tiles.get(key);
     if (!t) {
-      t = new TileData(tx * ROAD_TILE, ty * ROAD_TILE);
+      t = new TileData();
       this.tiles.set(key, t);
     }
     return t;
@@ -164,136 +168,314 @@ class TileBuilder {
     for (const v of verts) t.vertex(v);
     for (let k = 0; k < triangles.length; k += 3) t.triangle(base + triangles[k], base + triangles[k + 1], base + triangles[k + 2]);
   }
-
-  build(): RoadTile[] {
-    return [...this.tiles.entries()].map(([key, t]) => ({
-      key,
-      x: t.x,
-      y: t.y,
-      position: t.v.slice(0, t.vertices * 2),
-      road: t.r.slice(0, t.vertices * 4),
-      dir: t.d.slice(0, t.vertices * 2),
-      index: t.i.slice(0, t.indices),
-    }));
-  }
 }
 
-/** The road surface of `paths` (see above) */
-export function buildRoadNetwork(paths: MapPaths): RoadNetwork {
-  const nodes = new Map<string, MapPoint>(paths.nodes.map((n) => [n.id, n]));
-  const paved = paths.edges.filter(pavedEdge);
-  const styles: RoadStyle[] = [];
-  const surfaces: string[] = [];
-  const codes = new Map<string, number>();
-  // The code of a look for the vertices, its surface given a layer on first sight
-  const styleOf = (s: RoadStyle): number => {
+/** What an edge was when last laid: its fields and points, compared field by field (no strings built) */
+interface EdgeState {
+  edge: MapPathEdge;
+  /** a.x, a.y, b.x, b.y, width, then the via points */
+  numbers: number[];
+}
+
+function edgeNumbers(e: MapPathEdge, nodes: ReadonlyMap<string, MapPoint>): number[] {
+  const a = nodes.get(e.a);
+  const b = nodes.get(e.b);
+  const out = [a?.x ?? NaN, a?.y ?? NaN, b?.x ?? NaN, b?.y ?? NaN, e.width];
+  for (const p of e.via ?? []) out.push(p.x, p.y);
+  return out;
+}
+
+function sameEdge(s: EdgeState, e: MapPathEdge, numbers: readonly number[]): boolean {
+  const o = s.edge;
+  if (o.a !== e.a || o.b !== e.b || o.kind !== e.kind || o.surface !== e.surface || o.street !== e.street || !!o.tunnel !== !!e.tunnel) return false;
+  if (s.numbers.length !== numbers.length) return false;
+  for (let k = 0; k < numbers.length; k++) if (s.numbers[k] !== numbers[k]) return false;
+  return true;
+}
+
+/**
+ * The road surface of a map's paths, kept between changes: `update` lays
+ * again only what a change reaches and hands back the tiles that holds.
+ * What a changed edge touches: the ribbons holding it, the ribbons meeting
+ * those at their ends (their junction and so their trim may change), and
+ * the junctions at the ends of all of them; the other ribbons and junctions
+ * keep their geometry, and a rebuilt tile is put together from the pieces
+ * of everything in it. A node dragged in the editor lays a few ribbons, not
+ * the map.
+ */
+export class RoadNetworkBuilder {
+  private readonly edges = new Map<string, EdgeState>();
+  private readonly chains = new Map<string, Chain>();
+  /** The chain each paved edge belongs to */
+  private readonly chainOf = new Map<string, Chain>();
+  /** Nodes where something not drawn here meets (a bridge, a tunnel, a track) */
+  private others = new Set<string>();
+  /** Pieces by item ('c' + chain id, 'j' + node id) and tile */
+  private readonly pieces = new Map<string, Map<string, TileData>>();
+  /** Items with pieces in each tile */
+  private readonly tileItems = new Map<string, Set<string>>();
+  private readonly styles: RoadStyle[] = [];
+  private readonly surfaces: string[] = [];
+  private readonly codes = new Map<string, number>();
+
+  /** The paths as they are now: lays what changed, returns the tiles rebuilt */
+  update(paths: MapPaths): RoadNetwork {
+    const nodes = new Map<string, MapPoint>(paths.nodes.map((n) => [n.id, n]));
+    // The edges that changed, came or went, and the nodes they touch
+    const touched = new Set<string>();
+    const changed = new Set<string>();
+    const seen = new Set<string>();
+    const others = new Set<string>();
+    const at = new Map<string, MapPathEdge[]>();
+    for (const e of paths.edges) {
+      if (!pavedEdge(e)) {
+        others.add(e.a);
+        others.add(e.b);
+        continue;
+      }
+      seen.add(e.id);
+      for (const n of [e.a, e.b]) {
+        const list = at.get(n);
+        if (list) list.push(e);
+        else at.set(n, [e]);
+      }
+      const numbers = edgeNumbers(e, nodes);
+      const s = this.edges.get(e.id);
+      if (s && sameEdge(s, e, numbers)) continue;
+      if (s) touched.add(s.edge.a).add(s.edge.b);
+      touched.add(e.a).add(e.b);
+      changed.add(e.id);
+      this.edges.set(e.id, { edge: e, numbers });
+    }
+    for (const [id, s] of this.edges) {
+      if (seen.has(id)) continue;
+      touched.add(s.edge.a).add(s.edge.b);
+      changed.add(id);
+      this.edges.delete(id);
+    }
+    // A track or bridge coming or going at a node changes its round end
+    for (const n of others) if (!this.others.has(n)) touched.add(n);
+    for (const n of this.others) if (!others.has(n)) touched.add(n);
+    this.others = others;
+
+    // Chains holding a changed edge give their ends; every chain ending at a touched node is laid again
+    const holds = (c: Chain) => c.edges.some((id) => changed.has(id));
+    for (const c of this.chains.values()) if (holds(c)) c.nodes.forEach((n) => touched.add(n));
+    const dropped: Chain[] = [];
+    for (const c of this.chains.values()) if (holds(c) || touched.has(c.nodes[0]) || touched.has(c.nodes[1])) dropped.push(c);
+    const rebuilt = new Set<string>();
+    for (const c of dropped) {
+      this.chains.delete(c.id);
+      for (const id of c.edges) if (this.chainOf.get(id) === c) this.chainOf.delete(id);
+      this.dropItem(`c${c.id}`, rebuilt);
+    }
+
+    // New chains from the free paved edges
+    const made: Chain[] = [];
+    for (const e of paths.edges) {
+      if (!pavedEdge(e) || this.chainOf.has(e.id)) continue;
+      const c = this.chain(e, at, nodes);
+      if (!c) continue;
+      made.push(c);
+      this.chains.set(c.id, c);
+    }
+
+    // Trims and round ends at every node a new chain ends at, then the geometry
+    const junctions = new Set<string>();
+    for (const c of made) c.nodes.forEach((n) => junctions.add(n));
+    for (const n of touched) junctions.add(n);
+    // Trims of the kept chains at those nodes, to see whether they moved
+    const trimsBefore = new Map<Chain, [number, number]>();
+    for (const c of this.chains.values()) if (junctions.has(c.nodes[0]) || junctions.has(c.nodes[1])) trimsBefore.set(c, [...c.trim]);
+    const ends = new Map<string, End[]>();
+    for (const node of junctions) {
+      const list: End[] = [];
+      for (const e of at.get(node) ?? []) {
+        const c = this.chainOf.get(e.id);
+        if (!c) continue;
+        for (const start of [true, false]) {
+          if (c.nodes[start ? 0 : 1] !== node) continue;
+          if (list.some((l) => l.chain === c && l.start === start)) continue;
+          list.push(endOf(c, start));
+        }
+      }
+      ends.set(node, list);
+      if (list.length === 1) {
+        const e = list[0];
+        // A path that ends with nothing else there gets a round end; a road ends square
+        e.chain.cap[e.start ? 0 : 1] = e.chain.edge.kind === 'path' && !others.has(node);
+      } else if (list.length > 1) {
+        trimJunction(nodes.get(node)!, list);
+      }
+    }
+    // A kept chain whose trim moved (it ends at a junction laid again) is laid again too
+    const fresh = new Set(made);
+    for (const [c, trim] of trimsBefore) {
+      if (fresh.has(c) || (trim[0] === c.trim[0] && trim[1] === c.trim[1])) continue;
+      this.dropItem(`c${c.id}`, rebuilt);
+      made.push(c);
+    }
+    for (const c of made) this.putItem(`c${c.id}`, (out) => emitRibbon(c, out), rebuilt);
+    for (const node of junctions) {
+      this.dropItem(`j${node}`, rebuilt);
+      const list = ends.get(node) ?? [];
+      if (list.length > 1) this.putItem(`j${node}`, (out) => emitJunction(nodes.get(node)!, list, out, this.styleOf), rebuilt);
+    }
+    return { tiles: [...rebuilt].map((key) => this.assemble(key)), styles: [...this.styles], surfaces: [...this.surfaces] };
+  }
+
+  /** The code of a look for the vertices, its surface given a layer on first sight */
+  private readonly styleOf = (s: RoadStyle): number => {
     const key = styleKey(s);
-    let code = codes.get(key);
+    let code = this.codes.get(key);
     if (code === undefined) {
-      if (!surfaces.includes(s.surface)) surfaces.push(s.surface);
-      code = encodeRoadStyle(s, surfaces.indexOf(s.surface));
-      styles.push(s);
-      codes.set(key, code);
+      if (!this.surfaces.includes(s.surface)) this.surfaces.push(s.surface);
+      code = encodeRoadStyle(s, this.surfaces.indexOf(s.surface));
+      this.styles.push(s);
+      this.codes.set(key, code);
     }
     return code;
   };
 
-  // Edges at each node: the paved ones, and whether anything else meets there (a bridge, a tunnel, a track)
-  const at = new Map<string, MapPathEdge[]>();
-  const other = new Set<string>();
-  for (const e of paths.edges) {
-    if (pavedEdge(e)) {
-      for (const n of [e.a, e.b]) at.set(n, [...(at.get(n) ?? []), e]);
-    } else {
-      other.add(e.a);
-      other.add(e.b);
-    }
-  }
-
-  // Chains: edges of one look joined where they meet each other and nothing else
-  const used = new Set<MapPathEdge>();
-  const chains: Chain[] = [];
-  const ends: { node: string; chain: Chain; start: boolean }[] = [];
-  for (const first of paved) {
-    if (used.has(first)) continue;
-    used.add(first);
+  /** The chain through a free edge: edges of one look joined where they meet each other and nothing else */
+  private chain(first: MapPathEdge, at: ReadonlyMap<string, MapPathEdge[]>, nodes: Map<string, MapPoint>): Chain | null {
     const key = styleKey(roadStyle(first));
+    const taken = new Set<MapPathEdge>([first]);
     const next = (node: string, from: MapPathEdge): MapPathEdge | null => {
       const list = at.get(node) ?? [];
       if (list.length !== 2) return null;
       const o = list[0] === from ? list[1] : list[0];
-      if (used.has(o) || Math.abs(o.width - from.width) > 0.3 || styleKey(roadStyle(o)) !== key) return null;
+      if (taken.has(o) || this.chainOf.has(o.id) || Math.abs(o.width - from.width) > 0.3 || styleKey(roadStyle(o)) !== key) return null;
       return o;
     };
-    let line = edgePolyline(first, nodes);
-    if (!line) continue;
+    const first0 = edgePolyline(first, nodes);
+    if (!first0) return null;
+    const line: MapPoint[] = [...first0];
+    const members = [first];
     // Forward from b, backward from a
     let tail = first.b;
     for (let e = next(tail, first); e; e = next(tail, e)) {
-      used.add(e);
       const l = edgePolyline(e, nodes);
       if (!l) break;
+      taken.add(e);
+      members.push(e);
       const forward = e.a === tail;
-      line = [...line, ...(forward ? l : [...l].reverse()).slice(1)];
+      if (forward) for (let k = 1; k < l.length; k++) line.push(l[k]);
+      else for (let k = l.length - 2; k >= 0; k--) line.push(l[k]);
       tail = forward ? e.b : e.a;
     }
     let head = first.a;
+    const before: MapPoint[] = [];
     for (let e = next(head, first); e; e = next(head, e)) {
-      used.add(e);
       const l = edgePolyline(e, nodes);
       if (!l) break;
+      taken.add(e);
+      members.push(e);
       const backward = e.b === head;
-      line = [...(backward ? l : [...l].reverse()).slice(0, -1), ...line];
+      // Points before the head, nearest first
+      if (backward) for (let k = l.length - 2; k >= 0; k--) before.push(l[k]);
+      else for (let k = 1; k < l.length; k++) before.push(l[k]);
       head = backward ? e.a : e.b;
     }
+    const full = before.length ? [...before.reverse(), ...line] : line;
     const half = first.width / 2;
-    const clean = roundCorners(dropDoubles(line), half);
-    if (clean.length < 2) continue;
-    // Distance along from an offset of its own: no two roads start their patches and dashes alike
-    const dist = [((chains.length * 7919) % 997) + 0.5];
+    const clean = roundCorners(dropDoubles(full), half);
+    if (clean.length < 2) return null;
+    const ids = members.map((e) => e.id);
+    // Distance along from an offset of its own, the same whatever else changes: no two roads start their patches
+    // and dashes alike
+    const dist = [alongOffset(ids)];
     for (let k = 1; k < clean.length; k++) dist.push(dist[k - 1] + Math.hypot(clean[k].x - clean[k - 1].x, clean[k].y - clean[k - 1].y));
     const chain: Chain = {
+      id: ids.reduce((a, b) => (b < a ? b : a)),
       edge: first,
+      edges: ids,
+      nodes: [head, tail],
       line: clean,
       at: dist,
       length: dist[dist.length - 1] - dist[0],
       half,
-      style: styleOf(roadStyle(first)),
+      style: this.styleOf(roadStyle(first)),
       trim: [0, 0],
       ends: [null, null],
       cap: [false, false],
     };
-    chains.push(chain);
-    ends.push(...[head, tail].map((node, k) => ({ node, chain, start: k === 0 })));
+    for (const id of ids) this.chainOf.set(id, chain);
+    return chain;
   }
-  return finish();
 
-  // The ends by node, then trims, ribbons and junctions
-  function finish(): RoadNetwork {
-    const byNode = new Map<string, End[]>();
-    for (const { node, chain, start } of ends) {
-      const p = start ? chain.line[0] : chain.line[chain.line.length - 1];
-      const reach = Math.min(3, chain.length * 0.3);
-      const q = pointAt(chain, chain.at[0] + (start ? reach : chain.length - reach));
-      const l = Math.hypot(q.x - p.x, q.y - p.y) || 1;
-      const end: End = { chain, start, dx: (q.x - p.x) / l, dy: (q.y - p.y) / l, angle: 0 };
-      end.angle = Math.atan2(end.dy, end.dx);
-      byNode.set(node, [...(byNode.get(node) ?? []), end]);
+  private dropItem(item: string, rebuilt: Set<string>): void {
+    const tiles = this.pieces.get(item);
+    if (!tiles) return;
+    for (const key of tiles.keys()) {
+      this.tileItems.get(key)?.delete(item);
+      rebuilt.add(key);
     }
-    for (const [node, list] of byNode) {
-      if (list.length === 1) {
-        // A path that ends with nothing else there gets a round end; a road ends square
-        const e = list[0];
-        e.chain.cap[e.start ? 0 : 1] = e.chain.edge.kind === 'path' && !other.has(node);
-      } else {
-        trimJunction(nodes.get(node)!, list);
-      }
-    }
-    const out = new TileBuilder();
-    for (const chain of chains) emitRibbon(chain, out);
-    for (const [node, list] of byNode) if (list.length > 1) emitJunction(nodes.get(node)!, list, out, styleOf);
-    return { tiles: out.build(), styles, surfaces };
+    this.pieces.delete(item);
   }
+
+  private putItem(item: string, emit: (out: TileBuilder) => void, rebuilt: Set<string>): void {
+    const out = new TileBuilder();
+    emit(out);
+    if (!out.tiles.size) return;
+    this.pieces.set(item, out.tiles);
+    for (const key of out.tiles.keys()) {
+      let set = this.tileItems.get(key);
+      if (!set) {
+        set = new Set();
+        this.tileItems.set(key, set);
+      }
+      set.add(item);
+      rebuilt.add(key);
+    }
+  }
+
+  /** A tile's geometry: the pieces of everything in it, one after another */
+  private assemble(key: string): RoadTile {
+    const parts: TileData[] = [];
+    for (const item of this.tileItems.get(key) ?? []) {
+      const p = this.pieces.get(item)?.get(key);
+      if (p) parts.push(p);
+    }
+    const vertices = parts.reduce((s, p) => s + p.vertices, 0);
+    const indices = parts.reduce((s, p) => s + p.indices, 0);
+    const tile: RoadTile = {
+      key,
+      x: Number(key.split(',')[0]) * ROAD_TILE,
+      y: Number(key.split(',')[1]) * ROAD_TILE,
+      position: new Float32Array(vertices * 2),
+      road: new Float32Array(vertices * 4),
+      dir: new Float32Array(vertices * 2),
+      index: new Uint32Array(indices),
+    };
+    let v = 0;
+    let i = 0;
+    for (const p of parts) {
+      tile.position.set(p.v.subarray(0, p.vertices * 2), v * 2);
+      tile.road.set(p.r.subarray(0, p.vertices * 4), v * 4);
+      tile.dir.set(p.d.subarray(0, p.vertices * 2), v * 2);
+      for (let k = 0; k < p.indices; k++) tile.index[i + k] = p.i[k] + v;
+      v += p.vertices;
+      i += p.indices;
+    }
+    return tile;
+  }
+}
+
+/** The road surface of `paths` in one go (all tiles) */
+export function buildRoadNetwork(paths: MapPaths): RoadNetwork {
+  return new RoadNetworkBuilder().update(paths);
+}
+
+/** A chain's end at its start or its finish: its direction away from the node, over its first three metres */
+function endOf(chain: Chain, start: boolean): End {
+  const p = start ? chain.line[0] : chain.line[chain.line.length - 1];
+  const reach = Math.min(3, chain.length * 0.3);
+  const q = pointAt(chain, chain.at[0] + (start ? reach : chain.length - reach));
+  const l = Math.hypot(q.x - p.x, q.y - p.y) || 1;
+  const end: End = { chain, start, dx: (q.x - p.x) / l, dy: (q.y - p.y) / l, angle: 0 };
+  end.angle = Math.atan2(end.dy, end.dx);
+  return end;
 }
 
 /** Trim lengths of the roads meeting at a junction: past where each road's kerb meets the next, plus a kerb radius */
@@ -564,6 +746,14 @@ function segmentAt(at: readonly number[], d: number): number {
     else hi = mid;
   }
   return lo;
+}
+
+/** A chain's start of distance along, from its edges' ids (the least): 0.5 to 997 m */
+function alongOffset(edges: readonly string[]): number {
+  const id = edges.reduce((a, b) => (b < a ? b : a));
+  let h = 2166136261;
+  for (let k = 0; k < id.length; k++) h = Math.imul(h ^ id.charCodeAt(k), 16777619);
+  return ((h >>> 0) % 997) + 0.5;
 }
 
 /** Points closer than 5 cm to the previous one left out */

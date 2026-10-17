@@ -1,5 +1,5 @@
 import type { MapPathEdge, MapPaths } from '../../map-document';
-import { buildRoadNetwork, type RoadNetwork } from './road-network';
+import { buildRoadNetwork, RoadNetworkBuilder, type RoadNetwork, type RoadTile } from './road-network';
 
 function paths(edges: Partial<MapPathEdge>[], nodes: [string, number, number][]): MapPaths {
   return {
@@ -72,5 +72,44 @@ describe('road network', () => {
     // The round end reaches a half width before node a; at b the gravel track meets it: square
     expect(Math.min(...xs)).toBeCloseTo(-1, 3);
     expect(Math.max(...xs)).toBeCloseTo(20, 3);
+  });
+});
+
+describe('road network, rebuilt in part', () => {
+  it('gives the tiles a moved node reaches as a whole rebuild would, and only those', () => {
+    // A street grid over 1.5 km (tiles of 512 m), crossings every 300 m
+    const nodes: [string, number, number][] = [];
+    const edges: Partial<MapPathEdge>[] = [];
+    for (let i = 0; i < 6; i++) for (let j = 0; j < 6; j++) nodes.push([`n${i}-${j}`, i * 300 - 750, j * 300 - 750]);
+    for (let i = 0; i < 6; i++) {
+      for (let j = 0; j < 6; j++) {
+        if (i < 5) edges.push({ a: `n${i}-${j}`, b: `n${i + 1}-${j}`, street: j % 2 ? 'secondary' : 'residential', width: j % 2 ? 9 : 6 });
+        if (j < 5) edges.push({ a: `n${i}-${j}`, b: `n${i}-${j + 1}`, street: 'tertiary', width: 7 });
+      }
+    }
+    const builder = new RoadNetworkBuilder();
+    const first = builder.update(paths(edges, nodes));
+    const moved = paths(edges, nodes.map(([id, x, y]) => (id === 'n1-1' ? [id, x + 25, y - 10] : [id, x, y])));
+    const part = builder.update(moved);
+    const whole = buildRoadNetwork(moved);
+    expect(part.tiles.length).toBeGreaterThan(0);
+    expect(part.tiles.length).toBeLessThan(whole.tiles.length);
+    const byKey = (net: RoadNetwork) => new Map(net.tiles.map((t) => [t.key, t]));
+    const [p, w, f] = [byKey(part), byKey(whole), byKey(first)];
+    // The same pieces, maybe in another order: compare the triangles as sorted lists of their corners
+    const tris = (t: RoadTile) => {
+      const out: string[] = [];
+      for (let k = 0; k < t.index.length; k += 3) {
+        out.push([0, 1, 2].map((j) => { const v = t.index[k + j]; return [t.position[v * 2], t.position[v * 2 + 1], ...t.road.slice(v * 4, v * 4 + 4)].map((x) => x.toFixed(3)).join(','); }).join('|'));
+      }
+      return out.sort();
+    };
+    for (const [key, tile] of w) {
+      const got = p.get(key) ?? f.get(key);
+      expect(got, key).toBeTruthy();
+      expect(tris(got!), key).toEqual(tris(tile));
+    }
+    // Nothing changed: nothing laid
+    expect(builder.update(moved).tiles).toEqual([]);
   });
 });

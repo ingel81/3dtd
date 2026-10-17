@@ -238,8 +238,11 @@ für alle Straßen, ein Mesh je 512-m-Kachel; die Texturen sind die Bodenmateria
 (quer, längs, Abstand zur Kante, Aussehen in einer Zahl gepackt). Ab etwa 12 cm je Pixel entfallen die feinen Details
 (eine Texturabfrage). Die Höhe nimmt jeder Vertex aus der Höhentextur des Geländes (ein Pinsel braucht keinen Neubau),
 gezeichnet wird er ein Stück zur Kamera hin statt angehoben (3 cm bis 200 m Abstand, darüber wachsend, wo das Gelände
-gröber wird), so kämpft die Fläche nicht mit dem Boden und schwebt von der Seite nicht. Das Netz baut sich bei
-Änderungen höchstens alle 150 ms neu (Miltenberg rund 35 ms, 160 000 Vertices). Ein Belag ohne Befestigung (Kies,
+gröber wird), so kämpft die Fläche nicht mit dem Boden und schwebt von der Seite nicht. Nach dem ersten Bau
+(Miltenberg rund 40 bis 60 ms, 160 000 Vertices) legt `RoadNetworkBuilder` bei einer Änderung nur neu, was sie
+erreicht: die Bänder mit einer geänderten Kante, die Bänder, die an deren Enden anschließen (ihre Kürzung kann sich
+ändern), und die Kreuzungen an deren Enden; eine neu gebaute Kachel setzt sich aus den behaltenen Stücken aller
+Bänder und Kreuzungen darin zusammen. Einen Knoten ziehen kostet so in Miltenberg rund 3 ms je Schritt. Ein Belag ohne Befestigung (Kies,
 Erde) ist in die Bodenfarbe gemalt und zeigt sich statt Kopfsteinen und Spurrillen. `street` an der Kante (der `highway`-Typ des
 echten Wegs) gibt im Spiel den Straßentyp, nach dem Routen gewichtet und Spawns gewählt werden
 (`custom-map-streets.ts`); ohne ihn entscheidet die Art. Beides fehlt auf allen bisherigen Karten

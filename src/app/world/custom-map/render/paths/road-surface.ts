@@ -6,7 +6,7 @@ import { addHeightFog } from '../environment/height-fog';
 import type { HeightField } from '../height-field';
 import { SHADER_NOISE } from '../shader-noise';
 import { TERRAIN_HEIGHT_GLSL, type HeightTexture } from '../terrain/height-texture';
-import { buildRoadNetwork, ROAD_TILE, type RoadTile } from './road-network';
+import { RoadNetworkBuilder, ROAD_TILE, type RoadTile } from './road-network';
 import { MAX_ROAD_SURFACES } from './road-style';
 
 /**
@@ -29,8 +29,6 @@ import { MAX_ROAD_SURFACES } from './road-style';
  * terrain rises over the surface and so no grass grows through it.
  */
 
-/** Least milliseconds between two builds of the network while the paths keep changing */
-const REBUILD_MS = 150;
 /**
  * Metres a road is drawn towards the camera, and per metre of distance past
  * PULL_FROM: up close the terrain is drawn at full detail and the surface
@@ -45,13 +43,16 @@ const PULL_PER_METRE = 0.004;
 export class RoadSurfaceLayer {
   readonly group = new Group();
   readonly material: RoadSurfaceMaterial;
-  private tiles: { mesh: Mesh; tile: RoadTile }[] = [];
-  /** The surfaces the roads use, in the order their looks name them */
+  /** The meshes by tile key */
+  private readonly tiles = new Map<string, { mesh: Mesh; tile: RoadTile }>();
+  /** The surfaces the roads use, in the order their looks name them (new ones join at the end) */
   private surfaces: string[] = [];
   private assets: { library: MapAssetLibrary; anisotropy: number } | null = null;
   /** The surfaces the textures hold, in layer order, and the arrays */
   private loaded: { ids: string[]; arrays: MaterialArrays } | null = null;
   private generation = 0;
+  /** The network as laid, kept between changes (it lays again only what a change reaches) */
+  private network = new RoadNetworkBuilder();
 
   constructor(
     private readonly field: HeightField,
@@ -70,75 +71,66 @@ export class RoadSurfaceLayer {
   }
 
   /**
-   * The roads of `paths` laid anew: at once, or while they change in quick
-   * succession (a node dragged in the editor) at most every REBUILD_MS with
-   * the latest; a big map's network takes some 60 ms
+   * The roads of `paths`: after the first build only the tiles a change
+   * reaches are built again (RoadNetworkBuilder): a node dragged in the
+   * editor lays the ribbons through it and its junctions, not the map
    */
   set(paths: MapPaths): void {
-    this.pending = paths;
-    if (this.timer) return;
-    const wait = this.builtAt + REBUILD_MS - performance.now();
-    if (wait <= 0) this.build();
-    else
-      this.timer = setTimeout(() => {
-        this.timer = null;
-        this.build();
-      }, wait);
-  }
-
-  private pending: MapPaths | null = null;
-  private timer: ReturnType<typeof setTimeout> | null = null;
-  private builtAt = -Infinity;
-
-  private build(): void {
-    const paths = this.pending;
-    if (!paths) return;
-    this.pending = null;
-    this.builtAt = performance.now();
-    const net = buildRoadNetwork(paths);
-    this.clear();
+    const net = this.network.update(paths);
     for (const tile of net.tiles) {
-      const g = new BufferGeometry();
-      // Scene space (x = -map x, z = map y); the height comes from the terrain in the shader
-      const pos = new Float32Array((tile.position.length / 2) * 3);
-      for (let k = 0; k < tile.position.length / 2; k++) {
-        pos[k * 3] = -tile.position[k * 2];
-        pos[k * 3 + 2] = tile.position[k * 2 + 1];
-      }
-      g.setAttribute('position', new BufferAttribute(pos, 3));
-      g.setAttribute('aRoad', new BufferAttribute(tile.road, 4));
-      g.setAttribute('aDir', new BufferAttribute(tile.dir, 2));
-      g.setIndex(new BufferAttribute(tile.index, 1));
-      const mesh = new Mesh(g, this.material);
-      mesh.name = `custom-map-roads-${tile.key}`;
-      mesh.receiveShadow = true;
-      mesh.matrixAutoUpdate = false;
-      this.fitBounds(mesh, tile);
-      this.tiles.push({ mesh, tile });
-      this.group.add(mesh);
+      if (tile.index.length) this.add(tile);
+      else this.remove(tile.key);
     }
-    this.group.visible = net.tiles.length > 0;
-    const same = this.surfaces.length === net.surfaces.length && net.surfaces.every((id, k) => this.surfaces[k] === id);
+    this.group.visible = this.tiles.size > 0;
+    const grew = net.surfaces.length !== this.surfaces.length;
     this.surfaces = net.surfaces;
-    if (!same || !this.loaded) void this.loadTextures();
+    if (grew || !this.loaded) void this.loadTextures();
   }
 
   /** Heights changed inside a map rectangle (all when omitted): the tiles there fit their bounds again */
   refreshBounds(rect?: { minX: number; minY: number; maxX: number; maxY: number }): void {
-    for (const { mesh, tile } of this.tiles) {
+    for (const { mesh, tile } of this.tiles.values()) {
       if (rect && (tile.x > rect.maxX || tile.y > rect.maxY || tile.x + ROAD_TILE < rect.minX || tile.y + ROAD_TILE < rect.minY)) continue;
       this.fitBounds(mesh, tile);
     }
   }
 
   dispose(): void {
-    if (this.timer) clearTimeout(this.timer);
-    this.timer = null;
     this.generation++;
     this.clear();
     this.loaded?.arrays.dispose();
     this.loaded = null;
     this.material.dispose();
+  }
+
+  private add(tile: RoadTile): void {
+    this.remove(tile.key);
+    const g = new BufferGeometry();
+    // Scene space (x = -map x, z = map y); the height comes from the terrain in the shader
+    const pos = new Float32Array((tile.position.length / 2) * 3);
+    for (let k = 0; k < tile.position.length / 2; k++) {
+      pos[k * 3] = -tile.position[k * 2];
+      pos[k * 3 + 2] = tile.position[k * 2 + 1];
+    }
+    g.setAttribute('position', new BufferAttribute(pos, 3));
+    g.setAttribute('aRoad', new BufferAttribute(tile.road, 4));
+    g.setAttribute('aDir', new BufferAttribute(tile.dir, 2));
+    g.setIndex(new BufferAttribute(tile.index, 1));
+    const mesh = new Mesh(g, this.material);
+    mesh.name = `custom-map-roads-${tile.key}`;
+    mesh.receiveShadow = true;
+    mesh.matrixAutoUpdate = false;
+    this.fitBounds(mesh, tile);
+    this.tiles.set(tile.key, { mesh, tile });
+    this.group.add(mesh);
+  }
+
+  private remove(key: string): void {
+    const t = this.tiles.get(key);
+    if (!t) return;
+    t.mesh.geometry.dispose();
+    t.mesh.removeFromParent();
+    this.tiles.delete(key);
   }
 
   /** The textures of the roads' surfaces as one array each (colour, data); until they are in, each look draws its mean colour */
@@ -172,8 +164,8 @@ export class RoadSurfaceLayer {
   }
 
   private clear(): void {
-    for (const { mesh } of this.tiles) mesh.geometry.dispose();
-    this.tiles = [];
+    for (const { mesh } of this.tiles.values()) mesh.geometry.dispose();
+    this.tiles.clear();
     this.group.clear();
   }
 }
