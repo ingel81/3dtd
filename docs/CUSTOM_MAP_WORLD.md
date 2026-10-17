@@ -394,9 +394,11 @@ dem Build fehlt, aus dem `public/maps` des Checkouts (`mapDataRoot` in `createAp
   Steine wie an der Dachkante, `TowerPlinthRenderer` fragt `crownAt`, ebenso die Bauvorschau), die Sockelwand reicht
   dort nicht zum Boden hinab. So passen alle Tower auf Burgmauer und fort-wall (Spec
   `object-roof.spec.ts`). Die Regel der echten Orte bleibt: ohne `crown` an der Säule gilt die Kante wie bisher
- (`passingObjectIds`: von einem Wellen-Ereignis gezeigt
+- Keine Dächer tragen Objekte, die den Lauf verlassen können (`passingObjectIds`: von einem Wellen-Ereignis gezeigt
   oder verborgen, auf zerstörbaren Karten alle Gebäude, Mauern und Bauwerke) und gekippte Objekte; sie sperren wie
-  vorher. Die Simulation prüft keine Platzierung, `command:place-tower` trägt Fuß und Sockel: Prüfsummen und Replays
+  vorher. Ob eine Karte zerstörbar ist, sagt allein `gameplay.destructible`: das Spiel startet sie so (der Parameter
+  `destructible` von `CustomMapWorld` gibt es nur für Specs, der einzige Aufrufer lässt ihn weg), die Bauflächen des
+  Editors lesen denselben Wert. Die Simulation prüft keine Platzierung, `command:place-tower` trägt Fuß und Sockel: Prüfsummen und Replays
   bleiben.
 
 `CustomMapFrame` rechnet Szene und Karte ineinander um: Szene x = Ursprung x - Karte x, Szene z =

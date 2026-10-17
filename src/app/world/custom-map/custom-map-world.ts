@@ -219,7 +219,10 @@ export class CustomMapWorld implements WorldProvider {
     private readonly spawnLimit = MAX_SPAWN_PORTALS,
     /** The asset library the view loads from; the shared one by default */
     private readonly assets: (() => MapAssetLibrary) | null = null,
-    /** Buildings, walls and structures take damage and fall (TODO E131); the map's own say by default */
+    /**
+     * Buildings, walls and structures take damage and fall (TODO E131); the map's own say by default, which is what
+     * a run uses (world-provider-registry passes none) and what the editor's build areas read; other values for specs
+     */
     destructible = map.doc.gameplay?.destructible === true,
     /** The wave runs start at (customMapStartWave), 1 for a normal run */
     private readonly startWave = 1,
