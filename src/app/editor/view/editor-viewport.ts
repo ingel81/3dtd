@@ -158,7 +158,7 @@ export class EditorViewport {
       splat: (rect) => this.view.updateSplat(rect),
       water: () => this.view.updateWater(),
       waterBody: (k, rect) => this.view.updateWaterBody(k, rect),
-      objects: (ids) => (ids === 'all' ? this.view.setObjects() : this.view.updateObjects(ids)),
+      objects: (ids) => (ids === 'all' ? this.view.setObjects() : this.view.objectsChanged(ids)),
       paths: () => this.view.updatePaths(),
       environment: () => this.view.setEnvironment(),
       life: () => this.view.setLife(),

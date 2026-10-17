@@ -242,6 +242,41 @@ describe('CustomMapView', () => {
     expect(view['terrain']['pathRaster']).toBeNull();
   });
 
+  /** M9: the editor gave the view a proxy of its document, because the view wrote its object list into it */
+  it('keeps which objects it shows itself and never writes its document', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const doc = createDemoMap();
+    const objects = doc.objects;
+    const environment = doc.environment;
+    const view = new CustomMapView(doc, offlineLibrary());
+    await view.ready;
+    const shown = () => [...(view['shown'] as Map<string, unknown>).keys()].sort();
+    const all = doc.objects.map((o) => o.id).sort();
+    expect(shown()).toEqual(all);
+    const hidden = doc.objects[0].asset;
+    const visible = (o: { asset: string }) => o.asset !== hidden;
+    await view.setVisible(visible);
+    expect(doc.objects).toBe(objects);
+    expect(shown()).toEqual(doc.objects.filter(visible).map((o) => o.id).sort());
+    // A hidden object that changes stays out, one that turns into a shown asset comes in, a new one too
+    const other = doc.objects.find(visible)!.asset;
+    const first = doc.objects[0];
+    doc.objects = [{ ...first, asset: other }, ...doc.objects.slice(1), { ...first, id: 'new', asset: hidden }, { ...first, id: 'new2', asset: other }];
+    await view.objectsChanged([first.id, 'new', 'new2']);
+    expect(shown()).toContain(first.id);
+    expect(shown()).toContain('new2');
+    expect(shown()).not.toContain('new');
+    // Gone from the document, gone from the view
+    doc.objects = doc.objects.filter((o) => o.id !== 'new2');
+    await view.objectsChanged(['new2']);
+    expect(shown()).not.toContain('new2');
+    await view.setVisible(null);
+    expect(shown()).toEqual(doc.objects.map((o) => o.id).sort());
+    view.setEnvironment({ ...environment, sky: 'dusk' });
+    expect(doc.environment).toBe(environment);
+    view.dispose();
+  });
+
   it('lays the ground decals again once objects moved in place stop moving', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const doc = createDemoMap();
@@ -254,7 +289,7 @@ describe('CustomMapView', () => {
       for (let k = 0; k < 5; k++) {
         const before = doc.objects[0];
         doc.objects[0] = { ...before, x: before.x + 1 };
-        view.updateObjects([doc.objects[0]], [before]);
+        void view.objectsChanged([before.id]);
         view['watchDecals']();
         await vi.advanceTimersByTimeAsync(100);
       }

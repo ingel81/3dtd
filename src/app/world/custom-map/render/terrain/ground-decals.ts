@@ -124,7 +124,7 @@ export class GroundDecals {
   }
 
   /** Lays the decals the map's rules ask for (objects by catalogue category, paths, weather) */
-  set(doc: CustomMapDocument, entries: Map<string, CatalogObject>): void {
+  set(doc: DecalSource, entries: Map<string, CatalogObject>): void {
     const decals = planDecals(doc, entries);
     const n = Math.min(MAX_DECALS, decals.length);
     for (let i = 0; i < n; i++) {
@@ -151,12 +151,15 @@ function hash(seed: number): number {
   return s - Math.floor(s);
 }
 
+/** What decals are planned from: the objects shown, the paths, the weather and biome */
+export type DecalSource = Pick<CustomMapDocument, 'objects' | 'paths' | 'environment'>;
+
 /**
  * The decals of a map: leaves under trees (autumn and broadleaf woods
  * more), trodden soil along roads and paths and before the doors of
  * houses, puddles beside paths when it rains or in a swamp
  */
-export function planDecals(doc: CustomMapDocument, entries: Map<string, CatalogObject>): Decal[] {
+export function planDecals(doc: DecalSource, entries: Map<string, CatalogObject>): Decal[] {
   const out: Decal[] = [];
   const wet = doc.environment.weather === 'rain' || doc.environment.biome === 'swamp';
   const objects: MapObject[] = doc.objects;

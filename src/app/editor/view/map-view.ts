@@ -1,9 +1,10 @@
 /**
  * The editor's handle on the custom map renderer (`world/custom-map/render/`,
  * the same view the game draws): the editor speaks in grid samples, splat
- * texels and object ids, the renderer in map metres and objects. Scene
- * space is the game's: scene x = -map x (east), scene z = map y (north),
- * y up.
+ * texels and object ids, the renderer in map metres and objects. The
+ * renderer only reads the document; which objects it shows (hidden
+ * categories) it keeps itself. Scene space is the game's: scene x = -map x
+ * (east), scene z = map y (north), y up.
  */
 import { Vector3, type Camera, type Mesh, type Object3D, type Ray, type Scene, type WebGLRenderer } from 'three';
 import type { CustomMapDocument, MapObject } from '../../world/custom-map/map-document';
@@ -19,34 +20,15 @@ export function mapToScene(x: number, y: number, height: number, target = new Ve
 
 export class EditorMapView {
   readonly view: CustomMapView;
-  /** Objects the renderer holds by id (removing needs the objects themselves) */
-  private known = new Map<string, MapObject>();
-  /** Which objects the view shows (hidden categories left out); null shows all */
-  private visible: ((o: MapObject) => boolean) | null = null;
-  /**
-   * The object list the renderer holds when it is not the document's own
-   * (hidden categories): the renderer writes its list into its document,
-   * so it gets a view of the document whose `objects` is its own
-   */
-  private shown: MapObject[] | null = null;
 
   constructor(
     private readonly doc: CustomMapDocument,
     scene: Scene,
     renderer: WebGLRenderer,
   ) {
-    const own = new Proxy(doc, {
-      get: (target, key, receiver) => (key === 'objects' ? (this.shown ?? target.objects) : Reflect.get(target, key, receiver)),
-      set: (target, key, value, receiver) => {
-        if (key !== 'objects') return Reflect.set(target, key, value, receiver);
-        this.shown = value === target.objects ? null : (value as MapObject[]);
-        return true;
-      },
-    });
-    this.view = new CustomMapView(own, MapAssetLibrary.shared(), { anisotropy: renderer.capabilities.getMaxAnisotropy(), renderer });
+    this.view = new CustomMapView(doc, MapAssetLibrary.shared(), { anisotropy: renderer.capabilities.getMaxAnisotropy(), renderer });
     this.view.attach(scene);
     this.view.environment.apply(scene, renderer);
-    this.known = new Map(doc.objects.map((o) => [o.id, o]));
   }
 
   get group(): CustomMapView['group'] {
@@ -120,52 +102,19 @@ export class EditorMapView {
     this.view.updateWater(metres(t.width, t.depth, rect.i0 * cell, rect.j0 * cell, rect.i1 * cell, rect.j1 * cell), k + 1);
   }
 
+  /** The document's object list was replaced: all shown anew */
   setObjects(): void {
-    const shown = this.visible ? this.doc.objects.filter(this.visible) : this.doc.objects;
-    void this.view.setObjects(shown);
-    this.known = new Map(shown.map((o) => [o.id, o]));
+    void this.view.setObjects();
   }
 
   /** Show only the objects `visible` accepts (null: all); rebuilds the batches */
   setVisible(visible: ((o: MapObject) => boolean) | null): void {
-    this.visible = visible;
-    this.setObjects();
+    void this.view.setVisible(visible);
   }
 
-  /**
-   * Some objects changed: new ones go in and gone ones out cell by cell (the
-   * renderer rebuilds only their 192 m cells), the others move in place
-   */
-  updateObjects(ids: readonly string[]): void {
-    // One pass over the map's objects for the few that changed, no map over all of them
-    const wanted = new Set(ids);
-    const byId = new Map<string, MapObject>();
-    for (const o of this.doc.objects) if (wanted.has(o.id)) byId.set(o.id, o);
-    const added: MapObject[] = [];
-    const removed: MapObject[] = [];
-    const moved: MapObject[] = [];
-    const was: MapObject[] = [];
-    for (const id of ids) {
-      const o = byId.get(id);
-      const shown = !!o && (!this.visible || this.visible(o));
-      const had = this.known.get(id);
-      if (shown && !had) added.push(o!);
-      else if (!shown && had) removed.push(had);
-      else if (shown && had) {
-        moved.push(o!);
-        was.push(had);
-        this.known.set(id, o!);
-      }
-    }
-    this.view.updateObjects(moved, was);
-    if (removed.length) {
-      this.view.removeObjects(removed);
-      for (const o of removed) this.known.delete(o.id);
-    }
-    if (added.length) {
-      for (const o of added) this.known.set(o.id, o);
-      void this.view.addObjects(added);
-    }
+  /** Some objects were added, removed or changed */
+  objectsChanged(ids: readonly string[]): void {
+    void this.view.objectsChanged(ids);
   }
 
   /** Compiles the programs of assets not on the map yet (a biome or asset about to be placed), `compile` for each picture */

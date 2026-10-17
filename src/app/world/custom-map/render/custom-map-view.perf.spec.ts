@@ -105,7 +105,7 @@ describe('CustomMapView budgets', () => {
         }));
         doc.objects.push(...list);
         const t = performance.now();
-        await view.addObjects(list);
+        await view.objectsChanged(list.map((o) => o.id));
         adds.push(performance.now() - t);
       }
       const add = adds.sort((x, y) => x - y)[3];
@@ -113,7 +113,7 @@ describe('CustomMapView budgets', () => {
       const remove = medianMs(() => {
         const list = planted0.splice(0, 10);
         doc.objects = doc.objects.filter((o) => !list.includes(o));
-        view.removeObjects(list);
+        void view.objectsChanged(list.map((o) => o.id));
       }, 7);
 
       console.log(

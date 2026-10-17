@@ -198,6 +198,14 @@ export class CustomMapView {
   private lavaDue: ReturnType<typeof setTimeout> | null = null;
   /** Leaves, trodden soil and puddles from the map's rules (ground-decals.ts) */
   private readonly decals: GroundDecals;
+  /** Which objects the view shows (an editor hides categories); null shows all */
+  private visible: ((o: MapObject) => boolean) | null = null;
+  /** The objects shown, by id, as they were last shown: a change finds what it replaces (objectsChanged) */
+  private shown = new Map<string, MapObject>();
+  /** The shown objects in the document's order while some are hidden; null until asked for after a change */
+  private shownList: MapObject[] | null = null;
+  /** The environment shown: the view reads the document and never writes it */
+  private env: MapEnvironment;
   /** The objects and paths the decals were laid for (lists and lengths); a change lays them again after a pause */
   private decalsFor = { objects: null as unknown, count: -1, paths: null as unknown, edges: -1 };
   private decalsDue: ReturnType<typeof setTimeout> | null = null;
@@ -221,6 +229,7 @@ export class CustomMapView {
     private readonly options: CustomMapViewOptions = {},
   ) {
     const t = doc.terrain;
+    this.env = doc.environment;
     this.heights = new HeightField(t.grid, t.width, t.depth);
     this.group.name = 'custom-map';
     this.losBlockers.name = 'custom-map-los-blockers';
@@ -710,7 +719,7 @@ export class CustomMapView {
     else this.refreshWaterNear(rect);
     if (!rect || this.bridgeNear(rect)) void this.refreshBridges();
     // The apron beyond the border follows its heights, the mirrored trees the apron
-    if (!rect || this.nearBorder(rect)) this.edgeTreesLater(this.doc.objects);
+    if (!rect || this.nearBorder(rect)) this.edgeTreesLater(this.shownObjects());
     this.environment.invalidateShadows();
     this.refreshFarShadow(true);
   }
@@ -836,7 +845,7 @@ export class CustomMapView {
     this.terrain.refreshWater(this.doc.paths);
     // Rain stops and grass ends at the new surfaces, the mirrored trees beyond the border at the sea
     this.coverDirty = true;
-    this.edgeTreesLater(this.doc.objects);
+    this.edgeTreesLater(this.shownObjects());
     const bodies = [this.doc.terrain.water, ...(this.doc.terrain.waterBodies ?? [])];
     // Slot 0 is the main body (it may be null); further bodies follow
     while (this.waters.length > bodies.length) this.waters.pop()?.dispose();
@@ -886,7 +895,7 @@ export class CustomMapView {
     else this.terrain.refreshWaterMask(g);
     surface.set(water, border ? this.terrain.apronProfile : null, g);
     this.coverDirty = true;
-    if (border) this.edgeTreesLater(this.doc.objects);
+    if (border) this.edgeTreesLater(this.shownObjects());
     if (wasLava || water.kind === 'lava') this.effects.setLavaLights(this.lavaLightPoints());
     this.objects.refreshHeights(rect, true);
     if (this.bridgeNear(rect)) void this.refreshBridges();
@@ -908,20 +917,81 @@ export class CustomMapView {
     this.lightWater();
   }
 
-  /** Replaces the placed objects (also `doc.objects`); resolves when their models are in */
-  setObjects(objects: MapObject[]): Promise<void> {
-    this.doc.objects = objects;
-    return Promise.all([this.objects.setObjects(objects), this.refreshEffects(), this.refreshContact(), this.refreshEdgeTrees()]).then(
+  /**
+   * The document's objects were replaced (or the filter changed): all of
+   * them shown anew; resolves when their models are in
+   */
+  setObjects(): Promise<void> {
+    return Promise.all([this.objects.setObjects(this.takeShown()), this.refreshEffects(), this.refreshContact(), this.refreshEdgeTrees()]).then(
       () => undefined,
     );
   }
 
+  /** Shows only the objects `visible` accepts (null: all); builds the objects anew */
+  setVisible(visible: ((o: MapObject) => boolean) | null): Promise<void> {
+    this.visible = visible;
+    return this.setObjects();
+  }
+
   /**
-   * Objects added to `doc.objects` by the caller: only the object cells
-   * (192 m) they land in are rebuilt, and the contact shadows around them.
-   * Resolves when they show.
+   * Objects of the document added, removed or changed, by id (a change in
+   * place too): new ones go in and gone ones out cell by cell (only their
+   * 192 m object cells are rebuilt), the others move in place; one the
+   * filter now hides goes out, one it shows again comes in. Resolves when
+   * the new ones show.
    */
-  async addObjects(objects: MapObject[]): Promise<void> {
+  objectsChanged(ids: readonly string[]): Promise<void> {
+    if (!ids.length) return Promise.resolve();
+    // One pass over the map's objects for the few that changed, no map over all of them
+    const wanted = new Set(ids);
+    const now = new Map<string, MapObject>();
+    for (const o of this.doc.objects) if (wanted.has(o.id)) now.set(o.id, o);
+    const added: MapObject[] = [];
+    const removed: MapObject[] = [];
+    const moved: MapObject[] = [];
+    const was: MapObject[] = [];
+    for (const id of wanted) {
+      const o = now.get(id);
+      const show = !!o && (!this.visible || this.visible(o));
+      const had = this.shown.get(id);
+      if (show && !had) {
+        added.push(o!);
+        this.shown.set(id, o!);
+      } else if (!show && had) {
+        removed.push(had);
+        this.shown.delete(id);
+      } else if (show && had) {
+        moved.push(o!);
+        was.push(had);
+        this.shown.set(id, o!);
+      }
+    }
+    this.shownList = null;
+    this.moveObjects(moved, was);
+    this.removeObjects(removed);
+    return this.addObjects(added);
+  }
+
+  /** The objects the view shows: the document's, less the hidden ones */
+  private shownObjects(): MapObject[] {
+    if (!this.visible) return this.doc.objects;
+    return (this.shownList ??= this.doc.objects.filter(this.visible));
+  }
+
+  /** The objects to show from now, noted as shown */
+  private takeShown(): MapObject[] {
+    this.shownList = null;
+    const list = this.shownObjects();
+    this.shown = new Map(list.map((o) => [o.id, o]));
+    return list;
+  }
+
+  /**
+   * Objects coming into the view: only the object cells (192 m) they land
+   * in are rebuilt, and the contact shadows around them. Resolves when they
+   * show.
+   */
+  private async addObjects(objects: MapObject[]): Promise<void> {
     if (!objects.length) return;
     const shown = this.objects.addObjects(objects);
     void this.refreshContact(objects);
@@ -930,8 +1000,8 @@ export class CustomMapView {
     await shown;
   }
 
-  /** Objects removed from `doc.objects` by the caller (pass them, not only their ids: their spots clear) */
-  removeObjects(objects: MapObject[]): void {
+  /** Objects leaving the view (the objects, not only their ids: their spots clear) */
+  private removeObjects(objects: MapObject[]): void {
     if (!objects.length) return;
     this.objects.removeObjects(objects.map((o) => o.id));
     void this.refreshContact(objects);
@@ -940,12 +1010,12 @@ export class CustomMapView {
   }
 
   /**
-   * Objects moved, turned, scaled or changed asset (already changed in
-   * `doc.objects`), `before` their last states: in place where they can, else
-   * out of their cells and into the new ones; effects and contact shadows
-   * once for all of them, the shadows only around the old and new spots.
+   * Objects moved, turned, scaled or changed asset, `before` their last
+   * states: in place where they can, else out of their cells and into the
+   * new ones; effects and contact shadows once for all of them, the shadows
+   * only around the old and new spots.
    */
-  updateObjects(objects: readonly MapObject[], before: readonly MapObject[] = objects): void {
+  private moveObjects(objects: readonly MapObject[], before: readonly MapObject[]): void {
     if (!objects.length) return;
     this.decalsMoved();
     const rest = this.objects.updateObjects(objects);
@@ -964,10 +1034,11 @@ export class CustomMapView {
     void this.refreshBridges();
   }
 
+  /** Shows `env` (the owner keeps its document's environment) */
   setEnvironment(env: MapEnvironment): void {
-    const docBiome = this.doc.environment.biome;
+    const docBiome = this.env.biome;
     const biome = this.environment.biome;
-    this.doc.environment = env;
+    this.env = env;
     const sun = this.environment.sunDir.clone();
     this.environment.set(env);
     this.terrain.setBiome(env.biome ?? 'temperate');
@@ -1083,12 +1154,12 @@ export class CustomMapView {
   private async refreshAmbient(): Promise<void> {
     const catalog = await this.assets.catalog();
     if (this.disposed) return;
-    const biome = this.doc.environment.biome ?? 'temperate';
+    const biome = this.env.biome ?? 'temperate';
     const trees = new Set(catalog.objects.filter((o) => o.category === 'tree').map((o) => o.id));
     const woods = new Map<number, { x: number; y: number; n: number }>();
     const t = this.doc.terrain;
     const bin = (x: number, y: number) => Math.floor((y + t.depth / 2) / WOOD_CELL) * 4096 + Math.floor((x + t.width / 2) / WOOD_CELL);
-    for (const o of this.doc.objects) {
+    for (const o of this.shownObjects()) {
       if (!trees.has(o.asset)) continue;
       const k = bin(o.x, o.y);
       const w = woods.get(k) ?? { x: 0, y: 0, n: 0 };
@@ -1207,7 +1278,7 @@ export class CustomMapView {
     this.coverAge = 0;
     const catalog = await this.assets.catalog();
     if (this.disposed) return;
-    this.cover.set(this.doc.objects, this.catalogEntries(catalog), this.doc.terrain);
+    this.cover.set(this.shownObjects(), this.catalogEntries(catalog), this.doc.terrain);
   }
 
   /** Contact shadows of the objects in the baked ground occlusion */
@@ -1217,8 +1288,9 @@ export class CustomMapView {
     this.decalsDue = null;
     const catalog = await this.assets.catalog();
     if (this.disposed) return;
-    this.decalsFor = { objects: this.doc.objects, count: this.doc.objects.length, paths: this.doc.paths, edges: this.doc.paths.edges.length };
-    this.decals.set(this.doc, new Map(catalog.objects.map((o) => [o.id, o])));
+    const objects = this.shownObjects();
+    this.decalsFor = { objects, count: objects.length, paths: this.doc.paths, edges: this.doc.paths.edges.length };
+    this.decals.set({ objects, paths: this.doc.paths, environment: this.env }, new Map(catalog.objects.map((o) => [o.id, o])));
   }
 
   /**
@@ -1236,8 +1308,9 @@ export class CustomMapView {
   private watchDecals(): void {
     const f = this.decalsFor;
     if (f.count < 0 || this.decalsDue) return;
-    const d = this.doc;
-    if (f.objects === d.objects && f.count === d.objects.length && f.paths === d.paths && f.edges === d.paths.edges.length) return;
+    const objects = this.shownObjects();
+    const paths = this.doc.paths;
+    if (f.objects === objects && f.count === objects.length && f.paths === paths && f.edges === paths.edges.length) return;
     this.decalsDue = setTimeout(() => void this.refreshDecals(), 400);
   }
 
@@ -1255,8 +1328,9 @@ export class CustomMapView {
           : { minX: o.x - r, minY: o.y - r, maxX: o.x + r, maxY: o.y + r };
       }
     }
-    this.terrain.occlusion.setObjects(this.doc.objects, entries, rect ? this.gridRect(rect) : undefined);
-    this.cutObjects = this.doc.objects.filter((o) => entries.get(o.asset)?.groundCut);
+    const objects = this.shownObjects();
+    this.terrain.occlusion.setObjects(objects, entries, rect ? this.gridRect(rect) : undefined);
+    this.cutObjects = objects.filter((o) => entries.get(o.asset)?.groundCut);
     this.refreshCuts();
   }
 
@@ -1337,7 +1411,7 @@ export class CustomMapView {
     }
   }
 
-  /** The border's trees mirrored onto the apron (edge-trees.ts), from `doc.objects` */
+  /** The border's trees mirrored onto the apron (edge-trees.ts), from the objects shown */
   private async refreshEdgeTrees(): Promise<void> {
     const catalog = await this.assets.catalog();
     if (this.disposed) return;
@@ -1345,7 +1419,7 @@ export class CustomMapView {
     const t = this.doc.terrain;
     // None in the sea beyond a coast: from above they stood in the water as dark cones with their shadows
     const apron = this.terrain.apronProfile;
-    await this.edgeTrees.setObjects(edgeTreeObjects(this.doc.objects, (a) => trees.has(a), t.width, t.depth, (x, y) => !apron.underWater(x, y, 0.3)));
+    await this.edgeTrees.setObjects(edgeTreeObjects(this.shownObjects(), (a) => trees.has(a), t.width, t.depth, (x, y) => !apron.underWater(x, y, 0.3)));
   }
 
   /** Again once an edit pauses, when it touched the border's band */
@@ -1370,7 +1444,7 @@ export class CustomMapView {
       const e = catalog.objects.find((o) => o.id === asset);
       if (!e?.effects && !e?.light) return;
     }
-    this.effects.set(this.doc.objects, catalog);
+    this.effects.set(this.shownObjects(), catalog);
     this.effects.setDarkness(this.environment.darkness);
     NIGHT_WINDOW_UNIFORMS.uNightWindows.value = this.environment.darkness;
   }
@@ -1525,7 +1599,7 @@ export class CustomMapView {
   private async load(): Promise<void> {
     await Promise.all([
       this.terrain.load(this.assets, this.doc.paths, this.options.anisotropy ?? 8),
-      this.objects.setObjects(this.doc.objects),
+      this.objects.setObjects(this.takeShown()),
       this.refreshEdgeTrees(),
       this.refreshEffects(),
       this.refreshMovers(),

@@ -503,8 +503,8 @@ export class CustomMapWorld implements WorldProvider {
     if (!events?.length) return;
     const env = environmentAt(this.baseEnvironment, events, wave);
     if (JSON.stringify(env) !== JSON.stringify(this.doc.environment)) {
-      if (this.view) this.view.setEnvironment(env);
-      else this.doc.environment = env;
+      this.doc.environment = env;
+      this.view?.setEnvironment(env);
     }
     const hidden = hiddenObjectsAt(events, wave);
     const changed = this.doc.objects.filter((o) => hidden.has(o.id) !== this.eventHidden.has(o.id));
@@ -729,7 +729,7 @@ export class CustomMapWorld implements WorldProvider {
         this.outScale.delete(o.id);
       }
     }
-    this.view?.updateObjects(objects);
+    void this.view?.objectsChanged(objects.map((o) => o.id));
     this.surface.setObjectCatalog(this.catalogObjects, this.passingIds);
   }
 
