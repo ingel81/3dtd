@@ -686,6 +686,13 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   spiegelt denselben Himmel aus einer Textur (`uSkyTex`, obere Halbkugel, 256 × 64, Half-Float), die die Kuppel alle
   drei Frames und sofort nach einem neuen Himmel mit ihrer Funktion füllt (`SkyDome.bake`); vorher rechnete jedes
   Wasserpixel die Funktion zwei- bis dreimal (je zwei Wolkenlagen mit fünf Oktaven). GPU-Zeit Archipel 1,34 → 1,22 ms
+- **Himmelswechsel im Spiel** (Wellen-Ereignis, neues Preset): Licht, Luft und Kuppel blenden über 2,5 s
+  (`SKY_FADE_S`). Die Umgebung blendet auf der GPU (`env-blend.ts`): die gezeigte Karte zu Beginn kopiert, der
+  Equirect-Verlauf des Ziels über vier Frames gefüllt und im nächsten einmal vorgefiltert, dann je Frame Texel für Texel
+  gemischt (PMREM ist linear in seinem Himmel, das Ergebnis am Ende ist dieselbe Karte wie zuvor). Vorher füllte die
+  CPU den Verlauf und PMREM lief fünfmal je Sekunde (je 8 bis 11 ms), und jeder Frame der Blende baute die
+  Schattenkarte neu; sie baut jetzt nur, wenn sich die Sonne bewegt. Längster Frame der Umgebung je Wechsel 11 → 2 bis 4 ms
+  (Autumn Keep)
 - **Bildhimmel** (E172, `environment.skyImage`, `sky-images.ts`): statt der prozeduralen Kuppel ein fotografierter
   Himmel aus `public/maps/assets/skies/` (Poly-Haven-HDRIs, CC0, gebaut von `tools/map-assets/build_skies.py`):
   Fair weather, Sunset, Afterglow, Overcast, Thunderstorm, Moonrise, Starry night, Deep space (Sterne ohne

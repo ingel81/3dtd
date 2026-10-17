@@ -35,6 +35,7 @@ import { planetOf, type MapEnvironment, type MapPlanet } from '../../map-documen
 import { HEIGHT_FOG_UNIFORMS } from './height-fog';
 import { biomeLook, mixLook, type BiomeLook } from './biomes';
 import { ShadowParts } from './shadow-parts';
+import { EnvBlend } from './env-blend';
 import { SkyDome } from './sky-dome';
 import { fetchPlanetImage, fetchSkyImage, skyImageOf, skyImageYaw, type SkyImage } from './sky-images';
 import { WeatherLayer } from './weather';
@@ -77,6 +78,18 @@ export const SKY_FADE_S = 2.5;
 
 const SKY_WIDTH = 512;
 const SKY_HEIGHT = 256;
+/** Frames a fade fills the sky it ends in over, before it prefilters it */
+const SKY_FILL_FRAMES = 4;
+
+/** Colours `show` works in, every frame of a sky fade: none made anew. skyDome.set and the uniforms copy them */
+const SCRATCH = {
+  tint: new Color(),
+  air: new Color(),
+  glow: new Color(),
+  cloud: new Color(),
+  cloudShadow: new Color(),
+  a: new Color(),
+};
 
 /** Scene-space direction towards the sun (map: azimuth from north clockwise) */
 export function sunDirection(azimuthDeg: number, elevationDeg: number, target: Vector3): Vector3 {
@@ -145,8 +158,14 @@ export class CustomMapEnvironment {
   private fadeFrom: BiomeLook | null = null;
   /** 0..1 how far the fade has come */
   private fade = 1;
-  /** Seconds since the sky's pixels were last filled during a fade */
-  private fadeFill = 0;
+  /** A fade's environment map: its next stage (beginEnvFade), null when none runs */
+  private envFade: 'fill' | 'prefilter' | 'blend' | null = null;
+  /** The next row of the end's sky to fill */
+  private envFillRow = 0;
+  /** The environment maps a fade blends: the shown one when it began, the one it ends in */
+  private envFrom: WebGLRenderTarget | null = null;
+  private envTo: WebGLRenderTarget | null = null;
+  private readonly envBlend = new EnvBlend();
   /** The scene's background: a plain clear in the haze's colour, the dome over it */
   private readonly backdrop = new Color();
   private previous: {
@@ -182,7 +201,6 @@ export class CustomMapEnvironment {
     if (this.renderer && env.sky !== this.env.sky && env.biome === this.env.biome && !skyImageOf(env) && !skyImageOf(this.env)) {
       this.fadeFrom = this.look();
       this.fade = 0;
-      this.fadeFill = 0;
     } else if (env.biome !== this.env.biome || skyImageOf(env)) {
       this.fadeFrom = null;
       this.fade = 1;
@@ -190,30 +208,30 @@ export class CustomMapEnvironment {
     this.show(env, false);
   }
 
-  /** Lights, fog and sky for `env`; `refill` fills the sky's pixels even when nothing in them changed (a fade) */
+  /** Lights, fog and sky for `env`; `refill` fills the sky's pixels even when nothing in them changed (a fade's end) */
   private show(env: MapEnvironment, refill: boolean): void {
     // A new sun builds the map over frames like any change: the shown map keeps the matrix it was drawn with, its
-    // shadows stay where the old sun cast them for those frames (drawn in one frame: 100 to 180 ms in the editor)
-    if (env.sunAzimuth !== this.env.sunAzimuth || env.sunElevation !== this.env.sunElevation) this.shadowDirty = true;
+    // shadows stay where the old sun cast them for those frames (drawn in one frame: 100 to 180 ms in the editor).
+    // Nothing else of the sky changes the shadow map: a fade's frames leave it alone
+    const sunMoved = env.sunAzimuth !== this.env.sunAzimuth || env.sunElevation !== this.env.sunElevation;
     const skyChanged =
       env.sky !== this.env.sky ||
       env.biome !== this.env.biome ||
       env.skyImage !== this.env.skyImage ||
-      env.sunAzimuth !== this.env.sunAzimuth ||
-      env.sunElevation !== this.env.sunElevation ||
+      sunMoved ||
       // The tint colours the sky's pixels and so the environment map (fillSky)
       (env.tint || '#ffffff') !== (this.env.tint || '#ffffff') ||
       refill;
     this.env = env;
     const p = this.look();
     if (this.renderer && this.previousToneMapping) this.renderer.toneMappingExposure = p.exposure;
-    const tint = new Color(env.tint || '#ffffff');
+    const tint = SCRATCH.tint.set(env.tint || '#ffffff');
     const image = skyImageOf(env);
     sunDirection(env.sunAzimuth, env.sunElevation, this.sunDir);
     // Low sun: warmer and weaker; a picture's sun has its own colour
     const low = Math.max(0, Math.min(1, env.sunElevation / 25));
     if (image?.sunColor) this.sun.color.setRGB(...image.sunColor).multiply(tint);
-    else this.sun.color.set(p.sun).lerp(new Color(0xffa060), (1 - low) * 0.5).multiply(tint);
+    else this.sun.color.set(p.sun).lerp(SCRATCH.a.set(0xffa060), (1 - low) * 0.5).multiply(tint);
     this.sun.intensity = p.sunIntensity * (0.35 + 0.65 * low);
     this.hemi.color.set(p.hemiSky);
     if (image) withHueOf(this.hemi.color, image.sky);
@@ -223,9 +241,9 @@ export class CustomMapEnvironment {
     // Moonlight: a night map lit cool and bright enough to read from the game camera; sky untouched
     const moon = env.sky === 'night' ? Math.min(1, Math.max(0, env.moonlight ?? 0)) : 0;
     if (moon > 0) {
-      this.sun.color.lerp(new Color(0xa8c0ff).multiply(tint), moon * 0.7);
+      this.sun.color.lerp(SCRATCH.a.set(0xa8c0ff).multiply(tint), moon * 0.7);
       this.sun.intensity += 1.5 * moon;
-      this.hemi.color.lerp(new Color(0x6078b0).multiply(tint), moon * 0.5);
+      this.hemi.color.lerp(SCRATCH.a.set(0x6078b0).multiply(tint), moon * 0.5);
       this.hemi.intensity += 0.8 * moon;
     }
     this.ambient.color.set(p.hemiSky);
@@ -235,7 +253,7 @@ export class CustomMapEnvironment {
     // Haze: the horizon lifted a little towards the zenith's blue, so distance reads blue, not green
     // The map's tint colours its light fully, its sky and air only a little: a green or orange
     // mood tint over the whole haze made the far land olive or brown
-    const airTint = new Color(1, 1, 1).lerp(tint, 0.3);
+    const airTint = SCRATCH.air.setRGB(1, 1, 1).lerp(tint, 0.3);
     // Haze: between horizon and zenith, a little desaturated, so distance reads blue-grey, not the horizon's hue
     if (image) {
       // The picture's horizon as it is: the dome's foot fades into this haze, no seam above the land
@@ -243,9 +261,9 @@ export class CustomMapEnvironment {
       this.zenith.setRGB(...image.zenith).multiply(airTint);
       this.horizon.setRGB(...image.horizon).multiply(airTint);
     } else {
-      this.fog.color.set(p.horizon).lerp(new Color(p.zenith), 0.3).multiply(airTint);
+      this.fog.color.set(p.horizon).lerp(SCRATCH.a.set(p.zenith), 0.3).multiply(airTint);
       const fogGrey = (this.fog.color.r + this.fog.color.g + this.fog.color.b) / 3;
-      this.fog.color.lerp(new Color(fogGrey, fogGrey, fogGrey), 0.3);
+      this.fog.color.lerp(SCRATCH.a.setRGB(fogGrey, fogGrey, fogGrey), 0.3);
       this.zenith.set(p.zenith).multiply(airTint);
       this.horizon.set(p.horizon).multiply(airTint);
     }
@@ -265,11 +283,11 @@ export class CustomMapEnvironment {
       this.sun.intensity *= 1 - 0.55 * k;
       this.hemi.intensity *= 1 + 0.3 * k;
       this.fog.density = baseFog * (1 + 2 * k);
-      this.fog.color.lerp(new Color(weather === 'snow' ? 0xd8dde2 : 0x8e969c).multiplyScalar(airLight), 0.5 * k);
+      this.fog.color.lerp(SCRATCH.a.set(weather === 'snow' ? 0xd8dde2 : 0x8e969c).multiplyScalar(airLight), 0.5 * k);
     } else if (weather === 'fog') {
       this.sun.intensity *= 1 - 0.4 * k;
       this.fog.density = Math.max(baseFog, 0.0008) * (1 + 5 * k);
-      this.fog.color.lerp(new Color(0xc0c6ca).multiplyScalar(airLight), 0.4 * k);
+      this.fog.color.lerp(SCRATCH.a.set(0xc0c6ca).multiplyScalar(airLight), 0.4 * k);
     }
     // The weather's particles, or the biome's own ambient ones (embers, ash, dust, drifting snow)
     if (weather === 'rain' || weather === 'snow') this.weather.set(weather, k, 1 - this.darkness * 0.85);
@@ -287,9 +305,9 @@ export class CustomMapEnvironment {
     HEIGHT_FOG_UNIFORMS.uSnowCover.value = Math.min(1, Math.max(0, env.snowCover ?? Math.max(snowFromWeather, snowFromBiome)));
     HEIGHT_FOG_UNIFORMS.uWetness.value = weather === 'rain' ? k * 0.85 : env.biome === 'swamp' ? 0.25 : 0;
     setWind(windOf(env));
-    this.placeSun(this.sun.target.position, true);
+    if (sunMoved || !Number.isFinite(this.shadowCenter.x)) this.placeSun(this.sun.target.position, true);
     // The haze towards the sun takes its light; the moon's is faint, or a night horizon glows in a pale band
-    const glowColor = p.glowColor === undefined ? this.sun.color : new Color(p.glowColor).multiply(tint);
+    const glowColor = p.glowColor === undefined ? this.sun.color : SCRATCH.glow.set(p.glowColor).multiply(tint);
     HEIGHT_FOG_UNIFORMS.uFogSunColor.value.copy(glowColor).multiplyScalar(airLight).lerp(this.fog.color, 0.35);
     HEIGHT_FOG_UNIFORMS.uFogSunDir.value.copy(this.sunDir);
     HEIGHT_FOG_UNIFORMS.uGradeContrast.value = p.grade[0];
@@ -308,21 +326,74 @@ export class CustomMapEnvironment {
       // A picture brings its own clouds and stars; until it has loaded the gradient shows bare
       cover: image ? 2 : cover,
       glow: p.glow * (1 - k * 0.7),
-      cloudColor: new Color(p.cloudColor).multiply(tint),
-      cloudShadow: new Color(p.cloudShadow).multiply(tint),
+      cloudColor: SCRATCH.cloud.set(p.cloudColor).multiply(tint),
+      cloudShadow: SCRATCH.cloudShadow.set(p.cloudShadow).multiply(tint),
       haze: this.fog.color,
       stars: image ? 0 : p.stars,
       planet,
       aurora: image ? 0 : p.aurora,
     });
     this.showImage(image);
-    if (skyChanged) {
+    if (this.scene) this.scene.environmentIntensity = p.envIntensity;
+    if (skyChanged && !(this.fadeFrom && this.beginEnvFade())) {
       // The same texture and the same environment target, refilled: a new object would make three
       // re-check every material (and on the first change compile programs for a frame of seconds)
+      this.envFade = null;
       this.fillSky(this.sky.image.data as Uint8Array);
       this.sky.needsUpdate = true;
       if (this.scene) this.installSky();
     }
+  }
+
+  /**
+   * A fade's environment map: the map shown when it began (copied) and the
+   * one it ends in, prefiltered once, blended on the GPU every frame of the
+   * fade into the map the materials read (env-blend.ts). PMREM is linear in
+   * its sky, so the blend is the prefiltered blend of the two skies. Filled
+   * on the CPU and prefiltered five times a second, the fade cost 8 to 11 ms
+   * a time, and every frame of it rebuilt the shadow map; now the end's sky
+   * fills over a few frames and prefilters in the next. False without a
+   * prefiltered map to fade from (PMREM not linked yet)
+   */
+  private beginEnvFade(): boolean {
+    const renderer = this.renderer;
+    const shown = this.envTarget;
+    if (!renderer || !this.scene || !this.pmremReady || !shown) return false;
+    this.envFrom ??= shown.clone();
+    this.envTo ??= shown.clone();
+    this.envBlend.draw(renderer, shown, shown, 0, this.envFrom);
+    this.envFade = 'fill';
+    this.envFillRow = 0;
+    return true;
+  }
+
+  /** One frame of a fade's environment map (beginEnvFade); `t` how far the look has come, 1 its end */
+  private stepEnvFade(t: number): void {
+    const renderer = this.renderer;
+    if (!this.envFade || !renderer || !this.pmrem || !this.envTarget || !this.envFrom || !this.envTo) {
+      this.envFade = null;
+      return;
+    }
+    // Every stage at once if the fade ends before they came (a long frame)
+    const end = t >= 1;
+    if (this.envFade === 'fill') {
+      // The sky's pixels as the fade ends, a share of the rows a frame (all of them 8 to 11 ms)
+      const rows = end ? SKY_HEIGHT : SKY_HEIGHT / SKY_FILL_FRAMES;
+      const from = this.envFillRow;
+      this.envFillRow = Math.min(SKY_HEIGHT, from + rows);
+      this.fillSky(this.sky.image.data as Uint8Array, biomeLook(this.env.biome, this.env.sky), from, this.envFillRow);
+      if (this.envFillRow < SKY_HEIGHT) return;
+      this.sky.needsUpdate = true;
+      this.envFade = 'prefilter';
+      if (!end) return;
+    }
+    if (this.envFade === 'prefilter') {
+      this.pmrem.fromEquirectangular(this.sky, this.envTo);
+      this.envFade = 'blend';
+      if (!end) return;
+    }
+    this.envBlend.draw(renderer, this.envFrom, this.envTo, t, this.envTarget);
+    if (end) this.envFade = null;
   }
 
   /** Installs sky, environment map, fog and lights; remembers the scene's own */
@@ -510,12 +581,12 @@ export class CustomMapEnvironment {
   update(dt: number, camera: Camera): void {
     if (this.fadeFrom) {
       this.fade = Math.min(1, this.fade + dt / SKY_FADE_S);
-      this.fadeFill += dt;
       const done = this.fade >= 1;
-      // Lights and air every frame, the sky's pixels and the environment map five times a second (10 to 20 ms each)
-      const refill = done || this.fadeFill >= 0.2;
-      if (refill) this.fadeFill = 0;
-      this.show(this.env, refill);
+      // Lights and air every frame, the environment map blended on the GPU (beginEnvFade); without that the
+      // sky's pixels and the map once the fade ends
+      const blending = this.envFade !== null;
+      this.show(this.env, done && !blending);
+      if (blending) this.stepEnvFade(done ? 1 : this.fade * this.fade * (3 - 2 * this.fade));
       if (done) this.fadeFrom = null;
     }
     WIND_UNIFORMS.uWindTime.value += dt;
@@ -568,6 +639,12 @@ export class CustomMapEnvironment {
     this.planetLoading = false;
     this.sky.dispose();
     this.envTarget?.dispose();
+    this.envFrom?.dispose();
+    this.envTo?.dispose();
+    this.envBlend.dispose();
+    this.envFade = null;
+    this.envFrom = null;
+    this.envTo = null;
     this.pmrem?.dispose();
     this.envTarget = null;
     this.pmrem = null;
@@ -714,7 +791,7 @@ export class CustomMapEnvironment {
       inside._setSize(this.sky.image.width / 4);
       this.pmrem = pmrem;
       this.envTarget = inside._allocateTargets();
-      const linked = linkPmrem(renderer, pmrem, this.envTarget).then(() => {
+      const linked = linkPmrem(renderer, pmrem, this.envTarget, [this.envBlend.material]).then(() => {
         if (this.pmrem !== pmrem) return;
         this.pmremReady = true;
         this.fillEnvironment();
@@ -746,9 +823,8 @@ export class CustomMapEnvironment {
     return t;
   }
 
-  /** The sky's pixels for the current environment */
-  private fillSky(data: Uint8Array): void {
-    const p = this.look();
+  /** The sky's pixels for the current environment, in `p` (the look shown), rows `fromRow` to `toRow` (all) */
+  private fillSky(data: Uint8Array, p = this.look(), fromRow = 0, toRow = SKY_HEIGHT): void {
     const tint = new Color(this.env.tint || '#ffffff');
     const image = skyImageOf(this.env);
     const zenith = (image ? new Color().setRGB(...image.zenith) : new Color(p.zenith)).multiply(tint);
@@ -763,7 +839,7 @@ export class CustomMapEnvironment {
     const sun = sunDirection(this.env.sunAzimuth, this.env.sunElevation, new Vector3());
     const c = new Color();
     const dir = new Vector3();
-    for (let py = 0; py < SKY_HEIGHT; py++) {
+    for (let py = fromRow; py < toRow; py++) {
       const v = (py + 0.5) / SKY_HEIGHT;
       const theta = (v - 0.5) * Math.PI;
       for (let px = 0; px < SKY_WIDTH; px++) {
@@ -857,7 +933,7 @@ interface PmremInternals {
  * awaited with compileAsync. compileEquirectangularShader alone compiles
  * on a mesh without positions, also a variant PMREM never draws.
  */
-async function linkPmrem(renderer: WebGLRenderer, pmrem: PMREMGenerator, target: WebGLRenderTarget): Promise<void> {
+async function linkPmrem(renderer: WebGLRenderer, pmrem: PMREMGenerator, target: WebGLRenderTarget, also: readonly Material[]): Promise<void> {
   const inside = pmrem as unknown as PmremInternals;
   const previous = renderer.getRenderTarget();
   const scene = new ThreeScene();
@@ -870,7 +946,8 @@ async function linkPmrem(renderer: WebGLRenderer, pmrem: PMREMGenerator, target:
     pmrem.compileEquirectangularShader();
     delete (inside as Partial<PmremInternals>)._compileMaterial;
     // The blur runs only for PMREM from a scene; from a texture it is the GGX convolution
-    for (const material of [inside._equirectMaterial, inside._ggxMaterial]) {
+    // With the materials that draw into the same kind of target (a fade's blend)
+    for (const material of [inside._equirectMaterial, inside._ggxMaterial, ...also]) {
       if (material) scene.add(new Mesh(geometry, material));
     }
     const linked = renderer.compileAsync(scene, new OrthographicCamera());

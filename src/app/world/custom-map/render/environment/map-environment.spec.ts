@@ -88,6 +88,19 @@ describe('sun shadow cache', () => {
     e.dispose();
   });
 
+  it('leaves the shadow map alone through a sky fade that does not move the sun', () => {
+    const e = new CustomMapEnvironment(env);
+    const r = fakeRenderer();
+    attach(e, r, true);
+    e.skyDome.bake = () => undefined;
+    frame(e, r, new Vector3(0, 0, 0), 200);
+    e.set({ ...env, sky: 'dusk' });
+    let drawn = 0;
+    for (let k = 0; k < Math.ceil(SKY_FADE_S / 0.016) + 2; k++) drawn += frame(e, r, new Vector3(0, 0, 0), 200);
+    expect(drawn).toBe(0);
+    e.dispose();
+  });
+
   it('keeps showing the old map and its matrix until the last tile, then swaps both in one frame', () => {
     const e = new CustomMapEnvironment(env);
     const r = fakeRenderer();
