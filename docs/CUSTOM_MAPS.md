@@ -439,11 +439,20 @@ statt 41 bis 43 (alle Bäume und Felsen zusammen); je Bild 0,23 bis 0,29 ms für
 0,22 bis 0,26; Speicher je Impostor 1,4 MB statt etwa 4,7 MB (die alte Textur hielt ihre MSAA-Puffer). Braucht den
 Renderer (Ansichtsoption `renderer`).
 
-Materialien (`objectMaterial`): Bäume und Pflanzen bewegen sich im Wind der Karte, in drei Stufen: der Stamm neigt
-sich kaum (quadratisch mit der Höhe), Äste schwingen abseits der Stammachse je Kronenteil im eigenen Takt, Blätter
-flattern (Laubkarten stärker). Wie weit die Spitze im starken Wind (Druck 1) ausschlägt, rechnet `windSwayAtTop` aus
+Materialien (`objectMaterial`): Bäume und Pflanzen bewegen sich im Wind der Karte: Stamm und Krone als Ganzes (der
+Stamm biegt sich quadratisch mit der Höhe, steif), sie neigen sich mit dem Druck des Windes an ihrem Ort (Böenfronten
+laufen über die Karte) und schwingen langsam um diese Neigung, etwas auch quer dazu; je höher die Pflanze, desto
+langsamer (ein 8-m-Baum etwa einmal in vier Sekunden, Kreisfrequenz 1,6 x Wurzel aus 8 / Höhe). Äste abseits der
+Stammachse biegen sich etwas weiter und wippen langsam für sich, je Ast als Einheit (die Phase wechselt über einige
+Meter, nicht von Vertex zu Vertex); nur Laubkarten flattern, je Karte als Ganzes. Vorher flatterte jeder Vertex
+jedes Baums mit eigener schneller Phase, und die Äste schwangen mit mehr als einer Schwingung je Sekunde: Nadelwälder
+wobbelten und flimmerten. Dazu liest die schwingende Pflanze den Sonnenschatten an ihrer Ruhelage
+(`shadowmap_vertex` mit der Weltposition vor dem Schwingen): die Schattenkarte hält die Pflanzen in Ruhe (threes
+Tiefenmaterial kennt kein Schwingen, und die Karte ist über Bilder gecacht), ein Zweig glitt sonst beim Schwingen in
+den Schatten seiner eigenen Krone hinein und wieder heraus. Wie weit die Spitze im starken Wind (Druck 1) ausschlägt, rechnet `windSwayAtTop` aus
 Katalog-`wind` und Modellhöhe: ein schlanker 18-m-Baum etwa 1 m, eine Eiche (12 m, `wind` 0,5) rund 0,3 m; kleine
-Pflanzen schwingen im Verhältnis stärker. Seitliches Biegen senkt die Spitze etwas (Länge bleibt). Laubkarten (`foliage-*`) behalten ihre
+Pflanzen schwingen im Verhältnis stärker. Alle Detailstufen eines Modells schwingen mit derselben Rechnung (kein
+Sprung beim Stufenwechsel); Impostoren ab 380 m stehen still. Seitliches Biegen senkt die Spitze etwas (Länge bleibt). Laubkarten (`foliage-*`) behalten ihre
 Normalen auch auf der Rückseite (three dreht sie bei doppelseitigen Materialien um, das machte Kartenrücken schwarz),
 werden alpha-getestet mit Alpha-to-Coverage und blenden aus, wenn man sie von der Kante sieht oder sie die Sichtweite
 erreichen; Wasserfall-Karten (`foliage-waterfall*`) fließen, leuchtende Laubkarten (Flammen) flackern. Windstärke und

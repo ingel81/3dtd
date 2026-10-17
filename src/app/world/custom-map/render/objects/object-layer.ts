@@ -1141,6 +1141,8 @@ export class MapObjectLayer {
         shader.vertexShader = shader.vertexShader.replace(
           '#include <begin_vertex>',
           /* glsl */ `#include <begin_vertex>
+          // The rest pose, for the shadow lookup below
+          vec3 windRest = transformed;
           {
             // The wind's direction in model space: the instance's rotation and scale undone
             vec3 base = vec3(0.0);
@@ -1151,28 +1153,52 @@ export class MapObjectLayer {
             #endif
             vec3 acrossDir = normalize(cross(vec3(0.0, 1.0, 0.0), windDir) + vec3(1e-5, 0.0, 0.0));
             float phase = dot(base.xz, vec2(0.071, 0.093));
+            // The push at the plant: steady wind, swell and the gust fronts that cross the map (windPush)
             float push = windPush(base.xz);
             float t = uWindTime;
             float hn = clamp(transformed.y / uWindHeight, 0.0, 1.3);
-            // Trunk: nearly rigid, leans with the push, rocks a little along and across it
-            float rock = sin(t * 1.3 + phase) * 0.6 + sin(t * 2.3 + phase * 1.7) * 0.25;
-            vec3 off = (windDir * (0.7 * push + 0.2 * rock * (0.3 + push)) + acrossDir * sin(t * 0.9 + phase * 1.3) * 0.1 * (0.3 + push))
+            // A plant swings slower the taller it is (an 8 m tree about once in four seconds), so a wood does not
+            // tremble at one quick beat
+            float w = 1.6 * sqrt(8.0 / max(uWindHeight, 0.5));
+            // Trunk and crown as one: a stiff trunk (bending with the square of the height) leans with the push
+            // and swings slowly round that lean, a little across it too
+            float sway = sin(t * w + phase) * 0.6 + sin(t * w * 1.63 + phase * 1.7) * 0.22;
+            vec3 off = (windDir * (0.75 * push + 0.3 * sway * (0.3 + push)) + acrossDir * sin(t * w * 0.77 + phase * 1.3) * 0.12 * (0.3 + push))
               * uWindBend * 0.4 * hn * hn;
-            // Branches: away from the trunk, each part of the crown on its own beat, along the wind and up and down
+            // Branches: away from the trunk they bend a little more and bob on their own, slowly; each bough
+            // moves as one (the phase changes over a few metres, not from vertex to vertex)
             float reach = length(transformed.xz) / uWindHeight;
-            float branch = smoothstep(0.04, 0.3, reach) * smoothstep(0.1, 0.45, hn);
-            float bp = dot(transformed, vec3(0.37, 0.29, 0.41)) * 9.0 / uWindHeight + phase;
-            float beat = sin(t * 2.1 + bp) * 0.7 + sin(t * 3.7 + bp * 1.3) * 0.3;
-            off += (windDir * (0.45 * push + 0.4 * beat * (0.25 + push)) + vec3(0.0, 0.3 * beat * (0.25 + push), 0.0)) * uWindBend * 0.4 * branch;
-            // Leaves flutter on their own, quick and small
-            vec3 flutter = sin(t * vec3(8.3, 9.1, 7.4) + transformed * vec3(3.1, 2.3, 4.7));
-            off += flutter * ${card ? '0.05' : '0.012'} * (0.2 + push) * smoothstep(0.05, 0.3, hn) * min(uWindBend * 4.0, 1.0);
+            float branch = smoothstep(0.06, 0.35, reach) * smoothstep(0.15, 0.5, hn);
+            float bp = dot(transformed, vec3(0.37, 0.29, 0.41)) * 2.6 / uWindHeight + phase;
+            float beat = sin(t * w * 1.9 + bp) * 0.75 + sin(t * w * 3.1 + bp * 1.4) * 0.25;
+            off += (windDir * (0.3 * push + 0.12 * beat * (0.2 + push)) + vec3(0.0, 0.1 * beat * (0.2 + push), 0.0)) * uWindBend * 0.4 * branch;
+            ${card ? `// Leaf cards flutter, each card as a whole (the phase over half a metre), quick and small
+            vec3 flutter = sin(t * vec3(4.3, 5.1, 3.7) + transformed * 1.3 + phase);
+            off += flutter * 0.03 * (0.2 + push) * smoothstep(0.1, 0.4, hn) * min(uWindBend * 4.0, 1.0);` : ''}
             // The player's plant motion: still, calmer or as the wind takes them
             off *= uPlantSway;
             // Bent, not stretched: what moves sideways sinks a little
             off.y -= dot(off.xz, off.xz) / (2.0 * max(transformed.y, 0.5));
             transformed += off;
           }`,
+        );
+        // The sun's shadow map holds the plants at rest (three's depth material has no sway, and the map is
+        // cached over frames): a swaying leaf looked it up where it had moved to and slid in and out of its own
+        // crown's shadow, the canopy flickered. It reads the shadow at its rest pose, so the shading rides along
+        shader.vertexShader = shader.vertexShader.replace(
+          '#include <shadowmap_vertex>',
+          /* glsl */ `#ifdef USE_SHADOWMAP
+          vec4 windSwayed = worldPosition;
+          worldPosition = vec4(windRest, 1.0);
+          #ifdef USE_INSTANCING
+          worldPosition = instanceMatrix * worldPosition;
+          #endif
+          worldPosition = modelMatrix * worldPosition;
+          #endif
+          #include <shadowmap_vertex>
+          #ifdef USE_SHADOWMAP
+          worldPosition = windSwayed;
+          #endif`,
         );
       }
       if (bob) {
