@@ -21,6 +21,7 @@ import { patch, type EditorSettings } from '../tools/tool';
 import type { CheckService } from './check-service';
 import type { EditorCore } from './editor-core';
 import type { EditorRoutes } from './editor-routes';
+import type { EditorMinimap } from './editor-minimap';
 import type { EditorNotices } from './editor-notices';
 import type { EditorPictures } from './editor-pictures';
 import type { EditorState } from './editor-state';
@@ -36,6 +37,7 @@ export interface LifecycleParts {
   /** The editor's worker: starts with a map, ends when it closes */
   core: EditorCore;
   routes: EditorRoutes;
+  minimap: EditorMinimap;
   library: MapLibrary;
   saves: SaveService;
   jobs: JobRunner;
@@ -337,6 +339,7 @@ export class MapLifecycle {
     p.state.attach(editor);
     p.view.mapOpened(doc.meta.id, frame);
     p.routes.opened();
+    p.minimap.opened();
     this.openMap.set(doc.meta.id);
   }
 }

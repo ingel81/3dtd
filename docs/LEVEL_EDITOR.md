@@ -892,7 +892,11 @@ sehen sind (`PanelShown`), und holen sie beim Zeigen nach; ein Geländestrich l�
 Ruhe. Änderungen je Tupfer und Kamerabilder gehen an Zuhörer (`onDocChange`, `onCamera`: Tour, Minikarte) statt
 an Signale, die Angular sonst in jedem Bild alles prüfen ließen. Gehaltener Gebirgspinsel auf einer kleinen Stadtkarte,
 16 s: 603 statt 1 388 Prüfläufe, Template-Zeit 65 statt 220 ms. Den Himmel baut die
-Ansicht höchstens alle 100 ms neu; die Minikarte wartet, bis kein Pinsel mehr gehalten wird.
+Ansicht höchstens alle 100 ms neu; die Minikarte wartet, bis kein Pinsel mehr gehalten wird. Straßen, Spawns und HQ
+der Minikarte zeichnet der Editor-Worker auf einem OffscreenCanvas (`EditorMinimap`, Auftrag `minimap`), sobald sich
+Straßen, Marker oder die Kartengröße ändern, und schickt eine ImageBitmap; die Seite zeichnet je Kamerabild nur das
+Bild von oben, diese Bitmap und den Rahmen. Auf 9 700 Kanten: 0,65 statt 5,5 ms je Kamerabild (6,5 ms nach jeder
+Änderung), samt Rastern des Canvas.
 
 Gemessen 2026-10-14 (optimierter Build, RTX 5080, 1600 x 900, gehaltener Pinsel 3 s, ms je Bild p50/p90, je zwei
 Läufe; neue Karte 1024 m Meadows bei 2 m, Demo-Tal 512 m mit 13 000 Objekten):

@@ -1,18 +1,17 @@
 import { ChangeDetectionStrategy, computed, Component, ElementRef, OnDestroy, effect, inject, viewChild } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { SPAWN_COLORS } from '../../../configs/map-constants.config';
 import { TD_THEME } from '../../../styles/td-theme';
-import { edgePolyline } from '../../../map-ops/path-graph';
+import { MINIMAP_SIZE as SIZE, minimapBox } from '../../workers/minimap-job';
 import { EditorSession } from '../editor-session.service';
 
-const SIZE = 200;
 /** Re-render the picture at most this often while the map changes */
 const PICTURE_EVERY_MS = 1200;
 
 /**
  * The map from above: a top-down render of the view (redrawn a moment after
- * edits), roads, spawns, HQ and what the camera sees drawn over it. A click
- * or drag moves the camera there.
+ * edits), the roads, spawns and HQ drawn in the editor's worker
+ * (EditorMinimap) and what the camera sees drawn over it. A click or drag
+ * moves the camera there.
  */
 @Component({
   selector: 'app-editor-minimap',
@@ -48,10 +47,6 @@ export class MinimapComponent implements OnDestroy {
   readonly size = SIZE;
   private picture: HTMLCanvasElement | null = null;
   private pictureRev = -1;
-  /** The roads drawn as one path (draw), and the revision of the map they show */
-  private roads: Path2D | null = null;
-  private roadsRev = -1;
-  private drawnRev = 0;
   private pictureAt = 0;
   private timer: ReturnType<typeof setTimeout> | null = null;
   /** A picture is on its way (renderTopDown); the next waits for it */
@@ -63,7 +58,7 @@ export class MinimapComponent implements OnDestroy {
     effect(() => {
       const rev = this.session.state.anyRev() * 1000 + this.session.view.viewRev();
       this.session.state.selection();
-      this.drawnRev = rev;
+      this.session.minimap.marks();
       this.schedulePicture(rev);
       this.draw();
     });
@@ -110,20 +105,12 @@ export class MinimapComponent implements OnDestroy {
     const doc = this.session.doc;
     if (!doc || !this.session.view.shown) return;
     const rect = (e.target as HTMLElement).getBoundingClientRect();
-    const box = this.box(doc.terrain.width, doc.terrain.depth);
+    const box = minimapBox(doc.terrain.width, doc.terrain.depth);
     const u = (e.clientX - rect.left) * (SIZE / rect.width);
     const v = (e.clientY - rect.top) * (SIZE / rect.height);
     const x = ((u - box.x) / box.w - 0.5) * doc.terrain.width;
     const y = (0.5 - (v - box.y) / box.h) * doc.terrain.depth;
     this.session.view.lookAt(Math.max(-doc.terrain.width / 2, Math.min(doc.terrain.width / 2, x)), Math.max(-doc.terrain.depth / 2, Math.min(doc.terrain.depth / 2, y)));
-  }
-
-  /** The map's rectangle inside the square canvas */
-  private box(width: number, depth: number): { x: number; y: number; w: number; h: number } {
-    const k = SIZE / Math.max(width, depth);
-    const w = width * k;
-    const h = depth * k;
-    return { x: (SIZE - w) / 2, y: (SIZE - h) / 2, w, h };
   }
 
   private schedulePicture(rev: number): void {
@@ -140,7 +127,7 @@ export class MinimapComponent implements OnDestroy {
         this.schedulePicture(rev);
         return;
       }
-      const b = this.box(doc.terrain.width, doc.terrain.depth);
+      const b = minimapBox(doc.terrain.width, doc.terrain.depth);
       // The picture is of the map as it is now; later changes ask for the next one
       const now = this.session.state.anyRev() * 1000 + this.session.view.viewRev();
       this.pictureAt = performance.now();
@@ -166,33 +153,15 @@ export class MinimapComponent implements OnDestroy {
     const doc = this.session.doc;
     if (!c || !doc) return;
     const t = doc.terrain;
-    const b = this.box(t.width, t.depth);
+    const b = minimapBox(t.width, t.depth);
     c.fillStyle = TD_THEME.panelShadow;
     c.fillRect(0, 0, SIZE, SIZE);
     if (this.picture) c.drawImage(this.picture, b.x, b.y, b.w, b.h);
+    // The camera's frame redraws every frame: the roads, spawns and HQ come drawn already
+    const marks = this.session.minimap.marks();
+    if (marks) c.drawImage(marks, 0, 0);
     const px = (x: number) => b.x + (x / t.width + 0.5) * b.w;
     const py = (y: number) => b.y + (0.5 - y / t.depth) * b.h;
-
-    c.lineWidth = 1.5;
-    c.strokeStyle = TD_THEME.knobLight;
-    // The roads as one path, made again only when the map changed: the camera's frame redraws every frame
-    if (!this.roads || this.roadsRev !== this.drawnRev) {
-      const roads = new Path2D();
-      for (const e of doc.paths.edges) {
-        edgePolyline(doc.paths, e).forEach((p, k) => (k ? roads.lineTo(px(p.x), py(p.y)) : roads.moveTo(px(p.x), py(p.y))));
-      }
-      this.roads = roads;
-      this.roadsRev = this.drawnRev;
-    }
-    c.stroke(this.roads);
-    doc.spawns.forEach((s, k) => {
-      c.fillStyle = `#${SPAWN_COLORS[k % SPAWN_COLORS.length].toString(16).padStart(6, '0')}`;
-      c.beginPath();
-      c.arc(px(s.x), py(s.y), 4, 0, Math.PI * 2);
-      c.fill();
-    });
-    c.fillStyle = TD_THEME.brass;
-    c.fillRect(px(doc.hq.x) - 4, py(doc.hq.y) - 4, 8, 8);
 
     const foot = this.session.view.viewFootprint();
     if (foot.length >= 3) {
