@@ -426,37 +426,6 @@ def rowboat(name, rotten=False):
     export(name, objects)
 
 
-def fishing_boat(name):
-    """Small fishing boat: deep hull, a deck inside it, a wheelhouse aft, a mast with a boom, nets on deck"""
-    clear_scene()
-    paint = Part(flat_material('hull-blue', (0.12, 0.22, 0.4), 0.45, 0.1))
-    wood = planks((0.7, 0.62, 0.52))
-    hull(paint, 9.0, 3.0, 1.6, sheer=0.5)
-    deck(wood, 9.0, 3.0, 1.6, 0.5, 1.3)
-    box(wood, 0, 2.3, 1.3, 2.0, 2.2, 1.9)
-    cabin_roof = Part(flat_material('cabin-white', (0.82, 0.82, 0.8), 0.5))
-    box(cabin_roof, 0, 2.3, 3.2, 2.2, 2.4, 0.12)
-    dark = Part(flat_material('window', (0.05, 0.06, 0.07), 0.2, 0.3))
-    box(dark, 0, 1.18, 2.2, 1.6, 0.05, 0.6)
-    # Side and rear windows of the wheelhouse and a lamp up the mast: window glass, lit at night
-    for x in (-1.02, 1.02):
-        box(dark, x, 2.3, 2.2, 0.05, 1.2, 0.6)
-    box(dark, 0, 3.42, 2.2, 1.2, 0.05, 0.6)
-    box(dark, 0, -1.5, 6.0, 0.2, 0.2, 0.25)
-    mast = Part(pbr_material('planks-dark', 'dark_planks'), smooth=True)
-    tube(mast, [Vector((0, -1.5, 1.3)), Vector((0, -1.5, 7.5))], [0.12, 0.08], 8, cap=True)
-    oriented_box(mast, Vector((0, -1.5, 3.0)), Vector((0, 1.2, 2.6)), 0.08)
-    net = Part(card_material('net', 'net.png'))
-    up = lambda co: Vector((0, 0, 1))
-    # The net heaped between the mast and the wheelhouse, where the deck is wide
-    net.quad([Vector((-0.9, -1.1, 1.35)), Vector((0.9, -1.1, 1.35)), Vector((0.9, 0.3, 1.45)), Vector((-0.9, 0.3, 1.45))],
-             [(0, 0), (2, 0), (2, 1.4), (0, 1.4)], up)
-    objects = [paint.to_object(name), wood.to_object(name + '-deck'), cabin_roof.to_object(name + '-roof'), dark.to_object(name + '-windows'),
-               mast.to_object(name + '-mast'), net.to_object(name + '-net')]
-    tilt(objects, lift=-0.9)  # waterline at the origin
-    export(name, objects)
-
-
 # ---------------------------------------------------------------- desert canyon
 
 def temple_ruin(name, seed=0):
@@ -1110,7 +1079,6 @@ def models():
         'boat-rotten': lambda: rowboat('boat-rotten', rotten=True),
         'cauldron': lambda: cauldron_prop('cauldron'),
         'rowboat': lambda: rowboat('rowboat'),
-        'fishing-boat': lambda: fishing_boat('fishing-boat'),
         'temple-ruin': lambda: temple_ruin('temple-ruin', 4),
         'caravan-tent': lambda: caravan_tent('caravan-tent'),
         'camel-saddle': lambda: camel_saddle('camel-saddle'),

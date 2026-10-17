@@ -62,7 +62,14 @@ Stadtkirche, Bahnhof, Parkhaus, Gewächshaus, Kiosk, Trafostation; Gleis, Bahnst
 Hochspannungsmast, Rebzeile, Obstbaum, Spielgeräte, Fußballtor, Brunnen),
 `build_modern2.py` (weitere Arten für OSM-Welten: Laden, Geschäftshaus, Bürohochhaus mit Bandfenstern, Scheune
 heutiger Art, Nebengebäude 4 × 4 m, offener Unterstand, Anbau),
-gemeinsame Helfer in `blender_kit.py`. Klippen-Scans sind nur Wand und Krone: `import_model(..., close=True)`
+`build_boats.py` (Fischkutter), gemeinsame Helfer in `blender_kit.py`.
+
+Gebackene Oberflächen (`blender_kit.bake_surface`, Materialien mit `Nodes`): statt gekachelter Texturen rechnen
+prozedurale Materialien Farbe über Planken, Kantenabrieb (Bevel-Knoten), Schmutz in Ecken (AO-Knoten), Rostläufe,
+Algen an der Wasserlinie usw. aus der Geometrie; Cycles backt sie in eigene Texturen des Modells (Farbe, Normale,
+AO/Rauheit/Metall in einer ORM-Textur, eine UV-Karte, ein Material). Fensterglas, Lampen und Alpha-Karten bleiben
+eigene Materialien (`keep`). `export_lod(..., textured=True)` behält im LOD die gebackene Textur.
+`variants=(n, set_look)` backt n Ansichten desselben Netzes in ein Raster-Atlas (Katalog `variants`). Klippen-Scans sind nur Wand und Krone: `import_model(..., close=True)`
 schließt Rückseite und Unterseite (`close_shell`), sonst sieht man von oben oder hinten in den Fels hinein. Ein flacher
 Rand (Höhe unter einem Zehntel der Breite) ist eine Unterseite und bekommt einen ebenen Boden aus seiner Mitte: so
 ist der unten offene Haufen `namaqualand_boulder_02` (`rock-large`, `rock-sandstone-large`) geschlossen.

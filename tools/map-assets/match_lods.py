@@ -187,7 +187,8 @@ def match(models, mid, lod_file):
     changed = []
     for m in lod.get('materials', []):
         name = m.get('name', '')
-        if 'occlusionTexture' in m:
+        # A baked surface (blender_kit.bake_surface) keeps its one UV map in the LOD, and with it its occlusion
+        if 'occlusionTexture' in m and not name.endswith('-surface'):
             del m['occlusionTexture']
         source = by_name.get(name[:-4]) if name.endswith('-lod') else None
         if source is None:

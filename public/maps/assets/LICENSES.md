@@ -492,7 +492,7 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | cauldron | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/bark_brown_02 |
 | boat-rotten | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks |
 | rowboat | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks |
-| fishing-boat | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/dark_planks; Netz gezeichnet (make_foliage.py) |
+| fishing-boat | procedural (tools/map-assets/build_boats.py); https://polyhaven.com/a/weathered_planks; Netz gezeichnet (make_foliage.py) |
 | temple-ruin | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/sandstone_cracks |
 | caravan-tent | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/dark_planks; Streifenstoff gezeichnet (make_foliage.py) |
 | camel-saddle | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/hessian_230; Streifenstoff gezeichnet |

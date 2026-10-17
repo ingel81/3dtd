@@ -13075,7 +13075,7 @@
       "name": "Fishing boat",
       "category": "prop",
       "file": "models/fishing-boat.glb",
-      "triangles": 713,
+      "triangles": 8798,
       "footprint": 4.0,
       "height": 6.6,
       "blocksLos": false,
@@ -13091,7 +13091,14 @@
       "tags": [
         "coast"
       ],
-      "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/dark_planks; Netz gezeichnet (make_foliage.py)"
+      "lod": [
+        {
+          "file": "models/fishing-boat-lod1.glb",
+          "distance": 350,
+          "triangles": 1797
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_boats.py); https://polyhaven.com/a/weathered_planks; Netz gezeichnet (make_foliage.py)"
     },
     {
       "id": "temple-ruin",

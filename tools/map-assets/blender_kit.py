@@ -427,6 +427,365 @@ def split_spin(obj, name):
     return [part]
 
 
+# ---------------------------------------------------------------- baked surfaces
+
+class Nodes:
+    """Builds the node tree of one procedural material: shorthands for the
+    weathering recipes (paint over wood, grime in hollows, worn edges, streaks)
+    that bake_surface renders into the model's own textures. Arguments are
+    sockets or plain numbers and colours (constants)"""
+
+    def __init__(self, name):
+        self.material = bpy.data.materials.new(name)
+        try:
+            self.material.use_nodes = True
+        except AttributeError:
+            pass
+        self.nt = self.material.node_tree
+        self.bsdf = next(n for n in self.nt.nodes if n.type == 'BSDF_PRINCIPLED')
+        self._coords = None
+
+    def put(self, socket, value):
+        if isinstance(value, bpy.types.NodeSocket):
+            self.nt.links.new(value, socket)
+        elif isinstance(value, (tuple, list)) and len(value) == 3 and socket.type == 'RGBA':
+            socket.default_value = (*value, 1.0)
+        else:
+            socket.default_value = value
+
+    def coords(self):
+        """Model-space position in metres (the object's own coordinates)"""
+        if self._coords is None:
+            self._coords = self.nt.nodes.new('ShaderNodeTexCoord').outputs['Object']
+        return self._coords
+
+    def scaled(self, scale):
+        """Model coordinates times a per-axis scale"""
+        n = self.nt.nodes.new('ShaderNodeVectorMath')
+        n.operation = 'MULTIPLY'
+        self.nt.links.new(self.coords(), n.inputs[0])
+        n.inputs[1].default_value = scale
+        return n.outputs[0]
+
+    def noise(self, scale, detail=4.0, roughness=0.55, stretch=(1, 1, 1)):
+        """Noise at `scale` per metre; `stretch` per axis (above 1 squeezes: streaks, grain)"""
+        n = self.nt.nodes.new('ShaderNodeTexNoise')
+        n.noise_dimensions = '3D'
+        self.nt.links.new(self.scaled(tuple(scale * s for s in stretch)), n.inputs['Vector'])
+        n.inputs['Scale'].default_value = 1.0
+        n.inputs['Detail'].default_value = detail
+        n.inputs['Roughness'].default_value = roughness
+        return n.outputs['Fac']
+
+    def voronoi(self, scale, stretch=(1, 1, 1), feature='F1', output='Distance'):
+        n = self.nt.nodes.new('ShaderNodeTexVoronoi')
+        n.feature = feature
+        self.nt.links.new(self.scaled(tuple(scale * s for s in stretch)), n.inputs['Vector'])
+        n.inputs['Scale'].default_value = 1.0
+        return n.outputs[output]
+
+    def uv(self, which):
+        """One coordinate of the part's own UV map (0 u, 1 v): metres along and round a hull, say"""
+        if not hasattr(self, '_uv'):
+            uv = self.nt.nodes.new('ShaderNodeUVMap')
+            uv.uv_map = 'UVMap'
+            sep = self.nt.nodes.new('ShaderNodeSeparateXYZ')
+            self.nt.links.new(uv.outputs['UV'], sep.inputs[0])
+            self._uv = sep
+        return self._uv.outputs[which]
+
+    def axis(self, which):
+        """One model coordinate (0 x, 1 y, 2 z) in metres"""
+        n = self.nt.nodes.new('ShaderNodeSeparateXYZ')
+        self.nt.links.new(self.coords(), n.inputs[0])
+        return n.outputs[which]
+
+    def math(self, op, a, b=0.0, clamp=False):
+        n = self.nt.nodes.new('ShaderNodeMath')
+        n.operation = op
+        n.use_clamp = clamp
+        self.put(n.inputs[0], a)
+        self.put(n.inputs[1], b)
+        return n.outputs[0]
+
+    def ramp(self, value, lo, hi):
+        """0 at `lo`, 1 at `hi`, smooth between (lo above hi turns it round)"""
+        n = self.nt.nodes.new('ShaderNodeMapRange')
+        n.interpolation_type = 'SMOOTHSTEP'
+        self.put(n.inputs['Value'], value)
+        n.inputs['From Min'].default_value = lo
+        n.inputs['From Max'].default_value = hi
+        return n.outputs['Result']
+
+    def mix(self, factor, a, b, blend='MIX'):
+        """Colour `a` towards `b` by `factor`"""
+        n = self.nt.nodes.new('ShaderNodeMix')
+        n.data_type = 'RGBA'
+        n.blend_type = blend
+        n.clamp_result = True
+        self.put(n.inputs['Factor'], factor)
+        self.put(n.inputs['A'], a)
+        self.put(n.inputs['B'], b)
+        return n.outputs['Result']
+
+    def mixf(self, factor, a, b):
+        """Number `a` towards `b` by `factor`"""
+        n = self.nt.nodes.new('ShaderNodeMix')
+        n.data_type = 'FLOAT'
+        n.clamp_factor = True
+        self.put(n.inputs['Factor'], factor)
+        self.put(n.inputs[2], a)
+        self.put(n.inputs[3], b)
+        return n.outputs[0]
+
+    def hollows(self, distance=0.25):
+        """1 in corners and crevices, 0 on open surfaces (Cycles ambient occlusion)"""
+        n = self.nt.nodes.new('ShaderNodeAmbientOcclusion')
+        n.samples = 16
+        n.inputs['Distance'].default_value = distance
+        return self.math('SUBTRACT', 1.0, n.outputs['AO'], clamp=True)
+
+    def edges(self, radius=0.02):
+        """1 on outer edges and corners, 0 on flat faces: the bevel normal against the true normal"""
+        bevel = self.nt.nodes.new('ShaderNodeBevel')
+        bevel.samples = 8
+        bevel.inputs['Radius'].default_value = radius
+        geo = self.nt.nodes.new('ShaderNodeNewGeometry')
+        dot = self.nt.nodes.new('ShaderNodeVectorMath')
+        dot.operation = 'DOT_PRODUCT'
+        self.nt.links.new(bevel.outputs['Normal'], dot.inputs[0])
+        self.nt.links.new(geo.outputs['Normal'], dot.inputs[1])
+        return self.ramp(dot.outputs['Value'], 0.995, 0.9)
+
+    def image(self, asset, kind='diff', metres=1.5, tint=None):
+        """A Poly Haven texture laid on in model space (box projection), for wood under paint and the like"""
+        tex = self.nt.nodes.new('ShaderNodeTexImage')
+        tex.image = load_image(tex_path(asset, kind), non_color=kind != 'diff')
+        tex.projection = 'BOX'
+        tex.projection_blend = 0.25
+        self.nt.links.new(self.scaled((1 / metres,) * 3), tex.inputs['Vector'])
+        out = tex.outputs['Color']
+        return self.mix(1.0, out, tint, 'MULTIPLY') if tint else out
+
+    def bump(self, height, strength=0.3, distance=0.02, normal=None):
+        n = self.nt.nodes.new('ShaderNodeBump')
+        n.inputs['Strength'].default_value = strength
+        n.inputs['Distance'].default_value = distance
+        self.put(n.inputs['Height'], height)
+        if normal is not None:
+            self.put(n.inputs['Normal'], normal)
+        return n.outputs['Normal']
+
+    def finish(self, colour, roughness=0.8, normal=None, metallic=0.0):
+        self.put(self.bsdf.inputs['Base Color'], colour)
+        self.put(self.bsdf.inputs['Roughness'], roughness)
+        self.put(self.bsdf.inputs['Metallic'], metallic)
+        if normal is not None:
+            self.put(self.bsdf.inputs['Normal'], normal)
+        return self.material
+
+
+def _join(objects):
+    bpy.ops.object.select_all(action='DESELECT')
+    for o in objects:
+        o.select_set(True)
+    bpy.context.view_layer.objects.active = objects[0]
+    if len(objects) > 1:
+        bpy.ops.object.join()
+    return bpy.context.view_layer.objects.active
+
+
+def _pin_source_uvs(material, uv_name):
+    """Image textures and normal maps of a source material read the UV map they were made for, not the bake map"""
+    nt = material.node_tree
+    for n in list(nt.nodes):
+        if n.type == 'TEX_IMAGE' and not n.inputs['Vector'].is_linked:
+            uv = nt.nodes.new('ShaderNodeUVMap')
+            uv.uv_map = uv_name
+            nt.links.new(uv.outputs['UV'], n.inputs['Vector'])
+        elif n.type == 'NORMAL_MAP' and not n.uv_map:
+            n.uv_map = uv_name
+
+
+def _bake_pass(obj, image, kind, samples, socket=None):
+    """Bakes one pass of every material of `obj` into `image`: Cycles NORMAL or AO, or with `socket` the value
+    of that Principled input (wired through an emission shader for the bake)"""
+    bpy.context.scene.cycles.samples = samples
+    undo = []
+    for slot in obj.material_slots:
+        nt = slot.material.node_tree
+        target = nt.nodes.new('ShaderNodeTexImage')
+        target.image = image
+        nt.nodes.active = target
+        added, relink = [target], None
+        if socket is not None:
+            out = next(n for n in nt.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output)
+            bsdf = next(n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED')
+            emit = nt.nodes.new('ShaderNodeEmission')
+            added.append(emit)
+            src = bsdf.inputs[socket]
+            if src.is_linked:
+                nt.links.new(src.links[0].from_socket, emit.inputs['Color'])
+            else:
+                v = src.default_value
+                emit.inputs['Color'].default_value = (*v[:3], 1) if hasattr(v, '__len__') else (v, v, v, 1)
+            if out.inputs['Surface'].is_linked:
+                relink = (out.inputs['Surface'].links[0].from_socket, out.inputs['Surface'])
+            nt.links.new(emit.outputs['Emission'], out.inputs['Surface'])
+        undo.append((nt, added, relink))
+    bpy.ops.object.select_all(action='DESELECT')
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    options = dict(margin=8, margin_type='EXTEND', use_clear=True)
+    if socket is not None:
+        bpy.ops.object.bake(type='EMIT', **options)
+    elif kind == 'NORMAL':
+        bpy.ops.object.bake(type='NORMAL', normal_space='TANGENT', **options)
+    else:
+        bpy.ops.object.bake(type=kind, **options)
+    for nt, added, relink in undo:
+        if relink:
+            nt.links.new(*relink)
+        for n in added:
+            nt.nodes.remove(n)
+
+
+def _pixels(image):
+    import numpy as np
+    px = np.empty(image.size[0] * image.size[1] * 4, dtype=np.float32)
+    image.pixels.foreach_get(px)
+    return px.reshape(image.size[1], image.size[0], 4)
+
+
+def _saved_image(name, px, non_color):
+    h, w = px.shape[:2]
+    img = bpy.data.images.new(name, w, h)
+    if non_color:
+        img.colorspace_settings.name = 'Non-Color'
+    img.pixels.foreach_set(px.ravel())
+    folder = os.path.join(OUT, 'baked')
+    os.makedirs(folder, exist_ok=True)
+    img.filepath_raw = os.path.join(folder, name + '.png')
+    img.file_format = 'PNG'
+    img.save()
+    return img
+
+
+def bake_surface(name, objects, keep=(), size=1024, samples=24, ao_distance=1.5, variants=None):
+    """Renders the procedural materials of `objects` into textures of their own and exports the model:
+    joins them, unwraps them once (UV map 'Bake'), bakes colour, roughness, metalness, the normal (bumps
+    and normal maps of the sources) and ambient occlusion, and gives the result one material
+    `<name>-surface` (colour, normal, and occlusion/roughness/metal in one image as glTF packs it).
+    Grime, worn edges and streaks the materials compute from the geometry end up painted into the model:
+    one draw call, no shader cost in the game.
+
+    `variants` (n, set_look): n looks of the same mesh in a grid atlas (2 x 2 for four); `set_look(k)`
+    changes the materials before look k is baked. The UVs show the first cell, the renderer picks a cell
+    per instance (catalogue `variants`). `keep` (window glass, lamps, alpha cards) goes out as it is.
+    Returns the joined object"""
+    import numpy as np
+    obj = _join(objects)
+    mesh = obj.data
+    if not mesh.uv_layers:
+        mesh.uv_layers.new(name='UVMap')
+    source_uv = mesh.uv_layers[0].name
+    for slot in obj.material_slots:
+        _pin_source_uvs(slot.material, source_uv)
+    bake_uv = mesh.uv_layers.new(name='Bake')
+    mesh.uv_layers.active = bake_uv
+    bake_uv.active_render = True
+    count, set_look = variants or (1, None)
+    grid = math.ceil(math.sqrt(count))
+    cell = size // grid
+    bpy.ops.object.select_all(action='DESELECT')
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.select_all(action='SELECT')
+    bpy.ops.uv.smart_project(angle_limit=math.radians(66), island_margin=6.0 / cell, area_weight=0.0)
+    bpy.ops.object.mode_set(mode='OBJECT')
+    scene = bpy.context.scene
+    try:
+        scene.render.engine = 'CYCLES'
+    except TypeError:
+        pass
+    scene.world = scene.world or bpy.data.worlds.new('World')
+    scene.world.light_settings.distance = ao_distance
+    atlas = {key: np.zeros((size, size, 4), dtype=np.float32) for key in ('colour', 'normal', 'orm')}
+    work = {key: bpy.data.images.new(name + '-bake-' + key, cell, cell, float_buffer=True) for key in ('colour', 'normal', 'r', 'm', 'ao')}
+    for img in work.values():
+        img.colorspace_settings.name = 'Non-Color'
+    for k in range(count):
+        if set_look:
+            set_look(k)
+        _bake_pass(obj, work['colour'], 'EMIT', samples, 'Base Color')
+        _bake_pass(obj, work['r'], 'EMIT', max(4, samples // 3), 'Roughness')
+        _bake_pass(obj, work['m'], 'EMIT', 4, 'Metallic')
+        _bake_pass(obj, work['normal'], 'NORMAL', max(4, samples // 3))
+        _bake_pass(obj, work['ao'], 'AO', samples)
+        y0, x0 = (k // grid) * cell, (k % grid) * cell
+        colour = _pixels(work['colour'])
+        # The colour bakes in linear light (a float buffer, no view transform); the texture stores sRGB
+        rgb = np.clip(colour[..., :3], 0, 1)
+        colour[..., :3] = np.where(rgb <= 0.0031308, rgb * 12.92, 1.055 * np.power(rgb, 1 / 2.4) - 0.055)
+        colour[..., 3] = 1
+        atlas['colour'][y0:y0 + cell, x0:x0 + cell] = colour
+        atlas['normal'][y0:y0 + cell, x0:x0 + cell] = _pixels(work['normal'])
+        orm = np.ones((cell, cell, 4), dtype=np.float32)
+        orm[..., 0] = _pixels(work['ao'])[..., 0]
+        orm[..., 1] = _pixels(work['r'])[..., 0]
+        orm[..., 2] = _pixels(work['m'])[..., 0]
+        atlas['orm'][y0:y0 + cell, x0:x0 + cell] = orm
+    if count > 1:
+        # The UVs show the first cell (bottom left in Blender's image space, top left once glTF flips v)
+        for d in bake_uv.data:
+            d.uv = d.uv / grid
+    images = {
+        'colour': _saved_image(name + '-colour', np.clip(atlas['colour'], 0, 1), False),
+        'normal': _saved_image(name + '-normal', np.clip(atlas['normal'], 0, 1), True),
+        'orm': _saved_image(name + '-orm', np.clip(atlas['orm'], 0, 1), True),
+    }
+    for img in work.values():
+        bpy.data.images.remove(img)
+    # One material reading the baked textures through the bake map, which becomes the only UV map
+    m = bpy.data.materials.new(name + '-surface')
+    try:
+        m.use_nodes = True
+    except AttributeError:
+        pass
+    nt = m.node_tree
+    bsdf = next(n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED')
+    col = nt.nodes.new('ShaderNodeTexImage')
+    col.image = images['colour']
+    nt.links.new(col.outputs['Color'], bsdf.inputs['Base Color'])
+    nor = nt.nodes.new('ShaderNodeTexImage')
+    nor.image = images['normal']
+    nmap = nt.nodes.new('ShaderNodeNormalMap')
+    nt.links.new(nor.outputs['Color'], nmap.inputs['Color'])
+    nt.links.new(nmap.outputs['Normal'], bsdf.inputs['Normal'])
+    orm = nt.nodes.new('ShaderNodeTexImage')
+    orm.image = images['orm']
+    sep = nt.nodes.new('ShaderNodeSeparateColor')
+    nt.links.new(orm.outputs['Color'], sep.inputs['Color'])
+    nt.links.new(sep.outputs['Green'], bsdf.inputs['Roughness'])
+    nt.links.new(sep.outputs['Blue'], bsdf.inputs['Metallic'])
+    group = bpy.data.node_groups.get('glTF Material Output')
+    if group is None:
+        group = bpy.data.node_groups.new('glTF Material Output', 'ShaderNodeTree')
+        group.interface.new_socket('Occlusion', in_out='INPUT', socket_type='NodeSocketFloat')
+    gout = nt.nodes.new('ShaderNodeGroup')
+    gout.node_tree = group
+    nt.links.new(sep.outputs['Red'], gout.inputs['Occlusion'])
+    mesh.materials.clear()
+    mesh.materials.append(m)
+    for p in mesh.polygons:
+        p.material_index = 0
+    for layer in [l for l in mesh.uv_layers if l.name != 'Bake']:
+        mesh.uv_layers.remove(layer)
+    export(name, [obj] + list(keep))
+    return obj
+
+
 def flat_copy(material):
     """A texture-free stand-in for a material: the average colour of its base colour image (times its tint).
     A first guess only: match_lods.py sets the final colour, roughness and metalness on the packed GLBs"""
@@ -460,13 +819,14 @@ def flat_copy(material):
     return flat
 
 
-def export_lod(name, obj, ratio=0.3, suffix='-lod1'):
+def export_lod(name, obj, ratio=0.3, suffix='-lod1', textured=False):
     """A decimated copy for distant views (catalogue `lod`), exported next to the model. Textured
-    materials become their average colour, so the LOD file carries no second copy of the textures"""
+    materials become their average colour, so the LOD file carries no second copy of the textures;
+    `textured` keeps a baked surface (bake_surface) with its UVs: its paint and markings are the look"""
     lod = obj.copy()
     lod.data = obj.data.copy()
     bpy.context.collection.objects.link(lod)
-    for slot in lod.material_slots:
+    for slot in ([] if textured else lod.material_slots):
         source = slot.material
         if source is not None:
             # Object-level slot: the shared mesh data keeps the textured materials for the full model
@@ -480,7 +840,7 @@ def export_lod(name, obj, ratio=0.3, suffix='-lod1'):
     bpy.ops.object.modifier_apply(modifier=mod.name)
     # Collapsed edges can leave duplicate faces behind (box-built parts)
     lod.data.validate()
-    while len(lod.data.uv_layers):
+    while len(lod.data.uv_layers) and not textured:
         lod.data.uv_layers.remove(lod.data.uv_layers[0])
     export(name + suffix, [lod])
     bpy.data.objects.remove(lod)
