@@ -247,6 +247,103 @@ Dev-Server nach dem Wechsel auf diesen Stand einmal neu starten.
 - **E6 Editor:** Place, Q/E dreht, Gebäude richten sich zur Straße („Face the road“); Seeufer ohne Sägezahn; Speichern
   ohne Ruckler; Vulkan mit Glow cracks glüht, Krater auf Gipfeln hält Lava; Stempel nimmt Teiche mit.
 
+## F Engine-Runde R4 (2026-10-17)
+
+Branch `eng/r4`, Dev-Server nach dem Wechsel auf diesen Stand einmal neu starten. Eigene Karten: Built Worlds, Karte
+wählen, Play; Editor: Karte wählen, „Edit“. Alle mitgelieferten Karten sind neu gebacken: ältere Replays, Spielstände
+und eigene Kopien darauf gelten als andere Karte. OSM-Welten für diese Punkte neu erzeugen. Logik ist per Tests
+gedeckt, hier stehen nur Augen, Ohren und echte Karten.
+
+Paket F1, Ruckler im Spiel:
+
+- **F1.1 Erster Wechsel:** Autumn Keep frisch laden, Developer options, einmal Nacht, Dämmerung, Regen und Sturm
+  wählen. *Kein Standbild beim ersten Wechsel, Lampen gehen ohne Hänger an.* Danach je Tower-Typ den ersten bauen:
+  *kein Ruckler beim Erscheinen.*
+- **F1.2 Qualitätswechsel:** im Spiel Esc, Settings, Graphics, Picture quality von High auf Medium, dann Low und
+  zurück auf High; einmal gleich nach dem Laden, einmal nach einer Minute Bauphase. *Das Bild steht nie, die neue
+  Stufe zeigt sich nach einem Moment.*
+- **F1.3 Bloom:** Settings, Effects, „Bloom“ an und aus, „Color grading“ wechseln. *Kein Ruckler, der Wechsel zeigt
+  sich nach wenigen Sekunden.*
+- **F1.4 Herbert:** Welle 1, Kill All, im Wave Debugger auf 10, Start. *Herbert erscheint ohne Standbild.*
+
+Paket F2, Menü:
+
+- **F2.1 Hover auf den Globen:** Startseite, Maus langsam über jeden Globus, dann per Tab. *Der Globus wächst sichtbar
+  (Mini-Globus etwas mehr), ein heller Rand blendet ein, er dreht schneller; flüssig, danach wieder klein.*
+- **F2.2 OSM-Globus:** den OpenStreetMap-Globus ansehen. *Farben wie auf den Karten (Wiese, Wald, Steppe, Sand, Fels,
+  Schnee), Felder als Parzellen, Orte mit Dächern und Straßen, Nachtseite mit Fenstern; kein Hellblau und Beige.*
+- **F2.3 Kartenliste mit Weg zurück:** eine eigene Karte spielen, Esc, „Edit this map“, im Editor die Kartenliste
+  öffnen; einmal ebenso aus „Test map“ heraus. *Oben der Pfad Worlds › Built Worlds › Map editor, Zurück-Pfeil und
+  benannter Knopf.* Esc: *mit wartendem Lauf zurück in den Lauf, sonst zu Globen oder Weltmenü; eine offene Frage,
+  Import oder New map schließt Esc zuerst.*
+- **F2.4 Editor im Coop gesperrt:** Coop-Raum auf einer eigenen Karte (Lobby und Spiel), Esc. *„Edit this map“ steht
+  da, gesperrt mit „Leave the coop room to edit“; ebenso „Edit map“ beim Game over.*
+
+Paket F3, OSM-Welt:
+
+- **F3.1 Rahmen:** OpenStreetMap, Adresse suchen, den goldenen Rahmen an der Kante ziehen, an einer Ecke kleiner
+  ziehen. *Seitenlänge steht darüber (1,2 bis 2,4 km in 100-m-Schritten), die Adresse bleibt mindestens 200 m innen;
+  nach dem Loslassen neue Anordnung, passende Spawns bleiben.* Während der Rahmen lädt, einen Spawn ziehen: *geht
+  nicht.* „Try again now“ während des Ladens: *der verschobene Rahmen bleibt.*
+- **F3.2 Fortschritt:** „Make the map“. *Beim Laden Daten, Overpass (Sekunden, dann Bytes) und Höhenkacheln (n von m)
+  nebeneinander; beim Erzeugen neun Stufen mit Haken, Schritt in Worten, Prozent und Balken, der auch in langen
+  Schritten weiterläuft; Wartezeiten und Fehler verständlich, Oberfläche bedienbar.*
+- **F3.3 Straßen aus der Ferne:** Miltenberg neu erzeugen, spielen, Kamera hoch und weit. *Straßen lesen sich als
+  Straßen: gerade Kanten, Belag längs, Rand- und Mittellinien je Klasse, Wohnstraßen mit Bordstein und Rinne,
+  Kreuzungen ohne Naht, am Rand ein Bankett statt Gras.* Altstadtgassen: *nicht mehr fransig und kantig.*
+- **F3.4 Tunnelportal:** in derselben Welt an beide Tunnelportale heran. *Portal zeigt nach außen, kein Flimmern an
+  den hinteren Kanten, der Hang liegt auf dem Gewölbe, die Straße läuft sichtbar hinein, Gegner gehen hindurch.*
+
+Paket F4, Wasser, Natur, Boden:
+
+- **F4.1 Ufer und Wasser:** Archipelago und Witch Marsh, Spielkamera und nah. *Schaum als Spitze mit Lücken, mal
+  schmal, mal breit, atmet am Ufer; aus der Ferne nur ein Hauch, kein weißer Rahmen.* Ein Fluss und ein höher
+  gelegener See (Editor, Water, Becken gießen): *Flachwasser nicht türkis wie Plastik, Fluss trüber mit Bahnen in der
+  Strömung, über der Wasserlinie ein nasser, glänzender Film.*
+- **F4.2 Lava:** Ember Crater, Spielkamera und nah. *Geschlossene Risse dunkel, offene glühen, keine Waben, ein
+  Lavafluss zeigt keine Dreiecke.*
+- **F4.3 Bäume und Nordlicht:** Mountain Pass, Nadelbäume im Wind. *Sie wiegen sich langsam als Ganzes, nichts
+  wobbelt oder flimmert.* Frost Hamlet nachts: *Nordlicht als gefaltete Vorhänge im Norden, unten hell und scharf,
+  wandernd, keine gleichen Streifen.*
+- **F4.4 Bodenoptik:** Demo Valley, Autumn Keep und Harbor Town, Spielkamera und nah. *Böden wirken gemalt,
+  Stimmung je Biom, Wegränder zertreten, Geröll am Fuß von Fels und Hängen, Uferstreifen, Kleeinseln mit Blüten in
+  der Wiese; Pflaster, Asphalt und Planken sauber, ohne gelbliche Flecken.*
+
+Paket F5, Gegner, Tower, Ton:
+
+- **F5.1 Zombies:** Custom Wave, Zombie, Count 40, dann auf 4x. *Fahle Haut (grau-grün, gelblich, bläulich),
+  verblichene Kleidung, Dreck von den Füßen, Blut von Brust und Mund, jeder etwas anders; der Lauf flüssig auch bei
+  4x, Zombie V1 ohne Sprung am Loop-Ende.*
+- **F5.2 Tower auf Mauern und Gebäuden:** Autumn Keep oder Twin Gates, einen Tower auf den Wehrgang einer Burgmauer,
+  einen auf ein Hausdach setzen. *Auf der Mauer rückt er auf die Mittellinie, Konsolen tragen ihn beidseitig; auf dem
+  Dach steht er auf dem Dach.* Palisade oder Zaun: *kein Bauplatz.*
+- **F5.3 Sägearme:** Chainsaw gegen eine Welle, danach verkaufen. *Arme klappen in zwei Stufen aus, bleiben auf ihrer
+  Seite, kreuzen und durchdringen sich nicht, folgen weich; nach dem Verkauf sofort still.*
+- **F5.4 Ton:** Sentinel Laser, Chainsaw, Shawarma Slicer und Iron Bastion bauen, eine Welle. *Eigene Klänge (Laser
+  zündet und brummt, Säge läuft an, läuft, schneidet, Slicer-Maschine), die Flak-Salve knallt dort, wo sie platzt.*
+  Demo Valley eine Minute hinhören: *Umgebung leiser, Vögel als einzelne Rufe mit Pausen, keine Dauerschleife.*
+
+Paket F6, Editor:
+
+- **F6.1 Absenken:** Editor, Terrain, „Lower“, einen tiefen Strich über eine Kachelgrenze halten. *Kein dunkles
+  Kreuz entlang der Kachelränder, auch nicht während des Strichs.*
+- **F6.2 Ohne Hänger:** eine OSM-Welt im Editor. Landscape, Gebirge groß malen; Roads, einen Knoten ziehen; Check
+  offen (V) beim Malen; Ctrl+S. *Flüssig, die Straßenfläche folgt dem Knoten, der Check meldet erst nach dem Strich,
+  Speichern ohne Ruckler.*
+- **F6.3 Hang-Fels und Mountain Pass:** Mountain Pass im Spiel und im Editor. *Objekte sitzen auf dem Boden, nichts
+  schwebt oder sinkt ein.* Editor, Objects, einen Fels an einen steilen Hang setzen, Check: *„floating“ nur, wenn
+  man den Spalt auch sieht.*
+- **F6.4 Unbekanntes Biom:** eine `.3dtdmap` entpacken (Zip), in `map.json` `environment.biome` auf `"jungle"`
+  setzen, wieder packen, Editor, Kartenliste, „Import file“. *Die Karte öffnet, Banner „environment biome jungle is
+  unknown; the map looks temperate“.* Dieselbe Karte spielen: *das Banner bleibt, bis man es schließt.*
+
+Paket F7, Modelle:
+
+- **F7.1 Pfahlhaus:** Witch Marsh, am nördlichen Steg. *Das Pfahlhaus steht neben dem Steg, nicht darauf.*
+- **F7.2 Kutter und Kühe:** `/map-preview?assets=fishing-boat,cow,cow-grazing,cow-lying`. *Kutter mit Rumpf, Kajüte,
+  Mast und Deckzeug, verwittert; Kühe mit Fell statt einfarbig.* Im Editor, Objects, mehrere Kühe streuen: *Holstein,
+  Fleckvieh, Braunvieh und Angus gemischt.*
+
 ## Eichtabelle
 
 Fingerprints aus `__corridor.fingerprint()` für K2.1 und K2.2. Alle Werte vor 748 (Rothenburg `d8050177`, Tokyo

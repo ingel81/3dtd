@@ -17,142 +17,30 @@ Nach dem Test geht ein Eintrag **nur auf Zuruf des Users** nach DONE.md. Die Ken
 und werden nicht neu vergeben, Neues bekommt die nächste freie Nummer. Nichts Internes ins Repo (Adressen,
 Mitspielernamen, Gesprächsdetails).
 
-Stand 2026-10-16 (Nachtschicht). 0.7.1 ist veröffentlicht (`origin/main` = `v0.7.1`). Die Arbeit seit 0.7.0 liegt
-lokal auf `night/custom-maps-round2` (über 300 Commits, nicht gepusht; ein Push veröffentlicht auch die gesperrten
-eigenen Karten, Coop-Protokoll 5). Die Worker-Runden vom 2026-10-15 sind übernommen (Abschnitt 2).
+Stand 2026-10-17. 0.7.1 ist veröffentlicht (`origin/main` = `v0.7.1`). Die Arbeit seit 0.7.0 liegt lokal auf `next`,
+die Engine-Runde R4 darauf auf `eng/r4` (nicht gepusht; ein Push veröffentlicht auch die gesperrten eigenen Karten,
+Coop-Protokoll 5). Die Worker-Runden vom 2026-10-15 und die Engine-Runde R4 sind übernommen (Abschnitt 2).
 
 ---
 
 ## 1. Offen
 
-Reihenfolge (User, 2026-10-17): erst die Engine-Runde, dann das Showreel, dann die Karten. Maßstab: extrem
+Reihenfolge (User, 2026-10-17): erst die Engine-Runde (gebaut), dann das Showreel, dann die Karten. Maßstab: extrem
 performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Optik und Performance keine Kompromisse.
 
-### Engine-Runde R4 (jetzt, in dieser Reihenfolge)
+### Engine-Runde R4: Rest (parallel zum Showreel)
 
-G1 bis G6 laufen parallel (je ein Worker). Vorab und parallel vier Code-Analysen ohne Bau: Performance im
-Spiel, Hauptthread im Editor (was in einen Web Worker kann), Architektur des Editor-Kerns, Datenweg des Editors
-(Format, Laden, Bake, OSM). Kleine Befunde gehen in die Gruppen, große Umbauten nach der Runde auf Entscheid. In
-jeder Gruppe zuerst die Fehler, dann das Kleine, dann das Große.
+G1 bis G7 sind gebaut (Abschnitt 2, Nachtests in PLAYTEST.md F). Jetzt das Showreel Runde 5; der Rest des
+Editor-Workers und das Gelände auf der GPU laufen parallel dazu (Plan `tmp/plan/r4/UMBAU_PLAN.md`).
 
-#### G1 Performance
+- [ ] **E228 Editor-Worker, Rest**: gebaut sind Teil 1 bis 5 (Speichern, Check und Bauflächen, Routen, Wegmaske,
+      Verdeckung, Krümmung, Lava, Fernschatten und Höhenlinien im Worker auf dem Spiegel der Karte). Offen: Teil 6
+      Generieren und Erodieren im Editor-Worker (der eigene Terrain-Worker geht darin auf), Teil 7 Entpacken beim
+      Laden und die Minikarte per OffscreenCanvas.
+- [ ] **E229 Gelände auf der GPU**: Höhe im Vertex-Shader aus der Höhentextur, Normalen aus der GridNormalTexture,
+      Editor, Spiel und Schattenpass. Nach E228.
 
-- [ ] **E215 Ruckler im Spiel und im Editor beseitigen** (User, 2026-10-17: „diese Ruckeleien können wir nicht
-      gebrauchen“; im Zweifel mehr Warm-up und länger laden, Shader vorberechnen). Belegt aus den Showreel-Takes
-      2026-10-16/17: (1) Bild hält 2 bis 4 s beim ersten Wechsel von Wetter, Tageszeit, Nebel oder Fackeln (ANGLE
-      übersetzt die Programme im GPU-Prozess beim ersten Zeichnen; das Showreel-Rig wartet deshalb vor jedem Take per
-      Pixel-Rücklesen); (2) Herbert hält das Bild beim ersten Erscheinen 4,4 s (Modell/Programme erst beim Spawn);
-      (3) Editor-Striche (Gebirge, Gelände, Objekte setzen) ruckeln 150 bis 300 ms je Neuberechnung, bis zu 13 Mal
-      je Szene. Ansätze: alle Licht-, Wetter- und Effekt-Varianten beim Laden kompilieren (`compileAsync`, Ladebild
-      bis die GPU fertig ist), Gegner- und Turmmodelle der Karte/Welle vorladen und einmal unsichtbar zeichnen,
-      Editor-Neuberechnung aufteilen oder in den Worker. Je Fall kurz prüfen, was es bringt, keine großen Messreihen.
-
-#### G2 Menü, Navigation, OSM-Oberfläche
-
-- [ ] **E219 Kartenauswahl ohne Ausweg** (User, 2026-10-17): aus dem Spiel bzw. einer Testwelt heraus landet man auf
-      der Auswahlmaske der Custom Maps, die allein steht: kein Abbrechen, kein Zurück ins Menü, nur Karte wählen,
-      editieren oder erstellen. Zurück/Abbrechen (auch Esc) zum Weltmenü bzw. dorthin, woher man kam; Einstiegswege
-      prüfen, wann die Maske ohne Rahmen erscheint.
-- [ ] **E207 Weltmenü: Hover auf den Globen** (User, 2026-10-17, Showreel-Review): fährt die Maus über einen Globus,
-      muss er sich sichtbar ändern, z. B. kurz größer werden.
-- [ ] **E209 OSM-Panel: Kartenausschnitt verschieb- und skalierbar** (User, 2026-10-17): der goldene Rahmen (heute fest
-      2,4 km um das HQ) soll sich in der Größe ändern und verschieben lassen.
-- [ ] **E218 Fortschritt beim Erzeugen aus OSM** (User, 2026-10-17): beim Generieren einer Welt aus OSM fehlt dem
-      Spieler Fortschritt und Rückmeldung. Schritte sichtbar (Daten laden, Gelände, Straßen, Wasser, Gebäude, Bake) mit
-      Fortschrittsbalken, was gerade passiert, Fehler und Wartezeit (Overpass) verständlich, UI bleibt bedienbar.
-- [ ] **E208 OSM-Globus im Stil der erzeugten Karten** (User, 2026-10-17): der Globus der OSM-Welt zeigt heute flache
-      OSM-Kacheln (hellblau/beige); er soll aussehen wie die Karten, die daraus entstehen („what you see is what you get“).
-
-#### G3 Darstellung von Gelände und OSM
-
-- [ ] **E205 Flimmern an den Tunnelportalen der OSM-Welt** (User, 2026-10-17, Showreel-Review osm-fly): an beiden
-      Portalen flimmern/flackern die hinteren Kanten rechts und links (dunkler, gesprenkelter Rand des hinteren
-      Portalteils), vermutlich Schattenkante oder Z-Fighting zwischen Portal und Hang.
-- [ ] **E204 Dunkles Kreuz im Gelände beim Absenken** (Showreel-Probe 2026-10-16, Stillwater b1): Während eines
-      Lower-Strichs liegt etwa 1 s ein dunkles Kreuz entlang der Terrain-Kachelränder, es wächst mit der Tiefe und
-      ist nach dem Strich weg. Normalen und Skirts werden synchron aktualisiert (`terrain-chunks.ts` updateGeometry);
-      Ursache offen, Kandidaten: Schatten-Teilaufbau während des Strichs, Geomorph/LOD im Shadow-Pass, Skirts. Im
-      Browser mit Schatten aus/an gegenprüfen. Im Showreel vorerst umschnitten.
-- [ ] **E203 Straßen der OSM-Welt aus der Ferne lesbar** (User, 2026-10-16, Test Binswangen): Der Nachbau aus OSM
-      klappt schon sehr gut, die Straßen sehen von weitem aber nicht wie Straßen aus (graue Bänder, die Textur
-      scheint nicht entlang der Straße zu laufen). Belag in Fahrtrichtung ausrichten (UV entlang der Straße),
-      Randlinien und Mittelstreifen je Straßenklasse, damit Straßen auch aus der Distanz lesbar sind. Verwandt:
-      „OSM: Gehweg und Pflaster eine Schicht“ (Abschnitt 2). Showreel-Review 2026-10-17 (Altstadtgasse Miltenberg):
-      Straßen im Ort zu fransig und kantig, die Straßenkante muss geradlinig sein und der Belag nach Straße aussehen.
-
-#### G4 Natur und Wasser
-
-- [ ] **E216 Uferschaum zu gleichmäßig** (User, 2026-10-17): um jedes Gewässer läuft ein weißer Strich (Brandung bzw.
-      Schaum am Rand), überall gleich breit und identisch, wirkt teils wie ein weißer Rahmen. Breite und Dichte
-      unregelmäßig (Rauschen, Uferneigung, Wassertiefe), aufgelöst statt geschlossener Linie, bewegt.
-- [ ] **E173 Wasser und Lava auf eigenen Karten schöner** (User, 2026-10-14 und 2026-10-15): Seen, Flüsse und gegossene
-      Becken wirken billig; bessere Shader für Wasser (Reflexion, Ufer, Tiefe, Bewegung) und genauso für Lava,
-      möglichst ohne Leistungsverlust (Kosten je Frame vorher/nachher messen, Grafikstufen beachten). Läuft seit
-      2026-10-15 auf `wt/fx-water`.
-- [ ] **E210 Baum-Wind wobbelt** (User, 2026-10-17, Showreel-Review Mountain Pass): Nadelbäume wobbeln/flimmern statt
-      sich im Wind zu wiegen. Wind-Bewegung im Baum-Shader ruhiger und glaubwürdiger (Stamm steif, Krone und Äste
-      schwingen, langsame Böen).
-- [ ] **E212 Nordlichter zu gleichmäßig** (User, 2026-10-17, Frost Hamlet): die Bänder sind regelmäßige senkrechte
-      Streifen; Vorhänge mit Faltung, wechselnder Breite und Helligkeit, langsam wandernd.
-
-#### G5 Gegner und Spiel auf eigenen Karten
-
-- [ ] **E217 Tower auf Editor-Gebäuden und Mauern** (User, 2026-10-17, Testspiel auf eigener Karte): auf Gebäude, die im
-      Editor gesetzt wurden, lassen sich im Spiel keine Tower stellen; sie taugen nicht als Untergrund. Soll gehen für
-      Mauern, Türme, Gebäude und Co. (Dach/Oberkante als Bauplatz, wie Tiles-Gebäude auf Echtwelt-Karten).
-- [ ] **E213 Gegner-Animationen weicher, auch bei 4x** (User, 2026-10-17, Showreel-Review Bosswelle): die
-      Zombie-Animation sieht bei 4x Spielgeschwindigkeit sehr schlecht aus. Animation generell weicher (VAT-Bilder je
-      Sekunde, Interpolation zwischen den Bildern), auch bei hoher Geschwindigkeit flüssig. Besonders Zombie V1
-      (User, 2026-10-17): extrem hakelig, vor allem schnell abgespielt; der Loop schließt nicht sauber (Sprung am
-      Loop-Ende sieht wie Ruckeln aus). Erstes und letztes Bild des Clips angleichen, Interpolation über die Naht.
-- [ ] **E220 Zombie-Farben realistischer und vielfältiger** (User, 2026-10-17): zu wenig Varianz; die Farben sind satt,
-      wirken aber wie eine beliebige Palette statt wie echte Zombies. Entsättigte, fahle Haut (grau-grün, gelblich,
-      bläulich), verschmutzte und verblichene Kleidung, Blut und Dreck, mehr Abstufung je Instanz. Baut auf E185
-      (Kleidungsvarianten) auf.
-- [ ] **E211 Umgebungsgeräusche zu laut** (User, 2026-10-17): Vogelzwitschern, Grillen und Co. sind generell viel zu
-      laut und nerven teils. Pegel der Ambient-Klänge gegenüber Spielton und Musik senken. Am schlimmsten: das
-      Vogelzwitschern auf Demo Valley (nervt extrem); dort zuerst, dazu seltener und unregelmäßiger statt Dauerschleife.
-
-- [ ] **E221 Chainsaw-Tower: Arme und Ton** (User, 2026-10-17): die Roboterarme wirken wild und unkontrolliert und
-      überlappen sich teils. Bewegung eleganter (Gelenkgrenzen, keine Durchdringung, geführte Bahnen), Ein- und
-      Ausfahren klar inszeniert. Baut auf E102 auf; Ton siehe E222.
-- [ ] **E222 Sounds der vier neuen Tower** (User, 2026-10-17): Iron Bastion, Sentinel Laser, Chainsaw (Anlauf, Lauf,
-      Last beim Treffer), Shawarma Slicer klingen noch nicht gut. Neu mit ElevenLabs, Auswahl je Tower und Ereignis als
-      Artefakt für den User (Weg wie `tmp/sound-audition`, ernst statt comichaft), dann installieren.
-
-#### G6 Assets und Optik der Karten
-
-- [ ] **E206 Witch Marsh: Pfahlhaus schneidet den Steg** (User, 2026-10-17, Showreel-Review wx-marsh): der Steg läuft
-      durch das Pfahlhaus. Über das Level-Skript der Karte korrigieren (keine Sonderwege, E190).
-- [ ] **E179 Objektmodelle und ihre Texturen verfeinern** (User, 2026-10-15): Gebäude und Co. wirken grob. Die rund
-      450 Modelle unter `public/maps/assets/models/` baut `tools/map-assets/build_models.py` prozedural in Blender 5.1
-      (CC0, keine KI-Generatoren, `LICENSES.md`). Im selben Weg verfeinern: Details an den Bauskripten (Fenster,
-      Dachkanten, Sockel, Kantenfasen), Texturen in Blender (Verdeckung, Kantenabnutzung, Schmutz backen; höhere
-      Auflösung wo es lohnt, heute WebP 512 px), LODs neu (`make_lods.py`, `match_lods.py`), im Budget (Scene cost,
-      E169). Zuerst die Gebäude aus dem Showreel; Vorher/Nachher-Bilder je Modell zur Abnahme. Aus dem Showreel-Review
-      2026-10-17: Fischerboot billig (Kisten-Kajüte, dünner Mast, flacher Rumpf), Kühe einfarbig braun, besser
-      texturieren.
-- [ ] **E214 Optik der Custom Maps mit mehr Liebe** (User, 2026-10-17): insgesamt noch generisch und lieblos, die
-      Texturen ebenso. Gelände-Texturen (Gras, Erde, Fels, Sand, Schnee) mit mehr Detail und Variation, Übergänge,
-      Licht und Farbstimmung. Größeres Thema, eigener Plan mit Vorher/Nachher-Bildern zur Abnahme. Verwandt: E173
-      (Wasser, Lava), E179 (Modelle), E184 (Karten).
-
-**G7 Umbau Editor und Kartenformat** (Entscheide User 2026-10-17, Plan `tmp/plan/r4/UMBAU_PLAN.md`)
-- [ ] **E223 Kartenformat**: neue Pflichtfelder heben `MAP_VERSION` („Update the game“), neue Aufzählungswerte fallen
-      beim Lesen auf den Standard mit Meldung; harte Struktur- und weiche Inhaltsprüfung (kaputtes Objekt fällt weg);
-      Papierkorb ohne volle Prüfung.
-- [ ] **E224 Level-Bake als Befehl**: `npm run maps:bake` baut die mitgelieferten Level, `npm test` prüft nur den Hash.
-- [ ] **E225 Ein Höhenmodell**: Editor rechnet wie Spiel und Renderer (`cellHeight`), bewusster Bake, vor Video R5.
-- [ ] **E226 Gemeinsame Kartenbibliothek**: reine Operationen aus `editor/ops` und `editor/model` nach `src/app/map-ops/`,
-      Lint-Verbot `world/** -> editor/**`.
-- [ ] **E227 Editor-Kern**: Befehle aus `tools/` nach `ops/`/`model/commands` (Lint), ein Transaktionsmodell mit
-      Abbruch, `EditorSession` in Dienste schneiden (Bibliothek, Speichern zuerst), Reaktivität je Teil statt Zähler
-      und Polling, Panels ändern nur über `session.edit`, `TOOL_DEFS`, Viewport schneiden, Renderer ohne Proxy.
-- [ ] **E228 Editor-Worker**: Spiegel der Karte im Worker; Speichern, Check, Routen, Wegmaske, Verdeckung,
-      Generieren, Entpacken, Minikarte vom Hauptthread. Nach E227.
-- [ ] **E229 Gelände auf der GPU**: Höhe im Vertex-Shader aus der Höhentextur, Editor, Spiel und Schattenpass. Nach E228.
-
-### Danach: Showreel Runde 5
+### Jetzt: Showreel Runde 5
 
 - [ ] **E182 Showreel Runde 4** (User, 2026-10-16: v3 abgelehnt, „nicht gut“; Runde 4 pausiert, bis das Spiel rund ist):
       Drehbuch freigegeben `tmp/showreel/DREHBUCH_R4.md` (lang 6:52, kurz 1:50, englische Texte), Gesamtliste
@@ -161,9 +49,10 @@ jeder Gruppe zuerst die Fehler, dann das Kleine, dann das Große.
       Kapitel geprobt auf `wt/reel-k12` (K1, K2), `wt/reel-k3` (K3 Stillwater, wip), `wt/reel-k457` (K4, K5, K7),
       `wt/showreel2` (K0, K6). Gedreht und geschnitten 2026-10-17 (50 Takes; full, medium, short, fast, rapid und eine
       Review-Fassung mit Szenenname auf dem NAS). Feedback des Users je Szene in `tmp/showreel/FEEDBACK_R4.md`.
-      **Ruht, bis die Engine-Punkte gelöst sind** (User, 2026-10-17: erst Engine, dann Video): E203, E205 bis E222,
-      dazu E179 (Boote, Kühe). Danach Runde 5 nach Teil B der Feedback-Datei; für das Feedback wieder eine
-      Review-Fassung mit Szenenname (`tmp/showreel/edit/build.py <liste> --review`).
+      Die Engine-Punkte dafür sind gebaut (Engine-Runde R4, Abschnitt 2). Jetzt Runde 5 nach Teil B der
+      Feedback-Datei; OSM-Welten und Fixtures auf mitgelieferten Leveln neu erzeugen (Tunnelportale und Höhenmodell
+      geändert, alle mitgelieferten Karten neu gebacken). Für das Feedback wieder eine Review-Fassung mit Szenenname
+      (`tmp/showreel/edit/build.py <liste> --review`).
 
 ### Danach: Karten ausbauen und freigeben
 
@@ -173,6 +62,14 @@ jeder Gruppe zuerst die Fehler, dann das Kleine, dann das Große.
       Dämmerung nur Silhouette, langer leerer weißer Hang in Frost Hamlet. Nach E180 (Fehler zuerst; fx-maps schreibt
       je Karte Vorschläge, liegen vor zur Auswahl durch den User); je Karte ein Vorschlag mit Vorher-Bildern, dann die Level-Skripte
       (`tools/maps/levels/`, `LevelKit`) ausbauen. Hängt mit E179 (bessere Modelle) und E182 (Showreel) zusammen.
+- [ ] **E179 Objektmodelle und ihre Texturen verfeinern** (User, 2026-10-15): Gebäude und Co. wirken grob. Die rund
+      450 Modelle unter `public/maps/assets/models/` baut `tools/map-assets/build_models.py` prozedural in Blender 5.1
+      (CC0, keine KI-Generatoren, `LICENSES.md`). Im selben Weg verfeinern: Details an den Bauskripten (Fenster,
+      Dachkanten, Sockel, Kantenfasen), Texturen in Blender (Verdeckung, Kantenabnutzung, Schmutz backen; höhere
+      Auflösung wo es lohnt, heute WebP 512 px), LODs neu (`make_lods.py`, `match_lods.py`), im Budget (Scene cost,
+      E169). Zuerst die Gebäude aus dem Showreel; Vorher/Nachher-Bilder je Modell zur Abnahme. Fischkutter und Kühe
+      sind in der Engine-Runde R4 neu gebaut (Abschnitt 2); der Weg dafür steht: Verwitterung und Fell per
+      `blender_kit.bake_surface` in Farbe, Normalen und ORM gebacken, Varianten je Instanz im Atlas (`variants`).
 - [ ] **E190 Karten lebendiger** (User, 2026-10-15): neben der Gestaltung (E184) Bewegung und Leben in der Welt, z. B.
       Vogelschwärme, Rauch aus Schornsteinen, Fahnen, Boote, die treiben, Glühwürmchen und Funken bei Nacht, Tiere am
       Rand, Umgebungsgeräusche je Biom; alles billig (Partikel, Shader, wenige Instanzen) und je Grafikstufe abschaltbar.
@@ -255,6 +152,25 @@ jeder Gruppe zuerst die Fehler, dann das Kleine, dann das Große.
 ---
 
 ## 2. Gebaut, wartet auf Test
+
+### Engine-Runde R4 (2026-10-17, Branch `eng/r4`, Nachtests in PLAYTEST.md F)
+
+- [ ] **G1 Ruckler** E215: alle Lichtzustände, Tower, Linien und versteckten Kartenteile beim Laden kompiliert und
+      gezeichnet; Qualität, Bloom und Grading im Hintergrund vorbereitet, Wechsel ohne Standbild; Himmel blendet auf
+      der GPU, Sichtlinien lesen ohne Warten; Editor-Striche, Straßen ziehen, Check und Speichern ohne Hänger (F1, F6).
+- [ ] **G2 Menü und OSM** E219 Weg zurück aus der Kartenliste, E207 Hover der Globen, E209 Rahmen verschieb- und
+      skalierbar, E218 Fortschritt in Stufen, E208 OSM-Globus im Stil der Karten; Editor im Coop gesperrt (F2, F3).
+- [ ] **G3 Gelände und OSM** E205 Tunnelportale (ältere OSM-Welten neu erzeugen), E204 kein dunkles Kreuz beim
+      Absenken, E203 befestigte Straßen als Fläche mit geraden Kanten und Markierung je Straßenklasse (F3, F6).
+- [ ] **G4 Natur** E216 Uferschaum als Spitze, E173 Wasser nach Tiefe, Flüsse mit Strömung, nasse Ufer, Lava mit
+      offenen und geschlossenen Rissen, E210 Baum-Wind, E212 Nordlicht als Vorhänge (F4).
+- [ ] **G5 Gegner, Tower, Ton** E217 Tower auf Dächern und Mauerkronen, E213 VAT weich und Loops geschlossen, E220
+      Zombie-Farben, E221 Sägearme, E222 eigene Tower-Sounds und Flak-Salve, E211 Umgebung leiser, Vögel als Rufe (F5).
+- [ ] **G6 Karten** E206 Pfahlhaus neben dem Steg, E179 Fischkutter und Kühe, E214 Bodenoptik (Böden gebacken und
+      gemalt, Stimmung je Biom, Wegränder, Geröll, Uferstreifen, Kleeinseln, Beläge sauber); Check nach Fußabdruck (F4, F7).
+- [ ] **G7 Editor und Kartenformat** E223 weiches Lesen, E224 `npm run maps:bake`, E225 ein Höhenmodell (alle
+      mitgelieferten Karten neu gebacken: ältere Replays und Spielstände darauf gelten als andere Karte), E226
+      `src/app/map-ops/`, E227 Editor-Kern geschnitten, E228 Teil 1 bis 5 (F6).
 
 ### Nachtschicht 2026-10-15/16 (übernommen, Nachtests in PLAYTEST.md D)
 
