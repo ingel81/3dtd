@@ -272,6 +272,50 @@ float skyFbm(vec2 p) {
   return s;
 }
 
+// Three octaves of value noise, for the aurora's slow shapes
+float auroraFbm(vec2 p) {
+  return valueNoise(p) * 0.57 + valueNoise(p * 2.03 + vec2(17.3, -9.1)) * 0.29 + valueNoise(p * 4.1 + vec2(-5.2, 3.7)) * 0.14;
+}
+
+/**
+ * Aurora in a direction: two curtains hanging over the northern sky (map
+ * north, scene +z; fading out towards the south, so the azimuth's seam is
+ * never seen). Each curtain's foot meanders across the sky and drifts
+ * slowly; it is sharp and brightest, the light fades upwards over a height
+ * that changes along the curtain. Where the ribbon folds towards the viewer
+ * (its foot turns steeply) it is seen edge on and glows brighter. Rays run
+ * up it in bunches that wander along it, not one even comb, and its
+ * brightness swells and dies away along it. A pale green foot, a green body,
+ * red violet at the top.
+ */
+vec3 auroraLight(vec3 dir) {
+  float da = atan(dir.x, dir.z);
+  float spread = 1.0 - smoothstep(1.1, 2.3, abs(da));
+  vec3 light = vec3(0.0);
+  for (int k = 0; k < 2; k++) {
+    float fk = float(k);
+    float x = da * (2.1 + fk * 0.8) + fk * 7.3;
+    vec2 drift = vec2(uSkyTime * 0.011, fk * 3.1 + uSkyTime * 0.004);
+    float meander = auroraFbm(vec2(x, 0.0) + drift);
+    float turn = abs(auroraFbm(vec2(x + 0.05, 0.0) + drift) - meander) / 0.05;
+    float foot = 0.15 + fk * 0.11 + (meander - 0.5) * 0.3;
+    float h = dir.y - foot;
+    float fold = 1.0 / (0.4 + turn * 0.9);
+    float tall = mix(0.06, 0.24, valueNoise(vec2(x * 0.8 + 3.0 + fk * 11.0, uSkyTime * 0.008)));
+    float body = smoothstep(-0.008, 0.01, h) * exp(-max(h, 0.0) / tall);
+    // The rays follow the fold: their spacing squeezes where the foot turns
+    float rx = x * 16.0 + meander * 34.0;
+    float rays = valueNoise(vec2(rx, uSkyTime * 0.21 + fk * 5.0)) * 0.65 + valueNoise(vec2(rx * 2.9, uSkyTime * 0.37 - fk * 2.0)) * 0.35;
+    rays = 0.3 + 1.1 * rays * rays;
+    float swell = smoothstep(0.25, 0.8, valueNoise(vec2(x * 0.9 - uSkyTime * 0.017, fk * 9.0)));
+    float glow = body * rays * mix(0.15, 1.0, swell) * min(fold, 2.2) * (1.0 - fk * 0.4);
+    vec3 tint = mix(vec3(0.5, 1.0, 0.62), vec3(0.08, 0.92, 0.42), smoothstep(0.0, 0.035, h));
+    tint = mix(tint, vec3(0.42, 0.09, 0.36), smoothstep(0.06, 0.28, h));
+    light += tint * glow;
+  }
+  return light * spread * 0.5 * smoothstep(0.0, 0.1, dir.y);
+}
+
 // The Earth turned so Europe and Africa face the map, its north tilted a little towards the viewer and to the left
 const float PLANET_LON = 0.53;
 const float PLANET_TILT = 0.35;
@@ -371,14 +415,8 @@ vec3 skyColor(vec3 dir, bool withSun) {
     }
     // A planet (the earth over the moon) covers the stars behind it
     sky = sky * (1.0 - planet.a) + planet.rgb;
-    // Aurora: green curtains waving along the sky at night
-    if (uAurora > 0.0) {
-      float az = atan(dir.z, dir.x);
-      float wave = skyFbm(vec2(az * 3.0 + uSkyTime * 0.02, uSkyTime * 0.03));
-      float band = smoothstep(0.12, 0.25, dir.y - wave * 0.15) * smoothstep(0.65, 0.35, dir.y - wave * 0.15);
-      float rays = 0.6 + 0.4 * sin(az * 90.0 + wave * 20.0 + uSkyTime * 0.5);
-      sky += mix(vec3(0.1, 0.9, 0.45), vec3(0.5, 0.2, 0.8), smoothstep(0.35, 0.6, dir.y)) * band * rays * uAurora * 0.6;
-    }
+    // Aurora: curtains of light hanging over the northern sky (auroraLight)
+    if (uAurora > 0.0) sky += auroraLight(dir) * uAurora;
   }
   // Sun disc
   if (withSun) sky += uSunColor * smoothstep(0.9996, 0.9999, cosSun) * 6.0;

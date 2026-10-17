@@ -727,6 +727,14 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   blasser Butterscotch-Himmel am Tag, Licht fast weiß, Sättigung im Grading 0,74, damit der Boden seine Farben zeigt
   (heller Staub, dunkler Basaltsand, ockerfarbener Kies, rostige, graue und schwarze Steine); in der Dämmerung ein
   blauer Hof um die Sonne über braungrauem Himmel
+- **Polarlicht** (`auroraLight` in `sky-dome.ts`, Arktis bei Nacht): zwei Vorhänge über dem Nordhimmel (Karten-Norden,
+  nach Süden ausgeblendet, so liegt die Naht des Azimuts nie im Bild). Der Fuß jedes Vorhangs mäandert über den
+  Himmel und wandert langsam, er ist scharf und am hellsten, darüber verblasst das Licht über eine Höhe, die entlang
+  des Vorhangs wechselt. Wo das Band sich zum Betrachter faltet (der Fuß biegt steil), sieht man es von der Kante und
+  es leuchtet heller; die Strahlen laufen in Bündeln, die entlang des Vorhangs wandern und sich an Falten drängen,
+  die Helligkeit schwillt entlang des Vorhangs an und ab. Fuß blassgrün, Körper grün, oben rotviolett. Vorher ein
+  Band mit 90 gleichen senkrechten Streifen rundum. Rund 18 Rauschzugriffe je Himmelspixel, nur wo Polarlicht an ist
+  und kein Boden davor steht
 - **Planet** (`environment.planet`: `azimuth`, `elevation` in Grad, `size` als scheinbarer Durchmesser in Grad, 0
   keiner; `planetOf`): die Erde im prozeduralen Himmel (`planetColor` in `sky-dome.ts`, im Kuppel-Shader, kein
   eigener Draw Call; Uniforms `uPlanetDir`, `uPlanet` = Radius in Bogenmaß). Bild: NASA Blue Marble mit Wolken
