@@ -69,9 +69,9 @@ export interface AgentHost {
   /** Why the map cannot change now, or null */
   busyReason(): string | null;
   /** The check, shown to the player too */
-  runCheck(): MapIssue[];
+  runCheck(): Promise<MapIssue[]>;
   /** The check of the open map (or of `doc`) without showing it */
-  checkIssues(doc?: CustomMapDocument): MapIssue[];
+  checkIssues(doc?: CustomMapDocument): Promise<MapIssue[]>;
   execute(command: EditCommand): void;
   undo(): void;
   /** The panels read the document again (after a stroke that landed on its own) */
@@ -200,7 +200,7 @@ export class EditorAgent {
       case 'map_objects':
         return json(objectsIn(this.doc(), rectOf(args), typeof args['asset'] === 'string' ? args['asset'] : undefined));
       case 'check_map':
-        return json(issuesAsData(this.withMap(() => this.host.runCheck())));
+        return json(issuesAsData(await this.withMap(() => this.host.runCheck())));
       case 'catalog':
         return json(catalogAsData(this.loadedCatalog(), { category: args['category'] as string | undefined, tag: args['tag'] as string | undefined, search: args['search'] as string | undefined }));
       case 'script_api':
@@ -280,7 +280,7 @@ export class EditorAgent {
     } catch {
       // A plain sentence stays one
     }
-    const issues = issuesAsData(dry.checkIssues());
+    const issues = issuesAsData(await dry.checkIssues());
     return {
       text: JSON.stringify({
         dryRun: true,
@@ -478,7 +478,7 @@ export class EditorAgent {
     const played: PlayResult = await this.host.agentEdit(label, (ed, stop, progress) =>
       playCommands(ed, catalog, result.commands, seed, { animate: args['animate'] !== false, signal: stop, onProgress: progress }),
     );
-    const issues = issuesAsData(this.host.checkIssues());
+    const issues = issuesAsData(await this.host.checkIssues());
     return json({
       ok: true,
       changed: true,
@@ -822,11 +822,11 @@ class DryHost implements AgentHost {
     return null;
   }
 
-  runCheck(): MapIssue[] {
+  runCheck(): Promise<MapIssue[]> {
     return this.checkIssues();
   }
 
-  checkIssues(): MapIssue[] {
+  checkIssues(): Promise<MapIssue[]> {
     return this.real.checkIssues(this.editor.doc);
   }
 

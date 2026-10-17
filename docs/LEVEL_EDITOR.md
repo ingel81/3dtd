@@ -526,9 +526,10 @@ je Zelle (4 m, auf Karten über 2048 m die längere Seite durch 512) prüft `che
 und Spawns (60 m), die Route (10 m, `MIN_DISTANCE_TO_ROUTE`), `CustomMapSurface.buildBlocker` mit
 `TOWER_BUILD_RADIUS` (Wasser, Objekte, die das Bauen verbieten) und `resolveTowerFootprint` den Grund unter der
 Grundfläche eines Archer-Towers (Wand oder Abbruch unter Mitte oder innerem Ring); die Mitte der Zelle zählt. Die
-Rechnung läuft in einem Worker (`workers/build-areas.worker.ts`, 1024 m etwa 0,25 s, 2048 m etwa 0,85 s in Node
+Rechnung läuft im Editor-Worker samt der Routen (Auftrag `buildAreas`, 1024 m etwa 0,25 s, 2048 m etwa 0,85 s in Node
 gemessen), 0,6 s nach der letzten Änderung (`BUILD_AREA_DELAY_MS`), solange die Fläche oder der Check offen ist; eine
-Änderung währenddessen rechnet danach noch einmal. Wasser verdeckt die Fläche darunter (sie liegt auf dem Grund),
+Änderung währenddessen rechnet danach noch einmal. Der Hauptthread baute vorher Routen und Eingabe selbst (1025² mit
+50 000 Objekten in Node rund 70 ms samt Kopie), jetzt nur den Abgleich des Spiegels. Wasser verdeckt die Fläche darunter (sie liegt auf dem Grund),
 nur der Rand am Ufer zeigt rot.
 
 ### Symmetrie
@@ -568,7 +569,9 @@ jeder Straße prüft).
 
 „Check“ (V) listet Fehler vor Warnungen; ein Klick wählt das Betroffene, wechselt ins passende Werkzeug und zeigt es.
 Solange die Liste offen ist, prüft der Editor neu, sobald 300 ms nach einer Änderung nichts mehr kam und kein Strich
-oder Ziehen mehr läuft (eine OSM-Welt kostet bis 120 ms je Prüfung, vorher alle 150 ms im Strich). Unter der Liste steht der Platz für Tower an
+oder Ziehen mehr läuft. Die Prüfung läuft im Editor-Worker (Auftrag `check`, mit den zuletzt bestimmten Bauflächen);
+eine OSM-Welt kostete den Hauptthread bis 120 ms je Prüfung, 1025² mit 50 000 Objekten in Node 115 ms, jetzt nur den
+Abgleich des Spiegels. Ein Trockenlauf des Agenten prüft seine Kopie der Karte dort ebenso (die Kopie geht ganz mit). Unter der Liste steht der Platz für Tower an
 den Routen (Fläche in Reichweite, Tower darauf, bei mehreren Spuren die engste), aus derselben Rechnung wie Build areas.
 
 | Code | Art | Bedeutung |
@@ -800,7 +803,7 @@ src/app/editor/
   view/             EditorViewport (Renderer, Kamera, Eingabe), Overlay, Kamera, EditorMapView, ThumbnailRenderer
   import/           Warcraft-3-Import: lädt importW3xInWorker beim ersten Gebrauch, fasst den Bericht zusammen
   services/         die Dienste der Session (Angular-frei bis auf Signale), EditorCore: der Editor-Worker von hier aus
-  workers/          Editor-Worker (editor-core.worker.ts, editor-core-host.ts, Protokoll), Terrain, Gießen, Bauflächen
+  workers/          Editor-Worker (editor-core.worker.ts, editor-core-host.ts, Protokoll), Terrain, Gießen
   ui/               Angular: Seite, Kartenliste, Shell, Panels; ui/shell/actions.ts ist das Aktionsregister, aus dem
                     Befehlspalette, änderbare Tasten, Hilfe und Dateimenü entstehen
 ```
@@ -978,7 +981,8 @@ Auftrag bringt mit, was sich seit dem letzten geändert hat (`MirrorTracker.sync
   es gerechnet wurde, `EditorCore.current` sagt, ob sie noch gelten.
 - Aufträge: was den Stand genau so sehen muss, wie er erbeten wurde (Packen), läuft sofort beim Eintreffen und liest
   den Spiegel vor seinem ersten `await`; alles andere wartet auf einen ruhigen Moment, je Art gewinnt der neueste (ein
-  älterer wird mit `null` beantwortet), die dringlichste Art zuerst.
+  älterer wird mit `null` beantwortet), die dringlichste Art zuerst: `pack`, `check` (Prüfen), `buildAreas`
+  (Bauflächen; der Worker behält sie für die nächste Prüfung).
 - Ohne Worker (Tests) läuft derselbe Code im Prozess, die Nachrichten geklont wie bei einem Worker. Der Zufallslauf
   (`editor-fuzz.spec.ts`) gleicht nebenbei den Spiegel ab: eine Datei aus dem Spiegel muss Byte für Byte die aus dem
   Dokument sein.

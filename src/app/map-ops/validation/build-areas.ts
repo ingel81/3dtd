@@ -11,7 +11,8 @@
  *
  * For the editor's overlay (Measure, "Build areas") and the map check (the
  * room for towers along each lane). A few hundred ms on a large map: the
- * editor runs it in a worker (`buildAreasOffThread`).
+ * editor runs it in its worker, on its mirror of the map
+ * (editor/workers/editor-core-host.ts).
  */
 import { PLACEMENT_CONFIG } from '../../configs/placement.config';
 import { TOWER_TYPES } from '../../configs/tower-types.config';
@@ -248,7 +249,7 @@ function segmentDistance(px: number, py: number, ax: number, ay: number, bx: num
   return Math.hypot(ax + dx * u - px, ay + dy * u - py);
 }
 
-/** The input for the worker: copies of the arrays, the objects that may block only */
+/** The input of computeBuildAreas: the map's ground and water as they are, the objects that may block only */
 export function buildAreaInput(
   doc: CustomMapDocument,
   catalog: (asset: string) => Pick<ObjectAssetEntry, 'radius' | 'box' | 'blocksBuild' | 'footing' | 'roof'>,
@@ -261,14 +262,7 @@ export function buildAreaInput(
   const assets = [...new Set(objects.map((o) => o.asset))];
   return {
     doc: {
-      terrain: {
-        ...t,
-        grid: { ...t.grid, heights: t.grid.heights.slice() },
-        // The worker reads levels and masks only
-        splat: { resolution: 1, maps: [new Uint8Array(0), new Uint8Array(0)] },
-        water: t.water ? { ...t.water, mask: t.water.mask.slice() } : null,
-        waterBodies: t.waterBodies?.map((w) => ({ ...w, mask: w.mask.slice() })),
-      },
+      terrain: t,
       paths: doc.paths,
       spawns: doc.spawns,
       hq: doc.hq,
@@ -282,26 +276,4 @@ export function buildAreaInput(
     }),
     routes,
   };
-}
-
-/** computeBuildAreas in a worker; in place where there are no workers (specs) */
-export function buildAreasOffThread(input: BuildAreaInput): Promise<BuildAreas> {
-  if (typeof Worker === 'undefined') return Promise.resolve(computeBuildAreas(input));
-  return new Promise((resolve, reject) => {
-    const worker = new Worker(new URL('../../editor/workers/build-areas.worker', import.meta.url), { type: 'module' });
-    worker.onmessage = (e: MessageEvent<BuildAreas | { error: string }>) => {
-      worker.terminate();
-      if ('error' in e.data) reject(new Error(e.data.error));
-      else resolve(e.data);
-    };
-    worker.onerror = (e) => {
-      worker.terminate();
-      reject(new Error(e.message || 'The build area worker failed'));
-    };
-    const t = input.doc.terrain;
-    const transfer: Transferable[] = [t.grid.heights.buffer];
-    if (t.water) transfer.push(t.water.mask.buffer);
-    for (const w of t.waterBodies ?? []) transfer.push(w.mask.buffer);
-    worker.postMessage(input, transfer);
-  });
 }

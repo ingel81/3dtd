@@ -245,11 +245,11 @@ describe('editor session while busy', () => {
 });
 
 describe('editor session check', () => {
-  it('checks an open map again after the last change, not while a stroke is held', () => {
+  it('checks an open map again after the last change, not while a stroke is held', async () => {
     vi.useFakeTimers();
     try {
       const { s } = session();
-      s.check.runCheck();
+      await s.check.runCheck();
       const check = vi.spyOn(s.check, 'runCheck');
       const input = { dragging: true };
       Object.assign(s['viewHost'], { viewport: { input, dispose: () => undefined } });

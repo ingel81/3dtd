@@ -6,6 +6,9 @@
  * result goes back with the parts' versions it was worked out on.
  */
 import type { MapAssetCatalog } from '../../map-ops/asset-catalog';
+import type { BuildAreas } from '../../map-ops/validation/build-areas';
+import type { MapIssue } from '../../map-ops/validation/map-validation';
+import type { CustomMapDocument } from '../../world/custom-map/map-document';
 import type { PackOptions } from '../../world/custom-map/map-file';
 import type { PackedMap, PackError } from '../../world/custom-map/map-pack';
 import type { MirrorSync, PartVersions } from '../model/doc-mirror';
@@ -14,6 +17,13 @@ import type { MirrorSync, PartVersions } from '../model/doc-mirror';
 export interface CoreJobs {
   /** The `.3dtdmap` of the map, its fingerprint and summary (with the content hash when asked) */
   pack: { input: { options: PackOptions; hash: boolean }; output: PackedMap };
+  /**
+   * The map check (map-validation.ts) of the open map, or of `doc` (an agent's dry run on a copy); with the build
+   * areas judged last when `areas` (the page has them for this map)
+   */
+  check: { input: { areas: boolean; doc?: CustomMapDocument }; output: MapIssue[] };
+  /** Where towers may stand (build-areas.ts), along the routes of the open map; the check reads them after */
+  buildAreas: { input: Record<string, never>; output: BuildAreas };
 }
 
 export type CoreJobKind = keyof CoreJobs;

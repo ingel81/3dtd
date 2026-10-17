@@ -1,21 +1,22 @@
 /**
  * The map check: its findings (map-validation), where towers may stand
- * (build areas, judged in a worker after the map rests), and the map played
- * in the game, by the player from a chosen wave or by the bot for its check.
+ * (build areas, judged after the map rests), and the map played in the
+ * game, by the player from a chosen wave or by the bot for its check. Both
+ * the check and the build areas run in the editor's worker on its mirror of
+ * the map (EditorCore); a newer one asked for takes the place of one not
+ * begun.
  */
 import { computed, signal, type Signal } from '@angular/core';
 import type { CustomMapDocument, MapMeta } from '../../world/custom-map/map-document';
-import type { CatalogIndex } from '../../map-ops/asset-catalog';
-import { spawnRoutes } from '../../map-ops/path-graph';
-import { assetCosts } from '../../map-ops/validation/map-budget';
-import { validateMap, type MapIssue } from '../../map-ops/validation/map-validation';
-import { buildAreaInput, buildAreasOffThread, type BuildAreas } from '../../map-ops/validation/build-areas';
+import type { MapIssue } from '../../map-ops/validation/map-validation';
+import type { BuildAreas } from '../../map-ops/validation/build-areas';
 import type { MapTrialResult } from '../../world/map-trial';
 import type { AppScreen } from '../../world/app-screen.service';
 import type { WorldSession } from '../../world/world-session.service';
 import { PLAIN_START } from '../../world/world-start';
 import type { EditorDocument } from '../model/editor-document';
 import { patch, type EditorSettings } from '../tools/tool';
+import type { EditorCore } from './editor-core';
 import type { ViewHost } from './view-host';
 
 /** The build areas are judged again this long after the last change (a large map takes a worker a few hundred ms) */
@@ -27,7 +28,8 @@ const BOT_CHECK_WAVES = 5;
 
 export interface CheckHost {
   readonly editor: EditorDocument | null;
-  catalog(): CatalogIndex;
+  /** The editor's worker, which checks and judges the map */
+  readonly core: EditorCore;
   /** The open map's meta (the bot's result belongs to it) */
   meta: Signal<MapMeta | null>;
   /** Whether the map `id` is the one open (or the one it was opened for) */
@@ -54,7 +56,8 @@ export class CheckService {
   private map = 0;
   private buildAreaTimer: ReturnType<typeof setTimeout> | null = null;
   private checkTimer: ReturnType<typeof setTimeout> | null = null;
-  private judging = false;
+  /** The newest check asked for: one that a newer took the place of answers with the newer's findings */
+  private checking: Promise<MapIssue[]> | null = null;
   private disposed = false;
 
   constructor(
@@ -86,26 +89,30 @@ export class CheckService {
     this.view.showBuildAreas(this.settings.view().buildAreas ? this.buildAreas() : null);
   }
 
-  /** The check's findings without showing them (an AI agent's script reports them itself); of `doc` for a dry run */
-  checkIssues(doc: CustomMapDocument | null = this.host.editor?.doc ?? null): MapIssue[] {
-    if (!doc) return [];
-    const catalog = this.host.catalog();
-    return validateMap(doc, {
-      blocksBuild: (asset) => catalog.object(asset).blocksBuild,
-      roadThrough: (asset) => !!catalog.object(asset).roadThrough,
-      footingOf: (asset) => catalog.object(asset).footing,
-      buildAreas: this.buildAreas(),
-      costOf: assetCosts(catalog, doc),
-    });
+  /**
+   * The check's findings without showing them (an AI agent's script reports
+   * them itself); of `doc` for a dry run (a copy of the map, sent whole).
+   * Null when a newer check took this one's place
+   */
+  async checkIssues(doc?: CustomMapDocument): Promise<MapIssue[] | null> {
+    if (!this.host.editor) return [];
+    const found = await this.host.core.run('check', { areas: this.buildAreas() !== null, ...(doc ? { doc } : {}) });
+    return found?.value ?? null;
   }
 
-  runCheck(): MapIssue[] {
-    if (!this.host.editor) return [];
-    const issues = this.checkIssues();
-    this.issues.set(issues);
-    // The room for towers comes from a worker: judged once the check is open, the check runs again with it
-    this.scheduleBuildAreas(this.buildAreas() ? BUILD_AREA_DELAY_MS : 0);
-    return issues;
+  /** Checks the open map and shows the findings */
+  runCheck(): Promise<MapIssue[]> {
+    if (!this.host.editor) return Promise.resolve([]);
+    const asked: Promise<MapIssue[]> = this.checkIssues().then((issues): MapIssue[] | Promise<MapIssue[]> => {
+      if (issues === null) return this.checking && this.checking !== asked ? this.checking : (this.issues() ?? []);
+      if (this.disposed) return issues;
+      this.issues.set(issues);
+      // The room for towers is judged once the check is open, the check runs again with it
+      this.scheduleBuildAreas(this.buildAreas() ? BUILD_AREA_DELAY_MS : 0);
+      return issues;
+    });
+    this.checking = asked;
+    return asked;
   }
 
   /** The overlay "Build areas" (Measure) on or off */
@@ -167,14 +174,14 @@ export class CheckService {
       this.checkTimer = null;
       if (this.disposed || !this.issues()) return;
       if (this.view.dragging) this.scheduleCheck();
-      else this.runCheck();
+      else void this.runCheck();
     }, CHECK_DELAY_MS);
   }
 
   /**
    * Judge the build areas again BUILD_AREA_DELAY_MS after the last change,
    * while the overlay or the check shows them and the map is not the one
-   * judged; one worker at a time, a change meanwhile judges again after it
+   * judged; a change meanwhile judges again after it
    */
   private scheduleBuildAreas(delay = BUILD_AREA_DELAY_MS): void {
     const editor = this.host.editor;
@@ -186,27 +193,19 @@ export class CheckService {
 
   private async judgeBuildAreas(): Promise<void> {
     this.buildAreaTimer = null;
-    const editor = this.host.editor;
-    if (!editor || this.judging) return;
-    const of = { map: this.map, state: editor.stateId };
-    const doc = editor.doc;
-    const routes = spawnRoutes(doc);
-    const catalog = this.host.catalog();
-    const input = buildAreaInput(doc, (asset) => catalog.object(asset), doc.spawns.map((s) => ({
-      spawnId: s.id, name: s.name, points: routes.get(s.id)?.points ?? null,
-    })));
-    this.judging = true;
+    if (!this.host.editor) return;
+    const map = this.map;
     try {
-      const areas = await buildAreasOffThread(input);
-      if (of.map !== this.map || this.disposed) return;
-      this.judgedOf = of;
-      this.buildAreas.set(areas);
+      const judged = await this.host.core.run('buildAreas', {});
+      // A newer judgement took its place, or another map opened meanwhile
+      if (!judged || map !== this.map || this.disposed) return;
+      this.judgedOf = { map, state: judged.state };
+      this.buildAreas.set(judged.value);
       this.show();
-      if (this.issues()) this.runCheck();
+      if (this.issues()) void this.runCheck();
     } catch (e) {
       console.warn('[Editor] build areas not judged:', e);
-    } finally {
-      this.judging = false;
+      return;
     }
     this.scheduleBuildAreas();
   }

@@ -424,7 +424,7 @@ export class EditorShellComponent implements OnDestroy, ActionHost {
 
   async check(): Promise<void> {
     this.tourEvent('check');
-    const issues = this.session.check.runCheck();
+    const issues = await this.session.check.runCheck();
     this.session.notices.flash(issues.length ? `${issues.length} ${issues.length === 1 ? 'thing' : 'things'} to look at` : 'The map checks out');
   }
 

@@ -134,7 +134,7 @@ export class EditorSession implements OnDestroy {
         get editor() {
           return open();
         },
-        catalog,
+        core: this.core,
         meta: this.state.meta,
         isOpen: (id) => this.maps.isOpen(id),
         blocked,

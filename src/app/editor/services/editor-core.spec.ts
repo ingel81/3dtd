@@ -1,12 +1,22 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { createMapDocument } from '../../world/custom-map/map-create';
 import { packForSave } from '../../world/custom-map/map-pack';
-import { EMPTY_CATALOG } from '../../map-ops/asset-catalog';
+import { CatalogIndex, EMPTY_CATALOG, normalizeCatalog } from '../../map-ops/asset-catalog';
+import { addNode, connect, spawnRoutes } from '../../map-ops/path-graph';
+import { buildAreaInput, computeBuildAreas } from '../../map-ops/validation/build-areas';
+import { assetCosts } from '../../map-ops/validation/map-budget';
+import { validateMap } from '../../map-ops/validation/map-validation';
 import { ObjectsCommand } from '../model/commands/objects';
 import { SnapshotCommand } from '../model/commands/snapshot';
 import { EditorDocument } from '../model/editor-document';
 import { EditorCore } from './editor-core';
 
 const same = (a: Uint8Array, b: Uint8Array) => Buffer.from(a).equals(Buffer.from(b));
+
+const catalog = new CatalogIndex(
+  normalizeCatalog(JSON.parse(readFileSync(resolve('public/maps/assets/catalog.json'), 'utf8')), 'http://x/maps/assets/'),
+);
 
 function editorOf(): EditorDocument {
   return new EditorDocument(createMapDocument({ id: 'core', name: 'Core', width: 256, depth: 256, cellSize: 4, seed: 3, ground: 'noise', relief: 6, now: new Date(0) }));
@@ -69,6 +79,43 @@ describe('EditorCore', () => {
     const next = await core.run('pack', { options: {}, hash: true });
     expect(next!.value.summary.id).toBe('next');
     expect(same(next!.value.file, (await packForSave({ doc: editor.doc, options: {} })).file)).toBe(true);
+    core.dispose();
+  });
+
+  it('checks the map and judges its build areas as the page did, the newest check of a kind winning', async () => {
+    const editor = editorOf();
+    const doc = editor.doc;
+    // A road from a spawn to the HQ, a house beside it
+    const a = addNode(doc.paths, { x: -80, y: 0 });
+    const b = addNode(doc.paths, { x: 80, y: 0 });
+    connect(doc.paths, a.id, b.id, 8, 'road');
+    doc.spawns = [{ id: 's1', name: 'North', x: -80, y: 0 }];
+    doc.hq = { x: 80, y: 0 };
+    editor.execute(ObjectsCommand.add('Place', doc, [{ id: 'o1', asset: 'house', x: 0, y: 20, z: 0, rotation: 0, scale: 1 }]));
+    const core = new EditorCore();
+    core.open(editor, catalog.catalog);
+    const routes = spawnRoutes(doc);
+    const areas = computeBuildAreas(buildAreaInput(doc, (asset) => catalog.object(asset), doc.spawns.map((s) => ({ spawnId: s.id, name: s.name, points: routes.get(s.id)?.points ?? null }))));
+    const judged = await core.run('buildAreas', {});
+    // The raster came over from the worker's realm (a structured clone): held as numbers
+    const plain = (a: typeof areas) => ({ ...a, kind: Array.from(a.kind) });
+    expect(plain(judged!.value)).toEqual(plain(areas));
+    const options = {
+      blocksBuild: (asset: string) => catalog.object(asset).blocksBuild,
+      roadThrough: (asset: string) => !!catalog.object(asset).roadThrough,
+      footingOf: (asset: string) => catalog.object(asset).footing,
+      costOf: assetCosts(catalog, doc),
+    };
+    // Asked twice before it ran: the first gives way to the second
+    const first = core.run('check', { areas: true });
+    const second = core.run('check', { areas: true });
+    expect(await first).toBeNull();
+    expect((await second)!.value).toEqual(validateMap(doc, { ...options, buildAreas: areas }));
+    expect((await core.run('check', { areas: false }))!.value).toEqual(validateMap(doc, options));
+    // A copy of the map (an agent's dry run), sent whole
+    const copy = structuredClone(doc);
+    copy.spawns = [];
+    expect((await core.run('check', { areas: false, doc: copy }))!.value).toEqual(validateMap(copy, options));
     core.dispose();
   });
 

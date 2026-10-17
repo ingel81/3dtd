@@ -115,12 +115,16 @@ export class AgentAdapter implements AgentHost {
     return this.s.busyReason();
   }
 
-  runCheck(): MapIssue[] {
+  runCheck(): Promise<MapIssue[]> {
     return this.s.check.runCheck();
   }
 
-  checkIssues(doc?: CustomMapDocument): MapIssue[] {
-    return this.s.check.checkIssues(doc);
+  async checkIssues(doc?: CustomMapDocument): Promise<MapIssue[]> {
+    // A check of the page's that took this one's place before it began: asked again
+    for (;;) {
+      const issues = await this.s.check.checkIssues(doc);
+      if (issues) return issues;
+    }
   }
 
   execute(command: EditCommand): void {
