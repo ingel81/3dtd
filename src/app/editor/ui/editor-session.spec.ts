@@ -5,7 +5,7 @@ import { createMapDocument } from '../../world/custom-map/map-create';
 import { MapStore, MemoryMapBackend } from '../../world/custom-map/map-store';
 import { MemoryVersionBackend, VersionHistory } from '../model/version-store';
 import { DOWNLOAD_REMINDER_MS } from '../model/storage-safety';
-import { MapFileError, contentHash, packMapFile, unpackMapFile } from '../../world/custom-map/map-file';
+import { MAX_FILE_BYTES, MapFileError, contentHash, packMapFile, unpackMapFile } from '../../world/custom-map/map-file';
 import { EditorSession, saveErrorText } from './editor-session.service';
 import { EditorHeldError, SnapshotCommand } from '../model/editor-document';
 import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
@@ -168,6 +168,17 @@ describe('editor session and other tabs', () => {
 });
 
 describe('editor session importing', () => {
+  it('refuses a map file larger than any map without reading it', async () => {
+    const { s } = session();
+    const file = new File([], 'huge.3dtdmap');
+    Object.defineProperty(file, 'size', { value: MAX_FILE_BYTES + 1 });
+    const read = vi.spyOn(file, 'arrayBuffer');
+    expect(await s.importFile(file)).toBeNull();
+    expect(read).not.toHaveBeenCalled();
+    expect(s.error()).toMatch(/too large for a map/);
+    s.ngOnDestroy();
+  });
+
   it('asks about a file of an own map: Replace keeps the id and makes the old content a version, Keep both adds a map', async () => {
     const { s, versions } = session();
     await s.save(true);

@@ -20,7 +20,7 @@ import { applyTemplate, type MapTemplate } from '../ops/landscape/templates';
 import { Injectable, NgZone, OnDestroy, computed, inject, signal } from '@angular/core';
 import { MAX_MAP_PREFABS, type CustomMapDocument, type MapIntro, type MapIntroView, type MapLife, type MapMeta } from '../../world/custom-map/map-document';
 import { createMapDocument, newMapUid, slugMapId, type NewMapOptions } from '../../world/custom-map/map-create';
-import { MAP_FILE_EXTENSION, MapFileError, packMapFile, unpackMapFile } from '../../world/custom-map/map-file';
+import { MAP_FILE_EXTENSION, MAX_FILE_BYTES, MapFileError, packMapFile, unpackMapFile } from '../../world/custom-map/map-file';
 import { MapStore, type LoadedMap, type MapSummary } from '../../world/custom-map/map-store';
 import { MapLock, whileMapFree } from '../model/map-lock';
 import { CatalogIndex, EMPTY_CATALOG, loadAssetCatalog, type GroundMaterialEntry, type ObjectAssetEntry } from '../catalog/asset-catalog';
@@ -1547,6 +1547,11 @@ export class EditorSession implements OnDestroy {
     const lower = name.toLowerCase();
     this.error.set(null);
     if (lower.endsWith(MAP_FILE_EXTENSION)) {
+      // Packed, a map is never larger than unpacked: a bigger file is no map, and is not read into memory first
+      if (file.size > MAX_FILE_BYTES) {
+        this.error.set(`${name}: the file is too large for a map (${Math.round(file.size / 2 ** 20)} MB).`);
+        return null;
+      }
       try {
         const loaded = unpackMapFile(new Uint8Array(await file.arrayBuffer()));
         const existing = await this.store.ownMatch(loaded.doc);
