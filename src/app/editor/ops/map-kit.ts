@@ -117,7 +117,7 @@ export interface PlaceOptions {
   scale?: number;
   /** Height over the ground (the editor's Z field) */
   z?: number;
-  /** "Align to slope" after placing: tilted with the ground over its footprint (a rock then settles onto its plate) */
+  /** "Align to slope" after placing: tilted with the ground over its footprint (a rock then settles onto its plate; afloat it stays level) */
   align?: boolean;
   blocksBuild?: boolean;
   blocksLos?: boolean;
@@ -870,7 +870,8 @@ export class MapKit {
     // A building levels its ground first, as in the editor (levelUnderBuilding)
     const entry = this.catalog.object(asset);
     if (levelsGround(entry)) for (const p of [object, ...images]) levelUnderBuilding(t, p, entry);
-    if (o.align) {
+    // Afloat it lies level on the water, as the Objects tool places it (a boat does not lean with the lake bed)
+    if (o.align && !entry.float) {
       object = alignedToSlope(t, object, entry.radius);
       images = images.map((i) => alignedToSlope(t, i, entry.radius));
     }

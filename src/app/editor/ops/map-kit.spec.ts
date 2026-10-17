@@ -178,5 +178,7 @@ describe('MapKit.place', () => {
     const tilted = k.place('shipwreck', 20, 0, { align: true });
     expect(flat.pitch ?? 0).toBe(0);
     expect(Math.abs(tilted.pitch ?? 0)).toBeCloseTo(Math.atan(0.3), 1);
+    // Afloat it stays level, as the Objects tool keeps it
+    expect(k.place('rowboat', 40, 0, { align: true }).pitch ?? 0).toBe(0);
   });
 });
