@@ -120,6 +120,16 @@ function buildGeometry(half: number, height: number): { tubes: BufferGeometry; b
   return merged;
 }
 
+/**
+ * For the load-time warm-up (ThreeTowerRenderer.warmUpObjects): a piece of scaffold with its two materials, and
+ * a plane to clip a model with as a build does (the number of planes is part of a program)
+ */
+export function scaffoldWarmUp(): { scaffold: Object3D[]; plane: Plane } {
+  const { tube, board } = materials();
+  const piece = new BoxGeometry(1, 1, 1);
+  return { scaffold: [new Mesh(piece, tube), new Mesh(piece, board)], plane: new Plane(new Vector3(0, -1, 0), 0) };
+}
+
 function materials(): { tube: MeshStandardMaterial; board: MeshStandardMaterial } {
   tubeMaterial ??= new MeshStandardMaterial({ color: 0x8c9196, metalness: 0.6, roughness: 0.45 });
   boardMaterial ??= new MeshStandardMaterial({ color: 0x7a5d3e, metalness: 0, roughness: 0.9 });

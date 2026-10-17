@@ -51,6 +51,21 @@ describe('warmUpScene', () => {
     expect(result.compileMs).toBeGreaterThanOrEqual(result.syncMs);
   });
 
+  it('draws more with the pools still open after the frame', async () => {
+    const scene = new Scene();
+    const pool = new Mesh();
+    scene.add(pool);
+    new DrawGate([pool]);
+    const { renderer, finish } = fakeRenderer(0);
+    const seen: boolean[] = [];
+
+    const warmup = warmUpScene(renderer, scene, new PerspectiveCamera(), () => Promise.resolve(), () => seen.push(pool.visible));
+    finish();
+    await warmup;
+    expect(seen).toEqual([true]);
+    expect(pool.visible).toBe(false);
+  });
+
   it('closes the pools again when the frame wait fails', async () => {
     const scene = new Scene();
     const pool = new Mesh();

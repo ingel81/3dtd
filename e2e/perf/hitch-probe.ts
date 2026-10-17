@@ -5,7 +5,8 @@
 //
 //   npx ng serve --port <port>   (or node e2e/perf/serve.mjs <dist dir> <port>)
 //   node e2e/perf/hitch-probe.ts --url http://localhost:<port> [--map autumn-keep] [--cases night,rain,herbert] [--headed]
-import { chromium } from '@playwright/test';
+import { chromium, type CDPSession } from '@playwright/test';
+import type { CpuProfile } from './cdp-profile.ts';
 
 function argument(name: string, fallback: string): string {
   const at = process.argv.indexOf(`--${name}`);
@@ -148,15 +149,162 @@ async function measure(name: string): Promise<void> {
   console.log('RESULT ' + JSON.stringify({ case: name, ...result }));
 }
 
+/** The towers in turn, each the first of its type on the map: the longest frame interval while it goes up */
+const TOWER_TYPES = argument('towers', '') ? argument('towers', '').split(',') : ['archer', 'dual-gatling', 'cannon', 'magic', 'rocket', 'ice', 'fire', 'tentacle', 'poison', 'lightning', 'chaos', 'bastion', 'sentinel', 'chainsaw', 'shawarma', 'research-center', 'missile-silo'];
+async function measureTowers(): Promise<void> {
+  const results = await page.evaluate(async ([types, ms]) => {
+    interface Load {
+      emit(c: unknown): void;
+      ping(): Promise<unknown>;
+      groundAt(lat: number, lon: number): number | null;
+      state(): { paths: [number, number][][]; towers: number };
+    }
+    const load = (globalThis as unknown as { __load: Load }).__load;
+    load.emit({ type: 'debug:add-credits', amount: 10_000_000 });
+    load.emit({ type: 'debug:complete-all-research' });
+    const spots: { lat: number; lon: number }[] = [];
+    for (const distance of [18, 26, 34, 42]) {
+      for (const path of load.state().paths) {
+        for (let i = 3; i < path.length - 3; i += 3) {
+          const [lat, lon] = path[i];
+          const [nLat, nLon] = path[i + 1];
+          const dLat = nLat - lat;
+          const dLon = (nLon - lon) * Math.cos((lat * Math.PI) / 180);
+          const len = Math.hypot(dLat, dLon) || 1;
+          for (const side of [1, -1]) {
+            const off = (distance / 111_320) * side;
+            spots.push({ lat: lat - (dLon / len) * off, lon: lon + ((dLat / len) * off) / Math.cos((lat * Math.PI) / 180) });
+          }
+        }
+      }
+    }
+    interface Ng { getComponent(e: Element): { engine?: { getRenderer(): { info: { programs: { name: string }[] } } } } }
+    const host = document.querySelector('app-tower-defense');
+    const renderer = host && (globalThis as unknown as { ng?: Ng }).ng?.getComponent(host).engine?.getRenderer();
+    // A program without a name goes by the start of its key (its shader)
+    const programNames = () => (renderer?.info.programs ?? []).map((p) => p.name || `[${(p as unknown as { cacheKey: string }).cacheKey.slice(0, 40).replace(/\s+/g, ' ')}]`);
+    const out: Record<string, unknown> = {};
+    let next = 0;
+    for (const typeId of types) {
+      const before = load.state().towers;
+      let placed = false;
+      while (!placed && next < spots.length) {
+        const spot = spots[next++];
+        const height = load.groundAt(spot.lat, spot.lon);
+        if (height === null) continue;
+        const gaps: number[] = [];
+        const known = programNames();
+        let last = performance.now();
+        const start = last;
+        let done = false;
+        const frame = () => {
+          const now = performance.now();
+          gaps.push(now - last);
+          last = now;
+          if (!done) requestAnimationFrame(frame);
+        };
+        requestAnimationFrame(frame);
+        load.emit({ type: 'command:place-tower', position: { lat: spot.lat, lon: spot.lon, height }, typeId });
+        await load.ping();
+        await new Promise((r) => setTimeout(r, 100));
+        placed = load.state().towers > before;
+        if (placed) await new Promise((r) => setTimeout(r, ms));
+        done = true;
+        if (placed) {
+          const left = [...known];
+          const added: string[] = [];
+          for (const n of programNames()) {
+            const k = left.indexOf(n);
+            if (k >= 0) left.splice(k, 1);
+            else added.push(n);
+          }
+          out[`${typeId}#${Object.keys(out).length}`] = { ms: Math.round(Math.max(0, ...gaps)), programs: added.join(' ') };
+        }
+        void start;
+      }
+      if (!placed) out[typeId] = 'no spot';
+    }
+    return out;
+  }, [TOWER_TYPES, 2500] as const);
+  console.log('RESULT ' + JSON.stringify({ case: 'towers', ...results }));
+}
+
+/**
+ * Inclusive main-thread time per function within one long frame of the profile, the top `limit`: where a hitch's time
+ * went. `fromUs` and `toUs` on the profile's clock
+ */
+function inclusive(profile: CpuProfile, fromUs: number, toUs: number, limit: number): string {
+  const parent = new Map<number, number>();
+  for (const n of profile.nodes) for (const c of n.children ?? []) parent.set(c, n.id);
+  const byId = new Map(profile.nodes.map((n) => [n.id, n]));
+  const total = new Map<string, number>();
+  const samples = profile.samples ?? [];
+  const deltas = profile.timeDeltas ?? [];
+  let t = profile.startTime;
+  for (let i = 0; i < samples.length; i++) {
+    t += deltas[i] ?? 0;
+    if (t < fromUs || t > toUs) continue;
+    const us = deltas[i + 1] ?? 0;
+    const seen = new Set<string>();
+    for (let id: number | undefined = samples[i]; id !== undefined; id = parent.get(id)) {
+      const f = byId.get(id)!.callFrame;
+      if (!f.url || /zone|polyfills/.test(f.url)) continue;
+      const key = `${f.functionName || '(anonymous)'} ${f.url.split('/').pop()?.split('?')[0]}:${f.lineNumber + 1}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      total.set(key, (total.get(key) ?? 0) + us);
+    }
+  }
+  return [...total.entries()].sort((x, y) => y[1] - x[1]).slice(0, limit).map(([k, us]) => `${(us / 1000).toFixed(0).padStart(6)} ms  ${k}`).join('\n');
+}
+
+const PROFILE = process.argv.includes('--profile');
+let cdp: CDPSession | null = null;
+if (PROFILE) {
+  cdp = await page.context().newCDPSession(page);
+  await cdp.send('Profiler.enable');
+  await cdp.send('Profiler.setSamplingInterval', { interval: 200 });
+}
 await measure('day');
-for (const name of ORDER) await measure(name);
+let profileStartMs = 0;
+if (cdp) {
+  await cdp.send('Profiler.start');
+  // The frames the profile covers, recorded in the page: each one over 100 ms with its start and end
+  profileStartMs = await page.evaluate(() => {
+    const long: [number, number][] = [];
+    (globalThis as { __longFrames?: [number, number][] }).__longFrames = long;
+    let last = performance.now();
+    const frame = () => {
+      const now = performance.now();
+      if (now - last > 100) long.push([last, now]);
+      last = now;
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+    return performance.now();
+  });
+}
+for (const name of ORDER) {
+  if (name === 'towers') await measureTowers();
+  else await measure(name);
+}
+if (cdp) {
+  const long = await page.evaluate(() => (globalThis as { __longFrames?: [number, number][] }).__longFrames ?? []);
+  const { profile } = (await cdp.send('Profiler.stop')) as unknown as { profile: CpuProfile };
+  // The page's clock to the profile's: both start together, near enough for frames of 100 ms and more
+  const toUs = (ms: number) => profile.startTime + (ms - profileStartMs) * 1000;
+  for (const [from, to] of long) {
+    console.log(`FRAME ${Math.round(to - from)} ms at ${((from - profileStartMs) / 1000).toFixed(1)} s`);
+    console.log(inclusive(profile, toUs(from), toUs(to), Number(argument("lines", "18"))));
+  }
+}
 const KEYS = argument('keys', '');
 if (KEYS) {
   const keys = await page.evaluate((name) => {
     interface Ng { getComponent(e: Element): { engine?: { getRenderer(): { info: { programs: { name: string; cacheKey: string }[] } } } } }
     const host = document.querySelector('app-tower-defense');
     const r = (globalThis as unknown as { ng: Ng }).ng.getComponent(host!).engine!.getRenderer();
-    return r.info.programs.filter((p) => p.name === name).map((p) => p.cacheKey);
+    return r.info.programs.filter((p) => p.name === name || p.cacheKey.startsWith(name)).map((p) => p.cacheKey);
   }, KEYS);
   for (const k of keys) console.log('KEY ' + k);
 }

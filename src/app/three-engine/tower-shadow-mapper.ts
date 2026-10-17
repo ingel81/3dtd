@@ -323,6 +323,30 @@ export class TowerShadowMapper {
     return true;
   }
 
+  /**
+   * Builds the cube's programs during loading: one render from `tip` with
+   * every mesh of `includeOnly` shown, the hidden ones too (cells and levels
+   * out of view) and none beyond its far plane, so each kind of blocker mesh (plain, instanced, with
+   * instance colours, batched) has its distance program before the first
+   * tower, which linked them in its frame. The next `update` renders anew.
+   */
+  warmUp(tip: Vector3, includeOnly: Object3D): void {
+    const shown: Object3D[] = [];
+    includeOnly.traverse((obj) => {
+      if (obj.visible || obj.userData?.['losTransparent']) return;
+      obj.visible = true;
+      shown.push(obj);
+    });
+    try {
+      this.invalidate();
+      // Far enough that no blocker falls out of the faces' frustums
+      this.update(tip, 1e5, includeOnly);
+    } finally {
+      for (const obj of shown) obj.visible = false;
+      this.invalidate();
+    }
+  }
+
   /** Inkrement-Counter pro erfolgreichem Render. Stale-Detection für Konsumenten. */
   getRenderVersion(): number {
     return this.renderVersion;

@@ -6,6 +6,7 @@ import {
   BufferAttribute,
   ShaderMaterial,
   FrontSide,
+  type Object3D,
 } from 'three';
 import { TENTACLE_VERTEX, TENTACLE_FRAGMENT } from './tentacle-shaders';
 
@@ -40,6 +41,22 @@ interface TentacleState {
   idleTipPos: Vector3;      // Where the tip rests during idle
 }
 
+
+/** A tentacle's material: its control points start on the tower's tip and straight above it */
+function tentacleMaterial(basePos: Vector3, idleTipPos: Vector3): ShaderMaterial {
+  return new ShaderMaterial({
+    vertexShader: TENTACLE_VERTEX,
+    fragmentShader: TENTACLE_FRAGMENT,
+    uniforms: {
+      uCP0: { value: basePos.clone() },
+      uCP1: { value: new Vector3() },
+      uCP2: { value: new Vector3() },
+      uCP3: { value: idleTipPos.clone() },
+      uCameraPos: { value: new Vector3() },
+    },
+    side: FrontSide,
+  });
+}
 
 /**
  * ThreeTentacleRenderer — GPU Bezier tentacles for melee towers
@@ -137,6 +154,13 @@ export class ThreeTentacleRenderer {
   // PUBLIC API
   // =====================================================
 
+  /** A tentacle for the load-time warm-up (ThreeTilesEngine.preloadModels): its program, drawn once */
+  warmUpObject(): Object3D {
+    const mesh = new Mesh(this.getSharedGeometry(), tentacleMaterial(new Vector3(), new Vector3(0, TENTACLE_LENGTH, 0)));
+    mesh.frustumCulled = false;
+    return mesh;
+  }
+
   /**
    * Create a tentacle for a tower
    */
@@ -146,19 +170,7 @@ export class ThreeTentacleRenderer {
     const basePos = basePosition.clone();
     const idleTipPos = new Vector3(basePos.x, basePos.y + TENTACLE_LENGTH, basePos.z);
 
-    const material = new ShaderMaterial({
-      vertexShader: TENTACLE_VERTEX,
-      fragmentShader: TENTACLE_FRAGMENT,
-      uniforms: {
-        uCP0: { value: basePos.clone() },
-        uCP1: { value: new Vector3() },
-        uCP2: { value: new Vector3() },
-        uCP3: { value: idleTipPos.clone() },
-        uCameraPos: { value: new Vector3() },
-      },
-      side: FrontSide,
-    });
-
+    const material = tentacleMaterial(basePos, idleTipPos);
     const mesh = new Mesh(this.getSharedGeometry(), material);
     mesh.frustumCulled = false;
     this.scene.add(mesh);

@@ -153,11 +153,7 @@ export class SawArms {
         bar: new Vector3(),
       };
     });
-    this.mesh = new InstancedMesh(vertebraGeometry(), new MeshStandardMaterial({
-      vertexColors: true,
-      metalness: 0.85,
-      roughness: 0.3,
-    }), Math.max(1, this.arms.length) * MAX_SEGMENTS);
+    this.mesh = new InstancedMesh(vertebraGeometry(), sawArmsMaterial(), Math.max(1, this.arms.length) * MAX_SEGMENTS);
     this.mesh.name = 'saw_arms';
     // The arms reach far past the model's bounds
     this.mesh.frustumCulled = false;
@@ -416,6 +412,17 @@ function bezier(p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, t: number, o
  * One vertebra along +X (0 to SEGMENT): a dark metal barrel that bulges in the
  * middle and draws in at both ends, a yellow ring in the joint at its back.
  */
+function sawArmsMaterial(): MeshStandardMaterial {
+  return new MeshStandardMaterial({ vertexColors: true, metalness: 0.85, roughness: 0.3 });
+}
+
+/** The arms' mesh as a saw tower builds it, one vertebra, for the load-time warm-up (ThreeTowerRenderer.warmUpObjects) */
+export function sawArmsWarmUp(): Object3D {
+  const mesh = new InstancedMesh(vertebraGeometry(), sawArmsMaterial(), 1);
+  mesh.frustumCulled = false;
+  return mesh;
+}
+
 function vertebraGeometry(): LatheGeometry {
   const profile: Vector2[] = [new Vector2(0, 0), new Vector2(RADIUS * 0.78, 0), new Vector2(RADIUS * 0.78, 0.022)];
   const steps = 8;

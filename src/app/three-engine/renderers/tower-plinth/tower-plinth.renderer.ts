@@ -1,4 +1,4 @@
-import { Mesh, type Camera, type Material, type Object3D, type Scene, type WebGLRenderer } from 'three';
+import { Mesh, type Material, type Object3D, type Scene } from 'three';
 import type { ColumnSampler } from '../../column-sample';
 import type { CoordinateSync } from '../index';
 import { crownBraces, plinthBraces, type PlinthCrown } from './plinth-braces';
@@ -118,17 +118,9 @@ export class TowerPlinthRenderer {
     return this.plinths.size;
   }
 
-  /**
-   * Compile the plinth program ahead of the first plinth, like
-   * ThreeTowerRenderer.precompile does for the tower models.
-   */
-  async precompile(renderer: WebGLRenderer, camera: Camera): Promise<void> {
-    const warm = createPlinthMesh(1, 1, this.material);
-    try {
-      await renderer.compileAsync(warm, camera, this.scene);
-    } finally {
-      warm.geometry.dispose();
-    }
+  /** A plinth with the shared material for the load-time warm-up, like ThreeTowerRenderer.warmUpObjects */
+  warmUpObject(): Object3D {
+    return createPlinthMesh(1, 1, this.material);
   }
 
   dispose(): void {

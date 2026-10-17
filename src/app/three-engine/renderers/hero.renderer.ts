@@ -219,6 +219,19 @@ export class HeroRenderer implements HeroView {
     this.ringGeometry.dispose();
   }
 
+  /**
+   * His model for the load-time warm-up (ThreeTilesEngine.preloadModels), loaded into the cache his first
+   * frame takes it from: its skinned programs and textures before he is hired, null without it
+   */
+  async warmUpObject(): Promise<Object3D | null> {
+    if (!this.assets) return null;
+    try {
+      return (await loadHeroModel(this.assets, this.config)).root;
+    } catch {
+      return null;
+    }
+  }
+
   // ==================== Internals ====================
 
   /** Load the GLB once, on his first frame. Until it arrives, and if it fails, only his rings show. */

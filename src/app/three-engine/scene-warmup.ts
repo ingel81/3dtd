@@ -30,13 +30,16 @@ export interface SceneWarmupResult {
  *    float textures) go to the GPU in the first frame that draws an object.
  *    Every pool hides while empty (DrawGate), so `renderedFrame` is awaited
  *    with all gates forced open: one loading frame draws the empty pools and
- *    uploads what the first spawn would otherwise upload.
+ *    uploads what the first spawn would otherwise upload. `alsoDraw` draws
+ *    more with the gates still open (the engine: the scene in each of the
+ *    world's light states, whose first draw the driver translates again).
  */
 export async function warmUpScene(
   renderer: Pick<WebGLRenderer, 'compileAsync' | 'info'>,
   scene: Object3D,
   camera: Camera,
   renderedFrame: () => Promise<void>,
+  alsoDraw: () => void = () => undefined,
 ): Promise<SceneWarmupResult> {
   const programsBefore = renderer.info.programs?.length ?? 0;
   const t0 = performance.now();
@@ -53,6 +56,7 @@ export async function warmUpScene(
   for (const gate of gates) gate.setForced(true);
   try {
     await renderedFrame();
+    alsoDraw();
   } finally {
     for (const gate of gates) gate.setForced(false);
   }

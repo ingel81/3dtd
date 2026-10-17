@@ -82,17 +82,14 @@ describe('TowerPlinthRenderer', () => {
     expect(dispose).toHaveBeenCalled();
   });
 
-  it('compiles its program ahead of the first plinth with the shared material', async () => {
+  it('gives the warm-up a plinth with the shared material, outside the scene', () => {
     const { scene, renderer, plinthOf } = setup();
     renderer.create('t1', 0, 0, 5, 1, 3.6);
     const material = plinthOf('t1')!.material;
-    const compileAsync = vi.fn(async () => undefined);
 
-    await renderer.precompile({ compileAsync } as never, {} as never);
+    const warm = renderer.warmUpObject() as Mesh;
 
-    const [warm, , target] = compileAsync.mock.calls[0] as unknown as [Mesh, unknown, Scene];
     expect(warm.material).toBe(material);
-    expect(target).toBe(scene);
     expect(scene.children).not.toContain(warm);
   });
 

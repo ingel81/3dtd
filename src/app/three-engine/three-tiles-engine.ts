@@ -60,7 +60,8 @@ import { TowerShadowMapper } from './tower-shadow-mapper';
 import type { RouteCorridorTiles } from './route-corridor-tiles';
 import type { TilesLodDebug } from './tiles-lod-debug';
 import { perfTrace } from '../utils/perf-trace';
-import { warmUpScene } from './scene-warmup';
+import { warmUpScene, type SceneWarmupResult } from './scene-warmup';
+import { firstUsePrograms } from './programs-ready';
 import { ScreenShake, offsetProjection } from './screen-shake';
 import { ShakeBenchmark, type ShakeBenchResult } from './screen-shake-benchmark';
 import { MISSILE_LAUNCH_LOOK, MUSHROOM_CLOUD_LOOK, SCREEN_SHAKE_CONFIG } from '../configs/visual-effects.config';
@@ -1265,32 +1266,87 @@ export class ThreeTilesEngine {
   }
 
   /**
+   * The scene drawn once in each of the world's light states into what the
+   * frames draw to (the screen or, through the composer, a linear target):
+   * the GPU process translates a program again on its first draw in a state,
+   * which held a later night's frame (135 ms with 15 towers on the demo valley)
+   */
+  private drawInLightStates(): void {
+    const states = this.world.withLightStates;
+    if (!states) return;
+    const renderer = this.renderer;
+    const target = this.postProcessing?.needsRender() ? new WebGLRenderTarget(1, 1) : null;
+    const previous = renderer.getRenderTarget();
+    try {
+      states.call(this.world, () => {
+        renderer.setRenderTarget(target);
+        renderer.render(this.scene, this.camera);
+      });
+    } finally {
+      renderer.setRenderTarget(previous);
+      target?.dispose();
+    }
+  }
+
+  /**
    * Preload all entity models, then compile the shaders of everything in the
    * scene (enemy, projectile, particle and VFX pools) during loading, once
    * the world's ground stands: its light states are known then
-   * (compilingForFrames), and its own programs are built.
+   * (compilingForFrames), and its own programs are built. What comes into the
+   * scene only later (towers with their builds and paths, plinths,
+   * tentacles, ooze bands, the hero) is there as stand-ins meanwhile, drawn
+   * too small for a pixel in the warm-up frame; the shadow map renders in it
+   * as well, for their depth programs, and the line-of-sight cube once.
+   * Afterwards every program does its first-use work (firstUsePrograms), the
+   * other light state's included.
    */
   async preloadModels(): Promise<void> {
-    await Promise.all([
+    const [, , , , hero] = await Promise.all([
       this.enemies.preloadAllModels(),
       this.towers.preloadAllModels(),
       this.projectiles.whenLoaded(),
       new Promise<void>((resolve) => this.world.onFirstGround(resolve)),
+      this.hero.warmUpObject(),
     ]);
     if (this.disposed) return;
-    const warmup = await this.compilingForFrames(async () => {
-      await this.towers.precompile(this.renderer, this.camera);
-      if (this.disposed) return null;
-      await this.plinths.precompile(this.renderer, this.camera);
-      if (this.disposed) return null;
-      return warmUpScene(this.renderer, this.scene, this.camera, () => this.renderLoop.waitForRenderedFrame());
-    });
-    if (!warmup) return;
+    const standIns = new Group();
+    standIns.name = 'warm-up stand-ins';
+    for (const o of [...this.towers.warmUpObjects(), this.plinths.warmUpObject(), this.tentacles.warmUpObject(), this.oozes.warmUpObject()]) standIns.add(o);
+    if (hero) standIns.add(hero);
+    standIns.scale.setScalar(1e-4);
+    this.scene.add(standIns);
+    const shadows = this.renderer.shadowMap;
+    let warmup: SceneWarmupResult;
+    try {
+      warmup = await this.compilingForFrames(() =>
+        warmUpScene(
+          this.renderer,
+          this.scene,
+          this.camera,
+          () => {
+            shadows.needsUpdate = shadows.enabled;
+            return this.renderLoop.waitForRenderedFrame();
+          },
+          () => this.drawInLightStates(),
+        ),
+      );
+    } finally {
+      // Their materials stay undisposed: the programs stay for the towers that come
+      this.scene.remove(standIns);
+      this.world.invalidateShadows?.();
+    }
+    if (this.disposed) return;
+    // The line-of-sight cube's programs (TowerShadowMapper.warmUp)
+    const blockers = this.world.losBlockers();
+    if (blockers) this.getTowerShadowMapper().warmUp(this.camera.position, blockers);
+    const t0 = performance.now();
+    await firstUsePrograms(this.renderer, () => this.disposed);
     console.log(
       `[Warmup] ${warmup.newPrograms} new shader programs, ` +
       `compile ${warmup.syncMs.toFixed(1)} ms on the main thread, ` +
       `ready after ${warmup.compileMs.toFixed(1)} ms; ` +
-      `${warmup.pools} empty pools drawn for one frame (${warmup.frameMs.toFixed(1)} ms)`
+      `${warmup.pools} empty pools and ${standIns.children.length} stand-ins drawn for one frame (${warmup.frameMs.toFixed(1)} ms); ` +
+      `first use ${(performance.now() - t0).toFixed(1)} ms`
     );
   }
 

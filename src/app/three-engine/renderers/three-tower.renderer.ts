@@ -19,8 +19,6 @@ import {
   Matrix4,
   Camera,
   Sphere,
-  Texture,
-  WebGLRenderer,
   type Vector3,
 } from 'three';
 import { CoordinateSync } from './index';
@@ -34,8 +32,18 @@ import { DonerStream } from './tower-doner-stream';
 import type { TowerAim } from '../../entities/tower-aim';
 import { TowerMuzzleFlash } from './tower-muzzle-flash';
 import { setTowerGreyedOut } from './tower-hold-fire';
-import { TowerBuild } from './tower-scaffold';
-import { getTowerPath, towerConfigOf } from '../../configs/tower-paths.config';
+import { TowerBuild, scaffoldWarmUp } from './tower-scaffold';
+import { TOWER_PATHS, getTowerPath, towerConfigOf } from '../../configs/tower-paths.config';
+
+/** Every model a tower can wear: each type's, its paths' swaps and attachments */
+function towerModelUrls(): string[] {
+  return [
+    ...new Set([
+      ...Object.values(TOWER_TYPES).map((config) => config.modelUrl),
+      ...Object.values(TOWER_PATHS).flatMap((path) => [path.swap?.modelUrl, path.attachment?.modelUrl].filter((url): url is string => !!url)),
+    ]),
+  ];
+}
 
 /**
  * Tower render data - stored per tower
@@ -251,41 +259,88 @@ export class ThreeTowerRenderer {
   }
 
   /**
-   * Preload all tower type models
+   * Preload every model a tower can wear: its type's, its paths' swaps and
+   * attachments (an upgrade otherwise fetched and parsed one in the game)
    */
   async preloadAllModels(): Promise<void> {
-    const types = Object.keys(TOWER_TYPES) as TowerTypeId[];
-    await Promise.all(types.map((t) => this.preloadModel(t)));
+    await Promise.all(
+      towerModelUrls().map(async (url) => {
+        try {
+          await this.assetManager.loadModel(url);
+          this.loadedModelUrls.add(url);
+        } catch (err) {
+          console.error(`[ThreeTowerRenderer] Failed to load model: ${url}`, err);
+        }
+      }),
+    );
   }
 
   /**
-   * Compile every tower model's shader programs and upload its textures
-   * ahead of the first placement, which otherwise stalls the frame the tower
-   * appears in on a synchronous compile. With KHR_parallel_shader_compile the
-   * driver compiles off the main thread. Clones are built the way `create`
-   * builds them; their materials share program cache keys with real towers.
+   * Stand-ins for the load-time warm-up (ThreeTilesEngine.preloadModels),
+   * which compiles them for every light state and draws them once: each
+   * tower's model built as `create` builds it, with its saw arms, doner
+   * stream and shadow, a twin clipped as during its build (TowerBuild: the
+   * number of clipping planes is part of a program), each path's attachment,
+   * the scaffold, the rings and markers. Their programs are the real
+   * towers', whose first placement linked them in its frame (archer 250 ms,
+   * tentacle 470 ms).
    */
-  async precompile(renderer: WebGLRenderer, camera: Camera): Promise<void> {
-    const warm = new Group();
-    const urls = new Set(Object.values(TOWER_TYPES).map((config) => config.modelUrl));
-    for (const url of urls) {
-      const model = this.assetManager.cloneModel(url);
-      if (!model) continue;
-      warm.add(model);
-    }
-
-    // Lights come from the real scene, so the program keys match what renders.
-    await renderer.compileAsync(warm, camera, this.scene);
-
-    warm.traverse((node) => {
-      const material = (node as Mesh).material;
-      if (!material) return;
-      for (const m of Array.isArray(material) ? material : [material]) {
-        for (const value of Object.values(m)) {
-          if (value instanceof Texture) renderer.initTexture(value);
+  warmUpObjects(): Object3D[] {
+    const out: Object3D[] = [];
+    const { scaffold, plane } = scaffoldWarmUp();
+    const configs = [
+      ...Object.values(TOWER_TYPES),
+      ...Object.values(TOWER_PATHS).flatMap((path) => (path.swap ? [towerConfigOf(path.towerId, path.id)] : [])),
+    ];
+    for (const config of configs) {
+      for (const clipped of [false, true]) {
+        const built = this.buildModel(config);
+        if (!built) continue;
+        const { mesh, turretPart } = built;
+        this.castFrom(mesh, turretPart, true);
+        if (config.sawArms && turretPart) new SawArms(config, turretPart);
+        if (config.stream && turretPart) new DonerStream(config, turretPart, 1 / config.scale);
+        if (clipped) {
+          mesh.traverse((node) => {
+            const material = (node as Mesh).isMesh ? (node as Mesh).material : null;
+            if (!material) return;
+            for (const m of Array.isArray(material) ? material : [material]) m.clippingPlanes = [plane];
+          });
         }
+        out.push(mesh);
+      }
+    }
+    for (const path of Object.values(TOWER_PATHS)) {
+      const model = path.attachment ? this.assetManager.cloneModel(path.attachment.modelUrl) : null;
+      if (model) out.push(model);
+    }
+    const selectionRing = new Mesh(ThreeTowerRenderer.sharedSelectionGeometry!, ThreeTowerRenderer.sharedSelectionMaterial!);
+    out.push(...scaffold, this.rangeRings.create(), selectionRing, createTipMarker(0, 0, 0, true), createLosRing(0, 0, 0, this.LOS_OFFSET_MIN, true));
+    return out;
+  }
+
+  /**
+   * A tower's model as `create` and the warm-up build it: the clone at its
+   * scale and the turret part that turns, by `turretNode` or the default
+   * names 'turret_top', 'tower_top' and 'top' (no fallback to those when a
+   * node is configured)
+   */
+  private buildModel(config: TowerTypeConfig): { mesh: Object3D; turretPart: Object3D | null; turretBaseY: number } | null {
+    const mesh = this.assetManager.cloneModel(config.modelUrl);
+    if (!mesh) return null;
+    mesh.scale.setScalar(config.scale);
+    const isTurretNode = (name: string): boolean => config.turretNode
+      ? name === config.turretNode
+      : name === 'turret_top' || name === 'tower_top' || name === 'top';
+    let turretPart: Object3D | null = null;
+    let turretBaseY = 0;
+    mesh.traverse((node) => {
+      if (isTurretNode(node.name) && !turretPart) {
+        turretPart = node;
+        turretBaseY = node.position.y;
       }
     });
+    return { mesh, turretPart, turretBaseY };
   }
 
   /**
@@ -332,33 +387,17 @@ export class ThreeTowerRenderer {
     if (this.pendingCreates.get(id) !== token) return null;
     this.pendingCreates.delete(id);
 
-    // Clone the model
-    const mesh = this.assetManager.cloneModel(config.modelUrl);
-    if (!mesh) {
+    // The model with its turret part (for turret rotation)
+    const built = this.buildModel(config);
+    if (!built) {
       console.error(`[ThreeTowerRenderer] Failed to clone model: ${typeId}`);
       return null;
     }
-
-    mesh.scale.setScalar(config.scale);
+    const { mesh, turretPart, turretBaseY } = built;
 
     // Apply rotation: custom rotation + config rotation
     const baseRotation = config.rotationY ?? 0;
     mesh.rotation.y = baseRotation + customRotation;
-
-    // Find turret part if it exists (for turret rotation). A turretNode in the
-    // config replaces the default names 'turret_top', 'tower_top' and 'top',
-    // there is no fallback to them.
-    const isTurretNode = (name: string): boolean => config.turretNode
-      ? name === config.turretNode
-      : name === 'turret_top' || name === 'tower_top' || name === 'top';
-    let turretPart: Object3D | null = null;
-    let turretBaseY = 0;
-    mesh.traverse((node) => {
-      if (isTurretNode(node.name) && !turretPart) {
-        turretPart = node;
-        turretBaseY = node.position.y;
-      }
-    });
     // A configured node that is missing is a config error; once per type, so
     // a bot placing towers does not flood the console.
     if (config.turretNode && !turretPart && !this.missingTurretNodes.has(typeId)) {

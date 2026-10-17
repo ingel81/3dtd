@@ -1,4 +1,4 @@
-import { Mesh, Vector3, type BufferAttribute, type BufferGeometry, type IUniform, type Scene, type ShaderMaterial } from 'three';
+import { BufferAttribute, BufferGeometry, Mesh, Vector3, type IUniform, type Object3D, type Scene, type ShaderMaterial } from 'three';
 import { BURST_PALETTES, OOZE_DEATH_LOOK, OOZE_LOOK, type BurstPalette } from '../../../configs/visual-effects.config';
 import { ROUTE_BODY_COVER, type RouteBodyStations } from '../../../utils/route-body';
 import { SeededRandom, seedOf } from '../../../utils/seeded-random';
@@ -95,6 +95,20 @@ export class OozeBandRenderer {
   /** Bands drawn, the sinking ones included. */
   get count(): number {
     return this.bands.size;
+  }
+
+  /**
+   * A band for the load-time warm-up (ThreeTilesEngine.preloadModels): a band's material on a triangle with its
+   * attributes, so the first ooze links nothing in its frame
+   */
+  warmUpObject(): Object3D {
+    const geometry = new BufferGeometry();
+    geometry.setAttribute('position', new BufferAttribute(new Float32Array(9), 3));
+    geometry.setAttribute('aSide', new BufferAttribute(new Float32Array(9), 3));
+    geometry.setAttribute('aS', new BufferAttribute(new Float32Array(3), 1));
+    const mesh = new Mesh(geometry, this.baseMaterial.clone());
+    mesh.frustumCulled = false;
+    return mesh;
   }
 
   /** A band for the ooze `id` along `stations`; `ground` is the route grid's ground. */
