@@ -385,6 +385,11 @@
   padding: 8px 0;
 }
 
+.es-job > .td-note {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .es-job-progress {
   flex: 1 1 auto;
   height: 6px;
