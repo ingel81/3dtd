@@ -870,6 +870,24 @@ describe('The main menu', () => {
       expect(entries()).not.toContain('Edit this map');
     });
 
+    it('in a coop game Edit this map says the coop game is left; no run waits, so the way back leads to the worlds', async () => {
+      mapsOpen = true;
+      world.useCustomMap('ember-crater-copy', 'Ember Crater (copy)');
+      coop.inGame.set(true);
+      await setup('pause');
+      game.towerCount.set(1);
+      saves.canSave.set(true);
+      await settle();
+
+      await click(entry('edit-map'));
+      expect(text()).toContain('You leave the coop game.');
+      await click(Array.from(el().querySelectorAll<HTMLElement>('.mh-confirm button')).find((b) => b.textContent === 'Open in the editor')!);
+      await vi.waitFor(() => expect(worlds.editMap).toHaveBeenCalledWith('ember-crater-copy'));
+      // The game goes with the editor (its CoopService leaves the room); nothing of the coop run is kept to come back to
+      expect(saves.autosaveNow).not.toHaveBeenCalled();
+      expect(TestBed.inject(AppScreen).waitingRun()).toBeNull();
+    });
+
     it('between waves Edit this map keeps the run as autosave, and Back to the run names it (E195 phase 4)', async () => {
       mapsOpen = true;
       // Back to the run opens the map as it is then (no content hash): an edit since is the save's to refuse

@@ -536,6 +536,22 @@ describe('Worlds stage', () => {
     expect(opened).toEqual([]);
   });
 
+  it('out of the map editor after a coop game: the room is not joined again, the world closes into its menu', async () => {
+    // Opening the editor from a coop game asks first ("You leave the coop game.") and takes the game down, its
+    // CoopService leaves the room; the world's start order still names the room it was joined by
+    const order = signal<WorldStart>({ ...PLAIN_START, world: { kind: 'custom-map', mapId: 'demo-valley', contentHash: '' }, room: { code: 'ABC123', lane: null } });
+    TestBed.overrideProvider(WorldStartService, { useValue: { current: order } });
+    await open({ key: true });
+    const stage = TestBed.inject(WorldsStageService);
+    session.isOpen.set(true);
+    expect(stage.editorExit()).toBe('Back to Built Worlds');
+    stage.leaveEditor();
+    expect(session.close).toHaveBeenCalledTimes(1);
+    expect(opened).toEqual([]);
+    expect(stage.view()).toBe('world');
+    expect(stage.picks().maps).toMatchObject({ kind: 'map', id: 'demo-valley' });
+  });
+
   it('one source of chips for the globes, the game and the editor: the other worlds, the map in the editor', async () => {
     const f = await open({ key: true, slots: [heilbronn()] });
     session.park({ world: 'maps', pick: { kind: 'map', id: 'demo-valley', name: 'Demo Valley' }, label: 'Demo Valley', wave: 3, run: true });
