@@ -345,3 +345,16 @@ describe('validateMap, objects on the way of movers', () => {
     expect(objectsOnMoverWays(doc, footingOf)).toEqual([]);
   });
 });
+
+describe('validateMap, what keeps the file from being written', () => {
+  it('lists each problem of the map file as an error with the thing or the tool to fix it', () => {
+    const doc = createMapDocument({ id: 'm', name: 'M', width: 64, depth: 64 });
+    doc.objects.push({ id: 'o1', asset: 'tree', x: Number.NaN, y: 4, z: 0, rotation: 0, scale: 1 });
+    doc.prefabs = [{ id: 'p', name: 'P' } as never];
+    const file = validateMap(doc).filter((i) => i.code === 'map-file');
+    expect(file).toEqual([
+      { severity: 'error', code: 'map-file', message: 'The map cannot be saved: object o1 has a bad placement.', fixIn: 'objects', target: { kind: 'object', id: 'o1' } },
+      { severity: 'error', code: 'map-file', message: 'The map cannot be saved: prefab 1 needs an id, a name and its piece.', fixIn: 'stamp' },
+    ]);
+  });
+});

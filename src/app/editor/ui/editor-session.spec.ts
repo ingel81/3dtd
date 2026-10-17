@@ -375,7 +375,9 @@ describe('save errors in plain words', () => {
     const full = saveErrorText(Object.assign(new Error('x'), { name: 'QuotaExceededError' }));
     expect(full).toMatch(/no more room/);
     expect(full).toMatch(/still here/);
-    expect(saveErrorText(new MapFileError('The map is not valid: a river needs two points'))).toMatch(/Fix it \(Check, V\)/);
+    const invalid = saveErrorText(new MapFileError('The map is not valid: river r needs two points', ['river r needs two points', 'object o has a bad placement']));
+    expect(invalid).toBe('The map was not saved: river r needs two points (and 1 more). Your changes are still here; the check (V) lists each problem and where to fix it, then save again.');
+    expect(saveErrorText(new MapFileError('x', ['x']), 'downloaded')).toMatch(/^The map was not downloaded: x\. /);
     expect(saveErrorText(new Error('boom'))).toMatch(/boom.*still here/);
   });
 });

@@ -7,7 +7,7 @@
  * no workers (tests).
  */
 import type { CustomMapDocument } from '../../world/custom-map/map-document';
-import { packMapFile, type PackOptions } from '../../world/custom-map/map-file';
+import { MapFileError, packMapFile, type PackOptions } from '../../world/custom-map/map-file';
 import { fingerprint } from '../model/version-store';
 
 export interface PackedMap {
@@ -21,7 +21,23 @@ export interface PackRequest {
   options: PackOptions;
 }
 
-export type PackReply = PackedMap | { error: string };
+/** A failed pack as data: an invalid map keeps its kind and its list of problems across the worker's edge */
+export interface PackError {
+  error: string;
+  problems?: string[];
+}
+
+export type PackReply = PackedMap | PackError;
+
+export function packErrorReply(err: unknown): PackError {
+  const message = (err as Error)?.message ?? String(err);
+  return err instanceof MapFileError ? { error: message, problems: err.problems } : { error: message };
+}
+
+/** The error a reply stands for: a MapFileError again for an invalid map, so the editor can say what to fix */
+export function packReplyError(reply: PackError): Error {
+  return reply.problems ? new MapFileError(reply.error, reply.problems) : new Error(reply.error);
+}
 
 /** What the worker does with a request; also the inline path */
 export function packForSave(request: PackRequest): PackedMap {
@@ -42,7 +58,7 @@ export function packOffThread(doc: CustomMapDocument, options: PackOptions = {})
     const worker = new Worker(new URL('./map-pack.worker', import.meta.url), { type: 'module' });
     worker.onmessage = (e: MessageEvent<PackReply>) => {
       worker.terminate();
-      if ('error' in e.data) reject(new Error(e.data.error));
+      if ('error' in e.data) reject(packReplyError(e.data));
       else resolve(e.data);
     };
     worker.onerror = (e) => {

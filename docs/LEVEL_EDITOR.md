@@ -558,6 +558,7 @@ den Routen (Fläche in Reichweite, Tower darauf, bei mehreren Spuren die engste)
 
 | Code | Art | Bedeutung |
 |------|-----|-----------|
+| `map-file` | Fehler | Die Kartendatei ließe sich nicht schreiben (`mapProblems` in `map-file.ts`, dieselbe Prüfung wie beim Packen): ein Wert, den das Format nicht nimmt (eine Objektposition NaN, ein Prefab ohne Größe). Speichern, Strg+S und Download scheitern daran gleich; die Meldung nennt das Feld, der Klick wählt das Ding oder öffnet das Werkzeug dazu. Ein gescheitertes Speichern öffnet die Prüfung selbst |
 | `no-paths`, `no-spawns` | Fehler | Karte ohne Straßen oder ohne Spawn |
 | `too-many-spawns` | Fehler | Mehr als 32 Spawns (`MAX_SPAWN_PORTALS`); das Spiel nutzt nur die ersten 32, das Werkzeug setzt keine weiteren |
 | `spawn-off-path`, `hq-off-path` | Fehler | Spawn oder HQ weiter als 16 m von einer Straße |

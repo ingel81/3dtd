@@ -1305,6 +1305,8 @@ export class EditorSession implements OnDestroy {
       return true;
     } catch (e) {
       this.error.set(saveErrorText(e));
+      // An invalid map: the check lists each problem with the thing or the tool to fix it
+      if (e instanceof MapFileError) this.runCheck();
       return false;
     } finally {
       this.saving.set(false);
@@ -1413,7 +1415,8 @@ export class EditorSession implements OnDestroy {
       download(packMapFile(doc), `${doc.meta.id}${MAP_FILE_EXTENSION}`, 'application/zip');
       this.laterReminder();
     } catch (e) {
-      this.error.set((e as Error).message);
+      this.error.set(saveErrorText(e, 'downloaded'));
+      if (e instanceof MapFileError) this.runCheck();
     }
   }
 
@@ -1722,9 +1725,13 @@ export function download(bytes: Uint8Array, name: string, type: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-/** What a failed save tells the player: what happened, that nothing is lost yet, what to do */
-export function saveErrorText(e: unknown): string {
-  if (e instanceof MapFileError) return `The map was not saved: ${e.message} Fix it (Check, V) and save again.`;
+/** What a failed save (or download) tells the player: what happened, that nothing is lost yet, what to do */
+export function saveErrorText(e: unknown, what: 'saved' | 'downloaded' = 'saved'): string {
+  if (e instanceof MapFileError) {
+    // Saving and the download write the same file: neither helps until the problem is fixed
+    const more = e.problems.length > 1 ? ` (and ${e.problems.length - 1} more)` : '';
+    return `The map was not ${what}: ${e.problems[0]}${more}. Your changes are still here; the check (V) lists each problem and where to fix it, then save again.`;
+  }
   const err = e as { name?: string; message?: string } | null;
   if (err?.name === 'QuotaExceededError' || /quota|storage full/i.test(err?.message ?? '')) {
     return 'The map was not saved: the browser has no more room for maps. Your changes are still here: download the map (File menu) and delete maps you no longer need.';

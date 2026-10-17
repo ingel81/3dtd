@@ -21,6 +21,8 @@ import { HeightField } from '../../world/custom-map/render/height-field';
 import { TOWER_SPOT_M2, TYPICAL_TOWER_RANGE, type BuildAreas } from './build-areas';
 import { waveEventProblems } from './wave-event-check';
 import { MOVER_CLEARANCE, moverWays } from '../../world/custom-map/map-life';
+import { mapProblems, type MapProblem, type MapProblemPart } from '../../world/custom-map/map-file';
+import type { ToolId } from '../tools/tool';
 
 export type IssueSeverity = 'error' | 'warning';
 
@@ -28,6 +30,7 @@ export interface MapIssue {
   severity: IssueSeverity;
   /** Stable kind for tests and icons */
   code:
+    | 'map-file'
     | 'no-paths'
     | 'no-spawns'
     | 'too-many-spawns'
@@ -64,6 +67,40 @@ export interface MapIssue {
   focus?: MapPoint;
   /** What to select */
   target?: { kind: 'spawn' | 'edge' | 'node' | 'object' | 'hq'; id?: string };
+  /** The tool to fix it with, when no target says it */
+  fixIn?: ToolId;
+}
+
+/** The tool that changes each part of the document */
+const PART_TOOL: Record<MapProblemPart, ToolId> = {
+  meta: 'settings',
+  terrain: 'terrain',
+  objects: 'objects',
+  paths: 'paths',
+  spawns: 'markers',
+  hq: 'markers',
+  environment: 'environment',
+  gameplay: 'gameplay',
+  life: 'life',
+  intro: 'settings',
+  prefabs: 'stamp',
+};
+
+/**
+ * What keeps the map file from being written (map-file.ts mapProblems):
+ * saving, Ctrl+S and the download all refuse such a map, so each is an
+ * error with the thing or the tool to fix it
+ */
+export function fileIssues(doc: CustomMapDocument, problems: readonly MapProblem[] = mapProblems(doc)): MapIssue[] {
+  return problems.map((q) => {
+    const issue: MapIssue = { severity: 'error', code: 'map-file', message: `The map cannot be saved: ${q.text}.`, fixIn: PART_TOOL[q.part] };
+    if (q.at) {
+      issue.target = q.at;
+      const where = q.at.kind === 'hq' ? doc.hq : q.at.kind === 'object' ? doc.objects.find((o) => o.id === q.at!.id) : q.at.kind === 'spawn' ? doc.spawns.find((sp) => sp.id === q.at!.id) : q.at.kind === 'node' ? doc.paths.nodes.find((n) => n.id === q.at!.id) : undefined;
+      if (where && Number.isFinite(where.x) && Number.isFinite(where.y)) issue.focus = { x: where.x, y: where.y };
+    }
+    return issue;
+  });
 }
 
 export interface ValidationRules {
@@ -117,7 +154,7 @@ export interface ValidationOptions {
 
 export function validateMap(doc: CustomMapDocument, options: ValidationOptions = {}): MapIssue[] {
   const rules = options.rules ?? DEFAULT_RULES;
-  const issues: MapIssue[] = [];
+  const issues: MapIssue[] = fileIssues(doc);
   const t = doc.terrain;
   const { paths } = doc;
   // Nearest-road lookups through a grid of the edges: an OSM world has ten thousand

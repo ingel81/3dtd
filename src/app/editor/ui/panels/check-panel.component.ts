@@ -3,7 +3,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MAP_TRIAL_TONE, mapTrialSummary, type MapTrialResult } from '../../../world/map-trial';
 import { TdIconComponent } from '../../../components/icon/icon.component';
 import type { MapIssue } from '../../validation/map-validation';
-import { EditorSession } from '../editor-session.service';
+import { EditorSession, TOOL_INFO } from '../editor-session.service';
 import { TOWER_SPOT_M2, TYPICAL_TOWER_RANGE } from '../../validation/build-areas';
 
 /**
@@ -27,7 +27,7 @@ import { TOWER_SPOT_M2, TYPICAL_TOWER_RANGE } from '../../validation/build-areas
         @for (i of issues(); track $index) {
           <button class="td-row ck-row" type="button" role="button" (click)="focus(i)" [attr.data-code]="i.code">
             <td-icon [name]="i.severity === 'error' ? 'warn' : 'info'" [size]="14" [class.td-tone-hurt]="i.severity === 'error'" [class.td-tone-brass]="i.severity === 'warning'" />
-            <span class="ck-text">{{ i.message }}</span>
+            <span class="ck-text">{{ i.message }}@if (fixLabel(i); as f) { <span class="td-note">Fix it in {{ f }}</span>}</span>
           </button>
         }
       </div>
@@ -120,7 +120,14 @@ export class CheckPanelComponent {
       this.session.selectTool('objects');
       this.session.patchSettings((s) => (s.objects.mode = 'select'));
     }
+    else if (issue.fixIn) this.session.selectTool(issue.fixIn);
     if (issue.focus) vp.focusOn(issue.focus, 80);
+  }
+
+  /** The tool an issue without a thing to select is fixed with, as the toolbar names it */
+  fixLabel(issue: MapIssue): string | null {
+    const tool = !issue.target && issue.fixIn ? TOOL_INFO.get(issue.fixIn) : undefined;
+    return tool ? `${tool.label} (${tool.key})` : null;
   }
 
   close(): void {

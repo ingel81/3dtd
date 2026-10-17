@@ -235,9 +235,40 @@ export function canonicalJson(value: unknown): string {
   return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalJson(record[k])}`).join(',')}}`;
 }
 
+/** The part of the document a problem lies in: where the editor sends the player to fix it */
+export type MapProblemPart = Exclude<keyof CustomMapDocument, 'format' | 'version'>;
+
+/** One problem of a document: in words, the part it lies in and, where it is one thing, that thing */
+export interface MapProblem {
+  text: string;
+  part: MapProblemPart;
+  at?: { kind: 'object' | 'node' | 'edge' | 'spawn' | 'hq'; id?: string };
+}
+
 /** Every problem of the document, in words; empty when it is fine */
 export function validateMapDocument(doc: CustomMapDocument): string[] {
-  const p: string[] = [];
+  return mapProblems(doc).map((q) => q.text);
+}
+
+/** Collects the problems with the part and the thing being checked when they were found */
+class ProblemList {
+  readonly list: MapProblem[] = [];
+  part: MapProblemPart = 'meta';
+  at: MapProblem['at'] = undefined;
+
+  push(...texts: string[]): void {
+    for (const text of texts) this.list.push(this.at ? { text, part: this.part, at: this.at } : { text, part: this.part });
+  }
+}
+
+/** Every problem of the document with where it lies (validateMapDocument has them in words) */
+export function mapProblems(doc: CustomMapDocument): MapProblem[] {
+  const p = new ProblemList();
+  checkDocument(doc, p);
+  return p.list;
+}
+
+function checkDocument(doc: CustomMapDocument, p: ProblemList): void {
   const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
   if (doc.format !== MAP_FORMAT) p.push('format is not 3dtd-map');
   if (doc.version !== MAP_VERSION) p.push(`version ${doc.version} is not ${MAP_VERSION}`);
@@ -257,17 +288,18 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
     }
   }
 
+  p.part = 'terrain';
   const t = doc.terrain;
   if (!t || !t.grid) {
     p.push('terrain is missing');
-    return p;
+    return;
   }
   const g = t.grid;
   if (!Number.isInteger(g.columns) || !Number.isInteger(g.rows) || g.columns < 2 || g.rows < 2) {
     p.push('terrain grid needs at least 2 x 2 samples');
   } else if (g.columns > MAX_GRID_SIDE || g.rows > MAX_GRID_SIDE) {
     p.push(`terrain grid has more than ${MAX_GRID_SIDE} samples on a side`);
-    return p;
+    return;
   } else if (!isTyped(g.heights, 'Float32Array') || g.heights.length !== g.columns * g.rows) {
     p.push(`terrain heights hold ${g.heights?.length ?? 0} values, the grid needs ${g.columns * g.rows}`);
   } else {
@@ -306,11 +338,11 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
   }
   if (t.waterBodies !== undefined && (!Array.isArray(t.waterBodies) || t.waterBodies.length > MAX_WATER_BODIES)) {
     p.push(`waterBodies must be a list of at most ${MAX_WATER_BODIES}`);
-    return p;
+    return;
   }
   if (t.rivers !== undefined && !Array.isArray(t.rivers)) {
     p.push('rivers must be a list');
-    return p;
+    return;
   }
   for (const [k, body] of (t.waterBodies ?? []).entries()) {
     if (!body || typeof body !== 'object') {
@@ -341,24 +373,30 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
   }
   if (!finite(t.cliffAngle)) p.push('cliffAngle is not a number');
 
+  p.part = 'objects';
   if (!Array.isArray(doc.objects)) {
     p.push('objects must be a list');
-    return p;
+    return;
   }
+  p.part = 'paths';
   if (!doc.paths || !Array.isArray(doc.paths.nodes) || !Array.isArray(doc.paths.edges)) {
     p.push('paths must have lists of nodes and edges');
-    return p;
+    return;
   }
+  p.part = 'spawns';
   if (!Array.isArray(doc.spawns)) {
     p.push('spawns must be a list');
-    return p;
+    return;
   }
+  p.part = 'objects';
   const ids = new Set<string>();
   for (const o of doc.objects) {
+    p.at = undefined;
     if (!o || typeof o !== 'object') {
       p.push('an object entry is not an object');
       continue;
     }
+    if (o.id) p.at = { kind: 'object', id: o.id };
     if (!o.id || ids.has(o.id)) p.push(`object id "${o.id}" is missing or twice`);
     ids.add(o.id);
     if (!o.asset) p.push(`object ${o.id} has no asset`);
@@ -366,22 +404,27 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
     if (o.group !== undefined && typeof o.group !== 'string') p.push(`object ${o.id} has a bad group`);
     if ((o.pitch !== undefined && !finite(o.pitch)) || (o.roll !== undefined && !finite(o.roll))) p.push(`object ${o.id} has a bad tilt`);
   }
+  p.part = 'paths';
   const nodes = new Set<string>();
   for (const n of doc.paths.nodes) {
+    p.at = undefined;
     if (!n || typeof n !== 'object') {
       p.push('a path node is not an object');
       continue;
     }
+    if (n.id) p.at = { kind: 'node', id: n.id };
     if (!n.id || nodes.has(n.id)) p.push(`path node id "${n.id}" is missing or twice`);
     nodes.add(n.id);
     if (!finite(n.x) || !finite(n.y)) p.push(`path node ${n.id} has no position`);
   }
   const edges = new Set<string>();
   for (const e of doc.paths.edges) {
+    p.at = undefined;
     if (!e || typeof e !== 'object') {
       p.push('a path edge is not an object');
       continue;
     }
+    if (e.id) p.at = { kind: 'edge', id: e.id };
     if (!e.id || edges.has(e.id)) p.push(`path edge id "${e.id}" is missing or twice`);
     edges.add(e.id);
     if (!nodes.has(e.a) || !nodes.has(e.b)) p.push(`path edge ${e.id} names a node that does not exist`);
@@ -392,11 +435,17 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
     if (e.tunnel !== undefined && typeof e.tunnel !== 'boolean') p.push(`path edge ${e.id} has a bad tunnel flag`);
     if ((e.street !== undefined && typeof e.street !== 'string') || (e.surface !== undefined && typeof e.surface !== 'string')) p.push(`path edge ${e.id} has a bad street type or surface`);
   }
+  p.part = 'spawns';
   for (const sp of doc.spawns) {
+    p.at = sp?.id ? { kind: 'spawn', id: sp.id } : undefined;
     if (!sp || !finite(sp.x) || !finite(sp.y)) p.push(`spawn ${sp.id} has no position`);
     if (sp?.optional !== undefined && typeof sp.optional !== 'boolean') p.push(`spawn ${sp.id} has a bad optional flag`);
   }
+  p.part = 'hq';
+  p.at = { kind: 'hq' };
   if (!doc.hq || !finite(doc.hq.x) || !finite(doc.hq.y)) p.push('the HQ has no position');
+  p.at = undefined;
+  p.part = 'gameplay';
   const gp = doc.gameplay;
   if (gp !== undefined) {
     if (gp === null || typeof gp !== 'object') p.push('gameplay is not an object');
@@ -444,10 +493,12 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
       }
     }
   }
+  p.part = 'prefabs';
   if (doc.prefabs !== undefined) {
     if (!Array.isArray(doc.prefabs) || doc.prefabs.length > MAX_MAP_PREFABS) p.push(`prefabs must be a list of at most ${MAX_MAP_PREFABS}`);
     else doc.prefabs.forEach((pf, k) => p.push(...prefabProblems(pf, k)));
   }
+  p.part = 'environment';
   const env = doc.environment;
   if (!env || !['day', 'dusk', 'night', 'overcast'].includes(env.sky)) p.push('environment sky is unknown');
   const looks = ['temperate', 'hell', 'moon', 'mars', 'arctic', 'apocalypse', 'swamp', 'desert', 'mountain', 'city'];
@@ -462,9 +513,10 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
   if (wind !== undefined && (!wind || typeof wind !== 'object' || !finite(wind.strength) || !finite(wind.direction) || !finite(wind.gusts))) {
     p.push('environment wind needs strength, direction and gusts');
   }
+  p.part = 'life';
   p.push(...lifeProblems(doc.life));
+  p.part = 'intro';
   p.push(...introProblems(doc.intro));
-  return p;
 }
 
 /** What is wrong with wave event k of a map, in words (the shape; the editor's check names spawns and objects that are gone) */
