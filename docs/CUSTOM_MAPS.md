@@ -250,7 +250,7 @@ Bänder und Kreuzungen darin zusammen. Einen Knoten ziehen kostet so in Miltenbe
 Erde) ist in die Bodenfarbe gemalt und zeigt sich statt Kopfsteinen und Spurrillen. Unter der Mitte einer
 Straßenfläche (bis 25 cm vor ihren Rändern, nicht über die Enden hinaus) trägt die Wegmaske Blau 255 ohne Rot und Grün
 (eine Querlage erreicht höchstens 253): der Gelände-Shader liest die Maske dort ohne das Kanten-Rauschen ein zweites
-Mal und nimmt den flachen Fernpfad (keine Schichttexturen, die Fläche deckt den Boden ohnehin), das Gras wächst dort
+Mal (nur wo der erste Zugriff nahe einer Decke liegt) und nimmt den flachen Fernpfad (keine Schichttexturen, die Fläche deckt den Boden ohnehin), das Gras wächst dort
 nicht. `street` an der Kante (der `highway`-Typ des
 echten Wegs) gibt im Spiel den Straßentyp, nach dem Routen gewichtet und Spawns gewählt werden
 (`custom-map-streets.ts`); ohne ihn entscheidet die Art. Beides fehlt auf allen bisherigen Karten

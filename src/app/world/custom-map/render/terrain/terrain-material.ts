@@ -544,10 +544,14 @@ if (outside > 0.0) {
 
 // Roads and paths replace the painted ground
 vec4 pmask = texture2D(uPathMask, tuv + wobble * 0.5);
-// Under the middle of a road surface (path-mask.ts covers, read where it lies, without the wobble) only the road
-// shows: the ground takes the flat far path, no layer textures
-vec4 pmaskHere = texture2D(uPathMask, tuv);
-bool underRoad = pmaskHere.b > 0.996 && pmaskHere.r + pmaskHere.g < 0.002 && outside == 0.0;
+// Under the middle of a road surface (path-mask.ts covers) only the road shows: the ground takes the flat far path,
+// no layer textures. Read where it lies, without the wobble, and only where the first read is near a cover: most of
+// the ground pays no second read
+bool underRoad = false;
+if (pmask.b > 0.9 && pmask.r + pmask.g < 0.01 && outside == 0.0) {
+  vec4 pmaskHere = texture2D(uPathMask, tuv);
+  underRoad = pmaskHere.b > 0.996 && pmaskHere.r + pmaskHere.g < 0.002;
+}
 vec2 pm = pmask.rg * (1.0 - outside);
 // Frayed edges: noise eats into the soft rim of the mask, grass grows in from the side
 float fray = (varFine.a - 0.5) * 0.9 + (n3 - 0.5) * 0.4;
