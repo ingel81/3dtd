@@ -34,6 +34,20 @@ const DET_POW_OPERATOR = {
   message: "Simulation code uses DetMath.pow: `**` is Math.pow, whose last bit differs between engines. `x ** 2` is fine.",
 };
 
+/**
+ * The layers of custom maps (docs/ARCHITECTURE.md): the map library (map-ops) and the world use no editor code;
+ * the editor builds on both
+ */
+const NO_EDITOR = {
+  group: ["**/editor/**"],
+  message: "The world and the map library (map-ops) do not import the editor: move what both need into src/app/map-ops.",
+};
+/** The map library is plain data work: no rendering, no Angular */
+const NO_RENDER = [
+  { group: ["three", "three/**"], message: "The map library (map-ops) computes on the map document only: no three.js." },
+  { group: ["@angular/**"], message: "The map library (map-ops) runs in workers, tools and the sandbox: no Angular." },
+];
+
 module.exports = defineConfig([
   {
     files: ["**/*.ts"],
@@ -118,6 +132,19 @@ module.exports = defineConfig([
     rules: {
       "no-restricted-properties": ["error", SEEDED_RANDOM],
       "no-restricted-syntax": "off",
+    },
+  },
+  {
+    files: ["src/app/world/**/*.ts", "src/app/map-ops/**/*.ts"],
+    rules: {
+      "no-restricted-imports": ["error", { patterns: [NO_EDITOR] }],
+    },
+  },
+  {
+    files: ["src/app/map-ops/**/*.ts"],
+    ignores: ["**/*.spec.ts"],
+    rules: {
+      "no-restricted-imports": ["error", { patterns: [NO_EDITOR, ...NO_RENDER] }],
     },
   },
   {
