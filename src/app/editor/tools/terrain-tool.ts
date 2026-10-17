@@ -15,8 +15,8 @@ import {
   terraceDab,
   type RampEnd,
 } from '../../map-ops/terrain-ops';
-import { symmetryImages } from '../ops/symmetry';
-import { BrushStroke } from '../ops/brush-stroke';
+import { mirrorDab, symmetryImages, type SymmetryMode } from '../ops/symmetry';
+import type { EditTransaction } from '../model/edit-transaction';
 import { TERRAIN_MODES, type EditorTool, type ToolContext, type ToolPointer } from './tool';
 
 /** Metres per second at full strength */
@@ -32,7 +32,10 @@ export class TerrainTool implements EditorTool {
   brushVisible(ctx: ToolContext): boolean {
     return ctx.settings.terrain.mode !== 'ramp';
   }
-  private stroke: BrushStroke | null = null;
+  private stroke: EditTransaction | null = null;
+  /** The stroke's symmetry, and whether it adds to the ground (a symmetric image takes the change on its own ground) */
+  private symmetry: SymmetryMode = 'none';
+  private heightsAdd = false;
   private invert = false;
   private target = 0;
   private seed = 1;
@@ -58,9 +61,11 @@ export class TerrainTool implements EditorTool {
       return true;
     }
     const mode = TERRAIN_MODES.find((m) => m.id === s.mode)!;
-    this.stroke = new BrushStroke(ctx.editor, mode.label, ['heights'], ctx.settings.symmetry);
+    this.stroke = ctx.editor.begin(mode.label);
+    this.stroke.record('heights');
+    this.symmetry = ctx.settings.symmetry;
     // Sculpting adds to the ground; levelling sets heights the images must share
-    this.stroke.heightsAdd = mode.group === 'Sculpt';
+    this.heightsAdd = mode.group === 'Sculpt';
     this.invert = p.shift;
     this.seed = Math.floor(Math.random() * 1e6);
     if (s.mode === 'flatten') this.target = p.hit.z;
@@ -121,7 +126,7 @@ export class TerrainTool implements EditorTool {
       default:
         return;
     }
-    stroke.changed({ heights: rect }, { x, y });
+    stroke.changed(mirrorDab(stroke, this.symmetry, { x, y }, { heights: rect }, { heightsAdd: this.heightsAdd }));
   }
 
 
@@ -149,7 +154,7 @@ export class TerrainTool implements EditorTool {
     const b = { x: hit.x, y: hit.y, h: hit.z };
     this.rampStart = null;
     ctx.overlay.setDraft(null);
-    const stroke = new BrushStroke(ctx.editor, 'Ramp', ['heights']);
+    const stroke = ctx.editor.begin('Ramp');
     const t = stroke.doc.terrain;
     // A symmetric map gets the ramp at every image, each built from its own ends
     for (const img of symmetryImages(ctx.settings.symmetry, t.grid.columns === t.grid.rows)) {
@@ -158,13 +163,13 @@ export class TerrainTool implements EditorTool {
       const rect = rampBetween(t, ia, ib, ctx.settings.terrain.rampWidth, ctx.settings.brush.falloff, (r) => stroke.touch('heights', r), RAMP_SIDES);
       if (rect) stroke.changed({ heights: rect });
     }
-    stroke.finish();
+    stroke.commit();
     // The start's toast would stand over the finished ramp
     ctx.status('Ramp built');
   }
 
   private end(): void {
-    this.stroke?.finish();
+    this.stroke?.commit();
     this.stroke = null;
   }
 }

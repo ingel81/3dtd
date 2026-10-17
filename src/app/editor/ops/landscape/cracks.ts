@@ -9,7 +9,7 @@ import { sampleRectAround, sampleX, sampleY, texelRectAround, texelX, texelY, ty
 import { brushWeight, type BrushSettings } from '../../../map-ops/brush';
 import { MAX_LAYERS, readWeights, writeWeights } from '../../../map-ops/paint-ops';
 import { smooth } from '../../../map-ops/landscape-noise';
-import type { LandscapeStroke } from './landscape-stroke';
+import type { LandscapeContext } from './landscape-context';
 
 /** Share per second the ground closes toward the cracked look */
 const CRACK_RATE = 2.5;
@@ -19,7 +19,7 @@ const CRACK_DEPTH = 0.5;
 const CRACK_WAVE = 9;
 
 /** How much of a crack (1 in it, 0 away) and of its crust lies at a point */
-export function crackAt(stroke: LandscapeStroke, x: number, y: number): { crack: number; crust: number } {
+export function crackAt(stroke: LandscapeContext, x: number, y: number): { crack: number; crust: number } {
   const n = stroke.noise;
   // Warp the net so the cracks wander instead of following the noise lattice
   const wx = x + n.fbm(x, y, 20, 2, 'n5') * 4;
@@ -30,14 +30,14 @@ export function crackAt(stroke: LandscapeStroke, x: number, y: number): { crack:
   return { crack: smooth(0.76, 0.86, ridge) * life, crust: smooth(0.5, 0.76, ridge) * (0.5 + 0.5 * life) };
 }
 
-export function cracksDab(stroke: LandscapeStroke, center: MapPoint, brush: BrushSettings, dt: number): { heights: GridRect; splat: GridRect | null } {
+export function cracksDab(stroke: LandscapeContext, center: MapPoint, brush: BrushSettings, dt: number): { heights: GridRect; splat: GridRect | null } {
   const t = stroke.doc.terrain;
   const g = t.grid;
   const a = (1 - Math.exp(-CRACK_RATE * Math.min(dt, 0.1))) * brush.strength;
   const falloff = Math.max(0.3, brush.falloff);
 
   const rect = sampleRectAround(t, center.x, center.y, brush.radius);
-  stroke.touchHeights(rect);
+  stroke.tx.touch('heights', rect);
   for (let j = rect.j0; j <= rect.j1; j++) {
     const y = sampleY(t, j);
     for (let i = rect.i0; i <= rect.i1; i++) {
@@ -57,7 +57,7 @@ export function cracksDab(stroke: LandscapeStroke, center: MapPoint, brush: Brus
   const rock = stroke.layerOf(['scorched-ground', 'volcanic-rock', 'basalt']);
   if (lava === null || rock === null) return { heights: rect, splat: null };
   const splat = texelRectAround(t, center.x, center.y, brush.radius);
-  stroke.touchSplat(splat);
+  stroke.tx.touchSplat(splat);
   const res = t.splat.resolution;
   const w8 = new Float32Array(MAX_LAYERS);
   const target = new Float32Array(MAX_LAYERS);

@@ -3,7 +3,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { TdIconComponent } from '../../../components/icon/icon.component';
 import type { MapRiver, MapWaterKind } from '../../../world/custom-map/map-document';
 import { recarveRiver, relevelRiver } from '../../ops/landscape/river';
-import { LandscapeStroke } from '../../ops/landscape/landscape-stroke';
+import { LandscapeContext } from '../../ops/landscape/landscape-context';
 import { meanWidth, riverLength, setMeanWidth, simplifyRiver } from '../../ops/river-edit';
 import { relayRiver, removeWholeRiver, riverEdit, waterCommands } from '../../ops/water-commands';
 import type { WaterMode } from '../../tools/tool';
@@ -12,6 +12,10 @@ import { panelRev } from './panel-shown';
 import { BrushPanelComponent } from './brush-panel.component';
 import { RangeRowComponent } from './range-row.component';
 import { ModePickerComponent, type EditorMode } from './mode-picker.component';
+
+/** What a water edit says when it has to wait */
+const WATER = 'Changing the water';
+const RIVER = 'Changing the river';
 
 const WATER_MODES: readonly EditorMode[] = [
   { id: 'fill', label: 'Fill a hollow', hint: 'Click into a hollow: every connected spot below the level floods. Without water yet, the hollow\'s rim sets the level' },
@@ -202,15 +206,15 @@ export class WaterPanelComponent {
   }
 
   recarve(): void {
-    const editor = this.session.editor;
     const river = this.session.doc?.terrain.rivers?.[this.river()];
-    if (!editor || !river) return;
-    const stroke = new LandscapeStroke(editor, 'Carve the river bed', 1, this.session.catalog());
-    // The surface first, from the banks as they are: a river from before sinks into a channel
-    relevelRiver(stroke, river);
-    recarveRiver(stroke, river);
-    stroke.finish();
-    this.session.refresh();
+    if (!river) return;
+    this.session.edit(RIVER, (e) => {
+      const stroke = new LandscapeContext(e.begin('Carve the river bed'), 1, this.session.catalog());
+      // The surface first, from the banks as they are: a river from before sinks into a channel
+      relevelRiver(stroke, river);
+      recarveRiver(stroke, river);
+      stroke.finish();
+    });
   }
 
   simplify(): void {
@@ -219,11 +223,8 @@ export class WaterPanelComponent {
   }
 
   removeRiver(): void {
-    const editor = this.session.editor;
     const index = this.river();
-    if (!editor || index < 0) return;
-    removeWholeRiver(editor, index, this.session.catalog());
-    this.session.refresh();
+    if (index < 0 || !this.session.edit(RIVER, (e) => removeWholeRiver(e, index, this.session.catalog()))) return;
     this.session.patchSettings((s) => {
       s.water.river = -1;
       s.water.riverPoint = -1;
@@ -232,21 +233,18 @@ export class WaterPanelComponent {
 
   /** A change of the river's course or width: its bed follows (one step) */
   private reshapeRiver(label: string, edit: (r: MapRiver) => void): void {
-    const editor = this.session.editor;
     const index = this.river();
-    const river = editor?.doc.terrain.rivers?.[index];
-    if (!editor || !river || this.session.blocked('Changing the river')) return;
-    const before = structuredClone(editor.doc.terrain.rivers);
-    edit(river);
-    relayRiver(editor, this.session.catalog(), label, index, before);
-    this.session.refresh();
+    if (!this.session.doc?.terrain.rivers?.[index]) return;
+    this.session.edit(RIVER, (e) => {
+      const before = structuredClone(e.doc.terrain.rivers);
+      edit(e.doc.terrain.rivers![index]);
+      relayRiver(e, this.session.catalog(), label, index, before);
+    });
   }
 
   private editRiver(label: string, edit: (r: MapRiver) => void): void {
-    const editor = this.session.editor;
     const index = this.river();
-    if (!editor || index < 0) return;
-    this.session.execute(riverEdit(editor, label, (rivers) => rivers[index] && edit(rivers[index])));
+    if (index >= 0) this.session.edit(RIVER, (e) => e.execute(riverEdit(e, label, (rivers) => rivers[index] && edit(rivers[index]))));
   }
 
   setMode(mode: WaterMode): void {
@@ -262,11 +260,9 @@ export class WaterPanelComponent {
   }
 
   add(kind: MapWaterKind): void {
-    const editor = this.session.groundEditor('Changing the water');
-    if (!editor) return;
     const level = Math.round((this.session.hover()?.height ?? 0) * 10) / 10;
-    this.session.execute(waterCommands.addBody(editor, kind, level));
-    const index = (editor.doc.terrain.waterBodies?.length ?? 1) - 1;
+    if (!this.session.edit(WATER, (e) => waterCommands.addBody(e, kind, level))) return;
+    const index = (this.session.doc!.terrain.waterBodies?.length ?? 1) - 1;
     this.session.patchSettings((s) => {
       s.water.body = index;
       s.water.mode = 'fill';
@@ -275,24 +271,18 @@ export class WaterPanelComponent {
   }
 
   remove(index: number): void {
-    const editor = this.session.groundEditor('Changing the water');
-    if (!editor) return;
-    this.session.execute(waterCommands.remove(editor, index));
-    if (index >= 0 && this.active() >= index) this.choose(this.active() - 1);
+    if (this.session.edit(WATER, (e) => waterCommands.remove(e, index)) && index >= 0 && this.active() >= index) this.choose(this.active() - 1);
   }
 
   set(patch: { level?: number; color?: string; kind?: MapWaterKind }, label: string): void {
-    const editor = this.session.groundEditor('Changing the water');
-    if (editor) this.session.execute(waterCommands.set(editor, this.active(), patch, label));
+    this.session.edit(WATER, (e) => waterCommands.set(e, this.active(), patch, label));
   }
 
   sea(): void {
-    const editor = this.session.groundEditor('Changing the water');
-    if (editor) this.session.execute(waterCommands.sea(editor, this.active()));
+    this.session.edit(WATER, (e) => waterCommands.sea(e, this.active()));
   }
 
   clear(): void {
-    const editor = this.session.groundEditor('Changing the water');
-    if (editor) this.session.execute(waterCommands.clearMask(editor, this.active()));
+    this.session.edit(WATER, (e) => waterCommands.clearMask(e, this.active()));
   }
 }

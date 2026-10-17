@@ -9,7 +9,7 @@ import { EditorDocument } from '../../model/editor-document';
 import { finishGenerated, generateTerrain, type TerrainPreset } from '../../../map-ops/generate';
 import { biomeBand } from './biome-brush';
 import { biomeById, type BiomeId } from './biomes';
-import { LandscapeStroke } from './landscape-stroke';
+import { LandscapeContext } from './landscape-context';
 
 export interface MapTemplate {
   id: string;
@@ -173,7 +173,7 @@ export async function applyTemplate(
   const own = biomeById(template.biome);
   const scale = template.relief ?? 1;
   const biome = scale === 1 || !own.relief ? own : { ...own, relief: { ...own.relief, amplitude: own.relief.amplitude * scale } };
-  const stroke = new LandscapeStroke(editor, biome.label, seed, catalog);
+  const stroke = new LandscapeContext(editor.begin(biome.label), seed, catalog);
   for (let y = -t.depth / 2; y < t.depth / 2; y += BAND) {
     biomeBand(stroke, biome, y, Math.min(t.depth / 2, y + BAND));
     await pause(Math.min(1, (y + t.depth / 2 + BAND) / t.depth));

@@ -1,7 +1,7 @@
 /**
  * The map kit: builds or changes a map in code with the editor's own
  * operations, as a person would with the mouse. A landscape call is one
- * stroke of the Landscape tool (`LandscapeStroke`): biome dabs along a line,
+ * stroke of the Landscape tool (`LandscapeContext`): biome dabs along a line,
  * landforms, cliff edges, rivers, roads. The terrain, paint, water, object
  * and path calls run the same ops as the Terrain, Paint, Water, Objects,
  * Paths and Spawns tools. Every stroke takes its seed from the kit's seed and
@@ -27,7 +27,7 @@ import { biomeById, type BiomeId } from './landscape/biomes';
 import { cracksDab } from './landscape/cracks';
 import { erosionDab } from './landscape/erosion';
 import { hashCell, LandscapeNoise } from '../../map-ops/landscape-noise';
-import { LandscapeStroke } from './landscape/landscape-stroke';
+import { LandQuery, LandscapeContext } from './landscape/landscape-context';
 import { resample, simplify } from '../../map-ops/lines';
 import { carveRiver, DEFAULT_RIVER, type RiverOptions, type RiverResult } from './landscape/river';
 import { buildRoad, DEFAULT_ROAD, type RoadOptions, type RoadResult } from './landscape/road';
@@ -283,8 +283,8 @@ export class MapKit {
   }
 
   /** One Landscape stroke: `paint` runs the dabs, the stroke lands as one step */
-  stroke<T>(label: string, paint: (s: LandscapeStroke) => T, seed = this.nextSeed()): T {
-    const s = new LandscapeStroke(this.editor, label, seed, this.catalog, this.maxLayers);
+  stroke<T>(label: string, paint: (s: LandscapeContext) => T, seed = this.nextSeed()): T {
+    const s = new LandscapeContext(this.editor.begin(label), seed, this.catalog, this.maxLayers);
     s.symmetry = this.symmetry;
     // The level scripts build the shipped maps: their strokes copy and fill up the layer list as they always did
     s.editorCopies = false;
@@ -377,7 +377,7 @@ export class MapKit {
     this.freeCheck = null;
     const out: MapObject[] = [];
     const level = this.doc.terrain.water?.level ?? 0;
-    this.freeCheck = new LandscapeStroke(this.editor, 'check', 1, this.catalog);
+    this.freeCheck = new LandQuery(this.doc);
     const check = this.freeCheck;
     const length = polylineLength(drawn);
     // Along the line: where it runs, its land side (left) and its sea side
@@ -818,7 +818,7 @@ export class MapKit {
 
   // ---- Objects tool --------------------------------------------------------------------------------------------
 
-  private freeCheck: LandscapeStroke | null = null;
+  private freeCheck: LandQuery | null = null;
 
   /** Whether an object of this footprint may stand here: off roads, away from spawns and HQ, dry */
   /**
@@ -841,7 +841,7 @@ export class MapKit {
   }
 
   free(x: number, y: number, footprint: number, onWater = false): boolean {
-    this.freeCheck ??= new LandscapeStroke(this.editor, 'check', 1, this.catalog);
+    this.freeCheck ??= new LandQuery(this.doc);
     this.freeCheck.refreshRoads();
     return this.freeCheck.freeForObject(x, y, footprint, onWater);
   }
@@ -1082,7 +1082,7 @@ export class MapKit {
    * (catalogue `roadThrough`)
    */
   clearRoads(): number {
-    this.freeCheck ??= new LandscapeStroke(this.editor, 'check', 1, this.catalog);
+    this.freeCheck ??= new LandQuery(this.doc);
     this.freeCheck.refreshRoads();
     const check = this.freeCheck;
     const before = this.doc.objects.length;

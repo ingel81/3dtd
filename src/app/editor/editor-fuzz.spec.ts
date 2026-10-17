@@ -4,8 +4,10 @@
  * undo has to bring back the first map byte for byte and every redo the
  * last one (contentBytes, what the content hash digests), and every state
  * passed on the way, by undo, redo or a jump through the history, has to be
- * the map as it was when that step was done. A failure names the seed and
- * the steps, so it can be played again.
+ * the map as it was when that step was done. Some edits are dropped instead
+ * of kept (every transaction aborts): the map has to be byte for byte as it
+ * was before them, the history untouched. A failure names the seed and the
+ * steps, so it can be played again.
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -14,12 +16,13 @@ import { contentBytes } from '../world/custom-map/map-file';
 import type { CustomMapDocument } from '../world/custom-map/map-document';
 import { CatalogIndex, normalizeCatalog } from '../map-ops/asset-catalog';
 import { EditorDocument } from './model/editor-document';
+import { EditTransaction } from './model/edit-transaction';
 import { ObjectsCommand } from './model/commands/objects';
 import { SnapshotCommand } from './model/commands/snapshot';
 import { alignedToSlope, variedTint } from '../map-ops/object-ops';
 import { mirrorMap } from './ops/mirror-map';
 import { decodePng, encodePng16, gridToImage, imageToHeights } from './ops/heightmap';
-import { LandscapeStroke } from './ops/landscape/landscape-stroke';
+import { LandscapeContext } from './ops/landscape/landscape-context';
 import { heightAt } from '../map-ops/grid';
 import { detailTarget, increaseMapDetail } from './ops/detail';
 import type { BiomeId } from './ops/landscape/biomes';
@@ -168,7 +171,7 @@ function fuzz(seed: number, count: number): Run {
     },
     paint: () => {
       if (editor.doc.terrain.layers.length < 3 && r() < 0.5) {
-        editor.execute(paintCommands.addLayer(editor, pick(['dirt', 'rock', 'sand', 'gravel'])));
+        paintCommands.addLayer(editor, pick(['dirt', 'rock', 'sand', 'gravel']));
         steps.push('add layer');
         return;
       }
@@ -361,9 +364,9 @@ function fuzz(seed: number, count: number): Run {
       const t = editor.doc.terrain;
       const { image, low, high } = gridToImage(t.grid);
       const back = decodePng(encodePng16({ ...image, values: image.values.map((v, k) => Math.min(1, v * 0.8 + 0.1 * Math.sin(k))) }));
-      const stroke = new LandscapeStroke(editor, 'Import heightmap', 1, catalog);
+      const stroke = new LandscapeContext(editor.begin('Import heightmap'), 1, catalog);
       const all = { i0: 0, j0: 0, i1: t.grid.columns - 1, j1: t.grid.rows - 1 };
-      stroke.touchHeights(all);
+      stroke.tx.touch('heights', all);
       t.grid.heights.set(imageToHeights(back, t.grid.columns, t.grid.rows, low, high + 5));
       stroke.changed({ heights: all });
       stroke.finish();
@@ -504,6 +507,34 @@ function fuzz(seed: number, count: number): Run {
       tools.life.key!(key('Enter'), ctx);
       steps.push(`life ${s.mode} ${s.kind}`);
     },
+    aborted: () => {
+      // An edit that goes through transactions only, each dropped where it would land: the map stays as it was
+      const name = pick(['terrain', 'paint', 'landscape', 'cliffRocks', 'stamp', 'heightmap', 'rebuildDressing', 'riverLine', 'river', 'fill']);
+      const bytes = contentBytes(editor.doc);
+      const history = editor.historySteps;
+      const done = steps.length;
+      const commit = EditTransaction.prototype.commit;
+      EditTransaction.prototype.commit = function (this: EditTransaction) {
+        this.abort();
+        return null;
+      };
+      try {
+        if (name === 'fill') {
+          ctx.settings.water.mode = 'fill';
+          const [x, y] = point();
+          tools.water.pointerDown(at(x, y, { ctrl: r() < 0.5 }), ctx);
+          tools.water.pointerUp(at(x, y), ctx);
+          steps.push('water fill');
+        } else ops[name]();
+      } finally {
+        EditTransaction.prototype.commit = commit;
+      }
+      // An op that found nothing to do names no step
+      const what = steps.length > done ? steps.pop() : 'nothing';
+      steps.push(`aborted ${what}`);
+      if (!same(contentBytes(editor.doc), bytes)) throw new Error(`seed ${seed}: an aborted ${what} changed the map`);
+      if (editor.historySteps !== history) throw new Error(`seed ${seed}: an aborted ${what} left a step`);
+    },
     environment: () => {
       editor.execute(
         SnapshotCommand.record(editor.doc, 'Environment', ['environment'], (m) => {
@@ -518,7 +549,7 @@ function fuzz(seed: number, count: number): Run {
     ['road', 2], ['marker', 2], ['landscape', 4], ['stamp', 2], ['symmetry', 1], ['resize', 1], ['detail', 1], ['keep', 1],
     ['restore', 1], ['environment', 1], ['tint', 2], ['align', 1], ['placeAligned', 1], ['line', 2], ['cliffRocks', 2], ['mirror', 1],
     ['heightmap', 1], ['roadEdit', 3], ['roadBox', 1], ['river', 2], ['jump', 1], ['riverLine', 1], ['oldRoad', 1], ['rebuildDressing', 1],
-    ['roadRoundTrip', 1], ['life', 1],
+    ['roadRoundTrip', 1], ['life', 1], ['aborted', 3],
   ];
   const total = weights.reduce((s, [, w]) => s + w, 0);
   for (let k = 0; k < count; k++) {

@@ -17,7 +17,7 @@
  *   A kind mixes all its candidate assets the catalogue has, one per spot.
  *   City buildings and lamps take fixed slots along the street grid.
  */
-import type { DocChange } from '../../model/editor-document';
+import type { DocChange } from '../../model/doc-change';
 import type { MapTerrain } from '../../../world/custom-map/map-document';
 import { heightAt, sampleX, sampleY, slopeAt, texelX, texelY, type GridRect } from '../../../map-ops/grid';
 import { brushWeight, type BrushSettings } from '../../../map-ops/brush';
@@ -31,7 +31,7 @@ import { FieldCache } from './field-cache';
 import { craterProfile } from './shapes';
 import type { CatalogIndex } from '../../../map-ops/asset-catalog';
 import { smooth, type LandscapeNoise } from '../../../map-ops/landscape-noise';
-import type { LandscapeStroke } from './landscape-stroke';
+import type { LandscapeContext } from './landscape-context';
 
 /** Share per second the ground and paint close toward the biome at full strength */
 const SHAPE_RATE = 2.5;
@@ -59,15 +59,15 @@ const CRUST = MAX_LAYERS + 2;
 const FRAY = MAX_LAYERS + 3;
 
 /**
- * The water a stroke grades and paints toward (LandscapeStroke.coastLevel):
+ * The water a stroke grades and paints toward (LandscapeContext.coastLevel):
  * without water near where it began, just under the ground there
  */
-function coastOf(stroke: LandscapeStroke): number {
+function coastOf(stroke: LandscapeContext): number {
   return stroke.coastLevel() ?? (stroke.anchor?.h ?? 0) - 0.3;
 }
 
 /** Relief offset of a biome at a map point (ground `base` there before the stroke), metres at full strength */
-function relief(stroke: LandscapeStroke, biome: BiomeDef, x: number, y: number, base: number): number {
+function relief(stroke: LandscapeContext, biome: BiomeDef, x: number, y: number, base: number): number {
   const r = biome.relief;
   const n = stroke.noise;
   switch (r.kind) {
@@ -148,7 +148,7 @@ function waterlineShare(t: MapTerrain, waterline: Waterline, x: number, y: numbe
   return 1 - smooth(waterline.band, waterline.band * 2, heightAt(t, x, y) - waterline.level);
 }
 
-/** Metres from a map point to the coast (LandscapeStroke.coastDistance), at the nearest height sample */
+/** Metres from a map point to the coast (LandscapeContext.coastDistance), at the nearest height sample */
 function coastAt(field: Float32Array, t: MapTerrain, x: number, y: number): number {
   const g = t.grid;
   const i = Math.min(g.columns - 1, Math.max(0, Math.round((x + t.width / 2) / g.cellSize)));
@@ -164,7 +164,7 @@ interface PatternLayers {
 }
 
 /** Swamp pool noise at a point, 0..1; pools lie below `biome.pools` */
-function poolNoise(stroke: LandscapeStroke, x: number, y: number): number {
+function poolNoise(stroke: LandscapeContext, x: number, y: number): number {
   // Domain-warped so the pools come out as rounded, lobed blobs
   const wx = x + 9 * stroke.noise.fbm(x, y, 30, 2, 'n2');
   const wy = y + 9 * stroke.noise.fbm(x + 71, y - 13, 30, 2, 'n3');
@@ -172,13 +172,13 @@ function poolNoise(stroke: LandscapeStroke, x: number, y: number): number {
 }
 
 /** How deep inside a pool, 0 outside to 1 in its middle */
-export function poolDepth(stroke: LandscapeStroke, biome: BiomeDef, x: number, y: number): number {
+export function poolDepth(stroke: LandscapeContext, biome: BiomeDef, x: number, y: number): number {
   if (!biome.pools) return 0;
   return 1 - smooth(biome.pools - 0.14, biome.pools, poolNoise(stroke, x, y));
 }
 
 /** A ring around the pools (mud, reeds), 0..1 */
-export function poolShore(stroke: LandscapeStroke, biome: BiomeDef, x: number, y: number): number {
+export function poolShore(stroke: LandscapeContext, biome: BiomeDef, x: number, y: number): number {
   if (!biome.pools) return 0;
   const n = poolNoise(stroke, x, y);
   return smooth(biome.pools - 0.06, biome.pools + 0.01, n) * (1 - smooth(biome.pools + 0.04, biome.pools + 0.12, n));
@@ -212,7 +212,7 @@ function dabReach(noise: LandscapeNoise, center: { x: number; y: number }, brush
 }
 
 export function biomeDab(
-  stroke: LandscapeStroke,
+  stroke: LandscapeContext,
   center: { x: number; y: number },
   brush: BrushSettings,
   biome: BiomeDef,
@@ -227,13 +227,13 @@ export function biomeDab(
  * whole width), the ground and paint set at once; for map templates. The
  * level for pools and levelled biomes comes from the map's middle.
  */
-export function biomeBand(stroke: LandscapeStroke, biome: BiomeDef, minY: number, maxY: number): void {
+export function biomeBand(stroke: LandscapeContext, biome: BiomeDef, minY: number, maxY: number): void {
   const t = stroke.doc.terrain;
   stroke.anchor ??= { x: 0, y: 0, h: stroke.baseHeight(...sampleIndex(t, 0, 0)) };
   applyBiome(stroke, { minX: -t.width / 2, maxX: t.width / 2, minY, maxY, weight: () => 1, inside: () => true }, biome, 1, 1, 1);
 }
 
-function applyBiome(stroke: LandscapeStroke, reach: BiomeReach, biome: BiomeDef, strength: number, pull: number, paintRate: number): void {
+function applyBiome(stroke: LandscapeContext, reach: BiomeReach, biome: BiomeDef, strength: number, pull: number, paintRate: number): void {
   const doc = stroke.doc;
   const t = doc.terrain;
   const g = t.grid;
@@ -246,7 +246,7 @@ function applyBiome(stroke: LandscapeStroke, reach: BiomeReach, biome: BiomeDef,
 
   // Heights
   const rect = sampleRectOf(t, reach);
-  stroke.touchHeights(rect);
+  stroke.tx.touch('heights', rect);
   pool?.touch(rect);
   let wet = false;
   for (let j = rect.j0; j <= rect.j1; j++) {
@@ -303,7 +303,7 @@ function applyBiome(stroke: LandscapeStroke, reach: BiomeReach, biome: BiomeDef,
         ? { kind: 'cracks', a: stroke.layerOf(['lava', 'lava-crust']), b: stroke.layerOf(['lava-crust', 'obsidian', 'basalt']) }
         : { kind: undefined, a: null, b: null };
   const trect = texelRectOf(t, reach);
-  stroke.touchSplat(trect);
+  stroke.tx.touchSplat(trect);
   paintBiome(stroke, t, trect, reach, strength, biome, layers, steep, mud, pattern, paintRate, waterline);
 
   // Objects
@@ -314,7 +314,7 @@ function applyBiome(stroke: LandscapeStroke, reach: BiomeReach, biome: BiomeDef,
 }
 
 /** Edge plants: decided once the stroke is over, where the brush only grazed */
-export function finishBiome(stroke: LandscapeStroke, brush: BrushSettings, biome: BiomeDef): void {
+export function finishBiome(stroke: LandscapeContext, brush: BrushSettings, biome: BiomeDef): void {
   const placed = growObjects(stroke, null, brush.strength, biome, true);
   if (placed.length) stroke.changed({ objects: placed });
 }
@@ -348,7 +348,7 @@ function texelRectOf(t: MapTerrain, r: BiomeReach): GridRect {
 }
 
 function paintBiome(
-  stroke: LandscapeStroke,
+  stroke: LandscapeContext,
   t: MapTerrain,
   rect: GridRect,
   reach: BiomeReach,
@@ -418,7 +418,7 @@ function paintBiome(
  * share, so patches have soft, irregular rims instead of salt and pepper.
  */
 function baseMix(
-  stroke: LandscapeStroke,
+  stroke: LandscapeContext,
   usable: { layer: number; share: number }[],
   x: number,
   y: number,
@@ -511,7 +511,7 @@ function zoneChance(zone: BiomeObject['zone'], w: number, shore = 0): number {
  * chance passes their roll; edge plants remember their strongest weight and
  * are decided at the end.
  */
-function growObjects(stroke: LandscapeStroke, reach: BiomeReach | null, strength: number, biome: BiomeDef, ending: boolean): string[] {
+function growObjects(stroke: LandscapeContext, reach: BiomeReach | null, strength: number, biome: BiomeDef, ending: boolean): string[] {
   const t = stroke.doc.terrain;
   const placed: string[] = [];
   const streets = biome.pattern === 'streets';
@@ -593,7 +593,7 @@ function growObjects(stroke: LandscapeStroke, reach: BiomeReach | null, strength
 }
 
 /** City buildings and lamps: the grid's slots in reach where it is strong, each decided once */
-function growSlots(stroke: LandscapeStroke, reach: BiomeReach, strength: number, o: BiomeObject, kind: number, assets: string[]): string[] {
+function growSlots(stroke: LandscapeContext, reach: BiomeReach, strength: number, o: BiomeObject, kind: number, assets: string[]): string[] {
   const t = stroke.doc.terrain;
   const n = stroke.noise;
   const placed: string[] = [];

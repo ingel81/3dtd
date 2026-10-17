@@ -10,17 +10,16 @@
  * list, kinds, levels and colours live in the panel (`waterCommands`).
  */
 import type { MapRiver } from '../../world/custom-map/map-document';
-import type { DocChange } from '../model/editor-document';
+import type { DocChange } from '../model/doc-change';
 import type { PatchTarget } from '../model/commands/patch';
 import { nearestSample, sampleRectAround, type GridRect } from '../../map-ops/grid';
 import { addPouredBodies, basinBrim, emptyWater, fillBasin, hollowFloor, lakeDab, waterBody, waterMaskDab, wetSamples } from '../../map-ops/water-ops';
 import { pourOffThread, POUR_MAX_LAKES } from '../ops/pour';
 import { MAX_WATER_BODIES } from '../../world/custom-map/map-file';
 import { insertPoint, movePoint, nearestRiverPoint, nearestRiverSegment, removePoint } from '../ops/river-edit';
-import { symmetryImages } from '../ops/symmetry';
-import { recordWater, relayRiver, removeWholeRiver, waterCommands } from '../ops/water-commands';
-import { WaterStateCommand, setWaterState, waterState } from '../model/commands/terrain';
-import { BrushStroke } from '../ops/brush-stroke';
+import { mirrorDab, symmetryImages, type SymmetryMode } from '../ops/symmetry';
+import { relayRiver, removeWholeRiver, waterCommands } from '../ops/water-commands';
+import type { EditTransaction } from '../model/edit-transaction';
 import type { EditorTool, ToolContext, ToolPointer } from './tool';
 
 export { BODY_COLORS } from '../../map-ops/water-ops';
@@ -38,7 +37,8 @@ function maskTarget(body: number): PatchTarget {
 
 export class WaterTool implements EditorTool {
   readonly id = 'water' as const;
-  private stroke: BrushStroke | null = null;
+  private stroke: EditTransaction | null = null;
+  private symmetry: SymmetryMode = 'none';
   /** A river point being dragged and the rivers before */
   private riverDrag: { river: number; point: number; before: MapRiver[] | undefined } | null = null;
   private on = true;
@@ -83,13 +83,15 @@ export class WaterTool implements EditorTool {
         ctx.status('Choose a body in the panel first');
         return true;
       }
-      editor.execute(waterCommands.enable(editor, Math.round((p.hit.z - (s.mode === 'lake' ? 0 : 0.2)) * 10) / 10));
+      waterCommands.enable(editor, Math.round((p.hit.z - (s.mode === 'lake' ? 0 : 0.2)) * 10) / 10);
     }
     this.on = s.mode === 'erase' ? p.shift : !p.shift;
     const targets: PatchTarget[] = [maskTarget(s.body)];
     if (s.mode === 'lake') targets.push('heights');
     const label = s.mode === 'lake' ? 'Dig lake' : this.on ? 'Paint water' : 'Erase water';
-    this.stroke = new BrushStroke(editor, label, targets, ctx.settings.symmetry);
+    this.stroke = editor.begin(label);
+    for (const target of targets) this.stroke.record(target);
+    this.symmetry = ctx.settings.symmetry;
     return true;
   }
 
@@ -171,11 +173,11 @@ export class WaterTool implements EditorTool {
     if (s.mode === 'lake' && this.on) {
       stroke.touch('heights', rect);
       lakeDab(t, p.hit.x, p.hit.y, ctx.settings.brush, s.depth, DIG_RATE * Math.min(dt, 0.1), s.body);
-      stroke.changed({ ...waterChange(s.body, rect, ctx), heights: rect }, p.hit, rect);
+      stroke.changed(mirrorDab(stroke, this.symmetry, p.hit, { ...waterChange(s.body, rect, ctx), heights: rect }, { waterRect: rect }));
       return;
     }
     waterMaskDab(t, p.hit.x, p.hit.y, ctx.settings.brush, this.on, s.body);
-    stroke.changed(waterChange(s.body, rect, ctx), p.hit, rect);
+    stroke.changed(mirrorDab(stroke, this.symmetry, p.hit, waterChange(s.body, rect, ctx), { waterRect: rect }));
   }
 
   hint(ctx: ToolContext): string {
@@ -212,15 +214,16 @@ export class WaterTool implements EditorTool {
     const s = ctx.settings.water;
     const clicked = nearestSample(t, p.hit!.x, p.hit!.y);
     const { i, j } = hollowFloor(t, clicked.i, clicked.j);
-    const before = waterState(t);
     const body = waterBody(t, s.body);
     const fresh = !body || !body.mask.some((v) => v);
-    if (s.body < 0 && !t.water) t.water = emptyWater(t, 0);
-    const target = waterBody(t, s.body);
-    if (!target) {
+    if (!body && s.body >= 0) {
       ctx.status('Choose a body in the panel first');
       return;
     }
+    const tx = editor.begin('Fill basin');
+    tx.snapshot('water');
+    if (s.body < 0 && !t.water) t.water = emptyWater(t, 0);
+    const target = waterBody(t, s.body)!;
     const brim = basinBrim(t, i, j);
     if (fresh || p.ctrl) target.level = brim;
     const rect = fillBasin(t, i, j, s.body);
@@ -233,9 +236,8 @@ export class WaterTool implements EditorTool {
       }
     }
     const level = target.level;
-    const after = waterState(t);
-    setWaterState(t, before);
     if (!rect) {
+      tx.abort();
       ctx.status(
         !fresh && !p.ctrl
           ? `The ground here lies above the level (${level} m); Ctrl click fills to the rim`
@@ -243,7 +245,7 @@ export class WaterTool implements EditorTool {
       );
       return;
     }
-    editor.execute(new WaterStateCommand('Fill basin', before, after));
+    tx.commit({ water: true });
     // A body that keeps its level fills a deeper hollow only part way: say so, and how to fill it up
     if (brim - level > LOW_FILL) {
       const name = s.body < 0 ? 'the main water' : `body ${s.body + 1}`;
@@ -282,13 +284,15 @@ export class WaterTool implements EditorTool {
           ctx.status('The map changed while the water ran: pour again');
           return;
         }
-        let added = 0;
-        const command = recordWater(editor, kind === 'lava' ? 'Pour lava' : 'Pour water', (w) => (added = addPouredBodies(w, result.lakes, kind, MAX_WATER_BODIES)));
+        const tx = editor.begin(kind === 'lava' ? 'Pour lava' : 'Pour water');
+        tx.snapshot('water');
+        const added = addPouredBodies(t, result.lakes, kind, MAX_WATER_BODIES);
         if (!added) {
+          tx.abort();
           ctx.status(`The ${kind} runs off to the map's edge: no hollow on its way deep enough for a lake`);
           return;
         }
-        editor.execute(command);
+        tx.commit({ water: true });
         const what = kind === 'lava' ? 'lava pool' : 'lake';
         const full = result.skipped > 0 || (t.waterBodies?.length ?? 0) >= MAX_WATER_BODIES;
         ctx.status(`${added} ${what}${added === 1 ? '' : 's'} filled${full ? `; further hollows on the way stayed dry (one pour fills at most ${POUR_MAX_LAKES}, a map holds ${MAX_WATER_BODIES} bodies)` : ''}`);
@@ -298,7 +302,7 @@ export class WaterTool implements EditorTool {
   }
 
   private end(): void {
-    this.stroke?.finish();
+    this.stroke?.commit();
     this.stroke = null;
   }
 }

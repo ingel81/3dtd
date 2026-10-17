@@ -17,7 +17,7 @@ import { clamp, heightAt, sampleX, sampleY, texelX, texelY, type GridRect } from
 import { MAX_LAYERS, readWeights, writeWeights } from '../../map-ops/paint-ops';
 import { freeGroup } from '../../map-ops/object-ops';
 import { edgePolyline, newId } from '../../map-ops/path-graph';
-import type { LandscapeStroke } from './landscape/landscape-stroke';
+import type { LandscapeContext } from './landscape/landscape-context';
 import { smooth } from '../../map-ops/landscape-noise';
 import { MAX_LIFE_AREAS, newLifeId } from '../../world/custom-map/map-life';
 
@@ -260,7 +260,7 @@ export function stampOutline(stamp: Stamp, center: MapPoint, rotation: number): 
 }
 
 /** Pastes a stamp centred on `center`; returns what changed (the stroke keeps it as one undo step) */
-export function pasteStamp(stroke: LandscapeStroke, stamp: Stamp, center: MapPoint, options: PasteOptions): void {
+export function pasteStamp(stroke: LandscapeContext, stamp: Stamp, center: MapPoint, options: PasteOptions): void {
   const doc = stroke.doc;
   const t = doc.terrain;
   const g = t.grid;
@@ -299,7 +299,7 @@ export function pasteStamp(stroke: LandscapeStroke, stamp: Stamp, center: MapPoi
   };
 
   if (parts.heights) {
-    stroke.touchHeights(rect);
+    stroke.tx.touch('heights', rect);
     for (let j = rect.j0; j <= rect.j1; j++) {
       for (let i = rect.i0; i <= rect.i1; i++) {
         const l = local(stamp, { x: sampleX(t, i), y: sampleY(t, j) }, center, cos, sin, feather);
@@ -345,7 +345,7 @@ export function pasteStamp(stroke: LandscapeStroke, stamp: Stamp, center: MapPoi
       j0: clamp(Math.floor(((b.y0 + t.depth / 2) / t.depth) * res), 0, res - 1),
       j1: clamp(Math.ceil(((b.y1 + t.depth / 2) / t.depth) * res), 0, res - 1),
     };
-    stroke.touchSplat(trect);
+    stroke.tx.touchSplat(trect);
     const w8 = new Float32Array(MAX_LAYERS);
     const mats = stamp.materials.length;
     for (let v = trect.j0; v <= trect.j1; v++) {

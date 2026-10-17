@@ -6,7 +6,8 @@
 import { splatTargets } from '../model/commands/patch';
 import { texelRectAround } from '../../map-ops/grid';
 import { paintDab } from '../../map-ops/paint-ops';
-import { BrushStroke } from '../ops/brush-stroke';
+import { mirrorDab, type SymmetryMode } from '../ops/symmetry';
+import type { EditTransaction } from '../model/edit-transaction';
 import type { EditorTool, ToolContext, ToolPointer } from './tool';
 
 /** Share of full weight per second at full strength */
@@ -17,7 +18,8 @@ export class PaintTool implements EditorTool {
   brushVisible(): boolean {
     return true;
   }
-  private stroke: BrushStroke | null = null;
+  private stroke: EditTransaction | null = null;
+  private symmetry: SymmetryMode = 'none';
   private erase = false;
 
 
@@ -28,7 +30,9 @@ export class PaintTool implements EditorTool {
   pointerDown(p: ToolPointer, ctx: ToolContext): boolean {
     if (p.button !== 0 || !p.hit) return false;
     this.erase = ctx.settings.paint.erase !== p.shift;
-    this.stroke = new BrushStroke(ctx.editor, this.erase ? 'Erase paint' : 'Paint', splatTargets(ctx.editor.doc), ctx.settings.symmetry);
+    this.stroke = ctx.editor.begin(this.erase ? 'Erase paint' : 'Paint');
+    for (const target of splatTargets(ctx.editor.doc)) this.stroke.record(target);
+    this.symmetry = ctx.settings.symmetry;
     return true;
   }
 
@@ -46,7 +50,7 @@ export class PaintTool implements EditorTool {
     const rect = texelRectAround(t, p.hit.x, p.hit.y, brush.radius);
     stroke.touchSplat(rect);
     paintDab(t, p.hit.x, p.hit.y, brush, layer, PAINT_RATE * Math.min(dt, 0.1), this.erase);
-    stroke.changed({ splat: rect }, p.hit);
+    stroke.changed(mirrorDab(stroke, this.symmetry, p.hit, { splat: rect }));
   }
 
 
@@ -59,7 +63,7 @@ export class PaintTool implements EditorTool {
   }
 
   private end(): void {
-    this.stroke?.finish();
+    this.stroke?.commit();
     this.stroke = null;
   }
 }

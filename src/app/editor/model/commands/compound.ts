@@ -1,5 +1,5 @@
 import type { CustomMapDocument } from '../../../world/custom-map/map-document';
-import { mergeChanges, type DocChange, type EditCommand } from '../editor-document';
+import { mergeChanges, type DocChange, type EditCommand } from '../doc-change';
 
 /** Several commands as one step */
 export class CompoundCommand implements EditCommand {

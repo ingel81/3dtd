@@ -5,7 +5,7 @@
  * degrees, comma and period by 15. Every paste is one undo step.
  */
 import type { MapPoint } from '../../world/custom-map/map-document';
-import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
+import { LandscapeContext } from '../ops/landscape/landscape-context';
 import { captureStamp, pasteStamp, stampOutline } from '../ops/stamp';
 import type { EditorTool, ToolContext, ToolPointer } from './tool';
 
@@ -146,7 +146,7 @@ export class StampTool implements EditorTool {
       ctx.status('Nothing to place');
       return;
     }
-    const stroke = new LandscapeStroke(ctx.editor, 'Paste', 0, ctx.catalog);
+    const stroke = new LandscapeContext(ctx.editor.begin('Paste'), 0, ctx.catalog);
     pasteStamp(stroke, s.current, at, { parts: s.parts, rotation: s.rotation, feather: s.feather });
     stroke.finish();
   }

@@ -14,7 +14,7 @@ import type { CatalogIndex } from '../../../map-ops/asset-catalog';
 import { brushWeight, type BrushSettings } from '../../../map-ops/brush';
 import { heightAt, slopeAt } from '../../../map-ops/grid';
 import { waterLevelAt } from '../../../world/custom-map/water-level';
-import type { LandscapeStroke } from './landscape-stroke';
+import type { LandscapeContext } from './landscape-context';
 
 /**
  * Cliff models by the map's look, those of them the catalogue has. One
@@ -49,11 +49,11 @@ const SPOT = 4;
 const MIN_FALL = 2;
 
 /** One dab: walls on the steep spots under the brush; returns the new objects' ids */
-export function cliffRocksDab(stroke: LandscapeStroke, center: MapPoint, brush: BrushSettings, models: readonly string[], catalog: CatalogIndex): string[] {
+export function cliffRocksDab(stroke: LandscapeContext, center: MapPoint, brush: BrushSettings, models: readonly string[], catalog: CatalogIndex): string[] {
   if (!models.length) return [];
   const t = stroke.doc.terrain;
   const steep = Math.min(t.cliffAngle, 45);
-  const before = stroke.added.length;
+  const before = stroke.tx.added.length;
   const r = brush.radius;
   for (let gy = Math.floor((center.y - r) / SPOT); gy <= Math.ceil((center.y + r) / SPOT); gy++) {
     for (let gx = Math.floor((center.x - r) / SPOT); gx <= Math.ceil((center.x + r) / SPOT); gx++) {
@@ -103,5 +103,5 @@ export function cliffRocksDab(stroke: LandscapeStroke, center: MapPoint, brush: 
     }
   }
   // With their symmetric images
-  return stroke.added.slice(before).map((o) => o.id);
+  return stroke.tx.added.slice(before).map((o) => o.id);
 }

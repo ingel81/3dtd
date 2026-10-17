@@ -180,7 +180,7 @@ Ablauf:
    Skript 140 ms je Schritt, höchstens 8 s (`animate: false` so schnell, wie die Bilder es zulassen). Die Ansicht
    bekommt nach jedem Schritt mit, was sich änderte.
 3. **Ein Undo-Schritt**: `EditorSession.agentEdit` hält den Ablauf wie einen Geländejob (Ansicht gesperrt, Job mit
-   Cancel im Map-Panel, Speichern und Undo warten). Fertig wird vorher und nachher zu einem `SnapshotCommand`
+   Cancel im Map-Panel, Speichern und Undo warten) in einer Transaktion, die alle Teile vorher behält. Fertig wird sie ein Schritt
    (Gelände, Objekte, Wege, Spawns, HQ, Himmel, Regeln, Leben, Intro-Flug). Bei Fehler oder Cancel geht die Karte auf den Stand davor
    zurück.
 4. **Antwort**: Zahl der Befehle und Schritte, Logzeilen, Rückgabewert, Befunde des Prüfens, und `sameAsSandbox`:

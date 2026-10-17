@@ -17,7 +17,7 @@ import type {
   MapSpawn,
   MapTerrain,
 } from '../../../world/custom-map/map-document';
-import { mergeChanges, type DocChange, type EditCommand } from '../editor-document';
+import { mergeChanges, type DocChange, type EditCommand } from '../doc-change';
 
 /** Parts of the document small enough to keep whole before and after */
 export interface DocParts {

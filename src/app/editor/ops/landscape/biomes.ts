@@ -51,7 +51,7 @@ export interface BiomeObject {
   spacing: number;
   /** 0 spreads evenly, 1 grows in clumps */
   clump?: number;
-  /** Only this many metres over the water the stroke works by (its coast, LandscapeStroke.coastLevel): from, to */
+  /** Only this many metres over the water the stroke works by (its coast, LandscapeContext.coastLevel): from, to */
   above?: readonly [number, number];
   /** Only in this climate of the map (mapClimate): palms where it is warm, pines where it is not */
   climate?: MapClimate;

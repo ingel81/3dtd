@@ -11,7 +11,7 @@ import { cracksDab } from '../ops/landscape/cracks';
 import { cliffModelsFor, cliffRocksDab } from '../ops/landscape/cliff-rocks';
 import { erosionDab } from '../ops/landscape/erosion';
 import { LandscapeNoise, randomSeed } from '../../map-ops/landscape-noise';
-import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
+import { LandscapeContext } from '../ops/landscape/landscape-context';
 import { MAX_LAYERS } from '../../map-ops/paint-ops';
 import { carveRiver } from '../ops/landscape/river';
 import { buildRoad } from '../ops/landscape/road';
@@ -30,7 +30,7 @@ const LINE_STEP = 3;
 
 export class LandscapeTool implements EditorTool {
   readonly id = 'landscape' as const;
-  private stroke: LandscapeStroke | null = null;
+  private stroke: LandscapeContext | null = null;
   private line: MapPoint[] | null = null;
   private dab = 0;
   private previewNoise: LandscapeNoise | null = null;
@@ -51,12 +51,7 @@ export class LandscapeTool implements EditorTool {
     // A line may start off the map and come in; a brush needs ground under it
     if (p.button !== 0 || (!p.hit && !isLine(s.mode))) return false;
     const label = LANDSCAPE_MODES.find((m) => m.id === s.mode)!.label;
-    this.stroke = new LandscapeStroke(
-      ctx.editor,
-      s.mode === 'biome' ? biomeById(s.biome).label : label,
-      s.seed,
-      ctx.catalog,
-    );
+    this.stroke = new LandscapeContext(ctx.editor.begin(s.mode === 'biome' ? biomeById(s.biome).label : label), s.seed, ctx.catalog);
     this.stroke.symmetry = ctx.settings.symmetry;
     this.stroke.heightsAdd = addsToGround(s.mode, s.biome);
     this.dab = 0;
@@ -184,7 +179,7 @@ export class LandscapeTool implements EditorTool {
     }
   }
 
-  private buildLine(stroke: LandscapeStroke, line: MapPoint[], ctx: ToolContext): void {
+  private buildLine(stroke: LandscapeContext, line: MapPoint[], ctx: ToolContext): void {
     const s = ctx.settings.landscape;
     const brush = ctx.settings.brush;
     switch (s.mode) {

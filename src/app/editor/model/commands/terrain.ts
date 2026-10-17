@@ -4,7 +4,7 @@
  * so the renderer keeps its ground.
  */
 import { fitSplatMaps, type CustomMapDocument, type MapGroundLayer, type MapRiver, type MapTerrain, type MapWater } from '../../../world/custom-map/map-document';
-import type { DocChange, EditCommand, EditorDocument } from '../editor-document';
+import type { DocChange, EditCommand } from '../doc-change';
 
 /**
  * The list of ground layers before and after (the splat weights are not part
@@ -110,7 +110,7 @@ function setRivers(doc: CustomMapDocument, rivers: readonly MapRiver[] | undefin
 }
 
 /** What a layer edit changes: the list, the splat weights and the cliff material */
-interface GroundState {
+export interface GroundState {
   layers: MapGroundLayer[];
   /** Two splat maps, three on a map with more than 8 layers */
   maps: Uint8Array[];
@@ -118,7 +118,7 @@ interface GroundState {
   cliffAngle: number;
 }
 
-function groundState(t: MapTerrain): GroundState {
+export function groundState(t: MapTerrain): GroundState {
   return {
     layers: t.layers.map((l) => ({ ...l })),
     maps: t.splat.maps.map((m) => m.slice()),
@@ -140,16 +140,6 @@ export class GroundCommand implements EditCommand {
     private readonly after: GroundState,
   ) {
     this.bytes = [...before.maps, ...after.maps].reduce((n, m) => n + m.byteLength, 0);
-  }
-
-  static record(editor: EditorDocument, label: string, edit: (t: MapTerrain) => void): GroundCommand {
-    const t = editor.doc.terrain;
-    const before = groundState(t);
-    edit(t);
-    const after = groundState(t);
-    // The edit ran on the live terrain: put it back, apply() writes it again
-    write(t, before);
-    return new GroundCommand(label, before, after);
   }
 
   apply(doc: CustomMapDocument): DocChange {
@@ -182,7 +172,7 @@ export function waterState(t: MapTerrain): WaterState {
   return { water: t.water ? structuredClone(t.water) : null, bodies: t.waterBodies ? structuredClone(t.waterBodies) : undefined };
 }
 
-export function setWaterState(t: MapTerrain, s: WaterState): void {
+function setWaterState(t: MapTerrain, s: WaterState): void {
   t.water = s.water ? structuredClone(s.water) : null;
   if (s.bodies?.length) t.waterBodies = structuredClone(s.bodies);
   else delete t.waterBodies;

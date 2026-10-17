@@ -8,7 +8,7 @@ import type { GroundBox } from '../../world/custom-map/object-ground';
 import { levelsGround, levelUnderBuilding } from '../../map-ops/object-ops';
 import { CompoundCommand } from '../model/commands/compound';
 import { PatchCommand, patchLayout } from '../model/commands/patch';
-import type { EditCommand } from '../model/editor-document';
+import type { EditCommand } from '../model/doc-change';
 import { RegionRecorder } from '../model/region-patch';
 
 /**

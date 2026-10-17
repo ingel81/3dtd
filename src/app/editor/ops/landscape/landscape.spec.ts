@@ -3,13 +3,14 @@ import { resolve } from 'node:path';
 import { createMapDocument } from '../../../world/custom-map/map-create';
 import { fitSplatMaps, type CustomMapDocument } from '../../../world/custom-map/map-document';
 import { CatalogIndex, normalizeCatalog } from '../../../map-ops/asset-catalog';
-import { EditorDocument, mergeChanges, type DocChange } from '../../model/editor-document';
+import { EditorDocument } from '../../model/editor-document';
+import { mergeChanges, type DocChange } from '../../model/doc-change';
 import { heightAt, slopeAt } from '../../../map-ops/grid';
 import { addNode, connect, edgePolyline, nearestOnEdges, nearestOnPolyline } from '../../../map-ops/path-graph';
 import { biomeDab, finishBiome, previewSpots } from './biome-brush';
 import { biomeById, BIOMES } from './biomes';
 import { erosionDab } from './erosion';
-import { LandscapeStroke } from './landscape-stroke';
+import { LandscapeContext } from './landscape-context';
 import { carveRiver, DEFAULT_RIVER, recarveRiver, relevelRiver, removeRiver } from './river';
 import { freeboard, riverPoints } from '../../../map-ops/river-levels';
 import { movePoint, simplifyRiver } from '../river-edit';
@@ -31,8 +32,8 @@ function map(): EditorDocument {
 const brush = { radius: 40, strength: 1, falloff: 0.5 };
 
 /** A biome stroke along y (default 80) from x = -100 to 100, a dab every 5 m */
-function paint(ed: EditorDocument, biome: string, seed: number, strength = 1, step = 5, y = 80): LandscapeStroke {
-  const stroke = new LandscapeStroke(ed, 'Biome', seed, catalog);
+function paint(ed: EditorDocument, biome: string, seed: number, strength = 1, step = 5, y = 80): LandscapeContext {
+  const stroke = new LandscapeContext(ed.begin('Biome'), seed, catalog);
   const def = biomeById(biome as never);
   const b = { ...brush, strength };
   for (let x = -100; x <= 100; x += step) for (let k = 0; k < 4; k++) biomeDab(stroke, { x, y }, b, def, 0.1);
@@ -118,7 +119,7 @@ describe('biome brush', () => {
     const doc = ed.doc;
     // The starter road runs along y = 0 from the west edge to the HQ
     const roadY = heightAt(doc.terrain, 0, 0);
-    const stroke = new LandscapeStroke(ed, 'Biome', 9, catalog);
+    const stroke = new LandscapeContext(ed.begin('Biome'), 9, catalog);
     for (let x = -150; x <= 150; x += 5) for (let k = 0; k < 4; k++) biomeDab(stroke, { x, y: 0 }, brush, biomeById('rocks'), 0.1);
     stroke.finish();
     expect(doc.objects.length).toBeGreaterThan(10);
@@ -133,7 +134,7 @@ describe('biome brush', () => {
 
   it('frays its rim instead of a clean circle', () => {
     const ed = map();
-    const stroke = new LandscapeStroke(ed, 'Biome', 3, catalog);
+    const stroke = new LandscapeContext(ed.begin('Biome'), 3, catalog);
     for (let k = 0; k < 10; k++) biomeDab(stroke, { x: 0, y: 100 }, brush, biomeById('desert'), 0.1);
     stroke.finish();
     const t = ed.doc.terrain;
@@ -214,7 +215,7 @@ describe('biome brush', () => {
 
   it('paints hell on a fresh map after two peaks and the arctic, as the showreel did', () => {
     const ed = map();
-    const peak = new LandscapeStroke(ed, 'Mountain', 51, catalog);
+    const peak = new LandscapeContext(ed.begin('Mountain'), 51, catalog);
     for (const x of [-60, 40]) for (let k = 0; k < 30; k++) formDab(peak, 'mountain', { x, y: 120 }, { radius: 80, strength: 1, falloff: 0.5 }, 0.1);
     peak.finish();
     paint(ed, 'arctic', 2, 1, 5, 110);
@@ -239,14 +240,14 @@ describe('biome brush', () => {
     }
     fitSplatMaps(t);
     // The level scripts' strokes leave it out
-    const kit = new LandscapeStroke(ed, 'Biome', 1, catalog);
+    const kit = new LandscapeContext(ed.begin('Biome'), 1, catalog);
     kit.editorCopies = false;
     expect(kit.layerOf(['hell-ground'])).toBeNull();
     expect(kit.layersFull).toEqual(['hell-ground']);
     expect(t.layers).toHaveLength(12);
     // An editor stroke takes over a layer no ground uses: the second one, as the first holds all the ground
     const second = t.layers[1].material;
-    const stroke = new LandscapeStroke(ed, 'Biome', 1, catalog);
+    const stroke = new LandscapeContext(ed.begin('Biome'), 1, catalog);
     expect(stroke.layerOf(['hell-ground'])).toBe(1);
     expect(t.layers[1].material).toBe('hell-ground');
     expect(stroke.layersReused).toEqual([`hell-ground for ${second}`]);
@@ -267,7 +268,7 @@ describe('biome brush', () => {
     fitSplatMaps(t);
     // Every layer holds some ground: one texel each
     t.layers.forEach((_, k) => (t.splat.maps[k >> 2][k * 4 * 7 + (k & 3)] = 200));
-    const stroke = new LandscapeStroke(ed, 'Biome', 1, catalog);
+    const stroke = new LandscapeContext(ed.begin('Biome'), 1, catalog);
     const k = stroke.layerOf(['hell-ground'])!;
     expect(k).not.toBeNull();
     expect(stroke.layerOf(['hell-ground'])).toBe(k);
@@ -314,7 +315,7 @@ describe('biome brush', () => {
 
   it('lays the city on a street grid with buildings facing the streets', () => {
     const ed = map();
-    const stroke = new LandscapeStroke(ed, 'City', 2, catalog);
+    const stroke = new LandscapeContext(ed.begin('City'), 2, catalog);
     const def = biomeById('city');
     for (let x = -60; x <= 60; x += 6) for (let k = 0; k < 4; k++) biomeDab(stroke, { x, y: -100 }, { ...brush, radius: 60 }, def, 0.1);
     finishBiome(stroke, brush, def);
@@ -417,7 +418,7 @@ describe('biome brush', () => {
   });
 
   it('previews the spots it would grow on', () => {
-    const stroke = new LandscapeStroke(map(), 'Biome', 4, catalog);
+    const stroke = new LandscapeContext(map().begin('Biome'), 4, catalog);
     const spots = previewSpots(stroke.noise, catalog, { x: 0, y: 80 }, brush, biomeById('forest'));
     expect(spots.length).toBeGreaterThan(10);
     for (const s of spots) expect(Math.hypot(s.x, s.y - 80)).toBeLessThan(brush.radius);
@@ -427,7 +428,7 @@ describe('biome brush', () => {
 describe('landforms', () => {
   it('a held mountain grows to its height and no further', () => {
     const ed = map();
-    const stroke = new LandscapeStroke(ed, 'Mountain', 1, catalog);
+    const stroke = new LandscapeContext(ed.begin('Mountain'), 1, catalog);
     for (let k = 0; k < 200; k++) formDab(stroke, 'mountain', { x: 0, y: 100 }, brush, 0.1);
     stroke.finish();
     const peak = Math.max(...Array.from(ed.doc.terrain.grid.heights));
@@ -437,11 +438,11 @@ describe('landforms', () => {
 
   it('a valley lowers, a plateau raises a table', () => {
     const ed = map();
-    const valley = new LandscapeStroke(ed, 'Valley', 1, catalog);
+    const valley = new LandscapeContext(ed.begin('Valley'), 1, catalog);
     for (let k = 0; k < 60; k++) formDab(valley, 'valley', { x: 0, y: 100 }, brush, 0.1);
     valley.finish();
     expect(heightAt(ed.doc.terrain, 0, 100)).toBeLessThan(-3);
-    const plateau = new LandscapeStroke(ed, 'Plateau', 1, catalog);
+    const plateau = new LandscapeContext(ed.begin('Plateau'), 1, catalog);
     for (let k = 0; k < 60; k++) formDab(plateau, 'plateau', { x: 0, y: -100 }, brush, 0.1);
     plateau.finish();
     expect(heightAt(ed.doc.terrain, 0, -100)).toBeGreaterThan(5);
@@ -456,7 +457,7 @@ describe('landforms', () => {
     const c = addNode(paths, { x: 10, y: 160 });
     connect(paths, a.id, b.id, 6)!.via = [{ x: -40, y: 40 }, { x: 60, y: -30 }];
     connect(paths, b.id, c.id, 14);
-    const stroke = new LandscapeStroke(ed, 'Mountain', 1, catalog);
+    const stroke = new LandscapeContext(ed.begin('Mountain'), 1, catalog);
     const lines = paths.edges.map((e) => ({ line: edgePolyline(paths, e), half: e.width / 2 }));
     for (let k = 0; k < 2000; k++) {
       const p = { x: ((k * 7919) % 400) - 200, y: ((k * 104729) % 400) - 200 };
@@ -471,7 +472,7 @@ describe('landforms', () => {
 
   it('a cliff rises left of the drawn line', () => {
     const ed = map();
-    const stroke = new LandscapeStroke(ed, 'Cliff', 2, catalog);
+    const stroke = new LandscapeContext(ed.begin('Cliff'), 2, catalog);
     // Drawn eastward: north is on the left
     cliffAlong(stroke, [{ x: -60, y: 100 }, { x: 60, y: 100 }], 10, 30);
     stroke.finish();
@@ -482,11 +483,11 @@ describe('landforms', () => {
   it('erosion carves the same gullies for the same seed and keeps the soil', () => {
     const run = () => {
       const ed = map();
-      const m = new LandscapeStroke(ed, 'Mountain', 1, catalog);
+      const m = new LandscapeContext(ed.begin('Mountain'), 1, catalog);
       for (let k = 0; k < 100; k++) formDab(m, 'mountain', { x: 0, y: 100 }, brush, 0.1);
       m.finish();
       const before = Array.from(ed.doc.terrain.grid.heights);
-      const e = new LandscapeStroke(ed, 'Erode', 5, catalog);
+      const e = new LandscapeContext(ed.begin('Erode'), 5, catalog);
       for (let k = 0; k < 20; k++) erosionDab(e, { x: 0, y: 100 }, brush, k);
       e.finish();
       return { before, after: Array.from(ed.doc.terrain.grid.heights) };
@@ -514,7 +515,7 @@ describe('erosion on a high peak', () => {
         g.heights[j * g.columns + i] = d < 1 ? 100 * (1 - d * d) ** 2 : 0;
       }
     const before = Float32Array.from(g.heights);
-    const stroke = new LandscapeStroke(ed, 'Erode', 4, catalog);
+    const stroke = new LandscapeContext(ed.begin('Erode'), 4, catalog);
     for (let k = 0; k < 16; k++) erosionDab(stroke, { x: -60 + k * 8, y: 40 }, { radius: 70, strength: 1, falloff: 0.5 }, k);
     stroke.finish();
     let moved = 0;
@@ -535,7 +536,7 @@ describe('erosion on a high peak', () => {
 describe('crater, dunes and glow cracks', () => {
   it('digs a crater where the stroke began, with a raised rim', () => {
     const ed = map();
-    const stroke = new LandscapeStroke(ed, 'Crater', 2, catalog);
+    const stroke = new LandscapeContext(ed.begin('Crater'), 2, catalog);
     // The pointer wanders; the crater stays at the first spot
     for (let k = 0; k < 80; k++) formDab(stroke, 'crater', { x: 50 + k * 0.5, y: -100 }, brush, 0.1);
     stroke.finish();
@@ -560,7 +561,7 @@ describe('crater, dunes and glow cracks', () => {
         const y = j * g.cellSize - t.depth / 2;
         g.heights[j * g.columns + i] = Math.max(0, 40 * (1 - Math.hypot(x - 50, y + 100) / 80));
       }
-    const stroke = new LandscapeStroke(ed, 'Crater', 2, catalog);
+    const stroke = new LandscapeContext(ed.begin('Crater'), 2, catalog);
     for (let k = 0; k < 80; k++) formDab(stroke, 'crater', { x: 50, y: -100 }, brush, 0.1);
     stroke.finish();
     const rc = brush.radius * 0.6;
@@ -571,7 +572,7 @@ describe('crater, dunes and glow cracks', () => {
 
   it('heaps dunes in rows across the wind', () => {
     const ed = map();
-    const stroke = new LandscapeStroke(ed, 'Dunes', 4, catalog);
+    const stroke = new LandscapeContext(ed.begin('Dunes'), 4, catalog);
     for (let k = 0; k < 60; k++) formDab(stroke, 'dunes', { x: 0, y: -100 }, brush, 0.1);
     stroke.finish();
     const t = ed.doc.terrain;
@@ -583,7 +584,7 @@ describe('crater, dunes and glow cracks', () => {
 
   it('breaks the ground into thin glowing cracks on scorched rock', () => {
     const ed = map();
-    const stroke = new LandscapeStroke(ed, 'Cracks', 6, catalog);
+    const stroke = new LandscapeContext(ed.begin('Cracks'), 6, catalog);
     for (let k = 0; k < 40; k++) cracksDab(stroke, { x: 0, y: -100 }, brush, 0.1);
     stroke.finish();
     const t = ed.doc.terrain;
@@ -615,7 +616,7 @@ describe('crater, dunes and glow cracks', () => {
 describe('river and road', () => {
   it('carves a river that flows downhill, with banks and a bridge where it crosses the road', () => {
     const ed = map();
-    const stroke = new LandscapeStroke(ed, 'River', 3, catalog);
+    const stroke = new LandscapeContext(ed.begin('River'), 3, catalog);
     const result = carveRiver(stroke, [{ x: -20, y: -150 }, { x: 0, y: 0 }, { x: 20, y: 150 }], DEFAULT_RIVER)!;
     stroke.finish();
     const t = ed.doc.terrain;
@@ -660,7 +661,7 @@ describe('river and road', () => {
     const g = t.grid;
     // A 12 m step across the map: high ground in the south
     for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) if (j * g.cellSize - t.depth / 2 < 0) g.heights[j * g.columns + i] = 12;
-    const stroke = new LandscapeStroke(ed, 'River', 5, catalog);
+    const stroke = new LandscapeContext(ed.begin('River'), 5, catalog);
     const result = carveRiver(stroke, [{ x: 100, y: 150 }, { x: 100, y: -150 }], { ...DEFAULT_RIVER, bridges: false })!;
     stroke.finish();
     const pts = result.river.points;
@@ -687,13 +688,13 @@ describe('river and road', () => {
         const y = j * g.cellSize - t.depth / 2;
         g.heights[j * g.columns + i] = 40 * (1 - Math.min(1, Math.max(0, (y + 25) / 50)));
       }
-    let stroke = new LandscapeStroke(slope, 'River', 5, catalog);
+    let stroke = new LandscapeContext(slope.begin('River'), 5, catalog);
     expect(carveRiver(stroke, [{ x: 100, y: -150 }, { x: 100, y: 150 }], { ...DEFAULT_RIVER, bridges: false })!.waterfalls).toBe(0);
     const cliff = map();
     t = cliff.doc.terrain;
     g = t.grid;
     for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) if (j * g.cellSize - t.depth / 2 < 0) g.heights[j * g.columns + i] = 30;
-    stroke = new LandscapeStroke(cliff, 'River', 5, catalog);
+    stroke = new LandscapeContext(cliff.begin('River'), 5, catalog);
     const result = carveRiver(stroke, [{ x: 100, y: -150 }, { x: 100, y: 150 }], { ...DEFAULT_RIVER, bridges: false })!;
     stroke.finish();
     expect(result.waterfalls).toBe(3);
@@ -710,14 +711,14 @@ describe('river and road', () => {
 
   it('carves the bed again after a point moved, and thins a straight river out', () => {
     const ed = map();
-    let stroke = new LandscapeStroke(ed, 'River', 3, catalog);
+    let stroke = new LandscapeContext(ed.begin('River'), 3, catalog);
     const river = carveRiver(stroke, [{ x: 100, y: -150 }, { x: 100, y: 150 }], { ...DEFAULT_RIVER, bridges: false })!.river;
     stroke.finish();
     const live = ed.doc.terrain.rivers![0];
     const k = Math.floor(live.points.length / 2);
     movePoint(live, k, { x: 140, y: live.points[k].y });
     expect(heightAt(ed.doc.terrain, 140, live.points[k].y)).toBeGreaterThan(live.points[k].height);
-    stroke = new LandscapeStroke(ed, 'Carve', 1, catalog);
+    stroke = new LandscapeContext(ed.begin('Carve'), 1, catalog);
     recarveRiver(stroke, live);
     stroke.finish();
     expect(heightAt(ed.doc.terrain, 140, live.points[k].y)).toBeLessThan(live.points[k].height - 1);
@@ -735,7 +736,7 @@ describe('river and road', () => {
     // Land falling 0.15 m per metre to the east; the river runs north along it
     const land = (x: number) => 20 - 0.15 * x;
     for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) g.heights[j * g.columns + i] = land(i * g.cellSize - t.width / 2);
-    const stroke = new LandscapeStroke(ed, 'River', 3, catalog);
+    const stroke = new LandscapeContext(ed.begin('River'), 3, catalog);
     const pts = carveRiver(stroke, [{ x: 0, y: -150 }, { x: 0, y: 150 }], { ...DEFAULT_RIVER, bridges: false, reeds: false })!.river.points;
     stroke.finish();
     for (const p of pts.slice(3, -3)) {
@@ -753,7 +754,7 @@ describe('river and road', () => {
     ed.doc.terrain.rivers = [
       { id: 'river1', kind: 'lava', points: [0, 1, 2, 3, 4].map((k) => ({ x: 0, y: -100 + k * 50, width: 12, height: 0.2 - k * 0.01 })) },
     ];
-    let stroke = new LandscapeStroke(ed, 'Carve', 1, catalog);
+    let stroke = new LandscapeContext(ed.begin('Carve'), 1, catalog);
     const river = ed.doc.terrain.rivers[0];
     relevelRiver(stroke, river);
     recarveRiver(stroke, river);
@@ -762,7 +763,7 @@ describe('river and road', () => {
     expect(once[0]).toBeCloseTo(-freeboard(12), 1);
     for (let k = 1; k < once.length; k++) expect(once[k]).toBeLessThan(once[k - 1]);
     expect(heightAt(ed.doc.terrain, 0, 0)).toBeLessThan(once[2] - 1);
-    stroke = new LandscapeStroke(ed, 'Carve', 1, catalog);
+    stroke = new LandscapeContext(ed.begin('Carve'), 1, catalog);
     relevelRiver(stroke, river);
     recarveRiver(stroke, river);
     stroke.finish();
@@ -780,7 +781,7 @@ describe('river and road', () => {
     for (let j = 0; j < t.grid.rows; j++) {
       for (let i = 0; i < t.grid.columns; i++) t.grid.heights[j * t.grid.columns + i] = plane(i * t.grid.cellSize - t.width / 2, j * t.grid.cellSize - t.depth / 2);
     }
-    let stroke = new LandscapeStroke(ed, 'River', 3, catalog);
+    let stroke = new LandscapeContext(ed.begin('River'), 3, catalog);
     carveRiver(stroke, [{ x: -30, y: -150 }, { x: 10, y: 0 }, { x: -20, y: 150 }], DEFAULT_RIVER);
     stroke.finish();
     const carved = Array.from(t.grid.heights);
@@ -796,7 +797,7 @@ describe('river and road', () => {
     expect(ed.doc.paths.edges.some((e) => e.kind === 'bridge')).toBe(true);
     const land = Array.from(ground);
 
-    stroke = new LandscapeStroke(ed, 'Remove river', 1, catalog);
+    stroke = new LandscapeContext(ed.begin('Remove river'), 1, catalog);
     removeRiver(stroke, 0);
     stroke.finish();
     expect(t.rivers).toBeUndefined();
@@ -816,7 +817,7 @@ describe('river and road', () => {
 
   it('lets a lava flow run with scorched banks, without reeds, falls or bridges', () => {
     const ed = map();
-    const stroke = new LandscapeStroke(ed, 'Lava', 3, catalog);
+    const stroke = new LandscapeContext(ed.begin('Lava'), 3, catalog);
     const result = carveRiver(stroke, [{ x: -20, y: -150 }, { x: 0, y: 0 }, { x: 20, y: 150 }], { ...DEFAULT_RIVER, kind: 'lava' })!;
     stroke.finish();
     expect(result.river.kind).toBe('lava');
@@ -828,11 +829,11 @@ describe('river and road', () => {
   it('builds a road joined to the network, levels it and lines it with lamps', () => {
     const ed = map();
     // A hill to cut through
-    const hill = new LandscapeStroke(ed, 'Mountain', 1, catalog);
+    const hill = new LandscapeContext(ed.begin('Mountain'), 1, catalog);
     for (let k = 0; k < 60; k++) formDab(hill, 'mountain', { x: 0, y: 100 }, brush, 0.1);
     hill.finish();
     const nodes = ed.doc.paths.nodes.length;
-    const stroke = new LandscapeStroke(ed, 'Road', 3, catalog);
+    const stroke = new LandscapeContext(ed.begin('Road'), 3, catalog);
     const result = buildRoad(stroke, [{ x: 0, y: 2 }, { x: 0, y: 60 }, { x: 0, y: 150 }], DEFAULT_ROAD)!;
     stroke.finish();
     expect(result).not.toBeNull();

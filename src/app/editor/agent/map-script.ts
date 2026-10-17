@@ -19,7 +19,7 @@ import { connect, deleteEdge, deleteNode, dissolveNode, edgePolyline, mergeNodes
 import { alignedToSlope, duplicateObjects, freeGroup } from '../../map-ops/object-ops';
 import { removeLayer } from '../../map-ops/paint-ops';
 import { meanWidth, insertPoint, movePoint, removePoint, setMeanWidth, simplifyRiver } from '../ops/river-edit';
-import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
+import { LandscapeContext } from '../ops/landscape/landscape-context';
 import { recarveRiver, relevelRiver } from '../ops/landscape/river';
 import { roadSurfaces } from '../ops/landscape/road';
 import { editRoads, setRoadSurface } from '../ops/road-commands';
@@ -659,7 +659,7 @@ export function applyCommand(kit: MapKit, command: ScriptCommand): unknown {
     }
     case 'carveRiverBed': {
       const k = riverOf(doc, args[0] as string, 'carveRiverBed');
-      const stroke = new LandscapeStroke(kit.editor, 'Carve the river bed', 1, kit.catalog);
+      const stroke = new LandscapeContext(kit.editor.begin('Carve the river bed'), 1, kit.catalog);
       relevelRiver(stroke, doc.terrain.rivers![k]);
       recarveRiver(stroke, doc.terrain.rivers![k]);
       stroke.finish();

@@ -1,27 +1,24 @@
 /**
- * One stroke of a landscape brush: heights, ground paint, water and objects
- * change together while the mouse moves and land as one undo step. The
- * stroke records the arrays it touches (tile patches), the layer list and
- * water it adds, and the objects it places; it also knows what the land
- * must leave alone (roads, spawns, HQ) and the heights before it began, so
- * every brush pulls toward a target from the original ground instead of
- * piling up dab by dab.
+ * What a landscape brush knows while it works, over the transaction that
+ * records its edit (edit-transaction.ts): heights, ground paint, water and
+ * objects change together while the mouse moves and land as one undo step.
+ * The context knows what the land must leave alone (roads, spawns, HQ,
+ * LandQuery), the heights before the stroke began, so every brush pulls
+ * toward a target from the original ground instead of piling up dab by dab,
+ * the water it works by, the layer list and where a full one makes room,
+ * and the objects it places and their images.
  */
-import { fitSplatMaps, type CustomMapDocument, type MapGroundLayer, type MapLife, type MapObject, type MapPaths, type MapPoint, type MapRiver, type MapWater, type MapWaterKind } from '../../../world/custom-map/map-document';
+import { fitSplatMaps, type CustomMapDocument, type MapObject, type MapPoint, type MapWater, type MapWaterKind } from '../../../world/custom-map/map-document';
 import type { CatalogIndex } from '../../../map-ops/asset-catalog';
-import { CompoundCommand } from '../../model/commands/compound';
-import { ObjectsCommand } from '../../model/commands/objects';
-import { PatchCommand, patchArray, patchLayout, splatTargets, type PatchTarget, type SplatTarget } from '../../model/commands/patch';
-import { SnapshotCommand } from '../../model/commands/snapshot';
-import { mergeChanges, type DocChange, type EditCommand, type EditorDocument } from '../../model/editor-document';
+import type { DocChange, EditCommand } from '../../model/doc-change';
+import type { EditTransaction } from '../../model/edit-transaction';
 import type { GridRect } from '../../../map-ops/grid';
-import { RegionRecorder } from '../../model/region-patch';
-import { BodyAddCommand, LayerListCommand, RiverListCommand, WaterSwapCommand } from '../../model/commands/terrain';
+import { BodyAddCommand, WaterSwapCommand } from '../../model/commands/terrain';
 import { MAX_LAYERS } from '../../../map-ops/paint-ops';
 import { ObjectGrid, ObjectIds, rockShape, settled } from '../../../map-ops/object-ops';
 import { BODY_COLORS, emptyWater } from '../../../map-ops/water-ops';
 import { MAX_WATER_BODIES } from '../../../world/custom-map/map-file';
-import { mirrorChange, objectImages, sameSector, symmetryImages, type SymmetryMode } from '../symmetry';
+import { mirrorDab, objectImages, sameSector, symmetryImages, type SymmetryMode } from '../symmetry';
 import { FieldCache } from './field-cache';
 import { LandscapeNoise } from '../../../map-ops/landscape-noise';
 
@@ -106,36 +103,87 @@ function roadCellKey(i: number, j: number): number {
 /** Spawns and the HQ keep this much free ground */
 const MARKER_CLEARANCE = 14;
 
-export class LandscapeStroke {
+/**
+ * What the land must leave alone, read from the map once (the roads again
+ * with refreshRoads): roads, spawns and HQ, water. Changes nothing.
+ */
+export class LandQuery {
+  private roads = new RoadSegments([]);
+  private readonly markers: MapPoint[];
+
+  constructor(readonly doc: CustomMapDocument) {
+    this.markers = [doc.hq, ...doc.spawns];
+    this.readRoads();
+  }
+
+  /** Whether an object may grow at (x, y) at all (a symmetric stroke grows only in its own sector) */
+  protected inSector(_x: number, _y: number): boolean {
+    return true;
+  }
+
+  /** Re-read the roads (a brush that lays one wants the others to avoid it) */
+  refreshRoads(): void {
+    this.readRoads();
+  }
+
+  private readRoads(): void {
+    const paths = this.doc.paths;
+    const nodes = new Map(paths.nodes.map((n) => [n.id, n]));
+    this.roads = new RoadSegments(
+      paths.edges.map((e) => {
+        const a = nodes.get(e.a);
+        const b = nodes.get(e.b);
+        return { points: a && b ? [a, ...(e.via ?? []), b] : [], half: e.width / 2 };
+      }),
+    );
+  }
+
+  /**
+   * Metres from a point to the edge of the nearest road (negative on it);
+   * beyond `within` the answer only says "at least that far" (Infinity
+   * without roads nearby)
+   */
+  roadDistance(x: number, y: number, within = 30): number {
+    return this.roads.distance(x, y, within);
+  }
+
+  /** Whether an object may stand here: off roads, away from spawns and HQ, not in water (unless it floats) */
+  freeForObject(x: number, y: number, footprint: number, onWater = false): boolean {
+    if (!this.inSector(x, y)) return false;
+    if (this.roadDistance(x, y, footprint + 2) < footprint + 1) return false;
+    for (const m of this.markers) if (Math.hypot(m.x - x, m.y - y) < MARKER_CLEARANCE + footprint) return false;
+    const t = this.doc.terrain;
+    const g = t.grid;
+    const i = Math.round((x + t.width / 2) / g.cellSize);
+    const j = Math.round((y + t.depth / 2) / g.cellSize);
+    if (!onWater && i >= 0 && j >= 0 && i < g.columns && j < g.rows) {
+      const k = j * g.columns + i;
+      const wet = (w: MapWater | null | undefined) => !!w && !!w.mask[k] && g.heights[k] < w.level + 0.2;
+      if (wet(t.water) || t.waterBodies?.some(wet)) return false;
+    }
+    return true;
+  }
+
+  /** 1 away from roads, 0 on them: how much the land may change here */
+  roadKeep(x: number, y: number): number {
+    const d = this.roadDistance(x, y, 6);
+    if (d === Infinity) return 1;
+    return Math.min(1, Math.max(0, (d - 1) / 5));
+  }
+}
+
+export class LandscapeContext extends LandQuery {
+  /** Copy every dab and object to the symmetric images; objects grow only in the sector the stroke began in */
+  symmetry: SymmetryMode = 'none';
+  /** Ground height where the stroke began (levelling brushes) */
+  anchor: { x: number; y: number; h: number } | null = null;
   readonly noise: LandscapeNoise;
-  readonly heights: RegionRecorder<Float32Array>;
-  /** Recorders of the splat maps; the third joins when the stroke adds a ninth layer */
-  readonly splat: RegionRecorder<Uint8Array>[];
-  private waterRecorder: RegionRecorder<Uint8Array> | null = null;
-  private readonly layersBefore: MapGroundLayer[];
-  private readonly waterBefore: MapWater | null;
-  private createdWater: MapWater | null = null;
-  /** Mask recorders of the further bodies the stroke touched, by index */
-  private readonly bodyRecorders = new Map<number, RegionRecorder<Uint8Array>>();
-  /** Bodies the stroke added at the end of the list */
-  private readonly bodiesAdded: number[] = [];
   /** The body each kind of pool fills in this stroke */
   private readonly poolBodies = new Map<MapWaterKind, number>();
   /** Whether the stroke painted the main water's mask (only then do its images get it) */
   private waterTouched = false;
-  private pathsBefore: MapPaths | null = null;
-  private riversBefore: { list: MapRiver[] | undefined } | null = null;
-  private lifeBefore: { life: MapLife | undefined } | null = null;
-  readonly added: MapObject[] = [];
-  /** Objects the stroke took off the map */
-  private readonly removed: ObjectsCommand[] = [];
   readonly grid: ObjectGrid;
   private readonly ids: ObjectIds;
-  private roads = new RoadSegments([]);
-  private readonly markers: MapPoint[];
-  private change: DocChange = {};
-  /** Copy every dab and object to the symmetric images; objects grow only in the sector the stroke began in */
-  symmetry: SymmetryMode = 'none';
   /** The stroke adds to the ground (a mountain, a crater): a symmetric image takes the change on its own ground */
   heightsAdd = false;
   /**
@@ -144,8 +192,6 @@ export class LandscapeStroke {
    * cell of a dab copies and a material that finds the list full is left out
    */
   editorCopies = true;
-  /** Ground height where the stroke began (levelling brushes) */
-  anchor: { x: number; y: number; h: number } | null = null;
   /** The level of the water the stroke works by (coastLevel), worked out once; undefined before */
   private coast: number | null | undefined = undefined;
   /** Distances to the coast (coastDistance), worked out once; undefined before */
@@ -167,77 +213,30 @@ export class LandscapeStroke {
   private readonly fullChoice = new Map<string, number | null>();
 
   constructor(
-    readonly editor: EditorDocument,
-    readonly label: string,
+    /** The transaction the stroke's edit goes into */
+    readonly tx: EditTransaction,
     readonly seed: number,
     readonly catalog: CatalogIndex,
     /** Ground layers the stroke may fill the list up to (the shipped levels' builder keeps its own) */
     readonly maxLayers = MAX_LAYERS,
   ) {
-    const doc = editor.doc;
-    const t = doc.terrain;
+    super(tx.doc);
+    const doc = tx.doc;
     this.noise = new LandscapeNoise(seed);
-    this.heights = new RegionRecorder(t.grid.heights, patchLayout(doc, 'heights'));
-    this.splat = splatTargets(doc).map((target) => new RegionRecorder(patchArray(doc, target) as Uint8Array, patchLayout(doc, target)));
-    if (t.water) this.waterRecorder = new RegionRecorder(t.water.mask, patchLayout(doc, 'water'));
-    this.layersBefore = t.layers.map((l) => ({ ...l }));
-    this.waterBefore = t.water ? structuredClone(t.water) : null;
+    // The layer list as it was: a full one reuses only layers from before the stroke (unusedLayer)
+    tx.snapshot('layers');
     this.grid = new ObjectGrid(8, doc.objects);
     this.ids = new ObjectIds(doc.objects);
-    this.markers = [doc.hq, ...doc.spawns];
-    this.refreshRoads();
   }
 
-  get doc(): CustomMapDocument {
-    return this.editor.doc;
-  }
-
-  /** Re-read the roads (a brush that lays one wants the others to avoid it) */
-  refreshRoads(): void {
-    const paths = this.doc.paths;
-    const nodes = new Map(paths.nodes.map((n) => [n.id, n]));
-    this.roads = new RoadSegments(
-      paths.edges.map((e) => {
-        const a = nodes.get(e.a);
-        const b = nodes.get(e.b);
-        return { points: a && b ? [a, ...(e.via ?? []), b] : [], half: e.width / 2 };
-      }),
-    );
+  override refreshRoads(): void {
+    super.refreshRoads();
     // The roads' hold is kept per sample with the forms' noise
     this.floatFields.clear();
   }
 
-  /**
-   * Metres from a point to the edge of the nearest road (negative on it);
-   * beyond `within` the answer only says "at least that far" (Infinity
-   * without roads nearby)
-   */
-  roadDistance(x: number, y: number, within = 30): number {
-    return this.roads.distance(x, y, within);
-  }
-
-  /** Whether an object may stand here: off roads, away from spawns and HQ, not in water (unless it floats) */
-  freeForObject(x: number, y: number, footprint: number, onWater = false): boolean {
-    if (this.symmetry !== 'none' && this.anchor && !sameSector(this.symmetry, { x, y }, this.anchor)) return false;
-    if (this.roadDistance(x, y, footprint + 2) < footprint + 1) return false;
-    for (const m of this.markers) if (Math.hypot(m.x - x, m.y - y) < MARKER_CLEARANCE + footprint) return false;
-    const t = this.doc.terrain;
-    const g = t.grid;
-    const i = Math.round((x + t.width / 2) / g.cellSize);
-    const j = Math.round((y + t.depth / 2) / g.cellSize);
-    if (!onWater && i >= 0 && j >= 0 && i < g.columns && j < g.rows) {
-      const k = j * g.columns + i;
-      const wet = (w: MapWater | null | undefined) => !!w && !!w.mask[k] && g.heights[k] < w.level + 0.2;
-      if (wet(t.water) || t.waterBodies?.some(wet)) return false;
-    }
-    return true;
-  }
-
-  /** 1 away from roads, 0 on them: how much the land may change here */
-  roadKeep(x: number, y: number): number {
-    const d = this.roadDistance(x, y, 6);
-    if (d === Infinity) return 1;
-    return Math.min(1, Math.max(0, (d - 1) / 5));
+  protected override inSector(x: number, y: number): boolean {
+    return this.symmetry === 'none' || !this.anchor || sameSector(this.symmetry, { x, y }, this.anchor);
   }
 
   /** The layer index of a material, adding it to the map when there is room; null when the list is full */
@@ -256,13 +255,9 @@ export class LandscapeStroke {
       return null;
     }
     t.layers.push({ material });
+    // A new third map is recorded from its first touch on, as every dab touches before it writes
     fitSplatMaps(t);
-    // A new third map: recorded from here on, every dab touches before it writes
-    for (const target of splatTargets(this.doc).slice(this.splat.length)) {
-      this.splat.push(new RegionRecorder(patchArray(this.doc, target) as Uint8Array, patchLayout(this.doc, target)));
-    }
-    this.change = mergeChanges(this.change, { layers: true });
-    this.editor.emit({ layers: true });
+    this.tx.changed({ layers: true });
     return t.layers.length - 1;
   }
 
@@ -282,8 +277,7 @@ export class LandscapeStroke {
     if (k !== null) {
       this.layersReused.push(`${material} for ${t.layers[k].material}`);
       t.layers[k] = { material };
-      this.change = mergeChanges(this.change, { layers: true });
-      this.editor.emit({ layers: true });
+      this.tx.changed({ layers: true });
     } else {
       k = this.nearestLayer(material);
       if (k === null) this.layersFull.push(material);
@@ -302,7 +296,7 @@ export class LandscapeStroke {
     const maps = t.splat.maps;
     const taken = new Set([...this.fullChoice.values()]);
     for (let k = 1; k < t.layers.length; k++) {
-      if (taken.has(k) || this.layersBefore[k]?.material !== t.layers[k].material) continue;
+      if (taken.has(k) || this.tx.layersBefore[k]?.material !== t.layers[k].material) continue;
       const map = maps[k >> 2];
       if (!map) continue;
       let used = false;
@@ -340,9 +334,9 @@ export class LandscapeStroke {
     const t = this.doc.terrain;
     if (!t.water) {
       t.water = emptyWater(t, Math.round(level * 10) / 10);
-      this.createdWater = structuredClone(t.water);
-      this.waterRecorder = new RegionRecorder(t.water.mask, patchLayout(this.doc, 'water'));
-      this.editor.emit({ water: true });
+      // Made before the stroke paints its mask: the step makes it first, its tiles fill it
+      this.tx.include(new WaterSwapCommand(this.tx.label, null, structuredClone(t.water)));
+      this.tx.editor.emit({ water: true });
     }
     return t.water.level;
   }
@@ -365,16 +359,13 @@ export class LandscapeStroke {
     if (index < 0) {
       bodies.push({ ...emptyWater(t, Math.round(level * 10) / 10), color: color ?? BODY_COLORS[kind], kind });
       index = bodies.length - 1;
-      this.bodiesAdded.push(index);
-      this.editor.emit({ water: true });
+      this.tx.include(new BodyAddCommand(this.tx.label, index, structuredClone(bodies[index])));
+      this.tx.editor.emit({ water: true });
     }
-    let recorder = this.bodyRecorders.get(index);
-    if (!recorder) {
-      recorder = new RegionRecorder(bodies[index].mask, patchLayout(this.doc, `body${index}`));
-      this.bodyRecorders.set(index, recorder);
-    }
-    const r = recorder;
-    return { water: bodies[index], touch: (rect) => r.touch(rect) };
+    // Its images copy with it from here on, touched or not
+    const target = `body${index}` as const;
+    this.tx.record(target);
+    return { water: bodies[index], touch: (rect) => this.tx.touch(target, rect) };
   }
 
   /**
@@ -399,17 +390,13 @@ export class LandscapeStroke {
     if (index < 0) {
       bodies.push({ ...emptyWater(t, Math.round(level * 10) / 10), color: BODY_COLORS[kind], kind });
       index = bodies.length - 1;
-      this.bodiesAdded.push(index);
-      this.editor.emit({ water: true });
+      this.tx.include(new BodyAddCommand(this.tx.label, index, structuredClone(bodies[index])));
+      this.tx.editor.emit({ water: true });
     }
     this.poolBodies.set(kind, index);
-    let recorder = this.bodyRecorders.get(index);
-    if (!recorder) {
-      recorder = new RegionRecorder(bodies[index].mask, patchLayout(this.doc, `body${index}`));
-      this.bodyRecorders.set(index, recorder);
-    }
-    const r = recorder;
-    return { water: bodies[index], touch: (rect) => r.touch(rect), index };
+    const target = `body${index}` as const;
+    this.tx.record(target);
+    return { water: bodies[index], touch: (rect) => this.tx.touch(target, rect), index };
   }
 
   /**
@@ -518,80 +505,51 @@ export class LandscapeStroke {
 
   /** Call before the stroke changes the road network (river bridges, a new road) */
   markPaths(): void {
-    this.pathsBefore ??= structuredClone(this.doc.paths);
+    this.tx.snapshot('paths');
   }
 
   /** Whether the stroke changed the road network */
   get pathsMarked(): boolean {
-    return this.pathsBefore !== null;
+    return this.tx.marked('paths');
   }
 
   /** Call before the stroke adds or changes a river */
   markRivers(): void {
-    const list = this.doc.terrain.rivers;
-    this.riversBefore ??= { list: list ? structuredClone(list) : undefined };
+    this.tx.snapshot('rivers');
   }
 
   /** Call before the stroke adds life areas (a pasted stamp's) */
   markLife(): void {
-    const life = this.doc.life;
-    this.lifeBefore ??= { life: life ? structuredClone(life) : undefined };
+    this.tx.snapshot('life');
   }
 
-  touchHeights(rect: GridRect): void {
-    this.heights.touch(rect);
-  }
-
-  touchSplat(rect: GridRect): void {
-    for (const recorder of this.splat) recorder.touch(rect);
-  }
-
+  /** Save the main water's mask under `rect` before writing there; its symmetric images copy with it from then on */
   touchWater(rect: GridRect): void {
     this.waterTouched = true;
-    this.waterRecorder?.touch(rect);
+    this.tx.touch('water', rect);
   }
 
   /** Height of sample (i, j) before the stroke */
   baseHeight(i: number, j: number): number {
-    return this.heights.original(i, j);
-  }
-
-  /** What element (i, j, channel) of a target held before the stroke; the array's value where it is not recorded */
-  private original(target: PatchTarget, i: number, j: number, channel: number): number {
-    const recorder =
-      target === 'heights'
-        ? this.heights
-        : target === 'water'
-          ? this.waterRecorder
-          : target.startsWith('splat')
-            ? this.splat[Number(target.slice(5))]
-            : this.bodyRecorders.get(Number(target.slice(4)));
-    if (recorder) return recorder.original(i, j, channel);
-    const layout = patchLayout(this.doc, target);
-    return patchArray(this.doc, target)[(j * layout.columns + i) * layout.channels + channel];
+    return this.tx.original('heights', i, j);
   }
 
   /** Takes objects off the map, as part of the stroke's undo step; before any are added */
   removeObjects(ids: readonly string[]): void {
     if (!ids.length) return;
-    if (this.added.length) throw new Error('Objects are removed before the stroke adds any');
     const set = new Set(ids);
     // Their places are free again for what the stroke sets
     for (const o of this.doc.objects) if (set.has(o.id)) this.grid.remove(o);
-    const command = ObjectsCommand.remove(this.label, this.doc, ids);
-    command.apply(this.doc);
-    this.removed.push(command);
+    this.tx.removeObjects(ids);
   }
 
   addObject(o: Omit<MapObject, 'id'>): MapObject {
     const object = { ...o, id: this.ids.take() } as MapObject;
     const t = this.doc.terrain;
     const images = this.symmetry === 'none' ? [] : objectImages([object], symmetryImages(this.symmetry, t.grid.columns === t.grid.rows), () => this.ids.take(), t.width / 2, t.depth / 2);
-    for (const placed of [object, ...images]) {
-      this.doc.objects.push(placed);
-      this.added.push(placed);
-      this.grid.add(placed);
-    }
+    const placed = [object, ...images];
+    this.tx.addObjects(placed);
+    for (const p of placed) this.grid.add(p);
     return object;
   }
 
@@ -600,75 +558,37 @@ export class LandscapeStroke {
     if (dab.bodies && this.symmetry !== 'none') dab = { ...dab, bodies: undefined, bodyRect: undefined, water: true };
     const change =
       center && this.symmetry !== 'none'
-        ? mirrorChange(
-            this.doc,
-            this.symmetry,
-            center,
-            dab,
-            {
-              heights: (r) => this.touchHeights(r),
-              splat: (r) => this.touchSplat(r),
-              water: this.waterTouched ? (r) => this.touchWater(r) : undefined,
-              bodies: [...this.bodyRecorders.keys()],
-              body: (index, r) => this.bodyRecorders.get(index)?.touch(r),
-              original: this.editorCopies ? (target, i, j, ch) => this.original(target, i, j, ch) : undefined,
-              heightsAdd: this.heightsAdd,
-            },
-            dab.water ? dab.heights : undefined,
-          )
+        ? mirrorDab(this.tx, this.symmetry, center, dab, {
+            heightsAdd: this.heightsAdd,
+            water: this.waterTouched,
+            copyAll: !this.editorCopies,
+            waterRect: dab.water ? dab.heights : undefined,
+          })
         : dab;
-    this.change = mergeChanges(this.change, change);
-    this.editor.emit(change);
+    this.tx.changed(change);
   }
 
   /** The stroke as one undo step; null when it changed nothing */
   finish(): EditCommand | null {
-    const doc = this.doc;
-    const t = doc.terrain;
-    const parts: EditCommand[] = [];
-    const layersAfter = t.layers.map((l) => ({ ...l }));
-    // A longer list, or a layer that took over another material (a full list, makeRoom)
-    if (layersAfter.length !== this.layersBefore.length || layersAfter.some((l, k) => l.material !== this.layersBefore[k].material)) {
-      parts.push(new LayerListCommand('Layers', this.layersBefore, layersAfter));
+    const t = this.doc.terrain;
+    // Rocks settle onto their plates on the ground the stroke leaves behind (it may have shaped it after placing them)
+    const moved: string[] = [];
+    for (const o of this.tx.added) {
+      const rock = rockShape(this.catalog.object(o.asset));
+      if (!rock) continue;
+      const next = settled(t, o, rock);
+      if (next === o) continue;
+      Object.assign(o, next);
+      if (!next.pitch) delete o.pitch;
+      if (!next.roll) delete o.roll;
+      moved.push(o.id);
     }
-    if (this.createdWater) parts.push(new WaterSwapCommand('Water', this.waterBefore, this.createdWater));
-    for (const index of this.bodiesAdded) parts.push(new BodyAddCommand('Water', index, structuredClone(t.waterBodies![index])));
-    const patches = new PatchCommand(this.label, [
-      { target: 'heights', patches: this.heights.finish() },
-      ...this.splat.map((r, k) => ({ target: `splat${k}` as SplatTarget, patches: r.finish() })),
-      ...(this.waterRecorder ? [{ target: 'water' as const, patches: this.waterRecorder.finish() }] : []),
-      ...[...this.bodyRecorders].map(([index, r]) => ({ target: `body${index}` as const, patches: r.finish() })),
-    ]);
-    if (!patches.empty) parts.push(patches);
-    if (this.riversBefore) parts.push(new RiverListCommand('Rivers', this.riversBefore.list, t.rivers ? structuredClone(t.rivers) : undefined));
-    if (this.pathsBefore) parts.push(new SnapshotCommand('Roads', { paths: this.pathsBefore }, { paths: structuredClone(doc.paths) }));
-    if (this.lifeBefore) parts.push(new SnapshotCommand('Life', { life: this.lifeBefore.life }, { life: doc.life ? structuredClone(doc.life) : undefined }));
-    parts.push(...this.removed);
-    if (this.added.length) {
-      // Rocks settle onto their plates on the ground the stroke leaves behind (it may have shaped it after placing them)
-      const moved: string[] = [];
-      for (const o of this.added) {
-        const rock = rockShape(this.catalog.object(o.asset));
-        if (!rock) continue;
-        const next = settled(t, o, rock);
-        if (next === o) continue;
-        Object.assign(o, next);
-        if (!next.pitch) delete o.pitch;
-        if (!next.roll) delete o.roll;
-        moved.push(o.id);
-      }
-      if (moved.length) this.editor.emit({ objects: moved });
-      const start = doc.objects.length - this.added.length;
-      parts.push(new ObjectsCommand('Objects', this.added.map((o, k) => ({ before: null, after: { ...o }, index: start + k }))));
-    }
-    if (!parts.length) return null;
-    const command = parts.length === 1 && parts[0] === patches ? patches : new CompoundCommand(this.label, parts);
-    this.editor.push(command);
-    return command;
+    if (moved.length) this.tx.editor.emit({ objects: moved });
+    return this.tx.commit();
   }
 
   /** Everything the stroke changed so far, for one last view refresh */
   get changes(): DocChange {
-    return this.change;
+    return this.tx.changes;
   }
 }

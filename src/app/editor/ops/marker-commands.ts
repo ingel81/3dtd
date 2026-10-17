@@ -1,6 +1,7 @@
 /** Spawns and the HQ as undoable steps, and the names new spawns get */
 import type { MapPoint, MapSpawn } from '../../world/custom-map/map-document';
-import type { EditCommand, EditorDocument } from '../model/editor-document';
+import type { EditCommand } from '../model/doc-change';
+import type { EditorDocument } from '../model/editor-document';
 import { SnapshotCommand } from '../model/commands/snapshot';
 import { newId } from '../../map-ops/path-graph';
 

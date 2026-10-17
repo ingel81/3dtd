@@ -533,9 +533,9 @@ describe('ground layer commands', () => {
     const ed = fresh();
     const terrain = ed.doc.terrain;
     const maps = terrain.splat.maps[0];
-    ed.execute(paintCommands.addLayer(ed, 'dirt'));
-    ed.execute(paintCommands.autoPaint(ed));
-    ed.execute(paintCommands.moveLayer(ed, 1, 0));
+    paintCommands.addLayer(ed, 'dirt');
+    paintCommands.autoPaint(ed);
+    paintCommands.moveLayer(ed, 1, 0);
     expect(ed.doc.terrain).toBe(terrain);
     expect(ed.doc.terrain.splat.maps[0]).toBe(maps);
     expect(terrain.layers.map((l) => l.material)).toEqual(['dirt', 'grass']);
@@ -549,14 +549,14 @@ describe('ground layer commands', () => {
   it('add the third splat map with the ninth layer and drop it with the layer (TODO E175)', () => {
     const ed = fresh();
     const terrain = ed.doc.terrain;
-    for (const m of ['dirt', 'sand', 'rock', 'snow', 'mud', 'gravel', 'cinders']) ed.execute(paintCommands.addLayer(ed, m));
+    for (const m of ['dirt', 'sand', 'rock', 'snow', 'mud', 'gravel', 'cinders']) paintCommands.addLayer(ed, m);
     expect(terrain.splat.maps).toHaveLength(2);
-    ed.execute(paintCommands.addLayer(ed, 'brimstone'));
+    paintCommands.addLayer(ed, 'brimstone');
     expect(terrain.layers).toHaveLength(9);
     expect(terrain.splat.maps).toHaveLength(3);
-    ed.execute(paintCommands.autoPaint(ed, [{ layer: 8, minSlope: 0, maxSlope: 90, minHeight: -Infinity, maxHeight: Infinity, blend: 1 }]));
+    paintCommands.autoPaint(ed, [{ layer: 8, minSlope: 0, maxSlope: 90, minHeight: -Infinity, maxHeight: Infinity, blend: 1 }]);
     expect(terrain.splat.maps[2][0]).toBe(255);
-    ed.execute(paintCommands.removeLayer(ed, 8));
+    paintCommands.removeLayer(ed, 8);
     expect(terrain.splat.maps).toHaveLength(2);
     expect(terrain.splat.maps[0][0]).toBe(255);
     ed.undo();
@@ -581,7 +581,7 @@ describe('water and lava bodies', () => {
     terrain.pointerDown(at(0, 100), ctx);
     for (let k = 0; k < 10; k++) terrain.frame(0.1, at(0, 100), ctx);
     terrain.pointerUp();
-    ed.execute(waterCommands.addBody(ed, 'lava', 0));
+    waterCommands.addBody(ed, 'lava', 0);
     expect(t.waterBodies?.[0].kind).toBe('lava');
     ctx.settings.water = { mode: 'fill', pour: 'water', body: 0, depth: 3, river: -1, riverPoint: -1 };
     const water = new WaterTool();
@@ -613,7 +613,7 @@ describe('water and lava bodies', () => {
         g.heights[j * g.columns + i] = 1 * craterProfile(r);
       }
     }
-    ed.execute(waterCommands.addBody(ed, 'lava', 0));
+    waterCommands.addBody(ed, 'lava', 0);
     ctx.settings.water = { mode: 'fill', pour: 'water', body: 0, depth: 3, river: -1, riverPoint: -1 };
     const water = new WaterTool();
     // On the rim, where the ground stands above the level the fill takes
@@ -624,7 +624,7 @@ describe('water and lava bodies', () => {
     expect(lava.level).toBeLessThan(0.3);
     expect(lava.mask[(g.rows >> 1) * g.columns + (g.columns >> 1)]).toBe(255);
     // Open flat ground holds nothing
-    ed.execute(waterCommands.addBody(ed, 'lava', 0));
+    waterCommands.addBody(ed, 'lava', 0);
     ctx.settings.water.body = 1;
     water.pointerDown(at(-150, -150), ctx);
     expect(ctx.messages.at(-1)).toBe('This spot is no hollow: the water would run off');
@@ -661,8 +661,8 @@ describe('water and lava bodies', () => {
     const ed = fresh();
     ed.doc.terrain.grid.heights.fill(-1);
     ed.doc.terrain.grid.heights[(ed.doc.terrain.grid.rows >> 1) * ed.doc.terrain.grid.columns + (ed.doc.terrain.grid.columns >> 1)] = 5;
-    ed.execute(waterCommands.enable(ed, 0));
-    ed.execute(waterCommands.sea(ed, -1));
+    waterCommands.enable(ed, 0);
+    waterCommands.sea(ed, -1);
     const mask = ed.doc.terrain.water!.mask;
     expect(mask.filter((v) => v > 0).length).toBe(mask.length - 1);
   });

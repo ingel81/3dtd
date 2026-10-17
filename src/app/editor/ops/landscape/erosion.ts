@@ -9,7 +9,7 @@ import type { MapPoint } from '../../../world/custom-map/map-document';
 import { sampleRectAround, type GridRect } from '../../../map-ops/grid';
 import type { BrushSettings } from '../../../map-ops/brush';
 import { hashCell } from '../../../map-ops/landscape-noise';
-import type { LandscapeStroke } from './landscape-stroke';
+import type { LandscapeContext } from './landscape-context';
 
 const INERTIA = 0.3;
 const CAPACITY = 4;
@@ -18,12 +18,12 @@ const DEPOSIT = 0.3;
 const EVAPORATE = 0.04;
 const STEPS = 40;
 
-export function erosionDab(stroke: LandscapeStroke, center: MapPoint, brush: BrushSettings, dab: number): GridRect {
+export function erosionDab(stroke: LandscapeContext, center: MapPoint, brush: BrushSettings, dab: number): GridRect {
   const t = stroke.doc.terrain;
   const g = t.grid;
   const reach = brush.radius * 1.3;
   const rect = sampleRectAround(t, center.x, center.y, reach);
-  stroke.touchHeights(rect);
+  stroke.tx.touch('heights', rect);
   const h = g.heights;
   const cols = g.columns;
   const cell = g.cellSize;

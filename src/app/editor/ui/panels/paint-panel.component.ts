@@ -10,6 +10,9 @@ import type { GroundMaterialEntry } from '../../../map-ops/asset-catalog';
 import { BrushPanelComponent } from './brush-panel.component';
 import { RangeRowComponent } from './range-row.component';
 
+/** What a layer edit says when it has to wait */
+const GROUND = 'Changing the ground paint';
+
 /**
  * Ground layers (up to twelve materials, painted in list order), the layer
  * to paint with, auto paint and the cliff material.
@@ -70,43 +73,34 @@ export class PaintPanelComponent {
   }
 
   add(material: string): void {
-    const editor = this.session.groundEditor('Changing the ground paint');
-    if (!editor || editor.doc.terrain.layers.length >= MAX_LAYERS) return;
-    this.session.execute(paintCommands.addLayer(editor, material));
-    this.pick(editor.doc.terrain.layers.length - 1);
+    const layers = this.session.doc?.terrain.layers;
+    if (!layers || layers.length >= MAX_LAYERS) return;
+    if (this.session.edit(GROUND, (e) => paintCommands.addLayer(e, material))) this.pick(this.session.doc!.terrain.layers.length - 1);
   }
 
   setMaterial(index: number, material: string): void {
-    const editor = this.session.groundEditor('Changing the ground paint');
-    if (editor) this.session.execute(paintCommands.setMaterial(editor, index, material));
+    this.session.edit(GROUND, (e) => paintCommands.setMaterial(e, index, material));
   }
 
   remove(index: number): void {
-    const editor = this.session.groundEditor('Changing the ground paint');
-    if (!editor) return;
-    this.session.execute(paintCommands.removeLayer(editor, index));
-    this.pick(Math.max(0, Math.min(this.settings().layer, editor.doc.terrain.layers.length - 1)));
+    if (this.session.edit(GROUND, (e) => paintCommands.removeLayer(e, index))) {
+      this.pick(Math.max(0, Math.min(this.settings().layer, this.session.doc!.terrain.layers.length - 1)));
+    }
   }
 
   move(index: number, dir: -1 | 1): void {
-    const editor = this.session.groundEditor('Changing the ground paint');
-    if (!editor) return;
     const to = index + dir;
-    if (to < 0 || to >= editor.doc.terrain.layers.length) return;
-    this.session.execute(paintCommands.moveLayer(editor, index, to));
-    if (this.settings().layer === index) this.pick(to);
+    const count = this.session.doc?.terrain.layers.length ?? 0;
+    if (to < 0 || to >= count) return;
+    if (this.session.edit(GROUND, (e) => paintCommands.moveLayer(e, index, to)) && this.settings().layer === index) this.pick(to);
   }
 
   autoPaint(): void {
-    const editor = this.session.groundEditor('Changing the ground paint');
-    if (!editor) return;
-    this.session.execute(paintCommands.autoPaint(editor));
-    this.session.flash('Painted by slope and height; undo brings back the old paint');
+    if (this.session.edit(GROUND, (e) => paintCommands.autoPaint(e))) this.session.flash('Painted by slope and height; undo brings back the old paint');
   }
 
   setCliff(material: string, angle: number): void {
-    const editor = this.session.groundEditor('Changing the ground paint');
-    if (editor) this.session.execute(paintCommands.setCliff(editor, material, angle));
+    this.session.edit(GROUND, (e) => paintCommands.setCliff(e, material, angle));
   }
 
   readonly selectValue = (e: Event) => (e.target as HTMLSelectElement).value;

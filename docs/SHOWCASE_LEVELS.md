@@ -17,7 +17,7 @@ Commit.
 
 `tools/maps/levels/kit.ts` (`LevelKit`, eine Hülle um `MapKit` aus `src/app/editor/ops/map-kit.ts`, mit dem auch die
 Skripte des KI-Agenten laufen, [AGENT_MCP.md](AGENT_MCP.md)) fährt die Operationen des Editors ohne Oberfläche: jeder Landschafts-Aufruf
-ist ein Strich des Landscape-Werkzeugs (`LandscapeStroke`, ein Schritt im Verlauf), dazu die Pinsel von Terrain,
+ist ein Strich des Landscape-Werkzeugs (`LandscapeContext`, ein Schritt im Verlauf), dazu die Pinsel von Terrain,
 Paint, Water, Objects, Paths und Spawns, der Gelände-Generator und das Prüfen des Editors. Die Seeds der Striche
 kommen aus dem Seed des Levels und einem Zähler, ein Skript ergibt also immer dieselbe Karte. Bewährte Reihenfolge:
 Bodenschichten festlegen (höchstens acht, `LEVEL_LAYERS` in `kit.ts`, auch seit Karten zwölf haben dürfen: so bleiben die Level, wie sie abgestimmt sind; Pinsel nehmen dann ihre Kandidaten aus dieser Liste), Gelände, Straßen,

@@ -5,14 +5,13 @@
  */
 import type { MapPaths } from '../../world/custom-map/map-document';
 import type { CatalogIndex } from '../../map-ops/asset-catalog';
-import type { EditCommand, EditorDocument } from '../model/editor-document';
+import type { EditCommand } from '../model/doc-change';
+import type { EditorDocument } from '../model/editor-document';
 import { SnapshotCommand } from '../model/commands/snapshot';
-import { splatTargets } from '../model/commands/patch';
 import { deleteEdge, deleteNode, dissolveNode } from '../../map-ops/path-graph';
 import { flattenUnderPaths, paintUnderPaths } from '../../map-ops/path-terrain';
 import { rebuildDressing, relayRoads, surfaceRoads, type RoadOptions } from './landscape/road';
-import { LandscapeStroke } from './landscape/landscape-stroke';
-import { BrushStroke } from './brush-stroke';
+import { LandscapeContext } from './landscape/landscape-context';
 
 /** Lonely nodes (a started road that never got its second click) go when the tool ends a line */
 export function dropLonelyNodes(paths: MapPaths): void {
@@ -59,7 +58,7 @@ export function editRoads(editor: EditorDocument, catalog: CatalogIndex, label: 
  * shows, or the road brush's settings; one step
  */
 export function rebuildRoads(editor: EditorDocument, catalog: CatalogIndex, edgeIds: readonly string[], road: RoadOptions): void {
-  const stroke = new LandscapeStroke(editor, 'Rebuild road dressing', 1, catalog);
+  const stroke = new LandscapeContext(editor.begin('Rebuild road dressing'), 1, catalog);
   const surface = road.surface.find((m) => catalog.materials.has(m));
   rebuildDressing(stroke, edgeIds, { adapt: road.adapt, ...(surface ? { surface } : {}), lamps: road.lamps, fences: road.fences, objects: [] });
   stroke.changed({ paths: true });
@@ -68,7 +67,7 @@ export function rebuildRoads(editor: EditorDocument, catalog: CatalogIndex, edge
 
 /** The surface of the selected roads (null: none, the drawn road), painted at once; one step */
 export function setRoadSurface(editor: EditorDocument, catalog: CatalogIndex, edgeIds: readonly string[], material: string | null): number {
-  const stroke = new LandscapeStroke(editor, 'Road surface', 1, catalog);
+  const stroke = new LandscapeContext(editor.begin('Road surface'), 1, catalog);
   const n = surfaceRoads(stroke, edgeIds, material);
   stroke.finish();
   return n;
@@ -91,7 +90,7 @@ export function commitRoads(editor: EditorDocument, catalog: CatalogIndex, label
   const after = doc.paths;
   // The stroke has to see the paths of before, then the new ones
   doc.paths = structuredClone(before);
-  const stroke = new LandscapeStroke(editor, label, 1, catalog);
+  const stroke = new LandscapeContext(editor.begin(label), 1, catalog);
   stroke.markPaths();
   doc.paths = after;
   stroke.refreshRoads();
@@ -102,18 +101,18 @@ export function commitRoads(editor: EditorDocument, catalog: CatalogIndex, label
 
 /** "Flatten road" over the given edges (all when null) as one undo step */
 export function flattenRoads(editor: EditorDocument, edgeIds: string[] | null): boolean {
-  const stroke = new BrushStroke(editor, 'Flatten roads', ['heights']);
+  const stroke = editor.begin('Flatten roads');
   const rect = flattenUnderPaths(editor.doc.terrain, editor.doc.paths, edgeIds, undefined, (r) => stroke.touch('heights', r));
   if (rect) stroke.changed({ heights: rect });
-  return stroke.finish() !== null;
+  return stroke.commit() !== null;
 }
 
 /** Paint a ground layer under the given edges as one undo step */
 export function paintRoads(editor: EditorDocument, layer: number, edgeIds: string[] | null): boolean {
-  const stroke = new BrushStroke(editor, 'Paint roads', splatTargets(editor.doc));
+  const stroke = editor.begin('Paint roads');
   const rect = paintUnderPaths(editor.doc.terrain, editor.doc.paths, layer, edgeIds, 2, (r) => {
     stroke.touchSplat(r);
   });
   if (rect) stroke.changed({ splat: rect });
-  return stroke.finish() !== null;
+  return stroke.commit() !== null;
 }

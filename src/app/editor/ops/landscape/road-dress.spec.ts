@@ -7,7 +7,7 @@ import { EditorDocument } from '../../model/editor-document';
 import { heightAt } from '../../../map-ops/grid';
 import { editRoads, rebuildRoads, setRoadSurface } from '../road-commands';
 import { moveNode, nearestOnPolyline, edgePolyline } from '../../../map-ops/path-graph';
-import { LandscapeStroke } from './landscape-stroke';
+import { LandscapeContext } from './landscape-context';
 import { DEFAULT_ROAD, buildRoad } from './road';
 import { readWeights } from '../../../map-ops/paint-ops';
 import { DEFAULT_RIVER, carveRiver, moveRiverBed } from './river';
@@ -29,7 +29,7 @@ describe('roads laid anew', () => {
     const doc = hills();
     const editor = new EditorDocument(doc);
     const plain = doc.terrain.grid.heights.slice();
-    const stroke = new LandscapeStroke(editor, 'Road', 1, catalog);
+    const stroke = new LandscapeContext(editor.begin('Road'), 1, catalog);
     const result = buildRoad(stroke, [{ x: -150, y: -20 }, { x: 0, y: -20 }, { x: 150, y: -20 }], { ...DEFAULT_ROAD, lamps: true, fences: false });
     stroke.finish();
     expect(result).not.toBeNull();
@@ -71,7 +71,7 @@ describe('roads laid anew', () => {
   it('reads a road without a record off the map when it moves, and rebuilds a plain one on request', () => {
     const doc = hills();
     const editor = new EditorDocument(doc);
-    const stroke = new LandscapeStroke(editor, 'Road', 1, catalog);
+    const stroke = new LandscapeContext(editor.begin('Road'), 1, catalog);
     const result = buildRoad(stroke, [{ x: -150, y: -20 }, { x: 150, y: -20 }], { ...DEFAULT_ROAD, lamps: true });
     stroke.finish();
     const edge = doc.paths.edges.find((e) => e.id === result!.edgeId)!;
@@ -100,7 +100,7 @@ describe('roads laid anew', () => {
   it("sets a road's own surface at once, keeps it when the dressing is laid anew, as one step", () => {
     const doc = hills();
     const editor = new EditorDocument(doc);
-    const stroke = new LandscapeStroke(editor, 'Road', 1, catalog);
+    const stroke = new LandscapeContext(editor.begin('Road'), 1, catalog);
     const result = buildRoad(stroke, [{ x: -150, y: -20 }, { x: 150, y: -20 }], { ...DEFAULT_ROAD, lamps: true });
     stroke.finish();
     const id = result!.edgeId;
@@ -163,7 +163,7 @@ describe('roads laid anew', () => {
   it('moves a river bed with its course', () => {
     const doc = hills();
     const editor = new EditorDocument(doc);
-    const stroke = new LandscapeStroke(editor, 'River', 1, catalog);
+    const stroke = new LandscapeContext(editor.begin('River'), 1, catalog);
     carveRiver(stroke, [{ x: -150, y: 0 }, { x: 0, y: 10 }, { x: 150, y: 0 }], { ...DEFAULT_RIVER, bridges: false, reeds: true });
     stroke.finish();
     const river = doc.terrain.rivers![0];
@@ -172,7 +172,7 @@ describe('roads laid anew', () => {
     const old = { ...river.points[mid] };
     // A whole stretch swings 30 m north
     for (let k = mid - 4; k <= mid + 4; k++) river.points[k] = { ...river.points[k], y: river.points[k].y + 30 };
-    const relay = new LandscapeStroke(editor, 'Move river point', 1, catalog);
+    const relay = new LandscapeContext(editor.begin('Move river point'), 1, catalog);
     relay.markRivers();
     moveRiverBed(relay, before[0], river);
     relay.finish();

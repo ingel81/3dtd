@@ -110,7 +110,7 @@ export function transferList(m: TerrainJobMessage): ArrayBuffer[] {
 /** The finished map from its generated heights, as the editor finishes it (EditorSession.finishGenerate) */
 function finish(f: GenerateFinish, grid: MapTerrain['grid'], result: GenerateResult): TerrainJobMessage {
   const terrain = { ...f.terrain, grid } as MapTerrain;
-  // The water the editor makes for the preset (LandscapeStroke.ensureWater): the roads rise over it
+  // The water the editor makes for the preset (LandscapeContext.ensureWater): the roads rise over it
   if (result.water !== null) {
     terrain.water ??= emptyWater(terrain, Math.round(result.water * 10) / 10);
     terrain.water.mask.fill(255);

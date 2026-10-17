@@ -12,7 +12,7 @@ import { addNode, connect, edgePolyline, nearestNode, nearestOnEdges, nearestOnP
 import { flattenUnderPaths, paintUnderPaths } from '../../../map-ops/path-terrain';
 import { chaikin, simplify } from '../../../map-ops/lines';
 import { roadPaintBands } from '../../../world/custom-map/render/paths/road-style';
-import type { LandscapeStroke } from './landscape-stroke';
+import type { LandscapeContext } from './landscape-context';
 import type { CatalogIndex } from '../../../map-ops/asset-catalog';
 
 export interface RoadOptions {
@@ -48,7 +48,7 @@ export interface RoadResult {
   fences: number;
 }
 
-export function buildRoad(stroke: LandscapeStroke, drawn: readonly MapPoint[], options: RoadOptions): RoadResult | null {
+export function buildRoad(stroke: LandscapeContext, drawn: readonly MapPoint[], options: RoadOptions): RoadResult | null {
   const doc = stroke.doc;
   const t = doc.terrain;
   if (drawn.length < 2 || polylineLength(drawn) < Math.max(6, options.width)) return null;
@@ -96,7 +96,7 @@ function dressReach(edge: MapPathEdge): number {
  * embankment or cutting, the surface painted, lamps and fences at the
  * sides; stores the dress with the ids of the objects on the edge
  */
-export function dressEdge(stroke: LandscapeStroke, edge: MapPathEdge, dress: MapRoadDress): { lamps: number; fences: number } {
+export function dressEdge(stroke: LandscapeContext, edge: MapPathEdge, dress: MapRoadDress): { lamps: number; fences: number } {
   const t = stroke.doc.terrain;
   const paths = stroke.doc.paths;
   let ground: MapRoadGround | undefined;
@@ -104,7 +104,7 @@ export function dressEdge(stroke: LandscapeStroke, edge: MapPathEdge, dress: Map
     // The band's ground before levelling, kept so taking the road back restores it
     const samples = bandSamples(t.grid, t.width, t.depth, edgePolyline(paths, edge), dressReach(edge) + t.grid.cellSize);
     const before = Float32Array.from(samples, (k) => t.grid.heights[k]);
-    const rect = flattenUnderPaths(t, paths, [edge.id], { shoulder: Math.max(6, edge.width), smoothing: 30 }, (r) => stroke.touchHeights(r));
+    const rect = flattenUnderPaths(t, paths, [edge.id], { shoulder: Math.max(6, edge.width), smoothing: 30 }, (r) => stroke.tx.touch('heights', r));
     if (rect) stroke.changed({ heights: rect });
     ground = packGround(t.grid, samples, before);
   }
@@ -168,7 +168,7 @@ export function dressEdge(stroke: LandscapeStroke, edge: MapPathEdge, dress: Map
  * the ground across it straight from the land at one side to the other
  * (restoreBand), along `line`, where the edge ran
  */
-export function undressEdge(stroke: LandscapeStroke, edge: MapPathEdge, line: readonly MapPoint[]): void {
+export function undressEdge(stroke: LandscapeContext, edge: MapPathEdge, line: readonly MapPoint[]): void {
   const dress = edge.dress;
   if (!dress) return;
   // Its own objects by where they stand: two halves of a split road share the list
@@ -204,7 +204,7 @@ export function undressEdge(stroke: LandscapeStroke, edge: MapPathEdge, line: re
           rect.j0 = Math.min(rect.j0, j);
           rect.j1 = Math.max(rect.j1, j);
         }
-        stroke.touchHeights(rect);
+        stroke.tx.touch('heights', rect);
         // Ground untouched since the road was built goes back to its old height itself, shaped ground keeps the shaping
         const step = dress.ground!.step;
         for (const s of mine) {
@@ -243,7 +243,7 @@ export function roadSurfaces(catalog: CatalogIndex): { id: string; name: string 
  * under it is not known: taking it back fills straight across. Null when
  * nothing marks it as built.
  */
-export function inferDress(stroke: LandscapeStroke, edge: MapPathEdge, line: readonly MapPoint[]): MapRoadDress | null {
+export function inferDress(stroke: LandscapeContext, edge: MapPathEdge, line: readonly MapPoint[]): MapRoadDress | null {
   if (line.length < 2) return null;
   const doc = stroke.doc;
   const t = doc.terrain;
@@ -288,7 +288,7 @@ export function inferDress(stroke: LandscapeStroke, edge: MapPathEdge, line: rea
  * they keep, else what the map shows (inferDress), else `fallback` (the
  * road brush's settings). Returns how many were laid.
  */
-export function rebuildDressing(stroke: LandscapeStroke, edgeIds: readonly string[], fallback: MapRoadDress): number {
+export function rebuildDressing(stroke: LandscapeContext, edgeIds: readonly string[], fallback: MapRoadDress): number {
   const paths = stroke.doc.paths;
   const edges = paths.edges.filter((e) => edgeIds.includes(e.id));
   stroke.markPaths();
@@ -308,7 +308,7 @@ export function rebuildDressing(stroke: LandscapeStroke, edgeIds: readonly strin
  * its old line and dressed anew along the new one. The stroke must have
  * marked the paths of before. Returns how many were laid anew.
  */
-export function relayRoads(stroke: LandscapeStroke, before: MapPaths): number {
+export function relayRoads(stroke: LandscapeContext, before: MapPaths): number {
   const paths = stroke.doc.paths;
   const changed = paths.edges.filter((e) => {
     const old = before.edges.find((o) => o.id === e.id);
@@ -341,7 +341,7 @@ export function relayRoads(stroke: LandscapeStroke, before: MapPaths): number {
  * once. None gives the drawn road its cobbles and ruts back over the ground
  * as it is. Bridges and tunnels are left out. Returns how many changed.
  */
-export function surfaceRoads(stroke: LandscapeStroke, edgeIds: readonly string[], material: string | null): number {
+export function surfaceRoads(stroke: LandscapeContext, edgeIds: readonly string[], material: string | null): number {
   const paths = stroke.doc.paths;
   const edges = paths.edges.filter((e) => edgeIds.includes(e.id) && e.kind !== 'bridge' && !e.tunnel);
   if (!edges.length) return 0;
@@ -367,7 +367,7 @@ export function surfaceRoads(stroke: LandscapeStroke, edgeIds: readonly string[]
  * (roadPaintBands): the verge first, the road's own material over its
  * middle; an unpaved road its material with a soft rim
  */
-function paintRoadGround(stroke: LandscapeStroke, edges: readonly MapPathEdge[]): void {
+function paintRoadGround(stroke: LandscapeContext, edges: readonly MapPathEdge[]): void {
   const t = stroke.doc.terrain;
   for (const edge of edges) {
     // Painting blends towards the last band: the verge, then the core over it
@@ -375,7 +375,7 @@ function paintRoadGround(stroke: LandscapeStroke, edges: readonly MapPathEdge[])
     for (const band of bands) {
       const layer = stroke.layerOf(band.materials);
       if (layer === null) continue;
-      const rect = paintUnderPaths(t, stroke.doc.paths, layer, [edge.id], band.soft, (r) => stroke.touchSplat(r), () => band.half);
+      const rect = paintUnderPaths(t, stroke.doc.paths, layer, [edge.id], band.soft, (r) => stroke.tx.touchSplat(r), () => band.half);
       if (rect) stroke.changed({ splat: rect });
     }
   }

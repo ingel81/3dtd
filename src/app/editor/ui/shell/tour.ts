@@ -8,7 +8,7 @@
  * back on its own (localStorage `3dtd-editor-tour`); the help and the
  * command palette start or resume it.
  */
-import type { DocChange } from '../../model/editor-document';
+import type { DocChange } from '../../model/doc-change';
 import { TOOL_GROUPS, type ToolId } from '../../tools/tool';
 
 /** What a step waits for, besides Next */

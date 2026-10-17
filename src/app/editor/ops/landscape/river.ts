@@ -17,7 +17,7 @@ import { MAX_LAYERS, readWeights, writeWeights } from '../../../map-ops/paint-op
 import { edgePolyline, nearestOnPolyline, newId, pointAt, polylineLength, splitEdge } from '../../../map-ops/path-graph';
 import { segmentCross } from '../../../map-ops/lines';
 import { smooth } from '../../../map-ops/landscape-noise';
-import type { LandscapeStroke } from './landscape-stroke';
+import type { LandscapeContext } from './landscape-context';
 import { bankLevels, catmullRomLine, riverPoints } from '../../../map-ops/river-levels';
 
 export interface RiverOptions {
@@ -59,7 +59,7 @@ export interface RiverResult {
 
 /** The river's course: the smoothed line with a gentle meander, and its half width along it */
 export function riverCourse(
-  stroke: LandscapeStroke,
+  stroke: LandscapeContext,
   drawn: readonly MapPoint[],
   options: RiverOptions,
   step: number,
@@ -89,7 +89,7 @@ export function riverCourse(
  * `half` is the half width at a distance along the course as drawn.
  */
 export function riverSurface(
-  stroke: LandscapeStroke,
+  stroke: LandscapeContext,
   line: readonly MapPoint[],
   half: (along: number) => number,
   bank: number,
@@ -113,7 +113,7 @@ export function riverSurface(
  * bed and banks do not count), the flow direction kept:
  * a river from before sinks into its channel, one carved since stays put
  */
-export function relevelRiver(stroke: LandscapeStroke, river: MapRiver, bank = DEFAULT_RIVER.bank): void {
+export function relevelRiver(stroke: LandscapeContext, river: MapRiver, bank = DEFAULT_RIVER.bank): void {
   const t = stroke.doc.terrain;
   const pts = river.points;
   if (pts.length < 2) return;
@@ -122,7 +122,7 @@ export function relevelRiver(stroke: LandscapeStroke, river: MapRiver, bank = DE
   pts.forEach((p, k) => (p.height = Math.round(levels[k] * 100) / 100));
 }
 
-export function carveRiver(stroke: LandscapeStroke, drawn: readonly MapPoint[], options: RiverOptions): RiverResult | null {
+export function carveRiver(stroke: LandscapeContext, drawn: readonly MapPoint[], options: RiverOptions): RiverResult | null {
   const doc = stroke.doc;
   const t = doc.terrain;
   const g = t.grid;
@@ -157,7 +157,7 @@ export function carveRiver(stroke: LandscapeStroke, drawn: readonly MapPoint[], 
     j0: Math.max(0, Math.floor((Math.min(...ys) - reach + t.depth / 2) / g.cellSize)),
     j1: Math.min(g.rows - 1, Math.ceil((Math.max(...ys) + reach + t.depth / 2) / g.cellSize)),
   };
-  stroke.touchHeights(rect);
+  stroke.tx.touch('heights', rect);
   const bankAt = bankWidthAt(stroke, options.bank);
   for (let j = rect.j0; j <= rect.j1; j++) {
     const y = sampleY(t, j);
@@ -203,7 +203,7 @@ export function carveRiver(stroke: LandscapeStroke, drawn: readonly MapPoint[], 
 }
 
 /** Bank width at a point: wider and narrower along the river */
-function bankWidthAt(stroke: LandscapeStroke, bank: number): (x: number, y: number) => number {
+function bankWidthAt(stroke: LandscapeContext, bank: number): (x: number, y: number) => number {
   const n = stroke.noise;
   return (x, y) => bank * (0.7 + 0.6 * (0.5 + 0.5 * n.fbm(x, y, 40, 2, 'n3')));
 }
@@ -214,7 +214,7 @@ function bankWidthAt(stroke: LandscapeStroke, bank: number): (x: number, y: numb
  * over the outer half of the bank. Returns the painted texels.
  */
 function paintRiverBed(
-  stroke: LandscapeStroke,
+  stroke: LandscapeContext,
   line: readonly MapPoint[],
   half: (s: number) => number,
   bankAt: (x: number, y: number) => number,
@@ -238,7 +238,7 @@ function paintRiverBed(
       j0: Math.max(0, Math.floor(((Math.min(...ys) - reach + t.depth / 2) / t.depth) * res)),
       j1: Math.min(res - 1, Math.ceil(((Math.max(...ys) + reach + t.depth / 2) / t.depth) * res)),
     };
-    stroke.touchSplat(splat);
+    stroke.tx.touchSplat(splat);
     const w8 = new Float32Array(MAX_LAYERS);
     const target = new Float32Array(MAX_LAYERS);
     for (let v = splat.j0; v <= splat.j1; v++) {
@@ -283,7 +283,7 @@ function paintRiverBed(
  * `half` the half width at a distance along it.
  */
 function decorateRiver(
-  stroke: LandscapeStroke,
+  stroke: LandscapeContext,
   line: readonly MapPoint[],
   along: readonly number[],
   surface: readonly number[],
@@ -383,7 +383,7 @@ function decorateRiver(
  * does, the surface and widths from the points. Returns the changed rect.
  */
 export function recarveRiver(
-  stroke: LandscapeStroke,
+  stroke: LandscapeContext,
   river: MapRiver,
   depth = DEFAULT_RIVER.depth,
   bankWidth = DEFAULT_RIVER.bank,
@@ -411,7 +411,7 @@ export function recarveRiver(
     j0: Math.max(0, Math.floor((Math.min(...ys) - reach + t.depth / 2) / g.cellSize)),
     j1: Math.min(g.rows - 1, Math.ceil((Math.max(...ys) + reach + t.depth / 2) / g.cellSize)),
   };
-  stroke.touchHeights(rect);
+  stroke.tx.touch('heights', rect);
   for (let j = rect.j0; j <= rect.j1; j++) {
     const y = sampleY(t, j);
     for (let i = rect.i0; i <= rect.i1; i++) {
@@ -453,7 +453,7 @@ const RIVER_ASSETS = new Set([
  * the brush in that band go along, a bridge over it is a road again.
  * Returns the changed height rect.
  */
-export function removeRiver(stroke: LandscapeStroke, index: number, bankWidth = DEFAULT_RIVER.bank): GridRect | null {
+export function removeRiver(stroke: LandscapeContext, index: number, bankWidth = DEFAULT_RIVER.bank): GridRect | null {
   const t = stroke.doc.terrain;
   const river = t.rivers?.[index];
   if (!river) return null;
@@ -512,7 +512,7 @@ function riverReach(pts: readonly MapRiver['points'][number][], bankWidth: numbe
  * line. Returns the changed height and texel rects.
  */
 export function restoreBand(
-  stroke: LandscapeStroke,
+  stroke: LandscapeContext,
   pts: readonly MapPoint[],
   reachAt: (along: number) => number,
   /** Leave the heights (the caller restores them itself) and do only the paint */
@@ -564,7 +564,7 @@ export function restoreBand(
     j0: Math.max(0, Math.floor(y0 / g.cellSize)),
     j1: Math.min(g.rows - 1, Math.ceil(y1 / g.cellSize)),
   };
-  if (!paintOnly) stroke.touchHeights(rect);
+  if (!paintOnly) stroke.tx.touch('heights', rect);
   const fills: { k: number; h: number }[] = [];
   for (let j = paintOnly ? rect.j1 + 1 : rect.j0; j <= rect.j1; j++) {
     const y = sampleY(t, j);
@@ -588,7 +588,7 @@ export function restoreBand(
     j0: Math.max(0, Math.floor((y0 / t.depth) * res)),
     j1: Math.min(res - 1, Math.ceil((y1 / t.depth) * res)),
   };
-  stroke.touchSplat(splat);
+  stroke.tx.touchSplat(splat);
   const texelAt = (p: MapPoint) => {
     const u = Math.min(res - 1, Math.max(0, Math.floor(((p.x + t.width / 2) / t.width) * res)));
     const v = Math.min(res - 1, Math.max(0, Math.floor(((p.y + t.depth / 2) / t.depth) * res)));
@@ -622,7 +622,7 @@ export function restoreBand(
  * falls of the old band that the new band does not reach go. `rivers` in
  * the document already hold the new shape.
  */
-export function moveRiverBed(stroke: LandscapeStroke, before: MapRiver, after: MapRiver, bankWidth = DEFAULT_RIVER.bank): void {
+export function moveRiverBed(stroke: LandscapeContext, before: MapRiver, after: MapRiver, bankWidth = DEFAULT_RIVER.bank): void {
   if (before.points.length < 2) {
     recarveRiver(stroke, after);
     return;
@@ -666,7 +666,7 @@ export function moveRiverBed(stroke: LandscapeStroke, before: MapRiver, after: M
 }
 
 /** Splits every road the river crosses and makes the crossing stretch a bridge; returns how many */
-export function bridgeCrossings(stroke: LandscapeStroke, river: readonly MapPoint[], span: number): number {
+export function bridgeCrossings(stroke: LandscapeContext, river: readonly MapPoint[], span: number): number {
   const paths = stroke.doc.paths;
   let made = 0;
   for (let guard = 0; guard < 64; guard++) {

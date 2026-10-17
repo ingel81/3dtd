@@ -1,43 +1,50 @@
 /**
  * The ground layers as undoable steps: add, change, remove and move a layer,
- * auto paint, the cliff material. The terrain stays the same object
- * (GroundCommand), so the renderer only reloads the layers.
+ * auto paint, the cliff material. Each runs as one step and returns it. The
+ * terrain stays the same object (GroundCommand), so the renderer only reloads
+ * the layers.
  */
-import { fitSplatMaps } from '../../world/custom-map/map-document';
-import type { EditCommand, EditorDocument } from '../model/editor-document';
-import { GroundCommand } from '../model/commands/terrain';
+import { fitSplatMaps, type MapTerrain } from '../../world/custom-map/map-document';
+import type { EditCommand } from '../model/doc-change';
+import type { EditorDocument } from '../model/editor-document';
 import { autoPaint, defaultAutoRules, moveLayer, removeLayer, type AutoPaintRule } from '../../map-ops/paint-ops';
+
+/** The ground (layers, splat maps, cliff) changed by `edit` as one step */
+function groundEdit(editor: EditorDocument, label: string, edit: (t: MapTerrain) => void): EditCommand | null {
+  const r = editor.doc.terrain.splat.resolution - 1;
+  return editor.transact(label, ['ground'], (doc) => edit(doc.terrain), { layers: true, splat: { i0: 0, j0: 0, i1: r, j1: r } });
+}
 
 /** Layer list, auto paint and cliff as undoable steps; the terrain stays the same object */
 export const paintCommands = {
-  addLayer(editor: EditorDocument, material: string): EditCommand {
-    return GroundCommand.record(editor, 'Add layer', (t) => {
+  addLayer(editor: EditorDocument, material: string): EditCommand | null {
+    return groundEdit(editor, 'Add layer', (t) => {
       t.layers.push({ material });
       fitSplatMaps(t);
     });
   },
-  setMaterial(editor: EditorDocument, index: number, material: string): EditCommand {
-    return GroundCommand.record(editor, 'Change material', (t) => (t.layers[index] = { ...t.layers[index], material }));
+  setMaterial(editor: EditorDocument, index: number, material: string): EditCommand | null {
+    return groundEdit(editor, 'Change material', (t) => (t.layers[index] = { ...t.layers[index], material }));
   },
-  setScale(editor: EditorDocument, index: number, scale: number | undefined): EditCommand {
-    return GroundCommand.record(editor, 'Texture size', (t) => {
+  setScale(editor: EditorDocument, index: number, scale: number | undefined): EditCommand | null {
+    return groundEdit(editor, 'Texture size', (t) => {
       const layer = { ...t.layers[index] };
       if (scale && scale > 0) layer.scale = scale;
       else delete layer.scale;
       t.layers[index] = layer;
     });
   },
-  removeLayer(editor: EditorDocument, index: number): EditCommand {
-    return GroundCommand.record(editor, 'Remove layer', (t) => removeLayer(t, index));
+  removeLayer(editor: EditorDocument, index: number): EditCommand | null {
+    return groundEdit(editor, 'Remove layer', (t) => removeLayer(t, index));
   },
-  moveLayer(editor: EditorDocument, from: number, to: number): EditCommand {
-    return GroundCommand.record(editor, 'Move layer', (t) => moveLayer(t, from, to));
+  moveLayer(editor: EditorDocument, from: number, to: number): EditCommand | null {
+    return groundEdit(editor, 'Move layer', (t) => moveLayer(t, from, to));
   },
-  autoPaint(editor: EditorDocument, rules?: AutoPaintRule[]): EditCommand {
-    return GroundCommand.record(editor, 'Auto paint', (t) => autoPaint(t, rules ?? defaultAutoRules(t)));
+  autoPaint(editor: EditorDocument, rules?: AutoPaintRule[]): EditCommand | null {
+    return groundEdit(editor, 'Auto paint', (t) => autoPaint(t, rules ?? defaultAutoRules(t)));
   },
-  setCliff(editor: EditorDocument, material: string, angle: number): EditCommand {
-    return GroundCommand.record(editor, 'Cliff material', (t) => {
+  setCliff(editor: EditorDocument, material: string, angle: number): EditCommand | null {
+    return groundEdit(editor, 'Cliff material', (t) => {
       t.cliffMaterial = material;
       t.cliffAngle = angle;
     });

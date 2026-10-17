@@ -5,7 +5,7 @@ import { CatalogIndex, normalizeCatalog } from '../../map-ops/asset-catalog';
 import { EditorDocument } from '../model/editor-document';
 import { heightAt } from '../../map-ops/grid';
 import { MemoryStampBackend, StampLibrary } from '../model/stamp-store';
-import { LandscapeStroke } from './landscape/landscape-stroke';
+import { LandscapeContext } from './landscape/landscape-context';
 import { dominantLayer, paintDab } from '../../map-ops/paint-ops';
 import { ALL_PARTS, capturePrefab, captureStamp, pasteStamp, stampBounds } from './stamp';
 import { raiseDab } from '../../map-ops/terrain-ops';
@@ -48,7 +48,7 @@ describe('stamps', () => {
     const stamp = captureStamp(source().doc, { x0: -130, y0: 70, x1: -70, y1: 130 });
     const target = new EditorDocument(createMapDocument({ id: 't', name: 'T', width: 400, depth: 400, cellSize: 2, starter: false, now: new Date(0) }));
     raiseDab(target.doc.terrain, 0, 0, { radius: 200, strength: 1, falloff: 0 }, 20);
-    const stroke = new LandscapeStroke(target, 'Paste', 0, catalog);
+    const stroke = new LandscapeContext(target.begin('Paste'), 0, catalog);
     pasteStamp(stroke, stamp, { x: 50, y: 50 }, { parts: ALL_PARTS, rotation: Math.PI / 2, feather: 0.2 });
     stroke.finish();
     const t = target.doc.terrain;
@@ -92,7 +92,7 @@ describe('stamps', () => {
     const tt = target.doc.terrain;
     tt.grid.heights.fill(40);
     tt.water = emptyWater(tt, 0);
-    const stroke = new LandscapeStroke(target, 'Paste', 0, catalog);
+    const stroke = new LandscapeContext(target.begin('Paste'), 0, catalog);
     pasteStamp(stroke, stamp, { x: 50, y: 50 }, { parts: ALL_PARTS, rotation: 0, feather: 0.2 });
     stroke.finish();
     expect(tt.water.level).toBe(0);
@@ -119,7 +119,7 @@ describe('stamps', () => {
     expect(stamp.life?.map((a) => a.kind)).toEqual(['fireflies']);
     const target = new EditorDocument(createMapDocument({ id: 't', name: 'T', width: 400, depth: 400, cellSize: 2, starter: false, now: new Date(0) }));
     target.doc.life = { areas: [{ id: 'fireflies-1', kind: 'fireflies', shape: 'area', points: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 0, y: 10 }] }] };
-    const stroke = new LandscapeStroke(target, 'Paste', 0, catalog);
+    const stroke = new LandscapeContext(target.begin('Paste'), 0, catalog);
     pasteStamp(stroke, stamp, { x: 50, y: 50 }, { parts: ALL_PARTS, rotation: Math.PI / 2, feather: 0.2 });
     stroke.finish();
     const pasted = target.doc.life.areas![1];
@@ -129,7 +129,7 @@ describe('stamps', () => {
     target.undo();
     expect(target.doc.life.areas).toHaveLength(1);
     // Left out by its switch
-    const off = new LandscapeStroke(target, 'Paste', 0, catalog);
+    const off = new LandscapeContext(target.begin('Paste'), 0, catalog);
     pasteStamp(off, stamp, { x: 50, y: 50 }, { parts: { ...ALL_PARTS, life: false }, rotation: 0, feather: 0.2 });
     off.finish();
     expect(target.doc.life.areas).toHaveLength(1);
@@ -158,7 +158,7 @@ describe('stamps', () => {
     ed.doc.objects.push({ id: 'o2', asset: 'tree-oak', x: -105, y: 100, z: 0, rotation: 0, scale: 1, group: 'g1' }, { id: 'o3', asset: 'tree-oak', x: -100, y: 105, z: 0, rotation: 0, scale: 1, group: 'g1' });
     const stamp = captureStamp(ed.doc, { x0: -130, y0: 70, x1: -70, y1: 130 });
     for (const at of [{ x: 100, y: 100 }, { x: 100, y: -100 }]) {
-      const stroke = new LandscapeStroke(ed, 'Paste', 0, catalog);
+      const stroke = new LandscapeContext(ed.begin('Paste'), 0, catalog);
       pasteStamp(stroke, stamp, at, { parts: ALL_PARTS, rotation: 0, feather: 0.2 });
       stroke.finish();
     }
@@ -207,7 +207,7 @@ describe('prefabs', () => {
     raiseDab(ed.doc.terrain, 100, 100, { radius: 30, strength: 1, falloff: 0 }, 6);
     const before = heightAt(ed.doc.terrain, 100, 100);
     const count = ed.doc.objects.length;
-    const stroke = new LandscapeStroke(ed, 'Paste', 0, catalog);
+    const stroke = new LandscapeContext(ed.begin('Paste'), 0, catalog);
     pasteStamp(stroke, prefab, { x: 100, y: 100 }, { parts: ALL_PARTS, rotation: Math.PI, feather: 0.25 });
     stroke.finish();
     const placed = ed.doc.objects.slice(count);
@@ -228,7 +228,7 @@ describe('prefabs', () => {
       const prefab = capturePrefab(ed.doc, ['h1', 'h2'], ground, radius)!.stamp;
       expect(prefab.parts?.life).toBe(true);
       expect(prefab.life).toHaveLength(1);
-      const stroke = new LandscapeStroke(ed, 'Paste', 0, catalog);
+      const stroke = new LandscapeContext(ed.begin('Paste'), 0, catalog);
       pasteStamp(stroke, prefab, { x: -50, y: -100 }, { parts: ALL_PARTS, rotation: 0, feather: 0.25 });
       stroke.finish();
       expect(ed.doc.life.areas).toHaveLength(2);
@@ -239,7 +239,7 @@ describe('prefabs', () => {
     // A prefab kept before life areas travelled (parts without life) pastes none
     const old = { ...capturePrefab(ed.doc, ['h1', 'h2'], false, radius)!.stamp };
     old.parts = { heights: false, paint: false, water: false, objects: true, roads: false };
-    const stroke = new LandscapeStroke(ed, 'Paste', 0, catalog);
+    const stroke = new LandscapeContext(ed.begin('Paste'), 0, catalog);
     pasteStamp(stroke, old, { x: -50, y: -100 }, { parts: ALL_PARTS, rotation: 0, feather: 0.25 });
     stroke.finish();
     expect(ed.doc.life.areas).toHaveLength(1);

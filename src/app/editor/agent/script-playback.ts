@@ -10,7 +10,8 @@
  * map comes out as the sandbox saw it; the fingerprint says whether it did.
  */
 import type { CatalogIndex } from '../../map-ops/asset-catalog';
-import { mergeChanges, type DocChange, type EditorDocument } from '../model/editor-document';
+import { mergeChanges, type DocChange } from '../model/doc-change';
+import type { EditorDocument } from '../model/editor-document';
 import { rectUnion, sampleRectAround, texelRectAround, type GridRect } from '../../map-ops/grid';
 import { contentFingerprint } from './agent-reads';
 import { applyCommand, changesWholeGround, strokeArgs, type ScriptCommand } from './map-script';

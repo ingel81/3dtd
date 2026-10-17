@@ -1,46 +1,44 @@
 /**
  * Water and rivers as undoable steps: the bodies, their levels, kinds and
- * masks (WaterStateCommand), a river moved or taken off with its bed.
+ * masks (all water kept whole, WaterStateCommand), a river moved or taken
+ * off with its bed.
  */
 import type { CatalogIndex } from '../../map-ops/asset-catalog';
 import type { MapRiver, MapTerrain, MapWater, MapWaterKind } from '../../world/custom-map/map-document';
-import type { EditCommand, EditorDocument } from '../model/editor-document';
-import { RiverListCommand, WaterStateCommand, setWaterState, waterState } from '../model/commands/terrain';
+import type { EditCommand } from '../model/doc-change';
+import type { EditorDocument } from '../model/editor-document';
+import { RiverListCommand } from '../model/commands/terrain';
 import { BODY_COLORS, emptyWater, fillFromEdge, waterBody } from '../../map-ops/water-ops';
-import { LandscapeStroke } from './landscape/landscape-stroke';
+import { LandscapeContext } from './landscape/landscape-context';
 import { moveRiverBed, removeRiver } from './landscape/river';
 
 const ADD_LABELS: Record<MapWaterKind, string> = { water: 'Add lake', sea: 'Add sea', swamp: 'Add swamp', ice: 'Add ice', lava: 'Add lava' };
 
-/** Changes all water in place and records it as one step */
-export function recordWater(editor: EditorDocument, label: string, edit: (t: MapTerrain) => void): EditCommand {
-  const t = editor.doc.terrain;
-  const before = waterState(t);
-  edit(t);
-  const after = waterState(t);
-  setWaterState(t, before);
-  return new WaterStateCommand(label, before, after);
+/** All water changed by `edit` in place as one step (WaterStateCommand) */
+function waterEdit(editor: EditorDocument, label: string, edit: (t: MapTerrain) => void): EditCommand | null {
+  return editor.transact(label, ['water'], (doc) => edit(doc.terrain), { water: true });
 }
 
+/** Water as undoable steps: each runs as one step and returns it */
 export const waterCommands = {
-  enable(editor: EditorDocument, level: number): EditCommand {
-    return recordWater(editor, 'Add water', (t) => (t.water = emptyWater(t, level)));
+  enable(editor: EditorDocument, level: number): EditCommand | null {
+    return waterEdit(editor, 'Add water', (t) => (t.water = emptyWater(t, level)));
   },
-  remove(editor: EditorDocument, body = -1): EditCommand {
-    return recordWater(editor, body < 0 ? 'Remove water' : 'Remove body', (t) => {
+  remove(editor: EditorDocument, body = -1): EditCommand | null {
+    return waterEdit(editor, body < 0 ? 'Remove water' : 'Remove body', (t) => {
       if (body < 0) t.water = null;
       else t.waterBodies?.splice(body, 1);
     });
   },
   /** A new, empty body of a kind; its level comes with its first fill */
-  addBody(editor: EditorDocument, kind: MapWaterKind, level: number): EditCommand {
-    return recordWater(editor, ADD_LABELS[kind], (t) => {
+  addBody(editor: EditorDocument, kind: MapWaterKind, level: number): EditCommand | null {
+    return waterEdit(editor, ADD_LABELS[kind], (t) => {
       const body: MapWater = { ...emptyWater(t, level), color: BODY_COLORS[kind], kind };
       t.waterBodies = [...(t.waterBodies ?? []), body];
     });
   },
-  set(editor: EditorDocument, body: number, patch: Partial<Pick<MapWater, 'level' | 'color' | 'kind'>>, label: string): EditCommand {
-    return recordWater(editor, label, (t) => {
+  set(editor: EditorDocument, body: number, patch: Partial<Pick<MapWater, 'level' | 'color' | 'kind'>>, label: string): EditCommand | null {
+    return waterEdit(editor, label, (t) => {
       const w = waterBody(t, body);
       if (!w) return;
       const oldKind = w.kind ?? 'water';
@@ -50,20 +48,20 @@ export const waterCommands = {
     });
   },
   /** The body floods in from the map's edge over everything below its level: a sea or a coast */
-  sea(editor: EditorDocument, body: number): EditCommand {
-    return recordWater(editor, 'Sea from the edge', (t) => {
+  sea(editor: EditorDocument, body: number): EditCommand | null {
+    return waterEdit(editor, 'Sea from the edge', (t) => {
       if (body < 0 && !t.water) t.water = emptyWater(t, 0);
       fillFromEdge(t, body);
     });
   },
-  clearMask(editor: EditorDocument, body: number): EditCommand {
-    return recordWater(editor, 'Clear water', (t) => waterBody(t, body)?.mask.fill(0));
+  clearMask(editor: EditorDocument, body: number): EditCommand | null {
+    return waterEdit(editor, 'Clear water', (t) => waterBody(t, body)?.mask.fill(0));
   },
 };
 
 /** Takes a river off the map with its bed filled, as one undo step */
 export function removeWholeRiver(editor: EditorDocument, index: number, catalog: CatalogIndex): void {
-  const stroke = new LandscapeStroke(editor, 'Remove river', 1, catalog);
+  const stroke = new LandscapeContext(editor.begin('Remove river'), 1, catalog);
   removeRiver(stroke, index);
   stroke.finish();
 }
@@ -77,7 +75,7 @@ export function relayRiver(editor: EditorDocument, catalog: CatalogIndex, label:
   const t = editor.doc.terrain;
   const after = t.rivers;
   t.rivers = before ? structuredClone(before) : undefined;
-  const stroke = new LandscapeStroke(editor, label, 1, catalog);
+  const stroke = new LandscapeContext(editor.begin(label), 1, catalog);
   stroke.markRivers();
   t.rivers = after;
   const old = before?.[index];

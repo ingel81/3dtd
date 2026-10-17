@@ -8,7 +8,7 @@
 import type { GridRect } from '../../map-ops/grid';
 import { erodeJob, startTerrainJob, type TerrainJob, type TerrainJobMessage } from '../workers/terrain-job';
 import { packOffThread } from '../../world/custom-map/map-pack';
-import type { DocChange } from '../model/editor-document';
+import type { DocChange } from '../model/doc-change';
 import type { MapTrialResult } from '../../world/map-trial';
 import { AppScreen } from '../../world/app-screen.service';
 import { WorldSession } from '../../world/world-session.service';
@@ -30,7 +30,8 @@ import type { BiomeDef } from '../ops/landscape/biomes';
 import { ThumbnailRenderer } from '../view/thumbnail-renderer';
 import { biomeThumbnail, materialThumbnail, objectThumbnail } from './thumbnails';
 import { ALL_DOC_PARTS, SnapshotCommand } from '../model/commands/snapshot';
-import { EditorDocument, EditorHeldError, type EditCommand, type Selection } from '../model/editor-document';
+import { EditorDocument, EditorHeldError, type Selection } from '../model/editor-document';
+import type { EditCommand } from '../model/doc-change';
 import { resizeMap } from '../ops/resize';
 import { detailTarget, increaseMapDetail } from '../ops/detail';
 import { mirrorMap, type MirrorResult } from '../ops/mirror-map';
@@ -43,7 +44,7 @@ import { MarkerTool } from '../tools/marker-tool';
 import { StampTool } from '../tools/stamp-tool';
 import { MeasureTool } from '../tools/measure-tool';
 import { StampLibrary, stampEntry, type StampKeep } from '../model/stamp-store';
-import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
+import { LandscapeContext } from '../ops/landscape/landscape-context';
 import { finishGenerated, generateTerrain, type GenerateOptions, type GenerateResult } from '../../map-ops/generate';
 import type { Stamp, StampRect } from '../ops/stamp';
 import { ObjectTool } from '../tools/object-tool';
@@ -397,14 +398,14 @@ export class EditorSession implements OnDestroy {
    */
   async generate(options: GenerateOptions, repaint: boolean): Promise<boolean> {
     const editor = this.editor;
-    if (!editor || this.terrainJob()) return false;
+    if (!editor || this.blocked('Generating the terrain')) return false;
     const t = editor.doc.terrain;
     const catalog = this.catalog();
-    const stroke = new LandscapeStroke(editor, 'Generate terrain', options.seed, catalog);
+    const stroke = new LandscapeContext(editor.begin('Generate terrain'), options.seed, catalog);
     const all = { i0: 0, j0: 0, i1: t.grid.columns - 1, j1: t.grid.rows - 1 };
     const texels = { i0: 0, j0: 0, i1: t.splat.resolution - 1, j1: t.splat.resolution - 1 };
-    stroke.touchHeights(all);
-    stroke.touchSplat(texels);
+    stroke.tx.touch('heights', all);
+    stroke.tx.touchSplat(texels);
     const g = t.grid;
     let result: GenerateResult | null = null;
     let finished: Extract<TerrainJobMessage, { kind: 'finished' }> | null = null;
@@ -413,6 +414,7 @@ export class EditorSession implements OnDestroy {
     const finish = { terrain: ground, paths: editor.doc.paths, materials: [...catalog.materials.keys()], repaint };
     const ok = await this.runTerrainJob(
       'Generating the terrain',
+      stroke,
       { kind: 'generate', width: t.width, depth: t.depth, columns: g.columns, rows: g.rows, cellSize: g.cellSize, heights: g.heights, options, finish },
       (m) => {
         if (m.kind === 'rows') {
@@ -422,7 +424,11 @@ export class EditorSession implements OnDestroy {
         else if (m.kind === 'done') result = m.result;
       },
     );
-    if (!ok || !result || !finished) return false;
+    if (!ok) return false;
+    if (!result || !finished) {
+      stroke.tx.abort();
+      return false;
+    }
     this.finishGenerate(stroke, result, finished, all, texels);
     return true;
   }
@@ -434,16 +440,17 @@ export class EditorSession implements OnDestroy {
    */
   async erodeWholeMap(strength: number, seed = Math.floor(Math.random() * 1e9), label = 'Erode the map'): Promise<boolean> {
     const editor = this.editor;
-    if (!editor || this.terrainJob()) return false;
+    if (!editor || this.blocked('Eroding the map')) return false;
     const t = editor.doc.terrain;
     const g = t.grid;
-    const stroke = new LandscapeStroke(editor, label, seed, this.catalog());
+    const stroke = new LandscapeContext(editor.begin(label), seed, this.catalog());
     const all = { i0: 0, j0: 0, i1: g.columns - 1, j1: g.rows - 1 };
-    stroke.touchHeights(all);
+    stroke.tx.touch('heights', all);
     let latest: Float32Array | null = null;
     let shownAt = performance.now();
     const ok = await this.runTerrainJob(
       label.startsWith(AGENT_LABEL) ? label : 'Eroding the map',
+      stroke,
       erodeJob(g, strength, seed),
       (m) => {
         // The whole ground redraws for each look: about one a second, and the last one always
@@ -497,18 +504,19 @@ export class EditorSession implements OnDestroy {
     if (!editor) throw new Error('No map is open in the editor');
     const busy = this.busyReason();
     if (busy) throw new Error(`The map cannot change now: ${busy}`);
-    const before = SnapshotCommand.capture(editor.doc, ALL_DOC_PARTS);
+    const tx = editor.begin(label);
+    tx.snapshot(...ALL_DOC_PARTS);
     let out: T;
     try {
       out = await this.withJob(label, (signal) => play(editor, signal, (progress) => this.terrainJob.set({ label, progress })));
     } catch (e) {
-      editor.emit(new SnapshotCommand(label, before, {}).revert(editor.doc));
+      tx.abort();
       const stopped = (e as Error).name === 'AbortError';
       this.flash(stopped ? `${label} stopped; the map is as it was` : `${label} failed; the map is as it was`);
       this.refresh();
       throw stopped ? new Error('The player stopped it; the map is as it was') : e;
     }
-    editor.push(new SnapshotCommand(label, before, SnapshotCommand.capture(editor.doc, ALL_DOC_PARTS)));
+    tx.commit();
     this.flash(`${label} done; Ctrl+Z takes it back`);
     this.refresh();
     return out;
@@ -563,11 +571,8 @@ export class EditorSession implements OnDestroy {
     return canvas.toDataURL('image/jpeg', 0.85);
   }
 
-  /** Runs a terrain job in the worker (withJob); on Cancel or an error the heights go back */
-  private async runTerrainJob(label: string, job: TerrainJob, onMessage: (m: TerrainJobMessage) => void): Promise<boolean> {
-    const editor = this.editor!;
-    const heights = editor.doc.terrain.grid.heights;
-    const before = heights.slice();
+  /** Runs a terrain job in the worker (withJob) into `stroke`; on Cancel or an error the stroke goes back */
+  private async runTerrainJob(label: string, stroke: LandscapeContext, job: TerrainJob, onMessage: (m: TerrainJobMessage) => void): Promise<boolean> {
     try {
       await this.withJob(label, (signal) =>
         startTerrainJob(
@@ -582,8 +587,7 @@ export class EditorSession implements OnDestroy {
       );
       return true;
     } catch (e) {
-      heights.set(before);
-      editor.emit({ heights: { i0: 0, j0: 0, i1: editor.doc.terrain.grid.columns - 1, j1: editor.doc.terrain.grid.rows - 1 } });
+      stroke.tx.abort();
       if ((e as Error).name === 'AbortError') this.flash(`${label.replace(/^\w/, (c) => c.toUpperCase())} stopped; the land is as it was`);
       else this.error.set(`${label} failed (${(e as Error).message}); the land is as it was.`);
       return false;
@@ -592,7 +596,7 @@ export class EditorSession implements OnDestroy {
 
   /** Lands the map the terrain worker finished: its water, heights, layers and paint, as one undo step */
   private finishGenerate(
-    stroke: LandscapeStroke,
+    stroke: LandscapeContext,
     result: GenerateResult,
     finished: Extract<TerrainJobMessage, { kind: 'finished' }>,
     all: GridRect,
@@ -1045,6 +1049,26 @@ export class EditorSession implements OnDestroy {
   }
 
   // ---------------------------------------------------------------- editing
+
+  /**
+   * The door for every change from a panel: `run` makes its steps on the
+   * editor (a command executed, a transaction committed). Refused with a
+   * line in the status bar while the map is busy (busyReason) or the
+   * document is held; the signals follow at once. Returns whether it ran.
+   */
+  edit(what: string, run: (editor: EditorDocument) => unknown): boolean {
+    const editor = this.editor;
+    if (!editor || this.blocked(what)) return false;
+    try {
+      run(editor);
+    } catch (e) {
+      if (!(e instanceof EditorHeldError)) throw e;
+      return false;
+    } finally {
+      this.refresh();
+    }
+    return true;
+  }
 
   /** A step from a panel; refused while the document is held (the status bar says why) */
   execute(command: EditCommand): void {
@@ -1515,8 +1539,8 @@ export class EditorSession implements OnDestroy {
       const t = editor.doc.terrain;
       const g = t.grid;
       const all = { i0: 0, j0: 0, i1: g.columns - 1, j1: g.rows - 1 };
-      const stroke = new LandscapeStroke(editor, 'Import heightmap', 1, this.catalog());
-      stroke.touchHeights(all);
+      const stroke = new LandscapeContext(editor.begin('Import heightmap'), 1, this.catalog());
+      stroke.tx.touch('heights', all);
       g.heights.set(imageToHeights(image, g.columns, g.rows, low, high));
       stroke.changed({ heights: all });
       stroke.finish();

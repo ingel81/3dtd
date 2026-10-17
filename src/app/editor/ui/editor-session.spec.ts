@@ -9,7 +9,7 @@ import { MAX_FILE_BYTES, MapFileError, contentHash, packMapFile, unpackMapFile }
 import { CHECK_DELAY_MS, EditorSession, saveErrorText } from './editor-session.service';
 import { EditorHeldError } from '../model/editor-document';
 import { SnapshotCommand } from '../model/commands/snapshot';
-import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
+import { LandscapeContext } from '../ops/landscape/landscape-context';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { CatalogIndex, normalizeCatalog } from '../../map-ops/asset-catalog';
@@ -415,6 +415,8 @@ describe('editor session holds the map during a job', () => {
     s.editMeta({ name: 'Before' });
     const steps = editor.historySteps;
     const heights = editor.doc.terrain.grid.heights.slice();
+    // A stroke begun before the job: it may write, but not land while the job runs
+    const early = new LandscapeContext(editor.begin('Raise'), 1, s.catalog());
     let finish!: () => void;
     const job = s.agentEdit('Agent: slow', (_ed, signal) =>
       new Promise<void>((resolve, reject) => {
@@ -422,13 +424,14 @@ describe('editor session holds the map during a job', () => {
         signal.addEventListener('abort', () => reject(new DOMException('stopped', 'AbortError')));
       }),
     );
-    // The panels' road and river buttons write the ground directly (path-panel flatten, water-panel recarve)
-    const stroke = new LandscapeStroke(editor, 'Carve the river bed', 1, s.catalog());
+    // The panels' road and river buttons write the ground in a transaction (path-panel flatten, water-panel recarve)
+    expect(() => editor.begin('Carve the river bed')).toThrow(EditorHeldError);
+    expect(s.status()).toBe('Carve the river bed waits: a job runs (Cancel stops it)');
     const all = { i0: 0, j0: 0, i1: 4, j1: 4 };
-    stroke.touchHeights(all);
+    early.tx.touch('heights', all);
     editor.doc.terrain.grid.heights.fill(-3, 0, 4);
-    stroke.changed({ heights: all });
-    expect(() => stroke.finish()).toThrow(EditorHeldError);
+    early.changed({ heights: all });
+    expect(() => early.finish()).toThrow(EditorHeldError);
     s.execute(SnapshotCommand.record(editor.doc, 'Map details', ['meta'], (d) => (d.meta = { ...d.meta, name: 'During' })));
     expect(s.status()).toBe('Map details waits: a job runs (Cancel stops it)');
     expect(editor.doc.meta.name).toBe('Before');

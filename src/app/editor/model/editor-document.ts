@@ -1,80 +1,23 @@
 /**
  * The map being edited, with undo and redo. Every edit is a command that can
  * apply and revert itself and says what it changed (`DocChange`), so the view
- * updates only the touched chunks. Brush strokes write live while the mouse
- * moves (`emit` for each dab) and land as one command at the end (`push`).
+ * updates only the touched chunks. An edit that writes as it goes (a stroke,
+ * a job, a panel's edit) runs in a transaction (`begin`, edit-transaction.ts):
+ * it writes live, tells the view each dab, and lands as one command at the
+ * end (`commit`) or goes back (`abort`).
  *
  * The document knows whether it differs from the last save (`dirty`): every
  * state gets an id, undo and redo move between them, and a save remembers
  * the id it saved.
  *
  * While something else owns the map (a terrain job, an agent's play, another
- * tab) the document is held (`hold`): every new step, undo and redo is
- * refused, a step whose effect is already written is taken back, and the
+ * tab) the document is held (`hold`): every new step, transaction, undo and
+ * redo is refused, a step whose effect is already written is taken back, and the
  * refusal listeners hear why. No caller has to remember the check.
  */
 import type { CustomMapDocument } from '../../world/custom-map/map-document';
-import { rectUnion, type GridRect } from '../../map-ops/grid';
-
-/** What an edit touched; the view refreshes just that */
-export interface DocChange {
-  /** Height samples */
-  heights?: GridRect;
-  /** Splat texels */
-  splat?: GridRect;
-  /** Water level or mask (all water: main, bodies, rivers) */
-  water?: boolean;
-  /** Only the masks of these bodies changed (-1 the main water, 0.. further ones), within `bodyRect` (samples); the view redraws just them there */
-  bodies?: number[];
-  bodyRect?: GridRect;
-  /** Object ids added, removed or changed, or all of them */
-  objects?: 'all' | string[];
-  paths?: boolean;
-  /** Spawns and HQ */
-  markers?: boolean;
-  environment?: boolean;
-  /** Life areas and the map's life switches (map-life.ts) */
-  life?: boolean;
-  meta?: boolean;
-  /** Ground layer list (materials, order) */
-  layers?: boolean;
-  /** The whole terrain was replaced (resize, new grid) */
-  terrain?: boolean;
-}
-
-export function mergeChanges(a: DocChange, b: DocChange): DocChange {
-  const objects =
-    a.objects === 'all' || b.objects === 'all'
-      ? 'all'
-      : a.objects || b.objects
-        ? [...new Set([...(a.objects ?? []), ...(b.objects ?? [])])]
-        : undefined;
-  return {
-    heights: rectUnion(a.heights ?? null, b.heights ?? null) ?? undefined,
-    splat: rectUnion(a.splat ?? null, b.splat ?? null) ?? undefined,
-    water: a.water || b.water || undefined,
-    bodies: a.bodies || b.bodies ? [...new Set([...(a.bodies ?? []), ...(b.bodies ?? [])])] : undefined,
-    bodyRect: rectUnion(a.bodyRect ?? null, b.bodyRect ?? null) ?? undefined,
-    objects,
-    paths: a.paths || b.paths || undefined,
-    markers: a.markers || b.markers || undefined,
-    environment: a.environment || b.environment || undefined,
-    life: a.life || b.life || undefined,
-    meta: a.meta || b.meta || undefined,
-    layers: a.layers || b.layers || undefined,
-    terrain: a.terrain || b.terrain || undefined,
-  };
-}
-
-export interface EditCommand {
-  readonly label: string;
-  /** Do (or redo) it */
-  apply(doc: CustomMapDocument): DocChange;
-  /** Undo it */
-  revert(doc: CustomMapDocument): DocChange;
-  /** Memory it holds, for the history's budget */
-  readonly bytes: number;
-}
+import { mergeChanges, type DocChange, type EditCommand } from './doc-change';
+import { EditTransaction, type TxPart } from './edit-transaction';
 
 export type Selection =
   | { kind: 'objects'; ids: string[] }
@@ -270,13 +213,40 @@ export class EditorDocument {
   }
 
   /**
+   * Starts a transaction named `label` (edit-transaction.ts). Held, it is
+   * refused before anything is written: the refusal listeners hear why and
+   * EditorHeldError is thrown.
+   */
+  begin(label: string): EditTransaction {
+    if (this.holds.length) this.refuse(label, {});
+    return new EditTransaction(this, label);
+  }
+
+  /**
+   * One transaction around `edit`: `parts` kept whole before it runs, the
+   * step kept after it (`report` tells the view what changed), or the map
+   * put back when `edit` throws. Null when nothing changed.
+   */
+  transact(label: string, parts: readonly TxPart[], edit: (doc: CustomMapDocument) => void, report: DocChange = {}): EditCommand | null {
+    const tx = this.begin(label);
+    tx.snapshot(...parts);
+    try {
+      edit(this.current);
+    } catch (e) {
+      tx.abort();
+      throw e;
+    }
+    return tx.commit(report);
+  }
+
+  /**
    * Apply a command and keep it. Held, it is refused: applied and reverted
    * at once, so a step whose edit already ran (SnapshotCommand.record) is
    * taken back too, and EditorHeldError is thrown.
    */
   execute(command: EditCommand): DocChange {
     if (this.holds.length) {
-      this.refuse(command, mergeChanges(command.apply(this.current), command.revert(this.current)));
+      this.refuse(command.label, mergeChanges(command.apply(this.current), command.revert(this.current)));
     }
     const change = command.apply(this.current);
     this.record(command);
@@ -291,7 +261,7 @@ export class EditorDocument {
    * areas wait for.
    */
   push(command: EditCommand, change?: DocChange): void {
-    if (this.holds.length) this.refuse(command, mergeChanges(change ?? {}, command.revert(this.current)));
+    if (this.holds.length) this.refuse(command.label, mergeChanges(change ?? {}, command.revert(this.current)));
     this.record(command);
     this.emit(change ?? {});
   }
@@ -340,10 +310,10 @@ export class EditorDocument {
     for (const l of this.selectionListeners) l(selection);
   }
 
-  /** The map is back as it was before `command`; tell the view and the refusal listeners, and stop the caller */
-  private refuse(command: EditCommand, change: DocChange): never {
+  /** The map is back as it was before the step `label`; tell the view and the refusal listeners, and stop the caller */
+  private refuse(label: string, change: DocChange): never {
     this.emit(change);
-    const error = new EditorHeldError(command.label, this.heldReason!);
+    const error = new EditorHeldError(label, this.heldReason!);
     for (const l of this.refusalListeners) l(error);
     throw error;
   }

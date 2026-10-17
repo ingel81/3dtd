@@ -13,7 +13,8 @@
  */
 import type { AgentAnswer, AgentCall } from '../../core/desktop-bridge';
 import type { CatalogIndex } from '../../map-ops/asset-catalog';
-import { EditorDocument, type EditCommand } from '../model/editor-document';
+import { EditorDocument } from '../model/editor-document';
+import type { EditCommand } from '../model/doc-change';
 import { ObjectsCommand } from '../model/commands/objects';
 import { SnapshotCommand } from '../model/commands/snapshot';
 import type { MapVersion } from '../model/version-store';
@@ -23,7 +24,7 @@ import { levelForBuildings, withGround } from '../ops/object-commands';
 import { resizeMap } from '../ops/resize';
 import { detailTarget, increaseMapDetail } from '../ops/detail';
 import { decodePng, decodeRaw16, imageToHeights } from '../ops/heightmap';
-import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
+import { LandscapeContext } from '../ops/landscape/landscape-context';
 import { MAP_TEMPLATES } from '../ops/landscape/templates';
 import { TERRAIN_PRESETS, type TerrainPreset } from '../../map-ops/generate';
 import { ALL_PARTS, capturePrefab, captureStamp, pasteStamp, type Stamp, type StampParts, type StampRect } from '../ops/stamp';
@@ -512,10 +513,10 @@ export class EditorAgent {
   }
 
   /** A landscape stroke as one undo step (heightmap, paste): what `edit` changes through it */
-  private stroke(label: string, edit: (s: LandscapeStroke) => void): EditorDocument {
+  private stroke(label: string, edit: (s: LandscapeContext) => void): EditorDocument {
     const editor = this.changeableEditor();
     const steps = editor.historySteps;
-    const s = new LandscapeStroke(editor, label, 0, this.host.catalog());
+    const s = new LandscapeContext(editor.begin(label), 0, this.host.catalog());
     edit(s);
     s.finish();
     this.host.refresh();
@@ -677,7 +678,7 @@ export class EditorAgent {
     const editor = this.stroke(label, (s) => {
       const g = s.doc.terrain.grid;
       const all = { i0: 0, j0: 0, i1: g.columns - 1, j1: g.rows - 1 };
-      s.touchHeights(all);
+      s.tx.touch('heights', all);
       g.heights.set(imageToHeights(image, g.columns, g.rows, low, high));
       s.changed({ heights: all });
     });

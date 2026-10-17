@@ -1,5 +1,5 @@
 import type { CustomMapDocument, MapObject } from '../../../world/custom-map/map-document';
-import type { DocChange, EditCommand } from '../editor-document';
+import type { DocChange, EditCommand } from '../doc-change';
 
 /** Objects added, removed or changed; each keeps its place in the list */
 export interface ObjectEdit {

@@ -4,7 +4,7 @@ import { createMapDocument } from '../../../world/custom-map/map-create';
 import { CatalogIndex, normalizeCatalog } from '../../../map-ops/asset-catalog';
 import { EditorDocument } from '../../model/editor-document';
 import { edgePolyline } from '../../../map-ops/path-graph';
-import { LandscapeStroke } from './landscape-stroke';
+import { LandscapeContext } from './landscape-context';
 import { DEFAULT_ROAD, buildRoad, undressEdge } from './road';
 import { bandSamples, packGround, unpackGround } from './road-ground';
 import { detailTarget, increaseDetail, increaseMapDetail } from '../detail';
@@ -44,7 +44,7 @@ describe('road ground', () => {
     const doc = hills();
     const editor = new EditorDocument(doc);
     const plain = doc.terrain.grid.heights.slice();
-    const stroke = new LandscapeStroke(editor, 'Road', 1, catalog);
+    const stroke = new LandscapeContext(editor.begin('Road'), 1, catalog);
     const result = buildRoad(stroke, [{ x: -150, y: 0 }, { x: 0, y: 5 }, { x: 150, y: 0 }], { ...DEFAULT_ROAD, lamps: false });
     stroke.finish();
     const edge = doc.paths.edges.find((e) => e.id === result!.edgeId)!;
@@ -53,7 +53,7 @@ describe('road ground', () => {
     expect(text).toBeLessThan(16000);
     // Take it back: every sample of the band as before
     const line = edgePolyline(doc.paths, edge);
-    const back = new LandscapeStroke(editor, 'Unbuild', 1, catalog);
+    const back = new LandscapeContext(editor.begin('Unbuild'), 1, catalog);
     undressEdge(back, edge, line);
     back.finish();
     const g = doc.terrain.grid;
@@ -67,14 +67,14 @@ describe('road ground', () => {
     const doc = hills(cellSize);
     const plain = structuredClone(doc.terrain);
     const editor = new EditorDocument(doc);
-    const stroke = new LandscapeStroke(editor, 'Road', 1, catalog);
+    const stroke = new LandscapeContext(editor.begin('Road'), 1, catalog);
     const result = buildRoad(stroke, [{ x: -150, y: 0 }, { x: 0, y: 5 }, { x: 150, y: 0 }], { ...DEFAULT_ROAD, lamps: false });
     stroke.finish();
     return { doc, editor, plain, edge: () => doc.paths.edges.find((e) => e.id === result!.edgeId)! };
   }
 
   function takeBack(editor: EditorDocument, edge: ReturnType<ReturnType<typeof built>['edge']>) {
-    const back = new LandscapeStroke(editor, 'Unbuild', 1, catalog);
+    const back = new LandscapeContext(editor.begin('Unbuild'), 1, catalog);
     undressEdge(back, edge, edgePolyline(editor.doc.paths, edge));
     back.finish();
   }

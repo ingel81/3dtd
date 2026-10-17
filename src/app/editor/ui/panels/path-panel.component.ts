@@ -10,6 +10,9 @@ import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
 import { RangeRowComponent } from './range-row.component';
 
+/** What a road edit says when it has to wait */
+const ROADS = 'Changing roads';
+
 const KINDS: { id: MapPathKind; label: string }[] = [
   { id: 'road', label: 'Road' },
   { id: 'path', label: 'Path' },
@@ -151,70 +154,51 @@ export class PathPanelComponent {
   }
 
   setEdge(patch: { width?: number; kind?: MapPathKind }): void {
-    const editor = this.session.editor;
     const ids = this.edge()?.ids ?? this.edgeIds();
-    if (!editor || !ids.length || this.session.blocked('Changing roads')) return;
-    setRoads(editor, this.session.catalog(), ids, patch);
-    this.session.refresh();
+    if (ids.length) this.session.edit(ROADS, (e) => setRoads(e, this.session.catalog(), ids, patch));
   }
 
   setSurface(material: string): void {
-    const editor = this.session.editor;
     const ids = this.edge()?.ids ?? [];
-    if (!editor || !ids.length || this.session.blocked('Changing roads')) return;
-    setRoadSurface(editor, this.session.catalog(), ids, material || null);
-    this.session.refresh();
+    if (ids.length) this.session.edit(ROADS, (e) => setRoadSurface(e, this.session.catalog(), ids, material || null));
   }
 
   smooth(): void {
-    const editor = this.session.editor;
-    if (!editor || this.session.blocked('Changing roads')) return;
     const ids = this.edgeIds();
-    editRoads(editor, this.session.catalog(), 'Smooth road', (paths) => ids.forEach((id) => smoothEdge(paths, id)));
-    this.session.refresh();
+    this.session.edit(ROADS, (e) => editRoads(e, this.session.catalog(), 'Smooth road', (paths) => ids.forEach((id) => smoothEdge(paths, id))));
   }
 
   straighten(): void {
-    const editor = this.session.editor;
-    if (!editor || this.session.blocked('Changing roads')) return;
     const ids = this.edgeIds();
-    editRoads(editor, this.session.catalog(), 'Straighten road', (paths) => ids.forEach((id) => straightenEdge(paths, id)));
-    this.session.refresh();
+    this.session.edit(ROADS, (e) => editRoads(e, this.session.catalog(), 'Straighten road', (paths) => ids.forEach((id) => straightenEdge(paths, id))));
   }
 
   remove(): void {
-    const editor = this.session.editor;
     const sel = this.session.selection();
     const nodes = selectedNodes(sel);
     const edges = selectedEdges(sel);
-    if (!editor || (!nodes.length && !edges.length)) return;
-    this.session.execute(pathCommands.removeMany(editor, nodes, edges));
-    editor.select(null);
+    if (!nodes.length && !edges.length) return;
+    if (this.session.edit(ROADS, (e) => e.execute(pathCommands.removeMany(e, nodes, edges)))) this.session.editor?.select(null);
   }
 
   rebuild(): void {
-    const editor = this.session.editor;
     const ids = this.edgeIds();
-    if (!editor || !ids.length || this.session.blocked('Rebuilding roads')) return;
-    rebuildRoads(editor, this.session.catalog(), ids, this.session.settings.landscape.road);
-    this.session.refresh();
-    this.session.flash(`Dressing laid anew along ${ids.length} ${ids.length === 1 ? 'road' : 'roads'}`);
+    if (!ids.length) return;
+    if (this.session.edit('Rebuilding roads', (e) => rebuildRoads(e, this.session.catalog(), ids, this.session.settings.landscape.road))) {
+      this.session.flash(`Dressing laid anew along ${ids.length} ${ids.length === 1 ? 'road' : 'roads'}`);
+    }
   }
 
   flatten(): void {
-    const editor = this.session.editor;
-    if (!editor) return;
     const ids = this.edgeIds();
-    const done = flattenRoads(editor, ids.length ? ids : null);
-    this.session.refresh();
-    this.session.flash(done ? 'Ground under the roads flattened' : 'No road to flatten');
+    let done = false;
+    if (this.session.edit('Flattening roads', (e) => (done = flattenRoads(e, ids.length ? ids : null)))) {
+      this.session.flash(done ? 'Ground under the roads flattened' : 'No road to flatten');
+    }
   }
 
   paint(): void {
-    const editor = this.session.editor;
-    if (!editor) return;
     const ids = this.edgeIds();
-    paintRoads(editor, this.layer(), ids.length ? ids : null);
-    this.session.refresh();
+    this.session.edit('Painting roads', (e) => paintRoads(e, this.layer(), ids.length ? ids : null));
   }
 }

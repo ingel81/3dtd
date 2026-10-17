@@ -6,7 +6,7 @@ import { EditorDocument } from '../../model/editor-document';
 import { heightAt } from '../../../map-ops/grid';
 import { emptyWater } from '../../../map-ops/water-ops';
 import { CLIFF_MODELS, cliffModelIds, cliffModelsFor, cliffRocksDab } from './cliff-rocks';
-import { LandscapeStroke } from './landscape-stroke';
+import { LandscapeContext } from './landscape-context';
 
 const catalog = new CatalogIndex(
   normalizeCatalog(JSON.parse(readFileSync(resolve('public/maps/assets/catalog.json'), 'utf8')), 'http://x/maps/assets/'),
@@ -29,7 +29,7 @@ describe('cliff rocks', () => {
   it('stands walls along a steep edge, faced to the low side, and none on flat ground', () => {
     const doc = stepMap();
     const editor = new EditorDocument(doc);
-    const stroke = new LandscapeStroke(editor, 'Cliff rocks', 5, catalog);
+    const stroke = new LandscapeContext(editor.begin('Cliff rocks'), 5, catalog);
     const models = cliffModelsFor(undefined, 'auto', catalog);
     expect(models.length).toBeGreaterThan(0);
     const brush = { radius: 40, strength: 1, falloff: 0.2 };
@@ -62,7 +62,7 @@ describe('cliff rocks', () => {
     const doc = stepMap();
     doc.terrain.water = emptyWater(doc.terrain, 13);
     doc.terrain.water.mask.fill(1);
-    const stroke = new LandscapeStroke(new EditorDocument(doc), 'Cliff rocks', 5, catalog);
+    const stroke = new LandscapeContext(new EditorDocument(doc).begin('Cliff rocks'), 5, catalog);
     const models = cliffModelsFor(undefined, 'auto', catalog);
     for (const y of [-60, -30, 0, 30, 60]) cliffRocksDab(stroke, { x: 0, y }, { radius: 40, strength: 1, falloff: 0.2 }, models, catalog);
     expect(doc.objects.length).toBeGreaterThan(0);

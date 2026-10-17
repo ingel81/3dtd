@@ -169,7 +169,7 @@ würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben diese
   ein Schacht), ihr Rand bleibt über dem Spiegel, und wo das Land daneben trotzdem tiefer liegt, läuft es ab
   (`drainSpills`): ein Strich über einen Hang füllt nur die Becken in der Höhe seines Startpunkts. Beach arbeitet auf das
   Wasser zu, das dem Startpunkt des Strichs am nächsten liegt (bis 150 m, See, Meer oder Fluss,
-  `LandscapeStroke.coastLevel`): unter dem Wasser eine flache Bank (halbe Tiefe), darüber ein Strand, der mit dem Abstand
+  `LandscapeContext.coastLevel`): unter dem Wasser eine flache Bank (halbe Tiefe), darüber ein Strand, der mit dem Abstand
   vom Wasser sanft steigt (Abstandsfeld zur Küste, `coastDistance`: 0,3 m an der Wasserlinie, 1,5 m nach 24 m), was
   höher stand, wird darauf abgetragen; dahinter steigt das Land höchstens 0,25 m je Meter (keine Abbruchkante), ab 48 m
   bleibt es, wie es war, und zum Rand des Pinsels läuft der Abtrag aus (Relief `shore`); niedrige Dünen hinten am Strand; nasser Küstensand auf der Bank unter dem Wasser
@@ -448,10 +448,11 @@ Einfügen (Strg+V), „Restore“, „Test map“, der Bot-Check und das Verlass
 die Höhen von vor dem Job über bereits zurückgenommene Schritte zurück.
 
 Läuft ein Job (Generieren, Erodieren, das Abspielen eines Agenten, `EditorSession.withJob`) oder bearbeitet ein
-anderer Tab die Karte, ist das Dokument gehalten (`EditorDocument.hold`): jeder neue Schritt, Rückgängig und
-Wiederholen wird dort abgelehnt, ein Schritt, dessen Änderung schon im Dokument steht (ein Strich, `record`), wird
-zurückgenommen, und die Statuszeile sagt warum („Flatten roads waits: a job runs“). Die Sperre sitzt damit an einer
-Stelle statt in jeder Panel-Methode; zusätzlich sind die Panels während des Jobs ausgegraut, der Job steht mit
+anderer Tab die Karte, ist das Dokument gehalten (`EditorDocument.hold`): jeder neue Schritt, jede neue Transaktion
+(`begin`, bevor sie etwas schreibt), Rückgängig und Wiederholen wird dort abgelehnt, ein Schritt, dessen Änderung schon
+im Dokument steht (ein Strich, der vor dem Job begann, `record`), wird zurückgenommen, und die Statuszeile sagt warum
+(„Flatten roads waits: a job runs“). Die Sperre sitzt damit an einer Stelle statt in jeder Panel-Methode; Panels
+ändern über `session.edit(what, fn)`, das zusätzlich auf einen laufenden Strich oder Zug wartet; zusätzlich sind die Panels während des Jobs ausgegraut, der Job steht mit
 Fortschritt und Cancel über ihnen. Der Job selbst legt seinen Schritt erst nach dem Halten ab.
 
 Heightmap (im Map-Panel): „Export 16-bit PNG“ und „Export RAW“ schreiben die Höhen als 16-Bit-Graustufen (oberste
@@ -784,7 +785,7 @@ src/app/editor/
   ops/              Operationen auf dem EditorDocument: Größe, Details, Höhenkarte, Spiegeln, Höhenlinien, Gießen,
                     die Schritte je Teil (ground-, water-, road-, marker-commands; object-commands: Planieren unter
                     neuen Gebäuden), Messen, Beschreiben eines Punkts; Werkzeuge, Panels, Agent und Skripte rufen dieselben
-  ops/landscape/    Landschafts-Pinsel: Biome, Formen, Erosion, Fluss, Straße, LandscapeStroke (ein Undo-Schritt)
+  ops/landscape/    Landschafts-Pinsel: Biome, Formen, Erosion, Fluss, Straße; LandscapeContext über der Transaktion
   ops/symmetry.ts   Bilder der Symmetrie, Sektor des Zeigers, Kopieren der Zellen und Objekte
   ops/stamp.ts      Stücke kopieren und setzen, Prefabs aus einer Auswahl; model/stamp-store.ts die Stempel-Bibliothek
   ops/map-kit.ts    MapKit: die Operationen ohne Oberfläche für Skripte (Level-Skripte, KI-Agent)
@@ -801,11 +802,19 @@ und Tasten in dieselben Schritte, die Panels, Agent und Skripte auch rufen.
 
 **Dokument und Verlauf.** `EditorDocument` hält das `CustomMapDocument` und einen Verlauf aus Befehlen (`apply`,
 `revert`, `bytes`). Jeder Befehl meldet, was er änderte (`DocChange`: Höhen- und Splat-Rechtecke, Objekt-Ids, Teile).
-Pinselstriche schreiben während des Ziehens direkt in die Arrays; `RegionRecorder` sichert jede 32 x 32-Kachel beim
-ersten Berühren, am Ende wird der Strich ein `PatchCommand` mit Vorher und Nachher nur der berührten Kacheln. Kleine Teile
-(Straßen, Spawns, HQ, Umgebung, Metadaten) laufen über `SnapshotCommand`, Objekte über `ObjectsCommand` (Einfügen,
-Ändern, Entfernen mit Position in der Liste). Der Verlauf hält höchstens 300 Schritte und 192 MB. „Dirty“ vergleicht
-Zustands-Ids, also ist eine Karte nach Rückgängig bis zum gespeicherten Stand wieder sauber.
+Ein Schritt, der beim Arbeiten schreibt, läuft in einer Transaktion (`model/edit-transaction.ts`, `editor.begin(label)`):
+jeder Pinselstrich, jeder Landschaftsstrich, Generieren und Erodieren, das Abspielen eines Agenten, die Boden- und
+Wasserschritte der Panels. Sie schreibt direkt ins Dokument und sagt vorher, was sie gleich ändert: Kacheln eines Arrays
+(`touch`; `RegionRecorder` sichert jede 32 x 32-Kachel beim ersten Berühren), ganze Teile (`snapshot`: ein Teil des
+Dokuments, die Schichtliste, der Boden mit Schichten und Splat, alles Wasser, die Flüsse), neue und entfernte Objekte, einen
+schon getanen eigenen Schritt (ein neues Gewässer, `include`). `commit` legt alles als einen Schritt in den Verlauf (nur
+die berührten Kacheln, Vorher und Nachher), `abort` schreibt alles zurück und meldet es der Ansicht; Cancel eines Jobs,
+ein Fehler beim Abspielen und ein Gießen ohne Senke nehmen denselben Weg wie ein Undo. `editor.transact(label, parts,
+edit)` ist die Transaktion um eine einzelne Änderung. Einzelne fertige Befehle (`SnapshotCommand.record` für kleine
+Teile, `ObjectsCommand` für Objekte mit ihrer Stelle in der Liste) gehen weiter über `execute`. Der Verlauf hält
+höchstens 300 Schritte und 192 MB. „Dirty“ vergleicht Zustands-Ids, also ist eine Karte nach Rückgängig bis zum
+gespeicherten Stand wieder sauber.
+
 
 **Ansicht.** `EditorViewport` hat eigenen Renderer, Szene und Kamera, unabhängig von der Engine des Spiels. Es castet
 den Boden einmal je Bild, sammelt die Änderungsmeldungen eines Bilds und reicht sie gebündelt an die Kartenansicht
@@ -889,9 +898,11 @@ Ganze Karten (Vorlagen) malt `biomeBand` in Bändern mit Pausen dazwischen.
 Ausgeblendete Kategorien bekommt der Renderer als eigene Liste über einen Proxy des Dokuments, da er sie in sein
 Dokument schreibt.
 
-**Landschafts-Pinsel.** Ein `LandscapeStroke` nimmt Höhen, Splat, Wassermaske (Kachel-Patches), neue Schichten,
-neues Wasser, neue Objekte und geänderte Straßen eines Strichs auf und legt sie als einen `CompoundCommand` in den
-Verlauf. Höhen ziehen zu einem Ziel aus dem Boden vor dem Strich (`RegionRecorder.original`), daher türmt sich
+**Landschafts-Pinsel.** Ein `LandscapeContext` weiß, was ein Landschaftsstrich beim Arbeiten braucht, und schreibt
+über seine Transaktion: Höhen, Splat, Wassermaske (Kachel-Patches), neue Schichten, neues Wasser, neue Objekte und
+geänderte Straßen eines Strichs landen als ein Schritt im Verlauf. Was das Land freihalten muss (Straßen, Spawns, HQ,
+Wasser), fragt `LandQuery` ab, die auch ohne Strich arbeitet (Freiprüfung im MapKit). Höhen ziehen zu einem Ziel aus
+dem Boden vor dem Strich (`baseHeight`, die gesicherten Kacheln der Transaktion), daher türmt sich
 nichts auf. Objekte stehen auf einem verwackelten Raster je Objektart und Seed (eine Stelle und ein Würfel je Zelle,
 einmal entschieden); Kern-Objekte wachsen, sobald der Pinsel stark genug war, Rand-Objekte werden am Strichende nach
 dem stärksten erreichten Gewicht entschieden. Rauschen aus `devworld/utils/seeded-random.ts`. Ein Fluss ist ein
@@ -915,13 +926,13 @@ Wasserfälle im Band gehen mit, eine Brücke darüber wird wieder Straße; ein R
 
 **Symmetrie und Stücke.** `mirrorChange` kopiert nach einem Tupfer die geänderten Zellen der Höhen, Splat-Karten und
 Wassermaske aus dem Sektor des Zeigers in die Bilder (das Raster ist um die Mitte gelegt, ein gespiegeltes Sample ist
-wieder ein Sample) und meldet die Rechtecke der Bilder an die Ansicht; `BrushStroke` und `LandscapeStroke` sichern
+wieder ein Sample) und meldet die Rechtecke der Bilder an die Ansicht; `mirrorDab` sichert über die Transaktion
 die Ziel-Kacheln vorher. Ein Stück (`Stamp`) hält Höhen relativ zum Rand, Farbe je Material, Wasser, Objekte und die
-Straßen, deren beide Enden darin liegen; `pasteStamp` setzt es gedreht über einen `LandscapeStroke`. Das Wasser ist
+Straßen, deren beide Enden darin liegen; `pasteStamp` setzt es gedreht über einen `LandscapeContext`. Das Wasser ist
 das der Hauptwasserfläche oder, ohne sie im Stück, das des Gewässers, das den größten Teil davon bedeckt (ein
 Oasenteich, ein Lavakrater; `kind` im Stück), mit seinem Spiegel relativ zum Rand. Beim Einsetzen steht es relativ zum
 Boden dort: in der Hauptwasserfläche, wenn sie auf dieser Höhe liegt (oder fehlt), sonst in einem Gewässer dieser Art
-auf dieser Höhe, neu angelegt, wenn keines da ist (`LandscapeStroke.waterAt`). Vorher grub ein Teich, auf eine Mesa
+auf dieser Höhe, neu angelegt, wenn keines da ist (`LandscapeContext.waterAt`). Vorher grub ein Teich, auf eine Mesa
 gesetzt, sein Bett bis zum Spiegel des Meers hinunter, und ein Gewässer außer dem Hauptwasser kam gar nicht mit.
 
 **Angular.** `EditorSession` (je Seite) hält Karte, Werkzeuge, Einstellungen und Signale für die Panels; Viewport und
@@ -994,8 +1005,9 @@ Redos die des Endes, und jeder Zustand unterwegs (Undo, Redo, Sprung) ist die Ka
 eine neue Straße, deren Ausstattung abgebaut und neu gebaut wird, lässt den Boden auf 5 mm gleich (gemerkter Boden auf den Millimeter, die Fläche des Spiels wählt die Diagonale einer Zelle nach ihren Ecken;
 ohne Straßen, die sie geteilt hat, siehe die bekannte Grenze oben); neben fünf festen Seeds laufen fünf weitere, die
 einmal an Annahmen des Tests selbst scheiterten (ein Lauf, der mit einem Sprung zurück endet, wird erst zu Ende
-wiederholt);
-ein Fehler nennt Seed und Schritte. Undo während Strich, Drag oder Job sperrt
+wiederholt); einige Schritte laufen abgebrochen (jede Transaktion `abort` statt `commit`: Pinsel, Landschaft,
+Klippenfelsen, Stempel, Heightmap, Straßenausstattung, Flüsse, Füllen) und müssen die Karte bytegleich und den Verlauf
+unverändert lassen; ein Fehler nennt Seed und Schritte. Undo während Strich, Drag oder Job sperrt
 die Session (`editor-session.spec.ts`). Browser:
 `e2e/tests/editor.e2e.ts` (neue Karte, Gelände, Objekt mit Rückgängig, Straße, Spawn, gespiegeltes Objekt, kopiertes
 und gesetztes Stück, Prüfen, Speichern, Neuladen, Löschen; ohne Kartensitzung).

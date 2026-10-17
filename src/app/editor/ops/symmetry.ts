@@ -18,8 +18,9 @@
  * spawns and life areas are copied as things.
  */
 import type { CustomMapDocument, MapLifeArea, MapObject, MapPoint } from '../../world/custom-map/map-document';
-import { mergeChanges, type DocChange } from '../model/editor-document';
+import { mergeChanges, type DocChange } from '../model/doc-change';
 import type { PatchTarget } from '../model/commands/patch';
+import type { EditTransaction } from '../model/edit-transaction';
 import { sampleX, sampleY, texelX, texelY, type GridRect } from '../../map-ops/grid';
 import type { ArrayLayout, PatchArray } from '../model/region-patch';
 import { HEIGHT_LIMITS } from '../../map-ops/terrain-ops';
@@ -305,6 +306,41 @@ export function mirrorChange(
     for (const r of rects) out = mergeChanges(out, { splat: r });
   }
   return out;
+}
+
+/**
+ * A dab of a running transaction copied to its symmetric images
+ * (mirrorChange); returns what the dab and its images changed, for
+ * tx.changed. The images' cells are recorded before they are written; the
+ * main water's mask copies when the transaction records it (or `water`
+ * says so), each further body's when it does. Only the cells the dab
+ * changed copy, unless `copyAll`.
+ */
+export function mirrorDab(
+  tx: EditTransaction,
+  mode: SymmetryMode,
+  center: MapPoint,
+  dab: DocChange,
+  options: { heightsAdd?: boolean; water?: boolean; copyAll?: boolean; waterRect?: GridRect } = {},
+): DocChange {
+  if (mode === 'none') return dab;
+  const water = options.water ?? tx.recording('water');
+  return mirrorChange(
+    tx.doc,
+    mode,
+    center,
+    dab,
+    {
+      heights: (r) => tx.touch('heights', r),
+      splat: (r) => tx.touchSplat(r),
+      water: water ? (r) => tx.touch('water', r) : undefined,
+      bodies: tx.recordedBodies,
+      body: (index, r) => tx.touch(`body${index}`, r),
+      original: options.copyAll ? undefined : (target, i, j, ch) => tx.original(target, i, j, ch),
+      heightsAdd: options.heightsAdd ?? false,
+    },
+    options.waterRect,
+  );
 }
 
 /** Copies of objects at the symmetry's images, with ids from `take`; those outside the map drop out */

@@ -3,7 +3,7 @@
  * maps, water masks), before and after (region-patch.ts).
  */
 import type { CustomMapDocument } from '../../../world/custom-map/map-document';
-import { mergeChanges, type DocChange, type EditCommand } from '../editor-document';
+import { mergeChanges, type DocChange, type EditCommand } from '../doc-change';
 import { applyPatches, patchBytes, type ArrayLayout, type PatchArray, type TilePatch } from '../region-patch';
 
 /** `water` is the main water body's mask, `body0`, `body1` … the further bodies' masks */

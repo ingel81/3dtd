@@ -12,7 +12,7 @@ import { nearestOnPolyline, polylineLength } from '../../../map-ops/path-graph';
 import { HEIGHT_LIMITS } from '../../../map-ops/terrain-ops';
 import { FieldCache } from './field-cache';
 import { smooth } from '../../../map-ops/landscape-noise';
-import type { LandscapeStroke } from './landscape-stroke';
+import type { LandscapeContext } from './landscape-context';
 
 /** Share per second a form closes toward its target */
 const FORM_RATE = 1.6;
@@ -32,7 +32,7 @@ export function craterProfile(r: number): number {
 }
 
 /** Dune crests across the wind (from the west by default): a gentle windward slope, a steeper lee */
-export function duneHeight(noise: LandscapeStroke['noise'], x: number, y: number, wave: number): number {
+export function duneHeight(noise: LandscapeContext['noise'], x: number, y: number, wave: number): number {
   const warp = noise.fbm(x, y, wave * 3, 2, 'n5') * wave * 0.6;
   const phase = (x + warp) / wave + 0.15 * noise.fbm(x, y, wave * 2, 2, 'n6');
   const f = phase - Math.floor(phase);
@@ -58,7 +58,7 @@ export function formHeight(kind: FormKind, brush: BrushSettings): number {
   }
 }
 
-export function formDab(stroke: LandscapeStroke, kind: FormKind, pointer: MapPoint, brush: BrushSettings, dt: number): GridRect {
+export function formDab(stroke: LandscapeContext, kind: FormKind, pointer: MapPoint, brush: BrushSettings, dt: number): GridRect {
   const t = stroke.doc.terrain;
   const g = t.grid;
   const [ai, aj] = [
@@ -69,7 +69,7 @@ export function formDab(stroke: LandscapeStroke, kind: FormKind, pointer: MapPoi
   // A crater stays where the stroke began
   const center = kind === 'crater' ? stroke.anchor : pointer;
   const rect = sampleRectAround(t, center.x, center.y, brush.radius);
-  stroke.touchHeights(rect);
+  stroke.tx.touch('heights', rect);
   const n = stroke.noise;
   const height = formHeight(kind, brush);
   const a = 1 - Math.exp(-FORM_RATE * Math.min(dt, 0.1));
@@ -135,7 +135,7 @@ export function formDab(stroke: LandscapeStroke, kind: FormKind, pointer: MapPoi
 }
 
 /** The noise a form reads at a point (ridges, a bowl's wobble, a frayed rim, dune crests) */
-function formNoise(n: LandscapeStroke['noise'], kind: FormKind, x: number, y: number, wave: number): number {
+function formNoise(n: LandscapeContext['noise'], kind: FormKind, x: number, y: number, wave: number): number {
   switch (kind) {
     case 'mountain':
       return n.ridged(x, y, wave);
@@ -151,7 +151,7 @@ function formNoise(n: LandscapeStroke['noise'], kind: FormKind, x: number, y: nu
 }
 
 /** The mean ground before the stroke on a ring of radius `r` round `c` */
-function meanOnRing(stroke: LandscapeStroke, c: MapPoint, r: number): number {
+function meanOnRing(stroke: LandscapeContext, c: MapPoint, r: number): number {
   const t = stroke.doc.terrain;
   const g = t.grid;
   let sum = 0;
@@ -169,7 +169,7 @@ function meanOnRing(stroke: LandscapeStroke, c: MapPoint, r: number): number {
  * rises by `height` with a steep, slightly ragged face, within `reach`
  * metres of the line.
  */
-export function cliffAlong(stroke: LandscapeStroke, line: readonly MapPoint[], height: number, reach: number): GridRect | null {
+export function cliffAlong(stroke: LandscapeContext, line: readonly MapPoint[], height: number, reach: number): GridRect | null {
   if (line.length < 2) return null;
   const t = stroke.doc.terrain;
   const g = t.grid;
@@ -182,7 +182,7 @@ export function cliffAlong(stroke: LandscapeStroke, line: readonly MapPoint[], h
     j0: Math.max(0, Math.floor((Math.min(...ys) - reach + t.depth / 2) / cell)),
     j1: Math.min(g.rows - 1, Math.ceil((Math.max(...ys) + reach + t.depth / 2) / cell)),
   };
-  stroke.touchHeights(rect);
+  stroke.tx.touch('heights', rect);
   const n = stroke.noise;
   for (let j = rect.j0; j <= rect.j1; j++) {
     const y = sampleY(t, j);
@@ -229,7 +229,7 @@ export interface CoastOptions {
  * only deepens the sea, so it follows a shore that was there; roads keep
  * their ground, the ends taper into the shore as it was.
  */
-export function coastAlong(stroke: LandscapeStroke, line: readonly MapPoint[], o: CoastOptions): GridRect | null {
+export function coastAlong(stroke: LandscapeContext, line: readonly MapPoint[], o: CoastOptions): GridRect | null {
   if (line.length < 2) return null;
   const t = stroke.doc.terrain;
   const g = t.grid;
@@ -242,7 +242,7 @@ export function coastAlong(stroke: LandscapeStroke, line: readonly MapPoint[], o
     j0: Math.max(0, Math.floor((Math.min(...ys) - o.reach + t.depth / 2) / cell)),
     j1: Math.min(g.rows - 1, Math.ceil((Math.max(...ys) + o.reach + t.depth / 2) / cell)),
   };
-  stroke.touchHeights(rect);
+  stroke.tx.touch('heights', rect);
   const n = stroke.noise;
   const length = polylineLength(line);
   const taper = Math.min(16, length / 3);
