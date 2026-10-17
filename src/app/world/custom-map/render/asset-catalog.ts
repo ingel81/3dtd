@@ -185,6 +185,14 @@ export interface CatalogObject {
    */
   roadThrough?: boolean;
   /**
+   * An opening into the ground behind its front face (a tunnel portal's
+   * vault): half width, spring, crown and length at scale 1, metres, running
+   * from model z = 0 along -z, straight walls to the spring and an elliptic
+   * arch to the crown. The terrain is not drawn inside it (terrain-cuts.ts),
+   * so the hill over a tunnel can lie on the vault
+   */
+  groundCut?: [number, number, number, number];
+  /**
    * Seconds a full turn of its parts with materials named `spin-…` takes,
    * round the model's upright axis (a radar dish, a lighthouse's lens; its
    * `beam` turns with them). Default 8 where such parts exist

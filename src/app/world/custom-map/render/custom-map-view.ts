@@ -40,6 +40,7 @@ import { MapObjectLayer, type ObjectHit } from './objects/object-layer';
 import { IMPOSTOR_SUN } from './objects/impostor';
 import { BridgeLayer } from './paths/path-bridges';
 import { LAVA_GLOW_UNIFORMS } from './environment/height-fog';
+import { groundCuts } from './terrain/terrain-cuts';
 import { MapTerrainLayer } from './terrain/map-terrain';
 import { ApronField, EDGE_TREE_BAND, edgeTreeObjects } from './objects/edge-trees';
 import { NIGHT_WINDOW_UNIFORMS } from './objects/night-windows';
@@ -649,6 +650,8 @@ export class CustomMapView {
   updateHeights(rect?: MapRect): void {
     this.terrain.rebuild(rect ? this.gridRect(rect) : undefined);
     this.objects.refreshHeights(rect);
+    // The openings sit where their objects sit
+    if (this.cutObjects.length) this.refreshCuts();
     this.coverDirty = true;
     // Water and bridges only when the change reaches them: a brush on a big map must stay cheap
     if (!rect) this.updateWater();
@@ -1189,6 +1192,19 @@ export class CustomMapView {
       }
     }
     this.terrain.occlusion.setObjects(this.doc.objects, entries, rect ? this.gridRect(rect) : undefined);
+    this.cutObjects = this.doc.objects.filter((o) => entries.get(o.asset)?.groundCut);
+    this.refreshCuts();
+  }
+
+  /** The placed objects with an opening into the ground (catalogue `groundCut`), as of the last refreshContact */
+  private cutObjects: MapObject[] = [];
+
+  /** The terrain cut away inside the openings of `cutObjects`, at their seats now */
+  private refreshCuts(): void {
+    const entries = this.entries?.map;
+    if (!entries) return;
+    const cuts = groundCuts(this.cutObjects, entries, (x, y) => this.heights.heightAt(x, y), (x, y) => this.waterLevelAt(x, y));
+    if (cuts.length || this.terrain.cuts.size) this.terrain.cuts.set(cuts);
   }
 
   private entries: { catalog: AssetCatalog; map: Map<string, CatalogObject> } | null = null;

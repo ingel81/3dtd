@@ -761,7 +761,9 @@ Entscheidung 8 umgesetzt (`convert/roads.ts` findTunnels, `convert/tunnels.ts`):
   Unterführung unter einem Damm, den die Welt nicht zeichnet) bleibt er Straße, Fußwege und Pfade im Tunnel bleiben
   Wege (das Portal ist das einer Straße). Der Bericht zählt `roads.tunnels`, `tunnelM`, `openTunnels`.
 - **Portale:** `tunnel-portal-concrete` an jeder Mündung, an der kein weiterer Tunnelweg anschließt und die in der
-  Karte liegt, gedreht in Wegrichtung (Modell +Z in den Tunnel), skaliert auf die Straßenbreite (Öffnung 8 m für 7 m
+  Karte liegt, gedreht in Wegrichtung (die Front, Modell +Z wie bei allen Modellen, nach außen, das Gewölbe läuft
+  nach -Z in den Tunnel; bis E205 stand es verkehrt herum, die Hülle ragte aus dem Hang und die Stirnwand zeigte in
+  den Hügel), skaliert auf die Straßenbreite (Öffnung 8 m für 7 m
   Straße, 1 bis 2,2). Zwei Mündungen unter 20 m Abstand in gleicher Richtung (zwei Röhren) teilen sich ein Portal.
   Das Modell ist eine Stirnwand aus Beton mit Flachbogen, Bogenband, Pilastern, Abdeckung und Brüstung, Flügelmauern
   und einer Hülle um das Gewölbe, ohne Felsbrocken: den Hügel macht das angehobene Gelände (Felsklumpen lasen sich aus
@@ -769,7 +771,13 @@ Entscheidung 8 umgesetzt (`convert/roads.ts` findTunnels, `convert/tunnels.ts`):
 - **Gelände:** vor dem Wasser angehoben, nie abgesenkt: hinter jeder Mündung auf die Oberkante des Portals (9,6 m
   mal Skala) über die Fassadenbreite, 20 m tief, seitlich und nach hinten 1:1 abfallend; entlang des übrigen Tunnels
   4 m (`TUNNEL_COVER`) über der Linie zwischen den Mündungen. Wo der echte Hang höher ist, bleibt er. Ein Fluss über
-  einem Tunnel gräbt sein Bett danach.
+  einem Tunnel gräbt sein Bett danach. Angehoben wird erst eine Zellendiagonale hinter der Mündung (2,8 m bei 2-m-Zellen):
+  ein angehobener Punkt kippt jedes Geländedreieck, an dem er hängt, und die vor dem Portal standen als Rampe in der
+  Öffnung. Was der Hügel vom Gewölbe noch bedeckt, zeichnet das Gelände nicht (Katalog `groundCut`,
+  docs/CUSTOM_MAPS.md). Nach dem Einebnen der Straßen (`seatPortals`) nimmt der Boden unter der Stirnwand die Höhe
+  des Portalbodens an und läuft davor über 8 m auf die Straße zurück; z des Portals setzt den Boden genau darauf (die
+  Glättung der Straße senkte sie neben der Mündung bis 0,5 m unter den Portalboden). Welten, die vor E205 erzeugt
+  wurden, haben die verkehrten Portale gespeichert: neu erzeugen.
 - Miltenberg (Probe): 1 Tunnel (353 m, `secondary`), 2 Portale, 342 Höhenpunkte angehoben; 6 Tunnelwege (Fußwege und
   kurze) bleiben offen.
 - **Grenzen:** ein Tunnel unter flachem Boden (Stadt, Unterführung mit Rampe, die das Höhenmodell glättet) bekommt

@@ -70,6 +70,8 @@ export class ApronMaterial extends TerrainMaterial {
   constructor(params: TerrainMaterialParams, ground: TerrainMaterial) {
     super(params);
     this.name = 'custom-map-apron';
+    // Its program carries the border's paint (TERRAIN_SAMPLE), the ground's the openings cut into it
+    this.defines = { ...this.defines, TERRAIN_APRON: '' };
     // The ground's uniforms themselves: what the layer sets on its material (paint, splat, time) holds here too
     Object.assign(this.terrainUniforms, ground.terrainUniforms);
     const base = this.onBeforeCompile;

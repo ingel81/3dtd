@@ -4,7 +4,7 @@ import { mapStreetNetwork } from '../../custom-map/custom-map-streets';
 import { OsmFrame, parseOsm } from '../osm-parse';
 import type { OverpassElement } from '../overpass-client';
 import { buildRoads } from './roads';
-import { buildTunnels, pairTwins, TUNNEL_COVER, TUNNEL_PORTAL_ASSET } from './tunnels';
+import { buildTunnels, pairTwins, seatPortals, TUNNEL_COVER, TUNNEL_PORTAL_ASSET } from './tunnels';
 
 const frame = new OsmFrame(48, 9);
 const g = (x: number, y: number) => frame.geo({ x, y });
@@ -37,8 +37,9 @@ describe('OSM tunnels', () => {
       [TUNNEL_PORTAL_ASSET, -100, 0],
       [TUNNEL_PORTAL_ASSET, 100, 0],
     ]);
-    // Model +z into the vault: east at the west mouth, west at the east one (rotation as buildings.ts turns a front)
-    const into = (r: number) => ({ x: -Math.sin(r), y: Math.cos(r) });
+    // The front (model +z, as buildings.ts turns a front) faces out, the vault (model -z) runs east at the west
+    // mouth and west at the east one
+    const into = (r: number) => ({ x: Math.sin(r), y: -Math.cos(r) });
     expect(into(objects[0].rotation).x).toBeCloseTo(1, 3);
     expect(into(objects[1].rotation).x).toBeCloseTo(-1, 3);
   });
@@ -52,12 +53,33 @@ describe('OSM tunnels', () => {
     expect(objects[0].scale).toBeCloseTo(9 / 7, 2);
     expect(heightAt(t, -110, 0)).toBe(0);
     expect(heightAt(t, -100, 0)).toBe(0);
+    // A cell's diagonal behind the mouth the ground stays: no terrain triangle leans into the opening
+    expect(heightAt(t, -98, 0)).toBe(0);
+    expect(heightAt(t, -96, 0)).toBeCloseTo(top, 1);
     // The portal's hill: its top over the facade's width behind the mouth
     expect(heightAt(t, -90, 0)).toBeCloseTo(top, 1);
     expect(heightAt(t, -90, 12)).toBeCloseTo(top, 1);
     // Mid tunnel: the cover over the road, falling off to the sides
     expect(heightAt(t, 0, 0)).toBeCloseTo(TUNNEL_COVER, 1);
     expect(heightAt(t, 0, 30)).toBe(0);
+  });
+
+  it('brings the ground in front of a portal onto its floor and seats the floor there', () => {
+    const { doc, roads } = tunnelWorld();
+    const t = doc.terrain;
+    const { objects } = buildTunnels(t, roads.tunnels, roads.mouths);
+    // The road levelled half a metre lower outside the west mouth (x < -100), as the road smoothing does
+    const g = t.grid;
+    for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) if (i * 2 - 200 < -100) g.heights[j * g.columns + i] -= 0.5;
+    const floor = heightAt(t, -100, 0);
+    seatPortals(t, objects);
+    // Under the facade and just in front: the floor's height; past the ramp the road as it was
+    expect(heightAt(t, -100.5, 0)).toBeCloseTo(floor, 1);
+    expect(heightAt(t, -104, 0)).toBeGreaterThan(-0.5);
+    expect(heightAt(t, -104, 0)).toBeLessThan(floor);
+    expect(heightAt(t, -110, 0)).toBeCloseTo(-0.5, 3);
+    // The floor (seat plus z) on that height
+    expect(heightAt(t, objects[0].x, objects[0].y) + objects[0].z).toBeCloseTo(floor, 2);
   });
 
   it('leaves a higher hill as it is', () => {

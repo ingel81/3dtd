@@ -6,6 +6,7 @@ import type { MapWaterKind } from '../../map-document';
 import { shoreWaves } from '../water/shore-waves';
 import { VARIATION_GLSL, variationTexture } from './variation-texture';
 import { WIND_UNIFORMS } from '../environment/wind';
+import { TERRAIN_CUT_GLSL } from './terrain-cuts';
 import type { MaterialCategory } from '../asset-catalog';
 
 /**
@@ -152,6 +153,9 @@ export class TerrainMaterial extends MeshStandardMaterial {
     /** Replaced by TerrainChunks.morphEye and morphFocus (MapTerrainLayer) */
     uMorphEye: { value: new Vector3() },
     uMorphFocus: { value: new Vector3(1e9, 0, 1e9) },
+    /** Replaced by TerrainCuts.uniforms (MapTerrainLayer); none without */
+    uCutMap: { value: null as Texture | null },
+    uCutGrid: { value: new Vector4() },
   };
 
   /**
@@ -277,7 +281,9 @@ uniform sampler2D uSplat1;
 uniform sampler2D uSplat2;
 #endif
 uniform sampler2D uPathMask;
+#ifdef TERRAIN_APRON
 uniform sampler2D uApronPaint;
+#endif
 uniform sampler2D uGridNormals;
 uniform sampler2D uGridOcclusion;
 uniform sampler2D uFarShadow;
@@ -305,6 +311,9 @@ uniform int uRoadLayer;
 uniform int uPathLayer;
 uniform float uCliffCos;
 uniform float uSteepNear;
+#ifndef TERRAIN_APRON
+${TERRAIN_CUT_GLSL}
+#endif
 // Painted ground takes the side planes from 25 degrees of slope, fully from 35
 #define STEEP_FROM_COS ${Math.cos((25 * Math.PI) / 180).toFixed(4)}
 #define STEEP_FULL_COS ${Math.cos((35 * Math.PI) / 180).toFixed(4)}
@@ -385,6 +394,10 @@ const TERRAIN_LIGHTS = ShaderChunk.lights_fragment_begin.replace(
 const TERRAIN_SAMPLE = /* glsl */ `
 vec3 tPos = vTerrainPos;
 vec2 mapPos = vec2(-tPos.x, tPos.z);
+#ifndef TERRAIN_APRON
+// Inside the opening of a model set into the ground (a tunnel's vault): the model's own surfaces show
+if (terrainCut(mapPos, tPos.y)) discard;
+#endif
 // Beyond the map (the apron) there is no grid: vertex normals, and the border's natural ground (below)
 vec2 edgeDist = abs(mapPos) - uMapSize * 0.5;
 float outside = smoothstep(0.0, 12.0, max(edgeDist.x, edgeDist.y));
@@ -434,7 +447,9 @@ float sum = 0.0;
 for (int k = 0; k < TERRAIN_SPLATS; k++) if (uSplatLayer[k] >= 0) sum += sw[k];
 if (sum < 0.001) { sw[0] = 1.0; sum = 1.0; }
 for (int k = 0; k < TERRAIN_SPLATS; k++) if (uSplatLayer[k] >= 0) w[uSplatLayer[k]] += sw[k] / sum * (1.0 - outside);
-// Beyond the map the border's natural ground runs on (apron-paint.ts), at the point of the border nearest
+// Beyond the map the border's natural ground runs on (apron-paint.ts), at the point of the border nearest. The
+// chunks lie within the map: only the apron's program has it (a texture unit less for the ground's)
+#ifdef TERRAIN_APRON
 if (outside > 0.0) {
   vec2 hm = uMapSize * 0.5;
   vec2 q = clamp(mapPos, -hm, hm);
@@ -466,6 +481,7 @@ if (outside > 0.0) {
   // No paint of the border known (a material built before it): the first layer, as before
   if (apron < 0.01) w[max(uSplatLayer[0], 0)] += outside;
 }
+#endif
 
 // Roads and paths replace the painted ground
 vec4 pmask = texture2D(uPathMask, tuv + wobble * 0.5);

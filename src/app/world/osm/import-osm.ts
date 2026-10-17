@@ -19,7 +19,7 @@ import type { OsmFrameStore } from './osm-frame-store';
 import { downloadOsm, osmQueryBox } from './osm-query';
 import type { OverpassResponse, OverpassRetry } from './overpass-client';
 import { buildRoads, levelRoads, paintRoads, type RoadStats } from './convert/roads';
-import { buildTunnels, type TunnelReport } from './convert/tunnels';
+import { buildTunnels, seatPortals, type TunnelReport } from './convert/tunnels';
 import { fillOsmTerrain } from './convert/terrain';
 import { paintGround, placeMood, type GroundReport } from './convert/ground';
 import { growVegetation, type VegetationReport } from './convert/vegetation';
@@ -157,6 +157,7 @@ export function convertOsm(input: OsmImportInput, options: OsmImportOptions = {}
 
   levelRoads(t0, doc.paths);
   settleWater(t0, water);
+  seatPortals(t0, tunnels.objects);
   step('level');
   // The land takes the layers the roads' surfaces and the water's shores leave
   const wetMaterials = (Object.keys(WATER_MATERIALS) as WaterPaintRole[]).filter((r) => water.paint[r].some((v) => v > 0)).map((r) => WATER_MATERIALS[r]);

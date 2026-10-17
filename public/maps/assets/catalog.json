@@ -14130,7 +14130,7 @@
       "name": "Tunnel portal (stone)",
       "category": "structure",
       "file": "models/tunnel-portal.glb",
-      "triangles": 4018,
+      "triangles": 4020,
       "footprint": 20.7,
       "height": 15.7,
       "roof": {
@@ -14151,6 +14151,12 @@
       "randomRotation": false,
       "wind": 0,
       "drawDistance": 3000,
+      "groundCut": [
+        4,
+        3.4,
+        7.4,
+        14
+      ],
       "tags": [
         "temperate",
         "mountain",
@@ -14171,7 +14177,7 @@
       "name": "Tunnel portal (concrete)",
       "category": "structure",
       "file": "models/tunnel-portal-concrete.glb",
-      "triangles": 2542,
+      "triangles": 2544,
       "footprint": 13.5,
       "height": 10.9,
       "roof": {
@@ -14192,6 +14198,12 @@
       "randomRotation": false,
       "wind": 0,
       "drawDistance": 3000,
+      "groundCut": [
+        4,
+        4.2,
+        6.4,
+        14
+      ],
       "tags": [
         "city",
         "mountain"

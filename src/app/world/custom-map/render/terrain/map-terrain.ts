@@ -24,6 +24,7 @@ import { GroundOcclusion } from './ground-occlusion';
 import { HeightTexture } from './height-texture';
 import { setGroundColors } from './ground-color';
 import { FarShadow } from './far-shadow';
+import { TerrainCuts } from './terrain-cuts';
 import { GridNormalTexture, MaterialArrays, SplatTextures, compressedTogether, isCompressed, maskTexture } from './terrain-textures';
 
 /** Materials the path mask paints, by channel */
@@ -106,6 +107,8 @@ export class MapTerrainLayer {
   readonly grass: GrassLayers;
   /** The height grid on the GPU (water depth, grass) */
   readonly heightTexture: HeightTexture;
+  /** The ground cut away inside the openings of models set into it (tunnel portals), shared with the material */
+  readonly cuts: TerrainCuts;
   private grassInputs: Omit<GrassInputs, 'splat' | 'pathMask'> | null = null;
   /** The border's natural ground for the apron, and which map layers count as natural */
   private apronPaint: DataTexture | null = null;
@@ -125,6 +128,7 @@ export class MapTerrainLayer {
     this.normals = new GridNormalTexture(field);
     this.occlusion = new GroundOcclusion(field);
     this.heightTexture = new HeightTexture(field);
+    this.cuts = new TerrainCuts(terrain.width, terrain.depth);
     this.grass = new GrassLayers(this.heightTexture);
     for (const m of this.grass.meshes) m.visible = false;
     this.normals.setWater(terrain.water?.mask ?? null);
@@ -205,6 +209,7 @@ export class MapTerrainLayer {
     this.material.terrainUniforms.uMorphFocus = this.chunks.morphFocus;
     this.material.terrainUniforms.uFarShadow = this.farShadow.texture;
     this.material.terrainUniforms.uFarShadowArea = this.farShadow.area;
+    Object.assign(this.material.terrainUniforms, this.cuts.uniforms);
     addHeightFog(this.material);
     this.material.setFarDistances(this.far[0], this.far[1], this.far[2]);
     this.material.setWaterLevel(t.water?.level ?? null, t.water?.kind);
@@ -372,6 +377,7 @@ export class MapTerrainLayer {
     this.grass.dispose();
     this.farShadow.dispose();
     this.heightTexture.dispose();
+    this.cuts.dispose();
   }
 
   private buildPathMask(paths: MapPaths): DataTexture {

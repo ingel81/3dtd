@@ -838,7 +838,12 @@ Bestand baut der Asset-Worker aus; Stand beim Schreiben:
   Licht (`light`), 40 Effekte (`effects`); 10 schwimmen (`float`: Boote, Schiff, Bojen, Seerosen, Eisscholle,
   Steg, Pier; Ursprung des Modells ist die Wasserlinie, ihr z zählt ab dem Spiegel unter ihnen, auf trockenem Boden ab
   dem Boden; eine Wassertiefe in z hebt sie in die Luft, das meldet die Prüfung `object-floating`). 9 stehen absichtlich
-  in der Luft (`aloft`: Objekt-Brücken, Seilbahn-Spannen, Gondel); die Prüfung lässt sie aus
+  in der Luft (`aloft`: Objekt-Brücken, Seilbahn-Spannen, Gondel); die Prüfung lässt sie aus. Die zwei Tunnelportale
+  haben eine Öffnung in den Boden (`groundCut`: halbe Breite, Kämpfer, Scheitel, Länge bei Skala 1, von der Front
+  z = 0 nach -z): das Gelände wird darin nicht gezeichnet (`terrain/terrain-cuts.ts`, ein Float-Textur-Index im
+  8-m-Raster, eine Texelabfrage je Gelände-Fragment), so liegt der Hügel auf dem Gewölbe und Boden, Gewölbe und
+  dunkle Rückwand des Modells zeigen sich. Kippen (pitch, roll) bleibt dabei außen vor; der Schattenpass behält den
+  Boden
 - Flammen sind alpha-getestete `foliage-*`-Karten mit Eigenleuchten, der Wasserfall eine Karte `foliage-waterfall`;
   Brücken und Stege brauchen eine Höhenangabe, wenn sie nicht schwimmen
 - Größe: `public/maps/assets` rund 178 MB (Materialien 94 MB, Modelle 84 MB). Ansehen: `/map-preview?showcase=<tag>` oder `?assets=a,b*&materials=c,d`

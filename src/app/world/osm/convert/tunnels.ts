@@ -13,6 +13,13 @@
  * the tunnel to TUNNEL_COVER over the road, each falling off at 1:1 to the
  * sides. Where the real hill is higher nothing changes. Runs before the
  * water is carved, so a river over a tunnel still cuts its bed.
+ *
+ * The raised ground keeps a cell's diagonal off the mouth: a raised sample
+ * tilts every terrain triangle it is a corner of, and those reaching in
+ * front of the portal stood as a ramp in its opening and lifted its seat
+ * (the ground under the mouth). What the hill then still covers of the
+ * vault, the terrain shader leaves out (catalogue `groundCut`,
+ * terrain-cuts.ts).
  */
 import { heightAt, sampleX, sampleY } from '../../../editor/model/grid';
 import { nearestOnPolyline } from '../../../editor/ops/path-graph';
@@ -56,6 +63,8 @@ export function buildTunnels(terrain: MapTerrain, tunnels: readonly TunnelLine[]
   report.twins = portals.reduce((s, p) => s + (p.mouths.length > 1 ? p.mouths.length : 0), 0);
 
   const raised = new Uint8Array(terrain.grid.columns * terrain.grid.rows);
+  // How far behind a mouth the ground may rise: no raised sample shares a triangle with the ground in front
+  const hillFrom = Math.max(PORTAL_FACADE, terrain.grid.cellSize * Math.SQRT2);
   const raise = (k: number, y: number) => {
     const h = terrain.grid.heights;
     if (y <= h[k]) return;
@@ -79,7 +88,7 @@ export function buildTunnels(terrain: MapTerrain, tunnels: readonly TunnelLine[]
         const hit = nearestOnPolyline(line, q);
         if (!hit || hit.dist >= reach) return;
         // Past the ends of the line the portals' hills take over
-        if (ends.some((e) => Math.hypot(hit.point.x - e.p.x, hit.point.y - e.p.y) < PORTAL_FACADE)) return;
+        if (ends.some((e) => Math.hypot(hit.point.x - e.p.x, hit.point.y - e.p.y) < hillFrom)) return;
         raise(k, roadY(hit.point) + TUNNEL_COVER - Math.max(0, hit.dist - OPENING_ROAD / 2 - 2));
       });
     }
@@ -99,7 +108,7 @@ export function buildTunnels(terrain: MapTerrain, tunnels: readonly TunnelLine[]
       const dx = q.x - p.x;
       const dy = q.y - p.y;
       const depth = dx * inward.x + dy * inward.y;
-      if (depth < PORTAL_FACADE) return;
+      if (depth < hillFrom) return;
       const side = Math.abs(dx * inward.y - dy * inward.x);
       raise(k, y + top - Math.max(0, side - half) - Math.max(0, depth - PORTAL_HILL));
     });
@@ -110,14 +119,56 @@ export function buildTunnels(terrain: MapTerrain, tunnels: readonly TunnelLine[]
       x: round2(p.x),
       y: round2(p.y),
       z: 0,
-      // Model +z (the road into the vault) along `inward`, as buildings.ts turns its fronts
-      rotation: round3(Math.atan2(-inward.x, inward.y)),
+      // The front (model +z, as buildings.ts turns its fronts) out against `inward`: the vault runs along -z
+      rotation: round3(Math.atan2(inward.x, -inward.y)),
       scale: round3(portal.scale),
     });
   }
   report.raised = raised.reduce((s, v) => s + v, 0);
   return { objects, report };
 }
+
+/** Metres in front of a portal over which the ground runs from the road onto its floor */
+const PORTAL_RAMP = 8;
+
+/**
+ * The ground in front of each portal brought to its floor, after the roads
+ * are levelled: their smoothing lowers the road beside the mouth while the
+ * mouth keeps the height it had (before, the vault's floor stood up to half a
+ * metre over the road in front, its edge open). Over the facade's width the
+ * ground under the facade takes the floor's height and in front runs back to
+ * what it was over PORTAL_RAMP; the portal's z puts the floor on exactly
+ * that height, whatever the terrain's interpolation at its pivot. Changes
+ * `terrain` and the portals' z.
+ */
+export function seatPortals(terrain: MapTerrain, portals: MapObject[]): void {
+  const h = terrain.grid.heights;
+  for (const o of portals) {
+    if (o.asset !== TUNNEL_PORTAL_ASSET) continue;
+    const floor = heightAt(terrain, o.x, o.y);
+    const s = o.scale || 1;
+    const half = (PORTAL_WIDTH * s) / 2;
+    // Into the vault: the model's -z (rotation as buildTunnels sets it)
+    const inward = { x: Math.sin(o.rotation), y: -Math.cos(o.rotation) };
+    const reach = half + PORTAL_RAMP + 4;
+    forSamples(terrain, [{ x: o.x, y: o.y }], reach, (k, q) => {
+      const dx = q.x - o.x;
+      const dy = q.y - o.y;
+      const depth = dx * inward.x + dy * inward.y;
+      if (depth >= PORTAL_FACADE * s || depth <= -PORTAL_RAMP) return;
+      const side = Math.abs(dx * inward.y - dy * inward.x);
+      const w = (1 - smooth(-depth / PORTAL_RAMP)) * (1 - smooth((side - half) / 4));
+      if (w > 0) h[k] += (floor - h[k]) * w;
+    });
+    o.z = round2(floor - heightAt(terrain, o.x, o.y));
+  }
+}
+
+/** Smoothstep over 0..1, clamped */
+const smooth = (t: number): number => {
+  const c = Math.min(1, Math.max(0, t));
+  return c * c * (3 - 2 * c);
+};
 
 interface Portal {
   p: MapPoint;
