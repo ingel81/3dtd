@@ -321,7 +321,8 @@ export class MapTerrainLayer {
 
   /** Water changed: wet banks follow the mask and level, river banks the rivers */
   refreshWater(paths?: MapPaths): void {
-    if (paths) this.refreshPaths(paths);
+    // The rivers' banks in the mask; the roads keep what they laid (their paths did not change)
+    if (paths) this.refreshMask(paths);
     // The apron's sea floor follows the water
     this.refreshApron();
     this.normals.setWater(this.terrain.water?.mask ?? null);
@@ -361,9 +362,14 @@ export class MapTerrainLayer {
     if (this.material) this.material.terrainUniforms.uApronPaint.value = this.apronPaint;
   }
 
-  /** The paths or rivers changed: the mask paints and uploads only the texels round what changed */
+  /** The paths changed: the roads lay what changed, the mask paints and uploads only the texels round it */
   refreshPaths(paths: MapPaths): void {
     this.roads.set(paths);
+    this.refreshMask(paths);
+  }
+
+  /** The path mask painted again where paths, rivers or the roads' covers changed */
+  private refreshMask(paths: MapPaths): void {
     if (!this.material || !this.pathMask) return;
     const raster = this.pathRasterFor();
     const rect = raster.update(paths, this.terrain.rivers ?? [], this.roads.covers());
