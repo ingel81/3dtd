@@ -12,7 +12,7 @@
 import { mapDataFetch, mapDataRoot } from './map-data';
 import { defaultMapBackend, FolderMapBackend, mapFolderId } from './folder-map-backend';
 import type { CustomMapDocument, MapBiome, MapMeta } from './map-document';
-import { contentHash, packMapFile, unpackMapFile } from './map-file';
+import { contentHash, mapFileMeta, packMapFile, unpackMapFile } from './map-file';
 import { newMapUid, slugMapId } from './map-create';
 import { summarize } from './map-summary';
 
@@ -175,9 +175,11 @@ export class MapStore {
   async trash(id: string, now = new Date()): Promise<string> {
     const stored = await this.backend.get(id);
     if (!stored || stored.summary.origin !== 'own') throw new MapStoreError(`There is no own map "${id}" to delete.`);
-    const { doc } = unpackMapFile(stored.file);
+    // Only the date the map was made, read without the full check: a map that no longer opens can still go
+    const created = mapFileMeta(stored.file)?.createdAt;
+    if (typeof created !== 'string') throw new MapStoreError(`The map "${id}" is not readable; it cannot go to the trash.`);
     const key = `${TRASH_PREFIX}${now.getTime()}-${id}`;
-    const summary: MapSummary = { ...stored.summary, id: key, origin: 'trashed', trash: { from: id, at: now.toISOString(), created: doc.meta.createdAt } };
+    const summary: MapSummary = { ...stored.summary, id: key, origin: 'trashed', trash: { from: id, at: now.toISOString(), created } };
     await this.backend.put({ summary, file: stored.file, preview: stored.preview });
     await this.backend.delete(id);
     return key;

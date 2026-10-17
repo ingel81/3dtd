@@ -24,6 +24,7 @@ import {
   WAVE_EVENT_LIMITS,
   splatMapCount,
   type CustomMapDocument,
+  type MapMeta,
   type MapPrefab,
   type MapWaveEvent,
 } from './map-document';
@@ -172,6 +173,21 @@ export function unpackMapFile(bytes: Uint8Array | ArrayBuffer): UnpackedMap {
   const problems = validateMapDocument(doc);
   if (problems.length) throw new MapFileError(`The map is broken: ${problems[0]}`, problems);
   return { doc, preview: entries[MAP_PREVIEW_ENTRY] ?? null };
+}
+
+/**
+ * The `meta` of a map file without reading the rest or checking it: what
+ * the store needs to move a map (its creation date) even when the map
+ * itself no longer passes the check. Null when there is none to read
+ */
+export function mapFileMeta(bytes: Uint8Array): Partial<MapMeta> | null {
+  try {
+    const entries = unzipSync(bytes, { filter: (f) => f.name === MAP_JSON_ENTRY && f.originalSize <= MAX_ENTRY_BYTES });
+    const parsed: unknown = JSON.parse(strFromU8(entries[MAP_JSON_ENTRY]));
+    return isRecord(parsed) && isRecord(parsed['meta']) ? (parsed['meta'] as Partial<MapMeta>) : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Lift an older `map.json` to `MAP_VERSION`; refuses files from a newer game */
