@@ -111,6 +111,15 @@ Bild steht kurz, die Seite bleibt bedienbar, längster Frame 60 bis 90 ms. Eine 
 gesetzt, leerte die Größenänderung den Canvas, und die angehaltenen Bilder zeigten für die Dauer des Kompilierens
 Schwarz (Ruined City, Hafenstadt: 2,5 s schwarz mitten im Einflug beim ersten Start, siehe unten).
 
+Bloom und Farbkorrektur (Effekt-Schalter) wechseln ebenfalls den Weg durch den Composer, dazu kommen die Programme der
+Pässe selbst. Hier steht das Bild nicht: `ThreeTilesEngine.switchPasses` zeichnet einen Frame mit den neuen Pässen
+nur zum Schein auf (`recordDraws`, jeder Pass richtet sich ein wie im echten Frame, gezeichnet wird nichts), und
+`FrameAhead` (`frame-compile-ahead.ts`) macht ihn bereit, während die alten Pässe weiterzeichnen: erst kompilieren, ein
+paar Objekte je Aufruf und ein Aufruf je Frame (3 ms), dann jedes Objekt einmal mit seinem neuen Programm in ein Pixel
+seines Ziels zeichnen, höchstens ein neues Material je Frame (der GPU-Prozess baut ein Programm bei seinem ersten
+Zeichnen noch einmal, ANGLE). Im Frame, der das abschließt, schaltet die Engine um. Bloom an auf Autumn Keep: längster
+Frame 550 ms vorher, um 45 ms danach; die Umschaltung kommt einige Sekunden nach dem Klick.
+
 ## Dynamische Auflösung
 
 Low und Medium (`dynamic-resolution.ts`): einmal je Sekunde mit mindestens drei Proben das 90. Perzentil der

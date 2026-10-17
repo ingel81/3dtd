@@ -62,6 +62,7 @@ import type { TilesLodDebug } from './tiles-lod-debug';
 import { perfTrace } from '../utils/perf-trace';
 import { warmUpScene, type SceneWarmupResult } from './scene-warmup';
 import { firstUsePrograms } from './programs-ready';
+import { FrameAhead, recordDraws } from './frame-compile-ahead';
 import { ScreenShake, offsetProjection } from './screen-shake';
 import { ShakeBenchmark, type ShakeBenchResult } from './screen-shake-benchmark';
 import { MISSILE_LAUNCH_LOOK, MUSHROOM_CLOUD_LOOK, SCREEN_SHAKE_CONFIG } from '../configs/visual-effects.config';
@@ -77,6 +78,11 @@ import { pixelRatioFor, type QualityKnobs, type QualityWorld } from './render-qu
 
 /** Strength of the enemies' rim light on worlds that ask for it (WorldCapabilities.enemyRimLight) */
 const ENEMY_RIM_LIGHT = 0.2;
+
+/** Main-thread time a frame gives to the first draws of a switch made ready ahead (FrameAhead.drawSome) */
+const AHEAD_DRAW_MS = 3;
+/** Materials a frame draws for the first time there at most: the GPU process builds each program again (ANGLE) */
+const AHEAD_FIRST_DRAWS = 1;
 
 /** Called right before and right after a frame is drawn (ThreeTilesEngine.setFrameProbe) */
 export interface FrameProbe {
@@ -235,6 +241,10 @@ export class ThreeTilesEngine {
   private idleFrameAt = 0;
   /** The bloom switch as the effect settings have it; the level may still hold it off */
   private bloomWanted = false;
+  /** A frame has been drawn: from then on a switch of the passes is made ready ahead (switchPasses) */
+  private drewFrame = false;
+  /** The switch of the passes being made ready, applied in the frame it is done in */
+  private passesAhead: { frame: FrameAhead; apply: () => void } | null = null;
   /** Low and Medium: the resolution follows the frame cost (dynamic-resolution.ts) */
   private dynamic: {
     controller: DynamicResolution;
@@ -847,11 +857,19 @@ export class ThreeTilesEngine {
       d.pendingScale = null;
     }
 
+    // A switch of the passes made ready ahead: its first draws, then the switch in the frame they are done in
+    const ahead = this.passesAhead;
+    if (ahead?.frame.drawSome(AHEAD_DRAW_MS, AHEAD_FIRST_DRAWS)) {
+      this.passesAhead = null;
+      ahead.apply();
+    }
+
     // Render scene, shaken if a screen shake runs
     const probe = this.frameProbe;
     probe?.begin();
     this.gpuMeter.begin();
     this.drawFrame();
+    this.drewFrame = true;
     this.gpuMeter.end();
     probe?.end();
     if (this.dynamic && !this.dynamicPaused) this.followFrameCost(this.dynamic);
@@ -1193,9 +1211,40 @@ export class ThreeTilesEngine {
     this.enemies.setFreezeTintEnabled(settings.freezeTint);
     // The quality level may hold bloom off (Low)
     this.bloomWanted = settings.bloom;
-    this.postProcessing?.setBloomEnabled(settings.bloom && (this.quality?.knobs.general.bloom ?? true));
-    this.postProcessing?.setColorGradingPreset(settings.colorGrading);
+    this.switchPasses(settings.bloom && (this.quality?.knobs.general.bloom ?? true), settings.colorGrading);
     this.bloodMoon.setEnabled(settings.bloodMoon);
+  }
+
+  /**
+   * Bloom and grading switched. Each pass has its programs, and the scene
+   * drawn through the composer has other ones than drawn to the screen (its
+   * output, compilingForFrames): switched in a frame, all of them linked in
+   * it (550 ms for turning bloom on, autumn keep). Once a frame has been
+   * drawn, a frame with the new passes is recorded and made ready ahead
+   * (FrameAhead: compiled, then each object drawn once into a pixel), the
+   * old passes draw meanwhile, and the switch comes in the frame that
+   * finishes it
+   */
+  private switchPasses(bloom: boolean, grading: ColorGradingPreset): void {
+    const post = this.postProcessing;
+    if (!post) return;
+    // Bloom as the level holds it when the switch comes
+    const apply = () => {
+      post.setBloomEnabled(this.bloomWanted && (this.quality?.knobs.general.bloom ?? true));
+      post.setColorGradingPreset(grading);
+    };
+    this.passesAhead = null;
+    if (!this.drewFrame || this.disposed || post.passesAre(bloom, grading)) {
+      apply();
+      return;
+    }
+    const draws = post.withPasses(bloom, grading, () => recordDraws(this.renderer, () => this.drawFrame()));
+    const frame: FrameAhead = new FrameAhead(this.renderer, draws, {
+      scene: this.scene,
+      lightStates: this.world.withLightStates?.bind(this.world),
+      gone: () => this.disposed || this.passesAhead?.frame !== frame,
+    });
+    this.passesAhead = { frame, apply };
   }
 
   // ---- Render diagnostics (__bloom, PerformanceProfilerService) ----

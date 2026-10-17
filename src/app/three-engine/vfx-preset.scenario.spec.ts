@@ -58,6 +58,7 @@ function withPreset(preset: VfxPreset) {
     towers: { setMuzzleFlashEnabled: vi.fn() },
     enemies: { setFreezeTintEnabled: vi.fn() },
     postProcessing: null,
+    switchPasses: vi.fn(),
     bloodMoon: { setEnabled: vi.fn() },
   };
   ThreeTilesEngine.prototype.applyVfxSettings.call(engine as unknown as ThreeTilesEngine, withVfxPreset(DEFAULT_VFX_SETTINGS, preset));

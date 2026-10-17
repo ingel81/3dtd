@@ -115,6 +115,28 @@ export class PostProcessingPipeline {
     this.antialiasNeedsComposer = !msaa;
   }
 
+  /** Whether bloom and grading are as given */
+  passesAre(bloom: boolean, preset: ColorGradingPreset): boolean {
+    return this.bloomEnabled === bloom && this.colorGradingPreset === preset;
+  }
+
+  /**
+   * Run `run` with bloom and grading as given, then put back what was set:
+   * a frame compiled ahead of a switch (ThreeTilesEngine.applyVfxSettings)
+   * sees the passes it will draw with, the frames drawn meanwhile the old ones
+   */
+  withPasses<T>(bloom: boolean, preset: ColorGradingPreset, run: () => T): T {
+    const was = { bloom: this.bloomEnabled, preset: this.colorGradingPreset };
+    this.setBloomEnabled(bloom);
+    this.setColorGradingPreset(preset);
+    try {
+      return run();
+    } finally {
+      this.setBloomEnabled(was.bloom);
+      this.setColorGradingPreset(was.preset);
+    }
+  }
+
   /** Render the scene through the composer. */
   render(): void {
     this.composer.render();

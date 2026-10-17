@@ -22,7 +22,7 @@ const QUALITY = argument('quality', 'high');
 const HEADED = process.argv.includes('--headed');
 
 /** What each case does: an environment patch on the map's own, or enemies of a type on the first route */
-const CASES: Record<string, { env?: Record<string, unknown>; enemy?: string; wave?: number }> = {
+const CASES: Record<string, { env?: Record<string, unknown>; enemy?: string; wave?: number; vfx?: Record<string, unknown> }> = {
   night: { env: { sky: 'night', sunElevation: 30, moonlight: 1 } },
   day: { env: {} },
   dusk: { env: { sky: 'dusk', sunElevation: 8 } },
@@ -32,6 +32,10 @@ const CASES: Record<string, { env?: Record<string, unknown>; enemy?: string; wav
   fog: { env: { weather: 'fog', weatherStrength: 1 } },
   storm: { env: { skyImage: 'thunderstorm', sky: 'overcast', weather: 'rain', weatherStrength: 1 } },
   herbert: { enemy: 'herbert' },
+  // Bloom and colour grading switched in the display menu: the frames through the composer or not
+  bloom: { vfx: { bloom: true, colorGrading: 'none' } },
+  grading: { vfx: { bloom: true, colorGrading: 'noir' } },
+  plain: { vfx: { bloom: false, colorGrading: 'none' } },
   // The run's own boss wave, started with the wave button: Herbert out of the portal, the boss intro's camera cut
   wave10: { wave: 10 },
 };
@@ -99,6 +103,12 @@ async function measure(name: string): Promise<void> {
       const start = last;
       let intro = false;
       if (spec.env) view.setEnvironment({ ...g.__mapBase, ...spec.env });
+      if (spec.vfx) {
+        interface Ng { getComponent(e: Element): { engine?: { applyVfxSettings(s: unknown): void } } }
+        const host = document.querySelector('app-tower-defense');
+        const all = { muzzleFlash: true, projectileTrails: true, impactEffects: true, groundMarks: true, freezeTint: true, bloodMoon: true };
+        if (host) (globalThis as { ng?: Ng }).ng?.getComponent(host).engine?.applyVfxSettings({ ...all, ...spec.vfx });
+      }
       if (spec.enemy) {
         const path = g.__load.state().paths[0].map(([lat, lon]) => ({ lat, lon }));
         g.__load.emit({ type: 'debug:spawn-enemy', enemyType: spec.enemy, count: 1, path, start: 'portal' });
@@ -229,7 +239,7 @@ async function measureTowers(): Promise<void> {
   console.log('RESULT ' + JSON.stringify({ case: 'towers', ...results }));
 }
 
-const profiler = process.argv.includes('--profile') ? await FrameProfiler.attach(page, 100) : null;
+const profiler = process.argv.includes('--profile') ? await FrameProfiler.attach(page, Number(argument('long', '100'))) : null;
 await measure('day');
 await profiler?.start();
 for (const name of ORDER) {
