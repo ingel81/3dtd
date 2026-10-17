@@ -92,6 +92,8 @@ export class EditorOverlay {
   private readonly gizmo: LineLoop;
   private readonly markers = new Group();
   private readonly nodes = new Group();
+  /** The path nodes as instances: map x, y and scene height per node, and its size as a handle */
+  private nodeSets: { mesh: InstancedMesh; at: Float64Array; size: Float32Array }[] = [];
   private readonly selection = new Group();
   /** Name tag pictures by colour and text, kept while the overlay lives */
   private readonly tags = new Map<string, { material: SpriteMaterial; width: number }>();
@@ -295,11 +297,17 @@ export class EditorOverlay {
     this.scaleNodes();
   }
 
+  /** Writes the nodes' instances: position over the ground, size as handle or dot */
   private scaleNodes(): void {
-    for (const n of this.nodes.children) {
-      if (!(n instanceof Mesh)) continue;
-      const handle = this.nodeHandles || n.material === this.nodeSelected;
-      n.scale.setScalar(handle ? n.userData['size'] * this.markerScale : NODE_DOT);
+    const m = new Matrix4();
+    for (const set of this.nodeSets) {
+      const handle = this.nodeHandles || set.mesh.material === this.nodeSelected;
+      for (let k = 0; k < set.mesh.count; k++) {
+        const s = handle ? set.size[k] * this.markerScale : NODE_DOT;
+        m.makeScale(s, s, s).setPosition(-set.at[k * 3], set.at[k * 3 + 2], set.at[k * 3 + 1]);
+        set.mesh.setMatrixAt(k, m);
+      }
+      set.mesh.instanceMatrix.needsUpdate = true;
     }
   }
 
@@ -326,27 +334,83 @@ export class EditorOverlay {
     this.markers.add(this.nameTag('HQ', TD_THEME.brassLight, -doc.hq.x, this.height(doc.hq.x, doc.hq.y), 18, this.markerScale, doc.hq.y));
 
     clear(this.nodes);
-    for (const n of doc.paths.nodes) {
-      const chosen = nodes.has(n.id);
-      const mesh = new Mesh(this.nodeGeometry, chosen ? this.nodeSelected : this.nodeMaterial);
-      const degree = doc.paths.edges.reduce((d, e) => d + (e.a === n.id || e.b === n.id ? 1 : 0), 0);
-      mesh.userData['size'] = degree > 2 ? 2.4 : 1.8;
-      mesh.position.set(-n.x, this.height(n.x, n.y) + 1, n.y);
+    this.nodeSets = [];
+    const paths = doc.paths;
+    const degree = new Map<string, number>();
+    for (const e of paths.edges) {
+      degree.set(e.a, (degree.get(e.a) ?? 0) + 1);
+      degree.set(e.b, (degree.get(e.b) ?? 0) + 1);
+    }
+    // One instance per node: the chosen ones in brass, the rest in their own set
+    for (const chosen of [false, true]) {
+      const list = paths.nodes.filter((n) => nodes.has(n.id) === chosen);
+      if (!list.length) continue;
+      const mesh = new InstancedMesh(this.nodeGeometry, chosen ? this.nodeSelected : this.nodeMaterial, list.length);
       mesh.renderOrder = 11;
+      mesh.frustumCulled = false;
+      const at = new Float64Array(list.length * 3);
+      const size = new Float32Array(list.length);
+      list.forEach((n, k) => {
+        at.set([n.x, n.y, this.height(n.x, n.y) + 1], k * 3);
+        size[k] = (degree.get(n.id) ?? 0) > 2 ? 2.4 : 1.8;
+      });
+      this.nodeSets.push({ mesh, at, size });
       this.nodes.add(mesh);
     }
-    for (const e of doc.paths.edges) {
-      const a = doc.paths.nodes.find((n) => n.id === e.a);
-      const b = doc.paths.nodes.find((n) => n.id === e.b);
+    // Every road in one set of segments
+    const byId = new Map(paths.nodes.map((n) => [n.id, n]));
+    const pieces: Float32Array[] = [];
+    let count = 0;
+    for (const e of paths.edges) {
+      const a = byId.get(e.a);
+      const b = byId.get(e.b);
       if (!a || !b) continue;
-      const pos = drapedLine([a, ...(e.via ?? []), b], this.walk, 1);
-      const line = new Line(new BufferGeometry(), this.edgeMaterial);
-      line.geometry.setAttribute('position', new BufferAttribute(pos, 3));
-      line.renderOrder = 10;
-      line.frustumCulled = false;
-      this.nodes.add(line);
+      const strip = drapedLine([a, ...(e.via ?? []), b], this.walk, 1);
+      pieces.push(strip);
+      count += strip.length / 3 - 1;
+    }
+    if (count > 0) {
+      const pos = new Float32Array(count * 6);
+      let o = 0;
+      for (const strip of pieces) {
+        for (let k = 3; k < strip.length; k += 3, o += 6) {
+          pos.set(strip.subarray(k - 3, k + 3), o);
+        }
+      }
+      const lines = new LineSegments(new BufferGeometry(), this.edgeMaterial);
+      lines.geometry.setAttribute('position', new BufferAttribute(pos, 3));
+      lines.renderOrder = 10;
+      lines.frustumCulled = false;
+      this.nodes.add(lines);
     }
     this.scaleNodes();
+  }
+
+  /**
+   * The ground moved under what the overlay laid on it (a height stroke, a
+   * bridge over new water): markers, nodes, roads, the selection and the
+   * routes take the new heights where they stand, without being built anew
+   */
+  redrape(): void {
+    for (const m of this.markers.children) {
+      const ground = this.height(-m.position.x, m.position.z);
+      if (m instanceof Sprite) {
+        m.userData['ground'] = ground;
+        m.position.y = ground + m.userData['lift'] * this.markerScale;
+      } else {
+        m.position.y = ground;
+      }
+    }
+    for (const set of this.nodeSets) {
+      for (let k = 0; k < set.mesh.count; k++) set.at[k * 3 + 2] = this.height(set.at[k * 3], set.at[k * 3 + 1]) + 1;
+    }
+    this.scaleNodes();
+    for (const o of this.nodes.children) if (o instanceof LineSegments) relift(o, this.walk, 1);
+    for (const o of this.selection.children) {
+      if (o instanceof LineLoop) relift(o, this.height, 0.4);
+      else if (o instanceof Line) relift(o, this.walk, 1.2);
+    }
+    for (const o of this.routes.children) if (o instanceof Line) relift(o, this.walk, 1.6);
   }
 
   /** Rings around selected objects, a line along a selected edge */
@@ -697,6 +761,14 @@ function ring(color: string, opacity: number): LineLoop {
   return loop;
 }
 
+/** A line laid on the ground again: each point `lift` metres over `height` where it stands */
+function relift(line: Line, height: GroundHeight, lift: number): void {
+  const pos = line.geometry.attributes['position'] as BufferAttribute;
+  for (let k = 0; k < pos.count; k++) pos.setY(k, height(-pos.getX(k), pos.getZ(k)) + lift);
+  pos.needsUpdate = true;
+  line.geometry.computeBoundingSphere();
+}
+
 function drape(loop: LineLoop, c: MapPoint, radius: number, height: GroundHeight): void {
   const pos = loop.geometry.attributes['position'] as BufferAttribute;
   for (let k = 0; k < RING_SEGMENTS; k++) {
@@ -773,6 +845,8 @@ function clear(group: Group): void {
     child.traverse((o) => {
       const mesh = o as Mesh;
       if (mesh.geometry && mesh.geometry.type !== 'SphereGeometry') mesh.geometry.dispose();
+      // Instances keep their own buffers on the GPU (the shared sphere stays)
+      if (o instanceof InstancedMesh) o.dispose();
     });
   }
 }

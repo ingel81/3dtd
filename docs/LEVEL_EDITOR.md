@@ -805,7 +805,10 @@ mehr, mindestens 16), neue Objekte landen in freien Slots, ein entferntes ersetz
 wird eine Zelle erst, wenn der Platz ausgeht. Pinsel auf einer Wassermaske bauen nur die Wasserkacheln (64 Zellen)
 und das Ufer in ihrem Rechteck neu, das Hauptwasser wie die weiteren Gewässer; ganz neu (höchstens alle 120 ms)
 nur bei Spiegel, Art oder Symmetrie. Die Geländeverdeckung (Horizontsuche) eines gehaltenen Pinsels wartet, bis die
-Höhen ruhen (120 ms, höchstens 500 ms), und arbeitet dann einige Millisekunden je Bild ab. Den Himmel baut die
+Höhen ruhen (120 ms, höchstens 500 ms), und arbeitet dann einige Millisekunden je Bild ab. Das Overlay baut Marker, Knoten (Instanzen, eine Menge je Farbe) und Straßen
+(alle Kanten in einem `LineSegments`) nur neu, wenn sich Wege, Spawns, HQ oder die Auswahl ändern, und sucht die
+Routen nur dann neu; Höhen und Wasser darunter legen es nur auf die neuen Höhen (`redrape`, höchstens alle 200 ms im
+Strich). Auf einem Wegenetz von 7 600 Knoten und 8 700 Kanten: Neubau 19 statt 1 500 ms, Nachlegen 3 ms. Den Himmel baut die
 Ansicht höchstens alle 100 ms neu; die Minikarte wartet, bis kein Pinsel mehr gehalten wird.
 
 Gemessen 2026-10-14 (optimierter Build, RTX 5080, 1600 x 900, gehaltener Pinsel 3 s, ms je Bild p50/p90, je zwei

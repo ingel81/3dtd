@@ -89,6 +89,8 @@ const ENV_INTERVAL_MS = 100;
 const AMBIENCE_VOLUME = 0.8;
 /** Milliseconds between two water rebuilds while a brush changes the masks */
 const WATER_INTERVAL_MS = 120;
+/** Milliseconds at least between two layings of the overlay on moving ground (a height stroke) */
+const DRAPE_INTERVAL_MS = 200;
 const FOV = 50;
 /**
  * The game's start view (three-engine/camera-rig.ts applyStartPosition):
@@ -135,6 +137,9 @@ export class EditorViewport {
   private overlayKey = '';
   private overlayTime = 0;
   private markersDirty = true;
+  /** The ground under the overlay moved since it was laid, and when it was laid last (redrape) */
+  private drapeWaiting = false;
+  private drapeAt = 0;
   private pointer: { clientX: number; clientY: number; shift: boolean; ctrl: boolean; alt: boolean; button: number } | null = null;
   private pointerMoved = false;
   private toolDrag = false;
@@ -1042,6 +1047,11 @@ export class EditorViewport {
     if (this.envWaiting && performance.now() - this.envAt >= ENV_INTERVAL_MS) this.applyEnvironment();
     if (this.lifeWaiting && performance.now() - this.lifeAt >= ENV_INTERVAL_MS) this.applyLife();
     if (this.waterWaiting && performance.now() - this.waterAt >= WATER_INTERVAL_MS) this.applyWater();
+    if (this.drapeWaiting && performance.now() - this.drapeAt >= DRAPE_INTERVAL_MS) {
+      this.drapeWaiting = false;
+      this.drapeAt = performance.now();
+      this.overlay.redrape();
+    }
     const c = this.pending;
     if (!c) {
       if (this.markersDirty) this.refreshMarkers();
@@ -1080,19 +1090,21 @@ export class EditorViewport {
       // The sound areas and the bed (its biome's sounds) follow at once: setMap only changes gains
       if (c.life || c.environment) this.ambience?.sound.setMap(this.editor.doc);
     }
-    // Water lifts a bridge deck over it: the routes over the bridge follow
-    if (c.paths || c.markers || c.heights || c.terrain || c.water || c.bodies) this.routesDirty = true;
     if (c.heights || c.terrain) {
       this.guideMode = null;
       this.overlayKey = '';
     }
-    if (Object.entries(c).every(([k, v]) => k === 'objects' || v === undefined)) {
-      // Objects alone leave spawns, HQ and roads as they are (a gizmo drag every frame): only the rings follow
-      this.overlay.updateSelection(this.editor.doc, this.editor.selection, (asset) => this.catalog.object(asset).radius);
-      return;
+    // Spawns, HQ and roads are built anew when they changed; ground and water under them (a deck rises over
+    // water) only lay them again on the new heights, at most every DRAPE_INTERVAL_MS while a stroke goes on
+    if (c.paths || c.markers || c.terrain) {
+      this.routesDirty = true;
+      this.markersDirty = true;
+    } else if (c.heights || c.water || c.bodies) {
+      this.drapeWaiting = true;
     }
-    this.markersDirty = true;
-    this.refreshMarkers();
+    if (this.markersDirty) this.refreshMarkers();
+    // Objects leave the rest as it is (a gizmo drag every frame): the rings follow
+    else if (c.objects) this.overlay.updateSelection(this.editor.doc, this.editor.selection, (asset) => this.catalog.object(asset).radius);
   }
 
   private refreshMarkers(): void {

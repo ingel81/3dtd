@@ -1,4 +1,4 @@
-import { Line, Mesh } from 'three';
+import { InstancedMesh, Line, LineSegments, Matrix4 } from 'three';
 import type { CustomMapDocument } from '../../world/custom-map/map-document';
 import { EditorOverlay, drapedLine } from './editor-overlay';
 
@@ -69,13 +69,68 @@ describe('EditorOverlay road nodes', () => {
     } as unknown as CustomMapDocument;
     overlay.updateMarkers(doc, { kind: 'node', id: 'b' });
     overlay.setViewDistance(2200);
-    const nodes = overlay.group.getObjectsByProperty('renderOrder', 11).filter((o) => o instanceof Mesh);
-    expect(nodes.map((n) => n.scale.x)).toEqual([0.6, 18]);
+    // One set of plain nodes (a), one of chosen ones (b)
+    const sets = overlay.group.getObjectsByProperty('renderOrder', 11).filter((o) => o instanceof InstancedMesh) as InstancedMesh[];
+    const scales = () => sets.map((set) => {
+      const m = new Matrix4();
+      set.getMatrixAt(0, m);
+      return Math.round(m.elements[0] * 100) / 100;
+    });
+    expect(scales()).toEqual([0.6, 18]);
 
     overlay.setNodeHandles(true);
-    expect(nodes.map((n) => n.scale.x)).toEqual([18, 18]);
+    expect(scales()).toEqual([18, 18]);
     overlay.setNodeHandles(false);
-    expect(nodes[0].scale.x).toBe(0.6);
+    expect(scales()[0]).toBe(0.6);
     overlay.dispose();
+  });
+});
+
+describe('EditorOverlay on moving ground', () => {
+  it('lays markers, nodes, roads, selection and routes on new heights without building them anew', () => {
+    let lift = 0;
+    const ground = (x: number) => lift + x * 0.1;
+    const overlay = new EditorOverlay(ground);
+    const doc = {
+      spawns: [{ id: 's', name: 'S', x: 10, y: 0 }],
+      hq: { x: 60, y: 0 },
+      objects: [],
+      paths: {
+        nodes: [{ id: 'a', x: 0, y: 0 }, { id: 'b', x: 50, y: 0 }, { id: 'c', x: 50, y: 30 }],
+        edges: [{ id: 'e', a: 'a', b: 'b', width: 6, kind: 'road' }, { id: 'f', a: 'b', b: 'c', width: 6, kind: 'road' }],
+      },
+    } as unknown as CustomMapDocument;
+    overlay.updateMarkers(doc, { kind: 'edge', id: 'e' });
+    overlay.updateSelection(doc, { kind: 'edge', id: 'e' }, () => 1);
+    overlay.setRoutes([{ points: [{ x: 10, y: 0 }, { x: 60, y: 0 }], length: 50, startGap: 0, endGap: 0 }]);
+    const before = overlay.group.children.map((c) => c.children.length);
+    lift = 5;
+    overlay.redrape();
+    expect(overlay.group.children.map((c) => c.children.length)).toEqual(before);
+    const fresh = new EditorOverlay(ground);
+    fresh.updateMarkers(doc, { kind: 'edge', id: 'e' });
+    fresh.updateSelection(doc, { kind: 'edge', id: 'e' }, () => 1);
+    fresh.setRoutes([{ points: [{ x: 10, y: 0 }, { x: 60, y: 0 }], length: 50, startGap: 0, endGap: 0 }]);
+    const heights = (o: EditorOverlay) => {
+      const out: number[] = [];
+      o.group.traverse((c) => {
+        if (c instanceof Line || c instanceof LineSegments) {
+          const pos = c.geometry.getAttribute('position');
+          if (pos) for (let k = 0; k < pos.count; k++) out.push(Math.round(pos.getY(k) * 1e4) / 1e4);
+        } else if (c instanceof InstancedMesh && c.renderOrder === 11) {
+          const m = new Matrix4();
+          for (let k = 0; k < c.count; k++) {
+            c.getMatrixAt(k, m);
+            out.push(Math.round(m.elements[13] * 1e4) / 1e4);
+          }
+        } else if (c.parent?.parent === o.group && c.userData['pick']) {
+          out.push(c.position.y);
+        }
+      });
+      return out;
+    };
+    expect(heights(overlay)).toEqual(heights(fresh));
+    overlay.dispose();
+    fresh.dispose();
   });
 });
