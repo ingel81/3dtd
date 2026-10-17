@@ -3,7 +3,7 @@ import { finishGenerated, generateTerrain } from '../ops/generate';
 import { addNode, connect } from '../ops/path-graph';
 import { emptyWater } from '../ops/water-ops';
 import { erodeMap } from '../ops/landscape/erosion';
-import { runTerrainJob, startTerrainJob, type TerrainJob } from './terrain-job';
+import { runTerrainJob, startTerrainJob, transferList, type TerrainJob } from './terrain-job';
 
 function terrain() {
   return createMapDocument({ id: 'm', name: 'M', width: 400, depth: 400, cellSize: 2, now: new Date(0) }).terrain;
@@ -55,6 +55,16 @@ describe('terrain jobs', () => {
     expect(Array.from(finished.heights)).toEqual(Array.from(page.terrain.grid.heights));
     expect(finished.layers).toEqual(page.terrain.layers);
     expect(finished.splat.map((m) => Array.from(m))).toEqual(page.terrain.splat.maps.map((m) => Array.from(m)));
+  });
+
+  it('hands over each buffer of a message once, also splat maps sharing one', () => {
+    const block = new ArrayBuffer(32);
+    const heights = new Float32Array(4);
+    const m = { kind: 'finished' as const, heights, layers: [], splat: [new Uint8Array(block, 0, 16), new Uint8Array(block, 16, 16)], progress: 1 };
+    const list = transferList(m);
+    expect(list).toEqual([heights.buffer, block]);
+    expect(() => structuredClone(m, { transfer: list })).not.toThrow();
+    expect(transferList({ kind: 'done', result: null })).toEqual([]);
   });
 
   it('erode in slices like at once, the land worn down a little', () => {

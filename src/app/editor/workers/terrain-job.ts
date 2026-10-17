@@ -96,6 +96,17 @@ export function* runTerrainJob(job: TerrainJob): Generator<TerrainJobMessage> {
   yield { kind: 'done', result: null };
 }
 
+/**
+ * The buffers a message can hand over without a copy, each once: two
+ * arrays on one buffer (splat maps cut from one block) listed twice make
+ * postMessage throw a DataCloneError
+ */
+export function transferList(m: TerrainJobMessage): ArrayBuffer[] {
+  if (m.kind === 'done') return [];
+  const arrays = m.kind === 'finished' ? [m.heights, ...m.splat] : [m.heights];
+  return [...new Set(arrays.map((a) => a.buffer as ArrayBuffer))];
+}
+
 /** The finished map from its generated heights, as the editor finishes it (EditorSession.finishGenerate) */
 function finish(f: GenerateFinish, grid: MapTerrain['grid'], result: GenerateResult): TerrainJobMessage {
   const terrain = { ...f.terrain, grid } as MapTerrain;
