@@ -1,4 +1,4 @@
-import { packOffThread } from '../../editor/workers/map-pack';
+import { packOffThread } from './map-pack';
 import type { CustomMapDocument } from './map-document';
 import { contentHash, unpackMapFile } from './map-file';
 import { MapStore } from './map-store';

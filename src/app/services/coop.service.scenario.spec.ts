@@ -50,8 +50,8 @@ vi.mock('./location/location-change-coordinator.service', () => ({ LocationChang
 vi.mock('./input-handler.service', () => ({ InputHandlerService: class {} }));
 vi.mock('../run-log/run-log.facade', () => ({ RunLogFacade: class {} }));
 // The real packing, counted: the host packs a map once, not on every share
-vi.mock('../editor/workers/map-pack', async (importOriginal) => {
-  const real = await importOriginal<typeof import('../editor/workers/map-pack')>();
+vi.mock('../world/custom-map/map-pack', async (importOriginal) => {
+  const real = await importOriginal<typeof import('../world/custom-map/map-pack')>();
   return { ...real, packOffThread: vi.fn(real.packOffThread) };
 });
 // A world package that only says where it is: the host's HQ, the spawns
@@ -95,7 +95,7 @@ import { WorldContext } from '../world/world-context.service';
 import { fakeWorldContext } from '../../test/world-context-fake';
 import { splitMapFile, type MapPart } from '../coop/map-transfer';
 import { MAP_PART_BYTES } from '../coop/protocol';
-import { packOffThread } from '../editor/workers/map-pack';
+import { packOffThread } from '../world/custom-map/map-pack';
 import { createMapDocument } from '../world/custom-map/map-create';
 import { MapStore, MemoryMapBackend } from '../world/custom-map/map-store';
 import { closeCustomMaps, openCustomMap } from '../world/custom-map/custom-map-world';

@@ -6,11 +6,11 @@
  * was asked for (the editor may go on changing it); inline where there are
  * no workers (tests).
  */
-import type { CustomMapDocument } from '../../world/custom-map/map-document';
-import { MapFileError, contentHash, packMapFile, type PackOptions } from '../../world/custom-map/map-file';
-import type { MapSummary } from '../../world/custom-map/map-store';
-import { summarize } from '../../world/custom-map/map-summary';
-import { fingerprint } from '../model/version-store';
+import type { CustomMapDocument } from './map-document';
+import { MapFileError, contentHash, packMapFile, type PackOptions } from './map-file';
+import type { MapSummary } from './map-store';
+import { summarize } from './map-summary';
+import { fingerprint } from '../../editor/model/version-store';
 
 export interface PackedMap {
   file: Uint8Array;

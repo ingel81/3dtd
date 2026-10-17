@@ -7,7 +7,7 @@
  */
 import type { GridRect } from '../../map-ops/grid';
 import { erodeJob, startTerrainJob, type TerrainJob, type TerrainJobMessage } from '../workers/terrain-job';
-import { packOffThread } from '../workers/map-pack';
+import { packOffThread } from '../../world/custom-map/map-pack';
 import type { DocChange } from '../model/editor-document';
 import type { MapTrialResult } from '../../world/map-trial';
 import { AppScreen } from '../../world/app-screen.service';

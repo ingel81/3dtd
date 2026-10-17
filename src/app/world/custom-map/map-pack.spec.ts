@@ -1,6 +1,6 @@
-import { createMapDocument } from '../../world/custom-map/map-create';
-import { MapFileError, contentHash, packMapFile, unpackMapFile } from '../../world/custom-map/map-file';
-import { fingerprint } from '../model/version-store';
+import { createMapDocument } from './map-create';
+import { MapFileError, contentHash, packMapFile, unpackMapFile } from './map-file';
+import { fingerprint } from '../../editor/model/version-store';
 import { packErrorReply, packForSave, packOffThread, packReplyError } from './map-pack';
 
 describe('packOffThread', () => {
