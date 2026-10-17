@@ -8,6 +8,7 @@ import type { EditorSettings, GizmoMode, ObjectMode } from '../../tools/tool';
 
 type ObjectToolSettings = EditorSettings['objects'];
 import { EditorSession } from '../editor-session.service';
+import { panelRev } from './panel-shown';
 import { BrushPanelComponent } from './brush-panel.component';
 import { PrefabPanelComponent } from './prefab-panel.component';
 import { RangeRowComponent } from './range-row.component';
@@ -39,6 +40,8 @@ const TURN_STEPS = [5, 15, 45, 90];
 })
 export class ObjectPanelComponent {
   readonly session = inject(EditorSession);
+  /** The map's revision while this panel is in sight (PanelShown) */
+  private readonly rev = panelRev();
   readonly modes = MODES;
   readonly snaps = SNAPS;
   readonly turnSteps = TURN_STEPS;
@@ -69,7 +72,7 @@ export class ObjectPanelComponent {
       );
   });
   readonly selected = computed<MapObject[]>(() => {
-    this.session.docRev();
+    this.rev();
     const sel = this.session.selection();
     const doc = this.session.doc;
     if (sel?.kind !== 'objects' || !doc) return [];

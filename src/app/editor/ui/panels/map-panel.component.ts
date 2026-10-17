@@ -6,6 +6,7 @@ import { detailTarget } from '../../ops/detail';
 import { rangeFromName } from '../../ops/heightmap';
 import { RangeRowComponent } from './range-row.component';
 import { EditorSession } from '../editor-session.service';
+import { panelRev } from './panel-shown';
 import { MapBudgetComponent } from './map-budget.component';
 import { IntroPanelComponent } from './intro-panel.component';
 
@@ -157,6 +158,8 @@ import { IntroPanelComponent } from './intro-panel.component';
 })
 export class MapPanelComponent {
   private readonly session = inject(EditorSession);
+  /** The map's revision while this panel is in sight (PanelShown) */
+  private readonly rev = panelRev();
   readonly meta = computed(() => this.session.meta());
   readonly presets = TERRAIN_PRESETS;
   readonly preset = signal<TerrainPreset>('hills');
@@ -167,7 +170,7 @@ export class MapPanelComponent {
   readonly width = signal<number | null>(null);
   readonly depth = signal<number | null>(null);
   readonly size = computed(() => {
-    this.session.docRev();
+    this.rev();
     const t = this.session.doc?.terrain;
     if (!t) return null;
     const target = detailTarget(t);

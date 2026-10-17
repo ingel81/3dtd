@@ -3,6 +3,7 @@ import { selectedEdges, selectedNodes, selectedSpawns } from '../../model/editor
 import { describeGround, describePick } from '../../tools/look-tool';
 import type { PickResult, ToolId } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
+import { panelRev } from './panel-shown';
 
 /** Look: what the click picked, and the tool that edits it */
 @Component({
@@ -45,9 +46,11 @@ import { EditorSession } from '../editor-session.service';
 })
 export class LookPanelComponent {
   private readonly session = inject(EditorSession);
+  /** The map's revision while this panel is in sight (PanelShown) */
+  private readonly rev = panelRev();
 
   readonly picked = computed(() => {
-    this.session.docRev();
+    this.rev();
     const sel = this.session.selection();
     const editor = this.session.editor;
     if (!sel || !editor) return null;
@@ -88,7 +91,7 @@ export class LookPanelComponent {
 
   /** The ground point a click found nothing on (LookTool), described */
   readonly ground = computed(() => {
-    this.session.docRev();
+    this.rev();
     this.session.settingsRev();
     const at = this.session.settings.look.at;
     const editor = this.session.editor;

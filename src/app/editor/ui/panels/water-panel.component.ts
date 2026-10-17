@@ -8,6 +8,7 @@ import { meanWidth, riverLength, setMeanWidth, simplifyRiver } from '../../ops/r
 import { relayRiver, removeWholeRiver, riverEdit, waterCommands } from '../../tools/water-tool';
 import type { WaterMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
+import { panelRev } from './panel-shown';
 import { BrushPanelComponent } from './brush-panel.component';
 import { RangeRowComponent } from './range-row.component';
 import { ModePickerComponent, type EditorMode } from './mode-picker.component';
@@ -135,6 +136,8 @@ const KIND_NAMES: Record<MapWaterKind, string> = { water: 'Water', sea: 'Sea', s
 })
 export class WaterPanelComponent {
   private readonly session = inject(EditorSession);
+  /** The map's revision while this panel is in sight (PanelShown) */
+  private readonly rev = panelRev();
   readonly kinds: MapWaterKind[] = ['water', 'sea', 'swamp', 'ice', 'lava'];
   readonly modes = WATER_MODES;
   readonly mode = computed(() => (this.session.settingsRev(), this.session.settings.water.mode));
@@ -143,7 +146,7 @@ export class WaterPanelComponent {
   readonly depth = computed(() => (this.session.settingsRev(), this.session.settings.water.depth));
 
   readonly bodies = computed(() => {
-    this.session.docRev();
+    this.rev();
     const t = this.session.doc?.terrain;
     if (!t) return [];
     const main = t.water;
@@ -167,7 +170,7 @@ export class WaterPanelComponent {
 
   readonly river = computed(() => (this.session.settingsRev(), this.session.settings.water.river));
   readonly rivers = computed(() => {
-    this.session.docRev();
+    this.rev();
     return (this.session.doc?.terrain.rivers ?? []).map((r, index) => ({
       index,
       kind: r.kind,
@@ -176,7 +179,7 @@ export class WaterPanelComponent {
     }));
   });
   readonly chosenRiver = computed(() => {
-    this.session.docRev();
+    this.rev();
     const r = this.session.doc?.terrain.rivers?.[this.river()];
     return r ? { kind: r.kind, width: Math.round(meanWidth(r)) } : null;
   });

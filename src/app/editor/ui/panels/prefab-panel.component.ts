@@ -4,6 +4,7 @@ import { TdIconComponent } from '../../../components/icon/icon.component';
 import type { SavedStamp, StampKeep } from '../../model/stamp-store';
 import { capturePrefab } from '../../ops/stamp';
 import { EditorSession } from '../editor-session.service';
+import { panelRev } from './panel-shown';
 
 /** A saved piece and where it is kept */
 export interface KeptStamp {
@@ -69,6 +70,8 @@ export interface KeptStamp {
 })
 export class PrefabPanelComponent implements OnInit {
   private readonly session = inject(EditorSession);
+  /** The map's revision while this panel is in sight (PanelShown) */
+  private readonly rev = panelRev();
   readonly name = signal('');
   readonly ground = signal(false);
   readonly keep = signal<StampKeep>('library');
@@ -85,7 +88,7 @@ export class PrefabPanelComponent implements OnInit {
   });
   /** The map's prefabs first, then the library's */
   readonly prefabs = computed<KeptStamp[]>(() => {
-    this.session.docRev();
+    this.rev();
     return [
       ...this.session.mapStamps().filter((s) => s.stamp.prefab).map((saved) => ({ saved, keep: 'map' as const })),
       ...this.session.libraryStamps().filter((s) => s.stamp.prefab).map((saved) => ({ saved, keep: 'library' as const })),

@@ -5,6 +5,7 @@ import { centroid, DEFAULT_BOAT, LIFE_AREA_DENSITY, LIFE_KIND_INFO, LIFE_KINDS, 
 import { SnapshotCommand } from '../../model/editor-document';
 import type { LifeMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
+import { panelRev } from './panel-shown';
 import { RangeRowComponent } from './range-row.component';
 import { AMBIENT_SOUNDS, BIOME_AMBIENCE, WAVE_SOUNDS } from '../../../world/custom-map/ambience/ambient-sounds';
 
@@ -257,6 +258,8 @@ const TINTED: ReadonlySet<MapLifeKind> = new Set(['fireflies', 'fog', 'leaves', 
 })
 export class LifePanelComponent {
   readonly session = inject(EditorSession);
+  /** The map's revision while this panel is in sight (PanelShown) */
+  private readonly rev = panelRev();
   readonly info = LIFE_KIND_INFO;
   readonly kinds = LIFE_KINDS;
   readonly sounds = Object.entries(AMBIENT_SOUNDS).map(([id, s]) => ({ id, label: s.label }));
@@ -272,7 +275,7 @@ export class LifePanelComponent {
     { id: 'edit', label: 'Edit' },
   ];
   readonly settings = computed(() => (this.session.settingsRev(), { ...this.session.settings.life }));
-  readonly life = computed(() => (this.session.docRev(), this.session.doc?.life));
+  readonly life = computed(() => (this.rev(), this.session.doc?.life));
   readonly areas = computed(() => this.life()?.areas ?? []);
   readonly chosen = computed(() => {
     const id = this.settings().chosen;

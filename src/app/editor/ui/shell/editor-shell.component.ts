@@ -54,6 +54,7 @@ import { AppScreen } from '../../../world/app-screen.service';
 import { WorldSession } from '../../../world/world-session.service';
 import { PLAIN_START } from '../../../world/world-start';
 import { WorldsStageService } from '../../../worlds/worlds-stage.service';
+import { PanelShown } from '../panels/panel-shown';
 
 const LEGEND_KEY = '3dtd-editor-legend';
 const SIDE_KEY = '3dtd-editor-side';
@@ -113,6 +114,7 @@ export const TOOL_ICON: Record<ToolId, TdIconName> = {
   selector: 'app-editor-shell',
   standalone: true,
   imports: [RovingGroupDirective, 
+    PanelShown,
     TdIconComponent,
     MatTooltipModule,
     LookPanelComponent,
@@ -263,16 +265,16 @@ export class EditorShellComponent implements OnDestroy {
       });
     });
     // A change of the map may finish the step the tour is on
-    effect(() => {
-      const last = this.session.lastChange();
-      if (last) untracked(() => this.tourEvent('change', last.change));
-    });
+    this.offChange = this.session.onDocChange((change) => this.tourEvent('change', change));
   }
+
+  private readonly offChange: () => void;
 
   private destroyed = false;
 
   ngOnDestroy(): void {
     this.destroyed = true;
+    this.offChange();
     this.session.detachViewport();
   }
 
@@ -348,6 +350,11 @@ export class EditorShellComponent implements OnDestroy {
     // The view's own keys (arrows pan) do not get it
     e.preventDefault();
     e.stopPropagation();
+  }
+
+  /** Whether a tool's panel is in sight: its tool in hand and the tool tab open */
+  panelShown(id: ToolId): boolean {
+    return this.sideView() === 'tool' && this.session.tool() === id;
   }
 
   pick(id: ToolId): void {

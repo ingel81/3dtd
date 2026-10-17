@@ -217,51 +217,51 @@
       <fieldset class="es-fieldset" [disabled]="session.readOnly() || !!session.terrainJob()">
         <!-- Panels stay once made and only hide: switching tools does not build them again -->
         @if (mounted().has('look')) {
-          <div class="es-panel" [class.is-off]="session.tool() !== 'look'"><app-look-panel /></div>
+          <div class="es-panel" [class.is-off]="session.tool() !== 'look'" [appPanelShown]="panelShown('look')"><app-look-panel /></div>
         }
         @if (mounted().has('landscape')) {
-          <div class="es-panel" [class.is-off]="session.tool() !== 'landscape'"><app-landscape-panel /></div>
+          <div class="es-panel" [class.is-off]="session.tool() !== 'landscape'" [appPanelShown]="panelShown('landscape')"><app-landscape-panel /></div>
         }
         @if (mounted().has('terrain')) {
-          <div class="es-panel" [class.is-off]="session.tool() !== 'terrain'"><app-terrain-panel /></div>
+          <div class="es-panel" [class.is-off]="session.tool() !== 'terrain'" [appPanelShown]="panelShown('terrain')"><app-terrain-panel /></div>
         }
         @if (mounted().has('paint')) {
-          <div class="es-panel" [class.is-off]="session.tool() !== 'paint'"><app-paint-panel /></div>
+          <div class="es-panel" [class.is-off]="session.tool() !== 'paint'" [appPanelShown]="panelShown('paint')"><app-paint-panel /></div>
         }
         @if (mounted().has('water')) {
-          <div class="es-panel" [class.is-off]="session.tool() !== 'water'"><app-water-panel /></div>
+          <div class="es-panel" [class.is-off]="session.tool() !== 'water'" [appPanelShown]="panelShown('water')"><app-water-panel /></div>
         }
         @if (mounted().has('objects')) {
-          <div class="es-panel" [class.is-off]="session.tool() !== 'objects'"><app-object-panel /></div>
+          <div class="es-panel" [class.is-off]="session.tool() !== 'objects'" [appPanelShown]="panelShown('objects')"><app-object-panel /></div>
         }
         @if (mounted().has('life')) {
-          <div class="es-panel" [class.is-off]="session.tool() !== 'life'"><app-life-panel /></div>
+          <div class="es-panel" [class.is-off]="session.tool() !== 'life'" [appPanelShown]="panelShown('life')"><app-life-panel /></div>
         }
         @if (mounted().has('paths')) {
-          <div class="es-panel" [class.is-off]="session.tool() !== 'paths'"><app-path-panel /></div>
+          <div class="es-panel" [class.is-off]="session.tool() !== 'paths'" [appPanelShown]="panelShown('paths')"><app-path-panel /></div>
         }
         @if (mounted().has('markers')) {
-          <div class="es-panel" [class.is-off]="session.tool() !== 'markers'"><app-marker-panel /></div>
+          <div class="es-panel" [class.is-off]="session.tool() !== 'markers'" [appPanelShown]="panelShown('markers')"><app-marker-panel /></div>
         }
         @if (mounted().has('environment')) {
-          <div class="es-panel" [class.is-off]="session.tool() !== 'environment'"><app-environment-panel /></div>
+          <div class="es-panel" [class.is-off]="session.tool() !== 'environment'" [appPanelShown]="panelShown('environment')"><app-environment-panel /></div>
         }
         @if (mounted().has('settings')) {
-          <div class="es-panel" [class.is-off]="session.tool() !== 'settings'"><app-map-panel /></div>
+          <div class="es-panel" [class.is-off]="session.tool() !== 'settings'" [appPanelShown]="panelShown('settings')"><app-map-panel /></div>
         }
         @if (mounted().has('stamp')) {
-          <div class="es-panel" [class.is-off]="session.tool() !== 'stamp'"><app-stamp-panel /></div>
+          <div class="es-panel" [class.is-off]="session.tool() !== 'stamp'" [appPanelShown]="panelShown('stamp')"><app-stamp-panel /></div>
         }
         @if (mounted().has('gameplay')) {
-          <div class="es-panel" [class.is-off]="session.tool() !== 'gameplay'"><app-gameplay-panel /></div>
+          <div class="es-panel" [class.is-off]="session.tool() !== 'gameplay'" [appPanelShown]="panelShown('gameplay')"><app-gameplay-panel /></div>
         }
         @if (mounted().has('measure')) {
-          <div class="es-panel" [class.is-off]="session.tool() !== 'measure'"><app-measure-panel /></div>
+          <div class="es-panel" [class.is-off]="session.tool() !== 'measure'" [appPanelShown]="panelShown('measure')"><app-measure-panel /></div>
         }
       </fieldset>
       </div>
     </section>
-    <app-editor-outliner class="td-side-section is-fill" id="es-panel-outline" role="tabpanel" aria-labelledby="es-tab-outline" [hidden]="sideView() !== 'outline'" />
+    <app-editor-outliner class="td-side-section is-fill" id="es-panel-outline" role="tabpanel" aria-labelledby="es-tab-outline" [hidden]="sideView() !== 'outline'" [appPanelShown]="sideView() === 'outline'" />
     @if (sideView() === 'history') {
       <app-editor-history class="td-side-section is-fill" id="es-panel-history" role="tabpanel" aria-labelledby="es-tab-history" />
     }

@@ -7,6 +7,7 @@ import { roadSurfaces } from '../../ops/landscape/road';
 import { editRoads, flattenRoads, paintRoads, pathCommands, rebuildRoads, setRoadSurface, setRoads } from '../../tools/path-tool';
 import type { PathMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
+import { panelRev } from './panel-shown';
 import { RangeRowComponent } from './range-row.component';
 
 const KINDS: { id: MapPathKind; label: string }[] = [
@@ -98,17 +99,19 @@ const KINDS: { id: MapPathKind; label: string }[] = [
 })
 export class PathPanelComponent {
   private readonly session = inject(EditorSession);
+  /** The map's revision while this panel is in sight (PanelShown) */
+  private readonly rev = panelRev();
   readonly kinds = KINDS;
   readonly s = computed(() => (this.session.settingsRev(), { ...this.session.settings.paths }));
   readonly layer = signal(0);
   readonly surfaces = computed(() => roadSurfaces(this.session.catalog()));
   readonly layers = computed(() => {
-    this.session.docRev();
+    this.rev();
     const catalog = this.session.catalog();
     return (this.session.doc?.terrain.layers ?? []).map((l, index) => ({ index, name: catalog.material(l.material).name }));
   });
   readonly edgeIds = computed(() => {
-    this.session.docRev();
+    this.rev();
     const sel = this.session.selection();
     const doc = this.session.doc;
     if (!doc) return [];
@@ -118,7 +121,7 @@ export class PathPanelComponent {
     return doc.paths.edges.filter((e) => edges.has(e.id) || nodes.has(e.a) || nodes.has(e.b)).map((e) => e.id);
   });
   readonly edge = computed(() => {
-    this.session.docRev();
+    this.rev();
     const sel = this.session.selection();
     const doc = this.session.doc;
     const ids = new Set(selectedEdges(sel));

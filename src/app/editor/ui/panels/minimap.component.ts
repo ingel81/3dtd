@@ -58,7 +58,6 @@ export class MinimapComponent implements OnDestroy {
   constructor() {
     effect(() => {
       const rev = this.session.docRev() * 1000 + this.session.viewRev();
-      this.session.cameraRev();
       this.session.selection();
       this.schedulePicture(rev);
       this.draw();
@@ -78,8 +77,12 @@ export class MinimapComponent implements OnDestroy {
     else this.session.showBookmark(slot);
   }
 
+  /** The camera's frame follows the view outside Angular: a flight moves it every frame */
+  private readonly offCamera = this.session.onCamera(() => this.draw());
+
   ngOnDestroy(): void {
     this.destroyed = true;
+    this.offCamera();
     if (this.timer) clearTimeout(this.timer);
   }
 

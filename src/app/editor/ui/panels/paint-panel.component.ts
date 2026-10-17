@@ -5,6 +5,7 @@ import { TdIconComponent } from '../../../components/icon/icon.component';
 import { MAX_LAYERS } from '../../ops/paint-ops';
 import { paintCommands } from '../../tools/paint-tool';
 import { EditorSession } from '../editor-session.service';
+import { panelRev } from './panel-shown';
 import type { GroundMaterialEntry } from '../../catalog/asset-catalog';
 import { BrushPanelComponent } from './brush-panel.component';
 import { RangeRowComponent } from './range-row.component';
@@ -24,11 +25,13 @@ import { RangeRowComponent } from './range-row.component';
 })
 export class PaintPanelComponent {
   readonly session = inject(EditorSession);
+  /** The map's revision while this panel is in sight (PanelShown) */
+  private readonly rev = panelRev();
   readonly max = MAX_LAYERS;
   readonly thumb = (m: GroundMaterialEntry) => this.session.materialPicture(m);
   readonly settings = computed(() => (this.session.settingsRev(), { ...this.session.settings.paint }));
   readonly layers = computed(() => {
-    this.session.docRev();
+    this.rev();
     const doc = this.session.doc;
     const catalog = this.session.catalog();
     return (doc?.terrain.layers ?? []).map((l, index) => ({ index, layer: l, material: catalog.material(l.material) }));
@@ -53,7 +56,7 @@ export class PaintPanelComponent {
   });
   readonly groupMaterials = computed(() => this.materialGroups().find((g) => g.name === this.group())?.materials ?? []);
   readonly cliff = computed(() => {
-    this.session.docRev();
+    this.rev();
     const t = this.session.doc?.terrain;
     return { material: t?.cliffMaterial ?? 'rock', angle: t?.cliffAngle ?? 40 };
   });

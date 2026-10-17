@@ -114,8 +114,14 @@ export class EditorSession implements OnDestroy {
   readonly viewLost = signal(false);
   /** The map's intro flight plays in the view (Preview) */
   readonly introPreviewing = signal(false);
-  /** The latest change of the document (a new object each time, for the tour) */
-  readonly lastChange = signal<{ change: DocChange } | null>(null);
+  /**
+   * Listeners of every change of the open map and of every moved camera
+   * frame (onDocChange, onCamera). Not signals: a stroke changes the map and
+   * a flight moves the camera every frame, and a signal set outside the
+   * zone would have Angular check every panel each frame.
+   */
+  private readonly changeListeners = new Set<(change: DocChange) => void>();
+  private readonly cameraListeners = new Set<() => void>();
   /** The save running now, if any */
   private saveRun: Promise<boolean> | null = null;
   /** Counts the times the map view became ready (models and textures in): pictures of it are worth retaking */
@@ -201,7 +207,6 @@ export class EditorSession implements OnDestroy {
   readonly box = signal<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
   /** The lasso outline as SVG points (client pixels), or null */
   readonly lasso = signal<string | null>(null);
-  readonly cameraRev = signal(0);
   readonly importState = signal<ImportState | null>(null);
   /** A file read in that matches an own map, waiting for Replace or Keep both */
   readonly importMatch = signal<ImportMatch | null>(null);
@@ -882,7 +887,7 @@ export class EditorSession implements OnDestroy {
     this.unsubscribe.push(
       editor.onChange((change) => {
         this.changed = true;
-        this.lastChange.set({ change });
+        for (const fn of this.changeListeners) fn(change);
       }),
       editor.onSelection((s) => this.selection.set(s)),
     );
@@ -939,7 +944,9 @@ export class EditorSession implements OnDestroy {
         lasso: (points) => this.lasso.set(points ? points.map((q) => `${Math.round(q.x)},${Math.round(q.y)}`).join(' ') : null),
         hover: (h) => this.hover.set(h),
         stats: (s) => this.stats.set(s),
-        camera: () => this.cameraRev.update((n) => n + 1),
+        camera: () => {
+          for (const fn of this.cameraListeners) fn();
+        },
         viewReady: () =>
           this.zone.run(() => {
             this.viewRev.update((n) => n + 1);
@@ -1706,6 +1713,18 @@ export class EditorSession implements OnDestroy {
 
   private redoLabelOf(): string {
     return this.editor?.redoLabel ?? '';
+  }
+
+  /** Calls `fn` with each change of the open map, as it happens (the tour); returns the unsubscribe */
+  onDocChange(fn: (change: DocChange) => void): () => void {
+    this.changeListeners.add(fn);
+    return () => this.changeListeners.delete(fn);
+  }
+
+  /** Calls `fn` in each frame the camera moved (the minimap's frame); returns the unsubscribe */
+  onCamera(fn: () => void): () => void {
+    this.cameraListeners.add(fn);
+    return () => this.cameraListeners.delete(fn);
   }
 
   private pollChanges(): void {

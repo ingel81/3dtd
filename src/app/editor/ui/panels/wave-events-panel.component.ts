@@ -4,6 +4,7 @@ import { WAVE_EVENT_LIMITS, type MapGameplay, type MapWaveEvent, type MapWaveEve
 import { SnapshotCommand } from '../../model/editor-document';
 import { waveEventProblems } from '../../validation/wave-event-check';
 import { EditorSession } from '../editor-session.service';
+import { panelRev } from './panel-shown';
 
 const KINDS: { id: MapWaveEventKind; label: string; hint: string }[] = [
   { id: 'message', label: 'Message', hint: 'A text on the screen' },
@@ -128,26 +129,28 @@ const WEATHERS: { id: MapWeather; label: string }[] = [
 })
 export class WaveEventsPanelComponent {
   private readonly session = inject(EditorSession);
+  /** The map's revision while this panel is in sight (PanelShown) */
+  private readonly rev = panelRev();
   readonly kinds = KINDS;
   readonly weathers = WEATHERS;
   readonly limits = WAVE_EVENT_LIMITS;
   readonly kind = signal<MapWaveEventKind>('message');
   readonly open = signal<number | null>(null);
 
-  readonly events = computed<MapWaveEvent[]>(() => (this.session.docRev(), structuredClone(this.session.doc?.gameplay?.events ?? [])));
+  readonly events = computed<MapWaveEvent[]>(() => (this.rev(), structuredClone(this.session.doc?.gameplay?.events ?? [])));
   /** In wave order, each with its place in the list */
   readonly rows = computed(() =>
     this.events()
       .map((event, index) => ({ event, index }))
       .sort((a, b) => a.event.wave - b.event.wave || a.index - b.index),
   );
-  readonly spawns = computed(() => (this.session.docRev(), this.session.doc?.spawns ?? []).map((s) => ({ id: s.id, name: s.name })));
+  readonly spawns = computed(() => (this.rev(), this.session.doc?.spawns ?? []).map((s) => ({ id: s.id, name: s.name })));
   readonly selected = computed<string[]>(() => {
     const sel = this.session.selection();
     return sel?.kind === 'objects' ? sel.ids : [];
   });
   readonly problems = computed(() => {
-    this.session.docRev();
+    this.rev();
     const doc = this.session.doc;
     return doc ? waveEventProblems(doc) : [];
   });

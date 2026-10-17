@@ -4,6 +4,7 @@ import type { MapIntro } from '../../../world/custom-map/map-document';
 import { INTRO_ORBIT, INTRO_SECONDS, MAX_INTRO_VIEWS } from '../../../world/custom-map/map-intro';
 import { heightAt } from '../../model/grid';
 import { EditorSession } from '../editor-session.service';
+import { panelRev } from './panel-shown';
 import { RangeRowComponent } from './range-row.component';
 
 type IntroKind = 'default' | MapIntro['kind'];
@@ -70,6 +71,8 @@ type IntroKind = 'default' | MapIntro['kind'];
 })
 export class IntroPanelComponent {
   readonly session = inject(EditorSession);
+  /** The map's revision while this panel is in sight (PanelShown) */
+  private readonly rev = panelRev();
   readonly seconds = INTRO_SECONDS;
   readonly sweep = INTRO_ORBIT.sweep;
   readonly maxViews = MAX_INTRO_VIEWS;
@@ -79,7 +82,7 @@ export class IntroPanelComponent {
     { id: 'path', label: 'Camera path', hint: 'Flies through views you keep one by one' },
   ];
 
-  readonly intro = computed(() => (this.session.docRev(), this.session.doc?.intro ?? null));
+  readonly intro = computed(() => (this.rev(), this.session.doc?.intro ?? null));
   readonly kind = computed<IntroKind>(() => this.intro()?.kind ?? 'default');
   readonly views = computed(() => {
     const i = this.intro();

@@ -809,7 +809,11 @@ nur bei Spiegel, Art oder Symmetrie. Die Geländeverdeckung (Horizontsuche) eine
 Höhen ruhen (120 ms, höchstens 500 ms), und arbeitet dann einige Millisekunden je Bild ab. Das Overlay baut Marker, Knoten (Instanzen, eine Menge je Farbe) und Straßen
 (alle Kanten in einem `LineSegments`) nur neu, wenn sich Wege, Spawns, HQ oder die Auswahl ändern, und sucht die
 Routen nur dann neu; Höhen und Wasser darunter legen es nur auf die neuen Höhen (`redrape`, höchstens alle 200 ms im
-Strich). Auf einem Wegenetz von 7 600 Knoten und 8 700 Kanten: Neubau 19 statt 1 500 ms, Nachlegen 3 ms. Den Himmel baut die
+Strich). Auf einem Wegenetz von 7 600 Knoten und 8 700 Kanten: Neubau 19 statt 1 500 ms, Nachlegen 3 ms. Die Panels der Werkzeuge bleiben gemountet, folgen der
+Kartenrevision (`docRev`, alle 150 ms im Strich) aber nur, solange sie zu sehen sind (`PanelShown`), und holen sie beim
+Zeigen nach. Änderungen je Tupfer und Kamerabilder gehen an Zuhörer (`onDocChange`, `onCamera`: Tour, Minikarte) statt
+an Signale, die Angular sonst in jedem Bild alles prüfen ließen. Gehaltener Gebirgspinsel auf einer kleinen Stadtkarte,
+16 s: 603 statt 1 388 Prüfläufe, Template-Zeit 65 statt 220 ms. Den Himmel baut die
 Ansicht höchstens alle 100 ms neu; die Minikarte wartet, bis kein Pinsel mehr gehalten wird.
 
 Gemessen 2026-10-14 (optimierter Build, RTX 5080, 1600 x 900, gehaltener Pinsel 3 s, ms je Bild p50/p90, je zwei

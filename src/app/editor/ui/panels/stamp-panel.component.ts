@@ -5,6 +5,7 @@ import type { SavedStamp, StampKeep } from '../../model/stamp-store';
 import type { StampParts } from '../../ops/stamp';
 import type { StampTool } from '../../tools/stamp-tool';
 import { EditorSession } from '../editor-session.service';
+import { panelRev } from './panel-shown';
 import type { KeptStamp } from './prefab-panel.component';
 import { RangeRowComponent } from './range-row.component';
 
@@ -102,12 +103,14 @@ const PARTS: { id: keyof StampParts; label: string }[] = [
 })
 export class StampPanelComponent implements OnInit {
   private readonly session = inject(EditorSession);
+  /** The map's revision while this panel is in sight (PanelShown) */
+  private readonly rev = panelRev();
   readonly parts = PARTS;
   readonly name = signal('');
   readonly keep = signal<StampKeep>('library');
   /** The map's own first, then the library's */
   readonly stamps = computed<KeptStamp[]>(() => {
-    this.session.docRev();
+    this.rev();
     return [
       ...this.session.mapStamps().map((saved) => ({ saved, keep: 'map' as const })),
       ...this.session.libraryStamps().map((saved) => ({ saved, keep: 'library' as const })),

@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { EditorSession } from '../editor-session.service';
+import { panelRev } from './panel-shown';
 import { mapBudget, mapSceneCost } from '../../validation/map-budget';
 
 /** The Map panel's budget: the objects' scene cost against what keeps a map fluid, the file against what coop sends */
@@ -26,11 +27,13 @@ import { mapBudget, mapSceneCost } from '../../validation/map-budget';
 })
 export class MapBudgetComponent {
   private readonly session = inject(EditorSession);
+  /** The map's revision while this panel is in sight (PanelShown) */
+  private readonly rev = panelRev();
 
   /** The file as the last manual save packed it (the one a coop room sends); autosaves pack lighter */
   private readonly fileBytes = computed(() => this.session.versions().find((v) => v.manual)?.size ?? null);
   readonly budget = computed(() => {
-    this.session.docRev();
+    this.rev();
     const doc = this.session.doc;
     return mapBudget(doc ? mapSceneCost(doc, this.session.catalog()) : 0, doc?.objects.length ?? 0, this.fileBytes());
   });

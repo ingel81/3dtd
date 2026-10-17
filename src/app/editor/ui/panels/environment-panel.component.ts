@@ -5,6 +5,7 @@ import { windOf } from '../../../world/custom-map/render/environment/wind';
 import { DAY_SUN, timeOfDay } from '../../../world/custom-map/time-of-day';
 import { SnapshotCommand } from '../../model/editor-document';
 import { EditorSession } from '../editor-session.service';
+import { panelRev } from './panel-shown';
 import { RangeRowComponent } from './range-row.component';
 
 const WEATHERS: { id: MapWeather; label: string }[] = [
@@ -170,6 +171,8 @@ const SKIES: { id: MapEnvironment['sky']; label: string }[] = [
 })
 export class EnvironmentPanelComponent {
   private readonly session = inject(EditorSession);
+  /** The map's revision while this panel is in sight (PanelShown) */
+  private readonly rev = panelRev();
   readonly skies = SKIES;
   readonly skyImages = SKY_IMAGES;
   readonly chooseSkyImage = chooseSkyImage;
@@ -179,7 +182,7 @@ export class EnvironmentPanelComponent {
   readonly skyPreset = skyPreset;
   readonly windOf = windOf;
   readonly planetOf = planetOf;
-  readonly env = computed(() => (this.session.docRev(), this.session.doc ? { ...this.session.doc.environment } : null));
+  readonly env = computed(() => (this.rev(), this.session.doc ? { ...this.session.doc.environment } : null));
   /** The environment before the slider started moving */
   private before: MapEnvironment | null = null;
 

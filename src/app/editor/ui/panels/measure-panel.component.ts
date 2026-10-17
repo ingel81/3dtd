@@ -3,6 +3,7 @@ import { ENEMY_TYPES } from '../../../configs/enemy-types.config';
 import { polylineLength, spawnRoutes } from '../../ops/path-graph';
 import { measureLine } from '../../tools/measure-tool';
 import { EditorSession } from '../editor-session.service';
+import { panelRev } from './panel-shown';
 import { TOWER_SPOT_M2, TYPICAL_TOWER_RANGE } from '../../validation/build-areas';
 
 /** Walking speeds of the ground enemies, metres per second */
@@ -90,6 +91,8 @@ const SPEEDS = (() => {
 })
 export class MeasurePanelComponent {
   private readonly session = inject(EditorSession);
+  /** The map's revision while this panel is in sight (PanelShown) */
+  private readonly rev = panelRev();
   readonly speeds = SPEEDS;
   readonly range = TYPICAL_TOWER_RANGE;
   /** The buildable area in reach of any route, and how many towers fit on it at the least spacing */
@@ -100,7 +103,7 @@ export class MeasurePanelComponent {
   readonly view = computed(() => (this.session.settingsRev(), { ...this.session.settings.view }));
   readonly result = computed(() => {
     this.session.settingsRev();
-    this.session.docRev();
+    this.rev();
     const pts = this.session.settings.measure;
     const doc = this.session.doc;
     if (!doc || pts.length < 2) return null;
@@ -108,7 +111,7 @@ export class MeasurePanelComponent {
     return { flat: Math.round(r.flat), ground: Math.round(r.ground), climb: Math.round(r.climb), drop: Math.round(r.drop) };
   });
   readonly lanes = computed(() => {
-    this.session.docRev();
+    this.rev();
     const doc = this.session.doc;
     if (!doc) return [];
     const routes = spawnRoutes(doc);

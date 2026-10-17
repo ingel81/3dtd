@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TdIconComponent } from '../../../components/icon/icon.component';
 import { EditorSession } from '../editor-session.service';
+import { panelRev } from './panel-shown';
 
 /**
  * What the map holds: markers, roads, objects by category and asset (a
@@ -99,10 +100,12 @@ import { EditorSession } from '../editor-session.service';
 })
 export class OutlinerComponent {
   private readonly session = inject(EditorSession);
+  /** The map's revision while this panel is in sight (PanelShown) */
+  private readonly rev = panelRev();
   readonly query = signal('');
 
   readonly data = computed(() => {
-    this.session.docRev();
+    this.rev();
     this.session.settingsRev();
     const doc = this.session.doc;
     if (!doc) return null;

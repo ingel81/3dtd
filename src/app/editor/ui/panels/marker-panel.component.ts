@@ -6,6 +6,7 @@ import { spawnRoutes } from '../../ops/path-graph';
 import { markerCommands } from '../../tools/marker-tool';
 import type { MarkerMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
+import { panelRev } from './panel-shown';
 
 /** Spawns (named, with their lane length to the HQ) and the HQ */
 @Component({
@@ -60,13 +61,15 @@ import { EditorSession } from '../editor-session.service';
 })
 export class MarkerPanelComponent {
   private readonly session = inject(EditorSession);
+  /** The map's revision while this panel is in sight (PanelShown) */
+  private readonly rev = panelRev();
   readonly mode = computed(() => (this.session.settingsRev(), this.session.settings.markers.mode));
   readonly selectedSpawn = computed(() => {
     const s = this.session.selection();
     return s?.kind === 'spawn' ? s.id : null;
   });
   readonly spawns = computed(() => {
-    this.session.docRev();
+    this.rev();
     const doc = this.session.doc;
     if (!doc) return [];
     const routes = spawnRoutes(doc);
@@ -82,7 +85,7 @@ export class MarkerPanelComponent {
     });
   });
   readonly hq = computed(() => {
-    this.session.docRev();
+    this.rev();
     const h = this.session.doc?.hq;
     return h ? { x: Math.round(h.x), y: Math.round(h.y) } : null;
   });

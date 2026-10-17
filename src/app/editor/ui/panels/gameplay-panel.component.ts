@@ -9,6 +9,7 @@ import { WAVE_TABLE, validateWaveTable, type WaveTable } from '../../../director
 import { MAP_DIFFICULTY, type MapGameplay, type MapWaveRow, type MapWaveTable } from '../../../world/custom-map/map-document';
 import { SnapshotCommand } from '../../model/editor-document';
 import { EditorSession } from '../editor-session.service';
+import { panelRev } from './panel-shown';
 import { RangeRowComponent } from './range-row.component';
 import { WaveCurveChartComponent } from './wave-curve-chart.component';
 import { WaveEventsPanelComponent } from './wave-events-panel.component';
@@ -36,6 +37,8 @@ function pruned(lanes: MapLanes): MapLanes | undefined {
 })
 export class GameplayPanelComponent {
   private readonly session = inject(EditorSession);
+  /** The map's revision while this panel is in sight (PanelShown) */
+  private readonly rev = panelRev();
   readonly defaults = { credits: GAME_BALANCE.player.startCredits, health: GAME_BALANCE.player.startHealth };
   readonly towers = Object.values(TOWER_TYPES).map((t) => ({ id: t.id, name: t.name }));
   readonly enemies = Object.entries(ENEMY_TYPES)
@@ -43,7 +46,7 @@ export class GameplayPanelComponent {
     .sort((a, b) => a.name.localeCompare(b.name));
   readonly open = signal<number | null>(null);
 
-  readonly gp = computed<MapGameplay>(() => (this.session.docRev(), structuredClone(this.session.doc?.gameplay ?? {})));
+  readonly gp = computed<MapGameplay>(() => (this.rev(), structuredClone(this.session.doc?.gameplay ?? {})));
   readonly table = computed<MapWaveTable | null>(() => {
     const w = this.gp().waves;
     return w?.kind === 'table' ? w.table : null;

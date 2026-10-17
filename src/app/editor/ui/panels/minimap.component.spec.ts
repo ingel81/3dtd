@@ -17,7 +17,7 @@ function fakeSession() {
   const session = {
     docRev: signal(1),
     viewRev: signal(1),
-    cameraRev: signal(0),
+    onCamera: () => () => undefined,
     selection: signal([]),
     bookmarks: signal(Array(9).fill(null)),
     doc: { terrain: { width: 512, depth: 512 }, paths: { nodes: [], edges: [] }, spawns: [], hq: { x: 0, y: 0 } },
