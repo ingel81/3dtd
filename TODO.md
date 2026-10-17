@@ -33,10 +33,9 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
 G1 bis G7 sind gebaut (Abschnitt 2, Nachtests in PLAYTEST.md F). Jetzt das Showreel Runde 5; der Rest des
 Editor-Workers und das Gelände auf der GPU laufen parallel dazu (Plan `tmp/plan/r4/UMBAU_PLAN.md`).
 
-- [ ] **E228 Editor-Worker, Rest**: gebaut sind Teil 1 bis 5 (Speichern, Check und Bauflächen, Routen, Wegmaske,
-      Verdeckung, Krümmung, Lava, Fernschatten und Höhenlinien im Worker auf dem Spiegel der Karte). Offen: Teil 6
-      Generieren und Erodieren im Editor-Worker (der eigene Terrain-Worker geht darin auf), Teil 7 Entpacken beim
-      Laden und die Minikarte per OffscreenCanvas.
+- [ ] **E228 Editor-Worker, Rest**: gebaut sind Teil 1 bis 6 (Speichern, Check und Bauflächen, Routen, Wegmaske,
+      Verdeckung, Krümmung, Lava, Fernschatten und Höhenlinien, Generieren und Erodieren im Worker auf dem Spiegel
+      der Karte). Offen: Teil 7 Entpacken beim Laden und die Minikarte per OffscreenCanvas.
 - [ ] **E229 Gelände auf der GPU**: Höhe im Vertex-Shader aus der Höhentextur, Normalen aus der GridNormalTexture,
       Editor, Spiel und Schattenpass. Nach E228.
 
@@ -170,7 +169,7 @@ Editor-Workers und das Gelände auf der GPU laufen parallel dazu (Plan `tmp/plan
       gemalt, Stimmung je Biom, Wegränder, Geröll, Uferstreifen, Kleeinseln, Beläge sauber); Check nach Fußabdruck (F4, F7).
 - [ ] **G7 Editor und Kartenformat** E223 weiches Lesen, E224 `npm run maps:bake`, E225 ein Höhenmodell (alle
       mitgelieferten Karten neu gebacken: ältere Replays und Spielstände darauf gelten als andere Karte), E226
-      `src/app/map-ops/`, E227 Editor-Kern geschnitten, E228 Teil 1 bis 5 (F6).
+      `src/app/map-ops/`, E227 Editor-Kern geschnitten, E228 Teil 1 bis 6 (F6).
 
 ### Nachtschicht 2026-10-15/16 (übernommen, Nachtests in PLAYTEST.md D)
 
