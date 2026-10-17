@@ -1,6 +1,8 @@
-import { InstancedMesh, Line, LineSegments, Matrix4 } from 'three';
+import { InstancedMesh, Line, LineSegments, Matrix4, SphereGeometry, Vector3 } from 'three';
 import type { CustomMapDocument } from '../../world/custom-map/map-document';
-import { EditorOverlay, drapedLine } from './editor-overlay';
+import { EditorOverlay } from './editor-overlay';
+import { drapedLine } from './overlay/draping';
+import { ToolOverlay } from './overlay/tool-overlay';
 
 /** A hill 12 m high between x = 20 and 60, on flat ground elsewhere */
 const hill = (x: number): number => 12 * Math.max(0, 1 - ((x - 40) / 20) ** 2);
@@ -35,7 +37,7 @@ describe('EditorOverlay routes', () => {
     const ground = (x: number) => (x > 30 && x < 50 ? -4 : 0);
     const deck = (x: number, y: number) => (x > 28 && x < 52 && Math.abs(y) < 4 ? 2 : ground(x));
     const overlay = new EditorOverlay(ground, deck);
-    overlay.setRoutes([{ points: [{ x: 0, y: 0 }, { x: 80, y: 0 }], length: 80, startGap: 0, endGap: 0 }]);
+    overlay.routes.set([{ points: [{ x: 0, y: 0 }, { x: 80, y: 0 }], length: 80, startGap: 0, endGap: 0 }]);
     const line = overlay.group.getObjectsByProperty('type', 'Line').find((l) => (l as Line).renderOrder === 9) as Line;
     const pos = line.geometry.getAttribute('position');
     for (let i = 0; i < pos.count; i++) {
@@ -50,7 +52,7 @@ describe('EditorOverlay height lines', () => {
   /** 14bf17ea put the hover ring in the place of the height lines in the overlay's group: they never showed */
   it('shows the height lines in the scene', () => {
     const overlay = new EditorOverlay(() => 0);
-    overlay.setContours({ minor: new Float32Array([0, 0, 5, 10, 0, 5]), major: new Float32Array(0) });
+    overlay.contours.set({ minor: new Float32Array([0, 0, 5, 10, 0, 5]), major: new Float32Array(0) });
     expect(overlay.group.getObjectsByProperty('type', 'LineSegments')).toHaveLength(1);
   });
 });
@@ -67,7 +69,7 @@ describe('EditorOverlay road nodes', () => {
         edges: [{ id: 'e', a: 'a', b: 'b', width: 6, kind: 'road' }],
       },
     } as unknown as CustomMapDocument;
-    overlay.updateMarkers(doc, { kind: 'node', id: 'b' });
+    overlay.markers.set(doc, { kind: 'node', id: 'b' });
     overlay.setViewDistance(2200);
     // One set of plain nodes (a), one of chosen ones (b)
     const sets = overlay.group.getObjectsByProperty('renderOrder', 11).filter((o) => o instanceof InstancedMesh) as InstancedMesh[];
@@ -78,9 +80,9 @@ describe('EditorOverlay road nodes', () => {
     });
     expect(scales()).toEqual([0.6, 18]);
 
-    overlay.setNodeHandles(true);
+    overlay.markers.setNodeHandles(true);
     expect(scales()).toEqual([18, 18]);
-    overlay.setNodeHandles(false);
+    overlay.markers.setNodeHandles(false);
     expect(scales()[0]).toBe(0.6);
     overlay.dispose();
   });
@@ -100,17 +102,17 @@ describe('EditorOverlay on moving ground', () => {
         edges: [{ id: 'e', a: 'a', b: 'b', width: 6, kind: 'road' }, { id: 'f', a: 'b', b: 'c', width: 6, kind: 'road' }],
       },
     } as unknown as CustomMapDocument;
-    overlay.updateMarkers(doc, { kind: 'edge', id: 'e' });
-    overlay.updateSelection(doc, { kind: 'edge', id: 'e' }, () => 1);
-    overlay.setRoutes([{ points: [{ x: 10, y: 0 }, { x: 60, y: 0 }], length: 50, startGap: 0, endGap: 0 }]);
+    overlay.markers.set(doc, { kind: 'edge', id: 'e' });
+    overlay.selection.set(doc, { kind: 'edge', id: 'e' }, () => 1);
+    overlay.routes.set([{ points: [{ x: 10, y: 0 }, { x: 60, y: 0 }], length: 50, startGap: 0, endGap: 0 }]);
     const before = overlay.group.children.map((c) => c.children.length);
     lift = 5;
     overlay.redrape();
     expect(overlay.group.children.map((c) => c.children.length)).toEqual(before);
     const fresh = new EditorOverlay(ground);
-    fresh.updateMarkers(doc, { kind: 'edge', id: 'e' });
-    fresh.updateSelection(doc, { kind: 'edge', id: 'e' }, () => 1);
-    fresh.setRoutes([{ points: [{ x: 10, y: 0 }, { x: 60, y: 0 }], length: 50, startGap: 0, endGap: 0 }]);
+    fresh.markers.set(doc, { kind: 'edge', id: 'e' });
+    fresh.selection.set(doc, { kind: 'edge', id: 'e' }, () => 1);
+    fresh.routes.set([{ points: [{ x: 10, y: 0 }, { x: 60, y: 0 }], length: 50, startGap: 0, endGap: 0 }]);
     const heights = (o: EditorOverlay) => {
       const out: number[] = [];
       o.group.traverse((c) => {
@@ -132,5 +134,36 @@ describe('EditorOverlay on moving ground', () => {
     expect(heights(overlay)).toEqual(heights(fresh));
     overlay.dispose();
     fresh.dispose();
+  });
+});
+
+describe('ToolOverlay', () => {
+  /** M6: a tool that forgot to clean up left its lines to the next one; the switch empties every tool layer */
+  it('hides everything a tool drew in one clear', () => {
+    const overlay = new ToolOverlay(() => 0, new SphereGeometry());
+    const line = [{ x: 0, y: 0 }, { x: 20, y: 0 }];
+    overlay.draft.set(line);
+    overlay.hover.set({ x: 0, y: 0 }, 3);
+    overlay.preview.set(line);
+    overlay.measure.set(line);
+    overlay.gizmo.ring.set({ x: 0, y: 0 }, 5);
+    overlay.gizmo.handles.place(new Vector3(), 0, 1);
+    overlay.rivers.set([{ id: 'r', kind: 'water', points: [{ x: 0, y: 0, height: 1, width: 6 }, { x: 20, y: 0, height: 1, width: 6 }] }], null);
+    overlay.life.set([{ id: 'a', kind: 'birds', shape: 'area', points: [{ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 0, y: 20 }] }], 'a', 0);
+    const shown = () => [
+      overlay.draft.line.visible,
+      overlay.hover.loop.visible,
+      overlay.preview.dots.count > 0,
+      overlay.measure.line.visible,
+      overlay.gizmo.ring.loop.visible,
+      overlay.gizmo.handles.group.visible,
+      overlay.rivers.handles.visible,
+      overlay.life.lines.children.length > 0,
+      overlay.life.handles.count > 0,
+    ];
+    expect(shown()).toEqual(Array(9).fill(true));
+    overlay.clear();
+    expect(shown()).toEqual(Array(9).fill(false));
+    overlay.dispose();
   });
 });

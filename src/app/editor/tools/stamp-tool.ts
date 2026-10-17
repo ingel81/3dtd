@@ -21,9 +21,8 @@ export class StampTool implements EditorTool {
     return false;
   }
 
-  deactivate(ctx: ToolContext): void {
+  deactivate(): void {
     this.dragFrom = null;
-    ctx.overlay.setDraft(null);
   }
 
   pointerDown(p: ToolPointer, ctx: ToolContext): boolean {
@@ -53,11 +52,11 @@ export class StampTool implements EditorTool {
   frame(_dt: number, p: ToolPointer | null, ctx: ToolContext): void {
     const s = ctx.settings.stamp();
     if (s.mode === 'paste' && s.current && p?.hit) {
-      ctx.overlay.setDraft(stampOutline(s.current, p.hit, s.rotation));
+      ctx.overlay.draft.set(stampOutline(s.current, p.hit, s.rotation));
       return;
     }
     const r = s.region;
-    ctx.overlay.setDraft(
+    ctx.overlay.draft.set(
       s.mode === 'select' && r
         ? [
             { x: r.x0, y: r.y0 },
@@ -103,7 +102,7 @@ export class StampTool implements EditorTool {
     const busy = !!this.dragFrom || s.mode === 'paste' || !!s.region;
     this.dragFrom = null;
     patch(ctx.settings.stamp, s.mode === 'paste' ? { mode: 'select' } : { region: null });
-    ctx.overlay.setDraft(null);
+    ctx.overlay.draft.clear();
     return busy;
   }
 

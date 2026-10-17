@@ -193,7 +193,7 @@ export class ViewHost implements EditorViewPort {
 
   /** Where towers may stand on the ground, or nothing */
   showBuildAreas(areas: BuildAreas | null): void {
-    this.viewport?.overlay.setBuildAreas(areas);
+    this.viewport?.overlay.buildAreas.set(areas);
   }
 
   /** The spawns' routes, drawn while the path panel's switch shows them */
@@ -372,6 +372,6 @@ export class ViewHost implements EditorViewPort {
 
   /** The routes drawn again (the switch in the path panel) */
   refreshRoutes(): void {
-    this.viewport?.overlay.setRoutes(this.deps.settings.paths().showRoutes ? [...this.routes.values()] : []);
+    this.viewport?.overlay.routes.set(this.deps.settings.paths().showRoutes ? [...this.routes.values()] : []);
   }
 }

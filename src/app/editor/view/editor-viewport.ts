@@ -138,7 +138,7 @@ export class EditorViewport {
       status: (m) => callbacks.status(m),
     });
     this.scene.add(this.extras.trial.runners.group);
-    this.picker = new ViewPicker(canvas, this.camera, this.controller, editor, catalog, this.overlay, () => this.view, heightAt);
+    this.picker = new ViewPicker(canvas, this.camera, this.controller, editor, catalog, this.overlay.tool.gizmo.handles, () => this.view, heightAt);
     this.ctx = this.buildContext();
     this.input = new InputRouter({
       canvas,
@@ -170,10 +170,10 @@ export class EditorViewport {
       redrape: () => this.overlay.redrape(),
       markers: () => {
         const doc = editor.doc;
-        this.overlay.updateMarkers(doc, editor.selection);
-        this.overlay.updateSelection(doc, editor.selection, (asset) => catalog.object(asset).radius);
+        this.overlay.markers.set(doc, editor.selection);
+        this.overlay.selection.set(doc, editor.selection, (asset) => catalog.object(asset).radius);
       },
-      selection: () => this.overlay.updateSelection(editor.doc, editor.selection, (asset) => catalog.object(asset).radius),
+      selection: () => this.overlay.selection.set(editor.doc, editor.selection, (asset) => catalog.object(asset).radius),
     });
     this.topDown = new TopDownRenderer({
       renderer: this.renderer,
@@ -226,9 +226,9 @@ export class EditorViewport {
 
   setTool(tool: EditorTool): void {
     if (!this.input.setTool(tool)) return;
-    this.overlay.setBrush(null, 0, 0);
+    this.overlay.brush.clear();
     // Road nodes are handles only where they are edited
-    this.overlay.setNodeHandles(tool.id === 'paths');
+    this.overlay.markers.setNodeHandles(tool.id === 'paths');
   }
 
   /** The whole document changed (opened another map, resized): rebuild the view */
@@ -319,7 +319,7 @@ export class EditorViewport {
       editor: this.editor,
       settings: this.settings,
       catalog: this.catalog,
-      overlay: this.overlay,
+      overlay: this.overlay.tool,
       heightAt: (x, y) => this.heightAt(x, y),
       pick: (q) => p.pick(q),
       status: (m) => this.callbacks.status(m),
@@ -392,12 +392,12 @@ export class EditorViewport {
     if (this.guideMode !== this.settings.symmetry()) {
       this.guideMode = this.settings.symmetry();
       const t = this.editor.doc.terrain;
-      this.overlay.setSymmetry(this.settings.symmetry(), t.width, t.depth);
+      this.overlay.guides.set(this.settings.symmetry(), t.width, t.depth);
     }
 
     const brush = this.settings.brush();
     const showBrush = !!tp?.hit && !!this.input.tool?.brushVisible(this.ctx);
-    this.overlay.setBrush(showBrush ? tp!.hit : null, brush.radius, brush.falloff);
+    this.overlay.brush.set(showBrush ? tp!.hit : null, brush.radius, brush.falloff);
     this.overlay.setViewDistance(this.controller.current.distance);
     this.overlay.update(dt);
     this.view.view.setAnimationPaused(this.settings.view().still);
@@ -417,8 +417,8 @@ export class EditorViewport {
     this.overlayKey = key;
     this.overlayTime = time;
     const t = this.editor.doc.terrain;
-    this.overlay.setContours(v.contours ? contourLines(t, v.contourStep) : null);
-    this.overlay.setGrid(v.grid ? v.gridStep : 0, t.width, t.depth, t.grid.cellSize * 2);
+    this.overlay.contours.set(v.contours ? contourLines(t, v.contourStep) : null);
+    this.overlay.grid.set(v.grid ? v.gridStep : 0, t.width, t.depth, t.grid.cellSize * 2);
   }
 
   private objectVisible(o: MapObject): boolean {

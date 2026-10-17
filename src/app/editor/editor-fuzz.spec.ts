@@ -46,7 +46,7 @@ import { StampTool } from './tools/stamp-tool';
 import { TerrainTool } from './tools/terrain-tool';
 import { patch, defaultSettings, type EditorTool, type LandscapeMode, type TerrainMode, type ToolContext, type ToolPointer } from './tools/tool';
 import { WaterTool } from './tools/water-tool';
-import type { EditorOverlay } from './view/editor-overlay';
+import type { ToolOverlay } from './view/overlay/tool-overlay';
 import type { GizmoHandle } from './view/transform-gizmo';
 
 /** A building of the catalogue, blocks building and sight */
@@ -68,10 +68,9 @@ function rng(seed: number): () => number {
   };
 }
 
-/** An overlay that takes every call and draws nothing */
-const overlay: EditorOverlay = new Proxy({} as EditorOverlay, {
-  get: (_t, key) => (key === 'transform' ? overlay : () => undefined),
-});
+/** An overlay that takes every call on any of its layers and draws nothing */
+const nothing: unknown = new Proxy(() => undefined, { get: () => nothing });
+const overlay = nothing as ToolOverlay;
 
 function context(editor: EditorDocument): ToolContext & { gizmo: GizmoHandle | null } {
   const ctx = {

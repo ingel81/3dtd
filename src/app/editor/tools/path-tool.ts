@@ -178,7 +178,7 @@ export class PathTool implements EditorTool {
 
   frame(_dt: number, p: ToolPointer | null, ctx: ToolContext): void {
     if (ctx.settings.paths().mode !== 'draw' || !this.last || !p?.hit) {
-      ctx.overlay.setDraft(null);
+      ctx.overlay.draft.clear();
       return;
     }
     const from = nodeById(ctx.editor.doc.paths, this.last);
@@ -186,7 +186,7 @@ export class PathTool implements EditorTool {
       this.last = null;
       return;
     }
-    ctx.overlay.setDraft([from, snapPoint(ctx.editor.doc.paths, p.hit, p.alt, this.last, ctx.settings.paths().snap).point]);
+    ctx.overlay.draft.set([from, snapPoint(ctx.editor.doc.paths, p.hit, p.alt, this.last, ctx.settings.paths().snap).point]);
   }
 
   key(e: KeyboardEvent, ctx: ToolContext): boolean {
@@ -238,7 +238,7 @@ export class PathTool implements EditorTool {
     if (last && ctx.editor.undoLabel === 'Start road' && !ctx.editor.doc.paths.edges.some((e) => e.a === last || e.b === last)) {
       ctx.editor.undo();
     }
-    ctx.overlay.setDraft(null);
+    ctx.overlay.draft.clear();
     if (this.dragging) {
       ctx.editor.doc.paths = this.dragging.before;
       ctx.editor.emit({ paths: true });

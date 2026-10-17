@@ -86,7 +86,7 @@ export class TerrainTool implements EditorTool {
   frame(dt: number, p: ToolPointer | null, ctx: ToolContext): void {
     const s = ctx.settings.terrain();
     if (s.mode === 'ramp') {
-      ctx.overlay.setDraft(this.rampStart && p?.hit ? [this.rampStart, p.hit] : null);
+      ctx.overlay.draft.set(this.rampStart && p?.hit ? [this.rampStart, p.hit] : null);
     }
     const stroke = this.stroke;
     if (!stroke || !p?.hit) return;
@@ -133,7 +133,7 @@ export class TerrainTool implements EditorTool {
   cancel(ctx: ToolContext): boolean {
     const busy = !!this.rampStart;
     this.rampStart = null;
-    ctx.overlay.setDraft(null);
+    ctx.overlay.draft.clear();
     return busy;
   }
 
@@ -153,7 +153,7 @@ export class TerrainTool implements EditorTool {
     const a = this.rampStart;
     const b = { x: hit.x, y: hit.y, h: hit.z };
     this.rampStart = null;
-    ctx.overlay.setDraft(null);
+    ctx.overlay.draft.clear();
     const stroke = ctx.editor.begin('Ramp');
     const t = stroke.doc.terrain;
     // A symmetric map gets the ramp at every image, each built from its own ends

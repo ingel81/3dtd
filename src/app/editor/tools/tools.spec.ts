@@ -2,7 +2,8 @@ import { createMapDocument } from '../../world/custom-map/map-create';
 import { CatalogIndex, normalizeCatalog } from '../../map-ops/asset-catalog';
 import { EditorDocument } from '../model/editor-document';
 import { heightAt } from '../../map-ops/grid';
-import type { EditorOverlay } from '../view/editor-overlay';
+import { SphereGeometry } from 'three';
+import { ToolOverlay } from '../view/overlay/tool-overlay';
 import { freeGroup, withGroups } from '../../map-ops/object-ops';
 import { describeGround } from '../ops/describe';
 import { LookTool } from './look-tool';
@@ -18,7 +19,7 @@ import { waterCommands } from '../ops/water-commands';
 
 function context(editor: EditorDocument): ToolContext & { messages: string[] } {
   const messages: string[] = [];
-  const overlay = { setDraft: () => undefined, setGizmo: () => undefined, setNodeHandles: () => undefined, setRiverHandles: () => undefined, transform: { hide: () => undefined, setKind: () => undefined, place: () => undefined, highlight: () => undefined } } as unknown as EditorOverlay;
+  const overlay = new ToolOverlay(() => 0, new SphereGeometry());
   return {
     editor,
     settings: defaultSettings(),

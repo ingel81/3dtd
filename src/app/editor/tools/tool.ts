@@ -22,7 +22,7 @@ import { ALL_PARTS, type Stamp, type StampParts, type StampRect } from '../ops/s
 import { randomSeed } from '../../map-ops/landscape-noise';
 import { DEFAULT_RIVER, type RiverOptions } from '../ops/landscape/river';
 import { DEFAULT_ROAD, type RoadOptions } from '../ops/landscape/road';
-import type { EditorOverlay } from '../view/editor-overlay';
+import type { ToolOverlay } from '../view/overlay/tool-overlay';
 
 /** The tool that changes each part of the document (a check issue's `part`) */
 export const PART_TOOL: Record<MapProblemPart, ToolId> = {
@@ -247,7 +247,8 @@ export interface ToolContext {
   readonly editor: EditorDocument;
   readonly settings: EditorSettings;
   readonly catalog: CatalogIndex;
-  readonly overlay: EditorOverlay;
+  /** The overlay's layers a tool draws on; a tool switch empties them */
+  readonly overlay: ToolOverlay;
   heightAt(x: number, y: number): number;
   /** What stands under the pointer, nearest first */
   pick(p: ToolPointer): PickResult | null;

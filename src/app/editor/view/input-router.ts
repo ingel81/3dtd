@@ -78,9 +78,12 @@ export class InputRouter {
   /** The tool in hand from now; false when it was already */
   setTool(tool: EditorTool): boolean {
     if (this.current === tool) return false;
-    this.current?.deactivate?.(this.host.ctx);
+    const ctx = this.host.ctx;
+    this.current?.deactivate?.(ctx);
+    // What the last tool drew goes with it
+    ctx.overlay.clear();
     this.current = tool;
-    tool.activate?.(this.host.ctx);
+    tool.activate?.(ctx);
     return true;
   }
 

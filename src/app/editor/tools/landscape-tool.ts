@@ -43,8 +43,6 @@ export class LandscapeTool implements EditorTool {
 
   deactivate(ctx: ToolContext): void {
     this.end(ctx);
-    ctx.overlay.setPreview(null);
-    ctx.overlay.setDraft(null);
   }
 
   pointerDown(p: ToolPointer, ctx: ToolContext): boolean {
@@ -77,18 +75,18 @@ export class LandscapeTool implements EditorTool {
     const s = ctx.settings.landscape();
     const brush = ctx.settings.brush();
     if (this.line) {
-      ctx.overlay.setDraft(p?.hit ? [...this.line, p.hit] : this.line);
+      ctx.overlay.draft.set(p?.hit ? [...this.line, p.hit] : this.line);
       return;
     }
     // Preview of the next biome stroke under the cursor
     if (s.mode === 'biome' && p?.hit && !this.stroke) {
       if (this.previewNoise?.seed !== s.seed) this.previewNoise = new LandscapeNoise(s.seed);
-      ctx.overlay.setPreview(
+      ctx.overlay.preview.set(
         previewSpots(this.previewNoise, ctx.catalog, p.hit, brush, biomeById(s.biome)),
         biomeById(s.biome).color,
       );
     } else if (!this.stroke) {
-      ctx.overlay.setPreview(null);
+      ctx.overlay.preview.clear();
     }
     const stroke = this.stroke;
     if (!stroke || !p?.hit) return;
@@ -96,7 +94,7 @@ export class LandscapeTool implements EditorTool {
     switch (s.mode) {
       case 'biome':
         biomeDab(stroke, center, brush, biomeById(s.biome), dt);
-        ctx.overlay.setPreview(null);
+        ctx.overlay.preview.clear();
         return;
       case 'mountain':
       case 'valley':
@@ -148,7 +146,7 @@ export class LandscapeTool implements EditorTool {
     const line = this.line;
     this.stroke = null;
     this.line = null;
-    ctx.overlay.setDraft(null);
+    ctx.overlay.draft.clear();
     if (!stroke) return;
     const s = ctx.settings.landscape();
     const brush = ctx.settings.brush();

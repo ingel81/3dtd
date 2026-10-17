@@ -11,12 +11,8 @@ export class MeasureTool implements EditorTool {
     return false;
   }
 
-  deactivate(ctx: ToolContext): void {
-    ctx.overlay.setMeasure(null);
-  }
-
   activate(ctx: ToolContext): void {
-    ctx.overlay.setMeasure(ctx.settings.measure());
+    ctx.overlay.measure.set(ctx.settings.measure());
   }
 
   pointerDown(p: ToolPointer, ctx: ToolContext): boolean {
@@ -32,13 +28,13 @@ export class MeasureTool implements EditorTool {
 
   frame(_dt: number, p: ToolPointer | null, ctx: ToolContext): void {
     const pts = ctx.settings.measure();
-    ctx.overlay.setMeasure(p?.hit && pts.length ? [...pts, p.hit] : pts);
+    ctx.overlay.measure.set(p?.hit && pts.length ? [...pts, p.hit] : pts);
   }
 
   cancel(ctx: ToolContext): boolean {
     const had = ctx.settings.measure().length > 0;
     ctx.settings.measure.set([]);
-    ctx.overlay.setMeasure(null);
+    ctx.overlay.measure.clear();
     return had;
   }
 

@@ -52,13 +52,12 @@ export class WaterTool implements EditorTool {
 
   frame(dt: number, p: ToolPointer | null, ctx: ToolContext): void {
     const s = ctx.settings.water();
-    ctx.overlay.setRiverHandles(s.mode === 'river' ? (ctx.editor.doc.terrain.rivers ?? []) : null, s.river >= 0 ? { river: s.river, point: s.riverPoint } : null);
+    ctx.overlay.rivers.set(s.mode === 'river' ? (ctx.editor.doc.terrain.rivers ?? []) : null, s.river >= 0 ? { river: s.river, point: s.riverPoint } : null);
     this.brushFrame(dt, p, ctx);
   }
 
-  deactivate(ctx: ToolContext): void {
+  deactivate(): void {
     this.end();
-    ctx.overlay.setRiverHandles(null, null);
   }
 
   pointerDown(p: ToolPointer, ctx: ToolContext): boolean {

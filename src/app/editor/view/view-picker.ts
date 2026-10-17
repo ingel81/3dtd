@@ -10,8 +10,7 @@ import { edgePolyline, nearestOnPolyline } from '../../map-ops/path-graph';
 import type { EditorDocument, PickResult } from '../model/editor-document';
 import type { MapHit, ToolPointer } from '../tools/tool';
 import type { CameraController } from './camera-controller';
-import type { EditorOverlay } from './editor-overlay';
-import type { GizmoHandle } from './transform-gizmo';
+import type { GizmoHandle, TransformGizmo } from './transform-gizmo';
 import { mapToScene, type EditorMapView } from './map-view';
 
 interface Box {
@@ -31,7 +30,7 @@ export class ViewPicker {
     private readonly controller: CameraController,
     private readonly editor: EditorDocument,
     private readonly catalog: CatalogIndex,
-    private readonly overlay: EditorOverlay,
+    private readonly gizmoHandles: TransformGizmo,
     /** The map view now (a rebuild replaces it) */
     private readonly view: () => EditorMapView,
     private readonly heightAt: (x: number, y: number) => number,
@@ -60,7 +59,7 @@ export class ViewPicker {
   }
 
   gizmo(p: ToolPointer): GizmoHandle | null {
-    return this.aim(p.clientX, p.clientY) ? this.overlay.transform.pick(this.raycaster) : null;
+    return this.aim(p.clientX, p.clientY) ? this.gizmoHandles.pick(this.raycaster) : null;
   }
 
   /** What a click at the pointer would take, nearest first */

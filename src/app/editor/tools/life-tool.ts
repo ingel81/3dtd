@@ -48,7 +48,6 @@ export class LifeTool implements EditorTool {
 
   deactivate(ctx: ToolContext): void {
     this.cancel(ctx);
-    ctx.overlay.setLife(null, null, -1);
   }
 
   pointerDown(p: ToolPointer, ctx: ToolContext): boolean {
@@ -118,8 +117,8 @@ export class LifeTool implements EditorTool {
       const line = [...this.draft];
       if (p?.hit && !this.holding?.freehand) line.push({ x: p.hit.x, y: p.hit.y });
       if (s.mode === 'area' && line.length > 2) line.push(line[0]);
-      ctx.overlay.setDraft(line);
-    } else ctx.overlay.setDraft(null);
+      ctx.overlay.draft.set(line);
+    } else ctx.overlay.draft.clear();
     this.redraw(ctx);
   }
 
@@ -153,7 +152,7 @@ export class LifeTool implements EditorTool {
     if (this.draft.length) {
       this.draft = [];
       this.holding = null;
-      ctx.overlay.setDraft(null);
+      ctx.overlay.draft.clear();
       return true;
     }
     if (!s.chosen) return false;
@@ -181,7 +180,7 @@ export class LifeTool implements EditorTool {
     const points = this.draft;
     this.draft = [];
     this.holding = null;
-    ctx.overlay.setDraft(null);
+    ctx.overlay.draft.clear();
     const shape = s.mode === 'route' ? 'route' : 'area';
     const least = shape === 'area' ? 3 : 2;
     const usable = dedupe(points);
@@ -254,7 +253,7 @@ export class LifeTool implements EditorTool {
     const life = ctx.editor.doc.life;
     if (this.shown && this.shown.life === life && this.shown.chosen === s.chosen && this.shown.point === s.point) return;
     this.shown = { life, chosen: s.chosen, point: s.point };
-    ctx.overlay.setLife(life?.areas ?? [], s.chosen, s.point);
+    ctx.overlay.life.set(life?.areas ?? [], s.chosen, s.point);
   }
 }
 

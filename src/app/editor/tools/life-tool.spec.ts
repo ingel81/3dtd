@@ -4,14 +4,17 @@ import type { MapLifeArea } from '../../world/custom-map/map-document';
 import { CatalogIndex } from '../../map-ops/asset-catalog';
 import { EditorDocument } from '../model/editor-document';
 import { heightAt } from '../../map-ops/grid';
-import type { EditorOverlay } from '../view/editor-overlay';
+import { SphereGeometry } from 'three';
+import { ToolOverlay } from '../view/overlay/tool-overlay';
 import { LifeTool, pickArea } from './life-tool';
 import { patch, defaultSettings, type ToolContext, type ToolPointer } from './tool';
 
 function context(editor: EditorDocument): ToolContext & { messages: string[]; drawn: () => readonly MapLifeArea[] | null } {
   const messages: string[] = [];
   let drawn: readonly MapLifeArea[] | null = null;
-  const overlay = { setDraft: () => undefined, setLife: (areas: readonly MapLifeArea[] | null) => (drawn = areas) } as unknown as EditorOverlay;
+  const overlay = new ToolOverlay((x, y) => heightAt(editor.doc.terrain, x, y), new SphereGeometry());
+  const set = overlay.life.set.bind(overlay.life);
+  overlay.life.set = (areas, chosen, point) => set((drawn = areas), chosen, point);
   return {
     editor,
     settings: defaultSettings(),

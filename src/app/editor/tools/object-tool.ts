@@ -95,7 +95,6 @@ export class ObjectTool implements EditorTool {
 
 
   deactivate(ctx: ToolContext): void {
-    ctx.overlay.setHover(null);
     this.hoverAt = null;
     this.endBrush(ctx);
     this.cancel(ctx);
@@ -139,7 +138,7 @@ export class ObjectTool implements EditorTool {
     if (line && p.hit) {
       const last = line[line.length - 1];
       if (Math.hypot(p.hit.x - last.x, p.hit.y - last.y) >= 2) line.push({ x: p.hit.x, y: p.hit.y });
-      ctx.overlay.setDraft(line);
+      ctx.overlay.draft.set(line);
       return;
     }
     const drag = this.drag;
@@ -165,7 +164,7 @@ export class ObjectTool implements EditorTool {
     if (this.line) {
       const line = this.line;
       this.line = null;
-      ctx.overlay.setDraft(null);
+      ctx.overlay.draft.clear();
       if (p.hit && lineLength([line[line.length - 1], p.hit]) >= 1) line.push({ x: p.hit.x, y: p.hit.y });
       if (lineLength(line) >= 2) this.placeAlong(line, ctx);
       return;
@@ -218,16 +217,16 @@ export class ObjectTool implements EditorTool {
   frame(dt: number, p: ToolPointer | null, ctx: ToolContext): void {
     const s = ctx.settings.objects();
     const sel = this.selected(ctx);
-    const gizmo = ctx.overlay.transform;
+    const gizmo = ctx.overlay.gizmo.handles;
     if (s.mode === 'select' && sel.length) {
       const c = centroid(ctx.editor.doc, sel)!;
-      ctx.overlay.setGizmo(c, this.gizmoRadius(ctx, sel));
+      ctx.overlay.gizmo.ring.set(c, this.gizmoRadius(ctx, sel));
       const z = this.selectionHeight(ctx, sel, c);
       gizmo.setKind(s.gizmo);
       gizmo.place(gizmoAnchor(c.x, c.y, z), this.axisYaw(ctx, sel), (ctx.metresPerPixel(c) * GIZMO_PIXELS) / 10);
       if (!this.drag && p) gizmo.highlight(ctx.pickGizmo(p));
     } else {
-      ctx.overlay.setGizmo(null, 0);
+      ctx.overlay.gizmo.ring.clear();
       gizmo.hide();
     }
     this.hoverFrame(p, ctx);
@@ -374,7 +373,7 @@ export class ObjectTool implements EditorTool {
   private placeFrame(p: ToolPointer | null, ctx: ToolContext): void {
     const s = ctx.settings.objects();
     if (s.mode !== 'place' || !s.asset || !p?.hit) {
-      if (this.placeAt) ctx.overlay.setDraft(null);
+      if (this.placeAt) ctx.overlay.draft.clear();
       this.placeAt = null;
       return;
     }
@@ -389,13 +388,13 @@ export class ObjectTool implements EditorTool {
     if ((road === null) !== ((last?.road ?? null) === null)) ctx.hintChanged();
     // A random turn is rolled on the click: the outline shows north until then
     const rotation = road ?? (s.randomRotation ? 0 : s.rotation);
-    ctx.overlay.setDraft(placeOutline(entry, { x, y, rotation, scale: 1 }));
+    ctx.overlay.draft.set(placeOutline(entry, { x, y, rotation, scale: 1 }));
   }
 
   /** In Select, a faint ring shows the object a click would take; picked only when the pointer moved */
   private hoverFrame(p: ToolPointer | null, ctx: ToolContext): void {
     if (ctx.settings.objects().mode !== 'select' || this.drag || !p?.hit) {
-      if (this.hoverAt) ctx.overlay.setHover(null);
+      if (this.hoverAt) ctx.overlay.hover.clear();
       this.hoverAt = null;
       return;
     }
@@ -403,17 +402,17 @@ export class ObjectTool implements EditorTool {
     this.hoverAt = { x: p.clientX, y: p.clientY };
     const picked = ctx.pick(p);
     const o = picked?.kind === 'object' ? ctx.editor.doc.objects.find((x) => x.id === picked.id) : undefined;
-    if (!o) ctx.overlay.setHover(null);
-    else ctx.overlay.setHover(o, ctx.catalog.object(o.asset).radius * o.scale * 1.15);
+    if (!o) ctx.overlay.hover.clear();
+    else ctx.overlay.hover.set(o, ctx.catalog.object(o.asset).radius * o.scale * 1.15);
   }
 
   cancel(ctx: ToolContext): boolean {
     const busy = !!this.line || !!this.drag;
-    if (this.placeAt) ctx.overlay.setDraft(null);
+    if (this.placeAt) ctx.overlay.draft.clear();
     this.placeAt = null;
     if (this.line) {
       this.line = null;
-      ctx.overlay.setDraft(null);
+      ctx.overlay.draft.clear();
     }
     if (this.drag?.kind === 'gizmo') {
       // Put the objects back where the drag found them
@@ -425,8 +424,7 @@ export class ObjectTool implements EditorTool {
     this.drag = null;
     ctx.setBox(null);
     ctx.setLasso(null);
-    ctx.overlay.setGizmo(null, 0);
-    ctx.overlay.transform.hide();
+    ctx.overlay.gizmo.clear();
     return busy;
   }
 

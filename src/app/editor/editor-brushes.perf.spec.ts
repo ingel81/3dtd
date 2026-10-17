@@ -11,7 +11,7 @@ import { PaintTool } from './tools/paint-tool';
 import { TerrainTool } from './tools/terrain-tool';
 import { patch, defaultSettings, type EditorTool, type ToolContext, type ToolPointer } from './tools/tool';
 import { WaterTool } from './tools/water-tool';
-import type { EditorOverlay } from './view/editor-overlay';
+import type { ToolOverlay } from './view/overlay/tool-overlay';
 
 /**
  * What one brush step costs on maps of 256, 512 and 1024 height samples a
@@ -25,14 +25,9 @@ const catalog = new CatalogIndex(
   normalizeCatalog(JSON.parse(readFileSync(resolve('public/maps/assets/catalog.json'), 'utf8')), 'http://x/maps/assets/'),
 );
 
-const overlay = {
-  setDraft: () => undefined,
-  setGizmo: () => undefined,
-  setNodeHandles: () => undefined,
-  setPreview: () => undefined,
-  setRiverHandles: () => undefined,
-  transform: { hide: () => undefined, setKind: () => undefined, place: () => undefined, highlight: () => undefined },
-} as unknown as EditorOverlay;
+/** An overlay that takes every call on any of its layers and draws nothing: the step's cost is the tool's */
+const nothing: unknown = new Proxy(() => undefined, { get: () => nothing });
+const overlay = nothing as ToolOverlay;
 
 function context(editor: EditorDocument): ToolContext {
   const settings = defaultSettings();

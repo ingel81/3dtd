@@ -4,7 +4,8 @@ import { createMapDocument } from '../../world/custom-map/map-create';
 import { CatalogIndex, normalizeCatalog } from '../../map-ops/asset-catalog';
 import { EditorDocument } from '../model/editor-document';
 import { heightAt } from '../../map-ops/grid';
-import type { EditorOverlay } from '../view/editor-overlay';
+import { SphereGeometry } from 'three';
+import { ToolOverlay } from '../view/overlay/tool-overlay';
 import { LandscapeTool } from '../tools/landscape-tool';
 import { MarkerTool } from '../tools/marker-tool';
 import { ObjectTool } from '../tools/object-tool';
@@ -19,7 +20,7 @@ const catalog = new CatalogIndex(
 
 function setup(mode: SymmetryMode): { ed: EditorDocument; ctx: ToolContext } {
   const ed = new EditorDocument(createMapDocument({ id: 'm', name: 'M', width: 400, depth: 400, cellSize: 4, now: new Date(0) }));
-  const overlay = { setDraft: () => undefined, setGizmo: () => undefined, setNodesVisible: () => undefined, setRiverHandles: () => undefined, setPreview: () => undefined, transform: { hide: () => undefined, setKind: () => undefined, place: () => undefined, highlight: () => undefined } } as unknown as EditorOverlay;
+  const overlay = new ToolOverlay(() => 0, new SphereGeometry());
   const settings = defaultSettings();
   settings.symmetry.set(mode);
   const ctx: ToolContext = {

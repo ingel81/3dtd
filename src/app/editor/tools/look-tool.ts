@@ -16,8 +16,7 @@ export class LookTool implements EditorTool {
     return false;
   }
 
-  deactivate(ctx: ToolContext): void {
-    ctx.overlay.setHover(null);
+  deactivate(): void {
     this.hoverAt = null;
   }
 
@@ -57,7 +56,7 @@ export class LookTool implements EditorTool {
   /** A faint ring on the object a click would take, as in Select of the object tool */
   frame(_dt: number, p: ToolPointer | null, ctx: ToolContext): void {
     if (!p?.hit) {
-      if (this.hoverAt) ctx.overlay.setHover(null);
+      if (this.hoverAt) ctx.overlay.hover.clear();
       this.hoverAt = null;
       return;
     }
@@ -65,8 +64,8 @@ export class LookTool implements EditorTool {
     this.hoverAt = { x: p.clientX, y: p.clientY };
     const picked = ctx.pick(p);
     const o = picked?.kind === 'object' ? ctx.editor.doc.objects.find((x) => x.id === picked.id) : undefined;
-    if (!o) ctx.overlay.setHover(null);
-    else ctx.overlay.setHover(o, ctx.catalog.object(o.asset).radius * o.scale * 1.15);
+    if (!o) ctx.overlay.hover.clear();
+    else ctx.overlay.hover.set(o, ctx.catalog.object(o.asset).radius * o.scale * 1.15);
   }
 
   hint(): string {
