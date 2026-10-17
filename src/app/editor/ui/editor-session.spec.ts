@@ -44,6 +44,15 @@ beforeAll(() => {
 
 afterAll(() => getTestBed().resetTestEnvironment());
 
+/**
+ * A view standing in for EditorViewport with the parts a test needs: the
+ * overlay takes what the session draws meanwhile (the worker's routes, the
+ * build areas arrive at their own time)
+ */
+function fakeViewport(parts: object): object {
+  return { overlay: { routes: { set: () => undefined }, buildAreas: { set: () => undefined } }, dispose: () => undefined, ...parts };
+}
+
 describe('editor session opening', () => {
   it('opens a shipped or a coop map as it is; the first save with a change makes the own copy (decision 8)', async () => {
     const { s, backend } = session();
@@ -229,7 +238,7 @@ describe('editor session while busy', () => {
     expect(s.edit('Changing the water', () => undefined)).toBe(true);
 
     // A held stroke in the view
-    Object.assign(s['viewHost'], { viewport: { input: { dragging: true }, dispose: () => undefined } });
+    Object.assign(s['viewHost'], { viewport: fakeViewport({ input: { dragging: true } }) });
     s.undo();
     expect(s.doc!.meta.name).toBe('Renamed');
     expect(s.notices.status()).toContain('finish the stroke');
@@ -252,7 +261,7 @@ describe('editor session check', () => {
       await s.check.runCheck();
       const check = vi.spyOn(s.check, 'runCheck');
       const input = { dragging: true };
-      Object.assign(s['viewHost'], { viewport: { input, dispose: () => undefined } });
+      Object.assign(s['viewHost'], { viewport: fakeViewport({ input }) });
       // Every poll of a stroke finds a change: the check waits for the stroke's end
       for (let k = 0; k < 10; k++) {
         s.editMeta({ description: `step ${k}` });
@@ -751,7 +760,7 @@ describe('editor session and the AI agent', () => {
       toDataURL: () => 'data:image/jpeg;base64,AAAA',
     };
     const renderTopDown = vi.fn(async () => canvas);
-    Object.assign(s['viewHost'], { viewport: { topDown: { render: renderTopDown }, dispose: () => undefined } });
+    Object.assign(s['viewHost'], { viewport: fakeViewport({ topDown: { render: renderTopDown } }) });
     const answer = await call(agent, 'top_down_picture', { size: 128 });
     expect(renderTopDown).toHaveBeenCalledWith(128, 128, true, undefined);
     expect(answer.image).toEqual({ mimeType: 'image/jpeg', data: 'AAAA' });
