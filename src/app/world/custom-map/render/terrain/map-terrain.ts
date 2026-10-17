@@ -211,6 +211,7 @@ export class MapTerrainLayer {
     this.material.terrainUniforms.uFarShadowArea = this.farShadow.area;
     Object.assign(this.material.terrainUniforms, this.cuts.uniforms);
     addHeightFog(this.material);
+    this.material.setGroundMood(this.biome);
     this.material.setFarDistances(this.far[0], this.far[1], this.far[2]);
     this.material.setWaterLevel(t.water?.level ?? null, t.water?.kind);
     this.chunks.setMaterial(this.material);
@@ -250,6 +251,7 @@ export class MapTerrainLayer {
       let twin = this.twins.get(n);
       if (!twin) {
         twin = new TerrainMaterial({ ...params, layers: n });
+        twin.setGroundMood(this.biome);
         addHeightFog(twin);
         this.twins.set(n, twin);
       }
@@ -295,11 +297,14 @@ export class MapTerrainLayer {
     }
   }
 
-  /** The mountains beyond the apron for a new look of the map (BACKDROP_HEIGHT, APRON_LOOK) */
+  /** The mountains beyond the apron and the ground's mood for a new look of the map (BACKDROP_HEIGHT, APRON_LOOK, ground-mood.ts) */
   setBiome(biome: MapBiome): void {
     if (biome === this.biome) return;
     const height = BACKDROP_HEIGHT[biome] !== BACKDROP_HEIGHT[this.biome];
     this.biome = biome;
+    // The ground's mood (ground-mood.ts); the apron shares the material's uniforms
+    this.material?.setGroundMood(biome);
+    for (const twin of this.twins.values()) twin.setGroundMood(biome);
     if (height) this.refreshApron();
     else this.setApronRange();
   }

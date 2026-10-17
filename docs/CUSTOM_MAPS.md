@@ -106,7 +106,8 @@ Nebel der Szene wieder her.
   ganz ab 35°, liest die stärkste gemalte Schicht eines Pixels ebenfalls die zwei Seitenebenen, einmal vor der
   Schleife wie die Klippe (zwei Lookups mehr nur dort), bis `uSteepNear` vor der Kamera (Stufe: `steepNear`, Low 0);
   vorher zog die Draufsicht Geröll und Gras an Flanken zu Streifen. Makrovariation und in der Ferne die Durchschnittsfarbe. **Ferne billiger**: ab `uFarSingle`
-  (150 m) liest jede Schicht Normale und Rauheit einmal statt zweimal (die Farbe behält ihr Anti-Kachel-Paar), ab
+  (150 m) liest jede Schicht Farbe, Normale und Rauheit einmal statt zweimal (die Wiederholung bricht dort die grobe
+  Eigenstruktur, unten), ab
   `uFarFlat` (400 m) gar keine Schichttexturen mehr, nur die Durchschnittsfarben nach Gewicht über der Rasternormale;
   die Grenze zu einer Schicht ist mit Rauschen verzittert, zur flachen Ferne blenden Farbe, Daten und Normale über die
   letzten 30 % vor `uFarFlat` weich hinüber. Vorher lag dort ein verzittertes Band von 30 m: senkte sich die Kamera
@@ -114,7 +115,18 @@ Nebel der Szene wieder her.
   einmal von flach zu texturiert (E193). `CustomMapView.setFarGround(single, flat, steep)` für die Qualitätsstufen Jede Schicht blendet so weich wie
   ihre Katalog-Kategorie (`MATERIAL_LOOK`: Gras und Sand laufen in die Nachbarn, Fels und Eis schneiden) und bekommt
   deren Rauheitsbereich (Schlamm und Eis glänzender, Gras und Sand matt); der Glanz läuft zum Blickrand hin aus (keine
-  weißen Flächen im Gegenlicht)
+  weißen Flächen im Gegenlicht). **Grobe Eigenstruktur** (E214): die stärkste Schicht eines Pixels liest ihre Farbtextur
+  ein zweites Mal im 6,4-fachen Maßstab (rund 20 bis 30 m je Wiederholung, ein Zugriff in jeder Entfernung) und formt
+  den Boden mit der verstärkten Abweichung dieses Bilds von ihrer Mittelfarbe in Helligkeit und Ton: Gras zeigt aus
+  Spielhöhe Horste und Flecken aus dem eigenen Foto, Erde Steinnester (Stärke je Kategorie, `MATERIAL_LOOK.coarse`;
+  nicht auf Klippen und Glut). **Bodenstimmung je Biom** (`ground-mood.ts`): Kuppen, Mulden, Rinnen, große Flecken
+  und Flecken von gut 10 m mit festen Rändern (`variationFine`) tönen sich je Biom (gemäßigt Stroh auf Kuppen und
+  sattes Blaugrün in Mulden, Sumpf Torf und rostige Eisenrinnen, Wüste gebleichte Kuppen, Wüstenlack und Salz,
+  Arktis blaue Schattenmulden), dazu die Sättigung je Biom. **Hangabtrag**: auf Hängen von gut 15° bis zum
+  Klippenwinkel reißt die Grasnarbe (`MATERIAL_LOOK.turf`) in Zungen entlang der Falllinie auf und zeigt die Erde des
+  Bioms, auf Kuppen und in den dunklen Stellen der Eigenstruktur zuerst. Kosten (nur Gelände gezeichnet, 1920 × 1080,
+  Stufe High, je zwei Läufe): Demo-Tal Spielkamera vorher 1,69 bis 1,91 ms, nachher 1,65 bis 1,70 ms; Nahkamera 2,13
+  bis 2,19 auf 1,31 bis 1,33 ms; Autumn Keep 1,56 bis 1,68 auf 1,06 bis 1,32 ms
 - **Rand** (`terrain-apron.ts`): Land jenseits der Karte bis 3 km, ein Punkt je Randsample (der innere Ring trifft die
   Geländekante genau). Nach außen wird das Randprofil entlang der Kante mit wachsendem Radius geglättet und geht in
   flache Hügel über; Wasser am Rand läuft darüber weiter, bis das geglättete Bett über den Spiegel steigt. Bemalt mit

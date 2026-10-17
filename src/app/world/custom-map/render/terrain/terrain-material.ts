@@ -1,4 +1,4 @@
-import { Color, ShaderChunk, MeshStandardMaterial, Vector2, Vector3, Vector4, type Texture } from 'three';
+import { Color, ShaderChunk, MeshStandardMaterial, SRGBColorSpace, Vector2, Vector3, Vector4, type Texture } from 'three';
 import type { LayerArray } from './terrain-textures';
 import { SHADER_NOISE } from '../shader-noise';
 import { TERRAIN_MORPH_PARS, TERRAIN_MORPH_VERTEX } from './terrain-chunks';
@@ -8,28 +8,41 @@ import { VARIATION_GLSL, variationTexture } from './variation-texture';
 import { WIND_UNIFORMS } from '../environment/wind';
 import { TERRAIN_CUT_GLSL } from './terrain-cuts';
 import type { MaterialCategory } from '../asset-catalog';
+import type { MapBiome } from '../../map-document';
+import { groundMood } from './ground-mood';
 
 /**
  * How a ground material of a catalogue category blends and shines: `soft`
  * scales the height blend band against its neighbours (grass and sand run
  * into them, rock and ice cut), `rough` is the roughness range its
- * texture's roughness maps into (mud and ice glossier, grass and sand matt)
+ * texture's roughness maps into (mud and ice glossier, grass and sand matt),
+ * `coarse` how strongly its own texture, read again at a coarse scale,
+ * shapes it over tens of metres (grass in tussocks and patches, soil in
+ * stony and damp spots; roads and planks hardly), `turf` whether it is a
+ * sward that tears open on steep, convex slopes
  */
-const MATERIAL_LOOK: Record<MaterialCategory, { soft: number; rough: [number, number] }> = {
-  grass: { soft: 1.4, rough: [0.72, 1] },
-  forest: { soft: 1.3, rough: [0.68, 1] },
-  soil: { soft: 1.2, rough: [0.5, 0.95] },
-  sand: { soft: 1.5, rough: [0.62, 0.96] },
-  snow: { soft: 1.3, rough: [0.45, 0.82] },
-  rock: { soft: 0.6, rough: [0.45, 0.9] },
-  road: { soft: 0.8, rough: [0.5, 0.9] },
-  volcanic: { soft: 0.8, rough: [0.4, 0.9] },
-  ice: { soft: 0.7, rough: [0.12, 0.45] },
-  wood: { soft: 0.8, rough: [0.5, 0.85] },
+interface MaterialLook {
+  soft: number;
+  rough: [number, number];
+  coarse: number;
+  turf: number;
+}
+
+const MATERIAL_LOOK: Record<MaterialCategory, MaterialLook> = {
+  grass: { soft: 1.4, rough: [0.72, 1], coarse: 0.62, turf: 1 },
+  forest: { soft: 1.3, rough: [0.68, 1], coarse: 0.55, turf: 0.7 },
+  soil: { soft: 1.2, rough: [0.5, 0.95], coarse: 0.5, turf: 0 },
+  sand: { soft: 1.5, rough: [0.62, 0.96], coarse: 0.4, turf: 0 },
+  snow: { soft: 1.3, rough: [0.45, 0.82], coarse: 0.3, turf: 0 },
+  rock: { soft: 0.6, rough: [0.45, 0.9], coarse: 0.4, turf: 0 },
+  road: { soft: 0.8, rough: [0.5, 0.9], coarse: 0.15, turf: 0 },
+  volcanic: { soft: 0.8, rough: [0.4, 0.9], coarse: 0.4, turf: 0 },
+  ice: { soft: 0.7, rough: [0.12, 0.45], coarse: 0.25, turf: 0 },
+  wood: { soft: 0.8, rough: [0.5, 0.85], coarse: 0.1, turf: 0 },
 };
 
-export function materialLook(category: MaterialCategory | undefined): { soft: number; rough: [number, number] } {
-  return (category && MATERIAL_LOOK[category]) || { soft: 1, rough: [0.6, 1] };
+export function materialLook(category: MaterialCategory | undefined): MaterialLook {
+  return (category && MATERIAL_LOOK[category]) || { soft: 1, rough: [0.6, 1], coarse: 0.35, turf: 0 };
 }
 
 /**
@@ -52,6 +65,12 @@ export function materialLook(category: MaterialCategory | undefined): { soft: nu
  * 4. Macro variation (two octaves of value noise) tints and darkens the
  *    albedo over tens and hundreds of metres; far away the albedo leans
  *    towards the layer's average colour, which hides the mip pattern.
+ * 5. Coarse structure: the strongest layer reads its own colour texture
+ *    again at about six times its scale and shapes the ground with it over
+ *    tens of metres, at every distance (the second anti-tiling colour
+ *    lookup of far layers goes for it). The ground's mood per biome
+ *    (ground-mood.ts) tints crests, hollows, runnels and patches, and turf
+ *    tears open on steep, convex slopes.
  *
  * The mesh is in map frame (scene x = -map x); the group must not be rotated,
  * since the shader takes object space as world space for its projections.
@@ -139,6 +158,17 @@ export class TerrainMaterial extends MeshStandardMaterial {
     /** Camera distance (m) up to which painted ground on steep slopes reads its side planes; 0 none */
     uSteepNear: { value: 150 },
     uRough: { value: Array.from({ length: TERRAIN_MAX_LAYERS }, () => new Vector2(0.6, 1)) },
+    /** Coarse self-structure and turf by array layer (MATERIAL_LOOK) */
+    uCoarse: { value: new Float32Array(TERRAIN_MAX_LAYERS) },
+    uTurf: { value: new Float32Array(TERRAIN_MAX_LAYERS) },
+    /** The biome's ground mood (ground-mood.ts): tints of crests, hollows, runnels and patches, bare earth, saturation */
+    uMoodCrest: { value: new Vector3(1, 1, 1) },
+    uMoodHollow: { value: new Vector3(1, 1, 1) },
+    uMoodDrain: { value: new Vector3(1, 1, 1) },
+    uMoodPatchA: { value: new Vector3(1, 1, 1) },
+    uMoodPatchB: { value: new Vector3(1, 1, 1) },
+    uMoodBare: { value: new Color() },
+    uMoodSat: { value: 0.94 },
     uTerrainTime: { value: 0 },
     uSplatLayer: { value: new Int32Array(12).fill(-1) },
     uCliffLayer: { value: -1 },
@@ -177,6 +207,7 @@ export class TerrainMaterial extends MeshStandardMaterial {
     this.layerCount = terrainLayerCount(params.layers ?? params.colorArray.image.depth);
     this.splatLayers = params.splat.length > 2 ? 12 : 8;
     this.setParams(params);
+    this.setGroundMood('temperate');
     this.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, this.terrainUniforms);
       shader.vertexShader = shader.vertexShader
@@ -229,6 +260,8 @@ export class TerrainMaterial extends MeshStandardMaterial {
       const look = materialLook(p.categories?.[k]);
       u.uSoft.value[k] = look.soft;
       u.uRough.value[k].set(look.rough[0], look.rough[1]);
+      u.uCoarse.value[k] = look.coarse;
+      u.uTurf.value[k] = look.turf;
     }
     for (let k = 0; k < 12; k++) u.uSplatLayer.value[k] = p.slots.splat[k] ?? -1;
     u.uCliffLayer.value = p.slots.cliff;
@@ -258,6 +291,19 @@ export class TerrainMaterial extends MeshStandardMaterial {
     // Far below any terrain, but not so far that level + 1.3 and level + 0.15 round to the same float
     this.terrainUniforms.uWaterLevel.value = level ?? -1e4;
     this.terrainUniforms.uSwashSpeed.value = level === null ? 0 : (shoreWaves(kind)?.speed ?? 0);
+  }
+
+  /** How the ground reads crests, hollows and runnels in this biome (ground-mood.ts) */
+  setGroundMood(biome: MapBiome): void {
+    const m = groundMood(biome);
+    const u = this.terrainUniforms;
+    u.uMoodCrest.value.fromArray(m.crest);
+    u.uMoodHollow.value.fromArray(m.hollow);
+    u.uMoodDrain.value.fromArray(m.drain);
+    u.uMoodPatchA.value.fromArray(m.patchA);
+    u.uMoodPatchB.value.fromArray(m.patchB);
+    u.uMoodBare.value.setRGB(m.bare[0], m.bare[1], m.bare[2], SRGBColorSpace);
+    u.uMoodSat.value = m.saturation;
   }
 
   setCliffAngle(degrees: number): void {
@@ -304,6 +350,17 @@ uniform float uSoft[TERRAIN_LAYERS];
 uniform float uFarSingle;
 uniform float uFarFlat;
 uniform vec2 uRough[TERRAIN_LAYERS];
+uniform float uCoarse[TERRAIN_LAYERS];
+uniform float uTurf[TERRAIN_LAYERS];
+uniform vec3 uMoodCrest;
+uniform vec3 uMoodHollow;
+uniform vec3 uMoodDrain;
+uniform vec3 uMoodPatchA;
+uniform vec3 uMoodPatchB;
+uniform vec3 uMoodBare;
+uniform float uMoodSat;
+// The coarse self-structure's scale against a layer's own (no simple fraction: the repeats never line up)
+#define COARSE_SCALE 0.157
 uniform float uTerrainTime;
 uniform int uSplatLayer[12];
 uniform int uCliffLayer;
@@ -331,15 +388,17 @@ void sampleNoTile(int layer, vec2 uv, vec2 dx, vec2 dy, float k, bool single, ou
   vec2 offa = sin(vec2(3.0, 7.0) * ia);
   vec2 offb = sin(vec2(3.0, 7.0) * ib);
   vec4 ca = textureGrad(uColorArray, vec3(uv + offa, float(layer)), dx, dy);
-  vec4 cb = textureGrad(uColorArray, vec3(uv + offb, float(layer)), dx, dy);
-  float b = smoothstep(0.2, 0.8, f - 0.1 * dot(ca.rgb - cb.rgb, vec3(1.0)));
-  col = mix(ca, cb, b);
   vec4 da = textureGrad(uDataArray, vec3(uv + offa, float(layer)), dx, dy);
-  // Far ground: the colour keeps both samples (its tiling would show), normal and roughness take one
+  // Far ground: one lookup of each; the coarse self-structure of the strongest layer (TERRAIN_SAMPLE) breaks
+  // the repeat there
   if (single) {
+    col = ca;
     dat = da;
     return;
   }
+  vec4 cb = textureGrad(uColorArray, vec3(uv + offb, float(layer)), dx, dy);
+  float b = smoothstep(0.2, 0.8, f - 0.1 * dot(ca.rgb - cb.rgb, vec3(1.0)));
+  col = mix(ca, cb, b);
   vec4 db = textureGrad(uDataArray, vec3(uv + offb, float(layer)), dx, dy);
   dat = mix(da, db, b);
 }
@@ -530,6 +589,19 @@ if (uCliffLayer >= 0) {
   w[uCliffLayer] += cliff;
 }
 
+// Coarse self-structure: the strongest layer's own colour texture at about six times its scale, one lookup
+// at every distance; it shapes the ground below (after the far blend, so distant land keeps it)
+int domLayer = 0;
+float domW = -1.0;
+for (int k = 0; k < TERRAIN_LAYERS; k++) {
+  if (w[k] > domW) {
+    domW = w[k];
+    domLayer = k;
+  }
+}
+float coarseS = uInvScale[domLayer] * COARSE_SCALE;
+vec3 coarseCol = textureGrad(uColorArray, vec3(tPos.xz * coarseS + vec2(0.37, 0.71), float(domLayer)), dPosX * coarseS, dPosY * coarseS).rgb;
+
 // Sample the layers with weight, keep albedo+height and normal+rough+AO
 vec4 lc[TERRAIN_LAYERS];
 vec4 ld[TERRAIN_LAYERS];
@@ -666,16 +738,31 @@ vec3 terrainNormal = safeNormalize(accN, nGeo);
 vec3 albedo = accC.rgb;
 float macro = n1 * 0.6 + n2 * 0.4;
 albedo *= mix(0.86, 1.1, macro) * mix(0.93, 1.06, n3);
-// Large patches: drier and yellower in some, deeper and cooler in others
-albedo = mix(albedo, albedo * vec3(1.1, 1.04, 0.8), smoothstep(0.5, 0.85, n2) * 0.5);
-albedo = mix(albedo, albedo * vec3(0.84, 0.92, 0.95), smoothstep(0.45, 0.15, n1) * 0.6);
+// Large patches in the biome's two kinds (ground-mood.ts): drier and sunlit in some, lush and cool in others
+albedo = mix(albedo, albedo * uMoodPatchA, smoothstep(0.5, 0.85, n2) * 0.5);
+albedo = mix(albedo, albedo * uMoodPatchB, smoothstep(0.45, 0.15, n1) * 0.6);
+// And the same two kinds again in patches of about a dozen metres with firm edges (a stand of clover, a dry
+// knoll, a damp spot), and clumps of a few metres: what a meadow or a sand flat shows from the game camera
+float midPatch = varFine.r * 0.7 + n3 * 0.3;
+albedo = mix(albedo, albedo * uMoodPatchA, smoothstep(0.57, 0.63, midPatch) * 0.5);
+albedo = mix(albedo, albedo * uMoodPatchB, smoothstep(0.43, 0.37, midPatch) * 0.45);
+albedo *= mix(0.9, 1.06, smoothstep(0.35, 0.65, varFiner.r));
 // Photo grass reads olive under a warm sun: where green leads, pull red and blue back a little
 float greenLead = smoothstep(0.0, 0.08, albedo.g - max(albedo.r, albedo.b));
 albedo *= mix(vec3(1.0), vec3(0.86, 1.04, 0.92), greenLead);
-// A little less saturated overall: photo textures under a strong sun read too green
-albedo = mix(vec3(dot(albedo, vec3(0.299, 0.587, 0.114))), albedo, 0.94);
+// The biome's saturation: photo textures under a strong sun read too green, a marsh or a wasteland duller still
+albedo = mix(vec3(dot(albedo, vec3(0.299, 0.587, 0.114))), albedo, uMoodSat);
 float far = smoothstep(120.0, 900.0, length(vViewPosition));
 albedo = mix(albedo, accAvg * mix(0.8, 1.15, macro), far * 0.45);
+// The coarse structure as the layer's own light and dark and its hue drift (dry blades, damp earth) against its
+// average colour; not on rock faces (a top projection) nor on glowing ground
+// Photo textures are even by nature (a lawn, a gravel bed): their deviation from the mean is drawn out, so the
+// clumps, stones and damp spots of the texture read from the game camera as tussocks and patches
+vec3 coarseRatio = coarseCol / max(uAverage[domLayer], vec3(0.02));
+float coarseLum = clamp(1.0 + (dot(coarseRatio, vec3(0.3333)) - 1.0) * 2.4, 0.5, 1.6);
+vec3 coarseHue = clamp(1.0 + (coarseRatio / max(dot(coarseRatio, vec3(0.3333)), 0.05) - 1.0) * 1.8, vec3(0.7), vec3(1.35));
+float coarseAmount = uCoarse[domLayer] * clamp(domW, 0.0, 1.0) * (1.0 - cliff) * (uEmissive[domLayer] > 0.0 ? 0.0 : 1.0);
+albedo *= mix(vec3(1.0), coarseHue * coarseLum, coarseAmount);
 // Rock faces: strata along the height, warped by noise, and weathering streaks running down. The
 // cliff texture alone repeats every few metres and from afar blurs into one flat colour; the bands
 // give a mountain side its structure at any distance
@@ -706,9 +793,22 @@ float crest = smoothstep(0.04, 0.4, curv) * (1.0 - cliff);
 float hollow = smoothstep(0.04, 0.4, -curv) * (1.0 - cliff);
 float drain = smoothstep(0.35, 0.9, shape.b) * inside * (1.0 - cliff);
 float lavaNear = shape.a * inside;
-albedo = mix(albedo, albedo * vec3(1.1, 1.05, 0.88), crest * 0.45);
-albedo *= 1.0 - max(hollow * 0.16, drain * 0.22);
-albedo = mix(albedo, albedo * vec3(0.88, 1.0, 0.9), drain * 0.35);
+// In the biome's mood: a temperate crest dries to straw, a marsh hollow is peat, a desert runnel salt
+albedo = mix(albedo, albedo * uMoodCrest, crest * 0.5);
+albedo = mix(albedo, albedo * uMoodHollow, hollow);
+albedo = mix(albedo, albedo * uMoodDrain * 0.86, drain * 0.85);
+// Turf tears open on steep, convex slopes below the cliff angle: tongues of the biome's bare earth down the
+// fall line, more on crests, in the coarse structure's dark spots first
+float turf = 0.0;
+for (int k = 0; k < TERRAIN_LAYERS; k++) turf += w[k] * uTurf[k];
+float tearSlope = smoothstep(0.965, 0.87, nGeo.y) * (1.0 - cliff) * inside * turf;
+if (tearSlope > 0.01) {
+  vec2 tearFall = normalize(vec2(-nGeo.x, nGeo.z) + 1e-4);
+  float tearTongue = valueNoise(vec2(dot(mapPos, vec2(-tearFall.y, tearFall.x)) * 0.45, dot(mapPos, tearFall) * 0.11));
+  float tearAt = tearTongue * 0.55 + varFine.b * 0.3 + (1.0 - coarseLum) * 0.35 + crest * 0.25;
+  float tear = smoothstep(0.62, 0.78, tearAt) * min(1.0, tearSlope * 2.2);
+  albedo = mix(albedo, uMoodBare * (0.8 + 0.4 * coarseLum), tear * 0.85);
+}
 // Scree: in a hollow under steep ground (the occlusion is low there), the cliff's rock spills out
 if (uCliffLayer >= 0) {
   float scree = hollow * smoothstep(0.85, 0.55, shape.r) * smoothstep(0.35, 0.65, varFine.b + hollow * 0.3);
