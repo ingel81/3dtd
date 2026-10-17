@@ -457,6 +457,27 @@ vec2 mapPos = vec2(-tPos.x, tPos.z);
 // Inside the opening of a model set into the ground (a tunnel's vault): the model's own surfaces show
 if (terrainCut(mapPos, tPos.y)) discard;
 #endif
+// What the lighting reads of the ground (set below, or plainly under a road surface)
+vec3 terrainNormal;
+float terrainRough;
+float terrainSpec;
+float terrainAO;
+vec3 accGlow = vec3(0.0);
+// Under the middle of a road surface (path-mask.ts covers) only the road shows: the ground does none of its work
+// (the mask's read where the ground lies, which the wet banks take too)
+vec4 pathHere = texture2D(uPathMask, mapPos / uMapSize + 0.5);
+#ifdef TERRAIN_APRON
+bool underRoad = false;
+#else
+bool underRoad = pathHere.b > 0.996 && pathHere.r + pathHere.g < 0.002;
+#endif
+if (underRoad) {
+  terrainNormal = normalize(vTerrainNormal);
+  terrainRough = 0.9;
+  terrainSpec = 0.25;
+  terrainAO = 1.0;
+  diffuseColor.rgb = vec3(0.1);
+} else {
 // Beyond the map (the apron) there is no grid: vertex normals, and the border's natural ground (below)
 vec2 edgeDist = abs(mapPos) - uMapSize * 0.5;
 float outside = smoothstep(0.0, 12.0, max(edgeDist.x, edgeDist.y));
@@ -464,7 +485,7 @@ vec4 gridSample = texture2D(uGridNormals, mapPos * uGridUv.xy + uGridUv.zw);
 vec3 nGeo = safeNormalize(mix(gridSample.xyz, normalize(vTerrainNormal), outside), vec3(0.0, 1.0, 0.0));
 // Banks just above the water are wet: darker and glossier
 float wetBank = gridSample.a * smoothstep(uWaterLevel + 1.3, uWaterLevel + 0.15, tPos.y) * (1.0 - outside);
-wetBank = max(wetBank, texture2D(uPathMask, mapPos / uMapSize + 0.5).a * (1.0 - outside) * 0.85);
+wetBank = max(wetBank, pathHere.a * (1.0 - outside) * 0.85);
 // Swash: each foam band that reaches the shore runs up the bank and drains away (shore-waves.ts, same phase)
 float swash = 0.0;
 if (uSwashSpeed > 0.0) {
@@ -544,14 +565,6 @@ if (outside > 0.0) {
 
 // Roads and paths replace the painted ground
 vec4 pmask = texture2D(uPathMask, tuv + wobble * 0.5);
-// Under the middle of a road surface (path-mask.ts covers) only the road shows: the ground takes the flat far path,
-// no layer textures. Read where it lies, without the wobble, and only where the first read is near a cover: most of
-// the ground pays no second read
-bool underRoad = false;
-if (pmask.b > 0.9 && pmask.r + pmask.g < 0.01 && outside == 0.0) {
-  vec4 pmaskHere = texture2D(uPathMask, tuv);
-  underRoad = pmaskHere.b > 0.996 && pmaskHere.r + pmaskHere.g < 0.002;
-}
 vec2 pm = pmask.rg * (1.0 - outside);
 // Frayed edges: noise eats into the soft rim of the mask, grass grows in from the side
 float fray = (varFine.a - 0.5) * 0.9 + (n3 - 0.5) * 0.4;
@@ -633,7 +646,7 @@ vec2 sideZdy = dFdy(sideZ);
 // unrolls the sampling for every layer, which made this program take seconds to link
 vec4 cliffX = vec4(0.0); vec4 cliffXd = vec4(0.5, 0.5, 1.0, 1.0);
 vec4 cliffZ = vec4(0.0); vec4 cliffZd = vec4(0.5, 0.5, 1.0, 1.0);
-bool cliffSides = uCliffLayer >= 0 && tri.y < 0.98 && w[uCliffLayer] >= 0.004 && !underRoad;
+bool cliffSides = uCliffLayer >= 0 && tri.y < 0.98 && w[uCliffLayer] >= 0.004;
 if (cliffSides) {
   float s = uInvScale[uCliffLayer];
   sampleNoTile(uCliffLayer, sideX * s, sideXdx * s, sideXdy * s, sel, false, cliffX, cliffXd);
@@ -647,7 +660,7 @@ if (cliffSides) {
 float farJitter = (sel - 0.5) * 30.0;
 float viewDist = length(vViewPosition);
 bool farSingle = viewDist > uFarSingle + farJitter;
-bool farFlat = viewDist > uFarFlat || underRoad;
+bool farFlat = viewDist > uFarFlat;
 float farFade = smoothstep(uFarFlat * 0.7, uFarFlat, viewDist);
 // Painted ground on a steep slope (from STEEP_FROM to STEEP_FULL degrees, below the cliff angle): the top
 // projection stretched it into streaks. Its strongest layer also reads the two side planes, once before the
@@ -710,7 +723,6 @@ vec4 accC = vec4(0.0);
 vec4 accD = vec4(0.0);
 vec3 accN = vec3(0.0);
 vec3 accAvg = vec3(0.0);
-vec3 accGlow = vec3(0.0);
 for (int k = 0; k < TERRAIN_LAYERS; k++) {
   if (w[k] < 0.004) continue;
   // Each layer blends as soft as its kind: grass and sand run into their neighbours, rock and ice cut
@@ -740,7 +752,7 @@ accC /= total;
 accD /= total;
 accAvg /= total;
 accGlow /= total;
-vec3 terrainNormal = safeNormalize(accN, nGeo);
+terrainNormal = safeNormalize(accN, nGeo);
 
 // Macro variation and far blend
 vec3 albedo = accC.rgb;
@@ -839,14 +851,15 @@ accGlow += vec3(1.0, 0.32, 0.06) * pow(lavaNear, 4.0) * 0.22 * (0.85 + 0.15 * si
 albedo *= mix(1.0, 0.6, wetBank);
 // Soil, grass and rock are rough and barely shiny: against the sun at a grazing angle the full
 // specular of a standard material turned meadows and yards into white sheets. Wet banks keep a sheen
-float terrainRough = mix(mix(accD.b, 0.45, wetBank), 0.25, swash) * (1.0 - drain * 0.2);
-float terrainSpec = mix(0.25, 0.6, wetBank);
+terrainRough = mix(mix(accD.b, 0.45, wetBank), 0.25, swash) * (1.0 - drain * 0.2);
+terrainSpec = mix(0.25, 0.6, wetBank);
 // Against the light at a grazing angle the specular turned smooth rock and packed earth into white sheets:
 // it fades towards the edge of view (a damped Fresnel for ground that is never a mirror)
 float grazing = 1.0 - max(dot(normalize((viewMatrix * vec4(terrainNormal, 0.0)).xyz), normalize(vViewPosition)), 0.0);
 terrainSpec *= 1.0 - 0.6 * pow(grazing, 4.0);
 // Texture AO and the baked ground occlusion (hollows, slope feet, contact shadows of objects)
 float groundAO = mix(shape.r, 1.0, outside);
-float terrainAO = mix(1.0, accD.a, 0.85) * groundAO;
+terrainAO = mix(1.0, accD.a, 0.85) * groundAO;
 diffuseColor.rgb = albedo;
+}
 `;
