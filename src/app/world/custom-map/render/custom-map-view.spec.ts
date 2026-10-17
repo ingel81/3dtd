@@ -2,14 +2,14 @@ import { readFileSync } from 'node:fs';
 import { InstancedMesh, Mesh, PerspectiveCamera, Ray, Scene, Vector3, WebGLRenderTarget, type Object3D } from 'three';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { createDemoMap } from '../demo-map';
-import type { CustomMapDocument } from '../map-document';
+import type { CustomMapDocument, MapPaths, MapRiver } from '../map-document';
 import { CustomMapView } from './custom-map-view';
 import { sunDirection } from './environment/map-environment';
 import { WIND_UNIFORMS } from './environment/wind';
 import { HeightField } from './height-field';
 import { MapAssetLibrary } from './map-asset-library';
 import { mapToScene } from './map-coords';
-import { pathMaskResolution, rasterizePathMask } from './paths/path-mask';
+import { PathMaskRaster, pathMaskResolution, rasterizePathMask } from './paths/path-mask';
 import { assignLayerSlots } from './terrain/map-terrain';
 
 const catalog = JSON.parse(readFileSync('public/maps/assets/catalog.json', 'utf8')) as {
@@ -106,6 +106,38 @@ describe('path mask', () => {
   it('leaves bridges to the deck mesh', () => {
     expect(at(-20, 20, 0)).toBe(0);
     expect(at(-20, 20, 1)).toBe(0);
+  });
+
+  it('paints again only round what changed, the same texels as a whole raster', () => {
+    const doc: MapPaths = structuredClone(paths) as MapPaths;
+    const rivers: MapRiver[] = [];
+    const raster = new PathMaskRaster(200, 160, 400);
+    const whole = () => rasterizePathMask(doc, 200, 160, 400, rivers);
+    expect(raster.update(doc, rivers)).toEqual({ i0: 0, j0: 0, i1: 399, j1: 399 });
+    expect(raster.update(doc, rivers)).toBeNull();
+    const steps: (() => void)[] = [
+      () => (doc.nodes[0].x = -30),
+      () => doc.edges.push({ id: 'new', a: 'a', b: 'c', width: 5, kind: 'road' }),
+      () => (doc.edges[1].width = 9),
+      () => (doc.edges[2].kind = 'road'),
+      () => doc.edges.splice(0, 1),
+      () => (doc.edges[0].via = [{ x: 60, y: 20 }]),
+      () => rivers.push({ id: 'r', kind: 'water', points: [{ x: -80, y: -60, width: 6, height: 0 }, { x: 0, y: -30, width: 10, height: 0 }, { x: 80, y: -60, width: 6, height: 0 }] }),
+      () => (rivers[0].points[1].y = -10),
+      () => doc.edges.reverse(),
+      () => rivers.pop(),
+    ];
+    for (const step of steps) {
+      step();
+      const rect = raster.update(doc, rivers);
+      expect(rect).not.toBeNull();
+      expect(raster.data).toEqual(whole());
+    }
+    // A node drag paints a small part of the mask
+    doc.nodes[2].x += 2;
+    const rect = raster.update(doc, rivers)!;
+    expect((rect.i1 - rect.i0 + 1) * (rect.j1 - rect.j0 + 1)).toBeLessThan(400 * 400 * 0.2);
+    expect(raster.data).toEqual(whole());
   });
 
   it('aims at half a metre per texel, even and capped', () => {

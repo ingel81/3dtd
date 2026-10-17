@@ -58,7 +58,7 @@ view.addObjects(objects);                  // schon in doc.objects: baut nur die
 view.removeObjects(objects);               // schon aus doc.objects entfernt: nur deren Zellen und Kontaktschatten
 view.updateObject(obj);                    // eins verschoben/gedreht/skaliert; anderes Asset baut neu
 await view.warmUpAssets(renderer, scene, camera, ids); // Programme und Impostoren noch nicht platzierter Assets
-view.updatePaths();                        // Wegemaske und Brücken neu
+view.updatePaths();                        // Wegemaske (nur wo sich Wege änderten) und Brücken neu
 view.setEnvironment(env);                  // Himmel, Sonne, Nebel, Tönung
 view.dispose();
 ```
@@ -214,7 +214,11 @@ weichen Ränder werden von Rauschen angefressen (Gras wächst herein). So folgt
 ein Weg jeder Unebenheit ohne Z-Fighting, und der Höhen-Blend lässt Pflastersteine am Rand ins Gras auslaufen.
 Flussufer liegen in der Alpha der Maske: nasser Kies und Erde beidseits jedes Flusses, ungleichmäßig breit (an
 der Innenseite einer Biegung bis 2,4-fach, außen schmal, entlang des Flusses wandernd), die Kante vom Rauschen
-angefressen. Brücken (`kind: 'bridge'`) bekommen ein Deck aus instanzierten `bridge-deck`-Stücken zwischen den Uferhöhen, mit
+angefressen. Die Maske merkt sich, was sie malte (`PathMaskRaster`: je gemalte Kante Art, Breite und Linie, je Fluss
+die Punkte), und malt bei einer Änderung nur das Rechteck um alte und neue Lage dessen, was sich bewegte, kam oder
+ging, neu und lädt nur dessen Zeilen hoch; eine Wasseränderung ohne geänderte Wege malt nichts. Das Rechteck kommt
+genau wie ein Ganzaufbau heraus (gleiche Reihenfolge der Kanten; ändert sie sich, malt sie ganz). Einen Knoten auf
+einer 1024-m-Karte mit 220 Straßen ziehen: 1,4 statt 20 ms je Bild, dazu der Upload. Brücken (`kind: 'bridge'`) bekommen ein Deck aus instanzierten `bridge-deck`-Stücken zwischen den Uferhöhen, mit
 leichtem Bogen und mindestens 1 m über dem Wasser. `style: 'stone' | 'concrete' | 'lava'` an der Kante nimmt
 `bridge-deck-stone`, `bridge-deck-concrete` (Asphalt auf Betonplatte, Geländer) bzw. `bridge-deck-lava`; fehlt das
 Stück im Katalog, bleibt es beim Holzdeck.

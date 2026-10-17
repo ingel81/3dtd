@@ -1,4 +1,5 @@
-import type { MapPathEdge, MapPaths, MapPoint, MapRiver } from '../../map-document';
+import type { MapPathEdge, MapPaths, MapPoint, MapRiver, MapRiverPoint } from '../../map-document';
+import type { TexelRect } from '../terrain/texture-ranges';
 import { sampleRiver } from '../water/river-surface';
 
 /**
@@ -45,12 +46,35 @@ export function rasterizePathMask(
   rivers: MapRiver[] = [],
 ): Uint8Array {
   const out = new Uint8Array(resolution * resolution * 4);
-  rasterizeRiverBanks(out, rivers, width, depth, resolution);
+  paintPathMask(out, paths, width, depth, resolution, rivers, { i0: 0, j0: 0, i1: resolution - 1, j1: resolution - 1 });
+  return out;
+}
+
+/** Whether an edge is painted into the mask (bridges, painted surfaces and tunnels are not) */
+function painted(edge: MapPathEdge): boolean {
+  return edge.kind !== 'bridge' && !edge.surface && !edge.tunnel;
+}
+
+/**
+ * Paints the mask's texels in `rect` (cleared by the caller) from every
+ * river and path that reaches them, in the same order as the whole mask, so
+ * a rectangle comes out exactly as a whole raster has it
+ */
+function paintPathMask(
+  out: Uint8Array,
+  paths: MapPaths,
+  width: number,
+  depth: number,
+  resolution: number,
+  rivers: MapRiver[],
+  rect: TexelRect,
+): void {
+  rasterizeRiverBanks(out, rivers, width, depth, resolution, rect);
   const nodes = new Map<string, MapPoint>(paths.nodes.map((n) => [n.id, n]));
   const sx = resolution / width;
   const sy = resolution / depth;
   for (const edge of paths.edges) {
-    if (edge.kind === 'bridge' || edge.surface || edge.tunnel) continue;
+    if (!painted(edge)) continue;
     const line = edgePolyline(edge, nodes);
     if (!line) continue;
     const channel = edge.kind === 'road' ? 0 : 1;
@@ -60,10 +84,11 @@ export function rasterizePathMask(
     for (let s = 0; s < line.length - 1; s++) {
       const p = line[s];
       const q = line[s + 1];
-      const minX = Math.max(0, Math.floor((Math.min(p.x, q.x) - outer + width / 2) * sx));
-      const maxX = Math.min(resolution - 1, Math.ceil((Math.max(p.x, q.x) + outer + width / 2) * sx));
-      const minY = Math.max(0, Math.floor((Math.min(p.y, q.y) - outer + depth / 2) * sy));
-      const maxY = Math.min(resolution - 1, Math.ceil((Math.max(p.y, q.y) + outer + depth / 2) * sy));
+      const minX = Math.max(rect.i0, Math.floor((Math.min(p.x, q.x) - outer + width / 2) * sx));
+      const maxX = Math.min(rect.i1, Math.ceil((Math.max(p.x, q.x) + outer + width / 2) * sx));
+      const minY = Math.max(rect.j0, Math.floor((Math.min(p.y, q.y) - outer + depth / 2) * sy));
+      const maxY = Math.min(rect.j1, Math.ceil((Math.max(p.y, q.y) + outer + depth / 2) * sy));
+      if (minX > maxX || minY > maxY) continue;
       const dx = q.x - p.x;
       const dy = q.y - p.y;
       const len2 = dx * dx + dy * dy || 1;
@@ -89,7 +114,147 @@ export function rasterizePathMask(
       }
     }
   }
-  return out;
+}
+
+/** Share of the mask past which a change paints it whole: a rectangle would save little */
+const WHOLE_SHARE = 0.4;
+
+/** Metres the river banks reach past the surface's edge at most (rasterizeRiverBanks) */
+const BANK_REACH = 5 * 2.4;
+
+interface Box {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+/**
+ * The path mask of a map kept up to date as the paths change: it remembers
+ * what it painted (each painted edge's kind, width and line, each river's
+ * points) and paints again only the texels round what moved, came or went.
+ * Dragging a road node on a big map paints a few thousand texels of four
+ * million instead of all of them.
+ */
+export class PathMaskRaster {
+  readonly data: Uint8Array;
+  /** Each painted edge (`e:` id) and water river (`r:` id) as last painted: kind, width, then the points */
+  private shapes = new Map<string, Float64Array>();
+  /** The painted edges in their order: of two crossing paths as strong, the first owns the across position */
+  private order: string[] = [];
+  private painted = false;
+
+  constructor(
+    readonly width: number,
+    readonly depth: number,
+    readonly resolution: number,
+  ) {
+    this.data = new Uint8Array(resolution * resolution * 4);
+  }
+
+  /** Paints the mask for these paths and rivers; the texel rectangle that changed, null when nothing did */
+  update(paths: MapPaths, rivers: MapRiver[] = []): TexelRect | null {
+    const res = this.resolution;
+    const nodes = new Map<string, MapPoint>(paths.nodes.map((n) => [n.id, n]));
+    const shapes = new Map<string, Float64Array>();
+    const order: string[] = [];
+    let box: Box | null = null;
+    const grow = (key: string, shape: Float64Array) => (box = growBox(box, key, shape));
+    // A shape that is not as it was: its old and its new ground paint again
+    const visit = (key: string, kind: number, size: number, points: readonly MapPoint[], stride: 2 | 3) => {
+      const old = this.shapes.get(key);
+      let same = !!old && old.length === 2 + points.length * stride && old[0] === kind && old[1] === size;
+      for (let k = 0; same && k < points.length; k++) {
+        const o = 2 + k * stride;
+        same = old![o] === points[k].x && old![o + 1] === points[k].y && (stride === 2 || old![o + 2] === (points[k] as MapRiverPoint).width);
+      }
+      if (same) {
+        shapes.set(key, old!);
+        return;
+      }
+      const shape = new Float64Array(2 + points.length * stride);
+      shape[0] = kind;
+      shape[1] = size;
+      points.forEach((p, k) => {
+        shape[2 + k * stride] = p.x;
+        shape[3 + k * stride] = p.y;
+        if (stride === 3) shape[4 + k * stride] = (p as MapRiverPoint).width;
+      });
+      shapes.set(key, shape);
+      if (!this.painted) return;
+      grow(key, shape);
+      if (old) grow(key, old);
+    };
+    for (const edge of paths.edges) {
+      if (!painted(edge)) continue;
+      const line = edgePolyline(edge, nodes);
+      if (!line) continue;
+      const key = `e:${edge.id}`;
+      order.push(key);
+      visit(key, edge.kind === 'road' ? 0 : 1, edge.width, line, 2);
+    }
+    for (const river of rivers) {
+      if (river.kind === 'water' && river.points.length >= 2) visit(`r:${river.id}`, 2, 0, river.points, 3);
+    }
+    if (this.painted) for (const [key, old] of this.shapes) if (!shapes.has(key)) grow(key, old);
+    const reordered = this.painted && !sameOrder(this.order, order, this.shapes, shapes);
+    this.shapes = shapes;
+    this.order = order;
+    const whole: TexelRect = { i0: 0, j0: 0, i1: res - 1, j1: res - 1 };
+    let rect: TexelRect;
+    if (!this.painted || reordered) {
+      rect = whole;
+    } else {
+      // Grown in the closures above
+      const b = box as Box | null;
+      if (!b) return null;
+      const sx = res / this.width;
+      const sy = res / this.depth;
+      rect = {
+        i0: Math.max(0, Math.floor((b.x0 + this.width / 2) * sx) - 1),
+        j0: Math.max(0, Math.floor((b.y0 + this.depth / 2) * sy) - 1),
+        i1: Math.min(res - 1, Math.ceil((b.x1 + this.width / 2) * sx) + 1),
+        j1: Math.min(res - 1, Math.ceil((b.y1 + this.depth / 2) * sy) + 1),
+      };
+      if (rect.i1 < rect.i0 || rect.j1 < rect.j0) return null;
+      if ((rect.i1 - rect.i0 + 1) * (rect.j1 - rect.j0 + 1) > res * res * WHOLE_SHARE) rect = whole;
+    }
+    this.painted = true;
+    for (let j = rect.j0; j <= rect.j1; j++) this.data.fill(0, (j * res + rect.i0) * 4, (j * res + rect.i1 + 1) * 4);
+    paintPathMask(this.data, paths, this.width, this.depth, res, rivers, rect);
+    return rect;
+  }
+}
+
+/** The box grown by the ground a shape paints: a path's fade round its line, a river's banks round its curve */
+function growBox(box: Box | null, key: string, shape: Float64Array): Box {
+  let points: { x: number; y: number }[];
+  let pad: number;
+  if (key.startsWith('r:')) {
+    const river: MapRiverPoint[] = [];
+    for (let k = 2; k < shape.length; k += 3) river.push({ x: shape[k], y: shape[k + 1], width: shape[k + 2], height: 0 });
+    points = sampleRiver(river, 2);
+    pad = Math.max(...river.map((p) => p.width)) / 2 + BANK_REACH;
+  } else {
+    points = [];
+    for (let k = 2; k < shape.length; k += 2) points.push({ x: shape[k], y: shape[k + 1] });
+    pad = (shape[1] / 2) * 1.15;
+  }
+  let b = box ?? { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
+  for (const p of points) b = { x0: Math.min(b.x0, p.x - pad), y0: Math.min(b.y0, p.y - pad), x1: Math.max(b.x1, p.x + pad), y1: Math.max(b.y1, p.y + pad) };
+  return b;
+}
+
+/** Whether the edges kept in both lists stand in the same order */
+function sameOrder(before: string[], after: string[], had: Map<string, unknown>, has: Map<string, unknown>): boolean {
+  let k = 0;
+  for (const key of before) {
+    if (!has.has(key)) continue;
+    while (k < after.length && !had.has(after[k])) k++;
+    if (after[k] !== key) return false;
+    k++;
+  }
+  return true;
 }
 
 /**
@@ -99,7 +264,7 @@ export function rasterizePathMask(
  * its gravel), narrow on the outside (where it cuts), and their width
  * wanders along the river.
  */
-function rasterizeRiverBanks(out: Uint8Array, rivers: MapRiver[], width: number, depth: number, resolution: number): void {
+function rasterizeRiverBanks(out: Uint8Array, rivers: MapRiver[], width: number, depth: number, resolution: number, rect: TexelRect): void {
   const sx = resolution / width;
   const sy = resolution / depth;
   for (const river of rivers) {
@@ -127,10 +292,11 @@ function rasterizeRiverBanks(out: Uint8Array, rivers: MapRiver[], width: number,
         return Math.max(0.35, Math.min(2.4, wander * (1 + (inside ? 1.3 : -0.6) * k)));
       };
       const reach = half + 5 * 2.4;
-      const minX = Math.max(0, Math.floor((Math.min(p.x, q.x) - reach + width / 2) * sx));
-      const maxX = Math.min(resolution - 1, Math.ceil((Math.max(p.x, q.x) + reach + width / 2) * sx));
-      const minY = Math.max(0, Math.floor((Math.min(p.y, q.y) - reach + depth / 2) * sy));
-      const maxY = Math.min(resolution - 1, Math.ceil((Math.max(p.y, q.y) + reach + depth / 2) * sy));
+      const minX = Math.max(rect.i0, Math.floor((Math.min(p.x, q.x) - reach + width / 2) * sx));
+      const maxX = Math.min(rect.i1, Math.ceil((Math.max(p.x, q.x) + reach + width / 2) * sx));
+      const minY = Math.max(rect.j0, Math.floor((Math.min(p.y, q.y) - reach + depth / 2) * sy));
+      const maxY = Math.min(rect.j1, Math.ceil((Math.max(p.y, q.y) + reach + depth / 2) * sy));
+      if (minX > maxX || minY > maxY) continue;
       const dx = q.x - p.x;
       const dy = q.y - p.y;
       const len2 = dx * dx + dy * dy || 1;
