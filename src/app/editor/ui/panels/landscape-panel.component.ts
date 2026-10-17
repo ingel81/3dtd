@@ -5,8 +5,9 @@ import type { MapPathKind } from '../../../world/custom-map/map-document';
 import { BIOMES, type BiomeDef, type BiomeId } from '../../ops/landscape/biomes';
 import { randomSeed } from '../../../map-ops/landscape-noise';
 import { cliffModelIds } from '../../ops/landscape/cliff-rocks';
-import { roadSurfaces } from '../../ops/landscape/road';
-import { LANDSCAPE_MODES, type LandscapeMode } from '../../tools/tool';
+import { roadSurfaces, type RoadOptions } from '../../ops/landscape/road';
+import type { RiverOptions } from '../../ops/landscape/river';
+import { patch, LANDSCAPE_MODES, type LandscapeMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
 import { BrushPanelComponent } from './brush-panel.component';
 import { RangeRowComponent } from './range-row.component';
@@ -25,7 +26,7 @@ export class LandscapePanelComponent {
   readonly session = inject(EditorSession);
   readonly modes = LANDSCAPE_MODES;
   readonly biomes = BIOMES;
-  readonly s = computed(() => (this.session.settingsRev(), structuredClone(this.session.settings.landscape)));
+  readonly s = this.session.settings.landscape;
   readonly surfaces = computed(() => roadSurfaces(this.session.catalog()));
   readonly hasMaterials = computed(() => this.session.catalog().catalog.materials.length > 0);
   readonly cliffModels = computed(() => {
@@ -34,7 +35,7 @@ export class LandscapePanelComponent {
   });
 
   setCliffModel(id: string): void {
-    this.session.patchSettings((s) => (s.landscape.cliffModel = id));
+    patch(this.session.settings.landscape, { cliffModel: id });
   }
 
   thumb(b: BiomeDef): string {
@@ -42,59 +43,64 @@ export class LandscapePanelComponent {
   }
 
   setMode(mode: LandscapeMode): void {
-    this.session.patchSettings((s) => (s.landscape.mode = mode));
+    patch(this.session.settings.landscape, { mode });
   }
 
   setBiome(id: BiomeId): void {
-    this.session.patchSettings((s) => {
-      s.landscape.biome = id;
-      s.landscape.mode = 'biome';
-    });
+    patch(this.session.settings.landscape, { biome: id, mode: 'biome' });
   }
 
   roll(): void {
-    this.session.patchSettings((s) => (s.landscape.seed = randomSeed()));
+    patch(this.session.settings.landscape, { seed: randomSeed() });
   }
 
   setSeed(e: Event): void {
     const v = Math.abs(Math.round(Number((e.target as HTMLInputElement).value)));
-    if (Number.isFinite(v)) this.session.patchSettings((s) => (s.landscape.seed = v));
+    if (Number.isFinite(v)) patch(this.session.settings.landscape, { seed: v });
   }
 
   setReroll(on: boolean): void {
-    this.session.patchSettings((s) => (s.landscape.reroll = on));
+    patch(this.session.settings.landscape, { reroll: on });
   }
 
   setRiver(key: 'width' | 'depth' | 'bank', v: number): void {
-    this.session.patchSettings((s) => (s.landscape.river[key] = v));
+    this.setRiverOption({ [key]: v });
   }
 
   setRiverKind(kind: 'water' | 'lava'): void {
-    this.session.patchSettings((s) => (s.landscape.river.kind = kind));
+    this.setRiverOption({ kind });
   }
 
   setRiverFlag(key: 'reeds' | 'bridges', on: boolean): void {
-    this.session.patchSettings((s) => (s.landscape.river[key] = on));
+    this.setRiverOption({ [key]: on });
   }
 
   setRoadWidth(v: number): void {
-    this.session.patchSettings((s) => (s.landscape.road.width = v));
+    this.setRoadOption({ width: v });
   }
 
   setRoadKind(kind: MapPathKind): void {
-    this.session.patchSettings((s) => (s.landscape.road.kind = kind));
+    this.setRoadOption({ kind });
   }
 
   setRoadFlag(key: 'adapt' | 'lamps' | 'fences', on: boolean): void {
-    this.session.patchSettings((s) => (s.landscape.road[key] = on));
+    this.setRoadOption({ [key]: on });
   }
 
   setSurface(id: string): void {
-    this.session.patchSettings((s) => (s.landscape.road.surface = id ? [id] : []));
+    this.setRoadOption({ surface: id ? [id] : [] });
+  }
+
+  private setRiverOption(changes: Partial<RiverOptions>): void {
+    patch(this.session.settings.landscape, { river: { ...this.session.settings.landscape().river, ...changes } });
+  }
+
+  private setRoadOption(changes: Partial<RoadOptions>): void {
+    patch(this.session.settings.landscape, { road: { ...this.session.settings.landscape().road, ...changes } });
   }
 
   setCliff(v: number): void {
-    this.session.patchSettings((s) => (s.landscape.cliffHeight = v));
+    patch(this.session.settings.landscape, { cliffHeight: v });
   }
 
   checked(e: Event): boolean {

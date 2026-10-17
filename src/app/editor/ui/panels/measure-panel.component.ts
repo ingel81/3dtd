@@ -5,6 +5,7 @@ import { measureLine } from '../../ops/measure';
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
 import { TOWER_SPOT_M2, TYPICAL_TOWER_RANGE } from '../../../map-ops/validation/build-areas';
+import { patch } from '../../tools/tool';
 
 /** Walking speeds of the ground enemies, metres per second */
 const SPEEDS = (() => {
@@ -100,11 +101,10 @@ export class MeasurePanelComponent {
     const a = this.session.buildAreas();
     return a ? { area: Math.round(a.inReach).toLocaleString('en-US'), spots: Math.floor(a.inReach / TOWER_SPOT_M2).toLocaleString('en-US') } : null;
   });
-  readonly view = computed(() => (this.session.settingsRev(), { ...this.session.settings.view }));
+  readonly view = this.session.settings.view;
   readonly result = computed(() => {
-    this.session.settingsRev();
     this.rev();
-    const pts = this.session.settings.measure;
+    const pts = this.session.settings.measure();
     const doc = this.session.doc;
     if (!doc || pts.length < 2) return null;
     const r = measureLine(doc.terrain, pts);
@@ -131,17 +131,14 @@ export class MeasurePanelComponent {
   }
 
   set(key: 'contours' | 'grid', on: boolean): void {
-    this.session.patchSettings((s) => (s.view[key] = on));
+    patch(this.session.settings.view, { [key]: on });
   }
 
   setStep(key: 'contourStep' | 'gridStep', v: number): void {
-    this.session.patchSettings((s) => {
-      s.view[key] = v;
-      s.view[key === 'contourStep' ? 'contours' : 'grid'] = true;
-    });
+    patch(this.session.settings.view, { [key]: v, [key === 'contourStep' ? 'contours' : 'grid']: true });
   }
 
   clear(): void {
-    this.session.patchSettings((s) => (s.measure = []));
+    this.session.settings.measure.set([]);
   }
 }

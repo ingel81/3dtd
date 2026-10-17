@@ -53,7 +53,7 @@ import { PathTool } from '../tools/path-tool';
 import { LifeTool } from '../tools/life-tool';
 import { withLife } from '../ops/life';
 import { TerrainTool } from '../tools/terrain-tool';
-import { PanelTool, TOOL_BRUSH_RADIUS, TOOLS, defaultSettings, type EditorSettings, type EditorTool, type ToolId } from '../tools/tool';
+import { PanelTool, TOOL_BRUSH_RADIUS, TOOLS, defaultSettings, patch, type EditorTool, type ToolId } from '../tools/tool';
 import { DEFAULT_BRUSH, type BrushSettings } from '../../map-ops/brush';
 import { WaterTool } from '../tools/water-tool';
 import { assetCosts } from '../../map-ops/validation/map-budget';
@@ -162,8 +162,6 @@ export class EditorSession implements OnDestroy {
   readonly libraryStamps = signal<SavedStamp[]>([]);
   readonly catalog = signal(new CatalogIndex(EMPTY_CATALOG));
   readonly settings = defaultSettings();
-  /** Bumps when settings change from outside the panels (keys, a tool) */
-  readonly settingsRev = signal(0);
   /** The editor opens on Look: nothing changes the map until a tool is picked */
   readonly tool = signal<ToolId>('look');
   /** The brushes of the tools not in hand (selectTool swaps them) */
@@ -204,7 +202,18 @@ export class EditorSession implements OnDestroy {
   readonly saving = signal(false);
   readonly savedAt = signal<string | null>(null);
   readonly status = signal('');
-  readonly hint = signal('');
+  /** Bumps when the tool's line of help says something new from what the tool holds (ToolContext.hintChanged) */
+  private readonly hintRev = signal(0);
+  /** Bumps when a view comes or goes */
+  private readonly viewAt = signal(0);
+  /** The tool's line of help under the map: follows the tool, its settings and the map */
+  readonly hint = computed(() => {
+    this.viewAt();
+    this.hintRev();
+    this.docRev();
+    const vp = this.viewport;
+    return vp ? this.tools[this.tool()].hint(vp.ctx) : '';
+  });
   readonly hover = signal<HoverInfo | null>(null);
   readonly stats = signal<FrameStats | null>(null);
   readonly issues = signal<MapIssue[] | null>(null);
@@ -880,7 +889,7 @@ export class EditorSession implements OnDestroy {
     for (const u of this.unsubscribe) u();
     this.unsubscribe = [];
     // A spot Look described belongs to the map before, a kept camera too
-    this.settings.look.at = null;
+    this.settings.look.set({ at: null });
     if (frame) this.keptView = null;
     if (this.editor) this.editor.replace(doc);
     else {
@@ -959,7 +968,7 @@ export class EditorSession implements OnDestroy {
     this.zone.runOutsideAngular(() => {
       this.viewport = new EditorViewport(canvas, editor, this.catalog(), this.settings, {
         status: (m) => this.flash(m),
-        settingsChanged: () => this.settingsRev.update((n) => n + 1),
+        hintChanged: () => this.hintRev.update((n) => n + 1),
         box: (b) => this.box.set(b),
         lasso: (points) => this.lasso.set(points ? points.map((q) => `${Math.round(q.x)},${Math.round(q.y)}`).join(' ') : null),
         hover: (h) => this.hover.set(h),
@@ -981,7 +990,7 @@ export class EditorSession implements OnDestroy {
       this.keptView = null;
       this.showBuildAreas();
     });
-    this.hint.set(this.tools[this.tool()].hint(this.viewport!.ctx));
+    this.viewAt.update((n) => n + 1);
   }
 
   /** The view's context went: the map is saved at once (it lives in memory, not on the GPU); back, the view is rebuilt */
@@ -1011,22 +1020,19 @@ export class EditorSession implements OnDestroy {
     // The palette pictures' own GPU context goes with the view (the game needs the room); it comes back with the next picture
     this.thumbRenderer?.release();
     // The sound stopped with the view; a new view starts it only from a click
-    this.settings.life.hear = false;
+    patch(this.settings.life, { hear: false });
+    this.viewAt.update((n) => n + 1);
   }
 
   selectTool(id: ToolId): void {
     const previous = this.tool();
     if (previous !== id) {
       // Every tool keeps its own brush: a big landscape brush is no big paint brush
-      this.brushes.set(previous, { ...this.settings.brush });
-      this.settings.brush = this.brushFor(id);
-      this.settingsRev.update((n) => n + 1);
+      this.brushes.set(previous, this.settings.brush());
+      this.settings.brush.set(this.brushFor(id));
     }
     this.tool.set(id);
-    if (this.viewport) {
-      this.viewport.setTool(this.tools[id]);
-      this.hint.set(this.tools[id].hint(this.viewport.ctx));
-    }
+    this.viewport?.setTool(this.tools[id]);
   }
 
   /** The brush a tool had last, or its own first size */
@@ -1034,18 +1040,6 @@ export class EditorSession implements OnDestroy {
     const kept = this.brushes.get(id);
     if (kept) return { ...kept };
     return { ...DEFAULT_BRUSH, radius: TOOL_BRUSH_RADIUS[id] ?? DEFAULT_BRUSH.radius };
-  }
-
-  /** Change settings from a panel */
-  patchSettings(fn: (s: EditorSettings) => void): void {
-    fn(this.settings);
-    this.settingsRev.update((n) => n + 1);
-    this.settingsTouched();
-  }
-
-  /** Settings changed in a panel: the hint may say something new */
-  settingsTouched(): void {
-    if (this.viewport) this.hint.set(this.tools[this.tool()].hint(this.viewport.ctx));
   }
 
   // ---------------------------------------------------------------- editing
@@ -1139,13 +1133,13 @@ export class EditorSession implements OnDestroy {
 
   /** Plays the map's ambient sound in the editor, or stops it (from a click: browsers start audio only then) */
   hearAmbience(on: boolean): void {
-    this.patchSettings((s) => (s.life.hear = on));
+    patch(this.settings.life, { hear: on });
     this.viewport?.setAmbience(on);
   }
 
   /** The map's wave sound once in the editor (from a click), its sound on from then */
   playWaveSound(): void {
-    this.patchSettings((s) => (s.life.hear = true));
+    patch(this.settings.life, { hear: true });
     this.viewport?.playWaveSound();
   }
 
@@ -1215,7 +1209,7 @@ export class EditorSession implements OnDestroy {
    */
   mirrorNow(): void {
     const editor = this.editor;
-    const mode = this.settings.symmetry;
+    const mode = this.settings.symmetry();
     if (!editor || this.blocked('Mirroring')) return;
     if (mode === 'none') {
       this.flash('Choose a symmetry first (top bar or M)');
@@ -1254,14 +1248,14 @@ export class EditorSession implements OnDestroy {
 
   /** The overlay "Build areas" (Measure) on or off */
   setBuildAreaOverlay(on: boolean): void {
-    this.patchSettings((s) => (s.view.buildAreas = on));
+    patch(this.settings.view, { buildAreas: on });
     this.showBuildAreas();
     this.scheduleBuildAreas(0);
   }
 
   /** The judged build areas on the ground while the overlay is on */
   private showBuildAreas(): void {
-    this.viewport?.overlay.setBuildAreas(this.settings.view.buildAreas ? this.buildAreas() : null);
+    this.viewport?.overlay.setBuildAreas(this.settings.view().buildAreas ? this.buildAreas() : null);
   }
 
   /**
@@ -1271,7 +1265,7 @@ export class EditorSession implements OnDestroy {
    */
   private scheduleBuildAreas(delay = BUILD_AREA_DELAY_MS): void {
     const editor = this.editor;
-    if (!editor || this.destroyed || !(this.settings.view.buildAreas || this.issues() !== null)) return;
+    if (!editor || this.destroyed || !(this.settings.view().buildAreas || this.issues() !== null)) return;
     if (this.buildAreaOf.map === this.buildAreaMap && this.buildAreaOf.state === editor.stateId) return;
     if (this.buildAreaTimer) clearTimeout(this.buildAreaTimer);
     this.buildAreaTimer = setTimeout(() => void this.judgeBuildAreas(), delay);
@@ -1748,7 +1742,6 @@ export class EditorSession implements OnDestroy {
     this.steps.set(e ? e.history : { done: [], undone: [] });
     this.redoLabel.set(e?.redoLabel ?? null);
     this.docRev.update((n) => n + 1);
-    if (this.viewport) this.hint.set(this.tools[this.tool()].hint(this.viewport.ctx));
   }
 
   private redoLabelOf(): string {

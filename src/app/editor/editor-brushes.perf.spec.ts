@@ -9,7 +9,7 @@ import { addNode, connect } from '../map-ops/path-graph';
 import { LandscapeTool } from './tools/landscape-tool';
 import { PaintTool } from './tools/paint-tool';
 import { TerrainTool } from './tools/terrain-tool';
-import { defaultSettings, type EditorTool, type ToolContext, type ToolPointer } from './tools/tool';
+import { patch, defaultSettings, type EditorTool, type ToolContext, type ToolPointer } from './tools/tool';
 import { WaterTool } from './tools/water-tool';
 import type { EditorOverlay } from './view/editor-overlay';
 
@@ -36,7 +36,7 @@ const overlay = {
 
 function context(editor: EditorDocument): ToolContext {
   const settings = defaultSettings();
-  settings.brush = { radius: 32, strength: 0.8, falloff: 0.5 };
+  settings.brush.set({ radius: 32, strength: 0.8, falloff: 0.5 });
   return {
     editor,
     settings,
@@ -45,7 +45,7 @@ function context(editor: EditorDocument): ToolContext {
     heightAt: (x, y) => heightAt(editor.doc.terrain, x, y),
     pick: () => null,
     status: () => undefined,
-    settingsChanged: () => undefined,
+    hintChanged: () => undefined,
     setBox: () => undefined,
     boxToMap: () => null,
     pickGizmo: () => null,
@@ -74,32 +74,32 @@ interface Case {
 }
 
 const CASES: Case[] = [
-  { name: 'raise', budget: 2, make: (ctx) => ((ctx.settings.terrain.mode = 'raise'), new TerrainTool()) },
-  { name: 'smooth', budget: 2, make: (ctx) => ((ctx.settings.terrain.mode = 'smooth'), new TerrainTool()) },
+  { name: 'raise', budget: 2, make: (ctx) => (patch(ctx.settings.terrain, { mode: 'raise' }), new TerrainTool()) },
+  { name: 'smooth', budget: 2, make: (ctx) => (patch(ctx.settings.terrain, { mode: 'smooth' }), new TerrainTool()) },
   { name: 'paint', budget: 2, make: () => new PaintTool() },
-  { name: 'water paint', budget: 2, make: (ctx) => ((ctx.settings.water.mode = 'paint'), new WaterTool()) },
+  { name: 'water paint', budget: 2, make: (ctx) => (patch(ctx.settings.water, { mode: 'paint' }), new WaterTool()) },
   {
     name: 'biome forest',
     budget: 2,
     make: (ctx) => {
-      ctx.settings.landscape.mode = 'biome';
-      ctx.settings.landscape.biome = 'forest';
+      patch(ctx.settings.landscape, { mode: 'biome' });
+      patch(ctx.settings.landscape, { biome: 'forest' });
       return new LandscapeTool();
     },
   },
-  { name: 'mountain', budget: 2, make: (ctx) => ((ctx.settings.landscape.mode = 'mountain'), new LandscapeTool()) },
+  { name: 'mountain', budget: 2, make: (ctx) => (patch(ctx.settings.landscape, { mode: 'mountain' }), new LandscapeTool()) },
   ...(['swamp', 'hell', 'city'] as const).map((biome) => ({
     name: `biome ${biome}`,
     budget: 2,
     make: (ctx: ToolContext) => {
-      ctx.settings.landscape.mode = 'biome';
-      ctx.settings.landscape.biome = biome;
+      patch(ctx.settings.landscape, { mode: 'biome' });
+      patch(ctx.settings.landscape, { biome });
       return new LandscapeTool();
     },
   })),
-  { name: 'erode', budget: 2, make: (ctx) => ((ctx.settings.landscape.mode = 'erode'), new LandscapeTool()) },
-  { name: 'glow cracks', budget: 2, make: (ctx) => ((ctx.settings.landscape.mode = 'cracks'), new LandscapeTool()) },
-  { name: 'crater', budget: 2, make: (ctx) => ((ctx.settings.landscape.mode = 'crater'), new LandscapeTool()) },
+  { name: 'erode', budget: 2, make: (ctx) => (patch(ctx.settings.landscape, { mode: 'erode' }), new LandscapeTool()) },
+  { name: 'glow cracks', budget: 2, make: (ctx) => (patch(ctx.settings.landscape, { mode: 'cracks' }), new LandscapeTool()) },
+  { name: 'crater', budget: 2, make: (ctx) => (patch(ctx.settings.landscape, { mode: 'crater' }), new LandscapeTool()) },
 ];
 
 describe('brush steps', () => {
@@ -155,8 +155,8 @@ describe('big landform steps', () => {
         }
       }
       const ctx = context(editor);
-      ctx.settings.brush = { radius: 200, strength: 0.8, falloff: 0.5 };
-      ctx.settings.landscape.mode = mode;
+      ctx.settings.brush.set({ radius: 200, strength: 0.8, falloff: 0.5 });
+      patch(ctx.settings.landscape, { mode });
       const tool = new LandscapeTool();
       let x = -half * 0.3;
       const y = half * 0.1;

@@ -20,7 +20,7 @@ import { insertPoint, movePoint, nearestRiverPoint, nearestRiverSegment, removeP
 import { mirrorDab, symmetryImages, type SymmetryMode } from '../ops/symmetry';
 import { relayRiver, removeWholeRiver, waterCommands } from '../ops/water-commands';
 import type { EditTransaction } from '../model/edit-transaction';
-import type { EditorTool, ToolContext, ToolPointer } from './tool';
+import { patch, type EditorTool, type ToolContext, type ToolPointer } from './tool';
 
 export { BODY_COLORS } from '../../map-ops/water-ops';
 
@@ -46,12 +46,12 @@ export class WaterTool implements EditorTool {
   private pouring = false;
 
   brushVisible(ctx: ToolContext): boolean {
-    const mode = ctx.settings.water.mode;
+    const mode = ctx.settings.water().mode;
     return mode !== 'fill' && mode !== 'pour' && mode !== 'river';
   }
 
   frame(dt: number, p: ToolPointer | null, ctx: ToolContext): void {
-    const s = ctx.settings.water;
+    const s = ctx.settings.water();
     ctx.overlay.setRiverHandles(s.mode === 'river' ? (ctx.editor.doc.terrain.rivers ?? []) : null, s.river >= 0 ? { river: s.river, point: s.riverPoint } : null);
     this.brushFrame(dt, p, ctx);
   }
@@ -64,7 +64,7 @@ export class WaterTool implements EditorTool {
   pointerDown(p: ToolPointer, ctx: ToolContext): boolean {
     if (p.button !== 0 || !p.hit) return false;
     const editor = ctx.editor;
-    const s = ctx.settings.water;
+    const s = ctx.settings.water();
     if (s.mode === 'river') {
       this.riverDown(p, ctx);
       return true;
@@ -91,7 +91,7 @@ export class WaterTool implements EditorTool {
     const label = s.mode === 'lake' ? 'Dig lake' : this.on ? 'Paint water' : 'Erase water';
     this.stroke = editor.begin(label);
     for (const target of targets) this.stroke.record(target);
-    this.symmetry = ctx.settings.symmetry;
+    this.symmetry = ctx.settings.symmetry();
     return true;
   }
 
@@ -115,7 +115,7 @@ export class WaterTool implements EditorTool {
   }
 
   key(e: KeyboardEvent, ctx: ToolContext): boolean {
-    const s = ctx.settings.water;
+    const s = ctx.settings.water();
     if (s.mode !== 'river' || (e.key !== 'Delete' && e.key !== 'Backspace') || s.river < 0) return false;
     const editor = ctx.editor;
     const river = editor.doc.terrain.rivers?.[s.river];
@@ -126,15 +126,12 @@ export class WaterTool implements EditorTool {
     } else {
       removeWholeRiver(editor, s.river, ctx.catalog);
     }
-    s.riverPoint = -1;
-    if (!editor.doc.terrain.rivers?.[s.river]) s.river = -1;
-    ctx.settingsChanged();
+    patch(ctx.settings.water, { riverPoint: -1, river: editor.doc.terrain.rivers?.[s.river] ? s.river : -1 });
     return true;
   }
 
   /** Choose a point (drag moves it), Shift on the river puts a new point there, a click elsewhere lets go */
   private riverDown(p: ToolPointer, ctx: ToolContext): void {
-    const s = ctx.settings.water;
     const editor = ctx.editor;
     const rivers = editor.doc.terrain.rivers ?? [];
     const before = structuredClone(editor.doc.terrain.rivers);
@@ -142,9 +139,7 @@ export class WaterTool implements EditorTool {
       const at = nearestRiverSegment(rivers, p.hit!);
       if (at) {
         const index = insertPoint(rivers[at.river], at.segment, at.t);
-        s.river = at.river;
-        s.riverPoint = index;
-        ctx.settingsChanged();
+        patch(ctx.settings.water, { river: at.river, riverPoint: index });
         editor.emit({ water: true });
         this.riverDrag = { river: at.river, point: index, before };
         return;
@@ -152,36 +147,33 @@ export class WaterTool implements EditorTool {
     }
     const ref = nearestRiverPoint(rivers, p.hit!, ctx.metresPerPixel(p.hit!) * 12);
     if (ref) {
-      s.river = ref.river;
-      s.riverPoint = ref.point;
+      patch(ctx.settings.water, { river: ref.river, riverPoint: ref.point });
       this.riverDrag = { ...ref, before };
     } else {
       const on = nearestRiverSegment(rivers, p.hit!);
-      s.river = on ? on.river : -1;
-      s.riverPoint = -1;
+      patch(ctx.settings.water, { river: on ? on.river : -1, riverPoint: -1 });
     }
-    ctx.settingsChanged();
   }
 
   private brushFrame(dt: number, p: ToolPointer | null, ctx: ToolContext): void {
     const stroke = this.stroke;
     if (!stroke || !p?.hit) return;
-    const s = ctx.settings.water;
+    const s = ctx.settings.water();
     const t = stroke.doc.terrain;
-    const rect = sampleRectAround(t, p.hit.x, p.hit.y, ctx.settings.brush.radius);
+    const rect = sampleRectAround(t, p.hit.x, p.hit.y, ctx.settings.brush().radius);
     stroke.touch(maskTarget(s.body), rect);
     if (s.mode === 'lake' && this.on) {
       stroke.touch('heights', rect);
-      lakeDab(t, p.hit.x, p.hit.y, ctx.settings.brush, s.depth, DIG_RATE * Math.min(dt, 0.1), s.body);
+      lakeDab(t, p.hit.x, p.hit.y, ctx.settings.brush(), s.depth, DIG_RATE * Math.min(dt, 0.1), s.body);
       stroke.changed(mirrorDab(stroke, this.symmetry, p.hit, { ...waterChange(s.body, rect, ctx), heights: rect }, { waterRect: rect }));
       return;
     }
-    waterMaskDab(t, p.hit.x, p.hit.y, ctx.settings.brush, this.on, s.body);
+    waterMaskDab(t, p.hit.x, p.hit.y, ctx.settings.brush(), this.on, s.body);
     stroke.changed(mirrorDab(stroke, this.symmetry, p.hit, waterChange(s.body, rect, ctx), { waterRect: rect }));
   }
 
   hint(ctx: ToolContext): string {
-    const s = ctx.settings.water;
+    const s = ctx.settings.water();
     const body = waterBody(ctx.editor.doc.terrain, s.body);
     const name = s.body < 0 ? 'the main water' : `body ${s.body + 1}`;
     switch (s.mode) {
@@ -211,7 +203,7 @@ export class WaterTool implements EditorTool {
   private fill(p: ToolPointer, ctx: ToolContext): void {
     const editor = ctx.editor;
     const t = editor.doc.terrain;
-    const s = ctx.settings.water;
+    const s = ctx.settings.water();
     const clicked = nearestSample(t, p.hit!.x, p.hit!.y);
     const { i, j } = hollowFloor(t, clicked.i, clicked.j);
     const body = waterBody(t, s.body);
@@ -230,7 +222,7 @@ export class WaterTool implements EditorTool {
     if (rect) {
       // The images of the hollow fill too
       const g = t.grid;
-      for (const img of symmetryImages(ctx.settings.symmetry, g.columns === g.rows).slice(1)) {
+      for (const img of symmetryImages(ctx.settings.symmetry(), g.columns === g.rows).slice(1)) {
         const [ii, jj] = img.cell(i, j, g.columns, g.rows);
         fillBasin(t, ii, jj, s.body);
       }
@@ -263,14 +255,14 @@ export class WaterTool implements EditorTool {
     const editor = ctx.editor;
     const t = editor.doc.terrain;
     const g = t.grid;
-    const kind = ctx.settings.water.pour;
+    const kind = ctx.settings.water().pour;
     const { i, j } = nearestSample(t, p.hit!.x, p.hit!.y);
     const wet = wetSamples(t);
     if (wet[j * g.columns + i]) {
       ctx.status('There is water here already: pour onto dry ground');
       return;
     }
-    const starts = symmetryImages(ctx.settings.symmetry, g.columns === g.rows).map((img) => {
+    const starts = symmetryImages(ctx.settings.symmetry(), g.columns === g.rows).map((img) => {
       const [ii, jj] = img.cell(i, j, g.columns, g.rows);
       return jj * g.columns + ii;
     });
@@ -313,5 +305,5 @@ export class WaterTool implements EditorTool {
  * with symmetry all water
  */
 function waterChange(body: number, rect: GridRect, ctx: ToolContext): DocChange {
-  return ctx.settings.symmetry === 'none' ? { bodies: [body], bodyRect: rect } : { water: true };
+  return ctx.settings.symmetry() === 'none' ? { bodies: [body], bodyRect: rect } : { water: true };
 }

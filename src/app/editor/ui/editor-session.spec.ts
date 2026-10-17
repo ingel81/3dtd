@@ -24,6 +24,7 @@ import { WorldSession } from '../../world/world-session.service';
 import { AppScreen } from '../../world/app-screen.service';
 import { PLAIN_START, type WorldStart } from '../../world/world-start';
 import type { MapTrialResult } from '../../world/map-trial';
+import { patch } from '../tools/tool';
 
 function session(): { s: EditorSession; backend: MemoryMapBackend; history: VersionHistory; versions: MemoryVersionBackend } {
   const s = TestBed.runInInjectionContext(() => new EditorSession());
@@ -500,15 +501,15 @@ describe('editor session brushes', () => {
     // A map opens on Look; Landscape's brush starts at its own size
     expect(s.tool()).toBe('look');
     s.selectTool('landscape');
-    expect(s.settings.brush.radius).toBe(40);
-    s.patchSettings((st) => (st.brush.radius = 70));
+    expect(s.settings.brush().radius).toBe(40);
+    patch(s.settings.brush, { radius: 70 });
     s.selectTool('paint');
-    expect(s.settings.brush.radius).toBe(12);
-    s.patchSettings((st) => (st.brush.radius = 5));
+    expect(s.settings.brush().radius).toBe(12);
+    patch(s.settings.brush, { radius: 5 });
     s.selectTool('landscape');
-    expect(s.settings.brush.radius).toBe(70);
+    expect(s.settings.brush().radius).toBe(70);
     s.selectTool('paint');
-    expect(s.settings.brush.radius).toBe(5);
+    expect(s.settings.brush().radius).toBe(5);
     s.ngOnDestroy();
   });
 });

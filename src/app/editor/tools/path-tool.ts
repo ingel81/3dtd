@@ -49,7 +49,7 @@ export class PathTool implements EditorTool {
       return true;
     }
     if (p.button !== 0 || !p.hit) return false;
-    const s = ctx.settings.paths;
+    const s = ctx.settings.paths();
     // A double click is two clicks in the same spot: quick clicks along a road are nodes, not its end
     const now = performance.now();
     const double = now - this.lastClick < 320 && Math.hypot(p.clientX - this.lastClickAt.x, p.clientY - this.lastClickAt.y) < 6;
@@ -137,7 +137,7 @@ export class PathTool implements EditorTool {
     let label = d.ids.length > 1 ? 'Move nodes' : 'Move node';
     if (d.ids.length === 1) {
       const moved = nodeById(doc.paths, d.ids[0])!;
-      const onto = p.alt ? null : nearestNode(doc.paths, moved, ctx.settings.paths.snap * 0.6, moved.id);
+      const onto = p.alt ? null : nearestNode(doc.paths, moved, ctx.settings.paths().snap * 0.6, moved.id);
       if (onto) {
         mergeNodes(doc.paths, moved.id, onto.id);
         ctx.editor.select({ kind: 'node', id: onto.id });
@@ -177,7 +177,7 @@ export class PathTool implements EditorTool {
   }
 
   frame(_dt: number, p: ToolPointer | null, ctx: ToolContext): void {
-    if (ctx.settings.paths.mode !== 'draw' || !this.last || !p?.hit) {
+    if (ctx.settings.paths().mode !== 'draw' || !this.last || !p?.hit) {
       ctx.overlay.setDraft(null);
       return;
     }
@@ -186,7 +186,7 @@ export class PathTool implements EditorTool {
       this.last = null;
       return;
     }
-    ctx.overlay.setDraft([from, snapPoint(ctx.editor.doc.paths, p.hit, p.alt, this.last, ctx.settings.paths.snap).point]);
+    ctx.overlay.setDraft([from, snapPoint(ctx.editor.doc.paths, p.hit, p.alt, this.last, ctx.settings.paths().snap).point]);
   }
 
   key(e: KeyboardEvent, ctx: ToolContext): boolean {
@@ -197,7 +197,7 @@ export class PathTool implements EditorTool {
       this.cancel(ctx);
       return true;
     }
-    if ((e.ctrlKey || e.metaKey) && k === 'a' && ctx.settings.paths.mode === 'edit') {
+    if ((e.ctrlKey || e.metaKey) && k === 'a' && ctx.settings.paths().mode === 'edit') {
       const paths = editor.doc.paths;
       editor.select(pathSelection(paths.nodes.map((n) => n.id), paths.edges.map((x) => x.id)));
       return true;
@@ -252,7 +252,7 @@ export class PathTool implements EditorTool {
   }
 
   hint(ctx: ToolContext): string {
-    if (ctx.settings.paths.mode === 'edit') {
+    if (ctx.settings.paths().mode === 'edit') {
       return 'Click a node or edge, Shift adds, drag a box on free ground | drag nodes, drop on a node to join | Del delete | S smooth | X straighten | J join edges';
     }
     return this.last
@@ -262,10 +262,10 @@ export class PathTool implements EditorTool {
 
   private drawClick(p: ToolPointer, ctx: ToolContext): void {
     const editor = ctx.editor;
-    const s = ctx.settings.paths;
+    const s = ctx.settings.paths();
     if (!insideMap(editor.doc.terrain, p.hit!)) return;
     const t = editor.doc.terrain;
-    const images = symmetryImages(ctx.settings.symmetry, t.grid.columns === t.grid.rows);
+    const images = symmetryImages(ctx.settings.symmetry(), t.grid.columns === t.grid.rows);
     const hit = { x: p.hit!.x, y: p.hit!.y };
     const from = this.last;
     const ends: string[] = [];

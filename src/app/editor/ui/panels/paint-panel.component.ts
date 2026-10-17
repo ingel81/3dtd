@@ -9,6 +9,7 @@ import { panelRev } from './panel-shown';
 import type { GroundMaterialEntry } from '../../../map-ops/asset-catalog';
 import { BrushPanelComponent } from './brush-panel.component';
 import { RangeRowComponent } from './range-row.component';
+import { patch } from '../../tools/tool';
 
 /** What a layer edit says when it has to wait */
 const GROUND = 'Changing the ground paint';
@@ -32,7 +33,7 @@ export class PaintPanelComponent {
   private readonly rev = panelRev();
   readonly max = MAX_LAYERS;
   readonly thumb = (m: GroundMaterialEntry) => this.session.materialPicture(m);
-  readonly settings = computed(() => (this.session.settingsRev(), { ...this.session.settings.paint }));
+  readonly settings = this.session.settings.paint;
   readonly layers = computed(() => {
     this.rev();
     const doc = this.session.doc;
@@ -65,11 +66,11 @@ export class PaintPanelComponent {
   });
 
   pick(index: number): void {
-    this.session.patchSettings((s) => (s.paint.layer = index));
+    patch(this.session.settings.paint, { layer: index });
   }
 
   setErase(on: boolean): void {
-    this.session.patchSettings((s) => (s.paint.erase = on));
+    patch(this.session.settings.paint, { erase: on });
   }
 
   add(material: string): void {

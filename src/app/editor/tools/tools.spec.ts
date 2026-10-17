@@ -12,7 +12,7 @@ import { paintCommands } from '../ops/ground-commands';
 import { PathTool } from './path-tool';
 import { craterProfile } from '../ops/landscape/shapes';
 import { TerrainTool } from './terrain-tool';
-import { defaultSettings, type ToolContext, type ToolPointer } from './tool';
+import { patch, defaultSettings, type ToolContext, type ToolPointer } from './tool';
 import { WaterTool } from './water-tool';
 import { waterCommands } from '../ops/water-commands';
 
@@ -28,7 +28,7 @@ function context(editor: EditorDocument): ToolContext & { messages: string[] } {
     heightAt: (x, y) => heightAt(editor.doc.terrain, x, y),
     pick: () => null,
     status: (m) => messages.push(m),
-    settingsChanged: () => undefined,
+    hintChanged: () => undefined,
     setBox: () => undefined,
     boxToMap: () => null,
     pickGizmo: () => null,
@@ -71,7 +71,7 @@ describe('editor tools', () => {
   it('a ramp takes two clicks', () => {
     const ed = fresh();
     const ctx = context(ed);
-    ctx.settings.terrain.mode = 'ramp';
+    patch(ctx.settings.terrain, { mode: 'ramp' });
     const tool = new TerrainTool();
     tool.pointerDown(at(-50, 0, { hit: { x: -50, y: 0, z: 0 } }), ctx);
     tool.pointerDown(at(50, 0, { hit: { x: 50, y: 0, z: 10 } }), ctx);
@@ -85,11 +85,11 @@ describe('editor tools', () => {
     const ed = fresh();
     const ctx = context(ed);
     const tool = new ObjectTool();
-    ctx.settings.objects.asset = 'tree-oak';
-    ctx.settings.objects.mode = 'place';
+    patch(ctx.settings.objects, { asset: 'tree-oak' });
+    patch(ctx.settings.objects, { mode: 'place' });
     tool.pointerDown(at(10, 10), ctx);
     expect(ed.doc.objects).toHaveLength(1);
-    ctx.settings.objects.mode = 'scatter';
+    patch(ctx.settings.objects, { mode: 'scatter' });
     tool.pointerDown(at(-60, -60), ctx);
     for (let k = 0; k < 30; k++) tool.frame?.(0.1, at(-60, -60), ctx);
     tool.pointerUp(at(-60, -60), ctx);
@@ -115,11 +115,11 @@ describe('editor tools', () => {
     for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) g.heights[j * g.columns + i] = (i * g.cellSize - 200) * 0.3;
     const slope = Float32Array.from(g.heights);
     const tool = new ObjectTool();
-    ctx.settings.objects.mode = 'place';
-    ctx.settings.objects.asset = 'tree-oak';
+    patch(ctx.settings.objects, { mode: 'place' });
+    patch(ctx.settings.objects, { asset: 'tree-oak' });
     tool.pointerDown(at(-100, 0), ctx);
     expect(Array.from(g.heights)).toEqual(Array.from(slope));
-    ctx.settings.objects.asset = 'house';
+    patch(ctx.settings.objects, { asset: 'house' });
     tool.pointerDown(at(40, 20), ctx);
     const house = ed.doc.objects.at(-1)!;
     // Level under the footprint and its pad: the uphill and downhill sides at the same height
@@ -148,13 +148,13 @@ describe('editor tools', () => {
     ed.doc.paths = { nodes: [{ id: 'a', x: -150, y: 0 }, { id: 'b', x: 150, y: 0 }], edges: [{ id: 'e', a: 'a', b: 'b', width: 8, kind: 'road' }] };
     const tool = new ObjectTool();
     const s = ctx.settings.objects;
-    s.mode = 'place';
-    s.asset = 'crate';
+    patch(s, { mode: 'place' });
+    patch(s, { asset: 'crate' });
     const key = (k: string, shift = false) => tool.key(new KeyboardEvent('keydown', { key: k, shiftKey: shift }), ctx);
-    const deg = () => (s.rotation * 180) / Math.PI;
+    const deg = () => (s().rotation * 180) / Math.PI;
     // A turn key ends the random turn and steps from the set turn, 15 degrees by default
     expect(key('q')).toBe(true);
-    expect(s.randomRotation).toBe(false);
+    expect(s().randomRotation).toBe(false);
     expect(deg()).toBeCloseTo(15, 1);
     key('e');
     key('e');
@@ -166,15 +166,15 @@ describe('editor tools', () => {
     expect(deg()).toBeCloseTo(90, 1);
     expect(tool.wheel(-1, at(0, 0), ctx)).toBe(false);
     // Off the step grid, a step lands on it
-    s.turnStep = 45;
-    s.rotation = (100 * Math.PI) / 180;
+    patch(s, { turnStep: 45 });
+    patch(s, { rotation: (100 * Math.PI) / 180 });
     key('.');
     expect(deg()).toBeCloseTo(45, 1);
     // A crate takes the set turn, also beside the road
     tool.pointerDown(at(100, 12), ctx);
     expect(ed.doc.objects.at(-1)!.rotation).toBeCloseTo(Math.PI / 4, 2);
     // A house north of the road faces south to it, one south of it north; the set turn does not count there
-    s.asset = 'house';
+    patch(s, { asset: 'house' });
     tool.pointerDown(at(0, 15), ctx);
     expect(ed.doc.objects.at(-1)!.rotation).toBeCloseTo(Math.PI, 2);
     tool.pointerDown(at(-60, -14), ctx);
@@ -183,12 +183,12 @@ describe('editor tools', () => {
     tool.pointerDown(at(0, 69), ctx);
     expect(ed.doc.objects.at(-1)!.rotation).toBeCloseTo(Math.PI / 4, 2);
     // Off: the set turn beside the road too
-    s.faceRoad = false;
+    patch(s, { faceRoad: false });
     tool.pointerDown(at(40, 15), ctx);
     expect(ed.doc.objects.at(-1)!.rotation).toBeCloseTo(Math.PI / 4, 2);
     // Mirrored north-south, each image faces its own side of the road
-    s.faceRoad = true;
-    ctx.settings.symmetry = 'y';
+    patch(s, { faceRoad: true });
+    ctx.settings.symmetry.set('y');
     const before = ed.doc.objects.length;
     tool.pointerDown(at(80, 16), ctx);
     const placed = ed.doc.objects.slice(before);
@@ -221,11 +221,11 @@ describe('editor tools', () => {
     // The screen is the map seen from above, 1 px = 1 m
     ctx.toScreen = (x, y) => ({ x, y });
     const tool = new ObjectTool();
-    ctx.settings.objects.asset = 'tree-oak';
-    ctx.settings.objects.mode = 'place';
-    ctx.settings.objects.randomRotation = false;
+    patch(ctx.settings.objects, { asset: 'tree-oak' });
+    patch(ctx.settings.objects, { mode: 'place' });
+    patch(ctx.settings.objects, { randomRotation: false });
     for (const [x, y] of [[10, 10], [20, 12], [80, 80]]) tool.pointerDown(at(x, y), ctx);
-    ctx.settings.objects.mode = 'select';
+    patch(ctx.settings.objects, { mode: 'select' });
     // A lasso around the first two
     tool.pointerDown(at(0, 0, { alt: true, clientX: 0, clientY: 0 }), ctx);
     for (const [x, y] of [[40, 0], [40, 30], [0, 30]]) tool.pointerMove!(at(x, y, { clientX: x, clientY: y }), ctx);
@@ -255,11 +255,11 @@ describe('editor tools', () => {
     const ed = fresh();
     const ctx = context(ed);
     const tool = new ObjectTool();
-    ctx.settings.objects.asset = 'tree-oak';
-    ctx.settings.objects.mode = 'place';
+    patch(ctx.settings.objects, { asset: 'tree-oak' });
+    patch(ctx.settings.objects, { mode: 'place' });
     for (const [x, y] of [[10, 10], [20, 12], [80, 80]]) tool.pointerDown(at(x, y), ctx);
     const [a, b, c] = ed.doc.objects.map((o) => o.id);
-    ctx.settings.objects.mode = 'select';
+    patch(ctx.settings.objects, { mode: 'select' });
     ed.select({ kind: 'objects', ids: [a, b] });
     tool.key(new KeyboardEvent('keydown', { key: 'g', ctrlKey: true }), ctx);
     expect(ed.doc.objects.map((o) => o.group)).toEqual(['g1', 'g1', undefined]);
@@ -293,11 +293,11 @@ describe('editor tools', () => {
         ],
       },
     ];
-    ctx.settings.water.mode = 'river';
+    patch(ctx.settings.water, { mode: 'river' });
     const tool = new WaterTool();
     // Drag the middle point east; while it moves its height stays between its neighbours'
     tool.pointerDown(at(1, 1), ctx);
-    expect(ctx.settings.water).toMatchObject({ river: 0, riverPoint: 1 });
+    expect(ctx.settings.water()).toMatchObject({ river: 0, riverPoint: 1 });
     tool.pointerMove!(at(30, 10), ctx);
     const pts = () => ed.doc.terrain.rivers![0].points;
     expect(pts()[1].height).toBeLessThan(5);
@@ -312,7 +312,7 @@ describe('editor tools', () => {
     tool.pointerDown(at(15, -45, { shift: true }), ctx);
     tool.pointerUp(at(15, -45, { shift: true }), ctx);
     expect(pts()).toHaveLength(4);
-    expect(ctx.settings.water.riverPoint).toBe(1);
+    expect(ctx.settings.water().riverPoint).toBe(1);
     // Del takes it out again
     tool.key!(new KeyboardEvent('keydown', { key: 'Delete' }), ctx);
     expect(pts()).toHaveLength(3);
@@ -388,12 +388,12 @@ describe('editor tools', () => {
     tool.pointerDown(at(10, 10), ctx);
     expect(ed.selection).toBeNull();
     // Bare ground: the panel and the status line describe the spot
-    expect(ctx.settings.look.at).toEqual({ x: 10, y: 10 });
+    expect(ctx.settings.look().at).toEqual({ x: 10, y: 10 });
     expect(describeGround(ed.doc.terrain, 10, 10, ctx.catalog)).toMatchObject({ height: '0.0 m', slope: '0 deg', water: 'dry' });
     expect(ctx.messages.at(-1)).toBe(describeGround(ed.doc.terrain, 10, 10, ctx.catalog).what);
     ctx.pick = () => ({ kind: 'hq' });
     tool.pointerDown(at(ed.doc.hq.x, ed.doc.hq.y), ctx);
-    expect(ctx.settings.look.at).toBeNull();
+    expect(ctx.settings.look().at).toBeNull();
     expect(JSON.stringify(ed.doc)).toBe(before);
     expect(ed.historySteps).toBe(steps);
   });
@@ -404,7 +404,7 @@ describe('editor tools', () => {
     const tool = new MarkerTool();
     tool.pointerDown(at(-20, 6), ctx);
     expect(ed.doc.spawns.at(-1)).toMatchObject({ x: -20, y: 0 });
-    ctx.settings.markers.mode = 'hq';
+    patch(ctx.settings.markers, { mode: 'hq' });
     tool.pointerDown(at(30, 3, { alt: true }), ctx);
     expect(ed.doc.hq).toEqual({ x: 30, y: 3 });
   });
@@ -439,7 +439,7 @@ describe('editor tools', () => {
     const ed = fresh();
     const ctx = context(ed);
     ctx.toScreen = (x, y) => ({ x, y });
-    ctx.settings.paths.mode = 'edit';
+    patch(ctx.settings.paths, { mode: 'edit' });
     const tool = new PathTool();
     const paths = ed.doc.paths;
     paths.nodes.push({ id: 'n7', x: 50, y: 50 }, { id: 'n8', x: 90, y: 50 });
@@ -490,9 +490,9 @@ describe('editor tools', () => {
     const ctx = context(ed);
     const tool = new ObjectTool();
     const o = ctx.settings.objects;
-    o.mode = 'line';
-    o.asset = 'fence';
-    o.line = { spacing: 5, offset: 0, bothSides: false, turn: 'along', follow: 'free' };
+    patch(o, { mode: 'line' });
+    patch(o, { asset: 'fence' });
+    patch(o, { line: { spacing: 5, offset: 0, bothSides: false, turn: 'along', follow: 'free' } });
     tool.pointerDown(at(0, 0), ctx);
     for (let x = 2; x <= 50; x += 2) tool.pointerMove!(at(x, 0), ctx);
     tool.pointerUp(at(50, 0), ctx);
@@ -501,7 +501,7 @@ describe('editor tools', () => {
     expect(ed.doc.objects.every((x) => Math.abs(x.y) < 0.01 && Math.abs(x.rotation - (3 * Math.PI) / 2) < 0.01)).toBe(true);
     expect(ed.historySteps).toBe(1);
     // Along the starter road, 3 m to both sides
-    o.line = { spacing: 10, offset: 6, bothSides: true, turn: 'along', follow: 'roads' };
+    patch(o, { line: { spacing: 10, offset: 6, bothSides: true, turn: 'along', follow: 'roads' } });
     tool.pointerDown(at(-100, 2), ctx);
     const rows = ed.doc.objects.slice(10);
     expect(rows.length).toBeGreaterThan(20);
@@ -513,8 +513,8 @@ describe('editor tools', () => {
     const ed = fresh();
     const ctx = context(ed);
     const terrain = new TerrainTool();
-    ctx.settings.terrain.mode = 'lower';
-    ctx.settings.brush = { radius: 30, strength: 1, falloff: 0.3 };
+    patch(ctx.settings.terrain, { mode: 'lower' });
+    ctx.settings.brush.set({ radius: 30, strength: 1, falloff: 0.3 });
     terrain.pointerDown(at(0, 100), ctx);
     for (let k = 0; k < 10; k++) terrain.frame(0.1, at(0, 100), ctx);
     terrain.pointerUp();
@@ -576,14 +576,14 @@ describe('water and lava bodies', () => {
     const t = ed.doc.terrain;
     // A hollow at (0, 100)
     const terrain = new TerrainTool();
-    ctx.settings.terrain.mode = 'lower';
-    ctx.settings.brush = { radius: 30, strength: 1, falloff: 0.3 };
+    patch(ctx.settings.terrain, { mode: 'lower' });
+    ctx.settings.brush.set({ radius: 30, strength: 1, falloff: 0.3 });
     terrain.pointerDown(at(0, 100), ctx);
     for (let k = 0; k < 10; k++) terrain.frame(0.1, at(0, 100), ctx);
     terrain.pointerUp();
     waterCommands.addBody(ed, 'lava', 0);
     expect(t.waterBodies?.[0].kind).toBe('lava');
-    ctx.settings.water = { mode: 'fill', pour: 'water', body: 0, depth: 3, river: -1, riverPoint: -1 };
+    ctx.settings.water.set({ mode: 'fill', pour: 'water', body: 0, depth: 3, river: -1, riverPoint: -1 });
     const water = new WaterTool();
     water.pointerDown(at(0, 100), ctx);
     const lava = ed.doc.terrain.waterBodies![0];
@@ -591,7 +591,7 @@ describe('water and lava bodies', () => {
     expect(lava.mask.some((v) => v > 0)).toBe(true);
     expect(ed.doc.terrain.water).toBeNull();
     // Dig a lake somewhere else into the same body
-    ctx.settings.water.mode = 'lake';
+    patch(ctx.settings.water, { mode: 'lake' });
     water.pointerDown(at(-100, -100), ctx);
     for (let k = 0; k < 20; k++) water.frame!(0.1, at(-100, -100), ctx);
     water.pointerUp(at(0, 0), ctx);
@@ -614,7 +614,7 @@ describe('water and lava bodies', () => {
       }
     }
     waterCommands.addBody(ed, 'lava', 0);
-    ctx.settings.water = { mode: 'fill', pour: 'water', body: 0, depth: 3, river: -1, riverPoint: -1 };
+    ctx.settings.water.set({ mode: 'fill', pour: 'water', body: 0, depth: 3, river: -1, riverPoint: -1 });
     const water = new WaterTool();
     // On the rim, where the ground stands above the level the fill takes
     water.pointerDown(at(24, 0), ctx);
@@ -625,7 +625,7 @@ describe('water and lava bodies', () => {
     expect(lava.mask[(g.rows >> 1) * g.columns + (g.columns >> 1)]).toBe(255);
     // Open flat ground holds nothing
     waterCommands.addBody(ed, 'lava', 0);
-    ctx.settings.water.body = 1;
+    patch(ctx.settings.water, { body: 1 });
     water.pointerDown(at(-150, -150), ctx);
     expect(ctx.messages.at(-1)).toBe('This spot is no hollow: the water would run off');
   });
@@ -644,8 +644,8 @@ describe('water and lava bodies', () => {
         g.heights[j * g.columns + i] = h;
       }
     }
-    ctx.settings.water.mode = 'pour';
-    ctx.settings.water.pour = 'lava';
+    patch(ctx.settings.water, { mode: 'pour' });
+    patch(ctx.settings.water, { pour: 'lava' });
     const water = new WaterTool();
     water.pointerDown(at(-150, 0), ctx);
     await new Promise((r) => setTimeout(r, 0));

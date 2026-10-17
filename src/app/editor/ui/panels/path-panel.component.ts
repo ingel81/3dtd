@@ -5,7 +5,7 @@ import { edgePolyline, polylineLength, smoothEdge, straightenEdge } from '../../
 import { selectedEdges, selectedNodes } from '../../model/editor-document';
 import { roadSurfaces } from '../../ops/landscape/road';
 import { editRoads, flattenRoads, paintRoads, pathCommands, rebuildRoads, setRoadSurface, setRoads } from '../../ops/road-commands';
-import type { PathMode } from '../../tools/tool';
+import { patch, type PathMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
 import { RangeRowComponent } from './range-row.component';
@@ -105,7 +105,7 @@ export class PathPanelComponent {
   /** The map's revision while this panel is in sight (PanelShown) */
   private readonly rev = panelRev();
   readonly kinds = KINDS;
-  readonly s = computed(() => (this.session.settingsRev(), { ...this.session.settings.paths }));
+  readonly s = this.session.settings.paths;
   readonly layer = signal(0);
   readonly surfaces = computed(() => roadSurfaces(this.session.catalog()));
   readonly layers = computed(() => {
@@ -137,19 +137,19 @@ export class PathPanelComponent {
   });
 
   setMode(mode: PathMode): void {
-    this.session.patchSettings((s) => (s.paths.mode = mode));
+    patch(this.session.settings.paths, { mode });
   }
 
   set(key: 'width' | 'snap', v: number): void {
-    this.session.patchSettings((s) => (s.paths[key] = v));
+    patch(this.session.settings.paths, { [key]: v });
   }
 
   setKind(kind: MapPathKind): void {
-    this.session.patchSettings((s) => (s.paths.kind = kind));
+    patch(this.session.settings.paths, { kind });
   }
 
   setRoutes(on: boolean): void {
-    this.session.patchSettings((s) => (s.paths.showRoutes = on));
+    patch(this.session.settings.paths, { showRoutes: on });
     this.session.viewport?.refreshRoutes();
   }
 
@@ -184,7 +184,7 @@ export class PathPanelComponent {
   rebuild(): void {
     const ids = this.edgeIds();
     if (!ids.length) return;
-    if (this.session.edit('Rebuilding roads', (e) => rebuildRoads(e, this.session.catalog(), ids, this.session.settings.landscape.road))) {
+    if (this.session.edit('Rebuilding roads', (e) => rebuildRoads(e, this.session.catalog(), ids, this.session.settings.landscape().road))) {
       this.session.flash(`Dressing laid anew along ${ids.length} ${ids.length === 1 ? 'road' : 'roads'}`);
     }
   }

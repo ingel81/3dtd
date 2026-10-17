@@ -5,6 +5,7 @@ import type { SavedStamp, StampKeep } from '../../model/stamp-store';
 import { capturePrefab } from '../../ops/stamp';
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
+import { patch } from '../../tools/tool';
 
 /** A saved piece and where it is kept */
 export interface KeptStamp {
@@ -82,8 +83,7 @@ export class PrefabPanelComponent implements OnInit {
   });
   /** The piece Copy and stamps places now, if any */
   readonly placing = computed(() => {
-    this.session.settingsRev();
-    const st = this.session.settings.stamp;
+    const st = this.session.settings.stamp();
     return st.mode === 'paste' ? st.current : null;
   });
   /** The map's prefabs first, then the library's */
@@ -120,12 +120,7 @@ export class PrefabPanelComponent implements OnInit {
   /** Place it with Copy and stamps */
   use(k: KeptStamp): void {
     this.session.selectTool('stamp');
-    this.session.patchSettings((s) => {
-      s.stamp.current = k.saved.stamp;
-      s.stamp.currentName = k.saved.name;
-      s.stamp.rotation = 0;
-      s.stamp.mode = 'paste';
-    });
+    patch(this.session.settings.stamp, { current: k.saved.stamp, currentName: k.saved.name, rotation: 0, mode: 'paste' });
   }
 
   async remove(k: KeptStamp): Promise<void> {

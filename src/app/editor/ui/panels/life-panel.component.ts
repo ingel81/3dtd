@@ -3,7 +3,7 @@ import { TdIconComponent } from '../../../components/icon/icon.component';
 import type { MapLife, MapLifeArea, MapLifeKind } from '../../../world/custom-map/map-document';
 import { centroid, DEFAULT_BOAT, LIFE_AREA_DENSITY, LIFE_KIND_INFO, LIFE_KINDS, LIFE_SOUND_REACH, lifeSwitches, outlineArea, shapeLength } from '../../../world/custom-map/map-life';
 import { SnapshotCommand } from '../../model/commands/snapshot';
-import type { LifeMode } from '../../tools/tool';
+import { patch, type LifeMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
 import { RangeRowComponent } from './range-row.component';
@@ -274,7 +274,7 @@ export class LifePanelComponent {
     { id: 'route', label: 'Line' },
     { id: 'edit', label: 'Edit' },
   ];
-  readonly settings = computed(() => (this.session.settingsRev(), { ...this.session.settings.life }));
+  readonly settings = this.session.settings.life;
   readonly life = computed(() => (this.rev(), this.session.doc?.life));
   readonly areas = computed(() => this.life()?.areas ?? []);
   readonly chosen = computed(() => {
@@ -301,18 +301,15 @@ export class LifePanelComponent {
   }
 
   setMode(mode: LifeMode): void {
-    this.session.patchSettings((s) => (s.life.mode = mode));
+    patch(this.session.settings.life, { mode });
   }
 
   setKind(kind: MapLifeKind): void {
-    this.session.patchSettings((s) => (s.life.kind = kind));
+    patch(this.session.settings.life, { kind });
   }
 
   choose(id: string): void {
-    this.session.patchSettings((s) => {
-      s.life.chosen = id;
-      s.life.point = -1;
-    });
+    patch(this.session.settings.life, { chosen: id, point: -1 });
   }
 
   show(a: MapLifeArea): void {
@@ -323,14 +320,11 @@ export class LifePanelComponent {
 
   remove(a: MapLifeArea): void {
     this.session.editLife((life) => (life.areas = life.areas?.filter((x) => x.id !== a.id)), `Remove ${LIFE_KIND_INFO[a.kind].label.toLowerCase()}`);
-    if (this.settings().chosen === a.id) this.session.patchSettings((s) => (s.life.chosen = null));
+    if (this.settings().chosen === a.id) patch(this.session.settings.life, { chosen: null });
   }
 
   placeSpot(asset: string): void {
-    this.session.patchSettings((s) => {
-      s.objects.asset = asset;
-      s.objects.mode = 'place';
-    });
+    patch(this.session.settings.objects, { asset, mode: 'place' });
     this.session.selectTool('objects');
   }
 

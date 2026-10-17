@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { selectedEdges, selectedNodes, selectedSpawns } from '../../model/editor-document';
 import { describeGround, describePick } from '../../ops/describe';
 import type { PickResult } from '../../model/editor-document';
-import type { ToolId } from '../../tools/tool';
+import { patch, type ToolId } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
 
@@ -92,8 +92,7 @@ export class LookPanelComponent {
   /** The ground point a click found nothing on (LookTool), described */
   readonly ground = computed(() => {
     this.rev();
-    this.session.settingsRev();
-    const at = this.session.settings.look.at;
+    const at = this.session.settings.look().at;
     const editor = this.session.editor;
     if (!at || !editor || this.session.selection()) return null;
     return { ...describeGround(editor.doc.terrain, at.x, at.y, this.session.catalog()), at: `${Math.round(at.x)} m E, ${Math.round(at.y)} m N` };
@@ -103,7 +102,7 @@ export class LookPanelComponent {
   edit(tool: ToolId): void {
     const s = this.session;
     s.selectTool(tool);
-    if (tool === 'objects') s.patchSettings((st) => (st.objects.mode = 'select'));
-    if (tool === 'paths') s.patchSettings((st) => (st.paths.mode = 'edit'));
+    if (tool === 'objects') patch(s.settings.objects, { mode: 'select' });
+    if (tool === 'paths') patch(s.settings.paths, { mode: 'edit' });
   }
 }

@@ -3,6 +3,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { TdIconComponent } from '../../../components/icon/icon.component';
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
+import { patch } from '../../tools/tool';
 
 /**
  * What the map holds: markers, roads, objects by category and asset (a
@@ -106,13 +107,12 @@ export class OutlinerComponent {
 
   readonly data = computed(() => {
     this.rev();
-    this.session.settingsRev();
     const doc = this.session.doc;
     if (!doc) return null;
     const q = this.query().trim().toLowerCase();
     const has = (text: string) => !q || text.toLowerCase().includes(q);
     const catalog = this.session.catalog();
-    const hidden = new Set(this.session.settings.view.hidden ?? []);
+    const hidden = new Set(this.session.settings.view().hidden ?? []);
     const byAsset = new Map<string, number>();
     const groups = new Map<string, { count: number; names: Set<string> }>();
     for (const o of doc.objects) {
@@ -201,18 +201,16 @@ export class OutlinerComponent {
   }
 
   toggleCategory(name: string): void {
-    this.session.patchSettings((s) => {
-      const hidden = new Set(s.view.hidden ?? []);
-      if (hidden.has(name)) hidden.delete(name);
-      else hidden.add(name);
-      s.view.hidden = [...hidden];
-    });
+    const hidden = new Set(this.session.settings.view().hidden ?? []);
+    if (hidden.has(name)) hidden.delete(name);
+    else hidden.add(name);
+    patch(this.session.settings.view, { hidden: [...hidden] });
   }
 
   private selectObjects(ids: string[]): void {
     this.session.editor?.select({ kind: 'objects', ids });
     this.session.selectTool('objects');
-    this.session.patchSettings((s) => (s.objects.mode = 'select'));
+    patch(this.session.settings.objects, { mode: 'select' });
     this.session.viewport?.focusSelection();
   }
 }

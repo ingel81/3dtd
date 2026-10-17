@@ -4,7 +4,7 @@ import { TdIconComponent } from '../../../components/icon/icon.component';
 import { SPAWN_COLORS } from '../../../configs/map-constants.config';
 import { spawnRoutes } from '../../../map-ops/path-graph';
 import { markerCommands } from '../../ops/marker-commands';
-import type { MarkerMode } from '../../tools/tool';
+import { patch, type MarkerMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
 
@@ -63,7 +63,7 @@ export class MarkerPanelComponent {
   private readonly session = inject(EditorSession);
   /** The map's revision while this panel is in sight (PanelShown) */
   private readonly rev = panelRev();
-  readonly mode = computed(() => (this.session.settingsRev(), this.session.settings.markers.mode));
+  readonly mode = computed(() => this.session.settings.markers().mode);
   readonly selectedSpawn = computed(() => {
     const s = this.session.selection();
     return s?.kind === 'spawn' ? s.id : null;
@@ -91,7 +91,7 @@ export class MarkerPanelComponent {
   });
 
   setMode(mode: MarkerMode): void {
-    this.session.patchSettings((s) => (s.markers.mode = mode));
+    patch(this.session.settings.markers, { mode });
   }
 
   select(id: string): void {

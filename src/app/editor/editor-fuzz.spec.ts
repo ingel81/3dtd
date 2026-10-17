@@ -39,7 +39,7 @@ import { editRoads, rebuildRoads, setRoads } from './ops/road-commands';
 import { smoothEdge } from '../map-ops/path-graph';
 import { StampTool } from './tools/stamp-tool';
 import { TerrainTool } from './tools/terrain-tool';
-import { defaultSettings, type EditorTool, type LandscapeMode, type TerrainMode, type ToolContext, type ToolPointer } from './tools/tool';
+import { patch, defaultSettings, type EditorTool, type LandscapeMode, type TerrainMode, type ToolContext, type ToolPointer } from './tools/tool';
 import { WaterTool } from './tools/water-tool';
 import type { EditorOverlay } from './view/editor-overlay';
 import type { GizmoHandle } from './view/transform-gizmo';
@@ -78,7 +78,7 @@ function context(editor: EditorDocument): ToolContext & { gizmo: GizmoHandle | n
     heightAt: (x: number, y: number) => heightAt(editor.doc.terrain, x, y),
     pick: () => null,
     status: () => undefined,
-    settingsChanged: () => undefined,
+    hintChanged: () => undefined,
     setBox: () => undefined,
     boxToMap: () => null,
     pickGizmo: () => ctx.gizmo,
@@ -164,10 +164,10 @@ function fuzz(seed: number, count: number): Run {
 
   const ops: Record<string, () => void> = {
     terrain: () => {
-      ctx.settings.terrain.mode = pick<TerrainMode>(['raise', 'lower', 'smooth', 'flatten', 'level', 'noise', 'erode', 'terrace', 'plateau']);
-      ctx.settings.brush.radius = 6 + Math.round(r() * 20);
+      patch(ctx.settings.terrain, { mode: pick<TerrainMode>(['raise', 'lower', 'smooth', 'flatten', 'level', 'noise', 'erode', 'terrace', 'plateau']) });
+      patch(ctx.settings.brush, { radius: 6 + Math.round(r() * 20) });
       drag(tools.terrain, ctx, path(), { shift: r() < 0.2 });
-      steps.push(`terrain ${ctx.settings.terrain.mode}`);
+      steps.push(`terrain ${ctx.settings.terrain().mode}`);
     },
     paint: () => {
       if (editor.doc.terrain.layers.length < 3 && r() < 0.5) {
@@ -175,52 +175,52 @@ function fuzz(seed: number, count: number): Run {
         steps.push('add layer');
         return;
       }
-      ctx.settings.paint.layer = Math.floor(r() * editor.doc.terrain.layers.length);
-      ctx.settings.paint.erase = r() < 0.2;
+      patch(ctx.settings.paint, { layer: Math.floor(r() * editor.doc.terrain.layers.length) });
+      patch(ctx.settings.paint, { erase: r() < 0.2 });
       drag(tools.paint, ctx, path());
-      steps.push(`paint ${ctx.settings.paint.layer}`);
+      steps.push(`paint ${ctx.settings.paint().layer}`);
     },
     water: () => {
-      ctx.settings.water.mode = pick(['fill', 'lake', 'paint', 'erase'] as const);
-      if (ctx.settings.water.mode === 'fill') {
+      patch(ctx.settings.water, { mode: pick(['fill', 'lake', 'paint', 'erase'] as const) });
+      if (ctx.settings.water().mode === 'fill') {
         const [x, y] = point();
         tools.water.pointerDown(at(x, y, { ctrl: r() < 0.5 }), ctx);
         tools.water.pointerUp(at(x, y), ctx);
       } else drag(tools.water, ctx, path());
-      steps.push(`water ${ctx.settings.water.mode}`);
+      steps.push(`water ${ctx.settings.water().mode}`);
     },
     place: () => {
       const o = ctx.settings.objects;
-      o.mode = 'place';
-      o.asset = pick(['tree-oak', 'rock-large', 'bush', HOUSE, 'mushrooms-red']);
+      patch(o, { mode: 'place' });
+      patch(o, { asset: pick(['tree-oak', 'rock-large', 'bush', HOUSE, 'mushrooms-red']) });
       const [x, y] = point();
       tools.objects.pointerDown(at(x, y), ctx);
       tools.objects.pointerUp(at(x, y), ctx);
-      steps.push(`place ${o.asset}`);
+      steps.push(`place ${o().asset}`);
     },
     scatter: () => {
       const o = ctx.settings.objects;
-      o.mode = 'scatter';
-      o.scatter.assets = ['tree-oak', 'bush', 'rock-large'].filter(() => r() < 0.7);
-      if (!o.scatter.assets.length) o.scatter.assets = ['bush'];
-      ctx.settings.brush.radius = 10 + Math.round(r() * 15);
+      patch(o, { mode: 'scatter' });
+      patch(o, { scatter: { ...o().scatter, assets: ['tree-oak', 'bush', 'rock-large'].filter(() => r() < 0.7) } });
+      if (!o().scatter.assets.length) patch(o, { scatter: { ...o().scatter, assets: ['bush'] } });
+      patch(ctx.settings.brush, { radius: 10 + Math.round(r() * 15) });
       const thin = r() < 0.3;
       drag(tools.objects, ctx, path(6), { shift: thin });
       steps.push(thin ? 'scatter thin out' : 'scatter');
     },
     eraseObjects: () => {
-      ctx.settings.objects.mode = 'erase';
+      patch(ctx.settings.objects, { mode: 'erase' });
       drag(tools.objects, ctx, path(3));
       steps.push('erase objects');
     },
     gizmo: () => {
       const ids = someObjects();
       if (!ids.length) return;
-      ctx.settings.objects.mode = 'select';
+      patch(ctx.settings.objects, { mode: 'select' });
       editor.select({ kind: 'objects', ids });
       const handle = pick<GizmoHandle>(['x', 'y', 'z', 'free', 'ring', 'scale']);
       ctx.gizmo = handle;
-      ctx.settings.objects.gizmo = handle === 'ring' ? 'rotate' : handle === 'scale' ? 'scale' : 'move';
+      patch(ctx.settings.objects, { gizmo: handle === 'ring' ? 'rotate' : handle === 'scale' ? 'scale' : 'move' });
       const o = editor.doc.objects.find((q) => q.id === ids[0])!;
       const [dx, dy] = [Math.round((r() - 0.5) * 30), Math.round((r() - 0.5) * 30)];
       drag(tools.objects, ctx, [[o.x, o.y], [o.x + dx / 2, o.y + dy / 2], [o.x + dx, o.y + dy]], { ctrl: r() < 0.3 });
@@ -230,14 +230,14 @@ function fuzz(seed: number, count: number): Run {
     objectKeys: () => {
       const ids = someObjects();
       if (!ids.length) return;
-      ctx.settings.objects.mode = 'select';
+      patch(ctx.settings.objects, { mode: 'select' });
       editor.select({ kind: 'objects', ids });
       const k = pick(['Delete', 'd', 'g', 'G', 'End']);
       tools.objects.key(key(k, { ctrlKey: k !== 'Delete' && k !== 'End', shiftKey: k === 'G' }), ctx);
       steps.push(`key ${k} on ${ids.length}`);
     },
     road: () => {
-      ctx.settings.paths.mode = 'draw';
+      patch(ctx.settings.paths, { mode: 'draw' });
       const pts = path(3);
       for (const [x, y] of pts) {
         tools.paths.pointerDown(at(x, y), ctx);
@@ -247,39 +247,39 @@ function fuzz(seed: number, count: number): Run {
       steps.push('road');
     },
     marker: () => {
-      ctx.settings.markers.mode = r() < 0.7 ? 'spawn' : 'hq';
+      patch(ctx.settings.markers, { mode: r() < 0.7 ? 'spawn' : 'hq' });
       const [x, y] = point();
       tools.markers.pointerDown(at(x, y, { alt: r() < 0.5 }), ctx);
       tools.markers.pointerUp(at(x, y), ctx);
-      steps.push(`marker ${ctx.settings.markers.mode}`);
+      steps.push(`marker ${ctx.settings.markers().mode}`);
     },
     landscape: () => {
       const s = ctx.settings.landscape;
-      s.mode = pick<LandscapeMode>(['biome', 'biome', 'mountain', 'valley', 'crater', 'erode', 'river', 'road', 'cliff']);
-      s.biome = pick<BiomeId>(['forest', 'meadow', 'swamp', 'desert', 'city', 'hell']);
-      s.seed = Math.floor(r() * 1e6);
-      ctx.settings.brush.radius = 15 + Math.round(r() * 25);
-      drag(tools.landscape, ctx, path(s.mode === 'river' || s.mode === 'road' || s.mode === 'cliff' ? 6 : 3));
-      steps.push(`landscape ${s.mode}${s.mode === 'biome' ? ` ${s.biome}` : ''}`);
+      patch(s, { mode: pick<LandscapeMode>(['biome', 'biome', 'mountain', 'valley', 'crater', 'erode', 'river', 'road', 'cliff']) });
+      patch(s, { biome: pick<BiomeId>(['forest', 'meadow', 'swamp', 'desert', 'city', 'hell']) });
+      patch(s, { seed: Math.floor(r() * 1e6) });
+      patch(ctx.settings.brush, { radius: 15 + Math.round(r() * 25) });
+      drag(tools.landscape, ctx, path(s().mode === 'river' || s().mode === 'road' || s().mode === 'cliff' ? 6 : 3));
+      steps.push(`landscape ${s().mode}${s().mode === 'biome' ? ` ${s().biome}` : ''}`);
     },
     stamp: () => {
       const s = ctx.settings.stamp;
-      s.mode = 'select';
+      patch(s, { mode: 'select' });
       const [x, y] = point();
       drag(tools.stamp, ctx, [[x, y], [x + 30, y + 24]]);
       tools.stamp.key(key('c', { ctrlKey: true }), ctx);
-      if (!s.current) return;
-      s.mode = 'paste';
-      s.rotation = pick([0, Math.PI / 2, Math.PI, Math.PI / 12]);
+      if (!s().current) return;
+      patch(s, { mode: 'paste' });
+      patch(s, { rotation: pick([0, Math.PI / 2, Math.PI, Math.PI / 12]) });
       const [px, py] = point();
       tools.stamp.pointerDown(at(px, py), ctx);
       tools.stamp.pointerUp(at(px, py), ctx);
-      s.mode = 'select';
+      patch(s, { mode: 'select' });
       steps.push('stamp');
     },
     symmetry: () => {
-      ctx.settings.symmetry = pick<SymmetryMode>(['none', 'none', 'x', 'y', 'xy', 'rot2', 'rot4']);
-      steps.push(`symmetry ${ctx.settings.symmetry}`);
+      ctx.settings.symmetry.set(pick<SymmetryMode>(['none', 'none', 'x', 'y', 'xy', 'rot2', 'rot4']));
+      steps.push(`symmetry ${ctx.settings.symmetry()}`);
     },
     resize: () => {
       const t = editor.doc.terrain;
@@ -326,31 +326,31 @@ function fuzz(seed: number, count: number): Run {
     },
     placeAligned: () => {
       const o = ctx.settings.objects;
-      o.mode = 'place';
-      o.asset = pick(['rock-large', HOUSE]);
-      o.alignToSlope = true;
+      patch(o, { mode: 'place' });
+      patch(o, { asset: pick(['rock-large', HOUSE]) });
+      patch(o, { alignToSlope: true });
       const [x, y] = point();
       tools.objects.pointerDown(at(x, y), ctx);
       tools.objects.pointerUp(at(x, y), ctx);
-      o.alignToSlope = false;
+      patch(o, { alignToSlope: false });
       steps.push('place aligned');
     },
     line: () => {
       const o = ctx.settings.objects;
-      o.mode = 'line';
-      o.asset = pick(['fence-wood', 'torch', 'tree-oak', 'castle-wall']);
-      o.line = { spacing: 3 + Math.round(r() * 6), offset: Math.round((r() - 0.5) * 16), bothSides: r() < 0.5, turn: pick(['along', 'across', 'random'] as const), follow: r() < 0.5 ? 'free' : 'roads' };
-      if (o.line.follow === 'roads') {
+      patch(o, { mode: 'line' });
+      patch(o, { asset: pick(['fence-wood', 'torch', 'tree-oak', 'castle-wall']) });
+      patch(o, { line: { spacing: 3 + Math.round(r() * 6), offset: Math.round((r() - 0.5) * 16), bothSides: r() < 0.5, turn: pick(['along', 'across', 'random'] as const), follow: r() < 0.5 ? 'free' : 'roads' } });
+      if (o().line.follow === 'roads') {
         const [x, y] = point();
         tools.objects.pointerDown(at(x, y), ctx);
         tools.objects.pointerUp(at(x, y), ctx);
       } else drag(tools.objects, ctx, path(5));
-      steps.push(`line ${o.line.follow}`);
+      steps.push(`line ${o().line.follow}`);
     },
     cliffRocks: () => {
-      ctx.settings.landscape.mode = 'cliffRocks';
-      ctx.settings.landscape.seed = Math.floor(r() * 1e6);
-      ctx.settings.brush.radius = 20 + Math.round(r() * 20);
+      patch(ctx.settings.landscape, { mode: 'cliffRocks' });
+      patch(ctx.settings.landscape, { seed: Math.floor(r() * 1e6) });
+      patch(ctx.settings.brush, { radius: 20 + Math.round(r() * 20) });
       drag(tools.landscape, ctx, path(3));
       steps.push('cliff rocks');
     },
@@ -375,7 +375,7 @@ function fuzz(seed: number, count: number): Run {
     roadEdit: () => {
       const paths = editor.doc.paths;
       if (!paths.nodes.length) return;
-      ctx.settings.paths.mode = 'edit';
+      patch(ctx.settings.paths, { mode: 'edit' });
       const n = pick(paths.nodes);
       const [dx, dy] = [Math.round((r() - 0.5) * 40), Math.round((r() - 0.5) * 40)];
       const kind = r();
@@ -394,7 +394,7 @@ function fuzz(seed: number, count: number): Run {
       }
     },
     roadBox: () => {
-      ctx.settings.paths.mode = 'edit';
+      patch(ctx.settings.paths, { mode: 'edit' });
       const [x, y] = point();
       tools.paths.pointerDown(at(x, y, { clientX: x, clientY: y }), ctx);
       tools.paths.pointerMove!(at(x + 60, y - 60, { clientX: x + 60, clientY: y - 60 }), ctx);
@@ -414,15 +414,15 @@ function fuzz(seed: number, count: number): Run {
       const k = Math.floor(r() * rivers.length);
       const river = rivers[k];
       const q = Math.floor(r() * river.points.length);
-      ctx.settings.water.mode = 'river';
+      patch(ctx.settings.water, { mode: 'river' });
       const p = river.points[q];
       drag(tools.water, ctx, [[p.x, p.y], [p.x + (r() - 0.5) * 20, p.y + (r() - 0.5) * 20]]);
       steps.push('move river point');
     },
     riverLine: () => {
       // A river with its banks, reeds and stones, for the river op to move its points (and dress them anew)
-      ctx.settings.landscape.mode = 'river';
-      ctx.settings.landscape.seed = Math.floor(r() * 1e6);
+      patch(ctx.settings.landscape, { mode: 'river' });
+      patch(ctx.settings.landscape, { seed: Math.floor(r() * 1e6) });
       drag(tools.landscape, ctx, path(6));
       steps.push('river');
     },
@@ -443,16 +443,16 @@ function fuzz(seed: number, count: number): Run {
       const edges = editor.doc.paths.edges;
       if (!edges.length) return;
       const ids = edges.filter(() => r() < 0.4).map((e) => e.id);
-      rebuildRoads(editor, catalog, ids.length ? ids : [pick(edges).id], ctx.settings.landscape.road);
+      rebuildRoads(editor, catalog, ids.length ? ids : [pick(edges).id], ctx.settings.landscape().road);
       steps.push(`rebuild dressing ${Math.max(1, ids.length)}`);
     },
     roadRoundTrip: () => {
       // A road from the brush, then its dressing taken back and laid again on the ground it kept: the same ground
       // to the millimetre (roads it joined or split are left out, their dressing goes with their own ground)
-      if (ctx.settings.symmetry !== 'none') return;
+      if (ctx.settings.symmetry() !== 'none') return;
       const before = new Map(editor.doc.paths.edges.map((e) => [e.id, `${e.a}>${e.b}`]));
       const s = ctx.settings.landscape;
-      s.mode = 'road';
+      patch(s, { mode: 'road' });
       drag(tools.landscape, ctx, path(5));
       const fresh = editor.doc.paths.edges.filter((e) => !before.has(e.id));
       if (!fresh.length || editor.doc.paths.edges.length !== before.size + fresh.length) return;
@@ -460,7 +460,7 @@ function fuzz(seed: number, count: number): Run {
       if (editor.doc.paths.edges.some((e) => before.has(e.id) && before.get(e.id) !== `${e.a}>${e.b}`)) return;
       if (fresh.some((e) => !e.dress?.ground)) throw new Error(`seed ${seed}: a road from the brush keeps no ground`);
       const built = editor.doc.terrain.grid.heights.slice();
-      rebuildRoads(editor, catalog, fresh.map((e) => e.id), s.road);
+      rebuildRoads(editor, catalog, fresh.map((e) => e.id), s().road);
       const now = editor.doc.terrain.grid.heights;
       let worst = 0;
       for (let k = 0; k < now.length; k++) worst = Math.max(worst, Math.abs(now[k] - built[k]));
@@ -489,23 +489,23 @@ function fuzz(seed: number, count: number): Run {
       if (areas.length && r() < 0.4) {
         // Edit: choose one, drag its first point or remove it
         const a = pick(areas);
-        s.mode = 'edit';
-        s.chosen = a.id;
-        s.point = -1;
+        patch(s, { mode: 'edit' });
+        patch(s, { chosen: a.id });
+        patch(s, { point: -1 });
         const p = a.points[0];
         if (r() < 0.7) drag(tools.life, ctx, [[p.x, p.y], [p.x + 10, p.y - 6]]);
         else tools.life.key!(key('Delete'), ctx);
         steps.push('life edit');
         return;
       }
-      s.mode = r() < 0.6 ? 'area' : 'route';
-      s.kind = pick(['birds', 'fireflies', 'fog', 'embers', 'sound'] as const);
-      for (const [x, y] of path(s.mode === 'area' ? 4 : 3)) {
+      patch(s, { mode: r() < 0.6 ? 'area' : 'route' });
+      patch(s, { kind: pick(['birds', 'fireflies', 'fog', 'embers', 'sound'] as const) });
+      for (const [x, y] of path(s().mode === 'area' ? 4 : 3)) {
         tools.life.pointerDown(at(x, y), ctx);
         tools.life.pointerUp(at(x, y), ctx);
       }
       tools.life.key!(key('Enter'), ctx);
-      steps.push(`life ${s.mode} ${s.kind}`);
+      steps.push(`life ${s().mode} ${s().kind}`);
     },
     aborted: () => {
       // An edit that goes through transactions only, each dropped where it would land: the map stays as it was
@@ -520,7 +520,7 @@ function fuzz(seed: number, count: number): Run {
       };
       try {
         if (name === 'fill') {
-          ctx.settings.water.mode = 'fill';
+          patch(ctx.settings.water, { mode: 'fill' });
           const [x, y] = point();
           tools.water.pointerDown(at(x, y, { ctrl: r() < 0.5 }), ctx);
           tools.water.pointerUp(at(x, y), ctx);

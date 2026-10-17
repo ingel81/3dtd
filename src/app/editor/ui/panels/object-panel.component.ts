@@ -4,9 +4,9 @@ import type { MapObject } from '../../../world/custom-map/map-document';
 import { tagName, type ObjectAssetEntry } from '../../../map-ops/asset-catalog';
 import { ObjectsCommand } from '../../model/commands/objects';
 import { setDown, rockShape, duplicateObjects, variedTint, wallKitOf } from '../../../map-ops/object-ops';
-import type { EditorSettings, GizmoMode, ObjectMode } from '../../tools/tool';
+import { patch, type GizmoMode, type ObjectMode, type SettingValues } from '../../tools/tool';
 
-type ObjectToolSettings = EditorSettings['objects'];
+type ObjectToolSettings = SettingValues['objects'];
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
 import { BrushPanelComponent } from './brush-panel.component';
@@ -53,7 +53,7 @@ export class ObjectPanelComponent {
   readonly biomes = computed(() => this.session.catalog().biomes());
   readonly tagName = tagName;
 
-  readonly s = computed(() => (this.session.settingsRev(), structuredClone(this.session.settings.objects)));
+  readonly s = this.session.settings.objects;
   /** The wall kit the chosen asset belongs to: Line mode fits the kit's pieces instead of spacing one asset */
   readonly kit = computed(() => wallKitOf(this.s().asset));
   readonly categories = computed(() => ['All', ...this.session.catalog().categories()]);
@@ -82,30 +82,23 @@ export class ObjectPanelComponent {
   readonly single = computed(() => (this.selected().length === 1 ? this.selected()[0] : null));
 
   setMode(mode: ObjectMode): void {
-    this.session.patchSettings((s) => (s.objects.mode = mode));
+    patch(this.session.settings.objects, { mode });
   }
 
   setGizmo(g: GizmoMode): void {
-    this.session.patchSettings((s) => {
-      s.objects.mode = 'select';
-      s.objects.gizmo = g;
-    });
+    patch(this.session.settings.objects, { mode: 'select', gizmo: g });
   }
 
   chooseAsset(a: ObjectAssetEntry): void {
-    this.session.patchSettings((s) => {
-      const o = s.objects;
-      if (o.mode === 'scatter') {
-        const set = new Set(o.scatter.assets);
-        if (set.has(a.id)) set.delete(a.id);
-        else set.add(a.id);
-        o.scatter.assets = [...set];
-        o.asset = a.id;
-      } else {
-        o.asset = a.id;
-        if (o.mode === 'select' || o.mode === 'erase') o.mode = 'place';
-      }
-    });
+    const o = this.session.settings.objects();
+    if (o.mode === 'scatter') {
+      const set = new Set(o.scatter.assets);
+      if (set.has(a.id)) set.delete(a.id);
+      else set.add(a.id);
+      patch(this.session.settings.objects, { scatter: { ...o.scatter, assets: [...set] }, asset: a.id });
+    } else {
+      patch(this.session.settings.objects, { asset: a.id, mode: o.mode === 'select' || o.mode === 'erase' ? 'place' : o.mode });
+    }
   }
 
   isChosen(a: ObjectAssetEntry): boolean {
@@ -114,7 +107,7 @@ export class ObjectPanelComponent {
   }
 
   setScatterTint(tint: string | null): void {
-    this.session.patchSettings((s) => (s.objects.scatter.tint = tint));
+    this.setScatterOption({ tint });
   }
 
   /** The selection's tint when all share one */
@@ -140,19 +133,24 @@ export class ObjectPanelComponent {
   }
 
   setScatter(key: 'density' | 'scaleMin' | 'scaleMax' | 'minDistance' | 'tintVariation', value: number): void {
-    this.session.patchSettings((s) => {
-      s.objects.scatter[key] = value;
-      if (key === 'scaleMin' && s.objects.scatter.scaleMax < value) s.objects.scatter.scaleMax = value;
-      if (key === 'scaleMax' && s.objects.scatter.scaleMin > value) s.objects.scatter.scaleMin = value;
+    const scatter = this.session.settings.objects().scatter;
+    this.setScatterOption({
+      [key]: value,
+      ...(key === 'scaleMin' && scatter.scaleMax < value ? { scaleMax: value } : {}),
+      ...(key === 'scaleMax' && scatter.scaleMin > value ? { scaleMin: value } : {}),
     });
   }
 
-  setLine(patch: Partial<ObjectToolSettings['line']>): void {
-    this.session.patchSettings((s) => (s.objects.line = { ...s.objects.line, ...patch }));
+  setLine(changes: Partial<ObjectToolSettings['line']>): void {
+    patch(this.session.settings.objects, { line: { ...this.session.settings.objects().line, ...changes } });
+  }
+
+  private setScatterOption(changes: Partial<ObjectToolSettings['scatter']>): void {
+    patch(this.session.settings.objects, { scatter: { ...this.session.settings.objects().scatter, ...changes } });
   }
 
   setAlign(on: boolean): void {
-    this.session.patchSettings((s) => (s.objects.alignToSlope = on));
+    patch(this.session.settings.objects, { alignToSlope: on });
   }
 
   /** Each selected object tilted with the ground under it; a rock lies down on it anew, settled onto its plate */
@@ -189,11 +187,11 @@ export class ObjectPanelComponent {
   }
 
   setScatterFlag(key: 'randomRotation' | 'sinkOnSlope' | 'alignToSlope', on: boolean): void {
-    this.session.patchSettings((s) => (s.objects.scatter[key] = on));
+    this.setScatterOption({ [key]: on });
   }
 
   setSpace(space: 'global' | 'local'): void {
-    this.session.patchSettings((s) => (s.objects.space = space));
+    patch(this.session.settings.objects, { space });
   }
 
   dropToGround(): void {
@@ -201,11 +199,11 @@ export class ObjectPanelComponent {
   }
 
   setSnap(step: number): void {
-    this.session.patchSettings((s) => (s.objects.snap = step));
+    patch(this.session.settings.objects, { snap: step });
   }
 
   setRandomRotation(on: boolean): void {
-    this.session.patchSettings((s) => (s.objects.randomRotation = on));
+    patch(this.session.settings.objects, { randomRotation: on });
   }
 
   placeTurnDegrees(): number {
@@ -217,15 +215,15 @@ export class ObjectPanelComponent {
     const deg = Number((e.target as HTMLInputElement).value);
     if (!Number.isFinite(deg)) return;
     const turn = (((deg % 360) + 360) % 360) * (Math.PI / 180);
-    this.session.patchSettings((s) => (s.objects.rotation = Math.round(turn * 1000) / 1000));
+    patch(this.session.settings.objects, { rotation: Math.round(turn * 1000) / 1000 });
   }
 
   setTurnStep(step: number): void {
-    this.session.patchSettings((s) => (s.objects.turnStep = step));
+    patch(this.session.settings.objects, { turnStep: step });
   }
 
   setFaceRoad(on: boolean): void {
-    this.session.patchSettings((s) => (s.objects.faceRoad = on));
+    patch(this.session.settings.objects, { faceRoad: on });
   }
 
   /** Change the selected objects' values as one step */

@@ -10,7 +10,7 @@ import { MarkerTool } from '../tools/marker-tool';
 import { ObjectTool } from '../tools/object-tool';
 import { PathTool } from '../tools/path-tool';
 import { TerrainTool } from '../tools/terrain-tool';
-import { defaultSettings, type ToolContext, type ToolPointer } from '../tools/tool';
+import { patch, defaultSettings, type ToolContext, type ToolPointer } from '../tools/tool';
 import { sameSector, symmetryImages, type SymmetryMode } from './symmetry';
 
 const catalog = new CatalogIndex(
@@ -21,7 +21,7 @@ function setup(mode: SymmetryMode): { ed: EditorDocument; ctx: ToolContext } {
   const ed = new EditorDocument(createMapDocument({ id: 'm', name: 'M', width: 400, depth: 400, cellSize: 4, now: new Date(0) }));
   const overlay = { setDraft: () => undefined, setGizmo: () => undefined, setNodesVisible: () => undefined, setRiverHandles: () => undefined, setPreview: () => undefined, transform: { hide: () => undefined, setKind: () => undefined, place: () => undefined, highlight: () => undefined } } as unknown as EditorOverlay;
   const settings = defaultSettings();
-  settings.symmetry = mode;
+  settings.symmetry.set(mode);
   const ctx: ToolContext = {
     editor: ed,
     settings,
@@ -30,7 +30,7 @@ function setup(mode: SymmetryMode): { ed: EditorDocument; ctx: ToolContext } {
     heightAt: (x, y) => heightAt(ed.doc.terrain, x, y),
     pick: () => null,
     status: () => undefined,
-    settingsChanged: () => undefined,
+    hintChanged: () => undefined,
     setBox: () => undefined,
     boxToMap: () => null,
     pickGizmo: () => null,
@@ -97,7 +97,7 @@ describe('symmetry', () => {
     expect(rise).toBeGreaterThan(1);
     expect(heightAt(t, 60, 30)).toBeCloseTo(5 + rise, 6);
     // Inside the dab's rectangle but outside the brush: the east keeps its own ground, no step to the west's
-    const r = ctx.settings.brush.radius;
+    const r = ctx.settings.brush().radius;
     expect(heightAt(t, 60 + r * 0.9, 30 + r * 0.9)).toBe(5);
     ed.undo();
     expect(heightAt(t, 60, 30)).toBe(5);
@@ -108,8 +108,8 @@ describe('symmetry', () => {
     const t = ed.doc.terrain;
     const g = t.grid;
     for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) g.heights[j * g.columns + i] = i > g.columns / 2 ? 5 : 0;
-    ctx.settings.terrain.mode = 'level';
-    ctx.settings.terrain.level = 3;
+    patch(ctx.settings.terrain, { mode: 'level' });
+    patch(ctx.settings.terrain, { level: 3 });
     raise(ctx, -60, 30);
     expect(heightAt(t, -60, 30)).toBeGreaterThan(1);
     expect(heightAt(t, 60, 30)).toBeCloseTo(heightAt(t, -60, 30), 6);
@@ -129,9 +129,9 @@ describe('symmetry', () => {
   it('places objects, spawns and roads at every image', () => {
     const { ed, ctx } = setup('xy');
     const objects = new ObjectTool();
-    ctx.settings.objects.asset = 'tree-oak';
-    ctx.settings.objects.mode = 'place';
-    ctx.settings.objects.randomRotation = false;
+    patch(ctx.settings.objects, { asset: 'tree-oak' });
+    patch(ctx.settings.objects, { mode: 'place' });
+    patch(ctx.settings.objects, { randomRotation: false });
     objects.pointerDown(at(50, 60), ctx);
     const placed = ed.doc.objects.map((o) => [o.x, o.y].join()).sort();
     expect(placed).toEqual(['-50,-60', '-50,60', '50,-60', '50,60']);
@@ -150,9 +150,9 @@ describe('symmetry', () => {
   it('paints a symmetric biome with mirrored plants', () => {
     const { ed, ctx } = setup('x');
     const tool = new LandscapeTool();
-    ctx.settings.landscape.biome = 'forest';
-    ctx.settings.landscape.reroll = false;
-    ctx.settings.brush = { radius: 30, strength: 1, falloff: 0.5 };
+    patch(ctx.settings.landscape, { biome: 'forest' });
+    patch(ctx.settings.landscape, { reroll: false });
+    ctx.settings.brush.set({ radius: 30, strength: 1, falloff: 0.5 });
     tool.pointerDown(at(-80, 100), ctx);
     for (let k = 0; k < 20; k++) tool.frame(0.1, at(-80 + k, 100), ctx);
     tool.pointerUp(at(-61, 100), ctx);
@@ -168,11 +168,11 @@ describe('symmetry', () => {
   it('mirrors the pools of a swamp, which fill a body of their own', () => {
     const { ed, ctx } = setup('x');
     const tool = new LandscapeTool();
-    ctx.settings.landscape.biome = 'swamp';
-    ctx.settings.landscape.reroll = false;
+    patch(ctx.settings.landscape, { biome: 'swamp' });
+    patch(ctx.settings.landscape, { reroll: false });
     // A fixed seed: the pools' places follow it, and a rolled one sometimes left only a few wet cells
-    ctx.settings.landscape.seed = 7;
-    ctx.settings.brush = { radius: 40, strength: 1, falloff: 0.5 };
+    patch(ctx.settings.landscape, { seed: 7 });
+    ctx.settings.brush.set({ radius: 40, strength: 1, falloff: 0.5 });
     tool.pointerDown(at(-90, 100), ctx);
     for (let k = 0; k < 20; k++) tool.frame(0.1, at(-90 + k, 100), ctx);
     tool.pointerUp(at(-71, 100), ctx);

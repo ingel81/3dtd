@@ -7,7 +7,7 @@
 import type { MapPoint } from '../../world/custom-map/map-document';
 import { LandscapeContext } from '../ops/landscape/landscape-context';
 import { captureStamp, pasteStamp, stampOutline } from '../ops/stamp';
-import type { EditorTool, ToolContext, ToolPointer } from './tool';
+import { patch, type EditorTool, type ToolContext, type ToolPointer } from './tool';
 
 const QUARTER = Math.PI / 2;
 const STEP = Math.PI / 12;
@@ -28,32 +28,30 @@ export class StampTool implements EditorTool {
 
   pointerDown(p: ToolPointer, ctx: ToolContext): boolean {
     if (p.button !== 0 || !p.hit) return false;
-    const s = ctx.settings.stamp;
+    const s = ctx.settings.stamp();
     if (s.mode === 'paste') {
       this.paste(p.hit, ctx);
       return true;
     }
     this.dragFrom = { x: p.hit.x, y: p.hit.y };
-    s.region = null;
-    ctx.settingsChanged();
+    patch(ctx.settings.stamp, { region: null });
     return true;
   }
 
   pointerMove(p: ToolPointer, ctx: ToolContext): void {
     if (!this.dragFrom || !p.hit) return;
-    ctx.settings.stamp.region = { x0: this.dragFrom.x, y0: this.dragFrom.y, x1: p.hit.x, y1: p.hit.y };
+    patch(ctx.settings.stamp, { region: { x0: this.dragFrom.x, y0: this.dragFrom.y, x1: p.hit.x, y1: p.hit.y } });
   }
 
   pointerUp(_p: ToolPointer, ctx: ToolContext): void {
     if (!this.dragFrom) return;
     this.dragFrom = null;
-    const r = ctx.settings.stamp.region;
-    if (r && (Math.abs(r.x1 - r.x0) < 4 || Math.abs(r.y1 - r.y0) < 4)) ctx.settings.stamp.region = null;
-    ctx.settingsChanged();
+    const r = ctx.settings.stamp().region;
+    if (r && (Math.abs(r.x1 - r.x0) < 4 || Math.abs(r.y1 - r.y0) < 4)) patch(ctx.settings.stamp, { region: null });
   }
 
   frame(_dt: number, p: ToolPointer | null, ctx: ToolContext): void {
-    const s = ctx.settings.stamp;
+    const s = ctx.settings.stamp();
     if (s.mode === 'paste' && s.current && p?.hit) {
       ctx.overlay.setDraft(stampOutline(s.current, p.hit, s.rotation));
       return;
@@ -73,7 +71,7 @@ export class StampTool implements EditorTool {
   }
 
   key(e: KeyboardEvent, ctx: ToolContext): boolean {
-    const s = ctx.settings.stamp;
+    const s = ctx.settings.stamp();
     const ctrl = e.ctrlKey || e.metaKey;
     const k = e.key.toLowerCase();
     if (ctrl && k === 'c') {
@@ -85,37 +83,32 @@ export class StampTool implements EditorTool {
         ctx.status('Copy a piece first (drag a rectangle, Ctrl+C) or pick a stamp');
         return true;
       }
-      s.mode = 'paste';
-      ctx.settingsChanged();
+      patch(ctx.settings.stamp, { mode: 'paste' });
       return true;
     }
     if (ctrl || s.mode !== 'paste') return false;
     if (k === 'r') {
-      s.rotation += e.shiftKey ? -QUARTER : QUARTER;
-      ctx.settingsChanged();
+      patch(ctx.settings.stamp, { rotation: s.rotation + (e.shiftKey ? -QUARTER : QUARTER) });
       return true;
     }
     if (e.key === ',' || e.key === '.') {
-      s.rotation += e.key === '.' ? -STEP : STEP;
-      ctx.settingsChanged();
+      patch(ctx.settings.stamp, { rotation: s.rotation + (e.key === '.' ? -STEP : STEP) });
       return true;
     }
     return false;
   }
 
   cancel(ctx: ToolContext): boolean {
-    const s = ctx.settings.stamp;
+    const s = ctx.settings.stamp();
     const busy = !!this.dragFrom || s.mode === 'paste' || !!s.region;
     this.dragFrom = null;
-    if (s.mode === 'paste') s.mode = 'select';
-    else s.region = null;
+    patch(ctx.settings.stamp, s.mode === 'paste' ? { mode: 'select' } : { region: null });
     ctx.overlay.setDraft(null);
-    ctx.settingsChanged();
     return busy;
   }
 
   hint(ctx: ToolContext): string {
-    const s = ctx.settings.stamp;
+    const s = ctx.settings.stamp();
     if (s.mode === 'paste') {
       return s.current
         ? `Click to place ${s.currentName || 'the copy'} | R turn 90 | , . turn 15 | Esc back to selecting`
@@ -126,22 +119,19 @@ export class StampTool implements EditorTool {
 
   /** Copies the chosen rectangle and switches to placing it */
   copy(ctx: ToolContext): boolean {
-    const s = ctx.settings.stamp;
+    const s = ctx.settings.stamp();
     if (!s.region) {
       ctx.status('Drag a rectangle first');
       return false;
     }
-    s.current = captureStamp(ctx.editor.doc, s.region);
-    s.currentName = 'the copy';
-    s.rotation = 0;
-    s.mode = 'paste';
-    ctx.settingsChanged();
-    ctx.status(`Copied ${Math.round(s.current.width)} x ${Math.round(s.current.depth)} m: click to place`);
+    const current = captureStamp(ctx.editor.doc, s.region);
+    patch(ctx.settings.stamp, { current, currentName: 'the copy', rotation: 0, mode: 'paste' });
+    ctx.status(`Copied ${Math.round(current.width)} x ${Math.round(current.depth)} m: click to place`);
     return true;
   }
 
   private paste(at: MapPoint, ctx: ToolContext): void {
-    const s = ctx.settings.stamp;
+    const s = ctx.settings.stamp();
     if (!s.current) {
       ctx.status('Nothing to place');
       return;

@@ -19,6 +19,7 @@ import { cliffAlong, formDab } from '../ops/landscape/shapes';
 import { symmetryImages } from '../ops/symmetry';
 import {
   LANDSCAPE_MODES,
+  patch,
   type EditorTool,
   type LandscapeMode,
   type ToolContext,
@@ -36,7 +37,7 @@ export class LandscapeTool implements EditorTool {
   private previewNoise: LandscapeNoise | null = null;
 
   brushVisible(ctx: ToolContext): boolean {
-    const mode = ctx.settings.landscape.mode;
+    const mode = ctx.settings.landscape().mode;
     return mode !== 'river' && mode !== 'road';
   }
 
@@ -47,12 +48,12 @@ export class LandscapeTool implements EditorTool {
   }
 
   pointerDown(p: ToolPointer, ctx: ToolContext): boolean {
-    const s = ctx.settings.landscape;
+    const s = ctx.settings.landscape();
     // A line may start off the map and come in; a brush needs ground under it
     if (p.button !== 0 || (!p.hit && !isLine(s.mode))) return false;
     const label = LANDSCAPE_MODES.find((m) => m.id === s.mode)!.label;
     this.stroke = new LandscapeContext(ctx.editor.begin(s.mode === 'biome' ? biomeById(s.biome).label : label), s.seed, ctx.catalog);
-    this.stroke.symmetry = ctx.settings.symmetry;
+    this.stroke.symmetry = ctx.settings.symmetry();
     this.stroke.heightsAdd = addsToGround(s.mode, s.biome);
     this.dab = 0;
     if (isLine(s.mode)) this.line = p.hit ? [{ x: p.hit.x, y: p.hit.y }] : [];
@@ -73,8 +74,8 @@ export class LandscapeTool implements EditorTool {
   }
 
   frame(dt: number, p: ToolPointer | null, ctx: ToolContext): void {
-    const s = ctx.settings.landscape;
-    const brush = ctx.settings.brush;
+    const s = ctx.settings.landscape();
+    const brush = ctx.settings.brush();
     if (this.line) {
       ctx.overlay.setDraft(p?.hit ? [...this.line, p.hit] : this.line);
       return;
@@ -132,7 +133,7 @@ export class LandscapeTool implements EditorTool {
   }
 
   hint(ctx: ToolContext): string {
-    const s = ctx.settings.landscape;
+    const s = ctx.settings.landscape();
     const mode = LANDSCAPE_MODES.find((m) => m.id === s.mode)!;
     const what =
       s.mode === 'biome'
@@ -149,12 +150,12 @@ export class LandscapeTool implements EditorTool {
     this.line = null;
     ctx.overlay.setDraft(null);
     if (!stroke) return;
-    const s = ctx.settings.landscape;
-    const brush = ctx.settings.brush;
+    const s = ctx.settings.landscape();
+    const brush = ctx.settings.brush();
     if (line) {
       // Lines are built at every symmetric image; a mirrored line runs backwards so a cliff keeps its side
       const t = stroke.doc.terrain;
-      const lines = symmetryImages(ctx.settings.symmetry, t.grid.columns === t.grid.rows).map(
+      const lines = symmetryImages(ctx.settings.symmetry(), t.grid.columns === t.grid.rows).map(
         (img) => {
           const mapped = line.map((q) => img.point(q));
           return img.flips ? mapped.reverse() : mapped;
@@ -173,15 +174,12 @@ export class LandscapeTool implements EditorTool {
     if (full.length) {
       ctx.status(`The map has ${MAX_LAYERS} ground layers: ${full.join('; ')}. Remove a layer in Paint for each its own`);
     }
-    if (stroke.finish() && s.reroll) {
-      s.seed = randomSeed();
-      ctx.settingsChanged();
-    }
+    if (stroke.finish() && s.reroll) patch(ctx.settings.landscape, { seed: randomSeed() });
   }
 
   private buildLine(stroke: LandscapeContext, line: MapPoint[], ctx: ToolContext): void {
-    const s = ctx.settings.landscape;
-    const brush = ctx.settings.brush;
+    const s = ctx.settings.landscape();
+    const brush = ctx.settings.brush();
     switch (s.mode) {
       case 'cliff': {
         const rect = cliffAlong(

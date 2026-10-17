@@ -36,7 +36,7 @@ import { heightAt as gridHeight } from '../../map-ops/grid';
 import { stepRadius } from '../../map-ops/brush';
 import { dominantLayer } from '../../map-ops/paint-ops';
 import { edgePolyline, nearestOnPolyline, spawnRoutes } from '../../map-ops/path-graph';
-import type { EditorSettings, EditorTool, MapHit, ToolContext, ToolPointer } from '../tools/tool';
+import { patch, type EditorSettings, type EditorTool, type MapHit, type ToolContext, type ToolPointer } from '../tools/tool';
 import type { PickResult } from '../model/editor-document';
 import { CameraController, type OrbitState } from './camera-controller';
 import { EditorOverlay } from './editor-overlay';
@@ -71,7 +71,8 @@ export interface FrameStats {
 
 export interface ViewportCallbacks {
   status(message: string): void;
-  settingsChanged(): void;
+  /** The tool's line of help says something new */
+  hintChanged(): void;
   box(box: { x0: number; y0: number; x1: number; y1: number } | null): void;
   lasso(points: readonly { x: number; y: number }[] | null): void;
   hover(info: HoverInfo | null): void;
@@ -437,23 +438,19 @@ export class EditorViewport {
       return dropped || selected;
     }
     if (e.ctrlKey || e.metaKey || e.altKey) return false;
-    const b = this.settings.brush;
+    const b = this.settings.brush();
     switch (e.key) {
       case '[':
-        b.radius = stepRadius(b.radius, -1);
-        this.callbacks.settingsChanged();
+        patch(this.settings.brush, { radius: stepRadius(b.radius, -1) });
         return true;
       case ']':
-        b.radius = stepRadius(b.radius, 1);
-        this.callbacks.settingsChanged();
+        patch(this.settings.brush, { radius: stepRadius(b.radius, 1) });
         return true;
       case '{':
-        b.strength = Math.max(0.05, Math.round((b.strength - 0.1) * 100) / 100);
-        this.callbacks.settingsChanged();
+        patch(this.settings.brush, { strength: Math.max(0.05, Math.round((b.strength - 0.1) * 100) / 100) });
         return true;
       case '}':
-        b.strength = Math.min(1, Math.round((b.strength + 0.1) * 100) / 100);
-        this.callbacks.settingsChanged();
+        patch(this.settings.brush, { strength: Math.min(1, Math.round((b.strength + 0.1) * 100) / 100) });
         return true;
       case 'ArrowUp':
       case 'ArrowDown':
@@ -810,7 +807,7 @@ export class EditorViewport {
       heightAt: (x, y) => this.heightAt(x, y),
       pick: (p) => this.pick(p),
       status: (m) => this.callbacks.status(m),
-      settingsChanged: () => this.callbacks.settingsChanged(),
+      hintChanged: () => this.callbacks.hintChanged(),
       setBox: (b) => this.callbacks.box(b),
       setLasso: (points) => this.callbacks.lasso(points),
       objectVisible: (o) => this.objectVisible(o),
@@ -943,9 +940,7 @@ export class EditorViewport {
     }
     // Ctrl and the wheel size the brush where one shows (Ctrl+wheel would zoom the page otherwise)
     if ((e.ctrlKey || e.metaKey) && this.tool?.brushVisible(this.ctx)) {
-      const b = this.settings.brush;
-      b.radius = stepRadius(b.radius, e.deltaY < 0 ? 1 : -1);
-      this.callbacks.settingsChanged();
+      patch(this.settings.brush, { radius: stepRadius(this.settings.brush().radius, e.deltaY < 0 ? 1 : -1) });
       return;
     }
     // A tool may take the wheel with a modifier (Place turns with Shift); with Shift some systems scroll sideways (deltaX)
@@ -1116,7 +1111,7 @@ export class EditorViewport {
     this.overlay.updateSelection(doc, this.editor.selection, (asset) => this.catalog.object(asset).radius);
     if (this.routesDirty) {
       this.routesDirty = false;
-      this.overlay.setRoutes(this.settings.paths.showRoutes ? [...spawnRoutes(doc).values()] : []);
+      this.overlay.setRoutes(this.settings.paths().showRoutes ? [...spawnRoutes(doc).values()] : []);
     }
   }
 
@@ -1157,18 +1152,18 @@ export class EditorViewport {
     this.tool?.frame?.(dt, tp, this.ctx);
     this.flush();
     this.refreshOverlays(time);
-    if (this.guideMode !== this.settings.symmetry) {
-      this.guideMode = this.settings.symmetry;
+    if (this.guideMode !== this.settings.symmetry()) {
+      this.guideMode = this.settings.symmetry();
       const t = this.editor.doc.terrain;
-      this.overlay.setSymmetry(this.settings.symmetry, t.width, t.depth);
+      this.overlay.setSymmetry(this.settings.symmetry(), t.width, t.depth);
     }
 
-    const brush = this.settings.brush;
+    const brush = this.settings.brush();
     const showBrush = !!tp?.hit && !!this.tool?.brushVisible(this.ctx);
     this.overlay.setBrush(showBrush ? tp!.hit : null, brush.radius, brush.falloff);
     this.overlay.setViewDistance(this.controller.current.distance);
     this.overlay.update(dt);
-    this.view.view.setAnimationPaused(this.settings.view.still);
+    this.view.view.setAnimationPaused(this.settings.view().still);
     this.view.update(dt, this.camera, this.controller.current.target);
     this.hearAmbience(dt);
     this.trial.update(dt);
@@ -1180,7 +1175,7 @@ export class EditorViewport {
 
   /** Height lines and grid, redrawn at most twice a second while the ground changes */
   private refreshOverlays(time: number): void {
-    const v = this.settings.view;
+    const v = this.settings.view();
     const key = `${v.contours}:${v.contourStep}:${v.grid}:${v.gridStep}`;
     if (key === this.overlayKey || time - this.overlayTime < 500) return;
     this.overlayKey = key;
@@ -1191,13 +1186,13 @@ export class EditorViewport {
   }
 
   private objectVisible(o: MapObject): boolean {
-    const hidden = this.settings.view.hidden;
+    const hidden = this.settings.view().hidden;
     return !hidden?.length || !hidden.includes(this.catalog.object(o.asset).category);
   }
 
   /** Hidden categories changed: the view shows the rest */
   private syncHidden(): void {
-    const key = (this.settings.view.hidden ?? []).join('|');
+    const key = (this.settings.view().hidden ?? []).join('|');
     if (key === this.hiddenKey) return;
     this.hiddenKey = key;
     this.view.setVisible(key ? (o) => this.objectVisible(o) : null);

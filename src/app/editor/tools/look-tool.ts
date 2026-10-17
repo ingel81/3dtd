@@ -27,8 +27,7 @@ export class LookTool implements EditorTool {
     const picked = ctx.pick(p);
     const editor = ctx.editor;
     // Bare ground: the panel describes the spot (its ground, height, slope, water)
-    ctx.settings.look.at = !picked && p.hit ? { x: p.hit.x, y: p.hit.y } : null;
-    ctx.settingsChanged();
+    ctx.settings.look.set({ at: !picked && p.hit ? { x: p.hit.x, y: p.hit.y } : null });
     if (!picked) {
       editor.select(null);
       if (p.hit) ctx.status(describeGround(editor.doc.terrain, p.hit.x, p.hit.y, ctx.catalog).what);

@@ -17,7 +17,7 @@ import {
 } from '../../map-ops/terrain-ops';
 import { mirrorDab, symmetryImages, type SymmetryMode } from '../ops/symmetry';
 import type { EditTransaction } from '../model/edit-transaction';
-import { TERRAIN_MODES, type EditorTool, type ToolContext, type ToolPointer } from './tool';
+import { TERRAIN_MODES, patch, type EditorTool, type ToolContext, type ToolPointer } from './tool';
 
 /** Metres per second at full strength */
 const RAISE_SPEED = 12;
@@ -30,7 +30,7 @@ const RAMP_SIDES = 0.75;
 export class TerrainTool implements EditorTool {
   readonly id = 'terrain' as const;
   brushVisible(ctx: ToolContext): boolean {
-    return ctx.settings.terrain.mode !== 'ramp';
+    return ctx.settings.terrain().mode !== 'ramp';
   }
   private stroke: EditTransaction | null = null;
   /** The stroke's symmetry, and whether it adds to the ground (a symmetric image takes the change on its own ground) */
@@ -49,11 +49,11 @@ export class TerrainTool implements EditorTool {
 
   pointerDown(p: ToolPointer, ctx: ToolContext): boolean {
     if (p.button !== 0 || !p.hit) return false;
-    const s = ctx.settings.terrain;
+    const s = ctx.settings.terrain();
     if (p.ctrl && (s.mode === 'level' || s.mode === 'flatten' || s.mode === 'terrace')) {
-      s.level = Math.round(p.hit.z * 10) / 10;
-      ctx.settingsChanged();
-      ctx.status(`Height ${s.level} m picked`);
+      const level = Math.round(p.hit.z * 10) / 10;
+      patch(ctx.settings.terrain, { level });
+      ctx.status(`Height ${level} m picked`);
       return true;
     }
     if (s.mode === 'ramp') {
@@ -63,7 +63,7 @@ export class TerrainTool implements EditorTool {
     const mode = TERRAIN_MODES.find((m) => m.id === s.mode)!;
     this.stroke = ctx.editor.begin(mode.label);
     this.stroke.record('heights');
-    this.symmetry = ctx.settings.symmetry;
+    this.symmetry = ctx.settings.symmetry();
     // Sculpting adds to the ground; levelling sets heights the images must share
     this.heightsAdd = mode.group === 'Sculpt';
     this.invert = p.shift;
@@ -84,20 +84,20 @@ export class TerrainTool implements EditorTool {
   }
 
   frame(dt: number, p: ToolPointer | null, ctx: ToolContext): void {
-    const s = ctx.settings;
-    if (s.terrain.mode === 'ramp') {
+    const s = ctx.settings.terrain();
+    if (s.mode === 'ramp') {
       ctx.overlay.setDraft(this.rampStart && p?.hit ? [this.rampStart, p.hit] : null);
     }
     const stroke = this.stroke;
     if (!stroke || !p?.hit) return;
     const t = stroke.doc.terrain;
     const { x, y } = p.hit;
-    const brush = s.brush;
+    const brush = ctx.settings.brush();
     const step = Math.min(dt, 0.1);
     stroke.touch('heights', sampleRectAround(t, x, y, brush.radius + t.grid.cellSize));
     let rect: GridRect;
     const pull = 1 - Math.exp(-PULL_RATE * step);
-    switch (s.terrain.mode) {
+    switch (s.mode) {
       case 'raise':
         rect = raiseDab(t, x, y, brush, (this.invert ? -1 : 1) * RAISE_SPEED * step);
         break;
@@ -118,7 +118,7 @@ export class TerrainTool implements EditorTool {
         rect = erodeDab(t, x, y, brush, 2);
         break;
       case 'terrace':
-        rect = terraceDab(t, x, y, brush, s.terrain.step, pull, s.terrain.level);
+        rect = terraceDab(t, x, y, brush, s.step, pull, s.level);
         break;
       case 'plateau':
         rect = plateauDab(t, x, y, brush, this.target, pull * 1.5);
@@ -138,7 +138,7 @@ export class TerrainTool implements EditorTool {
   }
 
   hint(ctx: ToolContext): string {
-    const mode = TERRAIN_MODES.find((m) => m.id === ctx.settings.terrain.mode)!;
+    const mode = TERRAIN_MODES.find((m) => m.id === ctx.settings.terrain().mode)!;
     if (mode.id === 'ramp' && this.rampStart) return 'Click where the ramp ends | Esc cancels';
     return `${mode.label}: ${mode.hint} | [ ] size`;
   }
@@ -157,10 +157,10 @@ export class TerrainTool implements EditorTool {
     const stroke = ctx.editor.begin('Ramp');
     const t = stroke.doc.terrain;
     // A symmetric map gets the ramp at every image, each built from its own ends
-    for (const img of symmetryImages(ctx.settings.symmetry, t.grid.columns === t.grid.rows)) {
+    for (const img of symmetryImages(ctx.settings.symmetry(), t.grid.columns === t.grid.rows)) {
       const ia = { ...img.point(a), h: a.h };
       const ib = { ...img.point(b), h: b.h };
-      const rect = rampBetween(t, ia, ib, ctx.settings.terrain.rampWidth, ctx.settings.brush.falloff, (r) => stroke.touch('heights', r), RAMP_SIDES);
+      const rect = rampBetween(t, ia, ib, ctx.settings.terrain().rampWidth, ctx.settings.brush().falloff, (r) => stroke.touch('heights', r), RAMP_SIDES);
       if (rect) stroke.changed({ heights: rect });
     }
     stroke.commit();

@@ -38,7 +38,7 @@ import { levelForBuildings, withGround } from '../ops/object-commands';
 import { objectImages, sameSector, symmetryImages } from '../ops/symmetry';
 import { edgePolyline, nearestOnEdges } from '../../map-ops/path-graph';
 import { TransformGizmo, gizmoAnchor, type GizmoHandle } from '../view/transform-gizmo';
-import type { EditorTool, ToolContext, ToolPointer } from './tool';
+import { patch, type EditorTool, type ToolContext, type ToolPointer } from './tool';
 
 type Drag =
   | { kind: 'box'; x0: number; y0: number }
@@ -89,7 +89,7 @@ export class ObjectTool implements EditorTool {
   private placeAt: { x: number; y: number; asset: string; road: number | null } | null = null;
 
   brushVisible(ctx: ToolContext): boolean {
-    const mode = ctx.settings.objects.mode;
+    const mode = ctx.settings.objects().mode;
     return mode === 'scatter' || mode === 'erase';
   }
 
@@ -103,7 +103,7 @@ export class ObjectTool implements EditorTool {
 
   pointerDown(p: ToolPointer, ctx: ToolContext): boolean {
     if (p.button !== 0) return false;
-    const s = ctx.settings.objects;
+    const s = ctx.settings.objects();
     switch (s.mode) {
       case 'place':
         if (p.hit) this.place(p, ctx);
@@ -216,7 +216,7 @@ export class ObjectTool implements EditorTool {
   }
 
   frame(dt: number, p: ToolPointer | null, ctx: ToolContext): void {
-    const s = ctx.settings.objects;
+    const s = ctx.settings.objects();
     const sel = this.selected(ctx);
     const gizmo = ctx.overlay.transform;
     if (s.mode === 'select' && sel.length) {
@@ -236,7 +236,7 @@ export class ObjectTool implements EditorTool {
     const b = this.brushing;
     if (!b || !p?.hit) return;
     const doc = ctx.editor.doc;
-    const brush = ctx.settings.brush;
+    const brush = ctx.settings.brush();
     if (b.erase) {
       const assets = s.mode === 'scatter' ? new Set(this.scatterAssets(ctx)) : undefined;
       const ids = objectsUnderBrush(doc, p.hit, brush.radius, assets);
@@ -259,7 +259,7 @@ export class ObjectTool implements EditorTool {
       return;
     }
     const t = doc.terrain;
-    const mode = ctx.settings.symmetry;
+    const mode = ctx.settings.symmetry();
     b.origin ??= { x: p.hit.x, y: p.hit.y };
     const origin = b.origin;
     // With symmetry the scatter grows in the stroke's own sector and is copied to the others
@@ -281,7 +281,7 @@ export class ObjectTool implements EditorTool {
   }
 
   key(e: KeyboardEvent, ctx: ToolContext): boolean {
-    const s = ctx.settings.objects;
+    const s = ctx.settings.objects();
     const sel = this.selected(ctx);
     const k = e.key.toLowerCase();
     // Place turns the next object: Q and comma to the left, E and period to the right, Shift a quarter
@@ -290,9 +290,9 @@ export class ObjectTool implements EditorTool {
       return true;
     }
     if (!e.ctrlKey && !e.metaKey && k === 'l' && s.mode === 'select') {
-      s.space = s.space === 'local' ? 'global' : 'local';
-      ctx.settingsChanged();
-      ctx.status(s.space === 'local' ? 'Arrows follow the object' : 'Arrows follow the map');
+      const space = s.space === 'local' ? 'global' : 'local';
+      patch(ctx.settings.objects, { space });
+      ctx.status(space === 'local' ? 'Arrows follow the object' : 'Arrows follow the map');
       return true;
     }
     if ((e.ctrlKey || e.metaKey) && k === 'g' && sel.length) {
@@ -318,9 +318,7 @@ export class ObjectTool implements EditorTool {
       return true;
     }
     if (!e.ctrlKey && !e.metaKey && (k === 'w' || k === 'e' || k === 'r')) {
-      s.mode = 'select';
-      s.gizmo = k === 'w' ? 'move' : k === 'e' ? 'rotate' : 'scale';
-      ctx.settingsChanged();
+      patch(ctx.settings.objects, { mode: 'select', gizmo: k === 'w' ? 'move' : k === 'e' ? 'rotate' : 'scale' });
       return true;
     }
     if ((e.key === 'Delete' || e.key === 'Backspace') && sel.length) {
@@ -349,7 +347,7 @@ export class ObjectTool implements EditorTool {
 
   /** Place: Shift and the wheel turn the next object by a step, away from the user to the left */
   wheel(step: number, p: ToolPointer, ctx: ToolContext): boolean {
-    const s = ctx.settings.objects;
+    const s = ctx.settings.objects();
     if (s.mode !== 'place' || !p.shift || p.ctrl || p.alt) return false;
     this.turnPlace(step < 0 ? 1 : -1, s.turnStep, ctx);
     return true;
@@ -357,25 +355,24 @@ export class ObjectTool implements EditorTool {
 
   /** Turns the next placed object by `degrees` onto the grid of the turn step, `dir` 1 to the left (counter-clockwise from above) */
   private turnPlace(dir: 1 | -1, degrees: number, ctx: ToolContext): void {
-    const s = ctx.settings.objects;
+    const s = ctx.settings.objects();
     const deg = (s.rotation * 180) / Math.PI;
     const next = Math.round((deg + dir * degrees) / s.turnStep) * s.turnStep;
-    s.rotation = round(wrap((next * Math.PI) / 180), 1000);
+    patch(ctx.settings.objects, { rotation: round(wrap((next * Math.PI) / 180), 1000) });
     if (s.randomRotation) {
-      s.randomRotation = false;
+      patch(ctx.settings.objects, { randomRotation: false });
       ctx.status('Turn at random is off: the turn keys set the turn');
     }
-    ctx.settingsChanged();
   }
 
   /** The road's turn for a building at a point when Face the road is on and one is near, else null */
   private roadTurn(at: MapPoint, entry: ObjectAssetEntry, ctx: ToolContext): number | null {
-    return ctx.settings.objects.faceRoad && entry.footing?.category === 'building' ? roadFacing(ctx.editor.doc.paths, at, entry.radius) : null;
+    return ctx.settings.objects().faceRoad && entry.footing?.category === 'building' ? roadFacing(ctx.editor.doc.paths, at, entry.radius) : null;
   }
 
   /** Place: the object's ground and front under the pointer, turned as a click would set it */
   private placeFrame(p: ToolPointer | null, ctx: ToolContext): void {
-    const s = ctx.settings.objects;
+    const s = ctx.settings.objects();
     if (s.mode !== 'place' || !s.asset || !p?.hit) {
       if (this.placeAt) ctx.overlay.setDraft(null);
       this.placeAt = null;
@@ -389,7 +386,7 @@ export class ObjectTool implements EditorTool {
     const road = last && last.asset === s.asset && Math.hypot(last.x - x, last.y - y) < 0.25 ? last.road : this.roadTurn({ x, y }, entry, ctx);
     this.placeAt = { x, y, asset: s.asset, road };
     // The status line says whether a road turns it
-    if ((road === null) !== ((last?.road ?? null) === null)) ctx.settingsChanged();
+    if ((road === null) !== ((last?.road ?? null) === null)) ctx.hintChanged();
     // A random turn is rolled on the click: the outline shows north until then
     const rotation = road ?? (s.randomRotation ? 0 : s.rotation);
     ctx.overlay.setDraft(placeOutline(entry, { x, y, rotation, scale: 1 }));
@@ -397,7 +394,7 @@ export class ObjectTool implements EditorTool {
 
   /** In Select, a faint ring shows the object a click would take; picked only when the pointer moved */
   private hoverFrame(p: ToolPointer | null, ctx: ToolContext): void {
-    if (ctx.settings.objects.mode !== 'select' || this.drag || !p?.hit) {
+    if (ctx.settings.objects().mode !== 'select' || this.drag || !p?.hit) {
       if (this.hoverAt) ctx.overlay.setHover(null);
       this.hoverAt = null;
       return;
@@ -434,7 +431,7 @@ export class ObjectTool implements EditorTool {
   }
 
   hint(ctx: ToolContext): string {
-    const s = ctx.settings.objects;
+    const s = ctx.settings.objects();
     switch (s.mode) {
       case 'place': {
         if (!s.asset) return 'Choose an asset, then click to place it';
@@ -459,7 +456,7 @@ export class ObjectTool implements EditorTool {
 
   /** Line mode: a road or river under the pointer at once, or the start of a free line */
   private lineDown(p: ToolPointer, ctx: ToolContext): boolean {
-    const s = ctx.settings.objects;
+    const s = ctx.settings.objects();
     if (!p.hit) return true;
     if (!s.asset) {
       ctx.status('Choose an asset first');
@@ -483,7 +480,7 @@ export class ObjectTool implements EditorTool {
 
   /** Objects along a line as one step, with their symmetric images */
   private placeAlong(line: readonly MapPoint[], ctx: ToolContext): void {
-    const s = ctx.settings.objects;
+    const s = ctx.settings.objects();
     const doc = ctx.editor.doc;
     const t = doc.terrain;
     const ids = new ObjectIds(doc.objects);
@@ -498,7 +495,7 @@ export class ObjectTool implements EditorTool {
       if (kit) ctx.status('The line is too short for a wall');
       return;
     }
-    const images = objectImages(own, symmetryImages(ctx.settings.symmetry, t.grid.columns === t.grid.rows), () => ids.take(), t.width / 2, t.depth / 2);
+    const images = objectImages(own, symmetryImages(ctx.settings.symmetry(), t.grid.columns === t.grid.rows), () => ids.take(), t.width / 2, t.depth / 2);
     const entry = ctx.catalog.object(s.asset!);
     const label = kit ? `${kit.name} along a line` : `${ctx.catalog.object(s.asset!).name} along a line`;
     const ground = levelForBuildings(doc, label, [...own, ...images], entry);
@@ -508,7 +505,7 @@ export class ObjectTool implements EditorTool {
   }
 
   private place(p: ToolPointer, ctx: ToolContext): void {
-    const s = ctx.settings.objects;
+    const s = ctx.settings.objects();
     if (!s.asset) {
       ctx.status('Choose an asset first');
       return;
@@ -530,7 +527,7 @@ export class ObjectTool implements EditorTool {
     const t = doc.terrain;
     const ids = new ObjectIds([...doc.objects, object]);
     // A building facing a road: each symmetric image faces its own nearest road (the mirrored turn would face the original's)
-    const images = objectImages([object], symmetryImages(ctx.settings.symmetry, t.grid.columns === t.grid.rows), () => ids.take(), t.width / 2, t.depth / 2).map((o) => {
+    const images = objectImages([object], symmetryImages(ctx.settings.symmetry(), t.grid.columns === t.grid.rows), () => ids.take(), t.width / 2, t.depth / 2).map((o) => {
       const road = this.roadTurn(o, entry, ctx);
       return road === null ? o : { ...o, rotation: road };
     });
@@ -602,7 +599,7 @@ export class ObjectTool implements EditorTool {
   }
 
   private applyGizmo(drag: Extract<Drag, { kind: 'gizmo' }>, p: ToolPointer, ctx: ToolContext): void {
-    const s = ctx.settings.objects;
+    const s = ctx.settings.objects();
     const doc = ctx.editor.doc;
     const hit = p.hit ?? { x: drag.start.x, y: drag.start.y, z: 0 };
     const c = drag.center;
@@ -682,7 +679,7 @@ export class ObjectTool implements EditorTool {
 
   /** The arrows' turn: the first selected object's in local space, else the map's */
   private axisYaw(ctx: ToolContext, ids: string[]): number {
-    if (ctx.settings.objects.space !== 'local' || !ids.length) return 0;
+    if (ctx.settings.objects().space !== 'local' || !ids.length) return 0;
     const first = ctx.editor.doc.objects.find((o) => o.id === ids[0]);
     return first?.rotation ?? 0;
   }
@@ -706,7 +703,7 @@ export class ObjectTool implements EditorTool {
   }
 
   private scatterAssets(ctx: ToolContext): string[] {
-    const s = ctx.settings.objects;
+    const s = ctx.settings.objects();
     if (s.scatter.assets.length) return [...s.scatter.assets];
     return s.asset ? [s.asset] : [];
   }
@@ -730,7 +727,7 @@ export class ObjectTool implements EditorTool {
 }
 
 function gizmoLabel(ctx: ToolContext): string {
-  return { move: 'Move', rotate: 'Turn', scale: 'Scale' }[ctx.settings.objects.gizmo];
+  return { move: 'Move', rotate: 'Turn', scale: 'Scale' }[ctx.settings.objects().gizmo];
 }
 
 /** Whether a screen point lies inside a polygon (even-odd rule) */

@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { BRUSH_LIMITS } from '../../../map-ops/brush';
 import { EditorSession } from '../editor-session.service';
 import { RangeRowComponent } from './range-row.component';
+import { patch } from '../../tools/tool';
 
 /** Size, strength and falloff of the brush every painting tool shares */
 @Component({
@@ -23,9 +24,9 @@ import { RangeRowComponent } from './range-row.component';
 export class BrushPanelComponent {
   private readonly session = inject(EditorSession);
   readonly limits = BRUSH_LIMITS;
-  readonly brush = computed(() => (this.session.settingsRev(), { ...this.session.settings.brush }));
+  readonly brush = this.session.settings.brush;
 
   set(key: 'radius' | 'strength' | 'falloff', value: number): void {
-    this.session.patchSettings((s) => (s.brush[key] = value));
+    patch(this.session.settings.brush, { [key]: value });
   }
 }

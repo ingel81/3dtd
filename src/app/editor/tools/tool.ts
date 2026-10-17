@@ -1,8 +1,12 @@
 /**
  * The editor's tools: each turns pointer and key input over the map into
  * edits of the document. Tools are plain classes without Angular; the
- * viewport feeds them, the panels change their settings.
+ * viewport feeds them, the panels change their settings. The settings are
+ * one signal per part (`EditorSettings`): read `settings.water()`, change
+ * with `patch(settings.water, { mode })`, so whoever reads a part follows
+ * that part and nothing else.
  */
+import { signal, type WritableSignal } from '@angular/core';
 import type { GizmoHandle } from '../view/transform-gizmo';
 import type { MapLifeKind, MapObject, MapPathKind, MapPoint } from '../../world/custom-map/map-document';
 import type { MapProblemPart } from '../../world/custom-map/map-file';
@@ -147,7 +151,8 @@ export type GizmoMode = 'move' | 'rotate' | 'scale';
 export type PathMode = 'draw' | 'edit';
 export type MarkerMode = 'spawn' | 'hq';
 
-export interface EditorSettings {
+/** What the editor's settings hold, part by part */
+export interface SettingValues {
   brush: BrushSettings;
   /** Every edit is copied to its symmetric images */
   symmetry: SymmetryMode;
@@ -247,7 +252,26 @@ export interface EditorSettings {
   };
 }
 
+/** The settings as one signal per part; a part is never changed in place, only replaced (patch) */
+export type EditorSettings = { readonly [K in keyof SettingValues]: WritableSignal<Setting<K>> };
+
+/** One part of the settings, read only: a change replaces it */
+export type Setting<K extends keyof SettingValues> = SettingValues[K] extends readonly unknown[] | string ? SettingValues[K] : Readonly<SettingValues[K]>;
+
+/** A part of the settings with some of its fields replaced */
+export function patch<T extends object>(part: WritableSignal<T>, changes: Partial<T>): void {
+  part.update((v) => ({ ...v, ...changes }));
+}
+
+/** The settings a new editor starts with, each part a signal */
 export function defaultSettings(): EditorSettings {
+  const values = defaultValues();
+  const out = {} as Record<string, WritableSignal<unknown>>;
+  for (const key of Object.keys(values) as (keyof SettingValues)[]) out[key] = signal(values[key]);
+  return out as unknown as EditorSettings;
+}
+
+function defaultValues(): SettingValues {
   return {
     brush: { ...DEFAULT_BRUSH },
     symmetry: 'none',
@@ -300,8 +324,8 @@ export interface ToolContext {
   pick(p: ToolPointer): PickResult | null;
   /** A short line in the status bar */
   status(message: string): void;
-  /** The settings changed from inside a tool (picked height, asset) */
-  settingsChanged(): void;
+  /** The line of help (hint) says something new, from what the tool holds rather than from its settings */
+  hintChanged(): void;
   /** Box selection rectangle in client pixels, or null */
   setBox(box: { x0: number; y0: number; x1: number; y1: number } | null): void;
   /** Map points of the screen box corners (for box selection) */

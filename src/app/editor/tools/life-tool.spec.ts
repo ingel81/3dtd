@@ -6,7 +6,7 @@ import { EditorDocument } from '../model/editor-document';
 import { heightAt } from '../../map-ops/grid';
 import type { EditorOverlay } from '../view/editor-overlay';
 import { LifeTool, pickArea } from './life-tool';
-import { defaultSettings, type ToolContext, type ToolPointer } from './tool';
+import { patch, defaultSettings, type ToolContext, type ToolPointer } from './tool';
 
 function context(editor: EditorDocument): ToolContext & { messages: string[]; drawn: () => readonly MapLifeArea[] | null } {
   const messages: string[] = [];
@@ -22,7 +22,7 @@ function context(editor: EditorDocument): ToolContext & { messages: string[]; dr
     heightAt: (x, y) => heightAt(editor.doc.terrain, x, y),
     pick: () => null,
     status: (m) => messages.push(m),
-    settingsChanged: () => undefined,
+    hintChanged: () => undefined,
     setBox: () => undefined,
     boxToMap: () => null,
     pickGizmo: () => null,
@@ -64,13 +64,13 @@ describe('life tool', () => {
     const ctx = context(ed);
     const tool = new LifeTool();
     tool.activate(ctx);
-    ctx.settings.life.kind = 'fireflies';
+    patch(ctx.settings.life, { kind: 'fireflies' });
     for (const [x, y] of [[0, 0], [60, 0], [60, 40], [0, 40]]) tap(tool, ctx, x, y);
     expect(ed.doc.life).toBeUndefined();
     tool.key(key('Enter'), ctx);
     expect(ed.doc.life?.areas).toEqual([{ id: 'fireflies-1', kind: 'fireflies', shape: 'area', points: [{ x: 0, y: 0 }, { x: 60, y: 0 }, { x: 60, y: 40 }, { x: 0, y: 40 }] }]);
     expect(ed.historySteps).toBe(1);
-    expect(ctx.settings.life.chosen).toBe('fireflies-1');
+    expect(ctx.settings.life().chosen).toBe('fireflies-1');
     tool.frame(0, null, ctx);
     expect(ctx.drawn()).toHaveLength(1);
     ed.undo();
@@ -84,8 +84,8 @@ describe('life tool', () => {
     const ctx = context(ed);
     const tool = new LifeTool();
     tool.activate(ctx);
-    ctx.settings.symmetry = 'x';
-    ctx.settings.life.kind = 'fog';
+    ctx.settings.symmetry.set('x');
+    patch(ctx.settings.life, { kind: 'fog' });
     for (const [x, y] of [[20, 0], [60, 0], [60, 40]]) tap(tool, ctx, x, y);
     tool.key(key('Enter'), ctx);
     expect(ed.doc.life?.areas?.map((a) => [a.id, a.points])).toEqual([
@@ -94,7 +94,7 @@ describe('life tool', () => {
       ['fog-2', [{ x: -60, y: 40 }, { x: -60, y: 0 }, { x: -20, y: 0 }]],
     ]);
     expect(ed.historySteps).toBe(1);
-    expect(ctx.settings.life.chosen).toBe('fog-1');
+    expect(ctx.settings.life().chosen).toBe('fog-1');
     // An outline around the axis is its own image: no copy
     for (const [x, y] of [[-30, -80], [30, -80], [30, -40], [-30, -40]]) tap(tool, ctx, x, y);
     tool.key(key('Enter'), ctx);
@@ -114,15 +114,15 @@ describe('life tool', () => {
     const area = ed.doc.life!.areas![0];
     expect(area.shape).toBe('area');
     expect(area.points.length).toBeGreaterThan(8);
-    ctx.settings.life.mode = 'route';
-    ctx.settings.life.kind = 'sound';
+    patch(ctx.settings.life, { mode: 'route' });
+    patch(ctx.settings.life, { kind: 'sound' });
     tap(tool, ctx, 100, 0);
     tap(tool, ctx, 150, 20);
     tool.pointerDown(at(150, 20, { button: 2 }), ctx);
     const route = ed.doc.life!.areas![1];
     expect(route).toMatchObject({ kind: 'sound', shape: 'route', sound: 'stream', points: [{ x: 100, y: 0 }, { x: 150, y: 20 }] });
     // Too little to be an outline: nothing, and the status says why
-    ctx.settings.life.mode = 'area';
+    patch(ctx.settings.life, { mode: 'area' });
     tap(tool, ctx, 0, 0);
     tap(tool, ctx, 1, 0);
     tool.key(key('Enter'), ctx);
@@ -135,9 +135,9 @@ describe('life tool', () => {
     ed.doc.life = { areas: [{ id: 'b', kind: 'birds', shape: 'area', points: [{ x: 0, y: 0 }, { x: 50, y: 0 }, { x: 50, y: 50 }, { x: 0, y: 50 }] }] };
     const ctx = context(ed);
     const tool = new LifeTool();
-    ctx.settings.life.mode = 'edit';
+    patch(ctx.settings.life, { mode: 'edit' });
     tap(tool, ctx, 20, 20);
-    expect(ctx.settings.life.chosen).toBe('b');
+    expect(ctx.settings.life().chosen).toBe('b');
     // Drag the corner at (50, 50)
     tool.pointerDown(at(50, 50), ctx);
     tool.pointerMove(at(70, 60), ctx);
@@ -154,7 +154,7 @@ describe('life tool', () => {
     expect(ed.doc.life!.areas![0].points).toHaveLength(4);
     tool.key(key('Delete'), ctx);
     expect(ed.doc.life!.areas).toEqual([]);
-    expect(ctx.settings.life.chosen).toBeNull();
+    expect(ctx.settings.life().chosen).toBeNull();
     ed.undo();
     ed.undo();
     ed.undo();

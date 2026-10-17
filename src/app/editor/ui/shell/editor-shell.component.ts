@@ -16,7 +16,7 @@ import type { DocChange } from '../../model/doc-change';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TdIconComponent, type TdIconName } from '../../../components/icon/icon.component';
 import { SYMMETRY_MODES, type SymmetryMode } from '../../ops/symmetry';
-import { LANDSCAPE_MODES, TOOL_GROUPS, TOOLS, type ToolId } from '../../tools/tool';
+import { patch, LANDSCAPE_MODES, TOOL_GROUPS, TOOLS, type ToolId } from '../../tools/tool';
 import { BIOMES, biomeById } from '../../ops/landscape/biomes';
 import { TRIAL_SPEEDS, stepTrialSpeed } from '../../view/trial-runners';
 import { CommandPaletteComponent } from './command-palette.component';
@@ -213,11 +213,11 @@ export class EditorShellComponent implements OnDestroy {
   readonly tourRing = signal<{ left: number; top: number; width: number; height: number } | null>(null);
   readonly shortcuts = SHORTCUTS;
   readonly symmetryModes = SYMMETRY_MODES;
-  readonly symmetry = computed(() => (this.session.settingsRev(), this.session.settings.symmetry));
+  readonly symmetry = computed(() => this.session.settings.symmetry());
   /** The view shows a still frame (wind, water, particles stand) */
-  readonly still = computed(() => (this.session.settingsRev(), this.session.settings.view.still));
+  readonly still = computed(() => this.session.settings.view().still);
   /** Objects in Place: the legend shows how to turn the next object */
-  readonly placing = computed(() => (this.session.settingsRev(), this.session.tool() === 'objects' && this.session.settings.objects.mode === 'place'));
+  readonly placing = computed(() => this.session.tool() === 'objects' && this.session.settings.objects().mode === 'place');
   readonly symmetryHint = computed(() => {
     const doc = (this.session.docRev(), this.session.doc);
     const m = SYMMETRY_MODES.find((s) => s.id === this.symmetry())!;
@@ -250,7 +250,6 @@ export class EditorShellComponent implements OnDestroy {
     afterNextRender(() => this.mountIdlePanels());
     // The assets a biome or the object palette is about to place get their programs compiled ahead
     effect(() => {
-      this.session.settingsRev();
       const tool = this.session.tool();
       const catalog = this.session.catalog();
       untracked(() => {
@@ -258,8 +257,8 @@ export class EditorShellComponent implements OnDestroy {
         const st = this.session.settings;
         if (!vp) return;
         const ids: string[] = [];
-        if (tool === 'landscape' && st.landscape.mode === 'biome') ids.push(...biomeById(st.landscape.biome).objects.flatMap((o) => o.assets));
-        if (tool === 'objects') ids.push(...(st.objects.asset ? [st.objects.asset] : []), ...st.objects.scatter.assets);
+        if (tool === 'landscape' && st.landscape().mode === 'biome') ids.push(...biomeById(st.landscape().biome).objects.flatMap((o) => o.assets));
+        if (tool === 'objects') ids.push(...(st.objects().asset ? [st.objects().asset!] : []), ...st.objects().scatter.assets);
         const known = ids.filter((id) => catalog.objects.has(id));
         if (known.length) vp.warmUpAssets(known);
       });
@@ -283,7 +282,7 @@ export class EditorShellComponent implements OnDestroy {
   }
 
   setSymmetry(mode: SymmetryMode): void {
-    this.session.patchSettings((s) => (s.symmetry = mode));
+    this.session.settings.symmetry.set(mode);
     this.session.flash(mode === 'none' ? 'Symmetry off' : `Symmetry: ${SYMMETRY_MODES.find((m) => m.id === mode)!.label}`);
   }
 
@@ -295,8 +294,8 @@ export class EditorShellComponent implements OnDestroy {
   /** Wind, water and particles stand still in the view, or move again */
   toggleStill(): void {
     const s = this.session;
-    s.patchSettings((st) => (st.view.still = !st.view.still));
-    s.flash(s.settings.view.still ? `Still frame: nothing moves (${this.keyOf('view:still')} moves it again)` : 'Wind and water move again');
+    patch(s.settings.view, { still: !s.settings.view().still });
+    s.flash(s.settings.view().still ? `Still frame: nothing moves (${this.keyOf('view:still')} moves it again)` : 'Wind and water move again');
   }
 
   setLegend(on: boolean): void {
@@ -531,10 +530,10 @@ export class EditorShellComponent implements OnDestroy {
     }
     if (ctrl && k === 'v' && s.blocked('Paste')) return this.handled(e, () => undefined);
     // Ctrl+V from any tool places the last copy
-    if (ctrl && k === 'v' && s.tool() !== 'stamp' && s.settings.stamp.current) {
+    if (ctrl && k === 'v' && s.tool() !== 'stamp' && s.settings.stamp().current) {
       return this.handled(e, () => {
         this.pick('stamp');
-        s.patchSettings((st) => (st.stamp.mode = 'paste'));
+        patch(s.settings.stamp, { mode: 'paste' });
       });
     }
     if (!ctrl && !e.altKey) {
@@ -567,7 +566,7 @@ export class EditorShellComponent implements OnDestroy {
         void this.check();
         return true;
       case 'map:symmetry': {
-        const i = SYMMETRY_MODES.findIndex((m) => m.id === s.settings.symmetry);
+        const i = SYMMETRY_MODES.findIndex((m) => m.id === s.settings.symmetry());
         this.setSymmetry(SYMMETRY_MODES[(i + 1) % SYMMETRY_MODES.length].id);
         return true;
       }
@@ -639,16 +638,13 @@ export class EditorShellComponent implements OnDestroy {
     for (const m of LANDSCAPE_MODES) {
       add('Landscape', m.label, () => {
         this.pick('landscape');
-        s.patchSettings((st) => (st.landscape.mode = m.id));
+        patch(s.settings.landscape, { mode: m.id });
       });
     }
     for (const b of BIOMES) {
       add('Biome', b.label, () => {
         this.pick('landscape');
-        s.patchSettings((st) => {
-          st.landscape.mode = 'biome';
-          st.landscape.biome = b.id;
-        });
+        patch(s.settings.landscape, { mode: 'biome', biome: b.id });
       });
     }
     if (vp) {
@@ -659,8 +655,8 @@ export class EditorShellComponent implements OnDestroy {
       add('View', 'Still frame on or off', () => this.toggleStill(), this.keyOf('view:still'));
       add('Map', 'Trial wave: enemies walk the routes', () => this.trial(), this.keyOf('map:trial'));
     }
-    add('View', 'Height lines on or off', () => s.patchSettings((st) => (st.view.contours = !st.view.contours)));
-    add('View', 'Grid on or off', () => s.patchSettings((st) => (st.view.grid = !st.view.grid)));
+    add('View', 'Height lines on or off', () => patch(s.settings.view, { contours: !s.settings.view().contours }));
+    add('View', 'Grid on or off', () => patch(s.settings.view, { grid: !s.settings.view().grid }));
     for (const m of SYMMETRY_MODES) add('Symmetry', m.label, () => this.setSymmetry(m.id), 'M');
     add('Symmetry', 'Mirror the map now (from the part in view)', () => s.mirrorNow());
     add('Editor', 'Keys', () => this.help.set(true), '?');
@@ -685,26 +681,26 @@ export class EditorShellComponent implements OnDestroy {
       for (const [group, ids] of groups) {
         add('Select', `Group ${group} (${ids.length})`, () => {
           this.pick('objects');
-          s.patchSettings((st) => (st.objects.mode = 'select'));
+          patch(s.settings.objects, { mode: 'select' });
           s.editor?.select({ kind: 'objects', ids });
           vp.focusSelection();
         });
       }
       for (const category of catalog.categories()) {
-        const hidden = s.settings.view.hidden?.includes(category);
+        const hidden = s.settings.view().hidden?.includes(category);
         add('View', `${hidden ? 'Show' : 'Hide'} ${category.toLowerCase()}`, () =>
-          s.patchSettings((st) => {
-            const set = new Set(st.view.hidden ?? []);
-            if (set.has(category)) set.delete(category);
-            else set.add(category);
-            st.view.hidden = [...set];
-          }),
+        {
+          const set = new Set(s.settings.view().hidden ?? []);
+          if (set.has(category)) set.delete(category);
+          else set.add(category);
+          patch(s.settings.view, { hidden: [...set] });
+        },
         );
       }
       for (const [asset, ids] of byAsset) {
         add('Select', `${catalog.object(asset).name} (${ids.length})`, () => {
           this.pick('objects');
-          s.patchSettings((st) => (st.objects.mode = 'select'));
+          patch(s.settings.objects, { mode: 'select' });
           s.editor?.select({ kind: 'objects', ids });
           vp.focusSelection();
         });

@@ -4,7 +4,7 @@ import { MAP_TRIAL_TONE, mapTrialSummary, type MapTrialResult } from '../../../w
 import { TdIconComponent } from '../../../components/icon/icon.component';
 import type { MapIssue } from '../../../map-ops/validation/map-validation';
 import { EditorSession, TOOL_INFO } from '../editor-session.service';
-import { PART_TOOL } from '../../tools/tool';
+import { patch, PART_TOOL } from '../../tools/tool';
 import { TOWER_SPOT_M2, TYPICAL_TOWER_RANGE } from '../../../map-ops/validation/build-areas';
 
 /**
@@ -116,11 +116,11 @@ export class CheckPanelComponent {
     } else if ((t?.kind === 'edge' || t?.kind === 'node') && t.id) {
       editor.select({ kind: t.kind, id: t.id });
       this.session.selectTool('paths');
-      this.session.patchSettings((s) => (s.paths.mode = 'edit'));
+      patch(this.session.settings.paths, { mode: 'edit' });
     } else if (t?.kind === 'object' && t.id) {
       editor.select({ kind: 'objects', ids: [t.id] });
       this.session.selectTool('objects');
-      this.session.patchSettings((s) => (s.objects.mode = 'select'));
+      patch(this.session.settings.objects, { mode: 'select' });
     }
     else if (issue.part) this.session.selectTool(PART_TOOL[issue.part]);
     if (issue.focus) vp.focusOn(issue.focus, 80);

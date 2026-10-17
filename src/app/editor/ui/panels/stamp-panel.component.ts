@@ -8,6 +8,7 @@ import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
 import type { KeptStamp } from './prefab-panel.component';
 import { RangeRowComponent } from './range-row.component';
+import { patch } from '../../tools/tool';
 
 const PARTS: { id: keyof StampParts; label: string }[] = [
   { id: 'heights', label: 'Heights' },
@@ -116,7 +117,7 @@ export class StampPanelComponent implements OnInit {
       ...this.session.libraryStamps().map((saved) => ({ saved, keep: 'library' as const })),
     ];
   });
-  readonly s = computed(() => (this.session.settingsRev(), { ...this.session.settings.stamp }));
+  readonly s = this.session.settings.stamp;
   readonly degrees = computed(() => Math.round((((this.s().rotation * 180) / Math.PI) % 360 + 360) % 360));
 
   ngOnInit(): void {
@@ -128,7 +129,7 @@ export class StampPanelComponent implements OnInit {
   }
 
   setMode(mode: 'select' | 'paste'): void {
-    this.session.patchSettings((s) => (s.stamp.mode = mode));
+    patch(this.session.settings.stamp, { mode });
   }
 
   copy(): void {
@@ -137,19 +138,19 @@ export class StampPanelComponent implements OnInit {
   }
 
   turn(deg: number): void {
-    this.session.patchSettings((s) => (s.stamp.rotation += (deg * Math.PI) / 180));
+    patch(this.session.settings.stamp, { rotation: this.session.settings.stamp().rotation + (deg * Math.PI) / 180 });
   }
 
   setFeather(v: number): void {
-    this.session.patchSettings((s) => (s.stamp.feather = v));
+    patch(this.session.settings.stamp, { feather: v });
   }
 
   setPart(id: keyof StampParts, on: boolean): void {
-    this.session.patchSettings((s) => (s.stamp.parts = { ...s.stamp.parts, [id]: on }));
+    patch(this.session.settings.stamp, { parts: { ...this.session.settings.stamp().parts, [id]: on } });
   }
 
   async save(): Promise<void> {
-    const st = this.session.settings.stamp;
+    const st = this.session.settings.stamp();
     if (!st.current) return;
     const name = this.name().trim() || `Stamp ${this.stamps().length + 1}`;
     if (!(await this.session.saveStamp(name, st.current, st.region, this.keep()))) return;
@@ -158,12 +159,7 @@ export class StampPanelComponent implements OnInit {
   }
 
   use(st: SavedStamp): void {
-    this.session.patchSettings((s) => {
-      s.stamp.current = st.stamp;
-      s.stamp.currentName = st.name;
-      s.stamp.rotation = 0;
-      s.stamp.mode = 'paste';
-    });
+    patch(this.session.settings.stamp, { current: st.stamp, currentName: st.name, rotation: 0, mode: 'paste' });
   }
 
   async remove(k: KeptStamp): Promise<void> {

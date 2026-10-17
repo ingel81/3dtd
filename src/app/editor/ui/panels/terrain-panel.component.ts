@@ -1,7 +1,7 @@
 import { ModePickerComponent } from './mode-picker.component';
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { TERRAIN_MODES, type TerrainMode } from '../../tools/tool';
+import { patch, TERRAIN_MODES, type TerrainMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
 import { BrushPanelComponent } from './brush-panel.component';
 import { RangeRowComponent } from './range-row.component';
@@ -35,13 +35,13 @@ import { RangeRowComponent } from './range-row.component';
 export class TerrainPanelComponent {
   private readonly session = inject(EditorSession);
   readonly modes = TERRAIN_MODES;
-  readonly t = computed(() => (this.session.settingsRev(), { ...this.session.settings.terrain }));
+  readonly t = this.session.settings.terrain;
 
   setMode(mode: TerrainMode): void {
-    this.session.patchSettings((s) => (s.terrain.mode = mode));
+    patch(this.session.settings.terrain, { mode });
   }
 
   set(key: 'level' | 'step' | 'rampWidth', value: number): void {
-    this.session.patchSettings((s) => (s.terrain[key] = value));
+    patch(this.session.settings.terrain, { [key]: value });
   }
 }

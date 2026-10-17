@@ -60,12 +60,12 @@ export class MarkerTool implements EditorTool {
     }
     const point = this.snap(p, ctx);
     if (!insideMap(editor.doc.terrain, point)) return true;
-    if (ctx.settings.markers.mode === 'hq') {
+    if (ctx.settings.markers().mode === 'hq') {
       editor.execute(markerCommands.moveHq(editor, point));
       editor.select({ kind: 'hq' });
     } else {
       const t = editor.doc.terrain;
-      const points = symmetryImages(ctx.settings.symmetry, t.grid.columns === t.grid.rows)
+      const points = symmetryImages(ctx.settings.symmetry(), t.grid.columns === t.grid.rows)
         .map((img) => img.point(point))
         .filter((q, k, all) => all.findIndex((o) => Math.hypot(o.x - q.x, o.y - q.y) < 1) === k);
       if (editor.doc.spawns.length + points.length > MAX_SPAWN_PORTALS) {
@@ -130,8 +130,7 @@ export class MarkerTool implements EditorTool {
     }
     const k = e.key.toLowerCase();
     if (!e.ctrlKey && !e.metaKey && (k === 'q' || k === 'h')) {
-      ctx.settings.markers.mode = k === 'h' ? 'hq' : 'spawn';
-      ctx.settingsChanged();
+      ctx.settings.markers.set({ mode: k === 'h' ? 'hq' : 'spawn' });
       return true;
     }
     return false;
@@ -149,7 +148,7 @@ export class MarkerTool implements EditorTool {
   }
 
   hint(ctx: ToolContext): string {
-    return ctx.settings.markers.mode === 'hq'
+    return ctx.settings.markers().mode === 'hq'
       ? 'Click to move the HQ | drag spawns and HQ | Q spawn mode | snaps onto roads, Alt places freely'
       : 'Click to add a spawn | drag spawns and HQ, Shift+click selects several | Del removes | H HQ mode | snaps onto roads, Alt places freely';
   }
@@ -157,7 +156,7 @@ export class MarkerTool implements EditorTool {
   private snap(p: ToolPointer, ctx: ToolContext): MapPoint {
     const hit = { x: Math.round(p.hit!.x * 10) / 10, y: Math.round(p.hit!.y * 10) / 10 };
     if (p.alt) return hit;
-    const on = nearestOnEdges(ctx.editor.doc.paths, hit, ctx.settings.paths.snap);
+    const on = nearestOnEdges(ctx.editor.doc.paths, hit, ctx.settings.paths().snap);
     return on ? { x: Math.round(on.point.x * 10) / 10, y: Math.round(on.point.y * 10) / 10 } : hit;
   }
 }
