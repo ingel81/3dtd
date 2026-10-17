@@ -17,6 +17,7 @@ function fakeSession() {
   const session = {
     state: { anyRev: signal(1), selection: signal([]) },
     view: { viewRev: signal(1), onCamera: () => () => undefined, bookmarks: signal(Array(9).fill(null)), renderTopDown, shown: true, dragging: false, viewFootprint: () => [], cameraTarget: () => null },
+    minimap: { marks: signal(null) },
     doc: { terrain: { width: 512, depth: 512 }, paths: { nodes: [], edges: [] }, spawns: [], hq: { x: 0, y: 0 } },
   };
   return { session, renderTopDown, pending };

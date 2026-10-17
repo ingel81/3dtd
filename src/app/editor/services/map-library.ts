@@ -5,7 +5,8 @@
  * maps or as another version of one.
  */
 import { signal } from '@angular/core';
-import { MAP_FILE_EXTENSION, MAX_FILE_BYTES, unpackMapFile } from '../../world/custom-map/map-file';
+import { MAP_FILE_EXTENSION, MAX_FILE_BYTES } from '../../world/custom-map/map-file';
+import { unpackOffThread } from '../../world/custom-map/map-unpack';
 import { slugMapId } from '../../world/custom-map/map-create';
 import { repairedMapText } from '../../world/custom-map/map-repair';
 import { MapStore, type LoadedMap, type MapSummary } from '../../world/custom-map/map-store';
@@ -115,7 +116,7 @@ export class MapLibrary {
         return null;
       }
       try {
-        const loaded = unpackMapFile(new Uint8Array(await file.arrayBuffer()));
+        const loaded = await unpackOffThread(new Uint8Array(await file.arrayBuffer()), { transfer: true });
         this.sayRepaired(name, loaded.repaired);
         const existing = await this.store.ownMatch(loaded.doc);
         if (existing) {

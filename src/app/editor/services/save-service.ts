@@ -7,7 +7,8 @@
 import { signal } from '@angular/core';
 import type { CustomMapDocument } from '../../world/custom-map/map-document';
 import { newMapUid } from '../../world/custom-map/map-create';
-import { MAP_FILE_EXTENSION, MapFileError, unpackMapFile, type PackOptions } from '../../world/custom-map/map-file';
+import { MAP_FILE_EXTENSION, MapFileError, type PackOptions } from '../../world/custom-map/map-file';
+import { unpackOffThread } from '../../world/custom-map/map-unpack';
 import type { PackedMap } from '../../world/custom-map/map-pack';
 import { FolderWriteError } from '../../world/custom-map/folder-map-backend';
 import type { EditorDocument } from '../model/editor-document';
@@ -231,7 +232,7 @@ export class SaveService {
   async versionDoc(version: MapVersion): Promise<CustomMapDocument> {
     const bytes = await this.library.history.bytes(version);
     if (!bytes) throw new Error('That version is gone');
-    return unpackMapFile(bytes).doc;
+    return (await unpackOffThread(bytes)).doc;
   }
 
   /** The map as a `.3dtdmap` download; the reminder waits for the next stretch of work */

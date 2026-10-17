@@ -7,7 +7,8 @@
 /// <reference lib="webworker" />
 
 import { importW3xSync } from './import-w3x';
-import { type W3xWorkerRequest, type W3xWorkerResponse, documentTransferables } from './w3x-worker.types';
+import { documentTransferables } from '../custom-map/map-document';
+import type { W3xWorkerRequest, W3xWorkerResponse } from './w3x-worker.types';
 
 addEventListener('message', (event: MessageEvent<W3xWorkerRequest>) => {
   const { id, bytes, options } = event.data;

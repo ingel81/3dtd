@@ -42,6 +42,8 @@ export interface CoreJobs {
   contours: { input: { step: number }; output: Contours };
   /** Each spawn's route to the HQ (path-graph.ts spawnRoutes), by spawn id */
   routes: { input: Record<string, never>; output: Map<string, Route | null> };
+  /** The minimap's roads, spawns and HQ (minimap-job.ts); null without an OffscreenCanvas */
+  minimap: { input: Record<string, never>; output: ImageBitmap | null };
 }
 
 export type CoreJobKind = keyof CoreJobs;

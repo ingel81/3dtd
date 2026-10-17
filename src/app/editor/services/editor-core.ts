@@ -61,7 +61,7 @@ class CorePort {
     this.post({ type: 'start', catalog });
   }
 
-  post(msg: CoreRequest, transfer: ArrayBuffer[] = []): void {
+  post(msg: CoreRequest, transfer: Transferable[] = []): void {
     if (this.worker) this.worker.postMessage(msg, transfer);
     else {
       const copy = structuredClone(msg, { transfer });

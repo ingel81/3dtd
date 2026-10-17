@@ -20,6 +20,7 @@ import { packErrorReply, packForSave } from '../../world/custom-map/map-pack';
 import { DocMirror } from '../model/doc-mirror';
 import type { CoreInput, CoreJobKind, CoreOutput, CoreReply, CoreRequest, TerrainStream } from './editor-core-protocol';
 import { erodeJob, runTerrainJob, transferList, type TerrainJob, type TerrainJobMessage } from './terrain-job';
+import { MinimapMarks } from './minimap-job';
 import { PathMaskState } from './path-mask-job';
 import { HeightField } from '../../world/custom-map/render/height-field';
 import { farShadowData, lavaCloseness, lavaSamples, shapePatch } from '../../world/custom-map/render/terrain/ground-shape';
@@ -34,6 +35,7 @@ interface CoreContext {
   pathMask: PathMaskState;
   /** The ground shape's arrays over the grid, kept between jobs */
   shape: { terrain?: Float32Array; curvature?: Uint8Array };
+  minimap: MinimapMarks;
 }
 
 /** The mirror's heights as a field */
@@ -50,7 +52,7 @@ interface JobDef<K extends CoreJobKind> {
   take?(ctx: CoreContext, input: CoreInput<K>): void;
   run(ctx: CoreContext, input: CoreInput<K>): CoreOutput<K> | Promise<CoreOutput<K>>;
   /** The buffers of the result that go back transferred */
-  transfer?(output: CoreOutput<K>): ArrayBuffer[];
+  transfer?(output: CoreOutput<K>): Transferable[];
 }
 
 /** The editor's check of `doc` (map-validation.ts) with the catalogue's answers and the build areas judged */
@@ -118,6 +120,11 @@ const JOBS: { [K in CoreJobKind]: JobDef<K> } = {
     priority: 40,
     run: (ctx) => spawnRoutes(ctx.mirror.doc),
   },
+  minimap: {
+    priority: 25,
+    run: (ctx) => ctx.minimap.run(ctx.mirror.doc),
+    transfer: (bitmap) => (bitmap ? [bitmap] : []),
+  },
   buildAreas: {
     priority: 30,
     run: (ctx) => {
@@ -150,14 +157,14 @@ interface Waiting {
 }
 
 export class EditorCoreHost {
-  private readonly ctx: CoreContext = { mirror: new DocMirror(), catalog: new CatalogIndex(EMPTY_CATALOG), buildAreas: null, pathMask: new PathMaskState(), shape: {} };
+  private readonly ctx: CoreContext = { mirror: new DocMirror(), catalog: new CatalogIndex(EMPTY_CATALOG), buildAreas: null, pathMask: new PathMaskState(), shape: {}, minimap: new MinimapMarks() };
   private readonly waiting = new Map<CoreJobKind, Waiting>();
   private draining = false;
   /** Terrain jobs under way, by id: true once told to stop */
   private readonly streams = new Map<number, boolean>();
 
   constructor(
-    private readonly post: (reply: CoreReply, transfer?: ArrayBuffer[]) => void,
+    private readonly post: (reply: CoreReply, transfer?: Transferable[]) => void,
     /** Runs `fn` once the messages that came meanwhile are in */
     private readonly later: (fn: () => void) => void,
   ) {}

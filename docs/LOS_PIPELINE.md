@@ -193,6 +193,11 @@ teilweise (`NearestFilter` ist dort Lesson 3, hier Regel 5).
     Quad-Shader, der `textureCube` aufruft), nicht mit einem zweiten Aufruf
     derselben Funktion. Muster dafür im Anhang des Handovers; für einzelne
     Pixel reicht der Hover im LOS-Debug-Panel.
+13. **Blocker, die ihre Vertices im Shader bewegen** (das Gelände eigener Karten liest seine Höhen aus einer
+    Textur, `terrain-chunks.ts`): ihr Mesh trägt `userData.losVertex` (`LosVertexPatch`: Schlüssel,
+    Deklarationen, GLSL auf `localPos` vor Instanz- und Modellmatrix, Uniforms). Der Würfel baut je Schlüssel
+    ein Distance-Material mit diesem Stück, das Bezugspunkt und `far` mit dem einfachen teilt; ohne fiele
+    das Gelände im Würfel auf Höhe 0.
 
 Für die Schleifen im Kampf gilt außerdem: In `updateTowerShooting`,
 `updateMeleeTowers` und `updateChainTowers` (`tower-combat.service.ts`) steht
