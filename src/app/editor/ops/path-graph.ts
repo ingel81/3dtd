@@ -28,8 +28,27 @@ export function newId(prefix: string, taken: Iterable<{ id: string }>): string {
   return `${prefix}${max + 1}`;
 }
 
+/**
+ * Where each node of a node list stood when last looked up, by id: loops
+ * over all edges (the minimap, a landscape stroke's start, a pick) look up
+ * both ends of each, which was a search of all nodes each time (an OSM world
+ * has 7 500). A lookup checks the list still holds that id at that place;
+ * after the list changed it is filed again.
+ */
+const nodePlaces = new WeakMap<MapPathNode[], Map<string, number>>();
+
 export function nodeById(paths: MapPaths, id: string): MapPathNode | undefined {
-  return paths.nodes.find((n) => n.id === id);
+  const nodes = paths.nodes;
+  let places = nodePlaces.get(nodes);
+  let k = places?.get(id);
+  if (k === undefined || nodes[k]?.id !== id) {
+    // Of two nodes with one id the first, as a search finds it
+    places = new Map();
+    for (let i = nodes.length - 1; i >= 0; i--) places.set(nodes[i].id, i);
+    nodePlaces.set(nodes, places);
+    k = places.get(id);
+  }
+  return k === undefined ? undefined : nodes[k];
 }
 
 /** The edge as a line: a, its curve points, b */

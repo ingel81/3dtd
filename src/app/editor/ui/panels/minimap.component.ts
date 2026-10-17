@@ -48,6 +48,10 @@ export class MinimapComponent implements OnDestroy {
   readonly size = SIZE;
   private picture: HTMLCanvasElement | null = null;
   private pictureRev = -1;
+  /** The roads drawn as one path (draw), and the revision of the map they show */
+  private roads: Path2D | null = null;
+  private roadsRev = -1;
+  private drawnRev = 0;
   private pictureAt = 0;
   private timer: ReturnType<typeof setTimeout> | null = null;
   /** A picture is on its way (renderTopDown); the next waits for it */
@@ -59,6 +63,7 @@ export class MinimapComponent implements OnDestroy {
     effect(() => {
       const rev = this.session.docRev() * 1000 + this.session.viewRev();
       this.session.selection();
+      this.drawnRev = rev;
       this.schedulePicture(rev);
       this.draw();
     });
@@ -173,12 +178,16 @@ export class MinimapComponent implements OnDestroy {
 
     c.lineWidth = 1.5;
     c.strokeStyle = TD_THEME.knobLight;
-    for (const e of doc.paths.edges) {
-      const line = edgePolyline(doc.paths, e);
-      c.beginPath();
-      line.forEach((p, k) => (k ? c.lineTo(px(p.x), py(p.y)) : c.moveTo(px(p.x), py(p.y))));
-      c.stroke();
+    // The roads as one path, made again only when the map changed: the camera's frame redraws every frame
+    if (!this.roads || this.roadsRev !== this.drawnRev) {
+      const roads = new Path2D();
+      for (const e of doc.paths.edges) {
+        edgePolyline(doc.paths, e).forEach((p, k) => (k ? roads.lineTo(px(p.x), py(p.y)) : roads.moveTo(px(p.x), py(p.y))));
+      }
+      this.roads = roads;
+      this.roadsRev = this.drawnRev;
     }
+    c.stroke(this.roads);
     doc.spawns.forEach((s, k) => {
       c.fillStyle = `#${SPAWN_COLORS[k % SPAWN_COLORS.length].toString(16).padStart(6, '0')}`;
       c.beginPath();

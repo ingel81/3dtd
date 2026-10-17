@@ -10,6 +10,7 @@ import {
   EdgeIndex,
   mergeNodes,
   moveNode,
+  nodeById,
   nearestOnEdges,
   routeBetween,
   smoothEdge,
@@ -151,5 +152,26 @@ describe('path graph', () => {
     const from = p.nodes[0];
     const to = p.nodes[1];
     expect(routeBetween(p, from, to, index)?.length).toBeCloseTo(routeBetween(p, from, to)!.length, 9);
+  });
+});
+
+describe('nodeById', () => {
+  it('finds nodes as a search would after nodes were added, removed and reordered', () => {
+    const paths: MapPaths = { nodes: [], edges: [] };
+    const a = addNode(paths, { x: 0, y: 0 });
+    const b = addNode(paths, { x: 10, y: 0 });
+    expect(nodeById(paths, b.id)).toBe(b);
+    const c = addNode(paths, { x: 20, y: 0 });
+    expect(nodeById(paths, c.id)).toBe(c);
+    deleteNode(paths, a.id);
+    expect(nodeById(paths, a.id)).toBeUndefined();
+    expect(nodeById(paths, c.id)).toBe(c);
+    paths.nodes.reverse();
+    expect(nodeById(paths, b.id)).toBe(b);
+    // Of two with one id the first
+    const twin = { id: c.id, x: 5, y: 5 };
+    paths.nodes.push(twin);
+    paths.nodes.unshift({ ...twin });
+    expect(nodeById(paths, c.id)).toBe(paths.nodes.find((n) => n.id === c.id));
   });
 });
