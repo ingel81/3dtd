@@ -23,6 +23,130 @@ const TURN_RATE = 3.2;
 /** Frames while only idling: 30 a second, as the menu globe */
 const IDLE_FRAME_MS = 1000 / 30;
 
+/**
+ * How long the squares are read again every frame after something that moves them: the hover's scale and a
+ * card's size are CSS transitions of --td-dur-slow (450 ms), with room to spare
+ */
+const SETTLE_MS = 600;
+
+/** A globe's square on the stage's canvas, CSS pixels */
+export interface GlobeSquare {
+  el: HTMLElement;
+  globe: StageGlobeId;
+  x: number;
+  y: number;
+  size: number;
+}
+
+/**
+ * The squares of the globes (`[data-globe]` in `host`) and which globes the
+ * pointer or the keyboard's focus is on (E207). The places are read again
+ * only after something that moves them: a resize, a change of the page
+ * (another view, a card's size), the hover; then every frame for SETTLE_MS
+ * while their transitions run. At rest a frame reads nothing from the
+ * layout. The hover comes from the events of the cards and mini globes
+ * (pointer over and out, focus in and out with :focus-visible).
+ */
+export class GlobeSquares {
+  private list: GlobeSquare[] = [];
+  private dirty = true;
+  private settleUntil = 0;
+  private pointerOn: Element | null = null;
+  private focusOn: Element | null = null;
+  private readonly hover = new Set<StageGlobeId>();
+  private readonly observers: { disconnect(): void }[] = [];
+
+  constructor(
+    private readonly host: HTMLElement,
+    private readonly canvas: HTMLElement,
+    private readonly clock: () => number = () => performance.now(),
+  ) {
+    host.addEventListener('pointerover', this.onPointerOver);
+    host.addEventListener('pointerleave', this.onPointerLeave);
+    host.addEventListener('focusin', this.onFocusIn);
+    host.addEventListener('focusout', this.onFocusOut);
+    if (typeof ResizeObserver !== 'undefined') {
+      const resizes = new ResizeObserver(this.touch);
+      resizes.observe(canvas);
+      resizes.observe(host);
+      this.observers.push(resizes);
+    }
+    if (typeof MutationObserver !== 'undefined') {
+      const changes = new MutationObserver(this.touch);
+      changes.observe(host, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'data-globe'] });
+      this.observers.push(changes);
+    }
+  }
+
+  /** The squares now: read again only while something moves them */
+  read(): readonly GlobeSquare[] {
+    if (!this.dirty && this.clock() >= this.settleUntil) return this.list;
+    this.dirty = false;
+    const base = this.canvas.getBoundingClientRect();
+    this.list = [...this.host.querySelectorAll<HTMLElement>('[data-globe]')].map((el) => {
+      const rect = el.getBoundingClientRect();
+      const size = Math.min(rect.width, rect.height);
+      return { el, globe: el.dataset['globe'] as StageGlobeId, x: rect.left - base.left + (rect.width - size) / 2, y: rect.top - base.top + (rect.height - size) / 2, size };
+    });
+    return this.list;
+  }
+
+  /** The squares are moving (a transition runs): the stage draws every frame meanwhile */
+  get moving(): boolean {
+    return this.dirty || this.clock() < this.settleUntil;
+  }
+
+  /** The pointer or the keyboard's focus is on this globe's card or mini globe */
+  hovered(globe: StageGlobeId): boolean {
+    return this.hover.has(globe);
+  }
+
+  get anyHovered(): boolean {
+    return this.hover.size > 0;
+  }
+
+  dispose(): void {
+    this.host.removeEventListener('pointerover', this.onPointerOver);
+    this.host.removeEventListener('pointerleave', this.onPointerLeave);
+    this.host.removeEventListener('focusin', this.onFocusIn);
+    this.host.removeEventListener('focusout', this.onFocusOut);
+    for (const o of this.observers) o.disconnect();
+  }
+
+  /** Something moved the squares: read them again, every frame while their transitions run */
+  private readonly touch = (): void => {
+    this.dirty = true;
+    this.settleUntil = this.clock() + SETTLE_MS;
+  };
+
+  /** The button around `target` that holds a globe, null for anything else */
+  private globeButton(target: EventTarget | null): Element | null {
+    const button = target instanceof Element ? target.closest('button') : null;
+    return button && this.host.contains(button) && button.querySelector('[data-globe]') ? button : null;
+  }
+
+  private readonly onPointerOver = (e: Event): void => this.setOn('pointer', this.globeButton(e.target));
+  private readonly onPointerLeave = (): void => this.setOn('pointer', null);
+  private readonly onFocusIn = (e: Event): void => {
+    const button = this.globeButton(e.target);
+    this.setOn('focus', button && button.matches(':focus-visible') ? button : null);
+  };
+  private readonly onFocusOut = (): void => this.setOn('focus', null);
+
+  private setOn(by: 'pointer' | 'focus', button: Element | null): void {
+    if ((by === 'pointer' ? this.pointerOn : this.focusOn) === button) return;
+    if (by === 'pointer') this.pointerOn = button;
+    else this.focusOn = button;
+    this.hover.clear();
+    for (const on of [this.pointerOn, this.focusOn]) {
+      const globe = on?.querySelector<HTMLElement>('[data-globe]')?.dataset['globe'] as StageGlobeId | undefined;
+      if (globe) this.hover.add(globe);
+    }
+    // The hover's scale is a transition of the square
+    this.touch();
+  }
+}
+
 /** The shortest way from one longitude to another, degrees */
 function lonDelta(from: number, to: number): number {
   return ((((to - from) % 360) + 540) % 360) - 180;
@@ -41,10 +165,9 @@ export class StageGlobes {
   private raf = 0;
   private last = 0;
   private resizer: ResizeObserver | null = null;
+  private squares: GlobeSquares | null = null;
   /** Each globe's spin now, degrees a second (IDLE_DEG_PER_S, up to HOVER_DEG_PER_S under the pointer) */
   private readonly spin: Record<StageGlobeId, number> = { real: IDLE_DEG_PER_S, osm: IDLE_DEG_PER_S, maps: IDLE_DEG_PER_S };
-  /** The squares' places last drawn: a square that moves or grows (the hover's scale) draws every frame */
-  private lastLayout = '';
   private readonly centers: Record<StageGlobeId, LatLon> = {
     real: { lat: 22, lon: 10 },
     osm: { lat: 28, lon: -60 },
@@ -84,6 +207,7 @@ export class StageGlobes {
       this.resizer = new ResizeObserver(size);
       this.resizer.observe(this.canvas);
     }
+    this.squares = new GlobeSquares(this.host, this.canvas);
     const tick = (now: number) => {
       this.raf = requestAnimationFrame(tick);
       this.frame(now);
@@ -94,6 +218,8 @@ export class StageGlobes {
   dispose(): void {
     cancelAnimationFrame(this.raf);
     this.resizer?.disconnect();
+    this.squares?.dispose();
+    this.squares = null;
     this.canvas.removeEventListener('webglcontextlost', this.lost);
     this.stage?.dispose();
     this.stage = null;
@@ -106,39 +232,25 @@ export class StageGlobes {
 
   private frame(now: number): void {
     const stage = this.stage;
-    if (!stage) return;
-    const base = this.canvas.getBoundingClientRect();
-    const squares: { el: HTMLElement; globe: StageGlobeId; x: number; y: number; size: number; hover: boolean }[] = [];
-    let layout = '';
-    for (const el of this.host.querySelectorAll<HTMLElement>('[data-globe]')) {
-      const rect = el.getBoundingClientRect();
-      const size = Math.min(rect.width, rect.height);
-      const x = rect.left - base.left + (rect.width - size) / 2;
-      const y = rect.top - base.top + (rect.height - size) / 2;
-      // The card or mini globe it stands in, under the pointer or focused by the keyboard
-      const hover = el.closest('button')?.matches(':hover, :focus-visible') ?? false;
-      squares.push({ el, globe: el.dataset['globe'] as StageGlobeId, x, y, size, hover });
-      layout += `${x.toFixed(1)},${y.toFixed(1)},${size.toFixed(1)};`;
-    }
-    const moved = layout !== this.lastLayout;
-    const waking = squares.some((q) => q.hover) || (['real', 'osm', 'maps'] as const).some((g) => Math.abs(this.spin[g] - IDLE_DEG_PER_S) > 0.05);
-    const moving = moved || waking || (['real', 'osm', 'maps'] as const).some((g) => {
+    const squares = this.squares;
+    if (!stage || !squares) return;
+    const spinning = squares.anyHovered || (['real', 'osm', 'maps'] as const).some((g) => Math.abs(this.spin[g] - IDLE_DEG_PER_S) > 0.05);
+    const moving = squares.moving || spinning || (['real', 'osm', 'maps'] as const).some((g) => {
       const target = this.state(g).target;
       return target !== null && (Math.abs(target.lat - this.centers[g].lat) > 0.05 || Math.abs(lonDelta(this.centers[g].lon, target.lon)) > 0.05);
     });
     if (!moving && now - this.last < IDLE_FRAME_MS) return;
     const dt = Math.min(0.1, (now - (this.last || now)) / 1000);
     this.last = now;
-    this.lastLayout = layout;
 
     const slots: StageSlot[] = [];
     const mark = this.mark();
     const k = 1 - Math.exp(-SPIN_RATE * dt);
     for (const g of ['real', 'osm', 'maps'] as const) {
-      const wanted = squares.some((q) => q.globe === g && q.hover) ? HOVER_DEG_PER_S : IDLE_DEG_PER_S;
+      const wanted = squares.hovered(g) ? HOVER_DEG_PER_S : IDLE_DEG_PER_S;
       this.spin[g] += (wanted - this.spin[g]) * k;
     }
-    for (const { el, globe, x, y, size } of squares) {
+    for (const { el, globe, x, y, size } of squares.read()) {
       const state = this.state(globe);
       this.turn(globe, state.target, dt);
       slots.push({
