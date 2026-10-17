@@ -15,7 +15,7 @@
  * shared module.
  */
 import type { Feature, FeatureCollection, Geometry, Polygon } from 'geojson';
-import type { GeoJSONSource, Map as MapLibre, MapLayerMouseEvent, MapLayerTouchEvent } from 'maplibre-gl';
+import type { GeoJSONSource, Map as MapLibre } from 'maplibre-gl';
 import { TD_THEME } from '../../styles/td-theme';
 import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 import type { FrameSpawn, GeoPoint } from '../../world/osm/osm-frame-core';
