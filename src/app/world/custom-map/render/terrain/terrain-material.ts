@@ -862,7 +862,10 @@ float natural = clamp(1.0 - road - path, 0.0, 1.0) * inside * (1.0 - cliff);
 // Islands of clover in flower on level, open grass (not on crests, not in hollows), a dozen metres across with
 // ragged rims; near the camera the blossoms are single spots, from afar they blend into a pale haze
 float levelGround = smoothstep(0.94, 0.985, nGeo.y);
-float islands = smoothstep(0.52, 0.58, varFiner.g * 0.75 + varFiner.r * 0.15 + varFiner.b * 0.1) * levelGround * (1.0 - crest) * (1.0 - hollow) * natural;
+// The island field from the 512 m and 96 m variation (blots of about 9 and 12 m), never the 28 m one: that
+// texture repeats every 28 m and laid the islands out in a strict grid over the whole map
+float islandField = varCoarse.b * 0.55 + varFine.r * 0.45;
+float islands = smoothstep(0.64, 0.72, islandField) * levelGround * (1.0 - crest) * (1.0 - hollow) * natural;
 islands *= clamp(turf, 0.0, 1.0);
 if (islands > 0.01) {
   // Clover everywhere on the island, the bloom thick at its heart and thinning in tongues to its rim; each island
@@ -872,7 +875,7 @@ if (islands > 0.01) {
   float haze = smoothstep(40.0, 160.0, viewDist);
   vec3 flower = uMoodFlower * mix(vec3(1.06, 1.0, 0.82), vec3(0.96, 0.98, 1.06), varFine.a);
   vec3 sward = albedo * uMoodClover;
-  albedo = mix(albedo, mix(sward, flower, mix(bloom, 0.3, haze) * heart), islands * 0.9);
+  albedo = mix(albedo, mix(sward, flower, mix(bloom, 0.14, haze) * heart), islands * 0.8);
 }
 // Trodden rims along roads and paths: a coarse level of the path mask (about 2.2 m) is a halo round them;
 // outside the way itself the sward is trampled darker, then worn to the biome's bare earth in ragged tongues
