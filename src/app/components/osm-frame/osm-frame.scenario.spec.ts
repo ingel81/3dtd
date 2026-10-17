@@ -194,7 +194,7 @@ describe('OSM world frame', () => {
     fixture.destroy();
   });
 
-  it('asks again now for the square that was moved, not for the default one round the place', async () => {
+  it('asks again now for the square that was moved, not for the default one round the place; no spawn moves meanwhile', async () => {
     type Open = OsmFrameSession['open'];
     const requests: Parameters<Open>[0][] = [];
     const info = {
@@ -234,6 +234,13 @@ describe('OSM world frame', () => {
     frame.retryNow();
     expect(requests.map((r) => r.area)).toEqual([undefined, moved, moved]);
     expect(requests[2]).toMatchObject({ topUp: true, spawnsAt: [{ lat: 49.705, lon: 9.265 }] });
+    // While the square loads a spawn cannot be dragged: the map takes no press, a drop changes nothing
+    expect(frame.canEdit()).toBe(false);
+    const drop = vi.fn();
+    (session as unknown as { drop: typeof drop }).drop = drop;
+    await frame.dropSpawn(0, { lat: 49.71, lon: 9.27 });
+    expect(drop).not.toHaveBeenCalled();
+    expect(frame.spawns()).toEqual(info.spawns);
     fixture.destroy();
   });
 });

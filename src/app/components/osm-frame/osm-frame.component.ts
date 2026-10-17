@@ -264,7 +264,7 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
         select: (index) => this.select(index),
         problem: (text) => this.mapProblem.set(text),
         fit: (area) => fitArea(area, this.place()),
-        canReframe: () => this.phase() === 'ready' && !this.busy(),
+        canEdit: () => this.canEdit(),
         reframe: (area) => this.reframe(area),
       });
       if (this.destroyed) {
@@ -280,6 +280,11 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
 
   private redraw(): void {
     this.map?.show({ hq: this.frame()?.hq ?? null, spawns: this.spawns(), selected: this.selected(), area: this.area() });
+  }
+
+  /** Spawns and square may change: the place is laid out and no call to the worker runs */
+  canEdit(): boolean {
+    return this.phase() === 'ready' && !this.busy();
   }
 
   /** The square moved or sized on the map and let go: laid out anew there, its data loaded if it reaches past what is in hand */
@@ -299,6 +304,11 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
 
   /** A spawn dragged on the map: onto the foot of its street, or back where it stood with the reason */
   async dropSpawn(index: number, at: GeoPoint): Promise<void> {
+    // While a square loads or another call runs the spawns are not the ones laid out next: the spawn stays
+    if (!this.canEdit()) {
+      this.redraw();
+      return;
+    }
     this.busy.set(true);
     try {
       const dropped = await this.session.drop(at);

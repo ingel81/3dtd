@@ -58,8 +58,8 @@ export interface FrameMapHandlers {
   problem(text: string): void;
   /** The square as it may stand, while it is dragged */
   fit(area: OsmArea): OsmArea;
-  /** The square may be moved or sized now (not while a load or the making runs) */
-  canReframe(): boolean;
+  /** A spawn may be dragged and the square moved or sized now (not while a load, a drop or the making runs) */
+  canEdit(): boolean;
   /** The square let go where it stands */
   reframe(area: OsmArea): void;
 }
@@ -267,15 +267,14 @@ export class OsmFrameMap {
     });
   }
 
-  /** What a press at `point` takes: a spawn, else (when the square may change) a corner, else the edge */
+  /** What a press at `point` takes, when the frame lets it: a spawn, else a corner, else the edge */
   private grabAt(point: { x: number; y: number }): Grab {
-    if (!this.ready) return null;
+    if (!this.ready || !this.handlers.canEdit()) return null;
     // A little room round the pointer: a corner is small, a finger is not
     const r = GRAB_PX;
     const hits = this.map.queryRenderedFeatures([[point.x - r, point.y - r], [point.x + r, point.y + r]], { layers: ['of-points', 'of-handles', 'of-edge'] });
     const spawn = hits.find((f) => f.layer.id === 'of-points' && f.properties?.['kind'] === 'spawn');
     if (spawn) return { spawn: Number(spawn.properties['index']) };
-    if (!this.handlers.canReframe()) return null;
     const corner = hits.find((f) => f.layer.id === 'of-handles');
     if (corner) return { corner: Number(corner.properties['index']) };
     return hits.some((f) => f.layer.id === 'of-edge') ? { edge: true } : null;
