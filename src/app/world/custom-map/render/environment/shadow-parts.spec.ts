@@ -20,7 +20,10 @@ describe('shadow parts', () => {
     const scene = new Scene();
     const material = new MeshStandardMaterial();
     const meshes = Array.from({ length: 8 }, () => new Mesh(new BoxGeometry(), material));
-    for (const m of meshes) scene.add(m);
+    for (const m of meshes) {
+      m.castShadow = true;
+      scene.add(m);
+    }
     const sun = new DirectionalLight();
     const camera = new PerspectiveCamera();
     const r = fakeRenderer();
@@ -38,6 +41,27 @@ describe('shadow parts', () => {
     expect(parts.step(r, camera, sun, 1)).toBe(true);
     expect(sun.shadow.map).not.toBeNull();
     expect(parts.busy).toBe(false);
+    parts.dispose();
+  });
+
+  it('swaps in a build when only something casting nothing left meanwhile', () => {
+    const scene = new Scene();
+    const material = new MeshStandardMaterial();
+    const caster = new Mesh(new BoxGeometry(), material);
+    caster.castShadow = true;
+    // The editor's brush ring, made anew every frame of a stroke
+    const ring = new Mesh(new BoxGeometry(), material);
+    scene.add(caster, ring);
+    const sun = new DirectionalLight();
+    const camera = new PerspectiveCamera();
+    const r = fakeRenderer();
+    const parts = new ShadowParts();
+    parts.start(sun, scene);
+    expect(parts.step(r, camera, sun, 1)).toBe(false);
+    ring.removeFromParent();
+    scene.add(new Mesh(new BoxGeometry(), material));
+    for (let k = 1; k < SHADOW_PARTS - 1; k++) expect(parts.step(r, camera, sun, 1)).toBe(false);
+    expect(parts.step(r, camera, sun, 1)).toBe(true);
     parts.dispose();
   });
 });

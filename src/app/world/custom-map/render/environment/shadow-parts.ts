@@ -143,8 +143,10 @@ export class ShadowParts {
     if (this.next < SHADOW_PARTS) return false;
     // A caster left the scene while the parts drew (a cell of trees rebuilt for new ones): the map lacks it and
     // its replacement, and swapped in it would drop those shadows for a build (they flickered under a brush).
-    // The sun keeps the map it shows; the build begins again with the scene as it is now
-    if (this.scene && this.roots.some((root) => !inside(root, this.scene!))) {
+    // The sun keeps the map it shows; the build begins again with the scene as it is now. What casts nothing
+    // does not count: the editor's brush ring and route lines, made anew every frame of a stroke, began every
+    // build again and the map stayed as it was before the stroke
+    if (this.scene && this.roots.some((root) => casts(root) && !inside(root, this.scene!))) {
       this.roots = [];
       collectRoots(this.scene, this.roots);
       this.next = 0;
@@ -202,6 +204,11 @@ function collectRoots(node: Object3D, out: Object3D[]): void {
       collectRoots(child, out);
     }
   }
+}
+
+/** Whether `node` or anything under it casts a shadow */
+function casts(node: Object3D): boolean {
+  return node.castShadow || node.children.some(casts);
 }
 
 /** Whether `node` still hangs under `scene` */

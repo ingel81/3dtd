@@ -32,6 +32,20 @@ float morphDist = min(distance(morphWorld, uMorphEye), distance(morphWorld.xz, u
 transformed.y += aMorph.z > aMorph.y ? aMorph.x * smoothstep(aMorph.y, aMorph.z, morphDist) : 0.0;
 `;
 
+/**
+ * The shadow pass lifts the skirts back onto their chunk's edge (attribute
+ * aSkirt: metres a vertex hangs below it, 0 on the surface), so they cast
+ * nothing. The sun's shadow map is built over a few frames and shown until
+ * the next is whole (shadow-parts.ts): under a brush it lags the ground by
+ * those frames, and a skirt hanging from where the edge was stood out of
+ * the lowered ground in it, its shadow a dark cross along the chunk edges
+ * for the length of the stroke (E204). A crack between levels is far below
+ * a shadow texel; the drawn skirts keep hiding it from the camera.
+ */
+const TERRAIN_SKIRT_LIFT = /* glsl */ `
+transformed.y += aSkirt;
+`;
+
 /** Grid sample rectangle, inclusive */
 export interface GridRect {
   i0: number;
@@ -107,10 +121,10 @@ export class TerrainChunks {
       shader.uniforms['uMorphEye'] = this.morphEye;
       shader.uniforms['uMorphFocus'] = this.morphFocus;
       shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', `#include <common>\n${TERRAIN_MORPH_PARS}`)
-        .replace('#include <begin_vertex>', `#include <begin_vertex>\n${TERRAIN_MORPH_VERTEX}`);
+        .replace('#include <common>', `#include <common>\n${TERRAIN_MORPH_PARS}\nattribute float aSkirt;`)
+        .replace('#include <begin_vertex>', `#include <begin_vertex>\n${TERRAIN_MORPH_VERTEX}${TERRAIN_SKIRT_LIFT}`);
     };
-    this.depthMaterial.customProgramCacheKey = () => 'custom-map-terrain-depth-1';
+    this.depthMaterial.customProgramCacheKey = () => 'custom-map-terrain-depth-2';
     this.build();
   }
 
@@ -234,6 +248,11 @@ export class TerrainChunks {
     c.mesh.geometry = g;
   }
 
+  /** Metres the skirts of a level hang below its edge: whole metres, as the shadow pass reads them from a byte */
+  private static skirtDrop(cellSize: number, step: number): number {
+    return Math.min(255, Math.ceil(Math.max(2, cellSize * step * 2)));
+  }
+
   /** Sample indices along one axis from a to b in steps, always ending on b */
   private static axis(a: number, b: number, step: number): number[] {
     const out: number[] = [];
@@ -263,7 +282,7 @@ export class TerrainChunks {
       if (js[b] < rect.j0 - reach || js[b] > rect.j1 + reach) continue;
       for (let a = 0; a < nx; a++) if (near(is[a], js[b])) put(b * nx + a, is[a], js[b], 0);
     }
-    const skirt = Math.max(2, this.field.cellSize * step * 2);
+    const skirt = TerrainChunks.skirtDrop(this.field.cellSize, step);
     TerrainChunks.border(nx, ny).forEach((v, k) => {
       const a = v % nx;
       const b = (v - a) / nx;
@@ -381,7 +400,7 @@ export class TerrainChunks {
     // Geomorphing (x: height to the next coarser level, y/z: the camera distance band in which the
     // terrain material blends towards it, ending where the chunk switches), so a level change does not pop
     const morph = new Float32Array(vertexCount * 3);
-    const skirt = Math.max(2, f.cellSize * step * 2);
+    const skirt = TerrainChunks.skirtDrop(f.cellSize, step);
     const put = this.vertexWriter(c, step, pos, nor, morph);
 
     for (let b = 0; b < ny; b++) for (let a = 0; a < nx; a++) put(b * nx + a, is[a], js[b], 0);
@@ -429,6 +448,10 @@ export class TerrainChunks {
     g.setAttribute('position', new BufferAttribute(pos, 3));
     g.setAttribute('normal', new BufferAttribute(nor, 3));
     g.setAttribute('aMorph', new BufferAttribute(morph, 3));
+    // How far each vertex hangs below the edge, for the shadow pass (TERRAIN_SKIRT_LIFT): a byte, the ring only
+    const lift = new Uint8Array(vertexCount);
+    lift.fill(skirt, skirtBase);
+    g.setAttribute('aSkirt', new BufferAttribute(lift, 1));
     g.setIndex(new BufferAttribute(index.subarray(0, k), 1));
     g.boundingBox = c.box.clone();
     g.boundingBox.min.y -= skirt;

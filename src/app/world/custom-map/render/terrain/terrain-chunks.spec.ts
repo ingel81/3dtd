@@ -56,3 +56,22 @@ describe('TerrainChunks brush update', () => {
     }
   });
 });
+
+describe('TerrainChunks skirts', () => {
+  it('tells the shadow pass how far each skirt vertex hangs, so lifted it lies on its edge', () => {
+    const n = 65;
+    const heights = new Float32Array(n * n).map((_, k) => Math.cos(k * 0.21) * 4);
+    const field = new HeightField({ columns: n, rows: n, cellSize: 2, heights }, 128, 128);
+    const chunks = new TerrainChunks(field, new MeshBasicMaterial());
+    const g = (chunks.meshes[0] as Mesh<BufferGeometry>).geometry;
+    const pos = g.getAttribute('position');
+    const lift = g.getAttribute('aSkirt');
+    const top = 65 * 65;
+    // The surface does not move; the ring of skirt vertices below the border, each its full drop (4 m at the finest level)
+    expect(Array.from(lift.array.slice(0, top)).every((v) => v === 0)).toBe(true);
+    expect(lift.getX(top)).toBe(4);
+    // Lifted, a skirt vertex meets its border vertex: the first border vertex is the grid's first
+    expect(pos.getY(top) + lift.getX(top)).toBeCloseTo(pos.getY(0), 5);
+    expect(lift.count).toBe(pos.count);
+  });
+});
