@@ -27,7 +27,7 @@ import { TOWER_SPOT_M2, TYPICAL_TOWER_RANGE } from '../../validation/build-areas
         @for (i of issues(); track $index) {
           <button class="td-row ck-row" type="button" role="button" (click)="focus(i)" [attr.data-code]="i.code">
             <td-icon [name]="i.severity === 'error' ? 'warn' : 'info'" [size]="14" [class.td-tone-hurt]="i.severity === 'error'" [class.td-tone-brass]="i.severity === 'warning'" />
-            <span class="ck-text">{{ i.message }}@if (fixLabel(i); as f) { <span class="td-note">Fix it in {{ f }}</span>}</span>
+            <span class="ck-text">{{ i.message }}@if (fixLabel(i); as f) {<span class="td-note ck-fix">Fix it in {{ f }}</span>}</span>
           </button>
         }
       </div>
@@ -58,6 +58,7 @@ import { TOWER_SPOT_M2, TYPICAL_TOWER_RANGE } from '../../validation/build-areas
      .ck-list { max-height: 260px; overflow-y: auto; }
      .ck-row { justify-content: flex-start; gap: 8px; min-height: 30px; padding: 4px 6px; text-align: left; }
      .ck-text { flex: 1 1 auto; white-space: normal; }
+     .ck-fix { display: block; }
      .ck-ok { margin: 4px 0 0; }
      .ck-room { margin: 6px 0 0; }
      .ck-bot { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding-top: 6px; }`,
