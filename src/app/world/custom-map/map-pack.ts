@@ -1,5 +1,5 @@
 /**
- * Packing the open map for a save off the page's thread (editor autosave):
+ * Packing a map off the page's thread (the editor's saves, a coop host's map):
  * the check, the split into JSON and arrays, the zip and the version
  * fingerprint took a frame of 60 to 140 ms on a 512 m map, a hitch two
  * seconds after every change. The worker gets a copy of the document as it
@@ -10,7 +10,6 @@ import type { CustomMapDocument } from './map-document';
 import { MapFileError, contentHash, packMapFile, type PackOptions } from './map-file';
 import type { MapSummary } from './map-store';
 import { summarize } from './map-summary';
-import { fingerprint } from '../../editor/model/version-store';
 
 export interface PackedMap {
   file: Uint8Array;
@@ -47,6 +46,13 @@ export function packErrorReply(err: unknown): PackError {
 /** The error a reply stands for: a MapFileError again for an invalid map, so the editor can say what to fix */
 export function packReplyError(reply: PackError): Error {
   return reply.problems ? new MapFileError(reply.error, reply.problems) : new Error(reply.error);
+}
+
+/** FNV-1a over the bytes: the packed file's fingerprint (PackedMap.sum, the version history's MapVersion.sum) */
+export function fingerprint(bytes: Uint8Array): number {
+  let h = 0x811c9dc5;
+  for (const b of bytes) h = Math.imul(h ^ b, 0x01000193);
+  return h >>> 0;
 }
 
 /**

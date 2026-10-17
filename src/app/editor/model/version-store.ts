@@ -12,6 +12,7 @@
  * the old ones go). The list reads only small records; the bytes stay in
  * their own store until a version is put back.
  */
+import { fingerprint } from '../../world/custom-map/map-pack';
 
 export interface MapVersion {
   /** `<map id>:<time>` */
@@ -241,11 +242,4 @@ export class VersionHistory {
   async clear(mapId: string, created: string): Promise<void> {
     await this.backend.delete((await this.backend.list(mapId)).filter((v) => v.created === created).map((v) => v.key));
   }
-}
-
-/** FNV-1a over the bytes */
-export function fingerprint(bytes: Uint8Array): number {
-  let h = 0x811c9dc5;
-  for (const b of bytes) h = Math.imul(h ^ b, 0x01000193);
-  return h >>> 0;
 }

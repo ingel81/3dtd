@@ -1,7 +1,6 @@
 import { createMapDocument } from './map-create';
 import { MapFileError, contentHash, packMapFile, unpackMapFile } from './map-file';
-import { fingerprint } from '../../editor/model/version-store';
-import { packErrorReply, packForSave, packOffThread, packReplyError } from './map-pack';
+import { fingerprint, packErrorReply, packForSave, packOffThread, packReplyError } from './map-pack';
 
 describe('packOffThread', () => {
   it('packs the map as packMapFile does and fingerprints the bytes (inline without workers)', async () => {

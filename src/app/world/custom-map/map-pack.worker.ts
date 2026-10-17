@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 /**
- * The editor's save worker (workers/map-pack.ts packOffThread): packs the
+ * The map pack worker (map-pack.ts packOffThread: the editor's saves, a
+ * coop host's map): packs the
  * copy of the map it gets into a `.3dtdmap`, fingerprints it and sums it up
  * (with the content hash for a manual save); the bytes go back transferred.
  */
