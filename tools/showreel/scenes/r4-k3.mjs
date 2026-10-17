@@ -328,8 +328,9 @@ const B5 = stage('b5-biomes', 4, [
 
 /** One building from the palette, set down: the camera on its place first */
 const place = (asset, x, y, label) => [
-  // From the street's north side, close: the houses face the street, from the south only their backs showed, small
-  frame([m(x, y)], { from: 180, pitch: 26, margin: 16, pad: 1, glide: 0.9 }),
+  // From the street's north side, close (round 5 closer still: a house filled a corner of the picture): the houses
+  // face the street, from the south only their backs showed
+  frame([m(x, y)], { from: 180, pitch: 24, margin: 11, pad: 1, glide: 0.9 }),
   ...pick({ do: 'type', sel: 'input[aria-label="Search assets"]', text: asset, cps: 400 }, click(`[data-asset=${asset}]`, label ? { label } : {})),
   clickMap(m(x, y)),
   ...idle(0.5),
@@ -587,8 +588,9 @@ const B10 = stage('b10-trial', 9, [
   act('trialSpeed', { value: 2 }),
   path(2, ['current', [m(-160, -40, 30), m(-90, 0, 0)]], { ease: 'inOut' }),
   // Behind a runner over the bridge and on to the ramp
-  // Behind a stone golem (round 5: not the zombie, the weakest model), a step further back for its size
-  { do: 'follow', at: { at: 'runner:stone-golem' }, dur: 12, back: 11, side: 4, h: 4.5, label: 'effect:runner' },
+  // Beside a stone golem (round 5: not the zombie, the weakest model), from far to the side for its size (behind it
+  // it filled the picture even 40 m back)
+  { do: 'follow', at: { at: 'runner:stone-golem' }, dur: 12, back: 12, side: 48, h: 10, lookH: 7, ahead: 2, label: 'effect:runner' },
   { do: 'ui', on: true },
   { do: 'cursor', show: true },
   click('[data-test=test-play]', { label: 'test map' }),
@@ -596,7 +598,7 @@ const B10 = stage('b10-trial', 9, [
 ], EVENING, [
   // The trial walks the first wave of the map's own list: golems and zombies (the default list has no golem)
   act('script', {
-    source: `map.gameplay({ events: [{ wave: 7, kind: 'time', hour: 21 }, { wave: 9, kind: 'weather', weather: 'rain', strength: 1 }, { wave: 10, kind: 'weather', weather: 'clear' }, { wave: 12, kind: 'time', hour: 21 }], waves: { kind: 'table', table: { cycle: { fromWave: 1, hpGrowth: 1.2 }, waves: [{ wave: 1, name: 'Golems', enemies: { 'stone-golem': 4, zombie: 8 }, hpMult: 1, spawnDelay: 1500 }] } } }); return 'ok';`,
+    source: `map.gameplay({ events: [{ wave: 7, kind: 'time', hour: 21 }, { wave: 9, kind: 'weather', weather: 'rain', strength: 1 }, { wave: 10, kind: 'weather', weather: 'clear' }, { wave: 10, kind: 'time', hour: 7 }, { wave: 12, kind: 'time', hour: 21 }], waves: { kind: 'table', table: { cycle: { fromWave: 1, hpGrowth: 1.2 }, waves: [{ wave: 1, name: 'Golems', enemies: { 'stone-golem': 4, zombie: 8 }, hpMult: 1, spawnDelay: 1500 }] } } }); return 'ok';`,
   }),
 ]);
 

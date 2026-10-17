@@ -185,10 +185,10 @@ export const STAGES = [
   return { life: map.life().length, objects: map.objects().length };
   `,
   // b8-sky: what the scene leaves: the weather clear, moonlight set, the wave events (night at wave 7, rain at 9,
-  // clear for the boss at 10, night again at 12 for the dragons of the night fight), the clock back at 17:30 for the game
+  // clear and morning for the boss at 10 (by night he was lost in the dark), night again at 12 for the dragons of the night fight), the clock back at 17:30 for the game
   `
   map.environment({ sky: 'day', sunAzimuth: 238, sunElevation: 32, weather: 'clear', moonlight: 0.6, fogDensity: 0.0004 });
-  map.gameplay({ events: [{ wave: 7, kind: 'time', hour: 21 }, { wave: 9, kind: 'weather', weather: 'rain', strength: 1 }, { wave: 10, kind: 'weather', weather: 'clear' }, { wave: 12, kind: 'time', hour: 21 }] });
+  map.gameplay({ events: [{ wave: 7, kind: 'time', hour: 21 }, { wave: 9, kind: 'weather', weather: 'rain', strength: 1 }, { wave: 10, kind: 'weather', weather: 'clear' }, { wave: 10, kind: 'time', hour: 7 }, { wave: 12, kind: 'time', hour: 21 }] });
   return 'ok';
   `,
   // b9-rules: the map's own intro flight, an orbit round the HQ

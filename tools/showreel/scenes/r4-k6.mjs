@@ -2,7 +2,7 @@
 // B before 7, C before 9, D before 10), made by fixtures.mjs: waves 1 to 4 played for real with normal credits,
 // then the research of the new towers and, for D, the towers' upgrades by the developer commands (state only,
 // nothing of it in a take; lead's decision 2026-10-16: the research of these towers opens at waves 8 to 12, a
-// normal run has none of them before wave 5). Wave events of the map: night at wave 7, rain at 9, clear at 10.
+// normal run has none of them before wave 5). Wave events of the map: night at wave 7, rain at 9, clear morning at 10, night at 12.
 //
 // Places (Stillwater F-B9, 2026-10-16, starter road along y = 0 to the HQ at (256, 0)): P1 the bridge's east end,
 // P2 the village street by the market (north side), P3 below the castle table's south side by the east road, P4 the meadow between the
@@ -23,15 +23,16 @@ const defence = (spots) => spots.map((at) => act('build', { tower: 'archer', nea
 
 /** The new towers in the order the film shows them, their place, the camera's side and how far they reach (m) */
 const NEW_TOWERS = [
-  // Round 5: low from across the road, the enemies pass between camera and tower (R4 looked from high behind it,
-  // half the picture empty meadow)
-  { tower: 'chainsaw', at: P.P1, name: 'Chainsaw', from: 0, reach: 14, pitch: 11, margin: 5, road: [m(-48, 0), m(-32, 0)] },
+  // Round 5: low, tower and road in one picture (R4 looked from high behind it, half the picture empty meadow);
+  // the Chainsaw from the meadow north of it (south of the road the houses stood in the lens), the Shawarma from
+  // across the road with the market in front
+  { tower: 'chainsaw', at: P.P1, name: 'Chainsaw', from: 180, reach: 14, pitch: 12, margin: 5, road: [m(-48, 0), m(-32, 0)] },
   { tower: 'shawarma', at: P.P2, name: 'Shawarma Slicer', from: 0, reach: 30, pitch: 11, margin: 5, road: [m(58, 0), m(82, 0)] },
   // Below the castle table on its south side, the east road in front (round 5: inside the ring its wall hid the
   // road, the laser could not fire); seen from across the road, the castle behind the tower
-  { tower: 'sentinel', at: P.P3, name: 'Sentinel Laser', from: 0, reach: 58, pitch: 14, margin: 8, road: [m(285, -150), m(318, -150)] },
+  { tower: 'sentinel', at: P.P3, name: 'Sentinel Laser', from: 10, reach: 58, pitch: 10, margin: 9 },
   // From over the lake, the road behind the tower
-  { tower: 'bastion', at: P.P4, name: 'Iron Bastion', from: 0, reach: 62 },
+  { tower: 'bastion', at: P.P4, name: 'Iron Bastion', from: 0, reach: 62, pitch: 12, margin: 8 },
   // Beside the north road's bend, the pass behind
   { tower: 'archer', at: P.P5, name: 'Ballista', from: 300, reach: 30, pitch: 34 },
 ];
@@ -158,8 +159,8 @@ export const SCENES = [
     ],
   })),
   {
-    // Wave 12 (round 5: dragons instead of wave 7's bats): its event sets 21:00, night falls in the fight; the
-    // camera on the paved village street, then behind a dragon over the lit village
+    // Wave 12 (round 5: dragons instead of wave 7's bats) at night (the jump to it in B12 passed wave 7's event,
+    // the night is there from the start); the camera along the lit village street, then behind a dragon
     name: 'g-night',
     start: { game: MAP, save: 'fixtures/stillwater-B12.3dtdsave' },
     env: { ...FIGHT, camera: { eye: m(-40, -6, 6), look: m(60, 6, 9) } },
@@ -173,7 +174,8 @@ export const SCENES = [
       act('speed', { value: 1 }),
       { do: 'mark', name: 'night' },
       path(5, [[m(-40, -6, 6), m(60, 6, 9)], [m(10, -8, 7), m(110, 6, 12)]], { ease: 'inOut', label: 'street' }),
-      { do: 'follow', at: { at: 'enemy:dragon' }, dur: 7, back: 26, side: 10, h: 24, lookH: 19, ahead: 6, label: 'dragon' },
+      // Level with the dragons, the night sky behind them (from above the ground below was black)
+      { do: 'follow', at: { at: 'enemy:dragon' }, dur: 7, back: 24, side: 10, h: 21, lookH: 21, ahead: 6, label: 'dragon' },
       { do: 'mark', name: 'effect:night fight' },
     ],
   },
@@ -190,7 +192,8 @@ export const SCENES = [
       frame([{ at: 'hero' }], { from: 160, pitch: 20, margin: 12, glide: 1.2 }),
       act('speed', { value: 3 }),
       act('enemiesNear', { near: 'any', radius: 100000, timeout: 30 }),
-      act('enemiesNear', { near: 'tower:1', radius: 50, timeout: 150 }),
+      // Wave 9 comes from the west spawn and falls before the village (2026-10-17: before the archers east of it)
+      act('enemiesNear', { at: m(-90, 0), radius: 50, timeout: 150 }),
       act('speed', { value: 1 }),
       { do: 'mark', name: 'hero' },
       frame([{ at: 'hero' }], { from: 160, pitch: 20, margin: 12, turn: 10, dur: 3.5, glide: 0.1 }),
@@ -218,12 +221,13 @@ export const SCENES = [
       {
         do: 'par',
         steps: [
-          { do: 'follow', at: { at: 'enemy:herbert' }, dur: 400, back: 24, side: 16, h: 14, lookH: 4, ahead: 8, label: 'boss' },
+          { do: 'follow', at: { at: 'enemy:herbert' }, dur: 400, back: 18, side: 14, h: 8, lookH: 3, ahead: 8, label: 'boss' },
           {
             do: 'seq',
             steps: [
               act('speed', { value: 4 }),
-              act('enemiesNear', { near: 'tower:0', radius: 70, kind: 'herbert', timeout: 300 }),
+              // He walks the starter road from the west and falls by the bridge, at the Chainsaw (P1): 1x from 70 m before it
+              act('enemiesNear', { at: P.P1, radius: 70, kind: 'herbert', timeout: 300 }),
               act('speed', { value: 1 }),
               { do: 'mark', name: 'boss at the towers' },
             ],
