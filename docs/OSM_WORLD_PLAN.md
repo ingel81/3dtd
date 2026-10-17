@@ -738,8 +738,12 @@ eingefrorenen Probe (Katalog-Modelle, keine Objekte auf Straßen oder in der Luf
   ihre zweite Straßenseite (Westen) zur Seitenstraße zeigt.
 - **Strecken:** nicht gebaut (bräuchte eine Skala je Achse im Dateiformat); „Block mit Fassade“ ist eine Reihe von
   Blockrand-Modulen, die mit großzügigerem Fehlermaß (1,2) steht, wo sonst nichts passt.
-- **Freihalten:** ein Modell, dessen Wandkasten eine Straße berührt (Pfade mit halber Breite, Gehwege laufen an den
-  Wänden), schrumpft zur Rückseite hin bis Skala 0,8; sonst fällt es weg. Weg fällt auch, was mit einer Ecke in einer
+- **Freihalten:** ein Modell, das auf einer Straße steht, schrumpft zur Rückseite hin bis Skala 0,8; sonst fällt es
+  weg. „Auf der Straße“ ist die Editor-Prüfung `objectsOnPaths` (Fußabdruck und gedrehtes Grundrechteck des Katalogs
+  gegen die halbe Wegbreite, Fußwege mit der Hälfte davon: Gehwege laufen an den Wänden), dieselbe für Stützmauern;
+  vorher prüfte der Import mit dem Wandkasten aus `BUILDING_MODELS`, und die Editor-Prüfung meldete im Probe-Miltenberg
+  65 Gebäude auf Wegen. Miltenberg danach: 1 342 von 1 385 Grundrissen stehen wie vorher, 86 statt 70 geschrumpft,
+  652 statt 635 Stützmauern. Weg fällt auch, was mit einer Ecke in einer
   OSM-Wasserfläche oder im Wasser der Karte steht oder näher als 14 m am HQ.
 - **Budget:** keine Grenze für Gebäude (User, 2026-10-15): jeder Grundriss steht, der Bericht nennt die
   Szenenkosten; geregelt wird später. Die Grenze bleibt als `BUILDING_BUDGET_SHARE` (heute `Infinity`) bzw. Option

@@ -421,6 +421,13 @@ export function objectsOnPaths(
   );
 }
 
+/**
+ * Share of a footpath's width (kind `path`) that counts against an object's
+ * ground: a wall may stand at the pavement, a house's front line along it
+ * (roads and bridges count in full)
+ */
+export const PATH_WALL_SHARE = 0.5;
+
 /** Half width of the widest road the check looks out for round an object, metres */
 const WIDEST_PATH = 40;
 
@@ -429,9 +436,9 @@ const WIDEST_PATH = 40;
  * buildings and walls within it the turned ground rectangle, for rocks their
  * underside) reaches onto a
  * road: some point of a road's centre line nearer to that ground than the
- * road's half width. Without a footing only the object's middle counts. A
- * stilt hut beside a boardwalk stood with its middle off the deck and half
- * its floor on it
+ * road's half width (a footpath's times PATH_WALL_SHARE). Without a footing
+ * only the object's middle counts. A stilt hut beside a boardwalk stood with
+ * its middle off the deck and half its floor on it
  */
 function groundOnPath(o: MapObject, footing: ObjectFooting | undefined, edges: EdgeIndex): boolean {
   const s = o.scale || 1;
@@ -441,7 +448,7 @@ function groundOnPath(o: MapObject, footing: ObjectFooting | undefined, edges: E
   const cos = Math.cos(o.rotation);
   const sin = Math.sin(o.rotation);
   for (const { edge, a, b } of edges.segmentsNear(o, r + Math.min(widestHalf(edges), WIDEST_PATH))) {
-    const half = edge.width / 2;
+    const half = (edge.width / 2) * (edge.kind === 'path' ? PATH_WALL_SHARE : 1);
     const dx = b.x - a.x;
     const dy = b.y - a.y;
     const len = Math.hypot(dx, dy);

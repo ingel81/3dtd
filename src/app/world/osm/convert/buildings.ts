@@ -16,7 +16,9 @@
  *    counts it as missing; one that nothing fits is a row of city-block
  *    modules (the block with a facade of decision 6), else it is left out.
  * 4. Clear of roads, water and the HQ: a model over a road shrinks, else it
- *    goes; one in water goes.
+ *    goes; one in water goes. "Over a road" is the editor's check
+ *    (objectsOnPaths): the catalogue's ground of the model against the road's
+ *    width, a footpath's half, so the editor reports none of them.
  * 5. Scene cost: with a cap (BUILDING_BUDGET_SHARE of the scene budget, off
  *    for now, or `budget`) the smallest buildings far from the HQ go first
  *    past it.
@@ -30,6 +32,9 @@ import type { CustomMapDocument, MapObject, MapPoint } from '../../custom-map/ma
 import { objectCost, SCENE_BUDGET, type CostEntry } from '../../custom-map/render/objects/scene-cost';
 import { waterLevelAt } from '../../custom-map/water-level';
 import { groundRing, type GroundBox } from '../../custom-map/object-ground';
+import type { ObjectFooting } from '../../custom-map/render/objects/object-seat';
+import { EdgeIndex } from '../../../editor/ops/path-graph';
+import { objectsOnPaths, PATH_WALL_SHARE } from '../../../editor/validation/map-validation';
 import { BUILDING_MODELS, buildingKind, buildingLandOf, buildingLevels, isGroundBuilding, KIND_MODELS, type BuildingKind, type BuildingModel } from '../building-tags';
 import { ringArea, type OsmArea, type OsmFeatures } from '../osm-parse';
 
@@ -138,8 +143,6 @@ const RETAINING_FROM = 2;
 const RETAINING_ASSET = 'retaining-wall';
 /** The retaining wall's length and depth at scale 1 (m) */
 const RETAINING_BOX: readonly [number, number] = [6, 1.2];
-/** Path edges (footways) count this share of their width against buildings: pavements run along the walls */
-const PATH_WIDTH_SHARE = 0.5;
 /** The buildings within this (m) give a footprint the median size of its neighbourhood (buildingKind's `around`) */
 const AROUND_REACH = 100;
 /** Footprints smaller than this (m²) are no house of the neighbourhood (sheds, garages) */
@@ -213,6 +216,16 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
   if (!catalog) warnings.push('buildings: no asset catalogue, the scene cost was not held to the budget');
   const known = (asset: string) => !catalog || catalog.has(asset);
   const roads = new SegmentIndex(doc);
+  // The editor's check of objects on roads, with the catalogue's ground of each model (the model's walls without one)
+  const edges = new EdgeIndex(doc.paths);
+  const footings = new Map<string, ObjectFooting>();
+  const footingOf = (asset: string): ObjectFooting => {
+    let f = footings.get(asset);
+    if (!f) footings.set(asset, (f = buildingFooting(asset, catalog?.get(asset))));
+    return f;
+  };
+  const onRoad = (o: Pick<MapObject, 'asset' | 'x' | 'y' | 'rotation' | 'scale'>): boolean =>
+    objectsOnPaths({ ...doc, objects: [{ id: 'probe', z: 0, ...o }] }, { blocksBuild: () => true, footingOf }, edges).length > 0;
   const lands = new AreaIndex(features.areas.filter((a) => buildingLandOf(a.tags) !== null));
   const waters = new AreaIndex(features.areas.filter((a) => isWaterTags(a.tags)));
   const missing = new Map<string, number>();
@@ -274,7 +287,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
           why = 'hq';
           continue;
         }
-        const clear = clearOfRoads(pl, roads);
+        const clear = clearOfRoads(pl, onRoad);
         if (!clear) {
           why = 'roads';
           continue;
@@ -332,7 +345,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
         group,
       });
       if (known(RETAINING_ASSET)) {
-        for (const w of retainingWalls(doc, pl, pad.level, roads, boxes)) {
+        for (const w of retainingWalls(doc, pl, pad.level, onRoad, boxes)) {
           objects.push({ id: `osm-b${++n}`, ...w, group });
           report.retainingWalls++;
         }
@@ -672,42 +685,25 @@ function boxDistance(pl: Placement, q: MapPoint): number {
   return Math.hypot(Math.max(0, Math.abs(s) - pl.hw), Math.max(0, Math.abs(t) - pl.hd));
 }
 
-/** Distance from segment a-b to a placement's wall box */
-function segmentBoxDistance(pl: Placement, a: MapPoint, b: MapPoint): number {
-  const p = toBox(pl, a);
-  const q = toBox(pl, b);
-  // Crossing the box: Liang-Barsky against |s| <= hw, |t| <= hd
-  let t0 = 0;
-  let t1 = 1;
-  const ds = q.s - p.s;
-  const dt = q.t - p.t;
-  let crosses = true;
-  for (const [pp, qq] of [
-    [-ds, p.s + pl.hw],
-    [ds, pl.hw - p.s],
-    [-dt, p.t + pl.hd],
-    [dt, pl.hd - p.t],
-  ]) {
-    if (pp === 0) {
-      if (qq < 0) crosses = false;
-      continue;
-    }
-    const r = qq / pp;
-    if (pp < 0) t0 = Math.max(t0, r);
-    else t1 = Math.min(t1, r);
-  }
-  if (crosses && t0 <= t1) return 0;
-  let best = Math.min(boxDistance(pl, a), boxDistance(pl, b));
-  for (const c of boxCorners(pl)) best = Math.min(best, pointSegment(c, a, b));
-  return best;
-}
-
 function pointSegment(p: MapPoint, a: MapPoint, b: MapPoint): number {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
   const len2 = dx * dx + dy * dy;
   const t = len2 > 0 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2)) : 0;
   return Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy);
+}
+
+/**
+ * The ground of a building model as the editor's check and the renderer take
+ * it: the catalogue's footprint and ground rectangle, or without a catalogue
+ * the model's measured walls (BUILDING_MODELS)
+ */
+function buildingFooting(asset: string, entry: BuildingCatalogEntry | undefined): ObjectFooting {
+  if (entry) return { category: 'building', footprint: entry.footprint, height: entry.height ?? 6, box: entry.box };
+  const model = BUILDING_MODELS[asset];
+  const [w, d] = model ? model.box : asset === RETAINING_ASSET ? RETAINING_BOX : [4, 4];
+  const [ax, az] = model?.at ?? [0, 0];
+  return { category: 'building', footprint: Math.hypot(Math.abs(ax) + w / 2, Math.abs(az) + d / 2), height: 6, box: [ax, az, w / 2, d / 2] };
 }
 
 /** Shrinking steps for a model over a road, and the smallest scale it may reach */
@@ -719,8 +715,8 @@ const SHRINK_FLOOR = SCALE_MIN;
  * to shrink about the back of its box (the front pulls back from the street,
  * down to SHRINK_FLOOR), false when it stays on one
  */
-function clearOfRoads(pl: Placement, roads: SegmentIndex): 'clear' | 'shrunk' | false {
-  const touches = (q: Placement) => roads.near(q.p, Math.max(q.hw, q.hd) + 1).some((seg) => segmentBoxDistance(q, seg.a, seg.b) < seg.half);
+function clearOfRoads(pl: Placement, onRoad: (o: Pick<MapObject, 'asset' | 'x' | 'y' | 'rotation' | 'scale'>) => boolean): 'clear' | 'shrunk' | false {
+  const touches = (q: Placement) => onRoad({ asset: q.asset, ...origin(q), rotation: q.rotation, scale: q.scale });
   if (!touches(pl)) return 'clear';
   for (const k of SHRINK_STEPS) {
     if (pl.scale * k < SHRINK_FLOOR) break;
@@ -826,7 +822,13 @@ function lowestSample(t: CustomMapDocument['terrain'], x: number, y: number): nu
 }
 
 /** Retaining walls along the sides of a pad where the hill beside it stands more than RETAINING_FROM over it */
-function retainingWalls(doc: CustomMapDocument, pl: Placement, level: number, roads: SegmentIndex, boxes: BoxIndex): Omit<MapObject, 'id'>[] {
+function retainingWalls(
+  doc: CustomMapDocument,
+  pl: Placement,
+  level: number,
+  onRoad: (o: Pick<MapObject, 'asset' | 'x' | 'y' | 'rotation' | 'scale'>) => boolean,
+  boxes: BoxIndex,
+): Omit<MapObject, 'id'>[] {
   const t = doc.terrain;
   const f = pl.front;
   const r = rightOf(f);
@@ -852,11 +854,11 @@ function retainingWalls(doc: CustomMapDocument, pl: Placement, level: number, ro
     for (let k = 0; k < count; k++) {
       const u = -side.len / 2 + (k + 0.5) * (side.len / count);
       const p = { x: pl.p.x + side.n.x * dist + side.along.x * u, y: pl.p.y + side.n.y * dist + side.along.y * u };
-      // Not on a road, not in the next building
-      if (roads.near(p, wl).some((seg) => pointSegment(p, seg.a, seg.b) < seg.half + wd)) continue;
+      // Its face to the pad; not on a road (the editor's check), not in the next building
+      const wall = { asset: RETAINING_ASSET, x: round2(p.x), y: round2(p.y), rotation: round3(Math.atan2(side.n.x, -side.n.y)), scale: round3(scale) };
+      if (onRoad(wall)) continue;
       if (boxes.near(p).some((q) => q !== pl && boxDistance(q, p) < wd)) continue;
-      // Its face to the pad
-      out.push({ asset: RETAINING_ASSET, x: round2(p.x), y: round2(p.y), z: 0, rotation: round3(Math.atan2(side.n.x, -side.n.y)), scale: round3(scale) });
+      out.push({ ...wall, z: 0 });
     }
   }
   return out;
@@ -884,7 +886,7 @@ class SegmentIndex {
       const b = nodes.get(e.b);
       if (!a || !b) continue;
       const line = [a, ...(e.via ?? []), b];
-      const half = (e.width / 2) * (e.kind === 'path' ? PATH_WIDTH_SHARE : 1);
+      const half = (e.width / 2) * (e.kind === 'path' ? PATH_WALL_SHARE : 1);
       for (let s = 0; s + 1 < line.length; s++) {
         const seg = { a: line[s], b: line[s + 1], half, road: e.kind !== 'path' };
         const i0 = Math.floor(Math.min(seg.a.x, seg.b.x) / this.cell);

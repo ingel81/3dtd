@@ -82,7 +82,7 @@
       "spawns": 2,
       "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "771387e0fbfccf97959c31297c773422860f6515ca4882803891a50270497490"
+      "contentHash": "c5247a93ea132580c8c49e7874506332482253d03bf9984895218e88c0a4e535"
     },
     {
       "id": "frost-hamlet",
@@ -96,7 +96,7 @@
       "spawns": 2,
       "biome": "arctic",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "49d4ceec863e83d757374e2746b0c617ee90123ac61c6edcd715eb7027195a9c"
+      "contentHash": "c2727596bc6469a6b88e6fcac2f69ce3fe2bc796387c691013a402f90f0ff64f"
     },
     {
       "id": "ember-crater",
