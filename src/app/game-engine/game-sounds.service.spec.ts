@@ -9,6 +9,7 @@ import {
   GAME_OVER_STINGER_DELAY_MS,
   GOLEM_FOOTSTEP,
   HIT_SOUNDS,
+  IMPACT_SOUNDS,
   MOMENT_SOUNDS,
   WORLD_SOUNDS,
 } from '../configs/game-sounds.config';
@@ -88,6 +89,15 @@ describe('GameSoundsService', () => {
     shot('bullet', enemy('zombie'));
     shot('cannonball', enemy('ghost'));
     expect(at()).toEqual([HIT_SOUNDS.metal.id]);
+  });
+
+  it("plays a projectile's burst where it bursts, none for one without", () => {
+    const { bus, at } = setup();
+    const burst = (projectileType: string) =>
+      bus.emit({ type: 'vfx:projectile-impact', lat: 1, lon: 2, height: 40, projectileType, targetLost: true });
+    burst('flak-shell');
+    burst('cannonball');
+    expect(at()).toEqual([IMPACT_SOUNDS['flak-shell']!.id]);
   });
 
   it('plays the horn and stomp at a wave start, the blood moon on its waves, the falling horn at the end', () => {

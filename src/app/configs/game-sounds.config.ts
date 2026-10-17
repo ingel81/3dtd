@@ -108,6 +108,19 @@ export const HIT_SOUND_PROJECTILES: ReadonlySet<ProjectileTypeId> = new Set<Proj
   'hero-rune',
 ]);
 
+/**
+ * Projectiles whose burst sounds where it bursts (`vfx:projectile-impact`, on
+ * an enemy, on the ground or in the air), over the shot at the tower. The
+ * Iron Bastion's flak: a sharp crack, then burning fragments (ElevenLabs,
+ * E222); a tower fires every 1.3 s, so throttled like the hits.
+ */
+export const IMPACT_SOUNDS: Partial<Record<ProjectileTypeId, GameSoundSample>> = {
+  'flak-shell': {
+    id: 'flak_burst', url: 'assets/sounds/towers/bastion/burst.mp3', volume: 0.5, refDistance: 60,
+    rolloffFactor: 1, minIntervalMs: 60, maxInstances: 4,
+  },
+};
+
 /** Sounds in the world, at the place of their event. */
 export const WORLD_SOUNDS = {
   towerUpgrade: {

@@ -11,6 +11,7 @@ import {
   GAME_OVER_STINGER_DELAY_MS,
   GOLEM_FOOTSTEP,
   HIT_SOUND_PROJECTILES,
+  IMPACT_SOUNDS,
   HIT_SOUNDS,
   MOMENT_SOUNDS,
   WORLD_SOUNDS,
@@ -69,6 +70,7 @@ export class GameSoundsService {
       ...Object.values(DEATH_SOUNDS),
       ...Object.values(HIT_SOUNDS),
       ...Object.values(WORLD_SOUNDS),
+      ...Object.values(IMPACT_SOUNDS),
       GOLEM_FOOTSTEP.sound,
       ...Object.values(ABILITY_CAST_SOUNDS).filter((s): s is GameSoundSample => s !== null),
     ];
@@ -109,6 +111,10 @@ export class GameSoundsService {
       if (!target || !HIT_SOUND_PROJECTILES.has(projectile.typeConfig.id)) return;
       const hit = target.typeConfig.hitSound;
       if (hit) this.playAt(HIT_SOUNDS[hit].id, target.position);
+    }));
+    this.subs.add(bus.onShow('vfx:projectile-impact', ({ projectileType, lat, lon, height }) => {
+      const burst = IMPACT_SOUNDS[projectileType as keyof typeof IMPACT_SOUNDS];
+      if (burst) this.playAt(burst.id, { lat, lon, height });
     }));
     this.subs.add(bus.onShow('enemy:footstep', ({ enemy }) => {
       const footstep = enemy.typeConfig.footstep;

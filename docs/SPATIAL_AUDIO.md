@@ -746,6 +746,7 @@ public/assets/sounds/
 │   ├── poison/poison_spit.mp3         # Poison-Glob-Schuss-Sound
 │   ├── fire/flame_loop.mp3            # Flammenwerfer-Loop-Sound
 │   ├── tentacle/tentacle-01.mp3       # Tentacle-Griff, Saugnäpfe (ElevenLabs, 2026-10-03)
+│   ├── bastion/burst.mp3              # Iron Bastion: Platzen der Flakgranate, wo sie platzt (IMPACT_SOUNDS, E222)
 │   ├── sentinel/beam_start.mp3, beam_loop.mp3          # Sentinel Laser: Zünden, Generator unter dem Strahl (E222)
 │   ├── chainsaw/spinup.mp3, run_loop.mp3, cut_loop.mp3 # Chainsaw: Anlauf, Lauf, Last beim Schneiden (E222)
 │   ├── shawarma/spinup.mp3, run_loop.mp3               # Shawarma Slicer: Anlauf, Maschine im Volllauf (E222)
