@@ -23,6 +23,9 @@ export function readWeights(terrain: MapTerrain, texel: number, out: Float32Arra
   }
 }
 
+/** Scratch for writeWeights: a brush writes thousands of texels a frame */
+const WEIGHT_BYTES = new Int32Array(12);
+
 /** Writes 12 weights, scaled so they add up to 255; without a third map the last four count as 0 */
 export function writeWeights(terrain: MapTerrain, texel: number, w: Float32Array): void {
   const [m0, m1, m2] = terrain.splat.maps;
@@ -39,7 +42,7 @@ export function writeWeights(terrain: MapTerrain, texel: number, w: Float32Array
   let total = 0;
   let largest = 0;
   const at = texel * 4;
-  const bytes = new Array<number>(layers);
+  const bytes = WEIGHT_BYTES;
   for (let k = 0; k < layers; k++) {
     bytes[k] = Math.round(w[k] * s);
     total += bytes[k];

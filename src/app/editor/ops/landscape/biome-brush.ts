@@ -173,16 +173,27 @@ function poolNoise(stroke: LandscapeContext, x: number, y: number): number {
 
 /** How deep inside a pool, 0 outside to 1 in its middle */
 export function poolDepth(stroke: LandscapeContext, biome: BiomeDef, x: number, y: number): number {
-  if (!biome.pools) return 0;
-  return 1 - smooth(biome.pools - 0.14, biome.pools, poolNoise(stroke, x, y));
+  return biome.pools ? depthOfPool(biome.pools, poolNoise(stroke, x, y)) : 0;
 }
 
 /** A ring around the pools (mud, reeds), 0..1 */
 export function poolShore(stroke: LandscapeContext, biome: BiomeDef, x: number, y: number): number {
-  if (!biome.pools) return 0;
-  const n = poolNoise(stroke, x, y);
-  return smooth(biome.pools - 0.06, biome.pools + 0.01, n) * (1 - smooth(biome.pools + 0.04, biome.pools + 0.12, n));
+  return biome.pools ? shoreOfPool(biome.pools, poolNoise(stroke, x, y)) : 0;
 }
+
+function depthOfPool(pools: number, noise: number): number {
+  return 1 - smooth(pools - 0.14, pools, noise);
+}
+
+function shoreOfPool(pools: number, noise: number): number {
+  return smooth(pools - 0.06, pools + 0.01, noise) * (1 - smooth(pools + 0.04, pools + 0.12, noise));
+}
+
+/** Channels the height cache keeps per sample: the rim noise, the roads' hold, the relief, the pool noise (NaN until asked for) */
+const RIM = 0;
+const HOLD = 1;
+const RELIEF = 2;
+const POOL = 3;
 
 /** Where a biome goes and how strongly: a frayed brush dab, or a whole band of the map at full weight */
 export interface BiomeReach {
@@ -244,31 +255,51 @@ function applyBiome(stroke: LandscapeContext, reach: BiomeReach, biome: BiomeDef
   const pool = biome.pools ? stroke.poolWater(stroke.anchor.h - 0.3, biome.water ?? 'water') : null;
   const waterLevel = pool ? pool.water.level : null;
 
-  // Heights
+  // Heights. The roads' hold, the relief (but a beach's, which follows the coast) and the pools' noise depend only
+  // on the position and the ground before the stroke: worked out once per stroke and sample, as doubles, so the
+  // land comes out as computed afresh
   const rect = sampleRectOf(t, reach);
   stroke.tx.touch('heights', rect);
   pool?.touch(rect);
+  const shore = biome.relief.kind === 'shore';
+  const key = `biome:${biome.id}`;
+  let cache = stroke.floatFields.get(key);
+  if (!cache) stroke.floatFields.set(key, (cache = new FieldCache(g.columns, 4, (length) => new Float64Array(length))));
   let wet = false;
   for (let j = rect.j0; j <= rect.j1; j++) {
     const y = sampleY(t, j);
     for (let i = rect.i0; i <= rect.i1; i++) {
       const x = sampleX(t, i);
-      const w = reach.weight(x, y);
+      if (!reach.inside(x, y)) continue;
+      cache.at(i, j);
+      const c = cache.data;
+      const o = cache.offset;
+      if (cache.fresh) {
+        // A band of a template has no rim to fray
+        c[o + RIM] = reach.center ? stroke.noise.fray(x, y) : 0;
+        c[o + HOLD] = stroke.roadKeep(x, y);
+        c[o + RELIEF] = NaN;
+        c[o + POOL] = NaN;
+      }
+      const w = reach.weight(x, y, c[o + RIM]);
       if (w <= 0) continue;
-      const keep = stroke.roadKeep(x, y);
-      if (keep <= 0) continue;
       const base = stroke.baseHeight(i, j);
+      const keep = c[o + HOLD];
+      if (keep <= 0) continue;
       // A beach cuts metres off the land: toward the brush's rim the cut fades out, else a held stroke pulled even
       // its rim all the way down and left a scarp there
-      const fade = biome.relief.kind === 'shore' ? smooth(0.05, 0.75, w) : 1;
-      let target = biome.relief.kind === 'flatten' ? stroke.anchor.h : base + relief(stroke, biome, x, y, base) * strength * fade;
+      const fade = shore ? smooth(0.05, 0.75, w) : 1;
+      if (!shore && Number.isNaN(c[o + RELIEF])) c[o + RELIEF] = relief(stroke, biome, x, y, base);
+      const lift = shore ? relief(stroke, biome, x, y, base) : c[o + RELIEF];
+      let target = biome.relief.kind === 'flatten' ? stroke.anchor.h : base + lift * strength * fade;
       const k = j * g.columns + i;
       // Pools only in land that holds them: not below their level (the water would hang over it), not more than
       // POOL_DIG above it (a shaft down to the water)
       if (waterLevel !== null && w > 0.3 && base >= waterLevel && base <= waterLevel + POOL_DIG) {
         // Pools: the ground sinks under the level toward their middle; the mask reaches a little
         // past the shore, the renderer cuts the surface where the ground rises above it
-        const p = poolDepth(stroke, biome, x, y);
+        if (Number.isNaN(c[o + POOL])) c[o + POOL] = poolNoise(stroke, x, y);
+        const p = depthOfPool(biome.pools!, c[o + POOL]);
         if (p > 0) {
           target = Math.min(target, waterLevel + 0.25 - 1.1 * p);
           // The mask only where the ground ends up under the level, so no water floats over the shore
@@ -276,7 +307,7 @@ function applyBiome(stroke: LandscapeContext, reach: BiomeReach, biome: BiomeDef
             pool!.water.mask[k] = 255;
             wet = true;
           } else target = Math.max(target, waterLevel + 0.05);
-        } else if (poolShore(stroke, biome, x, y) > 0) {
+        } else if (shoreOfPool(biome.pools!, c[o + POOL]) > 0) {
           // The bank round a pool stays over its level: the relief sinking it there let the water hang over it
           target = Math.max(target, waterLevel + 0.05);
         }
