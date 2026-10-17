@@ -1,4 +1,10 @@
-import { KEY_ACTIONS, actionFor, bindable, loadKeymap, rebind, saveKeymap } from './keymap';
+import { KEY_ACTIONS, actionFor, bindable, loadKeymap, rebind, saveKeymap, toolKeys } from './keymap';
+import { MarkerTool } from '../../tools/marker-tool';
+import { ObjectTool } from '../../tools/object-tool';
+import { PathTool } from '../../tools/path-tool';
+import { StampTool } from '../../tools/stamp-tool';
+
+const fixed = toolKeys([new ObjectTool(), new MarkerTool(), new PathTool(), new StampTool()]);
 
 describe('keymap', () => {
   it('rebinds, swaps a taken key and keeps only the changes', () => {
@@ -25,8 +31,19 @@ describe('keymap', () => {
   it('gives every action its own key, none of the fixed keys inside the tools and the fly keys', () => {
     const keys = KEY_ACTIONS.map((a) => a.key);
     expect(new Set(keys).size).toBe(keys.length);
-    // W E R L, S X J, Q H inside the tools (D, the Measure tool's, flies only while the right button turns the view)
-    for (const fixed of 'werlsxjqh') expect(keys, fixed).not.toContain(fixed);
+    // W E R L, S X J, Q H inside the tools, as the tools name them (D flies only while the right button turns the view)
+    expect([...fixed.keys()].sort().join('')).toBe('ehjlqrswx');
+    for (const key of fixed.keys()) expect(keys, key).not.toContain(key);
+    expect(fixed.get('r')).toBe('scale the selection (Objects), turn the copy by 90 degrees (Copy and stamps)');
     expect(actionFor(loadKeymap(null), 'b')).toBe('view:still');
+  });
+
+  it('drops an own key that a tool keeps fixed; the action goes back to its default, or waits when that is taken', () => {
+    const own = { 'map:check': 'w', 'view:top': 'u', 'map:symmetry': 'v' };
+    const map = loadKeymap({ getItem: () => JSON.stringify(own) }, fixed);
+    expect(map['map:check']).toBe('');
+    expect(map['view:top']).toBe('u');
+    expect(actionFor(map, 'w')).toBeNull();
+    expect(loadKeymap({ getItem: () => JSON.stringify({ 'map:check': 'w' }) }, fixed)['map:check']).toBe('v');
   });
 });

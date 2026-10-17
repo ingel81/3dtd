@@ -2,9 +2,10 @@
  * The editor's single keys that the user may give other keys: the tools,
  * the views, the check, symmetry and the trial wave. Kept in this browser
  * (localStorage `3dtd-editor-keys`); a key given to one action leaves the
- * action that had it. Keys inside a tool (W E R, Q H, S X J …) stay fixed.
+ * action that had it. Keys inside a tool (W E R, Q H, S X J …) stay fixed:
+ * each tool names them (EditorTool.fixedKeys), and no action takes them.
  */
-import { TOOLS } from '../../tools/tool';
+import { TOOLS, type EditorTool } from '../../tools/tool';
 
 export interface KeyAction {
   id: string;
@@ -29,12 +30,33 @@ const STORAGE_KEY = '3dtd-editor-keys';
 
 export type Keymap = Record<string, string>;
 
-/** The keys in use: the defaults with the user's own over them */
-export function loadKeymap(storage: Pick<Storage, 'getItem'> | null = safeStorage()): Keymap {
+/** The tools' fixed keys: what each does, with the tool's name ("move the selection (Objects)") */
+export function toolKeys(tools: Iterable<EditorTool>): ReadonlyMap<string, string> {
+  const out = new Map<string, string[]>();
+  for (const tool of tools) {
+    const label = TOOLS.find((t) => t.id === tool.id)?.label ?? tool.id;
+    for (const { key, what } of tool.fixedKeys ?? []) out.set(key, [...(out.get(key) ?? []), `${what} (${label})`]);
+  }
+  return new Map([...out].map(([key, list]) => [key, list.join(', ')]));
+}
+
+/**
+ * The keys in use: the defaults with the user's own over them. An own key a
+ * tool keeps fixed (`fixed`, toolKeys) is dropped: taken before that was
+ * checked, it stole the tool's key
+ */
+export function loadKeymap(storage: Pick<Storage, 'getItem'> | null = safeStorage(), fixed: ReadonlyMap<string, string> = new Map()): Keymap {
   const map: Keymap = Object.fromEntries(KEY_ACTIONS.map((a) => [a.id, a.key]));
   try {
     const own = JSON.parse(storage?.getItem(STORAGE_KEY) ?? '{}') as Keymap;
-    for (const [id, key] of Object.entries(own)) if (id in map && typeof key === 'string' && key) map[id] = key;
+    const dropped: string[] = [];
+    for (const [id, key] of Object.entries(own)) {
+      if (!(id in map) || typeof key !== 'string' || !key) continue;
+      if (fixed.has(key)) dropped.push(id);
+      else map[id] = key;
+    }
+    // Back on its default key, unless another action has that one now: then it waits for a key of its own
+    for (const id of dropped) if (Object.entries(map).some(([other, k]) => other !== id && k === map[id])) map[id] = '';
   } catch {
     // a broken entry keeps the defaults
   }

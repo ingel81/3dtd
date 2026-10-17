@@ -83,7 +83,7 @@ ohne die Datei zu laden), bietet ein Banner „Fresh copy“ (neue Kopie, die al
 | 1 bis 9, 0, G, D, N | Werkzeug: Landscape, Terrain, Paint, Water, Objects, Roads, Spawns and HQ, Sky and weather, Map, Copy and stamps, Rules, Measure, Life |
 | M | Symmetrie reihum: aus, Mirror X, Mirror Y, Both, Turn 2, Turn 4 (auch oben in der Kopfleiste) |
 | Alt+1 bis 9 (Strg+Ziffer, wo der Browser sie lässt) | Kamera-Ansicht merken; Shift+Ziffer fliegt hin; die Knöpfe 1 bis 9 unter der Minikarte ebenso (Alt-Klick merkt) |
-| ? | Übersicht aller Tasten; unter „Your keys“ lassen sich die Einzeltasten (Werkzeuge, F, T, C, B, P, V, M) umlegen, gespeichert in `3dtd-editor-keys` |
+| ? | Übersicht aller Tasten; unter „Your keys“ lassen sich die Einzeltasten (Werkzeuge, F, T, C, B, P, V, M) umlegen, gespeichert in `3dtd-editor-keys`. Die Übersicht liest die umlegbaren Tasten aus derselben Belegung, die die Tasten auswertet. Die festen Tasten der Werkzeuge (W E R L Q, Q H, S X J, R; `EditorTool.fixedKeys`) nimmt keine Aktion: die Statuszeile sagt, wem die Taste gehört; eine früher so gespeicherte Belegung fällt beim Laden weg. Ein Tausch mit einer anderen Aktion steht ebenfalls in der Statuszeile |
 | [ und ], Strg+Mausrad | Pinsel kleiner, größer; { und } Stärke |
 | Strg+Z, Strg+Y (Strg+Shift+Z) | Rückgängig, Wiederholen |
 | Strg+S | Speichern mit neuem Vorschaubild |

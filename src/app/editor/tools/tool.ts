@@ -323,12 +323,20 @@ export interface EditorTool {
   frame?(dt: number, p: ToolPointer | null, ctx: ToolContext): void;
   /** A key while the tool is active; true when it used it */
   key?(e: KeyboardEvent, ctx: ToolContext): boolean;
+  /** The plain single keys `key` takes (lower case): no rebindable action may take them (ui/shell/keymap.ts) */
+  readonly fixedKeys?: readonly FixedKey[];
   /** A wheel step over the view (-1 away from the user, 1 toward); true when the tool used it (the view does not zoom) */
   wheel?(step: number, p: ToolPointer, ctx: ToolContext): boolean;
   /** Esc: drop what is half done; true when there was something (a further Esc then goes to Look) */
   cancel?(ctx: ToolContext): boolean;
   /** The line of help under the map */
   hint(ctx: ToolContext): string;
+}
+
+/** A single key inside a tool and what it does there, for the keymap and its help */
+export interface FixedKey {
+  key: string;
+  what: string;
 }
 
 /** A tool that does nothing on the map (Environment, Map settings, Rules) */

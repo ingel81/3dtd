@@ -64,6 +64,13 @@ export class ObjectTool implements EditorTool {
   /** Where the pointer was when the hover ring was last picked */
   private hoverAt: { x: number; y: number } | null = null;
   readonly id = 'objects' as const;
+  readonly fixedKeys = [
+    { key: 'w', what: 'move the selection' },
+    { key: 'e', what: 'turn the selection or the next object' },
+    { key: 'r', what: 'scale the selection' },
+    { key: 'l', what: 'arrows along the map or the object' },
+    { key: 'q', what: 'turn the next object' },
+  ] as const;
   private brushing: {
     added: MapObject[];
     removed: ObjectEdit[];

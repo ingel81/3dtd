@@ -14,6 +14,7 @@ const STEP = Math.PI / 12;
 
 export class StampTool implements EditorTool {
   readonly id = 'stamp' as const;
+  readonly fixedKeys = [{ key: 'r', what: 'turn the copy by 90 degrees' }] as const;
   private dragFrom: MapPoint | null = null;
 
   brushVisible(): boolean {

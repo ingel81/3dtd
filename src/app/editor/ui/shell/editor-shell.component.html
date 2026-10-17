@@ -305,8 +305,8 @@
         @for (g of shortcuts; track g.group) {
           <div class="es-help-group">
             <h3 class="td-section">{{ g.group }}</h3>
-            @for (k of g.keys; track k[0]) {
-              <div class="td-kv"><span><kbd class="td-kbd">{{ k[0] }}</kbd></span><span>{{ k[1] }}</span></div>
+            @for (k of g.keys; track $index) {
+              <div class="td-kv"><span><kbd class="td-kbd">{{ helpKeys(k[0]) }}</kbd></span><span>{{ k[1] }}</span></div>
             }
           </div>
         }

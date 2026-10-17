@@ -21,7 +21,7 @@ import { BIOMES, biomeById } from '../../ops/landscape/biomes';
 import { TRIAL_SPEEDS, stepTrialSpeed } from '../../view/trial-runners';
 import { CommandPaletteComponent } from './command-palette.component';
 import type { EditorCommand } from './commands';
-import { KEY_ACTIONS, actionFor, bindable, loadKeymap, rebind, saveKeymap, type Keymap } from './keymap';
+import { KEY_ACTIONS, actionFor, bindable, loadKeymap, rebind, saveKeymap, toolKeys, type Keymap } from './keymap';
 import { LEVEL_GUIDE } from './level-guide';
 import { TOUR_STEPS, markTourDone, tourAdvance, tourPending, tourResumeAt, type TourEvent } from './tour';
 import { RovingGroupDirective } from '../../../components/roving-group.directive';
@@ -180,8 +180,10 @@ export class EditorShellComponent implements OnDestroy {
   readonly guide = LEVEL_GUIDE;
   /** The command palette's list while it is open */
   readonly palette = signal<readonly EditorCommand[] | null>(null);
+  /** The single keys inside the tools (W E R …): no action may take them */
+  private readonly fixedKeys = toolKeys(Object.values(this.session.tools));
   /** The keys of the rebindable actions, and the action waiting for its new key */
-  readonly keymap = signal<Keymap>(loadKeymap());
+  readonly keymap = signal<Keymap>(loadKeymap(undefined, this.fixedKeys));
   readonly capturing = signal<string | null>(null);
   readonly keyActions = KEY_ACTIONS;
   /** The tour's step, null when it does not run */
@@ -472,11 +474,23 @@ export class EditorShellComponent implements OnDestroy {
     if (waiting) {
       if (e.key === 'Escape') return this.handled(e, () => this.capturing.set(null));
       if (e.ctrlKey || e.metaKey || e.altKey || !bindable(e.key)) return;
+      const key = e.key.toLowerCase();
+      const fixed = this.fixedKeys.get(key);
+      // A tool's own key stays the tool's: say whose it is and wait for another
+      if (fixed) return this.handled(e, () => this.session.flash(`${key.toUpperCase()} stays fixed: ${fixed}. Press another key, Esc keeps the old one`));
       return this.handled(e, () => {
-        const next = rebind(this.keymap(), waiting, e.key.toLowerCase());
+        const before = this.keymap();
+        const next = rebind(before, waiting, key);
         this.keymap.set(next);
         saveKeymap(next);
         this.capturing.set(null);
+        const label = (id: string) => KEY_ACTIONS.find((a) => a.id === id)?.label ?? id;
+        const swapped = Object.keys(next).find((id) => id !== waiting && before[id] === key);
+        this.session.flash(
+          swapped
+            ? `${key.toUpperCase()}: ${label(waiting)}; ${label(swapped)} takes ${next[swapped].toUpperCase() || 'no key'}`
+            : `${key.toUpperCase()}: ${label(waiting)}`,
+        );
       });
     }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') return this.handled(e, () => this.togglePalette());
@@ -572,6 +586,17 @@ export class EditorShellComponent implements OnDestroy {
   /** The key an action has now, for the help */
   keyOf(id: string): string {
     return this.keymap()[id]?.toUpperCase() ?? '';
+  }
+
+  /** The keys of a help row: fixed text, or the key an action has now */
+  helpKeys(keys: HelpKeys): string {
+    if (typeof keys === 'string') return keys;
+    if ('action' in keys) return this.keyOf(keys.action) || 'no key';
+    // The tools' keys in the toolbar's order
+    return TOOLS.filter((t) => t.id !== 'look')
+      .map((t) => this.keyOf(`tool:${t.id}`))
+      .filter(Boolean)
+      .join(', ');
   }
 
   resetKeys(): void {
@@ -749,17 +774,20 @@ export class EditorShellComponent implements OnDestroy {
   }
 }
 
-/** The keys of the editor, grouped, for the help (?) */
-export const SHORTCUTS: readonly { group: string; keys: readonly [string, string][] }[] = [
+/** Keys of a help row: fixed text, a rebindable action's key, or the tools' keys (all from the keymap) */
+export type HelpKeys = string | { action: string } | { tools: true };
+
+/** The keys of the editor, grouped, for the help (?); the rebindable ones read the keymap, so the help shows the keys in use */
+export const SHORTCUTS: readonly { group: string; keys: readonly [HelpKeys, string][] }[] = [
   {
     group: 'Everywhere',
     keys: [
-      ['1 to 9, 0, G, D', 'Tools'],
+      [{ tools: true }, 'Tools'],
       ['Esc', 'Drop what is half done or the selection, then Look'],
       ['Ctrl+Z, Ctrl+Y', 'Undo, redo'],
       ['Ctrl+S', 'Save with a new picture'],
-      ['V', 'Check the map'],
-      ['M', 'Symmetry: off, mirror X, Y, both, turn 2, turn 4'],
+      [{ action: 'map:check' }, 'Check the map'],
+      [{ action: 'map:symmetry' }, 'Symmetry: off, mirror X, Y, both, turn 2, turn 4'],
       ['Ctrl+K', 'Commands: tools, biomes, views, objects by name'],
       ['?', 'This help (the single keys below can be changed)'],
     ],
@@ -769,15 +797,15 @@ export const SHORTCUTS: readonly { group: string; keys: readonly [string, string
     keys: [
       ['Right drag', 'Turn the view'],
       ['Right held + W A S D', 'Fly; Q E lower, raise; Shift faster'],
-      ['C', 'Game view: where the game starts, and back'],
-      ['P', 'Trial wave: the enemies walk the routes at their speed'],
+      [{ action: 'view:game' }, 'Game view: where the game starts, and back'],
+      [{ action: 'map:trial' }, 'Trial wave: the enemies walk the routes at their speed'],
       ['+ -', 'Trial wave faster, slower (1x to 8x)'],
       ['Middle drag, Shift+right drag', 'Pan'],
       ['Wheel', 'Zoom to the pointer'],
       ['Arrow keys', 'Pan'],
-      ['F', 'Frame the selection or the map'],
-      ['T', 'Top view on or off'],
-      ['B', 'Still frame: wind, water, lava and particles stand still (the view only)'],
+      [{ action: 'view:frame' }, 'Frame the selection or the map'],
+      [{ action: 'view:top' }, 'Top view on or off'],
+      [{ action: 'view:still' }, 'Still frame: wind, water, lava and particles stand still (the view only)'],
       ['Alt+1 to 9', 'Keep the current view'],
       ['Shift+1 to 9', 'Show a kept view'],
     ],

@@ -31,6 +31,10 @@ export function spawnName(doc: { terrain: { width: number; depth: number } }, p:
 
 export class MarkerTool implements EditorTool {
   readonly id = 'markers' as const;
+  readonly fixedKeys = [
+    { key: 'q', what: 'spawn mode' },
+    { key: 'h', what: 'HQ mode' },
+  ] as const;
   private drag: { kind: 'spawn' | 'hq'; id?: string; group?: { ids: string[]; from: MapPoint; start: MapPoint[] }; before: Partial<DocParts>; moved: boolean } | null = null;
 
   brushVisible(): boolean {
