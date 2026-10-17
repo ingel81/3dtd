@@ -487,6 +487,27 @@ describe('InstancedEnemyRenderer slots', () => {
     expect(c.healthBarIndex).toBe(0);
   });
 
+  it('uploads the VAT place in each frame a body walks, and not while all stand (E213)', () => {
+    const own = new EnemyInstanceManager(new Scene());
+    own.createPool('wallsmasher', fakeVat([...CLIPS]), CONFIG);
+    const state = own.addEnemy('a', 'wallsmasher', new Vector3(), 0)!;
+    own.updateAnimations(0.016);
+    own.flushDirtyFlags();
+    const attr = state.pool.animFrameAttr;
+    // Walking: the blend moves within a frame, every frame goes up
+    for (let k = 0; k < 3; k++) {
+      const version = attr.version;
+      own.updateAnimations(0.004);
+      own.flushDirtyFlags();
+      expect(attr.version).toBeGreaterThan(version);
+    }
+    // The pause (no time): nothing moves, nothing goes up
+    const version = attr.version;
+    own.updateAnimations(0);
+    own.flushDirtyFlags();
+    expect(attr.version).toBe(version);
+  });
+
   it('keeps flushing positions and health bars with animations off', async () => {
     const scene = new Scene();
     const renderer = rendererWithPool(scene);

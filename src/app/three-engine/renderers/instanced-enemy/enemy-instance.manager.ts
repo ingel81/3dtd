@@ -49,7 +49,7 @@ export interface EnemyInstanceState {
   burning: boolean;
   /** performance.now() timestamp when an active hit-flash expires (0 = no flash). */
   hitFlashEnd: number;
-  /** Last place in the VAT written to the GPU attr (global frame plus the blend to the next), gates redundant writes/uploads. */
+  /** Last place in the VAT written to the GPU attr (global frame plus the blend to the next): no write or upload while it stands. */
   lastFrame: number;
   /**
    * Metres walked, for a type that steps its walk clip by the ground
@@ -732,7 +732,9 @@ export class EnemyInstanceManager {
         const blend = at - localFrame;
         const next = localFrame + 1 < count ? localFrame + 1 : loop ? 0 : localFrame;
         const position = entry.frameStart + localFrame + blend;
-        // Written and uploaded only when it moved (a pause, a dead one at rest: no upload)
+        // Written only when it moved. The blend moves in every frame a body walks, so a pool with any walker
+        // uploads its attribute (12 bytes a slot) nearly every frame; the gate saves the upload only while all of
+        // a pool stand (the pause, the dead at rest)
         if (position !== state.lastFrame) {
           state.lastFrame = position;
           pool.animFrameAttr.setXYZ(state.index, entry.frameStart + localFrame, entry.frameStart + next, blend);
