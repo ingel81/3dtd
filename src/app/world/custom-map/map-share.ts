@@ -1,6 +1,6 @@
-import type { WorldRef } from '../world-ref';
-import { openedCustomMap } from './custom-map-world';
-import { contentHash, packMapFile, unpackMapFile } from './map-file';
+import { packOffThread } from '../../editor/workers/map-pack';
+import type { CustomMapDocument } from './map-document';
+import { contentHash, unpackMapFile } from './map-file';
 import { MapStore } from './map-store';
 
 /**
@@ -10,12 +10,12 @@ import { MapStore } from './map-store';
  * hash before it keeps anything.
  */
 
-/** The `.3dtdmap` bytes of the map this page plays, null when it plays none (or has not opened it) */
-export function packOpenedMap(ref: WorldRef): { bytes: Uint8Array; hash: string } | null {
-  if (ref.kind !== 'custom-map') return null;
-  const map = openedCustomMap(ref);
-  if (!map) return null;
-  return { bytes: packMapFile(map.doc), hash: map.contentHash };
+/**
+ * The `.3dtdmap` bytes of a map to hand on, packed in a worker (an OSM
+ * world takes over a second): the file the map store would write
+ */
+export async function packMapOffThread(doc: CustomMapDocument): Promise<Uint8Array> {
+  return (await packOffThread(doc)).file;
 }
 
 /**

@@ -49,6 +49,11 @@ vi.mock('./facade/location-facade.service', () => ({ LocationFacadeService: clas
 vi.mock('./location/location-change-coordinator.service', () => ({ LocationChangeCoordinatorService: class {} }));
 vi.mock('./input-handler.service', () => ({ InputHandlerService: class {} }));
 vi.mock('../run-log/run-log.facade', () => ({ RunLogFacade: class {} }));
+// The real packing, counted: the host packs a map once, not on every share
+vi.mock('../editor/workers/map-pack', async (importOriginal) => {
+  const real = await importOriginal<typeof import('../editor/workers/map-pack')>();
+  return { ...real, packOffThread: vi.fn(real.packOffThread) };
+});
 // A world package that only says where it is: the host's HQ, the spawns
 vi.mock('../coop/world-package', () => ({
   buildWorldPackage: (source: { hq?: { lat: number; lon: number } }, head: object) =>
@@ -90,6 +95,10 @@ import { WorldContext } from '../world/world-context.service';
 import { fakeWorldContext } from '../../test/world-context-fake';
 import { splitMapFile, type MapPart } from '../coop/map-transfer';
 import { MAP_PART_BYTES } from '../coop/protocol';
+import { packOffThread } from '../editor/workers/map-pack';
+import { createMapDocument } from '../world/custom-map/map-create';
+import { MapStore, MemoryMapBackend } from '../world/custom-map/map-store';
+import { closeCustomMaps, openCustomMap } from '../world/custom-map/custom-map-world';
 
 const HQ = { lat: 48.7758, lon: 9.1829 };
 const SPAWNS = [
@@ -409,6 +418,32 @@ describe('CoopService over a real relay (review R21)', () => {
     host.hq.set({ lat: 48.78, lon: 9.19 });
     await until(() => guest.coop.hostChangingMap());
     await until(() => guest.coop.chat().some((line) => line.text === 'Ann is changing the map, it comes here next'));
+  });
+
+  it('packs the map of the room once, in a worker, and not again for a share of the same map', async () => {
+    const store = new MapStore({ backend: new MemoryMapBackend(), fetch: async () => new Response('', { status: 404 }), baseUrl: 'http://x/' });
+    await store.save(createMapDocument({ id: 'own-map', name: 'Own', width: 64, depth: 64, now: new Date(0) }));
+    await openCustomMap({ kind: 'custom-map', mapId: 'own-map', contentHash: '' }, store);
+    vi.mocked(packOffThread).mockClear();
+    relay = await startRelay({ port: 0 });
+    const host = player(relay.port, undefined, 'own-map');
+    const sent = vi.fn();
+    await host.coop.host('Ann');
+    const session = (host.coop as unknown as { session: { sendMapPart(part: MapPart): void } }).session;
+    const send = session.sendMapPart.bind(session);
+    session.sendMapPart = (part) => {
+      sent(part.part);
+      send(part);
+    };
+    await until(() => host.coop.room() !== null && host.coop.worldReady());
+    await until(() => vi.mocked(packOffThread).mock.calls.length === 1);
+    // The room has it: another share compares the content hash and packs nothing
+    host.coop.shareWorld();
+    // Resend map sends the same bytes again without packing them anew
+    host.coop.resendMap();
+    await until(() => sent.mock.calls.length > 0);
+    expect(vi.mocked(packOffThread)).toHaveBeenCalledTimes(1);
+    closeCustomMaps();
   });
 
   it('drops a map that did not arrive when the host left in the middle, and says so', async () => {

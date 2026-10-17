@@ -225,6 +225,10 @@ Die Reihenfolge hält jeden Schritt ohne Netz testbar, bis C4 den echten Relay b
   einmal je Sekunde), dessen Client sie erneut sendet. Kommt binnen 20 s kein Stück, gilt die Welt als nicht hier.
   „Resend map to the players“ schickt die Stücke auch bei gleichem Inhalt; das Relay nimmt ein losgelassenes
   Stück wieder an und setzt jeden Gast ohne Karte auf den Anfang, wer sie hat, bekommt nichts doppelt
+- Der Host vergleicht vor dem Packen den Inhalts-Hash der geöffneten Karte mit dem, was der Raum schon hat: ein
+  `shareWorld` mit derselben Karte packt nichts. Gepackt wird einmal je Hash im Pack-Worker (`packMapOffThread`, eine
+  OSM-Welt braucht über eine Sekunde), Resend nimmt die gemerkten Bytes; Welten, die während des Packens geteilt
+  werden, gehen danach in ihrer Reihenfolge hinaus, nie vor ihrer Karte
 - Verlässt der Host die Lobby, bevor jedes Stück seiner Karte ankam, verwirft das Relay die Karte und sagt es dem
   Raum (`map-gone`): die Gäste lassen ihre Stücke fallen, die Fortschrittszeile geht, im Chat steht „The map did
   not arrive“. Hat der neue Host die Karte, schickt er sie mit seiner Welt von selbst neu

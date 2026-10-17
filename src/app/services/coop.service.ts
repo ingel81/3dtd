@@ -52,7 +52,8 @@ import { WorldContext } from '../world/world-context.service';
 import { WORLD_URL_PARAM, worldUrlValue, worldsMatch, type WorldRef } from '../world/world-ref';
 import { packageWorldRef } from '../coop/world-package';
 import { MapAssembler, PacedMapSend, splitMapFile, type MapPart } from '../coop/map-transfer';
-import { hasMapHere, packOpenedMap, storeSharedMap } from '../world/custom-map/map-share';
+import { hasMapHere, packMapOffThread, storeSharedMap } from '../world/custom-map/map-share';
+import { openedCustomMap } from '../world/custom-map/custom-map-world';
 
 /** Pause between two pieces of a map the host sends: the relay takes some 4 MB a second from one connection */
 /** How long a guest on the host's map waits for its own start to stand or fail before it reloads into the map */
@@ -271,6 +272,10 @@ export class CoopService {
   private readonly mapAssembler = new MapAssembler();
   /** Host: the map (id and hash) this room has from us already, sent once per room */
   private sentMapKey: string | null = null;
+  /** Host: the packed file of the map last packed (id and hash), so a resend packs nothing */
+  private packedMap: { key: string; bytes: Uint8Array } | null = null;
+  /** Host: a map being packed for the room; shares after it wait for it, so the world never overtakes its map */
+  private mapPacking: Promise<void> | null = null;
   /** Guest: the map (content hash) asked for from the room once, so a world naming it waits instead of failing */
   private wantedMapHash: string | null = null;
   /** Guest: the map (id and content hash) the host sends that was here already: its pieces are not taken */
@@ -887,16 +892,30 @@ export class CoopService {
     // A custom map goes ahead of the world that names it, so a guest without it gets it from the room;
     // the world after the pieces is the one of the moment they are out (PacedMapSend)
     const session = this.session;
-    this.mapSend.share(
-      this.mapPartsToSend(),
-      (part) => session.sendMapPart(part),
-      () => {
-        const now = this.world.source();
-        const latest = now ? buildWorldPackage(now, this.head()) : world;
-        session.sendWorld(latest, latest.spawns.map((spawn) => spawn.id));
-      },
-      () => this.session === session,
-    );
+    const share = (parts: readonly MapPart[] | null) =>
+      this.mapSend.share(
+        parts,
+        (part) => session.sendMapPart(part),
+        () => {
+          const now = this.world.source();
+          const latest = now ? buildWorldPackage(now, this.head()) : world;
+          session.sendWorld(latest, latest.spawns.map((spawn) => spawn.id));
+        },
+        () => this.session === session,
+      );
+    const parts = this.mapPartsToSend();
+    if (parts instanceof Promise || this.mapPacking) {
+      // The map packs in a worker (an OSM world takes over a second): this share goes out after it, in order
+      const pending: Promise<void> = (this.mapPacking ?? Promise.resolve())
+        .then(() => parts)
+        .then((ready) => {
+          if (this.session === session) this.ngZone.run(() => share(ready));
+        })
+        .finally(() => {
+          if (this.mapPacking === pending) this.mapPacking = null;
+        });
+      this.mapPacking = pending;
+    } else share(parts);
     this.lanes.set(laneStats(this.pathRoute.getCachedPaths(), LANE_WALK_SPEED_MPS));
     this.sharedMap = this.mapSignature();
     this.sharedMapNow.set(this.sharedMap);
@@ -1339,20 +1358,33 @@ export class CoopService {
    * none or the room has them already. A map too big for the relay is said
    * in the dock; the world still goes out (guests who have the map join).
    */
-  private mapPartsToSend(): MapPart[] | null {
+  private mapPartsToSend(): Promise<MapPart[] | null> | null {
     const ref = this.worldContext.ref();
     if (ref.kind !== 'custom-map') return null;
-    const packed = packOpenedMap(ref);
-    if (!packed) return null;
-    const key = `${ref.mapId}\n${packed.hash}`;
+    const map = openedCustomMap(ref);
+    if (!map) return null;
+    // The content hash says whether the room has the map: nothing is packed for a map sent already
+    const key = `${ref.mapId}\n${map.contentHash}`;
     if (key === this.sentMapKey) return null;
-    const parts = splitMapFile(packed.bytes, ref.mapId, packed.hash);
-    if (!parts) {
-      this.notify(`This map is too big to send over the relay (${Math.round(packed.bytes.length / 2 ** 20)} MB of at most ${MAX_MAP_BYTES / 2 ** 20}): only players who have it can join`, 'warn');
-      return null;
-    }
     this.sentMapKey = key;
-    return parts;
+    const packed = this.packedMap?.key === key ? Promise.resolve(this.packedMap.bytes) : packMapOffThread(map.doc);
+    return packed.then(
+      (bytes) => {
+        this.packedMap = { key, bytes };
+        const parts = splitMapFile(bytes, ref.mapId, map.contentHash);
+        if (!parts) {
+          this.notify(`This map is too big to send over the relay (${Math.round(bytes.length / 2 ** 20)} MB of at most ${MAX_MAP_BYTES / 2 ** 20}): only players who have it can join`, 'warn');
+          return null;
+        }
+        return parts;
+      },
+      (e: unknown) => {
+        // Not sent: the next share tries again
+        if (this.sentMapKey === key) this.sentMapKey = null;
+        this.notify(`The map could not be packed for the room (${(e as Error).message}): only players who have it can join`, 'warn');
+        return null;
+      },
+    );
   }
 
   /**
