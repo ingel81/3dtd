@@ -379,6 +379,14 @@ export interface WorldProvider {
    * the others; the engine applies `general`
    */
   applyQuality?(knobs: QualityKnobs): void;
+  /**
+   * Runs `run` with what a quality level changes in the programs of the
+   * world's materials set as `knobs` say (a custom map: its point lights,
+   * its water effects), and puts the level drawn now back before returning:
+   * the engine makes a frame at that level ready ahead (applyQuality).
+   * Missing: the world's materials stay the same at every level
+   */
+  withQuality?(knobs: QualityKnobs, run: () => void): void;
   /** The scene frame to ECEF, null without `capabilities.ecef` */
   sceneToEcef(target: Matrix4): Matrix4 | null;
   /**

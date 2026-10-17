@@ -450,10 +450,23 @@ export class EffectLayer {
     const changed = quality.particles !== this.particleShare || life !== this.lifeShare;
     this.particleShare = quality.particles;
     this.lifeShare = life;
-    this.lightCount = Math.max(0, Math.min(POINT_LIGHTS, Math.round(quality.pointLights)));
+    this.lightCount = poolLights(quality.pointLights);
     this.showPool();
     if (changed) this.setAmbient(this.ambient);
     return changed;
+  }
+
+  /** Runs `run` with `count` point lights in the pool (as setQuality sets them), the count now put back after */
+  withPointLights(count: number, run: () => void): void {
+    const was = this.lightCount;
+    this.lightCount = poolLights(count);
+    this.showPool();
+    try {
+      run();
+    } finally {
+      this.lightCount = was;
+      this.showPool();
+    }
   }
 
   /**
@@ -805,3 +818,8 @@ void main() {
   #include <colorspace_fragment>
 }
 `;
+
+/** A level's point lights as the pool holds them */
+function poolLights(count: number): number {
+  return Math.max(0, Math.min(POINT_LIGHTS, Math.round(count)));
+}

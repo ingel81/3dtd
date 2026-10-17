@@ -86,9 +86,9 @@ keine Zwischenwerte:
 - **Eine Stufe wählen setzt alle Teile neu**, wie die Effekt-Voreinstellungen ihre Schalter: die Overrides gehen.
   Verschiebt Auto die Stufe nach seiner Messung, bleiben sie.
 - Auflösung, Kantenglättung, Bloom, Partikel und Laternenlichter haben keinen Override, sie folgen nur der Stufe.
-- Ändert ein Override die Stellschrauben, hält die Engine wie beim Stufenwechsel das Zeichnen an, bis die Programme
-  kompiliert sind (`applyQuality` vergleicht die ganzen Stellschrauben, nicht nur die Stufe): ein Karteneffekt schaltet
-  Shader um.
+- Ändert ein Override die Stellschrauben, macht die Engine den neuen Zustand wie beim Stufenwechsel vorab bereit und
+  schaltet erst dann um (`applyQuality` vergleicht die ganzen Stellschrauben, nicht nur die Stufe): ein Karteneffekt
+  schaltet Shader um.
 
 **Plant motion** (Off, Calm, Full; Standard Full, gespeichert als `plantMotion`) gilt für alle eigenen Karten und hängt
 an keiner Stufe; eine neu gewählte Stufe lässt sie stehen. Sie skaliert das Schwingen von Gras, Bäumen und Pflanzen
@@ -104,21 +104,28 @@ zum Neuladen FXAA statt MSAA im Composer: MSAA auf dem Half-Float-Ziel des Compo
 Dreifache (4,4 gegen 1,3 ms GPU, RTX 5080). Das Menü sagt das („Antialiasing changes fully after a reload“).
 
 Ein Stufenwechsel zur Laufzeit (Menü oder Auto nach seiner Messung) ändert, wofür viele Programme gebaut sind: die
-Zahl der Punktlichter, die jedes beleuchtete Material durchläuft, und den Weg durch den Composer. Damit der nächste
-Frame sie nicht alle auf dem Hauptthread linkt (Hafenstadt in der Dämmerung: 2,7 bis 4,3 s Standbild), hält die
-Engine das Zeichnen an, bis `compileAsync` für den neuen Weg fertig ist (`ProgramCompileHold`, höchstens 5 s): das
-Bild steht kurz, die Seite bleibt bedienbar, längster Frame 60 bis 90 ms. Eine neue Auflösung setzt sie erst danach: sofort
-gesetzt, leerte die Größenänderung den Canvas, und die angehaltenen Bilder zeigten für die Dauer des Kompilierens
-Schwarz (Ruined City, Hafenstadt: 2,5 s schwarz mitten im Einflug beim ersten Start, siehe unten).
+Zahl der Punktlichter, die jedes beleuchtete Material durchläuft, den Weg durch den Composer (FXAA in Low und Medium)
+und die Wasser-Effekte einer Karte. Bloom und Farbkorrektur (Effekt-Schalter) wechseln ebenfalls den Weg durch den
+Composer, dazu kommen die Programme der Pässe selbst. In beiden Fällen läuft das Bild weiter:
 
-Bloom und Farbkorrektur (Effekt-Schalter) wechseln ebenfalls den Weg durch den Composer, dazu kommen die Programme der
-Pässe selbst. Hier steht das Bild nicht: `ThreeTilesEngine.switchPasses` zeichnet einen Frame mit den neuen Pässen
-nur zum Schein auf (`recordDraws`, jeder Pass richtet sich ein wie im echten Frame, gezeichnet wird nichts), und
-`FrameAhead` (`frame-compile-ahead.ts`) macht ihn bereit, während die alten Pässe weiterzeichnen: erst kompilieren, ein
-paar Objekte je Aufruf und ein Aufruf je Frame (3 ms), dann jedes Objekt einmal mit seinem neuen Programm in ein Pixel
-seines Ziels zeichnen, höchstens ein neues Material je Frame (der GPU-Prozess baut ein Programm bei seinem ersten
-Zeichnen noch einmal, ANGLE). Im Frame, der das abschließt, schaltet die Engine um. Bloom an auf Autumn Keep: längster
-Frame 550 ms vorher, um 45 ms danach; die Umschaltung kommt einige Sekunden nach dem Klick.
+- Die Engine zeichnet einen Frame im neuen Zustand nur zum Schein auf (`recordDraws` in `frame-compile-ahead.ts`:
+  jeder Pass richtet sich ein wie im echten Frame, gezeichnet wird nichts). Für eine Stufe setzt die Welt dabei ihren
+  Teil vorübergehend (`WorldProvider.withQuality`, Custom Maps: Punktlichter und Wasser-Effekte; Gras, Detail und
+  Partikel ändern keine Programme).
+- `FrameAhead` macht ihn bereit, während der alte Zustand weiterzeichnet: kompilieren, ein Frame je Aufgabe von 3 ms,
+  die vor dem nächsten neuen Programm endet (der GPU-Prozess übersetzt jedes auf seinem Hauptthread, ANGLE: zig ms);
+  dann jedes Objekt einmal mit seinem neuen Programm in ein Pixel seines Ziels zeichnen, höchstens ein neues Material
+  je Frame; zuletzt ein Fence, bis der GPU-Prozess das abgearbeitet hat (sonst wartete der erste synchrone Aufruf der
+  Umschaltung darauf, die Größenänderung des Canvas: 170 ms).
+- Im Frame danach schaltet die Engine um (`switchPasses`, `setQuality`), mit der neuen Auflösung im selben Frame.
+
+Die Schattenkarte einer neuen Größe baut wie jede Änderung über einige Frames (`ShadowParts`), die alte bleibt bis
+dahin; der Fernschatten einer eingeschalteten Kaskade backt verteilt. Gemessen auf Autumn Keep (RTX 5080): High nach
+Medium stand das Bild vorher 3,9 s (`ProgramCompileHold`), jetzt nicht, längster Frame um 50 ms, rund zehn Frames
+über 30 ms in den etwa 7 s bis zur Umschaltung; Low nach High längster Frame 105 → 23 ms. Bloom an: längster Frame
+550 → 36 ms; die Umschaltung kommt einige Sekunden nach dem Klick. Den Halt (`ProgramCompileHold`) gibt es nur noch
+für eine Stufe vor dem ersten Frame: eine neue Auflösung setzt er erst nach dem Kompilieren, sofort gesetzt leerte die
+Größenänderung den Canvas, und die angehaltenen Bilder zeigten Schwarz.
 
 ## Dynamische Auflösung
 

@@ -62,7 +62,7 @@ import type { TilesLodDebug } from './tiles-lod-debug';
 import { perfTrace } from '../utils/perf-trace';
 import { warmUpScene, type SceneWarmupResult } from './scene-warmup';
 import { firstUsePrograms } from './programs-ready';
-import { FrameAhead, recordDraws } from './frame-compile-ahead';
+import { FrameAhead, recordDraws, type RecordedDraw } from './frame-compile-ahead';
 import { ScreenShake, offsetProjection } from './screen-shake';
 import { ShakeBenchmark, type ShakeBenchResult } from './screen-shake-benchmark';
 import { MISSILE_LAUNCH_LOOK, MUSHROOM_CLOUD_LOOK, SCREEN_SHAKE_CONFIG } from '../configs/visual-effects.config';
@@ -241,10 +241,10 @@ export class ThreeTilesEngine {
   private idleFrameAt = 0;
   /** The bloom switch as the effect settings have it; the level may still hold it off */
   private bloomWanted = false;
-  /** A frame has been drawn: from then on a switch of the passes is made ready ahead (switchPasses) */
+  /** A frame has been drawn: from then on a switch of the passes or the level is made ready ahead */
   private drewFrame = false;
-  /** The switch of the passes being made ready, applied in the frame it is done in */
-  private passesAhead: { frame: FrameAhead; apply: () => void } | null = null;
+  /** Switches being made ready (switchPasses, applyQuality), each applied in the frame it is done in, in this order */
+  private readonly ahead = new Map<'passes' | 'quality', { frame: FrameAhead; apply: () => void }>();
   /** Low and Medium: the resolution follows the frame cost (dynamic-resolution.ts) */
   private dynamic: {
     controller: DynamicResolution;
@@ -857,11 +857,13 @@ export class ThreeTilesEngine {
       d.pendingScale = null;
     }
 
-    // A switch of the passes made ready ahead: its first draws, then the switch in the frame they are done in
-    const ahead = this.passesAhead;
-    if (ahead?.frame.drawSome(AHEAD_DRAW_MS, AHEAD_FIRST_DRAWS)) {
-      this.passesAhead = null;
-      ahead.apply();
+    // A switch made ready ahead: its first draws, then the switch in the frame they are done in
+    for (const [kind, ahead] of this.ahead) {
+      if (ahead.frame.drawSome(AHEAD_DRAW_MS, AHEAD_FIRST_DRAWS)) {
+        this.ahead.delete(kind);
+        ahead.apply();
+      }
+      break;
     }
 
     // Render scene, shaken if a screen shake runs
@@ -1074,26 +1076,57 @@ export class ThreeTilesEngine {
   /**
    * Draw at a quality level (render-quality.ts): the general part here
    * (resolution, antialiasing, whether bloom may run), the rest by the
-   * world (custom maps: shadows, detail, grass; tiles: their detail target)
+   * world (custom maps: shadows, detail, grass; tiles: their detail target).
+   *
+   * Another level while the world stands changes what many programs are
+   * built for: the output through the composer (FXAA), the number of point
+   * lights every lit material loops over, a map effect switched. Once a
+   * frame has been drawn, a frame at the new level is recorded and made
+   * ready ahead (FrameAhead, the world's part set for it by
+   * WorldProvider.withQuality) while the old level keeps drawing, and the
+   * level switches in the frame that finishes it. Before, the picture stood
+   * while the programs compiled (ProgramCompileHold): 3.9 s from High to
+   * Medium on autumn keep, the menu's choice or Auto's after its measurement
    */
   applyQuality(knobs: QualityKnobs, world: QualityWorld): void {
     const previous = this.quality;
+    const changed = !!previous && JSON.stringify(previous.knobs) !== JSON.stringify(knobs) && !this.disposed;
+    this.ahead.delete('quality');
+    if (!changed || !this.drewFrame) {
+      this.setQuality(knobs, world, changed);
+      return;
+    }
+    const post = this.postProcessing;
+    const passes = post && { ...post.passes(), bloom: this.bloomWanted && knobs.general.bloom, fxaa: !(knobs.general.antialias === 'msaa' && this.canvasMsaa) };
+    const withQuality = this.world.withQuality?.bind(this.world);
+    const inState = withQuality && ((run: () => void) => withQuality(knobs, run));
+    const record = () => recordDraws(this.renderer, () => this.drawFrame());
+    const recordPasses = () => (post && passes ? post.withPasses(passes, record) : record());
+    let draws: RecordedDraw[] = [];
+    if (inState) inState(() => (draws = recordPasses()));
+    else draws = recordPasses();
+    this.makeReady('quality', draws, () => this.setQuality(knobs, world, false), inState);
+  }
+
+  /**
+   * The level's knobs on engine and world now. `hold`: its programs compile
+   * while the draw waits (ProgramCompileHold), for a level not made ready
+   * ahead (a change before the first frame); a new resolution follows the
+   * compile, set at once it cleared the canvas, and the held frames showed
+   * black for its seconds
+   */
+  private setQuality(knobs: QualityKnobs, world: QualityWorld, hold: boolean): void {
     this.quality = { knobs, world };
     this.dynamic?.gpu?.close();
     const range = knobs.general.dynamic;
     this.dynamic = range
       ? { controller: new DynamicResolution(knobs.general.scale, range), gpu: this.gpuMeter.open(), gpuTimes: [], intervals: [], lastFrameAt: 0, windowStart: performance.now(), pendingScale: null }
       : null;
-    // Another level or part of one while the world stands: its programs (point lights, the output
-    // through the composer, a map effect switched) compile off the main thread before the next draw,
-    // instead of linking in it. The canvas keeps the last picture meanwhile; a new resolution resized
-    // (and so cleared) it at once, and the frames held back showed black for the seconds of the compile
-    const recompile = !!previous && JSON.stringify(previous.knobs) !== JSON.stringify(knobs) && !this.disposed;
-    if (!recompile) this.setRenderScale(knobs.general.scale);
+    if (!hold) this.setRenderScale(knobs.general.scale);
     this.postProcessing?.setAntialias(knobs.general.antialias, this.canvasMsaa);
     this.postProcessing?.setBloomEnabled(this.bloomWanted && knobs.general.bloom);
     this.world.applyQuality?.(knobs);
-    if (recompile) {
+    if (hold) {
       void this.qualityCompile
         .hold(() => this.compilingForFrames(() => this.renderer.compileAsync(this.scene, this.camera)))
         .then(() => {
@@ -1233,18 +1266,29 @@ export class ThreeTilesEngine {
       post.setBloomEnabled(this.bloomWanted && (this.quality?.knobs.general.bloom ?? true));
       post.setColorGradingPreset(grading);
     };
-    this.passesAhead = null;
-    if (!this.drewFrame || this.disposed || post.passesAre(bloom, grading)) {
+    this.ahead.delete('passes');
+    const now = post.passes();
+    if (!this.drewFrame || this.disposed || (now.bloom === bloom && now.grading === grading)) {
       apply();
       return;
     }
-    const draws = post.withPasses(bloom, grading, () => recordDraws(this.renderer, () => this.drawFrame()));
+    const draws = post.withPasses({ ...now, bloom, grading }, () => recordDraws(this.renderer, () => this.drawFrame()));
+    this.makeReady('passes', draws, apply);
+  }
+
+  /**
+   * Makes the recorded frame of a switch ready ahead (FrameAhead) and
+   * applies the switch in the frame that finishes it; `inState` the state
+   * the frame is made ready in, if the scene's materials differ in it
+   */
+  private makeReady(kind: 'passes' | 'quality', draws: RecordedDraw[], apply: () => void, inState?: (run: () => void) => void): void {
     const frame: FrameAhead = new FrameAhead(this.renderer, draws, {
       scene: this.scene,
       lightStates: this.world.withLightStates?.bind(this.world),
-      gone: () => this.disposed || this.passesAhead?.frame !== frame,
+      inState,
+      gone: () => this.disposed || this.ahead.get(kind)?.frame !== frame,
     });
-    this.passesAhead = { frame, apply };
+    this.ahead.set(kind, { frame, apply });
   }
 
   // ---- Render diagnostics (__bloom, PerformanceProfilerService) ----

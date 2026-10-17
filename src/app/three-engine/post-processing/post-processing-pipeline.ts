@@ -10,6 +10,13 @@ import { guardBloomHighPass } from './bloom-guard';
 import { createPixelMarksPass } from './pixel-marks';
 import type { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 
+/** What the passes are set to: bloom, the grading preset, FXAA through the composer */
+export interface PassState {
+  bloom: boolean;
+  grading: ColorGradingPreset;
+  fxaa: boolean;
+}
+
 /**
  * PostProcessingPipeline — kapselt EffectComposer + Render-/Bloom-/ColorGrading-/Output-Pass.
  *
@@ -115,25 +122,31 @@ export class PostProcessingPipeline {
     this.antialiasNeedsComposer = !msaa;
   }
 
-  /** Whether bloom and grading are as given */
-  passesAre(bloom: boolean, preset: ColorGradingPreset): boolean {
-    return this.bloomEnabled === bloom && this.colorGradingPreset === preset;
+  /** The passes as set now: bloom, grading and FXAA (the level's antialiasing through the composer) */
+  passes(): PassState {
+    return { bloom: this.bloomEnabled, grading: this.colorGradingPreset, fxaa: this.antialiasNeedsComposer };
   }
 
   /**
-   * Run `run` with bloom and grading as given, then put back what was set:
-   * a frame compiled ahead of a switch (ThreeTilesEngine.applyVfxSettings)
-   * sees the passes it will draw with, the frames drawn meanwhile the old ones
+   * Run `run` with the passes as given, then put back what was set: a frame
+   * recorded ahead of a switch (ThreeTilesEngine.switchPasses, applyQuality)
+   * sees the passes it will draw with, the frames drawn meanwhile the old
+   * ones. FXAA only switches its pass here; the targets keep their samples
+   * until setAntialias
    */
-  withPasses<T>(bloom: boolean, preset: ColorGradingPreset, run: () => T): T {
-    const was = { bloom: this.bloomEnabled, preset: this.colorGradingPreset };
-    this.setBloomEnabled(bloom);
-    this.setColorGradingPreset(preset);
+  withPasses<T>(passes: PassState, run: () => T): T {
+    const was = this.passes();
+    const set = (p: PassState) => {
+      this.setBloomEnabled(p.bloom);
+      this.setColorGradingPreset(p.grading);
+      this.fxaa.enabled = p.fxaa;
+      this.antialiasNeedsComposer = p.fxaa;
+    };
+    set(passes);
     try {
       return run();
     } finally {
-      this.setBloomEnabled(was.bloom);
-      this.setColorGradingPreset(was.preset);
+      set(was);
     }
   }
 

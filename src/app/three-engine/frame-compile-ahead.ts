@@ -65,6 +65,12 @@ export interface FrameAheadOptions {
   budgetMs?: number;
   /** The work has become moot (a newer switch, a disposed engine) */
   gone?: () => boolean;
+  /**
+   * Runs `run` in the state the frame is made ready for and puts the one
+   * drawn now back (a quality level's light count and effects): each task
+   * of the compile and each frame's first draws run inside it
+   */
+  inState?: (run: () => void) => void;
 }
 
 /**
@@ -159,6 +165,8 @@ export class FrameAhead {
   private readonly scissor = new Vector4();
   /** The materials drawSome has drawn */
   private readonly drawnMaterials = new Set<Material>();
+  /** Set after the last first draw, signalled once the GPU process has done them (gpuCaughtUp) */
+  private fence: WebGLSync | null = null;
 
   constructor(
     private readonly renderer: WebGLRenderer,
@@ -202,35 +210,53 @@ export class FrameAhead {
     }
   }
 
+  /** Runs `run` in the state the frame is made ready for (FrameAheadOptions.inState) */
+  private within(run: () => void): void {
+    if (this.options.inState) this.options.inState(run);
+    else run();
+  }
+
   private async compile(): Promise<boolean> {
     const { renderer, options } = this;
     const budget = options.budgetMs ?? 3;
     const jobs: Promise<unknown>[] = [];
-    let taskStart = performance.now();
-    for (let d = 0; d < this.draws.length; d++) {
-      const draw = this.draws[d];
-      const objects = this.objects[d];
-      const ofScene = draw.object === options.scene;
-      let size = 1;
-      for (let at = 0; at < objects.length; ) {
-        if (performance.now() - taskStart > budget) {
-          await afterNextFrame();
-          if (this.gone()) return false;
-          taskStart = performance.now();
-        }
+    let d = 0;
+    let at = 0;
+    let size = 1;
+    // One task per frame, each in the frame's state, compiling slices for about `budget`
+    const programs = () => renderer.info.programs?.length ?? 0;
+    const task = () => {
+      const start = performance.now();
+      const built = programs();
+      // Until the budget is spent or a slice built a program: the GPU process translates each new one on its
+      // main thread (tens of ms on ANGLE), and the frame after waits for it
+      while (d < this.draws.length && performance.now() - start < budget && programs() === built) {
+        const draw = this.draws[d];
+        const objects = this.objects[d];
         const slice = new CompileSlice(objects.slice(at, (at += size)));
         const sliceStart = performance.now();
         const previous = renderer.getRenderTarget();
         renderer.setRenderTarget(draw.target);
         try {
           // A draw of a single mesh (a pass's quad) is its own scene, as in renderer.render
-          if (ofScene) this.inEachState([], () => jobs.push(renderer.compileAsync(slice, draw.camera, this.proxy)));
+          if (draw.object === options.scene) this.inEachState([], () => jobs.push(renderer.compileAsync(slice, draw.camera, this.proxy)));
           else withMaterial(draw, () => jobs.push(renderer.compileAsync(slice, draw.camera, draw.object as Scene)));
         } finally {
           renderer.setRenderTarget(previous);
         }
         size = nextSlice(size, performance.now() - sliceStart, budget);
+        if (at >= objects.length) {
+          d++;
+          at = 0;
+          size = 1;
+        }
       }
+    };
+    for (;;) {
+      this.within(task);
+      if (d >= this.draws.length) break;
+      await afterNextFrame();
+      if (this.gone()) return false;
     }
     await Promise.all(jobs);
     // Frames drawn meanwhile let compileAsync settle before every program is built
@@ -249,8 +275,8 @@ export class FrameAhead {
    */
   drawSome(budgetMs: number, maxFirsts: number): boolean {
     if (!this.ready) return false;
-    let firsts = 0;
-    const { renderer, options } = this;
+    if (this.drawAt >= this.draws.length) return this.gpuCaughtUp();
+    const renderer = this.renderer;
     const start = performance.now();
     const previous = renderer.getRenderTarget();
     const scissorTest = renderer.getScissorTest();
@@ -258,47 +284,11 @@ export class FrameAhead {
     const shadows = renderer.shadowMap;
     const shadowsAuto = shadows.autoUpdate;
     const shadowsNeed = shadows.needsUpdate;
-    const scene = options.scene;
     // The frame's draw renders the shadows
     shadows.autoUpdate = false;
     shadows.needsUpdate = false;
     try {
-      while (this.drawAt < this.draws.length && performance.now() - start < budgetMs) {
-        const draw = this.draws[this.drawAt];
-        const objects = this.objects[this.drawAt];
-        renderer.setRenderTarget(draw.target);
-        renderer.setScissorTest(true);
-        renderer.setScissor(0, 0, 1, 1);
-        if (draw.object !== scene) {
-          const fresh = this.fresh(draw.material);
-          if (fresh.length && firsts > 0 && firsts + fresh.length > maxFirsts) break;
-          for (const m of fresh) this.drawnMaterials.add(m);
-          firsts += fresh.length;
-          withMaterial(draw, () => renderer.render(draw.object, draw.camera));
-          this.drawAt++;
-          continue;
-        }
-        // A slice ends before a material more than the frame may draw first: the GPU process builds a program
-        // again on its first draw (ANGLE), unseen by the main thread
-        let end = this.objectAt;
-        const limit = Math.min(objects.length, this.objectAt + this.sliceSize);
-        while (end < limit) {
-          const fresh = this.fresh((objects[end] as { material?: Material | Material[] }).material);
-          if (fresh.length && firsts > 0 && firsts + fresh.length > maxFirsts) break;
-          for (const m of fresh) this.drawnMaterials.add(m);
-          firsts += fresh.length;
-          end++;
-        }
-        if (end === this.objectAt) break;
-        const sliceStart = performance.now();
-        this.inEachState(objects.slice(this.objectAt, end), () => renderer.render(this.proxy, draw.camera));
-        this.sliceSize = nextSlice(this.sliceSize, performance.now() - sliceStart, budgetMs);
-        this.objectAt = end;
-        if (end >= objects.length) {
-          this.objectAt = 0;
-          this.drawAt++;
-        }
-      }
+      this.within(() => this.drawSlices(start, budgetMs, maxFirsts));
     } finally {
       renderer.setScissor(this.scissor);
       renderer.setScissorTest(scissorTest);
@@ -306,6 +296,70 @@ export class FrameAhead {
       shadows.autoUpdate = shadowsAuto;
       shadows.needsUpdate = shadowsNeed;
     }
-    return this.drawAt >= this.draws.length;
+    if (this.drawAt < this.draws.length) return false;
+    // A fence after the last of them: the switch waits until the GPU process has done them
+    const gl = renderer.getContext() as WebGL2RenderingContext;
+    this.fence = typeof gl.fenceSync === 'function' ? gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0) : null;
+    gl.flush();
+    return false;
+  }
+
+  /**
+   * Whether the GPU process has done the first draws (their fence signalled,
+   * asked without waiting). A switch in a frame with that work still queued
+   * waited for it in its first call that syncs with the GPU process (the
+   * canvas resized to the level's resolution: 170 ms)
+   */
+  private gpuCaughtUp(): boolean {
+    const fence = this.fence;
+    if (!fence) return true;
+    const gl = this.renderer.getContext() as WebGL2RenderingContext;
+    if (gl.getSyncParameter(fence, gl.SYNC_STATUS) !== gl.SIGNALED) return false;
+    gl.deleteSync(fence);
+    this.fence = null;
+    return true;
+  }
+
+  /** drawSome's draws, from `start` on for about `budgetMs` */
+  private drawSlices(start: number, budgetMs: number, maxFirsts: number): void {
+    const { renderer, options } = this;
+    const scene = options.scene;
+    let firsts = 0;
+    while (this.drawAt < this.draws.length && performance.now() - start < budgetMs) {
+      const draw = this.draws[this.drawAt];
+      const objects = this.objects[this.drawAt];
+      renderer.setRenderTarget(draw.target);
+      renderer.setScissorTest(true);
+      renderer.setScissor(0, 0, 1, 1);
+      if (draw.object !== scene) {
+        const fresh = this.fresh(draw.material);
+        if (fresh.length && firsts > 0 && firsts + fresh.length > maxFirsts) break;
+        for (const m of fresh) this.drawnMaterials.add(m);
+        firsts += fresh.length;
+        withMaterial(draw, () => renderer.render(draw.object, draw.camera));
+        this.drawAt++;
+        continue;
+      }
+      // A slice ends before a material more than the frame may draw first: the GPU process builds a program
+      // again on its first draw (ANGLE), unseen by the main thread
+      let end = this.objectAt;
+      const limit = Math.min(objects.length, this.objectAt + this.sliceSize);
+      while (end < limit) {
+        const fresh = this.fresh((objects[end] as { material?: Material | Material[] }).material);
+        if (fresh.length && firsts > 0 && firsts + fresh.length > maxFirsts) break;
+        for (const m of fresh) this.drawnMaterials.add(m);
+        firsts += fresh.length;
+        end++;
+      }
+      if (end === this.objectAt) break;
+      const sliceStart = performance.now();
+      this.inEachState(objects.slice(this.objectAt, end), () => renderer.render(this.proxy, draw.camera));
+      this.sliceSize = nextSlice(this.sliceSize, performance.now() - sliceStart, budgetMs);
+      this.objectAt = end;
+      if (end >= objects.length) {
+        this.objectAt = 0;
+        this.drawAt++;
+      }
+    }
   }
 }

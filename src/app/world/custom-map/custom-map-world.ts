@@ -400,6 +400,11 @@ export class CustomMapWorld implements WorldProvider {
     this.view?.applyQuality(knobs.customMaps);
   }
 
+  withQuality(knobs: QualityKnobs, run: () => void): void {
+    if (this.view) this.view.withQuality(knobs.customMaps, run);
+    else run();
+  }
+
   /** A tower came or went: the map's cached sun shadow map renders again */
   invalidateShadows(): void {
     this.view?.environment.invalidateShadows();

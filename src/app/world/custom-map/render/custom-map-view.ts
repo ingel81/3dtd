@@ -1299,7 +1299,7 @@ export class CustomMapView {
     this.setFarGround(q.farSingle, q.farFlat, q.steepNear);
     this.reflection.scale = q.waterReflection;
     this.reflection.every = q.waterReflectionEvery;
-    this.setEffects({ refraction: q.refraction, seaWaves: q.seaWaves, lavaGlow: q.lavaGlow, shadowCascade: q.shadowCascade, waterDetail: q.waterDetail, reflection: q.waterReflection > 0 });
+    this.setEffects(effectsOfQuality(q));
     this.objects.setDetail({ lodBias: q.lodBias, impostorFrom: q.impostorFrom });
     this.edgeTrees.setDetail({ lodBias: q.lodBias, impostorFrom: q.impostorFrom });
     this.terrain.grass.setQuality(q.grassBlades, q.grassDistance, q.grassFarBlades, q.grassFarDistance);
@@ -1314,6 +1314,26 @@ export class CustomMapView {
       void this.refreshMovers();
       this.waveBanners();
       this.refreshHaze();
+    }
+  }
+
+  /**
+   * Runs `run` with the materials as level `q` builds them, the level drawn
+   * now put back after: the water's effects (defines of its shader) and the
+   * number of point lights the lit materials loop over (the engine makes a
+   * frame at that level ready ahead, WorldProvider.withQuality). Nothing is
+   * built or loaded: what else a level changes (grass, detail, particles)
+   * keeps its programs
+   */
+  withQuality(q: CustomMapQuality, run: () => void): void {
+    const effects = this.mapEffects;
+    this.mapEffects = { ...effects, ...effectsOfQuality(q) };
+    this.applyEffects();
+    try {
+      this.effects.withPointLights(q.pointLights, run);
+    } finally {
+      this.mapEffects = effects;
+      this.applyEffects();
     }
   }
 
@@ -1423,13 +1443,15 @@ export class CustomMapView {
     const cascade = this.mapEffects.shadowCascade;
     this.mapEffects = { ...this.mapEffects, ...effects };
     this.applyEffects();
-    if (this.mapEffects.shadowCascade !== cascade) this.applyShadowCascade();
+    if (this.mapEffects.shadowCascade !== cascade) this.applyShadowCascade(true);
     this.refreshHaze();
   }
 
-  private applyShadowCascade(): void {
-    if (this.mapEffects.shadowCascade) this.refreshFarShadow(false);
-    else this.terrain.farShadow.setArea(0, 0, 1, false);
+  /** The far shadow on or off; `spread` bakes it over frames (a switch in play: the whole bake held that frame 60 ms) */
+  private applyShadowCascade(spread = false): void {
+    if (!this.mapEffects.shadowCascade) this.terrain.farShadow.setArea(0, 0, 1, false);
+    else if (!spread) this.refreshFarShadow(false);
+    else if (!this.disposed) void this.terrain.bakeFarShadowSliced(this.environment.sunDir);
   }
 
   /**
@@ -1521,4 +1543,9 @@ function lowGround(heights: Float32Array, waterLevel: number | undefined): numbe
   if (waterLevel !== undefined) return waterLevel;
   const sorted = Float32Array.from(heights).sort();
   return sorted[Math.floor(sorted.length * 0.05)] ?? 0;
+}
+
+/** The switchable map effects a quality level sets */
+function effectsOfQuality(q: CustomMapQuality): Partial<MapEffects> {
+  return { refraction: q.refraction, seaWaves: q.seaWaves, lavaGlow: q.lavaGlow, shadowCascade: q.shadowCascade, waterDetail: q.waterDetail, reflection: q.waterReflection > 0 };
 }

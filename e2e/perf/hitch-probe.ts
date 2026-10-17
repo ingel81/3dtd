@@ -22,7 +22,7 @@ const QUALITY = argument('quality', 'high');
 const HEADED = process.argv.includes('--headed');
 
 /** What each case does: an environment patch on the map's own, or enemies of a type on the first route */
-const CASES: Record<string, { env?: Record<string, unknown>; enemy?: string; wave?: number; vfx?: Record<string, unknown> }> = {
+const CASES: Record<string, { env?: Record<string, unknown>; enemy?: string; wave?: number; vfx?: Record<string, unknown>; level?: string }> = {
   night: { env: { sky: 'night', sunElevation: 30, moonlight: 1 } },
   day: { env: {} },
   dusk: { env: { sky: 'dusk', sunElevation: 8 } },
@@ -36,6 +36,11 @@ const CASES: Record<string, { env?: Record<string, unknown>; enemy?: string; wav
   bloom: { vfx: { bloom: true, colorGrading: 'none' } },
   grading: { vfx: { bloom: true, colorGrading: 'noir' } },
   plain: { vfx: { bloom: false, colorGrading: 'none' } },
+  // A quality level picked (or Auto's answer): the engine and the world switch
+  low: { level: 'low' },
+  medium: { level: 'medium' },
+  high: { level: 'high' },
+  ultra: { level: 'ultra' },
   // The run's own boss wave, started with the wave button: Herbert out of the portal, the boss intro's camera cut
   wave10: { wave: 10 },
 };
@@ -99,10 +104,20 @@ async function measure(name: string): Promise<void> {
       const before = names(programs());
       const gaps: number[] = [];
       const reads: number[] = [];
+      // Frames the engine held back (a quality level's programs compiling): the picture stands
+      interface HeldEngine { qualityCompile?: { holding: boolean } }
+      const engineHost = document.querySelector('app-tower-defense');
+      const held = () => !!engineHost && !!((globalThis as { ng?: { getComponent(e: Element): { engine?: HeldEngine } } }).ng?.getComponent(engineHost).engine?.qualityCompile?.holding);
+      let heldMs = 0;
       let last = performance.now();
       const start = last;
       let intro = false;
       if (spec.env) view.setEnvironment({ ...g.__mapBase, ...spec.env });
+      if (spec.level) {
+        interface Ng { getComponent(e: Element): { engineInit?: { quality: { set(level: string): void } } } }
+        const host = document.querySelector('app-tower-defense');
+        if (host) (globalThis as { ng?: Ng }).ng?.getComponent(host).engineInit?.quality.set(spec.level);
+      }
       if (spec.vfx) {
         interface Ng { getComponent(e: Element): { engine?: { applyVfxSettings(s: unknown): void } } }
         const host = document.querySelector('app-tower-defense');
@@ -118,6 +133,7 @@ async function measure(name: string): Promise<void> {
         const frame = () => {
           const now = performance.now();
           gaps.push(now - last);
+          if (held()) heldMs += now - last;
           intro ||= !!document.querySelector('app-boss-intro .card');
           last = now;
           if (gl) {
@@ -134,6 +150,7 @@ async function measure(name: string): Promise<void> {
       return {
         actMs: Math.round(actMs),
         maxGapMs: max(gaps),
+        heldMs: Math.round(heldMs),
         over50: gaps.filter((x) => x > 50).length,
         maxReadMs: max(reads),
         frames: gaps.length,

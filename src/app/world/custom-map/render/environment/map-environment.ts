@@ -474,17 +474,18 @@ export class CustomMapEnvironment {
 
   /**
    * The quality level's shadow map: its size (texels a side) and how soft
-   * its edge is (PCF spread). A new size allocates the map anew and renders
-   * it on the next frame
+   * its edge is (PCF spread). A new size builds over a few frames like any
+   * change (ShadowParts makes its second map at the new size and swaps it
+   * in), the map shown stays until then; drawn whole in one frame, the
+   * switch of a level held that frame up (180 ms from High to Medium on
+   * autumn keep)
    */
   setShadowQuality(size: number, radius: number): void {
     const shadow = this.sun.shadow;
     shadow.radius = radius;
     if (shadow.mapSize.x !== size) {
       shadow.mapSize.set(size, size);
-      shadow.map?.dispose();
-      shadow.map = null;
-      this.redrawShadowsNow();
+      this.shadowParts.cancel();
       // The focus snaps to whole texels of the new size
       if (Number.isFinite(this.shadowCenter.x)) this.placeSun(this.shadowCenter.clone(), true);
     }
