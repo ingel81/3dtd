@@ -54,13 +54,10 @@ export const SCENES = [
     start: { game: 'fixtures/osm-miltenberg.3dtdmap' },
     noIntro: true,
     env: { window: '2048x1152', dpr: 1.25, ui: false, markers: false, routes: false, healthBars: false },
-    // Before the picture counts: wave 1 by its button, the frame clean, the afternoon light set (a look changed in
+    // Before the picture counts: the frame clean, the afternoon light set (a look changed in
     // the picture fades for 2.5 s and stalls while it compiles)
     warm: [
-      { do: 'ui', on: true },
-      act('wave', { label: 'wave 1' }),
       { do: 'ui', on: false },
-      // The drawn pointer clicked the wave button: out of the picture (R4 showed it top right)
       { do: 'cursor', show: false },
       { do: 'markers', on: false },
       act('routes', { on: false }),
@@ -80,6 +77,12 @@ export const SCENES = [
       // (2) The first enemies from the north-west spawn pass the camera and walk into the tunnel's concrete mouth
       // 40 m ahead, the camera 20 m beside the road; it starts once the first is level with the camera (a fixed
       // wait would run off: the simulation's pace under load is not the clock's)
+      // Wave 1 by its key only now (round 5: started before the settle, which waits up to a minute for the GPU,
+      // its first enemies had passed the tunnel by then), walked at four times the pace off the picture
+      { do: 'key', key: ' ', label: 'wave 1' },
+      act('speed', { value: 4 }),
+      act('enemiesNear', { at: m(-935, 1012), radius: 12, timeout: 90 }),
+      act('speed', { value: 1 }),
       act('enemiesNear', { at: m(-885, 992), radius: 8, timeout: 90 }),
       path(7, [[m(-888, 972, 5), m(-848, 976, 3)], [m(-878, 969, 4.7), m(-845, 974, 3)]], { ease: 'inOut', label: 'effect:tunnel in' }),
       // Off camera at four times the pace until the first is 8 m short of the other mouth

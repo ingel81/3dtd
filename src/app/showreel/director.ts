@@ -91,12 +91,13 @@ export class Director {
         if (!named) throw new Error(`showreel: no spot ${spec.at} on this map`);
         x = named.x;
         y = named.y;
+        if (named.h !== undefined && spec.h === undefined && spec.habs === undefined) habs = named.h;
       } else if (spec.m) [x, y] = spec.m;
       else if (spec.f) [x, y] = [spec.f[0] * size.width, spec.f[1] * size.depth];
       x += spec.dx ?? 0;
       y += spec.dy ?? 0;
-      h = spec.h;
-      habs = spec.habs;
+      if (spec.h !== undefined) h = spec.h;
+      if (spec.habs !== undefined) habs = spec.habs;
     }
     if (habs !== undefined) return { x, y, h: habs };
     if (h !== undefined) return { x, y, h: stage.surfaceAt(x, y) + h };

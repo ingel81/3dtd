@@ -30,7 +30,8 @@ export interface Stage {
   /** The renderer's WebGL context, null where the stage has none of its own (the menu's globes) */
   gl(): WebGLRenderingContext | WebGL2RenderingContext | null;
   /** A named spot of the map: `hq`, `center`, `spawn:<index>` */
-  named(name: string): { x: number; y: number } | null;
+  /** A named spot; `h` an absolute height where the spot has one of its own (a gizmo handle) */
+  named(name: string): { x: number; y: number; h?: number } | null;
   /** Take the camera to a pose every frame; null gives it back to the player's controls where it is */
   setPose(pose: CameraPose | null): void;
   /** The camera's pose now */

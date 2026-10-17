@@ -396,12 +396,13 @@ const outline = (points) => [...points.map((p) => clickMap(p, { dur: 0.35 })), k
 const drawMode = (name) => click('[aria-label="Click draws"] button', { withText: name });
 
 /**
- * Round 5 (FEEDBACK_R4 B10): the gizmo on one object of the finished village. The windmill picked, moved up the
- * hill with the move handle, turned half round with the ring, scaled up with the cube; each mode picked with the UI,
- * the drag without it (the gizmo is in the world, it stays). Starts on F-B6, changes nothing the later stages see
+ * Round 5 (FEEDBACK_R4 B10): the gizmo on one object of the finished village. The chapel picked, moved along the
+ * meadow, turned with the ring, scaled up with the cube; each mode picked with the UI, the drag without it (the
+ * gizmo is in the world, it stays). Flat ground: on the mill's hill a move left its footing hanging. Starts on F-B6,
+ * changes nothing the later stages see
  */
-const MILL = P.windmill;
-const MOVED = { x: MILL.x - 13, y: MILL.y + 18 };
+const MILL = P.chapel;
+const MOVED = { x: MILL.x + 24, y: MILL.y - 4 };
 const around = (c, r, from, to, n = 7) => Array.from({ length: n }, (_, i) => {
   const a = ((from + ((to - from) * i) / (n - 1)) * Math.PI) / 180;
   return m(c.x + r * Math.cos(a), c.y + r * Math.sin(a));
@@ -409,28 +410,36 @@ const around = (c, r, from, to, n = 7) => Array.from({ length: n }, (_, i) => {
 const gizmoMode = (name) => click('[aria-label="Drag does"] button', { withText: name, label: `gizmo ${name.toLowerCase()}` });
 const B6G = stage('b6-gizmo', 6, [
   ringOn,
-  frame([m(MILL.x, MILL.y), m(MOVED.x, MOVED.y)], { from: 200, pitch: 28, margin: 26, pad: 1, glide: 1.4 }),
+  // From the south, the village street and its houses behind the chapel
+  frame([m(MILL.x, MILL.y), m(MOVED.x, MOVED.y)], { from: 10, pitch: 24, margin: 12, pad: 1, glide: 1.4 }),
   ...pick(tool('objects', { label: 'objects' }), mode('select')),
-  // A click on the mill: selected, the gizmo over it
-  clickMap(m(MILL.x, MILL.y, 6), { label: 'select' }),
+  // A click on the chapel: selected, the gizmo over it
+  clickMap(m(MILL.x, MILL.y, 5), { label: 'select' }),
   ...idle(1),
+  act('dump', { asset: 'chapel' }),
   ...pick(gizmoMode('Move')),
-  stroke(1.6, [m(MILL.x, MILL.y), m(MOVED.x, MOVED.y)], { settle: 0.3 }),
+  // The red arrow pulled along map x: the chapel slides along the street
+  stroke(1.6, [{ at: 'gizmo:x' }, { at: 'gizmo:x', dx: MOVED.x - MILL.x }], { settle: 0.3 }),
   ...idle(0.8),
   effect('gizmo move'),
+  act('dump', { asset: 'chapel' }),
   ...pick(gizmoMode('Turn')),
-  stroke(1.8, around(MOVED, 8, 0, 160), { settle: 0.3 }),
+  // The ring dragged a third of the way round
+  stroke(1.8, [0, 25, 50, 75, 100, 120].map((a) => ({ at: `gizmo:ring:${-90 + a}` })), { settle: 0.3 }),
   ...idle(0.8),
   effect('gizmo turn'),
+  act('dump', { asset: 'chapel' }),
   ...pick(gizmoMode('Scale')),
-  stroke(1.4, [m(MOVED.x + 7, MOVED.y), m(MOVED.x + 11.5, MOVED.y)], { settle: 0.3 }),
+  // The cube pulled away from the middle: larger by about a third
+  stroke(1.4, [{ at: 'gizmo:cube' }, { at: 'gizmo', dy: 7, dx: 2 }], { settle: 0.3 }),
   ...idle(0.8),
   effect('gizmo scale'),
-  // The result without the gizmo: deselected, turning round the mill
+  act('dump', { asset: 'chapel' }),
+  // The result without the gizmo: deselected, turning round the chapel
   key('Escape'),
   ringOff,
   { do: 'cursor', show: false },
-  frame([m(MOVED.x, MOVED.y)], { from: 200, pitch: 22, margin: 22, pad: 1, turn: 25, dur: 4, glide: 0.4, label: 'result' }),
+  frame([m(MOVED.x, MOVED.y)], { from: 10, pitch: 18, margin: 36, pad: 1, turn: 25, dur: 4, glide: 0.6, label: 'result' }),
 ], AFTERNOON);
 
 const B7 = stage('b7-life', 6, [

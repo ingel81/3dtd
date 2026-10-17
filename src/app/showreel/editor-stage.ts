@@ -95,7 +95,7 @@ export class EditorStage implements Stage {
     return this.viewport?.renderer.getContext() ?? null;
   }
 
-  named(name: string): { x: number; y: number } | null {
+  named(name: string): { x: number; y: number; h?: number } | null {
     const doc = this.session.doc;
     if (!doc) return null;
     if (name === 'hq') return { x: doc.hq.x, y: doc.hq.y };
@@ -122,6 +122,31 @@ export class EditorStage implements Stage {
       const list = trial?.runners ?? [];
       const r = /^\d+$/.test(runner[1]) ? list[Number(runner[1])] : list.find((x) => x.type.id === runner[1]);
       return r ? { x: -r.model.position.x, y: r.model.position.z } : null;
+    }
+    // gizmo, gizmo:x|y|free|cube, gizmo:ring:<degrees>: the handles over the selection where they stand now, at
+    // their own height (they keep their size on screen: transform-gizmo.ts, arrows 9 units at the group's scale)
+    const gizmo = /^gizmo(?::(x|y|free|cube|ring)(?::(-?[\d.]+))?)?$/.exec(name);
+    if (gizmo) {
+      const g = this.viewport?.overlay.tool.gizmo.handles.group;
+      if (!g?.visible) return null;
+      const s = g.scale.x;
+      const c = { x: -g.position.x, y: g.position.z, h: g.position.y };
+      switch (gizmo[1]) {
+        case 'x':
+          return { ...c, x: c.x + 6 * s };
+        case 'y':
+          return { ...c, y: c.y + 6 * s };
+        case 'free':
+          return { ...c, x: c.x + 1.8 * s, y: c.y + 1.8 * s };
+        case 'cube':
+          return { ...c, h: c.h + 5.4 * s };
+        case 'ring': {
+          const a = (Number(gizmo[2] ?? 0) * Math.PI) / 180;
+          return { ...c, x: c.x + 8.1 * s * Math.cos(a), y: c.y + 8.1 * s * Math.sin(a) };
+        }
+        default:
+          return c;
+      }
     }
     // object:<asset> the newest object of an asset, object:last the newest of all
     const object = /^object:(.+)$/.exec(name);
@@ -306,6 +331,12 @@ export class EditorStage implements Stage {
         // MapKit commands on the open map as the editor's agent runs them (a scene's warm-up: a rule set outside the picture)
         const answer = await this.agent('run_script', { source: String(args['source']), seed: 1, animate: false, label: String(args['label'] ?? 'showreel') });
         if (answer.isError) throw new Error(`showreel: the script failed: ${answer.text.slice(0, 300)}`);
+        return;
+      }
+      case 'dump': {
+        // Development: the objects of an asset as they stand now, into the runner's log
+        const list = (session.doc?.objects ?? []).filter((o) => !args['asset'] || o.asset === args['asset']);
+        console.log(`[showreel] ${String(args['asset'] ?? 'objects')}: ${JSON.stringify(list.slice(0, 8).map((o) => [o.asset, +o.x.toFixed(1), +o.y.toFixed(1), +o.z.toFixed(1), +o.rotation.toFixed(2), +o.scale.toFixed(2)]))}`);
         return;
       }
       case 'agent':
