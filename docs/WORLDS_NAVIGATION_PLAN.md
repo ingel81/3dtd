@@ -549,7 +549,10 @@ nach Phase 4 noch aus.
 - `globe/globe-stage.ts`: ein `WebGLRenderer` auf einem Canvas (durchsichtig, über der Seite, unter Kopfzeile und
   Overlays) zeichnet bis zu drei Globen per Viewport und Scissor in die Quadrate `[data-globe]` der Seite; Lage und
   Größe liest `worlds/stage-globes.ts` je Bild, ein Globus dreht langsam oder zu seiner Wahl, im Leerlauf 30 Bilder je
-  Sekunde. Die Erde ist die `GlobeView` der Menü-Erde auf diesem Renderer, ohne Sterne, Sonne und 8k-Stufe; die Sonne
+  Sekunde. Unter dem Zeiger oder dem Tastaturfokus (Karte der Globen, Mini-Globus) wird ein Globus größer (CSS-Skalierung
+  seines Quadrats, die Bühne folgt ihm), sein Rand bekommt einen Lichtsaum (`--td-world-glow` hinter dem klaren Canvas)
+  und er dreht schneller (4 auf 36 Grad je Sekunde, weich an- und auslaufend, E207); solange sich ein Quadrat bewegt
+  oder ein Globus anläuft, zeichnet die Bühne jedes Bild. Die Erde ist die `GlobeView` der Menü-Erde auf diesem Renderer, ohne Sterne, Sonne und 8k-Stufe; die Sonne
   steht 58 Grad westlich der Mitte, rechts liegt die Nachtseite mit Stadtlichtern. `saturation` macht sie grau.
 - `globe/style-globes.ts`: OpenStreetMap als Shader auf den Karten der Erde (Wasser aus der Relief-Maske, Wald, Sand
   und Eis aus der Tageskarte, Orte und ein Straßennetz aus den Stadtlichtern), Farben von OSM Carto, gestrichelte

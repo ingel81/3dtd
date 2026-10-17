@@ -14,6 +14,10 @@ export interface StageGlobeState {
 
 /** Degrees a globe turns per second while nothing is picked */
 const IDLE_DEG_PER_S = 4;
+/** ... and while the pointer or the keyboard's focus is on it (E207): it wakes up and turns toward the player */
+const HOVER_DEG_PER_S = 36;
+/** How fast the spin follows: the share of the way per second (exponential), so it speeds up and settles softly */
+const SPIN_RATE = 3;
 /** How fast a globe turns to its target: the share of the way per second (exponential) */
 const TURN_RATE = 3.2;
 /** Frames while only idling: 30 a second, as the menu globe */
@@ -37,6 +41,10 @@ export class StageGlobes {
   private raf = 0;
   private last = 0;
   private resizer: ResizeObserver | null = null;
+  /** Each globe's spin now, degrees a second (IDLE_DEG_PER_S, up to HOVER_DEG_PER_S under the pointer) */
+  private readonly spin: Record<StageGlobeId, number> = { real: IDLE_DEG_PER_S, osm: IDLE_DEG_PER_S, maps: IDLE_DEG_PER_S };
+  /** The squares' places last drawn: a square that moves or grows (the hover's scale) draws every frame */
+  private lastLayout = '';
   private readonly centers: Record<StageGlobeId, LatLon> = {
     real: { lat: 22, lon: 10 },
     osm: { lat: 28, lon: -60 },
@@ -99,27 +107,44 @@ export class StageGlobes {
   private frame(now: number): void {
     const stage = this.stage;
     if (!stage) return;
-    const moving = (['real', 'osm', 'maps'] as const).some((g) => {
+    const base = this.canvas.getBoundingClientRect();
+    const squares: { el: HTMLElement; globe: StageGlobeId; x: number; y: number; size: number; hover: boolean }[] = [];
+    let layout = '';
+    for (const el of this.host.querySelectorAll<HTMLElement>('[data-globe]')) {
+      const rect = el.getBoundingClientRect();
+      const size = Math.min(rect.width, rect.height);
+      const x = rect.left - base.left + (rect.width - size) / 2;
+      const y = rect.top - base.top + (rect.height - size) / 2;
+      // The card or mini globe it stands in, under the pointer or focused by the keyboard
+      const hover = el.closest('button')?.matches(':hover, :focus-visible') ?? false;
+      squares.push({ el, globe: el.dataset['globe'] as StageGlobeId, x, y, size, hover });
+      layout += `${x.toFixed(1)},${y.toFixed(1)},${size.toFixed(1)};`;
+    }
+    const moved = layout !== this.lastLayout;
+    const waking = squares.some((q) => q.hover) || (['real', 'osm', 'maps'] as const).some((g) => Math.abs(this.spin[g] - IDLE_DEG_PER_S) > 0.05);
+    const moving = moved || waking || (['real', 'osm', 'maps'] as const).some((g) => {
       const target = this.state(g).target;
       return target !== null && (Math.abs(target.lat - this.centers[g].lat) > 0.05 || Math.abs(lonDelta(this.centers[g].lon, target.lon)) > 0.05);
     });
     if (!moving && now - this.last < IDLE_FRAME_MS) return;
     const dt = Math.min(0.1, (now - (this.last || now)) / 1000);
     this.last = now;
+    this.lastLayout = layout;
 
-    const base = this.canvas.getBoundingClientRect();
     const slots: StageSlot[] = [];
     const mark = this.mark();
-    for (const el of this.host.querySelectorAll<HTMLElement>('[data-globe]')) {
-      const globe = el.dataset['globe'] as StageGlobeId;
-      const rect = el.getBoundingClientRect();
-      const size = Math.min(rect.width, rect.height);
+    const k = 1 - Math.exp(-SPIN_RATE * dt);
+    for (const g of ['real', 'osm', 'maps'] as const) {
+      const wanted = squares.some((q) => q.globe === g && q.hover) ? HOVER_DEG_PER_S : IDLE_DEG_PER_S;
+      this.spin[g] += (wanted - this.spin[g]) * k;
+    }
+    for (const { el, globe, x, y, size } of squares) {
       const state = this.state(globe);
       this.turn(globe, state.target, dt);
       slots.push({
         globe,
-        x: rect.left - base.left + (rect.width - size) / 2,
-        y: rect.top - base.top + (rect.height - size) / 2,
+        x,
+        y,
         size,
         center: this.centers[globe],
         saturation: state.saturation,
@@ -143,7 +168,7 @@ export class StageGlobes {
   private turn(globe: StageGlobeId, target: LatLon | null, dt: number): void {
     const c = this.centers[globe];
     if (!target) {
-      c.lon = ((c.lon + IDLE_DEG_PER_S * dt + 540) % 360) - 180;
+      c.lon = ((c.lon + this.spin[globe] * dt + 540) % 360) - 180;
       return;
     }
     const k = 1 - Math.exp(-TURN_RATE * dt);

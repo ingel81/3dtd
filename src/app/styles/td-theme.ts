@@ -417,6 +417,8 @@ export const TD_CSS_VARS = `
   --td-world-maps: radial-gradient(ellipse at 66% 48%, #1f3d2a 0%, #13261b 50%, #0b140f 100%);
   --td-world-disc-real: radial-gradient(circle at 34% 32%, #6fa6d2 0%, #2f6699 30%, #163b63 62%, #0a1a2c 100%);
   --td-world-disc-osm: radial-gradient(circle at 34% 32%, #f2efe9 0%, #cfe2e8 38%, #a6c9d5 70%, #7fa9b8 100%);
+  /* The light around a globe under the pointer (E207): its edge lifts off the background; the globe (74 % of the radius at the slot's inset of -8 %) covers the middle */
+  --td-world-glow: radial-gradient(circle closest-side, rgba(230,225,207,.26) 70%, rgba(230,225,207,.10) 84%, transparent 100%);
   --td-world-disc-maps: radial-gradient(circle at 34% 32%, #86ad52 0%, #4a9a98 36%, #1d4a60 72%, #10303f 100%);
 
   --td-surface: linear-gradient(var(--td-tint), var(--td-tint)), var(--td-tex-plaster) 0 0 / var(--td-tex-size), ${TD_THEME.panelMain};

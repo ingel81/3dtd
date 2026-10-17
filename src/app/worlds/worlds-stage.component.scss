@@ -163,12 +163,13 @@
     width: var(--ws-globe);
     height: var(--ws-globe);
     margin-bottom: var(--td-sp-3);
-    transition: transform var(--td-dur-mid) var(--td-ease-out);
   }
 
+  // Under the pointer or the keyboard's focus a globe grows, its edge lights up and it turns faster (E207,
+  // the spin in stage-globes.ts); the canvas follows the square's size each frame
   &:hover .ws-slot,
   &:focus-visible .ws-slot {
-    transform: scale(1.04);
+    transform: scale(1.1);
   }
 
   &:hover .ws-card-name,
@@ -205,6 +206,31 @@
   position: relative;
   display: block;
   flex: 0 0 auto;
+  transition: transform var(--td-dur-slow) var(--td-ease-out);
+
+  // The light behind the globe, shown through the stage's clear canvas
+  &::before {
+    position: absolute;
+    inset: -8%;
+    border-radius: 50%;
+    background: var(--td-world-glow);
+    opacity: 0;
+    transition: opacity var(--td-dur-slow) var(--td-ease-out);
+    content: '';
+    pointer-events: none;
+  }
+}
+
+.ws-card:hover .ws-slot::before,
+.ws-card:focus-visible .ws-slot::before,
+.ws-mini:hover .ws-slot::before,
+.ws-mini:focus-visible .ws-slot::before {
+  opacity: 1;
+}
+
+.ws-mini:hover .ws-slot.is-mini,
+.ws-mini:focus-visible .ws-slot.is-mini {
+  transform: scale(1.18);
 }
 
 .ws-disc {
