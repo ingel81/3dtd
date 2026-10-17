@@ -167,7 +167,13 @@ Nebel der Szene wieder her.
   direkte), G Krümmung (Höhe gegen Ringe in 4 und 12 m: Kuppen trockener und heller, Mulden feuchter und dunkler),
   B Abfluss (D8-Flussakkumulation, logarithmisch; Rinnen und Talböden dunkler und grüner; beim vollen Backen, ein
   Pinsel lässt ihn bis zum nächsten stehen), A Lava-Nähe (1 auf Lava, 0 ab 12 m: der Boden wird zu erkaltetem Gestein
-  und glüht von unten orange mit langsamem Puls). An Hangfüßen unter Steilem rieselt Geröll in der Farbe der Klippe
+  und glüht von unten orange mit langsamem Puls). Die Rechnung steht ohne three in `ground-shape.ts` (samt Fernschatten):
+  das Spiel rechnet sie beim Laden an Ort und Stelle, der Editor danach im Editor-Worker (`EditorGround`, Aufträge
+  `groundShape`, `lava`, `farShadow`) und schreibt die Ergebnisse als Rechteck in die Textur. Auf 1025² (Node): ein
+  80-m-Strich vorher 64 ms Horizontsuche im Hauptthread (in Scheiben zu 2 ms je Bild), jetzt 0,4 ms Einschreiben; die
+  Lava-Nähe vorher 60 ms, jetzt 2,6 ms (nur Kanal A); ein Vollaufbau (Generieren, Größe) vorher rund 2 s im Bild,
+  jetzt 7 ms; der Fernschatten (114 ms in Scheiben) und die Höhenlinien des Editors (2 m: 112 ms je halbe Sekunde im
+  Strich) ganz im Worker. Krümmung, Abfluss und Lava-Nähe liegen dafür schon als Bytes vor. An Hangfüßen unter Steilem rieselt Geröll in der Farbe der Klippe
   heraus. Über jedem Lavapunkt steigen Glut (zusammen höchstens etwa 2000 Teilchen) und etwas Rauch auf. Objekte
   nahe Lava (Häuser, Felsen, Bäume) glühen von unten mit: jedes Kartenmaterial mit Emissive-Anteil liest über den
   Höhennebel-Patch dieselbe Lavanähe an seiner Stelle (ein Lookup, nur auf Karten mit Lava; quadratisch über die 12 m),

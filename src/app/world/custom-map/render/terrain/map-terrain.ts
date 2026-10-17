@@ -84,10 +84,18 @@ export class MapTerrainLayer {
     this.farShadow.bake(this.field, sunDir, this.terrain.width, this.terrain.depth);
   }
 
-  /** The far shadow baked again after an edit, spread over frames (FarShadow.bakeSliced); a newer bake stops it */
-  bakeFarShadowSliced(sunDir: Vector3): Promise<boolean> {
+  /**
+   * The far shadow baked again after an edit: by the baker (the editor's worker), else spread over frames
+   * (FarShadow.bakeSliced); a newer bake stops it
+   */
+  async bakeFarShadowSliced(sunDir: Vector3): Promise<boolean> {
     const bake = ++this.farShadowBake;
-    return this.farShadow.bakeSliced(this.field, sunDir.clone(), this.terrain.width, this.terrain.depth, () => bake === this.farShadowBake);
+    const baker = this.occlusion.baker;
+    if (!baker) return this.farShadow.bakeSliced(this.field, sunDir.clone(), this.terrain.width, this.terrain.depth, () => bake === this.farShadowBake);
+    const texels = await baker.farShadow({ x: sunDir.x, y: sunDir.y, z: sunDir.z });
+    if (!texels || bake !== this.farShadowBake) return false;
+    this.farShadow.set(texels);
+    return true;
   }
 
   /** Distances (m) from which far ground samples one layer lookup, then no layer textures, and up to which steep ground reads its sides (quality levels) */

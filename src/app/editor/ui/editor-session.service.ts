@@ -43,6 +43,7 @@ import { EditorPictures } from '../services/editor-pictures';
 import { EditorCore } from '../services/editor-core';
 import { EditorRoutes } from '../services/editor-routes';
 import { EditorPathMask } from '../services/editor-path-mask';
+import { EditorGround } from '../services/editor-ground';
 import { EditorState } from '../services/editor-state';
 import { JobRunner } from '../services/job-runner';
 import { MapLibrary } from '../services/map-library';
@@ -61,6 +62,7 @@ export class EditorSession implements OnDestroy {
   readonly notices = new EditorNotices();
   readonly core = new EditorCore();
   private readonly pathMask = new EditorPathMask(this.core);
+  private readonly ground = new EditorGround(this.core);
   readonly library = new MapLibrary(this.notices);
   readonly state: EditorState = new EditorState(() => {
     this.saves.changed();
@@ -96,6 +98,7 @@ export class EditorSession implements OnDestroy {
       contextLost: (lost) => this.contextLost(lost),
       hintChanged: () => this.tools.hintChanged(),
       pathMask: this.pathMask,
+      ground: this.ground,
     });
     this.view = this.viewHost;
     this.routes = new EditorRoutes(this.core, (routes) => this.viewHost.showRoutes(routes));

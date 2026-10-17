@@ -1,5 +1,6 @@
 import { DataTexture, LinearFilter, RedFormat, UnsignedByteType, Vector4, type Vector3 } from 'three';
 import type { HeightField } from '../height-field';
+import { farShadowData, farShadowRows, farShadowStart, type FarShadowTexels } from './ground-shape';
 
 /**
  * The far cascade of the sun's shadow (the shadowCascade effect): where the
@@ -13,71 +14,6 @@ import type { HeightField } from '../height-field';
  * a few pixels), soft edged: each texel marches towards the sun and keeps
  * how close the land came to its ray, relative to the distance.
  */
-
-/** Texels along the map's longer side */
-const SIZE = 256;
-/** How far the march looks for land in the way, metres */
-const REACH = 1200;
-
-/** Visibility of the sun (0 shadow, 255 lit) over the map, `width` x `height` texels row by row from the map's south west */
-export function farShadowData(field: HeightField, sunDir: { x: number; y: number; z: number }, width: number, depth: number): { data: Uint8Array; columns: number; rows: number } {
-  const out = farShadowStart(sunDir, width, depth);
-  farShadowRows(field, sunDir, width, depth, out, 0, out.rows);
-  return out;
-}
-
-/** The far shadow's texels, all lit (all dark once the sun has set), before farShadowRows marches them */
-export function farShadowStart(sunDir: { y: number }, width: number, depth: number): { data: Uint8Array; columns: number; rows: number } {
-  const columns = width >= depth ? SIZE : Math.max(2, Math.round((SIZE * width) / depth));
-  const rows = depth >= width ? SIZE : Math.max(2, Math.round((SIZE * depth) / width));
-  return { data: new Uint8Array(columns * rows).fill(sunDir.y <= 0.01 ? 0 : 255), columns, rows };
-}
-
-/** Rows j0 up to j1 of the far shadow, marched towards the sun (one band of a bake spread over frames) */
-export function farShadowRows(
-  field: HeightField,
-  sunDir: { x: number; y: number; z: number },
-  width: number,
-  depth: number,
-  out: { data: Uint8Array; columns: number; rows: number },
-  j0: number,
-  j1: number,
-): void {
-  const { data, columns, rows } = out;
-  // The sun's direction on the map (scene x is map -x, scene z map y), its rise per metre along it
-  const horizontal = Math.hypot(sunDir.x, sunDir.z);
-  if (sunDir.y <= 0.01 || horizontal < 1e-4) return;
-  const dx = -sunDir.x / horizontal;
-  const dy = sunDir.z / horizontal;
-  const rise = sunDir.y / horizontal;
-  const cellX = width / columns;
-  const cellY = depth / rows;
-  const first = Math.max(field.cellSize, Math.min(cellX, cellY)) * 0.75;
-  const reach = Math.min(REACH, Math.hypot(width, depth));
-  const halfW = width / 2;
-  const halfD = depth / 2;
-  for (let j = j0; j < Math.min(j1, rows); j++) {
-    const y = -halfD + (j + 0.5) * cellY;
-    for (let i = 0; i < columns; i++) {
-      const x = -halfW + (i + 0.5) * cellX;
-      const h0 = field.heightAt(x, y) + 0.5;
-      let lit = 1;
-      for (let t = first; t < reach; t *= 1.06) {
-        const px = x + dx * t;
-        const py = y + dy * t;
-        if (px < -halfW || px > halfW || py < -halfD || py > halfD) break;
-        const above = h0 + t * rise - field.heightAt(px, py);
-        // Soft: how far below the ray the land stays, against the distance (a penumbra widening with it)
-        const k = above / (t * 0.04 + 0.5);
-        if (k < lit) {
-          lit = k;
-          if (lit <= 0) break;
-        }
-      }
-      data[j * columns + i] = Math.round(Math.max(0, lit) * 255);
-    }
-  }
-}
 
 /** Rows a slice of a bake spread over frames marches (some 2 to 6 ms) */
 export const FAR_SHADOW_SLICE_ROWS = 24;
@@ -113,7 +49,12 @@ export class FarShadow {
     return true;
   }
 
-  private upload({ data, columns, rows }: { data: Uint8Array; columns: number; rows: number }): void {
+  /** Texels baked elsewhere (the editor's worker) */
+  set(texels: FarShadowTexels): void {
+    this.upload(texels);
+  }
+
+  private upload({ data, columns, rows }: FarShadowTexels): void {
     const t = this.texture.value;
     if (t.image.width === columns && t.image.height === rows) {
       (t.image.data as Uint8Array).set(data);

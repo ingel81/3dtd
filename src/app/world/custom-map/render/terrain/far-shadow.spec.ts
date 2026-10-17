@@ -2,7 +2,8 @@ import { ShaderLib, UniformsUtils, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import { HeightField } from '../height-field';
 import { sunDirection } from '../environment/map-environment';
-import { FAR_SHADOW_SLICE_ROWS, FarShadow, farShadowData } from './far-shadow';
+import { FAR_SHADOW_SLICE_ROWS, FarShadow } from './far-shadow';
+import { farShadowData } from './ground-shape';
 import { TerrainMaterial } from './terrain-material';
 
 /** A flat 400 x 400 m map with a 60 m high ridge running north-south through x = 0 */

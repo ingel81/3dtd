@@ -1,7 +1,8 @@
 import { ClampToEdgeWrapping, DataTexture, LinearFilter, NoColorSpace, RGBAFormat, UnsignedByteType } from 'three';
 import type { MapObject } from '../../map-document';
 import type { CatalogObject } from '../asset-catalog';
-import { cellHeight, type HeightField } from '../height-field';
+import type { HeightField } from '../height-field';
+import { drainage, lavaCloseness, shapeReach, shapeRows, type GroundBaker, type SampleRect, type ShapePatch } from './ground-shape';
 import { uploadRect } from './texture-ranges';
 
 /**
@@ -21,16 +22,16 @@ import { uploadRect } from './texture-ranges';
  *   accumulation, log scale): runnels and valley floors light up. Baked for
  *   the whole grid on a full update; a brush leaves it until the next one
  * - A, lava: closeness to lava, 1 on it, 0 from 12 m (`setLava`)
+ *
+ * The numbers come from ground-shape.ts, worked out in place, or by a
+ * `baker` off the page's thread (the editor's worker) whose results come
+ * back as patches (`applyShape`, `setLavaCloseness`).
  */
 
-const DIRECTIONS = 8;
-const STEPS = [2, 4, 8, 16, 32];
 /** Queued occlusion waits until the heights rest this long … */
 const OCCLUSION_QUIET_MS = 120;
 /** … or at most this long */
 const OCCLUSION_WAIT_MS = 500;
-/** How dark full occlusion gets */
-const TERRAIN_STRENGTH = 1.1;
 
 const OBJECT_DARKNESS: Partial<Record<CatalogObject['category'], number>> = {
   tree: 0.4,
@@ -49,17 +50,23 @@ export class GroundOcclusion {
   private readonly pixels: Uint8Array;
   /** Samples whose terrain occlusion waits (horizon reach included), and the next row to do */
   private pending: { i0: number; j0: number; i1: number; j1: number; row: number; since: number; last: number } | null = null;
-  private readonly curvature: Float32Array;
-  private readonly drainage: Float32Array;
-  private readonly lava: Float32Array;
+  /** Curvature, drainage and lava as the texture's bytes (ground-shape.ts works them out so) */
+  private readonly curvature: Uint8Array;
+  private drainage: Uint8Array;
+  private readonly lava: Uint8Array;
+  /** Works the shape out off the page's thread; null: in place, a few milliseconds a frame */
+  baker: GroundBaker | null = null;
+  /** A baker's job under way: what is asked meanwhile waits for it, gathered (null: all) */
+  private baking = false;
+  private waiting: SampleRect | null | undefined = undefined;
 
   constructor(private readonly field: HeightField) {
     const n = field.columns * field.rows;
     this.terrain = new Float32Array(n).fill(1);
     this.objects = new Float32Array(n).fill(1);
-    this.curvature = new Float32Array(n).fill(0.5);
-    this.drainage = new Float32Array(n);
-    this.lava = new Float32Array(n);
+    this.curvature = new Uint8Array(n).fill(128);
+    this.drainage = new Uint8Array(n);
+    this.lava = new Uint8Array(n);
     this.pixels = new Uint8Array(n * 4).fill(255);
     this.texture = new DataTexture(this.pixels, field.columns, field.rows, RGBAFormat, UnsignedByteType);
     this.texture.colorSpace = NoColorSpace;
@@ -72,9 +79,13 @@ export class GroundOcclusion {
   }
 
   /** Terrain occlusion of the samples in a rectangle (whole grid when omitted), plus the reach of the horizon search */
-  updateTerrain(rect?: { i0: number; j0: number; i1: number; j1: number }): void {
-    const r = this.reachOf(rect);
-    if (!rect) this.bakeDrainage();
+  updateTerrain(rect?: SampleRect): void {
+    if (this.baker) {
+      this.bake(rect ?? null);
+      return;
+    }
+    const r = shapeReach(this.field, rect);
+    if (!rect) this.drainage = drainage(this.field);
     this.terrainRows(r.i0, r.i1, r.j0, r.j1);
   }
 
@@ -86,8 +97,8 @@ export class GroundOcclusion {
    * slices of rows: a stroke costs the search over its area a few times, not
    * once a frame.
    */
-  queueTerrain(rect: { i0: number; j0: number; i1: number; j1: number }, now = performance.now()): void {
-    const r = this.reachOf(rect);
+  queueTerrain(rect: SampleRect, now = performance.now()): void {
+    const r = shapeReach(this.field, rect);
     const p = this.pending;
     this.pending = p
       ? { i0: Math.min(p.i0, r.i0), j0: Math.min(p.row, r.j0), i1: Math.max(p.i1, r.i1), j1: Math.max(p.j1, r.j1), row: Math.min(p.row, r.j0), since: p.since, last: now }
@@ -99,6 +110,13 @@ export class GroundOcclusion {
     const p = this.pending;
     if (!p) return false;
     if (now - p.last < OCCLUSION_QUIET_MS && now - p.since < OCCLUSION_WAIT_MS) return true;
+    if (this.baker) {
+      // The whole of it to the baker, once its last job is back
+      if (this.baking) return true;
+      this.pending = null;
+      this.bake({ i0: p.i0, j0: p.row, i1: p.i1, j1: p.j1 }, true);
+      return false;
+    }
     const until = now + budgetMs;
     // A band of rows at a time: the clock is read once a band
     const band = Math.max(1, Math.floor(1024 / (p.i1 - p.i0 + 1)));
@@ -114,91 +132,54 @@ export class GroundOcclusion {
     return !!this.pending;
   }
 
-  private reachOf(rect?: { i0: number; j0: number; i1: number; j1: number }): { i0: number; j0: number; i1: number; j1: number } {
-    const f = this.field;
-    const reach = Math.ceil(STEPS[STEPS.length - 1] / f.cellSize);
-    return {
-      i0: Math.max(0, (rect?.i0 ?? 0) - reach),
-      j0: Math.max(0, (rect?.j0 ?? 0) - reach),
-      i1: Math.min(f.columns - 1, (rect?.i1 ?? f.columns - 1) + reach),
-      j1: Math.min(f.rows - 1, (rect?.j1 ?? f.rows - 1) + reach),
-    };
+  /** Occlusion and curvature of rows j0..j1 in place (ground-shape.ts shapeRows), then their texels */
+  private terrainRows(i0: number, i1: number, j0: number, j1: number): void {
+    shapeRows(this.field, this.terrain, this.curvature, i0, i1, j0, j1);
+    this.upload(i0, j0, i1, j1);
   }
 
   /**
-   * The horizon search over rows j0..j1: per sample the highest rise in each
-   * direction at each step. The steps are offsets in samples worked out
-   * once, the heights read straight from the grid and interpolated on its
-   * triangles like HeightField.heightAt (some four times faster than calling
-   * it 40 times a sample, which a 2 m map felt under a held brush).
+   * A shape the baker works out: `reached` says the rectangle already holds the horizon search's reach. One job
+   * at a time (each rectangle counts, none may take another's place); what is asked meanwhile goes next, gathered
    */
-  private terrainRows(i0: number, i1: number, j0: number, j1: number): void {
+  private bake(rect: SampleRect | null, reached = false): void {
+    const ask = rect && !reached ? shapeReach(this.field, rect) : rect;
+    if (this.baking) {
+      const w = this.waiting;
+      this.waiting = w === undefined ? ask : w === null || ask === null ? null : { i0: Math.min(w.i0, ask.i0), j0: Math.min(w.j0, ask.j0), i1: Math.max(w.i1, ask.i1), j1: Math.max(w.j1, ask.j1) };
+      return;
+    }
+    const baker = this.baker!;
+    this.baking = true;
+    const next = (): void => {
+      this.baking = false;
+      const w = this.waiting;
+      this.waiting = undefined;
+      if (w !== undefined && this.baker === baker) this.bake(w, true);
+    };
+    void baker.shape(ask).then(
+      (patch) => {
+        if (patch && this.baker === baker) this.applyShape(patch);
+        next();
+      },
+      next,
+    );
+  }
+
+  /** Occlusion and curvature of a rectangle, and the drainage when it came along, as a baker worked them out */
+  applyShape(p: ShapePatch): void {
     const f = this.field;
-    const h = f.grid.heights;
-    const cols = f.columns;
-    const maxX = cols - 1;
-    const maxY = f.rows - 1;
-    const n = DIRECTIONS * STEPS.length;
-    const offX = new Float64Array(n);
-    const offY = new Float64Array(n);
-    const dist = new Float64Array(n);
-    for (let k = 0; k < DIRECTIONS; k++) {
-      const a = (k / DIRECTIONS) * Math.PI * 2;
-      STEPS.forEach((d, s) => {
-        offX[k * STEPS.length + s] = (Math.cos(a) * d) / f.cellSize;
-        offY[k * STEPS.length + s] = (Math.sin(a) * d) / f.cellSize;
-        dist[k * STEPS.length + s] = d;
-      });
-    }
+    if (p.columns !== f.columns || p.rows !== f.rows) return;
+    const { i0, j0, i1, j1 } = p.rect;
+    const w = i1 - i0 + 1;
     for (let j = j0; j <= j1; j++) {
-      for (let i = i0; i <= i1; i++) {
-        const base = h[j * cols + i];
-        let occ = 0;
-        for (let k = 0; k < DIRECTIONS; k++) {
-          let maxSin = 0;
-          for (let s = 0; s < STEPS.length; s++) {
-            const q = k * STEPS.length + s;
-            let fx = i + offX[q];
-            let fy = j + offY[q];
-            fx = fx < 0 ? 0 : fx > maxX ? maxX : fx;
-            fy = fy < 0 ? 0 : fy > maxY ? maxY : fy;
-            let ii = Math.floor(fx);
-            let jj = Math.floor(fy);
-            if (ii >= maxX) ii = maxX - 1;
-            if (jj >= maxY) jj = maxY - 1;
-            const u = fx - ii;
-            const v = fy - jj;
-            const c = jj * cols + ii;
-            const height = cellHeight(h[c], h[c + 1], h[c + cols], h[c + cols + 1], u, v);
-            const rise = height - base;
-            if (rise <= 0) continue;
-            const d = dist[q];
-            const sin = rise / Math.sqrt(rise * rise + d * d);
-            if (sin > maxSin) maxSin = sin;
-          }
-          occ += maxSin;
-        }
-        this.terrain[j * cols + i] = Math.max(0.25, 1 - (occ / DIRECTIONS) * TERRAIN_STRENGTH);
-      }
+      const from = (j - j0) * w;
+      this.terrain.set(p.terrain.subarray(from, from + w), j * f.columns + i0);
+      this.curvature.set(p.curvature.subarray(from, from + w), j * f.columns + i0);
     }
-    // Curvature: above the mean of two rings (grid samples about 4 and 12 m out) is a crest, below a hollow.
-    // The rows' reach includes the horizon search's, which is wider than the outer ring
-    const r4 = Math.max(1, Math.round(4 / f.cellSize));
-    const r12 = Math.max(2, Math.round(12 / f.cellSize));
-    const near = r4 * 2;
-    const rings: [number, number][] = [];
-    for (let k = 0; k < DIRECTIONS; k++) {
-      const a = (k / DIRECTIONS) * Math.PI * 2;
-      rings.push([Math.round(Math.cos(a) * r4), Math.round(Math.sin(a) * r4)], [Math.round(Math.cos(a) * r12), Math.round(Math.sin(a) * r12)]);
-    }
-    for (let j = j0; j <= j1; j++) {
-      for (let i = i0; i <= i1; i++) {
-        let ring = 0;
-        for (const [di, dj] of rings) ring += f.sample(i + di, j + dj) * (Math.abs(di) + Math.abs(dj) > near ? 0.4 : 0.6);
-        this.curvature[j * cols + i] = Math.max(0, Math.min(1, 0.5 + (h[j * cols + i] - ring / DIRECTIONS) * 0.125));
-      }
-    }
-    this.upload(i0, j0, i1, j1);
+    if (p.drainage) this.drainage = p.drainage;
+    if (p.drainage) this.upload(0, 0, f.columns - 1, f.rows - 1);
+    else this.upload(i0, j0, i1, j1);
   }
 
   /**
@@ -207,91 +188,16 @@ export class GroundOcclusion {
    * below and turns it to cooled rock around flows and pools.
    */
   setLava(lava: Uint8Array): void {
-    const f = this.field;
-    const cols = f.columns;
-    const rows = f.rows;
-    const reach = 12 / f.cellSize;
-    // Distance in cells (chamfer 3-4) from the lava samples
-    const d = new Float32Array(cols * rows);
-    for (let k = 0; k < d.length; k++) d[k] = lava[k] ? 0 : 1e9;
-    const relax = (k: number, o: number, step: number): void => {
-      if (d[o] + step < d[k]) d[k] = d[o] + step;
-    };
-    for (let j = 0; j < rows; j++) {
-      for (let i = 0; i < cols; i++) {
-        const k = j * cols + i;
-        if (i > 0) relax(k, k - 1, 3);
-        if (j > 0) {
-          relax(k, k - cols, 3);
-          if (i > 0) relax(k, k - cols - 1, 4);
-          if (i < cols - 1) relax(k, k - cols + 1, 4);
-        }
-      }
-    }
-    for (let j = rows - 1; j >= 0; j--) {
-      for (let i = cols - 1; i >= 0; i--) {
-        const k = j * cols + i;
-        if (i < cols - 1) relax(k, k + 1, 3);
-        if (j < rows - 1) {
-          relax(k, k + cols, 3);
-          if (i < cols - 1) relax(k, k + cols + 1, 4);
-          if (i > 0) relax(k, k + cols - 1, 4);
-        }
-      }
-    }
-    for (let k = 0; k < d.length; k++) this.lava[k] = Math.max(0, 1 - d[k] / 3 / reach);
-    this.upload(0, 0, cols - 1, rows - 1);
+    this.setLavaCloseness(lavaCloseness(lava, this.field));
   }
 
-  /**
-   * D8 flow accumulation over the whole grid: every sample drains into its
-   * steepest lower neighbour; the accumulation runs from the samples nothing
-   * drains into down to the outlets (Kahn's order, linear in the grid)
-   */
-  private bakeDrainage(): void {
-    const f = this.field;
-    const cols = f.columns;
-    const rows = f.rows;
-    const n = cols * rows;
-    const h = f.grid.heights;
-    const to = new Int32Array(n).fill(-1);
-    const inflow = new Uint8Array(n);
-    for (let j = 0; j < rows; j++) {
-      for (let i = 0; i < cols; i++) {
-        const k = j * cols + i;
-        let drop = 0;
-        for (let dj = -1; dj <= 1; dj++) {
-          const jj = j + dj;
-          if (jj < 0 || jj >= rows) continue;
-          for (let di = -1; di <= 1; di++) {
-            const ii = i + di;
-            if ((!di && !dj) || ii < 0 || ii >= cols) continue;
-            const o = jj * cols + ii;
-            const g = (h[k] - h[o]) * (di && dj ? Math.SQRT1_2 : 1);
-            if (g > drop) {
-              drop = g;
-              to[k] = o;
-            }
-          }
-        }
-        if (to[k] >= 0) inflow[to[k]]++;
-      }
-    }
-    const acc = new Float32Array(n).fill(1);
-    const queue = new Int32Array(n);
-    let head = 0;
-    let tail = 0;
-    for (let k = 0; k < n; k++) if (!inflow[k]) queue[tail++] = k;
-    while (head < tail) {
-      const k = queue[head++];
-      const o = to[k];
-      if (o < 0) continue;
-      acc[o] += acc[k];
-      if (--inflow[o] === 0) queue[tail++] = o;
-    }
-    // Log scale: a few cells upslope already show, a valley floor of thousands saturates
-    const top = Math.log(Math.max(2, n / 16));
-    for (let k = 0; k < n; k++) this.drainage[k] = Math.min(1, Math.log(acc[k]) / top);
+  /** The closeness to lava per sample as worked out (ground-shape.ts lavaCloseness); only its channel is written */
+  setLavaCloseness(closeness: Uint8Array): void {
+    if (closeness.length !== this.lava.length) return;
+    this.lava.set(closeness);
+    const px = this.pixels;
+    for (let k = 0, q = 3; k < closeness.length; k++, q += 4) px[q] = closeness[k];
+    uploadRect(this.texture, undefined);
   }
 
   /**
@@ -369,9 +275,9 @@ export class GroundOcclusion {
         const k = j * cols + i;
         const q = k * 4;
         this.pixels[q] = Math.round(Math.max(0, Math.min(1, this.terrain[k] * this.objects[k])) * 255);
-        this.pixels[q + 1] = Math.round(this.curvature[k] * 255);
-        this.pixels[q + 2] = Math.round(this.drainage[k] * 255);
-        this.pixels[q + 3] = Math.round(this.lava[k] * 255);
+        this.pixels[q + 1] = this.curvature[k];
+        this.pixels[q + 2] = this.drainage[k];
+        this.pixels[q + 3] = this.lava[k];
       }
     }
     const whole = i0 === 0 && j0 === 0 && i1 === cols - 1 && j1 === this.field.rows - 1;

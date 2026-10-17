@@ -49,7 +49,7 @@ import { ApronField, EDGE_TREE_BAND, edgeTreeObjects } from './objects/edge-tree
 import { NIGHT_WINDOW_UNIFORMS } from './objects/night-windows';
 import type { HeightTexture } from './terrain/height-texture';
 import { RiverSurface } from './water/river-surface';
-import { sampleRiver } from './water/river-line';
+import { lavaSamples, type GroundBaker } from './terrain/ground-shape';
 import { WaterSurface } from './water/water-surface';
 import type { CustomMapQuality } from '../../../three-engine/render-quality';
 import { SceneCopy } from './water/scene-copy';
@@ -1032,6 +1032,14 @@ export class CustomMapView {
     this.edgeTreesLater(all);
   }
 
+  /**
+   * Who works the ground's shape out off the page's thread (the editor's worker): occlusion, curvature and
+   * drainage, the closeness to lava, the far shadow. Without one they are worked out in place
+   */
+  set groundBaker(baker: GroundBaker | null) {
+    this.terrain.occlusion.baker = baker;
+  }
+
   /** The roads and bridges follow the paths; the path mask follows from the editor's worker (setPathMask) */
   updatePaths(): void {
     this.terrain.refreshPaths(this.doc.paths);
@@ -1122,32 +1130,27 @@ export class CustomMapView {
     this.lavaDue = null;
     if (this.disposed) return;
     this.lavaBaked = true;
+    const baker = this.terrain.occlusion.baker;
+    if (baker) {
+      // The closeness (a chamfer distance over the whole grid) from the editor's worker
+      void baker.lava().then((done) => {
+        if (!done || this.disposed || this.terrain.occlusion.baker !== baker) return;
+        this.terrain.occlusion.setLavaCloseness(done.closeness);
+        this.lavaGlow(done.any);
+      });
+      return;
+    }
+    const lava = lavaSamples(this.doc.terrain, this.heights);
+    this.terrain.occlusion.setLava(lava);
+    this.lavaGlow(lava.includes(1));
+  }
+
+  /** Objects near lava glow from below by the ground's closeness to it (height-fog.ts) */
+  private lavaGlow(any: boolean): void {
     const t = this.doc.terrain;
     const f = this.heights;
-    const lava = new Uint8Array(f.columns * f.rows);
-    for (const body of [t.water, ...(t.waterBodies ?? [])]) {
-      if (!body || body.kind !== 'lava') continue;
-      for (let k = 0; k < lava.length; k++) {
-        if (body.mask[k] && f.grid.heights[k] < body.level) lava[k] = 1;
-      }
-    }
-    for (const r of t.rivers ?? []) {
-      if (r.kind !== 'lava' || r.points.length < 2) continue;
-      for (const p of sampleRiver(r.points)) {
-        const reach = Math.ceil(p.width / 2 / f.cellSize);
-        const ci = Math.round((p.x - f.originX) / f.cellSize);
-        const cj = Math.round((p.y - f.originY) / f.cellSize);
-        for (let j = Math.max(0, cj - reach); j <= Math.min(f.rows - 1, cj + reach); j++) {
-          for (let i = Math.max(0, ci - reach); i <= Math.min(f.columns - 1, ci + reach); i++) {
-            if (Math.hypot(i - ci, j - cj) * f.cellSize <= p.width / 2) lava[j * f.columns + i] = 1;
-          }
-        }
-      }
-    }
-    this.terrain.occlusion.setLava(lava);
-    // Objects near lava glow from below by the same closeness (height-fog.ts)
     const g = LAVA_GLOW_UNIFORMS;
-    g.uLavaGlowOn.value = lava.includes(1) ? 1 : 0;
+    g.uLavaGlowOn.value = any ? 1 : 0;
     g.uLavaGlowTex.value = this.terrain.occlusion.texture;
     const sx = 1 / (f.cellSize * f.columns);
     const sy = 1 / (f.cellSize * f.rows);

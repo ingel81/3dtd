@@ -14,6 +14,8 @@ import type { PackOptions } from '../../world/custom-map/map-file';
 import type { PackedMap, PackError } from '../../world/custom-map/map-pack';
 import type { MirrorSync, PartVersions } from '../model/doc-mirror';
 import type { PathMaskInput, PathMaskRect } from './path-mask-job';
+import type { FarShadowTexels, SampleRect, ShapePatch } from '../../world/custom-map/render/terrain/ground-shape';
+import type { Contours } from '../ops/contours';
 
 /** The jobs the worker takes, what each gets and gives */
 export interface CoreJobs {
@@ -28,6 +30,14 @@ export interface CoreJobs {
   buildAreas: { input: Record<string, never>; output: BuildAreas };
   /** The texels of the path mask that changed since the last (path-mask-job.ts), null when none did or when primed */
   pathMask: { input: PathMaskInput; output: PathMaskRect | null };
+  /** Occlusion and curvature of a sample rectangle, or of all with the drainage (ground-shape.ts) */
+  groundShape: { input: { rect: SampleRect | null }; output: ShapePatch };
+  /** Closeness to lava per sample, and whether there is lava */
+  lava: { input: Record<string, never>; output: { closeness: Uint8Array; any: boolean } };
+  /** The far shadow for a sun (far-shadow.ts) */
+  farShadow: { input: { sunDir: { x: number; y: number; z: number } }; output: FarShadowTexels };
+  /** Height lines every `step` metres (ops/contours.ts) */
+  contours: { input: { step: number }; output: Contours };
   /** Each spawn's route to the HQ (path-graph.ts spawnRoutes), by spawn id */
   routes: { input: Record<string, never>; output: Map<string, Route | null> };
 }

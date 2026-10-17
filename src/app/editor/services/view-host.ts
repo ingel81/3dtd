@@ -12,6 +12,7 @@ import type { CatalogIndex } from '../../map-ops/asset-catalog';
 import type { BuildAreas } from '../../map-ops/validation/build-areas';
 import type { SpawnRoutes } from './editor-routes';
 import type { EditorPathMask } from './editor-path-mask';
+import type { EditorGround } from './editor-ground';
 import type { EditorDocument } from '../model/editor-document';
 import { patch, type EditorSettings, type EditorTool, type ToolContext } from '../tools/tool';
 import { EditorViewport, type CameraBookmark, type FrameStats, type HoverInfo } from '../view/editor-viewport';
@@ -89,6 +90,8 @@ export interface ViewHostDeps {
   hintChanged(): void;
   /** The view's path mask, kept by the editor's worker */
   pathMask: EditorPathMask;
+  /** The view's ground shape and height lines, worked out by the editor's worker */
+  ground: EditorGround;
 }
 
 export class ViewHost implements EditorViewPort {
@@ -148,6 +151,8 @@ export class ViewHost implements EditorViewPort {
           }),
         pathMaskBuilt: (view) => d.pathMask.built(view),
         pathMaskChanged: () => d.pathMask.changed(),
+        groundBaker: () => d.ground,
+        contours: (step) => d.ground.contours(step),
       });
       this.viewport = vp;
       this.refreshRoutes();

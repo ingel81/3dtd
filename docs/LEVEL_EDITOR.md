@@ -519,7 +519,8 @@ meldet Fehler der Liste und Regeln ohne schießenden Tower. Sie stehen im Karten
 
 **Measure (D).** Klicks setzen Punkte; das Panel zeigt Länge auf der Karte und am Boden entlang, Anstieg und Abstieg,
 dazu je Spawn die Spurlänge und die Laufzeit für den langsamsten, einen typischen und den schnellsten Bodengegner.
-Darunter Höhenlinien (alle 1 bis 10 m, jede fünfte heller) und ein Raster (10 bis 100 m) zum Einschalten.
+Darunter Höhenlinien (alle 1 bis 10 m, jede fünfte heller; gerechnet im Editor-Worker, Auftrag `contours`) und ein
+Raster (10 bis 100 m) zum Einschalten.
 
 „Build areas“ legt eine Fläche auf den Boden, wo ein Spieler einen Tower bauen darf: kräftig grün, wo er steht und
 eine Route in Reichweite hat (60 m, die mittlere Grundreichweite der schießenden Tower, `TYPICAL_TOWER_RANGE`), blass
@@ -1005,8 +1006,9 @@ Auftrag bringt mit, was sich seit dem letzten geändert hat (`MirrorTracker.sync
 - Aufträge: was den Stand genau so sehen muss, wie er erbeten wurde (Packen), läuft sofort beim Eintreffen und liest
   den Spiegel vor seinem ersten `await`; alles andere wartet auf einen ruhigen Moment, je Art gewinnt der neueste (ein
   älterer wird mit `null` beantwortet), die dringlichste Art zuerst: `pack`, `pathMask` (Wegmaske, CUSTOM_MAPS.md),
-  `check` (Prüfen), `routes` (Routen der Spawns), `buildAreas` (Bauflächen; der Worker behält sie für die nächste
-  Prüfung). Was ein Auftrag mitbringt und nicht verloren gehen darf, wenn ein neuerer seinen Platz nimmt (die Covers
+  `check` (Prüfen), `groundShape` und `lava` (Bodenverdeckung, CUSTOM_MAPS.md), `routes` (Routen der Spawns),
+  `contours` (Höhenlinien), `buildAreas` (Bauflächen; der Worker behält sie für die nächste Prüfung), `farShadow`.
+  `groundShape` zählt jedes Rechteck: die Ansicht schickt eins nach dem anderen und sammelt, was dazwischen kommt. Was ein Auftrag mitbringt und nicht verloren gehen darf, wenn ein neuerer seinen Platz nimmt (die Covers
   der Wegmaske), nimmt der Worker beim Eintreffen (`take`).
 - Ohne Worker (Tests) läuft derselbe Code im Prozess, die Nachrichten geklont wie bei einem Worker. Der Zufallslauf
   (`editor-fuzz.spec.ts`) gleicht nebenbei den Spiegel ab: eine Datei aus dem Spiegel muss Byte für Byte die aus dem

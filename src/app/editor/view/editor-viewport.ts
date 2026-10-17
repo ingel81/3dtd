@@ -30,7 +30,8 @@ import { TopDownRenderer } from './top-down-renderer';
 import { EDITOR_FOV, ViewExtras } from './view-extras';
 import { ViewPicker } from './view-picker';
 import { pixelRatioFor, readStoredQuality, storedKnobsFor, type QualityKnobs } from '../../three-engine/render-quality';
-import { contourLines } from '../ops/contours';
+import type { Contours } from '../ops/contours';
+import type { GroundBaker } from '../../world/custom-map/render/terrain/ground-shape';
 
 export interface HoverInfo {
   x: number;
@@ -72,6 +73,10 @@ export interface ViewportCallbacks {
   pathMaskBuilt(view: EditorMapView): void;
   /** The view laid new roads or water: the path mask's texels that changed come from the worker */
   pathMaskChanged(): void;
+  /** Who works the ground's shape out (occlusion, lava, far shadow): the editor's worker (EditorGround) */
+  groundBaker(): GroundBaker;
+  /** Height lines every `step` metres, from the editor's worker; null when a newer request took their place */
+  contours(step: number): Promise<Contours | null>;
 }
 
 export class EditorViewport {
@@ -321,6 +326,7 @@ export class EditorViewport {
     const view = new EditorMapView(this.editor.doc, this.scene, this.renderer);
     view.view.applyQuality(this.quality.customMaps);
     view.onPathMaskBuilt(() => this.callbacks.pathMaskBuilt(view));
+    view.view.groundBaker = this.callbacks.groundBaker();
     return view;
   }
 
@@ -428,7 +434,14 @@ export class EditorViewport {
     this.overlayKey = key;
     this.overlayTime = time;
     const t = this.editor.doc.terrain;
-    this.overlay.contours.set(v.contours ? contourLines(t, v.contourStep) : null);
+    if (!v.contours) this.overlay.contours.set(null);
+    else {
+      const step = v.contourStep;
+      void this.callbacks.contours(step).then((lines) => {
+        const now = this.settings.view();
+        if (lines && now.contours && now.contourStep === step) this.overlay.contours.set(lines);
+      });
+    }
     this.overlay.grid.set(v.grid ? v.gridStep : 0, t.width, t.depth, t.grid.cellSize * 2);
   }
 

@@ -20,6 +20,9 @@ import { packErrorReply, packForSave } from '../../world/custom-map/map-pack';
 import { DocMirror } from '../model/doc-mirror';
 import type { CoreInput, CoreJobKind, CoreOutput, CoreReply, CoreRequest } from './editor-core-protocol';
 import { PathMaskState } from './path-mask-job';
+import { HeightField } from '../../world/custom-map/render/height-field';
+import { farShadowData, lavaCloseness, lavaSamples, shapePatch } from '../../world/custom-map/render/terrain/ground-shape';
+import { contourLines } from '../ops/contours';
 
 /** What the jobs work with */
 interface CoreContext {
@@ -28,6 +31,13 @@ interface CoreContext {
   /** Where towers may stand, as judged last (the check reads them) */
   buildAreas: BuildAreas | null;
   pathMask: PathMaskState;
+  /** The ground shape's arrays over the grid, kept between jobs */
+  shape: { terrain?: Float32Array; curvature?: Uint8Array };
+}
+
+/** The mirror's heights as a field */
+function fieldOf(doc: CustomMapDocument): HeightField {
+  return new HeightField(doc.terrain.grid, doc.terrain.width, doc.terrain.depth);
 }
 
 interface JobDef<K extends CoreJobKind> {
@@ -71,6 +81,38 @@ const JOBS: { [K in CoreJobKind]: JobDef<K> } = {
     run: (ctx, input) => ctx.pathMask.run(ctx.mirror.doc, input),
     transfer: (rect) => (rect ? [rect.data.buffer as ArrayBuffer] : []),
   },
+  groundShape: {
+    priority: 45,
+    run: (ctx, input) => {
+      const field = fieldOf(ctx.mirror.doc);
+      const n = field.columns * field.rows;
+      if (ctx.shape.terrain?.length !== n) ctx.shape = { terrain: new Float32Array(n), curvature: new Uint8Array(n) };
+      return shapePatch(field, input.rect, ctx.shape.terrain, ctx.shape.curvature);
+    },
+    transfer: (p) => [p.terrain.buffer, p.curvature.buffer, ...(p.drainage ? [p.drainage.buffer] : [])] as ArrayBuffer[],
+  },
+  lava: {
+    priority: 45,
+    run: (ctx) => {
+      const field = fieldOf(ctx.mirror.doc);
+      const lava = lavaSamples(ctx.mirror.doc.terrain, field);
+      return { closeness: lavaCloseness(lava, field), any: lava.includes(1) };
+    },
+    transfer: (l) => [l.closeness.buffer as ArrayBuffer],
+  },
+  farShadow: {
+    priority: 20,
+    run: (ctx, input) => {
+      const t = ctx.mirror.doc.terrain;
+      return farShadowData(fieldOf(ctx.mirror.doc), input.sunDir, t.width, t.depth);
+    },
+    transfer: (f) => [f.data.buffer as ArrayBuffer],
+  },
+  contours: {
+    priority: 35,
+    run: (ctx, input) => contourLines(ctx.mirror.doc.terrain, input.step),
+    transfer: (c) => [c.minor.buffer, c.major.buffer] as ArrayBuffer[],
+  },
   routes: {
     priority: 40,
     run: (ctx) => spawnRoutes(ctx.mirror.doc),
@@ -94,7 +136,7 @@ interface Waiting {
 }
 
 export class EditorCoreHost {
-  private readonly ctx: CoreContext = { mirror: new DocMirror(), catalog: new CatalogIndex(EMPTY_CATALOG), buildAreas: null, pathMask: new PathMaskState() };
+  private readonly ctx: CoreContext = { mirror: new DocMirror(), catalog: new CatalogIndex(EMPTY_CATALOG), buildAreas: null, pathMask: new PathMaskState(), shape: {} };
   private readonly waiting = new Map<CoreJobKind, Waiting>();
   private draining = false;
 
