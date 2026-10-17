@@ -94,6 +94,8 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
   private ticker: ReturnType<typeof setInterval> | null = null;
   /** The load under way; an older one that ends late (Try again now) changes nothing */
   private loadGen = 0;
+  /** The square the load under way asked for; none for the place's first opening */
+  private loadingArea: OsmArea | undefined;
 
   /** Seconds the load has waited so far */
   readonly waited = computed(() => Math.max(0, Math.floor((this.now() - this.loadStart) / 1000)));
@@ -156,6 +158,7 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
    */
   async load(area?: OsmArea): Promise<void> {
     const gen = ++this.loadGen;
+    this.loadingArea = area;
     const before = area ? this.frame() : null;
     this.phase.set('loading');
     this.error.set(null);
@@ -217,7 +220,8 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
   /** Drops the load under way and asks the servers anew, without the wait */
   retryNow(): void {
     this.loading?.abort();
-    void this.load();
+    // The same square again: a moved or sized one is not swapped for the default round the place
+    void this.load(this.loadingArea);
   }
 
   /** A step reported: into the state the rows and the bar show; a step that comes ends the wait for the servers */

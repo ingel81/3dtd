@@ -193,4 +193,47 @@ describe('OSM world frame', () => {
     expect(status()).not.toContain('busy');
     fixture.destroy();
   });
+
+  it('asks again now for the square that was moved, not for the default one round the place', async () => {
+    type Open = OsmFrameSession['open'];
+    const requests: Parameters<Open>[0][] = [];
+    const info = {
+      area: { lat: 49.7, lon: 9.26, sideM: 2400 },
+      data: { lat: 49.7, lon: 9.26, sideM: 2400 },
+      hq: { lat: 49.7, lon: 9.26 },
+      hqShiftM: 0,
+      spawns: [{ lat: 49.705, lon: 9.265, name: 'North', distanceM: 600, routeM: 700, route: [] }],
+      fetchedAt: '2026-10-17T00:00:00Z',
+      download: { stored: true, osmMs: 0, osmChars: 0, osmRequests: 0, demMs: 0, demTiles: 0, demBytes: 0 },
+      roads: { edges: 10, roadKm: 1, pathKm: 1, bridges: 0, tunnels: 0 },
+      dem: null,
+    };
+    const session = {
+      // The first opening stands at once; every later one waits (the servers are slow)
+      open: vi.fn((request: Parameters<Open>[0]) => {
+        requests.push(request);
+        return requests.length === 1 ? Promise.resolve(info) : new Promise(() => undefined);
+      }),
+      dispose: vi.fn(),
+    };
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: MAP_STORE, useValue: new MapStore({ backend: new MemoryMapBackend(), fetch: async () => new Response('{"maps":[]}') }) },
+        { provide: OSM_FRAME_SESSION, useValue: () => session },
+      ],
+    });
+    TestBed.overrideComponent(OsmFrameComponent, { set: { template, templateUrl: undefined, styleUrl: undefined, styles: [], imports: [IconStub] } });
+    const fixture = TestBed.createComponent(OsmFrameComponent);
+    fixture.componentRef.setInput('place', { lat: 49.7, lon: 9.26, name: 'Miltenberg' });
+    fixture.detectChanges();
+    await new Promise((r) => setTimeout(r, 0));
+    const frame = fixture.componentInstance;
+    expect(frame.phase()).toBe('ready');
+    const moved = { lat: 49.703, lon: 9.262, sideM: 1800 };
+    frame.reframe(moved);
+    frame.retryNow();
+    expect(requests.map((r) => r.area)).toEqual([undefined, moved, moved]);
+    expect(requests[2]).toMatchObject({ topUp: true, spawnsAt: [{ lat: 49.705, lon: 9.265 }] });
+    fixture.destroy();
+  });
 });
