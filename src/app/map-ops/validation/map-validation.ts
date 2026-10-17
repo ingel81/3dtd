@@ -24,7 +24,6 @@ import { waveEventProblems } from './wave-event-check';
 import { MOVER_CLEARANCE, moverWays } from '../../world/custom-map/map-life';
 import { mapProblems, type MapProblem, type MapProblemPart } from '../../world/custom-map/map-file';
 import { mapRepairs } from '../../world/custom-map/map-repair';
-import type { ToolId } from '../../editor/tools/tool';
 
 export type IssueSeverity = 'error' | 'warning';
 
@@ -70,24 +69,9 @@ export interface MapIssue {
   focus?: MapPoint;
   /** What to select */
   target?: { kind: 'spawn' | 'edge' | 'node' | 'object' | 'hq'; id?: string };
-  /** The tool to fix it with, when no target says it */
-  fixIn?: ToolId;
+  /** The part of the map to fix it in, when no target says it */
+  part?: MapProblemPart;
 }
-
-/** The tool that changes each part of the document */
-const PART_TOOL: Record<MapProblemPart, ToolId> = {
-  meta: 'settings',
-  terrain: 'terrain',
-  objects: 'objects',
-  paths: 'paths',
-  spawns: 'markers',
-  hq: 'markers',
-  environment: 'environment',
-  gameplay: 'gameplay',
-  life: 'life',
-  intro: 'settings',
-  prefabs: 'stamp',
-};
 
 /**
  * What keeps the map file from being written (map-file.ts mapProblems):
@@ -99,7 +83,7 @@ export function fileIssues(doc: CustomMapDocument, problems: readonly MapProblem
   // Soft values (map-repair.ts): saved as they are, set right when the map is read next
   const soft = mapRepairs(doc).map((q) => ({ q, severity: 'warning' as const, code: 'map-values' as const, message: `Set right when the map opens next: ${q.text}.` }));
   return [...hard, ...soft].map(({ q, severity, code, message }) => {
-    const issue: MapIssue = { severity, code, message, fixIn: PART_TOOL[q.part] };
+    const issue: MapIssue = { severity, code, message, part: q.part };
     if (q.at) {
       issue.target = q.at;
       const where = q.at.kind === 'hq' ? doc.hq : q.at.kind === 'object' ? doc.objects.find((o) => o.id === q.at!.id) : q.at.kind === 'spawn' ? doc.spawns.find((sp) => sp.id === q.at!.id) : q.at.kind === 'node' ? doc.paths.nodes.find((n) => n.id === q.at!.id) : undefined;

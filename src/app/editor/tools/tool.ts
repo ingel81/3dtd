@@ -5,6 +5,7 @@
  */
 import type { GizmoHandle } from '../view/transform-gizmo';
 import type { MapLifeKind, MapObject, MapPathKind, MapPoint } from '../../world/custom-map/map-document';
+import type { MapProblemPart } from '../../world/custom-map/map-file';
 import type { CatalogIndex } from '../../map-ops/asset-catalog';
 import type { EditorDocument } from '../model/editor-document';
 import { DEFAULT_BRUSH, type BrushSettings } from '../../map-ops/brush';
@@ -18,6 +19,21 @@ import { DEFAULT_ROAD, type RoadOptions } from '../ops/landscape/road';
 import type { EditorOverlay } from '../view/editor-overlay';
 
 export type ToolId = 'look' | 'landscape' | 'stamp' | 'gameplay' | 'measure' | 'terrain' | 'paint' | 'water' | 'objects' | 'life' | 'paths' | 'markers' | 'environment' | 'settings';
+
+/** The tool that changes each part of the document (a check issue's `part`) */
+export const PART_TOOL: Record<MapProblemPart, ToolId> = {
+  meta: 'settings',
+  terrain: 'terrain',
+  objects: 'objects',
+  paths: 'paths',
+  spawns: 'markers',
+  hq: 'markers',
+  environment: 'environment',
+  gameplay: 'gameplay',
+  life: 'life',
+  intro: 'settings',
+  prefabs: 'stamp',
+};
 
 export interface ToolInfo {
   id: ToolId;

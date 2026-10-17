@@ -377,8 +377,8 @@ describe('validateMap, what keeps the file from being written', () => {
     doc.hq = { x: Number.NaN, y: 0 };
     const file = validateMap(doc).filter((i) => i.code === 'map-file');
     expect(file).toEqual([
-      { severity: 'error', code: 'map-file', message: 'The map cannot be saved: path edge e-bad names a node that does not exist.', fixIn: 'paths', target: { kind: 'edge', id: 'e-bad' } },
-      { severity: 'error', code: 'map-file', message: 'The map cannot be saved: the HQ has no position.', fixIn: 'markers', target: { kind: 'hq' } },
+      { severity: 'error', code: 'map-file', message: 'The map cannot be saved: path edge e-bad names a node that does not exist.', part: 'paths', target: { kind: 'edge', id: 'e-bad' } },
+      { severity: 'error', code: 'map-file', message: 'The map cannot be saved: the HQ has no position.', part: 'hq', target: { kind: 'hq' } },
     ]);
   });
 
@@ -388,8 +388,8 @@ describe('validateMap, what keeps the file from being written', () => {
     doc.prefabs = [{ id: 'p', name: 'P' } as never];
     expect(validateMap(doc).filter((i) => i.code === 'map-file')).toEqual([]);
     expect(validateMap(doc).filter((i) => i.code === 'map-values')).toEqual([
-      { severity: 'warning', code: 'map-values', message: 'Set right when the map opens next: object o1 has a bad placement; it is left out.', fixIn: 'objects', target: { kind: 'object', id: 'o1' } },
-      { severity: 'warning', code: 'map-values', message: 'Set right when the map opens next: prefab 1 needs an id, a name and its piece; it is left out.', fixIn: 'stamp' },
+      { severity: 'warning', code: 'map-values', message: 'Set right when the map opens next: object o1 has a bad placement; it is left out.', part: 'objects', target: { kind: 'object', id: 'o1' } },
+      { severity: 'warning', code: 'map-values', message: 'Set right when the map opens next: prefab 1 needs an id, a name and its piece; it is left out.', part: 'prefabs' },
     ]);
   });
 });

@@ -4,6 +4,7 @@ import { MAP_TRIAL_TONE, mapTrialSummary, type MapTrialResult } from '../../../w
 import { TdIconComponent } from '../../../components/icon/icon.component';
 import type { MapIssue } from '../../../map-ops/validation/map-validation';
 import { EditorSession, TOOL_INFO } from '../editor-session.service';
+import { PART_TOOL } from '../../tools/tool';
 import { TOWER_SPOT_M2, TYPICAL_TOWER_RANGE } from '../../../map-ops/validation/build-areas';
 
 /**
@@ -121,13 +122,13 @@ export class CheckPanelComponent {
       this.session.selectTool('objects');
       this.session.patchSettings((s) => (s.objects.mode = 'select'));
     }
-    else if (issue.fixIn) this.session.selectTool(issue.fixIn);
+    else if (issue.part) this.session.selectTool(PART_TOOL[issue.part]);
     if (issue.focus) vp.focusOn(issue.focus, 80);
   }
 
   /** The tool an issue without a thing to select is fixed with, as the toolbar names it */
   fixLabel(issue: MapIssue): string | null {
-    const tool = !issue.target && issue.fixIn ? TOOL_INFO.get(issue.fixIn) : undefined;
+    const tool = !issue.target && issue.part ? TOOL_INFO.get(PART_TOOL[issue.part]) : undefined;
     return tool ? `${tool.label} (${tool.key})` : null;
   }
 
