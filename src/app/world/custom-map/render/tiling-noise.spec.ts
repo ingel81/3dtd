@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { crackDistance } from './lava-noise';
+import { crackDistance } from './tiling-noise';
 
 describe('crackDistance', () => {
   it('runs from 0 on the cracks to 1 inside the plates', () => {

@@ -24,6 +24,7 @@ import { TERRAIN_HEIGHT_GLSL, type HeightTexture } from '../terrain/height-textu
 import { GROUND_COLOR_GLSL, GROUND_COLOR_UNIFORMS } from '../terrain/ground-color';
 import { FLOW_MAP_MAX, SHORE_FIELD_MAX, SLOPE_FIELD_MAX } from './flow-map';
 import { SHORE_PHASE_GLSL, shoreWaves } from './shore-waves';
+import { foamNoiseTexture } from './foam-noise';
 import { lavaNoiseTexture } from './lava-noise';
 import { SCENE_COPY_GLSL, type SceneCopy } from './scene-copy';
 import { SHORE_CUT_DEPTH, SHORE_CUT_SCALE } from './shore-cut';
@@ -42,7 +43,7 @@ import type { WaterReflection } from './water-reflection';
  *
  * Kinds (define KIND):
  * - water: clear at the shore, the body colour in the deep, waves, sky
- *   reflection with fresnel, sun glint, foam where it gets shallow
+ *   reflection with fresnel, sun glint, lacy foam along the shore (foam-noise.ts)
  * - sea: like water with stronger waves and surf bands running to the shore
  * - swamp: murky, weak reflection, floating algae patches
  * - ice: opaque, still; light over shallows, dark teal over depth, fresnel
@@ -93,6 +94,7 @@ export function createWaterMaterial(o: WaterMaterialOptions): ShaderMaterial {
         uFlowMap: { value: null },
         uHasFlow: { value: 0 },
         uLavaNoise: { value: null },
+        uFoam: { value: null },
         // The scene mirrored in this body's level (water-reflection.ts): on while it is the level mirrored
         uReflectOn: { value: 0 },
         uReflection: { value: null },
@@ -114,6 +116,7 @@ export function createWaterMaterial(o: WaterMaterialOptions): ShaderMaterial {
   });
   material.uniforms['uWaves'].value = waveTexture();
   if (o.kind === 'lava') material.uniforms['uLavaNoise'].value = lavaNoiseTexture();
+  else if (o.kind !== 'ice') material.uniforms['uFoam'].value = foamNoiseTexture();
   // Shared objects (merge above copied them): fog and terrain heights follow their owners
   Object.assign(material.uniforms, HEIGHT_FOG_UNIFORMS, LAMP_LIGHT_UNIFORMS, o.heights.uniforms, GROUND_COLOR_UNIFORMS);
   material.name = `custom-map-water-${o.kind}`;
@@ -382,6 +385,7 @@ uniform vec2 uMapHalf;
 uniform sampler2D uFlowMap;
 uniform float uHasFlow;
 uniform sampler2D uLavaNoise;
+uniform sampler2D uFoam;
 #ifdef SEA_WAVES
 varying vec3 vSwellNormal;
 #endif
@@ -410,6 +414,17 @@ varying vec3 vMapPos;
 varying vec2 vFlow;
 varying float vAcross;
 #endif
+
+// How steeply the depth changes over the surface (rise over run): its screen derivatives solved for the
+// gradient in the scene's x/z plane
+float surfaceSlope(float depth) {
+  vec2 dx = dFdx(vWorldPos.xz);
+  vec2 dy = dFdy(vWorldPos.xz);
+  float det = dx.x * dy.y - dx.y * dy.x;
+  vec2 dd = vec2(dFdx(depth), dFdy(depth));
+  vec2 g = vec2(dy.y * dd.x - dx.y * dd.y, dx.x * dd.y - dy.x * dd.x) / (sign(det) * max(abs(det), 1e-8));
+  return length(g);
+}
 
 // Three layers of waves; the finest (weight fine) fades with distance, where it only turned into grain
 vec3 waveNormal(vec2 p, vec2 flow, float strength, float fine) {
@@ -774,51 +789,89 @@ void main() {
   color += pointGlints(n, v);
   // The baked light of lamps and fires on the bank (lamp-light.ts): a warm sheen on the water near them
   color += lampLightAt(vWorldPos) * 0.18;
-  // Foam where it gets shallow, broken up by the waves. It lies a little off the waterline and thins out
-  // towards it; at a mask's edge it goes with the water. Where the shallow strip is only a few pixels wide
-  // (a steep bank, or far away) it would draw a hard white line along the shore: there it fades, by the
-  // depth's change per pixel, and the lapping line below takes over
-  #if RIVER == 1 && defined(WATER_DETAIL)
-  // On a river the same lookup, stretched along the current and running down it: streaks of foam
-  vec2 fd = normalize(vFlow + vec2(1e-4));
-  float foamNoise = texture2D(uWaves, vec2(dot(vWorldPos.xz, vec2(-fd.y, fd.x)) / 1.1, (dot(vWorldPos.xz, fd) - uTime * 0.9) / 5.0)).x;
+  // Foam along the shore (foam-noise.ts): lace with holes that gathers at the waterline and thins out to open
+  // water. How far out it reaches changes along the shore, it leaves gaps, and its front breathes up the bank
+  // and back; nowhere a closed line of one width. Its distance from the waterline in metres is the depth over
+  // the bank's slope (an area body's baked slope, else the depth's gradient over the surface): a flat beach
+  // carries a wide strip, a steep bank a narrow one, a quay wall a few patches at its foot
+  vec2 fp = vWorldPos.xz;
+  vec4 foamFar = texture2D(uFoam, fp / 53.0 + uFlow * uTime * 0.002);
+  #if RIVER == 1
+  // Along the current in the two cross-faded phases of the waves (flowNormal), so the lace never shears
+  float ft = uTime / FLOW_PERIOD;
+  vec4 laceA = texture2D(uFoam, (fp - vel * fract(ft) * FLOW_PERIOD) / 7.0);
+  vec4 laceB = texture2D(uFoam, (fp - vel * fract(ft + 0.5) * FLOW_PERIOD) / 7.0 + 0.5);
+  vec4 foamNear = mix(laceB, laceA, 1.0 - abs(2.0 * fract(ft) - 1.0));
+  float bankSlope = surfaceSlope(depth);
+  float wall = 0.0;
   #else
-  float foamNoise = texture2D(uWaves, vWorldPos.xz / 2.3 + uTime * 0.03).x;
+  vec4 foamNear = texture2D(uFoam, fp / 7.0 + flow * 0.04);
+  // Derivatives outside the branch: hasField may differ between the pixels of a quad
+  float gradSlope = surfaceSlope(depth);
+  float bankSlope = hasField ? field.a * ${SLOPE_FIELD_MAX.toFixed(2)} : gradSlope;
+  float wall = hasField ? smoothstep(1.3, 2.3, bankSlope) : 0.0;
   #endif
-  float foam = smoothstep(0.3, 0.06, depth) * smoothstep(0.0, 0.05, depth) * edge
-    * smoothstep(0.45, 0.75, foamNoise * 0.6 + foamBreak * 0.6 - depth);
-  float depthStep = fwidth(depth);
-  foam *= 1.0 - smoothstep(0.04, 0.12, depthStep);
-  // The waterline laps: a soft line of foam rides small waves up the bank and back (a few seconds, out of
-  // step along the shore), at least two pixels wide so it shows at a steep bank and from far away too
-  float lap = 0.5 + 0.5 * sin(uTime * 1.7 + foamBreak * 11.0 + foamNoise * 2.0);
-  float lapWidth = max(0.06, depthStep * 2.5);
-  float lapLine = (1.0 - smoothstep(0.0, lapWidth, abs(depth - 0.03 - 0.1 * lap))) * edge;
-  foam = max(foam, lapLine * mix(0.35, 0.7, smoothstep(0.3, 0.75, foamNoise * 0.7 + foamBreak * 0.6)));
+  float fromLine = depth / clamp(bankSlope, 0.06, 3.0);
+  #if RIVER == 0
+  // At a wall the depth jumps within a pixel: the foam there keeps to the blurred distance to the shore
+  if (hasField) fromLine = mix(fromLine, field.b * ${SHORE_FIELD_MAX.toFixed(1)} * 0.7, wall);
+  #endif
+  // Out to 0.3 to 3 m, wider on a gentle bank, narrow at a steep one; the sea a little farther, the swamp less
+  #if KIND == 3
+  float foamScale = 1.5;
+  #elif KIND == 4
+  float foamScale = 0.6;
+  #else
+  float foamScale = 1.0;
+  #endif
+  float foamReach = mix(0.3, 3.0, foamFar.b * foamFar.b) * foamScale * mix(1.0, 0.35, smoothstep(0.4, 2.0, bankSlope));
+  // The front runs up the bank and back, out of step along the shore
+  float lap = sin(uTime * 0.85 + foamFar.g * 13.0 + foamNear.a * 1.7);
+  float x = fromLine + lap * 0.22 * foamReach - 0.08;
+  // Gaps along the shore where the water meets the bank clear, patches where it gathers
+  float gaps = smoothstep(0.2, 0.55, foamFar.g);
+  float density = exp(-max(x, 0.0) * 3.0 / foamReach) * (1.0 - smoothstep(0.6, 1.0, x / foamReach)) * gaps * mix(0.45, 1.1, foamFar.a) * mix(0.6, 1.1, foamNear.g) * edge;
   #ifdef SHORE_DENSITY
   // Bands of foam that come in from the open water and run up to the shore (shore-waves.ts). They follow
   // the blurred distance to the shore, so they round the bank's corners instead of tracing its cells,
-  // wobble along it and break up with the waves; they gather out of nothing farther out. At a steep bank
+  // wobble along it and break up into the same lace; they gather out of nothing farther out. At a steep bank
   // (a quay wall) little foam: the water there is deep right up to it. The terrain's swash shares the phase
   float shoreDist = hasField ? field.b * ${SHORE_FIELD_MAX.toFixed(1)} : depth * 6.0;
-  float wall = hasField ? smoothstep(1.3, 2.3, field.a * ${SLOPE_FIELD_MAX.toFixed(2)}) : 0.0;
-  float sp = shorePhase(shoreDist + (foamBreak - 0.5) * (0.6 / SHORE_DENSITY) + (foamNoise - 0.5) * (0.15 / SHORE_DENSITY), SHORE_DENSITY, SHORE_SPEED, uTime);
-  float bandShape = smoothstep(0.5, 0.88, sp) * (1.0 - smoothstep(0.9, 1.0, sp));
+  float sp = shorePhase(shoreDist + (foamBreak - 0.5) * (0.6 / SHORE_DENSITY) + (foamNear.a - 0.5) * (0.15 / SHORE_DENSITY), SHORE_DENSITY, SHORE_SPEED, uTime);
+  float bandShape = smoothstep(0.35, 0.86, sp) * (1.0 - smoothstep(0.88, 1.0, sp));
   #if KIND == 3
   float reach = 5.0;
-  float bandStrength = 0.75;
-  float breakUp = smoothstep(0.3, 0.85, foamNoise * 0.7 + foamBreak * 0.5);
+  float bandStrength = 1.0;
   #else
-  // Lakes: only close in and well broken up
+  // Lakes: only close in
   float reach = 0.6;
-  float bandStrength = 0.35;
-  float breakUp = smoothstep(0.45, 0.85, foamNoise * 0.7 + foamBreak * 0.5);
+  float bandStrength = 0.4;
   #endif
-  float bands = bandShape * smoothstep(SHORE_REACH, SHORE_REACH * 0.3, shoreDist) * smoothstep(reach, reach * 0.35, depth) * breakUp;
-  foam *= 1.0 - 0.6 * wall;
-  foam = max(foam, bands * bandStrength * (1.0 - 0.85 * wall));
+  float bands = bandShape * smoothstep(SHORE_REACH, SHORE_REACH * 0.3, shoreDist) * smoothstep(reach, reach * 0.35, depth)
+    * mix(0.4, 1.0, foamNear.g) * smoothstep(0.15, 0.5, foamFar.g + foamBreak * 0.3);
+  density = max(density, bands * bandStrength * (1.0 - 0.85 * wall) * edge);
   #endif
+  // The lace: dense foam keeps all but the bubbles' middles, thin foam only their walls; the bubbles slowly
+  // pop and form. Capped, so even the densest foam keeps its largest holes. Once a pixel covers more than a
+  // bubble (far away) the threshold softens into the share of foam there instead of solid white
+  float metresPerPixel = length(fwidth(fp));
+  float soft = mix(0.2, 0.6, smoothstep(0.04, 0.35, metresPerPixel));
+  float pop = 1.0 + 0.12 * sin(uTime * 1.3 + foamNear.a * 6.2832);
+  // The fine noise breaks the bubbles' walls, so thin foam falls apart into flecks instead of a net of cracks
+  float laceAt = (foamNear.r * 0.7 + (1.0 - foamNear.a) * 0.4) * (1.0 - soft * 0.5);
+  float foam = smoothstep(laceAt, laceAt + soft, min(density, 0.85) * pop) * mix(1.0, 0.75, smoothstep(0.04, 0.35, metresPerPixel));
+  // Between the flecks the water is milky where foam gathers, so the lace sits in a soft haze of its own
+  foam = max(foam, density * 0.28 * smoothstep(0.25, 0.75, foamNear.g));
+  // A strip of a few pixels (far away, a steep bank) shows as a faint tint, not as a white line
+  foam *= mix(0.45, 1.0, smoothstep(1.5, 6.0, foamReach / max(metresPerPixel, 1e-4))) * (1.0 - 0.5 * wall);
   #if RIVER == 1
+    #ifdef WATER_DETAIL
+  // On a river the waves' texture, stretched along the current and running down it: streaks of foam
+  vec2 fd = normalize(vFlow + vec2(1e-4));
+  float foamNoise = texture2D(uWaves, vec2(dot(vWorldPos.xz, vec2(-fd.y, fd.x)) / 1.1, (dot(vWorldPos.xz, fd) - uTime * 0.9) / 5.0)).x;
+    #else
+  float foamNoise = texture2D(uWaves, vWorldPos.xz / 2.3 + uTime * 0.03).x;
+    #endif
   // Ripples where the river runs fast and shallow
   foam = max(foam, smoothstep(0.7, 0.95, foamNoise) * smoothstep(1.2, 0.3, depth) * min(length(vFlow), 1.0));
     #ifdef WATER_DETAIL
@@ -829,7 +882,8 @@ void main() {
   foam = max(foam, smoothstep(0.5, 0.8, foamNoise) * smoothstep(2.0, 3.5, speed) * 0.6);
     #endif
   #endif
-  color = mix(color, vec3(0.85, 0.88, 0.86) * uLight, foam * 0.65);
+  // Foam is translucent: its thin parts let the water's colour through
+  color = mix(color, vec3(0.86, 0.89, 0.88) * uLight * mix(0.65, 1.0, sunShade), foam * (0.4 + 0.4 * foam));
   #if KIND == 4
   alpha = mix(0.75, 0.97, smoothstep(0.0, 0.8, depth));
   #else

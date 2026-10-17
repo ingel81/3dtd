@@ -317,11 +317,7 @@ Lava spiegeln sich).
   ([RENDER_QUALITY.md](RENDER_QUALITY.md#eigene-teile-je-welt-e156))
 - `water` (Standard): klar am Ufer, Kartenfarbe in der Tiefe, Wellen, Spiegelung des Himmels mit Fresnel, Sonnenglanz
   (der scharfe Teil funkelt: feine, schnelle Wellenfacetten fangen die Sonne),
-  Schaum im Flachen (etwas vom Ufer abgerückt, zur Wasserlinie dünner, an der Maskenkante mit dem Wasser aus; wo der
-  flache Streifen nur wenige Pixel breit ist, an steilem Ufer oder in der Ferne, blendet er nach der Tiefenänderung je
-  Pixel aus), dazu auf allen Stufen eine weiche Schaumlinie an der Wasserlinie, die mit kleinen Wellen das Ufer hinauf
-  und zurück läuft (einige Sekunden, entlang des Ufers versetzt; mindestens zwei Pixel breit, so zeigt sie sich auch
-  am steilen Ufer und aus der Spielkamera). Flachwasser ist hell türkis (die Körperfarbe zu 40 % zu `#5fb3a6`; Sumpf
+  Uferschaum (siehe unten). Flachwasser ist hell türkis (die Körperfarbe zu 40 % zu `#5fb3a6`; Sumpf
   trüb grün). Der Wasserkörper nimmt bei warmem, tiefem Licht den Farbton der Sonne an (bis 35 % zur eigenen
   Helligkeit im Sonnenton, nur wenn Rot über Blau liegt): bei Dämmerung von oben gedämpft und warm wie die Spiegelung
   aus der Nähe, statt kräftig blau; Tag und Nacht bleiben unverändert (gilt für Wasser, Meer und Sumpf). Das eigene
@@ -341,12 +337,28 @@ Lava spiegeln sich).
   nach Änderungen im Editor (0,25 s nach der letzten) in einem Worker (`flow-map.worker.ts`, Kopien von Höhen und
   Maske; 15 bis 47 ms auf 513er bis 1025er-Raster blieben so vom Hauptthread), eine neuere Änderung ersetzt das
   Ergebnis
-- **Uferbänder** (`shore-waves.ts`): breite, weiche Schaumbänder laufen über den geglätteten Uferabstand zum Ufer
+- **Uferschaum** (`foam-noise.ts`, Wasser, Meer, Sumpf; Flächen und Flüsse): Spitze mit Löchern statt einer Linie.
+  Eine gebackene, kachelnde Textur (256², RGBA8, einmal auf der CPU): R die Blasen (Abstand zur Wand zweier
+  verzerrter Zellraster, grob 9 und fein 22 je Seite, das feine nur fleckweise), G Flecken, B die Reichweite, A feines
+  Rauschen. Der Abstand zur Wasserlinie in Metern ist Tiefe durch Uferneigung (Flächen: die gebackene Steilheit,
+  Flüsse und Schürze: der Tiefengradient über die Fläche aus den Bildschirmableitungen); an einer Wand die
+  geglättete Uferdistanz. Wie weit der Schaum hinausreicht, wechselt entlang des Ufers (0,3 bis 3 m, B im 53-m-Raster;
+  Meer x1,5, Sumpf x0,6; am steilen Ufer bis auf ein Drittel), er lässt Lücken (G im 53-m-Raster, etwa ein Drittel des
+  Ufers frei) und seine Front läuft das Ufer hinauf und zurück, entlang des Ufers versetzt. Die Dichte fällt zur
+  offenen Fläche ab; die Spitze behält, wo das Blasenfeld unter der Dichte liegt (dicht: alles bis auf die
+  Blasenmitten, dünn: nur Flocken, das feine Rauschen bricht die Wände), die Blasen ploppen langsam. Zwischen den
+  Flocken ist das Wasser milchig, dünner Schaum lässt die Wasserfarbe durch. Deckt ein Pixel mehr als eine Blase
+  (Ferne), wird die Schwelle weich (Schaumanteil statt Weiß), und ein Streifen von wenigen Pixeln Breite bleibt ein
+  schwacher Schleier statt einer weißen Linie: vorher lief um jedes Gewässer eine mindestens zwei Pixel breite
+  Schaumlinie gleicher Breite, aus der Spielkamera ein weißer Rahmen. Auf Flüssen zieht die Spitze in denselben zwei
+  überblendeten Phasen wie die Wellen stromab. Kosten: ein bis zwei Texturzugriffe mehr je Wasserpixel (der
+  bisherige Schaumzugriff entfällt auf Flächen), kein Pass
+- **Uferbänder** (`shore-waves.ts`): breite Schaumbänder laufen über den geglätteten Uferabstand zum Ufer
   (Meer alle 9 m, bis 22 m draußen und 5 m Tiefe, alle 9 s eines; See alle 3,3 m, bis 5 m draußen und 0,6 m Tiefe,
-  stärker aufgebrochen, alle 7 s; Sumpf langsam). Sie entstehen draußen aus dem Nichts, sind entlang des Ufers
-  gewellt und von den Wellen aufgebrochen. Folgten sie der Tiefe, zeichneten sie an einer Kaimauer einen dünnen,
-  rechtwinkligen Umriss. An steilem Ufer (Steilheit über 1,3) bleibt wenig Schaum: Bänder bis 85 % schwächer,
-  Flachschaum bis 60 %. Das Gelände zeichnet mit derselben Phase den Schwall: nach
+  alle 7 s; Sumpf langsam). Sie entstehen draußen aus dem Nichts, sind entlang des Ufers gewellt und zerfallen in
+  dieselbe Spitze wie der Uferschaum (ihre Dichte geht in deren Schwelle ein). Folgten sie der Tiefe, zeichneten sie
+  an einer Kaimauer einen dünnen, rechtwinkligen Umriss. An steilem Ufer (Steilheit über 1,3) bleibt wenig Schaum:
+  Bänder bis 85 % schwächer, Uferschaum bis 50 %. Das Gelände zeichnet mit derselben Phase den Schwall: nach
   jedem ankommenden Band wird ein Streifen bis 0,3 m über dem Spiegel dunkel und glänzend und trocknet wieder ab
   (nur am Hauptgewässer, `uSwashSpeed`)
 - `sea`: stärkere Wellen

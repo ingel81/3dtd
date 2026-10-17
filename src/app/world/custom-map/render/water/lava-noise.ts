@@ -1,5 +1,5 @@
 import { DataTexture, LinearFilter, LinearMipmapLinearFilter, NoColorSpace, RepeatWrapping, RGBAFormat, UnsignedByteType } from 'three';
-import { clamp01, tilingFbm } from '../tiling-noise';
+import { clamp01, crackDistance, tilingFbm } from '../tiling-noise';
 
 /**
  * A tiling noise texture for lava (256², RGBA8, built once on the CPU and
@@ -21,76 +21,6 @@ const SIZE = 256;
 /** Crust plates per side of the texture */
 const CRACK_CELLS = 5;
 let texture: DataTexture | null = null;
-
-/**
- * Distance from each texel to the nearest edge between two cells of a
- * jittered grid that wraps (`cells` per side; a cell's point in its middle
- * 80 %), in cells: the bisector of the nearest two points. Scaled by 2 and
- * capped at 1. `warp` (two tiling noises around 0.5, `size`² each) moves
- * each texel up to `bend` cells before the test.
- */
-export function crackDistance(
-  size: number,
-  cells: number,
-  seed: number,
-  warp: [Float32Array, Float32Array] | null = null,
-  bend = 0,
-): Float32Array {
-  let s = seed;
-  const rnd = (): number => {
-    s = (s * 16807) % 2147483647;
-    return s / 2147483647;
-  };
-  const points = new Float32Array(cells * cells * 2);
-  for (let k = 0; k < cells * cells; k++) {
-    points[k * 2] = 0.1 + 0.8 * rnd();
-    points[k * 2 + 1] = 0.1 + 0.8 * rnd();
-  }
-  const wrap = (i: number): number => ((i % cells) + cells) % cells;
-  const out = new Float32Array(size * size);
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const at = y * size + x;
-      const gx = ((x + 0.5) / size) * cells + (warp ? (warp[0][at] - 0.5) * 2 * bend : 0);
-      const gy = ((y + 0.5) / size) * cells + (warp ? (warp[1][at] - 0.5) * 2 * bend : 0);
-      const cx = Math.floor(gx);
-      const cy = Math.floor(gy);
-      // The nearest point, relative to the texel
-      let best = Infinity;
-      let nx = 0;
-      let ny = 0;
-      for (let j = -1; j <= 1; j++) {
-        for (let i = -1; i <= 1; i++) {
-          const k = wrap(cy + j) * cells + wrap(cx + i);
-          const rx = cx + i + points[k * 2] - gx;
-          const ry = cy + j + points[k * 2 + 1] - gy;
-          const d = rx * rx + ry * ry;
-          if (d < best) {
-            best = d;
-            nx = rx;
-            ny = ry;
-          }
-        }
-      }
-      // The nearest bisector to any other point
-      let edge = Infinity;
-      for (let j = -2; j <= 2; j++) {
-        for (let i = -2; i <= 2; i++) {
-          const k = wrap(cy + j) * cells + wrap(cx + i);
-          const rx = cx + i + points[k * 2] - gx;
-          const ry = cy + j + points[k * 2 + 1] - gy;
-          const dx = rx - nx;
-          const dy = ry - ny;
-          const len = Math.hypot(dx, dy);
-          if (len < 1e-6) continue;
-          edge = Math.min(edge, ((nx + rx) * 0.5 * dx + (ny + ry) * 0.5 * dy) / len);
-        }
-      }
-      out[at] = Math.min(1, edge * 2);
-    }
-  }
-  return out;
-}
 
 export function lavaNoiseTexture(): DataTexture {
   if (texture) return texture;
