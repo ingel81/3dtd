@@ -29,7 +29,10 @@ import { layOut, OsmLayout, type LayoutReport } from './convert/layout';
 import { placeFurniture, type FurnitureReport } from './convert/furniture';
 import { placeBuildings, type BuildingCatalogEntry, type BuildingReport } from './convert/buildings';
 
-/** Side of an OSM world, metres: always 2.4 km (decision 2 of the plan), spawns up to 1000 m from the HQ in the middle */
+/**
+ * Side of an OSM world, metres: 2.4 km by default and at most (decision 2 of the plan, the size the format and the
+ * budget are measured for); the frame's square may be smaller and off the HQ (osm-area.ts, E209)
+ */
 export const OSM_WORLD_SIDE = 2400;
 /** Metres the query reaches past the map's edge, so a way leaving the map brings its next node */
 export const OSM_QUERY_MARGIN = 100;
@@ -40,8 +43,11 @@ export const OSM_SPAWNS = 4;
 
 /** What the conversion reads: the place, the Overpass answer and the heights */
 export interface OsmImportInput {
+  /** The map's centre; the Overpass answer and the heights cover at least its square */
   lat: number;
   lon: number;
+  /** Where the HQ goes (the place searched for), when the square was moved off it (osm-area.ts); else the centre */
+  place?: { lat: number; lon: number };
   /** What the player searched for; the coordinates when empty */
   address?: string;
   overpass: OverpassResponse;
@@ -117,7 +123,7 @@ export function convertOsm(input: OsmImportInput, options: OsmImportOptions = {}
   };
   const warnings: string[] = [];
   const side = options.sideM ?? OSM_WORLD_SIDE;
-  const { address, id, name } = osmMapNames(input);
+  const { address, id, name } = osmMapNames({ ...input, ...input.place });
   const doc = createMapDocument({
     id: options.id ?? id,
     name: options.name ?? name,
@@ -170,7 +176,7 @@ export function convertOsm(input: OsmImportInput, options: OsmImportOptions = {}
   step('paint');
 
   const at = options.spawnsAt?.map((p) => frame.point(p));
-  const layout = layOut(doc, roads.names, { spawns: options.spawns ?? OSM_SPAWNS, at });
+  const layout = layOut(doc, roads.names, { spawns: options.spawns ?? OSM_SPAWNS, at, place: input.place && frame.point(input.place) });
   if (layout.spawns.length < layout.wanted) {
     warnings.push(at
       ? `spawns: ${layout.wanted - layout.spawns.length} of ${layout.wanted} chosen have no street with a route to the HQ and were left out`
@@ -258,11 +264,11 @@ export interface OsmStreets {
 }
 
 /** The street graph of `input`'s place as the map will have it, with its HQ, without ground or paint */
-export function osmStreets(input: Pick<OsmImportInput, 'lat' | 'lon' | 'overpass'>, sideM = OSM_WORLD_SIDE): OsmStreets {
+export function osmStreets(input: Pick<OsmImportInput, 'lat' | 'lon' | 'place' | 'overpass'>, sideM = OSM_WORLD_SIDE): OsmStreets {
   const frame = new OsmFrame(input.lat, input.lon);
   const features = parseOsm(input.overpass, frame, sideM / 2);
   const roads = buildRoads(features);
-  const layout = new OsmLayout({ paths: roads.paths, terrain: { width: sideM, depth: sideM } }, roads.names);
+  const layout = new OsmLayout({ paths: roads.paths, terrain: { width: sideM, depth: sideM } }, roads.names, input.place && frame.point(input.place));
   return { frame, layout, roads: roads.stats, parse: features.stats };
 }
 

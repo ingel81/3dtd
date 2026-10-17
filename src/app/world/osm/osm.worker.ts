@@ -27,7 +27,7 @@ addEventListener('message', (event: MessageEvent<OsmWorkerRequest>) => {
     try {
       switch (request.kind) {
         case 'open':
-          send({ id, kind: 'opened', frame: await core.open(request.place, request.count, request.spawnsAt, onStep, undefined, onRetry) });
+          send({ id, kind: 'opened', frame: await core.open(request.request, onStep, undefined, onRetry) });
           break;
         case 'draw':
           send({ id, kind: 'spawns', spawns: core.draw(request.count, request.keep) });

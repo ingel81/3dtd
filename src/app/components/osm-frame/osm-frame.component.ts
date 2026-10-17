@@ -8,7 +8,8 @@ import type { CatalogObject } from '../../world/custom-map/render/asset-catalog'
 import { buildingCatalog } from '../../world/osm/convert/buildings';
 import { assetCosts } from '../../world/osm/convert/vegetation';
 import { OSM_SPAWNS, OSM_WORLD_SIDE, osmMapNames, type OsmImportReport } from '../../world/osm/import-osm';
-import type { FrameSpawn, GeoPoint, OsmFrameInfo, OsmStep } from '../../world/osm/osm-frame-core';
+import type { FrameSpawn, GeoPoint, OsmFrameInfo, OsmOpenRequest, OsmStep } from '../../world/osm/osm-frame-core';
+import { fitArea, OSM_HQ_EDGE_M, OSM_MIN_SIDE, sameArea, type OsmArea } from '../../world/osm/osm-area';
 import { OSM_CANCELLED, OsmFrameSession } from '../../world/osm/osm-frame-session';
 import { overpassRetryText, type OverpassRetry } from '../../world/osm/overpass-client';
 import { OsmFrameMap } from './osm-frame-map';
@@ -49,7 +50,8 @@ const RETRY_NOW_S = 15;
 
 /**
  * The frame of an OSM world (docs/OSM_WORLD_PLAN.md, O2): a flat map of the
- * place with the map's 2.4 km square, the HQ on the place and the spawns,
+ * place with the map's square (2.4 km round the place at first, moved by its
+ * edge and sized by its corners, E209), the HQ on the place and the spawns,
  * drawn as on a real place and dragged to other streets, then the making
  * in the OSM worker with its steps and a Cancel, and the map stored as an
  * own map. The menu plays it or opens it in the editor; the editor opens it.
@@ -77,7 +79,11 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
   /** The map made and stored, and what the player wants with it */
   readonly done = output<{ summary: MapSummary; then: 'play' | 'edit' }>();
 
-  readonly sideKm = OSM_WORLD_SIDE / 1000;
+  /** The map's square as it stands (laid out by the worker); null before the place is open */
+  readonly area = signal<OsmArea | null>(null);
+  readonly sideKm = computed(() => ((this.area()?.sideM ?? OSM_WORLD_SIDE) / 1000).toFixed(1));
+  readonly sideLimits = `${OSM_MIN_SIDE / 1000} to ${OSM_WORLD_SIDE / 1000} km`;
+  readonly hqEdge = OSM_HQ_EDGE_M;
   readonly maxSpawns = OSM_FRAME_MAX_SPAWNS;
   readonly phase = signal<Phase>('loading');
   /** The step under way while loading or making */
@@ -154,11 +160,17 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
     this.map?.dispose();
   }
 
-  /** Loads the place's data (frame store or download) and lays out its spawns */
-  async load(): Promise<void> {
+  /**
+   * Loads the place's data (frame store or download) and lays out its spawns; with `area` again for the
+   * square moved or sized on the map (E209): the spawns standing are kept where they fit, the rest drawn
+   * anew. A new square that cannot load (the servers, Cancel) leaves the one before as it was.
+   */
+  async load(area?: OsmArea): Promise<void> {
     const gen = ++this.loadGen;
+    const before = area ? this.frame() : null;
     this.phase.set('loading');
     this.error.set(null);
+    this.dropNote.set(null);
     this.step.set(null);
     this.retry.set(null);
     this.loading = new AbortController();
@@ -167,31 +179,42 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
     this.stopTicker();
     this.ticker = setInterval(() => this.now.set(Date.now()), 500);
     const place = this.place();
+    const standing = before ? this.spawns().map(({ lat, lon }) => ({ lat, lon })) : [];
+    const request: OsmOpenRequest = before
+      ? { place: { lat: place.lat, lon: place.lon, address: place.address }, count: Math.max(1, standing.length), spawnsAt: standing, topUp: true, area }
+      : { place: { lat: place.lat, lon: place.lon, address: place.address }, count: OSM_SPAWNS, spawnsAt: [...this.spawnsAt()] };
     try {
-      const frame = await this.session.open(
-        { lat: place.lat, lon: place.lon, address: place.address },
-        OSM_SPAWNS,
-        [...this.spawnsAt()],
-        (step) => this.step.set(step),
-        this.loading.signal,
-        (retry) => {
-          if (gen !== this.loadGen) return;
-          this.retryAt = Date.now() + retry.waitMs;
-          this.retry.set(retry);
-        },
-      );
+      const frame = await this.session.open(request, (step) => this.step.set(step), this.loading.signal, (retry) => {
+        if (gen !== this.loadGen) return;
+        this.retryAt = Date.now() + retry.waitMs;
+        this.retry.set(retry);
+      });
       if (this.destroyed || gen !== this.loadGen) return;
       this.frame.set(frame);
+      this.area.set(frame.area);
       this.spawns.set(frame.spawns);
+      this.selected.set(null);
       this.phase.set('ready');
       if (!frame.hq) this.error.set('This place has no streets in OpenStreetMap: enemies would have nowhere to walk.');
       else if (!frame.spawns.length) this.error.set('No street 500 to 1000 m from the HQ has a route to it. Try a place nearby.');
-      // The map's box exists once the phase is ready
-      setTimeout(() => void this.showMap());
+      else if (before && standing.some((p) => !frame.spawns.some((s) => Math.abs(s.lat - p.lat) < 2e-5 && Math.abs(s.lon - p.lon) < 3e-5))) {
+        this.dropNote.set('Spawns that no longer fit in the square were drawn anew.');
+      }
+      // The map's box exists once the phase is ready; a map that stands shows the new square
+      if (this.map) this.redraw();
+      else setTimeout(() => void this.showMap());
     } catch (e) {
       if (this.destroyed || gen !== this.loadGen) return;
-      this.phase.set('failed');
-      this.error.set((e as Error).message === OSM_CANCELLED ? 'Cancelled.' : (e as Error).message);
+      const message = (e as Error).message;
+      if (before) {
+        // The square goes back: the worker keeps what was laid out before (OsmFrameSession.open)
+        this.phase.set('ready');
+        this.error.set(message === OSM_CANCELLED ? null : `The new square did not load: ${message}`);
+        this.redraw();
+      } else {
+        this.phase.set('failed');
+        this.error.set(message === OSM_CANCELLED ? 'Cancelled.' : message);
+      }
     } finally {
       if (gen === this.loadGen) {
         this.loading = null;
@@ -219,12 +242,16 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
   /** The flat map, MapLibre loaded on first use */
   private async showMap(): Promise<void> {
     const host = this.mapHost()?.nativeElement;
-    if (!host || this.map || this.destroyed) return;
+    const area = this.area();
+    if (!host || !area || this.map || this.destroyed) return;
     try {
-      const map = await OsmFrameMap.open(host, this.place(), OSM_WORLD_SIDE, {
+      const map = await OsmFrameMap.open(host, this.place(), area, {
         drop: (index, at) => void this.dropSpawn(index, at),
         select: (index) => this.select(index),
         problem: (text) => this.mapProblem.set(text),
+        fit: (area) => fitArea(area, this.place()),
+        canReframe: () => this.phase() === 'ready' && !this.busy(),
+        reframe: (area) => this.reframe(area),
       });
       if (this.destroyed) {
         map.dispose();
@@ -238,7 +265,17 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
   }
 
   private redraw(): void {
-    this.map?.show({ hq: this.frame()?.hq ?? null, spawns: this.spawns(), selected: this.selected() });
+    this.map?.show({ hq: this.frame()?.hq ?? null, spawns: this.spawns(), selected: this.selected(), area: this.area() });
+  }
+
+  /** The square moved or sized on the map and let go: laid out anew there, its data loaded if it reaches past what is in hand */
+  reframe(area: OsmArea): void {
+    const now = this.area();
+    if (now && sameArea(now, area)) {
+      this.redraw();
+      return;
+    }
+    void this.load(area);
   }
 
   select(index: number | null): void {
@@ -322,7 +359,7 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
       const catalog = await catalogObjects();
       const made = await this.session.make(
         this.spawns(),
-        { id, name: names.name, costs: catalog && assetCosts(catalog, OSM_WORLD_SIDE), catalog: catalog && buildingCatalog(catalog) },
+        { id, name: names.name, costs: catalog && assetCosts(catalog, this.area()?.sideM ?? OSM_WORLD_SIDE), catalog: catalog && buildingCatalog(catalog) },
         (step) => this.step.set(step),
         signal,
       );

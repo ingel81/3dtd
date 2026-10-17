@@ -124,9 +124,9 @@ describe('OSM world frame', () => {
 
   it('says while the OSM servers are asked again, then the failure with Try again, which loads anew', async () => {
     type Open = OsmFrameSession['open'];
-    const opens: { onRetry?: Parameters<Open>[5]; reject: (e: Error) => void }[] = [];
+    const opens: { onRetry?: Parameters<Open>[3]; reject: (e: Error) => void }[] = [];
     const session = {
-      open: vi.fn((...args: Parameters<Open>) => new Promise((_, reject) => opens.push({ onRetry: args[5], reject }))),
+      open: vi.fn((...args: Parameters<Open>) => new Promise((_, reject) => opens.push({ onRetry: args[3], reject }))),
       dispose: vi.fn(),
     };
     TestBed.configureTestingModule({

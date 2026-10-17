@@ -22,6 +22,8 @@ export interface LayoutOptions {
   spawns: number;
   /** Where the spawns go (map metres, the frame's choice); each lands on its street as `OsmLayout.at` drops it */
   at?: readonly MapPoint[];
+  /** The place the HQ goes to (map metres); the map's middle when absent */
+  place?: MapPoint;
 }
 
 export interface LayoutReport {
@@ -70,14 +72,15 @@ export class OsmLayout {
   private readonly lines: { edgeId: string; kind: string; line: MapPoint[] }[];
   private readonly half: number;
 
+  /** `place`: where the HQ goes, map metres (the frame's square may stand off it); the map's middle when absent */
   constructor(
     map: StreetMap,
     private readonly names: ReadonlyMap<string, string>,
+    place: MapPoint = { x: 0, y: 0 },
   ) {
     const nodes = new Map(map.paths.nodes.map((n) => [n.id, n]));
     // A tunnel holds neither the HQ nor a spawn: both would stand in the hill
     this.lines = map.paths.edges.map((e) => ({ edgeId: e.id, kind: e.tunnel ? 'tunnel' : e.kind, line: [nodes.get(e.a)!, ...(e.via ?? []), nodes.get(e.b)!] }));
-    const place = { x: 0, y: 0 };
     const onRoad = this.nearest(place, (k) => k === 'road');
     const hit = onRoad && onRoad.dist <= HQ_ROAD_REACH ? onRoad : (this.nearest(place, (k) => k !== 'tunnel') ?? onRoad);
     this.hq = hit ? { x: round2(hit.point.x), y: round2(hit.point.y) } : null;
@@ -180,7 +183,7 @@ export class OsmLayout {
  * else drawn
  */
 export function layOut(doc: CustomMapDocument, names: ReadonlyMap<string, string>, options: LayoutOptions): LayoutReport {
-  const layout = new OsmLayout(doc, names);
+  const layout = new OsmLayout(doc, names, options.place);
   doc.hq = layout.hq ?? { x: 0, y: 0 };
   const wanted = options.at?.length ?? options.spawns;
   const report: LayoutReport = { hqShiftM: layout.hqShiftM, wanted, spawns: [] };

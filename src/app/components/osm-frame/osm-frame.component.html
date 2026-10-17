@@ -4,8 +4,9 @@
   </button>
   <h3 class="td-section">A map of {{ place().name }}</h3>
   <p class="td-note">
-    A {{ sideKm }} km square around the HQ, made from OpenStreetMap and free height data. Enemies walk its streets as on
-    the real place; drag a spawn to another street.
+    A {{ sideKm() }} km square with the HQ, made from OpenStreetMap and free height data. Enemies walk its streets as on
+    the real place; drag a spawn to another street. Move the square by its edge and size it by its corners
+    ({{ sideLimits }}, the HQ at least {{ hqEdge }} m inside).
   </p>
 </section>
 

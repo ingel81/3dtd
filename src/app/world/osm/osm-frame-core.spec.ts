@@ -67,13 +67,42 @@ describe('OSM world frame (frozen probe Miltenberg)', () => {
     expect(back.spawns.length).toBe(2);
   });
 
+  it('lays out a square moved off the place and sized down from the data in hand: nothing fetched, the HQ on the place', async () => {
+    const store = new OsmFrameStore(new MemoryFrameBackend());
+    const input = osmProbe();
+    await store.save({ lat: input.lat, lon: input.lon, sideM: OSM_PROBE_SIDE, fetchedAt: input.fetchedAt, overpass: input.overpass, dem: input.dem, demFailed: [] });
+    const core = new OsmFrameCore({ store, sideM: OSM_PROBE_SIDE });
+    const first = await core.open({ place: input, count: 2 });
+    expect(first.area).toEqual({ lat: input.lat, lon: input.lon, sideM: OSM_PROBE_SIDE });
+    const geo = new OsmFrame(input.lat, input.lon);
+    const fetch = vi.spyOn(globalThis, 'fetch');
+    // 1000 m, its centre 80 m east and 60 m north of the place: within the 1.2 km of data
+    const area = { ...geo.geo({ x: 80, y: 60 }), sideM: 1000 };
+    const moved = await core.open({ place: input, count: 2, spawnsAt: first.spawns, topUp: true, area });
+    expect(fetch).not.toHaveBeenCalled();
+    expect(moved.area).toEqual(area);
+    expect(moved.data).toEqual(first.data);
+    expect(moved.spawns.length).toBe(2);
+    // The HQ stays by the place, not by the square's middle
+    const hq = geo.point(moved.hq!);
+    expect(Math.hypot(hq.x, hq.y)).toBeLessThanOrEqual(Math.hypot(geo.point(first.hq!).x, geo.point(first.hq!).y) + 1);
+    const made = core.make(moved.spawns, options);
+    expect(made.doc.terrain.width).toBe(1000);
+    expect(made.doc.meta.source).toMatchObject({ kind: 'osm', sideM: 1000, lat: area.lat, lon: area.lon });
+    // The map's HQ is the place's, in the map's own metres round the square's middle
+    const mapGeo = new OsmFrame(area.lat, area.lon);
+    const placeOnMap = mapGeo.point(input);
+    expect(Math.hypot(made.doc.hq.x - placeOnMap.x, made.doc.hq.y - placeOnMap.y)).toBeLessThan(260);
+    fetch.mockRestore();
+  });
+
   it('runs on the calling thread without workers and opens the place again from the store after a cancel', async () => {
     const store = new OsmFrameStore(new MemoryFrameBackend());
     const input = osmProbe();
     await store.save({ lat: input.lat, lon: input.lon, sideM: OSM_PROBE_SIDE, fetchedAt: input.fetchedAt, overpass: input.overpass, dem: input.dem, demFailed: [] });
     const session = new OsmFrameSession({ createWorker: () => null, core: new OsmFrameCore({ store, sideM: OSM_PROBE_SIDE }) });
     const steps: string[] = [];
-    const frame = await session.open(input, 2, [], (s) => steps.push(s));
+    const frame = await session.open({ place: input, count: 2 }, (s) => steps.push(s));
     expect(steps).toEqual(['stored']);
     expect(frame.download.stored).toBe(true);
     const more = await session.draw(1, frame.spawns);

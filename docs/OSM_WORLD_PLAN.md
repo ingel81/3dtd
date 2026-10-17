@@ -387,7 +387,7 @@ und Bäumen); O3 bis O5 füllen sie; O6 läuft parallel, sobald O4 die Liste lie
 ## Entschieden (User, 2026-10-15)
 
 1. Rahmen: Vektorkarte mit MapLibre.
-2. Kartengröße immer 2,4 km.
+2. Kartengröße immer 2,4 km. (Seit E209 nur noch Standard und Obergrenze, das Quadrat ist verschieb- und skalierbar.)
 3. Spawns wie auf echten Orten (mehrere, vor dem Start verschiebbar), danach im Editor bearbeitbar.
 4. Höhendaten: Mapterhorn und AWS an Proben vergleichen, die bessere Quelle nehmen.
 5. Objektbudget nach Scene cost, nicht fest 15 000.
@@ -514,6 +514,20 @@ Datei.
 - Editor, New map: „A landscape“ oder „From a real place“ (Suche, dann derselbe Rahmen), die Karte öffnet im Editor.
 
 **Rahmen** (`components/osm-frame/`): steht im Menü an Stelle der Listen, im Editor in der rechten Spalte.
+
+- **Quadrat verschieben und skalieren** (E209, 2026-10-17; ersetzt „immer 2,4 km“ aus Entscheidung 2): das Quadrat
+  steht zuerst mit 2,4 km um den Ort. Seine Kante verschiebt es, seine Ecken skalieren es (die Ecke gegenüber bleibt
+  stehen), über der Nordkante steht die Seite („1.8 km“). Grenzen (`world/osm/osm-area.ts`, `fitArea`): Seite 1,2
+  bis 2,4 km in Schritten von 100 m (mehr ist für Format, Szenenbudget und Renderer nicht gemessen), der Ort, auf dem
+  das HQ steht, bleibt mindestens 200 m innen; beim Ziehen hält das Quadrat diese Grenzen sichtbar ein. Losgelassen
+  legt der Worker die Karte auf das neue Quadrat: Mitte der Karte ist die Mitte des Quadrats, das HQ geht auf die
+  Straße am Ort (`OsmImportInput.place`, `OsmLayout` mit Ort), die stehenden Spawns bleiben, wo sie passen, der Rest
+  wird neu gewürfelt (mit Hinweis). Die Daten eines Orts werden für mindestens 2,4 km geladen: ein Quadrat innerhalb
+  der geladenen Daten schneidet nur zu (`areaWithin`), nichts wird abgerufen; erst ein Quadrat, das darüber
+  hinausreicht, lädt 2,4 km um seine Mitte (Speicher je Rahmen, Overpass, mit derselben Ladezeile). Scheitert das
+  Laden oder bricht der Spieler ab, steht das Quadrat wie vorher. Das Szenenbudget bleibt absolut (Pflanzen die Hälfte
+  von `SCENE_BUDGET`), die Kosten je Objekt rechnet der Rahmen auf die gewählte Seite (`assetCosts`); eine kleinere
+  Karte ist dichter bepflanzt, nie teurer.
 
 - Flache Karte mit MapLibre GL 6.11 (BSD-3) und dem Stil „dark“ von OpenFreeMap (Vektorkacheln aus OSM, ohne
   Schlüssel, CORS offen); Straßen darin heller (`frameLight`, 45 %), damit ein Spawn seine Straße findet. Das Quadrat

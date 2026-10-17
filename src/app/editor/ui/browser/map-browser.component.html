@@ -200,7 +200,7 @@
             @if (osmPlace(); as request) {
               <app-osm-frame context="editor" [place]="request.place" [spawnsAt]="request.spawnsAt" (back)="osmPlace.set(null)" (done)="openMade($event.summary)" />
             } @else {
-              <p class="td-note">The streets, bridges and ground of a 2.4 km square from OpenStreetMap and free height data, the HQ on the place you search.</p>
+              <p class="td-note">The streets, bridges and ground of a square of up to 2.4 km from OpenStreetMap and free height data, the HQ on the place you search.</p>
               <app-td-address-autocomplete
                 [placeholder]="'City, street or address…'"
                 [currentValue]="null"

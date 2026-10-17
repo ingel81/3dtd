@@ -31,7 +31,7 @@ describe('OsmFrameSession', () => {
     const worker = new FakeWorker();
     const session = new OsmFrameSession({ timeoutMs: 1000, createWorker: () => worker as unknown as Worker });
     const retries: OverpassRetry[] = [];
-    const opening = session.open({ lat: 49.7, lon: 9.26 }, 4, [], undefined, undefined, (r) => retries.push(r));
+    const opening = session.open({ place: { lat: 49.7, lon: 9.26 }, count: 4 }, undefined, undefined, (r) => retries.push(r));
     const ended = expect(opening).rejects.toThrow('No answer within 1 s');
     const id = worker.sent[0].id;
 

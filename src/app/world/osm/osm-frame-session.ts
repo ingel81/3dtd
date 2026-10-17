@@ -9,7 +9,7 @@
  * runs on the calling thread, like the Warcraft import (w3x-import-client.ts).
  */
 import type { OsmImportOptions } from './import-osm';
-import { OsmFrameCore, type FrameSpawn, type GeoPoint, type OsmFrameInfo, type OsmMade, type OsmStep } from './osm-frame-core';
+import { OsmFrameCore, type FrameSpawn, type GeoPoint, type OsmFrameInfo, type OsmMade, type OsmOpenRequest, type OsmStep } from './osm-frame-core';
 import type { OsmWorkerRequest, OsmWorkerResponse } from './osm-worker.types';
 import type { OverpassRetry } from './overpass-client';
 
@@ -47,7 +47,7 @@ export class OsmFrameSession {
   private local: OsmFrameCore | null = null;
   private readonly waiting = new Map<number, Waiting>();
   private nextId = 1;
-  /** The last opening, sent again to a new worker */
+  /** The last opening that stood, sent again to a new worker (with the square of the data it loaded) */
   private opening: Extract<Call, { kind: 'open' }> | null = null;
   /** The worker holds the place of `opening` */
   private loaded = false;
@@ -61,21 +61,19 @@ export class OsmFrameSession {
     this.local = options.core ?? null;
   }
 
-  /** Loads the place and lays out its spawns (OsmFrameCore.open) */
-  async open(
-    place: GeoPoint & { address?: string },
-    count: number,
-    spawnsAt: GeoPoint[] = [],
-    onStep?: (step: OsmStep) => void,
-    signal?: AbortSignal,
-    onRetry?: (retry: OverpassRetry) => void,
-  ): Promise<OsmFrameInfo> {
-    const call = { kind: 'open', place, count, spawnsAt } as const;
-    this.opening = call;
-    this.loaded = false;
-    const r = await this.call(call, onStep, signal, onRetry);
+  /**
+   * Loads the place and lays out its spawns (OsmFrameCore.open), again for a
+   * moved or sized square. One that fails or is cancelled leaves the last
+   * opening standing: the next call works on it (a new worker opens it from
+   * the store first)
+   */
+  async open(request: OsmOpenRequest, onStep?: (step: OsmStep) => void, signal?: AbortSignal, onRetry?: (retry: OverpassRetry) => void): Promise<OsmFrameInfo> {
+    const r = await this.call({ kind: 'open', request }, onStep, signal, onRetry);
+    const frame = (r as Extract<OsmWorkerResponse, { kind: 'opened' }>).frame;
+    // A new worker loads the data this one holds (from the store) and lays out the same square and spawns
+    this.opening = { kind: 'open', request: { ...request, area: frame.area, data: frame.data, spawnsAt: frame.spawns.map(({ lat, lon }) => ({ lat, lon })), topUp: false } };
     this.loaded = true;
-    return (r as Extract<OsmWorkerResponse, { kind: 'opened' }>).frame;
+    return frame;
   }
 
   async draw(count: number, keep: GeoPoint[]): Promise<FrameSpawn[]> {
@@ -184,7 +182,7 @@ export class OsmFrameSession {
     const id = 0;
     switch (call.kind) {
       case 'open':
-        return { id, kind: 'opened', frame: await core.open(call.place, call.count, call.spawnsAt, onStep, signal, onRetry) };
+        return { id, kind: 'opened', frame: await core.open(call.request, onStep, signal, onRetry) };
       case 'draw':
         return { id, kind: 'spawns', spawns: core.draw(call.count, call.keep) };
       case 'drop':

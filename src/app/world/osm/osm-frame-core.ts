@@ -26,6 +26,7 @@ import {
   type OsmStreets,
 } from './import-osm';
 import type { LaidSpawn } from './convert/layout';
+import { areaWithin, type OsmArea } from './osm-area';
 
 /** A point on the earth */
 export interface GeoPoint {
@@ -46,8 +47,28 @@ export interface FrameSpawn extends GeoPoint {
   route: [number, number][];
 }
 
+/** What the frame opens: the place, the square of the map and the spawns to lay out */
+export interface OsmOpenRequest {
+  /** Where the HQ goes, and what the player searched for */
+  place: GeoPoint & { address?: string };
+  /** Spawns wanted; drawn when `spawnsAt` gives none (or, with `topUp`, fewer stand) */
+  count: number;
+  /** Spawns to start from (a running real place's, the ones standing before the square moved), each dropped on its street */
+  spawnsAt?: GeoPoint[];
+  /** Spawns of `spawnsAt` that may not stand are drawn anew up to `count` */
+  topUp?: boolean;
+  /** The map's square; a square of the default side round the place when absent */
+  area?: OsmArea;
+  /** The square whose data to load when the core holds none for `area` (from the store: what an earlier opening loaded) */
+  data?: OsmArea;
+}
+
 /** What the frame shows of a loaded place */
 export interface OsmFrameInfo {
+  /** The map's square as laid out */
+  area: OsmArea;
+  /** The square the loaded data covers: a square within it needs no download */
+  data: OsmArea;
   /** The HQ on the road nearest the place; null for a place without streets */
   hq: GeoPoint | null;
   hqShiftM: number;
@@ -67,41 +88,66 @@ export interface OsmMade extends OsmImportResult {
 }
 
 export class OsmFrameCore {
+  /** The place's data as loaded, and the square it covers */
+  private data: { input: OsmImportInput; area: OsmArea; download: OsmDownloadStats } | null = null;
+  /** The data cropped to the map's square, its HQ on the place */
   private input: OsmImportInput | null = null;
+  private area: OsmArea | null = null;
   private streets: OsmStreets | null = null;
+  /** The default side, and the least the data covers */
+  private readonly side: number;
 
-  constructor(private readonly deps: { store?: OsmFrameStore; decode?: DemDecoder; sideM?: number } = {}) {}
-
-  /**
-   * Loads `place`'s data and lays out its spawns: at `spawnsAt` where given
-   * (a running real place's), each dropped on its street; else `count`
-   * drawn as on a real place
-   */
-  async open(
-    place: GeoPoint & { address?: string },
-    count: number,
-    spawnsAt: readonly GeoPoint[] = [],
-    onStep?: (step: OsmStep) => void,
-    signal?: AbortSignal,
-    onRetry?: (retry: OverpassRetry) => void,
-  ): Promise<OsmFrameInfo> {
-    const side = this.deps.sideM ?? OSM_WORLD_SIDE;
-    const { input, download } = await loadOsmInput(place, { sideM: side, store: this.deps.store, decode: this.deps.decode, signal, onStep, onRetry });
-    return this.read(input, download, count, spawnsAt);
+  constructor(private readonly deps: { store?: OsmFrameStore; decode?: DemDecoder; sideM?: number } = {}) {
+    this.side = deps.sideM ?? OSM_WORLD_SIDE;
   }
 
-  /** As `open`, with the data in hand (specs, tools) */
+  /**
+   * Loads the place's data for the request's square and lays out its
+   * spawns: at `spawnsAt` where given, each dropped on its street; else
+   * `count` drawn as on a real place. Data in hand that covers the square
+   * is cropped, nothing fetched; else a square of at least the default side
+   * round it loads (frame store or download), so sizing down and small moves
+   * after it fetch nothing either. A failed load keeps what was laid out.
+   */
+  async open(request: OsmOpenRequest, onStep?: (step: OsmStep) => void, signal?: AbortSignal, onRetry?: (retry: OverpassRetry) => void): Promise<OsmFrameInfo> {
+    const { place } = request;
+    const area = request.area ?? { lat: place.lat, lon: place.lon, sideM: this.side };
+    if (!this.data || !areaWithin(area, this.data.area)) {
+      const wanted = request.data && areaWithin(area, request.data) ? request.data : { lat: area.lat, lon: area.lon, sideM: Math.max(area.sideM, this.side) };
+      const { input, download } = await loadOsmInput(
+        { lat: wanted.lat, lon: wanted.lon, address: place.address },
+        { sideM: wanted.sideM, store: this.deps.store, decode: this.deps.decode, signal, onStep, onRetry },
+      );
+      this.data = { input, area: wanted, download };
+    }
+    return this.lay(place, area, request.count, request.spawnsAt ?? [], request.topUp ?? false);
+  }
+
+  /** As `open`, with the data in hand (specs, tools): its square round its centre */
   read(input: OsmImportInput, download: OsmDownloadStats, count: number, spawnsAt: readonly GeoPoint[] = []): OsmFrameInfo {
+    const area = { lat: input.lat, lon: input.lon, sideM: this.side };
+    this.data = { input, area, download };
+    return this.lay(input, area, count, spawnsAt, false);
+  }
+
+  private lay(place: GeoPoint, area: OsmArea, count: number, spawnsAt: readonly GeoPoint[], topUp: boolean): OsmFrameInfo {
+    const data = this.data!;
+    const input: OsmImportInput = { ...data.input, lat: area.lat, lon: area.lon, place: { lat: place.lat, lon: place.lon } };
+    const streets = osmStreets(input, area.sideM);
     this.input = input;
-    const streets = (this.streets = osmStreets(input, this.deps.sideM ?? OSM_WORLD_SIDE));
+    this.area = area;
+    this.streets = streets;
     const given = spawnsAt.map((p) => this.drop(p)).filter((s): s is FrameSpawn => !('reason' in s));
+    const spawns = !given.length ? this.draw(count) : topUp && given.length < count ? [...given, ...this.draw(count - given.length, given)] : given;
     const { layout, roads, frame } = streets;
     return {
+      area,
+      data: data.area,
       hq: layout.hq ? frame.geo(layout.hq) : null,
       hqShiftM: layout.hqShiftM,
-      spawns: given.length ? given : this.draw(count),
+      spawns,
       fetchedAt: input.fetchedAt,
-      download,
+      download: data.download,
       roads: {
         edges: roads.edges,
         roadKm: Math.round(roads.km.road + roads.km.bridge),
@@ -131,7 +177,7 @@ export class OsmFrameCore {
     const input = this.input;
     if (!input) throw new Error('The place is not loaded');
     const start = performance.now();
-    const result = convertOsm(input, { ...options, sideM: this.deps.sideM ?? options.sideM, spawnsAt: [...spawnsAt] }, onStep);
+    const result = convertOsm(input, { ...options, sideM: this.area?.sideM ?? options.sideM, spawnsAt: [...spawnsAt] }, onStep);
     onStep?.('pack');
     // The store gives a map its identity at the first save; the file packed here carries it already
     result.doc.meta.uid = newMapUid();
