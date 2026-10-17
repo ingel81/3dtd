@@ -426,7 +426,7 @@ describe('CustomMapWorld', () => {
   it('lets its buildings fall when the map says so, on its own copy of the map (TODO E131)', () => {
     const doc = testMap();
     doc.objects = [{ id: 'barn', asset: 'barn', x: 20, y: 20, z: 0, rotation: 0, scale: 1 }];
-    const catalog = [{ id: 'barn', category: 'building', footprint: 5, height: 6, blocksBuild: true }];
+    const catalog = [{ id: 'barn', category: 'building' as const, footprint: 5, height: 6, blocksBuild: true }];
     const geo = mapToGeo({ x: 20, y: 20 });
 
     const plain = new CustomMapWorld({ doc, contentHash: 'abc' }, hqOrigin(doc), 3);
@@ -469,7 +469,7 @@ describe('CustomMapWorld', () => {
         { wave: 2, kind: 'message', text: 'Hold' },
       ],
     };
-    const catalog = [{ id: 'barn', category: 'building', footprint: 5, height: 6, blocksBuild: true }];
+    const catalog = [{ id: 'barn', category: 'building' as const, footprint: 5, height: 6, blocksBuild: true }];
     const gate = mapToGeo({ x: 20, y: 20 });
     const world = new CustomMapWorld({ doc, contentHash: 'abc' }, hqOrigin(doc), 3);
     world.useCatalog(catalog);

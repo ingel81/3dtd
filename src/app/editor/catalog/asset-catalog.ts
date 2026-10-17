@@ -4,6 +4,7 @@
  * top (a colour, a rough shape for pictures, category names).
  */
 import type { CatalogObject, ObjectCategory } from '../../world/custom-map/render/asset-catalog';
+import type { CatalogRoof } from '../../world/custom-map/object-roof';
 import type { ObjectFooting } from '../../world/custom-map/render/objects/object-seat';
 import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
 import type { CostEntry } from '../../world/custom-map/render/objects/scene-cost';
@@ -40,6 +41,8 @@ export interface ObjectAssetEntry {
   base?: readonly [number, number, number];
   /** Buildings and walls: their ground rectangle (middle x, z, half width, half depth), see `CatalogObject.box` */
   box?: readonly [number, number, number, number];
+  /** Buildings and walls a tower can stand on: the model's top surface, see `CatalogObject.roof` */
+  roof?: CatalogRoof;
   /** Floats on water (boats, buoys, piers, lily pads): z counts from the waterline, so it neither sinks nor tilts with the ground */
   float?: boolean;
   /** A road may run through it (gatehouses, gates): not reported standing on a road */
@@ -158,6 +161,7 @@ export function normalizeCatalog(json: RawCatalog, assetsUrl: string): MapAssetC
         height: o.height ?? 2,
         base: o.base,
         box: o.box,
+        roof: o.roof,
         float: o.float || undefined,
         roadThrough: o.roadThrough || undefined,
         footing: { category: (o.category ?? 'prop') as ObjectCategory, footprint: o.radius ?? o.footprint ?? 1, height: o.height ?? 2, base: o.base, box: o.box, float: o.float, aloft: o.aloft, stilts: o.stilts, turns: o.spin !== undefined || undefined },

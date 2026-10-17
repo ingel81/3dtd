@@ -1064,7 +1064,8 @@ Den Kontext (Spielbereich, HQ, Spawns, Tower, Routen) stellt der
 
 Alle Abstände sind horizontal (Haversine zu HQ, Spawns und Towern, `distanceToSegment` zur
 Route). Ein Gebäude ist kein Hindernis: Der Tower wird auf Dachhöhe gehoben und steht dann auf
-dem Dach. Die letzten beiden Regeln prüfen den Grund unter der Grundfläche und brauchen den
+dem Dach. Auf eigenen Karten tragen die Objekte mit Katalog-`roof` Tower ebenso
+([CUSTOM_MAP_WORLD.md](CUSTOM_MAP_WORLD.md), Dächer). Die letzten beiden Regeln prüfen den Grund unter der Grundfläche und brauchen den
 Footprint (`checkTowerPlacement(lat, lon, ctx, footprint)`, `TowerFootprint.refusal`, siehe
 Ausschluss im nächsten Abschnitt). Die Vorschau prüft mit dem Footprint, den sie zeigt, der Klick
 mit dem, den er setzt, der Trainings-Bot über `placementAt`. `placementChecker()` in der

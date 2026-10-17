@@ -361,6 +361,27 @@ dem Build fehlt, aus dem `public/maps` des Checkouts (`mapDataRoot` in `createAp
     `tools/map-assets/measure_boxes.mjs`, `object-ground.ts`). Eine 46-m-Schule sperrt quer zu ihrer Länge 7,6 m
     statt 21 m (E201); ohne `box` gilt die Scheibe wie bisher. Dieselbe Regel gilt für die Bauflächen des Editors
   - Tiles und DevWorld antworten immer `null` (Tower stehen dort auf Dächern)
+- **Dächer** (E217, `object-roof.ts`): Gebäude, Mauern und Bauwerke, deren Katalogeintrag ein `roof` hat, tragen
+  Tower auf ihrer Oberkante wie die Dächer der Tiles. `roof` ist ein Höhenraster über die Modellhülle bei Skala 1
+  (höchstens 24 Zellen je Seite, mindestens 0,5 m, ein Byte je Zelle, Base64), senkrecht von oben gemessen von
+  `tools/map-assets/measure_roofs.mjs` (Gebäude, Mauern und Bauwerke, die das Bauen sperren, mindestens 2,5 m hoch,
+  weder `float` noch `aloft`; Zaun, Hecke und Brücke tragen nichts). Auf der Karte wird es gedreht, skaliert und auf
+  den Sitz des Modells gehoben (`seatHeight` plus z wie der Renderer). Es gilt für:
+  - `pickRay`: der Cursor trifft das Dach statt des Bodens dahinter (Strahl gegen jedes Dach, Vortest per Kugel)
+  - `roofAt`: Cursor-Fläche des Towers ist das Dach
+  - `footprintColumn`: `topY` ist das Dach, `groundY` der Boden, dazu `built`: von einer gebauten Oberkante führt kein
+    Hang hinab, die Fassade ist eine Kante (`carryingHeights`); der Sockel endet am Dach und ragt mit Kragsteinen
+    hinaus, statt ein kleines Haus bis zum Boden einzuhüllen
+  - `buildBlocker`: steht die Mitte auf einem tragenden Dach, sperren tragende Objekte nicht, Wand und Kante
+    entscheiden wie auf den Tiles (`resolveTowerFootprint`); am Boden neben einem Haus sperrt es wie vorher, Bäume
+    und Objekte ohne `roof` überall
+  - die Bauflächen des Editors (`build-areas.ts`) mit denselben Regeln
+  Keine Dächer tragen Objekte, die den Lauf verlassen können (`passingObjectIds`: von einem Wellen-Ereignis gezeigt
+  oder verborgen, auf zerstörbaren Karten alle Gebäude, Mauern und Bauwerke) und gekippte Objekte; sie sperren wie
+  vorher. Die Simulation prüft keine Platzierung, `command:place-tower` trägt Fuß und Sockel: Prüfsummen und Replays
+  bleiben. Grenze: die Regel, dass Mitte und innerer Ring (halber `footprintRadius`) nicht über eine Kante ragen,
+  gilt auch auf Mauerkronen; auf dem 2,5 m breiten Wehrgang der Burgmauer passen nur Tower mit Radius bis etwa
+  3 m, auf der 3,5 m breiten fort-wall bis 3,5 m; Türme, Tore, Bergfriede und Häuser tragen alle
 
 `CustomMapFrame` rechnet Szene und Karte ineinander um: Szene x = Ursprung x - Karte x, Szene z =
 Karte y - Ursprung y. Der Kosinus der Ursprungsbreite fehlt: eine Karte reicht höchstens wenige

@@ -39,6 +39,11 @@ python -I tools/map-assets/build_planet.py $DL/planet public/maps/assets
 # Unterseite der Felsen aus objects.json an den gepackten Modellen messen (bases.json)
 node tools/map-assets/measure_bases.mjs public/maps/assets
 
+# Grundrechteck der Gebäude und Mauern (boxes.json) und Oberkante dessen, was Tower trägt (roofs.json, aus dem
+# Katalog gelesen: nach update_catalog.py messen, dann update_catalog.py noch einmal)
+node tools/map-assets/measure_boxes.mjs public/maps/assets
+node tools/map-assets/measure_roofs.mjs public/maps/assets
+
 # Objekte in catalog.json schreiben (objects.json + Messwerte + bases.json), Dreiecke je Modell und LOD
 # (count_triangles.py, auch allein nach einem pack_models.py), LICENSES.md neu. Nicht gebaute Modelle (ein Bau
 # einzelner Ids) behalten Fußabdruck, Höhe und LOD aus dem bisherigen catalog.json. Neue LODs: match_lods.py

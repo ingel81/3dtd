@@ -4,7 +4,8 @@
  * the enemy routes), the map's water and the objects that forbid building
  * (CustomMapSurface.buildBlocker with PLACEMENT_CONFIG.TOWER_BUILD_RADIUS),
  * and the ground under the footprint (resolveTowerFootprint: a wall or a
- * drop under the centre or the inner ring). Each cell of a raster is
+ * drop under the centre or the inner ring). On a roof that carries towers
+ * (object-roof.ts) the tower stands on the roof, as in the game. Each cell of a raster is
  * judged at its middle, as if the archer stood there. A buildable cell is
  * "in reach" when the route lies within a typical tower's range of it.
  *
@@ -16,7 +17,9 @@ import { PLACEMENT_CONFIG } from '../../configs/placement.config';
 import { TOWER_TYPES } from '../../configs/tower-types.config';
 import { checkTowerPlacement, type TowerPlacementContext } from '../../utils/tower-placement-rules';
 import { footprintSampleOffsets, footprintSurroundingOffsets, resolveTowerFootprint } from '../../utils/tower-footprint';
-import { CustomMapFrame, CustomMapSurface } from '../../world/custom-map/custom-map-surface';
+import { type BuildCatalogEntry, CustomMapFrame, CustomMapSurface } from '../../world/custom-map/custom-map-surface';
+import { passingObjectIds } from '../../world/custom-map/custom-map-destruction';
+import type { ObjectAssetEntry } from '../catalog/asset-catalog';
 import {
   MAP_METERS_PER_DEGREE,
   type CustomMapDocument,
@@ -68,9 +71,9 @@ export interface BuildAreas {
 
 /** What the computation needs of the map: the ground, water, roads (bridge decks), blocking objects, markers, routes */
 export interface BuildAreaInput {
-  doc: Pick<CustomMapDocument, 'terrain' | 'paths' | 'spawns' | 'hq'> & { objects: MapObject[] };
-  /** The catalogue's footprint radius, ground rectangle and build flag of the assets the objects use */
-  catalog: { id: string; footprint: number; box?: readonly [number, number, number, number]; blocksBuild: boolean }[];
+  doc: Pick<CustomMapDocument, 'terrain' | 'paths' | 'spawns' | 'hq' | 'gameplay'> & { objects: MapObject[] };
+  /** The catalogue's footprint radius, ground rectangle, build flag and roof of the assets the objects use */
+  catalog: BuildCatalogEntry[];
   /** Each lane's route from its spawn to the HQ, null where it has none */
   routes: { spawnId: string; name: string; points: MapPoint[] | null }[];
   /** Cell size, m; by default the map's longer side over 512, at least 4 */
@@ -94,7 +97,8 @@ export function computeBuildAreas(input: BuildAreaInput): BuildAreas {
   // The game's surface of this map, its frame at the map's middle (scene x = -map x, z = map y)
   const frame = new CustomMapFrame();
   const surface = new CustomMapSurface(doc as CustomMapDocument, frame);
-  surface.setObjectCatalog(input.catalog);
+  const category = new Map(input.catalog.map((e) => [e.id, e.category]));
+  surface.setObjectCatalog(input.catalog, passingObjectIds(doc, (asset) => category.get(asset), doc.gameplay?.destructible === true));
   const geo = (p: MapPoint) => ({ lat: p.y / MAP_METERS_PER_DEGREE, lon: p.x / MAP_METERS_PER_DEGREE });
   const M = MAP_METERS_PER_DEGREE;
   const ctx: TowerPlacementContext = {
@@ -135,7 +139,9 @@ export function computeBuildAreas(input: BuildAreaInput): BuildAreas {
         const sx = frame.sceneX(x);
         const sz = frame.sceneZ(y);
         const columnsAt = (list: readonly (readonly [number, number])[]) => list.map(([dx, dz]) => surface.footprintColumn(sx + dx, sz + dz));
-        const footprint = resolveTowerFootprint(surface.heightAtMap(x, y), radius, columnsAt(offsets), () => columnsAt(around));
+        const roof = surface.roofTopAtMap(x, y);
+        const surfaceY = Number.isNaN(roof) ? surface.heightAtMap(x, y) : roof;
+        const footprint = resolveTowerFootprint(surfaceY, radius, columnsAt(offsets), () => columnsAt(around));
         if (footprint.refusal) k = BuildCell.Steep;
         else k = nearest <= TYPICAL_TOWER_RANGE ? BuildCell.InReach : BuildCell.OutOfReach;
       }
@@ -236,13 +242,13 @@ function segmentDistance(px: number, py: number, ax: number, ay: number, bx: num
 /** The input for the worker: copies of the arrays, the objects that may block only */
 export function buildAreaInput(
   doc: CustomMapDocument,
-  catalog: (asset: string) => { radius: number; box?: readonly [number, number, number, number]; blocksBuild: boolean },
+  catalog: (asset: string) => Pick<ObjectAssetEntry, 'radius' | 'box' | 'blocksBuild' | 'footing' | 'roof'>,
   routes: BuildAreaInput['routes'],
 ): BuildAreaInput {
   const t = doc.terrain;
   const objects = doc.objects
     .filter((o) => o.blocksBuild ?? catalog(o.asset).blocksBuild)
-    .map((o) => ({ id: o.id, asset: o.asset, x: o.x, y: o.y, z: 0, rotation: o.rotation, scale: o.scale, blocksBuild: true }));
+    .map((o) => ({ id: o.id, asset: o.asset, x: o.x, y: o.y, z: o.z, rotation: o.rotation, scale: o.scale, pitch: o.pitch, roll: o.roll, blocksBuild: true }));
   const assets = [...new Set(objects.map((o) => o.asset))];
   return {
     doc: {
@@ -257,9 +263,14 @@ export function buildAreaInput(
       paths: doc.paths,
       spawns: doc.spawns,
       hq: doc.hq,
+      gameplay: doc.gameplay,
       objects,
     },
-    catalog: assets.map((id) => ({ id, footprint: catalog(id).radius, box: catalog(id).box, blocksBuild: true })),
+    catalog: assets.map((id) => {
+      const e = catalog(id);
+      const f = e.footing;
+      return { id, footprint: e.radius, box: e.box, blocksBuild: true, category: f?.category, height: f?.height, float: f?.float, roof: e.roof };
+    }),
     routes,
   };
 }

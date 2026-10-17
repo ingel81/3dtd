@@ -23,11 +23,11 @@ import { runRulesOf, type RunRules, type RunWaveEvent } from '../../sim/protocol
 import { MAX_START_WAVE, runStartAt, type RunStart } from '../../sim/protocol/run-start';
 import { validateWaveTable, type WaveTable } from '../../director/sources/table/wave-table';
 import { createWaveSource, initialWaveSourceId } from '../../director/wave-source.registry';
-import { CustomMapFrame, CustomMapSurface } from './custom-map-surface';
+import { type BuildCatalogEntry, CustomMapFrame, CustomMapSurface } from './custom-map-surface';
 import { CustomMapStreets } from './custom-map-streets';
 import { type CustomMapDocument, type MapEnvironment, type MapObject, difficultyFactor, geoToMap, mapToGeo } from './map-document';
 import { environmentAt, hiddenObjectsAt, messagesOf } from './wave-events';
-import { CustomMapDestruction, FALLEN_SCALE, type StructureEntry } from './custom-map-destruction';
+import { CustomMapDestruction, FALLEN_SCALE, passingObjectIds, type StructureEntry } from './custom-map-destruction';
 import { renderMinimapPicture } from './custom-map-minimap';
 import { MapStore } from './map-store';
 import type { MapAssetLibrary } from './render/map-asset-library';
@@ -187,7 +187,9 @@ export class CustomMapWorld implements WorldProvider {
   /** dispose() ran: an attach still waiting for the renderer's code builds nothing */
   private disposed = false;
   /** The catalogue's objects once loaded: the build blocking is redone with them when a structure falls */
-  private catalogObjects: readonly (StructureEntry & { blocksBuild: boolean })[] = [];
+  private catalogObjects: readonly (StructureEntry & BuildCatalogEntry)[] = [];
+  /** Objects that may leave the map during the run (they fall, a wave event hides or shows them): they carry no tower */
+  private passingIds: ReadonlySet<string> = new Set();
   /** Objects lying fallen (destruction) and objects a wave event keeps out of the picture now */
   private readonly fallenIds = new Set<string>();
   private eventHidden = new Set<string>();
@@ -672,10 +674,12 @@ export class CustomMapWorld implements WorldProvider {
     };
   }
 
-  /** The catalogue's objects: what blocks building, what can fall */
-  useCatalog(objects: readonly (StructureEntry & { blocksBuild: boolean })[]): void {
+  /** The catalogue's objects: what blocks building, what carries a tower, what can fall */
+  useCatalog(objects: readonly (StructureEntry & BuildCatalogEntry)[]): void {
     this.catalogObjects = objects;
-    this.surface.setObjectCatalog(objects);
+    const category = new Map(objects.map((e) => [e.id, e.category]));
+    this.passingIds = passingObjectIds(this.doc, (asset) => category.get(asset), this.destruction !== null);
+    this.surface.setObjectCatalog(objects, this.passingIds);
     if (!this.destruction) return;
     this.destruction.setCatalog(objects);
     if (isDevMode()) console.log(`[CustomMap] ${this.destruction.structures().length} structures can fall`);
@@ -712,7 +716,7 @@ export class CustomMapWorld implements WorldProvider {
       }
     }
     this.view?.updateObjects(objects);
-    this.surface.setObjectCatalog(this.catalogObjects);
+    this.surface.setObjectCatalog(this.catalogObjects, this.passingIds);
   }
 
   /** The highest ground sample */

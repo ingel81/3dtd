@@ -5,16 +5,41 @@ import type { StreetSurface } from '../../utils/carried-height';
 import type { StationProbe } from '../../utils/route-corridor';
 import type { FootprintColumn } from '../../utils/tower-footprint';
 import { BUILD_BLOCKED_OBJECT, BUILD_BLOCKED_WATER, WATER_DEPTH_M, type WorldSurface } from '../world-provider';
-import type { CustomMapDocument } from './map-document';
+import type { CustomMapDocument, MapObject } from './map-document';
 import { MAP_METERS_PER_DEGREE } from './map-document';
 import { HeightField } from './render/height-field';
 import { waterLevelAt } from './water-level';
 import { type BridgeDeck, bridgeDecks, deckHeightAt } from './bridge-decks';
 import { FALLEN_SCALE } from './custom-map-destruction';
 import type { GroundBox } from './object-ground';
+import { type CatalogRoof, PlacedRoof } from './object-roof';
+import type { ObjectCategory } from './render/asset-catalog';
+import { seatHeight } from './render/objects/object-seat';
 
 /** Farthest a bridge deck lies over the ground where a walker off the bridge still steps onto it, metres (walkHeightAtMap) */
 const DECK_STEP_M = 0.5;
+
+/** How far a cursor pick looks, m (HeightField.raycast's default) */
+const PICK_REACH_M = 20000;
+
+/** Side of the buckets objects are sorted into for the build rules, m */
+const OBJECT_CELL = 16;
+
+/** What the build rules need of a catalogue entry (setObjectCatalog) */
+export interface BuildCatalogEntry {
+  id: string;
+  /** Ground radius and height at scale 1 */
+  footprint: number;
+  height?: number;
+  blocksBuild: boolean;
+  /** Ground rectangle (object-ground.ts) */
+  box?: GroundBox;
+  /** With `roof`: how the renderer seats the model (object-seat.ts) */
+  category?: ObjectCategory;
+  float?: boolean;
+  /** The top a tower stands on (object-roof.ts) */
+  roof?: CatalogRoof;
+}
 
 /** A map column's LOD: nothing streams, so the finest there is; the route grid never samples a cell again */
 const MAP_LOD = { depth: 99, geometricError: 0 } as const;
@@ -77,7 +102,8 @@ export class CustomMapSurface implements WorldSurface {
    * The ground of the objects that forbid building (object-ground.ts), in
    * 16 m buckets, BLOCKER_STRIDE numbers each: the disc (x, y, radius), the
    * top (NaN without a height), the rectangle's middle (x, y), half sides
-   * (Infinity without one) and turn (cos, sin)
+   * (Infinity without one), turn (cos, sin) and 1 where it carries a tower
+   * on its roof, else 0
    */
   private blockers: {
     cell: number;
@@ -88,6 +114,9 @@ export class CustomMapSurface implements WorldSurface {
     buckets: (number[] | undefined)[];
     maxRadius: number;
   } | null = null;
+  /** The roofs that carry towers (object-roof.ts), and per 16 m bucket of the blockers' grid the ones over it */
+  private roofs: PlacedRoof[] = [];
+  private roofBuckets: (PlacedRoof[] | undefined)[] = [];
   private readonly ray = new Ray();
   private readonly hit = new Vector3();
   private readonly streetGround: StreetHeightGround = {
@@ -203,7 +232,11 @@ export class CustomMapSurface implements WorldSurface {
     return false;
   }
 
-  /** The nearest terrain the ray hits; a new vector, null for none */
+  /**
+   * The nearest terrain or roof that carries towers the ray hits (a tower
+   * goes where the cursor points, on a house as on the ground); a new
+   * vector, null for none
+   */
   pickRay(raycaster: Raycaster): Vector3 | null {
     // The height field casts in the frame of the map's middle at the scene origin: move the ray there
     const r = raycaster.ray;
@@ -213,8 +246,42 @@ export class CustomMapSurface implements WorldSurface {
       r.origin.z - this.frame.sceneZ(0),
     );
     this.ray.direction.copy(r.direction);
-    if (this.field.raycast(this.ray, this.hit) === null) return null;
+    const ground = this.field.raycast(this.ray, this.hit);
+    const roof = this.roofAlong(r.origin, r.direction, ground ?? PICK_REACH_M);
+    if (roof >= 0) return r.at(roof, new Vector3());
+    if (ground === null) return null;
     return new Vector3(this.hit.x + this.frame.sceneX(0), this.hit.y, this.hit.z + this.frame.sceneZ(0));
+  }
+
+  /** The nearest roof that carries towers along a scene-space ray, its parameter t; -1 for none before `far` */
+  private roofAlong(origin: Vector3, direction: Vector3, far: number): number {
+    // Map space: x = origin x - scene x, y = origin y + scene z
+    const ox = this.frame.mapX(origin.x);
+    const oy = this.frame.mapY(origin.z);
+    const dx = -direction.x;
+    const dy = direction.z;
+    const dh = direction.y;
+    const length = Math.hypot(dx, dy, dh);
+    let nearest = far;
+    let hit = -1;
+    for (const roof of this.roofs) {
+      // Only where the ray passes the sphere round the roof's grid and height
+      const half = (roof.top - roof.baseY) / 2;
+      const px = roof.cx - ox;
+      const py = roof.cy - oy;
+      const ph = roof.baseY + half - origin.y;
+      const along = (px * dx + py * dy + ph * dh) / length;
+      const reach2 = roof.radius * roof.radius + half * half;
+      if (px * px + py * py + ph * ph - along * along > reach2) continue;
+      const reach = Math.sqrt(reach2);
+      if (along < -reach || (along - reach) / length > nearest) continue;
+      const t = roof.raycast(ox, oy, origin.y, dx, dy, dh, nearest);
+      if (t >= 0 && t < nearest) {
+        nearest = t;
+        hit = t;
+      }
+    }
+    return hit;
   }
 
   /**
@@ -237,9 +304,27 @@ export class CustomMapSurface implements WorldSurface {
     target.z += this.frame.sceneZ(0);
   }
 
-  /** Towers stand on the picked ground */
-  roofAt(): number | null {
-    return null;
+  /** The roof of an object that carries towers over a local point (a house, a wall's walk), local Y; null off them */
+  roofAt(localX: number, localZ: number): number | null {
+    const top = this.roofTopAtMap(this.frame.mapX(localX), this.frame.mapY(localZ));
+    return Number.isNaN(top) ? null : top;
+  }
+
+  /** The highest roof that carries towers over map (x, y), NaN where none does */
+  roofTopAtMap(x: number, y: number): number {
+    const g = this.blockers;
+    if (!g || this.roofs.length === 0) return NaN;
+    const i = Math.floor((x - g.minX) / g.cell);
+    const j = Math.floor((y - g.minY) / g.cell);
+    if (i < 0 || j < 0 || i >= g.columns || j >= g.rows) return NaN;
+    const list = this.roofBuckets[j * g.columns + i];
+    if (!list) return NaN;
+    let best = NaN;
+    for (const roof of list) {
+      const h = roof.heightAt(x, y);
+      if (!(h <= best)) best = Number.isNaN(best) || h > best ? h : best;
+    }
+    return best;
   }
 
   /**
@@ -276,13 +361,16 @@ export class CustomMapSurface implements WorldSurface {
    * (inWater), or an object that forbids building (its own `blocksBuild`,
    * else its catalogue entry's) whose ground (object-ground.ts: its disc,
    * footprint x scale, and its turned rectangle) comes within `radius`; objects count once the catalogue is known
-   * (setObjectCatalog). Null where it may.
+   * (setObjectCatalog). Where the point lies on a roof that carries towers,
+   * such roofs block nothing: the ground under the footprint decides, as on
+   * the tiles' roofs (a facade, an edge, resolveTowerFootprint). On the
+   * ground beside a house it blocks as before. Null where it may.
    */
   buildBlocker(lat: number, lon: number, radius: number): string | null {
     const x = lon * MAP_METERS_PER_DEGREE;
     const y = lat * MAP_METERS_PER_DEGREE;
     if (this.inWater(x, y, radius)) return BUILD_BLOCKED_WATER;
-    return this.objectAt(x, y, radius) ? BUILD_BLOCKED_OBJECT : null;
+    return this.objectAt(x, y, radius, !Number.isNaN(this.roofTopAtMap(x, y))) ? BUILD_BLOCKED_OBJECT : null;
   }
 
   /**
@@ -330,8 +418,8 @@ export class CustomMapSurface implements WorldSurface {
     return j * f.columns + i;
   }
 
-  /** An object that forbids building within `radius` of map (x, y) */
-  private objectAt(x: number, y: number, radius: number): boolean {
+  /** An object that forbids building within `radius` of map (x, y); with `onRoof` only those that carry no tower */
+  private objectAt(x: number, y: number, radius: number, onRoof: boolean): boolean {
     const g = this.blockers;
     if (!g) return false;
     const reach = radius + g.maxRadius;
@@ -343,7 +431,9 @@ export class CustomMapSurface implements WorldSurface {
       for (let i = Math.max(0, i0); i <= Math.min(g.columns - 1, i1); i++) {
         const bucket = g.buckets[j * g.columns + i];
         if (!bucket) continue;
-        for (let k = 0; k < bucket.length; k += BLOCKER_STRIDE) if (covers(bucket, k, x, y, radius)) return true;
+        for (let k = 0; k < bucket.length; k += BLOCKER_STRIDE) {
+          if (!(onRoof && bucket[k + 10] === 1) && covers(bucket, k, x, y, radius)) return true;
+        }
       }
     }
     return false;
@@ -351,12 +441,16 @@ export class CustomMapSurface implements WorldSurface {
 
   /**
    * The catalogue's objects (footprint radius and height at scale 1, whether
-   * they forbid building): from now on buildBlocker and skylineAt see the
-   * map's objects
+   * they forbid building, the roof a tower stands on): from now on
+   * buildBlocker, skylineAt, roofAt, footprintColumn and pickRay see the
+   * map's objects. Roofs come from the objects that forbid building and
+   * stand upright; none from an object in `passing`, which may leave the map
+   * during a run (it falls, a wave event hides it) and would leave a tower in
+   * the air: it blocks as before.
    */
-  setObjectCatalog(entries: readonly { id: string; footprint: number; blocksBuild: boolean; height?: number; box?: GroundBox }[]): void {
+  setObjectCatalog(entries: readonly BuildCatalogEntry[], passing: ReadonlySet<string> = NO_IDS): void {
     const byId = new Map(entries.map((e) => [e.id, e]));
-    const cell = 16;
+    const cell = OBJECT_CELL;
     const t = this.doc.terrain;
     const minX = -t.width / 2;
     const minY = -t.depth / 2;
@@ -364,6 +458,8 @@ export class CustomMapSurface implements WorldSurface {
     const rows = Math.max(1, Math.ceil(t.depth / cell));
     const buckets: (number[] | undefined)[] = new Array(columns * rows);
     let maxRadius = 0;
+    const roofs: PlacedRoof[] = [];
+    const roofBuckets: (PlacedRoof[] | undefined)[] = new Array(columns * rows);
     for (const o of this.doc.objects) {
       const entry = byId.get(o.asset);
       // A fallen structure (FALLEN_SCALE, CustomMapDestruction) blocks nothing
@@ -379,17 +475,38 @@ export class CustomMapSurface implements WorldSurface {
       // The rectangle's middle from the model's x and z to the map (object-ground.ts)
       const bx = box ? o.x - (box[0] * cos + box[1] * sin) * o.scale : o.x;
       const by = box ? o.y - box[0] * sin * o.scale + box[1] * cos * o.scale : o.y;
-      (buckets[j * columns + i] ??= []).push(o.x, o.y, r, top, bx, by, box ? box[2] * o.scale : Infinity, box ? box[3] * o.scale : Infinity, cos, sin);
+      const roof = entry?.roof && entry.category && !o.pitch && !o.roll && !passing.has(o.id)
+        ? new PlacedRoof(entry.roof, o.x, o.y, o.rotation, o.scale || 1, this.seatOf(entry, o) + o.z)
+        : null;
+      (buckets[j * columns + i] ??= []).push(o.x, o.y, r, top, bx, by, box ? box[2] * o.scale : Infinity, box ? box[3] * o.scale : Infinity, cos, sin, roof ? 1 : 0);
+      if (!roof) continue;
+      roofs.push(roof);
+      const i0 = Math.max(0, Math.floor((roof.cx - roof.radius - minX) / cell));
+      const i1 = Math.min(columns - 1, Math.floor((roof.cx + roof.radius - minX) / cell));
+      const j0 = Math.max(0, Math.floor((roof.cy - roof.radius - minY) / cell));
+      const j1 = Math.min(rows - 1, Math.floor((roof.cy + roof.radius - minY) / cell));
+      for (let jj = j0; jj <= j1; jj++) for (let ii = i0; ii <= i1; ii++) (roofBuckets[jj * columns + ii] ??= []).push(roof);
     }
     this.blockers = { cell, minX, minY, columns, rows, buckets, maxRadius };
+    this.roofs = roofs;
+    this.roofBuckets = roofBuckets;
   }
 
+  /** Where the renderer stands an object's origin before its own z (seatHeight) */
+  private seatOf(entry: BuildCatalogEntry, o: MapObject): number {
+    const footing = { category: entry.category!, footprint: entry.footprint, height: entry.height ?? 0, box: entry.box, float: entry.float };
+    return seatHeight(footing, o, (x, y) => this.field.heightAt(x, y), (x, y) => waterLevelAt(this.doc.terrain, x, y, this.field.heightAt(x, y)));
+  }
+
+  /** Ground and the highest of ground, bridge deck and a roof that carries towers (the tiles' column has its roofs) */
   footprintColumn(localX: number, localZ: number): FootprintColumn | null {
     const mx = this.frame.mapX(localX);
     const my = this.frame.mapY(localZ);
     const ground = this.field.heightAt(mx, my);
     const deck = deckHeightAt(this.bridges, mx, my);
-    return { groundY: ground, topY: Number.isNaN(deck) ? ground : Math.max(ground, deck) };
+    const roof = this.roofTopAtMap(mx, my);
+    const top = Number.isNaN(deck) ? ground : Math.max(ground, deck);
+    return roof > top ? { groundY: ground, topY: roof, built: true } : { groundY: ground, topY: top };
   }
 
   /** Nothing streams on a map */
@@ -415,7 +532,9 @@ export class CustomMapSurface implements WorldSurface {
 }
 
 /** Numbers per object in the surface's blocker buckets */
-const BLOCKER_STRIDE = 10;
+const BLOCKER_STRIDE = 11;
+
+const NO_IDS: ReadonlySet<string> = new Set();
 
 /** Whether the ground of the blocker at `k` (its disc and its rectangle) comes within `reach` of map (x, y) */
 function covers(bucket: readonly number[], k: number, x: number, y: number, reach: number): boolean {

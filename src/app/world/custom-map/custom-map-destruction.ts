@@ -1,6 +1,6 @@
 import type { WorldDestruction, WorldStructure } from '../world-provider';
 import type { RunStructure } from '../../sim/protocol/run-rules';
-import { type MapObject, MAP_METERS_PER_DEGREE } from './map-document';
+import { type CustomMapDocument, type MapObject, MAP_METERS_PER_DEGREE } from './map-document';
 
 /** Catalogue categories whose objects take damage and fall */
 export const DESTRUCTIBLE_CATEGORIES: ReadonlySet<string> = new Set(['building', 'wall', 'structure']);
@@ -11,6 +11,23 @@ export const DESTRUCTIBLE_CATEGORIES: ReadonlySet<string> = new Set(['building',
  * fallen for the build blocking and the structures
  */
 export const FALLEN_SCALE = 1e-3;
+
+/**
+ * The objects that may leave the map during a run: those a wave event shows
+ * or hides, and on a destructible map every one of the categories that
+ * fall. Nothing stands on them (CustomMapSurface.setObjectCatalog), a tower
+ * would be left in the air.
+ */
+export function passingObjectIds(
+  doc: Pick<CustomMapDocument, 'objects' | 'gameplay'>,
+  categoryOf: (asset: string) => string | undefined,
+  destructible: boolean,
+): Set<string> {
+  const passing = new Set<string>();
+  for (const e of doc.gameplay?.events ?? []) if (e.kind === 'objects') for (const id of e.ids) passing.add(id);
+  if (destructible) for (const o of doc.objects) if (DESTRUCTIBLE_CATEGORIES.has(categoryOf(o.asset) ?? '')) passing.add(o.id);
+  return passing;
+}
 
 /** HP per cubic metre of a structure's cylinder (ground radius, height) */
 const HP_PER_M3 = 0.5;

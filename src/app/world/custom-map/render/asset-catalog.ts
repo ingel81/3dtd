@@ -5,6 +5,8 @@
  * build rules read the rest from here.
  */
 
+import type { CatalogRoof } from '../object-roof';
+
 export const CATALOG_VERSION = 1;
 
 export type MaterialCategory =
@@ -140,6 +142,12 @@ export interface CatalogObject {
    * seat take it within the footprint disc (object-ground.ts)
    */
   box?: [number, number, number, number];
+  /**
+   * Buildings, walls and structures a tower can stand on: the model's top
+   * surface at scale 1 (tools/map-assets/measure_roofs.mjs), object-roof.ts.
+   * Missing: the object blocks building around it, and nothing stands on it
+   */
+  roof?: CatalogRoof;
   blocksLos: boolean;
   blocksBuild: boolean;
   /** Placement hints for brushes and generators */

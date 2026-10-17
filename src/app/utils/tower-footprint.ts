@@ -39,6 +39,13 @@ export type FootprintRefusal = 'wall' | 'edge';
 export interface FootprintColumn {
   groundY: number;
   topY: number;
+  /**
+   * The top is a structure with upright sides (a custom map's roof,
+   * object-roof.ts): the drop from it to a column that is not one is a
+   * facade, never a slope the plinth follows down (carryingHeights).
+   * Missing where the world cannot tell (the tiles).
+   */
+  built?: boolean;
 }
 
 /** Which rule set the foot, see resolveTowerFootprint. */
@@ -402,7 +409,8 @@ function groundFarBelowOnBothSides(surfaceY: number, around: readonly (Footprint
  * probe that carries, no steeper than MAX_SLOPE between neighbours. A
  * hillside or a pitched roof carries the plinth all the way down; behind a
  * roof edge, a step down to a lower part of the building or a terrace wall
- * the plinth ends and hangs over the drop.
+ * the plinth ends and hangs over the drop. A column that knows its top is
+ * built (`built`, a custom map's roof) leads no slope down off its sides.
  */
 function carryingHeights(
   surfaceY: number,
@@ -416,10 +424,13 @@ function carryingHeights(
   const open = carries.flatMap((carrying, index) => (carrying ? [index] : []));
   while (open.length > 0) {
     const from = open.pop()!;
+    const offBuilt = columns[from]?.built === true;
     for (const to of pattern.neighbours[from]) {
       const y = heights[to.index];
       if (y === null || y === undefined || carries[to.index]) continue;
       if (heights[from]! - y > PLINTH_CONFIG.MAX_SLOPE * to.distance) continue;
+      // Off a roof's side down to the ground is a facade
+      if (offBuilt && columns[to.index]?.built !== true && heights[from]! - y >= PLINTH_CONFIG.MIN_UNEVENNESS) continue;
       carries[to.index] = true;
       open.push(to.index);
     }
