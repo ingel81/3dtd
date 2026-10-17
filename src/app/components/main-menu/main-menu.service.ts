@@ -169,7 +169,7 @@ export class MainMenuService {
    */
   async editThisMap(): Promise<void> {
     const mapId = this.editableMapId();
-    if (mapId === null) return;
+    if (mapId === null || this.editWhy()) return;
     if (this.fromEditor) this.screens.openEditor(null);
     else await this.editMap(mapId);
   }
@@ -184,8 +184,9 @@ export class MainMenuService {
   }
 
   /** The map editor in this window, on its list of maps (or the map open in it); the run waits as autosave */
-  openMapEditor(): Promise<void> {
-    return this.editMap(null);
+  async openMapEditor(): Promise<void> {
+    if (this.editWhy()) return;
+    await this.editMap(null);
   }
 
   /** The map editor in this window on `mapId` (null: its list); the run waits as autosave (runWaits) */
@@ -532,15 +533,23 @@ export class MainMenuService {
 
   // ---- Back to the worlds ----
 
+  /** The facts the blocked ways of the game hang on (world/why-not.ts) */
+  private readonly wayFacts = computed(() => ({
+    mapsOpen: this.mapsOpen,
+    inCoopRoom: this.inCoop() || (this.coop?.room() ?? null) !== null,
+    coopGuest: this.ui.coopMapLocked(),
+    replay: this.ui.replayMode(),
+  }));
+
   /** Why the game cannot go back to the worlds now (a coop room would lose the player), null when it can */
-  readonly leaveWhy = computed(() =>
-    whyNot('leave', {
-      mapsOpen: this.mapsOpen,
-      inCoopRoom: this.inCoop() || (this.coop?.room() ?? null) !== null,
-      coopGuest: this.ui.coopMapLocked(),
-      replay: this.ui.replayMode(),
-    }),
-  );
+  readonly leaveWhy = computed(() => whyNot('leave', this.wayFacts()));
+
+  /**
+   * Why the map editor cannot open from this game now, null when it can: in a coop room (its lobby or its game)
+   * the editor would take the game down and the room with it, so it stays locked with the reason, as on the
+   * path. The editor's own test goes back to the editor always.
+   */
+  readonly editWhy = computed(() => (this.fromEditor ? null : whyNot('edit', this.wayFacts())));
 
   /** The world menu of this world's kind, as the pause menu names it */
   readonly worldMenuLabel = computed(() => {

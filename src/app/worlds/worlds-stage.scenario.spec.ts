@@ -536,9 +536,9 @@ describe('Worlds stage', () => {
     expect(opened).toEqual([]);
   });
 
-  it('out of the map editor after a coop game: the room is not joined again, the world closes into its menu', async () => {
-    // Opening the editor from a coop game asks first ("You leave the coop game.") and takes the game down, its
-    // CoopService leaves the room; the world's start order still names the room it was joined by
+  it('out of the map editor with a world joined by a coop link: the room is not joined again, the world closes into its menu', async () => {
+    // The editor is locked inside a coop room (MainMenuService.editWhy); a world whose start order names a room
+    // can still stand behind the editor once the room is left. The way back opens nothing, so no room is joined
     const order = signal<WorldStart>({ ...PLAIN_START, world: { kind: 'custom-map', mapId: 'demo-valley', contentHash: '' }, room: { code: 'ABC123', lane: null } });
     TestBed.overrideProvider(WorldStartService, { useValue: { current: order } });
     await open({ key: true });

@@ -159,7 +159,7 @@ export class MenuHomeComponent {
       list.push(entry('settings', 'Settings'), entry('extras', 'Extras'));
       if (menu.canChangePlace()) list.push(entry('new-game', 'New game', null, true));
       list.push(entry('coop', 'Coop', null, true));
-      if (menu.editableMapId() !== null) list.push(entry('edit-map', menu.editMapLabel, null, true));
+      if (menu.editableMapId() !== null) list.push({ ...entry('edit-map', menu.editMapLabel, menu.editWhy(), true), why: menu.editWhy() });
       // Back to the worlds: the run waits in its autosave (docs/WORLDS_NAVIGATION_PLAN.md, 3.5)
       const why = menu.leaveWhy();
       list.push({ ...entry('world-menu', 'World menu', why ?? menu.worldMenuLabel(), true), why });
@@ -191,7 +191,8 @@ export class MenuHomeComponent {
     if (solo && menu.underWay()) list.push(entry('save', 'Save game'));
     if (solo) list.push(entry('load', 'Load game'));
     list.push(entry('settings', 'Settings'), entry('extras', 'Extras'));
-    list.push({ ...entry('editor', 'Map editor', this.mapsOpen ? null : 'Coming soon', true), off: !this.mapsOpen });
+    const editWhy = this.mapsOpen ? menu.editWhy() : null;
+    list.push({ ...entry('editor', 'Map editor', this.mapsOpen ? editWhy : 'Coming soon', true), off: !this.mapsOpen, why: editWhy });
     if (menu.canQuit) list.push(entry('quit', 'Quit 3DTD', null, true));
     return list;
   });

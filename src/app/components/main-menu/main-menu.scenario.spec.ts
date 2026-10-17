@@ -870,22 +870,30 @@ describe('The main menu', () => {
       expect(entries()).not.toContain('Edit this map');
     });
 
-    it('in a coop game Edit this map says the coop game is left; no run waits, so the way back leads to the worlds', async () => {
+    it('in a coop room the editor stays locked with the reason, as on the path: the room is never lost to it', async () => {
       mapsOpen = true;
       world.useCustomMap('ember-crater-copy', 'Ember Crater (copy)');
       coop.inGame.set(true);
       await setup('pause');
       game.towerCount.set(1);
-      saves.canSave.set(true);
       await settle();
 
-      await click(entry('edit-map'));
-      expect(text()).toContain('You leave the coop game.');
-      await click(Array.from(el().querySelectorAll<HTMLElement>('.mh-confirm button')).find((b) => b.textContent === 'Open in the editor')!);
-      await vi.waitFor(() => expect(worlds.editMap).toHaveBeenCalledWith('ember-crater-copy'));
-      // The game goes with the editor (its CoopService leaves the room); nothing of the coop run is kept to come back to
-      expect(saves.autosaveNow).not.toHaveBeenCalled();
-      expect(TestBed.inject(AppScreen).waitingRun()).toBeNull();
+      const edit = entry('edit-map')!;
+      expect(edit.getAttribute('aria-disabled')).toBe('true');
+      expect(edit.textContent).toContain('Leave the coop room to edit');
+      await click(edit);
+      expect(text()).not.toContain('You leave the coop game.');
+      expect(menu.editWhy()).toBe('Leave the coop room to edit');
+      // No way round it: the menu's own calls do nothing either
+      await menu.editThisMap();
+      await menu.openMapEditor();
+      expect(worlds.editMap).not.toHaveBeenCalled();
+
+      // Out of the room the way is open again
+      coop.inGame.set(false);
+      await settle();
+      expect(entry('edit-map')!.getAttribute('aria-disabled')).toBeNull();
+      expect(menu.editWhy()).toBeNull();
     });
 
     it('between waves Edit this map keeps the run as autosave, and Back to the run names it (E195 phase 4)', async () => {
