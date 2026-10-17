@@ -352,6 +352,13 @@ export interface WorldProvider {
    * the one state there is
    */
   withLightStates?(run: () => void): void;
+  /**
+   * Runs `run` with everything the world hides until it is needed shown (a
+   * custom map: a cell of every asset, the weather, what shows by night), and
+   * hides it again: a warm-up frame inside draws each once. Missing: the
+   * world shows what it has
+   */
+  withAllShown?<T>(run: () => T): T;
   /** A new origin (a change of place) */
   setOrigin(lat: number, lon: number, height: number): void;
   /** Each drawn frame after the camera moved, before the draw: stream the ground, keep the overlay on it */

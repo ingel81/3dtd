@@ -5,6 +5,7 @@
 //   npx ng serve --port <port>   (or node e2e/perf/serve.mjs <dist dir> <port>)
 //   node e2e/perf/editor-sky-stall.ts --url http://localhost:<port> [--template city] [--open-at Day] [--settle 4000] [--headed]
 import { chromium } from '@playwright/test';
+import { FrameProfiler } from './frame-profile.ts';
 
 function argument(name: string, fallback: string): string {
   const at = process.argv.indexOf(`--${name}`);
@@ -64,7 +65,7 @@ if (OPEN_AT) {
   await page.waitForTimeout(1500);
 }
 
-type Probe = { programs(): number; start(): void; stop(): { longest: number; stalled: number; frames: number; long: number[][] } };
+interface Probe { programs(): number; start(): void; stop(): { longest: number; stalled: number; frames: number; long: number[][] } }
 await page.evaluate(() => {
   const shell = (globalThis as unknown as { ng: { getComponent(e: Element): { session: { viewport: { renderer: { info: { programs?: unknown[] } } } } } } }).ng.getComponent(
     document.querySelector('app-editor-shell')!,
@@ -109,7 +110,10 @@ await page.evaluate(() => {
 });
 
 const rows: Record<string, unknown>[] = [];
+// --profile: per long frame (over --long ms, default 50) where its main-thread time went
+const profiler = process.argv.includes('--profile') ? await FrameProfiler.attach(page, Number(argument('long', '50'))) : null;
 for (const step of STEPS) {
+  await profiler?.start();
   const group = step.group === 'Sky' ? page.locator('[aria-labelledby=ep-sky]') : page.getByRole('radiogroup', { name: 'Weather' });
   const before = await page.evaluate(() => (globalThis as unknown as { __skyProbe: Probe }).__skyProbe.programs());
   await page.evaluate(() => (globalThis as unknown as { __skyProbe: Probe }).__skyProbe.start());
@@ -120,6 +124,7 @@ for (const step of STEPS) {
   const row = { step: step.label, ...frames, programs: after - before };
   rows.push(row);
   console.log(JSON.stringify(row));
+  if (profiler) console.log(await profiler.stop(Number(argument('lines', '25'))));
 }
 const shot = argument('shot', '');
 if (shot) await page.screenshot({ path: shot });

@@ -344,6 +344,10 @@ export class CustomMapWorld implements WorldProvider {
     else run();
   }
 
+  withAllShown<T>(run: () => T): T {
+    return this.view ? this.view.withAllShown(run) : run();
+  }
+
   setOrigin(lat: number, lon: number, height: number): void {
     this.sync.setOrigin(lat, lon, height);
     this.frame.setOrigin(lat, lon);

@@ -327,6 +327,22 @@ export class CustomMapView {
     } finally {
       renderer.setRenderTarget(previous);
     }
+    // The water's mirror draws the map into a linear target without tone mapping: when the frames go to the screen,
+    // other programs of everything it shows (a first rain in it linked the weather's in its frame)
+    if (!target && this.mapEffects.reflection && this.waters.some((w) => w)) {
+      const mirror = new WebGLRenderTarget(1, 1);
+      try {
+        renderer.setRenderTarget(mirror);
+        this.withAllShown(() =>
+          states(() => {
+            for (const part of this.mirroredParts()) compiled.push(renderer.compileAsync(part, camera, scene instanceof Scene ? scene : null));
+          }),
+        );
+      } finally {
+        renderer.setRenderTarget(previous);
+        mirror.dispose();
+      }
+    }
     await Promise.all(compiled);
     if (this.disposed) return 0;
     // The shadow pass's depth programs too, off the main thread: the shadow frame below finds them built
@@ -343,24 +359,20 @@ export class CustomMapView {
     if (this.disposed) return 0;
     // compileAsync leaves out the shadow pass: its depth programs (instanced, alpha-tested cards,
     // per material) compiled on the first frame a caster entered the sun's box, a stall of seconds.
-    // One frame with a cell of every asset casting compiles them now, during loading, into the same target,
-    // one in each light state for the game
+    // One frame with a cell of every asset casting and all else shown (withAllShown) compiles them now,
+    // during loading, into the same target, one in each light state for the game
     const shadows = renderer.shadowMap.enabled;
-    if (shadows || (allLights && this.effects.hasLights)) {
-      this.objects.showAllForWarmUp(true);
-      const wasAuto = renderer.shadowMap.autoUpdate;
-      renderer.shadowMap.autoUpdate = shadows;
-      renderer.shadowMap.needsUpdate = shadows;
-      try {
-        renderer.setRenderTarget(target);
-        states(() => renderer.render(scene, camera));
-      } finally {
-        renderer.setRenderTarget(previous);
-        renderer.shadowMap.autoUpdate = wasAuto;
-        this.objects.showAllForWarmUp(false);
-        // The warm-up frame drew every cell into the shadow map: the next frame draws the real one, whole
-        if (shadows) this.environment.invalidateShadowsNow();
-      }
+    const wasAuto = renderer.shadowMap.autoUpdate;
+    renderer.shadowMap.autoUpdate = shadows;
+    renderer.shadowMap.needsUpdate = shadows;
+    try {
+      renderer.setRenderTarget(target);
+      this.withAllShown(() => states(() => renderer.render(scene, camera)));
+    } finally {
+      renderer.setRenderTarget(previous);
+      renderer.shadowMap.autoUpdate = wasAuto;
+      // The warm-up frame drew every cell into the shadow map: the next frame draws the real one, whole
+      if (shadows) this.environment.invalidateShadowsNow();
     }
     return (renderer.info.programs?.length ?? 0) - before;
   }
@@ -506,6 +518,44 @@ export class CustomMapView {
     twin.displacementScale = m.displacementScale ?? 1;
     twin.displacementBias = m.displacementBias ?? 0;
     return twin;
+  }
+
+  /**
+   * What the water's mirror draws (WaterReflection's keep), without the
+   * lights: three's compile counts an object's own lights on top of its
+   * scene's, which gave programs with two suns
+   */
+  private mirroredParts(): Object3D[] {
+    return [this.group, this.losBlockers, this.environment.skyDome.mesh, this.environment.weather.mesh];
+  }
+
+  /**
+   * Runs `run` with everything the map hides until it is needed shown, and
+   * hides it again: a cell of every asset at each level
+   * (objects.showAllForWarmUp), the terrain's other levels and what waits for
+   * its moment (weather particles, beams and glows by night, fireflies). A
+   * warm-up frame drawn inside gives each its first draw, which the GPU
+   * process otherwise translated in the frame of a first rain (185 ms in the
+   * editor) or night. Lights keep their state (withLightStates)
+   */
+  withAllShown<T>(run: () => T): T {
+    this.objects.showAllForWarmUp(true);
+    const shown: Object3D[] = [];
+    const reveal = (root: Object3D) =>
+      root.traverse((o) => {
+        // The object layer's cells as showAllForWarmUp chose them; nothing that holds a light (the shadow build's stage)
+        if (o.visible || o.userData['batch'] || o.getObjectByProperty('isLight', true)) return;
+        o.visible = true;
+        shown.push(o);
+      });
+    reveal(this.group);
+    reveal(this.environment.lights);
+    try {
+      return run();
+    } finally {
+      for (const o of shown) o.visible = false;
+      this.objects.showAllForWarmUp(false);
+    }
   }
 
   /**

@@ -5,8 +5,8 @@
 //
 //   npx ng serve --port <port>   (or node e2e/perf/serve.mjs <dist dir> <port>)
 //   node e2e/perf/hitch-probe.ts --url http://localhost:<port> [--map autumn-keep] [--cases night,rain,herbert] [--headed]
-import { chromium, type CDPSession } from '@playwright/test';
-import type { CpuProfile } from './cdp-profile.ts';
+import { chromium } from '@playwright/test';
+import { FrameProfiler } from './frame-profile.ts';
 
 function argument(name: string, fallback: string): string {
   const at = process.argv.indexOf(`--${name}`);
@@ -229,75 +229,15 @@ async function measureTowers(): Promise<void> {
   console.log('RESULT ' + JSON.stringify({ case: 'towers', ...results }));
 }
 
-/**
- * Inclusive main-thread time per function within one long frame of the profile, the top `limit`: where a hitch's time
- * went. `fromUs` and `toUs` on the profile's clock
- */
-function inclusive(profile: CpuProfile, fromUs: number, toUs: number, limit: number): string {
-  const parent = new Map<number, number>();
-  for (const n of profile.nodes) for (const c of n.children ?? []) parent.set(c, n.id);
-  const byId = new Map(profile.nodes.map((n) => [n.id, n]));
-  const total = new Map<string, number>();
-  const samples = profile.samples ?? [];
-  const deltas = profile.timeDeltas ?? [];
-  let t = profile.startTime;
-  for (let i = 0; i < samples.length; i++) {
-    t += deltas[i] ?? 0;
-    if (t < fromUs || t > toUs) continue;
-    const us = deltas[i + 1] ?? 0;
-    const seen = new Set<string>();
-    for (let id: number | undefined = samples[i]; id !== undefined; id = parent.get(id)) {
-      const f = byId.get(id)!.callFrame;
-      if (!f.url || /zone|polyfills/.test(f.url)) continue;
-      const key = `${f.functionName || '(anonymous)'} ${f.url.split('/').pop()?.split('?')[0]}:${f.lineNumber + 1}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      total.set(key, (total.get(key) ?? 0) + us);
-    }
-  }
-  return [...total.entries()].sort((x, y) => y[1] - x[1]).slice(0, limit).map(([k, us]) => `${(us / 1000).toFixed(0).padStart(6)} ms  ${k}`).join('\n');
-}
-
-const PROFILE = process.argv.includes('--profile');
-let cdp: CDPSession | null = null;
-if (PROFILE) {
-  cdp = await page.context().newCDPSession(page);
-  await cdp.send('Profiler.enable');
-  await cdp.send('Profiler.setSamplingInterval', { interval: 200 });
-}
+const profiler = process.argv.includes('--profile') ? await FrameProfiler.attach(page, 100) : null;
 await measure('day');
-let profileStartMs = 0;
-if (cdp) {
-  await cdp.send('Profiler.start');
-  // The frames the profile covers, recorded in the page: each one over 100 ms with its start and end
-  profileStartMs = await page.evaluate(() => {
-    const long: [number, number][] = [];
-    (globalThis as { __longFrames?: [number, number][] }).__longFrames = long;
-    let last = performance.now();
-    const frame = () => {
-      const now = performance.now();
-      if (now - last > 100) long.push([last, now]);
-      last = now;
-      requestAnimationFrame(frame);
-    };
-    requestAnimationFrame(frame);
-    return performance.now();
-  });
-}
+await profiler?.start();
 for (const name of ORDER) {
   if (name === 'towers') await measureTowers();
   else await measure(name);
 }
-if (cdp) {
-  const long = await page.evaluate(() => (globalThis as { __longFrames?: [number, number][] }).__longFrames ?? []);
-  const { profile } = (await cdp.send('Profiler.stop')) as unknown as { profile: CpuProfile };
-  // The page's clock to the profile's: both start together, near enough for frames of 100 ms and more
-  const toUs = (ms: number) => profile.startTime + (ms - profileStartMs) * 1000;
-  for (const [from, to] of long) {
-    console.log(`FRAME ${Math.round(to - from)} ms at ${((from - profileStartMs) / 1000).toFixed(1)} s`);
-    console.log(inclusive(profile, toUs(from), toUs(to), Number(argument("lines", "18"))));
-  }
-}
+if (profiler) console.log(await profiler.stop(Number(argument('lines', '18'))));
+// --keys <name>: the cache keys of the programs of a material name (or starting so), to see what tells two apart
 const KEYS = argument('keys', '');
 if (KEYS) {
   const keys = await page.evaluate((name) => {

@@ -1266,6 +1266,21 @@ export class ThreeTilesEngine {
   }
 
   /**
+   * With everything the world hides until it is needed shown (withAllShown):
+   * the scene in each light state, and the line-of-sight cube once
+   * (TowerShadowMapper.warmUp), so each kind of blocker mesh has its program
+   */
+  private drawHidden(): void {
+    const draw = () => {
+      this.drawInLightStates();
+      const blockers = this.world.losBlockers();
+      if (blockers) this.getTowerShadowMapper().warmUp(this.camera.position, blockers);
+    };
+    if (this.world.withAllShown) this.world.withAllShown(draw);
+    else draw();
+  }
+
+  /**
    * The scene drawn once in each of the world's light states into what the
    * frames draw to (the screen or, through the composer, a linear target):
    * the GPU process translates a program again on its first draw in a state,
@@ -1296,8 +1311,7 @@ export class ThreeTilesEngine {
    * scene only later (towers with their builds and paths, plinths,
    * tentacles, ooze bands, the hero) is there as stand-ins meanwhile, drawn
    * too small for a pixel in the warm-up frame; the shadow map renders in it
-   * as well, for their depth programs, and the line-of-sight cube once.
-   * Afterwards every program does its first-use work (firstUsePrograms), the
+   * as well, then with all the world hides shown (drawHidden). Afterwards every program does its first-use work (firstUsePrograms), the
    * other light state's included.
    */
   async preloadModels(): Promise<void> {
@@ -1327,7 +1341,7 @@ export class ThreeTilesEngine {
             shadows.needsUpdate = shadows.enabled;
             return this.renderLoop.waitForRenderedFrame();
           },
-          () => this.drawInLightStates(),
+          () => this.drawHidden(),
         ),
       );
     } finally {
@@ -1336,9 +1350,6 @@ export class ThreeTilesEngine {
       this.world.invalidateShadows?.();
     }
     if (this.disposed) return;
-    // The line-of-sight cube's programs (TowerShadowMapper.warmUp)
-    const blockers = this.world.losBlockers();
-    if (blockers) this.getTowerShadowMapper().warmUp(this.camera.position, blockers);
     const t0 = performance.now();
     await firstUsePrograms(this.renderer, () => this.disposed);
     console.log(
