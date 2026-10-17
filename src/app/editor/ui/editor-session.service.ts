@@ -227,6 +227,8 @@ export class EditorSession implements OnDestroy {
   private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
   private statusTimer: ReturnType<typeof setTimeout> | null = null;
   private savedState = -1;
+  /** The document state the newest kept version holds, -1 when none is known for this map */
+  private versionedState = -1;
   private unsubscribe: (() => void)[] = [];
 
   /** The asset catalogue is read before a map opens, so the view never swaps it */
@@ -851,6 +853,7 @@ export class EditorSession implements OnDestroy {
     }
     const editor = this.editor;
     this.savedState = editor.stateId;
+    this.versionedState = -1;
     this.loadBookmarks(doc.meta.id);
     this.workSince = Date.now();
     this.downloadReminder.set(false);
@@ -1278,6 +1281,13 @@ export class EditorSession implements OnDestroy {
       const copyOf = this.pendingCopy;
       // A shipped map unchanged: nothing of one's own to keep
       if (copyOf && !changed) return true;
+      // Ctrl+S on a map stored and kept as a version as it is: only the list's picture is new, no second version
+      if (manual && !changed && this.versionedState === state) {
+        const preview = await this.thumbnail();
+        if (preview) await this.store.setPreview(doc.meta.id, preview);
+        this.flash('Saved');
+        return true;
+      }
       const original = doc.meta.name;
       if (copyOf) {
         await this.store.makeCopy(doc, undefined, copyOf);
@@ -1286,7 +1296,8 @@ export class EditorSession implements OnDestroy {
       }
       // An OpenStreetMap map changed is a Built World from now on (docs/WORLDS_STATE_PLAN.md, decision 5)
       if (changed && doc.meta.generated) delete doc.meta.generated;
-      doc.meta.updatedAt = new Date().toISOString();
+      // Unchanged, the file stays byte for byte what it was (a version of it is then no new one)
+      if (changed) doc.meta.updatedAt = new Date().toISOString();
       // The identity first: the copy packed below must carry it (the store would pack the live map again)
       doc.meta.uid ??= newMapUid();
       const preview = manual ? await this.thumbnail() : null;
@@ -1298,7 +1309,11 @@ export class EditorSession implements OnDestroy {
       const id = doc.meta.id;
       void this.history
         .record(id, doc.meta.createdAt, file, manual, undefined, sum)
-        .then((v) => (v ? this.loadVersions() : undefined))
+        .then((v) => {
+          if (!v) return;
+          if (this.editor?.doc === doc) this.versionedState = state;
+          return this.loadVersions();
+        })
         .catch(() => undefined);
       this.savedState = state;
       editor.markSaved();

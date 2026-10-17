@@ -331,6 +331,21 @@ describe('editor session saving', () => {
 });
 
 describe('editor session versions', () => {
+  it('keeps no second version for Ctrl+S on a map that did not change', async () => {
+    const { s, versions } = session();
+    s.editMeta({ name: 'Once' });
+    expect(await s.save(true)).toBe(true);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(await versions.list('m')).toHaveLength(1);
+    const updated = s.doc!.meta.updatedAt;
+    expect(await s.save(true)).toBe(true);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(await versions.list('m')).toHaveLength(1);
+    expect(s.doc!.meta.updatedAt).toBe(updated);
+    expect(s.status()).toBe('Saved');
+    s.ngOnDestroy();
+  });
+
   it('restores all of a kept version: life, intro flight and prefabs too, the name stays', async () => {
     const { s } = session();
     s.editLife((life) => (life.flags = true), 'Banners wave');
