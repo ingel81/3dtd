@@ -63,4 +63,16 @@ describe('lamp light', () => {
     expect(at(lamps, lamps.flicker, 25, 10)[0]).toBe(0);
     lamps.dispose();
   });
+
+  it('bakes nothing for the same lights again, and bakes when one moved', () => {
+    const lamps = new LampLight(flat());
+    lamps.bake([lamp(0, 0)]);
+    const version = lamps.steady.version;
+    expect(lamps.bake([lamp(0, 0)])).toBe(true);
+    expect(lamps.steady.version).toBe(version);
+    lamps.bake([lamp(10, 0)]);
+    expect(lamps.steady.version).toBeGreaterThan(version);
+    lamps.dispose();
+  });
 });
+

@@ -76,6 +76,9 @@ export class LampLight {
   private readonly weight: Float32Array;
   /** Where the last bake put light */
   private baked: Rect | null = null;
+  /** What the last bake was of (lampSignature) and whether it lit anything */
+  private signature: Float64Array | null = null;
+  private lit = false;
 
   constructor(private readonly field: HeightField) {
     const width = (field.columns - 1) * field.cellSize;
@@ -99,8 +102,22 @@ export class LampLight {
     return target.set(sx, sy, -this.originX * sx + 0.5 / this.columns, -this.originY * sy + 0.5 / this.rows);
   }
 
-  /** Bakes the light of `spots` anew; true when any light falls on the map */
+  /**
+   * Bakes the light of `spots` anew; true when any light falls on the map.
+   * The same lights as the last bake bake nothing: the effects are built
+   * again for other reasons too (a quality level's particle share), and each
+   * of those baked the whole map's light anew (20 to 25 ms on harbor town).
+   * The ground under each light counts: an edit there bakes again
+   */
   bake(spots: readonly LampSpot[]): boolean {
+    const signature = lampSignature(spots, this.field);
+    if (this.signature && sameValues(signature, this.signature)) return this.lit;
+    this.signature = signature;
+    this.lit = this.bakeAnew(spots);
+    return this.lit;
+  }
+
+  private bakeAnew(spots: readonly LampSpot[]): boolean {
     const steady = this.steadyValues;
     const flicker = this.flickerValues;
     const weight = this.weight;
@@ -238,3 +255,19 @@ vec3 lampLightAt(vec3 worldPos) {
   return lampLight * (uLampOn * lampVertical);
 }
 `;
+
+/** The numbers of each spot that the bake reads, with the ground under it (an edit there bakes again), in one array */
+function lampSignature(spots: readonly LampSpot[], field: HeightField): Float64Array {
+  const out = new Float64Array(spots.length * 10);
+  spots.forEach((s, k) => {
+    const ground = field.heightAt(-s.position.x, s.position.z);
+    out.set([s.position.x, s.position.y, s.position.z, s.color.r, s.color.g, s.color.b, s.intensity, s.distance, s.flicker ? 1 : 0, ground], k * 10);
+  });
+  return out;
+}
+
+function sameValues(a: Float64Array, b: Float64Array): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
