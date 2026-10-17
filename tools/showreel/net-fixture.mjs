@@ -5,6 +5,7 @@
 //   node tools/showreel/net-fixture.mjs record --scenes tools/showreel/scenes/r4-k1.mjs --scene osm-make \
 //        --url http://localhost:4352 --har <file>.har.zip [--overpass <answer.json>]
 //   node tools/showreel/net-fixture.mjs check --scenes ... --scene osm-make[,next] --url ... --har <file> [--shots 1 --out <dir>]
+//        [--keep <file>.3dtdmap]   (record or check: the map the scenes made, the newest own map, written out)
 //
 // record: --overpass answers the Overpass queries from a saved answer of the same box (the servers were down on
 // 2026-10-16; the file is Overpass JSON as the query returned it), everything else is fetched live once.
@@ -200,6 +201,14 @@ async function main() {
         await page.waitForTimeout(1500);
         console.log(`  left for ${page.url()}`);
       }
+    }
+    // --keep <file>: the newest own map (the OSM world the scenes made) written out as a map fixture
+    const keep = option('keep', '');
+    if (keep) {
+      const file = await page.evaluate(() => window.__showreel.take.ownMap());
+      if (!file) throw new Error('--keep: no own map in the store');
+      writeFileSync(resolve(keep), Buffer.from(file.base64, 'base64'));
+      console.log(`kept ${file.name} as ${resolve(keep)}`);
     }
   } finally {
     await context.close().catch(() => undefined);

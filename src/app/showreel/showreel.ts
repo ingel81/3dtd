@@ -20,6 +20,8 @@ import { ShowreelPointer } from './pointer';
 import type { Stage } from './stage';
 import { cameraRow, type CameraRow } from './camera-floor';
 import type { MapEnvironment } from '../world/custom-map/map-document';
+import { MapStore } from '../world/custom-map/map-store';
+import { packMapFile } from '../world/custom-map/map-file';
 import type { LoadResult, SaveResult } from '../services/save-game/save-game.port';
 
 /** Frame counters and dev overlays out of the picture, the real pointer hidden */
@@ -83,6 +85,8 @@ export interface ShowreelApi {
     agent(tool: string, args: Record<string, unknown>): Promise<{ text: string; isError?: boolean }>;
     /** Editor: the open map as a file */
     mapFile(): { name: string; base64: string };
+    /** Any page: the newest own map in this browser's store as a file (an OSM world just made), null without one */
+    ownMap(): Promise<{ name: string; base64: string } | null>;
     /** Game: a save file loaded */
     loadSave(base64: string, name: string): Promise<LoadResult>;
     /** Game: the run saved and downloaded as a file */
@@ -231,6 +235,15 @@ export function startShowreel(injector: Injector): void {
       newMap: (options) => asEditor().newMap(options),
       agent: (tool, args) => asEditor().agent(tool, args),
       mapFile: () => asEditor().mapFile(),
+      async ownMap() {
+        const store = new MapStore();
+        const newest = (await store.listOwn())[0];
+        if (!newest) return null;
+        const bytes = packMapFile((await store.load(newest.id, 'own')).doc);
+        let text = '';
+        for (let i = 0; i < bytes.length; i += 0x8000) text += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+        return { name: newest.id, base64: btoa(text) };
+      },
       loadSave: (base64, name) => asGame().loadSave(base64, name),
       exportSave: (name) => asGame().exportSave(name),
       setCredits: (value) => asGame().setCredits(value),
