@@ -532,7 +532,6 @@ export class EditorSession implements OnDestroy {
     return job;
   }
 
-  /** The map from above for an AI agent, `size` pixels a side, as a JPEG data URL; null without a view */
   /** The AI agent's picture from above: roads, spawns and the HQ drawn over it, the relief shaded */
   async topDownPicture(size: number): Promise<string | null> {
     const vp = this.viewport;
