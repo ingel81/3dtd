@@ -111,9 +111,13 @@ describe('path mask', () => {
   it('paints again only round what changed, the same texels as a whole raster', () => {
     const doc: MapPaths = structuredClone(paths) as MapPaths;
     const rivers: MapRiver[] = [];
-    const raster = new PathMaskRaster(200, 160, 400);
-    const whole = () => rasterizePathMask(doc, 200, 160, 400, rivers);
-    expect(raster.update(doc, rivers)).toEqual({ i0: 0, j0: 0, i1: 399, j1: 399 });
+    const raster = new PathMaskRaster(200, 160, 200);
+    // The first texel where the kept mask and a whole raster differ, -1 for none (toEqual on the bytes is slow)
+    const differs = () => {
+      const want = rasterizePathMask(doc, 200, 160, 200, rivers);
+      return want.findIndex((v, k) => v !== raster.data[k]);
+    };
+    expect(raster.update(doc, rivers)).toEqual({ i0: 0, j0: 0, i1: 199, j1: 199 });
     expect(raster.update(doc, rivers)).toBeNull();
     const steps: (() => void)[] = [
       () => (doc.nodes[0].x = -30),
@@ -131,13 +135,13 @@ describe('path mask', () => {
       step();
       const rect = raster.update(doc, rivers);
       expect(rect).not.toBeNull();
-      expect(raster.data).toEqual(whole());
+      expect(differs()).toBe(-1);
     }
     // A node drag paints a small part of the mask
     doc.nodes[2].x += 2;
     const rect = raster.update(doc, rivers)!;
-    expect((rect.i1 - rect.i0 + 1) * (rect.j1 - rect.j0 + 1)).toBeLessThan(400 * 400 * 0.2);
-    expect(raster.data).toEqual(whole());
+    expect((rect.i1 - rect.i0 + 1) * (rect.j1 - rect.j0 + 1)).toBeLessThan(200 * 200 * 0.2);
+    expect(differs()).toBe(-1);
   });
 
   it('aims at half a metre per texel, even and capped', () => {
