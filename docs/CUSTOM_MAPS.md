@@ -124,7 +124,7 @@ Nebel der Szene wieder her.
   nicht auf Klippen und Glut). **Bodenstimmung je Biom** (`ground-mood.ts`): Kuppen, Mulden, Rinnen, große Flecken
   und Flecken von gut 10 m mit festen Rändern (`variationFine`) tönen sich je Biom (gemäßigt Stroh auf Kuppen und
   sattes Blaugrün in Mulden, Sumpf Torf und rostige Eisenrinnen, Wüste gebleichte Kuppen, Wüstenlack und Salz,
-  Arktis blaue Schattenmulden), dazu die Sättigung je Biom. **Hangabtrag**: auf Hängen von gut 15° bis zum
+  Arktis blaue Schattenmulden), dazu die Sättigung je Biom. **Übergänge** (E214 Teil 3): Wege und Straßen haben ausgetretene Ränder (eine grobe Mip-Stufe der Wegemaske, etwa 2,2 m, ist ein Hof um sie: dort wird die Grasnarbe dunkler und reißt in Zungen zur Erde des Bioms auf, `worn`); am Fuß von Fels und Steilhang liegt Geröll in hellen und dunklen Steinen; am Wasser ein Uferstreifen (`shore`), aus dem Alphakanal der Gitternormalen, der jetzt die Nähe zum Wasser trägt: 1 bis zwei Samples, auf 0 bei sechs (Chamfer-Distanz, `setWater`). Auf ebenem, offenem Gras Kleeinseln in Blüte (`clover`, `flower`), aus der Nähe einzelne Blüten, aus der Ferne ein heller Schimmer. Alles je Biom in `ground-mood.ts`, gleiche Programmzahl, gilt in Editor, Spiel und OSM-Welten. **Hangabtrag**: auf Hängen von gut 15° bis zum
   Klippenwinkel reißt die Grasnarbe (`MATERIAL_LOOK.turf`) in Zungen entlang der Falllinie auf und zeigt die Erde des
   Bioms, auf Kuppen und in den dunklen Stellen der Eigenstruktur zuerst. Kosten (nur Gelände gezeichnet, 1920 × 1080,
   Stufe High, je zwei Läufe): Demo-Tal Spielkamera vorher 1,69 bis 1,91 ms, nachher 1,65 bis 1,70 ms; Nahkamera 2,13

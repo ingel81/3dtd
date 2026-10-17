@@ -168,6 +168,10 @@ export class TerrainMaterial extends MeshStandardMaterial {
     uMoodPatchA: { value: new Vector3(1, 1, 1) },
     uMoodPatchB: { value: new Vector3(1, 1, 1) },
     uMoodBare: { value: new Color() },
+    uMoodWorn: { value: new Color() },
+    uMoodShore: { value: new Color() },
+    uMoodClover: { value: new Vector3(1, 1, 1) },
+    uMoodFlower: { value: new Color() },
     uMoodSat: { value: 0.94 },
     uTerrainTime: { value: 0 },
     uSplatLayer: { value: new Int32Array(12).fill(-1) },
@@ -303,6 +307,10 @@ export class TerrainMaterial extends MeshStandardMaterial {
     u.uMoodPatchA.value.fromArray(m.patchA);
     u.uMoodPatchB.value.fromArray(m.patchB);
     u.uMoodBare.value.setRGB(m.bare[0], m.bare[1], m.bare[2], SRGBColorSpace);
+    u.uMoodWorn.value.setRGB(m.worn[0], m.worn[1], m.worn[2], SRGBColorSpace);
+    u.uMoodShore.value.setRGB(m.shore[0], m.shore[1], m.shore[2], SRGBColorSpace);
+    u.uMoodClover.value.fromArray(m.clover);
+    u.uMoodFlower.value.setRGB(m.flower[0], m.flower[1], m.flower[2], SRGBColorSpace);
     u.uMoodSat.value = m.saturation;
   }
 
@@ -358,6 +366,10 @@ uniform vec3 uMoodDrain;
 uniform vec3 uMoodPatchA;
 uniform vec3 uMoodPatchB;
 uniform vec3 uMoodBare;
+uniform vec3 uMoodWorn;
+uniform vec3 uMoodShore;
+uniform vec3 uMoodClover;
+uniform vec3 uMoodFlower;
 uniform float uMoodSat;
 // The coarse self-structure's scale against a layer's own (no simple fraction: the repeats never line up)
 #define COARSE_SCALE 0.157
@@ -483,15 +495,17 @@ vec2 edgeDist = abs(mapPos) - uMapSize * 0.5;
 float outside = smoothstep(0.0, 12.0, max(edgeDist.x, edgeDist.y));
 vec4 gridSample = texture2D(uGridNormals, mapPos * uGridUv.xy + uGridUv.zw);
 vec3 nGeo = safeNormalize(mix(gridSample.xyz, normalize(vTerrainNormal), outside), vec3(0.0, 1.0, 0.0));
-// Banks just above the water are wet: darker and glossier
-float wetBank = gridSample.a * smoothstep(uWaterLevel + 1.3, uWaterLevel + 0.15, tPos.y) * (1.0 - outside);
+// Banks just above the water are wet: darker and glossier. The grid's alpha is 1 within two samples of the
+// water and fades to 0 four samples further (the shore strip, below)
+float nearWater = smoothstep(0.9, 1.0, gridSample.a);
+float wetBank = nearWater * smoothstep(uWaterLevel + 1.3, uWaterLevel + 0.15, tPos.y) * (1.0 - outside);
 wetBank = max(wetBank, pathHere.a * (1.0 - outside) * 0.85);
 // Swash: each foam band that reaches the shore runs up the bank and drains away (shore-waves.ts, same phase)
 float swash = 0.0;
 if (uSwashSpeed > 0.0) {
   float q = fract(uTerrainTime * uSwashSpeed + 0.04);
   float runup = uWaterLevel + 0.03 + 0.28 * (1.0 - smoothstep(0.0, 0.55, q));
-  swash = gridSample.a * smoothstep(runup + 0.04, runup - 0.04, tPos.y) * smoothstep(uWaterLevel - 0.2, uWaterLevel + 0.02, tPos.y) * (1.0 - outside);
+  swash = nearWater * smoothstep(runup + 0.04, runup - 0.04, tPos.y) * smoothstep(uWaterLevel - 0.2, uWaterLevel + 0.02, tPos.y) * (1.0 - outside);
   wetBank = max(wetBank, swash);
 }
 vec2 tuv = mapPos / uMapSize + 0.5;
@@ -764,8 +778,8 @@ albedo = mix(albedo, albedo * uMoodPatchB, smoothstep(0.45, 0.15, n1) * 0.6);
 // And the same two kinds again in patches of about a dozen metres with firm edges (a stand of clover, a dry
 // knoll, a damp spot), and clumps of a few metres: what a meadow or a sand flat shows from the game camera
 float midPatch = varFine.r * 0.7 + n3 * 0.3;
-albedo = mix(albedo, albedo * uMoodPatchA, smoothstep(0.57, 0.63, midPatch) * 0.5);
-albedo = mix(albedo, albedo * uMoodPatchB, smoothstep(0.43, 0.37, midPatch) * 0.45);
+albedo = mix(albedo, albedo * uMoodPatchA, smoothstep(0.56, 0.62, midPatch) * 0.8);
+albedo = mix(albedo, albedo * uMoodPatchB, smoothstep(0.43, 0.37, midPatch) * 0.6);
 albedo *= mix(0.9, 1.06, smoothstep(0.35, 0.65, varFiner.r));
 // Photo grass reads olive under a warm sun: where green leads, pull red and blue back a little
 float greenLead = smoothstep(0.0, 0.08, albedo.g - max(albedo.r, albedo.b));
@@ -814,9 +828,9 @@ float hollow = smoothstep(0.04, 0.4, -curv) * (1.0 - cliff);
 float drain = smoothstep(0.35, 0.9, shape.b) * inside * (1.0 - cliff);
 float lavaNear = shape.a * inside;
 // In the biome's mood: a temperate crest dries to straw, a marsh hollow is peat, a desert runnel salt
-albedo = mix(albedo, albedo * uMoodCrest, crest * 0.5);
-albedo = mix(albedo, albedo * uMoodHollow, hollow);
-albedo = mix(albedo, albedo * uMoodDrain * 0.86, drain * 0.85);
+albedo = mix(albedo, albedo * uMoodCrest, crest * 0.8);
+albedo = mix(albedo, albedo * uMoodHollow * 0.9, hollow);
+albedo = mix(albedo, albedo * uMoodDrain * 0.8, drain);
 // Turf tears open on steep, convex slopes below the cliff angle: tongues of the biome's bare earth down the
 // fall line, more on crests, in the coarse structure's dark spots first
 float turf = 0.0;
@@ -829,10 +843,44 @@ if (tearSlope > 0.01) {
   float tear = smoothstep(0.62, 0.78, tearAt) * min(1.0, tearSlope * 2.2);
   albedo = mix(albedo, uMoodBare * (0.8 + 0.4 * coarseLum), tear * 0.85);
 }
-// Scree: in a hollow under steep ground (the occlusion is low there), the cliff's rock spills out
+float natural = clamp(1.0 - road - path, 0.0, 1.0) * inside * (1.0 - cliff);
+// Islands of clover in flower on level, open grass (not on crests, not in hollows), a dozen metres across with
+// ragged rims; near the camera the blossoms are single spots, from afar they blend into a pale haze
+float levelGround = smoothstep(0.94, 0.985, nGeo.y);
+float islands = smoothstep(0.52, 0.58, varFiner.g * 0.75 + varFiner.r * 0.15 + varFiner.b * 0.1) * levelGround * (1.0 - crest) * (1.0 - hollow) * natural;
+islands *= clamp(turf, 0.0, 1.0);
+if (islands > 0.01) {
+  // Clover everywhere on the island, the bloom thick at its heart and thinning in tongues to its rim; each island
+  // flowers in its own shade (warmer or paler, the biome's colour either way)
+  float heart = smoothstep(0.35, 0.75, islands * (0.6 + 0.8 * varFiner.a));
+  float bloom = smoothstep(0.64, 0.74, texture2D(uVariation, mapPos / 3.1 + 0.19).b);
+  float haze = smoothstep(40.0, 160.0, viewDist);
+  vec3 flower = uMoodFlower * mix(vec3(1.06, 1.0, 0.82), vec3(0.96, 0.98, 1.06), varFine.a);
+  vec3 sward = albedo * uMoodClover;
+  albedo = mix(albedo, mix(sward, flower, mix(bloom, 0.3, haze) * heart), islands * 0.9);
+}
+// Trodden rims along roads and paths: a coarse level of the path mask (about 2.2 m) is a halo round them;
+// outside the way itself the sward is trampled darker, then worn to the biome's bare earth in ragged tongues
+float maskTexel = uMapSize.x / float(textureSize(uPathMask, 0).x);
+vec4 halo4 = textureLod(uPathMask, tuv, log2(max(2.2 / maskTexel, 1.0)));
+float worn = clamp((halo4.r + halo4.g) * 2.0, 0.0, 1.0) * natural;
+if (worn > 0.01) {
+  float wornAt = worn + (varFine.a - 0.5) * 0.5 + (varFiner.b - 0.5) * 0.35;
+  albedo *= 1.0 - 0.28 * smoothstep(0.08, 0.35, wornAt);
+  albedo = mix(albedo, uMoodWorn * (0.8 + 0.4 * coarseLum), smoothstep(0.36, 0.56, wornAt) * 0.9);
+}
+// Along the water a strip of the biome's shore (pale gravel, mud, frost): the grid's fading halo round the
+// main water, below a couple of metres above its level, its upper edge ragged
+float shore = smoothstep(0.0, 0.55, gridSample.a + (varFine.b - 0.5) * 0.35) * natural * (1.0 - nearWater * 0.5)
+  * (uWaterLevel > -1e3 ? smoothstep(uWaterLevel + 2.6, uWaterLevel + 0.6, tPos.y) : 1.0);
+albedo = mix(albedo, uMoodShore * (0.82 + 0.36 * coarseLum) * mix(0.85, 1.12, smoothstep(0.3, 0.7, varFiner.b)), shore * 0.8);
+// Scree: at the foot of rock and steep slopes (the occlusion is low there), more in hollows and on what still
+// slopes, the cliff's rock spills out as stones, light and dark
 if (uCliffLayer >= 0) {
-  float scree = hollow * smoothstep(0.85, 0.55, shape.r) * smoothstep(0.35, 0.65, varFine.b + hollow * 0.3);
-  albedo = mix(albedo, uAverage[uCliffLayer] * 0.85, scree * 0.55);
+  float foot = smoothstep(0.9, 0.62, shape.r) * natural;
+  float scree = foot * smoothstep(0.3, 0.6, varFine.b * 0.6 + hollow * 0.5 + (1.0 - nGeo.y) * 2.5);
+  vec3 stones = uAverage[uCliffLayer] * mix(0.68, 1.18, smoothstep(0.3, 0.7, varFiner.b)) * mix(0.9, 1.05, varFine.a);
+  albedo = mix(albedo, stones, scree * 0.8);
 }
 // Snow drifts: where snow lies it gathers in hollows and on the lee side of slopes (the downhill side
 // facing along the wind), smooth and white, in patches; not on rock faces

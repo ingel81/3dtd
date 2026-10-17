@@ -226,8 +226,10 @@ export function maskTexture(pixels: Uint8Array, resolution: number): DataTexture
   return t;
 }
 
-/** 1 as a half float */
-const HALF_ONE = DataUtils.toHalfFloat(1);
+/** Samples from the water within which a bank counts as wet (alpha 1), and where the shore strip ends (alpha 0) */
+const WET_REACH = 2;
+const SHORE_REACH = 6;
+
 
 /**
  * Surface normals of the height grid, one texel per sample (x and z of the
@@ -255,31 +257,60 @@ export class GridNormalTexture {
   private wet: Float32Array | null = null;
 
   /**
-   * Marks the samples within two cells of water (mask grown by two samples),
-   * where the shader darkens banks just above the water level.
+   * How near each sample lies to the water, in the alpha channel: 1 within
+   * WET_REACH samples (the shader darkens banks just above the water level
+   * there), fading to 0 at SHORE_REACH (the shore strip of the biome). A
+   * chamfer distance over the mask; a brush redoes its rectangle and the
+   * reach round it.
    */
   setWater(mask: Uint8Array | null, rect?: { i0: number; j0: number; i1: number; j1: number }): void {
     const f = this.field;
-    // A brush on the mask: the samples within two of its rectangle, the rest stays
-    const r = rect && this.wet ? { i0: Math.max(0, rect.i0 - 2), j0: Math.max(0, rect.j0 - 2), i1: Math.min(f.columns - 1, rect.i1 + 2), j1: Math.min(f.rows - 1, rect.j1 + 2) } : null;
+    const cols = f.columns;
+    const rows = f.rows;
+    const g = SHORE_REACH;
+    // A brush on the mask: the samples within the reach of its rectangle; the distances there need the mask a reach further
+    const r = rect && this.wet ? { i0: Math.max(0, rect.i0 - g), j0: Math.max(0, rect.j0 - g), i1: Math.min(cols - 1, rect.i1 + g), j1: Math.min(rows - 1, rect.j1 + g) } : null;
     if (!mask) {
       this.wet = null;
     } else {
-      const wet = r ? this.wet! : new Float32Array(f.columns * f.rows);
-      for (let j = r?.j0 ?? 0; j <= (r?.j1 ?? f.rows - 1); j++) {
-        for (let i = r?.i0 ?? 0; i <= (r?.i1 ?? f.columns - 1); i++) {
-          let m = 0;
-          for (let dj = -2; dj <= 2 && m === 0; dj++) {
-            for (let di = -2; di <= 2; di++) {
-              const ii = i + di;
-              const jj = j + dj;
-              if (ii >= 0 && jj >= 0 && ii < f.columns && jj < f.rows && mask[jj * f.columns + ii] > 0) {
-                m = 1;
-                break;
-              }
-            }
+      const wet = r ? this.wet! : new Float32Array(cols * rows);
+      const w0 = { i0: Math.max(0, (r?.i0 ?? 0) - g), j0: Math.max(0, (r?.j0 ?? 0) - g), i1: Math.min(cols - 1, (r?.i1 ?? cols - 1) + g), j1: Math.min(rows - 1, (r?.j1 ?? rows - 1) + g) };
+      const ww = w0.i1 - w0.i0 + 1;
+      const wh = w0.j1 - w0.j0 + 1;
+      const d = new Float32Array(ww * wh);
+      for (let j = 0; j < wh; j++) for (let i = 0; i < ww; i++) d[j * ww + i] = mask[(j + w0.j0) * cols + i + w0.i0] > 0 ? 0 : 1e6;
+      // Two passes of a 3-4 chamfer (in samples: 1 along, 1.41 across)
+      const D = Math.SQRT2;
+      for (let j = 0; j < wh; j++) {
+        for (let i = 0; i < ww; i++) {
+          const k = j * ww + i;
+          let v = d[k];
+          if (i > 0) v = Math.min(v, d[k - 1] + 1);
+          if (j > 0) {
+            v = Math.min(v, d[k - ww] + 1);
+            if (i > 0) v = Math.min(v, d[k - ww - 1] + D);
+            if (i < ww - 1) v = Math.min(v, d[k - ww + 1] + D);
           }
-          wet[j * f.columns + i] = m;
+          d[k] = v;
+        }
+      }
+      for (let j = wh - 1; j >= 0; j--) {
+        for (let i = ww - 1; i >= 0; i--) {
+          const k = j * ww + i;
+          let v = d[k];
+          if (i < ww - 1) v = Math.min(v, d[k + 1] + 1);
+          if (j < wh - 1) {
+            v = Math.min(v, d[k + ww] + 1);
+            if (i < ww - 1) v = Math.min(v, d[k + ww + 1] + D);
+            if (i > 0) v = Math.min(v, d[k + ww - 1] + D);
+          }
+          d[k] = v;
+        }
+      }
+      for (let j = r?.j0 ?? 0; j <= (r?.j1 ?? rows - 1); j++) {
+        for (let i = r?.i0 ?? 0; i <= (r?.i1 ?? cols - 1); i++) {
+          const dist = d[(j - w0.j0) * ww + i - w0.i0];
+          wet[j * cols + i] = dist <= WET_REACH ? 1 : Math.max(0, 1 - (dist - WET_REACH) / (SHORE_REACH - WET_REACH));
         }
       }
       this.wet = wet;
@@ -316,7 +347,7 @@ export class GridNormalTexture {
         pixels[q] = DataUtils.toHalfFloat(dhdx * k);
         pixels[q + 1] = DataUtils.toHalfFloat(k);
         pixels[q + 2] = DataUtils.toHalfFloat(-dhdy * k);
-        pixels[q + 3] = wet && wet[row + i] ? HALF_ONE : 0;
+        pixels[q + 3] = wet ? DataUtils.toHalfFloat(wet[row + i]) : 0;
       }
     }
     uploadRect(this.texture, rect ? { i0, j0, i1, j1 } : undefined);

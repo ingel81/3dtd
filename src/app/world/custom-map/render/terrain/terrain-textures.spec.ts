@@ -67,7 +67,7 @@ describe('SplatTextures', () => {
 });
 
 describe('GridNormalTexture', () => {
-  it('holds the normalised normal of each sample, clamped at the border, and the wet banks', () => {
+  it('holds the normalised normal of each sample, clamped at the border, and how near the water it lies', () => {
     const columns = 7;
     const rows = 5;
     const heights = Float32Array.from({ length: columns * rows }, (_, k) => Math.sin(k * 1.7) * 6 + (k % columns) * 0.5);
@@ -86,8 +86,12 @@ describe('GridNormalTexture', () => {
         expect(DataUtils.fromHalfFloat(pixels[q])).toBeCloseTo(dx / len, 2);
         expect(DataUtils.fromHalfFloat(pixels[q + 1])).toBeCloseTo(1 / len, 2);
         expect(DataUtils.fromHalfFloat(pixels[q + 2])).toBeCloseTo(-dy / len, 2);
-        const wet = Math.abs(i - 5) <= 2 && Math.abs(j - 3) <= 2 ? 1 : 0;
-        expect(DataUtils.fromHalfFloat(pixels[q + 3])).toBe(wet);
+        // 1 within two samples of the water (octile distance), fading to 0 at six: the shore strip
+        const a = Math.abs(i - 5);
+        const b = Math.abs(j - 3);
+        const d = Math.max(a, b) + (Math.SQRT2 - 1) * Math.min(a, b);
+        const wet = d <= 2 ? 1 : Math.max(0, 1 - (d - 2) / 4);
+        expect(DataUtils.fromHalfFloat(pixels[q + 3])).toBeCloseTo(wet, 2);
       }
     }
   });
