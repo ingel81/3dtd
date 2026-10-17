@@ -709,6 +709,7 @@ export class EditorSession implements OnDestroy {
     const known = await this.store.ownCopyOf(id);
     if (known) {
       const copy = await this.store.load(known.id, 'own');
+      this.sayRepaired(copy.doc.meta.name, copy.repaired);
       this.setDocument(copy.doc);
       const now = await this.store.originalHash(id);
       if (now && now !== known.copyOf!.hash) this.staleCopy.set({ original: id, name: copy.doc.meta.name });
@@ -716,6 +717,7 @@ export class EditorSession implements OnDestroy {
       return known.id;
     }
     const loaded = await this.store.load(id);
+    this.sayRepaired(loaded.doc.meta.name, loaded.repaired);
     if (loaded.summary.origin === 'own') {
       this.setDocument(loaded.doc);
       return id;
@@ -725,6 +727,13 @@ export class EditorSession implements OnDestroy {
     this.pendingCopy = { id, hash: loaded.summary.contentHash };
     this.flash(`${name} as it ships; your own copy comes with the first change, the original stays as it is`);
     return id;
+  }
+
+  /** Values the file carried out of range were set right as it opened: the banner says which (map-repair.ts) */
+  private sayRepaired(name: string, repaired: readonly string[] | undefined): void {
+    if (!repaired?.length) return;
+    const more = repaired.length > 1 ? ` (and ${repaired.length - 1} more)` : '';
+    this.error.set(`${name} had values the game does not take; they were set right as it opened: ${repaired[0]}${more}. The next save keeps the corrected map.`);
   }
 
   /**
@@ -1554,6 +1563,7 @@ export class EditorSession implements OnDestroy {
       }
       try {
         const loaded = unpackMapFile(new Uint8Array(await file.arrayBuffer()));
+        this.sayRepaired(name, loaded.repaired);
         const existing = await this.store.ownMatch(loaded.doc);
         if (existing) {
           this.importMatch.set({ file: name, existing, loaded });

@@ -68,6 +68,8 @@ export interface LoadedMap {
   doc: CustomMapDocument;
   summary: MapSummary;
   preview: Uint8Array | null;
+  /** What reading set right (UnpackedMap.repaired); the summary's hash is the corrected map's */
+  repaired?: string[];
 }
 
 /** The storage the store needs; IndexedDB in the browser, a Map in tests */
@@ -233,9 +235,10 @@ export class MapStore {
       // A map in the trash plays nowhere until it comes back
       const own = stored?.summary.origin === 'trashed' ? undefined : stored;
       if (own) {
-        const { doc, preview } = unpackMapFile(own.file);
-        const summary = own.summary.contentHash ? own.summary : { ...own.summary, contentHash: await contentHash(doc) };
-        return { doc, summary, preview: own.preview ?? preview };
+        const { doc, preview, repaired } = unpackMapFile(own.file);
+        // Set right as it was read: the content is the corrected map's, a coop guest checks the hash of that
+        const summary = own.summary.contentHash && !repaired.length ? own.summary : { ...own.summary, contentHash: await contentHash(doc) };
+        return { doc, summary, preview: own.preview ?? preview, ...(repaired.length ? { repaired } : {}) };
       }
       if (origin === 'own') throw new MapStoreError(`There is no own map "${id}" in this browser; it may have been deleted.`);
     }

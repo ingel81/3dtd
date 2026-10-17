@@ -31,6 +31,7 @@ import {
 import { MAP_ID_PATTERN } from './map-create';
 import { lifeProblems } from './map-life';
 import { introProblems } from './map-intro';
+import { mapRepairs } from './map-repair';
 
 export const MAP_FILE_EXTENSION = '.3dtdmap';
 export const MAP_JSON_ENTRY = 'map.json';
@@ -118,6 +119,8 @@ export interface PackOptions {
 export interface UnpackedMap {
   doc: CustomMapDocument;
   preview: Uint8Array | null;
+  /** Values the file carried out of range or of the wrong kind, set right as it was read (map-repair.ts), in words */
+  repaired: string[];
 }
 
 /** The document as a `.3dtdmap` file */
@@ -170,9 +173,11 @@ export function unpackMapFile(bytes: Uint8Array | ArrayBuffer): UnpackedMap {
   }
   const json = migrateMapJson(parsed);
   const doc = joinDocument(json, entries);
+  // Soft values first (warn and set right): a file that opened before a check was added still opens
+  const repaired = mapRepairs(doc, true).map((q) => q.text);
   const problems = validateMapDocument(doc);
   if (problems.length) throw new MapFileError(`The map is broken: ${problems[0]}`, problems);
-  return { doc, preview: entries[MAP_PREVIEW_ENTRY] ?? null };
+  return { doc, preview: entries[MAP_PREVIEW_ENTRY] ?? null, repaired };
 }
 
 /**

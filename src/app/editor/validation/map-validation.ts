@@ -22,6 +22,7 @@ import { TOWER_SPOT_M2, TYPICAL_TOWER_RANGE, type BuildAreas } from './build-are
 import { waveEventProblems } from './wave-event-check';
 import { MOVER_CLEARANCE, moverWays } from '../../world/custom-map/map-life';
 import { mapProblems, type MapProblem, type MapProblemPart } from '../../world/custom-map/map-file';
+import { mapRepairs } from '../../world/custom-map/map-repair';
 import type { ToolId } from '../tools/tool';
 
 export type IssueSeverity = 'error' | 'warning';
@@ -31,6 +32,7 @@ export interface MapIssue {
   /** Stable kind for tests and icons */
   code:
     | 'map-file'
+    | 'map-values'
     | 'no-paths'
     | 'no-spawns'
     | 'too-many-spawns'
@@ -92,8 +94,11 @@ const PART_TOOL: Record<MapProblemPart, ToolId> = {
  * error with the thing or the tool to fix it
  */
 export function fileIssues(doc: CustomMapDocument, problems: readonly MapProblem[] = mapProblems(doc)): MapIssue[] {
-  return problems.map((q) => {
-    const issue: MapIssue = { severity: 'error', code: 'map-file', message: `The map cannot be saved: ${q.text}.`, fixIn: PART_TOOL[q.part] };
+  const hard = problems.map((q) => ({ q, severity: 'error' as const, code: 'map-file' as const, message: `The map cannot be saved: ${q.text}.` }));
+  // Soft values (map-repair.ts): saved as they are, set right when the map is read next
+  const soft = mapRepairs(doc).map((q) => ({ q, severity: 'warning' as const, code: 'map-values' as const, message: `Set right when the map opens next: ${q.text}.` }));
+  return [...hard, ...soft].map(({ q, severity, code, message }) => {
+    const issue: MapIssue = { severity, code, message, fixIn: PART_TOOL[q.part] };
     if (q.at) {
       issue.target = q.at;
       const where = q.at.kind === 'hq' ? doc.hq : q.at.kind === 'object' ? doc.objects.find((o) => o.id === q.at!.id) : q.at.kind === 'spawn' ? doc.spawns.find((sp) => sp.id === q.at!.id) : q.at.kind === 'node' ? doc.paths.nodes.find((n) => n.id === q.at!.id) : undefined;

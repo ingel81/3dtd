@@ -896,6 +896,15 @@ Taktgeber laufen außerhalb der Zone, Änderungen am Dokument erreichen die Pane
 `contentHash` ist SHA-256 über das kanonische JSON der Welt (Schlüssel sortiert, ohne Name, Beschreibung und Zeiten)
 und die Arrays; Umbenennen und erneutes Speichern ändern ihn nicht. Beim Lesen laufen erst die Migrationen
 (`MAP_MIGRATIONS`, je Version ein Schritt), dann die Prüfung; Fehler kommen als `MapFileError` mit Klartext.
+Vor der harten Prüfung setzt das Lesen weiche Werte richtig, statt die Karte abzuweisen (`map-repair.ts`, „warn and
+clamp“): Umgebungszahlen außerhalb ihres Bereichs oder keine Zahl (Sonne, Nebel, Wetterstärke, Schnee, Mondlicht),
+eine Tönung, die keine `#rrggbb`-Farbe ist, ein unbekanntes Wetter, `blocksLos`/`blocksBuild` eines Objekts, die nicht
+true oder false sind, eine Schichtgröße ohne Wert, eine unbekannte Wegart, doppelte oder fehlende Spawn-Ids (die
+zweite bekommt eine neue, die Spuren, Portale und Koop-Spuren gehen über die Id), zu lange Texte (Name und Autor 80,
+Beschreibung 2000 Zeichen) und mehr als `MAX_MAP_OBJECTS` (100 000) Objekte; mehr als 100 000 Wegknoten oder Kanten
+werden nur gemeldet. Was das Lesen ändert, steht in `repaired` (der Editor zeigt es im Banner, das Spiel in der
+Konsole); der Inhalts-Hash ist dann der der berichtigten Karte. Die Prüfung im Editor nennt dieselben Werte vorher als
+Warnung `map-values`. Eine Datei, die vor diesen Prüfungen öffnete, öffnet weiter.
 
 **Tests.** Vitest: `map-file.spec.ts`, `map-store.spec.ts`, `editor-document.spec.ts`, `ops.spec.ts`,
 `path-graph.spec.ts`, `map-validation.spec.ts`, `validation/build-areas.spec.ts` (jede Zellart nach den Regeln des
