@@ -13,6 +13,7 @@ import { chooseSkyImage } from '../render/environment/sky-images';
 import { MapAssetLibrary } from '../render/map-asset-library';
 import { mapToScene } from '../render/map-coords';
 import { pageSwitches } from '../../../core/page-switches';
+import { WorldStartService } from '../../world-start';
 
 /** Camera spots on the demo map: camera and target in map space (x, y, height) */
 const VIEWS: Record<string, [number, number, number, number, number, number]> = {
@@ -68,6 +69,8 @@ const VIEWS: Record<string, [number, number, number, number, number, number]> = 
 export class MapPreviewComponent implements OnDestroy {
   private readonly canvas = viewChild.required<ElementRef<HTMLCanvasElement>>('canvas');
   private readonly zone = inject(NgZone);
+  /** `?map=` is a link parameter the page's start takes out of the address before this page reads it: the start keeps it */
+  private readonly mapId = inject(WorldStartService).editorMap;
   readonly stats = signal('lädt …');
   readonly clean = pageSwitches().has('clean');
   private renderer: WebGLRenderer | null = null;
@@ -122,7 +125,7 @@ export class MapPreviewComponent implements OnDestroy {
     const showcase = params.get('showcase') ?? undefined;
     const assets = params.get('assets')?.split(',');
     const showMaterials = params.get('materials')?.split(',');
-    const mapId = params.get('map');
+    const mapId = this.mapId;
     const doc = mapId
       ? (await new MapStore().load(mapId, 'shipped')).doc
       : showcase || assets || showMaterials
