@@ -1,5 +1,5 @@
 import type { MapPathEdge, MapPaths, MapPoint } from '../../map-document';
-import { edgePolyline } from './path-mask';
+import { edgePolyline, type RoadCover } from './path-mask';
 import { encodeRoadStyle, PAVED_SURFACES, roadStyle, styleKey, type RoadStyle } from './road-style';
 
 /**
@@ -31,6 +31,8 @@ export const ROAD_TILE = 512;
 const STEP = 2;
 /** Longest ribbon piece in one tile, metres */
 const PIECE = 48;
+/** Metres a cover (RoadNetworkBuilder.covers) stays inside a ribbon's edges: the ground's mask is read between texels */
+const COVER_INSET = 0.25;
 /** Points per kerb curve and per half of a path's round end */
 const CURVE_POINTS = 6;
 
@@ -229,6 +231,16 @@ export class RoadNetworkBuilder {
   private readonly styles: RoadStyle[] = [];
   private readonly surfaces: string[] = [];
   private readonly codes = new Map<string, number>();
+
+  /**
+   * Where the surface hides the ground (the path mask's covers): each
+   * ribbon's centre line out to COVER_INSET short of its edges
+   */
+  covers(): RoadCover[] {
+    const out: RoadCover[] = [];
+    for (const c of this.chains.values()) if (c.half - COVER_INSET > 0.3) out.push({ id: c.id, line: c.line, half: c.half - COVER_INSET });
+    return out;
+  }
 
   /** The paths as they are now: lays what changed, returns the tiles rebuilt */
   update(paths: MapPaths): RoadNetwork {

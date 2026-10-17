@@ -181,6 +181,8 @@ export class MapTerrainLayer {
     this.pathMask?.dispose();
     this.arrays = arrays;
     this.splat = new SplatTextures(t.splat);
+    // The roads first: the mask leaves the ground under their surface to them
+    this.roads.set(paths);
     this.pathMask = this.buildPathMask(paths);
     this.refreshApronPaint();
     this.materialParams = {
@@ -215,7 +217,6 @@ export class MapTerrainLayer {
     this.material.setWaterLevel(t.water?.level ?? null, t.water?.kind);
     this.chunks.setMaterial(this.material);
     this.roads.setAssets(assets, anisotropy);
-    this.roads.set(paths);
     this.apronMaterial = new ApronMaterial(this.materialParams, this.material);
     addHeightFog(this.apronMaterial);
     this.setApronRange();
@@ -365,7 +366,7 @@ export class MapTerrainLayer {
     this.roads.set(paths);
     if (!this.material || !this.pathMask) return;
     const raster = this.pathRasterFor();
-    const rect = raster.update(paths, this.terrain.rivers ?? []);
+    const rect = raster.update(paths, this.terrain.rivers ?? [], this.roads.covers());
     if (this.pathMask.image.data !== raster.data) {
       this.pathMask.dispose();
       this.pathMask = maskTexture(raster.data, raster.resolution);
@@ -404,7 +405,7 @@ export class MapTerrainLayer {
 
   private buildPathMask(paths: MapPaths): DataTexture {
     const raster = this.pathRasterFor();
-    raster.update(paths, this.terrain.rivers ?? []);
+    raster.update(paths, this.terrain.rivers ?? [], this.roads.covers());
     const texture = maskTexture(raster.data, raster.resolution);
     uploadRect(texture, undefined);
     return texture;

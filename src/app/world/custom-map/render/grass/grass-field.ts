@@ -367,8 +367,10 @@ if (keepEdge > 0.0 && onMap) {
   grass += dot(s2, uGrassMask2);
 #endif
   grass /= max(total, 1e-3);
-  vec2 pm = texture2D(uGrassPath, uvMap).rg;
+  vec3 pm = texture2D(uGrassPath, uvMap).rgb;
   grass *= 1.0 - max(pm.r, pm.g);
+  // None under a road surface (path-mask.ts covers)
+  if (pm.b > 0.996 && pm.r + pm.g < 0.002) grass = 0.0;
 }
 float ground0 = 0.0;
 if (grass > 0.45) {

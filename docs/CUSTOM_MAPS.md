@@ -247,7 +247,11 @@ gröber wird), so kämpft die Fläche nicht mit dem Boden und schwebt von der Se
 erreicht: die Bänder mit einer geänderten Kante, die Bänder, die an deren Enden anschließen (ihre Kürzung kann sich
 ändern), und die Kreuzungen an deren Enden; eine neu gebaute Kachel setzt sich aus den behaltenen Stücken aller
 Bänder und Kreuzungen darin zusammen. Einen Knoten ziehen kostet so in Miltenberg rund 3 ms je Schritt. Ein Belag ohne Befestigung (Kies,
-Erde) ist in die Bodenfarbe gemalt und zeigt sich statt Kopfsteinen und Spurrillen. `street` an der Kante (der `highway`-Typ des
+Erde) ist in die Bodenfarbe gemalt und zeigt sich statt Kopfsteinen und Spurrillen. Unter der Mitte einer
+Straßenfläche (bis 25 cm vor ihren Rändern, nicht über die Enden hinaus) trägt die Wegmaske Blau 255 ohne Rot und Grün
+(eine Querlage erreicht höchstens 253): der Gelände-Shader liest die Maske dort ohne das Kanten-Rauschen ein zweites
+Mal und nimmt den flachen Fernpfad (keine Schichttexturen, die Fläche deckt den Boden ohnehin), das Gras wächst dort
+nicht. `street` an der Kante (der `highway`-Typ des
 echten Wegs) gibt im Spiel den Straßentyp, nach dem Routen gewichtet und Spawns gewählt werden
 (`custom-map-streets.ts`); ohne ihn entscheidet die Art. Beides fehlt auf allen bisherigen Karten
 ([OSM_WORLD_PLAN.md](OSM_WORLD_PLAN.md)).

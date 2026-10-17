@@ -14,7 +14,19 @@ import { sampleRiver } from '../water/river-surface';
  *
  * Bridges are not painted; they get a deck mesh (path-bridges.ts). Nor are
  * roads with a painted `surface` (OSM worlds): their ground shows.
+ *
+ * Where a road surface hides the ground (the middle of a paved road,
+ * RoadCover), blue is 255 with no road or path: the terrain shader skips
+ * its texture work there (only the road shows), the grass grows none. An
+ * across position never reaches 255 (at most 253).
  */
+
+/** The middle of a road surface, where it hides the ground: its centre line, how far either side (road-network.ts) */
+export interface RoadCover {
+  id: string;
+  line: readonly MapPoint[];
+  half: number;
+}
 
 /** Texel size the mask aims for, in metres */
 export const PATH_MASK_TEXEL = 0.5;
@@ -44,9 +56,10 @@ export function rasterizePathMask(
   depth: number,
   resolution: number,
   rivers: MapRiver[] = [],
+  covers: readonly RoadCover[] = [],
 ): Uint8Array {
   const out = new Uint8Array(resolution * resolution * 4);
-  paintPathMask(out, paths, width, depth, resolution, rivers, { i0: 0, j0: 0, i1: resolution - 1, j1: resolution - 1 });
+  paintPathMask(out, paths, width, depth, resolution, rivers, { i0: 0, j0: 0, i1: resolution - 1, j1: resolution - 1 }, covers);
   return out;
 }
 
@@ -68,6 +81,7 @@ function paintPathMask(
   resolution: number,
   rivers: MapRiver[],
   rect: TexelRect,
+  covers: readonly RoadCover[] = [],
 ): void {
   rasterizeRiverBanks(out, rivers, width, depth, resolution, rect);
   const nodes = new Map<string, MapPoint>(paths.nodes.map((n) => [n.id, n]));
@@ -107,9 +121,47 @@ function paintPathMask(
           // The strongest path at a texel also owns its across position
           if (v >= out[q] && v >= out[q + 1]) {
             const side = (x - p.x) * dy - (y - p.y) * dx >= 0 ? 1 : -1;
-            out[q + 2] = Math.round((0.5 + (side * Math.min(d, outer)) / (2 * outer)) * 255);
+            out[q + 2] = Math.min(253, Math.round((0.5 + (side * Math.min(d, outer)) / (2 * outer)) * 255));
           }
           out[q + channel] = v;
+        }
+      }
+    }
+  }
+  paintCovers(out, covers, width, depth, resolution, rect);
+}
+
+/**
+ * Blue 255 where a road surface hides the ground and no road or path is
+ * painted: within `half` of the centre line, not past its two ends (a road
+ * ends square there, or in a junction the cover does not reach)
+ */
+function paintCovers(out: Uint8Array, covers: readonly RoadCover[], width: number, depth: number, resolution: number, rect: TexelRect): void {
+  const sx = resolution / width;
+  const sy = resolution / depth;
+  for (const cover of covers) {
+    const { line, half } = cover;
+    for (let s = 0; s < line.length - 1; s++) {
+      const p = line[s];
+      const q = line[s + 1];
+      const minX = Math.max(rect.i0, Math.floor((Math.min(p.x, q.x) - half + width / 2) * sx));
+      const maxX = Math.min(rect.i1, Math.ceil((Math.max(p.x, q.x) + half + width / 2) * sx));
+      const minY = Math.max(rect.j0, Math.floor((Math.min(p.y, q.y) - half + depth / 2) * sy));
+      const maxY = Math.min(rect.j1, Math.ceil((Math.max(p.y, q.y) + half + depth / 2) * sy));
+      if (minX > maxX || minY > maxY) continue;
+      const dx = q.x - p.x;
+      const dy = q.y - p.y;
+      const len2 = dx * dx + dy * dy || 1;
+      for (let ty = minY; ty <= maxY; ty++) {
+        const y = (ty + 0.5) / sy - depth / 2;
+        for (let tx = minX; tx <= maxX; tx++) {
+          const x = (tx + 0.5) / sx - width / 2;
+          let t = ((x - p.x) * dx + (y - p.y) * dy) / len2;
+          if ((s === 0 && t < 0) || (s === line.length - 2 && t > 1)) continue;
+          t = t < 0 ? 0 : t > 1 ? 1 : t;
+          if (Math.hypot(x - (p.x + t * dx), y - (p.y + t * dy)) > half) continue;
+          const k = (ty * resolution + tx) * 4;
+          if (out[k] === 0 && out[k + 1] === 0) out[k + 2] = 255;
         }
       }
     }
@@ -152,8 +204,8 @@ export class PathMaskRaster {
     this.data = new Uint8Array(resolution * resolution * 4);
   }
 
-  /** Paints the mask for these paths and rivers; the texel rectangle that changed, null when nothing did */
-  update(paths: MapPaths, rivers: MapRiver[] = []): TexelRect | null {
+  /** Paints the mask for these paths, rivers and road covers; the texel rectangle that changed, null when nothing did */
+  update(paths: MapPaths, rivers: MapRiver[] = [], covers: readonly RoadCover[] = []): TexelRect | null {
     const res = this.resolution;
     const nodes = new Map<string, MapPoint>(paths.nodes.map((n) => [n.id, n]));
     const shapes = new Map<string, Float64Array>();
@@ -196,6 +248,8 @@ export class PathMaskRaster {
     for (const river of rivers) {
       if (river.kind === 'water' && river.points.length >= 2) visit(`r:${river.id}`, 2, 0, river.points, 3);
     }
+    // A cover's size as a path's width (its box pads half of it)
+    for (const cover of covers) visit(`c:${cover.id}`, 3, cover.half * 2, cover.line, 2);
     if (this.painted) for (const [key, old] of this.shapes) if (!shapes.has(key)) grow(key, old);
     const reordered = this.painted && !sameOrder(this.order, order, this.shapes, shapes);
     this.shapes = shapes;
@@ -221,7 +275,7 @@ export class PathMaskRaster {
     }
     this.painted = true;
     for (let j = rect.j0; j <= rect.j1; j++) this.data.fill(0, (j * res + rect.i0) * 4, (j * res + rect.i1 + 1) * 4);
-    paintPathMask(this.data, paths, this.width, this.depth, res, rivers, rect);
+    paintPathMask(this.data, paths, this.width, this.depth, res, rivers, rect, covers);
     return rect;
   }
 }

@@ -544,6 +544,10 @@ if (outside > 0.0) {
 
 // Roads and paths replace the painted ground
 vec4 pmask = texture2D(uPathMask, tuv + wobble * 0.5);
+// Under the middle of a road surface (path-mask.ts covers, read where it lies, without the wobble) only the road
+// shows: the ground takes the flat far path, no layer textures
+vec4 pmaskHere = texture2D(uPathMask, tuv);
+bool underRoad = pmaskHere.b > 0.996 && pmaskHere.r + pmaskHere.g < 0.002 && outside == 0.0;
 vec2 pm = pmask.rg * (1.0 - outside);
 // Frayed edges: noise eats into the soft rim of the mask, grass grows in from the side
 float fray = (varFine.a - 0.5) * 0.9 + (n3 - 0.5) * 0.4;
@@ -625,7 +629,7 @@ vec2 sideZdy = dFdy(sideZ);
 // unrolls the sampling for every layer, which made this program take seconds to link
 vec4 cliffX = vec4(0.0); vec4 cliffXd = vec4(0.5, 0.5, 1.0, 1.0);
 vec4 cliffZ = vec4(0.0); vec4 cliffZd = vec4(0.5, 0.5, 1.0, 1.0);
-bool cliffSides = uCliffLayer >= 0 && tri.y < 0.98 && w[uCliffLayer] >= 0.004;
+bool cliffSides = uCliffLayer >= 0 && tri.y < 0.98 && w[uCliffLayer] >= 0.004 && !underRoad;
 if (cliffSides) {
   float s = uInvScale[uCliffLayer];
   sampleNoTile(uCliffLayer, sideX * s, sideXdx * s, sideXdy * s, sel, false, cliffX, cliffXd);
@@ -639,7 +643,7 @@ if (cliffSides) {
 float farJitter = (sel - 0.5) * 30.0;
 float viewDist = length(vViewPosition);
 bool farSingle = viewDist > uFarSingle + farJitter;
-bool farFlat = viewDist > uFarFlat;
+bool farFlat = viewDist > uFarFlat || underRoad;
 float farFade = smoothstep(uFarFlat * 0.7, uFarFlat, viewDist);
 // Painted ground on a steep slope (from STEEP_FROM to STEEP_FULL degrees, below the cliff angle): the top
 // projection stretched it into streaks. Its strongest layer also reads the two side planes, once before the

@@ -1,5 +1,6 @@
 import { Box3, BufferAttribute, BufferGeometry, Color, Group, Mesh, MeshStandardMaterial, SRGBColorSpace, Sphere, Vector3, Vector4, type Texture } from 'three';
 import type { MapPaths } from '../../map-document';
+import type { RoadCover } from './path-mask';
 import type { MapAssetLibrary } from '../map-asset-library';
 import { loadMaterialArrays, type MaterialArrays } from '../terrain/terrain-textures';
 import { addHeightFog } from '../environment/height-fog';
@@ -88,6 +89,11 @@ export class RoadSurfaceLayer {
     const grew = net.surfaces.length !== this.surfaces.length;
     this.surfaces = net.surfaces;
     if (grew || !this.loaded) void this.loadTextures();
+  }
+
+  /** Where the surface hides the ground, as laid now (the path mask's covers) */
+  covers(): RoadCover[] {
+    return this.network.covers();
   }
 
   /** Heights changed inside a map rectangle (all when omitted): the tiles there fit their bounds again */
