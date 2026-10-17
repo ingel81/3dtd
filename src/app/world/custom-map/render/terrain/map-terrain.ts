@@ -398,6 +398,8 @@ export class MapTerrainLayer {
     this.heightTexture.dispose();
     this.cuts.dispose();
     this.roads.dispose();
+    // The path mask's texels (up to 16 MB) go with it
+    this.pathRaster = null;
   }
 
   private buildPathMask(paths: MapPaths): DataTexture {

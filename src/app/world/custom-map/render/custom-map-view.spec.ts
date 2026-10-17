@@ -233,6 +233,15 @@ describe('demo map', () => {
 });
 
 describe('CustomMapView', () => {
+  it('lets go of the path mask texels when disposed', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const view = new CustomMapView(createDemoMap(), offlineLibrary());
+    await view.ready;
+    expect(view['terrain']['pathRaster']).not.toBeNull();
+    view.dispose();
+    expect(view['terrain']['pathRaster']).toBeNull();
+  });
+
   it('lays the ground decals again once objects moved in place stop moving', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const doc = createDemoMap();
