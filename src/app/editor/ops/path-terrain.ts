@@ -60,6 +60,7 @@ export function paintUnderPaths(
   edgeIds: readonly string[] | null = null,
   softEdge = 2,
   beforeWrite?: (rect: GridRect) => void,
+  halfOf: (edge: MapPathEdge) => number = (edge) => edge.width / 2,
 ): GridRect | null {
   let rect: GridRect | null = null;
   const res = terrain.splat.resolution;
@@ -67,7 +68,7 @@ export function paintUnderPaths(
   for (const edge of selectedEdges(paths, edgeIds)) {
     const line = edgePolyline(paths, edge);
     if (line.length < 2) continue;
-    const half = edge.width / 2;
+    const half = halfOf(edge);
     const r = texelBounds(terrain, line, half + softEdge);
     beforeWrite?.(r);
     for (let v = r.j0; v <= r.j1; v++) {

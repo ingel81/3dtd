@@ -1,4 +1,4 @@
-import { encodeRoadStyle, roadStyle } from './road-style';
+import { encodeRoadStyle, roadPaintBands, roadStyle } from './road-style';
 
 /** The shader's decode (road-surface.ts ROAD_SAMPLE), step by step */
 function decode(code: number) {
@@ -29,5 +29,19 @@ describe('road style', () => {
     expect(decode(encodeRoadStyle(town, 0))).toMatchObject({ layer: 0, gutter: 1, junction: 1 });
     // A surface past the textures' layers draws its mean colour (layer 15)
     expect(decode(encodeRoadStyle(town, 20)).layer).toBe(15);
+  });
+
+  it('paints the same ground under a road in OSM worlds and the editor: a paved one its core and a verge', () => {
+    const country = roadPaintBands({ surface: 'asphalt', street: 'secondary', width: 9, kind: 'road' }, 0.75);
+    expect(country).toEqual([
+      { materials: ['asphalt'], half: 3, soft: 0.05, core: true },
+      { materials: ['gravel', 'gravel-light', 'dirt-path'], half: 4.5, soft: 0.75, core: false },
+    ]);
+    expect(roadPaintBands({ surface: 'asphalt', street: 'residential', width: 6, kind: 'road' }, 1.5)[1].materials[0]).toBe('sidewalk');
+    expect(roadPaintBands({ surface: 'sidewalk', street: 'footway', width: 2.5, kind: 'path' }, 1.5)[1]).toMatchObject({ materials: ['dirt-path', 'dirt', 'gravel'], soft: 0.4 });
+    // Unpaved: the material at its width; none without a surface or on a bridge
+    expect(roadPaintBands({ surface: 'gravel', street: 'track', width: 3, kind: 'path' }, 1.5)).toEqual([{ materials: ['gravel'], half: 1.5, soft: 1.5, core: false }]);
+    expect(roadPaintBands({ street: 'track', width: 3, kind: 'path' }, 1.5)).toEqual([]);
+    expect(roadPaintBands({ surface: 'asphalt', width: 6, kind: 'bridge' }, 1.5)).toEqual([]);
   });
 });

@@ -98,3 +98,47 @@ export function encodeRoadStyle(s: RoadStyle, layer: number): number {
   const l = layer >= 0 && layer < MAX_ROAD_SURFACES ? layer : MAX_ROAD_SURFACES;
   return l + 16 * (marks + 4 * (Math.min(7, s.lanes) + 8 * ((s.gutter ? 1 : 0) + 2 * (sealed + 2 * ((s.junction ? 1 : 0) + 2 * wear)))));
 }
+
+/**
+ * Metres a paved road's own material stops short of its edge under the road
+ * surface (at most this share of its half width), where its verge begins:
+ * the ground's splat edges wander up to about two metres by noise, and the
+ * road's own material wandering out past the surface's edge read as frayed
+ */
+const PAVED_CORE_INSET = 1.5;
+const PAVED_CORE_SHARE = 0.6;
+
+/** A band of ground painted under a road: its material (the first the map can have), half width and soft rim, metres */
+export interface RoadPaintBand {
+  materials: readonly string[];
+  half: number;
+  soft: number;
+  /** The road's own material under a paved road's middle; the verge is the band round it */
+  core: boolean;
+}
+
+/**
+ * The ground painted under a road with a surface, for OSM worlds and the
+ * editor alike: an unpaved one (gravel, earth) its material at its width
+ * with a soft rim (`soft`); a paved one (drawn as a road surface,
+ * road-surface.ts) its own material up to PAVED_CORE_INSET short of its edge
+ * and a verge round it, gravel along a country road, slabs along a town
+ * street or a paved one, earth along a path, so no grass grows through the
+ * surface and the ragged rim of the paint reads as a shoulder. Empty without
+ * a surface
+ */
+export function roadPaintBands(edge: Pick<MapPathEdge, 'surface' | 'street' | 'width' | 'kind'>, soft: number): RoadPaintBand[] {
+  if (!edge.surface || edge.kind === 'bridge') return [];
+  const half = edge.width / 2;
+  if (!PAVED_SURFACES.has(edge.surface)) return [{ materials: [edge.surface], half, soft, core: false }];
+  const verge =
+    edge.kind === 'path'
+      ? ['dirt-path', 'dirt', 'gravel']
+      : roadStyle(edge).gutter || !SEALED.has(edge.surface)
+        ? ['sidewalk', 'paving', 'gravel']
+        : ['gravel', 'gravel-light', 'dirt-path'];
+  return [
+    { materials: [edge.surface], half: Math.max(0.3, half - Math.min(PAVED_CORE_INSET, half * PAVED_CORE_SHARE)), soft: 0.05, core: true },
+    { materials: verge, half, soft: edge.kind === 'path' ? Math.min(0.4, soft) : soft, core: false },
+  ];
+}

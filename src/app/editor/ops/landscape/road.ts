@@ -11,6 +11,7 @@ import { bandSamples, packGround, unpackGround } from './road-ground';
 import { addNode, connect, edgePolyline, nearestNode, nearestOnEdges, nearestOnPolyline, pointAt, polylineLength, splitEdge } from '../path-graph';
 import { flattenUnderPaths, paintUnderPaths } from '../path-terrain';
 import { chaikin, simplify } from './lines';
+import { roadPaintBands } from '../../../world/custom-map/render/paths/road-style';
 import type { LandscapeStroke } from './landscape-stroke';
 import type { CatalogIndex } from '../../catalog/asset-catalog';
 
@@ -107,11 +108,7 @@ export function dressEdge(stroke: LandscapeStroke, edge: MapPathEdge, dress: Map
     if (rect) stroke.changed({ heights: rect });
     ground = packGround(t.grid, samples, before);
   }
-  const surface = dress.surface ? stroke.layerOf([dress.surface]) : null;
-  if (surface !== null) {
-    const rect = paintUnderPaths(t, paths, surface, [edge.id], 1.5, (r) => stroke.touchSplat(r));
-    if (rect) stroke.changed({ splat: rect });
-  }
+  if (dress.surface) paintRoadGround(stroke, [{ ...edge, surface: dress.surface }]);
 
   // Lamps and fences at the side, turned along the road
   const line = edgePolyline(paths, edge);
@@ -360,11 +357,26 @@ export function surfaceRoads(stroke: LandscapeStroke, edgeIds: readonly string[]
       delete e.dress.surface;
     }
   }
-  const layer = material ? stroke.layerOf([material]) : null;
-  if (layer !== null) {
-    const rect = paintUnderPaths(stroke.doc.terrain, paths, layer, edges.map((e) => e.id), 1.5, (r) => stroke.touchSplat(r));
-    if (rect) stroke.changed({ splat: rect });
-  }
+  if (material) paintRoadGround(stroke, edges);
   stroke.changed({ paths: true });
   return edges.length;
+}
+
+/**
+ * The ground under roads with a surface painted as in OSM worlds
+ * (roadPaintBands): the verge first, the road's own material over its
+ * middle; an unpaved road its material with a soft rim
+ */
+function paintRoadGround(stroke: LandscapeStroke, edges: readonly MapPathEdge[]): void {
+  const t = stroke.doc.terrain;
+  for (const edge of edges) {
+    // Painting blends towards the last band: the verge, then the core over it
+    const bands = roadPaintBands(edge, 1.5).sort((a, b) => Number(a.core) - Number(b.core));
+    for (const band of bands) {
+      const layer = stroke.layerOf(band.materials);
+      if (layer === null) continue;
+      const rect = paintUnderPaths(t, stroke.doc.paths, layer, [edge.id], band.soft, (r) => stroke.touchSplat(r), () => band.half);
+      if (rect) stroke.changed({ splat: rect });
+    }
+  }
 }

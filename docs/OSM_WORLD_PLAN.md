@@ -446,7 +446,7 @@ die Seite erzeugt die Karte im Worker, zeigt eine Statuszeile, speichert sie als
   liegen befestigte Beläge als Straßenfläche darüber, docs/CUSTOM_MAPS.md „Wege“: unter ihr endet der eigene Belag
   bis 1,5 m vor der Kante, dort beginnt ein Bankett, Kies an Landstraßen, Platten an Wohnstraßen und gepflasterten
   Straßen, Erde an Pfaden; so wächst kein Gras durch die Fläche, und der unruhige Rand der Bodenfarbe liest sich als
-  Bankett statt als ausgefranste Straße),
+  Bankett statt als ausgefranste Straße; dieselbe Regel `roadPaintBands` malt im Editor),
   die Kante bekommt `surface`, und die Wegmaske lässt solche Kanten aus (sonst lägen Kopfsteine mit Spurrillen
   darüber). Sechs Bodenschichten mit Gras (bis 2026-10-15 sieben); die dritte Splat-Karte bleibt für O3 frei. Splat 2048².
 - **HQ und Spawns:** HQ auf dem nächsten Punkt einer Straße bis 250 m um den Ort, sonst eines Pfads. Vier Spawns
