@@ -71,6 +71,12 @@ export interface FrameAheadOptions {
    * of the compile and each frame's first draws run inside it
    */
   inState?: (run: () => void) => void;
+  /**
+   * Compile only, no first draws: the states made ready in the background,
+   * where the draws cost frames (the GPU process works through each object's
+   * first draw) and a switch later draws without them as fast
+   */
+  compileOnly?: boolean;
 }
 
 /**
@@ -111,6 +117,9 @@ function withMaterial(draw: RecordedDraw, run: () => void): void {
 function afterNextFrame(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve)));
 }
+
+/** An object's render hook that does nothing (FrameAhead's first draws) */
+const noHook = (): void => undefined;
 
 /** Whether a light shines: it and all above it shown */
 function shines(light: Object3D): boolean {
@@ -165,6 +174,8 @@ export class FrameAhead {
   private readonly scissor = new Vector4();
   /** The materials drawSome has drawn */
   private readonly drawnMaterials = new Set<Material>();
+  /** The compile built a program: the frame needs its first draws (drawSome) */
+  private built = false;
   /** Set after the last first draw, signalled once the GPU process has done them (gpuCaughtUp) */
   private fence: WebGLSync | null = null;
 
@@ -251,6 +262,7 @@ export class FrameAhead {
           size = 1;
         }
       }
+      if (programs() !== built) this.built = true;
     };
     for (;;) {
       this.within(task);
@@ -262,7 +274,7 @@ export class FrameAhead {
     // Frames drawn meanwhile let compileAsync settle before every program is built
     await programsReady(renderer);
     if (this.gone()) return false;
-    await firstUsePrograms(renderer, () => this.gone());
+    await firstUsePrograms(renderer, () => this.gone(), afterNextFrame);
     return !this.gone();
   }
 
@@ -275,6 +287,9 @@ export class FrameAhead {
    */
   drawSome(budgetMs: number, maxFirsts: number): boolean {
     if (!this.ready) return false;
+    // Every program there already: the loading warm-up built and drew the state (prepareSwitchStates), and the
+    // first draws here only cost frames (some ten of 40 ms per level switch on autumn keep)
+    if (!this.built || this.options.compileOnly) return true;
     if (this.drawAt >= this.draws.length) return this.gpuCaughtUp();
     const renderer = this.renderer;
     const start = performance.now();
@@ -352,8 +367,20 @@ export class FrameAhead {
         end++;
       }
       if (end === this.objectAt) break;
+      const slice = objects.slice(this.objectAt, end);
+      // Without the objects' render hooks: a water's mirror renders the scene again and its refraction copies the
+      // frame in them, for every slice (eight frames of 40 ms after a level's compile); a pixel needs neither
+      const hooks = slice.map((o) => [o.onBeforeRender, o.onAfterRender] as const);
+      for (const o of slice) {
+        o.onBeforeRender = noHook;
+        o.onAfterRender = noHook;
+      }
       const sliceStart = performance.now();
-      this.inEachState(objects.slice(this.objectAt, end), () => renderer.render(this.proxy, draw.camera));
+      try {
+        this.inEachState(slice, () => renderer.render(this.proxy, draw.camera));
+      } finally {
+        slice.forEach((o, k) => ([o.onBeforeRender, o.onAfterRender] = hooks[k]));
+      }
       this.sliceSize = nextSlice(this.sliceSize, performance.now() - sliceStart, budgetMs);
       this.objectAt = end;
       if (end >= objects.length) {

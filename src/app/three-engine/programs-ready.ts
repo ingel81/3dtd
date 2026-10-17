@@ -33,12 +33,19 @@ export function programsReady(
  * assets) that cost 50 to 160 ms in the frame of the click that first drew
  * it. Programs already used answer at once. Resolves when all are done.
  */
-export async function firstUsePrograms(renderer: { info: { programs?: readonly object[] | null } }, gone: () => boolean = () => false): Promise<void> {
+export async function firstUsePrograms(
+  renderer: { info: { programs?: readonly object[] | null } },
+  gone: () => boolean = () => false,
+  pace?: () => Promise<void>,
+): Promise<void> {
   for (const p of [...(renderer.info.programs ?? [])]) {
     if (gone()) return;
     const t = performance.now();
     (p as { getUniforms?: () => unknown }).getUniforms?.();
-    // Only work that took time gives the frames a turn
-    if (performance.now() - t > 2) await new Promise((resolve) => setTimeout(resolve));
+    // Only work that took time gives the frames a turn; with `pace` (in play) every program that had work waits
+    // for it: its calls wait for the GPU process, and a few of them in one frame held it 20 to 50 ms
+    const ms = performance.now() - t;
+    if (pace && ms > 0.3) await pace();
+    else if (ms > 2) await new Promise((resolve) => setTimeout(resolve));
   }
 }

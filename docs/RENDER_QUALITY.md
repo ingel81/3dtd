@@ -108,24 +108,37 @@ Zahl der Punktlichter, die jedes beleuchtete Material durchläuft, den Weg durch
 und die Wasser-Effekte einer Karte. Bloom und Farbkorrektur (Effekt-Schalter) wechseln ebenfalls den Weg durch den
 Composer, dazu kommen die Programme der Pässe selbst. In beiden Fällen läuft das Bild weiter:
 
-- Die Engine zeichnet einen Frame im neuen Zustand nur zum Schein auf (`recordDraws` in `frame-compile-ahead.ts`:
-  jeder Pass richtet sich ein wie im echten Frame, gezeichnet wird nichts). Für eine Stufe setzt die Welt dabei ihren
-  Teil vorübergehend (`WorldProvider.withQuality`, Custom Maps: Punktlichter und Wasser-Effekte; Gras, Detail und
-  Partikel ändern keine Programme).
-- `FrameAhead` macht ihn bereit, während der alte Zustand weiterzeichnet: kompilieren, ein Frame je Aufgabe von 3 ms,
-  die vor dem nächsten neuen Programm endet (der GPU-Prozess übersetzt jedes auf seinem Hauptthread, ANGLE: zig ms);
-  dann jedes Objekt einmal mit seinem neuen Programm in ein Pixel seines Ziels zeichnen, höchstens ein neues Material
-  je Frame; zuletzt ein Fence, bis der GPU-Prozess das abgearbeitet hat (sonst wartete der erste synchrone Aufruf der
-  Umschaltung darauf, die Größenänderung des Canvas: 170 ms).
-- Im Frame danach schaltet die Engine um (`switchPasses`, `setQuality`), mit der neuen Auflösung im selben Frame.
+- Nach dem Laden, im Hintergrund, macht `ThreeTilesEngine.prepareSwitchStates` jeden Zustand bereit, den ein
+  Wechsel bringen kann: jede Stufe (der Teil der Welt über `WorldProvider.withQuality`, Custom Maps: Punktlichter und
+  Wasser-Effekte; Gras, Detail und Partikel ändern keine Programme) durch den Composer mit allen Pässen an, und wo die
+  Stufe auf den Schirm zeichnet, ohne Pässe; die Nachbarstufen zuerst (die tiefere vor der höheren, Auto stuft eher
+  ab), dann Bloom und Farbkorrektur auf der aktuellen Stufe, dann der Rest. Je Zustand zeichnet sie einen Frame nur
+  zum Schein auf (`recordDraws` in `frame-compile-ahead.ts`: jeder Pass richtet sich ein wie im echten Frame,
+  gezeichnet wird nichts) und kompiliert ihn (`FrameAhead`, `compileOnly`): eine Aufgabe je Frame von 1 ms, die vor
+  dem nächsten neuen Programm endet, `KHR_parallel_shader_compile` linkt neben den Frames, der Status wird abgefragt,
+  ohne zu warten; die erste Nutzung jedes Programms bekommt einen Frame für sich. Keine ersten Zeichnungen: sie
+  kosteten Frames, und der Wechsel kommt ohne sie genauso schnell.
+- `ProgramPins` (`program-pins.ts`) hält das Warm-up und den Hintergrund fest: Ohne Material frei three ein Programm, und die Id eines eigenen
+  Shader-Texts (Teil jedes Programmschlüssels) verfällt mit dem letzten Material dieses Texts. Eine Schicht, die ihre
+  Materialien neu baut (Effekte einer Karte beim Stufenwechsel, die Routenlinien), baute ihre Programme im Spiel
+  sonst erneut. Je Shader-Text ein nie freigegebener Zwilling hält die Id (beim Laden), und jedes Programm des
+  Warm-ups und des Hintergrunds bekommt einen Nutzer mehr.
+- Im Spiel zeichnet die Engine den Frame im neuen Zustand wieder nur zum Schein auf, und `FrameAhead` kompiliert ihn
+  (ein Frame je Aufgabe von 3 ms, die vor dem nächsten neuen Programm endet). Baut das kein Programm, war der Zustand
+  vorbereitet, und im nächsten Frame schaltet die Engine um (`switchPasses`, `setQuality`), mit der neuen Auflösung
+  im selben Frame. Baut es eins (ein Override abseits der Stufen, ein Wechsel vor dem Hintergrund), zeichnet sie jedes Objekt einmal in ein Pixel,
+  höchstens ein neues Material je Frame, und wartet auf einen Fence, bevor sie umschaltet.
 
 Die Schattenkarte einer neuen Größe baut wie jede Änderung über einige Frames (`ShadowParts`), die alte bleibt bis
-dahin; der Fernschatten einer eingeschalteten Kaskade backt verteilt. Gemessen auf Autumn Keep (RTX 5080): High nach
-Medium stand das Bild vorher 3,9 s (`ProgramCompileHold`), jetzt nicht, längster Frame um 50 ms, rund zehn Frames
-über 30 ms in den etwa 7 s bis zur Umschaltung; Low nach High längster Frame 105 → 23 ms. Bloom an: längster Frame
-550 → 36 ms; die Umschaltung kommt einige Sekunden nach dem Klick. Den Halt (`ProgramCompileHold`) gibt es nur noch
-für eine Stufe vor dem ersten Frame: eine neue Auflösung setzt er erst nach dem Kompilieren, sofort gesetzt leerte die
-Größenänderung den Canvas, und die angehaltenen Bilder zeigten Schwarz.
+dahin; der Fernschatten einer eingeschalteten Kaskade backt verteilt; das Licht der Laternen auf dem Boden backt nur
+neu, wenn sich die Lichter oder der Boden darunter ändern (`LampLight.bake`). Gemessen auf Autumn Keep und Harbor
+Town (RTX 5080, headless, der Rechner geteilt): Laden wie zuvor (11,6 bis 14,5 s, einzelne Läufe streuen bis 21 s);
+der Hintergrund braucht 15 bis 21 s für fünf Zustände mit 320 bis 350 Programmen, längster Frame dabei 21 bis 30 ms
+(ohne ihn 15 bis 23 ms), keiner über 30 ms. Danach kommt ein Wechsel nach 33 bis 90 ms, längster Frame 10 bis 25 ms,
+keiner über 30 ms (vor E215 stand das Bild 3,9 s). Kommt ein Wechsel, bevor sein Zustand fertig ist, geht er den Weg
+von `FrameAhead` mit ersten Zeichnungen (einige Sekunden bis zur Umschaltung, rund zehn Frames um 45 ms). Den Halt
+(`ProgramCompileHold`) gibt es nur noch für eine Stufe vor dem ersten Frame: eine neue Auflösung setzt er erst nach
+dem Kompilieren, sofort gesetzt leerte die Größenänderung den Canvas, und die angehaltenen Bilder zeigten Schwarz.
 
 ## Dynamische Auflösung
 

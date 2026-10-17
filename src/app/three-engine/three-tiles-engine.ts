@@ -14,8 +14,8 @@ import {
   Sprite,
 } from 'three';
 import type { GlobeControls } from '3d-tiles-renderer';
-import { ColorGradingPreset } from './post-processing/color-grading';
-import { PostProcessingPipeline } from './post-processing/post-processing-pipeline';
+import { COLOR_GRADING_PRESETS, ColorGradingPreset } from './post-processing/color-grading';
+import { PostProcessingPipeline, type PassState } from './post-processing/post-processing-pipeline';
 import { CameraRig } from './camera-rig';
 import type { RootLoadFailure, TileStats } from './tile-loading-tracker';
 import type { EllipsoidSync } from './ellipsoid-sync';
@@ -62,6 +62,8 @@ import type { TilesLodDebug } from './tiles-lod-debug';
 import { perfTrace } from '../utils/perf-trace';
 import { warmUpScene, type SceneWarmupResult } from './scene-warmup';
 import { firstUsePrograms } from './programs-ready';
+import { ProgramPins } from './program-pins';
+import { lineStandIns } from './line-stand-ins';
 import { FrameAhead, recordDraws, type RecordedDraw } from './frame-compile-ahead';
 import { ScreenShake, offsetProjection } from './screen-shake';
 import { ShakeBenchmark, type ShakeBenchResult } from './screen-shake-benchmark';
@@ -74,7 +76,7 @@ import { GpuFrameMeter, type GpuTimeReader } from './gpu-timer';
 import { ProgramCompileHold } from './program-compile-hold';
 import { DisplayRefresh } from './dynamic-resolution';
 import { DynamicResolution, MIN_SAMPLES } from './dynamic-resolution';
-import { pixelRatioFor, type QualityKnobs, type QualityWorld } from './render-quality';
+import { pixelRatioFor, QUALITY_LEVELS, QUALITY_TABLE, type QualityKnobs, type QualityWorld } from './render-quality';
 
 /** Strength of the enemies' rim light on worlds that ask for it (WorldCapabilities.enemyRimLight) */
 const ENEMY_RIM_LIGHT = 0.2;
@@ -83,6 +85,13 @@ const ENEMY_RIM_LIGHT = 0.2;
 const AHEAD_DRAW_MS = 3;
 /** Materials a frame draws for the first time there at most: the GPU process builds each program again (ANGLE) */
 const AHEAD_FIRST_DRAWS = 1;
+/** Main-thread time a frame's task gives the background's compile (prepareSwitchStates) */
+const BACKGROUND_COMPILE_MS = 1;
+
+/** Resolves after the next frame (a task after it) */
+function afterFrame(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve)));
+}
 
 /** Called right before and right after a frame is drawn (ThreeTilesEngine.setFrameProbe) */
 export interface FrameProbe {
@@ -241,6 +250,8 @@ export class ThreeTilesEngine {
   private idleFrameAt = 0;
   /** The bloom switch as the effect settings have it; the level may still hold it off */
   private bloomWanted = false;
+  /** Keeps the warm-up's programs and the ids of the scene's custom shaders for the game's life (program-pins.ts) */
+  private readonly pins = new ProgramPins();
   /** A frame has been drawn: from then on a switch of the passes or the level is made ready ahead */
   private drewFrame = false;
   /** Switches being made ready (switchPasses, applyQuality), each applied in the frame it is done in, in this order */
@@ -1418,7 +1429,7 @@ export class ThreeTilesEngine {
     if (this.disposed) return;
     const standIns = new Group();
     standIns.name = 'warm-up stand-ins';
-    for (const o of [...this.towers.warmUpObjects(), this.plinths.warmUpObject(), this.tentacles.warmUpObject(), this.oozes.warmUpObject()]) standIns.add(o);
+    for (const o of [...this.towers.warmUpObjects(), this.plinths.warmUpObject(), this.tentacles.warmUpObject(), this.oozes.warmUpObject(), ...lineStandIns(this.portalClip)]) standIns.add(o);
     if (hero) standIns.add(hero);
     standIns.scale.setScalar(1e-4);
     this.scene.add(standIns);
@@ -1437,6 +1448,8 @@ export class ThreeTilesEngine {
           () => this.drawHidden(),
         ),
       );
+      // The shaders' ids held first: the states prepared below keep their keys when a layer builds its materials anew
+      await this.pins.pinShaders(this.renderer, this.scene, this.camera, this.scene);
     } finally {
       // Their materials stay undisposed: the programs stay for the towers that come
       this.scene.remove(standIns);
@@ -1445,12 +1458,94 @@ export class ThreeTilesEngine {
     if (this.disposed) return;
     const t0 = performance.now();
     await firstUsePrograms(this.renderer, () => this.disposed);
+    this.pins.pinPrograms(this.renderer);
     console.log(
       `[Warmup] ${warmup.newPrograms} new shader programs, ` +
       `compile ${warmup.syncMs.toFixed(1)} ms on the main thread, ` +
       `ready after ${warmup.compileMs.toFixed(1)} ms; ` +
       `${warmup.pools} empty pools and ${standIns.children.length} stand-ins drawn for one frame (${warmup.frameMs.toFixed(1)} ms); ` +
-      `first use ${(performance.now() - t0).toFixed(1)} ms`
+      `first use ${(performance.now() - t0).toFixed(1)} ms; ` +
+      `${this.pins.count.shaders} shaders and ${this.pins.count.programs} programs kept`
+    );
+    void this.prepareSwitchStates();
+  }
+
+  /**
+   * The states a switch in play can bring, made ready in the background once
+   * the game draws: each quality level (the world's part as the level sets
+   * it, WorldProvider.withQuality, and the output its antialiasing draws to)
+   * through the composer with every pass on, and, where the level draws to
+   * the screen, without passes; the likeliest first (the levels next to the
+   * one drawn now, the lower one first as Auto steps down when frames are
+   * dear, then bloom and grading at this level, then the rest). Each is
+   * recorded and compiled by a FrameAhead in slices, a task per frame of
+   * 2 ms that ends at the first program it built (KHR_parallel_shader_compile
+   * links it beside the frames, the status polled), each program's first use
+   * a frame of its own; no first draws (they cost frames, and a switch draws
+   * as fast without). The programs stay (ProgramPins). A switch made ready
+   * ahead goes first; one that comes before its state is ready makes it
+   * ready itself (switchPasses, applyQuality). Done, the switch builds
+   * nothing: some ten frames of 40 ms per level switch on autumn keep before.
+   * At load the same cost 15 s
+   */
+  private async prepareSwitchStates(): Promise<void> {
+    const post = this.postProcessing;
+    const current = this.quality;
+    if (!post || !current) return;
+    const t0 = performance.now();
+    const programs0 = this.renderer.info.programs?.length ?? 0;
+    const grading = COLOR_GRADING_PRESETS.find((p) => p.id !== 'none')?.id ?? 'none';
+    const withQuality = this.world.withQuality?.bind(this.world);
+    const key = (knobs: QualityKnobs, passes: PassState) =>
+      `${withQuality ? JSON.stringify(knobs) : ''}|${passes.bloom || passes.grading !== 'none' || passes.fxaa}|${passes.bloom}|${passes.grading !== 'none'}|${passes.fxaa}`;
+    const seen = new Set([key(current.knobs, post.passes())]);
+    // The level drawn now among the table's (its overrides aside), by what sets its programs
+    const g = current.knobs.general;
+    const at = Math.max(0, QUALITY_LEVELS.findIndex((l) => QUALITY_TABLE[l].general.antialias === g.antialias && QUALITY_TABLE[l].general.scale === g.scale));
+    const order = [...QUALITY_LEVELS].sort((a, b) => {
+      const da = Math.abs(QUALITY_LEVELS.indexOf(a) - at);
+      const db = Math.abs(QUALITY_LEVELS.indexOf(b) - at);
+      return da !== db ? (da === 0 ? 1 : db === 0 ? -1 : da - db) : QUALITY_LEVELS.indexOf(a) - QUALITY_LEVELS.indexOf(b);
+    });
+    // The neighbours, then this level's passes, then the others
+    const levels = [...order.filter((l) => Math.abs(QUALITY_LEVELS.indexOf(l) - at) === 1), QUALITY_LEVELS[at], ...order.filter((l) => Math.abs(QUALITY_LEVELS.indexOf(l) - at) > 1)];
+    const states: { knobs: QualityKnobs; passes: PassState }[] = [];
+    for (const level of levels) {
+      const knobs = level === QUALITY_LEVELS[at] ? current.knobs : QUALITY_TABLE[level];
+      const fxaa = !(knobs.general.antialias === 'msaa' && this.canvasMsaa);
+      const all = { bloom: true, grading, fxaa };
+      for (const passes of fxaa ? [all] : [all, { bloom: false, grading: 'none' as const, fxaa: false }]) {
+        const k = key(knobs, passes);
+        if (seen.has(k)) continue;
+        seen.add(k);
+        states.push({ knobs, passes });
+      }
+    }
+    const gone = () => this.disposed || this.quality?.world !== current.world;
+    while (!this.drewFrame && !gone()) await afterFrame();
+    for (const { knobs, passes } of states) {
+      // A switch made ready now goes first
+      while (this.ahead.size && !gone()) await afterFrame();
+      if (gone()) return;
+      const inState = withQuality && ((run: () => void) => withQuality(knobs, run));
+      const record = () => post.withPasses(passes, () => recordDraws(this.renderer, () => this.drawFrame()));
+      let draws: RecordedDraw[] = [];
+      if (inState) inState(() => (draws = record()));
+      else draws = record();
+      const frame = new FrameAhead(this.renderer, draws, {
+        scene: this.scene,
+        lightStates: this.world.withLightStates?.bind(this.world),
+        inState,
+        gone,
+        compileOnly: true,
+        budgetMs: BACKGROUND_COMPILE_MS,
+      });
+      if (!(await frame.compiled)) return;
+      this.pins.pinPrograms(this.renderer);
+    }
+    console.log(
+      `[Warmup] ${states.length} states a switch can bring made ready in the background ` +
+      `(${(this.renderer.info.programs?.length ?? 0) - programs0} programs, ${((performance.now() - t0) / 1000).toFixed(1)} s)`,
     );
   }
 
@@ -1472,6 +1567,7 @@ export class ThreeTilesEngine {
 
   dispose(): void {
     this.disposed = true;
+    this.pins.dispose();
     this.dynamic?.gpu?.close();
     this.dynamic = null;
     this.gpuMeter.dispose();

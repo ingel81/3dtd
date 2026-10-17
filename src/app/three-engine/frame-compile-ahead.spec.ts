@@ -9,7 +9,8 @@ interface Call {
   lights: number;
 }
 
-function fakeRenderer() {
+/** `builds`: each compile builds a program (a state not prepared), else every program is there already */
+function fakeRenderer(builds = true) {
   let target: WebGLRenderTarget | null = null;
   const compiles: Call[] = [];
   const draws: Call[] = [];
@@ -30,7 +31,7 @@ function fakeRenderer() {
     deleteSync: () => undefined,
   };
   const renderer = {
-    info: { programs: [] },
+    info: { programs: [] as object[] },
     getContext: () => gl,
     shadowMap: { autoUpdate: true, needsUpdate: false },
     getRenderTarget: () => target,
@@ -46,6 +47,7 @@ function fakeRenderer() {
       draws.push({ objects, target, lights: lightsOf(scene) });
     },
     compileAsync: (slice: Object3D, _camera: unknown, targetScene: Object3D) => {
+      if (builds) renderer.info.programs.push({});
       const objects: Object3D[] = [];
       slice.traverse((o) => objects.push(o));
       compiles.push({ objects, target, lights: lightsOf(targetScene) });
@@ -165,4 +167,24 @@ describe('FrameAhead', () => {
     expect(await ahead.compiled).toBe(false);
     expect(ahead.drawSome(100, 10)).toBe(false);
   });
+
+  it('draws nothing when its compile built no program: the state was prepared at load', async () => {
+    const { renderer, draws } = fakeRenderer(false);
+    const { scene, lightStates } = world(4);
+    const ahead = new FrameAhead(renderer, [{ object: scene, camera: new PerspectiveCamera(), target: null }], { scene, lightStates });
+    await ahead.compiled;
+    expect(ahead.drawSome(100, 1)).toBe(true);
+    expect(draws).toEqual([]);
+  });
+
+  it('compiles only when asked to: no first draws though programs were built (the background)', async () => {
+    const { renderer, draws } = fakeRenderer(true);
+    const { scene, lightStates } = world(4);
+    const ahead = new FrameAhead(renderer, [{ object: scene, camera: new PerspectiveCamera(), target: null }], { scene, lightStates, compileOnly: true });
+    expect(await ahead.compiled).toBe(true);
+    expect(renderer.info.programs?.length ?? 0).toBeGreaterThan(0);
+    expect(ahead.drawSome(100, 1)).toBe(true);
+    expect(draws).toEqual([]);
+  });
 });
+

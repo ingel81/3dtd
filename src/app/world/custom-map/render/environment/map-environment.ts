@@ -792,10 +792,16 @@ export class CustomMapEnvironment {
       inside._setSize(this.sky.image.width / 4);
       this.pmrem = pmrem;
       this.envTarget = inside._allocateTargets();
-      const linked = linkPmrem(renderer, pmrem, this.envTarget, [this.envBlend.material]).then(() => {
+      const linked = linkPmrem(renderer, pmrem, this.envTarget).then(() => {
         if (this.pmrem !== pmrem) return;
         this.pmremReady = true;
         this.fillEnvironment();
+        // A fade's blend drawn once now, while the map loads: compiled alone above, its program differed from the
+        // one a draw asks for by a flag, and the first sky fade in play linked it
+        if (this.envTarget && this.renderer) {
+          this.envFrom ??= this.envTarget.clone();
+          this.envBlend.draw(this.renderer, this.envTarget, this.envTarget, 0, this.envFrom);
+        }
       });
       this.envReady = Promise.all([linked, this.imageReady]).then(() => undefined);
     } else if (this.pmremReady) {
@@ -934,7 +940,7 @@ interface PmremInternals {
  * awaited with compileAsync. compileEquirectangularShader alone compiles
  * on a mesh without positions, also a variant PMREM never draws.
  */
-async function linkPmrem(renderer: WebGLRenderer, pmrem: PMREMGenerator, target: WebGLRenderTarget, also: readonly Material[]): Promise<void> {
+async function linkPmrem(renderer: WebGLRenderer, pmrem: PMREMGenerator, target: WebGLRenderTarget): Promise<void> {
   const inside = pmrem as unknown as PmremInternals;
   const previous = renderer.getRenderTarget();
   const scene = new ThreeScene();
@@ -947,8 +953,7 @@ async function linkPmrem(renderer: WebGLRenderer, pmrem: PMREMGenerator, target:
     pmrem.compileEquirectangularShader();
     delete (inside as Partial<PmremInternals>)._compileMaterial;
     // The blur runs only for PMREM from a scene; from a texture it is the GGX convolution
-    // With the materials that draw into the same kind of target (a fade's blend)
-    for (const material of [inside._equirectMaterial, inside._ggxMaterial, ...also]) {
+    for (const material of [inside._equirectMaterial, inside._ggxMaterial]) {
       if (material) scene.add(new Mesh(geometry, material));
     }
     const linked = renderer.compileAsync(scene, new OrthographicCamera());
