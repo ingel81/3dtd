@@ -379,7 +379,11 @@ dem Build fehlt, aus dem `public/maps` des Checkouts (`mapDataRoot` in `createAp
   Ein Dach ist das Höchste aus 3 x 3 Strahlen je Zelle (der dünne Pfahl einer Palisade fällt nicht durch); zwischen
   vier Zellen wird nur gemischt, wo sie weniger als 1 m auseinanderliegen (Satteldach), eine Stufe (Mauerflucht,
   Brüstung) bleibt eine Kante.
-- **Kronen** (`roof.kind: 'crown'`, Mauern und Torhäuser: Katalogkategorie `wall` oder `roadThrough`): der Tower
+- **Kronen** (`roof.kind: 'crown'`, Mauern und Torhäuser: Katalogkategorie `wall` oder `roadThrough`, aber nur mit
+  festem Wehrgang im gebackenen Raster: auf mindestens 80 % der Länge ein Lauf fester Zellen quer von mindestens
+  1 m, Nachbarn höchstens 1 m Stufe; fest heißt, mindestens 6 der 9 Strahlen einer Zelle treffen höchstens 0,6 m
+  unter ihrer Oberkante. Eine Mauer ohne ihn trägt gar keinen Tower und sperrt wie vorher: Zaun, Eisentor, Ketten,
+  Palisade aus Einzelpfählen, Stützmauer; ein Torhaus ohne ihn behält ein gewöhnliches Dach): der Tower
   steht auf der Mittellinie der Krone, quer zum Cursor verschoben (`crownAt`, `TowerPlacementService.onCrownLine`,
   ebenso die Editor-Bauflächen), und darf mit dem inneren Ring über beide Seiten ragen, solange die Mitte auf der
   Krone steht und die Dächer ihn den halben Radius in beide Richtungen entlang der Krone tragen (`crownCarries`, alle
@@ -388,7 +392,7 @@ dem Build fehlt, aus dem `public/maps` des Checkouts (`mapDataRoot` in `createAp
   zählt das Teil und die Richtung, die am weitesten trägt (dann das höhere, dann die nächste Mittellinie), höchstens
   4 m halbe Breite. Darunter tragen Kragsteine den Sockel auf beiden Seiten der Mauer (`crownBraces`, dieselben
   Steine wie an der Dachkante, `TowerPlinthRenderer` fragt `crownAt`, ebenso die Bauvorschau), die Sockelwand reicht
-  dort nicht zum Boden hinab. So passen alle Tower auf Burgmauer, fort-wall und Palisade (Spec
+  dort nicht zum Boden hinab. So passen alle Tower auf Burgmauer und fort-wall (Spec
   `object-roof.spec.ts`). Die Regel der echten Orte bleibt: ohne `crown` an der Säule gilt die Kante wie bisher
  (`passingObjectIds`: von einem Wellen-Ereignis gezeigt
   oder verborgen, auf zerstörbaren Karten alle Gebäude, Mauern und Bauwerke) und gekippte Objekte; sie sperren wie

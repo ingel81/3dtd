@@ -225,12 +225,22 @@ describe('Towers on crowns, houses, towers, corners and gates (E217)', () => {
   const surface = new CustomMapSurface(doc, frame);
   surface.setObjectCatalog(ids.map(entry));
 
-  it('marks the walls and the gate as crowns in the catalogue, not the houses and towers', () => {
-    expect(ids.map((id) => entry(id).roof?.kind ?? 'roof')).toEqual(['crown', 'crown', 'crown', 'crown', 'crown', 'roof', 'roof']);
+  it('marks walls and the gate with a solid walk as crowns, houses and towers as roofs, a palisade of stakes as nothing', () => {
+    expect(ids.map((id) => entry(id).roof?.kind ?? (entry(id).roof ? 'roof' : 'none'))).toEqual(['crown', 'crown', 'none', 'crown', 'crown', 'roof', 'roof']);
   });
 
-  it('stands every tower on every wall: castle wall, fort wall, palisade, centred on the walk, braced on both sides', () => {
-    for (const [x, y] of [[-50, -60], [30, -60], [-50, 60]]) {
+  it('gives fences, iron gates, chains and stake palisades no top to stand on: they block building as before', () => {
+    for (const id of ['palisade', 'palisade-gate', 'fence-chainlink-barbed', 'iron-gate', 'chains']) {
+      expect(entry(id).roof, id).toBeUndefined();
+    }
+    expect(surface.roofAt(frame.sceneX(-50), frame.sceneZ(60))).toBeNull();
+    expect(surface.crownAt(frame.sceneX(-50), frame.sceneZ(60))).toBeNull();
+    const g = mapToGeo({ x: -50, y: 60 });
+    expect(surface.buildBlocker(g.lat, g.lon, 3)).toBe(BUILD_BLOCKED_OBJECT);
+  });
+
+  it('stands every tower on every wall with a walk: castle wall, fort wall, centred on it, braced on both sides', () => {
+    for (const [x, y] of [[-50, -60], [30, -60]]) {
       for (const typeId of all) {
         // The cursor near the wall's face, the tower on its centre line
         const placed = onCrown(surface, frame, typeId, x + 0.4, y + 0.15)!;
