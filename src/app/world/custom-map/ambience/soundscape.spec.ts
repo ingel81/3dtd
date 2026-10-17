@@ -3,11 +3,11 @@ import type { MapEnvironment, MapLife } from '../map-document';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { AMBIENT_SOUNDS, WAVE_SOUNDS, ambienceSounds, soundFiles } from './ambient-sounds';
-import { AREA_REACH, CROSSFADE, LOOP_PAD, Soundscape, type SoundscapeListener } from './soundscape';
+import { AMBIENT_LEVEL, AREA_REACH, CROSSFADE, LOOP_PAD, Soundscape, type SoundscapeListener } from './soundscape';
 
 /** Just enough Web Audio for the soundscape: gains and pans hold their last target, sources say whether they play */
 function fakeAudio() {
-  const sources: { sound: unknown; playing: boolean; loopStart: number; loopEnd: number; offset: number; when: number; duration?: number }[] = [];
+  const sources: { sound: unknown; playing: boolean; loopStart: number; loopEnd: number; offset: number; when: number; duration?: number; rate: number }[] = [];
   const param = () => ({ value: 0, curves: [] as { at: number; rising: boolean }[], setTargetAtTime(v: number) { this.value = v; }, setValueCurveAtTime(c: Float32Array, at: number) { this.curves.push({ at, rising: c[0] < c[c.length - 1] }); } });
   const node = () => ({ connect: (n: unknown) => n, disconnect: () => undefined });
   const gains: { gain: { value: number; curves: { at: number; rising: boolean }[] } }[] = [];
@@ -25,8 +25,8 @@ function fakeAudio() {
       return p;
     },
     createBufferSource: () => {
-      const s = { ...node(), buffer: null as unknown, loop: false, loopStart: 0, loopEnd: 0, start(when: number, offset: number, duration?: number) { entry.playing = true; entry.when = when; entry.offset = offset; entry.duration = duration; entry.loopStart = this.loopStart; entry.loopEnd = this.loopEnd; entry.sound = this.buffer; }, stop() { entry.playing = false; } };
-      const entry = { sound: null as unknown, playing: false, loopStart: 0, loopEnd: 0, offset: 0, when: 0, duration: undefined as number | undefined };
+      const s = { ...node(), buffer: null as unknown, playbackRate: { value: 1 }, loop: false, loopStart: 0, loopEnd: 0, start(when: number, offset: number, duration?: number) { entry.playing = true; entry.when = when; entry.offset = offset; entry.duration = duration; entry.loopStart = this.loopStart; entry.loopEnd = this.loopEnd; entry.sound = this.buffer; entry.rate = this.playbackRate.value; }, stop() { entry.playing = false; } };
+      const entry = { sound: null as unknown, playing: false, loopStart: 0, loopEnd: 0, offset: 0, when: 0, duration: undefined as number | undefined, rate: 1 };
       sources.push(entry);
       return s;
     },
@@ -53,13 +53,16 @@ describe('Soundscape', () => {
     s.setMap({ life, environment: env('temperate') });
     await tick(s, listener(0, 0));
     const day = AMBIENT_SOUNDS['birdsong'].gain * 0.5;
-    expect(levels(a)).toEqual([Math.round(day * 1000) / 1000, 0]);
-    // The bed loops between its pads, from somewhere in its loop
+    expect(levels(a).slice(0, 2)).toEqual([Math.round(day * 1000) / 1000, 0]);
+    // Everything under the player's volume, well below the game's sounds
+    expect(a.gains[0].gain.value).toBeCloseTo(AMBIENT_LEVEL, 5);
     expect(a.sources).toHaveLength(1);
-    expect(a.sources[0]).toMatchObject({ playing: true, loopStart: LOOP_PAD, loopEnd: 16.2 - LOOP_PAD });
+    expect(a.sources[0].playing).toBe(true);
+    // The night's bed loops between its pads, from somewhere in its loop
     await tick(s, listener(0, 0, { darkness: 1 }));
     expect(levels(a)[0]).toBe(0);
     expect(levels(a)[1]).toBeCloseTo(AMBIENT_SOUNDS['night-insects'].gain * 0.5, 3);
+    expect(a.sources[1]).toMatchObject({ playing: true, loopStart: LOOP_PAD, loopEnd: 16.2 - LOOP_PAD });
     // The moon has none
     expect(ambienceSounds('biome', 'moon')).toBeNull();
     s.dispose();
@@ -158,10 +161,43 @@ describe('Soundscape', () => {
     s.dispose();
   });
 
-  it('has a file for every sound', () => {
+  it('has a file for every sound and every call', () => {
     for (const entry of [...Object.values(AMBIENT_SOUNDS), ...Object.values(WAVE_SOUNDS)]) {
-      for (const file of soundFiles(entry)) expect(existsSync(resolve('public', file)), file).toBe(true);
+      for (const file of [...soundFiles(entry), ...(entry.calls?.files ?? [])]) expect(existsSync(resolve('public', file)), file).toBe(true);
     }
+  });
+
+  it('scatters single calls at irregular gaps, each another recording, side, distance and pitch, none when unheard', async () => {
+    const a = fakeAudio();
+    const clock = a.context as { currentTime: number };
+    const s = new Soundscape(a, (url) => Promise.resolve({ duration: url.includes('/calls/') ? 2 : 16.2, url } as unknown as AudioBuffer));
+    s.setVolume(1);
+    s.setMap({ life: { areas: [{ id: 'g', kind: 'sound', shape: 'area', points: [{ x: -50, y: -50 }, { x: 50, y: -50 }, { x: 0, y: 50 }], sound: 'gulls', volume: 1 }] }, environment: env('temperate') });
+    const calls = AMBIENT_SOUNDS['gulls'].calls!;
+    const heard = () => a.sources.filter((x) => (x.sound as { url: string }).url.includes('/calls/'));
+    // Calls only: no loop under them
+    await tick(s, listener(0, 0));
+    expect(s.playing).toBe(0);
+    for (let t = 0; t < 600; t += 0.2) {
+      clock.currentTime = t;
+      s.update(0.2, listener(0, 0));
+    }
+    const played = heard();
+    // Ten minutes: about one call per gap, not a constant chorus
+    expect(played.length).toBeGreaterThan(600 / (calls.gap[1] + 2));
+    expect(played.length).toBeLessThan(600 / (calls.answer[0] + 2));
+    const urls = played.map((x) => (x.sound as { url: string }).url);
+    for (let k = 1; k < urls.length; k++) expect(urls[k]).not.toBe(urls[k - 1]);
+    expect(new Set(played.map((x) => x.rate)).size).toBeGreaterThan(1);
+    for (const x of played) expect(Math.abs(x.rate - 1)).toBeLessThanOrEqual(0.06 + 1e-9);
+    // Out of hearing: none
+    const before = played.length;
+    for (let t = 600; t < 700; t += 0.2) {
+      clock.currentTime = t;
+      s.update(0.2, listener(AREA_REACH + 100, 0));
+    }
+    expect(heard().length).toBe(before);
+    s.dispose();
   });
 
   it('plays the variants of a sound in turn, each crossfading into the next before its loop ends', async () => {

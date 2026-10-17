@@ -564,14 +564,23 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   (Schiffshorn), ganze Dateien ohne Schleifenpolster, mit ElevenLabs erzeugt und ausgewählt (2026-10-15).
   Life-Panel: „At each wave“, Lautstärke, „Comes from“, „Play“ spielt ihn einmal im Editor
 - Von oben leiser: bis 80 m über dem Boden voll, ab 600 m ein Drittel (`lift`)
+- Gesamtpegel: Lautstärke des Spielers mal `AMBIENT_LEVEL` (0,35, seit E211). Die Spiel-Sounds hört man aus 100 bis
+  400 m Kameraabstand und sie fallen mit der Entfernung, der Umgebungston nicht; vorher lag er über den Schüssen
 - Klänge (`AMBIENT_SOUNDS`): `wind`, `birdsong`, `night-insects`, `stream`, `surf`, `swamp`, `lava`, `fire`, `city`,
   `gulls`, `crows`, `radio-hiss`, `harbor`, `cowbells`, `pine-wind`, `rain`, `cave-wind`, je mit eigenem Pegel. Mit
-  ElevenLabs erzeugt und ausgewählt (2026-10-15): `wind`, `birdsong`, `stream`, `surf`, `swamp`, `lava`, `fire`, `city`,
-  `gulls`, `crows`, `radio-hiss`, `harbor`, `cowbells`, `pine-wind`, `rain`, `cave-wind`, `night-insects` (Grillen im
+  ElevenLabs erzeugt und ausgewählt (2026-10-15): `wind`, `stream`, `surf`, `swamp`, `lava`, `fire`, `city`, `radio-hiss`, `harbor`, `cowbells`, `pine-wind`, `rain`, `cave-wind`, `night-insects` (Grillen im
   Gebüsch). `tools/ambient/make_placeholders.py` erzeugt synthetische Platzhalter für neue Klänge, bis eine Aufnahme
   gewählt ist (Rauschen im Frequenzraum über die ganze Schleife gefiltert, daher ohne Naht). Die Datei trägt 0,1 s der Schleife davor
   und danach (`LOOP_PAD`), gespielt wird dazwischen, so verschluckt der MP3-Versatz nichts. Eine unbekannte Id spielt
   nichts (eine Karte aus einem neueren Spiel)
+- **Rufe** (`calls`, seit E211): `birdsong`, `gulls` und `crows` sind einzelne Rufe statt einer Schleife
+  (`assets/sounds/ambient/calls/`, ElevenLabs, je ein Ruf, auf -20 LUFS): acht Singvögel, drei Möwen, drei Krähen und
+  Raben. Solange der Ort gehört wird, fällt ein Ruf nach einer zufälligen Pause (`gap`, Vögel 5 bis 16 s), mit
+  `reply` (etwa ein Drittel) antwortet einer schon nach `answer` Sekunden; jeder eine andere Aufnahme als der letzte,
+  bis 6 % höher oder tiefer, meist fern (30 % bis voll, zum Fernen gewichtet) und zur Seite gestreut (bei einem
+  Bereich um seine Seite). Je Ruf eine kurze Quelle. Unter `birdsong` liegt leiser Wind (dieselben Dateien wie
+  `wind`, Anteil 0,2); `gulls` und `crows` haben keine Schleife. Eine Schleife aus Rufen wiederholt ihr Muster und
+  nervt nach einer Minute
 - **Varianten**: `wind`, `stream` und `surf` haben je zwei Aufnahmen (`variants`, `wind-2.mp3` usw.). Sie spielen
   abwechselnd: jede bis zum Ende ihrer Schleife, die nächste setzt 2 s vorher ein (`CROSSFADE`, Equal-Power-Blende,
   eine Sekunde vorher eingeplant), so fällt die 20-s-Schleife beim langen Zuhören weniger auf

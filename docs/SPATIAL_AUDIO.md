@@ -645,7 +645,10 @@ One-Shot-Budget: das Distanzmodell der Spiel-Sounds passt nicht zu einem Ton, de
 ist und den die Kamera aus 100 bis 400 m Höhe hört. Pause des Spiels hält ihn nicht an (die Welt lebt weiter).
 Der Ton zu jeder Welle (`life.waveSound`, Glocke, Sirene, Horn) läuft denselben Weg: eine Quelle ohne Schleife je
 Wellenstart, ausgelöst von `wave:started` (`PresentationHost` an `WorldProvider.waveStarted`).
-Die Dateien liegen unter `public/assets/sounds/ambient/` (Abschnitt Assets).
+Die Dateien liegen unter `public/assets/sounds/ambient/` (Abschnitt Assets). Der ganze Umgebungston läuft mit
+`AMBIENT_LEVEL` (0,35) unter der SFX-Lautstärke: die Spiel-Sounds fallen mit dem Kameraabstand, er nicht. Vögel,
+Möwen und Krähen sind einzelne Rufe zu zufälligen Zeiten statt einer Schleife ([CUSTOM_MAPS.md](CUSTOM_MAPS.md),
+„Rufe“).
 
 ## Performance-Optimierungen
 
@@ -729,8 +732,9 @@ vollständig). Hintergrundmusik liegt separat unter `public/assets/music/`:
 public/assets/sounds/
 ├── ambient/                           # Umgebungston eigener Karten: Loops mit ElevenLabs erzeugt (2026-10-15, wind/stream/surf je zwei),
 │                                      # ebenso die Wellentöne; Platzhalter für neue Klänge: tools/ambient/make_placeholders.py
-│   ├── wind.mp3, birdsong.mp3, night-insects.mp3, stream.mp3, surf.mp3
-│   └── swamp.mp3, lava.mp3, fire.mp3, city.mp3, gulls.mp3, crows.mp3, radio-hiss.mp3   # je 16 s Schleife plus 0,1 s davor und danach
+│   ├── wind.mp3, night-insects.mp3, stream.mp3, surf.mp3
+│   ├── swamp.mp3, lava.mp3, fire.mp3, city.mp3, radio-hiss.mp3   # je Schleife plus 0,1 s davor und danach
+│   └── calls/                         # einzelne Rufe (Singvögel, Möwen, Krähen), die Soundscape streut sie (E211)
 ├── towers/
 │   ├── archer/shoot.mp3               # Pfeil-Schuss-Sound
 │   ├── ballista/shoot.mp3             # Sehnenschlag der Ballista, Archer-Pfad Sniper (ElevenLabs, 2026-10-15)

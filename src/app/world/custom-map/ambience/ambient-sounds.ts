@@ -10,30 +10,71 @@ import type { MapBiome } from '../map-document';
  * loop with LOOP_PAD seconds of it repeated before and after (soundscape.ts).
  * A sound with `variants` plays its recordings in turn, crossfading at each
  * loop's end, so a long listen does not hear the same 20 s again and again.
+ * A sound with `calls` (birds, gulls, crows) is single calls scattered at
+ * irregular gaps, each from another side and distance (Soundscape), over its
+ * loop if it has one: a looped chorus of calls repeats its pattern and wears
+ * on the ear within a minute (E211).
  */
+
+export interface AmbientCalls {
+  /** One call each (assets/sounds/ambient/calls/), whole files, about -20 LUFS */
+  files: readonly string[];
+  /** Their level against the others, 0..1 (as `gain`) */
+  gain: number;
+  /** Seconds between two calls, at random within */
+  gap: readonly [number, number];
+  /** Chance that another call answers soon after one, within `answer` seconds */
+  reply: number;
+  answer: readonly [number, number];
+}
 
 export interface AmbientSound {
   label: string;
-  /** Under the app's base, as `/assets/sounds/...` paths elsewhere */
-  file: string;
+  /** The loop, under the app's base as `/assets/sounds/...` paths elsewhere; none for a sound of calls only */
+  file?: string;
   /** Its level against the others, 0..1 */
   gain: number;
   /** Further recordings of it (files as `file`), played in turn with it */
   variants?: readonly string[];
+  calls?: AmbientCalls;
 }
+
+const CALLS = 'assets/sounds/ambient/calls/';
+const callFiles = (...names: string[]) => names.map((n) => `${CALLS}${n}.mp3`);
 
 export const AMBIENT_SOUNDS: Readonly<Record<string, AmbientSound>> = {
   wind: { label: 'Wind', file: 'assets/sounds/ambient/wind.mp3', variants: ['assets/sounds/ambient/wind-2.mp3'], gain: 0.7 },
-  birdsong: { label: 'Birdsong', file: 'assets/sounds/ambient/birdsong.mp3', gain: 0.6 },
-  'night-insects': { label: 'Crickets at night', file: 'assets/sounds/ambient/night-insects.mp3', gain: 0.45 },
+  // A light breeze under songbirds now and then, a few seconds apart, sometimes one answering another
+  birdsong: {
+    label: 'Birdsong',
+    file: 'assets/sounds/ambient/wind.mp3',
+    variants: ['assets/sounds/ambient/wind-2.mp3'],
+    gain: 0.2,
+    calls: {
+      files: callFiles('bird-blackbird', 'bird-robin', 'bird-chaffinch', 'bird-wren', 'bird-great-tit', 'bird-wood-pigeon', 'bird-song-thrush', 'bird-yellowhammer'),
+      gain: 0.45,
+      gap: [5, 16],
+      reply: 0.3,
+      answer: [0.8, 2.5],
+    },
+  },
+  'night-insects': { label: 'Crickets at night', file: 'assets/sounds/ambient/night-insects.mp3', gain: 0.3 },
   stream: { label: 'Stream', file: 'assets/sounds/ambient/stream.mp3', variants: ['assets/sounds/ambient/stream-2.mp3'], gain: 0.6 },
   surf: { label: 'Surf', file: 'assets/sounds/ambient/surf.mp3', variants: ['assets/sounds/ambient/surf-2.mp3'], gain: 0.7 },
   swamp: { label: 'Frogs and swamp', file: 'assets/sounds/ambient/swamp.mp3', gain: 0.55 },
-  lava: { label: 'Lava rumbling', file: 'assets/sounds/ambient/lava.mp3', gain: 0.8 },
+  lava: { label: 'Lava rumbling', file: 'assets/sounds/ambient/lava.mp3', gain: 0.6 },
   fire: { label: 'Crackling fire', file: 'assets/sounds/ambient/fire.mp3', gain: 0.6 },
   city: { label: 'City hum', file: 'assets/sounds/ambient/city.mp3', gain: 0.5 },
-  gulls: { label: 'Gulls', file: 'assets/sounds/ambient/gulls.mp3', gain: 0.55 },
-  crows: { label: 'Crows and ravens', file: 'assets/sounds/ambient/crows.mp3', gain: 0.5 },
+  gulls: {
+    label: 'Gulls',
+    gain: 0,
+    calls: { files: callFiles('gull-single', 'gull-laugh', 'gull-pair'), gain: 0.5, gap: [5, 15], reply: 0.35, answer: [0.6, 2] },
+  },
+  crows: {
+    label: 'Crows and ravens',
+    gain: 0,
+    calls: { files: callFiles('crow-caw', 'crow-three', 'raven-croak'), gain: 0.45, gap: [7, 20], reply: 0.25, answer: [1, 3] },
+  },
   'radio-hiss': { label: 'Radio hiss', file: 'assets/sounds/ambient/radio-hiss.mp3', gain: 0.4 },
   harbor: { label: 'Harbour (water at the quay, ropes)', file: 'assets/sounds/ambient/harbor.mp3', gain: 0.55 },
   cowbells: { label: 'Cowbells', file: 'assets/sounds/ambient/cowbells.mp3', gain: 0.5 },
@@ -42,8 +83,9 @@ export const AMBIENT_SOUNDS: Readonly<Record<string, AmbientSound>> = {
   'cave-wind': { label: 'Cave wind', file: 'assets/sounds/ambient/cave-wind.mp3', gain: 0.6 },
 };
 
-/** The files of a sound: its own and its variants' */
+/** The files of a sound's loop: its own and its variants' (none for calls only) */
 export function soundFiles(entry: AmbientSound): readonly string[] {
+  if (!entry.file) return [];
   return entry.variants?.length ? [entry.file, ...entry.variants] : [entry.file];
 }
 

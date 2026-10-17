@@ -6,7 +6,8 @@ so the end runs into the start without a seam. The file holds the loop with PAD 
 repeated before and after; the game loops from PAD to the end minus PAD (soundscape.ts
 LOOP_PAD), which hides the MP3 encoder's delay at both ends. Real recordings replace these
 later (tmp/plan/AMBIENT_SOUNDS_2026-10-15.md); the ids stay. ONE_SHOTS are the wave sounds
-(ambient-sounds.ts WAVE_SOUNDS): whole files, played once, no pad.
+(ambient-sounds.ts WAVE_SOUNDS): whole files, played once, no pad. Birdsong, gulls and crows are
+single recorded calls (public/assets/sounds/ambient/calls/) the game scatters, no loop here.
 
     python -I tools/ambient/make_placeholders.py public/assets/sounds/ambient [<id> ...]
 """
@@ -45,11 +46,6 @@ def slow(rng, cutoff):
     return (e - e.min()) / (e.max() - e.min() + 1e-9)
 
 
-def cycles(k, phase=0.0):
-    """A sine with k whole cycles per loop"""
-    return np.sin(2 * np.pi * k * T / LOOP + phase)
-
-
 def add(out, start, sig):
     """Adds sig at sample start, wrapping round the loop"""
     idx = (np.arange(len(sig)) + start) % N
@@ -72,23 +68,6 @@ def wind(rng):
     high = band(rng, 300, 1400, -0.3) * gust
     whistle = band(rng, 520, 600) * gust ** 2 * 0.25
     return low + 0.8 * high + whistle
-
-
-def birdsong(rng):
-    out = wind(rng) * 0.25
-    for _ in range(14):
-        start = int(rng.uniform(0, N))
-        f0 = rng.uniform(2400, 4800)
-        notes = rng.integers(3, 7)
-        at = start
-        for _ in range(notes):
-            n = int(rng.uniform(0.05, 0.13) * RATE)
-            sweep = np.linspace(f0, f0 * rng.uniform(0.75, 1.35), n) + 180 * np.sin(np.linspace(0, rng.uniform(6, 20), n))
-            note = tone(sweep, window(n)) + 0.2 * tone(sweep * 2, window(n))
-            add(out, at, note * rng.uniform(0.6, 1.4) * 1.6)
-            at += n + int(rng.uniform(0.02, 0.09) * RATE)
-            f0 *= rng.uniform(0.9, 1.12)
-    return out
 
 
 def night_insects(rng):
@@ -161,36 +140,6 @@ def city(rng):
     return hum + 0.12 * np.sin(2 * np.pi * 100 * T) + band(rng, 800, 3000) * slow(rng, 0.5) ** 4 * 0.3
 
 
-def gulls(rng):
-    out = wind(rng) * 0.2 + band(rng, 200, 1500, -0.5) * slow(rng, 0.3) * 0.25
-    for _ in range(12):
-        at = int(rng.uniform(0, N))
-        for _ in range(int(rng.integers(1, 4))):
-            n = int(rng.uniform(0.25, 0.45) * RATE)
-            f0 = rng.uniform(1500, 2100)
-            f = np.linspace(f0, f0 * rng.uniform(0.45, 0.6), n) * (1 + 0.03 * np.sin(np.linspace(0, 40, n)))
-            env = window(n) ** 0.7
-            call = tone(f, env) + 0.4 * tone(f * 2, env) + 0.2 * tone(f * 3, env)
-            add(out, at, call * rng.uniform(0.4, 1.0))
-            at += n + int(rng.uniform(0.05, 0.2) * RATE)
-    return out
-
-
-def crows(rng):
-    out = wind(rng) * 0.35
-    for _ in range(9):
-        at = int(rng.uniform(0, N))
-        for _ in range(int(rng.integers(2, 4))):
-            n = int(rng.uniform(0.22, 0.32) * RATE)
-            f = np.linspace(rng.uniform(560, 700), rng.uniform(420, 520), n)
-            env = window(n) ** 0.5
-            # Harsh: a buzzing tone through noise
-            caw = np.sign(tone(f, env)) * env * 0.4 + tone(f * 2.1, env) * 0.3 + rng.standard_normal(n) * env * 0.25
-            add(out, at, caw * rng.uniform(0.5, 1.0))
-            at += n + int(rng.uniform(0.12, 0.25) * RATE)
-    return out
-
-
 def radio_hiss(rng):
     out = band(rng, 900, 7000, -0.2) * (0.5 + 0.5 * slow(rng, 0.6)) * 0.5 + 0.08 * np.sin(2 * np.pi * 60 * T)
     for c in range(10):
@@ -258,7 +207,6 @@ def cave_wind(rng):
 
 SOUNDS = {
     'wind': wind,
-    'birdsong': birdsong,
     'night-insects': night_insects,
     'stream': stream,
     'surf': surf,
@@ -266,8 +214,6 @@ SOUNDS = {
     'lava': lava,
     'fire': fire,
     'city': city,
-    'gulls': gulls,
-    'crows': crows,
     'radio-hiss': radio_hiss,
     'harbor': harbor,
     'cowbells': cowbells,

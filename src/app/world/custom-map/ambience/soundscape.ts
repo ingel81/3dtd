@@ -1,6 +1,6 @@
 import type { CustomMapDocument, MapLife, MapLifeArea, MapPoint } from '../map-document';
 import { LIFE_SOUND_REACH, nearestOnShape } from '../map-life';
-import { AMBIENT_SOUNDS, WAVE_SOUNDS, ambienceSounds, soundEntry, soundFiles } from './ambient-sounds';
+import { AMBIENT_SOUNDS, WAVE_SOUNDS, ambienceSounds, soundEntry, soundFiles, type AmbientCalls } from './ambient-sounds';
 
 /**
  * The ambient sound of a custom map (TODO E190, docs/CUSTOM_MAPS.md
@@ -15,7 +15,8 @@ import { AMBIENT_SOUNDS, WAVE_SOUNDS, ambienceSounds, soundEntry, soundFiles } f
  * off to one side pans there. Plain Web Audio: one looping buffer source,
  * gain and stereo panner per voice into the destination the owner gives
  * (a sound with variants: one source per turn, the next crossfading in
- * CROSSFADE seconds before the loop ends)
+ * CROSSFADE seconds before the loop ends; a sound of calls: one short
+ * source per call, at a random gap, side and distance)
  * (the game's master bus, or the editor's own context); a voice that falls
  * silent stops its source after a while and starts it again when heard.
  * Drawn nothing, decides nothing: the simulation never hears it.
@@ -33,6 +34,18 @@ const SILENT_STOP = 3;
 /** Seconds two variants of a sound overlap, and how far ahead the next one is scheduled */
 export const CROSSFADE = 2;
 const SCHEDULE_AHEAD = 1;
+/**
+ * All of it against the game: the player's sound volume times this. The
+ * game's sounds are heard from the camera 100 to 400 m off and fall with the
+ * distance, the soundscape does not; at full share it drowned the shots (E211)
+ */
+export const AMBIENT_LEVEL = 0.35;
+/** A call's share by its distance, at random between these (1 is close by), and how far to the side it may sit */
+const CALL_NEAR = 1;
+const CALL_FAR = 0.3;
+const CALL_SPREAD = 0.85;
+/** A call's pitch, at random within this much either way, so the same recording is not heard twice alike */
+const CALL_DETUNE = 0.06;
 /** Metres over which a wave sound from an area falls to its least share, and that share (a bell carries) */
 const WAVE_REACH = 400;
 const WAVE_FAR = 0.35;
@@ -70,6 +83,8 @@ interface Voice {
   turns?: { source: AudioBufferSourceNode; gain: GainNode; end: number }[];
   /** When the next turn starts and which variant it plays */
   next?: { at: number; variant: number };
+  /** A sound of calls: when the next one sounds (context time) and which file sounded last */
+  call?: { at: number; last: number };
 }
 
 export type BufferLoader = (url: string) => Promise<AudioBuffer>;
@@ -171,7 +186,7 @@ export class Soundscape {
   /** Everything's level, 0..1 (the player's sound volume); 0 silences and, after a while, stops the sources */
   setVolume(volume: number): void {
     this.volume = Math.max(0, Math.min(1, volume));
-    this.master.gain.setTargetAtTime(this.volume, this.out.context.currentTime, GLIDE / 3);
+    this.master.gain.setTargetAtTime(this.volume * AMBIENT_LEVEL, this.out.context.currentTime, GLIDE / 3);
   }
 
   /** Every frame: the voices' gains and pans follow the listener a few times a second */
@@ -187,14 +202,15 @@ export class Soundscape {
     const lift = Math.min(1, Math.max(0.35, 1 - (listener.height - 80) / 780));
     const night = Math.min(1, Math.max(0, (listener.darkness - 0.3) / 0.4));
     for (const v of this.voices) {
-      const base = (AMBIENT_SOUNDS[v.sound]?.gain ?? 0.6) * v.volume * lift;
-      let level = 0;
+      const entry = AMBIENT_SOUNDS[v.sound];
+      // How loud the place is heard, before the sound's own share
+      let heard = 0;
       let pan = 0;
-      if (v.bed) level = base * (v.bed === 'night' ? night : this.voices.some((o) => o.bed === 'night') ? 1 - night : 1);
+      if (v.bed) heard = v.volume * lift * (v.bed === 'night' ? night : this.voices.some((o) => o.bed === 'night') ? 1 - night : 1);
       else if (v.area) {
         const d = nearestOnShape(v.area, listener.at.x, listener.at.y, this.near);
         const f = Math.max(0, 1 - d / (v.area.reach ?? AREA_REACH));
-        level = base * f * f;
+        heard = v.volume * lift * f * f;
         if (d > 1) {
           const dx = (this.near.x - listener.at.x) / d;
           const dy = (this.near.y - listener.at.y) / d;
@@ -202,6 +218,8 @@ export class Soundscape {
           pan = (dx * listener.right.x + dy * listener.right.y) * Math.min(1, d / 30) * 0.8;
         }
       }
+      const level = (entry?.gain ?? 0.6) * heard;
+      if (entry?.calls) this.scatter(v, entry.calls, entry.calls.gain * heard, pan, now);
       const audible = level > 0.001 && this.volume > 0;
       v.silent = audible ? 0 : v.silent + step;
       if (audible && !v.source) this.start(v);
@@ -224,10 +242,11 @@ export class Soundscape {
     this.master.disconnect();
   }
 
-  /** A sound's buffers (its own, then its variants'), each file loaded once; null when one did not load */
+  /** A sound's buffers (its own, then its variants'), each file loaded once; null when one did not load. Its calls load alongside */
   private async sound(id: string): Promise<AudioBuffer[] | null> {
     const entry = soundEntry(id);
     if (!entry) return null;
+    if (entry.calls) void Promise.all(entry.calls.files.map((file) => this.file(file)));
     const all = await Promise.all(soundFiles(entry).map((file) => this.file(file)));
     return all.every((b) => b) ? (all as AudioBuffer[]) : null;
   }
@@ -249,13 +268,58 @@ export class Soundscape {
   private loaded(id: string): AudioBuffer[] | null {
     const entry = soundEntry(id);
     if (!entry) return null;
-    const all = soundFiles(entry).map((f) => this.buffers.get(f));
+    return this.loadedFiles(soundFiles(entry));
+  }
+
+  private loadedFiles(files: readonly string[]): AudioBuffer[] | null {
+    const all = files.map((f) => this.buffers.get(f));
     return all.every((b) => b) ? (all as AudioBuffer[]) : null;
+  }
+
+  /**
+   * A sound of calls: while its place is heard, one call at a time at
+   * irregular gaps (now and then a second soon after, as if answering), each
+   * a random recording but not the last one, a little off pitch, at a random
+   * distance and off to a side (around the area's side for an area). Each
+   * call its own short source; a gap starts afresh once the place is heard again
+   */
+  private scatter(v: Voice, calls: AmbientCalls, level: number, pan: number, now: number): void {
+    if (level <= 0.001 || this.volume <= 0) {
+      v.call = undefined;
+      return;
+    }
+    if (!v.call) {
+      // The first call some way into the first gap, not at once on every map start
+      v.call = { at: now + calls.gap[0] * (0.2 + 0.8 * Math.random()), last: -1 };
+      return;
+    }
+    if (now < v.call.at) return;
+    const buffers = this.loadedFiles(calls.files);
+    if (!buffers) return;
+    let pick = Math.floor(Math.random() * buffers.length);
+    if (pick === v.call.last && buffers.length > 1) pick = (pick + 1 + Math.floor(Math.random() * (buffers.length - 1))) % buffers.length;
+    const context = this.out.context;
+    const gain = context.createGain();
+    gain.gain.value = level * (CALL_FAR + (CALL_NEAR - CALL_FAR) * Math.random() ** 2);
+    const panner = context.createStereoPanner();
+    panner.pan.value = Math.max(-1, Math.min(1, pan + (Math.random() * 2 - 1) * CALL_SPREAD * (1 - Math.abs(pan))));
+    const s = context.createBufferSource();
+    s.buffer = buffers[pick];
+    s.playbackRate.value = 1 + (Math.random() * 2 - 1) * CALL_DETUNE;
+    s.connect(gain).connect(panner).connect(this.master);
+    s.onended = () => {
+      s.disconnect();
+      gain.disconnect();
+      panner.disconnect();
+    };
+    s.start();
+    const [lo, hi] = Math.random() < calls.reply ? calls.answer : calls.gap;
+    v.call = { at: now + buffers[pick].duration + lo + (hi - lo) * Math.random(), last: pick };
   }
 
   private start(v: Voice): void {
     const buffers = this.loaded(v.sound);
-    if (!buffers) return;
+    if (!buffers?.length) return;
     if (buffers.length > 1) {
       // Variants in turn: from a random one, somewhere in its loop
       const variant = Math.floor(Math.random() * buffers.length);
