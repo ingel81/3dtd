@@ -804,7 +804,9 @@ src/app/editor/
   tools/            Werkzeuge: nur Zeigereingaben zu ops und Befehlen; TOOL_DEFS (tool-defs.ts) ist die eine Liste der
                     Werkzeuge (Name, Taste, Symbol, Gruppe, Pinsel, Erzeugen, ToolId daraus), ihr Panel steht in
                     ui/shell/tool-panels.ts; PART_TOOL ordnet einem Prüfbefund das Werkzeug zu
-  view/             EditorViewport (Renderer, Kamera, Eingabe), Overlay, Kamera, EditorMapView, ThumbnailRenderer
+  view/             EditorViewport (Renderer, Szene, Kamera, Bildschleife) und seine Teile: InputRouter, ViewPicker,
+                    ChangeApplier, ProgramWarmup, TopDownRenderer, ViewExtras; overlay/ (eine Klasse je Ebene),
+                    EditorMapView, CameraController, ThumbnailRenderer
   import/           Warcraft-3-Import: lädt importW3xInWorker beim ersten Gebrauch, fasst den Bericht zusammen
   services/         die Dienste der Session (Angular-frei bis auf Signale), EditorCore: der Editor-Worker von hier aus
   workers/          Editor-Worker (editor-core.worker.ts, editor-core-host.ts, Protokoll), Terrain, Gießen
@@ -832,13 +834,29 @@ höchstens 300 Schritte und 192 MB. „Dirty“ vergleicht Zustands-Ids, also is
 gespeicherten Stand wieder sauber.
 
 
-**Ansicht.** `EditorViewport` hat eigenen Renderer, Szene und Kamera, unabhängig von der Engine des Spiels. Es castet
-den Boden einmal je Bild, sammelt die Änderungsmeldungen eines Bilds und reicht sie gebündelt an die Kartenansicht
-(nur berührte Chunks), und hält das Overlay nach (Pinselring, Marker, Knoten, Auswahl, Gizmo-Ring, Routen). Die
-Karte zeichnet derselbe Renderer wie im Spiel (`CustomMapView`, [CUSTOM_MAPS.md](CUSTOM_MAPS.md)); `EditorMapView`
-übersetzt Raster- und Texel-Rechtecke in Meter, sammelt geänderte Objekte (neue oder entfernte bauen die Batches einmal
-neu) und wählt Objekte per Strahl auf ihr Modell. Eine neue Schichtliste oder ein neues Gelände baut die Ansicht neu.
-Szene-Rahmen wie im Spiel: Szene x = minus Karte Ost,
+**Ansicht.** `EditorViewport` hat eigenen Renderer, Szene und Kamera, unabhängig von der Engine des Spiels, und die
+Bildschleife; die Arbeit machen seine Teile in `view/`:
+
+| Teil | Aufgabe |
+|---|---|
+| `InputRouter` | Zeiger, Rad und Tasten zum Werkzeug oder zur Kamera; ein Bodenstrahl je Bild, nur wenn sich der Zeiger bewegte oder ein Werkzeug zieht; Werkzeugwechsel (leert die Werkzeug-Ebenen), Sperre bei Jobs |
+| `ViewPicker` | Strahl zum Boden, was ein Klick nähme (HQ, Spawn, Knoten, Objekt per Modell, Straße), Gizmo-Griff, Karte zu Bildschirm |
+| `ChangeApplier` | sammelt die `DocChange` eines Bilds und reicht sie gebündelt weiter (nur berührte Chunks); Himmel, Leben und Wasser höchstens alle 100 bzw. 120 ms, das Nachlegen des Overlays auf bewegtem Boden höchstens alle 200 ms (eine `Throttle`); das Ziel (`ChangeTarget`) und die Uhr sind übergeben, getestet ohne WebGL |
+| `ProgramWarmup` | Shader vorab (siehe unten) |
+| `TopDownRenderer` | die Karte von oben (Minikarte, PNG, Vorschaubilder) |
+| `ViewExtras` | Probewelle (`TrialWave`), Ton der Karte (`MapSound`), Intro-Vorschau (`IntroPreview`), Spielansicht (`GameView`) |
+
+`ViewHost` (`services/view-host.ts`) hält als einzige Stelle den Viewport und reicht der Seite nur `EditorViewPort`.
+Das Overlay (`view/overlay/`) ist eine Klasse je Ebene: was Werkzeuge zeichnen (`ToolOverlay`: Entwurfslinie,
+Hover- und Gizmo-Ring samt Griffen, Vorschaupunkte, Messlinie, Flussgriffe, Lebensbereiche), was das Dokument zeigt
+(`MarkerLayer` und `SelectionLayer` hält der `ChangeApplier` nach, `RouteLayer` der `ViewHost` mit den Routen des Editor-Workers) und die Bodenhilfen (`BrushLayer`,
+`ContourLayer`, `GridLayer`, `BuildAreaLayer`, `GuideLayer`). Ein Werkzeug sieht über `ToolContext.overlay` nur
+`ToolOverlay`; der `InputRouter` leert es zwischen `deactivate` des alten und `activate` des neuen Werkzeugs, also
+räumt kein Werkzeug seine Linien selbst weg. Die Karte zeichnet derselbe Renderer wie im Spiel (`CustomMapView`,
+[CUSTOM_MAPS.md](CUSTOM_MAPS.md)); er liest das Dokument nur und hält selbst, welche Objekte er zeigt (ausgeblendete
+Kategorien als Filter, `setVisible`). `EditorMapView` übersetzt Raster- und Texel-Rechtecke in Meter und reicht
+geänderte Objekt-Ids weiter (`objectsChanged`: neue oder entfernte bauen nur ihre Zellen neu). Eine neue Schichtliste
+oder ein neues Gelände baut die Ansicht neu. Szene-Rahmen wie im Spiel: Szene x = minus Karte Ost,
 Szene z = Karte Nord, y oben. Der Drehpunkt der Kamera liegt auf dem Boden, über einem See oder dem Meer auf dessen
 Spiegel (`surfaceAt`, wie `CustomMapSurface.surfaceAtMap` im Spiel): eine nahe Ansicht bleibt über dem Wasser, nicht
 darunter auf dem Grund.
@@ -883,11 +901,11 @@ Die feinere Detailstufe kostet nach den Änderungen beim Terrain-Pinsel nichts m
 Doppelte von 4 m (gut 1 ms).
 
 **Shader vorab.** Ein Programm, das erst im Bild übersetzt wird, hält das Bild an (bis 1,5 s). Der Editor übersetzt
-deshalb vorab und im Hintergrund (`compileAsync`, parallel, wo der Treiber es kann): beim Laden die Karte, danach im
-Leerlauf die Programme des Bilds von oben (`renderTopDown` für Minikarte und Vorschau: Render-Target und kein Nebel
+deshalb vorab und im Hintergrund (`ProgramWarmup`, `compileAsync`, parallel, wo der Treiber es kann): beim Laden die Karte, danach im
+Leerlauf die Programme des Bilds von oben (`TopDownRenderer` für Minikarte und Vorschau: Render-Target und kein Nebel
 ergeben eigene Programme) und die Varianten des Geländeshaders mit mehr Schichten (`MapTerrainLayer.layerTwins`; die
 Schleife über die Schichten ist auf 4, 8 oder 12 gerundet, ein neues Biom springt sonst im ersten Strich auf die
-nächste Stufe). Bei der Wahl eines Bioms oder Objekts übersetzt `warmUpAssets` dessen Modelle für beide Bilder und
+nächste Stufe). Bei der Wahl eines Bioms oder Objekts übersetzt `ProgramWarmup.assets` dessen Modelle für beide Bilder und
 die Schattentiefe: Zwillinge der Tiefenmaterialien, wie der Schattenpass sie ableitet (`getDepthMaterial`), ohne
 Nebel und Umgebung, da beide zum Schlüssel eines Programms gehören, auch wo der Shader sie nicht nutzt. Die
 Zwillinge bleiben, denn three wirft ein Programm weg, das kein Material mehr nutzt.
@@ -912,8 +930,6 @@ Läufe; ohne V-Sync, daher auch im Leerlauf Bilder um 200 ms, wenn die GPU voll 
 
 Nachher wird in keiner dieser Situationen mehr ein Programm im Bild übersetzt (vorher drei bis sechs).
 Ganze Karten (Vorlagen) malt `biomeBand` in Bändern mit Pausen dazwischen.
-Ausgeblendete Kategorien bekommt der Renderer als eigene Liste über einen Proxy des Dokuments, da er sie in sein
-Dokument schreibt.
 
 **Landschafts-Pinsel.** Ein `LandscapeContext` weiß, was ein Landschaftsstrich beim Arbeiten braucht, und schreibt
 über seine Transaktion: Höhen, Splat, Wassermaske (Kachel-Patches), neue Schichten, neues Wasser, neue Objekte und

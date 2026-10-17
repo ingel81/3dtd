@@ -55,13 +55,14 @@ view.updateLayers();                       // Bodenschichten oder Klippenmateria
 view.updateWater(rect?, body?);            // Spiegel, Maske, Farbe; null entfernt das Wasser. Mit rect und body
                                            // (0 Hauptwasser, 1.. weitere) nur dessen Kacheln und Ufer im Rechteck
 view.updateWater(rect, k);                 // nur Gewässer k (1.. = waterBodies[k-1]): Pool-Pinsel, Schwimmendes in rect
-view.setObjects(objects);                  // alle Objekte ersetzen (Promise)
-view.addObjects(objects);                  // schon in doc.objects: baut nur die 192-m-Zellen neu, in die sie fallen (ein Asset ohne Zellen ganz)
-view.removeObjects(objects);               // schon aus doc.objects entfernt: nur deren Zellen und Kontaktschatten
-view.updateObject(obj);                    // eins verschoben/gedreht/skaliert; anderes Asset baut neu
+view.setObjects();                         // doc.objects ersetzt: alle Objekte neu (Promise)
+view.objectsChanged(ids);                  // Objekte in doc.objects neu, entfernt oder geändert (auch an Ort und Stelle):
+                                           // neue und entfernte bauen nur ihre 192-m-Zellen neu, die übrigen ziehen um (Promise)
+view.setVisible(filter);                   // nur Objekte zeigen, die filter annimmt (null: alle); der Editor blendet so
+                                           // Kategorien aus. Die Ansicht liest das Dokument nur, die gezeigte Liste hält sie selbst
 await view.warmUpAssets(renderer, scene, camera, ids); // Programme und Impostoren noch nicht platzierter Assets
 view.updatePaths();                        // Wegemaske (nur wo sich Wege änderten) und Brücken neu
-view.setEnvironment(env);                  // Himmel, Sonne, Nebel, Tönung
+view.setEnvironment(env);                  // Himmel, Sonne, Nebel, Tönung zeigen (doc.environment setzt der Besitzer)
 view.dispose();
 ```
 
