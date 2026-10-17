@@ -60,6 +60,8 @@ export const SCENES = [
       { do: 'ui', on: true },
       act('wave', { label: 'wave 1' }),
       { do: 'ui', on: false },
+      // The drawn pointer clicked the wave button: out of the picture (R4 showed it top right)
+      { do: 'cursor', show: false },
       { do: 'markers', on: false },
       act('routes', { on: false }),
       act('healthBars', { on: false }),

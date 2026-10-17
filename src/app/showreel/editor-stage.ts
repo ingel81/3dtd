@@ -114,11 +114,13 @@ export class EditorStage implements Stage {
       const r = pick(doc.terrain.rivers ?? [], Number(river[1]));
       return (r && pick(r.points, Number(river[2]))) ?? null;
     }
-    // runner:<i> a runner of the trial wave, where it walks now (follow it with the director's follow step)
-    const runner = /^runner:(\d+)$/.exec(name);
+    // runner:<i> a runner of the trial wave, where it walks now (follow it with the director's follow step);
+    // runner:<enemy type> the first runner of that type
+    const runner = /^runner:(.+)$/.exec(name);
     if (runner) {
-      const trial = this.viewport?.extras.trial.runners as unknown as { runners: { model: { position: { x: number; z: number } } }[] } | undefined;
-      const r = trial?.runners[Number(runner[1])];
+      const trial = this.viewport?.extras.trial.runners as unknown as { runners: { type: { id: string }; model: { position: { x: number; z: number } } }[] } | undefined;
+      const list = trial?.runners ?? [];
+      const r = /^\d+$/.test(runner[1]) ? list[Number(runner[1])] : list.find((x) => x.type.id === runner[1]);
       return r ? { x: -r.model.position.x, y: r.model.position.z } : null;
     }
     // object:<asset> the newest object of an asset, object:last the newest of all
@@ -298,6 +300,12 @@ export class EditorStage implements Stage {
           session.jumpTo(editor.historySteps + (goal > editor.historySteps ? 1 : -1));
           await waitSeconds(stepS);
         }
+        return;
+      }
+      case 'script': {
+        // MapKit commands on the open map as the editor's agent runs them (a scene's warm-up: a rule set outside the picture)
+        const answer = await this.agent('run_script', { source: String(args['source']), seed: 1, animate: false, label: String(args['label'] ?? 'showreel') });
+        if (answer.isError) throw new Error(`showreel: the script failed: ${answer.text.slice(0, 300)}`);
         return;
       }
       case 'agent':

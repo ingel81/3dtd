@@ -394,6 +394,8 @@ export class Director {
     const side = Number(step['side'] ?? 4);
     const up = Number(step['h'] ?? 4);
     const ahead = Number(step['ahead'] ?? 10);
+    // Metres over the ground the camera looks at: 1.5 for a walker, more for a flier (a dragon flies at 20)
+    const lookH = Number(step['lookH'] ?? 1.5);
     const seconds = Number(step['dur'] ?? 6);
     const first = this.point(spec);
     let at = { x: first.x, y: first.y };
@@ -430,7 +432,7 @@ export class Director {
       const ly = at.y + dir.y * ahead;
       stage.setPose({
         eye: { x: ex, y: ey, h: stage.surfaceAt(ex, ey) + up },
-        look: { x: lx, y: ly, h: stage.surfaceAt(lx, ly) + 1.5 },
+        look: { x: lx, y: ly, h: stage.surfaceAt(lx, ly) + lookH },
       });
       if (now - start >= seconds * 1000) return;
     }

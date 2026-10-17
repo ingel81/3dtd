@@ -5,13 +5,13 @@
 // normal run has none of them before wave 5). Wave events of the map: night at wave 7, rain at 9, clear at 10.
 //
 // Places (Stillwater F-B9, 2026-10-16, starter road along y = 0 to the HQ at (256, 0)): P1 the bridge's east end,
-// P2 the village street by the market (north side), P3 the castle table at the ramp, P4 the meadow between the
+// P2 the village street by the market (north side), P3 below the castle table's south side by the east road, P4 the meadow between the
 // starter road and the lake, P5 the north road's bend below the pass (both flat, clear of water and trees). The village street between bridge and chapel stays free (camera), and so do
 // 15 m round each P until its tower comes.
 import { act, click, clickMap, m, path, wait } from './common.mjs';
 
 const MAP = 'fixtures/stillwater-b9.3dtdmap';
-export const P = { P1: m(-40, 12), P2: m(70, 14), P3: m(262, -30), P4: m(-170, -25), P5: m(-30, 200) };
+export const P = { P1: m(-40, 12), P2: m(70, 14), P3: m(300, -112), P4: m(-170, -25), P5: m(-30, 200) };
 
 const frame = (points, opts = {}) => ({ do: 'frame', points, ...opts });
 
@@ -23,10 +23,13 @@ const defence = (spots) => spots.map((at) => act('build', { tower: 'archer', nea
 
 /** The new towers in the order the film shows them, their place, the camera's side and how far they reach (m) */
 const NEW_TOWERS = [
-  { tower: 'chainsaw', at: P.P1, name: 'Chainsaw', from: 160, reach: 14 },
-  { tower: 'shawarma', at: P.P2, name: 'Shawarma Slicer', from: 200, reach: 30 },
-  // Inside the castle ring, the camera west of it: the east road and its enemies beyond the tower
-  { tower: 'sentinel', at: P.P3, name: 'Sentinel Laser', from: 205, reach: 58, pitch: 24 },
+  // Round 5: low from across the road, the enemies pass between camera and tower (R4 looked from high behind it,
+  // half the picture empty meadow)
+  { tower: 'chainsaw', at: P.P1, name: 'Chainsaw', from: 0, reach: 14, pitch: 11, margin: 5, road: [m(-48, 0), m(-32, 0)] },
+  { tower: 'shawarma', at: P.P2, name: 'Shawarma Slicer', from: 0, reach: 30, pitch: 11, margin: 5, road: [m(58, 0), m(82, 0)] },
+  // Below the castle table on its south side, the east road in front (round 5: inside the ring its wall hid the
+  // road, the laser could not fire); seen from across the road, the castle behind the tower
+  { tower: 'sentinel', at: P.P3, name: 'Sentinel Laser', from: 0, reach: 58, pitch: 14, margin: 8, road: [m(285, -150), m(318, -150)] },
   // From over the lake, the road behind the tower
   { tower: 'bastion', at: P.P4, name: 'Iron Bastion', from: 0, reach: 62 },
   // Beside the north road's bend, the pass behind
@@ -78,6 +81,15 @@ export const FIXTURES = [
       ...playWave(),
     ],
   },
+  // B12: B with the waves before 12 skipped (the developer's jump, between waves, nothing of it in a take):
+  // the night fight's wave is wave 12, four dragons (round 5: wave 7's bats read as dots); the map sets 21:00
+  // at wave 12 as at 7
+  {
+    file: 'fixtures/stillwater-B12.3dtdsave',
+    game: MAP,
+    save: 'fixtures/stillwater-B.3dtdsave',
+    steps: [act('hints'), act('jumpWave', { wave: 12 })],
+  },
   {
     file: 'fixtures/stillwater-C.3dtdsave',
     game: MAP,
@@ -106,7 +118,7 @@ const FIGHT = { ui: true, routes: false, markers: false, healthBars: false, seed
  * A new tower on its place: its card picked with the UI (the name reads), set down, wave 5 started, the UI out; the camera beside the tower at about 12 m until an enemy comes into its reach, then a slow
  * turn with tower and target in one picture
  */
-const showTower = (tower, at, name, { from = 200, reach = 30, pitch = 16, extra = [] } = {}) => [
+const showTower = (tower, at, name, { from = 200, reach = 30, pitch = 16, margin = 13, road = [], extra = [] } = {}) => [
   { do: 'ui', on: true },
   { do: 'cursor', show: true },
   frame([at], { from, pitch: 50, margin: 30, glide: 1 }),
@@ -115,12 +127,12 @@ const showTower = (tower, at, name, { from = 200, reach = 30, pitch = 16, extra 
   act('wave', { label: 'wave 5' }),
   { do: 'ui', on: false },
   { do: 'cursor', show: false },
-  frame([{ at: 'tower:-1' }], { from, pitch, margin: 13, glide: 1.2 }),
+  frame([{ at: 'tower:-1' }, ...road], { from, pitch, margin, glide: 1.2 }),
   act('speed', { value: 3 }),
   act('enemiesNear', { near: 'tower:-1', radius: reach, timeout: 120 }),
   act('speed', { value: 1 }),
   { do: 'mark', name: `tower:${name}` },
-  frame([{ at: 'tower:-1' }], { from, pitch, margin: 13, turn: 14, dur: 4.5, glide: 0.1 }),
+  frame([{ at: 'tower:-1' }, ...road], { from, pitch, margin, turn: road.length ? 8 : 14, dur: 4.5, glide: 0.1 }),
   { do: 'mark', name: `effect:${name}` },
 ];
 
@@ -136,6 +148,8 @@ export const SCENES = [
         from: t.from,
         reach: t.reach,
         pitch: t.pitch,
+        margin: t.margin,
+        road: t.road,
         // The archer at the pass, then (its scaffold down) its Sniper path: the model turns into a ballista
         extra: t.tower === 'archer'
           ? [wait(4), clickMap({ at: 'tower:-1', h: 4 }), click('.tp-paths .td-plate-btn', { withText: 'Sniper', label: 'sniper path' }), wait(1.2), { do: 'key', key: 'Escape' }]
@@ -144,20 +158,22 @@ export const SCENES = [
     ],
   })),
   {
-    // Wave 7: its event sets 21:00, night falls in the fight; the camera along the paved village street at 6 m
+    // Wave 12 (round 5: dragons instead of wave 7's bats): its event sets 21:00, night falls in the fight; the
+    // camera on the paved village street, then behind a dragon over the lit village
     name: 'g-night',
-    start: { game: MAP, save: 'fixtures/stillwater-B.3dtdsave' },
-    env: { ...FIGHT, camera: { eye: m(-40, -6, 6), look: m(60, -2, 3) } },
+    start: { game: MAP, save: 'fixtures/stillwater-B12.3dtdsave' },
+    env: { ...FIGHT, camera: { eye: m(-40, -6, 6), look: m(60, 6, 9) } },
     steps: [
       act('hints'),
-      act('wave', { label: 'wave 7' }),
+      act('wave', { label: 'wave 12' }),
       { do: 'ui', on: false },
       { do: 'cursor', show: false },
       act('speed', { value: 3 }),
-      act('enemiesNear', { near: 'tower:0', radius: 60, timeout: 150 }),
+      act('enemiesNear', { at: m(-120, 0), radius: 140, kind: 'dragon', timeout: 150 }),
       act('speed', { value: 1 }),
       { do: 'mark', name: 'night' },
-      path(9, [[m(-40, -6, 6), m(60, -2, 3)], [m(40, -6, 6), m(140, -2, 3)], [m(110, -8, 7), m(200, 0, 3)]], { ease: 'inOut', label: 'street' }),
+      path(5, [[m(-40, -6, 6), m(60, 6, 9)], [m(10, -8, 7), m(110, 6, 12)]], { ease: 'inOut', label: 'street' }),
+      { do: 'follow', at: { at: 'enemy:dragon' }, dur: 7, back: 26, side: 10, h: 24, lookH: 19, ahead: 6, label: 'dragon' },
       { do: 'mark', name: 'effect:night fight' },
     ],
   },
@@ -186,7 +202,7 @@ export const SCENES = [
     ],
   },
   {
-    // Wave 10: Herbert's entrance (the game's own camera), the walk at speed (cut), then 1x beside him with a
+    // Wave 10 (round 5: the follow higher and wider, the zombies round him kept out of the lens): Herbert's entrance (the game's own camera), the walk at speed (cut), then 1x beside him with a
     // tower in the picture until he falls; "Wave cleared" with the UI on; up and back over the night village
     name: 'g-boss',
     start: { game: MAP, save: 'fixtures/stillwater-D.3dtdsave' },
@@ -202,7 +218,7 @@ export const SCENES = [
       {
         do: 'par',
         steps: [
-          { do: 'follow', at: { at: 'enemy:herbert' }, dur: 400, back: 18, side: 12, h: 10, ahead: 8, label: 'boss' },
+          { do: 'follow', at: { at: 'enemy:herbert' }, dur: 400, back: 24, side: 16, h: 14, lookH: 4, ahead: 8, label: 'boss' },
           {
             do: 'seq',
             steps: [

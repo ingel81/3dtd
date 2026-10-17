@@ -395,6 +395,44 @@ const B6 = stage('b6-village', 5, [
 const outline = (points) => [...points.map((p) => clickMap(p, { dur: 0.35 })), key('Enter'), ...idle(0.4)];
 const drawMode = (name) => click('[aria-label="Click draws"] button', { withText: name });
 
+/**
+ * Round 5 (FEEDBACK_R4 B10): the gizmo on one object of the finished village. The windmill picked, moved up the
+ * hill with the move handle, turned half round with the ring, scaled up with the cube; each mode picked with the UI,
+ * the drag without it (the gizmo is in the world, it stays). Starts on F-B6, changes nothing the later stages see
+ */
+const MILL = P.windmill;
+const MOVED = { x: MILL.x - 13, y: MILL.y + 18 };
+const around = (c, r, from, to, n = 7) => Array.from({ length: n }, (_, i) => {
+  const a = ((from + ((to - from) * i) / (n - 1)) * Math.PI) / 180;
+  return m(c.x + r * Math.cos(a), c.y + r * Math.sin(a));
+});
+const gizmoMode = (name) => click('[aria-label="Drag does"] button', { withText: name, label: `gizmo ${name.toLowerCase()}` });
+const B6G = stage('b6-gizmo', 6, [
+  ringOn,
+  frame([m(MILL.x, MILL.y), m(MOVED.x, MOVED.y)], { from: 200, pitch: 28, margin: 26, pad: 1, glide: 1.4 }),
+  ...pick(tool('objects', { label: 'objects' }), mode('select')),
+  // A click on the mill: selected, the gizmo over it
+  clickMap(m(MILL.x, MILL.y, 6), { label: 'select' }),
+  ...idle(1),
+  ...pick(gizmoMode('Move')),
+  stroke(1.6, [m(MILL.x, MILL.y), m(MOVED.x, MOVED.y)], { settle: 0.3 }),
+  ...idle(0.8),
+  effect('gizmo move'),
+  ...pick(gizmoMode('Turn')),
+  stroke(1.8, around(MOVED, 8, 0, 160), { settle: 0.3 }),
+  ...idle(0.8),
+  effect('gizmo turn'),
+  ...pick(gizmoMode('Scale')),
+  stroke(1.4, [m(MOVED.x + 7, MOVED.y), m(MOVED.x + 11.5, MOVED.y)], { settle: 0.3 }),
+  ...idle(0.8),
+  effect('gizmo scale'),
+  // The result without the gizmo: deselected, turning round the mill
+  key('Escape'),
+  ringOff,
+  { do: 'cursor', show: false },
+  frame([m(MOVED.x, MOVED.y)], { from: 200, pitch: 22, margin: 22, pad: 1, turn: 25, dur: 4, glide: 0.4, label: 'result' }),
+], AFTERNOON);
+
 const B7 = stage('b7-life', 6, [
   ringOn,
   frame([pt(P.hollow)], { from: 10, pitch: 40, margin: 80, pad: 1, glide: 1.6 }),
@@ -540,12 +578,18 @@ const B10 = stage('b10-trial', 9, [
   act('trialSpeed', { value: 2 }),
   path(2, ['current', [m(-160, -40, 30), m(-90, 0, 0)]], { ease: 'inOut' }),
   // Behind a runner over the bridge and on to the ramp
-  { do: 'follow', at: { at: 'runner:0' }, dur: 12, back: 8, side: 3, h: 3, label: 'effect:runner' },
+  // Behind a stone golem (round 5: not the zombie, the weakest model), a step further back for its size
+  { do: 'follow', at: { at: 'runner:stone-golem' }, dur: 12, back: 11, side: 4, h: 4.5, label: 'effect:runner' },
   { do: 'ui', on: true },
   { do: 'cursor', show: true },
   click('[data-test=test-play]', { label: 'test map' }),
   wait(3),
-], EVENING);
+], EVENING, [
+  // The trial walks the first wave of the map's own list: golems and zombies (the default list has no golem)
+  act('script', {
+    source: `map.gameplay({ events: [{ wave: 7, kind: 'time', hour: 21 }, { wave: 9, kind: 'weather', weather: 'rain', strength: 1 }, { wave: 10, kind: 'weather', weather: 'clear' }, { wave: 12, kind: 'time', hour: 21 }], waves: { kind: 'table', table: { cycle: { fromWave: 1, hpGrowth: 1.2 }, waves: [{ wave: 1, name: 'Golems', enemies: { 'stone-golem': 4, zombie: 8 }, hpMult: 1, spawnDelay: 1500 }] } } }); return 'ok';`,
+  }),
+]);
 
 /** The wide shot of every stage, the sun the same: the build-up as one series (the cut lays them end to end) */
 const TOTALS = Array.from({ length: 10 }, (_, n) => ({
@@ -555,5 +599,5 @@ const TOTALS = Array.from({ length: 10 }, (_, n) => ({
   steps: [mark(`total:stage ${n}`), wait(3)],
 }));
 
-export const SCENES = [B0, B1, B2, B3, B4, B5, B6, B7, B8, B9, B10, ...TOTALS];
+export const SCENES = [B0, B1, B2, B3, B4, B5, B6, B6G, B7, B8, B9, B10, ...TOTALS];
 export const FIXTURES = [];

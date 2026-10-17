@@ -73,7 +73,7 @@ const flyScene = (p) => ({
   start: { game: world(p) },
   noIntro: true,
   env: { window: '2048x1152', dpr: 1.25, ui: false, markers: false, routes: false, healthBars: false },
-  warm: [act('wave', { label: 'wave 1' }), { do: 'ui', on: false }, { do: 'markers', on: false }, act('routes', { on: false }), act('healthBars', { on: false }), sky(null, 'day', 30, { sunAzimuth: 225 })],
+  warm: [{ do: 'ui', on: true }, act('wave', { label: 'wave 1' }), { do: 'cursor', show: false }, { do: 'ui', on: false }, { do: 'markers', on: false }, act('routes', { on: false }), act('healthBars', { on: false }), sky(null, 'day', 30, { sunAzimuth: 225 })],
   steps: [{ do: 'mark', name: p.id }, ...p.fly.map((f, i) => path(f.dur, f.keys, { ease: 'inOut', label: i === 0 ? `effect:${p.id}` : `effect:${p.id} ${i + 1}` })), wait(0.6)],
 });
 
