@@ -1,5 +1,6 @@
 import { DataTexture, Group, Mesh, MeshStandardMaterial, PlaneGeometry } from 'three';
-import { texturesOf } from './thumbnail-renderer';
+import { ThumbnailRenderer, texturesOf } from './thumbnail-renderer';
+import type { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
 
 describe('thumbnail renderer', () => {
   it('finds every texture of a picture once, for uploading one per idle moment', () => {
@@ -12,5 +13,24 @@ describe('thumbnail renderer', () => {
     group.add(new Mesh(new PlaneGeometry(), a), inner);
     inner.add(new Mesh(new PlaneGeometry(), [a, b]));
     expect([...texturesOf(group)]).toEqual([map, normal]);
+  });
+
+  it('gives its GPU context back when the editor goes and keeps the pictures; a new one comes only when asked for', () => {
+    const thumbs = new ThumbnailRenderer(() => undefined, {} as MapAssetLibrary);
+    const inside = thumbs as unknown as { renderer: unknown; pictures: Map<string, string>; queued: Set<string>; gl: unknown };
+    const renderer = { dispose: vi.fn(), forceContextLoss: vi.fn() };
+    inside.renderer = renderer;
+    inside.pictures.set('m:2:grass:#00ff00', 'data:kept');
+    inside.queued.add('o:2:tree:');
+    thumbs.release();
+    expect(renderer.dispose).toHaveBeenCalled();
+    expect(renderer.forceContextLoss).toHaveBeenCalled();
+    expect(inside.renderer).toBeNull();
+    expect(inside.queued.size).toBe(0);
+    // A draw that was under way makes no new context while the game runs
+    expect(() => inside.gl).toThrow(/rest/);
+    // Back in the editor: the kept picture shows at once
+    expect(thumbs.material({ id: 'grass', color: '#00ff00' } as never)).toBe('data:kept');
+    thumbs.dispose();
   });
 });

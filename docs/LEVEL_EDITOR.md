@@ -828,7 +828,9 @@ Zwillinge bleiben, denn three wirft ein Programm weg, das kein Material mehr nut
 dessen Programme vorab und gibt das Bild als `ImageBitmap` an einen Worker, der es als PNG kodiert
 (`thumbnail-encode.worker.ts`); das Zurücklesen von der GPU wartet dort statt im Bild. Die Materialien der Boden-
 und Biom-Bilder bleiben erhalten: jedes Wegwerfen nahm das Programm mit, und das nächste Bild übersetzte es neu
-(über eine halbe Sekunde).
+(über eine halbe Sekunde). Geht die Ansicht des Editors (ins Spiel, Test, Bot-Check), gibt der Renderer seinen
+WebGL-Kontext zurück (`release`, mit `forceContextLoss`): die fertigen Bilder bleiben im Speicher, ein laufendes Bild
+legt keinen neuen Kontext an, und erst das nächste fehlende Bild nach der Rückkehr macht einen neuen.
 
 Gemessen 2026-10-14 (optimierter Build, neue Karte, längstes Bild / Summe der Bilder über 50 ms in ms, zwei bis drei
 Läufe; ohne V-Sync, daher auch im Leerlauf Bilder um 200 ms, wenn die GPU voll läuft):

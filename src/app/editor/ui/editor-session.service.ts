@@ -966,6 +966,8 @@ export class EditorSession implements OnDestroy {
     this.keptView = this.viewport && this.editor ? this.viewport.cameraView() : null;
     this.viewport?.dispose();
     this.viewport = null;
+    // The palette pictures' own GPU context goes with the view (the game needs the room); it comes back with the next picture
+    this.thumbRenderer?.release();
     // The sound stopped with the view; a new view starts it only from a click
     this.settings.life.hear = false;
   }

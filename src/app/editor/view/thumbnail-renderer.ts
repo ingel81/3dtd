@@ -57,14 +57,16 @@ export class ThumbnailRenderer {
   private readonly queued = new Set<string>();
   private readonly jobs: Job[] = [];
   private running = false;
+  /** Released and nothing asked for since: a draw still under way makes no new context */
+  private resting = false;
   private db: Promise<IDBDatabase | null> | null = null;
   private loaded: Promise<void>;
   private readonly loader = new TextureLoader();
   /** The picture being drawn */
   private currentKey = '';
   private readonly encoder = new PngEncoder();
-  /** Textures already on this renderer's GPU */
-  private readonly uploaded = new WeakSet<Texture>();
+  /** Textures already on this renderer's GPU (a new context after `release` starts empty) */
+  private uploaded = new WeakSet<Texture>();
   /**
    * The materials of the ground balls and biome patches, kept and set up for
    * each picture: one disposed after its picture took its program with it,
@@ -104,18 +106,36 @@ export class ThumbnailRenderer {
     return this.picture(key, () => this.drawBiome(biome, catalog));
   }
 
-  dispose(): void {
-    this.encoder.dispose();
+  /**
+   * Gives the GPU context back (the editor's view went, the game shows): the
+   * pictures drawn stay, what waits to be drawn is dropped and asked for
+   * again by the next palette; the next picture makes a new context
+   */
+  release(): void {
+    this.resting = true;
+    this.jobs.length = 0;
+    this.queued.clear();
     this.swatches.plain.dispose();
     this.swatches.textured.dispose();
-    this.renderer?.dispose();
+    this.uploaded = new WeakSet();
+    const renderer = this.renderer;
     this.renderer = null;
-    this.jobs.length = 0;
+    if (renderer) {
+      renderer.dispose();
+      // Browsers keep only a few contexts: this one goes now, not whenever the canvas is collected
+      renderer.forceContextLoss();
+    }
+  }
+
+  dispose(): void {
+    this.release();
+    this.encoder.dispose();
   }
 
   private picture(key: string, draw: () => Promise<void>): string | undefined {
     const hit = this.pictures.get(key);
     if (hit) return hit;
+    this.resting = false;
     if (!this.queued.has(key)) {
       this.queued.add(key);
       this.jobs.push({ key, draw });
@@ -150,6 +170,7 @@ export class ThumbnailRenderer {
   }
 
   private get gl(): WebGLRenderer {
+    if (this.resting) throw new Error('The palette pictures rest while the editor is away');
     if (!this.renderer) {
       const canvas = document.createElement('canvas');
       this.renderer = new WebGLRenderer({ canvas, alpha: true, antialias: true, preserveDrawingBuffer: true });
@@ -189,12 +210,14 @@ export class ThumbnailRenderer {
       // New programs compile in the background; the render then finds them ready
       await gl.compileAsync(this.scene, this.camera);
       await idle();
+      // Released meanwhile: a lost context draws nothing, no blank picture is kept
+      if (this.renderer !== gl) return;
       gl.render(this.scene, this.camera);
     } finally {
       this.scene.remove(content);
     }
     const blob = await this.encoder.encode(gl.domElement);
-    if (blob) this.store(key, blob);
+    if (blob && this.renderer === gl) this.store(key, blob);
   }
 
   private async drawObject(entry: ObjectAssetEntry): Promise<void> {
