@@ -193,6 +193,30 @@ export class EdgeIndex {
     return this.lengths.get(edge) ?? polylineLength(this.polyline(edge));
   }
 
+  /** Every edge segment that passes within `radius` of `p` (each once), its ends and the edge */
+  segmentsNear(p: MapPoint, radius: number): { edge: MapPathEdge; a: MapPoint; b: MapPoint }[] {
+    const out: { edge: MapPathEdge; a: MapPoint; b: MapPoint }[] = [];
+    const seen = new Set<string>();
+    const i0 = Math.floor((p.x - radius) / EDGE_CELL);
+    const i1 = Math.floor((p.x + radius) / EDGE_CELL);
+    const j0 = Math.floor((p.y - radius) / EDGE_CELL);
+    const j1 = Math.floor((p.y + radius) / EDGE_CELL);
+    for (let j = j0; j <= j1; j++) {
+      for (let i = i0; i <= i1; i++) {
+        for (const item of this.cells.get(cellKey(i, j)) ?? []) {
+          const key = `${this.order.get(item.edge)}:${item.segment}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          const line = this.lines.get(item.edge)!;
+          const a = line[item.segment];
+          const b = line[item.segment + 1];
+          if (segmentDistance(p, a, b) <= radius) out.push({ edge: item.edge, a, b });
+        }
+      }
+    }
+    return out;
+  }
+
   /** The nearest point on any edge within `maxDist`, as nearestOnEdges finds it (of two as near, the first edge) */
   nearest(p: MapPoint, maxDist = Infinity): EdgeHit | null {
     if (!this.cells.size) return null;

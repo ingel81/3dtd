@@ -170,5 +170,7 @@ export function buildFrostHamlet(): CustomMapDocument {
   // Seven ground materials: the least used goes (each one is 8 MB of pixels to load)
   k.trimLayers(7);
   k.environment({ biome: 'arctic', sky: 'dusk', sunAzimuth: 250, sunElevation: 20, fogDensity: 0.0009, tint: '#e6ecff', weather: 'snow', weatherStrength: 0.25 });
+  // Nothing that blocks building reaches onto a road with its ground (the check's object-on-path)
+  k.keepOffRoads();
   return k.finish();
 }

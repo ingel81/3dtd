@@ -1079,14 +1079,16 @@ export class MapKit {
   /**
    * Deletes objects that would block building on a road (the check's
    * "object stands on a path"), leaving gates and arches the road runs through
+   * (catalogue `roadThrough`)
    */
-  clearRoads(keep: readonly string[] = ['castle-gate', 'gate-ruin', 'ruin-arch', 'rock-arch', 'hell-gate', 'palisade-gate', 'iron-gate', 'gate-farm']): number {
+  clearRoads(): number {
     this.freeCheck ??= new LandscapeStroke(this.editor, 'check', 1, this.catalog);
     this.freeCheck.refreshRoads();
     const check = this.freeCheck;
     const before = this.doc.objects.length;
     this.doc.objects = this.doc.objects.filter((o) => {
-      if (keep.includes(o.asset) || !(o.blocksBuild ?? this.catalog.object(o.asset).blocksBuild)) return true;
+      const entry = this.catalog.object(o.asset);
+      if (entry.roadThrough || !(o.blocksBuild ?? entry.blocksBuild)) return true;
       return check.roadDistance(o.x, o.y, 4) >= 0;
     });
     this.freeCheck = null;

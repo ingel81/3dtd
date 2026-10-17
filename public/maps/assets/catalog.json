@@ -5709,6 +5709,7 @@
       "randomRotation": false,
       "wind": 0,
       "drawDistance": 2500,
+      "roadThrough": true,
       "tags": [
         "desert",
         "coast"
@@ -7561,6 +7562,7 @@
       "randomRotation": false,
       "wind": 0,
       "drawDistance": 1500,
+      "roadThrough": true,
       "tags": [
         "village",
         "swamp",
@@ -7816,6 +7818,7 @@
       "randomRotation": false,
       "wind": 0,
       "drawDistance": 1500,
+      "roadThrough": true,
       "tags": [
         "castle"
       ],
@@ -7953,6 +7956,7 @@
       "randomRotation": false,
       "wind": 0,
       "drawDistance": 3000,
+      "roadThrough": true,
       "tags": [
         "castle",
         "autumn",
@@ -11975,6 +11979,7 @@
       "randomRotation": false,
       "wind": 0,
       "drawDistance": 3000,
+      "roadThrough": true,
       "tags": [
         "hell"
       ],

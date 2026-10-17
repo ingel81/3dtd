@@ -15,6 +15,7 @@ import { heightAt, insideMap, sampleX, sampleY, slopeAt } from '../model/grid';
 import { components, EdgeIndex, nearestOnPolyline, routeBetween } from '../ops/path-graph';
 import { undersideGap } from '../ops/object-ops';
 import { seatHeight, type ObjectFooting } from '../../world/custom-map/render/objects/object-seat';
+import { boxDistance } from '../../world/custom-map/object-ground';
 import { waterLevelAt } from '../../world/custom-map/water-level';
 import { bridgeDecks, deckHeightAt } from '../../world/custom-map/bridge-decks';
 import { HeightField } from '../../world/custom-map/render/height-field';
@@ -309,19 +310,9 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
     }
   }
 
-  const blocks = options.blocksBuild ?? (() => false);
-  let blocked = 0;
-  let firstBlocked: { id: string; x: number; y: number } | null = null;
-  for (const o of doc.objects) {
-    if (!(o.blocksBuild ?? blocks(o.asset)) && !o.blocksLos) continue;
-    if (options.roadThrough?.(o.asset)) continue;
-    const hit = edges.nearest(o, 30);
-    if (!hit) continue;
-    if (hit.dist < hit.edge.width / 2) {
-      blocked++;
-      firstBlocked ??= o;
-    }
-  }
+  const onPaths = objectsOnPaths(doc, options, edges);
+  const blocked = onPaths.length;
+  const firstBlocked = onPaths[0];
   if (firstBlocked) {
     issues.push({
       severity: 'warning',
@@ -414,6 +405,77 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
 }
 
 /** Water and steep ground under a spawn portal or the HQ */
+/**
+ * The objects that stand on a road (`object-on-path`): ones that block
+ * building or sight and are no gate a road runs through, whose ground
+ * reaches onto a road (groundOnPath)
+ */
+export function objectsOnPaths(
+  doc: CustomMapDocument,
+  options: Pick<ValidationOptions, 'blocksBuild' | 'roadThrough' | 'footingOf'>,
+  edges = new EdgeIndex(doc.paths),
+): MapObject[] {
+  const blocks = options.blocksBuild ?? (() => false);
+  return doc.objects.filter(
+    (o) => ((o.blocksBuild ?? blocks(o.asset)) || o.blocksLos) && !options.roadThrough?.(o.asset) && groundOnPath(o, options.footingOf?.(o.asset), edges),
+  );
+}
+
+/** Half width of the widest road the check looks out for round an object, metres */
+const WIDEST_PATH = 40;
+
+/**
+ * Whether an object's ground (object-ground.ts: its footprint disc, for
+ * buildings and walls within it the turned ground rectangle, for rocks their
+ * underside) reaches onto a
+ * road: some point of a road's centre line nearer to that ground than the
+ * road's half width. Without a footing only the object's middle counts. A
+ * stilt hut beside a boardwalk stood with its middle off the deck and half
+ * its floor on it
+ */
+function groundOnPath(o: MapObject, footing: ObjectFooting | undefined, edges: EdgeIndex): boolean {
+  const s = o.scale || 1;
+  const r = (footing?.footprint ?? 0) * s;
+  // A rock stands on its underside (its measured plate), not on the disc of its widest overhang
+  const box = footing?.box ?? (footing?.base ? ([0, 0, footing.base[0], footing.base[1]] as const) : undefined);
+  const cos = Math.cos(o.rotation);
+  const sin = Math.sin(o.rotation);
+  for (const { edge, a, b } of edges.segmentsNear(o, r + Math.min(widestHalf(edges), WIDEST_PATH))) {
+    const half = edge.width / 2;
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.hypot(dx, dy);
+    if (len < 1e-6) continue;
+    // The part of the segment within reach of the disc, walked in steps of a quarter metre
+    const along = ((o.x - a.x) * dx + (o.y - a.y) * dy) / len;
+    const off = Math.abs(((o.x - a.x) * dy - (o.y - a.y) * dx) / len);
+    const reach = r + half;
+    if (off >= reach) continue;
+    const chord = Math.sqrt(reach * reach - off * off);
+    const t0 = Math.max(0, along - chord);
+    const t1 = Math.min(len, along + chord);
+    for (let t = t0; t <= t1 + 1e-9; t += 0.25) {
+      const px = a.x + (dx / len) * t - o.x;
+      const py = a.y + (dy / len) * t - o.y;
+      const disc = Math.max(0, Math.hypot(px, py) - r);
+      const rect = box ? boxDistance(box, s, px, py, cos, sin) : 0;
+      if (Math.max(disc, rect) < half) return true;
+    }
+  }
+  return false;
+}
+
+/** Half the widest road of the map (the reach segmentsNear needs) */
+const widest = new WeakMap<EdgeIndex, number>();
+function widestHalf(edges: EdgeIndex): number {
+  let w = widest.get(edges);
+  if (w === undefined) {
+    w = Math.max(0, ...edges.paths.edges.map((e) => e.width / 2));
+    widest.set(edges, w);
+  }
+  return w;
+}
+
 function groundIssues(
   doc: CustomMapDocument,
   edges: EdgeIndex,

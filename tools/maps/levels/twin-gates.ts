@@ -71,6 +71,16 @@ export function buildTwinGates(): CustomMapDocument {
       const f = (i + 0.5) / n;
       const p = { x: from.x + (to.x - from.x) * f, y: from.y + (to.y - from.y) * f };
       if (gap && Math.hypot(p.x - gap.x, p.y - gap.y) < 9) continue;
+      // A piece beside the gate slides along the wall, away from the gate, until the road through it runs clear
+      if (gap) {
+        const len = Math.hypot(p.x - gap.x, p.y - gap.y);
+        const ux = (p.x - gap.x) / len;
+        const uy = (p.y - gap.y) / len;
+        for (let s = 0; s < 3 && k.standsOnRoad('castle-wall', p.x, p.y, { rotation, scale: 1.2 }); s += 0.25) {
+          p.x += ux * 0.25;
+          p.y += uy * 0.25;
+        }
+      }
       k.place('castle-wall', p.x, p.y, { rotation, scale: 1.2 });
     }
   };

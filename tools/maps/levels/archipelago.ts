@@ -186,5 +186,7 @@ export function buildArchipelago(): CustomMapDocument {
 
   k.clearRoads();
   k.environment({ biome: 'temperate', sky: 'day', sunAzimuth: 150, sunElevation: 50, fogDensity: 0.0004, tint: '#fbfdff' });
+  // Nothing that blocks building reaches onto a road with its ground (the check's object-on-path)
+  k.keepOffRoads();
   return k.finish();
 }

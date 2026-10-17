@@ -168,5 +168,7 @@ export function buildMoonBase(): CustomMapDocument {
   // Hard light from a low sun: long shadows show every crater, the sky stays black; the Earth over the north rim,
   // half lit from the sun's side
   k.environment({ biome: 'moon', sky: 'day', sunAzimuth: 120, sunElevation: 32, fogDensity: 0, tint: '#f2f4ff', planet: { azimuth: 12, elevation: 20, size: 9 } });
+  // Nothing that blocks building reaches onto a road with its ground (the check's object-on-path)
+  k.keepOffRoads();
   return k.finish();
 }

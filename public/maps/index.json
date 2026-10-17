@@ -54,7 +54,7 @@
       "spawns": 3,
       "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "107464646dafd89b055285a6a2111cdc6f3b686f6a2d6573bc474bb1b28f5e47"
+      "contentHash": "b80607188bf194348690c98d772682e84226d558ed0c7887485ece9d2644ccb4"
     },
     {
       "id": "red-canyon",
@@ -68,7 +68,7 @@
       "spawns": 2,
       "biome": "desert",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "cde689f16dd135b9b0d8a722bd5cb3e0d492e9d3c345326a372857380252235f"
+      "contentHash": "7400ad94e9350c00ed6ef610cbda1d4cc8ca4230edbeb49302578a85876c10d3"
     },
     {
       "id": "archipelago",
@@ -82,7 +82,7 @@
       "spawns": 2,
       "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "cd50567986fde95b017575f00655f14173c2bf7570f415e098e7903f18d4b8fc"
+      "contentHash": "771387e0fbfccf97959c31297c773422860f6515ca4882803891a50270497490"
     },
     {
       "id": "frost-hamlet",
@@ -96,7 +96,7 @@
       "spawns": 2,
       "biome": "arctic",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "efd08b19fc22c6424cf855f7b705bc7df918636ad303ff2ad852a54558fade10"
+      "contentHash": "49d4ceec863e83d757374e2746b0c617ee90123ac61c6edcd715eb7027195a9c"
     },
     {
       "id": "ember-crater",
@@ -124,7 +124,7 @@
       "spawns": 4,
       "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "2dd64a3ccb98f48c9104a8a0c434e23e788216c9c0f3a2bff1ca771158c87352"
+      "contentHash": "8b8921636c0a63ee42b73dc791efc6e89e58bcda6a8f35ab8191988f8bfb8f56"
     },
     {
       "id": "moon-base",
@@ -138,7 +138,7 @@
       "spawns": 3,
       "biome": "moon",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "ad797bce5ff2ae74f727c80f4ae50aa097aa194a0f6829dc6dae7397cb450cd9"
+      "contentHash": "6a1a37f3411baa6b172a4940cef6d74b39bc87676b5eef0b504de91c9c0382fb"
     },
     {
       "id": "mars-canyon",

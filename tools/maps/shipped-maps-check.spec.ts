@@ -16,8 +16,7 @@ import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { edgePolyline, nearestOnEdges, nearestOnPolyline } from '../../src/app/editor/ops/path-graph';
-import { validateMap, waterInAir } from '../../src/app/editor/validation/map-validation';
+import { objectsOnPaths, validateMap, waterInAir } from '../../src/app/editor/validation/map-validation';
 import { rockShape } from '../../src/app/editor/ops/object-ops';
 import { CustomMapStreets } from '../../src/app/world/custom-map/custom-map-streets';
 import { MAP_METERS_PER_DEGREE, mapToGeo, type CustomMapDocument } from '../../src/app/world/custom-map/map-document';
@@ -39,8 +38,6 @@ const MAX_COST_SHARE = WARN_SHARE;
 const MAX_FILE_BYTES = 6 * 1024 * 1024;
 /** How far a route may begin off its spawn, metres */
 const SNAP = 16;
-/** Gates and arches a road runs through by design: they may stand on it */
-const ROAD_GATES = new Set(['castle-gate', 'gate-ruin', 'ruin-arch', 'rock-arch', 'hell-gate', 'palisade-gate', 'iron-gate', 'gate-farm']);
 
 interface CatalogFile {
   materials: { id: string }[];
@@ -113,14 +110,13 @@ describe('shipped maps check', () => {
       });
 
       it('keeps objects that block building off the roads (gates and arches excepted)', () => {
-        const onRoad: string[] = [];
-        for (const o of doc!.objects) {
-          if (!(o.blocksBuild ?? objects.get(o.asset)?.blocksBuild ?? false) || ROAD_GATES.has(o.asset)) continue;
-          const hit = nearestOnEdges(doc!.paths, o, 30);
-          if (hit && nearestOnPolyline(edgePolyline(doc!.paths, hit.edge), o)!.dist < hit.edge.width / 2) {
-            onRoad.push(`${o.id} ${o.asset} at ${Math.round(o.x)},${Math.round(o.y)} on ${hit.edge.id}`);
-          }
-        }
+        // The editor's check: the object's ground (footprint, turned ground rectangle) against the road's width;
+        // gates and arches a road runs through by design (catalogue roadThrough) may stand on it
+        const onRoad = objectsOnPaths(doc!, {
+          blocksBuild: (a) => objects.get(a)?.blocksBuild ?? false,
+          roadThrough: (a) => !!objects.get(a)?.roadThrough,
+          footingOf: (a) => objects.get(a),
+        }).map((o) => `${o.id} ${o.asset} at ${Math.round(o.x)},${Math.round(o.y)}`);
         expect(onRoad).toEqual([]);
       });
 

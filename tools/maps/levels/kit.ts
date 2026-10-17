@@ -13,8 +13,10 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CatalogIndex, normalizeCatalog } from '../../../src/app/editor/catalog/asset-catalog';
 import { MapKit } from '../../../src/app/editor/ops/map-kit';
+import { EdgeIndex } from '../../../src/app/editor/ops/path-graph';
+import { objectsOnPaths } from '../../../src/app/editor/validation/map-validation';
 import { createMapDocument } from '../../../src/app/world/custom-map/map-create';
-import type { CustomMapDocument, MapPoint } from '../../../src/app/world/custom-map/map-document';
+import type { CustomMapDocument, MapObject, MapPoint } from '../../../src/app/world/custom-map/map-document';
 
 export { facing } from '../../../src/app/editor/ops/map-kit';
 
@@ -136,6 +138,50 @@ export class LevelKit extends MapKit {
       }
     }
     return null;
+  }
+
+  /** What the check's object-on-path asks of an asset, from the catalogue */
+  private readonly roadCheck = {
+    blocksBuild: (a: string) => this.catalog.object(a).blocksBuild,
+    roadThrough: (a: string) => !!this.catalog.object(a).roadThrough,
+    footingOf: (a: string) => this.catalog.object(a).footing,
+  };
+
+  /** Whether `asset` placed so would stand on a road by the editor's check (object-on-path), before it is placed */
+  standsOnRoad(asset: string, x: number, y: number, o: { rotation?: number; scale?: number } = {}): boolean {
+    const probe: MapObject = { id: 'probe', asset, x, y, z: 0, rotation: o.rotation ?? 0, scale: o.scale ?? 1 };
+    return objectsOnPaths({ ...this.doc, objects: [probe] }, this.roadCheck).length > 0;
+  }
+
+  /**
+   * Moves every object that stands on a road by the editor's check
+   * (`object-on-path`: its ground against the road's width) to the nearest
+   * spot within `reach` metres where it stands clear, keeping its turn and
+   * scale; one with no such spot goes. Returns the objects moved and removed
+   */
+  keepOffRoads(reach = 6): { moved: string[]; removed: string[] } {
+    const edges = new EdgeIndex(this.doc.paths);
+    const onRoad = (o: MapObject) => objectsOnPaths({ ...this.doc, objects: [o] }, this.roadCheck, edges).length > 0;
+    const moved: string[] = [];
+    const removed = new Set<string>();
+    for (const o of objectsOnPaths(this.doc, this.roadCheck, edges)) {
+      let spot: MapPoint | null = null;
+      for (let r = 0.5; r <= reach && !spot; r += 0.5) {
+        const n = Math.max(8, Math.round(r * 2 * Math.PI));
+        for (let i = 0; i < n && !spot; i++) {
+          const a = (i / n) * Math.PI * 2;
+          const q = { ...o, x: o.x + Math.cos(a) * r, y: o.y + Math.sin(a) * r };
+          if (!onRoad(q)) spot = q;
+        }
+      }
+      if (spot) {
+        o.x = Math.round(spot.x * 100) / 100;
+        o.y = Math.round(spot.y * 100) / 100;
+        moved.push(`${o.asset} ${o.id}`);
+      } else removed.add(o.id);
+    }
+    this.doc.objects = this.doc.objects.filter((o) => !removed.has(o.id));
+    return { moved, removed: [...removed] };
   }
 
   /** The finished document; throws on the editor check's errors, on objects or water in the air (object-floating, water-floating) and on objects in a mover route's way */

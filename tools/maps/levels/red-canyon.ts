@@ -211,5 +211,7 @@ export function buildRedCanyon(): CustomMapDocument {
   // Seven ground materials: the least used goes (each one is 8 MB of pixels to load)
   k.trimLayers(7);
   k.environment({ biome: 'desert', sky: 'day', sunAzimuth: 170, sunElevation: 68, fogDensity: 0.0006, tint: '#fff0dc' });
+  // Nothing that blocks building reaches onto a road with its ground (the check's object-on-path)
+  k.keepOffRoads();
   return k.finish();
 }

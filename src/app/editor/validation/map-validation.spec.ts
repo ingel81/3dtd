@@ -83,6 +83,30 @@ describe('validateMap', () => {
     expect(codes(doc)).toEqual(expect.arrayContaining(['lane-short', 'path-under-water', 'object-on-path']));
   });
 
+  it('measures an object on the road by its ground, not its middle', () => {
+    const doc = createMapDocument({ id: 'm', name: 'M', width: 800, depth: 800 });
+    // One straight road along map x, 4 m wide
+    doc.paths = { nodes: [{ id: 'a', x: -200, y: 0 }, { id: 'b', x: 200, y: 0 }], edges: [{ id: 'e', a: 'a', b: 'b', width: 4, kind: 'road' }] };
+    const hut: ObjectFooting = { category: 'building', footprint: 3.3, height: 6 };
+    // A long house: 20 m along model x, 4 m deep, within a disc of 10.5 m
+    const long: ObjectFooting = { category: 'building', footprint: 10.5, height: 6, box: [0, 0, 10, 2] };
+    const footingOf = (asset: string) => (asset === 'hut' ? hut : asset === 'long' ? long : undefined);
+    const onPath = (o: { asset: string; x: number; y: number; rotation: number }) => {
+      doc.objects = [{ id: 'o', z: 0, scale: 1, blocksBuild: true, ...o }];
+      return validateMap(doc, { footingOf }).some((i) => i.code === 'object-on-path');
+    };
+    // Middle 4 m off the centre line (2 m off the edge), floor reaching 1.3 m onto the road
+    expect(onPath({ asset: 'hut', x: 0, y: 4, rotation: 0 })).toBe(true);
+    expect(onPath({ asset: 'hut', x: 0, y: 5.5, rotation: 0 })).toBe(false);
+    // The long house beside the road, 4.5 m from the centre line: lying along it its rectangle stays off the
+    // road (its disc would reach far over it); turned across the road it stands on it
+    expect(onPath({ asset: 'long', x: 0, y: 4.5, rotation: 0 })).toBe(false);
+    expect(onPath({ asset: 'long', x: 0, y: 4.5, rotation: Math.PI / 2 })).toBe(true);
+    // Without a footing only the middle counts, as before
+    expect(onPath({ asset: 'other', x: 0, y: 1.5, rotation: 0 })).toBe(true);
+    expect(onPath({ asset: 'other', x: 0, y: 2.5, rotation: 0 })).toBe(false);
+  });
+
   it('lets a road run through a gatehouse', () => {
     const doc = createMapDocument({ id: 'm', name: 'M', width: 800, depth: 800 });
     doc.objects.push({ id: 'g', asset: 'castle-gate', x: 0, y: 0, z: 0, rotation: Math.PI / 2, scale: 1, blocksBuild: true });
