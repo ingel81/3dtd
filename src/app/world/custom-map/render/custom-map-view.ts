@@ -297,22 +297,34 @@ export class CustomMapView {
    * what the frames draw into: a game with bloom or grading draws into a
    * linear post-processing target, and programs built for the screen would
    * all link again in its first frame (output colour space and tone mapping
-   * are part of a program). Resolves with the number of programs it built.
+   * are part of a program). `allLights` (the game) builds them for every
+   * light state the map can show (withLightStates) and draws a frame in each:
+   * a night that lit the lamps otherwise linked every lit material's program
+   * in its frame (6.9 s on Autumn Keep), and the first draw of a program does
+   * work of its own (uniform locations, the driver's own translation). Resolves
+   * with the number of programs it built.
    */
-  async warmUp(renderer: WebGLRenderer, scene: Object3D, camera: Camera, target: WebGLRenderTarget | null = null): Promise<number> {
+  async warmUp(
+    renderer: WebGLRenderer,
+    scene: Object3D,
+    camera: Camera,
+    target: WebGLRenderTarget | null = null,
+    allLights = false,
+  ): Promise<number> {
     await Promise.all([this.ready, this.environment.envReady]);
     if (this.disposed) return 0;
     const before = renderer.info.programs?.length ?? 0;
     const previous = renderer.getRenderTarget();
-    let compiled: Promise<unknown>;
+    const states = (run: () => void) => (allLights ? this.withLightStates(run) : run());
+    const compiled: Promise<unknown>[] = [];
     try {
-      // compileAsync builds the programs before it returns its promise: the target only around the call
+      // compileAsync builds the programs before it returns its promise: the target and lights only around the call
       renderer.setRenderTarget(target);
-      compiled = renderer.compileAsync(scene, camera);
+      states(() => compiled.push(renderer.compileAsync(scene, camera)));
     } finally {
       renderer.setRenderTarget(previous);
     }
-    await compiled;
+    await Promise.all(compiled);
     if (this.disposed) return 0;
     // The shadow pass's depth programs too, off the main thread: the shadow frame below finds them built
     if (renderer.shadowMap.enabled && scene instanceof Scene) {
@@ -323,26 +335,28 @@ export class CustomMapView {
       await this.compileShadowTwins(renderer, scene, camera, casters);
     }
     // Frames that drew meanwhile (other worlds' parts, a waited-for frame) make compileAsync settle early:
-    // wait until every program is built, or the shadow frame below and the first frames link them
+    // wait until every program is built, or the frames below and the first frames link them
     await programsReady(renderer);
     if (this.disposed) return 0;
     // compileAsync leaves out the shadow pass: its depth programs (instanced, alpha-tested cards,
     // per material) compiled on the first frame a caster entered the sun's box, a stall of seconds.
-    // One frame with a cell of every asset casting compiles them now, during loading, into the same target
-    if (renderer.shadowMap.enabled) {
+    // One frame with a cell of every asset casting compiles them now, during loading, into the same target,
+    // one in each light state for the game
+    const shadows = renderer.shadowMap.enabled;
+    if (shadows || (allLights && this.effects.hasLights)) {
       this.objects.showAllForWarmUp(true);
       const wasAuto = renderer.shadowMap.autoUpdate;
-      renderer.shadowMap.autoUpdate = true;
-      renderer.shadowMap.needsUpdate = true;
+      renderer.shadowMap.autoUpdate = shadows;
+      renderer.shadowMap.needsUpdate = shadows;
       try {
         renderer.setRenderTarget(target);
-        renderer.render(scene, camera);
+        states(() => renderer.render(scene, camera));
       } finally {
         renderer.setRenderTarget(previous);
         renderer.shadowMap.autoUpdate = wasAuto;
         this.objects.showAllForWarmUp(false);
         // The warm-up frame drew every cell into the shadow map: the next frame draws the real one, whole
-        this.environment.invalidateShadowsNow();
+        if (shadows) this.environment.invalidateShadowsNow();
       }
     }
     return (renderer.info.programs?.length ?? 0) - before;
@@ -500,6 +514,17 @@ export class CustomMapView {
     const shown = this.effects.poolShown;
     run(true);
     this.effects.withPool(!shown, () => run(false));
+  }
+
+  /**
+   * Runs `run` in every light state this map can draw with, the current one
+   * first: both (withEitherLights) on a map with lights, else the one. The
+   * game's map does not change, so a darkening sky or a wave's night finds
+   * the programs of its lights built
+   */
+  withLightStates(run: () => void): void {
+    if (this.effects.hasLights) this.withEitherLights(() => run());
+    else run();
   }
 
   /**

@@ -1075,7 +1075,7 @@ export class ThreeTilesEngine {
     this.world.applyQuality?.(knobs);
     if (recompile) {
       void this.qualityCompile
-        .hold(() => this.compilingForOutput(() => this.renderer.compileAsync(this.scene, this.camera)))
+        .hold(() => this.compilingForFrames(() => this.renderer.compileAsync(this.scene, this.camera)))
         .then(() => {
           if (this.quality?.knobs === knobs && !this.disposed) this.setRenderScale(knobs.general.scale);
         });
@@ -1228,46 +1228,56 @@ export class ThreeTilesEngine {
 
   /**
    * Run `work` with every compileAsync of the renderer compiling for the
-   * output the frames draw to. A program differs by its output: through the
+   * frames as they can draw. A program differs by its output: through the
    * composer (FXAA of the Low and Medium levels, bloom, grading) a linear
    * target, else the screen in sRGB; compiled for the screen, every program
    * linked again in the first frame through the composer (demo valley: 157
-   * programs, some 50 of them twice). Only the synchronous part of each call
-   * sees the target, so no frame in between draws into it.
+   * programs, some 50 of them twice). And by the lights: each of the world's
+   * light states (WorldProvider.withLightStates) gets its programs, a night
+   * that lit a map's lamps linked every lit material again in its frame.
+   * Only the synchronous part of each call sees the target and the lights, so
+   * no frame in between draws with them.
    */
-  private async compilingForOutput<T>(work: () => Promise<T>): Promise<T> {
-    if (!this.postProcessing?.needsRender()) return work();
+  private async compilingForFrames<T>(work: () => Promise<T>): Promise<T> {
     const renderer = this.renderer;
-    const target = new WebGLRenderTarget(1, 1);
+    const target = this.postProcessing?.needsRender() ? new WebGLRenderTarget(1, 1) : null;
     const original = renderer.compileAsync;
     renderer.compileAsync = (scene, camera, targetScene) => {
       const previous = renderer.getRenderTarget();
+      const jobs: Promise<unknown>[] = [];
       renderer.setRenderTarget(target);
       try {
-        return original.call(renderer, scene, camera, targetScene);
+        const compile = () => jobs.push(original.call(renderer, scene, camera, targetScene));
+        if (this.world.withLightStates) this.world.withLightStates(compile);
+        else compile();
       } finally {
         renderer.setRenderTarget(previous);
       }
+      return Promise.all(jobs).then(() => scene);
     };
     try {
       return await work();
     } finally {
       renderer.compileAsync = original;
-      target.dispose();
+      target?.dispose();
     }
   }
 
   /**
    * Preload all entity models, then compile the shaders of everything in the
-   * scene (enemy, projectile, particle and VFX pools) during loading.
+   * scene (enemy, projectile, particle and VFX pools) during loading, once
+   * the world's ground stands: its light states are known then
+   * (compilingForFrames), and its own programs are built.
    */
   async preloadModels(): Promise<void> {
     await Promise.all([
       this.enemies.preloadAllModels(),
       this.towers.preloadAllModels(),
       this.projectiles.whenLoaded(),
+      new Promise<void>((resolve) => this.world.onFirstGround(resolve)),
     ]);
-    const warmup = await this.compilingForOutput(async () => {
+    if (this.disposed) return;
+    const warmup = await this.compilingForFrames(async () => {
       await this.towers.precompile(this.renderer, this.camera);
       if (this.disposed) return null;
       await this.plinths.precompile(this.renderer, this.camera);

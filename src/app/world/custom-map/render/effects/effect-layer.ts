@@ -542,8 +542,13 @@ export class EffectLayer {
    * Set as soon as darkness or lights change, so a warm-up compiles the programs the frames use
    */
   private showPool(): void {
-    const active = this.darkness > 0.05 && this.spots.length + this.extraSpots.length > 0;
+    const active = this.darkness > 0.05 && this.hasLights;
     this.pool.forEach((light, k) => (light.visible = active && k < this.lightCount));
+  }
+
+  /** Whether the map has lights the pool can follow: without any it never shows, by day or at night */
+  get hasLights(): boolean {
+    return this.spots.length + this.extraSpots.length > 0;
   }
 
   /** Whether the point light pool counts for three now (night on a map with lights) */

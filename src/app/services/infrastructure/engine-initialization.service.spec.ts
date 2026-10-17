@@ -32,11 +32,12 @@ describe('EngineInitializationService loading steps', () => {
     expect(init.loadingSteps().every((s) => s.status === 'pending' && s.meta === undefined)).toBe(true);
   });
 
-  it('ends loading only once tiles, streets and heights are all done', () => {
+  it('ends loading only once tiles, streets, the warm-up and heights are all done', () => {
     const init = create();
     const heights = signal(true);
     init.osmLoading.set(false);
     init.tilesLoading.set(false);
+    init.warmupLoading.set(false);
 
     init.checkAllLoaded(heights);
     expect(init.loading()).toBe(true);
@@ -47,6 +48,11 @@ describe('EngineInitializationService loading steps', () => {
     expect(init.loading()).toBe(true);
 
     init.tilesLoading.set(false);
+    init.warmupLoading.set(true);
+    init.checkAllLoaded(heights);
+    expect(init.loading()).toBe(true);
+
+    init.warmupLoading.set(false);
     init.checkAllLoaded(heights);
     expect(init.loading()).toBe(false);
   });

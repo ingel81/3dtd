@@ -336,6 +336,14 @@ export interface WorldProvider {
   attach(ctx: WorldAttachContext): Promise<void>;
   /** The world draws frames (tiles: once the renderer stands) */
   ready(): boolean;
+  /**
+   * Runs `run` in every light state the world's frames can draw with, the
+   * current one first, and puts that back: a compile inside builds the
+   * programs of each (a custom map with lights: its point lights by day and
+   * at night, whose number is part of every lit material's program). Missing:
+   * the one state there is
+   */
+  withLightStates?(run: () => void): void;
   /** A new origin (a change of place) */
   setOrigin(lat: number, lon: number, height: number): void;
   /** Each drawn frame after the camera moved, before the draw: stream the ground, keep the overlay on it */

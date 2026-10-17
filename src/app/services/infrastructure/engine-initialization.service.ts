@@ -59,6 +59,9 @@ export class EngineInitializationService {
   /** OSM streets loading state */
   readonly osmLoading = signal(true);
 
+  /** Models loaded and every program the game can draw built (ThreeTilesEngine.preloadModels) */
+  readonly warmupLoading = signal(true);
+
   /** Error message (if any) */
   readonly error = signal<string | null>(null);
 
@@ -279,7 +282,15 @@ export class EngineInitializationService {
 
       // Preload 3D models in background; a failure (a shader that does not compile,
       // a lost context) is said in the console instead of an unhandled rejection
-      this.engine.preloadModels().catch((err: unknown) => console.error('[Engine] preloading the models failed', err));
+      // The loading screen waits for it: a program built in a frame holds the picture for seconds
+      this.engine
+        .preloadModels()
+        .catch((err: unknown) => console.error('[Engine] preloading the models failed', err))
+        .finally(() => {
+          if (gone()) return;
+          this.warmupLoading.set(false);
+          callbacks.onCheckAllLoaded();
+        });
 
       // Setup click handler
       callbacks.onSetupClickHandler();
@@ -405,11 +416,11 @@ export class EngineInitializationService {
   // ========================================
 
   /**
-   * End loading once tiles, OSM and heights are all done.
+   * End loading once tiles, OSM, the warm-up and heights are all done.
    * @param heightsLoading Heights loading signal
    */
   checkAllLoaded(heightsLoading: WritableSignal<boolean>): void {
-    if (!this.tilesLoading() && !this.osmLoading() && !heightsLoading()) {
+    if (!this.tilesLoading() && !this.osmLoading() && !this.warmupLoading() && !heightsLoading()) {
       if (this.loading()) {
         loadMark('ready');
         if (this.engine) this.quality.worldStood(this.engine);
@@ -457,6 +468,7 @@ export class EngineInitializationService {
     this.loading.set(true);
     this.tilesLoading.set(true);
     this.osmLoading.set(true);
+    this.warmupLoading.set(true);
     this.error.set(null);
     this.resetLoadingSteps();
   }

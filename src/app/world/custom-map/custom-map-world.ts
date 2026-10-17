@@ -307,7 +307,8 @@ export class CustomMapWorld implements WorldProvider {
    * off the main thread (view.warmUp: compileAsync, KHR_parallel_shader_compile) before
    * the first draw. Drawn before, each new material links its program
    * synchronously in the frame that first shows it: some 3 s on the main
-   * thread for the demo valley. Until then `ready()` holds the frames back.
+   * thread for the demo valley. Both light states of a map with lights, so a
+   * night later links nothing. Until then `ready()` holds the frames back.
    */
   private async prepare(ctx: WorldAttachContext, view: CustomMapView): Promise<void> {
     await view.ready.catch((err) => console.warn('[CustomMap] assets did not load', err));
@@ -318,7 +319,7 @@ export class CustomMapWorld implements WorldProvider {
     // target, and programs for the screen would all link again in the first frame
     const target = ctx.drawsToTarget() ? new WebGLRenderTarget(1, 1) : null;
     await view
-      .warmUp(ctx.renderer, ctx.scene, ctx.camera, target)
+      .warmUp(ctx.renderer, ctx.scene, ctx.camera, target, true)
       .catch((err) => console.warn('[CustomMap] shaders did not compile ahead', err));
     target?.dispose();
     if (this.view !== view) return;
@@ -330,6 +331,11 @@ export class CustomMapWorld implements WorldProvider {
   /** Frames draw once the map is prepared (prepare) */
   ready(): boolean {
     return this.prepared;
+  }
+
+  withLightStates(run: () => void): void {
+    if (this.view) this.view.withLightStates(run);
+    else run();
   }
 
   setOrigin(lat: number, lon: number, height: number): void {

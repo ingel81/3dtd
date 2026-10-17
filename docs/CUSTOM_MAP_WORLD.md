@@ -322,6 +322,12 @@ dem Build fehlt, aus dem `public/maps` des Checkouts (`mapDataRoot` in `createAp
   durch die Nachbearbeitung (Bloom oder Grading an, `WorldAttachContext.drawsToTarget`), wird für ein lineares Ziel
   übersetzt, sonst linkt das erste Bild alles neu; die Engine bekommt die gespeicherten VFX-Einstellungen deshalb
   schon beim Anlegen. Kalt mit Bloom: 9,4 bis 17,6 s vorher, 5,6 bis 5,7 s danach (Demo-Tal)
+- Eine Karte mit Lichtern (Laternen, Fackeln, Feuer) übersetzt und zeichnet dabei beide Lichtzustände
+  (`view.withLightStates`: der Punktlicht-Pool an und aus), denn die Zahl sichtbarer Punktlichter steckt in jedem
+  Programm beleuchteter Materialien. Die Engine nutzt denselben Haken (`WorldProvider.withLightStates`) für Tower,
+  Sockel und Pools (`preloadModels`, Qualitätswechsel), wartet dafür auf den ersten Boden, und der Ladeschirm wartet
+  auf sie (`warmupLoading`). Die erste Nacht oder Dämmerung hielt das Bild sonst an (Autumn Keep: 6,6 bis 8,7 s,
+  danach 22 ms)
 - Beim Verlassen gibt die Welt die geteilte `MapAssetLibrary` frei (etwa 88 MB Materialpixel); die nächste Karte
   legt eine neue an
 - Höhen für das Overlay: eine Runde sofort statt vier Runden zu 500 ms, weil der Boden nicht streamt
