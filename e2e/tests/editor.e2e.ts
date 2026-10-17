@@ -70,6 +70,8 @@ test('builds, checks, saves and reloads a map in the editor', async ({ page }, t
 
   // Paths: a road off the starter road, three clicks and Enter
   await page.keyboard.press('6');
+  // The outline counts the roads; a hidden panel holds still until it shows (PanelShown)
+  await page.locator('[data-test=side-outline]').click();
   const roads = numberIn(await page.locator('[data-test=roads]').textContent());
   await page.mouse.click(cx, cy);
   await page.waitForTimeout(400);
