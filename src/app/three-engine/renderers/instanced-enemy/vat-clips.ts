@@ -19,6 +19,12 @@ export interface VATClip {
   seconds: number;
   /** Clip time the bake starts at (s), EnemyTypeConfig.clipStart; 0 when missing */
   from?: number;
+  /**
+   * A loop whose end pose is not its start pose: seconds it runs on past its
+   * end, blending back into the start (vat-baker.ts loopTail); missing for a
+   * loop that closes by itself
+   */
+  tail?: number;
 }
 
 type VATClipConfig = Pick<
@@ -122,12 +128,14 @@ export function vatClipRegistry(animations: AnimationClip[], clips: VATClip[], f
 
   for (const vatClip of validClips) {
     const clip = clipMap.get(vatClip.name)!;
-    const frameCount = vatClipFrameCount(clip.duration, fps, vatClip);
+    // An open loop's frames run on past its end (VATClip.tail)
+    const tail = vatClip.tail ?? 0;
+    const frameCount = vatClipFrameCount(clip.duration + tail, fps, vatClip);
     animEntries.set(vatClip.name, {
       name: vatClip.name,
       frameStart: totalFrames,
       frameCount,
-      duration: clip.duration - clipFrom(clip.duration, vatClip),
+      duration: clip.duration + tail - clipFrom(clip.duration, vatClip),
       totalTime: frameCount / fps,
     });
     totalFrames += frameCount;

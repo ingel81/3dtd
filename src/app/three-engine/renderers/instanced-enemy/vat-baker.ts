@@ -123,64 +123,25 @@ export function bakeVAT(
     totalVertices += skin.vertexCount;
   }
 
-  // Clips that we need and exist, with their frame ranges
-  const registry = vatClipRegistry(animations, clips, fps);
-  if (!registry) {
+  const tempVec = new Vector3();
+  const skinning = skins.map((skin) => new SkinningBake(skin.mesh, skin.meshToRoot));
+  const baked = bakeClips(modelRoot, animations, clips, fps, totalVertices, grounded, (scratch) => {
+    // Bake vertices from ALL skinned meshes
+    for (let s = 0; s < skins.length; s++) {
+      const skin = skins[s];
+      const bake = skinning[s];
+      bake.updateFrame();
+      for (let v = 0; v < skin.vertexCount; v++) {
+        bake.vertex(v, tempVec);
+        scratch.set(skin.vertexOffset + v, tempVec);
+      }
+    }
+  });
+  if (!baked) {
     console.warn('[VATBaker] No matching animation clips found');
     return null;
   }
-  const { clipMap, validClips, animEntries, totalFrames } = registry;
-
-  // Compute tiled texture dimensions (cap width to GPU-safe limit)
-  const { texWidth, rowsPerFrame } = vatLayout(totalVertices);
-  const texHeight = totalFrames * rowsPerFrame;
-
-  // Allocate VAT data (width=texWidth, height=texHeight, xyz + padding)
-  const data = new Float32Array(texWidth * texHeight * 4);
-  const tempVec = new Vector3();
-  const bounds = emptyBounds();
-  const frameScratch = new FrameScratch(totalVertices);
-  const skinning = skins.map((skin) => new SkinningBake(skin.mesh, skin.meshToRoot));
-
-  // Bake each clip using a fresh mixer
-  for (const vatClip of validClips) {
-    const clip = clipMap.get(vatClip.name)!;
-    const entry = animEntries.get(vatClip.name)!;
-    const from = clipFrom(clip.duration, vatClip);
-
-    // Fresh mixer per clip to avoid state leaking
-    const mixer = new AnimationMixer(modelRoot);
-    const action = mixer.clipAction(clip);
-    action.setLoop(LoopOnce, 1);
-    action.clampWhenFinished = true;
-    action.play();
-
-    for (let frame = 0; frame < entry.frameCount; frame++) {
-      const time = Math.min(from + frame / fps, clip.duration - 0.0001);
-
-      // Set animation to exact time and update all transforms
-      mixer.setTime(time);
-      modelRoot.updateMatrixWorld(true);
-
-      // Bake vertices from ALL skinned meshes
-      for (let s = 0; s < skins.length; s++) {
-        const skin = skins[s];
-        const bake = skinning[s];
-        bake.updateFrame();
-        for (let v = 0; v < skin.vertexCount; v++) {
-          bake.vertex(v, tempVec);
-          frameScratch.set(skin.vertexOffset + v, tempVec);
-        }
-      }
-      frameScratch.write(data, entry.frameStart + frame, texWidth, rowsPerFrame, grounded, bounds);
-    }
-
-    // Clean up this mixer
-    action.stop();
-    mixer.stopAllAction();
-    mixer.uncacheClip(clip);
-    mixer.uncacheRoot(modelRoot);
-  }
+  const { data, bounds, texWidth, texHeight, rowsPerFrame, animEntries, totalFrames } = baked;
 
   const encoding = vatEncoding(bounds, worldScale);
   const positionTexture = createPositionTexture(data, texWidth, texHeight, encoding);
@@ -258,64 +219,27 @@ export function bakeObjectAnimVAT(
 
   if (totalVertices === 0) return null;
 
-  // Clips that exist, with their frame ranges
-  const registry = vatClipRegistry(animations, clips, fps);
-  if (!registry) {
-    console.warn('[VATBaker] No matching animation clips found for object-anim bake');
-    return null;
-  }
-  const { clipMap, validClips, animEntries, totalFrames } = registry;
-
-  // Compute tiled texture dimensions
-  const { texWidth, rowsPerFrame } = vatLayout(totalVertices);
-  const texHeight = totalFrames * rowsPerFrame;
-
-  // Allocate VAT data
-  const data = new Float32Array(texWidth * texHeight * 4);
   const tempVec = new Vector3();
   const meshToRoot = new Matrix4();
   const rootInverse = new Matrix4();
-  const bounds = emptyBounds();
-  const frameScratch = new FrameScratch(totalVertices);
-
-  // Bake each clip
-  for (const vatClip of validClips) {
-    const clip = clipMap.get(vatClip.name)!;
-    const entry = animEntries.get(vatClip.name)!;
-    const from = clipFrom(clip.duration, vatClip);
-
-    const mixer = new AnimationMixer(modelRoot);
-    const action = mixer.clipAction(clip);
-    action.setLoop(LoopOnce, 1);
-    action.clampWhenFinished = true;
-    action.play();
-
-    for (let frame = 0; frame < entry.frameCount; frame++) {
-      const time = Math.min(from + frame / fps, clip.duration - 0.0001);
-
-      mixer.setTime(time);
-      modelRoot.updateMatrixWorld(true);
-      rootInverse.copy(modelRoot.matrixWorld).invert();
-
-      // Bake vertices from all meshes with current-frame transforms
-      for (const info of meshInfos) {
-        meshToRoot.multiplyMatrices(rootInverse, info.mesh.matrixWorld);
-        const posAttr = info.mesh.geometry.getAttribute('position');
-
-        for (let v = 0; v < info.vertexCount; v++) {
-          tempVec.fromBufferAttribute(posAttr, v);
-          tempVec.applyMatrix4(meshToRoot);
-          frameScratch.set(info.vertexOffset + v, tempVec);
-        }
+  const baked = bakeClips(modelRoot, animations, clips, fps, totalVertices, grounded, (scratch) => {
+    rootInverse.copy(modelRoot.matrixWorld).invert();
+    // Bake vertices from all meshes with current-frame transforms
+    for (const info of meshInfos) {
+      meshToRoot.multiplyMatrices(rootInverse, info.mesh.matrixWorld);
+      const posAttr = info.mesh.geometry.getAttribute('position');
+      for (let v = 0; v < info.vertexCount; v++) {
+        tempVec.fromBufferAttribute(posAttr, v);
+        tempVec.applyMatrix4(meshToRoot);
+        scratch.set(info.vertexOffset + v, tempVec);
       }
-      frameScratch.write(data, entry.frameStart + frame, texWidth, rowsPerFrame, grounded, bounds);
     }
-
-    action.stop();
-    mixer.stopAllAction();
-    mixer.uncacheClip(clip);
-    mixer.uncacheRoot(modelRoot);
+  });
+  if (!baked) {
+    console.warn('[VATBaker] No matching animation clips found for object-anim bake');
+    return null;
   }
+  const { data, bounds, texWidth, texHeight, rowsPerFrame, animEntries, totalFrames } = baked;
 
   const encoding = vatEncoding(bounds, worldScale);
   const positionTexture = createPositionTexture(data, texWidth, texHeight, encoding);
@@ -362,12 +286,162 @@ function vatOffset(vertex: number, frame: number, texWidth: number, rowsPerFrame
  * y 0. The bounds the encoding is chosen from grow with the values before
  * they are stored in float32, as they always did.
  */
+/** Clip time short of a clip's end the bake samples its last pose at: at the end the mixer would already loop */
+const END_EPSILON = 0.0001;
+
+/**
+ * A loop closes by itself when its end pose lies within this share of one
+ * frame's motion from its start pose (the end is frame 0 again)
+ */
+const CLOSED_LOOP_SHARE = 0.25;
+
+/**
+ * Beyond this many frames of motion between its end and its start a clip is
+ * no cycle with a missing closing key but a cut that does not loop (root
+ * motion, a pose elsewhere): it gets no tail, the asset needs the fix
+ */
+const MAX_TAIL_FRAMES = 3;
+
+/** The baked clips of a model: texels, their bounds and layout, the clips' frame ranges */
+interface BakedClips {
+  data: Float32Array;
+  bounds: VATBounds;
+  texWidth: number;
+  texHeight: number;
+  rowsPerFrame: number;
+  animEntries: Map<string, VATAnimationEntry>;
+  totalFrames: number;
+}
+
+/**
+ * Every clip of `clips` the model has, frame by frame into one VAT: a fresh
+ * mixer per clip (state would leak), the pose at each frame's time read by
+ * `fill` into the scratch after the transforms are updated. A loop whose end
+ * does not come back to its start (loopTail) runs on past its end until it
+ * does. Null when the model has none of the clips.
+ */
+function bakeClips(
+  modelRoot: Object3D,
+  animations: AnimationClip[],
+  clips: VATClip[],
+  fps: number,
+  vertices: number,
+  grounded: boolean,
+  fill: (scratch: FrameScratch) => void,
+): BakedClips | null {
+  const scratch = new FrameScratch(vertices);
+  const withClip = (clip: AnimationClip, use: (sample: (time: number) => void) => void): void => {
+    const mixer = new AnimationMixer(modelRoot);
+    const action = mixer.clipAction(clip);
+    action.setLoop(LoopOnce, 1);
+    action.clampWhenFinished = true;
+    action.play();
+    use((time) => {
+      mixer.setTime(time);
+      modelRoot.updateMatrixWorld(true);
+      fill(scratch);
+    });
+    action.stop();
+    mixer.stopAllAction();
+    mixer.uncacheClip(clip);
+    mixer.uncacheRoot(modelRoot);
+  };
+
+  const asked = vatClipRegistry(animations, clips, fps);
+  if (!asked) return null;
+  // How long each loop runs on past its end to come back to its start
+  const measured = asked.validClips.map((vatClip) => {
+    if (vatClip.seconds !== Infinity || vatClip.from) return vatClip;
+    let tail = 0;
+    withClip(asked.clipMap.get(vatClip.name)!, (sample) => {
+      tail = loopTail(sample, scratch, asked.clipMap.get(vatClip.name)!.duration, fps);
+    });
+    return tail > 0 ? { ...vatClip, tail } : vatClip;
+  });
+  const { clipMap, validClips, animEntries, totalFrames } = vatClipRegistry(animations, measured, fps)!;
+
+  // Compute tiled texture dimensions (cap width to GPU-safe limit)
+  const { texWidth, rowsPerFrame } = vatLayout(vertices);
+  const texHeight = totalFrames * rowsPerFrame;
+  // Allocate VAT data (width=texWidth, height=texHeight, xyz + padding)
+  const data = new Float32Array(texWidth * texHeight * 4);
+  const bounds = emptyBounds();
+
+  for (const vatClip of validClips) {
+    const clip = clipMap.get(vatClip.name)!;
+    const entry = animEntries.get(vatClip.name)!;
+    const from = clipFrom(clip.duration, vatClip);
+    const tail = vatClip.tail ?? 0;
+    withClip(clip, (sample) => {
+      // Past the end of an open loop: the end pose blends into the start pose over the tail
+      let end: Float64Array | null = null;
+      let start: Float64Array | null = null;
+      if (tail > 0) {
+        sample(clip.duration - END_EPSILON);
+        end = scratch.copy();
+        sample(from);
+        start = scratch.copy();
+      }
+      for (let frame = 0; frame < entry.frameCount; frame++) {
+        const time = from + frame / fps;
+        if (end && start && time > clip.duration) scratch.blend(end, start, Math.min(1, (time - clip.duration) / tail));
+        else sample(Math.min(time, clip.duration - END_EPSILON));
+        scratch.write(data, entry.frameStart + frame, texWidth, rowsPerFrame, grounded, bounds);
+      }
+    });
+  }
+  return { data, bounds, texWidth, texHeight, rowsPerFrame, animEntries, totalFrames };
+}
+
+/**
+ * Seconds a loop clip needs past its end to come back to its start pose, at
+ * the pace its vertices move at the seam (the mean of its first and last
+ * frame's motion): 0 where the end pose is the start pose (within
+ * CLOSED_LOOP_SHARE of a frame's motion), about one key step where the
+ * cycle was exported without its closing key (zombie V1's walk). Without
+ * it the bake skipped that last step and the loop jumped at its seam. A
+ * seam wider than MAX_TAIL_FRAMES is left as it is.
+ */
+function loopTail(sample: (time: number) => void, scratch: FrameScratch, duration: number, fps: number): number {
+  const step = 1 / fps;
+  if (duration <= 2 * step) return 0;
+  sample(0);
+  const first = scratch.copy();
+  sample(step);
+  const second = scratch.copy();
+  sample(duration - step);
+  const beforeEnd = scratch.copy();
+  sample(duration - END_EPSILON);
+  const end = scratch.copy();
+  const motion = (poseDistance(first, second) + poseDistance(beforeEnd, end)) / 2;
+  if (motion <= 0) return 0;
+  const frames = poseDistance(end, first) / motion;
+  return frames < CLOSED_LOOP_SHARE || frames > MAX_TAIL_FRAMES ? 0 : frames * step;
+}
+
+/** Root mean square distance of the vertices of two poses */
+function poseDistance(a: Float64Array, b: Float64Array): number {
+  let sum = 0;
+  for (let i = 0; i < a.length; i++) sum += (a[i] - b[i]) ** 2;
+  return Math.sqrt(sum / (a.length / 3));
+}
+
 class FrameScratch {
   private readonly xyz: Float64Array;
   private readonly point = new Vector3();
 
   constructor(private readonly vertices: number) {
     this.xyz = new Float64Array(vertices * 3);
+  }
+
+  /** The pose set so far, as a copy */
+  copy(): Float64Array {
+    return this.xyz.slice();
+  }
+
+  /** The pose `share` of the way from pose `a` to pose `b` */
+  blend(a: Float64Array, b: Float64Array, share: number): void {
+    for (let i = 0; i < this.xyz.length; i++) this.xyz[i] = a[i] + (b[i] - a[i]) * share;
   }
 
   set(vertex: number, p: Vector3): void {

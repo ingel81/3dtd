@@ -67,7 +67,9 @@ export interface VATMaterialOptions {
  * Draws the faces the baked materials draw (vatData.side).
  *
  * Per-instance attributes:
- *   aAnimFrame (float) - current animation frame in the VAT
+ *   aAnimFrame (vec3) - the VAT frame, the next one (a loop's first after
+ *     its last) and the blend between them: positions in between, so a clip
+ *     played faster than its bake or at a high timescale has no steps
  *   aTintColor (vec4) - tint color overlay in rgb (0,0,0 = no tint); in a the
  *     camouflage (Enemy.camo): 1 hidden (a shimmer of scattered pixels), 0.5
  *     revealed by a scout (a cold rim), 0 none
@@ -145,7 +147,7 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
       attribute float aUseMap;
 
       // Per-instance attributes
-      attribute float aAnimFrame;
+      attribute vec3 aAnimFrame;
       attribute vec4 aTintColor;
       attribute vec3 aPrevOffset;
       ${CLOTH_VERTEX_GLSL}
@@ -187,12 +189,12 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
         // Sample VAT for animated position (tiled layout for large vertex counts)
         float col = mod(aVertexIndex, vatWidth);
         float localRow = floor(aVertexIndex / vatWidth);
-        float globalRow = aAnimFrame * rowsPerFrame + localRow;
-        vec2 vatUV = vec2(
-          (col + 0.5) / vatWidth,
-          (globalRow + 0.5) / vatHeight
-        );
-        vec4 vatPos = texture2D(vatTexture, vatUV);
+        float u = (col + 0.5) / vatWidth;
+        vec4 vatPos = texture2D(vatTexture, vec2(u, (aAnimFrame.x * rowsPerFrame + localRow + 0.5) / vatHeight));
+        if (aAnimFrame.z > 0.0) {
+          vec4 vatNext = texture2D(vatTexture, vec2(u, (aAnimFrame.y * rowsPerFrame + localRow + 0.5) / vatHeight));
+          vatPos = mix(vatPos, vatNext, aAnimFrame.z);
+        }
 
         // Use VAT position instead of geometry position. Half-float VATs store
         // it relative to their bounding box (vatEncoding in vat-encoding.ts),

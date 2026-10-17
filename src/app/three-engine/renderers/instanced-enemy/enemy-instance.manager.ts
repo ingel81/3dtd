@@ -49,7 +49,7 @@ export interface EnemyInstanceState {
   burning: boolean;
   /** performance.now() timestamp when an active hit-flash expires (0 = no flash). */
   hitFlashEnd: number;
-  /** Last global VAT frame written to the GPU attr — gate redundant writes/uploads. */
+  /** Last place in the VAT written to the GPU attr (global frame plus the blend to the next), gates redundant writes/uploads. */
   lastFrame: number;
   /**
    * Metres walked, for a type that steps its walk clip by the ground
@@ -284,11 +284,12 @@ export class EnemyInstanceManager {
     instancedMesh.frustumCulled = false;
 
     // Per-instance attributes
-    const animFrameData = new Float32Array(INITIAL_INSTANCES_PER_TYPE);
+    // The frame, the next and the blend between them (vat-material.ts)
+    const animFrameData = new Float32Array(INITIAL_INSTANCES_PER_TYPE * 3);
     // rgb the tint, a the camouflage (setCamo)
     const tintColorData = new Float32Array(INITIAL_INSTANCES_PER_TYPE * 4);
 
-    const animFrameAttr = new InstancedBufferAttribute(animFrameData, 1);
+    const animFrameAttr = new InstancedBufferAttribute(animFrameData, 3);
     const tintColorAttr = new InstancedBufferAttribute(tintColorData, 4);
     const prevOffsetAttr = new InstancedBufferAttribute(new Float32Array(INITIAL_INSTANCES_PER_TYPE * 3), 3);
 
@@ -352,7 +353,7 @@ export class EnemyInstanceManager {
     pool.prevOffsetAttr.setXYZ(index, 0, 0, 0);
 
     // Set initial attributes; they go out with the frame flush.
-    pool.animFrameAttr.setX(index, 0);
+    pool.animFrameAttr.setXYZ(index, 0, 0, 0);
     pool.tintColorAttr.setXYZW(index, baseTint?.[0] ?? 0, baseTint?.[1] ?? 0, baseTint?.[2] ?? 0, 0);
     // The clothes it wears for its life, by its id (vat-cloth.ts)
     if (pool.clothAttr) pool.clothAttr.setX(index, clothLook(id, pool.config.clothVariants!));
@@ -690,26 +691,25 @@ export class EnemyInstanceManager {
         const entry = pool.vatData.animations.get(state.currentAnim);
         if (!entry) continue;
 
-        let localFrame: number;
+        // Where in the clip, in frames: the frame below and the share of the way to the next
+        let at: number;
         const totalTime = entry.totalTime;
+        const count = entry.frameCount;
+        const loop = !state.isDead;
 
         if (gaitStride !== undefined) {
           // Stepped by the ground walked (walkGait), not by the clock, so
           // nothing moves in the pause. A dead one keeps the frame it died in.
           if (state.isDead) continue;
           const loops = state.gait / gaitStride;
-          localFrame = Math.floor((loops - Math.floor(loops)) * entry.frameCount) % entry.frameCount;
+          at = (loops - Math.floor(loops)) * count;
         } else if (state.isDead) {
           // Death: advance but will clamp
           state.animTime += deltaTime * state.animSpeed;
           // Clamp at last frame. The bake cuts death clips where the enemy
           // is removed (vatClips), so a clip that runs longer holds its
           // last baked frame rather than looping back to frame 0.
-          const maxFrame = entry.frameCount - 1;
-          localFrame = Math.min(
-            Math.floor((state.animTime / totalTime) * entry.frameCount),
-            maxFrame,
-          );
+          at = Math.min((state.animTime / totalTime) * count, count - 1);
         } else {
           // Loop
           const loopsBefore = state.animTime / totalTime;
@@ -723,18 +723,19 @@ export class EnemyInstanceManager {
               }
             }
           }
-          const normalizedTime = (state.animTime / totalTime) % 1.0;
-          localFrame = Math.floor(normalizedTime * entry.frameCount) % entry.frameCount;
+          at = ((state.animTime / totalTime) % 1.0) * count;
         }
 
-        const globalFrame = entry.frameStart + localFrame;
-        // Only write + flag dirty when the integer frame actually changed.
-        // VAT frames are integers, so at 60fps a 30-frame clip changes only
-        // ~every 2nd frame (slower clips less often) — when nothing changed,
-        // the whole-buffer upload is skipped entirely.
-        if (globalFrame !== state.lastFrame) {
-          state.lastFrame = globalFrame;
-          pool.animFrameAttr.setX(state.index, globalFrame);
+        // The shader blends the frame with the next (a loop's last with its first), so a clip
+        // played faster than it was baked, or at a high timescale, moves without steps
+        const localFrame = Math.min(Math.floor(at), count - 1);
+        const blend = at - localFrame;
+        const next = localFrame + 1 < count ? localFrame + 1 : loop ? 0 : localFrame;
+        const position = entry.frameStart + localFrame + blend;
+        // Written and uploaded only when it moved (a pause, a dead one at rest: no upload)
+        if (position !== state.lastFrame) {
+          state.lastFrame = position;
+          pool.animFrameAttr.setXYZ(state.index, entry.frameStart + localFrame, entry.frameStart + next, blend);
           pool.animFrameDirty = true; // uploaded in flushDirtyFlags()
         }
       }
@@ -1139,7 +1140,7 @@ export class EnemyInstanceManager {
       if (pool.animFrameDirty) {
         if (activeCount > 0) {
           pool.animFrameAttr.clearUpdateRanges();
-          pool.animFrameAttr.addUpdateRange(0, activeCount);
+          pool.animFrameAttr.addUpdateRange(0, activeCount * 3);
           pool.animFrameAttr.needsUpdate = true;
         }
         pool.animFrameDirty = false;

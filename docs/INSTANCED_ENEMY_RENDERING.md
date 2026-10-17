@@ -89,6 +89,13 @@ backt seit der Runde vom 2026-09-14 über Skinning.
 
 - Walk und Run loopen und kommen ganz in die VAT, bis auf den Frame am Clip-Ende: Der ist
   wieder Frame 0 (`ceil(Dauer × fps)` Frames).
+- Offene Loops (E213, `loopTail` in `vat-baker.ts`): Kommt die Endpose nicht auf die Startpose zurück, weil der
+  Zyklus ohne schließenden Key exportiert ist (Zombie V1 `Walk`: 97 Keys, der letzte eine Key-Stufe vor dem
+  ersten), sprang der Loop an der Naht um zwei Bilder Bewegung. Gemessen an den gebackenen Posen: Abstand Endpose zu
+  Startpose geteilt durch die Bewegung eines Frames an der Naht (Mittel aus erstem und letztem Frame). Unter 0,25
+  Frames schließt der Loop selbst; bis 3 Frames läuft er so lange über sein Ende weiter (`VATClip.tail`) und
+  blendet dort die Endpose in die Startpose; darüber (Wurzelbewegung, ein Schnitt, der nicht loopt) bleibt er,
+  wie er ist. Betroffen (2026-10-17): Zombie, Zombie v2, Herbert, Mammut, Hornisse, Mech, Bär, je 1 bis 2 Frames.
 - Todes-Clips laufen mit `deathAnimationSpeed` (sonst `animationSpeed`), bis `EnemyManager` den Gegner nach
   `enemyDeathDuration()` entfernt (`EnemyTypeConfig.deathDuration`, sonst
   `TIMING.deathAnimationDuration`, 2 s). Gebacken wird nur diese Clip-Zeit
@@ -265,7 +272,7 @@ if (vUseMap > 0.5 && hasDiffuse > 0.5) {
 
 | Attribut | Typ | Beschreibung |
 |----------|-----|-------------|
-| `aAnimFrame` | float | Aktueller VAT Frame |
+| `aAnimFrame` | vec3 | VAT-Frame, nächster Frame (beim Loop nach dem letzten der erste, beim Tod am Ende derselbe) und Anteil dazwischen |
 | `aTintColor` | vec3 | Tint-Overlay, 50 % gemischt (0,0,0 = keiner) |
 | `aClothLook` | float | Kleidung (`vat-cloth.ts`), 0 die des Modells; nur bei Typen mit `clothVariants` |
 
@@ -476,9 +483,17 @@ interface EnemyInstanceState {
 `updateAnimations(deltaTime)` wird einmal pro Render-Frame aufgerufen:
 
 1. `animTime += deltaTime × animSpeed × speedMultiplier` (tote Gegner ohne `speedMultiplier`)
-2. Frame berechnen: `localFrame = floor((animTime / totalTime) % 1.0 × frameCount)`
-3. Looping für Walk/Run, Clamping für Death (hält den letzten gebackenen Frame)
-4. `aAnimFrame` nur schreiben, wenn sich der globale Frame geändert hat (`lastFrame`), sonst entfällt der Upload
+2. Stelle im Clip in Frames: `(animTime / totalTime) % 1.0 × frameCount`, darunter der Frame, der Rest der Anteil
+   zum nächsten
+3. Looping für Walk/Run (der nächste nach dem letzten ist der erste), Clamping für Death (hält den letzten
+   gebackenen Frame, Anteil 0)
+4. `aAnimFrame` (Frame, nächster, Anteil) nur schreiben, wenn sich die Stelle geändert hat (`lastFrame`), sonst
+   entfällt der Upload (Pause, ruhender Toter)
+
+Der Vertex-Shader mischt die Position aus beiden Frames (E213; ein zweiter Texturzugriff nur bei Anteil über 0).
+Vorher sprang er von Frame zu Frame: der Zombie spielt seinen 4-s-Gang mit 4,11, je Bild bei 60 fps also gut zwei
+gebackene Frames, bei 4x gut acht, in ungleichen Stufen. Gegner bei Anteil über 0 laden ihr Attribut jedes Bild
+hoch (12 Byte je Instanz).
 
 `speedMultiplier` setzt `updateEnemyState()`: aktuelle Geschwindigkeit geteilt durch
 `baseSpeed`, beim Run-Clip durch `baseSpeed × runSpeedMultiplier`.

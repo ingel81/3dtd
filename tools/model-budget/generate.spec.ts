@@ -226,6 +226,12 @@ async function buildRows(): Promise<Row[]> {
       }
     }
     const vat = await bakeModel(config);
+    // A loop whose end does not come back to its start runs on past it (VATClip.tail): measured on the poses in the bake
+    for (const clip of bake.clips) {
+      const entry = vat?.animations.get(clip.name);
+      if (entry && entry.frameCount > clip.frames && clip.role !== 'death') clip.frames = entry.frameCount;
+    }
+    bake.totalFrames = bake.clips.reduce((s, c) => s + c.frames, 0);
     const baseColour = [...new Set(bake.meshes.map((m) => m.diffuse).filter((d): d is ImageInfo => d !== null))];
     rows.push({
       id,

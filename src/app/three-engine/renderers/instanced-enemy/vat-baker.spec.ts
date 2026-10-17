@@ -224,6 +224,27 @@ describe('bakeVAT', () => {
     expect(vatPosition(vat, 0, 30 + 60)[1]).toBeCloseTo(-2, 3);
   });
 
+  it('closes a loop exported without its closing key by running on past its end (E213)', () => {
+    // One cycle in 24 keys over 23/24 s: the next key would be the first again, the end pose is a key step short of it
+    const times = Array.from({ length: 24 }, (_, k) => k / 24);
+    const values = times.flatMap((t) => [Math.sin(t * Math.PI * 2), 0, 0]);
+    const open = new AnimationClip('walk', 23 / 24, [new VectorKeyframeTrack('root.position', times, values)]);
+    const vat = bakeVAT(skinnedTriangle(), [open, die], clips, 1e6)!;
+    const entry = vat.animations.get('walk')!;
+    // 23/24 s plus about one key step of tail (measured on the poses): 30 or 31 frames at 30 fps, not the 29 of the clip alone
+    expect(entry.frameCount).toBeGreaterThanOrEqual(30);
+    expect(entry.frameCount).toBeLessThanOrEqual(31);
+    // The frame past the end of the clip lies between its end pose and its start pose
+    const end = Math.sin((23 / 24) * Math.PI * 2);
+    const x = vatPosition(vat, 0, entry.frameStart + entry.frameCount - 1)[0];
+    expect(x).toBeGreaterThan(end);
+    expect(x).toBeLessThan(0);
+    // A clip that closes (its last key is its first) gets no tail, nor one that moves away (root motion)
+    const closed = new AnimationClip('walk', 1, [new VectorKeyframeTrack('root.position', [0, 0.5, 1], [0, 0, 0, 1, 0, 0, 0, 0, 0])]);
+    expect(bakeVAT(skinnedTriangle(), [closed, die], clips, 1e6)!.animations.get('walk')!.frameCount).toBe(30);
+    expect(bakeVAT(skinnedTriangle(), [walk, die], clips, 1e6)!.animations.get('walk')!.frameCount).toBe(30);
+  });
+
   it('bakes from the clip start, and grounded puts each frame on y 0 (E185)', () => {
     // The triangle (y 0 to 1) floats up from 0.5 to 1.5 over the walk
     const float = new AnimationClip('walk', 1, [new VectorKeyframeTrack('root.position', [0, 1], [0, 0.5, 0, 0, 1.5, 0])]);

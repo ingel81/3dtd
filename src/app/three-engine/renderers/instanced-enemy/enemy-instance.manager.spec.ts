@@ -210,6 +210,30 @@ describe('EnemyInstanceManager', () => {
     expect(frame()).toBe(29);
   });
 
+  it('blends each frame into the next, the last of a loop into its first, the last of a death into nothing (E213)', () => {
+    const own = new EnemyInstanceManager(new Scene());
+    own.createPool('wallsmasher', fakeVat([...CLIPS, CONFIG.deathAnimation!]), CONFIG);
+    const state = own.addEnemy('a', 'wallsmasher', new Vector3(), 0)!;
+    const attr = () => [state.pool.animFrameAttr.getX(state.index), state.pool.animFrameAttr.getY(state.index), state.pool.animFrameAttr.getZ(state.index)];
+    const entry = state.pool.vatData.animations.get(state.currentAnim)!;
+    // A quarter of the way from frame 3 to frame 4 of the walk
+    state.animTime = 0;
+    own.updateAnimations(((3.25 / entry.frameCount) * entry.totalTime) / CONFIG.animationSpeed!);
+    const [frame, next, blend] = attr();
+    expect([frame, next]).toEqual([entry.frameStart + 3, entry.frameStart + 4]);
+    expect(blend).toBeCloseTo(0.25, 5);
+    // Its last frame blends into its first
+    state.animTime = ((entry.frameCount - 0.5) / entry.frameCount) * entry.totalTime;
+    own.updateAnimations(0);
+    expect(attr().slice(0, 2)).toEqual([entry.frameStart + entry.frameCount - 1, entry.frameStart]);
+    // A death holds its last frame, nothing to blend into
+    own.playDeathAnimation('a');
+    own.updateAnimations(10);
+    const [last, after, rest] = attr();
+    expect(after).toBe(last);
+    expect(rest).toBe(0);
+  });
+
   it('plays a death at the type\'s death speed (E185)', () => {
     const config = { ...CONFIG, deathAnimationSpeed: 0.5 };
     const own = new EnemyInstanceManager(new Scene());

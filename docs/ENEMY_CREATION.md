@@ -199,6 +199,12 @@ Fußvertices: Gleiten in %). Gefunden und behoben:
   0,19 und 0,11 m im Boden: `groundedBake`.
 - V2 `dying_backwards` stand die ersten 0,35 s still: `clipStart`.
 
+- V1 `Walk` (E213): der Zyklus hat keinen schließenden Key, die Endpose liegt eine Key-Stufe vor der Startpose; der
+  Bake ließ diese Stufe aus, an der Naht sprang der Gang. Seitdem läuft ein offener Loop über sein Ende weiter und
+  blendet zurück ([INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md#nur-sichtbare-frames)), und der
+  Shader mischt zwischen den Frames, auch bei 4x ohne Stufen. Das Ruckhafte im Gang selbst (Bewegung je Frame
+  zwischen 0,4 und 2,3 % der Höhe, ein Taumeln) ist die Animation.
+
 Offen: Beide Tode beginnen in einer anderen Pose als der Gang (V1 `Die` aufrecht, der Gang ein vorgebeugter
 Ausfallschritt): beim Tod springt die Pose, ein Überblenden zwischen Clips hat der VAT-Shader nicht. V1 `Walk` hat
 keine Fingerkanäle, die Hände bleiben in der Bind-Pose (bei Spielgröße kaum zu sehen; `Walk2` hätte sie).
