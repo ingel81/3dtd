@@ -19,6 +19,7 @@ import { ResearchStore } from '../store/research.store';
 import { BuildPreviewLos } from './build-preview-los';
 import { makeModelTransparent, tintPreviewModel } from './tower-preview-model';
 import {
+  CrownCarries,
   FootprintColumn,
   FootprintDecision,
   FootprintRefusal,
@@ -33,6 +34,7 @@ import {
   sameFootprint,
 } from '../utils/tower-footprint';
 import { TowerPlinthPreview } from './tower-plinth-preview';
+import { plinthCrown } from '../three-engine/renderers/tower-plinth/plinth-braces';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 import { uiSound } from './ui-sound';
 
@@ -405,6 +407,7 @@ export class TowerPlacementService {
     lon: number,
     typeId: TowerTypeId,
   ): { footprint: TowerFootprint; result: TowerPlacementResult } | null {
+    ({ lat, lon } = this.onCrownLine(lat, lon));
     const terrainHeight = this.engine?.getTerrainHeightAtGeo(lat, lon) ?? null;
     if (terrainHeight === null) return null;
     const footprint = this.resolveFootprint(lat, lon, typeId, this.resolvePlacementHeight(lat, lon, terrainHeight));
@@ -422,7 +425,32 @@ export class TowerPlacementService {
     if (!this.engine || radius === undefined) return { footY: surfaceY, plinthHeight: 0 };
     return resolveTowerFootprint(
       surfaceY, radius, this.footprintColumns(lat, lon, radius, 0), this.surroundingColumns(lat, lon, radius),
+      this.crownCarries(lat, lon),
     );
+  }
+
+  /**
+   * On a crown (a custom map's wall walk or gatehouse, WorldSurface.crownAt)
+   * a tower stands on its centre line, across from (lat, lon), so it hangs
+   * over both sides alike; elsewhere the point as it is
+   */
+  private onCrownLine(lat: number, lon: number): { lat: number; lon: number } {
+    const engine = this.engine;
+    if (!engine?.terrain.crownAt) return { lat, lon };
+    const local = engine.sync.geoToLocalSimple(lat, lon, 0);
+    const crown = engine.terrain.crownAt(local.x, local.z);
+    return crown ? engine.sync.localSimpleToGeo(crown.x, crown.z) : { lat, lon };
+  }
+
+  /** Whether the crown under (lat, lon) carries a reach both ways along it, for the footprint rules; undefined off crowns */
+  private crownCarries(lat: number, lon: number): CrownCarries | undefined {
+    const terrain = this.engine?.terrain;
+    if (!this.engine || !terrain?.crownAt || !terrain.crownCarries) return undefined;
+    const local = this.engine.sync.geoToLocalSimple(lat, lon, 0);
+    return (reach) => {
+      const crown = terrain.crownAt!(local.x, local.z);
+      return crown !== null && terrain.crownCarries!(local.x, local.z, crown.axisX, crown.axisZ, crown.top, reach);
+    };
   }
 
   /**
@@ -451,7 +479,7 @@ export class TowerPlacementService {
       return { footprint: even, partial: inner };
     }
     const columns = inner.concat(this.footprintColumns(lat, lon, radius, inner.length));
-    const decision = decideTowerFootprint(surfaceY, radius, columns, this.surroundingColumns(lat, lon, radius));
+    const decision = decideTowerFootprint(surfaceY, radius, columns, this.surroundingColumns(lat, lon, radius), this.crownCarries(lat, lon));
     this.footprintNote = { ...note, decision };
     return { footprint: decision.footprint, partial: null };
   }
@@ -481,7 +509,7 @@ export class TowerPlacementService {
     const radius = TOWER_TYPES[typeId].footprintRadius;
     const outer = this.footprintColumns(lat, lon, radius, partial.columns.length);
     const decision = decideTowerFootprint(
-      surfaceY, radius, partial.columns.concat(outer), this.surroundingColumns(lat, lon, radius),
+      surfaceY, radius, partial.columns.concat(outer), this.surroundingColumns(lat, lon, radius), this.crownCarries(lat, lon),
     );
     this.footprintNote = { typeId, lat, lon, surfaceY, centre: decision.centre, decision };
     const footprint = decision.footprint;
@@ -625,6 +653,7 @@ export class TowerPlacementService {
     if (!this.engine) {
       return;
     }
+    ({ lat, lon } = this.onCrownLine(lat, lon));
 
     // If model is still loading, queue this position for later.
     if (this.modelLoading || !this.previewTowerMesh) {
@@ -713,6 +742,7 @@ export class TowerPlacementService {
       footprint.plinthHeight,
       validValid,
       footprint.overhang,
+      plinthCrown(this.engine.terrain.crownAt?.(local.x, local.z) ?? null),
     );
 
     // Its range ring around the foot, on valid and invalid spots alike

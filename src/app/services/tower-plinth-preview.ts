@@ -1,6 +1,7 @@
 import type { Mesh, MeshStandardMaterial, Object3D } from 'three';
 import { createPlinthMaterial } from '../three-engine/renderers/tower-plinth/plinth-material';
 import { createPlinthMesh } from '../three-engine/renderers/tower-plinth/tower-plinth.renderer';
+import type { PlinthCrown } from '../three-engine/renderers/tower-plinth/plinth-braces';
 import { sameOverhang } from '../utils/tower-footprint';
 import { makeModelTransparent, tintPreviewModel } from './tower-preview-model';
 
@@ -12,6 +13,7 @@ import { makeModelTransparent, tintPreviewModel } from './tower-preview-model';
  */
 export class TowerPlinthPreview {
   private mesh: Mesh | null = null;
+  private builtCrown: PlinthCrown | null = null;
   private material: MeshStandardMaterial | null = null;
   /** Footprint radius, height and overhang the mesh was built for. */
   private builtRadius = 0;
@@ -34,6 +36,7 @@ export class TowerPlinthPreview {
     height: number,
     valid: boolean,
     overhang: readonly number[] = [],
+    crown: PlinthCrown | null = null,
   ): void {
     if (height <= 0) {
       this.hide();
@@ -48,9 +51,11 @@ export class TowerPlinthPreview {
       || footprintRadius !== this.builtRadius
       || height !== this.builtHeight
       || !sameOverhang(overhang, this.builtOverhang)
+      || !sameCrown(crown, this.builtCrown)
     ) {
       this.removeMesh();
-      this.mesh = createPlinthMesh(footprintRadius, height, this.material, overhang);
+      this.mesh = createPlinthMesh(footprintRadius, height, this.material, overhang, undefined, crown);
+      this.builtCrown = crown;
       this.builtRadius = footprintRadius;
       this.builtHeight = height;
       this.builtOverhang = overhang;
@@ -84,4 +89,10 @@ export class TowerPlinthPreview {
     this.mesh.geometry.dispose();
     this.mesh = null;
   }
+}
+
+/** The same crown, or both none: within a centimetre and a hundredth of a radian */
+function sameCrown(a: PlinthCrown | null, b: PlinthCrown | null): boolean {
+  if (!a || !b) return a === b;
+  return Math.abs(a.axis - b.axis) < 0.01 && Math.abs(a.halfWidth - b.halfWidth) < 0.01;
 }

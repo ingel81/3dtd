@@ -1,13 +1,16 @@
 // Measures the top surface of every model that can carry a tower: a grid
-// over the model's bounds at scale 1, each cell the height a ray straight
-// down from above meets at the cell's middle (a ridge, a flat roof, a wall's
-// walk, the floor inside a ruin). The game stands a tower on it as on the
+// over the model's bounds at scale 1, each cell the highest point rays
+// straight down from above meet on it (SUBSAMPLES² of them, so a thin stake
+// of a palisade is not missed between cell middles): a ridge, a flat roof, a
+// wall's walk, the floor inside a ruin. The game stands a tower on it as on the
 // roofs of the 3D tiles (CustomMapSurface, object-roof.ts). Writes
 // tools/map-assets/roofs.json, which update_catalog.py puts into the
 // catalogue as `roof`.
 //
 // What carries: buildings, walls and structures that forbid building, are
 // at least ROOF_ABOVE_GROUND high, neither float nor span a gap (aloft).
+// Walls and gatehouses (a road through them) get `kind: 'crown'`: a long
+// narrow top a tower may hang over on both sides (tower-footprint.ts).
 // Read from the catalogue, so run it after update_catalog.py has written the
 // entries, then update_catalog.py again.
 //
@@ -26,6 +29,8 @@ const MAX_CELLS = 24;
 const MIN_CELL = 0.5;
 /** A hit lower than this is the ground (a floor, a plinth): no roof there, m */
 const FLOOR = 0.3;
+/** Rays per cell along each side */
+const SUBSAMPLES = 3;
 
 const assets = process.argv[2];
 if (!assets) {
@@ -60,10 +65,15 @@ for (const o of catalog.objects) {
   let highest = 0;
   for (let j = 0; j < rows; j++) {
     for (let i = 0; i < columns; i++) {
-      from.set(x0 + (i + 0.5) * cell, b.max.y + 1, z0 + (j + 0.5) * cell);
-      raycaster.set(from, down);
-      const hit = raycaster.intersectObjects(meshes, false)[0];
-      const y = hit && hit.point.y >= FLOOR ? hit.point.y : 0;
+      let y = 0;
+      for (let si = 0; si < SUBSAMPLES; si++) {
+        for (let sj = 0; sj < SUBSAMPLES; sj++) {
+          from.set(x0 + (i + (si + 0.5) / SUBSAMPLES) * cell, b.max.y + 1, z0 + (j + (sj + 0.5) / SUBSAMPLES) * cell);
+          raycaster.set(from, down);
+          const hit = raycaster.intersectObjects(meshes, false)[0];
+          if (hit && hit.point.y >= FLOOR) y = Math.max(y, hit.point.y);
+        }
+      }
       tops[j * columns + i] = y;
       highest = Math.max(highest, y);
     }
@@ -72,7 +82,8 @@ for (const o of catalog.objects) {
   // One byte per cell in steps of `step` metres, 0 where nothing carries
   const step = Math.ceil((highest / 255) * 1000) / 1000;
   const bytes = Buffer.from(Array.from(tops, (y) => (y === 0 ? 0 : Math.max(1, Math.min(255, Math.round(y / step))))));
-  out[o.id] = { x: r2(x0), z: r2(z0), cell, columns, rows, step, heights: bytes.toString('base64') };
+  const crown = o.category === 'wall' || o.roadThrough === true;
+  out[o.id] = { x: r2(x0), z: r2(z0), cell, columns, rows, step, heights: bytes.toString('base64'), ...(crown ? { kind: 'crown' } : {}) };
 }
 const lines = Object.entries(out).map(([id, roof]) => `  ${JSON.stringify(id)}: ${JSON.stringify(roof)}`);
 writeFileSync(join(here, 'roofs.json'), `{\n${lines.join(',\n')}\n}\n`);

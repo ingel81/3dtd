@@ -123,9 +123,16 @@ export function computeBuildAreas(input: BuildAreaInput): BuildAreas {
   let buildable = 0;
   const dist = new Float64Array(input.routes.length);
   for (let j = 0; j < rows; j++) {
-    const y = y0 + (j + 0.5) * cell;
+    const yCell = y0 + (j + 0.5) * cell;
     for (let i = 0; i < columns; i++) {
-      const x = x0 + (i + 0.5) * cell;
+      let x = x0 + (i + 0.5) * cell;
+      let y = yCell;
+      // On a crown (a wall's walk) the tower stands on its centre line, as in the game
+      const crown = surface.crownAt(frame.sceneX(x), frame.sceneZ(y));
+      if (crown) {
+        x = frame.mapX(crown.x);
+        y = frame.mapY(crown.z);
+      }
       const nearest = near.distances(x, y, dist);
       let k: BuildCell;
       // The game's order: play area, HQ, spawns, then the route, then the world's blockers, then the ground
@@ -141,7 +148,8 @@ export function computeBuildAreas(input: BuildAreaInput): BuildAreas {
         const columnsAt = (list: readonly (readonly [number, number])[]) => list.map(([dx, dz]) => surface.footprintColumn(sx + dx, sz + dz));
         const roof = surface.roofTopAtMap(x, y);
         const surfaceY = Number.isNaN(roof) ? surface.heightAtMap(x, y) : roof;
-        const footprint = resolveTowerFootprint(surfaceY, radius, columnsAt(offsets), () => columnsAt(around));
+        const carries = crown ? (reach: number) => surface.crownCarries(sx, sz, crown.axisX, crown.axisZ, crown.top, reach) : undefined;
+        const footprint = resolveTowerFootprint(surfaceY, radius, columnsAt(offsets), () => columnsAt(around), carries);
         if (footprint.refusal) k = BuildCell.Steep;
         else k = nearest <= TYPICAL_TOWER_RANGE ? BuildCell.InReach : BuildCell.OutOfReach;
       }

@@ -125,6 +125,14 @@ export interface WorldSurface {
    */
   skylineAt?(localX: number, localZ: number): number | null;
   /**
+   * The crown under a local point (a custom map's wall walk or gatehouse,
+   * object-roof.ts): its centre line point across from it (scene x, z), axis,
+   * half width and top; null off a crown and where the world has none
+   */
+  crownAt?(localX: number, localZ: number): { x: number; z: number; axisX: number; axisZ: number; halfWidth: number; top: number } | null;
+  /** Whether the roofs carry `reach` metres both ways along a crown's axis from a local point (tower-footprint.ts CrownCarries) */
+  crownCarries?(localX: number, localZ: number, axisX: number, axisZ: number, top: number, reach: number): boolean;
+  /**
    * Why a tower of `radius` metres may not stand at a geographic point
    * (BUILD_BLOCKED_OBJECT: a custom map's houses and trees, BUILD_BLOCKED_WATER:
    * its lakes and rivers); null where it may, and always where the ground

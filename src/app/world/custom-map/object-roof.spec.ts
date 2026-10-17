@@ -10,6 +10,7 @@ import { CustomMapFrame, CustomMapSurface } from './custom-map-surface';
 import { createMapDocument } from './map-create';
 import { type CustomMapDocument, type MapObject, MAP_METERS_PER_DEGREE, mapToGeo } from './map-document';
 import { type CatalogRoof, PlacedRoof } from './object-roof';
+import { crownBraces, plinthCrown } from '../../three-engine/renderers/tower-plinth/plinth-braces';
 import type { CatalogObject } from './render/asset-catalog';
 
 /** A 2 x 1 cell roof of 1 m cells at heights 4 and 6, as base64 bytes of 0.5 m steps */
@@ -119,13 +120,16 @@ describe('CustomMapSurface roofs (TODO E217)', () => {
     expect(footprint.overhang?.length).toBeGreaterThan(0);
   });
 
-  it('takes the inner ring off a wall top as an edge: a slim tower fits on a fort wall, a wide one does not', () => {
-    // fort-wall: 3.5 m walk, about 8 m up
+  it('stands a tower on the walk of a lone fort wall where it carries the tower the long way (E217 crown)', () => {
+    // fort-wall: 3.5 m walk, about 8 m up, 14.7 m long; the cursor off the centre line, the tower on it
     const walk = surface.roofAt(frame.sceneX(0), frame.sceneZ(40 - 0.35))!;
     expect(walk - surface.heightAtMap(0, 40)).toBeGreaterThan(6);
-    expect(footprintAt('archer', 0, 40 - 0.35).refusal).toBe('edge');
-    const slim = (Object.keys(TOWER_TYPES) as (keyof typeof TOWER_TYPES)[]).find((id) => TOWER_TYPES[id].footprintRadius <= 3.1)!;
-    expect(footprintAt(slim, 0, 40 - 0.35).refusal).toBeUndefined();
+    const placed = onCrown(surface, frame, 'archer', 0, 40 + 0.6)!;
+    expect(placed.footprint.refusal).toBeUndefined();
+    expect(Math.abs(placed.y - (40 - 0.35))).toBeLessThan(0.3);
+    expect(placed.footprint.footY).toBeGreaterThanOrEqual(walk - 0.5);
+    // Near its end the walk does not carry the inner ring the long way: refused
+    expect(onCrown(surface, frame, 'archer', 6.9, 40)!.footprint.refusal).toBe('edge');
   });
 
   it('picks the roof under the cursor, not the ground behind the house', () => {
@@ -176,5 +180,92 @@ describe('CustomMapSurface roofs (TODO E217)', () => {
       blocked: (lat, lon) => surface.buildBlocker(lat, lon, 3),
     };
     expect(checkTowerPlacement(...geo(-30, 0), ctx, footprintAt('archer', -30, 0)).valid).toBe(true);
+  });
+});
+
+/**
+ * Where a tower of the type stands with its cursor at map (x, y), as the
+ * build preview decides it, crowns included: on a crown's centre line
+ * (CustomMapSurface.crownAt), the long way asked of the roofs. The map point
+ * it stands on and its footprint
+ */
+function onCrown(surface: CustomMapSurface, frame: CustomMapFrame, typeId: keyof typeof TOWER_TYPES, x: number, y: number) {
+  const crown = surface.crownAt(frame.sceneX(x), frame.sceneZ(y));
+  const sx = crown ? crown.x : frame.sceneX(x);
+  const sz = crown ? crown.z : frame.sceneZ(y);
+  const radius = TOWER_TYPES[typeId].footprintRadius;
+  const columns = (list: readonly (readonly [number, number])[]) => list.map(([dx, dz]) => surface.footprintColumn(sx + dx, sz + dz));
+  const surfaceY = surface.roofAt(sx, sz) ?? surface.heightAtMap(frame.mapX(sx), frame.mapY(sz));
+  const carries = crown ? (reach: number) => surface.crownCarries(sx, sz, crown.axisX, crown.axisZ, crown.top, reach) : undefined;
+  const footprint = resolveTowerFootprint(surfaceY, radius, columns(footprintSampleOffsets(radius)), () => columns(footprintSurroundingOffsets(radius)), carries);
+  return { x: frame.mapX(sx), y: frame.mapY(sz), footprint, crown };
+}
+
+describe('Towers on crowns, houses, towers, corners and gates (E217)', () => {
+  const frame = new CustomMapFrame();
+  const all = Object.keys(TOWER_TYPES) as (keyof typeof TOWER_TYPES)[];
+  const ids = ['castle-wall', 'fort-wall', 'palisade', 'castle-wall-corner', 'castle-gate', 'house', 'castle-tower'];
+
+  /** A run of three segments of a wall along map x at y, each its length apart, the middle one at x */
+  const run = (asset: string, x: number, y: number, length: number, rotation = 0): MapObject[] =>
+    [-1, 0, 1].map((k) => ({ id: `${asset}-${x}-${k}`, asset, x: x + k * length, y, z: 0, rotation, scale: 1 }));
+
+  const objects: MapObject[] = [
+    ...run('castle-wall', -50, -60, 8),
+    ...run('fort-wall', 30, -60, 14.7),
+    ...run('palisade', -50, 60, 4),
+    { id: 'corner', asset: 'castle-wall-corner', x: 50, y: 60, z: 0, rotation: 0, scale: 1 },
+    { id: 'corner-w', asset: 'castle-wall', x: 50 - 2.5 - 4, y: 60, z: 0, rotation: 0, scale: 1 },
+    { id: 'corner-e', asset: 'castle-wall', x: 50 + 2.5 + 4, y: 60, z: 0, rotation: 0, scale: 1 },
+    { id: 'gate', asset: 'castle-gate', x: 0, y: 0, z: 0, rotation: 0.4, scale: 1 },
+    { id: 'house', asset: 'house', x: -60, y: 0, z: 0, rotation: 0, scale: 1 },
+    { id: 'tower', asset: 'castle-tower', x: 60, y: 0, z: 0, rotation: 0, scale: 1 },
+  ];
+  const doc = slopeMap(objects);
+  const surface = new CustomMapSurface(doc, frame);
+  surface.setObjectCatalog(ids.map(entry));
+
+  it('marks the walls and the gate as crowns in the catalogue, not the houses and towers', () => {
+    expect(ids.map((id) => entry(id).roof?.kind ?? 'roof')).toEqual(['crown', 'crown', 'crown', 'crown', 'crown', 'roof', 'roof']);
+  });
+
+  it('stands every tower on every wall: castle wall, fort wall, palisade, centred on the walk, braced on both sides', () => {
+    for (const [x, y] of [[-50, -60], [30, -60], [-50, 60]]) {
+      for (const typeId of all) {
+        // The cursor near the wall's face, the tower on its centre line
+        const placed = onCrown(surface, frame, typeId, x + 0.4, y + 0.15)!;
+        expect(placed.crown, `${typeId} at ${x}`).not.toBeNull();
+        expect(placed.footprint.refusal, `${typeId} at ${x}`).toBeUndefined();
+        // Hanging over both sides: a plinth with corbels on both sides of the wall
+        expect(placed.footprint.plinthHeight).toBeGreaterThan(0);
+        const braces = crownBraces(TOWER_TYPES[typeId].footprintRadius, placed.footprint.plinthHeight, plinthCrown(placed.crown)!);
+        const sides = new Set(braces.map((b) => Math.sign(Math.cos(b.angle - Math.atan2(placed.crown!.axisZ, placed.crown!.axisX) - Math.PI / 2))));
+        expect(sides.size, `${typeId} at ${x}`).toBe(2);
+      }
+    }
+  });
+
+  it('stands a tower on a corner of the wall and on a gatehouse', () => {
+    expect(onCrown(surface, frame, 'archer', 50, 60).footprint.refusal).toBeUndefined();
+    for (const typeId of ['archer', 'cannon'] as const) expect(onCrown(surface, frame, typeId, 0, 0).footprint.refusal).toBeUndefined();
+  });
+
+  it('keeps the roof rules on a house and a tower: on top, no crown, the inner ring on the roof', () => {
+    const house = onCrown(surface, frame, 'archer', -60, 0);
+    expect(house.crown).toBeNull();
+    expect(house.footprint.refusal).toBeUndefined();
+    const tower = onCrown(surface, frame, 'archer', 60, 0);
+    expect(tower.crown).toBeNull();
+    expect(tower.footprint.refusal).toBeUndefined();
+    // The same castle tower's top refuses what hangs over its edge: no crown, no allowance
+    expect(onCrown(surface, frame, 'research-center' as keyof typeof TOWER_TYPES, 60, 0).footprint.refusal).toBe('edge');
+  });
+
+  it('leaves the rule of the tiles as it is: a column without crown refuses an inner ring over a drop', () => {
+    const radius = TOWER_TYPES.archer.footprintRadius;
+    const offsets = footprintSampleOffsets(radius);
+    // A 2 m wide ridge along x, 8 m up, as the tiles would show it
+    const columns = offsets.map(([, dz]) => (Math.abs(dz) <= 1 ? { groundY: 0, topY: 8 } : { groundY: 0, topY: 0 }));
+    expect(resolveTowerFootprint(8, radius, columns, undefined, () => true).refusal).toBe('edge');
   });
 });

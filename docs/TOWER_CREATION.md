@@ -1169,7 +1169,10 @@ steht oder über einem Abbruch hängt (Wand und Abbruch in den Regeln oben):
   oder eine Wand streifen. Trifft eine Probe der Mitte oder des inneren Rings eine Fläche mehr als
   `MAX_RISE` über der Cursor-Fläche, lautet die Ablehnung `wall` (Grund „Not enough room"),
   hängt eine davon über dem Abbruch (in `overhang`, auch ohne Treffer), `edge` („Too far over the
-  edge"); die Wand zuerst. `checkTowerPlacement` prüft das nach den Abständen. Der Footprint wird
+  edge"); die Wand zuerst. Ausnahme auf einer Krone eigener Karten (`FootprintColumn.crown`, Mauer oder Torhaus):
+  dort darf der innere Ring über beide Seiten ragen, wo die Mitte auf der Krone steht und sie den Tower den halben
+  Radius in beide Richtungen trägt (`CrownCarries`, [CUSTOM_MAP_WORLD.md](CUSTOM_MAP_WORLD.md), Kronen).
+  `checkTowerPlacement` prüft das nach den Abständen. Der Footprint wird
   trotzdem entschieden: die rote Vorschau zeigt Sockel und Stützen. Eine Baumkrone oder ein
   Brückendeck mehr als 5 m über der Mitte oder dem inneren Ring schließt den Platz genauso aus,
   die Proben unterscheiden sie nicht von einer Wand.

@@ -4,6 +4,7 @@ import { streetHeightAt, type StreetHeightGround } from '../../three-engine/terr
 import type { StreetSurface } from '../../utils/carried-height';
 import type { StationProbe } from '../../utils/route-corridor';
 import type { FootprintColumn } from '../../utils/tower-footprint';
+import { PLINTH_CONFIG } from '../../configs/placement.config';
 import { BUILD_BLOCKED_OBJECT, BUILD_BLOCKED_WATER, WATER_DEPTH_M, type WorldSurface } from '../world-provider';
 import type { CustomMapDocument, MapObject } from './map-document';
 import { MAP_METERS_PER_DEGREE } from './map-document';
@@ -18,6 +19,15 @@ import { seatHeight } from './render/objects/object-seat';
 
 /** Farthest a bridge deck lies over the ground where a walker off the bridge still steps onto it, metres (walkHeightAtMap) */
 const DECK_STEP_M = 0.5;
+
+/** Step along a crown's axis when checking that it carries, m (crownCarries) */
+const CROWN_STEP_M = 0.5;
+/** Farthest a crown is followed when two walls meet, to pick the one that carries farther, m (crownAt) */
+const CROWN_MAX_REACH_M = 12;
+/** Widest a crown is across, half of it, m: a gatehouse along its length is no crown that way */
+const CROWN_MAX_HALF_WIDTH_M = 4;
+/** A crown this far under the highest roof at a point still counts there (a wall under a junction piece), m */
+const CROWN_LEVEL_M = PLINTH_CONFIG.MAX_DROP;
 
 /** How far a cursor pick looks, m (HeightField.raycast's default) */
 const PICK_REACH_M = 20000;
@@ -117,6 +127,8 @@ export class CustomMapSurface implements WorldSurface {
   /** The roofs that carry towers (object-roof.ts), and per 16 m bucket of the blockers' grid the ones over it */
   private roofs: PlacedRoof[] = [];
   private roofBuckets: (PlacedRoof[] | undefined)[] = [];
+  /** Height of the roof roofOver found last */
+  private roofHeight = NaN;
   private readonly ray = new Ray();
   private readonly hit = new Vector3();
   private readonly streetGround: StreetHeightGround = {
@@ -312,18 +324,102 @@ export class CustomMapSurface implements WorldSurface {
 
   /** The highest roof that carries towers over map (x, y), NaN where none does */
   roofTopAtMap(x: number, y: number): number {
+    return this.roofOver(x, y) ? this.roofHeight : NaN;
+  }
+
+  /**
+   * Where a tower on a crown (a wall's walk, a gatehouse: object-roof.ts)
+   * stands when the cursor is at a local point: on the crown's centre line
+   * across from it, with the crown's axis (scene x, z), half width and top.
+   * Of the crowns there (a wall, a corner or junction piece over it) and
+   * either way along each, no wider than CROWN_MAX_HALF_WIDTH_M across: the
+   * one that carries farthest both ways, then the higher one under the
+   * point, then the one whose centre line is nearest. Null where the highest
+   * roof there is no crown.
+   */
+  crownAt(localX: number, localZ: number): { x: number; z: number; axisX: number; axisZ: number; halfWidth: number; top: number } | null {
+    const mx = this.frame.mapX(localX);
+    const my = this.frame.mapY(localZ);
+    const highest = this.roofOver(mx, my);
+    if (!highest?.crown) return null;
+    const top = this.roofHeight;
+    let best: { x: number; z: number; axisX: number; axisZ: number; halfWidth: number; top: number } | null = null;
+    let bestScore = [-1, 0, 0];
+    for (const roof of this.roofBuckets[this.bucketOf(mx, my)] ?? []) {
+      const height = roof.heightAt(mx, my);
+      if (!roof.crown || !(height >= top - CROWN_LEVEL_M)) continue;
+      for (const alongX of [true, false]) {
+        const c = roof.section(mx, my, PLINTH_CONFIG.MAX_DROP, alongX);
+        if (!c || c.halfWidth > CROWN_MAX_HALF_WIDTH_M) continue;
+        // Scene x is map -x, scene z map y
+        const crown = { x: this.frame.sceneX(c.x), z: this.frame.sceneZ(c.y), axisX: -c.ax, axisZ: c.ay, halfWidth: c.halfWidth, top: c.top };
+        const score = [
+          this.crownReach(crown.x, crown.z, crown.axisX, crown.axisZ, crown.top, CROWN_MAX_REACH_M),
+          height,
+          -Math.hypot(c.x - mx, c.y - my),
+        ];
+        if (score[0] > bestScore[0] || (score[0] === bestScore[0] && (score[1] > bestScore[1] + 1e-6 || (Math.abs(score[1] - bestScore[1]) <= 1e-6 && score[2] > bestScore[2])))) {
+          bestScore = score;
+          best = crown;
+        }
+      }
+    }
+    return best;
+  }
+
+  /**
+   * Whether the roofs carry `reach` metres both ways along a crown's axis
+   * (scene x, z) from a local point at height `top`: every half metre a roof
+   * no more than MAX_DROP below and MAX_RISE above, the next wall segment as
+   * well as this one. The long way a tower on a crown stands on
+   * (tower-footprint.ts)
+   */
+  crownCarries(localX: number, localZ: number, axisX: number, axisZ: number, top: number, reach: number): boolean {
+    return this.crownReach(localX, localZ, axisX, axisZ, top, reach) >= reach;
+  }
+
+  /** How far, up to `limit`, the roofs carry both ways along a crown's axis (crownCarries), the shorter way */
+  private crownReach(localX: number, localZ: number, axisX: number, axisZ: number, top: number, limit: number): number {
+    const mx = this.frame.mapX(localX);
+    const my = this.frame.mapY(localZ);
+    let reach = limit;
+    for (const side of [1, -1]) {
+      for (let d = CROWN_STEP_M; d < reach + CROWN_STEP_M - 1e-6; d += CROWN_STEP_M) {
+        const along = Math.min(d, reach) * side;
+        const h = this.roofTopAtMap(mx - axisX * along, my + axisZ * along);
+        if (!(h >= top - PLINTH_CONFIG.MAX_DROP && h <= top + PLINTH_CONFIG.MAX_RISE)) {
+          reach = Math.min(reach, d - CROWN_STEP_M);
+          break;
+        }
+      }
+    }
+    return Math.max(0, reach);
+  }
+
+  /** Index of the 16 m bucket over map (x, y), -1 off the map */
+  private bucketOf(x: number, y: number): number {
     const g = this.blockers;
-    if (!g || this.roofs.length === 0) return NaN;
+    if (!g) return -1;
     const i = Math.floor((x - g.minX) / g.cell);
     const j = Math.floor((y - g.minY) / g.cell);
-    if (i < 0 || j < 0 || i >= g.columns || j >= g.rows) return NaN;
-    const list = this.roofBuckets[j * g.columns + i];
-    if (!list) return NaN;
-    let best = NaN;
+    return i < 0 || j < 0 || i >= g.columns || j >= g.rows ? -1 : j * g.columns + i;
+  }
+
+  /** The highest roof over map (x, y), its height in roofHeight; null where none is */
+  private roofOver(x: number, y: number): PlacedRoof | null {
+    if (this.roofs.length === 0) return null;
+    const list = this.roofBuckets[this.bucketOf(x, y)];
+    if (!list) return null;
+    let best: PlacedRoof | null = null;
+    let height = -Infinity;
     for (const roof of list) {
       const h = roof.heightAt(x, y);
-      if (!(h <= best)) best = Number.isNaN(best) || h > best ? h : best;
+      if (h > height) {
+        height = h;
+        best = roof;
+      }
     }
+    this.roofHeight = height;
     return best;
   }
 
@@ -504,9 +600,10 @@ export class CustomMapSurface implements WorldSurface {
     const my = this.frame.mapY(localZ);
     const ground = this.field.heightAt(mx, my);
     const deck = deckHeightAt(this.bridges, mx, my);
-    const roof = this.roofTopAtMap(mx, my);
+    const roof = this.roofOver(mx, my);
     const top = Number.isNaN(deck) ? ground : Math.max(ground, deck);
-    return roof > top ? { groundY: ground, topY: roof, built: true } : { groundY: ground, topY: top };
+    if (!roof || !(this.roofHeight > top)) return { groundY: ground, topY: top };
+    return roof.crown ? { groundY: ground, topY: this.roofHeight, built: true, crown: true } : { groundY: ground, topY: this.roofHeight, built: true };
   }
 
   /** Nothing streams on a map */

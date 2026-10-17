@@ -126,6 +126,51 @@ function corbel(
   return { angle, offset, topReach, edgeReach, footReach };
 }
 
+/** The crown a plinth stands on: its axis (radians, 0 = +x, π/2 = +z) and half width (m) at the plinth's axis */
+export interface PlinthCrown {
+  axis: number;
+  halfWidth: number;
+}
+
+/** A world's crown (WorldSurface.crownAt: axis as scene x, z) as the plinth reads it; null stays null */
+export function plinthCrown(crown: { axisX: number; axisZ: number; halfWidth: number } | null): PlinthCrown | null {
+  return crown ? { axis: Math.atan2(crown.axisZ, crown.axisX), halfWidth: crown.halfWidth } : null;
+}
+
+/** Corbels along the crown on each side at most: the plinth is no wider than a few corbels' spacing */
+const CROWN_BRACES_PER_SIDE = 3;
+/** Share of the plinth's radius the corbels of a side spread over, either way along the crown */
+const CROWN_BRACE_SPREAD = 0.6;
+
+/**
+ * The stone corbels under a plinth on a crown (a wall's walk, a gatehouse;
+ * PlinthCrown): the plinth stands centred on it and hangs over both its
+ * sides, which carry it on corbels set into the wall. On each side where it
+ * projects at least BRACE_MIN_PROJECTION_M beyond the wall's face, up to
+ * CROWN_BRACES_PER_SIDE corbels about BRACE_SPACING_M apart along the crown,
+ * straight out from it, their steps from the face to just inside the rim
+ * and their backs in the wall. The same stones and courses as the corbels at
+ * a roof's edge (plinthBraces); a thin wall (a palisade) gets long ones.
+ */
+export function crownBraces(footprintRadius: number, height: number, crown: PlinthCrown): PlinthBrace[] {
+  const rim = footprintRadius + PLINTH_RIM_M;
+  const count = Math.min(CROWN_BRACES_PER_SIDE, Math.max(1, Math.round((2 * CROWN_BRACE_SPREAD * rim) / BRACE_SPACING_M)));
+  const braces: PlinthBrace[] = [];
+  for (const side of [1, -1]) {
+    const angle = crown.axis + (side * Math.PI) / 2;
+    for (let j = 0; j < count; j++) {
+      const offset = count === 1 ? 0 : CROWN_BRACE_SPREAD * rim * (-1 + (2 * j) / (count - 1));
+      const brace = corbel(footprintRadius, height, angle, offset, crown.halfWidth, (x, z) => {
+        // On the crown: within its half width across it
+        const across = x * Math.cos(angle) + z * Math.sin(angle);
+        return across <= crown.halfWidth;
+      });
+      if (brace && brace.topReach - crown.halfWidth >= BRACE_MIN_PROJECTION_M) braces.push(brace);
+    }
+  }
+  return braces;
+}
+
 /** Index of the probe nearest to (x, z). */
 function nearestProbe(offsets: readonly Point[], x: number, z: number): number {
   let nearest = 0;

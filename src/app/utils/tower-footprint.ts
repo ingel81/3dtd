@@ -27,7 +27,11 @@ export interface TowerFootprint {
  *   cursor surface. The tower would stand in a facade (also under a crown or
  *   a bridge deck, the probes do not tell them apart).
  * - `edge`: one of them hangs over a drop (`overhang`). Only the outer ring
- *   may reach past an edge, where braces carry the plinth.
+ *   may reach past an edge, where braces carry the plinth. On a crown (a
+ *   wall's walk, FootprintColumn.crown) the inner ring may hang over its
+ *   sides where the centre stands on it and it carries the tower half its
+ *   radius both ways along it (CrownCarries): braces carry the plinth on
+ *   both sides of the wall.
  */
 export type FootprintRefusal = 'wall' | 'edge';
 
@@ -46,7 +50,20 @@ export interface FootprintColumn {
    * Missing where the world cannot tell (the tiles).
    */
   built?: boolean;
+  /**
+   * The top is a crown: a wall's walk or a gatehouse (object-roof.ts). A
+   * tower whose centre stands on one may hang over both its sides with the
+   * inner ring, where the crown carries it the long way (FootprintRefusal)
+   */
+  crown?: boolean;
 }
+
+/**
+ * Whether the crown under the centre carries `reach` metres both ways along
+ * it (CustomMapSurface.crownCarries); asked only where the centre stands on
+ * a crown and the inner ring hangs over a drop
+ */
+export type CrownCarries = (reach: number) => boolean;
 
 /** Which rule set the foot, see resolveTowerFootprint. */
 export type FootprintRule =
@@ -265,8 +282,9 @@ export function resolveTowerFootprint(
   radius: number,
   columns: readonly (FootprintColumn | null)[],
   surroundings?: () => readonly (FootprintColumn | null)[],
+  crown?: CrownCarries,
 ): TowerFootprint {
-  return decideTowerFootprint(surfaceY, radius, columns, surroundings).footprint;
+  return decideTowerFootprint(surfaceY, radius, columns, surroundings, crown).footprint;
 }
 
 /** resolveTowerFootprint, with the rule and the numbers behind it. */
@@ -275,6 +293,7 @@ export function decideTowerFootprint(
   radius: number,
   columns: readonly (FootprintColumn | null)[],
   surroundings?: () => readonly (FootprintColumn | null)[],
+  crown?: CrownCarries,
 ): FootprintDecision {
   const pattern = footprintPattern(radius);
   const heights = carryingHeights(surfaceY, columns, pattern);
@@ -289,7 +308,7 @@ export function decideTowerFootprint(
   const groundTopY = groundTop(surfaceY, heights, pattern);
   const centre = columns[0] ?? null;
   const overhang = plinthOverhang(bottom, columns);
-  const refusal = footprintRefusal(surfaceY, columns, overhang, pattern.innerCount);
+  const refusal = footprintRefusal(surfaceY, radius, columns, overhang, pattern.innerCount, crown);
 
   const decided = (
     rule: FootprintRule,
@@ -341,19 +360,24 @@ function plinthFootprint(
 
 /**
  * Whether the centre or the inner ring (the first `innerCount` columns) rules
- * the spot out, see FootprintRefusal; a facade first, then a drop.
+ * the spot out, see FootprintRefusal; a facade first, then a drop, which a
+ * crown that carries the tower the long way allows beside the centre.
  */
 function footprintRefusal(
   surfaceY: number,
+  radius: number,
   columns: readonly (FootprintColumn | null)[],
   overhang: readonly number[],
   innerCount: number,
+  crown: CrownCarries | undefined,
 ): FootprintRefusal | null {
   for (let index = 0; index < innerCount; index++) {
     const column = columns[index];
     if (column && column.topY > surfaceY + PLINTH_CONFIG.MAX_RISE) return 'wall';
   }
-  return overhang.some((index) => index < innerCount) ? 'edge' : null;
+  if (!overhang.some((index) => index < innerCount)) return null;
+  const onCrown = columns[0]?.crown === true && !overhang.includes(0);
+  return onCrown && crown?.(radius / 2) ? null : 'edge';
 }
 
 /**

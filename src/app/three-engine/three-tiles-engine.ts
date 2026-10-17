@@ -38,6 +38,7 @@ import {
 import { InstancedEnemyRenderer } from './renderers/instanced-enemy/instanced-enemy.renderer';
 import { LaserBeamRenderer } from './renderers/laser-beam.renderer';
 import { disposeBlobShadows, setBlobGround } from './renderers/instanced-enemy/blob-shadow';
+import { plinthCrown } from './renderers/tower-plinth/plinth-braces';
 import { TowerPlinthRenderer } from './renderers/tower-plinth/tower-plinth.renderer';
 import { TowerBadgeRenderer } from './renderers/tower-badge/tower-badge.renderer';
 import { AbilityMarkerRenderer } from './renderers/ability-marker.renderer';
@@ -368,7 +369,7 @@ export class ThreeTilesEngine {
     // again from its CPU copy, which the VATs drop after their first upload.
     this.enemies.rebakeOnContextRestore(this.renderer.domElement);
     this.towers = new ThreeTowerRenderer(this.scene, coordinateSync, this.assetManager);
-    this.plinths = new TowerPlinthRenderer(this.scene, coordinateSync, (x, z) => this.terrain.sampleColumn(x, z));
+    this.plinths = new TowerPlinthRenderer(this.scene, coordinateSync, (x, z) => this.terrain.sampleColumn(x, z), (x, z) => plinthCrown(this.terrain.crownAt?.(x, z) ?? null));
     this.towerBadges = new TowerBadgeRenderer(this.scene, (id) => this.towers.get(id)?.mesh ?? null);
     this.projectiles = new ThreeProjectileRenderer(this.scene, coordinateSync);
     // One clock for everything that slides between two states (state-lerp.ts)

@@ -22,6 +22,24 @@ export interface CatalogRoof {
   step: number;
   /** One byte per cell, row by row along +z, base64; 0 where nothing carries (open ground, a floor) */
   heights: string;
+  /**
+   * The kind of top: `crown` for a wall's walk or a gatehouse (a long narrow
+   * top along the model's longer side, see PlacedRoof.section), missing for a
+   * roof. On a crown a tower may hang over both sides (tower-footprint.ts)
+   */
+  kind?: 'crown';
+}
+
+/** Where a tower stands on a crown: its centre line through a point, the axis along it, its half width and top */
+export interface CrownSection {
+  /** Map point on the centre line, across from the asked one */
+  x: number;
+  y: number;
+  /** Unit direction along the crown, map space */
+  ax: number;
+  ay: number;
+  halfWidth: number;
+  top: number;
 }
 
 const decoded = new WeakMap<CatalogRoof, Float32Array>();
@@ -40,6 +58,9 @@ export function roofHeights(roof: CatalogRoof): Float32Array {
   }
   return heights;
 }
+
+/** Largest height difference between four cells blended into a slope, m: a pitched roof's rows differ less, a wall's face more */
+const BLEND_STEP_M = 1;
 
 /** Bisection steps of a ray's hit: a cell of 0.5 m to under a millimetre */
 const REFINE_STEPS = 12;
@@ -85,6 +106,52 @@ export class PlacedRoof {
   /** Highest point on the map, m */
   get top(): number {
     return this.baseY + this.highest * this.scale;
+  }
+
+  /** A wall's walk or a gatehouse (CatalogRoof.kind) */
+  get crown(): boolean {
+    return this.roof.kind === 'crown';
+  }
+
+  /**
+   * The crown across map (x, y), along the model's x (`alongX`) or z: as
+   * wide as its top carries there (cells down to `drop` metres under the
+   * point's height count, a lower ledge or the ground beside it ends it);
+   * its centre line point across from (x, y). Null off the roof.
+   */
+  section(x: number, y: number, drop: number, alongX: boolean): CrownSection | null {
+    const s = this.scale;
+    const r = this.roof;
+    const dx = x - this.x;
+    const dy = y - this.y;
+    const mx = (-dx * this.cos - dy * this.sin) / s;
+    const mz = (-dx * this.sin + dy * this.cos) / s;
+    const h0 = this.modelHeight(mx, mz);
+    if (Number.isNaN(h0)) return null;
+    const low = h0 - drop / s;
+    const step = r.cell / 4;
+    const carries = (v: number): boolean => {
+      const h = alongX ? this.modelHeight(mx, v) : this.modelHeight(v, mz);
+      return !Number.isNaN(h) && h >= low;
+    };
+    const v0 = alongX ? mz : mx;
+    let lo = v0;
+    let hi = v0;
+    while (carries(lo - step)) lo -= step;
+    while (carries(hi + step)) hi += step;
+    const vc = (lo + hi) / 2;
+    const cmx = alongX ? mx : vc;
+    const cmz = alongX ? vc : mz;
+    const top = this.modelHeight(cmx, cmz);
+    // Model (x, z) to the map: the inverse of toModel; model +x runs along (-cos, -sin), +z along (-sin, cos)
+    return {
+      x: this.x - (cmx * this.cos + cmz * this.sin) * s,
+      y: this.y - cmx * this.sin * s + cmz * this.cos * s,
+      ax: alongX ? -this.cos : -this.sin,
+      ay: alongX ? -this.sin : this.cos,
+      halfWidth: ((hi - lo) / 2 + step / 2) * s,
+      top: this.baseY + (Number.isNaN(top) ? h0 : top) * s,
+    };
   }
 
   /** The roof's height over map (x, y), m; NaN where it has none */
@@ -156,8 +223,8 @@ export class PlacedRoof {
 
   /**
    * Height at model (x, z), scale 1: between the four nearest cell middles
-   * where all four carry, else the cell's own (NaN where it has none or
-   * outside the grid)
+   * where all four carry within BLEND_STEP_M, else the cell's own (NaN where
+   * it has none or outside the grid)
    */
   private modelHeight(x: number, z: number): number {
     const r = this.roof;
@@ -178,8 +245,10 @@ export class PlacedRoof {
     const h10 = this.heights[k + 1];
     const h01 = this.heights[k + r.columns];
     const h11 = this.heights[k + r.columns + 1];
-    // A NaN corner fails the sum: the edge of the roof keeps its own height
+    // A NaN corner fails the sum: the edge of the roof keeps its own height; so does a step (a wall's face, a
+    // parapet): blended it would read as a slope the plinth follows down
     if (Number.isNaN(h00 + h10 + h01 + h11)) return own;
+    if (Math.max(h00, h10, h01, h11) - Math.min(h00, h10, h01, h11) > BLEND_STEP_M / this.scale) return own;
     const u = gx - i0;
     const v = gz - j0;
     return (h00 * (1 - u) + h10 * u) * (1 - v) + (h01 * (1 - u) + h11 * u) * v;
