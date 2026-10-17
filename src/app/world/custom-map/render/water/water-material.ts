@@ -99,6 +99,8 @@ export function createWaterMaterial(o: WaterMaterialOptions): ShaderMaterial {
         uWetFilm: { value: 0 },
         // The scene mirrored in this body's level (water-reflection.ts): on while it is the level mirrored
         uReflectOn: { value: 0 },
+        // Scene metres the mirror draws (water-reflection.ts far): its share fades out towards it
+        uReflectFar: { value: 400 },
         uReflection: { value: null },
         uReflectMatrix: { value: new Matrix4() },
       },
@@ -180,9 +182,9 @@ export function setWaterEffects(
   return { refraction, reflects };
 }
 
-/** Whether this material's body is the one the reflection mirrors this frame */
-export function setWaterMirrored(material: ShaderMaterial, on: boolean): void {
-  material.uniforms['uReflectOn'].value = on ? 1 : 0;
+/** How strongly this material's body shows the reflection this frame: 0 none, 1 full (it fades in and out) */
+export function setWaterMirrored(material: ShaderMaterial, weight: number): void {
+  material.uniforms['uReflectOn'].value = weight;
 }
 
 /** Baked flow of an area body (flow-map.ts, RG on the mask's grid and uv), or none */
@@ -396,6 +398,7 @@ ${SCENE_COPY_GLSL}
 #endif
 #ifdef REFLECT_SCENE
 uniform float uReflectOn;
+uniform float uReflectFar;
 uniform sampler2D uReflection;
 uniform mat4 uReflectMatrix;
 #endif
@@ -783,24 +786,15 @@ void main() {
   #else
   float mirrorWeight = fresnel * 0.9 + 0.05;
   #endif
+  // How much of the scene's mirror this pixel shows: the body's weight (it fades in and out, mirror-choice.ts),
+  // and towards the mirror's reach the land traced over the heights takes over, so far water never meets the
+  // mirror's edge
+  float mirrorShare = 0.0;
   #ifdef REFLECT_SCENE
-  if (uReflectOn > 0.5) {
-    // The scene mirrored in this level (water-reflection.ts), bent by the waves: banks, trees, houses and the
-    // sky over them. A calm surface shows it from above too, as a still lake does; rough patches and the
-    // sea's swell less
-    vec4 rc = uReflectMatrix * vec4(vWorldPos, 1.0);
-    sky = texture2D(uReflection, rc.xy / rc.w + n.xz * 0.05).rgb;
-    #if KIND == 3
-    mirrorWeight = mix(0.16, 1.0, fresnel) * mix(1.0, 0.75, gust);
-    #elif KIND == 4
-    mirrorWeight = mix(0.18, 0.7, fresnel);
-    #else
-    mirrorWeight = mix(0.3, 1.0, fresnel) * mix(1.0, 0.75, gust);
-    #endif
-  } else
+  mirrorShare = uReflectOn * (1.0 - smoothstep(uReflectFar * 0.6, uReflectFar, length(cameraPosition - vWorldPos)));
   #endif
-  {
   #ifdef WATER_DETAIL
+  if (mirrorShare < 0.999) {
   // The land in the reflection: the reflected ray, followed over the terrain's heights 1.5, 4.5, 13.5 and
   // 40.5 m out, runs into a bank, a cliff or the hills beyond the shore; there the water mirrors the ground's
   // colour where the ray met it (its splat layers), shaded, hazier the farther the land (terrain only, not
@@ -822,8 +816,27 @@ void main() {
   vec3 landLit = groundColorAt(hitAt) * (uSunColor * (0.25 + 0.45 * max(uSunDir.y, 0.0)) + uLight * 0.25);
   vec3 landTone = mix(landLit, uHorizon * 0.6, landFar / max(land, 1e-3)) * mix(0.7, 1.0, sunShade);
   sky = mix(sky, landTone, land * 0.85);
-  #endif
   }
+  #endif
+  #ifdef REFLECT_SCENE
+  // Where the scene is mirrored (High, Ultra) a calm surface shows its reflection from above too, as a still
+  // lake does; rough patches and the sea's swell less. The same for a body the mirror does not serve now (another
+  // level has it, or it lies beyond its reach): its sky and traced land show as strongly, so the mirror coming
+  // or going changes what is reflected, not how bright the water reads
+  #if KIND == 3
+  mirrorWeight = mix(0.16, 1.0, fresnel) * mix(1.0, 0.75, gust);
+  #elif KIND == 4
+  mirrorWeight = mix(0.18, 0.7, fresnel);
+  #else
+  mirrorWeight = mix(0.3, 1.0, fresnel) * mix(1.0, 0.75, gust);
+  #endif
+  if (mirrorShare > 0.001) {
+    // The scene mirrored in this level (water-reflection.ts), bent by the waves: banks, trees, houses and the
+    // sky over them
+    vec4 rc = uReflectMatrix * vec4(vWorldPos, 1.0);
+    sky = mix(sky, texture2D(uReflection, rc.xy / rc.w + n.xz * 0.05).rgb, mirrorShare);
+  }
+  #endif
   #if KIND == 4
   color = mix(body, sky, mirrorWeight);
   // Algae and duckweed in patches along the banks, where the water is shallow and still; the open

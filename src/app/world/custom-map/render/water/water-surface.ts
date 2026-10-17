@@ -75,7 +75,7 @@ export class WaterSurface {
   /** The surface's level (map frame), for the reflection's plane */
   level = 0;
   /** This body is the one the reflection mirrors */
-  private mirrored = false;
+  private mirrored = 0;
   private beforeRender: Mesh['onBeforeRender'] = () => undefined;
   /** The frame copy lava's heat shimmer reads, null when it is off (heat-haze.ts) */
   private hazeCopy: SceneCopy | null = null;
@@ -234,10 +234,10 @@ export class WaterSurface {
     return [...this.tiles.values(), ...(this.apronMesh ? [this.apronMesh] : [])];
   }
 
-  /** Whether this body's level is the one mirrored (the reflection is armed for it) */
-  setMirrored(on: boolean): void {
-    this.mirrored = on;
-    setWaterMirrored(this.material, on);
+  /** How strongly this body shows the mirror of its level (0 none, 1 full; it fades, mirror-choice.ts) */
+  setMirrored(weight: number): void {
+    this.mirrored = weight;
+    setWaterMirrored(this.material, weight);
   }
 
   /** Whether the reflection may mirror this body: water, sea or swamp */

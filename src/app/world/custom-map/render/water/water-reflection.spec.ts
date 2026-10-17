@@ -83,7 +83,7 @@ describe('WaterReflection', () => {
     const owner = {};
     // A heat shimmer seen in the mirror reads the copy too
     draws.push(() => copy.capture(renderer));
-    reflection.arm(camera, 2, owner);
+    reflection.arm(camera, 2, new Set([owner]));
     reflection.render(renderer, new Scene(), camera, owner);
     expect(copy.uniforms.uSceneCopy.value).toBeNull();
     // The water's tile then copies the frame, at the canvas's size

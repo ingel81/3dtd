@@ -352,9 +352,18 @@ Lava spiegeln sich).
   über den ganzen Fluss (derselbe Zugriff gestreckt und stromab laufend), Wildwasser, wo er schnell läuft (Gefälle,
   unter einem Fall). Low zeichnet ohne sie. Kosten: vier Höhen- und zwei bis drei Splat-Zugriffe mehr je Wasserpixel
   (vorher 14 bis 17 je nach Gewässer), sonst Arithmetik, kein zusätzlicher Pass
-- **Spiegelbild ab High** (`waterReflection` der Stufe, `water/water-reflection.ts`, kein Schalter): das Flächengewässer
-  mit dem meisten Wasser um den Fokus (alle 0,25 s gewählt; Wasser, Meer, Sumpf; Flüsse, Lava und Eis nie) spiegelt
-  die Karte: eine Kamera, an seiner Ebene gespiegelt, rendert die Szene in ein Half-Float-Ziel (High 35 % der
+- **Spiegelbild ab High** (`waterReflection` der Stufe, `water/water-reflection.ts`, kein Schalter): die Höhe der
+  Flächengewässer, von denen die Kamera am meisten sieht (`water/mirror-choice.ts`, alle 0,25 s: je Wasserkachel im
+  Sichtkegel und höchstens 400 m entfernt ihre Wasserfläche durch das Quadrat ihres Abstands, je Höhe summiert;
+  Wasser, Meer, Sumpf; Flüsse, Lava und Eis nie) spiegelt die Karte. Gewässer auf derselben Höhe (unter 5 cm
+  Unterschied) teilen sich den Spiegel. Eine andere Höhe übernimmt erst mit 30 % mehr im Bild; der Spiegel schaltet
+  nie hart: die Höhe, die ihn hat, blendet in 0,4 s aus, dann die nächste ein (`uReflectOn` 0 bis 1). Je Pixel blendet
+  er zwischen 60 und 100 % der Reichweite in die über die Höhen verfolgte Spiegelung des Geländes über, so trifft
+  fernes Wasser nie auf die Grenze des Spiegels. Ein nicht gespiegeltes Gewässer zeigt seinen Himmel und das verfolgte
+  Gelände ab High so stark wie ein gespiegeltes (ruhiges Wasser auch von oben), der Wechsel ändert, was gespiegelt
+  wird, nicht wie hell das Wasser wirkt. Vorher spiegelte das Gewässer mit dem meisten Wasser um den Fokus, außerhalb
+  dessen Umkreis keins: ein Fluss etwas weiter weg hatte gar kein Spiegelbild, etwas näher sprang es an. Die Wahl
+  liest je Kachel einmal deren Fläche aus ihren Dreiecken, danach wenige Dutzend Boxen je Wahl. Der Spiegel: eine Kamera, an seiner Ebene gespiegelt, rendert die Szene in ein Half-Float-Ziel (High 35 % der
   Bildgröße, jedes zweite Bild; Ultra 50 %, jedes Bild), die nahe Ebene schräg in die Wasserebene gelegt (oblique
   Projektion, nichts unter Wasser spiegelt sich), höchstens 400 m weit; der Himmel bleibt (auf der fernen Ebene). Nur
   die Karte: Gruppe, Sichtblocker, Himmel und Lichter; Türme, Gegner und Overlays des Spiels nicht, innerhalb der

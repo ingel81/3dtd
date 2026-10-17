@@ -24,9 +24,9 @@ import type { SceneCopy } from './scene-copy';
  * `uReflectMatrix`). The near plane is tilted into the water plane (an
  * oblique projection), so nothing under the water shows in the mirror.
  *
- * At most one level per frame: the view picks the body in view (custom-map-view.ts)
- * and arms the reflection each update; the first of that body's tiles to
- * draw renders it (`render`, from the tile's onBeforeRender, inside the
+ * At most one level per frame: the view picks the level in view (mirror-choice.ts;
+ * bodies on one level share it) and arms the reflection each update; the
+ * first of those bodies' tiles to draw renders it (`render`, from the tile's onBeforeRender, inside the
  * frame's draw, so the GPU time is the frame's). Other bodies and rivers
  * keep the sky and the land traced over the heights.
  *
@@ -43,6 +43,8 @@ export class WaterReflection {
   readonly uniforms = {
     uReflection: { value: null as WebGLRenderTarget['texture'] | null },
     uReflectMatrix: { value: new Matrix4() },
+    /** `far` for the water: the mirror's share fades out towards it */
+    uReflectFar: { value: 400 },
   };
   /** Share of the frame's size the mirror renders at; 0 off */
   scale = 0;
@@ -53,11 +55,16 @@ export class WaterReflection {
    */
   every = 1;
   /** Drawn objects of the reflected frame at most this far, m */
-  far = 400;
+  get far(): number {
+    return this.uniforms.uReflectFar.value;
+  }
+  set far(m: number) {
+    this.uniforms.uReflectFar.value = m;
+  }
   private skipped = 0;
   private target: WebGLRenderTarget | null = null;
   private readonly mirror = new PerspectiveCamera();
-  private armed: { camera: Camera; level: number; owner: object } | null = null;
+  private armed: { camera: Camera; level: number; owners: ReadonlySet<object> } | null = null;
   private readonly size = new Vector2();
   private readonly eye = new Vector3();
 
@@ -73,16 +80,16 @@ export class WaterReflection {
 
   /**
    * This frame mirrors the scene in the plane at `level` (scene y), for the
-   * body `owner`'s tiles; `camera` the frame's camera. Null: no mirror
+   * tiles of the bodies `owners`; `camera` the frame's camera. Null: no mirror
    */
-  arm(camera: Camera | null, level: number, owner: object | null): void {
-    this.armed = camera && owner && this.scale > 0 ? { camera, level, owner } : null;
+  arm(camera: Camera | null, level: number, owners: ReadonlySet<object> | null): void {
+    this.armed = camera && owners?.size && this.scale > 0 ? { camera, level, owners } : null;
   }
 
-  /** Renders the armed mirror once, when `owner`'s tile is the first to draw with the armed camera */
+  /** Renders the armed mirror once, when a tile of one of its bodies is the first to draw with the armed camera */
   render(renderer: WebGLRenderer, scene: Scene, camera: Camera, owner: object): void {
     const a = this.armed;
-    if (!a || a.owner !== owner || a.camera !== camera || !(camera instanceof PerspectiveCamera)) return;
+    if (!a || !a.owners.has(owner) || a.camera !== camera || !(camera instanceof PerspectiveCamera)) return;
     this.armed = null;
     if (this.target && ++this.skipped < this.every) return;
     this.skipped = 0;
