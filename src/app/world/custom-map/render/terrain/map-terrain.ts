@@ -163,6 +163,7 @@ export class MapTerrainLayer {
     const emissive = ids.map((id) => entryOf(id)?.emissive ?? 0);
     const flow = ids.map((id) => entryOf(id)?.flow ?? 0);
     const categories = ids.map((id) => entryOf(id)?.category);
+    const paved = ids.map((id) => (entryOf(id)?.paved ? 1 : 0));
     // Ground the apron may carry on from the border: no roads or pavement, no glowing lava
     this.natural = t.layers.map((l) => {
       const entry = entryOf(l.material);
@@ -198,6 +199,7 @@ export class MapTerrainLayer {
       averages,
       emissive,
       categories,
+      paved,
       flow,
       width: t.width,
       depth: t.depth,

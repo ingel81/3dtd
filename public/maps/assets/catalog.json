@@ -309,6 +309,7 @@
         "village",
         "castle"
       ],
+      "paved": true,
       "source": "https://polyhaven.com/a/cobblestone_floor_05"
     },
     {
@@ -330,6 +331,7 @@
         "village",
         "castle"
       ],
+      "paved": true,
       "source": "https://polyhaven.com/a/stone_tiles_02"
     },
     {
@@ -1262,6 +1264,7 @@
         "village",
         "swamp"
       ],
+      "paved": true,
       "source": "https://polyhaven.com/a/mossy_cobblestone"
     },
     {
@@ -1284,6 +1287,7 @@
         "village",
         "winter"
       ],
+      "paved": true,
       "source": "https://polyhaven.com/a/cobblestone_floor_08"
     },
     {
@@ -1306,6 +1310,7 @@
         "castle",
         "temperate"
       ],
+      "paved": true,
       "source": "https://polyhaven.com/a/grassy_cobblestone"
     },
     {
@@ -1327,6 +1332,7 @@
         "village",
         "mountain"
       ],
+      "paved": true,
       "source": "https://polyhaven.com/a/stone_pathway"
     },
     {
@@ -1349,6 +1355,7 @@
         "winter",
         "mountain"
       ],
+      "paved": true,
       "source": "https://polyhaven.com/a/grey_stone_path"
     },
     {
@@ -1369,6 +1376,7 @@
       "tags": [
         "castle"
       ],
+      "paved": true,
       "source": "https://polyhaven.com/a/monastery_stone_floor"
     },
     {
@@ -1390,6 +1398,7 @@
         "castle",
         "arena"
       ],
+      "paved": true,
       "source": "https://polyhaven.com/a/rock_tile_floor"
     },
     {
@@ -1411,6 +1420,7 @@
         "desert",
         "arena"
       ],
+      "paved": true,
       "source": "https://polyhaven.com/a/sandstone_blocks_08"
     },
     {
@@ -1432,6 +1442,7 @@
         "desert",
         "arena"
       ],
+      "paved": true,
       "source": "https://polyhaven.com/a/red_sandstone_pavement"
     },
     {
@@ -1454,6 +1465,7 @@
         "coast",
         "village"
       ],
+      "paved": true,
       "source": "https://polyhaven.com/a/weathered_planks"
     },
     {
@@ -1476,6 +1488,7 @@
         "village",
         "castle"
       ],
+      "paved": true,
       "source": "https://polyhaven.com/a/old_planks_02"
     },
     {
@@ -1686,6 +1699,7 @@
       "tags": [
         "city"
       ],
+      "paved": true,
       "source": "https://polyhaven.com/a/asphalt_02"
     },
     {
@@ -1707,6 +1721,7 @@
         "wasteland",
         "city"
       ],
+      "paved": true,
       "source": "https://polyhaven.com/a/road_damaged"
     },
     {
@@ -1727,6 +1742,7 @@
       "tags": [
         "city"
       ],
+      "paved": true,
       "source": "https://polyhaven.com/a/concrete_pavement"
     },
     {
@@ -1747,6 +1763,7 @@
       "tags": [
         "city"
       ],
+      "paved": true,
       "source": "https://polyhaven.com/a/concrete_pavers_02"
     },
     {
@@ -1768,6 +1785,7 @@
         "city",
         "village"
       ],
+      "paved": true,
       "source": "https://polyhaven.com/a/pavement_03"
     },
     {
@@ -1788,6 +1806,7 @@
       "tags": [
         "city"
       ],
+      "paved": true,
       "source": "https://polyhaven.com/a/herringbone_pavement"
     },
     {
@@ -1811,6 +1830,7 @@
         "mars",
         "arctic"
       ],
+      "paved": true,
       "source": "https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -1832,6 +1852,7 @@
         "wasteland",
         "city"
       ],
+      "paved": true,
       "source": "https://polyhaven.com/a/concrete_floor_damaged_01"
     },
     {
@@ -1853,6 +1874,7 @@
         "wasteland",
         "swamp"
       ],
+      "paved": true,
       "source": "https://polyhaven.com/a/concrete_moss"
     },
     {

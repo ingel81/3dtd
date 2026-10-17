@@ -56,6 +56,12 @@ export interface CatalogMaterial {
   emissive?: number;
   /** Scroll speed of the layer in m/s (flowing lava), along map +x */
   flow?: number;
+  /**
+   * A hard surface (pavement, asphalt, planks): the ground's wear, tints and
+   * scree stay off it, at most a little grime settles in its joints. Earth
+   * and gravel paths are not paved; they stay earthy inside
+   */
+  paved?: boolean;
 }
 
 export type ObjectCategory = 'tree' | 'rock' | 'plant' | 'building' | 'prop' | 'wall' | 'structure' | 'fx';

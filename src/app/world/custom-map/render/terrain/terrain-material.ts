@@ -117,6 +117,8 @@ export interface TerrainMaterialParams {
   flow?: number[];
   /** Catalogue category by array layer: how soft it blends and how rough it is (MATERIAL_LOOK) */
   categories?: (MaterialCategory | undefined)[];
+  /** 1 for a paved array layer (catalogue `paved`): no wear, tints or scree on it */
+  paved?: number[];
   width: number;
   depth: number;
   cliffAngle: number;
@@ -161,6 +163,7 @@ export class TerrainMaterial extends MeshStandardMaterial {
     /** Coarse self-structure and turf by array layer (MATERIAL_LOOK) */
     uCoarse: { value: new Float32Array(TERRAIN_MAX_LAYERS) },
     uTurf: { value: new Float32Array(TERRAIN_MAX_LAYERS) },
+    uPaved: { value: new Float32Array(TERRAIN_MAX_LAYERS) },
     /** The biome's ground mood (ground-mood.ts): tints of crests, hollows, runnels and patches, bare earth, saturation */
     uMoodCrest: { value: new Vector3(1, 1, 1) },
     uMoodHollow: { value: new Vector3(1, 1, 1) },
@@ -266,6 +269,7 @@ export class TerrainMaterial extends MeshStandardMaterial {
       u.uRough.value[k].set(look.rough[0], look.rough[1]);
       u.uCoarse.value[k] = look.coarse;
       u.uTurf.value[k] = look.turf;
+      u.uPaved.value[k] = p.paved?.[k] ?? 0;
     }
     for (let k = 0; k < 12; k++) u.uSplatLayer.value[k] = p.slots.splat[k] ?? -1;
     u.uCliffLayer.value = p.slots.cliff;
@@ -360,6 +364,7 @@ uniform float uFarFlat;
 uniform vec2 uRough[TERRAIN_LAYERS];
 uniform float uCoarse[TERRAIN_LAYERS];
 uniform float uTurf[TERRAIN_LAYERS];
+uniform float uPaved[TERRAIN_LAYERS];
 uniform vec3 uMoodCrest;
 uniform vec3 uMoodHollow;
 uniform vec3 uMoodDrain;
@@ -772,6 +777,11 @@ terrainNormal = safeNormalize(accN, nGeo);
 vec3 albedo = accC.rgb;
 float macro = n1 * 0.6 + n2 * 0.4;
 albedo *= mix(0.86, 1.1, macro) * mix(0.93, 1.06, n3);
+// A paved surface keeps its own look: the ground's wear, tints, islands and scree below stay off it (paved weight)
+float paved = 0.0;
+for (int k = 0; k < TERRAIN_LAYERS; k++) paved += w[k] * uPaved[k];
+paved = smoothstep(0.15, 0.6, paved);
+vec3 pavedAlbedo = albedo;
 // Large patches in the biome's two kinds (ground-mood.ts): drier and sunlit in some, lush and cool in others
 albedo = mix(albedo, albedo * uMoodPatchA, smoothstep(0.5, 0.85, n2) * 0.5);
 albedo = mix(albedo, albedo * uMoodPatchB, smoothstep(0.45, 0.15, n1) * 0.6);
@@ -881,6 +891,12 @@ if (uCliffLayer >= 0) {
   float scree = foot * smoothstep(0.3, 0.6, varFine.b * 0.6 + hollow * 0.5 + (1.0 - nGeo.y) * 2.5);
   vec3 stones = uAverage[uCliffLayer] * mix(0.68, 1.18, smoothstep(0.3, 0.7, varFiner.b)) * mix(0.9, 1.05, varFine.a);
   albedo = mix(albedo, stones, scree * 0.8);
+}
+// Back to the paved surface's own colour where it lies; only a little grime in its joints (the texture's low
+// heights) near its edge, where the trodden ground meets it
+if (paved > 0.0) {
+  float joints = smoothstep(0.35, 0.1, accC.a) * (0.5 + 0.5 * worn);
+  albedo = mix(albedo, pavedAlbedo * (1.0 - 0.14 * joints) * mix(vec3(1.0), uMoodWorn / max(dot(uMoodWorn, vec3(0.333)), 0.05), 0.12 * joints), paved);
 }
 // Snow drifts: where snow lies it gathers in hollows and on the lee side of slopes (the downhill side
 // facing along the wind), smooth and white, in patches; not on rock faces

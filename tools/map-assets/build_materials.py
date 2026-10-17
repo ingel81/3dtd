@@ -242,6 +242,8 @@ def entry(m, out):
         e['tags'] = m['tags']
     if m.get('flow'):
         e['flow'] = m['flow']
+    if m.get('paved'):
+        e['paved'] = True
     e['source'] = url
     return e
 
