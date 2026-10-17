@@ -1021,7 +1021,7 @@ ein `TowerLoopSound` (`combat-sounds.ts`): `loop` läuft, solange der Tower arbe
 Ende); `start` spielt einmal, wenn er aus der Ruhe anläuft; `ramp` blendet die Schleife danach in so vielen Sekunden
 ein, damit man den Anlauf hört; `load` ist eine zweite Schleife, solange er beißt (an der Stelle, wo er beißt);
 `linger` lässt die Schleife nach dem Ende so viele Sekunden Spielzeit leiser weiterlaufen, ein neuer Einsatz darin
-ist kein neuer Anlauf. Rampe und Nachlauf zählt `PresentationHost.advance` in Spielzeit. Die Dateien sind wie alle
+ist kein neuer Anlauf; ein verkaufter oder entfernter Tower (`towers.remove`) verstummt sofort, ohne Nachlauf. Rampe und Nachlauf zählt `PresentationHost.advance` in Spielzeit. Die Dateien sind wie alle
 auf -14 LUFS gebracht (Schleifen mit linearer Verstärkung, damit die Naht bleibt).
 
 ## Beispiel: Chainsaw (Saw Attack)

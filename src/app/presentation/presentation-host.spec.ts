@@ -72,7 +72,7 @@ function makeEngine() {
       create: vi.fn((id: string) => Promise.resolve(id === 'enemy-404' ? null : {})),
       startWalkAnimation: vi.fn(),
     },
-    towers: { create: vi.fn(), clear: vi.fn(), get: vi.fn(() => ({ lat: 1, lon: 2, height: 3, tipY: 12 })) },
+    towers: { create: vi.fn(), remove: vi.fn(), clear: vi.fn(), get: vi.fn(() => ({ lat: 1, lon: 2, height: 3, tipY: 12 })) },
     projectiles: { clear: vi.fn() },
     trailStreaks: { clear: vi.fn() },
     tentacles: { clear: vi.fn() },
@@ -200,6 +200,19 @@ describe('PresentationHost', () => {
     host.advance(2500);
     expect(engine.spatialAudio.stopLoop).toHaveBeenCalledWith(1);
     expect(host.saws.size).toBe(0);
+  });
+
+  it('silences a removed tower at once, without the saws idling on', async () => {
+    host.applyOps([
+      ['towers.setSawTargets', 'tower-5', [{ x: 9, y: 1, z: 9 }, null, null]],
+      ['laserBeams.startBeam', 'tower-5', { x: 1, y: 2, z: 3 }, { x: 4, y: 5, z: 6 }, 0.5],
+    ]);
+    await settle();
+    // The removal comes before the docking flush of the same frame
+    host.applyOps([['towers.remove', 'tower-5'], ['towers.setSawTargets', 'tower-5', []]]);
+    expect(engine.towers.remove).toHaveBeenCalledWith('tower-5');
+    expect(engine.spatialAudio.stopLoop.mock.calls.map((c) => (c as unknown[])[0]).sort()).toEqual([1, 2, 3]);
+    expect(host.saws.size + host.lasers.size).toBe(0);
   });
 
   it('runs the slicer with its drive at the tower and stops it when the drive is out', async () => {

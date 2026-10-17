@@ -288,6 +288,12 @@ export class PresentationHost implements SimPresenterApi {
       }
       call(...args.slice(0, 6), aim);
     });
+    // A tower gone (sold, removed) falls silent at once; the saws' linger is for a lost target, not for this
+    ops.override('towers.remove', (args, call) => {
+      call(...args);
+      const towerId = args[0] as string;
+      for (const sounds of [this.flames, this.lasers, this.saws, this.streams]) sounds.stop(towerId);
+    });
     ops.override('searchlights.add', (args, call) => {
       const [id, lat, lon, footHeight, typeId] = args as [string, number, number, number, TowerTypeId];
       call(id, lat, lon, footHeight, TOWER_TYPES[typeId]);

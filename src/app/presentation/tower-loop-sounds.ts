@@ -88,7 +88,7 @@ export class TowerLoopSounds {
       r.idle ??= 0;
       return;
     }
-    this.end(towerId);
+    this.stop(towerId);
   }
 
   /** Every frame in game time: the ramps and the lingering loops. */
@@ -100,7 +100,7 @@ export class TowerLoopSounds {
       if (r.idle !== null) {
         r.idle += dt;
         if (r.idle >= (this.sound.linger ?? 0)) {
-          this.end(towerId);
+          this.stop(towerId);
           continue;
         }
       }
@@ -110,7 +110,7 @@ export class TowerLoopSounds {
 
   /** Every tower stopped, at once. */
   clear(): void {
-    for (const towerId of [...this.running.keys()]) this.end(towerId);
+    for (const towerId of [...this.running.keys()]) this.stop(towerId);
   }
 
   get size(): number {
@@ -187,7 +187,8 @@ export class TowerLoopSounds {
     });
   }
 
-  private end(towerId: string): void {
+  /** `towerId` is gone (sold, removed): everything of it ends at once, no linger. */
+  stop(towerId: string): void {
     const r = this.running.get(towerId);
     if (!r) return;
     this.running.delete(towerId);
