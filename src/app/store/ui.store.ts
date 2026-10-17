@@ -69,6 +69,8 @@ export interface UiNotice {
   reload?: boolean;
   /** How the banner reads: a problem (default), a warning, or good news */
   tone?: 'error' | 'warn' | 'ok';
+  /** Stays until the player closes it: said while the world loads, it must outlast the loading */
+  lasting?: boolean;
 }
 
 /** How long a notice stays before it closes by itself, ms (TODO E137) */
@@ -76,10 +78,11 @@ export const NOTICE_LINGER_MS = 6000;
 
 /**
  * How long `notice` stays on its own, null while it waits for the player: one
- * that offers a reload says the game is broken until then and stays.
+ * that offers a reload says the game is broken until then and stays, as does
+ * a lasting one.
  */
 export function noticeLingerMs(notice: UiNotice): number | null {
-  return notice.reload ? null : NOTICE_LINGER_MS;
+  return notice.reload || notice.lasting ? null : NOTICE_LINGER_MS;
 }
 
 /**

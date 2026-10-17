@@ -86,6 +86,8 @@ describe('wind', () => {
     doc.environment.wind = { strength: 0.5, direction: 200, gusts: 0.7 };
     expect(unpackMapFile(packMapFile(doc)).doc.environment.wind).toEqual(doc.environment.wind);
     doc.environment.wind = { strength: Number.NaN, direction: 200, gusts: 0.7 };
-    expect(validateMapDocument(doc).some((m) => m.includes('wind'))).toBe(true);
+    const read = unpackMapFile(packMapFile(doc));
+    expect(read.repaired.some((m) => m.includes('wind'))).toBe(true);
+    expect(read.doc.environment.wind).toBeUndefined();
   });
 });

@@ -4,6 +4,7 @@ import type { CustomMapDocument } from '../custom-map/map-document';
 import { findTestMap } from '../../../test/w3x-fixtures';
 import { buildSyntheticMap } from '../../../test/w3x-synthetic-map';
 import { importW3x } from './import-w3x';
+import { mapRepairs } from '../custom-map/map-repair';
 
 const TEST_MAP = findTestMap(existsSync);
 const GREEN_TD = findTestMap(existsSync, 'Green TD.w3x');
@@ -43,6 +44,7 @@ describe('importW3x', () => {
   it('turns a synthetic map into a valid document', async () => {
     const { doc, report } = await importW3x(buildSyntheticMap(), { fileName: 'lane-test.w3x', now: NOW, style: 'original' });
     expect(validateMapDocument(doc)).toEqual([]);
+    expect(mapRepairs(doc)).toEqual([]);
     expect(doc.meta).toMatchObject({
       id: 'lane-test',
       name: 'Lane Test',
@@ -76,6 +78,7 @@ describe('importW3x', () => {
   it('paints the enhanced ground: fresh grass, a paved road with gravel edges, forest rims', async () => {
     const { doc, report } = await importW3x(buildSyntheticMap(), { now: NOW });
     expect(validateMapDocument(doc)).toEqual([]);
+    expect(mapRepairs(doc)).toEqual([]);
     expect(report.stats.style).toBe('enhanced');
     expect(doc.terrain.layers.map((l) => l.material)).toEqual([
       'grass-lush', 'grass', 'moss', 'cobblestone', 'gravel-path', 'forest-ground', 'moss',
@@ -98,6 +101,7 @@ describe('importW3x', () => {
     for (const strategy of ['script-pattern', 'script-eval'] as const) {
       const { doc, report } = await importW3x(bytes, { now: NOW, routeStrategy: strategy });
       expect(validateMapDocument(doc)).toEqual([]);
+      expect(mapRepairs(doc)).toEqual([]);
       expect(report.strategy).toBe(strategy);
       expect(doc.spawns).toEqual([{ id: 's1', name: 'Spawn West', x: -20, y: 0 }]);
       expect(doc.hq).toEqual({ x: 20, y: 0 });
@@ -147,6 +151,7 @@ describe('importW3x', () => {
   it.skipIf(!TEST_MAP)('imports the test map', async () => {
     const { doc, report } = await importW3x(new Uint8Array(readFileSync(TEST_MAP!)), { fileName: 'Mafa-Td-Queen-v14.6.w3x', now: NOW });
     expect(validateMapDocument(doc)).toEqual([]);
+    expect(mapRepairs(doc)).toEqual([]);
     expect(doc.meta.name).toBe('Mafa TD Queen v14.6');
     expect(report.strategy).toBe('script-eval');
     expect(doc.spawns.length).toBe(10);
@@ -174,6 +179,7 @@ describe('importW3x', () => {
   it.skipIf(!GREEN_TD)('imports Green TD (2005): nine lanes from GUI triggers, one spawn on another lane', async () => {
     const { doc, report } = await importW3x(new Uint8Array(readFileSync(GREEN_TD!)), { now: NOW });
     expect(validateMapDocument(doc)).toEqual([]);
+    expect(mapRepairs(doc)).toEqual([]);
     expect(report.strategy).toBe('script-pattern');
     expect(doc.spawns.map((s) => s.name)).toEqual(['1', '2', '3', '4', '5', '6', '7', '8', '9']);
     expect(spawnsReachHq(doc)).toBe(true);
@@ -182,6 +188,7 @@ describe('importW3x', () => {
   it.skipIf(!GREEN_CIRCLE)('imports Green Circle TD (2025), a circuit without an end, over open ground from its corners', async () => {
     const { doc, report } = await importW3x(new Uint8Array(readFileSync(GREEN_CIRCLE!)), { now: NOW });
     expect(validateMapDocument(doc)).toEqual([]);
+    expect(mapRepairs(doc)).toEqual([]);
     expect(report.strategy).toBe('maze');
     expect(report.warnings.join(' ')).toMatch(/round in circles/);
     // The four corners; the four fields beside the middle would leak at once

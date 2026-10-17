@@ -21,6 +21,7 @@ import { Injectable, NgZone, OnDestroy, computed, inject, signal } from '@angula
 import { fitSplatMaps, MAX_MAP_PREFABS, type CustomMapDocument, type MapIntro, type MapIntroView, type MapLife, type MapMeta } from '../../world/custom-map/map-document';
 import { createMapDocument, newMapUid, slugMapId, type NewMapOptions } from '../../world/custom-map/map-create';
 import { MAP_FILE_EXTENSION, MAX_FILE_BYTES, MapFileError, packMapFile, unpackMapFile } from '../../world/custom-map/map-file';
+import { repairedMapText } from '../../world/custom-map/map-repair';
 import { MapStore, type LoadedMap, type MapSummary } from '../../world/custom-map/map-store';
 import { MapLock, whileMapFree } from '../model/map-lock';
 import { FolderWriteError } from '../../world/custom-map/folder-map-backend';
@@ -751,11 +752,10 @@ export class EditorSession implements OnDestroy {
     return id;
   }
 
-  /** Values the file carried out of range were set right as it opened: the banner says which (map-repair.ts) */
+  /** What the file carried that the game does not take was set right or left out as it opened: the banner says which (map-repair.ts) */
   private sayRepaired(name: string, repaired: readonly string[] | undefined): void {
     if (!repaired?.length) return;
-    const more = repaired.length > 1 ? ` (and ${repaired.length - 1} more)` : '';
-    this.error.set(`${name} had values the game does not take; they were set right as it opened: ${repaired[0]}${more}. The next save keeps the corrected map.`);
+    this.error.set(`${repairedMapText(name, repaired)} The next save keeps the corrected map.`);
   }
 
   /**

@@ -63,7 +63,11 @@ describe('map intro flight', () => {
     expect(back.intro).toEqual(doc.intro);
     expect(await contentHash(back)).not.toBe(before);
 
+    // A broken flight is left out as the file is read: the game flies its own
     doc.intro = { kind: 'orbit', seconds: 0, radius: 200, height: 60, angle: 0.5 };
-    expect(validateMapDocument(doc)).toContain('intro.seconds must be 3 to 60');
+    expect(validateMapDocument(doc)).toEqual([]);
+    const read = unpackMapFile(packMapFile(doc));
+    expect(read.repaired).toEqual(["intro.seconds must be 3 to 60; the map's intro flight is left out, the game flies its own"]);
+    expect('intro' in read.doc).toBe(false);
   });
 });

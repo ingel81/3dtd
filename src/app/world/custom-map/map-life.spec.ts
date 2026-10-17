@@ -98,7 +98,10 @@ describe('map life', () => {
     expect(plain.life).toBeUndefined();
     doc.life = { auto: { birds: false }, density: 1.5, ambience: { sound: 'biome', volume: 0.5 }, areas: [{ id: 's', kind: 'sound', shape: 'route', points: [{ x: 0, y: 0 }, { x: 20, y: 5 }], sound: 'stream' }] };
     expect(unpackMapFile(packMapFile(doc)).doc.life).toEqual(doc.life);
-    doc.life = { areas: [{ id: 's', kind: 'sound', shape: 'route', points: [{ x: 0, y: 0 }] }] };
-    expect(() => packMapFile(doc)).toThrow(/life area s needs 2 to 256 points/);
+    // A broken area is left out as the file is read, the rest of the life stays
+    doc.life = { density: 1.5, areas: [{ id: 's', kind: 'sound', shape: 'route', points: [{ x: 0, y: 0 }] }, { id: 't', kind: 'birds', shape: 'route', points: [{ x: 0, y: 0 }, { x: 9, y: 9 }] }] };
+    const read = unpackMapFile(packMapFile(doc));
+    expect(read.repaired).toEqual(['life area s needs 2 to 256 points; it is left out']);
+    expect(read.doc.life).toEqual({ density: 1.5, areas: [doc.life.areas![1]] });
   });
 });

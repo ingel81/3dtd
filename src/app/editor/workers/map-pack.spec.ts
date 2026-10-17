@@ -22,12 +22,12 @@ describe('packOffThread', () => {
 
   it('keeps the problems of an invalid map across the edge of the worker', async () => {
     const doc = createMapDocument({ id: 'm', name: 'M', width: 64, depth: 64, now: new Date(0) });
-    doc.objects.push({ id: 'o1', asset: 'tree', x: Number.NaN, y: 0, z: 0, rotation: 0, scale: 1 });
+    doc.hq = { x: Number.NaN, y: 0 };
     const thrown = await packForSave({ doc, options: {} }).catch((e: unknown) => e);
     // What the worker posts goes through a structured clone
     const error = packReplyError(structuredClone(packErrorReply(thrown)));
     expect(error).toBeInstanceOf(MapFileError);
-    expect((error as MapFileError).problems).toEqual(['object o1 has a bad placement']);
+    expect((error as MapFileError).problems).toEqual(['the HQ has no position']);
     expect(packReplyError(packErrorReply(new Error('boom')))).not.toBeInstanceOf(MapFileError);
   });
 });

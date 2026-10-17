@@ -722,7 +722,7 @@ describe('editor session and the AI agent', () => {
     expect(s.editor!.doc.gameplay).toMatchObject({ waves: { kind: 'budget' }, difficulty: 120 });
     // Wave events: the shape explained, one that the file refuses not taken, a good list taken (TODO E170)
     expect((await call(agent, 'set_rules', { rules: { events: 'wave 5 rain' } })).text).toMatch(/events is a list of what happens before a wave.*Example/);
-    expect((await call(agent, 'set_rules', { rules: { events: [{ wave: 5, kind: 'weather', weather: 'hail' }] } })).text).toMatch(/would not save.*weather must be clear/);
+    expect((await call(agent, 'set_rules', { rules: { events: [{ wave: 5, kind: 'weather', weather: 'hail' }] } })).text).toMatch(/would not save.*weather hail is unknown/);
     const spawn = s.editor!.doc.spawns[0].id;
     const events = [{ wave: 5, kind: 'weather', weather: 'rain' }, { wave: 6, kind: 'portal', spawn }];
     expect(JSON.parse((await call(agent, 'set_rules', { rules: { events } })).text)).toMatchObject({ ok: true });

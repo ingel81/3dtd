@@ -14,6 +14,7 @@ import { objectCost, SCENE_BUDGET } from '../custom-map/render/objects/scene-cos
 import type { CatalogObject } from '../custom-map/render/asset-catalog';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { mapRepairs } from '../custom-map/map-repair';
 
 const catalog = JSON.parse(readFileSync(join(__dirname, '../../../../public/maps/assets/catalog.json'), 'utf8'));
 
@@ -31,6 +32,7 @@ describe('OSM world (frozen probe Miltenberg)', () => {
   it('makes a map that packs, reads back and passes the editor check without errors', () => {
     const { doc, report } = convertOsm(probe(), options);
     expect(validateMapDocument(doc)).toEqual([]);
+    expect(mapRepairs(doc)).toEqual([]);
     expect(unpackMapFile(packMapFile(doc)).doc.paths.edges.length).toBe(doc.paths.edges.length);
     const errors = validateMap(doc).filter((i) => i.severity === 'error');
     expect(errors.map((e) => e.message)).toEqual([]);

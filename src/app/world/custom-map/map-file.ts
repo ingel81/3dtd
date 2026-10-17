@@ -9,11 +9,16 @@
  * tree changes it. Runs, replays and the coop world package carry it in
  * their `WorldRef`.
  *
- * Reading checks the file (`validateMapDocument`) and lifts older versions
- * through `MAP_MIGRATIONS` first; a broken file fails with `MapFileError`
- * and a message that says what is wrong.
+ * Reading lifts older versions through `MAP_MIGRATIONS` first and refuses
+ * a file of a newer `MAP_VERSION` with "update the game". Then it checks in
+ * two steps (docs/CUSTOM_MAPS.md, "Format rules"): the content softly
+ * (map-repair.ts: an unknown value of a list falls back to its default, a
+ * broken object, river, life area or wave event is left out, and
+ * `UnpackedMap.repaired` says what), the structure hard
+ * (`validateMapDocument`: grid, masks, roads, spawns, HQ). A file whose
+ * structure is broken fails with `MapFileError` and a message that says
+ * what is wrong.
  */
-import { VACANT_LANES } from './lane-choice';
 import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate';
 import {
   MAP_DIFFICULTY,
@@ -21,17 +26,13 @@ import {
   MAP_VERSION,
   MAX_GROUND_LAYERS,
   MAX_MAP_PREFABS,
-  WAVE_EVENT_LIMITS,
+  isTypedArray as isTyped,
   splatMapCount,
   type CustomMapDocument,
   type MapMeta,
-  type MapPrefab,
-  type MapWaveEvent,
 } from './map-document';
 import { MAP_ID_PATTERN } from './map-create';
-import { lifeProblems } from './map-life';
-import { introProblems } from './map-intro';
-import { mapRepairs } from './map-repair';
+import { mapRepairs, prefabProblems } from './map-repair';
 
 export const MAP_FILE_EXTENSION = '.3dtdmap';
 export const MAP_JSON_ENTRY = 'map.json';
@@ -119,7 +120,7 @@ export interface PackOptions {
 export interface UnpackedMap {
   doc: CustomMapDocument;
   preview: Uint8Array | null;
-  /** Values the file carried out of range or of the wrong kind, set right as it was read (map-repair.ts), in words */
+  /** What reading set right or left out (map-repair.ts), in words: for the player to see */
   repaired: string[];
 }
 
@@ -173,7 +174,7 @@ export function unpackMapFile(bytes: Uint8Array | ArrayBuffer): UnpackedMap {
   }
   const json = migrateMapJson(parsed);
   const doc = joinDocument(json, entries);
-  // Soft values first (warn and set right): a file that opened before a check was added still opens
+  // The content first, softly (set right, left out, said): a file that opened before a check was added still opens
   const repaired = mapRepairs(doc, true).map((q) => q.text);
   const problems = validateMapDocument(doc);
   if (problems.length) throw new MapFileError(`The map is broken: ${problems[0]}`, problems);
@@ -195,6 +196,28 @@ export function mapFileMeta(bytes: Uint8Array): Partial<MapMeta> | null {
   }
 }
 
+/**
+ * The file with `meta` changed in its `map.json`, the rest neither read nor
+ * checked: what the store needs to move a map that no longer opens (back
+ * from the trash under another id). Null when the file has no map.json
+ */
+export function withMapFileMeta(bytes: Uint8Array, meta: Partial<MapMeta>): Uint8Array | null {
+  try {
+    let total = 0;
+    const entries = unzipSync(bytes, {
+      filter: (f) => knownEntry(f.name) && f.originalSize <= MAX_ENTRY_BYTES && (total += f.originalSize) <= MAX_FILE_BYTES,
+    });
+    const parsed: unknown = JSON.parse(strFromU8(entries[MAP_JSON_ENTRY]));
+    if (!isRecord(parsed) || !isRecord(parsed['meta'])) return null;
+    const changed = { ...parsed['meta'], ...meta };
+    entries[MAP_JSON_ENTRY] = strToU8(JSON.stringify({ ...parsed, meta: changed }));
+    const updated = typeof changed['updatedAt'] === 'string' ? Date.parse(changed['updatedAt']) : NaN;
+    return zipSync(entries, { level: 6, mtime: Math.max(Number.isFinite(updated) ? updated : 0, ZIP_EPOCH) });
+  } catch {
+    return null;
+  }
+}
+
 /** Lift an older `map.json` to `MAP_VERSION`; refuses files from a newer game */
 export function migrateMapJson(
   json: Record<string, unknown>,
@@ -206,7 +229,7 @@ export function migrateMapJson(
     throw new MapFileError('The map has no valid version.');
   }
   if (version > target) {
-    throw new MapFileError(`The map is version ${version}, this game reads up to ${target}. Update the game.`);
+    throw new MapFileError(`This map was made with a newer version of the game (map version ${version}, this game reads up to ${target}). Update the game to open it.`);
   }
   let out = json;
   while (version < target) {
@@ -266,9 +289,22 @@ export interface MapProblem {
   at?: { kind: 'object' | 'node' | 'edge' | 'spawn' | 'hq'; id?: string };
 }
 
-/** Every problem of the document, in words; empty when it is fine */
+/**
+ * Every problem of the document's structure, in words; empty when it is
+ * fine. Such a map is neither written nor read; what is only content is
+ * set right on reading (map-repair.ts)
+ */
 export function validateMapDocument(doc: CustomMapDocument): string[] {
   return mapProblems(doc).map((q) => q.text);
+}
+
+/**
+ * What a map made by code (the agent, a script) must not have: the
+ * problems of its structure and what reading it back would set right or
+ * leave out (map-repair.ts). A map read from a file has none of the latter
+ */
+export function strictMapProblems(doc: CustomMapDocument): string[] {
+  return [...validateMapDocument(doc), ...mapRepairs(doc).map((q) => q.text)];
 }
 
 /** Collects the problems with the part and the thing being checked when they were found */
@@ -375,23 +411,6 @@ function checkDocument(doc: CustomMapDocument, p: ProblemList): void {
       p.push(`water body ${k + 1}: mask does not match the grid`);
     }
   }
-  for (const body of [t.water, ...(t.waterBodies ?? [])]) {
-    if (body?.kind && !['water', 'sea', 'swamp', 'lava', 'ice'].includes(body.kind)) {
-      p.push(`water kind ${body.kind} is unknown`);
-    }
-  }
-  for (const river of t.rivers ?? []) {
-    if (!river || typeof river !== 'object') {
-      p.push('a river is not an object');
-      continue;
-    }
-    if (!river.id) p.push('a river has no id');
-    if (!['water', 'lava'].includes(river.kind)) p.push(`river ${river.id}: kind ${river.kind} is unknown`);
-    if (!Array.isArray(river.points) || river.points.length < 2) p.push(`river ${river.id} needs two points`);
-    else if (river.points.some((q) => ![q.x, q.y, q.width, q.height].every(finite) || q.width <= 0)) {
-      p.push(`river ${river.id} has a bad point`);
-    }
-  }
   if (!finite(t.cliffAngle)) p.push('cliffAngle is not a number');
 
   p.part = 'objects';
@@ -408,22 +427,6 @@ function checkDocument(doc: CustomMapDocument, p: ProblemList): void {
   if (!Array.isArray(doc.spawns)) {
     p.push('spawns must be a list');
     return;
-  }
-  p.part = 'objects';
-  const ids = new Set<string>();
-  for (const o of doc.objects) {
-    p.at = undefined;
-    if (!o || typeof o !== 'object') {
-      p.push('an object entry is not an object');
-      continue;
-    }
-    if (o.id) p.at = { kind: 'object', id: o.id };
-    if (!o.id || ids.has(o.id)) p.push(`object id "${o.id}" is missing or twice`);
-    ids.add(o.id);
-    if (!o.asset) p.push(`object ${o.id} has no asset`);
-    if (![o.x, o.y, o.z, o.rotation, o.scale].every(finite) || o.scale <= 0) p.push(`object ${o.id} has a bad placement`);
-    if (o.group !== undefined && typeof o.group !== 'string') p.push(`object ${o.id} has a bad group`);
-    if ((o.pitch !== undefined && !finite(o.pitch)) || (o.roll !== undefined && !finite(o.roll))) p.push(`object ${o.id} has a bad tilt`);
   }
   p.part = 'paths';
   const nodes = new Set<string>();
@@ -452,7 +455,6 @@ function checkDocument(doc: CustomMapDocument, p: ProblemList): void {
     if (e.a === e.b) p.push(`path edge ${e.id} starts and ends at one node`);
     if (!finite(e.width) || e.width <= 0) p.push(`path edge ${e.id} has no width`);
     if (e.via !== undefined && (!Array.isArray(e.via) || e.via.some((v) => !finite(v?.x) || !finite(v?.y)))) p.push(`path edge ${e.id} has a bad curve point`);
-    if (e.style !== undefined && !['wood', 'stone', 'concrete', 'lava'].includes(e.style)) p.push(`path edge ${e.id} has an unknown bridge style`);
     if (e.tunnel !== undefined && typeof e.tunnel !== 'boolean') p.push(`path edge ${e.id} has a bad tunnel flag`);
     if ((e.street !== undefined && typeof e.street !== 'string') || (e.surface !== undefined && typeof e.surface !== 'string')) p.push(`path edge ${e.id} has a bad street type or surface`);
   }
@@ -460,7 +462,6 @@ function checkDocument(doc: CustomMapDocument, p: ProblemList): void {
   for (const sp of doc.spawns) {
     p.at = sp?.id ? { kind: 'spawn', id: sp.id } : undefined;
     if (!sp || !finite(sp.x) || !finite(sp.y)) p.push(`spawn ${sp.id} has no position`);
-    if (sp?.optional !== undefined && typeof sp.optional !== 'boolean') p.push(`spawn ${sp.id} has a bad optional flag`);
   }
   p.part = 'hq';
   p.at = { kind: 'hq' };
@@ -488,15 +489,9 @@ function checkDocument(doc: CustomMapDocument, p: ProblemList): void {
           if (!count(lanes.min)) p.push('gameplay.lanes.min must be a whole number from 1');
           if (!count(lanes.max)) p.push('gameplay.lanes.max must be a whole number from 1');
           if (lanes.min !== undefined && lanes.max !== undefined && lanes.min > lanes.max) p.push('gameplay.lanes.min is above max');
-          if (lanes.vacant !== undefined && !VACANT_LANES.includes(lanes.vacant)) p.push('gameplay.lanes.vacant must be close, host or split');
         }
       }
-      if (gp.events !== undefined) {
-        if (!Array.isArray(gp.events) || gp.events.length > WAVE_EVENT_LIMITS.events) p.push(`gameplay.events must be a list of at most ${WAVE_EVENT_LIMITS.events}`);
-        else gp.events.forEach((e, k) => p.push(...waveEventProblems(e, k)));
-      }
       const w = gp.waves;
-      if (w !== undefined && w.kind !== 'budget' && w.kind !== 'table') p.push('gameplay.waves.kind must be budget or table');
       if (w?.kind === 'table') {
         const table = w.table;
         if (!table || !Array.isArray(table.waves) || !table.waves.length) p.push('the wave list is empty');
@@ -514,78 +509,6 @@ function checkDocument(doc: CustomMapDocument, p: ProblemList): void {
       }
     }
   }
-  p.part = 'prefabs';
-  if (doc.prefabs !== undefined) {
-    if (!Array.isArray(doc.prefabs) || doc.prefabs.length > MAX_MAP_PREFABS) p.push(`prefabs must be a list of at most ${MAX_MAP_PREFABS}`);
-    else doc.prefabs.forEach((pf, k) => p.push(...prefabProblems(pf, k)));
-  }
-  p.part = 'environment';
-  const env = doc.environment;
-  if (!env || !['day', 'dusk', 'night', 'overcast'].includes(env.sky)) p.push('environment sky is unknown');
-  const looks = ['temperate', 'hell', 'moon', 'mars', 'arctic', 'apocalypse', 'swamp', 'desert', 'mountain', 'city'];
-  if (env?.biome !== undefined && !looks.includes(env.biome)) p.push(`environment biome ${String(env.biome)} is unknown`);
-  // An unknown id is no error: a map from a newer game shows the procedural sky here
-  if (env?.skyImage !== undefined && typeof env.skyImage !== 'string') p.push('environment skyImage must be a sky id');
-  const planet = env?.planet;
-  if (planet !== undefined && (!planet || typeof planet !== 'object' || !finite(planet.azimuth) || !finite(planet.elevation) || !finite(planet.size) || planet.size < 0)) {
-    p.push('environment planet needs azimuth, elevation and a size of 0 or more');
-  }
-  const wind = env?.wind;
-  if (wind !== undefined && (!wind || typeof wind !== 'object' || !finite(wind.strength) || !finite(wind.direction) || !finite(wind.gusts))) {
-    p.push('environment wind needs strength, direction and gusts');
-  }
-  p.part = 'life';
-  p.push(...lifeProblems(doc.life));
-  p.part = 'intro';
-  p.push(...introProblems(doc.intro));
-}
-
-/** What is wrong with wave event k of a map, in words (the shape; the editor's check names spawns and objects that are gone) */
-function waveEventProblems(e: MapWaveEvent, k: number): string[] {
-  const what = `wave event ${k + 1}`;
-  if (!e || typeof e !== 'object') return [`${what} is not an object`];
-  if (!Number.isInteger(e.wave) || e.wave < 1 || e.wave > WAVE_EVENT_LIMITS.wave) return [`${what}: wave must be a whole number from 1 to ${WAVE_EVENT_LIMITS.wave}`];
-  const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
-  switch (e.kind) {
-    case 'message':
-      return typeof e.text === 'string' && e.text.trim() && e.text.length <= WAVE_EVENT_LIMITS.text ? [] : [`${what}: a message of 1 to ${WAVE_EVENT_LIMITS.text} characters`];
-    case 'weather':
-      if (!['clear', 'rain', 'snow', 'fog'].includes(e.weather)) return [`${what}: weather must be clear, rain, snow or fog`];
-      return e.strength === undefined || (finite(e.strength) && e.strength >= 0 && e.strength <= 1) ? [] : [`${what}: strength must be 0 to 1`];
-    case 'time':
-      return finite(e.hour) && e.hour >= 0 && e.hour <= 24 ? [] : [`${what}: hour must be 0 to 24`];
-    case 'portal':
-      return typeof e.spawn === 'string' && e.spawn ? [] : [`${what} names no spawn`];
-    case 'objects':
-      if (typeof e.show !== 'boolean') return [`${what}: show must be true or false`];
-      return Array.isArray(e.ids) && e.ids.length > 0 && e.ids.length <= WAVE_EVENT_LIMITS.objects && e.ids.every((id) => typeof id === 'string') ? [] : [`${what} names 1 to ${WAVE_EVENT_LIMITS.objects} objects`];
-    default:
-      return [`${what}: kind ${String((e as { kind: unknown }).kind)} is unknown`];
-  }
-}
-
-/** What is wrong with prefab k of a map, in words */
-function prefabProblems(pf: MapPrefab, k: number): string[] {
-  const what = `prefab ${k + 1}`;
-  if (!pf || typeof pf !== 'object' || typeof pf.id !== 'string' || typeof pf.name !== 'string' || !pf.stamp) return [`${what} needs an id, a name and its piece`];
-  const st = pf.stamp;
-  const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
-  const out: string[] = [];
-  const whole = (v: unknown, min: number) => Number.isInteger(v) && (v as number) >= min && (v as number) <= MAX_GRID_SIDE;
-  if (![st.width, st.depth, st.cell, st.paintCell].every((v) => finite(v) && v > 0)) out.push(`${what} has no size`);
-  if (!whole(st.columns, 2) || !whole(st.rows, 2) || !isTyped(st.heights, 'Float32Array') || st.heights.length !== st.columns * st.rows) out.push(`${what}: heights do not match its grid`);
-  const materials = Array.isArray(st.materials) && st.materials.every((m) => typeof m === 'string') ? st.materials.length : -1;
-  if (materials < 0) out.push(`${what}: materials must be a list of ids`);
-  else if (!whole(st.paintColumns, 1) || !whole(st.paintRows, 1) || !isTyped(st.paint, 'Uint8Array') || st.paint.length !== st.paintColumns * st.paintRows * materials) {
-    out.push(`${what}: paint does not match its grid`);
-  }
-  if (st.water && (!finite(st.water.level) || !isTyped(st.water.mask, 'Uint8Array') || st.water.mask.length !== st.columns * st.rows)) out.push(`${what}: water does not match its grid`);
-  if (!Array.isArray(st.objects) || st.objects.some((o) => !o || typeof o.asset !== 'string' || ![o.x, o.y, o.z, o.rotation, o.scale].every(finite))) out.push(`${what} has a bad object`);
-  if (!st.roads || !Array.isArray(st.roads.nodes) || !Array.isArray(st.roads.edges)) out.push(`${what}: roads must have lists of nodes and edges`);
-  if (st.life !== undefined && (!Array.isArray(st.life) || st.life.some((a) => !a || !Array.isArray(a.points) || a.points.some((q) => !finite(q?.x) || !finite(q?.y))))) {
-    out.push(`${what}: life must be a list of areas with points`);
-  }
-  return out;
 }
 
 /**
@@ -613,7 +536,9 @@ function splitDocument(doc: CustomMapDocument): { json: Record<string, unknown>;
     ...(bodies.length ? { waterBodies: bodies.map((body, k) => ({ ...body, mask: ref(waterBodyPath(k)) })) } : {}),
   };
   const editorBinaries: [string, Uint8Array][] = [];
-  const prefabs = doc.prefabs?.map((p, k) => {
+  // A prefab whose arrays do not hold is not written: reading would leave it out all the same (map-repair.ts)
+  const kept = Array.isArray(doc.prefabs) ? doc.prefabs.filter((p, k) => k < MAX_MAP_PREFABS && !prefabProblems(p, k).length) : undefined;
+  const prefabs = kept?.map((p, k) => {
     const st = p.stamp;
     editorBinaries.push([prefabPath(k, 'heights.f32'), floatBytes(st.heights)], [prefabPath(k, 'paint.u8'), st.paint]);
     if (st.water) editorBinaries.push([prefabPath(k, 'water.u8'), st.water.mask]);
@@ -662,16 +587,21 @@ function joinDocument(json: Record<string, unknown>, entries: Record<string, Uin
   }
   const prefabs = (doc as unknown as Record<string, unknown>)['prefabs'];
   if (Array.isArray(prefabs)) {
+    // The editor's prefabs are no part of the world: one whose arrays are missing becomes a gap that reading leaves out
     prefabs.forEach((p, k) => {
       const st = isRecord(p) && isRecord(p['stamp']) ? p['stamp'] : null;
-      if (!st) throw new MapFileError(`Prefab ${k + 1} is not an object.`);
-      const heights = bin(st['heights'], `the heights of prefab ${k + 1}`);
-      if (heights.length % 4) throw new MapFileError(`The heights of prefab ${k + 1} are cut off.`);
-      st['heights'] = bytesToFloat(heights);
-      st['paint'] = bin(st['paint'], `the paint of prefab ${k + 1}`);
-      const water = st['water'];
-      if (isRecord(water)) water['mask'] = bin(water['mask'], `the water of prefab ${k + 1}`);
-      else st['water'] = null;
+      try {
+        if (!st) throw new MapFileError(`Prefab ${k + 1} is not an object.`);
+        const heights = bin(st['heights'], `the heights of prefab ${k + 1}`);
+        if (heights.length % 4) throw new MapFileError(`The heights of prefab ${k + 1} are cut off.`);
+        st['heights'] = bytesToFloat(heights);
+        st['paint'] = bin(st['paint'], `the paint of prefab ${k + 1}`);
+        const water = st['water'];
+        if (isRecord(water)) water['mask'] = bin(water['mask'], `the water of prefab ${k + 1}`);
+        else st['water'] = null;
+      } catch {
+        prefabs[k] = null;
+      }
     });
   } else {
     delete doc.prefabs;
@@ -697,11 +627,6 @@ function bytesToFloat(b: Uint8Array): Float32Array {
   const view = new DataView(b.buffer, b.byteOffset, b.byteLength);
   for (let k = 0; k < n; k++) out[k] = view.getFloat32(k * 4, true);
   return out;
-}
-
-/** Typed array check that holds across realms (structuredClone in a test DOM, workers) */
-function isTyped(v: unknown, kind: 'Float32Array' | 'Uint8Array'): boolean {
-  return Object.prototype.toString.call(v) === `[object ${kind}]`;
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {

@@ -12,7 +12,7 @@
 import { mapDataFetch, mapDataRoot } from './map-data';
 import { defaultMapBackend, FolderMapBackend, mapFolderId } from './folder-map-backend';
 import type { CustomMapDocument, MapBiome, MapMeta } from './map-document';
-import { contentHash, mapFileMeta, packMapFile, unpackMapFile } from './map-file';
+import { contentHash, mapFileMeta, packMapFile, unpackMapFile, withMapFileMeta } from './map-file';
 import { newMapUid, slugMapId } from './map-create';
 import { summarize } from './map-summary';
 
@@ -193,11 +193,15 @@ export class MapStore {
   async restoreFromTrash(key: string): Promise<string> {
     const stored = await this.backend.get(key);
     if (!stored?.summary.trash) throw new MapStoreError('That map is no longer in the trash.');
-    const { doc, preview } = unpackMapFile(stored.file);
-    doc.meta.id = await this.freeId(stored.summary.trash.from, key);
-    await this.save(doc, stored.preview ?? preview);
+    const { trash, ...summary } = stored.summary;
+    const id = await this.freeId(trash.from, key);
+    // The file comes back as it went, not read through the full check: a map that no longer opens comes back too
+    const file = id === trash.from ? stored.file : withMapFileMeta(stored.file, { id });
+    if (!file) throw new MapStoreError(`The map "${summary.name}" is not readable; it cannot come back.`);
+    // Under another id the content hash is another (it covers the id): loading works it out
+    await this.backend.put({ summary: { ...summary, id, origin: 'own', ...(id === trash.from ? {} : { contentHash: '' }) }, file, preview: stored.preview });
     await this.backend.delete(key);
-    return doc.meta.id;
+    return id;
   }
 
   /** Maps longer than TRASH_DAYS in the trash go for good; returns what went */
@@ -333,10 +337,12 @@ export class MapStore {
   async replaceWith(id: string, { doc, preview }: Pick<LoadedMap, 'doc' | 'preview'>): Promise<{ before: Uint8Array; created: string }> {
     const stored = await this.backend.get(id);
     if (!stored || stored.summary.origin !== 'own') throw new MapStoreError(`There is no own map "${id}" to replace.`);
-    const old = unpackMapFile(stored.file).doc.meta;
-    doc.meta = { ...doc.meta, id, uid: old.uid ?? doc.meta.uid, createdAt: old.createdAt, updatedAt: new Date().toISOString() };
+    // Identity and creation time read without the full check: a map that no longer opens can still be replaced
+    const old = mapFileMeta(stored.file);
+    const created = typeof old?.createdAt === 'string' ? old.createdAt : doc.meta.createdAt;
+    doc.meta = { ...doc.meta, id, uid: (typeof old?.uid === 'string' ? old.uid : undefined) ?? doc.meta.uid, createdAt: created, updatedAt: new Date().toISOString() };
     await this.save(doc, preview);
-    return { before: stored.file, created: old.createdAt };
+    return { before: stored.file, created };
   }
 
   /** A new thumbnail for an own map, its content untouched */

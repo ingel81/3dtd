@@ -72,6 +72,8 @@ export const CUSTOM_MAP_ASSET_CREDIT = 'Assets: CC0, see licences';
 export interface LoadedCustomMap {
   doc: CustomMapDocument;
   contentHash: string;
+  /** What reading the file set right or left out (map-repair.ts), in words: the game says it as the world opens */
+  repaired?: readonly string[];
 }
 
 /**
@@ -115,11 +117,10 @@ const INTRO_GROUND_CLEARANCE = 3;
  */
 export async function openCustomMap(ref: WorldRef & { kind: 'custom-map' }, store: MapStore = new MapStore()): Promise<LoadedCustomMap> {
   const { doc, summary, repaired } = await store.load(ref.mapId);
-  if (repaired?.length) console.warn(`[maps] ${doc.meta.name}: values set right as it was read:`, repaired);
   if (ref.contentHash && summary.contentHash && ref.contentHash !== summary.contentHash) {
     throw new Error(`the map "${doc.meta.name}" here is not the one this run was played on`);
   }
-  const loaded = { doc, contentHash: summary.contentHash };
+  const loaded = { doc, contentHash: summary.contentHash, ...(repaired?.length ? { repaired } : {}) };
   opened.clear();
   opened.set(ref.mapId, loaded);
   return loaded;

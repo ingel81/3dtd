@@ -572,7 +572,7 @@ den Routen (Fläche in Reichweite, Tower darauf, bei mehreren Spuren die engste)
 
 | Code | Art | Bedeutung |
 |------|-----|-----------|
-| `map-file` | Fehler | Die Kartendatei ließe sich nicht schreiben (`mapProblems` in `map-file.ts`, dieselbe Prüfung wie beim Packen): ein Wert, den das Format nicht nimmt (eine Objektposition NaN, ein Prefab ohne Größe). Speichern, Strg+S und Download scheitern daran gleich; die Meldung nennt das Feld, der Klick wählt das Ding oder öffnet das Werkzeug dazu. Ein gescheitertes Speichern öffnet die Prüfung selbst |
+| `map-file` | Fehler | Die Kartendatei ließe sich nicht schreiben (`mapProblems` in `map-file.ts`, dieselbe Prüfung wie beim Packen): ein Fehler der Struktur (eine Kante zu einem Knoten, den es nicht gibt, ein HQ ohne Position; Formatregel 3). Speichern, Strg+S und Download scheitern daran gleich; die Meldung nennt das Feld, der Klick wählt das Ding oder öffnet das Werkzeug dazu. Ein gescheitertes Speichern öffnet die Prüfung selbst |
 | `no-paths`, `no-spawns` | Fehler | Karte ohne Straßen oder ohne Spawn |
 | `too-many-spawns` | Fehler | Mehr als 32 Spawns (`MAX_SPAWN_PORTALS`); das Spiel nutzt nur die ersten 32, das Werkzeug setzt keine weiteren |
 | `spawn-off-path`, `hq-off-path` | Fehler | Spawn oder HQ weiter als 16 m von einer Straße |
@@ -680,7 +680,7 @@ Szenenkosten.
   4 Byte je Höhenpunkt, eine 300 m lange Straße auf 2-m-Raster rund 12 kB Text vor dem Zip; die mitgelieferten Level
   wachsen dadurch um 21 bis 54 kB, 2 bis 7 %; nur der Editor liest es); optionales Feld `gameplay` (`startCredits`, `hqHealth`, `towers`, `waves` als
   `{ kind: 'budget' }` oder `{ kind: 'table', table }` in der Form der Table-Source, `difficulty` in Prozent, ohne
-  Feld 100, `events` die Wellen-Ereignisse; später dazugekommene optionale Felder heben die Version nicht, so auch `environment.skyImage`, die Id
+  Feld 100, `events` die Wellen-Ereignisse; später dazugekommene optionale Felder heben die Version nicht (Formatregel 2), so auch `environment.skyImage`, die Id
   eines Himmelsbilds, ohne Feld prozedural, und `life`, das Leben der Karte (Werkzeug Life, CUSTOM_MAPS.md
   „Lebensbereiche“); ohne Feld sieht und klingt die Karte wie vorher, ihr `contentHash` bleibt; ebenso `intro`, der eigene
   Kameraflug (`{ kind: 'orbit', seconds, radius, height, angle, sweep? }` oder `{ kind: 'path', seconds, views }`, je
@@ -917,16 +917,51 @@ Taktgeber laufen außerhalb der Zone, Änderungen am Dokument erreichen die Pane
 `terrain/water-mask.u8`), optional `preview.png`.
 `contentHash` ist SHA-256 über das kanonische JSON der Welt (Schlüssel sortiert, ohne Name, Beschreibung und Zeiten)
 und die Arrays; Umbenennen und erneutes Speichern ändern ihn nicht. Beim Lesen laufen erst die Migrationen
-(`MAP_MIGRATIONS`, je Version ein Schritt), dann die Prüfung; Fehler kommen als `MapFileError` mit Klartext.
-Vor der harten Prüfung setzt das Lesen weiche Werte richtig, statt die Karte abzuweisen (`map-repair.ts`, „warn and
-clamp“): Umgebungszahlen außerhalb ihres Bereichs oder keine Zahl (Sonne, Nebel, Wetterstärke, Schnee, Mondlicht),
-eine Tönung, die keine `#rrggbb`-Farbe ist, ein unbekanntes Wetter, `blocksLos`/`blocksBuild` eines Objekts, die nicht
-true oder false sind, eine Schichtgröße ohne Wert, eine unbekannte Wegart, doppelte oder fehlende Spawn-Ids (die
-zweite bekommt eine neue, die Spuren, Portale und Koop-Spuren gehen über die Id), zu lange Texte (Name und Autor 80,
-Beschreibung 2000 Zeichen) und mehr als `MAX_MAP_OBJECTS` (100 000) Objekte; mehr als 100 000 Wegknoten oder Kanten
-werden nur gemeldet. Was das Lesen ändert, steht in `repaired` (der Editor zeigt es im Banner, das Spiel in der
-Konsole); der Inhalts-Hash ist dann der der berichtigten Karte. Die Prüfung im Editor nennt dieselben Werte vorher als
-Warnung `map-values`. Eine Datei, die vor diesen Prüfungen öffnete, öffnet weiter.
+(`MAP_MIGRATIONS`, je Version ein Schritt), dann die weiche und die harte Prüfung (Formatregeln unten); Fehler kommen
+als `MapFileError` mit Klartext.
+
+**Formatregeln.** Was eine neue Fassung der Datei darf, ohne ältere Spiele zu brechen (Desktop-App eines Spielers,
+der nicht aktualisiert hat):
+
+1. **Version heben.** Ein neues Feld oder eine neue Bedeutung, die ein älteres Spiel nicht übergehen darf, ohne
+   falsch zu spielen (andere Spielregeln, ein anderes Gelände, Wege, Spawns, Masken, Arrays), hebt `MAP_VERSION` und
+   bringt eine Migration in `MAP_MIGRATIONS` mit, die ältere Dateien hebt. Ein älteres Spiel liest die Version vor
+   allem anderen und sagt „This map was made with a newer version of the game (map version 4, this game reads up to
+   3). Update the game to open it.“ statt „broken“; im Editor beim Import und Öffnen im Banner, im Spiel auf der
+   Ladetafel.
+2. **Ohne Version.** Ein optionales Feld, dessen Fehlen nur das Bild oder den Ton ändert (`skyImage`, `planet`,
+   `wind`, `life`, `intro`), und ein neuer Wert einer Liste (Himmel, Biom, Wetter, Wasser- und Flussart, Wegart,
+   Brückenstil, Wellen-Ereignis, Leben, Vogelart, Spurregel `vacant`, Wellenquelle) heben die Version nicht. Ein
+   älteres Spiel setzt einen unbekannten Wert beim Lesen auf den Standard (oder lässt das Ding weg, wo es keinen gibt:
+   ein Wellen-Ereignis unbekannter Art, ein Lebensbereich unbekannter Art) und meldet es. Die Listen stehen einmal in
+   `map-document.ts` (`MAP_SKIES`, `MAP_BIOMES`, `MAP_WEATHERS`, `MAP_WATER_KINDS`, `MAP_RIVER_KINDS`,
+   `MAP_PATH_KINDS`, `MAP_BRIDGE_STYLES`, `MAP_WAVE_EVENT_KINDS`, dazu `LIFE_KINDS` und `BIRD_SPECIES` in
+   `map-life.ts`); ein Wert, der im Typ dazukommt, kompiliert nicht, bis er dort steht. Das weiche Lesen der Listen
+   gibt es seit E223 (Oktober 2026); Spiele davor weisen einen unbekannten Wert noch als „broken“ ab.
+3. **Zwei Prüfungen.** Hart ist nur die Struktur (`validateMapDocument`): Raster, Höhen, Splat- und Wassermasken,
+   Gewässer, Listen, Wegknoten und Kanten mit ihren Ids, Spawn- und HQ-Positionen, Meta, Spielregeln und Wellenliste.
+   Eine solche Karte wird weder geschrieben noch gelesen (`MapFileError`, „The map is broken: …“). Weich ist der Inhalt
+   (`map-repair.ts`): ein kaputtes Objekt (fehlende oder doppelte Id, kein Asset, Lage, Gruppe oder Neigung keine Zahl),
+   ein kaputter Fluss, Lebensbereich, ein kaputtes Wellen-Ereignis, Prefab oder ein kaputter Intro-Flug fällt weg; ein
+   kaputter Schalter des Lebens fällt auf den Standard; Zahlen der Umgebung kommen in ihren Bereich, eine Tönung, die
+   keine `#rrggbb`-Farbe ist, wird weiß, `blocksLos`/`blocksBuild`/`optional`, die nicht true oder false sind, fallen
+   auf den Standard, doppelte oder fehlende Spawn-Ids bekommen neue (Spuren, Portale und Koop-Spuren gehen über die
+   Id), zu lange Texte (Name und Autor 80, Beschreibung 2000 Zeichen) werden gekürzt, mehr als `MAX_MAP_OBJECTS`
+   (100 000) Objekte, 64 Lebensbereiche, 64 Wellen-Ereignisse oder 32 Prefabs werden abgeschnitten; mehr als 100 000
+   Wegknoten oder Kanten werden nur gemeldet. Die Karte öffnet mit dem Rest.
+4. **Gemeldet.** Was das Lesen ändert, steht in `repaired`: der Editor zeigt es im Banner („… had parts this game does
+   not take; it opened with them set right or left out: …“, das nächste Speichern behält die berichtigte Karte), das
+   Spiel im Banner über dem Spiel, bis der Spieler es schließt (`UiNotice.lasting`). Die Prüfung im Editor nennt
+   dieselben Punkte vorher als Warnung `map-values`, Speichern schreibt sie, wie sie sind. Der Inhalts-Hash ist der der
+   berichtigten Karte. Eine Datei, die vor einer neuen weichen Prüfung öffnete, öffnet weiter; eine neue harte Prüfung
+   ist eine Formatänderung nach Regel 1.
+5. **Koop und Replays.** Das weiche Lesen hängt nur an der Datei (keine Uhr, kein Zufall) und ist nach einem Durchlauf
+   fertig (`mapRepairs` auf der gelesenen Karte ist leer). Ein Koop-Raum erzwingt denselben Build, der Host packt die
+   berichtigte Karte, der Gast liest dieselbe Karte mit demselben Hash.
+6. **Papierkorb.** Löschen, Zurückholen und Ersetzen lesen nur `meta` aus `map.json` (`mapFileMeta`,
+   `withMapFileMeta`), nicht die ganze Prüfung: eine Karte, die nach einem Update nicht mehr öffnet, lässt sich in den
+   Papierkorb legen, zurückholen (unter anderer Id wird nur `meta.id` in der Datei umgeschrieben) und durch eine
+   gelesene Datei ersetzen.
 
 **Tests.** Vitest: `map-file.spec.ts`, `map-store.spec.ts`, `editor-document.spec.ts`, `ops.spec.ts`,
 `path-graph.spec.ts`, `map-validation.spec.ts`, `validation/build-areas.spec.ts` (jede Zellart nach den Regeln des

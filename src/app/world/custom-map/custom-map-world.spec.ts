@@ -553,6 +553,15 @@ describe('CustomMapWorld', () => {
     await openCustomMap({ kind: 'custom-map', mapId: 'other-map', contentHash: '' }, store);
     expect(openedCustomMap({ kind: 'custom-map', mapId: 'other-map', contentHash: '' })).not.toBeNull();
     expect(openedCustomMap(ref)).toBeNull();
+
+    // A map opened with parts set right or left out carries what, for the game to say
+    const odd = testMap();
+    odd.meta.id = 'odd-map';
+    odd.environment.biome = 'ocean' as never;
+    await store.save(odd);
+    const read = await openCustomMap({ kind: 'custom-map', mapId: 'odd-map', contentHash: '' }, store);
+    expect(read.repaired).toEqual(['environment biome ocean is unknown; the map looks temperate']);
+    expect(read.doc.environment.biome).toBeUndefined();
   });
 });
 

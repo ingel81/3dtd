@@ -26,7 +26,7 @@ import { TERRAIN_PRESETS, type TerrainPreset } from '../ops/generate';
 import { ALL_PARTS, capturePrefab, captureStamp, pasteStamp, type Stamp, type StampParts, type StampRect } from '../ops/stamp';
 import { erodeJob, startTerrainJob } from '../workers/terrain-job';
 import type { MapIssue } from '../validation/map-validation';
-import { validateMapDocument } from '../../world/custom-map/map-file';
+import { strictMapProblems } from '../../world/custom-map/map-file';
 import type { MapStore } from '../../world/custom-map/map-store';
 import { MAX_MAP_PREFABS, type CustomMapDocument, type MapObject } from '../../world/custom-map/map-document';
 import { catalogAsData, contentFingerprint, heightsIn, issuesAsData, mapDiff, mapSummary, objectsIn, type MapRect } from './agent-reads';
@@ -491,9 +491,9 @@ export class EditorAgent {
     });
   }
 
-  /** The map file must still take what an edit made of it; otherwise the edit is undone */
+  /** The map file must still take what an edit made of it, as it is; otherwise the edit is undone */
   private keepIfSavable(editor: EditorDocument): void {
-    const problems = validateMapDocument(editor.doc);
+    const problems = strictMapProblems(editor.doc);
     if (problems.length) {
       this.host.undo();
       throw new AgentError(`Not done, the map would not save: ${problems.slice(0, 3).join('; ')}`);

@@ -1,6 +1,6 @@
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { createMapDocument } from './map-create';
-import { contentHash, packMapFile } from './map-file';
+import { contentHash, mapFileMeta, packMapFile } from './map-file';
 import { MapStore, MapStoreError, MemoryMapBackend, TRASH_DAYS, type ShippedMapIndex } from './map-store';
 
 function shippedFetch(index: ShippedMapIndex, files: Record<string, Uint8Array>) {
@@ -112,19 +112,47 @@ describe('MapStore', () => {
     await expect(store.trash('nope')).rejects.toBeInstanceOf(MapStoreError);
   });
 
-  it('moves a map to the trash that no longer passes the check (a stricter game), it does not open', async () => {
+  it('moves a map that no longer passes the check (a stricter game) to the trash and back, under its id or another', async () => {
     const backend = new MemoryMapBackend();
     const store = new MapStore({ backend, fetch: shippedFetch({ maps: [] }, {}).fetcher, baseUrl: 'http://x/' });
     await store.save(doc());
     const stored = (await backend.get('valley'))!;
     const entries = unzipSync(stored.file);
-    const json = JSON.parse(strFromU8(entries['map.json'])) as { objects: unknown[] };
-    json.objects = [{ id: 'o', asset: 'tree', x: null, y: 0, z: 0, rotation: 0, scale: 1 }];
+    const json = JSON.parse(strFromU8(entries['map.json'])) as { hq: unknown };
+    json.hq = { x: null, y: 0 };
     entries['map.json'] = strToU8(JSON.stringify(json));
     await backend.put({ ...stored, file: zipSync(entries) });
     await expect(store.load('valley')).rejects.toThrow(/broken/);
     const key = await store.trash('valley');
     expect((await store.listTrash())[0]).toMatchObject({ id: key, trash: { from: 'valley', created: doc().meta.createdAt } });
+    expect(await store.restoreFromTrash(key)).toBe('valley');
+    expect((await store.listOwn()).map((m) => m.id)).toEqual(['valley']);
+    await expect(store.load('valley')).rejects.toThrow(/broken/);
+    // Its id taken meanwhile: it comes back under another, written into its file unread
+    const again = await store.trash('valley');
+    await store.save(doc());
+    expect(await store.restoreFromTrash(again)).toBe('valley-2');
+    const back = (await backend.get('valley-2'))!;
+    expect(mapFileMeta(back.file)?.id).toBe('valley-2');
+    expect(back.summary).toMatchObject({ id: 'valley-2', origin: 'own', contentHash: '' });
+    expect(back.summary.trash).toBeUndefined();
+    await expect(store.load('valley-2')).rejects.toThrow(/HQ has no position/);
+  });
+
+  it('replaces a map that no longer opens with a read file, keeping its creation time', async () => {
+    const backend = new MemoryMapBackend();
+    const store = new MapStore({ backend, fetch: shippedFetch({ maps: [] }, {}).fetcher, baseUrl: 'http://x/' });
+    await store.save(doc());
+    const stored = (await backend.get('valley'))!;
+    const entries = unzipSync(stored.file);
+    const json = JSON.parse(strFromU8(entries['map.json'])) as { hq: unknown };
+    json.hq = null;
+    entries['map.json'] = strToU8(JSON.stringify(json));
+    await backend.put({ ...stored, file: zipSync(entries) });
+    const fresh = createMapDocument({ id: 'other', name: 'Other', width: 32, depth: 32, now: new Date('2026-10-16T00:00:00Z') });
+    const { created } = await store.replaceWith('valley', { doc: fresh, preview: null });
+    expect(created).toBe(doc().meta.createdAt);
+    expect((await store.load('valley')).doc.meta).toMatchObject({ id: 'valley', name: 'Other', createdAt: doc().meta.createdAt });
   });
 
   it('gives no new or imported map the id of a map in the trash, whose versions are kept under it', async () => {

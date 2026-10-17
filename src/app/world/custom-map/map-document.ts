@@ -15,7 +15,9 @@ import type { MapLanes } from './lane-choice';
 export const MAP_FORMAT = '3dtd-map';
 /**
  * 2: optional `gameplay` rules (version 1 files have none and read unchanged).
- * 3: a third splat map for ground layers 9 to 12 (older files have at most 8 layers and read unchanged)
+ * 3: a third splat map for ground layers 9 to 12 (older files have at most 8 layers and read unchanged).
+ * When to raise it: docs/LEVEL_EDITOR.md, "Formatregeln" (a field an older game must not skip does; a new
+ * value of a list or an optional look does not)
  */
 export const MAP_VERSION = 3;
 
@@ -555,9 +557,9 @@ export interface CustomMapDocument {
   environment: MapEnvironment;
   /** The map's own game rules (version 2); none means the game's defaults */
   gameplay?: MapGameplay;
-  /** Life areas, ambient sound and the switches of the map's own life (map-life.ts); optional, no new version */
+  /** Life areas, ambient sound and the switches of the map's own life (map-life.ts); optional, a game without it loses only the look */
   life?: MapLife;
-  /** The map's own intro camera flight (map-intro.ts); optional, no new version */
+  /** The map's own intro camera flight (map-intro.ts); optional, a game without it flies its default tour */
   intro?: MapIntro;
   /**
    * Prefabs and stamps kept with this map (the editor's; the game ignores
@@ -627,6 +629,41 @@ export interface MapPrefab {
 
 /** Prefabs a map keeps (CustomMapDocument.prefabs) */
 export const MAX_MAP_PREFABS = 32;
+
+/** The values of a union, from a record that must name each: a value added to the type fails to compile until it is here */
+function valuesOf<T extends string>(all: Record<T, true>): readonly T[] {
+  return Object.keys(all) as T[];
+}
+
+/**
+ * The values of the format's lists this game knows. Reading a file sets an
+ * unknown one to its default and says so (map-repair.ts, docs/CUSTOM_MAPS.md
+ * "Format rules"), so a new value needs no new MAP_VERSION
+ */
+export const MAP_SKIES = valuesOf<MapEnvironment['sky']>({ day: true, dusk: true, night: true, overcast: true });
+export const MAP_BIOMES = valuesOf<MapBiome>({
+  temperate: true,
+  hell: true,
+  moon: true,
+  mars: true,
+  arctic: true,
+  apocalypse: true,
+  swamp: true,
+  desert: true,
+  mountain: true,
+  city: true,
+});
+export const MAP_WEATHERS = valuesOf<MapWeather>({ clear: true, rain: true, snow: true, fog: true });
+export const MAP_WATER_KINDS = valuesOf<MapWaterKind>({ water: true, sea: true, swamp: true, ice: true, lava: true });
+export const MAP_RIVER_KINDS = valuesOf<MapRiver['kind']>({ water: true, lava: true });
+export const MAP_PATH_KINDS = valuesOf<MapPathKind>({ road: true, path: true, bridge: true });
+export const MAP_BRIDGE_STYLES = valuesOf<MapBridgeStyle>({ wood: true, stone: true, concrete: true, lava: true });
+export const MAP_WAVE_EVENT_KINDS = valuesOf<MapWaveEventKind>({ message: true, weather: true, time: true, portal: true, objects: true });
+
+/** Typed array check that holds across realms (structuredClone in a test DOM, workers) */
+export function isTypedArray(v: unknown, kind: 'Float32Array' | 'Uint8Array'): boolean {
+  return Object.prototype.toString.call(v) === `[object ${kind}]`;
+}
 
 /** Synthetic lat/lon of a map point (origin (0, 0)) */
 export function mapToGeo(p: MapPoint): { lat: number; lon: number } {

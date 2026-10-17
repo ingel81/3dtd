@@ -6,6 +6,7 @@ describe('noticeLingerMs (TODO E137)', () => {
     expect(noticeLingerMs({ text: 'The coop game goes on as a single player game.' })).toBe(NOTICE_LINGER_MS);
     expect(noticeLingerMs({ text: 'Saved', tone: 'ok' })).toBe(NOTICE_LINGER_MS);
     expect(noticeLingerMs({ text: 'Models missing', reload: true })).toBeNull();
+    expect(noticeLingerMs({ text: 'The map opened without some of its parts', tone: 'warn', lasting: true })).toBeNull();
   });
 });
 

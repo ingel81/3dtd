@@ -26,8 +26,21 @@ import { editRoads, setRoadSurface } from '../tools/path-tool';
 import { relayRiver, removeWholeRiver } from '../tools/water-tool';
 import { contentFingerprint } from './agent-reads';
 import { dabCentres, facing, MapKit, rng, type Brush, type Where } from '../ops/map-kit';
-import { validateMapDocument } from '../../world/custom-map/map-file';
-import type { CustomMapDocument, MapBridgeStyle, MapObject, MapPathKind, MapPoint, MapRiver } from '../../world/custom-map/map-document';
+import { strictMapProblems } from '../../world/custom-map/map-file';
+import {
+  MAP_BIOMES,
+  MAP_BRIDGE_STYLES,
+  MAP_PATH_KINDS,
+  MAP_SKIES,
+  MAP_WATER_KINDS,
+  MAP_WEATHERS,
+  type CustomMapDocument,
+  type MapBridgeStyle,
+  type MapObject,
+  type MapPathKind,
+  type MapPoint,
+  type MapRiver,
+} from '../../world/custom-map/map-document';
 import { LIFE_KINDS } from '../../world/custom-map/map-life';
 import { AMBIENT_SOUNDS, WAVE_SOUNDS } from '../../world/custom-map/ambience/ambient-sounds';
 
@@ -121,17 +134,17 @@ const a = (name: string, type: ArgKind, optional = false): Arg => ({ name, type,
 const PRESETS = TERRAIN_PRESETS.map((p) => p.id);
 const FORMS = ['mountain', 'valley', 'plateau', 'crater', 'dunes'] as const;
 const BIOME_IDS = BIOMES.map((b) => b.id);
-const WATER_KINDS = ['water', 'sea', 'swamp', 'ice', 'lava'] as const;
-const PATH_KINDS = ['road', 'path', 'bridge'] as const;
-const BRIDGE_STYLES = ['wood', 'stone', 'concrete', 'lava'] as const;
+const WATER_KINDS = MAP_WATER_KINDS;
+const PATH_KINDS = MAP_PATH_KINDS;
+const BRIDGE_STYLES = MAP_BRIDGE_STYLES;
 const SYMMETRIES = ['none', 'x', 'y', 'xy', 'rot2', 'rot4'] as const;
 const SOUND_IDS = Object.keys(AMBIENT_SOUNDS).join('|');
 const WAVE_SOUND_IDS = Object.keys(WAVE_SOUNDS).join('|');
 
 const ENVIRONMENT_CHOICES: Record<string, readonly string[]> = {
-  sky: ['day', 'dusk', 'night', 'overcast'],
-  weather: ['clear', 'rain', 'snow', 'fog'],
-  biome: ['temperate', 'hell', 'moon', 'mars', 'arctic', 'apocalypse', 'swamp', 'desert', 'mountain', 'city'],
+  sky: MAP_SKIES,
+  weather: MAP_WEATHERS,
+  biome: MAP_BIOMES,
 };
 const ENVIRONMENT_NUMBERS = ['sunAzimuth', 'sunElevation', 'fogDensity', 'weatherStrength', 'snowCover', 'moonlight'];
 
@@ -954,7 +967,7 @@ export function runMapScript(source: string, doc: CustomMapDocument, catalog: Ma
     const map = scriptMap(kit, kept, { maxCommands: options.maxCommands ?? MAX_SCRIPT_COMMANDS, maxCommandMs: options.maxCommandMs ?? MAX_COMMAND_MS });
     const consoleLike = Object.freeze({ log, info: log, warn: log, error: log });
     const value = compile(source)(map, rng, facing, log, consoleLike);
-    const problems = validateMapDocument(doc);
+    const problems = strictMapProblems(doc);
     if (problems.length) throw new ScriptError(`the map would not save: ${problems.slice(0, 5).join('; ')}`);
     let returned: unknown;
     try {

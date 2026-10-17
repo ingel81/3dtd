@@ -1,5 +1,6 @@
 import { Injectable, Injector, inject } from '@angular/core';
 import { ConfigService } from '../core/services/config.service';
+import { UIStore } from '../store/ui.store';
 import { DEV_WORLD_CAPABILITIES, DevWorldProvider } from '../devworld/dev-world-provider';
 import { DevWorldService } from '../devworld/devworld.service';
 import { OsmStreetService } from '../services/location/osm-street.service';
@@ -11,6 +12,7 @@ import {
   prefetchCustomMapAssets,
 } from './custom-map/custom-map-world';
 import { mapToGeo } from './custom-map/map-document';
+import { repairedMapText } from './custom-map/map-repair';
 import { FLAT_WORLD_ORIGIN } from './flat-frame';
 import { OWN_TILESET_CAPABILITIES, TILES_CAPABILITIES, TILES_DATA_CREDIT, TilesWorld, tilesLogos } from './tiles/tiles-world';
 import type { OwnTileset } from './tileset/own-tileset';
@@ -129,6 +131,11 @@ const CUSTOM_MAP_FACTORY: WorldFactory = {
     const map = ref.kind === 'custom-map' ? openedCustomMap(ref) : null;
     if (!map) throw new WorldUnavailableError(ref, 'the map was not opened before the world was made');
     const { spawnLimit, startWave } = injector.get(WorldStartService).current();
+    // Said here, as the world opens: the banner of the world before is gone by now (UIStore.resetWorld)
+    if (map.repaired?.length) {
+      console.warn(`[maps] ${map.doc.meta.name}: set right or left out as it was read:`, map.repaired);
+      injector.get(UIStore).notice.set({ text: repairedMapText(map.doc.meta.name, map.repaired), tone: 'warn', lasting: true });
+    }
     return new CustomMapWorld(map, origin, spawnLimit, null, undefined, startWave);
   },
   startHq: async (ref) => {

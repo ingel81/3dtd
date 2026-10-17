@@ -13,6 +13,12 @@ import {
   unpackMapFile,
   validateMapDocument,
 } from './map-file';
+import { mapRepairs } from './map-repair';
+
+/** What reading would set right or leave out, in words */
+function soft(doc: CustomMapDocument): string[] {
+  return mapRepairs(doc).map((q) => q.text);
+}
 
 function sample(): CustomMapDocument {
   const doc = createMapDocument({
@@ -65,7 +71,9 @@ describe('map file limits', () => {
     bad.environment['biome'] = 'pluto';
     const problems = validateMapDocument(bad as unknown as CustomMapDocument);
     expect(problems).toContain('meta.updatedAt must be a date');
-    expect(problems.join()).toMatch(/biome pluto/);
+    // A biome this game does not know is content, not structure: reading falls back to the default
+    expect(problems.join()).not.toMatch(/pluto/);
+    expect(mapRepairs(bad as unknown as CustomMapDocument).map((q) => q.text).join()).toMatch(/biome pluto is unknown/);
     bad.objects = { o1: {} };
     expect(() => validateMapDocument(bad as unknown as CustomMapDocument)).not.toThrow();
     expect(validateMapDocument(bad as unknown as CustomMapDocument)).toContain('objects must be a list');
@@ -124,8 +132,9 @@ describe('map file', () => {
     expect(back.terrain.waterBodies?.[1].mask).toBeInstanceOf(Uint8Array);
     doc.terrain.waterBodies[0].mask = new Uint8Array(3);
     expect(validateMapDocument(doc).some((m) => m.includes('water body 1'))).toBe(true);
+    // A broken river is content: reading leaves it out and says so
     doc.terrain.rivers[0].points.pop();
-    expect(validateMapDocument(doc).some((m) => m.includes('river r1'))).toBe(true);
+    expect(mapRepairs(doc).some((q) => q.text.includes('river r1 needs two points; it is left out'))).toBe(true);
   });
 
   it('refuses an invalid document when packing', () => {
@@ -148,6 +157,74 @@ describe('map file', () => {
     const out = migrateMapJson({ version: 1, a: 1 }, { 1: (j) => ({ ...j, b: 2 }) }, 2);
     expect(out).toEqual({ version: 2, a: 1, b: 2 });
     expect(() => migrateMapJson({ version: 1 }, {}, 2)).toThrow(/No way to read/);
+  });
+
+  it('says a file of a newer map version was made with a newer game, before it reads the rest', () => {
+    const entries = unzipSync(packMapFile(sample()));
+    const json = JSON.parse(new TextDecoder().decode(entries['map.json']));
+    // A newer file may change the structure too: the version is read first
+    const newer = zipSync({ 'map.json': strToU8(JSON.stringify({ ...json, version: MAP_VERSION + 1, terrain: 'changed' })) });
+    expect(() => unpackMapFile(newer)).toThrow(`This map was made with a newer version of the game (map version ${MAP_VERSION + 1}, this game reads up to ${MAP_VERSION}). Update the game to open it.`);
+  });
+
+  it('reads content it does not know softly: values to their default, broken things left out, the same on every read', async () => {
+    const doc = sample();
+    doc.objects.push({ id: 'o2', asset: 'rock', x: 1, y: 1, z: 0, rotation: 0, scale: 1 });
+    doc.terrain.rivers = [{ id: 'r1', kind: 'water', points: [{ x: 0, y: 0, width: 6, height: 2 }, { x: 10, y: 4, width: 7, height: 1.5 }] }];
+    doc.paths.nodes.push({ id: 'n8', x: 0, y: 30 }, { id: 'n9', x: 10, y: 30 });
+    doc.paths.edges.push({ id: 'e9', a: 'n8', b: 'n9', width: 6, kind: 'bridge', style: 'wood' });
+    doc.life = { areas: [{ id: 'a1', kind: 'birds', shape: 'area', points: [{ x: 0, y: 0 }, { x: 9, y: 0 }, { x: 0, y: 9 }] }] };
+    doc.intro = { kind: 'orbit', seconds: 10, radius: 100, height: 30, angle: 1 };
+    const unknown = (v: string) => v as never;
+    // What a newer game may write: new values of lists, new kinds of things, and a few things broken
+    doc.environment.sky = unknown('aurora');
+    doc.environment.biome = unknown('ocean');
+    doc.terrain.water!.kind = unknown('acid');
+    doc.terrain.rivers[0].kind = unknown('tar');
+    const bridge = doc.paths.edges.find((e) => e.id === 'e9')!;
+    bridge.style = unknown('glass');
+    bridge.kind = unknown('rail');
+    doc.objects[1].scale = NaN;
+    doc.life.areas!.push({ id: 'a2', kind: unknown('whales'), shape: 'area', points: [{ x: 0, y: 0 }, { x: 9, y: 0 }, { x: 0, y: 9 }] });
+    doc.intro = { kind: unknown('drone'), seconds: 10 } as never;
+    expect(validateMapDocument(doc)).toEqual([]);
+    const file = packMapFile(doc);
+    const read = unpackMapFile(file);
+    expect(read.repaired).toEqual([
+      'environment sky aurora is unknown; it is day now',
+      'environment biome ocean is unknown; the map looks temperate',
+      'the water: kind acid is unknown; it is water now',
+      'river r1: kind tar is unknown; it is water now',
+      'object o2 has a bad placement; it is left out',
+      'path edge e9: kind rail is unknown; it is a road now',
+      'path edge e9: bridge style glass is unknown; the default holds',
+      'life area a2: kind whales is unknown; it is left out',
+      "intro.kind must be path or orbit; the map's intro flight is left out, the game flies its own",
+    ]);
+    const back = read.doc;
+    expect(back.environment.sky).toBe('day');
+    expect(back.environment.biome).toBeUndefined();
+    expect(back.terrain.water!.kind).toBeUndefined();
+    expect(back.terrain.rivers![0].kind).toBe('water');
+    expect(back.objects.map((o) => o.id)).toEqual(['o1']);
+    const road = back.paths.edges.find((e) => e.id === 'e9')!;
+    expect(road.kind).toBe('road');
+    expect(road).not.toHaveProperty('style');
+    expect(back.life!.areas!.map((a) => a.id)).toEqual(['a1']);
+    expect(back.intro).toBeUndefined();
+    // Set right once, nothing more to set right; and every read of the file (every coop client) gives the same map
+    expect(mapRepairs(back)).toEqual([]);
+    const again = unpackMapFile(file);
+    expect(again.doc).toEqual(back);
+    expect(await contentHash(again.doc)).toBe(await contentHash(back));
+  });
+
+  it('still refuses a file whose structure is broken', () => {
+    const doc = sample();
+    const entries = unzipSync(packMapFile(doc));
+    const json = JSON.parse(new TextDecoder().decode(entries['map.json']));
+    json.paths.edges = [{ id: 'e1', a: 'n1', b: 'gone', width: 4, kind: 'road' }];
+    expect(() => unpackMapFile(zipSync({ ...entries, 'map.json': strToU8(JSON.stringify(json)) }))).toThrow(/The map is broken: path edge e1 names a node that does not exist/);
   });
 
   it('reads version 1 maps and keeps gameplay rules through a round trip', () => {
@@ -210,9 +287,8 @@ describe('map file', () => {
     expect(back.spawns[0].optional).toBe(true);
     expect(validateMapDocument(doc)).toEqual([]);
     doc.gameplay = { lanes: { min: 3, max: 2, vacant: 'all' as never } };
-    expect(validateMapDocument(doc)).toEqual(expect.arrayContaining([
-      'gameplay.lanes.min is above max', 'gameplay.lanes.vacant must be close, host or split',
-    ]));
+    expect(validateMapDocument(doc)).toEqual(['gameplay.lanes.min is above max']);
+    expect(soft(doc)).toEqual(['gameplay.lanes.vacant all is unknown; the default holds']);
     doc.gameplay = { lanes: { min: 0.5 } };
     expect(validateMapDocument(doc)).toContain('gameplay.lanes.min must be a whole number from 1');
   });
@@ -254,8 +330,11 @@ describe('map file', () => {
     // A map without prefabs writes no key
     delete back.prefabs;
     expect(JSON.parse(new TextDecoder().decode(unzipSync(packMapFile(back))['map.json']))).not.toHaveProperty('prefabs');
+    // A broken prefab is not written and reading leaves it out: the map itself is fine
     doc.prefabs[1].stamp = { ...piece, paint: new Uint8Array(3) };
-    expect(validateMapDocument(doc)).toContain('prefab 2: paint does not match its grid');
+    expect(validateMapDocument(doc)).toEqual([]);
+    expect(soft(doc)).toEqual(['prefab 2: paint does not match its grid; it is left out']);
+    expect(unpackMapFile(packMapFile(doc)).doc.prefabs!.map((p) => p.id)).toEqual(['pf-1']);
   });
 
   it('carries the wave events in the rules and checks their shape (TODO E170)', async () => {
@@ -282,14 +361,20 @@ describe('map file', () => {
       { wave: 2, kind: 'objects', ids: [], show: true },
       { wave: 2, kind: 'party' } as never,
     ];
-    expect(validateMapDocument(doc)).toEqual([
-      'wave event 1: wave must be a whole number from 1 to 200',
-      'wave event 2: a message of 1 to 200 characters',
-      'wave event 3: weather must be clear, rain, snow or fog',
-      'wave event 4: hour must be 0 to 24',
-      'wave event 5 names 1 to 500 objects',
-      'wave event 6: kind party is unknown',
+    // Each broken event is left out on reading, the map opens with the rest
+    doc.gameplay.events.push({ wave: 9, kind: 'time', hour: 6 });
+    expect(validateMapDocument(doc)).toEqual([]);
+    expect(soft(doc)).toEqual([
+      'wave event 1: wave must be a whole number from 1 to 200; it is left out',
+      'wave event 2: a message of 1 to 200 characters; it is left out',
+      'wave event 3: weather hail is unknown; it is left out',
+      'wave event 4: hour must be 0 to 24; it is left out',
+      'wave event 5 names 1 to 500 objects; it is left out',
+      'wave event 6: kind party is unknown; it is left out',
     ]);
+    const read = unpackMapFile(packMapFile(doc));
+    expect(read.doc.gameplay?.events).toEqual([{ wave: 9, kind: 'time', hour: 6 }]);
+    expect(read.repaired).toHaveLength(6);
   });
 
   it('carries an image sky, an optional id; an old map has none and keeps its hash (TODO E172)', async () => {
@@ -303,11 +388,12 @@ describe('map file', () => {
     // Back to procedural: the field goes, the hash is the old map's
     doc.environment = { ...doc.environment, skyImage: undefined };
     expect(await contentHash(doc)).toBe(hash);
-    // An id this game does not ship is no error (procedural here); a non-string is
+    // An id this game does not ship is nothing to set right (procedural here); a non-string goes
     doc.environment.skyImage = 'from-a-newer-game';
-    expect(validateMapDocument(doc)).toEqual([]);
+    expect(soft(doc)).toEqual([]);
     doc.environment.skyImage = 7 as never;
-    expect(validateMapDocument(doc)).toContain('environment skyImage must be a sky id');
+    expect(validateMapDocument(doc)).toEqual([]);
+    expect(soft(doc)).toEqual(['environment skyImage is no sky id; the procedural sky shows']);
   });
 
   it('carries a planet in the sky, an optional setting; an old map keeps its hash', async () => {
@@ -319,7 +405,7 @@ describe('map file', () => {
     doc.environment = { ...doc.environment, planet: undefined };
     expect(await contentHash(doc)).toBe(hash);
     doc.environment.planet = { azimuth: 20, elevation: 18, size: -1 };
-    expect(validateMapDocument(doc)).toContain('environment planet needs azimuth, elevation and a size of 0 or more');
+    expect(soft(doc)).toEqual(["environment planet needs azimuth, elevation and a size of 0 or more; the look's own shows"]);
   });
 
   it('validates the grid and the references', () => {
