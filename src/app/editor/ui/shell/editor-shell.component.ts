@@ -14,13 +14,17 @@ import {
 } from '@angular/core';
 import type { DocChange } from '../../model/doc-change';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { TdIconComponent, type TdIconName } from '../../../components/icon/icon.component';
+import { NgComponentOutlet } from '@angular/common';
+import { TdIconComponent } from '../../../components/icon/icon.component';
 import { SYMMETRY_MODES, type SymmetryMode } from '../../ops/symmetry';
-import { patch, LANDSCAPE_MODES, TOOL_GROUPS, TOOLS, type ToolId } from '../../tools/tool';
+import { patch, LANDSCAPE_MODES } from '../../tools/tool';
+import { TOOL_DEFS, TOOL_GROUPS, TOOL_INFO, type ToolId } from '../../tools/tool-defs';
 import { BIOMES, biomeById } from '../../ops/landscape/biomes';
 import { TRIAL_SPEEDS, stepTrialSpeed } from '../../view/trial-runners';
 import { CommandPaletteComponent } from './command-palette.component';
 import type { EditorCommand } from './commands';
+import { TOOL_PANELS } from './tool-panels';
+import { EDITOR_ACTIONS, FILE_ACTIONS, runAction, type ActionHost, type EditorAction } from './actions';
 import { KEY_ACTIONS, actionFor, bindable, loadKeymap, rebind, saveKeymap, toolKeys, type Keymap } from './keymap';
 import { LEVEL_GUIDE } from './level-guide';
 import { TOUR_STEPS, markTourDone, tourAdvance, tourPending, tourResumeAt, type TourEvent } from './tour';
@@ -28,24 +32,10 @@ import { RovingGroupDirective } from '../../../components/roving-group.directive
 import { ContextHintComponent, type HintAction } from '../../../components/context-hint/context-hint.component';
 import { EditorSession } from '../editor-session.service';
 import { CheckPanelComponent } from '../panels/check-panel.component';
-import { EnvironmentPanelComponent } from '../panels/environment-panel.component';
-import { LandscapePanelComponent } from '../panels/landscape-panel.component';
-import { LookPanelComponent } from '../panels/look-panel.component';
-import { MapPanelComponent } from '../panels/map-panel.component';
-import { MarkerPanelComponent } from '../panels/marker-panel.component';
-import { StampPanelComponent } from '../panels/stamp-panel.component';
-import { GameplayPanelComponent } from '../panels/gameplay-panel.component';
-import { MeasurePanelComponent } from '../panels/measure-panel.component';
 import { MinimapComponent } from '../panels/minimap.component';
-import { ObjectPanelComponent } from '../panels/object-panel.component';
 import { OutlinerComponent } from '../panels/outliner.component';
 import { HistoryPanelComponent } from '../panels/history-panel.component';
-import { PaintPanelComponent } from '../panels/paint-panel.component';
-import { PathPanelComponent } from '../panels/path-panel.component';
-import { LifePanelComponent } from '../panels/life-panel.component';
 import { StatusBarComponent } from '../panels/status-bar.component';
-import { TerrainPanelComponent } from '../panels/terrain-panel.component';
-import { WaterPanelComponent } from '../panels/water-panel.component';
 import { MAX_START_WAVE } from '../../../sim/protocol/run-start';
 import { AgentBandComponent } from '../agent/agent-band.component';
 import { AgentControlComponent } from '../agent/agent-control.component';
@@ -86,22 +76,6 @@ function readLegend(): boolean {
   }
 }
 
-export const TOOL_ICON: Record<ToolId, TdIconName> = {
-  look: 'eye',
-  landscape: 'terrain',
-  stamp: 'copy',
-  gameplay: 'coin',
-  measure: 'pin',
-  terrain: 'sliders',
-  paint: 'edit',
-  water: 'splash',
-  objects: 'build',
-  life: 'wind',
-  paths: 'route',
-  markers: 'portal',
-  environment: 'sparkle',
-  settings: 'cog',
-};
 
 /**
  * The editor around the 3D view: top bar (map, history, save, file,
@@ -113,24 +87,10 @@ export const TOOL_ICON: Record<ToolId, TdIconName> = {
 @Component({
   selector: 'app-editor-shell',
   standalone: true,
-  imports: [RovingGroupDirective, 
+  imports: [RovingGroupDirective, NgComponentOutlet,
     PanelShown,
     TdIconComponent,
     MatTooltipModule,
-    LookPanelComponent,
-    LandscapePanelComponent,
-    TerrainPanelComponent,
-    PaintPanelComponent,
-    WaterPanelComponent,
-    ObjectPanelComponent,
-    PathPanelComponent,
-    LifePanelComponent,
-    MarkerPanelComponent,
-    StampPanelComponent,
-    GameplayPanelComponent,
-    MeasurePanelComponent,
-    EnvironmentPanelComponent,
-    MapPanelComponent,
     OutlinerComponent,
     HistoryPanelComponent,
     MinimapComponent,
@@ -151,7 +111,7 @@ export const TOOL_ICON: Record<ToolId, TdIconName> = {
     '(window:beforeunload)': 'onBeforeUnload($event)',
   },
 })
-export class EditorShellComponent implements OnDestroy {
+export class EditorShellComponent implements OnDestroy, ActionHost {
   readonly session = inject(EditorSession);
   private readonly screens = inject(AppScreen);
   private readonly worlds = inject(WorldSession);
@@ -162,9 +122,10 @@ export class EditorShellComponent implements OnDestroy {
   readonly pathChips = computed<readonly PathChip[]>(() => this.stage.pathChips(null, false));
   readonly playHint = computed(() => (this.runOfThisMap() ? 'Back to the run on this map' : 'Play this map'));
   readonly closed = output<void>();
-  readonly tools = TOOLS;
+  readonly tools = TOOL_DEFS;
   readonly toolGroups = TOOL_GROUPS;
-  readonly icons = TOOL_ICON;
+  readonly panels = TOOL_PANELS;
+  readonly fileActions = FILE_ACTIONS;
   /** The legend of mouse and view keys in the corner of the view; hidden once the player closes it */
   readonly legend = signal(readLegend());
   /** Width of the side column, dragged at its inner edge and kept in this browser */
@@ -228,7 +189,7 @@ export class EditorShellComponent implements OnDestroy {
   private readonly canvas = viewChild.required<ElementRef<HTMLCanvasElement>>('canvas');
 
   readonly title = computed(() => this.session.state.meta()?.name ?? '');
-  readonly toolLabel = computed(() => TOOLS.find((t) => t.id === this.session.tools.tool())?.label ?? '');
+  readonly toolLabel = computed(() => TOOL_INFO.get(this.session.tools.tool())?.label ?? '');
   readonly issueCount = computed(() => this.session.check.issues()?.filter((i) => i.severity === 'error').length ?? 0);
   readonly saveLine = computed(() => {
     if (this.session.maps.readOnly()) return 'Read only';
@@ -360,11 +321,6 @@ export class EditorShellComponent implements OnDestroy {
   pick(id: ToolId): void {
     this.session.tools.select(id);
     this.sideView.set('tool');
-  }
-
-  /** The tool's name, key and what it is for, for its button in the column */
-  toolInfo(id: ToolId): (typeof TOOLS)[number] {
-    return TOOLS.find((t) => t.id === id)!;
   }
 
   /** Makes the other panels in idle moments, one at a time, so the first switch to them is quick too */
@@ -539,7 +495,7 @@ export class EditorShellComponent implements OnDestroy {
       const step = e.key === '+' || e.key === '=' ? 1 : e.key === '-' ? -1 : 0;
       if (step && this.trialOn()) return this.handled(e, () => this.setTrialSpeed(stepTrialSpeed(this.trialSpeed(), step)));
       const action = e.shiftKey ? null : actionFor(this.keymap(), e.key);
-      if (action && this.runAction(action)) return this.handled(e, () => undefined);
+      if (action && runAction(action, this)) return this.handled(e, () => undefined);
     }
     if (s.view.key(e)) {
       e.preventDefault();
@@ -550,40 +506,18 @@ export class EditorShellComponent implements OnDestroy {
     if (e.key === 'Escape' && !ctrl && s.tools.tool() !== 'look') this.handled(e, () => this.pick('look'));
   }
 
-  /** Runs a rebindable action; false when it does not apply now (the key then goes on to the view) */
-  private runAction(id: string): boolean {
-    const s = this.session;
-    const vp = s.view;
-    if (id.startsWith('tool:')) {
-      this.pick(id.slice(5) as ToolId);
-      return true;
-    }
-    switch (id) {
-      case 'map:check':
-        void this.check();
-        return true;
-      case 'map:symmetry': {
-        const i = SYMMETRY_MODES.findIndex((m) => m.id === s.tools.settings.symmetry());
-        this.setSymmetry(SYMMETRY_MODES[(i + 1) % SYMMETRY_MODES.length].id);
-        return true;
-      }
-      case 'view:frame':
-        vp.focusSelection();
-        return vp.shown;
-      case 'view:top':
-        vp.setTopDown(!vp.topDown);
-        return vp.shown;
-      case 'view:game':
-        vp.toggleGameView();
-        return vp.shown;
-      case 'view:still':
-        this.toggleStill();
-        return true;
-      case 'map:trial':
-        this.trial();
-        return vp.shown;
-    }
-    return false;
+  /** The next symmetry mode (M) */
+  nextSymmetry(): void {
+    const i = SYMMETRY_MODES.findIndex((m) => m.id === this.session.tools.settings.symmetry());
+    this.setSymmetry(SYMMETRY_MODES[(i + 1) % SYMMETRY_MODES.length].id);
+  }
+
+  showHistory(): void {
+    this.sideView.set('history');
+  }
+
+  showHelp(): void {
+    this.help.set(true);
   }
 
   /** The key an action has now, for the help */
@@ -596,7 +530,7 @@ export class EditorShellComponent implements OnDestroy {
     if (typeof keys === 'string') return keys;
     if ('action' in keys) return this.keyOf(keys.action) || 'no key';
     // The tools' keys in the toolbar's order
-    return TOOLS.filter((t) => t.id !== 'look')
+    return TOOL_DEFS.filter((t) => t.id !== 'look')
       .map((t) => this.keyOf(`tool:${t.id}`))
       .filter(Boolean)
       .join(', ');
@@ -623,15 +557,9 @@ export class EditorShellComponent implements OnDestroy {
     const vp = s.view;
     const out: EditorCommand[] = [];
     const add = (group: string, label: string, run: () => void, keys?: string) => out.push({ id: `${group}:${label}`, group, label, keys, run });
-    add('Edit', 'Undo', () => s.undo(), 'Ctrl+Z');
-    add('Edit', 'Redo', () => s.redo(), 'Ctrl+Y');
-    add('Edit', 'History: jump to a step', () => this.sideView.set('history'));
-    add('Map', 'Save', () => void s.saves.save(true), 'Ctrl+S');
-    add('Map', 'Check the map', () => void this.check(), this.keyOf('map:check'));
-    add('Map', 'Test the map in the game', () => void s.check.testPlay());
-    add('Map', 'Download the map file', () => s.saves.downloadFile());
-    add('Map', 'Download a picture of the map', () => void s.pictures.downloadPng());
-    for (const t of TOOLS) add('Tools', t.label, () => this.pick(t.id), this.keyOf(`tool:${t.id}`) || t.key);
+    for (const a of EDITOR_ACTIONS) {
+      if (!a.enabled || a.enabled(this)) out.push({ id: a.id, group: a.group, label: a.label, keys: a.defaultKey ? this.keyOf(a.id) : a.keys, run: () => a.run(this) });
+    }
     for (const m of LANDSCAPE_MODES) {
       add('Landscape', m.label, () => {
         this.pick('landscape');
@@ -644,23 +572,9 @@ export class EditorShellComponent implements OnDestroy {
         patch(s.tools.settings.landscape, { mode: 'biome', biome: b.id });
       });
     }
-    if (vp.shown) {
-      add('View', 'Frame the map', () => vp.frameMap());
-      add('View', 'Frame the selection', () => vp.focusSelection(), this.keyOf('view:frame'));
-      add('View', 'Top view on or off', () => vp.setTopDown(!vp.topDown), this.keyOf('view:top'));
-      add('View', 'Game view on or off', () => vp.toggleGameView(), this.keyOf('view:game'));
-      add('View', 'Still frame on or off', () => this.toggleStill(), this.keyOf('view:still'));
-      add('Map', 'Trial wave: enemies walk the routes', () => this.trial(), this.keyOf('map:trial'));
-    }
-    add('View', 'Height lines on or off', () => patch(s.tools.settings.view, { contours: !s.tools.settings.view().contours }));
-    add('View', 'Grid on or off', () => patch(s.tools.settings.view, { grid: !s.tools.settings.view().grid }));
-    for (const m of SYMMETRY_MODES) add('Symmetry', m.label, () => this.setSymmetry(m.id), 'M');
-    add('Symmetry', 'Mirror the map now (from the part in view)', () => s.mirrorNow());
-    add('Editor', 'Keys', () => this.help.set(true), '?');
-    add('Editor', `Tour: the editor in ${TOUR_STEPS.length} steps`, () => this.startTour());
+    for (const m of SYMMETRY_MODES) add('Symmetry', m.label, () => this.setSymmetry(m.id), this.keyOf('map:symmetry'));
     const resume = this.tourResume();
     if (resume !== null) add('Editor', `Tour: resume at step ${resume + 1}`, () => this.startTour(resume));
-    add('Editor', 'How to build a good level', () => this.openGuide());
     const doc = s.doc;
     if (doc && vp.shown) {
       add('Go to', 'HQ', () => vp.focusOn(doc.hq));
@@ -749,23 +663,9 @@ export class EditorShellComponent implements OnDestroy {
     this.fileMenu.update((v) => !v);
   }
 
-  fileAction(action: 'download' | 'png' | 'frame' | 'top'): void {
+  fileAction(action: EditorAction): void {
     this.fileMenu.set(false);
-    const s = this.session;
-    switch (action) {
-      case 'download':
-        s.saves.downloadFile();
-        return;
-      case 'png':
-        void s.pictures.downloadPng();
-        return;
-      case 'frame':
-        s.view.frameMap();
-        return;
-      case 'top':
-        s.view.setTopDown(!s.view.topDown);
-        return;
-    }
+    runAction(action.id, this);
   }
 
   private handled(e: KeyboardEvent, fn: () => void): void {

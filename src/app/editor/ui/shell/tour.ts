@@ -9,7 +9,7 @@
  * command palette start or resume it.
  */
 import type { DocChange } from '../../model/doc-change';
-import { TOOL_GROUPS, type ToolId } from '../../tools/tool';
+import { TOOL_GROUPS, type ToolId } from '../../tools/tool-defs';
 
 /** What a step waits for, besides Next */
 export type TourEvent = 'change' | 'check' | 'trial' | 'test';

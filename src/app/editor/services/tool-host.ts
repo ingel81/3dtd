@@ -6,41 +6,15 @@
 import { computed, signal, type Signal } from '@angular/core';
 import type { BrushSettings } from '../../map-ops/brush';
 import { DEFAULT_BRUSH } from '../../map-ops/brush';
-import { TOOL_BRUSH_RADIUS, type EditorSettings, type EditorTool, type ToolContext, type ToolId } from '../tools/tool';
-import { LandscapeTool } from '../tools/landscape-tool';
-import { LifeTool } from '../tools/life-tool';
-import { LookTool } from '../tools/look-tool';
-import { MarkerTool } from '../tools/marker-tool';
-import { MeasureTool } from '../tools/measure-tool';
-import { ObjectTool } from '../tools/object-tool';
-import { PaintTool } from '../tools/paint-tool';
-import { PathTool } from '../tools/path-tool';
-import { StampTool } from '../tools/stamp-tool';
-import { TerrainTool } from '../tools/terrain-tool';
-import { WaterTool } from '../tools/water-tool';
-import { PanelTool } from '../tools/tool';
+import { TOOL_DEFS, TOOL_INFO, type ToolId } from '../tools/tool-defs';
+import type { EditorSettings, EditorTool, ToolContext } from '../tools/tool';
 import type { ViewHost } from './view-host';
 
 export class ToolHost {
   /** The editor opens on Look: nothing changes the map until a tool is picked */
   readonly tool = signal<ToolId>('look');
   /** Every tool by its id */
-  readonly all: Record<ToolId, EditorTool> = {
-    look: new LookTool(),
-    landscape: new LandscapeTool(),
-    stamp: new StampTool(),
-    measure: new MeasureTool(),
-    gameplay: new PanelTool('gameplay', 'Start credits, HQ health, allowed towers and the waves of this map'),
-    terrain: new TerrainTool(),
-    paint: new PaintTool(),
-    water: new WaterTool(),
-    objects: new ObjectTool(),
-    life: new LifeTool(),
-    paths: new PathTool(),
-    markers: new MarkerTool(),
-    environment: new PanelTool('environment', 'Sky, sun and fog change the look of the map; the game uses them too'),
-    settings: new PanelTool('settings', 'Name, author, description and size of the map'),
-  };
+  readonly all = Object.fromEntries(TOOL_DEFS.map((t) => [t.id, t.create()])) as Record<ToolId, EditorTool>;
   /** Bumps when the tool's line of help says something new from what the tool holds (ToolContext.hintChanged) */
   private readonly hintRev = signal(0);
   /** The brushes of the tools not in hand (select swaps them) */
@@ -93,6 +67,6 @@ export class ToolHost {
   private brushFor(id: ToolId): BrushSettings {
     const kept = this.brushes.get(id);
     if (kept) return { ...kept };
-    return { ...DEFAULT_BRUSH, radius: TOOL_BRUSH_RADIUS[id] ?? DEFAULT_BRUSH.radius };
+    return { ...DEFAULT_BRUSH, radius: TOOL_INFO.get(id)?.brushRadius ?? DEFAULT_BRUSH.radius };
   }
 }

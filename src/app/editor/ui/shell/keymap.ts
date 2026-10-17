@@ -5,7 +5,9 @@
  * action that had it. Keys inside a tool (W E R, Q H, S X J …) stay fixed:
  * each tool names them (EditorTool.fixedKeys), and no action takes them.
  */
-import { TOOLS, type EditorTool } from '../../tools/tool';
+import { TOOL_DEFS } from '../../tools/tool-defs';
+import { EDITOR_ACTIONS } from './actions';
+import type { EditorTool } from '../../tools/tool';
 
 export interface KeyAction {
   id: string;
@@ -14,17 +16,12 @@ export interface KeyAction {
   key: string;
 }
 
-export const KEY_ACTIONS: readonly KeyAction[] = [
-  // Look stays on Esc: Esc first drops what is half done, so it is no key to give away
-  ...TOOLS.filter((t) => t.id !== 'look').map((t) => ({ id: `tool:${t.id}`, label: `Tool: ${t.label}`, key: t.key.toLowerCase() })),
-  { id: 'view:frame', label: 'Frame the selection or the map', key: 'f' },
-  { id: 'view:top', label: 'Top view on or off', key: 't' },
-  { id: 'view:game', label: 'Game view on or off', key: 'c' },
-  { id: 'view:still', label: 'Still frame: wind, water and particles stand still', key: 'b' },
-  { id: 'map:trial', label: 'Trial wave on or off', key: 'p' },
-  { id: 'map:check', label: 'Check the map', key: 'v' },
-  { id: 'map:symmetry', label: 'Next symmetry', key: 'm' },
-];
+/** The actions with a key of their own the user may change (actions.ts, `defaultKey`) */
+export const KEY_ACTIONS: readonly KeyAction[] = EDITOR_ACTIONS.filter((a) => a.defaultKey).map((a) => ({
+  id: a.id,
+  label: a.group === 'Tools' ? `Tool: ${a.label}` : a.label,
+  key: a.defaultKey!,
+}));
 
 const STORAGE_KEY = '3dtd-editor-keys';
 
@@ -34,7 +31,7 @@ export type Keymap = Record<string, string>;
 export function toolKeys(tools: Iterable<EditorTool>): ReadonlyMap<string, string> {
   const out = new Map<string, string[]>();
   for (const tool of tools) {
-    const label = TOOLS.find((t) => t.id === tool.id)?.label ?? tool.id;
+    const label = TOOL_DEFS.find((t) => t.id === tool.id)?.label ?? tool.id;
     for (const { key, what } of tool.fixedKeys ?? []) out.set(key, [...(out.get(key) ?? []), `${what} (${label})`]);
   }
   return new Map([...out].map(([key, list]) => [key, list.join(', ')]));

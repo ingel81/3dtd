@@ -790,10 +790,14 @@ src/app/editor/
   ops/stamp.ts      Stücke kopieren und setzen, Prefabs aus einer Auswahl; model/stamp-store.ts die Stempel-Bibliothek
   ops/map-kit.ts    MapKit: die Operationen ohne Oberfläche für Skripte (Level-Skripte, KI-Agent)
   agent/            KI-Agent über MCP (Desktop-App): Werkzeuge, Skript-Sandbox, Abspielen als ein Undo-Schritt (AGENT_MCP.md)
-  tools/            Werkzeuge: nur Zeigereingaben zu ops und Befehlen; PART_TOOL ordnet einem Prüfbefund das Werkzeug zu
+  tools/            Werkzeuge: nur Zeigereingaben zu ops und Befehlen; TOOL_DEFS (tool-defs.ts) ist die eine Liste der
+                    Werkzeuge (Name, Taste, Symbol, Gruppe, Pinsel, Erzeugen, ToolId daraus), ihr Panel steht in
+                    ui/shell/tool-panels.ts; PART_TOOL ordnet einem Prüfbefund das Werkzeug zu
   view/             EditorViewport (Renderer, Kamera, Eingabe), Overlay, Kamera, EditorMapView, ThumbnailRenderer
   import/           Warcraft-3-Import: lädt importW3xInWorker beim ersten Gebrauch, fasst den Bericht zusammen
-  ui/               Angular: Seite, Kartenliste, Shell, Panels
+  services/         die Dienste der Session (siehe Angular unten)
+  ui/               Angular: Seite, Kartenliste, Shell, Panels; ui/shell/actions.ts ist das Aktionsregister, aus dem
+                    Befehlspalette, änderbare Tasten, Hilfe und Dateimenü entstehen
 ```
 
 **Schichten.** `model/` und `ops/` sind der Kern des Editors und kennen weder Eingabe noch Ansicht noch Seite: sie

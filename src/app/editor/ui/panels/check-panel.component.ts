@@ -4,7 +4,8 @@ import { MAP_TRIAL_TONE, mapTrialSummary, type MapTrialResult } from '../../../w
 import { TdIconComponent } from '../../../components/icon/icon.component';
 import type { MapIssue } from '../../../map-ops/validation/map-validation';
 import { EditorSession } from '../editor-session.service';
-import { patch, PART_TOOL, TOOL_INFO } from '../../tools/tool';
+import { patch, PART_TOOL } from '../../tools/tool';
+import { TOOL_INFO } from '../../tools/tool-defs';
 import { TOWER_SPOT_M2, TYPICAL_TOWER_RANGE } from '../../../map-ops/validation/build-areas';
 
 /**

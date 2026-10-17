@@ -3,7 +3,7 @@
  * with the tool that does it. Plain text, no claims the editor cannot back:
  * the check, the measure tool and the bot test give the numbers.
  */
-import type { ToolId } from '../../tools/tool';
+import type { ToolId } from '../../tools/tool-defs';
 
 export interface GuideTopic {
   id: string;

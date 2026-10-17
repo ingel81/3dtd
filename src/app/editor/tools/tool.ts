@@ -13,6 +13,7 @@ import type { MapProblemPart } from '../../world/custom-map/map-file';
 import type { CatalogIndex } from '../../map-ops/asset-catalog';
 import type { EditorDocument } from '../model/editor-document';
 import type { PickResult } from '../model/editor-document';
+import type { ToolId } from './tool-defs';
 import { DEFAULT_BRUSH, type BrushSettings } from '../../map-ops/brush';
 import { DEFAULT_LINE, DEFAULT_SCATTER, type LineOptions, type ScatterOptions } from '../../map-ops/object-ops';
 import type { BiomeId } from '../ops/landscape/biomes';
@@ -22,8 +23,6 @@ import { randomSeed } from '../../map-ops/landscape-noise';
 import { DEFAULT_RIVER, type RiverOptions } from '../ops/landscape/river';
 import { DEFAULT_ROAD, type RoadOptions } from '../ops/landscape/road';
 import type { EditorOverlay } from '../view/editor-overlay';
-
-export type ToolId = 'look' | 'landscape' | 'stamp' | 'gameplay' | 'measure' | 'terrain' | 'paint' | 'water' | 'objects' | 'life' | 'paths' | 'markers' | 'environment' | 'settings';
 
 /** The tool that changes each part of the document (a check issue's `part`) */
 export const PART_TOOL: Record<MapProblemPart, ToolId> = {
@@ -39,76 +38,6 @@ export const PART_TOOL: Record<MapProblemPart, ToolId> = {
   intro: 'settings',
   prefabs: 'stamp',
 };
-
-export interface ToolInfo {
-  id: ToolId;
-  label: string;
-  /** The key that picks it (Esc for Look: it is no single key one can give away) */
-  key: string;
-  /** What it is for, for the tooltip */
-  about: string;
-}
-
-export const TOOLS: readonly ToolInfo[] = [
-  { id: 'look', label: 'Look', key: 'Esc', about: 'Look around and click things to see what they are; changes nothing' },
-  { id: 'landscape', label: 'Landscape', key: '1', about: 'Biomes, mountains, rivers and roads: ground, paint and plants at once' },
-  { id: 'terrain', label: 'Terrain', key: '2', about: 'Raise, lower, smooth, level, terrace, cliffs and ramps' },
-  { id: 'paint', label: 'Paint', key: '3', about: 'Ground layers and auto paint' },
-  { id: 'water', label: 'Water', key: '4', about: 'Fill hollows, paint water, lava or ice' },
-  { id: 'objects', label: 'Objects', key: '5', about: 'Place, scatter, select, move, turn and scale' },
-  { id: 'life', label: 'Life', key: 'N', about: 'Birds, fireflies, fog, boats and sounds over areas and along routes, and what the map brings by itself' },
-  { id: 'paths', label: 'Roads', key: '6', about: 'Draw and edit the roads enemies walk' },
-  { id: 'markers', label: 'Spawns and HQ', key: '7', about: 'Where enemies come from and what they attack' },
-  { id: 'environment', label: 'Sky and weather', key: '8', about: 'Sky, time of day, fog and weather' },
-  { id: 'settings', label: 'Map', key: '9', about: 'Name, size, terrain generator and versions' },
-  { id: 'stamp', label: 'Copy and stamps', key: '0', about: 'Copy a rectangle, place it turned, keep stamps' },
-  { id: 'gameplay', label: 'Rules', key: 'G', about: 'Start credits, HQ health, towers and waves of this map' },
-  { id: 'measure', label: 'Measure', key: 'D', about: 'Lengths, lane walking times, height lines and grid' },
-];
-
-/**
- * The tool column: short names under the icons, in three groups by what
- * a map maker does (shape the land, make it playable, the map as a whole),
- * under Look, which changes nothing
- */
-export const TOOL_GROUPS: readonly { label: string; tools: readonly { id: ToolId; short: string }[] }[] = [
-  // Look stands alone above the groups: the hand when no tool is in it
-  { label: '', tools: [{ id: 'look', short: 'Look' }] },
-  {
-    label: 'Shape',
-    tools: [
-      { id: 'landscape', short: 'Landscape' },
-      { id: 'terrain', short: 'Terrain' },
-      { id: 'paint', short: 'Paint' },
-      { id: 'water', short: 'Water' },
-      { id: 'objects', short: 'Objects' },
-      { id: 'life', short: 'Life' },
-    ],
-  },
-  {
-    label: 'Play',
-    tools: [
-      { id: 'paths', short: 'Roads' },
-      { id: 'markers', short: 'Spawns' },
-      { id: 'gameplay', short: 'Rules' },
-    ],
-  },
-  {
-    label: 'Map',
-    tools: [
-      { id: 'environment', short: 'Sky' },
-      { id: 'settings', short: 'Map' },
-      { id: 'stamp', short: 'Stamps' },
-      { id: 'measure', short: 'Measure' },
-    ],
-  },
-];
-
-/**
- * Each brush tool keeps its own brush; this is its size when first used.
- * A landscape stroke shapes hills and woods, paint touches up a verge.
- */
-export const TOOL_BRUSH_RADIUS: Partial<Record<ToolId, number>> = { landscape: 40, terrain: 16, paint: 12, water: 16, objects: 20 };
 
 export type WaterMode = 'fill' | 'pour' | 'lake' | 'paint' | 'erase' | 'river';
 
@@ -388,5 +317,3 @@ export class PanelTool implements EditorTool {
   }
 }
 
-/** Tool info by id, for the toolbar */
-export const TOOL_INFO = new Map(TOOLS.map((t) => [t.id, t]));

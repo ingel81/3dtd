@@ -1,4 +1,4 @@
-import { TOOL_GROUPS } from '../../tools/tool';
+import { TOOL_GROUPS } from '../../tools/tool-defs';
 import { TOUR_STEPS, markTourDone, tourAdvance, tourPending, tourResumeAt } from './tour';
 
 function memory() {

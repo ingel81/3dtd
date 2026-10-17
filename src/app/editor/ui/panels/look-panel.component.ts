@@ -2,7 +2,8 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { selectedEdges, selectedNodes, selectedSpawns } from '../../model/editor-document';
 import { describeGround, describePick } from '../../ops/describe';
 import type { PickResult } from '../../model/editor-document';
-import { patch, type ToolId } from '../../tools/tool';
+import { patch } from '../../tools/tool';
+import type { ToolId } from '../../tools/tool-defs';
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
 

@@ -30,10 +30,9 @@
       </button>
       @if (fileMenu()) {
         <div class="es-file-menu td-popup td-rows" role="menu">
-          <button class="td-row" role="menuitem" type="button" (click)="fileAction('download')">Download map file</button>
-          <button class="td-row" role="menuitem" type="button" (click)="fileAction('png')">Export top view as picture</button>
-          <button class="td-row" role="menuitem" type="button" (click)="fileAction('frame')">Frame the whole map</button>
-          <button class="td-row" role="menuitem" type="button" (click)="fileAction('top')">Top view on or off <kbd class="td-kbd">T</kbd></button>
+          @for (a of fileActions; track a.id) {
+            <button class="td-row" role="menuitem" type="button" (click)="fileAction(a)">{{ a.file }}@if (a.defaultKey) { <kbd class="td-kbd">{{ keyOf(a.id) }}</kbd>}</button>
+          }
         </div>
       }
     </div>
@@ -81,10 +80,9 @@
         <span class="es-tools-head td-caps" aria-hidden="true">{{ g.label }}</span>
       }
       @for (t of g.tools; track t.id) {
-        @let info = toolInfo(t.id);
-        <button class="es-tool" type="button" [attr.aria-pressed]="session.tools.tool() === t.id" [attr.aria-label]="info.label"
-                [matTooltip]="info.label + ' (' + info.key + '): ' + info.about" matTooltipPosition="right" (click)="pick(t.id)" [attr.data-tool]="t.id" [attr.data-tour]="'tool-' + t.id">
-          <td-icon [name]="icons[t.id]" [size]="18" />
+        <button class="es-tool" type="button" [attr.aria-pressed]="session.tools.tool() === t.id" [attr.aria-label]="t.label"
+                [matTooltip]="t.label + ' (' + (keyOf('tool:' + t.id) || t.key).toUpperCase() + '): ' + t.about" matTooltipPosition="right" (click)="pick(t.id)" [attr.data-tool]="t.id" [attr.data-tour]="'tool-' + t.id">
+          <td-icon [name]="t.icon" [size]="18" />
           <span class="es-tool-name">{{ t.short }}</span>
         </button>
       }
@@ -216,47 +214,10 @@
       <!-- Read-only (another tab edits the map) or a job running: every control of the panels is off -->
       <fieldset class="es-fieldset" [disabled]="session.maps.readOnly() || !!session.jobs.job()">
         <!-- Panels stay once made and only hide: switching tools does not build them again -->
-        @if (mounted().has('look')) {
-          <div class="es-panel" [class.is-off]="session.tools.tool() !== 'look'" [appPanelShown]="panelShown('look')"><app-look-panel /></div>
-        }
-        @if (mounted().has('landscape')) {
-          <div class="es-panel" [class.is-off]="session.tools.tool() !== 'landscape'" [appPanelShown]="panelShown('landscape')"><app-landscape-panel /></div>
-        }
-        @if (mounted().has('terrain')) {
-          <div class="es-panel" [class.is-off]="session.tools.tool() !== 'terrain'" [appPanelShown]="panelShown('terrain')"><app-terrain-panel /></div>
-        }
-        @if (mounted().has('paint')) {
-          <div class="es-panel" [class.is-off]="session.tools.tool() !== 'paint'" [appPanelShown]="panelShown('paint')"><app-paint-panel /></div>
-        }
-        @if (mounted().has('water')) {
-          <div class="es-panel" [class.is-off]="session.tools.tool() !== 'water'" [appPanelShown]="panelShown('water')"><app-water-panel /></div>
-        }
-        @if (mounted().has('objects')) {
-          <div class="es-panel" [class.is-off]="session.tools.tool() !== 'objects'" [appPanelShown]="panelShown('objects')"><app-object-panel /></div>
-        }
-        @if (mounted().has('life')) {
-          <div class="es-panel" [class.is-off]="session.tools.tool() !== 'life'" [appPanelShown]="panelShown('life')"><app-life-panel /></div>
-        }
-        @if (mounted().has('paths')) {
-          <div class="es-panel" [class.is-off]="session.tools.tool() !== 'paths'" [appPanelShown]="panelShown('paths')"><app-path-panel /></div>
-        }
-        @if (mounted().has('markers')) {
-          <div class="es-panel" [class.is-off]="session.tools.tool() !== 'markers'" [appPanelShown]="panelShown('markers')"><app-marker-panel /></div>
-        }
-        @if (mounted().has('environment')) {
-          <div class="es-panel" [class.is-off]="session.tools.tool() !== 'environment'" [appPanelShown]="panelShown('environment')"><app-environment-panel /></div>
-        }
-        @if (mounted().has('settings')) {
-          <div class="es-panel" [class.is-off]="session.tools.tool() !== 'settings'" [appPanelShown]="panelShown('settings')"><app-map-panel /></div>
-        }
-        @if (mounted().has('stamp')) {
-          <div class="es-panel" [class.is-off]="session.tools.tool() !== 'stamp'" [appPanelShown]="panelShown('stamp')"><app-stamp-panel /></div>
-        }
-        @if (mounted().has('gameplay')) {
-          <div class="es-panel" [class.is-off]="session.tools.tool() !== 'gameplay'" [appPanelShown]="panelShown('gameplay')"><app-gameplay-panel /></div>
-        }
-        @if (mounted().has('measure')) {
-          <div class="es-panel" [class.is-off]="session.tools.tool() !== 'measure'" [appPanelShown]="panelShown('measure')"><app-measure-panel /></div>
+        @for (t of tools; track t.id) {
+          @if (mounted().has(t.id)) {
+            <div class="es-panel" [class.is-off]="session.tools.tool() !== t.id" [appPanelShown]="panelShown(t.id)"><ng-container *ngComponentOutlet="panels[t.id]" /></div>
+          }
         }
       </fieldset>
       </div>
