@@ -25,50 +25,133 @@ eigenen Karten, Coop-Protokoll 5). Die Worker-Runden vom 2026-10-15 sind überno
 
 ## 1. Offen
 
+Reihenfolge (User, 2026-10-17): erst die Engine-Runde, dann das Showreel, dann die Karten. Maßstab: extrem
+performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Optik und Performance keine Kompromisse.
 
-- [ ] **E1 Balancing aufrollen**: Phase 1 und 2 gebaut, Baseline und sechs Tuning-Runden gelaufen. Offen: Zielbänder
-      (3b) und Kampagnenende (3a), [docs/BALANCING_PLAN.md](docs/BALANCING_PLAN.md).
-- [ ] **E105 Spieltiefe, Rest der Balance-Nacht**: Schild am Skarnax-Kopf, Gegnereigenschaften Shielded und Aura,
-      Mutator „Panzerung +1“.
-- [ ] **E106 Menschenähnlicher Bot** ([BOT_PLAYER_PLAN.md](docs/BOT_PLAYER_PLAN.md), B1 bis B6 auf `next`): offen B7
-      (Camo, Pfade, Bauzeit; seit 2026-10-05 auf `next`); Profile mit dem Lauf vom 2026-10-04 nachjustieren
-      (`tools/play-profile`); Gold an den Coop-Partner im Browser auslösen (bisher nur per Spec).
+### Engine-Runde R4 (jetzt, in dieser Reihenfolge)
 
-### Bugs
+G1 bis G6 laufen parallel (je ein Worker). Vorab und parallel vier Code-Analysen ohne Bau: Performance im
+Spiel, Hauptthread im Editor (was in einen Web Worker kann), Architektur des Editor-Kerns, Datenweg des Editors
+(Format, Laden, Bake, OSM). Kleine Befunde gehen in die Gruppen, große Umbauten nach der Runde auf Entscheid. In
+jeder Gruppe zuerst die Fehler, dann das Kleine, dann das Große.
 
+#### G1 Performance
+
+- [ ] **E215 Ruckler im Spiel und im Editor beseitigen** (User, 2026-10-17: „diese Ruckeleien können wir nicht
+      gebrauchen“; im Zweifel mehr Warm-up und länger laden, Shader vorberechnen). Belegt aus den Showreel-Takes
+      2026-10-16/17: (1) Bild hält 2 bis 4 s beim ersten Wechsel von Wetter, Tageszeit, Nebel oder Fackeln (ANGLE
+      übersetzt die Programme im GPU-Prozess beim ersten Zeichnen; das Showreel-Rig wartet deshalb vor jedem Take per
+      Pixel-Rücklesen); (2) Herbert hält das Bild beim ersten Erscheinen 4,4 s (Modell/Programme erst beim Spawn);
+      (3) Editor-Striche (Gebirge, Gelände, Objekte setzen) ruckeln 150 bis 300 ms je Neuberechnung, bis zu 13 Mal
+      je Szene. Ansätze: alle Licht-, Wetter- und Effekt-Varianten beim Laden kompilieren (`compileAsync`, Ladebild
+      bis die GPU fertig ist), Gegner- und Turmmodelle der Karte/Welle vorladen und einmal unsichtbar zeichnen,
+      Editor-Neuberechnung aufteilen oder in den Worker. Je Fall kurz prüfen, was es bringt, keine großen Messreihen.
+
+#### G2 Menü, Navigation, OSM-Oberfläche
+
+- [ ] **E219 Kartenauswahl ohne Ausweg** (User, 2026-10-17): aus dem Spiel bzw. einer Testwelt heraus landet man auf
+      der Auswahlmaske der Custom Maps, die allein steht: kein Abbrechen, kein Zurück ins Menü, nur Karte wählen,
+      editieren oder erstellen. Zurück/Abbrechen (auch Esc) zum Weltmenü bzw. dorthin, woher man kam; Einstiegswege
+      prüfen, wann die Maske ohne Rahmen erscheint.
+- [ ] **E207 Weltmenü: Hover auf den Globen** (User, 2026-10-17, Showreel-Review): fährt die Maus über einen Globus,
+      muss er sich sichtbar ändern, z. B. kurz größer werden.
+- [ ] **E209 OSM-Panel: Kartenausschnitt verschieb- und skalierbar** (User, 2026-10-17): der goldene Rahmen (heute fest
+      2,4 km um das HQ) soll sich in der Größe ändern und verschieben lassen.
+- [ ] **E218 Fortschritt beim Erzeugen aus OSM** (User, 2026-10-17): beim Generieren einer Welt aus OSM fehlt dem
+      Spieler Fortschritt und Rückmeldung. Schritte sichtbar (Daten laden, Gelände, Straßen, Wasser, Gebäude, Bake) mit
+      Fortschrittsbalken, was gerade passiert, Fehler und Wartezeit (Overpass) verständlich, UI bleibt bedienbar.
+- [ ] **E208 OSM-Globus im Stil der erzeugten Karten** (User, 2026-10-17): der Globus der OSM-Welt zeigt heute flache
+      OSM-Kacheln (hellblau/beige); er soll aussehen wie die Karten, die daraus entstehen („what you see is what you get“).
+
+#### G3 Darstellung von Gelände und OSM
+
+- [ ] **E205 Flimmern an den Tunnelportalen der OSM-Welt** (User, 2026-10-17, Showreel-Review osm-fly): an beiden
+      Portalen flimmern/flackern die hinteren Kanten rechts und links (dunkler, gesprenkelter Rand des hinteren
+      Portalteils), vermutlich Schattenkante oder Z-Fighting zwischen Portal und Hang.
 - [ ] **E204 Dunkles Kreuz im Gelände beim Absenken** (Showreel-Probe 2026-10-16, Stillwater b1): Während eines
       Lower-Strichs liegt etwa 1 s ein dunkles Kreuz entlang der Terrain-Kachelränder, es wächst mit der Tiefe und
       ist nach dem Strich weg. Normalen und Skirts werden synchron aktualisiert (`terrain-chunks.ts` updateGeometry);
       Ursache offen, Kandidaten: Schatten-Teilaufbau während des Strichs, Geomorph/LOD im Shadow-Pass, Skirts. Im
       Browser mit Schatten aus/an gegenprüfen. Im Showreel vorerst umschnitten.
-- [ ] **E188 Objekte poppen beim Zoomen und Bewegen auf** (User, 2026-10-15, eigene Karten): stellenweise erscheinen
-      Objekte sichtbar spät. User sieht es sich genauer an und liefert Screenshots; erst dann untersuchen (LOD-Wechsel,
-      Sichtweite je Objekt, Culling). Verwandt: Bäume poppen nach `viewReady` (E183, `wt/fx-engine`).
-- [ ] **C16 Zufalls-Spawn-Portal noch schräg** (User, 2026-09-17, Amsterdam "Westerstraat", nicht reproduziert): Trotz
-      Verschieben auf ein gerades Stück (`cbdec4e5`) stand ein Portal schräg. Vermutungen: gerades Stück zu kurz (nur
-      bis zur Ebene geprüft, Mindestlänge etwa 25 bis 30 m fehlt) oder die Gegnerlinie schwenkt am Start vom OSM-Punkt
-      zur Bandmitte. Erst mit URL oder Snapshot eines neuen Falls debuggen.
+- [ ] **E203 Straßen der OSM-Welt aus der Ferne lesbar** (User, 2026-10-16, Test Binswangen): Der Nachbau aus OSM
+      klappt schon sehr gut, die Straßen sehen von weitem aber nicht wie Straßen aus (graue Bänder, die Textur
+      scheint nicht entlang der Straße zu laufen). Belag in Fahrtrichtung ausrichten (UV entlang der Straße),
+      Randlinien und Mittelstreifen je Straßenklasse, damit Straßen auch aus der Distanz lesbar sind. Verwandt:
+      „OSM: Gehweg und Pflaster eine Schicht“ (Abschnitt 2). Showreel-Review 2026-10-17 (Altstadtgasse Miltenberg):
+      Straßen im Ort zu fransig und kantig, die Straßenkante muss geradlinig sein und der Belag nach Straße aussehen.
 
-### Features
+#### G4 Natur und Wasser
 
+- [ ] **E216 Uferschaum zu gleichmäßig** (User, 2026-10-17): um jedes Gewässer läuft ein weißer Strich (Brandung bzw.
+      Schaum am Rand), überall gleich breit und identisch, wirkt teils wie ein weißer Rahmen. Breite und Dichte
+      unregelmäßig (Rauschen, Uferneigung, Wassertiefe), aufgelöst statt geschlossener Linie, bewegt.
 - [ ] **E173 Wasser und Lava auf eigenen Karten schöner** (User, 2026-10-14 und 2026-10-15): Seen, Flüsse und gegossene
       Becken wirken billig; bessere Shader für Wasser (Reflexion, Ufer, Tiefe, Bewegung) und genauso für Lava,
       möglichst ohne Leistungsverlust (Kosten je Frame vorher/nachher messen, Grafikstufen beachten). Läuft seit
       2026-10-15 auf `wt/fx-water`.
+- [ ] **E210 Baum-Wind wobbelt** (User, 2026-10-17, Showreel-Review Mountain Pass): Nadelbäume wobbeln/flimmern statt
+      sich im Wind zu wiegen. Wind-Bewegung im Baum-Shader ruhiger und glaubwürdiger (Stamm steif, Krone und Äste
+      schwingen, langsame Böen).
+- [ ] **E212 Nordlichter zu gleichmäßig** (User, 2026-10-17, Frost Hamlet): die Bänder sind regelmäßige senkrechte
+      Streifen; Vorhänge mit Faltung, wechselnder Breite und Helligkeit, langsam wandernd.
+
+#### G5 Gegner und Spiel auf eigenen Karten
+
+- [ ] **E217 Tower auf Editor-Gebäuden und Mauern** (User, 2026-10-17, Testspiel auf eigener Karte): auf Gebäude, die im
+      Editor gesetzt wurden, lassen sich im Spiel keine Tower stellen; sie taugen nicht als Untergrund. Soll gehen für
+      Mauern, Türme, Gebäude und Co. (Dach/Oberkante als Bauplatz, wie Tiles-Gebäude auf Echtwelt-Karten).
+- [ ] **E213 Gegner-Animationen weicher, auch bei 4x** (User, 2026-10-17, Showreel-Review Bosswelle): die
+      Zombie-Animation sieht bei 4x Spielgeschwindigkeit sehr schlecht aus. Animation generell weicher (VAT-Bilder je
+      Sekunde, Interpolation zwischen den Bildern), auch bei hoher Geschwindigkeit flüssig. Besonders Zombie V1
+      (User, 2026-10-17): extrem hakelig, vor allem schnell abgespielt; der Loop schließt nicht sauber (Sprung am
+      Loop-Ende sieht wie Ruckeln aus). Erstes und letztes Bild des Clips angleichen, Interpolation über die Naht.
+- [ ] **E220 Zombie-Farben realistischer und vielfältiger** (User, 2026-10-17): zu wenig Varianz; die Farben sind satt,
+      wirken aber wie eine beliebige Palette statt wie echte Zombies. Entsättigte, fahle Haut (grau-grün, gelblich,
+      bläulich), verschmutzte und verblichene Kleidung, Blut und Dreck, mehr Abstufung je Instanz. Baut auf E185
+      (Kleidungsvarianten) auf.
+- [ ] **E211 Umgebungsgeräusche zu laut** (User, 2026-10-17): Vogelzwitschern, Grillen und Co. sind generell viel zu
+      laut und nerven teils. Pegel der Ambient-Klänge gegenüber Spielton und Musik senken. Am schlimmsten: das
+      Vogelzwitschern auf Demo Valley (nervt extrem); dort zuerst, dazu seltener und unregelmäßiger statt Dauerschleife.
+
+- [ ] **E221 Chainsaw-Tower: Arme und Ton** (User, 2026-10-17): die Roboterarme wirken wild und unkontrolliert und
+      überlappen sich teils. Bewegung eleganter (Gelenkgrenzen, keine Durchdringung, geführte Bahnen), Ein- und
+      Ausfahren klar inszeniert. Baut auf E102 auf; Ton siehe E222.
+- [ ] **E222 Sounds der vier neuen Tower** (User, 2026-10-17): Iron Bastion, Sentinel Laser, Chainsaw (Anlauf, Lauf,
+      Last beim Treffer), Shawarma Slicer klingen noch nicht gut. Neu mit ElevenLabs, Auswahl je Tower und Ereignis als
+      Artefakt für den User (Weg wie `tmp/sound-audition`, ernst statt comichaft), dann installieren.
+
+#### G6 Assets und Optik der Karten
+
+- [ ] **E206 Witch Marsh: Pfahlhaus schneidet den Steg** (User, 2026-10-17, Showreel-Review wx-marsh): der Steg läuft
+      durch das Pfahlhaus. Über das Level-Skript der Karte korrigieren (keine Sonderwege, E190).
 - [ ] **E179 Objektmodelle und ihre Texturen verfeinern** (User, 2026-10-15): Gebäude und Co. wirken grob. Die rund
       450 Modelle unter `public/maps/assets/models/` baut `tools/map-assets/build_models.py` prozedural in Blender 5.1
       (CC0, keine KI-Generatoren, `LICENSES.md`). Im selben Weg verfeinern: Details an den Bauskripten (Fenster,
       Dachkanten, Sockel, Kantenfasen), Texturen in Blender (Verdeckung, Kantenabnutzung, Schmutz backen; höhere
       Auflösung wo es lohnt, heute WebP 512 px), LODs neu (`make_lods.py`, `match_lods.py`), im Budget (Scene cost,
-      E169). Zuerst die Gebäude aus dem Showreel; Vorher/Nachher-Bilder je Modell zur Abnahme.
-- [ ] **E203 Straßen der OSM-Welt aus der Ferne lesbar** (User, 2026-10-16, Test Binswangen): Der Nachbau aus OSM
-      klappt schon sehr gut, die Straßen sehen von weitem aber nicht wie Straßen aus (graue Bänder, die Textur
-      scheint nicht entlang der Straße zu laufen). Belag in Fahrtrichtung ausrichten (UV entlang der Straße),
-      Randlinien und Mittelstreifen je Straßenklasse, damit Straßen auch aus der Distanz lesbar sind. Verwandt:
-      „OSM: Gehweg und Pflaster eine Schicht“ (Abschnitt 2).
-- [ ] **E195 Rest:** Menü und Weltwechsel sind gebaut (Abschnitt 2). Offen: Speichermessung über 10 Weltwechsel
-      für die Phasen 3 bis 5 im Production-Build (braucht lokal `CUSTOM_MAPS_RELEASED = true`, die Freigabe-Sperre
-      blockierte es; sonst im Dev-Build messen); OSM-Karten heißen im Pfad noch „Maps“ (`worldName` kennt nur den WorldRef).
+      E169). Zuerst die Gebäude aus dem Showreel; Vorher/Nachher-Bilder je Modell zur Abnahme. Aus dem Showreel-Review
+      2026-10-17: Fischerboot billig (Kisten-Kajüte, dünner Mast, flacher Rumpf), Kühe einfarbig braun, besser
+      texturieren.
+- [ ] **E214 Optik der Custom Maps mit mehr Liebe** (User, 2026-10-17): insgesamt noch generisch und lieblos, die
+      Texturen ebenso. Gelände-Texturen (Gras, Erde, Fels, Sand, Schnee) mit mehr Detail und Variation, Übergänge,
+      Licht und Farbstimmung. Größeres Thema, eigener Plan mit Vorher/Nachher-Bildern zur Abnahme. Verwandt: E173
+      (Wasser, Lava), E179 (Modelle), E184 (Karten).
+
+### Danach: Showreel Runde 5
+
+- [ ] **E182 Showreel Runde 4** (User, 2026-10-16: v3 abgelehnt, „nicht gut“; Runde 4 pausiert, bis das Spiel rund ist):
+      Drehbuch freigegeben `tmp/showreel/DREHBUCH_R4.md` (lang 6:52, kurz 1:50, englische Texte), Gesamtliste
+      `tmp/showreel/GESAMTLISTE_v3.md`, Wünsche `tmp/showreel/ACCEPT.md` (Punkte 1-21), Konzept einzeln drehbarer Szenen
+      `tmp/showreel/CONCEPT_SCENES.md` (gebaut auf `wt/showreel2`: Takes, Fixtures, Prüfung, Schnittliste, Warteschlange).
+      Kapitel geprobt auf `wt/reel-k12` (K1, K2), `wt/reel-k3` (K3 Stillwater, wip), `wt/reel-k457` (K4, K5, K7),
+      `wt/showreel2` (K0, K6). Gedreht und geschnitten 2026-10-17 (50 Takes; full, medium, short, fast, rapid und eine
+      Review-Fassung mit Szenenname auf dem NAS). Feedback des Users je Szene in `tmp/showreel/FEEDBACK_R4.md`.
+      **Ruht, bis die Engine-Punkte gelöst sind** (User, 2026-10-17: erst Engine, dann Video): E203, E205 bis E222,
+      dazu E179 (Boote, Kühe). Danach Runde 5 nach Teil B der Feedback-Datei; für das Feedback wieder eine
+      Review-Fassung mit Szenenname (`tmp/showreel/edit/build.py <liste> --review`).
+
+### Danach: Karten ausbauen und freigeben
+
 - [ ] **E184 Mitgelieferte Karten imposanter** (User, 2026-10-15): die meisten Karten sind noch zu langweilig, es muss
       deutlich mehr gehen (Kulisse, Höhenunterschiede, Blickpunkte, Wahrzeichen, dichtere und abwechslungsreichere
       Gestaltung). Bekannte Stellen aus dem Showreel: Wald in Autumn Keep trüb und aus der Distanz braun, Burg in der
@@ -81,17 +164,9 @@ eigenen Karten, Coop-Protokoll 5). Die Worker-Runden vom 2026-10-15 sind überno
       Vorschläge je Karte zusammen mit E184. Entschieden (User, 2026-10-15): allgemeine Mechanismen, auch im Editor
       setzbar und einstellbar (Katalog/Effekt-Objekte, Bereiche, Map-Kit- und MCP-Befehle); die mitgelieferten Karten
       bekommen ihr Leben nur über dieselben Editor-Funktionen, keine Sonderwege je Karte. Gilt ebenso für E184.
-- [ ] **E182 Showreel Runde 4** (User, 2026-10-16: v3 abgelehnt, „nicht gut“; Runde 4 pausiert, bis das Spiel rund ist):
-      Drehbuch freigegeben `tmp/showreel/DREHBUCH_R4.md` (lang 6:52, kurz 1:50, englische Texte), Gesamtliste
-      `tmp/showreel/GESAMTLISTE_v3.md`, Wünsche `tmp/showreel/ACCEPT.md` (Punkte 1-21), Konzept einzeln drehbarer Szenen
-      `tmp/showreel/CONCEPT_SCENES.md` (gebaut auf `wt/showreel2`: Takes, Fixtures, Prüfung, Schnittliste, Warteschlange).
-      Kapitel geprobt auf `wt/reel-k12` (K1, K2), `wt/reel-k3` (K3 Stillwater, wip), `wt/reel-k457` (K4, K5, K7),
-      `wt/showreel2` (K0, K6). Weiter: Branches mit `next` zusammenführen, osm-fly überarbeiten (Review Lead), K0 zoomen,
-      K3 fertig proben, dann je Szene über die Warteschlange auf DISPLAY2 drehen, schneiden, NAS.
-- [ ] **E103 Ego-Steuerung des Helden** (User, 2026-10-02).
-- [ ] **E83 AppImage und AUR** (2026-09-30): gebaut 2026-10-05 (statische Laufzeit, Update-Information und `.zsync`,
-      AUR-Paket `3dtd-bin` mit CI-Job). AUR ok, der Job lief im Release 0.7.0 grün. Offen beim User nur: das AppImage
-      einmal auf Linux starten (PLAYTEST A3.2).
+- [ ] **E195 Rest:** Menü und Weltwechsel sind gebaut (Abschnitt 2). Offen: Speichermessung über 10 Weltwechsel
+      für die Phasen 3 bis 5 im Production-Build (braucht lokal `CUSTOM_MAPS_RELEASED = true`, die Freigabe-Sperre
+      blockierte es; sonst im Dev-Build messen); OSM-Karten heißen im Pfad noch „Maps“ (`worldName` kennt nur den WorldRef).
 - [ ] **E134 Eigene Karten freigeben** (entschieden 2026-10-11): erst wenn alles Abgestimmte steht (E130 bis E133, auch
       Wellen-Editor und Zerstörung). Dann `CUSTOM_MAPS_RELEASED` an (`src/app/world/custom-maps-open.ts`) und
       `.3dtdmap`-Zuordnung im Installer. Die Karten-Daten (194 MB) kommen beim ersten Öffnen einer Karte vom Webserver
@@ -99,6 +174,33 @@ eigenen Karten, Coop-Protokoll 5). Die Worker-Runden vom 2026-10-15 sind überno
       einfache Liste (keine Bestwerte, keine Kampagne).
       Vorbereitet 2026-10-12: Nachladen mit Cache und Fortschritt (`map-data.ts`, `mapData` in der runtime-config);
       offen: Daten auf den Webserver, CORS, CSP der Desktop-App ([CUSTOM_MAP_WORLD.md](docs/CUSTOM_MAP_WORLD.md#laden)).
+
+### Spiel und Balance
+
+- [ ] **E1 Balancing aufrollen**: Phase 1 und 2 gebaut, Baseline und sechs Tuning-Runden gelaufen. Offen: Zielbänder
+      (3b) und Kampagnenende (3a), [docs/BALANCING_PLAN.md](docs/BALANCING_PLAN.md).
+- [ ] **E105 Spieltiefe, Rest der Balance-Nacht**: Schild am Skarnax-Kopf, Gegnereigenschaften Shielded und Aura,
+      Mutator „Panzerung +1“.
+- [ ] **E106 Menschenähnlicher Bot** ([BOT_PLAYER_PLAN.md](docs/BOT_PLAYER_PLAN.md), B1 bis B6 auf `next`): offen B7
+      (Camo, Pfade, Bauzeit; seit 2026-10-05 auf `next`); Profile mit dem Lauf vom 2026-10-04 nachjustieren
+      (`tools/play-profile`); Gold an den Coop-Partner im Browser auslösen (bisher nur per Spec).
+- [ ] **E103 Ego-Steuerung des Helden** (User, 2026-10-02).
+
+### Bugs, warten auf neuen Fall
+
+- [ ] **E188 Objekte poppen beim Zoomen und Bewegen auf** (User, 2026-10-15, eigene Karten): stellenweise erscheinen
+      Objekte sichtbar spät. User sieht es sich genauer an und liefert Screenshots; erst dann untersuchen (LOD-Wechsel,
+      Sichtweite je Objekt, Culling). Verwandt: Bäume poppen nach `viewReady` (E183, `wt/fx-engine`).
+- [ ] **C16 Zufalls-Spawn-Portal noch schräg** (User, 2026-09-17, Amsterdam "Westerstraat", nicht reproduziert): Trotz
+      Verschieben auf ein gerades Stück (`cbdec4e5`) stand ein Portal schräg. Vermutungen: gerades Stück zu kurz (nur
+      bis zur Ebene geprüft, Mindestlänge etwa 25 bis 30 m fehlt) oder die Gegnerlinie schwenkt am Start vom OSM-Punkt
+      zur Bandmitte. Erst mit URL oder Snapshot eines neuen Falls debuggen.
+
+### Plattform
+
+- [ ] **E83 AppImage und AUR** (2026-09-30): gebaut 2026-10-05 (statische Laufzeit, Update-Information und `.zsync`,
+      AUR-Paket `3dtd-bin` mit CI-Job). AUR ok, der Job lief im Release 0.7.0 grün. Offen beim User nur: das AppImage
+      einmal auf Linux starten (PLAYTEST A3.2).
 
 ### Assets
 
