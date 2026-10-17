@@ -69,6 +69,8 @@ import { runScriptInSandbox } from '../agent/script-sandbox';
 export const AUTOSAVE_DELAY_MS = 2000;
 /** The build areas are judged again this long after the last change (a large map takes a worker a few hundred ms) */
 export const BUILD_AREA_DELAY_MS = 600;
+/** Milliseconds after the last change an open check runs again; never while a stroke or drag goes on */
+export const CHECK_DELAY_MS = 300;
 const BOOKMARK_KEY = '3dtd-editor-views:';
 const THUMBNAIL_SIZE = 256;
 
@@ -136,6 +138,7 @@ export class EditorSession implements OnDestroy {
   private buildAreaOf = { map: 0, state: -1 };
   private buildAreaMap = 0;
   private buildAreaTimer: ReturnType<typeof setTimeout> | null = null;
+  private checkTimer: ReturnType<typeof setTimeout> | null = null;
   private buildAreaRunning = false;
   private readonly history = new VersionHistory();
   /** The open map's kept versions, newest first */
@@ -1710,8 +1713,23 @@ export class EditorSession implements OnDestroy {
     this.changed = false;
     this.refresh();
     if (this.dirty() && !this.readOnly()) this.scheduleAutosave();
-    if (this.issues()) this.runCheck();
+    if (this.issues()) this.scheduleCheck();
     this.scheduleBuildAreas();
+  }
+
+  /**
+   * The open check again CHECK_DELAY_MS after the last change and once a
+   * stroke or drag is over: it walks the whole map (a big OSM world 120 ms),
+   * every 150 ms of a stroke that stuttered it
+   */
+  private scheduleCheck(): void {
+    if (this.checkTimer) clearTimeout(this.checkTimer);
+    this.checkTimer = setTimeout(() => {
+      this.checkTimer = null;
+      if (this.destroyed || !this.issues()) return;
+      if (this.viewport?.dragging) this.scheduleCheck();
+      else this.runCheck();
+    }, CHECK_DELAY_MS);
   }
 
   private scheduleAutosave(): void {

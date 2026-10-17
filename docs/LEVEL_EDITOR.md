@@ -558,7 +558,8 @@ dazurechnen, wahlweise neu bemalen nach Neigung und Höhe; ein Schritt im Verlau
 ## Prüfen
 
 „Check“ (V) listet Fehler vor Warnungen; ein Klick wählt das Betroffene, wechselt ins passende Werkzeug und zeigt es.
-Solange die Liste offen ist, prüft der Editor nach jeder Änderung neu. Unter der Liste steht der Platz für Tower an
+Solange die Liste offen ist, prüft der Editor neu, sobald 300 ms nach einer Änderung nichts mehr kam und kein Strich
+oder Ziehen mehr läuft (eine OSM-Welt kostet bis 120 ms je Prüfung, vorher alle 150 ms im Strich). Unter der Liste steht der Platz für Tower an
 den Routen (Fläche in Reichweite, Tower darauf, bei mehreren Spuren die engste), aus derselben Rechnung wie Build areas.
 
 | Code | Art | Bedeutung |

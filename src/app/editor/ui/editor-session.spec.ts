@@ -6,7 +6,7 @@ import { MapStore, MemoryMapBackend } from '../../world/custom-map/map-store';
 import { MemoryVersionBackend, VersionHistory } from '../model/version-store';
 import { DOWNLOAD_REMINDER_MS } from '../model/storage-safety';
 import { MAX_FILE_BYTES, MapFileError, contentHash, packMapFile, unpackMapFile } from '../../world/custom-map/map-file';
-import { EditorSession, saveErrorText } from './editor-session.service';
+import { CHECK_DELAY_MS, EditorSession, saveErrorText } from './editor-session.service';
 import { EditorHeldError, SnapshotCommand } from '../model/editor-document';
 import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
 import { readFileSync } from 'node:fs';
@@ -235,6 +235,34 @@ describe('editor session while busy', () => {
     s.undo();
     expect(s.doc!.meta.name).toBe('M');
     s.ngOnDestroy();
+  });
+});
+
+describe('editor session check', () => {
+  it('checks an open map again after the last change, not while a stroke is held', () => {
+    vi.useFakeTimers();
+    try {
+      const { s } = session();
+      s.runCheck();
+      const check = vi.spyOn(s, 'runCheck');
+      const viewport = { dragging: true, dispose: () => undefined };
+      Object.assign(s, { viewport });
+      // Every poll of a stroke finds a change: the check waits for the stroke's end
+      for (let k = 0; k < 10; k++) {
+        s.editMeta({ description: `step ${k}` });
+        s['pollChanges']();
+        vi.advanceTimersByTime(150);
+      }
+      vi.advanceTimersByTime(CHECK_DELAY_MS * 3);
+      expect(check).not.toHaveBeenCalled();
+      viewport.dragging = false;
+      vi.advanceTimersByTime(CHECK_DELAY_MS);
+      expect(check).toHaveBeenCalledTimes(1);
+      Object.assign(s, { viewport: null });
+      s.ngOnDestroy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
