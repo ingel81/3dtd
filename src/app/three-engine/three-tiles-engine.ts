@@ -88,6 +88,8 @@ const AHEAD_FIRST_DRAWS = 1;
 /** Main-thread time a quiet moment gives the background's compile (prepareSwitchStates), and how long it must be */
 const BACKGROUND_COMPILE_MS = 1;
 const QUIET_MS = 4;
+/** Calm without a quiet moment this long, ms: the background takes a task per frame (quietMoment) */
+const STARVE_MS = 2000;
 
 
 /** Called right before and right after a frame is drawn (ThreeTilesEngine.setFrameProbe) */
@@ -1467,6 +1469,9 @@ export class ThreeTilesEngine {
     void this.prepareSwitchStates();
   }
 
+  /** Since when the game has been calm: no enemy, no switch being made ready (quietMoment) */
+  private calmSince = 0;
+
   /**
    * Resolves in a quiet moment for the background's work (prepareSwitchStates):
    * after a drawn frame, with no enemy on the map (a fight's frames stay its
@@ -1476,10 +1481,13 @@ export class ThreeTilesEngine {
    * asked without waiting). A program's first use asks the GPU process for
    * its logs and locations and waits for its answers, which come behind all
    * the work queued before them: in frames that were busy anyway one to ten
-   * frames per run took 21 to 30 ms. Left over: the GPU process finishes a
-   * program on its first query (getProgramInfoLog waits 5 to 20 ms though
-   * the link reported done), now and then past the idle time. Without
-   * requestIdleCallback the fence alone decides
+   * frames per run took 21 to 30 ms. After STARVE_MS of calm, or without
+   * requestIdleCallback, a frame's end with the fence through will do too,
+   * at most a task per frame: frames without a cap or a busy machine left
+   * so little idle time that the background was not done after 45 s. Left
+   * over: the GPU process finishes a program on its first query
+   * (getProgramInfoLog waits 5 to 20 ms though the link reported done), now
+   * and then past the idle time
    */
   private quietMoment(gone: () => boolean): Promise<void> {
     const gl = this.renderer.getContext() as WebGL2RenderingContext;
@@ -1499,12 +1507,27 @@ export class ThreeTilesEngine {
           if (fence) gl.deleteSync(fence);
           return resolve();
         }
-        if (!this.drewFrame || this.ahead.size || this.enemies.count > 0) return void again();
+        const now = performance.now();
+        if (!this.drewFrame || this.ahead.size || this.enemies.count > 0) {
+          this.calmSince = now;
+          return void again();
+        }
         // After the frame just drawn: once this fence has signalled, the GPU process has nothing of it left
-        if (fence) gl.deleteSync(fence);
-        fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
-        gl.flush();
-        if (!idle) return void (drained() ? resolve() : again());
+        const fenceAfterFrame = () => {
+          if (fence) gl.deleteSync(fence);
+          fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+          gl.flush();
+        };
+        // Idle time first; after STARVE_MS of calm, or without requestIdleCallback, a frame's end will do too once
+        // the GPU process is through with a frame (frames without a cap or a busy machine leave little idle time,
+        // and an idle callback asked for came late or never). A fence not through yet stays: with frames queued
+        // up, a new one each frame would never come through
+        if (!idle || now - this.calmSince > STARVE_MS) {
+          if (fence && drained()) return resolve();
+          if (!fence) fenceAfterFrame();
+          return void again();
+        }
+        fenceAfterFrame();
         idle((deadline) => (deadline.timeRemaining() >= QUIET_MS && drained() ? resolve() : again()));
       };
       again();

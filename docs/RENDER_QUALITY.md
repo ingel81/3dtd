@@ -120,7 +120,9 @@ Composer, dazu kommen die Programme der Pässe selbst. In beiden Fällen läuft 
   (`quietMoment`): kein Gegner auf der Karte (der Kampf bleibt unberührt), kein Wechsel in Arbeit, der Browser idle
   mit 4 ms bis zum nächsten Frame (`requestIdleCallback`) und der GPU-Prozess mit dem letzten Frame durch (ein Fence
   danach hat signalisiert). Keine ersten Zeichnungen: sie kosteten Frames, und der Wechsel kommt ohne sie genauso
-  schnell. Ein Rechner ohne Leerlauf zwischen den Frames bereitet nichts vor; ein Wechsel geht dort den Weg unten.
+  schnell. Nach 2 s Ruhe genügt auch das Ende eines Frames, sobald der GPU-Prozess einen Frame fertig hat
+  (höchstens eine Aufgabe je Frame): ohne Obergrenze der Bildrate oder auf einem ausgelasteten Rechner gab es kaum
+  Leerlauf, und der Hintergrund war nach 45 s nicht fertig.
 - `ProgramPins` (`program-pins.ts`) hält das Warm-up und den Hintergrund fest: Ohne Material frei three ein Programm, und die Id eines eigenen
   Shader-Texts (Teil jedes Programmschlüssels) verfällt mit dem letzten Material dieses Texts. Eine Schicht, die ihre
   Materialien neu baut (Effekte einer Karte beim Stufenwechsel, die Routenlinien), baute ihre Programme im Spiel
@@ -135,12 +137,13 @@ Composer, dazu kommen die Programme der Pässe selbst. In beiden Fällen läuft 
 Die Schattenkarte einer neuen Größe baut wie jede Änderung über einige Frames (`ShadowParts`), die alte bleibt bis
 dahin; der Fernschatten einer eingeschalteten Kaskade backt verteilt; das Licht der Laternen auf dem Boden backt nur
 neu, wenn sich die Lichter oder der Boden darunter ändern (`LampLight.bake`). Gemessen auf Autumn Keep und Harbor
-Town (RTX 5080, headless mit V-Sync, der Rechner geteilt): Laden wie zuvor (12,7 bis 14,7 s); der Hintergrund
-braucht 25 bis 29 s für fünf Zustände mit 320 bis 350 Programmen, längster Frame dabei 24 bis 31 ms, ohne ihn 22 bis
-23 ms (Takt-Zittern des Headless-V-Sync). Was bleibt: der GPU-Prozess schließt ein Programm erst bei seiner ersten
-Abfrage ab (`getProgramInfoLog` wartet 5 bis 20 ms, obwohl der Link als fertig gemeldet war), ab und zu länger als
-der Leerlauf vor dem nächsten Frame. Danach kommt ein Wechsel nach 80 bis 120 ms, längster Frame meist 22 bis 25 ms,
-in zwei von zehn Wechseln 33 und 36 ms (vor E215 stand das Bild 3,9 s). Kommt ein Wechsel, bevor sein Zustand fertig ist, geht er den Weg
+Town (RTX 5080, headless, der Rechner geteilt): Laden wie zuvor (14,3 bis 16,8 s). Ohne V-Sync ist der Hintergrund
+nach 20 s fertig (fünf Zustände, 320 bis 350 Programme), längster Frame dabei 15 ms, keiner über 20 ms; mit V-Sync nach
+32 bis 34 s, längster Frame 25 bis 29 ms, keiner über 30 ms (ohne Hintergrund 22 bis 23 ms, das Takt-Zittern des
+Headless-V-Sync). Was bleibt: der GPU-Prozess schließt ein Programm erst bei seiner ersten Abfrage ab
+(`getProgramInfoLog` wartet 5 bis 20 ms, obwohl der Link als fertig gemeldet war), ab und zu länger als
+der Leerlauf vor dem nächsten Frame. Danach kommt ein Wechsel nach 38 bis 120 ms, längster Frame 10 bis 28 ms, in
+einem von acht Wechseln 44 ms (vor E215 stand das Bild 3,9 s). Kommt ein Wechsel, bevor sein Zustand fertig ist, geht er den Weg
 von `FrameAhead` mit ersten Zeichnungen (einige Sekunden bis zur Umschaltung, rund zehn Frames um 45 ms). Den Halt
 (`ProgramCompileHold`) gibt es nur noch für eine Stufe vor dem ersten Frame: eine neue Auflösung setzt er erst nach
 dem Kompilieren, sofort gesetzt leerte die Größenänderung den Canvas, und die angehaltenen Bilder zeigten Schwarz.
