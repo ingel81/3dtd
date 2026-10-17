@@ -52,8 +52,10 @@ const browser = await chromium.launch({
 });
 const page = await browser.newPage({ viewport: { width: 1600, height: 900 }, deviceScaleFactor: 1 });
 page.on('pageerror', (e) => console.log('pageerror', e.message));
+// --log <regex>: further console lines to show (the LOS profiler's: --log LOS-PERF, with losPerfEnable() run)
+const LOG = new RegExp(argument('log', '\[Warmup\]|warm-up|Warm-up|DBG'), 'i');
 page.on('console', (m) => {
-  if (/\[Warmup\]|warm-up|Warm-up|DBG/i.test(m.text())) console.log('console', m.text());
+  if (LOG.test(m.text())) console.log('console', m.text());
 });
 await page.addInitScript((quality) => {
   localStorage.setItem('td_render_quality_v1', JSON.stringify({ setting: quality, auto: null, overrides: {}, plantMotion: 'full' }));
@@ -62,6 +64,11 @@ await page.addInitScript((quality) => {
   localStorage.setItem('td_globe_quality_v1', '"off"');
   (globalThis as { __mapProbe?: unknown }).__mapProbe = true;
 }, QUALITY);
+if (process.argv.includes('--los-perf')) await page.addInitScript(() => setTimeout(function enable() {
+  const w = globalThis as { losPerfEnable?: () => void };
+  if (w.losPerfEnable) w.losPerfEnable();
+  else setTimeout(enable, 500);
+}, 500));
 const t0 = Date.now();
 await page.goto(`${URL_BASE}/?world=map:${MAP}&menu=skip`);
 await page.waitForFunction(() => '__load' in globalThis && typeof (globalThis as { __mapProbe?: unknown }).__mapProbe === 'object', null, { timeout: 300_000 });
@@ -251,6 +258,10 @@ async function measureTowers(): Promise<void> {
       }
       if (!placed) out[typeId] = 'no spot';
     }
+    // Each tower's line of sight came back (its visible cells, as the main thread's mirror holds them)
+    interface Mirror { towers(): readonly { visibleCells: unknown[] }[] }
+    const sim = host && (globalThis as unknown as { ng?: { getComponent(e: Element): { sim?: { mirror: Mirror } } } }).ng?.getComponent(host).sim;
+    if (sim) out['withSight'] = [...sim.mirror.towers()].filter((t) => t.visibleCells.length > 0).length;
     return out;
   }, [TOWER_TYPES, 2500] as const);
   console.log('RESULT ' + JSON.stringify({ case: 'towers', ...results }));

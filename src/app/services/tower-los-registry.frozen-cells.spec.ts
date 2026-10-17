@@ -59,15 +59,19 @@ describe('TowerLosRegistry on the frozen cells', () => {
     peek = { depth: 21, geometricError: 2 };
   };
 
-  /** One frame: its packet through the mirror, then the SimClient's frame listeners (the registry renders there) */
-  const frame = (towerStates = [] as ReturnType<typeof towerDto>[]) => {
+  /**
+   * One frame: its packet through the mirror, then the SimClient's frame
+   * listeners (the registry renders there), then the cube's faces back
+   */
+  const frame = async (towerStates = [] as ReturnType<typeof towerDto>[]) => {
     const p = packet({ towerStates });
     mirror.applyState(p);
     mirror.afterFrame(p);
     for (const listener of [...frameListeners]) listener(p);
+    await new Promise((resolve) => setTimeout(resolve));
   };
-  const drainFrames = () => {
-    for (let i = 0; i < 20; i++) frame();
+  const drainFrames = async () => {
+    for (let i = 0; i < 20; i++) await frame();
   };
   /** What the simulation asks for a tower (TowerLos in the worker) */
   const needed = (tower: Tower, reason: 'place' | 'upgrade' | 'retrofit', airUnlocked = false) =>
@@ -82,11 +86,11 @@ describe('TowerLosRegistry on the frozen cells', () => {
     });
 
   /** The simulation placed it and asks for its sight; the next frame renders it */
-  const place = (lon: number, lat: number, typeId: TowerTypeId = 'archer'): Tower => {
+  const place = async (lon: number, lat: number, typeId: TowerTypeId = 'archer'): Promise<Tower> => {
     const tower = new Tower({ lat, lon, height: 0 }, typeId);
-    frame([towerDto(tower)]);
+    await frame([towerDto(tower)]);
     needed(tower, 'place');
-    frame();
+    await frame();
     return tower;
   };
 
@@ -114,6 +118,7 @@ describe('TowerLosRegistry on the frozen cells', () => {
       getReferencePos: () => referencePos,
       getFarDistance: () => 100,
       readFacesToCpu: () => [],
+      readFacesAsync: () => Promise.resolve([]),
     };
     blockerGroup = {};
     const engine = { sync, getLosBlockerGroup: () => blockerGroup, getTowerShadowMapper: () => mapper };
@@ -144,8 +149,8 @@ describe('TowerLosRegistry on the frozen cells', () => {
     vi.restoreAllMocks();
   });
 
-  it('resolves a tower on the cells as they are, with answers for their heights', () => {
-    const a = place(15, 10);
+  it('resolves a tower on the cells as they are, with answers for their heights', async () => {
+    const a = await place(15, 10);
 
     expect(cellsOf(a).length).toBeGreaterThan(0);
     expect(staleAnswers(a)).toEqual([]);
@@ -153,50 +158,50 @@ describe('TowerLosRegistry on the frozen cells', () => {
     expect(cellsOf(a).every((c) => c.towerVisibility.get(a.id) === false)).toBe(true);
   });
 
-  it('samples no cell and moves no answer when finer tiles come in under a standing tower', () => {
-    const a = place(15, 10);
+  it('samples no cell and moves no answer when finer tiles come in under a standing tower', async () => {
+    const a = await place(15, 10);
     const heights = cellsOf(a).map((c) => c.terrainHeight);
 
     fine();
-    drainFrames();
+    await drainFrames();
 
     expect(cellsOf(a).map((c) => c.terrainHeight)).toEqual(heights);
     expect(staleAnswers(a)).toEqual([]);
   });
 
-  it('leaves the cells of the towers standing alone when another tower is placed on finer tiles', () => {
-    const a = place(15, 10);
+  it('leaves the cells of the towers standing alone when another tower is placed on finer tiles', async () => {
+    const a = await place(15, 10);
     fine();
 
-    place(40, 10);
-    drainFrames();
+    await place(40, 10);
+    await drainFrames();
 
     expect(cellsOf(a).every((c) => c.terrainHeight === 85)).toBe(true);
     expect(staleAnswers(a)).toEqual([]);
   });
 
-  it('resolves air for a retrofitted tower once the simulation asks with the research done', () => {
-    const gatling = place(15, 10, 'dual-gatling');
+  it('resolves air for a retrofitted tower once the simulation asks with the research done', async () => {
+    const gatling = await place(15, 10, 'dual-gatling');
     expect(cellsOf(gatling).some((c) => c.airVisibility.has(gatling.id))).toBe(false);
 
     needed(gatling, 'retrofit', true);
-    drainFrames();
+    await drainFrames();
 
     expect(cellsOf(gatling).every((c) => c.airVisibility.has(gatling.id))).toBe(true);
   });
 
-  it('keeps a tower queued while its cube cannot render, then resolves it', () => {
+  it('keeps a tower queued while its cube cannot render, then resolves it', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const tower = new Tower({ lat: 10, lon: 15, height: 0 }, 'archer');
-    frame([towerDto(tower)]);
+    await frame([towerDto(tower)]);
     blockerGroup = null;
     needed(tower, 'place');
-    frame();
+    await frame();
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('no LOS blocker group'));
     expect(registry.pendingTowerIds()).toEqual([tower.id]);
 
     blockerGroup = {};
-    drainFrames();
+    await drainFrames();
     expect(registry.pendingTowerIds()).toEqual([]);
     expect(cellsOf(tower).length).toBeGreaterThan(0);
     expect(staleAnswers(tower)).toEqual([]);

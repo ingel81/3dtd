@@ -44,6 +44,7 @@ describe('TowerLosRegistry', () => {
     getReferencePos: () => Vector3;
     getFarDistance: () => number;
     readFacesToCpu: ReturnType<typeof vi.fn>;
+    readFacesAsync: ReturnType<typeof vi.fn>;
   };
   let initialized: boolean;
   let blockers: object | null;
@@ -64,6 +65,13 @@ describe('TowerLosRegistry', () => {
     mirror.applyState(p);
     mirror.afterFrame(p);
     for (const listener of [...frameListeners]) listener(p);
+  };
+  /** The cube's faces come back (TowerShadowMapper.readFacesAsync resolves after the frame) */
+  const facesBack = () => new Promise<void>((resolve) => setTimeout(resolve));
+  /** A frame, then its cube's faces back */
+  const frameAnswered = async (parts: PacketParts = {}) => {
+    frame(parts);
+    await facesBack();
   };
   /** A tower the simulation placed: its state in the mirror */
   const place = (lon = 0, lat = 0): Tower => {
@@ -107,6 +115,7 @@ describe('TowerLosRegistry', () => {
       getReferencePos: () => new Vector3(),
       getFarDistance: () => 100,
       readFacesToCpu: vi.fn(() => []),
+      readFacesAsync: vi.fn(() => Promise.resolve([])),
     };
     engine = { sync, getLosBlockerGroup: () => blockers, getTowerShadowMapper: () => mapper } as unknown as ThreeTilesEngine;
     const injector = Injector.create({
@@ -136,7 +145,7 @@ describe('TowerLosRegistry', () => {
     expect(sent).toEqual([]);
   });
 
-  it('renders a placed tower after the frame on the cells as they are and answers with its mask', () => {
+  it('renders a placed tower after the frame and answers with its mask once the faces are back', async () => {
     registry.attach(engine);
     const t = place(5, 7);
     needed(t);
@@ -144,6 +153,10 @@ describe('TowerLosRegistry', () => {
     expect(grid.registerTower).not.toHaveBeenCalled();
 
     frame();
+    expect(mapper.update).toHaveBeenCalledTimes(1);
+    expect(grid.registerTower).not.toHaveBeenCalled();
+    expect(registry.pendingTowerIds()).toEqual([t.id]);
+    await facesBack();
     const [id, x, z, range] = grid.registerTower.mock.calls[0];
     expect([id, x, z, range]).toEqual([t.id, 5, 7, TOWER_TYPES.archer.range]);
     expect(grid.encodeLosMask).toHaveBeenCalledWith(t.id, 5, 7, TOWER_TYPES.archer.range, true, true);
@@ -159,12 +172,12 @@ describe('TowerLosRegistry', () => {
     expect(registry.pendingTowerIds()).toEqual([]);
   });
 
-  it('renders the cube fresh from the tip on the top of the plinth, out to the range asked for', () => {
+  it('renders the cube fresh from the tip on the top of the plinth, out to the range asked for', async () => {
     registry.attach(engine);
     const t = new Tower({ lat: 7, lon: 5, height: 8 }, 'archer', 0, 3);
     frame({ towerStates: [towerDto(t)] });
     needed(t);
-    frame();
+    await frameAnswered();
 
     expect(mapper.invalidate.mock.invocationCallOrder[0]).toBeLessThan(mapper.update.mock.invocationCallOrder[0]);
     const [tip, far, group] = mapper.update.mock.calls[0];
@@ -174,13 +187,33 @@ describe('TowerLosRegistry', () => {
     expect(group).toBe(blockers);
     const ctx = grid.registerTower.mock.calls[0][4] as { farDistance: number; faces: unknown };
     expect(ctx.farDistance).toBe(100);
-    // The faces come back to the CPU only when the resolve samples a cell
+    // The faces came back without waiting for the GPU
+    expect(mapper.readFacesAsync).toHaveBeenCalledTimes(1);
     expect(mapper.readFacesToCpu).not.toHaveBeenCalled();
-    void ctx.faces;
-    expect(mapper.readFacesToCpu).toHaveBeenCalledTimes(1);
   });
 
-  it('waits with its renders while the main grid has no cells', () => {
+  it('renders the next tower only once the faces of the last are back, and drops an answer the tower no longer waits for', async () => {
+    registry.attach(engine);
+    let back: (faces: Uint8Array[]) => void = () => undefined;
+    mapper.readFacesAsync.mockImplementationOnce(() => new Promise((resolve) => (back = resolve)));
+    const a = place(1, 0);
+    const b = place(2, 0);
+    needed(a);
+    needed(b);
+    frame();
+    frame();
+    expect(mapper.update).toHaveBeenCalledTimes(1);
+    // A newer request of a while its faces come back: the old answer goes nowhere, the new one renders
+    needed(a, 'retrofit');
+    back([]);
+    await facesBack();
+    expect(sent).toEqual([]);
+    await frameAnswered();
+    await frameAnswered();
+    expect(sent.map((e) => [e.towerId, e.reason])).toEqual([[b.id, 'place'], [a.id, 'retrofit']]);
+  });
+
+  it('waits with its renders while the main grid has no cells', async () => {
     registry.attach(engine);
     initialized = false;
     const t = place(5, 7);
@@ -190,21 +223,21 @@ describe('TowerLosRegistry', () => {
     expect(registry.pendingTowerIds()).toEqual([t.id]);
 
     initialized = true;
-    frame();
+    await frameAnswered();
     expect(sent).toHaveLength(1);
   });
 
-  it('resolves an upgrade and a retrofit incrementally, at the range asked for', () => {
+  it('resolves an upgrade and a retrofit incrementally, at the range asked for', async () => {
     registry.attach(engine);
     const t = place(5, 7);
     needed(t, 'upgrade', 45);
-    frame();
+    await frameAnswered();
     expect(grid.registerTowerIncremental.mock.calls[0].slice(0, 4)).toEqual([t.id, 5, 7, 45]);
     expect(grid.registerTower).not.toHaveBeenCalled();
     expect(sent[0]).toMatchObject({ reason: 'upgrade', mask: { range: 45 } });
   });
 
-  it('renders one tower per frame, oldest first; a new request of a tower takes the place of its old one', () => {
+  it('renders one tower per frame, oldest first; a new request of a tower takes the place of its old one', async () => {
     registry.attach(engine);
     const a = place(1, 0);
     const b = place(2, 0);
@@ -213,13 +246,13 @@ describe('TowerLosRegistry', () => {
     needed(a, 'retrofit');
     expect(registry.pendingTowerIds()).toEqual([b.id, a.id]);
 
-    frame();
+    await frameAnswered();
     expect(sent.map((e) => e.towerId)).toEqual([b.id]);
-    frame();
+    await frameAnswered();
     expect(sent.map((e) => [e.towerId, e.reason])).toEqual([[b.id, 'place'], [a.id, 'retrofit']]);
   });
 
-  it('drops a request of a tower the mirror does not have, and keeps one while the cube cannot render', () => {
+  it('drops a request of a tower the mirror does not have, and keeps one while the cube cannot render', async () => {
     registry.attach(engine);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const gone = new Tower({ lat: 0, lon: 0, height: 0 }, 'archer');
@@ -236,7 +269,7 @@ describe('TowerLosRegistry', () => {
     expect(warn).toHaveBeenCalled();
 
     blockers = {};
-    frame();
+    await frameAnswered();
     expect(sent).toHaveLength(1);
   });
 
@@ -278,18 +311,18 @@ describe('TowerLosRegistry', () => {
     expect(registry.pendingTowerIds()).toEqual([t.id]);
   });
 
-  it('renders a tower removed and put back in the same packet (a restore) on the request its new self made', () => {
+  it('renders a tower removed and put back in the same packet (a restore) on the request its new self made', async () => {
     registry.attach(engine);
     registry.setRole('wait');
     const t = place(5, 7);
     // The restore's packet: the tower goes and comes back, and asks for its line of sight
     needed(t);
     registry.setRole('render');
-    frame({ removedTowers: [t.id], towerStates: [towerDto(t)] });
+    await frameAnswered({ removedTowers: [t.id], towerStates: [towerDto(t)] });
     expect(sent.map((e) => e.towerId)).toEqual([t.id]);
   });
 
-  it('as a coop guest drops a request once the host’s mask for it arrived, not one that came with the mask', () => {
+  it('as a coop guest drops a request once the host’s mask for it arrived, not one that came with the mask', async () => {
     registry.attach(engine);
     registry.setRole('wait');
     const t = place(5, 7);
@@ -306,7 +339,7 @@ describe('TowerLosRegistry', () => {
 
     // Become the host: nothing already answered is rendered again
     registry.setRole('render');
-    frame();
+    await frameAnswered();
     expect(sent.map((e) => e.towerId)).toEqual([u.id]);
   });
 
@@ -331,39 +364,39 @@ describe('TowerLosRegistry', () => {
 
   describe('the log of a recompute that takes most cells away', () => {
     const seen = () => Array.from({ length: 10 }, (_, i) => cell(i, 0));
-    const recomputeTo = (t: Tower, before: RouteCell[], after: RouteCell[]) => {
+    const recomputeTo = async (t: Tower, before: RouteCell[], after: RouteCell[]) => {
       mirror.tower(t.id)!.visibleCells = before;
       grid.registerTowerIncremental.mockReturnValueOnce(after);
       needed(t, 'upgrade');
-      frame();
+      await frameAnswered();
     };
 
-    it('warns once per drop, with the trigger and what the cube saw, and again only after the cells came back', () => {
+    it('warns once per drop, with the trigger and what the cube saw, and again only after the cells came back', async () => {
       registry.attach(engine);
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
       const t = place();
 
-      recomputeTo(t, seen(), []);
+      await recomputeTo(t, seen(), []);
       expect(warn).toHaveBeenCalledTimes(1);
       const line = String(warn.mock.calls[0][0]);
       expect(line).toContain(`${t.id} archer: 0 of 10 visible cells left after a LOS recompute (upgrade)`);
       expect(line).toContain('geometry within 2 m of the tip');
 
       // Still down: no second line
-      recomputeTo(t, seen(), [cell(0, 0)]);
+      await recomputeTo(t, seen(), [cell(0, 0)]);
       expect(warn).toHaveBeenCalledTimes(1);
 
       // Back, then down again
-      recomputeTo(t, seen(), seen());
-      recomputeTo(t, seen(), []);
+      await recomputeTo(t, seen(), seen());
+      await recomputeTo(t, seen(), []);
       expect(warn).toHaveBeenCalledTimes(2);
     });
 
-    it('stays quiet when a recompute moves a few answers or the tower saw only a few cells', () => {
+    it('stays quiet when a recompute moves a few answers or the tower saw only a few cells', async () => {
       registry.attach(engine);
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-      recomputeTo(place(), seen(), seen().slice(0, 7));
-      recomputeTo(place(50, 0), seen().slice(0, 5), []);
+      await recomputeTo(place(), seen(), seen().slice(0, 7));
+      await recomputeTo(place(50, 0), seen().slice(0, 5), []);
       expect(warn).not.toHaveBeenCalled();
     });
   });

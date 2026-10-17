@@ -81,6 +81,9 @@ export class TowerShadowMapper {
   // renderVersion genau einmal via readRenderTargetPixels gefüllt.
   private faceReadBuffers: Uint8Array[] | null = null;
   private faceReadVersion = -1;
+  /** The buffers readFacesAsync reads into, and whether a read into them is under way */
+  private asyncFaceBuffers: Uint8Array[] | null = null;
+  private asyncFacesBusy = false;
 
   // Lazy-allocated Debug-Resources für face → ImageData Visualisierung.
   // Aufgebaut bei erstem `getFaceImageData`-Call, danach wiederverwendet.
@@ -402,6 +405,31 @@ export class TowerShadowMapper {
       losPerf.sample('cube/faceReadback', performance.now() - tReadStart);
     }
     return this.faceReadBuffers;
+  }
+
+  /**
+   * The six faces of the render made last into CPU buffers without waiting
+   * for the GPU: each face copied into a pixel buffer behind a fence
+   * (three's readRenderTargetPixelsAsync), read once the GPU has done it, a
+   * frame or two later. The copy sits in the command stream right after the
+   * render, so a render meanwhile (the build preview's) does not change the
+   * answer. The synchronous read (readFacesToCpu) waited for the GPU to
+   * finish the frame and the cube, 2.6 to 5.5 ms per tower on autumn keep
+   * (RTX 5080), more on slower GPUs. Buffers of their own: a synchronous
+   * read meanwhile keeps its own. Rejects on a lost context.
+   */
+  readFacesAsync(): Promise<readonly Uint8Array[]> {
+    const size = this.renderTarget.width;
+    const buffers = this.asyncFaceBuffers && !this.asyncFacesBusy ? this.asyncFaceBuffers : Array.from({ length: 6 }, () => new Uint8Array(size * size * 4));
+    this.asyncFaceBuffers ??= buffers;
+    const own = buffers === this.asyncFaceBuffers;
+    if (own) this.asyncFacesBusy = true;
+    const reads = buffers.map((buffer, face) => this.renderer.readRenderTargetPixelsAsync(this.renderTarget, 0, 0, size, size, buffer, face));
+    return Promise.all(reads)
+      .then(() => buffers as readonly Uint8Array[])
+      .finally(() => {
+        if (own) this.asyncFacesBusy = false;
+      });
   }
 
   /** True, wenn `update()` mindestens einmal real gerendert hat. */

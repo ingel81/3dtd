@@ -24,9 +24,10 @@ drei Lesarten:
 3. **Kampf-Cache:** `GlobalRouteGrid.registerTower` und
    `registerTowerIncremental` füllen `cell.towerVisibility` und
    `cell.airVisibility`. Aufgelöst wird in `utils/route-grid-los.ts`
-   (`resolveTowerLos`, `resolveTowerLosIncremental`) über einen
-   CPU-`readRenderTargetPixels`-Pass gegen denselben Cube (`isCubeVisible`,
-   `utils/gpu-cube-resolve.ts`). Der Kampf liest danach nur Map-Lookups,
+   (`resolveTowerLos`, `resolveTowerLosIncremental`) gegen die sechs
+   Flächen desselben Cubes auf der CPU (`isCubeVisible`,
+   `utils/gpu-cube-resolve.ts`), zurückgelesen ohne Warten
+   (`TowerShadowMapper.readFacesAsync`, siehe unten). Der Kampf liest danach nur Map-Lookups,
    O(1) je Tower und Gegner. Das Ergebnis steht zusätzlich als Daten am
    Tower (`LosMask`, siehe unten) und lässt sich ohne GPU wieder anwenden.
 
@@ -231,6 +232,28 @@ Sonst zählt jeder Tower seinen Cooldown einmal je Methode herunter (Befund
 | `components/debug-window/los-debugger.component.ts`, `services/debug/los-debug.service.ts` | LOS-Debug-Panel |
 
 ## Abläufe
+
+### Zurücklesen ohne Warten (`TowerLosRegistry`)
+
+Die Simulation fragt mit `tower:los-needed`, der Hauptthread antwortet mit
+`command:los-mask` (docs/SIM_WORKER.md). Je Frame rendert das Register
+höchstens einen Cube, und keinen, solange die Flächen des letzten noch
+unterwegs sind: `TowerShadowMapper.readFacesAsync` kopiert jede Fläche auf
+der GPU in einen Pixelpuffer hinter einem Fence (three
+`readRenderTargetPixelsAsync`) und liest sie, sobald die GPU fertig ist,
+ein bis zwei Frames später. Die Kopie steht im Befehlsstrom direkt nach
+dem Render; rendert die Build-Vorschau den Cube inzwischen neu, ändert das
+die Antwort nicht. Tip und `far` hält das Register vom Render fest. Kommen
+die Flächen zurück, löst es die Zellen auf dem Haupt-Raster auf und sendet
+die Maske, außer die Anfrage gilt nicht mehr (eine neuere desselben Towers,
+verkauft, neuer Lauf oder Ort). Vorher las `readFacesToCpu` die sechs
+Flächen synchron: der Frame wartete auf die GPU, 2,6 bis 5,5 ms je Tower
+auf Autumn Keep (RTX 5080), auf langsameren GPUs mehr, und die
+Luft-Forschung machte daraus eine Serie. Determinismus: die Simulation
+wartet ohnehin auf die Maske; welche sie anwendet und an welcher Grenze,
+steht im Befehlslog, Replay und Coop-Gast brauchen keine GPU. Die Maske
+kommt dadurch ein Bild später als vorher. Synchron liest nur noch
+`probeSight` (die Wahl des Bots unter Bauplätzen).
 
 ### Tower bauen (`placeTower` → `registerTowerOnGrid`)
 

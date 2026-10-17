@@ -48,14 +48,11 @@ export class TowerLosRegistry {
   private readonly queuedAt = new Map<string, number>();
   /** Packets handled so far, see queuedAt */
   private packets = 0;
+  /** The request whose cube is read back now (resolveQueued); the next waits for it */
+  private inFlight: LosNeededPayload | null = null;
+  /** Counts the times the requests were dropped: a readback of an earlier count answers nothing */
+  private epoch = 0;
   private readonly unsubscribe: (() => void)[] = [];
-
-  /**
-   * Cube renders per frame. Each one is a forced cubemap render plus the face
-   * readback; running many towers in one frame blocked the main thread for
-   * 1-2 s.
-   */
-  private static readonly RESOLVES_PER_FRAME = 1;
 
   /**
    * A recompute that leaves a tower no more than this share of the cells it
@@ -111,6 +108,8 @@ export class TowerLosRegistry {
   private clearQueue(): void {
     this.queue.clear();
     this.queuedAt.clear();
+    this.inFlight = null;
+    this.epoch++;
   }
 
   /** The request of `id` ends, unless it came with this packet (see queuedAt). */
@@ -155,11 +154,17 @@ export class TowerLosRegistry {
     return this.engine.sync.geoToLocalSimple(p.lat, p.lon, p.height ?? 0);
   }
 
+  /**
+   * One cube per frame at most, and none while the last one's faces come
+   * back: the oldest request renders, its readback runs without waiting
+   * (TowerShadowMapper.readFacesAsync), and the answer goes out once the
+   * faces are there (finish), a frame or two after the render. The
+   * simulation waits for the mask either way; what it applies, and when, is
+   * in the command log (docs/SIM_WORKER.md).
+   */
   private resolveQueued(): void {
-    if (!this.engine || !this.grid.isInitialized()) return;
-    let budget = TowerLosRegistry.RESOLVES_PER_FRAME;
+    if (!this.engine || !this.grid.isInitialized() || this.inFlight) return;
     for (const [id, request] of this.queue) {
-      if (budget === 0) return;
       const tower = this.sim.mirror.tower(id);
       if (!tower) {
         // Sold before its turn
@@ -167,31 +172,57 @@ export class TowerLosRegistry {
         this.queuedAt.delete(id);
         continue;
       }
-      const mask = this.resolve(tower, request);
-      if (!mask) return;
-      this.queue.delete(id);
-      this.queuedAt.delete(id);
-      budget--;
-      this.sim.bus.emit({ type: 'command:los-mask', towerId: id, reason: request.reason, mask, generation: request.generation });
+      this.start(tower, request);
+      return;
     }
   }
 
-  /**
-   * Render the cube from the tower's tip and resolve its cells in range on
-   * the main grid: all of them for a place, incrementally for a recompute
-   * (cells that keep a cached answer are not sampled again). The answers stay
-   * in the main grid; the mask goes to the simulation.
-   */
-  private resolve(tower: Tower, request: LosNeededPayload): ReturnType<typeof losMaskToJson> | null {
+  /** Renders the cube from the tower's tip and reads its faces back; the cells resolve when they are there (finish) */
+  private start(tower: Tower, request: LosNeededPayload): void {
     const config = TOWER_TYPES[tower.typeConfig.id as TowerTypeId];
     const terrainPos = this.localOf(tower);
-    if (!config || !terrainPos) return null;
+    if (!config || !terrainPos || !this.engine) return;
     const tipY = terrainPos.y + config.heightOffset + config.shootHeight;
-    const ctx = this.buildLosResolveContext(new Vector3(terrainPos.x, tipY, terrainPos.z), request.range);
-    if (!ctx) {
+    const cube = this.renderCube(new Vector3(terrainPos.x, tipY, terrainPos.z), request.range);
+    if (!cube) {
       console.warn('[TowerLosRegistry] no LOS blocker group');
-      return null;
+      return;
     }
+    const epoch = this.epoch;
+    this.inFlight = request;
+    this.engine.getTowerShadowMapper().readFacesAsync().then(
+      (faces) => this.finish(tower.id, request, epoch, terrainPos, { ...cube, faces }),
+      (error: unknown) => {
+        // A lost context: the request stays and renders again with the next frame
+        if (this.epoch === epoch && this.inFlight === request) this.inFlight = null;
+        console.warn('[TowerLosRegistry] cube readback failed', error);
+      },
+    );
+  }
+
+  /**
+   * The faces are back: resolve the tower's cells in range on the main grid
+   * and send the mask. Nothing if the request is no longer the tower's (a
+   * newer one, sold, a new run or location).
+   */
+  private finish(id: string, request: LosNeededPayload, epoch: number, terrainPos: { x: number; z: number }, ctx: LosResolveContext): void {
+    if (this.epoch !== epoch) return;
+    this.inFlight = null;
+    const tower = this.sim.mirror.tower(id);
+    if (this.queue.get(id) !== request || !tower || !this.grid.isInitialized()) return;
+    this.queue.delete(id);
+    this.queuedAt.delete(id);
+    const mask = this.resolve(tower, request, terrainPos, ctx);
+    this.sim.bus.emit({ type: 'command:los-mask', towerId: id, reason: request.reason, mask, generation: request.generation });
+  }
+
+  /**
+   * The tower's cells in range against the cube on the main grid: all of
+   * them for a place, incrementally for a recompute (cells that keep a
+   * cached answer are not sampled again). The answers stay in the main grid;
+   * the mask goes to the simulation.
+   */
+  private resolve(tower: Tower, request: LosNeededPayload, terrainPos: { x: number; z: number }, ctx: LosResolveContext): ReturnType<typeof losMaskToJson> {
     const before = tower.visibleCells.length;
     const incremental = request.reason !== 'place';
     tower.visibleCells = incremental
@@ -260,13 +291,14 @@ export class TowerLosRegistry {
   }
 
   /**
-   * Renders the tower-shadow cubemap from `tipWorld` with `range` as far,
-   * then returns a context the GlobalRouteGrid uses to GPU-resolve cell
-   * visibility. `mapper.invalidate()` is hardcoded here so the move-gate
-   * never skips a render that the caller needs (a previous build-preview
-   * call may have left the cube cached for a different tip).
+   * Renders the tower-shadow cubemap from `tipWorld` with `range` as far and
+   * returns what a resolve against it needs but its faces, the tip taken now
+   * (the build preview may render the cube again before the faces are
+   * back). `mapper.invalidate()` is hardcoded here so the move-gate never
+   * skips a render that the caller needs (a previous build-preview call may
+   * have left the cube cached for a different tip).
    */
-  private buildLosResolveContext(tipWorld: Vector3, range: number): LosResolveContext | null {
+  private renderCube(tipWorld: Vector3, range: number): Omit<LosResolveContext, 'faces'> | null {
     if (!this.engine) return null;
     const blockerGroup = this.engine.getLosBlockerGroup();
     if (!blockerGroup) return null;
@@ -275,8 +307,20 @@ export class TowerLosRegistry {
     mapper.update(tipWorld, range, blockerGroup);
     return {
       cube: mapper.getRenderTarget(),
-      referencePos: mapper.getReferencePos(),
+      referencePos: mapper.getReferencePos().clone(),
       farDistance: mapper.getFarDistance(),
+      visibilityBias: LOS_VIZ_CONFIG.visibilityBiasMeters,
+      emptyDepthEpsilon: LOS_VIZ_CONFIG.emptyDepthEpsilon,
+    };
+  }
+
+  /** The cube rendered from `tipWorld`, its faces read back at once, for a resolve that cannot wait (probeSight) */
+  private buildLosResolveContext(tipWorld: Vector3, range: number): LosResolveContext | null {
+    const cube = this.renderCube(tipWorld, range);
+    if (!cube || !this.engine) return null;
+    const mapper = this.engine.getTowerShadowMapper();
+    return {
+      ...cube,
       // All six faces into the CPU buffers at once, instead of a synchronous
       // 1x1 readback per cell during the resolve. Lazy: only once the resolve
       // samples a cell; an incremental registration that sees cached cells
@@ -284,8 +328,6 @@ export class TowerLosRegistry {
       get faces() {
         return mapper.readFacesToCpu();
       },
-      visibilityBias: LOS_VIZ_CONFIG.visibilityBiasMeters,
-      emptyDepthEpsilon: LOS_VIZ_CONFIG.emptyDepthEpsilon,
     };
   }
 }
