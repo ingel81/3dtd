@@ -17,6 +17,7 @@ import {
   WebGLRenderer,
   WebGLRenderTarget,
   Material,
+  type IUniform,
 } from 'three';
 import { LOS_VIZ_CONFIG, losCubeFarDistance } from '../configs/los-viz.config';
 import { losPerf } from '../utils/los-perf';
@@ -28,7 +29,7 @@ import { losPerf } from '../utils/los-perf';
  * `direction(towerTip → cell)`-Vektor und vergleicht die gepackte
  * Distanz mit der eigenen Distanz zum Tower.
  *
- * 10 der 12 Regeln aus docs/LOS_PIPELINE.md ("Regeln für jeden Eingriff am
+ * 11 der 13 Regeln aus docs/LOS_PIPELINE.md ("Regeln für jeden Eingriff am
  * Cube") sind hier umgesetzt (Regel 9 gilt für die Konsumenten TowerLosViz/
  * TowerManager, Regel 12 für den CPU-Resolve in gpu-cube-resolve.ts):
  *   Regel 1.  Custom ShaderMaterial mit `packDepthToRGBA`, KEIN MeshDistanceMaterial.
@@ -52,11 +53,26 @@ import { losPerf } from '../utils/los-perf';
  *             rendert Background-Texturen unabhängig vom child.visible-Filter
  *             und ohne overrideMaterial — Skybox-RGBA-Bytes leaken sonst als
  *             false-Blocker in jede Cubemap-Face.
+ *   Regel 13. Blocker, die ihre Vertices im Shader bewegen (`userData.losVertex`,
+ *             LosVertexPatch), bekommen ein Distance-Material mit diesem Stück.
  *
- * Dazu ein eigenes Move-Gate (keine der 12 Regeln): Cubemap wird nur neu
+ * Dazu ein eigenes Move-Gate (keine der 13 Regeln): Cubemap wird nur neu
  * gerendert wenn der Tower-Tip mehr als der Schwellwert bewegt wurde oder
  * `invalidate()` aufgerufen wurde.
  */
+/**
+ * A blocker whose vertices its own material moves (the custom map's terrain reads its heights from a texture,
+ * terrain-chunks.ts): `userData.losVertex` hands the cube the same in GLSL, run on `localPos` (object space)
+ * before the instance and model matrices, with its declarations and uniforms. The cube builds one distance
+ * material per `key`.
+ */
+export interface LosVertexPatch {
+  key: string;
+  pars: string;
+  vertex: string;
+  uniforms: Record<string, IUniform>;
+}
+
 export class TowerShadowMapper {
   private readonly renderer: WebGLRenderer;
   private readonly scene: Scene;
@@ -64,6 +80,8 @@ export class TowerShadowMapper {
   private readonly renderTarget: WebGLCubeRenderTarget;
   private readonly cubeCamera: CubeCamera;
   private readonly distanceMaterial: ShaderMaterial;
+  /** The distance materials of blockers that move their vertices (LosVertexPatch), by key */
+  private readonly patchedMaterials = new Map<string, ShaderMaterial>();
 
   /** Letzter Tower-Tip in World-Space — als Referenz für Probe-Lookups. */
   private readonly referencePos = new Vector3();
@@ -131,17 +149,19 @@ export class TowerShadowMapper {
    *    automatisch definiert; der Vertex-Shader honoriert beides.
    *  - logdepthbuf-Chunks für korrekte Depth bei `logarithmicDepthBuffer`.
    */
-  private createDistanceMaterial(): ShaderMaterial {
+  private createDistanceMaterial(patch?: LosVertexPatch): ShaderMaterial {
     const vertex = /* glsl */ `
       varying vec3 vWorldPosition;
       #include <common>
       #include <batching_pars_vertex>
       #include <logdepthbuf_pars_vertex>
+      ${patch?.pars ?? ''}
 
       void main() {
         #include <batching_vertex>
 
         vec4 localPos = vec4(position, 1.0);
+        ${patch?.vertex ?? ''}
         #ifdef USE_BATCHING
           localPos = batchingMatrix * localPos;
         #endif
@@ -177,15 +197,27 @@ export class TowerShadowMapper {
     return new ShaderMaterial({
       vertexShader: vertex,
       fragmentShader: fragment,
-      uniforms: {
-        uReferencePosition: { value: new Vector3() },
-        uFarDistance: { value: 1 },
-      },
+      // A patched material shares the plain one's reference and far, so update() sets them once
+      uniforms: patch
+        ? { ...patch.uniforms, uReferencePosition: this.distanceMaterial.uniforms['uReferencePosition'], uFarDistance: this.distanceMaterial.uniforms['uFarDistance'] }
+        : { uReferencePosition: { value: new Vector3() }, uFarDistance: { value: 1 } },
       transparent: false,
       depthWrite: true,
       depthTest: true,
       side: 0, // FrontSide — Backfaces sind okay zu droppen, sind keine Blocker
     });
+  }
+
+  /** The plain distance material, or the one of the blocker's vertex patch (LosVertexPatch) */
+  private distanceMaterialFor(mesh: Mesh): ShaderMaterial {
+    const patch = mesh.userData?.['losVertex'] as LosVertexPatch | undefined;
+    if (!patch) return this.distanceMaterial;
+    let material = this.patchedMaterials.get(patch.key);
+    if (!material) {
+      material = this.createDistanceMaterial(patch);
+      this.patchedMaterials.set(patch.key, material);
+    }
+    return material;
   }
 
   /**
@@ -230,11 +262,13 @@ export class TowerShadowMapper {
     this.distanceMaterial.uniforms['uFarDistance'].value = far;
     // Regel 4 — Material-State hart resetten, falls ein Plugin zuvor
     // transparent/opacity mutiert hat.
-    this.distanceMaterial.transparent = false;
-    this.distanceMaterial.opacity = 1;
-    this.distanceMaterial.depthWrite = true;
-    this.distanceMaterial.depthTest = true;
-    this.distanceMaterial.needsUpdate = true;
+    for (const m of [this.distanceMaterial, ...this.patchedMaterials.values()]) {
+      m.transparent = false;
+      m.opacity = 1;
+      m.depthWrite = true;
+      m.depthTest = true;
+      m.needsUpdate = true;
+    }
 
     // Regel 8 — alle Scene-Children außer `includeOnly` für den Render
     // unsichtbar machen.
@@ -276,7 +310,7 @@ export class TowerShadowMapper {
         material: obj.material,
         onBeforeRender: obj.onBeforeRender,
       });
-      obj.material = this.distanceMaterial;
+      obj.material = this.distanceMaterialFor(obj);
       obj.onBeforeRender = noop;
     });
     losPerf.sample('cube/traverse', performance.now() - tTraverseStart, meshBackup.length);
@@ -595,6 +629,8 @@ export class TowerShadowMapper {
   dispose(): void {
     this.renderTarget.dispose();
     this.distanceMaterial.dispose();
+    for (const m of this.patchedMaterials.values()) m.dispose();
+    this.patchedMaterials.clear();
     this.disposeDebugResources();
   }
 }

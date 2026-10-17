@@ -1,15 +1,49 @@
-import { MeshBasicMaterial, Ray, Raycaster, Vector3, type Mesh } from 'three';
+import { MeshBasicMaterial, Ray, Triangle, Vector3, type BufferGeometry } from 'three';
 import { describe, expect, it } from 'vitest';
 import { cellHeight, cellSplit, HeightField } from './height-field';
 import { heightAt } from '../../../map-ops/grid';
 import { createMapDocument } from '../map-create';
 import { mapToScene, sceneToMap } from './map-coords';
+import { HeightTexture } from './terrain/height-texture';
 import { TerrainChunks } from './terrain/terrain-chunks';
 
 function field(columns: number, rows: number, cellSize: number, h: (i: number, j: number) => number): HeightField {
   const heights = new Float32Array(columns * rows);
   for (let j = 0; j < rows; j++) for (let i = 0; i < columns; i++) heights[j * columns + i] = h(i, j);
   return new HeightField({ columns, rows, cellSize, heights }, (columns - 1) * cellSize, (rows - 1) * cellSize);
+}
+
+/**
+ * The surface the chunks draw at map point (x, y), as the GPU builds it: each vertex lifted by its sample's height
+ * (the height texture, TERRAIN_HEIGHT_VERTEX, no geomorph at the finest level), the triangles of the chunks' index
+ */
+function drawnHeight(chunks: TerrainChunks, f: HeightField, x: number, y: number): number | null {
+  const tri = new Triangle();
+  const p = new Vector3(-x, 0, y);
+  const bary = new Vector3();
+  const at = (pos: BufferGeometry['attributes'][string], v: number): Vector3 => {
+    const vx = pos.getX(v);
+    const vz = pos.getZ(v);
+    const h = f.sample(Math.round((-vx - f.originX) / f.cellSize), Math.round((vz - f.originY) / f.cellSize));
+    return new Vector3(vx, pos.getY(v) + h, vz);
+  };
+  for (const mesh of chunks.meshes) {
+    const g = mesh.geometry as BufferGeometry;
+    const pos = g.getAttribute('position');
+    const index = g.getIndex()!;
+    for (let k = 0; k < index.count; k += 3) {
+      const a = at(pos, index.getX(k));
+      const b = at(pos, index.getX(k + 1));
+      const c = at(pos, index.getX(k + 2));
+      // Surface triangles only: a skirt quad stands upright
+      if (pos.getY(index.getX(k)) < 0 || pos.getY(index.getX(k + 1)) < 0 || pos.getY(index.getX(k + 2)) < 0) continue;
+      tri.set(new Vector3(a.x, 0, a.z), new Vector3(b.x, 0, b.z), new Vector3(c.x, 0, c.z));
+      if (tri.getArea() < 1e-9 || !tri.containsPoint(p)) continue;
+      tri.getBarycoord(p, bary);
+      return a.y * bary.x + b.y * bary.y + c.y * bary.z;
+    }
+  }
+  return null;
 }
 
 describe('map coordinates', () => {
@@ -149,19 +183,14 @@ describe('one height model', () => {
 describe('TerrainChunks', () => {
   it('draws the surface heightAt reports, at the finest level', () => {
     const f = field(33, 33, 4, (i, j) => Math.sin(i * 0.7) * 6 + Math.cos(j * 0.4) * 4);
-    const chunks = new TerrainChunks(f, new MeshBasicMaterial(), { chunkCells: 16 });
+    const chunks = new TerrainChunks(f, new HeightTexture(f), new MeshBasicMaterial(), { chunkCells: 16 });
     expect(chunks.meshes.length).toBe(4);
-    const raycaster = new Raycaster();
-    for (const m of chunks.meshes) m.updateMatrixWorld();
     for (const [mx, my] of [
       [3.3, -7.9],
       [-21.2, 14.6],
       [40.5, 33.1],
     ]) {
-      raycaster.set(new Vector3(-mx, 500, my), new Vector3(0, -1, 0));
-      const hits = raycaster.intersectObjects(chunks.meshes as Mesh[], false);
-      expect(hits.length).toBeGreaterThan(0);
-      expect(hits[0].point.y).toBeCloseTo(f.heightAt(mx, my), 3);
+      expect(drawnHeight(chunks, f, mx, my)).toBeCloseTo(f.heightAt(mx, my), 4);
     }
     chunks.dispose();
   });
@@ -170,23 +199,19 @@ describe('TerrainChunks', () => {
     const wall = (cx: number, raised: boolean) => (i: number, j: number) =>
       (Math.hypot(i - cx, j - 16) < 9) === raised ? 20 : 0;
     const f = field(33, 33, 2, wall(14, true));
-    const chunks = new TerrainChunks(f, new MeshBasicMaterial(), { chunkCells: 16 });
-    const raycaster = new Raycaster();
-    for (const m of chunks.meshes) m.updateMatrixWorld();
+    const chunks = new TerrainChunks(f, new HeightTexture(f), new MeshBasicMaterial(), { chunkCells: 16 });
     const check = (): void => {
       let n = 0;
       for (let y = -30; y <= 30; y += 0.73) {
         for (let x = -30; x <= 30; x += 0.61) {
-          raycaster.set(new Vector3(-x, 500, y), new Vector3(0, -1, 0));
-          const hits = raycaster.intersectObjects(chunks.meshes as Mesh[], false);
-          expect(hits[0].point.y).toBeCloseTo(f.heightAt(x, y), 3);
+          expect(drawnHeight(chunks, f, x, y)).toBeCloseTo(f.heightAt(x, y), 4);
           n++;
         }
       }
       expect(n).toBeGreaterThan(5000);
     };
     check();
-    // A pit beside where the plateau was: rewritten in place (the shown level), cells pick their diagonal anew
+    // A pit beside where the plateau was: the shown level's cells pick their diagonal anew
     const next = wall(18, false);
     for (let j = 0; j < 33; j++) for (let i = 0; i < 33; i++) f.grid.heights[j * 33 + i] = next(i, j);
     chunks.rebuild({ i0: 0, j0: 0, i1: 32, j1: 32 });
@@ -196,7 +221,7 @@ describe('TerrainChunks', () => {
 
   it('switches far chunks to coarser levels and keeps fine ones near', () => {
     const f = field(129, 129, 2, () => 0);
-    const chunks = new TerrainChunks(f, new MeshBasicMaterial(), { chunkCells: 32 });
+    const chunks = new TerrainChunks(f, new HeightTexture(f), new MeshBasicMaterial(), { chunkCells: 32 });
     const fine = chunks.meshes[0].geometry.index!.count;
     chunks.update(new Vector3(120, 10, -120)); // above map corner (-120, -120)
     const counts = chunks.meshes.map((m) => m.geometry.index!.count);

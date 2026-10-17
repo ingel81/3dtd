@@ -85,8 +85,22 @@ Nebel der Szene wieder her.
   der Wand; die kürzere Diagonale schneidet die abweichende Ecke immer allein ab, die Kante läuft als gleichmäßige
   Fase von Zelle zu Zelle (Rauheit der Kante innerhalb einer Zelle etwa halbiert, `height-field.spec.ts`). Die Stufen
   der Samples selbst bleiben
-  **Geomorphing**: jeder Vertex trägt die Höhe der nächstgröberen Stufe und gleitet im letzten Drittel vor dem
-  Wechsel dorthin (nach seinem eigenen Kameraabstand), Stufenwechsel springen nicht
+  **Geomorphing**: jeder Vertex gleitet im letzten Drittel vor dem Wechsel zur Höhe der nächstgröberen Stufe (nach
+  seinem eigenen Kameraabstand), Stufenwechsel springen nicht
+  **Höhen auf der GPU** (E229): die Kacheln sind feste Gitter ohne Höhen; der Vertex-Shader liest Höhe, Normale
+  (zentrale Differenzen auf dem vollen Raster, in jeder Stufe gleich) und das Geomorphing-Ziel (die vier Ecken der
+  gröberen Zelle) aus der Höhentextur (`TERRAIN_VERTEX_PARS`, `TERRAIN_HEIGHT_VERTEX`), ebenso der Schattenpass
+  (Tiefenmaterial der Kacheln) und der Sichtlinien-Würfel (`userData.losVertex`, LOS_PIPELINE.md). Auf der CPU hält
+  eine Kachel nur ihre Box (Culling, LOD) und je Stufe den Index: ein Höhenwechsel wählt die Diagonalen der berührten
+  Zellen neu (die gezeigte Stufe sofort, nur ihre Index-Zeilen gehen zur GPU, die anderen beim Zeigen); Strahlen
+  treffen die Fläche von `HeightField.heightAt` (die feinste Stufe). Ein Pinsel lädt damit die Zeilen der
+  Höhentextur und einige Index-Zeilen hoch statt Lage, Normale und Ziel jedes Vertex. 1025er-Raster (Node):
+  Kacheln nach einem Tupfer mit 200 m Radius 0,7 statt 7,4 ms, alle Kacheln neu 7,6 statt 45 ms, LOD-Wechsel je Bild
+  0,09 statt 2,6 ms. Im Editor (Produktionsbuild, 2-km-Karte, gehaltener Hebe-Pinsel) Bildzeit p50 bei 200 m Radius
+  8 bis 9,5 statt 13,5 bis 18 ms, p90 10 bis 12 statt 17 bis 38 ms; GPU-Zeit und Abgabe eines Bilds gleich (innerhalb
+  der Streuung). Bild gegen vorher pixelgleich (sechs Ansichten auf vier Karten). Die Geometrie trägt ein
+  ungelesenes Normalen-Attribut (3 Byte je Vertex): ohne Normalen zeichnet three ein Standardmaterial flach
+  schattiert, ein anderes Programm
 - **Höhentextur** (`height-texture.ts`): das Raster als Float-Textur; Wasser und Gras lesen die Geländehöhe darunter
   mit denselben zwei Dreiecken je Zelle wie das Mesh
 - **Normalen** kommen aus einer Half-Float-Textur über das Raster (`GridNormalTexture`), bilinear gelesen: Klippenkanten

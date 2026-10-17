@@ -1,7 +1,7 @@
 import { Color, ShaderChunk, MeshStandardMaterial, SRGBColorSpace, Vector2, Vector3, Vector4, type Texture } from 'three';
 import type { LayerArray } from './terrain-textures';
 import { SHADER_NOISE } from '../shader-noise';
-import { TERRAIN_MORPH_PARS, TERRAIN_MORPH_VERTEX } from './terrain-chunks';
+import { TERRAIN_HEIGHT_VERTEX, TERRAIN_NORMAL_VERTEX, TERRAIN_VERTEX_PARS } from './terrain-chunks';
 import type { MapWaterKind } from '../../map-document';
 import { shoreWaves } from '../water/shore-waves';
 import { VARIATION_GLSL, variationTexture } from './variation-texture';
@@ -187,9 +187,12 @@ export class TerrainMaterial extends MeshStandardMaterial {
     /** The wind's direction (the shared wind uniform), where snow drifts pile up */
     uDriftWind: WIND_UNIFORMS.uWindDir,
     uFarShadowArea: { value: new Vector4() },
-    /** Replaced by TerrainChunks.morphEye and morphFocus (MapTerrainLayer) */
+    /** Replaced by TerrainChunks.uniforms (MapTerrainLayer): the height grid and the geomorph's camera */
     uMorphEye: { value: new Vector3() },
     uMorphFocus: { value: new Vector3(1e9, 0, 1e9) },
+    uTerrainHeights: { value: null as Texture | null },
+    uTerrainGrid: { value: new Vector4() },
+    uTerrainGridSize: { value: new Vector2(1, 1) },
     /** Replaced by TerrainCuts.uniforms (MapTerrainLayer); none without */
     uCutMap: { value: null as Texture | null },
     uCutGrid: { value: new Vector4() },
@@ -218,10 +221,12 @@ export class TerrainMaterial extends MeshStandardMaterial {
     this.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, this.terrainUniforms);
       shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', `#include <common>\nvarying vec3 vTerrainPos;\nvarying vec3 vTerrainNormal;\n${TERRAIN_MORPH_PARS}`)
+        // The chunks' heights and normals from the grid on the GPU (terrain-chunks.ts); the apron brings its own
+        .replace('#include <common>', `#include <common>\nvarying vec3 vTerrainPos;\nvarying vec3 vTerrainNormal;\n#ifndef TERRAIN_APRON\n${TERRAIN_VERTEX_PARS}\n#endif`)
+        .replace('#include <beginnormal_vertex>', `#ifdef TERRAIN_APRON\n#include <beginnormal_vertex>\n#else\n${TERRAIN_NORMAL_VERTEX}\n#endif`)
         .replace(
           '#include <begin_vertex>',
-          `#include <begin_vertex>\n${TERRAIN_MORPH_VERTEX}\nvTerrainPos = transformed;\nvTerrainNormal = normal;`,
+          `#include <begin_vertex>\n#ifndef TERRAIN_APRON\n${TERRAIN_HEIGHT_VERTEX}\n#endif\nvTerrainPos = transformed;\nvTerrainNormal = objectNormal;`,
         );
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', `#include <common>\n#define TERRAIN_LAYERS ${this.layerCount}\n#define TERRAIN_SPLATS ${this.splatLayers}\n${TERRAIN_FRAGMENT_PARS}`)
@@ -323,7 +328,7 @@ export class TerrainMaterial extends MeshStandardMaterial {
   }
 
   override customProgramCacheKey(): string {
-    return `custom-map-terrain-2-${this.layerCount}-${this.splatLayers}`;
+    return `custom-map-terrain-3-${this.layerCount}-${this.splatLayers}`;
   }
 }
 

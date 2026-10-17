@@ -9,9 +9,10 @@ import {
   Vector3,
   WebGLCoordinateSystem,
   type Object3D,
+  type ShaderMaterial,
   type WebGLRenderer,
 } from 'three';
-import { TowerShadowMapper } from './tower-shadow-mapper';
+import { TowerShadowMapper, type LosVertexPatch } from './tower-shadow-mapper';
 import { HeroRenderer } from './renderers/hero.renderer';
 
 /** Whether `obj` gets drawn: it and every ancestor visible. */
@@ -77,5 +78,34 @@ describe('TowerShadowMapper', () => {
 
     mapper.dispose();
     hero.dispose();
+  });
+
+  it('draws a blocker that moves its vertices with its patch in the distance material, one material per patch', () => {
+    const scene = new Scene();
+    const blockers = new Group();
+    const patch: LosVertexPatch = { key: 'ground', pars: 'uniform float uLift;', vertex: 'localPos.y += uLift;', uniforms: { uLift: { value: 3 } } };
+    const plain = new Mesh(new BoxGeometry(), new MeshBasicMaterial());
+    const ground = [0, 1].map(() => {
+      const m = new Mesh(new BoxGeometry(), new MeshBasicMaterial());
+      m.userData['losVertex'] = patch;
+      return m;
+    });
+    blockers.add(plain, ...ground);
+    scene.add(blockers);
+    const seen: ShaderMaterial[][] = [];
+    const renderer = fakeRenderer(() => seen.push([plain, ...ground].map((m) => m.material as unknown as ShaderMaterial)));
+    const mapper = new TowerShadowMapper(renderer, scene);
+    mapper.update(new Vector3(0, 5, 0), 30, blockers);
+    const [base, a, b] = seen[0];
+    expect(a).toBe(b);
+    expect(a).not.toBe(base);
+    expect(a.vertexShader).toContain('localPos.y += uLift;');
+    expect(a.vertexShader).toContain('uniform float uLift;');
+    expect(base.vertexShader).not.toContain('uLift');
+    // The tip and far of the update reach the patched material too
+    expect(a.uniforms['uReferencePosition']).toBe(base.uniforms['uReferencePosition']);
+    expect(a.uniforms['uLift']).toBe(patch.uniforms['uLift']);
+    for (const m of [plain, ...ground]) expect(m.material).toBeInstanceOf(MeshBasicMaterial);
+    mapper.dispose();
   });
 });

@@ -15,7 +15,7 @@ import { addHeightFog } from '../environment/height-fog';
 import { ApronProfile, BACKDROP_HEIGHT, buildTerrainApron, writeApronGeometry } from './terrain-apron';
 import { APRON_LOOK, ApronMaterial } from './apron-material';
 import { APRON_PAINT_BAND, apronPaintTexture, apronPaintWeights } from './apron-paint';
-import { TerrainChunks, type GridRect } from './terrain-chunks';
+import { TerrainChunks, patchTerrainVertex, type GridRect } from './terrain-chunks';
 import { TerrainMaterial, TERRAIN_MAX_LAYERS, type TerrainLayerSlots, type TerrainMaterialParams } from './terrain-material';
 import type { GrassInputs } from '../grass/grass-field';
 import { GrassLayers } from '../grass/grass-layers';
@@ -132,6 +132,8 @@ export class MapTerrainLayer {
   private natural: boolean[] | null = null;
   private generation = 0;
   private readonly placeholder = new MeshStandardMaterial({ color: 0x5f7a3c, roughness: 0.95 });
+  /** The apron's until the layers load: its heights are its geometry's */
+  private readonly apronPlaceholder = new MeshStandardMaterial({ color: 0x5f7a3c, roughness: 0.95 });
 
   constructor(
     private readonly terrain: MapTerrainDoc,
@@ -139,12 +141,15 @@ export class MapTerrainLayer {
     /** The map's look: height (BACKDROP_HEIGHT) and paint (APRON_LOOK) of the mountains beyond the apron */
     private biome: MapBiome = 'temperate',
   ) {
-    this.chunks = new TerrainChunks(field, this.placeholder);
+    this.heightTexture = new HeightTexture(field);
+    this.chunks = new TerrainChunks(field, this.heightTexture, this.placeholder);
+    // The plain ground draws the chunks' heights too (TerrainChunks: they live on the GPU)
+    this.placeholder.onBeforeCompile = (shader) => patchTerrainVertex(shader, this.chunks.uniforms);
+    this.placeholder.customProgramCacheKey = () => 'custom-map-terrain-placeholder';
     this.apronProfile = new ApronProfile(field, terrain.water, BACKDROP_HEIGHT[biome]);
-    this.apron = buildTerrainApron(this.apronProfile, this.placeholder);
+    this.apron = buildTerrainApron(this.apronProfile, this.apronPlaceholder);
     this.normals = new GridNormalTexture(field);
     this.occlusion = new GroundOcclusion(field);
-    this.heightTexture = new HeightTexture(field);
     this.cuts = new TerrainCuts(terrain.width, terrain.depth);
     this.roads = new RoadSurfaceLayer(field, this.heightTexture, this.normals.texture);
     this.grass = new GrassLayers(this.heightTexture);
@@ -221,8 +226,7 @@ export class MapTerrainLayer {
       splatResolution: t.splat.resolution,
     };
     this.material = new TerrainMaterial(this.materialParams);
-    this.material.terrainUniforms.uMorphEye = this.chunks.morphEye;
-    this.material.terrainUniforms.uMorphFocus = this.chunks.morphFocus;
+    Object.assign(this.material.terrainUniforms, this.chunks.uniforms);
     this.material.terrainUniforms.uFarShadow = this.farShadow.texture;
     this.material.terrainUniforms.uFarShadowArea = this.farShadow.area;
     Object.assign(this.material.terrainUniforms, this.cuts.uniforms);
@@ -268,6 +272,7 @@ export class MapTerrainLayer {
       let twin = this.twins.get(n);
       if (!twin) {
         twin = new TerrainMaterial({ ...params, layers: n });
+        Object.assign(twin.terrainUniforms, this.chunks.uniforms);
         twin.setGroundMood(this.biome);
         addHeightFog(twin);
         this.twins.set(n, twin);
@@ -404,6 +409,7 @@ export class MapTerrainLayer {
     this.apronMaterial?.dispose();
     for (const twin of this.twins.values()) twin.dispose();
     this.placeholder.dispose();
+    this.apronPlaceholder.dispose();
     this.arrays?.dispose();
     this.splat?.dispose();
     this.pathMask?.dispose();
