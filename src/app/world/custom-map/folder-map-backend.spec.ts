@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { DesktopMapFolder } from '../../core/desktop-bridge';
-import { FolderMapBackend, localStorageMarks, mapFolderId, type FolderMark, type FolderMarks } from './folder-map-backend';
+import { FolderMapBackend, FolderWriteError, localStorageMarks, mapFolderId, type FolderMark, type FolderMarks } from './folder-map-backend';
 import { createMapDocument } from './map-create';
 import { packMapFile } from './map-file';
 import { MapStore, MemoryMapBackend } from './map-store';
@@ -56,6 +56,22 @@ const storeOn = (folder: FakeFolder, inner = new MemoryMapBackend(), marks = mem
   new MapStore({ backend: new FolderMapBackend(inner, folder, marks), fetch: noShipped });
 
 describe('FolderMapBackend', () => {
+  it('keeps a map the folder refuses in the store and says so, the next save writes it', async () => {
+    const folder = new FakeFolder();
+    const inner = new MemoryMapBackend();
+    const store = storeOn(folder, inner);
+    await store.listOwn();
+    const write = folder.write.bind(folder);
+    folder.write = async () => null as never;
+    await expect(store.save(doc('full', 'Full'))).rejects.toBeInstanceOf(FolderWriteError);
+    expect((await inner.get('full'))?.summary.name).toBe('Full');
+    expect(folder.files.size).toBe(0);
+    folder.write = write;
+    await store.save(doc('full', 'Full'));
+    expect([...folder.files.keys()]).toEqual(['full.3dtdmap']);
+  });
+
+
   it('writes an own map from before the folder out, and every save after', async () => {
     const inner = new MemoryMapBackend();
     await new MapStore({ backend: inner, fetch: noShipped }).save(doc('old', 'Old'));

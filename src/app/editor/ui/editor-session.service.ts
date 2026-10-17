@@ -23,6 +23,7 @@ import { createMapDocument, newMapUid, slugMapId, type NewMapOptions } from '../
 import { MAP_FILE_EXTENSION, MAX_FILE_BYTES, MapFileError, packMapFile, unpackMapFile } from '../../world/custom-map/map-file';
 import { MapStore, type LoadedMap, type MapSummary } from '../../world/custom-map/map-store';
 import { MapLock, whileMapFree } from '../model/map-lock';
+import { FolderWriteError } from '../../world/custom-map/folder-map-backend';
 import { CatalogIndex, EMPTY_CATALOG, loadAssetCatalog, type GroundMaterialEntry, type ObjectAssetEntry } from '../catalog/asset-catalog';
 import type { BiomeDef } from '../ops/landscape/biomes';
 import { ThumbnailRenderer } from '../view/thumbnail-renderer';
@@ -1313,7 +1314,15 @@ export class EditorSession implements OnDestroy {
       // An autosave packs fast and leaves the hash for when the game asks for it; packed in a worker, so a
       // save costs the view no frame. File, hash and summary all come from the one copy the worker got
       const { file, sum, summary } = await packOffThread(doc, { level: manual ? 6 : 1 }, manual);
-      await this.store.save(doc, preview, file, { summary });
+      // Kept in the game either way; a map folder that refuses the file is said, the next save writes it again
+      const folderRefused = await this.store.save(doc, preview, file, { summary }).then(
+        () => null,
+        (e: unknown) => {
+          if (e instanceof FolderWriteError) return e;
+          throw e;
+        },
+      );
+      if (folderRefused) this.error.set(`Saved in the game, but the map folder did not take ${folderRefused.file} (full, locked or no rights); the file there is older. The next save tries again.`);
       // A version for the history; a full browser store must not fail the save
       const id = doc.meta.id;
       void this.history

@@ -186,7 +186,8 @@ genau eine Desktop-Stelle, den Update-Hinweis (E32); alles andere lebt in
   `Dokumente/3DTD/Maps`. Das Spiel spiegelt seine eigenen Karten dorthin (`FolderMapBackend`,
   `src/app/world/custom-map/folder-map-backend.ts`): beim ersten Zugriff je Seite kommt eine neue oder geänderte Datei
   herein, eine gelöschte nimmt ihre Karte mit, eine Karte ohne Datei wird geschrieben; Speichern und Löschen gehen an
-  beide. Die Marken in `localStorage` (`3dtd-map-folder-marks`) binden je Kartenkennung ihre Datei und deren
+  beide. Nimmt der Ordner eine Datei nicht (voll, gesperrt, keine Rechte), liegt die Karte trotzdem im Spiel;
+  `FolderWriteError` sagt es, der Editor zeigt es im Banner, das nächste Speichern schreibt die Datei erneut. Die Marken in `localStorage` (`3dtd-map-folder-marks`) binden je Kartenkennung ihre Datei und deren
   Änderungszeit; eine Datei behält den Namen, den der Spieler ihr gab („Marsh - Copy.3dtdmap“), das Spiel benennt und
   löscht keine fremden Dateien. Namen vergleicht es ohne Groß- und Kleinschreibung, zwei Dateien mit derselben
   vorgeschlagenen Kennung bekommen zwei Kennungen. Fehlen auf einmal alle oder viele markierte Dateien (Ordner verschoben,

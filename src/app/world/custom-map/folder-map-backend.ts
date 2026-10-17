@@ -73,6 +73,14 @@ const key = (file: string) => file.toLowerCase();
  * gone at once, or many of them, the folder was moved or lost rather than
  * cleaned up: the maps are written out again instead of being deleted.
  */
+/** A map kept in the game's store whose file the map folder did not take (full disk, file locked, no rights) */
+export class FolderWriteError extends Error {
+  constructor(readonly file: string) {
+    super(`${file} could not be written to the map folder`);
+    this.name = 'FolderWriteError';
+  }
+}
+
 export class FolderMapBackend implements MapStorageBackend {
   private synced: Promise<void> | null = null;
   /** The folder's files as last seen or written, lower case */
@@ -111,10 +119,8 @@ export class FolderMapBackend implements MapStorageBackend {
     const marks = this.marks.read() ?? {};
     const file = marks[map.summary.id]?.file ?? this.freeFile(map.summary.id, marks);
     const written = await this.folder.write(file, map.file);
-    if (!written) {
-      console.warn(`[maps] ${file} could not be written to the map folder`);
-      return;
-    }
+    // Kept in the game's store already; the folder's file stays the older one until a save writes it
+    if (!written) throw new FolderWriteError(file);
     this.files.add(key(file));
     marks[map.summary.id] = { file, mtime: written.mtime };
     this.marks.write(marks);
