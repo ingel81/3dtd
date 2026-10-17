@@ -606,6 +606,8 @@ function estimateBytes(parts: Partial<DocParts>): number {
     if ((value as MapTerrain).grid) {
       const t = value as MapTerrain;
       n += t.grid.heights.byteLength + t.splat.maps[0].byteLength * t.splat.maps.length + (t.water?.mask.byteLength ?? 0);
+      // Up to 64 further water bodies, each a mask of the whole grid
+      for (const body of t.waterBodies ?? []) n += body.mask.byteLength;
     } else if (Array.isArray(value) && (value[0] as MapPrefab | undefined)?.stamp) {
       for (const p of value as MapPrefab[]) n += p.stamp.heights.byteLength + p.stamp.paint.byteLength + (p.preview?.length ?? 0) + p.stamp.objects.length * 160;
     } else n += JSON.stringify(value).length;

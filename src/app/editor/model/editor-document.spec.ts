@@ -173,6 +173,16 @@ describe('EditorDocument', () => {
     expect(ed.undo()).toBe(true);
   });
 
+  it('counts the masks of every water body in a ground snapshot, for the history budget', () => {
+    const doc = map(100);
+    const plain = SnapshotCommand.record(doc, 'Ground', ['terrain'], () => undefined).bytes;
+    const g = doc.terrain.grid;
+    doc.terrain.waterBodies = [0, 1, 2].map(() => ({ level: 0, color: '#3070a0', mask: new Uint8Array(g.columns * g.rows) }));
+    const withBodies = SnapshotCommand.record(doc, 'Ground', ['terrain'], () => undefined).bytes;
+    // Before and after, three masks each
+    expect(withBodies - plain).toBe(2 * 3 * g.columns * g.rows);
+  });
+
   it('runs compound commands in order and back', () => {
     const ed = new EditorDocument(map());
     const doc = ed.doc;
