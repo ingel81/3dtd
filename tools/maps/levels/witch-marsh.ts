@@ -199,7 +199,10 @@ export function buildWitchMarsh(): CustomMapDocument {
   k.lifeSettings({ ambience: { sound: 'biome', volume: 0.6 } });
   for (const isl of play) k.lifeArea('sound', ring(isl.at, isl.radius * 0.8), { sound: 'night-insects', volume: 0.6 });
   k.lifeArea('sound', ring({ x: 120, y: -175 }, 14, 6), { sound: 'fire', volume: 0.5 });
-  // TODO(E190): crows by night on the dead trees (birds fly only by day)
+  // Bats flitting low over the big islands, round the giant willow by the witch's hut and over the open water
+  for (const isl of play) k.lifeArea('birds', ring(isl.at, isl.radius * 0.9), { species: 'bats', density: 0.9 });
+  k.lifeArea('birds', ring({ x: hq.x + 12, y: hq.y + 8 }, 30), { species: 'bats', height: 11, density: 0.8 });
+  k.lifeRoute('birds', [{ x: -200, y: -20 }, { x: -60, y: 20 }, { x: 60, y: 60 }, { x: 200, y: 20 }], { species: 'bats', height: 9, density: 0.7 });
 
   // Seven ground materials: the least used goes (each one is 8 MB of pixels to load)
   k.trimLayers(7);
