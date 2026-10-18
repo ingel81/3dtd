@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { HOTKEY_HELP, HotkeyEvent, cameraSlotOf, resolveHotkey, towerSlotKey } from './hotkey-map';
+import { hotkeyHelp, HotkeyEvent, cameraSlotOf, resolveHotkey, towerSlotKey } from './hotkey-map';
 import { ABILITIES, ABILITY_IDS } from '../configs/abilities.config';
 import { en } from '../i18n/messages/en';
+
+const HOTKEY_HELP = hotkeyHelp(en);
 
 const key = (k: string, mods: Partial<HotkeyEvent> = {}): HotkeyEvent => ({
   key: k, shiftKey: false, ctrlKey: false, altKey: false, metaKey: false, repeat: false, ...mods,

@@ -10,7 +10,7 @@
 
 import { ABILITIES, ABILITY_IDS, type AbilityId } from '../configs/abilities.config';
 import { UPGRADE_MANY } from '../utils/player-actions';
-import { en } from '../i18n/messages/en';
+import type { Messages } from '../i18n/messages/en';
 
 export type HotkeyAction =
   /** Pick the build card at this position of the BUILD panel, 0-based */
@@ -153,81 +153,82 @@ export interface HotkeyHelpGroup {
   rows: HotkeyHelpRow[];
 }
 
-/** The overview in the help dialog (H or ?). Keep it in step with resolveHotkey. */
-export const HOTKEY_HELP: readonly HotkeyHelpGroup[] = [
-  {
-    title: 'Game',
-    rows: [
-      { keys: ['Space'], label: 'Start the next wave' },
-      { keys: ['P'], label: 'Pause and resume' },
-      { keys: ['+', '-'], label: 'Game speed up and down' },
-      { keys: ['Esc'], label: 'Skip the intro flight or the boss intro' },
-      { keys: ['Q'], label: 'Open the research tree, once a Research Center stands' },
-      { keys: ['M'], label: 'All sound on and off' },
-      { keys: ['Alt'], label: 'Hold to show the health bars the other way round (option Health Bars)' },
-      ...ABILITY_IDS.map((id) => ({
-        keys: [ABILITIES[id].hotkey.toUpperCase()],
-        label: `Aim the ${en.abilities[id].name} once researched, press again to cancel`,
-      })),
-    ],
-  },
-  {
-    title: 'Towers',
-    rows: [
-      { keys: ['1', '9'], range: true, label: 'Pick a tower from the build panel' },
-      { keys: ['R'], label: 'Hold to rotate while building, or the portal while placing a spawn' },
-      { keys: ['U'], label: 'Upgrade the selected tower: the first upgrade you can afford' },
-      { keys: ['Shift', 'U'], label: `Upgrade it up to ${UPGRADE_MANY.shift} times, as far as your credits go; Ctrl+U up to ${UPGRADE_MANY.ctrl}. Shift- and Ctrl-click on an upgrade do the same for that one` },
-      { keys: ['Del'], label: 'Sell the selected tower, press twice' },
-      { keys: ['C'], label: 'Get into the selected tower and fire it yourself: mouse aims, left button fires, right button zooms; C or Esc gets out' },
-      { keys: ['Esc'], label: 'Cancel building, close a menu, deselect; with nothing to cancel, the menu' },
-    ],
-  },
-  {
-    title: 'Hero',
-    rows: [
-      { keys: ['G'], label: 'Select the Mercenary once hired, click the route to send him; again to fly to him' },
-      { keys: ['V'], label: 'Switch his ammo: standard, explosive, rune' },
-    ],
-  },
-  {
-    title: 'Camera',
-    rows: [
-      { keys: ['W', 'A', 'S', 'D'], label: 'Move, arrow keys too, hold Shift for faster' },
-      { keys: ['Home'], label: 'Fly to the HQ' },
-      { keys: ['N'], label: 'Fly to the next spawn point' },
-      { keys: ['Shift+F1', 'Shift+F5'], range: true, label: 'Save the view as camera view 1 to 5, for this place and run' },
-      { keys: ['F1', 'F5'], range: true, label: 'Fly back to a saved camera view' },
-      { keys: ['O'], label: 'Photo mode: hide the interface, save screenshots; Esc leaves it' },
-    ],
-  },
-  {
-    title: 'Replay of the last wave',
-    rows: [
-      { keys: ['Space', 'P'], label: 'Pause and play' },
-      { keys: ['+', '-'], label: 'Replay speed, 0.25x to 4x' },
-      { keys: ['Esc'], label: 'Back to the game' },
-    ],
-  },
-  {
-    title: 'Coop',
-    rows: [
-      { keys: ['Tab'], label: 'Open and close the room dock' },
-      { keys: ['Enter'], label: 'Write in the chat, Enter sends' },
-      { keys: ['X'], label: 'Mark a place: the next click on the map shows it to everyone; Esc drops it' },
-    ],
-  },
-  {
-    title: 'Help',
-    rows: [
-      { keys: ['H', '?'], label: 'This overview' },
-    ],
-  },
-  {
-    title: 'Debug',
-    rows: [
-      { keys: ['T'], label: 'Hide or show the 3D map' },
-      { keys: ['Shift+P'], label: 'Particle shader on or off' },
-    ],
-  },
-];
+/** The overview in the help dialog (H or ?), in the player's language. Keep it in step with resolveHotkey. */
+export function hotkeyHelp(t: Messages): HotkeyHelpGroup[] {
+  const k = t.hud.keys;
+  const c = k.caps;
+  return [
+    {
+      title: k.game,
+      rows: [
+        { keys: [c.space], label: k.startWave },
+        { keys: ['P'], label: k.pause },
+        { keys: ['+', '-'], label: k.speed },
+        { keys: [c.esc], label: k.skipIntro },
+        { keys: ['Q'], label: k.research },
+        { keys: ['M'], label: k.mute },
+        { keys: [c.alt], label: k.healthBars },
+        ...ABILITY_IDS.map((id) => ({ keys: [ABILITIES[id].hotkey.toUpperCase()], label: k.ability(t.abilities[id].name) })),
+      ],
+    },
+    {
+      title: k.towers,
+      rows: [
+        { keys: ['1', '9'], range: true, label: k.pickTower },
+        { keys: ['R'], label: k.rotate },
+        { keys: ['U'], label: k.upgrade },
+        { keys: [c.shift, 'U'], label: k.upgradeMany(UPGRADE_MANY.shift, UPGRADE_MANY.ctrl) },
+        { keys: [c.del], label: k.sell },
+        { keys: ['C'], label: k.man },
+        { keys: [c.esc], label: k.cancel },
+      ],
+    },
+    {
+      title: k.hero,
+      rows: [
+        { keys: ['G'], label: k.heroSelect(t.hero.name) },
+        { keys: ['V'], label: k.heroAmmo },
+      ],
+    },
+    {
+      title: k.camera,
+      rows: [
+        { keys: ['W', 'A', 'S', 'D'], label: k.move },
+        { keys: [c.home], label: k.toHq },
+        { keys: ['N'], label: k.toSpawn },
+        { keys: [`${c.shift}+F1`, `${c.shift}+F5`], range: true, label: k.saveView },
+        { keys: ['F1', 'F5'], range: true, label: k.recallView },
+        { keys: ['O'], label: k.photo },
+      ],
+    },
+    {
+      title: k.replay,
+      rows: [
+        { keys: [c.space, 'P'], label: k.replayPause },
+        { keys: ['+', '-'], label: k.replaySpeed },
+        { keys: [c.esc], label: k.replayBack },
+      ],
+    },
+    {
+      title: k.coop,
+      rows: [
+        { keys: [c.tab], label: k.dock },
+        { keys: [c.enter], label: k.chat },
+        { keys: ['X'], label: k.mark },
+      ],
+    },
+    {
+      title: k.help,
+      rows: [
+        { keys: ['H', '?'], label: k.overview },
+      ],
+    },
+    {
+      title: k.debug,
+      rows: [
+        { keys: ['T'], label: k.hideMap },
+        { keys: [`${c.shift}+P`], label: k.particles },
+      ],
+    },
+  ];
+}

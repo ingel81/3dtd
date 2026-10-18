@@ -7,7 +7,7 @@
   </header>
 
   <div class="td-dlg-body is-loose">
-    @for (group of groups; track group.title) {
+    @for (group of groups(); track group.title) {
       <section class="td-group">
         <h3 class="td-section">{{ group.title }}</h3>
         <dl>

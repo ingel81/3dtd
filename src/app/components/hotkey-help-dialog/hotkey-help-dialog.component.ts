@@ -1,7 +1,8 @@
-import { Component, ChangeDetectionStrategy, inject } from '@angular/core';
+import { Component, ChangeDetectionStrategy, computed, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { HOTKEY_HELP } from '../../services/hotkey-map';
+import { hotkeyHelp } from '../../services/hotkey-map';
+import { injectT } from '../../i18n/i18n.service';
 import { TdIconComponent } from '../icon/icon.component';
 import { HOTKEY_HELP_TITLE_ID } from './open-hotkey-help-dialog';
 
@@ -21,7 +22,8 @@ export class HotkeyHelpDialogComponent {
   private readonly dialogRef = inject(MatDialogRef<HotkeyHelpDialogComponent>);
 
   readonly titleId = HOTKEY_HELP_TITLE_ID;
-  readonly groups = HOTKEY_HELP;
+  protected readonly t = injectT();
+  readonly groups = computed(() => hotkeyHelp(this.t()));
 
   constructor() {
     // The game keys are off while a dialog is open, so the key that opened
