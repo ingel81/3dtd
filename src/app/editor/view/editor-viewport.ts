@@ -31,6 +31,7 @@ import { TopDownRenderer } from './top-down-renderer';
 import { EDITOR_FOV, ViewExtras } from './view-extras';
 import { ViewPicker } from './view-picker';
 import { pixelRatioFor, readStoredQuality, storedKnobsFor, type QualityKnobs } from '../../three-engine/render-quality';
+import { releaseContext, settleContexts } from '../../three-engine/context-release';
 import type { Contours } from '../ops/contours';
 import type { GroundBaker } from '../../world/custom-map/render/terrain/ground-shape';
 
@@ -139,7 +140,11 @@ export class EditorViewport {
     this.overlay = new EditorOverlay(heightAt, walkHeightAt);
     this.view = this.makeView();
     this.warmup = new ProgramWarmup(this.renderer, this.scene, this.camera, () => this.view);
-    void this.warmup.view(() => callbacks.viewReady());
+    void this.warmup.view(() => {
+      // The editor stands: the context of the game it came from goes now
+      settleContexts();
+      callbacks.viewReady();
+    });
     this.scene.add(this.overlay.group);
     void this.warmup.overlay(this.overlay.group);
     this.extras = new ViewExtras({
@@ -327,8 +332,8 @@ export class EditorViewport {
     this.view.dispose();
     this.overlay.dispose();
     this.renderer.dispose();
-    // Browsers keep only a few WebGL contexts: give this one back now, not when it is collected
-    this.renderer.forceContextLoss();
+    // Browsers keep only a few WebGL contexts: give this one back once the next view stands, not when it is collected
+    releaseContext(this.renderer);
   }
 
   // -------------------------------------------------------------------------

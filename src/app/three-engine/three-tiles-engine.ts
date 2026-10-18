@@ -78,6 +78,7 @@ import { ProgramCompileHold } from './program-compile-hold';
 import { DisplayRefresh } from './dynamic-resolution';
 import { DynamicResolution, MIN_SAMPLES } from './dynamic-resolution';
 import { pixelRatioFor, QUALITY_LEVELS, QUALITY_TABLE, type QualityKnobs, type QualityWorld } from './render-quality';
+import { releaseContext } from './context-release';
 
 /** Strength of the enemies' rim light on worlds that ask for it (WorldCapabilities.enemyRimLight) */
 const ENEMY_RIM_LIGHT = 0.2;
@@ -1718,11 +1719,11 @@ export class ThreeTilesEngine {
     // dispose drops them; the next renderer uploads it again
     new Sprite().geometry.dispose();
 
-    // Dispose renderer; its context goes at once, not when the canvas is
-    // collected: the next world of the page makes a canvas of its own
-    // (WorldSession) and the browser keeps only a few contexts alive
+    // Dispose renderer; its context goes once the next view stands, not when
+    // the canvas is collected: the next world of the page makes a canvas of
+    // its own (WorldSession) and the browser keeps only a few contexts alive
     this.renderer.dispose();
     this.restoreGLDeletes();
-    this.renderer.forceContextLoss();
+    releaseContext(this.renderer);
   }
 }

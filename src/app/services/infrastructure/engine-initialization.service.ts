@@ -1,6 +1,7 @@
 import { inject, Injectable, NgZone, signal, WritableSignal } from '@angular/core';
 import { ThreeTilesEngine } from '../../three-engine';
 import { readVfxSettings } from '../../three-engine/vfx-settings';
+import { settleContexts } from '../../three-engine/context-release';
 import { loadDisplayOptions } from '../../utils/display-options.storage';
 import { GeoPosition } from '../../models/game.types';
 import { AssetManagerService } from './asset-manager.service';
@@ -424,6 +425,8 @@ export class EngineInitializationService {
       if (this.loading()) {
         loadMark('ready');
         if (this.engine) this.quality.worldStood(this.engine);
+        // The world stands: the context of the view before it (the editor, the world before) goes now
+        settleContexts();
       }
       this.loading.set(false);
     }
