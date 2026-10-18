@@ -232,8 +232,9 @@ void main() {
   // Ash and embers stay small: grown with the distance they read as a field of pale dots over the
   // map from the game camera (they hang everywhere, rain and snow show as a veil)
   if (uKind == 2 || uKind == 3) grow = min(grow, 1.8);
-  // Right in front of the lens a streak or flake would fill the screen
-  vFade *= smoothstep(3.0, 9.0, camDist);
+  // Right in front of the lens a streak or flake would fill the screen: snow from some 5 m, dust from 15 (its
+  // streaks are metres long), the rest from 3
+  vFade *= uKind == 4 ? smoothstep(15.0, 25.0, camDist) : uKind == 1 ? smoothstep(5.0, 12.0, camDist) : smoothstep(3.0, 9.0, camDist);
   if (uKind == 4) {
     // Dust stays low: within some 20 m of the ground (the boxes hang round the camera, not on the land);
     // without a cover map in the lower half of its box
@@ -242,9 +243,17 @@ void main() {
       : 1.0 - smoothstep(0.0, 0.5, (p.y - (center.y - size * 0.5)) / size);
   }
   vec4 mvPosition;
-  if (uKind != 0) {
+  if (uKind == 4) {
+    // Dust: thin streaks along the wind, 0.15 m across and 1.4 long, turned about the wind towards the camera; a
+    // round sprite read as a bokeh disc in front of the lens
     vFade /= sqrt(grow);
-    float flake = uKind == 4 ? 0.6 : uKind == 2 ? 0.12 : 0.14;
+    vec3 alongWind = length(wind) > 1e-3 ? normalize(wind) : vec3(1.0, 0.0, 0.0);
+    vec3 acrossView = normalize(cross(alongWind, normalize(cameraPosition - p)) + 1e-5);
+    vec3 world = p + alongWind * position.y * 1.4 * grow + acrossView * position.x * 0.15 * grow;
+    mvPosition = viewMatrix * vec4(world, 1.0);
+  } else if (uKind != 0) {
+    vFade /= sqrt(grow);
+    float flake = uKind == 2 ? 0.12 : 0.14;
     mvPosition = viewMatrix * vec4(p, 1.0);
     mvPosition.xy += position.xy * flake * grow * 1.6;
   } else {
@@ -286,7 +295,8 @@ void main() {
     a = pow(disc, 1.2) * 0.7;
     c = vec3(0.36, 0.35, 0.33);
   } else if (uKind == 4) {
-    a = disc * 0.18;
+    // A streak: soft across, fading at both ends
+    a = pow(max(1.0 - abs(vUv.x - 0.5) * 2.0, 0.0), 1.5) * sin(vUv.y * 3.1416) * 0.16;
     c = vec3(0.82, 0.68, 0.5);
   }
   a *= vFade;

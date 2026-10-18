@@ -232,11 +232,14 @@ if (uKind == 0) {
   color = mix(vec3(1.0, 0.85, 0.45), aColor * vec3(1.0, 0.45, 0.25), phase);
   alpha = smoothstep(0.0, 0.15, phase) * (1.0 - phase);
 } else if (uKind == 1) {
-  // Smoke: rises slowly, grows, drifts with the wind
-  p.y += height + phase * 9.0;
-  p.xz += uWindDir * phase * (1.0 + 8.0 * uWindStrength);
-  size *= 0.5 + phase * 1.6;
-  alpha = smoothstep(0.0, 0.2, phase) * (1.0 - phase) * 0.45;
+  // Smoke: leaves its source dense, small and light, lingers there a moment, then rises, grows, thins and drifts
+  // with the wind. Faded in over a fifth of its life and rising evenly, it began a metre or more over the chimney
+  float rise = pow(phase, 1.5);
+  p.y += height + rise * 9.0;
+  p.xz += uWindDir * rise * (1.0 + 8.0 * uWindStrength);
+  size *= 0.3 + phase * 1.8;
+  color *= mix(1.25, 1.0, smoothstep(0.0, 0.3, phase));
+  alpha = smoothstep(0.0, 0.03, phase) * pow(1.0 - phase, 1.4) * 0.55;
 } else if (uKind == 2) {
   // Embers: rise and wander, cool down
   p.y += height + phase * 5.0;

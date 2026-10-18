@@ -269,7 +269,8 @@ export class EffectLayer implements SteadyLightSource {
           height: (fx.height ?? (kind === 'leaves' ? e.height * 0.8 : column ? e.height : 0)) * s,
           // An area effect of the map maker's (category fx) grows denser with its scale, and takes its tint; a
           // column's puffs grow with it instead, so it needs only a few more
-          count: this.share(particleCount(kind, fx.rate) * (column ? Math.max(0.5, s) : e.category === 'fx' ? Math.max(0.3, s * s) : fx.at ? life.density : 1)),
+          // A chimney's smoke twice its rate: with two or three puffs the plume broke off over the chimney
+          count: this.share(particleCount(kind, fx.rate) * (column ? Math.max(0.5, s) : e.category === 'fx' ? Math.max(0.3, s * s) : fx.at ? life.density * 2 : 1)),
           color: (e.category === 'fx' && o.tint) || fx.color,
           scale: kind === 'fog' || kind === 'smoke' || column ? s : Math.sqrt(s),
           // A column over lava glows orange at its foot, one over a fire in its light's colour
