@@ -167,3 +167,69 @@ describe('ToolOverlay', () => {
     overlay.dispose();
   });
 });
+
+describe('SelectionLayer', () => {
+  const objects = (n: number) => Array.from({ length: n }, (_, k) => ({ id: `o${k}`, asset: 'oak', x: k % 100, y: Math.floor(k / 100), z: 0, rotation: 0, scale: 1 }));
+  const nodes = (o: EditorOverlay) => {
+    let n = 0;
+    o.selection.group.traverse(() => n++);
+    return n;
+  };
+  const ringAt = (o: EditorOverlay, slot: number) => {
+    const all: InstancedMesh[] = [];
+    o.selection.group.traverse((c) => c instanceof InstancedMesh && all.push(c));
+    const m = new Matrix4();
+    all[0].getMatrixAt(slot, m);
+    return { x: -m.elements[12], y: m.elements[14], r: Math.round(m.elements[0] * 1e4) / 1e4 };
+  };
+
+  /**
+   * r7 editor measurement: 8657 objects selected drew a line object each, built anew on every drag frame
+   * (about 160 ms per frame) and on an undo (671 ms)
+   */
+  it('shows thousands of rings in a fixed set of nodes and moves them without building anything', () => {
+    const overlay = new EditorOverlay(() => 0);
+    const doc = { objects: objects(5000), paths: { nodes: [], edges: [] } } as unknown as CustomMapDocument;
+    const ids = doc.objects.map((o) => o.id);
+    overlay.selection.set(doc, { kind: 'objects', ids }, () => 2);
+    const shown = nodes(overlay);
+    expect(shown).toBeLessThanOrEqual(5);
+    expect(ringAt(overlay, 4321)).toEqual({ x: 21, y: 43, r: 2.3 });
+
+    // A drag frame: the moved objects' rings follow, nothing is made
+    const all: InstancedMesh[] = [];
+    overlay.selection.group.traverse((c) => c instanceof InstancedMesh && all.push(c));
+    doc.objects[4321] = { ...doc.objects[4321], x: 500, scale: 2 };
+    overlay.selection.follow(doc, ['o4321'], () => 2);
+    expect(ringAt(overlay, 4321)).toEqual({ x: 500, y: 43, r: 4.6 });
+    const after: InstancedMesh[] = [];
+    overlay.selection.group.traverse((c) => c instanceof InstancedMesh && after.push(c));
+    expect(after).toEqual(all);
+    expect(nodes(overlay)).toBe(shown);
+
+    // An object taken out before the others: the rest are found again, the one gone hides
+    doc.objects.splice(10, 1);
+    doc.objects[4320] = { ...doc.objects[4320], y: 99 };
+    overlay.selection.follow(doc, ['o4321', 'o10'], () => 2);
+    expect(ringAt(overlay, 4321)).toEqual({ x: 500, y: 99, r: 4.6 });
+    expect(ringAt(overlay, 10).r).toBe(0);
+    overlay.dispose();
+  });
+
+  it('lays a ring on the slope under it and shows none without a selection', () => {
+    const overlay = new EditorOverlay((x) => x * 0.5);
+    const doc = { objects: objects(1), paths: { nodes: [], edges: [] } } as unknown as CustomMapDocument;
+    overlay.selection.set(doc, { kind: 'objects', ids: ['o0'] }, () => 4);
+    const all: InstancedMesh[] = [];
+    overlay.selection.group.traverse((c) => c instanceof InstancedMesh && all.push(c));
+    const m = new Matrix4();
+    all[0].getMatrixAt(0, m);
+    // Scene x is map -x: a step along scene x goes down the slope by half of it, times the ring's radius
+    expect(m.elements[1]).toBeCloseTo(-0.5 * 4.6, 6);
+    expect(all.every((mesh) => mesh.count === 1)).toBe(true);
+    overlay.selection.set(doc, null, () => 4);
+    expect(all.every((mesh) => mesh.count === 0)).toBe(true);
+    expect(overlay.selection.group.children.every((c) => !c.visible || c.children.length === 0)).toBe(true);
+    overlay.dispose();
+  });
+});

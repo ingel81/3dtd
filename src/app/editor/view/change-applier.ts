@@ -41,8 +41,8 @@ export interface ChangeTarget {
   redrape(): void;
   /** Markers and selection built anew (the routes come from the editor's worker, EditorRoutes) */
   markers(): void;
-  /** Only the selection's rings follow (objects moved) */
-  selection(): void;
+  /** Only the rings of these objects follow (they moved, turned or went) */
+  selection(ids: readonly string[] | 'all'): void;
 }
 
 /** Runs `run` at most once every `interval` ms: a request too early waits for a later poll */
@@ -155,7 +155,7 @@ export class ChangeApplier {
     }
     if (this.markersDirty) this.markers();
     // Objects leave the rest as it is (a gizmo drag every frame): the rings follow
-    else if (c.objects) t.selection();
+    else if (c.objects) t.selection(c.objects);
   }
 
   private markers(): void {

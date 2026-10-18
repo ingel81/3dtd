@@ -30,7 +30,8 @@ import { TD_THEME } from '../../../styles/td-theme';
 import type { CustomMapDocument, MapObject, MapPoint } from '../../../world/custom-map/map-document';
 import { pointAt, polylineLength, type Route } from '../../../map-ops/path-graph';
 import { selectedEdges, selectedNodes, selectedSpawns, type Selection } from '../../model/editor-document';
-import { RING_SEGMENTS, clearGroup, drape, drapedLine, relift, ring, type GroundHeight, type OverlayLayer } from './draping';
+import { RING_SEGMENTS, clearGroup, drapedLine, relift, ring, type GroundHeight, type OverlayLayer } from './draping';
+import { GroundRings } from './ground-rings';
 
 const ROUTE_DOT_SPACING = 40;
 /** Metres per second the dots move, about a fast enemy */
@@ -254,28 +255,43 @@ export class MarkerLayer implements OverlayLayer {
   }
 }
 
-/** Rings around selected objects, a line along a selected road */
+/**
+ * Rings round the selected objects (GroundRings: instances, two draws for
+ * any number) and a line along a selected road. A new selection rewrites the
+ * rings in place; objects that moved (a drag frame, an undo) move just their
+ * rings, found by the place each had in the list.
+ */
 export class SelectionLayer implements OverlayLayer {
   readonly group = new Group();
   private readonly material = new LineBasicMaterial({ color: TD_THEME.brassLight, depthTest: false, transparent: true });
+  private readonly rings: GroundRings;
+  /** The selection's ids as the rings show them (the selection's own array), each id's ring */
+  private ids: readonly string[] = [];
+  private slotOf = new Map<string, number>();
+  /** Where each ring's object stood in the list when last found: a frame looks there first */
+  private listAt = new Int32Array(0);
+  private readonly lines = new Group();
 
   constructor(
     private readonly height: GroundHeight,
     private readonly walk: GroundHeight,
-  ) {}
+  ) {
+    this.rings = new GroundRings(height);
+    this.group.add(this.rings.group, this.lines);
+  }
 
+  /** Rings of the selected objects and lines of the selected roads, rewritten in place */
   set(doc: CustomMapDocument, selection: Selection, radiusOf: (o: MapObject) => number): void {
-    clearGroup(this.group);
-    if (selection?.kind === 'objects') {
-      const ids = new Set(selection.ids);
-      for (const o of doc.objects) {
-        if (!ids.has(o.id)) continue;
-        const r = ring(TD_THEME.brassLight, 1);
-        r.material = this.material;
-        drape(r, o, Math.max(1, radiusOf(o) * o.scale * 1.15), this.height);
-        this.group.add(r);
-      }
+    const ids = selection?.kind === 'objects' ? selection.ids : [];
+    if (ids !== this.ids) {
+      this.ids = ids;
+      this.slotOf = new Map(ids.map((id, k) => [id, k]));
+      if (this.listAt.length < ids.length) this.listAt = new Int32Array(Math.max(ids.length, this.listAt.length * 2));
+      this.listAt.fill(-1, 0, ids.length);
+      this.rings.setCount(ids.length);
     }
+    this.follow(doc, 'all', radiusOf);
+    clearGroup(this.lines);
     for (const id of selectedEdges(selection)) {
       const edge = doc.paths.edges.find((e) => e.id === id);
       if (edge) {
@@ -286,25 +302,66 @@ export class SelectionLayer implements OverlayLayer {
           const pos = drapedLine([a, ...(edge.via ?? []), b], this.walk, 1.2);
           line.geometry.setAttribute('position', new BufferAttribute(pos, 3));
           line.renderOrder = 10;
-          this.group.add(line);
+          this.lines.add(line);
         }
       }
     }
   }
 
-  redrape(): void {
-    for (const o of this.group.children) {
-      if (o instanceof LineLoop) relift(o, this.height, 0.4);
-      else if (o instanceof Line) relift(o, this.walk, 1.2);
+  /** Objects changed (moved, turned, scaled, removed): their rings follow, nothing is built */
+  follow(doc: CustomMapDocument, changed: readonly string[] | 'all', radiusOf: (o: MapObject) => number): void {
+    const n = this.ids.length;
+    if (!n) return;
+    const list = doc.objects;
+    let found = false;
+    const ring = (slot: number) => {
+      let k = this.listAt[slot];
+      if (!found && (k < 0 || list[k]?.id !== this.ids[slot])) {
+        // The list moved under the rings (an object added or taken out before them): find them all again, once
+        this.relocate(doc);
+        found = true;
+        k = this.listAt[slot];
+      }
+      const o = k >= 0 ? list[k] : undefined;
+      if (o) this.rings.put(slot, o.x, o.y, Math.max(1, radiusOf(o) * o.scale * 1.15));
+      else this.rings.put(slot, 0, 0, 0);
+    };
+    if (changed === 'all') for (let slot = 0; slot < n; slot++) ring(slot);
+    else {
+      for (const id of changed) {
+        const slot = this.slotOf.get(id);
+        if (slot !== undefined) ring(slot);
+      }
     }
+    this.rings.changed();
+  }
+
+  redrape(): void {
+    this.rings.redrape();
+    for (const o of this.lines.children) if (o instanceof Line) relift(o, this.walk, 1.2);
   }
 
   clear(): void {
-    clearGroup(this.group);
+    this.ids = [];
+    this.slotOf.clear();
+    this.rings.setCount(0);
+    clearGroup(this.lines);
   }
 
   dispose(): void {
     this.clear();
+    this.rings.dispose();
+    this.material.dispose();
+  }
+
+  /** Each ring's place in the list, in one pass over it; -1 for an object no longer there */
+  private relocate(doc: CustomMapDocument): void {
+    this.listAt.fill(-1, 0, this.ids.length);
+    const list = doc.objects;
+    for (let k = 0; k < list.length; k++) {
+      const slot = this.slotOf.get(list[k].id);
+      if (slot !== undefined) this.listAt[slot] = k;
+    }
   }
 }
 

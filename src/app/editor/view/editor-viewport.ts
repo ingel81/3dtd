@@ -204,7 +204,7 @@ export class EditorViewport {
         this.overlay.markers.set(doc, editor.selection);
         this.overlay.selection.set(doc, editor.selection, (o) => objectRadius(o, catalog));
       },
-      selection: () => this.overlay.selection.set(editor.doc, editor.selection, (o) => objectRadius(o, catalog)),
+      selection: (ids) => this.overlay.selection.follow(editor.doc, ids, (o) => objectRadius(o, catalog)),
     });
     this.topDown = new TopDownRenderer({
       renderer: this.renderer,

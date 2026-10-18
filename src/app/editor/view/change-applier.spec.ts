@@ -55,7 +55,7 @@ describe('ChangeApplier', () => {
     applier.add({ heights: rect, objects: ['a'] });
     applier.add({ heights: { i0: 2, j0: 2, i1: 8, j1: 6 }, objects: ['b', 'a'] });
     applier.flush();
-    expect(take()).toEqual(['heights:{"i0":0,"j0":0,"i1":8,"j1":6}', 'objects:["a","b"]', 'ground', 'selection']);
+    expect(take()).toEqual(['heights:{"i0":0,"j0":0,"i1":8,"j1":6}', 'objects:["a","b"]', 'ground', 'selection:["a","b"]']);
     // The overlay on the moved ground follows in a later frame
     applier.flush();
     expect(take()).toEqual(['redrape']);
