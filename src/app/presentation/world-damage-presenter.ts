@@ -14,6 +14,8 @@ type DamageEngine = Pick<ThreeTilesEngine, 'world' | 'effects' | 'sync' | 'getTe
 export interface StampGround {
   cellSpan(): CellSpan | null;
   setStampField(field: StampField | null): void;
+  /** Hear when the cells are built anew or dropped; returns the unsubscribe */
+  onCellsChanged(listener: () => void): () => void;
 }
 
 /** What the DevTools hit takes by default: a point, and as much as a rocket */
@@ -53,6 +55,7 @@ export class WorldDamagePresenter {
   private field: StampField | null = null;
   private readonly local = new Vector3();
   private readonly toLocal: ToLocal;
+  private readonly unsubscribe: (() => void) | null;
 
   constructor(
     private readonly engine: DamageEngine,
@@ -65,6 +68,11 @@ export class WorldDamagePresenter {
       out.x = at.x;
       out.z = at.z;
     };
+    // Cells built anew: the field over them from scratch
+    this.unsubscribe = ground?.onCellsChanged(() => {
+      this.useField(null);
+      this.rebuild();
+    }) ?? null;
     if (!this.destruction || !isDevMode()) return;
     const destruction = this.destruction;
     (globalThis as Record<string, unknown>)['__worldDamage'] = this.debugApi = {
@@ -88,7 +96,10 @@ export class WorldDamagePresenter {
     this.stages[index] = stage;
     this.destruction?.setStage(index, stage);
     const s = this.runStructures()[index];
-    if (stage === 3 && was !== 3 && s) this.stampField()?.rubbleHeap(rubbleStampOf(s, this.toLocal), 1);
+    if (stage !== 3 || was === 3 || !s) return;
+    // A field made now stamps its rubble with the rest
+    if (this.field) this.field.rubbleHeap(rubbleStampOf(s, this.toLocal), 1);
+    else this.restamp(this.newField());
   }
 
   /** Every crater of the run (op `craters.setAll`) */
@@ -127,9 +138,9 @@ export class WorldDamagePresenter {
     return this.craters;
   }
 
-  /** The field of craters and rubble under the routes, null while the ground lies as built */
-  stampField(): StampField | null {
-    if (!this.field) this.useField(this.newField());
+  /** The field for a stamp to come, made with everything known so far where there was none: before the lists change */
+  private stampField(): StampField | null {
+    if (!this.field) this.restamp(this.newField());
     return this.field;
   }
 
@@ -137,14 +148,15 @@ export class WorldDamagePresenter {
     return (this.structures ??= this.engine.world.runRules()?.structures ?? []);
   }
 
-  /** The field from scratch, as WorldDamage builds it: every fallen structure's rubble, then every crater */
+  /** The field as everything stands now, as WorldDamage builds it: none where the ground lies as built */
   private rebuild(): void {
     const fallen = this.stages.indexOf(3) >= 0;
-    if (!fallen && this.craters.length === 0) {
-      this.useField(null);
-      return;
-    }
-    const field = this.field ?? this.newField();
+    if (!fallen && this.craters.length === 0) this.useField(null);
+    else this.restamp(this.field ?? this.newField());
+  }
+
+  /** `field` cleared and stamped with every fallen structure's rubble, then every crater */
+  private restamp(field: StampField | null): void {
     if (field) {
       field.clear();
       const list = this.runStructures();
@@ -171,6 +183,7 @@ export class WorldDamagePresenter {
   }
 
   destroy(): void {
+    this.unsubscribe?.();
     this.useField(null);
     const global = globalThis as Record<string, unknown>;
     if (this.debugApi && global['__worldDamage'] === this.debugApi) delete global['__worldDamage'];

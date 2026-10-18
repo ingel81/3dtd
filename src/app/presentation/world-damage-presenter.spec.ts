@@ -20,7 +20,12 @@ function setup(destructible: boolean) {
     getTerrainHeightAtGeo: vi.fn(() => 12),
   };
   const span = { minIx: -20, minIz: -20, maxIx: 20, maxIz: 20 };
-  const ground = { field: null as StampField | null, cellSpan: () => span, setStampField: vi.fn((f: StampField | null) => (ground.field = f)) };
+  const ground = {
+    field: null as StampField | null,
+    cellSpan: () => span,
+    setStampField: vi.fn((f: StampField | null) => (ground.field = f)),
+    onCellsChanged: () => () => undefined,
+  };
   const bus = createMainEventBus();
   const presenter = new WorldDamagePresenter(engine as never, bus, ground);
   const local: ToLocal = (lat, lon, out) => {

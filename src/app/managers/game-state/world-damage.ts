@@ -67,7 +67,14 @@ export class WorldDamage {
     this.rules = rules.destruction ?? null;
     this.structures.load(rules.structures);
     this.craters.clear();
-    this.field = null;
+    this.useField(null);
+    this.rebuild();
+    this.publishCraters();
+  }
+
+  /** The route cells stand anew (after load: the world's routes are in): the field over them from scratch */
+  regrid(): void {
+    this.useField(null);
     this.rebuild();
   }
 
@@ -76,6 +83,7 @@ export class WorldDamage {
     this.structures.reset();
     this.craters.clear();
     this.rebuild();
+    this.publishCraters();
   }
 
   /** The HP and craters of a snapshot back (capture's); a snapshot without them starts the world afresh */
@@ -83,6 +91,7 @@ export class WorldDamage {
     this.structures.restore(hp);
     this.craters.restore(craters);
     this.rebuild();
+    this.publishCraters();
   }
 
   /** The craters for a snapshot; absent where there are none, so a world without them saves as before */
@@ -93,26 +102,30 @@ export class WorldDamage {
   /** The main thread hears everything as it stands (after a restore or a replay's seek, the resync) */
   publish(): void {
     this.structures.publish();
+    this.publishCraters();
+  }
+
+  private publishCraters(): void {
     if (this.cratersOn) this.host.sink.craters.setAll(this.craters.list());
   }
 
-  /** The field from scratch: every fallen structure's rubble and every crater, or none where the ground lies as built */
+  /** The field as everything stands now: none where the ground lies as built, else every stamp from scratch */
   private rebuild(): void {
     const fallen = this.structures.stages().indexOf(3) >= 0;
-    if (!fallen && this.craters.size === 0) {
-      this.useField(null);
-    } else {
-      const field = this.field ?? this.newField();
-      if (field) {
-        field.clear();
-        const list = this.structures.list();
-        const stages = this.structures.stages();
-        for (let i = 0; i < list.length; i++) if (stages[i] === 3) field.rubbleHeap(rubbleStampOf(list[i], this.host.toLocal), 1);
-        for (let i = 0; i < this.craters.size; i++) field.crater(this.craterStamp(i), 1);
-      }
-      this.useField(field);
+    if (!fallen && this.craters.size === 0) this.useField(null);
+    else this.restamp(this.field ?? this.newField());
+  }
+
+  /** `field` cleared and stamped with every fallen structure's rubble and every crater, in the run rules' and the dig order */
+  private restamp(field: StampField | null): void {
+    if (field) {
+      field.clear();
+      const list = this.structures.list();
+      const stages = this.structures.stages();
+      for (let i = 0; i < list.length; i++) if (stages[i] === 3) field.rubbleHeap(rubbleStampOf(list[i], this.host.toLocal), 1);
+      for (let i = 0; i < this.craters.size; i++) field.crater(this.craterStamp(i), 1);
     }
-    if (this.cratersOn) this.host.sink.craters.setAll(this.craters.list());
+    this.useField(field);
   }
 
   private newField(): StampField | null {
@@ -125,9 +138,12 @@ export class WorldDamage {
     this.host.setField(field);
   }
 
-  /** The field, made on the first stamp */
+  /**
+   * The field for a stamp to come, made with everything that stands so far
+   * where there was none: call it before the ledgers change, the stamp goes on top
+   */
   private stampField(): StampField | null {
-    if (!this.field) this.useField(this.newField());
+    if (!this.field) this.restamp(this.newField());
     return this.field;
   }
 
@@ -173,9 +189,9 @@ export class WorldDamage {
   private dig(x: number, y: number, radiusM: number, depthCm: number | null): void {
     if (!this.cratersOn) return;
     const rDm = Math.round(radiusM * 10);
+    const field = this.stampField();
     const dug = this.craters.dig(Math.round(x * 10), Math.round(y * 10), rDm, depthCm ?? craterHitDepthCm(rDm));
     if (!dug) return;
-    const field = this.stampField();
     let touched = false;
     if (field) {
       if (dug.before) {
@@ -216,7 +232,9 @@ export class WorldDamage {
     const s = this.structures.list()[index];
     // The moment of the fall: a show op, left out while the show is muted (a replay's seek)
     this.host.sink.main.structureFell(s.lat, s.lon, s.radius, s.height);
-    this.stampField()?.rubbleHeap(rubbleStampOf(s, this.host.toLocal), 1);
+    // Its stage is 3 already: a field made now stamps its rubble with the rest
+    if (this.field) this.field.rubbleHeap(rubbleStampOf(s, this.host.toLocal), 1);
+    else this.restamp(this.newField());
     this.host.seeAround(this.structures.xOf(index), this.structures.yOf(index), s.radius);
   }
 

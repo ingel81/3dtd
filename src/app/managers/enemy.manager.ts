@@ -769,10 +769,10 @@ export class EnemyManager extends EntityManager<Enemy> {
       // A boss's rage
       if (enemy.traits !== null && tickBossTraits(enemy, enemy.traits) === 'enraged') this.announceRage(enemy);
       // A worm segment goes where its chain put it (worms.tick above). On
-      // rubble the walk is slower: where it stands before the step, the same
-      // after a restore as in the run
+      // rubble the walk is slower, on the ground: where it stands before the
+      // step, the same after a restore as in the run
       let slow = statusFlags.slowMultiplier;
-      if (stamps !== null && enemy.worm === null && enemy.body === null) {
+      if (stamps !== null && enemy.worm === null && enemy.body === null && enemy.typeConfig.isAirUnit !== true) {
         sync.geoToLocalSimpleInto(enemy.position.lat, enemy.position.lon, 0, this._tempLocalPos);
         slow *= stamps.brakeAt(this._tempLocalPos.x, this._tempLocalPos.z);
       }

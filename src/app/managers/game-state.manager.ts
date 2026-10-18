@@ -750,6 +750,8 @@ export class GameStateManager {
   loadWorld(world: SimWorld): void {
     this.takeRunRules(world.rules);
     this.routeWorld.load(world);
+    // The craters and rubble lie over the route cells just built
+    this.worldDamage.regrid();
     const key = this.routeWorld.key();
     if (key !== world.worldKey) {
       this.worldReady = false;
