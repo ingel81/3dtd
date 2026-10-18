@@ -27,7 +27,7 @@ import { growVegetation, type VegetationReport } from './convert/vegetation';
 import { objectCost } from '../custom-map/render/objects/scene-cost';
 import { carveWater, paintWater, settleWater, WATER_MATERIALS, type WaterPaintRole, type WaterReport } from './convert/water';
 import { layOut, OsmLayout, type LayoutReport } from './convert/layout';
-import { findLandmarks, spawnAnchors } from './convert/anchors';
+import { findLandmarks, spawnAnchors, type Landmark } from './convert/anchors';
 import { growLife, type LifeReport } from './convert/life';
 import { placeFurniture, type FurnitureReport } from './convert/furniture';
 import { placeBuildings, type BuildingCatalogEntry, type BuildingReport } from './convert/buildings';
@@ -43,6 +43,8 @@ export const OSM_QUERY_MARGIN = 100;
 export const OSM_SPLAT_RESOLUTION = 2048;
 /** Spawns an OSM world gets */
 export const OSM_SPAWNS = 4;
+/** Metres from the searched place within which the frame offers landmarks for the HQ */
+export const OSM_LANDMARK_REACH = 800;
 
 /** What the conversion reads: the place, the Overpass answer and the heights */
 export interface OsmImportInput {
@@ -275,15 +277,21 @@ export interface OsmStreets {
   layout: OsmLayout;
   roads: RoadStats;
   parse: OsmParseStats;
+  /** The landmarks near the HQ's place, the best first (the frame offers to put the HQ there) */
+  landmarks: Landmark[];
 }
 
 /** The street graph of `input`'s place as the map will have it, with its HQ, without ground or paint */
-export function osmStreets(input: Pick<OsmImportInput, 'lat' | 'lon' | 'place' | 'overpass'>, sideM = OSM_WORLD_SIDE): OsmStreets {
+/** `landmarksAround`: where the landmarks are looked for (the place searched for, when the HQ went to one); the HQ's place when absent */
+export function osmStreets(input: Pick<OsmImportInput, 'lat' | 'lon' | 'place' | 'overpass'>, sideM = OSM_WORLD_SIDE, landmarksAround?: { lat: number; lon: number }): OsmStreets {
   const frame = new OsmFrame(input.lat, input.lon);
   const features = parseOsm(input.overpass, frame, sideM / 2);
   const roads = buildRoads(features);
-  const layout = new OsmLayout({ paths: roads.paths, terrain: { width: sideM, depth: sideM } }, roads.names, input.place && frame.point(input.place), spawnAnchors(features));
-  return { frame, layout, roads: roads.stats, parse: features.stats };
+  const place = input.place && frame.point(input.place);
+  const layout = new OsmLayout({ paths: roads.paths, terrain: { width: sideM, depth: sideM } }, roads.names, place, spawnAnchors(features));
+  const around = landmarksAround ? frame.point(landmarksAround) : (place ?? { x: 0, y: 0 });
+  const landmarks = findLandmarks(features, around, OSM_LANDMARK_REACH);
+  return { frame, layout, roads: roads.stats, parse: features.stats, landmarks };
 }
 
 /** What loading a place's data took, for the report */

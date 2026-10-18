@@ -26,7 +26,8 @@ import {
 } from './import-osm';
 import type { OsmProgress } from './osm-progress';
 import type { LaidSpawn } from './convert/layout';
-import { areaWithin, type OsmArea } from './osm-area';
+import { areaWithin, OSM_HQ_EDGE_M, type OsmArea } from './osm-area';
+import type { LandmarkKind } from './convert/anchors';
 
 /** A point on the earth */
 export interface GeoPoint {
@@ -44,10 +45,24 @@ export interface FrameSpawn extends GeoPoint {
   route: [number, number][];
 }
 
+/** A landmark the frame offers for the HQ, in real coordinates */
+export interface FrameLandmark extends GeoPoint {
+  /** OSM `name`, else empty */
+  name: string;
+  kind: LandmarkKind;
+  /** Straight from the searched place, metres */
+  distanceM: number;
+}
+
+/** Landmarks the frame offers at most */
+const FRAME_LANDMARKS = 3;
+
 /** What the frame opens: the place, the square of the map and the spawns to lay out */
 export interface OsmOpenRequest {
-  /** Where the HQ goes, and what the player searched for */
+  /** Where the HQ goes (the place searched for, or a landmark the player chose), and what the player searched for */
   place: GeoPoint & { address?: string };
+  /** The place searched for when the HQ goes elsewhere (a landmark): the landmarks are offered round it */
+  searched?: GeoPoint;
   /** Spawns wanted; drawn when `spawnsAt` gives none (or, with `topUp`, fewer stand) */
   count: number;
   /** Spawns to start from (a running real place's, the ones standing before the square moved), each dropped on its street */
@@ -76,6 +91,8 @@ export interface OsmFrameInfo {
   roads: { edges: number; roadKm: number; pathKm: number; bridges: number; tunnels: number };
   /** Where the heights come from, null for flat ground */
   dem: string | null;
+  /** Landmarks near the place searched for, inside the square with room for the HQ, the best first */
+  landmarks: FrameLandmark[];
 }
 
 /** A map made and packed, ready for the map store: its file, content hash and sketch worked out beside the making */
@@ -122,7 +139,7 @@ export class OsmFrameCore {
       this.data = { input, area: wanted, download };
     }
     onProgress?.({ step: 'streets' });
-    const info = this.lay(place, area, request.count, request.spawnsAt ?? [], request.topUp ?? false);
+    const info = this.lay(place, area, request.count, request.spawnsAt ?? [], request.topUp ?? false, request.searched);
     onProgress?.({ step: 'streets', state: 'done', detail: `${info.roads.roadKm} km of road, ${info.spawns.length} ${info.spawns.length === 1 ? 'spawn' : 'spawns'}` });
     return info;
   }
@@ -134,10 +151,12 @@ export class OsmFrameCore {
     return this.lay(input, area, count, spawnsAt, false);
   }
 
-  private lay(place: GeoPoint, area: OsmArea, count: number, spawnsAt: readonly GeoPoint[], topUp: boolean): OsmFrameInfo {
+  private lay(place: GeoPoint, area: OsmArea, count: number, spawnsAt: readonly GeoPoint[], topUp: boolean, searched: GeoPoint = place): OsmFrameInfo {
     const data = this.data!;
     const input: OsmImportInput = { ...data.input, lat: area.lat, lon: area.lon, place: { lat: place.lat, lon: place.lon } };
-    const streets = osmStreets(input, area.sideM);
+    // The landmarks round the place searched for, wherever the HQ stands now
+    const streets = osmStreets(input, area.sideM, searched);
+    const landmarks = this.landmarks(streets, area, searched);
     this.input = input;
     this.area = area;
     this.streets = streets;
@@ -160,7 +179,21 @@ export class OsmFrameCore {
         tunnels: roads.tunnels,
       },
       dem: input.dem?.source ?? null,
+      landmarks,
     };
+  }
+
+  /** The landmarks a frame offers: inside the square with room for the HQ, in real coordinates */
+  private landmarks(streets: OsmStreets, area: OsmArea, searched: GeoPoint): FrameLandmark[] {
+    const reach = area.sideM / 2 - OSM_HQ_EDGE_M;
+    const from = streets.frame.point(searched);
+    return streets.landmarks
+      .filter((l) => Math.abs(l.x) <= reach && Math.abs(l.y) <= reach)
+      .slice(0, FRAME_LANDMARKS)
+      .map((l) => {
+        const at = streets.frame.geo(l);
+        return { lat: round6(at.lat), lon: round6(at.lon), name: l.name, kind: l.kind, distanceM: Math.round(Math.hypot(l.x - from.x, l.y - from.y)) };
+      });
   }
 
   /** `count` more spawns drawn apart from `keep` */

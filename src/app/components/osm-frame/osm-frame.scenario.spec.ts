@@ -123,6 +123,61 @@ describe('OSM world frame', () => {
     expect(fetch).not.toHaveBeenCalledWith(expect.stringContaining('overpass'), expect.anything());
   });
 
+  it('moves the HQ to a landmark near the address and back, and makes the map with the HQ there', async () => {
+    const { fixture, root, settle } = await open();
+    await settle();
+    const c = fixture.componentInstance;
+    expect(root.querySelector('[data-test=osm-hq-at]')!.textContent).toContain('On the address');
+    const offered = c.landmarks();
+    expect(offered.length).toBeGreaterThan(0);
+    const first = root.querySelector<HTMLButtonElement>('[data-test=osm-hq-landmark]')!;
+    expect(first.textContent).toContain(c.landmarkLabel(offered[0]));
+    const before = c.frame()!.hq!;
+    first.click();
+    await settle();
+    await vi.waitFor(async () => {
+      await settle();
+      expect(c.phase()).toBe('ready');
+    });
+    expect(root.querySelector('[data-test=osm-hq-at]')!.textContent).toContain(`On ${c.landmarkLabel(offered[0])}`);
+    const hq = c.frame()!.hq!;
+    expect(hq).not.toEqual(before);
+    // The HQ stands on the road nearest the landmark (within the HQ's reach for a road)
+    expect(Math.hypot((hq.lat - offered[0].lat) * 111320, (hq.lon - offered[0].lon) * 111320 * Math.cos((hq.lat * Math.PI) / 180))).toBeLessThan(260);
+    // Still the landmarks round the address, the one in use not offered again
+    expect(c.landmarks()).toEqual(offered);
+    expect(root.querySelector('[data-test=osm-hq-address]')).not.toBeNull();
+
+    root.querySelector<HTMLButtonElement>('[data-test=osm-make]')!.click();
+    await settle();
+    await vi.waitFor(async () => {
+      await settle();
+      expect(root.querySelector('[data-test=osm-made]')).not.toBeNull();
+    });
+    expect(c.made()!.report.layout.hqShiftM).toBeLessThan(260);
+
+  });
+
+  it('puts the HQ back on the address', async () => {
+    const { fixture, root, settle } = await open();
+    await settle();
+    const c = fixture.componentInstance;
+    const home = c.frame()!.hq;
+    c.moveHq(c.landmarks()[0]);
+    await vi.waitFor(async () => {
+      await settle();
+      expect(c.phase()).toBe('ready');
+      expect(c.hqAt()).not.toBeNull();
+    });
+    root.querySelector<HTMLButtonElement>('[data-test=osm-hq-address]')!.click();
+    await vi.waitFor(async () => {
+      await settle();
+      expect(c.phase()).toBe('ready');
+      expect(c.frame()!.hq).toEqual(home);
+    });
+    expect(root.querySelector('[data-test=osm-hq-at]')!.textContent).toContain('On the address');
+  });
+
   it('says while the OSM servers are asked again, then the failure with Try again, which loads anew', async () => {
     type Open = OsmFrameSession['open'];
     const opens: { onRetry?: Parameters<Open>[3]; reject: (e: Error) => void }[] = [];

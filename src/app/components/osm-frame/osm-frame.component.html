@@ -62,6 +62,22 @@
     @if (error(); as e) {
       <p class="td-banner is-warn" role="alert">{{ e }}</p>
     }
+    @if (landmarks().length || hqAt()) {
+      <section class="td-group" aria-labelledby="of-hq" data-test="osm-hq">
+        <h3 class="td-section" id="of-hq">HQ</h3>
+        <p class="td-note" data-test="osm-hq-at">{{ hqAt() ? 'On ' + landmarkLabel(hqAt()!) : 'On the address' }}</p>
+        <div class="td-inline of-landmarks">
+          @for (l of landmarks(); track l.lat + ',' + l.lon) {
+            @if (!isHqAt(l)) {
+              <button type="button" class="td-btn-ghost td-btn-sm" [disabled]="busy()" (click)="moveHq(l)" data-test="osm-hq-landmark">To {{ landmarkLabel(l) }}</button>
+            }
+          }
+          @if (hqAt()) {
+            <button type="button" class="td-btn-ghost td-btn-sm" [disabled]="busy()" (click)="moveHq(null)" data-test="osm-hq-address">Back to the address</button>
+          }
+        </div>
+      </section>
+    }
     <section class="td-group" aria-labelledby="of-spawns">
       <div class="td-actions is-split">
         <h3 class="td-section" id="of-spawns">Spawns</h3>

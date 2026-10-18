@@ -8,7 +8,7 @@ import type { CatalogObject } from '../../world/custom-map/render/asset-catalog'
 import { buildingCatalog } from '../../world/osm/convert/buildings';
 import { assetCosts } from '../../world/osm/convert/vegetation';
 import { OSM_SPAWNS, OSM_WORLD_SIDE, osmMapNames, type OsmImportReport } from '../../world/osm/import-osm';
-import type { FrameSpawn, GeoPoint, OsmFrameInfo, OsmOpenRequest } from '../../world/osm/osm-frame-core';
+import type { FrameLandmark, FrameSpawn, GeoPoint, OsmFrameInfo, OsmOpenRequest } from '../../world/osm/osm-frame-core';
 import { loadingRows, makingView, reduceProgress, type OsmLoadRow, type OsmProgress, type OsmProgressState, type OsmStepStatus } from '../../world/osm/osm-progress';
 import { fitArea, OSM_HQ_EDGE_M, OSM_MIN_SIDE, sameArea, type OsmArea } from '../../world/osm/osm-area';
 import { OSM_CANCELLED, OsmFrameSession } from '../../world/osm/osm-frame-session';
@@ -39,6 +39,8 @@ const RETRY_NOW_S = 15;
  * in the OSM worker with its steps and a Cancel, and the map stored as an
  * own map. The menu plays it or opens it in the editor; the editor opens it.
  * The place's data loads once per frame (OsmFrameSession, frame store).
+ * The HQ stands on the address, or on a landmark near it the player picks
+ * (a church, the town hall, a gate; docs/OSM_WORLD_ROUND2_PLAN.md, P5).
  */
 @Component({
   selector: 'app-osm-frame',
@@ -85,6 +87,12 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
   /** The flat map did not come (no WebGL, the style's server); the frame works without it */
   readonly mapProblem = signal<string | null>(null);
   readonly made = signal<{ summary: MapSummary; report: OsmImportReport } | null>(null);
+  /** The landmark the HQ stands on; null: on the address */
+  readonly hqAt = signal<FrameLandmark | null>(null);
+  /** Where the HQ goes: the landmark picked, else the place searched for */
+  readonly hqPlace = computed<GeoPoint>(() => this.hqAt() ?? this.place());
+  /** Landmarks near the address the HQ may move to, the best first */
+  readonly landmarks = computed(() => this.frame()?.landmarks ?? []);
 
   /** The clock while loading or making (twice a second): the wait before the next round, the time spent */
   readonly now = signal(Date.now());
@@ -168,10 +176,12 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
     this.loading = new AbortController();
     this.startClock();
     const place = this.place();
+    const hq = this.hqPlace();
     const standing = before ? this.spawns().map(({ lat, lon }) => ({ lat, lon })) : [];
+    const at = { place: { lat: hq.lat, lon: hq.lon, address: place.address }, searched: { lat: place.lat, lon: place.lon } };
     const request: OsmOpenRequest = before
-      ? { place: { lat: place.lat, lon: place.lon, address: place.address }, count: Math.max(1, standing.length), spawnsAt: standing, topUp: true, area }
-      : { place: { lat: place.lat, lon: place.lon, address: place.address }, count: OSM_SPAWNS, spawnsAt: [...this.spawnsAt()] };
+      ? { ...at, count: Math.max(1, standing.length), spawnsAt: standing, topUp: true, area }
+      : { ...at, count: OSM_SPAWNS, spawnsAt: [...this.spawnsAt()] };
     try {
       const frame = await this.session.open(request, (p) => gen === this.loadGen && this.hear(p), this.loading.signal, (retry) => {
         if (gen !== this.loadGen) return;
@@ -263,7 +273,7 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
         drop: (index, at) => void this.dropSpawn(index, at),
         select: (index) => this.select(index),
         problem: (text) => this.mapProblem.set(text),
-        fit: (area) => fitArea(area, this.place()),
+        fit: (area) => fitArea(area, this.hqPlace()),
         canEdit: () => this.canEdit(),
         reframe: (area) => this.reframe(area),
       });
@@ -295,6 +305,26 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
       return;
     }
     void this.load(area);
+  }
+
+  /** The HQ moved to a landmark (null: back to the address): laid out anew in the same square, the spawns kept where they still fit */
+  moveHq(landmark: FrameLandmark | null): void {
+    const area = this.area();
+    if (!this.canEdit() || !area) return;
+    this.hqAt.set(landmark);
+    void this.load(area);
+  }
+
+  /** The landmark the HQ stands on */
+  isHqAt(landmark: FrameLandmark): boolean {
+    const at = this.hqAt();
+    return !!at && at.lat === landmark.lat && at.lon === landmark.lon;
+  }
+
+  /** "Johanneskirche (church, 320 m)", "the town hall (450 m)" */
+  landmarkLabel(l: FrameLandmark): string {
+    const km = l.distanceM >= 1000 ? `${(l.distanceM / 1000).toFixed(1)} km` : `${l.distanceM} m`;
+    return l.name ? `${l.name} (${l.kind}, ${km})` : `the ${l.kind} (${km})`;
   }
 
   select(index: number | null): void {
