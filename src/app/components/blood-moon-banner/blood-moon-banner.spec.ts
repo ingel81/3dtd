@@ -1,28 +1,29 @@
 import { describe, it, expect, vi } from 'vitest';
 import { BloodMoonBannerTiming, bloodMoonBanner } from './blood-moon-banner';
 import { WAVE_MUTATORS } from '../../configs/wave-mutators.config';
+import { en } from '../../i18n/messages/en';
 
 describe('bloodMoonBanner', () => {
   it('announces a blood moon wave', () => {
-    expect(bloodMoonBanner(14, true)).toEqual({ wave: 'Wave 14', announcement: 'Blood moon, wave 14.' });
-    expect(bloodMoonBanner(21, true)?.wave).toBe('Wave 21');
+    expect(bloodMoonBanner(en, 14, true)).toEqual({ wave: 'Wave 14', announcement: 'Blood moon, wave 14.' });
+    expect(bloodMoonBanner(en, 21, true)?.wave).toBe('Wave 21');
   });
 
   it('stays quiet on any other wave', () => {
-    expect(bloodMoonBanner(13, true)).toBeNull();
-    expect(bloodMoonBanner(15, true)).toBeNull();
+    expect(bloodMoonBanner(en, 13, true)).toBeNull();
+    expect(bloodMoonBanner(en, 15, true)).toBeNull();
   });
 
   it('stays quiet while the look is switched off', () => {
-    expect(bloodMoonBanner(14, false)).toBeNull();
+    expect(bloodMoonBanner(en, 14, false)).toBeNull();
   });
 
   it('names the mutator, and announces it with the look switched off too', () => {
     const swift = WAVE_MUTATORS.swift;
-    const banner = { wave: 'Wave 14 | Swift', announcement: `Blood moon, wave 14. Swift: ${swift.description}` };
-    expect(bloodMoonBanner(14, true, swift)).toEqual(banner);
-    expect(bloodMoonBanner(14, false, swift)).toEqual(banner);
-    expect(bloodMoonBanner(13, true, swift)).toBeNull();
+    const banner = { wave: 'Wave 14 | Swift', announcement: `Blood moon, wave 14. Swift: ${en.mutators[swift.id].description}` };
+    expect(bloodMoonBanner(en, 14, true, swift)).toEqual(banner);
+    expect(bloodMoonBanner(en, 14, false, swift)).toEqual(banner);
+    expect(bloodMoonBanner(en, 13, true, swift)).toBeNull();
   });
 });
 

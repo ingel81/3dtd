@@ -4,8 +4,9 @@ import { DraggableDebugPanelComponent } from './draggable-debug-panel.component'
 import { DebugWindowService } from '../../services/debug/debug-window.service';
 import { EnemyDebugService } from '../../services/debug/enemy-debug.service';
 import { WaveDebugService } from '../../services/debug/wave-debug.service';
-import { ENEMY_TYPES, EnemyTypeId } from '../../configs/enemy-types.config';
+import { EnemyTypeId } from '../../configs/enemy-types.config';
 import { TdIconComponent } from '../icon/icon.component';
+import { en } from '../../i18n/messages/en';
 
 @Component({
   selector: 'app-enemy-debugger',
@@ -31,7 +32,7 @@ export class EnemyDebuggerComponent {
   readonly stopMovement = output<string>();
 
   getEnemyName(id: EnemyTypeId): string {
-    return ENEMY_TYPES[id].name;
+    return en.names.enemies[id];
   }
 
   onEnemyTypeSelect(event: Event): void {

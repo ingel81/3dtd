@@ -37,6 +37,7 @@ import { BOSS_INTRO_TIMING, bossIntroCutMs, bossIntroReturnMs } from '../utils/b
 import type { Enemy } from '../entities/enemy.entity';
 import type { RouteWaypoint } from '../models/game.types';
 import { BOSS_INTRO_SOUNDS } from '../configs/game-sounds.config';
+import { provideI18n } from '../i18n/i18n.service';
 
 /** 1e-5 degrees are one metre in the fake sync; origin height 100, so height 100 is ground 0. */
 const ROUTE: RouteWaypoint[] = [
@@ -122,7 +123,7 @@ describe('BossIntroService', () => {
     };
 
     injector = Injector.create({
-      providers: [
+      providers: [provideI18n(), 
         { provide: SimClient, useValue: { bus } },
         { provide: SimMirror, useValue: { scalars: { get waveNumber() { return wave; } } } },
         { provide: GameStore, useValue: { gameSpeed: signal(1), renderingEnabled: signal(true), paused, pauseKeepsLoops } },

@@ -279,7 +279,7 @@
           />
         } @else if (buildMode()) {
           <app-context-hint
-            [hints]="buildModeHints"
+            [hints]="buildModeHints()"
             [warning]="buildModeWarning()"
           />
         } @else if (mapPlacementMode()) {
@@ -294,7 +294,7 @@
           />
         } @else if (heroSelected()) {
           <app-context-hint
-            [hints]="heroHints"
+            [hints]="heroHints()"
             [warning]="heroWarning()"
           />
         } @else if (onboardingTip(); as tip) {

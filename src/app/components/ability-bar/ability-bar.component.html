@@ -1,5 +1,5 @@
 @if (visible()) {
-  <div class="td-ability-bar" role="group" aria-label="Abilities">
+  <div class="td-ability-bar" role="group" [attr.aria-label]="t().hud.ability.group">
     @if (hero(); as hero) {
       <button type="button" class="td-icon-btn is-over-map td-bar-btn td-bar-hero"
               [class.is-apart]="buttons().length > 0"

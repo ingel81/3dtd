@@ -55,6 +55,8 @@ import {
   type MeshInfo,
   type ModelInfo,
 } from './model-inspect';
+import { en } from '../../src/app/i18n/messages/en';
+import { enemyName } from '../../src/app/i18n/lookups';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '../..');
@@ -357,14 +359,14 @@ function renderAlpha(rows: Row[]): string {
       const low = lowAlphaOf(r);
       const texels = r.baseColour.reduce((s, image) => s + image.width * image.height, 0);
       return [
-        r.config.name,
+        enemyName(en, r.id),
         alphaLabel(r.baked!.alpha),
         low === null ? 'nicht dekodiert' : low === 0 ? '0' : `${int(low)} (${dec((100 * low) / texels)} %)`,
       ];
     }),
   ));
   out.push('');
-  const names = (list: Row[]): string => (list.length > 0 ? list.map((r) => r.config.name).join(', ') : 'keine');
+  const names = (list: Row[]): string => (list.length > 0 ? list.map((r) => enemyName(en, r.id)).join(', ') : 'keine');
   const opaque = rows.filter((r) => r.baked?.alpha.mode === 'opaque' && lowAlphaOf(r) === 0);
   // Texels below LOW_ALPHA that the shader draws: opaque ignores alpha, a mask keeps what reaches its cutoff
   const drawn = rows.filter((r) => {
@@ -396,7 +398,7 @@ function render(rows: Row[]): string {
     ['Gegner', 'Klasse', 'max./Welle', 'VAT-Vertices', 'Dreiecke', 'Mio. Vertices', 'Bake-Pfad', 'VAT-Frames', 'VAT-Textur', 'Format', 'Half-Fehler mm', 'VAT-MB', 'Diffuse'],
     'llrrrrlrrlrrr',
     rows.map((r) => [
-      `${r.config.name} (\`${r.id}\`)`,
+      `${enemyName(en, r.id)} (\`${r.id}\`)`,
       classOf(r.presence.perWave),
       int(r.presence.perWave),
       int(r.vertices),
@@ -435,7 +437,7 @@ function render(rows: Row[]): string {
     ['Gegner', 'Datei', 'MB', 'Meshes (skinned)', 'Knochen', 'Morph', 'Materialien', 'Bilder im Modell', 'Clips', 'Weld'],
     'llrrrrrlrr',
     rows.map((r) => [
-      r.config.name,
+      enemyName(en, r.id),
       `\`${basename(r.config.modelUrl)}\``,
       mb(r.model.fileBytes),
       `${r.model.meshes.length} (${r.model.meshes.filter((m) => m.skinned).length})`,
@@ -464,7 +466,7 @@ function render(rows: Row[]): string {
     ['Gegner', 'Clip', 'Rolle', 'Dauer s', 'Frames', 'gekürzt'],
     'lllrrr',
     rows.flatMap((r) => r.bake.clips.map((clip) => [
-      r.config.name,
+      enemyName(en, r.id),
       `\`${clip.name}\``,
       clip.role,
       clip.duration === null ? 'fehlt im Modell' : dec(clip.duration, 2),
@@ -520,7 +522,7 @@ function render(rows: Row[]): string {
     ['Gegner', 'Wellen im Laufplan', 'max. in einer Welle'],
     'llr',
     [...rows].sort((a, b) => a.id.localeCompare(b.id)).map((r) => [
-      r.config.name,
+      enemyName(en, r.id),
       wavesLabel(r.presence.waves),
       int(r.presence.perWave),
     ]),

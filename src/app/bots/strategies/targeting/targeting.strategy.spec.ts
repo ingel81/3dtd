@@ -16,7 +16,7 @@ function tower(id: string, typeId: TowerTypeId, damageLevel = 0) {
 
 function wave(facts: Partial<WavePeekFacts>): WavePeekFacts {
   return {
-    wave: 5, name: '', known: true, boss: false, air: false, armors: [], count: null, note: '', description: '',
+    wave: 5, name: '', known: true, boss: false, air: false, armors: [], count: null, spawnDelayMs: null, sizedAtStart: false, hpScale: null, round: null,
     enemies: [['zombie', 1]], hpByArmor: [['unarmored', 1000]], ...facts,
   };
 }

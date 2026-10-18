@@ -48,7 +48,7 @@ describe('AbilityManager', () => {
     bus.emit({
       type: 'research:completed', playerId: 'local', local: true,
       researchId: 'nuclear-strike',
-      effects: [{ kind: 'global-perk', perkId, description: '' }],
+      effects: [{ kind: 'global-perk', perkId }],
     });
   const completeWave = () =>
     bus.emit({ type: 'wave:completed', wave: 1, credits: 0, perfect: false, closeCall: false, hpLost: 0 });

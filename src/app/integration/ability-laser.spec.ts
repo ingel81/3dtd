@@ -135,7 +135,7 @@ function run(timescale: number): Outcome {
   bus.emit({
     type: 'research:completed', playerId: 'local', local: true,
     researchId: LASER.researchId,
-    effects: [{ kind: 'global-perk', perkId: LASER.perkId, description: '' }],
+    effects: [{ kind: 'global-perk', perkId: LASER.perkId }],
   });
 
   let step = 0;

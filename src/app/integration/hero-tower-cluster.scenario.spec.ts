@@ -177,7 +177,7 @@ function hireIntoCluster(game: Game): void {
   bus.emit({
     type: 'research:completed', playerId: 'local', local: true,
     researchId: HERO.researchId,
-    effects: [{ kind: 'global-perk', perkId: HERO.perkId, description: '' }],
+    effects: [{ kind: 'global-perk', perkId: HERO.perkId }],
   });
   game.gsm.addCredits(HERO.cost, 'cheat');
   bus.emit({ type: 'command:hire-hero' });

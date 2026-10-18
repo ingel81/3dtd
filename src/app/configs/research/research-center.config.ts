@@ -5,10 +5,12 @@
  * All values are tuneable without code changes.
  */
 
+/** A Research Center level: 1 to 3. Its name is the dictionary's (i18n `researchCenterLevels`) */
+export type ResearchCenterLevel = 1 | 2 | 3;
+
 export interface ResearchCenterLevelConfig {
-  level: number;
+  level: ResearchCenterLevel;
   researchSlots: number;         // Concurrent research slots at this level
-  description: string;           // Human-readable description
 }
 
 /**
@@ -18,9 +20,9 @@ export interface ResearchCenterLevelConfig {
  * 216 with its 1.8 costScaling), not a value in this file.
  */
 export const RESEARCH_CENTER_LEVELS: ResearchCenterLevelConfig[] = [
-  { level: 1, researchSlots: 1, description: 'Basic Research (1 Slot)' },
-  { level: 2, researchSlots: 2, description: 'Expanded Research (2 Slots)' },
-  { level: 3, researchSlots: 3, description: 'Advanced Research (3 Slots)' },
+  { level: 1, researchSlots: 1 },
+  { level: 2, researchSlots: 2 },
+  { level: 3, researchSlots: 3 },
 ];
 
 /**

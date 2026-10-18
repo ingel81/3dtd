@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { VETERAN_RANKS, veteranLevel, veteranRank } from './veteran-ranks.config';
+import { en } from '../i18n/messages/en';
 
 describe('VETERAN_RANKS', () => {
   it('climbs in level and kills, one level per entry', () => {
@@ -43,7 +44,7 @@ describe('veteranLevel', () => {
 describe('veteranRank', () => {
   it('returns the rank of a level and null for no rank', () => {
     expect(veteranRank(0)).toBeNull();
-    expect(veteranRank(2)?.name).toBe('Veteran');
+    expect(en.veteranRanks[veteranRank(2)!.level]).toBe('Veteran');
     expect(veteranRank(VETERAN_RANKS.length + 1)).toBeNull();
   });
 });

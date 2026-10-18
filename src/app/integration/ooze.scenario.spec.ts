@@ -240,7 +240,7 @@ describe('Ooze in a wave: HQ leaks, shake, run summary, clumps (playtest 360, 36
     expect(m.waveManager.checkWaveComplete()).toBe(true);
 
     log.flushOpenWave();
-    const summary = runSummary(log.current(), clock.now, (type) => type);
+    const summary = runSummary(log.current(), clock.now);
     expect(summary.leaksPerWave[0]).toBe(1);
     expect(summary.kills).toBe(0);
   });
@@ -256,7 +256,7 @@ describe('Ooze in a wave: HQ leaks, shake, run summary, clumps (playtest 360, 36
     expect(m.waveManager.checkWaveComplete()).toBe(true);
 
     log.flushOpenWave();
-    const summary = runSummary(log.current(), clock.now, (type) => type);
+    const summary = runSummary(log.current(), clock.now);
     expect(summary.waveReached).toBe(45);
     expect(summary.leaksPerWave[44]).toBe(1);
     expect(summary.kills).toBe(clumps.length);

@@ -106,7 +106,7 @@ describe('Frost bomb, EMP and orbital laser against the ooze body', () => {
       bus.emit({
         type: 'research:completed', playerId: 'local', local: true,
         researchId: ABILITIES[id].researchId,
-        effects: [{ kind: 'global-perk', perkId: ABILITIES[id].perkId, description: '' }],
+        effects: [{ kind: 'global-perk', perkId: ABILITIES[id].perkId }],
       });
     }
   });

@@ -141,7 +141,7 @@ describe('GameStateSyncService (real service)', () => {
   // ── The wave panel's groups (sidebar) ─────────────────────────
   describe('wave groups', () => {
     const group = (enemyType: WaveGroupDisplay['enemyType'], count: number): WaveGroupDisplay => ({
-      enemyType, name: enemyType, count, baseHp: 100, actualHp: 120, baseSpeed: 5, actualSpeed: 5,
+      enemyType, count, baseHp: 100, actualHp: 120, baseSpeed: 5, actualSpeed: 5,
       healthMultiplier: 1.2, speedMultiplier: 1, spawnDelay: 500, lanes: 1, leak: 10, leakMost: 10,
     });
 

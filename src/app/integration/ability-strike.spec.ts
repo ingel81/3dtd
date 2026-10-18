@@ -149,7 +149,7 @@ function createGame(timescale: number) {
   gsm.getEventBus().emit({
     type: 'research:completed', playerId: 'local', local: true,
     researchId: NUKE.researchId,
-    effects: [{ kind: 'global-perk', perkId: NUKE.perkId, description: '' }],
+    effects: [{ kind: 'global-perk', perkId: NUKE.perkId }],
   });
   return { gsm, strike, silo, texts: engine.effects.spawnFloatingText };
 }

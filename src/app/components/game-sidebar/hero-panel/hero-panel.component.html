@@ -1,31 +1,31 @@
 <!-- HERO section (only while the hero is selected) -->
 <h2 class="td-side-head">
   <span class="td-side-name">{{ view().name }}</span>
-  <span class="td-note td-num">Level {{ view().level }}<span class="td-muted">/{{ view().maxLevel }}</span></span>
+  <span class="td-note td-num">{{ t().hud.hero.level }} {{ view().level }}<span class="td-muted">/{{ view().maxLevel }}</span></span>
 </h2>
 <div class="td-side-body">
   <div class="td-stack hp-xp">
     <div class="hp-line">
-      <span class="td-caps">Next level</span>
+      <span class="td-caps">{{ t().hud.hero.nextLevel }}</span>
       <span class="td-note td-num">{{ view().xpLabel }}</span>
     </div>
-    <div class="td-progress" role="progressbar" aria-label="Kills toward the next level"
+    <div class="td-progress" role="progressbar" [attr.aria-label]="t().hud.hero.xpBar"
          [attr.aria-valuenow]="view().xpPercent" aria-valuemin="0" aria-valuemax="100">
       <span [style.width.%]="view().xpPercent"></span>
     </div>
   </div>
 
   <div class="hp-figures td-tiles">
-    <div class="td-tile"><span class="td-value is-sm">{{ view().kills }}</span><span class="td-caps">Kills</span></div>
-    <div class="td-tile"><span class="td-value is-sm">{{ view().dps }}</span><span class="td-caps">DPS</span></div>
-    <div class="td-tile"><span class="td-value is-sm">{{ view().rangeM }} m</span><span class="td-caps">Range</span></div>
+    <div class="td-tile"><span class="td-value is-sm">{{ view().kills }}</span><span class="td-caps">{{ t().hud.hero.kills }}</span></div>
+    <div class="td-tile"><span class="td-value is-sm">{{ view().dps }}</span><span class="td-caps">{{ t().hud.hero.dps }}</span></div>
+    <div class="td-tile"><span class="td-value is-sm">{{ t().hud.hero.metres(view().rangeM) }}</span><span class="td-caps">{{ t().hud.hero.range }}</span></div>
   </div>
 
   <div class="hp-line">
-    <span class="td-caps">Ammo</span>
+    <span class="td-caps">{{ t().hud.hero.ammo }}</span>
     <kbd class="td-kbd" aria-hidden="true">V</kbd>
   </div>
-  <div class="td-seg is-stacked hp-ammo" role="radiogroup" tdRovingGroup aria-label="Ammo" aria-keyshortcuts="V">
+  <div class="td-seg is-stacked hp-ammo" role="radiogroup" tdRovingGroup [attr.aria-label]="t().hud.hero.ammo" aria-keyshortcuts="V">
     @for (ammo of view().ammo; track ammo.id) {
       <button type="button" role="radio"
               [attr.aria-checked]="ammo.active"
@@ -43,8 +43,8 @@
 
   <p class="td-note">
     <span class="hp-status">{{ view().status }}.</span>
-    Click the route to send him, he holds the spot and chases up to 20 m along it.
-    <kbd class="td-kbd" aria-hidden="true">G</kbd> camera,
-    <kbd class="td-kbd" aria-hidden="true">Esc</kbd> lets go.
+    {{ t().hud.hero.help }}
+    <kbd class="td-kbd" aria-hidden="true">G</kbd> {{ t().hud.hero.camera }}
+    <kbd class="td-kbd" aria-hidden="true">Esc</kbd> {{ t().hud.hero.letGo }}
   </p>
 </div>

@@ -39,6 +39,8 @@ import { waveHasAir, waveRules } from '../../../director/wave-rules';
 import { ENEMY_TYPES, EnemyTypeId } from '../../../configs/enemy-types.config';
 import { HERO } from '../../../configs/hero.config';
 import { isAntiEtherealTower } from '../../../director/defense-analyzer';
+import { en } from '../../../i18n/messages/en';
+import { researchName } from '../../../i18n/lookups';
 
 /**
  * Researches no bot starts. The mercenary: bots never hire the hero, so the
@@ -148,9 +150,9 @@ export class ResearchPickStrategy extends BaseStrategy {
     const cost = researchCost(cfg, r.lanes ?? 1);
     const act = () => this.execute(state);
     const kind = this.kindNow(state);
-    if (kind === 'rule') return cost <= state.player.credits ? [{ kind, label: cfg.name, cost, value: 0, act }] : [];
+    if (kind === 'rule') return cost <= state.player.credits ? [{ kind, label: researchName(en, cfg.id), cost, value: 0, act }] : [];
     const value = this.unlockGain(next, state, context) * UNLOCK_SPEND;
-    return [{ kind: value > 0 ? 'buy' : 'research', label: cfg.name, cost, value, act }];
+    return [{ kind: value > 0 ? 'buy' : 'research', label: researchName(en, cfg.id), cost, value, act }];
   }
 
   /**
@@ -211,12 +213,11 @@ export class ResearchPickStrategy extends BaseStrategy {
     const next = this.pickNext(state);
     if (!next) return null;
 
-    const cfg = getResearch(next);
     return {
       type: 'research-start',
       researchId: next,
       confidence: 0.85,
-      reason: `Unlocking ${cfg?.name ?? next}`,
+      reason: `Unlocking ${researchName(en, next)}`,
     };
   }
 

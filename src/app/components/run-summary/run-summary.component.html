@@ -61,7 +61,7 @@
             <tr>
               <td class="td-muted td-num run-rank">{{ i + 1 }}</td>
               <td class="run-tower-name">
-                {{ tower.name }}
+                {{ towerName(tower.type) }}
                 @if (tower.sold) {
                   <span class="td-caps">sold</span>
                 }

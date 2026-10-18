@@ -95,7 +95,7 @@ function createGame(timescale: number, researched: AbilityId[]) {
     gsm.getEventBus().emit({
       type: 'research:completed', playerId: 'local', local: true,
       researchId: ABILITIES[id].researchId,
-      effects: [{ kind: 'global-perk', perkId: ABILITIES[id].perkId, description: '' }],
+      effects: [{ kind: 'global-perk', perkId: ABILITIES[id].perkId }],
     });
   }
   return { gsm, bus: gsm.getEventBus(), clock: { now: 1000 } };

@@ -27,6 +27,8 @@ import type { GeoPosition } from '../../models/game.types';
 import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 import { singlePlayer } from '../../integration/single-player-parts';
 import { GameClock } from '../../managers/game-state/game-clock';
+import { en } from '../../i18n/messages/en';
+import { provideI18n } from '../../i18n/i18n.service';
 
 /** GameClock.FIXED_STEP_MS: the length of one gameplay sub-step. */
 const STEP_MS = GameClock.FIXED_STEP_MS;
@@ -103,7 +105,7 @@ describe('Hero button after the Mercenary Contract, playtest 384 and 385 replaye
     bus.onAny((event) => events.push(event));
 
     const injector = Injector.create({
-      providers: [
+      providers: [provideI18n(), 
         { provide: TowerDefenseStore, useValue: { abilities: abilityStatuses, waveActive: signal(false) } },
         { provide: AbilityTargetingService, useValue: { targeting: signal<AbilityId | null>(null), toggle: vi.fn() } },
         { provide: DestroyRef, useValue: { onDestroy: () => () => undefined, destroyed: false } },
@@ -126,11 +128,12 @@ describe('Hero button after the Mercenary Contract, playtest 384 and 385 replaye
     expect(research.isCompleted(id)).toBe(true);
   };
   /** The button the game component hands to the bar */
-  const heroButton = () => heroBarView(hero.getStatus(), false, credits);
+  const heroButton = () => heroBarView(en, hero.getStatus(), false, credits);
 
   it('384: the contract follows Siege Engineering, costs 600 and takes 30 s of game time', () => {
     const contract = getResearch(HERO.researchId)!;
-    expect(contract).toMatchObject({ name: 'Mercenary Contract', cost: 600, duration: 30, prerequisites: ['siege-engineering'] });
+    expect(contract).toMatchObject({ cost: 600, duration: 30, prerequisites: ['siege-engineering'] });
+    expect(en.research['mercenary-contract'].name).toBe('Mercenary Contract');
     expect(research.canStartResearch(HERO.researchId, Infinity).canStart).toBe(false);
 
     researchNow('gatling-tech');
@@ -151,7 +154,7 @@ describe('Hero button after the Mercenary Contract, playtest 384 and 385 replaye
     credits = 400;
     const button = heroButton()!;
     expect(button).toMatchObject({ action: 'hire', icon: 'coin', hotkey: null, selected: false });
-    const tooltip = heroTooltip(button);
+    const tooltip = heroTooltip(en, button);
     expect(tooltip.title).toBe('Hire Mercenary');
     expect(tooltip.hotkey).toBeUndefined();
     expect(tooltip.flavor).toBe('1,000 credits, 600 short.');
@@ -189,6 +192,6 @@ describe('Hero button after the Mercenary Contract, playtest 384 and 385 replaye
 
     const button = heroButton()!;
     expect(button).toMatchObject({ action: 'summon', icon: 'user', hotkey: 'G' });
-    expect(heroTooltip(button).hotkey).toBe('G');
+    expect(heroTooltip(en, button).hotkey).toBe('G');
   });
 });

@@ -10,6 +10,7 @@
 
 import { ABILITIES, ABILITY_IDS, type AbilityId } from '../configs/abilities.config';
 import { UPGRADE_MANY } from '../utils/player-actions';
+import { en } from '../i18n/messages/en';
 
 export type HotkeyAction =
   /** Pick the build card at this position of the BUILD panel, 0-based */
@@ -166,7 +167,7 @@ export const HOTKEY_HELP: readonly HotkeyHelpGroup[] = [
       { keys: ['Alt'], label: 'Hold to show the health bars the other way round (option Health Bars)' },
       ...ABILITY_IDS.map((id) => ({
         keys: [ABILITIES[id].hotkey.toUpperCase()],
-        label: `Aim the ${ABILITIES[id].name} once researched, press again to cancel`,
+        label: `Aim the ${en.abilities[id].name} once researched, press again to cancel`,
       })),
     ],
   },

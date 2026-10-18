@@ -58,6 +58,7 @@ import { TOWER_TYPES, UpgradeId } from '../configs/tower-types.config';
 import { DebugFacadeService } from './debug/debug-facade.service';
 import { ConfigService } from '../core/services/config.service';
 import { MainMenuService } from '../components/main-menu/main-menu.service';
+import { provideI18n } from '../i18n/i18n.service';
 
 // The menu's chunk needs the JIT compiler; the opener is what this spec checks
 
@@ -136,7 +137,7 @@ describe('HotkeyService', () => {
   const tower = {
     id: 't1',
     position: { lat: 48.7, lon: 9.1, height: 300 },
-    typeConfig: { shootHeight: 2, upgrades: [{ id: 'damage', name: 'Damage' }, { id: 'speed', name: 'Speed' }] },
+    typeConfig: { shootHeight: 2, upgrades: [{ id: 'damage', text: 'damage' }, { id: 'speed', text: 'fireRate' }] },
     getSellValue: () => 50,
     getAvailableUpgrades: () => [{ id: 'damage' as UpgradeId }, { id: 'speed' as UpgradeId }],
     getNextUpgradeCost: (id: UpgradeId) => (id === 'damage' ? 500 : 30),
@@ -227,7 +228,7 @@ describe('HotkeyService', () => {
     towerControl.exit.mockClear();
 
     const injector = Injector.create({
-      providers: [
+      providers: [provideI18n(), 
         { provide: TowerDefenseFacadeService, useValue: facade },
         { provide: TowerSelectionService, useValue: { select: selectTower } },
         // The upgrade commands of the real TowerUpgradeService, handed to the facade's fake as the simulation would take them
@@ -507,7 +508,7 @@ describe('HotkeyService', () => {
       service.handleKeyDown(event);
       expect(event.defaultPrevented).toBe(true);
       expect(spawnFloatingText).toHaveBeenCalledWith(
-        'SPEED LV 1', 48.7, 9.1, 305, expect.objectContaining({ color: TD_THEME.brassLight }),
+        'FIRE RATE LV 1', 48.7, 9.1, 305, expect.objectContaining({ color: TD_THEME.brassLight }),
       );
       expect(upgradeHint.hint()).toMatchObject({ towerId: 't1', upgradeId: 'speed', refusal: null });
     });

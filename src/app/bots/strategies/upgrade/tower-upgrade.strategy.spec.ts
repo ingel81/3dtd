@@ -4,6 +4,7 @@ import type { GameStateSnapshot } from '../../../director/models/game-state-snap
 import { emptySides, threatFromWaves } from '../../decision/value';
 import type { DecisionContext } from '../tower-strategy.interface';
 import { TowerUpgradeStrategy } from './tower-upgrade.strategy';
+import { en } from '../../../i18n/messages/en';
 
 function tower(id: string, typeId: TowerTypeId, levels: Partial<Record<UpgradeId, number>> = {}) {
   const typeConfig = TOWER_TYPES[typeId];
@@ -22,7 +23,7 @@ const state = (maxUpgradeTier = 1) =>
 function context(metres: Record<string, number>): DecisionContext {
   return {
     threat: threatFromWaves([{
-      wave: 1, name: '', known: true, boss: false, air: false, armors: [], count: null, note: '', description: '',
+      wave: 1, name: '', known: true, boss: false, air: false, armors: [], count: null, spawnDelayMs: null, sizedAtStart: false, hpScale: null, round: null,
       enemies: [['zombie', 1]], hpByArmor: [['unarmored', 5000]],
     }]),
     capacity: emptySides(),
@@ -44,13 +45,13 @@ describe('TowerUpgradeStrategy', () => {
 
   it('values a damage level more on a tower that sees more of the route', () => {
     const damage = (id: string) => propose([tower(id, 'archer')], context({ open: 60, hidden: 10 }))
-      .find((p) => p.label.includes(TOWER_TYPES.archer.upgrades.find((u) => u.effect.stat === 'damage')!.name))!;
+      .find((p) => p.label.includes(en.upgrades[TOWER_TYPES.archer.upgrades.find((u) => u.effect.stat === 'damage')!.text].name))!;
     expect(damage('open').value).toBeGreaterThan(damage('hidden').value);
   });
 
   it('values a range level by the route it adds', () => {
     const range = TOWER_TYPES.archer.upgrades.find((u) => u.effect.stat === 'range')!;
-    const proposal = propose([tower('a', 'archer')], context({ a: 40 })).find((p) => p.label.includes(range.name))!;
+    const proposal = propose([tower('a', 'archer')], context({ a: 40 })).find((p) => p.label.includes(en.upgrades[range.text].name))!;
     expect(proposal.value).toBeGreaterThan(0);
   });
 

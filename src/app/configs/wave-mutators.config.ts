@@ -19,10 +19,6 @@ export type WaveMutatorId = 'swift' | 'swarm' | 'regen' | 'bounty';
 
 export interface WaveMutator {
   readonly id: WaveMutatorId;
-  /** Short, for the tag in the wave preview and the banner */
-  readonly name: string;
-  /** One sentence for the tooltip */
-  readonly description: string;
   /** Factor on the wave's budget (its HP against the defense), 1 when absent */
   readonly budget?: number;
   /** Factor on every enemy's speed */
@@ -44,28 +40,20 @@ export interface WaveMutator {
 export const WAVE_MUTATORS: Readonly<Record<WaveMutatorId, WaveMutator>> = {
   swift: {
     id: 'swift',
-    name: 'Swift',
-    description: 'Enemies move 25 % faster and come with less HP.',
     speed: 1.25,
     budget: 0.8,
   },
   swarm: {
     id: 'swarm',
-    name: 'Swarm',
-    description: 'Half as many enemies again, the same HP for the whole wave.',
     count: 1.5,
   },
   regen: {
     id: 'regen',
-    name: 'Regeneration',
-    description: 'Enemies heal 2 % of their max HP a second unless they burn, and come with less HP.',
     regenPerSecond: 0.02,
     budget: 0.85,
   },
   bounty: {
     id: 'bounty',
-    name: 'Bounty',
-    description: 'Kills pay double gold.',
     killGold: 2,
   },
 };

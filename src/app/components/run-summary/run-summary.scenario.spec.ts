@@ -163,7 +163,7 @@ describe('Game-over numbers, playtest 144 (night 1) replayed', () => {
     // game:over: the fatal wave gets its block, then the summary is folded
     // out of the log with the game clock (GameStateSyncService)
     log.flushOpenWave();
-    show(runSummary(log.current(), 125_000, (type) => type));
+    show(runSummary(log.current(), 125_000));
 
     expect(figures()).toEqual({ Wave: '3', Kills: '8', Time: '2:05', Earned: '120', Spent: '240' });
 
@@ -188,7 +188,7 @@ describe('Game-over numbers, playtest 144 (night 1) replayed', () => {
     // Restart: a new run, and the next fall shows nothing of this one
     log.close('restart');
     log.open({ seed: 2, map: 'devworld', player: 'human' }, world());
-    show(runSummary(log.current(), 0, (type) => type));
+    show(runSummary(log.current(), 0));
 
     expect(figures()).toEqual({ Wave: '0', Kills: '0', Time: '0:00', Earned: '0', Spent: '0' });
     expect(bars()).toHaveLength(0);

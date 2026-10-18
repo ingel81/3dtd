@@ -117,7 +117,7 @@ function run(timescale: number, steps = COMMAND_STEP + WARNING_STEPS + MACHINE_S
   bus.emit({
     type: 'research:completed', playerId: 'local', local: true,
     researchId: EMP.researchId,
-    effects: [{ kind: 'global-perk', perkId: EMP.perkId, description: '' }],
+    effects: [{ kind: 'global-perk', perkId: EMP.perkId }],
   });
   let hits = 0;
   let kills = 0;

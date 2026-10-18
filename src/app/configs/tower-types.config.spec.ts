@@ -16,6 +16,7 @@ import { PROJECTILE_TYPES } from './projectile-types.config';
 import { getResearch, getResearchForTower } from './research/research-tree.config';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { en } from '../i18n/messages/en';
 
 describe('tower types config', () => {
   // Combat towers + passive buildings (research-center, missile-silo)
@@ -43,7 +44,7 @@ describe('tower types config', () => {
     const all = getAllTowerTypes();
     all.forEach((tower) => {
       expect(tower.id).toBeTruthy();
-      expect(tower.name).toBeTruthy();
+      expect(en.names.towers[tower.id]).toBeTruthy();
       expect(tower.modelUrl).toBeTruthy();
       expect(tower.scale).toBeGreaterThan(0);
       expect(typeof tower.heightOffset).toBe('number');
@@ -71,7 +72,7 @@ describe('tower types config', () => {
   it('only the passive buildings are one per map, and each says what it does', () => {
     for (const tower of getAllTowerTypes()) {
       expect(tower.unique === true, tower.id).toBe(tower.attackType === 'passive');
-      if (tower.attackType === 'passive') expect(tower.description, tower.id).toBeTruthy();
+      if (tower.attackType === 'passive') expect(en.towers.descriptions[tower.id], tower.id).toBeTruthy();
     }
   });
 
@@ -85,8 +86,7 @@ describe('tower types config', () => {
   it('getUpgradeCost() works without scaling', () => {
     const upgrade: TowerUpgrade = {
       id: 'damage',
-      name: 'Test',
-      description: 'Test',
+      text: 'damage',
       cost: 100,
       maxLevel: 3,
       effect: { stat: 'damage', multiplier: 1.5 },
@@ -100,8 +100,7 @@ describe('tower types config', () => {
   it('getUpgradeCost() works with scaling', () => {
     const upgrade: TowerUpgrade = {
       id: 'speed',
-      name: 'Test',
-      description: 'Test',
+      text: 'damage',
       cost: 100,
       costScaling: 2.0,
       maxLevel: 3,
@@ -116,8 +115,7 @@ describe('tower types config', () => {
   it('upgradeFactor: full multiplier up to lateFromLevel, then the late one, capped at maxLevel', () => {
     const upgrade: TowerUpgrade = {
       id: 'damage',
-      name: 'Test',
-      description: 'Test',
+      text: 'damage',
       cost: 50,
       maxLevel: 25,
       effect: { stat: 'damage', multiplier: 1.1 },

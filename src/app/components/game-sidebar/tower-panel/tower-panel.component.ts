@@ -18,6 +18,7 @@ import {
   AirSubStrategy,
   AIR_SUB_STRATEGIES,
   requiredUpgradeTier,
+  upgradeTerms,
   TargetingStrategy,
   UpgradeId,
 } from '../../../configs/tower-types.config';
@@ -30,7 +31,7 @@ import { openDamageMatrixDialog } from '../../damage-matrix-dialog/open-damage-m
 import { TdIconComponent, type TdIconName } from '../../icon/icon.component';
 import { damageTypeIcon } from '../../icon/damage-type-icon';
 import {
-  VETERAN_TOOLTIP,
+  veteranTooltip,
   targetingStrategiesFor,
   towerStats,
   upgradeHintView,
@@ -44,6 +45,8 @@ import { releasedPathsOf } from '../../../configs/release';
 import { getResearch, pathUnlockedBy } from '../../../configs/research/research-tree.config';
 import { TowerUpgradeService } from '../../../services/tower-upgrade.service';
 import { UPGRADE_MANY, isUnderConstruction, upgradeTimes, upgradeTrackRefusal } from '../../../utils/player-actions';
+import { I18n } from '../../../i18n/i18n.service';
+import { researchName } from '../../../i18n/lookups';
 
 /**
  * How often the panel re-reads the damage dealt (ms). It grows with every hit,
@@ -71,6 +74,7 @@ export class SidebarTowerPanelComponent implements OnInit, OnDestroy {
   private readonly upgradeHint = inject(UpgradeHintService);
   private readonly towerUpgrade = inject(TowerUpgradeService, { optional: true });
   readonly store = inject(TowerDefenseStore);
+  protected readonly t = inject(I18n).t;
 
   readonly tower = input.required<Tower>();
 
@@ -92,12 +96,12 @@ export class SidebarTowerPanelComponent implements OnInit, OnDestroy {
   readonly sellArmed = computed(() => this.sellConfirm.armedTowerId() === this.tower().id);
 
   /** The last U or tile click on this tower: the tile it bought flashes, or why it bought nothing */
-  readonly hintView = computed(() => upgradeHintView(this.upgradeHint.hint(), this.tower()));
+  readonly hintView = computed(() => upgradeHintView(this.t(), this.upgradeHint.hint(), this.tower()));
 
   readonly sellTower = output<void>();
   /** An upgrade tile clicked, `times` from the modifier keys (upgradeTimes, TODO E45) */
   /** Under an upgrade's tooltip: several at once (TODO E45) */
-  readonly upgradeManyHint = ` Shift-click: up to ${UPGRADE_MANY.shift}, Ctrl-click: up to ${UPGRADE_MANY.ctrl}.`;
+  readonly upgradeManyHint = computed(() => this.t().hud.tower.upgradeMany(UPGRADE_MANY.shift, UPGRADE_MANY.ctrl));
 
   readonly upgradeTower = output<{ tower: Tower; upgradeId: UpgradeId; times: number }>();
   readonly changeTargeting = output<{ tower: Tower; strategy: TargetingStrategy }>();
@@ -108,6 +112,7 @@ export class SidebarTowerPanelComponent implements OnInit, OnDestroy {
   /** Only a projectile tower can be manned (canManTower) */
   readonly canMan = computed(() => canManTower(this.tower()));
 
+  readonly upgradeTerms = upgradeTerms;
   readonly damageTypeUI = DAMAGE_TYPE_UI;
   readonly damageTypeIcon = damageTypeIcon;
   readonly airSubStrategies = AIR_SUB_STRATEGIES;
@@ -156,9 +161,11 @@ export class SidebarTowerPanelComponent implements OnInit, OnDestroy {
 
   /** The tooltip of a path tile: what it does, and what it waits for */
   pathTooltip(path: TowerPath): string {
-    if (this.underConstruction()) return `${path.description} Once the tower stands.`;
-    if (this.isPathUnlocked(path)) return `${path.description} Once per tower.`;
-    return `${path.description} Research ${getResearch(path.research)?.name ?? path.research} first.`;
+    const t = this.t();
+    const description = t.paths[path.id].description;
+    if (this.underConstruction()) return t.hud.tower.pathBuilding(description);
+    if (this.isPathUnlocked(path)) return t.hud.tower.pathOnce(description);
+    return t.hud.tower.pathResearch(description, researchName(t, path.research));
   }
 
   onChoosePath(pathId: TowerPathId): void {
@@ -167,8 +174,8 @@ export class SidebarTowerPanelComponent implements OnInit, OnDestroy {
   }
 
   /** Veteran rank from the kills, follows the same revision as the stats */
-  readonly veteran = computed(() => veteranView(this.stats().kills));
-  readonly veteranTooltip = VETERAN_TOOLTIP;
+  readonly veteran = computed(() => veteranView(this.t(), this.stats().kills));
+  readonly veteranTooltip = computed(() => veteranTooltip(this.t()));
 
   /** Ticks every DAMAGE_DEALT_REFRESH_MS while the panel is open */
   private readonly dealtTick = signal(0);
@@ -215,6 +222,7 @@ export class SidebarTowerPanelComponent implements OnInit, OnDestroy {
 
   getUpgradeTierLockReason(upgradeId: UpgradeId): string | null {
     return upgradeTierLockReason(
+      this.t(),
       this.getRequiredUpgradeTier(upgradeId),
       this.researchStore.maxUpgradeTier(),
     );

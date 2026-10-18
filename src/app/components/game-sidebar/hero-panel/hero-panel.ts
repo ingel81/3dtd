@@ -6,9 +6,10 @@ import {
   HeroStatus,
   heroLevelFor,
 } from '../../../configs/hero.config';
-import { ARMOR_TYPE_UI, DAMAGE_TYPE_UI } from '../../../configs/combat/combat-ui.config';
+import { DAMAGE_TYPE_UI } from '../../../configs/combat/combat-ui.config';
 import { DAMAGE_MATRIX } from '../../../configs/combat/damage-matrix.config';
 import { ARMOR_TYPES, ArmorType } from '../../../configs/combat/combat.types';
+import type { Messages } from '../../../i18n/messages/en';
 
 /** One button of the ammo switch. */
 export interface HeroAmmoButton {
@@ -42,21 +43,21 @@ export interface HeroPanelView {
   ammo: HeroAmmoButton[];
 }
 
-export function heroPanelView(status: HeroStatus): HeroPanelView {
+export function heroPanelView(t: Messages, status: HeroStatus): HeroPanelView {
   const ammo = HERO_AMMO[status.ammo];
   const damage = ammo.damage * heroLevelFor(status.kills).damageMultiplier;
   const top = status.xpToNext === null;
   return {
-    name: HERO.name,
+    name: t.hero.name,
     level: status.level,
     maxLevel: status.maxLevel,
     kills: status.kills,
-    xpLabel: top ? 'Top level' : `${status.xp} / ${status.xpToNext} kills`,
+    xpLabel: top ? t.hud.hero.topLevel : t.hud.hero.xp(status.xp, status.xpToNext!),
     xpPercent: top ? 100 : Math.min(100, (status.xp / status.xpToNext!) * 100),
     dps: Math.round(damage * ammo.fireRate),
     rangeM: HERO.rangeM,
-    status: status.mode === 'travel' ? 'On his way' : 'Holding his post',
-    ammo: HERO_AMMO_ORDER.map((id) => ammoButton(id, id === status.ammo)),
+    status: status.mode === 'travel' ? t.hud.hero.onHisWay : t.hud.hero.holding,
+    ammo: HERO_AMMO_ORDER.map((id) => ammoButton(t, id, id === status.ammo)),
   };
 }
 
@@ -68,16 +69,16 @@ export function bestArmorsFor(id: HeroAmmoId): ArmorType[] {
   );
 }
 
-function ammoButton(id: HeroAmmoId, active: boolean): HeroAmmoButton {
+function ammoButton(t: Messages, id: HeroAmmoId, active: boolean): HeroAmmoButton {
   const ammo = HERO_AMMO[id];
-  const damage = DAMAGE_TYPE_UI[ammo.damageType];
-  const best = bestArmorsFor(id).map((armor) => ARMOR_TYPE_UI[armor].label).join(', ');
+  const damage = t.damageTypes[ammo.damageType].label;
+  const best = bestArmorsFor(id).map((armor) => t.armorTypes[armor].label).join(', ');
   return {
     id,
-    label: ammo.name.replace(/ rounds$/, ''),
-    damageLabel: damage.label,
-    color: damage.color,
+    label: t.hero.ammoShort[id],
+    damageLabel: damage,
+    color: DAMAGE_TYPE_UI[ammo.damageType].color,
     active,
-    tooltip: `${ammo.name}: ${damage.label} damage, his best against ${best}`,
+    tooltip: t.hud.hero.ammoTip(t.hero.ammo[id], damage, best),
   };
 }

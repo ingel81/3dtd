@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { bestDamageTypesAgainst } from '../../configs/combat/damage-matrix.config';
 import { ARMOR_TYPES, ArmorType } from '../../configs/combat/combat.types';
 import { weakToLabel } from './sidebar-tooltips';
+import { en } from '../../i18n/messages/en';
 
 /** The hand-written texts in ARMOR_TYPE_UI that the matrix now supplies */
 const FORMER_WEAK_TO: Record<ArmorType, string> = {
@@ -15,7 +16,7 @@ const FORMER_WEAK_TO: Record<ArmorType, string> = {
 describe('weakToLabel', () => {
   it('reads the former weak-to texts off the damage matrix', () => {
     for (const armor of ARMOR_TYPES) {
-      expect(weakToLabel([[armor, 1]]), armor).toBe(FORMER_WEAK_TO[armor]);
+      expect(weakToLabel(en, [[armor, 1]]), armor).toBe(FORMER_WEAK_TO[armor]);
     }
   });
 });

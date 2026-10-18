@@ -18,6 +18,8 @@ import { EngineInitializationService } from './infrastructure/engine-initializat
 import { UpgradeHintService } from './upgrade-hint.service';
 import { uiSound } from './ui-sound';
 import { refuseForCredits } from './credits-refusal';
+import { I18n } from '../i18n/i18n.service';
+import type { Messages } from '../i18n/messages/en';
 
 /**
  * Text rising over the tower after a purchase: brass light for what it
@@ -34,12 +36,13 @@ const UPGRADE_TEXT = {
 } as const;
 
 /** The short reason over the tower when nothing was bought; the panel line says more. */
-function refusalLabel(refusal: UpgradeRefusal): string {
+function refusalLabel(t: Messages, refusal: UpgradeRefusal): string {
+  const says = t.hud.upgradeFloat;
   switch (refusal.kind) {
-    case 'credits': return `NEED ${refusal.missing} CREDITS`;
-    case 'tier': return 'NEEDS RESEARCH';
-    case 'maxed': return 'FULLY UPGRADED';
-    case 'building': return 'UNDER CONSTRUCTION';
+    case 'credits': return says.needCredits(refusal.missing);
+    case 'tier': return says.needsResearch;
+    case 'maxed': return says.maxed;
+    case 'building': return says.building;
   }
 }
 
@@ -60,6 +63,7 @@ export class TowerUpgradeService {
   private readonly store = inject(TowerDefenseStore);
   private readonly researchStore = inject(ResearchStore);
   private readonly upgradeHint = inject(UpgradeHintService);
+  private readonly t = inject(I18n).t;
 
   /**
    * A click on an upgrade tile: buys that track `times` in a row as far as
@@ -111,10 +115,13 @@ export class TowerUpgradeService {
     if (levels.size === 0) return false;
     for (const upgradeId of levels.keys()) this.upgradeHint.bought(tower.id, upgradeId);
     const [[first, count]] = levels;
-    const name = tower.typeConfig.upgrades.find((u) => u.id === first)?.name ?? first;
+    const t = this.t();
+    const track = tower.typeConfig.upgrades.find((u) => u.id === first);
+    const name = track ? t.upgrades[track.text].name : first;
+    const says = t.hud.upgradeFloat;
     const text = levels.size > 1
-      ? `${[...levels.values()].reduce((a, b) => a + b, 0)} UPGRADES`
-      : `${name.toUpperCase()} ${count > 1 ? `+${count}` : `LV ${tower.getUpgradeLevel(first) + 1}`}`;
+      ? says.many([...levels.values()].reduce((a, b) => a + b, 0))
+      : count > 1 ? says.plus(name, count) : says.level(name, tower.getUpgradeLevel(first) + 1);
     this.floatOverTower(tower, text, UPGRADE_TEXT.bought);
     return true;
   }
@@ -142,7 +149,7 @@ export class TowerUpgradeService {
       return false;
     }
     this.sim.bus.emit({ type: 'command:choose-path', towerId: tower.id, pathId });
-    this.floatOverTower(tower, path.name.toUpperCase(), UPGRADE_TEXT.bought);
+    this.floatOverTower(tower, this.t().paths[path.id].name.toUpperCase(), UPGRADE_TEXT.bought);
     return true;
   }
 
@@ -150,7 +157,7 @@ export class TowerUpgradeService {
     if (refusal.kind === 'credits') refuseForCredits();
     else uiSound.play('denied');
     this.upgradeHint.refused(tower.id, refusal);
-    this.floatOverTower(tower, refusalLabel(refusal), UPGRADE_TEXT.refused);
+    this.floatOverTower(tower, refusalLabel(this.t(), refusal), UPGRADE_TEXT.refused);
   }
 
   private floatOverTower(tower: Tower, text: string, color: string): void {

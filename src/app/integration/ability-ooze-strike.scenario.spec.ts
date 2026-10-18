@@ -98,7 +98,7 @@ describe('Nuclear strike on the ooze body, playtest 361 replayed', () => {
     bus.emit({
       type: 'research:completed', playerId: 'local', local: true,
       researchId: NUKE.researchId,
-      effects: [{ kind: 'global-perk', perkId: NUKE.perkId, description: '' }],
+      effects: [{ kind: 'global-perk', perkId: NUKE.perkId }],
     });
   });
 

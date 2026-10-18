@@ -2,26 +2,26 @@
 <h2 class="td-side-head">
   <span class="td-side-name" [class.is-armed]="sellArmed()" aria-live="polite">
     @if (owner(); as name) {
-      {{ name + "'s " + tower().typeConfig.name }}
+      {{ t().hud.tower.owners(name, t().names.towers[tower().typeConfig.id]) }}
     } @else {
-      {{ sellArmed() ? 'Click again to sell' : tower().typeConfig.name }}
+      {{ sellArmed() ? t().hud.sell.again : t().names.towers[tower().typeConfig.id] }}
     }
   </span>
   @if (viewOnly()) {
-    <span class="td-caps" matTooltip="A partner's tower: you can look, not change it" matTooltipPosition="left">view only</span>
+    <span class="td-caps" [matTooltip]="t().hud.tower.viewOnlyTip" matTooltipPosition="left">{{ t().hud.tower.viewOnly }}</span>
   } @else if (stats().sellValue > 0) {
     <button class="td-btn-danger td-btn-sm"
             [class.is-armed]="sellArmed()"
             aria-keyshortcuts="Delete"
-            [matTooltip]="sellArmed() ? 'Click again to sell for ' + stats().sellValue + ' credits' : 'Sell tower: refunds 75% of total invested (base + upgrades)'"
+            [matTooltip]="sellArmed() ? t().hud.sell.againFor(stats().sellValue) : t().hud.sell.refundsTower"
             matTooltipPosition="left"
-            [attr.aria-label]="(sellArmed() ? 'Confirm: sell for ' : 'Sell for ') + stats().sellValue + ' credits'"
+            [attr.aria-label]="sellArmed() ? t().hud.sell.confirmFor(stats().sellValue) : t().hud.sell.sellFor(stats().sellValue)"
             (click)="onSell()">
-      Sell <span class="td-num">{{ stats().sellValue }}</span>
+      {{ t().hud.sell.sell }} <span class="td-num">{{ stats().sellValue }}</span>
     </button>
   }
   <button class="td-tool" type="button" (click)="openDamageMatrix()"
-          aria-label="Damage vs armor" matTooltip="Damage vs armor" matTooltipPosition="left">
+          [attr.aria-label]="t().hud.build.damageMatrix" [matTooltip]="t().hud.build.damageMatrix" matTooltipPosition="left">
     <td-icon name="info" [size]="16"></td-icon>
   </button>
 </h2>
@@ -31,51 +31,51 @@
   <div class="tp-stats td-tiles">
     <div class="td-tile tp-type" [style.--damage-color]="damageTypeUI[tower().typeConfig.damageType].color">
       <td-icon [size]="18" [name]="damageTypeIcon(tower().typeConfig.damageType)"></td-icon>
-      <span class="td-value is-sm tp-type-name">{{ damageTypeUI[tower().typeConfig.damageType].label }}</span>
-      <span class="td-caps">Type</span>
+      <span class="td-value is-sm tp-type-name">{{ t().damageTypes[tower().typeConfig.damageType].label }}</span>
+      <span class="td-caps">{{ t().hud.tower.type }}</span>
     </div>
     <div class="td-tile">
       <td-icon class="td-tone-hurt" name="flame" [size]="18"></td-icon>
-      <span class="td-value is-sm td-tone-hurt">{{ stats().damage | number:'1.0-0' }}</span>
-      <span class="td-caps">Damage</span>
+      <span class="td-value is-sm td-tone-hurt">{{ t().units.int(stats().damage) }}</span>
+      <span class="td-caps">{{ t().hud.tower.damage }}</span>
     </div>
     <div class="td-tile">
       <td-icon class="td-tone-brass" name="speed" [size]="18"></td-icon>
-      <span class="td-value is-sm">{{ stats().fireRate | number:'1.2-2' }}/s</span>
-      <span class="td-caps">Fire rate</span>
+      <span class="td-value is-sm">{{ t().hud.tower.perSecond(stats().fireRate) }}</span>
+      <span class="td-caps">{{ t().hud.tower.fireRate }}</span>
     </div>
     <div class="td-tile">
       <td-icon class="td-tone-teal" name="target" [size]="18"></td-icon>
-      <span class="td-value is-sm">{{ stats().range | number:'1.0-0' }} m</span>
-      <span class="td-caps">Range</span>
+      <span class="td-value is-sm">{{ t().hud.tower.metres(stats().range) }}</span>
+      <span class="td-caps">{{ t().hud.tower.range }}</span>
     </div>
     <div class="td-tile">
       <td-icon class="td-tone-brass" name="bolt" [size]="18"></td-icon>
-      <span class="td-value is-sm">{{ stats().dps | number:'1.0-0' }}</span>
-      <span class="td-caps">DPS</span>
+      <span class="td-value is-sm">{{ t().units.int(stats().dps) }}</span>
+      <span class="td-caps">{{ t().hud.tower.dps }}</span>
     </div>
-    <div class="td-tile" matTooltip="Killing blows since it was built" matTooltipPosition="above">
+    <div class="td-tile" [matTooltip]="t().hud.tower.killsTip" matTooltipPosition="above">
       <td-icon class="td-tone-brass" name="shield" [size]="18"></td-icon>
       <span class="td-value is-sm td-tone-brass">{{ stats().kills }}</span>
-      <span class="td-caps">Kills</span>
+      <span class="td-caps">{{ t().hud.tower.kills }}</span>
     </div>
-    <div class="td-tile" matTooltip="Damage dealt since it was built, overkill not counted" matTooltipPosition="above">
+    <div class="td-tile" [matTooltip]="t().hud.tower.dealtTip" matTooltipPosition="above">
       <td-icon class="td-tone-brass" name="sword" [size]="18"></td-icon>
       <span class="td-value is-sm td-tone-brass">{{ damageDealt() }}</span>
-      <span class="td-caps">Dealt</span>
+      <span class="td-caps">{{ t().hud.tower.dealt }}</span>
     </div>
   </div>
 
   <!-- Veteran rank from killing blows, cosmetic: insignia as over the tower, kills to the next rank -->
   <div class="td-well tp-rank" [class.is-gold]="veteran().gold" [class.is-recruit]="veteran().level === 0"
-       [matTooltip]="veteranTooltip" matTooltipPosition="above">
+       [matTooltip]="veteranTooltip()" matTooltipPosition="above">
     <td-icon class="tp-rank-icon" [name]="veteran().icon" [size]="16"></td-icon>
     <span class="td-caps tp-rank-name">{{ veteran().name }}</span>
     <span class="td-note td-num tp-rank-count">
-      @if (veteran().nextAt !== null) {
-        {{ veteran().kills }} / {{ veteran().nextAt }} kills
+      @if (veteran().nextAt; as next) {
+        {{ t().hud.tower.rankKills(veteran().kills, next) }}
       } @else {
-        {{ veteran().kills }} kills
+        {{ t().hud.tower.killCount(veteran().kills) }}
       }
     </span>
     <span class="td-progress tp-rank-bar" aria-hidden="true">
@@ -87,25 +87,25 @@
   <div class="td-seg tp-targets">
     @for (s of targetingStrategies(); track s.id) {
       <button type="button" [disabled]="viewOnly()"
-              [matTooltip]="s.tooltip" matTooltipPosition="above"
-              [attr.aria-label]="'Target: ' + s.label"
+              [matTooltip]="t().hud.targeting[s.id].tooltip" matTooltipPosition="above"
+              [attr.aria-label]="t().hud.tower.target(t().hud.targeting[s.id].label)"
               [attr.aria-pressed]="tower().targetingStrategy === s.id"
               (click)="onChangeTargeting(s.id)">
         <td-icon [name]="$any(s.icon)" [size]="18"></td-icon>
       </button>
     }
     <button type="button" class="tp-hold" [disabled]="viewOnly()"
-            [matTooltip]="tower().holdFire ? 'Holding fire: click to attack again' : 'Hold fire: the tower stops attacking'"
+            [matTooltip]="tower().holdFire ? t().hud.tower.holding : t().hud.tower.holdTip"
             matTooltipPosition="above"
-            aria-label="Hold fire" [attr.aria-pressed]="tower().holdFire"
+            [attr.aria-label]="t().hud.tower.hold" [attr.aria-pressed]="tower().holdFire"
             (click)="onToggleHoldFire()">
       <td-icon name="pause" [size]="18"></td-icon>
     </button>
     @if (canMan() && !viewOnly()) {
       <button type="button"
-              matTooltip="Get in and fire it yourself (C): mouse aims, left button fires, Esc gets out"
+              [matTooltip]="t().hud.tower.manTip"
               matTooltipPosition="above"
-              aria-label="Get into the tower and fire it yourself"
+              [attr.aria-label]="t().hud.tower.man"
               (click)="takeControl.emit(tower())">
         <td-icon name="gamepad" [size]="18"></td-icon>
       </button>
@@ -117,8 +117,8 @@
     <div class="td-seg tp-targets">
       @for (s of airSubStrategies; track s.id) {
         <button type="button" [disabled]="viewOnly()"
-                [matTooltip]="s.tooltip" matTooltipPosition="above"
-                [attr.aria-label]="'Air target: ' + s.label"
+                [matTooltip]="t().hud.airTargeting[s.id].tooltip" matTooltipPosition="above"
+                [attr.aria-label]="t().hud.tower.airTarget(t().hud.airTargeting[s.id].label)"
                 [attr.aria-pressed]="tower().airSubStrategy === s.id"
                 (click)="onChangeAirSubStrategy(s.id)">
           <td-icon [name]="$any(s.icon)" [size]="18"></td-icon>
@@ -130,7 +130,7 @@
   <!-- Upgrades -->
   <div class="td-stack tp-upgrades">
     @if (!viewOnly() && underConstruction()) {
-      <p class="td-banner" role="status">Under construction: upgrades once it stands</p>
+      <p class="td-banner" role="status">{{ t().hud.tower.underConstruction }}</p>
     } @else if (!viewOnly() && hintView().refusalText; as reason) {
       <p class="td-banner is-warn" role="status">{{ reason }}</p>
     }
@@ -144,13 +144,13 @@
         [class.is-flash-alt]="hintView().flashId === upgrade.id && hintView().flashAlt"
         [attr.aria-disabled]="refused || viewOnly()"
         (click)="onUpgradeTower(upgrade.id, $event)"
-        [matTooltip]="(getUpgradeTierLockReason(upgrade.id) ?? upgrade.description) + (viewOnly() ? '' : upgradeManyHint)"
+        [matTooltip]="(getUpgradeTierLockReason(upgrade.id) ?? t().upgrades[upgrade.text].description(upgradeTerms(upgrade))) + (viewOnly() ? '' : upgradeManyHint())"
         matTooltipPosition="left"
       >
         <td-icon [size]="18" [name]="isUpgradeTierUnlocked(upgrade.id) ? 'arrowUp' : 'lock'"></td-icon>
         <span class="td-plate-label">
-          <span class="td-name">{{ upgrade.name }} <span class="td-caps">T{{ getRequiredUpgradeTier(upgrade.id) }}</span></span>
-          <span class="td-sub">Level {{ tower().getUpgradeLevel(upgrade.id) + 1 }} of {{ upgrade.maxLevel }}</span>
+          <span class="td-name">{{ t().upgrades[upgrade.text].name }} <span class="td-caps">{{ t().hud.tower.tier(getRequiredUpgradeTier(upgrade.id)) }}</span></span>
+          <span class="td-sub">{{ t().hud.tower.levelOf(tower().getUpgradeLevel(upgrade.id) + 1, upgrade.maxLevel) }}</span>
         </span>
         @if (!viewOnly()) {
           <span class="td-figure">{{ tower().getNextUpgradeCost(upgrade.id) }}</span>
@@ -163,10 +163,10 @@
   @if (paths().length > 0) {
     <div class="td-stack tp-paths">
       @if (chosenPath(); as path) {
-        <div class="td-inline tp-path-chosen" [matTooltip]="path.description" matTooltipPosition="left">
+        <div class="td-inline tp-path-chosen" [matTooltip]="t().paths[path.id].description" matTooltipPosition="left">
           <td-icon class="td-tone-brass" [name]="pathIcon(path)" [size]="16"></td-icon>
-          <span class="td-name">{{ path.name }}</span>
-          <span class="td-caps">path</span>
+          <span class="td-name">{{ t().paths[path.id].name }}</span>
+          <span class="td-caps">{{ t().hud.tower.path }}</span>
         </div>
       } @else {
         @for (path of paths(); track path.id) {
@@ -178,8 +178,8 @@
                   (click)="onChoosePath(path.id)">
             <td-icon [size]="18" [name]="unlocked ? pathIcon(path) : 'lock'"></td-icon>
             <span class="td-plate-label">
-              <span class="td-name">{{ path.name }} <span class="td-caps">path</span></span>
-              <span class="td-sub">once per tower</span>
+              <span class="td-name">{{ t().paths[path.id].name }} <span class="td-caps">{{ t().hud.tower.path }}</span></span>
+              <span class="td-sub">{{ t().hud.tower.oncePerTower }}</span>
             </span>
             @if (!viewOnly()) {
               <span class="td-figure">{{ path.cost }}</span>

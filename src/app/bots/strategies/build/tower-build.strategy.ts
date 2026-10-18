@@ -21,6 +21,7 @@ import { BotConfig, TowerAction, towersByWave } from '../../bots/tower-bot.inter
 import type { Proposal } from '../../decision/arbiter';
 import { killTimeSaved, newTowerCapacity } from '../../decision/value';
 import type { DecisionContext, ITowerStrategy } from '../tower-strategy.interface';
+import { en } from '../../../i18n/messages/en';
 
 /** Where the spot comes from: zones along the route that lack towers, or the two ends of the route */
 export type BuildSpots = 'distributed' | 'strategic';
@@ -58,7 +59,7 @@ export class TowerBuildStrategy implements ITowerStrategy {
       const added = newTowerCapacity(typeId, airUnlocked, context.routes, context.capacity, context.routeMetres);
       proposals.push({
         kind: 'buy',
-        label: cfg.name,
+        label: en.names.towers[cfg.id],
         cost: cfg.cost,
         value: killTimeSaved(context.threat, context.capacity, added) * (standing.has(typeId) ? 1 : FIRST_OF_TYPE),
         act: () => this.place(typeId),
@@ -78,7 +79,7 @@ export class TowerBuildStrategy implements ITowerStrategy {
       type: 'place',
       position: { x: best.position.lon, z: best.position.lat },
       towerType: typeId,
-      reason: `Build ${TOWER_TYPES[typeId].name} - ${best.reason}`,
+      reason: `Build ${en.names.towers[typeId]} - ${best.reason}`,
     };
   }
 }

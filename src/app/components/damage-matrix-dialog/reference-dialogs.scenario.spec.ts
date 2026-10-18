@@ -28,6 +28,7 @@ import { ResearchStore } from '../../store/research.store';
 import { DamageMatrixDialogComponent } from './damage-matrix-dialog.component';
 import { openDamageMatrixDialog } from './open-damage-matrix-dialog';
 import { buildDamageMatrixColumns, buildDamageMatrixRows } from './damage-matrix-table';
+import { en } from '../../i18n/messages/en';
 
 const template = readFileSync(resolve('src/app/components/damage-matrix-dialog/damage-matrix-dialog.component.html'), 'utf8');
 
@@ -99,7 +100,7 @@ describe('Damage vs armor, logic of playtest 160 (night 1) replayed', () => {
     const marked = overlay().querySelectorAll('tr.is-selected');
     expect(marked).toHaveLength(1);
     expect(marked[0].getAttribute('aria-current')).toBe('true');
-    const archer = buildDamageMatrixRows(() => true).find((row) => row.towerId === 'archer')!;
+    const archer = buildDamageMatrixRows(en, () => true).find((row) => row.towerId === 'archer')!;
     expect(marked[0].querySelector('.tower-name')!.textContent!.trim()).toBe(archer.name);
     // The dialog took the focus
     expect(overlay().contains(document.activeElement)).toBe(true);
@@ -134,7 +135,7 @@ describe('Damage vs armor, logic of playtest 160 (night 1) replayed', () => {
     await openDamageMatrixDialog(dialog);
     await settle();
     const lists = [...overlay().querySelectorAll('.dm-examples ul.dm-enemies')];
-    const columns = buildDamageMatrixColumns();
+    const columns = buildDamageMatrixColumns(en);
     expect(lists).toHaveLength(columns.length);
     lists.forEach((list, i) => {
       expect([...list.querySelectorAll('li')].map((li) => li.textContent!.trim())).toEqual(columns[i].examples);

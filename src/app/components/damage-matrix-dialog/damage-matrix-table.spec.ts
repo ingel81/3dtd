@@ -14,9 +14,11 @@ import {
   EFFECTIVENESS_COLORS,
   EFFECTIVENESS_THRESHOLDS,
 } from '../../configs/combat/damage-matrix.config';
-import { ARMOR_TYPE_UI, DAMAGE_TYPE_UI } from '../../configs/combat/combat-ui.config';
+import { DAMAGE_TYPE_UI } from '../../configs/combat/combat-ui.config';
 import { TOWER_TYPES } from '../../configs/tower-types.config';
 import { ENEMY_TYPES } from '../../configs/enemy-types.config';
+import { en } from '../../i18n/messages/en';
+import type { EnemyTypeId } from '../../configs/enemy-types.config';
 
 /** Matrix mit 1.0 überall, einzelne Felder überschrieben. */
 function flatMatrix(overrides: Partial<Record<DamageType, Partial<Record<ArmorType, number>>>>): DamageMatrix {
@@ -42,7 +44,7 @@ describe('matrixTierColor', () => {
 });
 
 describe('buildDamageMatrixRows', () => {
-  const rows = buildDamageMatrixRows();
+  const rows = buildDamageMatrixRows(en);
 
   it('lists every tower of the build menu in config order, without the passive buildings', () => {
     const expected = Object.keys(TOWER_TYPES).filter((id) => id !== 'research-center' && id !== 'missile-silo');
@@ -52,8 +54,8 @@ describe('buildDamageMatrixRows', () => {
   it('labels each row with the tower name and its damage type', () => {
     for (const row of rows) {
       const tower = TOWER_TYPES[row.towerId];
-      expect(row.name).toBe(tower.name);
-      expect(row.damageLabel).toBe(DAMAGE_TYPE_UI[tower.damageType].label);
+      expect(row.name).toBe(en.names.towers[tower.id]);
+      expect(row.damageLabel).toBe(en.damageTypes[tower.damageType].label);
       expect(row.damageColor).toBe(DAMAGE_TYPE_UI[tower.damageType].color);
     }
   });
@@ -92,7 +94,7 @@ describe('buildDamageMatrixRows', () => {
     const matrix = flatMatrix({
       physical: { unarmored: t.devastating, light: t.strong, heavy: 1.0, fortified: t.weak - 0.01, ethereal: t.weak },
     });
-    const archer = buildDamageMatrixRows(() => true, [TOWER_TYPES.archer], matrix)[0];
+    const archer = buildDamageMatrixRows(en, () => true, [TOWER_TYPES.archer], matrix)[0];
     expect(archer.cells.map((c) => c.effectiveness)).toEqual(['devastating', 'strong', 'normal', 'weak', 'normal']);
     expect(archer.cells[0].text).toBe(formatMultiplier(t.devastating));
     expect(archer.cells[0].tierLabel).toBe('Devastating');
@@ -104,7 +106,7 @@ describe('buildDamageMatrixRows', () => {
   it('leaves out locked towers and counts them for the research hint', () => {
     const combatTowers = rows.length;
     const onlyArcher = (id: string) => id === 'archer';
-    expect(buildDamageMatrixRows(onlyArcher).map((r) => r.towerId)).toEqual(['archer']);
+    expect(buildDamageMatrixRows(en, onlyArcher).map((r) => r.towerId)).toEqual(['archer']);
     expect(countLockedTowers(onlyArcher)).toBe(combatTowers - 1);
     expect(countLockedTowers(() => true)).toBe(0);
   });
@@ -112,11 +114,11 @@ describe('buildDamageMatrixRows', () => {
   it('adds a tower as soon as its research completes, in build-menu position', () => {
     const unlocked = new Set<string>(['archer']);
     const isUnlocked = (id: string) => unlocked.has(id);
-    expect(buildDamageMatrixRows(isUnlocked).map((r) => r.towerId)).toEqual(['archer']);
+    expect(buildDamageMatrixRows(en, isUnlocked).map((r) => r.towerId)).toEqual(['archer']);
 
     unlocked.add('cannon');
     unlocked.add('dual-gatling');
-    expect(buildDamageMatrixRows(isUnlocked).map((r) => r.towerId)).toEqual(['archer', 'dual-gatling', 'cannon']);
+    expect(buildDamageMatrixRows(en, isUnlocked).map((r) => r.towerId)).toEqual(['archer', 'dual-gatling', 'cannon']);
     expect(countLockedTowers(isUnlocked)).toBe(rows.length - 3);
   });
 
@@ -127,18 +129,18 @@ describe('buildDamageMatrixRows', () => {
 });
 
 describe('buildDamageMatrixColumns', () => {
-  const columns = buildDamageMatrixColumns();
+  const columns = buildDamageMatrixColumns(en);
 
   it('has one column per armor type with its UI label', () => {
     expect(columns.map((c) => c.armor)).toEqual([...ARMOR_TYPES]);
-    for (const col of columns) expect(col.label).toBe(ARMOR_TYPE_UI[col.armor].label);
+    for (const col of columns) expect(col.label).toBe(en.armorTypes[col.armor].label);
   });
 
   it('lists every enemy exactly once, under its own armor type', () => {
     const enemies = Object.values(ENEMY_TYPES);
     expect(columns.flatMap((c) => c.examples)).toHaveLength(enemies.length);
     for (const col of columns) {
-      const expected = enemies.filter((e) => e.armorType === col.armor).map((e) => e.name);
+      const expected = enemies.filter((e) => e.armorType === col.armor).map((e) => en.names.enemies[e.id as EnemyTypeId]);
       expect(col.examples).toEqual(expected);
     }
   });

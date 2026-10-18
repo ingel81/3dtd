@@ -67,12 +67,9 @@ export class ResearchStore {
     return towerUnlockedBy(towerId, this.completedResearches(), this.runRules());
   }
 
-  /**
-   * Get the name of the research needed to unlock a tower.
-   */
-  getRequiredResearchName(towerId: TowerTypeId): string | null {
-    const research = getResearchForTower(towerId);
-    return research ? research.name : null;
+  /** The research that unlocks a tower, null for one no research unlocks */
+  getRequiredResearchId(towerId: TowerTypeId): string | null {
+    return getResearchForTower(towerId)?.id ?? null;
   }
 
   /**

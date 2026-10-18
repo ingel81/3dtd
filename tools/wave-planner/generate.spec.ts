@@ -45,6 +45,8 @@ import { CAMPAIGN } from '../../src/app/configs/campaign.config';
 import { planRowForWave } from '../../src/app/director/sources/budget/run-plan';
 import { ENEMY_TYPES, type EnemyTypeId } from '../../src/app/configs/enemy-types.config';
 import { GAME_BALANCE } from '../../src/app/configs/game-balance.config';
+import { en } from '../../src/app/i18n/messages/en';
+import { researchName } from '../../src/app/i18n/lookups';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT_PATH = resolve(__dirname, '../../docs/wave-planner.html');
@@ -160,7 +162,7 @@ function buildPayload(): Payload {
     .filter((t) => t.attackType !== 'passive')
     .map((t) => ({
       id: t.id,
-      name: t.name,
+      name: en.names.towers[t.id],
       cost: t.cost,
       attackType: t.attackType ?? 'projectile',
       damageType: t.damageType,
@@ -170,7 +172,7 @@ function buildPayload(): Payload {
         .filter((u) => u.effect.stat !== 'research-slots')
         .map((u) => ({
           id: u.id,
-          name: u.name,
+          name: en.upgrades[u.text].name,
           stat: u.effect.stat,
           baseCost: u.cost,
           scaling: u.costScaling ?? 1,
@@ -181,7 +183,7 @@ function buildPayload(): Payload {
 
   const researches: PayloadResearch[] = releasedResearch(true).map((r) => ({
     id: r.id,
-    name: r.name,
+    name: researchName(en, r.id),
     cost: r.cost,
     category: r.category,
     prerequisites: [...r.prerequisites],

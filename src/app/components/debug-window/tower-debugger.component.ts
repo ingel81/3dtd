@@ -3,8 +3,9 @@ import { CommonModule } from '@angular/common';
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
 import { DebugWindowService } from '../../services/debug/debug-window.service';
 import { TowerDebugService } from '../../services/debug/tower-debug.service';
-import { TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
+import { TowerTypeId } from '../../configs/tower-types.config';
 import { TdIconComponent } from '../icon/icon.component';
+import { en } from '../../i18n/messages/en';
 
 @Component({
   selector: 'app-tower-debugger',
@@ -19,7 +20,7 @@ export class TowerDebuggerComponent {
   readonly towerDebug = inject(TowerDebugService);
 
   getTowerName(id: TowerTypeId): string {
-    return TOWER_TYPES[id].name;
+    return en.names.towers[id];
   }
 
   onTowerSelect(event: Event): void {

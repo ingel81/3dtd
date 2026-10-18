@@ -11,6 +11,7 @@ import { SimClient } from '../sim/client/sim-client.service';
 import { SimMirror } from '../sim/client/mirror/sim-mirror';
 import { RouteQueriesService } from './route-queries.service';
 import { RefusalHintService, abilityNoRouteText } from './refusal-hint.service';
+import { I18n } from '../i18n/i18n.service';
 
 /**
  * Targeting mode of the player abilities: the ability's button in the
@@ -37,6 +38,7 @@ export class AbilityTargetingService {
   private readonly sim = inject(SimClient);
   private readonly mirror = inject(SimMirror);
   private readonly routes = inject(RouteQueriesService);
+  private readonly t = inject(I18n).t;
 
   private engine: ThreeTilesEngine | null = null;
   private readonly scratch = new Vector3();
@@ -116,7 +118,7 @@ export class AbilityTargetingService {
       this.warning.set(null);
     } else {
       this.engine.abilityMarkers.showAim(hitPoint, radiusM, false);
-      this.warning.set(abilityNoRouteText(id));
+      this.warning.set(abilityNoRouteText(this.t(), id));
     }
   }
 
@@ -131,7 +133,7 @@ export class AbilityTargetingService {
     if (!id || !this.engine) return;
 
     if (!this.routes.resolveAbilityTarget(id, { lat, lon, height })) {
-      this.warning.set(abilityNoRouteText(id));
+      this.warning.set(abilityNoRouteText(this.t(), id));
       return;
     }
     this.sim.bus.emit({

@@ -88,7 +88,7 @@ describe('Missile silo: the missile standing in it', () => {
     bus.emit({
       type: 'research:completed', playerId: 'local', local: true,
       researchId: 'nuclear-strike',
-      effects: [{ kind: 'global-perk', perkId: NUKE.perkId, description: '' }],
+      effects: [{ kind: 'global-perk', perkId: NUKE.perkId }],
     });
   });
 

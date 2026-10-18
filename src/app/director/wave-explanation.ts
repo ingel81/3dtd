@@ -25,7 +25,6 @@ export interface DecisionExplanation {
 /** One enemy type of a budget wave */
 export interface BudgetTypeLine {
   type: string;
-  name: string;
   count: number;
   armor: ArmorType;
   hpMult: number;

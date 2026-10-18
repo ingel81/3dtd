@@ -27,7 +27,6 @@ import { EngineInitializationService } from '../../../services/infrastructure/en
 import { AUTO_WAVE_DELAY_MS } from '../../../utils/auto-wave-countdown';
 import { toneWavDataUrl } from '../../../utils/alert-tone';
 import { UI_SOUNDS } from '../../../configs/audio.config';
-import { ARMOR_TYPE_UI } from '../../../configs/combat/combat-ui.config';
 import { EnemyTypeId, ENEMY_TYPES } from '../../../configs/enemy-types.config';
 import { TowerTypeId } from '../../../configs/tower-types.config';
 import { ModelPreviewService } from '../../../services/infrastructure/model-preview.service';
@@ -48,6 +47,9 @@ import { WaveTimelineComponent } from './wave-timeline.component';
 import { ReplayService } from '../../../services/replay.service';
 import { COOP } from '../../../services/coop.token';
 import { enemyPreviewConfig } from '../../../services/infrastructure/preview-sheets';
+import { I18n } from '../../../i18n/i18n.service';
+import type { WaveGroupDisplay } from '../../../services/debug/wave-debug.service';
+import type { TdTooltipData } from '../../tooltip/tooltip-data.types';
 
 /**
  * WAVE-Sektion der Sidebar: Gegnergruppen der laufenden Welle mit 3D-Preview,
@@ -86,6 +88,7 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   /** Coop, where the game runs one: the button means ready (D15) */
   private readonly coop = inject(COOP, { optional: true });
   readonly replay = inject(ReplayService);
+  protected readonly t = inject(I18n).t;
 
   constructor() {
     // Update enemy group previews when wave groups change
@@ -163,6 +166,7 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   /** Label, accessible name, "N left", countdown and bar width of the wave button. */
   readonly waveButton = computed(() =>
     waveButtonView(
+      this.t(),
       this.displayedWaveNumber(),
       this.waveActive(),
       this.store.waveEnemyTotal(),
@@ -183,6 +187,7 @@ export class SidebarWavePanelComponent implements AfterViewInit {
    */
   readonly upcomingWaves = computed(() =>
     peekUpcomingWaves(
+      this.t(),
       this.waveDirector.peek({
         fromWave: this.store.waveNumber() + 1,
         count: NEXT_WAVE_MARKS,
@@ -223,7 +228,7 @@ export class SidebarWavePanelComponent implements AfterViewInit {
 
   readonly waveAlertViews = computed(() => {
     const unlocked = this.researchStore.airTargetingUnlocked();
-    return this.waveAlerts().map((alert) => waveAlertView(alert, unlocked));
+    return this.waveAlerts().map((alert) => waveAlertView(this.t(), alert, unlocked));
   });
 
   private readonly alertAnnouncers: Record<WaveAlertKind, WaveAlertAnnouncer> = {
@@ -248,12 +253,16 @@ export class SidebarWavePanelComponent implements AfterViewInit {
     return (await audio.playGlobal(id)) !== null;
   }
 
-  readonly groupTooltip = enemyGroupTooltip;
+  groupTooltip(group: WaveGroupDisplay): TdTooltipData | null {
+    return enemyGroupTooltip(this.t(), group);
+  }
   readonly formatLeak = formatLeak;
   /** What the running wave costs the HQ if all of it gets through (TODO E49) */
   readonly leakTotal = computed(() => waveLeakTotal(this.currentWaveGroups()));
   /** "Splits into 2 minions on death" under the armor line, null for a type that does not split. */
-  readonly enemyTrait = enemyTraitLabel;
+  enemyTrait(enemyType: EnemyTypeId): string | null {
+    return enemyTraitLabel(this.t(), enemyType);
+  }
 
   @ViewChildren('mixedEnemyCanvas') mixedEnemyCanvases!: QueryList<ElementRef<HTMLCanvasElement>>;
   private activeMixedPreviewIds: string[] = [];
@@ -278,12 +287,12 @@ export class SidebarWavePanelComponent implements AfterViewInit {
 
   getArmorLabel(enemyType: EnemyTypeId): string {
     const config = ENEMY_TYPES[enemyType];
-    return config?.armorType ? ARMOR_TYPE_UI[config.armorType].label : '';
+    return config?.armorType ? this.t().armorTypes[config.armorType].label : '';
   }
 
   getArmorWeakTo(enemyType: EnemyTypeId): string {
     const config = ENEMY_TYPES[enemyType];
-    return config?.armorType ? weakToLabel([[config.armorType, 1]]) : '';
+    return config?.armorType ? weakToLabel(this.t(), [[config.armorType, 1]]) : '';
   }
 
   private initMixedEnemyPreviews(): void {

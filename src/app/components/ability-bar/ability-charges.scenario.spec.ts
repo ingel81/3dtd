@@ -21,6 +21,7 @@ import type { GeoPosition } from '../../models/game.types';
 import { singlePlayer } from '../../integration/single-player-parts';
 import { GameClock } from '../../managers/game-state/game-clock';
 import { stepsOf } from '../../integration/test-helpers';
+import { provideI18n } from '../../i18n/i18n.service';
 
 /** GameClock.FIXED_STEP_MS: the length of one gameplay sub-step. */
 const STEP_MS = GameClock.FIXED_STEP_MS;
@@ -75,7 +76,7 @@ describe('Ability buttons through a strike and its recharge, playtest 318 and 31
     bus.on('ability:state-changed', mirror);
 
     const injector = Injector.create({
-      providers: [
+      providers: [provideI18n(), 
         { provide: TowerDefenseStore, useValue: { abilities: abilityStatuses, waveActive } },
         { provide: AbilityTargetingService, useValue: { targeting, toggle: vi.fn() } },
         { provide: DestroyRef, useValue: { onDestroy: () => () => undefined, destroyed: false } },

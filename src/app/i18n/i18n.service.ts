@@ -1,4 +1,4 @@
-import { DOCUMENT, Injectable, computed, effect, inject, signal, type Signal } from '@angular/core';
+import { DOCUMENT, InjectionToken, computed, effect, inject, signal, type Provider, type Signal } from '@angular/core';
 import { UIStore } from '../store/ui.store';
 import { DICTIONARIES } from './dictionaries';
 import { SOURCE_LOCALE, resolveLocale, type Locale, type LocalePreference } from './locale';
@@ -14,11 +14,7 @@ import { en, type Messages } from './messages/en';
  * The choice lives in UIStore (`localePreference`); this service follows it,
  * loads the dictionary and keeps `<html lang>` in step.
  */
-@Injectable({ providedIn: 'root' })
-export class I18n {
-  /** The player's choice; a stand-in UIStore in a test without it plays in the system's language */
-  private readonly preference: Signal<LocalePreference> =
-    inject(UIStore, { optional: true })?.localePreference ?? signal<LocalePreference>('system');
+export class I18nService {
   private readonly document = inject(DOCUMENT, { optional: true });
   private readonly active = signal<{ locale: Locale; t: Messages }>({ locale: SOURCE_LOCALE, t: en });
   /** The latest language asked for; an older load that arrives late is dropped */
@@ -32,10 +28,15 @@ export class I18n {
   /** The language the system would pick, for "System (Deutsch)" in Settings */
   readonly systemLocale: Locale = resolveLocale('system', this.languages());
 
-  constructor() {
-    effect(() => {
-      this.loading = this.use(resolveLocale(this.preference(), this.languages()));
-    });
+  /** @param preference the player's choice (UIStore.localePreference) */
+  constructor(private readonly preference: Signal<LocalePreference>) {
+    try {
+      effect(() => {
+        this.loading = this.use(resolveLocale(this.preference(), this.languages()));
+      });
+    } catch {
+      // An injector without change detection (one a spec builds by hand): the source language stays
+    }
   }
 
   /** Resolves once the chosen language is loaded: the app waits for it before the first frame */
@@ -62,4 +63,20 @@ export class I18n {
     const nav = this.document?.defaultView?.navigator;
     return nav?.languages?.length ? nav.languages : nav?.language ? [nav.language] : [];
   }
+}
+
+/**
+ * The game's I18nService, one per app: `inject(I18n).t`. A token with a
+ * factory rather than an @Injectable class, so the specs that build their
+ * services by hand need no JIT compiler for it.
+ */
+export const I18n = new InjectionToken<I18nService>('I18n', {
+  providedIn: 'root',
+  // A stand-in UIStore of a spec without the setting plays in the system's language
+  factory: () => new I18nService(inject(UIStore, { optional: true })?.localePreference ?? signal<LocalePreference>('system')),
+});
+
+/** I18n for an injector made by hand (Injector.create without a root): the specs that build services so */
+export function provideI18n(): Provider {
+  return { provide: I18n, useFactory: () => new I18nService(signal<LocalePreference>('system')) };
 }

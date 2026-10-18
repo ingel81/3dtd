@@ -1,4 +1,4 @@
-import { ARMOR_TYPE_UI, DAMAGE_TYPE_UI } from '../../configs/combat/combat-ui.config';
+import { DAMAGE_TYPE_UI } from '../../configs/combat/combat-ui.config';
 import { bestDamageTypesAgainst, DAMAGE_MATRIX, EFFECTIVENESS_THRESHOLDS } from '../../configs/combat/damage-matrix.config';
 import { ARMOR_TYPES, ArmorType, DamageType } from '../../configs/combat/combat.types';
 import { ENEMY_TYPES } from '../../configs/enemy-types.config';
@@ -7,6 +7,7 @@ import { canTargetAirEffective } from '../../entities/tower-targeting.util';
 import type { WaveGroupDisplay } from '../../services/debug/wave-debug.service';
 import { TdTooltipData } from '../tooltip/tooltip-data.types';
 import { TD_THEME } from '../../styles/td-theme';
+import type { Messages } from '../../i18n/messages/en';
 
 /**
  * Tooltip-Aufbereitung der Sidebar: Tower-Karten im BUILD-Panel, Gegnergruppen
@@ -61,61 +62,63 @@ const ARMOR_ACCENT: Record<ArmorType, TdTooltipData['accent']> = {
  * Matches the design refinement spec, header, stat triple, vs-armor table.
  */
 export function towerCardTooltip(
+  t: Messages,
   tower: TowerTypeConfig,
   ctx: TowerCardTooltipContext,
 ): TdTooltipData {
+  const says = t.hud.card;
+  const title = t.names.towers[tower.id];
   // A passive building has no combat stats: what it does, or that it stands
   if (tower.attackType === 'passive') {
     return {
-      title: tower.name,
-      category: 'STRUCTURE',
+      title,
+      category: says.structure,
       hotkey: ctx.hotkey ?? undefined,
       accent: 'gold',
-      flavor: ctx.alreadyPlaced ? 'Already placed.'
-        : ctx.waitsForWave ? `From wave ${ctx.waitsForWave}: towers for the first wave come first.`
-        : tower.description,
+      flavor: ctx.alreadyPlaced ? says.alreadyPlaced
+        : ctx.waitsForWave ? says.fromWave(ctx.waitsForWave)
+        : t.towers.descriptions[tower.id] ?? undefined,
     };
   }
-  const dmgUi = DAMAGE_TYPE_UI[tower.damageType];
   const matrix = DAMAGE_MATRIX[tower.damageType as DamageType];
+  const range = { label: says.range, value: says.metres(tower.range) };
   const stats = tower.attackType === 'beam'
     ? [
-        { label: 'DPS', value: String(tower.damagePerSecond ?? 0) },
-        { label: 'TYPE', value: 'BEAM' },
-        { label: 'RANGE', value: `${tower.range}m` },
+        { label: says.dps, value: String(tower.damagePerSecond ?? 0) },
+        { label: says.type, value: says.beam },
+        range,
       ]
     : tower.attackType === 'stream'
     ? [
         // At full drive
-        { label: 'DPS', value: String(tower.damage) },
-        { label: 'TYPE', value: 'STREAM' },
-        { label: 'RANGE', value: `${tower.range}m` },
+        { label: says.dps, value: String(tower.damage) },
+        { label: says.type, value: says.stream },
+        range,
       ]
     : tower.attackType === 'saw'
     ? [
         // Per arm and second, every arm on a target of its own
-        { label: 'DPS', value: `${tower.damage}×${tower.sawArms?.length ?? 1}` },
-        { label: 'TYPE', value: 'ARMS' },
-        { label: 'RANGE', value: `${tower.range}m` },
+        { label: says.dps, value: `${tower.damage}×${tower.sawArms?.length ?? 1}` },
+        { label: says.type, value: says.arms },
+        range,
       ]
     : tower.attackType === 'laser' && tower.laser
     ? [
         // Cold to hot (TowerTypeConfig.laser)
-        { label: 'DPS', value: `${tower.damage}–${tower.damage * tower.laser.maxFactor}` },
-        { label: 'TYPE', value: 'LASER' },
-        { label: 'RANGE', value: `${tower.range}m` },
+        { label: says.dps, value: `${tower.damage}–${tower.damage * tower.laser.maxFactor}` },
+        { label: says.type, value: says.laser },
+        range,
       ]
     : [
-        { label: 'DMG', value: String(tower.damage) },
-        { label: 'RATE', value: `${tower.fireRate}/s` },
-        { label: 'RANGE', value: `${tower.range}m` },
+        { label: says.damage, value: String(tower.damage) },
+        { label: says.rate, value: says.perSecond(tower.fireRate) },
+        range,
       ];
   const armor = ARMOR_TYPES.map(a => {
     const mul = matrix[a as ArmorType];
-    const meta = ARMOR_TYPE_UI[a as ArmorType];
     return {
-      label: meta.label,
-      multiplier: `${mul.toFixed(2)}×`,
+      label: t.armorTypes[a as ArmorType].label,
+      multiplier: says.multiplier(mul),
       color: ARMOR_DOT_COLOR[a as ArmorType] ?? 'var(--td-text-muted)',
       dim: mul < EFFECTIVENESS_THRESHOLDS.weak,
     };
@@ -132,16 +135,16 @@ export function towerCardTooltip(
     effectiveAir && ground  ? { mode: 'air-ground', viaResearch: !baseAir } :
                               { mode: 'ground-only' };
   return {
-    title: tower.name,
-    category: dmgUi.label.toUpperCase(),
+    title,
+    category: t.damageTypes[tower.damageType].label.toUpperCase(),
     hotkey: ctx.hotkey ?? undefined,
     accent: DAMAGE_ACCENT[tower.damageType],
     stats,
     targeting,
-    armorTitle: 'vs Armor',
+    armorTitle: says.vsArmor,
     armor,
-    // The role of a tower that has one written down (TowerTypeConfig.description)
-    flavor: tower.description,
+    // The role of a tower that has one written down (i18n towers.descriptions)
+    flavor: t.towers.descriptions[tower.id] ?? undefined,
   };
 }
 
@@ -149,8 +152,8 @@ export function towerCardTooltip(
  * "Fire, Poison, Pierce": the best damage types against these armors,
  * weighted, see bestDamageTypesAgainst. One armor: `[[armor, 1]]`.
  */
-export function weakToLabel(weights: readonly (readonly [ArmorType, number])[]): string {
-  return bestDamageTypesAgainst(weights).map((dt) => DAMAGE_TYPE_UI[dt].label).join(', ');
+export function weakToLabel(t: Messages, weights: readonly (readonly [ArmorType, number])[]): string {
+  return bestDamageTypesAgainst(weights).map((dt) => t.damageTypes[dt].label).join(', ');
 }
 
 /**
@@ -160,14 +163,15 @@ export function weakToLabel(weights: readonly (readonly [ArmorType, number])[]):
  * Null for a type with none of them (EnemyTypeConfig.splitOnDeath,
  * regenPerSecond, immuneToSlow).
  */
-export function enemyTraitLabel(enemyType: string): string | null {
+export function enemyTraitLabel(t: Messages, enemyType: string): string | null {
   const cfg = ENEMY_TYPES[enemyType];
   if (!cfg) return null;
+  const says = t.hud.enemyCard;
   const traits: string[] = [];
   const split = cfg.splitOnDeath;
-  if (split) traits.push(`Splits into ${split.count} ${split.count === 1 ? 'minion' : 'minions'} on death`);
-  if (cfg.regenPerSecond) traits.push(`Regenerates ${Math.round(cfg.regenPerSecond * 100)} % of its HP a second unless burning`);
-  if (cfg.immuneToSlow) traits.push('Phasing: cannot be slowed');
+  if (split) traits.push(says.splits(split.count));
+  if (cfg.regenPerSecond) traits.push(says.regenerates(Math.round(cfg.regenPerSecond * 100)));
+  if (cfg.immuneToSlow) traits.push(says.phasing);
   return traits.length > 0 ? traits.join('. ') : null;
 }
 
@@ -191,28 +195,28 @@ export function waveLeakTotal(groups: readonly WaveGroupDisplay[]): number {
   return Math.round(groups.reduce((sum, g) => sum + g.count * g.lanes * g.leakMost, 0));
 }
 
-export function enemyGroupTooltip(group: WaveGroupDisplay): TdTooltipData | null {
+export function enemyGroupTooltip(t: Messages, group: WaveGroupDisplay): TdTooltipData | null {
   const enemyConfig = ENEMY_TYPES[group.enemyType];
   if (!enemyConfig) return null;
 
   const armor = enemyConfig.armorType as ArmorType;
-  const armorMeta = ARMOR_TYPE_UI[armor];
+  const says = t.hud.enemyCard;
 
   const stats = [
-    { label: 'HP', value: String(group.actualHp) },
-    { label: 'SPEED', value: `${group.actualSpeed.toFixed(1)}m/s` },
-    { label: 'COUNT', value: group.lanes > 1 ? `×${group.count} on each of ${group.lanes} lanes` : `×${group.count}` },
+    { label: says.hp, value: String(group.actualHp) },
+    { label: says.speed, value: says.metresPerSecond(group.actualSpeed) },
+    { label: says.count, value: group.lanes > 1 ? says.onEachLane(group.count, group.lanes) : says.times(group.count) },
     // What one costs the HQ when it gets through (TODO E49)
-    { label: 'HQ', value: `−${formatLeak(group.leak)} each` },
+    { label: says.hq, value: says.leakEach(group.leak) },
   ];
 
   const damageRows = (Object.keys(DAMAGE_MATRIX) as DamageType[])
-    .map((dt) => ({ ui: DAMAGE_TYPE_UI[dt], mul: DAMAGE_MATRIX[dt][armor] }))
+    .map((dt) => ({ type: dt, mul: DAMAGE_MATRIX[dt][armor] }))
     .sort((a, b) => b.mul - a.mul)
     .map((row) => ({
-      label: row.ui.label,
-      multiplier: `${row.mul.toFixed(2)}×`,
-      color: row.ui.color,
+      label: t.damageTypes[row.type].label,
+      multiplier: t.hud.card.multiplier(row.mul),
+      color: DAMAGE_TYPE_UI[row.type].color,
       dim: row.mul < EFFECTIVENESS_THRESHOLDS.weak,
     }));
 
@@ -220,18 +224,18 @@ export function enemyGroupTooltip(group: WaveGroupDisplay): TdTooltipData | null
   // so the player can see why HP/speed look inflated mid-run. A split
   // comes first: it changes what the count means.
   const flavorParts: string[] = [];
-  if (group.healthMultiplier !== 1) flavorParts.push(`HP ×${group.healthMultiplier.toFixed(1)}`);
-  if (group.speedMultiplier !== 1) flavorParts.push(`Speed ×${group.speedMultiplier.toFixed(2)}`);
-  const scaled = flavorParts.length > 0 ? `Scaled: ${flavorParts.join(' | ')}` : null;
-  const lines = [enemyTraitLabel(group.enemyType), scaled].filter((line): line is string => line !== null);
+  if (group.healthMultiplier !== 1) flavorParts.push(says.hpScale(group.healthMultiplier));
+  if (group.speedMultiplier !== 1) flavorParts.push(says.speedScale(group.speedMultiplier));
+  const scaled = flavorParts.length > 0 ? says.scaled(flavorParts.join(' | ')) : null;
+  const lines = [enemyTraitLabel(t, group.enemyType), scaled].filter((line): line is string => line !== null);
   const flavor = lines.length > 0 ? lines.join('. ') : undefined;
 
   return {
-    title: group.name,
-    category: armorMeta.label.toUpperCase(),
+    title: t.names.enemies[group.enemyType],
+    category: t.armorTypes[armor].label.toUpperCase(),
     accent: ARMOR_ACCENT[armor] ?? 'neutral',
     stats,
-    armorTitle: 'vs Damage',
+    armorTitle: t.hud.card.vsDamage,
     armor: damageRows,
     flavor,
   };

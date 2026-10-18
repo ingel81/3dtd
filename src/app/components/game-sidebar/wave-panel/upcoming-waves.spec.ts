@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { BLOOD_MOON_NOTE, NEXT_WAVE_MARKS, markShape, mutatorNote, peekUpcomingWaves, shownPeek, type WavePeek } from './upcoming-waves';
-import { WAVE_MUTATORS } from '../../../configs/wave-mutators.config';
+import { bloodMoonNote, NEXT_WAVE_MARKS, markShape, mutatorNote, peekUpcomingWaves, shownPeek, type WavePeek } from './upcoming-waves';
 import { BudgetWaveSource } from '../../../director/sources/budget/budget-source';
 import { planRowForWave } from '../../../director/sources/budget/run-plan';
+import { en } from '../../../i18n/messages/en';
 
 /**
  * The facts come from the source the run plays; this module only words them.
@@ -12,7 +12,7 @@ import { planRowForWave } from '../../../director/sources/budget/run-plan';
  */
 const source = new BudgetWaveSource();
 const peekWaves = (currentWave: number, count: number, bloodMoon = true) =>
-  peekUpcomingWaves(source.peek({ fromWave: currentWave + 1, count }), bloodMoon);
+  peekUpcomingWaves(en, source.peek({ fromWave: currentWave + 1, count }), bloodMoon);
 const rowCount = (wave: number) => Object.values(planRowForWave(wave)!.enemies).reduce((sum, n) => sum + n, 0);
 
 // What the detail line's card says, by its parts
@@ -27,8 +27,7 @@ describe('peekUpcomingWaves', () => {
     const peeks = peekWaves(0, NEXT_WAVE_MARKS);
     expect(peeks.map((p) => p.wave)).toEqual([1, 2, 3, 4, 5]);
     expect(peeks[0]).toMatchObject({ name: 'Zombie Horde', known: true, boss: false });
-    const [fact] = source.peek({ fromWave: 1, count: 1 });
-    expect(peeks[0].tooltip).toMatchObject({ title: 'Zombie Horde', category: 'Wave 1', flavor: fact.description });
+    expect(peeks[0].tooltip).toMatchObject({ title: 'Zombie Horde', category: 'Wave 1', flavor: 'HP set against the defense when the wave starts. One every 0.4 s.' });
     expect(peekWaves(7, 2).map((p) => p.wave)).toEqual([8, 9]);
   });
 
@@ -106,29 +105,29 @@ describe('peekUpcomingWaves', () => {
     const peeks = peekWaves(12, NEXT_WAVE_MARKS);
     expect(peeks.filter((p) => p.bloodMoon).map((p) => p.wave)).toEqual([14]);
     const w14 = peeks.find((p) => p.wave === 14)!;
-    expect(banners(w14)).toContain(BLOOD_MOON_NOTE);
-    expect(banners(peeks.find((p) => p.wave === 13)!)).not.toContain(BLOOD_MOON_NOTE);
+    expect(banners(w14)).toContain(bloodMoonNote(en));
+    expect(banners(peeks.find((p) => p.wave === 13)!)).not.toContain(bloodMoonNote(en));
 
     // Past the campaign as well
     const [, w35] = peekWaves(33, 2);
     expect(w35).toMatchObject({ wave: 35, bloodMoon: true });
-    expect(banners(w35)).toContain(BLOOD_MOON_NOTE);
+    expect(banners(w35)).toContain(bloodMoonNote(en));
   });
 
   it('leaves the blood moon off the line while its look is switched off', () => {
     const w14 = peekWaves(13, 1, false)[0];
     expect(w14.bloodMoon).toBe(false);
-    expect(banners(w14)).not.toContain(BLOOD_MOON_NOTE);
+    expect(banners(w14)).not.toContain(bloodMoonNote(en));
   });
 
   it('names the mutator of a blood moon wave, look on or off, and says what it does', () => {
     for (const look of [true, false]) {
       const [w13, w14] = peekWaves(12, 2, look);
       expect(w13.mutator).toBeNull();
-      expect(w14.mutator).toBe(WAVE_MUTATORS.swift.name);
-      expect(banners(w14)[0]).toBe(mutatorNote(WAVE_MUTATORS.swift));
+      expect(w14.mutator).toBe(en.mutators.swift.name);
+      expect(banners(w14)[0]).toBe(mutatorNote(en, 'swift'));
     }
-    expect(peekWaves(20, 1)[0].mutator).toBe(WAVE_MUTATORS.swarm.name);
+    expect(peekWaves(20, 1)[0].mutator).toBe(en.mutators.swarm.name);
   });
 });
 

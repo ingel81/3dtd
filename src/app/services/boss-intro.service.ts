@@ -37,6 +37,9 @@ import {
   type ShotProbe,
 } from '../utils/boss-intro';
 import { BOSS_INTRO_SOUNDS } from '../configs/game-sounds.config';
+import { I18n } from '../i18n/i18n.service';
+import { enemyName } from '../i18n/lookups';
+import type { EnemyTypeId } from '../configs/enemy-types.config';
 
 /** Route the shot may stand on, from the portal (m); the framing needs about 60 at most. */
 const SHOT_ROUTE_M = 150;
@@ -113,6 +116,7 @@ export class BossIntroService {
   private readonly introFlight = inject(IntroCameraFlightService);
   private readonly ngZone = inject(NgZone);
   private readonly announcer = inject(LiveAnnouncer);
+  private readonly t = inject(I18n).t;
   private readonly dialog = inject(MatDialog);
 
   /** Stage of the running intro, null while none runs. */
@@ -217,7 +221,8 @@ export class BossIntroService {
 
     // Instead of a second intro right after this one, which would cut to a
     // boss that walked on during the reveal
-    const names = [boss.enemy.typeConfig.name, ...this.takeWaiting(boss.wave)];
+    const t = this.t();
+    const names = [enemyName(t, boss.enemy.typeConfig.id), ...this.takeWaiting(boss.wave)];
 
     this.savedPosition.copy(camera.position);
     this.savedQuaternion.copy(camera.quaternion);
@@ -236,9 +241,9 @@ export class BossIntroService {
     if (controls) controls.enabled = false;
     cameraTimeline.record('bossIntro.start', { boss: boss.enemy.typeConfig.id, wave: boss.wave }, true);
     // A combined intro names them all, so no single honorific fits under it
-    const epithet = names.length === 1 ? boss.enemy.typeConfig.epithet : undefined;
+    const epithet = names.length === 1 ? t.epithets[boss.enemy.typeConfig.id as EnemyTypeId] ?? undefined : undefined;
     this.ngZone.run(() => {
-      this.card.set({ name: names.join(' & '), epithet, wave: boss.wave });
+      this.card.set({ name: names.join(t.hud.bossIntro.join), epithet, wave: boss.wave });
       // The boss is heard while it is shown: its loops keep running
       this.gameStore.pauseKeepsLoops.set(true);
       this.gameStore.paused.set(true);
@@ -247,8 +252,8 @@ export class BossIntroService {
     // The boss's own sound, registered by GameSoundsService with the engine's sounds
     const signature = BOSS_INTRO_SOUNDS[boss.enemy.typeConfig.id];
     if (signature) engine.spatialAudio?.playGlobal(signature.id).catch(() => undefined);
-    const said = names.length > 1 ? `Bosses: ${names.join(' and ')}` : `Boss: ${names[0]}`;
-    this.announcer.announce(`${said}, wave ${boss.wave}. Escape skips.`);
+    const said = names.length > 1 ? t.hud.bossIntro.many(names) : t.hud.bossIntro.one(names[0]);
+    this.announcer.announce(t.hud.bossIntro.announce(said, boss.wave));
     return true;
   }
 
@@ -258,7 +263,7 @@ export class BossIntroService {
     for (let i = this.waiting.length - 1; i >= 0; i--) {
       const { enemy } = this.waiting[i];
       if (this.waiting[i].wave !== wave || !enemy.active || !enemy.alive) continue;
-      names.unshift(enemy.typeConfig.name);
+      names.unshift(enemyName(this.t(), enemy.typeConfig.id));
       this.waiting.splice(i, 1);
     }
     return names;

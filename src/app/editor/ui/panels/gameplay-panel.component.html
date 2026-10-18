@@ -67,7 +67,7 @@
 <div class="td-group">
   <h3 class="td-section">Towers <span class="td-note">{{ gp().towers ? gp().towers!.length + ' allowed' : 'all allowed' }}</span></h3>
   <div class="gp-towers">
-    @for (t of towers; track t.id) {
+    @for (t of towers(); track t.id) {
       <label class="td-check gp-tower">
         <input class="td-switch" type="checkbox" [checked]="allowed(t.id)" (change)="toggleTower(t.id, $any($event.target).checked)" />
         <span class="td-trunc">{{ t.name }}</span>
@@ -125,7 +125,7 @@
               @for (e of entries(row); track e[0]) {
                 <div class="gp-enemy">
                   <select class="td-select is-sm" (change)="setEnemy(i, value($event), e[1], e[0])" [attr.aria-label]="'Enemy of wave ' + row.wave">
-                    @for (en of enemies; track en.id) {
+                    @for (en of enemies(); track en.id) {
                       <option [value]="en.id" [selected]="en.id === e[0]">{{ en.name }}</option>
                     }
                   </select>

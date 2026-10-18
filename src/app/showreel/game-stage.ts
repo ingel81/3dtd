@@ -31,6 +31,7 @@ import type { Stage } from './stage';
 import { element, nextFrame, waitSeconds, waitUntil, type Hands } from './hands';
 import { pressKey } from './pointer';
 import { dragOsmSpawn } from './osm-frame-drag';
+import { en } from '../i18n/messages/en';
 
 /** What the director uses of the game component (read through Angular's dev API) */
 interface GameComponent {
@@ -649,7 +650,7 @@ export class GameStage implements Stage {
     // The director's camera lets go without the controls taking over: the tower saves this pose and gives it back
     cancelAnimationFrame(this.poseLoop);
     this.posed = null;
-    if (!control.enter(tower)) throw new Error(`showreel: the ${tower.typeConfig.name} took no one in`);
+    if (!control.enter(tower)) throw new Error(`showreel: the ${en.names.towers[tower.typeConfig.id]} took no one in`);
     await waitUntil(() => control.active(), 3, 'the seat in the tower');
     const height = (tower.position.height ?? 0) + tower.typeConfig.heightOffset + tower.typeConfig.shootHeight;
     const from = engine.sync.geoToLocalSimpleInto(tower.position.lat, tower.position.lon, height, new Vector3());

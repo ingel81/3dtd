@@ -11,7 +11,7 @@ vi.mock('@angular/core', async () => {
   return {
     ...actual,
     Injectable: () => (target: unknown) => target,
-    inject: (token: { name?: string }) => injections[token?.name ?? ''],
+    inject: (token: { name?: string }) => injections[token?.name ?? String(token)],
     effect: (fn: () => void) => { effects.push(fn); },
   };
 });
@@ -20,43 +20,44 @@ import { RefusalHintService, abilityNoRouteText, abilityRefusalText, heroRefusal
 import { UPGRADE_HINT_MS } from './upgrade-hint.service';
 import { lockedAbilityStatus, type AbilityStatus } from '../configs/abilities.config';
 import { initialHeroStatus, type HeroStatus } from '../configs/hero.config';
+import { en } from '../i18n/messages/en';
 
 describe('abilityRefusalText', () => {
   it('says what the player can act on', () => {
-    expect(abilityRefusalText('nuclear-strike', 'no-wave')).toBe('Only during a wave');
-    expect(abilityRefusalText('nuclear-strike', 'no-charge', 3)).toBe('No charges, recharges in 3 waves');
-    expect(abilityRefusalText('frost-bomb', 'no-charge', 1)).toBe('No charges, recharges in 1 wave');
-    expect(abilityRefusalText('emp', 'no-charge')).toBe('No charges');
-    expect(abilityRefusalText('orbital-laser', 'no-route')).toBe('No route within 30 m');
-    expect(abilityNoRouteText('orbital-laser')).toBe('No route within 30 m');
+    expect(abilityRefusalText(en, 'nuclear-strike', 'no-wave')).toBe('Only during a wave');
+    expect(abilityRefusalText(en, 'nuclear-strike', 'no-charge', 3)).toBe('No charges, recharges in 3 waves');
+    expect(abilityRefusalText(en, 'frost-bomb', 'no-charge', 1)).toBe('No charges, recharges in 1 wave');
+    expect(abilityRefusalText(en, 'emp', 'no-charge')).toBe('No charges');
+    expect(abilityRefusalText(en, 'orbital-laser', 'no-route')).toBe('No route within 30 m');
+    expect(abilityNoRouteText(en, 'orbital-laser')).toBe('No route within 30 m');
   });
 
   it('names the building a strike launches from when none stands', () => {
-    expect(abilityRefusalText('nuclear-strike', 'no-launch-site')).toBe('Build a Missile Silo first');
+    expect(abilityRefusalText(en, 'nuclear-strike', 'no-launch-site')).toBe('Build a Missile Silo first');
     // An ability without a launch site never gets this reason; nothing to say
-    expect(abilityRefusalText('emp', 'no-launch-site')).toBeNull();
+    expect(abilityRefusalText(en, 'emp', 'no-launch-site')).toBeNull();
   });
 
   it('keeps quiet before the research and for an unknown ability', () => {
-    expect(abilityRefusalText('nuclear-strike', 'locked')).toBeNull();
-    expect(abilityRefusalText('nuclear-strike', 'unknown')).toBeNull();
+    expect(abilityRefusalText(en, 'nuclear-strike', 'locked')).toBeNull();
+    expect(abilityRefusalText(en, 'nuclear-strike', 'unknown')).toBeNull();
   });
 });
 
 describe('heroRefusalText', () => {
   it('names the missing credits like the U key does for an upgrade', () => {
-    expect(heroRefusalText('credits', 400, false)).toBe('Need 600 credits');
-    expect(heroRefusalText('credits', 0, false)).toBe('Need 1,000 credits');
+    expect(heroRefusalText(en, 'credits', 400, false)).toBe('Need 600 credits');
+    expect(heroRefusalText(en, 'credits', 0, false)).toBe('Need 1,000 credits');
   });
 
   it('tells a hire without a route to stand on from an order no route leads to', () => {
-    expect(heroRefusalText('no-route', 0, false)).toBe('No route to stand on');
-    expect(heroRefusalText('no-route', 0, true)).toBe('No way there along the routes');
+    expect(heroRefusalText(en, 'no-route', 0, false)).toBe('No route to stand on');
+    expect(heroRefusalText(en, 'no-route', 0, true)).toBe('No way there along the routes');
   });
 
   it('keeps quiet for what no button or key runs into', () => {
     for (const reason of ['locked', 'hired', 'no-hero', 'unknown-ammo'] as const) {
-      expect(heroRefusalText(reason, 0, false), reason).toBeNull();
+      expect(heroRefusalText(en, reason, 0, false), reason).toBeNull();
     }
   });
 });
@@ -88,6 +89,7 @@ describe('RefusalHintService', () => {
       credits: signal(400),
       hero: signal(initialHeroStatus()),
     };
+    injections['InjectionToken I18n'] = { t: () => en };
     injections['UIStore'] = ui;
     injections['TowerDefenseStore'] = store;
     bus = createMainEventBus();

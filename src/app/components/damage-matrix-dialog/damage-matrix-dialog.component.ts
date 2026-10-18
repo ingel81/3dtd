@@ -10,6 +10,7 @@ import {
   countLockedTowers,
 } from './damage-matrix-table';
 import { DAMAGE_MATRIX_DESC_ID, DAMAGE_MATRIX_TITLE_ID } from './open-damage-matrix-dialog';
+import { I18n } from '../../i18n/i18n.service';
 
 export interface DamageMatrixDialogData {
   /** Zeile dieses Towers wird hervorgehoben (Aufruf aus dem Tower-Panel). */
@@ -39,10 +40,11 @@ export class DamageMatrixDialogComponent {
 
   readonly titleId = DAMAGE_MATRIX_TITLE_ID;
   readonly descId = DAMAGE_MATRIX_DESC_ID;
-  readonly columns = buildDamageMatrixColumns();
+  protected readonly t = inject(I18n).t;
+  readonly columns = computed(() => buildDamageMatrixColumns(this.t()));
   private readonly isUnlocked = (id: TowerTypeId): boolean => this.research.isTowerUnlocked(id);
   /** Reaktiv: eine Forschung, die bei offenem Dialog fertig wird, fügt die Zeile sofort ein. */
-  readonly rows = computed(() => buildDamageMatrixRows(this.isUnlocked));
+  readonly rows = computed(() => buildDamageMatrixRows(this.t(), this.isUnlocked));
   readonly hasLockedTowers = computed(() => countLockedTowers(this.isUnlocked) > 0);
   readonly legend = buildEffectivenessLegend();
   readonly highlightId = this.data?.towerId ?? null;

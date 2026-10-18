@@ -61,8 +61,8 @@ describe('release switch', () => {
       { typeId: 'magic', state: { pathId: 'seal' } },
       { typeId: 'bastion', state: { pathId: null } },
     ];
-    expect(unreleasedInSave(towers, true)).toBe('Binding Sigil');
-    expect(unreleasedInSave(towers.slice(2), true)).toBe('Iron Bastion');
+    expect(unreleasedInSave(towers, true)).toBe('seal');
+    expect(unreleasedInSave(towers.slice(2), true)).toBe('bastion');
     expect(unreleasedInSave(towers.slice(0, 1), true)).toBeNull();
     expect(unreleasedInSave(towers, false)).toBeNull();
   });

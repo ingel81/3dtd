@@ -12,6 +12,7 @@ import {
   abilityTooltip,
   heroTooltip,
 } from './ability-button';
+import { I18n } from '../../i18n/i18n.service';
 
 /**
  * Bar at the left edge of the playfield: at the top the hero's button, when
@@ -45,6 +46,7 @@ import {
 export class AbilityBarComponent {
   private readonly store = inject(TowerDefenseStore);
   private readonly abilityTargeting = inject(AbilityTargetingService);
+  protected readonly t = inject(I18n).t;
 
   protected readonly px = ABILITY_BAR_PX;
 
@@ -62,23 +64,24 @@ export class AbilityBarComponent {
 
   readonly heroTooltip = computed(() => {
     const hero = this.hero();
-    return hero ? heroTooltip(hero) : null;
+    return hero ? heroTooltip(this.t(), hero) : null;
   });
 
   readonly buttons = computed(() => {
     const statuses = this.store.abilities();
     const waveActive = this.store.waveActive();
     const targeting = this.abilityTargeting.targeting();
+    const t = this.t();
     return abilityBarIds(statuses).map((id) => {
       const config = ABILITIES[id];
       const status = statuses[id];
-      const view = abilityButtonView(config, status, waveActive, targeting === id);
+      const view = abilityButtonView(t, config, status, waveActive, targeting === id);
       return {
         id,
         icon: config.icon,
         hotkey: config.hotkey.toUpperCase(),
         view,
-        tooltip: abilityTooltip(config, status, view),
+        tooltip: abilityTooltip(t, config, status, view),
       };
     });
   });

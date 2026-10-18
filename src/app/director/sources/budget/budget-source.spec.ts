@@ -48,7 +48,7 @@ describe('BudgetWaveSource', () => {
     const expected = budgetSeconds(14) * planRowForWave(14)!.strength * WAVE_MUTATORS.swift.budget!;
     expect(swift.log.diagnostics?.['budget']).toBeCloseTo(expected, 0);
     expect(swift.log.diagnostics?.['mutator']).toBe('swift');
-    expect(swift.explanation!.reasons.some((r) => r.includes(WAVE_MUTATORS.swift.name))).toBe(true);
+    expect(swift.explanation!.reasons.some((r) => r.includes('swift'))).toBe(true);
 
     const plain = plan(new BudgetWaveSource(), 13);
     expect(plain.config.enemies.every((g) => g.speedMultiplier === undefined)).toBe(true);

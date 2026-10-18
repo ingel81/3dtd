@@ -18,6 +18,7 @@ import { TowerDefenseStore } from '../store/tower-defense.store';
 import { ResearchStore } from '../store/research.store';
 import { requiredUpgradeTier, type UpgradeId } from '../configs/tower-types.config';
 import type { Tower } from '../entities/tower.entity';
+import { provideI18n } from '../i18n/i18n.service';
 
 const GOLD = TD_THEME.brassLight;
 const ORANGE = '#C96A3A';
@@ -42,9 +43,9 @@ describe('TowerUpgradeService', () => {
     typeConfig: {
       shootHeight: 2,
       upgrades: [
-        { id: 'damage', name: 'Damage', cost: 500, maxLevel: 40 },
-        { id: 'speed', name: 'Speed', cost: 30, maxLevel: 40 },
-        { id: 'range', name: 'Range', cost: 30, maxLevel: 0 },
+        { id: 'damage', text: 'damage', cost: 500, maxLevel: 40 },
+        { id: 'speed', text: 'fireRate', cost: 30, maxLevel: 40 },
+        { id: 'range', text: 'range', cost: 30, maxLevel: 0 },
       ],
     },
     getAvailableUpgrades: () => [{ id: 'damage' as UpgradeId }, { id: 'speed' as UpgradeId }],
@@ -60,7 +61,7 @@ describe('TowerUpgradeService', () => {
     spawnFloatingText = vi.fn();
     upgradeHint = new UpgradeHintService();
     const injector = Injector.create({
-      providers: [
+      providers: [provideI18n(), 
         {
           provide: SimClient,
           useValue: { bus: { emit: (e: { towerId: string; upgradeId: UpgradeId }) => (upgradeTower as unknown as (t: unknown, id: UpgradeId) => void)(e.towerId === tower.id ? tower : e.towerId, e.upgradeId) } },
@@ -129,7 +130,7 @@ describe('TowerUpgradeService', () => {
       expect(service.buy(tower, 'speed', 5)).toBe(true);
       expect(upgradeTower).toHaveBeenCalledTimes(3);
       expect(spawnFloatingText).toHaveBeenCalledWith(
-        'SPEED +3', 48.7, 9.1, 305, expect.objectContaining({ color: GOLD }),
+        'FIRE RATE +3', 48.7, 9.1, 305, expect.objectContaining({ color: GOLD }),
       );
     });
 
@@ -153,7 +154,7 @@ describe('TowerUpgradeService', () => {
     levels = {};
     expect(service.buy(tower, 'speed')).toBe(true);
     expect(spawnFloatingText.mock.calls[1]).toEqual(spawnFloatingText.mock.calls[0]);
-    expect(spawnFloatingText.mock.calls[0][0]).toBe('SPEED LV 1');
+    expect(spawnFloatingText.mock.calls[0][0]).toBe('FIRE RATE LV 1');
     expect(upgradeHint.hint()).toMatchObject({ ...keyHint, seq: keyHint!.seq + 1 });
   });
 });

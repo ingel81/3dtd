@@ -23,7 +23,6 @@ describe('summarizeWaveGroups', () => {
 
     expect(groups.map((g) => [g.enemyType, g.count])).toEqual([['zombie', 2], ['bat', 1]]);
     expect(groups[0]).toMatchObject({
-      name: zombie.name,
       baseHp: zombie.baseHp,
       actualHp: zombie.baseHp * 3,
       actualSpeed: zombie.baseSpeed * 2,

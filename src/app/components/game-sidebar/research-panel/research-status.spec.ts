@@ -8,6 +8,7 @@ import {
 } from './research-status';
 import { RESEARCH_TREE } from '../../../configs/research/research-tree.config';
 import { ActiveResearch, ResearchId, researchWave } from '../../../configs/research/research.types';
+import { en } from '../../../i18n/messages/en';
 
 const done = (...ids: ResearchId[]) => new Set<ResearchId>(ids);
 /** A run far enough along that no research waits for its wave */
@@ -83,11 +84,11 @@ describe('researchProgress / researchRemaining', () => {
 
 describe('missingPrereqNames', () => {
   it('names the prerequisites still missing', () => {
-    expect(missingPrereqNames('aa-retrofit', done())).toBe('Gatling Technology');
-    expect(missingPrereqNames('aa-retrofit', done('gatling-tech'))).toBe('');
+    expect(missingPrereqNames(en, 'aa-retrofit', done())).toBe('Gatling Technology');
+    expect(missingPrereqNames(en, 'aa-retrofit', done('gatling-tech'))).toBe('');
   });
 
   it('is empty for an unknown research', () => {
-    expect(missingPrereqNames('nope' as ResearchId, done())).toBe('');
+    expect(missingPrereqNames(en, 'nope' as ResearchId, done())).toBe('');
   });
 });

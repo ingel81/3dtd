@@ -1,6 +1,7 @@
 import { ABILITY_IDS, type AbilityConfig, type AbilityId, type AbilityStatus } from '../../configs/abilities.config';
 import type { TdIconName } from '../icon/icon.component';
 import type { TdTooltipData } from '../tooltip/tooltip-data.types';
+import type { Messages } from '../../i18n/messages/en';
 
 /**
  * The abilities the bar has a button for: those whose research is done and
@@ -40,25 +41,27 @@ export interface AbilityButtonView {
  * @param targeting  whether the targeting mode is on for this ability
  */
 export function abilityButtonView(
-  config: Pick<AbilityConfig, 'name' | 'rechargeWaves' | 'maxCharges'>,
+  t: Messages,
+  config: Pick<AbilityConfig, 'id' | 'rechargeWaves' | 'maxCharges'>,
   status: AbilityStatus,
   waveActive: boolean,
   targeting: boolean,
 ): AbilityButtonView {
-  const { name, rechargeWaves, maxCharges } = config;
+  const { rechargeWaves, maxCharges } = config;
+  const name = t.abilities[config.id].name;
+  const says = t.hud.ability;
   const charged = status.charges > 0;
   const done = charged ? rechargeWaves : rechargeWaves - status.wavesUntilCharge;
   const pips = Array.from({ length: rechargeWaves }, (_, i) => i < done);
   const charges = maxCharges > 1 ? status.charges : null;
   const view = (state: AbilityButtonView['state'], enabled: boolean, text: string): AbilityButtonView =>
-    ({ state, enabled, pips, charges, status: text, label: `${name}: ${text}` });
+    ({ state, enabled, pips, charges, status: text, label: says.label(name, text) });
 
-  if (status.pending) return view('pending', false, 'incoming');
-  if (charged && targeting) return view('armed', true, 'pick a spot on the route, Esc cancels');
-  if (charged && waveActive) return view('ready', true, 'ready');
-  if (charged) return view('waiting', false, 'ready, fires during a wave');
-  const waves = status.wavesUntilCharge;
-  return view('recharging', false, `recharges in ${waves} ${waves === 1 ? 'wave' : 'waves'}`);
+  if (status.pending) return view('pending', false, says.incoming);
+  if (charged && targeting) return view('armed', true, says.armed);
+  if (charged && waveActive) return view('ready', true, says.ready);
+  if (charged) return view('waiting', false, says.waiting);
+  return view('recharging', false, says.recharges(status.wavesUntilCharge));
 }
 
 /**
@@ -66,21 +69,22 @@ export function abilityButtonView(
  * charges and the recharge, the description.
  */
 export function abilityTooltip(
-  config: Pick<AbilityConfig, 'name' | 'description' | 'hotkey' | 'maxCharges' | 'rechargeWaves'>,
+  t: Messages,
+  config: Pick<AbilityConfig, 'id' | 'hotkey' | 'maxCharges' | 'rechargeWaves'>,
   status: AbilityStatus,
   view: AbilityButtonView,
 ): TdTooltipData {
-  const waves = config.rechargeWaves;
+  const text = t.abilities[config.id];
   return {
-    title: config.name,
+    title: text.name,
     category: view.status.toUpperCase(),
     hotkey: config.hotkey.toUpperCase(),
     accent: view.state === 'recharging' ? 'neutral' : 'gold',
     stats: [
-      { label: 'CHARGES', value: `${status.charges}/${config.maxCharges}` },
-      { label: 'RECHARGE', value: `${waves} ${waves === 1 ? 'wave' : 'waves'}` },
+      { label: t.hud.ability.charges, value: `${status.charges}/${config.maxCharges}` },
+      { label: t.hud.ability.recharge, value: t.hud.ability.waves(config.rechargeWaves) },
     ],
-    flavor: config.description,
+    flavor: text.description,
   };
 }
 
@@ -101,13 +105,13 @@ export interface AbilityBarHero {
 }
 
 /** Tooltip of the hero button. */
-export function heroTooltip(hero: AbilityBarHero): TdTooltipData {
+export function heroTooltip(t: Messages, hero: AbilityBarHero): TdTooltipData {
   return {
     title: hero.name,
-    category: 'HERO',
+    category: t.hud.heroButton.category,
     hotkey: hero.hotkey?.toUpperCase(),
     accent: 'gold',
-    flavor: hero.detail ?? 'Select the hero and bring it into view.',
+    flavor: hero.detail ?? t.hud.heroButton.selectHint,
   };
 }
 

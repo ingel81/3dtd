@@ -27,12 +27,6 @@ export type ResearchCategory = typeof RESEARCH_CATEGORIES[number];
 export const RESEARCH_BRANCHES = ['ballistics', 'arcane', 'biology', 'engineering'] as const;
 export type ResearchBranch = typeof RESEARCH_BRANCHES[number];
 
-export const RESEARCH_BRANCH_LABEL: Record<ResearchBranch, string> = {
-  ballistics: 'Ballistics',
-  arcane: 'Arcane',
-  biology: 'Biology',
-  engineering: 'Engineering',
-};
 
 // ==================== Research ID ====================
 
@@ -48,7 +42,7 @@ export type ResearchId = string;
  */
 export type ResearchEffect =
   | { kind: 'unlock-tower'; towerId: TowerTypeId }
-  | { kind: 'global-perk'; perkId: string; description: string }
+  | { kind: 'global-perk'; perkId: string }
   | { kind: 'unlock-upgrade-tier'; tier: number }
   | { kind: 'enable-targeting'; capability: 'air' }
   /** Every tower of the path's type may buy it (configs/tower-paths.config.ts) */
@@ -56,10 +50,9 @@ export type ResearchEffect =
 
 // ==================== Research Config ====================
 
+/** A research. Its name and description are the dictionary's (i18n `research`), by id. */
 export interface ResearchConfig {
   id: ResearchId;
-  name: string;
-  description: string;
   category: ResearchCategory;
   branch: ResearchBranch;
   icon: string;                    // Material icon name

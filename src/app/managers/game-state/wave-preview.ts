@@ -39,7 +39,6 @@ export function summarizeWaveGroups(config: WaveConfig, lanes = 1, wave = 1): Wa
     const actualSpeed = data.speed;
     return {
       enemyType: typeId as keyof typeof ENEMY_TYPES,
-      name: enemyConfig.name,
       count: data.count,
       baseHp,
       actualHp,

@@ -11,7 +11,7 @@ vi.mock('@angular/core', async () => {
   return {
     ...actual,
     Injectable: () => (target: unknown) => target,
-    inject: (token: { name?: string }) => injections[token?.name ?? ''],
+    inject: (token: { name?: string }) => injections[token?.name ?? String(token)],
     effect: (fn: () => void) => { effects.push(fn); },
   };
 });
@@ -23,6 +23,7 @@ import { lockedAbilityStatus, type AbilityRejectReason, type AbilityStatus } fro
 import type { RouteSweep } from '../utils/route-sweep';
 import type { GameEvent } from '../game-engine/game-event-bus';
 import type { GeoPosition } from '../models/game.types';
+import { en } from '../i18n/messages/en';
 
 const ON_ROUTE: GeoPosition = { lat: 48.1, lon: 9.1, height: 300 };
 const CHARGED: AbilityStatus = { ...lockedAbilityStatus('nuclear-strike'), unlocked: true, charges: 1, launchSite: true };
@@ -47,6 +48,7 @@ describe('AbilityTargetingService', () => {
       abilities: signal({ 'nuclear-strike': CHARGED, 'orbital-laser': { ...CHARGED, id: 'orbital-laser' } }),
     };
     exitBuildMode = vi.fn(() => ui.buildMode.set(false));
+    injections['InjectionToken I18n'] = { t: () => en };
     injections['UIStore'] = ui;
     injections['TowerDefenseStore'] = store;
     injections['TowerPlacementService'] = { exitBuildMode };

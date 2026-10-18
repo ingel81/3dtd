@@ -12,7 +12,7 @@
 import { releasedResearch } from '../../configs/release';
 import { getResearch } from '../../configs/research/research-tree.config';
 import {
-  RESEARCH_BRANCH_LABEL,
+  RESEARCH_BRANCHES,
   type ActiveResearch,
   type ResearchConfig,
   type ResearchId,
@@ -24,6 +24,8 @@ import type { DagEdge } from '../../utils/dag-layout';
 import type { TdIconName } from '../icon/icon.component';
 import type { TechTreeNode, TechTreeNodeState } from '../tech-tree/tech-tree-view';
 import { missingPrereqNames, researchStatus } from '../game-sidebar/research-panel/research-status';
+import type { Messages } from '../../i18n/messages/en';
+import { researchDescription, researchName } from '../../i18n/lookups';
 
 /** What `research` costs the player whose tree this is (researchCost with their lanes). */
 function costIn(research: ResearchConfig, state: ResearchTreeState): number {
@@ -61,10 +63,11 @@ export interface ResearchTab {
  * the partners after in the room's order under their names.
  */
 export function researchTabs(
+  t: Messages,
   roster: readonly { id: string; name: string }[],
   me: string | null,
 ): ResearchTab[] {
-  const tabs = roster.map((p) => ({ id: p.id, label: p.id === me ? 'You' : p.name, me: p.id === me }));
+  const tabs = roster.map((p) => ({ id: p.id, label: p.id === me ? t.hud.researchTree.you : p.name, me: p.id === me }));
   return [...tabs.filter((t) => t.me), ...tabs.filter((t) => !t.me)];
 }
 
@@ -119,14 +122,14 @@ export interface ResearchDetail {
 export type ResearchAction = 'start' | 'queue' | 'unqueue' | 'none';
 
 /** Every research as a node, in config order; the layout decides the places. */
-export function buildResearchNodes(state: ResearchTreeState): TechTreeNode[] {
+export function buildResearchNodes(t: Messages, state: ResearchTreeState): TechTreeNode[] {
   return releasedResearch().map((research) => {
     const status = nodeState(research, state);
     return {
       id: research.id,
-      title: research.name,
-      subtitle: subtitleOf(research, status, state),
-      subtitleAside: status === 'completed' || status === 'active' ? undefined : `${research.duration}s`,
+      title: researchName(t, research.id),
+      subtitle: subtitleOf(t, research, status, state),
+      subtitleAside: status === 'completed' || status === 'active' ? undefined : t.hud.researchTree.seconds(research.duration),
       // Its own icon always, so the tree reads as a map of what is in it. The
       // state rides along as a small glyph, not as a replacement.
       icon: research.icon as TdIconName,
@@ -135,7 +138,7 @@ export function buildResearchNodes(state: ResearchTreeState): TechTreeNode[] {
       state: status,
       progress: status === 'active' ? progressOf(research, state) : undefined,
       badge: status === 'queued' ? String(state.queued.indexOf(research.id) + 1) : undefined,
-      hint: hintOf(research, status, state),
+      hint: hintOf(t, research, status, state),
     };
   });
 }
@@ -152,6 +155,7 @@ export function buildResearchEdges(): DagEdge[] {
  * caller, since only the layout knows how deep a node sits.
  */
 export function buildResearchDetail(
+  t: Messages,
   id: ResearchId,
   state: ResearchTreeState,
   tier: number,
@@ -161,14 +165,14 @@ export function buildResearchDetail(
   const status = nodeState(research, state);
   return {
     id: research.id,
-    name: research.name,
+    name: researchName(t, research.id),
     icon: research.icon as TdIconName,
     branch: research.branch,
-    branchLabel: RESEARCH_BRANCH_LABEL[research.branch],
+    branchLabel: t.researchBranches[research.branch],
     tier,
     state: status,
-    stateLabel: STATE_LABEL[status],
-    effect: research.description,
+    stateLabel: t.hud.researchTree.states[status],
+    effect: researchDescription(t, research.id),
     cost: costIn(research, state),
     duration: research.duration,
     remaining: status === 'active' ? remainingOf(research, state) : null,
@@ -176,7 +180,7 @@ export function buildResearchDetail(
     queuePosition: state.queued.indexOf(research.id) + 1,
     prerequisites: research.prerequisites.map((p) => ({
       id: p,
-      name: getResearch(p)?.name ?? p,
+      name: researchName(t, p),
       done: state.completed.has(p),
     })),
     opensAtWave: waitsForWave(research, state),
@@ -214,33 +218,22 @@ export function researchProgressCounts(state: ResearchTreeState): { done: number
 }
 
 /** Done and total per strand, for the tally in the footer. */
-export function researchBranchCounts(state: ResearchTreeState): {
+export function researchBranchCounts(t: Messages, state: ResearchTreeState): {
   branch: string;
   label: string;
   done: number;
   total: number;
 }[] {
-  const order = Object.keys(RESEARCH_BRANCH_LABEL) as (keyof typeof RESEARCH_BRANCH_LABEL)[];
-  return order.map((branch) => {
+  return RESEARCH_BRANCHES.map((branch) => {
     const own = releasedResearch().filter((r) => r.branch === branch);
     return {
       branch,
-      label: RESEARCH_BRANCH_LABEL[branch],
+      label: t.researchBranches[branch],
       done: own.filter((r) => state.completed.has(r.id)).length,
       total: own.length,
     };
   });
 }
-
-const STATE_LABEL: Record<TechTreeNodeState, string> = {
-  completed: 'Researched',
-  active: 'In progress',
-  queued: 'Queued',
-  available: 'Ready to start',
-  poor: 'Not enough credits',
-  pending: 'Waiting on the queue',
-  locked: 'Locked',
-};
 
 const STATUS_ICON: Record<TechTreeNodeState, TdIconName> = {
   completed: 'check',
@@ -271,42 +264,43 @@ function nodeState(research: ResearchConfig, state: ResearchTreeState): TechTree
   return status;
 }
 
-function subtitleOf(research: ResearchConfig, status: TechTreeNodeState, state: ResearchTreeState): string {
+function subtitleOf(t: Messages, research: ResearchConfig, status: TechTreeNodeState, state: ResearchTreeState): string {
+  const says = t.hud.researchTree;
   switch (status) {
     case 'completed':
-      return 'Researched';
+      return says.states.completed;
     case 'active':
-      return `${remainingOf(research, state).toFixed(1)}s left`;
+      return says.left(remainingOf(research, state));
     case 'queued':
-      return `${costIn(research, state)} at start`;
+      return says.atStart(costIn(research, state));
     case 'locked': {
       const wave = waitsForWave(research, state);
-      return wave === null ? String(costIn(research, state)) : `Wave ${wave}`;
+      return wave === null ? String(costIn(research, state)) : says.wave(wave);
     }
     default:
       return String(costIn(research, state));
   }
 }
 
-function hintOf(research: ResearchConfig, status: TechTreeNodeState, state: ResearchTreeState): string {
+function hintOf(t: Messages, research: ResearchConfig, status: TechTreeNodeState, state: ResearchTreeState): string {
+  const says = t.hud.researchTree;
+  const effect = researchDescription(t, research.id);
   switch (status) {
     case 'locked':
     case 'pending': {
       const wave = waitsForWave(research, state);
-      const missing = missingPrereqNames(research.id, state.completed);
-      if (wave === null) return `Requires: ${missing}`;
-      return missing ? `Opens at wave ${wave}. Requires: ${missing}` : `Opens at wave ${wave}.`;
+      const missing = missingPrereqNames(t, research.id, state.completed);
+      if (wave === null) return says.requires(missing);
+      return missing ? says.opensAtRequires(wave, missing) : says.opensAt(wave);
     }
     case 'queued':
-      return state.readOnly ? research.description : `${research.description} Click to take it out of the queue.`;
+      return state.readOnly ? effect : says.unqueue(effect);
     case 'poor':
-      return `${research.description} ${costIn(research, state) - Math.floor(state.credits)} credits short.`;
+      return says.short(effect, costIn(research, state) - Math.floor(state.credits));
     case 'available':
-      return state.availableSlots > 0 || state.readOnly
-        ? research.description
-        : `${research.description} Every slot is busy, so a click queues it.`;
+      return state.availableSlots > 0 || state.readOnly ? effect : says.slotsBusy(effect);
     default:
-      return research.description;
+      return effect;
   }
 }
 

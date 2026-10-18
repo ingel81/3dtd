@@ -90,8 +90,10 @@ class StubSource implements WaveSource {
       hpByArmor: [],
       count: null,
       enemies: [],
-      note: '',
-      description: '',
+      spawnDelayMs: null,
+      sizedAtStart: false,
+      hpScale: null,
+      round: null,
     }));
   }
 

@@ -21,6 +21,7 @@ import type { BotWorld } from '../../bot-world';
 import type { Proposal } from '../../decision/arbiter';
 import { chordMetres, difference, expectedMetres, killTimeSaved, ownCapacity, rangeAt } from '../../decision/value';
 import type { DecisionContext, ITowerStrategy } from '../tower-strategy.interface';
+import { en } from '../../../i18n/messages/en';
 
 export class TowerUpgradeStrategy implements ITowerStrategy {
   readonly name = 'Upgrade';
@@ -53,14 +54,14 @@ export class TowerUpgradeStrategy implements ITowerStrategy {
         const after = own(next, { ground: metres.ground * scale, air: metres.air * scale });
         proposals.push({
           kind: 'buy',
-          label: `${cfg.name} ${upgrade.name}`,
+          label: `${en.names.towers[cfg.id]} ${en.upgrades[upgrade.text].name}`,
           cost: tower.getNextUpgradeCost(upgrade.id),
           value: killTimeSaved(context.threat, context.capacity, difference(after, before)),
           act: () => ({
             type: 'upgrade',
             towerId: tower.id,
             upgradeId: upgrade.id,
-            reason: `Upgrading ${cfg.name} with ${upgrade.name} (T${level + 1})`,
+            reason: `Upgrading ${en.names.towers[cfg.id]} with ${en.upgrades[upgrade.text].name} (T${level + 1})`,
           }),
         });
       }

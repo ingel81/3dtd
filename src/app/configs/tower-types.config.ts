@@ -16,10 +16,15 @@ export type AttackType = 'projectile' | 'beam' | 'melee' | 'passive' | 'chain' |
 export type TargetingStrategy = 'closest' | 'lowest-hp' | 'highest-hp' | 'first' | 'last' | 'air-priority';
 export type AirSubStrategy = 'closest' | 'lowest-hp' | 'highest-hp';
 
+/**
+ * Which name and description a track shows (i18n `upgrades`): the fire rate
+ * track is "Chain Speed" on the chainsaw, "Heat-up" on the laser.
+ */
+export type UpgradeText = 'damage' | 'fireRate' | 'heatUp' | 'chainSpeed' | 'drive' | 'range' | 'beamWidth' | 'researchWing';
+
 export interface TowerUpgrade {
   id: UpgradeId;
-  name: string;
-  description: string;
+  text: UpgradeText;
   cost: number; // Base cost for level 1
   costScaling?: number; // Cost multiplier per level (default: 1.0 = flat cost)
   maxLevel: number;
@@ -127,20 +132,34 @@ export function requiredUpgradeTier(currentLevel: number): number {
 /** Prozent pro Stufe für die Upgrade-Beschreibung, z. B. 1.028 → 2.8. */
 const percentPerLevel = (multiplier: number): number => +((multiplier - 1) * 100).toFixed(1);
 
+/** What an upgrade's description says in numbers: % per level, until which level, % after it, the last level */
+export interface UpgradeTerms {
+  percent: number;
+  lateFromLevel: number | null;
+  latePercent: number | null;
+  maxLevel: number;
+}
+
+export function upgradeTerms(upgrade: TowerUpgrade): UpgradeTerms {
+  return {
+    percent: percentPerLevel(upgrade.effect.multiplier),
+    lateFromLevel: upgrade.lateFromLevel ?? null,
+    latePercent: upgrade.lateMultiplier === undefined ? null : percentPerLevel(upgrade.lateMultiplier),
+    maxLevel: upgrade.maxLevel,
+  };
+}
+
 /** Damage- oder Fire-Rate-Track: 25 Stufen, ab L16 degressiv. */
 function degressiveUpgrade(
   id: 'damage' | 'speed',
-  name: string,
+  text: UpgradeText,
   stat: 'damage' | 'fireRate',
   multiplier: number,
 ): TowerUpgrade {
   const lateMultiplier = 1 + UPGRADE_LATE_GAIN_SHARE * (multiplier - 1);
   return {
     id,
-    name,
-    description:
-      `Increases ${name.toLowerCase()} (+${percentPerLevel(multiplier)}% per level up to ` +
-      `L${UPGRADE_LATE_FROM_LEVEL}, +${percentPerLevel(lateMultiplier)}% after, compounding).`,
+    text,
     cost: UPGRADE_BASE_COST,
     costScaling: UPGRADE_COST_SCALING,
     maxLevel: UPGRADE_MAX_LEVEL,
@@ -152,9 +171,7 @@ function degressiveUpgrade(
 
 const RANGE_UPGRADE: TowerUpgrade = {
   id: 'range',
-  name: 'Range',
-  description: `Increases range (+${percentPerLevel(UPGRADE_RANGE_MULTIPLIER)}% per level, compounding, ` +
-    `max L${UPGRADE_RANGE_MAX_LEVEL}).`,
+  text: 'range',
   cost: UPGRADE_BASE_COST,
   costScaling: UPGRADE_COST_SCALING,
   maxLevel: UPGRADE_RANGE_MAX_LEVEL,
@@ -163,9 +180,7 @@ const RANGE_UPGRADE: TowerUpgrade = {
 
 const BEAM_WIDTH_UPGRADE: TowerUpgrade = {
   id: 'beam-width',
-  name: 'Beam Width',
-  description: `Increases flame cone width (+${percentPerLevel(UPGRADE_BEAM_WIDTH_MULTIPLIER)}% per level, ` +
-    `compounding, max L${UPGRADE_RANGE_MAX_LEVEL}).`,
+  text: 'beamWidth',
   cost: UPGRADE_BASE_COST,
   costScaling: UPGRADE_COST_SCALING,
   maxLevel: UPGRADE_RANGE_MAX_LEVEL,
@@ -182,8 +197,8 @@ function combatUpgrades(profile: { damage: number; rate: number; costFactor?: nu
   // A tower whose upgrades cost more pays the factor on every track (TODO E13)
   const priced = (upgrade: TowerUpgrade): TowerUpgrade => (factor === 1 ? upgrade : { ...upgrade, cost: upgrade.cost * factor });
   return [
-    priced(degressiveUpgrade('damage', 'Damage', 'damage', profile.damage)),
-    priced(degressiveUpgrade('speed', 'Fire Rate', 'fireRate', profile.rate)),
+    priced(degressiveUpgrade('damage', 'damage', 'damage', profile.damage)),
+    priced(degressiveUpgrade('speed', 'fireRate', 'fireRate', profile.rate)),
     priced(RANGE_UPGRADE),
   ];
 }
@@ -242,9 +257,12 @@ export interface FiringMotion {
   shake?: { amplitude: number; duration: number; near: number; far: number };
 }
 
+/**
+ * A tower type. Its name and description are the dictionary's
+ * (i18n `names.towers`, `towers.descriptions`), by id.
+ */
 export interface TowerTypeConfig {
   id: TowerTypeId;
-  name: string;
   modelUrl: string;
   scale: number;
   previewScale?: number; // Optional separate scale for UI preview (defaults to scale * 0.4)
@@ -325,8 +343,6 @@ export interface TowerTypeConfig {
    * Default true.
    */
   released?: boolean;
-  /** What a passive building does, or a tower's role in a line: the flavor of its build card's tooltip */
-  description?: string;
 
   // Targeting capabilities
   canTargetAir?: boolean; // Can target air units (default: false)
@@ -410,7 +426,6 @@ const SHAWARMA_MODEL_URL = 'assets/models/towers/shawarma.glb';
 export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   archer: {
     id: 'archer',
-    name: 'Archer Tower',
     defaultTargeting: 'first',
     modelUrl: ARCHER_MODEL_URL,
     scale: 10.1,
@@ -440,7 +455,6 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   },
   'dual-gatling': {
     id: 'dual-gatling',
-    name: 'Dual-Gatling Tower',
     defaultTargeting: 'first',
     modelUrl: TURRET_MODEL_URL,
     scale: 2.5,
@@ -479,7 +493,6 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   },
   cannon: {
     id: 'cannon',
-    name: 'Cannon Tower',
     defaultTargeting: 'first',
     modelUrl: CANNON_MODEL_URL,
     scale: 3,
@@ -509,7 +522,6 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   },
   magic: {
     id: 'magic',
-    name: 'Magic Tower',
     defaultTargeting: 'first',
     modelUrl: MAGIC_MODEL_URL,
     scale: 11,
@@ -530,7 +542,6 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   },
   rocket: {
     id: 'rocket',
-    name: 'Rocket Tower',
     defaultTargeting: 'first',
     modelUrl: ROCKET_MODEL_URL,
     scale: 3.4,
@@ -562,7 +573,6 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   },
   ice: {
     id: 'ice',
-    name: 'Ice Tower',
     defaultTargeting: 'first',
     modelUrl: ICE_MODEL_URL,
     scale: 11.4,
@@ -588,7 +598,6 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   },
   fire: {
     id: 'fire',
-    name: 'Fire Tower',
     defaultTargeting: 'first',
     modelUrl: FIRE_MODEL_URL,
     scale: 8,
@@ -621,14 +630,13 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     // Der Kegel trifft viele Ziele, die Breite war der versteckte Multiplikator
     // (vorher ×1,05 über 25 Stufen: 5 m auf 16,9 m).
     upgrades: [
-      degressiveUpgrade('damage', 'Damage', 'damage', 1.06),
+      degressiveUpgrade('damage', 'damage', 'damage', 1.06),
       RANGE_UPGRADE,
       BEAM_WIDTH_UPGRADE,
     ],
   },
   tentacle: {
     id: 'tentacle',
-    name: 'Tentacle Tower',
     defaultTargeting: 'closest',
     modelUrl: 'assets/models/towers/tentacle.glb',
     scale: 9.8,
@@ -657,7 +665,6 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   },
   poison: {
     id: 'poison',
-    name: 'Poison Tower',
     defaultTargeting: 'first',
     modelUrl: POISON_MODEL_URL,
     scale: 7.6,
@@ -680,7 +687,6 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   },
   lightning: {
     id: 'lightning',
-    name: 'Lightning Tower',
     defaultTargeting: 'first',
     modelUrl: LIGHTNING_MODEL_URL,
     scale: 11,
@@ -712,7 +718,6 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   },
   chaos: {
     id: 'chaos',
-    name: 'Chaos Tower',
     defaultTargeting: 'first',
     // Kenney "tower-round-crystals" (CC0): runder Sockel, fünf Kristalle als
     // eigene Nodes, 1 Einheit breit, Spitze des mittleren Kristalls bei 0,82.
@@ -744,7 +749,6 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   },
   bastion: {
     id: 'bastion',
-    name: 'Iron Bastion',
     released: false, // Dev builds only until it is released (configs/release.ts)
     defaultTargeting: 'first',
     // Meshy "Iron Bastion Turret", cut and reduced by tools/blender/build_tower.py (towers/bastion.json): nodes base,
@@ -787,13 +791,11 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     cost: 150,
     canTargetAir: true,
     canTargetGround: true,
-    description: 'Flak: shells that burst among swarms, in the air and on the ground.',
     // Grows over damage: the burst carries it to every body it hits
     upgrades: combatUpgrades({ damage: 1.06, rate: 1.03 }),
   },
   sentinel: {
     id: 'sentinel',
-    name: 'Sentinel Laser',
     released: false, // Dev builds only until it is released (configs/release.ts)
     // The tank killer: the strongest of the wave first, and it stays on it
     defaultTargeting: 'highest-hp',
@@ -827,16 +829,14 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     cost: 170,
     canTargetAir: true,
     canTargetGround: true,
-    description: 'Focused laser: heats up on one target, up to four times its damage. Built for bosses.',
     upgrades: [
-      degressiveUpgrade('damage', 'Damage', 'damage', 1.06),
-      degressiveUpgrade('speed', 'Heat-up', 'fireRate', 1.04),
+      degressiveUpgrade('damage', 'damage', 'damage', 1.06),
+      degressiveUpgrade('speed', 'heatUp', 'fireRate', 1.04),
       RANGE_UPGRADE,
     ],
   },
   chainsaw: {
     id: 'chainsaw',
-    name: 'Chainsaw',
     released: false, // Dev builds only until it is released (configs/release.ts)
     defaultTargeting: 'closest',
     // Meshy "Chainsaw Turret" without its arms (tools/blender/towers/chainsaw-tentacle.json, build_tower.py): nodes
@@ -877,16 +877,14 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     cost: 140,
     canTargetAir: false,
     canTargetGround: true,
-    description: 'Three robot arms with chainsaws, each on an enemy of its own. Build it right at the road.',
     upgrades: [
-      degressiveUpgrade('damage', 'Damage', 'damage', 1.07),
-      degressiveUpgrade('speed', 'Chain Speed', 'fireRate', 1.03),
+      degressiveUpgrade('damage', 'damage', 'damage', 1.07),
+      degressiveUpgrade('speed', 'chainSpeed', 'fireRate', 1.03),
       RANGE_UPGRADE,
     ],
   },
   shawarma: {
     id: 'shawarma',
-    name: 'Shawarma Slicer',
     released: false, // Dev builds only until it is released (configs/release.ts)
     defaultTargeting: 'first',
     // Meshy "Cyber Shawarma Slicer" (tools/blender/towers/shawarma.json, build_tower.py): nodes base, turret_top
@@ -917,16 +915,14 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     cost: 150,
     canTargetAir: false,
     canTargetGround: true,
-    description: 'Spins up a stream of meat slices that hits everything on its line. Strong in long waves.',
     upgrades: [
-      degressiveUpgrade('damage', 'Damage', 'damage', 1.06),
-      degressiveUpgrade('speed', 'Drive', 'fireRate', 1.04),
+      degressiveUpgrade('damage', 'damage', 'damage', 1.06),
+      degressiveUpgrade('speed', 'drive', 'fireRate', 1.04),
       RANGE_UPGRADE,
     ],
   },
   'research-center': {
     id: 'research-center',
-    name: 'Research Center',
     modelUrl: 'assets/models/buildings/research_building.glb',
     scale: 17.9,
     previewScale: 10,
@@ -947,12 +943,10 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     cost: 75,
     unique: true,
     minWave: 2,
-    description: 'Unlocks new towers and upgrade tiers.',
     upgrades: [
       {
         id: 'research-slots' as UpgradeId,
-        name: 'Research Wing',
-        description: 'Adds an additional research slot',
+        text: 'researchWing',
         cost: 120,
         costScaling: 1.8,
         maxLevel: 2, // Level 1→2 slots, Level 2→3 slots
@@ -965,7 +959,6 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   },
   'missile-silo': {
     id: 'missile-silo',
-    name: 'Missile Silo',
     // Nodes `silo` and `missile`; the missile of the nuclear strike leaves
     // from the middle of the building (ABILITIES.md), its nozzle 2.30 m and
     // its tip 8.89 m above the base. The model is 1.903 units wide and 1.411
@@ -993,38 +986,35 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     // it stands (AbilityConfig.launchFrom)
     cost: 400,
     unique: true,
-    description: 'Launches the Nuclear Strike. Without a silo the strike cannot fire.',
     upgrades: [],
   },
 };
 
+/** A targeting button; its label and tooltip are the dictionary's (i18n `hud.targeting`) */
 export interface TargetingStrategyConfig {
   id: TargetingStrategy;
-  label: string;
   icon: string;
-  tooltip: string;
 }
 
+/** An air target button; its label and tooltip are the dictionary's (i18n `hud.airTargeting`) */
 export interface AirSubStrategyConfig {
   id: AirSubStrategy;
-  label: string;
   icon: string;
-  tooltip: string;
 }
 
 export const TARGETING_STRATEGIES: TargetingStrategyConfig[] = [
-  { id: 'closest', label: 'Closest', icon: 'target', tooltip: 'Attacks the nearest enemy' },
-  { id: 'lowest-hp', label: 'Weakest', icon: 'heart', tooltip: 'Attacks the weakest enemy' },
-  { id: 'highest-hp', label: 'Strongest', icon: 'shield', tooltip: 'Attacks the strongest enemy' },
-  { id: 'first', label: 'First', icon: 'flag', tooltip: 'Attacks the enemy closest to the base' },
-  { id: 'last', label: 'Last', icon: 'walk', tooltip: 'Attacks the enemy furthest from the base' },
-  { id: 'air-priority', label: 'Air', icon: 'arrowUp', tooltip: 'Prioritizes flying enemies' },
+  { id: 'closest', icon: 'target' },
+  { id: 'lowest-hp', icon: 'heart' },
+  { id: 'highest-hp', icon: 'shield' },
+  { id: 'first', icon: 'flag' },
+  { id: 'last', icon: 'walk' },
+  { id: 'air-priority', icon: 'arrowUp' },
 ];
 
 export const AIR_SUB_STRATEGIES: AirSubStrategyConfig[] = [
-  { id: 'closest', label: 'Closest', icon: 'target', tooltip: 'Targets the nearest air enemy' },
-  { id: 'lowest-hp', label: 'Weakest', icon: 'heart', tooltip: 'Targets the weakest air enemy' },
-  { id: 'highest-hp', label: 'Strongest', icon: 'shield', tooltip: 'Targets the strongest air enemy' },
+  { id: 'closest', icon: 'target' },
+  { id: 'lowest-hp', icon: 'heart' },
+  { id: 'highest-hp', icon: 'shield' },
 ];
 
 /**

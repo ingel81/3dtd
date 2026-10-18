@@ -8,6 +8,9 @@ import type { WaveSeriesPoint } from '../run-log/wave-series';
 import type { CameraSlots } from '../services/camera-slots.service';
 import { WORLD_PACKAGE_VERSION, worldPackageShape, type WorldPackage } from '../coop/world-package';
 import { SIM_SNAPSHOT_VERSION, type SimSnapshot } from './sim-snapshot';
+import { en } from '../i18n/messages/en';
+import { towerName } from '../i18n/lookups';
+import type { TowerPathId } from '../configs/tower-paths.config';
 
 /** Bumped whenever the file's shape changes; another version is refused. */
 export const SAVE_FILE_VERSION = 1;
@@ -221,10 +224,15 @@ export function saveNote(file: Pick<SaveFile, 'gameVersion' | 'configHash'>, her
   return null;
 }
 
+/** A tower type's or a path's name by its id (unreleasedInSave) */
+function unreleasedName(id: string): string {
+  return en.paths[id as TowerPathId]?.name ?? towerName(en, id);
+}
+
 /** What the player reads when a save does not load. */
 export function saveFileRefusalText(refusal: SaveFileRefusal, detail?: string): string {
   switch (refusal) {
-    case 'unreleased': return `That save uses ${detail ?? 'a tower'}, which this version of the game does not have yet.`;
+    case 'unreleased': return `That save uses ${detail ? unreleasedName(detail) : 'a tower'}, which this version of the game does not have yet.`;
     case 'not-a-save': return 'That file is no 3DTD save.';
     case 'too-big': return 'That file is far too big for a 3DTD save.';
     case 'damaged': return 'That save is damaged.';

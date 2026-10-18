@@ -6,6 +6,7 @@ import { isAntiEtherealTower } from '../../../director/defense-analyzer';
 import { canTargetAirEffective } from '../../../entities/tower-targeting.util';
 import { waveRules } from '../../../director/wave-rules';
 import { TOWER_PATHS } from '../../../configs/tower-paths.config';
+import type { Messages } from '../../../i18n/messages/en';
 
 /**
  * Wave alerts in the WAVE panel (MASTER_GAME_DESIGN §9): an icon and a sound
@@ -138,18 +139,21 @@ export function countAntiEtherealTowers(typeIds: Iterable<TowerTypeId>): number 
 }
 
 /** Tower names that hit air, those that need research marked as such. */
-function airTowerNames(airTargetingUnlocked: boolean): string {
+function airTowerNames(t: Messages, airTargetingUnlocked: boolean): string {
   return releasedTowerTypes()
-    .filter((t) => canTargetAirEffective(t.id, true))
-    .map((t) => (canTargetAirEffective(t.id, airTargetingUnlocked) ? t.name : `${t.name} (after research)`))
+    .filter((tower) => canTargetAirEffective(tower.id, true))
+    .map((tower) => {
+      const name = t.names.towers[tower.id];
+      return canTargetAirEffective(tower.id, airTargetingUnlocked) ? name : t.hud.alerts.afterResearch(name);
+    })
     .join(', ');
 }
 
 /** Tower names that hurt ethereal armor */
-function etherealTowerNames(): string {
+function etherealTowerNames(t: Messages): string {
   return releasedTowerTypes()
-    .filter((t) => isAntiEtherealTower(t.id))
-    .map((t) => t.name)
+    .filter((tower) => isAntiEtherealTower(tower.id))
+    .map((tower) => t.names.towers[tower.id])
     .join(', ');
 }
 
@@ -162,40 +166,39 @@ export function countScouts(pathIds: Iterable<string | null>): number {
   return n;
 }
 
-export function waveAlertView(alert: WaveAlert, airTargetingUnlocked: boolean): WaveAlertView {
+export function waveAlertView(t: Messages, alert: WaveAlert, airTargetingUnlocked: boolean): WaveAlertView {
   const n = alert.answering;
-  const when = alert.wavesAhead === 1 ? 'next wave' : `in ${alert.wavesAhead} waves`;
+  const says = t.hud.alerts;
+  const when = alert.wavesAhead === 1 ? says.nextWave : says.inWaves(alert.wavesAhead);
   if (alert.kind === 'camo') {
     return {
       kind: 'camo',
       icon: 'eyeOff',
-      title: `Camo | Wave ${alert.wave}`,
+      title: says.camoTitle(alert.wave),
       when,
-      defense: n === 0 ? 'No scout yet' : `${n} ${n === 1 ? 'scout' : 'scouts'}`,
+      defense: n === 0 ? says.noScout : says.scouts(n),
       covered: n > 0,
-      tooltip: 'Camouflaged enemies slip past every tower that cannot see them. An Archer with the Scout path '
-        + '(research Scouting) reveals them within 35 m, and every tower can hit them there.',
+      tooltip: says.camoTip,
     };
   }
   if (alert.kind === 'air') {
     return {
       kind: 'air',
       icon: 'plane',
-      title: `Air | Wave ${alert.wave}`,
+      title: says.airTitle(alert.wave),
       when,
-      defense: n === 0 ? 'No tower hits air yet' : `${n} ${n === 1 ? 'tower hits' : 'towers hit'} air`,
+      defense: n === 0 ? says.noAir : says.airTowers(n),
       covered: n > 0,
-      tooltip: `Air units fly over the route. Only towers that hit air can shoot them: ${airTowerNames(airTargetingUnlocked)}.`,
+      tooltip: says.airTip(airTowerNames(t, airTargetingUnlocked)),
     };
   }
   return {
     kind: 'ethereal',
     icon: 'ghost',
-    title: `Ethereal | Wave ${alert.wave}`,
+    title: says.etherealTitle(alert.wave),
     when,
-    defense: n === 0 ? 'No tower hurts ethereal yet' : `${n} ${n === 1 ? 'tower hurts' : 'towers hurt'} ethereal`,
+    defense: n === 0 ? says.noEthereal : says.etherealTowers(n),
     covered: n > 0,
-    tooltip: 'Ethereal enemies shrug off most damage: arrows, bullets and fire deal a tenth. '
-      + `These towers get through: ${etherealTowerNames()}.`,
+    tooltip: says.etherealTip(etherealTowerNames(t)),
   };
 }

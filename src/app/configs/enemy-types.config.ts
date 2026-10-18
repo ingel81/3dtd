@@ -82,15 +82,12 @@ export interface OozeConfig {
   maxLengthM: number;
 }
 
+/**
+ * An enemy type. Its name and a boss's honorific are the dictionary's
+ * (i18n `names.enemies`, `epithets`), by id.
+ */
 export interface EnemyTypeConfig {
   id: string;
-  name: string;
-  /**
-   * A boss's honorific, shown only on the intro card (smaller, under `name`)
-   * and nowhere `name` alone is already tight on space (boss bar, debug
-   * lists, tooltips, wave preview).
-   */
-  epithet?: string;
   modelUrl: string;
   scale: number;
   /**
@@ -398,7 +395,6 @@ const WORM_STATS = {
 /** The stone golem, also the body of the golem king. */
 const STONE_GOLEM: EnemyTypeConfig = {
   id: 'stone-golem',
-  name: 'Stone Golem',
   deathSound: 'golem',
   hitSound: 'stone',
   footstep: GOLEM_FOOTSTEP,
@@ -443,7 +439,6 @@ const STONE_GOLEM: EnemyTypeConfig = {
 /** The dragon, also the body of the dragon matriarch. */
 const DRAGON: EnemyTypeConfig = {
   id: 'dragon',
-  name: 'Dragon',
   deathSound: 'dragon',
   hitSound: 'flesh',
   modelUrl: 'assets/models/enemies/dragon.glb',
@@ -521,7 +516,6 @@ export interface ClothVariants {
 export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   zombie: {
     id: 'zombie',
-    name: 'Zombie',
     deathSound: 'zombie',
     hitSound: 'flesh',
     modelUrl: 'assets/models/enemies/zombie.glb',
@@ -572,7 +566,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
 
   'zombie-v2': {
     id: 'zombie-v2',
-    name: 'Zombie v2',
     deathSound: 'zombie',
     hitSound: 'flesh',
     modelUrl: 'assets/models/enemies/zombie_v2.glb',
@@ -633,7 +626,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
 
   tank: {
     id: 'tank',
-    name: 'Tank',
     deathSound: 'mech',
     hitSound: 'metal',
     // Quaternius tank in metres, gun along +z, standing on the origin
@@ -671,7 +663,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
 
   wallsmasher: {
     id: 'wallsmasher',
-    name: 'Wallsmasher',
     deathSound: 'wallsmasher',
     hitSound: 'flesh',
     // GLB in metres (the FBX was in centimetres, scale 0.037), only Walk, Run and Death.
@@ -715,7 +706,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
 
   bat: {
     id: 'bat',
-    name: 'Bat',
     deathSound: 'bat',
     hitSound: 'flesh',
     movingSound: 'assets/sounds/enemies/bat/flap_loop.mp3',
@@ -747,7 +737,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
 
   penguin: {
     id: 'penguin',
-    name: 'Penguin',
     deathSound: 'penguin',
     hitSound: 'flesh',
     randomSound: 'assets/sounds/enemies/penguin/call.mp3',
@@ -781,7 +770,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
 
   herbert: {
     id: 'herbert',
-    name: 'Herbert',
     deathSound: 'herbert',
     hitSound: 'flesh',
     modelUrl: 'assets/models/enemies/herbert_optimized.glb',
@@ -817,7 +805,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
 
   'zombie-soldier': {
     id: 'zombie-soldier',
-    name: 'Zombie Soldier',
     deathSound: 'zombie_soldier',
     hitSound: 'metal',
     modelUrl: 'assets/models/enemies/zombie_soldier.glb',
@@ -858,7 +845,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
 
   rat: {
     id: 'rat',
-    name: 'Rat',
     deathSound: 'rat',
     hitSound: 'flesh',
     modelUrl: 'assets/models/enemies/rat.glb',
@@ -891,7 +877,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
 
   skeleton: {
     id: 'skeleton',
-    name: 'Skeleton',
     // A kill splits it: its split sound instead of a death
     splitSound: 'skeletonSplit',
     hitSound: 'bone',
@@ -935,7 +920,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
 
   'skeleton-minion': {
     id: 'skeleton-minion',
-    name: 'Skeleton Minion',
     deathSound: 'bone',
     hitSound: 'bone',
     movingSound: 'assets/sounds/enemies/skeleton/rattle_loop.mp3',
@@ -974,7 +958,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
 
   spider: {
     id: 'spider',
-    name: 'Spider',
     deathSound: 'spider',
     hitSound: 'flesh',
     movingSound: 'assets/sounds/enemies/spider/skitter_loop.mp3',
@@ -1006,7 +989,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
 
   mammoth: {
     id: 'mammoth',
-    name: 'Mammoth',
     deathSound: 'mammoth',
     hitSound: 'flesh',
     modelUrl: 'assets/models/enemies/mammoth.glb',
@@ -1044,7 +1026,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
 
   bear: {
     id: 'bear',
-    name: 'Bear',
     deathSound: 'bear',
     hitSound: 'flesh',
     modelUrl: 'assets/models/enemies/bear.glb',
@@ -1086,7 +1067,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
 
   ghost: {
     id: 'ghost',
-    name: 'Ghost',
     deathSound: 'ghost',
     movingSound: 'assets/sounds/enemies/ghost/wail_loop.mp3',
     movingSoundVolume: 0.3,
@@ -1119,7 +1099,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
 
   hornet: {
     id: 'hornet',
-    name: 'Hornet',
     deathSound: 'hornet',
     hitSound: 'flesh',
     modelUrl: 'assets/models/enemies/hornet.glb',
@@ -1153,7 +1132,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
 
   mech: {
     id: 'mech',
-    name: 'Mech',
     deathSound: 'mech',
     hitSound: 'metal',
     movingSound: 'assets/sounds/enemies/mech/servo_loop.mp3',
@@ -1183,7 +1161,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
 
   wraith: {
     id: 'wraith',
-    name: 'Wraith',
     deathSound: 'wraith',
     randomSound: 'assets/sounds/enemies/wraith/whisper.mp3',
     randomSoundMinInterval: 7000,
@@ -1220,8 +1197,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   worm: {
     id: 'worm',
     modelRangeY: { min: 0.3254, max: 2.02 },
-    name: 'Skarnax',
-    epithet: 'The Thousand-Legged Calamity',
     ...WORM_MODELS.head,
     ...WORM_STATS,
     // One spawn puts the whole worm on the route: as long as the route, one
@@ -1255,7 +1230,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     // model.
     id: 'worm-segment',
     modelRangeY: { min: 0, max: 1.78 },
-    name: 'Skarnax Segment',
     ...WORM_MODELS.segment,
     ...WORM_STATS,
   },
@@ -1267,7 +1241,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     // debug lists; worm-segment is the ring to tune there.
     id: 'worm-tail',
     modelRangeY: { min: 0, max: 1.78 },
-    name: 'Skarnax Tail',
     ...WORM_MODELS.tail,
     ...WORM_STATS,
     debugUnlisted: true,
@@ -1275,7 +1248,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
 
   ooze: {
     id: 'ooze',
-    name: 'Ooze',
     deathSound: 'ooze',
     hitSound: 'slime',
     // The body is a band of slime along the route, drawn by the engine's
@@ -1324,7 +1296,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
 
   'slime-clump': {
     id: 'slime-clump',
-    name: 'Slime Clump',
     deathSound: 'slime',
     hitSound: 'slime',
     movingSound: 'assets/sounds/enemies/slime/squelch_loop.mp3',
@@ -1372,8 +1343,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   'golem-king': {
     ...STONE_GOLEM,
     id: 'golem-king',
-    name: 'Golem King',
-    epithet: 'Heart of the Mountain',
     renderAs: 'stone-golem',
     scale: STONE_GOLEM.scale * 1.6,
     // Ten golems; the wave's budget sets what it brings (sources/budget)
@@ -1392,8 +1361,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   'dragon-matriarch': {
     ...DRAGON,
     id: 'dragon-matriarch',
-    name: 'Dragon Matriarch',
-    epithet: 'Mother of the Flight',
     renderAs: 'dragon',
     scale: DRAGON.scale * 1.6,
     // Ten dragons

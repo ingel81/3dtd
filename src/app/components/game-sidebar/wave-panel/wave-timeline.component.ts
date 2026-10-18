@@ -1,8 +1,9 @@
-import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { TdIconComponent, type TdIconName } from '../../icon/icon.component';
 import { TdRichTooltipDirective } from '../../tooltip/td-rich-tooltip.directive';
 import { damageTypeIcon } from '../../icon/damage-type-icon';
 import { markShape, shownPeek, type MarkShape, type WavePeek } from './upcoming-waves';
+import { I18n } from '../../../i18n/i18n.service';
 
 /**
  * NEXT in the WAVE panel: the coming waves as marks on a thin line, the
@@ -23,6 +24,7 @@ import { markShape, shownPeek, type MarkShape, type WavePeek } from './upcoming-
 export class WaveTimelineComponent {
   /** The coming waves, the next one first */
   readonly peeks = input.required<WavePeek[]>();
+  protected readonly t = inject(I18n).t;
 
   readonly hovered = signal<number | null>(null);
   readonly picked = signal<number | null>(null);
@@ -35,13 +37,14 @@ export class WaveTimelineComponent {
 
   /** "Wave 7, Bat Swarm, air"; "…, Swift, blood moon" on a blood moon wave */
   markLabel(peek: WavePeek): string {
+    const says = this.t().hud.next;
     return [
-      `Wave ${peek.wave}`,
+      this.t().hud.wave.wave(peek.wave),
       peek.name,
-      ...(peek.air ? ['air'] : []),
-      ...(peek.camo ? ['camouflaged'] : []),
+      ...(peek.air ? [says.markAir] : []),
+      ...(peek.camo ? [says.markCamo] : []),
       ...(peek.mutator ? [peek.mutator] : []),
-      ...(peek.bloodMoon ? ['blood moon'] : []),
+      ...(peek.bloodMoon ? [says.markBloodMoon] : []),
     ].join(', ');
   }
 }

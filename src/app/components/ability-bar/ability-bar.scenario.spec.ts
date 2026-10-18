@@ -25,6 +25,8 @@ import type { GeoPosition } from '../../models/game.types';
 import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 import { singlePlayer } from '../../integration/single-player-parts';
 import { GameClock } from '../../managers/game-state/game-clock';
+import { en } from '../../i18n/messages/en';
+import { provideI18n } from '../../i18n/i18n.service';
 
 /** GameClock.FIXED_STEP_MS: the length of one gameplay sub-step. */
 const STEP_MS = GameClock.FIXED_STEP_MS;
@@ -96,7 +98,7 @@ describe('Ability bar after the research, playtest 510, 511 and 513 replayed', (
     bus.on('ability:state-changed', mirror);
 
     const injector = Injector.create({
-      providers: [
+      providers: [provideI18n(), 
         { provide: TowerDefenseStore, useValue: { abilities: abilityStatuses, waveActive } },
         { provide: AbilityTargetingService, useValue: { targeting: signal<AbilityId | null>(null), toggle: vi.fn() } },
         { provide: DestroyRef, useValue: { onDestroy: () => () => undefined, destroyed: false } },
@@ -114,7 +116,7 @@ describe('Ability bar after the research, playtest 510, 511 and 513 replayed', (
     expect(research.isCompleted(id)).toBe(true);
   };
   /** The hero button the game component hands to the bar (tower-defense.component.ts heroBar) */
-  const heroButton = () => heroBarView(hero.getStatus(), false, 0);
+  const heroButton = () => heroBarView(en, hero.getStatus(), false, 0);
 
   it('510: a new game has no bar, and no ability can be armed even in a wave', () => {
     expect(bar.buttons()).toEqual([]);

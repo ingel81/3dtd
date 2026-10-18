@@ -21,6 +21,7 @@ import type { BotWorld } from '../../bot-world';
 import type { TowerAction } from '../../bots/tower-bot.interface';
 import { threatFromWaves } from '../../decision/value';
 import { BaseStrategy } from '../tower-strategy.interface';
+import { en } from '../../../i18n/messages/en';
 
 /** Share of a wave's HP in the air from which the towers that hit both aim at air first */
 export const AIR_FIRST_SHARE = 0.3;
@@ -47,7 +48,7 @@ export class TargetingStrategy extends BaseStrategy {
       type: 'set-targeting',
       towerId: change.tower.id,
       targeting: change.targeting,
-      reason: `${change.tower.typeConfig.name} aims at ${change.targeting}`,
+      reason: `${en.names.towers[change.tower.typeConfig.id]} aims at ${change.targeting}`,
     };
   }
 

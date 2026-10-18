@@ -1,6 +1,6 @@
-<h3 class="td-side-head">Next</h3>
+<h3 class="td-side-head">{{ t().hud.next.title }}</h3>
 
-<div class="td-next-line" role="group" aria-label="Next waves">
+<div class="td-next-line" role="group" [attr.aria-label]="t().hud.next.group">
   @for (peek of peeks(); track peek.wave; let first = $first) {
     <button type="button" class="td-next-mark"
             [class.td-next-mark-first]="first"
@@ -37,12 +37,12 @@
     <div class="td-note td-next-facts">
       @if (peek.known) {
         @if (peek.count; as count) {
-          <span class="td-num td-next-count"><b>{{ count }}</b> enemies</span>
+          <span class="td-num td-next-count"><b>{{ count }}</b> {{ t().hud.next.enemies }}</span>
         }
         @if (peek.air) {
           <span class="td-next-fact td-next-fact-air">
             <td-icon name="plane" [size]="10"></td-icon>
-            <span>Air</span>
+            <span>{{ t().hud.next.air }}</span>
           </span>
         }
         <span class="td-next-fact">
@@ -50,8 +50,8 @@
           <span>{{ peek.armorLabel }}</span>
         </span>
         @if (peek.weakToTypes.length > 0) {
-          <span class="td-next-weak td-tone-brass" role="img" [attr.aria-label]="'Weak to ' + peek.weakTo">
-            <span class="td-caps" aria-hidden="true">weak</span>
+          <span class="td-next-weak td-tone-brass" role="img" [attr.aria-label]="t().hud.next.weakTo(peek.weakTo)">
+            <span class="td-caps" aria-hidden="true">{{ t().hud.next.weak }}</span>
             @for (type of peek.weakToTypes; track type) {
               <td-icon [name]="damageTypeIcon(type)" [size]="11"></td-icon>
             }

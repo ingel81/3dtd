@@ -1,8 +1,8 @@
 <!-- WAVE section: no head, the button names the wave -->
 @if (waveActive()) {
   @if (leakTotal() > 0) {
-    <p class="td-caps wp-leak" matTooltip="HP the HQ loses if every enemy of this wave gets through, split children included"
-       matTooltipPosition="left">Max HQ damage <b>{{ leakTotal() }}</b></p>
+    <p class="td-caps wp-leak" [matTooltip]="t().hud.wave.maxHqDamageTip"
+       matTooltipPosition="left">{{ t().hud.wave.maxHqDamage }} <b>{{ leakTotal() }}</b></p>
   }
   <div class="td-rows">
     @for (group of currentWaveGroups(); track group.enemyType; let i = $index) {
@@ -13,13 +13,13 @@
                 [attr.data-group-index]="i" width="64" height="64"></canvas>
         <div class="wp-info">
           <div class="wp-info-head">
-            <span class="td-name">{{ group.name }}</span>
-            <span class="wp-count td-num">×{{ group.count }}@if (group.lanes > 1) {<span class="td-muted"> per lane</span>}</span>
+            <span class="td-name">{{ t().names.enemies[group.enemyType] }}</span>
+            <span class="wp-count td-num">×{{ group.count }}@if (group.lanes > 1) {<span class="td-muted">{{ t().hud.wave.perLane }}</span>}</span>
           </div>
           <div class="td-note td-inline wp-stats">
-            <span>HP {{ group.actualHp }}</span>
-            <span>{{ group.actualSpeed.toFixed(1) }} m/s</span>
-            <span class="td-tone-hurt">HQ −{{ formatLeak(group.leak) }}</span>
+            <span>{{ t().hud.wave.hp(group.actualHp) }}</span>
+            <span>{{ t().hud.wave.speed(group.actualSpeed) }}</span>
+            <span class="td-tone-hurt">{{ t().hud.wave.hqLoss(formatLeak(group.leak)) }}</span>
           </div>
           <div class="td-note td-inline wp-stats">
             <span class="td-inline wp-armor">
@@ -77,7 +77,7 @@
       <span class="td-num wp-countdown">{{ countdown }}</span>
       <span class="td-progress is-edge is-tick"><span [style.width.%]="waveButton().barPercent"></span></span>
     } @else if (!isGameOver()) {
-      <kbd class="td-kbd" aria-hidden="true">Space</kbd>
+      <kbd class="td-kbd" aria-hidden="true">{{ t().hud.wave.space }}</kbd>
     }
   }
 </button>
@@ -89,27 +89,27 @@
   @if (!coopReady()) {
     <button type="button" class="td-check"
             [attr.aria-pressed]="autoStart()"
-            [attr.aria-label]="'Auto-start the next wave ' + autoStartSeconds + ' s after a wave'"
-            [matTooltip]="'Starts the next wave by itself ' + autoStartSeconds + ' s after a wave'"
+            [attr.aria-label]="t().hud.wave.autoStartLabel(autoStartSeconds)"
+            [matTooltip]="t().hud.wave.autoStartTip(autoStartSeconds)"
             matTooltipPosition="left"
             (click)="toggleAutoStart()">
       <span class="td-switch" aria-hidden="true"></span>
-      <span>Auto start in {{ autoStartSeconds }} s</span>
+      <span>{{ t().hud.wave.autoStart(autoStartSeconds) }}</span>
     </button>
   }
   @if (replayWave(); as wave) {
     <button type="button" class="td-link td-note"
-            [attr.aria-label]="'Replay wave ' + wave"
-            [matTooltip]="'Watch wave ' + wave + ' again: free camera, pause, 0.25x to 4x'"
+            [attr.aria-label]="t().hud.wave.replay(wave)"
+            [matTooltip]="t().hud.wave.replayTip(wave)"
             matTooltipPosition="left"
-            (click)="replay.enter()">Replay wave {{ wave }}</button>
+            (click)="replay.enter()">{{ t().hud.wave.replay(wave) }}</button>
   }
 </div>
 @if (replay.fileProblem(); as problem) {
   <p class="td-note is-warn" role="status">{{ problem }}</p>
 }
 @if (replay.elsewhere(); as there) {
-  <button type="button" class="td-link td-note" [disabled]="replay.goingThere()" (click)="replay.playThere()">Go to {{ there.name }} and play</button>
+  <button type="button" class="td-link td-note" [disabled]="replay.goingThere()" (click)="replay.playThere()">{{ t().hud.wave.goThere(there.name) }}</button>
 }
 
 <!-- NEXT: the coming waves on a timeline, one detail line for one of them;

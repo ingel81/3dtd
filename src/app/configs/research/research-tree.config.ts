@@ -28,13 +28,11 @@ import { HERO } from '../hero.config';
  * - Global Perks: Require specific researches, grant global effects
  * - Upgrade Tiers: Require multiple unlocks, enable higher upgrade levels
  */
-export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
+const TREE = {
   // ==================== Tower Unlocks (Tier 0) ====================
 
   'gatling-tech': {
     id: 'gatling-tech',
-    name: 'Gatling Technology',
-    description: 'Unlocks the Dual-Gatling Tower: rapid-fire pierce damage',
     category: 'tower-unlock',
     branch: 'ballistics',
     icon: 'gatling',
@@ -46,8 +44,6 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
 
   'ice-magic': {
     id: 'ice-magic',
-    name: 'Ice Magic',
-    description: 'Unlocks the Ice Tower: slows enemies, hits air and ground',
     category: 'tower-unlock',
     branch: 'arcane',
     icon: 'iceStar',
@@ -62,8 +58,6 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
   // readable shape instead of four equal doors at the start.
   'biology': {
     id: 'biology',
-    name: 'Biology',
-    description: 'Opens the organic branch: Tentacle and Poison',
     category: 'gate',
     branch: 'biology',
     icon: 'helix',
@@ -75,8 +69,6 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
 
   'tentacle-biology': {
     id: 'tentacle-biology',
-    name: 'Tentacle Biology',
-    description: 'Unlocks the Tentacle Tower: close-range melee strikes that slam what stands around the target',
     category: 'tower-unlock',
     branch: 'biology',
     icon: 'tentacle',
@@ -88,8 +80,6 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
 
   'toxic-compounds': {
     id: 'toxic-compounds',
-    name: 'Toxic Compounds',
-    description: 'Unlocks the Poison Tower: splash projectiles with damage over time',
     category: 'tower-unlock',
     branch: 'biology',
     icon: 'hazardCone',
@@ -103,8 +93,6 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
 
   'siege-engineering': {
     id: 'siege-engineering',
-    name: 'Siege Engineering',
-    description: 'Unlocks the Cannon Tower: slow, heavy siege damage',
     category: 'tower-unlock',
     branch: 'ballistics',
     icon: 'catapult',
@@ -116,8 +104,6 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
 
   'fire-alchemy': {
     id: 'fire-alchemy',
-    name: 'Fire Alchemy',
-    description: 'Unlocks the Fire Tower: continuous flame beam, ground only',
     category: 'tower-unlock',
     branch: 'arcane',
     icon: 'flame',
@@ -130,8 +116,6 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
 
   'arcane-studies': {
     id: 'arcane-studies',
-    name: 'Arcane Studies',
-    description: 'Unlocks the Magic Tower: strong vs ethereal enemies',
     category: 'tower-unlock',
     branch: 'arcane',
     icon: 'arcaneStar',
@@ -143,8 +127,6 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
 
   'storm-mastery': {
     id: 'storm-mastery',
-    name: 'Storm Mastery',
-    description: 'Unlocks the Lightning Tower: chain hitscan, anti-swarm/air',
     category: 'tower-unlock',
     branch: 'arcane',
     icon: 'bolt',
@@ -163,8 +145,6 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
   // retrofitted gatling is the better gold, which is what the description says.
   'rocketry': {
     id: 'rocketry',
-    name: 'Rocketry',
-    description: 'Unlocks the Rocket Tower: heavy homing missiles against armored air',
     category: 'tower-unlock',
     branch: 'ballistics',
     icon: 'rocket',
@@ -178,8 +158,6 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
   // air as on the ground. Opens with the second air wave; against the first one AA Retrofit is there earlier.
   'flak-artillery': {
     id: 'flak-artillery',
-    name: 'Flak Artillery',
-    description: 'Unlocks the Iron Bastion: bursting shells against swarms, air and ground',
     category: 'tower-unlock',
     branch: 'ballistics',
     icon: 'castle',
@@ -194,8 +172,6 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
   // heavy and the bosses of the teens, at the price of EMP, which opens with it behind the same research.
   'laser-optics': {
     id: 'laser-optics',
-    name: 'Laser Optics',
-    description: 'Unlocks the Sentinel Laser: a beam that heats up on one target, against bosses and tanks',
     category: 'tower-unlock',
     branch: 'arcane',
     icon: 'bulb',
@@ -210,8 +186,6 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
   // engineering, opening with the bosses of the tens.
   'cybernetics': {
     id: 'cybernetics',
-    name: 'Cybernetics',
-    description: 'Unlocks the Chainsaw: three robot arms, each sawing an enemy of its own at the road',
     category: 'tower-unlock',
     branch: 'biology',
     icon: 'cog',
@@ -225,8 +199,6 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
   // The grill after the flame: the Shawarma Slicer, a stream of slices on a line, for the long waves of the teens
   'rotisserie': {
     id: 'rotisserie',
-    name: 'Rotisserie',
-    description: 'Unlocks the Shawarma Slicer: spins up a stream of slices that hits everything on its line',
     category: 'tower-unlock',
     branch: 'biology',
     icon: 'refresh',
@@ -241,8 +213,6 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
 
   'chaos-rift': {
     id: 'chaos-rift',
-    name: 'Chaos Rift',
-    description: 'Unlocks the Chaos Tower: full damage against every armor, air and ground',
     category: 'tower-unlock',
     branch: 'arcane',
     icon: 'rift',
@@ -260,8 +230,6 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
 
   'aa-retrofit': {
     id: 'aa-retrofit',
-    name: 'AA Retrofit',
-    description: 'Gatling towers gain air targeting capability: the broad answer to light air',
     category: 'global-perk',
     branch: 'ballistics',
     icon: 'flak',
@@ -276,8 +244,6 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
 
   'scouting': {
     id: 'scouting',
-    name: 'Scouting',
-    description: 'Archer towers can take the Scout path: a lookout that reveals camouflaged enemies to every tower',
     category: 'global-perk',
     branch: 'ballistics',
     icon: 'eye',
@@ -293,8 +259,6 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
   // in the ballistic line, before the Regeneration waves (W28, W56)
   'incendiary-arrows': {
     id: 'incendiary-arrows',
-    name: 'Incendiary Arrows',
-    description: 'Archer towers can take the Fire Arrows path: every hit sets its target burning',
     category: 'global-perk',
     branch: 'ballistics',
     icon: 'burst',
@@ -310,8 +274,6 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
   // first mammoths (W14)
   'ballista-bolts': {
     id: 'ballista-bolts',
-    name: 'Ballista Bolts',
-    description: 'Archer towers can take the Sniper path: a ballista with twice the range and armor-piercing bolts',
     category: 'global-perk',
     branch: 'ballistics',
     // A scope: siege engineering before it has the catapult
@@ -327,8 +289,6 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
   // half damage, from the first tank waves on (W9, W11)
   'multirole-warheads': {
     id: 'multirole-warheads',
-    name: 'Multirole Warheads',
-    description: 'Rocket towers can take the Multirole path: they fire at ground enemies too, at half damage',
     category: 'global-perk',
     branch: 'ballistics',
     icon: 'target',
@@ -343,8 +303,6 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
   // Phasing, so the ice tower's slow works on them again
   'binding-sigils': {
     id: 'binding-sigils',
-    name: 'Binding Sigils',
-    description: 'Magic towers can take the Binding Sigil path: each hit lifts Phasing, slows take hold again',
     category: 'global-perk',
     branch: 'arcane',
     icon: 'sparkle',
@@ -359,8 +317,6 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
   // armor of what the poison tower hits counts one class lighter
   'caustic-compounds': {
     id: 'caustic-compounds',
-    name: 'Caustic Compounds',
-    description: 'Poison towers can take the Caustic path: each hit makes its target count one armor class lighter',
     category: 'global-perk',
     branch: 'biology',
     icon: 'flask',
@@ -373,10 +329,6 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
 
   'nuclear-strike': {
     id: 'nuclear-strike',
-    name: 'Nuclear Strike',
-    description:
-      'Unlocks the Missile Silo and the Nuclear Strike it launches: aim at the route, 6.5 s later everything '
-      + 'within 25 m loses 60% of its max HP (bosses 20%). One charge, a new one every 3 waves',
     category: 'global-perk',
     branch: 'ballistics',
     icon: 'mushroom',
@@ -390,18 +342,12 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
       {
         kind: 'global-perk',
         perkId: 'nuclear-strike',
-        description: 'Nuclear Strike ability: one charge, a new one every 3 completed waves',
       },
     ],
   },
 
   'mercenary-contract': {
     id: HERO.researchId,
-    name: 'Mercenary Contract',
-    description:
-      `Lets you hire the ${HERO.name} once for ${HERO.cost} credits: a soldier you send along the enemy route. `
-      + `He fights on his own within ${HERO.rangeM} m, switches between standard (physical), explosive (siege) `
-      + `and rune (magic) rounds and levels up through his kills`,
     category: 'global-perk',
     branch: 'engineering',
     icon: 'user',
@@ -413,16 +359,11 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     effects: [{
       kind: 'global-perk',
       perkId: HERO.perkId,
-      description: `${HERO.name} can be hired (${HERO.cost} credits, once)`,
     }],
   },
 
   'frost-bomb': {
     id: 'frost-bomb',
-    name: 'Frost Bomb',
-    description:
-      'Unlocks the Frost Bomb: aim at the route, 0.5 s later everything within 20 m freezes solid for 3 s '
-      + '(bosses 1 s). One charge, a new one every 3 waves',
     category: 'global-perk',
     branch: 'arcane',
     icon: 'frostRune',
@@ -434,16 +375,11 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     effects: [{
       kind: 'global-perk',
       perkId: 'frost-bomb',
-      description: 'Frost Bomb ability: one charge, a new one every 3 completed waves',
     }],
   },
 
   emp: {
     id: 'emp',
-    name: 'EMP',
-    description:
-      'Unlocks the EMP: aim at the route, 0.5 s later machines within 30 m stop for 6 s, '
-      + 'everything else for 1.5 s (bosses 0.75 s). One charge, a new one every 3 waves',
     category: 'global-perk',
     branch: 'engineering',
     icon: 'pulse',
@@ -456,16 +392,11 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     effects: [{
       kind: 'global-perk',
       perkId: 'emp',
-      description: 'EMP ability: one charge, a new one every 3 completed waves',
     }],
   },
 
   'orbital-laser': {
     id: 'orbital-laser',
-    name: 'Orbital Laser',
-    description:
-      'Unlocks the Orbital Laser: aim at the route, 1 s later a beam burns 4 s along it toward the spawn, '
-      + 'fire damage up to 60% of max HP (bosses 20%). One charge, a new one every 3 waves',
     category: 'global-perk',
     branch: 'ballistics',
     icon: 'laser',
@@ -478,7 +409,6 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     effects: [{
       kind: 'global-perk',
       perkId: 'orbital-laser',
-      description: 'Orbital Laser ability: one charge, a new one every 3 completed waves',
     }],
   },
 
@@ -486,8 +416,6 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
 
   'advanced-weaponry': {
     id: 'advanced-weaponry',
-    name: 'Advanced Weaponry',
-    description: 'Enables Tier 2 upgrades for all towers (levels 6-10)',
     category: 'upgrade-tier',
     branch: 'ballistics',
     icon: 'sword',
@@ -500,8 +428,6 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
 
   'master-engineering': {
     id: 'master-engineering',
-    name: 'Master Engineering',
-    description: 'Enables Tier 3 upgrades for all towers (levels 11-15)',
     category: 'upgrade-tier',
     branch: 'engineering',
     icon: 'sliders',
@@ -514,8 +440,6 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
 
   'advanced-engineering': {
     id: 'advanced-engineering',
-    name: 'Advanced Engineering',
-    description: 'Enables Tier 4 upgrades for all towers (levels 16-20)',
     category: 'upgrade-tier',
     branch: 'engineering',
     icon: 'cogRing',
@@ -528,8 +452,6 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
 
   'transcendent-tech': {
     id: 'transcendent-tech',
-    name: 'Transcendent Tech',
-    description: 'Enables Tier 5 upgrades for all towers (levels 21-25)',
     category: 'upgrade-tier',
     branch: 'engineering',
     icon: 'star',
@@ -539,7 +461,12 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     minWave: 38,
     effects: [{ kind: 'unlock-upgrade-tier', tier: 5 }],
   },
-};
+} satisfies Record<string, ResearchConfig>;
+
+/** A research of the tree, by id; its name and description are the dictionary's (i18n `research`) */
+export type ResearchTreeId = keyof typeof TREE;
+
+export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = TREE;
 
 // ==================== Helper Functions ====================
 

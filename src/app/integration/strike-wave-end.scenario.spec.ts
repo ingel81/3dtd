@@ -112,7 +112,7 @@ function createGame() {
   gsm.getEventBus().emit({
     type: 'research:completed', playerId: 'local', local: true,
     researchId: NUKE.researchId,
-    effects: [{ kind: 'global-perk', perkId: NUKE.perkId, description: '' }],
+    effects: [{ kind: 'global-perk', perkId: NUKE.perkId }],
   });
 
   // The main thread's side: the simulation's events of a frame on the main

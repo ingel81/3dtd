@@ -19,7 +19,6 @@ export interface MixedGroupConfig {
 /** Display data for a single enemy group in the wave sidebar */
 export interface WaveGroupDisplay {
   enemyType: EnemyTypeId;
-  name: string;
   count: number;
   baseHp: number;
   actualHp: number;

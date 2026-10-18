@@ -12,6 +12,7 @@ import {
   viewOnlyTreeState,
   type ResearchTreeState,
 } from './research-tree-view';
+import { en } from '../../i18n/messages/en';
 
 const state = (partial: Partial<ResearchTreeState> = {}): ResearchTreeState => ({
   completed: new Set<ResearchId>(),
@@ -27,7 +28,7 @@ const state = (partial: Partial<ResearchTreeState> = {}): ResearchTreeState => (
 const active = (researchId: ResearchId, duration: number): ActiveResearch =>
   ({ researchId, duration, elapsed: 0, cost: 0 }) as ActiveResearch;
 
-const nodeFor = (id: ResearchId, s = state()) => buildResearchNodes(s).find((n) => n.id === id)!;
+const nodeFor = (id: ResearchId, s = state()) => buildResearchNodes(en, s).find((n) => n.id === id)!;
 
 describe('buildResearchEdges', () => {
   it('draws one edge per prerequisite, both of a node with two', () => {
@@ -44,7 +45,7 @@ describe('buildResearchEdges', () => {
 
 describe('buildResearchNodes', () => {
   it('covers every research in the config', () => {
-    expect(buildResearchNodes(state())).toHaveLength(Object.keys(RESEARCH_TREE).length);
+    expect(buildResearchNodes(en, state())).toHaveLength(Object.keys(RESEARCH_TREE).length);
   });
 
   it('shows cost and duration while a node is open, and the missing prerequisite while it is not', () => {
@@ -73,7 +74,7 @@ describe('buildResearchNodes', () => {
   });
 
   it('numbers a queued node by its place in the queue', () => {
-    const nodes = buildResearchNodes(state({ queued: ['ice-magic', 'toxic-compounds'] }));
+    const nodes = buildResearchNodes(en, state({ queued: ['ice-magic', 'toxic-compounds'] }));
     expect(nodes.find((n) => n.id === 'ice-magic')!.badge).toBe('1');
     expect(nodes.find((n) => n.id === 'toxic-compounds')!.badge).toBe('2');
     expect(nodes.find((n) => n.id === 'toxic-compounds')!.subtitle).toBe(
@@ -84,14 +85,14 @@ describe('buildResearchNodes', () => {
   it('says why a click will not start it right now', () => {
     expect(nodeFor('gatling-tech', state({ availableSlots: 0 })).hint).toContain('Every slot is busy');
     expect(nodeFor('gatling-tech', state({ credits: 0 })).hint).toContain('credits short');
-    expect(nodeFor('gatling-tech').hint).toBe(RESEARCH_TREE['gatling-tech'].description);
+    expect(nodeFor('gatling-tech').hint).toBe(en.research['gatling-tech'].description);
   });
 
   it('prices a node at the cost times the lanes of the player', () => {
     const cost = RESEARCH_TREE['gatling-tech'].cost;
     expect(nodeFor('gatling-tech', state({ lanes: 2, credits: cost * 2 - 1 })).state).toBe('poor');
     expect(nodeFor('gatling-tech', state({ lanes: 2, credits: cost * 2 })).state).toBe('available');
-    expect(buildResearchDetail('gatling-tech', state({ lanes: 2 }), 0)!.cost).toBe(cost * 2);
+    expect(buildResearchDetail(en, 'gatling-tech', state({ lanes: 2 }), 0)!.cost).toBe(cost * 2);
   });
 
   it('is poor, not available, when the node is open but the purse is short', () => {
@@ -116,11 +117,11 @@ describe('buildResearchNodes', () => {
     expect(node.subtitle).toBe(`Wave ${wave}`);
     expect(node.hint).toBe(`Opens at wave ${wave}.`);
     expect(researchClickAction(tier5.id, before)).toBe('none');
-    expect(buildResearchDetail(tier5.id, before, 0)!.opensAtWave).toBe(wave);
+    expect(buildResearchDetail(en, tier5.id, before, 0)!.opensAtWave).toBe(wave);
 
     const on = state({ completed: new Set(tier5.prerequisites), wave, credits: tier5.cost });
     expect(nodeFor(tier5.id, on).state).toBe('available');
-    expect(buildResearchDetail(tier5.id, on, 0)!.opensAtWave).toBeNull();
+    expect(buildResearchDetail(en, tier5.id, on, 0)!.opensAtWave).toBeNull();
   });
 
   it('is locked, not pending, while it waits for its wave, even with its prerequisites under way', () => {
@@ -186,7 +187,7 @@ describe('researchClickAction', () => {
 
 describe('buildResearchDetail', () => {
   it('gathers what the panel shows, prerequisites with their state', () => {
-    const detail = buildResearchDetail('siege-engineering', state(), 1)!;
+    const detail = buildResearchDetail(en, 'siege-engineering', state(), 1)!;
     expect(detail).toMatchObject({
       id: 'siege-engineering',
       name: 'Siege Engineering',
@@ -206,21 +207,21 @@ describe('buildResearchDetail', () => {
 
   it('counts what a node opens up', () => {
     // gatling-tech opens siege-engineering and aa-retrofit
-    expect(buildResearchDetail('gatling-tech', state(), 0)!.opens).toBe(2);
+    expect(buildResearchDetail(en, 'gatling-tech', state(), 0)!.opens).toBe(2);
   });
 
   it('names the credits still missing, and the place in the queue', () => {
-    const poor = buildResearchDetail('gatling-tech', state({ credits: 100 }), 0)!;
+    const poor = buildResearchDetail(en, 'gatling-tech', state({ credits: 100 }), 0)!;
     expect(poor.state).toBe('poor');
     expect(poor.missingCredits).toBe(RESEARCH_TREE['gatling-tech'].cost - 100);
 
-    const queued = buildResearchDetail('ice-magic', state({ queued: ['biology', 'ice-magic'] }), 0)!;
+    const queued = buildResearchDetail(en, 'ice-magic', state({ queued: ['biology', 'ice-magic'] }), 0)!;
     expect(queued.queuePosition).toBe(2);
     expect(queued.action).toBe('unqueue');
   });
 
   it('is null for an id the config does not know', () => {
-    expect(buildResearchDetail('nope' as ResearchId, state(), 0)).toBeNull();
+    expect(buildResearchDetail(en, 'nope' as ResearchId, state(), 0)).toBeNull();
   });
 });
 
@@ -234,7 +235,7 @@ describe('the readouts', () => {
   });
 
   it('tallies every strand, and they add up to the whole tree', () => {
-    const counts = researchBranchCounts(state({ completed: new Set(['gatling-tech']) }));
+    const counts = researchBranchCounts(en, state({ completed: new Set(['gatling-tech']) }));
     expect(counts.map((c) => c.branch)).toEqual(['ballistics', 'arcane', 'biology', 'engineering']);
     expect(counts.reduce((sum, c) => sum + c.total, 0)).toBe(Object.keys(RESEARCH_TREE).length);
     expect(counts.find((c) => c.branch === 'ballistics')!.done).toBe(1);
@@ -264,11 +265,11 @@ describe('the read-only view of a coop partner (TODO E35)', () => {
 
   it('prices their nodes at the cost times their lanes, not the base cost (E115)', () => {
     const cost = RESEARCH_TREE['gatling-tech'].cost;
-    expect(buildResearchDetail('gatling-tech', partner, 0)!.cost).toBe(cost * 2);
+    expect(buildResearchDetail(en, 'gatling-tech', partner, 0)!.cost).toBe(cost * 2);
   });
 
   it('does not judge their credits and does not tell to click', () => {
-    const nodes = buildResearchNodes(partner);
+    const nodes = buildResearchNodes(en, partner);
     expect(nodes.some((n) => n.state === 'poor')).toBe(false);
     expect(nodes.every((n) => !/click/i.test(n.hint ?? ''))).toBe(true);
     expect(partner.availableSlots).toBe(0);
@@ -280,7 +281,7 @@ describe('the read-only view of a coop partner (TODO E35)', () => {
       { id: 'p2', name: 'Bravo' },
       { id: 'p3', name: 'Charlie' },
     ];
-    expect(researchTabs(roster, 'p2')).toEqual([
+    expect(researchTabs(en, roster, 'p2')).toEqual([
       { id: 'p2', label: 'You', me: true },
       { id: 'p1', label: 'Alpha', me: false },
       { id: 'p3', label: 'Charlie', me: false },

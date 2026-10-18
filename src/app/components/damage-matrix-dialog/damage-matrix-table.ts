@@ -11,9 +11,11 @@ import {
   EFFECTIVENESS_THRESHOLDS,
   getEffectiveness,
 } from '../../configs/combat/damage-matrix.config';
-import { ARMOR_TYPE_UI, DAMAGE_TYPE_UI } from '../../configs/combat/combat-ui.config';
+import { DAMAGE_TYPE_UI } from '../../configs/combat/combat-ui.config';
 import { TowerTypeConfig, TowerTypeId } from '../../configs/tower-types.config';
 import { EnemyTypeConfig, getAllEnemyTypes } from '../../configs/enemy-types.config';
+import type { Messages } from '../../i18n/messages/en';
+import { enemyName } from '../../i18n/lookups';
 
 /**
  * Datenaufbereitung für die globale Damage-vs-Armor-Tabelle.
@@ -97,6 +99,7 @@ function isCombatTower(tower: TowerTypeConfig): boolean {
  * gesperrte Tower fehlen, bis ihre Forschung fertig ist.
  */
 export function buildDamageMatrixRows(
+  t: Messages,
   isUnlocked: (id: TowerTypeId) => boolean = () => true,
   towers: readonly TowerTypeConfig[] = releasedTowerTypes(),
   matrix: DamageMatrix = DAMAGE_MATRIX,
@@ -105,8 +108,8 @@ export function buildDamageMatrixRows(
     .filter((tower) => isCombatTower(tower) && isUnlocked(tower.id))
     .map((tower) => ({
       towerId: tower.id,
-      name: tower.name,
-      damageLabel: DAMAGE_TYPE_UI[tower.damageType].label,
+      name: t.names.towers[tower.id],
+      damageLabel: t.damageTypes[tower.damageType].label,
       damageColor: DAMAGE_TYPE_UI[tower.damageType].color,
       cells: ARMOR_TYPES.map((armor) => {
         const multiplier = matrix[tower.damageType][armor];
@@ -133,12 +136,13 @@ export function countLockedTowers(
 
 /** Spalten: eine pro Rüstungstyp, mit den Enemies dieser Rüstung als Beispiele. */
 export function buildDamageMatrixColumns(
+  t: Messages,
   enemies: readonly EnemyTypeConfig[] = getAllEnemyTypes(),
 ): DamageMatrixColumn[] {
   return ARMOR_TYPES.map((armor) => ({
     armor,
-    label: ARMOR_TYPE_UI[armor].label,
-    examples: enemies.filter((e) => e.armorType === armor).map((e) => e.name),
+    label: t.armorTypes[armor].label,
+    examples: enemies.filter((e) => e.armorType === armor).map((e) => enemyName(t, e.id)),
   }));
 }
 

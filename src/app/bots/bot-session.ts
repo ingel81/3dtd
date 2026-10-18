@@ -38,6 +38,7 @@ import type {
   BotRunLog,
   BotSignals,
 } from './bot-client.service';
+import { en } from '../i18n/messages/en';
 
 /** Bot server default port */
 const DEFAULT_BACKEND_URL = 'ws://localhost:3001';
@@ -344,7 +345,7 @@ export class BotSession {
 
           // Check if tower can be upgraded (not at max level)
           if (!tower.canUpgrade(action.upgradeId as UpgradeId)) {
-            console.warn(`[Bot] ⛔ Upgrade at max level: ${tower.typeConfig.name} ${upgrade.name} - ${action.reason}`);
+            console.warn(`[Bot] ⛔ Upgrade at max level: ${en.names.towers[tower.typeConfig.id]} ${en.upgrades[upgrade.text].name} - ${action.reason}`);
             break;
           }
 

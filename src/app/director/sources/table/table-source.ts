@@ -185,9 +185,10 @@ function factsOf(wave: number, lookup: TableLookup): WavePeekFacts {
     hpByArmor: [...hpByArmor],
     count: total,
     enemies: entries.map(([type, count]) => [type, count / total] as const),
-    note: lookup.cycle > 0 ? `row ${lookup.row.wave}, round ${lookup.cycle}` : '',
-    description: lookup.row.note
-      ?? `${describe(lookup.row.enemies)} at HP ×${lookup.hpMult}, every ${lookup.row.spawnDelay} ms.`,
+    spawnDelayMs: lookup.row.spawnDelay,
+    sizedAtStart: false,
+    hpScale: lookup.hpMult === 1 ? null : lookup.hpMult,
+    round: lookup.cycle > 0 ? { row: lookup.row.wave, cycle: lookup.cycle } : null,
   };
 }
 
@@ -195,7 +196,7 @@ function factsOf(wave: number, lookup: TableLookup): WavePeekFacts {
 function unknownFacts(wave: number): WavePeekFacts {
   return {
     wave,
-    name: 'Not in the list',
+    name: '',
     known: false,
     boss: false,
     air: false,
@@ -203,7 +204,9 @@ function unknownFacts(wave: number): WavePeekFacts {
     hpByArmor: [],
     count: null,
     enemies: [],
-    note: 'No row',
-    description: 'The wave list has no row for this wave.',
+    spawnDelayMs: null,
+    sizedAtStart: false,
+    hpScale: null,
+    round: null,
   };
 }

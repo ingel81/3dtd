@@ -2,6 +2,7 @@ import type { HintItem } from '../../components/context-hint/context-hint.compon
 import { ABILITIES, AbilityId } from '../../configs/abilities.config';
 import { HERO } from '../../configs/hero.config';
 import { readJson, writeJson } from '../../utils/storage';
+import { en } from '../../i18n/messages/en';
 
 /** localStorage key of the first-run tips; v2 since they follow the course of a game */
 export const ONBOARDING_KEY = 'td_onboarding_v2';
@@ -89,7 +90,7 @@ export const ONBOARDING_TIPS: Record<OnboardingStep, OnboardingTip> = {
     keys: [],
   },
   'hire-hero': {
-    title: `Hire the ${HERO.name}`,
+    title: `Hire the ${en.hero.name}`,
     text: `Hire him with the top button of the ability bar for ${HERO.cost} credits. `
       + 'Then G selects him and a click on the route sends him there.',
     keys: [
@@ -152,7 +153,7 @@ export function tipFor(step: OnboardingStep, progress: OnboardingProgress): Onbo
   if (step !== 'use-ability') return tip;
   return {
     ...tip,
-    keys: progress.abilities.map((id) => ({ key: ABILITIES[id].hotkey, description: ABILITIES[id].name })),
+    keys: progress.abilities.map((id) => ({ key: ABILITIES[id].hotkey, description: en.abilities[id].name })),
   };
 }
 

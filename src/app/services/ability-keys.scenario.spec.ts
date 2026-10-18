@@ -9,7 +9,7 @@ vi.mock('@angular/core', async () => {
   return {
     ...actual,
     Injectable: () => (target: unknown) => target,
-    inject: (token: { name?: string }) => injections[token?.name ?? ''],
+    inject: (token: { name?: string }) => injections[token?.name ?? String(token)],
     effect: () => undefined,
   };
 });
@@ -24,6 +24,7 @@ import { resolveHotkey } from './hotkey-map';
 import { SimMirror } from '../sim/client/mirror/sim-mirror';
 import { packet } from '../sim/client/mirror/testing/mirror-packets';
 import { ABILITIES, type AbilityId } from '../configs/abilities.config';
+import { en } from '../i18n/messages/en';
 
 /**
  * Playtest 510 (docs/archive/REVIEW_FIX_2026-09-14.md), the keys: K, F, E and L go
@@ -54,6 +55,7 @@ describe('Ability keys before their research, playtest 510 replayed', () => {
     // A wave runs: only the missing research can stop the keys
     abilities.setPhaseProvider(() => 'wave');
     targeting.set(null);
+    injections['InjectionToken I18n'] = { t: () => en };
     injections['UIStore'] = { buildMode: signal(false), mapPlacementMode: signal(null), abilityTargeting: targeting };
     injections['TowerDefenseStore'] = { waveActive: signal(true), abilities: signal({}) };
     injections['TowerPlacementService'] = { exitBuildMode: vi.fn() };
@@ -93,7 +95,7 @@ describe('Ability keys before their research, playtest 510 replayed', () => {
     bus.emit({
       type: 'research:completed', playerId: 'local', local: true,
       researchId: 'frost-bomb',
-      effects: [{ kind: 'global-perk', perkId: 'frost-bomb', description: '' }],
+      effects: [{ kind: 'global-perk', perkId: 'frost-bomb' }],
     });
     service.start(abilityOfKey('f'));
     expect(service.targeting()).toBe('frost-bomb');

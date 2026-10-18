@@ -21,12 +21,14 @@
  * Champion and Legend only for the towers that carry the swarms.
  */
 
+/** A rank's level: 1 to 5 */
+export type VeteranLevel = 1 | 2 | 3 | 4 | 5;
+
 export type VeteranMetal = 'silver' | 'gold';
 
 export interface VeteranRank {
-  /** 1 to VETERAN_RANKS.length; 0 (no rank) has no entry */
-  level: number;
-  name: string;
+  /** 1 to VETERAN_RANKS.length; 0 (no rank) has no entry. Its name is the dictionary's (i18n `veteranRanks`) */
+  level: VeteranLevel;
   /** Kills from which the tower holds this rank */
   minKills: number;
   /** Chevrons of the insignia, 0 to 3 */
@@ -38,15 +40,13 @@ export interface VeteranRank {
 
 /** Ascending by minKills and level. */
 export const VETERAN_RANKS: readonly VeteranRank[] = [
-  { level: 1, name: 'Blooded', minKills: 10, chevrons: 1, star: false, metal: 'silver' },
-  { level: 2, name: 'Veteran', minKills: 50, chevrons: 2, star: false, metal: 'silver' },
-  { level: 3, name: 'Elite', minKills: 150, chevrons: 3, star: false, metal: 'silver' },
-  { level: 4, name: 'Champion', minKills: 400, chevrons: 3, star: false, metal: 'gold' },
-  { level: 5, name: 'Legend', minKills: 1000, chevrons: 0, star: true, metal: 'gold' },
+  { level: 1, minKills: 10, chevrons: 1, star: false, metal: 'silver' },
+  { level: 2, minKills: 50, chevrons: 2, star: false, metal: 'silver' },
+  { level: 3, minKills: 150, chevrons: 3, star: false, metal: 'silver' },
+  { level: 4, minKills: 400, chevrons: 3, star: false, metal: 'gold' },
+  { level: 5, minKills: 1000, chevrons: 0, star: true, metal: 'gold' },
 ];
 
-/** Name of a tower below the first rank */
-export const RECRUIT_NAME = 'Recruit';
 
 /** Rank level for a kill count, 0 below the first rank. */
 export function veteranLevel(kills: number): number {

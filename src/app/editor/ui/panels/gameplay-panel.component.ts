@@ -13,6 +13,8 @@ import { panelRev } from './panel-shown';
 import { RangeRowComponent } from './range-row.component';
 import { WaveCurveChartComponent } from './wave-curve-chart.component';
 import { WaveEventsPanelComponent } from './wave-events-panel.component';
+import { I18n } from '../../../i18n/i18n.service';
+import { enemyName } from '../../../i18n/lookups';
 
 /**
  * The map's own rules: start credits, HQ health, the towers players may
@@ -40,10 +42,11 @@ export class GameplayPanelComponent {
   /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
   private readonly rev = panelRev('gameplay');
   readonly defaults = { credits: GAME_BALANCE.player.startCredits, health: GAME_BALANCE.player.startHealth };
-  readonly towers = Object.values(TOWER_TYPES).map((t) => ({ id: t.id, name: t.name }));
-  readonly enemies = Object.entries(ENEMY_TYPES)
-    .map(([id, e]) => ({ id, name: e.name }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  protected readonly t = inject(I18n).t;
+  readonly towers = computed(() => Object.values(TOWER_TYPES).map((tower) => ({ id: tower.id, name: this.t().names.towers[tower.id] })));
+  readonly enemies = computed(() => Object.keys(ENEMY_TYPES)
+    .map((id) => ({ id, name: enemyName(this.t(), id) }))
+    .sort((a, b) => a.name.localeCompare(b.name)));
   readonly open = signal<number | null>(null);
 
   readonly gp = computed<MapGameplay>(() => (this.rev(), structuredClone(this.session.doc?.gameplay ?? {})));
@@ -142,10 +145,10 @@ export class GameplayPanelComponent {
 
   toggleTower(id: string, on: boolean): void {
     this.edit('Towers', (g) => {
-      const now = new Set(g.towers ?? this.towers.map((t) => t.id));
+      const now = new Set(g.towers ?? this.towers().map((t) => t.id));
       if (on) now.add(id);
       else now.delete(id);
-      g.towers = now.size === this.towers.length ? undefined : this.towers.map((t) => t.id).filter((t) => now.has(t));
+      g.towers = now.size === this.towers().length ? undefined : this.towers().map((t) => t.id).filter((t) => now.has(t));
     });
   }
 
@@ -178,7 +181,7 @@ export class GameplayPanelComponent {
   addRow(): void {
     this.editTable('Add wave', (t) => {
       const last = t.waves.at(-1);
-      t.waves.push(last ? { ...structuredClone(last), name: `Wave ${t.waves.length + 1}`, hpMult: Math.round(last.hpMult * 1.15 * 100) / 100 } : { wave: 1, name: 'Wave 1', enemies: { [this.enemies[0].id]: 10 }, hpMult: 1, spawnDelay: 800 });
+      t.waves.push(last ? { ...structuredClone(last), name: `Wave ${t.waves.length + 1}`, hpMult: Math.round(last.hpMult * 1.15 * 100) / 100 } : { wave: 1, name: 'Wave 1', enemies: { [this.enemies()[0].id]: 10 }, hpMult: 1, spawnDelay: 800 });
     });
     this.open.set((this.table()?.waves.length ?? 1) - 1);
   }
@@ -212,7 +215,7 @@ export class GameplayPanelComponent {
   addEnemy(index: number): void {
     const row = this.table()?.waves[index];
     if (!row) return;
-    const free = this.enemies.find((e) => !(e.id in row.enemies));
+    const free = this.enemies().find((e) => !(e.id in row.enemies));
     if (free) this.setEnemy(index, free.id, 5);
   }
 
@@ -231,7 +234,7 @@ export class GameplayPanelComponent {
   }
 
   enemyName(id: string): string {
-    return ENEMY_TYPES[id]?.name ?? id;
+    return enemyName(this.t(), id);
   }
 
   value(e: Event): string {

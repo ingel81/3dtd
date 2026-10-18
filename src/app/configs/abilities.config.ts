@@ -64,16 +64,11 @@ export function abilitySourceId(id: AbilityId): string {
   return `ability:${id}`;
 }
 
+/** An ability. Its name, aim hint and description are the dictionary's (i18n `abilities`), by id. */
 export interface AbilityConfig {
   id: AbilityId;
-  /** UI label; the game UI is English */
-  name: string;
-  /** Tooltip text */
-  description: string;
   /** Icon of its button in the ability bar */
   icon: TdIconName;
-  /** What a click does in the targeting mode, for the context hint box: "Click Strike" */
-  aimHint: string;
   /**
    * Key that works like a press on its button, one letter, case ignored. It
    * must not be one hotkey-map.ts or InputHandlerService already use;
@@ -112,12 +107,7 @@ export interface AbilityConfig {
 export const ABILITIES: Record<AbilityId, AbilityConfig> = {
   'nuclear-strike': {
     id: 'nuclear-strike',
-    name: 'Nuclear Strike',
-    description:
-      'Launch a missile from your Missile Silo at a spot on the route: it hits 6.5 s later, lead the enemies. '
-      + 'Everything within 25 m loses 60% of its max HP, bosses 20%. One charge, a new one every 3 waves.',
     icon: 'radiation',
-    aimHint: 'Strike',
     hotkey: 'K',
     researchId: 'nuclear-strike',
     perkId: 'nuclear-strike',
@@ -133,12 +123,7 @@ export const ABILITIES: Record<AbilityId, AbilityConfig> = {
   },
   'frost-bomb': {
     id: 'frost-bomb',
-    name: 'Frost Bomb',
-    description:
-      'Throw a frost bomb onto the route: 0.5 s later everything within 20 m freezes solid for 3 s, bosses 1 s. '
-      + 'One charge, a new one every 3 waves.',
     icon: 'snowflake',
-    aimHint: 'Freeze',
     hotkey: 'F',
     researchId: 'frost-bomb',
     perkId: 'frost-bomb',
@@ -151,12 +136,7 @@ export const ABILITIES: Record<AbilityId, AbilityConfig> = {
   },
   emp: {
     id: 'emp',
-    name: 'EMP',
-    description:
-      'Set off an EMP on the route: 0.5 s later machines within 30 m (tanks, mechs) stop for 6 s, '
-      + 'everything else for 1.5 s, bosses 0.75 s. One charge, a new one every 3 waves.',
     icon: 'bolt',
-    aimHint: 'Pulse',
     hotkey: 'E',
     researchId: 'emp',
     perkId: 'emp',
@@ -169,12 +149,7 @@ export const ABILITIES: Record<AbilityId, AbilityConfig> = {
   },
   'orbital-laser': {
     id: 'orbital-laser',
-    name: 'Orbital Laser',
-    description:
-      'Call a laser down from orbit: 1 s later its beam burns for 4 s along the route toward the spawn, 72 m at most. '
-      + 'Fire damage scaled by armor, up to 60% of an enemy\'s max HP, bosses 20%. One charge, a new one every 3 waves.',
     icon: 'laser',
-    aimHint: 'Fire',
     hotkey: 'L',
     researchId: 'orbital-laser',
     perkId: 'orbital-laser',

@@ -73,7 +73,7 @@ describe('Nuclear strike with Screen Shake switched off, playtest 320 replayed',
     simBus.emit({
       type: 'research:completed', playerId: 'local', local: true,
       researchId: NUKE.researchId,
-      effects: [{ kind: 'global-perk', perkId: NUKE.perkId, description: '' }],
+      effects: [{ kind: 'global-perk', perkId: NUKE.perkId }],
     });
 
     const injector = Injector.create({

@@ -5,13 +5,16 @@ import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-
 import { UIStore } from '../store/ui.store';
 import { DICTIONARIES } from './dictionaries';
 import { formatters } from './format';
-import { I18n } from './i18n.service';
+import { I18n, type I18nService } from './i18n.service';
 import { LOCALES, SOURCE_LOCALE, detectLocale, resolveLocale } from './locale';
 import { en, type Messages } from './messages/en';
+import { RUN_PLAN } from '../director/sources/budget/run-plan';
+import { WAVE_TABLE } from '../director/sources/table/wave-table';
 
 /** Every leaf of a dictionary by its key path: a text, or a function and its number of values */
 function leaves(node: unknown, path = '', out = new Map<string, string | number>()): Map<string, string | number> {
   if (typeof node === 'string') out.set(path, 'text');
+  else if (node === null) out.set(path, 'none');
   else if (typeof node === 'function') out.set(path, node.length);
   else if (node && typeof node === 'object') for (const [k, v] of Object.entries(node)) leaves(v, path ? `${path}.${k}` : k, out);
   else out.set(path, `bad ${typeof node}`);
@@ -21,6 +24,19 @@ function leaves(node: unknown, path = '', out = new Map<string, string | number>
 function leafAt(dict: unknown, path: string): unknown {
   return path.split('.').reduce<unknown>((node, key) => (node as Record<string, unknown>)[key], dict);
 }
+
+/**
+ * A value for every parameter of a text: a number (7) where one is read, a
+ * string where one is joined, and every field of an object reads as it too
+ */
+const SAMPLE: unknown = new Proxy({}, {
+  get: (_target, key) => {
+    if (key === Symbol.toPrimitive) return () => 7;
+    if (key === 'length') return 1;
+    if (key === 'join' || key === 'toUpperCase' || key === 'toLowerCase' || key === 'toString') return () => '7';
+    return SAMPLE;
+  },
+});
 
 describe('dictionaries (TODO E245)', () => {
   const source = leaves(en);
@@ -37,14 +53,25 @@ describe('dictionaries (TODO E245)', () => {
     it(`${locale} says something for every key, with all its values in`, async () => {
       const dict = await DICTIONARIES[locale]();
       for (const [key, kind] of leaves(dict)) {
+        if (kind === 'none') continue;
         const leaf = leafAt(dict, key);
-        const text = typeof leaf === 'function' ? (leaf as (...a: unknown[]) => unknown)(...Array.from({ length: kind as number }, () => 7)) : leaf;
+        const text = typeof leaf === 'function' ? (leaf as (...a: unknown[]) => unknown)(...Array.from({ length: kind as number }, () => SAMPLE)) : leaf;
         expect(typeof text, key).toBe('string');
         expect((text as string).trim(), key).not.toBe('');
         expect(text, key).not.toMatch(/undefined|NaN|\[object /);
       }
     });
   }
+});
+
+describe('wave names', () => {
+  it('every wave the run plan and the wave list name has a text in every language', async () => {
+    const names = new Set([...RUN_PLAN.map((row) => row.name), ...WAVE_TABLE.waves.map((row) => row.name)]);
+    for (const locale of LOCALES) {
+      const dict = await DICTIONARIES[locale]();
+      expect([...names].filter((name) => !dict.hud.wave.names[name]), locale).toEqual([]);
+    }
+  });
 });
 
 describe('the type Messages', () => {
@@ -95,7 +122,7 @@ describe('formatters', () => {
 
 describe('I18n', () => {
   let ui: UIStore;
-  let i18n: I18n;
+  let i18n: I18nService;
 
   beforeAll(() => {
     getTestBed().initTestEnvironment(BrowserTestingModule, platformBrowserTesting());

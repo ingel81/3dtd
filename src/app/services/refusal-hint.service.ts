@@ -1,7 +1,6 @@
 import { Injectable, effect, inject, signal, untracked } from '@angular/core';
 import { ABILITIES, type AbilityId, type AbilityRejectReason } from '../configs/abilities.config';
 import { HERO, type HeroRejectReason } from '../configs/hero.config';
-import { TOWER_TYPES } from '../configs/tower-types.config';
 import { SubscriptionBag } from '../game-engine/game-event-bus';
 import type { MainEventBus } from '../sim/client/view-events';
 import { TowerDefenseStore } from '../store/tower-defense.store';
@@ -9,6 +8,8 @@ import { UIStore } from '../store/ui.store';
 import { UPGRADE_HINT_MS } from './upgrade-hint.service';
 import { uiSound } from './ui-sound';
 import { refuseForCredits } from './credits-refusal';
+import { I18n } from '../i18n/i18n.service';
+import type { Messages } from '../i18n/messages/en';
 
 /** A refused press on an ability or the hero: whose, and why. */
 export interface Refusal {
@@ -19,8 +20,8 @@ export interface Refusal {
 }
 
 /** Where no route cell is in reach of an ability's aim. The targeting mode warns with it too. */
-export function abilityNoRouteText(id: AbilityId): string {
-  return `No route within ${ABILITIES[id].snapRadiusM} m`;
+export function abilityNoRouteText(t: Messages, id: AbilityId): string {
+  return t.hud.refusal.noRoute(ABILITIES[id].snapRadiusM);
 }
 
 /**
@@ -30,18 +31,17 @@ export function abilityNoRouteText(id: AbilityId): string {
  *
  * @param wavesUntilCharge completed waves to the next charge (AbilityStatus)
  */
-export function abilityRefusalText(id: AbilityId, reason: AbilityRejectReason, wavesUntilCharge = 0): string | null {
+export function abilityRefusalText(t: Messages, id: AbilityId, reason: AbilityRejectReason, wavesUntilCharge = 0): string | null {
+  const says = t.hud.refusal;
   switch (reason) {
     case 'no-launch-site': {
       const from = ABILITIES[id].launchFrom;
-      return from ? `Build a ${TOWER_TYPES[from].name} first` : null;
+      return from ? says.buildFirst(t.names.towers[from]) : null;
     }
-    case 'no-wave': return 'Only during a wave';
+    case 'no-wave': return says.onlyInWave;
     case 'no-charge':
-      return wavesUntilCharge > 0
-        ? `No charges, recharges in ${wavesUntilCharge} ${wavesUntilCharge === 1 ? 'wave' : 'waves'}`
-        : 'No charges';
-    case 'no-route': return abilityNoRouteText(id);
+      return wavesUntilCharge > 0 ? says.recharges(wavesUntilCharge) : says.noCharges;
+    case 'no-route': return abilityNoRouteText(t, id);
     case 'locked':
     case 'unknown':
       return null;
@@ -56,11 +56,12 @@ export function abilityRefusalText(id: AbilityId, reason: AbilityRejectReason, w
  * @param credits credits on hand, to say how many are missing
  * @param hired whether he is hired: `no-route` refuses a hire before, an order after
  */
-export function heroRefusalText(reason: HeroRejectReason, credits: number, hired: boolean): string | null {
+export function heroRefusalText(t: Messages, reason: HeroRejectReason, credits: number, hired: boolean): string | null {
+  const says = t.hud.refusal;
   switch (reason) {
-    case 'credits': return `Need ${(HERO.cost - credits).toLocaleString('en-US')} credits`;
+    case 'credits': return says.needCredits(HERO.cost - credits);
     // An order to a part no route leads to, a hire without a route to stand on
-    case 'no-route': return hired ? 'No way there along the routes' : 'No route to stand on';
+    case 'no-route': return hired ? says.noWayThere : says.noRouteToStand;
     default: return null;
   }
 }
@@ -87,6 +88,7 @@ export function heroRefusalText(reason: HeroRejectReason, credits: number, hired
 export class RefusalHintService {
   private readonly store = inject(TowerDefenseStore);
   private readonly uiStore = inject(UIStore);
+  private readonly t = inject(I18n).t;
 
   /** The last refusal, null once UPGRADE_HINT_MS have passed or a pointer mode started */
   readonly refusal = signal<Refusal | null>(null);
@@ -124,20 +126,22 @@ export class RefusalHintService {
 
   /** `id` did not arm or fire: say why, if the player can act on it. */
   ability(id: AbilityId, reason: AbilityRejectReason): void {
-    const text = abilityRefusalText(id, reason, this.store.abilities()[id]?.wavesUntilCharge ?? 0);
+    const t = this.t();
+    const text = abilityRefusalText(t, id, reason, this.store.abilities()[id]?.wavesUntilCharge ?? 0);
     if (!text) return;
     uiSound.play('denied');
-    this.show({ subject: ABILITIES[id].name, reason: text });
+    this.show({ subject: t.abilities[id].name, reason: text });
   }
 
   /** The hero was not hired or did not go: say why, if the player can act on it. */
   hero(reason: HeroRejectReason): void {
     const hired = this.store.hero().hired;
-    const text = heroRefusalText(reason, this.store.credits(), hired);
+    const t = this.t();
+    const text = heroRefusalText(t, reason, this.store.credits(), hired);
     if (!text) return;
     if (reason === 'credits') refuseForCredits();
     else uiSound.play('denied');
-    this.show({ subject: hired ? HERO.name : `Hire ${HERO.name}`, reason: text });
+    this.show({ subject: hired ? t.hero.name : t.hud.refusal.hire(t.hero.name), reason: text });
   }
 
   clear(): void {

@@ -60,6 +60,8 @@ import type { TowerTypeId, UpgradeId } from '../configs/tower-types.config';
 import { DebugFacadeService } from './debug/debug-facade.service';
 import { LOCAL_PLAYER_ID } from '../managers/game-state/command-log';
 import { singlePlayer } from '../integration/single-player-parts';
+import { en } from '../i18n/messages/en';
+import { provideI18n } from '../i18n/i18n.service';
 
 const POSITION = { lat: 48.7, lon: 9.1, height: 300 };
 /** Colours of the text over the tower (tower-upgrade.service.ts UPGRADE_TEXT) */
@@ -127,7 +129,7 @@ describe('U and the upgrade tiles, playtest 518, 519 and 520 replayed', () => {
     upgradeHint = new UpgradeHintService();
 
     const injector = Injector.create({
-      providers: [
+      providers: [provideI18n(), 
         { provide: TowerDefenseFacadeService, useValue: facade },
         { provide: TowerSelectionService, useValue: { select: vi.fn() } },
         { provide: SimClient, useValue: { bus: { emit: (command: object) => queued.push(command) } } },
@@ -207,7 +209,7 @@ describe('U and the upgrade tiles, playtest 518, 519 and 520 replayed', () => {
     return [call[0], call[4].color];
   };
   /** The line over the tiles of the tower's panel */
-  const panelLine = (tower: Tower) => upgradeHintView(upgradeHint.hint(), tower).refusalText;
+  const panelLine = (tower: Tower) => upgradeHintView(en, upgradeHint.hint(), tower).refusalText;
 
   it('518: short of the cheapest track U buys nothing, NEED n CREDITS rises, the line stays 2.5 s; its tile answers alike', () => {
     const archer = place('archer');
@@ -223,7 +225,7 @@ describe('U and the upgrade tiles, playtest 518, 519 and 520 replayed', () => {
     expect(levels(archer).every((level) => level === 0)).toBe(true);
     expect(ledger.credits()).toBe(creditsBefore);
     expect(lastText()).toEqual(['NEED 20 CREDITS', ORANGE]);
-    expect(panelLine(archer)).toBe(`Need 20 more credits for ${cheapest.name}`);
+    expect(panelLine(archer)).toBe(`Need 20 more credits for ${en.upgrades[cheapest.text].name}`);
 
     vi.advanceTimersByTime(UPGRADE_HINT_MS - 1);
     expect(panelLine(archer)).not.toBeNull();
@@ -234,7 +236,7 @@ describe('U and the upgrade tiles, playtest 518, 519 and 520 replayed', () => {
     expect(clickTile(archer, cheapest.id)).toBe(false);
     expect(levels(archer).every((level) => level === 0)).toBe(true);
     expect(lastText()).toEqual(['NEED 20 CREDITS', ORANGE]);
-    expect(panelLine(archer)).toBe(`Need 20 more credits for ${cheapest.name}`);
+    expect(panelLine(archer)).toBe(`Need 20 more credits for ${en.upgrades[cheapest.text].name}`);
     vi.advanceTimersByTime(UPGRADE_HINT_MS);
     expect(panelLine(archer)).toBeNull();
   });
@@ -254,7 +256,7 @@ describe('U and the upgrade tiles, playtest 518, 519 and 520 replayed', () => {
     expect(lastText()).toEqual(['NEEDS RESEARCH', ORANGE]);
     expect(panelLine(archer)).toBe('Research Advanced Weaponry for the next levels');
     // The first press bought the first track, in gold
-    expect(spawnFloatingText.mock.calls[0][0]).toBe(`${archer.typeConfig.upgrades[0].name.toUpperCase()} LV 1`);
+    expect(spawnFloatingText.mock.calls[0][0]).toBe(`${en.upgrades[archer.typeConfig.upgrades[0].text].name.toUpperCase()} LV 1`);
     expect(spawnFloatingText.mock.calls[0][4].color).toBe(GOLD);
 
     for (const track of archer.getAvailableUpgrades()) {
@@ -284,7 +286,7 @@ describe('U and the upgrade tiles, playtest 518, 519 and 520 replayed', () => {
     expect(research.maxSlots).toBe(2);
     expect(lastText()).toEqual(['RESEARCH WING LV 1', GOLD]);
     // SidebarResearchPanelComponent reads the same view: the Research Wing tile flashes
-    expect(upgradeHintView(upgradeHint.hint(), center).flashId).toBe('research-slots');
+    expect(upgradeHintView(en, upgradeHint.hint(), center).flashId).toBe('research-slots');
 
     setCredits(0);
     const cost = center.getNextUpgradeCost('research-slots');
@@ -313,7 +315,7 @@ describe('U and the upgrade tiles, playtest 518, 519 and 520 replayed', () => {
     expect(clickTile(archer, track.id)).toBe(true);
     expect(archer.getUpgradeLevel(track.id)).toBe(1);
     // Since the wish from playtest 517 the tile answers like U: text over the tower, the tile flashes
-    expect(lastText()).toEqual([`${track.name.toUpperCase()} LV 1`, GOLD]);
-    expect(upgradeHintView(upgradeHint.hint(), archer).flashId).toBe(track.id);
+    expect(lastText()).toEqual([`${en.upgrades[track.text].name.toUpperCase()} LV 1`, GOLD]);
+    expect(upgradeHintView(en, upgradeHint.hint(), archer).flashId).toBe(track.id);
   });
 });

@@ -2,6 +2,8 @@ import { getResearch } from '../../../configs/research/research-tree.config';
 import {
   ActiveResearch, ResearchConfig, ResearchId, researchWaitsForWave,
 } from '../../../configs/research/research.types';
+import type { Messages } from '../../../i18n/messages/en';
+import { researchName } from '../../../i18n/lookups';
 
 export type ResearchStatus = 'completed' | 'active' | 'queued' | 'available' | 'locked';
 
@@ -49,11 +51,11 @@ export function researchRemaining(duration: number, elapsed: number): number {
 }
 
 /** Namen der noch fehlenden Voraussetzungen, kommagetrennt. */
-export function missingPrereqNames(id: ResearchId, completed: ReadonlySet<ResearchId>): string {
+export function missingPrereqNames(t: Messages, id: ResearchId, completed: ReadonlySet<ResearchId>): string {
   const config = getResearch(id);
   if (!config) return '';
   const missing = config.prerequisites
     .filter(p => !completed.has(p))
-    .map(p => getResearch(p)?.name ?? p);
+    .map(p => researchName(t, p));
   return missing.join(', ');
 }

@@ -1,5 +1,6 @@
 import { isBloodMoonWave } from '../../configs/blood-moon.config';
 import type { WaveMutator } from '../../configs/wave-mutators.config';
+import type { Messages } from '../../i18n/messages/en';
 
 export interface BloodMoonBanner {
   /** Under the title: "Wave 14", with a mutator "Wave 14 | Swift" */
@@ -15,15 +16,18 @@ export interface BloodMoonBanner {
  * look, it changes the wave.
  */
 export function bloodMoonBanner(
+  t: Messages,
   wave: number,
   lookEnabled: boolean,
-  mutator: Pick<WaveMutator, 'name' | 'description'> | null = null,
+  mutator: Pick<WaveMutator, 'id'> | null = null,
 ): BloodMoonBanner | null {
   if (!isBloodMoonWave(wave) || (!lookEnabled && !mutator)) return null;
-  if (!mutator) return { wave: `Wave ${wave}`, announcement: `Blood moon, wave ${wave}.` };
+  const says = t.hud.bloodMoon;
+  if (!mutator) return { wave: says.wave(wave), announcement: says.announce(wave) };
+  const text = t.mutators[mutator.id];
   return {
-    wave: `Wave ${wave} | ${mutator.name}`,
-    announcement: `Blood moon, wave ${wave}. ${mutator.name}: ${mutator.description}`,
+    wave: says.waveMutator(wave, text.name),
+    announcement: says.announceMutator(wave, text.name, text.description),
   };
 }
 

@@ -14,7 +14,8 @@ export const RUN_TOP_TOWERS = 3;
 /** One tower's share of a run */
 export interface TowerRunStats {
   id: string;
-  name: string;
+  /** Its tower type, named by the screen in the player's language */
+  type: string;
   damageDealt: number;
   kills: number;
   /** Sold before the run ended; its numbers are from the moment of the sale */
@@ -56,7 +57,7 @@ export function emptyRunSummary(durationMs = 0): RunSummary {
  * Fold a run into its summary. `durationMs` is the game time at the fall; the
  * log's own records only reach to the last finished wave.
  */
-export function runSummary(run: RunLog | null, durationMs: number, towerName: (type: string) => string): RunSummary {
+export function runSummary(run: RunLog | null, durationMs: number): RunSummary {
   if (!run) return emptyRunSummary(durationMs);
 
   const waves = run.records.filter((r): r is RunLogWave => r.kind === 'wave');
@@ -93,7 +94,7 @@ export function runSummary(run: RunLog | null, durationMs: number, towerName: (t
       } else {
         towers.set(tower.id, {
           id: tower.id,
-          name: towerName(tower.type),
+          type: tower.type,
           damageDealt: tower.damage,
           kills: tower.kills,
           sold: tower.sold === true,

@@ -1,7 +1,287 @@
 import type { RunLogRefusal } from '../../coop/protocol';
+import type { AirSubStrategy, TargetingStrategy, TowerTypeId, UpgradeTerms, UpgradeText } from '../../configs/tower-types.config';
+import type { EnemyTypeId } from '../../configs/enemy-types.config';
+import type { TowerPathId } from '../../configs/tower-paths.config';
+import type { AbilityId } from '../../configs/abilities.config';
+import { HERO, type HeroAmmoId } from '../../configs/hero.config';
+import type { WaveMutatorId } from '../../configs/wave-mutators.config';
+import type { ArmorType, DamageType } from '../../configs/combat/combat.types';
+import type { ResearchTreeId } from '../../configs/research/research-tree.config';
+import type { ResearchBranch } from '../../configs/research/research.types';
+import type { ResearchCenterLevel } from '../../configs/research/research-center.config';
+import type { VeteranLevel } from '../../configs/veteran-ranks.config';
+import type { TechTreeNodeState } from '../../components/tech-tree/tech-tree-view';
 import { formatters } from '../format';
 
 const f = formatters('en');
+
+const towerNames: Record<TowerTypeId, string> = {
+  archer: 'Archer Tower',
+  'dual-gatling': 'Dual-Gatling Tower',
+  cannon: 'Cannon Tower',
+  magic: 'Magic Tower',
+  rocket: 'Rocket Tower',
+  ice: 'Ice Tower',
+  fire: 'Fire Tower',
+  tentacle: 'Tentacle Tower',
+  poison: 'Poison Tower',
+  lightning: 'Lightning Tower',
+  chaos: 'Chaos Tower',
+  bastion: 'Iron Bastion',
+  sentinel: 'Sentinel Laser',
+  chainsaw: 'Chainsaw',
+  shawarma: 'Shawarma Slicer',
+  'research-center': 'Research Center',
+  'missile-silo': 'Missile Silo',
+};
+
+const enemyNames: Record<EnemyTypeId, string> = {
+  zombie: 'Zombie',
+  'zombie-v2': 'Zombie v2',
+  tank: 'Tank',
+  wallsmasher: 'Wallsmasher',
+  'stone-golem': 'Stone Golem',
+  bat: 'Bat',
+  penguin: 'Penguin',
+  herbert: 'Herbert',
+  'zombie-soldier': 'Zombie Soldier',
+  rat: 'Rat',
+  skeleton: 'Skeleton',
+  'skeleton-minion': 'Skeleton Minion',
+  spider: 'Spider',
+  mammoth: 'Mammoth',
+  bear: 'Bear',
+  dragon: 'Dragon',
+  ghost: 'Ghost',
+  hornet: 'Hornet',
+  mech: 'Mech',
+  wraith: 'Wraith',
+  worm: 'Skarnax',
+  'worm-segment': 'Skarnax Segment',
+  'worm-tail': 'Skarnax Tail',
+  ooze: 'Ooze',
+  'slime-clump': 'Slime Clump',
+  'golem-king': 'Golem King',
+  'dragon-matriarch': 'Dragon Matriarch',
+};
+
+/** Tower and enemy names: a block of its own, as a language may keep the English ones (docs/I18N_PLAN.md, 8) */
+const names = { towers: towerNames, enemies: enemyNames };
+
+/** A boss's honorific, on its intro card under the name; null for an enemy without one */
+const epithets: Record<EnemyTypeId, string | null> = {
+  zombie: null,
+  'zombie-v2': null,
+  tank: null,
+  wallsmasher: null,
+  'stone-golem': null,
+  bat: null,
+  penguin: null,
+  herbert: null,
+  'zombie-soldier': null,
+  rat: null,
+  skeleton: null,
+  'skeleton-minion': null,
+  spider: null,
+  mammoth: null,
+  bear: null,
+  dragon: null,
+  ghost: null,
+  hornet: null,
+  mech: null,
+  wraith: null,
+  worm: 'The Thousand-Legged Calamity',
+  'worm-segment': null,
+  'worm-tail': null,
+  ooze: null,
+  'slime-clump': null,
+  'golem-king': 'Heart of the Mountain',
+  'dragon-matriarch': 'Mother of the Flight',
+};
+
+const paths: Record<TowerPathId, { name: string; description: string }> = {
+  scout: { name: 'Scout', description: 'A lookout spots camouflaged enemies within 35 m: every tower can hit them there.' },
+  incendiary: { name: 'Fire Arrows', description: 'Each hit sets its target burning for 3 s, a quarter of the arrow as fire damage a second; a burning enemy does not regenerate.' },
+  multirole: { name: 'Multirole', description: 'Fires at ground enemies too, at half damage, while no flyer is in range.' },
+  seal: { name: 'Binding Sigil', description: 'Each hit binds its target for 4 s: Phasing is lifted, ice slows take hold of wraiths.' },
+  corrode: { name: 'Caustic', description: 'Each hit corrodes its target for 3 s: it counts one armor class lighter (bosses are immune).' },
+  sniper: { name: 'Sniper', description: 'Rebuilt as a heavy ballista: twice the range, one armor-piercing bolt every 4 s, aimed at the strongest enemy.' },
+};
+
+const heroAmmo: Record<HeroAmmoId, string> = {
+  standard: 'Standard rounds',
+  explosive: 'Explosive rounds',
+  rune: 'Rune rounds',
+};
+
+/** The ammo switch's buttons */
+const heroAmmoShort: Record<HeroAmmoId, string> = { standard: 'Standard', explosive: 'Explosive', rune: 'Rune' };
+
+const hero = { name: 'Mercenary', ammo: heroAmmo, ammoShort: heroAmmoShort };
+
+const abilities: Record<AbilityId, { name: string; aimHint: string; description: string }> = {
+  'nuclear-strike': {
+    name: 'Nuclear Strike',
+    aimHint: 'Strike',
+    description: 'Launch a missile from your Missile Silo at a spot on the route: it hits 6.5 s later, lead the enemies. '
+      + 'Everything within 25 m loses 60% of its max HP, bosses 20%. One charge, a new one every 3 waves.',
+  },
+  'frost-bomb': {
+    name: 'Frost Bomb',
+    aimHint: 'Freeze',
+    description: 'Throw a frost bomb onto the route: 0.5 s later everything within 20 m freezes solid for 3 s, bosses 1 s. '
+      + 'One charge, a new one every 3 waves.',
+  },
+  emp: {
+    name: 'EMP',
+    aimHint: 'Pulse',
+    description: 'Set off an EMP on the route: 0.5 s later machines within 30 m (tanks, mechs) stop for 6 s, '
+      + 'everything else for 1.5 s, bosses 0.75 s. One charge, a new one every 3 waves.',
+  },
+  'orbital-laser': {
+    name: 'Orbital Laser',
+    aimHint: 'Fire',
+    description: 'Call a laser down from orbit: 1 s later its beam burns for 4 s along the route toward the spawn, 72 m at most. '
+      + "Fire damage scaled by armor, up to 60% of an enemy's max HP, bosses 20%. One charge, a new one every 3 waves.",
+  },
+};
+
+const mutators: Record<WaveMutatorId, { name: string; description: string }> = {
+  swift: { name: 'Swift', description: 'Enemies move 25 % faster and come with less HP.' },
+  swarm: { name: 'Swarm', description: 'Half as many enemies again, the same HP for the whole wave.' },
+  regen: { name: 'Regeneration', description: 'Enemies heal 2 % of their max HP a second unless they burn, and come with less HP.' },
+  bounty: { name: 'Bounty', description: 'Kills pay double credits.' },
+};
+
+const damageTypes: Record<DamageType, { label: string; description: string }> = {
+  physical: { label: 'Physical', description: 'Solid allrounder, falls off vs armor' },
+  pierce: { label: 'Pierce', description: 'High fire rate, anti-swarm' },
+  siege: { label: 'Siege', description: 'Slow AoE, anti-heavy/fortified' },
+  magic: { label: 'Magic', description: 'Ethereal counter, utility' },
+  fire: { label: 'Fire', description: 'DoT/Burn, anti-regen' },
+  ice: { label: 'Ice', description: 'Low DPS, strong slow/CC' },
+  poison: { label: 'Poison', description: 'DoT specialist, anti-regen' },
+  lightning: { label: 'Lightning', description: 'Chain hitscan, anti-swarm/air' },
+  chaos: { label: 'Chaos', description: 'Full damage vs every armor, no weak spot' },
+};
+
+const armorTypes: Record<ArmorType, { label: string; description: string }> = {
+  unarmored: { label: 'Unarmored', description: 'No damage resistance' },
+  light: { label: 'Light', description: 'Fast, vulnerable to pierce' },
+  heavy: { label: 'Heavy', description: 'Tough, requires siege' },
+  fortified: { label: 'Fortified', description: 'Very tough, DPS check' },
+  ethereal: { label: 'Ethereal', description: 'Resists most, weak to magic/ice/lightning' },
+};
+
+/** Veteran ranks by level (configs/veteran-ranks.config.ts) */
+const veteranRanks: Record<VeteranLevel, string> = { 1: 'Blooded', 2: 'Veteran', 3: 'Elite', 4: 'Champion', 5: 'Legend' };
+
+/** The Research Center's levels: how many researches run at once */
+const researchCenterLevels: Record<ResearchCenterLevel, string> = {
+  1: 'Basic Research (1 Slot)',
+  2: 'Expanded Research (2 Slots)',
+  3: 'Advanced Research (3 Slots)',
+};
+
+const researchBranches: Record<ResearchBranch, string> = {
+  ballistics: 'Ballistics',
+  arcane: 'Arcane',
+  biology: 'Biology',
+  engineering: 'Engineering',
+};
+
+const research: Record<ResearchTreeId, { name: string; description: string }> = {
+  'gatling-tech': { name: 'Gatling Technology', description: 'Unlocks the Dual-Gatling Tower: rapid-fire pierce damage' },
+  'ice-magic': { name: 'Ice Magic', description: 'Unlocks the Ice Tower: slows enemies, hits air and ground' },
+  biology: { name: 'Biology', description: 'Opens the organic branch: Tentacle and Poison' },
+  'tentacle-biology': { name: 'Tentacle Biology', description: 'Unlocks the Tentacle Tower: close-range melee strikes that slam what stands around the target' },
+  'toxic-compounds': { name: 'Toxic Compounds', description: 'Unlocks the Poison Tower: splash projectiles with damage over time' },
+  'siege-engineering': { name: 'Siege Engineering', description: 'Unlocks the Cannon Tower: slow, heavy siege damage' },
+  'fire-alchemy': { name: 'Fire Alchemy', description: 'Unlocks the Fire Tower: continuous flame beam, ground only' },
+  'arcane-studies': { name: 'Arcane Studies', description: 'Unlocks the Magic Tower: strong vs ethereal enemies' },
+  'storm-mastery': { name: 'Storm Mastery', description: 'Unlocks the Lightning Tower: chain hitscan, anti-swarm/air' },
+  rocketry: { name: 'Rocketry', description: 'Unlocks the Rocket Tower: heavy homing missiles against armored air' },
+  'flak-artillery': { name: 'Flak Artillery', description: 'Unlocks the Iron Bastion: bursting shells against swarms, air and ground' },
+  'laser-optics': { name: 'Laser Optics', description: 'Unlocks the Sentinel Laser: a beam that heats up on one target, against bosses and tanks' },
+  cybernetics: { name: 'Cybernetics', description: 'Unlocks the Chainsaw: three robot arms, each sawing an enemy of its own at the road' },
+  rotisserie: { name: 'Rotisserie', description: 'Unlocks the Shawarma Slicer: spins up a stream of slices that hits everything on its line' },
+  'chaos-rift': { name: 'Chaos Rift', description: 'Unlocks the Chaos Tower: full damage against every armor, air and ground' },
+  'aa-retrofit': { name: 'AA Retrofit', description: 'Gatling towers gain air targeting capability: the broad answer to light air' },
+  scouting: { name: 'Scouting', description: 'Archer towers can take the Scout path: a lookout that reveals camouflaged enemies to every tower' },
+  'incendiary-arrows': { name: 'Incendiary Arrows', description: 'Archer towers can take the Fire Arrows path: every hit sets its target burning' },
+  'ballista-bolts': { name: 'Ballista Bolts', description: 'Archer towers can take the Sniper path: a ballista with twice the range and armor-piercing bolts' },
+  'multirole-warheads': { name: 'Multirole Warheads', description: 'Rocket towers can take the Multirole path: they fire at ground enemies too, at half damage' },
+  'binding-sigils': { name: 'Binding Sigils', description: 'Magic towers can take the Binding Sigil path: each hit lifts Phasing, slows take hold again' },
+  'caustic-compounds': { name: 'Caustic Compounds', description: 'Poison towers can take the Caustic path: each hit makes its target count one armor class lighter' },
+  'nuclear-strike': {
+    name: 'Nuclear Strike',
+    description: 'Unlocks the Missile Silo and the Nuclear Strike it launches: aim at the route, 6.5 s later everything '
+      + 'within 25 m loses 60% of its max HP (bosses 20%). One charge, a new one every 3 waves',
+  },
+  'mercenary-contract': {
+    name: 'Mercenary Contract',
+    description: `Lets you hire the ${hero.name} once for ${f.int(HERO.cost)} credits: a soldier you send along the enemy route. `
+      + `He fights on his own within ${HERO.rangeM} m, switches between standard (physical), explosive (siege) `
+      + 'and rune (magic) rounds and levels up through his kills',
+  },
+  'frost-bomb': {
+    name: 'Frost Bomb',
+    description: 'Unlocks the Frost Bomb: aim at the route, 0.5 s later everything within 20 m freezes solid for 3 s '
+      + '(bosses 1 s). One charge, a new one every 3 waves',
+  },
+  emp: {
+    name: 'EMP',
+    description: 'Unlocks the EMP: aim at the route, 0.5 s later machines within 30 m stop for 6 s, '
+      + 'everything else for 1.5 s (bosses 0.75 s). One charge, a new one every 3 waves',
+  },
+  'orbital-laser': {
+    name: 'Orbital Laser',
+    description: 'Unlocks the Orbital Laser: aim at the route, 1 s later a beam burns 4 s along it toward the spawn, '
+      + 'fire damage up to 60% of max HP (bosses 20%). One charge, a new one every 3 waves',
+  },
+  'advanced-weaponry': { name: 'Advanced Weaponry', description: 'Enables Tier 2 upgrades for all towers (levels 6-10)' },
+  'master-engineering': { name: 'Master Engineering', description: 'Enables Tier 3 upgrades for all towers (levels 11-15)' },
+  'advanced-engineering': { name: 'Advanced Engineering', description: 'Enables Tier 4 upgrades for all towers (levels 16-20)' },
+  'transcendent-tech': { name: 'Transcendent Tech', description: 'Enables Tier 5 upgrades for all towers (levels 21-25)' },
+};
+
+/** What a building does, or a tower's role in a line (its build card's flavor); null for none */
+const towerDescriptions: Record<TowerTypeId, string | null> = {
+  archer: null,
+  'dual-gatling': null,
+  cannon: null,
+  magic: null,
+  rocket: null,
+  ice: null,
+  fire: null,
+  tentacle: null,
+  poison: null,
+  lightning: null,
+  chaos: null,
+  bastion: 'Flak: shells that burst among swarms, in the air and on the ground.',
+  sentinel: 'Focused laser: heats up on one target, up to four times its damage. Built for bosses.',
+  chainsaw: 'Three robot arms with chainsaws, each on an enemy of its own. Build it right at the road.',
+  shawarma: 'Spins up a stream of meat slices that hits everything on its line. Strong in long waves.',
+  'research-center': 'Unlocks new towers and upgrade tiers.',
+  'missile-silo': 'Launches the Nuclear Strike. Without a silo the strike cannot fire.',
+};
+
+/** "+5% per level up to L15, +2% after, compounding" or "+3% per level, compounding, max L10" */
+const growth = (what: string, u: UpgradeTerms) =>
+  u.lateFromLevel !== null && u.latePercent !== null
+    ? `Increases ${what} (+${f.num(u.percent, 1)}% per level up to L${u.lateFromLevel}, +${f.num(u.latePercent, 1)}% after, compounding).`
+    : `Increases ${what} (+${f.num(u.percent, 1)}% per level, compounding, max L${u.maxLevel}).`;
+
+const upgrades: Record<UpgradeText, { name: string; description: (terms: UpgradeTerms) => string }> = {
+  damage: { name: 'Damage', description: (u) => growth('damage', u) },
+  fireRate: { name: 'Fire Rate', description: (u) => growth('fire rate', u) },
+  heatUp: { name: 'Heat-up', description: (u) => growth('heat-up', u) },
+  chainSpeed: { name: 'Chain Speed', description: (u) => growth('chain speed', u) },
+  drive: { name: 'Drive', description: (u) => growth('drive', u) },
+  range: { name: 'Range', description: (u) => growth('range', u) },
+  beamWidth: { name: 'Beam Width', description: (u) => growth('flame cone width', u) },
+  researchWing: { name: 'Research Wing', description: () => 'Adds an additional research slot' },
+};
 
 const runLogRefusals: Record<RunLogRefusal, string> = {
   'not-collected': 'this coop server collects no run logs',
@@ -20,6 +300,20 @@ const runLogRefusals: Record<RunLogRefusal, string> = {
  * where it stands.
  */
 export const en = {
+  names,
+  epithets,
+  towers: { descriptions: towerDescriptions },
+  upgrades,
+  paths,
+  research,
+  researchBranches,
+  researchCenterLevels,
+  abilities,
+  hero,
+  mutators,
+  damageTypes,
+  armorTypes,
+  veteranRanks,
   common: {
     ok: 'OK',
     cancel: 'Cancel',
@@ -34,6 +328,385 @@ export const en = {
     language: 'Language',
     languageSystem: (name: string) => `System (${name})`,
   },
+  hud: {
+    ability: {
+      group: 'Abilities',
+      incoming: 'incoming',
+      armed: 'pick a spot on the route, Esc cancels',
+      ready: 'ready',
+      waiting: 'ready, fires during a wave',
+      recharges: (n: number) => `recharges in ${f.int(n)} ${f.plural(n, 'wave', 'waves')}`,
+      /** Accessible name of a button: "Nuclear Strike: recharges in 2 waves" */
+      label: (name: string, state: string) => `${name}: ${state}`,
+      charges: 'CHARGES',
+      recharge: 'RECHARGE',
+      waves: (n: number) => `${f.int(n)} ${f.plural(n, 'wave', 'waves')}`,
+    },
+    heroButton: {
+      category: 'HERO',
+      selectHint: 'Select the hero and bring it into view.',
+      hire: (name: string) => `Hire ${name}`,
+      short: (price: number, short: number) => `${f.int(price)} credits, ${f.int(short)} short.`,
+      once: (price: number) => `${f.int(price)} credits, once. He takes his post on the route next to the HQ.`,
+      hired: (level: number, ammo: string) => `Level ${level}, ${ammo.toLowerCase()}. A press selects him, a second brings him into view.`,
+    },
+    build: {
+      title: 'Build',
+      damageMatrix: 'Damage vs armor',
+      clickNearStreet: 'Click near a street',
+      tier: (n: number) => `Tier ${n}`,
+      airOnly: 'Air-only target',
+      antiAir: 'Anti-air capable',
+      locked: 'Locked',
+      lockedTower: (why: string) => `Locked tower. ${why}`,
+      requires: (research: string) => `Requires: ${research}`,
+      researchTree: 'Research tree',
+      researchTreeKey: 'Research tree (Q)',
+      queued: (n: number) => `${f.int(n)} queued`,
+    },
+    card: {
+      structure: 'STRUCTURE',
+      alreadyPlaced: 'Already placed.',
+      fromWave: (wave: number) => `From wave ${wave}: towers for the first wave come first.`,
+      dps: 'DPS',
+      damage: 'DMG',
+      rate: 'RATE',
+      type: 'TYPE',
+      range: 'RANGE',
+      beam: 'BEAM',
+      stream: 'STREAM',
+      arms: 'ARMS',
+      laser: 'LASER',
+      metres: (m: number) => `${f.num(m, 1)}m`,
+      perSecond: (n: number) => `${f.num(n, 2)}/s`,
+      multiplier: (x: number) => `${f.fixed(x, 2)}×`,
+      vsArmor: 'vs Armor',
+      vsDamage: 'vs Damage',
+    },
+    enemyCard: {
+      hp: 'HP',
+      speed: 'SPEED',
+      count: 'COUNT',
+      hq: 'HQ',
+      metresPerSecond: (v: number) => `${f.fixed(v, 1)}m/s`,
+      times: (n: number) => `×${f.int(n)}`,
+      onEachLane: (n: number, lanes: number) => `×${f.int(n)} on each of ${lanes} lanes`,
+      leakEach: (hp: number) => `−${f.num(hp, 1)} each`,
+      splits: (n: number) => `Splits into ${n} ${f.plural(n, 'minion', 'minions')} on death`,
+      regenerates: (percent: number) => `Regenerates ${percent} % of its HP a second unless burning`,
+      phasing: 'Phasing: cannot be slowed',
+      hpScale: (x: number) => `HP ×${f.fixed(x, 1)}`,
+      speedScale: (x: number) => `Speed ×${f.fixed(x, 2)}`,
+      scaled: (parts: string) => `Scaled: ${parts}`,
+    },
+    wave: {
+      /** The run plan's and the wave list's names, by the English one (a custom list's own name stays as it is) */
+      names: {
+        'Zombie Horde': 'Zombie Horde',
+        'Rat Tide': 'Rat Tide',
+        'Penguin Rush': 'Penguin Rush',
+        'Light Mix': 'Light Mix',
+        'Wallsmasher Crew': 'Wallsmasher Crew',
+        'Spider Swarm': 'Spider Swarm',
+        'Bat Swarm': 'Bat Swarm',
+        'Hornet Strike': 'Hornet Strike',
+        'Tank Column': 'Tank Column',
+        'Boss: Herbert': 'Boss: Herbert',
+        'Bear Pack': 'Bear Pack',
+        'Dragon Elite': 'Dragon Elite',
+        'Ghost Surge': 'Ghost Surge',
+        'Mammoth Siege': 'Mammoth Siege',
+        'Golem Squad': 'Golem Squad',
+        'Chaos Wave': 'Chaos Wave',
+        'Night Flight': 'Night Flight',
+        'Armor Gauntlet': 'Armor Gauntlet',
+        'Skeleton Swarm': 'Skeleton Swarm',
+        'Boss: Ooze': 'Boss: Ooze',
+        'Dusk Flock': 'Dusk Flock',
+        'Armored Push': 'Armored Push',
+        'Spider Nest': 'Spider Nest',
+        'Phantom March': 'Phantom March',
+        'Siege Line': 'Siege Line',
+        'Horde and Hornets': 'Horde and Hornets',
+        'Dragon Patrol': 'Dragon Patrol',
+        'Mech Army': 'Mech Army',
+        'Final Mix': 'Final Mix',
+        'Boss: Skarnax': 'Boss: Skarnax',
+        'Penguin Breather': 'Penguin Breather',
+        'Golem Guard': 'Golem Guard',
+        'Mammoth Stampede': 'Mammoth Stampede',
+        'Wraith Night': 'Wraith Night',
+        'Great Horde': 'Great Horde',
+        'Ghost Riders': 'Ghost Riders',
+        'Bone Tide': 'Bone Tide',
+        'Plague and Iron': 'Plague and Iron',
+        'Boss: Golem King': 'Boss: Golem King',
+        'Dragon Night': 'Dragon Night',
+        'Wall Breakers': 'Wall Breakers',
+        'Swarm Surge': 'Swarm Surge',
+        'Haunted Pack': 'Haunted Pack',
+        'Mech Column': 'Mech Column',
+        'Hornet Raid': 'Hornet Raid',
+        'Ether Assault': 'Ether Assault',
+        'Boss: Dragon Matriarch': 'Boss: Dragon Matriarch',
+        'Wraith Storm': 'Wraith Storm',
+        'Fortress': 'Fortress',
+        'Iron Night': 'Iron Night',
+        'Sky Siege': 'Sky Siege',
+        'Last Stand': 'Last Stand',
+        'Boss: Dragon Flight': 'Boss: Dragon Flight',
+      } as Record<string, string>,
+      wave: (n: number) => `Wave ${n}`,
+      start: (n: number) => `Start wave ${n}`,
+      readyFor: (n: number) => `Ready for wave ${n}`,
+      isReady: (n: number) => `Wave ${n}: ready`,
+      notReadyAfterAll: (n: number, count: string) => `Not ready for wave ${n} after all, ${count}`,
+      readyForCount: (n: number, count: string) => `Ready for wave ${n}, ${count}`,
+      startCount: (n: number, count: string) => `Start wave ${n}, ${count}`,
+      readyCount: (ready: number, players: number) => `${ready}/${players} ready`,
+      startsBySelf: (start: string, s: number) => `${start} now, starts by itself in ${s}s`,
+      seconds: (s: number) => `${s}s`,
+      left: (n: number) => `${f.int(n)} left`,
+      perLane: ' per lane',
+      maxHqDamage: 'Max HQ damage',
+      maxHqDamageTip: 'HP the HQ loses if every enemy of this wave gets through, split children included',
+      hqLoss: (hp: string) => `HQ −${hp}`,
+      speed: (v: number) => `${f.fixed(v, 1)} m/s`,
+      hp: (hp: number) => `HP ${f.int(hp)}`,
+      autoStart: (s: number) => `Auto start in ${s} s`,
+      autoStartLabel: (s: number) => `Auto-start the next wave ${s} s after a wave`,
+      autoStartTip: (s: number) => `Starts the next wave by itself ${s} s after a wave`,
+      replay: (n: number) => `Replay wave ${n}`,
+      replayTip: (n: number) => `Watch wave ${n} again: free camera, pause, 0.25x to 4x`,
+      goThere: (place: string) => `Go to ${place} and play`,
+      space: 'Space',
+    },
+    next: {
+      title: 'Next',
+      group: 'Next waves',
+      enemies: 'enemies',
+      air: 'Air',
+      weak: 'weak',
+      weakTo: (types: string) => `Weak to ${types}`,
+      markAir: 'air',
+      markCamo: 'camouflaged',
+      markBloodMoon: 'blood moon',
+      bloodMoonNote: (every: number) => `Blood moon (every ${every}th wave): red night, glowing enemies, searchlights on the towers.`,
+      mutatorNote: (name: string, description: string) => `${name}: ${description}`,
+      notInList: 'Not in the list',
+      noRow: 'No row',
+      noRowText: 'The wave list has no row for this wave.',
+      round: (row: number, round: number) => `row ${row}, round ${round}`,
+      sizedAtStart: 'HP set against the defense when the wave starts',
+      spawns: (ms: number) => `One every ${f.num(ms / 1000, 2)} s.`,
+      hpScale: (x: number) => `HP ×${f.num(x, 2)}.`,
+      enemiesStat: 'ENEMIES',
+      hqMax: 'HQ MAX',
+      enemiesSection: 'Enemies',
+      hqEach: 'HQ each',
+      weakToSection: 'Weak to',
+      times: (n: number, name: string) => `${f.int(n)}× ${name}`,
+    },
+    alerts: {
+      nextWave: 'next wave',
+      inWaves: (n: number) => `in ${n} waves`,
+      camoTitle: (wave: number) => `Camo | Wave ${wave}`,
+      noScout: 'No scout yet',
+      scouts: (n: number) => `${n} ${f.plural(n, 'scout', 'scouts')}`,
+      camoTip: 'Camouflaged enemies slip past every tower that cannot see them. An Archer with the Scout path '
+        + '(research Scouting) reveals them within 35 m, and every tower can hit them there.',
+      airTitle: (wave: number) => `Air | Wave ${wave}`,
+      noAir: 'No tower hits air yet',
+      airTowers: (n: number) => `${n} ${f.plural(n, 'tower hits', 'towers hit')} air`,
+      airTip: (towers: string) => `Air units fly over the route. Only towers that hit air can shoot them: ${towers}.`,
+      afterResearch: (tower: string) => `${tower} (after research)`,
+      etherealTitle: (wave: number) => `Ethereal | Wave ${wave}`,
+      noEthereal: 'No tower hurts ethereal yet',
+      etherealTowers: (n: number) => `${n} ${f.plural(n, 'tower hurts', 'towers hurt')} ethereal`,
+      etherealTip: (towers: string) => 'Ethereal enemies shrug off most damage: arrows, bullets and fire deal a tenth. '
+        + `These towers get through: ${towers}.`,
+    },
+    lanes: {
+      title: 'Lanes',
+      beforeWave1: 'before wave 1',
+      open: (lane: string) => `Lane ${lane} open`,
+      alwaysOpen: 'This lane is always open on this map',
+      close: 'Close this lane',
+      openThis: 'Open this lane',
+      atLeast: (n: number) => `At least ${n} ${f.plural(n, 'lane stays', 'lanes stay')} open`,
+      atMost: (n: number) => `At most ${n} lanes are open on this map`,
+      load: (open: number) => open === 1
+        ? '1 lane open: one wave at a time'
+        : `${open} lanes open: each brings a full wave, ${open} times the enemies`,
+    },
+    hero: {
+      level: 'Level',
+      nextLevel: 'Next level',
+      topLevel: 'Top level',
+      xp: (xp: number, next: number) => `${f.int(xp)} / ${f.int(next)} kills`,
+      xpBar: 'Kills toward the next level',
+      kills: 'Kills',
+      dps: 'DPS',
+      range: 'Range',
+      metres: (m: number) => `${f.num(m, 1)} m`,
+      ammo: 'Ammo',
+      onHisWay: 'On his way',
+      holding: 'Holding his post',
+      ammoTip: (ammo: string, damage: string, best: string) => `${ammo}: ${damage} damage, his best against ${best}`,
+      help: 'Click the route to send him, he holds the spot and chases up to 20 m along it.',
+      camera: 'camera,',
+      letGo: 'lets go.',
+    },
+    bloodMoon: {
+      title: 'Blood Moon',
+      wave: (wave: number) => `Wave ${wave}`,
+      waveMutator: (wave: number, mutator: string) => `Wave ${wave} | ${mutator}`,
+      announce: (wave: number) => `Blood moon, wave ${wave}.`,
+      announceMutator: (wave: number, mutator: string, description: string) => `Blood moon, wave ${wave}. ${mutator}: ${description}`,
+    },
+    sell: {
+      again: 'Click again to sell',
+      sell: 'Sell',
+      againFor: (credits: number) => `Click again to sell for ${f.int(credits)} credits`,
+      confirmFor: (credits: number) => `Confirm: sell for ${f.int(credits)} credits`,
+      sellFor: (credits: number) => `Sell for ${f.int(credits)} credits`,
+      refundsBuilding: 'Sell: refunds 75% of its cost',
+      refundsTower: 'Sell tower: refunds 75% of total invested (base + upgrades)',
+      refundsCenter: 'Sell: refunds 75% of total invested (base + upgrades)',
+    },
+    tower: {
+      owners: (owner: string, tower: string) => `${owner}'s ${tower}`,
+      viewOnly: 'view only',
+      viewOnlyTip: "A partner's tower: you can look, not change it",
+      type: 'Type',
+      damage: 'Damage',
+      fireRate: 'Fire rate',
+      range: 'Range',
+      dps: 'DPS',
+      kills: 'Kills',
+      killsTip: 'Killing blows since it was built',
+      dealt: 'Dealt',
+      dealtTip: 'Damage dealt since it was built, overkill not counted',
+      perSecond: (n: number) => `${f.fixed(n, 2)}/s`,
+      metres: (m: number) => `${f.int(Math.round(m))} m`,
+      recruit: 'Recruit',
+      rankKills: (kills: number, next: number) => `${f.int(kills)} / ${f.int(next)} kills`,
+      killCount: (kills: number) => `${f.int(kills)} kills`,
+      rankTip: (ladder: string) => `Rank from killing blows, cosmetic only: ${ladder}`,
+      target: (label: string) => `Target: ${label}`,
+      airTarget: (label: string) => `Air target: ${label}`,
+      holding: 'Holding fire: click to attack again',
+      holdTip: 'Hold fire: the tower stops attacking',
+      hold: 'Hold fire',
+      manTip: 'Get in and fire it yourself (C): mouse aims, left button fires, Esc gets out',
+      man: 'Get into the tower and fire it yourself',
+      underConstruction: 'Under construction: upgrades once it stands',
+      tier: (n: number) => `T${n}`,
+      levelOf: (level: number, max: number) => `Level ${level} of ${max}`,
+      path: 'path',
+      oncePerTower: 'once per tower',
+      pathBuilding: (description: string) => `${description} Once the tower stands.`,
+      pathOnce: (description: string) => `${description} Once per tower.`,
+      pathResearch: (description: string, research: string) => `${description} Research ${research} first.`,
+      upgradeMany: (shift: number, ctrl: number) => ` Shift-click: up to ${shift}, Ctrl-click: up to ${ctrl}.`,
+      requires: (research: string) => `Requires: ${research}`,
+      needCredits: (missing: number, upgrade: string) => `Need ${f.int(missing)} more credits for ${upgrade}`,
+      researchTier: (research: string) => `Research ${research} for the next levels`,
+      tierN: (tier: number) => `tier ${tier}`,
+      maxed: 'Fully upgraded',
+    },
+    targeting: {
+      closest: { label: 'Closest', tooltip: 'Attacks the nearest enemy' },
+      'lowest-hp': { label: 'Weakest', tooltip: 'Attacks the weakest enemy' },
+      'highest-hp': { label: 'Strongest', tooltip: 'Attacks the strongest enemy' },
+      first: { label: 'First', tooltip: 'Attacks the enemy closest to the base' },
+      last: { label: 'Last', tooltip: 'Attacks the enemy furthest from the base' },
+      'air-priority': { label: 'Air', tooltip: 'Prioritizes flying enemies' },
+    } satisfies Record<TargetingStrategy, { label: string; tooltip: string }> as Record<TargetingStrategy, { label: string; tooltip: string }>,
+    airTargeting: {
+      closest: { label: 'Closest', tooltip: 'Targets the nearest air enemy' },
+      'lowest-hp': { label: 'Weakest', tooltip: 'Targets the weakest air enemy' },
+      'highest-hp': { label: 'Strongest', tooltip: 'Targets the strongest air enemy' },
+    } satisfies Record<AirSubStrategy, { label: string; tooltip: string }> as Record<AirSubStrategy, { label: string; tooltip: string }>,
+    researchCenter: {
+      level: (level: number) => `Research Center, level ${level}`,
+      researched: 'researched',
+      slots: (used: number, all: number) => `Slots ${used}/${all}`,
+      seconds: (s: number) => `${f.int(Math.round(s))} s`,
+      cancel: (research: string) => `Cancel research: ${research}`,
+      open: (n: number) => `${n} ${f.plural(n, 'research is', 'researches are')} open right now.`,
+      nothingOpen: 'Nothing is open yet.',
+      treeTip: 'Pick what to research and order the queue (Q)',
+      tree: 'Research tree',
+    },
+    upgradeFloat: {
+      many: (n: number) => `${f.int(n)} UPGRADES`,
+      plus: (track: string, n: number) => `${track.toUpperCase()} +${n}`,
+      level: (track: string, level: number) => `${track.toUpperCase()} LV ${level}`,
+      needCredits: (n: number) => `NEED ${f.int(n)} CREDITS`,
+      needsResearch: 'NEEDS RESEARCH',
+      maxed: 'FULLY UPGRADED',
+      building: 'UNDER CONSTRUCTION',
+    },
+    manned: {
+      inTower: (tower: string) => `In the ${tower}. Left button fires, right button zooms, C or Esc gets out.`,
+    },
+    bossIntro: {
+      join: ' & ',
+      one: (name: string) => `Boss: ${name}`,
+      many: (names: string[]) => `Bosses: ${names.join(' and ')}`,
+      announce: (said: string, wave: number) => `${said}, wave ${wave}. Escape skips.`,
+    },
+    refusal: {
+      noRoute: (m: number) => `No route within ${m} m`,
+      buildFirst: (tower: string) => `Build a ${tower} first`,
+      onlyInWave: 'Only during a wave',
+      noCharges: 'No charges',
+      recharges: (n: number) => `No charges, recharges in ${n} ${f.plural(n, 'wave', 'waves')}`,
+      needCredits: (n: number) => `Need ${f.int(n)} credits`,
+      noWayThere: 'No way there along the routes',
+      noRouteToStand: 'No route to stand on',
+      hire: (hero: string) => `Hire ${hero}`,
+    },
+    hints: {
+      rotate: 'Rotate',
+      build: 'Build',
+      cancel: 'Cancel',
+      lineOfSight: 'Line of Sight',
+      place: 'Place',
+      send: 'Send',
+      ammo: 'Ammo',
+      camera: 'Camera',
+      letGo: 'Let go',
+      click: 'Click',
+      hover: 'Hover',
+      esc: 'ESC',
+    },
+    modelsMissing: (names: string) => `Models did not load: ${names}. They stay unseen until a reload.`,
+    researchTree: {
+      you: 'You',
+      states: {
+        completed: 'Researched',
+        active: 'In progress',
+        queued: 'Queued',
+        available: 'Ready to start',
+        poor: 'Not enough credits',
+        pending: 'Waiting on the queue',
+        locked: 'Locked',
+      } satisfies Record<TechTreeNodeState, string> as Record<TechTreeNodeState, string>,
+      seconds: (s: number) => `${s}s`,
+      left: (s: number) => `${f.fixed(s, 1)}s left`,
+      atStart: (credits: number) => `${f.int(credits)} at start`,
+      wave: (wave: number) => `Wave ${wave}`,
+      requires: (missing: string) => `Requires: ${missing}`,
+      opensAt: (wave: number) => `Opens at wave ${wave}.`,
+      opensAtRequires: (wave: number, missing: string) => `Opens at wave ${wave}. Requires: ${missing}`,
+      unqueue: (effect: string) => `${effect} Click to take it out of the queue.`,
+      short: (effect: string, credits: number) => `${effect} ${f.int(credits)} credits short.`,
+      slotsBusy: (effect: string) => `${effect} Every slot is busy, so a click queues it.`,
+    },
+    // hud:end
+  },
   coop: {
     runLogSent: 'Run log sent. Thanks!',
     /** `why` is a RunLogRefusal's text, or what an older relay said */
@@ -41,6 +714,8 @@ export const en = {
     runLogRefusals,
   },
   units: {
+    int: (n: number) => f.int(n),
+    fixed: (n: number, digits: number) => f.fixed(n, digits),
     waves: (n: number) => `${f.int(n)} ${f.plural(n, 'wave', 'waves')}`,
     seconds: (n: number) => `${f.fixed(n, 1)} s`,
   },

@@ -25,6 +25,8 @@ import { projectileSoundId } from '../managers/projectile.manager';
 import type { Tower } from '../entities/tower.entity';
 import type { ThreeTilesEngine } from '../three-engine';
 import type { CoordinateSync } from '../three-engine/renderers';
+import { I18n } from '../i18n/i18n.service';
+import { towerName } from '../i18n/lookups';
 
 /** Where the camera was before the player got in */
 interface CameraPose {
@@ -86,11 +88,14 @@ export class TowerControlService {
   private readonly uiStore = inject(UIStore);
   private readonly store = inject(TowerDefenseStore);
   private readonly announcer = inject(LiveAnnouncer);
+  private readonly t = inject(I18n).t;
 
   /** The player sits in a tower */
   readonly active = computed(() => this.store.mannedTowerId() !== null);
   /** Name of the tower they sit in, for the HUD */
-  readonly towerName = signal('');
+  /** The manned tower's type, '' when none: the HUD names it in the player's language */
+  private readonly towerType = signal('');
+  readonly towerName = computed(() => (this.towerType() ? towerName(this.t(), this.towerType()) : ''));
   /** The mouse is captured (pointer lock); until then a click on the map captures it */
   readonly aiming = signal(false);
   /** The crosshair is on an enemy the tower may shoot */
@@ -227,13 +232,13 @@ export class TowerControlService {
     if (!this.pose) this.pose = this.saveCamera(engine);
     const controls = engine.getControls();
     if (controls) controls.enabled = false;
-    this.towerName.set(tower.typeConfig.name);
+    this.towerType.set(tower.typeConfig.id);
     // Its own veteran badge would stand in the middle of the view
     engine.towerBadges.hideFor(tower.id);
     engine.spatialAudio.setFeedbackMinDistance(TOWER_CONTROL.feedbackSoundMinDistanceM);
     this.attach(engine);
     this.capturePointer();
-    this.announcer.announce(`In the ${tower.typeConfig.name}. Left button fires, right button zooms, C or Esc gets out.`);
+    this.announcer.announce(this.t().hud.manned.inTower(towerName(this.t(), tower.typeConfig.id)));
   }
 
   /** Get out of the tower; it fires by itself again. */

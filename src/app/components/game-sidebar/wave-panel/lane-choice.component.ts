@@ -7,6 +7,7 @@ import { TowerDefenseStore } from '../../../store/tower-defense.store';
 import { UIStore } from '../../../store/ui.store';
 import { WorldContext } from '../../../world/world-context.service';
 import { hasLaneChoice, laneLoadHint, toggledLanes } from '../../../world/custom-map/lane-choice';
+import { I18n } from '../../../i18n/i18n.service';
 
 /** A lane as the list shows it */
 interface LaneRow {
@@ -34,14 +35,14 @@ interface LaneRow {
   template: `
     @if (shown()) {
       <section class="td-group lc-root" aria-labelledby="td-lane-choice">
-        <h3 class="td-section" id="td-lane-choice">Lanes <span class="td-note">before wave 1</span></h3>
+        <h3 class="td-section" id="td-lane-choice">{{ t().hud.lanes.title }} <span class="td-note">{{ t().hud.lanes.beforeWave1 }}</span></h3>
         <div class="td-rows">
           @for (lane of rows(); track lane.id) {
             <label class="td-row lc-row" [matTooltip]="lane.why" matTooltipPosition="left" [attr.data-lane]="lane.id">
               <span class="td-swatch" [style.--td-mark]="lane.color"></span>
               <span class="td-name td-trunc lc-name">{{ lane.name }}</span>
               <input class="td-switch" type="checkbox" [checked]="lane.open" [disabled]="busy() || !lane.switchable"
-                     (change)="toggle(lane.id, $event)" [attr.aria-label]="'Lane ' + lane.name + ' open'" />
+                     (change)="toggle(lane.id, $event)" [attr.aria-label]="t().hud.lanes.open(lane.name)" />
             </label>
           }
         </div>
@@ -57,6 +58,7 @@ export class LaneChoiceComponent {
   private readonly store = inject(TowerDefenseStore);
   private readonly ui = inject(UIStore);
   private readonly engineInit = inject(EngineInitializationService);
+  protected readonly t = inject(I18n).t;
 
   /** Counts up when the lanes changed here, so the list reads them again */
   private readonly rev = signal(0);
@@ -80,13 +82,14 @@ export class LaneChoiceComponent {
     const lanes = this.lanes();
     if (!lanes) return [];
     const open = lanes.open();
+    const says = this.t().hud.lanes;
     return lanes.choice.lanes.map((lane) => {
       const isOpen = open.includes(lane.id);
       const switchable = toggledLanes(lanes.choice, open, lane.id) !== null;
       const why = !lane.optional
-        ? 'This lane is always open on this map'
-        : switchable ? (isOpen ? 'Close this lane' : 'Open this lane')
-          : isOpen ? `At least ${lanes.choice.min} ${lanes.choice.min === 1 ? 'lane stays' : 'lanes stay'} open` : `At most ${lanes.choice.max} lanes are open on this map`;
+        ? says.alwaysOpen
+        : switchable ? (isOpen ? says.close : says.openThis)
+          : isOpen ? says.atLeast(lanes.choice.min) : says.atMost(lanes.choice.max);
       return {
         id: lane.id,
         name: lane.name,
@@ -98,7 +101,7 @@ export class LaneChoiceComponent {
     });
   });
 
-  readonly hint = computed(() => (this.rev(), laneLoadHint(this.lanes()?.open().length ?? 0)));
+  readonly hint = computed(() => (this.rev(), laneLoadHint(this.t(), this.lanes()?.open().length ?? 0)));
 
   async toggle(id: string, event: Event): Promise<void> {
     const lanes = this.lanes();

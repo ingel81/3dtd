@@ -59,7 +59,7 @@ export function createHeroTestGame(
     local: true,
     type: 'research:completed',
     researchId: HERO.researchId,
-    effects: [{ kind: 'global-perk', perkId: HERO.perkId, description: '' }],
+    effects: [{ kind: 'global-perk', perkId: HERO.perkId }],
   });
   gsm.addCredits(HERO.cost, 'cheat');
   return gsm;

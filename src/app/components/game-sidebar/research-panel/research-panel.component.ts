@@ -6,7 +6,6 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { TowerDefenseStore } from '../../../store/tower-defense.store';
 import { ResearchStore } from '../../../store/research.store';
 import { UpgradeId } from '../../../configs/tower-types.config';
-import { getResearch } from '../../../configs/research/research-tree.config';
 import { ActiveResearch, ResearchId, researchWave } from '../../../configs/research/research.types';
 import { Tower } from '../../../entities/tower.entity';
 import { SellConfirmService } from '../../../services/sell-confirm.service';
@@ -16,6 +15,9 @@ import { upgradeHintView } from '../tower-panel/tower-stats';
 import { UPGRADE_MANY, upgradeTimes, upgradeTrackRefusal } from '../../../utils/player-actions';
 import { openResearchDialog } from '../../research-dialog/open-research-dialog';
 import { researchProgress, researchRemaining, researchStatus } from './research-status';
+import { I18n } from '../../../i18n/i18n.service';
+import { researchName } from '../../../i18n/lookups';
+import { upgradeTerms } from '../../../configs/tower-types.config';
 
 /**
  * Panel des gewählten Research Centers: laufende Forschungen mit Fortschritt,
@@ -39,6 +41,7 @@ export class SidebarResearchPanelComponent {
   readonly researchStore = inject(ResearchStore);
   private readonly sellConfirm = inject(SellConfirmService);
   private readonly upgradeHint = inject(UpgradeHintService);
+  protected readonly t = inject(I18n).t;
   private readonly dialog = inject(MatDialog);
   // Der Dialog braucht einen Injector aus dem Spielbaum, siehe openResearchDialog.
   private readonly injector = inject(Injector);
@@ -49,12 +52,12 @@ export class SidebarResearchPanelComponent {
   readonly sellArmed = computed(() => this.sellConfirm.armedTowerId() === this.tower().id);
 
   /** The last U or tile click on the center: the tile it bought flashes, or why it bought nothing */
-  readonly hintView = computed(() => upgradeHintView(this.upgradeHint.hint(), this.tower()));
+  readonly hintView = computed(() => upgradeHintView(this.t(), this.upgradeHint.hint(), this.tower()));
 
   readonly sellTower = output<void>();
   /** An upgrade tile clicked, `times` from the modifier keys (upgradeTimes, TODO E45) */
   /** Under an upgrade's tooltip: several at once (TODO E45) */
-  readonly upgradeManyHint = ` Shift-click: up to ${UPGRADE_MANY.shift}, Ctrl-click: up to ${UPGRADE_MANY.ctrl}.`;
+  readonly upgradeManyHint = computed(() => this.t().hud.tower.upgradeMany(UPGRADE_MANY.shift, UPGRADE_MANY.ctrl));
 
   readonly upgradeTower = output<{ tower: Tower; upgradeId: UpgradeId; times: number }>();
   readonly cancelResearch = output<ResearchId>();
@@ -94,8 +97,10 @@ export class SidebarResearchPanelComponent {
   }
 
   getResearchName(id: ResearchId): string {
-    return getResearch(id)?.name ?? id;
+    return researchName(this.t(), id);
   }
+
+  readonly upgradeTerms = upgradeTerms;
 
   /** The tree, the queue and the picking live there. */
   openTechTree(): void {

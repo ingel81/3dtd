@@ -35,6 +35,8 @@ import { RESEARCH_CENTER_LEVELS } from '../../src/app/configs/research/research-
 import { GAME_BALANCE } from '../../src/app/configs/game-balance.config';
 import type { ResearchId } from '../../src/app/configs/research/research.types';
 import { HERO } from '../../src/app/configs/hero.config';
+import { en } from '../../src/app/i18n/messages/en';
+import { researchName } from '../../src/app/i18n/lookups';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT_PATH = resolve(__dirname, '../../docs/economy-chart.html');
@@ -111,7 +113,7 @@ function buildTowerRows(): TowerRow[] {
   // The released towers and research: the chart shows what players get (configs/release.ts)
   return releasedTowerTypes(true).map((t) => ({
     id: t.id,
-    name: t.name,
+    name: en.names.towers[t.id],
     cost: t.cost,
   }));
 }
@@ -135,7 +137,7 @@ function buildResearchRows(): ResearchRow[] {
     visit(r.id);
     rows.push({
       id: r.id,
-      name: r.name,
+      name: researchName(en, r.id),
       cost: r.cost,
       duration: r.duration,
       prerequisites: r.prerequisites,

@@ -115,7 +115,7 @@ function run(timescale: number, steps = COMMAND_STEP + WARNING_STEPS + FREEZE_ST
   bus.emit({
     type: 'research:completed', playerId: 'local', local: true,
     researchId: FROST.researchId,
-    effects: [{ kind: 'global-perk', perkId: FROST.perkId, description: '' }],
+    effects: [{ kind: 'global-perk', perkId: FROST.perkId }],
   });
   let hits = 0;
   let kills = 0;

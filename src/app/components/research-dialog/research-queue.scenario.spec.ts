@@ -20,6 +20,7 @@ import { researchStatus } from '../game-sidebar/research-panel/research-status';
 import { LOCAL_PLAYER_ID } from '../../managers/game-state/command-log';
 import { singlePlayer } from '../../integration/single-player-parts';
 import { GameClock } from '../../managers/game-state/game-clock';
+import { en } from '../../i18n/messages/en';
 
 /** GameClock.FIXED_STEP_MS: the length of one gameplay sub-step. */
 const STEP_MS = GameClock.FIXED_STEP_MS;
@@ -114,7 +115,7 @@ describe('Research queue, playtest 508 and 509 replayed', () => {
     newGameWithCenter();
     click('siege-engineering');
     expect(status('siege-engineering')).toBe('locked');
-    const locked = buildResearchNodes(treeState()).find((n) => n.id === 'siege-engineering')!;
+    const locked = buildResearchNodes(en, treeState()).find((n) => n.id === 'siege-engineering')!;
     expect(locked.hint).toBe('Requires: Gatling Technology');
     expect(research.getQueuedResearches()).toEqual([]);
 

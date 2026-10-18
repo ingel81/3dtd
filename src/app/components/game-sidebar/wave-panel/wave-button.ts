@@ -1,5 +1,6 @@
 import { waveButtonAction } from '../../../coop/room-options';
 import type { CoopService } from '../../../services/coop.service';
+import type { Messages } from '../../../i18n/messages/en';
 
 /** What the wave button shows, derived from the store outside the template. */
 export interface WaveButtonView {
@@ -67,6 +68,7 @@ export function coopReadyState(coop: CoopRoomView | null, gameOver: boolean): Co
  * @param coop  coop readiness; the button then says ready instead of start
  */
 export function waveButtonView(
+  t: Messages,
   wave: number,
   running: boolean,
   total: number,
@@ -75,16 +77,17 @@ export function waveButtonView(
   countdownTotal = 0,
   coop: CoopReadyState | null = null,
 ): WaveButtonView {
-  const label = `Wave ${wave}`;
+  const says = t.hud.wave;
+  const label = says.wave(wave);
   const plain = { coopReady: null, pressed: false };
   if (!running && coop) {
     // "Auto 10 s" counts on every client alike (D44)
-    const auto = countdownSeconds !== null ? ` | ${Math.max(countdownSeconds, 0)}s` : '';
-    const count = `${coop.readyCount}/${coop.playerCount} ready${auto}`;
+    const auto = countdownSeconds !== null ? ` | ${says.seconds(Math.max(countdownSeconds, 0))}` : '';
+    const count = `${says.readyCount(coop.readyCount, coop.playerCount)}${auto}`;
     if (coop.hostStarts) {
       return {
-        label: `Start wave ${wave}`,
-        ariaLabel: `Start wave ${wave}, ${count}`,
+        label: says.start(wave),
+        ariaLabel: says.startCount(wave, count),
         left: null,
         barPercent: coop.playerCount > 0 ? (coop.readyCount / coop.playerCount) * 100 : 0,
         countdown: null,
@@ -93,8 +96,8 @@ export function waveButtonView(
       };
     }
     return {
-      label: coop.ready ? `Wave ${wave}: ready` : `Ready for wave ${wave}`,
-      ariaLabel: coop.ready ? `Not ready for wave ${wave} after all, ${count}` : `Ready for wave ${wave}, ${count}`,
+      label: coop.ready ? says.isReady(wave) : says.readyFor(wave),
+      ariaLabel: coop.ready ? says.notReadyAfterAll(wave, count) : says.readyForCount(wave, count),
       left: null,
       barPercent: coop.playerCount > 0 ? (coop.readyCount / coop.playerCount) * 100 : 0,
       countdown: null,
@@ -103,17 +106,17 @@ export function waveButtonView(
     };
   }
   if (!running) {
-    const start = `Start wave ${wave}`;
+    const start = says.start(wave);
     if (countdownSeconds === null || countdownTotal <= 0) {
       return { label, ariaLabel: start, left: null, barPercent: 0, countdown: null, ...plain };
     }
     const seconds = Math.min(Math.max(countdownSeconds, 0), countdownTotal);
     return {
       label,
-      ariaLabel: `${start} now, starts by itself in ${seconds}s`,
+      ariaLabel: says.startsBySelf(start, seconds),
       left: null,
       barPercent: (seconds / countdownTotal) * 100,
-      countdown: `${seconds}s`,
+      countdown: says.seconds(seconds),
       ...plain,
     };
   }
@@ -124,7 +127,7 @@ export function waveButtonView(
   return {
     label,
     ariaLabel: null,
-    left: `${remaining} left`,
+    left: says.left(remaining),
     barPercent: (remaining / total) * 100,
     countdown: null,
     ...plain,

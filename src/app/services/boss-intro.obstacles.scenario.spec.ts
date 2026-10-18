@@ -59,6 +59,7 @@ import {
 } from '../utils/boss-intro';
 import type { Enemy } from '../entities/enemy.entity';
 import type { RouteWaypoint } from '../models/game.types';
+import { provideI18n } from '../i18n/i18n.service';
 
 /**
  * Night-2 playtest 366 on a real map (2026-09-14): the spawn portal between
@@ -211,7 +212,7 @@ describe('Boss intro shot, night-2 playtest 366 on a narrow street replayed', ()
       },
     };
     injector = Injector.create({
-      providers: [
+      providers: [provideI18n(), 
         { provide: SimClient, useValue: { bus } },
         { provide: SimMirror, useValue: { scalars: { get waveNumber() { return 10; } } } },
         {

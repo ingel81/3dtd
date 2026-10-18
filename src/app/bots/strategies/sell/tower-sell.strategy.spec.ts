@@ -32,7 +32,7 @@ function context(metres: Record<string, number>, type: TowerTypeId = 'archer'): 
     .reduce((acc, m) => sum(acc, towerCapacity(TOWER_TYPES[type], {}, false, { ground: m, air: m })), emptySides());
   return {
     threat: threatFromWaves([{
-      wave: 1, name: '', known: true, boss: false, air: false, armors: [], count: null, note: '', description: '',
+      wave: 1, name: '', known: true, boss: false, air: false, armors: [], count: null, spawnDelayMs: null, sizedAtStart: false, hpScale: null, round: null,
       enemies: [['zombie', 1]], hpByArmor: [['unarmored', 5000]],
     }]),
     capacity,

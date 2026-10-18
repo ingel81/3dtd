@@ -5,6 +5,7 @@ import { BOT_CONFIGS, towersByWave } from '../../bots/tower-bot.interface';
 import { emptySides, threatFromWaves } from '../../decision/value';
 import type { DecisionContext } from '../tower-strategy.interface';
 import { FIRST_OF_TYPE, TowerBuildStrategy } from './tower-build.strategy';
+import { en } from '../../../i18n/messages/en';
 
 const unlocked = (ids: TowerTypeId[]) =>
   Object.fromEntries((Object.keys(TOWER_TYPES) as TowerTypeId[]).map((id) => [id, ids.includes(id)])) as Record<TowerTypeId, boolean>;
@@ -19,7 +20,7 @@ function state(ids: TowerTypeId[], towerCount = 0, waveNumber = 5): GameStateSna
 
 const context = (enemies: [string, number][], hp: [string, number][]): DecisionContext => ({
   threat: threatFromWaves([{
-    wave: 1, name: '', known: true, boss: false, air: false, armors: [], count: null, note: '', description: '',
+    wave: 1, name: '', known: true, boss: false, air: false, armors: [], count: null, spawnDelayMs: null, sizedAtStart: false, hpScale: null, round: null,
     enemies, hpByArmor: hp as never,
   }]),
   capacity: emptySides(),
@@ -43,9 +44,9 @@ describe('TowerBuildStrategy', () => {
 
   it('proposes one tower of each unlocked combat type, at its cost', () => {
     const proposals = strategy().build.propose(state(['archer', 'cannon', 'research-center']), zombies);
-    expect(proposals.map((p) => p.label).sort()).toEqual([TOWER_TYPES.archer.name, TOWER_TYPES.cannon.name].sort());
+    expect(proposals.map((p) => p.label).sort()).toEqual([en.names.towers.archer, en.names.towers.cannon].sort());
     expect(proposals.every((p) => p.kind === 'buy' && p.value > 0)).toBe(true);
-    expect(proposals.find((p) => p.label === TOWER_TYPES.cannon.name)!.cost).toBe(TOWER_TYPES.cannon.cost);
+    expect(proposals.find((p) => p.label === en.names.towers.cannon)!.cost).toBe(TOWER_TYPES.cannon.cost);
   });
 
   it('proposes nothing at the tower cap', () => {

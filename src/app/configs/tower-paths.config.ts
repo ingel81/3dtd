@@ -22,15 +22,13 @@ export type TowerSwap = Pick<TowerTypeConfig,
     | 'hasAnimations' | 'animationPingPong' | 'damage' | 'range' | 'fireRate' | 'defaultTargeting' | 'projectileType'
     | 'firingMotion'>>;
 
+/** A tower path. Its name and description are the dictionary's (i18n `paths`), by id. */
 export interface TowerPath {
   readonly id: TowerPathId;
   /** The tower type that can take it */
   readonly towerId: TowerTypeId;
-  readonly name: string;
   /** False: in dev builds only, hidden in production until it is released (configs/release.ts). Default true */
   readonly released?: boolean;
-  /** One sentence for the tooltip */
-  readonly description: string;
   /** Credits per tower */
   readonly cost: number;
   /** The research that opens it (its effect `unlock-path`) */
@@ -76,8 +74,6 @@ export const TOWER_PATHS: Readonly<Record<TowerPathId, TowerPath>> = {
   scout: {
     id: 'scout',
     towerId: 'archer',
-    name: 'Scout',
-    description: 'A lookout spots camouflaged enemies within 35 m: every tower can hit them there.',
     cost: 250,
     research: 'scouting',
     detectionRadius: 35,
@@ -88,8 +84,6 @@ export const TOWER_PATHS: Readonly<Record<TowerPathId, TowerPath>> = {
     id: 'incendiary',
     released: false, // Dev builds only until it is released (configs/release.ts)
     towerId: 'archer',
-    name: 'Fire Arrows',
-    description: 'Each hit sets its target burning for 3 s, a quarter of the arrow as fire damage a second; a burning enemy does not regenerate.',
     cost: 250,
     research: 'incendiary-arrows',
     // Archer L0: 30 physical a second plus 7.5 fire, +37 % against unarmored, +30 % against light and heavy
@@ -102,8 +96,6 @@ export const TOWER_PATHS: Readonly<Record<TowerPathId, TowerPath>> = {
     id: 'multirole',
     released: false, // Dev builds only until it is released (configs/release.ts)
     towerId: 'rocket',
-    name: 'Multirole',
-    description: 'Fires at ground enemies too, at half damage, while no flyer is in range.',
     cost: 300,
     research: 'multirole-warheads',
     // Rocket L0 against the ground: 30 siege every 2 s with its 5 m splash, a third of a cannon (docs/TOWER_CREATION.md, Pfade)
@@ -115,8 +107,6 @@ export const TOWER_PATHS: Readonly<Record<TowerPathId, TowerPath>> = {
     id: 'seal',
     released: false, // Dev builds only until it is released (configs/release.ts)
     towerId: 'magic',
-    name: 'Binding Sigil',
-    description: 'Each hit binds its target for 4 s: Phasing is lifted, ice slows take hold of wraiths.',
     cost: 250,
     research: 'binding-sigils',
     // Magic fires 1.5 a second: its target stays sealed while it is on it and 4 s after (docs/TOWER_CREATION.md, Pfade)
@@ -128,8 +118,6 @@ export const TOWER_PATHS: Readonly<Record<TowerPathId, TowerPath>> = {
     id: 'corrode',
     released: false, // Dev builds only until it is released (configs/release.ts)
     towerId: 'poison',
-    name: 'Caustic',
-    description: 'Each hit corrodes its target for 3 s: it counts one armor class lighter (bosses are immune).',
     cost: 250,
     research: 'caustic-compounds',
     // Direct hit only, one class at most: a poison tower keeps about three targets corroded (docs/TOWER_CREATION.md, Pfade)
@@ -140,8 +128,6 @@ export const TOWER_PATHS: Readonly<Record<TowerPathId, TowerPath>> = {
   sniper: {
     id: 'sniper',
     towerId: 'archer',
-    name: 'Sniper',
-    description: 'Rebuilt as a heavy ballista: twice the range, one armor-piercing bolt every 4 s, aimed at the strongest enemy.',
     cost: 300,
     research: 'ballista-bolts',
     released: false, // Dev builds only until it is released (configs/release.ts)

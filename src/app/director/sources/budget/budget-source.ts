@@ -252,7 +252,6 @@ function breakdown(
         const unhurt = sized.unhurt.includes(type);
         return {
           type,
-          name: cfg?.name ?? type,
           count,
           armor: cfg?.armorType ?? 'unarmored',
           hpMult: sized.hpMult[type] ?? 1,
@@ -286,7 +285,7 @@ function explain(
   if (sized.floored.length) reasons.push(`Boss floor (${BOSS_OVER_ESCORT}× the toughest escort, at least ${BOSS_MIN_HP_MULT}× its base): ${sized.floored.map((type) => `${type} HP ×${sized.hpMult[type]}`).join(', ')}.`);
   if (sized.unhurt.length) reasons.push(`The defense cannot hurt ${sized.unhurt.join(', ')}: HP × the row's strength ${row.strength}.`);
   const mutator = planMutator(wave);
-  if (mutator) reasons.push(`Blood moon: ${mutator.name}. ${mutator.description}`);
+  if (mutator) reasons.push(`Blood moon: ${mutator.id}`);
   if (row.note) reasons.push(row.note);
   return {
     summary: `Wave ${wave}: ${row.name} | ${totalCount} enemies | HP ×${shared}`,
@@ -317,8 +316,10 @@ function factsOf(wave: number, row: RunPlanRow, planned: Readonly<Record<string,
     hpByArmor: [...hpByArmor],
     count: total,
     enemies: entries.map(([type, count]) => [type, count / total] as const),
-    note: 'HP set against the defense when the wave starts',
-    description: row.note ?? `${entries.map(([type, count]) => `${count}× ${type}`).join(', ')}, every ${row.spawnDelay} ms.`,
+    spawnDelayMs: row.spawnDelay,
+    sizedAtStart: true,
+    hpScale: null,
+    round: null,
   };
 }
 

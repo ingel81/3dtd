@@ -143,7 +143,6 @@ import { WhatsNewService } from './services/onboarding/whats-new.service';
 import { IntroCameraFlightService } from './services/world/intro-camera-flight.service';
 import { canTargetAirEffective } from './entities/tower-targeting.util';
 import { ResearchStore } from './store/research.store';
-import { ABILITIES } from './configs/abilities.config';
 import { RefusalHintService } from './services/refusal-hint.service';
 import { FocusOnShowDirective } from './components/focus-on-show.directive';
 import { RunLogFacade } from './run-log/run-log.facade';
@@ -156,6 +155,7 @@ import { MainMenuService } from './components/main-menu/main-menu.service';
 import { pageSwitches } from './core/page-switches';
 import { WorldStartService } from './world/world-start';
 import { WorldSession } from './world/world-session.service';
+import { I18n } from './i18n/i18n.service';
 
 @Component({
   selector: 'app-tower-defense',
@@ -521,19 +521,22 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   });
 
   // Build mode hints for context hint box
-  readonly buildModeHints: HintItem[] = [
-    { key: 'R', description: 'Rotate' },
-    { key: 'Click', description: 'Build' },
-    { key: 'ESC', description: 'Cancel' },
-    { key: 'Hover', description: 'Line of Sight' },
-  ];
+  readonly buildModeHints = computed((): HintItem[] => {
+    const says = this.t().hud.hints;
+    return [
+      { key: 'R', description: says.rotate },
+      { key: says.click, description: says.build },
+      { key: says.esc, description: says.cancel },
+      { key: says.hover, description: says.lineOfSight },
+    ];
+  });
   readonly buildModeWarning = computed(() => this.towerPlacement.validationReason());
 
   // Map placement hints for context hint box: R turns a spawn portal
   readonly placementModeHints = computed((): HintItem[] => [
-    ...(this.mapPlacementMode() === 'spawn' ? [{ key: 'R', description: 'Rotate' }] : []),
-    { key: 'Click', description: 'Place' },
-    { key: 'ESC', description: 'Cancel' },
+    ...(this.mapPlacementMode() === 'spawn' ? [{ key: 'R', description: this.t().hud.hints.rotate }] : []),
+    { key: this.t().hud.hints.click, description: this.t().hud.hints.place },
+    { key: this.t().hud.hints.esc, description: this.t().hud.hints.cancel },
   ]);
   readonly placementModeWarning = computed(() => this.mapPlacement.validationReason());
 
@@ -544,25 +547,30 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   readonly abilityTargetingActive = computed(() => this.abilityTargeting.targeting() !== null);
   readonly abilityTargetingHints = computed((): HintItem[] => {
     const id = this.abilityTargeting.targeting();
+    const says = this.t().hud.hints;
     return [
-      { key: 'Click', description: id ? ABILITIES[id].aimHint : '' },
-      { key: 'ESC', description: 'Cancel' },
+      { key: says.click, description: id ? this.t().abilities[id].aimHint : '' },
+      { key: says.esc, description: says.cancel },
     ];
   });
   readonly abilityTargetingWarning = this.abilityTargeting.warning;
 
   // Hero selected: the next click on the route sends him
   private readonly heroControl = inject(HeroControlService);
+  protected readonly t = inject(I18n).t;
   readonly heroSelected = this.heroControl.selected;
-  readonly heroHints: HintItem[] = [
-    { key: 'Click', description: 'Send' },
-    { key: 'V', description: 'Ammo' },
-    { key: 'G', description: 'Camera' },
-    { key: 'ESC', description: 'Let go' },
-  ];
+  readonly heroHints = computed((): HintItem[] => {
+    const says = this.t().hud.hints;
+    return [
+      { key: says.click, description: says.send },
+      { key: 'V', description: says.ammo },
+      { key: 'G', description: says.camera },
+      { key: says.esc, description: says.letGo },
+    ];
+  });
   readonly heroWarning = this.heroControl.warning;
   /** His button at the top of the ability bar: the hire offer, then him */
-  readonly heroBar = computed(() => heroBarView(this.store.hero(), this.heroSelected(), this.store.credits()));
+  readonly heroBar = computed(() => heroBarView(this.t(), this.store.hero(), this.heroSelected(), this.store.credits()));
 
   onHeroBarPressed(): void {
     const bar = this.heroBar();
@@ -621,7 +629,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     const assets = inject(AssetManagerService);
     effect(() => {
       const failed = assets.failedModels();
-      if (failed.length > 0) untracked(() => this.uiStore.notice.set({ text: modelsMissingText(failed), reload: true }));
+      if (failed.length > 0) untracked(() => this.uiStore.notice.set({ text: modelsMissingText(this.t(), failed), reload: true }));
     });
     // A notice closes by itself after a few seconds, unless it waits for a reload (TODO E137)
     effect((onCleanup) => {

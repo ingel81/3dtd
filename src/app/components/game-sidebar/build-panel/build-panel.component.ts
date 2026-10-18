@@ -32,6 +32,8 @@ import { TdRichTooltipDirective } from '../../tooltip/td-rich-tooltip.directive'
 import { TdTooltipData } from '../../tooltip/tooltip-data.types';
 import { towerCardTooltip } from '../sidebar-tooltips';
 import { towerPreviewConfig } from '../../../services/infrastructure/preview-sheets';
+import { I18n } from '../../../i18n/i18n.service';
+import { researchName } from '../../../i18n/lookups';
 
 /**
  * BUILD-Sektion der Sidebar: Tower-Karten mit 3D-Preview, im Build-Mode
@@ -53,6 +55,7 @@ export class SidebarBuildPanelComponent implements AfterViewInit {
   private readonly modelPreview = inject(ModelPreviewService);
   private readonly towerDebug = inject(TowerDebugService);
   private readonly researchStore = inject(ResearchStore);
+  protected readonly t = inject(I18n).t;
   private readonly destroyRef = inject(DestroyRef);
   // The dialog emits commands through the facade, which the game component
   // provides rather than root (openResearchDialog).
@@ -139,8 +142,9 @@ export class SidebarBuildPanelComponent implements AfterViewInit {
   }
 
   getTowerLockTooltip(towerId: TowerTypeId): string {
-    const name = this.researchStore.getRequiredResearchName(towerId);
-    return name ? `Requires: ${name}` : 'Locked';
+    const id = this.researchStore.getRequiredResearchId(towerId);
+    const says = this.t().hud.build;
+    return id ? says.requires(researchName(this.t(), id)) : says.locked;
   }
 
   /**
@@ -184,7 +188,7 @@ export class SidebarBuildPanelComponent implements AfterViewInit {
 
   /** Rich tooltip of a tower card, built in sidebar-tooltips.ts. */
   getTowerCardTooltipData(tower: TowerTypeConfig, index: number): TdTooltipData {
-    return towerCardTooltip(tower, {
+    return towerCardTooltip(this.t(), tower, {
       alreadyPlaced: this.isPlacedUnique(tower),
       waitsForWave: this.waitsForWave(tower),
       airTargetingUnlocked: this.researchStore.airTargetingUnlocked(),

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  VETERAN_TOOLTIP,
+  veteranTooltip,
   targetingStrategiesFor,
   towerDps,
   towerStats,
@@ -10,6 +10,7 @@ import {
   veteranView,
 } from './tower-stats';
 import { TOWER_TYPES, TowerTypeId } from '../../../configs/tower-types.config';
+import { en } from '../../../i18n/messages/en';
 
 describe('towerStats', () => {
   it('takes combat values, DPS, kills and sell value from the tower', () => {
@@ -47,15 +48,15 @@ describe('targetingStrategiesFor', () => {
 
 describe('upgradeTierLockReason', () => {
   it('is null while the tier is unlocked', () => {
-    expect(upgradeTierLockReason(1, 1)).toBeNull();
-    expect(upgradeTierLockReason(3, 4)).toBeNull();
+    expect(upgradeTierLockReason(en, 1, 1)).toBeNull();
+    expect(upgradeTierLockReason(en, 3, 4)).toBeNull();
   });
 
   it('names the research a locked tier needs', () => {
-    expect(upgradeTierLockReason(2, 1)).toBe('Requires: Advanced Weaponry');
-    expect(upgradeTierLockReason(3, 2)).toBe('Requires: Master Engineering');
-    expect(upgradeTierLockReason(4, 1)).toBe('Requires: Advanced Engineering');
-    expect(upgradeTierLockReason(5, 4)).toBe('Requires: Transcendent Tech');
+    expect(upgradeTierLockReason(en, 2, 1)).toBe('Requires: Advanced Weaponry');
+    expect(upgradeTierLockReason(en, 3, 2)).toBe('Requires: Master Engineering');
+    expect(upgradeTierLockReason(en, 4, 1)).toBe('Requires: Advanced Engineering');
+    expect(upgradeTierLockReason(en, 5, 4)).toBe('Requires: Transcendent Tech');
   });
 });
 
@@ -63,13 +64,13 @@ describe('upgradeRefusalText', () => {
   const name = () => 'Damage';
 
   it('says how many credits the cheapest track lacks', () => {
-    expect(upgradeRefusalText({ kind: 'credits', upgradeId: 'damage', cost: 300, missing: 120 }, name))
+    expect(upgradeRefusalText(en, { kind: 'credits', upgradeId: 'damage', cost: 300, missing: 120 }, name))
       .toBe('Need 120 more credits for Damage');
   });
 
   it('names the research of the missing tier, and says when all is done', () => {
-    expect(upgradeRefusalText({ kind: 'tier', tier: 2 }, name)).toBe('Research Advanced Weaponry for the next levels');
-    expect(upgradeRefusalText({ kind: 'maxed' }, name)).toBe('Fully upgraded');
+    expect(upgradeRefusalText(en, { kind: 'tier', tier: 2 }, name)).toBe('Research Advanced Weaponry for the next levels');
+    expect(upgradeRefusalText(en, { kind: 'maxed' }, name)).toBe('Fully upgraded');
   });
 });
 
@@ -77,14 +78,14 @@ describe('upgradeHintView', () => {
   const tower = { id: 't1', typeConfig: TOWER_TYPES.archer };
 
   it('flashes the tile U bought, alternating the class per press', () => {
-    const first = upgradeHintView({ towerId: 't1', seq: 1, upgradeId: 'damage', refusal: null }, tower);
-    const second = upgradeHintView({ towerId: 't1', seq: 2, upgradeId: 'damage', refusal: null }, tower);
+    const first = upgradeHintView(en, { towerId: 't1', seq: 1, upgradeId: 'damage', refusal: null }, tower);
+    const second = upgradeHintView(en, { towerId: 't1', seq: 2, upgradeId: 'damage', refusal: null }, tower);
     expect(first).toEqual({ flashId: 'damage', flashAlt: false, refusalText: null });
     expect(second.flashAlt).toBe(true);
   });
 
   it('turns a refusal into its line with the track name from the config', () => {
-    const view = upgradeHintView(
+    const view = upgradeHintView(en, 
       { towerId: 't1', seq: 3, upgradeId: null, refusal: { kind: 'credits', upgradeId: 'range', cost: 90, missing: 40 } },
       tower,
     );
@@ -92,30 +93,30 @@ describe('upgradeHintView', () => {
   });
 
   it('shows nothing of a press on another tower or without one', () => {
-    expect(upgradeHintView({ towerId: 't2', seq: 1, upgradeId: 'damage', refusal: null }, tower).flashId).toBeNull();
-    expect(upgradeHintView(null, tower).refusalText).toBeNull();
+    expect(upgradeHintView(en, { towerId: 't2', seq: 1, upgradeId: 'damage', refusal: null }, tower).flashId).toBeNull();
+    expect(upgradeHintView(en, null, tower).refusalText).toBeNull();
   });
 });
 
 describe('veteranView', () => {
   it('shows a new tower as recruit on its way to the first rank', () => {
-    expect(veteranView(3)).toEqual({
+    expect(veteranView(en, 3)).toEqual({
       level: 0, name: 'Recruit', icon: 'caretU', gold: false, kills: 3, nextAt: 10, progress: 0.3,
     });
   });
 
   it('measures the way from the current rank to the next', () => {
-    expect(veteranView(100)).toMatchObject({ level: 2, name: 'Veteran', icon: 'chevrons2', nextAt: 150 });
-    expect(veteranView(100).progress).toBeCloseTo(0.5, 6);
+    expect(veteranView(en, 100)).toMatchObject({ level: 2, name: 'Veteran', icon: 'chevrons2', nextAt: 150 });
+    expect(veteranView(en, 100).progress).toBeCloseTo(0.5, 6);
   });
 
   it('turns gold at Champion and ends at the star', () => {
-    expect(veteranView(400)).toMatchObject({ name: 'Champion', icon: 'chevrons3', gold: true, nextAt: 1000, progress: 0 });
-    expect(veteranView(5000)).toMatchObject({ name: 'Legend', icon: 'star', gold: true, nextAt: null, progress: 1 });
+    expect(veteranView(en, 400)).toMatchObject({ name: 'Champion', icon: 'chevrons3', gold: true, nextAt: 1000, progress: 0 });
+    expect(veteranView(en, 5000)).toMatchObject({ name: 'Legend', icon: 'star', gold: true, nextAt: null, progress: 1 });
   });
 
   it('names every rank with its threshold in the tooltip', () => {
-    expect(VETERAN_TOOLTIP).toBe(
+    expect(veteranTooltip(en)).toBe(
       'Rank from killing blows, cosmetic only: Blooded 10 | Veteran 50 | Elite 150 | Champion 400 | Legend 1000',
     );
   });

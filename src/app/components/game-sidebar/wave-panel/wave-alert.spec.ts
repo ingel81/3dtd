@@ -8,6 +8,7 @@ import {
   waveBrings,
   upcomingWaveAlert,
 } from './wave-alert';
+import { en } from '../../../i18n/messages/en';
 
 describe('waveBrings (run plan rules, the default source)', () => {
   it('reads the air units from the plan row', () => {
@@ -151,7 +152,7 @@ describe('countAntiEtherealTowers', () => {
 
 describe('waveAlertView', () => {
   it('flags a defense without anti-air', () => {
-    const view = waveAlertView({ kind: 'air', wave: 7, wavesAhead: 2, answering: 0 }, false);
+    const view = waveAlertView(en, { kind: 'air', wave: 7, wavesAhead: 2, answering: 0 }, false);
     expect(view).toMatchObject({
       title: 'Air | Wave 7',
       when: 'in 2 waves',
@@ -161,22 +162,22 @@ describe('waveAlertView', () => {
   });
 
   it('counts the anti-air towers', () => {
-    expect(waveAlertView({ kind: 'air', wave: 8, wavesAhead: 1, answering: 1 }, false))
+    expect(waveAlertView(en, { kind: 'air', wave: 8, wavesAhead: 1, answering: 1 }, false))
       .toMatchObject({ when: 'next wave', defense: '1 tower hits air', covered: true });
-    expect(waveAlertView({ kind: 'air', wave: 8, wavesAhead: 1, answering: 4 }, false).defense)
+    expect(waveAlertView(en, { kind: 'air', wave: 8, wavesAhead: 1, answering: 4 }, false).defense)
       .toBe('4 towers hit air');
   });
 
   it('names the towers that hit air in the tooltip', () => {
-    const before = waveAlertView({ kind: 'air', wave: 7, wavesAhead: 2, answering: 0 }, false).tooltip;
+    const before = waveAlertView(en, { kind: 'air', wave: 7, wavesAhead: 2, answering: 0 }, false).tooltip;
     expect(before).toContain('Archer Tower');
     expect(before).toMatch(/\(after research\)/);
-    const after = waveAlertView({ kind: 'air', wave: 7, wavesAhead: 2, answering: 0 }, true).tooltip;
+    const after = waveAlertView(en, { kind: 'air', wave: 7, wavesAhead: 2, answering: 0 }, true).tooltip;
     expect(after).not.toMatch(/\(after research\)/);
   });
 
   it('warns of ethereal enemies with the towers that hurt them', () => {
-    const view = waveAlertView({ kind: 'ethereal', wave: 13, wavesAhead: 1, answering: 0 }, false);
+    const view = waveAlertView(en, { kind: 'ethereal', wave: 13, wavesAhead: 1, answering: 0 }, false);
     expect(view).toMatchObject({
       icon: 'ghost',
       title: 'Ethereal | Wave 13',
@@ -186,7 +187,7 @@ describe('waveAlertView', () => {
     });
     for (const name of ['Magic Tower', 'Ice Tower', 'Lightning Tower']) expect(view.tooltip).toContain(name);
     expect(view.tooltip).not.toContain('Archer Tower');
-    expect(waveAlertView({ kind: 'ethereal', wave: 13, wavesAhead: 1, answering: 2 }, false).defense)
+    expect(waveAlertView(en, { kind: 'ethereal', wave: 13, wavesAhead: 1, answering: 2 }, false).defense)
       .toBe('2 towers hurt ethereal');
   });
 });
@@ -200,8 +201,8 @@ describe('camo alert (TODO E100)', () => {
   });
 
   it('says whether a scout stands', () => {
-    const none = waveAlertView({ kind: 'camo', wave: 22, wavesAhead: 1, answering: 0 }, false);
+    const none = waveAlertView(en, { kind: 'camo', wave: 22, wavesAhead: 1, answering: 0 }, false);
     expect(none).toMatchObject({ icon: 'eyeOff', covered: false, defense: 'No scout yet', when: 'next wave' });
-    expect(waveAlertView({ kind: 'camo', wave: 22, wavesAhead: 1, answering: 2 }, false).defense).toBe('2 scouts');
+    expect(waveAlertView(en, { kind: 'camo', wave: 22, wavesAhead: 1, answering: 2 }, false).defense).toBe('2 scouts');
   });
 });

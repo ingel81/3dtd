@@ -14,6 +14,8 @@ import type { EditorDocument } from '../model/editor-document';
 import type { CameraController, OrbitState } from './camera-controller';
 import { mapToScene } from './map-view';
 import { TRIAL_TYPES, TrialRunners } from './trial-runners';
+import { en } from '../../i18n/messages/en';
+import { enemyName } from '../../i18n/lookups';
 
 /** The editor's level of the map's ambient sound (it has no volume setting of its own) */
 const AMBIENCE_VOLUME = 0.8;
@@ -92,7 +94,7 @@ export class TrialWave {
     const types = this.runners.start(routes, first ? Object.keys(first.enemies) : TRIAL_TYPES);
     const t = TrialRunners.timing(routes, types);
     status(
-      `Trial wave: ${types.map((x) => x.name).join(', ')} on ${routes.length} ${routes.length === 1 ? 'route' : 'routes'}; ` +
+      `Trial wave: ${types.map((x) => enemyName(en, x.id)).join(', ')} on ${routes.length} ${routes.length === 1 ? 'route' : 'routes'}; ` +
         `the HQ in ${Math.round(t.fastest)} to ${Math.round(t.slowest)} s (P stops, + and - change the speed)`,
     );
   }

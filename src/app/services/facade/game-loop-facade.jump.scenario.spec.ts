@@ -49,6 +49,7 @@ import type { WaveConfig } from '../../director/models/wave-config';
 import { adaptDirectorWave } from '../../director/wave-config-adapter';
 import { GameRng } from '../../utils/game-rng';
 import { RunLogFacade } from '../../run-log/run-log.facade';
+import { en } from '../../i18n/messages/en';
 
 /** Injected by the facade but not touched by the wave-start path. */
 const UNUSED = [
@@ -98,7 +99,7 @@ describe('Wave start after a jump, playtest 357, 365, 379 and 380 replayed', () 
   const startedTypes = () =>
     adaptDirectorWave(started[started.length - 1]).schedule.entries.map((e) => e.enemyType);
   /** SidebarWavePanelComponent.waveButton between waves: the upcoming wave */
-  const buttonLabel = () => waveButtonView(store.waveNumber() + 1, false, 0, 0).label;
+  const buttonLabel = () => waveButtonView(en, store.waveNumber() + 1, false, 0, 0).label;
   const jump = (from: number, wave: number) =>
     bus.emit({ type: 'wave:jumped', from, wave, skipped: wave - 1 - from, credits: 0 });
   /** What WaveManager and the sync do around one wave */

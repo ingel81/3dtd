@@ -6,7 +6,6 @@ import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { ResearchStore } from '../../store/research.store';
 import { RunLogFacade } from '../../run-log/run-log.facade';
 import { runSummary } from '../../run-log/run-summary';
-import { TOWER_TYPES, type TowerTypeId } from '../../configs/tower-types.config';
 import { WaveDebugService } from '../debug/wave-debug.service';
 
 /**
@@ -88,11 +87,7 @@ export class GameStateSyncService {
       this.store.phase.set('gameover');
       // The fatal wave has no wave:completed; the log writes its block here
       this.runLog.collector.flushOpenWave();
-      this.store.runSummary.set(runSummary(
-        this.runLog.current(),
-        gameClock(),
-        (type) => TOWER_TYPES[type as TowerTypeId]?.name ?? type,
-      ));
+      this.store.runSummary.set(runSummary(this.runLog.current(), gameClock()));
       this.store.showGameOverScreen.set(true);
     }));
 

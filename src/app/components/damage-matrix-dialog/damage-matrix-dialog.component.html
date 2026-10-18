@@ -13,14 +13,14 @@
     <table class="td-table dm-matrix" [attr.aria-labelledby]="titleId">
       <colgroup>
         <col class="col-tower">
-        @for (col of columns; track col.armor) {
+        @for (col of columns(); track col.armor) {
           <col>
         }
       </colgroup>
       <thead>
         <tr>
           <th scope="col" class="dm-corner">Tower</th>
-          @for (col of columns; track col.armor) {
+          @for (col of columns(); track col.armor) {
             <th scope="col">{{ col.label }}</th>
           }
         </tr>
@@ -28,7 +28,7 @@
       <tbody>
         <tr class="dm-examples td-note">
           <th scope="row">Enemies</th>
-          @for (col of columns; track col.armor) {
+          @for (col of columns(); track col.armor) {
             <td>
               <!-- One name a line, wrapping inside its column: in one run they ran into the next (TODO E146) -->
               <ul class="dm-enemies" [attr.aria-label]="col.label + ' enemies'">

@@ -10,7 +10,7 @@ vi.mock('@angular/core', async () => {
   return {
     ...actual,
     Injectable: () => (target: unknown) => target,
-    inject: (token: { name?: string }) => injections[token?.name ?? ''],
+    inject: (token: { name?: string }) => injections[token?.name ?? String(token)],
     effect: (fn: () => void) => { effects.push(fn); },
   };
 });
@@ -32,6 +32,7 @@ import type { ResearchId } from '../configs/research/research.types';
 import type { GamePhase, GeoPosition } from '../models/game.types';
 import { METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 import { singlePlayer } from '../integration/single-player-parts';
+import { en } from '../i18n/messages/en';
 
 const HQ: GeoPosition = { lat: 48.7758, lon: 9.1829 };
 /** A straight route from 300 m south up to the HQ, for the hero to stand on */
@@ -70,7 +71,7 @@ describe('Refused hires and abilities in the context hint box, open point 13 rep
   const research = (perkId: string) => bus.emit({
     type: 'research:completed', playerId: 'local', local: true,
     researchId: perkId as ResearchId,
-    effects: [{ kind: 'global-perk', perkId, description: '' }],
+    effects: [{ kind: 'global-perk', perkId }],
   });
 
   beforeEach(() => {
@@ -124,6 +125,8 @@ describe('Refused hires and abilities in the context hint box, open point 13 rep
     bus.on('hero:state-changed', (event) => storeHero.set(event.hero));
     storeCredits.set(credits);
     aiming.set(null);
+
+    injections['InjectionToken I18n'] = { t: () => en };
 
     injections['UIStore'] = {
       buildMode: signal(false),

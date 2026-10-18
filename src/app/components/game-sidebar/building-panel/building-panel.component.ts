@@ -4,6 +4,7 @@ import { TowerDefenseStore } from '../../../store/tower-defense.store';
 import { Tower } from '../../../entities/tower.entity';
 import { SellConfirmService } from '../../../services/sell-confirm.service';
 import { buildingAbilityRows } from './building-panel';
+import { I18n } from '../../../i18n/i18n.service';
 
 /**
  * Panel eines gewählten passiven Gebäudes ohne eigenes Panel (das Research
@@ -22,6 +23,7 @@ import { buildingAbilityRows } from './building-panel';
 export class SidebarBuildingPanelComponent {
   private readonly store = inject(TowerDefenseStore);
   private readonly sellConfirm = inject(SellConfirmService);
+  protected readonly t = inject(I18n).t;
 
   readonly tower = input.required<Tower>();
 
@@ -32,7 +34,7 @@ export class SidebarBuildingPanelComponent {
 
   /** Die Fähigkeiten, die von diesem Gebäude starten (Missile Silo: Nuclear Strike) */
   readonly abilities = computed(() =>
-    buildingAbilityRows(this.tower().typeConfig.id, this.store.abilities(), this.store.waveActive()),
+    buildingAbilityRows(this.t(), this.tower().typeConfig.id, this.store.abilities(), this.store.waveActive()),
   );
 
   /** Verkaufswert, wie im Tower-Detail an `selectedTowerRevision` gebunden. */

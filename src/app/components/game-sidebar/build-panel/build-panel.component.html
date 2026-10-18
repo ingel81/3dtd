@@ -1,15 +1,15 @@
 <!-- BUILD section (hidden while a tower is selected: the host's [hidden]) -->
 <h2 class="td-side-head">
-  Build
+  {{ t().hud.build.title }}
   <button class="td-tool bp-matrix" type="button" (click)="openDamageMatrix()"
-          aria-label="Damage vs armor" matTooltip="Damage vs armor" matTooltipPosition="left">
+          [attr.aria-label]="t().hud.build.damageMatrix" [matTooltip]="t().hud.build.damageMatrix" matTooltipPosition="left">
     <td-icon name="info" [size]="16"></td-icon>
   </button>
 </h2>
 <div class="td-side-body">
   @if (buildMode()) {
-    <p class="td-banner is-warn bp-hint">Click near a street</p>
-    <button class="td-btn-secondary bp-cancel" type="button" (click)="cancelBuild.emit()">Cancel</button>
+    <p class="td-banner is-warn bp-hint">{{ t().hud.build.clickNearStreet }}</p>
+    <button class="td-btn-secondary bp-cancel" type="button" (click)="cancelBuild.emit()">{{ t().common.cancel }}</button>
   } @else {
     <div class="bp-grid">
       @for (tower of towerTypes(); track tower.id; let i = $index) {
@@ -26,7 +26,7 @@
                     class="bp-preview"
                     [attr.data-tower-id]="tower.id"></canvas>
             @if (getTowerTier(tower.id) > 0) {
-              <span class="bp-tier" role="img" [attr.aria-label]="'Tier ' + getTowerTier(tower.id)">
+              <span class="bp-tier" role="img" [attr.aria-label]="t().hud.build.tier(getTowerTier(tower.id))">
                 @for (_ of tierMarks(tower.id); track $index) {
                   <span class="td-diamond is-sm"></span>
                 }
@@ -37,11 +37,11 @@
             @if (canTowerTargetAir(tower)) {
               <span class="bp-aa td-well is-deep" role="img"
                     [class.is-only]="isAirOnlyTower(tower)"
-                    [attr.aria-label]="isAirOnlyTower(tower) ? 'Air-only target' : 'Anti-air capable'">
+                    [attr.aria-label]="isAirOnlyTower(tower) ? t().hud.build.airOnly : t().hud.build.antiAir">
                 <td-icon name="wind" [size]="12"></td-icon>
               </span>
             }
-            <span class="bp-name td-trunc">{{ tower.name }}</span>
+            <span class="bp-name td-trunc">{{ t().names.towers[tower.id] }}</span>
             <span class="bp-cost td-figure">{{ tower.cost }}</span>
           </button>
         } @else {
@@ -49,13 +49,13 @@
                the rows of the grid stay alike. -->
           <button class="td-card bp-card bp-locked"
                   aria-disabled="true"
-                  [attr.aria-label]="'Locked tower. ' + getTowerLockTooltip(tower.id)"
+                  [attr.aria-label]="t().hud.build.lockedTower(getTowerLockTooltip(tower.id))"
                   [matTooltip]="getTowerLockTooltip(tower.id)"
                   matTooltipPosition="left">
             <canvas #towerPreviewCanvas
                     class="bp-preview bp-silhouette"
                     [attr.data-tower-id]="tower.id"></canvas>
-            <span class="bp-name td-trunc">Locked</span>
+            <span class="bp-name td-trunc">{{ t().hud.build.locked }}</span>
             <td-icon class="bp-lock" name="lock" [size]="22"></td-icon>
           </button>
         }
@@ -67,10 +67,10 @@
      under the grid -->
 @if (hasResearchCenter()) {
   <button class="td-btn-secondary bp-research" type="button" (click)="openResearch()"
-          aria-keyshortcuts="q" matTooltip="Research tree (Q)" matTooltipPosition="left">
-    <span>Research tree</span>
+          aria-keyshortcuts="q" [matTooltip]="t().hud.build.researchTreeKey" matTooltipPosition="left">
+    <span>{{ t().hud.build.researchTree }}</span>
     @if (queuedResearches() > 0) {
-      <span class="td-tag td-num" role="img" [attr.aria-label]="queuedResearches() + ' queued'">{{ queuedResearches() }}</span>
+      <span class="td-tag td-num" role="img" [attr.aria-label]="t().hud.build.queued(queuedResearches())">{{ queuedResearches() }}</span>
     }
   </button>
 }

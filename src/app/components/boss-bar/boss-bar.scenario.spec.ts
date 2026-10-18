@@ -17,10 +17,11 @@ import { DestroyRef, Injector, NgZone, runInInjectionContext } from '@angular/co
 import { BossBarComponent } from './boss-bar.component';
 import { SimClient } from '../../sim/client/sim-client.service';
 import { createTestManagers, TestManagers, tickEngine } from '../../integration/test-helpers';
-import { ENEMY_TYPES } from '../../configs/enemy-types.config';
 import { northPath } from '../../../test/worm-test-helpers';
 import type { WormGroup } from '../../managers/worm/worm-group';
 import { createMainEventBus } from '../../sim/client/view-events';
+import { en } from '../../i18n/messages/en';
+import { provideI18n } from '../../i18n/i18n.service';
 
 describe('Boss bar for the worm and the ooze (playtest 352, 353, 362)', () => {
   let m: TestManagers;
@@ -45,7 +46,7 @@ describe('Boss bar for the worm and the ooze (playtest 352, 353, 362)', () => {
       bus.emit({ ...event, group: view } as never);
     });
     const injector = Injector.create({
-      providers: [
+      providers: [provideI18n(), 
         { provide: SimClient, useValue: { bus } },
         { provide: NgZone, useValue: { runOutsideAngular: (fn: () => unknown) => fn() } },
         { provide: DestroyRef, useValue: { onDestroy: () => () => undefined, destroyed: false } },
@@ -72,7 +73,7 @@ describe('Boss bar for the worm and the ooze (playtest 352, 353, 362)', () => {
   };
 
   it('352: one bar "Skarnax" for the whole worm, however many rings are out', () => {
-    expect(ENEMY_TYPES['worm'].name).toBe('Skarnax');
+    expect(en.names.enemies['worm']).toBe('Skarnax');
     const group = wormOut();
     // Every ring is an enemy of the boss type
     const rings = m.enemyManager.getAlive().filter((e) => e.worm?.group === group);

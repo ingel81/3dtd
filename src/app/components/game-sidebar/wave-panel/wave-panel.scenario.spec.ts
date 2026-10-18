@@ -23,7 +23,7 @@ vi.mock('../../../services/replay.service', () => ({ ReplayService: class Replay
 vi.mock('../../../services/tower-control.service', () => ({ TowerControlService: class TowerControlService {} }));
 
 import { Injector, NgZone, runInInjectionContext, signal } from '@angular/core';
-import { BLOOD_MOON_NOTE, NEXT_WAVE_MARKS, peekUpcomingWaves, type WavePeek } from './upcoming-waves';
+import { bloodMoonNote, NEXT_WAVE_MARKS, peekUpcomingWaves, type WavePeek } from './upcoming-waves';
 import { waveButtonView } from './wave-button';
 import { WaveTimelineComponent } from './wave-timeline.component';
 import { UIStore } from '../../../store/ui.store';
@@ -53,7 +53,6 @@ import { ReplayService } from '../../../services/replay.service';
 import { TowerControlService } from '../../../services/tower-control.service';
 import { GameEventBus } from '../../../game-engine/game-event-bus';
 import { AUTO_WAVE_DELAY_MS } from '../../../utils/auto-wave-countdown';
-import { ARMOR_TYPE_UI } from '../../../configs/combat/combat-ui.config';
 import { ENEMY_TYPES } from '../../../configs/enemy-types.config';
 import type { FacadeComponentBridge } from '../../../services/facade/tower-defense-facade.service';
 import { SimClient } from '../../../sim/client/sim-client.service';
@@ -66,6 +65,8 @@ import { PresentationService } from '../../../presentation/presentation.service'
 import { GameStore } from '../../../store/game.store';
 import { RunLogFacade } from '../../../run-log/run-log.facade';
 import { GameClock } from '../../../managers/game-state/game-clock';
+import { en } from '../../../i18n/messages/en';
+import { provideI18n } from '../../../i18n/i18n.service';
 
 /** GameClock.FIXED_STEP_MS: the length of one gameplay sub-step. */
 const STEP_MS = GameClock.FIXED_STEP_MS;
@@ -99,7 +100,7 @@ describe('Wave button and auto-start, playtest 324 replayed', () => {
     const ui = new UIStore();
     expect(ui.autoStartWaves()).toBe(false);
     // wave-panel.component.html: the Space cap stands while there is no countdown
-    expect(waveButtonView(0 + 1, false, 0, 0, null, AUTO_SECONDS)).toMatchObject({
+    expect(waveButtonView(en, 0 + 1, false, 0, 0, null, AUTO_SECONDS)).toMatchObject({
       label: 'Wave 1',
       ariaLabel: 'Start wave 1',
       countdown: null,
@@ -133,7 +134,7 @@ describe('Wave button and auto-start, playtest 324 replayed', () => {
       autoWaveSecondsLeft: signal<number | null>(null),
     };
     const injector = Injector.create({
-      providers: [
+      providers: [provideI18n(), 
         ...UNUSED.map((token) => ({ provide: token, useValue: {} })),
         { provide: WaveDirector, useValue: waveDirectorStub() },
         { provide: RunLogFacade, useValue: { tick: () => undefined, collector: { noteDirectorDecision: () => undefined } } },
@@ -151,7 +152,7 @@ describe('Wave button and auto-start, playtest 324 replayed', () => {
     facade.subscribeToEventBus({ onGameOverExtra: () => undefined });
     const startWave = vi.spyOn(facade, 'startWave').mockImplementation(() => undefined);
     // SidebarWavePanelComponent.waveButton between waves: the upcoming wave
-    const button = () => waveButtonView(store.waveNumber() + 1, false, 0, 0, store.autoWaveSecondsLeft(), AUTO_SECONDS);
+    const button = () => waveButtonView(en, store.waveNumber() + 1, false, 0, 0, store.autoWaveSecondsLeft(), AUTO_SECONDS);
 
     bus.emit({ type: 'wave:completed', wave: 1, credits: 0, perfect: true, closeCall: false, hpLost: 0 });
     expect(button()).toMatchObject({
@@ -201,11 +202,11 @@ describe('Wave button and auto-start, playtest 324 replayed', () => {
  */
 const nextSource = new BudgetWaveSource();
 const peekWaves = (currentWave: number, count: number, bloodMoon: boolean) =>
-  peekUpcomingWaves(nextSource.peek({ fromWave: currentWave + 1, count }), bloodMoon);
+  peekUpcomingWaves(en, nextSource.peek({ fromWave: currentWave + 1, count }), bloodMoon);
 
 describe('NEXT timeline, playtest 326, 327, 365 and 372 replayed', () => {
   const timeline = (peeks: WavePeek[]) => {
-    const component = runInInjectionContext(Injector.create({ providers: [] }), () => new WaveTimelineComponent());
+    const component = runInInjectionContext(Injector.create({ providers: [provideI18n(), ] }), () => new WaveTimelineComponent());
     // The panel's [peeks] binding
     (component as unknown as { peeks: () => WavePeek[] }).peeks = () => peeks;
     return component;
@@ -258,11 +259,11 @@ describe('NEXT timeline, playtest 326, 327, 365 and 372 replayed', () => {
     expect(on.filter((p) => p.bloodMoon).map((p) => p.wave)).toEqual([14]);
 
     const w14 = on[4];
-    expect(BLOOD_MOON_NOTE.startsWith('Blood moon (every 7th wave): ')).toBe(true);
-    expect(w14.tooltip.banners!.at(-1)!.text).toBe(BLOOD_MOON_NOTE);
+    expect(bloodMoonNote(en).startsWith('Blood moon (every 7th wave): ')).toBe(true);
+    expect(w14.tooltip.banners!.at(-1)!.text).toBe(bloodMoonNote(en));
     expect(w14.tooltip).toEqual({
       ...off[4].tooltip,
-      banners: [...(off[4].tooltip.banners ?? []), { icon: 'moon', text: BLOOD_MOON_NOTE, tone: 'danger' }],
+      banners: [...(off[4].tooltip.banners ?? []), { icon: 'moon', text: bloodMoonNote(en), tone: 'danger' }],
     });
     expect({ ...w14, bloodMoon: false, tooltip: off[4].tooltip }).toEqual(off[4]);
     // The other marks are the same with the look on or off
@@ -273,7 +274,7 @@ describe('NEXT timeline, playtest 326, 327, 365 and 372 replayed', () => {
   it('365: after a jump to 20 (counter 19) the first mark is W20 "Boss: Ooze" with the skull', () => {
     const [w20] = peekWaves(19, NEXT_WAVE_MARKS, true);
     expect(w20).toMatchObject({ wave: 20, name: 'Boss: Ooze', boss: true, known: true, count: '101' });
-    expect(w20.armors).toEqual([ARMOR_TYPE_UI[ENEMY_TYPES['ooze'].armorType].label]);
-    expect(w20.tooltip.flavor).toContain('The Ooze leads its brood');
+    expect(w20.armors).toEqual([en.armorTypes[ENEMY_TYPES['ooze'].armorType].label]);
+    expect(w20.tooltip.flavor).toContain('HP set against the defense when the wave starts');
   });
 });

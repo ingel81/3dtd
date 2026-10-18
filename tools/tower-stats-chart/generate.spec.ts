@@ -38,6 +38,7 @@ import {
   type TowerTypeConfig,
 } from '../../src/app/configs/tower-types.config';
 import { computeTowerStatsAtLevel } from '../../src/app/director/tower-dps.util';
+import { en } from '../../src/app/i18n/messages/en';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT_PATH = resolve(__dirname, '../../docs/tower-stats-chart.html');
@@ -140,7 +141,7 @@ function buildTowerSeries(): TowerSeries[] {
 
     return {
       id: cfg.id,
-      name: cfg.name,
+      name: en.names.towers[cfg.id],
       attackType: cfg.attackType ?? 'projectile',
       damageType: cfg.damageType,
       baseCost: cfg.cost,

@@ -1,21 +1,21 @@
 <!-- PASSIVE BUILDING section (Missile Silo) -->
 <h2 class="td-side-head">
   <span class="td-side-name" [class.is-armed]="sellArmed()" aria-live="polite">
-    {{ sellArmed() ? 'Click again to sell' : tower().typeConfig.name }}
+    {{ sellArmed() ? t().hud.sell.again : t().names.towers[tower().typeConfig.id] }}
   </span>
   @if (sellValue() > 0) {
     <button class="td-btn-danger td-btn-sm"
             [class.is-armed]="sellArmed()"
             aria-keyshortcuts="Delete"
-            [matTooltip]="sellArmed() ? 'Click again to sell for ' + sellValue() + ' credits' : 'Sell: refunds 75% of its cost'"
+            [matTooltip]="sellArmed() ? t().hud.sell.againFor(sellValue()) : t().hud.sell.refundsBuilding"
             matTooltipPosition="left"
-            [attr.aria-label]="(sellArmed() ? 'Confirm: sell for ' : 'Sell for ') + sellValue() + ' credits'"
+            [attr.aria-label]="sellArmed() ? t().hud.sell.confirmFor(sellValue()) : t().hud.sell.sellFor(sellValue())"
             (click)="onSell()">
-      Sell <span class="td-num">{{ sellValue() }}</span>
+      {{ t().hud.sell.sell }} <span class="td-num">{{ sellValue() }}</span>
     </button>
   }
 </h2>
-@if (tower().typeConfig.description; as description) {
+@if (t().towers.descriptions[tower().typeConfig.id]; as description) {
   <p class="td-text">{{ description }}</p>
 }
 <div class="td-rows">

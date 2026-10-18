@@ -26,6 +26,7 @@ import { BotConfig, TowerAction, towersByWave } from '../../bots/tower-bot.inter
 import type { Proposal } from '../../decision/arbiter';
 import { difference, expectedMetres, killTimeSaved, newTowerCapacity, ownCapacity } from '../../decision/value';
 import type { DecisionContext, ITowerStrategy } from '../tower-strategy.interface';
+import { en } from '../../../i18n/messages/en';
 
 /** Waves a tower must have stood before it can be sold */
 export const IDLE_WAVES = 3;
@@ -86,7 +87,7 @@ export class TowerSellStrategy implements ITowerStrategy {
       const seen = Math.max(metres.ground, metres.air) / Math.max(1e-6, expected);
       const share = damageOf(tower) / total;
       if (seen < BLIND_SHARE && share < IDLE_DAMAGE_SHARE) {
-        return { tower, reason: `${tower.typeConfig.name} sees ${Math.round(seen * 100)}% of its reach, did ${(share * 100).toFixed(1)}% of the damage` };
+        return { tower, reason: `${en.names.towers[tower.typeConfig.id]} sees ${Math.round(seen * 100)}% of its reach, did ${(share * 100).toFixed(1)}% of the damage` };
       }
     }
     return null;
@@ -123,7 +124,7 @@ export class TowerSellStrategy implements ITowerStrategy {
     if (!weakest || best.value < REPLACE_GAIN * weakest.value) return null;
     return {
       tower: weakest.tower,
-      reason: `${weakest.tower.typeConfig.name} makes room for a ${TOWER_TYPES[best.type].name}`,
+      reason: `${en.names.towers[weakest.tower.typeConfig.id]} makes room for a ${en.names.towers[best.type]}`,
     };
   }
 }

@@ -35,6 +35,7 @@ import { DebugFacadeService } from '../../services/debug/debug-facade.service';
 import { BossIntroService } from '../../services/boss-intro.service';
 import { GameEventBus } from '../../game-engine/game-event-bus';
 import { isBloodMoonWave } from '../../configs/blood-moon.config';
+import { provideI18n } from '../../i18n/i18n.service';
 
 interface FakeRun {
   currentTime: number | null;
@@ -71,7 +72,7 @@ describe('Blood moon banner around the boss intro (playtest 554, 556)', () => {
     bus = new GameEventBus();
     introActive = signal(false);
     const injector = Injector.create({
-      providers: [
+      providers: [provideI18n(), 
         { provide: SimClient, useValue: { bus: bus } },
         { provide: DebugFacadeService, useValue: { vfx: signal({ bloodMoon: true }) } },
         { provide: LiveAnnouncer, useValue: { announce: vi.fn(async () => undefined) } },

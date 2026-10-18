@@ -106,9 +106,14 @@ export interface WavePeekFacts {
   readonly count: number | null;
   /** Enemy types with their share of the wave. */
   readonly enemies: readonly (readonly [string, number])[];
-  /** What the source wants to add, e.g. "HP set against the defense when the wave starts". */
-  readonly note: string;
-  readonly description: string;
+  /** Ms between two spawns, null when the source does not know yet */
+  readonly spawnDelayMs: number | null;
+  /** The HP is set against the defense when the wave starts (the budget source) */
+  readonly sizedAtStart: boolean;
+  /** HP factor the source applies, null for none (a looped wave list) */
+  readonly hpScale: number | null;
+  /** Past the end of a wave list: the row that runs again and its round, null otherwise */
+  readonly round: { readonly row: number; readonly cycle: number } | null;
 }
 
 export interface WaveSource {

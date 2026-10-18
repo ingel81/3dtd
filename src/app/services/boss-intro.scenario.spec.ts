@@ -47,6 +47,7 @@ import { PORTAL_DEPTH, portalDepthScale } from '../configs/marker-geometry.confi
 import { portalCorridorWidth, portalScaleForWidth } from '../three-engine/renderers/marker/spawn-portal-pose';
 import type { Enemy } from '../entities/enemy.entity';
 import type { RouteWaypoint } from '../models/game.types';
+import { provideI18n } from '../i18n/i18n.service';
 
 /** 1e-5 degrees are one metre in the fake sync; origin height 100, so height 100 is ground 0. */
 const ROUTE: RouteWaypoint[] = [
@@ -141,7 +142,7 @@ describe('Boss intro, night-2 playtest 366 to 371 and 423 replayed', () => {
       },
     };
     injector = Injector.create({
-      providers: [
+      providers: [provideI18n(), 
         { provide: SimClient, useValue: { bus } },
         { provide: SimMirror, useValue: { scalars: { get waveNumber() { return wave; } } } },
         { provide: GameStore, useValue: { gameSpeed: timescale, renderingEnabled: signal(true), paused, pauseKeepsLoops: signal(false) } },
@@ -253,7 +254,7 @@ describe('Boss intro, night-2 playtest 366 to 371 and 423 replayed', () => {
 
   it('367, 371: a click lands on the skip layer until the view is back and only skips', () => {
     const veil = runInInjectionContext(
-      Injector.create({ providers: [{ provide: BossIntroService, useValue: service }] }),
+      Injector.create({ providers: [provideI18n(), { provide: BossIntroService, useValue: service }] }),
       () => new BossIntroComponent(),
     );
     expect(veil.skippable()).toBe(false);

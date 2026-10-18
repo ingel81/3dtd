@@ -57,17 +57,17 @@ export function releasedResearch(production = environment.production): ResearchC
 }
 
 /**
- * The first unreleased tower type or path a saved run names (`towers` of a snapshot), null when it names none:
- * such a save does not load in this build (readSaveFile).
+ * The first unreleased tower type or path a saved run names (`towers` of a snapshot), by its id, null when it
+ * names none: such a save does not load in this build (readSaveFile).
  */
 export function unreleasedInSave(
   towers: readonly { typeId: string; state?: { pathId?: string | null } }[],
   production = environment.production,
 ): string | null {
   for (const tower of towers) {
-    if (!isTowerReleased(tower.typeId, production)) return TOWER_TYPES[tower.typeId as TowerTypeId]?.name ?? tower.typeId;
+    if (!isTowerReleased(tower.typeId, production)) return tower.typeId;
     const pathId = tower.state?.pathId;
-    if (pathId && !isPathReleased(pathId, production)) return TOWER_PATHS[pathId as TowerPathId]?.name ?? pathId;
+    if (pathId && !isPathReleased(pathId, production)) return pathId;
   }
   return null;
 }

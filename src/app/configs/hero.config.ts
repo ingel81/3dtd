@@ -32,8 +32,6 @@ export function isHeroSource(sourceId: string): boolean {
 }
 
 export const HERO = {
-  /** UI label; the game UI is English */
-  name: 'Mercenary',
   /** Research that unlocks the hire */
   researchId: 'mercenary-contract',
   /** Global perk that research grants; the manager unlocks on it */
@@ -88,8 +86,6 @@ export type HeroAmmoId = 'standard' | 'explosive' | 'rune';
 
 export interface HeroAmmoConfig {
   id: HeroAmmoId;
-  /** UI label */
-  name: string;
   damageType: DamageType;
   /** Damage per shot at level 1, before the damage matrix */
   damage: number;
@@ -102,7 +98,6 @@ export interface HeroAmmoConfig {
 export const HERO_AMMO: Record<HeroAmmoId, HeroAmmoConfig> = {
   standard: {
     id: 'standard',
-    name: 'Standard rounds',
     damageType: 'physical',
     damage: 16,
     fireRate: 3,
@@ -110,7 +105,6 @@ export const HERO_AMMO: Record<HeroAmmoId, HeroAmmoConfig> = {
   },
   explosive: {
     id: 'explosive',
-    name: 'Explosive rounds',
     damageType: 'siege',
     damage: 32,
     fireRate: 1.5,
@@ -118,7 +112,6 @@ export const HERO_AMMO: Record<HeroAmmoId, HeroAmmoConfig> = {
   },
   rune: {
     id: 'rune',
-    name: 'Rune rounds',
     damageType: 'magic',
     damage: 24,
     fireRate: 2,

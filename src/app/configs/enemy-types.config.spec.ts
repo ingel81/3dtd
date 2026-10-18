@@ -10,6 +10,8 @@ import {
   lineageLeakDamage,
   MAX_LEAK_DAMAGE,
 } from './enemy-types.config';
+import { en } from '../i18n/messages/en';
+import type { EnemyTypeId } from './enemy-types.config';
 
 describe('enemy types config', () => {
   it('splits only into enemy types that exist, without a cycle', () => {
@@ -99,7 +101,7 @@ describe('enemy types config', () => {
     const all = getAllEnemyTypes();
     all.forEach((enemy) => {
       expect(enemy.id).toBeTruthy();
-      expect(enemy.name).toBeTruthy();
+      expect(en.names.enemies[enemy.id as EnemyTypeId]).toBeTruthy();
       expect(enemy.modelUrl).toBeTruthy();
       expect(enemy.baseHp).toBeGreaterThan(0);
       expect(enemy.baseSpeed).toBeGreaterThan(0);

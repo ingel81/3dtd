@@ -1,4 +1,5 @@
 import type { MapGameplay, MapSpawn } from './map-document';
+import type { Messages } from '../../i18n/messages/en';
 
 /**
  * Lanes nobody holds in a coop room, at the start (TODO E130): closed like
@@ -85,8 +86,6 @@ export function toggledLanes(choice: LaneChoice, open: readonly string[], id: st
 }
 
 /** The line beside the choice: every open lane brings a whole wave */
-export function laneLoadHint(open: number): string {
-  return open === 1
-    ? '1 lane open: one wave at a time'
-    : `${open} lanes open: each brings a full wave, ${open} times the enemies`;
+export function laneLoadHint(t: Messages, open: number): string {
+  return t.hud.lanes.load(open);
 }

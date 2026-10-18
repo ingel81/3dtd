@@ -73,7 +73,7 @@ describe('HeroManager', () => {
     bus.emit({
       type: 'research:completed', playerId: 'local', local: true,
       researchId: HERO.researchId,
-      effects: [{ kind: 'global-perk', perkId: HERO.perkId, description: '' }],
+      effects: [{ kind: 'global-perk', perkId: HERO.perkId }],
     });
   /**
    * `sixtieths` of a second of game time, in sub-steps of the game's length (one at least): the numbers

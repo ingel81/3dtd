@@ -50,6 +50,7 @@ import { heroPanelView } from '../components/game-sidebar/hero-panel/hero-panel'
 import { at, local, line } from '../../test/geo-test-points';
 import { singlePlayer } from '../integration/single-player-parts';
 import { GameClock } from '../managers/game-state/game-clock';
+import { en } from '../i18n/messages/en';
 
 /** The length of one gameplay sub-step. */
 const STEP_MS = GameClock.FIXED_STEP_MS;
@@ -253,7 +254,7 @@ describe('Hero under the pointer, playtest 386, 387, 389, 391 and 425 replayed',
     bus.emit({
       type: 'research:completed', playerId: 'local', local: true,
       researchId: HERO.researchId,
-      effects: [{ kind: 'global-perk', perkId: HERO.perkId, description: '' }],
+      effects: [{ kind: 'global-perk', perkId: HERO.perkId }],
     });
     credits = HERO.cost;
   });
@@ -276,8 +277,8 @@ describe('Hero under the pointer, playtest 386, 387, 389, 391 and 425 replayed',
     click(x, y);
     expect(control.selected()).toBe(true);
     expect(heroView.setSelected).toHaveBeenLastCalledWith(true);
-    expect(heroPanelView(heroStatus())).toMatchObject({ level: 1, kills: 0, rangeM: 18, status: 'Holding his post' });
-    expect(heroPanelView(heroStatus()).ammo.map((a) => a.label)).toEqual(['Standard', 'Explosive', 'Rune']);
+    expect(heroPanelView(en, heroStatus())).toMatchObject({ level: 1, kills: 0, rangeM: 18, status: 'Holding his post' });
+    expect(heroPanelView(en, heroStatus()).ammo.map((a) => a.label)).toEqual(['Standard', 'Explosive', 'Rune']);
 
     // G and his button: HeroControlService.summon, selected already, so the camera
     expect(control.summon()).toBe(true);
@@ -309,7 +310,7 @@ describe('Hero under the pointer, playtest 386, 387, 389, 391 and 425 replayed',
     click(-100, 152); // 2 m off the west street, 250 m of route away
     expect(control.selected()).toBe(true);
     expect(local(hero.getAnchor()!)).toEqual({ x: -100, z: 150 });
-    expect(heroPanelView(heroStatus()).status).toBe('On his way');
+    expect(heroPanelView(en, heroStatus()).status).toBe('On his way');
 
     for (let i = 0; i < 3000 && heroStatus().mode === 'travel'; i++) {
       tick(1);
@@ -318,7 +319,7 @@ describe('Hero under the pointer, playtest 386, 387, 389, 391 and 425 replayed',
       expect(Math.abs(p.x) < 0.2 || Math.abs(p.z - 150) < 0.2).toBe(true);
     }
     expect(heroAt()).toEqual({ x: -100, z: 150 });
-    expect(heroPanelView(heroStatus()).status).toBe('Holding his post');
+    expect(heroPanelView(en, heroStatus()).status).toBe('Holding his post');
   });
 
   it('389: V switches the ammo round the list while he is not selected', () => {

@@ -81,7 +81,7 @@
               <tbody>
                 @for (t of b.types; track t.type) {
                   <tr [class.budget-at-limit]="t.state === 'limit'" [class.budget-unhurt]="t.state === 'unhurt'">
-                    <td>{{ t.name }}</td>
+                    <td>{{ t.type }}</td>
                     <td>{{ t.count }}</td>
                     <td>{{ t.armor }}</td>
                     <td>{{ t.hpMult }}</td>
@@ -159,7 +159,7 @@
             <select class="td-select enemy-select" (change)="onEnemyTypeChange($event)">
               @for (type of waveDebug.enemyTypes(); track type.id) {
                 <option [value]="type.id" [selected]="type.id === waveDebug.enemyType()">
-                  {{ type.name }}
+                  {{ type.id }}
                 </option>
               }
             </select>
@@ -240,7 +240,7 @@
                 <select class="td-select" (change)="onGroupTypeChange(group.id, $event)">
                   @for (type of waveDebug.enemyTypes(); track type.id) {
                     <option [value]="type.id" [selected]="type.id === group.enemyType">
-                      {{ type.name }}
+                      {{ type.id }}
                     </option>
                   }
                 </select>

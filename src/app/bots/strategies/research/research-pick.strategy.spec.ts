@@ -108,7 +108,7 @@ describe('research as a proposal (B3)', () => {
     for (let i = 0; i < 10; i++) capacity = sum(capacity, archer);
     const context: DecisionContext = {
       threat: threatFromWaves([{
-        wave: 41, name: '', known: true, boss: false, air: false, armors: [], count: null, note: '', description: '',
+        wave: 41, name: '', known: true, boss: false, air: false, armors: [], count: null, spawnDelayMs: null, sizedAtStart: false, hpScale: null, round: null,
         enemies: [['tank', 1]], hpByArmor: [['heavy', 20000]],
       }]),
       capacity, metresByTower: new Map(), routes: 1, routeMetres: 700,

@@ -7,7 +7,7 @@ import {
 
 function wave(enemies: [string, number][], hpByArmor: [string, number][]): WavePeekFacts {
   return {
-    wave: 1, name: '', known: true, boss: false, air: false, armors: [], count: null, note: '', description: '',
+    wave: 1, name: '', known: true, boss: false, air: false, armors: [], count: null, spawnDelayMs: null, sizedAtStart: false, hpScale: null, round: null,
     enemies, hpByArmor: hpByArmor as WavePeekFacts['hpByArmor'],
   };
 }

@@ -3,6 +3,7 @@ import {
   defaultOpenLanes, hasLaneChoice, laneChoiceOf, laneChoiceProblem, laneLoadHint, toggledLanes,
 } from './lane-choice';
 import type { MapSpawn } from './map-document';
+import { en } from '../../i18n/messages/en';
 
 const spawn = (id: string, optional = false): MapSpawn => ({ id, name: id.toUpperCase(), x: 0, y: 0, ...(optional ? { optional } : {}) });
 
@@ -51,7 +52,7 @@ describe('lane choice (TODO E130)', () => {
   });
 
   it('says that every open lane brings a full wave', () => {
-    expect(laneLoadHint(1)).toBe('1 lane open: one wave at a time');
-    expect(laneLoadHint(3)).toBe('3 lanes open: each brings a full wave, 3 times the enemies');
+    expect(laneLoadHint(en, 1)).toBe('1 lane open: one wave at a time');
+    expect(laneLoadHint(en, 3)).toBe('3 lanes open: each brings a full wave, 3 times the enemies');
   });
 });

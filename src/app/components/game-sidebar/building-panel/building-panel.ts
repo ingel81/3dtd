@@ -1,6 +1,7 @@
 import { ABILITIES, ABILITY_IDS, type AbilityId, type AbilityStatus } from '../../../configs/abilities.config';
 import type { TowerTypeId } from '../../../configs/tower-types.config';
 import { abilityButtonView } from '../../ability-bar/ability-button';
+import type { Messages } from '../../../i18n/messages/en';
 
 /** An ability that launches from the selected building, one line in its panel. */
 export interface BuildingAbilityRow {
@@ -18,6 +19,7 @@ export interface BuildingAbilityRow {
  * button shows. Empty for a building nothing launches from.
  */
 export function buildingAbilityRows(
+  t: Messages,
   typeId: TowerTypeId,
   statuses: Readonly<Record<AbilityId, AbilityStatus>>,
   waveActive: boolean,
@@ -28,9 +30,9 @@ export function buildingAbilityRows(
       const config = ABILITIES[id];
       return {
         id,
-        name: config.name,
+        name: t.abilities[id].name,
         hotkey: config.hotkey.toUpperCase(),
-        status: abilityButtonView(config, statuses[id], waveActive, false).status,
+        status: abilityButtonView(t, config, statuses[id], waveActive, false).status,
       };
     });
 }

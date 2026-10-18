@@ -138,7 +138,7 @@ describe('Frost bomb and EMP on the worm, playtest 398 replayed', () => {
       m.eventBus.emit({
         type: 'research:completed', playerId: 'local', local: true,
         researchId: ABILITIES[id].researchId,
-        effects: [{ kind: 'global-perk', perkId: ABILITIES[id].perkId, description: '' }],
+        effects: [{ kind: 'global-perk', perkId: ABILITIES[id].perkId }],
       });
     }
   });

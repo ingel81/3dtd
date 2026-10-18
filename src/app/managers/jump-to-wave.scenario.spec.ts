@@ -107,6 +107,7 @@ import { runSummary } from '../run-log/run-summary';
 import { BestWaveService } from '../services/location/best-wave.service';
 import { createTestCoords, createTestOps } from '../integration/test-helpers';
 import { GameClock } from './game-state/game-clock';
+import { en } from '../i18n/messages/en';
 
 /** GameClock.FIXED_STEP_MS: the length of one gameplay sub-step. */
 const STEP_MS = GameClock.FIXED_STEP_MS;
@@ -135,7 +136,7 @@ describe('Dev wave jump, playtest 381 and 382 replayed', () => {
 
   it('381: the strike used in W1, W1 over, a jump over 3 waves: the bar shows the charge full again', () => {
     const status = () => gsm.abilityManager.getStatus('nuclear-strike');
-    const button = () => abilityButtonView(NUKE, status(), gsm.phase() === 'wave', false);
+    const button = () => abilityButtonView(en, NUKE, status(), gsm.phase() === 'wave', false);
     bus.emit({ type: 'debug:ready-ability', abilityId: 'nuclear-strike' });
 
     // W1 runs, the strike goes out and lands in game-time sub-steps
@@ -208,7 +209,7 @@ describe('Dev wave jump, playtest 381 and 382 replayed', () => {
     expect(best.records()).toHaveLength(1);
     expect(best.records()[0].bestWave).toBe(5);
     log.flushOpenWave();
-    expect(runSummary(log.current(), 0, (type) => type))
+    expect(runSummary(log.current(), 0))
       .toMatchObject({ waveReached: 35, goldEarned: 40 });
 
     bag.disposeAll();

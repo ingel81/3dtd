@@ -1,5 +1,6 @@
-import { HERO, HERO_AMMO, type HeroStatus } from '../../configs/hero.config';
+import { HERO, type HeroStatus } from '../../configs/hero.config';
 import type { AbilityBarHero } from './ability-button';
+import type { Messages } from '../../i18n/messages/en';
 
 /** The hero's button at the top of the ability bar, with what a press does. */
 export interface HeroBarView extends AbilityBarHero {
@@ -18,29 +19,26 @@ export interface HeroBarView extends AbilityBarHero {
  * @param selected whether he is selected (HeroControlService.selected)
  * @param credits  credits on hand, to say how many are missing
  */
-export function heroBarView(status: HeroStatus, selected: boolean, credits: number): HeroBarView | null {
+export function heroBarView(t: Messages, status: HeroStatus, selected: boolean, credits: number): HeroBarView | null {
   if (!status.unlocked) return null;
   if (!status.hired) {
-    const price = HERO.cost.toLocaleString('en-US');
     const short = HERO.cost - credits;
+    const says = t.hud.heroButton;
     return {
       action: 'hire',
       icon: 'coin',
-      name: `Hire ${HERO.name}`,
+      name: says.hire(t.hero.name),
       hotkey: null,
       selected: false,
-      detail: short > 0
-        ? `${price} credits, ${short.toLocaleString('en-US')} short.`
-        : `${price} credits, once. He takes his post on the route next to the HQ.`,
+      detail: short > 0 ? says.short(HERO.cost, short) : says.once(HERO.cost),
     };
   }
   return {
     action: 'summon',
     icon: 'user',
-    name: HERO.name,
+    name: t.hero.name,
     hotkey: 'G',
     selected,
-    detail: `Level ${status.level}, ${HERO_AMMO[status.ammo].name.toLowerCase()}. `
-      + 'A press selects him, a second brings him into view.',
+    detail: t.hud.heroButton.hired(status.level, t.hero.ammo[status.ammo]),
   };
 }

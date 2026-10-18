@@ -29,6 +29,8 @@ import {
   type ResearchDetail,
   type ResearchTreeState,
 } from './research-tree-view';
+import { researchName } from '../../i18n/lookups';
+import { I18n } from '../../i18n/i18n.service';
 
 /** Tier numerals for the gutter. Deeper than this is not in the tree. */
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
@@ -66,13 +68,14 @@ export class ResearchDialogComponent {
   private readonly sim = inject(SimClient);
   private readonly mirror = inject(SimMirror);
   private readonly coop = inject(COOP, { optional: true });
+  protected readonly t = inject(I18n).t;
   private readonly data = inject<ResearchDialogData | null>(MAT_DIALOG_DATA, { optional: true });
 
   /** Coop: one tab a player, this one first as "You"; none alone */
   protected readonly tabs = computed(() => {
     const coop = this.coop;
     if (!coop?.inGame()) return [];
-    return researchTabs(coop.roster(), coop.playerId());
+    return researchTabs(this.t(), coop.roster(), coop.playerId());
   });
 
   /** The tab picked; null is this player's own */
@@ -120,7 +123,7 @@ export class ResearchDialogComponent {
     };
   });
 
-  protected readonly nodes = computed(() => buildResearchNodes(this.treeState()));
+  protected readonly nodes = computed(() => buildResearchNodes(this.t(), this.treeState()));
   /**
    * The order a drop asked for, shown until the simulation's next queue
    * arrives: the command takes effect at the next tick, and without it the
@@ -158,7 +161,7 @@ export class ResearchDialogComponent {
   }
 
   protected readonly progress = computed(() => researchProgressCounts(this.treeState()));
-  protected readonly branches = computed(() => researchBranchCounts(this.treeState()));
+  protected readonly branches = computed(() => researchBranchCounts(this.t(), this.treeState()));
 
   /**
    * The same layout the tree component builds. Computed once here because the
@@ -192,7 +195,7 @@ export class ResearchDialogComponent {
     const id = this.selectedId();
     if (!id) return null;
     const tier = this.nodes().length ? this.tierOf(id) : 0;
-    return buildResearchDetail(id, this.treeState(), tier);
+    return buildResearchDetail(this.t(), id, this.treeState(), tier);
   });
 
   protected readonly tierNumeral = computed(() => {
@@ -271,7 +274,7 @@ export class ResearchDialogComponent {
   }
 
   protected researchName(id: ResearchId): string {
-    return getResearch(id)?.name ?? id;
+    return researchName(this.t(), id);
   }
 
   protected researchIcon(id: ResearchId): string {

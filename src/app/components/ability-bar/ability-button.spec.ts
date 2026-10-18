@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { ABILITY_BAR_EDGE_PX, ABILITY_BAR_PX, abilityBarIds, abilityButtonView, abilityTooltip, heroTooltip } from './ability-button';
 import { ABILITIES, ABILITY_IDS, lockedAbilityStatus, type AbilityId, type AbilityStatus } from '../../configs/abilities.config';
+import { en } from '../../i18n/messages/en';
 
 const NUKE = ABILITIES['nuclear-strike'];
 const CHARGED: AbilityStatus = { ...lockedAbilityStatus('nuclear-strike'), unlocked: true, charges: 1, launchSite: true };
 const view = (status: AbilityStatus, waveActive = true, targeting = false) =>
-  abilityButtonView(NUKE, status, waveActive, targeting);
+  abilityButtonView(en, NUKE, status, waveActive, targeting);
 
 describe('abilityBarIds', () => {
   const statuses = (researched: AbilityId[], launchSites = true) => Object.fromEntries(ABILITY_IDS.map((id) => [
@@ -69,7 +70,7 @@ describe('abilityButtonView', () => {
 
   it('counts the charges only for an ability that holds more than one', () => {
     const twoCharges = { ...NUKE, maxCharges: 2 };
-    expect(abilityButtonView(twoCharges, { ...CHARGED, maxCharges: 2, charges: 1, wavesUntilCharge: 2 }, true, false))
+    expect(abilityButtonView(en, twoCharges, { ...CHARGED, maxCharges: 2, charges: 1, wavesUntilCharge: 2 }, true, false))
       .toMatchObject({ state: 'ready', charges: 1 });
     expect(view(CHARGED).charges).toBeNull();
   });
@@ -78,7 +79,7 @@ describe('abilityButtonView', () => {
 describe('abilityTooltip', () => {
   it('shows state, charges and recharge', () => {
     const recharging = { ...CHARGED, charges: 0, wavesUntilCharge: 2 };
-    expect(abilityTooltip(NUKE, recharging, view(recharging))).toEqual({
+    expect(abilityTooltip(en, NUKE, recharging, view(recharging))).toEqual({
       title: 'Nuclear Strike',
       category: 'RECHARGES IN 2 WAVES',
       hotkey: 'K',
@@ -87,7 +88,7 @@ describe('abilityTooltip', () => {
         { label: 'CHARGES', value: '0/1' },
         { label: 'RECHARGE', value: '3 waves' },
       ],
-      flavor: NUKE.description,
+      flavor: en.abilities[NUKE.id].description,
     });
   });
 });
@@ -103,7 +104,7 @@ describe('ABILITY_BAR_EDGE_PX', () => {
 describe('heroTooltip', () => {
   it('says what a press does unless the hero feature says more', () => {
     const hero = { icon: 'user' as const, name: 'Mercenary', hotkey: 'g', selected: false };
-    expect(heroTooltip(hero)).toMatchObject({ title: 'Mercenary', category: 'HERO', hotkey: 'G' });
-    expect(heroTooltip({ ...hero, detail: 'Level 2 | Siege' }).flavor).toBe('Level 2 | Siege');
+    expect(heroTooltip(en, hero)).toMatchObject({ title: 'Mercenary', category: 'HERO', hotkey: 'G' });
+    expect(heroTooltip(en, { ...hero, detail: 'Level 2 | Siege' }).flavor).toBe('Level 2 | Siege');
   });
 });

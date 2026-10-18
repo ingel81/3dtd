@@ -3,11 +3,14 @@ import {
   TargetingStrategyConfig,
   TowerTypeConfig,
   UpgradeId,
+  type UpgradeText,
 } from '../../../configs/tower-types.config';
-import { RECRUIT_NAME, VETERAN_RANKS, veteranLevel, veteranRank } from '../../../configs/veteran-ranks.config';
+import { VETERAN_RANKS, veteranLevel, veteranRank } from '../../../configs/veteran-ranks.config';
 import type { UpgradeHint } from '../../../services/upgrade-hint.service';
 import type { UpgradeRefusal } from '../../../utils/player-actions';
 import type { TdIconName } from '../../icon/icon.component';
+import type { Messages } from '../../../i18n/messages/en';
+import type { ResearchTreeId } from '../../../configs/research/research-tree.config';
 
 /**
  * Compute effective DPS for the tower-detail tile. Beam towers (Fire) use
@@ -78,14 +81,14 @@ function veteranIcon(chevrons: number, star: boolean): TdIconName {
 }
 
 /** Rank row for a kill count. Below the first rank the single chevron stands for the one to come. */
-export function veteranView(kills: number): VeteranView {
+export function veteranView(t: Messages, kills: number): VeteranView {
   const level = veteranLevel(kills);
   const rank = veteranRank(level);
   const next = veteranRank(level + 1);
   const from = rank?.minKills ?? 0;
   return {
     level,
-    name: rank?.name ?? RECRUIT_NAME,
+    name: rank ? t.veteranRanks[rank.level] : t.hud.tower.recruit,
     icon: rank ? veteranIcon(rank.chevrons, rank.star) : 'caretU',
     gold: rank?.metal === 'gold',
     kills,
@@ -95,9 +98,9 @@ export function veteranView(kills: number): VeteranView {
 }
 
 /** Tooltip of the rank row: the ladder, and that it changes nothing in combat. */
-export const VETERAN_TOOLTIP =
-  'Rank from killing blows, cosmetic only: ' +
-  VETERAN_RANKS.map((rank) => `${rank.name} ${rank.minKills}`).join(' | ');
+export function veteranTooltip(t: Messages): string {
+  return t.hud.tower.rankTip(VETERAN_RANKS.map((rank) => `${t.veteranRanks[rank.level]} ${rank.minKills}`).join(' | '));
+}
 
 /**
  * Targeting-Buttons eines Towers. Air-Priorität gibt es nur für Tower, die
@@ -116,18 +119,18 @@ export function targetingStrategiesFor(config: TowerTypeConfig): TargetingStrate
 }
 
 /** Research, das eine Upgrade-Stufe freischaltet (Stufe 1 ist frei). */
-const TIER_RESEARCH: Record<number, string> = {
-  2: 'Advanced Weaponry',
-  3: 'Master Engineering',
-  4: 'Advanced Engineering',
-  5: 'Transcendent Tech',
+const TIER_RESEARCH: Record<number, ResearchTreeId> = {
+  2: 'advanced-weaponry',
+  3: 'master-engineering',
+  4: 'advanced-engineering',
+  5: 'transcendent-tech',
 };
 
 /** Tooltip einer gesperrten Upgrade-Stufe; null, solange sie freigeschaltet ist. */
-export function upgradeTierLockReason(requiredTier: number, maxUnlockedTier: number): string | null {
+export function upgradeTierLockReason(t: Messages, requiredTier: number, maxUnlockedTier: number): string | null {
   if (maxUnlockedTier >= requiredTier) return null;
   const research = TIER_RESEARCH[requiredTier];
-  return research ? `Requires: ${research}` : null;
+  return research ? t.hud.tower.requires(t.research[research].name) : null;
 }
 
 /** What the upgrade section shows of the last U press or tile click (UpgradeHintService). */
@@ -144,28 +147,35 @@ const NO_HINT_VIEW: UpgradeHintView = { flashId: null, flashAlt: false, refusalT
 
 /** The last U press or tile click as the panel of `tower` shows it; nothing when it was another tower. */
 export function upgradeHintView(
+  t: Messages,
   hint: UpgradeHint | null,
-  tower: { id: string; typeConfig: { upgrades: readonly { id: UpgradeId; name: string }[] } },
+  tower: { id: string; typeConfig: { upgrades: readonly { id: UpgradeId; text: UpgradeText }[] } },
 ): UpgradeHintView {
   if (!hint || hint.towerId !== tower.id) return NO_HINT_VIEW;
-  const name = (id: UpgradeId) => tower.typeConfig.upgrades.find((u) => u.id === id)?.name ?? id;
+  const name = (id: UpgradeId) => {
+    const upgrade = tower.typeConfig.upgrades.find((u) => u.id === id);
+    return upgrade ? t.upgrades[upgrade.text].name : id;
+  };
   return {
     flashId: hint.upgradeId,
     flashAlt: hint.seq % 2 === 0,
-    refusalText: hint.refusal ? upgradeRefusalText(hint.refusal, name) : null,
+    refusalText: hint.refusal ? upgradeRefusalText(t, hint.refusal, name) : null,
   };
 }
 
 /** The line in the upgrade section when U or a tile click bought nothing. */
-export function upgradeRefusalText(refusal: UpgradeRefusal, upgradeName: (id: UpgradeId) => string): string {
+export function upgradeRefusalText(t: Messages, refusal: UpgradeRefusal, upgradeName: (id: UpgradeId) => string): string {
+  const says = t.hud.tower;
   switch (refusal.kind) {
     case 'credits':
-      return `Need ${refusal.missing} more credits for ${upgradeName(refusal.upgradeId)}`;
-    case 'tier':
-      return `Research ${TIER_RESEARCH[refusal.tier] ?? `tier ${refusal.tier}`} for the next levels`;
+      return says.needCredits(refusal.missing, upgradeName(refusal.upgradeId));
+    case 'tier': {
+      const research = TIER_RESEARCH[refusal.tier];
+      return says.researchTier(research ? t.research[research].name : says.tierN(refusal.tier));
+    }
     case 'maxed':
-      return 'Fully upgraded';
+      return says.maxed;
     case 'building':
-      return 'Under construction: upgrades once it stands';
+      return says.underConstruction;
   }
 }

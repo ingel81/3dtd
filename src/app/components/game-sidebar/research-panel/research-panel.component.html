@@ -1,17 +1,17 @@
 <!-- RESEARCH CENTER section -->
 <h2 class="td-side-head">
   <span class="td-side-name" [class.is-armed]="sellArmed()" aria-live="polite">
-    {{ sellArmed() ? 'Click again to sell' : 'Research Center, level ' + researchStore.centerLevel() }}
+    {{ sellArmed() ? t().hud.sell.again : t().hud.researchCenter.level(researchStore.centerLevel()) }}
   </span>
   @if (sellValue() > 0) {
     <button class="td-btn-danger td-btn-sm"
             [class.is-armed]="sellArmed()"
             aria-keyshortcuts="Delete"
-            [matTooltip]="sellArmed() ? 'Click again to sell for ' + sellValue() + ' credits' : 'Sell: refunds 75% of total invested (base + upgrades)'"
+            [matTooltip]="sellArmed() ? t().hud.sell.againFor(sellValue()) : t().hud.sell.refundsCenter"
             matTooltipPosition="left"
-            [attr.aria-label]="(sellArmed() ? 'Confirm: sell for ' : 'Sell for ') + sellValue() + ' credits'"
+            [attr.aria-label]="sellArmed() ? t().hud.sell.confirmFor(sellValue()) : t().hud.sell.sellFor(sellValue())"
             (click)="onSell()">
-      Sell <span class="td-num">{{ sellValue() }}</span>
+      {{ t().hud.sell.sell }} <span class="td-num">{{ sellValue() }}</span>
     </button>
   }
 </h2>
@@ -20,17 +20,17 @@
   <!-- What the run has researched so far -->
   <div class="td-inline rp-summary">
     <span class="td-value is-sm">{{ researchDone() }}/{{ researchTotal }}</span>
-    <span class="td-caps">researched</span>
-    <span class="td-note td-num rp-slots">Slots {{ store.activeResearches().length }}/{{ researchStore.researchSlots() }}</span>
+    <span class="td-caps">{{ t().hud.researchCenter.researched }}</span>
+    <span class="td-note td-num rp-slots">{{ t().hud.researchCenter.slots(store.activeResearches().length, researchStore.researchSlots()) }}</span>
   </div>
 
   <!-- Running researches -->
   @for (active of store.activeResearches(); track active.researchId) {
     <div class="td-well rp-active">
       <span class="td-name">{{ getResearchName(active.researchId) }}</span>
-      <span class="td-note td-num">{{ getActiveResearchRemaining(active) | number:'1.0-0' }} s</span>
+      <span class="td-note td-num">{{ t().hud.researchCenter.seconds(getActiveResearchRemaining(active)) }}</span>
       <button class="td-tool rp-cancel" type="button" (click)="cancelResearch.emit(active.researchId)"
-              [attr.aria-label]="'Cancel research: ' + getResearchName(active.researchId)">
+              [attr.aria-label]="t().hud.researchCenter.cancel(getResearchName(active.researchId))">
         <td-icon name="cross" [size]="14"></td-icon>
       </button>
       <span class="td-progress rp-bar"><span [style.width.%]="getActiveResearchProgress(active) * 100"></span></span>
@@ -40,18 +40,18 @@
   @if (store.activeResearches().length === 0) {
     <p class="td-note">
       @if (openCount() > 0) {
-        {{ openCount() }} {{ openCount() === 1 ? 'research is' : 'researches are' }} open right now.
+        {{ t().hud.researchCenter.open(openCount()) }}
       } @else {
-        Nothing is open yet.
+        {{ t().hud.researchCenter.nothingOpen }}
       }
     </p>
   }
 
   <!-- The tree, the queue and the picking live in the dialog -->
   <button class="td-btn-primary rp-open" type="button" (click)="openTechTree()" aria-keyshortcuts="q"
-          matTooltip="Pick what to research and order the queue (Q)"
+          [matTooltip]="t().hud.researchCenter.treeTip"
           matTooltipPosition="left">
-    <span class="td-inline"><td-icon name="layers" [size]="16"></td-icon>Research tree</span>
+    <span class="td-inline"><td-icon name="layers" [size]="16"></td-icon>{{ t().hud.researchCenter.tree }}</span>
     @if (queue().length > 0) {
       <span class="td-tag td-num">{{ queue().length }}</span>
     }
@@ -71,13 +71,13 @@
         [class.is-flash-alt]="hintView().flashId === upgrade.id && hintView().flashAlt"
         [attr.aria-disabled]="refused"
         (click)="onUpgradeTower(upgrade.id, $event)"
-        [matTooltip]="upgrade.description + upgradeManyHint"
+        [matTooltip]="t().upgrades[upgrade.text].description(upgradeTerms(upgrade)) + upgradeManyHint()"
         matTooltipPosition="left"
       >
         <td-icon name="arrowUp" [size]="18"></td-icon>
         <span class="td-plate-label">
-          <span class="td-name">{{ upgrade.name }}</span>
-          <span class="td-sub">Level {{ tower().getUpgradeLevel(upgrade.id) + 1 }} of {{ upgrade.maxLevel }}</span>
+          <span class="td-name">{{ t().upgrades[upgrade.text].name }}</span>
+          <span class="td-sub">{{ t().hud.tower.levelOf(tower().getUpgradeLevel(upgrade.id) + 1, upgrade.maxLevel) }}</span>
         </span>
         <span class="td-figure">{{ tower().getNextUpgradeCost(upgrade.id) }}</span>
       </button>
