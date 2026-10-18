@@ -406,7 +406,7 @@
                 <button type="button" class="td-btn-secondary" (click)="replay.enter()">Replay wave {{ replay.recordedWave() }}</button>
               }
               @if (!coop.inGame() || coop.isHost()) {
-                <button type="button" class="td-btn-primary" (click)="restartGame()">Restart here</button>
+                <button type="button" class="td-btn-primary" (click)="restartGame()">{{ mainMenu.restartLabel }}</button>
               }
             </span>
            </footer>

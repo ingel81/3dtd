@@ -160,18 +160,25 @@ export class MenuHomeComponent {
       { ...entry('worlds', 'All worlds', leaveWhy, true), why: leaveWhy },
     ];
 
+    // The editor's test of its map is no run: back to the editor, the test again from its wave, the settings
+    if (this.layer() === 'pause' && menu.fromEditor) {
+      list.push(entry('continue', 'Continue'), entry('edit-map', menu.editMapLabel), entry('restart', menu.restartLabel));
+      list.push(entry('settings', 'Settings', null, true));
+      return list;
+    }
+
     if (this.layer() === 'pause') {
       list.push(entry('continue', 'Continue'));
-      // A run lost keeps Save in its place, locked with why: nothing of it goes on
-      const saveWhy = this.store.isGameOver() ? 'The run is over' : null;
-      if (solo && menu.underWay()) list.push({ ...entry('save', 'Save game', saveWhy), why: saveWhy });
-      if (solo) list.push(entry('load', 'Load game'));
+      // Save and Load keep their place, locked with why (docs/WORLDS_NAVIGATION_PLAN.md, 3.2): never hidden
+      const saveWhy = !solo ? 'A coop game is not saved' : this.store.isGameOver() ? 'The run is over' : !menu.underWay() ? 'No run yet: build or start a wave' : null;
+      const loadWhy = solo ? null : 'Leave the coop game first';
+      list.push({ ...entry('save', 'Save game', saveWhy), why: saveWhy }, { ...entry('load', 'Load game', loadWhy), why: loadWhy });
       list.push(entry('settings', 'Settings'), entry('extras', 'Extras'));
       if (menu.offersNewGame()) list.push(entry('new-game', 'New game', null, true));
       list.push(entry('coop', 'Coop', null, true));
       if (menu.editableMapId() !== null) list.push({ ...entry('edit-map', menu.editMapLabel, menu.editWhy(), true), why: menu.editWhy() });
       list.push(...leave);
-      if (menu.canRestart()) list.push(entry('restart', 'Restart here', null, true));
+      if (menu.canRestart()) list.push(entry('restart', menu.restartLabel, null, true));
       if (menu.canQuit) list.push(entry('quit', 'Quit 3DTD', null, true));
       return list;
     }
@@ -357,7 +364,9 @@ export class MenuHomeComponent {
       case 'leave':
         return { question: `Leaves ${confirm.from}: the save plays in ${confirm.to}.`, yes: 'Continue anyway' };
       case 'restart':
-        return { question: 'Restart here? The run ends.', yes: 'Restart' };
+        return this.menu.fromEditor
+          ? { question: `${this.menu.restartLabel}? This test starts over.`, yes: 'Start over' }
+          : { question: 'Restart here? The run ends.', yes: 'Restart' };
       case 'editor':
         return { question: `Open the map editor? ${this.runWhenEditingText()}`, yes: 'Open the editor' };
       case 'edit-map':

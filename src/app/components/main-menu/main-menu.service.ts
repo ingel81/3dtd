@@ -165,6 +165,8 @@ export class MainMenuService {
   readonly fromEditor = this.start.current().trial !== null;
   /** The words of the way into the editor: back to it from its test tab, else the map opens there */
   readonly editMapLabel = this.fromEditor ? 'Back to editor' : 'Edit this map';
+  /** Restart's words: the editor's test starts again at its wave (RunRules.start), a run here anew */
+  readonly restartLabel = this.fromEditor ? `Again from wave ${this.start.current().startWave}` : 'Restart here';
 
   /**
    * The map editor in this window on the map this page plays (a shipped one opens there as an own copy); the

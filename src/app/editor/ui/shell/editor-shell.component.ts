@@ -655,7 +655,7 @@ export class EditorShellComponent implements OnDestroy, ActionHost {
 
   /**
    * A step of the path: Worlds to the globes (the editor saves first), a chip to its world's Continue (the
-   * game shows once the editor saved), Built Worlds to the editor's list, Play back to this map's run or a new run on it
+   * game shows once the editor saved), Built Worlds to its menu (this map picked), Play back to this map's run or a new run on it
    */
   onPath(action: PathAction): void {
     if (action === 'worlds') {
@@ -663,7 +663,10 @@ export class EditorShellComponent implements OnDestroy, ActionHost {
     } else if (typeof action === 'object') {
       this.stage.goChip(action.chip);
     } else if (action === 'world') {
-      void this.leave();
+      // The Built Worlds' menu, as the step means everywhere (the map list is the back button's), this map picked there
+      const id = this.session.doc?.meta.id;
+      const pick = id ? { kind: 'map' as const, id, name: this.title() } : null;
+      void this.screens.showGame().then((shown) => shown && this.stage.leaveGame({ world: 'maps', pick }));
     } else if (action === 'play') {
       const id = this.session.doc?.meta.id;
       if (this.runOfThisMap()) this.worlds.backToGame();

@@ -903,6 +903,20 @@ describe('The main menu', () => {
       expect(stage.leaveGame).not.toHaveBeenCalled();
     });
 
+    it('in the test of the editor: only Continue, Back to editor, Again from its wave and Settings; nothing else of a run', async () => {
+      mapsOpen = true;
+      world.useCustomMap('bay', 'Bay');
+      await setup('pause', { ...PLAIN_START, world: { kind: 'custom-map', mapId: 'bay', contentHash: '' }, trial: { bot: null }, startWave: 5 });
+      expect(entries()).toEqual(['Continue', 'Back to editor', 'Again from wave 5', 'Settings']);
+    });
+
+    it('before the first wave or tower Save stands locked with why, Load open', async () => {
+      await setup('pause');
+      expect(entries()).toContain('Save game');
+      expect(entry('save')!.querySelector('.mh-sub')?.textContent).toBe('No run yet: build or start a wave');
+      expect(entry('load')!.getAttribute('aria-disabled')).toBeNull();
+    });
+
     it('in Dev world no World menu (it has none, the line under it said "Worlds"), All worlds is its way out', async () => {
       world.useDevWorld();
       await setup('pause');
@@ -1076,7 +1090,7 @@ describe('The main menu', () => {
       expect(ui.mainMenuOpen()).toBe(false);
     });
 
-    it('pauses the game alone and lets it go on; in coop it never pauses, and offers no Save, Load or Restart', async () => {
+    it('pauses the game alone and lets it go on; in coop it never pauses, Save and Load stand locked with why, no Restart', async () => {
       await setup('pause');
       expect(game.paused()).toBe(true);
       menu.close();
@@ -1088,7 +1102,10 @@ describe('The main menu', () => {
       await settle();
       expect(game.paused()).toBe(false);
       // Back to the worlds stays, locked: the room would lose the player
-      expect(entries()).toEqual(['Continue', 'Settings', 'Extras', 'Coop', 'World menu', 'All worlds']);
+      expect(entries()).toEqual(['Continue', 'Save game', 'Load game', 'Settings', 'Extras', 'Coop', 'World menu', 'All worlds']);
+      expect(entry('save')!.getAttribute('aria-disabled')).toBe('true');
+      expect(entry('save')!.querySelector('.mh-sub')?.textContent).toBe('A coop game is not saved');
+      expect(entry('load')!.querySelector('.mh-sub')?.textContent).toBe('Leave the coop game first');
       expect(entry('worlds')!.getAttribute('aria-disabled')).toBe('true');
       expect(entry('worlds')!.textContent).toContain('Leave the coop room first');
       expect(el().querySelector('.mh-pause-word')?.textContent).toBe('Coop');
@@ -1106,7 +1123,7 @@ describe('The main menu', () => {
       delete (window as unknown as { desktop?: unknown }).desktop;
     });
 
-    it('game over, Menu: New game and Restart here are there, New game opens its page', async () => {
+    it('game over, the menu: New game and Restart here are there, New game opens its page', async () => {
       await setup('pause');
       game.towerCount.set(4);
       game.phase.set('gameover');
