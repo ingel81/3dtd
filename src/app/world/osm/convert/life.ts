@@ -7,8 +7,9 @@
  */
 import { heightAt } from '../../../map-ops/grid';
 import { resample, simplify } from '../../../map-ops/lines';
+import { polylineLength } from '../../../map-ops/path-graph';
 import type { CustomMapDocument, MapIntro, MapIntroView, MapLife, MapLifeArea, MapPoint } from '../../custom-map/map-document';
-import { MAX_LIFE_POINTS } from '../../custom-map/map-life';
+import { LIFE_AREA_DENSITY, MAX_LIFE_POINTS } from '../../custom-map/map-life';
 import type { OsmFeatures } from '../osm-parse';
 import type { WaterResult } from './water';
 import { sampleGrid } from './raster';
@@ -29,6 +30,12 @@ export interface LifeReport {
 const AMBIENCE_VOLUME = 0.5;
 /** A river line shorter than this (m) on the water carries no boats */
 const MIN_BOAT_ROUTE_M = 250;
+/**
+ * Metres of river per unit of the boats' density (a route carries three
+ * boats at density 1, map-life): a fleet that fills the river as it is
+ * long, between half and the most an area takes
+ */
+const RIVER_M_PER_DENSITY = 800;
 /** Seamarks on the map from which its river counts as a waterway with ships */
 const SHIPPING_SEAMARKS = 3;
 /** The church whose bell rings stands at most this far (m) from the HQ */
@@ -56,7 +63,8 @@ export function growLife(doc: CustomMapDocument, features: OsmFeatures, water: W
   if (river) {
     riverId = id('boats');
     report.boats = shipping ? 'fishing-boat' : 'rowboat';
-    areas.push({ id: riverId, kind: 'boats', shape: 'route', points: river, asset: report.boats, density: shipping ? 1 : 0.6 });
+    const density = Math.min(LIFE_AREA_DENSITY.max, Math.max(0.5, polylineLength(river) / RIVER_M_PER_DENSITY)) * (shipping ? 1 : 0.6);
+    areas.push({ id: riverId, kind: 'boats', shape: 'route', points: river, asset: report.boats, density: Math.round(density * 10) / 10 });
     areas.push({ id: id('gulls'), kind: 'birds', shape: 'route', points: river, species: 'gulls', height: 30, density: 0.7 });
   }
   const marinas = features.areas

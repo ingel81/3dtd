@@ -18,7 +18,7 @@ export interface SpawnAnchor {
 }
 
 /** What kind of landmark, as the frame names it */
-export type LandmarkKind = 'cathedral' | 'church' | 'place of worship' | 'town hall' | 'castle' | 'city gate' | 'tower' | 'monument' | 'museum' | 'sight';
+export type LandmarkKind = 'cathedral' | 'church' | 'place of worship' | 'town hall' | 'castle' | 'palace' | 'city gate' | 'tower' | 'monument' | 'museum' | 'sight';
 
 export interface Landmark {
   x: number;
@@ -40,6 +40,7 @@ const LANDMARK_MERGE_M = 40;
 const KIND_SCORE: Readonly<Record<LandmarkKind, number>> = {
   cathedral: 6,
   castle: 5,
+  palace: 5,
   church: 4,
   'town hall': 4,
   'city gate': 4,
@@ -62,22 +63,22 @@ export function spawnAnchors(features: OsmFeatures): SpawnAnchor[] {
     const t = pt.tags;
     const name = shortName(t['name']);
     if (t['railway'] === 'station' || t['railway'] === 'halt' || t['public_transport'] === 'station') {
-      add(pt, name ? `${name} station` : 'Station', 0);
+      add(pt, named(name, 'station', STATION_WORDS), 0);
     } else if (t['seamark:type'] === 'harbour') {
-      add(pt, name ? `${name} harbour` : 'Harbour', 1);
+      add(pt, named(name, 'harbour', HARBOUR_WORDS), 1);
     } else if (t['highway'] === 'bus_stop' || t['railway'] === 'tram_stop') {
-      add(pt, name ? `${name} stop` : 'Stop', 2);
+      add(pt, named(name, 'stop', STOP_WORDS), 2);
     }
   }
   for (const a of features.areas) {
     const t = a.tags;
     const name = shortName(t['name']);
     if (t['amenity'] === 'parking' && (t['parking'] ?? 'surface') === 'surface' && a.area >= CAR_PARK_MIN_AREA) {
-      add(areaMiddle(a), name ? `${name} car park` : 'Car park', 1);
+      add(areaMiddle(a), named(name, 'car park', CAR_PARK_WORDS), 1);
     } else if (t['leisure'] === 'marina' || t['landuse'] === 'harbour') {
-      add(areaMiddle(a), name ? `${name} harbour` : 'Harbour', 1);
+      add(areaMiddle(a), named(name, 'harbour', HARBOUR_WORDS), 1);
     } else if (t['railway'] === 'station' || t['public_transport'] === 'station') {
-      add(areaMiddle(a), name ? `${name} station` : 'Station', 0);
+      add(areaMiddle(a), named(name, 'station', STATION_WORDS), 0);
     }
   }
   return out;
@@ -112,6 +113,7 @@ export function findLandmarks(features: OsmFeatures, from: MapPoint, reachM: num
 /** The landmark kind of an element's tags, null for none */
 export function landmarkKind(tags: Readonly<Record<string, string>>, area: number): LandmarkKind | null {
   const historic = tags['historic'] ?? '';
+  if (tags['building'] === 'palace' || /^(palace|stately|manor)$/.test(tags['castle_type'] ?? '')) return 'palace';
   if (historic === 'castle' || tags['building'] === 'castle') return 'castle';
   if (historic === 'city_gate') return 'city gate';
   if (tags['building'] === 'cathedral') return 'cathedral';
@@ -163,6 +165,18 @@ function signedArea(ring: readonly MapPoint[]): number {
   let s = 0;
   for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) s += ring[j].x * ring[i].y - ring[i].x * ring[j].y;
   return s / 2;
+}
+
+/** Words in a name that say what the place is already, in the languages of the places surveyed and their neighbours */
+const STATION_WORDS = /bahnhof|\b(station|hbf|bf|gare|stazione|estaci[oó]n|dworzec)\b/i;
+const STOP_WORDS = /haltestelle|\b(stop|halte|arr[eê]t|fermata|parada|przystanek)\b/i;
+const CAR_PARK_WORDS = /parkplatz|parkhaus|parkeer|\b(car ?park|parking|p ?\d+|p\+r)\b/i;
+const HARBOUR_WORDS = /hafen|haven\b|\b(harbou?r|port|porto|puerto|marina)\b/i;
+
+/** A place's spawn name: its name with what it is ("Engelplatz stop"), its name alone where that says it ("Würzburg Hauptbahnhof"), else the word */
+function named(name: string, word: string, says: RegExp): string {
+  if (!name) return word[0].toUpperCase() + word.slice(1);
+  return says.test(name) ? name : `${name} ${word}`;
 }
 
 /** A stop's name without the town before it ("Miltenberg, Engelplatz" to "Engelplatz"), trimmed to 32 characters */

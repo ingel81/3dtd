@@ -24,6 +24,9 @@ describe('OSM world anchors and landmarks', () => {
         { id: 2, x: 0, y: 700, tags: { highway: 'bus_stop', name: 'Miltenberg, Engelplatz' } },
         { id: 3, x: 0, y: -700, tags: { railway: 'tram_stop' } },
         { id: 4, x: 5000, y: 0, tags: { railway: 'station', name: 'Outside' } },
+        // A name that says what the place is keeps it alone
+        { id: 5, x: 0, y: 900, tags: { public_transport: 'station', name: 'Amsterdam Centraal Station' } },
+        { id: 6, x: 0, y: -900, tags: { railway: 'station', name: 'Würzburg Hauptbahnhof' } },
       ],
       [square(10, -800, 0, 50, { amenity: 'parking', name: 'Mainwiese' }), square(11, -800, 300, 20, { amenity: 'parking' }), square(12, -800, 600, 60, { amenity: 'parking', parking: 'multi-storey' })],
     );
@@ -32,9 +35,11 @@ describe('OSM world anchors and landmarks', () => {
       ['Miltenberg station', 0],
       ['Engelplatz stop', 2],
       ['Stop', 2],
+      ['Amsterdam Centraal Station', 0],
+      ['Würzburg Hauptbahnhof', 0],
       ['Mainwiese car park', 1],
     ]);
-    expect(anchors[3].x).toBeCloseTo(-775, 5);
+    expect(anchors[5].x).toBeCloseTo(-775, 5);
   });
 
   it('weighs landmarks by kind, renown and size, less far off, and takes a church once', () => {
@@ -57,6 +62,8 @@ describe('OSM world anchors and landmarks', () => {
     expect(found[3]).toMatchObject({ kind: 'place of worship', bells: false });
     expect(findLandmarks(f, { x: 0, y: 0 }, 500).some((l) => l.kind === 'city gate')).toBe(false);
     expect(landmarkKind({ historic: 'memorial', memorial: 'plaque' }, 10)).toBeNull();
+    expect(landmarkKind({ historic: 'castle', castle_type: 'palace', name: 'Koninklijk Paleis' }, 3000)).toBe('palace');
+    expect(landmarkKind({ historic: 'castle', castle_type: 'defensive' }, 3000)).toBe('castle');
     expect(areaMiddle(square(1, 0, 0, 10, {}))).toEqual({ x: 5, y: 5 });
   });
 
