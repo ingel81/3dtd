@@ -10,7 +10,7 @@ import { StreetNetwork, STREET_RADIUS_M } from './osm-street.service';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import { HeightUpdateService } from '../world/height-update.service';
 import { MarkerVisualizationService, SpawnPoint } from '../world/marker-visualization.service';
-import { PathAndRouteService } from '../world/path-route.service';
+import { NO_ROUTE_TEXT, PathAndRouteService } from '../world/path-route.service';
 import { CameraControlService } from '../camera-control.service';
 import { CameraFramingService, GeoPoint } from '../camera-framing.service';
 import { IntroCameraFlightService } from '../world/intro-camera-flight.service';
@@ -394,8 +394,10 @@ export class LocationChangeExecutorService {
     // Validate that routes were found
     const paths = this.pathRoute.getCachedPaths();
     if (paths.size === 0) {
-      throw new Error('No route possible between HQ and spawn. The streets are not connected.');
+      throw new Error(NO_ROUTE_TEXT);
     }
+    // Spawns without one beside those with: they stay and send nothing (TODO E232)
+    this.pathRoute.warnUnroutedSpawns(callbacks.getSpawnPoints());
 
     // Initialize GlobalRouteGrid after routes are computed
     await this.engineInit.setStepCurrent('grid');

@@ -17,6 +17,7 @@ vi.mock('@angular/core', async () => {
   const actual = await vi.importActual<Record<string, unknown>>('@angular/core');
   const stubs: Record<string, unknown> = {
     UIStore: { routesVisible: () => false },
+    LocationStore: { hasRoutes: (actual['signal'] as (value: boolean) => unknown)(false) },
     GlobalRouteGridService: {
       isInitialized: () => true,
       getGroundLocalYAt: (x: number, z: number) => hill(x, z),

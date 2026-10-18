@@ -108,6 +108,8 @@ function trace(obj: object, label: string, methods: string[]): void {
 
 const BASE_POSITION = { lat: 48.77, lon: 9.18, height: 0 };
 const SPAWN_POINTS = [{ id: 'sp-1', name: 'North', lat: 48.78, lon: 9.18, height: 0 }];
+/** The spawn's route to the HQ: without one no wave starts (TODO E232) */
+const ROUTES = () => new Map([['sp-1', [{ lat: 48.78, lon: 9.18 }, { lat: 48.77, lon: 9.18 }]]]);
 
 const COMBAT = [
   'combat.updateTowerShooting',
@@ -158,7 +160,7 @@ describe('GameStateManager order of operations (characterization)', () => {
 
     const on = vi.spyOn(GameEventBus.prototype, 'on');
     gsm = new GameStateManager();
-    gsm.initialize(BASE_POSITION, SPAWN_POINTS as never[], new Map());
+    gsm.initialize(BASE_POSITION, SPAWN_POINTS as never[], ROUTES());
     subscriptions = on.mock.calls.map(([type]) => type);
     on.mockRestore();
 

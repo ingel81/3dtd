@@ -1365,6 +1365,13 @@ export class GameStateManager {
    */
   startWave(config: WaveConfig): void {
     if (this.corridorPending()) return;
+    // No spawn point with a route: nothing would come, and an empty wave
+    // would count as won and pay its gold (TODO E232). Not logged: the start
+    // never was
+    if (!this.waveManager.hasLanes()) {
+      this.eventBus.emit({ type: 'wave:refused', reason: 'no-route' });
+      return;
+    }
     // The preview shows one lane's wave and how many lanes get it (TODO E34)
     const perLane = config;
     let laneCount = 1;

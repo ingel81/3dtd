@@ -10,6 +10,7 @@ import type { WaveGoldBreakdown } from '../game-engine/game-event-bus';
 import { waveGoldTotal } from '../services/economy.service';
 import type { SpawnerState } from '../simulator/wave-snapshot';
 import { assignPlainFields, decodeNumber, encodeNumber, plainFields, type PlainRecord } from '../simulator/plain-fields';
+import { spawnsWithRoutes } from '../utils/spawn-lanes';
 
 /** What a finished wave came to. */
 export interface WaveEndResult {
@@ -130,8 +131,11 @@ export class WaveManager implements IGameManager {
   readonly phase = signal<GamePhase>('setup');
   readonly waveNumber = signal(0);
 
+  /** The lanes: the spawn points with a route (spawnsWithRoutes), in the world's order */
   spawnPoints: SpawnPoint[] = [];
   private cachedPaths = new Map<string, GeoPosition[]>();
+  /** Each lane with its route, in `spawnPoints` order */
+  private lanes: { point: SpawnPoint; path: GeoPosition[] }[] = [];
 
   /**
    * The run's spawn stream (GameRng). Default `Math.random` so a WaveManager
@@ -156,7 +160,6 @@ export class WaveManager implements IGameManager {
     accumulatedMs: number;      // game-time since last spawn
     nextDelayMs: number;        // game-time until next spawn
     spawnIndex: number;         // next entry to spawn
-    consecutiveFailures: number;
     spawnAndAdvance: () => boolean;
     recomputeDelay: () => number;
   } | null = null;
@@ -289,9 +292,16 @@ export class WaveManager implements IGameManager {
     }
   }
 
+  /** The world's spawn points and routes; a spawn point without a route stays out (spawnsWithRoutes). */
   initialize(spawnPoints: SpawnPoint[], cachedPaths: Map<string, GeoPosition[]>): void {
-    this.spawnPoints = spawnPoints;
+    this.spawnPoints = spawnsWithRoutes(spawnPoints, cachedPaths);
     this.cachedPaths = cachedPaths;
+    this.lanes = this.spawnPoints.map((point) => ({ point, path: cachedPaths.get(point.id)! }));
+  }
+
+  /** Whether a wave can come at all: one spawn point at least has a route to the HQ. */
+  hasLanes(): boolean {
+    return this.lanes.length > 0;
   }
 
   /** The route of spawn point `id`, the array its enemies hold */
@@ -340,7 +350,8 @@ export class WaveManager implements IGameManager {
 
     const schedule = config.schedule;
     const entries = schedule.entries;
-    if (entries.length === 0) return;
+    // Without a lane nothing could spawn: GameStateManager.startWave refuses such a start first
+    if (entries.length === 0 || !this.hasLanes()) return;
 
     this.waveNumber.update((n) => n + 1);
     this.phase.set('wave');
@@ -349,7 +360,8 @@ export class WaveManager implements IGameManager {
     let weight = 0;
     for (const entry of entries) weight += lineageRewardWeight(entry.enemyType);
     this.expectedBodyWeight = weight;
-    const lanes = new Set(entries.map((entry) => entry.spawnPointId).filter((id) => id !== undefined));
+    // A lane named that has no route spawns on another (spawnOne) and adds none
+    const lanes = new Set(entries.map((entry) => entry.spawnPointId).filter((id) => id !== undefined && this.laneOf(id) !== undefined));
     this.waveLaneCount = Math.max(1, lanes.size);
     this.spawnedEnemyCount = 0;
     this.damageTakenThisWave = 0;
@@ -397,29 +409,18 @@ export class WaveManager implements IGameManager {
       if (spawner.spawnIndex >= entries.length) return false;
 
       const entry = entries[spawner.spawnIndex];
-      const spawn = (entry.spawnPointId !== undefined
-        ? this.spawnPoints.find((point) => point.id === entry.spawnPointId)
-        : undefined) ?? this.selectSpawnPoint(spawnMode, spawner.spawnIndex);
-      const path = this.cachedPaths.get(spawn.id);
-      if (path && path.length > 1) {
-        const enemy = this.enemyManager.spawn(path, entry.enemyType, entry.speed, false, entry.health, 'portal', entry.elite === true, entry.camo === true);
-        // A worm puts all its segments on the route from this one entry
-        if (enemy.worm !== null) {
-          this.expectedBodyWeight += (enemy.worm.group.size - 1) * enemyRewardWeight(ENEMY_TYPES[entry.enemyType].baseHp);
-        }
-        spawner.spawnIndex++;
-        this.spawnedEnemyCount++;
-        spawner.consecutiveFailures = 0;
-        this._waveCheckDirty = true;
-      } else {
-        spawner.consecutiveFailures++;
-        if (spawner.consecutiveFailures >= this.spawnPoints.length * 2) {
-          console.error(`[WaveManager] No valid paths, aborting wave (${spawner.spawnIndex}/${entries.length})`);
-          this.expectedEnemyCount = spawner.spawnIndex;
-          this._waveCheckDirty = true;
-          return false;
-        }
+      // Every lane has its route: a lane named without one (none in a world
+      // from buildSimWorld) falls back to spawnMode like an entry without
+      const { path } = (entry.spawnPointId !== undefined ? this.laneOf(entry.spawnPointId) : undefined)
+        ?? this.selectLane(spawnMode, spawner.spawnIndex);
+      const enemy = this.enemyManager.spawn(path, entry.enemyType, entry.speed, false, entry.health, 'portal', entry.elite === true, entry.camo === true);
+      // A worm puts all its segments on the route from this one entry
+      if (enemy.worm !== null) {
+        this.expectedBodyWeight += (enemy.worm.group.size - 1) * enemyRewardWeight(ENEMY_TYPES[entry.enemyType].baseHp);
       }
+      spawner.spawnIndex++;
+      this.spawnedEnemyCount++;
+      this._waveCheckDirty = true;
       return spawner.spawnIndex < entries.length;
     };
 
@@ -428,7 +429,6 @@ export class WaveManager implements IGameManager {
       accumulatedMs: 0,
       nextDelayMs: 0,
       spawnIndex: 0,
-      consecutiveFailures: 0,
       spawnAndAdvance: spawnOne,
       recomputeDelay: () => delayForEntry(spawner.spawnIndex),
     };
@@ -437,7 +437,6 @@ export class WaveManager implements IGameManager {
       spawner.accumulatedMs = decodeNumber(state.accumulatedMs);
       spawner.nextDelayMs = decodeNumber(state.nextDelayMs);
       spawner.spawnIndex = state.spawnIndex;
-      spawner.consecutiveFailures = state.consecutiveFailures;
     } else {
       // Spawn the first immediately: its delay drawn once, as both fields (two
       // draws gave two values, and the first waited for their difference)
@@ -463,7 +462,6 @@ export class WaveManager implements IGameManager {
         accumulatedMs: encodeNumber(spawner.accumulatedMs),
         nextDelayMs: encodeNumber(spawner.nextDelayMs),
         spawnIndex: spawner.spawnIndex,
-        consecutiveFailures: spawner.consecutiveFailures,
       } : null,
       counters: plainFields(this, ['maxSpawnsPerFrame']),
     };
@@ -517,15 +515,15 @@ export class WaveManager implements IGameManager {
     }
   }
 
-  /**
-   * Select a spawn point based on mode
-   */
-  private selectSpawnPoint(mode: 'each' | 'random', index: number): SpawnPoint {
-    if (mode === 'each') {
-      return this.spawnPoints[index % this.spawnPoints.length];
-    } else {
-      return this.spawnPoints[Math.floor(this.random() * this.spawnPoints.length)];
-    }
+  /** The lane of spawn point `id`, undefined for one without a route */
+  private laneOf(id: string): { point: SpawnPoint; path: GeoPosition[] } | undefined {
+    return this.lanes.find((lane) => lane.point.id === id);
+  }
+
+  /** The lane of the `index`th entry by `mode`: round robin, or drawn from the spawn stream. */
+  private selectLane(mode: 'each' | 'random', index: number): { point: SpawnPoint; path: GeoPosition[] } {
+    const lanes = this.lanes;
+    return mode === 'each' ? lanes[index % lanes.length] : lanes[Math.floor(this.random() * lanes.length)];
   }
 
   /**
@@ -739,5 +737,6 @@ export class WaveManager implements IGameManager {
     // Drops the reference only: the map is PathAndRouteService's route cache
     this.cachedPaths = new Map();
     this.spawnPoints = [];
+    this.lanes = [];
   }
 }

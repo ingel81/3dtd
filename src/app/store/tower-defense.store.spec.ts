@@ -88,9 +88,10 @@ describe('TowerDefenseStore', () => {
       locationStore.spawnPoints.set([
         { id: 'sp1', name: 'North', lat: 48.78, lon: 9.19, color: 0xff0000 },
       ]);
+      locationStore.hasRoutes.set(true);
     });
 
-    it('is true when not in wave, not game over, not loading, and has spawn points', () => {
+    it('is true when not in wave, not game over, not loading, and a spawn has a route', () => {
       expect(store.canStartWave()).toBe(true);
     });
 
@@ -109,14 +110,16 @@ describe('TowerDefenseStore', () => {
       expect(store.canStartWave()).toBe(false);
     });
 
-    it('is false when no spawn points exist', () => {
+    it('is false when no spawn has a route, spawn points or not (TODO E232)', () => {
+      locationStore.hasRoutes.set(false);
+      expect(store.canStartWave()).toBe(false);
       locationStore.spawnPoints.set([]);
       expect(store.canStartWave()).toBe(false);
     });
 
-    it('is false when wave is active and spawn points are empty', () => {
+    it('is false when wave is active and no spawn has a route', () => {
       gameStore.phase.set('wave');
-      locationStore.spawnPoints.set([]);
+      locationStore.hasRoutes.set(false);
       expect(store.canStartWave()).toBe(false);
     });
 

@@ -10,6 +10,7 @@ import { KeyboardPanService } from '../keyboard-pan.service';
 import { MarkerVisualizationService } from '../world/marker-visualization.service';
 import { IntroCameraFlightService } from '../world/intro-camera-flight.service';
 import { RouteAnimationService } from '../world/route-animation.service';
+import { NO_ROUTE_TEXT } from '../world/path-route.service';
 import { WaveDebugService } from '../debug/wave-debug.service';
 import { SoundDebugService } from '../debug/sound-debug.service';
 import { DebugWindowService } from '../debug/debug-window.service';
@@ -326,10 +327,16 @@ export class GameLoopFacadeService {
     this.eventBusSubs.add(eventBus.onLive('wave:started', () => this.cancelAutoWave()));
     this.eventBusSubs.add(eventBus.onLive('game:over', () => this.cancelAutoWave()));
     this.eventBusSubs.add(eventBus.onLive('game:reset', () => this.cancelAutoWave()));
+    // The simulation turned a start down: no route, no wave (TODO E232). Said,
+    // and the auto-start stops, it would only be turned down again
+    this.eventBusSubs.add(eventBus.onLive('wave:refused', () => {
+      this.cancelAutoWave();
+      this.refuseNoRoute();
+    }));
 
     // The answer to a start this client sent (see startSentAt): the wave
-    // started, or the run it was meant for ended or was put back
-    for (const type of ['wave:started', 'game:over', 'game:reset', 'sim:restored'] as const) {
+    // started or was turned down, or the run it was meant for ended or was put back
+    for (const type of ['wave:started', 'wave:refused', 'game:over', 'game:reset', 'sim:restored'] as const) {
       this.eventBusSubs.add(eventBus.on(type, () => { this.startSentAt = null; }));
     }
 
@@ -468,7 +475,10 @@ export class GameLoopFacadeService {
     if (!this.initialized) return;
     if (!this.bridge.getEngine() || this.store.phase() === 'wave' || this.store.phase() === 'gameover') return;
     if (this.startInFlight()) return;
-    if (this.store.spawnPoints().length === 0) return;
+    if (!this.store.hasRoutes()) {
+      this.refuseNoRoute();
+      return;
+    }
     // The corridor of a new location or a move is still being built (CorridorBuild).
     if (this.world.corridorPending()) return;
     this.store.paused.set(false);
@@ -542,11 +552,19 @@ export class GameLoopFacadeService {
     if (!this.initialized) return;
     if (!this.bridge.getEngine() || this.store.phase() === 'wave' || this.store.phase() === 'gameover') return;
     if (this.startInFlight()) return;
-    if (this.store.spawnPoints().length === 0) return;
+    if (!this.store.hasRoutes()) {
+      this.refuseNoRoute();
+      return;
+    }
     // The corridor of a new location or a move is still being built (CorridorBuild).
     if (this.world.corridorPending()) return;
     this.store.paused.set(false);
     this.emitDebugPanelWave();
+  }
+
+  /** No spawn point has a route to the HQ: no wave starts, the banner says why (TODO E232). */
+  private refuseNoRoute(): void {
+    this.ngZone.run(() => this.uiStore.notice.set({ text: `No wave can start. ${NO_ROUTE_TEXT}`, tone: 'warn' }));
   }
 
   // ══════════════════════════════════════════════════════════════

@@ -57,7 +57,6 @@ export interface SpawnerState {
   accumulatedMs: number | string;
   nextDelayMs: number | string;
   spawnIndex: number;
-  consecutiveFailures: number;
 }
 
 export interface EnemiesState {

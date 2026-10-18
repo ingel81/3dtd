@@ -34,12 +34,28 @@ import { haversineDistance } from '../../utils/geo-utils';
 import { SpawnPoint } from './marker-visualization.service';
 import { extendPathToOptimalTurnoff, leavePathForBase, subdivideGeoPath } from '../../utils/route-geometry';
 import { UIStore } from '../../store/ui.store';
+import { LocationStore } from '../../store/location.store';
+import { spawnsWithRoutes } from '../../utils/spawn-lanes';
 import { GlobalRouteGridService } from './global-route-grid.service';
 import type { CorridorMeasurement } from './corridor-build';
 import { RouteWayRun, describeRouteWays, describeStreetTags } from './route-way-report';
 import { RouteLineLayer } from './route-line-layer';
 import { corridorTrace } from '../../utils/corridor-trace';
 import { ClearanceRun, type ClearanceSegment } from './clearance-run';
+
+/** No spawn point of the place has a route to the HQ: no enemy could come, so no wave starts (TODO E232) */
+export const NO_ROUTE_TEXT = 'No route possible between HQ and spawn. The streets are not connected.';
+
+/**
+ * Some spawn points of the place have no route to the HQ: they stay, but send
+ * no enemies (spawnsWithRoutes); the others carry the waves.
+ */
+export function unroutedSpawnsText(names: readonly string[]): string {
+  const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  return names.length === 1
+    ? `No street leads from ${list} to the HQ: it sends no enemies, the other spawns carry the waves.`
+    : `No street leads from ${list} to the HQ: they send no enemies, the other spawns carry the waves.`;
+}
 
 /**
  * What the routes need of the world's streets (WorldStreetSource: OsmStreetService, DevStreetProvider)
@@ -247,8 +263,8 @@ export class PathAndRouteService {
 
   /** Cached paths from spawn to base (key: spawnId) */
   private cachedPaths = new Map<string, RouteWaypoint[]>();
-  /** At least one spawn has a route to the HQ, i.e. `cachedPaths` is not empty */
-  readonly hasRoutes = signal(false);
+  /** At least one spawn has a route to the HQ, i.e. `cachedPaths` is not empty (LocationStore.hasRoutes) */
+  readonly hasRoutes = inject(LocationStore).hasRoutes;
   /** Bumped whenever `cachedPaths` changes (a route built, adopted, the routes cleared): what hangs on the routes follows it */
   readonly routesVersion = signal(0);
 
@@ -417,6 +433,21 @@ export class PathAndRouteService {
    */
   getCachedPaths(): Map<string, RouteWaypoint[]> {
     return this.cachedPaths;
+  }
+
+  /**
+   * After the routes of a place were built (its first load, a location
+   * change): the spawn points of `spawns` that got none say so in the banner.
+   * They stay, the waves leave them out (spawnsWithRoutes). Nothing is said
+   * when no spawn has a route: the place cannot be played, its load says so.
+   */
+  warnUnroutedSpawns(spawns: readonly { id: string; name: string }[]): void {
+    const routed = new Set(spawnsWithRoutes(spawns, this.cachedPaths).map((spawn) => spawn.id));
+    if (routed.size === 0) return;
+    const missing = spawns.filter((spawn) => !routed.has(spawn.id));
+    if (missing.length === 0) return;
+    console.warn(`[Routes] No route to the HQ from ${missing.map((spawn) => spawn.id).join(', ')}: no lane`);
+    this.uiStore.notice.set({ text: unroutedSpawnsText(missing.map((spawn) => spawn.name)), tone: 'warn', lasting: true });
   }
 
   /** The street lookup for the current network, see {@link StreetEdgeIndex}. */

@@ -141,6 +141,7 @@ describe('LocationChangeCoordinatorService', () => {
     initialize: vi.fn(),
     getCachedPaths: vi.fn(() => cachedPaths),
     getRouteDetail: vi.fn(() => '1.2 km'),
+    warnUnroutedSpawns: vi.fn(),
   };
   const cameraControl = { initialize: vi.fn() };
   const cameraFraming = { computeInitialFrame: vi.fn(() => ({ frame: 1 })), setEngine: vi.fn(), applyFrame: vi.fn() };

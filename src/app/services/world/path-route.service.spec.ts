@@ -17,7 +17,11 @@ const grid = vi.hoisted(() => ({
 vi.mock('@angular/core', async () => {
   const actual = await vi.importActual<Record<string, unknown>>('@angular/core');
   const stubs: Record<string, unknown> = {
-    UIStore: { routesVisible: () => false },
+    UIStore: {
+      routesVisible: () => false,
+      // The banner as warnUnroutedSpawns sets it
+      notice: { value: null as unknown, set(value: unknown) { this.value = value; } },
+    },
     GlobalRouteGridService: {
       isInitialized: () => grid.ready,
       getGroundLocalYAt: (x: number, z: number) => grid.cellY(x, z),
@@ -30,11 +34,16 @@ vi.mock('@angular/core', async () => {
   };
   return {
     ...actual,
-    inject: (token: { name?: string }) => stubs[token?.name ?? ''] ?? {},
+    // A store of its own per service: hasRoutes starts false for each
+    inject: (token: { name?: string }) => token?.name === 'LocationStore'
+      ? { hasRoutes: (actual['signal'] as (value: boolean) => unknown)(false) }
+      : stubs[token?.name ?? ''] ?? {},
   };
 });
 
-import { PathAndRouteService } from './path-route.service';
+import { PathAndRouteService, unroutedSpawnsText } from './path-route.service';
+import { UIStore } from '../../store/ui.store';
+import { inject } from '@angular/core';
 import { TILES_STREET_STYLE } from '../../world/tiles/tiles-world';
 import { DEV_WORLD_STREET_STYLE } from '../../devworld/dev-world-provider';
 import { OsmStreetService, StreetNetwork, StreetNode } from '../location/osm-street.service';
@@ -1203,5 +1212,49 @@ describe('PathAndRouteService under a bridge of no route way', () => {
     for (const x of [-15, -1, 1, 15]) {
       expect(cells.getCellAt(x, deckZ), `${x}`).toMatchObject({ surface: 'deck', terrainHeight: 6 });
     }
+  });
+});
+
+describe('PathAndRouteService: spawns without a route (TODO E232)', () => {
+  const route = (lat: number): RouteWaypoint[] => [{ lat, lon: 9 }, { lat: 48, lon: 9 }];
+  const spawns = [{ id: 's1', name: 'North' }, { id: 's2', name: 'Harbour' }, { id: 's3', name: 'Station' }];
+  const banner = () => (inject(UIStore) as unknown as { notice: { value: { text: string; tone?: string; lasting?: boolean } | null } }).notice;
+
+  beforeEach(() => {
+    banner().value = null;
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it('names the spawns without one in the banner, warns and keeps it up through the load', () => {
+    const service = new PathAndRouteService();
+    service.adoptPaths(new Map([['s1', route(48.01)]]));
+    service.warnUnroutedSpawns(spawns);
+    expect(banner().value).toEqual({ text: unroutedSpawnsText(['Harbour', 'Station']), tone: 'warn', lasting: true });
+    expect(banner().value!.text).toContain('Harbour and Station');
+  });
+
+  it('says nothing when every spawn has one, nor when none has (the load blocks then)', () => {
+    const service = new PathAndRouteService();
+    service.adoptPaths(new Map(spawns.map((spawn, i) => [spawn.id, route(48.01 + i * 0.001)])));
+    service.warnUnroutedSpawns(spawns);
+    expect(banner().value).toBeNull();
+    service.adoptPaths(new Map());
+    service.warnUnroutedSpawns(spawns);
+    expect(banner().value).toBeNull();
+    expect(service.hasRoutes()).toBe(false);
+  });
+
+  it('counts a route of a single point as none', () => {
+    const service = new PathAndRouteService();
+    service.adoptPaths(new Map([['s1', route(48.01)], ['s2', [{ lat: 48.02, lon: 9 }]]]));
+    service.warnUnroutedSpawns(spawns.slice(0, 2));
+    expect(banner().value!.text).toBe(unroutedSpawnsText(['Harbour']));
+  });
+
+  it('reads one spawn and several apart', () => {
+    expect(unroutedSpawnsText(['Harbour'])).toMatch(/^No street leads from Harbour to the HQ: it sends/);
+    expect(unroutedSpawnsText(['A', 'B', 'C'])).toMatch(/^No street leads from A, B and C to the HQ: they send/);
   });
 });

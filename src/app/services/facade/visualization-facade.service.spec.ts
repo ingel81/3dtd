@@ -49,11 +49,11 @@ vi.mock('../../director/dps-profile-visualizer', () => ({
 import { VisualizationFacadeService } from './visualization-facade.service';
 import { CorridorBuild } from '../world/corridor-build';
 import { corridorTrace } from '../../utils/corridor-trace';
-import { UIStore } from '../../store/ui.store';
+import { UIStore, type LoadProblem } from '../../store/ui.store';
 import { StartShowService } from '../world/start-show.service';
 import { CameraControlService, type CameraView } from '../camera-control.service';
 import { MarkerVisualizationService, SpawnPoint } from '../world/marker-visualization.service';
-import { PathAndRouteService } from '../world/path-route.service';
+import { NO_ROUTE_TEXT, PathAndRouteService } from '../world/path-route.service';
 import { InputHandlerService } from '../input-handler.service';
 import { TowerPlacementService } from '../tower-placement.service';
 import { AbilityTargetingService } from '../ability-targeting.service';
@@ -212,7 +212,10 @@ describe('VisualizationFacadeService', () => {
     loadBuildingsNearRoutes: vi.fn(),
   };
   const worldContext = fakeWorldContext(osm as never);
-  const uiStore = { routesVisible: signal(true), buildingsVisible: signal(false), specialPointsDebugVisible: signal(false) };
+  const uiStore = {
+    routesVisible: signal(true), buildingsVisible: signal(false), specialPointsDebugVisible: signal(false),
+    loadProblem: signal<LoadProblem | null>(null),
+  };
   /** No menu in front: the show plays at once */
   const startShow = { whenPlayed: vi.fn((_kind: string, show: () => void) => show()), setStage: vi.fn() };
   const cameraControl = {
@@ -234,6 +237,7 @@ describe('VisualizationFacadeService', () => {
   const pathRoute = {
     initialize: vi.fn(),
     getCachedPaths: vi.fn(() => cachedPaths),
+    warnUnroutedSpawns: vi.fn(),
     getRouteDetail: vi.fn(() => '1.2 km'),
     refreshRouteLines: vi.fn(),
     toggleRouteLinesVisibility: vi.fn(),
@@ -817,11 +821,22 @@ describe('VisualizationFacadeService', () => {
       expect(cameraFraming.applyFrame).toHaveBeenCalledWith(FRAME);
     });
 
-    it('carries on without routes and only logs the problem', () => {
+    it('blocks play without a route, as a location change does, and still builds the place (TODO E232)', () => {
       cachedPaths = new Map();
+      uiStore.loadProblem.set(null);
       facade.initializeGameState();
       expect(console.error).toHaveBeenCalledWith(expect.stringContaining('No routes found'));
+      expect(uiStore.loadProblem()).toEqual({ text: expect.stringContaining(NO_ROUTE_TEXT), blocksPlay: true });
+      expect(pathRoute.warnUnroutedSpawns).not.toHaveBeenCalled();
       expect(world.buildCells).toHaveBeenCalledWith(true);
+    });
+
+    it('with routes, has the spawns without one named and leaves play open', () => {
+      uiStore.loadProblem.set(null);
+      pathRoute.warnUnroutedSpawns.mockClear();
+      facade.initializeGameState();
+      expect(uiStore.loadProblem()).toBeNull();
+      expect(pathRoute.warnUnroutedSpawns).toHaveBeenCalledWith(store.spawnPoints());
     });
   });
 

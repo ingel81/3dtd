@@ -398,6 +398,8 @@ describe('GameStateManager', () => {
       it('starts no wave, with or without a config, until the corridor is built', () => {
         const start = vi.spyOn(gsm.waveManager, 'startWave').mockImplementation(() => undefined);
         const begin = vi.spyOn(gsm.waveManager, 'beginWave').mockImplementation(() => undefined);
+        // A world whose spawn has a route: without one the start is refused anyway (TODO E232)
+        vi.spyOn(gsm.waveManager, 'hasLanes').mockReturnValue(true);
         gsm.startWave({ schedule: { entries: [] }, baseDelay: 100 } as never);
         gsm.beginWave();
         expect(start).not.toHaveBeenCalled();
