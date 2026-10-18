@@ -4,7 +4,7 @@
  * cannot reach the HQ); warnings are worth a look (very short lanes, roads
  * under water, objects on the road).
  */
-import type { CustomMapDocument, MapObject, MapPoint } from '../../world/custom-map/map-document';
+import type { CustomMapDocument, MapObject, MapPathEdge, MapPoint } from '../../world/custom-map/map-document';
 import { TOWER_TYPES } from '../../configs/tower-types.config';
 import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
 import { WATER_DEPTH_M } from '../../world/world-provider';
@@ -17,7 +17,7 @@ import { undersideGap } from '../object-ops';
 import { seatHeight, type ObjectFooting } from '../../world/custom-map/render/objects/object-seat';
 import { boxDistance } from '../../world/custom-map/object-ground';
 import { waterLevelAt } from '../../world/custom-map/water-level';
-import { bridgeDecks, deckHeightAt } from '../../world/custom-map/bridge-decks';
+import { bridgeDecks, deckHeight, deckHeightAt, type BridgeDeck } from '../../world/custom-map/bridge-decks';
 import { HeightField } from '../../world/custom-map/render/height-field';
 import { TOWER_SPOT_M2, TYPICAL_TOWER_RANGE, type BuildAreas } from './build-areas';
 import { waveEventProblems } from './wave-event-check';
@@ -294,7 +294,7 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
     }
   }
 
-  const onPaths = objectsOnPaths(doc, options, edges);
+  const onPaths = objectsOnPaths(doc, { ...options, byHeight: true }, edges);
   const blocked = onPaths.length;
   const firstBlocked = onPaths[0];
   if (firstBlocked) {
@@ -392,17 +392,51 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
 /**
  * The objects that stand on a road (`object-on-path`): ones that block
  * building or sight and are no gate a road runs through, whose ground
- * reaches onto a road (groundOnPath)
+ * reaches onto a road (groundOnPath). With `byHeight` (the editor's check)
+ * a road in a tunnel runs under them, and with footings an object whose
+ * top stays under a bridge's deck stands under it (a track under a road
+ * bridge), not on it; without, every road counts on the ground (the level
+ * scripts and the OSM buildings keep off them so)
  */
 export function objectsOnPaths(
   doc: CustomMapDocument,
-  options: Pick<ValidationOptions, 'blocksBuild' | 'roadThrough' | 'footingOf'>,
+  options: Pick<ValidationOptions, 'blocksBuild' | 'roadThrough' | 'footingOf'> & { byHeight?: boolean },
   edges = new EdgeIndex(doc.paths),
 ): MapObject[] {
   const blocks = options.blocksBuild ?? (() => false);
-  return doc.objects.filter(
-    (o) => ((o.blocksBuild ?? blocks(o.asset)) || o.blocksLos) && !options.roadThrough?.(o.asset) && groundOnPath(o, options.footingOf?.(o.asset), edges),
-  );
+  const t = doc.terrain;
+  let decks: Map<MapPathEdge, BridgeDeck> | undefined;
+  const ground = (x: number, y: number) => heightAt(t, x, y);
+  const water = (x: number, y: number) => waterLevelAt(t, x, y, ground(x, y));
+  const clear = (o: MapObject, footing: ObjectFooting | undefined, edge: MapPathEdge): boolean => {
+    if (!options.byHeight) return false;
+    if (edge.tunnel) return true;
+    if (edge.kind !== 'bridge' || !footing) return false;
+    decks ??= decksOf(edges, t);
+    const deck = decks.get(edge);
+    if (!deck) return false;
+    const top = seatHeight(footing, o, ground, water) + o.z + footing.height * (o.scale || 1);
+    const near = nearestOnPolyline(deck.line, o);
+    return !!near && top < deckHeight(deck, near.along / deck.total) - UNDER_DECK;
+  };
+  return doc.objects.filter((o) => {
+    if (!((o.blocksBuild ?? blocks(o.asset)) || o.blocksLos) || options.roadThrough?.(o.asset)) return false;
+    const footing = options.footingOf?.(o.asset);
+    return groundOnPath(o, footing, edges, (edge) => clear(o, footing, edge));
+  });
+}
+
+/** Metres an object's top keeps under a bridge's deck to stand under it */
+const UNDER_DECK = 0.5;
+
+/** The bridge decks of an index's paths on a terrain, kept per index (the OSM buildings ask once per footprint) */
+const deckCache = new WeakMap<EdgeIndex, { heights: Float32Array; decks: Map<MapPathEdge, BridgeDeck> }>();
+function decksOf(edges: EdgeIndex, t: CustomMapDocument['terrain']): Map<MapPathEdge, BridgeDeck> {
+  const kept = deckCache.get(edges);
+  if (kept && kept.heights === t.grid.heights) return kept.decks;
+  const decks = new Map(bridgeDecks(edges.paths, t, new HeightField(t.grid, t.width, t.depth)).map((d) => [d.edge, d]));
+  deckCache.set(edges, { heights: t.grid.heights, decks });
+  return decks;
 }
 
 /**
@@ -424,7 +458,7 @@ const WIDEST_PATH = 40;
  * only the object's middle counts. A stilt hut beside a boardwalk stood with
  * its middle off the deck and half its floor on it
  */
-function groundOnPath(o: MapObject, footing: ObjectFooting | undefined, edges: EdgeIndex): boolean {
+function groundOnPath(o: MapObject, footing: ObjectFooting | undefined, edges: EdgeIndex, under: (edge: MapPathEdge) => boolean = () => false): boolean {
   const s = o.scale || 1;
   const r = (footing?.footprint ?? 0) * s;
   // A rock stands on its underside (its measured plate), not on the disc of its widest overhang
@@ -432,6 +466,7 @@ function groundOnPath(o: MapObject, footing: ObjectFooting | undefined, edges: E
   const cos = Math.cos(o.rotation);
   const sin = Math.sin(o.rotation);
   for (const { edge, a, b } of edges.segmentsNear(o, r + Math.min(widestHalf(edges), WIDEST_PATH))) {
+    if (under(edge)) continue;
     const half = (edge.width / 2) * (edge.kind === 'path' ? PATH_WALL_SHARE : 1);
     const dx = b.x - a.x;
     const dy = b.y - a.y;

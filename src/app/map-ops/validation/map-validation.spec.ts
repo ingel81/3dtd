@@ -113,6 +113,25 @@ describe('validateMap', () => {
     expect(validateMap(doc).map((i) => i.code)).toContain('object-on-path');
     expect(validateMap(doc, { roadThrough: (a) => a === 'castle-gate' }).map((i) => i.code)).not.toContain('object-on-path');
   });
+
+  it('sees what stands under a bridge deck or over a tunnel as off the road', () => {
+    const doc = createMapDocument({ id: 'm', name: 'M', width: 200, depth: 200, starter: false });
+    // A road bridge north to south whose ends stand on 8 m banks, and a tunnel road east to west
+    const g = doc.terrain.grid;
+    for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) g.heights[j * g.columns + i] = Math.abs(j * g.cellSize - 100) > 20 ? 8 : 0;
+    doc.paths = {
+      nodes: [{ id: 'a', x: 0, y: -30 }, { id: 'b', x: 0, y: 30 }, { id: 'c', x: -60, y: 60 }, { id: 'd', x: 60, y: 60 }],
+      edges: [{ id: 'e1', a: 'a', b: 'b', width: 8, kind: 'bridge' }, { id: 'e2', a: 'c', b: 'd', width: 8, kind: 'road', tunnel: true }],
+    };
+    const footingOf = (a: string): ObjectFooting | undefined => (a === 'slab' ? { category: 'structure', footprint: 3, height: 0.6 } : a === 'tall' ? { category: 'structure', footprint: 3, height: 12 } : undefined);
+    const onPath = (o: { asset: string; x: number; y: number }) => {
+      doc.objects = [{ id: 'o', z: 0, rotation: 0, scale: 1, blocksBuild: true, ...o }];
+      return validateMap(doc, { footingOf }).some((i) => i.code === 'object-on-path');
+    };
+    expect(onPath({ asset: 'slab', x: 0, y: 0 })).toBe(false);
+    expect(onPath({ asset: 'tall', x: 0, y: 0 })).toBe(true);
+    expect(onPath({ asset: 'slab', x: 0, y: 60 })).toBe(false);
+  });
 });
 
 describe('validateMap, objects in the air', () => {
