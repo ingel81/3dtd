@@ -1055,7 +1055,10 @@ Abstand, die Mitten zweier Arme 0,45 (sie biegen sich auseinander).
 
 Das Sägen (E241, nur Bild): am Gegner fährt die Säge quer über ihn hin und her, waagerecht und quer zur Richtung,
 aus der der Arm kommt (0,18 Modelleinheiten je Seite, gut 0,7 m, 1,1 Mal je Sekunde), stößt zweimal je Zug ein
-wenig nach und das Schwert schleppt dem Zug bis 11° nach; der Zug setzt in 0,35 s ein und aus. Die Kette läuft um
+wenig nach und das Schwert schleppt dem Zug bis 11° nach; der Zug setzt in 0,35 s ein und aus.
+Beim Entfalten rollt die Säge um ihr Schwert, bis dessen Fläche waagerecht liegt (die nähere der beiden Lagen,
+höchstens eine Vierteldrehung), so schneidet das Blatt quer wie der Zug; eingefahren steht sie wie modelliert. Die
+Kette läuft um
 das Schwert: `tower-saw-chain.ts` drückt die modellierten Zähne einmal je Geometrie ins Schwert (nur die Positionen
 sind eigen, geteilt von allen Türmen) und zeichnet eigene Glieder auf einer Stadionbahn um `bar`, alle Glieder der
 drei Sägen in einem InstancedMesh (ein Draw-Call je Turm mehr), jedes zweite gedreht, so sitzen die Schneidzähne

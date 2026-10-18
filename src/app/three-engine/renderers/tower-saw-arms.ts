@@ -110,6 +110,9 @@ interface Arm {
   strokePhase: number;
   /** The chain round its bar (null without a `bar` or a saw), its run 0 to 1 and how far it has gone, model units */
   chain: ChainLoop | null;
+  /** Its bar along its length and its face, in the saw's own frame (null without a `bar`): out it lies flat */
+  barLength: Vector3 | null;
+  barFace: Vector3 | null;
   chainSpeed: number;
   chainAt: number;
 }
@@ -134,7 +137,7 @@ const ORDERS: readonly (readonly number[])[] = [
  * a moving enemy or a new one swings the arm over instead of jumping it.
  * There it saws (E241): it strokes across the enemy, sideways on the
  * ground to the way the arm comes in, pushing in twice a stroke, its bar
- * trailing; its chain runs round the bar (tower-saw-chain.ts, all links in
+ * trailing and lying flat (rolled so as it unfolds, layFlat); its chain runs round the bar (tower-saw-chain.ts, all links in
  * one InstancedMesh), idling docked, faster out and spinning up at work.
  * The simulation names the enemies; which arm takes which is drawn here:
  * the order with the least travel and the fewest enemies outside an arm's
@@ -160,6 +163,8 @@ export class SawArms {
   private readonly dir = new Vector3();
   private readonly endDir = new Vector3();
   private readonly tmp = new Vector3();
+  private readonly flat = new Vector3();
+  private readonly cross = new Vector3();
   private readonly q = new Quaternion();
   private readonly scale = new Vector3(1, 1, 1);
   private readonly local: Vector3[] = [new Vector3(), new Vector3(), new Vector3()];
@@ -201,6 +206,8 @@ export class SawArms {
         // The arms stroke out of step with each other
         strokePhase: index * 2.1,
         chain: spec.bar && saw ? new ChainLoop(spec.bar) : null,
+        barLength: spec.bar ? new Vector3(...spec.bar.to).sub(new Vector3(...spec.bar.from)).normalize() : null,
+        barFace: spec.bar ? new Vector3(...spec.bar.normal).normalize() : null,
         chainSpeed: CHAIN_IDLE,
         chainAt: index * 0.37,
       };
@@ -441,6 +448,29 @@ export class SawArms {
     }
   }
 
+  /**
+   * The saw rolled about its bar until the bar's face lies flat, as it
+   * unfolds (docked it is as the model has it): the blade lies across, as
+   * the saw strokes, and cuts through its enemy sideways. The nearer of the
+   * two flat lies, so it never rolls more than a quarter turn.
+   */
+  private layFlat(arm: Arm, q: Quaternion): void {
+    if (!arm.barLength || !arm.barFace) return;
+    const share = smooth(Math.min(1, arm.reach / UNFOLD_SHARE));
+    if (share <= 0) return;
+    const length = this.endDir.copy(arm.barLength).applyQuaternion(q);
+    const face = this.tmp.copy(arm.barFace).applyQuaternion(q);
+    face.addScaledVector(length, -face.dot(length));
+    const flat = this.flat.copy(UP).addScaledVector(length, -length.y);
+    if (face.lengthSq() < 1e-9 || flat.lengthSq() < 1e-9) return;
+    face.normalize();
+    flat.normalize();
+    let angle = Math.atan2(this.cross.crossVectors(face, flat).dot(length), face.dot(flat));
+    if (angle > Math.PI / 2) angle -= Math.PI;
+    else if (angle < -Math.PI / 2) angle += Math.PI;
+    q.premultiply(this.q.setFromAxisAngle(length, angle * share));
+  }
+
   /** Saw and vertebrae of one arm along its curve; returns the instances used so far. */
   private drawArm(arm: Arm, first: number): number {
     const reach = smooth(arm.reach);
@@ -453,6 +483,7 @@ export class SawArms {
     if (arm.saw) {
       arm.saw.position.copy(p3);
       arm.saw.quaternion.setFromUnitVectors(arm.axis, arm.bar).multiply(arm.restQuaternion);
+      this.layFlat(arm, arm.saw.quaternion);
       arm.saw.scale.setScalar(1 + SAW_GROWTH * reach);
     }
 
