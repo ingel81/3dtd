@@ -1,30 +1,39 @@
 <div class="mb-page td-world-bg is-maps" (dragover)="onDragOver($event)" (dragleave)="dragging.set(false)" (drop)="onDrop($event)">
-  <section class="mb-panel td-panel" aria-labelledby="mb-title" [class.is-drop]="dragging()">
-    <header class="mb-head td-line-bottom">
-      <app-world-path world="Built Worlds" [mode]="null" [modes]="false" [chips]="pathChips()" worldHint="The Built Worlds' menu"
-                      worldsHint="All worlds" (go)="onPath($event)">
-        <h1 class="td-dlg-title" id="mb-title">Map editor</h1>
-      </app-world-path>
-      <div class="td-actions">
-        <app-agent-control />
-        <button class="td-btn-secondary td-btn-sm" type="button" (click)="back()" data-test="back-to-game">
-          <td-icon name="caretL" [size]="12" />
-          <span>{{ backLabel() }}</span>
-          <kbd class="td-kbd">Esc</kbd>
-        </button>
-        @if (worlds.mapFolder) {
-          <button class="td-btn-ghost" type="button" (click)="worlds.revealMapFolder()"
-                  matTooltip="Your maps as .3dtdmap files in Documents/3DTD/Maps; put files there to add them" data-test="map-folder">Map folder</button>
-        }
-        <label class="td-btn-secondary" matTooltip="A 3DTD map (.3dtdmap) or a Warcraft 3 map (.w3x, beta)">
-          Import file
-          <input class="td-sr-only" type="file" accept=".3dtdmap,.w3x,.w3m" multiple (change)="onPick($event)" data-test="import-input" />
-        </label>
-        <button class="td-btn-primary" type="button" (click)="startNew()" data-test="new-map">
-          <td-icon name="plus" [size]="16" /> New map
-        </button>
-      </div>
+  <!-- The bar of the globes and the world menus: the editor's list is the Built Worlds' way to edit (docs/WORLDS_NAVIGATION_PLAN.md) -->
+  <header class="mb-bar td-topbar">
+    <img class="mb-bar-logo" src="assets/images/logo/logo.svg" alt="3DTD" width="64" height="36">
+    <app-world-path class="mb-path" world="Built Worlds" [mode]="null" [modes]="false" [chips]="pathChips()" worldHint="The Built Worlds' menu"
+                    worldsHint="All worlds" (go)="onPath($event)">
+      <span class="td-crumb" aria-current="page">Map editor</span>
+    </app-world-path>
+    <span class="mb-bar-gap"></span>
+    <app-agent-control />
+  </header>
+
+  <div class="mb-world" [class.is-drop]="dragging()">
+  <!-- Left the list in a world menu's panel, New map on top; right the chosen map or the new map's form -->
+  <section class="mb-panel td-panel" aria-labelledby="mb-title">
+    <header class="td-dlg-head mb-panel-head">
+      <h1 class="td-dlg-title" id="mb-title">Map editor</h1>
+      <button class="td-btn-secondary td-btn-sm" type="button" (click)="back()" data-test="back-to-game">
+        <td-icon name="caretL" [size]="12" />
+        <span>{{ backLabel() }}</span>
+        <kbd class="td-kbd">Esc</kbd>
+      </button>
     </header>
+    <div class="td-actions is-start mb-make">
+      <button class="td-btn-primary" type="button" (click)="startNew()" data-test="new-map">
+        <td-icon name="plus" [size]="16" /> New map
+      </button>
+      <label class="td-btn-secondary" matTooltip="A 3DTD map (.3dtdmap) or a Warcraft 3 map (.w3x, beta)">
+        Import file
+        <input class="td-sr-only" type="file" accept=".3dtdmap,.w3x,.w3m" multiple (change)="onPick($event)" data-test="import-input" />
+      </label>
+      @if (worlds.mapFolder) {
+        <button class="td-btn-ghost" type="button" (click)="worlds.revealMapFolder()"
+                matTooltip="Your maps as .3dtdmap files in Documents/3DTD/Maps; put files there to add them" data-test="map-folder">Map folder</button>
+      }
+    </div>
 
     @if (problem(); as problem) {
       <p class="td-banner is-warn" role="alert">{{ problem }}</p>
@@ -105,8 +114,7 @@
       </div>
     }
 
-    <div class="mb-body">
-      <div class="mb-list td-well" role="listbox" aria-label="Maps">
+      <div class="mb-list" role="listbox" aria-label="Maps">
         <h2 class="td-head">Your maps</h2>
         @for (m of own(); track m.id) {
           <button class="td-row mb-row" type="button" role="option" [attr.aria-selected]="chosen()?.id === m.id && chosen()?.origin === 'own'"
@@ -189,7 +197,10 @@
         }
       </div>
 
-      <aside class="mb-detail td-stack is-loose" [class.is-form]="mode() === 'new' && newFrom() === 'landscape'">
+    <p class="td-note mb-foot td-line-top">Drop .3dtdmap or .w3x files anywhere here to import them.</p>
+  </section>
+
+      <aside class="mb-detail td-panel td-stack is-loose" [class.is-form]="mode() === 'new' && newFrom() === 'landscape'">
         @if (mode() === 'new') {
           <h2 class="td-section">New map</h2>
           <div class="td-seg" role="radiogroup" aria-label="Start from">
@@ -206,7 +217,7 @@
                 [currentValue]="null"
                 (locationSelected)="choosePlace($event)"
               />
-              <div class="td-actions mb-new-actions">
+              <div class="td-actions mb-form-actions td-line-top">
                 <button class="td-btn-secondary" type="button" (click)="mode.set('details')">Cancel</button>
               </div>
             }
@@ -339,8 +350,5 @@
           <p class="td-note">Choose a map, or start a new one.</p>
         }
       </aside>
-    </div>
-
-    <p class="td-note mb-foot">Drop .3dtdmap or .w3x files anywhere here to import them.</p>
-  </section>
+  </div>
 </div>

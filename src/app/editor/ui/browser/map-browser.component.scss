@@ -1,28 +1,50 @@
-// Layout of the map browser: the list left, the chosen map or the new-map form right
+// Layout of the map browser: the bar, the list left, the chosen map or the new-map form right
 :host {
   display: block;
   width: 100%;
   height: 100%;
 }
 
+// The page as the globes' world menus stand (worlds-stage.component.scss): the bar on top,
+// the list in a panel left, the chosen map or the new map's form in a panel right
 .mb-page {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
   box-sizing: border-box;
   width: 100%;
   height: 100%;
-  padding: var(--td-sp-5);
 }
 
-.mb-panel {
+.mb-bar {
+  flex: 0 0 auto;
   display: flex;
-  flex-direction: column;
-  gap: var(--td-sp-4);
+  align-items: center;
+  gap: var(--td-sp-3);
+  padding: 0 var(--td-sp-4);
+}
+
+.mb-bar-logo {
+  display: block;
+  width: 64px;
+  height: auto;
+}
+
+.mb-path {
+  min-width: 0;
+}
+
+.mb-bar-gap {
+  flex: 1 1 auto;
+}
+
+.mb-world {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: minmax(360px, 440px) minmax(0, 1fr);
+  gap: var(--td-sp-5);
   box-sizing: border-box;
-  width: min(1120px, 100%);
-  height: min(880px, 100%);
-  padding: var(--td-sp-5);
+  min-height: 0;
+  padding: 24px 32px 24px 24px;
 
   &.is-drop {
     outline: 2px dashed var(--td-brass);
@@ -30,12 +52,24 @@
   }
 }
 
-.mb-head {
+.mb-panel {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--td-sp-4);
-  padding-bottom: var(--td-sp-3);
+  flex-direction: column;
+  gap: var(--td-sp-3);
+  box-sizing: border-box;
+  min-height: 0;
+  max-height: 100%;
+  padding: 18px 20px 14px;
+}
+
+// The panel's padding stands in for the dialog head's margin, as in a world menu
+.mb-panel-head {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.mb-make {
+  flex: 0 0 auto;
 }
 
 .mb-w3x {
@@ -53,19 +87,12 @@
   justify-content: space-between;
 }
 
-.mb-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 1fr);
-  gap: var(--td-sp-5);
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
 .mb-list {
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding: var(--td-sp-3);
+  padding-right: 6px;
   overflow-y: auto;
 }
 
@@ -103,7 +130,14 @@
 }
 
 .mb-detail {
+  box-sizing: border-box;
+  // In the middle of the space beside the list, as the globe stands beside a world menu
+  align-self: center;
+  justify-self: center;
+  width: min(var(--td-dlg-page), 100%);
   min-height: 0;
+  max-height: 100%;
+  padding: 18px 20px;
   overflow-y: auto;
   // A scrollbar coming or going would reflow the template grid (six columns to five and back)
   scrollbar-gutter: stable;
@@ -112,7 +146,8 @@
 .mb-preview {
   display: block;
   width: 100%;
-  max-height: 300px;
+  // Large, as the globe stands large beside a world menu
+  max-height: min(56vh, 560px);
   aspect-ratio: 1;
   object-fit: contain;
 }
@@ -165,7 +200,9 @@
 }
 
 .mb-foot {
+  flex: 0 0 auto;
   margin: 0;
+  padding-top: var(--td-sp-3);
 }
 
 .mb-templates {
@@ -213,10 +250,25 @@
   padding-top: var(--td-sp-3);
 }
 
-.mb-new-actions {
-  position: sticky;
-  bottom: 0;
-  z-index: 1;
-  padding: var(--td-sp-2) 0;
-  background: var(--td-bg-surface);
+
+// A narrow window: the chosen map under the list, the page scrolls
+@media (max-width: 900px) {
+  .mb-world {
+    grid-template-columns: 1fr;
+    grid-auto-rows: max-content;
+    align-content: start;
+    overflow-y: auto;
+    padding: var(--td-sp-4);
+  }
+
+  .mb-panel,
+  .mb-detail {
+    min-height: auto;
+    max-height: none;
+  }
+
+  .mb-list {
+    flex: 0 0 auto;
+    max-height: 60vh;
+  }
 }
