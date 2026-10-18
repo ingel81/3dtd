@@ -9,6 +9,8 @@ import type { MissileStart } from './missile-silo';
 import { MissileSmoke } from './missile-smoke';
 import { TAU } from './mushroom-cloud-shape';
 import type { CloudSpriteMaterials } from './mushroom-cloud-sprites';
+import { BEAM_LIGHTS } from '../../configs/shot-lights.config';
+import type { ShotLights, ShotLightSource } from '../shot-lights/shot-lights';
 
 const UP = new Vector3(0, 1, 0);
 
@@ -56,7 +58,7 @@ interface Body {
  *
  * Fixed buffers, nothing allocated per frame.
  */
-export class MissileLaunchRenderer {
+export class MissileLaunchRenderer implements ShotLightSource {
   private readonly launches: Launch[] = [];
   private activeCount = 0;
   private sequence = 0;
@@ -82,6 +84,22 @@ export class MissileLaunchRenderer {
     }
     this.exhaust = new MissileExhaust(scene, materials.glow);
     this.smoke = new MissileSmoke(scene, materials.smoke);
+  }
+
+  /**
+   * Each missile in flight lights the land at its nozzle as strong as its
+   * engine burns (docs/SHOT_LIGHTS.md), flickering as a flame does; read
+   * after update() set this frame's nozzle and thrust
+   */
+  shotLights(lights: ShotLights): void {
+    if (this.activeCount === 0) return;
+    for (let i = 0; i < this.launches.length; i++) {
+      const launch = this.launches[i];
+      if (!launch.active || launch.landed || launch.thrust <= 0) continue;
+      const flicker = 0.85 + 0.15 * Math.sin(launch.t * 37 + i * 2.3);
+      const p = launch.position;
+      lights.add(p.x, p.y, p.z, BEAM_LIGHTS.missile, launch.thrust * flicker);
+    }
   }
 
   /** Launches with a missile in the air or smoke still standing. */

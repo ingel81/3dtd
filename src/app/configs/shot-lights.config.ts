@@ -79,6 +79,8 @@ export const BEAM_LIGHTS = {
   laser: { color: [1.0, 0.45, 0.22], intensity: 3, radius: 14 },
   /** The orbital laser where its column meets the ground */
   orbital: { color: [1.0, 0.45, 0.22], intensity: 14, radius: 32 },
+  /** The nuclear strike's missile at its nozzle, by the engine's thrust: the silo and the land under its climb */
+  missile: { color: [1.0, 0.62, 0.28], intensity: 9, radius: 30 },
 } as const satisfies Record<string, ShotLightLook>;
 
 /** A chain lightning bolt, at each end of a segment */

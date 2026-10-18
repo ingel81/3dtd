@@ -367,3 +367,28 @@ describe('MissileLaunchRenderer', () => {
     expect(launches.activeLaunches).toBe(0);
   });
 });
+
+describe('MissileLaunchRenderer shot light', () => {
+  it('lights the land at the nozzle by the engine thrust while the missile flies, none once landed', () => {
+    const scene = new Scene();
+    const launches = new MissileLaunchRenderer(scene, createCloudSpriteMaterials(), () => null);
+    const camera = new PerspectiveCamera(60, 16 / 9, 1, 8000);
+    const add = vi.fn();
+    const lights = { add } as unknown as Parameters<MissileLaunchRenderer['shotLights']>[0];
+    launches.launch(STRIKE, startAt(), TARGET, WARNING_S);
+    launches.update(16, camera);
+    launches.shotLights(lights);
+    const early = add.mock.calls.length ? add.mock.calls[0][4] : 0;
+    add.mockClear();
+    launches.update(1000, camera);
+    launches.shotLights(lights);
+    expect(add).toHaveBeenCalledTimes(1);
+    const [, , , , strength] = add.mock.calls[0];
+    expect(strength).toBeGreaterThan(early);
+    add.mockClear();
+    launches.land(STRIKE);
+    launches.update(16, camera);
+    launches.shotLights(lights);
+    expect(add).not.toHaveBeenCalled();
+  });
+});

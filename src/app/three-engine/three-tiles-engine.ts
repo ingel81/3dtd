@@ -443,7 +443,9 @@ export class ThreeTilesEngine {
     // Its embers take the ground marks' blood moon tint
     this.orbitalBeams = new OrbitalBeamRenderer(this.scene, this.effects.particleShaderMaterials, this.effects.groundMarkTint);
     // The glowing projectiles and the beams hold their own lights
-    for (const source of [this.projectiles, this.flameBeams, this.laserBeams, this.orbitalBeams]) this.shotLights.addSource(source);
+    for (const source of [this.projectiles, this.flameBeams, this.laserBeams, this.orbitalBeams, this.missileLaunches]) {
+      this.shotLights.addSource(source);
+    }
 
     // Initialize spatial audio with camera listener
     this.spatialAudio = new SpatialAudioManager(this.scene, this.camera);

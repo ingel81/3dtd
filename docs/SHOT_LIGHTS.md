@@ -7,7 +7,7 @@
 Schüsse, die leuchten, beleuchten ihre Umgebung, solange sie sichtbar sind: das Mündungsfeuer von Gatling, Kanone,
 Iron Bastion und Raketenturm, leuchtende Geschosse im Flug (Leuchtspur, Granate, Orbs, Gift, Eis, Rakete), die
 Einschläge und Explosionen, die Strahlen (Flamme, Sentinel-Laser, Kettenblitz, Orbitallaser) und die Fähigkeiten
-(Atomblitz, EMP, Frostbombe). Die drei Munitionstypen des Helden laufen über dieselben Geschosse: Standard als
+(Atomblitz, Abgasflamme der Atomrakete von Start bis Einschlag, EMP, Frostbombe). Die drei Munitionstypen des Helden laufen über dieselben Geschosse: Standard als
 Leuchtspur, Explosiv als Granate mit kleiner Explosion, Rune als violetter Orb.
 
 Licht nehmen: Boden, Straßen, Brücken, Objekte, Gebäude, Gras, Bodendecals und Wasser der eigenen Karten und
@@ -21,7 +21,7 @@ dynamische Licht; auf echten Orten leuchten nur Tower und Einheiten auf.
 | Looks | `configs/shot-lights.config.ts` | Farbe, Stärke, Reichweite je Quelle; Pulse mit Dauer, Abkühlfarbe (`fade`) und Zufall (`jitter`) |
 | Sammler | `three-engine/shot-lights/shot-lights.ts` (`ShotLights`, `engine.shotLights`) | sammelt je Bild, fasst zusammen, wählt aus, schreibt den Puffer und das Raster |
 | Shader | `three-engine/shot-lights/shot-light-shader.ts` | Uniforms, `shotLightAt()`, `addShotLight()` für eingebaute Materialien |
-| Quellen mit eigenem Zustand | `three-projectile.renderer.ts`, `three-flame-beam.renderer.ts`, `laser-beam.renderer.ts`, `orbital-beam.renderer.ts` | `ShotLightSource`: je Bild ihre Lichter (Geschosse aus den Instanzmatrizen, Strahlen) |
+| Quellen mit eigenem Zustand | `three-projectile.renderer.ts`, `three-flame-beam.renderer.ts`, `laser-beam.renderer.ts`, `orbital-beam.renderer.ts`, `missile-launch.renderer.ts` | `ShotLightSource`: je Bild ihre Lichter (Geschosse aus den Instanzmatrizen, Strahlen, die Düse der Atomrakete nach Schub) |
 | Pulse | `game-engine/vfx.service.ts` | Mündungsfeuer, Einschläge, Kettenblitz, Atomblitz, EMP, Frostbombe |
 
 **Je Bild** (`ShotLights.update`, am Ende von `ThreeTilesEngine.update`): Pulse, die noch glühen, und die Lichter der
