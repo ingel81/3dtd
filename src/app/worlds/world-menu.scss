@@ -53,15 +53,21 @@
   gap: var(--td-sp-3);
 }
 
-// A row with a tool beside it: Remove from a Recent list
+// A row with a tool in it: Remove from a Recent list stands at the row's end,
+// inside its line, the row keeps room for it
 .wm-line {
-  display: flex;
-  align-items: center;
-  gap: var(--td-sp-1);
+  position: relative;
 
   > .wm-row {
-    flex: 1 1 auto;
-    min-width: 0;
+    width: 100%;
+    padding-right: calc(var(--td-tool-size) + var(--td-sp-2));
+  }
+
+  > .td-tool {
+    position: absolute;
+    top: 50%;
+    right: var(--td-sp-1);
+    transform: translateY(-50%);
   }
 }
 
