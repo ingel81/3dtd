@@ -327,4 +327,32 @@ describe('Coop page, the ways in', () => {
     })();
     expect(el(fixture).querySelector<HTMLInputElement>('input.codein')!.value).toBe('XYZ789');
   });
+
+  it('over the globes, without a game: the same ways; a code goes to the page around, hosting says where', () => {
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: LocationManagementService, useValue: { hq: signal(null), getLocationDisplayName: () => '' } },
+        { provide: GameStore, useValue: { waveNumber: signal(0), towerCount: signal(0), isGameOver: signal(false) } },
+        { provide: LocationStore, useValue: { spawnPoints: signal([]) } },
+      ],
+    });
+    TestBed.overrideComponent(CoopWaysComponent, {
+      set: { template, templateUrl: undefined, styleUrl: undefined, styles: [], imports: [IconStub] },
+    });
+    const fixture = TestBed.createComponent(CoopWaysComponent);
+    const joins = vi.fn();
+    fixture.componentInstance.joinCode.subscribe(joins);
+    fixture.detectChanges();
+    expect(text(fixture)).toContain('Your name');
+    expect(text(fixture)).toContain('Host online');
+    expect(text(fixture)).toContain('Join online');
+    expect(text(fixture)).toContain('Same network');
+    expect(button(fixture, 'Host a room')).toBeNull();
+    const code = el(fixture).querySelector<HTMLInputElement>('input.codein')!;
+    code.value = 'abc123';
+    code.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    el(fixture).querySelector('.code-row')!.querySelector('button')!.click();
+    expect(joins).toHaveBeenCalledWith('ABC123');
+  });
 });

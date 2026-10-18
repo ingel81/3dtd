@@ -71,7 +71,7 @@ import {
   type CoopRoomOptions,
   type RoomOptionKey,
 } from '../coop/room-options';
-import { readText, writeText } from '../utils/storage';
+import { readCoopName, writeCoopName } from '../coop/coop-name';
 import { MatDialog } from '@angular/material/dialog';
 import { askRunUpload, RUN_UPLOAD_AFTER_GAME_OVER_MS } from '../components/run-upload-dialog/run-upload-dialog.component';
 import { packRunLog, readRunUploadConsent, writeRunUploadConsent } from '../run-log/run-upload';
@@ -161,8 +161,6 @@ const MAX_CHAT_LINES = 100;
 /** A round trip above this reads as a slow connection (the squad's lag state, D45), ms */
 export const LAG_MS = 160;
 
-/** The name the player gave last time, kept in this browser */
-const NAME_KEY = '3dtd-coop-name';
 /** How long a ping mark stays on the map, ms */
 const PING_MS = 4000;
 /** The lobby's walking time of a lane: a zombie's pace, the standard enemy */
@@ -776,13 +774,13 @@ export class CoopService {
   }
 
   get name(): string {
-    return this.sessionName ?? readText(NAME_KEY) ?? 'Player';
+    return this.sessionName ?? readCoopName() ?? 'Player';
   }
 
   set name(value: string) {
     // Storage blocked: the name holds for this session all the same
     this.sessionName = value;
-    writeText(NAME_KEY, value);
+    writeCoopName(value);
   }
 
   /** The facade's wave start, run by the host once everyone is ready. */

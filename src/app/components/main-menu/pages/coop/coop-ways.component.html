@@ -4,27 +4,29 @@
     <span>Your name</span>
     <input class="td-input cw-name" type="text" maxlength="32" [value]="name()" (input)="setName($any($event.target).value)" />
   </label>
-  @if (c.lobbies().length) {
-    <label class="td-setting">
-      <span>Online lobby</span>
-      <span class="td-inline">
-        <select class="td-select cw-select lobby-select is-auto" [value]="c.lobby()?.url ?? ''" (change)="pickLobby($any($event.target))">
-          @for (lobby of c.lobbies(); track lobby.url) {
-            <option [value]="lobby.url" [selected]="lobby.url === c.lobby()?.url">{{ lobby.name }}</option>
-          }
-        </select>
-        @if (c.lobbyPing() !== null) { <span class="td-note td-num">{{ c.lobbyPing() }} ms</span> }
-      </span>
-    </label>
-  } @else {
-    <p class="td-note">No online lobby is set up yet. Settings adds the address you were given.</p>
-  }
-  @if (c.needsKey()) {
-    <p class="td-note">Every player needs their own map key; you enter yours before the map loads.</p>
+  @if (c) {
+    @if (c.lobbies().length) {
+      <label class="td-setting">
+        <span>Online lobby</span>
+        <span class="td-inline">
+          <select class="td-select cw-select lobby-select is-auto" [value]="c.lobby()?.url ?? ''" (change)="pickLobby($any($event.target))">
+            @for (lobby of c.lobbies(); track lobby.url) {
+              <option [value]="lobby.url" [selected]="lobby.url === c.lobby()?.url">{{ lobby.name }}</option>
+            }
+          </select>
+          @if (c.lobbyPing() !== null) { <span class="td-note td-num">{{ c.lobbyPing() }} ms</span> }
+        </span>
+      </label>
+    } @else {
+      <p class="td-note">No online lobby is set up yet. Settings adds the address you were given.</p>
+    }
+    @if (c.needsKey()) {
+      <p class="td-note">Every player needs their own map key; you enter yours before the map loads.</p>
+    }
   }
 </section>
 
-@if (c.room(); as r) {
+@if (c?.room(); as r) {
   <section class="td-group">
     <p class="td-text">You are in room <b class="td-code">{{ r.code }}</b>.</p>
     <div class="td-actions is-start">
@@ -37,14 +39,16 @@
     <div class="cw-way">
       <div class="td-stack cw-way-text">
         <h3 class="td-section" id="td-coop-host">Host online</h3>
-        @if (placeName(); as place) {
+        @if (!c) {
+          <p class="td-note">A room opens on the place or map you play: start one, then Coop in its menu (Esc).</p>
+        } @else if (placeName(); as place) {
           <p class="td-note">Opens a room on {{ place }}. Friends join with the code or the link.
             <button class="td-link" type="button" (click)="changePlace.emit()">Change place</button></p>
         } @else {
           <p class="td-note">A room opens on the place you play. <button class="td-link" type="button" (click)="changePlace.emit()">Choose a place</button></p>
         }
       </div>
-      @if (confirmHost() !== 'online') {
+      @if (c && confirmHost() !== 'online') {
         <button class="td-btn-primary" type="button" (click)="host('online')" [disabled]="busy() || !placeName() || !c.lobby()">
           {{ busy() && c.intent() === 'host' ? 'Opening…' : 'Host a room' }}
         </button>
@@ -63,7 +67,7 @@
   <section class="td-group" aria-labelledby="td-coop-join">
     <div class="cw-way">
       <h3 class="td-section" id="td-coop-join">Join online</h3>
-      @if (c.lobby()) {
+      @if (!c || c.lobby()) {
         <span class="td-inline code-row">
           <input class="td-input is-code codein" type="text" maxlength="6" placeholder="CODE" aria-label="Room code"
                  [value]="code()" (input)="code.set($any($event.target).value)" (keydown.enter)="join()" />
@@ -71,7 +75,7 @@
         </span>
       }
     </div>
-    @if (c.lobby(); as active) {
+    @if (c?.lobby(); as active) {
       @if (publicRooms(); as rooms) {
         <table class="td-table cw-rooms">
           <caption class="td-sr-only">Open rooms</caption>
@@ -107,7 +111,7 @@
         </table>
       } @else {
         <p class="td-banner is-warn is-row" role="status">
-          <span>{{ active.name }} does not answer right now.{{ c.lanAvailable ? ' Playing on the same network still works.' : '' }}</span>
+          <span>{{ active.name }} does not answer right now.{{ c?.lanAvailable ? ' Playing on the same network still works.' : '' }}</span>
           <button class="td-btn-secondary td-btn-sm" type="button" (click)="refreshRooms()">Retry</button>
         </p>
       }
@@ -116,7 +120,7 @@
 
   <!-- Same network: the desktop app finds and hosts games itself -->
   <section class="td-group" aria-labelledby="td-coop-lan">
-    @if (c.lanAvailable) {
+    @if (c?.lanAvailable) {
       <div class="cw-way">
         <div class="td-stack cw-way-text">
           <h3 class="td-section" id="td-coop-lan">Same network</h3>
@@ -171,6 +175,9 @@
           <li>Guest Wi-Fi often keeps devices apart: use the main Wi-Fi or a cable.</li>
         </ul>
       }
+    } @else if (lanBridge) {
+      <h3 class="td-section" id="td-coop-lan">Same network</h3>
+      <p class="td-note">Start a place or a map, then Coop in its menu finds and hosts games on this network.</p>
     } @else {
       <h3 class="td-section" id="td-coop-lan">Same network</h3>
       <p class="td-note">Games on the same network run in the desktop app.
@@ -187,10 +194,10 @@
   </p>
 }
 
-@if (c.error(); as error) {
+@if (c?.error(); as error) {
   <p class="td-banner is-error is-row" role="alert">
     <span>{{ error }}</span>
-    @if (c.updateReady()) {
+    @if (c?.updateReady()) {
       <button class="td-btn-secondary td-btn-sm" type="button" (click)="installUpdate()">Update now</button>
     }
   </p>

@@ -11,6 +11,8 @@ import { GameStore } from '../../../../store/game.store';
 import { LocationStore } from '../../../../store/location.store';
 import { LocationManagementService } from '../../../../services/location/location-management.service';
 import { APP_DOWNLOADS } from '../../../../coop/coop-access';
+import { readCoopName, writeCoopName } from '../../../../coop/coop-name';
+import { readCoopLan } from '../../../../core/desktop-bridge';
 
 /** How often the open rooms of the lobby are looked at while shown, ms */
 const ROOMS_EVERY_MS = 5000;
@@ -22,9 +24,13 @@ const LAN_QUIET_MS = 4000;
 export type HostWay = 'online' | 'lan';
 
 /**
- * The ways into a coop room on the menu's Coop page (docs/COOP_PLAN.md,
- * D61, D67; plan E121): the player's name and the online lobby on top, then
- * three ways one under the other. Host online opens a room on the place
+ * The ways into a coop room (docs/COOP_PLAN.md, D61, D67; plan E121), the
+ * same page in the game's menu and over the globes: the player's name and
+ * the online lobby on top, then three ways one under the other. Over the
+ * globes no game runs and there is no coop service: the name is the stored
+ * one, Join with a code hands the code to the page around it (joinCode: the
+ * globes open the game on the room as an invite link does), and hosting says
+ * where it is done. Host online opens a room on the place
  * loaded (it needs one; "Change place" goes to New game) and asks first when
  * that ends a solo run (a map with one spawn gets a second lane). Join online
  * takes a room code or a room of the lobby's public list, looked at every
@@ -46,18 +52,23 @@ export class CoopWaysComponent {
   private readonly locationStore = inject(LocationStore);
   private readonly locationMgmt = inject(LocationManagementService);
 
-  /** The game's coop service; the page shows this only where there is one */
-  readonly coop: CoopService = inject(COOP);
+
+  /** The game's coop service; none over the globes, where no game runs */
+  readonly coop: CoopService | null = inject(COOP, { optional: true });
+  /** The desktop app's network search exists (over the globes it runs once a game does) */
+  protected readonly lanBridge = readCoopLan() !== null;
   /** "Change place" or "Choose a place": the page opens New game */
   readonly changePlace = output<void>();
   /** "Open the room": the page closes the menu, the dock shows the room */
   readonly openRoom = output<void>();
+  /** Join with a code where no game runs (the globes): the page around opens the game on the room */
+  readonly joinCode = output<string>();
 
   protected readonly maxPlayers = MAX_PLAYERS;
   protected readonly allDownloads = APP_DOWNLOADS.all;
 
-  readonly name = signal(this.coop.name);
-  readonly code = signal(this.coop.roomFromUrl ?? '');
+  readonly name = signal(this.coop?.name ?? readCoopName() ?? 'Player');
+  readonly code = signal(this.coop?.roomFromUrl ?? '');
 
   /** The place loaded, the one a room opens on; '' before the first */
   readonly placeName = computed(() => (this.locationMgmt.hq() ? this.locationMgmt.getLocationDisplayName() : ''));
@@ -77,9 +88,9 @@ export class CoopWaysComponent {
   /** A host button was pressed while it would end the solo run: the section asks once more */
   readonly confirmHost = signal<HostWay | null>(null);
 
-  readonly busy = computed(() => this.coop.status() === 'connecting');
+  readonly busy = computed(() => this.coop?.status() === 'connecting');
   /** The lobby's open rooms, each with why it cannot be joined where it cannot */
-  readonly publicRooms = computed(() => this.coop.publicRooms()?.map((room) => ({ ...room, why: publicRefusal(room) })) ?? null);
+  readonly publicRooms = computed(() => this.coop?.publicRooms()?.map((room) => ({ ...room, why: publicRefusal(room) })) ?? null);
 
   /** The LAN scan has found nothing for a while */
   readonly lanQuiet = signal(false);
@@ -88,16 +99,17 @@ export class CoopWaysComponent {
   /** The refresh button turns for a moment after a click */
   readonly rescanning = signal(false);
   /** LAN games, each with why it cannot be joined where it cannot */
-  readonly lanGames = computed(() => this.coop.lanGames().map((game) => ({ ...game, why: lanRefusal(game) })));
+  readonly lanGames = computed(() => this.coop?.lanGames().map((game) => ({ ...game, why: lanRefusal(game) })) ?? []);
 
   /** One timer for "the scan stays quiet": the first search and every search again share it */
   private quietTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
+    const coop = this.coop;
+    if (!coop) return;
     // Look for LAN games while the page shows, not while connecting or in a room
     let scanning = false;
     effect(() => {
-      const coop = this.coop;
       const on = coop.lanAvailable && coop.status() !== 'connecting' && !coop.room();
       if (on === scanning) return;
       scanning = on;
@@ -110,13 +122,13 @@ export class CoopWaysComponent {
     // The open rooms of the lobby, every few seconds while not in a room
     const listTimer = setInterval(() => this.refreshRooms(), ROOMS_EVERY_MS);
     effect(() => {
-      this.coop.lobby();
+      coop.lobby();
       untracked(() => this.refreshRooms());
     });
     inject(DestroyRef).onDestroy(() => {
       this.stopQuiet();
       clearInterval(listTimer);
-      if (scanning) this.coop.scanLan(false);
+      if (scanning) coop.scanLan(false);
     });
   }
 
@@ -126,17 +138,19 @@ export class CoopWaysComponent {
 
   setName(value: string): void {
     this.name.set(value);
-    this.coop.name = value.trim() || 'Player';
+    const name = value.trim() || 'Player';
+    if (this.coop) this.coop.name = name;
+    else writeCoopName(name);
   }
 
   pickLobby(select: HTMLSelectElement): void {
-    this.coop.selectLobby(select.value);
+    this.coop?.selectLobby(select.value);
   }
 
   /** Host on a way; a solo run that would end is asked about first */
   host(way: HostWay): void {
     const coop = this.coop;
-    if (!this.placeName()) return;
+    if (!coop || !this.placeName()) return;
     if (this.soloRunEnds() && this.confirmHost() !== way) {
       this.confirmHost.set(way);
       return;
@@ -148,29 +162,32 @@ export class CoopWaysComponent {
 
   refreshRooms(): void {
     const coop = this.coop;
-    if (!coop.lobby() || coop.room() || coop.status() === 'connecting') return;
+    if (!coop || !coop.lobby() || coop.room() || coop.status() === 'connecting') return;
     void coop.refreshPublicRooms();
   }
 
   joinRoom(room: { code: string; why: string | null }): void {
     if (room.why) return;
-    void this.coop.join(this.playerName(), room.code);
+    void this.coop?.join(this.playerName(), room.code);
   }
 
+  /** In a game the room is joined here; over the globes the page around opens the game on it */
   join(): void {
     const code = this.code().trim().toUpperCase();
     if (!code) return;
-    void this.coop.join(this.playerName(), code);
+    if (this.coop) void this.coop.join(this.playerName(), code);
+    else this.joinCode.emit(code);
   }
 
   joinLan(game: LanGame & { why: string | null }): void {
     if (game.why) return;
-    void this.coop.joinLan(this.playerName(), game);
+    void this.coop?.joinLan(this.playerName(), game);
   }
 
   /** Start the search over: fresh sockets on every adapter, an empty list, the IP field after a while again */
   rescanLan(): void {
     const coop = this.coop;
+    if (!coop) return;
     coop.scanLan(false);
     coop.scanLan(true);
     this.lanProbe.set(null);
@@ -183,7 +200,7 @@ export class CoopWaysComponent {
     this.quietTimer = setTimeout(() => {
       this.quietTimer = null;
       this.rescanning.set(false);
-      this.lanQuiet.set(this.coop.lanGames().length === 0);
+      this.lanQuiet.set(this.lanGames().length === 0);
     }, LAN_QUIET_MS);
   }
 
@@ -197,7 +214,7 @@ export class CoopWaysComponent {
   async probeLan(): Promise<void> {
     const ip = this.hostIp().trim();
     const coop = this.coop;
-    if (!ip) return;
+    if (!coop || !ip) return;
     this.lanProbe.set('busy');
     this.lanProbe.set((await coop.probeLan(ip)) ? null : 'none');
   }
@@ -205,12 +222,13 @@ export class CoopWaysComponent {
   /** Stop connecting: no room, no world coming */
   cancelConnect(): void {
     const coop = this.coop;
+    if (!coop) return;
     coop.intent.set(null);
     coop.leave();
   }
 
   installUpdate(): void {
-    this.coop.installUpdate();
+    this.coop?.installUpdate();
   }
 }
 

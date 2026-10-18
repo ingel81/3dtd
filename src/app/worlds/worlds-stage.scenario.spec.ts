@@ -185,6 +185,8 @@ describe('Worlds stage', () => {
     TestBed.overrideComponent(WorldRealComponent, { set: { imports: [IconStub, SearchStub, RovingGroupDirective, StageContinueComponent] } });
     TestBed.overrideComponent(WorldRealComponent, { remove: { imports: [AddressAutocompleteComponent, TdIconComponent] } });
     TestBed.overrideComponent(WorldMapsComponent, { set: { imports: [IconStub, StageContinueComponent] } });
+    // The coop page (CoopWaysComponent, a templateUrl) has its own spec; the stage only holds it
+    TestBed.overrideComponent(StageCoopComponent, { set: { imports: [], template: '' } });
     TestBed.overrideComponent(WorldOsmComponent, { set: { imports: [IconStub, SearchStub, FrameStub, StageContinueComponent] } });
     TestBed.overrideComponent(StageContinueComponent, { set: { imports: [IconStub] } });
     const fixture = TestBed.createComponent(WorldsStageComponent);
