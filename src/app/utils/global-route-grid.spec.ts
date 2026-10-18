@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { StampField } from './stamp-field';
 import { GlobalRouteGrid } from './global-route-grid';
 import type { ColumnSample } from '../three-engine/column-sample';
 import type { Enemy } from '../entities/enemy.entity';
@@ -175,6 +176,32 @@ describe('GlobalRouteGrid terrain sampling', () => {
     expect(sampler).not.toHaveBeenCalled();
     // The 85 m hull the cells hold stands behind the wall at 10 m.
     expect(grid.getCellsInRange(10, 0, 6).some((c) => c.towerVisibility.get('t1'))).toBe(false);
+  });
+
+  it("probes a tower's sight where the craters and the rubble put the enemies (StampField)", () => {
+    // The street at 3 m from the start
+    finer();
+    grid.generateFromRoutes(route as never);
+    const ctx = { referencePos: { x: 10, y: 20, z: 0 } } as never;
+    const seen = () => grid.getCellsInRange(10, 0, 6).filter((c) => c.towerVisibility.get('t1')).length;
+    grid.registerTower('t1', 10, 0, 6, ctx);
+    const before = seen();
+    expect(before).toBeGreaterThan(0);
+    // A heap 6 m high over the street lifts the probes above the wall at 10 m
+    const field = new StampField(grid.cellSpan()!);
+    field.rubbleHeap({ x: 10, z: 0, cos: 1, sin: 0, coreX: 20, coreZ: 20, falloff: 1, peakCm: 600 }, 1);
+    grid.setStampField(field);
+    grid.registerTower('t1', 10, 0, 6, ctx);
+    expect(seen()).toBe(0);
+    grid.setStampField(null);
+    grid.registerTower('t1', 10, 0, 6, ctx);
+    expect(seen()).toBe(before);
+  });
+
+  it('spans the indices of its cells, none without', () => {
+    // The route from x 0 to 20 with its corridor, cells of 2 m
+    expect(grid.cellSpan()).toEqual({ minIx: -2, minIz: -2, maxIx: 11, maxIz: 1 });
+    expect(new GlobalRouteGrid().cellSpan()).toBeNull();
   });
 
   it('keeps the answers a tower has when it registers again on finer tiles', () => {

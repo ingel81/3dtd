@@ -56,6 +56,7 @@ import { TICK_SUB_STEPS, type LockstepLink } from '../coop/lockstep';
 import { HASH_EVERY_TICKS } from '../coop/hash-check';
 import { buildWorldPackage, packagePaths, readWorldPackage } from '../coop/world-package';
 import { buildSimWorld, worldSourceOf, type SimWorld, type SimWorldOptions } from './sim-world';
+import type { RunStructure } from '../sim/protocol/run-rules';
 import { TEST_WORLD_REF } from '../../test/world-context-fake';
 
 const SEED = 0xc0de;
@@ -487,9 +488,9 @@ describe('Coop world package (COOP_PLAN C1)', () => {
   });
 
   /** The host's world, packed and sent as text, and a joiner built from it on tiles that give nothing */
-  function hostAndJoiner(relay: LocalRelay) {
+  function hostAndJoiner(relay: LocalRelay, extra: SimWorldOptions = {}) {
     Math.random = mulberry32(SEED + 1);
-    const host = buildClient(relay, 'a', { ground: hills });
+    const host = buildClient(relay, 'a', { ground: hills, ...extra });
     const source = worldSourceOf(host.world);
     const text = JSON.stringify(buildWorldPackage(source, { ...HEAD, world: TEST_WORLD_REF }));
     const read = readWorldPackage(text, HEAD);
@@ -498,6 +499,7 @@ describe('Coop world package (COOP_PLAN C1)', () => {
     const joiner = buildClient(relay, 'b', {
       ground: () => null,
       world: { paths: packagePaths(world), spawns: world.spawns, heights: world.heights },
+      ...extra,
     });
     return { host, joiner, world, source };
   }
@@ -608,6 +610,100 @@ describe('Coop world package (COOP_PLAN C1)', () => {
     // The placed tower stands on both sides
     expect(joiner.gsm.towerManager.getAll().length).toBe(host.gsm.towerManager.getAll().length);
     expect(host.gsm.towerManager.getAll().length).toBe(9);
+    let compared = 0;
+    for (const [step, hash] of host.hashes) {
+      const other = joiner.hashes.get(step);
+      if (other === undefined) continue;
+      if (other !== hash) throw new Error(`diverged at sub-step boundary ${step}`);
+      compared++;
+    }
+    expect(compared).toBeGreaterThan(500);
+    expect(relay.divergences).toEqual([]);
+  });
+
+  it('keeps host and joiner in step through a wave that wrecks the world: structures, craters, rubble, a nuke (docs/DESTRUCTION_PLAN.md)', () => {
+    // Houses along the second route (its cannon and rocket stand at east 209 and 189, between them), one on the road fallen beforehand,
+    // one whose roof carries a tower
+    const houses: RunStructure[] = [];
+    for (let n = 40; n <= 560; n += 40) {
+      for (const east of [211, 189]) {
+        houses.push({ id: `h${n}-${east}`, lat: n / M, lon: east / M, radius: 5, height: 9, hp: 260, box: [east, n, 4, 4, 0.3], roof: true });
+      }
+    }
+    houses.push({ id: 'ruin', lat: 130 / M, lon: 203 / M, radius: 5, height: 9, hp: 260, start: 0 });
+    const damage = { structures: houses, destruction: { craters: true, wear: true } };
+    const relay = new LocalRelay();
+    const { host, joiner } = hostAndJoiner(relay, { damage });
+    // The joiner's transcendentals off in their last bits, as another engine's
+    const skewed = ['sin', 'cos', 'tan', 'atan', 'atan2', 'exp', 'log', 'pow', 'hypot'] as const;
+    const math = Math as unknown as Record<string, (...args: number[]) => number>;
+    const native = Object.fromEntries(skewed.map((fn) => [fn, math[fn]]));
+    const joinerRun = joiner.run.bind(joiner);
+    joiner.run = <T>(fn: () => T): T => {
+      for (const name of skewed) math[name] = (...args: number[]) => native[name](...args) * (1 + 2 ** -40);
+      try {
+        return joinerRun(fn);
+      } finally {
+        for (const name of skewed) math[name] = native[name];
+      }
+    };
+
+    host.emit({ type: 'debug:add-credits', amount: 20000 });
+    joiner.emit({ type: 'debug:add-credits', amount: 20000 });
+    host.emit({ type: 'debug:complete-all-research' });
+    host.emit({ type: 'command:place-tower', typeId: 'missile-silo', position: { lat: 20 / M, lon: 240 / M, height: 0 } });
+    // On the roof of the house at 280 m, east 211
+    host.emit({ type: 'command:place-tower', typeId: 'archer', position: { lat: 280 / M, lon: 211 / M, height: 9 } });
+    host.emit({ type: 'command:start-wave', director: directorWave() });
+    let waved = false;
+    let nuked = false;
+    let lowest = Infinity;
+    let highest = -Infinity;
+    for (let f = 0; f < 20000; f++) {
+      if (!nuked && host.gsm.waveManager.phase() === 'wave' && f > 200) {
+        host.emit({ type: 'debug:ready-ability', abilityId: 'nuclear-strike' });
+        host.emit({ type: 'command:use-ability', abilityId: 'nuclear-strike', target: { lat: 300 / M, lon: 200 / M } });
+        nuked = true;
+      }
+      const lead = Math.max(host.gsm.subStep, joiner.gsm.subStep) + 3 * TICK_SUB_STEPS;
+      while ((relay.lastClosed + 1) * TICK_SUB_STEPS <= lead) relay.closeTick();
+      host.link.deliver();
+      joiner.link.deliver();
+      host.frame(16 + ((f * 7) % 31));
+      joiner.frame(20 + ((f * 11) % 29));
+      host.world.answerLos();
+      // The ground the enemies of the second route stand on, over the hills' own
+      for (const enemy of host.gsm.enemyManager.getAll()) {
+        if (Math.abs(enemy.position.lon * M - 200) > 5 || enemy.typeConfig.isAirUnit) continue;
+        const local = host.gsm.coords.sync.geoToLocalSimple(enemy.position.lat, enemy.position.lon, 0);
+        const lift = enemy.transform.terrainHeight - (host.world.grid.getGroundLocalYAt(local.x, local.z) ?? 0);
+        lowest = Math.min(lowest, lift);
+        highest = Math.max(highest, lift);
+      }
+      const phase = host.gsm.waveManager.phase();
+      if (phase === 'wave') waved = true;
+      else if (waved && joiner.gsm.waveManager.phase() !== 'wave') break;
+    }
+    expect([waved, nuked]).toEqual([true, true]);
+    joiner.link.deliver();
+    const end = (relay.lastClosed + 1) * TICK_SUB_STEPS;
+    for (let i = 0; i < 20000 && (host.gsm.subStep < end || joiner.gsm.subStep < end); i++) { host.frame(40); joiner.frame(40); }
+
+    const hd = host.gsm.worldDamage;
+    const jd = joiner.gsm.worldDamage;
+    // Craters dug by the shots and the nuke, structures worn and felled, the roofed house standing
+    expect(hd.craters.size).toBeGreaterThan(3);
+    expect(Array.from(hd.craters.list()).filter((_, i) => i % 4 === 2)).toContain(250);
+    const roofed = houses.findIndex((h) => h.id === 'h280-211');
+    expect(hd.structures.hpList()[roofed]).toBe(260);
+    expect(hd.structures.stages().filter((stage) => stage === 3).length).toBeGreaterThan(2);
+    expect(hd.structures.stages().some((stage) => stage === 1 || stage === 2)).toBe(true);
+    // The enemies walked down into the craters and up over the rubble
+    expect(lowest).toBeLessThan(-0.2);
+    expect(highest).toBeGreaterThan(1);
+    // The same on both sides, bit for bit
+    expect(Array.from(jd.craters.list())).toEqual(Array.from(hd.craters.list()));
+    expect(jd.structures.hpList()).toEqual(hd.structures.hpList());
     let compared = 0;
     for (const [step, hash] of host.hashes) {
       const other = joiner.hashes.get(step);

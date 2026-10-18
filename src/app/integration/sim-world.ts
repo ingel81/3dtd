@@ -30,6 +30,7 @@ import type { LosResolveReason } from '../game-engine/events/event-types';
 import type { WorldSource } from '../coop/world-package';
 import { METERS_PER_DEGREE_LAT as M } from '../utils/geo-utils';
 import { DetMath } from '../utils/det-math';
+import { runRulesOf, type RunRules } from '../sim/protocol/run-rules';
 import { buildRoute, flatSync, localSync, markAllVisible, type LocalSync } from './sim-step-bench';
 
 /**
@@ -82,6 +83,12 @@ export interface SimWorldOptions {
    * where engines' native sin and cos would differ (TODO E28).
    */
   origin?: { lat: number; lon: number };
+  /**
+   * The structures and the craters and wear of a destructible world
+   * (RunRules.structures and destruction), as loadWorld hands them to the
+   * world's damage
+   */
+  damage?: Pick<RunRules, 'structures' | 'destruction'>;
 }
 
 /** Local x east and z south along a route that runs north and bends: straights and arcs of 25 m radius */
@@ -161,6 +168,7 @@ export function buildSimWorld(services: Record<string, unknown>, seed: number, o
   gsm.rng.reset(seed);
   gsm.initialize(routes[0][routes[0].length - 1], spawnPoints, paths);
   gsm.researchManager.completeResearch('aa-retrofit');
+  if (options.damage) gsm.worldDamage.load(runRulesOf(options.damage));
   // What asked for its line of sight, answered by answerLos
   const needed: [string, LosResolveReason][] = [];
   gsm.getEventBus().on('tower:los-needed', (event) => needed.push([event.towerId, event.reason]));

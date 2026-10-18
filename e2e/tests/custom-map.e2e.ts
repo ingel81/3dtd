@@ -150,7 +150,7 @@ test('the replay of a wave on a custom map opens and closes', async ({ browser }
 
 /** `__worldDamage` of a destructible world in development (presentation/world-damage-presenter.ts) */
 interface WorldDamageHook {
-  structures(): { id: string; lat: number; lon: number; hp: number }[];
+  structures(): { id: string; lat: number; lon: number; stage: number }[];
   hit(lat: number, lon: number, reach?: number, amount?: number): void;
 }
 
@@ -166,22 +166,22 @@ test('a building of a destructible map falls to a hit and stands again after a r
     null,
     { timeout: 60_000 },
   );
-  // The hit goes through the simulation; its fallen set comes back with a packet
+  // The hit goes through the simulation; its stage comes back with a packet
   const id = await page.evaluate(() => {
     const damage = (globalThis as unknown as { __worldDamage: WorldDamageHook }).__worldDamage;
     const s = damage.structures()[0];
     damage.hit(s.lat, s.lon, 0.5, 1e6);
     return s.id;
   });
-  const hpOf = (i: string) => page.evaluate((x) =>
-    (globalThis as unknown as { __worldDamage: WorldDamageHook }).__worldDamage.structures().find((s) => s.id === x)!.hp, i);
-  await expect.poll(() => hpOf(id), { timeout: 30_000 }).toBe(0);
+  const stageOf = (i: string) => page.evaluate((x) =>
+    (globalThis as unknown as { __worldDamage: WorldDamageHook }).__worldDamage.structures().find((s) => s.id === x)!.stage, i);
+  await expect.poll(() => stageOf(id), { timeout: 30_000 }).toBe(3);
 
   // Restart here: a new run stands every structure up again
   await openGameMenu(page);
   await page.locator('app-main-menu [data-entry="restart"]').click();
   await confirmIfAsked(page, 'Restart');
-  await expect.poll(() => hpOf(id), { timeout: 60_000 }).toBeGreaterThan(0);
+  await expect.poll(() => stageOf(id), { timeout: 60_000 }).toBe(0);
   expect(errors).toEqual([]);
   await page.context().close();
 });

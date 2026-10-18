@@ -37,7 +37,7 @@ import type { WaveConfig } from '../../managers/wave.manager';
 import { TEST_WORLD_REF } from '../../../test/world-context-fake';
 import { runStartAt, runStartGold } from '../protocol/run-start';
 import { RUN_PLAN_RULES } from '../../director/sources/budget/run-plan';
-import type { RunWaveEvent } from '../protocol/run-rules';
+import type { RunStructure, RunWaveEvent } from '../protocol/run-rules';
 
 const SEED = 0x51c0;
 const HEAD = { configHash: 'spec', gameVersion: 'spec', commit: 'spec' };
@@ -289,6 +289,95 @@ describe('SimCore in the same thread', () => {
     expect(core.gsm.captureSnapshot().structures).toEqual([100]);
     expect(core.gsm.stateHash()).toBe(hashBefore);
     expect(drive.tick().ops.filter((op) => op[0] === 'structures.setStages')).toEqual([['structures.setStages', new Uint8Array([0])]]);
+  });
+
+  it('wrecks a destructible world in a wave and comes to the same in a replay, after a seek and from a save (docs/DESTRUCTION_PLAN.md)', () => {
+    const mathRandom = Math.random;
+    Math.random = mulberry32(SEED + 4);
+    try {
+      const main = mainWorld();
+      // Houses beside the first route, one fallen onto it beforehand
+      const structures: RunStructure[] = [];
+      for (let n = 60; n <= 340; n += 40) {
+        for (const east of [9, -9]) structures.push({ id: `h${n}${east}`, lat: n / M, lon: east / M, radius: 5, height: 8, hp: 240, box: [east, n, 4, 3, 0.2] });
+      }
+      structures.push({ id: 'ruin', lat: 100 / M, lon: 3 / M, radius: 5, height: 9, hp: 240, start: 0 });
+      const rules = { startCredits: 100, hqHealth: 500, towers: null, structures, destruction: { craters: true, wear: false }, start: null };
+      const world: SimWorld = {
+        ...main.world,
+        rules,
+        worldKey: worldKeyOf(main.grid.snapshotHeights(), main.world.paths.map(([, p]) => p), main.sync.getOrigin(), rules),
+      };
+      const core = newCore(world);
+      const drive = new Driver(core);
+      drive.send({ type: 'debug:add-credits', amount: 5000 });
+      drive.send({ type: 'debug:complete-all-research' });
+      for (const [typeId, n] of [['cannon', 120], ['rocket', 200], ['cannon', 280], ['archer', 160]] as const) {
+        drive.send({ type: 'command:place-tower', typeId, position: { lat: n / M, lon: -19 / M, height: 0 } });
+      }
+      let packet = drive.tick();
+      // The ruin lies from the start: its stage goes with the first stages, its rubble is in the field
+      const stages = packet.ops.find((op) => op[0] === 'structures.setStages')![1] as Uint8Array;
+      expect([stages.length, stages.at(-1)]).toEqual([structures.length, 3]);
+      for (const need of drive.needs(packet)) drive.send(answer(main, core, need));
+      drive.tick();
+
+      const live = new Map<number, number>();
+      const tough: WaveConfig = {
+        schedule: { ...wave.schedule, entries: Array.from({ length: 50 }, (_, i) => ({ enemyType: i % 5 === 4 ? 'bat' : 'zombie', speed: 1, health: 3 })) },
+      };
+      drive.send({ type: 'command:start-wave', config: tough });
+      for (let f = 0; f < 20000; f++) {
+        packet = drive.tick();
+        live.set(core.gsm.subStep, core.gsm.stateHash());
+        if (packet.scalars.phase !== 'wave' && f > 0) break;
+      }
+      for (let f = 0; f < 400 && packet.scalars.snapshotRefusal !== null; f++) packet = drive.tick();
+      const damage = core.gsm.worldDamage;
+      expect(damage.craters.size).toBeGreaterThan(0);
+      expect(damage.structures.stages().slice(0, -1).some((stage) => stage > 0)).toBe(true);
+      const ops = drive.packets.flatMap((p) => p.ops.map((op) => op[0]));
+      expect(ops).toContain('craters.dig');
+      expect(ops).toContain('structures.stage');
+      // The whole set went out with the load only, the rest as deltas
+      expect(ops.filter((op) => op === 'structures.setStages')).toHaveLength(1);
+      const file = core.rpc('replayFile', { ...HEAD, world: TEST_WORLD_REF })!;
+      const record = core.gsm.simRecorder.get(1)!;
+
+      // A save after the wave, as text, into a fresh simulation on the same world
+      const save = JSON.parse(JSON.stringify(core.gsm.captureSnapshot())) as ReturnType<SimCore['gsm']['captureSnapshot']>;
+      expect(save.craters).toEqual(Array.from(damage.craters.list()));
+      const loaded = newCore(world);
+      loaded.gsm.restoreSnapshot(save, 'live');
+      expect(loaded.gsm.stateHash()).toBe(core.gsm.stateHash());
+      expect(Array.from(loaded.gsm.worldDamage.craters.list())).toEqual(Array.from(damage.craters.list()));
+      expect(loaded.gsm.worldDamage.structures.hpList()).toEqual(damage.structures.hpList());
+
+      // The wave again in a fresh simulation, every hash checked
+      const replay = new Driver(newCore(world));
+      expect(replay.core.rpc('loadReplayFile', file.text, { ...HERE, world: TEST_WORLD_REF }).refusal).toBeNull();
+      replay.core.rpc('replayEnter', 1, true);
+      let state = replay.tick({ replay: { playing: true, speed: 10 } }).scalars.replay!;
+      for (let f = 0; f < 20000 && !state.finished; f++) state = replay.tick({ replay: { playing: true, speed: 10 } }).scalars.replay!;
+      expect(state.finished).toBe(true);
+      expect(state.divergedAt).toBeNull();
+      // Back to the middle of the wave: the world as it stood then, the main thread told all of it
+      const steps = [...live.keys()].filter((step) => step > record.startStep && step < record.endStep!);
+      const middle = steps[steps.length >> 1];
+      replay.core.rpc('replaySeek', middle - record.startStep);
+      packet = replay.tick({ replay: { playing: false, speed: 10 } });
+      expect(replay.core.gsm.subStep).toBe(middle);
+      expect(replay.core.gsm.stateHash()).toBe(live.get(middle));
+      // Already worn and dug by then
+      expect(replay.core.gsm.worldDamage.craters.size).toBeGreaterThan(0);
+      expect(replay.core.gsm.worldDamage.structures.hpList().slice(0, -1).some((hp) => hp < 240)).toBe(true);
+      const after = packet.ops.map((op) => op[0]);
+      expect(after).toContain('structures.setStages');
+      expect(after).toContain('craters.setAll');
+      replay.core.rpc('replayExit');
+    } finally {
+      Math.random = mathRandom;
+    }
   });
 
   it("runs a custom map's wave events: a lane that opens later, objects that go, messages; quietly on a restore; bit for bit in a replay (TODO E170)", () => {

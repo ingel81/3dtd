@@ -156,6 +156,9 @@ describe('AbilityManager', () => {
 
       tick(200);
       expect(world.strike).toHaveBeenCalledTimes(1);
+      // The world it lands in, once, where it lands, also with nobody in it
+      expect(world.damageWorld).toHaveBeenCalledTimes(1);
+      expect(world.damageWorld).toHaveBeenCalledWith('nuclear-strike', { ...TARGET, height: 5 }, 0, 0);
     });
 
     it('takes 60% from everyone and 20% from bosses, ground and air alike', () => {
@@ -387,6 +390,13 @@ describe('AbilityManager', () => {
       const walked = geoDistanceFast(centres()[100], TARGET);
       expect(walked).toBeCloseTo(18 * 100 * STEP_MS / 1000, 1);
       expect(world.enemiesInRadius).toHaveBeenLastCalledWith(expect.anything(), LASER.radiusM, expect.any(Array));
+      // The world under it once per tick, with the burnt time before and after the tick
+      const calls = (world.damageWorld as ReturnType<typeof vi.fn>).mock.calls;
+      expect(calls).toHaveLength(101);
+      expect(calls[0].slice(2)).toEqual([0, STEP_MS]);
+      expect(calls[100][2]).toBeCloseTo(100 * STEP_MS, 6);
+      expect(calls[100][3] - calls[100][2]).toBeCloseTo(STEP_MS, 9);
+      expect(calls[100][0]).toBe('orbital-laser');
     });
 
     it('burns every enemy under it by its fire share, up to the cap, and resolves after 4 s', () => {
