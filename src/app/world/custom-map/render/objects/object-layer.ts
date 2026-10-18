@@ -28,7 +28,7 @@ import { mapToScene } from '../map-coords';
 import { seatHeight } from './object-seat';
 import { addAtlasVariants } from './atlas-variants';
 import { instanceVariation } from './instance-variation';
-import { bakeImpostor, type Impostor } from './impostor';
+import { bakeImpostor, bakeImpostorAsync, type Impostor } from './impostor';
 import { addVertexRoughMetal, mergeParts } from './merge-parts';
 import { clothGeometry, isCloth } from './cloth';
 import { DEFAULT_SPIN, SPIN_GLSL } from './spin';
@@ -207,10 +207,18 @@ export interface ObjectLayerOptions {
 export class MapObjectLayer {
   /** Non-blocking objects; blocking ones are added to the LOS group given to the constructor */
   readonly group = new Group();
+  /**
+   * Settles once the programs of assets new to the map are built (the editor compiles them off the main
+   * thread): their first objects wait for it, instead of linking them in the frame they first draw
+   */
+  prepareAssets: ((assetIds: string[]) => Promise<unknown>) | null = null;
   private batches: AssetBatch[] = [];
   private readonly byId = new Map<string, { batch: AssetBatch; index: number }>();
   private readonly materials = new Map<string, Material>();
   private readonly impostors = new Map<string, Impostor | null>();
+  /** Impostor bakes under way, by asset (prepareImpostor) */
+  private readonly impostorJobs = new Map<string, Promise<void>>();
+  private disposed = false;
   private generation = 0;
   private readonly camPos = new Vector3();
   private readonly focus = new Vector3();
@@ -291,7 +299,10 @@ export class MapObjectLayer {
       [...groups].map(async ([key, list]) => ({
         key,
         list,
-        parts: await Promise.all([this.assets.model(list[0].asset), this.assets.lodModels(list[0].asset)]),
+        parts: await Promise.all([this.assets.model(list[0].asset), this.assets.lodModels(list[0].asset)]).then(async (parts) => {
+          await this.prepareImpostor(parts[0]);
+          return parts;
+        }),
       })),
     );
     if (generation !== this.generation) return;
@@ -356,7 +367,9 @@ export class MapObjectLayer {
       const find = (): AssetBatch | undefined => this.batches.find((x) => x.model.id === list[0].asset && x.blocksLos === blocks);
       let b = find();
       if (!b) {
-        const [model, lods] = await Promise.all([this.assets.model(list[0].asset), this.assets.lodModels(list[0].asset)]);
+        // An asset new to the map: its programs built before its first objects draw (prepareAssets)
+        const [model, lods] = await Promise.all([this.assets.model(list[0].asset), this.assets.lodModels(list[0].asset), this.prepareAssets?.([list[0].asset])]);
+        await this.prepareImpostor(model);
         // A setObjects in between replaced everything
         if (generation !== this.generation) return;
         // Another call may have made the batch meanwhile
@@ -450,8 +463,7 @@ export class MapObjectLayer {
         if (rect && (o.x < rect.minX - reach || o.x > rect.maxX + reach || o.y < rect.minY - reach || o.y > rect.maxY + reach)) {
           return;
         }
-        this.writeInstance(b, i);
-        changed.push(i);
+        if (this.reseat(b, i)) changed.push(i);
       };
       if (rect && !b.cells.has(PACKED)) {
         // Only the cells the rectangle reaches: a brush on a map of 50 000 objects touches a few dozen
@@ -530,6 +542,7 @@ export class MapObjectLayer {
     const white = new Color(1, 1, 1);
     for (const id of new Set(ids)) {
       const [model, lods] = await Promise.all([this.assets.model(id), this.assets.lodModels(id)]);
+      await this.prepareImpostor(model);
       const vegetation = model.entry.category === 'tree' || model.entry.category === 'plant';
       for (const level of this.levelsFor(model, lods)) {
         for (const part of level.parts) {
@@ -581,6 +594,7 @@ export class MapObjectLayer {
   }
 
   dispose(): void {
+    this.disposed = true;
     this.generation++;
     this.clear();
     for (const m of this.materials.values()) m.dispose();
@@ -603,22 +617,54 @@ export class MapObjectLayer {
     return Math.floor(x / CELL_SIZE) * 4096 + Math.floor(y / CELL_SIZE);
   }
 
+  /** Whether an asset's far level is an impostor: trees and big rocks (buildings get hand-made far models through the catalogue's lod) */
+  private wantsImpostor(model: ObjectModel): boolean {
+    const entry = model.entry;
+    return (entry.category === 'tree' || (entry.category === 'rock' && entry.height >= 1.5)) && !!this.options.renderer && !model.placeholder;
+  }
+
+  /** The impostor's materials as the layer draws them */
+  private finishImpostor(imp: Impostor | null): Impostor | null {
+    if (imp) {
+      addLodFade(imp.material);
+      addHeightFog(imp.material);
+    }
+    return imp;
+  }
+
+  /**
+   * Bakes the impostor of an asset's far level ahead, its programs built
+   * first off the main thread (bakeImpostorAsync): levelsFor then finds it.
+   * Baked in levelsFor, its programs linked in the frame of the stroke that
+   * brought the asset
+   */
+  private prepareImpostor(model: ObjectModel): Promise<void> {
+    const id = model.entry.id;
+    if (!this.wantsImpostor(model) || this.impostors.has(id)) return Promise.resolve();
+    let job = this.impostorJobs.get(id);
+    if (!job) {
+      job = bakeImpostorAsync(this.options.renderer!, model)
+        .then((imp) => {
+          if (this.disposed || this.impostors.has(id)) imp?.dispose();
+          else this.impostors.set(id, this.finishImpostor(imp));
+        })
+        .catch(() => undefined)
+        .finally(() => this.impostorJobs.delete(id));
+      this.impostorJobs.set(id, job);
+    }
+    return job;
+  }
+
   /** Detail levels of an asset: its model, the catalogue's LOD models, an impostor for far trees */
   private levelsFor(model: ObjectModel, lods: { model: ObjectModel; distance: number }[]): Level[] {
     const entry = model.entry;
     const drawn = (m: ObjectModel) => mergedParts(m).map((p) => ({ geometry: p.geometry, material: this.objectMaterial(p.material, entry) }));
     const levels: Level[] = [{ from: 0, parts: drawn(model) }];
     for (const lod of lods) levels.push({ from: lod.distance, parts: drawn(lod.model) });
-    // Trees and big rocks (buildings get hand-made far models through the catalogue's lod)
-    const impostor = entry.category === 'tree' || (entry.category === 'rock' && entry.height >= 1.5);
-    if (impostor && this.options.renderer && !model.placeholder) {
+    if (this.wantsImpostor(model)) {
       let imp = this.impostors.get(entry.id);
       if (imp === undefined) {
-        imp = bakeImpostor(this.options.renderer, model);
-        if (imp) {
-          addLodFade(imp.material);
-          addHeightFog(imp.material);
-        }
+        imp = this.finishImpostor(bakeImpostor(this.options.renderer!, model));
         this.impostors.set(entry.id, imp);
       }
       if (imp) {
@@ -1149,6 +1195,24 @@ export class MapObjectLayer {
   private setCellFade(cell: Cell, level: number, fade: number): void {
     (cell.fades[level].array as Float32Array).fill(fade);
     cell.fades[level].needsUpdate = true;
+  }
+
+  /**
+   * Object i on the ground as it is now: only its height follows the ground
+   * (its seat, writeInstance's), the matrix's translation and the sphere's
+   * centre; turn, tilt and size are the document's. Whether it moved, so a
+   * brush uploads only the objects whose ground changed, not every one in
+   * its rectangle
+   */
+  private reseat(b: AssetBatch, i: number): boolean {
+    const o = b.objects[i];
+    const y = Math.fround(seatHeight(b.entry, o, this.seatGround, this.seatWater) + o.z);
+    const at = i * 16 + 13;
+    const lift = y - b.matrices[at];
+    if (lift === 0) return false;
+    b.matrices[at] = y;
+    b.spheres[i * 4 + 1] += lift;
+    return true;
   }
 
   /** Instance matrix, bounding sphere and colour of object i from the document */

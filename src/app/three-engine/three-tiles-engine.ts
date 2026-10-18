@@ -13,6 +13,7 @@ import {
   WebGLRenderTarget,
   Sprite,
 } from 'three';
+import { primePixelStore } from './pixel-store';
 import type { GlobeControls } from '3d-tiles-renderer';
 import { COLOR_GRADING_PRESETS, ColorGradingPreset } from './post-processing/color-grading';
 import { PostProcessingPipeline, type PassState } from './post-processing/post-processing-pipeline';
@@ -310,6 +311,7 @@ export class ThreeTilesEngine {
       throw new Error('WebGL is not supported. Enable hardware acceleration in your browser.');
     }
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    primePixelStore(this.renderer);
     this.canvasMsaa = options.antialias ?? CANVAS_RENDERER_OPTIONS.antialias;
     this.gpuMeter = new GpuFrameMeter(this.renderer.getContext() as WebGL2RenderingContext);
     this.renderer.setClearColor(0x151c1f);

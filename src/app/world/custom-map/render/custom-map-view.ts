@@ -37,6 +37,7 @@ import type { MapBiome } from '../map-document';
 import { CoverMap } from './environment/cover-map';
 import { setPlantSway, WIND_UNIFORMS } from './environment/wind';
 import { prepareFoamNoise } from './water/foam-noise';
+import { prepareLavaNoise } from './water/lava-noise';
 import { MapObjectLayer, type ObjectHit } from './objects/object-layer';
 import { IMPOSTOR_SUN } from './objects/impostor';
 import { BridgeLayer } from './paths/path-bridges';
@@ -712,14 +713,14 @@ export class CustomMapView {
 
   /** Heights changed inside `rect` (map metres); whole map when omitted. Objects and water follow. */
   updateHeights(rect?: MapRect): void {
-    this.terrain.rebuild(rect ? this.gridRect(rect) : undefined);
+    const apron = this.terrain.rebuild(rect ? this.gridRect(rect) : undefined);
     this.objects.refreshHeights(rect);
     // The openings sit where their objects sit
     if (this.cutObjects.length) this.refreshCuts();
     this.coverDirty = true;
     // Water and bridges only when the change reaches them: a brush on a big map must stay cheap
     if (!rect) this.updateWater();
-    else this.refreshWaterNear(rect);
+    else this.refreshWaterNear(rect, apron);
     if (!rect || this.bridgeNear(rect)) void this.refreshBridges();
     // The apron beyond the border follows its heights, the mirrored trees the apron
     if (!rect || this.nearBorder(rect)) this.edgeTreesLater(this.shownObjects());
@@ -753,15 +754,16 @@ export class CustomMapView {
     this.environment.invalidateShadows();
   }
 
-  /** Whether a water body's mask or a river comes within a few metres of a rectangle */
   /**
    * Heights changed in `rect`: only the water bodies whose mask reaches it
    * rebuild their surface (which cells it covers, its depth per vertex),
-   * the apron's sea floor only when the change touches the border. Rivers
-   * keep theirs: a ribbon follows its line, the depth comes from the
-   * height texture per pixel.
+   * the main water's part beyond the border only when the apron changed with
+   * them (`apron`: the border's heights; MapTerrainLayer.rebuild made it
+   * anew). The wet banks follow the mask, not the heights: they stay. Rivers
+   * keep theirs: a ribbon follows its line, the depth comes from the height
+   * texture per pixel.
    */
-  private refreshWaterNear(rect: MapRect): void {
+  private refreshWaterNear(rect: MapRect, apron: boolean): void {
     const t = this.doc.terrain;
     const f = this.heights;
     const g = this.gridRect({ minX: rect.minX - 4, minY: rect.minY - 4, maxX: rect.maxX + 4, maxY: rect.maxY + 4 });
@@ -773,14 +775,12 @@ export class CustomMapView {
       }
       return false;
     };
-    const border = g.i0 <= 0 || g.j0 <= 0 || g.i1 >= f.columns - 1 || g.j1 >= f.rows - 1;
     let lava = false;
     [t.water, ...(t.waterBodies ?? [])].forEach((body, k) => {
       const surface = this.waters[k];
       if (!body || !surface || !near(body.mask)) return;
-      if (k === 0 && border) this.terrain.refreshWater();
-      // Only the tiles the change reaches; the part beyond the border when the border changed
-      surface.set(body, k === 0 && border ? this.terrain.apronProfile : null, g);
+      // Only the tiles the change reaches; the part beyond the border on the apron as it is now
+      surface.set(body, k === 0 && apron ? this.terrain.apronProfile : null, g);
       lava ||= body.kind === 'lava';
       this.coverDirty = true;
     });
@@ -1039,6 +1039,41 @@ export class CustomMapView {
   set groundBaker(baker: GroundBaker | null) {
     this.terrain.occlusion.baker = baker;
   }
+
+  /**
+   * Builds the programs of new ground materials before they draw (MapTerrainLayer.prepare): the editor's, off
+   * the main thread for each picture it draws. Without one a new layer count links them in the next frame
+   */
+  set terrainPrepare(fn: ((meshes: Mesh[]) => Promise<unknown>) | null) {
+    this.terrain.prepare = fn;
+  }
+
+  /**
+   * Settles once the programs of assets new to the map are built (MapObjectLayer.prepareAssets): the editor's
+   * warm-up. Without one an asset's first objects link them in the frame they first draw
+   */
+  set objectsPrepare(fn: ((assetIds: string[]) => Promise<unknown>) | null) {
+    this.objects.prepareAssets = fn;
+  }
+
+  /**
+   * Compiles `object`'s programs, off the main thread where the driver allows, for the water's mirror (a
+   * linear target without tone mapping, other programs than the screen's); null when no mirror draws
+   */
+  compileForMirror(renderer: WebGLRenderer, object: Object3D, camera: Camera, scene: Scene): Promise<unknown> | null {
+    if (!this.mapEffects.reflection || !this.waters.some((w) => w)) return null;
+    this.mirrorProbe ??= new WebGLRenderTarget(1, 1);
+    const previous = renderer.getRenderTarget();
+    try {
+      renderer.setRenderTarget(this.mirrorProbe);
+      return renderer.compileAsync(object, camera, scene);
+    } finally {
+      renderer.setRenderTarget(previous);
+    }
+  }
+
+  /** Stands in for the mirror's target when compiling for it (compileForMirror) */
+  private mirrorProbe: WebGLRenderTarget | null = null;
 
   /** The roads and bridges follow the paths; the path mask follows from the editor's worker (setPathMask) */
   updatePaths(): void {
@@ -1566,6 +1601,7 @@ export class CustomMapView {
     }
     this.effectMeshes = null;
     this.offscreen?.dispose();
+    this.mirrorProbe?.dispose();
     this.sceneCopy.dispose();
     this.reflection.dispose();
     if (this.lavaDue) clearTimeout(this.lavaDue);
@@ -1599,8 +1635,9 @@ export class CustomMapView {
       this.refreshContact(),
       this.bridges.set(this.doc.paths, this.doc.terrain),
       this.refreshDecals(),
-      // The shore foam's texture, in a worker: water poured later (the editor) finds it baked
+      // The shore foam's and the lava's textures, in workers: water poured later (the editor) finds them baked
       prepareFoamNoise(),
+      prepareLavaNoise(),
     ]);
   }
 }

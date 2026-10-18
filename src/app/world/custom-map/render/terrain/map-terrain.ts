@@ -73,8 +73,13 @@ export class MapTerrainLayer {
   /** The apron's: the terrain's with the backdrop range painted as distant mountains (apron-material.ts) */
   private apronMaterial: ApronMaterial | null = null;
   private materialParams: TerrainMaterialParams | null = null;
-  /** Materials of the shader's larger layer counts, by count (layerTwins) */
-  private readonly twins = new Map<number, TerrainMaterial>();
+  /** Materials of the shader's larger layer counts, by count, the ground's and the apron's (layerTwins) */
+  private readonly twins = new Map<number, [TerrainMaterial, ApronMaterial]>();
+  /**
+   * Builds the programs of new ground materials before they draw (the editor: off the main thread, for each
+   * picture it draws); without it a change of the layer count links them in the next frame
+   */
+  prepare: ((meshes: Mesh[]) => Promise<unknown>) | null = null;
   /** Where far ground gets cheaper and steep ground reads its sides (TerrainMaterial.setFarDistances), kept for a material built later */
   private far: [number, number, number] = [150, 400, 150];
 
@@ -191,12 +196,7 @@ export class MapTerrainLayer {
       arrays.dispose();
       return;
     }
-    this.material?.dispose();
-    this.apronMaterial?.dispose();
-    this.arrays?.dispose();
-    this.splat?.dispose();
-    this.arrays = arrays;
-    this.splat = new SplatTextures(t.splat);
+    const splat = new SplatTextures(t.splat);
     // The roads first: the mask leaves the ground under their surface to them. New layers keep the mask
     this.roads.set(paths);
     if (!this.pathMask) {
@@ -204,10 +204,10 @@ export class MapTerrainLayer {
       this.pathMaskBuilt?.();
     }
     this.refreshApronPaint();
-    this.materialParams = {
-      colorArray: this.arrays.color,
-      dataArray: this.arrays.data,
-      splat: this.splat.maps,
+    const params: TerrainMaterialParams = {
+      colorArray: arrays.color,
+      dataArray: arrays.data,
+      splat: splat.maps,
       pathMask: this.pathMask,
       apronPaint: this.apronPaint ?? undefined,
       gridNormals: this.normals.texture,
@@ -225,21 +225,53 @@ export class MapTerrainLayer {
       cliffAngle: t.cliffAngle,
       splatResolution: t.splat.resolution,
     };
-    this.material = new TerrainMaterial(this.materialParams);
-    Object.assign(this.material.terrainUniforms, this.chunks.uniforms);
-    this.material.terrainUniforms.uFarShadow = this.farShadow.texture;
-    this.material.terrainUniforms.uFarShadowArea = this.farShadow.area;
-    Object.assign(this.material.terrainUniforms, this.cuts.uniforms);
-    addHeightFog(this.material);
-    this.material.setGroundMood(this.biome);
-    this.material.setFarDistances(this.far[0], this.far[1], this.far[2]);
-    this.material.setWaterLevel(t.water?.level ?? null, t.water?.kind);
-    this.chunks.setMaterial(this.material);
+    const material = new TerrainMaterial(params);
+    Object.assign(material.terrainUniforms, this.chunks.uniforms);
+    material.terrainUniforms.uFarShadow = this.farShadow.texture;
+    material.terrainUniforms.uFarShadowArea = this.farShadow.area;
+    Object.assign(material.terrainUniforms, this.cuts.uniforms);
+    addHeightFog(material);
+    material.setGroundMood(this.biome);
+    material.setFarDistances(this.far[0], this.far[1], this.far[2]);
+    material.setWaterLevel(t.water?.level ?? null, t.water?.kind);
+    const apronMaterial = new ApronMaterial(params, material);
+    addHeightFog(apronMaterial);
+    // A layer count of another program (a stroke's first new material): the old ground stays until the new
+    // programs are built off the main thread, as linked in the frame they held it seconds (4 programs of 3 s
+    // each on Direct3D for a first forest stroke). The paint of those frames goes to the old maps; the new
+    // ones are first uploaded when they first draw, with the document as it is then
+    const chunk = this.chunks.meshes[0];
+    if (this.prepare && this.material && chunk && material.customProgramCacheKey() !== this.material.customProgramCacheKey()) {
+      const ground = new Mesh(chunk.geometry, material);
+      ground.castShadow = ground.receiveShadow = true;
+      const apron = new Mesh(this.apron.geometry, apronMaterial);
+      apron.receiveShadow = true;
+      for (const m of [ground, apron]) m.frustumCulled = false;
+      await this.prepare([ground, apron]);
+      if (generation !== this.generation) {
+        material.dispose();
+        apronMaterial.dispose();
+        arrays.dispose();
+        splat.dispose();
+        return;
+      }
+      // A cliff angle or water level set meanwhile
+      material.setCliffAngle(t.cliffAngle);
+      material.setWaterLevel(t.water?.level ?? null, t.water?.kind);
+    }
+    this.material?.dispose();
+    this.apronMaterial?.dispose();
+    this.arrays?.dispose();
+    this.splat?.dispose();
+    this.arrays = arrays;
+    this.splat = splat;
+    this.materialParams = params;
+    this.material = material;
+    this.chunks.setMaterial(material);
     this.roads.setAssets(assets, anisotropy);
-    this.apronMaterial = new ApronMaterial(this.materialParams, this.material);
-    addHeightFog(this.apronMaterial);
+    this.apronMaterial = apronMaterial;
     this.setApronRange();
-    this.apron.material = this.apronMaterial;
+    this.apron.material = apronMaterial;
 
     // Grass blades where the splat paints grass layers, coloured like the ground under them
     // Vector4 defaults to w = 1, which marked the eighth layer as grass on every map
@@ -256,12 +288,13 @@ export class MapTerrainLayer {
   }
 
   /**
-   * Meshes with the terrain material for each layer count above the map's,
-   * on a chunk's geometry, for compiling the shader variant a further
-   * material layer switches to (the editor's first stroke with a new biome
-   * linked it in the frame, over a second). The materials stay until the
-   * layer is disposed: three drops a program no material uses any more, and
-   * the map's own material may take it over only later.
+   * Meshes with the terrain and apron materials for each layer count above
+   * the map's, on a chunk's and the apron's geometry, for compiling the
+   * shader variants a further material layer switches to (the editor's first
+   * stroke with a new biome linked them in the frame, seconds each). Past 8
+   * layers with the third splat map, as the map then has it. The materials
+   * stay until the layer is disposed: three drops a program no material uses
+   * any more, and the map's own material may take it over only later.
    */
   layerTwins(): Mesh[] {
     const params = this.materialParams;
@@ -271,16 +304,25 @@ export class MapTerrainLayer {
     for (let n = this.material.layerCount + 4; n <= TERRAIN_MAX_LAYERS; n += 4) {
       let twin = this.twins.get(n);
       if (!twin) {
-        twin = new TerrainMaterial({ ...params, layers: n });
-        Object.assign(twin.terrainUniforms, this.chunks.uniforms);
-        twin.setGroundMood(this.biome);
-        addHeightFog(twin);
+        const splat = n > 8 ? [params.splat[0], params.splat[1], params.splat[2] ?? params.splat[0]] : params.splat.slice(0, 2);
+        const ground = new TerrainMaterial({ ...params, splat, layers: n });
+        Object.assign(ground.terrainUniforms, this.chunks.uniforms);
+        Object.assign(ground.terrainUniforms, this.cuts.uniforms);
+        addHeightFog(ground);
+        ground.setGroundMood(this.biome);
+        const apron = new ApronMaterial({ ...params, splat, layers: n }, ground);
+        addHeightFog(apron);
+        twin = [ground, apron];
         this.twins.set(n, twin);
       }
-      const mesh = new Mesh(chunk.geometry, twin);
-      mesh.castShadow = mesh.receiveShadow = true;
-      mesh.frustumCulled = false;
-      out.push(mesh);
+      const ground = new Mesh(chunk.geometry, twin[0]);
+      ground.castShadow = ground.receiveShadow = true;
+      const apron = new Mesh(this.apron.geometry, twin[1]);
+      apron.receiveShadow = true;
+      for (const m of [ground, apron]) {
+        m.frustumCulled = false;
+        out.push(m);
+      }
     }
     return out;
   }
@@ -299,7 +341,8 @@ export class MapTerrainLayer {
     this.occlusion.flush(2);
   }
 
-  rebuild(rect?: GridRect): void {
+  /** Heights changed in `rect` (all when omitted); whether the apron changed with them (the border's heights) */
+  rebuild(rect?: GridRect): boolean {
     this.chunks.rebuild(rect);
     const f = this.field;
     this.roads.refreshBounds(
@@ -309,17 +352,17 @@ export class MapTerrainLayer {
     if (rect) this.occlusion.queueTerrain(rect);
     else this.occlusion.updateTerrain();
     this.heightTexture.refresh(rect);
-    this.refreshApron(rect);
+    return this.refreshApron(rect);
   }
 
-  /** Rebuilds the apron when heights at the border may have changed */
-  refreshApron(rect?: GridRect): void {
+  /** Rebuilds the apron when heights at the border may have changed; whether it did */
+  refreshApron(rect?: GridRect): boolean {
     const f = this.field;
-    if (!rect || rect.i0 <= 0 || rect.j0 <= 0 || rect.i1 >= f.columns - 1 || rect.j1 >= f.rows - 1) {
-      this.apronProfile = new ApronProfile(f, this.terrain.water, BACKDROP_HEIGHT[this.biome]);
-      writeApronGeometry(this.apron.geometry, this.apronProfile);
-      this.setApronRange();
-    }
+    if (rect && rect.i0 > 0 && rect.j0 > 0 && rect.i1 < f.columns - 1 && rect.j1 < f.rows - 1) return false;
+    this.apronProfile = new ApronProfile(f, this.terrain.water, BACKDROP_HEIGHT[this.biome]);
+    writeApronGeometry(this.apron.geometry, this.apronProfile);
+    this.setApronRange();
+    return true;
   }
 
   /** The mountains beyond the apron and the ground's mood for a new look of the map (BACKDROP_HEIGHT, APRON_LOOK, ground-mood.ts) */
@@ -329,7 +372,7 @@ export class MapTerrainLayer {
     this.biome = biome;
     // The ground's mood (ground-mood.ts); the apron shares the material's uniforms
     this.material?.setGroundMood(biome);
-    for (const twin of this.twins.values()) twin.setGroundMood(biome);
+    for (const [ground] of this.twins.values()) ground.setGroundMood(biome);
     if (height) this.refreshApron();
     else this.setApronRange();
   }
@@ -407,7 +450,7 @@ export class MapTerrainLayer {
     this.apron.removeFromParent();
     this.material?.dispose();
     this.apronMaterial?.dispose();
-    for (const twin of this.twins.values()) twin.dispose();
+    for (const pair of this.twins.values()) for (const twin of pair) twin.dispose();
     this.placeholder.dispose();
     this.apronPlaceholder.dispose();
     this.arrays?.dispose();

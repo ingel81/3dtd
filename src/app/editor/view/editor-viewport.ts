@@ -26,6 +26,7 @@ import { EditorOverlay } from './editor-overlay';
 import { InputRouter } from './input-router';
 import { EditorMapView, mapToScene } from './map-view';
 import { ProgramWarmup } from './program-warmup';
+import { primePixelStore } from '../../three-engine/pixel-store';
 import { TopDownRenderer } from './top-down-renderer';
 import { EDITOR_FOV, ViewExtras } from './view-extras';
 import { ViewPicker } from './view-picker';
@@ -127,6 +128,8 @@ export class EditorViewport {
     this.renderer.outputColorSpace = SRGBColorSpace;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = PCFShadowMap;
+    // A stroke's partial texture uploads read the unpack parameters: cached, not asked of the GPU process
+    primePixelStore(this.renderer);
     MapAssetLibrary.useCompressedTextures(this.renderer);
     const heightAt = (x: number, y: number) => this.heightAt(x, y);
     const walkHeightAt = (x: number, y: number) => this.walkHeightAt(x, y);
@@ -327,6 +330,9 @@ export class EditorViewport {
     view.view.applyQuality(this.quality.customMaps);
     view.onPathMaskBuilt(() => this.callbacks.pathMaskBuilt(view));
     view.view.groundBaker = this.callbacks.groundBaker();
+    // New ground materials and assets new to the map show once their programs are built, off the main thread
+    view.view.terrainPrepare = (meshes) => this.warmup.prepare(meshes);
+    view.view.objectsPrepare = (assetIds) => this.warmup.assetsReady(assetIds);
     return view;
   }
 

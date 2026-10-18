@@ -22,8 +22,8 @@ const SIZE = 256;
 const CRACK_CELLS = 5;
 let texture: DataTexture | null = null;
 
-export function lavaNoiseTexture(): DataTexture {
-  if (texture) return texture;
+/** The texture's texels (RGBA8, SIZE²): the bake, on whichever thread runs it */
+export function bakeLavaNoise(): Uint8Array {
   const data = new Uint8Array(SIZE * SIZE * 4);
   const heat = tilingFbm(SIZE, 5, 4, 11);
   const warpX = tilingFbm(SIZE, 2, 2, 37);
@@ -35,6 +35,24 @@ export function lavaNoiseTexture(): DataTexture {
     data[k * 4 + 2] = Math.round(clamp01(warpX[k]) * 255);
     data[k * 4 + 3] = Math.round(clamp01(warpY[k]) * 255);
   }
+  return data;
+}
+
+/**
+ * The shared texture, at once: until its bake is in (prepareLavaNoise) it
+ * holds an even crust without cracks or warp, so a lava material made
+ * meanwhile (the editor's stand-ins compiled ahead) does not bake it in the
+ * frame (40 ms in a dev build)
+ */
+export function lavaNoiseTexture(): DataTexture {
+  if (texture) return texture;
+  const data = new Uint8Array(SIZE * SIZE * 4);
+  for (let k = 0; k < SIZE * SIZE; k++) {
+    data[k * 4] = 128;
+    data[k * 4 + 1] = 255;
+    data[k * 4 + 2] = 128;
+    data[k * 4 + 3] = 128;
+  }
   const t = new DataTexture(data, SIZE, SIZE, RGBAFormat, UnsignedByteType);
   t.colorSpace = NoColorSpace;
   t.wrapS = t.wrapT = RepeatWrapping;
@@ -44,4 +62,37 @@ export function lavaNoiseTexture(): DataTexture {
   t.needsUpdate = true;
   texture = t;
   return t;
+}
+
+let baked: Promise<void> | null = null;
+
+/**
+ * Bakes the texture once, in a worker where there are workers
+ * (lava-noise.worker.ts), inline where not. A view starts it as it loads
+ * and its `ready` waits for it (as the foam's, prepareFoamNoise)
+ */
+export function prepareLavaNoise(): Promise<void> {
+  if (baked) return baked;
+  const fill = (data: Uint8Array): void => {
+    const t = lavaNoiseTexture();
+    (t.image.data as Uint8Array).set(data);
+    t.needsUpdate = true;
+  };
+  if (typeof Worker === 'undefined') {
+    fill(bakeLavaNoise());
+    return (baked = Promise.resolve());
+  }
+  baked = new Promise<void>((resolve) => {
+    const worker = new Worker(new URL('./lava-noise.worker', import.meta.url), { type: 'module' });
+    const done = (data: Uint8Array): void => {
+      fill(data);
+      worker.terminate();
+      resolve();
+    };
+    worker.onmessage = (e: MessageEvent<Uint8Array>) => done(e.data);
+    // A worker that fails: the bake here after all
+    worker.onerror = () => done(bakeLavaNoise());
+    worker.postMessage(null);
+  });
+  return baked;
 }

@@ -29,6 +29,7 @@ const CASES: Record<string, { tool: string; mode?: string; patch: Record<string,
   paint: { tool: 'paint', patch: { brush: { radius: 40, strength: 1 }, paint: { layer: 1, erase: false } } },
   biome: { tool: 'landscape', mode: 'biome', patch: { brush: { radius: 60, strength: 1 }, landscape: { biome: 'forest' } } },
   meadow: { tool: 'landscape', mode: 'biome', patch: { brush: { radius: 60, strength: 1 }, landscape: { biome: 'meadow' } } },
+  conifer: { tool: 'landscape', mode: 'biome', patch: { brush: { radius: 60, strength: 1 }, landscape: { biome: 'conifer' } } },
   mountain: { tool: 'landscape', mode: 'mountain', patch: { brush: { radius: 80, strength: 1 } } },
   scatter: { tool: 'objects', mode: 'scatter', patch: { brush: { radius: 30, strength: 1 } } },
 };
@@ -68,7 +69,7 @@ if (process.argv.includes('--shaders')) {
     proto.attachShader = function (program, shader) {
       const src = source.get(shader) ?? '';
       const name = /#define SHADER_NAME (\S+)/.exec(src)?.[1] ?? '';
-      const defs = (src.match(/#define (USE_\w+|\w*INSTANC\w*|DEPTH_PACKING \d)/g) ?? []).map((d) => d.slice(8)).join(' ');
+      const defs = (/vec4 linearToOutputTexel/.test(src) && /sRGBTransferOETF\( value \)/.test(src) ? 'SRGB_OUT ' : '') + (src.match(/#define (USE_\w+|\w*INSTANC\w*|DEPTH_PACKING \d|TONE_MAPPING|NUM_\w+ [1-9]\d*)/g) ?? []).map((d) => d.slice(8)).join(' ');
       names.set(program, `${names.get(program) ?? ''}${name}[${src.length}] ${defs} | `);
       return attach.call(this, program, shader);
     };

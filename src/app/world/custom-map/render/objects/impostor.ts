@@ -77,7 +77,16 @@ export function hemiOctPoint(d: Vector3): [number, number] {
   return [(px + pz) / 2 + 0.5, (px - pz) / 2 + 0.5];
 }
 
-export function bakeImpostor(renderer: WebGLRenderer, model: ObjectModel): Impostor | null {
+/** What a bake draws: the model's parts unlit, round their bounds */
+interface BakeScene {
+  scene: Scene;
+  unlit: Material[];
+  center: Vector3;
+  radius: number;
+  bounds: Box3;
+}
+
+function bakeScene(model: ObjectModel): BakeScene | null {
   const parts = model.parts;
   if (!parts.length) return null;
   const scene = new Scene();
@@ -98,11 +107,55 @@ export function bakeImpostor(renderer: WebGLRenderer, model: ObjectModel): Impos
     scene.add(new Mesh(part.geometry, m));
   }
   const size = bounds.getSize(new Vector3());
-  if (!(Math.max(size.x, size.z) > 0 && size.y > 0)) return null;
-  const center = bounds.getCenter(new Vector3());
+  if (!(Math.max(size.x, size.z) > 0 && size.y > 0)) {
+    for (const m of unlit) m.dispose();
+    return null;
+  }
   // The card covers the model's bounding sphere from every direction
-  const radius = size.length() / 2;
+  return { scene, unlit, bounds, center: bounds.getCenter(new Vector3()), radius: size.length() / 2 };
+}
 
+export function bakeImpostor(renderer: WebGLRenderer, model: ObjectModel): Impostor | null {
+  const bake = bakeScene(model);
+  return bake && renderImpostor(renderer, bake);
+}
+
+/**
+ * The same bake with its programs built first, off the main thread where the driver allows: the model's
+ * unlit materials and the copy linked in the bake's frame (40 to 80 ms for a biome's trees)
+ */
+export async function bakeImpostorAsync(renderer: WebGLRenderer, model: ObjectModel): Promise<Impostor | null> {
+  const bake = bakeScene(model);
+  if (!bake) return null;
+  const msaa = new WebGLRenderTarget(1, 1, { samples: 4 });
+  msaa.texture.colorSpace = SRGBColorSpace;
+  // The copy's program as the bake's copy draws it: with a map
+  const copy = copyQuad(msaa.texture);
+  const target = new WebGLRenderTarget(1, 1, { depthBuffer: false });
+  target.texture.colorSpace = SRGBColorSpace;
+  const previous = renderer.getRenderTarget();
+  const jobs: Promise<unknown>[] = [];
+  try {
+    // compileAsync builds the programs before it returns its promise: the targets only around the calls
+    renderer.setRenderTarget(msaa);
+    jobs.push(renderer.compileAsync(bake.scene, copy.camera));
+    renderer.setRenderTarget(target);
+    jobs.push(renderer.compileAsync(copy.scene, copy.camera));
+  } finally {
+    renderer.setRenderTarget(previous);
+  }
+  try {
+    await Promise.all(jobs);
+  } finally {
+    copy.dispose();
+    msaa.dispose();
+    target.dispose();
+  }
+  return renderImpostor(renderer, bake);
+}
+
+function renderImpostor(renderer: WebGLRenderer, bake: BakeScene): Impostor {
+  const { scene, unlit, center, radius, bounds } = bake;
   const side = CELL * IMPOSTOR_FRAMES;
   // Drawn with 4x MSAA, then copied into a plain target: kept, the MSAA buffer held three times the texture
   const msaa = new WebGLRenderTarget(side, side, { samples: 4 });
@@ -184,6 +237,14 @@ export function bakeImpostor(renderer: WebGLRenderer, model: ObjectModel): Impos
 
 /** `source` into `target` as it is, alpha too (a triangle over the target, no blending), its mipmaps made after */
 function copyTexture(renderer: WebGLRenderer, source: Texture, target: WebGLRenderTarget): void {
+  const copy = copyQuad(source);
+  renderer.setRenderTarget(target);
+  renderer.render(copy.scene, copy.camera);
+  copy.dispose();
+}
+
+/** A triangle over clip space with `source` on it as it is, and the identity camera it draws with */
+function copyQuad(source: Texture): { scene: Scene; camera: OrthographicCamera; dispose(): void } {
   const material = new MeshBasicMaterial({ map: source, blending: NoBlending, toneMapped: false, depthTest: false, depthWrite: false });
   const geometry = new BufferGeometry();
   geometry.setAttribute('position', new BufferAttribute(new Float32Array([-1, -1, 0, 3, -1, 0, -1, 3, 0]), 3));
@@ -194,10 +255,14 @@ function copyTexture(renderer: WebGLRenderer, source: Texture, target: WebGLRend
   scene.add(quad);
   // Clip space as it comes: an identity camera
   const camera = new OrthographicCamera(-1, 1, 1, -1, -1, 1);
-  renderer.setRenderTarget(target);
-  renderer.render(scene, camera);
-  geometry.dispose();
-  material.dispose();
+  return {
+    scene,
+    camera,
+    dispose: () => {
+      geometry.dispose();
+      material.dispose();
+    },
+  };
 }
 
 /** The card's turn to the camera and the blend of its four nearest views, into a standard or a depth material */

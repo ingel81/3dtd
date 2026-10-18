@@ -261,6 +261,45 @@ describe('MapObjectLayer floating objects', () => {
     layer.dispose();
   });
 
+  it('reseats only objects whose ground moved, the height alone, as writing them anew would', async () => {
+    const heights = new Float32Array(4).fill(2);
+    const field = new HeightField({ columns: 2, rows: 2, cellSize: 1000, heights }, 1000, 1000);
+    const rock = { ...catalog.objects[0], id: 'rock', category: 'prop' as const, lod: undefined, file: 'rock.glb' };
+    const lib = new MapAssetLibrary('base/', {
+      fetch: (() =>
+        Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ ...catalog, objects: [rock] }) } as Response)) as typeof fetch,
+      loadModel: () => {
+        const root = new Group();
+        root.add(new Mesh(new BoxGeometry(1, 1, 1), new MeshStandardMaterial()));
+        return Promise.resolve(root);
+      },
+    });
+    const object = { id: 'r', asset: 'rock', x: 10, y: 20, z: 0.5, rotation: 1.2, scale: 1.5, pitch: 0.1 };
+    const los = new Group();
+    const layer = new MapObjectLayer(field, lib, los, { packMax: 0 });
+    await layer.setObjects([object]);
+    const matrix = (...groups: Group[]): number[] => {
+      const meshes: InstancedMesh[] = [];
+      for (const g of groups) g.traverse((c) => c instanceof InstancedMesh && meshes.push(c));
+      return Array.from(meshes[0].instanceMatrix.array.slice(0, 16));
+    };
+    const rect = { minX: 0, minY: 0, maxX: 30, maxY: 30 };
+    const version = layer.version;
+    layer.refreshHeights(rect);
+    // Nothing moved: no upload, no new shadow frame
+    expect(layer.version).toBe(version);
+    heights.fill(5);
+    layer.refreshHeights(rect);
+    expect(layer.version).toBe(version + 1);
+    // The same matrix a fresh layer writes for the object on the new ground
+    const freshLos = new Group();
+    const fresh = new MapObjectLayer(field, lib, freshLos, { packMax: 0 });
+    await fresh.setObjects([object]);
+    expect(matrix(layer.group, los)).toEqual(matrix(fresh.group, freshLos));
+    layer.dispose();
+    fresh.dispose();
+  });
+
   it('lights the window glass of a floating ship at night while it rocks', async () => {
     const field = new HeightField({ columns: 2, rows: 2, cellSize: 1000, heights: new Float32Array(4) }, 1000, 1000);
     const ship = { ...catalog.objects[0], id: 'ship', category: 'building' as const, float: true, lod: undefined, file: 'ship.glb' };

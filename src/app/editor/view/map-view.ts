@@ -124,6 +124,11 @@ export class EditorMapView {
     return this.view.warmUpAssets(renderer, scene, camera, assetIds, compile);
   }
 
+  /** Compiles `object`'s programs for the water's mirror; null when no mirror draws */
+  compileForMirror(renderer: WebGLRenderer, object: Object3D, camera: Camera, scene: Scene): Promise<unknown> | null {
+    return this.view.compileForMirror(renderer, object, camera, scene);
+  }
+
   /** Meshes for the terrain shader's variants with more material layers, to compile ahead of a new layer */
   terrainLayerTwins(): Mesh[] {
     return this.view.terrainLayerTwins();

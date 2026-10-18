@@ -210,17 +210,21 @@ export class EditorShellComponent implements OnDestroy, ActionHost {
       });
     });
     afterNextRender(() => this.mountIdlePanels());
-    // The assets a biome or the object palette is about to place get their programs compiled ahead
+    // The assets a biome or the object palette is about to place get their programs compiled ahead: on a tool
+    // switch and on a new choice in the open tool (a biome picked while Landscape is open linked its plants'
+    // programs in its first dab, 0.5 s); the warm-up keeps what it built, so a repeat costs nothing
     effect(() => {
       const tool = this.session.tools.tool();
       const catalog = this.session.catalog();
+      const st = this.session.tools.settings;
+      const landscape = tool === 'landscape' ? st.landscape() : null;
+      const objects = tool === 'objects' ? st.objects() : null;
       untracked(() => {
         const vp = this.session.view;
-        const st = this.session.tools.settings;
         if (!vp.shown) return;
         const ids: string[] = [];
-        if (tool === 'landscape' && st.landscape().mode === 'biome') ids.push(...biomeById(st.landscape().biome).objects.flatMap((o) => o.assets));
-        if (tool === 'objects') ids.push(...(st.objects().asset ? [st.objects().asset!] : []), ...st.objects().scatter.assets);
+        if (landscape?.mode === 'biome') ids.push(...biomeById(landscape.biome).objects.flatMap((o) => o.assets));
+        if (objects) ids.push(...(objects.asset ? [objects.asset] : []), ...objects.scatter.assets);
         const known = ids.filter((id) => catalog.objects.has(id));
         if (known.length) vp.warmUpAssets(known);
       });

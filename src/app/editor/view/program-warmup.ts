@@ -3,9 +3,10 @@
  * program linked in the frame that first needs it costs that frame up to
  * seconds. The map's programs before the view shows, then in idle moments
  * the top-down picture's and the variants a first stroke switches to; the
- * overlay's at once; a biome's or an asset's before they are placed.
+ * overlay's at once; a biome's or an asset's before they are placed, and a
+ * new ground material's before it replaces the old.
  */
-import { Group, SRGBColorSpace, WebGLRenderTarget, type Object3D, type PerspectiveCamera, type Scene, type WebGLRenderer } from 'three';
+import { Group, SRGBColorSpace, WebGLRenderTarget, type Mesh, type Object3D, type PerspectiveCamera, type Scene, type WebGLRenderer } from 'three';
 import { firstUsePrograms, programsReady } from '../../three-engine/programs-ready';
 import { idle } from './idle';
 import type { EditorMapView } from './map-view';
@@ -13,8 +14,8 @@ import type { EditorMapView } from './map-view';
 export class ProgramWarmup {
   /** Set once the viewport is gone: late promises must not reach the page */
   private disposed = false;
-  /** Assets whose programs were compiled ahead */
-  private readonly warmed = new Set<string>();
+  /** Assets whose programs were compiled ahead, or are being: settles when they are built */
+  private readonly warmed = new Map<string, Promise<void>>();
   /**
    * The view whose ground is in and programs built (view): frames draw only
    * then, so a map opening shows the page's "Preparing the view" and a
@@ -120,14 +121,38 @@ export class ProgramWarmup {
 
   /** Compiles the programs of assets before they are placed, so the first stroke with them does not stall */
   assets(assetIds: string[]): void {
-    const fresh = assetIds.filter((id) => !this.warmed.has(id));
-    if (!fresh.length) return;
-    for (const id of fresh) this.warmed.add(id);
+    void this.assetsReady(assetIds);
+  }
+
+  /**
+   * Settles once the programs of these assets are built (compiling those not
+   * asked for yet): the map view waits for it before it shows an asset new to
+   * the map, whoever placed it (a stroke, the agent, a paste), instead of
+   * linking its programs in the frame (90 ms each, five or six for a biome)
+   */
+  assetsReady(assetIds: string[]): Promise<void> {
+    const fresh = [...new Set(assetIds)].filter((id) => !this.warmed.has(id));
+    if (fresh.length) {
+      const view = this.current();
+      const done = view
+        .warmUpAssets(this.renderer, this.scene, this.camera, fresh, (o) => this.compileForViews(o))
+        .then(() => firstUsePrograms(this.renderer, () => this.disposed || view !== this.current()))
+        .catch(() => undefined);
+      for (const id of fresh) this.warmed.set(id, done);
+    }
+    return Promise.all(assetIds.map((id) => this.warmed.get(id))).then(() => undefined);
+  }
+
+  /**
+   * Builds the programs of `meshes` for every picture before they draw (new
+   * ground materials, MapTerrainLayer.prepare), with their first-use work
+   */
+  async prepare(meshes: Mesh[]): Promise<void> {
     const view = this.current();
-    void view
-      .warmUpAssets(this.renderer, this.scene, this.camera, fresh, (o) => this.compileForViews(o))
-      .then(() => firstUsePrograms(this.renderer, () => this.disposed || view !== this.current()))
-      .catch(() => undefined);
+    const group = new Group();
+    for (const m of meshes) group.add(m);
+    await this.compileForViews(group).catch(() => undefined);
+    await firstUsePrograms(this.renderer, () => this.disposed || view !== this.current());
   }
 
   dispose(): void {
@@ -151,6 +176,9 @@ export class ProgramWarmup {
     const jobs: Promise<unknown>[] = [];
     view.withEitherLights((current) => {
       if (screen || !current) jobs.push(r.compileAsync(object, this.camera, this.scene));
+      // The water's mirror draws into a linear target: programs of their own (a new ground layer linked them there)
+      const mirror = screen ? view.compileForMirror(r, object, this.camera, this.scene) : null;
+      if (mirror) jobs.push(mirror);
     });
     const fog = this.scene.fog;
     const previous = r.getRenderTarget();
