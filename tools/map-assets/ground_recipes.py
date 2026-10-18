@@ -358,4 +358,45 @@ RECIPES = {
             stones(40, STONE_GREY, size=(0.01, 0.03)),
         ],
     },
+
+    # ---- sport and play (OSM areas, E237)
+    # Tartan: the red rubber of a running track, poured and sprinkled with granules, worn a little paler where it is run
+    'tartan': {
+        'size': 3, 'seed': 61, 'ao': 0.03,
+        'base': {'colours': (c(146, 56, 42), c(162, 66, 50)), 'relief': 0.002, 'grain': 0.0012, 'granules': 0.0009, 'rough': 0.86,
+                 'speckle': 0.9, 'relief_tone': 0.2, 'flecks': [(c(112, 40, 32), 0.12), (c(186, 92, 70), 0.06)]},
+    },
+    # Safety rubber (EPDM): a playground's poured floor, red-brown with green, blue and pale grains through it
+    'rubber-safety': {
+        'size': 2, 'seed': 62, 'ao': 0.03,
+        'base': {'colours': (c(118, 54, 42), c(146, 72, 56)), 'relief': 0.002, 'grain': 0.001, 'granules': 0.0012, 'rough': 0.9,
+                 'speckle': 0.3, 'flecks': [(c(64, 112, 62), 0.08), (c(70, 98, 150), 0.05), (c(196, 186, 160), 0.04), (c(40, 36, 34), 0.06)]},
+    },
+    # Artificial turf: short even blades in two greens, black rubber infill and sand between them
+    'artificial-turf': {
+        'size': 2, 'seed': 63, 'ao': 0.06,
+        'base': {'colours': (c(44, 62, 36), c(58, 76, 44)), 'relief': 0.001, 'granules': 0.001, 'rough': 0.9, 'speckle': 0.4,
+                 'flecks': [(c(150, 136, 110), 0.08), (c(28, 28, 26), 0.1)]},
+        'layers': [
+            blades(16000, [(c(58, 120, 46), 3), (c(66, 132, 52), 3), (c(52, 108, 44), 2), (c(74, 136, 58), 1)], length=(0.035, 0.05),
+                   width=(0.01, 0.014), tilt=(0.6, 1.2), clumps=None, rough=0.55),
+        ],
+    },
+    # Hard court, green and blue: acrylic paint over asphalt, fine sand in the paint, smooth to the hand
+    'hard-court-green': {
+        'size': 4, 'seed': 64, 'ao': 0.02,
+        'base': {'colours': (c(62, 108, 76), c(66, 114, 80)), 'relief': 0.0015, 'grain': 0.0008, 'granules': 0.0004, 'rough': 0.62,
+                 'speckle': 0.5, 'relief_tone': 0.15},
+    },
+    'hard-court-blue': {
+        'size': 4, 'seed': 65, 'ao': 0.02,
+        'base': {'colours': (c(52, 84, 134), c(56, 90, 140)), 'relief': 0.0015, 'grain': 0.0008, 'granules': 0.0004, 'rough': 0.62,
+                 'speckle': 0.5, 'relief_tone': 0.15},
+    },
+    # Pool tiles: small glazed tiles, pale blue, grey grout between them
+    'pool-tiles': {
+        'size': 2, 'seed': 66, 'ao': 0.04,
+        'base': {'colours': (c(170, 204, 214), c(190, 220, 228)), 'relief': 0.0005, 'grain': 0.0002, 'rough': 0.3, 'speckle': 0.04,
+                 'tiles': {'size': 0.25, 'grout': 0.005, 'depth': 0.002, 'vary': 0.1, 'grout_colour': c(150, 158, 156), 'grout_rough': 0.85}},
+    },
 }

@@ -184,6 +184,23 @@ def build_base(patch, base, rng):
             ridge += (1 - np.abs(v * 2 - 1)) ** 3 / 2 ** k
         # In fields: here the wind scoured, there it laid the snow smooth
         relief += (ridge / 1.75 - 0.3) * g['amp'] * np.clip(fbm(n, 2, 3, rng) * 2 - 0.4, 0.1, 1)
+    if base.get('granules'):
+        # Rubber or sand grains a few millimetres across, one per quad: a relief of its own at the grid's scale
+        relief += (grain - 0.5) * base['granules'] * 2
+    tiles = None
+    if base.get('tiles'):
+        # Square tiles in a grid of whole tiles across the patch, a sunk joint of grout round each, each tile its own tone
+        tl = base['tiles']
+        per = max(1, round(s / tl['size']))
+        u = (np.arange(n) + 0.5) / n * per
+        fu = np.minimum(u % 1, 1 - u % 1) * (s / per)
+        joint = np.minimum(fu[None, :], fu[:, None])
+        tiles = np.clip(1 - joint / tl.get('grout', 0.004), 0, 1)
+        relief -= tiles * tl.get('depth', 0.002)
+        iu = np.floor(u).astype(int)
+        tone_rng = np.random.default_rng(int(rng.integers(1 << 30)))
+        per_tile = tone_rng.random((per, per))
+        tile_tone = per_tile[iu[:, None], iu[None, :]]
     cracks = np.zeros((n, n))
     if base.get('cracks'):
         c = base['cracks']
@@ -199,9 +216,24 @@ def build_base(patch, base, rng):
     t = np.clip(tone * 1.2 - 0.1 + (fine - 0.5) * 0.5 + hp * base.get('relief_tone', 0.25) + (grain - 0.5) * base.get('speckle', 0.12), 0, 1)
     col = np.array(lo)[None, None, :] * (1 - t[..., None]) + np.array(hi)[None, None, :] * t[..., None]
     col *= (1 - damp * 0.35)[..., None]
+    if tiles is not None:
+        tl = base['tiles']
+        col *= (1 + (tile_tone - 0.5) * tl.get('vary', 0.08))[..., None]
+        col = col * (1 - tiles[..., None]) + np.array(tl['grout_colour'])[None, None, :] * tiles[..., None]
+    if base.get('flecks'):
+        # Grains of other colours strewn through (the coloured granules of a rubber floor): one quad each
+        pick_rng = np.random.default_rng(int(rng.integers(1 << 30)))
+        roll = pick_rng.random((n, n))
+        start = 0.0
+        for colour, share in base['flecks']:
+            hit = (roll >= start) & (roll < start + share)
+            col[hit] = np.array(colour) * (0.85 + 0.3 * grain[hit])[..., None]
+            start += share
     if base.get('crack_colour'):
         col = col * (1 - cracks[..., None]) + np.array(base['crack_colour'])[None, None, :] * cracks[..., None]
     rough = base.get('rough', 0.9) - damp * 0.45
+    if tiles is not None:
+        rough = rough + tiles * (base['tiles'].get('grout_rough', 0.9) - base.get('rough', 0.9))
     # Grid: n x n quads over the tile, the last row and column the first again (it tiles)
     xs = np.linspace(0, s, n + 1)
     verts = []

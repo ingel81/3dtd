@@ -116,5 +116,11 @@
   {"id": "forest-roots", "name": "Forest floor with roots", "category": "forest", "source": "baked", "target": "#735f44", "scale": 3, "tags": ["temperate", "autumn", "swamp"]},
   {"id": "leaf-gravel", "name": "Gravel with fallen leaves", "category": "forest", "source": "polyhaven", "asset": "leaf_scattered_gravel", "scale": 3, "tags": ["autumn", "castle"]},
   {"id": "desert-gravel", "name": "Sandy gravel", "category": "sand", "source": "polyhaven", "asset": "sandy_gravel_02", "scale": 4, "tags": ["desert", "mars"]},
-  {"id": "rocky-terrain", "name": "Rocky terrain", "category": "rock", "source": "polyhaven", "asset": "rocky_terrain_02", "scale": 8, "tags": ["mountain", "desert"]}
+  {"id": "rocky-terrain", "name": "Rocky terrain", "category": "rock", "source": "polyhaven", "asset": "rocky_terrain_02", "scale": 8, "tags": ["mountain", "desert"]},
+  {"id": "tartan", "name": "Tartan track", "category": "road", "paved": true, "source": "baked", "target": "#9a3d2d", "scale": 3, "tags": ["city"]},
+  {"id": "rubber-safety", "name": "Safety rubber", "category": "road", "source": "baked", "target": "#7e4236", "scale": 2, "tags": ["city"]},
+  {"id": "artificial-turf", "name": "Artificial turf", "category": "road", "source": "baked", "target": "#3b6431", "scale": 2, "tags": ["city"]},
+  {"id": "hard-court-green", "name": "Hard court, green", "category": "road", "paved": true, "source": "baked", "target": "#3d6b4c", "scale": 4, "tags": ["city"]},
+  {"id": "hard-court-blue", "name": "Hard court, blue", "category": "road", "paved": true, "source": "baked", "target": "#34557f", "scale": 4, "tags": ["city"]},
+  {"id": "pool-tiles", "name": "Pool tiles", "category": "road", "paved": true, "source": "baked", "target": "#b2d2db", "scale": 2, "tags": ["city"]}
 ]

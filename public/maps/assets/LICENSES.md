@@ -130,6 +130,12 @@ prozedural gebaut. Keine KI-Generatoren, keine Fremdmarken. Die Skripte, die sie
 | leaf-gravel | https://polyhaven.com/a/leaf_scattered_gravel |
 | desert-gravel | https://polyhaven.com/a/sandy_gravel_02 |
 | rocky-terrain | https://polyhaven.com/a/rocky_terrain_02 |
+| tartan | procedural (tools/map-assets/bake_grounds.py) |
+| rubber-safety | procedural (tools/map-assets/bake_grounds.py) |
+| artificial-turf | procedural (tools/map-assets/bake_grounds.py) |
+| hard-court-green | procedural (tools/map-assets/bake_grounds.py) |
+| hard-court-blue | procedural (tools/map-assets/bake_grounds.py) |
+| pool-tiles | procedural (tools/map-assets/bake_grounds.py) |
 
 ## Objekte (`models/<id>.glb`)
 

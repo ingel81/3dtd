@@ -2521,6 +2521,130 @@
         "desert"
       ],
       "source": "https://polyhaven.com/a/rocky_terrain_02"
+    },
+    {
+      "id": "tartan",
+      "name": "Tartan track",
+      "category": "road",
+      "files": {
+        "color": "materials/tartan/color.jpg",
+        "normal": "materials/tartan/normal.jpg",
+        "arh": "materials/tartan/arh.jpg",
+        "packed": {
+          "color": "materials/tartan/color.ktx2",
+          "data": "materials/tartan/data.ktx2"
+        }
+      },
+      "scale": 3,
+      "average": "#993d2d",
+      "tags": [
+        "city"
+      ],
+      "paved": true,
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
+    },
+    {
+      "id": "rubber-safety",
+      "name": "Safety rubber",
+      "category": "road",
+      "files": {
+        "color": "materials/rubber-safety/color.jpg",
+        "normal": "materials/rubber-safety/normal.jpg",
+        "arh": "materials/rubber-safety/arh.jpg",
+        "packed": {
+          "color": "materials/rubber-safety/color.ktx2",
+          "data": "materials/rubber-safety/data.ktx2"
+        }
+      },
+      "scale": 2,
+      "average": "#7c4336",
+      "tags": [
+        "city"
+      ],
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
+    },
+    {
+      "id": "artificial-turf",
+      "name": "Artificial turf",
+      "category": "road",
+      "files": {
+        "color": "materials/artificial-turf/color.jpg",
+        "normal": "materials/artificial-turf/normal.jpg",
+        "arh": "materials/artificial-turf/arh.jpg",
+        "packed": {
+          "color": "materials/artificial-turf/color.ktx2",
+          "data": "materials/artificial-turf/data.ktx2"
+        }
+      },
+      "scale": 2,
+      "average": "#35642b",
+      "tags": [
+        "city"
+      ],
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
+    },
+    {
+      "id": "hard-court-green",
+      "name": "Hard court, green",
+      "category": "road",
+      "files": {
+        "color": "materials/hard-court-green/color.jpg",
+        "normal": "materials/hard-court-green/normal.jpg",
+        "arh": "materials/hard-court-green/arh.jpg",
+        "packed": {
+          "color": "materials/hard-court-green/color.ktx2",
+          "data": "materials/hard-court-green/data.ktx2"
+        }
+      },
+      "scale": 4,
+      "average": "#3d6b4c",
+      "tags": [
+        "city"
+      ],
+      "paved": true,
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
+    },
+    {
+      "id": "hard-court-blue",
+      "name": "Hard court, blue",
+      "category": "road",
+      "files": {
+        "color": "materials/hard-court-blue/color.jpg",
+        "normal": "materials/hard-court-blue/normal.jpg",
+        "arh": "materials/hard-court-blue/arh.jpg",
+        "packed": {
+          "color": "materials/hard-court-blue/color.ktx2",
+          "data": "materials/hard-court-blue/data.ktx2"
+        }
+      },
+      "scale": 4,
+      "average": "#345482",
+      "tags": [
+        "city"
+      ],
+      "paved": true,
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
+    },
+    {
+      "id": "pool-tiles",
+      "name": "Pool tiles",
+      "category": "road",
+      "files": {
+        "color": "materials/pool-tiles/color.jpg",
+        "normal": "materials/pool-tiles/normal.jpg",
+        "arh": "materials/pool-tiles/arh.jpg",
+        "packed": {
+          "color": "materials/pool-tiles/color.ktx2",
+          "data": "materials/pool-tiles/data.ktx2"
+        }
+      },
+      "scale": 2,
+      "average": "#b2d2db",
+      "tags": [
+        "city"
+      ],
+      "paved": true,
+      "source": "procedural (tools/map-assets/bake_grounds.py)"
     }
   ],
   "objects": [
