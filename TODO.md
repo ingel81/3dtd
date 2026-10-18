@@ -99,16 +99,6 @@ Editor-Workers und das Gelände auf der GPU laufen parallel dazu (Plan `tmp/plan
 
 ### Bugs, warten auf neuen Fall
 
-- [ ] **E232 Wellen zählen hoch, aber kein Gegner erscheint** (Fall aus 0.7.0, 2026-10-18; Ort, URL und Konsole
-      angefragt): Welle 28 ohne einen einzigen Gegner, jede Leertaste springt mehrere Wellen weiter. Vermutlich ein
-      Spawn ohne Route zum HQ: beim ersten Laden (URL, Favorit, letzte Orte) steht nur `console.error('No routes
-      found')` (`visualization-facade.service.ts`), nur der Ortswechsel bricht ab. Jede Welle bricht dann nach den
-      Fehlversuchen ab (`No valid paths, aborting wave`), zählt trotzdem als geschafft und zahlt Gold
-      (`wave.manager.ts`); mit Auto-Start reihen sich die leeren Wellen aneinander. Mögliche Quelle: eine
-      unvollständige Overpass-Antwort (`maxsize` 4 MB, `remark` wird nur geloggt) liegt dauerhaft im IndexedDB-Cache
-      und zerreißt das Netz. Fix: fehlende Route beim ersten Laden blockiert wie beim Ortswechsel; `canStartWave`
-      verlangt Routen statt nur Spawns; abgebrochene Welle zählt nicht und zahlt nichts; Antworten mit `remark` nicht
-      cachen.
 - [ ] **E188 Objekte poppen beim Zoomen und Bewegen auf** (User, 2026-10-15, eigene Karten): stellenweise erscheinen
       Objekte sichtbar spät. User sieht es sich genauer an und liefert Screenshots; erst dann untersuchen (LOD-Wechsel,
       Sichtweite je Objekt, Culling). Verwandt: Bäume poppen nach `viewReady` (E183, `wt/fx-engine`).
