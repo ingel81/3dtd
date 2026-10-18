@@ -21,7 +21,7 @@
   gap: var(--td-sp-4);
   box-sizing: border-box;
   width: min(1120px, 100%);
-  height: min(760px, 100%);
+  height: min(880px, 100%);
   padding: var(--td-sp-5);
 
   &.is-drop {
@@ -174,10 +174,12 @@
   gap: var(--td-sp-1);
 }
 
+// As large as a template's picture: the empty choice stands in the row like the others
 .mb-blank {
   display: block;
-  width: 100%;
-  aspect-ratio: 1;
+  box-sizing: border-box;
+  width: 40px;
+  height: 40px;
   border: 1px dashed var(--td-line-light);
   border-radius: var(--td-radius);
 }
@@ -189,6 +191,26 @@
   gap: var(--td-sp-2);
   margin: 0 auto 0 0;
   white-space: nowrap;
+}
+
+// The new map's form: the fields scroll, Create and Cancel stand under them on a line
+.mb-detail.is-form {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.mb-form {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  // A scrollbar coming or going would reflow the template grid
+  scrollbar-gutter: stable;
+}
+
+.mb-form-actions {
+  flex: 0 0 auto;
+  padding-top: var(--td-sp-3);
 }
 
 .mb-new-actions {

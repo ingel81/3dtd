@@ -189,7 +189,7 @@
         }
       </div>
 
-      <aside class="mb-detail td-stack is-loose">
+      <aside class="mb-detail td-stack is-loose" [class.is-form]="mode() === 'new' && newFrom() === 'landscape'">
         @if (mode() === 'new') {
           <h2 class="td-section">New map</h2>
           <div class="td-seg" role="radiogroup" aria-label="Start from">
@@ -211,6 +211,8 @@
               </div>
             }
           } @else {
+          <!-- The fields scroll, the row with Create stays under them -->
+          <div class="mb-form td-stack is-loose">
           <label class="td-field">
             <span class="td-label">Name</span>
             <input class="td-input" type="text" maxlength="60" [value]="newName()" (input)="newName.set(asValue($event))" data-test="new-name" />
@@ -280,7 +282,8 @@
             </div>
           </div>
           }
-          <div class="td-actions mb-new-actions">
+          </div>
+          <div class="td-actions mb-form-actions td-line-top">
             <!-- The making shows in the row it already has: a line of its own grew the form and made it jump -->
             @if (busy()) {
               <p class="td-note mb-making" role="status" data-test="create-status">
