@@ -196,7 +196,8 @@ Code in `src/app/world/osm/` ohne Angular und DOM (Worker, Node, Specs), wie `wo
 | `convert/ground.ts` | Landnutzung zu höchstens 8 Schichten, Vorrang bei Überlappung |
 | `convert/vegetation.ts` | Wald, Gebüsch, Parks, Einzelbäume, Baumreihen, im Objektbudget |
 | `convert/buildings.ts` | Grundriss zu Katalog-Modell(en), Art raten, ausrichten, auf den Hang setzen |
-| `convert/furniture.ts` | Zäune, Mauern, Hecken, Laternen, Bahn, Kleinkram, Strommasten (gebaut O5) |
+| `convert/furniture.ts` | Zäune, Mauern, Hecken, Laternen, Kleinkram, Strommasten (gebaut O5) |
+| `convert/rails.ts` | Bahn: Linien, Bahnübergänge, Bahnbrücken, Straßenbrücken über der Bahn, Bahntunnel, Gleisbett, Stücke (E238) |
 | `convert/layout.ts` | HQ und Spawns (`StreetRouter` auf `mapStreetNetwork`), Kartenrahmen |
 | `import-osm.ts`, `osm-frame-core.ts`, `osm-frame-store.ts`, `osm.worker.ts`, `osm-frame-session.ts` | Ablauf, Bericht, Rahmen-Sitzung, Speicher je Rahmen, Worker, Abbruch |
 
@@ -286,7 +287,8 @@ Breitengrad.
 | `barrier=hedge` | `hedge`, `hedge-long` |
 | `barrier=guard_rail`, `bollard`, `gate` | `road-barrier`, `bollards`, `gate-farm` |
 | `highway=street_lamp` | `street-lamp`; fehlen Laternen, Regel wie der Straßenpinsel an Straßen mit `lit=yes` |
-| `railway=rail`, `light_rail`, `tram` | Gleisstücke entlang der Linie (fehlen), Schotter als Bodenfarbe; im Tunnel weglassen |
+| `railway=rail`, `light_rail`, `tram` | Gleis aus 10- und 2,5-m-Stücken auf eingeebnetem Bett, Übergänge, Brücken, Portale; siehe „Bahn und Straße, gebaut“ |
+| `railway=level_crossing`, `crossing` (Knoten) | Bahnübergang: Platten, Andreaskreuz, Lichtzeichen, Halbschranke nach `crossing:*` |
 | `railway=platform` | Platten, Bahnsteigkante (fehlt) |
 | `amenity=bench`, `waste_basket`, `highway=bus_stop`, `emergency=fire_hydrant` | `bench`, `trash-can`, `bus-stop`, `hydrant` |
 | `man_made=tower`, `mast`, `pier` | `watchtower`, `antenna-mast`, `pier` |
@@ -867,8 +869,8 @@ Fall in `import-osm.spec.ts` auf der eingefrorenen Probe (Ausstattung im Anteil,
   den Ecken), sie darf in Gebäude reichen (Tore, Türme sind dort oft Gebäude). **Leitplanken** (`guard_rail`) bleiben
   weg: der Betonblock ist keine Leitplanke und kostet 526 Punkte je 1,5 m (Erlenbach: rund 1 070 Stück); ein Modell
   „Leitplanke“ fehlt. Bordsteine, Tore, Schranken, Kabelsperren bleiben weg.
-- **Gleise:** `railway=rail`, `light_rail`, `tram`, `narrow_gauge`, `subway`, `funicular` ohne Tunnel und Brücke
-  (Brücken haben kein Deck für Gleise): `rail-track` alle 10 m. Straßenbahn in der Straße fällt mit der Straßenregel
+- **Gleise** (Stand O5; seit E238 neu gebaut, siehe „Bahn und Straße, gebaut“): `railway=rail`, `light_rail`, `tram`,
+  `narrow_gauge`, `subway`, `funicular` ohne Tunnel und Brücke (Brücken haben kein Deck für Gleise): `rail-track` alle 10 m. Straßenbahn in der Straße fällt mit der Straßenregel
   weg, Bahnübergänge haben eine Lücke. An Gleisen mit `electrified=contact_line` (Bahn, Stadtbahn, Schmalspur;
   Straßenbahnen hängen ihre Leitung an Querdrähte) alle 50 m ein `catenary-mast` links, 3,2 m von der Gleismitte, der
   Ausleger über dem Gleis; keiner näher als 2,5 m an einem anderen Gleis (Bahnhöfe, Gleisfelder; Stuttgart: 116
@@ -930,7 +932,7 @@ Die Ausstattung kostet rund 1 bis 3 % Draw Calls und 3 bis 5 % Dreiecke; die Bil
 
 - **Fehlende Modelle:** Leitplanke, Stromleitung zwischen den Masten, Bahnsteigkante, Fahrdraht zwischen den Masten, Schaltkasten
   (`man_made=street_cabinet`, Miltenberg 154), Fahnenmast.
-- **Gleise am Hang:** die Stücke folgen dem Boden ohne Einebnen; auf einem steilen Bahndamm kippen sie nicht mit.
+- **Gleise am Hang:** behoben mit E238 (eingeebnetes Bett, Stücke nach dem Profil geneigt).
 
 ## Phase O7, Messung (2026-10-16, Teil)
 
@@ -1001,6 +1003,67 @@ lohnen sich eher:
 2. **Echte Klötze als Option der Desktop-App** (Electron kann ohne CORS abrufen): CityGML streamend lesen, Dächer und
    Wände in ein Netz je Kachel (Positionen und Indizes geschätzt 5 bis 6 MB je Karte, gepackt weniger), ein Material mit
    prozeduralen Fenstern. Neues Feld im Kartendokument, eigener Renderer-Pfad; Aufwand nach Schätzung 3 bis 5 Tage.
+
+## Bahn und Straße, gebaut (2026-10-18, E238)
+
+Befund (User): ein Gleis lag wie auf einem Sockel quer über einer Straße, die Straße endete daran. Ursache: die Bahn war
+eine Kette starrer 10-m-Stücke `rail-track` (0,65 m Schotterbett), jedes auf dem Boden unter seiner Mitte; die
+Ausstattung ließ nur Stücke weg, deren Mitte auf der Straße lag. Ein Stück mit der Mitte am Straßenrand lag über der
+eingeebneten, tieferen Straße, anderswo blieb eine Lücke. Übergangsknoten wurden weder abgefragt noch gelesen, Gleise
+auf Brücken und in Tunneln fehlten ganz. Gegnerwege waren nicht betroffen (Objekte sperren keine Route), es war ein
+Höhen- und Darstellungsfehler. Neu (`convert/rails.ts`, Abfrage um `railway=level_crossing|crossing` erweitert):
+
+- **Linien:** Gleiswege werden über gemeinsame Endknoten zu Linien verbunden, wo genau zwei sich treffen; eine Weiche,
+  eine Tunnelmündung oder das Ende der Antwort beendet eine Linie. Tunnel ab 40 m (`MIN_TUNNEL_M`) fallen weg und
+  bekommen Portale wie Straßentunnel (`buildTunnels` mit den Mündungen beider), kürzere bleiben Gleis.
+- **Wie Gleis und Straße sich treffen**, je Straßenweg (die Kanten des Straßengraphen sagen, was die Karte zeichnet):
+  am gemeinsamen Knoten ein **Bahnübergang** (auch ohne Tags); das Gleis auf einer Brücke (`bridge=*`): **Bahnbrücke**,
+  die Straße darunter; die Straße auf einer Brückenkante: das Gleis läuft **darunter**; die Straße in einem Tunnel, den
+  die Karte behält: nichts; die Straße in einem kürzeren Tunnel (eine Unterführung, die die Karte als Straße zeichnet)
+  oder das Gleis auf höherem `layer`: eine **eigene kurze Brücke** des Gleises; das Gleis auf tieferem `layer` ohne
+  Straßenbrücke: nur Platten; sonst (gleiche Ebene, kein gemeinsamer Knoten, den Daten fehlt er): Bahnübergang.
+- **Ausstattung eines Übergangs** vom Knoten: Andreaskreuz an Straßen über eine Bahn (`rail`, `narrow_gauge`), außer
+  `crossing:saltire=no`, an Fußwegen und bei Straßenbahnen (die per Ampel kreuzen) nur mit `yes`; `crossing:light=yes`:
+  Kreuz mit gelbem und rotem Lichtzeichen (`crossing-signal`); `crossing:barrier` `half`, `full`, `double_half`, `yes`:
+  Halbschranke, Baum offen (`crossing-barrier`). Je Zufahrt rechts (Rechtsverkehr),
+  3,6 m von der Gleismitte, zum Verkehr gedreht, die Schranke 1,4 m weiter zurück. Gespeicherte Rahmen ohne die
+  Übergangsknoten bekommen das Kreuz (Straße) bzw. nichts (Fußweg).
+- **Gelände** (`levelRails`, nach dem Einebnen der Straßen): jede Linie bekommt ein Höhenprofil, der Boden entlang der
+  Linie über 30 m gemittelt (60 m auf Wegen mit `embankment` oder `cutting`), zu den Enden hin gleichmäßig über weniger
+  (eine Linie endet auf dem Boden, Linien an einer Weiche passen zusammen), über Brücken gerade durch. Am Übergang nimmt
+  das Gleis über 25 m die Höhe der Straße an. Hat eine Bahnbrücke über einer Straße (4,7 m), einem Weg (2,7 m) oder
+  Wasser (1,5 m) zu wenig Luft, heben sich Brücke und beide Rampen (2,5 %, 20 bis 200 m): ein Damm, den die Höhendaten
+  nicht kannten. Liegt eine Straßenbrücke zu tief über dem Gleis (4,9 m, mit Oberleitung 5,7 m, Deck 1,25 m dick),
+  senkt sich das Gleis ebenso in einen Einschnitt. Das Bett wird über 2,6 m je Seite flach auf das Profil gebracht, die
+  Schulter fällt mit etwa 1:1,5 (1,5 bis 12 m); Straßenbänder samt Bankett, Wasser und der Boden unter Brücken bleiben,
+  wie sie sind. Sonst steht nirgends ein Bett über dem Boden: kein Sockel, der Wege abschneidet.
+- **Stücke** (`railPieces`): jede Linie hat ein Raster von 2,5 m; Bett, Übergang, Straße und Brücke sind Abschnitte mit nach
+  außen gerasterten Enden, jeder Abschnitt wird genau mit den 10- und 2,5-m-Stücken seines Satzes belegt (Gleis
+  `rail-track`/`rail-track-short`, Brücke `rail-bridge`/`rail-bridge-short`, Übergang `rail-crossing` je 2,5 m), ohne
+  Überlappung, jedes nach dem Profil zwischen seinen Enden geneigt (`roll`); Schwellen haben in beiden Längen dieselbe
+  Teilung. Die Übergangsplatten (Beton, Stahlwinkel an den Spurrillen, 8 cm über der Straße, außen abgeschrägt) reichen
+  0,75 m über den Straßenrand und bei schrägem Übergang um die Ecken des Betts (Winkel ab 20 Grad gerechnet). Brücken
+  (Betontrog mit Schotter, Gesims, Geländer) liegen in der Höhe des Profils, an jedem Ende ein Widerlager
+  (`bridge-abutment`, Fuß im Boden, Flügelmauern in den Damm) 2,5 m in der Spannweite, damit es vor dem Abfall des
+  Geländes steht; über 30 m Pfeiler (`bridge-pier`) etwa alle 25 m, keiner auf einer Straße oder einem Gleisbett.
+  Straßenbrücken über der Bahn bekommen Widerlager dort, wo der Boden erstmals 1 m unter dem Deck liegt, und Pfeiler
+  nach derselben Regel. Eine Linie, deren Mitte in einer Straße liegt (Straßenbahn im Straßenraum), liegt dort
+  ohne Schotterbett: Schienen im Asphalt mit Pflasterstreifen (`rail-street`), wo bisher das Bett als „auf der Straße“
+  wegfiel (Gleisanschlüsse auf Werkhöfen, Straßenbahn). Oberleitungsmasten stehen nur am Bett, nicht an Übergang oder
+  Brücke; die übrige Ausstattung (Laternen, Zäune, Punkte) hält sich vom Gleisbett fern wie von einer Straße.
+- **Prüfung:** die Editorprüfung „Objekt auf Straße“ zählt ein Objekt unter einem Brückendeck (seine Oberkante 0,5 m
+  darunter) und über einem Tunnel nicht mehr als auf der Straße (`objectsOnPaths` mit `byHeight`; die Levelskripte und
+  die OSM-Gebäude prüfen weiter ohne, die mitgelieferten Karten bleiben gleich). Die Gleisstücke haben ein Grundrechteck
+  (`boxes.json`) statt der Scheibe von 4,5 m, die bis auf Wege neben dem Gleis reichte.
+- **Proben** (eigene Overpass-Instanz, 2,4 km): Kleinstadt A 4 Linien, 3,4 km, 5 Übergänge (4 mit Halbschranke und
+  Licht, ein Fußweg mit Licht), 1 Bahnbrücke über eine Unterführung (um 3,5 m gehoben); Kleinstadt B mit Werksgleisen 17 Linien, 8,6 km,
+  10 Übergänge, 6 Bahnbrücken (4 eigene über Unterführungen), 7 Straßenbrücken über Gleisen. Editorprüfung wie vor
+  E238 (keine neuen Befunde), Bahnobjekte nirgends in der Luft; „Objekt auf Straße“ bei Bahnobjekten 2 und 33 statt 8
+  und 84 (der Rest: Wege, die im Gleisbett enden, Zugänge zu Bahnsteigen).
+- **Grenzen:** Gleisstücke an Weichen überlappen wie zuvor (Linien enden dort). Bahnsteige sind nicht gebaut. Die
+  Straßenoberfläche wird mit wachsender Entfernung zur Kamera gezogen und deckt dann die Übergangsplatten. Pfeiler
+  zwischen dicht liegenden Gleisen eines Gleisfelds finden keinen Platz. Welten, die vor E238 erzeugt wurden, behalten
+  ihre alten Gleise: neu erzeugen.
 
 ## Offene Fragen an den User (beantwortet, siehe oben)
 

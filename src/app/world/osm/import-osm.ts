@@ -30,6 +30,7 @@ import { layOut, OsmLayout, type LayoutReport } from './convert/layout';
 import { findLandmarks, spawnAnchors, type Landmark } from './convert/anchors';
 import { growLife, type LifeReport } from './convert/life';
 import { placeFurniture, type FurnitureReport } from './convert/furniture';
+import { levelRails, planRails, type RailGroundReport, type RailStats } from './convert/rails';
 import { placeBuildings, type BuildingCatalogEntry, type BuildingReport } from './convert/buildings';
 
 /**
@@ -96,6 +97,8 @@ export interface OsmImportReport {
   terrain: { dem: string | null; zeroM: number; minM: number; maxM: number; demFailed: string[] };
   roads: RoadStats;
   tunnels: TunnelReport;
+  /** The railway: lines, crossings, bridges, tunnels, and how its beds were levelled */
+  rails: RailStats & RailGroundReport;
   ground: GroundReport;
   water: WaterReport;
   plants: VegetationReport;
@@ -161,8 +164,9 @@ export function convertOsm(
   const roads = buildRoads(features);
   doc.paths = roads.paths;
   if (!roads.paths.edges.length) warnings.push('roads: no roads in this place; the map has nowhere for enemies to walk');
-  // Before the water: a river over a tunnel still cuts its bed through the raised ground
-  const tunnels = buildTunnels(t0, roads.tunnels, roads.mouths);
+  const rails = planRails(features, doc.paths);
+  // Before the water: a river over a tunnel still cuts its bed through the raised ground. The railway's tunnels get portals too
+  const tunnels = buildTunnels(t0, [...roads.tunnels, ...rails.tunnels], [...roads.mouths, ...rails.mouths.map((m) => ({ ...m, tunnel: m.tunnel + roads.tunnels.length }))]);
   doc.objects.push(...tunnels.objects);
   step('roads');
 
@@ -173,6 +177,8 @@ export function convertOsm(
   step('water');
 
   levelRoads(t0, doc.paths);
+  // After the roads: a level crossing takes the road's height; the beds keep off the road bands and the water
+  const railGround = levelRails(t0, rails, doc.paths, (k) => water.roads[k] === 1 || water.wet[k] === 1 || water.sea[k] === 1);
   settleWater(t0, water);
   seatPortals(t0, tunnels.objects);
   step('level');
@@ -204,7 +210,7 @@ export function convertOsm(
   // Fences, walls, tracks, lamps and the points of the street, in their own share of the scene budget
   const unknownCost = objectCost(undefined, side * side);
   const costOf = (asset: string) => options.costs?.[asset] ?? unknownCost;
-  const furniture = placeFurniture(doc, features, water, { costOf });
+  const furniture = placeFurniture(doc, features, water, { costOf, rails });
   step('furniture');
 
   // The plants keep off the footprints and hold their own share of the scene budget (the buildings have no cap for now)
@@ -241,6 +247,7 @@ export function convertOsm(
       terrain: { dem, zeroM, minM: round1(terrain.min), maxM: round1(terrain.max), demFailed: input.demFailed ?? [] },
       roads: roads.stats,
       tunnels: tunnels.report,
+      rails: { ...rails.stats, ...railGround },
       ground: ground.report,
       water: water.report,
       plants,
