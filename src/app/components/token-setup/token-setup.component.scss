@@ -31,7 +31,9 @@
   padding: var(--td-sp-5);
 }
 
+// A question of one field: the narrow of the two dialog widths
 .td-dlg {
+  width: var(--td-dlg-ask);
   max-height: none;
 }
 

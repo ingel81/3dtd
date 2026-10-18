@@ -199,11 +199,11 @@
 }
 
 .td-lost-content {
-  width: 520px;
+  width: var(--td-dlg-ask);
 }
 
 .td-gameover-content {
-  width: 760px;
+  width: var(--td-dlg-page);
   min-height: 0;
   max-height: 100%;
 }
