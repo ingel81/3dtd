@@ -15799,6 +15799,236 @@
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brushed_concrete"
     },
     {
+      "id": "oldtown-gable-3",
+      "name": "Old-town house, gable to the street, half-timbered (3 floors, 7 x 12 m)",
+      "category": "building",
+      "file": "models/oldtown-gable-3.glb",
+      "triangles": 4556,
+      "footprint": 6.3,
+      "height": 15.9,
+      "box": [
+        0,
+        0,
+        3.9,
+        6.3
+      ],
+      "roof": {
+        "x": -4.5,
+        "z": -7.2,
+        "cell": 0.6,
+        "columns": 15,
+        "rows": 24,
+        "step": 0.063,
+        "heights": "jZupt8XT4evh08W3qZuNjZupt8XT4ezh08W3qZuNjZupt8XT4ezh08W3qZuNjZupt8XT4ezh08W3qZuNjZupt8XT4ezh08W3qZuNjZupt8XT4ezh08W3qZuNjZupt8XT4ez9/cW3qZuNjZupt8XT4ez9/cW3qZuNjZupt8XT4ezh08W3qZuNjZupt8XT4ezh08W3qZuNjZvBwcXT4ezh08XBwZuNjZvJycnT4ezh08nJyZuNjZvJycnT4ezh08nJyZuNjZvBwcXT4ezh08XBwZuNjZupt8XT4ezh08W3qZuNjZupt8XT4ezh08W3qZuNjZupt8XT4ezh08W3qZuNjZupt8XT4ezh08W3qZuNjZupt8XT4ezh08W3qZuNjZupt8XT4ezh08W3qZuNjZupt8XT4ezh08W3qZuNjZupt8XT4ezh08W3qZuNjZupt8XT4ezh08W3qZuNjZupt8XT4evh08W3qZuN"
+      },
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "grime": true,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "lod": [
+        {
+          "file": "models/oldtown-gable-3-lod1.glb",
+          "distance": 350,
+          "triangles": 1338
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_oldtown.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/clay_roof_tiles_02"
+    },
+    {
+      "id": "oldtown-gable-4",
+      "name": "Old-town merchant house, gable to the street (4 floors, 8.5 x 14 m)",
+      "category": "building",
+      "file": "models/oldtown-gable-4.glb",
+      "triangles": 6708,
+      "footprint": 7.2,
+      "height": 19.8,
+      "box": [
+        0,
+        0,
+        4.6,
+        7.2
+      ],
+      "roof": {
+        "x": -5.25,
+        "z": -8.05,
+        "cell": 0.7,
+        "columns": 15,
+        "rows": 23,
+        "step": 0.078,
+        "heights": "lqSxvszZ5vDm2cy+saSWlqSxvszZ5vDm2cy+saSWlqSxvszZ5vDm2cy+saSWlqSxvszZ5vDm2cy+saSWlqSxvszZ5vDm2cy+saSWlqSxvszZ5vDm2cy+saSWlqS+vszZ5vDm2cy+vqSWlqTGxszZ5vDm2czGxqSWlqTFxczZ5vDm2czFxaSWlqSxvszZ5vDm2cy+saSWlqSxvszZ5vDm2cy+saSWlqSxvszZ5vDm2cy+saSWlqSxvszZ5vDm2cy+saSWlqSxvszZ5vDm2cy+saSWlqTFxczZ5vDm2czFxaSWlqTGxszZ5vDm2czGxqSWlqS+vszZ5vD+/sy+vqSWlqSxvszZ5vD+/sy+saSWlqSxvszZ5vDm2cy+saSWlqSxvszZ5vDm2cy+saSWlqSxvszZ5vDm2cy+saSWlqSxvszZ5vDm2cy+saSWl6SxvszZ5vDm2cy+saSX"
+      },
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "grime": true,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "lod": [
+        {
+          "file": "models/oldtown-gable-4-lod1.glb",
+          "distance": 350,
+          "triangles": 1692
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_oldtown.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/clay_roof_tiles_02"
+    },
+    {
+      "id": "oldtown-gable-2",
+      "name": "Old-town house, gable to the street, plastered (2 floors, 6 x 10 m)",
+      "category": "building",
+      "file": "models/oldtown-gable-2.glb",
+      "triangles": 1724,
+      "footprint": 5.0,
+      "height": 11.2,
+      "box": [
+        0,
+        0,
+        3.1,
+        5
+      ],
+      "roof": {
+        "x": -3.5,
+        "z": -5.73,
+        "cell": 0.5,
+        "columns": 14,
+        "rows": 23,
+        "step": 0.044,
+        "heights": "ipmotsXT4uLTxbaomYqKmai2xdPm5tPFtqiZioqZqLbF0+bm08W2qJmKipmotsXT5ubTxbaomYqKmai2xdPm5tPFtqiZioqZqLbF0+b+/sW2qJmKipmotsXT5v7+xbaomYqKmai2xdPm5tPFtqiZioqZqLbF0+bm08W2qJmKipmotsXT5ubTxbaomYqKmajX19fm5tfX16iZioqZqN3d3ebm3d3dqJmKipmo19fX5ubX19eomYqKmai2xdPm5tPFtqiZioqZqLbF0+bm08W2qJmKipmotsXT5ubTxbaomYqKmai2xdPm5tPFtqiZioqZqLbF0+bm08W2qJmKipmotsXT5ubTxbaomYqKmai2xdPm5tPFtqiZioqZqLbF0+bm08W2qJmKipmotsXT5ubTxbaomYqKmai2xdPi4tPFtqiZig=="
+      },
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "grime": true,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "lod": [
+        {
+          "file": "models/oldtown-gable-2-lod1.glb",
+          "distance": 350,
+          "triangles": 1396
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_oldtown.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/clay_roof_tiles_02"
+    },
+    {
+      "id": "oldtown-eave-3",
+      "name": "Old-town house, eaves to the street, half-timbered (3 floors, 12 x 9.5 m)",
+      "category": "building",
+      "file": "models/oldtown-eave-3.glb",
+      "triangles": 5836,
+      "footprint": 6.3,
+      "height": 17.8,
+      "box": [
+        0,
+        0,
+        6.3,
+        5.1
+      ],
+      "roof": {
+        "x": -7.2,
+        "z": -5.7,
+        "cell": 0.6,
+        "columns": 24,
+        "rows": 19,
+        "step": 0.07,
+        "heights": "gICAgICAgICAgICAgICAgICAgICAgICAjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZpqampqampqampqampqampqampqampqamsrKysrKysrKysrKysrKysrKysrKysrKyv7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/zMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM2dnZ2dnZ/v7Z2dnZ2dnZ2dnZ2dnZ2dnZ5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl7u/v7+/v7+/v7+/v7+/v7+/v7+/v7+/u5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMv7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/srKysrKysrK2srKysrKytrKysrKysrKypqampqamprK2saampqaxtrKmpqampqammZmZmZmZmbK2sZmZmZmxtrKZmZmZmZmZjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMgICAgICAgICAgICAgICAgICAgICAgICA"
+      },
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "grime": true,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "lod": [
+        {
+          "file": "models/oldtown-eave-3-lod1.glb",
+          "distance": 350,
+          "triangles": 1652
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_oldtown.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/clay_roof_tiles_02"
+    },
+    {
+      "id": "oldtown-eave-2",
+      "name": "Old-town house, eaves to the street, plastered (2 floors, 10 x 9 m)",
+      "category": "building",
+      "file": "models/oldtown-eave-2.glb",
+      "triangles": 2352,
+      "footprint": 5.0,
+      "height": 12.7,
+      "box": [
+        0,
+        0.1,
+        5,
+        4.5
+      ],
+      "roof": {
+        "x": -5.75,
+        "z": -4.94,
+        "cell": 0.5,
+        "columns": 23,
+        "rows": 20,
+        "step": 0.05,
+        "heights": "e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3uHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTn5+fn5+fn5+fn5+fn5+fn5+fn5+fn5+rq6urq6urq6urq6urq6urq6urq6urq7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3w8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PPz8/Pz8/Pz8/Pz8/Pz8/P/s/Pz8/Pz9vb29vb29vb29vb29vb29v+29vb29vb5+np6enp6enp6enp6enp6enp6enp6efk6enp6enp6enp6enp6enp6enp6enp5NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjYzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwLS0tLS0tLS0tLS7wLu0tLS0tLS0tLS0qKioqKioqKioqLvAu6ioqKioqKioqKicnJycnJycnJycu8C7nJycnJycnJycnJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQhISEhISEhISEhISEhISEhISEhISEhIR5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eQ=="
+      },
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "grime": true,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "lod": [
+        {
+          "file": "models/oldtown-eave-2-lod1.glb",
+          "distance": 350,
+          "triangles": 1536
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_oldtown.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/clay_roof_tiles_02"
+    },
+    {
       "id": "house-terrace-row",
       "name": "Terraced houses, row of four (2 floors, 24 x 10 m)",
       "category": "building",

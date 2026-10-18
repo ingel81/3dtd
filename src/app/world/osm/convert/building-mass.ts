@@ -16,6 +16,13 @@ import { buildingLevels, type BuildingKind } from '../building-tags';
 const SIMPLIFY_M = 0.35;
 /** A footprint filling this much of its rectangle, without courtyards, may take a pitched roof over the rectangle */
 const PITCH_FILL = 0.9;
+/** The same for an old-town house and a tower */
+const PITCH_FILL_OLD = 0.72;
+/** A footprint under TOWER_AREA m² whose walls stand TOWER_SLENDER times as high as the root of its area is a tower */
+const TOWER_AREA = 400;
+const TOWER_SLENDER = 2.2;
+/** A tower's pyramid, degrees */
+const TOWER_PITCH = 62;
 /** Storey heights, m: homes, and offices, schools and public buildings */
 const HOME_STOREY = 2.9;
 const WORK_STOREY = 3.6;
@@ -45,6 +52,7 @@ const KIND_LEVELS: Readonly<Record<BuildingKind, { floors: number } | { hall: nu
   canopy: { hall: 4.5 },
   kiosk: { hall: 3 },
   transformer: { hall: 3 },
+  oldtown: { floors: 3 },
 };
 
 /** Kinds that take a pitched roof where the footprint allows one, and its pitch in degrees */
@@ -58,6 +66,7 @@ const PITCH: Partial<Record<BuildingKind, number>> = {
   station: 30,
   garage: 12,
   shed: 15,
+  oldtown: 55,
 };
 
 /** Walls of each kind without `building:material` */
@@ -83,6 +92,7 @@ const KIND_FACADE: Readonly<Record<BuildingKind, MapMassFacade>> = {
   canopy: 'metal',
   church: 'stone',
   chapel: 'stone',
+  oldtown: 'timber',
 };
 
 const MATERIALS: Readonly<Record<string, MapMassFacade>> = {
@@ -102,7 +112,8 @@ const MATERIALS: Readonly<Record<string, MapMassFacade>> = {
   render: 'plaster',
   cement_block: 'concrete',
   wood: 'plaster',
-  timber_framing: 'plaster',
+  timber_framing: 'timber',
+  half_timbered: 'timber',
 };
 
 /** Tints per facade, one per footprint by its id (null: the texture's own colour) */
@@ -112,6 +123,8 @@ const TINTS: Readonly<Record<MapMassFacade, readonly (string | null)[]>> = {
   metal: ['#a9483a', '#8f3b31', '#7d8c96', '#b8bec2', '#a7b0a0', '#5f7a66', '#c9c5b8'],
   brick: [null, '#e0c8b8', '#c9a690'],
   stone: [null, '#e9e1d0', '#d6cdbd'],
+  // The plaster between the frames: ochre, white, salmon, sage, cream
+  timber: ['#f0d29a', '#f4f1e8', '#efc2b2', '#d4dcc6', '#f2e4c4'],
 };
 
 /** Colour names of `building:colour` the tints take as they are */
@@ -178,20 +191,26 @@ export function raiseMass(
     return out;
   };
   const levels = massLevels(tags, kind, area);
-  const pitchDeg = roofPitch(tags, kind);
+  // A tower (much higher than wide: a town hall's or a gate's): stone, storeys of its own, a steep pyramid
+  const tower = area < TOWER_AREA && levels.height > TOWER_SLENDER * Math.sqrt(area);
+  if (tower) levels.floors = Math.max(levels.floors, Math.round(levels.height / 4));
+  const pitchDeg = tower ? TOWER_PITCH : roofPitch(tags, kind);
   const fill = area / Math.max(1e-6, rect.a * rect.b);
   let rings: number[][];
   let roof: MapMassRoof = 'flat';
   let ridge: number | undefined;
-  if (pitchDeg && !holes.length && fill >= PITCH_FILL) {
+  // An old town's houses are rarely square: a pitched roof over the rectangle of one that nearly fills it
+  if (pitchDeg && !holes.length && fill >= (kind === 'oldtown' || tower ? PITCH_FILL_OLD : PITCH_FILL)) {
     // Nearly its rectangle: the rectangle itself under a ridge along its longer side
     const ha = round2(rect.a / 2);
     const hb = round2(rect.b / 2);
     rings = [[-ha, -hb, ha, -hb, ha, hb, -ha, hb]];
-    roof = tags['roof:shape'] === 'hipped' || (tags['roof:shape'] === undefined && kind === 'house' && salt % 3 === 0) ? 'hip' : 'gable';
+    roof = tower || tags['roof:shape'] === 'hipped' || tags['roof:shape'] === 'pyramidal' || (tags['roof:shape'] === undefined && kind === 'house' && salt % 3 === 0)
+      ? 'hip'
+      : 'gable';
     const half = Math.min(rect.a, rect.b) / 2;
     const tagged = parseFloat((tags['roof:height'] ?? '').replace(',', '.'));
-    ridge = round2(tagged > 0 && tagged < 40 ? tagged : Math.min(14, half * Math.tan((pitchDeg * Math.PI) / 180)));
+    ridge = round2(tagged > 0 && tagged < 40 ? tagged : Math.min(tower ? 24 : 14, half * Math.tan((pitchDeg * Math.PI) / 180)));
   } else {
     let tolerance = SIMPLIFY_M;
     rings = [];
@@ -209,14 +228,15 @@ export function raiseMass(
   }
   // A pitched roof's walls stop at the eaves; a flat one's go on to the parapet
   const height = round2(roof === 'flat' ? levels.height + MASS_PARAPET : levels.height);
+  const facade = tower && !MATERIALS[tags['building:material'] ?? ''] ? 'stone' : massFacade(tags, kind);
   return {
-    mass: { rings, height, floors: levels.floors, roof, ...(ridge !== undefined ? { ridge } : {}), facade: massFacade(tags, kind) },
+    mass: { rings, height, floors: levels.floors, roof, ...(ridge !== undefined ? { ridge } : {}), facade },
     centre: rect.c,
     rotation,
     front,
     hw: rect.a / 2,
     hd: rect.b / 2,
-    tint: massTint(tags, massFacade(tags, kind), salt),
+    tint: massTint(tags, facade, salt),
   };
 }
 
@@ -228,7 +248,7 @@ export function raiseMass(
  */
 export function massLevels(tags: Readonly<Record<string, string>>, kind: BuildingKind, area: number): { floors: number; height: number } {
   const own = KIND_LEVELS[kind];
-  const storey = kind === 'house' || kind === 'semi' || kind === 'terrace' || kind === 'apartments' ? HOME_STOREY : WORK_STOREY;
+  const storey = kind === 'house' || kind === 'semi' || kind === 'terrace' || kind === 'apartments' || kind === 'oldtown' ? HOME_STOREY : WORK_STOREY;
   const tagged = parseFloat((tags['height'] ?? '').replace(',', '.'));
   if (tagged > 0 && tagged < 400) {
     const roofHeight = parseFloat((tags['roof:height'] ?? '').replace(',', '.'));

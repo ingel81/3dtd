@@ -51,6 +51,20 @@ describe('raised buildings from OSM footprints', () => {
     expect(raiseMass(plain, [], minAreaRect(plain), 'house', { building: 'house', 'roof:shape': 'hipped' }, 108, 2)!.mass.roof).toBe('hip');
   });
 
+  it('raises a tower in stone under a steep pyramid, an old-town house half-timbered under a pitched roof (V10)', () => {
+    const square = ring(-4, -4, 4, -4, 4, 4, -4, 4);
+    const tower = raiseMass(square, [], minAreaRect(square), 'apartments', { building: 'yes', height: '52' }, 64, 1)!;
+    expect(tower.mass.facade).toBe('stone');
+    expect(tower.mass.roof).toBe('hip');
+    expect(tower.mass.ridge).toBeGreaterThan(7);
+    expect(tower.mass.floors).toBeGreaterThanOrEqual(13);
+    // An old-town house whose footprint is a crooked quad still gets its roof over the rectangle
+    const crooked = ring(0, 0, 8, 0.6, 7.6, 12, -0.4, 11.4);
+    const house = raiseMass(crooked, [], minAreaRect(crooked), 'oldtown', { building: 'yes' }, 88, 4)!;
+    expect(house.mass.facade).toBe('timber');
+    expect(massPitched(house.mass)).toBe(true);
+  });
+
   it('takes the height from height or the levels, else from the kind and the size', () => {
     expect(massLevels({ height: '14' }, 'apartments', 400)).toEqual({ floors: 5, height: 14 });
     expect(massLevels({ height: '12', 'roof:height': '4' }, 'house', 120).height).toBe(8);

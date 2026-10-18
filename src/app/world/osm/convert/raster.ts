@@ -138,3 +138,32 @@ export function distanceField(mask: Uint8Array, n: number, step: number, max: nu
   return d;
 }
 
+/** Convex hull (Andrew's monotone chain), counter-clockwise */
+export function convexHull(points: readonly MapPoint[]): MapPoint[] {
+  const pts = [...points].sort((p, q) => p.x - q.x || p.y - q.y);
+  if (pts.length < 3) return pts;
+  const cross = (o: MapPoint, a: MapPoint, b: MapPoint) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+  const lower: MapPoint[] = [];
+  for (const p of pts) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+    lower.push(p);
+  }
+  const upper: MapPoint[] = [];
+  for (let k = pts.length - 1; k >= 0; k--) {
+    const p = pts[k];
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
+    upper.push(p);
+  }
+  return lower.slice(0, -1).concat(upper.slice(0, -1));
+}
+
+/** Even-odd: whether point `p` lies inside `ring` */
+export function pointInRing(p: MapPoint, ring: readonly MapPoint[]): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const a = ring[i];
+    const b = ring[j];
+    if (a.y > p.y !== b.y > p.y && p.x < a.x + ((p.y - a.y) / (b.y - a.y)) * (b.x - a.x)) inside = !inside;
+  }
+  return inside;
+}

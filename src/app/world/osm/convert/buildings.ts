@@ -38,10 +38,12 @@ import { objectsOnPaths, PATH_WALL_SHARE } from '../../../map-ops/validation/map
 import { BUILDING_MODELS, buildingKind, buildingLandOf, buildingLevels, isGroundBuilding, KIND_MODELS, ROW_ENDS, type BuildingKind, type BuildingModel } from '../building-tags';
 import type { OsmArea, OsmFeatures } from '../osm-parse';
 import { ringArea } from '../square-clip';
+import { convexHull, pointInRing } from './raster';
 import { MASS_ASSET, type MapMass } from '../../custom-map/map-document';
 import { massBox, massDistance, massRadius, massTriangles } from '../../custom-map/object-mass';
 import { toModel } from '../../custom-map/object-ground';
 import { clipOffRoads, raiseMass } from './building-mass';
+import { findOldTown } from './old-town';
 
 /** A catalogue entry as far as the buildings read it */
 export type BuildingCatalogEntry = CostEntry & { id: string; footprint: number; box?: GroundBox };
@@ -78,6 +80,8 @@ export interface BuildingReport {
   masses: number;
   /** Row modules at the end of their row, with windows in the gable no house abuts */
   rowEnds: number;
+  /** Footprints in the old town, by why (old-town.ts): their own tags, an old-town area, inside the town wall, built densely */
+  oldTown: { tags: number; area: number; wall: number; dense: number };
   rows: number;
   /** Footprints by kind */
   kinds: Partial<Record<BuildingKind, number>>;
@@ -223,6 +227,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
     split: 0,
     masses: 0,
     rowEnds: 0,
+    oldTown: { tags: 0, area: 0, wall: 0, dense: 0 },
     rows: 0,
     kinds: {},
     fallbacks: {},
@@ -255,6 +260,8 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
   const missing = new Map<string, number>();
   const footprints: Footprint[] = [];
   const around = new AroundIndex(features.areas.filter((a) => a.tags['building'] && isGroundBuilding(a.tags) && a.area >= AROUND_FROM));
+  const oldTown = findOldTown(features, doc.terrain.width);
+  report.oldTown = oldTown.reasons;
 
   let seen = 0;
   for (const area of features.areas) {
@@ -277,7 +284,8 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
       const land = (lands.at(centre)?.tags ?? null) as Record<string, string> | null;
       const aspect = Math.max(rect.a, rect.b) / Math.max(0.1, Math.min(rect.a, rect.b));
       const fill = ringA / (rect.a * rect.b);
-      const kind = buildingKind(area.tags, ringA, aspect, land ? buildingLandOf(land) : null, around.median(centre, AROUND_REACH), holes.length > 0 || fill < WINGED_FILL);
+      const median = around.median(centre, AROUND_REACH);
+      const kind = buildingKind(area.tags, ringA, aspect, land ? buildingLandOf(land) : null, median, holes.length > 0 || fill < WINGED_FILL, oldTown.has(centre, area.tags, median));
       report.kinds[kind] = (report.kinds[kind] ?? 0) + 1;
       const parts = fill < FILL_SPLIT ? splitFootprint(outer, holes, rect, ringA) : [rect];
       if (parts.length > 1) report.split++;
@@ -518,25 +526,6 @@ const MASS_SHRINK = [1, 0.95, 0.9, 0.85, 0.8];
 
 // ---- Shape ----
 
-/** Convex hull (Andrew's monotone chain), counter-clockwise */
-export function convexHull(points: readonly MapPoint[]): MapPoint[] {
-  const pts = [...points].sort((p, q) => p.x - q.x || p.y - q.y);
-  if (pts.length < 3) return pts;
-  const cross = (o: MapPoint, a: MapPoint, b: MapPoint) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
-  const lower: MapPoint[] = [];
-  for (const p of pts) {
-    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
-    lower.push(p);
-  }
-  const upper: MapPoint[] = [];
-  for (let k = pts.length - 1; k >= 0; k--) {
-    const p = pts[k];
-    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
-    upper.push(p);
-  }
-  return lower.slice(0, -1).concat(upper.slice(0, -1));
-}
-
 /** The smallest turned rectangle round a ring: one side lies on an edge of its hull (rotating calipers, tried edge by edge) */
 export function minAreaRect(ring: readonly MapPoint[]): Rect {
   const hull = convexHull(ring);
@@ -569,17 +558,6 @@ export function minAreaRect(ring: readonly MapPoint[]): Rect {
     }
   }
   return best ?? { c: ring[0] ?? { x: 0, y: 0 }, u: { x: 1, y: 0 }, a: 0, b: 0 };
-}
-
-/** Even-odd: whether point `p` lies inside `ring` */
-export function pointInRing(p: MapPoint, ring: readonly MapPoint[]): boolean {
-  let inside = false;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const a = ring[i];
-    const b = ring[j];
-    if (a.y > p.y !== b.y > p.y && p.x < a.x + ((p.y - a.y) / (b.y - a.y)) * (b.x - a.x)) inside = !inside;
-  }
-  return inside;
 }
 
 /**

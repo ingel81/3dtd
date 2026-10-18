@@ -74,7 +74,8 @@ Hochspannungsmast, Rebzeile, Obstbaum, Spielgeräte, Fußballtor, Brunnen),
 heutiger Art, Nebengebäude 4 × 4 m, offener Unterstand, Anbau; `building-mass`: kein Gebäude, je Oberfläche der
 Bauten aus dem Grundriss ein Quadrat so breit wie eine Wiederholung ihrer Textur, render/objects/mass-layer.ts),
 `build_poi.py` (Sport- und Spielgeräte, Straßenmöbel, Ladenfronten, Markise, Schilder mit leerer Schildfläche für
-OSM-Flächen und POIs; Fassadenobjekte haben den Ursprung auf der Wand am Fuß, Front -Y), `build_boats.py` (Fischkutter), `build_cattle.py` (Kühe in drei Posen, vier Fellarten im Atlas), gemeinsame Helfer in `blender_kit.py`.
+OSM-Flächen und POIs; Fassadenobjekte haben den Ursprung auf der Wand am Fuß, Front -Y), `build_oldtown.py` (Altstadthäuser für OSM-Welten: Fachwerk über Sandstein- oder Putz-Erdgeschoss, steile Ziegeldächer, Giebel oder Traufe zur Straße, Verwitterung per `bake_ao` grime),
+`build_boats.py` (Fischkutter), `build_cattle.py` (Kühe in drei Posen, vier Fellarten im Atlas), gemeinsame Helfer in `blender_kit.py`.
 
 Gebackene Oberflächen (`blender_kit.bake_surface`, Materialien mit `Nodes`): statt gekachelter Texturen rechnen
 prozedurale Materialien Farbe über Planken, Kantenabrieb (Bevel-Knoten), Schmutz in Ecken (AO-Knoten), Rostläufe,

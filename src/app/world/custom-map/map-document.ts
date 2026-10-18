@@ -239,8 +239,8 @@ export interface MapObject {
 /** Asset of the objects that carry their own building (MapObject.mass): its catalogue entry gives only what all share */
 export const MASS_ASSET = 'building-mass';
 
-/** Wall looks of a raised building */
-export const MAP_MASS_FACADES = ['plaster', 'concrete', 'metal', 'brick', 'stone'] as const;
+/** Wall looks of a raised building (`timber`: an old town's half-timbered storeys over a plastered ground floor) */
+export const MAP_MASS_FACADES = ['plaster', 'concrete', 'metal', 'brick', 'stone', 'timber'] as const;
 export type MapMassFacade = (typeof MAP_MASS_FACADES)[number];
 
 /** Roofs of a raised building: flat with a parapet, or pitched over a rectangle (a ridge along the model's x axis) */

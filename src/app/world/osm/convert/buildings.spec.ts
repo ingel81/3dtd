@@ -119,6 +119,11 @@ describe('OSM buildings: shapes and models', () => {
     expect(buildingKind({ building: 'yes', amenity: 'social_facility' }, 3900, 2.5, null)).toBe('civic');
     expect(buildingKind({ building: 'yes' }, 3900, 2.5, null)).toBe('industrial');
     expect(buildingKind({ building: 'yes' }, 3900, 2.5, null, null, true)).toBe('apartments');
+    // In an old town houses, shops and small public buildings are old-town houses; a church stays one
+    expect(buildingKind({ building: 'yes' }, 140, 1.3, 'residential', 110, false, true)).toBe('oldtown');
+    expect(buildingKind({ building: 'retail' }, 300, 1.5, null, null, false, true)).toBe('oldtown');
+    expect(buildingKind({ building: 'church' }, 600, 2, null, null, false, true)).toBe('church');
+    expect(buildingKind({ building: 'yes', 'building:levels': '8' }, 300, 1.5, null, null, false, true)).toBe('apartments');
   });
 
   it('lays a house as one house, not as a row of terraced modules; the narrow one as a lone module', () => {

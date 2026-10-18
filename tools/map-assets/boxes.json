@@ -148,5 +148,10 @@
   "block-row-4-ends": [0,-0.5,7.4,6.2],
   "block-row-6-end-w": [0,-0.6,7.4,6.6],
   "block-row-6-end-e": [0,-0.6,7.4,6.6],
-  "block-row-6-ends": [0,-0.6,7.4,6.6]
+  "block-row-6-ends": [0,-0.6,7.4,6.6],
+  "oldtown-gable-3": [0,0,3.9,6.3],
+  "oldtown-gable-4": [0,0,4.6,7.2],
+  "oldtown-gable-2": [0,0,3.1,5],
+  "oldtown-eave-3": [0,0,6.3,5.1],
+  "oldtown-eave-2": [0,0.1,5,4.5]
 }

@@ -28,7 +28,9 @@ export type BuildingKind =
   | 'parking'
   | 'greenhouse'
   | 'kiosk'
-  | 'transformer';
+  | 'transformer'
+  /** A house of an old town (convert/old-town.ts): half-timbered or plastered, steep roof */
+  | 'oldtown';
 
 /** A catalogue model a building is fitted with */
 export interface BuildingModel {
@@ -97,6 +99,12 @@ export const BUILDING_MODELS: Readonly<Record<string, BuildingModel>> = Object.f
       { asset: 'outbuilding', box: [4, 4], floors: 1 },
       { asset: 'shelter-lean-to', box: [6, 2.6], floors: 1 },
       { asset: 'annex', box: [7, 5], floors: 1 },
+      // tools/map-assets/build_oldtown.py: the walls of the ground floor (the storeys above jut out a little)
+      { asset: 'oldtown-gable-3', box: [7, 12], floors: 3, module: true },
+      { asset: 'oldtown-gable-4', box: [8.5, 14], floors: 4, module: true },
+      { asset: 'oldtown-gable-2', box: [6, 10], floors: 2, module: true },
+      { asset: 'oldtown-eave-3', box: [12, 9.5], floors: 3, module: true },
+      { asset: 'oldtown-eave-2', box: [10, 9], floors: 2, module: true },
       // The ends of the rows (ROW_ENDS): the module with one gable or both open, windows where no house abuts
       ...rowEnds('house-terrace', [6, 10], 2),
       ...rowEnds('block-row-4', [15, 12], 4),
@@ -151,6 +159,8 @@ export const KIND_MODELS: Readonly<Record<BuildingKind, { models: readonly strin
   greenhouse: { models: ['greenhouse'], fallback: 'shed', rows: true },
   kiosk: { models: ['kiosk'], fallback: 'shed' },
   transformer: { models: ['transformer-station'], fallback: 'shed' },
+  // Old-town houses stand wall to wall: a long footprint is a row of them
+  oldtown: { models: ['oldtown-gable-3', 'oldtown-eave-3', 'oldtown-gable-2', 'oldtown-eave-2', 'oldtown-gable-4'], fallback: 'house', rows: true },
 };
 
 /** `building` values to a kind; values not here guess from the other tags and the size */
@@ -309,7 +319,9 @@ const BLOCK_AREA_AMONG_HOUSES = 400;
  * `shop`, else a guess from the size (m² of its footprint), the storeys,
  * the shape (its longer side over the shorter; `winged`: courtyards, or
  * wings that fill little of its rectangle), the land use around and the
- * median footprint of the buildings around (`around`, m², null unknown)
+ * median footprint of the buildings around (`around`, m², null unknown);
+ * `oldTown` (convert/old-town.ts) turns houses, shops and small public
+ * buildings into old-town houses
  */
 export function buildingKind(
   tags: Readonly<Record<string, string>>,
@@ -318,6 +330,25 @@ export function buildingKind(
   land: BuildingLand,
   around: number | null = null,
   winged = false,
+  oldTown = false,
+): BuildingKind {
+  const kind = guessKind(tags, area, aspect, land, around, winged);
+  // In an old town its houses, its shops and small offices and public buildings are old-town houses
+  if (oldTown && OLD_TOWN_KINDS.has(kind) && area <= OLD_TOWN_AREA && (buildingLevels(tags) ?? 3) <= 5) return 'oldtown';
+  return kind;
+}
+
+/** Kinds an old town builds as its own houses, up to OLD_TOWN_AREA m² */
+const OLD_TOWN_KINDS: ReadonlySet<BuildingKind> = new Set(['house', 'semi', 'terrace', 'apartments', 'retail', 'office', 'civic']);
+const OLD_TOWN_AREA = 700;
+
+function guessKind(
+  tags: Readonly<Record<string, string>>,
+  area: number,
+  aspect: number,
+  land: BuildingLand,
+  around: number | null,
+  winged: boolean,
 ): BuildingKind {
   const tagged = BUILDING_VALUES[tags['building'] ?? ''];
   if (tagged) {

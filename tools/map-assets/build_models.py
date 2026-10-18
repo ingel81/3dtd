@@ -79,6 +79,7 @@ def main():
     import build_modern
     import build_modern2
     import build_nature
+    import build_oldtown
     import build_poi
     import build_props
     import build_space
@@ -86,7 +87,7 @@ def main():
     import build_vehicles
     registry = base_models()
     for module in (build_nature, build_structures, build_props, build_city, build_space, build_extreme, build_vehicles, build_levels,
-                   build_landmarks, build_modern, build_modern2, build_extras, build_boats, build_cattle, build_poi):
+                   build_landmarks, build_modern, build_modern2, build_extras, build_boats, build_cattle, build_poi, build_oldtown):
         for name, fn in module.models().items():
             assert name not in registry, name
             registry[name] = fn

@@ -65,6 +65,7 @@ const FACADE_SURFACE: Readonly<Record<MapMassFacade, string>> = {
   metal: 'mass-metal',
   brick: 'mass-brick',
   stone: 'mass-stone',
+  timber: 'mass-plaster',
 };
 /** Roof coverings: a flat roof's, and a pitched one's by facade (tiles on homes, sheet on halls) */
 type Covering = 'flat' | 'red' | 'grey' | 'metal';
@@ -809,8 +810,10 @@ const WALL_COLOR_FRAGMENT = /* glsl */ `
   float plinthH = 1.0; float bay = 5.0; float winW = 4.2; float winH = 1.1; float sill = 0.0; vec3 frame = vec3(0.2, 0.21, 0.22);
   #elif MASS_FACADE == 3
   float plinthH = 0.5; float bay = 2.7; float winW = 1.1; float winH = 1.6; float sill = 0.85; vec3 frame = vec3(0.9, 0.9, 0.88);
-  #else
+  #elif MASS_FACADE == 4
   float plinthH = 0.6; float bay = 3.6; float winW = 1.05; float winH = 2.0; float sill = 1.1; vec3 frame = vec3(0.3, 0.27, 0.24);
+  #else
+  float plinthH = 0.5; float bay = 1.6; float winW = 0.85; float winH = 1.1; float sill = 0.85; vec3 frame = vec3(0.9, 0.88, 0.82);
   #endif
   vec3 base = diffuseColor.rgb;
   #if MASS_FACADE == 2 && defined(USE_COLOR)
@@ -869,6 +872,25 @@ const WALL_COLOR_FRAGMENT = /* glsl */ `
       massGlass = glassDoor * 0.5;
       inBay = 0.0;
     }
+    #if MASS_FACADE == 5
+    // Half-timbered storeys over the ground floor: sill and head plates, a post at every bay line, rails over
+    // and under the windows, braces crossing the bays that have none
+    if (k > 0.5 && hall < 0.5 && wh > 0.3) {
+      vec3 oak = vec3(0.16, 0.1, 0.065) * (0.8 + 0.4 * massHash(vec3(seed, 7.0, 2.0))) * (0.75 + 0.5 * dot(base, vec3(0.33)));
+      float bw = 0.17;
+      float lp = lu + bay * 0.5;
+      float braced = step(0.66, massHash(vec3(i, k, seed + 3.0))) * inBay;
+      float timber = max(massBox(inStorey, 0.0, bw, aa), massBox(inStorey, storey - bw, storey + 0.02, aa));
+      timber = max(timber, step(0.0, i) * step(i, n) * max(massBox(lp, -bw * 0.5, bw * 0.5, aa), massBox(lp, bay - bw * 0.5, bay + bw * 0.5, aa)));
+      float rails = max(massBox(inStorey, wb - bw, wb, aa), massBox(inStorey, wb + wh, wb + wh + bw * 0.8, aa));
+      timber = max(timber, rails * inBay * (1.0 - braced));
+      float d1 = abs(lp * storey - inStorey * bay) / length(vec2(bay, storey));
+      float d2 = abs((bay - lp) * storey - inStorey * bay) / length(vec2(bay, storey));
+      timber = max(timber, braced * (1.0 - smoothstep(bw * 0.4 - aa, bw * 0.4 + aa, min(d1, d2))));
+      detail = mix(detail, oak, timber);
+      inBay *= 1.0 - braced;
+    }
+    #endif
     if (inBay > 0.5 && wh > 0.3) {
       float h = massHash(vec3(i, k, seed));
       // The opening, its frame and the glass inside
@@ -895,7 +917,7 @@ const WALL_COLOR_FRAGMENT = /* glsl */ `
       detail = mix(detail, frame, open);
       detail = mix(detail, pane, glass);
       // Window crosses on homes: a mullion and a transom at two thirds
-      #if MASS_FACADE == 0 || MASS_FACADE == 3
+      #if MASS_FACADE == 0 || MASS_FACADE == 3 || MASS_FACADE == 5
       float bar = max(massBox(lu, -0.035, 0.035, aa), massBox(inStorey, wb + wh * 0.66 - 0.035, wb + wh * 0.66 + 0.035, aa)) * step(hall, 0.5);
       detail = mix(detail, frame, glass * bar);
       glass *= 1.0 - bar;

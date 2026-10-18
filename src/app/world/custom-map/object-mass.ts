@@ -293,7 +293,7 @@ export interface MassFront {
 }
 
 /** Plinth over the seat of each facade (mass-layer.ts WALL_COLOR_FRAGMENT) */
-const MASS_PLINTH: Readonly<Record<MapMass['facade'], number>> = { plaster: 0.45, concrete: 0.6, metal: 1, brick: 0.5, stone: 0.6 };
+const MASS_PLINTH: Readonly<Record<MapMass['facade'], number>> = { plaster: 0.45, concrete: 0.6, metal: 1, brick: 0.5, stone: 0.6, timber: 0.5 };
 
 /**
  * The walls of the outline at least `least` metres long, on the map at the

@@ -856,6 +856,42 @@ schon. Im ganzen Ort lagen 31 von 110 Grundrissen ab 300 m² unter 75 % Deckung,
 
 Die Zeit des Gebäudeschritts ist noch nicht auf freiem Rechner gemessen.
 
+## Altstadt, Reihenenden, Verwitterung, gebaut (2026-10-19, V10)
+
+Code: `convert/old-town.ts` (wo eine Altstadt ist), `building-tags.ts` (Art `oldtown`, Reihenenden `ROW_ENDS`),
+`convert/buildings.ts` (Reihenenden nach dem Legen), `convert/building-mass.ts` (Türme, Fachwerk-Massenbauten),
+`tools/map-assets/build_oldtown.py` (Altstadthäuser), `blender_kit.bake_ao` (Verwitterung). Specs: `old-town.spec.ts`,
+`buildings.spec.ts`, `building-mass.spec.ts`, `asset-showcase.spec.ts`.
+
+- **Altstadt:** ein Grundriss gehört dazu, wenn seine Tags es sagen (`building:architecture` wie half-timbered,
+  medieval, gothic; `historic=building`, `heritage`; `start_date` bzw. `building:age` vor 1850), wenn er in einer
+  so markierten Fläche steht (`historic=city`, `district`, `old_town`, Name Altstadt, old town und Verwandte), wenn er
+  innerhalb der Stadtmauer liegt (Hülle der `barrier=city_wall`-Linien ab 500 m Länge), oder wenn die Stadt so gebaut
+  ist wie Altstädte: im Umkreis von 40 m mindestens 42 % unter Dach und der Median der Grundrisse ringsum unter 260 m²
+  (Vororte sind lockerer, Innenstädte haben größere Blöcke). Dort werden Häuser, Läden, kleine Büros und öffentliche
+  Gebäude bis 700 m² und 5 Geschosse zur Art `oldtown`. Rothenburg: 1 128 Altstadthäuser (634 nach Tags, 904 in der
+  Mauer, 41 nach Dichte; Gründe überschneiden sich nicht, der erste trifft), Miltenberg 260.
+- **Altstadthäuser** (`oldtown-gable-3`, `-gable-4`, `-gable-2`, `-eave-3`, `-eave-2`): Giebel oder Traufe zur Straße,
+  Erdgeschoss aus Sandstein oder Putz mit Tür und Schaufenster, darüber vorkragende Fachwerkgeschosse (Ständer an jeder
+  Achse, Schwelle und Rähm, Riegel über und unter den Fenstern, Streben und Mannfigur in Feldern ohne Fenster), kleine
+  Fenster mit Kreuz, steiles Ziegeldach (50 bis 56°) mit Gauben und Kamin, am Straßengiebel das Fachwerk bis in den
+  Giebel. Jedes Haus mit eigener Putzfarbe (Ocker, Weiß mit Ochsenblut, Lachs, Creme, Salbei), Instanztönung dazu. Sie
+  stehen als Reihe (Modul), ein langer Grundriss wird eine Häuserzeile.
+- **Bauten aus dem Grundriss in der Altstadt:** Fassade `timber` (Putz im Erdgeschoss, darüber Fachwerk aus dem Shader:
+  Schwelle, Rähm, Ständer an den Achsen, Riegel an den Fenstern, Streben in Feldern ohne Fenster), Dach geneigt schon
+  ab 72 % Füllgrad des Rechtecks. **Türme** (unter 400 m², höher als das 2,2-fache der Wurzel der Fläche): Sandstein,
+  Geschosse nach der Höhe, steile Pyramide.
+- **Reihenenden:** Reihenhaus und Blockrand-Module haben blinde Seiten für das Nachbarhaus. Nach dem Legen bekommt ein
+  Modul, an dessen Giebel kein anderes Gebäude anschließt (drei Proben 0,8 m vor der Wand), das Endmodell mit Fenstern
+  auf dieser Seite (`-end-w`, `-end-e`, beide `-ends`), sofern dessen Ortgang nicht auf eine Straße reicht.
+- **Verwitterung:** `bake_ao(grime=True)` backt aus der Geometrie Schmutz vom Boden her, Läufer die Wände hinab, Dreck
+  in Kehlen und weniger an abgewetzten Kanten in die Verdeckungstextur (nur deren Rotkanal überlebt den glTF-Export,
+  der Verdeckung, Rauheit und Metall in ein Bild packt). Katalog `grime`: die Verdeckung dunkelt die Farbe auch im
+  direkten Licht (`addGrime`), die gekachelten Oberflächen bleiben scharf. Gebacken sind bisher die Altstadthäuser.
+- **Verworfen:** Altstadthäuser ganz gebacken mit vier Looks im Atlas (`bake_surface` mit `variants`): bei 1024 px
+  und vier Looks rund 20 Pixel je Meter Fassade gegen etwa 170 bei den gekachelten Texturen der übrigen Häuser,
+  aus der Nähe verwaschen.
+
 ## Tunnel, gebaut (2026-10-15)
 
 Entscheidung 8 umgesetzt (`convert/roads.ts` findTunnels, `convert/tunnels.ts`):
