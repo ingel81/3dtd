@@ -72,6 +72,10 @@ export class EditorPageComponent implements OnInit {
       else if (was) keepOpenMap(null);
       was = id;
     });
+    // Measurement hook: a page that set `__editorProbe` before loading (Playwright init script) gets the session
+    // (e2e/perf/editor-stroke-probe.ts, also in builds without `ng`)
+    const g = globalThis as { __editorProbe?: unknown };
+    if (g.__editorProbe) g.__editorProbe = this.session;
   }
 
   ngOnInit(): void {

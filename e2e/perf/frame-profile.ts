@@ -43,13 +43,19 @@ export class FrameProfiler {
     }, this.longMs);
   }
 
-  /** Ends the profile: per long frame its length, when it came and the top `lines` functions by inclusive time */
-  async stop(lines: number): Promise<string> {
+  /**
+   * Ends the profile: per long frame its length, when it came and the top `lines` functions by inclusive time;
+   * with `total`, first the same over the whole profile (where a held brush's frames go on average)
+   */
+  async stop(lines: number, total = false): Promise<string> {
     const long = await this.page.evaluate(() => (globalThis as { __longFrames?: [number, number][] }).__longFrames ?? []);
     const { profile } = (await this.cdp.send('Profiler.stop')) as unknown as { profile: CpuProfile };
     // The page's clock to the profile's: both start together, near enough for frames of 100 ms and more
     const toUs = (ms: number) => profile.startTime + (ms - this.startMs) * 1000;
-    return long
+    const head = total ? `TOTAL ${((profile.endTime - profile.startTime) / 1000).toFixed(0)} ms
+${inclusive(profile, profile.startTime, profile.endTime, lines)}
+` : '';
+    return head + long
       .map(([from, to]) => `FRAME ${Math.round(to - from)} ms at ${((from - this.startMs) / 1000).toFixed(1)} s\n${inclusive(profile, toUs(from), toUs(to), lines)}`)
       .join('\n');
   }
