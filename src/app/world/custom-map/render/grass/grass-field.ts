@@ -98,6 +98,29 @@ export function grassFade(d: number, tile: number): number {
   return 1 - x * x * (3 - 2 * x);
 }
 
+/** Each layout's blade spots and randoms, rolled once per page: every view of every map takes the same */
+const blades = new Map<string, { offsets: Float32Array; rnd: Float32Array }>();
+
+function bladeData({ seed, capacity, tile }: GrassLayout): { offsets: Float32Array; rnd: Float32Array } {
+  const key = `${seed}|${capacity}|${tile}`;
+  let data = blades.get(key);
+  if (data) return data;
+  const offsets = new Float32Array(capacity * 2);
+  const rnd = new Float32Array(capacity * 4);
+  let s = seed;
+  const next = (): number => {
+    s = (s * 16807) % 2147483647;
+    return s / 2147483647;
+  };
+  for (let i = 0; i < capacity; i++) {
+    offsets[i * 2] = next() * tile;
+    offsets[i * 2 + 1] = next() * tile;
+    for (let c = 0; c < 4; c++) rnd[i * 4 + c] = next();
+  }
+  blades.set(key, (data = { offsets, rnd }));
+  return data;
+}
+
 export class GrassField {
   readonly mesh: Mesh<InstancedBufferGeometry, MeshStandardMaterial>;
   private hasGrass = false;
@@ -165,18 +188,7 @@ export class GrassField {
     g.setAttribute('position', new BufferAttribute(pos, 3));
     g.setAttribute('normal', new BufferAttribute(new Float32Array(pos.length).map((_, k) => (k % 3 === 1 ? 1 : 0)), 3));
     g.setIndex(index);
-    const offsets = new Float32Array(capacity * 2);
-    const rnd = new Float32Array(capacity * 4);
-    let s = layout.seed;
-    const next = (): number => {
-      s = (s * 16807) % 2147483647;
-      return s / 2147483647;
-    };
-    for (let i = 0; i < capacity; i++) {
-      offsets[i * 2] = next() * tile;
-      offsets[i * 2 + 1] = next() * tile;
-      rnd.set([next(), next(), next(), next()], i * 4);
-    }
+    const { offsets, rnd } = bladeData(layout);
     g.setAttribute('aBladeOffset', new InstancedBufferAttribute(offsets, 2));
     g.setAttribute('aBladeRand', new InstancedBufferAttribute(rnd, 4));
     g.instanceCount = Math.min(capacity, layout.defaultBlades);
