@@ -1111,6 +1111,17 @@ Höhen- und Darstellungsfehler. Neu (`convert/rails.ts`, Abfrage um `railway=lev
   ohne Schotterbett: Schienen im Asphalt mit Pflasterstreifen (`rail-street`), wo bisher das Bett als „auf der Straße“
   wegfiel (Gleisanschlüsse auf Werkhöfen, Straßenbahn). Oberleitungsmasten stehen nur am Bett, nicht an Übergang oder
   Brücke; die übrige Ausstattung (Laternen, Zäune, Punkte) hält sich vom Gleisbett fern wie von einer Straße.
+- **Gleisbett-Optik** (2026-10-19, nach Kritik „Farbe/Textur hässlich“): Gleis- und Brückenstücke sind in Blender
+  gebacken (`bake_surface`, eine Textur und ein Material je Modell): Schotter aus einzelnen Steinen (Voronoi, jeder
+  Stein eigene Tönung zwischen Basaltgrau und hellem Grau, dunkle Fugen, Körnung des Scans darüber, Steine als
+  Wölbung in der Normale), rostbrauner Bremsstaub entlang der Schienen, Öl- und Schmutzflecken zwischen ihnen,
+  Erde und etwas Grün am Böschungsfuß; Schienen mit blankem Kopf und rostigen Flanken, Betonschwellen mit
+  rostigen Schienenauflagen. Alle Muster wiederholen sich längs genau alle 2,5 m (das Raster der Stücke), so
+  stoßen 10- und 2,5-m-Stücke ohne Naht aneinander. Das Bett hat eine flache Krone knapp über die Schwellenenden
+  und fällt 1:1,5 auf die eingeebnete Breite; daneben malt `paintRails` einen Streifen `gravel` in den Boden (vor
+  den Straßen, die an Übergängen gewinnen), auf dem kein Gras wächst. Holzschwellen (`rail-track-wood`, kreosotbraun)
+  bekommen Schmalspur, Anschluss-, Abstell- und Werksgleise (`service=siding|yard|spur`, `usage=industrial`), die
+  übrigen Beton. Die Fernstufe trägt die gebackene Textur in halber Größe.
 - **Prüfung:** die Editorprüfung „Objekt auf Straße“ zählt ein Objekt unter einem Brückendeck (seine Oberkante 0,5 m
   darunter) und über einem Tunnel nicht mehr als auf der Straße (`objectsOnPaths` mit `byHeight`; die Levelskripte und
   die OSM-Gebäude prüfen weiter ohne, die mitgelieferten Karten bleiben gleich). Die Gleisstücke haben ein Grundrechteck

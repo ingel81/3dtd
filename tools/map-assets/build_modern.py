@@ -15,7 +15,8 @@ import random
 import bmesh
 from mathutils import Vector
 
-from blender_kit import Part, box, card, card_material, clear_scene, export_lod, finish, flat_material, hexa, pbr_material, tilt, tube
+from blender_kit import (Nodes, Part, bake_surface, box, card, card_material, clear_scene, export_lod, finish, flat_material, hexa,
+                         pbr_material, tilt, tube)
 from blender_kit import export as export_plain
 from build_city import Face, glass
 from build_nature import broadleaf
@@ -1192,9 +1193,10 @@ def steel_material():
     return flat_material('steel-rail', (0.32, 0.3, 0.28), 0.35, 0.9)
 
 
-def rails(part, sleepers, x0, x1, z=0.0, spacing=0.625):
-    """Two rails along X (head, web, foot as one profile box each) on concrete sleepers; a whole number of
-    sleepers per piece, so the 10 m and 2.5 m pieces keep one pitch across their joints"""
+def rails(part, sleepers, x0, x1, z=0.0, spacing=0.625, clips=None):
+    """Two rails along X (head, web, foot as one profile box each) on sleepers; a whole number of sleepers per
+    piece, so the 10 m and 2.5 m pieces keep one pitch across their joints. `clips`: a rail clip either side
+    of each rail on every sleeper"""
     for s in (-1, 1):
         y = s * (GAUGE / 2 + 0.035)
         box(part, (x0 + x1) / 2, y, z + 0.17, x1 - x0, 0.15, 0.03)
@@ -1202,10 +1204,18 @@ def rails(part, sleepers, x0, x1, z=0.0, spacing=0.625):
         box(part, (x0 + x1) / 2, y, z + 0.3, x1 - x0, 0.07, 0.05)
     n = max(1, round((x1 - x0) / spacing))
     for i in range(n):
-        box(sleepers, x0 + (i + 0.5) * (x1 - x0) / n, 0, z, 0.26, 2.6, 0.17)
+        x = x0 + (i + 0.5) * (x1 - x0) / n
+        box(sleepers, x, 0, z, 0.26, 2.6, 0.17)
+        if clips is not None:
+            for s in (-1, 1):
+                for side in (-1, 1):
+                    box(clips, x, s * (GAUGE / 2 + 0.035) + side * 0.11, z + 0.17, 0.1, 0.07, 0.045)
 
 
 BALLAST_TOP = 0.35
+# The railway's surfaces repeat along X every LATTICE metres (convert/rails.ts tiles its lines with 10 and
+# 2.5 m pieces): their noises run round a circle of that circumference, their images repeat twice in it
+LATTICE = 2.5
 
 
 def ballast_material():
@@ -1216,19 +1226,150 @@ def sleeper_material():
     return pbr_material('sleeper-concrete', 'brushed_concrete', (1.1, 1.1, 1.05))
 
 
-def track(name, length=10.0):
-    """Straight track along X: a ballast bed with sloped shoulders, concrete sleepers, two rails. 10 m and
-    2.5 m long (the OSM railway tiles its lines with both, convert/rails.ts); origin on the formation"""
+def periodic_vector(n, scale):
+    """Model coordinates times `scale` with X wound round a circle of LATTICE metres' circumference: a texture
+    read there repeats along X every LATTICE metres; Y and Z stay as they are"""
+    nt = n.nt
+    x, y, z = n.axis(0), n.axis(1), n.axis(2)
+    turn = n.math('MULTIPLY', x, 2 * math.pi / LATTICE)
+    r = LATTICE / (2 * math.pi)
+    v = nt.nodes.new('ShaderNodeCombineXYZ')
+    n.put(v.inputs['X'], n.math('MULTIPLY', n.math('COSINE', turn), r))
+    n.put(v.inputs['Y'], n.math('MULTIPLY', n.math('SINE', turn), r))
+    n.put(v.inputs['Z'], n.math('ADD', y, n.math('MULTIPLY', z, 0.7)))
+    m = nt.nodes.new('ShaderNodeVectorMath')
+    m.operation = 'SCALE'
+    nt.links.new(v.outputs[0], m.inputs[0])
+    m.inputs['Scale'].default_value = scale
+    return m.outputs[0]
+
+
+def periodic(n, scale, detail=3.0, roughness=0.55):
+    """Noise at `scale` per metre repeating along X every LATTICE metres (periodic_vector)"""
+    t = n.nt.nodes.new('ShaderNodeTexNoise')
+    t.noise_dimensions = '3D'
+    n.nt.links.new(periodic_vector(n, scale), t.inputs['Vector'])
+    t.inputs['Scale'].default_value = 1.0
+    t.inputs['Detail'].default_value = detail
+    t.inputs['Roughness'].default_value = roughness
+    return t.outputs['Fac']
+
+
+def stones(n, scale):
+    """Crushed stone repeating every LATTICE metres along X: each stone's own shade (0 to 1) and how far a
+    point lies inside its stone (0 at the gap between stones)"""
+    vec = periodic_vector(n, scale)
+    cell = n.nt.nodes.new('ShaderNodeTexVoronoi')
+    cell.feature = 'F1'
+    n.nt.links.new(vec, cell.inputs['Vector'])
+    cell.inputs['Scale'].default_value = 1.0
+    cell.inputs['Randomness'].default_value = 0.9
+    shade = n.nt.nodes.new('ShaderNodeRGBToBW')
+    n.nt.links.new(cell.outputs['Color'], shade.inputs['Color'])
+    edge = n.nt.nodes.new('ShaderNodeTexVoronoi')
+    edge.feature = 'DISTANCE_TO_EDGE'
+    n.nt.links.new(vec, edge.inputs['Vector'])
+    edge.inputs['Scale'].default_value = 1.0
+    edge.inputs['Randomness'].default_value = 0.9
+    return shade.outputs['Val'], edge.outputs['Distance']
+
+
+RAIL_Y = GAUGE / 2 + 0.035
+
+
+def ballast_surface(name):
+    """Track ballast: crushed basalt and granite, each stone its own shade between dark grey and a light warm
+    grey with dark gaps between them and the gravel scan's fine grain over it, a broad warmer tone along the
+    line, rust brown brake dust along each rail, oil and grime in patches between them, earth and a little
+    green at the foot of the shoulders; the stones domed in the normal"""
+    n = Nodes(name)
+    shade, inside = stones(n, 13.0)
+    grain = n.image('gravel_floor_02', 'diff', metres=LATTICE / 4)
+    bw = n.nt.nodes.new('ShaderNodeRGBToBW')
+    n.put(bw.inputs['Color'], grain)
+    tone = n.math('ADD', n.math('MULTIPLY', shade, 0.75), n.math('MULTIPLY', bw.outputs['Val'], 0.5))
+    c = n.mix(n.ramp(tone, 0.15, 0.95), (0.03, 0.029, 0.028), (0.2, 0.19, 0.175))
+    c = n.mix(n.math('MULTIPLY', n.ramp(inside, 0.06, 0.0), 0.7), c, (0.012, 0.012, 0.011))
+    c = n.mix(n.math('MULTIPLY', n.ramp(periodic(n, 0.5), 0.35, 0.7), 0.3), c, (0.11, 0.09, 0.07))
+    ay = n.math('ABSOLUTE', n.axis(1))
+    rail = n.math('ABSOLUTE', n.math('SUBTRACT', ay, RAIL_Y))
+    rust = n.math('MULTIPLY', n.ramp(rail, 0.38, 0.04), n.mixf(periodic(n, 2.2), 0.45, 1.0))
+    c = n.mix(n.math('MULTIPLY', rust, 0.6), c, (0.075, 0.038, 0.02))
+    oil = n.math('MULTIPLY', n.ramp(ay, 0.62, 0.3), n.ramp(periodic(n, 0.9), 0.42, 0.62))
+    c = n.mix(n.math('MULTIPLY', oil, 0.6), c, (0.016, 0.014, 0.012))
+    toe = n.math('MULTIPLY', n.ramp(n.axis(2), 0.1, -0.2), n.ramp(ay, 1.9, 2.4))
+    c = n.mix(n.math('MULTIPLY', toe, 0.6), c, (0.07, 0.055, 0.035))
+    moss = n.math('MULTIPLY', toe, n.ramp(periodic(n, 1.8), 0.55, 0.75))
+    c = n.mix(n.math('MULTIPLY', moss, 0.45), c, (0.04, 0.055, 0.02))
+    normal = n.bump(n.ramp(inside, 0.0, 0.25), strength=0.9, distance=0.025)
+    return n.finish(c, n.mixf(oil, 0.95, 0.65), normal)
+
+
+def sleeper_surface(name, wood):
+    """Sleepers: weathered concrete (light grey, darker and rust stained under the rail seats) or creosoted
+    timber (dark brown grain, oily where the rails stand, lighter on the worn edges)"""
+    n = Nodes(name)
+    ay = n.math('ABSOLUTE', n.axis(1))
+    seat = n.ramp(n.math('ABSOLUTE', n.math('SUBTRACT', ay, RAIL_Y)), 0.2, 0.06)
+    if wood:
+        c = n.image('dark_planks', 'diff', metres=LATTICE / 2, tint=(0.42, 0.33, 0.25))
+        c = n.mix(n.math('MULTIPLY', seat, 0.7), c, (0.03, 0.022, 0.016))
+        c = n.mix(n.math('MULTIPLY', n.edges(0.015), 0.35), c, (0.2, 0.16, 0.12))
+        return n.finish(c, n.mixf(seat, 0.85, 0.6), n.bump(periodic(n, 14.0), strength=0.25, distance=0.01))
+    c = n.image('brushed_concrete', 'diff', metres=LATTICE / 2, tint=(0.62, 0.61, 0.58))
+    c = n.mix(n.math('MULTIPLY', n.ramp(periodic(n, 3.0), 0.4, 0.75), 0.3), c, (0.2, 0.19, 0.17))
+    c = n.mix(n.math('MULTIPLY', seat, n.mixf(periodic(n, 6.0), 0.35, 0.8)), c, (0.12, 0.055, 0.025))
+    c = n.mix(n.math('MULTIPLY', n.edges(0.015), 0.25), c, (0.42, 0.41, 0.39))
+    return n.finish(c, 0.85)
+
+
+def rail_surface(name, top):
+    """Rails: the running surface of the heads bright steel, the rest rust brown"""
+    n = Nodes(name)
+    head = n.ramp(n.axis(2), top - 0.012, top - 0.002)
+    c = n.mix(head, n.mix(n.ramp(periodic(n, 4.0), 0.3, 0.7), (0.035, 0.022, 0.015), (0.024, 0.019, 0.016)), (0.5, 0.5, 0.52))
+    return n.finish(c, n.mixf(head, 0.88, 0.28), metallic=n.mixf(head, 0.1, 0.9))
+
+
+def track_parts(length, wood, top_z):
+    """The ballast bed, sleepers and rails of a straight track along X with the procedural
+    surfaces; `top_z` the ballast's top"""
+    kind = 'wood' if wood else 'concrete'
+    ballast = Part(ballast_surface('ballast-baked'))
+    sleepers = Part(sleeper_surface('sleeper-' + kind + '-baked', wood), bevel=0.012)
+    steel = Part(rail_surface('rail-baked', top_z - 0.08 + 0.35))
+    rails(steel, sleepers, -length / 2, length / 2, z=top_z - 0.08)
+    return ballast, sleepers, steel
+
+
+def without_undersides(objects):
+    """Takes off the faces looking down (the ballast's base, the sleepers' and rails' feet): nobody sees them,
+    and the bake gives their texture room to the faces that show"""
+    import bmesh as bm_
+    for obj in objects:
+        b = bm_.new()
+        b.from_mesh(obj.data)
+        bm_.ops.delete(b, geom=[f for f in b.faces if f.normal.z < -0.7], context='FACES')
+        b.to_mesh(obj.data)
+        b.free()
+    return objects
+
+
+def track(name, length=10.0, wood=False):
+    """Straight track along X, 10 m and 2.5 m long (the OSM railway tiles its lines with both,
+    convert/rails.ts), origin on the formation: a ballast bed with a flat crest a little past the sleepers'
+    ends and shoulders falling 1:1.5 into the levelled ground, concrete or timber sleepers (the rail seats
+    stained), two rails. Its surfaces are baked (bake_surface) and repeat every LATTICE metres along X, so pieces of any
+    length join without a seam"""
     clear_scene()
-    ballast = Part(ballast_material(), uv_metres=1.5, bevel=0.0)
-    sleepers = Part(sleeper_material(), uv_metres=1.0, bevel=0.01)
-    steel = Part(steel_material())
+    ballast, sleepers, steel = track_parts(length, wood, BALLAST_TOP)
     h = BALLAST_TOP
-    prism(ballast, [Vector((-length / 2, -2.4, -0.3)), Vector((-length / 2, 2.4, -0.3)), Vector((-length / 2, 1.6, h)),
-                    Vector((-length / 2, -1.6, h))], Vector((length, 0, 0)))
-    rails(steel, sleepers, -length / 2, length / 2, z=h - 0.08)
-    export(name, [ballast.to_object(name), sleepers.to_object(name + '-sleepers'), steel.to_object(name + '-rails')],
-           lod=60 if length >= 10 else 24)
+    x0 = -length / 2
+    prism(ballast, [Vector((x0, -2.68, -0.3)), Vector((x0, 2.68, -0.3)), Vector((x0, 1.82, h - 0.03)), Vector((x0, 1.7, h)),
+                    Vector((x0, -1.7, h)), Vector((x0, -1.82, h - 0.03))], Vector((length, 0, 0)))
+    objects = without_undersides([ballast.to_object(name), sleepers.to_object(name + '-sleepers'), steel.to_object(name + '-rails')])
+    obj = bake_surface(name, objects, size=1024 if length >= 10 else 512, samples=24, ao_distance=0.4)
+    export_lod(name, obj, ratio=min(1.0, (70 if length >= 10 else 26) / max(1, len(obj.data.polygons))), textured=True)
 
 
 PANEL_TOP = 0.08
@@ -1378,12 +1519,15 @@ def crossing_barrier(name, boom=4.5):
 def rail_bridge(name, length=10.0):
     """A piece of a ballasted rail bridge along X, in the track's format (origin on the formation, ballast
     top 0.35 m over it): a concrete trough (slab 1 m deep, edge beams with a cornice and a drip nose)
-    holding the ballast, sleepers and rails, a galvanised railing on both edges. 10 m and 2.5 m long"""
+    holding the track's ballast, sleepers and rails, a galvanised railing on both edges. 10 m and 2.5 m
+    long; baked like the track, its surfaces repeating every LATTICE metres along X"""
     clear_scene()
-    concrete = Part(pbr_material('bridge-concrete', 'precast_concrete_wall', (0.9, 0.9, 0.88)), uv_metres=3.0, bevel=0.02)
-    ballast = Part(ballast_material(), uv_metres=1.5, bevel=0.0)
-    sleepers = Part(sleeper_material(), uv_metres=1.0, bevel=0.01)
-    steel = Part(steel_material())
+    n = Nodes('bridge-concrete-baked')
+    c = n.image('precast_concrete_wall', 'diff', metres=LATTICE / 2, tint=(0.8, 0.8, 0.78))
+    streaks = n.math('MULTIPLY', n.ramp(n.axis(2), 0.3, -1.4), n.ramp(periodic(n, 2.0, detail=2.0), 0.45, 0.7))
+    c = n.mix(n.math('MULTIPLY', streaks, 0.45), c, (0.1, 0.095, 0.085))
+    concrete = Part(n.finish(c, 0.88), bevel=0.02)
+    ballast, sleepers, steel = track_parts(length, False, BALLAST_TOP)
     rail = Part(flat_material('railing-galvanised', (0.55, 0.57, 0.6), 0.45, 0.8))
     h = BALLAST_TOP
     x0, x1 = -length / 2, length / 2
@@ -1392,16 +1536,18 @@ def rail_bridge(name, length=10.0):
         box(concrete, 0, s * 2.65, -1.3, length, 0.3, 1.7)
         box(concrete, 0, s * 2.75, 0.4, length, 0.5, 0.15)
         box(concrete, 0, s * 2.95, -1.5, length, 0.14, 0.25)
-        n = max(1, round(length / 1.25))
-        for k in range(n):
-            box(rail, x0 + (k + 0.5) * length / n, s * 2.85, 0.55, 0.06, 0.05, 1.0)
+        k_n = max(1, round(length / 1.25))
+        for k in range(k_n):
+            box(rail, x0 + (k + 0.5) * length / k_n, s * 2.85, 0.55, 0.06, 0.05, 1.0)
         box(rail, 0, s * 2.85, 1.5, length, 0.06, 0.05)
         box(rail, 0, s * 2.85, 1.0, length, 0.03, 0.04)
     box(ballast, 0, 0, -0.3, length, 5.0, 0.45)
-    prism(ballast, [Vector((x0, -2.5, 0.15)), Vector((x0, 2.5, 0.15)), Vector((x0, 1.6, h)), Vector((x0, -1.6, h))], Vector((length, 0, 0)))
-    rails(steel, sleepers, x0, x1, z=h - 0.08)
-    export(name, [concrete.to_object(name), ballast.to_object(name + '-ballast'), sleepers.to_object(name + '-sleepers'),
-                  steel.to_object(name + '-rails'), rail.to_object(name + '-railing')], lod=90 if length >= 10 else 50)
+    prism(ballast, [Vector((x0, -2.5, 0.15)), Vector((x0, 2.5, 0.15)), Vector((x0, 1.82, h - 0.03)), Vector((x0, 1.7, h)),
+                    Vector((x0, -1.7, h)), Vector((x0, -1.82, h - 0.03))], Vector((length, 0, 0)))
+    objects = [concrete.to_object(name), ballast.to_object(name + '-ballast'), sleepers.to_object(name + '-sleepers'),
+               steel.to_object(name + '-rails'), rail.to_object(name + '-railing')]
+    obj = bake_surface(name, without_undersides(objects[1:4]) and objects, size=1024 if length >= 10 else 512, samples=24, ao_distance=0.5)
+    export_lod(name, obj, ratio=min(1.0, (90 if length >= 10 else 50) / max(1, len(obj.data.polygons))), textured=True)
 
 
 def abutment(name, width=6.4, height=10.0, wing=6.0):
@@ -1695,6 +1841,8 @@ def models():
     return {
         'rail-track': lambda: track('rail-track'),
         'rail-track-short': lambda: track('rail-track-short', length=2.5),
+        'rail-track-wood': lambda: track('rail-track-wood', wood=True),
+        'rail-track-wood-short': lambda: track('rail-track-wood-short', length=2.5, wood=True),
         'rail-crossing': lambda: level_crossing('rail-crossing'),
         'rail-street': lambda: street_track('rail-street'),
         'crossing-saltire': lambda: crossing_post('crossing-saltire'),

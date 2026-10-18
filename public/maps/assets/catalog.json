@@ -16878,14 +16878,14 @@
       "name": "Railway track, straight (10 m along X)",
       "category": "structure",
       "file": "models/rail-track.glb",
-      "triangles": 788,
+      "triangles": 622,
       "footprint": 4.5,
       "height": 0.6,
       "box": [
         0,
         0,
         4.5,
-        2.2
+        2.4
       ],
       "blocksLos": false,
       "blocksBuild": true,
@@ -16904,7 +16904,7 @@
         {
           "file": "models/rail-track-lod1.glb",
           "distance": 350,
-          "triangles": 72
+          "triangles": 116
         }
       ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/gravel_floor_02; https://polyhaven.com/a/brushed_concrete"
@@ -16914,14 +16914,14 @@
       "name": "Railway track, short (2.5 m along X)",
       "category": "structure",
       "file": "models/rail-track-short.glb",
-      "triangles": 260,
-      "footprint": 2.2,
+      "triangles": 214,
+      "footprint": 2.4,
       "height": 0.6,
       "box": [
         0,
         0,
         1.1,
-        2.2
+        2.4
       ],
       "blocksLos": false,
       "blocksBuild": true,
@@ -16940,10 +16940,82 @@
         {
           "file": "models/rail-track-short-lod1.glb",
           "distance": 350,
-          "triangles": 30
+          "triangles": 44
         }
       ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/gravel_floor_02; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "rail-track-wood",
+      "name": "Railway track on timber sleepers (10 m along X)",
+      "category": "structure",
+      "file": "models/rail-track-wood.glb",
+      "triangles": 622,
+      "footprint": 4.5,
+      "height": 0.6,
+      "box": [
+        0,
+        0,
+        4.5,
+        2.4
+      ],
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "city",
+        "temperate"
+      ],
+      "lod": [
+        {
+          "file": "models/rail-track-wood-lod1.glb",
+          "distance": 350,
+          "triangles": 116
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/gravel_floor_02; https://polyhaven.com/a/dark_planks"
+    },
+    {
+      "id": "rail-track-wood-short",
+      "name": "Railway track on timber sleepers, short (2.5 m along X)",
+      "category": "structure",
+      "file": "models/rail-track-wood-short.glb",
+      "triangles": 214,
+      "footprint": 2.4,
+      "height": 0.6,
+      "box": [
+        0,
+        0,
+        1.1,
+        2.4
+      ],
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "city",
+        "temperate"
+      ],
+      "lod": [
+        {
+          "file": "models/rail-track-wood-short-lod1.glb",
+          "distance": 350,
+          "triangles": 44
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/gravel_floor_02; https://polyhaven.com/a/dark_planks"
     },
     {
       "id": "rail-crossing",
@@ -17102,7 +17174,7 @@
       "name": "Rail bridge, ballasted trough (10 m along X, formation at 0)",
       "category": "structure",
       "file": "models/rail-bridge.glb",
-      "triangles": 1348,
+      "triangles": 1180,
       "footprint": 4.5,
       "height": 1.5,
       "blocksLos": false,
@@ -17123,7 +17195,7 @@
         {
           "file": "models/rail-bridge-lod1.glb",
           "distance": 350,
-          "triangles": 85
+          "triangles": 126
         }
       ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/precast_concrete_wall; https://polyhaven.com/a/gravel_floor_02; https://polyhaven.com/a/brushed_concrete"
@@ -17133,7 +17205,7 @@
       "name": "Rail bridge, ballasted trough (2.5 m along X, formation at 0)",
       "category": "structure",
       "file": "models/rail-bridge-short.glb",
-      "triangles": 676,
+      "triangles": 628,
       "footprint": 2.7,
       "height": 1.5,
       "blocksLos": false,
@@ -17154,7 +17226,7 @@
         {
           "file": "models/rail-bridge-short-lod1.glb",
           "distance": 350,
-          "triangles": 50
+          "triangles": 68
         }
       ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/precast_concrete_wall; https://polyhaven.com/a/gravel_floor_02; https://polyhaven.com/a/brushed_concrete"

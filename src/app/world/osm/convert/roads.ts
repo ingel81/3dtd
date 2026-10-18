@@ -393,26 +393,10 @@ export function roadPaintMaterials(paths: MapPaths): Set<string> {
  * returns them.
  */
 export function paintRoads(terrain: MapTerrain, paths: MapPaths): RoadSurface[] {
-  const res = terrain.splat.resolution;
-  const alpha = new Float32Array(res * res);
-  const layerOf = new Int8Array(res * res).fill(-1);
-  const layers = terrain.layers;
-  const used: RoadSurface[] = [];
-  const layerIndex = (material: string): number => {
-    let k = layers.findIndex((l) => l.material === material);
-    if (k < 0 && layers.length < MAX_LAYERS) {
-      layers.push({ material });
-      used.push(material as RoadSurface);
-      k = layers.length - 1;
-    }
-    return k;
-  };
   const nodes = new Map(paths.nodes.map((n) => [n.id, n]));
-  const sx = res / terrain.width;
-  const sy = res / terrain.depth;
   // Bands to paint: the paved roads' cores first, so where a verge meets a core the core keeps the texel
-  const cores: { line: MapPoint[]; material: string; half: number; soft: number }[] = [];
-  const rims: typeof cores = [];
+  const cores: PaintBand[] = [];
+  const rims: PaintBand[] = [];
   for (const edge of paths.edges) {
     if (!edge.surface || edge.kind === 'bridge') continue;
     const a = nodes.get(edge.a);
@@ -421,7 +405,41 @@ export function paintRoads(terrain: MapTerrain, paths: MapPaths): RoadSurface[] 
     const line = [a, ...(edge.via ?? []), b];
     for (const band of roadPaintBands(edge, PAINT_SOFT_EDGE)) (band.core ? cores : rims).push({ line, material: band.materials[0], half: band.half, soft: band.soft });
   }
-  for (const band of [...cores, ...rims]) {
+  return paintBands(terrain, [...cores, ...rims]) as RoadSurface[];
+}
+
+/** A band of ground material along a line: full over `half` metres either side, fading over `soft` */
+export interface PaintBand {
+  line: readonly MapPoint[];
+  material: string;
+  half: number;
+  soft: number;
+}
+
+/**
+ * Paints `bands` into the ground: each texel takes the material of the band
+ * that covers it most (the first of two as strong), blended over what the
+ * ground had by that cover. A material the ground lacks gets a layer while
+ * there is room. Returns the materials that got a layer
+ */
+export function paintBands(terrain: MapTerrain, bands: readonly PaintBand[]): string[] {
+  const res = terrain.splat.resolution;
+  const alpha = new Float32Array(res * res);
+  const layerOf = new Int8Array(res * res).fill(-1);
+  const layers = terrain.layers;
+  const used: string[] = [];
+  const layerIndex = (material: string): number => {
+    let k = layers.findIndex((l) => l.material === material);
+    if (k < 0 && layers.length < MAX_LAYERS) {
+      layers.push({ material });
+      used.push(material);
+      k = layers.length - 1;
+    }
+    return k;
+  };
+  const sx = res / terrain.width;
+  const sy = res / terrain.depth;
+  for (const band of bands) {
     const layer = layerIndex(band.material);
     if (layer < 0) continue;
     const { line, half, soft } = band;

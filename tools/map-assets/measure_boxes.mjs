@@ -19,7 +19,7 @@ import { loadGlb } from '../model-budget/glb-node.mjs';
 /** Share of the half extent that counts as occupied ground (update_catalog.py's footprint share for buildings and walls) */
 const BOX_SHARE = 0.9;
 const CATEGORIES = new Set(['building', 'wall']);
-const PIECES = new Set(['rail-track', 'rail-track-short']);
+const PIECES = new Set(['rail-track', 'rail-track-short', 'rail-track-wood', 'rail-track-wood-short']);
 
 const assets = process.argv[2];
 if (!assets) {

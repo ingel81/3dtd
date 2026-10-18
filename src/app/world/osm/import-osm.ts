@@ -30,7 +30,7 @@ import { layOut, OsmLayout, type LayoutReport } from './convert/layout';
 import { findLandmarks, spawnAnchors, type Landmark } from './convert/anchors';
 import { growLife, type LifeReport } from './convert/life';
 import { placeFurniture, type FurnitureReport } from './convert/furniture';
-import { levelRails, planRails, type RailGroundReport, type RailStats } from './convert/rails';
+import { levelRails, paintRails, planRails, railPaintMaterials, type RailGroundReport, type RailStats } from './convert/rails';
 import { placeBuildings, type BuildingCatalogEntry, type BuildingReport } from './convert/buildings';
 
 /**
@@ -184,11 +184,13 @@ export function convertOsm(
   step('level');
   // The land takes the layers the roads' surfaces and the water's shores leave
   const wetMaterials = (Object.keys(WATER_MATERIALS) as WaterPaintRole[]).filter((r) => water.paint[r].some((v) => v > 0)).map((r) => WATER_MATERIALS[r]);
-  const ground = paintGround(t0, features, new Set([...roadPaintMaterials(doc.paths), ...wetMaterials]));
+  const ground = paintGround(t0, features, new Set([...roadPaintMaterials(doc.paths), ...railPaintMaterials(rails), ...wetMaterials]));
   Object.assign(doc.environment, placeMood(features));
   step('ground');
   paintWater(t0, water);
   step('shores');
+  // The beds' gravel before the roads: a road over a crossing keeps its surface
+  paintRails(t0, rails);
   paintRoads(t0, doc.paths);
   step('paint');
 

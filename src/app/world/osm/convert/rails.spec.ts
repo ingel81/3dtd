@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { heightAt } from '../../../map-ops/grid';
+import { MAX_LAYERS, readWeights } from '../../../map-ops/paint-ops';
 import { objectsInAir, validateMap } from '../../../map-ops/validation/map-validation';
 import { routeBetween } from '../../../map-ops/path-graph';
 import { bridgeDecks, deckHeightAt } from '../../custom-map/bridge-decks';
@@ -23,7 +24,10 @@ import {
   profileAt,
   RAIL_ASSETS,
   RAIL_DECK_DEPTH,
+  paintRails,
+  RAIL_GROUND,
   railPieces,
+  timberSleepers,
   UNDER_CLEARANCE,
   type RailPlan,
 } from './rails';
@@ -279,6 +283,33 @@ describe('OSM railway', () => {
     expect(of(doc, RAIL_ASSETS.street).length).toBe(76);
     expect([...of(doc, RAIL_ASSETS.track), ...of(doc, RAIL_ASSETS.trackShort)]).toEqual([]);
     expect([...of(doc, RAIL_ASSETS.saltire), ...of(doc, RAIL_ASSETS.signal)]).toEqual([]);
+  });
+
+  it('paints gravel along the bed but not under its bridge, and lays timber sleepers on sidings', () => {
+    const elements = [
+      way(1, { highway: 'residential' }, [[0, -190, 1], [0, 190, 3]]),
+      way(10, { railway: 'rail' }, [[-190, 0, 11], [-12, 0, 13]]),
+      way(11, { railway: 'rail', bridge: 'yes' }, [[-12, 0, 13], [12, 0, 14]]),
+      way(12, { railway: 'rail' }, [[12, 0, 14], [190, 0, 12]]),
+    ];
+    const { doc, plan } = world(elements);
+    const t = doc.terrain;
+    paintRails(t, plan);
+    const layer = t.layers.findIndex((l) => l.material === RAIL_GROUND.material);
+    expect(layer).toBeGreaterThanOrEqual(0);
+    const w = new Float32Array(MAX_LAYERS);
+    const share = (x: number, y: number) => {
+      const res = t.splat.resolution;
+      readWeights(t, Math.floor(((y + 200) / 400) * res) * res + Math.floor(((x + 200) / 400) * res), w);
+      return w[layer] / w.reduce((a, b) => a + b, 0);
+    };
+    expect(share(-100, 0)).toBeGreaterThan(0.9);
+    expect(share(-100, 2.5)).toBeGreaterThan(0.9);
+    expect(share(-100, 12)).toBeLessThan(0.05);
+    expect(share(0, 1)).toBeLessThan(0.05);
+    expect(timberSleepers({ railway: 'rail', service: 'siding' })).toBe(true);
+    expect(timberSleepers({ railway: 'narrow_gauge' })).toBe(true);
+    expect(timberSleepers({ railway: 'rail', usage: 'main' })).toBe(false);
   });
 
   it('leaves a long rail tunnel out and gives it mouths for portals, a short one stays track', () => {

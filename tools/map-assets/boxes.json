@@ -136,6 +136,8 @@
   "annex": [0.2,0.2,3.4,2.5],
   "office-ribbon": [0,1.3,7.5,8.7],
   "shop-office": [0,0.4,5.7,5.2],
-  "rail-track": [0,0,4.5,2.2],
-  "rail-track-short": [0,0,1.1,2.2]
+  "rail-track": [0,0,4.5,2.4],
+  "rail-track-short": [0,0,1.1,2.4],
+  "rail-track-wood": [0,0,4.5,2.4],
+  "rail-track-wood-short": [0,0,1.1,2.4]
 }

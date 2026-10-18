@@ -53,7 +53,7 @@ import { HeightField } from '../../custom-map/render/height-field';
 import { bridgeWaterLevel } from '../../custom-map/render/paths/bridge-water';
 import type { OsmFeatures, OsmWay } from '../osm-parse';
 import { roadTags } from '../osm-tags';
-import { findTunnels, type TunnelLine, type TunnelMouth } from './roads';
+import { findTunnels, paintBands, type PaintBand, type TunnelLine, type TunnelMouth } from './roads';
 
 /** Railway kinds that get a track (no disused, abandoned or platform lines) */
 export const TRACK_KINDS: ReadonlySet<string> = new Set(['rail', 'light_rail', 'tram', 'narrow_gauge', 'subway', 'funicular']);
@@ -66,6 +66,8 @@ const MASTED_KINDS: ReadonlySet<string> = new Set(['rail', 'light_rail', 'narrow
 export const RAIL_ASSETS = {
   track: 'rail-track',
   trackShort: 'rail-track-short',
+  trackWood: 'rail-track-wood',
+  trackWoodShort: 'rail-track-wood-short',
   bridge: 'rail-bridge',
   bridgeShort: 'rail-bridge-short',
   crossing: 'rail-crossing',
@@ -772,6 +774,31 @@ function levelBeds(terrain: MapTerrain, plan: RailPlan, paths: MapPaths, keep?: 
   return changed;
 }
 
+/** The ground beside a bed: gravel over its foot and a strip past it, fading into the land */
+export const RAIL_GROUND = { material: 'gravel', half: BED_HALF + 0.6, soft: 1.4 } as const;
+
+/** The ground materials paintRails lays for `plan` (none without track) */
+export function railPaintMaterials(plan: RailPlan): Set<string> {
+  return new Set(plan.chains.length ? [RAIL_GROUND.material] : []);
+}
+
+/**
+ * The ground beside the beds painted (after the land, before the roads, so
+ * a road over a crossing keeps its surface): RAIL_GROUND along every line
+ * off its bridges. Returns the materials that got a layer
+ */
+export function paintRails(terrain: MapTerrain, plan: RailPlan): string[] {
+  const bands: PaintBand[] = [];
+  plan.chains.forEach((c, ci) => {
+    const cuts = merged(plan.bridges.filter((b) => b.chain === ci).map((b) => [b.from, b.to]));
+    for (const [from, to] of outside([0, c.length], cuts)) {
+      if (to - from < 0.5) continue;
+      bands.push({ line: slice(c, from, to), material: RAIL_GROUND.material, half: RAIL_GROUND.half, soft: RAIL_GROUND.soft });
+    }
+  });
+  return paintBands(terrain, bands);
+}
+
 /** One piece of the railway as furniture places it */
 export interface RailPiece {
   o: Omit<MapObject, 'id'>;
@@ -790,6 +817,18 @@ const KITS: Record<Stretch['kind'], readonly [string, string]> = {
   crossing: [RAIL_ASSETS.crossing, RAIL_ASSETS.crossing],
   street: [RAIL_ASSETS.street, RAIL_ASSETS.street],
 };
+
+/** The bed's kit on timber sleepers */
+const TIMBER_KIT = [RAIL_ASSETS.trackWood, RAIL_ASSETS.trackWoodShort] as const;
+
+/**
+ * Whether a track lies on timber sleepers: narrow gauge, and sidings, yards
+ * and spurs (`service`, `usage=industrial`), where old timber lasts; main
+ * lines and tramways on concrete
+ */
+export function timberSleepers(tags: Readonly<Record<string, string>>): boolean {
+  return tags['railway'] === 'narrow_gauge' || /^(siding|yard|spur)$/.test(tags['service'] ?? '') || tags['usage'] === 'industrial';
+}
 
 interface Stretch {
   from: number;
@@ -813,7 +852,7 @@ export function railPieces(plan: RailPlan, terrain: MapTerrain, paths: MapPaths)
     const group = `osm-w${c.ways[0].id}`;
     const stretches = stretchesOf(c, ci, plan, groundRoads);
     for (const st of stretches) {
-      const kit = KITS[st.kind];
+      const kit = st.kind === 'bed' && timberSleepers(c.ways[segmentAt(c, (st.from + st.to) / 2)].tags) ? TIMBER_KIT : KITS[st.kind];
       const source = st.kind === 'bed' || st.kind === 'street' ? 'track' : st.kind === 'bridge' ? 'rail bridge' : 'crossing';
       for (const [from, len] of tile(st.from, st.to, kit[0] === kit[1] ? 0 : LONG)) {
         const a = pointOn(c, from);
