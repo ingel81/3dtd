@@ -1,16 +1,9 @@
 import {
   Color,
-  DataTexture,
-  LinearFilter,
-  LinearMipmapLinearFilter,
   Matrix4,
-  NoColorSpace,
-  RepeatWrapping,
-  RGBAFormat,
   ShaderMaterial,
   UniformsLib,
   UniformsUtils,
-  UnsignedByteType,
   Vector2,
   Vector4,
   type Texture,
@@ -27,11 +20,11 @@ import { FLOW_MAP_MAX, SHORE_FIELD_MAX, SLOPE_FIELD_MAX } from './flow-map';
 import { SHORE_PHASE_GLSL, shoreWaves } from './shore-waves';
 import { foamNoiseTexture } from './foam-noise';
 import { lavaNoiseTexture } from './lava-noise';
+import { waveTexture } from './wave-noise';
 import { SCENE_COPY_GLSL, type SceneCopy } from './scene-copy';
 import { SHORE_CUT_DEPTH, SHORE_CUT_SCALE } from './shore-cut';
 import type { MapEffects } from '../map-effects';
 import type { WaterReflection } from './water-reflection';
-import { shareGpu } from '../../../../three-engine/shared-gpu';
 
 /**
  * The material of every water body (lake, sea, swamp, ice, lava; areas and
@@ -63,7 +56,6 @@ import { shareGpu } from '../../../../three-engine/shared-gpu';
 
 export const KIND_ID: Record<MapWaterKind, number> = { water: 0, lava: 1, ice: 2, sea: 3, swamp: 4 };
 
-let waves: DataTexture | null = null;
 
 export interface WaterMaterialOptions {
   kind: MapWaterKind;
@@ -250,60 +242,6 @@ export function setWaterSky(material: ShaderMaterial, skyUniforms: ShaderMateria
   }
   u['uLight'].value = waterLight(sunIntensity, darkness, material.defines['KIND'] === KIND_ID.lava);
   material.needsUpdate = true;
-}
-
-/**
- * A tiling normal texture of sums of waves with whole-number frequencies
- * (so it repeats seamlessly), shared by all water surfaces.
- */
-function waveTexture(): DataTexture {
-  if (waves) return waves;
-  const size = 256;
-  const data = new Uint8Array(size * size * 4);
-  let seed = 11;
-  const rnd = (): number => {
-    seed = (seed * 16807) % 2147483647;
-    return seed / 2147483647;
-  };
-  const list = Array.from({ length: 24 }, (_, n) => {
-    const freq = 1 + Math.floor(rnd() * (3 + n));
-    const angle = rnd() * Math.PI * 2;
-    return {
-      kx: Math.round(Math.cos(angle) * freq),
-      ky: Math.round(Math.sin(angle) * freq),
-      amp: 1 / (1 + n * 0.35),
-      phase: rnd() * Math.PI * 2,
-    };
-  });
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      let dx = 0;
-      let dy = 0;
-      for (const w of list) {
-        const a = ((w.kx * x + w.ky * y) / size) * Math.PI * 2 + w.phase;
-        const c = Math.cos(a) * w.amp;
-        dx += c * w.kx;
-        dy += c * w.ky;
-      }
-      const nx = -dx * 0.02;
-      const ny = -dy * 0.02;
-      const len = Math.hypot(nx, ny, 1);
-      const q = (y * size + x) * 4;
-      data[q] = Math.round((nx / len) * 127.5 + 127.5);
-      data[q + 1] = Math.round((ny / len) * 127.5 + 127.5);
-      data[q + 2] = Math.round((1 / len) * 127.5 + 127.5);
-      data[q + 3] = 255;
-    }
-  }
-  const t = new DataTexture(data, size, size, RGBAFormat, UnsignedByteType);
-  t.colorSpace = NoColorSpace;
-  t.wrapS = t.wrapT = RepeatWrapping;
-  t.magFilter = LinearFilter;
-  t.minFilter = LinearMipmapLinearFilter;
-  t.generateMipmaps = true;
-  t.needsUpdate = true;
-  waves = shareGpu(t);
-  return t;
 }
 
 const WATER_VERTEX = /* glsl */ `

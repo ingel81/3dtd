@@ -1,9 +1,9 @@
-import { DataTexture, LinearFilter, LinearMipmapLinearFilter, NoColorSpace, RepeatWrapping, RGBAFormat, UnsignedByteType } from 'three';
-import { shareGpu } from '../../../../three-engine/shared-gpu';
+import type { DataTexture } from 'three';
+import { BakedNoise } from '../baked-noise';
 import { clamp01, crackDistance, tilingFbm } from '../tiling-noise';
 
 /**
- * A tiling noise texture for lava (256², RGBA8, built once on the CPU and
+ * A tiling noise texture for lava (256², RGBA8, baked once in a worker and
  * shared): its crust reads heat, cracks and a warp from it instead of
  * evaluating noise several times per pixel.
  *
@@ -21,7 +21,6 @@ import { clamp01, crackDistance, tilingFbm } from '../tiling-noise';
 const SIZE = 256;
 /** Crust plates per side of the texture */
 const CRACK_CELLS = 5;
-let texture: DataTexture | null = null;
 
 /** The texture's texels (RGBA8, SIZE²): the bake, on whichever thread runs it */
 export function bakeLavaNoise(): Uint8Array {
@@ -39,61 +38,15 @@ export function bakeLavaNoise(): Uint8Array {
   return data;
 }
 
-/**
- * The shared texture, at once: until its bake is in (prepareLavaNoise) it
- * holds an even crust without cracks or warp, so a lava material made
- * meanwhile (the editor's stand-ins compiled ahead) does not bake it in the
- * frame (40 ms in a dev build)
- */
+/** Baked in a worker (baked-noise.ts); an even crust without cracks or warp until then */
+const NOISE = new BakedNoise('lava', { size: SIZE, neutral: [128, 255, 128, 128] }, bakeLavaNoise);
+
+/** The shared texture, at once (its bake: prepareLavaNoise) */
 export function lavaNoiseTexture(): DataTexture {
-  if (texture) return texture;
-  const data = new Uint8Array(SIZE * SIZE * 4);
-  for (let k = 0; k < SIZE * SIZE; k++) {
-    data[k * 4] = 128;
-    data[k * 4 + 1] = 255;
-    data[k * 4 + 2] = 128;
-    data[k * 4 + 3] = 128;
-  }
-  const t = new DataTexture(data, SIZE, SIZE, RGBAFormat, UnsignedByteType);
-  t.colorSpace = NoColorSpace;
-  t.wrapS = t.wrapT = RepeatWrapping;
-  t.magFilter = LinearFilter;
-  t.minFilter = LinearMipmapLinearFilter;
-  t.generateMipmaps = true;
-  t.needsUpdate = true;
-  texture = shareGpu(t);
-  return t;
+  return NOISE.texture();
 }
 
-let baked: Promise<void> | null = null;
-
-/**
- * Bakes the texture once, in a worker where there are workers
- * (lava-noise.worker.ts), inline where not. A view starts it as it loads
- * and its `ready` waits for it (as the foam's, prepareFoamNoise)
- */
+/** Bakes the texture once; a view starts it as it loads and its `ready` waits for it */
 export function prepareLavaNoise(): Promise<void> {
-  if (baked) return baked;
-  const fill = (data: Uint8Array): void => {
-    const t = lavaNoiseTexture();
-    (t.image.data as Uint8Array).set(data);
-    t.needsUpdate = true;
-  };
-  if (typeof Worker === 'undefined') {
-    fill(bakeLavaNoise());
-    return (baked = Promise.resolve());
-  }
-  baked = new Promise<void>((resolve) => {
-    const worker = new Worker(new URL('./lava-noise.worker', import.meta.url), { type: 'module' });
-    const done = (data: Uint8Array): void => {
-      fill(data);
-      worker.terminate();
-      resolve();
-    };
-    worker.onmessage = (e: MessageEvent<Uint8Array>) => done(e.data);
-    // A worker that fails: the bake here after all
-    worker.onerror = () => done(bakeLavaNoise());
-    worker.postMessage(null);
-  });
-  return baked;
+  return NOISE.prepare();
 }

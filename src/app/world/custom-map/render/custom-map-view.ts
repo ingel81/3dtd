@@ -42,6 +42,8 @@ import { CoverMap } from './environment/cover-map';
 import { setPlantSway, WIND_UNIFORMS } from './environment/wind';
 import { prepareFoamNoise } from './water/foam-noise';
 import { prepareLavaNoise } from './water/lava-noise';
+import { prepareWaves } from './water/wave-noise';
+import { prepareVariation } from './terrain/variation-texture';
 import { MapObjectLayer, type ObjectHit } from './objects/object-layer';
 import { fontsReady, SignLayer } from './objects/sign-text';
 import { IMPOSTOR_SUN } from './objects/impostor';
@@ -1728,7 +1730,10 @@ export class CustomMapView {
       this.refreshContact(),
       this.bridges.set(this.doc.paths, this.doc.terrain),
       this.refreshDecals(),
-      // The shore foam's and the lava's textures, in workers: water poured later (the editor) finds them baked
+      // The noise textures, in a worker: the ground's variation and the waves shown here, the shore foam's and the
+      // lava's for water poured later (the editor)
+      prepareVariation(),
+      prepareWaves(),
       prepareFoamNoise(),
       prepareLavaNoise(),
       // The ground's shape and the water's first bakes, off the page's thread where there is a baker

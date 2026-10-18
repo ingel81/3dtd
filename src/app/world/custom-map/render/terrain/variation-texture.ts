@@ -1,10 +1,10 @@
-import { DataTexture, LinearFilter, LinearMipmapLinearFilter, NoColorSpace, RepeatWrapping, RGBAFormat, UnsignedByteType } from 'three';
-import { shareGpu } from '../../../../three-engine/shared-gpu';
+import type { DataTexture } from 'three';
+import { BakedNoise } from '../baked-noise';
 import { tilingFbm } from '../tiling-noise';
 
 /**
- * The ground's variation as one tiling texture (512², RGBA8, built once on
- * the CPU and shared): blots bent by a coarse warp, so patches of drier
+ * The ground's variation as one tiling texture (512², RGBA8, baked once in
+ * a worker and shared): blots bent by a coarse warp, so patches of drier
  * grass, damp hollows and lichen read as natural shapes rather than the
  * lattice squares of value noise. The terrain and the grass read it at
  * three scales (VARIATION_GLSL) instead of evaluating about a dozen value
@@ -16,10 +16,9 @@ import { tilingFbm } from '../tiling-noise';
  */
 
 const SIZE = 512;
-let texture: DataTexture | null = null;
 
-export function variationTexture(): DataTexture {
-  if (texture) return texture;
+/** The texture's texels (RGBA8, SIZE²): the bake, on whichever thread runs it */
+export function bakeVariation(): Uint8Array {
   const data = new Uint8Array(SIZE * SIZE * 4);
   const channels = [
     tilingFbm(SIZE, 4, 8, 3, 1.35, 40),
@@ -30,15 +29,19 @@ export function variationTexture(): DataTexture {
   for (let k = 0; k < SIZE * SIZE; k++) {
     for (let c = 0; c < 4; c++) data[k * 4 + c] = Math.round(channels[c][k] * 255);
   }
-  const t = new DataTexture(data, SIZE, SIZE, RGBAFormat, UnsignedByteType);
-  t.colorSpace = NoColorSpace;
-  t.wrapS = t.wrapT = RepeatWrapping;
-  t.magFilter = LinearFilter;
-  t.minFilter = LinearMipmapLinearFilter;
-  t.generateMipmaps = true;
-  t.needsUpdate = true;
-  texture = shareGpu(t);
-  return t;
+  return data;
+}
+
+/** Baked in a worker (baked-noise.ts); an even middle until then */
+const VARIATION = new BakedNoise('variation', { size: SIZE, neutral: [128, 128, 128, 128] }, bakeVariation);
+
+/** The shared texture, at once (its bake: prepareVariation) */
+export function variationTexture(): DataTexture {
+  return VARIATION.texture();
+}
+
+export function prepareVariation(): Promise<void> {
+  return VARIATION.prepare();
 }
 
 /**
