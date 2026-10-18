@@ -69,7 +69,7 @@ Für Kontrast und als Grundfarbe stehen die Flächen auch als Farbe in `TD_THEME
 | `--td-edge-dark`, `--td-edge-light` | Rille an der Kante der Sidebar zur Karte (60 %, Licht 18 %) |
 | `--td-engrave`, `--td-engrave-icon` | Eingravierte Schrift (Titel, Knöpfe), eingravierte Symbole (Werkzeuge) |
 | `--td-panel-recess`, `--td-panel-drop` | Panel: vertiefte Füllung, starker Schlagschatten |
-| `--td-raised`, `--td-raised-quiet`, `--td-raised-lit`, `--td-raised-plate`, `--td-raised-over-map` | Erhabener Stein: Hauptknopf (Tiefe 2), Nebenknopf (Tiefe 3), gewählte Zeile, gewählter Menüeintrag und gewählte Stufe; ein Stein allein auf der Karte mit weichem Schatten |
+| `--td-raised`, `--td-raised-quiet`, `--td-raised-lit`, `--td-raised-plate`, `--td-raised-over-map` | Erhabener Stein: Hauptknopf (Tiefe 2), Nebenknopf (Tiefe 3), gewählte Zeile, gewählter Menüeintrag; ein Stein allein auf der Karte mit weichem Schatten |
 | `--td-pressed` | Gedrückt, eingedrückt (Knopf, aktiver Schalter-Knopf) |
 | `--td-well`, `--td-well-shadow`, `--td-well-soft`, `--td-well-soft-shadow`, `--td-well-deep` | Vertieft: Felder, Schalter, Regler (40 %, Tiefe 4); Karten und Kacheln (24 %); gewählte Karte |
 | `--td-topbar-edge`, `--td-popup-drop` | Plattenkante unten an der Kopfleiste; Schatten eines Popups |
@@ -209,7 +209,7 @@ Bei `prefers-reduced-motion` springen alle Übergänge (globale Regel); Animatio
 | `td-input` (`is-sm`, `is-code`, `is-group`, `is-error` / `aria-invalid`) | Vertieftes Feld 40 px, Fokus mit Messingrahmen (auch bei Maus); klein 30 px; Code in Mono-Versalien; Feld mit Symbol und Knopf darin (zeigt Fehler und Sperre seines Felds); Fehler mit dunkelrotem Rahmen. Zahlenfelder ohne Pfeile |
 | `td-select` (`is-auto`) | Auswahlliste mit Messingwinkel; so breit wie ihr Inhalt |
 | `td-error` | Meldung unter einem Feld mit Warnzeichen |
-| `td-seg` (`is-compact`, `is-sm`, `is-stacked`) | Stufen: ein Knopf je Wahl in einer gemeinsamen Mulde, gewählt eine erhabene Steinplatte mit Messingtext (wie ein Schieber in seiner Rille); für Radiogruppen, Reiter, Umschalter; schmal, klein (30 px), zweizeilig (Name über einer Zeile) |
+| `td-seg` (`is-compact`, `is-sm`, `is-stacked`) | Stufen: ein Knopf je Wahl in einer gemeinsamen Mulde, jede Wahl ein erhabener Stein zum Drücken, die gewählte eingedrückt als tiefe Mulde mit Messingtext (wie ein eingeschalteter Umschalter, `base.on-state`); für Radiogruppen, Reiter, Umschalter; schmal, klein (30 px), zweizeilig (Name über einer Zeile) |
 | `td-switch`, `td-check` | Schieber auf einer Checkbox (oder `<span>` mit `.is-on` in einem Umschalt-Knopf); Schieber mit Text, als `<label>` oder als Umschalt-`<button>` (ohne Knopfrahmen, Schriftgröße der Umgebung); in einer `td-side` bricht der Text um, statt die Spalte zu verbreitern |
 | `td-slider`, `td-range-row` | Regler mit Skala, Messingfüllung bis zum Griff (Chromium per Border-Image des Griffs, Firefox `::-moz-range-progress`); Zeile aus Name, Regler, Zahl, Einheit |
 
