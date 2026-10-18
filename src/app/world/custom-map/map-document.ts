@@ -19,7 +19,7 @@ export const MAP_FORMAT = '3dtd-map';
  * When to raise it: docs/LEVEL_EDITOR.md, "Formatregeln" (a field an older game must not skip does; a new
  * value of a list or an optional look does not)
  */
-export const MAP_VERSION = 3;
+export const MAP_VERSION = 4;
 
 /** Metres per degree in the synthetic frame, the factor `geoToLocalSimple` uses at latitude 0 */
 export const MAP_METERS_PER_DEGREE = 111320;

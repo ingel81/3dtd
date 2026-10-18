@@ -1056,7 +1056,11 @@ der nicht aktualisiert hat):
    bringt eine Migration in `MAP_MIGRATIONS` mit, die ältere Dateien hebt. Ein älteres Spiel liest die Version vor
    allem anderen und sagt „This map was made with a newer version of the game (map version 4, this game reads up to
    3). Update the game to open it.“ statt „broken“; im Editor beim Import und Öffnen im Banner, im Spiel auf der
-   Ladetafel.
+   Ladetafel. **Version 4** (2026-10-18, einmal gesammelt): Bauten aus dem Grundriss (`MapObject.mass`), Flächen über
+   dem Boden (`surfaces`) und das Wetter `storm`; alle optional, die Migration von 3 ist leer, der Inhalts-Hash
+   unveränderter Karten bleibt (die Version zählt nicht zum Inhalt). Weitere optionale Felder, die die weiche Prüfung
+   (`map-repair.ts`) berichtigt oder weglässt (etwa Zerstörungsfelder), passen ohne neuen Sprung in Version 4; erst
+   eine neue harte Prüfung oder eine neue Bedeutung eines vorhandenen Felds hebt auf 5.
 2. **Ohne Version.** Ein optionales Feld, dessen Fehlen nur das Bild oder den Ton ändert (`skyImage`, `planet`,
    `wind`, `life`, `intro`), und ein neuer Wert einer Liste (Himmel, Biom, Wetter, Wasser- und Flussart, Wegart,
    Brückenstil, Wellen-Ereignis, Leben, Vogelart, Spurregel `vacant`, Wellenquelle) heben die Version nicht. Ein

@@ -264,6 +264,21 @@ describe('map file', () => {
     expect(validateMapDocument(doc)).toContain(`splat needs three maps of ${doc.terrain.splat.resolution} x ${doc.terrain.splat.resolution} RGBA`);
   });
 
+  it('reads a version 3 file unchanged and writes version 4: no raised buildings, no surfaces, the same content hash', async () => {
+    const doc = sample();
+    const entries = unzipSync(packMapFile(doc));
+    const json = JSON.parse(new TextDecoder().decode(entries['map.json']));
+    expect(json.version).toBe(4);
+    const v3 = zipSync({ ...entries, 'map.json': strToU8(JSON.stringify({ ...json, version: 3 })) });
+    const { doc: back, repaired } = unpackMapFile(v3);
+    expect(back.version).toBe(4);
+    expect(repaired).toEqual([]);
+    expect(back.objects).toEqual(doc.objects);
+    expect(back.surfaces).toBeUndefined();
+    // The version is no world content: the hash of the unchanged map stays
+    expect(await contentHash(back)).toBe(await contentHash(doc));
+  });
+
   it('reads a version 2 file unchanged: two splat maps, the same content hash', async () => {
     const doc = sample();
     const file = packMapFile(doc);

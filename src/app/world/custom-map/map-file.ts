@@ -57,6 +57,10 @@ export const MAP_MIGRATIONS: Readonly<Record<number, MapMigration>> = {
   1: (json) => json,
   // 2 to 3: version 3 may carry a third splat map (layers 9 to 12); a version 2 map has two and at most 8 layers
   2: (json) => json,
+  // 3 to 4: version 4 may carry buildings raised from their footprint (MapObject.mass), surfaces laid over the
+  // ground (surfaces) and the storm weather, all optional; a version 3 map has none of them. Optional fields that
+  // come later and that the soft checks set right (map-repair.ts) fit into version 4 as well
+  3: (json) => json,
 };
 
 interface BinaryRef {
