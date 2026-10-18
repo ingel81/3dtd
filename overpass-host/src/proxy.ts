@@ -81,6 +81,8 @@ export function startProxy(config: ProxyConfig, deps: ProxyDeps = {}): Promise<R
   const inMaintenance = maintenanceCheck(config.maintenanceFile, now);
   const upstream = new URL(config.upstream);
   const trusted = parseRanges(config.trustedProxies);
+  /** Connections that sent Cloudflare's headers without being trusted, each logged once (the tunnel's connector, set up wrong) */
+  const untrustedSeen = new Set<string>();
   const sweep = setInterval(() => limiter.sweep(), 60_000);
   sweep.unref();
 
@@ -109,6 +111,14 @@ export function startProxy(config: ProxyConfig, deps: ProxyDeps = {}): Promise<R
     }
     // Cloudflare's headers only from the tunnel's connector; anyone else could name any address
     const fromTunnel = config.trustCloudflare && inRanges(req.socket.remoteAddress, trusted);
+    if (config.trustCloudflare && !fromTunnel && req.headers['cf-connecting-ip'] !== undefined) {
+      const peer = req.socket.remoteAddress ?? '?';
+      if (!untrustedSeen.has(peer) && untrustedSeen.size < 20) {
+        untrustedSeen.add(peer);
+        // The connecting machine, never a player's address: where the tunnel's connector comes from when it is this one
+        log(`proxy: Cloudflare headers from ${peer}, not in TRUSTED_PROXIES (${config.trustedProxies}), ignored; if this is the tunnel's connector, add it there`);
+      }
+    }
     const country = fromTunnel ? String(req.headers['cf-ipcountry'] ?? '').toUpperCase() : '';
     const row: RequestRow = {
       t: start, status: 0, outcome: 'bad', ms: 0, msHead: null, bytes: 0,

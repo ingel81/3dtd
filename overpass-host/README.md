@@ -86,7 +86,9 @@ but only on a connection from `TRUSTED_PROXIES`; on any other the connection's o
 `private`, trusts every local address: a machine in the LAN that reaches the proxy directly could name an address of
 its choice and so slip past its rate limit, nothing more, and the proxy is not reachable from outside. To close that
 too, set `TRUSTED_PROXIES` to the address the cloudflared connects from (its own, `/32`; behind a router between
-networks the one the router passes on, which the status page shows as "?" under countries while it is not trusted).
+networks the one the router passes on). While it is not trusted, the status page shows "?" under countries and the
+proxy's log names the connecting address once (`Cloudflare headers from ..., not in TRUSTED_PROXIES`); a player's
+address is never logged.
 
 Check: `https://3dtd-osm.sgeht.net/api/interpreter?data=[out:json];node(1);out;` answers with a node;
 `https://3dtd-osm.sgeht.net/api/status` answers 404.

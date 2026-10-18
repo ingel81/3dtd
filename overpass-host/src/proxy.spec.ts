@@ -170,12 +170,23 @@ describe('proxy', () => {
   });
 
   it('takes the Cloudflare headers only from a trusted connection, else the connection address', async () => {
-    await start({ rateBurst: 1, ratePerMinute: 1, trustedProxies: '203.0.113.0/24' });
     // The test connects from 127.0.0.1, not trusted now: every made-up address counts as that one client
+    const lines: string[] = [];
+    await proxy.close();
+    rows = [];
+    proxy = await startProxy(config(fake.url, { rateBurst: 1, ratePerMinute: 1, trustedProxies: '203.0.113.0/24' }), {
+      record: (row) => rows.push(row),
+      log: (line) => lines.push(line),
+    });
+    base = `http://127.0.0.1:${(proxy.server.address() as AddressInfo).port}`;
     expect((await post(BOX, { 'CF-Connecting-IP': '198.51.100.7', 'CF-IPCountry': 'DE' })).status).toBe(200);
     expect((await post(BOX, { 'CF-Connecting-IP': '198.51.100.8' })).status).toBe(429);
     await settled();
     expect(rows[0].country).toBeNull();
+    // The connecting machine is named once, so the tunnel's connector can be added; never the made-up address
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatch(/Cloudflare headers from (::ffff:)?127\.0\.0\.1, not in TRUSTED_PROXIES/);
+    expect(lines.join()).not.toContain('198.51.100');
   });
 
   it('answers a preflight, and nothing but the interpreter', async () => {
