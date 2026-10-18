@@ -20,6 +20,7 @@ import { AssetManagerService } from './asset-manager.service';
 import { FramePacer } from '../../utils/frame-pacer';
 import { PREVIEW_MANIFEST, PREVIEW_SHEET_DIR, previewViewKey, type PreviewSheetEntry, type PreviewSheetManifest } from './preview-sheets';
 import { releaseSharedGpu } from '../../three-engine/shared-gpu';
+import { releaseContext } from '../../three-engine/context-release';
 
 export interface PreviewConfig {
   modelUrl: string;
@@ -477,11 +478,11 @@ export class ModelPreviewService {
     }
     this.loadedModelUrls.clear();
 
-    // Dispose renderer; its context goes at once, the next world's game makes its own
+    // Dispose renderer; its context goes once the next view stands, the next world's game makes its own
     if (this.renderer) {
       releaseSharedGpu(this.renderer);
       this.renderer.dispose();
-      this.renderer.forceContextLoss();
+      releaseContext(this.renderer);
       this.renderer = null;
       this.rendererCapacityCss = 0;
     }

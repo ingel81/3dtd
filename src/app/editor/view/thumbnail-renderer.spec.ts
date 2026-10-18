@@ -1,5 +1,6 @@
 import { DataTexture, Group, Mesh, MeshStandardMaterial, PlaneGeometry } from 'three';
 import { ThumbnailRenderer, texturesOf } from './thumbnail-renderer';
+import { settleContexts } from '../../three-engine/context-release';
 import type { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
 
 describe('thumbnail renderer', () => {
@@ -22,8 +23,14 @@ describe('thumbnail renderer', () => {
     inside.renderer = renderer;
     inside.pictures.set('m:2:grass:#00ff00', 'data:kept');
     inside.queued.add('o:2:tree:');
+    vi.useFakeTimers();
     thumbs.release();
     expect(renderer.dispose).toHaveBeenCalled();
+    // Its context goes once the next view stands (context-release.ts)
+    expect(renderer.forceContextLoss).not.toHaveBeenCalled();
+    settleContexts();
+    vi.runAllTimers();
+    vi.useRealTimers();
     expect(renderer.forceContextLoss).toHaveBeenCalled();
     expect(inside.renderer).toBeNull();
     expect(inside.queued.size).toBe(0);

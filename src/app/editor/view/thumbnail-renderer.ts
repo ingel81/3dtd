@@ -41,6 +41,7 @@ import type { CatalogIndex, GroundMaterialEntry, ObjectAssetEntry } from '../../
 import type { BiomeDef } from '../ops/landscape/biomes';
 import { hashCell } from '../../map-ops/landscape-noise';
 import { releaseSharedGpu } from '../../three-engine/shared-gpu';
+import { releaseContext } from '../../three-engine/context-release';
 
 const SIZE = 128;
 const DB_NAME = '3dtd-editor-thumbs';
@@ -124,8 +125,9 @@ export class ThumbnailRenderer {
     if (renderer) {
       releaseSharedGpu(renderer, this.scene);
       renderer.dispose();
-      // Browsers keep only a few contexts: this one goes now, not whenever the canvas is collected
-      renderer.forceContextLoss();
+      // Browsers keep only a few contexts: this one goes once the game stands, not whenever the canvas is
+      // collected (lost at once in the switch to a test run it blocked the main thread 4 s)
+      releaseContext(renderer);
     }
   }
 
