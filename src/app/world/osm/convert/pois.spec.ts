@@ -149,6 +149,23 @@ describe('OSM POIs: placing', () => {
     expect(placed(w2.doc).filter((o) => o.asset === 'sign-facade').map((o) => o.sign!.text)).toContain('Bakery');
   });
 
+  it('hangs a shop on the street edge of a building raised from its footprint, under its first floor’s windows', () => {
+    // A 20 x 10 m outline north of the road (object axes: x west, z north), two storeys of plaster under a flat roof
+    const mass = { rings: [[-10, -5, 10, -5, 10, 5, -10, 5]], height: 7.4, floors: 2, roof: 'flat' as const, facade: 'plaster' as const };
+    const ring = [{ x: 10, y: 9 }, { x: -10, y: 9 }, { x: -10, y: 19 }, { x: 10, y: 19 }];
+    const { doc, features } = world([], [shop(1, 3, 12, { shop: 'bakery' })], [{ id: 5, from: 'way', tags: { building: 'yes' }, outer: [ring], inner: [], area: 200 }]);
+    doc.objects.push({ id: 'osm-b1', asset: 'building-mass', x: 0, y: 14, z: 0, rotation: 0, scale: 1, group: 'osm-b5', mass });
+    placePois(doc, features, { costOf: cost, language: 'de' });
+    const sign = placed(doc).find((o) => o.asset === 'sign-facade')!;
+    expect(sign.sign!.text).toBe('Bäckerei');
+    // On the south edge (to the road), facing it
+    expect(sign.y).toBeCloseTo(9 - 0.03);
+    expect(sign.rotation).toBeCloseTo(Math.PI);
+    // Over the ground floor: plinth 0.45 and a storey of (7.4 - 0.45 - 1.15) / 2
+    expect(sign.z).toBeCloseTo(0.45 + 2.9 + 0.08);
+    expect(sign.group).toBe('osm-b5');
+  });
+
   it('writes a single shop on the building’s own sign panel', () => {
     const { doc, features } = world([{ id: 1, asset: 'shop-small', c: { x: 0, y: 14 } }], [shop(1, 0, 14, { shop: 'books' })]);
     placePois(doc, features, { costOf: cost, language: 'fr' });

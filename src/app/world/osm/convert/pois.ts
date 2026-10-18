@@ -31,13 +31,13 @@
  */
 import { EdgeIndex } from '../../../map-ops/path-graph';
 import { hashCell } from '../../../map-ops/landscape-noise';
-import type { CustomMapDocument, MapObject, MapPoint, MapSign } from '../../custom-map/map-document';
+import { MASS_ASSET, type CustomMapDocument, type MapObject, type MapPoint, type MapSign } from '../../custom-map/map-document';
 import { SCENE_BUDGET } from '../../custom-map/render/objects/scene-cost';
 import { BUILDING_MODELS } from '../building-tags';
 import type { OsmArea, OsmFeatures } from '../osm-parse';
 import { AWNING_COLOURS, BOARD_COLOURS, poiCategory, signLanguage, type PoiCategory, type SignLanguage } from '../poi-tags';
 import { pointInRing } from './buildings';
-import { facadeDistance, facadesOf, facadeTurn, type FacadeAnchor } from './facades';
+import { facadeDistance, facadesOf, facadeTurn, massFacades, type FacadeAnchor } from './facades';
 
 /** Share of the scene budget the POIs' objects may take */
 export const POI_BUDGET_SHARE = 0.06;
@@ -49,6 +49,8 @@ export const NEAR_M = 8;
 export const SLOT_M = 2.8;
 /** The street front wins over a side nearer than this (m) */
 const FRONT_BONUS_M = 2.5;
+/** A raised footprint's edge with a road within this (m) before it is a street front */
+const STREET_M = 24;
 /** Metres in front of the wall where tables stand */
 const SEATING_OUT = 2.3;
 /** Metres a table keeps beyond a road's half width */
@@ -144,7 +146,7 @@ export function placePois(doc: CustomMapDocument, features: OsmFeatures, options
   const objectsById = new Map<string, MapObject>();
   for (const o of doc.objects) {
     const m = o.group && /^osm-b(\d+)$/.exec(o.group);
-    if (!m || !BUILDING_MODELS[o.asset]) continue;
+    if (!m || !(BUILDING_MODELS[o.asset] || (o.asset === MASS_ASSET && o.mass))) continue;
     const id = Number(m[1]);
     byArea.set(id, [...(byArea.get(id) ?? []), o]);
     objectsById.set(o.id, o);
@@ -189,7 +191,7 @@ export function placePois(doc: CustomMapDocument, features: OsmFeatures, options
       wishes.set(poi, fuelPumps(poi, doc, roads));
       continue;
     }
-    const f = nearestFront(poi, byArea.get(area.id) ?? []);
+    const f = nearestFront(poi, byArea.get(area.id) ?? [], roads);
     if (!f) continue;
     const key = `${f.object}:${f.side}`;
     const slot = onFront.get(key) ?? { f, pois: [] };
@@ -270,13 +272,25 @@ export function placePois(doc: CustomMapDocument, features: OsmFeatures, options
   return report;
 }
 
-/** The front of `objects` (one building's models) nearest to point `p`, the street front first */
-function nearestFront(p: MapPoint, objects: readonly MapObject[]): FacadeAnchor | null {
+/** The fronts of a building object: a catalogue model's, a raised footprint's */
+function frontsOf(o: MapObject): FacadeAnchor[] {
+  if (o.asset === MASS_ASSET) return o.mass ? massFacades(o, o.mass) : [];
+  return facadesOf(o, BUILDING_MODELS[o.asset]);
+}
+
+/**
+ * The front of `objects` (one building's) nearest to point `p`, a street
+ * front first: a model's front (its street side), a raised footprint's edge
+ * that has a road within STREET_M before it
+ */
+function nearestFront(p: MapPoint, objects: readonly MapObject[], roads: EdgeIndex): FacadeAnchor | null {
   let best: FacadeAnchor | null = null;
   let bestD = Infinity;
   for (const o of objects) {
-    for (const f of facadesOf(o, BUILDING_MODELS[o.asset])) {
-      const d = facadeDistance(f, p) - (f.side === 0 ? FRONT_BONUS_M : 0);
+    const mass = o.asset === MASS_ASSET;
+    for (const f of frontsOf(o)) {
+      const street = mass ? !!roads.nearest({ x: f.x + f.nx * STREET_M * 0.5, y: f.y + f.ny * STREET_M * 0.5 }, STREET_M * 0.5) : f.side === 0;
+      const d = facadeDistance(f, p) - (street ? FRONT_BONUS_M : 0);
       if (d < bestD) {
         bestD = d;
         best = f;

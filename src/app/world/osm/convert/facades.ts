@@ -7,10 +7,13 @@
  * Catalogue buildings: from their wall box (building-tags.ts) and the model
  * table below: the street front (model +z, which the generator turns to the
  * nearest street) and, for houses that stand alone, the two sides; a corner
- * house its west side too; never the back. Another kind of building (an
- * extruded footprint) brings its own anchors in the same shape.
+ * house its west side too; never the back. Buildings raised from their
+ * footprint (MapObject.mass, render/objects/mass-layer.ts): every edge of
+ * the outline long enough for a shop, its storeys as the mass shader draws
+ * them.
  */
-import type { MapObject } from '../../custom-map/map-document';
+import { MASS_PARAPET, massContains } from '../../custom-map/object-mass';
+import type { MapMass, MapMassFacade, MapObject } from '../../custom-map/map-document';
 import type { BuildingModel } from '../building-tags';
 
 /** One front of a building, in map metres */
@@ -142,6 +145,73 @@ export function facadesOf(o: Pick<MapObject, 'id' | 'asset' | 'x' | 'y' | 'rotat
   if (!model.module) {
     add(3, ax - hw, az, -1, 0, model.box[1]);
     if (!model.corner) add(1, ax + hw, az, 1, 0, model.box[1]);
+  }
+  return out;
+}
+
+/** The mass shader's plinth and first floor's sill over a storey's floor, per facade (mass-layer.ts WALL_COLOR_FRAGMENT) */
+const MASS_FACADE: Readonly<Record<MapMassFacade, { plinth: number; sill: number }>> = {
+  plaster: { plinth: 0.45, sill: 0.9 },
+  concrete: { plinth: 0.6, sill: 0.85 },
+  metal: { plinth: 1.0, sill: 0.0 },
+  brick: { plinth: 0.5, sill: 0.85 },
+  stone: { plinth: 0.6, sill: 1.1 },
+};
+/** Edges of a raised building shorter than this (m) carry no shop */
+const MASS_FRONT_MIN = 3;
+
+/**
+ * The fronts of a building raised from its footprint (`o.mass`): each edge of
+ * its outline at least MASS_FRONT_MIN long, facing out; the ground floor's
+ * top and the board under the first floor's windows from the storeys the
+ * mass shader lays out (a hall's single high storey: the board at 3 m)
+ */
+export function massFacades(o: Pick<MapObject, 'id' | 'x' | 'y' | 'rotation' | 'scale'>, m: MapMass): FacadeAnchor[] {
+  const s = o.scale || 1;
+  const cos = Math.cos(o.rotation);
+  const sin = Math.sin(o.rotation);
+  const look = MASS_FACADE[m.facade] ?? MASS_FACADE.plaster;
+  const band = m.roof === 'flat' ? MASS_PARAPET + 0.25 : 0.3;
+  const storey = Math.max(0.5, m.height - look.plinth - band) / Math.max(1, m.floors);
+  const hall = storey >= 4.6;
+  const ground = hall ? Math.min(m.height, 4.0) : look.plinth + storey;
+  const boardZ = hall ? 3.0 : ground + 0.08;
+  const boardH = hall ? 0.8 : Math.max(0.3, Math.min(0.7, look.sill - 0.22));
+  // Object axes to the map: toModel (object-ground.ts) is its own inverse
+  const toMap = (x: number, z: number) => ({ x: o.x + (-x * cos - z * sin) * s, y: o.y + (-x * sin + z * cos) * s });
+  const out: FacadeAnchor[] = [];
+  const r = m.rings[0];
+  for (let i = 0, j = r.length - 2; i < r.length; j = i, i += 2) {
+    const x0 = r[j];
+    const z0 = r[j + 1];
+    const dx = r[i] - x0;
+    const dz = r[i + 1] - z0;
+    const length = Math.hypot(dx, dz);
+    if (length * s < MASS_FRONT_MIN) continue;
+    let nx = dz / length;
+    let nz = -dx / length;
+    const mx = x0 + dx / 2;
+    const mz = z0 + dz / 2;
+    if (massContains(m, mx + nx * 0.05, mz + nz * 0.05)) {
+      nx = -nx;
+      nz = -nz;
+    }
+    const p = toMap(mx, mz);
+    out.push({
+      x: p.x,
+      y: p.y,
+      nx: -nx * cos - nz * sin,
+      ny: -nx * sin + nz * cos,
+      width: length * s,
+      ground: ground * s,
+      boardZ: boardZ * s,
+      boardH: boardH * s,
+      proud: 0.03 * s,
+      shopFloor: false,
+      panel: false,
+      object: o.id,
+      side: 0,
+    });
   }
   return out;
 }
