@@ -42,6 +42,14 @@ $enabled: ":not(:disabled, [aria-disabled='true'], .is-locked)";
 }
 
 // The quiet raised stone: secondary buttons, icon buttons, plates, key caps
+// A toggle that is on and a chosen segment: sunk into a deep well with brass,
+// so "here I am" reads at a glance among raised neighbours that can be pressed
+@mixin on-state {
+  background: color-mix(in srgb, var(--td-ink) 45%, transparent);
+  box-shadow: var(--td-well-deep);
+  color: var(--td-brass-light);
+}
+
 @mixin quiet-stone {
   background: var(--td-stone-darker);
   box-shadow: var(--td-raised-quiet);

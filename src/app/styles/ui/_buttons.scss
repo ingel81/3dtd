@@ -5,14 +5,6 @@
 // also shows a toggle that is on (.is-on, aria-pressed).
 @use 'base';
 
-// A toggle that is on: sunk into a deep well with brass, like a chosen
-// segment, so it reads at a glance among raised neighbours
-@mixin on-state {
-  background: color-mix(in srgb, var(--td-ink) 45%, transparent);
-  box-shadow: var(--td-well-deep);
-  color: var(--td-brass-light);
-}
-
 // Shape and type of every button
 @mixin shape($height: var(--td-h-button)) {
   display: inline-flex;
@@ -76,7 +68,7 @@
 
   &.is-on,
   &[aria-pressed='true'] {
-    @include on-state;
+    @include base.on-state;
   }
 }
 
@@ -143,7 +135,7 @@
   &.is-on,
   &[aria-pressed='true'],
   &[aria-expanded='true'] {
-    @include on-state;
+    @include base.on-state;
   }
 
   @include base.disabled;
