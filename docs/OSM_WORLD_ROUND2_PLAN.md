@@ -358,12 +358,9 @@ parallel zu allem.
 Jedes Paket: Doku in diesem Plan (Abschnitt „gebaut“ je Paket wie in Runde 1), Bericht der Welt um seine Zahlen,
 Szenenkosten an Würzburg, Marais und Kleinstadt am Main.
 
-## Offene Fragen (für den User)
+## Entschieden (User, 2026-10-18)
 
-1. **Hydranten als Spielmechanik?** Wasser- und Frost-Tower nahe einem Hydranten oder Brunnen bekämen einen Bonus.
-   Empfehlung: nicht in dieser Runde. Es wäre eine Regel für alle Karten (Rolle eines Kartenobjekts, auch im Editor),
-   wirkt auf die Balance und ist in Deutschland dicht, anderswo kaum gemappt (Amsterdam 48, Würzburg 554).
-2. **HQ auf ein Wahrzeichen setzen** als Knopf im Rahmen (Kirche, Rathaus, Burg nahe der Adresse)? Empfehlung: ja,
-   als Wahl; die Adresse bleibt der Standard.
-3. **Echte Namen auf Schildern** („Bäckerei Müller“) oder nur Gattung und Piktogramm („Bäckerei“)? Empfehlung: echte
-   Namen, sie machen den eigenen Ort wiedererkennbar; Marken nur als Text in unserer Schrift, nie als Logo.
+1. **Hydranten und Brunnen als Spielmechanik:** nicht in dieser Runde.
+2. **HQ an das Wahrzeichen:** ja, als Knopf im Rahmen; die Adresse bleibt der Standard (P5).
+3. **Schilder:** nur die Gattung („Bäckerei“, „Gasthaus“, „Apotheke“) als Symbol und Schrift, keine echten Namen,
+   keine Logos (P3). Der Text-Atlas schrumpft damit auf die Gattungen der Kategorietabelle.
