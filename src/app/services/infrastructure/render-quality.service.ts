@@ -2,7 +2,7 @@ import { Injectable, Injector, computed, effect, inject, signal, untracked } fro
 import type { ThreeTilesEngine } from '../../three-engine';
 import {
   QUALITY_LEVELS, knobsWith, levelAfterMeasure, levelForGpu, levelValue, mixedOverrides, overrideWorld, qualityFromSearch,
-  readStoredQuality, resolveLevel, writeStoredQuality, type PlantMotion, type QualityKnobs, type QualityLevel, type QualityOverride,
+  readStoredQuality, resolveLevel, writeStoredQuality, type LightningFlash, type PlantMotion, type QualityKnobs, type QualityLevel, type QualityOverride,
   type QualityOverrides, type QualitySetting, type QualityWorld, type StoredQuality,
 } from '../../three-engine/render-quality';
 import type { WorldRef } from '../../world/world-ref';
@@ -84,6 +84,8 @@ export class RenderQualityService {
   readonly overrides = computed<QualityOverrides>(() => this.stored().overrides);
   /** How grass, trees and plants move in a custom map's wind */
   readonly plantMotion = computed<PlantMotion>(() => this.stored().plantMotion);
+  /** How a storm's lightning flashes on a custom map (full, or soft for players sensitive to flashing light) */
+  readonly lightningFlash = computed<LightningFlash>(() => this.stored().lightningFlash);
 
   constructor() {
     // A changed setting, override or plant motion draws at once
@@ -103,7 +105,7 @@ export class RenderQualityService {
   /** The knobs that play on `world`: its level with the player's overrides and plant motion on top */
   knobsFor(world: QualityWorld): QualityKnobs {
     const stored = this.stored();
-    return knobsWith(this.levelFor(world), stored.overrides, stored.plantMotion);
+    return knobsWith(this.levelFor(world), stored.overrides, stored.plantMotion, stored.lightningFlash);
   }
 
   /** What `key` plays now: the override, else what the level of its world sets */
@@ -143,6 +145,10 @@ export class RenderQualityService {
 
   setPlantMotion(plantMotion: PlantMotion): void {
     this.store({ ...this.stored(), plantMotion });
+  }
+
+  setLightningFlash(lightningFlash: LightningFlash): void {
+    this.store({ ...this.stored(), lightningFlash });
   }
 
   private store(next: StoredQuality): void {

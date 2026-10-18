@@ -56,7 +56,7 @@ describe('render quality levels (E154)', () => {
   });
 
   it('reads what was stored, and the level of a URL', () => {
-    const none = { overrides: {}, plantMotion: 'full' };
+    const none = { overrides: {}, plantMotion: 'full', lightningFlash: 'full' };
     expect(parseStoredQuality(null)).toEqual({ setting: 'auto', auto: null, ...none });
     expect(parseStoredQuality('{"setting":"low","auto":{"gpu":"x","level":"high","measured":true}}'))
       .toEqual({ setting: 'low', auto: { gpu: 'x', level: 'high', measured: true }, ...none });
@@ -65,7 +65,9 @@ describe('render quality levels (E154)', () => {
     expect(parseStoredQuality('null')).toEqual({ setting: 'auto', auto: null, ...none });
     // Overrides and plant motion: what is valid stays, the rest goes
     expect(parseStoredQuality('{"setting":"high","overrides":{"grass":"ultra","refraction":false,"shadows":"huge","lavaGlow":1,"x":true},"plantMotion":"calm"}'))
-      .toEqual({ setting: 'high', auto: null, overrides: { grass: 'ultra', refraction: false }, plantMotion: 'calm' });
+      .toEqual({ setting: 'high', auto: null, overrides: { grass: 'ultra', refraction: false }, plantMotion: 'calm', lightningFlash: 'full' });
+    expect(parseStoredQuality('{"lightningFlash":"soft"}').lightningFlash).toBe('soft');
+    expect(parseStoredQuality('{"lightningFlash":"blinding"}').lightningFlash).toBe('full');
     expect(parseStoredQuality('{"overrides":[1],"plantMotion":"wild"}')).toEqual({ setting: 'auto', auto: null, ...none });
     expect(qualityFromSearch('?world=map:x&quality=medium')).toBe('medium');
     expect(qualityFromSearch('?quality=extreme')).toBeNull();
@@ -96,6 +98,11 @@ describe('quality overrides per world (E156)', () => {
     expect(knobsWith('ultra', {}, 'off').customMaps.plantSway).toBe(0);
     expect(knobsWith('low', {}, 'calm').customMaps.plantSway).toBeCloseTo(0.4);
     expect(knobsWith('high', {}, 'full').customMaps.plantSway).toBe(1);
+  });
+
+  it('dims the lightning by the lightning flashes, which no level changes', () => {
+    expect(knobsWith('ultra', {}, 'full').customMaps.lightningFlash).toBe(1);
+    expect(knobsWith('low', {}, 'full', 'soft').customMaps.lightningFlash).toBeCloseTo(0.35);
   });
 
   it("names an own mix per world: only overrides that differ from the world's level count", () => {

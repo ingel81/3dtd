@@ -1455,6 +1455,7 @@ export class CustomMapView {
     this.terrain.grass.setQuality(q.grassBlades, q.grassDistance, q.grassFarBlades, q.grassFarDistance);
     this.environment.weather.setShare(q.particles);
     this.environment.lightning.setDetail(q.particles);
+    this.environment.lightning.setFlashShare(q.lightningFlash);
     const lifeChanged = q.life !== this.lifeShare;
     this.lifeShare = q.life;
     if (this.effects.setQuality({ particles: q.particles, pointLights: q.pointLights, life: q.life })) {

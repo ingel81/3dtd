@@ -15,7 +15,7 @@ import { readAgentBridge, readDesktopBridge, type AgentStatus } from '../../../.
 import { readRunUploadConsent, writeRunUploadConsent } from '../../../../run-log/run-upload';
 import { RenderQualityService } from '../../../../services/infrastructure/render-quality.service';
 import {
-  PLANT_MOTIONS, QUALITY_LEVELS, QUALITY_TABLE, pixelRatioFor, type PlantMotion, type QualityKnobs, type QualityLevel,
+  LIGHTNING_FLASHES, PLANT_MOTIONS, QUALITY_LEVELS, QUALITY_TABLE, pixelRatioFor, type LightningFlash, type PlantMotion, type QualityKnobs, type QualityLevel,
   type QualitySetting, type QualityStep, type QualitySwitch, type QualityWorld,
 } from '../../../../three-engine/render-quality';
 
@@ -236,6 +236,16 @@ export class SettingsSectionsComponent {
       off: 'Grass, trees and plants stand still',
       calm: "They sway less than the map's wind would move them",
       full: "They sway as far as the map's wind takes them",
+    }[id],
+  }));
+
+  /** How a storm's lightning flashes; no level changes it */
+  readonly lightningFlashes: readonly { id: LightningFlash; label: string; hint: string }[] = LIGHTNING_FLASHES.map((id) => ({
+    id,
+    label: { full: 'Full', soft: 'Soft' }[id],
+    hint: {
+      full: 'Bright flashes that flicker with each stroke',
+      soft: 'Dimmer flashes that swell and fade without flicker',
     }[id],
   }));
 

@@ -90,6 +90,15 @@
           }
         </div>
       </div>
+      <div class="td-setting" matTooltip="For players sensitive to flashing light: a storm's lightning dimmer and without flicker" matTooltipPosition="left">
+        <span id="td-set-lightning">Lightning flashes</span>
+        <div class="td-seg is-compact" role="radiogroup" aria-labelledby="td-set-lightning" tdRovingGroup>
+          @for (option of lightningFlashes; track option.id) {
+            <button type="button" role="radio" [attr.aria-checked]="quality.lightningFlash() === option.id"
+                    [matTooltip]="option.hint" (click)="quality.setLightningFlash(option.id)">{{ option.label }}</button>
+          }
+        </div>
+      </div>
       <p class="td-note">{{ mapFixed() }}</p>
 
       <h3 class="td-section">Everywhere</h3>

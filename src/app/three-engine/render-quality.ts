@@ -101,6 +101,11 @@ export interface CustomMapQuality {
   waterReflectionEvery: number;
   /** Share of the wind's sway on grass, trees and plants (the player's plant motion; every level 1) */
   plantSway: number;
+  /**
+   * How bright a storm's lightning flashes (the player's lightning flashes;
+   * every level 1): under 1 dimmer and in one smooth swell, without flicker
+   */
+  lightningFlash: number;
 }
 
 export interface TilesQuality {
@@ -122,7 +127,7 @@ export const QUALITY_TABLE: Readonly<Record<QualityLevel, QualityKnobs>> = {
     customMaps: {
       pixelRatioCap: 1, shadowMapSize: 1024, shadowRadius: 1.5, lodBias: 0.5, impostorFrom: 200,
       grassBlades: 0, grassDistance: 0, grassFarBlades: 0, grassFarDistance: 0, particles: 0.4, pointLights: 2, life: 0,
-      farSingle: 80, farFlat: 220, steepNear: 0, refraction: false, seaWaves: false, lavaGlow: false, waterDetail: false, waterReflection: 0, waterReflectionEvery: 1, shadowCascade: false, plantSway: 1,
+      farSingle: 80, farFlat: 220, steepNear: 0, refraction: false, seaWaves: false, lavaGlow: false, waterDetail: false, waterReflection: 0, waterReflectionEvery: 1, shadowCascade: false, plantSway: 1, lightningFlash: 1,
     },
     tiles: { errorTarget: 32 },
   },
@@ -132,7 +137,7 @@ export const QUALITY_TABLE: Readonly<Record<QualityLevel, QualityKnobs>> = {
     customMaps: {
       pixelRatioCap: 1, shadowMapSize: 2048, shadowRadius: 1.5, lodBias: 0.75, impostorFrom: 280,
       grassBlades: 35_000, grassDistance: 90, grassFarBlades: 30_000, grassFarDistance: 200, particles: 0.7, pointLights: 4, life: 0.7,
-      farSingle: 110, farFlat: 300, steepNear: 110, refraction: false, seaWaves: true, lavaGlow: false, waterDetail: true, waterReflection: 0, waterReflectionEvery: 1, shadowCascade: true, plantSway: 1,
+      farSingle: 110, farFlat: 300, steepNear: 110, refraction: false, seaWaves: true, lavaGlow: false, waterDetail: true, waterReflection: 0, waterReflectionEvery: 1, shadowCascade: true, plantSway: 1, lightningFlash: 1,
     },
     tiles: { errorTarget: 24 },
   },
@@ -142,7 +147,7 @@ export const QUALITY_TABLE: Readonly<Record<QualityLevel, QualityKnobs>> = {
     customMaps: {
       pixelRatioCap: 1.5, shadowMapSize: 4096, shadowRadius: 1.5, lodBias: 1, impostorFrom: 380,
       grassBlades: 70_000, grassDistance: 140, grassFarBlades: 60_000, grassFarDistance: 300, particles: 1, pointLights: 6, life: 1,
-      farSingle: 150, farFlat: 400, steepNear: 150, refraction: true, seaWaves: true, lavaGlow: true, waterDetail: true, waterReflection: 0.35, waterReflectionEvery: 2, shadowCascade: true, plantSway: 1,
+      farSingle: 150, farFlat: 400, steepNear: 150, refraction: true, seaWaves: true, lavaGlow: true, waterDetail: true, waterReflection: 0.35, waterReflectionEvery: 2, shadowCascade: true, plantSway: 1, lightningFlash: 1,
     },
     tiles: { errorTarget: 20 },
   },
@@ -152,7 +157,7 @@ export const QUALITY_TABLE: Readonly<Record<QualityLevel, QualityKnobs>> = {
     customMaps: {
       pixelRatioCap: 2, shadowMapSize: 4096, shadowRadius: 2.5, lodBias: 1.25, impostorFrom: 500,
       grassBlades: 100_000, grassDistance: 180, grassFarBlades: 90_000, grassFarDistance: 400, particles: 1, pointLights: 6, life: 1,
-      farSingle: 220, farFlat: 600, steepNear: 220, refraction: true, seaWaves: true, lavaGlow: true, waterDetail: true, waterReflection: 0.5, waterReflectionEvery: 1, shadowCascade: true, plantSway: 1,
+      farSingle: 220, farFlat: 600, steepNear: 220, refraction: true, seaWaves: true, lavaGlow: true, waterDetail: true, waterReflection: 0.5, waterReflectionEvery: 1, shadowCascade: true, plantSway: 1, lightningFlash: 1,
     },
     tiles: { errorTarget: 12 },
   },
@@ -231,10 +236,20 @@ export const PLANT_MOTIONS: readonly PlantMotion[] = ['off', 'calm', 'full'];
 /** Share of the wind's sway per plant motion; the map keeps its own wind strength */
 export const PLANT_SWAY: Readonly<Record<PlantMotion, number>> = { off: 0, calm: 0.4, full: 1 };
 
-/** The knobs that play: `level`'s row with the player's overrides and plant motion on top */
-export function knobsWith(level: QualityLevel, overrides: QualityOverrides, plantMotion: PlantMotion): QualityKnobs {
+/**
+ * How a storm's lightning flashes: in full (strokes flicker, at most three
+ * a strike), or soft for players sensitive to flashing light (dimmer, one
+ * smooth swell)
+ */
+export type LightningFlash = 'full' | 'soft';
+export const LIGHTNING_FLASHES: readonly LightningFlash[] = ['full', 'soft'];
+/** Brightness of the flashes per setting (lightning.ts setFlashShare) */
+export const LIGHTNING_FLASH_SHARE: Readonly<Record<LightningFlash, number>> = { full: 1, soft: 0.35 };
+
+/** The knobs that play: `level`'s row with the player's overrides, plant motion and lightning flashes on top */
+export function knobsWith(level: QualityLevel, overrides: QualityOverrides, plantMotion: PlantMotion, lightningFlash: LightningFlash = 'full'): QualityKnobs {
   const base = QUALITY_TABLE[level];
-  const customMaps: CustomMapQuality = { ...base.customMaps, plantSway: PLANT_SWAY[plantMotion] };
+  const customMaps: CustomMapQuality = { ...base.customMaps, plantSway: PLANT_SWAY[plantMotion], lightningFlash: LIGHTNING_FLASH_SHARE[lightningFlash] };
   const knobs = customMaps as unknown as Record<keyof CustomMapQuality, number | boolean>;
   for (const step of Object.keys(STEP_KNOBS) as (keyof typeof STEP_KNOBS)[]) {
     const from = overrides[step];
@@ -309,7 +324,7 @@ export function pixelRatioFor(knobs: QualityKnobs, world: QualityWorld, devicePi
   return Math.min(devicePixelRatio, cap) * scale;
 }
 
-/** localStorage: the chosen setting, Auto's result, the player's overrides and plant motion */
+/** localStorage: the chosen setting, Auto's result, the player's overrides, plant motion and lightning flashes */
 export const QUALITY_STORAGE_KEY = 'td_render_quality_v1';
 
 export interface StoredQuality {
@@ -317,6 +332,7 @@ export interface StoredQuality {
   auto: AutoQuality | null;
   overrides: QualityOverrides;
   plantMotion: PlantMotion;
+  lightningFlash: LightningFlash;
 }
 
 /** The overrides of a stored value that are what they claim to be; the rest goes */
@@ -330,7 +346,7 @@ function parseOverrides(value: unknown): QualityOverrides {
 }
 
 export function parseStoredQuality(raw: string | null): StoredQuality {
-  const fallback: StoredQuality = { setting: 'auto', auto: null, overrides: {}, plantMotion: 'full' };
+  const fallback: StoredQuality = { setting: 'auto', auto: null, overrides: {}, plantMotion: 'full', lightningFlash: 'full' };
   if (!raw) return fallback;
   try {
     const value = JSON.parse(raw) as Partial<StoredQuality> | null;
@@ -341,7 +357,8 @@ export function parseStoredQuality(raw: string | null): StoredQuality {
       ? { gpu: a.gpu, level: a.level as QualityLevel, measured: a.measured === true }
       : null;
     const plantMotion = PLANT_MOTIONS.includes(value.plantMotion as PlantMotion) ? (value.plantMotion as PlantMotion) : 'full';
-    return { setting, auto, overrides: parseOverrides(value.overrides), plantMotion };
+    const lightningFlash = LIGHTNING_FLASHES.includes(value.lightningFlash as LightningFlash) ? (value.lightningFlash as LightningFlash) : 'full';
+    return { setting, auto, overrides: parseOverrides(value.overrides), plantMotion, lightningFlash };
   } catch {
     return fallback;
   }
@@ -375,7 +392,7 @@ export function storedLevelFor(stored: StoredQuality, gpu: string, world: Qualit
 
 /** The knobs the stored setting plays on `world` for a GPU named `gpu`, the player's overrides on top (the editor) */
 export function storedKnobsFor(stored: StoredQuality, gpu: string, world: QualityWorld): QualityKnobs {
-  return knobsWith(storedLevelFor(stored, gpu, world), stored.overrides, stored.plantMotion);
+  return knobsWith(storedLevelFor(stored, gpu, world), stored.overrides, stored.plantMotion, stored.lightningFlash);
 }
 
 /** `&quality=<level>` in the page's URL: this load plays that level (the graphics benchmark per level) */
