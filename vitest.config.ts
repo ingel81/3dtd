@@ -20,7 +20,7 @@ export default defineConfig({
     // machine (asset-paths, resync, lockstep, plinth braces). Wall-clock budgets: src/test/perf-budget.ts
     testTimeout: 30_000,
     hookTimeout: 30_000,
-    include: ['src/**/*.spec.ts', 'tools/**/*.spec.ts', 'coop-server/**/*.spec.ts'],
+    include: ['src/**/*.spec.ts', 'tools/**/*.spec.ts', 'coop-server/**/*.spec.ts', 'overpass-host/**/*.spec.ts'],
     exclude: ['node_modules', 'dist'],
     alias: {
       // Three.js braucht ggf. Mocking — aber erstmal schauen ob's ohne geht

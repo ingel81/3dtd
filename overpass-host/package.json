@@ -1,0 +1,6 @@
+{
+  "name": "3dtd-overpass-host",
+  "private": true,
+  "type": "module",
+  "description": "Own Overpass instance of 3DTD: the proxy in front of it and its status page, run by Node as TypeScript (README.md)"
+}
