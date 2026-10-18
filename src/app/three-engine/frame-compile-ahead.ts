@@ -57,9 +57,7 @@ class CompileSlice extends Object3D {
 }
 
 export interface FrameAheadOptions {
-  /** Runs `run` in each light state of the world; only for draws of `scene` */
-  lightStates?: (run: () => void) => void;
-  /** The world's scene, whose draws compile in each light state */
+  /** The world's scene, whose draws compile with its lights */
   scene: Scene;
   /** Main-thread time a frame's task spends compiling */
   budgetMs?: number;
@@ -113,7 +111,7 @@ function withMaterial(draw: RecordedDraw, run: () => void): void {
 /**
  * Resolves after the next frame has drawn. A compile points each material
  * at the program it built, and the frame's draw points it back at its own
- * (another output, another light state), so each task's compiles cost the
+ * (another output), so each task's compiles cost the
  * frame after it about as much again: one task per frame
  */
 function afterNextFrame(): Promise<void> {
@@ -140,7 +138,7 @@ function nextSlice(size: number, ms: number, budget: number): number {
  * drawing the old way (ThreeTilesEngine.switchPasses). Two stages:
  *
  * 1. `compiled`: the programs of the recorded draws, for their targets and
- *    light states, a slice of objects per call and a few calls per task
+ *    the scene's lights, a slice of objects per call and a few calls per task
  *    (a whole scene in one call took 120 ms on the main thread when its
  *    output changed, bloom on, autumn keep), then built and used once
  *    (programsReady, firstUsePrograms).
@@ -160,7 +158,7 @@ export class FrameAhead {
   private objectAt = 0;
   private sliceSize = 1;
   private readonly objects: Object3D[][];
-  /** Every light of the scene; which of them shine depends on the light state */
+  /** Every light of the scene; those shown shine (shines) */
   private readonly lights: Object3D[] = [];
   /**
    * Stands in for the scene: its environment and fog, and as children the
@@ -168,8 +166,8 @@ export class FrameAhead {
    * them from their parents (their matrices are the frame's). three gathers
    * the lights of a scene it compiles or draws by walking it, and the whole
    * scene took a few ms a walk. A stand-in, not the scene with its children
-   * swapped: the light state of the scene would change with each state the
-   * work goes through, and the next frame sent every material of the scene
+   * swapped: the scene's light state would change with each slice the work
+   * goes through, and the next frame sent every material of the scene
    * through the program lookup again (26 ms)
    */
   private readonly proxy = new Scene();
@@ -203,21 +201,14 @@ export class FrameAhead {
     return this.options.gone?.() ?? false;
   }
 
-  /**
-   * Runs `run` in each light state with the stand-in's children the lights
-   * that shine in it and `objects`
-   */
-  private inEachState(objects: readonly Object3D[], run: () => void): void {
+  /** Runs `run` with the stand-in's children the scene's lights that shine and `objects` */
+  private withLights(objects: readonly Object3D[], run: () => void): void {
     const proxy = this.proxy as Scene & { children: Object3D[] };
     proxy.environment = this.options.scene.environment;
     proxy.fog = this.options.scene.fog;
-    const state = () => {
+    try {
       proxy.children = this.lights.filter(shines).concat(objects);
       run();
-    };
-    try {
-      if (this.options.lightStates) this.options.lightStates(state);
-      else state();
     } finally {
       proxy.children = [];
     }
@@ -252,7 +243,7 @@ export class FrameAhead {
         renderer.setRenderTarget(draw.target);
         try {
           // A draw of a single mesh (a pass's quad) is its own scene, as in renderer.render
-          if (draw.object === options.scene) this.inEachState([], () => jobs.push(renderer.compileAsync(slice, draw.camera, this.proxy)));
+          if (draw.object === options.scene) this.withLights([], () => jobs.push(renderer.compileAsync(slice, draw.camera, this.proxy)));
           else withMaterial(draw, () => jobs.push(renderer.compileAsync(slice, draw.camera, draw.object as Scene)));
         } finally {
           renderer.setRenderTarget(previous);
@@ -379,7 +370,7 @@ export class FrameAhead {
       }
       const sliceStart = performance.now();
       try {
-        this.inEachState(slice, () => renderer.render(this.proxy, draw.camera));
+        this.withLights(slice, () => renderer.render(this.proxy, draw.camera));
       } finally {
         slice.forEach((o, k) => ([o.onBeforeRender, o.onAfterRender] = hooks[k]));
       }

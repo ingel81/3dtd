@@ -13,6 +13,7 @@ import type { RoadCover } from '../../world/custom-map/render/paths/path-mask';
 import type { TexelRect } from '../../world/custom-map/render/terrain/texture-ranges';
 import type { GroundBaker } from '../../world/custom-map/render/terrain/ground-shape';
 import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
+import type { ShotLights } from '../../three-engine/shot-lights/shot-lights';
 import { mapToScene as toScene } from '../../world/custom-map/render/map-coords';
 import type { GridRect } from '../../map-ops/grid';
 
@@ -30,8 +31,10 @@ export class EditorMapView {
     renderer: WebGLRenderer,
     /** The editor's worker works the ground's shape out, from the first bake on (EditorGround) */
     groundBaker: GroundBaker,
+    /** The viewport's light buffer, the lamps' lights at night */
+    lights?: ShotLights,
   ) {
-    this.view = new CustomMapView(doc, MapAssetLibrary.shared(), { anisotropy: renderer.capabilities.getMaxAnisotropy(), renderer, groundBaker });
+    this.view = new CustomMapView(doc, MapAssetLibrary.shared(), { anisotropy: renderer.capabilities.getMaxAnisotropy(), renderer, groundBaker, lights });
     this.view.attach(scene);
     this.view.environment.apply(scene, renderer);
   }
@@ -53,11 +56,6 @@ export class EditorMapView {
   /** Weather, ambient particles, effects and glows on or off (off for pictures from above) */
   setParticlesVisible(visible: boolean): void {
     this.view.setParticlesVisible(visible);
-  }
-
-  /** Runs `run` with the map's point lights as they are (`current`) and in the other state (night on, day off) */
-  withEitherLights(run: (current: boolean) => void): void {
-    this.view.withEitherLights(run);
   }
 
   /** Where a scene ray meets the ground, in map space (z is the height) */

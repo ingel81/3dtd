@@ -534,6 +534,7 @@ export class ThreeTilesEngine {
         destination: this.spatialAudio.getListener().getInput(),
         volume: () => this.spatialAudio.masterVolume,
       },
+      lights: this.shotLights,
     });
   }
 
@@ -1309,7 +1310,6 @@ export class ThreeTilesEngine {
   private makeReady(kind: 'passes' | 'quality', draws: RecordedDraw[], apply: () => void, inState?: (run: () => void) => void): void {
     const frame: FrameAhead = new FrameAhead(this.renderer, draws, {
       scene: this.scene,
-      lightStates: this.world.withLightStates?.bind(this.world),
       inState,
       gone: () => this.disposed || this.ahead.get(kind)?.frame !== frame,
     });
@@ -1352,11 +1352,10 @@ export class ThreeTilesEngine {
    * composer (FXAA of the Low and Medium levels, bloom, grading) a linear
    * target, else the screen in sRGB; compiled for the screen, every program
    * linked again in the first frame through the composer (demo valley: 157
-   * programs, some 50 of them twice). And by the lights: each of the world's
-   * light states (WorldProvider.withLightStates) gets its programs, a night
-   * that lit a map's lamps linked every lit material again in its frame.
-   * Only the synchronous part of each call sees the target and the lights, so
-   * no frame in between draws with them.
+   * programs, some 50 of them twice). The lights give no other programs: the
+   * scene's lights stay as they are, a map's lamps and the shots go to the
+   * light buffer (shot-lights). Only the synchronous part of each call sees
+   * the target, so no frame in between draws with it.
    */
   private async compilingForFrames<T>(work: () => Promise<T>): Promise<T> {
     const renderer = this.renderer;
@@ -1367,9 +1366,7 @@ export class ThreeTilesEngine {
       const jobs: Promise<unknown>[] = [];
       renderer.setRenderTarget(target);
       try {
-        const compile = () => jobs.push(original.call(renderer, scene, camera, targetScene));
-        if (this.world.withLightStates) this.world.withLightStates(compile);
-        else compile();
+        jobs.push(original.call(renderer, scene, camera, targetScene));
       } finally {
         renderer.setRenderTarget(previous);
       }
@@ -1385,36 +1382,37 @@ export class ThreeTilesEngine {
 
   /**
    * With everything the world hides until it is needed shown (withAllShown):
-   * the scene in each light state, and the line-of-sight cube once
+   * the scene drawn once, and the line-of-sight cube once
    * (TowerShadowMapper.warmUp), so each kind of blocker mesh has its program
    */
   private drawHidden(): void {
-    const draw = () => {
-      this.drawInLightStates();
+    const losBlockers = () => {
       const blockers = this.world.losBlockers();
       if (blockers) this.getTowerShadowMapper().warmUp(this.camera.position, blockers);
     };
-    if (this.world.withAllShown) this.world.withAllShown(draw);
-    else draw();
+    if (this.world.withAllShown) {
+      this.world.withAllShown(() => {
+        this.drawShown();
+        losBlockers();
+      });
+    } else {
+      losBlockers();
+    }
   }
 
   /**
-   * The scene drawn once in each of the world's light states into what the
+   * The scene with what the world hides shown, drawn once into what the
    * frames draw to (the screen or, through the composer, a linear target):
-   * the GPU process translates a program again on its first draw in a state,
-   * which held a later night's frame (135 ms with 15 towers on the demo valley)
+   * the GPU process translates a program again on its first draw, which held
+   * a later night's frame (135 ms with 15 towers on the demo valley)
    */
-  private drawInLightStates(): void {
-    const states = this.world.withLightStates;
-    if (!states) return;
+  private drawShown(): void {
     const renderer = this.renderer;
     const target = this.postProcessing?.needsRender() ? new WebGLRenderTarget(1, 1) : null;
     const previous = renderer.getRenderTarget();
     try {
-      states.call(this.world, () => {
-        renderer.setRenderTarget(target);
-        renderer.render(this.scene, this.camera);
-      });
+      renderer.setRenderTarget(target);
+      renderer.render(this.scene, this.camera);
     } finally {
       renderer.setRenderTarget(previous);
       target?.dispose();
@@ -1424,13 +1422,13 @@ export class ThreeTilesEngine {
   /**
    * Preload all entity models, then compile the shaders of everything in the
    * scene (enemy, projectile, particle and VFX pools) during loading, once
-   * the world's ground stands: its light states are known then
+   * the world's ground stands: its lights and output are known then
    * (compilingForFrames), and its own programs are built. What comes into the
    * scene only later (towers with their builds and paths, plinths,
    * tentacles, ooze bands, the hero) is there as stand-ins meanwhile, drawn
    * too small for a pixel in the warm-up frame; the shadow map renders in it
-   * as well, then with all the world hides shown (drawHidden). Afterwards every program does its first-use work (firstUsePrograms), the
-   * other light state's included.
+   * as well, then with all the world hides shown (drawHidden). Afterwards every program does its first-use work
+   * (firstUsePrograms).
    */
   async preloadModels(): Promise<void> {
     const [, , , , hero] = await Promise.all([
@@ -1612,7 +1610,6 @@ export class ThreeTilesEngine {
       else draws = record();
       const frame = new FrameAhead(this.renderer, draws, {
         scene: this.scene,
-        lightStates: this.world.withLightStates?.bind(this.world),
         inState,
         gone,
         compileOnly: true,

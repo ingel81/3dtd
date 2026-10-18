@@ -22,11 +22,26 @@ import { SHOT_GRID, SHOT_LIGHT_UNIFORMS, SHOT_LIGHTS_MAX } from './shot-light-sh
  * lights cover is cut into SHOT_GRID × SHOT_GRID cells, each cell holds a
  * bit per light whose sphere touches its column. Twenty lights spread over a
  * battle cost a pixel the two or three around it, not twenty.
+ *
+ * Steady lights go through the same buffer: a custom map's lamps nearest the
+ * view at night (SteadyLightSource, effect-layer.ts), which were three.js
+ * PointLights. They take their places first, unmerged; the shots take the
+ * places left. The scene then holds no point light at all, so day and night,
+ * a lamp more or less and every quality level draw with the same programs.
  */
 
 /** A source of lights that holds them itself (the projectile pools, the beams): asked each frame */
 export interface ShotLightSource {
   shotLights(lights: ShotLights): void;
+}
+
+/**
+ * A source of lights that stand (a custom map's lamps nearest the view):
+ * asked each frame before the shots, whatever the shots' places, its lights
+ * (steadyLight) take places first
+ */
+export interface SteadyLightSource {
+  steadyLights(lights: ShotLights): void;
 }
 
 /** Pulses glowing at once at most; the oldest gives way */
@@ -58,6 +73,8 @@ const FAR_M = 900;
 const STICKY = 1.5;
 
 export interface ShotLightStats {
+  /** Steady lights of the last frame (SteadyLightSource), in the places before the shots */
+  steady: number;
   /** Lights asked for in the last frame, after merging, and handed to the materials */
   candidates: number;
   merged: number;
@@ -70,6 +87,10 @@ export class ShotLights {
   private max = 0;
   private enabled = true;
   private readonly sources: ShotLightSource[] = [];
+  private readonly steadySources: SteadyLightSource[] = [];
+  /** This frame's steady lights, in the uniform's layout (two vec4 each) */
+  private readonly steady = new Float32Array(SHOT_LIGHTS_MAX * 8);
+  private steadyCount = 0;
   private readonly pulses = new Float32Array(PULSES * PULSE_FLOATS);
   private pulseCount = 0;
   /** Where the next pulse goes once all are taken (the oldest) */
@@ -92,9 +113,9 @@ export class ShotLights {
   private readonly viewProjection = new Matrix4();
   private readonly sphere = new Sphere();
   private readonly camPos = new Vector3();
-  readonly stats: ShotLightStats = { candidates: 0, merged: 0, shown: 0, updateMs: 0 };
+  readonly stats: ShotLightStats = { steady: 0, candidates: 0, merged: 0, shown: 0, updateMs: 0 };
 
-  /** Whether anything is gathered: the level gives places and the switch is on */
+  /** Whether shots are gathered: the level gives places and the switch is on (steady lights go on without) */
   get active(): boolean {
     return this.enabled && this.max > 0;
   }
@@ -156,6 +177,35 @@ export class ShotLights {
     if (i >= 0) this.sources.splice(i, 1);
   }
 
+  addSteadySource(source: SteadyLightSource): void {
+    if (!this.steadySources.includes(source)) this.steadySources.push(source);
+  }
+
+  removeSteadySource(source: SteadyLightSource): void {
+    const i = this.steadySources.indexOf(source);
+    if (i >= 0) this.steadySources.splice(i, 1);
+  }
+
+  /**
+   * A steady light for this frame (from a SteadyLightSource): at (x, y, z)
+   * in scene metres, its light (colour times strength) `r`, `g`, `b`,
+   * reaching `radius`, near full within `core` and falling as an inverse
+   * square beyond. Past SHOT_LIGHTS_MAX it is left out
+   */
+  steadyLight(x: number, y: number, z: number, r: number, g: number, b: number, radius: number, core: number): void {
+    if (this.steadyCount >= SHOT_LIGHTS_MAX || radius <= 0 || core <= 0 || r + g + b <= 0) return;
+    const s = this.steady;
+    const q = this.steadyCount++ * 8;
+    s[q] = x;
+    s[q + 1] = y;
+    s[q + 2] = z;
+    s[q + 3] = 1 / (radius * radius);
+    s[q + 4] = r;
+    s[q + 5] = g;
+    s[q + 6] = b;
+    s[q + 7] = 1 / (core * core);
+  }
+
   /**
    * A light at (x, y, z) that fades over its look's duration, cooling to
    * its `fade` colour, `jitter` of its strength by chance (no two flashes
@@ -204,29 +254,40 @@ export class ShotLights {
     c[o + 7] = k;
   }
 
-  /** Once per drawn frame, after the effects moved and before the draw: the lights of this frame to the materials */
+  /**
+   * Once per drawn frame, after the effects moved and before the draw: the
+   * lights of this frame to the materials, the steady ones first
+   */
   update(dtSeconds: number, camera: Camera): void {
     const u = SHOT_LIGHT_UNIFORMS;
-    if (!this.active) {
+    if (!this.enabled) {
       u.uShotLightCount.value = 0;
       return;
     }
     const start = performance.now();
-    this.agePulses(dtSeconds);
-    for (const source of this.sources) source.shotLights(this);
-    this.stats.candidates = this.candidateCount;
-    this.mergeCandidates();
-    this.candidateCount = 0;
-    this.stats.merged = this.mergedCount;
-    const shown = this.pick(camera);
+    this.steadyCount = 0;
+    for (const source of this.steadySources) source.steadyLights(this);
+    const steady = this.steadyCount;
+    this.stats.steady = steady;
+    let shown = 0;
+    if (this.max > 0) {
+      this.agePulses(dtSeconds);
+      for (const source of this.sources) source.shotLights(this);
+      this.stats.candidates = this.candidateCount;
+      this.mergeCandidates();
+      this.candidateCount = 0;
+      this.stats.merged = this.mergedCount;
+      shown = this.pick(camera, Math.min(this.max, SHOT_LIGHTS_MAX - steady));
+    }
     this.stats.shown = shown;
     const out = u.uShotLights.value;
+    out.set(this.steady.subarray(0, steady * 8));
     const m = this.merged;
     for (let k = 0; k < shown; k++) {
       const o = this.picked[k] * CANDIDATE_FLOATS;
       const radius = m[o + 6];
       const core = radius * CORE;
-      const q = k * 8;
+      const q = (steady + k) * 8;
       out[q] = m[o];
       out[q + 1] = m[o + 1];
       out[q + 2] = m[o + 2];
@@ -236,8 +297,8 @@ export class ShotLights {
       out[q + 6] = m[o + 5];
       out[q + 7] = 1 / (core * core);
     }
-    this.writeGrid(shown);
-    u.uShotLightCount.value = shown;
+    this.writeGrid(steady + shown);
+    u.uShotLightCount.value = steady + shown;
     this.stats.updateMs += (performance.now() - start - this.stats.updateMs) * 0.05;
   }
 
@@ -293,13 +354,13 @@ export class ShotLights {
     }
   }
 
-  /** Every light out: the pulses go, the materials get none */
+  /** Every light out: the pulses go, the materials get none until the next update */
   clear(): void {
     this.pulseCount = 0;
     this.pulseNext = 0;
     this.candidateCount = 0;
     this.mergedCount = 0;
-    this.stats.candidates = this.stats.merged = this.stats.shown = 0;
+    this.stats.steady = this.stats.candidates = this.stats.merged = this.stats.shown = 0;
     SHOT_LIGHT_UNIFORMS.uShotLightCount.value = 0;
   }
 
@@ -406,14 +467,13 @@ export class ShotLights {
    * distance, into `picked`; their count. Their cells are kept for the next
    * frame's choice (STICKY)
    */
-  private pick(camera: Camera): number {
+  private pick(camera: Camera, max: number): number {
     this.viewProjection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
     this.frustum.setFromProjectionMatrix(this.viewProjection);
     camera.getWorldPosition(this.camPos);
     const m = this.merged;
     const picked = this.picked;
     const scores = this.pickedScore;
-    const max = this.max;
     const crowded = this.mergedCount > max;
     let n = 0;
     for (let k = 0; k < this.mergedCount; k++) {

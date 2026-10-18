@@ -271,6 +271,8 @@ export class CustomMapWorld implements WorldProvider {
       anisotropy: ctx.renderer.capabilities.getMaxAnisotropy(),
       // Bakes the impostors of far trees
       renderer: ctx.renderer,
+      // The lamps' lights at night, with the shots'
+      lights: ctx.lights,
     });
     this.view = view;
     if (this.quality) view.applyQuality(this.quality);
@@ -334,7 +336,7 @@ export class CustomMapWorld implements WorldProvider {
     // target, and programs for the screen would all link again in the first frame
     const target = ctx.drawsToTarget() ? new WebGLRenderTarget(1, 1) : null;
     await view
-      .warmUp(ctx.renderer, ctx.scene, ctx.camera, target, true)
+      .warmUp(ctx.renderer, ctx.scene, ctx.camera, target)
       .catch((err) => console.warn('[CustomMap] shaders did not compile ahead', err));
     target?.dispose();
     if (this.view !== view) return;
@@ -346,11 +348,6 @@ export class CustomMapWorld implements WorldProvider {
   /** Frames draw once the map is prepared (prepare) */
   ready(): boolean {
     return this.prepared;
-  }
-
-  withLightStates(run: () => void): void {
-    if (this.view) this.view.withLightStates(run);
-    else run();
   }
 
   withAllShown<T>(run: () => T): T {

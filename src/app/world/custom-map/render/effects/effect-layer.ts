@@ -7,7 +7,6 @@ import {
   Matrix4,
   Mesh,
   PlaneGeometry,
-  PointLight,
   Quaternion,
   ShaderMaterial,
   Vector3,
@@ -25,6 +24,7 @@ import { isParticleLife, lifeEmitters, lifeFlock } from './life-areas';
 import { buildBeams, type Beam } from './light-beams';
 import { buildShafts, type Shaft } from './light-shafts';
 import { DEFAULT_SPIN } from '../objects/spin';
+import type { ShotLights, SteadyLightSource } from '../../../../three-engine/shot-lights/shot-lights';
 
 /**
  * Effects and lights of the map's objects, from their catalogue entries
@@ -33,15 +33,22 @@ import { DEFAULT_SPIN } from '../objects/spin';
  *
  * Lights: every light gets an additive glow quad at its height and its
  * light baked onto the land around it (lamp-light.ts, every map material
- * samples it): cheap, all of them. A pool of POINT_LIGHTS real point
- * lights follows the lights nearest to the camera's focus, fading the
- * farthest of them out before they change hands (poolFade). Both fade in by
- * darkness (`setDarkness`: 0 by day, 1 at night) so a day map pays for
- * none. The pool's size is fixed, so moving the lights never recompiles a
- * material.
+ * samples it): cheap, all of them. A pool of up to POINT_LIGHTS real lights
+ * (the quality level's `pointLights`) follows the lights nearest to the
+ * camera's focus, fading the farthest of them out before they change hands
+ * (poolFade). They go to the scene's light buffer as steady lights
+ * (steadyLights, three-engine/shot-lights), which the map's materials,
+ * towers and units read; no three.js light, so day, night and every level
+ * draw with the same programs. Both fade in by darkness (`setDarkness`: 0
+ * by day, 1 at night) so a day map pays for none.
  */
 
 export const POINT_LIGHTS = 6;
+/**
+ * A pool light's reach in the light buffer over its catalogue distance: the
+ * buffer's falloff ends sooner towards its edge than three's point light did
+ */
+const POOL_REACH = 1.25;
 
 /** Catalogue intensity 1 in three's units (candela-ish): a lantern */
 const CANDELA = 28;
@@ -87,13 +94,15 @@ interface LightSpot {
   distance: number;
   /** Most candela the point light gets (`lightCap`) */
   cap: number;
+  /** Its height over the ground it lights, m (at least MIN_LIGHT_HEIGHT): the core of its falloff */
+  height: number;
   flicker: boolean;
   seed: number;
   /** Seconds between two short flashes; 0 a light that stays on */
   blink: number;
 }
 
-export class EffectLayer {
+export class EffectLayer implements SteadyLightSource {
   readonly group = new Group();
   private readonly time = { value: 0 };
   /** Light level for lit effects (smoke, fog, spray, the waterfall): 1 by day, low at night */
@@ -129,7 +138,10 @@ export class EffectLayer {
   private spots: LightSpot[] = [];
   /** Lights that do not come from objects: glowing lava */
   private extraSpots: LightSpot[] = [];
-  private readonly pool: PointLight[] = [];
+  /** The pool's lights this frame for the light buffer: scene x, y, z, light r, g, b, reach, core (update) */
+  private readonly pool = new Float32Array(POINT_LIGHTS * 8);
+  private poolCount = 0;
+  private readonly scenePos = new Vector3();
   /** The lights baked onto the land (lamp-light.ts); lit: whether any light falls on the map */
   private readonly lamps: LampLight;
   private lampsLit = false;
@@ -161,13 +173,6 @@ export class EffectLayer {
     this.group.userData['losTransparent'] = true;
     this.lamps = new LampLight(field);
     this.group.add(this.birds.mesh);
-    for (let k = 0; k < POINT_LIGHTS; k++) {
-      const light = new PointLight(0xffffff, 0, 10, 2);
-      light.castShadow = false;
-      light.visible = false;
-      this.pool.push(light);
-      this.group.add(light);
-    }
   }
 
   /** Rebuilds every effect from the objects and their catalogue entries */
@@ -279,6 +284,7 @@ export class EffectLayer {
           intensity: e.light.intensity,
           distance: e.light.distance * s,
           cap: lightCap(e.light.height * s),
+          height: Math.max(MIN_LIGHT_HEIGHT, e.light.height * s),
           flicker: e.light.flicker ?? false,
           seed: this.spots.length * 1.618,
           blink: e.light.blink ?? 0,
@@ -309,7 +315,6 @@ export class EffectLayer {
       this.group.add(this.glows);
     }
     this.bakeLamps();
-    this.showPool();
     this.setAmbient(this.ambient);
   }
 
@@ -385,12 +390,12 @@ export class EffectLayer {
       distance: 45,
       // The points float 5 m over the lava
       cap: lightCap(5),
+      height: 5,
       flicker: true,
       seed: 100 + k * 2.3,
       blink: 0,
     }));
     this.bakeLamps();
-    this.showPool();
   }
 
   /**
@@ -460,7 +465,7 @@ export class EffectLayer {
 
   /**
    * The quality level's part: a share of every field's particles (a `set`
-   * after it builds them so), how many real point lights follow the lamps
+   * after it builds them so), how many real lights follow the lamps
    * and which life areas show (`life`: 0 none, under 1 those not asking for
    * High). Returns whether particles or life changed, so the owner sets the
    * effects (and the lava's) again
@@ -471,22 +476,8 @@ export class EffectLayer {
     this.particleShare = quality.particles;
     this.lifeShare = life;
     this.lightCount = poolLights(quality.pointLights);
-    this.showPool();
     if (changed) this.setAmbient(this.ambient);
     return changed;
-  }
-
-  /** Runs `run` with `count` point lights in the pool (as setQuality sets them), the count now put back after */
-  withPointLights(count: number, run: () => void): void {
-    const was = this.lightCount;
-    this.lightCount = poolLights(count);
-    this.showPool();
-    try {
-      run();
-    } finally {
-      this.lightCount = was;
-      this.showPool();
-    }
   }
 
   /**
@@ -564,76 +555,65 @@ export class EffectLayer {
     if (this.beams) this.beams.visible = this.darkness > 0.05;
     this.lightLamps();
     this.showAmbient();
-    this.showPool();
   }
 
-  /**
-   * The pool is in use only in the dark on a map with lights. Hidden lights do not count for three:
-   * by day every lit material would otherwise pay for six point lights at zero. While in use the level's
-   * lights (lightCount) all stay visible (unused at zero), as a change in their number recompiles every
-   * lit material.
-   * Set as soon as darkness or lights change, so a warm-up compiles the programs the frames use
-   */
-  private showPool(): void {
-    const active = this.darkness > 0.05 && this.hasLights;
-    this.pool.forEach((light, k) => (light.visible = active && k < this.lightCount));
-  }
-
-  /** Whether the map has lights the pool can follow: without any it never shows, by day or at night */
+  /** Whether the map has lights the pool can follow: without any it never lights, by day or at night */
   get hasLights(): boolean {
     return this.spots.length + this.extraSpots.length > 0;
   }
 
-  /** Whether the point light pool counts for three now (night on a map with lights) */
-  get poolShown(): boolean {
-    return this.pool.some((light) => light.visible);
-  }
-
-  /**
-   * Runs `run` with the pool shown or hidden as `shown` says, and puts it back
-   * before returning: a compile inside builds the programs of the other light
-   * state (compileAsync gathers them before it returns its promise), which a
-   * night, or a first lamp after dark, would otherwise link in its frame
-   */
-  withPool<T>(shown: boolean, run: () => T): T {
-    const was = this.pool.map((light) => light.visible);
-    this.pool.forEach((light, k) => (light.visible = shown && k < this.lightCount));
-    try {
-      return run();
-    } finally {
-      this.pool.forEach((light, k) => (light.visible = was[k]));
+  /** The pool's lights of this frame into the scene's light buffer (SteadyLightSource) */
+  steadyLights(lights: ShotLights): void {
+    const p = this.pool;
+    for (let k = 0; k < this.poolCount; k++) {
+      const q = k * 8;
+      lights.steadyLight(p[q], p[q + 1], p[q + 2], p[q + 3], p[q + 4], p[q + 5], p[q + 6], p[q + 7]);
     }
   }
 
-  /** Advances the effects and moves the point lights to the lights nearest `focus` (group space) */
+  /**
+   * Advances the effects and moves the pool's lights to the lights nearest
+   * `focus` (group space), in the dark on a map with lights
+   */
   update(dt: number, focus: Vector3): void {
     this.time.value += dt;
     if (LAMP_LIGHT_UNIFORMS.uLampSteady.value === this.lamps.steady) LAMP_LIGHT_UNIFORMS.uLampTime.value = this.time.value;
     if (this.retired.length && ++this.retiredFrames > 2) this.freeRetired();
-    const found = this.pool[0].visible ? this.nearest(focus) : 0;
+    const found = this.darkness > 0.05 ? this.nearest(focus) : 0;
     const live = Math.min(found, this.lightCount);
     // Distance of the nearest light the pool leaves out (squared), Infinity when all fit
     const out = found > live ? this.nearestDistances[live] : Infinity;
-    this.pool.forEach((light, k) => {
-      const spot = k < live ? this.nearestSpots[k] : undefined;
-      if (!spot) {
-        light.intensity = 0;
-        return;
-      }
-      light.position.copy(spot.position);
-      light.color.copy(spot.color);
-      light.distance = spot.distance;
+    const p = this.pool;
+    let n = 0;
+    for (let k = 0; k < live; k++) {
+      const spot = this.nearestSpots[k];
       const flicker = spot.flicker
         ? 0.82 + 0.12 * Math.sin(this.time.value * 9 + spot.seed) + 0.06 * Math.sin(this.time.value * 23 + spot.seed * 3)
         : 1;
-      light.intensity =
+      // Candela as three's point light had them, capped over the ground (lightCap)
+      const candela =
         Math.min(spot.intensity * CANDELA, spot.cap) *
         flicker *
         this.darkness *
         poolFade(this.nearestDistances[k], out) *
         (spot.blink ? blinkOn(this.time.value, spot.blink, spot.seed) : 1);
-      light.updateMatrixWorld();
-    });
+      if (candela <= 0) continue;
+      // The buffer's light falls as k / (1 + d² / core²): k core² / d² far off is three's candela / d² on a
+      // lit surface (its diffuse BRDF over pi), and under the lamp it stays soft instead of a white disc
+      const core = spot.height;
+      const k2 = candela / (Math.PI * core * core);
+      this.scenePos.copy(spot.position).applyMatrix4(this.group.matrixWorld);
+      const q = n++ * 8;
+      p[q] = this.scenePos.x;
+      p[q + 1] = this.scenePos.y;
+      p[q + 2] = this.scenePos.z;
+      p[q + 3] = spot.color.r * k2;
+      p[q + 4] = spot.color.g * k2;
+      p[q + 5] = spot.color.b * k2;
+      p[q + 6] = spot.distance * POOL_REACH;
+      p[q + 7] = core;
+    }
+    this.poolCount = n;
   }
 
   dispose(): void {
@@ -644,7 +624,7 @@ export class EffectLayer {
     this.fireflies?.dispose();
     this.fireflies = null;
     this.birds.dispose();
-    for (const light of this.pool) light.dispose();
+    this.poolCount = 0;
     if (LAMP_LIGHT_UNIFORMS.uLampSteady.value === this.lamps.steady) {
       LAMP_LIGHT_UNIFORMS.uLampOn.value = 0;
       LAMP_LIGHT_UNIFORMS.uLampSteady.value = null;

@@ -10,6 +10,7 @@ import { createAssetShowcase } from './asset-showcase';
 import { createSurfaceShowcase } from './surface-showcase';
 import { MapStore } from '../map-store';
 import { CustomMapView } from '../render/custom-map-view';
+import { ShotLights } from '../../../three-engine/shot-lights/shot-lights';
 import { chooseSkyImage } from '../render/environment/sky-images';
 import { MapAssetLibrary } from '../render/map-asset-library';
 import { mapToScene } from '../render/map-coords';
@@ -76,6 +77,7 @@ export class MapPreviewComponent implements OnDestroy {
   readonly clean = pageSwitches().has('clean');
   private renderer: WebGLRenderer | null = null;
   private view: CustomMapView | null = null;
+  private lights: ShotLights | null = null;
   private controls: OrbitControls | null = null;
   private post: PostProcessingPipeline | null = null;
   private resize: (() => void) | null = null;
@@ -96,6 +98,7 @@ export class MapPreviewComponent implements OnDestroy {
     this.post = null;
     this.controls?.dispose();
     this.view?.dispose();
+    this.lights?.clear();
     this.renderer?.dispose();
   }
 
@@ -164,10 +167,14 @@ export class MapPreviewComponent implements OnDestroy {
     if (skyImage) doc.environment = { ...doc.environment, ...chooseSkyImage(skyImage) };
     // `?effects=refraction,seaWaves,lavaGlow,shadowCascade` turns on the switchable effects (map-effects.ts)
     const effects = Object.fromEntries((params.get('effects') ?? '').split(',').filter(Boolean).map((e) => [e, true]));
+    // The lamps' lights at night, as the game's light buffer has them
+    const lights = new ShotLights();
+    this.lights = lights;
     const view = new CustomMapView(doc, MapAssetLibrary.shared(), {
       anisotropy: renderer.capabilities.getMaxAnisotropy(),
       renderer,
       effects,
+      lights,
     });
     this.view = view;
     // `?quality=ultra`: a quality level's custom map knobs (grass, shadows, detail, effects)
@@ -233,7 +240,9 @@ export class MapPreviewComponent implements OnDestroy {
       this.frame = requestAnimationFrame(loop);
       timer.update();
       controls.update();
-      view.update(timer.getDelta(), camera, controls.target);
+      const dt = timer.getDelta();
+      view.update(dt, camera, controls.target);
+      lights.update(dt, camera);
       if (post?.needsRender()) post.render();
       else renderer.render(scene, camera);
       frames++;

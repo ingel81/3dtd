@@ -1,4 +1,4 @@
-import { type InstancedBufferGeometry, type Material, Mesh, PointLight, Vector3 } from 'three';
+import { Color, type InstancedBufferGeometry, type Material, Mesh, PointLight, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import type { MapLife, MapObject } from '../../map-document';
 import type { AssetCatalog, CatalogObject } from '../asset-catalog';
@@ -7,6 +7,10 @@ import { EffectLayer, lightCap, poolFade, POINT_LIGHTS } from './effect-layer';
 import { particleCount } from './particle-field';
 import { LAMP_LIGHT_UNIFORMS } from './lamp-light';
 import { circleFlock } from './bird-flocks';
+import type { ShotLights } from '../../../../three-engine/shot-lights/shot-lights';
+
+/** The torches' light colour in the catalogue below */
+const TORCH = '#ff9040';
 
 const base: Omit<CatalogObject, 'id' | 'name'> = {
   category: 'fx',
@@ -488,37 +492,49 @@ describe('EffectLayer', () => {
     expect(freed).toBe(3);
   });
 
-  it('lights point lights only in the dark, nearest first, never more than the pool', () => {
+  it('lights the pool only in the dark, nearest first, never more than the pool, as steady lights of the buffer', () => {
     const layer = new EffectLayer(flat());
     const torches = Array.from({ length: 10 }, (_, k) => place(`t${k}`, 'torch', k * 4 - 20));
     layer.set(torches, catalog);
-    const lights = layer.group.children.filter((c): c is PointLight => c instanceof PointLight);
-    expect(lights.length).toBe(POINT_LIGHTS);
+    // No three.js light: a changing number of them recompiled every lit material
+    expect(layer.group.children.some((c) => c instanceof PointLight)).toBe(false);
 
     layer.setDarkness(0);
     layer.update(0.1, new Vector3());
-    expect(lights.every((l) => l.intensity === 0)).toBe(true);
-    // By day the pool is hidden: hidden lights do not count in three's light setup of every material
-    expect(lights.every((l) => !l.visible)).toBe(true);
+    expect(poolOf(layer)).toEqual([]);
 
     layer.setDarkness(1);
     layer.update(0.1, new Vector3(20, 0, 0)); // scene x = -map x: near the torches at map x -20 .. 0
-    const lit = lights.filter((l) => l.intensity > 0);
+    const lit = poolOf(layer);
     expect(lit.length).toBe(POINT_LIGHTS);
-    expect(Math.max(...lit.map((l) => l.position.x))).toBeLessThanOrEqual(20);
-    expect(Math.min(...lit.map((l) => l.position.x))).toBeGreaterThanOrEqual(0);
-    // In use, all six count (a changing number would recompile every lit material)
-    expect(lights.every((l) => l.visible)).toBe(true);
+    expect(Math.max(...lit.map((l) => l.x))).toBeLessThanOrEqual(20);
+    expect(Math.min(...lit.map((l) => l.x))).toBeGreaterThanOrEqual(0);
+    // The level's places: fewer on Low
+    layer.setQuality({ particles: 0.4, pointLights: 2 });
+    layer.update(0.1, new Vector3(20, 0, 0));
+    expect(poolOf(layer).length).toBe(2);
     layer.dispose();
   });
 
-  it('hands the point lights on smoothly as the focus moves along a row of torches', () => {
+  it('puts the pool where the map stands in the scene', () => {
+    const layer = new EffectLayer(flat());
+    layer.set([place('t', 'torch', 0)], catalog);
+    layer.group.position.set(100, 0, -50);
+    layer.group.updateMatrixWorld(true);
+    layer.setDarkness(1);
+    layer.update(0.1, new Vector3());
+    const [light] = poolOf(layer);
+    expect(light.x).toBeCloseTo(100, 6);
+    expect(light.z).toBeCloseTo(-50, 6);
+    layer.dispose();
+  });
+
+  it('hands the pool on smoothly as the focus moves along a row of torches', () => {
     const layer = new EffectLayer(flat());
     layer.set(Array.from({ length: 20 }, (_, k) => place(`t${k}`, 'torch', k * 4 - 40)), catalog);
-    const lights = layer.group.children.filter((c): c is PointLight => c instanceof PointLight);
     layer.setDarkness(1);
     // Each torch's real light (0 when the pool leaves it out), by its x
-    const byTorch = (): Map<number, number> => new Map(lights.filter((l) => l.intensity > 0).map((l) => [Math.round(l.position.x), l.intensity]));
+    const byTorch = (): Map<number, number> => new Map(poolOf(layer).map((l) => [Math.round(l.x), candela(l, TORCH)]));
     let full = 0;
     let jump = 0;
     let before = new Map<number, number>();
@@ -538,19 +554,17 @@ describe('EffectLayer', () => {
     layer.dispose();
   });
 
-  it('keeps the pool hidden at night on a map without lights, and picks the nearest without allocating', () => {
+  it('lights nothing at night on a map without lights, and picks the nearest without allocating', () => {
     const layer = new EffectLayer(flat());
     layer.set([place('r', 'rock', 0)], catalog);
-    const lights = layer.group.children.filter((c): c is PointLight => c instanceof PointLight);
     layer.setDarkness(1);
     layer.update(0.1, new Vector3());
-    expect(lights.every((l) => !l.visible)).toBe(true);
+    expect(poolOf(layer)).toEqual([]);
 
     // Lava lights at known spots: the six nearest light up, nearest first
     layer.setLavaLights(Array.from({ length: 10 }, (_, k) => new Vector3(k * 10, 0, 0)));
     layer.update(0.1, new Vector3(31, 0, 0));
-    const xs = lights.filter((l) => l.intensity > 0).map((l) => l.position.x);
-    expect(xs).toEqual([30, 40, 20, 50, 10, 60]);
+    expect(poolOf(layer).map((l) => l.x)).toEqual([30, 40, 20, 50, 10, 60]);
     layer.dispose();
   });
 
@@ -560,11 +574,13 @@ describe('EffectLayer', () => {
     layer.set([place('p', 'pool', 0), place('t', 'torch', 2)], { ...catalog, objects: [...catalog.objects, pool] });
     layer.setDarkness(1);
     layer.update(0.1, new Vector3());
-    const lights = layer.group.children.filter((c): c is PointLight => c instanceof PointLight && c.intensity > 0);
-    const low = lights.find((l) => Math.abs(l.position.y - 5) < 0.01)!;
-    expect(low.intensity).toBeCloseTo(lightCap(1));
+    const lights = poolOf(layer);
+    const low = lights.find((l) => Math.abs(l.y - 5) < 0.01)!;
+    expect(candela(low, '#ff5a1e')).toBeCloseTo(lightCap(1));
+    // Its falloff's core is its height over the ground: soft under it, the inverse square farther off
+    expect(low.core).toBeCloseTo(1);
     // A torch at 2.5 m stays under its cap and keeps its catalogue strength (18, flickering)
-    expect(lights.find((l) => Math.abs(l.position.y - 6.5) < 0.01)!.intensity).toBeGreaterThan(15);
+    expect(candela(lights.find((l) => Math.abs(l.y - 6.5) < 0.01)!, TORCH)).toBeGreaterThan(15);
     expect(lightCap(0.1)).toBe(lightCap(0.75));
     layer.dispose();
   });
@@ -575,6 +591,34 @@ describe('EffectLayer', () => {
     expect(particleCount('fog', undefined)).toBeGreaterThanOrEqual(1);
   });
 });
+
+interface PoolLight {
+  x: number;
+  y: number;
+  z: number;
+  r: number;
+  g: number;
+  b: number;
+  radius: number;
+  core: number;
+}
+
+/** The pool's lights of the last update as the scene's light buffer gets them (SteadyLightSource) */
+function poolOf(layer: EffectLayer): PoolLight[] {
+  const out: PoolLight[] = [];
+  const buffer = {
+    steadyLight: (x: number, y: number, z: number, r: number, g: number, b: number, radius: number, core: number) =>
+      out.push({ x, y, z, r, g, b, radius, core }),
+  };
+  layer.steadyLights(buffer as unknown as ShotLights);
+  return out;
+}
+
+/** A pool light's candela as three's point light had them: the buffer's light is candela / (pi core²) in its colour */
+function candela(light: PoolLight, color: string): number {
+  const c = new Color(color);
+  return ((light.r + light.g + light.b) / (c.r + c.g + c.b)) * Math.PI * light.core * light.core;
+}
 
 /** The points of flock `row`'s loop in the birds' path texture (scene space) */
 function loopOf(layer: EffectLayer, row: number): Vector3[] {

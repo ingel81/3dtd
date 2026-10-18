@@ -89,25 +89,18 @@ describe('FrameAhead', () => {
     scene.add(light);
     const materials = Array.from({ length: 3 }, () => new MeshBasicMaterial());
     for (let k = 0; k < meshes; k++) scene.add(new Mesh(new BoxGeometry(), materials[k % materials.length]));
-    // Two light states: the point light on and off
-    const lightStates = (run: () => void) => {
-      run();
-      light.visible = false;
-      run();
-      light.visible = true;
-    };
-    return { scene, light, lightStates };
+    return { scene, light };
   }
 
-  it('compiles every object of the scene in each light state, with the scene lights, into the recorded target', async () => {
+  it('compiles every object of the scene with the scene lights into the recorded target', async () => {
     const { renderer, compiles } = fakeRenderer();
-    const { scene, lightStates } = world(5);
+    const { scene } = world(5);
     const target = new WebGLRenderTarget(1, 1);
-    const ahead = new FrameAhead(renderer, [{ object: scene, camera: new PerspectiveCamera(), target }], { scene, lightStates });
+    const ahead = new FrameAhead(renderer, [{ object: scene, camera: new PerspectiveCamera(), target }], { scene });
     expect(await ahead.compiled).toBe(true);
     const meshes = (lights: number) => compiles.filter((c) => c.lights === lights).flatMap((c) => c.objects).length;
     expect(meshes(1)).toBe(5);
-    expect(meshes(0)).toBe(5);
+    expect(meshes(0)).toBe(0);
     expect(compiles.every((c) => c.target === target)).toBe(true);
     // The scene keeps its children
     expect(scene.children.length).toBe(6);
@@ -115,8 +108,8 @@ describe('FrameAhead', () => {
 
   it('draws the objects in later frames, at most the given new materials a frame, and is done once the GPU did them', async () => {
     const { renderer, draws, signal } = fakeRenderer();
-    const { scene, lightStates } = world(6);
-    const ahead = new FrameAhead(renderer, [{ object: scene, camera: new PerspectiveCamera(), target: null }], { scene, lightStates });
+    const { scene } = world(6);
+    const ahead = new FrameAhead(renderer, [{ object: scene, camera: new PerspectiveCamera(), target: null }], { scene });
     expect(ahead.drawSome(100, 1)).toBe(false);
     expect(draws).toEqual([]);
     await ahead.compiled;
@@ -126,15 +119,15 @@ describe('FrameAhead', () => {
       expect(ahead.drawSome(100, 1)).toBe(false);
       frames.push(draws.length - before);
     }
-    // Three materials: each frame draws up to the next unseen one, both light states each
+    // Three materials: each frame draws up to the next unseen one
     expect(frames.every((n) => n > 0)).toBe(true);
-    expect(draws.flatMap((d) => d.objects).length).toBe(12);
+    expect(draws.flatMap((d) => d.objects).length).toBe(6);
     expect(renderer.shadowMap.autoUpdate).toBe(true);
     // Drawn, it waits for their fence
     expect(ahead.drawSome(100, 1)).toBe(false);
     signal();
     expect(ahead.drawSome(100, 1)).toBe(true);
-    expect(draws.flatMap((d) => d.objects).length).toBe(12);
+    expect(draws.flatMap((d) => d.objects).length).toBe(6);
   });
 
   it('compiles and draws inside the state it is made ready for, and leaves the one drawn now outside', async () => {
@@ -170,8 +163,8 @@ describe('FrameAhead', () => {
 
   it('draws nothing when its compile built no program: the state was prepared at load', async () => {
     const { renderer, draws } = fakeRenderer(false);
-    const { scene, lightStates } = world(4);
-    const ahead = new FrameAhead(renderer, [{ object: scene, camera: new PerspectiveCamera(), target: null }], { scene, lightStates });
+    const { scene } = world(4);
+    const ahead = new FrameAhead(renderer, [{ object: scene, camera: new PerspectiveCamera(), target: null }], { scene });
     await ahead.compiled;
     expect(ahead.drawSome(100, 1)).toBe(true);
     expect(draws).toEqual([]);
@@ -179,8 +172,8 @@ describe('FrameAhead', () => {
 
   it('compiles only when asked to: no first draws though programs were built (the background)', async () => {
     const { renderer, draws } = fakeRenderer(true);
-    const { scene, lightStates } = world(4);
-    const ahead = new FrameAhead(renderer, [{ object: scene, camera: new PerspectiveCamera(), target: null }], { scene, lightStates, compileOnly: true });
+    const { scene } = world(4);
+    const ahead = new FrameAhead(renderer, [{ object: scene, camera: new PerspectiveCamera(), target: null }], { scene, compileOnly: true });
     expect(await ahead.compiled).toBe(true);
     expect(renderer.info.programs?.length ?? 0).toBeGreaterThan(0);
     expect(ahead.drawSome(100, 1)).toBe(true);

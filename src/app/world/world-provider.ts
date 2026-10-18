@@ -7,6 +7,7 @@ import type { ColumnHit, ColumnSample } from '../three-engine/column-sample';
 import type { EllipsoidSync } from '../three-engine/ellipsoid-sync';
 import type { RouteCorridorTiles } from '../three-engine/route-corridor-tiles';
 import type { RootLoadFailure, TileStats } from '../three-engine/tile-loading-tracker';
+import type { ShotLights } from '../three-engine/shot-lights/shot-lights';
 import type { StreetSurface } from '../utils/carried-height';
 import type { StationProbe } from '../utils/route-corridor';
 import type { ApproachPoint } from '../utils/route-cell';
@@ -281,6 +282,11 @@ export interface WorldAttachContext {
    * game's audio context and master bus, and the player's sound volume now
    */
   audio?: { context: BaseAudioContext; destination: AudioNode; volume(): number };
+  /**
+   * The scene's light buffer (three-engine/shot-lights): the shots' light and
+   * the steady lights a world adds (a custom map's lamps nearest the view)
+   */
+  lights?: ShotLights;
 }
 
 /**
@@ -344,14 +350,6 @@ export interface WorldProvider {
   attach(ctx: WorldAttachContext): Promise<void>;
   /** The world draws frames (tiles: once the renderer stands) */
   ready(): boolean;
-  /**
-   * Runs `run` in every light state the world's frames can draw with, the
-   * current one first, and puts that back: a compile inside builds the
-   * programs of each (a custom map with lights: its point lights by day and
-   * at night, whose number is part of every lit material's program). Missing:
-   * the one state there is
-   */
-  withLightStates?(run: () => void): void;
   /**
    * Runs `run` with everything the world hides until it is needed shown (a
    * custom map: a cell of every asset, the weather, what shows by night), and

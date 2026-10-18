@@ -32,6 +32,7 @@ import { EDITOR_FOV, ViewExtras } from './view-extras';
 import { ViewPicker } from './view-picker';
 import { pixelRatioFor, readStoredQuality, storedKnobsFor, type QualityKnobs } from '../../three-engine/render-quality';
 import { releaseContext, settleContexts } from '../../three-engine/context-release';
+import { ShotLights } from '../../three-engine/shot-lights/shot-lights';
 import type { Contours } from '../ops/contours';
 import type { GroundBaker } from '../../world/custom-map/render/terrain/ground-shape';
 import { releaseSharedGpu } from '../../three-engine/shared-gpu';
@@ -94,6 +95,8 @@ export class EditorViewport {
   readonly picker: ViewPicker;
   readonly changes: ChangeApplier;
   readonly warmup: ProgramWarmup;
+  /** The scene's light buffer (three-engine/shot-lights): the map's lamps nearest the view light it at night */
+  private readonly lights = new ShotLights();
   readonly topDown: TopDownRenderer;
   readonly extras: ViewExtras;
   /** The bridge decks of the map as it stands, laid again after a change (walkHeightAt) */
@@ -332,6 +335,7 @@ export class EditorViewport {
     this.input.dispose();
     releaseSharedGpu(this.renderer, this.scene);
     this.view.dispose();
+    this.lights.clear();
     this.overlay.dispose();
     this.renderer.dispose();
     // Browsers keep only a few WebGL contexts: give this one back once the next view stands, not when it is collected
@@ -341,7 +345,7 @@ export class EditorViewport {
   // -------------------------------------------------------------------------
 
   private makeView(): EditorMapView {
-    const view = new EditorMapView(this.editor.doc, this.scene, this.renderer, this.callbacks.groundBaker());
+    const view = new EditorMapView(this.editor.doc, this.scene, this.renderer, this.callbacks.groundBaker(), this.lights);
     view.view.applyQuality(this.quality.customMaps);
     view.onPathMaskBuilt(() => this.callbacks.pathMaskBuilt(view));
     // New ground materials and assets new to the map show once their programs are built, off the main thread
@@ -440,6 +444,7 @@ export class EditorViewport {
     this.view.view.setAnimationPaused(this.settings.view().still);
     this.view.update(dt, this.camera, this.controller.current.target);
     this.extras.update(dt);
+    this.lights.update(dt, this.camera);
     if (this.warmup.shows(this.view)) this.renderer.render(this.scene, this.camera);
 
     this.reportHover(time, tp?.hit ?? null);

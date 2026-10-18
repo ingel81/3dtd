@@ -2,7 +2,6 @@ import {
   Fog,
   HalfFloatType,
   PerspectiveCamera,
-  PointLight,
   SRGBColorSpace,
   Scene,
   WebGLRenderTarget,
@@ -139,8 +138,8 @@ function createMockContext(): WebGL2RenderingContext {
 
 /**
  * The programs three builds for what `build` puts into a scene set up like
- * the game's in `setup`: its lights (plus a point light, as a tower's muzzle
- * flash adds one), its fog, a perspective camera, log depth, sRGB canvas
+ * the game's in `setup`: its lights (no point light: the shots and a map's
+ * lamps go to the light buffer, shot-lights), its fog, a perspective camera, log depth, sRGB canvas
  * or the composer's half-float target. A ShaderMaterial is one program per
  * setup (forceSinglePass is its default in r186); a built-in material that
  * is transparent and double-sided gives two, back and front, as it draws
@@ -159,7 +158,6 @@ export function capturePrograms(build: (scene: Scene) => void, setup: RenderSetu
   const scene = new Scene();
   if (setup.fog) scene.fog = new Fog(0x1a1f25, 2000, 6000);
   addSceneLights(scene);
-  scene.add(new PointLight(0xffaa44, 0, 30));
   build(scene);
 
   const camera = new PerspectiveCamera(60, 16 / 9, 1, 8000);

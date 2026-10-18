@@ -275,7 +275,7 @@ export class ThreeTowerRenderer {
 
   /**
    * Stand-ins for the load-time warm-up (ThreeTilesEngine.preloadModels),
-   * which compiles them for every light state and draws them once: each
+   * which compiles them for the frames and draws them once: each
    * tower's model built as `create` builds it, with its saw arms, doner
    * stream and shadow, a twin clipped as during its build (TowerBuild: the
    * number of clipping planes is part of a program), each path's attachment,

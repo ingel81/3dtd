@@ -498,23 +498,10 @@ float iceEdge(vec2 p, out float id) {
 }
 #endif
 
-// Glints and a faint pool of the point lights (lanterns, torches, lava glow) on a surface of normal n
+// Glints of the lamps nearest the view (lanterns, torches, lava glow) and of the shots on a surface of normal n,
+// from the scene's light buffer (shot-lights); their faint pool on it comes with shotLightAt below
 vec3 pointGlints(vec3 n, vec3 v) {
-  vec3 sum = vec3(0.0);
-#if NUM_POINT_LIGHTS > 0
-  vec3 viewPos = (viewMatrix * vec4(vWorldPos, 1.0)).xyz;
-  vec3 nv = normalize((viewMatrix * vec4(n, 0.0)).xyz);
-  vec3 vv = normalize(-viewPos);
-  for (int i = 0; i < NUM_POINT_LIGHTS; i++) {
-    vec3 l = pointLights[i].position - viewPos;
-    float d = length(l);
-    l /= max(d, 1e-3);
-    float att = getDistanceAttenuation(d, pointLights[i].distance, pointLights[i].decay);
-    float spec = pow(max(dot(nv, normalize(l + vv)), 0.0), 140.0) * 3.0;
-    sum += pointLights[i].color * att * (spec + 0.04 * max(dot(nv, l), 0.0));
-  }
-#endif
-  return sum;
+  return uShotLightCount > 0 ? shotLightGlints(vWorldPos, n, v, 140.0) * 3.0 : vec3(0.0);
 }
 
 void main() {

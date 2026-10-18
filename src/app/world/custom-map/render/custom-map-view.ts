@@ -24,6 +24,7 @@ import {
 import type { CustomMapDocument, MapEnvironment, MapLifeArea, MapObject, MapWaterKind } from '../map-document';
 import { HeightField } from './height-field';
 import { StaticGroup } from '../../../three-engine/static-group';
+import type { ShotLights } from '../../../three-engine/shot-lights/shot-lights';
 import type { MapAssetLibrary } from './map-asset-library';
 import type { AssetCatalog, CatalogObject } from './asset-catalog';
 import { mapToScene, sceneToMap } from './map-coords';
@@ -159,6 +160,13 @@ export interface CustomMapViewOptions {
    * worker of the view's own on the map as it is made (GroundWorker; the game's map holds still); null: in place
    */
   groundBaker?: GroundBaker | null;
+  /**
+   * The scene's light buffer (three-engine/shot-lights): the real lights of
+   * the lamps nearest the view go to it at night, for the map's materials,
+   * towers and units. Without it the lamps light only the ground they are
+   * baked onto (lamp-light.ts)
+   */
+  lights?: ShotLights;
 }
 
 export class CustomMapView {
@@ -322,6 +330,7 @@ export class CustomMapView {
       (x, y) => waterLevelAt(this.doc.terrain, x, y, this.heights.heightAt(x, y) - 1, 'lava') !== null,
     );
     this.effects.setLife(doc.life);
+    options.lights?.addSteadySource(this.effects);
     this.movers = new LifeMovers(assets, this.heights, (x, y) => this.waterLevelAt(x, y));
     this.group.add(this.movers.group);
     this.haze = new LifeHaze(this.heights);
@@ -372,30 +381,27 @@ export class CustomMapView {
    * what the frames draw into: a game with bloom or grading draws into a
    * linear post-processing target, and programs built for the screen would
    * all link again in its first frame (output colour space and tone mapping
-   * are part of a program). `allLights` (the game) builds them for every
-   * light state the map can show (withLightStates) and draws a frame in each:
-   * a night that lit the lamps otherwise linked every lit material's program
-   * in its frame (6.9 s on Autumn Keep), and the first draw of a program does
-   * work of its own (uniform locations, the driver's own translation). Resolves
-   * with the number of programs it built.
+   * are part of a program). The lamps' lights change no program (they go to
+   * the light buffer, `lights`): day and night draw with the same ones. A
+   * frame is drawn too: the first draw of a program does work of its own
+   * (uniform locations, the driver's own translation). Resolves with the
+   * number of programs it built.
    */
   async warmUp(
     renderer: WebGLRenderer,
     scene: Object3D,
     camera: Camera,
     target: WebGLRenderTarget | null = null,
-    allLights = false,
   ): Promise<number> {
     await Promise.all([this.ready, this.environment.envReady]);
     if (this.disposed) return 0;
     const before = renderer.info.programs?.length ?? 0;
     const previous = renderer.getRenderTarget();
-    const states = (run: () => void) => (allLights ? this.withLightStates(run) : run());
     const compiled: Promise<unknown>[] = [];
     try {
-      // compileAsync builds the programs before it returns its promise: the target and lights only around the call
+      // compileAsync builds the programs before it returns its promise: the target only around the call
       renderer.setRenderTarget(target);
-      states(() => compiled.push(renderer.compileAsync(scene, camera)));
+      compiled.push(renderer.compileAsync(scene, camera));
     } finally {
       renderer.setRenderTarget(previous);
     }
@@ -405,11 +411,9 @@ export class CustomMapView {
       const mirror = new WebGLRenderTarget(1, 1);
       try {
         renderer.setRenderTarget(mirror);
-        this.withAllShown(() =>
-          states(() => {
-            for (const part of this.mirroredParts()) compiled.push(renderer.compileAsync(part, camera, scene instanceof Scene ? scene : null));
-          }),
-        );
+        this.withAllShown(() => {
+          for (const part of this.mirroredParts()) compiled.push(renderer.compileAsync(part, camera, scene instanceof Scene ? scene : null));
+        });
       } finally {
         renderer.setRenderTarget(previous);
         mirror.dispose();
@@ -432,14 +436,14 @@ export class CustomMapView {
     // compileAsync leaves out the shadow pass: its depth programs (instanced, alpha-tested cards,
     // per material) compiled on the first frame a caster entered the sun's box, a stall of seconds.
     // One frame with a cell of every asset casting and all else shown (withAllShown) compiles them now,
-    // during loading, into the same target, one in each light state for the game
+    // during loading, into the same target
     const shadows = renderer.shadowMap.enabled;
     const wasAuto = renderer.shadowMap.autoUpdate;
     renderer.shadowMap.autoUpdate = shadows;
     renderer.shadowMap.needsUpdate = shadows;
     try {
       renderer.setRenderTarget(target);
-      this.withAllShown(() => states(() => renderer.render(scene, camera)));
+      this.withAllShown(() => renderer.render(scene, camera));
     } finally {
       renderer.setRenderTarget(previous);
       renderer.shadowMap.autoUpdate = wasAuto;
@@ -613,7 +617,7 @@ export class CustomMapView {
    * its moment (weather particles, beams and glows by night, fireflies). A
    * warm-up frame drawn inside gives each its first draw, which the GPU
    * process otherwise translated in the frame of a first rain (185 ms in the
-   * editor) or night. Lights keep their state (withLightStates)
+   * editor) or night
    */
   withAllShown<T>(run: () => T): T {
     this.objects.showAllForWarmUp(true);
@@ -633,28 +637,6 @@ export class CustomMapView {
       for (const o of shown) o.visible = false;
       this.objects.showAllForWarmUp(false);
     }
-  }
-
-  /**
-   * Runs `run` once with the map's point lights as they are and once in the
-   * other state (night on, day off; effect-layer.ts withPool), for compiles
-   * that build the programs of both
-   */
-  withEitherLights(run: (current: boolean) => void): void {
-    const shown = this.effects.poolShown;
-    run(true);
-    this.effects.withPool(!shown, () => run(false));
-  }
-
-  /**
-   * Runs `run` in every light state this map can draw with, the current one
-   * first: both (withEitherLights) on a map with lights, else the one. The
-   * game's map does not change, so a darkening sky or a wave's night finds
-   * the programs of its lights built
-   */
-  withLightStates(run: () => void): void {
-    if (this.effects.hasLights) this.withEitherLights(() => run());
-    else run();
   }
 
   /**
@@ -1552,18 +1534,17 @@ export class CustomMapView {
 
   /**
    * Runs `run` with the materials as level `q` builds them, the level drawn
-   * now put back after: the water's effects (defines of its shader) and the
-   * number of point lights the lit materials loop over (the engine makes a
-   * frame at that level ready ahead, WorldProvider.withQuality). Nothing is
-   * built or loaded: what else a level changes (grass, detail, particles)
-   * keeps its programs
+   * now put back after: the water's effects (defines of its shader; the
+   * engine makes a frame at that level ready ahead,
+   * WorldProvider.withQuality). Nothing is built or loaded: what else a level
+   * changes (grass, detail, particles, the lamps' lights) keeps its programs
    */
   withQuality(q: CustomMapQuality, run: () => void): void {
     const effects = this.mapEffects;
     this.mapEffects = { ...effects, ...effectsOfQuality(q) };
     this.applyEffects();
     try {
-      this.effects.withPointLights(q.pointLights, run);
+      run();
     } finally {
       this.mapEffects = effects;
       this.applyEffects();
@@ -1688,6 +1669,7 @@ export class CustomMapView {
     this.terrain.dispose();
     for (const w of this.waters) w?.dispose();
     for (const r of this.rivers) r.dispose();
+    this.options.lights?.removeSteadySource(this.effects);
     this.effects.dispose();
     this.signs.dispose();
     this.movers.dispose();

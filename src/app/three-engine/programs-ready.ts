@@ -29,7 +29,7 @@ export function programsReady(
  * Does each program's first-use work now, one program per task: three
  * fetches a program's info log and its uniform and attribute locations the
  * first time a draw uses it (WebGLProgram.getUniforms), and for a program
- * compiled ahead but not drawn yet (the other light state, a biome's
+ * compiled ahead but not drawn yet (another quality level's, a biome's
  * assets) that cost 50 to 160 ms in the frame of the click that first drew
  * it. Programs already used answer at once. Resolves when all are done.
  */

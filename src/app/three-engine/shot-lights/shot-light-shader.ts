@@ -70,6 +70,31 @@ vec3 shotLightAt(vec3 worldPos, vec3 worldNormal) {
   }
   return shotSum / (1.0 + max(max(shotSum.r, shotSum.g), shotSum.b) * 0.25);
 }
+// The lights' glints on a shiny surface (water): a Blinn highlight of power for each light of the cell, as
+// strong far off as a point light of the same candela (a light's colour is its candela over pi core²)
+vec3 shotLightGlints(vec3 worldPos, vec3 worldNormal, vec3 viewDir, float power) {
+  vec3 glintSum = vec3(0.0);
+  vec2 glintCell = floor((worldPos.xz - uShotGrid.xy) * uShotGrid.zw);
+  if (any(lessThan(glintCell, vec2(0.0))) || any(greaterThanEqual(glintCell, vec2(float(SHOT_GRID))))) return glintSum;
+  int glintIndex = int(glintCell.y) * SHOT_GRID + int(glintCell.x);
+  uint glintMask = uShotCells[glintIndex >> 2][glintIndex & 3];
+  for (int n = 0; n < SHOT_LIGHTS_MAX; n++) {
+    if (glintMask == 0u) break;
+    uint glintBit = glintMask & (~glintMask + 1u);
+    glintMask ^= glintBit;
+    int i = int(log2(float(glintBit)) + 0.5);
+    vec4 glintAt = uShotLights[i * 2];
+    vec3 glintL = glintAt.xyz - worldPos;
+    float glintD2 = dot(glintL, glintL);
+    float glintX = glintD2 * glintAt.w;
+    if (glintX >= 1.0) continue;
+    vec4 glintColor = uShotLights[i * 2 + 1];
+    float glintEdge = 1.0 - glintX;
+    float glintSpec = pow(max(dot(worldNormal, normalize(glintL * inversesqrt(max(glintD2, 1e-4)) + viewDir)), 0.0), power);
+    glintSum += glintColor.rgb * (3.14159265 * glintEdge * glintEdge * glintSpec / (1.0 + glintD2 * glintColor.w));
+  }
+  return glintSum;
+}
 `;
 
 /**

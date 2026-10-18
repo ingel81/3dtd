@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { PerspectiveCamera } from 'three';
-import { ShotLights, type ShotLightSource } from './shot-lights';
+import { ShotLights, type ShotLightSource, type SteadyLightSource } from './shot-lights';
 import { SHOT_GRID, SHOT_LIGHT_UNIFORMS, SHOT_LIGHTS_MAX } from './shot-light-shader';
 import type { ShotLightLook, ShotLightPulseLook } from '../../configs/shot-lights.config';
 
@@ -139,6 +139,37 @@ describe('ShotLights', () => {
     for (let i = 0; i < 100; i++) lights.add(-200 + i * 5, 1, 0, TRACER);
     lights.update(0.016, cam);
     expect(count()).toBe(SHOT_LIGHTS_MAX);
+  });
+
+  /** V1: a custom map's lamps were three.js PointLights, each change of their number a program variant of every lit material */
+  it('puts the steady lights first, unmerged, also on Low, and the shots in the places left', () => {
+    const lamps: SteadyLightSource = {
+      steadyLights: (l) => {
+        // Two lamps 1 m apart: they stay two lights
+        l.steadyLight(0, 3, 0, 0.5, 0.4, 0.2, 12, 2);
+        l.steadyLight(1, 3, 0, 0.5, 0.4, 0.2, 12, 2);
+      },
+    };
+    lights.addSteadySource(lamps);
+    lights.update(0.016, cam);
+    expect(count()).toBe(2);
+    [0, 3, 0, 1 / 144, 0.5, 0.4, 0.2, 0.25].forEach((v, k) => expect(light(0)[k]).toBeCloseTo(v, 6));
+    expect(lights.stats.steady).toBe(2);
+    // The shots after them, in the places the steady ones leave of the shader's
+    lights.setMax(SHOT_LIGHTS_MAX);
+    for (let i = 0; i < 100; i++) lights.add(-200 + i * 5, 1, 0, TRACER);
+    lights.update(0.016, cam);
+    expect(count()).toBe(SHOT_LIGHTS_MAX);
+    expect(light(0)[0]).toBe(0);
+    expect(light(1)[0]).toBe(1);
+    // Low: no shots, the lamps still light
+    lights.setMax(0);
+    lights.pulse(0, 2, 0, FLASH);
+    lights.update(0.016, cam);
+    expect(count()).toBe(2);
+    lights.removeSteadySource(lamps);
+    lights.update(0.016, cam);
+    expect(count()).toBe(0);
   });
 
   it('drops the pulses when switched off', () => {

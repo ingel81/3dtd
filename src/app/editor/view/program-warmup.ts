@@ -162,24 +162,22 @@ export class ProgramWarmup {
 
   /**
    * Compiles `object`'s programs for the pictures the editor draws: the view
-   * and the top-down picture, whose render target, missing fog and hidden
-   * effects (their point lights with them) give other programs. The view's
-   * twice: with the map's point lights as they are (`screen`) and in the
-   * other state, as a night (or a first lamp after dark) changes their
-   * number and every lit material links new programs in that frame (3.9 s
-   * in the showreel review). compileAsync builds them before it returns its
-   * promise, so target, fog and lights change only around the call.
+   * (`screen`) and the top-down picture, whose render target, missing fog and
+   * hidden effects give other programs. The lamps' lights give none (they go
+   * to the light buffer, three-engine/shot-lights): a night compiles nothing
+   * new. compileAsync builds them before it returns its promise, so target
+   * and fog change only around the call.
    */
   private compileForViews(object: Object3D, screen = true): Promise<unknown> {
     const r = this.renderer;
     const view = this.current();
     const jobs: Promise<unknown>[] = [];
-    view.withEitherLights((current) => {
-      if (screen || !current) jobs.push(r.compileAsync(object, this.camera, this.scene));
+    if (screen) {
+      jobs.push(r.compileAsync(object, this.camera, this.scene));
       // The water's mirror draws into a linear target: programs of their own (a new ground layer linked them there)
-      const mirror = screen ? view.compileForMirror(r, object, this.camera, this.scene) : null;
+      const mirror = view.compileForMirror(r, object, this.camera, this.scene);
       if (mirror) jobs.push(mirror);
-    });
+    }
     const fog = this.scene.fog;
     const previous = r.getRenderTarget();
     try {

@@ -31,8 +31,8 @@ export interface SceneWarmupResult {
  *    Every pool hides while empty (DrawGate), so `renderedFrame` is awaited
  *    with all gates forced open: one loading frame draws the empty pools and
  *    uploads what the first spawn would otherwise upload. `alsoDraw` draws
- *    more with the gates still open (the engine: the scene in each of the
- *    world's light states, whose first draw the driver translates again).
+ *    more with the gates still open (the engine: the scene with what the
+ *    world hides shown, whose first draw the driver translates again).
  */
 export async function warmUpScene(
   renderer: Pick<WebGLRenderer, 'compileAsync' | 'info'>,
