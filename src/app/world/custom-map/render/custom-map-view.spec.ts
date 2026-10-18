@@ -334,31 +334,27 @@ describe('CustomMapView', () => {
     expect(water!.userData['losTransparent']).toBe(true);
     expect(inLos.includes(water!)).toBe(false);
 
-    // Every object sits in one cell mesh of its asset (level 0 meshes, summed over the cells); the border's trees
-    // mirrored onto the apron (edge-trees.ts) are drawn by a layer of their own
+    // Every object belongs to the meshes of its asset (one per level and part for the whole map); the border's
+    // trees mirrored onto the apron (edge-trees.ts) are drawn by a layer of their own
     const mirrored = (o: Object3D) => {
       for (let p: Object3D | null = o; p; p = p.parent) if (p.name === 'custom-map-edge-trees') return true;
       return false;
     };
     let edge = 0;
     view.group.traverse((o) => {
-      if (o instanceof InstancedMesh && mirrored(o)) edge += o.count;
+      if (o instanceof InstancedMesh && mirrored(o)) edge += (o.userData['batch'] as { objects: unknown[] }).objects.length;
     });
     expect(edge).toBeGreaterThan(0);
     const counts = new Map<string, number>();
     for (const o of doc.objects) counts.set(o.asset, (counts.get(o.asset) ?? 0) + 1);
     for (const [asset, n] of counts) {
-      // A model has one mesh per part: count each cell once
-      const cells = new Set<unknown>();
-      let total = 0;
+      // An asset that blocks sight for some objects and not for others has a batch of each
+      const batches = new Set<{ objects: unknown[] }>();
       view.group.traverse((o) => {
-        const cell = o.userData['cell'];
-        if (o instanceof InstancedMesh && !mirrored(o) && (o.name === asset || o.name === `${asset}-decor`) && !cells.has(cell)) {
-          cells.add(cell);
-          total += o.count;
-        }
+        const b = o.userData['batch'] as { objects: unknown[]; entry: { id: string } } | undefined;
+        if (o instanceof InstancedMesh && !mirrored(o) && b?.entry.id === asset) batches.add(b);
       });
-      expect(total, asset).toBe(n);
+      expect([...batches].reduce((sum, b) => sum + b.objects.length, 0), asset).toBe(n);
     }
 
     // attach() puts the blockers beside the group, as the LOS cube needs a direct scene child
@@ -423,7 +419,8 @@ describe('CustomMapView', () => {
     // A frame multiplies for the camera's queries and the sun's box, a handful, none for the map's nodes
     const still = frame();
     console.log(`[V1] ${nodes} nodes, ${still} multiplications in a still frame`);
-    expect(nodes).toBeGreaterThan(100);
+    // (the objects draw one mesh per asset, level and part for the whole map)
+    expect(nodes).toBeGreaterThan(50);
     expect(still).toBeLessThan(40);
 
     // Moved: every world matrix below follows at once, the sight blockers beside the group alike

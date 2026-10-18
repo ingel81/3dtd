@@ -21,70 +21,95 @@ import { BufferGeometry, InstancedBufferAttribute, type Material } from 'three';
 /** The band's width as a share of the switch distance */
 export const LOD_BAND = 0.12;
 
-/** A level of an asset as the band needs it: where it starts, and whether it is a far impostor */
+/**
+ * A level of an asset as the band needs it: where it starts, in metres of
+ * camera distance per metre of the object's bounding radius (a screen share,
+ * asset-catalog.ts screenDistance), and whether it is a far impostor
+ */
 export interface FadeLevel {
   from: number;
   impostor?: boolean;
 }
 
-/** Where a level starts at distance from the camera, for the quality level's bias and impostor distance */
-export function levelStart(level: FadeLevel, lodBias: number, impostorFrom: number): number {
-  return level.impostor ? Math.max(level.from, impostorFrom) : level.from * lodBias;
+/**
+ * Where a level starts for an object of `radius` metres, for the quality
+ * level's bias and impostor distance: an impostor no nearer than that
+ * distance, whatever the object's size
+ */
+export function levelStart(level: FadeLevel, radius: number, lodBias: number, impostorFrom: number): number {
+  return level.impostor ? Math.max(level.from * radius, impostorFrom) : level.from * radius * lodBias;
 }
 
 /**
  * The level for distance `d`: -1 beyond the draw distance, else the last
  * level whose start it passed
  */
-export function levelAt(levels: readonly FadeLevel[], d: number, draw: number, lodBias: number, impostorFrom: number): number {
+export function levelAt(levels: readonly FadeLevel[], d: number, radius: number, draw: number, lodBias: number, impostorFrom: number): number {
   if (d > draw) return -1;
   for (let l = levels.length - 1; l > 0; l--) {
-    if (d >= levelStart(levels[l], lodBias, impostorFrom)) return l;
+    if (d >= levelStart(levels[l], radius, lodBias, impostorFrom)) return l;
   }
   return 0;
 }
 
-/** The levels an object shows (blendAt, settleBlend) */
+/**
+ * The levels an object shows (blendAt, settleBlend), and how far the camera
+ * may come or go before that can change (`slack`, m; 0 inside a band)
+ */
 export interface LodBlend {
   level: number;
   next: number | null;
   t: number;
+  slack: number;
 }
 
 /**
- * The levels to show at distance `d`: `level`, and inside a band `next`
- * (the level beyond, -1 for none at the draw distance) with `t` from 0 at
- * the band's near edge to 1 at its far edge; outside a band `next` is null.
- * Written into `out`: the object layer asks for every cell and packed
- * object each frame the camera moves, and a new object each time was most
- * of what it allocated
+ * The levels to show at distance `d` for an object of `radius` metres:
+ * `level`, and inside a band `next` (the level beyond, -1 for none at the
+ * draw distance) with `t` from 0 at the band's near edge to 1 at its far
+ * edge; outside a band `next` is null. `slack` is the distance to the
+ * nearest band: the object layer looks at the object again only once the
+ * camera moved that far. Written into `out`: the object layer asks for every
+ * object it looks at, and a new object each time was most of what it
+ * allocated
  */
 export function blendAt(
   levels: readonly FadeLevel[],
   d: number,
+  radius: number,
   draw: number,
   lodBias: number,
   impostorFrom: number,
-  out: LodBlend = { level: 0, next: null, t: 0 },
+  out: LodBlend = { level: 0, next: null, t: 0, slack: 0 },
 ): LodBlend {
+  let slack = Infinity;
   // The switch distances in order, the draw distance last
   for (let l = 1; l <= levels.length; l++) {
     const last = l === levels.length;
-    const at = last ? draw : levelStart(levels[l], lodBias, impostorFrom);
+    const at = last ? draw : levelStart(levels[l], radius, lodBias, impostorFrom);
     const next = last ? -1 : l;
     const half = (at * LOD_BAND) / 2;
-    if (Math.abs(d - at) < half && at > 0) {
-      const level = levelAt(levels, at - half, draw, lodBias, impostorFrom);
-      if (level === next) continue;
+    if (!(at > 0)) continue;
+    const off = Math.abs(d - at) - half;
+    if (off < 0) {
+      const level = levelAt(levels, at - half, radius, draw, lodBias, impostorFrom);
+      // No switch here after all (a level that never shows): looked at again each frame while in the band
+      if (level === next) {
+        slack = 0;
+        continue;
+      }
       out.level = level;
       out.next = next;
       out.t = (d - (at - half)) / (2 * half);
+      out.slack = 0;
       return out;
     }
+    if (off < slack) slack = off;
   }
-  out.level = levelAt(levels, d, draw, lodBias, impostorFrom);
+  out.level = levelAt(levels, d, radius, draw, lodBias, impostorFrom);
   out.next = null;
   out.t = 0;
+  out.slack = slack;
   return out;
 }
 
@@ -99,8 +124,9 @@ export const REST_S = 0.15;
  * its own. Fully settled it shows that one level alone. Written into `out`,
  * which may be `blend` itself
  */
-export function settleBlend(blend: LodBlend, settle: number, out: LodBlend = { level: 0, next: null, t: 0 }): LodBlend {
+export function settleBlend(blend: LodBlend, settle: number, out: LodBlend = { level: 0, next: null, t: 0, slack: 0 }): LodBlend {
   const { level, next } = blend;
+  out.slack = blend.slack;
   if (next === null || settle <= 0) {
     out.level = level;
     out.next = next;

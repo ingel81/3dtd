@@ -2,9 +2,10 @@ import {
   Color,
   Euler,
   Group,
-  InstancedBufferAttribute,
   InstancedMesh,
   Matrix4,
+  Mesh,
+  PerspectiveCamera,
   Quaternion,
   Ray,
   Raycaster,
@@ -13,12 +14,13 @@ import {
   Vector3,
   type BufferGeometry,
   type Camera,
+  type Intersection,
   type Material,
   type Object3D,
   type MeshStandardMaterial,
 } from 'three';
 import type { MapObject } from '../../map-document';
-import { objectRadius, screenDistance, type AssetCatalog, type CatalogObject } from '../asset-catalog';
+import { LOD_TAN_HALF_FOV, screenDistance, type AssetCatalog, type CatalogObject } from '../asset-catalog';
 import type { HeightField } from '../height-field';
 import type { MapAssetLibrary, ModelPart, ObjectModel } from '../map-asset-library';
 import { addHeightFog } from '../environment/height-fog';
@@ -34,40 +36,40 @@ import { DEFAULT_SPIN, SPIN_GLSL } from './spin';
 import { addRotorTurn, DEFAULT_ROTOR, isRotor, rotorDepthMaterial, rotorGeometry, rotorHub } from './rotor';
 import { addNightWindows, isWindowGlass } from './night-windows';
 import { addLodFade, blendAt, disposeFadeGeometry, fadeGeometry, REST_S, SETTLE_S, settleBlend, type LodBlend } from './lod-fade';
+import { InstanceList, type InstanceSource } from './instance-list';
 import { MassLayer } from './mass-layer';
 
 /**
- * The placed objects of a map, drawn instanced. An asset with many objects
- * (more than PACK_MAX: forests, scatter) is split into square cells of the
- * map (CELL_SIZE): per cell and detail level one InstancedMesh per model
- * part, each with tight bounds. three's frustum culling then drops whole
- * cells for the camera, the sun's shadow and the LOS cube alike, and
- * nothing is repacked per frame. An asset with few objects (houses, cars,
- * lamps: most of a town) has no cells: one InstancedMesh per detail level
- * and part, and its objects are sorted into the levels by their own
- * distance again whenever the camera moved REPACK_STEP. A town of 900
- * objects drew some 200 cells of up to ten parts each, 1111 calls in the
- * game view (docs/BENCHMARKS.md); packed it draws one mesh per asset, level
- * and part. Plain-coloured model parts of one look are merged into one
- * (merge-parts.ts). Around each switch distance a band shows both levels
- * dissolving into each other (lod-fade.ts), packed objects each by their
- * own distance, cells as a whole.
+ * The placed objects of a map, drawn instanced: per asset, detail level and
+ * model part one InstancedMesh for the whole map, the parts of a level
+ * sharing one list of instances (instance-list.ts). Each object shows the
+ * level its own size on screen asks for: its bounding radius over its
+ * distance against the screen share of the catalogue's `lod` models (a
+ * garage takes its LOD model nearer than a school), an impostor for far
+ * trees, nothing past the asset's draw distance. Around each switch a band
+ * shows both levels dissolving into each other (lod-fade.ts). A level
+ * switch moves an instance or two in the level's list, never the list. The
+ * 192 m cells this replaced drew a town of OSM in 8 900 meshes, each asset's
+ * level and part once per cell, and switched whole cells at once.
  *
- * - each frame a cell shows one detail level by its distance (the model,
- *   the catalogue's `lod` models, an impostor for far trees) and hides
- *   beyond the asset's draw distance
- * - only cells near the camera's focus cast shadows (the sun's shadow box
- *   covers no more)
- * - sight blockers (trees, big rocks, buildings) live in the LOS group:
- *   the LOS cube renders from the towers with its own frustum, and sees
- *   the level the camera chose
+ * - an object is looked at again only once the camera (or its focus) has
+ *   moved as far as the nearest band it could cross (`slack` of blendAt,
+ *   `dueAt`): on a still camera with settled bands nothing runs, on a moving
+ *   one a few objects near their bands, not the map
+ * - each level's casters come first in its list: the shadow pass draws
+ *   those, objects near the camera's focus (the sun's shadow box covers no
+ *   more) with the level that covers more of their pixels in a band
+ * - sight blockers (trees, big rocks, buildings) live in the LOS group: the
+ *   LOS cube renders from the towers with its own frustum, and sees the
+ *   level the camera chose
  *
  * Trees and plants sway in the wind, foliage cards keep their normals and
  * fade when seen edge-on or near their draw distance, waterfall cards flow
  * and flames flicker (all in objectMaterial). Vegetation gets a brightness
  * hue and size per instance, trees also a lean, autumn foliage a wider
  * turn of colour (instance-variation.ts), so a forest of one model does
- * not look cloned.
+ * not look cloned. Plain-coloured model parts of one look are merged into
+ * one (merge-parts.ts).
  *
  * Buildings raised from their own footprint (MapObject.mass) have no model
  * of their own: the mass layer draws them (mass-layer.ts), every object
@@ -82,64 +84,17 @@ function distance(xyz: Float32Array, at: number, p: Vector3): number {
   return Math.sqrt(dx * dx + dy * dy + dz * dz);
 }
 
-/** `n` values of `from` at `at` into `to` at `into` */
-function copyValues(from: Float32Array, at: number, to: Float32Array, into: number, n: number): void {
-  for (let k = 0; k < n; k++) to[into + k] = from[at + k];
-}
-
-/** Marks the first `count` values of an instance attribute for upload, not the room behind them; none for an empty level (hidden) */
-function uploadFirst(attribute: InstancedBufferAttribute, count: number): void {
-  if (count === 0) return;
-  attribute.clearUpdateRanges();
-  attribute.addUpdateRange(0, count);
-  attribute.needsUpdate = true;
-}
-
-/**
- * Marks `count` values at `start` of an instance attribute for upload, in one range per attribute that grows over
- * them: three empties the ranges only when it uploads, that is when the mesh draws, so a level never shown (a far
- * one while the brush works near) gathered one range per object and frame without end
- */
-function markRange(attribute: InstancedBufferAttribute, start: number, count: number): void {
-  const range = attribute.updateRanges[0];
-  if (!range) attribute.addUpdateRange(start, count);
-  else {
-    const end = Math.max(range.start + range.count, start + count);
-    range.start = Math.min(range.start, start);
-    range.count = end - range.start;
-  }
-  attribute.needsUpdate = true;
-}
-
-/** Edge of an object cell in metres */
-export const CELL_SIZE = 192;
-/** Assets with at most this many objects draw without cells, sorted into levels per object */
-export const PACK_MAX = 512;
-/** A packed asset sorts its objects into levels again once the camera moved this far, m */
-const REPACK_STEP = 2;
-/**
- * Packed objects sorted again per frame at most, over all assets: the
- * camera moves every packed asset its step at once, and a town's assets
- * all sorted in that one frame; the rest wait for the next frames, oldest
- * first (applyLevels)
- */
-const REPACK_PER_FRAME = 1500;
-/** The cell key of a packed asset's one cell */
-const PACKED = Number.MIN_SAFE_INTEGER;
-/** An object outside every band (Packed.nextOf) */
+/** An object outside every band (AssetBatch.nextOf) */
 const NO_NEXT = -2;
 /** Strongest glow of an object surface (emissive colour times intensity, linear) */
 const MAX_EMISSIVE = 0.55;
-/**
- * Room a cell's meshes keep for objects added later: half again of what
- * they hold, at least 16. A brush that adds a few objects a frame then writes
- * them into the free slots instead of building the cell's meshes anew.
- */
-function cellCapacity(n: number): number {
+/** Instances an asset's lists have room for: half again of its objects, at least 16, so a brush adds without building anew */
+function listCapacity(n: number): number {
   return Math.max(16, Math.ceil(n * 1.5));
 }
 
 interface Level {
+  /** Where the level starts: metres of distance per metre of the object's radius (lod-fade.ts FadeLevel) */
   from: number;
   /** `depthMaterial`: the part's own for the shadow pass (an impostor's card turned to the sun) */
   parts: { geometry: BufferGeometry; material: Material; depthMaterial?: Material }[];
@@ -147,67 +102,40 @@ interface Level {
   impostor?: boolean;
 }
 
-interface Cell {
-  /** Object indices of the batch in this cell; slot k of the meshes draws indices[k] */
-  indices: number[];
-  /** Instances the cell's meshes have room for (their count is indices.length) */
-  capacity: number;
-  /** Meshes per level */
-  levels: InstancedMesh[][];
-  /** Per level the `lodFade` of its meshes' instances (lod-fade.ts) */
-  fades: InstancedBufferAttribute[];
-  sphere: Sphere;
-  level: number;
-  /** In a band: the level it dissolves into (-1: none, at the draw distance) and how far; null outside a band */
-  next: number | null;
-  fade: number;
-  /** A packed asset's one cell: its objects sorted into the levels; null for a cell of the map */
-  packed: Packed | null;
-}
-
-/** The levels of a packed asset (PACK_MAX) */
-interface Packed {
-  /** The level each object shows, -1 hidden */
-  levelOf: Int8Array;
-  /** In a band: the level it dissolves into (-1: none), NO_NEXT outside; and how far (lod-fade.ts) */
-  nextOf: Int8Array;
-  fadeOf: Float32Array;
-  /**
-   * The level each object casts its shadow with, -1 none: the one that
-   * covers more of its pixels in a band, and only near the focus
-   * (shadowRadius), as the cells do
-   */
-  shadowOf: Int8Array;
-  /** Per level: how many of its instances, written first, cast (the shadow pass draws only those) */
-  casters: number[];
-  /** Per level: the instance matrices (and colours) all its part meshes share, and the bounds of what it shows */
-  matrices: InstancedBufferAttribute[];
-  colors: (InstancedBufferAttribute | null)[];
-  bounds: Sphere[];
-  /** Every object in object order, level 0's parts: what the editor picks (never drawn) */
-  pick: InstancedMesh[];
-  /** Where the camera stood at the last sort */
-  at: Vector3;
-  /** The instances changed since: the next sort writes every level */
-  stale: boolean;
-  /** Objects in a band at the last sort: they follow the settling at rest */
-  banded: number;
+/** What draws one level of an asset: its instances and the meshes of its parts */
+interface LevelDraw {
+  list: InstanceList;
+  /** Slot of each object in the list, -1 for none */
+  slots: Int32Array;
+  meshes: InstancedMesh[];
 }
 
 interface AssetBatch {
   entry: CatalogObject;
   model: ObjectModel;
   blocksLos: boolean;
+  /** Plants of 0.8 m and less cast no shadow */
+  casts: boolean;
   objects: MapObject[];
   levels: Level[];
-  /** Instance matrices of all objects (16 per object) */
-  matrices: Float32Array;
+  draws: LevelDraw[];
+  /** Objects the lists have room for */
+  capacity: number;
+  /** Instance matrices of all objects (16 per object), colours (3) when tinted: the lists' source */
+  source: InstanceSource;
   /** Bounding sphere centre and radius per object (4 per object) */
   spheres: Float32Array;
-  colors: Float32Array | null;
-  cells: Map<number, Cell>;
-  /** Cell and slot of each object */
-  slots: { cell: number; slot: number }[];
+  /** Bounds of every object, the frustum test of each of the asset's meshes */
+  bounds: Sphere;
+  boundsStale: boolean;
+  /** The level each object shows, -1 hidden; in a band the level it dissolves into (-1 none), NO_NEXT outside, and how far */
+  levelOf: Int8Array;
+  nextOf: Int8Array;
+  fadeOf: Float32Array;
+  /** The level each object casts its shadow with, -1 none */
+  shadowOf: Int8Array;
+  /** The camera travel (MapObjectLayer.travel) at which each object is looked at again */
+  dueAt: Float64Array;
 }
 
 export interface ObjectHit {
@@ -221,8 +149,6 @@ export interface ObjectLayerOptions {
   impostors?: ImpostorCache;
   /** Level of the water at a map point, null on dry ground (floating objects) */
   waterLevelAt?: (x: number, y: number) => number | null;
-  /** Assets with at most this many objects draw packed (PACK_MAX by default; 0 puts every asset into cells) */
-  packMax?: number;
 }
 
 export class MapObjectLayer {
@@ -249,17 +175,16 @@ export class MapObjectLayer {
   private readonly lastFocus = new Vector3(Infinity, 0, 0);
   private lastShadowRadius = 0;
   private restFor = 0;
-  /** The levels being worked out for a cell or packed object (blendAt, settleBlend), one object for all */
-  private readonly blend: LodBlend = { level: 0, next: null, t: 0 };
-  /** Which levels of a packed asset writePacked writes again, one array for all */
-  private dirtyLevels = new Uint8Array(8);
-  /** Packed cells due for their sort this frame, with their assets and their place among all packed cells (applyLevels) */
-  private readonly due: { batch: AssetBatch; cell: Cell; order: number }[] = [];
-  private dueCount = 0;
-  /** The place among the packed cells the next frame's sort starts at: the first one left waiting */
-  private repackFrom = 0;
-  /** A packed cell waits for its sort: the next frame sorts on though the camera stands */
-  private repackDue = false;
+  /**
+   * How far camera and focus have moved since the layer began, the larger
+   * of the two each frame, m: an object due at `dueAt` is looked at again
+   * once this passes it
+   */
+  private travel = 0;
+  /** Screen shares measure against a 60 degree view; a wider camera switches nearer (LOD_TAN_HALF_FOV) */
+  private viewScale = 1;
+  /** The levels being worked out for an object (blendAt, settleBlend), one object for all */
+  private readonly blend: LodBlend = { level: 0, next: null, t: 0, slack: 0 };
   private readonly tmpMatrix = new Matrix4();
   private readonly shear = new Matrix4();
   private readonly tmpPos = new Vector3();
@@ -274,10 +199,12 @@ export class MapObjectLayer {
   private readonly tiltEuler = new Euler();
   private readonly sphere = new Sphere();
   private readonly raycaster = new Raycaster();
-  private readonly pickMeshes: InstancedMesh[] = [];
-  private readonly instanceSphere = new Sphere();
+  /** One mesh the editor's ray tests each candidate object's model with */
+  private readonly pickMesh = new Mesh();
+  private readonly pickHits: Intersection[] = [];
+  private readonly tmpRay = new Ray();
   private readonly instanceMatrix = new Matrix4();
-  /** Cells within this distance of the focus cast shadows */
+  /** Objects within this distance of the focus cast shadows */
   shadowRadius = 400;
   /**
    * The quality level's part (render-quality.ts): detail switches and the
@@ -289,7 +216,7 @@ export class MapObjectLayer {
   private detail = { lodBias: 1, impostorFrom: 380 };
   /** Fade ranges of the card materials with the draw distance they were made for */
   private readonly fades: { range: Vector2; drawDistance: number }[] = [];
-  /** Counts every change the sun's shadow map shows: instances moved, levels or casters switched */
+  /** Counts every change the sun's shadow map shows: instances moved, casters switched */
   version = 0;
   /** The buildings raised from their footprint */
   private readonly masses: MassLayer;
@@ -312,16 +239,8 @@ export class MapObjectLayer {
     const masses = objects.filter(MassLayer.owns);
     const shown = this.masses.setObjects(masses);
     if (masses.length) objects = objects.filter((o) => !MassLayer.owns(o));
-    const groups = new Map<string, MapObject[]>();
     const catalog = await this.assets.catalog();
-    for (const o of objects) {
-      const entry = entriesOf(catalog).get(o.asset);
-      const blocks = o.blocksLos ?? entry?.blocksLos ?? false;
-      const key = `${o.asset}|${blocks ? 1 : 0}`;
-      let list = groups.get(key);
-      if (!list) groups.set(key, (list = []));
-      list.push(o);
-    }
+    const groups = groupByAsset(catalog, objects);
     // Every asset's model and detail models at once: one after the other, a town waited for 49 loads in a row
     const loaded = await Promise.all(
       [...groups].map(async ([key, list]) => ({
@@ -334,51 +253,47 @@ export class MapObjectLayer {
       })),
     );
     if (generation !== this.generation) return;
-    const built = loaded.map(({ key, list, parts: [model, lods] }) => this.buildBatch(model, lods, key.endsWith('|1'), list));
     this.clear();
-    this.batches = built;
-    for (const b of built) b.objects.forEach((o, index) => this.byId.set(o.id, { batch: b, index }));
+    this.batches = loaded.map(({ key, list, parts: [model, lods] }) => this.buildBatch(model, lods, key.endsWith('|1'), list));
+    for (const b of this.batches) b.objects.forEach((o, index) => this.byId.set(o.id, { batch: b, index }));
     this.applyLevels(true);
     await shown;
   }
 
   /**
-   * Moves, turns or scales objects in place, one upload per asset. Returns
-   * the ones it could not: unknown, another asset or LOS flag, or out of
-   * their cell; the caller moves those out and in again.
+   * Moves, turns or scales objects in place. Returns the ones it could not:
+   * unknown, another asset or LOS flag; the caller moves those out and in
+   * again.
    */
   updateObjects(objects: readonly MapObject[]): MapObject[] {
     const rest: MapObject[] = [];
-    const changed = new Map<AssetBatch, number[]>();
+    let changed = false;
     for (const o of objects) {
       const slot = this.byId.get(o.id);
       const b = slot?.batch;
       // A raised building goes out and in again (mass-layer.ts writes all of them anew)
-      if (!slot || !b || MassLayer.owns(o)) {
+      if (!slot || !b || MassLayer.owns(o) || o.asset !== b.objects[slot.index].asset || (o.blocksLos ?? b.entry.blocksLos) !== b.blocksLos) {
         rest.push(o);
         continue;
       }
-      const blocks = o.blocksLos ?? b.entry.blocksLos;
-      const cell = b.slots[slot.index].cell;
-      if (o.asset !== b.objects[slot.index].asset || blocks !== b.blocksLos || (cell !== PACKED && this.cellKey(o.x, o.y) !== cell)) {
+      if (o.tint && !b.source.colors) {
+        // A first tint: the asset needs colours, which addObjects gives it
         rest.push(o);
         continue;
       }
       b.objects[slot.index] = o;
       this.writeInstance(b, slot.index);
-      let list = changed.get(b);
-      if (!list) changed.set(b, (list = []));
-      list.push(slot.index);
+      this.rewrite(b, slot.index);
+      changed = true;
     }
-    for (const [b, list] of changed) this.uploadInstances(b, list, true);
-    if (changed.size) this.version++;
+    if (changed) {
+      this.version++;
+      this.applyLevels(false);
+    }
     return rest;
   }
 
-  /**
-   * Adds objects; only the cells they land in are rebuilt (an asset new to
-   * the map loads its model first). Resolves when they show.
-   */
+  /** Adds objects (an asset new to the map loads its model first). Resolves when they show. */
   async addObjects(objects: MapObject[]): Promise<void> {
     if (!objects.length) return;
     const masses = objects.filter(MassLayer.owns);
@@ -389,16 +304,7 @@ export class MapObjectLayer {
     }
     const generation = this.generation;
     const catalog = await this.assets.catalog();
-    const groups = new Map<string, MapObject[]>();
-    for (const o of objects) {
-      const entry = entriesOf(catalog).get(o.asset);
-      const blocks = o.blocksLos ?? entry?.blocksLos ?? false;
-      const key = `${o.asset}|${blocks ? 1 : 0}`;
-      let list = groups.get(key);
-      if (!list) groups.set(key, (list = []));
-      list.push(o);
-    }
-    for (const [key, list] of groups) {
+    for (const [key, list] of groupByAsset(catalog, objects)) {
       const blocks = key.endsWith('|1');
       const find = (): AssetBatch | undefined => this.batches.find((x) => x.model.id === list[0].asset && x.blocksLos === blocks);
       let b = find();
@@ -419,69 +325,51 @@ export class MapObjectLayer {
       }
       const start = b.objects.length;
       const n = start + list.length;
+      // A first tinted object gives the asset colours: its lists are built anew with them, as when it outgrows them
+      const newColors = !b.source.colors && list.some((o) => o.tint);
+      if (newColors) b.source.colors = new Float32Array(b.capacity * 3);
+      if (n > b.capacity || newColors) this.resize(b, Math.max(b.capacity, listCapacity(n)));
       b.objects.push(...list);
-      b.matrices = grow(b.matrices, n * 16);
-      b.spheres = grow(b.spheres, n * 4);
-      // A first tinted object gives the batch colours: every cell then needs them
-      const newColors = !b.colors && list.some((o) => o.tint);
-      if (b.colors || newColors) b.colors = grow(b.colors ?? new Float32Array(0), n * 3);
-      if (newColors) for (let i = 0; i < start; i++) this.writeInstance(b, i);
-      b.slots.length = n;
-      for (let i = start; i < n; i++) {
-        this.writeInstance(b, i);
-        this.byId.set(b.objects[i].id, { batch: b, index: i });
-      }
-      // New colours, a packed asset (its one cell is built anew, a few hundred instances at most), or one
-      // that grows past PACK_MAX into cells: laid out anew
-      if (newColors || b.cells.has(PACKED) || n <= (this.options.packMax ?? PACK_MAX)) {
-        this.layoutCells(b);
-        continue;
-      }
-      // Into free slots of their cells; a cell without room (or a new one) is built once for all of them
-      const rebuild = new Map<number, number[]>();
-      for (let i = start; i < n; i++) this.placeInCell(b, i, rebuild);
-      for (const [key, added] of rebuild) this.rebuildCell(b, key, added);
+      for (let i = newColors ? 0 : start; i < n; i++) this.writeInstance(b, i);
+      for (let i = start; i < n; i++) this.byId.set(b.objects[i].id, { batch: b, index: i });
+      // Shown by the pass below, as an object moving into view
+      b.boundsStale = true;
     }
-    // New cells start without a level: the normal pass picks theirs and leaves the others alone
     this.version++;
     this.applyLevels(false);
   }
 
-  /**
-   * Removes objects by id: each leaves its cell's meshes in place (the cell's
-   * last instance fills its slot), a cell that empties goes; a packed asset
-   * is built anew
-   */
+  /** Removes objects by id: each leaves the lists it is in, the asset's last object fills its place */
   removeObjects(ids: string[]): void {
     const masses = ids.filter((id) => this.masses.has(id));
     if (masses.length) void this.masses.change([], masses);
-    // Packed assets are built anew once their objects are out
-    const repack = new Set<AssetBatch>();
     for (const id of ids) {
       const slot = this.byId.get(id);
       if (!slot) continue;
       const b = slot.batch;
       const i = slot.index;
       this.byId.delete(id);
-      if (b.cells.has(PACKED)) repack.add(b);
-      else this.takeFromCell(b, i);
+      this.leaveLevels(b, i);
       const last = b.objects.length - 1;
       if (i !== last) {
-        // The batch's last object moves into the gap; its cell slot now names index i
+        // The asset's last object moves into the gap; its slots in the lists now name index i
         b.objects[i] = b.objects[last];
-        b.slots[i] = b.slots[last];
-        b.matrices.copyWithin(i * 16, last * 16, last * 16 + 16);
+        b.source.matrices.copyWithin(i * 16, last * 16, last * 16 + 16);
+        b.source.colors?.copyWithin(i * 3, last * 3, last * 3 + 3);
         b.spheres.copyWithin(i * 4, last * 4, last * 4 + 4);
-        b.colors?.copyWithin(i * 3, last * 3, last * 3 + 3);
-        const moved = b.cells.get(b.slots[i].cell);
-        if (moved) moved.indices[b.slots[i].slot] = i;
+        b.levelOf[i] = b.levelOf[last];
+        b.nextOf[i] = b.nextOf[last];
+        b.fadeOf[i] = b.fadeOf[last];
+        b.shadowOf[i] = b.shadowOf[last];
+        b.dueAt[i] = b.dueAt[last];
+        for (const d of b.draws) if (d.slots[last] >= 0) d.list.rename(d.slots, last, i);
         this.byId.set(b.objects[i].id, { batch: b, index: i });
       }
       b.objects.length = last;
-      b.slots.length = last;
+      b.boundsStale = true;
     }
-    for (const b of repack) this.layoutCells(b);
     const empty = this.batches.filter((b) => b.objects.length === 0);
+    for (const b of empty) this.disposeBatch(b);
     if (empty.length) this.batches = this.batches.filter((b) => b.objects.length > 0);
     this.version++;
     this.applyLevels(false);
@@ -493,76 +381,65 @@ export class MapObjectLayer {
    */
   refreshHeights(rect?: { minX: number; minY: number; maxX: number; maxY: number }, floatingOnly = false): void {
     if (!floatingOnly) this.masses.refreshHeights(rect);
+    let changed = false;
     for (const b of this.batches) {
       if (floatingOnly && !b.entry.float) continue;
       const reach = b.entry.footprint * 3 + 2;
-      const changed: number[] = [];
-      const visit = (i: number): void => {
+      for (let i = 0; i < b.objects.length; i++) {
         const o = b.objects[i];
-        if (rect && (o.x < rect.minX - reach || o.x > rect.maxX + reach || o.y < rect.minY - reach || o.y > rect.maxY + reach)) {
-          return;
-        }
-        if (this.reseat(b, i)) changed.push(i);
-      };
-      if (rect && !b.cells.has(PACKED)) {
-        // Only the cells the rectangle reaches: a brush on a map of 50 000 objects touches a few dozen
-        const cx0 = Math.floor((rect.minX - reach) / CELL_SIZE);
-        const cx1 = Math.floor((rect.maxX + reach) / CELL_SIZE);
-        const cy0 = Math.floor((rect.minY - reach) / CELL_SIZE);
-        const cy1 = Math.floor((rect.maxY + reach) / CELL_SIZE);
-        for (let cx = cx0; cx <= cx1; cx++) {
-          for (let cy = cy0; cy <= cy1; cy++) b.cells.get(cx * 4096 + cy)?.indices.forEach(visit);
-        }
-      } else {
-        for (let i = 0; i < b.objects.length; i++) visit(i);
+        if (rect && (o.x < rect.minX - reach || o.x > rect.maxX + reach || o.y < rect.minY - reach || o.y > rect.maxY + reach)) continue;
+        if (!this.reseat(b, i)) continue;
+        this.rewrite(b, i);
+        changed = true;
       }
-      if (changed.length) {
-        this.uploadInstances(b, changed, !!rect);
-        this.version++;
-      }
+    }
+    if (changed) {
+      this.version++;
+      this.applyLevels(false);
     }
   }
 
-  /** Detail level and draw distance per cell, shadows near `focus` (group space); the wind's clock runs in the environment */
+  /** Detail level per object, shadows near `focus` (group space); the wind's clock runs in the environment */
   update(dt: number, camera: Camera, focus?: Vector3): void {
     camera.getWorldPosition(this.camPos);
     this.group.worldToLocal(this.camPos);
     this.focus.copy(focus ?? this.camPos);
+    // A camera wider than the catalogue's 60 degrees shows each object smaller: every object takes its levels anew
+    const viewScale = camera instanceof PerspectiveCamera ? LOD_TAN_HALF_FOV / Math.tan((camera.fov * Math.PI) / 360) : 1;
+    const reframed = Math.abs(viewScale - this.viewScale) > 1e-6 || this.shadowRadius !== this.lastShadowRadius;
+    this.viewScale = viewScale;
+    this.lastShadowRadius = this.shadowRadius;
     // At rest the bands settle, moving they open again (settleBlend)
+    const step = this.lastCamPos.x === Infinity ? 0 : Math.max(this.camPos.distanceTo(this.lastCamPos), this.focus.distanceTo(this.lastFocus));
     const moved = this.camPos.distanceToSquared(this.lastCamPos) > 1e-6;
-    const focusMoved = this.focus.distanceToSquared(this.lastFocus) > 1e-6 || this.shadowRadius !== this.lastShadowRadius;
     this.lastCamPos.copy(this.camPos);
     this.lastFocus.copy(this.focus);
-    this.lastShadowRadius = this.shadowRadius;
+    this.travel += step;
     this.restFor = moved ? 0 : this.restFor + dt;
     const settle = Math.min(1, Math.max(0, this.settle + (this.restFor >= REST_S ? dt : -dt) / SETTLE_S));
     const settling = settle !== this.settle;
     this.settle = settle;
-    // A camera at rest with its bands settled and no packed asset waiting for its sort changes nothing
-    if (moved || focusMoved || settling || this.repackDue) this.applyLevels(false, settling);
+    // A camera and focus at rest with settled bands change nothing
+    if (reframed) this.applyLevels(true);
+    else if (step > 1e-3 || settling) this.applyLevels(false);
   }
 
   /**
-   * Shows one cell of every level of every asset with shadows on (or puts the
-   * normal per-frame choice back): a single render then compiles every
-   * program the objects can need, shadow depth variants included
+   * Shows every level of every asset with shadows on, at least one instance
+   * each (or puts the normal choice back): a single render then compiles
+   * every program the objects can need, shadow depth variants included
    */
   showAllForWarmUp(on: boolean): void {
-    if (!on) {
-      this.applyLevels(true);
-      return;
-    }
     for (const b of this.batches) {
-      const cell = b.cells.values().next().value as Cell | undefined;
-      for (const c of b.cells.values()) for (const meshes of c.levels) for (const m of meshes) m.visible = false;
-      if (!cell) continue;
-      // A packed asset: every object into every level for the one render
-      if (cell.packed) this.writePacked(b, cell, cell.packed, true);
-      for (const meshes of cell.levels) {
-        for (const m of meshes) {
-          m.visible = true;
-          m.castShadow = true;
-          m.frustumCulled = false;
+      for (const d of b.draws) {
+        // An empty level shows the asset's first object, written into its first slot for the one render
+        if (on && d.list.count === 0 && b.objects.length) d.list.placeholder(b.source, 0);
+        d.list.flush();
+        for (const m of d.meshes) {
+          m.count = on ? Math.max(1, d.list.count) : d.list.count;
+          m.visible = on || d.list.count > 0;
+          m.castShadow = on || (b.casts && d.list.casters > 0);
+          m.frustumCulled = !on;
         }
       }
     }
@@ -570,7 +447,7 @@ export class MapObjectLayer {
 
   /**
    * One instance of every detail level of these assets, with the same
-   * materials and instance attributes the map's cells would get, for
+   * materials and instance attributes the map's lists would get, for
    * compiling their programs before the first one is placed. Bakes the
    * impostors too. The caller disposes the meshes (not their geometry or
    * materials, which the layer shares).
@@ -602,36 +479,50 @@ export class MapObjectLayer {
     return out;
   }
 
-  /** First object a scene-space ray hits; the raycaster and the mesh list are kept between calls */
+  /**
+   * First object a scene-space ray hits: the objects whose bounds it
+   * crosses, then their full models (the level the camera shows does not
+   * matter to the editor's pick)
+   */
   raycast(ray: Ray): ObjectHit | null {
     this.raycaster.ray.copy(ray);
-    const meshes = this.pickMeshes;
-    meshes.length = 0;
-    for (const b of this.batches) for (const c of b.cells.values()) for (const m of c.packed ? c.packed.pick : c.levels[0]) meshes.push(m);
-    const hits = this.raycaster.intersectObjects(meshes, false);
-    meshes.length = 0;
-    let found: ObjectHit | null = null;
-    for (const hit of hits) {
-      const mesh = hit.object as InstancedMesh;
-      const batch = mesh.userData['batch'] as AssetBatch | undefined;
-      const cell = mesh.userData['cell'] as Cell | undefined;
-      if (!batch || !cell || hit.instanceId === undefined) continue;
-      // A packed asset's pick meshes hold the objects in their own order
-      const index = cell.packed ? hit.instanceId : cell.indices[hit.instanceId];
-      found = { object: batch.objects[index], point: hit.point, distance: hit.distance };
-      break;
+    let best: ObjectHit | null = null;
+    const pick = this.pickMesh;
+    const hits = this.pickHits;
+    for (const b of this.batches) {
+      const parent = b.blocksLos ? this.losGroup : this.group;
+      // The ray in the parent's frame for the bounds test
+      const local = this.tmpRay.copy(ray).applyMatrix4(this.tmpMatrix.copy(parent.matrixWorld).invert());
+      const ox = local.origin.x, oy = local.origin.y, oz = local.origin.z;
+      const dx = local.direction.x, dy = local.direction.y, dz = local.direction.z;
+      const sp = b.spheres;
+      for (let i = 0; i < b.objects.length; i++) {
+        const s = i * 4;
+        const cx = sp[s] - ox, cy = sp[s + 1] - oy, cz = sp[s + 2] - oz;
+        const along = cx * dx + cy * dy + cz * dz;
+        const r = sp[s + 3];
+        if (along < -r || cx * cx + cy * cy + cz * cz - along * along > r * r) continue;
+        for (const part of b.levels[0].parts) {
+          pick.geometry = part.geometry;
+          pick.material = part.material;
+          pick.matrixWorld.multiplyMatrices(parent.matrixWorld, this.instanceMatrix.fromArray(b.source.matrices, i * 16));
+          hits.length = 0;
+          pick.raycast(this.raycaster, hits);
+          for (const hit of hits) {
+            if (!best || hit.distance < best.distance) best = { object: b.objects[i], point: hit.point.clone(), distance: hit.distance };
+          }
+        }
+      }
     }
+    hits.length = 0;
     const mass = this.masses.raycast(this.raycaster, ray);
-    return mass && (!found || mass.distance < found.distance) ? mass : found;
+    return mass && (!best || mass.distance < best.distance) ? mass : best;
   }
 
   /** Meshes of objects that block no sight (scatter, props, small plants): what a water reflection leaves out */
   decorMeshes(): Object3D[] {
     const out: Object3D[] = [];
-    this.group.traverse((o) => {
-      const b = o.userData['batch'] as AssetBatch | undefined;
-      if (b && !b.blocksLos) out.push(o);
-    });
+    for (const b of this.batches) if (!b.blocksLos) for (const d of b.draws) out.push(...d.meshes);
     return out;
   }
 
@@ -647,16 +538,29 @@ export class MapObjectLayer {
     this.group.removeFromParent();
   }
 
+  /** The quality level's detail (see `detail`); every object takes its level again */
+  setDetail(detail: { lodBias: number; impostorFrom: number }): void {
+    if (detail.lodBias === this.detail.lodBias && detail.impostorFrom === this.detail.impostorFrom) return;
+    this.detail = { ...detail };
+    for (const f of this.fades) f.range.set(f.drawDistance * detail.lodBias * 0.55, f.drawDistance * detail.lodBias);
+    this.applyLevels(true);
+  }
+
   private clear(): void {
-    for (const b of this.batches) {
-      for (const c of b.cells.values()) this.disposeCell(c);
-    }
+    for (const b of this.batches) this.disposeBatch(b);
     this.batches = [];
     this.byId.clear();
   }
 
-  private cellKey(x: number, y: number): number {
-    return Math.floor(x / CELL_SIZE) * 4096 + Math.floor(y / CELL_SIZE);
+  private disposeBatch(b: AssetBatch): void {
+    for (const d of b.draws) {
+      for (const m of d.meshes) {
+        m.removeFromParent();
+        m.dispose();
+        disposeFadeGeometry(m.geometry);
+      }
+    }
+    b.draws = [];
   }
 
   /** Bakes an asset's impostor ahead (ImpostorCache.prepare), when the layer draws impostors */
@@ -664,19 +568,22 @@ export class MapObjectLayer {
     return this.options.impostors?.prepare(model) ?? Promise.resolve();
   }
 
-  /** Detail levels of an asset: its model, the catalogue's LOD models, an impostor for far trees */
+  /**
+   * Detail levels of an asset: its model, the catalogue's LOD models (each
+   * from where an object fills its screen share), an impostor for far trees
+   */
   private levelsFor(model: ObjectModel, lods: { model: ObjectModel; screen: number }[]): Level[] {
     const entry = model.entry;
     const drawn = (m: ObjectModel) =>
       mergedParts(m).map((p) => ({ geometry: p.geometry, material: this.objectMaterial(p.material, entry), depthMaterial: isRotor(p.material) ? this.rotorShadow(entry) : undefined }));
     const levels: Level[] = [{ from: 0, parts: drawn(model) }];
-    // Where an object of the asset's size at scale 1 fills the level's screen share
-    const radius = objectRadius(entry);
-    for (const lod of lods) levels.push({ from: screenDistance(radius, lod.screen), parts: drawn(lod.model) });
+    for (const lod of lods) levels.push({ from: screenDistance(1, lod.screen), parts: drawn(lod.model) });
     const imp = this.options.impostors?.get(model);
     if (imp) {
-      // Beyond the game camera's usual distance (200 to 300 m, impostorFrom in High), where a tree is a few pixels wide
-      const from = Math.max(lods.length ? levels[levels.length - 1].from * 1.5 : 0, entry.height * 25);
+      // Beyond the game camera's usual distance (200 to 300 m, impostorFrom in High), where a tree is a few
+      // pixels wide: past its last LOD model, and no nearer than 25 heights of the model for its radius
+      const radius = Math.max(entry.footprint, model.height * 0.6);
+      const from = Math.max(lods.length ? levels[levels.length - 1].from * 1.5 : 0, (entry.height * 25) / radius);
       levels.push({ from, impostor: true, parts: [{ geometry: imp.geometry, material: imp.material, depthMaterial: imp.depthMaterial }] });
     }
     return levels;
@@ -685,524 +592,195 @@ export class MapObjectLayer {
   private buildBatch(model: ObjectModel, lods: { model: ObjectModel; screen: number }[], blocksLos: boolean, objects: MapObject[]): AssetBatch {
     const entry = model.entry;
     const n = objects.length;
+    const capacity = listCapacity(n);
     const vegetation = entry.category === 'tree' || entry.category === 'plant';
     const tinted = vegetation || objects.some((o) => o.tint);
     const b: AssetBatch = {
       entry,
       model,
       blocksLos,
+      casts: entry.category !== 'plant' || entry.height > 0.8,
       objects: objects.slice(),
       levels: this.levelsFor(model, lods),
-      matrices: new Float32Array(n * 16),
-      spheres: new Float32Array(n * 4),
-      colors: tinted ? new Float32Array(n * 3) : null,
-      cells: new Map(),
-      slots: new Array(n),
+      draws: [],
+      capacity,
+      source: { matrices: new Float32Array(capacity * 16), colors: tinted ? new Float32Array(capacity * 3) : null },
+      spheres: new Float32Array(capacity * 4),
+      bounds: new Sphere(),
+      boundsStale: true,
+      levelOf: new Int8Array(capacity).fill(-1),
+      nextOf: new Int8Array(capacity).fill(NO_NEXT),
+      fadeOf: new Float32Array(capacity),
+      shadowOf: new Int8Array(capacity).fill(-1),
+      dueAt: new Float64Array(capacity).fill(-Infinity),
     };
     for (let i = 0; i < n; i++) this.writeInstance(b, i);
-    this.layoutCells(b);
+    b.draws = b.levels.map((level, li) => this.buildDraw(b, level, li));
     return b;
   }
 
-  /**
-   * Sorts the batch's objects into cells and builds every cell's meshes
-   * anew; an asset with few objects gets its one packed cell instead
-   */
-  private layoutCells(b: AssetBatch): void {
-    for (const cell of b.cells.values()) this.disposeCell(cell);
-    b.cells.clear();
-    if (b.objects.length <= (this.options.packMax ?? PACK_MAX)) {
-      // Few objects: one packed cell, built anew (a few hundred instances at most)
-      const indices = Array.from({ length: b.objects.length }, (_, i) => i);
-      for (let i = 0; i < indices.length; i++) b.slots[i] = { cell: PACKED, slot: i };
-      if (indices.length) b.cells.set(PACKED, this.buildCell(b, indices, true));
-      return;
-    }
-    const lists = new Map<number, number[]>();
-    for (let i = 0; i < b.objects.length; i++) {
-      const key = this.cellKey(b.objects[i].x, b.objects[i].y);
-      let list = lists.get(key);
-      if (!list) lists.set(key, (list = []));
-      b.slots[i] = { cell: key, slot: list.length };
-      list.push(i);
-    }
-    for (const cell of b.cells.values()) this.disposeCell(cell);
-    b.cells.clear();
-    for (const [key, indices] of lists) b.cells.set(key, this.buildCell(b, indices));
-  }
-
-  /**
-   * Object i (written already) into a free slot of its cell's meshes; when
-   * the cell has no room or is new, `rebuild` collects it for rebuildCell
-   */
-  private placeInCell(b: AssetBatch, i: number, rebuild: Map<number, number[]>): void {
-    const key = this.cellKey(b.objects[i].x, b.objects[i].y);
-    const cell = b.cells.get(key);
-    const waiting = rebuild.get(key);
-    if (!cell || waiting || cell.indices.length >= cell.capacity) {
-      if (waiting) waiting.push(i);
-      else rebuild.set(key, [i]);
-      return;
-    }
-    const slot = cell.indices.length;
-    cell.indices.push(i);
-    // In a band the next pass writes the dissolve of every slot, the new one too
-    cell.fade = -1;
-    b.slots[i] = { cell: key, slot };
-    this.sphere.set(this.tmpPos.fromArray(b.spheres, i * 4), b.spheres[i * 4 + 3]);
-    if (cell.sphere.isEmpty()) cell.sphere.copy(this.sphere);
-    else cell.sphere.union(this.sphere);
-    for (const meshes of cell.levels) {
-      for (const m of meshes) {
-        this.writeSlot(b, m, slot, i);
-        m.count = cell.indices.length;
-        this.growBounds(m, slot);
-      }
-    }
-  }
-
-  /** A cell built anew with the objects it held and `added` (a new cell: only those) */
-  private rebuildCell(b: AssetBatch, key: number, added: number[]): void {
-    const old = b.cells.get(key);
-    const indices = old ? [...old.indices, ...added] : added;
-    if (old) this.disposeCell(old);
-    const cell = this.buildCell(b, indices);
-    b.cells.set(key, cell);
-    indices.forEach((i, slot) => (b.slots[i] = { cell: key, slot }));
-  }
-
-  /** Object i out of its cell: the cell's last instance moves into its slot; an empty cell goes */
-  private takeFromCell(b: AssetBatch, i: number): void {
-    const { cell: key, slot } = b.slots[i];
-    const cell = b.cells.get(key);
-    if (!cell) return;
-    const last = cell.indices.length - 1;
-    if (slot !== last) {
-      const j = cell.indices[last];
-      cell.indices[slot] = j;
-      b.slots[j] = { cell: key, slot };
-      for (const meshes of cell.levels) for (const m of meshes) this.writeSlot(b, m, slot, j);
-    }
-    cell.indices.pop();
-    if (!cell.indices.length) {
-      this.disposeCell(cell);
-      b.cells.delete(key);
-      return;
-    }
-    for (const meshes of cell.levels) for (const m of meshes) m.count = cell.indices.length;
-  }
-
-  /**
-   * The mesh's bounding sphere takes in the instance at `slot` (its
-   * geometry's sphere moved by its matrix, as three computes it): frustum
-   * culling must not drop it, and a full recompute walks every instance
-   */
-  private growBounds(m: InstancedMesh, slot: number): void {
-    if (!m.boundingSphere) {
-      m.computeBoundingSphere();
-      return;
-    }
-    const g = m.geometry;
-    if (!g.boundingSphere) g.computeBoundingSphere();
-    this.instanceSphere.copy(g.boundingSphere!).applyMatrix4(this.instanceMatrix.fromArray(m.instanceMatrix.array, slot * 16));
-    m.boundingSphere.union(this.instanceSphere);
-  }
-
-  /** Object i's matrix and colour into slot `slot` of a cell mesh, uploaded as a range */
-  private writeSlot(b: AssetBatch, m: InstancedMesh, slot: number, i: number): void {
-    (m.instanceMatrix.array as Float32Array).set(b.matrices.subarray(i * 16, i * 16 + 16), slot * 16);
-    markRange(m.instanceMatrix, slot * 16, 16);
-    const colors = m.instanceColor;
-    if (b.colors && colors) {
-      (colors.array as Float32Array).set(b.colors.subarray(i * 3, i * 3 + 3), slot * 3);
-      markRange(colors, slot * 3, 3);
-    }
-  }
-
-  private buildCell(b: AssetBatch, indices: number[], packed = false): Cell {
-    const entry = b.entry;
+  /** The list and part meshes of one level, empty: the next pass fills them */
+  private buildDraw(b: AssetBatch, level: Level, li: number): LevelDraw {
+    const list = new InstanceList(b.capacity, !!b.source.colors);
     const parent = b.blocksLos ? this.losGroup : this.group;
-    const n = indices.length;
-    const capacity = packed ? n : cellCapacity(n);
-    const cell: Cell = { indices, capacity, levels: [], fades: [], sphere: new Sphere(), level: -1, next: null, fade: 0, packed: null };
-    const pack: Packed | null = packed
-      ? {
-        levelOf: new Int8Array(n).fill(-2),
-        nextOf: new Int8Array(n).fill(NO_NEXT),
-        fadeOf: new Float32Array(n),
-        shadowOf: new Int8Array(n).fill(-1),
-        casters: [],
-        matrices: [],
-        colors: [],
-        bounds: [],
-        pick: [],
-        at: new Vector3(),
-        stale: true,
-        banded: 0,
-      }
-      : null;
-    for (const [li, level] of b.levels.entries()) {
-      const meshes: InstancedMesh[] = [];
-      // The level's dissolve per instance, shared by its parts
-      const fade = new InstancedBufferAttribute(new Float32Array(capacity), 1);
-      cell.fades.push(fade);
-      // A packed level's parts share one set of instances
-      const shared = pack ? new InstancedBufferAttribute(new Float32Array(n * 16), 16) : null;
-      const sharedColors = pack && b.colors ? new InstancedBufferAttribute(new Float32Array(n * 3), 3) : null;
-      if (pack) {
-        pack.matrices.push(shared!);
-        pack.colors.push(sharedColors);
-        pack.bounds.push(new Sphere());
-        pack.casters.push(0);
-      }
-      for (const part of level.parts) {
-        const mesh = new InstancedMesh(fadeGeometry(part.geometry, fade), part.material, capacity);
-        if (part.depthMaterial) mesh.customDepthMaterial = part.depthMaterial;
-        mesh.count = n;
-        mesh.name = `${entry.id}${b.blocksLos ? '' : '-decor'}${li ? `-lod${li}` : ''}`;
-        if (shared) {
-          mesh.instanceMatrix = shared;
-          if (sharedColors) mesh.instanceColor = sharedColors;
-          mesh.count = 0;
-          mesh.boundingSphere = pack!.bounds[li];
-          // The shadow pass draws the level's casters only, written first (writePacked)
-          const p = pack!;
-          let drawn = 0;
-          mesh.onBeforeShadow = () => {
-            drawn = mesh.count;
-            mesh.count = Math.min(drawn, p.casters[li]);
-          };
-          mesh.onAfterShadow = () => {
-            mesh.count = drawn;
-          };
-        } else {
-          const arr = mesh.instanceMatrix.array as Float32Array;
-          indices.forEach((i, k) => arr.set(b.matrices.subarray(i * 16, i * 16 + 16), k * 16));
-          if (b.colors) {
-            const c = new Color();
-            indices.forEach((i, k) => mesh.setColorAt(k, c.setRGB(b.colors![i * 3], b.colors![i * 3 + 1], b.colors![i * 3 + 2])));
-          }
-        }
-        mesh.castShadow = entry.category !== 'plant' || entry.height > 0.8;
-        mesh.receiveShadow = true;
-        mesh.matrixAutoUpdate = false;
-        mesh.visible = false;
-        if (!shared) mesh.computeBoundingSphere();
-        mesh.userData['batch'] = b;
-        mesh.userData['cell'] = cell;
-        if (!b.blocksLos) mesh.userData['losTransparent'] = true;
-        parent.add(mesh);
-        meshes.push(mesh);
-      }
-      cell.levels.push(meshes);
-    }
-    if (pack) {
-      // The editor's picks: every object, level 0's parts, in object order
-      for (const part of b.levels[0]?.parts ?? []) {
-        const mesh = new InstancedMesh(part.geometry, part.material, n);
-        mesh.userData['batch'] = b;
-        mesh.userData['cell'] = cell;
-        pack.pick.push(mesh);
-      }
-      this.writePicks(b, pack, indices);
-      cell.packed = pack;
-    }
-    this.cellBounds(b, cell);
-    return cell;
+    const meshes = level.parts.map((part) => {
+      // Made empty: the level's list brings the instances (three's own would be thrown away at once)
+      const mesh = new InstancedMesh(fadeGeometry(part.geometry, list.fades), part.material, 0);
+      if (part.depthMaterial) mesh.customDepthMaterial = part.depthMaterial;
+      mesh.instanceMatrix = list.matrices;
+      if (list.colors) mesh.instanceColor = list.colors;
+      mesh.count = 0;
+      mesh.name = `${b.entry.id}${b.blocksLos ? '' : '-decor'}${li ? `-lod${li}` : ''}`;
+      mesh.boundingSphere = b.bounds;
+      // The shadow pass draws the level's casters only, the first of its list
+      let drawn = 0;
+      mesh.onBeforeShadow = () => {
+        drawn = mesh.count;
+        mesh.count = Math.min(drawn, list.casters);
+      };
+      mesh.onAfterShadow = () => {
+        mesh.count = drawn;
+      };
+      mesh.castShadow = false;
+      mesh.receiveShadow = true;
+      mesh.matrixAutoUpdate = false;
+      mesh.visible = false;
+      mesh.userData['batch'] = b;
+      mesh.userData['list'] = list;
+      if (!b.blocksLos) mesh.userData['losTransparent'] = true;
+      parent.add(mesh);
+      return mesh;
+    });
+    return { list, slots: new Int32Array(b.capacity).fill(-1), meshes };
   }
 
-  /** The pick meshes of objects `changed` from the batch's matrices */
-  private writePicks(b: AssetBatch, pack: Packed, changed: readonly number[]): void {
-    for (const m of pack.pick) {
-      const arr = m.instanceMatrix.array as Float32Array;
-      for (const i of changed) arr.set(b.matrices.subarray(i * 16, i * 16 + 16), i * 16);
-      m.instanceMatrix.needsUpdate = true;
-      m.boundingSphere = null;
-      m.computeBoundingSphere();
-    }
+  /** Room for `capacity` objects: the asset's arrays and lists anew, every object back into its levels */
+  private resize(b: AssetBatch, capacity: number): void {
+    const n = b.objects.length;
+    const keep = <T extends Float32Array | Float64Array | Int8Array>(a: T, size: number, fill: number): T => {
+      const out = new (a.constructor as new (n: number) => T)(capacity * size);
+      out.fill(fill);
+      out.set(a.subarray(0, n * size));
+      return out;
+    };
+    b.source.matrices = keep(b.source.matrices, 16, 0);
+    if (b.source.colors) b.source.colors = keep(b.source.colors, 3, 1);
+    b.spheres = keep(b.spheres, 4, 0);
+    b.levelOf = keep(b.levelOf, 1, -1).fill(-1, 0, n);
+    b.nextOf = keep(b.nextOf, 1, NO_NEXT).fill(NO_NEXT, 0, n);
+    b.fadeOf = keep(b.fadeOf, 1, 0);
+    b.shadowOf = keep(b.shadowOf, 1, -1).fill(-1, 0, n);
+    b.dueAt = keep(b.dueAt, 1, -Infinity).fill(-Infinity, 0, n);
+    b.capacity = capacity;
+    this.disposeBatch(b);
+    b.draws = b.levels.map((level, li) => this.buildDraw(b, level, li));
+  }
+
+  /** Object i out of every list it is in */
+  private leaveLevels(b: AssetBatch, i: number): void {
+    const level = b.levelOf[i];
+    const next = b.nextOf[i];
+    if (level >= 0) b.draws[level].list.remove(b.draws[level].slots, i);
+    if (next >= 0 && next !== level) b.draws[next].list.remove(b.draws[next].slots, i);
+    b.levelOf[i] = -1;
+    b.nextOf[i] = NO_NEXT;
+    b.shadowOf[i] = -1;
+  }
+
+  /** Object i's instance anew in the lists it is in, and looked at again in the next pass */
+  private rewrite(b: AssetBatch, i: number): void {
+    for (const d of b.draws) if (d.slots[i] >= 0) d.list.rewrite(d.slots, i, b.source);
+    b.dueAt[i] = -Infinity;
+    b.boundsStale = true;
   }
 
   /**
-   * A packed asset's objects into the levels for the camera's distance to
-   * each, an object in a band into both its levels with their dissolve
-   * (or every object into every level whole, for the warm-up). Writes only
-   * levels whose objects or dissolves changed, every level when the
-   * instances did (`stale`). Returns whether an object changed its levels:
-   * a dissolve moving within the band changes no shadow.
+   * Per object that is due (or every one, `force`): the level for its size
+   * on screen, hidden beyond the draw distance, shadows only near the focus.
+   * Then the lists go up and the meshes draw what their lists hold
    */
-  private writePacked(b: AssetBatch, cell: Cell, pack: Packed, all = false): boolean {
-    const n = cell.indices.length;
-    const levels = b.levels.length;
-    const { lodBias, impostorFrom } = this.detail;
-    const draw = b.blocksLos ? b.entry.drawDistance : b.entry.drawDistance * lodBias;
-    if (this.dirtyLevels.length < levels) this.dirtyLevels = new Uint8Array(levels);
-    const dirty = this.dirtyLevels;
-    dirty.fill(pack.stale || all ? 1 : 0, 0, levels);
-    let moved = pack.stale || all;
-    let banded = 0;
-    const casts = b.entry.category !== 'plant' || b.entry.height > 0.8;
-    const blend = this.blend;
-    for (let i = 0; i < n; i++) {
-      const s = i * 4;
-      if (all) {
-        blend.level = 0;
-        blend.next = null;
-        blend.t = 0;
-      } else {
-        const d = Math.max(0, distance(b.spheres, s, this.camPos) - b.spheres[s + 3]);
-        blendAt(b.levels, d, draw, lodBias, impostorFrom, blend);
-      }
-      if (blend.next !== null) banded++;
-      settleBlend(blend, this.settle, blend);
-      const next = blend.next ?? NO_NEXT;
-      // In a band the level that covers more of the pixels casts, and only near the focus
-      const near = distance(b.spheres, s, this.focus) - b.spheres[s + 3] < this.shadowRadius;
-      const caster = !casts || !near ? -1 : next !== NO_NEXT && blend.t >= 0.5 ? next : blend.level;
-      if (caster !== pack.shadowOf[i]) {
-        moved = true;
-        if (pack.shadowOf[i] >= 0) dirty[pack.shadowOf[i]] = 1;
-        if (caster >= 0) dirty[caster] = 1;
-        pack.shadowOf[i] = caster;
-      }
-      const was = pack.levelOf[i];
-      const wasNext = pack.nextOf[i];
-      if (blend.level !== was || next !== wasNext) {
-        moved = true;
-        if (was >= 0) dirty[was] = 1;
-        if (wasNext >= 0) dirty[wasNext] = 1;
-        if (blend.level >= 0) dirty[blend.level] = 1;
-        if (next >= 0) dirty[next] = 1;
-      } else if (next !== NO_NEXT && pack.fadeOf[i] !== blend.t) {
-        if (blend.level >= 0) dirty[blend.level] = 1;
-        if (next >= 0) dirty[next] = 1;
-      }
-      pack.levelOf[i] = blend.level;
-      pack.nextOf[i] = next;
-      pack.fadeOf[i] = blend.t;
-    }
-    pack.stale = false;
-    pack.banded = banded;
-    if (dirty.indexOf(1) < 0 || dirty.indexOf(1) >= levels) return false;
-    for (let l = 0; l < levels; l++) {
-      if (!dirty[l]) continue;
-      const matrices = pack.matrices[l].array as Float32Array;
-      const colors = pack.colors[l]?.array as Float32Array | undefined;
-      const fades = cell.fades[l].array as Float32Array;
-      const bounds = pack.bounds[l].makeEmpty();
-      let count = 0;
-      // The level's casters first, then the rest: the shadow pass draws the first `casters` (buildCell)
-      for (let pass = 0; pass < 2; pass++) {
-        const casting = pass === 0;
-        for (let i = 0; i < n; i++) {
-          const outgoing = pack.levelOf[i] === l;
-          if (!all && !outgoing && pack.nextOf[i] !== l) continue;
-          if (!all && (pack.shadowOf[i] === l) !== casting) continue;
-          if (all && !casting) continue;
-          // Copied value by value: a subarray per object was a view object each, most of what a sort allocated
-          copyValues(b.matrices, i * 16, matrices, count * 16, 16);
-          if (colors && b.colors) copyValues(b.colors, i * 3, colors, count * 3, 3);
-          // Outgoing: drop a share t of the pixels; incoming: keep a share t
-          fades[count] = all || pack.nextOf[i] === NO_NEXT ? 0 : outgoing ? pack.fadeOf[i] : pack.fadeOf[i] - 1;
-          this.sphere.set(this.tmpPos.fromArray(b.spheres, i * 4), b.spheres[i * 4 + 3]);
-          if (bounds.isEmpty()) bounds.copy(this.sphere);
-          else bounds.union(this.sphere);
-          count++;
-        }
-        if (casting) pack.casters[l] = count;
-      }
-      // Only the instances the level holds now go up
-      uploadFirst(pack.matrices[l], count * 16);
-      if (pack.colors[l]) uploadFirst(pack.colors[l]!, count * 3);
-      uploadFirst(cell.fades[l], count);
-      for (const m of cell.levels[l]) {
-        m.count = count;
-        m.visible = count > 0;
-        m.frustumCulled = !all;
-        m.castShadow = pack.casters[l] > 0;
-      }
-    }
-    return moved;
-  }
-
-  private disposeCell(cell: Cell): void {
-    for (const meshes of cell.levels) {
-      for (const m of meshes) {
-        m.removeFromParent();
-        m.dispose();
-        disposeFadeGeometry(m.geometry);
-      }
-    }
-    for (const m of cell.packed?.pick ?? []) m.dispose();
-  }
-
-  /** The cell's bounding sphere, from its instances */
-  private cellBounds(b: AssetBatch, cell: Cell): void {
-    cell.sphere.makeEmpty();
-    for (const i of cell.indices) {
-      this.sphere.set(this.tmpPos.fromArray(b.spheres, i * 4), b.spheres[i * 4 + 3]);
-      if (cell.sphere.isEmpty()) cell.sphere.copy(this.sphere);
-      else cell.sphere.union(this.sphere);
-    }
-  }
-
-  /** Re-uploads the instances of changed objects into their cells' meshes */
-  private uploadInstances(b: AssetBatch, changed: number[], ranged: boolean): void {
-    const touched = new Set<Cell>();
-    for (const i of changed) {
-      const { cell: key, slot } = b.slots[i];
-      const cell = b.cells.get(key);
-      if (!cell) continue;
-      touched.add(cell);
-      if (cell.packed) continue;
-      for (const meshes of cell.levels) {
-        for (const m of meshes) {
-          (m.instanceMatrix.array as Float32Array).set(b.matrices.subarray(i * 16, i * 16 + 16), slot * 16);
-          if (ranged) markRange(m.instanceMatrix, slot * 16, 16);
-          else {
-            // All of it: ranges marked before would cut the upload to them
-            m.instanceMatrix.clearUpdateRanges();
-            m.instanceMatrix.needsUpdate = true;
-          }
-        }
-      }
-    }
-    for (const cell of touched) {
-      this.cellBounds(b, cell);
-      if (!cell.packed) continue;
-      // The objects sort again into their levels, every level written with the new instances
-      this.writePicks(b, cell.packed, changed);
-      cell.packed.stale = true;
-      this.writePacked(b, cell, cell.packed);
-    }
-    // A few changed (a brush): the mesh spheres grow by them; many: computed anew
-    if (ranged && changed.length < 64) {
-      for (const i of changed) {
-        const { cell: key, slot } = b.slots[i];
-        const cell = b.cells.get(key);
-        if (cell && !cell.packed) for (const meshes of cell.levels) for (const m of meshes) this.growBounds(m, slot);
-      }
-    } else {
-      for (const cell of touched) if (!cell.packed) for (const meshes of cell.levels) for (const m of meshes) m.computeBoundingSphere();
-    }
-  }
-
-  /** The quality level's detail (see `detail`); every cell takes its level again */
-  setDetail(detail: { lodBias: number; impostorFrom: number }): void {
-    if (detail.lodBias === this.detail.lodBias && detail.impostorFrom === this.detail.impostorFrom) return;
-    this.detail = { ...detail };
-    for (const f of this.fades) f.range.set(f.drawDistance * detail.lodBias * 0.55, f.drawDistance * detail.lodBias);
-    this.applyLevels(true);
-  }
-
-  /**
-   * Per cell: the level for its distance, hidden beyond the draw distance,
-   * shadows only near the focus. Packed assets sort their objects again
-   * once the camera moved a step, at most REPACK_PER_FRAME objects a frame
-   * (forced ones and settling bands all at once); one left waiting sets
-   * `repackDue` and goes first in the next frame
-   */
-  private applyLevels(force: boolean, settling = false): void {
+  private applyLevels(force: boolean): void {
     if (force) this.version++;
     const { lodBias, impostorFrom } = this.detail;
-    let packed = 0;
-    this.dueCount = 0;
+    const travel = this.travel;
+    const blend = this.blend;
     for (const b of this.batches) {
       const draw = b.blocksLos ? b.entry.drawDistance : b.entry.drawDistance * lodBias;
-      for (const cell of b.cells.values()) {
-        const pack = cell.packed;
-        if (pack) {
-          const order = packed++;
-          // Sorted again once the camera moved a step; the shadow map follows what changed
-          if (force) pack.stale = true;
-          // A band that settles or opens is written anew though the camera stands
-          if (pack.stale || (settling && pack.banded > 0)) {
-            pack.at.copy(this.camPos);
-            if (this.writePacked(b, cell, pack)) this.version++;
-          } else if (pack.at.distanceToSquared(this.camPos) >= REPACK_STEP * REPACK_STEP) {
-            this.addDue(b, cell, order);
-          }
-          continue;
-        }
-        const d = Math.max(0, cell.sphere.distanceToPoint(this.camPos));
-        const { level, next, t } = settleBlend(blendAt(b.levels, d, draw, lodBias, impostorFrom, this.blend), this.settle, this.blend);
-        if (level !== cell.level || next !== cell.next || force) {
-          for (let l = 0; l < cell.levels.length; l++) {
-            for (const m of cell.levels[l]) {
-              m.visible = l === level || l === next;
-              m.frustumCulled = true;
-            }
-          }
-          cell.level = level;
-          cell.next = next;
-          cell.fade = -1;
-          this.version++;
-        }
-        if (next !== null && t !== cell.fade) {
-          // The whole cell dissolves: outgoing drops a share t of its pixels, incoming keeps a share t
-          cell.fade = t;
-          if (level >= 0) this.setCellFade(cell, level, t);
-          if (next >= 0) this.setCellFade(cell, next, t - 1);
-        } else if (next === null && cell.fade !== 0) {
-          cell.fade = 0;
-          if (level >= 0) this.setCellFade(cell, level, 0);
-        }
-        // In a band the level that covers more of the pixels casts the shadow
-        const caster = next !== null && next >= 0 && t >= 0.5 ? next : level;
-        if (caster >= 0) {
-          const shadow = cell.sphere.distanceToPoint(this.focus) < this.shadowRadius;
-          const casts = b.entry.category !== 'plant' || b.entry.height > 0.8;
-          for (let l = 0; l < cell.levels.length; l++) {
-            for (const m of cell.levels[l]) {
-              const on = l === caster && casts && shadow;
-              if (m.castShadow === on) continue;
-              m.castShadow = on;
-              this.version++;
-            }
-          }
+      const sp = b.spheres;
+      for (let i = 0; i < b.objects.length; i++) {
+        if (!force && b.dueAt[i] > travel) continue;
+        const s = i * 4;
+        const r = sp[s + 3];
+        const d = Math.max(0, distance(sp, s, this.camPos) - r);
+        blendAt(b.levels, d, r * this.viewScale, draw, lodBias, impostorFrom, blend);
+        settleBlend(blend, this.settle, blend);
+        // In a band the level that covers more of the pixels casts, and only near the focus
+        const toFocus = distance(sp, s, this.focus) - r;
+        const next = blend.next ?? NO_NEXT;
+        const caster = !b.casts || toFocus >= this.shadowRadius ? -1 : next >= 0 && blend.t >= 0.5 ? next : blend.level;
+        b.dueAt[i] = travel + Math.min(blend.slack, Math.abs(toFocus - this.shadowRadius));
+        this.place(b, i, blend.level, next, blend.t, caster);
+      }
+      if (b.boundsStale) this.updateBounds(b);
+      for (const d of b.draws) {
+        d.list.flush();
+        const count = d.list.count;
+        for (const m of d.meshes) {
+          m.count = count;
+          m.visible = count > 0;
+          m.castShadow = d.list.casters > 0;
+          m.frustumCulled = true;
         }
       }
     }
-    this.sortDue();
   }
 
-  private addDue(batch: AssetBatch, cell: Cell, order: number): void {
-    const slot = this.due[this.dueCount];
-    if (slot) {
-      slot.batch = batch;
-      slot.cell = cell;
-      slot.order = order;
+  /** Object i into the lists of `level` and `next` (in a band, dissolving by t), casting with `caster` */
+  private place(b: AssetBatch, i: number, level: number, next: number, t: number, caster: number): void {
+    const was = b.levelOf[i];
+    const wasNext = b.nextOf[i];
+    const wasCaster = b.shadowOf[i];
+    if (level === was && next === wasNext && caster === wasCaster && (next === NO_NEXT || t === b.fadeOf[i])) return;
+    // Each level the object was or is in, once
+    this.placeIn(b, i, was, level, next, t, caster);
+    if (wasNext !== was) this.placeIn(b, i, wasNext, level, next, t, caster);
+    if (level !== was && level !== wasNext) this.placeIn(b, i, level, level, next, t, caster);
+    if (next !== was && next !== wasNext && next !== level) this.placeIn(b, i, next, level, next, t, caster);
+    // The shadow map shows the casters: a change among them draws it anew
+    if (caster !== wasCaster || (caster >= 0 && (level !== was || next !== wasNext))) this.version++;
+    b.levelOf[i] = level;
+    b.nextOf[i] = next;
+    b.fadeOf[i] = t;
+    b.shadowOf[i] = caster;
+  }
+
+  /** Object i in level l's list or not, as it shows `level` and `next` now, its fade and whether it casts there */
+  private placeIn(b: AssetBatch, i: number, l: number, level: number, next: number, t: number, caster: number): void {
+    if (l < 0) return;
+    const d = b.draws[l];
+    const isIn = l === level || l === next;
+    const slot = d.slots[i];
+    // Outgoing drops a share t of its pixels, incoming keeps a share t (lod-fade.ts)
+    const fade = next === NO_NEXT ? 0 : l === level ? t : t - 1;
+    if (!isIn) {
+      if (slot >= 0) d.list.remove(d.slots, i);
+    } else if (slot < 0) {
+      d.list.insert(d.slots, i, b.source, l === caster, fade);
     } else {
-      this.due.push({ batch, cell, order });
+      d.list.setCasting(d.slots, i, l === caster);
+      d.list.setFade(d.slots, i, fade);
     }
-    this.dueCount++;
   }
 
-  /** The due packed cells sorted, from where the last frame stopped round, until REPACK_PER_FRAME objects are */
-  private sortDue(): void {
-    const n = this.dueCount;
-    this.repackDue = false;
-    if (!n) return;
-    let start = 0;
-    while (start < n && this.due[start].order < this.repackFrom) start++;
-    let budget = REPACK_PER_FRAME;
-    for (let k = 0; k < n; k++) {
-      const { batch, cell, order } = this.due[(start + k) % n];
-      if (budget <= 0) {
-        this.repackFrom = order;
-        this.repackDue = true;
-        return;
-      }
-      budget -= cell.indices.length;
-      cell.packed!.at.copy(this.camPos);
-      if (this.writePacked(batch, cell, cell.packed!)) this.version++;
+  /** The bounds of every object of the asset, which its meshes are culled by */
+  private updateBounds(b: AssetBatch): void {
+    b.bounds.makeEmpty();
+    for (let i = 0; i < b.objects.length; i++) {
+      this.sphere.set(this.tmpPos.fromArray(b.spheres, i * 4), b.spheres[i * 4 + 3]);
+      if (b.bounds.isEmpty()) b.bounds.copy(this.sphere);
+      else b.bounds.union(this.sphere);
     }
-    this.repackFrom = 0;
-  }
-
-  /** Every instance of a cell's level at one dissolve */
-  private setCellFade(cell: Cell, level: number, fade: number): void {
-    (cell.fades[level].array as Float32Array).fill(fade);
-    cell.fades[level].needsUpdate = true;
+    b.boundsStale = false;
   }
 
   /**
@@ -1217,15 +795,15 @@ export class MapObjectLayer {
     if (this.sheared(b)) {
       // A wall that follows the slope takes its shear anew with its height
       const at = i * 16;
-      const before = b.matrices.slice(at, at + 16);
+      const before = b.source.matrices.slice(at, at + 16);
       this.writeInstance(b, i);
-      return before.some((v, k) => v !== b.matrices[at + k]);
+      return before.some((v, k) => v !== b.source.matrices[at + k]);
     }
     const y = Math.fround(seatHeight(b.entry, o, this.seatGround, this.seatWater) + o.z);
     const at = i * 16 + 13;
-    const lift = y - b.matrices[at];
+    const lift = y - b.source.matrices[at];
     if (lift === 0) return false;
-    b.matrices[at] = y;
+    b.source.matrices[at] = y;
     b.spheres[i * 4 + 1] += lift;
     return true;
   }
@@ -1259,18 +837,28 @@ export class MapObjectLayer {
     this.tmpMatrix.compose(this.tmpPos, this.tmpQuat, this.tmpScale);
     // Along a slope (wallShear): model y rises with model x, the posts stay upright
     if (lean) this.tmpMatrix.multiply(this.shear.set(1, 0, 0, 0, lean.shear, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1));
-    this.tmpMatrix.toArray(b.matrices, i * 16);
+    this.tmpMatrix.toArray(b.source.matrices, i * 16);
     const radius = Math.max(e.footprint, b.model.height * 0.6) * s;
     b.spheres[i * 4] = this.tmpPos.x;
     b.spheres[i * 4 + 1] = this.tmpPos.y + (b.model.height * s) / 2;
     b.spheres[i * 4 + 2] = this.tmpPos.z;
     b.spheres[i * 4 + 3] = radius;
-    if (b.colors) {
+    const colors = b.source.colors;
+    if (colors) {
       const c = o.tint ? new Color(o.tint) : null;
-      b.colors[i * 3] = (c?.r ?? 1) * look.r;
-      b.colors[i * 3 + 1] = (c?.g ?? 1) * look.g;
-      b.colors[i * 3 + 2] = (c?.b ?? 1) * look.b;
+      colors[i * 3] = (c?.r ?? 1) * look.r;
+      colors[i * 3 + 1] = (c?.g ?? 1) * look.g;
+      colors[i * 3 + 2] = (c?.b ?? 1) * look.b;
     }
+    b.dueAt[i] = -Infinity;
+  }
+
+  /** The shadow pass's material for an asset's rotor parts, shared by assets turning as fast */
+  private rotorShadow(entry: CatalogObject): Material {
+    const period = Math.max(0.5, entry.rotor ?? DEFAULT_ROTOR);
+    let m = this.rotorShadows.get(period);
+    if (!m) this.rotorShadows.set(period, (m = rotorDepthMaterial({ value: period })));
+    return m;
   }
 
   /**
@@ -1282,14 +870,6 @@ export class MapObjectLayer {
    * for flames (foliage cards that glow). The per-asset numbers are
    * uniforms, so all of them share a handful of shader programs.
    */
-  /** The shadow pass's material for an asset's rotor parts, shared by assets turning as fast */
-  private rotorShadow(entry: CatalogObject): Material {
-    const period = Math.max(0.5, entry.rotor ?? DEFAULT_ROTOR);
-    let m = this.rotorShadows.get(period);
-    if (!m) this.rotorShadows.set(period, (m = rotorDepthMaterial({ value: period })));
-    return m;
-  }
-
   private objectMaterial(source: Material, entry: CatalogObject): Material {
     const m0 = source as MeshStandardMaterial;
     const card = m0.name.startsWith('foliage-');
@@ -1573,12 +1153,17 @@ function mergedParts(model: ObjectModel): ModelPart[] {
   return parts;
 }
 
-/** `a`, or a copy with room for `length` values (the old ones kept) */
-function grow(a: Float32Array, length: number): Float32Array {
-  if (a.length >= length) return a;
-  const out = new Float32Array(Math.max(length, Math.ceil(a.length * 1.5)));
-  out.set(a);
-  return out;
+/** Objects by asset and whether they block sight (`asset|1` or `asset|0`): one batch each */
+function groupByAsset(catalog: AssetCatalog, objects: readonly MapObject[]): Map<string, MapObject[]> {
+  const groups = new Map<string, MapObject[]>();
+  for (const o of objects) {
+    const blocks = o.blocksLos ?? entriesOf(catalog).get(o.asset)?.blocksLos ?? false;
+    const key = `${o.asset}|${blocks ? 1 : 0}`;
+    let list = groups.get(key);
+    if (!list) groups.set(key, (list = []));
+    list.push(o);
+  }
+  return groups;
 }
 
 const entryMaps = new WeakMap<AssetCatalog, Map<string, CatalogObject>>();

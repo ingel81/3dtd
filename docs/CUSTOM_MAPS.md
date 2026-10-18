@@ -57,7 +57,7 @@ view.updateWater(rect?, body?);            // Spiegel, Maske, Farbe; null entfer
 view.updateWater(rect, k);                 // nur Gewässer k (1.. = waterBodies[k-1]): Pool-Pinsel, Schwimmendes in rect
 view.setObjects();                         // doc.objects ersetzt: alle Objekte neu (Promise)
 view.objectsChanged(ids);                  // Objekte in doc.objects neu, entfernt oder geändert (auch an Ort und Stelle):
-                                           // neue und entfernte bauen nur ihre 192-m-Zellen neu, die übrigen ziehen um (Promise)
+                                           // neue kommen in die Listen ihres Assets, entfernte machen Platz, die übrigen ziehen um (Promise)
 view.setVisible(filter);                   // nur Objekte zeigen, die filter annimmt (null: alle); der Editor blendet so
                                            // Kategorien aus. Die Ansicht liest das Dokument nur, die gezeigte Liste hält sie selbst
 await view.warmUpAssets(renderer, scene, camera, ids); // Programme und Impostoren noch nicht platzierter Assets
@@ -557,25 +557,25 @@ Texturfarbe der glühenden Stellen tritt zurück, `flow` (m/s) lässt die Schich
 
 ### Objekte (`objects/`)
 
-Je Asset, **Zelle** (192 m) und Detailstufe ein `InstancedMesh` je Modellteil, mit engen Grenzen: das Frustum-Culling
-von three wirft ganze Zellen weg, für Kamera, Sonnenschatten und LOS-Würfel gleichermaßen; nichts wird je Frame
-umgepackt. Je Frame zeigt eine Zelle eine Stufe nach ihrem Abstand (Modell, `lod`-Modelle des Katalogs, **Impostor**
-für ferne Bäume ab 380 m) und verschwindet hinter der Sichtweite (`drawDistance`); nur Zellen nahe dem Fokus werfen
-Schatten. Sichtblocker (Katalog `blocksLos`, je Objekt überschreibbar) liegen in `losBlockers`.
+Je Asset, Detailstufe und Modellteil ein `InstancedMesh` für die ganze Karte; die Teile einer Stufe teilen eine
+Liste von Instanzen (`instance-list.ts`: Matrix, Farbe, Auflösung im Band, eigene Attribute je Slot). Jedes Objekt
+zeigt die Stufe, die seine **Größe im Bild** verlangt: sein Begrenzungsradius durch den Abstand, gegen den Bildanteil
+`screen` der `lod`-Modelle des Katalogs (eine Garage nimmt ihr LOD-Modell näher als eine Schule), ein **Impostor**
+für ferne Bäume ab 380 m, nichts hinter der Sichtweite (`drawDistance`). Ein weiteres Sichtfeld als 60° schaltet
+entsprechend näher. Sichtblocker (Katalog `blocksLos`, je Objekt überschreibbar) liegen in `losBlockers`.
 
-**Draw Calls (E154, PF-M2):** Zellen nur für Assets mit vielen Objekten (über `PACK_MAX` = 512: Wälder, Streuung).
-Ein Asset mit wenigen Objekten (Häuser, Autos, Laternen, der größte Teil einer Stadt) hat keine Zellen, sondern je
-Detailstufe und Modellteil ein `InstancedMesh`; die Teile einer Stufe teilen sich die Instanzdaten. Seine Objekte
-werden je Objekt nach ihrem Abstand in die Stufen sortiert, erneut sobald die Kamera 2 m weiter steht
-(`writePacked`); geschrieben werden nur Stufen, deren Objekte wechselten, und die Schattenkarte rendert nur dann neu.
-Je Frame sortiert die Ebene höchstens 1500 gepackte Objekte (`REPACK_PER_FRAME`), die übrigen fälligen Assets folgen
-in den nächsten Frames, das zuletzt liegen gebliebene zuerst: die Kamera bringt alle gepackten Assets im selben Frame
-ihren Schritt weiter, und eine Stadt sortierte sie bisher alle darin. Hochgeladen werden nur die belegten Instanzen
-einer Stufe. Ohne Kamerabewegung, mit ausgelaufenen Bändern und ohne wartendes Asset tut `update` nichts; die
-Stufenwahl schreibt in feste Objekte (`blendAt`, `settleBlend` mit Ziel) statt je Zelle und Objekt neue anzulegen.
-Autumn Keep, `MapObjectLayer.update` bei 0,5 m Kamerafahrt je Frame: 0,26 → 0,11 ms je Aufruf, 665 → 20 KB
-allokiert; in Ruhe 31 → unter 1 KB (das Rauschen der Messung).
-Der Editor pickt über eigene, nie gezeichnete Meshes mit allen Objekten. Dazu werden die Teile eines Modells ohne
+**Draw Calls (V2, ersetzt Zellen und gepackte Assets):** Ein Stufenwechsel verschiebt eine oder zwei Instanzen in der
+Liste der Stufe (der letzte seiner Abteilung füllt die Lücke), nie die Liste; hochgeladen wird je Bild ein Bereich je
+Attribut, der bis zum Upload durch three offen bleibt (ein verborgenes Mesh lädt nichts, Bereiche je Pinselbild
+türmten sich sonst unbesehen). Ein Objekt wird erst wieder angesehen, wenn Kamera oder Fokus so weit gefahren sind wie
+bis zu seinem nächsten Band (`slack` aus `blendAt`, `dueAt`): bei ruhender Kamera mit ausgelaufenen Bändern läuft
+nichts, bei fahrender nur, wer nahe an einem Band liegt. Die Schattenwerfer stehen in jeder Liste vorn, der
+Schattenpass zeichnet nur sie: Objekte nahe dem Fokus (die Schattenbox reicht nicht weiter); `version` zählt nur
+Wechsel unter Werfern, die Schattenkarte rendert nur dann neu. Jedes Mesh wird nach den Grenzen aller Objekte seines
+Assets verworfen. Stuttgart (OSM, 29 500 Objekte), map-preview High: 9271 Meshes → 808, Spielansicht 922 → 547 Draws
+(die 192-m-Zellen zeichneten jedes Asset, jede Stufe und jedes Teil einmal je Zelle und schalteten ganze Zellen auf
+einmal). Der Editor pickt über die Grenzkugeln aller Objekte und testet die getroffenen mit ihrem vollen Modell.
+Dazu werden die Teile eines Modells ohne
 Farbtextur mit gleichen übrigen Texturen (oft nur die gebackene Verdeckung des Modells), gleichem Glühen, gleicher
 Transparenz und Seitenwahl zu einem Teil zusammengeführt (`merge-parts.ts`): die Farbe als Vertex-Farbe, Rauheit
 und Metall als Vertex-Attribut `roughMetal`. Ein Auto mit Lack, Glas, Lichtern und Reifen zeichnet zwei bis drei
@@ -586,11 +586,9 @@ Rauheit und Metall (Vertex-Attribut `roughMetal`) zeichnet die Hafenstadt 122 Ca
 **Weicher Stufenwechsel (E154, OP-H5, `lod-fade.ts`):** um jede Umschaltdistanz liegt ein Band von 12 % der
 Distanz, ebenso an der Sichtweite. Im Band zeigt ein Objekt beide Stufen, die eine löst sich in einem festen
 Bildschirm-Dither auf, die andere erscheint im ergänzenden Muster: jedes Pixel zeigt genau eine, nichts springt.
-Gepackte Assets blenden je Objekt nach seinem Abstand, Zellen als Ganzes nach dem Abstand der Zelle. Der Wert liegt
-je Instanz im Attribut `lodFade` einer leichten Geometrie je Mesh, die Puffer des Modells teilt (`fadeGeometry`).
-Schatten dithern nicht: es wirft die Stufe mit dem größeren Anteil, in Zellen wie bei gepackten Objekten (deren
-Instanzen liegen je Stufe mit den Werfern vorn, der Schattenpass zeichnet nur die), und nur nahe der Mitte der
-Schattenbox (`shadowRadius`). Steht die Kamera 0,15 s still, läuft das Band aus (`settleBlend`): jedes Objekt geht binnen 0,3 s
+Jedes Objekt blendet nach seinem eigenen Abstand. Der Wert liegt je Instanz im Attribut `lodFade` einer leichten
+Geometrie je Mesh, die Puffer des Modells teilt (`fadeGeometry`). Schatten dithern nicht: es wirft die Stufe mit dem
+größeren Anteil, und nur nahe der Mitte der Schattenbox (`shadowRadius`). Steht die Kamera 0,15 s still, läuft das Band aus (`settleBlend`): jedes Objekt geht binnen 0,3 s
 ganz auf die Stufe, die seinem Abstand näher liegt, und öffnet das Band ebenso wieder, sobald die Kamera sich
 bewegt. Das feste Muster steht so nie als Punktfeld auf einem ruhenden Bild (Hafenstadt, Spielansicht: vorher 44
 gepackte Objekte im Band, danach keins).
