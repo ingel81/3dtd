@@ -125,6 +125,12 @@ LOS (GPU)    <-- tower:los-needed    --> command:los-mask --> SimCore
   weiter, bis der nächste Abruf kommt, und holt die Standzeit nicht nach. Das Spiel steht im versteckten Tab.
 - Was der Hauptthread in einer Aufgabe schickt, geht als eine Nachricht und wirkt an derselben Grenze (etwa `reset`,
   Spieler und Lockstep beim Coop-Start).
+- Routen kommen nur mit einer Welt in den Worker (`MainWorldService.sendToSim`: Ende des Korridor-Baus, DevWorld,
+  übernommenes Weltpaket aus Save, Replay oder Coop) und bleiben dort bis zur nächsten; was der Hauptthread danach
+  zeichnet, erreicht die Simulation nicht. Darum liest der Spiegel die Routen, wie sie gesendet wurden (eine Kopie,
+  nicht der Routen-Cache), und `LocationStore.hasLanes` sagt, ob die gesendete Welt eine Spur hat; nur dann startet
+  der Hauptthread eine Welle (TODO E232). Ein Weltpaket ohne Spur übernimmt `WorldPackageLoader.adopt` gar nicht, eins
+  mit anderem Schlüssel stellt den Stand davor wieder her: in beiden Fällen bleibt die Simulation, wo sie war.
 
 ## Verträge
 

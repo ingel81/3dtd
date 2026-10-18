@@ -183,9 +183,9 @@ Editor-Workers und das Gelände auf der GPU laufen parallel dazu (Plan `tmp/plan
 
 ### Einzelfixes 2026-10-18 (Nachtests in PLAYTEST.md G)
 
-- [ ] **E232 Wellen ohne Gegner**: ein Spawn ohne Route ist keine Spur (Wellen, Koop-Spuren, Start-Credits); ohne jede
-      Route sperrt das erste Laden wie der Ortswechsel, kein Wellenstart, kein Gold, kein Auto-Start-Loop; Spawns ohne
-      Route neben solchen mit nennt ein Banner (G1).
+- [ ] **E232 Wellen ohne Gegner**: ein Spawn ohne Route ist keine Spur; Wellenstart nur mit Spur in der Simulation, kein
+      Gold, kein Auto-Start-Loop; ohne Route sperrt das Laden; ein Spielstand ohne Route (0.7.x-Autosave) lädt nicht und
+      wird nicht mehr geschrieben; Spawns ohne Route neben solchen mit nennt ein Banner (G1).
 
 ### Engine-Runde R4 (2026-10-17, Branch `eng/r4`, Nachtests in PLAYTEST.md F)
 

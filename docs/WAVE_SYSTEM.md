@@ -1045,8 +1045,10 @@ Route; in einer Welt, in der jeder Spawn eine hat, ändert sich nichts.
 - **Kein Spawn hat eine Route:** `GameStateManager.startWave()` verweigert den
   Start mit `wave:refused` (`reason: 'no-route'`): keine Welle, der Zähler
   bleibt, kein Gold, kein `wave:completed`, also auch kein Auto-Start. Auf dem
-  Hauptthread prüfen schon `canStartWave` und `GameLoopFacadeService` den
-  `LocationStore.hasRoutes` und sagen den Grund im Banner; ein verweigerter
+  Hauptthread prüfen schon `canStartWave` und `GameLoopFacadeService`
+  `LocationStore.hasLanes` (die Welt, die die Simulation bekam, nicht die
+  gezeichneten Routen, siehe [SIM_WORKER.md](SIM_WORKER.md#datenfluss)) und sagen
+  den Grund im Banner; ein verweigerter
   Start der Simulation (Koop-Host, Bot) wird ebenso gesagt und hält die
   Auto-Start-Zählung an. Beim Laden blockiert der Ort (siehe
   [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md#ohne-route)).
@@ -1075,7 +1077,7 @@ die Gruppen einer `DirectorWave`; die Reihenfolge bestimmt das Spawn-Pattern.
 
 ### Wave startet nicht
 - Phase muss `setup` sein (die Facade ignoriert Starts in `wave` und `gameover`)
-- Engine bereit und `store.hasRoutes()`: mindestens ein Spawn hat eine Route (sonst sagt es das Banner)
+- Engine bereit und `store.hasLanes()`: die Welt der Simulation hat einen Spawn mit Route (sonst sagt es das Banner)
 - Director-Anfrage noch offen (`pendingAIWaveRequest`)? Dann wird ein weiterer Start ignoriert
 - Leerer Schedule (`entries.length === 0`): `WaveManager.startWave()` kehrt ohne Event zurück
 - Kein Spawn mit Route in der Simulation: `startWave()` verweigert mit `wave:refused` (siehe [Spawn ohne Route](#spawn-ohne-route))

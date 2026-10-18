@@ -114,16 +114,18 @@ export class LocationStore {
   readonly baseCoords = signal<GeoCoord>({ lat: 0, lon: 0 });
   readonly centerCoords = signal<GeoCoordWithHeight>({ lat: 0, lon: 0, height: 400 });
   readonly spawnPoints = signal<StoreSpawnPoint[]>([]);
-  readonly hasRoutes = signal(false);
+  readonly hasLanes = signal(false);
   readonly streetCount = signal<number>(0);
 
-  resetAll(): void { /* setzt alle Signals außer hasRoutes auf Defaults */ }
+  resetAll(): void { /* setzt alle Signals außer hasLanes auf Defaults */ }
 }
 ```
 
 Geschrieben werden die Signals über `LocationFacadeService` und die Coordinator-Callbacks;
-`hasRoutes` (mindestens ein Spawn hat eine Route, Bedingung für `canStartWave`) hält
-`PathAndRouteService` mit seinem Routen-Cache.
+`hasLanes` (die Welt der Simulation hat einen Spawn mit Route, Bedingung für `canStartWave`) setzt
+`MainWorldService` mit jeder gesendeten Welt und löscht es, wenn ein neuer Lauf seine Welt abgibt
+([SIM_WORKER.md](SIM_WORKER.md#datenfluss)). Ob der Hauptthread selbst Routen hat, sagt
+`PathAndRouteService.hasRoutes`.
 Anzeigename, Favoriten und `isApplyingLocation` hält `LocationManagementService`, die
 Favoriten-Namen `LocationChangeCoordinatorService.favoriteNamesMap`.
 
@@ -513,6 +515,11 @@ keine Welle könnte einen Gegner bringen. Das gilt für jeden Weg hinein gleich:
   `VisualizationFacadeService.initializeGameState()` setzt `loadProblem` mit
   `blocksPlay`; der Ort steht, Play bleibt gesperrt, das Menü bietet einen
   anderen Ort an.
+
+Ein Spielstand, dessen Welt keine Route hat (0.7.x speicherte so einen Lauf auf unvollständigen Straßen nach
+jeder leeren Welle), lädt nicht: „That save has no route …“, der Ort bleibt mit seinen eigenen Routen stehen.
+Gespeichert wird ein Lauf ohne Spur gar nicht erst. Vorher stellte Continue die Simulation auf die Welt ohne Route,
+während die rote Route des neu geladenen Orts zu sehen war.
 
 Haben nur einige Spawns keine Route, bleibt der Ort spielbar: die Spawns bleiben
 (Save, URL und Marker unverändert; mit vollständigen Straßen kommt ihre Route
