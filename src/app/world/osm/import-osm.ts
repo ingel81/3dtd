@@ -27,7 +27,8 @@ import { growVegetation, type VegetationReport } from './convert/vegetation';
 import { objectCost } from '../custom-map/render/objects/scene-cost';
 import { carveWater, paintWater, settleWater, WATER_MATERIALS, type WaterPaintRole, type WaterReport } from './convert/water';
 import { layOut, OsmLayout, type LayoutReport } from './convert/layout';
-import { spawnAnchors } from './convert/anchors';
+import { findLandmarks, spawnAnchors } from './convert/anchors';
+import { growLife, type LifeReport } from './convert/life';
 import { placeFurniture, type FurnitureReport } from './convert/furniture';
 import { placeBuildings, type BuildingCatalogEntry, type BuildingReport } from './convert/buildings';
 
@@ -83,7 +84,7 @@ export interface OsmImportOptions {
 }
 
 /** One step of the conversion, for the progress list */
-export type OsmConvertStep = 'parse' | 'terrain' | 'roads' | 'water' | 'level' | 'ground' | 'shores' | 'paint' | 'layout' | 'buildings' | 'furniture' | 'plants';
+export type OsmConvertStep = 'parse' | 'terrain' | 'roads' | 'water' | 'level' | 'ground' | 'shores' | 'paint' | 'layout' | 'buildings' | 'furniture' | 'plants' | 'life';
 
 export interface OsmImportReport {
   place: { lat: number; lon: number; address: string };
@@ -100,6 +101,7 @@ export interface OsmImportReport {
   layout: LayoutReport;
   buildings: BuildingReport;
   furniture: FurnitureReport;
+  life: LifeReport;
   /** Milliseconds per step */
   ms: Record<string, number>;
   warnings: string[];
@@ -119,7 +121,7 @@ export function convertOsm(
 ): OsmImportResult {
   const ms: Record<string, number> = {};
   let t = performance.now();
-  const order: OsmConvertStep[] = ['parse', 'terrain', 'roads', 'water', 'level', 'ground', 'shores', 'paint', 'layout', 'buildings', 'furniture', 'plants'];
+  const order: OsmConvertStep[] = ['parse', 'terrain', 'roads', 'water', 'level', 'ground', 'shores', 'paint', 'layout', 'buildings', 'furniture', 'plants', 'life'];
   const step = (name: string) => {
     const now = performance.now();
     ms[name] = Math.round(now - t);
@@ -207,6 +209,10 @@ export function convertOsm(
   const plants = growVegetation(doc, features, ground.land, water, { costOf, onShare: onShare && ((share) => onShare('plants', share)) });
   step('plants');
 
+  // Boats, birds, the bell and the intro flight from the place's data, as life areas and an intro of any map
+  const life = growLife(doc, features, water, findLandmarks(features, doc.hq, side));
+  step('life');
+
   const dem = input.dem ? input.dem.source : null;
   doc.meta.source = {
     kind: 'osm',
@@ -240,6 +246,7 @@ export function convertOsm(
       layout,
       buildings: buildings.report,
       furniture,
+      life,
       ms,
       warnings,
     },

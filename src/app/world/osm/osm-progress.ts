@@ -47,12 +47,13 @@ export const OSM_STEPS: Readonly<Record<OsmStep, OsmStepInfo>> = {
   buildings: { text: 'Buildings', stage: 'buildings', weight: 400 },
   furniture: { text: 'Fences, walls, tracks and lamps', stage: 'trees', weight: 200 },
   plants: { text: 'Forests and trees', stage: 'trees', weight: 400 },
+  life: { text: 'Boats, birds, bells and the intro flight', stage: 'trees', weight: 20 },
   pack: { text: 'Packing the map file', stage: 'bake', weight: 1300 },
   save: { text: 'Saving', stage: 'bake', weight: 300 },
 };
 
 /** The making's steps in their order */
-export const OSM_MAKE_STEPS: readonly OsmStep[] = ['parse', 'terrain', 'roads', 'water', 'level', 'ground', 'shores', 'paint', 'layout', 'buildings', 'furniture', 'plants', 'pack', 'save'];
+export const OSM_MAKE_STEPS: readonly OsmStep[] = ['parse', 'terrain', 'roads', 'water', 'level', 'ground', 'shores', 'paint', 'layout', 'buildings', 'furniture', 'plants', 'life', 'pack', 'save'];
 /** The loading's steps as listed (the downloads run side by side) */
 export const OSM_LOAD_STEPS: readonly OsmLoadStep[] = ['stored', 'overpass', 'heights', 'streets'];
 
