@@ -35,7 +35,7 @@ import { groundRing, type GroundBox } from '../../custom-map/object-ground';
 import type { ObjectFooting } from '../../custom-map/render/objects/object-seat';
 import { EdgeIndex } from '../../../map-ops/path-graph';
 import { objectsOnPaths, PATH_WALL_SHARE } from '../../../map-ops/validation/map-validation';
-import { BUILDING_MODELS, buildingKind, buildingLandOf, buildingLevels, isGroundBuilding, KIND_MODELS, type BuildingKind, type BuildingModel } from '../building-tags';
+import { BUILDING_MODELS, buildingKind, buildingLandOf, buildingLevels, isGroundBuilding, KIND_MODELS, ROW_ENDS, type BuildingKind, type BuildingModel } from '../building-tags';
 import type { OsmArea, OsmFeatures } from '../osm-parse';
 import { ringArea } from '../square-clip';
 import { MASS_ASSET, type MapMass } from '../../custom-map/map-document';
@@ -76,6 +76,8 @@ export interface BuildingReport {
   split: number;
   /** Footprints raised from their own outline (no model covers them well enough, building-mass.ts) */
   masses: number;
+  /** Row modules at the end of their row, with windows in the gable no house abuts */
+  rowEnds: number;
   rows: number;
   /** Footprints by kind */
   kinds: Partial<Record<BuildingKind, number>>;
@@ -220,6 +222,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
     objects: 0,
     split: 0,
     masses: 0,
+    rowEnds: 0,
     rows: 0,
     kinds: {},
     fallbacks: {},
@@ -372,6 +375,22 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
   // Pads, retaining walls and the objects
   const guard = roadGuard(doc);
   const boxes = new BoxIndex(footprints.flatMap((f) => f.placements));
+  // The end of a row: a module whose blank gable no house abuts takes the model with windows on that side
+  for (const f of footprints) {
+    for (const pl of f.placements) {
+      const ends = ROW_ENDS[pl.asset];
+      if (!ends) continue;
+      const west = !abutted(pl, -1, boxes);
+      const east = !abutted(pl, 1, boxes);
+      const end = west && east ? ends.both : west ? ends.w : east ? ends.e : null;
+      if (!end || !known(end)) continue;
+      // The open gable's verge reaches a little further: not onto a road
+      if (onRoad({ asset: end, ...origin(pl), rotation: pl.rotation, scale: pl.scale })) continue;
+      pl.asset = end;
+      pl.model = BUILDING_MODELS[end];
+      report.rowEnds++;
+    }
+  }
   const objects: MapObject[] = [];
   let n = 0;
   for (const f of footprints) {
@@ -440,6 +459,23 @@ function coverage(outer: readonly MapPoint[], holes: readonly MapPoint[][], rect
     }
   }
   return inside ? covered / inside : 0;
+}
+
+/** Metres off a module's gable within which another building counts as abutting it */
+const ABUT_REACH = 0.8;
+
+/**
+ * Whether another building stands against a placement's gable on the model's
+ * west (`side` -1, model -x) or east (+1): one of three points just off that
+ * wall (its middle and towards front and back) lies in another wall box
+ */
+function abutted(pl: Placement, side: -1 | 1, boxes: BoxIndex): boolean {
+  const { f, x } = placementAxes(pl);
+  for (const t of [-0.5, 0, 0.5]) {
+    const q = { x: pl.p.x + x.x * side * (pl.hw + ABUT_REACH) + f.x * pl.hd * t, y: pl.p.y + x.y * side * (pl.hw + ABUT_REACH) + f.y * pl.hd * t };
+    if (boxes.near(q).some((o) => o !== pl && boxDistance(o, q) < ABUT_REACH * 0.5)) return true;
+  }
+  return false;
 }
 
 /** Why a raised building cannot stand (its outline in water, at the HQ, on a road), null when it can */

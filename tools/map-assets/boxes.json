@@ -139,5 +139,14 @@
   "rail-track": [0,0,4.5,2.4],
   "rail-track-short": [0,0,1.1,2.4],
   "rail-track-wood": [0,0,4.5,2.4],
-  "rail-track-wood-short": [0,0,1.1,2.4]
+  "rail-track-wood-short": [0,0,1.1,2.4],
+  "house-terrace-end-w": [-0.2,0.3,3.3,5.3],
+  "house-terrace-end-e": [0.2,0.3,3.3,5.3],
+  "house-terrace-ends": [0,0.3,3.4,5.3],
+  "block-row-4-end-w": [-0.2,-0.5,7.2,6.2],
+  "block-row-4-end-e": [0.2,-0.5,7.2,6.2],
+  "block-row-4-ends": [0,-0.5,7.4,6.2],
+  "block-row-6-end-w": [0,-0.6,7.4,6.6],
+  "block-row-6-end-e": [0,-0.6,7.4,6.6],
+  "block-row-6-ends": [0,-0.6,7.4,6.6]
 }

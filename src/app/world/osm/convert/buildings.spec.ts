@@ -232,6 +232,22 @@ describe('OSM buildings: placing', () => {
     expect(massArea(objects[0].mass!)).toBeGreaterThan(0.85 * 460);
   });
 
+  it('opens the gables at the ends of a row of terraced houses, and both on one that stands alone (V10)', () => {
+    // Four terraced houses side by side north of the road, one apart from them
+    const row = [0, 1, 2, 3].map((k) => area(20 + k, box({ x: -40 + k * 6, y: 14 }, 6, 10, 0), { building: 'terrace' }));
+    const alone = area(30, box({ x: 30, y: 14 }, 6, 10, 0), { building: 'terrace' });
+    const { doc, features } = world([...row, alone]);
+    const { objects, report } = placeBuildings(doc, features, { catalog });
+    const of = (id: number) => objects.filter((o) => o.group === `osm-b${id}`).map((o) => o.asset);
+    expect(of(21)).toEqual(['house-terrace']);
+    expect(of(22)).toEqual(['house-terrace']);
+    // Facing the road (south), the model's west (-x) is the map's west
+    expect(of(20)).toEqual(['house-terrace-end-w']);
+    expect(of(23)).toEqual(['house-terrace-end-e']);
+    expect(of(30)).toEqual(['house-terrace-ends']);
+    expect(report.rowEnds).toBe(3);
+  });
+
   it('with a cap, holds the buildings to it, the small far ones first; without one every footprint stands', () => {
     const areas = [area(1, box({ x: 0, y: 14 }, 10, 8.6, 0), { building: 'house' })];
     for (let k = 0; k < 8; k++) areas.push(area(10 + k, box({ x: -80 + k * 12, y: -12 }, 3, 6, 0), { building: 'garage' }));

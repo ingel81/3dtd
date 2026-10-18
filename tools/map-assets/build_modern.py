@@ -587,6 +587,14 @@ def city_house(name, w, d, floors, tint, roof='gable', street=(0,), blank=(1, 3)
         if k in street:
             shop_floor(kit, face, u0, u1, PLINTH, ground)
             upper_floors(kit, face, tint, u0, u1, PLINTH + ground, floors - 1, fh, rnd, surround=roof != 'flat')
+        elif k in (1, 3):
+            # The end of a row where no house abuts: windows on every storey, no balconies
+            bays = max(1, int(round((u1 - u0) / 3.2)))
+            ops = [(u0 + (b + 0.5) * (u1 - u0) / bays, 1.2, PLINTH + 1.0, PLINTH + 2.6) for b in range(bays)]
+            punched_wall(kit.walls(tint), face, u0, u1, PLINTH, PLINTH + ground, ops)
+            for u, ow, zb, zt in ops:
+                window(kit, face, u, zb, ow, zt - zb)
+            upper_floors(kit, face, tint, u0, u1, PLINTH + ground, floors - 1, fh, rnd, surround=roof != 'flat')
         else:
             ud = u0 + (u1 - u0) * 0.3
             punched_wall(kit.walls(tint), face, u0, u1, PLINTH, PLINTH + ground, [(ud, 1.2, PLINTH, PLINTH + 2.3)])
@@ -599,7 +607,7 @@ def city_house(name, w, d, floors, tint, roof='gable', street=(0,), blank=(1, 3)
             gable_wall(kit.walls(tint), Face(k, w, d), eave, pitch, d)
         # Cornice under the eaves of the street front
         box(kit.sill, 0, -d / 2 - 0.12, eave - 0.35, w, 0.3, 0.3)
-        gabled_roof(kit, w, d, eave, pitch, over=0.35, closed_ends=(False, False))
+        gabled_roof(kit, w, d, eave, pitch, over=0.35, closed_ends=(3 not in blank, 1 not in blank))
         bays = max(2, int(round(w / 2.9)))
         for b in range(1, bays, 2):
             dormer(kit, tint, -w / 2 + (b + 0.5) * w / bays, eave, d, pitch)
@@ -1879,6 +1887,13 @@ def models():
         'industrial-hall': lambda: hall('industrial-hall', 60.0, 30.0, 9.0, 'box_profile_metal_sheet', (0.9, 0.95, 1.0), roof='gable',
                                         doors=3, annex=True, lod=400),
         'block-row-4': lambda: city_house('block-row-4', 15.0, 12.0, 4, OCHRE, seed=11),
+        # Ends of a row where no house abuts (convert/buildings.ts rowEnds): the open side west, east, or both
+        'block-row-4-end-w': lambda: city_house('block-row-4-end-w', 15.0, 12.0, 4, OCHRE, blank=(1,), seed=11),
+        'block-row-4-end-e': lambda: city_house('block-row-4-end-e', 15.0, 12.0, 4, OCHRE, blank=(3,), seed=11),
+        'block-row-4-ends': lambda: city_house('block-row-4-ends', 15.0, 12.0, 4, OCHRE, blank=(), seed=11),
+        'block-row-6-end-w': lambda: city_house('block-row-6-end-w', 16.0, 13.0, 6, PALE_GREY, roof='flat', blank=(1,), seed=12, lod=1100),
+        'block-row-6-end-e': lambda: city_house('block-row-6-end-e', 16.0, 13.0, 6, PALE_GREY, roof='flat', blank=(3,), seed=12, lod=1100),
+        'block-row-6-ends': lambda: city_house('block-row-6-ends', 16.0, 13.0, 6, PALE_GREY, roof='flat', blank=(), seed=12, lod=1100),
         'block-row-6': lambda: city_house('block-row-6', 16.0, 13.0, 6, PALE_GREY, roof='flat', seed=12, lod=1100),
         'block-corner-4': lambda: city_house('block-corner-4', 14.0, 14.0, 4, ROSE, roof='hip', street=(0, 3), blank=(1, 2), seed=13),
         'block-corner-6': lambda: city_house('block-corner-6', 15.0, 15.0, 6, SAGE, roof='flat', street=(0, 3), blank=(1, 2), seed=14,
@@ -1895,6 +1910,11 @@ def models():
         'house-semi': lambda: gabled_house('house-semi', [(7.0, WHITE), (7.0, SAND)], 9.0, roof='red', pitch_deg=38, seed=3),
         'house-terrace': lambda: gabled_house('house-terrace', [(6.0, PALE_GREY)], 10.0, pitch_deg=35, seed=4,
                                               row_ends=(False, False), lod=350),
+        'house-terrace-end-w': lambda: gabled_house('house-terrace-end-w', [(6.0, PALE_GREY)], 10.0, pitch_deg=35, seed=4,
+                                                    row_ends=(True, False), lod=350),
+        'house-terrace-end-e': lambda: gabled_house('house-terrace-end-e', [(6.0, PALE_GREY)], 10.0, pitch_deg=35, seed=4,
+                                                    row_ends=(False, True), lod=350),
+        'house-terrace-ends': lambda: gabled_house('house-terrace-ends', [(6.0, PALE_GREY)], 10.0, pitch_deg=35, seed=4, lod=350),
         'house-terrace-row': lambda: gabled_house('house-terrace-row', [(6.0, WHITE), (6.0, CREAM), (6.0, PALE_GREY), (6.0, SAND)], 10.0,
                                                   pitch_deg=35, seed=5, lod=900),
     }

@@ -15667,6 +15667,138 @@
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brushed_concrete"
     },
     {
+      "id": "house-terrace-end-w",
+      "name": "Terraced house, end of a row open to the west (6 x 10 m)",
+      "category": "building",
+      "file": "models/house-terrace-end-w.glb",
+      "triangles": 1568,
+      "footprint": 5.3,
+      "height": 10.0,
+      "box": [
+        -0.2,
+        0.3,
+        3.3,
+        5.3
+      ],
+      "roof": {
+        "x": -3.92,
+        "z": -5.69,
+        "cell": 0.5,
+        "columns": 15,
+        "rows": 24,
+        "step": 0.04,
+        "heights": "m56bm5ubm5ubm5ubm5ubpKekpKSkpKSkpKSkpKSkrbCtra2tra2tra2tra2ttbm1tbW1tbW1tbW1tbW1vsK+vr6+vr6+vr6+vr6+x8vHx8fHx8fHx8fHx8fH0NTQ0NDQ0NDQ0NDQ0NDQ2NzY2NjY2NjY2NjY2NjY4eXh4eHh4eHh4eHh4eHh6u7q6urq6urq6urq6urq8/fz8/Pz8/Pz8/Pz8/Pz9vr6+vr6+vr6+vr6+vr28fXx8fHx8fHx8fHx8fHx6Ozo6Ojo6Ojo6Ojo6Ojo3+Pf39/f39/f39/f39/f1trW1tbW1tbW1tbW1tbWztHOzs7Ozs7Ozs7Ozs7OxcnFxcXFxcXFxcXFxcXFvMC8vLy8vLy8vLy8vLy8s7ezs7Ozs7Ozs7Ozs7Ozq66rq6urq6urq6urq6uroqWioqKioqKioqKioqKimZyZmZmZmZmZmZmZmZmZAAAAAAAAAAAAS0tLSwAA"
+      },
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/house-terrace-end-w-lod1.glb",
+          "distance": 350,
+          "triangles": 605
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "house-terrace-end-e",
+      "name": "Terraced house, end of a row open to the east (6 x 10 m)",
+      "category": "building",
+      "file": "models/house-terrace-end-e.glb",
+      "triangles": 1568,
+      "footprint": 5.3,
+      "height": 10.0,
+      "box": [
+        0.2,
+        0.3,
+        3.3,
+        5.3
+      ],
+      "roof": {
+        "x": -3.58,
+        "z": -5.69,
+        "cell": 0.5,
+        "columns": 15,
+        "rows": 24,
+        "step": 0.04,
+        "heights": "m5ubm5ubm5ubm5ubm56bpKSkpKSkpKSkpKSkpKekra2tra2tra2tra2trbCttbW1tbW1tbW1tbW1tbm1vr6+vr6+vr6+vr6+vsK+x8fHx8fHx8fHx8fHx8vH0NDQ0NDQ0NDQ0NDQ0NTQ2NjY2NjY2NjY2NjY2NzY4eHh4eHh4eHh4eHh4eXh6urq6urq6urq6urq6u7q8/Pz8/Pz8/Pz8/Pz8/fz9vr6+vr6+vr6+vr6+vr28fHx8fHx8fHx8fHx8fXx6Ojo6Ojo6Ojo6Ojo6Ozo39/f39/f39/f39/f3+Pf1tbW1tbW1tbW1tbW1trWzs7Ozs7Ozs7Ozs7OztHOxcXFxcXFxcXFxcXFxcnFvLy8vLy8vLy8vLy8vMC8s7Ozs7Ozs7Ozs7Ozs7ezq6urq6urq6urq6urq66roqKioqKioqKioqKioqWimZmZmZmZmZmZmZmZmZyZAAAAAAAAAABLS0tLAAAA"
+      },
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/house-terrace-end-e-lod1.glb",
+          "distance": 350,
+          "triangles": 603
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "house-terrace-ends",
+      "name": "Terraced house standing alone (6 x 10 m, both gables open)",
+      "category": "building",
+      "file": "models/house-terrace-ends.glb",
+      "triangles": 1976,
+      "footprint": 5.3,
+      "height": 10.0,
+      "box": [
+        0,
+        0.3,
+        3.4,
+        5.3
+      ],
+      "roof": {
+        "x": -4,
+        "z": -5.69,
+        "cell": 0.5,
+        "columns": 16,
+        "rows": 24,
+        "step": 0.04,
+        "heights": "m5ubm5ubm5ubm5ubm5ubm6SkpKSkpKSkpKSkpKSkpKStra2tra2tra2tra2tra2ttbW1tbW1tbW1tbW1tbW1tb6+vr6+vr6+vr6+vr6+vr7Hx8fHx8fHx8fHx8fHx8fH0NDQ0NDQ0NDQ0NDQ0NDQ0NjY2NjY2NjY2NjY2NjY2Njh4eHh4eHh4eHh4eHh4eHh6urq6urq6urq6urq6urq6vPz8/Pz8/Pz8/Pz8/Pz8/P2+vr6+vr6+vr6+vr6+vr28fHx8fHx8fHx8fHx8fHx8ejo6Ojo6Ojo6Ojo6Ojo6Ojf39/f39/f39/f39/f39/f1tbW1tbW1tbW1tbW1tbW1s7Ozs7Ozs7Ozs7Ozs7Ozs7FxcXFxcXFxcXFxcXFxcXFvLy8vLy8vLy8vLy8vLy8vLOzs7Ozs7Ozs7Ozs7Ozs7Orq6urq6urq6urq6urq6uroqKioqKioqKioqKioqKiopmZmZmZmZmZmZmZmZmZmZkAAAAAAAAAAABLS0tLAAAA"
+      },
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/house-terrace-ends-lod1.glb",
+          "distance": 350,
+          "triangles": 577
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
       "id": "house-terrace-row",
       "name": "Terraced houses, row of four (2 floors, 24 x 10 m)",
       "category": "building",
@@ -16022,6 +16154,138 @@
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
     },
     {
+      "id": "block-row-4-end-w",
+      "name": "City house, end of a block open to the west (4 floors, 15 x 12 m)",
+      "category": "building",
+      "file": "models/block-row-4-end-w.glb",
+      "triangles": 6272,
+      "footprint": 7.2,
+      "height": 19.9,
+      "box": [
+        -0.2,
+        -0.5,
+        7.2,
+        6.2
+      ],
+      "roof": {
+        "x": -8.23,
+        "z": -7.46,
+        "cell": 0.7,
+        "columns": 23,
+        "rows": 20,
+        "step": 0.078,
+        "heights": "AAAAAAAAmZmZAAAAAACZmZmZAAAAAAC4tra2tra2tra2tra2tra2tra2tra2tsC+vr6+vr6+vr6+vr6+vr6+vr6+vr6+yMbGxsbGxsbGxsbGxsbGxsbGxsbGxsbQzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7OztjW1tbW1tbW1tbW1tbW1tbW1tbW1tbW4N7e3t7e3t7e3t7e3t7e3t7e3t7e3t7p5ubm5ubm5ubm5ubm5ubm5ubm5ubm5vHu7u7u7u7u7u7u7u7u7u7u7u7u7u7u+ff39/f39/f39/f39/f39/f39/f39/f///////////////////////////////v5+fn5+fn5+fn5+fn5+fn5+fn5+fn58/Hx8fHx8fHx8fHx8fHx8fHx8fHx8fHr6enp6enp6enp6enp6enp6enp6enp6ePh4eHh4eHh4eHh4eHh4eHh4eHh4eHh29nZ2dnZ3Nzc2dnZ2dnc3Nzc2dnZ2dnT0dHR0dHb29vR0dHR0dvb29vR0dHR0cvJycnJydra2snJycnJ2tra2snJycnJwsHBwcHBwcHBwcHBwcHBwcHBwcHBwcG6uLi4uLi4uLi4uLi4uLi4uLi4uLi4uA=="
+      },
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/block-row-4-end-w-lod1.glb",
+          "distance": 350,
+          "triangles": 1333
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "block-row-4-end-e",
+      "name": "City house, end of a block open to the east (4 floors, 15 x 12 m)",
+      "category": "building",
+      "file": "models/block-row-4-end-e.glb",
+      "triangles": 6272,
+      "footprint": 7.2,
+      "height": 19.9,
+      "box": [
+        0.2,
+        -0.5,
+        7.2,
+        6.2
+      ],
+      "roof": {
+        "x": -7.87,
+        "z": -7.46,
+        "cell": 0.7,
+        "columns": 23,
+        "rows": 20,
+        "step": 0.078,
+        "heights": "AAAAAACZmZmZAAAAAACZmZkAAAAAAAC2tra2tra2tra2tra2tra2tra2tra2uL6+vr6+vr6+vr6+vr6+vr6+vr6+vr7AxsbGxsbGxsbGxsbGxsbGxsbGxsbGxsjOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7O0NbW1tbW1tbW1tbW1tbW1tbW1tbW1tbY3t7e3t7e3t7e3t7e3t7e3t7e3t7e3uDm5ubm5ubm5ubm5ubm5ubm5ubm5ubm6e7u7u7u7u7u7u7u7u7u7u7u7u7u7u7x9/f39/f39/f39/f39/f39/f39/f39/n///////////////////////////////n5+fn5+fn5+fn5+fn5+fn5+fn5+fn78fHx8fHx8fHx8fHx8fHx8fHx8fHx8fPp6enp6enp6enp6enp6enp6enp6enp6+Hh4eHh4eHh4eHh4eHh4eHh4eHh4eHj2dnZ2dnc3Nzc2dnZ2dnc3NzZ2dnZ2dvR0dHR0dvb29vR0dHR0dvb29HR0dHR08nJycnJ2tra2snJycnJ2traycnJycnLwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcK4uLi4uLi4uLi4uLi4uLi4uLi4uLi4ug=="
+      },
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/block-row-4-end-e-lod1.glb",
+          "distance": 350,
+          "triangles": 1332
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "block-row-4-ends",
+      "name": "City house standing alone (4 floors, 15 x 12 m)",
+      "category": "building",
+      "file": "models/block-row-4-ends.glb",
+      "triangles": 7864,
+      "footprint": 7.4,
+      "height": 19.9,
+      "box": [
+        0,
+        -0.5,
+        7.4,
+        6.2
+      ],
+      "roof": {
+        "x": -8.4,
+        "z": -7.46,
+        "cell": 0.7,
+        "columns": 24,
+        "rows": 20,
+        "step": 0.078,
+        "heights": "AAAAAAAAmZmZmQAAAACZmZmZAAAAAAAAtra2tra2tra2tra2tra2tra2tra2tra2vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+xsbGxsbGxsbGxsbGxsbGxsbGxsbGxsbGzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7O1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u9/f39/f39/f39/f39/f39/f39/f39/f3////////////////////////////////+fn5+fn5+fn5+fn5+fn5+fn5+fn5+fn58fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx6enp6enp6enp6enp6enp6enp6enp6enp4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh2dnZ2dnZ3Nzc2dnZ2dnZ3Nzc2dnZ2dnZ0dHR0dHR29vb0dHR0dHR29vb0dHR0dHRycnJycnJ2traycnJycnJ2traycnJycnJwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBuLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4"
+      },
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/block-row-4-ends-lod1.glb",
+          "distance": 350,
+          "triangles": 1354
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
       "id": "block-row-6",
       "name": "City block, flat roof (6 floors, 16 x 13 m, blank sides)",
       "category": "building",
@@ -16061,6 +16325,138 @@
           "file": "models/block-row-6-lod1.glb",
           "distance": 350,
           "triangles": 1614
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "block-row-6-end-w",
+      "name": "City block, end open to the west (6 floors, 16 x 13 m)",
+      "category": "building",
+      "file": "models/block-row-6-end-w.glb",
+      "triangles": 10908,
+      "footprint": 7.4,
+      "height": 23.7,
+      "box": [
+        0,
+        -0.6,
+        7.4,
+        6.6
+      ],
+      "roof": {
+        "x": -8.4,
+        "z": -7.96,
+        "cell": 0.7,
+        "columns": 24,
+        "rows": 21,
+        "step": 0.093,
+        "heights": "AMPDwwAAAADDw8PDAAAAAMPDw8MAAAAA5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5N7e3t7e3t7e3t7e3t7e3t7e3t7e3t7k5P7+/v7+/v7+/v7+/v7+/v7+/v7+/v7k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P7+/v7+/v7+/v7+/v7+/v7+/v7+/v7k5N7e3t7e3t7e3t7e3t7e3t7e3t7e3t7k5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk"
+      },
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/block-row-6-end-w-lod1.glb",
+          "distance": 350,
+          "triangles": 1740
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "block-row-6-end-e",
+      "name": "City block, end open to the east (6 floors, 16 x 13 m)",
+      "category": "building",
+      "file": "models/block-row-6-end-e.glb",
+      "triangles": 10908,
+      "footprint": 7.4,
+      "height": 23.7,
+      "box": [
+        0,
+        -0.6,
+        7.4,
+        6.6
+      ],
+      "roof": {
+        "x": -8.4,
+        "z": -7.96,
+        "cell": 0.7,
+        "columns": 24,
+        "rows": 21,
+        "step": 0.093,
+        "heights": "AMPDwwAAAADDw8PDAAAAAMPDw8MAAAAA5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5N7e3t7e3t7e3t7e3t7e3t7e3t7e3t7k5P7+/v7+/v7+/v7+/v7+/v7+/v7+/v7k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P7+/v7+/v7+/v7+/v7+/v7+/v7+/v7k5N7e3t7e3t7e3t7e3t7e3t7e3t7e3t7k5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk"
+      },
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/block-row-6-end-e-lod1.glb",
+          "distance": 350,
+          "triangles": 1733
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "block-row-6-ends",
+      "name": "City block standing alone (6 floors, 16 x 13 m)",
+      "category": "building",
+      "file": "models/block-row-6-ends.glb",
+      "triangles": 12896,
+      "footprint": 7.4,
+      "height": 23.7,
+      "box": [
+        0,
+        -0.6,
+        7.4,
+        6.6
+      ],
+      "roof": {
+        "x": -8.4,
+        "z": -7.96,
+        "cell": 0.7,
+        "columns": 24,
+        "rows": 21,
+        "step": 0.093,
+        "heights": "AMPDwwAAAADDw8PDAAAAAMPDw8MAAAAA5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5N7e3t7e3t7e3t7e3t7e3t7e3t7e3t7k5P7+/v7+/v7+/v7+/v7+/v7+/v7+/v7k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P/////////////////////////////k5P7+/v7+/v7+/v7+/v7+/v7+/v7+/v7k5N7e3t7e3t7e3t7e3t7e3t7e3t7e3t7k5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk"
+      },
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/block-row-6-ends-lod1.glb",
+          "distance": 350,
+          "triangles": 2147
         }
       ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"

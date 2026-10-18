@@ -97,8 +97,26 @@ export const BUILDING_MODELS: Readonly<Record<string, BuildingModel>> = Object.f
       { asset: 'outbuilding', box: [4, 4], floors: 1 },
       { asset: 'shelter-lean-to', box: [6, 2.6], floors: 1 },
       { asset: 'annex', box: [7, 5], floors: 1 },
+      // The ends of the rows (ROW_ENDS): the module with one gable or both open, windows where no house abuts
+      ...rowEnds('house-terrace', [6, 10], 2),
+      ...rowEnds('block-row-4', [15, 12], 4),
+      ...rowEnds('block-row-6', [16, 13], 6),
     ] satisfies BuildingModel[]
   ).map((m) => [m.asset, m]),
+);
+
+/** The three ends of a row module: open to the model's west (-x), to its east, both */
+function rowEnds(module: string, box: readonly [number, number], floors: number): BuildingModel[] {
+  return ['-end-w', '-end-e', '-ends'].map((end) => ({ asset: module + end, box, floors }));
+}
+
+/**
+ * Modules with blank sides and the models that stand at the end of their
+ * row where no house abuts (convert/buildings.ts): open to the west (model
+ * -x), to the east, on both sides
+ */
+export const ROW_ENDS: Readonly<Record<string, { w: string; e: string; both: string }>> = Object.fromEntries(
+  ['house-terrace', 'block-row-4', 'block-row-6'].map((m) => [m, { w: `${m}-end-w`, e: `${m}-end-e`, both: `${m}-ends` }]),
 );
 
 /**
