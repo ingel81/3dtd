@@ -27,6 +27,7 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 - **Chain-Hitscan-Angriffe** (Lightning Tower, `attackType: 'chain'`: Primary + N Jumps mit `chainFalloff` zwischen Hits, eigener `LightningBoltRenderer`)
 - Passive Buildings (Research Center, Missile Silo, `attackType: 'passive'`), einmal je Karte über `unique`
 - **Veteranen-Ränge** aus Kills, rein kosmetisch, mit Abzeichen über dem Tower (siehe [Veteranen-Ränge](#veteranen-ränge))
+- **Rückstoß und Nachladen** beim Feuern, nur Darstellung (`firingMotion`, siehe [Rückstoß und Nachladen](#rückstoß-und-nachladen))
 
 ---
 
@@ -188,7 +189,8 @@ blender -b --factory-startup <kandidat.blend> --python tools/blender/split_tower
 Reduziert auf `triangles` (jedes Teil behält seinen Anteil), nur die Grundfarbe als JPEG (`texture`, `quality`),
 Material wie die anderen Tower (metallic 0, roughness 0,6). Die Gierachse steht auf x = z = 0, der tiefste Punkt auf
 y = 0 (`heightOffset` 0); jedes Teil hat seinen Pivot als Ursprung und keine Drehung, `names` benennt die Knoten
-(`turret_top`), `level` legt ein Rohr waagrecht, damit `pitchNodes` von Neigung 0 aus kippen. Am Ende druckt das
+(`turret_top`), `level` legt ein Rohr waagrecht, damit `pitchNodes` von Neigung 0 aus kippen, `morphs` gibt einem Teil
+Formschlüssel als glTF-Morph-Targets (die Ballista-Sehne, siehe [Rückstoß und Nachladen](#rückstoß-und-nachladen)). Am Ende druckt das
 Skript Dreiecke, Ursprünge und den Radius jedes Teils (`BUILD_TOWER {...}`): daraus `footprintRadius`, `shootHeight`
 und `firePoints`; `modelTop` prüft `tower-model.spec.ts`.
 
@@ -501,6 +503,64 @@ Größe). Siehe [ABILITIES.md](ABILITIES.md#darstellung). Den Zustand setzt die 
 aus Events (`ability:state-changed`), keine Spiel-Logik liest ihn.
 
 ---
+
+## Rückstoß und Nachladen
+
+`TowerTypeConfig.firingMotion` (E244, 2026-10-18) beschreibt, wie sich das Modell beim Schuss bewegt; nur Bild, die
+Simulation liest es nie, Coop-Lockstep und Prüfsummen bleiben unberührt. Ein Mechanismus für alle Tower:
+`three-engine/renderers/tower-firing-motion.ts` (`TowerFiring`, eine Instanz je Tower mit Profil, beim Bau des
+Modells angelegt). Ausgelöst vom Schussereignis, das der Hauptthread ohnehin bekommt (`vfx:muzzle-flash`, auch für
+den Schuss eines bemannten Towers): `PresentationHost` ruft `ThreeTowerRenderer.fire(id, fireRate)` mit der Feuerrate
+des Schatten-Towers, `ScreenShakeService` liest `shake`, `VFXService` `dust`. Der Pfad mit eigenem Modell bringt sein
+eigenes Profil mit (`TowerSwap.firingMotion`, die Ballista).
+
+- **`kick`**: Teile, die zurückfahren und kippen. Jedes fährt `back` Modelleinheiten entlang seines Rohrs zurück
+  (`turretBarrelOffset` im Rahmen des Teils, bei einem Pitch-Node mit der Neigung gedreht) und kippt um `tilt` rad
+  Mündung hoch um die Achse quer zum Rohr; ein Pitch-Node kippt auf seiner Zielneigung, der Turret-Teil auf seinem
+  Gieren (er schaukelt nach hinten). Kurve `kickCurve`: in `kickS` hoch (kubisch abbremsend: der Schuss wirft das Rohr
+  sofort zurück, die Bremse fängt es), dann über `returnS` an einer gedämpften Feder heim, die von der Spitze aus der
+  Ruhe startet und gut 3 % über die Ruhelage hinausläuft, bei `returnS` genau 0. Ein Schuss während der Rückkehr
+  steigt von dort, wo das Teil steht. `alternate`: je Schuss ein Teil im Wechsel (die Gatling feuert ihre Rohre
+  abwechselnd, wie `firePoints`).
+- **Takt**: Rückkehr höchstens 85 %, Nachladen höchstens 90 % des Schussabstands bei der aktuellen Feuerrate
+  (Upgrades verkürzen beides), die Rückkehr nie unter 50 ms. Alles läuft in Spielzeit (`updateFiring(gameDt)`):
+  Pause hält es an, doppeltes Tempo läuft doppelt so schnell, wie die Schüsse.
+- **`reload`**: der Schuss liegt sichtbar auf dem Modell (Ballista). Mit dem Schuss verschwindet `ammoNode` (der
+  Bolzen fliegt als Projektil weiter), die Sehne schnellt in 35 ms auf den Morph `release.target` (1 = entspannt) und
+  zittert aus (`releaseCurve`), hängt bis 16 % der Ladezeit, wird bis 70 % gespannt (Smoothstep), dabei dreht
+  `winch` `turns` Umdrehungen weiter (immer in dieselbe Richtung, eine Ratsche; ein Schuss mitten im Spannen behält
+  die Drehung); ab 74 % kommt der nächste Bolzen von `ammoFrom` (Versatz zur Ruhelage) und setzt bis 90 % mit einem
+  kleinen Überschwingen auf (`loadCurve`). Ladezeit `seconds`, gekürzt auf 90 % des Schussabstands.
+- **`dust`**: `puffs` Staubwolken auf einem Ring `radius` m um den Fuß, mit `speed` m/s nach außen
+  (`emitGroundDust`, Aussehen `FIRING_DUST_LOOK`), aus mit den Einschlag-Effekten der VFX-Einstellungen.
+- **`shake`**: Kamerawackeln wie bei Einschlägen (`shakeAt`): voll bis `near` m, nichts ab `far` m, aus mit der
+  Einstellung Kamerawackeln.
+
+Profile heute:
+
+| Tower | Bewegung |
+|-------|----------|
+| Iron Bastion | Rohr 35 cm zurück, 2,9° hoch; Turm 6 cm, 0,9°; Rückkehr 0,6 s; 10 Staubwolken; Wackeln 0,0016 bis 25 m, aus ab 75 m |
+| Cannon | Turm (Rohr gegossen mit ihm) 9 cm zurück, 1,1°; Rückkehr 0,4 s; 5 kleine Staubwolken; kein Wackeln (der Einschlag wackelt) |
+| Dual-Gatling | je Rohr im Wechsel 5 cm, 0,9°; Rückkehr 0,14 s (5 Schuss/s: jedes Rohr alle 0,4 s) |
+| Rocket | Werfer 5 cm, 1,7° hoch; Rückkehr 0,3 s (eine Rakete stößt kaum zurück) |
+| Ballista (Sniper) | Waffe 11 cm, 1,4°; Nachladen 2,4 s: Bolzen weg, Sehne und Arme entspannt, Winde spannt, neuer Bolzen fällt aufs Bett |
+
+Nicht bewegt: Archer (eigene Animation), Magic, Ice, Poison, Chaos (zaubern oder spucken), Lightning, Fire, Laser,
+Säge und Slicer (kein Einzelschuss, eigene Darstellung).
+
+**Kosten**: kein Szenengraph-Klon, keine Allokation je Bild oder Schuss. Nur Tower, die sich gerade bewegen, stehen in
+der Liste des Renderers (`fire` fügt an, `updateFiring` nimmt die ruhenden per Tausch mit dem letzten heraus); je
+bewegtem Teil eine Position und ein Quaternion. Die Tower sind Klone mit eigenen Knoten, nicht instanziert, deshalb
+Knoten statt Instanz-Attributen; die Sehne ist ein Morph-Target, kein eigener Draw-Call. Die Ballista hat zwei
+Draw-Calls mehr als vorher (Bolzen und Winde als eigene Knoten).
+
+**Ballista-Modell** (`tools/blender/towers/ballista.json`): `split_tower.py` schneidet `bolt` (zwei Kästen, Regel
+`anyOf`: Schäfte über dem Bett, Spitze bis unter ihren Rand) und `winch` (die Zahnkränze der beiden Räder, Regel
+`ring` um die Achse, die mit dem Gelenk der Waffe zusammenfällt) aus der Waffe. `build_tower.py` gibt der Waffe den
+Morph `relaxed` (Block `morphs`): die Sehnenhälften werden als ganze Flächen von der Waffe gelöst und auf die gerade
+Linie von der Armspitze zur Mitte gelegt, die Arme biegen sich um 7° nach vorn, linear mit dem Abstand von ihrem
+Ansatz. `tower-model.spec.ts` prüft, dass jedes Modell die Knoten und den Morph seines Profils hat.
 
 ## Sound-Integration
 

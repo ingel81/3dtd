@@ -114,6 +114,11 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 
 - [ ] **E241 Kettensägen-Tower feiner abstimmen** (User, 2026-10-18): die Sägen fahren am Gegner eher horizontal hin
       und her, die Sägeblätter drehen sich.
+- [ ] **E244 Rückstoß und Nachladen beim Feuern** (User, 2026-10-18, nur Darstellung): Iron Bastion fährt spürbar
+      zurück und federt heim, Staub am Fuß, leichtes Kamerawackeln nach Entfernung; Kanone minimal; weitere Tower, wo
+      es passt; Ballista: Bolzen weg, Sehne entspannt, spannt im Takt der Feuerrate, neuer Bolzen. Gebaut auf
+      `wt/r7-recoil` (Worker r7-recoil), wartet auf Abnahme; Profile und Mechanismus in
+      [TOWER_CREATION.md](docs/TOWER_CREATION.md#rückstoß-und-nachladen).
 
 - [ ] **E1 Balancing aufrollen**: Phase 1 und 2 gebaut, Baseline und sechs Tuning-Runden gelaufen. Offen: Zielbänder
       (3b) und Kampagnenende (3a), [docs/BALANCING_PLAN.md](docs/BALANCING_PLAN.md).
