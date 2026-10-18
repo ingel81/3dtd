@@ -374,7 +374,8 @@ export type MapBiome =
   | 'mountain'
   | 'city';
 
-export type MapWeather = 'clear' | 'rain' | 'snow' | 'fog';
+/** `storm`: heavy rain, a strong wind, lightning and thunder (render/environment/lightning.ts), drawn only */
+export type MapWeather = 'clear' | 'rain' | 'snow' | 'fog' | 'storm';
 
 /**
  * One wave of a map's own wave list, the shape of the table wave source
@@ -653,7 +654,7 @@ export const MAP_BIOMES = valuesOf<MapBiome>({
   mountain: true,
   city: true,
 });
-export const MAP_WEATHERS = valuesOf<MapWeather>({ clear: true, rain: true, snow: true, fog: true });
+export const MAP_WEATHERS = valuesOf<MapWeather>({ clear: true, rain: true, snow: true, fog: true, storm: true });
 export const MAP_WATER_KINDS = valuesOf<MapWaterKind>({ water: true, sea: true, swamp: true, ice: true, lava: true });
 export const MAP_RIVER_KINDS = valuesOf<MapRiver['kind']>({ water: true, lava: true });
 export const MAP_PATH_KINDS = valuesOf<MapPathKind>({ road: true, path: true, bridge: true });

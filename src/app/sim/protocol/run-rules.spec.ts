@@ -50,5 +50,10 @@ describe('run rules (a world\'s own gameplay)', () => {
     expect(runRulesKey(rules)).toMatch(/^r=100,500,\*,e=1:[0-9a-f]+$/);
     expect(runRulesKey(rules)).not.toBe(runRulesKey(runRulesOf({ events: [{ ...portal, wave: 5 }] })));
   });
+
+  it('takes every weather a map knows, a storm too (TODO E243), and no other', () => {
+    const storm = { wave: 3, kind: 'weather', weather: 'storm', strength: 0.9 } as const;
+    expect(runRulesOf({ events: [storm, { wave: 4, kind: 'weather', weather: 'hail' }] }).events).toEqual([storm]);
+  });
 });
 

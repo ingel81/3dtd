@@ -39,7 +39,8 @@ import { EnvBlend } from './env-blend';
 import { SkyDome } from './sky-dome';
 import { fetchPlanetImage, fetchSkyImage, skyImageOf, skyImageYaw, type SkyImage } from './sky-images';
 import { WeatherLayer } from './weather';
-import { setWind, windOf, WIND_UNIFORMS } from './wind';
+import { setWind, stormWind, windOf, WIND_UNIFORMS } from './wind';
+import { FLASH_COLOR, Lightning } from './lightning';
 
 /**
  * Sky, sun, fill light and fog of a custom map, from its MapEnvironment.
@@ -81,6 +82,15 @@ const SKY_HEIGHT = 256;
 /** Frames a fade fills the sky it ends in over, before it prefilters it */
 const SKY_FILL_FRAMES = 4;
 
+/** What a lightning flash of 1 adds to the hemisphere and the ambient light's intensity (applyFlash) */
+const FLASH_HEMI = 3.5;
+const FLASH_AMBIENT = 1.2;
+/** And to the environment map's share of the light */
+const FLASH_ENV = 0.8;
+
+/** A storm's sky (sRGB): the dark slate behind the clouds and at the horizon, the clouds' lit and shaded sides */
+const STORM = { zenith: 0x2c333c, horizon: 0x5d666f, cloud: 0x4b545f, cloudShadow: 0x1d2329 };
+
 /** Colours `show` works in, every frame of a sky fade: none made anew. skyDome.set and the uniforms copy them */
 const SCRATCH = {
   tint: new Color(),
@@ -110,6 +120,11 @@ export class CustomMapEnvironment {
   readonly fog: FogExp2;
   readonly skyDome = new SkyDome();
   readonly weather = new WeatherLayer();
+  /** A storm's lightning (lightning.ts): its bolt, and the flash applyFlash puts on lights, haze and sky */
+  readonly lightning = new Lightning();
+  /** The lights and the haze as `show` set them, under a flash (applyFlash) */
+  private readonly flashBase = { hemi: 0, ambient: 0, env: 1, hemiColor: new Color(), ambientColor: new Color(), fog: new Color() };
+  private flashShown = false;
   sky: DataTexture;
   /** Sky colours (linear) and the direction towards the sun, for materials that fake reflections */
   readonly zenith = new Color();
@@ -188,7 +203,7 @@ export class CustomMapEnvironment {
     this.sun.shadow.radius = 1.5;
     this.sun.shadow.camera.near = 1;
     this.sun.shadow.camera.far = 2000;
-    this.lights.add(this.hemi, this.ambient, this.sun, this.sun.target, this.skyDome.mesh, this.weather.mesh);
+    this.lights.add(this.hemi, this.ambient, this.sun, this.sun.target, this.skyDome.mesh, this.weather.mesh, this.lightning.mesh);
     this.fog = new FogExp2(0xffffff, env.fogDensity);
     this.sky = this.buildSky();
     this.set(env);
@@ -275,6 +290,8 @@ export class CustomMapEnvironment {
     // Weather: rain and snow close the sky, dim the sun and thicken the air; fog weather thickens it most
     const weather = env.weather ?? 'clear';
     const k = weather === 'clear' ? 0 : Math.min(1, Math.max(0, env.weatherStrength ?? 0.6));
+    // A storm: heavy rain under a low dark sky in grey-blue air, a strong wind, lightning
+    const storm = weather === 'storm' ? k : 0;
     let cover = p.cover;
     // Rain, snow and fog grey the air towards their own colour, which at night is dark as well
     const airLight = 1 - this.darkness * 0.85;
@@ -284,6 +301,16 @@ export class CustomMapEnvironment {
       this.hemi.intensity *= 1 + 0.3 * k;
       this.fog.density = baseFog * (1 + 2 * k);
       this.fog.color.lerp(SCRATCH.a.set(weather === 'snow' ? 0xd8dde2 : 0x8e969c).multiplyScalar(airLight), 0.5 * k);
+    } else if (weather === 'storm') {
+      cover = Math.max(0.02, p.cover - 0.6 * k);
+      this.sun.intensity *= 1 - 0.8 * k;
+      this.hemi.intensity *= 1 - 0.4 * k;
+      this.ambient.intensity *= 1 - 0.45 * k;
+      // The sky behind the clouds a dark slate, the horizon a lighter grey where the rain veils it
+      this.zenith.lerp(SCRATCH.a.set(STORM.zenith).multiplyScalar(airLight), 0.85 * k);
+      this.horizon.lerp(SCRATCH.a.set(STORM.horizon).multiplyScalar(airLight), 0.75 * k);
+      this.fog.density = baseFog * (1 + 3 * k);
+      this.fog.color.lerp(SCRATCH.a.set(0x56606b).multiplyScalar(airLight), 0.65 * k);
     } else if (weather === 'fog') {
       this.sun.intensity *= 1 - 0.4 * k;
       this.fog.density = Math.max(baseFog, 0.0008) * (1 + 5 * k);
@@ -291,6 +318,7 @@ export class CustomMapEnvironment {
     }
     // The weather's particles, or the biome's own ambient ones (embers, ash, dust, drifting snow)
     if (weather === 'rain' || weather === 'snow') this.weather.set(weather, k, 1 - this.darkness * 0.85);
+    else if (weather === 'storm') this.weather.set('rain', Math.min(1, 0.5 + 0.5 * k), 1 - this.darkness * 0.85);
     else if (p.particles) this.weather.set(p.particles, p.particles === 'snow' ? 0.25 : 0.5, 1 - this.darkness * 0.85);
     else this.weather.set('clear', 0, 1);
     HEIGHT_FOG_UNIFORMS.uFogDensity.value = this.fog.density;
@@ -303,16 +331,18 @@ export class CustomMapEnvironment {
     const snowFromWeather = weather === 'snow' ? k * 0.9 : 0;
     const snowFromBiome = env.biome === 'arctic' ? 0.65 : 0;
     HEIGHT_FOG_UNIFORMS.uSnowCover.value = Math.min(1, Math.max(0, env.snowCover ?? Math.max(snowFromWeather, snowFromBiome)));
-    HEIGHT_FOG_UNIFORMS.uWetness.value = weather === 'rain' ? k * 0.85 : env.biome === 'swamp' ? 0.25 : 0;
-    setWind(windOf(env));
+    HEIGHT_FOG_UNIFORMS.uWetness.value = weather === 'rain' ? k * 0.85 : storm > 0 ? 0.5 + 0.45 * storm : env.biome === 'swamp' ? 0.25 : 0;
+    setWind(stormWind(windOf(env), storm));
+    this.lightning.setStorm(storm);
     if (sunMoved || !Number.isFinite(this.shadowCenter.x)) this.placeSun(this.sun.target.position, true);
     // The haze towards the sun takes its light; the moon's is faint, or a night horizon glows in a pale band
     const glowColor = p.glowColor === undefined ? this.sun.color : SCRATCH.glow.set(p.glowColor).multiply(tint);
     HEIGHT_FOG_UNIFORMS.uFogSunColor.value.copy(glowColor).multiplyScalar(airLight).lerp(this.fog.color, 0.35);
     HEIGHT_FOG_UNIFORMS.uFogSunDir.value.copy(this.sunDir);
     HEIGHT_FOG_UNIFORMS.uGradeContrast.value = p.grade[0];
-    HEIGHT_FOG_UNIFORMS.uGradeSaturation.value = p.grade[1];
-    HEIGHT_FOG_UNIFORMS.uGradeTint.value.set(p.grade[2]);
+    // A storm drains the colours and cools them
+    HEIGHT_FOG_UNIFORMS.uGradeSaturation.value = p.grade[1] * (1 - 0.3 * storm);
+    HEIGHT_FOG_UNIFORMS.uGradeTint.value.set(p.grade[2]).multiply(SCRATCH.a.setRGB(1 - 0.12 * storm, 1 - 0.06 * storm, 1));
     HEIGHT_FOG_UNIFORMS.uGradeShadow.value.set(p.split[0]);
     HEIGHT_FOG_UNIFORMS.uGradeLight.value.set(p.split[1]);
     const planet = image ? null : this.planetDisc(planetOf(this.env));
@@ -326,15 +356,17 @@ export class CustomMapEnvironment {
       // A picture brings its own clouds and stars; until it has loaded the gradient shows bare
       cover: image ? 2 : cover,
       glow: p.glow * (1 - k * 0.7),
-      cloudColor: SCRATCH.cloud.set(p.cloudColor).multiply(tint),
-      cloudShadow: SCRATCH.cloudShadow.set(p.cloudShadow).multiply(tint),
+      // Storm clouds hang dark and heavy
+      cloudColor: SCRATCH.cloud.set(p.cloudColor).multiply(tint).lerp(SCRATCH.a.set(STORM.cloud).multiplyScalar(airLight), 0.85 * storm),
+      cloudShadow: SCRATCH.cloudShadow.set(p.cloudShadow).multiply(tint).lerp(SCRATCH.a.set(STORM.cloudShadow).multiplyScalar(airLight), 0.85 * storm),
       haze: this.fog.color,
       stars: image ? 0 : p.stars,
       planet,
       aurora: image ? 0 : p.aurora,
     });
     this.showImage(image);
-    if (this.scene) this.scene.environmentIntensity = p.envIntensity;
+    if (this.scene) this.scene.environmentIntensity = this.envIntensity(p);
+    this.keepFlashBase(p);
     if (skyChanged && !(this.fadeFrom && this.beginEnvFade())) {
       // The same texture and the same environment target, refilled: a new object would make three
       // re-check every material (and on the first change compile programs for a frame of seconds)
@@ -594,6 +626,8 @@ export class CustomMapEnvironment {
     this.skyDome.update(dt, camera);
     if (this.renderer) this.skyDome.bake(this.renderer);
     this.weather.update(dt, camera);
+    this.lightning.update(dt, camera, this.shadowCenter, this.renderer);
+    this.applyFlash();
     if (this.renderer && this.scene && this.renderer.shadowMap.enabled) this.updateShadows(this.renderer, this.scene, camera);
   }
 
@@ -653,6 +687,7 @@ export class CustomMapEnvironment {
     this.shadowParts.dispose();
     this.skyDome.dispose();
     this.weather.dispose();
+    this.lightning.dispose();
   }
 
   private placeSun(focus: Vector3, force: boolean): void {
@@ -808,7 +843,48 @@ export class CustomMapEnvironment {
       this.fillEnvironment();
     }
     scene.environment = this.envTarget?.texture ?? null;
-    scene.environmentIntensity = p.envIntensity;
+    scene.environmentIntensity = this.envIntensity(p);
+  }
+
+  /** The environment map's share of the light: the look's, less under a storm's dark sky */
+  private envIntensity(p: BiomeLook): number {
+    return p.envIntensity * ((this.env.weather ?? 'clear') === 'storm' ? 1 - 0.4 * Math.min(1, Math.max(0, this.env.weatherStrength ?? 0.6)) : 1);
+  }
+
+  /** Remembers the lights and the haze as `show` set them: a flash goes on top (applyFlash) */
+  private keepFlashBase(p: BiomeLook): void {
+    const b = this.flashBase;
+    b.hemi = this.hemi.intensity;
+    b.ambient = this.ambient.intensity;
+    b.env = this.envIntensity(p);
+    b.hemiColor.copy(this.hemi.color);
+    b.ambientColor.copy(this.ambient.color);
+    b.fog.copy(this.fog.color);
+    // A flash shown goes on the new values in the next update
+    this.flashShown = this.flashShown || this.lightning.flash > 0;
+  }
+
+  /**
+   * A lightning flash on the scene: hemisphere, ambient and environment
+   * light lifted and turned towards the flash's cold white, the haze and the
+   * clear behind the dome brightened, the clouds lit (sky-dome.ts setFlash). Only intensities
+   * and colours change, no light comes or goes, nothing compiles. Back
+   * exactly to what `show` set once it is over
+   */
+  private applyFlash(): void {
+    const f = this.lightning.flash;
+    if (f === 0 && !this.flashShown) return;
+    this.flashShown = f > 0;
+    const b = this.flashBase;
+    const tone = Math.min(1, f);
+    this.hemi.intensity = b.hemi + f * FLASH_HEMI;
+    this.hemi.color.copy(b.hemiColor).lerp(FLASH_COLOR, tone * 0.7);
+    this.ambient.intensity = b.ambient + f * FLASH_AMBIENT;
+    this.ambient.color.copy(b.ambientColor).lerp(FLASH_COLOR, tone * 0.7);
+    this.fog.color.copy(b.fog).lerp(SCRATCH.a.copy(FLASH_COLOR).multiplyScalar(0.7), tone * 0.2);
+    this.backdrop.copy(this.fog.color);
+    if (this.scene) this.scene.environmentIntensity = b.env + f * FLASH_ENV;
+    this.skyDome.setFlash(f, this.lightning.flashDir, this.fog.color);
   }
 
   private fillEnvironment(): void {

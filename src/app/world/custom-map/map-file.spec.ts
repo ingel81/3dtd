@@ -345,6 +345,7 @@ describe('map file', () => {
         { wave: 3, kind: 'message', text: 'The gate opens' },
         { wave: 3, kind: 'objects', ids: ['o1'], show: false },
         { wave: 5, kind: 'weather', weather: 'snow', strength: 0.4 },
+        { wave: 6, kind: 'weather', weather: 'storm', strength: 0.8 },
         { wave: 6, kind: 'time', hour: 20.5 },
         { wave: 8, kind: 'portal', spawn: 's1' },
       ],

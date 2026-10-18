@@ -38,7 +38,7 @@ const VIEWS: Record<string, [number, number, number, number, number, number]> = 
  * Dev page `/map-preview`: the demo map in the custom map renderer with an
  * orbit camera and frame numbers. `?view=village` picks a camera spot
  * (VIEWS), `?seed=3` another demo map, `?sky=dusk` another sky preset, `?skyImage=starry-night` a picture sky,
- * `?weather=rain|snow|fog` (`&strength=0.7`), `?moonlight=1`, `?effects=refraction,seaWaves` (map-effects.ts), `?quality=low|medium|high|ultra` (the level's custom map knobs, render-quality.ts), `?biome=hell|moon|mars|arctic|…`, `?post=bloom` through the game's
+ * `?weather=rain|storm|snow|fog` (`&strength=0.7`), `?moonlight=1`, `?effects=refraction,seaWaves` (map-effects.ts), `?quality=low|medium|high|ultra` (the level's custom map knobs, render-quality.ts), `?biome=hell|moon|mars|arctic|…`, `?post=bloom` through the game's
  * post-processing chain. `?showcase=winter` (a catalogue tag) or
  * `?assets=tree-*,rock-large&materials=snow,ice` lines up catalogue assets on a
  * flat map instead (asset-showcase.ts). `?map=<id>` shows a shipped map instead
@@ -141,7 +141,7 @@ export class MapPreviewComponent implements OnDestroy {
     if (this.stopped) return;
     const tGen = performance.now() - t0;
     const weather = params.get('weather');
-    if (weather === 'rain' || weather === 'snow' || weather === 'fog') {
+    if (weather === 'rain' || weather === 'storm' || weather === 'snow' || weather === 'fog') {
       doc.environment.weather = weather;
       doc.environment.weatherStrength = Number(params.get('strength') ?? 0.7);
     }

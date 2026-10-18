@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { WAVE_EVENT_LIMITS, type MapGameplay, type MapWaveEvent, type MapWaveEventKind, type MapWeather } from '../../../world/custom-map/map-document';
+import { WAVE_EVENT_LIMITS, type MapGameplay, type MapWaveEvent, type MapWaveEventKind } from '../../../world/custom-map/map-document';
+import { WEATHERS } from './environment-panel.component';
 import { SnapshotCommand } from '../../model/commands/snapshot';
 import { waveEventProblems } from '../../../map-ops/validation/wave-event-check';
 import { EditorSession } from '../editor-session.service';
@@ -8,17 +9,10 @@ import { panelRev } from './panel-shown';
 
 const KINDS: { id: MapWaveEventKind; label: string; hint: string }[] = [
   { id: 'message', label: 'Message', hint: 'A text on the screen' },
-  { id: 'weather', label: 'Weather', hint: 'Rain, snow, fog or clear sky from then on' },
+  { id: 'weather', label: 'Weather', hint: 'Rain, a storm, snow, fog or clear sky from then on' },
   { id: 'time', label: 'Time of day', hint: 'The sun moves to this hour' },
   { id: 'portal', label: 'Portal opens', hint: 'A spawn brings enemies only from this wave on' },
   { id: 'objects', label: 'Objects', hint: 'The selected objects appear or go: a gate, a bridge, a wall' },
-];
-
-const WEATHERS: { id: MapWeather; label: string }[] = [
-  { id: 'clear', label: 'Clear' },
-  { id: 'rain', label: 'Rain' },
-  { id: 'snow', label: 'Snow' },
-  { id: 'fog', label: 'Fog' },
 ];
 
 /**

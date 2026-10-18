@@ -251,6 +251,8 @@ export class CustomMapView {
     this.environment = new CustomMapEnvironment(doc.environment);
     this.cover = new CoverMap(this.heights);
     this.environment.weather.setCover(this.cover);
+    // A storm's bolts end on the ground (scene space; the group may be moved, not turned)
+    this.environment.lightning.setGround((x, z) => this.heights.heightAt(this.group.position.x - x, z - this.group.position.z) + this.group.position.y);
     this.terrain.grass.setCover(this.cover);
     this.environment.setFogBase(lowGround(t.grid.heights, t.water?.level));
     this.updateWater();
@@ -541,7 +543,7 @@ export class CustomMapView {
    * scene's, which gave programs with two suns
    */
   private mirroredParts(): Object3D[] {
-    return [this.group, this.losBlockers, this.environment.skyDome.mesh, this.environment.weather.mesh];
+    return [this.group, this.losBlockers, this.environment.skyDome.mesh, this.environment.weather.mesh, this.environment.lightning.mesh];
   }
 
   /**
@@ -1452,6 +1454,7 @@ export class CustomMapView {
     this.edgeTrees.setDetail({ lodBias: q.lodBias, impostorFrom: q.impostorFrom });
     this.terrain.grass.setQuality(q.grassBlades, q.grassDistance, q.grassFarBlades, q.grassFarDistance);
     this.environment.weather.setShare(q.particles);
+    this.environment.lightning.setDetail(q.particles);
     const lifeChanged = q.life !== this.lifeShare;
     this.lifeShare = q.life;
     if (this.effects.setQuality({ particles: q.particles, pointLights: q.pointLights, life: q.life })) {

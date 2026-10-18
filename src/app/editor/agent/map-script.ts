@@ -815,7 +815,7 @@ function applyHeightGrid(doc: CustomMapDocument, origin: MapPoint, step: number,
 
 const RULE_KEYS = ['startCredits', 'hqHealth', 'towers', 'waves', 'lanes', 'destructible', 'difficulty', 'events'];
 const EVENTS_EXAMPLE =
-  "events is a list of what happens before a wave (its build phase), each { wave, kind } and: message { text }, weather { weather: clear|rain|snow|fog, strength 0..1 }, " +
+  `events is a list of what happens before a wave (its build phase), each { wave, kind } and: message { text }, weather { weather: ${MAP_WEATHERS.join('|')}, strength 0..1 }, ` +
   'time { hour 0..24 }, portal { spawn: spawn id } (the spawn brings enemies only from that wave on), objects { ids: [object ids], show: true|false } (they appear or go). ' +
   "Example: { events: [{ wave: 5, kind: 'message', text: 'The north gate falls' }, { wave: 5, kind: 'portal', spawn: 's2' }] }";
 const WAVES_EXAMPLE =

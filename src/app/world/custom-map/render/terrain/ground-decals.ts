@@ -157,11 +157,11 @@ export type DecalSource = Pick<CustomMapDocument, 'objects' | 'paths' | 'environ
 /**
  * The decals of a map: leaves under trees (autumn and broadleaf woods
  * more), trodden soil along roads and paths and before the doors of
- * houses, puddles beside paths when it rains or in a swamp
+ * houses, puddles beside paths when it rains (or storms) or in a swamp
  */
 export function planDecals(doc: DecalSource, entries: Map<string, CatalogObject>): Decal[] {
   const out: Decal[] = [];
-  const wet = doc.environment.weather === 'rain' || doc.environment.biome === 'swamp';
+  const wet = doc.environment.weather === 'rain' || doc.environment.weather === 'storm' || doc.environment.biome === 'swamp';
   const objects: MapObject[] = doc.objects;
   for (const o of objects) {
     const e = entries.get(o.asset);

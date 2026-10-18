@@ -3,7 +3,7 @@ import { TOWER_TYPES, type TowerTypeId } from '../../configs/tower-types.config'
 import { getResearch } from '../../configs/research/research-tree.config';
 import type { ResearchId } from '../../configs/research/research.types';
 import { MAX_START_WAVE, type RunStart } from './run-start';
-import { WAVE_EVENT_LIMITS } from '../../world/custom-map/map-document';
+import { MAP_WEATHERS, WAVE_EVENT_LIMITS, type MapWeather } from '../../world/custom-map/map-document';
 
 /**
  * The rules a world sets for the runs on it (a custom map's gameplay,
@@ -49,7 +49,7 @@ export interface RunEventObject {
 /** A wave event as the simulation runs it (MapWaveEvent with its objects placed) */
 export type RunWaveEvent =
   | { wave: number; kind: 'message'; text: string }
-  | { wave: number; kind: 'weather'; weather: 'clear' | 'rain' | 'snow' | 'fog'; strength?: number }
+  | { wave: number; kind: 'weather'; weather: MapWeather; strength?: number }
   | { wave: number; kind: 'time'; hour: number }
   | { wave: number; kind: 'portal'; spawn: string }
   | { wave: number; kind: 'objects'; show: boolean; ids: string[]; objects: RunEventObject[] };
@@ -118,7 +118,7 @@ function isRunWaveEvent(e: unknown): e is RunWaveEvent {
     case 'message':
       return typeof r['text'] === 'string';
     case 'weather':
-      return ['clear', 'rain', 'snow', 'fog'].includes(r['weather'] as string) && (r['strength'] === undefined || finite(r['strength']));
+      return MAP_WEATHERS.includes(r['weather'] as MapWeather) && (r['strength'] === undefined || finite(r['strength']));
     case 'time':
       return finite(r['hour']);
     case 'portal':

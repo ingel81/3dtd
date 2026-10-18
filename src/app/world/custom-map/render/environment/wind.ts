@@ -54,6 +54,16 @@ export function windOf(env: Pick<MapEnvironment, 'wind' | 'biome'>): MapWind {
 }
 
 /**
+ * The wind under a storm of strength `storm` (0 none .. 1): at least a
+ * strong wind with hard gusts, a map's stronger wind stays; its direction
+ * stays the map's
+ */
+export function stormWind(wind: MapWind, storm: number): MapWind {
+  if (!(storm > 0)) return wind;
+  return { ...wind, strength: Math.max(wind.strength, 0.55 + 0.4 * storm), gusts: Math.max(wind.gusts, 0.6 + 0.35 * storm) };
+}
+
+/**
  * Where the wind blows to in the scene (x, z), for a wind from `direction`
  * (degrees from north, clockwise, as a weather report gives it). Map east
  * is scene -x, map north scene +z.

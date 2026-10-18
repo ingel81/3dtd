@@ -21,6 +21,7 @@ import {
 import { SHADER_NOISE } from '../shader-noise';
 import { HEIGHT_FOG_PARS, HEIGHT_FOG_UNIFORMS } from './height-fog';
 import { WIND_UNIFORMS } from './wind';
+import { FLASH_COLOR } from './lightning';
 
 /**
  * The visible sky: a dome around the camera with a gradient from horizon
@@ -101,6 +102,10 @@ export class SkyDome {
         uSkyImage: { value: null },
         uSkyImageOn: { value: 0 },
         uSkyImageYaw: { value: 0 },
+        // A lightning flash (lightning.ts): how bright, towards where, its colour
+        uFlash: { value: 0 },
+        uFlashDir: { value: new Vector3(0, 1, 0) },
+        uFlashColor: { value: FLASH_COLOR.clone() },
       },
       vertexShader: SKY_VERTEX,
       fragmentShader: SKY_FRAGMENT,
@@ -190,6 +195,21 @@ export class SkyDome {
     this.bakeAge = SKY_BAKE_FRAMES;
   }
 
+  /**
+   * A lightning flash lights the clouds from inside, most around `dir`
+   * (lightning.ts), and the haze at the dome's foot takes `haze` (the
+   * environment's, lifted by the flash). The water's sky texture bakes every
+   * frame while it lasts
+   */
+  setFlash(flash: number, dir: Vector3, haze: Color): void {
+    const u = this.mesh.material.uniforms;
+    if (flash === 0 && u['uFlash'].value === 0) return;
+    u['uFlash'].value = flash;
+    u['uFlashDir'].value.copy(dir);
+    u['uSkyHaze'].value.copy(haze);
+    this.bakeAge = SKY_BAKE_FRAMES;
+  }
+
   /** Follows the camera and moves the clouds */
   update(dt: number, camera: Camera): void {
     camera.getWorldPosition(this.mesh.position);
@@ -253,6 +273,15 @@ uniform float uAurora;
 uniform sampler2D uSkyImage;
 uniform float uSkyImageOn;
 uniform float uSkyImageYaw;
+uniform float uFlash;
+uniform vec3 uFlashDir;
+uniform vec3 uFlashColor;
+
+// How much of a lightning flash a direction takes: a little everywhere, a wide glow towards it, a hot core round it
+float skyFlash(vec3 dir) {
+  float towards = max(dot(dir, uFlashDir), 0.0);
+  return uFlash * (0.04 + 0.35 * towards * towards + 1.6 * pow(towards, 12.0));
+}
 
 // The image sky in a direction: the picture holds the upper hemisphere, below it its horizon row
 vec3 skyImageColor(vec3 dir) {
@@ -400,6 +429,13 @@ vec3 skyColor(vec3 dir, bool withSun) {
     vec3 cloud = mix(uCloudShadow, uCloudColor, lit);
     // Silver lining near the sun
     cloud += uSunColor * pow(cosSun, 12.0) * 0.6 * (1.0 - density);
+    // Lightning lights the clouds from inside, the thick ones most; the gaps a little
+    if (uFlash > 0.0) {
+      // Lit from inside: the thick parts glow, their thin edges and the gaps stay dark, so the clouds' shapes show
+      float flash = skyFlash(dir);
+      cloud += uFlashColor * flash * (0.15 + 1.1 * d * d);
+      sky += uFlashColor * flash * 0.08;
+    }
     float fade = smoothstep(0.0, 0.25, dir.y);
     sky = mix(sky, cloud, density * fade * 0.92);
   }
@@ -437,7 +473,7 @@ void main() {
   vec3 dir = normalize(vDir);
   // A uniform branch: an image sky skips the clouds' noise
   vec3 sky;
-  if (uSkyImageOn > 0.5) sky = skyImageColor(dir);
+  if (uSkyImageOn > 0.5) sky = skyImageColor(dir) + uFlashColor * skyFlash(dir) * 0.5;
   else sky = skyColor(dir, true);
   gl_FragColor = vec4(sky, 1.0);
   #include <tonemapping_fragment>
@@ -471,7 +507,7 @@ void main() {
   vec3 dir = vec3(cos(az) * cos(el), sin(el), sin(az) * cos(el));
   // A uniform branch: an image sky skips the clouds' noise
   vec3 sky;
-  if (uSkyImageOn > 0.5) sky = skyImageColor(dir);
+  if (uSkyImageOn > 0.5) sky = skyImageColor(dir) + uFlashColor * skyFlash(dir) * 0.5;
   else sky = skyColor(dir, false);
   gl_FragColor = vec4(sky, 1.0);
 }

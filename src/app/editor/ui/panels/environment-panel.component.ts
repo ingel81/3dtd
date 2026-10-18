@@ -8,9 +8,11 @@ import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
 import { RangeRowComponent } from './range-row.component';
 
-const WEATHERS: { id: MapWeather; label: string }[] = [
+/** The weathers a map can have, as the editor names them (also the wave events' choice) */
+export const WEATHERS: readonly { id: MapWeather; label: string }[] = [
   { id: 'clear', label: 'Clear' },
   { id: 'rain', label: 'Rain' },
+  { id: 'storm', label: 'Storm' },
   { id: 'snow', label: 'Snow' },
   { id: 'fog', label: 'Fog' },
 ];
