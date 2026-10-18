@@ -28,7 +28,14 @@ describe('OSM world anchors and landmarks', () => {
         { id: 5, x: 0, y: 900, tags: { public_transport: 'station', name: 'Amsterdam Centraal Station' } },
         { id: 6, x: 0, y: -900, tags: { railway: 'station', name: 'Würzburg Hauptbahnhof' } },
       ],
-      [square(10, -800, 0, 50, { amenity: 'parking', name: 'Mainwiese' }), square(11, -800, 300, 20, { amenity: 'parking' }), square(12, -800, 600, 60, { amenity: 'parking', parking: 'multi-storey' })],
+      [
+        square(10, -800, 0, 50, { amenity: 'parking', name: 'Mainwiese' }),
+        square(11, -800, 300, 20, { amenity: 'parking' }),
+        square(12, -800, 600, 60, { amenity: 'parking', parking: 'multi-storey' }),
+        // A lot named by its number says nothing by itself; one named a car park does
+        square(13, -900, -300, 50, { amenity: 'parking', name: 'P1' }),
+        square(14, -900, -600, 50, { amenity: 'parking', name: 'Parkplatz Congresscentrum' }),
+      ],
     );
     const anchors = spawnAnchors(f);
     expect(anchors.map((a) => [a.name, a.tier])).toEqual([
@@ -38,6 +45,8 @@ describe('OSM world anchors and landmarks', () => {
       ['Amsterdam Centraal Station', 0],
       ['Würzburg Hauptbahnhof', 0],
       ['Mainwiese car park', 1],
+      ['P1 car park', 1],
+      ['Parkplatz Congresscentrum', 1],
     ]);
     expect(anchors[5].x).toBeCloseTo(-775, 5);
   });

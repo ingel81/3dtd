@@ -170,7 +170,7 @@ function signedArea(ring: readonly MapPoint[]): number {
 /** Words in a name that say what the place is already, in the languages of the places surveyed and their neighbours */
 const STATION_WORDS = /bahnhof|\b(station|hbf|bf|gare|stazione|estaci[oó]n|dworzec)\b/i;
 const STOP_WORDS = /haltestelle|\b(stop|halte|arr[eê]t|fermata|parada|przystanek)\b/i;
-const CAR_PARK_WORDS = /parkplatz|parkhaus|parkeer|\b(car ?park|parking|p ?\d+|p\+r)\b/i;
+const CAR_PARK_WORDS = /parkplatz|parkhaus|parkeer|\b(car ?park|parking|p\+r)\b/i;
 const HARBOUR_WORDS = /hafen|haven\b|\b(harbou?r|port|porto|puerto|marina)\b/i;
 
 /** A place's spawn name: its name with what it is ("Engelplatz stop"), its name alone where that says it ("Würzburg Hauptbahnhof"), else the word */
