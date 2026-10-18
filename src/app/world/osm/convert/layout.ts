@@ -4,7 +4,9 @@
  * (StreetRouter.findRandomStreetPoint: a node 500 to 1000 m away on a
  * drivable street, with a route to the HQ, moved to a straight stretch), on
  * the map's own street network. Several, spread round the HQ; the first is
- * always open, the player may close the others before wave 1.
+ * always open, the player may close the others before wave 1. Most of them
+ * arrive where people do (convert/anchors.ts: a station, a harbour, a large
+ * car park, a stop) and take its name; the rest are drawn on any street.
  *
  * The frame before the making (components/osm-frame) draws them with
  * `OsmLayout.draw` and drops a dragged one on its street with `OsmLayout.at`,
@@ -16,6 +18,7 @@ import { MAX_MANUAL_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE, MIN_MANUAL_SPAWN_DISTANC
 import type { StreetNetwork } from '../../../interfaces/street-network-provider.interface';
 import { CustomMapStreets, type StreetMap } from '../../custom-map/custom-map-streets';
 import { geoToMap, mapToGeo, type CustomMapDocument, type MapPoint, type MapSpawn } from '../../custom-map/map-document';
+import type { SpawnAnchor } from './anchors';
 
 export interface LayoutOptions {
   /** Spawns wanted when none are given */
@@ -24,6 +27,8 @@ export interface LayoutOptions {
   at?: readonly MapPoint[];
   /** The place the HQ goes to (map metres); the map's middle when absent */
   place?: MapPoint;
+  /** Where people arrive (convert/anchors.ts): drawn spawns prefer them, and a spawn near one takes its name */
+  anchors?: readonly SpawnAnchor[];
 }
 
 export interface LayoutReport {
@@ -58,6 +63,17 @@ const DROP_STREET_REACH = 100;
 const EDGE_ROOM = 40;
 /** Points of a route kept for the frame's drawing */
 const ROUTE_POINTS = 160;
+/** Farthest (m) an anchor reaches for its road (a station stands back from the street) */
+const ANCHOR_ROAD_REACH = 120;
+/** A spawn this close (m) to an anchor takes its name */
+const ANCHOR_NAME_REACH = 60;
+/**
+ * Share of the drawn spawns that try an anchor first; the others are drawn
+ * on any street, so a roll again finds new streets and not the same station
+ */
+const ANCHOR_SHARE = 0.75;
+/** How much more likely each anchor tier comes first (stations, then harbours and car parks, then stops) */
+const ANCHOR_TIER_WEIGHT = [4, 2, 1];
 
 const COMPASS = ['North', 'North-east', 'East', 'South-east', 'South', 'South-west', 'West', 'North-west'];
 
@@ -72,11 +88,15 @@ export class OsmLayout {
   private readonly lines: { edgeId: string; kind: string; line: MapPoint[] }[];
   private readonly half: number;
 
-  /** `place`: where the HQ goes, map metres (the frame's square may stand off it); the map's middle when absent */
+  /**
+   * `place`: where the HQ goes, map metres (the frame's square may stand off
+   * it); the map's middle when absent. `anchors`: where people arrive
+   */
   constructor(
     map: StreetMap,
     private readonly names: ReadonlyMap<string, string>,
     place: MapPoint = { x: 0, y: 0 },
+    private readonly anchors: readonly SpawnAnchor[] = [],
   ) {
     const nodes = new Map(map.paths.nodes.map((n) => [n.id, n]));
     // A tunnel holds neither the HQ nor a spawn: both would stand in the hill
@@ -101,22 +121,58 @@ export class OsmLayout {
     const coverage = { center: { lat: 0, lon: 0 }, radiusM: this.half };
     const taken = keep.map((p) => ({ x: p.x, y: p.y }));
     const out: LaidSpawn[] = [];
-    for (let draw = 0; draw < count * DRAWS_PER_SPAWN && out.length < count; draw++) {
-      const found = this.streets.findRandomStreetPoint(this.network, hq.lat, hq.lon, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE, coverage);
-      if (!found) break;
-      const p = geoToMap(found.lat, found.lon);
+    const crowded = (p: MapPoint) => {
       const bearing = bearingOf(hqPoint, p);
-      const crowded = taken.some((s) => {
+      return taken.some((s) => {
         const turn = Math.abs(((bearing - bearingOf(hqPoint, s) + 540) % 360) - 180);
         return Math.hypot(s.x - p.x, s.y - p.y) < SPAWN_SPACING_M || turn < SPAWN_SPACING_DEG;
       });
-      if (crowded) continue;
-      const laid = this.laid(p, found.distance);
-      if (!laid) continue;
-      taken.push(p);
+    };
+    const take = (laid: LaidSpawn | null): boolean => {
+      if (!laid) return false;
+      taken.push({ x: laid.x, y: laid.y });
       out.push(laid);
+      return true;
+    };
+    const anchors = this.anchorOrder(hqPoint);
+    for (let draw = 0; draw < count * DRAWS_PER_SPAWN && out.length < count; draw++) {
+      // An anchor first for most spawns; the next one that stands apart from the others
+      if (anchors.length && Math.random() < ANCHOR_SHARE) {
+        let placed = false;
+        while (anchors.length && !placed) {
+          const a = anchors.shift()!;
+          if (!crowded(a.foot)) placed = take(this.laid(a.foot, a.distance, a.anchor.name));
+        }
+        if (placed) continue;
+      }
+      const found = this.streets.findRandomStreetPoint(this.network, hq.lat, hq.lon, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE, coverage);
+      if (!found) break;
+      const p = geoToMap(found.lat, found.lon);
+      if (crowded(p)) continue;
+      take(this.laid(p, found.distance));
     }
     return out;
+  }
+
+  /**
+   * The anchors a spawn may stand at, each on the foot of its road, in the
+   * order they are tried: a draw weighted by tier (the earlier tiers more
+   * likely first), so a roll again may find another
+   */
+  private anchorOrder(hq: MapPoint): { anchor: SpawnAnchor; foot: MapPoint; distance: number }[] {
+    const lim = this.half - EDGE_ROOM;
+    const out: { anchor: SpawnAnchor; foot: MapPoint; distance: number; key: number }[] = [];
+    for (const anchor of this.anchors) {
+      const road = this.nearest(anchor, (k) => k === 'road');
+      if (!road || road.dist > ANCHOR_ROAD_REACH) continue;
+      const foot = { x: round2(road.point.x), y: round2(road.point.y) };
+      if (Math.abs(foot.x) > lim || Math.abs(foot.y) > lim) continue;
+      const distance = Math.hypot(foot.x - hq.x, foot.y - hq.y);
+      if (distance < MIN_SPAWN_DISTANCE || distance > MAX_SPAWN_DISTANCE) continue;
+      const weight = ANCHOR_TIER_WEIGHT[anchor.tier] ?? 1;
+      out.push({ anchor, foot, distance, key: Math.pow(Math.random(), 1 / weight) });
+    }
+    return out.sort((a, b) => b.key - a.key);
   }
 
   /**
@@ -142,8 +198,12 @@ export class OsmLayout {
     return this.laid({ x: round2(foot.x), y: round2(foot.y) }, distance) ?? { reason: 'No route to the HQ from here' };
   }
 
-  /** The spawn at `p` with its name and route, null without a route */
-  private laid(p: MapPoint, distanceM: number): LaidSpawn | null {
+  /**
+   * The spawn at `p` with its name and route, null without a route. Its name:
+   * `name` when given, else the anchor near it, else its street's, else the
+   * bearing from the HQ
+   */
+  private laid(p: MapPoint, distanceM: number, name?: string): LaidSpawn | null {
     const hq = mapToGeo(this.hq!);
     const from = mapToGeo(p);
     const route = this.streets.findPath(this.network, from.lat, from.lon, hq.lat, hq.lon);
@@ -151,10 +211,24 @@ export class OsmLayout {
     let routeM = 0;
     for (let k = 1; k < route.length; k++) routeM += this.streets.haversineDistance(route[k - 1].lat, route[k - 1].lon, route[k].lat, route[k].lon);
     const street = this.nearest(p, () => true);
-    const name = (street && this.names.get(street.edgeId)) || COMPASS[Math.round(((bearingOf(this.hq!, p) + 360) % 360) / 45) % 8];
+    name ||= this.anchorNear(p)?.name || (street && this.names.get(street.edgeId)) || COMPASS[Math.round(((bearingOf(this.hq!, p) + 360) % 360) / 45) % 8];
     const step = Math.max(1, Math.ceil(route.length / ROUTE_POINTS));
     const line = route.filter((_, k) => k % step === 0 || k === route.length - 1).map((n) => roundPoint(geoToMap(n.lat, n.lon)));
     return { name, x: round2(p.x), y: round2(p.y), distanceM: Math.round(distanceM), routeM: Math.round(routeM), route: line };
+  }
+
+  /** The anchor nearest `p` within ANCHOR_NAME_REACH, the earlier tier first */
+  private anchorNear(p: MapPoint): SpawnAnchor | null {
+    let best: SpawnAnchor | null = null;
+    let bestD = ANCHOR_NAME_REACH;
+    for (const a of this.anchors) {
+      const d = Math.hypot(a.x - p.x, a.y - p.y) + a.tier * 10;
+      if (d <= bestD) {
+        best = a;
+        bestD = d;
+      }
+    }
+    return best;
   }
 
   /** `p` lies on a tunnel edge rather than on the road it meets at the mouth */
@@ -183,7 +257,7 @@ export class OsmLayout {
  * else drawn
  */
 export function layOut(doc: CustomMapDocument, names: ReadonlyMap<string, string>, options: LayoutOptions): LayoutReport {
-  const layout = new OsmLayout(doc, names, options.place);
+  const layout = new OsmLayout(doc, names, options.place, options.anchors);
   doc.hq = layout.hq ?? { x: 0, y: 0 };
   const wanted = options.at?.length ?? options.spawns;
   const report: LayoutReport = { hqShiftM: layout.hqShiftM, wanted, spawns: [] };

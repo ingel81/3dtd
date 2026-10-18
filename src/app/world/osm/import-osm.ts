@@ -27,6 +27,7 @@ import { growVegetation, type VegetationReport } from './convert/vegetation';
 import { objectCost } from '../custom-map/render/objects/scene-cost';
 import { carveWater, paintWater, settleWater, WATER_MATERIALS, type WaterPaintRole, type WaterReport } from './convert/water';
 import { layOut, OsmLayout, type LayoutReport } from './convert/layout';
+import { spawnAnchors } from './convert/anchors';
 import { placeFurniture, type FurnitureReport } from './convert/furniture';
 import { placeBuildings, type BuildingCatalogEntry, type BuildingReport } from './convert/buildings';
 
@@ -182,7 +183,7 @@ export function convertOsm(
   step('paint');
 
   const at = options.spawnsAt?.map((p) => frame.point(p));
-  const layout = layOut(doc, roads.names, { spawns: options.spawns ?? OSM_SPAWNS, at, place: input.place && frame.point(input.place) });
+  const layout = layOut(doc, roads.names, { spawns: options.spawns ?? OSM_SPAWNS, at, place: input.place && frame.point(input.place), anchors: spawnAnchors(features) });
   if (layout.spawns.length < layout.wanted) {
     warnings.push(at
       ? `spawns: ${layout.wanted - layout.spawns.length} of ${layout.wanted} chosen have no street with a route to the HQ and were left out`
@@ -274,7 +275,7 @@ export function osmStreets(input: Pick<OsmImportInput, 'lat' | 'lon' | 'place' |
   const frame = new OsmFrame(input.lat, input.lon);
   const features = parseOsm(input.overpass, frame, sideM / 2);
   const roads = buildRoads(features);
-  const layout = new OsmLayout({ paths: roads.paths, terrain: { width: sideM, depth: sideM } }, roads.names, input.place && frame.point(input.place));
+  const layout = new OsmLayout({ paths: roads.paths, terrain: { width: sideM, depth: sideM } }, roads.names, input.place && frame.point(input.place), spawnAnchors(features));
   return { frame, layout, roads: roads.stats, parse: features.stats };
 }
 
