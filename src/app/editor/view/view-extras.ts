@@ -8,6 +8,7 @@ import { SPAWN_COLORS } from '../../configs/map-constants.config';
 import type { MapIntro } from '../../world/custom-map/map-document';
 import { emptyPose, introPoseAt } from '../../world/custom-map/map-intro';
 import { Soundscape } from '../../world/custom-map/ambience/soundscape';
+import type { Lightning, LightningStrike } from '../../world/custom-map/render/environment/lightning';
 import type { Route } from '../../map-ops/path-graph';
 import type { EditorDocument } from '../model/editor-document';
 import type { CameraController, OrbitState } from './camera-controller';
@@ -38,6 +39,8 @@ export interface ExtrasHost {
   walkHeightAt: Height;
   /** How dark the map's sky is now (0 day, 1 night) */
   darkness(): number;
+  /** The view's lightning, whose strikes the map's sound answers with thunder */
+  lightning(): Lightning;
   status(message: string): void;
 }
 
@@ -99,6 +102,7 @@ export class TrialWave {
 export class MapSound {
   private ambience: { sound: Soundscape; context: AudioContext } | null = null;
   private readonly right = new Vector3();
+  private readonly thunder = (strike: Readonly<LightningStrike>): void => this.ambience?.sound.thunder(strike);
 
   constructor(private readonly host: ExtrasHost) {}
 
@@ -133,6 +137,9 @@ export class MapSound {
   update(dt: number): void {
     const a = this.ambience;
     if (!a) return;
+    // The view's lightning (a new view brings a new one) answered with thunder
+    const lightning = this.host.lightning();
+    if (lightning.onStrike !== this.thunder) lightning.onStrike = this.thunder;
     const { camera, controller, heightAt } = this.host;
     const target = controller.current.target;
     this.right.setFromMatrixColumn(camera.matrixWorld, 0);

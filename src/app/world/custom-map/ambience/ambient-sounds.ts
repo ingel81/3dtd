@@ -80,6 +80,8 @@ export const AMBIENT_SOUNDS: Readonly<Record<string, AmbientSound>> = {
   cowbells: { label: 'Cowbells', file: 'assets/sounds/ambient/cowbells.mp3', gain: 0.5 },
   'pine-wind': { label: 'Wind in pines', file: 'assets/sounds/ambient/pine-wind.mp3', gain: 0.6 },
   rain: { label: 'Rain', file: 'assets/sounds/ambient/rain.mp3', gain: 0.6 },
+  // A storm's downpour with gusts (the storm weather plays it, STORM_BED)
+  'storm-rain': { label: 'Heavy rain', file: 'assets/sounds/ambient/storm-rain.mp3', gain: 0.75 },
   'cave-wind': { label: 'Cave wind', file: 'assets/sounds/ambient/cave-wind.mp3', gain: 0.6 },
 };
 
@@ -99,6 +101,35 @@ export const WAVE_SOUNDS: Readonly<Record<string, AmbientSound>> = {
   'siren-distant': { label: 'Distant siren', file: 'assets/sounds/ambient/siren-distant.mp3', gain: 0.7 },
   'ship-horn': { label: "Ship's horn", file: 'assets/sounds/ambient/ship-horn.mp3', gain: 0.8 },
 };
+
+/**
+ * What a storm (MapWeather `storm`) plays over the whole map, at its
+ * strength k: the downpour and the wind, louder the wilder it is
+ */
+export const STORM_BED: readonly { sound: string; volume: (k: number) => number }[] = [
+  { sound: 'storm-rain', volume: (k) => 0.6 + 0.4 * k },
+  { sound: 'wind', volume: (k) => 0.25 + 0.45 * k },
+];
+
+/**
+ * Thunder after a storm's lightning (soundscape.ts thunder), whole files
+ * (assets/sounds/ambient/thunder/, ElevenLabs, 2026-10-18): the crack of a
+ * strike close by, the boom rolling over the land from a kilometre or so,
+ * the low rumble from far off. Two recordings each
+ */
+export const THUNDER_SOUNDS = {
+  crack: ['assets/sounds/ambient/thunder/crack-1.mp3', 'assets/sounds/ambient/thunder/crack-2.mp3'],
+  roll: ['assets/sounds/ambient/thunder/roll-1.mp3', 'assets/sounds/ambient/thunder/roll-2.mp3'],
+  rumble: ['assets/sounds/ambient/thunder/rumble-1.mp3', 'assets/sounds/ambient/thunder/rumble-2.mp3'],
+} as const;
+
+export type ThunderKind = keyof typeof THUNDER_SOUNDS;
+
+/** Which thunder a strike `distance` metres off sounds like: a cloud flash never cracks */
+export function thunderKind(distance: number, cloud: boolean): ThunderKind {
+  if (!cloud && distance < 700) return 'crack';
+  return distance < 2000 ? 'roll' : 'rumble';
+}
 
 /** A loop's or a wave sound's entry by id */
 export function soundEntry(id: string): AmbientSound | undefined {

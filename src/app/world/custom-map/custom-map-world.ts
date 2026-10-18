@@ -302,6 +302,8 @@ export class CustomMapWorld implements WorldProvider {
       this.soundscape = new Soundscape(ctx.audio);
       this.soundscape.setMap(this.doc);
       this.soundVolume = ctx.audio.volume;
+      // A storm's thunder after its lightning
+      view.environment.lightning.onStrike = (strike) => this.soundscape?.thunder(strike);
     }
 
     // Streets, spawns and routes go on while the map's textures and models load and its shaders compile
@@ -505,6 +507,8 @@ export class CustomMapWorld implements WorldProvider {
     if (JSON.stringify(env) !== JSON.stringify(this.doc.environment)) {
       this.doc.environment = env;
       this.view?.setEnvironment(env);
+      // A storm brings its downpour and wind, a clear sky takes them
+      this.soundscape?.setMap(this.doc);
     }
     const hidden = hiddenObjectsAt(events, wave);
     const changed = this.doc.objects.filter((o) => hidden.has(o.id) !== this.eventHidden.has(o.id));

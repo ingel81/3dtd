@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { MapEnvironment, MapLife } from '../map-document';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { AMBIENT_SOUNDS, WAVE_SOUNDS, ambienceSounds, soundFiles } from './ambient-sounds';
-import { AMBIENT_LEVEL, AREA_REACH, CROSSFADE, LOOP_PAD, Soundscape, type SoundscapeListener } from './soundscape';
+import { AMBIENT_SOUNDS, STORM_BED, THUNDER_SOUNDS, WAVE_SOUNDS, ambienceSounds, soundFiles, thunderKind } from './ambient-sounds';
+import { AMBIENT_LEVEL, AREA_REACH, CROSSFADE, LOOP_PAD, SPEED_OF_SOUND, Soundscape, type SoundscapeListener } from './soundscape';
 
 /** Just enough Web Audio for the soundscape: gains and pans hold their last target, sources say whether they play */
 function fakeAudio() {
@@ -12,8 +12,14 @@ function fakeAudio() {
   const node = () => ({ connect: (n: unknown) => n, disconnect: () => undefined });
   const gains: { gain: { value: number; curves: { at: number; rising: boolean }[] } }[] = [];
   const pans: { pan: { value: number } }[] = [];
+  const filters: { type: string; frequency: { value: number } }[] = [];
   const context = {
     currentTime: 0,
+    createBiquadFilter: () => {
+      const f = { ...node(), type: 'lowpass', frequency: { value: 0 } };
+      filters.push(f);
+      return f;
+    },
     createGain: () => {
       const g = { ...node(), gain: param() };
       gains.push(g);
@@ -31,7 +37,7 @@ function fakeAudio() {
       return s;
     },
   } as unknown as BaseAudioContext;
-  return { context, destination: node() as unknown as AudioNode, sources, gains, pans };
+  return { context, destination: node() as unknown as AudioNode, sources, gains, pans, filters };
 }
 
 const env = (biome: MapEnvironment['biome']) => ({ biome }) as MapEnvironment;
@@ -229,5 +235,65 @@ describe('Soundscape', () => {
     // Out of hearing it all stops
     s.dispose();
     expect(a.sources.every((x) => !x.playing)).toBe(true);
+  });
+
+  it("plays a storm's downpour and wind over the map, louder the wilder, from high up as well", async () => {
+    const a = fakeAudio();
+    const s = new Soundscape(a, (url) => Promise.resolve({ duration: 20.2, url } as unknown as AudioBuffer));
+    s.setVolume(1);
+    s.setMap({ environment: { ...env('temperate'), weather: 'storm', weatherStrength: 1 } });
+    await tick(s, listener(0, 0, { height: 400 }));
+    const urls = a.sources.map((x) => (x.sound as { url: string }).url);
+    for (const b of STORM_BED) expect(urls.some((u) => soundFiles(AMBIENT_SOUNDS[b.sound]).includes(u))).toBe(true);
+    const loud = levels(a);
+    expect(loud[0]).toBeCloseTo(AMBIENT_SOUNDS['storm-rain'].gain * 0.6, 3);
+    // A clear sky takes them; a mountain map's own wind is not played twice
+    s.setMap({ environment: env('temperate') });
+    await tick(s, listener(0, 0), 4);
+    expect(s.playing).toBe(0);
+    s.setMap({ life: { ambience: { sound: 'biome', volume: 1 } }, environment: { ...env('mountain'), weather: 'storm' } });
+    await tick(s, listener(0, 0));
+    expect(a.sources.filter((x) => x.playing && soundFiles(AMBIENT_SOUNDS['wind']).includes((x.sound as { url: string }).url))).toHaveLength(1);
+    s.dispose();
+  });
+
+  it('answers lightning with thunder after its distance, a crack close by, a dull rumble far off', async () => {
+    const a = fakeAudio();
+    const s = new Soundscape(a, (url) => Promise.resolve({ duration: 6, url } as unknown as AudioBuffer));
+    s.setVolume(1);
+    s.setMap({ environment: { ...env('temperate'), weather: 'storm' } });
+    await tick(s, listener(0, 0));
+    const before = a.sources.length;
+    s.thunder({ kind: 'ground', distance: 343, pan: 0.5, power: 1 });
+    s.thunder({ kind: 'ground', distance: 3430, pan: -1, power: 1 });
+    await tick(s, listener(0, 0));
+    const [near, far] = a.sources.slice(before);
+    expect(THUNDER_SOUNDS.crack).toContain((near.sound as { url: string }).url);
+    expect(THUNDER_SOUNDS.rumble).toContain((far.sound as { url: string }).url);
+    // The light at once, the sound at 343 m/s
+    expect(near.when).toBeCloseTo(343 / SPEED_OF_SOUND, 5);
+    expect(far.when).toBeCloseTo(3430 / SPEED_OF_SOUND, 5);
+    // Farther is duller and quieter
+    const [nearDull, farDull] = a.filters.slice(-2);
+    expect(farDull.frequency.value).toBeLessThan(nearDull.frequency.value / 4);
+    const gains = a.gains.slice(-2).map((g) => g.gain.value);
+    expect(gains[1]).toBeLessThan(gains[0] / 3);
+    expect(a.pans.slice(-2).map((p) => p.pan.value)).toEqual([0.425, -0.85]);
+    expect(s.thundering).toBe(2);
+    // Nothing while silent; dispose stops what waits
+    s.setVolume(0);
+    s.thunder({ kind: 'cloud', distance: 900, pan: 0, power: 0.5 });
+    await tick(s, listener(0, 0));
+    expect(s.thundering).toBe(2);
+    s.dispose();
+    expect(s.thundering).toBe(0);
+    expect(a.sources.slice(before).every((x) => !x.playing)).toBe(true);
+  });
+
+  it('never cracks from a cloud flash or from far', () => {
+    expect(thunderKind(300, false)).toBe('crack');
+    expect(thunderKind(300, true)).toBe('roll');
+    expect(thunderKind(1500, false)).toBe('roll');
+    expect(thunderKind(2500, false)).toBe('rumble');
   });
 });

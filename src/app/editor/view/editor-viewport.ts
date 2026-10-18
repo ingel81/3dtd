@@ -147,6 +147,7 @@ export class EditorViewport {
       surfaceAt: (x, y) => this.surfaceAt(x, y),
       walkHeightAt,
       darkness: () => this.view.view.environment.darkness,
+      lightning: () => this.view.view.environment.lightning,
       status: (m) => callbacks.status(m),
     });
     this.scene.add(this.extras.trial.runners.group);

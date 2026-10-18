@@ -1,6 +1,7 @@
 import type { CustomMapDocument, MapLife, MapLifeArea, MapPoint } from '../map-document';
 import { LIFE_SOUND_REACH, nearestOnShape } from '../map-life';
-import { AMBIENT_SOUNDS, WAVE_SOUNDS, ambienceSounds, soundEntry, soundFiles, type AmbientCalls } from './ambient-sounds';
+import { AMBIENT_SOUNDS, STORM_BED, THUNDER_SOUNDS, WAVE_SOUNDS, ambienceSounds, soundEntry, soundFiles, thunderKind, type AmbientCalls } from './ambient-sounds';
+import type { LightningStrike } from '../render/environment/lightning';
 
 /**
  * The ambient sound of a custom map (TODO E190, docs/CUSTOM_MAPS.md
@@ -10,6 +11,8 @@ import { AMBIENT_SOUNDS, WAVE_SOUNDS, ambienceSounds, soundEntry, soundFiles, ty
  * inside its outline or on its line and fading over its reach (AREA_REACH
  * metres unless it sets its own),
  * and the sound once at each wave's start (`life.waveSound`, playWave).
+ * A storm (MapWeather `storm`) adds its downpour and wind over everything
+ * (STORM_BED) and the thunder after each lightning strike (`thunder`).
  * Heard from where the camera looks (the listener: a ground point and the
  * camera's height over it); from high up everything is quieter, and a sound
  * off to one side pans there. Plain Web Audio: one looping buffer source,
@@ -49,6 +52,17 @@ const CALL_DETUNE = 0.06;
 /** Metres over which a wave sound from an area falls to its least share, and that share (a bell carries) */
 const WAVE_REACH = 400;
 const WAVE_FAR = 0.35;
+/** Metres a second: thunder comes this much later than its light */
+export const SPEED_OF_SOUND = 343;
+/**
+ * Thunder against the rest (times AMBIENT_LEVEL, like everything here): a
+ * strike close by is the loudest thing on the map, louder than the shots
+ */
+const THUNDER_GAIN = 2.4;
+/** Thunder sounding at once at most; a further one waits for none and is left out */
+const MAX_THUNDER = 4;
+/** A storm's bed is heard from high up as well, at least this share (the rain falls around the camera too) */
+const STORM_LIFT = 0.6;
 
 export interface SoundscapeOutput {
   context: BaseAudioContext;
@@ -75,8 +89,9 @@ interface Voice {
   source: AudioBufferSourceNode | null;
   /** Seconds it has been silent */
   silent: number;
-  /** What it plays: the bed (day or night) or an area */
+  /** What it plays: the bed (day or night), the storm's bed, or an area */
   bed?: 'day' | 'night';
+  storm?: boolean;
   area?: MapLifeArea;
   volume: number;
   /** A sound with variants: the turns scheduled (the playing one and the next) */
@@ -99,6 +114,8 @@ export class Soundscape {
   private disposed = false;
   /** The map's wave sound and the area it comes from */
   private wave: { sound: string; volume: number; area: MapLifeArea | null } | null = null;
+  /** Thunder sounding or waiting for its distance (until it ends) */
+  private readonly thunders = new Set<AudioBufferSourceNode>();
   /** Where the listener was at the last update, for a wave sound between updates */
   private heard: Omit<SoundscapeListener, 'darkness'> = { at: { x: 0, y: 0 }, height: 80, right: { x: 1, y: 0 } };
 
@@ -119,6 +136,15 @@ export class Soundscape {
     if (bed && amb) {
       wanted.push({ key: `bed-day:${bed.day}`, sound: bed.day, bed: 'day', volume: amb.volume });
       if (bed.night !== bed.day) wanted.push({ key: `bed-night:${bed.night}`, sound: bed.night, bed: 'night', volume: amb.volume });
+    }
+    if (doc.environment.weather === 'storm') {
+      const k = Math.min(1, Math.max(0, doc.environment.weatherStrength ?? 0.6));
+      // Not twice what the bed plays already (the wind of a mountain map)
+      for (const b of STORM_BED) {
+        if (!wanted.some((w) => w.sound === b.sound)) wanted.push({ key: `storm:${b.sound}`, sound: b.sound, storm: true, volume: b.volume(k) });
+      }
+      // The thunder loads with the storm, so the first strike is heard
+      for (const files of Object.values(THUNDER_SOUNDS)) for (const file of files) void this.file(file);
     }
     for (const area of doc.life?.areas ?? []) {
       if (area.kind !== 'sound' || !area.sound || !AMBIENT_SOUNDS[area.sound]) continue;
@@ -183,6 +209,54 @@ export class Soundscape {
     s.start();
   }
 
+  /**
+   * The thunder of a lightning strike (lightning.ts onStrike), after its
+   * light by the distance at the speed of sound: a crack close by, a rolling
+   * boom from a kilometre or so, a low rumble from far off (thunderKind),
+   * quieter and duller (a low pass falling with the distance) the farther,
+   * from its side, a recording at random a little off pitch. Nothing while
+   * silent; at most MAX_THUNDER at a time
+   */
+  thunder(strike: Readonly<LightningStrike>): void {
+    if (this.disposed || this.volume <= 0 || this.thunders.size >= MAX_THUNDER) return;
+    const context = this.out.context;
+    const d = Math.max(0, strike.distance);
+    const at = context.currentTime + d / SPEED_OF_SOUND;
+    const files = THUNDER_SOUNDS[thunderKind(d, strike.kind === 'cloud')];
+    const file = files[Math.floor(Math.random() * files.length)];
+    const level = THUNDER_GAIN * strike.power * Math.min(1.3, Math.max(0.1, 600 / (d + 300)));
+    const pan = Math.max(-1, Math.min(1, strike.pan)) * 0.85;
+    // Its thunder starts when it arrives; a recording still loading starts late rather than not at all
+    void this.file(file).then((buffer) => {
+      if (!buffer || this.disposed || this.thunders.size >= MAX_THUNDER) return;
+      const s = context.createBufferSource();
+      s.buffer = buffer;
+      s.playbackRate.value = 0.96 + Math.random() * 0.08;
+      const dull = context.createBiquadFilter();
+      dull.type = 'lowpass';
+      dull.frequency.value = Math.min(18000, Math.max(350, 18000 * Math.exp(-d / 1200)));
+      const gain = context.createGain();
+      gain.gain.value = level;
+      const panner = context.createStereoPanner();
+      panner.pan.value = pan;
+      s.connect(dull).connect(gain).connect(panner).connect(this.master);
+      this.thunders.add(s);
+      s.onended = () => {
+        this.thunders.delete(s);
+        s.disconnect();
+        dull.disconnect();
+        gain.disconnect();
+        panner.disconnect();
+      };
+      s.start(Math.max(at, context.currentTime));
+    });
+  }
+
+  /** Thunder sounding or on its way, for tests */
+  get thundering(): number {
+    return this.thunders.size;
+  }
+
   /** Everything's level, 0..1 (the player's sound volume); 0 silences and, after a while, stops the sources */
   setVolume(volume: number): void {
     this.volume = Math.max(0, Math.min(1, volume));
@@ -207,6 +281,7 @@ export class Soundscape {
       let heard = 0;
       let pan = 0;
       if (v.bed) heard = v.volume * lift * (v.bed === 'night' ? night : this.voices.some((o) => o.bed === 'night') ? 1 - night : 1);
+      else if (v.storm) heard = v.volume * Math.max(lift, STORM_LIFT);
       else if (v.area) {
         const d = nearestOnShape(v.area, listener.at.x, listener.at.y, this.near);
         const f = Math.max(0, 1 - d / (v.area.reach ?? AREA_REACH));
@@ -239,6 +314,15 @@ export class Soundscape {
     this.disposed = true;
     for (const v of this.voices) this.drop(v);
     this.voices = [];
+    for (const s of this.thunders) {
+      try {
+        s.stop();
+      } catch {
+        // never started
+      }
+      s.disconnect();
+    }
+    this.thunders.clear();
     this.master.disconnect();
   }
 
