@@ -277,3 +277,58 @@ export function objectFooting(o: Pick<MapObject, 'asset' | 'mass'>, f: ObjectFoo
   if (!m || !f) return f;
   return { ...f, footprint: massRadius(m), height: massTop(m), box: massBox(m) };
 }
+
+/** One street-facing wall of a raised building on the map (what shop signs and awnings hang on) */
+export interface MassFront {
+  /** Middle of the wall at its foot, map metres; the outward normal (unit) */
+  x: number;
+  y: number;
+  nx: number;
+  ny: number;
+  /** Length of the wall, m */
+  width: number;
+  /** Top of the ground floor and of the walls over the seat, m */
+  ground: number;
+  top: number;
+}
+
+/** Plinth over the seat of each facade (mass-layer.ts WALL_COLOR_FRAGMENT) */
+const MASS_PLINTH: Readonly<Record<MapMass['facade'], number>> = { plaster: 0.45, concrete: 0.6, metal: 1, brick: 0.5, stone: 0.6 };
+
+/**
+ * The walls of the outline at least `least` metres long, on the map at the
+ * object's place, turn and scale (courtyards left out): middle, outward
+ * normal, length, and the top of the ground floor as the mass layer lays out
+ * the storeys (plinth, then `floors` storeys under the cornice or parapet)
+ */
+export function massFronts(o: Pick<MapObject, 'asset' | 'mass' | 'x' | 'y' | 'rotation' | 'scale'>, least = 2): MassFront[] {
+  const m = massOf(o);
+  if (!m) return [];
+  const s = o.scale || 1;
+  const cos = Math.cos(o.rotation);
+  const sin = Math.sin(o.rotation);
+  // Model (x, z) to the map: the inverse of toModel (object-ground.ts)
+  const toMap = (x: number, z: number) => ({ x: o.x - (x * cos + z * sin) * s, y: o.y - x * sin * s + z * cos * s });
+  const plinth = MASS_PLINTH[m.facade];
+  const band = m.roof === 'flat' ? MASS_PARAPET + 0.25 : 0.3;
+  const storey = Math.max(0.5, m.height - plinth - band) / Math.max(1, m.floors);
+  const ground = (plinth + Math.min(storey, 4.6)) * s;
+  const r = m.rings[0];
+  const out: MassFront[] = [];
+  for (let i = 0, j = r.length - 2; i < r.length; j = i, i += 2) {
+    const length = Math.hypot(r[i] - r[j], r[i + 1] - r[j + 1]);
+    if (length * s < least) continue;
+    const mx = (r[i] + r[j]) / 2;
+    const mz = (r[i + 1] + r[j + 1]) / 2;
+    let nx = (r[i + 1] - r[j + 1]) / length;
+    let nz = -(r[i] - r[j]) / length;
+    if (massContains(m, mx + nx * 0.05, mz + nz * 0.05)) {
+      nx = -nx;
+      nz = -nz;
+    }
+    const a = toMap(mx, mz);
+    const b = toMap(mx + nx, mz + nz);
+    out.push({ x: a.x, y: a.y, nx: (b.x - a.x) / s, ny: (b.y - a.y) / s, width: length * s, ground, top: m.height * s });
+  }
+  return out;
+}

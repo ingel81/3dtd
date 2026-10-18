@@ -6,6 +6,7 @@ import {
   massBox,
   massContains,
   massDistance,
+  massFronts,
   massPitched,
   massProblem,
   massRadius,
@@ -97,5 +98,23 @@ describe('raised buildings: what the rules read of one', () => {
     expect(massProblem({ ...court, roof: 'dome' })).toMatch(/roof/);
     expect(massProblem({ ...court, facade: 'glass' })).toMatch(/facade/);
     expect(massProblem({ ...court, ridge: -1 })).toMatch(/ridge/);
+  });
+});
+
+describe('raised buildings: their fronts on the map', () => {
+  it('gives the walls of the outline with outward normals, turned and placed like the object, courtyards left out', () => {
+    const o = { asset: MASS_ASSET, mass: court, x: 100, y: 50, rotation: Math.PI / 2, scale: 1 };
+    const fronts = massFronts(o);
+    expect(fronts.length).toBe(4);
+    for (const f of fronts) {
+      expect(Math.hypot(f.nx, f.ny)).toBeCloseTo(1);
+      // The normal points away from the building's middle
+      expect((f.x - 100) * f.nx + (f.y - 50) * f.ny).toBeGreaterThan(0);
+      expect(f.top).toBe(12);
+      expect(f.ground).toBeGreaterThan(0.45);
+      expect(f.ground).toBeLessThan(5);
+    }
+    expect(fronts.map((f) => Math.round(f.width)).sort((a, b) => a - b)).toEqual([30, 30, 40, 40]);
+    expect(massFronts({ ...o, asset: 'house-modern' })).toEqual([]);
   });
 });
