@@ -1,6 +1,6 @@
 import { BoxGeometry, DataTexture, Mesh, MeshStandardMaterial, Scene, type WebGLRenderer } from 'three';
 import { describe, expect, it } from 'vitest';
-import { releaseSharedGpu, shareGpu } from './shared-gpu';
+import { releaseSharedGpu, shareGpu, unshareGpu } from './shared-gpu';
 import { scaffoldWarmUp } from './renderers/tower-scaffold';
 import { foamNoiseTexture } from '../world/custom-map/render/water/foam-noise';
 
@@ -35,6 +35,14 @@ describe('shared GPU resources', () => {
     const again = drawnBy(material);
     releaseSharedGpu(rendererWith(new Map()));
     expect(again()).toBe(false);
+  });
+
+  it('let go of one its owner freed: a renderer that goes later does not touch it', () => {
+    const material = shareGpu(new MeshStandardMaterial());
+    unshareGpu(material);
+    const held = drawnBy(material);
+    releaseSharedGpu(rendererWith(new Map()));
+    expect(held()).toBe(true);
   });
 
   it('release the DFG LUT three hands its physical materials, found on one the renderer drew in its scene', () => {

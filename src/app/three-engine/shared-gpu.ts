@@ -22,6 +22,11 @@ export function shareGpu<T extends GpuResource>(resource: T): T {
   return resource;
 }
 
+/** `resource` is no longer the page's (its owner went and freed it) */
+export function unshareGpu(resource: GpuResource): void {
+  shared.delete(resource);
+}
+
 /**
  * A renderer goes (ThreeTilesEngine.dispose, EditorViewport.dispose), before
  * its scene is emptied: every shared resource drops its GPU side and with it
