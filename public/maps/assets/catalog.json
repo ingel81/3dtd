@@ -9214,6 +9214,13 @@
       "tags": [
         "coast"
       ],
+      "light": {
+        "color": "#ffc070",
+        "intensity": 0.9,
+        "distance": 14,
+        "height": 6.5,
+        "flicker": true
+      },
       "source": "https://polyhaven.com/a/dutch_ship_medium"
     },
     {

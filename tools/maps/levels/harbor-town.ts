@@ -129,8 +129,7 @@ export function buildHarborTown(): CustomMapDocument {
   k.place('rowboat', -230, shore - 14, { rotation: 0.6 });
   k.place('lighthouse', 205, -228);
   for (const [x, y, a] of [[120, -230, 'buoy-red'], [70, -240, 'buoy-green'], [-60, -230, 'buoy-red']] as const) k.place(a, x, y);
-  // A second ship riding at anchor in the bay, fishing boats out
-  // TODO(E179): ships with lit windows
+  // A second ship riding at anchor in the bay, fishing boats out (the ships' deck lanterns light up at night)
   k.place('ship', 90, -215, { rotation: 2.6, scale: 0.85 });
   for (const [x, y, r] of [[30, -200, 0.4], [-110, -225, 2.1]] as const) k.place('fishing-boat', x, y, { rotation: r });
   k.scatter(['pebbles-scatter'], { x: -235, y: shore - 10 }, { radius: 24, strength: 0.7 }, { density: 2, minDistance: 4 });
