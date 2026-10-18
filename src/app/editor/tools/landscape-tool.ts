@@ -35,6 +35,9 @@ export class LandscapeTool implements EditorTool {
   private line: MapPoint[] | null = null;
   private dab = 0;
   private previewNoise: LandscapeNoise | null = null;
+  /** What the preview dots were last worked out for, and the spots (their objects kept from frame to frame) */
+  private previewKey = '';
+  private readonly previewAt: MapPoint[] = [];
 
   brushVisible(ctx: ToolContext): boolean {
     const mode = ctx.settings.landscape().mode;
@@ -80,12 +83,20 @@ export class LandscapeTool implements EditorTool {
     }
     // Preview of the next biome stroke under the cursor
     if (s.mode === 'biome' && p?.hit && !this.stroke) {
-      if (this.previewNoise?.seed !== s.seed) this.previewNoise = new LandscapeNoise(s.seed);
-      ctx.overlay.preview.set(
-        previewSpots(this.previewNoise, ctx.catalog, p.hit, brush, biomeById(s.biome)),
-        biomeById(s.biome).color,
-      );
+      // Worked out again only when the spot (to half a metre), the brush, the biome, the seed, the catalogue or the
+      // dots' size changed: every frame it made 10 to 17 MB of garbage in a second and a half
+      const x = Math.round(p.hit.x * 2) / 2;
+      const y = Math.round(p.hit.y * 2) / 2;
+      const preview = ctx.overlay.preview;
+      const key = `${x}|${y}|${brush.radius}|${brush.strength}|${brush.falloff}|${s.biome}|${s.seed}|${ctx.catalog.objects.size}|${preview.scale}`;
+      if (key !== this.previewKey) {
+        this.previewKey = key;
+        if (this.previewNoise?.seed !== s.seed) this.previewNoise = new LandscapeNoise(s.seed);
+        const biome = biomeById(s.biome);
+        preview.set(previewSpots(this.previewNoise, ctx.catalog, { x, y }, brush, biome, undefined, this.previewAt), biome.color);
+      }
     } else if (!this.stroke) {
+      this.previewKey = '';
       ctx.overlay.preview.clear();
     }
     const stroke = this.stroke;
@@ -94,6 +105,7 @@ export class LandscapeTool implements EditorTool {
     switch (s.mode) {
       case 'biome':
         biomeDab(stroke, center, brush, biomeById(s.biome), dt);
+        this.previewKey = '';
         ctx.overlay.preview.clear();
         return;
       case 'mountain':

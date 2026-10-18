@@ -423,6 +423,21 @@ describe('biome brush', () => {
     expect(spots.length).toBeGreaterThan(10);
     for (const s of spots) expect(Math.hypot(s.x, s.y - 80)).toBeLessThan(brush.radius);
   });
+
+  /** r7 editor measurement: the preview made 10 to 17 MB of garbage in a second and a half, asked anew each frame */
+  it('fills a kept list in place: the same spots, its point objects reused, the rest cut off', () => {
+    const stroke = new LandscapeContext(map().begin('Biome'), 4, catalog);
+    const forest = biomeById('forest');
+    const into: { x: number; y: number }[] = [];
+    const first = previewSpots(stroke.noise, catalog, { x: 0, y: 80 }, brush, forest, undefined, into);
+    expect(first).toBe(into);
+    const objects = [...into];
+    const again = previewSpots(stroke.noise, catalog, { x: 3, y: 80 }, brush, forest, undefined, into);
+    expect(again).toEqual(previewSpots(stroke.noise, catalog, { x: 3, y: 80 }, brush, forest));
+    const shared = Math.min(objects.length, again.length);
+    for (let k = 0; k < shared; k++) expect(again[k]).toBe(objects[k]);
+    expect(previewSpots(stroke.noise, catalog, { x: 0, y: 80 }, { ...brush, radius: 4 }, forest, undefined, into).length).toBeLessThan(shared);
+  });
 });
 
 describe('landforms', () => {

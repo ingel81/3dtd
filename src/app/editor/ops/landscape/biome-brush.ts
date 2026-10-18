@@ -655,30 +655,40 @@ export function previewSpots(
   brush: BrushSettings,
   biome: BiomeDef,
   limit = 400,
+  /** Filled in place, its point objects kept (the brush's preview asks again as the pointer moves) */
+  into: { x: number; y: number }[] = [],
 ): { x: number; y: number }[] {
-  const out: { x: number; y: number }[] = [];
+  let count = 0;
+  const put = (x: number, y: number) => {
+    const kept = into[count++];
+    if (kept) {
+      kept.x = x;
+      kept.y = y;
+    } else into.push({ x, y });
+  };
   biome.objects.forEach((o, kind) => {
     if (!o.assets.some((a) => catalog.objects.has(a))) return;
     if (isSlotZone(o.zone)) {
       const r = brush.radius;
       for (const slot of citySlots(o.zone, center.x - r, center.x + r, center.y - r, center.y + r)) {
         const w = frayedWeight(noise, Math.hypot(slot.x - center.x, slot.y - center.y), slot.x, slot.y, brush);
-        if (out.length < limit && w >= 0.45) out.push({ x: slot.x, y: slot.y });
+        if (count < limit && w >= 0.45) put(slot.x, slot.y);
       }
       return;
     }
     const cell = cellSize(o, 1);
     const r = brush.radius;
-    for (let cj = Math.floor((center.y - r) / cell); cj <= Math.floor((center.y + r) / cell) && out.length < limit; cj++) {
-      for (let ci = Math.floor((center.x - r) / cell); ci <= Math.floor((center.x + r) / cell) && out.length < limit; ci++) {
+    for (let cj = Math.floor((center.y - r) / cell); cj <= Math.floor((center.y + r) / cell) && count < limit; cj++) {
+      for (let ci = Math.floor((center.x - r) / cell); ci <= Math.floor((center.x + r) / cell) && count < limit; ci++) {
         const n = noise;
         const px = (ci + n.hash(ci, cj, kind * 4 + 1)) * cell;
         const py = (cj + n.hash(ci, cj, kind * 4 + 2)) * cell;
         const w = frayedWeight(noise, Math.hypot(px - center.x, py - center.y), px, py, brush);
         const clump = o.clump ? 1 - o.clump + o.clump * 2 * (0.5 + 0.5 * n.fbm(px, py, 30, 2, 'n3')) : 1;
-        if (n.hash(ci, cj, kind * 4 + 3) < zoneChance(o.zone, w) * brush.strength * clump) out.push({ x: px, y: py });
+        if (n.hash(ci, cj, kind * 4 + 3) < zoneChance(o.zone, w) * brush.strength * clump) put(px, py);
       }
     }
   });
-  return out;
+  into.length = count;
+  return into;
 }

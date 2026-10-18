@@ -6,6 +6,7 @@ import { SphereGeometry } from 'three';
 import { ToolOverlay } from '../view/overlay/tool-overlay';
 import { freeGroup, withGroups } from '../../map-ops/object-ops';
 import { describeGround } from '../ops/describe';
+import { LandscapeTool } from './landscape-tool';
 import { LookTool } from './look-tool';
 import { MarkerTool } from './marker-tool';
 import { ObjectTool, insidePolygon, placeOutline } from './object-tool';
@@ -135,6 +136,22 @@ describe('editor tools', () => {
     strokeAt(0);
     expect(near().length).toBeGreaterThan(first / 2);
     tool.deactivate(ctx);
+  });
+
+  it('works the biome preview out again only when the spot, brush or biome changed', () => {
+    const ed = fresh();
+    const ctx = context(ed);
+    patch(ctx.settings.landscape, { mode: 'biome' });
+    const tool = new LandscapeTool();
+    const set = vi.spyOn(ctx.overlay.preview, 'set');
+    for (let k = 0; k < 5; k++) tool.frame(1 / 60, at(10, 10), ctx);
+    // Within half a metre it is the same spot
+    tool.frame(1 / 60, at(10.1, 10), ctx);
+    expect(set).toHaveBeenCalledTimes(1);
+    tool.frame(1 / 60, at(12, 10), ctx);
+    patch(ctx.settings.brush, { radius: ctx.settings.brush().radius + 5 });
+    tool.frame(1 / 60, at(12, 10), ctx);
+    expect(set).toHaveBeenCalledTimes(3);
   });
 
   it('levels a slope under a house placed anew, in the same undo step; a tree levels nothing', () => {
