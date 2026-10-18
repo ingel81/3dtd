@@ -242,7 +242,11 @@ export class GridNormalTexture {
   readonly texture: DataTexture;
   private readonly pixels: Uint16Array;
 
-  constructor(private readonly field: HeightField) {
+  /** @param water The water's mask (setWater): normals and wet banks worked out once, not the normals twice */
+  constructor(
+    private readonly field: HeightField,
+    water: Uint8Array | null = null,
+  ) {
     // Half floats: 8 bits per component band visibly on gentle slopes
     this.pixels = new Uint16Array(field.columns * field.rows * 4);
     this.texture = new DataTexture(this.pixels, field.columns, field.rows, RGBAFormat, HalfFloatType);
@@ -251,7 +255,7 @@ export class GridNormalTexture {
     this.texture.magFilter = LinearFilter;
     this.texture.minFilter = LinearFilter;
     this.texture.generateMipmaps = false;
-    this.update();
+    this.setWater(water);
   }
 
   private wet: Float32Array | null = null;

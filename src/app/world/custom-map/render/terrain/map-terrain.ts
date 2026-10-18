@@ -164,14 +164,13 @@ export class MapTerrainLayer {
     this.placeholder.customProgramCacheKey = () => 'custom-map-terrain-placeholder';
     this.apronProfile = new ApronProfile(field, terrain.water, BACKDROP_HEIGHT[biome]);
     this.apron = buildTerrainApron(this.apronProfile, this.apronPlaceholder);
-    this.normals = new GridNormalTexture(field);
+    this.normals = new GridNormalTexture(field, terrain.water?.mask ?? null);
     this.occlusion = new GroundOcclusion(field, baker);
     this.cuts = new TerrainCuts(terrain.width, terrain.depth);
     this.roads = new RoadSurfaceLayer(field, this.heightTexture, this.normals.texture);
     this.surfaces = new SurfaceLayer(field, this.heightTexture, this.normals.texture);
     this.grass = new GrassLayers(this.heightTexture);
     for (const m of this.grass.meshes) m.visible = false;
-    this.normals.setWater(terrain.water?.mask ?? null);
   }
 
   /**

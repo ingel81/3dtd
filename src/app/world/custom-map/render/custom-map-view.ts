@@ -74,6 +74,7 @@ import { programsReady } from '../../../three-engine/programs-ready';
 import { waterLevelAt } from '../water-level';
 import { massRadius } from '../object-mass';
 import { PacedRefresh } from './paced-refresh';
+import { selectNth } from '../../../utils/select-nth';
 
 /** Biomes with fireflies at night, and with birds by day */
 const FIREFLY_BIOMES: ReadonlySet<MapBiome> = new Set(['temperate', 'swamp', 'mountain']);
@@ -1742,8 +1743,9 @@ export class CustomMapView {
 /** The low ground of a map for the height fog: the water level, or near the lowest heights */
 function lowGround(heights: Float32Array, waterLevel: number | undefined): number {
   if (waterLevel !== undefined) return waterLevel;
-  const sorted = Float32Array.from(heights).sort();
-  return sorted[Math.floor(sorted.length * 0.05)] ?? 0;
+  if (!heights.length) return 0;
+  // The 5th percentile by selection, not a sort of the whole grid (40 ms on a 2048 m map in a dev build)
+  return selectNth(Float32Array.from(heights), Math.floor(heights.length * 0.05));
 }
 
 /** The switchable map effects a quality level sets */
