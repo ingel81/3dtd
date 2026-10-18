@@ -87,24 +87,25 @@ import { WorldsStageService } from './worlds-stage.service';
         </section>
         }
       }
-      @if (stage.trashed(); as t) {
-        <p class="td-banner is-row" role="status" data-test="trashed">
-          <span>{{ t.name }} is in the trash.</span>
-          <button class="td-btn-secondary td-btn-sm" type="button" (click)="stage.restoreMap(t.key)">Restore</button>
-        </p>
-      }
       @if (stage.trash().length) {
         <section class="td-group" aria-labelledby="wm-maps-trash" data-test="trash">
           <h3 class="td-section" id="wm-maps-trash">Trash <span class="td-note">deleted maps wait {{ trashDays }} days</span></h3>
           <div class="td-rows">
             @for (m of stage.trash(); track m.id) {
-              <div class="td-inline" [attr.data-trash]="m.trash?.from">
-                <span class="wm-row-name wm-trash">
-                  <span class="td-name">{{ m.name }}</span>
-                  <small class="td-note">{{ deletedLine(m) }}</small>
-                </span>
-                <button class="td-btn-secondary td-btn-sm" type="button" (click)="stage.restoreMap(m.id)" data-test="trash-restore">Restore</button>
-                <button class="td-btn-ghost td-btn-sm" type="button" (click)="stage.purgeMap(m)">Delete for good</button>
+              <!-- A row with its tools, as the save slots stand: the row brings the map back, the bin ends it -->
+              <div class="td-row wm-trash" [attr.data-trash]="m.trash?.from" [class.is-fresh]="stage.trashed()?.key === m.id">
+                <button class="td-row-main" type="button" title="Restore" (click)="stage.restoreMap(m.id)">
+                  <span class="wm-row-name">
+                    <span class="td-name td-trunc">{{ m.name }}</span>
+                    <small class="td-note">{{ deletedLine(m) }}</small>
+                  </span>
+                </button>
+                <button class="td-tool" type="button" aria-label="Restore" title="Restore" (click)="stage.restoreMap(m.id)" data-test="trash-restore">
+                  <td-icon name="undo" [size]="16" />
+                </button>
+                <button class="td-tool" type="button" aria-label="Delete for good" title="Delete for good" (click)="stage.purgeMap(m)">
+                  <td-icon name="trash" [size]="16" />
+                </button>
               </div>
             }
           </div>
@@ -146,6 +147,8 @@ import { WorldsStageService } from './worlds-stage.service';
         } @else if (stage.notice(); as notice) {
           <p class="td-note is-warn" role="status">{{ notice }}</p>
         }
+      } @else if (stage.notice(); as notice) {
+        <p class="td-note" role="status">{{ notice }}</p>
       } @else {
         <p class="td-note">Pick a map: its tower turns to the front. Play loads it.</p>
       }

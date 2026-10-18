@@ -53,11 +53,18 @@
   gap: var(--td-sp-3);
 }
 
-// A map in the trash: its name and when it goes, Restore and Delete for good beside it
+// A map in the trash: a row with its tools (td-row-main, td-tool), the one deleted last marked
 .wm-trash {
-  flex: 1 1 auto;
-  min-width: 0;
-  padding: var(--td-sp-1) var(--td-sp-2);
+  gap: var(--td-sp-1);
+
+  > .td-row-main {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  &.is-fresh .td-name {
+    color: var(--td-brass-light);
+  }
 }
 
 // A row with a tool in it: Remove from a Recent list stands at the row's end,

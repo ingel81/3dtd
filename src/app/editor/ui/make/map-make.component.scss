@@ -80,7 +80,7 @@
   width: min(var(--td-dlg-page), 100%);
   min-height: 0;
   max-height: 100%;
-  padding: 18px 20px;
+  padding: 18px 20px 14px;
   overflow-y: auto;
   // A scrollbar coming or going would reflow the template grid (six columns to five and back)
   scrollbar-gutter: stable;

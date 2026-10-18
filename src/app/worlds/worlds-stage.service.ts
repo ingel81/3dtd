@@ -615,6 +615,7 @@ export class WorldsStageService {
     }
     this.trashed.set({ key, name: map.name });
     await this.afterDelete(map);
+    this.notice.set(`${map.name} is in the trash at the end of the list.`);
   }
 
   private async afterDelete(map: StageMap): Promise<void> {

@@ -3,6 +3,7 @@ import type { MenuLayer } from '../../menu-page';
 import { MainMenuService } from '../../main-menu.service';
 import { SAVE_GAME } from '../../../../services/save-game/save-game.port';
 import { SaveSlotsComponent } from '../save-load/save-slots.component';
+import { RovingGroupDirective } from '../../../roving-group.directive';
 
 /**
  * The menu's Saves page: Save and Load as two tabs of one page (the slots,
@@ -14,10 +15,10 @@ import { SaveSlotsComponent } from '../save-load/save-slots.component';
 @Component({
   selector: 'app-menu-saves',
   standalone: true,
-  imports: [SaveSlotsComponent],
+  imports: [SaveSlotsComponent, RovingGroupDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="td-seg is-sm" role="tablist" aria-label="Saves">
+    <div class="td-seg" role="tablist" aria-label="Saves" tdRovingGroup>
       <button type="button" role="tab" [attr.aria-selected]="tab() === 'save'" (click)="tab.set('save')" data-tab="save">Save</button>
       <button type="button" role="tab" [attr.aria-selected]="tab() === 'load'" (click)="tab.set('load')" data-tab="load">Load</button>
     </div>
@@ -36,7 +37,7 @@ import { SaveSlotsComponent } from '../save-load/save-slots.component';
           </div>
         } @else {
           <div class="td-actions is-start">
-            <button type="button" class="td-btn-secondary" (click)="askRestart()" data-test="restart">{{ menu.restartLabel }}</button>
+            <button type="button" class="td-btn-secondary td-btn-sm" (click)="askRestart()" data-test="restart">{{ menu.restartLabel }}</button>
           </div>
         }
       </section>

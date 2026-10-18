@@ -728,9 +728,9 @@ describe('Worlds stage', () => {
     el(f).querySelector<HTMLElement>('[data-test="delete-map"]')!.click();
     await vi.waitFor(() => expect(library.deleteMap).toHaveBeenCalledWith('bay', 'Bay'));
     await settle(f);
-    expect(text(el(f).querySelector('[data-test="trashed"]'))).toBe('Bay is in the trash. Restore');
+    expect(stage.notice()).toBe('Bay is in the trash at the end of the list.');
     expect(stage.picks().maps).toBeNull();
-    button(f, 'Restore').click();
+    stage.restoreMap('bay~1');
     await vi.waitFor(() => expect(library.restoreMap).toHaveBeenCalledWith('bay~1'));
   });
 
