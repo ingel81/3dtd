@@ -154,6 +154,38 @@ export function buildFrostHamlet(): CustomMapDocument {
   // The bell tower over the village square, the village's landmark beside the chapel
   if (k.free(-8, 190, 3)) k.place('bell-tower-snow', -8, 190, { rotation: facing({ x: -8, y: 190 }, hq) });
 
+  // Clearings in the firs: open snowfields between the stands, so the woods read as groves and the slopes as land,
+  // each with what people left there (a barn and hay under snow, a woodcutter's stacks and stumps, a hunting stand)
+  const clearings: { at: MapPoint; r: number; with: 'barn' | 'wood' | 'stand' }[] = [
+    { at: { x: -175, y: 40 }, r: 46, with: 'barn' },
+    { at: { x: 175, y: -125 }, r: 42, with: 'wood' },
+    { at: { x: -120, y: -165 }, r: 40, with: 'stand' },
+    { at: { x: 195, y: 115 }, r: 36, with: 'barn' },
+    { at: { x: -215, y: 150 }, r: 30, with: 'stand' },
+    { at: { x: 60, y: -195 }, r: 34, with: 'wood' },
+  ];
+  for (const [n, c] of clearings.entries()) {
+    // Ragged: a few overlapping rounds, not one circle
+    for (let i = 0; i < 4; i++) {
+      const a = k.noise.hash(n, i, 41) * Math.PI * 2;
+      const d = c.r * 0.45 * k.noise.hash(i, n, 42);
+      k.erase({ x: c.at.x + Math.cos(a) * d, y: c.at.y + Math.sin(a) * d }, c.r * (0.6 + 0.3 * k.noise.hash(n, i, 43)), (o) => o.asset.startsWith('fx') || o.asset.startsWith('fence') || o.asset.startsWith('lamp'));
+    }
+    k.paint('snow-windswept', c.at, { radius: c.r, falloff: 0.7 }, 0.5);
+    k.scatter(['snow-drift-mound', 'grass-snow', 'stump'], c.at, { radius: c.r * 0.9, strength: 0.6 }, { density: 1.2, minDistance: 6 });
+    const spot = k.clearSpot(c.with === 'barn' ? 'barn-snow' : c.with === 'wood' ? 'woodpile-snow' : 'watchtower', c.at, { reach: 10 });
+    if (!spot) continue;
+    if (c.with === 'barn') {
+      k.place('barn-snow', spot.x, spot.y, { rotation: facing(spot, hq) });
+      for (const [dx, dy] of [[9, 4], [11, -3], [-9, 6]] as const) if (k.free(spot.x + dx, spot.y + dy, 2)) k.place('haystack', spot.x + dx, spot.y + dy);
+      k.row('fence-rail', [{ x: c.at.x - c.r * 0.8, y: c.at.y - c.r * 0.5 }, { x: c.at.x, y: c.at.y - c.r * 0.75 }, { x: c.at.x + c.r * 0.8, y: c.at.y - c.r * 0.4 }], 3.8, { turn: Math.PI / 2 });
+    } else if (c.with === 'wood') {
+      k.place('woodpile-snow', spot.x, spot.y, { rotation: n });
+      for (const [dx, dy, a] of [[5, 3, 'log'], [-4, 5, 'log'], [6, -5, 'woodpile-snow'], [-6, -3, 'stump']] as const) if (k.free(spot.x + dx, spot.y + dy, 1.5)) k.place(a, spot.x + dx, spot.y + dy, { rotation: dx + dy });
+    } else {
+      k.place('watchtower', spot.x, spot.y, { rotation: facing(spot, lakeAt), scale: 0.8 });
+    }
+  }
   // ---- Life: ravens over the village and the wood west of it, snow flurries blowing along the ridges and over the
   // village, ice fog drifting low over the lake, smoke from every house (their chimneys); the wind over the snow, the
   // fire crackling on the square
