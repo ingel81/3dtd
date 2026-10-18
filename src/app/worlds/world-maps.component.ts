@@ -27,7 +27,16 @@ import { WorldsStageService } from './worlds-stage.service';
       @for (group of groups(); track group.title) {
         @if (group.maps.length || group.empty) {
         <section class="td-group" [attr.aria-labelledby]="'wm-maps-' + $index">
-          <h3 class="td-section" [id]="'wm-maps-' + $index">{{ group.title }}</h3>
+          @if (group.own) {
+            <!-- New map beside the own maps' head: the way to a new map stands where the own maps are -->
+            <div class="wm-group-head">
+              <h3 class="td-section" [id]="'wm-maps-' + $index">{{ group.title }}</h3>
+              <button type="button" class="td-btn-secondary td-btn-sm" data-new-map [attr.aria-disabled]="stage.whyNot('edit', 'maps') ? true : null"
+                      [attr.title]="stage.whyNot('edit', 'maps')" (click)="newMap()">New map</button>
+            </div>
+          } @else {
+            <h3 class="td-section" [id]="'wm-maps-' + $index">{{ group.title }}</h3>
+          }
           @if (group.maps.length) {
             <div class="td-rows">
               @for (map of group.maps; track map.id) {
@@ -64,10 +73,6 @@ import { WorldsStageService } from './worlds-stage.service';
         </section>
         }
       }
-      <div class="td-actions is-start">
-        <button type="button" class="td-btn-secondary td-btn-sm" [attr.aria-disabled]="stage.whyNot('edit', 'maps') ? true : null"
-                [attr.title]="stage.whyNot('edit', 'maps')" (click)="newMap()">New map</button>
-      </div>
     </div>
 
     <div class="wm-detail td-line-top">
@@ -114,10 +119,10 @@ export class WorldMapsComponent {
     const of = (origins: readonly StageMap['origin'][]) => maps.filter((m) => origins.includes(m.origin));
     const recent = this.stage.recentMaps().map((id) => maps.find((m) => m.id === id)).filter((m): m is StageMap => !!m);
     return [
-      { title: 'Recent', maps: recent, empty: null, recent: true },
-      { title: 'Your built worlds', maps: of(['own']), empty: 'None yet: New map opens the editor, or make one of a real place under OpenStreetMap and change it there.', recent: false },
-      { title: 'From coop hosts', maps: of(['shared']), empty: 'Maps a coop host played with you land here.', recent: false },
-      { title: 'Shipped', maps: of(['shipped']), empty: 'The shipped maps did not load.', recent: false },
+      { title: 'Recent', maps: recent, empty: null, recent: true, own: false },
+      { title: 'Your built worlds', maps: of(['own']), empty: 'None yet: New map opens the editor, or make one of a real place under OpenStreetMap and change it there.', recent: false, own: true },
+      { title: 'From coop hosts', maps: of(['shared']), empty: 'Maps a coop host played with you land here.', recent: false, own: false },
+      { title: 'Shipped', maps: of(['shipped']), empty: 'The shipped maps did not load.', recent: false, own: false },
     ];
   });
 

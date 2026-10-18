@@ -40,6 +40,14 @@
   }
 }
 
+// A group's head with its action right: New map beside the own maps
+.wm-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--td-sp-3);
+}
+
 .wm-row {
   justify-content: space-between;
   gap: var(--td-sp-3);
