@@ -45,7 +45,7 @@ const CONFIGS: [string, TowerTypeConfig][] = [
 
 describe('tower configs against their models', () => {
   for (const [name, config] of CONFIGS) {
-    it(`${name}: turret part, its rest pose and the model top`, async () => {
+    it(`${name}: turret part, its rest pose, the firing motion's nodes and the model top`, async () => {
       const model = await loadModel(config);
       const turret = turretPart(config, model);
 
@@ -55,6 +55,19 @@ describe('tower configs against their models', () => {
         const names: string[] = [];
         turret?.traverse((node) => names.push(node.name));
         expect(names, 'pitchNodes under the turret part').toEqual(expect.arrayContaining(config.pitchNodes));
+      }
+
+      // The firing motion's nodes (FiringMotion): a part that kicks, the shot, the winch, the morph that slackens
+      const motion = config.firingMotion;
+      for (const kick of motion?.kick ?? []) expect(model.getObjectByName(kick.node), `kick node ${kick.node}`).toBeDefined();
+      const reload = motion?.reload;
+      if (reload) {
+        expect(model.getObjectByName(reload.ammoNode), 'reload.ammoNode').toBeDefined();
+        if (reload.winch) expect(model.getObjectByName(reload.winch.node), 'reload.winch.node').toBeDefined();
+        if (reload.release) {
+          const mesh = model.getObjectByName(reload.release.node) as Mesh | undefined;
+          expect(mesh?.morphTargetDictionary?.[reload.release.target], 'reload.release morph target').toBeDefined();
+        }
       }
 
       // Placed as ThreeTowerRenderer.create places it, its foot at y = 0

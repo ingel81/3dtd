@@ -15,8 +15,9 @@ Config (metres, Z up, the file's own coordinates), see towers/*.json:
     }
 
 Rules on a face's centre: zBelow/zAbove/yBelow/yAbove/xBelow/xAbove, beyond (a half space), box, notBox,
-radiusBelow/radiusAbove (around a vertical axis), loose (the k-th biggest connected piece of the mesh), colour and
-notColour (hue range and saturation of the texture at the face). Small islands a cut leaves are given to the
+radiusBelow/radiusAbove (around a vertical axis), ring (between two radii round any axis: a gear's teeth), loose (the k-th biggest connected piece of the mesh), colour and
+notColour (hue range and saturation of the texture at the face), anyOf (a list of rule lists, one of which holds:
+a part made of two boxes). Small islands a cut leaves are given to the
 neighbouring part. A part named drop_* is cut away. A part may have its own "pivot" and a fixed "restRotationDeg".
 Motions: swing, spin (optionally ramped up with "rampUp"), stroke, slide, recoil, throw; "stream" sends copies of
 loose pieces out in salvos timed to a stroke. `check` renders each part in its own colour from four sides, `show`
@@ -42,6 +43,7 @@ src.matrix_world = Matrix.Identity(4)
 
 
 def holds(rule, c, loose=0, hsv=None):
+    if "anyOf" in rule: return any(all(holds(r, c, loose, hsv) for r in group) for group in rule["anyOf"])
     if "loose" in rule: return loose in rule["loose"]
     if "colour" in rule or "notColour" in rule:
         cr = rule.get("colour") or rule["notColour"]
@@ -59,6 +61,9 @@ def holds(rule, c, loose=0, hsv=None):
     if "box" in rule:
         lo, hi = rule["box"]["lo"], rule["box"]["hi"]
         return all(lo[k] <= c[k] <= hi[k] for k in range(3))
+    if "ring" in rule:
+        rg = rule["ring"]; axis = Vector(rg["axis"]).normalized(); rel = c - Vector(rg["centre"])
+        return rg["r"][0] <= (rel - axis * rel.dot(axis)).length <= rg["r"][1]
     if "radiusBelow" in rule:
         c0 = rule["radiusBelow"]["centre"]; return math.hypot(c.x - c0[0], c.y - c0[1]) < rule["radiusBelow"]["r"]
     if "radiusAbove" in rule:
@@ -84,7 +89,7 @@ bm.from_mesh(src.data)
 bm.faces.ensure_lookup_table()
 # Texture colour of every face (rule "colour"): the base colour image sampled at the face's UV centre, as HSV
 face_hsv = None
-if any("colour" in r for sp_ in specs for r in sp_.get("rules", [])):
+if any("colour" in json.dumps(r) for sp_ in specs for r in sp_.get("rules", [])):
     import colorsys
     img = next(n.image for m in src.data.materials if m and m.use_nodes for n in m.node_tree.nodes
                if n.type == "TEX_IMAGE" and n.image)

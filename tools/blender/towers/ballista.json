@@ -1,6 +1,12 @@
 {
  "yaw": [0.267, 0.001, -0.3],
  "parts": [
+  {"name": "bolt", "parent": "weapon", "pivot": [-0.35, 0.0, 0.35],
+   "rules": [{"anyOf": [[{"box": {"lo": [-0.86, -0.065, 0.325], "hi": [0.09, 0.065, 0.45]}}],
+                        [{"box": {"lo": [-0.86, -0.09, 0.24], "hi": [-0.6, 0.09, 0.45]}}]]}]},
+  {"name": "winch", "parent": "weapon", "pivot": [0.604, 0.0, 0.359],
+   "rules": [{"ring": {"centre": [0.604, 0.0, 0.359], "axis": [0, 1, 0], "r": [0.105, 0.158]}},
+             {"anyOf": [[{"yAbove": 0.06}, {"yBelow": 0.16}], [{"yAbove": -0.16}, {"yBelow": -0.06}]]}]},
   {"name": "weapon", "parent": "turret", "pivot": [0.603, 0.001, 0.359],
    "rules": [{"zAbove": 0.07}],
    "motion": [{"type": "swing", "axis": [0, 1, 0], "deg": 10, "period": 3.0}]},
@@ -10,5 +16,14 @@
  ],
  "material": "IroncladBallista",
  "export": {"glb": "public/assets/models/towers/ballista.glb", "triangles": 40000, "texture": 1024, "quality": 88,
-            "names": {"turret": "turret_top"}}
+            "names": {"turret": "turret_top"},
+            "morphs": [{"part": "weapon", "name": "relaxed", "moves": [
+              {"type": "segment", "from": [[0.1785, 0.7639, 0.3663], [0.3837, 0.162, 0.3923]],
+               "to": [null, [0.215, 0.05, 0.395]], "radius": 0.017, "span": [0.0, 1.03]},
+              {"type": "segment", "from": [[0.1742, -0.7627, 0.3702], [0.386, -0.163, 0.3934]],
+               "to": [null, [0.215, -0.05, 0.395]], "radius": 0.017, "span": [0.0, 1.03]},
+              {"type": "bend", "box": {"lo": [-0.3, 0.2, 0.2], "hi": [0.3, 0.97, 0.55]}, "pivot": [-0.05, 0.2, 0.38],
+               "axis": [0, 0, 1], "deg": 7, "along": [0, 1, 0], "reach": [0.0, 0.56]},
+              {"type": "bend", "box": {"lo": [-0.3, -0.97, 0.2], "hi": [0.3, -0.2, 0.55]}, "pivot": [-0.05, -0.2, 0.38],
+               "axis": [0, 0, 1], "deg": -7, "along": [0, -1, 0], "reach": [0.0, 0.56]}]}]}
 }

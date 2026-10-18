@@ -19,7 +19,8 @@ export type TowerSwap = Pick<TowerTypeConfig,
   'modelUrl' | 'scale' | 'heightOffset' | 'shootHeight' | 'modelTop' | 'turnsTurret'>
   & Partial<Pick<TowerTypeConfig,
     'rotationY' | 'turretBarrelOffset' | 'turretNode' | 'turretRestY' | 'pitchNodes' | 'pitchRange' | 'firePoints'
-    | 'hasAnimations' | 'animationPingPong' | 'damage' | 'range' | 'fireRate' | 'defaultTargeting' | 'projectileType'>>;
+    | 'hasAnimations' | 'animationPingPong' | 'damage' | 'range' | 'fireRate' | 'defaultTargeting' | 'projectileType'
+    | 'firingMotion'>>;
 
 export interface TowerPath {
   readonly id: TowerPathId;
@@ -165,6 +166,21 @@ export const TOWER_PATHS: Readonly<Record<TowerPathId, TowerPath>> = {
       // The weapon tilts on its rear joint, up to 40° for flyers
       pitchNodes: ['weapon'],
       pitchRange: { min: -0.15, max: 0.7 },
+      // The string snaps slack as the bolt leaves (the model's morph target `relaxed`, limbs flexing forward), the
+      // weapon jolts; the winch's gears draw the string again and the next bolt drops onto the rail
+      // (tools/blender/towers/ballista.json: nodes bolt and winch under weapon)
+      firingMotion: {
+        kick: [{ node: 'weapon', back: 0.02, tilt: 0.025 }],
+        kickS: 0.03,
+        returnS: 0.35,
+        reload: {
+          seconds: 2.4,
+          ammoNode: 'bolt',
+          ammoFrom: [0.08, 0.14, 0],
+          release: { node: 'weapon', target: 'relaxed' },
+          winch: { node: 'winch', axis: [0, 0, -1], turns: 0.5 },
+        },
+      },
       hasAnimations: false,
       damage: 140,
       range: 60,
