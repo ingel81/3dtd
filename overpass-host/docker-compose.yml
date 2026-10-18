@@ -1,6 +1,7 @@
 # The own Overpass instance of 3DTD (README.md): Overpass with the planet's
 # current data, the proxy in front of it, the status page for the LAN, and the
-# Cloudflare tunnel that is its only way in from outside: by default a cloudflared that runs already
+# Cloudflare tunnel that is its only way in from outside: by default a cloudflared that runs already and
+# reaches the proxy's port on the server's LAN address (PROXY_BIND), or on its Docker network
 # (docker-compose.shared-tunnel.yml), or one of its own (profile tunnel, below). Settings in .env
 # (.env.example). The images come ready from the GitHub Container Registry (workflow overpass-host-image.yml);
 # docker-compose.build.yml builds them from the sources instead.
@@ -64,6 +65,7 @@ services:
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://3dtd.sgeht.net,app://app,http://localhost:4200}
       ALLOW_NO_ORIGIN: ${ALLOW_NO_ORIGIN:-1}
       TRUST_CLOUDFLARE: ${TRUST_CLOUDFLARE:-1}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-private}
       MAX_EDGE_KM: ${MAX_EDGE_KM:-5}
       MAX_AREA_KM2: ${MAX_AREA_KM2:-30}
       MAX_TIMEOUT_S: ${MAX_TIMEOUT_S:-90}
@@ -80,6 +82,10 @@ services:
     volumes:
       - ${STATS_DIR:-./stats}:/stats
       - shared:/shared:ro
+    # For the tunnel's connector only: bind it to the server's LAN address in .env; never open it on the router.
+    # Without PROXY_BIND it is reachable from this machine alone
+    ports:
+      - "${PROXY_BIND:-127.0.0.1}:${PROXY_PORT:-8088}:8080"
     mem_limit: 512m
     pids_limit: 100
     networks: [backend, edge]

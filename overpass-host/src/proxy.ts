@@ -16,6 +16,7 @@ import { Agent, createServer, request as httpRequest, type IncomingMessage, type
 import type { ProxyConfig } from './config.ts';
 import { analyzeQuery, anchorArea, anchorHull, capSettings, QlError, type Refusal } from './ql.ts';
 import { clientKey, Gate, RateLimiter } from './rate-limit.ts';
+import { inRanges, parseRanges } from './trusted.ts';
 import type { Outcome, RequestRow } from './stats-store.ts';
 
 export const INTERPRETER_PATH = '/api/interpreter';
@@ -79,6 +80,7 @@ export function startProxy(config: ProxyConfig, deps: ProxyDeps = {}): Promise<R
   const agent = new Agent({ keepAlive: true, maxSockets: config.slots + 2 });
   const inMaintenance = maintenanceCheck(config.maintenanceFile, now);
   const upstream = new URL(config.upstream);
+  const trusted = parseRanges(config.trustedProxies);
   const sweep = setInterval(() => limiter.sweep(), 60_000);
   sweep.unref();
 
@@ -105,7 +107,9 @@ export function startProxy(config: ProxyConfig, deps: ProxyDeps = {}): Promise<R
       res.end('ok\n');
       return;
     }
-    const country = config.trustCloudflare ? String(req.headers['cf-ipcountry'] ?? '').toUpperCase() : '';
+    // Cloudflare's headers only from the tunnel's connector; anyone else could name any address
+    const fromTunnel = config.trustCloudflare && inRanges(req.socket.remoteAddress, trusted);
+    const country = fromTunnel ? String(req.headers['cf-ipcountry'] ?? '').toUpperCase() : '';
     const row: RequestRow = {
       t: start, status: 0, outcome: 'bad', ms: 0, msHead: null, bytes: 0,
       country: COUNTRY.test(country) ? country : null, box: null, areaKm2: null, reason: null,
@@ -157,7 +161,7 @@ export function startProxy(config: ProxyConfig, deps: ProxyDeps = {}): Promise<R
       return;
     }
 
-    const address = (config.trustCloudflare && typeof req.headers['cf-connecting-ip'] === 'string' && req.headers['cf-connecting-ip']) ||
+    const address = (fromTunnel && typeof req.headers['cf-connecting-ip'] === 'string' && req.headers['cf-connecting-ip']) ||
       req.socket.remoteAddress || 'unknown';
     const admission = limiter.admit(clientKey(address));
     if (!admission.ok) {

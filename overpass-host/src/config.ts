@@ -27,6 +27,8 @@ export interface ProxyConfig {
   allowNoOrigin: boolean;
   /** Take the client's address and country from Cloudflare's headers (behind the tunnel) */
   trustCloudflare: boolean;
+  /** Connections whose Cloudflare headers count (trusted.ts): the tunnel's connector */
+  trustedProxies: string;
   maxEdgeKm: number;
   maxAreaKm2: number;
   maxTimeoutS: number;
@@ -57,6 +59,7 @@ export function proxyConfig(): ProxyConfig {
       .filter(Boolean),
     allowNoOrigin: flag('ALLOW_NO_ORIGIN', true),
     trustCloudflare: flag('TRUST_CLOUDFLARE', true),
+    trustedProxies: env('TRUSTED_PROXIES', 'private'),
     maxEdgeKm: number('MAX_EDGE_KM', 5),
     maxAreaKm2: number('MAX_AREA_KM2', 30),
     maxTimeoutS: number('MAX_TIMEOUT_S', 90),

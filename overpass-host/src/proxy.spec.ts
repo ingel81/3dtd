@@ -48,6 +48,7 @@ const config = (upstream: string, extra: Partial<ProxyConfig> = {}): ProxyConfig
   origins: [GAME, 'app://app', 'http://localhost:4200'],
   allowNoOrigin: true,
   trustCloudflare: true,
+  trustedProxies: 'private',
   maxEdgeKm: 5,
   maxAreaKm2: 30,
   maxTimeoutS: 90,
@@ -166,6 +167,15 @@ describe('proxy', () => {
     await start({ allowNoOrigin: false });
     expect((await fetch(`${base}/api/interpreter`, { method: 'POST', body: BOX })).status).toBe(403);
     expect((await post(BOX)).status).toBe(200);
+  });
+
+  it('takes the Cloudflare headers only from a trusted connection, else the connection address', async () => {
+    await start({ rateBurst: 1, ratePerMinute: 1, trustedProxies: '203.0.113.0/24' });
+    // The test connects from 127.0.0.1, not trusted now: every made-up address counts as that one client
+    expect((await post(BOX, { 'CF-Connecting-IP': '198.51.100.7', 'CF-IPCountry': 'DE' })).status).toBe(200);
+    expect((await post(BOX, { 'CF-Connecting-IP': '198.51.100.8' })).status).toBe(429);
+    await settled();
+    expect(rows[0].country).toBeNull();
   });
 
   it('answers a preflight, and nothing but the interpreter', async () => {

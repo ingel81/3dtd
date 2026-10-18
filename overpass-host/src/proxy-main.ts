@@ -11,9 +11,9 @@ const config = proxyConfig();
 const stats = config.statsDb ? new StatsWriter(openStats(config.statsDb), config.statsDays) : null;
 const proxy = await startProxy(config, { record: stats ? (row) => stats.add(row) : undefined });
 console.log(
-  `proxy ${process.env.HOST_BUILD ?? 'dev'} on :${config.port}${INTERPRETER_PATH} -> ${config.upstream}; boxes up to ${config.maxEdgeKm} km and ${config.maxAreaKm2} km², ` +
+  `proxy ${process.env['HOST_BUILD'] ?? 'dev'} on :${config.port}${INTERPRETER_PATH} -> ${config.upstream}; boxes up to ${config.maxEdgeKm} km and ${config.maxAreaKm2} km², ` +
   `timeout ${config.maxTimeoutS} s, maxsize ${config.maxsizeBytes / 1024 / 1024} MB, ${config.slots} slots; ` +
-  `per client ${config.rateBurst} then ${config.ratePerMinute}/min, ${config.rateConcurrent} at once; origins ${config.origins.join(' ')}`,
+  `Cloudflare's headers from ${config.trustCloudflare ? config.trustedProxies : 'nobody'}; per client ${config.rateBurst} then ${config.ratePerMinute}/min, ${config.rateConcurrent} at once; origins ${config.origins.join(' ')}`,
 );
 
 let stopping = false;

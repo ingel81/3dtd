@@ -10,16 +10,18 @@ joins as the first entry of `src/app/world/osm/overpass-servers.ts` later (docs/
 | `overpass` | [wiktorn/overpass-api](https://github.com/wiktorn/Overpass-API) `v0.7.62.9` with `overpass/start-overpass.sh` in front: the official Overpass sources (dispatcher, `osm3s_query`, nginx with FastCGI), no areas, no diffs |
 | `proxy` | `src/proxy.ts`, Node 24 without dependencies: CORS, limits per client, box check, caps, queue, statistics |
 | `status` | `src/status-main.ts`, the same image: the status page for the LAN |
-| tunnel | The only way in from outside: the cloudflared that runs already for the coop lobby (`docker-compose.shared-tunnel.yml`), or one of its own (`cloudflared`, compose profile `tunnel`) |
+| tunnel | The only way in from outside: the cloudflared that runs already for the coop lobby, to the proxy's port on the LAN address (or on its Docker network, `docker-compose.shared-tunnel.yml`), or one of its own (`cloudflared`, compose profile `tunnel`) |
 | `clone` | `clone/clone.sh`, run by hand: fills the database with a clone of dev.overpass-api.de |
 
-Overpass and the status page sit on an internal network without a way out; the proxy is on it and on the tunnel's
-network. No port is open to the internet; only the status page publishes one, meant for the LAN.
+Overpass and the status page sit on an internal network without a way out; the proxy is on it and on a second one
+for its port. No port is open to the internet: the proxy's is for the tunnel's connector, the status page's for the
+LAN, each bound to the address `.env` names.
 
 The images come ready from the GitHub Container Registry, built by the workflow `overpass-host-image.yml` with every
 change of `overpass-host/` on next (`:next`) and main (`:latest`), each also tagged with its commit (`:sha-<8 hex>`):
 `ghcr.io/ingel81/3dtd-osm-overpass`, `3dtd-osm-proxy` (proxy and status page) and `3dtd-osm-clone`. A server needs
-nothing of the repository but `docker-compose.yml`, `docker-compose.shared-tunnel.yml` and its `.env`.
+nothing of the repository but `docker-compose.yml` and its `.env` (and `docker-compose.shared-tunnel.yml` for the
+tunnel on a Docker network).
 
 Why the wiktorn image: it builds the released Overpass sources unchanged and already starts dispatcher, nginx and
 FastCGI under supervision; what this host needs on top (no self-clone on an empty volume, FastCGI processes matched to
@@ -41,9 +43,9 @@ and covered by the repository's tests; the proxy only streams the answer through
 ```bash
 mkdir 3dtd-osm && cd 3dtd-osm
 raw=https://raw.githubusercontent.com/ingel81/3dtd/next/overpass-host
-curl -fsSL -O "$raw/docker-compose.yml" -O "$raw/docker-compose.shared-tunnel.yml"
+curl -fsSL -O "$raw/docker-compose.yml"
 curl -fsSL -o .env "$raw/.env.example"
-nano .env                   # OVERPASS_DATA, TUNNEL_NETWORK, STATUS_BIND
+nano .env                   # OVERPASS_DATA, PROXY_BIND, STATUS_BIND
 docker compose --profile clone pull
 docker compose run --rm clone
 docker compose up -d
@@ -58,19 +60,26 @@ clone's minute diff) and marks the database complete (`init_done`). Overpass ref
 
 ## Tunnel
 
-The tunnel that runs already for the coop lobby (coop-server/README.md) takes this host as well:
+The tunnel that runs already for the coop lobby (coop-server/README.md) takes this host as well. By default it
+reaches the proxy on the server's LAN address, the way the relay is set up:
 
-1. `.env` as in `.env.example`: `COMPOSE_FILE=docker-compose.yml:docker-compose.shared-tunnel.yml` puts the proxy on
-   that cloudflared's network as well, named in `TUNNEL_NETWORK` (`tunnel` by default, as in the relay's example).
+1. `.env`: `PROXY_BIND` the server's own LAN address (not a container's, which changes with every restart),
+   `PROXY_PORT` 8088. The port is for the tunnel's connector only: never open it on the router. Without `PROXY_BIND`
+   the port is bound to 127.0.0.1 and nothing else reaches it.
 2. In Cloudflare Zero Trust, Networks, Tunnels, the lobby's tunnel, Public Hostname, add: `3dtd-osm.sgeht.net`,
-   service `HTTP`, URL `3dtd-osm-proxy:8080` (the container's name). A name one level under the domain, so
-   Cloudflare's free certificate covers it.
+   service `HTTP`, URL `<PROXY_BIND>:8088`. A name one level under the domain, so Cloudflare's free certificate
+   covers it.
 
-A tunnel of its own instead: `COMPOSE_FILE=docker-compose.yml`, `COMPOSE_PROFILES=tunnel`, the connector's token as
-`CLOUDFLARE_TUNNEL_TOKEN`, and the public hostname on that tunnel with the URL `proxy:8080`.
+On the cloudflared's Docker network instead of a port: `COMPOSE_FILE=docker-compose.yml:docker-compose.shared-tunnel.yml`
+with the network in `TUNNEL_NETWORK`, and the URL `3dtd-osm-proxy:8080` (the container's name). A tunnel of its own:
+`COMPOSE_PROFILES=tunnel`, the connector's token as `CLOUDFLARE_TUNNEL_TOKEN`, and the URL `proxy:8080`.
 
-The proxy takes the client's address from `CF-Connecting-IP` and its country from `CF-IPCountry` (`TRUST_CLOUDFLARE`).
-That is right only while nothing but the tunnel reaches the proxy: do not publish its port.
+The proxy takes the client's address from `CF-Connecting-IP` and its country from `CF-IPCountry` (`TRUST_CLOUDFLARE`),
+but only on a connection from `TRUSTED_PROXIES`; on any other the connection's own address counts. The default,
+`private`, trusts every local address: a machine in the LAN that reaches the port directly could name an address of
+its choice and so slip past its rate limit, nothing more, and the port is not reachable from outside. To close that
+too, set `TRUSTED_PROXIES` to where the cloudflared connects from: a container on a Docker bridge network comes from
+`172.16.0.0/12`, while machines of a usual home LAN (`192.168.0.0/16`) keep their own address then.
 
 Check: `https://3dtd-osm.sgeht.net/api/interpreter?data=[out:json];node(1);out;` answers with a node;
 `https://3dtd-osm.sgeht.net/api/status` answers 404.
@@ -158,8 +167,8 @@ OVERPASS_DATA=/some/empty/dir docker compose -f docker-compose.yml -f docker-com
 To run the images built from the sources here instead of the published ones, add `-f docker-compose.build.yml` and
 `docker compose ... build` first; they take the published names, so nothing is pulled over them.
 
-`EXTRACT_URL` picks another Geofabrik extract. To ask the proxy from the machine, publish its port in a local override
-(`ports: ["127.0.0.1:18080:8080"]` under `proxy`), never on a server.
+`EXTRACT_URL` picks another Geofabrik extract. Without `PROXY_BIND` the proxy answers on `http://127.0.0.1:8088` of the
+machine.
 
 Measured 2026-10-18 with Unterfranken, the game's queries through the proxy on a desktop machine (WSL 2): the streets
 of a place (4 km) 80 to 250 ms, the buildings along four routes of 1.5 km 0.45 to 1.1 s, an OSM world (2.6 km, 4 to
