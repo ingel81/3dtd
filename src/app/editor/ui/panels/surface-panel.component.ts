@@ -140,7 +140,7 @@ const SUGGESTED = [
     `.sp-swatches { flex-wrap: wrap; gap: 4px; }
      .sp-swatch { width: 30px; height: 30px; padding: 2px; }
      .sp-swatch img { width: 100%; height: 100%; object-fit: cover; display: block; }
-     .sp-swatch[aria-pressed='true'] { outline: 2px solid var(--td-accent); }
+     .sp-swatch[aria-pressed='true'] { outline: 2px solid var(--td-brass); }
      .sp-row { justify-content: flex-start; gap: 8px; cursor: pointer; }
      .sp-row .td-trunc { flex: 1 1 auto; min-width: 0; }`,
   ],
