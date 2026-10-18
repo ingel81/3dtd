@@ -34,7 +34,6 @@ import { haversineDistance } from '../../utils/geo-utils';
 import { SpawnPoint } from './marker-visualization.service';
 import { extendPathToOptimalTurnoff, leavePathForBase, subdivideGeoPath } from '../../utils/route-geometry';
 import { UIStore } from '../../store/ui.store';
-import { LocationStore } from '../../store/location.store';
 import { spawnsWithRoutes } from '../../utils/spawn-lanes';
 import { GlobalRouteGridService } from './global-route-grid.service';
 import type { CorridorMeasurement } from './corridor-build';
@@ -263,8 +262,8 @@ export class PathAndRouteService {
 
   /** Cached paths from spawn to base (key: spawnId) */
   private cachedPaths = new Map<string, RouteWaypoint[]>();
-  /** At least one spawn has a route to the HQ, i.e. `cachedPaths` is not empty (LocationStore.hasRoutes) */
-  readonly hasRoutes = inject(LocationStore).hasRoutes;
+  /** At least one spawn has a route to the HQ, i.e. `cachedPaths` is not empty */
+  readonly hasRoutes = signal(false);
   /** Bumped whenever `cachedPaths` changes (a route built, adopted, the routes cleared): what hangs on the routes follows it */
   readonly routesVersion = signal(0);
 

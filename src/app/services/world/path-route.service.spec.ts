@@ -34,10 +34,7 @@ vi.mock('@angular/core', async () => {
   };
   return {
     ...actual,
-    // A store of its own per service: hasRoutes starts false for each
-    inject: (token: { name?: string }) => token?.name === 'LocationStore'
-      ? { hasRoutes: (actual['signal'] as (value: boolean) => unknown)(false) }
-      : stubs[token?.name ?? ''] ?? {},
+    inject: (token: { name?: string }) => stubs[token?.name ?? ''] ?? {},
   };
 });
 

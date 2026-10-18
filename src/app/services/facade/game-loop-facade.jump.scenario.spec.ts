@@ -74,7 +74,7 @@ describe('Wave start after a jump, playtest 357, 365, 379 and 380 replayed', () 
   let started: WaveConfig[];
   const store = {
     phase: signal<'setup' | 'wave' | 'gameover'>('setup'),
-    hasRoutes: signal(true),
+    hasLanes: signal(true),
     waveNumber: signal(0),
     directorEnabled: signal(true),
     waveExplanation: signal<WaveConfig['explanation'] | null>(null),

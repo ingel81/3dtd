@@ -53,6 +53,7 @@ vi.mock('../coop/world-package', () => ({
     ({ ...head, hq: source.hq ?? HQ, spawns: SPAWNS, worldKey: 'k', heights: [] }),
   readWorldPackage: (json: string) => ({ world: JSON.parse(json) }),
   packagePaths: () => new Map(),
+  packageHasLanes: () => true,
   packageWorldRef: (world: { world?: unknown }) => world.world ?? { kind: 'tiles', source: 'cesium' },
   worldPackageRefusalText: () => 'refused',
 }));

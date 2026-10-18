@@ -197,8 +197,8 @@ export class TowerDefenseStore {
   /** Active spawn points */
   readonly spawnPoints = this.locationStore.spawnPoints;
 
-  /** A spawn point at least has a route to the HQ (LocationStore.hasRoutes) */
-  readonly hasRoutes = this.locationStore.hasRoutes;
+  /** The simulation's world has a spawn point with a route (LocationStore.hasLanes) */
+  readonly hasLanes = this.locationStore.hasLanes;
 
   // ════════════════════════════════════════════════════════════
   // ENGINE / PERFORMANCE
@@ -280,7 +280,7 @@ export class TowerDefenseStore {
     !this.waveActive() &&
     !this.isGameOver() &&
     !this.loading() &&
-    this.hasRoutes()
+    this.hasLanes()
   );
 
   /** Whether the player can place towers */

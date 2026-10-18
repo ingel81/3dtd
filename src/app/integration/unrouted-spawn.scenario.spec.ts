@@ -63,7 +63,7 @@ const LOST: SpawnPoint = { id: 'spawn-lost', name: 'Lost Spawn', lat: 48.7765, l
 const WAVE = makeSingleTypeWaveConfig({ count: 3, type: 'zombie', spawnDelay: 500, spawnMode: 'each' });
 
 /** A game on `spawns` and `paths` with the "auto 10s" switch on and the facade on the main bus. */
-function createGame(spawns: SpawnPoint[], paths: Map<string, GeoPosition[]>, hasRoutes: boolean) {
+function createGame(spawns: SpawnPoint[], paths: Map<string, GeoPosition[]>, hasLanes: boolean) {
   for (const key of Object.keys(mockServices)) delete mockServices[key];
   provideSimServices(mockServices);
   GameObject.resetIdCounter();
@@ -82,7 +82,7 @@ function createGame(spawns: SpawnPoint[], paths: Map<string, GeoPosition[]>, has
     phase: signal<string>('setup'),
     waveNumber: signal(0),
     autoWaveSecondsLeft: signal<number | null>(null),
-    hasRoutes: signal(hasRoutes),
+    hasLanes: signal(hasLanes),
     paused: signal(false),
   });
   mockServices['TowerDefenseStore'] = store;

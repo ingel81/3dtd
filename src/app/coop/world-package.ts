@@ -2,6 +2,7 @@ import type { GeoPosition, RouteWaypoint } from '../models/game.types';
 import type { WaveSourceId } from '../director/wave-source';
 import type { SpawnPoint } from '../managers/wave.manager';
 import { legacyWorldRef, worldRefShape, type WorldRef } from '../world/world-ref';
+import { spawnsWithRoutes } from '../utils/spawn-lanes';
 
 /** Bumped whenever the shape changes; another version is refused. */
 export const WORLD_PACKAGE_VERSION = 1;
@@ -172,4 +173,14 @@ export function worldPackageRefusalText(refusal: WorldPackageRefusal | 'other-wo
 /** The routes of a package as the spawn id map the game keeps. */
 export function packagePaths(world: WorldPackage): Map<string, RouteWaypoint[]> {
   return new Map(world.paths);
+}
+
+/**
+ * The package's world has a lane, a spawn with a route (spawnsWithRoutes).
+ * One without cannot be played: a save of a run on a torn street network
+ * (0.7.x, TODO E232) held its spawns without a route, and every wave on it
+ * came without an enemy.
+ */
+export function packageHasLanes(world: Pick<WorldPackage, 'spawns' | 'paths'>): boolean {
+  return spawnsWithRoutes(world.spawns, new Map(world.paths)).length > 0;
 }

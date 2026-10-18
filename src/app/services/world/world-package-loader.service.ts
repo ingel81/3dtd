@@ -7,11 +7,12 @@ import { LocationFacadeService } from '../facade/location-facade.service';
 import { PathAndRouteService } from './path-route.service';
 import { GlobalRouteGridService } from './global-route-grid.service';
 import { MainWorldService } from './main-world.service';
-import { packagePaths, packageWorldRef, type WorldPackage } from '../../coop/world-package';
+import { packageHasLanes, packagePaths, packageWorldRef, type WorldPackage } from '../../coop/world-package';
 import { WorldContext } from '../../world/world-context.service';
 import { worldLabel, worldsMatch } from '../../world/world-ref';
 import { coordKey } from '../../utils/geo-utils';
-import type { GeoPosition } from '../../models/game.types';
+import type { GeoPosition, RouteWaypoint } from '../../models/game.types';
+import type { SpawnPoint } from '../../managers/wave.manager';
 
 /** Longest wait for the load of a place before giving up on it, ms */
 export const WORLD_LOAD_TIMEOUT_MS = 120_000;
@@ -117,14 +118,30 @@ export class WorldPackageLoader {
    * Routes, cells and heights of the package in place of those measured
    * here; once the world key is the package's, the simulation stands on it.
    * Returns the key that came out; it is the package's when this worked.
+   *
+   * All or nothing (TODO E232): a package without a lane (packageHasLanes)
+   * is not taken at all (null), and one whose key does not come out puts
+   * back what stood here. Either way the simulation keeps the world it has
+   * and the routes here stay the ones it got.
    */
-  adopt(world: WorldPackage): string {
-    this.pathRoute.adoptPaths(packagePaths(world));
-    this.world.setSpawns(world.spawns);
-    this.world.rebuildCells();
-    this.grid.restoreHeights(world.heights);
+  adopt(world: WorldPackage): string | null {
+    if (!packageHasLanes(world)) return null;
+    const before = this.world.source();
+    this.place(packagePaths(world), world.spawns, world.heights);
     const key = this.world.key();
-    if (key === world.worldKey) this.world.sendToSim();
+    if (key === world.worldKey) {
+      this.world.sendToSim();
+    } else if (before) {
+      this.place(new Map(before.paths as ReadonlyMap<string, RouteWaypoint[]>), before.spawns, before.heights);
+    }
     return key;
+  }
+
+  /** Routes, spawns, cells and heights as given */
+  private place(paths: ReadonlyMap<string, RouteWaypoint[]>, spawns: readonly SpawnPoint[], heights: [number, number, number][]): void {
+    this.pathRoute.adoptPaths(paths);
+    this.world.setSpawns(spawns);
+    this.world.rebuildCells();
+    this.grid.restoreHeights(heights);
   }
 }
