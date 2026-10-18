@@ -12,6 +12,7 @@ import {
   MASS_ASSET,
   MAX_MAP_PREFABS,
   MAX_SIGN_TEXT,
+  STRUCTURE_HP_SCALE,
   WAVE_EVENT_LIMITS,
   isTypedArray,
   type CustomMapDocument,
@@ -329,6 +330,17 @@ function gameplayRepairs(doc: CustomMapDocument, fix: boolean, out: MapProblem[]
   if (lanes && typeof lanes === 'object' && lanes.vacant !== undefined && !VACANT_LANES.includes(lanes.vacant)) {
     say(`gameplay.lanes.vacant ${String(lanes.vacant)} is unknown; the default holds`);
     if (fix) delete lanes.vacant;
+  }
+  // Destruction beyond `destructible` (docs/DESTRUCTION_PLAN.md): soft, a wrong value plays as without it
+  for (const key of ['craters', 'wear'] as const) {
+    if (gp[key] === undefined || typeof gp[key] === 'boolean') continue;
+    say(`gameplay.${key} ${JSON.stringify(gp[key])} is not true or false; the default holds`);
+    if (fix) delete gp[key];
+  }
+  const hp = gp.structureHp as unknown;
+  if (hp !== undefined && !(typeof hp === 'number' && Number.isFinite(hp) && hp >= STRUCTURE_HP_SCALE.min && hp <= STRUCTURE_HP_SCALE.max)) {
+    say(`gameplay.structureHp ${JSON.stringify(hp)} is not ${STRUCTURE_HP_SCALE.min} to ${STRUCTURE_HP_SCALE.max} (percent); the structures keep their HP`);
+    if (fix) delete gp.structureHp;
   }
   const waves = gp.waves as unknown;
   if (waves !== undefined && (!isObject(waves) || (waves['kind'] !== 'budget' && waves['kind'] !== 'table'))) {

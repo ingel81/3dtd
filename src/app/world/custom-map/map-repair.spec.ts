@@ -65,6 +65,25 @@ describe('soft map values (warn and set right)', () => {
     expect(repaired?.length).toBe(2);
   });
 
+  it("keeps a destructible map's fields and sets wrong ones right: per object and in the rules (docs/DESTRUCTION_PLAN.md)", () => {
+    const doc = createMapDocument({ id: 'm', name: 'M', width: 64, depth: 64, starter: false, now: new Date(0) });
+    doc.gameplay = { destructible: true, craters: false, wear: true, structureHp: 150 };
+    doc.objects.push({ id: 'kept', asset: 'barn', x: 0, y: 0, z: 0, rotation: 0, scale: 1, destructible: false, damage: 2, damageSeed: 7 });
+    const good = unpackMapFile(packMapFile(doc));
+    expect(good.repaired ?? []).toEqual([]);
+    expect(good.doc.gameplay).toEqual(doc.gameplay);
+    expect(good.doc.objects[0]).toMatchObject({ destructible: false, damage: 2, damageSeed: 7 });
+
+    doc.gameplay = { destructible: true, craters: 'yes' as never, wear: 1 as never, structureHp: 900 };
+    doc.objects[0] = { ...doc.objects[0], destructible: 'no' as never, damage: 4 as never, damageSeed: 1.5 };
+    const { doc: read, repaired } = unpackMapFile(packMapFile(doc));
+    expect(repaired).toHaveLength(6);
+    expect(read.gameplay).toEqual({ destructible: true });
+    expect(read.objects[0]).not.toHaveProperty('destructible');
+    expect(read.objects[0]).not.toHaveProperty('damage');
+    expect(read.objects[0]).not.toHaveProperty('damageSeed');
+  });
+
   it('keeps a good sign and drops one that is no text and pictogram name', () => {
     const doc = createMapDocument({ id: 'm', name: 'M', width: 64, depth: 64, starter: true, now: new Date(0) });
     doc.objects.push({ id: 'a', asset: 'sign-facade', x: 0, y: 0, z: 3, rotation: 0, scale: 1, sign: { text: 'Bäckerei', icon: 'pretzel' } });
