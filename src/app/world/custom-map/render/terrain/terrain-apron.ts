@@ -1,4 +1,4 @@
-import { BufferAttribute, BufferGeometry, Mesh, type Material } from 'three';
+import { BufferAttribute, BufferGeometry, Mesh, Sphere, type Material } from 'three';
 import type { MapBiome, MapWater } from '../../map-document';
 import type { HeightField } from '../height-field';
 
@@ -58,9 +58,11 @@ export const BACKDROP_HEIGHT: Record<MapBiome, number> = {
   mars: 200,
 };
 
-/** The height terms of an apron that come from its points' places (ApronProfile.shape), for one map size and backdrop */
+/** What of an apron comes from its points' places (ApronProfile.shape), for one map size and backdrop */
 interface ApronShape {
   key: string;
+  /** Map position of each ring point, x and y by ring and point */
+  xy: Float64Array;
   hills: Float64Array;
   ridges: Float64Array | null;
 }
@@ -71,6 +73,8 @@ export class ApronProfile {
   /** Ring points as (side, fraction along the side), counter-clockwise from the south-west corner */
   readonly along: [number, number][] = [];
   private readonly heights: Float32Array;
+  /** Map position of each ring point (x, y by ring and point), the same for every profile of a map size */
+  readonly xy: Float64Array;
   private readonly w: number;
   private readonly d: number;
 
@@ -138,6 +142,7 @@ export class ApronProfile {
     this.waterLevel = water ? water.level : null;
     this.heights = new Float32Array(APRON_RINGS.length * n);
     const shape = this.shape(backdrop);
+    this.xy = shape.xy;
     APRON_RINGS.forEach((dist, r) => {
       const radius = Math.min(Math.floor(n / 4), Math.round((dist * 0.6) / field.cellSize));
       const keep = Math.exp(-dist / 300);
@@ -161,13 +166,16 @@ export class ApronProfile {
    */
   private shape(backdrop: number): ApronShape {
     const n = this.along.length;
-    const key = `${this.w}|${this.d}|${n}|${backdrop}`;
+    const key = `${this.field.originX}|${this.field.originY}|${this.w}|${this.d}|${n}|${backdrop}`;
     if (shapeCache?.key === key) return shapeCache;
+    const xy = new Float64Array(APRON_RINGS.length * n * 2);
     const hills = new Float64Array(APRON_RINGS.length * n);
     const ridges = backdrop > 0 ? new Float64Array(APRON_RINGS.length * n) : null;
     APRON_RINGS.forEach((dist, r) => {
       this.along.forEach(([side, f], k) => {
         const [x, y] = this.point(side, f, dist);
+        xy[(r * n + k) * 2] = x;
+        xy[(r * n + k) * 2 + 1] = y;
         hills[r * n + k] = (smoothNoise(x * 0.004, y * 0.004) - 0.5) * 40 * Math.min(1, dist / 600);
         if (!ridges) return;
         // Ridges along the border at three scales, the peaks where they crest; the finest cuts spurs and
@@ -177,7 +185,7 @@ export class ApronProfile {
         ridges[r * n + k] = backdrop * smoothstepRange(BACKDROP_FROM, BACKDROP_FULL, dist) * (0.3 + 0.7 * crest);
       });
     });
-    shapeCache = { key, hills, ridges };
+    shapeCache = { key, xy, hills, ridges };
     return shapeCache;
   }
 
@@ -255,8 +263,8 @@ export class ApronProfile {
 
   /** Map position of point k on ring r */
   position(r: number, k: number): [number, number] {
-    const [side, f] = this.along[k];
-    return this.point(side, f, APRON_RINGS[r]);
+    const at = (r * this.along.length + k) * 2;
+    return [this.xy[at], this.xy[at + 1]];
   }
 
   /** Point at fraction f along a side of the map rectangle grown by `grow` metres */
@@ -302,6 +310,8 @@ export function writeApronGeometry(g: BufferGeometry, profile: ApronProfile): vo
   const rings = APRON_RINGS.length;
   let position = g.getAttribute('position') as BufferAttribute | undefined;
   let normal = g.getAttribute('normal') as BufferAttribute | undefined;
+  // The same layout keeps its points' places: only the heights change (a brush at the border, each frame)
+  const placed = !!position && !!normal && position.count === rings * n && g.userData['apronPlaces'] === profile.xy;
   if (!position || !normal || position.count !== rings * n) {
     position = new BufferAttribute(new Float32Array(rings * n * 3), 3);
     normal = new BufferAttribute(new Float32Array(rings * n * 3), 3);
@@ -309,15 +319,20 @@ export function writeApronGeometry(g: BufferGeometry, profile: ApronProfile): vo
     g.setAttribute('normal', normal);
     g.setIndex(new BufferAttribute(apronIndex(n, rings), 1));
   }
+  g.userData['apronPlaces'] = profile.xy;
   const pos = position.array as Float32Array;
-  for (let r = 0; r < rings; r++) {
-    for (let k = 0; k < n; k++) {
-      const [x, y] = profile.position(r, k);
-      const v = (r * n + k) * 3;
-      pos[v] = -x;
-      pos[v + 1] = profile.height(r, k);
-      pos[v + 2] = y;
+  const xy = profile.xy;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (let v = 0; v < rings * n; v++) {
+    const h = profile.height(Math.floor(v / n), v % n);
+    if (!placed) {
+      pos[v * 3] = -xy[v * 2];
+      pos[v * 3 + 2] = xy[v * 2 + 1];
     }
+    pos[v * 3 + 1] = h;
+    if (h < minY) minY = h;
+    if (h > maxY) maxY = h;
   }
   // three's computeVertexNormals on the arrays: each face's normal, area weighted, summed at its corners
   const nor = normal.array as Float32Array;
@@ -354,7 +369,28 @@ export function writeApronGeometry(g: BufferGeometry, profile: ApronProfile): vo
   }
   position.needsUpdate = true;
   normal.needsUpdate = true;
-  g.computeBoundingSphere();
+  // Round the box of the outermost ring and the heights (a little larger than three's sphere, for culling only)
+  g.boundingSphere ??= new Sphere();
+  apronBounds(g.boundingSphere, xy, n, rings, minY, maxY);
+}
+
+/** The sphere round the apron's outermost ring between the lowest and highest point */
+function apronBounds(sphere: Sphere, xy: Float64Array, n: number, rings: number, minY: number, maxY: number): void {
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minZ = Infinity;
+  let maxZ = -Infinity;
+  const outer = (rings - 1) * n;
+  for (let k = 0; k < n; k++) {
+    const x = -xy[(outer + k) * 2];
+    const z = xy[(outer + k) * 2 + 1];
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (z < minZ) minZ = z;
+    if (z > maxZ) maxZ = z;
+  }
+  sphere.center.set((minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2);
+  sphere.radius = Math.hypot(maxX - minX, maxY - minY, maxZ - minZ) / 2;
 }
 
 /** The apron's triangles: between each ring and the next, two per point, counter-clockwise in map space */
