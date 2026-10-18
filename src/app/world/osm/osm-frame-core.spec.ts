@@ -61,7 +61,7 @@ describe('OSM world frame (frozen probe Miltenberg)', () => {
     // The long loops say how far they are: the footprints, the plants by land class, the packing
     expect(new Set(shares)).toEqual(new Set(['buildings', 'plants', 'pack']));
     // Each step reports its beginning in the order of the making (OSM_MAKE_STEPS); packing twice, the file then hash and sketch
-    expect([...new Set(steps)]).toEqual(['parse', 'terrain', 'roads', 'water', 'level', 'ground', 'shores', 'paint', 'layout', 'buildings', 'furniture', 'plants', 'life', 'pack']);
+    expect([...new Set(steps)]).toEqual(['parse', 'terrain', 'roads', 'water', 'level', 'ground', 'shores', 'paint', 'layout', 'buildings', 'furniture', 'pois', 'plants', 'life', 'pack']);
     expect(made.hash).toBe(await contentHash(made.doc));
     const { doc } = made;
     expect(doc.meta.id).toBe('osm-test');

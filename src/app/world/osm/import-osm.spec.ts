@@ -9,6 +9,8 @@ import { readWeights } from '../../map-ops/paint-ops';
 import { heightAt } from '../../map-ops/grid';
 import { assetCosts, PLANT_BUDGET_SHARE } from './convert/vegetation';
 import { FURNITURE_BUDGET_SHARE } from './convert/furniture';
+import { MAX_POI_SIGNS, POI_BUDGET_SHARE } from './convert/pois';
+import { POI_CATEGORIES } from './poi-tags';
 import { buildingCatalog } from './convert/buildings';
 import { objectCost, SCENE_BUDGET } from '../custom-map/render/objects/scene-cost';
 import type { CatalogObject } from '../custom-map/render/asset-catalog';
@@ -82,8 +84,9 @@ describe('OSM world (frozen probe Miltenberg)', () => {
     // Miltenberg's 1.2 km: about a thousand footprints, nearly all of them stand
     expect(b.footprints).toBeGreaterThan(800);
     expect(b.placed / b.footprints).toBeGreaterThan(0.9);
-    // The buildings' objects carry their footprint's group; the plants grow after them
-    const built = doc.objects.filter((o) => o.group?.startsWith('osm-b'));
+    // The buildings' objects carry their footprint's group (and so do the signs and fronts of their shops); the plants grow after them
+    const built = doc.objects.filter((o) => o.id.startsWith('osm-b'));
+    expect(built.every((o) => o.group?.startsWith('osm-b'))).toBe(true);
     expect(built.length).toBe(b.objects);
     for (const o of doc.objects) expect(byId.has(o.asset)).toBe(true);
     expect(b.kinds.house).toBeGreaterThan(0);
@@ -116,12 +119,22 @@ describe('OSM world (frozen probe Miltenberg)', () => {
     expect(report.plants.budget).toBe(Math.round(PLANT_BUDGET_SHARE * SCENE_BUDGET));
     expect(report.plants.cost).toBeLessThanOrEqual(report.plants.budget);
     // No tree in a building's wall box: none within a metre of a building model's middle
-    const houses = doc.objects.filter((o) => o.group?.startsWith('osm-b') && o.asset !== 'retaining-wall');
+    const houses = doc.objects.filter((o) => o.id.startsWith('osm-b') && o.asset !== 'retaining-wall');
     const trees = doc.objects.filter((o) => o.asset.startsWith('tree-'));
     for (const tr of trees) for (const h of houses) expect(Math.hypot(tr.x - h.x, tr.y - h.y)).toBeGreaterThan(1);
     // The furniture: walls, hedges and fences of the old town, within its share, off the roads
     expect(report.furniture.objects).toBeGreaterThan(50);
     expect(report.furniture.cost).toBeLessThanOrEqual(FURNITURE_BUDGET_SHARE * SCENE_BUDGET);
+    // The shops and inns of the old town: on their buildings, in German, the kind only, within their share
+    const pois = report.pois;
+    expect(pois.language).toBe('de');
+    expect(pois.pois).toBeGreaterThan(80);
+    expect((pois.inside + pois.near) / pois.pois).toBeGreaterThan(0.8);
+    expect(pois.signs).toBeGreaterThan(40);
+    expect(pois.signs).toBeLessThanOrEqual(MAX_POI_SIGNS);
+    expect(pois.cost).toBeLessThanOrEqual(POI_BUDGET_SHARE * SCENE_BUDGET);
+    const words = new Set(Object.values(POI_CATEGORIES).map((c) => c.words.de));
+    for (const o of doc.objects) if (o.sign?.text) expect(words.has(o.sign.text)).toBe(true);
     expect(validateMap(doc).map((i) => i.code)).not.toContain('object-on-path');
   });
 

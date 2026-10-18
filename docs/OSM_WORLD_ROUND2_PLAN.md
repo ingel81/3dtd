@@ -428,6 +428,48 @@ auf Main und Grachten, Möwen, Krähen um die Kirche, die Glocke zum Start der e
 des Wellenstarts, Korrelation mit `bell.mp3`). Gefunden und behoben: doppelte Wörter in Spawn-Namen, ein Palast als
 Burg, drei Boote auf 2,4 km Fluss. Bilder und Clips liegen lokal, nicht im Repo.
 
+## P4 Modelle, gebaut (2026-10-18)
+
+- `tools/map-assets/build_poi.py`, 25 Modelle im Stil von `build_modern.py`: `basketball-hoop`, `tennis-net`,
+  `volleyball-net`, `table-tennis`, `goal-small`, `handball-goal`, `skate-ramp`, `climbing-frame`, `seesaw`,
+  `spring-rider`, `sandbox`, `bike-rack`, `advertising-column` (Plakate selbst gezeichnet, ohne Inhalt),
+  `fuel-pump`, `wayside-cross`, `flower-bed`, `sun-lounger`, `beer-bench-set`, `cafe-set`, `parasol`,
+  `shopfront-narrow` und `-wide` (3 und 6 m), `awning`, `sign-facade`, `sign-bracket`. 96 bis 792 Dreiecke, Sichtweite
+  250 bis 700 m; elf mit Fernstufe (`decimate_keeping`, alle Materialien bleiben).
+- Netze zeichnet das Skript selbst (Schnüre ein Viertel der Masche breit): die gemeinsamen Karten `net.png` und
+  `chainlink.png` verschwinden nach wenigen Metern, weil die Mipmaps die dünnen Schnüre wegmitteln (gilt auch für das
+  ältere `football-goal`).
+- Fassadenobjekte haben den Ursprung auf der Wand am Fuß, Front -Y; Markise, Schirm, Schilder und Zapfsäule sind hell
+  gebaut, damit `tint` sie färbt (die Markise Ton in Ton gestreift).
+- Die fünf Bodenmaterialien baut P1 (`bake_grounds.py`), Bahnübergang-Teile E238.
+
+## P3 POIs, gebaut (2026-10-18)
+
+- **Schilder** (allgemein, `docs/CUSTOM_MAPS.md` „Schilder“): `MapObject.sign { text, icon }`, Katalog `signPanel`
+  (`sign-facade`, `sign-bracket`, dazu die Schildbänder von `shop-small` und `shop-office`), `render/objects/sign-text.ts`
+  mit einem R8-Atlas aus Wort und Piktogramm (`sign-icons.ts`, rund 40 von Hand gezeichnet) und einem Draw Call für
+  alle Schilder. Die Kartenprüfung verwirft kaputte Schilder.
+- **Kategorien** `world/osm/poi-tags.ts`: 46 Gattungen aus `shop`, `amenity`, `craft`, `office`, `tourism`,
+  `healthcare` mit Wort in sechs Sprachen (de, fr, nl, it, es, en), Piktogramm, Ladenfront ja/nein, Markisenfarbe,
+  Bestuhlung, Ausleger, Brettfarbe, Rang. Restaurant mit deutscher oder regionaler Küche wird „Gasthaus“. Sprache: das
+  häufigste `addr:country`, sonst grobe Landesumrisse (Belgien und Schweiz nach Sprachgebiet), sonst Englisch.
+- **Fassadenanker** `convert/facades.ts` (`FacadeAnchor`): Straßenfront und, bei freistehenden Häusern, die Seiten;
+  Erdgeschosshöhe, Platz und Höhe für das Brett, Tiefe des Gesimses und ob das Erdgeschoss eigene Schaufenster oder ein
+  eigenes Schildband hat, je Katalogmodell gemessen. Andere Gebäude (Extrusion aus E235) bringen dieselbe Form mit.
+- **Zuordnung und Gestaltung** `convert/pois.ts`: Punkt im Grundriss, sonst nächster Grundriss bis 8 m; nächste
+  Front, die Straßenfront zuerst; mehrere Läden teilen die Front in Felder (je 2,8 m, sonst fallen die niedrigeren
+  Ränge weg). Je Feld: Brett mit Wort und Piktogramm (ein einzelner Laden schreibt auf das eigene Schildband), Ladenfront
+  wo die Wand keine eigenen Schaufenster hat, Markise unter dem Brett (Saum mindestens 2,1 m), Ausleger mit Piktogramm
+  bei Gasthaus, Bäcker, Metzger, Apotheke, Hotel in der Altstadt (`heritage`, `historic`, Baujahr vor 1900 oder
+  Satteldach und höchstens fünf Geschosse, nur wie OSM es sagt), Tische und Schirm bei `outdoor_seating=yes`, wenn sie
+  abseits von Straße und Grundriss Platz haben. Zapfsäulen unter dem Tankstellendach, Litfaßsäulen, Wegkreuze,
+  Bildstöcke, Fahrradständer und Picknicktische an ihren Punkten. Alles einer Front in der Gruppe des Gebäudes.
+- **Grenzen:** 512 Schilder, die Ränge und dann die Nähe zum HQ zuerst; Objekte in 6 % des Szenenbudgets (Schilder und
+  Fronten, dann Markisen, dann Tische). Schritt `pois` im Rahmen-Fortschritt, Bericht `report.pois`.
+- **Zahlen** (eigene Instanz, 1 km um die Mitte, ohne Höhen): Würzburg 838 POIs, 677 an Gebäuden, 512 Schilder (165
+  über der Grenze), 230 Ladenfronten, 148 Markisen, 54 Ausleger; Marais 1 863 POIs, 1 587 an Gebäuden, 512
+  Schilder (823 über der Grenze, 253 ohne Feld), Sprache Französisch. Miltenberg (Probe) 159 POIs, 138 Schilder.
+
 ## Entschieden (User, 2026-10-18)
 
 1. **Hydranten und Brunnen als Spielmechanik:** nicht in dieser Runde.

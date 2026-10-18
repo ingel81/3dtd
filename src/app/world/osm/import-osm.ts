@@ -31,6 +31,7 @@ import { findLandmarks, spawnAnchors, type Landmark } from './convert/anchors';
 import { growLife, type LifeReport } from './convert/life';
 import { placeFurniture, type FurnitureReport } from './convert/furniture';
 import { levelRails, paintRails, planRails, railPaintMaterials, type RailGroundReport, type RailStats } from './convert/rails';
+import { placePois, type PoiReport } from './convert/pois';
 import { placeBuildings, type BuildingCatalogEntry, type BuildingReport } from './convert/buildings';
 
 /**
@@ -87,7 +88,7 @@ export interface OsmImportOptions {
 }
 
 /** One step of the conversion, for the progress list */
-export type OsmConvertStep = 'parse' | 'terrain' | 'roads' | 'water' | 'level' | 'ground' | 'shores' | 'paint' | 'layout' | 'buildings' | 'furniture' | 'plants' | 'life';
+export type OsmConvertStep = 'parse' | 'terrain' | 'roads' | 'water' | 'level' | 'ground' | 'shores' | 'paint' | 'layout' | 'buildings' | 'furniture' | 'pois' | 'plants' | 'life';
 
 export interface OsmImportReport {
   place: { lat: number; lon: number; address: string };
@@ -106,6 +107,7 @@ export interface OsmImportReport {
   layout: LayoutReport;
   buildings: BuildingReport;
   furniture: FurnitureReport;
+  pois: PoiReport;
   life: LifeReport;
   /** Milliseconds per step */
   ms: Record<string, number>;
@@ -126,7 +128,7 @@ export function convertOsm(
 ): OsmImportResult {
   const ms: Record<string, number> = {};
   let t = performance.now();
-  const order: OsmConvertStep[] = ['parse', 'terrain', 'roads', 'water', 'level', 'ground', 'shores', 'paint', 'layout', 'buildings', 'furniture', 'plants', 'life'];
+  const order: OsmConvertStep[] = ['parse', 'terrain', 'roads', 'water', 'level', 'ground', 'shores', 'paint', 'layout', 'buildings', 'furniture', 'pois', 'plants', 'life'];
   const step = (name: string) => {
     const now = performance.now();
     ms[name] = Math.round(now - t);
@@ -215,6 +217,10 @@ export function convertOsm(
   const furniture = placeFurniture(doc, features, water, { costOf, rails });
   step('furniture');
 
+  // Shops, inns and practices on their buildings' fronts: signs, shopfronts, awnings, tables; in their own share
+  const pois = placePois(doc, features, { costOf });
+  step('pois');
+
   // The plants keep off the footprints and hold their own share of the scene budget (the buildings have no cap for now)
   const plants = growVegetation(doc, features, ground.land, water, { costOf, onShare: onShare && ((share) => onShare('plants', share)) });
   step('plants');
@@ -257,6 +263,7 @@ export function convertOsm(
       layout,
       buildings: buildings.report,
       furniture,
+      pois,
       life,
       ms,
       warnings,

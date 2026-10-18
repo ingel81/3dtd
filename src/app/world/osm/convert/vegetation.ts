@@ -27,6 +27,7 @@ import { LAND_CLASSES } from './ground';
 import { distanceField, fillRings, sampleGrid, stampLine, type RasterGrid } from './raster';
 import type { WaterResult } from './water';
 import { FURNITURE_ASSETS } from './furniture';
+import { POI_ASSETS } from './pois';
 
 /** Share of the scene budget the plants may take; buildings and furniture get the rest */
 export const PLANT_BUDGET_SHARE = 0.5;
@@ -379,10 +380,10 @@ export function growVegetation(doc: CustomMapDocument, features: OsmFeatures, la
   return { placed, objects: count, cost: Math.round(cost), budget: Math.round(budget), candidates: candidates.length };
 }
 
-/** Scene cost per plant and furniture asset on an OSM world of side `side` from the catalogue's objects, for the import's options */
+/** Scene cost per plant, furniture and POI asset on an OSM world of side `side` from the catalogue's objects, for the import's options */
 export function assetCosts(objects: readonly (CostEntry & { id: string })[], side: number): Record<string, number> {
   const out: Record<string, number> = {};
-  const furniture = new Set(FURNITURE_ASSETS);
+  const furniture = new Set([...FURNITURE_ASSETS, ...POI_ASSETS]);
   for (const o of objects) {
     if (o.category === 'tree' || o.category === 'plant' || furniture.has(o.id)) out[o.id] = Math.round(objectCost(o, side * side) * 100) / 100;
   }
