@@ -29,7 +29,7 @@ import { WorldStartService } from '../../world/world-start';
   selector: 'td-token-setup',
   standalone: true,
   imports: [CdkTrapFocus, RovingGroupDirective],
-  host: { '(document:keydown.escape)': 'dismiss()' },
+  host: { class: 'td-world-bg is-real', '(document:keydown.escape)': 'dismiss()' },
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './token-setup.component.html',
   styleUrl: './token-setup.component.scss',

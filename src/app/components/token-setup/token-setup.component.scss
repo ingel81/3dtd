@@ -1,13 +1,12 @@
 // Layout of the token step: it covers the whole page (header and sidebar
 // too: a half-visible HUD behind a screen that blocks play reads as a broken
-// game), the dialog in the middle.
+// game), the dialog in the middle, on the real places' ground (td-world-bg).
 
 :host {
   position: fixed;
   inset: 0;
   z-index: 2000;
   display: block;
-  background: var(--td-bg-dark);
   overflow-y: auto;
 }
 
@@ -52,12 +51,14 @@
 
 .token-maps {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--td-sp-3);
   padding: var(--td-sp-3) var(--td-sp-4);
 
+  // On a narrow page the button goes under the line instead of squeezing it
   .td-text {
-    flex: 1;
+    flex: 1 1 240px;
     margin: 0;
   }
 }

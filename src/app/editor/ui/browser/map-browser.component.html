@@ -1,4 +1,4 @@
-<div class="mb-page td-backdrop" (dragover)="onDragOver($event)" (dragleave)="dragging.set(false)" (drop)="onDrop($event)">
+<div class="mb-page td-world-bg is-maps" (dragover)="onDragOver($event)" (dragleave)="dragging.set(false)" (drop)="onDrop($event)">
   <section class="mb-panel td-panel" aria-labelledby="mb-title" [class.is-drop]="dragging()">
     <header class="mb-head td-line-bottom">
       <app-world-path world="Built Worlds" [mode]="null" [modes]="false" [chips]="pathChips()" worldHint="The Built Worlds' menu"
