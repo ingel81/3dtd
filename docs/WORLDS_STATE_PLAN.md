@@ -303,7 +303,7 @@ Entschieden (User, 2026-10-16): alle zwölf Empfehlungen unten übernommen.
   - Ein Lauf hat überall dieselbe Wellenzahl: zwischen den Wellen die nächste (`MainMenuService.runWave`, wie Chip,
     Continue und Spielstand); vorher sagte der Kopf des Pausemenüs eine weniger.
   - Nach Game over: Kopf „Game over“, Save game gesperrt mit „The run is over“, die gehaltene Welt sagt „Still
-    loaded, the run is over“ (`ParkedWorld.over`); Knöpfe „Menu“ und „Edit this map“ wie im Pausemenü.
+    loaded, the run is over“ (`ParkedWorld.over`); Knöpfe „All worlds“ und „Edit this map“ wie im Pausemenü.
   - Load im Spiel eines Spielstands auf derselben Karte fragt „The run under way ends“ statt „… waits in Built
     Worlds“ (`MainMenuService.loadAsk`).
   - Ein Weltmenü zeigt sein eigenes Continue nur als erste Zeile, nicht noch als Chip; es nimmt beim Öffnen den
@@ -311,6 +311,13 @@ Entschieden (User, 2026-10-16): alle zwölf Empfehlungen unten übernommen.
   - OSM-Rahmen auf den Globen mit einem Back (Kopf, Esc); aus dem Spiel („Make map“) führt Back zurück ins Spiel.
     Fertig heißt die Karte „one of your Recent worlds“. Load from a file auf den Globen ist gesperrt und sagt
     vorher warum (`SaveGamePort.cannotImportReason`).
+  - Browser-Zurück geht eine Ebene hoch wie Esc (`world/browser-back.service.ts`): Ansichten melden ihren Schritt
+    an (Globen: Esc-Kette; Spiel: Dialog, Menüseite, Menü öffnen, dann ins Weltmenü, das Spiel gehalten; Editor:
+    Liste bzw. aus dem Editor), die zuletzt gezeigte zuerst; ein Verlaufseintrag steht über dem der Seite. Erst auf
+    den Globen ohne offenes Menü verlässt Zurück die Seite. Im Coop-Raum bleibt es beim Menü mit Grund.
+  - Begriffe: „All worlds“ ist überall der Weg zu den Globen (auch nach Game over), „World menu“ nur, wo die Seite
+    eine Welt hat (nicht in Dev world); kein New game auf Karten; „Dev world“ im Pfad wie im Ortsnamen; je
+    Weltmenü ein Erklärsatz (unten an der Wahl).
   - Probespiel: der Pfad sagt „Trial“ statt „Play“. Editor-Liste: „Open“ auch bei mitgelieferten Karten (die
     Kopie entsteht erst mit der ersten Änderung).
 - **Specs:** `worlds/worlds-stage.scenario.spec.ts` (Continue, Discard, live, Start/Load mit Rückfrage, gehaltene
