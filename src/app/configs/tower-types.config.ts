@@ -772,7 +772,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
       kick: [{ node: 'gun', back: 0.07, tilt: 0.05 }, { node: 'turret_top', back: 0.012, tilt: 0.015 }],
       kickS: 0.045,
       returnS: 0.6,
-      dust: { puffs: 10, radius: 4, speed: 3.5 },
+      dust: { puffs: 9, radius: 4, speed: 3 },
       shake: { amplitude: 0.0016, duration: 160, near: 25, far: 75 },
     },
     damageType: 'pierce',

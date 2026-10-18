@@ -540,7 +540,7 @@ Profile heute:
 
 | Tower | Bewegung |
 |-------|----------|
-| Iron Bastion | Rohr 35 cm zurück, 2,9° hoch; Turm 6 cm, 0,9°; Rückkehr 0,6 s; 10 Staubwolken; Wackeln 0,0016 bis 25 m, aus ab 75 m |
+| Iron Bastion | Rohr 35 cm zurück, 2,9° hoch; Turm 6 cm, 0,9°; Rückkehr 0,6 s; 9 Staubwolken; Wackeln 0,0016 bis 25 m, aus ab 75 m |
 | Cannon | Turm (Rohr gegossen mit ihm) 9 cm zurück, 1,1°; Rückkehr 0,4 s; 5 kleine Staubwolken; kein Wackeln (der Einschlag wackelt) |
 | Dual-Gatling | je Rohr im Wechsel 5 cm, 0,9°; Rückkehr 0,14 s (5 Schuss/s: jedes Rohr alle 0,4 s) |
 | Rocket | Werfer 5 cm, 1,7° hoch; Rückkehr 0,3 s (eine Rakete stößt kaum zurück) |

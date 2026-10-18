@@ -325,11 +325,11 @@ export const ABILITY_DEATH_BLOOD_CAP = 24;
  */
 export const FIRING_DUST_LOOK = {
   /** Lifetime, s */
-  lifeMin: 0.7,
-  lifeMax: 1.3,
-  /** Sprite size, m; the puffs start at a third and billow out */
-  sizeMin: 1.6,
-  sizeMax: 2.8,
+  lifeMin: 0.5,
+  lifeMax: 0.95,
+  /** Sprite size, m; the puffs start at a third and billow out (1.6 to 2.8 m hid the bastion's foot in a close look) */
+  sizeMin: 0.9,
+  sizeMax: 1.6,
   sizeStart: 0.35,
   sizeEnd: 1,
   /** Share of the speed the puffs differ by, and how fast they rise, m/s */
@@ -339,7 +339,7 @@ export const FIRING_DUST_LOOK = {
   /** Above the foot, m: on the ground, not in it */
   lift: 0.3,
   /** Earth over the light smoke atlas, darker and lighter per puff */
-  color: { r: 0.62, g: 0.55, b: 0.45 },
+  color: { r: 0.66, g: 0.52, b: 0.4 },
   shadeMin: 0.7,
   shadeMax: 1.0,
 } as const;
