@@ -14,7 +14,7 @@
  * turns a building with a road near to face the road.
  */
 import type { MapObject, MapPoint } from '../../world/custom-map/map-document';
-import type { ObjectAssetEntry } from '../../map-ops/asset-catalog';
+import { objectRadius, type ObjectAssetEntry } from '../../map-ops/asset-catalog';
 import { ObjectsCommand, type ObjectEdit } from '../model/commands/objects';
 import { insideMap } from '../../map-ops/grid';
 import {
@@ -83,6 +83,8 @@ export class ObjectTool implements EditorTool {
     startIndex: Map<string, number>;
   } | null = null;
   private drag: Drag | null = null;
+  /** The selection's centre, ring and height as last worked out (selectionShape) */
+  private shape: { ids: readonly string[]; revision: number; center: MapPoint; radius: number; height: number } | null = null;
   /** The line being drawn in Line mode (free), map points */
   private line: MapPoint[] | null = null;
   /** Place: where the outline last stood and the road's turn there, null without one (asked again only when it moves) */
@@ -218,12 +220,12 @@ export class ObjectTool implements EditorTool {
     const s = ctx.settings.objects();
     const sel = this.selected(ctx);
     const gizmo = ctx.overlay.gizmo.handles;
-    if (s.mode === 'select' && sel.length) {
-      const c = centroid(ctx.editor.doc, sel)!;
-      ctx.overlay.gizmo.ring.set(c, this.gizmoRadius(ctx, sel));
-      const z = this.selectionHeight(ctx, sel, c);
+    const shape = s.mode === 'select' && sel.length ? this.selectionShape(ctx, sel) : null;
+    if (shape) {
+      const c = shape.center;
+      ctx.overlay.gizmo.ring.set(c, shape.radius);
       gizmo.setKind(s.gizmo);
-      gizmo.place(gizmoAnchor(c.x, c.y, z), this.axisYaw(ctx, sel), (ctx.metresPerPixel(c) * GIZMO_PIXELS) / 10);
+      gizmo.place(gizmoAnchor(c.x, c.y, shape.height), this.axisYaw(ctx, sel), (ctx.metresPerPixel(c) * GIZMO_PIXELS) / 10);
       if (!this.drag && p) gizmo.highlight(ctx.pickGizmo(p));
     } else {
       ctx.overlay.gizmo.ring.clear();
@@ -563,8 +565,8 @@ export class ObjectTool implements EditorTool {
       return true;
     }
     // Inside the gizmo ring: drag the selection
-    const c = sel.length ? centroid(ctx.editor.doc, sel) : null;
-    if (c && p.hit && Math.hypot(p.hit.x - c.x, p.hit.y - c.y) <= this.gizmoRadius(ctx, sel) * 1.1) {
+    const shape = sel.length ? this.selectionShape(ctx, sel) : null;
+    if (shape && p.hit && Math.hypot(p.hit.x - shape.center.x, p.hit.y - shape.center.y) <= shape.radius * 1.1) {
       this.startGizmo(p, ctx, sel);
       return true;
     }
@@ -662,17 +664,33 @@ export class ObjectTool implements EditorTool {
     ctx.editor.emit({ objects: changed });
   }
 
-  private gizmoRadius(ctx: ToolContext, ids: string[]): number {
-    const doc = ctx.editor.doc;
-    const c = centroid(doc, ids);
-    if (!c) return 0;
+  /**
+   * The selection's centre, the gizmo ring's radius round it and the height
+   * the gizmo stands at (the ground at the centre, raised by the objects' mean
+   * lift), worked out once while map and selection stand still: three passes
+   * over a big map's list each frame held thousands selected at 26 frames a second
+   */
+  private selectionShape(ctx: ToolContext, ids: readonly string[]): { center: MapPoint; radius: number; height: number } | null {
+    const kept = this.shape;
+    const revision = ctx.editor.revision;
+    if (kept && kept.ids === ids && kept.revision === revision) return kept;
     const set = new Set(ids);
-    let r = 2;
-    for (const o of doc.objects) {
-      if (!set.has(o.id)) continue;
-      r = Math.max(r, Math.hypot(o.x - c.x, o.y - c.y) + ctx.catalog.object(o.asset).radius * o.scale);
+    const chosen: MapObject[] = [];
+    for (const o of ctx.editor.doc.objects) if (set.has(o.id)) chosen.push(o);
+    if (!chosen.length) return null;
+    let x = 0;
+    let y = 0;
+    let lift = 0;
+    for (const o of chosen) {
+      x += o.x;
+      y += o.y;
+      lift += o.z;
     }
-    return r * 1.15;
+    const center = { x: x / chosen.length, y: y / chosen.length };
+    let r = 2;
+    for (const o of chosen) r = Math.max(r, Math.hypot(o.x - center.x, o.y - center.y) + objectRadius(o, ctx.catalog) * o.scale);
+    this.shape = { ids, revision, center, radius: r * 1.15, height: ctx.heightAt(center.x, center.y) + lift / chosen.length };
+    return this.shape;
   }
 
   /** The arrows' turn: the first selected object's in local space, else the map's */
@@ -680,19 +698,6 @@ export class ObjectTool implements EditorTool {
     if (ctx.settings.objects().space !== 'local' || !ids.length) return 0;
     const first = ctx.editor.doc.objects.find((o) => o.id === ids[0]);
     return first?.rotation ?? 0;
-  }
-
-  /** Where the gizmo stands: on the ground at the centre, raised by the objects' mean lift */
-  private selectionHeight(ctx: ToolContext, ids: string[], c: MapPoint): number {
-    const set = new Set(ids);
-    let lift = 0;
-    let n = 0;
-    for (const o of ctx.editor.doc.objects) {
-      if (!set.has(o.id)) continue;
-      lift += o.z;
-      n++;
-    }
-    return ctx.heightAt(c.x, c.y) + (n ? lift / n : 0);
   }
 
   private selected(ctx: ToolContext): string[] {

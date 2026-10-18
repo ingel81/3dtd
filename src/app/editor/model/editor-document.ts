@@ -124,6 +124,8 @@ export class EditorDocument {
   private readonly selectionListeners = new Set<(s: Selection) => void>();
   private readonly refusalListeners = new Set<(e: EditorHeldError) => void>();
   private currentSelection: Selection = null;
+  /** Counts every change told to the listeners (emit) */
+  private changes = 0;
   /** Why the document is held, the latest hold first; empty when free */
   private holds: { reason: string }[] = [];
 
@@ -181,6 +183,15 @@ export class EditorDocument {
   /** Id of the current state; equal ids mean equal content */
   get stateId(): number {
     return this.state;
+  }
+
+  /**
+   * Grows with every change told to the listeners, a dab of a stroke too: what
+   * is worked out from the map once a frame (the gizmo's centre over thousands
+   * of objects) is kept while it stands still
+   */
+  get revision(): number {
+    return this.changes;
   }
 
   onChange(listener: ChangeListener): () => void {
@@ -314,6 +325,7 @@ export class EditorDocument {
 
   /** Tell the listeners about a change that is not a command (a dab of a running stroke) */
   emit(change: DocChange): void {
+    this.changes++;
     for (const l of this.listeners) l(change, this.current);
   }
 
@@ -358,7 +370,10 @@ export class EditorDocument {
     const d = this.current;
     let next: Selection = s;
     if (s.kind === 'objects') {
-      const ids = s.ids.filter((id) => d.objects.some((o) => o.id === id));
+      // One pass over the list, not one per selected id: an undo with thousands selected took most of a second
+      const present = new Set<string>();
+      for (const o of d.objects) present.add(o.id);
+      const ids = s.ids.filter((id) => present.has(id));
       next = ids.length ? { kind: 'objects', ids } : null;
     } else if (s.kind === 'paths') {
       next = pathSelection(
