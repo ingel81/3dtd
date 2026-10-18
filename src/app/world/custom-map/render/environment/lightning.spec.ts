@@ -121,6 +121,29 @@ describe('lightning', () => {
     l.dispose();
   });
 
+  it('lights the land at each stroke of a bolt where it struck, by the flash share, never for a cloud flash', () => {
+    for (const share of [1, 0.35]) {
+      const l = new Lightning(5);
+      l.setStorm(1);
+      l.setFlashShare(share);
+      const strokes: { y: number; s: number }[] = [];
+      l.onStroke = (_x, y, _z, s) => strokes.push({ y, s });
+      const { strikes } = run(l, 120, 20);
+      const bolts = strikes.filter((k) => k.kind === 'ground').length;
+      expect(bolts).toBeGreaterThan(2);
+      // Two or three strokes a bolt in full, one smooth swell when soft; the strike still in flight may be short
+      if (share === 1) {
+        expect(strokes.length).toBeGreaterThanOrEqual(2 * (bolts - 1));
+        expect(strokes.length).toBeLessThanOrEqual(3 * bolts);
+      } else expect(strokes.length).toBe(bolts);
+      for (const k of strokes) {
+        expect(k.y).toBeCloseTo(20, 5);
+        expect(k.s).toBeLessThanOrEqual(share + 1e-6);
+      }
+      l.dispose();
+    }
+  });
+
   it('draws the bolt with the logarithmic depth and the haze of the map', () => {
     const l = new Lightning(1);
     const m = l.mesh.material;

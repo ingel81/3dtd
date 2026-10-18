@@ -2,6 +2,7 @@ import { isDevMode } from '@angular/core';
 import { defaultOpenLanes, laneChoiceOf, laneChoiceProblem, type LaneChoice } from './lane-choice';
 import { type Group, type Matrix4, type Object3D, type PerspectiveCamera, type Scene, Vector3, type WebGLRenderer, WebGLRenderTarget } from 'three';
 import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
+import { STORM_STRIKE_LIGHT } from '../../configs/shot-lights.config';
 import type { CameraBounds, CameraRig } from '../../three-engine/camera-rig';
 import { EllipsoidSync } from '../../three-engine/ellipsoid-sync';
 import type { RootLoadFailure } from '../../three-engine/tile-loading-tracker';
@@ -312,6 +313,17 @@ export class CustomMapWorld implements WorldProvider {
       this.soundVolume = ctx.audio.volume;
       // A storm's thunder after its lightning
       view.environment.lightning.onStrike = (strike) => this.soundscape?.thunder(strike);
+    }
+
+    // A storm's strikes light the land, towers and enemies through the shots' light (none on Low)
+    const lights = ctx.lights;
+    if (lights) {
+      // One look, its brightness set per stroke (the pulse's scale widens, it does not brighten)
+      const look = { ...STORM_STRIKE_LIGHT };
+      view.environment.lightning.onStroke = (x, y, z, strength) => {
+        look.intensity = STORM_STRIKE_LIGHT.intensity * strength;
+        lights.pulse(x, y + 8, z, look);
+      };
     }
 
     // Streets, spawns and routes go on while the map's textures and models load and its shaders compile

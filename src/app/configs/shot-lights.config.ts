@@ -88,6 +88,16 @@ export const LIGHTNING_LIGHT: ShotLightPulseLook = {
   color: [0.9, 0.95, 1.0], fade: [0.42, 0.58, 1.0], intensity: 7, radius: 18, durationS: 0.18, jitter: 0.45,
 };
 
+/**
+ * A storm's lightning where it strikes (render/environment/lightning.ts,
+ * once per stroke, scaled by the player's lightning flashes): a cold flash
+ * over a hundred metres of land, towers and enemies, a few metres up so
+ * walls take it too
+ */
+export const STORM_STRIKE_LIGHT: ShotLightPulseLook = {
+  color: [0.85, 0.92, 1.0], fade: [0.45, 0.6, 1.0], intensity: 16, radius: 100, durationS: 0.15, jitter: 0.3,
+};
+
 /** The abilities' blasts; their radius is a share of the ability's own */
 export const BLAST_LIGHTS = {
   /** The nuclear strike's flash, over three times its radius */

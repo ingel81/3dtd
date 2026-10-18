@@ -76,6 +76,12 @@ export class Lightning {
   readonly mesh: Mesh<InstancedBufferGeometry, ShaderMaterial>;
   /** Called as a strike begins (the light arrives at once, the sound follows by its distance) */
   onStrike: ((strike: Readonly<LightningStrike>) => void) | null = null;
+  /**
+   * Called at each stroke of a bolt with where it struck (scene space) and
+   * how bright, the flash share applied: the land's light pulses there
+   * (CustomMapWorld, the shots' light)
+   */
+  onStroke: ((x: number, y: number, z: number, strength: number) => void) | null = null;
   /** How bright the flash is now, for sky and scene (0 none, about 1 a close bolt), dimmed by the share */
   flash = 0;
   /** Scene direction from the camera towards the flash */
@@ -96,6 +102,8 @@ export class Lightning {
   private readonly pulseDecay = new Float32Array(4);
   private readonly pulseAttack = new Float32Array(4);
   private pulses = 0;
+  /** The next stroke onStroke has not heard of */
+  private stroke = 0;
   private endsAt = Number.NEGATIVE_INFINITY;
   private readonly starts: Float32Array;
   private readonly ends: Float32Array;
@@ -205,6 +213,11 @@ export class Lightning {
       return;
     }
     this.mesh.visible = true;
+    // Each stroke lights the land where it struck
+    while (this.stroke < this.pulses && t >= this.pulseAt[this.stroke]) {
+      this.onStroke?.(this.ground.x, this.ground.y, this.ground.z, this.pulseAmp[this.stroke] * this.share);
+      this.stroke++;
+    }
     const first = this.pulseAt[0];
     // The leader creeps down faintly, then the strokes light the channel; it glows on a little between them
     const leading = t < first;
@@ -221,6 +234,7 @@ export class Lightning {
     this.mesh.material.dispose();
     this.mesh.removeFromParent();
     this.onStrike = null;
+    this.onStroke = null;
   }
 
   /** The strike's brightness at `t` seconds after it began: its pulses, each a fast rise and an exponential fall */
@@ -285,6 +299,7 @@ export class Lightning {
       this.heard.power = 0.45;
     }
     this.endsAt = this.strikeAt + this.pulseAt[this.pulses - 1] + AFTERGLOW_S;
+    this.stroke = 0;
     const toX = this.near.x - this.cam.x;
     const toZ = this.near.z - this.cam.z;
     const flat = Math.hypot(toX, toZ) || 1;

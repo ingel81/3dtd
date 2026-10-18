@@ -952,7 +952,10 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
     etwa 9 m (gedämpfter Zufallsweg, unten auf den Einschlagpunkt gezogen), Äste im oberen Dreiviertel, die abwärts
     und auswärts laufen und vor dem Boden verlöschen, selten ein Ast am Ast (nicht unter halber Partikelstufe). Erst
     kriecht der Leitblitz schwach herab (0,05 s), dann leuchten zwei bis drei Hauptentladungen binnen einer drittel
-    Sekunde, die Äste nur bei der ersten; zwischen den Entladungen glimmt der Kanal. Am Boden ein Lichthof. Ein
+    Sekunde, die Äste nur bei der ersten; zwischen den Entladungen glimmt der Kanal. Am Boden ein Lichthof, und jede
+    Entladung pulst dort das Licht der Schüsse (`Lightning.onStroke` an `ShotLights.pulse`, `STORM_STRIKE_LIGHT`: kaltweiß,
+    100 m, 8 m über dem Boden, Stärke mal Blitz-Anteil; Land, Objekte, Wasser, Tower, Held und Gegner nehmen es, Low hat
+    keine Plätze, docs/SHOT_LIGHTS.md). Ein
     instanzierter Draw: je Segment ein zur Kamera gedrehtes Band mit weißem Kern und violettem Hof, mindestens 1,3 px
     breit (auch fern sichtbar), oben in die Wolkenbasis ausgeblendet, fern vom Dunst gedämpft, logdepthbuf, additiv,
     keine Tiefe geschrieben; das Gelände verdeckt ihn, das Wasser spiegelt ihn
