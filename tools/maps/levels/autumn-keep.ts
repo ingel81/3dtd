@@ -216,6 +216,13 @@ export function buildAutumnKeep(): CustomMapDocument {
   k.place('windmill', mill.x, mill.y, { rotation: facing(mill, c) });
   k.scatter(['wheat-field', 'hay-bales', 'grass-autumn'], [{ x: mill.x - 14, y: mill.y - 14 }, { x: mill.x + 14, y: mill.y - 12 }], { radius: 10, strength: 1 }, { density: 6, minDistance: 3 });
 
+  // ---- A vineyard on the castle hill's sunny south-east flank below the mill, its rows along the slope turned gold
+  const vineyard = { x: 86, y: 18 };
+  k.erase(vineyard, 34, (o) => o.asset.startsWith('fx') || o.asset === 'windmill');
+  k.paint('forest-roots', vineyard, { radius: 30, falloff: 0.6 }, 0.3);
+  k.contourRows('vine-row', { center: vineyard, radius: 30 }, { gap: 3.2, length: 10, maxSlope: 22, tint: '#e6b04c' });
+  k.scatter(['grass-autumn', 'leaf-pile', 'bush-maple-autumn'], { x: vineyard.x - 26, y: vineyard.y - 16 }, { radius: 12, strength: 0.7 }, { density: 2, minDistance: 4 });
+
   // ---- Life: morning fog in the hollows and down the valleys, leaves falling in the woods, ravens over them
   const blob = (at: MapPoint, r: number, n = 9): MapPoint[] =>
     Array.from({ length: n }, (_, i) => {
