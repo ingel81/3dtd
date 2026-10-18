@@ -75,7 +75,9 @@ describe('tower configs against their models', () => {
       model.rotation.y = config.rotationY ?? 0;
       model.position.set(0, config.heightOffset, 0);
       model.updateMatrixWorld(true);
-      const top = new Box3().setFromObject(model).max.y;
+      // Precise: by the vertices in their rest pose. A morph target widens the geometry's bounding box by its
+      // largest offsets (the ballista's slack string lies over the stock), which no rest pose reaches
+      const top = new Box3().setFromObject(model, true).max.y;
       expect(config.modelTop, 'modelTop').toBeCloseTo(top, 1);
     });
   }
