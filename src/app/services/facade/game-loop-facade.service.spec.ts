@@ -72,7 +72,7 @@ function planned(waveNumber: number, config = wave(EXPLANATION)): PlannedWave {
 function makeStore() {
   return {
     phase: signal('setup'),
-    hasRoutes: signal(true),
+    hasLanes: signal(true),
     autoWaveSecondsLeft: signal<number | null>(null),
     waveNumber: signal(0),
     directorEnabled: signal(true),
@@ -373,7 +373,7 @@ describe('GameLoopFacadeService: no route, no wave (TODO E232)', () => {
   });
 
   it('sends no start without a route and says why, for the planned and the custom wave', () => {
-    store.hasRoutes.set(false);
+    store.hasLanes.set(false);
     facade.startWave();
     expect(starts).toBe(0);
     expect(notice()?.text).toContain('No wave can start');

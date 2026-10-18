@@ -2,7 +2,7 @@
 import '@angular/compiler';
 import { describe, it, expect, vi } from 'vitest';
 import { Injector, signal } from '@angular/core';
-import { SaveGameService } from './save-game.service';
+import { LOAD_NO_ROUTE, SAVE_NO_ROUTE, SaveGameService } from './save-game.service';
 import { SimClient } from '../../sim/client/sim-client.service';
 import { SimMirror } from '../../sim/client/mirror/sim-mirror';
 import { MainWorldService } from '../world/main-world.service';
@@ -13,6 +13,7 @@ import { WaveDirector } from '../../director/wave-director';
 import { RunLogFacade } from '../../run-log/run-log.facade';
 import { GameStore } from '../../store/game.store';
 import { UIStore } from '../../store/ui.store';
+import { LocationStore } from '../../store/location.store';
 import { CoopService } from '../coop.service';
 import { createMainEventBus } from '../../sim/client/view-events';
 import { buildWorldPackage } from '../../coop/world-package';
@@ -64,6 +65,8 @@ interface Applying { apply(file: SaveFile): Promise<string | null> }
 
 function setup(options: { inCoop?: boolean; editorTest?: boolean; slots?: StoredSlotMeta[] } = {}) {
   const store = new MemorySlotStore(options.slots);
+  // The simulation's world has a lane (TODO E232)
+  const locationStore = { hasLanes: signal(true) };
   const bus = createMainEventBus();
   const frames = new Set<() => void>();
   const order: string[] = [];
@@ -141,6 +144,7 @@ function setup(options: { inCoop?: boolean; editorTest?: boolean; slots?: Stored
       { provide: WorldContext, useValue: context },
       { provide: GameStore, useValue: { phase, isGameOver: signal(false) } },
       { provide: UIStore, useValue: { replayMode: signal(false) } },
+      { provide: LocationStore, useValue: locationStore },
       { provide: CoopService, useValue: { room: signal(options.inCoop ? {} : null), inGame: signal(false) } },
       { provide: CameraSlotsService, useValue: cameraSlots },
       { provide: SAVE_SLOT_STORE, useValue: store },
@@ -148,7 +152,7 @@ function setup(options: { inCoop?: boolean; editorTest?: boolean; slots?: Stored
     ],
   });
   const service = injector.get(SaveGameService);
-  return { service, apply: (file: SaveFile) => (service as unknown as Applying).apply(file), order, phase, director, mirror, runLog, loader, bus, sim, cameraSlots, store };
+  return { service, apply: (file: SaveFile) => (service as unknown as Applying).apply(file), order, phase, director, mirror, runLog, loader, bus, sim, cameraSlots, store, locationStore };
 }
 
 describe('SaveGameService (TODO E110)', () => {
@@ -215,6 +219,22 @@ describe('SaveGameService (TODO E110)', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('keeps no save of a run without a route, so no Continue brings one back (TODO E232)', async () => {
+    const { service, locationStore } = setup();
+    locationStore.hasLanes.set(false);
+    expect(service.cannotSaveReason()).toBe(SAVE_NO_ROUTE);
+    expect(await service.autosaveNow()).toBe(false);
+  });
+
+  it('refuses a save whose world has no route before it moves anywhere (a 0.7.x autosave, TODO E232)', async () => {
+    const { apply, order, loader } = setup();
+    const file = saveFile();
+    file.world.paths = [];
+    expect(await apply(file)).toBe(LOAD_NO_ROUTE);
+    expect(loader.placeLoaded).not.toHaveBeenCalled();
+    expect(order).toEqual([]);
   });
 
   it('refuses a save of another world before it moves anywhere', async () => {

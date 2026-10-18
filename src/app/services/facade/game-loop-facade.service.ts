@@ -475,7 +475,7 @@ export class GameLoopFacadeService {
     if (!this.initialized) return;
     if (!this.bridge.getEngine() || this.store.phase() === 'wave' || this.store.phase() === 'gameover') return;
     if (this.startInFlight()) return;
-    if (!this.store.hasRoutes()) {
+    if (!this.store.hasLanes()) {
       this.refuseNoRoute();
       return;
     }
@@ -552,7 +552,7 @@ export class GameLoopFacadeService {
     if (!this.initialized) return;
     if (!this.bridge.getEngine() || this.store.phase() === 'wave' || this.store.phase() === 'gameover') return;
     if (this.startInFlight()) return;
-    if (!this.store.hasRoutes()) {
+    if (!this.store.hasLanes()) {
       this.refuseNoRoute();
       return;
     }

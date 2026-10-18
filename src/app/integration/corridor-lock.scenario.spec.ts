@@ -29,6 +29,7 @@ import { Injector } from '@angular/core';
 import { withAutoStubs, TEST_PATH, TEST_SPAWN_POINTS } from './test-helpers';
 import { GlobalRouteGridService } from '../services/world/global-route-grid.service';
 import { MainWorldService } from '../services/world/main-world.service';
+import { LocationStore } from '../store/location.store';
 import { PresentationService } from '../presentation/presentation.service';
 import { RouteGridVizService } from '../services/world/route-grid-viz.service';
 import { PathAndRouteService } from '../services/world/path-route.service';
@@ -296,6 +297,7 @@ describe('The corridor frozen after its build, playtest 2026-09-15', () => {
         { provide: RouteGridVizService, useValue: gridViz },
         { provide: PathAndRouteService, useValue: pathRoute },
         { provide: PresentationService, useValue: presentation },
+        { provide: LocationStore, useFactory: () => new LocationStore(), deps: [] },
         { provide: MainWorldService, useFactory: () => new MainWorldService(), deps: [] },
       ],
     });

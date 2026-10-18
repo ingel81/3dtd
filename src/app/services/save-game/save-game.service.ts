@@ -14,7 +14,8 @@ import { CoopService } from '../coop.service';
 import { BUILD_VERSION } from '../../configs/build-info.config';
 import { balanceConfigHash } from '../../run-log/config-hash';
 import { buildCommit } from '../../run-log/build-commit';
-import { buildWorldPackage } from '../../coop/world-package';
+import { buildWorldPackage, packageHasLanes } from '../../coop/world-package';
+import { LocationStore } from '../../store/location.store';
 import type { SaveFile } from '../../simulator/save-file';
 import type { SimSnapshot } from '../../simulator/sim-snapshot';
 import { downloadBlob } from '../../utils/download';
@@ -26,6 +27,12 @@ import { AUTOSAVE_SLOT, type LoadResult, type SaveGamePort, type SaveResult, typ
 import { autosaveSlotOf, type WorldId } from '../../worlds/world-rules';
 import { worldOfPage } from '../../world/world-of-page';
 import { isSamePlace } from '../location/recent-locations';
+
+/** Why there is no save: the simulation's world has no spawn with a route (TODO E232) */
+export const SAVE_NO_ROUTE = 'No spawn has a route to the HQ: there is no run to save.';
+
+/** Why a save does not load: its world has no spawn with a route (TODO E232) */
+export const LOAD_NO_ROUTE = 'That save has no route from a spawn to the HQ, its streets did not load whole. Start a new run here.';
 
 /** How long the autosave waits after a wave for the last shots and events to settle, ms */
 const AUTOSAVE_WAIT_MS = 10_000;
@@ -64,6 +71,7 @@ export class SaveGameService implements SaveGamePort {
   private readonly worldContext = inject(WorldContext);
   private readonly gameStore = inject(GameStore);
   private readonly uiStore = inject(UIStore);
+  private readonly locationStore = inject(LocationStore);
   private readonly cameraSlots = inject(CameraSlotsService);
   private readonly coop = inject(CoopService, { optional: true });
   /** The editor's test of its map is no run: it is never saved, not even as autosave */
@@ -86,6 +94,8 @@ export class SaveGameService implements SaveGamePort {
       if (this.gameStore.isGameOver()) return 'The run is over.';
       if (this.gameStore.phase() !== 'setup') return 'Saving works only between waves.';
       if (!this.locationMgmt.hq() || this.engineInit.loading()) return 'No place is loaded yet.';
+      // A run no wave can come to is not worth keeping, nor to be continued (TODO E232)
+      if (!this.locationStore.hasLanes()) return SAVE_NO_ROUTE;
       if (this.mirror.losAwaiting() > 0) return LOS_PENDING_TEXT;
       return null;
     }),
@@ -267,6 +277,8 @@ export class SaveGameService implements SaveGamePort {
     // A save of another world (DevWorld, a map, the tiles) does not stand here
     const otherWorld = this.loader.worldHere(world);
     if (otherWorld) return `That save cannot load here. ${otherWorld}`;
+    // Saved on streets that did not load whole (0.7.x): no wave on it would bring an enemy (TODO E232)
+    if (!packageHasLanes(world)) return LOAD_NO_ROUTE;
     if (!this.engineInit.getEngine() || !this.locationMgmt.hq()) {
       this.pendingPlace.set({ hq: file.place.hq, spawns: file.place.spawns });
       const loaded = await this.loader.placeLoaded();

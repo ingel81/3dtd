@@ -125,7 +125,6 @@ describe('Moving the HQ while the corridor is built (playtest 543)', () => {
     di.stubs = {
       // PathAndRouteService's own
       UIStore: { routesVisible: () => false },
-      LocationStore: { hasRoutes: signal(false) },
       GlobalRouteGridService: { isInitialized: () => false, getGroundLocalYAt: () => null },
       // MapRelocationService's
       // The world's streets

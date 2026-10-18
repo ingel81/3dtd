@@ -12,6 +12,7 @@ import { SimMirror } from '../../sim/client/mirror/sim-mirror';
 import { buildSimWorld } from '../../sim/client/sim-world-builder';
 import { worldKeyOf } from '../../sim/protocol/world-key';
 import { PresentationService } from '../../presentation/presentation.service';
+import { LocationStore } from '../../store/location.store';
 
 /**
  * The world on the main thread (docs/SIM_WORKER.md): the route grid's cells
@@ -32,6 +33,7 @@ export class MainWorldService {
   private readonly sim = inject(SimClient);
   private readonly mirror = inject(SimMirror);
   private readonly presentation = inject(PresentationService);
+  private readonly locationStore = inject(LocationStore);
 
   private engine: ThreeTilesEngine | null = null;
   private hq: GeoPosition | null = null;
@@ -56,6 +58,8 @@ export class MainWorldService {
    * with the new world's first packet.
    */
   resetRun(): void {
+    // No world, no lane: no wave starts until the next one is sent
+    this.locationStore.hasLanes.set(false);
     if (!this.sim.started) return;
     this.sim.newRun();
     void this.sim.rpc('reset');
@@ -181,15 +185,21 @@ export class MainWorldService {
    * Hand the finished world to the simulation (a fresh run on it) and to the
    * mirror. After the corridor build, a move, a DevWorld, a coop package.
    * False when the world does not stand yet.
+   *
+   * The only way routes reach the simulation (TODO E232): it keeps these
+   * until the next send, whatever is drawn here meanwhile. The mirror gets
+   * them as sent, not the route cache a later build rewrites, and
+   * LocationStore.hasLanes says whether the simulation got a lane.
    */
   sendToSim(): boolean {
     const engine = this.engine;
     const hq = this.hq;
     if (!engine || !hq || !this.sim.started) return false;
-    const paths = this.pathRoute.getCachedPaths();
+    const paths = new Map(this.pathRoute.getCachedPaths());
     const world = buildSimWorld(engine, this.grid, hq, this.spawns, paths);
     if (!world) return false;
     this.mirror.setWorld(world.spawns.map((s) => s.id), paths);
+    this.locationStore.hasLanes.set(world.spawns.length > 0);
     // The HQ's fire, damage sound and leak number on the main thread need the
     // place's HQ (HqDamagePresenter); nothing else hands it to them
     this.presentation.host?.setBase(hq);
