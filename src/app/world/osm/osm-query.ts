@@ -21,7 +21,7 @@ import {
  * so a frame kept from an older query is downloaded again and has what the
  * world reads now. Raise it whenever the query asks for more.
  */
-export const OSM_QUERY_VERSION = 2;
+export const OSM_QUERY_VERSION = 3;
 
 /**
  * Ways and multipolygons the world reads, by key: the land, water, roads and
@@ -31,7 +31,7 @@ export const OSM_QUERY_VERSION = 2;
  */
 const WAY_KEYS = [
   'highway', 'building', 'landuse', 'natural', 'leisure', 'waterway', 'water', 'railway', 'barrier', 'man_made',
-  'amenity', 'power', 'shop', 'tourism', 'historic', 'craft', 'office', 'area:highway',
+  'amenity', 'power', 'shop', 'tourism', 'historic', 'craft', 'office', 'healthcare', 'area:highway',
 ] as const;
 
 /** Ways asked for by key and value */
@@ -67,6 +67,7 @@ const NODE_FILTERS = [
   '["historic"]["memorial"!="stolperstein"]',
   '["craft"]',
   '["office"]',
+  '["healthcare"]',
   '["leisure"~"^(picnic_table|outdoor_seating|fitness_station|playground|bandstand)$"]',
   '["playground"]',
   '["seamark:type"]',

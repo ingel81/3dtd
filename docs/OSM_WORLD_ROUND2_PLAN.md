@@ -361,9 +361,10 @@ Szenenkosten an Würzburg, Marais und Kleinstadt am Main.
 ## P0 Abfrage, gebaut (2026-10-18)
 
 - `osm-query.ts`: die Abfrage wie im Abschnitt [Abfrage](#abfrage) (Ways nach Schlüssel samt `area:highway`, dazu
-  `place=square`; Knoten mit der `amenity`-Liste `POINT_AMENITIES`, ohne Stolpersteine). `OSM_QUERY_VERSION` 2 steht im
+  `place=square`; Knoten mit der `amenity`-Liste `POINT_AMENITIES`, ohne Stolpersteine; dazu `healthcare` als Way und
+  Knoten für P3). `OSM_QUERY_VERSION` (heute 3) steht im
   Schlüssel des Rahmenspeichers (`frameKey`, vorher fest `v1`): Rahmen der alten Abfrage werden neu abgerufen.
-- `isAreaTags`: `area:highway`, `place=square` und geschlossene Ways mit `shop`, `tourism`, `craft`, `office` sind
+- `isAreaTags`: `area:highway`, `place=square` und geschlossene Ways mit `shop`, `tourism`, `craft`, `office`, `healthcare` sind
   Flächen. Keine davon hat eine Landklasse, die Welt sieht bis P2 und P3 also gleich aus.
 - Die eingefrorene Probe Miltenberg hat die 410 Elemente angehängt, die die neue Abfrage im selben Quadrat mehr
   liefert (95 Läden, 107 `amenity`-Punkte, 34 Tourismus, 30 `historic`, 18 Spielgeräte, 3 Plätze als Fläche …; Daten
@@ -405,8 +406,9 @@ Ankern), `osm-frame-core.ts` und `components/osm-frame/` (Knopf „HQ an das Wah
 
 ### Messungen P5 (2026-10-18)
 
-Erzeugen in Node ohne Höhen und ohne Katalog mit den Antworten der Erhebung (Vorschlag-Abfrage), Rechner mit anderen
-Läufen belegt (Richtwerte):
+Erzeugen in Node ohne Höhen und ohne Katalog mit den Antworten der Erhebung (Vorschlag-Abfrage). Zeiten sind hier
+nicht angegeben: der Rechner war belegt, die Messung von Schritt „life“ und Layout mit und ohne Anker steht in der
+Liste der späteren Messungen.
 
 | | Würzburg | Frankfurt | Osthafen | Mönchberg | Marais | Amsterdam |
 |---|---|---|---|---|---|---|
@@ -414,10 +416,6 @@ Läufen belegt (Richtwerte):
 | Intro über | Dom St. Kilian | Kaiserdom St. Bartholomäus | Erlöserkirche | St. Johannes der Täufer | Cathédrale Sainte-Croix des Arméniens | Koninklijk Paleis |
 | Glocke | Marienkapelle | Dreikönigskirche | Erlöserkirche | St. Johannes der Täufer | Notre-Dame-des-Blancs-Manteaux | eine Kirche ohne Namen |
 | Lebensbereiche, Boote | 3, Fischkutter | 3, Fischkutter | 4, Fischkutter | 1, keine | 6, Fischkutter | 6, Fischkutter |
-| Schritt „life“ | 35 ms | 22 ms | 6 ms | 8 ms | 65 ms | 33 ms |
-
-Das Layout dauert mit und ohne Anker gleich lang (Würzburg, Marais, Amsterdam je zwei Läufe: 90 bis 410 ms, im
-Rauschen).
 
 ## Entschieden (User, 2026-10-18)
 

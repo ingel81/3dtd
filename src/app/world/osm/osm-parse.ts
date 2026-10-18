@@ -118,7 +118,7 @@ export function isAreaTags(tags: Record<string, string>): boolean {
   if (tags['waterway']) return tags['waterway'] === 'riverbank' || tags['waterway'] === 'dock';
   if (tags['railway']) return tags['railway'] === 'platform';
   // A shop, inn or office mapped as its plot (round 2: the place's own look)
-  return !!(tags['shop'] || tags['tourism'] || tags['craft'] || tags['office']);
+  return !!(tags['shop'] || tags['tourism'] || tags['craft'] || tags['office'] || tags['healthcare']);
 }
 
 /** The answer's elements as features around `frame`, areas cut to the square of half side `half` */
