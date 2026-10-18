@@ -42,11 +42,24 @@
 </div>
 
 <div class="td-group">
-  <h3 class="td-section">World</h3>
+  <h3 class="td-section">Destruction</h3>
   <label class="td-check">
     <input class="td-switch" type="checkbox" [checked]="gp().destructible === true" (change)="setDestructible($any($event.target).checked)" data-test="destructible" />
     <span>Buildings, walls and structures take damage from shots and fall</span>
   </label>
+  <label class="td-check">
+    <input class="td-switch" type="checkbox" [checked]="craters()" (change)="setCraters($any($event.target).checked)" data-test="craters" />
+    <span>Impacts dig craters the enemies walk through</span>
+  </label>
+  @if (gp().destructible === true) {
+    <label class="td-check">
+      <input class="td-switch" type="checkbox" [checked]="gp().wear === true" (change)="setWear($any($event.target).checked)" data-test="wear" />
+      <span>Enemies passing by wear the buildings down</span>
+    </label>
+    <app-editor-range label="Structure HP" unit="%" [min]="structureHpRange.min" [max]="structureHpRange.max" [step]="10"
+                      [value]="structureHp()" (changed)="setStructureHp($event)" data-test="structure-hp"
+                      matTooltip="Scales the HP of every building, wall and structure (100 % is the game's)" />
+  }
 </div>
 
 <app-wave-events-panel />

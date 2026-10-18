@@ -85,6 +85,8 @@ export interface OsmImportOptions {
    * forests come out thinner)
    */
   costs?: Record<string, number>;
+  /** The buildings take damage and fall, craters with them (MapGameplay.destructible, decided 2026-10-18: on unless the frame says no) */
+  destructible?: boolean;
 }
 
 /** One step of the conversion, for the progress list */
@@ -243,6 +245,7 @@ export function convertOsm(
   };
   // OpenStreetMap's own until the editor changes it (docs/WORLDS_STATE_PLAN.md, 3.6)
   doc.meta.generated = true;
+  if (options.destructible !== false) doc.gameplay = { ...doc.gameplay, destructible: true };
 
   const g = t0.grid;
   return {

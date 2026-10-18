@@ -26,6 +26,7 @@ import {
   MAP_VERSION,
   MAX_GROUND_LAYERS,
   MAX_MAP_PREFABS,
+  STRUCTURE_HP_SCALE,
   isTypedArray as isTyped,
   splatMapCount,
   type CustomMapDocument,
@@ -481,7 +482,12 @@ function checkDocument(doc: CustomMapDocument, p: ProblemList): void {
       if (gp.towers !== undefined && (!Array.isArray(gp.towers) || gp.towers.some((t) => typeof t !== 'string'))) {
         p.push('gameplay.towers must be a list of tower ids');
       }
-      if (gp.destructible !== undefined && typeof gp.destructible !== 'boolean') p.push('gameplay.destructible must be true or false');
+      for (const key of ['destructible', 'craters', 'wear'] as const) {
+        if (gp[key] !== undefined && typeof gp[key] !== 'boolean') p.push(`gameplay.${key} must be true or false`);
+      }
+      if (gp.structureHp !== undefined && (!finite(gp.structureHp) || gp.structureHp < STRUCTURE_HP_SCALE.min || gp.structureHp > STRUCTURE_HP_SCALE.max)) {
+        p.push(`gameplay.structureHp must be ${STRUCTURE_HP_SCALE.min} to ${STRUCTURE_HP_SCALE.max} (percent)`);
+      }
       if (gp.difficulty !== undefined && (!finite(gp.difficulty) || gp.difficulty < MAP_DIFFICULTY.min || gp.difficulty > MAP_DIFFICULTY.max)) {
         p.push(`gameplay.difficulty must be ${MAP_DIFFICULTY.min} to ${MAP_DIFFICULTY.max} (percent)`);
       }

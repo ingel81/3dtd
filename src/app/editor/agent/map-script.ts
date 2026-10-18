@@ -299,7 +299,7 @@ export const SCRIPT_OPS: Readonly<Record<string, OpSpec>> = {
   },
   gameplay: {
     args: [a('rules', OBJECT)],
-    doc: "Rules: { startCredits, hqHealth, towers: [tower ids], destructible: true|false, difficulty 50..200 (percent on the wave budget), events: [wave events] }; waves is { kind: 'budget' } (the game's waves, the default) or a map's own table, there is no wave count. " +
+    doc: "Rules: { startCredits, hqHealth, towers: [tower ids], destructible: true|false, craters: true|false (as destructible when missing), wear: true|false (enemies passing wear buildings down), structureHp 50..300 (percent on every structure's HP), difficulty 50..200 (percent on the wave budget), events: [wave events] }; waves is { kind: 'budget' } (the game's waves, the default) or a map's own table, there is no wave count. " +
       'events: before wave N (its build phase) { wave, kind: message { text } | weather { weather, strength } | time { hour } | portal { spawn } | objects { ids, show } }',
   },
 };
@@ -820,7 +820,7 @@ function applyHeightGrid(doc: CustomMapDocument, origin: MapPoint, step: number,
   }
 }
 
-const RULE_KEYS = ['startCredits', 'hqHealth', 'towers', 'waves', 'lanes', 'destructible', 'difficulty', 'events'];
+const RULE_KEYS = ['startCredits', 'hqHealth', 'towers', 'waves', 'lanes', 'destructible', 'craters', 'wear', 'structureHp', 'difficulty', 'events'];
 const EVENTS_EXAMPLE =
   `events is a list of what happens before a wave (its build phase), each { wave, kind } and: message { text }, weather { weather: ${MAP_WEATHERS.join('|')}, strength 0..1 }, ` +
   'time { hour 0..24 }, portal { spawn: spawn id } (the spawn brings enemies only from that wave on), objects { ids: [object ids], show: true|false } (they appear or go). ' +

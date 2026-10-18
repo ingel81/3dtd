@@ -46,6 +46,9 @@ import { markingProblems, MAX_SURFACES, surfaceProblems } from './map-surfaces';
  * chance), so every client of one build reads one file the same.
  */
 
+/** The stages a map may damage an object to beforehand (MapObject.damage) */
+const OBJECT_DAMAGE: readonly unknown[] = [1, 2, 3];
+
 /** Most objects a map keeps (an OSM city has some 30 000); the rest is dropped on reading */
 export const MAX_MAP_OBJECTS = 100_000;
 /** Most road nodes and edges a map should have; more is only reported (dropping some would cut the routes) */
@@ -265,6 +268,18 @@ function objectRepairs(doc: CustomMapDocument, fix: boolean, out: MapProblem[]):
       if (o[key] === undefined || typeof o[key] === 'boolean') continue;
       out.push({ text: `object ${o.id}: ${key} ${JSON.stringify(o[key])} is not true or false; the catalogue's holds`, part: 'objects', at });
       if (fix) delete o[key];
+    }
+    if (o.destructible !== undefined && typeof o.destructible !== 'boolean') {
+      out.push({ text: `object ${o.id}: destructible ${JSON.stringify(o.destructible)} is not true or false; it takes damage as its kind does`, part: 'objects', at });
+      if (fix) delete o.destructible;
+    }
+    if (o.damage !== undefined && !OBJECT_DAMAGE.includes(o.damage)) {
+      out.push({ text: `object ${o.id}: damage ${JSON.stringify(o.damage)} is not 1, 2 or 3; it starts standing`, part: 'objects', at });
+      if (fix) delete o.damage;
+    }
+    if (o.damageSeed !== undefined && !Number.isInteger(o.damageSeed)) {
+      out.push({ text: `object ${o.id}: damageSeed ${JSON.stringify(o.damageSeed)} is no whole number; its id rolls the look`, part: 'objects', at });
+      if (fix) delete o.damageSeed;
     }
     if (o.tint !== undefined && (typeof o.tint !== 'string' || !COLOR.test(o.tint))) {
       out.push({ text: `object ${o.id}: tint ${String(o.tint)} is no #rrggbb colour; it shows untinted`, part: 'objects', at });

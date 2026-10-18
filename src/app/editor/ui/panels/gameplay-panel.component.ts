@@ -6,7 +6,7 @@ import { ENEMY_TYPES } from '../../../configs/enemy-types.config';
 import { GAME_BALANCE } from '../../../configs/game-balance.config';
 import { TOWER_TYPES } from '../../../configs/tower-types.config';
 import { WAVE_TABLE, validateWaveTable, type WaveTable } from '../../../director/sources/table/wave-table';
-import { MAP_DIFFICULTY, type MapGameplay, type MapWaveRow, type MapWaveTable } from '../../../world/custom-map/map-document';
+import { MAP_DIFFICULTY, STRUCTURE_HP_SCALE, type MapGameplay, type MapWaveRow, type MapWaveTable } from '../../../world/custom-map/map-document';
 import { SnapshotCommand } from '../../model/commands/snapshot';
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
@@ -107,6 +107,28 @@ export class GameplayPanelComponent {
 
   setDestructible(on: boolean): void {
     this.edit('Destructible', (g) => (g.destructible = on ? true : undefined));
+  }
+
+  /** Craters follow the destruction unless the map says otherwise (CustomMapWorld.runRules) */
+  readonly craters = computed(() => this.gp().craters ?? this.gp().destructible === true);
+
+  /** The field stays out where it says what the map would do anyway */
+  setCraters(on: boolean): void {
+    this.edit('Craters', (g) => (g.craters = on === (g.destructible === true) ? undefined : on));
+  }
+
+  setWear(on: boolean): void {
+    this.edit('Wear', (g) => (g.wear = on ? true : undefined));
+  }
+
+  readonly structureHpRange = STRUCTURE_HP_SCALE;
+  readonly structureHp = computed(() => this.gp().structureHp ?? STRUCTURE_HP_SCALE.normal);
+
+  /** Percent on every structure's HP; 100 is the game's and leaves the field out */
+  setStructureHp(percent: number): void {
+    const v = Math.min(STRUCTURE_HP_SCALE.max, Math.max(STRUCTURE_HP_SCALE.min, Math.round(percent)));
+    if (v === this.structureHp()) return;
+    this.edit('Structure HP', (g) => (g.structureHp = v === STRUCTURE_HP_SCALE.normal ? undefined : v));
   }
 
   setVacant(vacant: VacantLanes): void {

@@ -110,6 +110,10 @@
         <p class="td-note">No spawn yet.</p>
       }
     </section>
+    <label class="td-check">
+      <input class="td-switch" type="checkbox" [checked]="destructible()" (change)="destructible.set($any($event.target).checked)" data-test="osm-destructible" />
+      <span>Buildings take damage and fall</span>
+    </label>
     <div class="td-actions">
       <button type="button" class="td-btn-primary" [disabled]="busy() || !spawns().length" (click)="make()" data-test="osm-make">Make the map</button>
     </div>

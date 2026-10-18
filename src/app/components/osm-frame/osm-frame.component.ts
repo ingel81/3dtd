@@ -86,6 +86,8 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
   readonly dropNote = signal<string | null>(null);
   /** A call to the worker under way that is not a making (a drop, a draw) */
   readonly busy = signal(false);
+  /** The map's buildings take damage and fall (decided 2026-10-18: on by default) */
+  readonly destructible = signal(true);
   /** The flat map did not come (no WebGL, the style's server); the frame works without it */
   readonly mapProblem = signal<string | null>(null);
   readonly made = signal<{ summary: MapSummary; report: OsmImportReport } | null>(null);
@@ -417,7 +419,10 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
       const catalog = await catalogObjects();
       const made = await this.session.make(
         this.spawns(),
-        { id, name: names.name, costs: catalog && assetCosts(catalog, this.area()?.sideM ?? OSM_WORLD_SIDE), catalog: catalog && buildingCatalog(catalog) },
+        {
+          id, name: names.name, costs: catalog && assetCosts(catalog, this.area()?.sideM ?? OSM_WORLD_SIDE), catalog: catalog && buildingCatalog(catalog),
+          destructible: this.destructible(),
+        },
         (p) => this.hear(p),
         signal,
       );
