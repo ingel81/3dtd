@@ -940,7 +940,7 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   1,8-Fache (sonst ein Feld heller Punkte aus der Spielkamera), Asche dunkelgrau, Glut orange statt gelb-weiß
 - **Gewitter** (`environment.weather: 'storm'`, E243; `lightning.ts`): Starkregen (Regenteilchen mit Stärke 0,5 + 0,5 k),
   Wolken fast geschlossen und schiefergrau (Wolken, Zenit und Horizont zu festen Sturmfarben `STORM` gezogen), Sonne
-  um bis zu 80 % gedämpft, Himmels- und Umgebungslicht und Umgebungskarte schwächer, Dunst dreifach und blaugrau,
+  um bis zu 80 % gedämpft (nachts nur ein Viertel davon: die Nacht ist dunkel genug), Himmels- und Umgebungslicht und Umgebungskarte schwächer, Dunst dreifach und blaugrau,
   Grading entsättigt und kühler, nasser Boden, Pfützen; Wind mindestens 0,55 + 0,4 k mit Böen 0,6 + 0,35 k
   (`stormWind`, ein stärkerer Wind der Karte bleibt, die Richtung auch). Dazu Blitze, **nur Darstellung**: eigener
   Zufall (`mulberry32`, nie der des Laufs), nicht in der Simulation, Koop-Gäste und Replays sehen andere Blitze, die

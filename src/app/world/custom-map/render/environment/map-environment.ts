@@ -304,9 +304,11 @@ export class CustomMapEnvironment {
       this.fog.color.lerp(SCRATCH.a.set(weather === 'snow' ? 0xd8dde2 : 0x8e969c).multiplyScalar(airLight), 0.5 * k);
     } else if (weather === 'storm') {
       cover = Math.max(0.02, p.cover - 0.6 * k);
-      this.sun.intensity *= 1 - 0.8 * k;
-      this.hemi.intensity *= 1 - 0.4 * k;
-      this.ambient.intensity *= 1 - 0.45 * k;
+      // The clouds take most of the day's light; a night is dark already and keeps what lets the map read
+      const dim = k * (1 - 0.75 * this.darkness);
+      this.sun.intensity *= 1 - 0.8 * dim;
+      this.hemi.intensity *= 1 - 0.4 * dim;
+      this.ambient.intensity *= 1 - 0.45 * dim;
       // The sky behind the clouds a dark slate, the horizon a lighter grey where the rain veils it
       this.zenith.lerp(SCRATCH.a.set(STORM.zenith).multiplyScalar(airLight), 0.85 * k);
       this.horizon.lerp(SCRATCH.a.set(STORM.horizon).multiplyScalar(airLight), 0.75 * k);
