@@ -7,3 +7,8 @@ a.mp-row {
 .ex-confirm {
   padding: 4px 12px 12px;
 }
+
+// A group's last row ends on the engraved line under the group, not on a hairline of its own
+.td-group > .td-rows > li:last-child > .td-row {
+  border-bottom-width: 0;
+}
