@@ -472,6 +472,17 @@ Burg, drei Boote auf 2,4 km Fluss. Bilder und Clips liegen lokal, nicht im Repo.
   über der Grenze), 230 Ladenfronten, 148 Markisen, 54 Ausleger; Marais 1 863 POIs, 1 587 an Gebäuden, 512
   Schilder (823 über der Grenze, 253 ohne Feld), Sprache Französisch. Miltenberg (Probe) 159 POIs, 138 Schilder.
 
+## Kaimauern statt Strand, gebaut (2026-10-19)
+
+Befund der Browser-Probe: die Grachten in Amsterdam hatten breite weiße Schaumränder wie eine Brandung. Ursache war
+nicht die Wasserart (dort gibt es keine Küste, alles ist `water`), sondern das Ufer: jede Wasserfläche bekam einen
+flachen Schelf (0,3 m Tiefe je Meter) und einen Rand 0,2 m über dem Wasser, also einen Strand, an dem der Uferschaum
+breit wird. Jetzt (`convert/water.ts`, `isQuayWater`): Kanäle, Docks, Hafenbecken, Schleusen und Gräben
+(`water=canal|harbour|dock|lock|moat`, `waterway=dock|canal`) und jedes Wasser bis 8 m an einer Straße oder einem
+Gebäude bekommen eine Kaimauer: das Bett fällt sofort (2 m je Meter), das Land an der Kante steht 0,9 m über dem
+Wasser, ohne Uferfarbe. Der Renderer zeichnet an solchen Wänden nur eine schmale Linie. Natürliche Ufer ohne
+Bebauung behalten Schelf, Rand und Schaum. Im Shader ist nichts geändert.
+
 ## Entschieden (User, 2026-10-18)
 
 1. **Hydranten und Brunnen als Spielmechanik:** nicht in dieser Runde.
