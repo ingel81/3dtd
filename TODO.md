@@ -194,6 +194,12 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 
 ## 2. Gebaut, wartet auf Test
 
+### Licht durch Munition (2026-10-18, Branch `wt/r7-muzzle`, Nachtests in PLAYTEST.md I)
+
+- [ ] **E242 Licht durch Munition** ([SHOT_LIGHTS.md](docs/SHOT_LIGHTS.md)): Mündungsfeuer, leuchtende Geschosse (auch
+      die drei Munitionen des Helden), Einschläge, Strahlen und Fähigkeiten beleuchten Boden, Objekte und Wasser eigener
+      Karten, dazu Tower, Held und Gegner in jeder Welt; Plätze je Stufe Low aus, 8, 16, 32; ersetzt das PointLight.
+
 ### Runde 5 (2026-10-18, auf `next`, Nachtests in PLAYTEST.md G und H)
 
 - [ ] **H1 Engine** E228 Teil 7 (Entpacken und Minikarte im Worker), E229 Gelände auf der GPU (pixelgleich, Pinsel

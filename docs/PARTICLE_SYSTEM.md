@@ -885,9 +885,9 @@ Status-Effekte und Events laufen gleich, Training und Headless-Betrieb auch.
 
 | Schalter | Default | Aus heißt |
 |----------|---------|-----------|
-| Muzzle Flash | an | `spawnMuzzleFlash` erzeugt keine Partikel, `ThreeTowerRenderer.triggerMuzzleFlash` zündet das Licht nicht. Das PointLight bleibt dunkel in der Szene, sonst bräuchten alle beleuchteten Materialien ein neues Shader-Programm. |
+| Muzzle Flash | an | `spawnMuzzleFlash` erzeugt keine Partikel, `VFXService` setzt keinen Lichtpuls ([SHOT_LIGHTS.md](SHOT_LIGHTS.md)). |
 | Projectile Trails | an | `TrailStreakRenderer.create` vergibt keinen Streak, laufende fallen weg (je Projektil ein eigenes Mesh mit eigenem Draw Call, Geometrie jeden Frame neu). `spawnConfigurableTrail` erzeugt keine Trail-Partikel. |
-| Impact Effects | an | Keine Feuer-Atlas-Explosionen samt Rauch, keine Funken-Bursts (Eis, Arcane, Chaos, Poison), keine Blutspritzer. Der Atompilz des Nuklearschlags kommt mit weniger, größeren Sprites, unbeleuchtetem Rauch und ohne Glutbrocken, seine Rakete mit weniger Rauch-Puffs, ohne Feuer, Fahne und Bodenlicht. |
+| Impact Effects | an | Keine Feuer-Atlas-Explosionen samt Rauch und ohne ihr Licht ([SHOT_LIGHTS.md](SHOT_LIGHTS.md)), keine Funken-Bursts (Eis, Arcane, Chaos, Poison), keine Blutspritzer. Der Atompilz des Nuklearschlags kommt mit weniger, größeren Sprites, unbeleuchtetem Rauch und ohne Glutbrocken, seine Rakete mit weniger Rauch-Puffs, ohne Feuer, Fahne und Bodenlicht. |
 | Ground Marks | an | Keine Blut-, Eis-, Brand- und Goo-Decals. Beim Ausschalten werden die liegenden gelöscht, die leeren Pools fallen per `DrawGate` aus der Render-Liste. `VFXService` und `CombatVfxService` sparen die Terrain-Raycasts für ein Decal (einer pro Blut-Decal, bis zu vier pro Eis-Explosion). |
 | Bloom | aus | `UnrealBloomPass` aus. Sind Bloom und Color Grading beide aus, zeichnet die Engine ohne Composer. |
 | Color Grading | None | LUT-Pass aus. |

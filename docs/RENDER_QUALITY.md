@@ -20,7 +20,7 @@ Abschnitt mit dem, was dort wirklich wirkt, und zuletzt „Everywhere“:
 | Abschnitt | Inhalt |
 |---|---|
 | Real places | Auflösung und Kantenglättung der Stufe (Text), **Tile detail** (`errorTarget`) als Stufenreihe. Schatten und Karteneffekte gibt es dort nicht: sie gehören zum Teil `customMaps` |
-| Custom maps | Auflösung und Kantenglättung der Stufe (Text), **Shadows**, **Far detail**, **Grass** als Stufenreihen, Schalter **Water refraction**, **Sea waves**, **Lava glow and heat haze**, **Far land shadow**, dazu **Plant motion** (Off, Calm, Full). Partikel und Laternenlichter nennt eine Zeile, sie folgen nur der Stufe |
+| Custom maps | Auflösung und Kantenglättung der Stufe (Text), **Shadows**, **Far detail**, **Grass** als Stufenreihen, Schalter **Water refraction**, **Sea waves**, **Lava glow and heat haze**, **Far land shadow**, dazu **Plant motion** (Off, Calm, Full). Partikel, Laternenlichter und das Licht der Schüsse nennt eine Zeile, sie folgen nur der Stufe |
 | Everywhere | Effekt-Voreinstellungen und ihre Schalter, Color grading, Frame limit, Menu globe, Fullscreen |
 
 ## Die Stufen
@@ -30,6 +30,7 @@ Abschnitt mit dem, was dort wirklich wirkt, und zuletzt „Everywhere“:
 | Renderauflösung | allgemein | 60 % von DPR ≤ 1, dynamisch 50–80 % | 80 % von DPR ≤ 1, dynamisch 60–100 % | DPR bis 2, fest | DPR bis 2, fest |
 | Kantenglättung | allgemein | FXAA | FXAA | MSAA 4× | MSAA 4× |
 | Bloom darf laufen | allgemein | nein | ja | ja | ja |
+| Licht durch Munition, Plätze (`shotLights`, [SHOT_LIGHTS.md](SHOT_LIGHTS.md)) | allgemein | aus | 8 | 16 | 32 |
 | Auflösungsdeckel | eigene Karten | DPR 1 | DPR 1 | DPR 1,5 | DPR 2 |
 | Schattenkarte | eigene Karten | 1024 | 2048 | 4096 | 4096, weicher (PCF 2,5) |
 | LOD-Bias, Sichtweite | eigene Karten | 0,5× | 0,75× | 1× | 1,25× |
@@ -56,6 +57,10 @@ Abschnitt mit dem, was dort wirklich wirkt, und zuletzt „Everywhere“:
 - **Partikel und Punktlichter** betreffen die Effekte der Karte (Feuer, Rauch, Funken, Gischt, Laternen); der
   Partikel-Anteil gilt auch für Wetter und Umgebungsteilchen (Regen, Schnee, Glut, Asche, Staub). Die Effekte
   des Spiels (Mündungsfeuer, Einschläge, Spuren) steuern weiter die Effekt-Voreinstellungen.
+- **Licht durch Munition** (`shotLights`): wie viele Lichter von Schüssen, Einschlägen und Strahlen die Materialien
+  je Bild lesen (Boden und Objekte eigener Karten, Tower, Sockel, Held, Gegner). Die Größe des Puffers im Shader
+  bleibt fest: eine andere Stufe schaltet kein Programm um. Low hat keins (auch kein Mündungslicht auf den Towern,
+  das früher ein PointLight gab). Messung und Begründung in [SHOT_LIGHTS.md](SHOT_LIGHTS.md).
 - **Sichtlinie:** Objekte, die die Sicht blockieren, behalten ihre Sichtweite; der LOD-Bias verkürzt nur die Sichtweite
   von Deko. Was die LOS sieht, hängt so nicht an der Stufe. `errorTarget` ändert nicht die Verfeinerung des
   Routenkorridors (eigener Zielwert in Metern, `route-corridor-region.ts`).
@@ -85,7 +90,8 @@ keine Zwischenwerte:
   löscht). Ein Override, der dem Wert der Stufe entspricht, wird nicht gespeichert.
 - **Eine Stufe wählen setzt alle Teile neu**, wie die Effekt-Voreinstellungen ihre Schalter: die Overrides gehen.
   Verschiebt Auto die Stufe nach seiner Messung, bleiben sie.
-- Auflösung, Kantenglättung, Bloom, Partikel und Laternenlichter haben keinen Override, sie folgen nur der Stufe.
+- Auflösung, Kantenglättung, Bloom, Partikel, Laternenlichter und das Licht der Schüsse haben keinen Override, sie
+folgen nur der Stufe.
 - Ändert ein Override die Stellschrauben, macht die Engine den neuen Zustand wie beim Stufenwechsel vorab bereit und
   schaltet erst dann um (`applyQuality` vergleicht die ganzen Stellschrauben, nicht nur die Stufe): ein Karteneffekt
   schaltet Shader um.

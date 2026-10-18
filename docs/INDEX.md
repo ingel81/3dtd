@@ -51,6 +51,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md) | Aktuell | 3D Audio, positionsabhängige Sounds, Hintergrundmusik |
 | [MODEL_PREVIEW.md](MODEL_PREVIEW.md) | Aktuell | 3D Model Previews in der Sidebar (Renderer-Capacity-Strategie) |
 | [PARTICLE_SYSTEM.md](PARTICLE_SYSTEM.md) | Aktuell | Partikel, Decals, Floating Text, VFX-Subsysteme |
+| [SHOT_LIGHTS.md](SHOT_LIGHTS.md) | Gebaut, wartet auf Test | Licht durch Munition: Mündungsfeuer, leuchtende Geschosse, Einschläge, Strahlen als Lichtpuffer mit Raster in den Materialien; Messung, Stufen |
 | [INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md) | Aktuell | GPU Instancing mit VAT (Draw-Call-Reduktion) |
 | [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md) | Aktuell | Gegnermodelle vermessen (VAT-Vertices, VAT-Speicher, Clips, Vorkommen in Wellen), Budget je Klasse, Optimierungsliste. Tabellen per `npm run model-budget` |
 | [SPAWN_PORTAL.md](SPAWN_PORTAL.md) | Aktuell | Spawn-Portal: Ebene und Ausrichtung an der Route, Verdeckung der Gegner per Clip in ihren Shadern, Vorschau beim Setzen, Drehen mit R samt Kurs in URL und Favoriten, Drehbereich, Lufteinheiten, Asset, Licht, Sigillen, Beschwörungskreis |

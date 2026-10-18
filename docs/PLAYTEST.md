@@ -374,6 +374,21 @@ Nur Augen und Gefühl; Logik und Pixelgleichheit sind per Test gedeckt.
   zeigt „The map server is busy, trying again (n of 8)…“, Straßen kommen nach einiger Zeit; Zürich oder London laden
   in wenigen Sekunden.*
 
+## I Licht durch Munition (2026-10-18, E242)
+
+Nur Augen; Auswahl, Raster und Ausklingen sind per Test gedeckt ([SHOT_LIGHTS.md](SHOT_LIGHTS.md)).
+
+- **I1 Nacht:** Harbor Town im Editor auf Nacht stellen (Environment, Sky „Night“), spielen, vier Gatlings, eine Iron
+  Bastion und einen Magic Tower an eine Straße zwischen Häusern, eine Welle. *Unter den Gatlings flackert ein warmer
+  Lichtfleck, Leuchtspuren ziehen einen Schimmer über die Straße, Explosionen färben Hauswände und Gegner orange und
+  klingen rot aus, Magic- und Chaos-Treffer violett. Nichts bleibt hängen, kein Flackern ganzer Flächen.*
+- **I2 Held:** dieselbe Szene mit dem Helden, alle drei Munitionen durchschalten. *Standard gelb, Explosiv orange mit
+  kleinem Blitz am Einschlag, Rune violett; der Held selbst leuchtet im Licht seiner Schüsse auf.*
+- **I3 Stufen:** Settings, Graphics, Picture quality Low, Medium, High, Ultra während des Kampfs. *Low ohne Licht der
+  Schüsse, sonst sofort, kein Stocken beim Umschalten. Die Zeile unter Custom maps nennt die Zahl.*
+- **I4 Tag und echte Orte:** eine eigene Karte bei Tag und ein echter Ort. *Bei Tag dezent, nicht grell; auf dem echten
+  Ort leuchten nur Tower, Held und Gegner auf, die Tiles nicht.*
+
 ## Eichtabelle
 
 Fingerprints aus `__corridor.fingerprint()` für K2.1 und K2.2. Alle Werte vor 748 (Rothenburg `d8050177`, Tokyo
