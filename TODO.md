@@ -28,20 +28,22 @@ Coop-Protokoll 5). Die Worker-Runden vom 2026-10-15 und die Engine-Runde R4 sind
 Reihenfolge (User, 2026-10-17): erst die Engine-Runde (gebaut), dann das Showreel, dann die Karten. Maßstab: extrem
 performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Optik und Performance keine Kompromisse.
 
-### Engine-Runde R4: Rest (parallel zum Showreel)
+### Engine: offen
 
-G1 bis G7 sind gebaut (Abschnitt 2, Nachtests in PLAYTEST.md F). Jetzt das Showreel Runde 5; der Rest des
-Editor-Workers und das Gelände auf der GPU laufen parallel dazu (Plan `tmp/plan/r4/UMBAU_PLAN.md`).
-
-- [ ] **E228 Editor-Worker, Rest**: gebaut sind Teil 1 bis 6 (Speichern, Check und Bauflächen, Routen, Wegmaske,
-      Verdeckung, Krümmung, Lava, Fernschatten und Höhenlinien, Generieren und Erodieren im Worker auf dem Spiegel
-      der Karte). Offen: Teil 7 Entpacken beim Laden und die Minikarte per OffscreenCanvas.
-- [ ] **E229 Gelände auf der GPU**: Höhe im Vertex-Shader aus der Höhentextur, Normalen aus der GridNormalTexture,
-      Editor, Spiel und Schattenpass. Nach E228.
+- [ ] **E234 Editor-Pinsel halten 130 bis 320 ms** (Showreel R5, 2026-10-18; erster Biom-Strich auf einer Karte hält
+      ein Bild 13 bis 15 s): gemessen, Ursachen: neue Bodenschichten schalten die Gelände-Shader-Variante um, Gelände
+      und Schürze linken synchron (Vorkompilieren deckt Schürze, Spiegel-Ziel, Draufsicht nicht ab); Biom-Pflanzen
+      kompilieren beim ersten Tupfer; Teil-Upload einer Textur fragt die GPU synchron ab; am Kartenrand Schürze zweimal
+      je Bild, Ufer und Wasser über die ganze Karte, Programm-Neuermittlung je Bild. Fix in Arbeit (Worker r5-brush).
 
 ### Jetzt: Showreel Runde 5
 
-- [ ] **E182 Showreel Runde 4** (User, 2026-10-16: v3 abgelehnt, „nicht gut“; Runde 4 pausiert, bis das Spiel rund ist):
+- [ ] **E182 Showreel**: Runde 5 gedreht und geschnitten 2026-10-18 (59 Szenen per Display, OSM mit Cochem, Lindau,
+      Rothenburg, Hallstatt; drei Welten am Anfang, WIP-Wimpel, Einblendung je Shot), Feedback R5
+      (`tmp/showreel/FEEDBACK_R5.md`) umgesetzt; NAS `showreel/r5-final` (full, 200 MB, 90 MB, Thumbnail, YouTube-Text
+      `tmp/showreel/YOUTUBE_R5.md`). Rig auf `wt/r5-reel`, Schnitt `tmp/showreel/edit/` (`make_cuts_r5.py --display`,
+      `build.py`, `small.py`, `thumb_r5.py`). Offen: Veröffentlichung durch den User. Verlauf Runde 4
+      (User, 2026-10-16: v3 abgelehnt, „nicht gut“; Runde 4 pausiert, bis das Spiel rund ist):
       Drehbuch freigegeben `tmp/showreel/DREHBUCH_R4.md` (lang 6:52, kurz 1:50, englische Texte), Gesamtliste
       `tmp/showreel/GESAMTLISTE_v3.md`, Wünsche `tmp/showreel/ACCEPT.md` (Punkte 1-21), Konzept einzeln drehbarer Szenen
       `tmp/showreel/CONCEPT_SCENES.md` (gebaut auf `wt/showreel2`: Takes, Fixtures, Prüfung, Schnittliste, Warteschlange).
@@ -121,25 +123,14 @@ Editor-Workers und das Gelände auf der GPU laufen parallel dazu (Plan `tmp/plan
 
 ### Mit dem User klären
 
-- [ ] **E233 OSM-Daten unabhängig von Overpass** (2026-10-18, Overpass seit Tagen meist 502/500, etwa 1 von 15
-      Ladungen klappt): Sofortmaßnahme läuft (mehr Server inkl. Regionalserver und maps.mail.ru als letzter
-      Rückfall, Gesundheitsreihenfolge, längere Rotation, `remark` nicht cachen; Worker r5-overpass). **Zeitnah
-      angehen:** Entschieden 2026-10-18 (ersetzt den Kachel-Ansatz unten): eigene echte Overpass-Instanz als
-      Docker (16 GB RAM, volle Daten aus Klon ohne Metadaten, ~281 GB, Neu-Klon bei Bedarf statt Diffs), Schutz-Proxy
-      (jede Abfrage, gedeckelt: Rate-Limit, Boxgröße, Laufzeit, CORS), Cloudflare Tunnel, `3dtd-osm.sgeht.net`,
-      Statusseite nur im LAN ohne IPs; im Spiel nur erster Eintrag in `overpass-servers.ts` + CSP, Ziel 0.8. Setup in
-      Arbeit (Worker r5-ovhost). Früher erwogen: eigener Kachelserver nur für 3DTD als Docker-Container, unabhängig vom
-      Relay. Daten: Planet-File mit `osmium` auf das gefiltert, was das Spiel braucht (Straßen mit Klasse,
-      Brücken/Tunnel, Gebäude mit Höhe, Wasser, Flüsse, Bahn, Landnutzung), auf festes Raster geschnitten (Zoom 14,
-      je Kachel eine gepackte Datei; weltweit grob 30 bis 50 GB), etwa monatlich neu gebaut. Server liefert nur
-      Kacheln per Nummer aus (keine freien Abfragen), erreichbar über Tunnel/CDN, das die festen Kacheln cacht.
-      Absicherung: CORS/Origin auf Webseite und Desktop-App, Rate-Limit je IP; ganz dicht geht es nicht (Client ist
-      öffentlich). Spiel: eigene Quelle zuerst, Kacheln an den Nähten zusammensetzen, Overpass als Rückfall. Grober
-      Aufwand: Bau-Pipeline 1 Tag, Server ½ Tag, Spielquelle ½ bis 1 Tag. Daten lokal bauen, als eine Datei mit Index
-      plus `manifest.json` auf den Pfad des Containers kopieren, Umschalten per Manifest ohne Ausfall. Dazu interne
-      Statusseite (nur im LAN erreichbar): Heatmap der abgefragten Kacheln, Anfragen und Daten über die Zeit, Länder, Fehler,
-      Rate-Limit-Treffer, Datenversion; keine IPs speichern, nur Kachel, Zeit, Land, Größe (½ Tag). Andere Datenquellen (OpenFreeMap u. a.)
-      vom User verworfen. Verwandt: E232.
+- [ ] **E233 Eigene Overpass-Instanz** (2026-10-18): läuft seit 2026-10-18 unter `3dtd-osm.sgeht.net` (Setup
+      `overpass-host/`, Images auf GHCR, Klon vom 13.10., Stadt-Abfragen 1 bis 1,3 s, Proxy gedeckelt, Statusseite
+      im LAN). **Offen: Anbindung im Spiel mit 0.8**: als erster Eintrag in `overpass-servers.ts` (Abdeckung global),
+      CSP (`public/.htaccess`, `desktop/src/protocol.js`, `desktop/src/user-agent.js`), Rechtsseiten (eigener Server,
+      Cloudflare als Dienstleister, keine IPs gespeichert), Dev-Ports in `ALLOWED_ORIGINS`. Live seit 0.7.2 schon die
+      Rotation über fünf öffentliche Server. Entscheide: echter Overpass statt Kachelserver (keine Datenfilter, keine
+      Spieländerung), 16 GB RAM, Klon ohne Metadaten, Neu-Klon bei Bedarf statt Diffs, jede QL-Abfrage gedeckelt (5 km,
+      90 s), ohne Origin erlaubt, kein XML, Tag `:next` bis main. Andere Datenquellen vom User verworfen.
 - [ ] **Entschieden 2026-10-15 (Entscheidungsseite, Runde 1):** Push nach den Nachtests, auf `next` auch früher,
       sobald alles in einem Branch liegt; **kein Release auf main**. E184/E190: alle 13 Karten hohe Priorität, die
       angehakten Vorschläge plus Leben (Liste in der Entscheidungsseite, Notizen in `tmp/plan/IMPOSING_MAPS_2026-10-15.md`).
@@ -171,9 +162,15 @@ Editor-Workers und das Gelände auf der GPU laufen parallel dazu (Plan `tmp/plan
 
 ## 2. Gebaut, wartet auf Test
 
-### Einzelfixes 2026-10-18 (Nachtests in PLAYTEST.md G)
+### Runde 5 (2026-10-18, auf `next`, Nachtests in PLAYTEST.md G und H)
 
-- [ ] **E232 Wellen ohne Gegner**: ein Spawn ohne Route ist keine Spur; Wellenstart nur mit Spur in der Simulation, kein
+- [ ] **H1 Engine** E228 Teil 7 (Entpacken und Minikarte im Worker), E229 Gelände auf der GPU (pixelgleich, Pinsel
+      r200 13,5 auf 8,1 ms), Kleeinseln ohne Raster, Wasserspiegel nach Bildanteil, OSM-Flächen schließen um den
+      Rahmen, Gelände um Lava als Fels (H1 bis H4).
+- [ ] **H2 Overpass** fünf öffentliche Server nach Region und Gesundheit, Rotation bis 3 min mit Ladehinweis,
+      `remark` nicht gecacht (live seit 0.7.2); eigener Server siehe E233 (H5).
+
+- [ ] **E232 Wellen ohne Gegner** (live seit 0.7.3): ein Spawn ohne Route ist keine Spur; Wellenstart nur mit Spur in der Simulation, kein
       Gold, kein Auto-Start-Loop; ohne Route sperrt das Laden; ein Spielstand ohne Route (0.7.x-Autosave) lädt nicht und
       wird nicht mehr geschrieben; Spawns ohne Route neben solchen mit nennt ein Banner (G1).
 

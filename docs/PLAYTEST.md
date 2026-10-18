@@ -355,6 +355,25 @@ Logik (keine Welle, kein Gold, kein Auto-Start, Spuren) ist per Szenario-Test ge
   *Banner „No street leads from … to the HQ: it sends no enemies …“, bleibt bis zum Schließen; Welle starten: alle
   Gegner kommen vom Festland, der Wellenzähler steigt einmal je Welle.*
 
+- **G1.3 Continue ohne Route:** einen Spielstand laden, dessen Welt keine Route hat (aus 0.7.1, wo leere Wellen
+  gespeichert wurden). *Meldung statt Lauf, der Ort wechselt nicht; ein neuer Lauf am selben Ort spielt normal.*
+
+## H Runde 5 (2026-10-18)
+
+Nur Augen und Gefühl; Logik und Pixelgleichheit sind per Test gedeckt.
+
+- **H1 Gelände auf der GPU:** Demo Valley im Editor, Raise und Smooth mit großem Pinsel. *Kein Stocken, Hänge
+  schattieren wie vorher, keine Nähte.*
+- **H2 Wiese:** Stillwater oder Demo Valley von oben, Wiese mit Klee. *Kleeinseln unregelmäßig verteilt, kein Raster.*
+- **H3 Wasserspiegel:** Witch Marsh oder Archipelago, mit der Kamera langsam an einen See heran und wieder weg, aus
+  mehreren Winkeln, Ultra. *Spiegelung blendet weich ein und aus, kein Aufploppen.*
+- **H4 OSM-Flächen und Lava:** OSM-Welt für Lindau (Bodensee), Hallstatt, Cochem und Miltenberg bauen. *Seen und
+  Wälder am Rahmen geschlossen, keine Diagonalen quer über die Karte, Lindau-Insel mit Brücken.* Mars Canyon im
+  Editor, Krater mit Lava füllen. *Kraterflanken als Fels, nicht glatt orange.*
+- **H5 Straßen bei vollen Servern:** einen Echtwelt-Ort kalt laden, wenn overpass-api.de ausgelastet ist. *Ladeplatte
+  zeigt „The map server is busy, trying again (n of 8)…“, Straßen kommen nach einiger Zeit; Zürich oder London laden
+  in wenigen Sekunden.*
+
 ## Eichtabelle
 
 Fingerprints aus `__corridor.fingerprint()` für K2.1 und K2.2. Alle Werte vor 748 (Rothenburg `d8050177`, Tokyo
