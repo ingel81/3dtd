@@ -490,11 +490,11 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     rotationY: 3.1416, // 180°
     turnsTurret: true,
     modelTop: 4.67,
-    // The barrel is cast with the turret: the turret slides back 9 cm and rocks 1.1°, a puff of dust at the foot
+    // The barrel is cast with the turret: the turret slides back 15 cm and rocks 2°, a puff of dust at the foot
     firingMotion: {
-      kick: [{ node: 'turret_top', back: 0.03, tilt: 0.02 }],
+      kick: [{ node: 'turret_top', back: 0.05, tilt: 0.035 }],
       kickS: 0.04,
-      returnS: 0.4,
+      returnS: 0.45,
       dust: { puffs: 5, radius: 3, speed: 2 },
     },
     damageType: 'siege',
@@ -766,12 +766,13 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     // The gun tilts on its trunnions: up to 60° for flyers, 12° down before the barrel meets the base
     pitchNodes: ['gun'],
     pitchRange: { min: -0.21, max: 1.05 },
-    // The heaviest gun: the barrel runs back 35 cm and climbs 2.9°, the turret rocks after it; dust runs out
-    // round the foot and the camera near it shakes, less than a cannonball's impact
+    // The heaviest gun: the barrel runs back 55 cm and climbs 4°, the turret rocks 1.7° after it; dust runs out
+    // round the foot and the camera near it shakes, less than a cannonball's impact. 35 cm and 2.9° could not
+    // be seen at a few tens of metres (playtest 2026-10-19)
     firingMotion: {
-      kick: [{ node: 'gun', back: 0.07, tilt: 0.05 }, { node: 'turret_top', back: 0.012, tilt: 0.015 }],
-      kickS: 0.045,
-      returnS: 0.6,
+      kick: [{ node: 'gun', back: 0.11, tilt: 0.07 }, { node: 'turret_top', back: 0.025, tilt: 0.03 }],
+      kickS: 0.05,
+      returnS: 0.75,
       dust: { puffs: 9, radius: 4, speed: 3 },
       shake: { amplitude: 0.0016, duration: 160, near: 25, far: 75 },
     },

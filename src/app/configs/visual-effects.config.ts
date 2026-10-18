@@ -338,9 +338,9 @@ export const FIRING_DUST_LOOK = {
   riseMax: 0.6,
   /** Above the foot, m: on the ground, not in it */
   lift: 0.3,
-  /** Earth over the light smoke atlas, darker and lighter per puff */
-  color: { r: 0.66, g: 0.52, b: 0.4 },
-  shadeMin: 0.7,
+  /** Earth over the light smoke atlas, darker and lighter per puff: lifted past 1, the atlas's grey read as soot */
+  color: { r: 1.25, g: 0.92, b: 0.62 },
+  shadeMin: 0.8,
   shadeMax: 1.0,
 } as const;
 
