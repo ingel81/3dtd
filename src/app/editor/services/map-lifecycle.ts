@@ -16,7 +16,8 @@ import { finishGenerated, generateTerrain, type GenerateOptions } from '../../ma
 import { EditorDocument } from '../model/editor-document';
 import { MapLock } from '../model/map-lock';
 import { biomeById } from '../ops/landscape/biomes';
-import { applyTemplate, type MapTemplate } from '../ops/landscape/templates';
+import type { MapTemplate } from '../ops/landscape/templates';
+import { applyTemplateOffThread } from '../ops/landscape/template-off-thread';
 import { patch, type EditorSettings } from '../tools/tool';
 import type { CheckService } from './check-service';
 import type { EditorCore } from './editor-core';
@@ -140,13 +141,14 @@ export class MapLifecycle {
       const base = biomeById(template.biome).ground[0].material.find((m) => catalog.materials.has(m));
       if (base) options = { ...options, baseMaterial: base };
     }
-    const doc = createMapDocument({ ...options, id });
+    let doc = createMapDocument({ ...options, id });
     if (template) {
-      await applyTemplate(doc, template, catalog, generator?.seed ?? 1, (done) => {
-        this.templateProgress.set(done);
-        return new Promise((r) => setTimeout(r));
-      });
-      this.templateProgress.set(null);
+      // In a worker: on a large map the biome held the page for a third of a second
+      try {
+        doc = await applyTemplateOffThread(doc, template, catalog, generator?.seed ?? 1, (done) => this.templateProgress.set(done));
+      } finally {
+        this.templateProgress.set(null);
+      }
     } else if (generator && generator.preset !== 'flat') {
       finishGenerated(doc, generateTerrain(doc.terrain, generator), (m) => catalog.materials.has(m));
     }
