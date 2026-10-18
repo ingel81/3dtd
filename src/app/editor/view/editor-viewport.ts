@@ -32,6 +32,7 @@ import { EDITOR_FOV, ViewExtras } from './view-extras';
 import { ViewPicker } from './view-picker';
 import { pixelRatioFor, readStoredQuality, storedKnobsFor, type QualityKnobs } from '../../three-engine/render-quality';
 import { releaseContext, settleContexts } from '../../three-engine/context-release';
+import { deferPendingProgramDeletes } from '../../three-engine/pending-program-deletes';
 import { ShotLights } from '../../three-engine/shot-lights/shot-lights';
 import type { Contours } from '../ops/contours';
 import type { GroundBaker } from '../../world/custom-map/render/terrain/ground-shape';
@@ -129,6 +130,9 @@ export class EditorViewport {
     // The scene stands at the origin: without its own matrix composed every frame it forces no child's update,
     // and the map's StaticGroups recompute only after a change (three-engine/static-group.ts)
     this.scene.matrixAutoUpdate = false;
+    // Programs of the compile-ahead still linking when the editor goes are deleted once built: deleted at once they
+    // held the GPU process, and the game's first context waited 7 to 8.5 s for them
+    deferPendingProgramDeletes(this.renderer.getContext() as WebGL2RenderingContext);
     // The custom-map part of the game's quality level with the player's overrides, at a fixed resolution
     // (no dynamic one) and always MSAA
     this.quality = storedKnobsFor(readStoredQuality(), gpuNameOf(this.renderer), 'custom-map');

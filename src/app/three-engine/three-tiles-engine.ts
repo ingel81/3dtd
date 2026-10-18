@@ -25,6 +25,7 @@ import { SkyBackground, addSceneLights } from './scene-environment';
 import { DiveView, FOG_FAR, FOG_NEAR, VIEW_DISTANCE } from './dive-view';
 import { ScreenPicker } from './screen-picker';
 import { skipLostContextDeletes } from './lost-context-deletes';
+import { deferPendingProgramDeletes } from './pending-program-deletes';
 import {
   CoordinateSync,
   ThreeTowerRenderer,
@@ -325,6 +326,8 @@ export class ThreeTilesEngine {
     // After a context loss, objects three used before (tiles, pools, targets)
     // would delete their lost handles in the restored context when disposed.
     this.restoreGLDeletes = skipLostContextDeletes(this.renderer.getContext() as WebGL2RenderingContext, canvas);
+    // A material that goes while its program still links does not hold the GPU process (and the next view's context) up
+    deferPendingProgramDeletes(this.renderer.getContext() as WebGL2RenderingContext);
 
     // Create scene with distance fog: 2000 m to 6000 m, the view ends at 8000 m (dive-view.ts)
     this.scene = new Scene();
