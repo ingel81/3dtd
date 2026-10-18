@@ -6,13 +6,18 @@
  * map's centre, `x` east, `y` north, as the map document has them.
  *
  * The answer's geometry is cut at the query's box: a node outside it comes
- * as null. A line keeps its runs of points; a ring drops the missing stretch
- * (the two points either side of it lie outside the box) and is then cut to
- * the map's square, so an area that reaches past the map ends at its edge.
+ * as null. A line keeps its runs of points; a ring cut so keeps its runs as
+ * chains (both ends outside the box), and every area is cut to the map's
+ * square (square-clip.ts), so one that reaches past the map ends at its edge
+ * and one around the whole map covers it. Where the chains leave open which
+ * side of them the area lies, the buildings and roads say it for water.
  */
 import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 import type { MapPoint } from '../custom-map/map-document';
+import { landClassOf, waterClassOf } from './land-tags';
 import type { OverpassResponse } from './overpass-client';
+import { fillRings, texelGrid, type RasterGrid } from './convert/raster';
+import { clipArea } from './square-clip';
 
 /** The map's centre and its projection: flat metres, exact enough over a few kilometres */
 export class OsmFrame {
@@ -77,6 +82,10 @@ export interface OsmParseStats {
   areas: number;
   /** Multipolygon relations whose rings did not close and were closed straight across */
   forcedRings: number;
+  /** Areas with rings the answer cut at its box, closed around the map */
+  cutAreas: number;
+  /** Of those, water the buildings and roads put on the other side of its shores */
+  turnedAreas: number;
   /** Areas that lay outside the map's square once cut */
   areasOutside: number;
 }
@@ -114,18 +123,41 @@ export function parseOsm(data: OverpassResponse, frame: OsmFrame, half: number):
   const ways: OsmWay[] = [];
   const areas: OsmArea[] = [];
   const points: OsmPoint[] = [];
-  const stats: OsmParseStats = { elements: data.elements.length, ways: 0, relations: 0, points: 0, areas: 0, forcedRings: 0, areasOutside: 0 };
+  const stats: OsmParseStats = {
+    elements: data.elements.length,
+    ways: 0,
+    relations: 0,
+    points: 0,
+    areas: 0,
+    forcedRings: 0,
+    cutAreas: 0,
+    turnedAreas: 0,
+    areasOutside: 0,
+  };
   const project = (g: { lat: number; lon: number } | null | undefined): MapPoint | null => (g ? frame.point(g) : null);
 
-  const addArea = (id: number, from: OsmArea['from'], tags: Record<string, string>, outerRaw: MapPoint[][], innerRaw: MapPoint[][]) => {
-    const outer = outerRaw.map((r) => clipRing(r, half)).filter((r) => r.length >= 3);
-    if (!outer.length) {
+  // Areas are cut once all ways are read: the land a cut lake is judged by comes from them
+  const pending: (() => void)[] = [];
+  let land: DryLand | null = null;
+  const addArea = (id: number, from: OsmArea['from'], tags: Record<string, string>, outer: Ringset, inner: Ringset) => {
+    stats.forcedRings += outer.forced + inner.forced;
+    const chains = [...outer.open, ...inner.open];
+    if (chains.length) stats.cutAreas++;
+    const wet = !!waterClassOf(tags) || landClassOf(tags) === 'wetland';
+    const turn = wet
+      ? (rings: MapPoint[][]) => {
+          land ??= new DryLand(ways, half);
+          const turned = land.turns(rings);
+          if (turned) stats.turnedAreas++;
+          return turned;
+        }
+      : undefined;
+    const cut = clipArea(outer.rings, inner.rings, chains, half, turn);
+    if (!cut) {
       stats.areasOutside++;
       return;
     }
-    const inner = innerRaw.map((r) => clipRing(r, half)).filter((r) => r.length >= 3);
-    const area = outer.reduce((s, r) => s + Math.abs(ringArea(r)), 0) - inner.reduce((s, r) => s + Math.abs(ringArea(r)), 0);
-    areas.push({ id, from, tags, outer, inner, area: Math.max(0, area) });
+    areas.push({ id, from, tags, ...cut });
   };
 
   for (const element of data.elements) {
@@ -144,8 +176,12 @@ export function parseOsm(data: OverpassResponse, frame: OsmFrame, half: number):
       ways.push({ id: element.id, tags, nodes: aligned ? nodes : [], points: pts });
       const closed = nodes.length >= 4 && nodes[0] === nodes[nodes.length - 1];
       if (closed && isAreaTags(tags)) {
-        const ring = pts.slice(0, -1).filter((p): p is MapPoint => p !== null);
-        if (ring.length >= 3) addArea(element.id, 'way', tags, [ring], []);
+        const ring = pts.slice(0, -1);
+        // Cut by the box: the runs from one gap round to the next
+        const gap = ring.indexOf(null);
+        const outer: Ringset | null =
+          gap >= 0 ? assembleRings(runs([...ring.slice(gap), ...ring.slice(0, gap)]), half) : ring.length >= 3 ? { rings: [ring as MapPoint[]], open: [], forced: 0 } : null;
+        if (outer) pending.push(() => addArea(element.id, 'way', tags, outer, NO_RINGS));
       }
     } else if (element.type === 'relation') {
       stats.relations++;
@@ -157,12 +193,14 @@ export function parseOsm(data: OverpassResponse, frame: OsmFrame, half: number):
         const target = m.role === 'inner' ? innerChains : outerChains;
         target.push(...runs(m.geometry.map(project)));
       }
-      const outer = assembleRings(outerChains);
-      const inner = assembleRings(innerChains);
-      stats.forcedRings += outer.forced + inner.forced;
-      addArea(element.id, 'relation', tags, outer.rings, inner.rings);
+      let outer = assembleRings(outerChains, half);
+      const inner = assembleRings(innerChains, half);
+      // Islands without a shore in the answer: the lake's outer ring lies past the box all round
+      if (!outer.rings.length && !outer.open.length && (inner.rings.length || inner.open.length)) outer = { rings: [aroundAll(half)], open: [], forced: 0 };
+      pending.push(() => addArea(element.id, 'relation', tags, outer, inner));
     }
   }
+  for (const add of pending) add();
   stats.ways = ways.length;
   stats.points = points.length;
   stats.areas = areas.length;
@@ -186,19 +224,39 @@ export function runs(points: readonly (MapPoint | null)[]): MapPoint[][] {
 
 const key = (p: MapPoint): string => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
 
+/** Rings put together from ways: the closed ones, the chains the answer's box cut (both ends outside the map), how many were forced shut */
+export interface Ringset {
+  rings: MapPoint[][];
+  open: MapPoint[][];
+  forced: number;
+}
+
+const NO_RINGS: Ringset = { rings: [], open: [], forced: 0 };
+
 /**
- * Member ways put together into closed rings by their shared end points. A
- * chain that does not close (a member cut off by the box, or missing) is
- * joined to the chain whose start lies nearest to its end, and the last one
- * closed straight across (`forced` counts those).
+ * Member ways put together into closed rings by their shared end points,
+ * turning one round where it runs the other way. A chain whose ends both lie
+ * outside the square of half side `half` is a ring the box cut: it stays
+ * open. One that ends inside the map does not close (a member missing): it
+ * is joined to the chain whose start lies nearest to its end, and the last
+ * one closed straight across (`forced` counts those).
  */
-export function assembleRings(chains: readonly MapPoint[][]): { rings: MapPoint[][]; forced: number } {
+export function assembleRings(chains: readonly MapPoint[][], half: number): Ringset {
   const rings: MapPoint[][] = [];
+  const cut: MapPoint[][] = [];
   const open: MapPoint[][] = [];
   for (const chain of chains) {
     if (chain.length >= 4 && key(chain[0]) === key(chain[chain.length - 1])) rings.push(chain.slice(0, -1));
     else open.push([...chain]);
   }
+  const outside = (p: MapPoint) => Math.max(Math.abs(p.x), Math.abs(p.y)) > half;
+  /** The chain that goes on from `at`: its index and whether it runs the other way */
+  const from = (at: string, ends: boolean): { k: number; reverse: boolean } => {
+    let k = open.findIndex((c) => key(ends ? c[c.length - 1] : c[0]) === at);
+    if (k >= 0) return { k, reverse: false };
+    k = open.findIndex((c) => key(ends ? c[0] : c[c.length - 1]) === at);
+    return { k, reverse: k >= 0 };
+  };
   let forced = 0;
   while (open.length) {
     let ring = open.pop()!;
@@ -207,76 +265,123 @@ export function assembleRings(chains: readonly MapPoint[][]): { rings: MapPoint[
         rings.push(ring.slice(0, -1));
         break;
       }
-      const end = key(ring[ring.length - 1]);
-      let k = open.findIndex((c) => key(c[0]) === end);
-      let reverse = false;
-      if (k < 0) {
-        k = open.findIndex((c) => key(c[c.length - 1]) === end);
-        reverse = k >= 0;
-      }
-      if (k < 0) {
-        // Nothing continues it: the nearest start of another chain, else close it here
-        const last = ring[ring.length - 1];
-        let best = -1;
-        let bestDist = Math.hypot(ring[0].x - last.x, ring[0].y - last.y);
-        open.forEach((c, i) => {
-          const d = Math.hypot(c[0].x - last.x, c[0].y - last.y);
-          if (d < bestDist) {
-            best = i;
-            bestDist = d;
-          }
-        });
-        forced++;
-        if (best < 0) {
-          if (ring.length >= 3) rings.push(ring);
-          break;
-        }
-        ring = ring.concat(open.splice(best, 1)[0]);
+      const after = from(key(ring[ring.length - 1]), false);
+      if (after.k >= 0) {
+        const next = open.splice(after.k, 1)[0];
+        if (after.reverse) next.reverse();
+        ring = ring.concat(next.slice(1));
         continue;
       }
-      const next = open.splice(k, 1)[0];
-      if (reverse) next.reverse();
-      ring = ring.concat(next.slice(1));
+      // Nothing goes on from its end: something may still lead into its start
+      const before = from(key(ring[0]), true);
+      if (before.k >= 0) {
+        const prev = open.splice(before.k, 1)[0];
+        if (before.reverse) prev.reverse();
+        ring = prev.concat(ring.slice(1));
+        continue;
+      }
+      if (outside(ring[0]) && outside(ring[ring.length - 1])) {
+        cut.push(ring);
+        break;
+      }
+      // A member missing: the nearest start of another chain, else close it here
+      const last = ring[ring.length - 1];
+      let best = -1;
+      let bestDist = Math.hypot(ring[0].x - last.x, ring[0].y - last.y);
+      open.forEach((c, i) => {
+        const d = Math.hypot(c[0].x - last.x, c[0].y - last.y);
+        if (d < bestDist) {
+          best = i;
+          bestDist = d;
+        }
+      });
+      forced++;
+      if (best < 0) {
+        if (ring.length >= 3) rings.push(ring);
+        break;
+      }
+      ring = ring.concat(open.splice(best, 1)[0]);
     }
   }
-  return { rings, forced };
+  return { rings, open: cut, forced };
 }
 
-/** Signed area of a ring (counter-clockwise positive) */
-export function ringArea(ring: readonly MapPoint[]): number {
-  let s = 0;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) s += (ring[j].x - ring[i].x) * (ring[j].y + ring[i].y);
-  return s / 2;
+/** A ring far round the map and the box */
+function aroundAll(half: number): MapPoint[] {
+  const far = half * 1000;
+  return [{ x: -far, y: far }, { x: far, y: far }, { x: far, y: -far }, { x: -far, y: -far }];
 }
 
-/** A ring cut to the square |x|, |y| <= half (Sutherland-Hodgman; a concave ring may keep stretches along the edge) */
-export function clipRing(ring: readonly MapPoint[], half: number): MapPoint[] {
-  let out: MapPoint[] = [...ring];
-  const edges: [(p: MapPoint) => number, 'x' | 'y', number][] = [
-    [(p) => half - p.x, 'x', half],
-    [(p) => p.x + half, 'x', -half],
-    [(p) => half - p.y, 'y', half],
-    [(p) => p.y + half, 'y', -half],
-  ];
-  for (const [inside, axis, value] of edges) {
-    if (!out.length) break;
-    const input = out;
-    out = [];
-    for (let i = 0; i < input.length; i++) {
-      const cur = input[i];
-      const prev = input[(i + input.length - 1) % input.length];
-      const ci = inside(cur);
-      const pi = inside(prev);
-      if (ci >= 0) {
-        if (pi < 0) out.push(cross(prev, cur, axis, value));
-        out.push(cur);
-      } else if (pi >= 0) out.push(cross(prev, cur, axis, value));
+/** Cells per side of the grid the land is counted on */
+const LAND_CELLS = 256;
+/** Land marks a cut water area must hold before they may turn it round */
+const TURN_MIN_MARKS = 8;
+/** Land marks per square metre over which an area reads as built land (50 per km²; open water holds a few piers) */
+const TURN_MIN_DENSITY = 50e-6;
+/** The rest of the square must hold at most this share of the area's density of land marks */
+const TURN_CONTRAST = 0.25;
+
+/**
+ * Where the land of the map is, from the ways: the middle of every building
+ * and the points of every road on the ground (not bridges, tunnels or piers),
+ * counted on a coarse grid. Water lies where they are not.
+ */
+class DryLand {
+  private readonly grid: RasterGrid;
+  private readonly marks: Uint16Array;
+  private readonly total: number;
+
+  constructor(ways: readonly OsmWay[], half: number) {
+    this.grid = texelGrid(2 * half, LAND_CELLS);
+    const n = LAND_CELLS;
+    const marks = new Uint16Array(n * n);
+    let total = 0;
+    const mark = (x: number, y: number) => {
+      if (Math.abs(x) >= half || Math.abs(y) >= half) return;
+      const i = Math.floor(((x + half) / (2 * half)) * n);
+      const j = Math.floor(((y + half) / (2 * half)) * n);
+      if (marks[j * n + i] < 65535) marks[j * n + i]++;
+      total++;
+    };
+    for (const w of ways) {
+      const t = w.tags;
+      if (t['building'] && w.nodes.length >= 4 && w.nodes[0] === w.nodes[w.nodes.length - 1] && w.points.every((p) => p)) {
+        let x = 0;
+        let y = 0;
+        for (let k = 1; k < w.points.length; k++) {
+          x += w.points[k]!.x;
+          y += w.points[k]!.y;
+        }
+        mark(x / (w.points.length - 1), y / (w.points.length - 1));
+      } else if (t['highway'] && !onWater(t)) for (const p of w.points) if (p) mark(p.x, p.y);
     }
+    this.marks = marks;
+    this.total = total;
   }
-  return out;
+
+  /**
+   * Whether water guessed as `rings` holds the land and the rest of the
+   * square is clear of it: then the water is the rest
+   */
+  turns(rings: readonly MapPoint[][]): boolean {
+    let inMarks = 0;
+    let inCells = 0;
+    const n = LAND_CELLS;
+    fillRings(rings, this.grid, (i, j) => {
+      inMarks += this.marks[j * n + i];
+      inCells++;
+    });
+    const outCells = n * n - inCells;
+    if (inMarks < TURN_MIN_MARKS || !inCells || !outCells) return false;
+    const cell = this.grid.step * this.grid.step;
+    const inside = inMarks / (inCells * cell);
+    const outside = (this.total - inMarks) / (outCells * cell);
+    return inside >= TURN_MIN_DENSITY && outside <= inside * TURN_CONTRAST;
+  }
 }
 
-function cross(a: MapPoint, b: MapPoint, axis: 'x' | 'y', value: number): MapPoint {
-  const t = (value - a[axis]) / (b[axis] - a[axis]);
-  return axis === 'x' ? { x: value, y: a.y + (b.y - a.y) * t } : { x: a.x + (b.x - a.x) * t, y: value };
+/** A road that may cross water: a bridge, a ferry's way, a pier, or under it */
+function onWater(tags: Record<string, string>): boolean {
+  const yes = (v: string | undefined) => !!v && v !== 'no';
+  return yes(tags['bridge']) || yes(tags['tunnel']) || tags['man_made'] === 'pier' || tags['highway'] === 'ferry' || tags['area'] === 'yes';
 }

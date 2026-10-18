@@ -36,7 +36,8 @@ import type { ObjectFooting } from '../../custom-map/render/objects/object-seat'
 import { EdgeIndex } from '../../../map-ops/path-graph';
 import { objectsOnPaths, PATH_WALL_SHARE } from '../../../map-ops/validation/map-validation';
 import { BUILDING_MODELS, buildingKind, buildingLandOf, buildingLevels, isGroundBuilding, KIND_MODELS, type BuildingKind, type BuildingModel } from '../building-tags';
-import { ringArea, type OsmArea, type OsmFeatures } from '../osm-parse';
+import type { OsmArea, OsmFeatures } from '../osm-parse';
+import { ringArea } from '../square-clip';
 
 /** A catalogue entry as far as the buildings read it */
 export type BuildingCatalogEntry = CostEntry & { id: string; footprint: number; box?: GroundBox };

@@ -1,5 +1,6 @@
 import type { OverpassResponse } from './overpass-client';
-import { assembleRings, clipRing, isAreaTags, OsmFrame, parseOsm, ringArea, runs } from './osm-parse';
+import { assembleRings, isAreaTags, OsmFrame, parseOsm, runs } from './osm-parse';
+import { ringArea } from './square-clip';
 
 const frame = new OsmFrame(50, 10);
 /** lat, lon of a map point around `frame` */
@@ -31,18 +32,25 @@ describe('OSM parse', () => {
     const a = [{ x: 0, y: 0 }, { x: 10, y: 0 }];
     const b = [{ x: 10, y: 10 }, { x: 10, y: 0 }];
     const c = [{ x: 10, y: 10 }, { x: 0, y: 10 }, { x: 0, y: 0 }];
-    const { rings, forced } = assembleRings([a, b, c]);
+    const { rings, open, forced } = assembleRings([a, b, c], 1000);
     expect(forced).toBe(0);
+    expect(open).toEqual([]);
     expect(rings).toHaveLength(1);
     expect(Math.abs(ringArea(rings[0]))).toBeCloseTo(100);
-    // A chain that never closes is closed straight across
-    expect(assembleRings([[{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }]]).forced).toBe(1);
+    // A chain that never closes inside the map is closed straight across
+    expect(assembleRings([[{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }]], 1000).forced).toBe(1);
   });
 
-  it('cuts a ring to the map square', () => {
-    const ring = [{ x: -50, y: -50 }, { x: 150, y: -50 }, { x: 150, y: 50 }, { x: -50, y: 50 }];
-    expect(Math.abs(ringArea(clipRing(ring, 100)))).toBeCloseTo(150 * 100);
-    expect(clipRing([{ x: 200, y: 200 }, { x: 300, y: 200 }, { x: 300, y: 300 }], 100)).toEqual([]);
+  it('keeps a ring the box cut open, its stretches joined end to end in either direction', () => {
+    // Two members of a shore crossing the map, the second drawn the other way, the rest of the ring cut off
+    const a = [{ x: -300, y: 10 }, { x: -50, y: 20 }, { x: 0, y: 0 }];
+    const b = [{ x: 300, y: -10 }, { x: 50, y: 5 }, { x: 0, y: 0 }];
+    const { rings, open, forced } = assembleRings([a, b], 100);
+    expect(forced).toBe(0);
+    expect(rings).toEqual([]);
+    expect(open).toHaveLength(1);
+    expect(open[0]).toHaveLength(5);
+    expect([open[0][0].x, open[0][4].x].sort((p, q) => p - q)).toEqual([-300, 300]);
   });
 
   it('reads ways with node ids, closed areas, multipolygons with holes and tagged points', () => {

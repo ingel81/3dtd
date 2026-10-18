@@ -430,8 +430,19 @@ die Seite erzeugt die Karte im Worker, zeigt eine Statuszeile, speichert sie als
   Zeitgrenzen (105 s bis zu den Kopfzeilen, 60 s Körper, Parallelfrage nach 8 s). Die Antwort hält die Geometrie
   eines Wegs passend zu seiner Knotenliste, Knoten außerhalb der Box als `null` (je Seite bleibt einer außerhalb
   stehen). Bei einer `remark` über Speicher oder Zeit vier Viertel nacheinander, zusammengeführt je Element.
-- **Flächen:** geschlossene Wege mit Flächen-Tags und Multipolygone (Ringe über gleiche Endpunkte, ein offener Ring
-  wird geradlinig geschlossen und gezählt), auf das Kartenquadrat geschnitten. In O1 nur gezählt; O3 malt sie.
+- **Flächen:** geschlossene Wege mit Flächen-Tags und Multipolygone (Ringe über gleiche Endpunkte, auch gegenläufig),
+  auf das Kartenquadrat geschnitten (`square-clip.ts`). Ein Ring, dessen Knoten die Box abgeschnitten hat (See,
+  Wald, große Landnutzung), bleibt als Kette mit beiden Enden außerhalb; die Fläche besteht aus den Stücken im
+  Quadrat und den Randstrecken dazwischen, die innen liegen. Innen und außen wechseln entlang des Rands an jeder
+  Kreuzung, also entscheidet eine Frage: liegt eine Randstrecke innen? Bei vollständigen Ringen wird gezählt
+  (even-odd). Bei Ketten wird der unbekannte Rest außen um die Karte gelegt, jede Lücke auf dem kürzeren Weg
+  (eine angeschnittene Ecke schließt um die Ecke, nie quer durch die Karte); vollständige Ringe der Fläche
+  entscheiden vor dieser Schätzung (eine Insel liegt in ihrem See, das Innere eines äußeren Rings in der Fläche);
+  sagen sie nichts, dreht bei Wasser und Feuchtgebiet die Bebauung (Gebäudemitten, Straßenpunkte ohne Brücke,
+  Tunnel, Steg) die Fläche auf die andere Seite, wenn sie dicht in der Schätzung und kaum im Rest liegt (Lindau:
+  der Bodensee). Ein Multipolygon mit Inseln, aber ohne Ufer in der Antwort, deckt die Karte bis auf die Inseln.
+  Eine Kette, die in der Karte endet (fehlendes Mitglied), wird wie bisher geradlinig geschlossen und gezählt
+  (`forcedRings`); `cutAreas` und `turnedAreas` zählen die geschnittenen und die gedrehten Flächen.
 - **Straßengraph:** dieselben `highway`-Typen wie die Straßenabfrage der echten Orte. Knoten, die zwei Wege teilen
   (oder ein Weg zweimal), werden Kartenknoten (`n<OSM-Id>`), am Kartenrand und an Abbruchstellen der Antwort
   entstehen eigene Knoten (`b<n>`); ein geschlossener Weg wird in der Mitte geteilt. Zwischenpunkte mit 0,2 m

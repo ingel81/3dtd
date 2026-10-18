@@ -30,7 +30,8 @@ import { BODY_COLORS } from '../../../map-ops/water-ops';
 import { fitSplatMaps, type MapPaths, type MapPoint, type MapRiver, type MapTerrain, type MapWater, type MapWaterKind } from '../../custom-map/map-document';
 import { MAX_WATER_BODIES } from '../../custom-map/map-file';
 import { landClassOf, waterClassOf, waterwayOf, type WaterClass } from '../land-tags';
-import { ringArea, runs, type OsmArea, type OsmFeatures } from '../osm-parse';
+import { runs, type OsmArea, type OsmFeatures } from '../osm-parse';
+import { clipLine, cornersBetween, perimeter, ringArea } from '../square-clip';
 import { distanceField, fillRings, sampleGrid, stampLine, type RasterGrid } from './raster';
 
 /** Water areas smaller than this are left out, m² */
@@ -634,63 +635,6 @@ function carveRivers(
   }));
 }
 
-/** The runs of a line inside the square |x|, |y| <= lim, each cut where it crosses the edge */
-export function clipLine(line: readonly MapPoint[], lim: number): MapPoint[][] {
-  const out: MapPoint[][] = [];
-  let run: MapPoint[] = [];
-  const inside = (p: MapPoint) => Math.abs(p.x) <= lim && Math.abs(p.y) <= lim;
-  for (let k = 0; k < line.length; k++) {
-    const p = line[k];
-    if (k === 0) {
-      if (inside(p)) run.push(p);
-      continue;
-    }
-    const q = line[k - 1];
-    const seg = clipSegment(q, p, lim);
-    if (!seg) continue;
-    const at = (t: number): MapPoint => ({ x: q.x + (p.x - q.x) * t, y: q.y + (p.y - q.y) * t });
-    if (seg[0] > 0) {
-      if (run.length >= 2) out.push(run);
-      run = [at(seg[0])];
-    }
-    if (seg[1] < 1) {
-      run.push(at(seg[1]));
-      if (run.length >= 2) out.push(run);
-      run = [];
-    } else run.push(p);
-  }
-  if (run.length >= 2) out.push(run);
-  return out;
-}
-
-/** The part of segment a-b inside the square, as parameters along it; null when none (Liang-Barsky) */
-function clipSegment(a: MapPoint, b: MapPoint, lim: number): [number, number] | null {
-  let t0 = 0;
-  let t1 = 1;
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  for (const [p, q] of [
-    [-dx, a.x + lim],
-    [dx, lim - a.x],
-    [-dy, a.y + lim],
-    [dy, lim - a.y],
-  ] as const) {
-    if (p === 0) {
-      if (q < 0) return null;
-      continue;
-    }
-    const r = q / p;
-    if (p < 0) {
-      if (r > t1) return null;
-      if (r > t0) t0 = r;
-    } else {
-      if (r < t0) return null;
-      if (r < t1) t1 = r;
-    }
-  }
-  return t0 <= t1 ? [t0, t1] : null;
-}
-
 /**
  * The sea's samples from the coastlines, null without any: the lines joined
  * end to end, cut to the map; each piece that crosses the map closed along
@@ -793,33 +737,6 @@ function toEdge(p: MapPoint, half: number): MapPoint {
   const dy = half - Math.abs(p.y);
   if (dx <= 0.01 || dy <= 0.01) return p;
   return dx < dy ? { x: Math.sign(p.x || 1) * half, y: p.y } : { x: p.x, y: Math.sign(p.y || 1) * half };
-}
-
-/** Clockwise position along the square's edge from its north-west corner, 0 to 8 half */
-function perimeter(p: MapPoint, half: number): number {
-  const e = 0.02;
-  if (p.y >= half - e) return p.x + half;
-  if (p.x >= half - e) return 2 * half + (half - p.y);
-  if (p.y <= -half + e) return 4 * half + (half - p.x);
-  return 6 * half + (p.y + half);
-}
-
-/** The corners of the square passed walking clockwise from edge position `from` to `to` */
-function cornersBetween(from: number, to: number, half: number): MapPoint[] {
-  const corners: [number, MapPoint][] = [
-    [2 * half, { x: half, y: half }],
-    [4 * half, { x: half, y: -half }],
-    [6 * half, { x: -half, y: -half }],
-    [8 * half, { x: -half, y: half }],
-  ];
-  const out: MapPoint[] = [];
-  for (let lap = 0; lap < 2; lap++) {
-    for (const [s, p] of corners) {
-      const at = s + lap * 8 * half;
-      if (at > from && at < to) out.push(p);
-    }
-  }
-  return out;
 }
 
 /**
