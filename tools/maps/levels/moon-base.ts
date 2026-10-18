@@ -155,7 +155,9 @@ export function buildMoonBase(): CustomMapDocument {
   }
   // Crater rims and boulder fields: ejecta strewn along the rims, boulders strewn on the plain
   for (const [x, y, r] of craters.slice(0, 6)) k.ejecta({ x, y }, r, ['moon-boulder', 'moon-rock', 'moon-rocks-small']);
-  k.scatter(['moon-boulder', 'moon-rock', 'moon-rocks-small'], [{ x: -200, y: 80 }, { x: 100, y: 180 }, { x: -150, y: -200 }, { x: 220, y: -150 }, { x: 0, y: -120 }], { radius: 60, strength: 0.7 }, { density: 2.5, minDistance: 5, scaleMin: 0.6, scaleMax: 1.6 });
+  // The plain between them thinner and mostly small stones: from the game camera a dense field of boulders with their
+  // black shadows read as noise over the whole map
+  k.scatter(['moon-rocks-small', 'moon-rocks-small', 'moon-rock', 'moon-boulder'], [{ x: -200, y: 80 }, { x: 100, y: 180 }, { x: -150, y: -200 }, { x: 220, y: -150 }, { x: 0, y: -120 }], { radius: 60, strength: 0.7 }, { density: 1.1, minDistance: 7, scaleMin: 0.6, scaleMax: 1.5 });
 
   // ---- Life: rovers driving the track out to the launch site and the one to the solar field; the dishes turn on
   // their own (the catalogue's spin)
