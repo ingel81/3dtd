@@ -1,9 +1,12 @@
-import { ClampToEdgeWrapping, DataTexture, FloatType, NearestFilter, NoColorSpace, RedFormat, Vector2, Vector4 } from 'three';
+import { ClampToEdgeWrapping, DataTexture, FloatType, NearestFilter, NoColorSpace, RGFormat, Vector2, Vector4 } from 'three';
 import type { MapObject, MapTerrain } from '../../map-document';
 import type { CatalogObject } from '../asset-catalog';
-import { massContains, massOf, massRadius, massTop } from '../../object-mass';
-import { toModel } from '../../object-ground';
+import { massContains, massDistance, massOf, massRadius, massTop } from '../../object-mass';
+import { boxDistance, toModel } from '../../object-ground';
 import type { HeightField } from '../height-field';
+
+/** How far from a footprint the second channel measures, m (grass grows full from 1.5 m) */
+export const COVER_RIM = 3;
 
 /**
  * The top of everything rain and snow stop on, one value per height sample:
@@ -11,11 +14,19 @@ import type { HeightField } from '../height-field';
  * structures and rocks, and to the surface of water, lava and ice. Weather
  * particles below it are not drawn, so it does not rain indoors or through
  * the ground; grass grows only where the top is the ground itself. Coarse
- * by design (the grid's cells, a footprint circle per object).
+ * by design (the grid's cells, a footprint circle per object, a raised
+ * building's outline). The second channel holds how far the sample lies
+ * from the nearest ground of a building, structure, standing wall or rock
+ * (its rectangle or outline where it has one), up to COVER_RIM: grass grows
+ * shorter towards it.
  */
 export class CoverMap {
   readonly texture: DataTexture;
   private readonly tops: Float32Array;
+  /** Metres to the nearest footprint, per sample */
+  private readonly rims: Float32Array;
+  /** Top and rim interleaved, as the texture holds them */
+  private readonly data: Float32Array;
   /** Uniforms for a shader that includes COVER_GLSL; uCoverFrame xy is the map group's scene offset */
   readonly uniforms: {
     uCover: { value: DataTexture };
@@ -26,7 +37,9 @@ export class CoverMap {
 
   constructor(private readonly field: HeightField) {
     this.tops = new Float32Array(field.columns * field.rows);
-    this.texture = new DataTexture(this.tops, field.columns, field.rows, RedFormat, FloatType);
+    this.rims = new Float32Array(field.columns * field.rows);
+    this.data = new Float32Array(field.columns * field.rows * 2);
+    this.texture = new DataTexture(this.data, field.columns, field.rows, RGFormat, FloatType);
     this.texture.colorSpace = NoColorSpace;
     this.texture.magFilter = this.texture.minFilter = NearestFilter;
     this.texture.wrapS = this.texture.wrapT = ClampToEdgeWrapping;
@@ -44,10 +57,15 @@ export class CoverMap {
   set(objects: MapObject[], entries: Map<string, CatalogObject>, terrain?: MapTerrain): void {
     const f = this.field;
     this.tops.set(f.grid.heights);
+    this.rims.fill(COVER_RIM);
     if (terrain) this.addWater(terrain);
     for (const o of objects) {
       const e = entries.get(o.asset);
-      if (!e || (e.category !== 'building' && e.category !== 'structure' && e.category !== 'rock')) continue;
+      if (!e) continue;
+      // A standing wall (not a fence or a hedge row) keeps the grass short at its foot too, but lets rain through
+      if (e.category === 'wall' && e.height >= 1.5) this.addRim(o, e);
+      if (e.category !== 'building' && e.category !== 'structure' && e.category !== 'rock') continue;
+      this.addRim(o, e);
       const s = o.scale || 1;
       // A raised building (object-mass.ts): its own height over its outline, not its entry's disc
       const mass = massOf(o);
@@ -70,7 +88,41 @@ export class CoverMap {
         }
       }
     }
+    for (let k = 0; k < this.tops.length; k++) {
+      this.data[k * 2] = this.tops[k];
+      this.data[k * 2 + 1] = this.rims[k];
+    }
     this.texture.needsUpdate = true;
+  }
+
+  /** The distance of the samples round an object to its ground (outline, rectangle or footprint disc) into the rims */
+  private addRim(o: MapObject, e: CatalogObject): void {
+    const f = this.field;
+    const s = o.scale || 1;
+    const mass = massOf(o);
+    const r = (mass ? massRadius(mass) : e.footprint) * s + COVER_RIM;
+    const ci = (o.x - f.originX) / f.cellSize;
+    const cj = (o.y - f.originY) / f.cellSize;
+    const rc = r / f.cellSize;
+    const cos = Math.cos(o.rotation);
+    const sin = Math.sin(o.rotation);
+    for (let j = Math.max(0, Math.floor(cj - rc)); j <= Math.min(f.rows - 1, Math.ceil(cj + rc)); j++) {
+      for (let i = Math.max(0, Math.floor(ci - rc)); i <= Math.min(f.columns - 1, Math.ceil(ci + rc)); i++) {
+        const dx = f.originX + i * f.cellSize - o.x;
+        const dy = f.originY + j * f.cellSize - o.y;
+        let d: number;
+        if (mass) {
+          const m = toModel(dx, dy, cos, sin);
+          d = massDistance(mass, m.x / s, m.z / s) * s;
+        } else if (e.box) {
+          d = boxDistance(e.box, s, dx, dy, cos, sin);
+        } else {
+          d = Math.max(0, Math.hypot(dx, dy) - e.footprint * s);
+        }
+        const k = j * f.columns + i;
+        if (d < this.rims[k]) this.rims[k] = d;
+      }
+    }
   }
 
   private addWater(t: MapTerrain): void {

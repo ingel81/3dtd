@@ -1,6 +1,6 @@
 import {
-  Color,
   DoubleSide,
+  ShaderChunk,
   InstancedBufferAttribute,
   InstancedBufferGeometry,
   BufferAttribute,
@@ -16,7 +16,7 @@ import type { CoverMap } from '../environment/cover-map';
 import { MAX_FAR_GRASS_BLADES, MAX_GRASS_BLADES } from '../../../../three-engine/render-quality';
 import { addHeightFog } from '../environment/height-fog';
 import { WIND_GLSL, WIND_UNIFORMS } from '../environment/wind';
-import { VARIATION_GLSL, variationTexture } from '../terrain/variation-texture';
+import { GROUND_COLOR_GLSL, GROUND_COLOR_UNIFORMS } from '../terrain/ground-color';
 
 /**
  * One layer of grass blades (grass-layers.ts keeps a near and a far one): a tile of instanced blades that wraps
@@ -25,27 +25,40 @@ import { VARIATION_GLSL, variationTexture } from '../terrain/variation-texture';
  * shader), as dense as the grass layers of the splat there (none on roads,
  * paths and cliffs), swaying in the wind. Towards a circle inside the
  * tile the blades thin out (dithered) and shrink, so neither the tile's
- * square nor the switch to the painted ground is seen. Each blade takes the
- * colour the ground has under it (the splat's layer averages with the
- * terrain's macro variation), so from high up the blades do not show as a
- * patch of their own colour. None grows where the CoverMap's top lies
- * above the ground: in the footprints of buildings, structures and rocks
- * (pools too) and under water, lava and ice.
+ * square nor the switch to the painted ground is seen.
+ *
+ * Each ground layer grows its own blades (the catalogue's `blades`): a lawn
+ * short and fine, a meadow tall with seed heads and flowers, mixed by the
+ * splat's weights. Blades gather in tufts, thinner near the camera. Each
+ * takes the colour the ground has under it (groundColorAt: the terrain's own
+ * colour baked from above, ground-albedo.ts), so from high up the blades do
+ * not show as a patch of their own colour, and glows through towards the
+ * sun at its tip. None grows where the CoverMap's top lies above the
+ * ground (footprints of buildings, structures and rocks, pools; water, lava
+ * and ice), and round buildings, walls and rocks the blades grow shorter
+ * over the last metre and a half, none right at the wall.
  *
  * Lit like any standard material (shadows received, fog, grade); blades do
  * not cast shadows. Not part of line of sight.
  */
 
+/** The blades a grass layer grows (catalogue `blades`): heights from and to, width, and whether seed heads and flowers show, metres */
+export interface GrassBlades {
+  height: readonly [number, number];
+  width: number;
+  heads?: boolean;
+}
+
+/** Blades of a grass layer whose catalogue entry names none: knee-high meadow grass */
+export const DEFAULT_BLADES: GrassBlades = { height: [0.35, 0.8], width: 0.095, heads: true };
+
+/** The splat (GROUND_COLOR_UNIFORMS, set with the map's layers) tells where; these, what grows */
 export interface GrassInputs {
-  /** Two splat maps, three on a map with more than 8 layers */
-  splat: Texture[];
   pathMask: Texture;
   /** Grass share per splat channel (1 for grass layers, 0 otherwise), one per splat map */
   mask: Vector4[];
-  /** Average colour (linear) of the layer in each splat channel, the maps in order */
-  colors: Color[];
-  width: number;
-  depth: number;
+  /** The blades of the layer in each splat channel, the maps in order (none for a channel without grass) */
+  blades: (GrassBlades | null)[];
 }
 
 /** The shape of one grass layer */
@@ -143,25 +156,16 @@ export class GrassField {
     uGrassGrow: { value: 0 },
     uGrassFlat: { value: new Vector2(25, 110) },
     uGrassContrast: { value: 1 },
-    uGrassSplat0: { value: null as Texture | null },
-    uGrassSplat1: { value: null as Texture | null },
-    uGrassSplat2: { value: null as Texture | null },
     uGrassPath: { value: null as Texture | null },
     uGrassMask0: { value: new Vector4() },
     uGrassMask1: { value: new Vector4() },
     uGrassMask2: { value: new Vector4() },
-    /**
-     * 1 when the map has the third splat map (past 8 layers): read behind a uniform branch, so one
-     * program serves both (a program of its own linked in the frame of the stroke that added the ninth)
-     */
-    uGrassThird: { value: 0 },
-    uGrassMapSize: { value: new Vector2() },
-    uGrassColors: { value: Array.from({ length: 12 }, () => new Color()) },
+    /** Per splat channel the blades of its layer: height from and to, width, seed heads (0 or 1), metres */
+    uGrassBlades: { value: Array.from({ length: 12 }, () => new Vector4(DEFAULT_BLADES.height[0], DEFAULT_BLADES.height[1], DEFAULT_BLADES.width, 1)) },
     uGrassCover: { value: null as Texture | null },
     uGrassHasCover: { value: 0 },
     /** Wider blades at a lower density (setBlades), so the meadow keeps its cover */
     uGrassWidth: { value: 1 },
-    uVariation: { value: variationTexture() as Texture },
   };
 
   constructor(heights: HeightTexture, readonly layout: GrassLayout = NEAR_GRASS) {
@@ -196,19 +200,20 @@ export class GrassField {
     const material = new MeshStandardMaterial({ roughness: 0.85, metalness: 0, side: DoubleSide });
     material.name = layout.name;
     material.onBeforeCompile = (shader) => {
-      Object.assign(shader.uniforms, this.uniforms, heights.uniforms, WIND_UNIFORMS);
+      Object.assign(shader.uniforms, this.uniforms, heights.uniforms, WIND_UNIFORMS, GROUND_COLOR_UNIFORMS);
       shader.vertexShader = shader.vertexShader
         .replace('#include <common>', `#include <common>\n${GRASS_VERTEX_PARS}`)
         .replace('#include <beginnormal_vertex>', GRASS_NORMAL)
         .replace('#include <begin_vertex>', GRASS_BEGIN);
       shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', '#include <common>\nvarying vec3 vBladeColor;')
+        .replace('#include <common>', '#include <common>\nvarying vec3 vBladeColor;\nvarying float vBladeGlow;')
         .replace('#include <map_fragment>', 'diffuseColor.rgb = vBladeColor;')
         // Blades are double sided and three flips the normal on back faces: half the blades then
         // faced down and showed as dark specks over the meadow
-        .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\nnormal = normalize(vNormal);');
+        .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\nnormal = normalize(vNormal);')
+        .replace('#include <lights_fragment_begin>', GRASS_LIGHTS);
     };
-    material.customProgramCacheKey = () => 'custom-map-grass-3';
+    material.customProgramCacheKey = () => 'custom-map-grass-4';
     addHeightFog(material);
     this.mesh = new Mesh(g, material);
     this.mesh.name = layout.name;
@@ -221,17 +226,15 @@ export class GrassField {
 
   setInputs(p: GrassInputs): void {
     const u = this.uniforms;
-    u.uGrassSplat0.value = p.splat[0];
-    u.uGrassSplat1.value = p.splat[1];
-    u.uGrassSplat2.value = p.splat[2] ?? null;
     u.uGrassPath.value = p.pathMask;
     u.uGrassMask0.value.copy(p.mask[0]);
     u.uGrassMask1.value.copy(p.mask[1]);
     u.uGrassMask2.value.set(0, 0, 0, 0);
     if (p.mask[2]) u.uGrassMask2.value.copy(p.mask[2]);
-    u.uGrassThird.value = p.splat.length > 2 ? 1 : 0;
-    u.uGrassColors.value.forEach((c, k) => c.copy(p.colors[k] ?? c.setRGB(0.2, 0.3, 0.1)));
-    u.uGrassMapSize.value.set(p.width, p.depth);
+    u.uGrassBlades.value.forEach((v, k) => {
+      const b = p.blades[k] ?? DEFAULT_BLADES;
+      v.set(b.height[0], b.height[1], b.width, b.heads ? 1 : 0);
+    });
     this.hasGrass = p.mask.some((m) => m.lengthSq() > 0);
     this.showMesh();
   }
@@ -295,41 +298,44 @@ uniform vec2 uGrassSize;
 uniform float uGrassGrow;
 uniform vec2 uGrassFlat;
 uniform float uGrassContrast;
-uniform sampler2D uGrassSplat0;
-uniform sampler2D uGrassSplat1;
-uniform sampler2D uGrassSplat2;
 uniform vec4 uGrassMask2;
-uniform float uGrassThird;
 uniform sampler2D uGrassPath;
 uniform vec4 uGrassMask0;
 uniform vec4 uGrassMask1;
-uniform vec2 uGrassMapSize;
-uniform vec3 uGrassColors[12];
+uniform vec4 uGrassBlades[12];
 uniform sampler2D uGrassCover;
 uniform float uGrassHasCover;
 uniform float uGrassWidth;
 varying vec3 vBladeColor;
+varying float vBladeGlow;
 ${SHADER_NOISE}
 ${WIND_GLSL}
-${VARIATION_GLSL}
+${GROUND_COLOR_GLSL}
 ${TERRAIN_HEIGHT_GLSL}
+
+// A repeatable pair of fractions for a cell
+vec2 grassHash2(vec2 c) {
+  return fract(sin(vec2(dot(c, vec2(127.1, 311.7)), dot(c, vec2(269.5, 183.3)))) * 43758.5453);
+}
 
 // Share of a layer's blades kept at p (grassFade in grass-field.ts): all inside a circle, none from just inside the tile's edge
 float grassFade(vec2 p, vec2 center, float tile) {
   return 1.0 - smoothstep(${GRASS_FADE_FROM.toFixed(2)}, ${GRASS_FADE_TO.toFixed(2)}, length(p - center) / (0.5 * tile));
 }
 
-// 1 where something stands on the ground or water lies over it, 0 on open ground; bilinear over the grid
-float grassCovered(vec2 m) {
-  if (uGrassHasCover < 0.5) return 0.0;
+// x: 1 where something stands on the ground or water lies over it, 0 on open ground; y: metres to the nearest
+// footprint of a building, wall or rock (CoverMap's second channel); bilinear over the grid
+vec2 grassCovered(vec2 m) {
+  if (uGrassHasCover < 0.5) return vec2(0.0, 1e3);
   vec2 g = (m - uTerrainGrid.xy) / uTerrainGrid.z;
   vec2 g0 = floor(g);
   vec2 fr = g - g0;
   ivec2 hi = ivec2(uTerrainGridSize) - 1;
-  float c[4];
+  vec2 c[4];
   for (int k = 0; k < 4; k++) {
     ivec2 p = clamp(ivec2(g0) + ivec2(k & 1, k >> 1), ivec2(0), hi);
-    c[k] = step(0.05, texelFetch(uGrassCover, p, 0).r - texelFetch(uTerrainHeights, p, 0).r);
+    vec2 cover = texelFetch(uGrassCover, p, 0).rg;
+    c[k] = vec2(step(0.05, cover.r - texelFetch(uTerrainHeights, p, 0).r), cover.g);
   }
   return mix(mix(c[0], c[1], fr.x), mix(c[2], c[3], fr.x), fr.y);
 }
@@ -346,6 +352,14 @@ vec3 objectTangent = vec3(1.0, 0.0, 0.0);
 const GRASS_BEGIN = /* glsl */ `
 // The blade's spot in the world, folded into the tile around the focus
 vec2 sceneXZ = uGrassCenter + mod(aBladeOffset - uGrassCenter, vec2(uGrassTile)) - 0.5 * uGrassTile;
+// Tufts: blades gather towards the middle of their cell of about 0.8 m, some more than others (the cell's own
+// pull), so the meadow shows clumps and gaps instead of an even pile
+vec2 tuftCell = floor(sceneXZ / 0.8);
+vec2 tuftAt = (tuftCell + 0.2 + 0.6 * grassHash2(tuftCell)) * 0.8;
+float tuftPull = 0.35 + 0.35 * grassHash2(tuftCell + 17.0).x;
+sceneXZ = mix(sceneXZ, tuftAt, tuftPull * (0.4 + 0.6 * aBladeRand.z));
+// Shorter towards the tuft's rim
+float tuftRim = clamp(length(sceneXZ - tuftAt) / 0.5, 0.0, 1.0);
 vec2 mapPos = vec2(-sceneXZ.x, sceneXZ.y);
 // Towards a circle inside the tile: fewer blades (each drops out at its own threshold), and shorter; so
 // too as the camera draws away. The far ring grows only where the near blades thin out, so the two
@@ -353,24 +367,26 @@ vec2 mapPos = vec2(-sceneXZ.x, sceneXZ.y);
 float fade = grassFade(sceneXZ, uGrassCenter, uGrassTile) * uGrassShow;
 if (uGrassHoleTile > 0.0) fade *= 1.0 - grassFade(sceneXZ, uGrassHoleCenter, uGrassHoleTile) * uGrassHoleShow;
 float keepEdge = smoothstep(0.0, 0.25, fade - fract(aBladeRand.x * 7.31 + aBladeRand.y * 3.17));
-bool onMap = abs(mapPos.x) <= uGrassMapSize.x * 0.5 && abs(mapPos.y) <= uGrassMapSize.y * 0.5;
+bool onMap = abs(mapPos.x) <= uGroundSize.x * 0.5 && abs(mapPos.y) <= uGroundSize.y * 0.5;
 // A dropped blade: every vertex on one point, so its triangles draw nothing. The checks run cheapest
 // first and the rest only for blades that stay (a third of the tile lies outside the circle, roads and
 // bare ground have none): splat and path mask, then the terrain, then the cover
 vec3 transformed = vec3(sceneXZ.x, -1e4, sceneXZ.y);
 vBladeColor = vec3(0.0);
+vBladeGlow = 0.0;
 float grass = 0.0;
 vec4 s0 = vec4(0.0);
 vec4 s1 = vec4(0.0);
 vec4 s2 = vec4(0.0);
 if (keepEdge > 0.0 && onMap) {
-  vec2 uvMap = mapPos / uGrassMapSize + 0.5;
-  s0 = texture2D(uGrassSplat0, uvMap);
-  s1 = texture2D(uGrassSplat1, uvMap);
+  vec2 uvMap = mapPos / uGroundSize + 0.5;
+  s0 = texture2D(uGroundSplat0, uvMap);
+  s1 = texture2D(uGroundSplat1, uvMap);
   float total = dot(s0, vec4(1.0)) + dot(s1, vec4(1.0));
   grass = dot(s0, uGrassMask0) + dot(s1, uGrassMask1);
-  if (uGrassThird > 0.5) {
-    s2 = texture2D(uGrassSplat2, uvMap);
+  // The third splat map only on maps past 8 layers: read behind a uniform branch, one program for both
+  if (uGroundLayers > 8.5) {
+    s2 = texture2D(uGroundSplat2, uvMap);
     total += dot(s2, vec4(1.0));
     grass += dot(s2, uGrassMask2);
   }
@@ -381,25 +397,45 @@ if (keepEdge > 0.0 && onMap) {
   if (pm.b > 0.996 && pm.r + pm.g < 0.002) grass = 0.0;
 }
 float ground0 = 0.0;
+// Short towards a wall: 1 from 1.5 m off a footprint, 0 at 0.3 m
+float wall = 1.0;
 if (grass > 0.45) {
   // No grass on steep ground (forward differences over a metre)
   ground0 = terrainHeightAt(mapPos);
   vec2 rise = vec2(terrainHeightAt(mapPos + vec2(1.0, 0.0)), terrainHeightAt(mapPos + vec2(0.0, 1.0))) - ground0;
   grass *= smoothstep(0.9, 0.5, length(rise));
   // None in footprints of buildings, structures, rocks and pools, nor under water, lava or ice
-  if (grass > 0.45) grass *= 1.0 - smoothstep(0.25, 0.6, grassCovered(mapPos));
+  if (grass > 0.45) {
+    vec2 covered = grassCovered(mapPos);
+    grass *= 1.0 - smoothstep(0.25, 0.6, covered.x);
+    wall = smoothstep(0.3, 1.5, covered.y + (aBladeRand.y - 0.5) * 0.3);
+  }
 }
-float keep = smoothstep(0.45, 0.8, grass) * keepEdge * (0.4 + 0.6 * fade);
+float keep = smoothstep(0.45, 0.8, grass) * keepEdge * (0.4 + 0.6 * fade) * step(0.02, wall);
 if (keep > 0.0) {
-  // Kinds of blades: most plain, some short and broad, some tall with a seed head, a few flowering
+  // The blades of the grass layers here, by their splat weights (the catalogue's blades): height from and to, width,
+  // and how much the layers grow seed heads and flowers
+  vec4 kind = vec4(0.0);
+  float kw = 0.0;
+  for (int k = 0; k < 4; k++) {
+    float w0 = s0[k] * uGrassMask0[k];
+    float w1 = s1[k] * uGrassMask1[k];
+    float w2 = s2[k] * uGrassMask2[k];
+    kind += uGrassBlades[k] * w0 + uGrassBlades[k + 4] * w1 + uGrassBlades[k + 8] * w2;
+    kw += w0 + w1 + w2;
+  }
+  kind /= max(kw, 1e-3);
+  // Kinds of blades: most plain, some short and broad, and on a meadow some tall with a seed head, a few flowering
   float kindRoll = fract(aBladeRand.w * 13.7 + aBladeRand.x * 5.3);
   float broad = step(kindRoll, 0.14);
-  float seedHead = step(0.9, kindRoll);
-  float flower = step(0.85, kindRoll) * (1.0 - seedHead);
-  float bladeHeight = (0.35 + aBladeRand.y * 0.45) * keep * (1.0 - 0.35 * broad + 0.5 * seedHead) * uGrassSize.y;
-  // Wider with the distance to the camera (the far ring), so a blade does not thin below a pixel and flicker
-  float grow = uGrassGrow > 0.0 ? clamp(distance((modelMatrix * vec4(sceneXZ.x, ground0, sceneXZ.y, 1.0)).xyz, cameraPosition) * uGrassGrow, 1.0, 3.0) : 1.0;
-  float bladeWidth = (0.07 + aBladeRand.z * 0.05) * sqrt(keep) * uGrassWidth * uGrassSize.x * grow * (1.0 + 0.8 * broad - 0.35 * seedHead);
+  float seedHead = step(0.9, kindRoll) * step(0.5, kind.w);
+  float flower = step(0.85, kindRoll) * (1.0 - step(0.9, kindRoll)) * step(0.5, kind.w);
+  float bladeHeight = mix(kind.x, kind.y, aBladeRand.y) * keep * wall * (1.0 - 0.35 * broad + 0.5 * seedHead) * (1.0 - 0.35 * tuftRim) * uGrassSize.y;
+  // Wider with the distance to the camera (the far ring), so a blade does not thin below a pixel and flicker;
+  // the near blades finer at the camera's feet, where a blade is many pixels wide
+  float camDist = distance((modelMatrix * vec4(sceneXZ.x, ground0, sceneXZ.y, 1.0)).xyz, cameraPosition);
+  float grow = uGrassGrow > 0.0 ? clamp(camDist * uGrassGrow, 1.0, 3.0) : mix(0.6, 1.0, smoothstep(2.0, 18.0, camDist));
+  float bladeWidth = kind.z * (0.8 + aBladeRand.z * 0.45) * sqrt(keep) * uGrassWidth * uGrassSize.x * grow * (1.0 + 0.8 * broad - 0.35 * seedHead);
   // Turned at random, bent by its own lean and the wind
   float a = aBladeRand.x * 6.2832;
   vec2 dir = vec2(cos(a), sin(a));
@@ -417,29 +453,9 @@ if (keep > 0.0) {
   // Bent, not stretched
   transformed.y *= inversesqrt(1.0 + dot(bow, bow));
   transformed += vec3(sceneXZ.x, ground0, sceneXZ.y);
-  // The ground's colour here: the grass layers' averages by splat weight, with the terrain's macro
-  // variation and grading (terrain-material.ts), so blades match the painted ground under them
-  vec3 ground = vec3(0.0);
-  float gw = 0.0;
-  for (int k = 0; k < 4; k++) {
-    ground += uGrassColors[k] * s0[k] * uGrassMask0[k] + uGrassColors[k + 4] * s1[k] * uGrassMask1[k];
-    gw += s0[k] * uGrassMask0[k] + s1[k] * uGrassMask1[k];
-    ground += uGrassColors[k + 8] * s2[k] * uGrassMask2[k];
-    gw += s2[k] * uGrassMask2[k];
-  }
-  ground /= max(gw, 1e-3);
-  // The terrain's macro variation from the same texture (terrain-material.ts)
-  vec4 varCoarse = variationAt(mapPos);
-  float n1 = varCoarse.r;
-  float n2 = varCoarse.g;
-  float n3 = varCoarse.b;
-  ground *= mix(0.86, 1.1, n1 * 0.6 + n2 * 0.4) * mix(0.93, 1.06, n3);
-  ground = mix(ground, ground * vec3(1.1, 1.04, 0.8), smoothstep(0.5, 0.85, n2) * 0.5);
-  ground = mix(ground, ground * vec3(0.84, 0.92, 0.95), smoothstep(0.45, 0.15, n1) * 0.6);
-  ground *= mix(vec3(1.0), vec3(0.86, 1.04, 0.92), smoothstep(0.0, 0.08, ground.g - max(ground.r, ground.b)));
-  ground = mix(vec3(dot(ground, vec3(0.299, 0.587, 0.114))), ground, 0.94);
-  // The ground's texture AO darkens it a little on average
-  ground *= 0.94;
+  // The ground's colour here as the terrain paints it (its bake from above: layers, variation, the biome's mood),
+  // so blades match the ground under them; its texture AO darkens it a little on average
+  vec3 ground = groundColorAt(mapPos) * 0.94;
   // Darker root, lighter tip, each blade a little different; the same brightness as the ground on
   // average, and flatter with distance (the far ring's larger blades later), where single blades are below a pixel
   float near = 1.0 - smoothstep(uGrassFlat.x, uGrassFlat.y, length((modelViewMatrix * vec4(transformed, 1.0)).xyz));
@@ -453,5 +469,17 @@ if (keep > 0.0) {
   vec3 bloom = aBladeRand.z < 0.45 ? vec3(1.0, 0.98, 0.9) : aBladeRand.z < 0.75 ? vec3(1.0, 0.82, 0.25) : vec3(0.62, 0.45, 0.9);
   vBladeColor = mix(vBladeColor, lum * 2.2 * vec3(1.15, 1.0, 0.62), tip * seedHead);
   vBladeColor = mix(vBladeColor, lum * 3.2 * bloom, tip * flower * meadow);
+  // Against the sun the blade glows through, most at its thin tip, less where it is many blades deep (far)
+  vBladeGlow = smoothstep(0.15, 1.0, t) * near * (1.0 - flower * tip);
 }
 `;
+
+/**
+ * three's light loop with the sun's light shining through the blades
+ * (GRASS_GLOW, after its shadow): seen against it, a blade's tip glows in
+ * its own colour, a meadow in the evening rims bright
+ */
+const GRASS_LIGHTS = ShaderChunk.lights_fragment_begin.replace(
+  /(vDirectionalShadowCoord\[ i \] \) : 1\.0;\s*#endif\s*)(RE_Direct\()/,
+  '$1reflectedLight.directDiffuse += directLight.color * diffuseColor.rgb * vBladeGlow * 0.55 * pow(max(dot(geometryViewDir, -directLight.direction), 0.0), 4.0);\n\t\t$2',
+);

@@ -125,6 +125,8 @@ export interface TerrainMaterialParams {
   splatResolution?: number;
   /** Layers the shader loops over, when not the array's (warm-up twins of a larger variant) */
   layers?: number;
+  /** Draws the ground's colour alone, unlit, as from a few dozen metres (ground-albedo.ts bakes the map with it) */
+  albedoBake?: boolean;
 }
 
 export class TerrainMaterial extends MeshStandardMaterial {
@@ -209,6 +211,9 @@ export class TerrainMaterial extends MeshStandardMaterial {
   /** Splat layers the shader reads: 8 from two maps, 12 when the map has the third (its own program) */
   readonly splatLayers: number;
 
+  /** The colour bake's variant (TerrainMaterialParams.albedoBake) */
+  readonly albedoBake: boolean;
+
   constructor(params: TerrainMaterialParams) {
     super({ roughness: 1, metalness: 0 });
     this.name = 'custom-map-terrain';
@@ -216,6 +221,7 @@ export class TerrainMaterial extends MeshStandardMaterial {
     this.userData['noLavaGlow'] = true;
     this.layerCount = terrainLayerCount(params.layers ?? params.colorArray.image.depth);
     this.splatLayers = params.splat.length > 2 ? 12 : 8;
+    this.albedoBake = !!params.albedoBake;
     this.setParams(params);
     this.setGroundMood('temperate');
     this.onBeforeCompile = (shader) => {
@@ -229,7 +235,10 @@ export class TerrainMaterial extends MeshStandardMaterial {
           `#include <begin_vertex>\n#ifndef TERRAIN_APRON\n${TERRAIN_HEIGHT_VERTEX}\n#endif\nvTerrainPos = transformed;\nvTerrainNormal = objectNormal;`,
         );
       shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', `#include <common>\n#define TERRAIN_LAYERS ${this.layerCount}\n#define TERRAIN_SPLATS ${this.splatLayers}\n${TERRAIN_FRAGMENT_PARS}`)
+        .replace(
+          '#include <common>',
+          `#include <common>\n#define TERRAIN_LAYERS ${this.layerCount}\n#define TERRAIN_SPLATS ${this.splatLayers}\n${this.albedoBake ? '#define TERRAIN_ALBEDO_BAKE\n' : ''}${TERRAIN_FRAGMENT_PARS}`,
+        )
         .replace('#include <map_fragment>', TERRAIN_SAMPLE)
         // The marker lets addHeightFog add wetness after the terrain's own roughness
         .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = terrainRough;\n// map-roughness-done')
@@ -328,7 +337,7 @@ export class TerrainMaterial extends MeshStandardMaterial {
   }
 
   override customProgramCacheKey(): string {
-    return `custom-map-terrain-3-${this.layerCount}-${this.splatLayers}`;
+    return `custom-map-terrain-3-${this.layerCount}-${this.splatLayers}${this.albedoBake ? '-albedo' : ''}`;
   }
 }
 
@@ -381,6 +390,13 @@ uniform vec3 uMoodShore;
 uniform vec3 uMoodClover;
 uniform vec3 uMoodFlower;
 uniform float uMoodSat;
+// How far off the camera stands, for what changes with distance (far ground cheaper, its blend to the average). The
+// colour bake (ground-albedo.ts) sees the ground as from a few dozen metres, where grass and water read it
+#ifdef TERRAIN_ALBEDO_BAKE
+#define TERRAIN_VIEW_DIST 30.0
+#else
+#define TERRAIN_VIEW_DIST length(vViewPosition)
+#endif
 // The coarse self-structure's scale against a layer's own (no simple fraction: the repeats never line up)
 #define COARSE_SCALE 0.157
 uniform float uTerrainTime;
@@ -693,7 +709,7 @@ if (cliffSides) {
 // macro variation stays). The textures fade into those colours over the last 30 % before uFarFlat: a
 // dithered band of 30 m swept the paint over the ground as the intro's camera came down from its overview
 float farJitter = (sel - 0.5) * 30.0;
-float viewDist = length(vViewPosition);
+float viewDist = TERRAIN_VIEW_DIST;
 bool farSingle = viewDist > uFarSingle + farJitter;
 bool farFlat = viewDist > uFarFlat;
 float farFade = smoothstep(uFarFlat * 0.7, uFarFlat, viewDist);
@@ -812,7 +828,7 @@ float greenLead = smoothstep(0.0, 0.08, albedo.g - max(albedo.r, albedo.b));
 albedo *= mix(vec3(1.0), vec3(0.86, 1.04, 0.92), greenLead);
 // The biome's saturation: photo textures under a strong sun read too green, a marsh or a wasteland duller still
 albedo = mix(vec3(dot(albedo, vec3(0.299, 0.587, 0.114))), albedo, uMoodSat);
-float far = smoothstep(120.0, 900.0, length(vViewPosition));
+float far = smoothstep(120.0, 900.0, TERRAIN_VIEW_DIST);
 albedo = mix(albedo, accAvg * mix(0.8, 1.15, macro), far * 0.45);
 // The coarse structure as the layer's own light and dark and its hue drift (dry blades, damp earth) against its
 // average colour; not on rock faces (a top projection) nor on glowing ground
@@ -953,4 +969,9 @@ float groundAO = mix(shape.r, 1.0, outside);
 terrainAO = mix(1.0, accD.a, 0.85) * groundAO;
 diffuseColor.rgb = albedo;
 }
+#ifdef TERRAIN_ALBEDO_BAKE
+// The bake keeps the colour alone (linear; the target's sRGB encodes it): nothing of the lighting below
+gl_FragColor = vec4(diffuseColor.rgb, 1.0);
+return;
+#endif
 `;

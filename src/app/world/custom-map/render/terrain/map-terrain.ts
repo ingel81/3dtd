@@ -6,6 +6,7 @@ import {
   Vector4,
   type DataTexture,
   type Vector3,
+  type WebGLRenderer,
 } from 'three';
 import { MAX_GROUND_LAYERS, type MapBiome, type MapTerrain as MapTerrainDoc, type MapPaths } from '../../map-document';
 import type { HeightField } from '../height-field';
@@ -22,6 +23,7 @@ import { GrassLayers } from '../grass/grass-layers';
 import { GroundOcclusion } from './ground-occlusion';
 import { HeightTexture } from './height-texture';
 import { setGroundColors } from './ground-color';
+import { GroundAlbedo } from './ground-albedo';
 import { FarShadow } from './far-shadow';
 import { TerrainCuts } from './terrain-cuts';
 import { RoadSurfaceLayer } from '../paths/road-surface';
@@ -132,6 +134,10 @@ export class MapTerrainLayer {
   readonly farShadow = new FarShadow();
   /** Blades on the grass layers, near the camera and in a ring beyond */
   readonly grass: GrassLayers;
+  /** The ground's colour baked from above for the grass and the water's view of the land (ground-albedo.ts) */
+  readonly albedo: GroundAlbedo;
+  /** The ground's material in its colour bake's variant, on the ground material's own uniforms */
+  private albedoMaterial: TerrainMaterial | null = null;
   /** The height grid on the GPU (water depth, grass) */
   readonly heightTexture: HeightTexture;
   /** The ground cut away inside the openings of models set into it (tunnel portals), shared with the material */
@@ -140,7 +146,7 @@ export class MapTerrainLayer {
   readonly roads: RoadSurfaceLayer;
   /** The surfaces of squares, pitches and car parks over the ground, the same way (surfaces/surface-layer.ts) */
   readonly surfaces: SurfaceLayer;
-  private grassInputs: Omit<GrassInputs, 'splat' | 'pathMask'> | null = null;
+  private grassInputs: (Omit<GrassInputs, 'pathMask'> & { colors: Color[]; width: number; depth: number }) | null = null;
   /** The border's natural ground for the apron, and which map layers count as natural */
   private apronPaint: DataTexture | null = null;
   private natural: boolean[] | null = null;
@@ -170,6 +176,7 @@ export class MapTerrainLayer {
     this.roads = new RoadSurfaceLayer(field, this.heightTexture, this.normals.texture);
     this.surfaces = new SurfaceLayer(field, this.heightTexture, this.normals.texture);
     this.grass = new GrassLayers(this.heightTexture);
+    this.albedo = new GroundAlbedo(terrain.width, terrain.depth);
     for (const m of this.grass.meshes) m.visible = false;
   }
 
@@ -272,6 +279,12 @@ export class MapTerrainLayer {
     }
     this.material?.dispose();
     this.apronMaterial?.dispose();
+    this.albedoMaterial?.dispose();
+    // The colour bake's twin shares every uniform of the ground's, so what the layer sets on it holds there too
+    this.albedoMaterial = new TerrainMaterial({ ...params, albedoBake: true });
+    Object.assign(this.albedoMaterial.terrainUniforms, material.terrainUniforms);
+    addHeightFog(this.albedoMaterial);
+    this.albedo.invalidate();
     this.arrays?.dispose();
     this.splat?.dispose();
     this.arrays = arrays;
@@ -292,10 +305,15 @@ export class MapTerrainLayer {
       const px = pixels[slots.splat[k]];
       return px ? new Color().setRGB(px.average[0], px.average[1], px.average[2], SRGBColorSpace) : new Color();
     });
+    // Each grass layer's own blades (the catalogue's: a lawn short, a meadow tall)
+    const blades: GrassInputs['blades'] = [];
     t.layers.slice(0, MAX_GROUND_LAYERS).forEach((layer, k) => {
-      if (entryOf(layer.material)?.category === 'grass') mask[k >> 2]?.setComponent(k & 3, 1);
+      const entry = entryOf(layer.material);
+      if (entry?.category !== 'grass') return;
+      mask[k >> 2]?.setComponent(k & 3, 1);
+      blades[k] = entry.blades ?? null;
     });
-    this.grassInputs = { mask, colors, width: t.width, depth: t.depth };
+    this.grassInputs = { mask, blades, colors, width: t.width, depth: t.depth };
     this.updateGrassInputs();
   }
 
@@ -341,8 +359,19 @@ export class MapTerrainLayer {
 
   private updateGrassInputs(): void {
     if (!this.grassInputs || !this.splat || !this.pathMask) return;
-    this.grass.setInputs({ ...this.grassInputs, splat: this.splat.maps, pathMask: this.pathMask });
+    this.grass.setInputs({ mask: this.grassInputs.mask, blades: this.grassInputs.blades, pathMask: this.pathMask });
     setGroundColors(this.splat.maps, this.grassInputs.colors, this.grassInputs.width, this.grassInputs.depth);
+  }
+
+  /** Bakes the ground's colour now (the map's first, before it shows), its program built off the main thread */
+  bakeGroundColor(renderer: WebGLRenderer): Promise<void> {
+    if (!this.albedoMaterial) return Promise.resolve();
+    return this.albedo.bake(renderer, this.chunks.meshes.map((m) => m.geometry), this.albedoMaterial);
+  }
+
+  /** Bakes the ground's colour again once an edit settled, `dt` seconds on */
+  updateGroundColor(dt: number, renderer: WebGLRenderer | undefined): void {
+    this.albedo.update(dt, renderer, this.chunks.meshes.map((m) => m.geometry), this.albedoMaterial);
   }
 
   /** `focus`: the camera's point on the ground (map space), where the terrain keeps its full detail */
@@ -356,6 +385,7 @@ export class MapTerrainLayer {
   /** Heights changed in `rect` (all when omitted); whether the apron changed with them (the border's heights) */
   rebuild(rect?: GridRect): boolean {
     this.chunks.rebuild(rect);
+    this.albedo.invalidate();
     const f = this.field;
     const bounds = rect && { minX: f.originX + rect.i0 * f.cellSize, minY: f.originY + rect.j0 * f.cellSize, maxX: f.originX + rect.i1 * f.cellSize, maxY: f.originY + rect.j1 * f.cellSize };
     this.roads.refreshBounds(bounds);
@@ -382,6 +412,7 @@ export class MapTerrainLayer {
     if (biome === this.biome) return;
     const height = BACKDROP_HEIGHT[biome] !== BACKDROP_HEIGHT[this.biome];
     this.biome = biome;
+    this.albedo.invalidate();
     // The ground's mood (ground-mood.ts); the apron shares the material's uniforms
     this.material?.setGroundMood(biome);
     for (const [ground] of this.twins.values()) ground.setGroundMood(biome);
@@ -397,6 +428,7 @@ export class MapTerrainLayer {
   refreshWater(): void {
     // The apron's sea floor follows the water
     this.refreshApron();
+    this.albedo.invalidate();
     this.normals.setWater(this.terrain.water?.mask ?? null);
     this.material?.setWaterLevel(this.terrain.water?.level ?? null, this.terrain.water?.kind);
   }
@@ -404,11 +436,13 @@ export class MapTerrainLayer {
   /** The main water's mask changed in `rect` (samples) only: the wet banks there */
   refreshWaterMask(rect: GridRect): void {
     this.normals.setWater(this.terrain.water?.mask ?? null, rect);
+    this.albedo.invalidate();
   }
 
   /** Splat weights changed (painted in place or replaced) */
   refreshSplat(rect?: GridRect): void {
     this.splat?.refresh(this.terrain.splat, rect);
+    this.albedo.invalidate();
     // The apron carries the border's paint on: again when the paint near the border changed
     const t = this.terrain;
     const band = Math.ceil((APRON_PAINT_BAND / t.width) * t.splat.resolution);
@@ -451,6 +485,7 @@ export class MapTerrainLayer {
     const row = (rect.i1 - rect.i0 + 1) * 4;
     for (let j = rect.j0; j <= rect.j1; j++) texels.set(data.subarray((j - rect.j0) * row, (j - rect.j0 + 1) * row), (j * resolution + rect.i0) * 4);
     uploadRect(mask, rect);
+    this.albedo.invalidate();
     return true;
   }
 
@@ -462,6 +497,8 @@ export class MapTerrainLayer {
     this.apron.removeFromParent();
     this.material?.dispose();
     this.apronMaterial?.dispose();
+    this.albedoMaterial?.dispose();
+    this.albedo.dispose();
     for (const pair of this.twins.values()) for (const twin of pair) twin.dispose();
     this.placeholder.dispose();
     this.apronPlaceholder.dispose();

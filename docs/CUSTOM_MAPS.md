@@ -220,9 +220,25 @@ Nebel der Szene wieder her.
   und alle 8 Bilder. Mit SwiftShader als Ersatz für eine schwache GPU (Burg im Herbst, Nahansicht, GPU-Median je
   Bild, Gras als Unterschied zu einem Build ohne Gras, ein ruhiger Lauf) High 593 ms mit Pass gegen 639 ms ohne,
   Medium 204 gegen 235 ms: 7 und 13 % weniger, unter den geforderten 15 %, bei einer Streuung zwischen Läufen in
-  derselben Größe; dazu 3,2 MB Ziele und kein Rückfall ohne `EXT_color_buffer_float`. Halmsorten aus den Zufallswerten des Halms: meist
-  schlicht, manche kurz und breit, manche hoch mit strohfarbenem Samenstand, wenige blühen weiß, gelb oder violett
-  (nur auf grüner Wiese, nur nah)
+  derselben Größe; dazu 3,2 MB Ziele und kein Rückfall ohne `EXT_color_buffer_float`. **Halme je Bodenschicht**
+  (Katalog `blades` der Grasmaterialien, `materials.json`): Höhe von und bis, Breite und ob Samenstände und Blüten
+  wachsen, nach den Splat-Gewichten gemischt; Rasen (`grass-lush`, OSM `lawn`, `park`, Sportplatz) 6 bis 12 cm und fein,
+  das Grundgras 14 bis 32 cm, Wiesen 35 bis 80 cm, ohne Eintrag die Wiese (`DEFAULT_BLADES`). Halmsorten aus den
+  Zufallswerten: meist schlicht, manche kurz und breit, auf Schichten mit `heads` manche hoch mit strohfarbenem
+  Samenstand, wenige blühen weiß, gelb oder violett (nur auf grüner Wiese, nur nah). Halme sammeln sich zu Büscheln
+  (Zellen von 0,8 m, jede zieht ihre Halme verschieden stark zur Mitte, am Rand kürzer), nah an der Kamera sind sie
+  schmaler (bis 60 % unter 2 m). Um Gebäude, Bauwerke, stehende Mauern ab 1,5 m und Felsen werden sie über 1,5 m zur
+  Wand hin kürzer, ab 0,3 m keiner mehr: der Abstand zum Grundriss (Rechteck `box`, Umriss gehobener Gebäude, sonst
+  Fußkreis) liegt im zweiten Kanal der CoverMap. Die Farbe kommt aus `groundColorAt` (gebackene Bodenfarbe, unten),
+  im Gegenlicht leuchtet der Halm zur Spitze hin durch (im Lichtdurchlauf nach dem Schatten der Sonne, GRASS_LIGHTS)
+- **Gebackene Bodenfarbe** (`terrain/ground-albedo.ts`): die Farbe, die der Gelände-Shader malt (Schichten,
+  Makrovariation, grobe Eigenstruktur, Stimmung des Bioms mit Kuppen, Mulden, Flecken, Trampelrändern, Ufern), einmal
+  von oben über die ganze Karte gerendert, wie aus einigen Dutzend Metern gesehen (Variante `albedoBake` des
+  Gelände-Materials mit dessen eigenen Uniforms, `TERRAIN_ALBEDO_BAKE`: feste Sichtweite, nur die Farbe). Ein Meter je
+  Texel, höchstens 1024 (eine OSM-Welt von 2,4 km bekommt 2,3 m), 4 MB. `groundColorAt` (`ground-color.ts`) liest sie,
+  sobald sie steht, vorher die Mittelfarben der Splat-Schichten: Gras und das Land im Wasserspiegel nehmen so die Farbe
+  des Bodens, auf dem sie stehen. Gebacken beim Aufwärmen der Karte (Programm vorab abseits des Hauptthreads) und
+  wieder 0,35 s nach der letzten Änderung von Höhen, Bemalung, Wegemaske, Wasser oder Biom
 - **Schnee und Nässe** (alle Kartenmaterialien, `height-fog.ts`): Schnee liegt auf allem, was nach oben zeigt
   (`environment.snowCover`, sonst aus Biom arctic oder Schneewetter), Regen macht Flächen dunkler und glänzender.
   Auf dem Boden sammelt sich Schnee zuerst in Mulden und im Windschatten (Hänge, deren Gefälle mit dem Wind läuft):

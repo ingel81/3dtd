@@ -19,6 +19,14 @@
       "tags": [
         "temperate"
       ],
+      "blades": {
+        "height": [
+          0.14,
+          0.32
+        ],
+        "width": 0.05,
+        "heads": true
+      },
       "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
@@ -40,6 +48,13 @@
         "temperate",
         "swamp"
       ],
+      "blades": {
+        "height": [
+          0.06,
+          0.12
+        ],
+        "width": 0.022
+      },
       "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
@@ -61,6 +76,14 @@
         "temperate",
         "desert"
       ],
+      "blades": {
+        "height": [
+          0.22,
+          0.5
+        ],
+        "width": 0.034,
+        "heads": true
+      },
       "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
@@ -81,6 +104,14 @@
       "tags": [
         "temperate"
       ],
+      "blades": {
+        "height": [
+          0.35,
+          0.8
+        ],
+        "width": 0.06,
+        "heads": true
+      },
       "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
@@ -374,6 +405,14 @@
         "temperate",
         "mountain"
       ],
+      "blades": {
+        "height": [
+          0.12,
+          0.34
+        ],
+        "width": 0.032,
+        "heads": true
+      },
       "source": "https://polyhaven.com/a/sparse_grass"
     },
     {
@@ -395,6 +434,13 @@
         "temperate",
         "village"
       ],
+      "blades": {
+        "height": [
+          0.12,
+          0.28
+        ],
+        "width": 0.045
+      },
       "source": "https://polyhaven.com/a/leafy_grass"
     },
     {
@@ -417,6 +463,14 @@
         "desert",
         "winter"
       ],
+      "blades": {
+        "height": [
+          0.18,
+          0.45
+        ],
+        "width": 0.034,
+        "heads": true
+      },
       "source": "procedural (tools/map-assets/bake_grounds.py)"
     },
     {
@@ -2345,6 +2399,14 @@
         "temperate",
         "village"
       ],
+      "blades": {
+        "height": [
+          0.3,
+          0.7
+        ],
+        "width": 0.055,
+        "heads": true
+      },
       "source": "https://polyhaven.com/a/grass_ground"
     },
     {
@@ -2365,6 +2427,14 @@
       "tags": [
         "mountain"
       ],
+      "blades": {
+        "height": [
+          0.1,
+          0.3
+        ],
+        "width": 0.035,
+        "heads": true
+      },
       "source": "https://polyhaven.com/a/aerial_grass_rock"
     },
     {

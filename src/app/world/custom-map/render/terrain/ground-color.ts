@@ -1,11 +1,13 @@
 import { Color, Vector2, type Texture } from 'three';
 
 /**
- * The ground's colour at a map point for shaders that see the land from
- * elsewhere (the land in a water reflection, water-material.ts): the
- * splat's layer averages by their weights there, linear. One set for the
- * map on show; MapTerrain fills it whenever its layers or splat change.
- * Two splat lookups, three on a map with more than 8 layers.
+ * The ground's colour at a map point for shaders that stand on the land or
+ * see it from elsewhere (grass blades, the land in a water reflection),
+ * linear: the terrain's own colour baked from above (ground-albedo.ts) once
+ * it is there, until then the splat's layer averages by their weights
+ * (two splat lookups, three on a map with more than 8 layers). One set for
+ * the map on show; MapTerrain fills it whenever its layers or splat
+ * change, the bake when it has drawn.
  */
 export const GROUND_COLOR_UNIFORMS = {
   uGroundSplat0: { value: null as Texture | null },
@@ -17,6 +19,9 @@ export const GROUND_COLOR_UNIFORMS = {
   uGroundSize: { value: new Vector2(1, 1) },
   /** Splat channels in use: 8, or 12 with a third map */
   uGroundLayers: { value: 8 },
+  /** The baked colour (GroundAlbedo) over the whole map, and 1 once it holds the map on show */
+  uGroundAlbedo: { value: null as Texture | null },
+  uGroundAlbedoOn: { value: 0 },
 };
 
 export function setGroundColors(splat: readonly Texture[], colors: readonly Color[], width: number, depth: number): void {
@@ -37,8 +42,11 @@ uniform sampler2D uGroundSplat2;
 uniform vec3 uGroundColors[12];
 uniform vec2 uGroundSize;
 uniform float uGroundLayers;
+uniform sampler2D uGroundAlbedo;
+uniform float uGroundAlbedoOn;
 vec3 groundColorAt(vec2 m) {
   vec2 uv = clamp(m / uGroundSize + 0.5, 0.0, 1.0);
+  if (uGroundAlbedoOn > 0.5) return textureLod(uGroundAlbedo, uv, 0.0).rgb;
   vec4 s0 = texture2D(uGroundSplat0, uv);
   vec4 s1 = texture2D(uGroundSplat1, uv);
   vec3 c = vec3(0.0);

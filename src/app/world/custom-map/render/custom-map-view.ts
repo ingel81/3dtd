@@ -436,6 +436,9 @@ export class CustomMapView {
     // wait until every program is built, or the frames below and the first frames link them
     await programsReady(renderer);
     if (this.disposed) return 0;
+    // The ground's colour for the grass and the water's view of the land, before the first frame shows them
+    await this.terrain.bakeGroundColor(renderer);
+    if (this.disposed) return 0;
     // compileAsync leaves out the shadow pass: its depth programs (instanced, alpha-tested cards,
     // per material) compiled on the first frame a caster entered the sun's box, a stall of seconds.
     // One frame with a cell of every asset casting and all else shown (withAllShown) compiles them now,
@@ -719,6 +722,7 @@ export class CustomMapView {
       if (this.heights.raycast(this.viewRay, this.focusPoint, 3000) === null) this.heights.groundAhead(this.camPos, this.viewRay.direction, this.focusPoint);
     }
     this.terrain.update(this.camPos, clock, this.focusPoint);
+    this.terrain.updateGroundColor(dtSeconds, this.options.renderer);
     const reach = this.camPos.distanceTo(this.focusPoint);
     this.armReflection(camera, dtSeconds);
     // Shadow box fitted to the ground the camera sees: sharp up close, wide from high up or looking far

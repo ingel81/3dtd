@@ -62,6 +62,13 @@ export interface CatalogMaterial {
    * and gravel paths are not paved; they stay earthy inside
    */
   paved?: boolean;
+  /**
+   * Grass layers: the blades that grow on it, heights from and to and their
+   * width in metres, and whether seed heads and flowers show among them (a
+   * lawn short and fine, a meadow knee-high and flowering); without, the
+   * meadow's (grass-field.ts DEFAULT_BLADES)
+   */
+  blades?: { height: [number, number]; width: number; heads?: boolean };
 }
 
 export type ObjectCategory = 'tree' | 'rock' | 'plant' | 'building' | 'prop' | 'wall' | 'structure' | 'fx';

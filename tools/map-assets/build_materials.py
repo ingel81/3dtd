@@ -244,6 +244,8 @@ def entry(m, out):
         e['flow'] = m['flow']
     if m.get('paved'):
         e['paved'] = True
+    if m.get('blades'):
+        e['blades'] = m['blades']
     e['source'] = url
     return e
 

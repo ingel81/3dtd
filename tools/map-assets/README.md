@@ -17,6 +17,8 @@ python -I tools/map-assets/build_materials.py $DL/materials public/maps/assets [
 # übermalt die Farbe mit einem Kuwahara-Filter (Pinselflächen statt Render-Rauschen, kachelbar) und bringt die Mittelfarbe auf `target` (Helligkeit ganz, Ton halb: die Karten sind darauf abgestimmt)
 blender --background --factory-startup --python tools/map-assets/bake_grounds.py -- $DL/grounds [<id> ...]
 
+# Grasschichten tragen in materials.json ihre Halme (`blades`: Höhe von und bis, Breite in m, `heads` für Samenstände
+# und Blüten); build_materials.py schreibt sie in den Katalog
 # Dieselben als KTX2 (Basis ETC1S) in den zwei Ebenen des Geländes, je Material nicht größer als die drei JPGs
 python -I tools/map-assets/pack_textures.py --ktx <ktx.exe> public/maps/assets [<id> ...] [--psnr]
 
