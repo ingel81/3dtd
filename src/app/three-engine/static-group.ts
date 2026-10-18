@@ -86,15 +86,12 @@ export class StaticGroup extends Group {
       super.updateMatrixWorld(true);
       return;
     }
-    const added = this.added;
-    for (let k = 0; k < added.length; k++) {
-      const o = added[k];
+    for (const o of this.added) {
       // Taken out again meanwhile: nothing of this group to compute
       if (o.parent && this.holds(o)) o.updateMatrixWorld(true);
     }
-    added.length = 0;
-    const moving = this.moving;
-    for (let k = 0; k < moving.length; k++) moving[k].updateMatrixWorld(false);
+    this.added.length = 0;
+    for (const o of this.moving) o.updateMatrixWorld(false);
     const inner = this.inner;
     for (let k = inner.length - 1; k >= 0; k--) {
       if (this.holds(inner[k])) inner[k].updateMatrixWorld(false);
