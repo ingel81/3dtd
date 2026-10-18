@@ -288,6 +288,31 @@ Entschieden (User, 2026-10-16): alle zwölf Empfehlungen unten übernommen.
   den Welten; die alte Kartenwahl ist entfernt. „Make map“ und die Ortswahl öffnen den OSM-Rahmen der Globen;
   Test map startet mit `play` (Ladezeile, Cancel zurück in den Editor).
 - **Wahl je Welt** bleibt über Neuladen (`td_world_picks_v1`).
+- **Nachschliff der Abläufe (2026-10-18):**
+  - Eine gehaltene Welt, deren Lauf mitten in einer Welle steht, fragt, bevor etwas anderes startet (Start einer
+    anderen Welt, Load, Map editor, Edit, New map, Coop-Beitritt; `WorldsStageService.leavingHeld`): „Go on“ behält
+    den Autosave vom Wellenanfang oder beendet den Lauf ohne einen, „Back to <Ort>“, „Cancel“. Was beim Gehen
+    bleibt, steht beim Halten fest (`ParkedWorld.keeps`, dieselbe Regel wie beim Editor, `runWhenEditing`); zwischen
+    den Wellen bleibt der Lauf als Autosave ohne Frage. Ein Chip einer anderen Welt hält das Spiel erst hinter den
+    Globen (`MainMenuService.goElsewhere`), die Frage kommt dann dort; im Coop-Raum öffnet er das Menü mit Grund.
+  - Die Startliste einer sofort geöffneten Welt (Einladung, Code, Spielstand) hat World menu und All worlds; eine
+    Welt, die nie steht (Relay antwortet nicht), war vorher eine Sackgasse. Sie wird dabei nicht gehalten.
+  - Ohne Map-Key führt der Key-Dialog im Spiel „Back to the worlds“ (Esc) zurück zu den Globen, die Welt geht; vorher
+    hielt er fest. Auf den Globen öffnet „Play the maps“ das Weltmenü von Built Worlds mit gewählter Karte, statt
+    an Weltmenü und Rückfrage vorbei zu laden.
+  - Ein Lauf hat überall dieselbe Wellenzahl: zwischen den Wellen die nächste (`MainMenuService.runWave`, wie Chip,
+    Continue und Spielstand); vorher sagte der Kopf des Pausemenüs eine weniger.
+  - Nach Game over: Kopf „Game over“, Save game gesperrt mit „The run is over“, die gehaltene Welt sagt „Still
+    loaded, the run is over“ (`ParkedWorld.over`); Knöpfe „Menu“ und „Edit this map“ wie im Pausemenü.
+  - Load im Spiel eines Spielstands auf derselben Karte fragt „The run under way ends“ statt „… waits in Built
+    Worlds“ (`MainMenuService.loadAsk`).
+  - Ein Weltmenü zeigt sein eigenes Continue nur als erste Zeile, nicht noch als Chip; es nimmt beim Öffnen den
+    Fokus auf den ersten Eintrag, Esc gibt ihn an seinen Globus zurück.
+  - OSM-Rahmen auf den Globen mit einem Back (Kopf, Esc); aus dem Spiel („Make map“) führt Back zurück ins Spiel.
+    Fertig heißt die Karte „one of your Recent worlds“. Load from a file auf den Globen ist gesperrt und sagt
+    vorher warum (`SaveGamePort.cannotImportReason`).
+  - Probespiel: der Pfad sagt „Trial“ statt „Play“. Editor-Liste: „Open“ auch bei mitgelieferten Karten (die
+    Kopie entsteht erst mit der ersten Änderung).
 - **Specs:** `worlds/worlds-stage.scenario.spec.ts` (Continue, Discard, live, Start/Load mit Rückfrage, gehaltene
   Welt, Chips, Recent worlds, Built Worlds, Wahl nach Neuladen), `world-rules.spec.ts`, `recent-maps.spec.ts`,
   `save-slot.store.spec.ts` (Migration, Beobachter), `save-game.service.spec.ts` (Game over),

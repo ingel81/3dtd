@@ -470,7 +470,8 @@ Dev-Build (`ng`), im Produktions-Build stehen sie auf -1.
   offen), der Chip des Laufs zurück zum Lauf, Maps zur Kartenliste, Play zum Lauf dieser Karte oder einem neuen.
   Gesperrte Wege bleiben sichtbar, inaktiv, mit Grund (`world/why-not.ts`, `whyNot('play' | 'edit')`, für Phase 6
   zum Erweitern). Ein Coop-Chip im Editor entfällt: wer den Editor öffnet, verlässt den Raum.
-- Bleibt: der Pfad im Spiel nennt eine OSM-Karte „Maps“ (`worldName` kennt nur den `WorldRef`). Globen gehören zum
+- Der Pfad im Spiel nennt die Welt wie ihr Weltmenü und das Pausemenü (`worldName(worldOfPage(ref))`, seit
+  2026-10-18; vorher hieß eine OSM-Karte „Maps“, ein eigenes Tileset „Own tilesets“). Globen gehören zum
   Spielbildschirm der Hülle (GameHost, `WorldSession.isOpen`), einen eigenen Zustand der Hülle brauchen sie nicht;
   `/editor` mit „Back to the game“ ohne offenen Lauf landet auf den Globen. `opensAtOnce` zählt Benchmark und
   Probespiel über den Startauftrag (`benchmark`, `trial`).
