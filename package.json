@@ -1,6 +1,6 @@
 {
   "name": "3dtd",
-  "version": "0.7.1",
+  "version": "0.7.3",
   "scripts": {
     "ng": "ng",
     "start": "node tools/agent/build-script-worker.mjs && node tools/build-info.mjs --serve",

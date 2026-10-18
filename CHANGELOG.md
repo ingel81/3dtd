@@ -3,6 +3,19 @@
 What changed for players, newest first. Every release adds a section here, and the
 game shows it once after an update.
 
+## 0.7.3 (2026-10-18)
+
+### Fixed
+- Waves no longer run empty when a place has no route for the enemies, also after
+  Continue.
+
+## 0.7.2 (2026-10-18)
+
+### Fixed
+- Streets load again when the main map servers are busy: the game asks five Overpass
+  servers, regional ones first, and keeps trying for up to three minutes, saying so on
+  the loading plate.
+
 ## 0.7.1 (2026-10-13)
 
 ### Fixed
