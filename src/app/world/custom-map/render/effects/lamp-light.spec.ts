@@ -43,12 +43,18 @@ describe('lamp light', () => {
     expect(at(lamps, lamps.flicker, 0, 0)[0]).toBe(0);
   });
 
-  it('keeps a low light bright out to half its reach', () => {
+  it('gives a low light a soft pool with a long tail, no plateau', () => {
     const lamps = new LampLight(flat());
     // A torch 1 m over the ground with 12 m of reach: a pure inverse square left 3 percent at 6 m
     lamps.bake([{ ...lamp(0, 0), position: new Vector3(0, 5, 0) }]);
     const under = at(lamps, lamps.steady, 0, 0)[0];
-    expect(at(lamps, lamps.steady, 6, 0)[0]).toBeGreaterThan(under * 0.25);
+    const half = at(lamps, lamps.steady, 6, 0)[0];
+    const reach = at(lamps, lamps.steady, 12, 0)[0];
+    expect(half).toBeGreaterThan(under * 0.1);
+    expect(half).toBeLessThan(under * 0.5);
+    // The tail runs on past the catalogue reach, faint
+    expect(reach).toBeGreaterThan(0);
+    expect(reach).toBeLessThan(half * 0.5);
     lamps.dispose();
   });
 

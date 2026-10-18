@@ -294,6 +294,8 @@ export class DrapedMaterial extends MeshStandardMaterial {
         .replace('#include <normal_fragment_maps>', 'normal = normalize((viewMatrix * vec4(drapeNormal, 0.0)).xyz);')
         .replace('#include <aomap_fragment>', '#include <aomap_fragment>\nreflectedLight.indirectDiffuse *= drapeAO;\nreflectedLight.directDiffuse *= mix(1.0, drapeAO, 0.5);');
     };
+    // Roads and paving take the night's dew: moon and lamps glint on them (height-fog.ts uNightSheen)
+    this.userData['nightSheen'] = true;
     addHeightFog(this);
   }
 

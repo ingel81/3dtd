@@ -18,15 +18,19 @@ import type { HeightField } from '../height-field';
 /** Most texels a side */
 const MAX_TEXELS = 512;
 /** Light at the foot of a lamp of catalogue intensity 1 */
-const GAIN = 2.4;
+const GAIN = 2.8;
 /**
  * The falloff's core is at least this share of the reach wide: a pure
  * inverse square from a low lamp (a torch at 2 m) lit a hand's breadth of
  * ground and left the rest of its reach dark
  */
-const CORE = 0.3;
-/** Share of the foot's light that the whole pool keeps, fading only with its edge */
-const FLOOR = 0.3;
+const CORE = 0.2;
+/** Share of the foot's light that the whole pool keeps, fading only with its edge: a faint one, the tail does the rest */
+const FLOOR = 0.06;
+/** The pool's tail runs on past the catalogue reach, times it, before the window closes it */
+const TAIL = 1.5;
+/** How much the light varies over the pool (uneven paving, a dirty glass): ± this share, in patches of a few metres */
+const GRAIN = 0.12;
 
 interface Rect {
   i0: number;
@@ -51,6 +55,9 @@ export interface LampSpot {
   distance: number;
   flicker: boolean;
 }
+
+/** Height above a smooth surface its lamp glint looks for the light at, metres: a street lamp's */
+const LAMP_GLINT_HEIGHT = 4;
 
 export const LAMP_LIGHT_UNIFORMS = {
   /** 0 off (by day, no lights), up to 1 at night */
@@ -131,7 +138,7 @@ export class LampLight {
       const y = s.position.z;
       const ground = this.field.heightAt(x, y);
       const h = Math.max(0.5, s.position.y - ground);
-      const reach = Math.max(s.distance, h * 2.5);
+      const reach = Math.max(s.distance, h * 2.5) * TAIL;
       const r: Rect = {
         i0: Math.max(0, Math.floor((x - reach - this.originX) / this.texel)),
         i1: Math.min(this.columns - 1, Math.ceil((x + reach - this.originX) / this.texel)),
@@ -146,7 +153,7 @@ export class LampLight {
     if (!dirty) return false;
     this.clear(dirty);
     for (const { s, x, y, ground, h, reach, r } of work) {
-      const core = Math.max(h, reach * CORE);
+      const core = Math.max(h, (reach / TAIL) * CORE);
       const target = s.flicker ? flicker : steady;
       // Linear colour times strength; brighter lights reach further too (catalogue distance)
       color.copy(s.color).multiplyScalar(s.intensity * GAIN);
@@ -156,10 +163,11 @@ export class LampLight {
           const dx = this.originX + i * this.texel - x;
           const d2 = dx * dx + dy * dy;
           if (d2 >= reach * reach) continue;
-          // An inverse square from the light's height (its core at least CORE of the reach) over a faint floor
-          // (FLOOR), so the pool reads out to its reach, ending softly there
+          // An inverse square from the light's height (its core at least CORE of the reach): bright under the lamp,
+          // a long soft tail out past the reach, over a faint floor (FLOOR); a little uneven (GRAIN)
           const window = 1 - d2 / (reach * reach);
-          const f = (((core * core) / (d2 + core * core)) * (1 - FLOOR) + FLOOR) * window * window;
+          const grain = 1 + GRAIN * (valueNoise(this.originX + i * this.texel, this.originY + j * this.texel) * 2 - 1);
+          const f = (((core * core) / (d2 + core * core)) * (1 - FLOOR) + FLOOR) * window * window * grain;
           const k = j * this.columns + i;
           const q = k * 4;
           target[q] += color.r * f;
@@ -222,13 +230,28 @@ export class LampLight {
   }
 }
 
-/** Added to every map material's light (height-fog.ts): the baked lamp light, flickering where it is fire */
+/**
+ * Added to every map material's light (height-fog.ts): the baked lamp light, flickering where it is fire. On
+ * smooth surfaces (paving with the night's dew, wet stone) the lamps glint: the view reflected off the surface
+ * is followed up to a lamp's height and the light found there shows, a streak towards the viewer as on a wet
+ * street, at one lookup more.
+ */
 export const LAMP_LIGHT_FRAGMENT = /* glsl */ `
 if (uLampOn > 0.0) {
   // Faces turned up take it all, walls most of it, faces turned down little
   float lampUp = dot(normal, normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz));
   float lampFacing = 0.35 + 0.65 * clamp(lampUp * 0.5 + 0.5, 0.0, 1.0);
   totalEmissiveRadiance += diffuseColor.rgb * lampLightAt(vFogWorldPos) * lampFacing;
+  #ifdef STANDARD
+  float lampGloss = 1.0 - smoothstep(0.25, 0.6, roughnessFactor);
+  if (lampGloss > 0.0 && lampUp > 0.5) {
+    vec3 lampView = normalize(vFogWorldPos - cameraPosition);
+    vec3 lampMirror = reflect(lampView, vec3(0.0, 1.0, 0.0));
+    vec3 lampSeen = lampLightAt(vFogWorldPos + lampMirror * (${LAMP_GLINT_HEIGHT.toFixed(1)} / max(lampMirror.y, 0.08)));
+    float lampFresnel = 0.04 + 0.96 * pow(1.0 - clamp(lampMirror.y, 0.0, 1.0), 5.0);
+    totalEmissiveRadiance += lampSeen * lampGloss * lampGloss * (0.15 + 0.85 * lampFresnel) * 0.6;
+  }
+  #endif
 }
 `;
 
@@ -255,6 +278,27 @@ vec3 lampLightAt(vec3 worldPos) {
   return lampLight * (uLampOn * lampVertical);
 }
 `;
+
+/** Smooth value noise 0..1 over map metres, cells of 2.5 m */
+function valueNoise(x: number, y: number): number {
+  const fx = x / 2.5;
+  const fy = y / 2.5;
+  const ix = Math.floor(fx);
+  const iy = Math.floor(fy);
+  const tx = fx - ix;
+  const ty = fy - iy;
+  const sx = tx * tx * (3 - 2 * tx);
+  const sy = ty * ty * (3 - 2 * ty);
+  const a = hash(ix, iy) + (hash(ix + 1, iy) - hash(ix, iy)) * sx;
+  const b = hash(ix, iy + 1) + (hash(ix + 1, iy + 1) - hash(ix, iy + 1)) * sx;
+  return a + (b - a) * sy;
+}
+
+function hash(x: number, y: number): number {
+  let h = (Math.imul(x, 374761393) + Math.imul(y, 668265263)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
 
 /** The numbers of each spot that the bake reads, with the ground under it (an edit there bakes again), in one array */
 function lampSignature(spots: readonly LampSpot[], field: HeightField): Float64Array {
