@@ -287,9 +287,12 @@ void main() {
   vec3 surface = position;
 #ifdef SEA_WAVES
   // A swell on the open sea, flat towards the shore (the depth under the vertex)
-  float swell = smoothstep(0.5, 5.0, aDepth);
+  // and gone some hundreds of metres out, where the vertices lie farther apart than its waves (the rings beyond the
+  // border, 80 m and more): sampled there, its normals smeared into radial streaks across the far sea
+  vec3 swellAt = (modelMatrix * vec4(position, 1.0)).xyz;
+  float swell = smoothstep(0.5, 5.0, aDepth) * (1.0 - smoothstep(180.0, 450.0, distance(cameraPosition, swellAt)));
   vec3 swellN = vec3(0.0, 1.0, 0.0);
-  vec2 at = (modelMatrix * vec4(position, 1.0)).xz;
+  vec2 at = swellAt.xz;
   gerstner(normalize(vec2(0.8, 0.6)), 34.0, 0.32 * swell, surface, swellN, at);
   gerstner(normalize(vec2(-0.4, 0.9)), 21.0, 0.18 * swell, surface, swellN, at);
   gerstner(normalize(vec2(0.95, -0.3)), 13.0, 0.09 * swell, surface, swellN, at);
@@ -376,12 +379,26 @@ float surfaceSlope(float depth) {
   return length(surfaceGradient(depth));
 }
 
-// Three layers of waves; the finest (weight fine) fades with distance, where it only turned into grain
+// Three layers of waves; the finest (weight fine) fades with distance, where it only turned into grain. Far
+// off the 23 and 9 m layers give way to two larger ones (71 and 190 m), each turned against the others, so no
+// one period repeats into a lattice towards the horizon; over it all the waves' height swells and calms in
+// patches of 150 to 400 m, as gusts and fetch make it
 vec3 waveNormal(vec2 p, vec2 flow, float strength, float fine) {
+  float far = smoothstep(150.0, 900.0, length(cameraPosition.xz - vWorldPos.xz));
   vec3 a = texture2D(uWaves, p / 23.0 + flow * 0.021).xyz * 2.0 - 1.0;
   vec3 b = texture2D(uWaves, p / 9.0 - vec2(flow.y, -flow.x) * 0.035 + flow * 0.02).xyz * 2.0 - 1.0;
   vec3 c = texture2D(uWaves, p / 3.1 + flow * 0.09).xyz * 2.0 - 1.0;
-  vec3 n = vec3((a.xy * 0.6 + b.xy * 0.45 + c.xy * 0.3 * fine) * strength, 1.0);
+  vec2 pe = mat2(0.799, 0.602, -0.602, 0.799) * p;
+  vec2 pf = mat2(0.326, 0.946, -0.946, 0.326) * p;
+  vec3 e = texture2D(uWaves, pe / 71.0 + flow * 0.006 + 0.37).xyz * 2.0 - 1.0;
+  vec2 swellAt = texture2D(uWaves, pf / 290.0 + 0.61).xy;
+  vec3 f = texture2D(uWaves, pf / 190.0 - flow * 0.003 + 0.13).xyz * 2.0 - 1.0;
+  float swell = mix(0.5, 1.45, smoothstep(0.25, 0.75, swellAt.x * 0.65 + swellAt.y * 0.35));
+  vec2 slope = a.xy * mix(0.6, 0.3, far) + b.xy * mix(0.45, 0.15, far) + c.xy * 0.3 * fine + (e.xy * 0.55 + f.xy * 0.35) * far;
+  // Towards the horizon the waves lie down: a pixel there spans dozens of them, and their mip-averaged slopes beat
+  // into radial streaks; a calm far sea mirrors the sky, its swell patches still read
+  float flatten = mix(1.0, 0.3, smoothstep(700.0, 2600.0, length(cameraPosition.xz - vWorldPos.xz)));
+  vec3 n = vec3(slope * strength * swell * flatten, 1.0);
   // Texture x/y lie in the scene's x/z plane
   return normalize(vec3(n.x, n.z, n.y));
 }
@@ -625,10 +642,19 @@ void main() {
   float plates = (1.0 - smoothstep(0.0, 0.006 + 0.008 * plateId, plateEdge)) * step(0.45, plateId)
     * smoothstep(0.55, 0.7, valueNoise(ip * 0.015 + 31.0)) * mix(0.4, 1.0, valueNoise(ip * 0.3 + 4.0));
   body = mix(body, vec3(0.86, 0.92, 0.96), plates * 0.6);
-  // Snow drifted into the shallows and a fine grain of frost
-  float snow = smoothstep(0.6, 0.05, depth) * (0.7 + 0.3 * valueNoise(ip * 1.7)) + smoothstep(0.7, 0.95, valueNoise(ip * 2.3)) * 0.25;
-  body = mix(body, vec3(0.82, 0.86, 0.9), clamp(snow, 0.0, 1.0));
-  color = mix(body * uLight * mix(0.6, 1.0, sunShade), sky, fresnel * 0.5);
+  // Snow drifted onto the ice along the bank: a ragged rim, wider in drifts, out to a metre or two of depth,
+  // so the ice meets the snow on the land without a hard grey edge; a fine grain of frost all over
+  float drift = valueNoise(ip * 0.08 + 3.3) * 0.9 + valueNoise(ip * 0.6) * 0.3;
+  // and a dusting of snow over the open ice in drifts (dark clear ice between): no bare grey slab seen flat
+  float dusting = smoothstep(0.45, 0.8, valueNoise(ip * 0.05 + 8.1) * 0.7 + valueNoise(ip * 0.4) * 0.3) * 0.35;
+  // (by depth on a shelving bank, by the shore cut where the bank drops steeply and the depth jumps at once)
+  float rim = max(smoothstep(0.35 + drift * 1.4, 0.05, depth), smoothstep(1.5 + drift * 3.0, 0.1, shoreCut));
+  float snow = max(rim * (0.75 + 0.25 * valueNoise(ip * 1.7)), dusting) + smoothstep(0.7, 0.95, valueNoise(ip * 2.3)) * 0.25;
+  body = mix(body, vec3(0.84, 0.88, 0.93), clamp(snow, 0.0, 1.0));
+  // Seen flat the ice mirrors: the sharp sky up the reflected ray takes over from the frosted one, less where
+  // snow lies on it
+  sky = mix(sky, skyTex(vec3(r.x, max(r.y, 0.02), r.z)), smoothstep(0.3, 0.9, fresnel));
+  color = mix(body * uLight * mix(0.6, 1.0, sunShade), sky, fresnel * mix(0.75, 0.15, clamp(snow, 0.0, 1.0)));
   color += uSunColor * pow(max(dot(r, uSunDir), 0.0), 80.0) * 0.6 * sunShade;
   color += pointGlints(n, v) * 0.5;
   // The baked light of lamps and fires on the bank (lamp-light.ts) on the ice, and the shots' (shot-lights)
@@ -882,10 +908,14 @@ void main() {
   // pop and form. Capped, so even the densest foam keeps its largest holes. Once a pixel covers more than a
   // bubble (far away) the threshold softens into the share of foam there instead of solid white
   float metresPerPixel = length(fwidth(fp));
-  float soft = mix(0.2, 0.6, smoothstep(0.04, 0.35, metresPerPixel));
+  // A soft edge near as well: the lace's threshold over 0.2 cut metre-wide flecks out like paper
+  float soft = mix(0.38, 0.6, smoothstep(0.04, 0.35, metresPerPixel));
   float pop = 1.0 + 0.12 * sin(uTime * 1.3 + foamNear.a * 6.2832);
-  // The fine noise breaks the bubbles' walls, so thin foam falls apart into flecks instead of a net of cracks
-  float laceAt = (foamNear.r * 0.7 + (1.0 - foamNear.a) * 0.4) * (1.0 - soft * 0.5);
+  // The fine noise breaks the bubbles' walls, so thin foam falls apart into flecks instead of a net of cracks;
+  // close in a finer octave (1.6 m) breaks the flecks themselves into bubbles
+  float foamFine = texture2D(uFoam, fp / 1.6 + foamNear.gb * 0.3 + uTime * 0.004).r;
+  float fineShare = 1.0 - smoothstep(0.02, 0.08, metresPerPixel);
+  float laceAt = (foamNear.r * 0.7 + (1.0 - foamNear.a) * 0.4 + (foamFine - 0.5) * 0.35 * fineShare) * (1.0 - soft * 0.5);
   float foam = smoothstep(laceAt, laceAt + soft, min(density, 0.85) * pop) * mix(1.0, 0.75, smoothstep(0.04, 0.35, metresPerPixel));
   // Between the flecks the water is milky where foam gathers, so the lace sits in a soft haze of its own
   foam = max(foam, density * 0.28 * smoothstep(0.25, 0.75, foamNear.g));
@@ -909,8 +939,12 @@ void main() {
   foam = max(foam, smoothstep(0.5, 0.8, foamNoise) * smoothstep(2.0, 3.5, speed) * 0.6);
     #endif
   #endif
-  // Foam is translucent: its thin parts let the water's colour through
-  color = mix(color, vec3(0.86, 0.89, 0.88) * uLight * mix(0.65, 1.0, sunShade), foam * (0.4 + 0.4 * foam));
+  // Foam is translucent: its thin parts let the water's colour through, and lit: the sun's colour and its
+  // shade on it, the sky's light from above, a little of the water's own light through its thin parts
+  vec3 foamLight = (mix(vec3(1.0), uSunColor / max(max(uSunColor.r, uSunColor.g), max(uSunColor.b, 1e-3)), 0.3) * mix(0.62, 1.0, sunShade)
+    * (0.75 + 0.25 * clamp(uSunDir.y * 2.0, 0.0, 1.0)) + skyTex(vec3(0.0, 1.0, 0.0)) * 0.12) * uLight;
+  vec3 foamColor = vec3(0.86, 0.89, 0.88) * foamLight + uShallow * uLight * 0.12 * (1.0 - foam);
+  color = mix(color, foamColor, foam * (0.35 + 0.45 * foam));
   #if KIND == 4
   alpha = mix(0.75, 0.97, smoothstep(0.0, 0.8, depth));
   #else
