@@ -237,8 +237,8 @@ describe('TowerDefenseStore', () => {
     });
 
     it('returns the validation reason', () => {
-      uiStore.buildValidationReason.set('Too close to existing tower');
-      expect(store.buildModeWarning()).toBe('Too close to existing tower');
+      uiStore.buildValidationReason.set('tower');
+      expect(store.buildModeWarning()).toBe('tower');
     });
   });
 
@@ -284,7 +284,7 @@ describe('TowerDefenseStore', () => {
     it('resets build state', () => {
       uiStore.buildMode.set(true);
       uiStore.selectedTowerType.set('archer');
-      uiStore.buildValidationReason.set('blocked');
+      uiStore.buildValidationReason.set('object');
 
       store.resetGameState();
 

@@ -531,7 +531,10 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
       { key: says.hover, description: says.lineOfSight },
     ];
   });
-  readonly buildModeWarning = computed(() => this.towerPlacement.validationReason());
+  readonly buildModeWarning = computed(() => {
+    const reason = this.towerPlacement.validationReason();
+    return reason ? this.t().hud.placement[reason] : null;
+  });
 
   // Map placement hints for context hint box: R turns a spawn portal
   readonly placementModeHints = computed((): HintItem[] => [
@@ -539,7 +542,10 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     { key: this.t().hud.hints.click, description: this.t().hud.hints.place },
     { key: this.t().hud.hints.esc, description: this.t().hud.hints.cancel },
   ]);
-  readonly placementModeWarning = computed(() => this.mapPlacement.validationReason());
+  readonly placementModeWarning = computed(() => {
+    const reason = this.mapPlacement.validationReason();
+    return reason ? this.t().hud.mapPlacement[reason] : null;
+  });
 
   /** Why the last press on an ability or the hero did nothing; its box comes before every other */
   readonly refusal = inject(RefusalHintService).refusal;

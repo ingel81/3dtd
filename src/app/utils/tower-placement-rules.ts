@@ -1,16 +1,25 @@
 import { PLACEMENT_CONFIG } from '../configs/placement.config';
 import { findNearestRouteDistance } from './geo-utils';
 import type { FootprintRefusal, TowerFootprint } from './tower-footprint';
+import type { BuildBlock } from '../world/world-provider';
 
 interface LatLon {
   lat: number;
   lon: number;
 }
 
+/**
+ * Why a tower may not stand there: outside the play area, too close to the
+ * HQ, a spawn, another tower or the route, not enough room, too far over an
+ * edge, an object or water of the world, the street network not ready or
+ * empty, or no position at all. A code; the build-mode hint words it.
+ */
+export type TowerPlacementRefusal =
+  | 'outside' | 'hq' | 'spawn' | 'tower' | 'route' | 'room' | 'edge' | BuildBlock | 'not-ready' | 'no-streets' | 'invalid';
+
 export interface TowerPlacementResult {
   valid: boolean;
-  /** UI-Text (englisch) für ungültige Positionen, landet im Build-Mode-Hint */
-  reason?: string;
+  reason?: TowerPlacementRefusal;
 }
 
 /**
@@ -27,13 +36,13 @@ export interface TowerPlacementContext {
   /** Distanz in Metern, liefert der Street-Provider (OSM oder DevWorld) */
   geo: { haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number };
   /** Warum die Welt dort keinen Tower erlaubt (Häuser, Bäume, Wasser einer eigenen Karte; WorldSurface.buildBlocker), sonst null */
-  blocked?: (lat: number, lon: number) => string | null;
+  blocked?: (lat: number, lon: number) => BuildBlock | null;
 }
 
 /** UI-Text je FootprintRefusal: warum der Grund unter der Grundfläche den Platz ausschließt */
-const FOOTPRINT_REASONS: Record<FootprintRefusal, string> = {
-  wall: 'Not enough room',
-  edge: 'Too far over the edge',
+const FOOTPRINT_REASONS: Record<FootprintRefusal, TowerPlacementRefusal> = {
+  wall: 'room',
+  edge: 'edge',
 };
 
 /**
@@ -58,30 +67,30 @@ export function checkTowerPlacement(
   const inBounds = lat >= bounds.minLat && lat <= bounds.maxLat &&
                    lon >= bounds.minLon && lon <= bounds.maxLon;
   if (!inBounds) {
-    return { valid: false, reason: 'Outside play area' };
+    return { valid: false, reason: 'outside' };
   }
 
   if (geo.haversineDistance(lat, lon, ctx.base.lat, ctx.base.lon) < PLACEMENT_CONFIG.MIN_DISTANCE_TO_BASE) {
-    return { valid: false, reason: 'Too close to HQ' };
+    return { valid: false, reason: 'hq' };
   }
 
   for (const spawn of ctx.spawns) {
     if (geo.haversineDistance(lat, lon, spawn.lat, spawn.lon) < PLACEMENT_CONFIG.MIN_DISTANCE_TO_SPAWN) {
-      return { valid: false, reason: 'Too close to spawn' };
+      return { valid: false, reason: 'spawn' };
     }
   }
 
   for (const tower of ctx.towers) {
     const distToTower = geo.haversineDistance(lat, lon, tower.position.lat, tower.position.lon);
     if (distToTower < PLACEMENT_CONFIG.MIN_DISTANCE_TO_OTHER_TOWER) {
-      return { valid: false, reason: 'Too close to another tower' };
+      return { valid: false, reason: 'tower' };
     }
   }
 
   if (ctx.routes.length > 0) {
     const routeDistance = findNearestRouteDistance(ctx.routes, lat, lon);
     if (routeDistance < PLACEMENT_CONFIG.MIN_DISTANCE_TO_ROUTE) {
-      return { valid: false, reason: 'Too close to route' };
+      return { valid: false, reason: 'route' };
     }
   }
 

@@ -6,7 +6,7 @@
         <span class="td-caps">{{ d.category }}</span>
       }
       @if (d.hotkey) {
-        <kbd class="td-kbd" [attr.aria-label]="'Key ' + d.hotkey">{{ d.hotkey }}</kbd>
+        <kbd class="td-kbd" [attr.aria-label]="t().hud.tooltip.key(d.hotkey)">{{ d.hotkey }}</kbd>
       }
     </header>
 
@@ -21,16 +21,16 @@
       </div>
     }
 
-    @if (d.targeting; as t) {
+    @if (d.targeting; as tg) {
       <div class="td-tooltip__targeting"
-           [class.td-tooltip__targeting--air-only]="t.mode === 'air-only'"
-           [class.td-tooltip__targeting--air-ground]="t.mode === 'air-ground'"
+           [class.td-tooltip__targeting--air-only]="tg.mode === 'air-only'"
+           [class.td-tooltip__targeting--air-ground]="tg.mode === 'air-ground'"
           >
         <td-icon class="td-tooltip__targeting-icon"
-                 [name]="targetingIcon(t)" [size]="14"></td-icon>
-        <span class="td-tooltip__targeting-label td-name">{{ targetingLabel(t) }}</span>
-        @if (t.viaResearch) {
-          <span class="td-caps">via Research</span>
+                 [name]="targetingIcon(tg)" [size]="14"></td-icon>
+        <span class="td-tooltip__targeting-label td-name">{{ targetingLabel(tg) }}</span>
+        @if (tg.viaResearch) {
+          <span class="td-caps">{{ t().hud.tooltip.viaResearch }}</span>
         }
       </div>
     }

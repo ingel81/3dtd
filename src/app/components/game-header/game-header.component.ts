@@ -42,6 +42,7 @@ import {
   statReadout,
   waveProgressPercent,
 } from './header-stats';
+import { I18n } from '../../i18n/i18n.service';
 
 /** Flash of the HQ plate when the HQ loses health; the jolt only without reduced motion */
 const HQ_HIT_FLASH: Keyframe[] = [{ filter: 'brightness(1.8)' }, { filter: 'brightness(1)' }];
@@ -91,6 +92,7 @@ export interface GamePath {
   styleUrl: './game-header.component.scss',
 })
 export class GameHeaderComponent {
+  protected readonly t = inject(I18n).t;
   private readonly elementRef = inject(ElementRef);
   private readonly store = inject(TowerDefenseStore);
 
@@ -394,7 +396,7 @@ export class GameHeaderComponent {
 
   /** Name shown for a favorite: its own, else the geocoded one */
   favoriteName(fav: FavoriteLocation): string {
-    return fav.name || this.favoriteNames()[fav.id] || 'Loading...';
+    return fav.name || this.favoriteNames()[fav.id] || this.t().hud.headerMore.loading;
   }
 
   /** Open the name field for the current location, prefilled with the header's name */

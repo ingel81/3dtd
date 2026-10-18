@@ -48,16 +48,16 @@
       <button class="td-btn-ghost td-btn-sm sb-menu" type="button" (click)="openMenu()" aria-keyshortcuts="Escape"
               matTooltip="Menu (Esc)" matTooltipPosition="above">
         <td-icon name="cog" [size]="14"></td-icon>
-        Menu
+        {{ t().hud.sidebarFoot.menu }}
       </button>
       <button class="td-btn-ghost td-btn-sm" type="button" (click)="showTips()"
-              matTooltip="Show the first-run tips again" matTooltipPosition="above">
+              [matTooltip]="t().hud.sidebarFoot.tipsAgain" matTooltipPosition="above">
         <td-icon name="bulb" [size]="14"></td-icon>
-        Tips
+        {{ t().hud.sidebarFoot.tips }}
       </button>
       <button class="td-btn-ghost td-btn-sm td-num" type="button" (click)="openWhatsNew()"
               [attr.aria-label]="versionLabel"
-              matTooltip="What's new in this version" matTooltipPosition="above">
+              [matTooltip]="t().hud.sidebarFoot.whatsNew" matTooltipPosition="above">
         {{ buildVersion }}
       </button>
     </div>

@@ -52,6 +52,7 @@ import { UpgradeHintService } from '../upgrade-hint.service';
 import { TowerUpgradeService } from '../tower-upgrade.service';
 import { IntroSkipComponent } from '../../components/intro-skip/intro-skip.component';
 import { DebugFacadeService } from '../debug/debug-facade.service';
+import { provideI18n } from '../../i18n/i18n.service';
 
 const HQ = { lat: 48.7, lon: 9.1 };
 
@@ -93,7 +94,7 @@ describe('Intro flight input, playtest 525 to 528 replayed', () => {
     pan = { onKeyDown: vi.fn((e: KeyboardEvent) => /^([wasd]|Arrow\w+)$/i.test(e.key)), onKeyUp: vi.fn() };
 
     const flightInjector = Injector.create({
-      providers: [
+      providers: [provideI18n(), 
         { provide: CameraControlService, useValue: { resetCamera, focusGeo } },
         { provide: RouteAnimationService, useValue: { setHoldUntilReleased: vi.fn() } },
         { provide: NgZone, useValue: { run: (fn: () => void) => fn() } },
@@ -108,7 +109,7 @@ describe('Intro flight input, playtest 525 to 528 replayed', () => {
     } as never);
 
     const injector = Injector.create({
-      providers: [
+      providers: [provideI18n(), 
         { provide: IntroCameraFlightService, useValue: intro },
         { provide: CameraControlService, useValue: { resetCamera, focusGeo } },
         { provide: CameraSlotsService, useValue: {} },

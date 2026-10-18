@@ -1,8 +1,9 @@
-import { Component, ChangeDetectionStrategy, input, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, input, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TdTooltipAccent, TdTooltipData, TdTooltipTargeting } from './tooltip-data.types';
 import { TdIconComponent, TdIconName } from '../icon/icon.component';
 import { targetingLabel } from './tooltip-text';
+import { I18n } from '../../i18n/i18n.service';
 
 const ACCENT_COLOR_MAP: Record<TdTooltipAccent, string> = {
   gold: 'var(--td-brass-light)',
@@ -29,6 +30,7 @@ const ACCENT_COLOR_MAP: Record<TdTooltipAccent, string> = {
   styleUrl: './td-tooltip-content.component.scss',
 })
 export class TdTooltipContentComponent {
+  protected readonly t = inject(I18n).t;
   readonly data = input.required<TdTooltipData>();
 
   protected readonly accentColor = computed(() =>
@@ -53,7 +55,7 @@ export class TdTooltipContentComponent {
   }
 
   /** Spelled-out label for the targeting banner. */
-  protected targetingLabel(t: TdTooltipTargeting): string {
-    return targetingLabel(t);
+  protected targetingLabel(targeting: TdTooltipTargeting): string {
+    return targetingLabel(this.t(), targeting);
   }
 }

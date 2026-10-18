@@ -12,6 +12,7 @@ import type { WorldMinimap } from '../../world/world-provider';
 import { MinimapFrame, ViewFootprint } from './minimap-frame';
 import { drawOsmPicture, osmArea, type OsmMinimapSource } from './osm-minimap';
 import type { ThreeTilesEngine } from '../../three-engine';
+import { I18n } from '../../i18n/i18n.service';
 
 /** Towers and enemies drawn again at most every this many ms (20 Hz); the view each frame */
 const DOTS_MS = 50;
@@ -43,26 +44,26 @@ const hex = (color: number): string => `#${color.toString(16).padStart(6, '0')}`
     @if (ui.minimapOpen()) {
       <div class="td-overlay wm-plate">
         <canvas class="wm-canvas" [width]="pixels" [height]="pixels"
-                aria-label="Minimap, click to move the view" data-test="world-minimap"
+                [attr.aria-label]="t().hud.minimap.map" data-test="world-minimap"
                 (pointerdown)="jump($event)" (pointermove)="drag($event)"
                 (pointerup)="release($event)" (pointercancel)="release($event)"></canvas>
         <div class="wm-tools">
           @if (osmShown()) {
             <button type="button" class="td-tool is-sm" [attr.aria-pressed]="ui.minimapLook() === 'map'"
-                    (click)="toggleLook()" title="Street map look" aria-label="Street map look">
+                    (click)="toggleLook()" [title]="t().hud.minimap.look" [attr.aria-label]="t().hud.minimap.look">
               <td-icon name="layers" [size]="12"></td-icon>
             </button>
           }
           <button type="button" class="td-tool is-sm" (click)="ui.minimapOpen.set(false)"
-                  title="Hide the minimap" aria-label="Hide the minimap" data-test="world-minimap-close">
+                  [title]="t().hud.minimap.hide" [attr.aria-label]="t().hud.minimap.hide" data-test="world-minimap-close">
             <td-icon name="minus" [size]="12"></td-icon>
           </button>
         </div>
       </div>
     } @else {
       <button type="button" class="td-stone-chip" (click)="ui.minimapOpen.set(true)"
-              aria-label="Show the minimap" data-test="world-minimap-open">
-        <span>Map</span>
+              [attr.aria-label]="t().hud.minimap.show" data-test="world-minimap-open">
+        <span>{{ t().hud.minimap.button }}</span>
         <td-icon name="caret" [size]="10"></td-icon>
       </button>
     }
@@ -70,6 +71,7 @@ const hex = (color: number): string => `#${color.toString(16).padStart(6, '0')}`
   styleUrl: './world-minimap.component.scss',
 })
 export class WorldMinimapComponent {
+  protected readonly t = inject(I18n).t;
   private readonly engineInit = inject(EngineInitializationService);
   private readonly mirror = inject(SimMirror);
   private readonly location = inject(LocationStore);

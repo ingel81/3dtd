@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { TowerControlService } from '../../services/tower-control.service';
+import { I18n } from '../../i18n/i18n.service';
 
 /**
  * What the player sees in a manned tower (TowerControlService,
@@ -39,10 +40,10 @@ import { TowerControlService } from '../../services/tower-control.service';
       @if (control.aiming()) {
         <span class="td-note"><kbd class="td-kbd">LMB</kbd> fire</span>
         <span class="td-note"><kbd class="td-kbd">RMB</kbd> zoom</span>
-        <span class="td-note"><kbd class="td-kbd">C</kbd> / <kbd class="td-kbd">Esc</kbd> get out</span>
+        <span class="td-note"><kbd class="td-kbd">C</kbd> / <kbd class="td-kbd">Esc</kbd> {{ t().hud.manning.getOut }}</span>
       } @else {
-        <span class="td-note">Click the map to aim</span>
-        <span class="td-note"><kbd class="td-kbd">C</kbd> / <kbd class="td-kbd">Esc</kbd> get out</span>
+        <span class="td-note">{{ t().hud.manning.clickToAim }}</span>
+        <span class="td-note"><kbd class="td-kbd">C</kbd> / <kbd class="td-kbd">Esc</kbd> {{ t().hud.manning.getOut }}</span>
       }
     </div>
   `,
@@ -136,6 +137,7 @@ import { TowerControlService } from '../../services/tower-control.service';
   `],
 })
 export class TowerControlHudComponent {
+  protected readonly t = inject(I18n).t;
   readonly control = inject(TowerControlService);
 
   /** Two classes that take turns per shot, so the kick animation starts again every time */

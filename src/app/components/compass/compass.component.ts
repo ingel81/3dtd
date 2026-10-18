@@ -1,6 +1,7 @@
-import { Component, input, output, ChangeDetectionStrategy } from '@angular/core';
+import { Component, input, output, ChangeDetectionStrategy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TdIconComponent } from '../icon/icon.component';
+import { I18n } from '../../i18n/i18n.service';
 
 interface Tick {
   x1: number;
@@ -28,6 +29,7 @@ interface Tick {
   styleUrl: './compass.component.scss',
 })
 export class CompassComponent {
+  protected readonly t = inject(I18n).t;
   /** Map bearing in degrees. Whole face rotates so N points actual north. */
   readonly rotation = input.required<number>();
 

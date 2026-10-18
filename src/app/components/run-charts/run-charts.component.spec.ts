@@ -51,7 +51,7 @@ describe('RunChartsComponent (TODO E46)', () => {
     const fixture = render([point(1, 5, 2, 500), point(2, 12, 9, 480), point(3, 20, 30, 300)]);
     const charts = fixture.componentInstance.charts();
 
-    expect(charts.map((c) => c.title)).toEqual(['Kills', 'Towers', 'Gold earned', 'HQ health']);
+    expect(charts.map((c) => c.title)).toEqual(['Kills', 'Towers', 'Credits earned', 'HQ health']);
     expect(charts[0].top).toBe(30);
     expect(charts[0].lines.map((l) => l.dash)).toEqual([null, '6 3']);
     expect(charts[3].lines).toHaveLength(1);

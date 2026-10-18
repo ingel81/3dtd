@@ -4,6 +4,7 @@ import { TdIconComponent, type TdIconName } from '../icon/icon.component';
 import { ReplayService } from '../../services/replay.service';
 import { formatReplaySpeed } from '../../replay/replay-bar-view';
 import { formatClock } from '../../utils/format-clock';
+import { I18n } from '../../i18n/i18n.service';
 
 /**
  * The bar of the wave replay (docs/REPLAY.md, DESIGN_SYSTEM.md "Replay"):
@@ -22,6 +23,7 @@ import { formatClock } from '../../utils/format-clock';
   styleUrl: './replay-bar.component.scss',
 })
 export class ReplayBarComponent {
+  protected readonly t = inject(I18n).t;
   readonly replay = inject(ReplayService);
 
   /** Played to the end: the play button starts over */
@@ -33,9 +35,10 @@ export class ReplayBarComponent {
     this.replay.playing() ? 'pause' : this.atEnd() ? 'refresh' : 'play'
   );
 
-  readonly playLabel = computed(() =>
-    this.replay.playing() ? 'Pause the replay' : this.atEnd() ? 'Play the replay again' : 'Play the replay'
-  );
+  readonly playLabel = computed(() => {
+    const says = this.t().hud.replay;
+    return this.replay.playing() ? says.pause : this.atEnd() ? says.again : says.play;
+  });
 
   readonly time = computed(() => formatClock(this.replay.timeMs()));
   readonly duration = computed(() => formatClock(this.replay.durationMs()));

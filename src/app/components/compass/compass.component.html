@@ -33,7 +33,7 @@
   </div>
 
   @if (rotation() !== 0) {
-    <button class="td-icon-btn td-compass__reset" (click)="onReset()" title="Reset bearing" aria-label="Reset bearing">
+    <button class="td-icon-btn td-compass__reset" (click)="onReset()" [title]="t().hud.compass.reset" [attr.aria-label]="t().hud.compass.reset">
       <td-icon name="refresh" [size]="12"></td-icon>
     </button>
   }

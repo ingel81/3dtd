@@ -18,6 +18,7 @@ import { PathAndRouteService } from '../../services/world/path-route.service';
 import { ownsKey } from '../../utils/keyboard-target';
 import { WorldContext } from '../../world/world-context.service';
 import { fakeWorldContext } from '../../../test/world-context-fake';
+import { provideI18n } from '../../i18n/i18n.service';
 
 /**
  * Playtest 538 to 540 (docs/archive/REVIEW_FIX_2026-09-14.md) replayed on the
@@ -37,7 +38,7 @@ describe('Favorites menu, playtest 538 to 540 replayed', () => {
 
   const createLocations = () => {
     const injector = Injector.create({
-      providers: [
+      providers: [provideI18n(), 
         { provide: GeocodingService, useValue: {} },
         { provide: PathAndRouteService, useValue: { hasRoutes: signal(false) } },
         { provide: WorldContext, useValue: fakeWorldContext() },
@@ -63,7 +64,7 @@ describe('Favorites menu, playtest 538 to 540 replayed', () => {
     document.body.appendChild(host);
 
     const injector = Injector.create({
-      providers: [
+      providers: [provideI18n(), 
         { provide: ElementRef, useValue: new ElementRef(host) },
         { provide: TowerDefenseStore, useValue: { renderingEnabled: signal(true) } },
         { provide: WorldContext, useValue: fakeWorldContext() },

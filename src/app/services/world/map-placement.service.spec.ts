@@ -127,7 +127,7 @@ describe('MapPlacementService', () => {
 
       distanceToHq = MIN_MANUAL_SPAWN_DISTANCE / 2;
       service.updatePreviewPosition(HQ.lat + 0.001, HQ.lon, 0);
-      expect(service.validationReason()).toBe('Too close to HQ');
+      expect(service.validationReason()).toBe('near-hq');
       expect(frameColor().equals(RED)).toBe(true);
       expect(service.handlePlacementClick()).toBeNull();
 
@@ -165,13 +165,13 @@ describe('MapPlacementService', () => {
 
     it('refuses a spot off the streets, as close as a courtyard behind the houses', () => {
       distanceToStreet = MAX_SPAWN_STREET_DISTANCE + 1;
-      expect(service.validatePosition('spawn', inside.lat, inside.lon)).toEqual({ valid: false, reason: 'Too far from streets' });
+      expect(service.validatePosition('spawn', inside.lat, inside.lon)).toEqual({ valid: false, reason: 'far-streets' });
     });
 
     it('says the streets are not loaded where the cursor is outside their box', () => {
       distanceToStreet = MAX_SPAWN_STREET_DISTANCE + 1;
       expect(service.validatePosition('spawn', outside.lat, outside.lon))
-        .toEqual({ valid: false, reason: 'Streets not loaded here' });
+        .toEqual({ valid: false, reason: 'unloaded' });
 
       // A way reaching out of the box is loaded: a spawn may stand on it
       distanceToStreet = 1;
@@ -181,14 +181,14 @@ describe('MapPlacementService', () => {
     it('goes by the rings before the streets: beyond the outer one it is too far from the HQ', () => {
       distanceToStreet = 500;
       distanceToHq = MAX_MANUAL_SPAWN_DISTANCE + 1;
-      expect(service.validatePosition('spawn', inside.lat, inside.lon)).toEqual({ valid: false, reason: 'Too far from HQ' });
+      expect(service.validatePosition('spawn', inside.lat, inside.lon)).toEqual({ valid: false, reason: 'far-hq' });
       distanceToHq = MIN_MANUAL_SPAWN_DISTANCE - 1;
-      expect(service.validatePosition('spawn', inside.lat, inside.lon)).toEqual({ valid: false, reason: 'Too close to HQ' });
+      expect(service.validatePosition('spawn', inside.lat, inside.lon)).toEqual({ valid: false, reason: 'near-hq' });
     });
 
     it('refuses a street with no route to the HQ, and asks for the routes once per segment', () => {
       route = [];
-      expect(service.validatePosition('spawn', inside.lat, inside.lon)).toEqual({ valid: false, reason: 'No route to HQ' });
+      expect(service.validatePosition('spawn', inside.lat, inside.lon)).toEqual({ valid: false, reason: 'no-route' });
       expect(osm.segmentRoutes).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ nodeIndex: 0 }), HQ.lat, HQ.lon);
       expect(routeFrom).toHaveBeenCalledWith(inside.lat, inside.lon);
 

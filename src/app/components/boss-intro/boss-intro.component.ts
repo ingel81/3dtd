@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { BossIntroService } from '../../services/boss-intro.service';
 import { BOSS_INTRO_TIMING } from '../../utils/boss-intro';
+import { I18n } from '../../i18n/i18n.service';
 
 /**
  * What the boss intro puts over the canvas (BossIntroService): a dark veil
@@ -29,11 +30,11 @@ import { BOSS_INTRO_TIMING } from '../../utils/boss-intro';
           <span class="td-caps epithet">{{ card.epithet }}</span>
         }
         <span class="td-rule rule"></span>
-        <span class="td-note"><kbd class="td-kbd">Esc</kbd> or click to skip</span>
+        <span class="td-note"><kbd class="td-kbd">Esc</kbd> {{ t().hud.bossSkip.skip }}</span>
       </div>
     }
     @if (skippable()) {
-      <button type="button" class="skip-layer" aria-label="Skip the boss intro" (click)="skip()"></button>
+      <button type="button" class="skip-layer" [attr.aria-label]="t().hud.bossSkip.label" (click)="skip()"></button>
     }
   `,
   styles: [`
@@ -155,6 +156,7 @@ import { BOSS_INTRO_TIMING } from '../../utils/boss-intro';
   `],
 })
 export class BossIntroComponent {
+  protected readonly t = inject(I18n).t;
   private readonly bossIntro = inject(BossIntroService);
 
   readonly card = this.bossIntro.card;

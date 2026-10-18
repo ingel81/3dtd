@@ -14,7 +14,7 @@ import { GlobalRouteGridService } from './world/global-route-grid.service';
 import { AssetManagerService } from './infrastructure/asset-manager.service';
 import { UIStore } from '../store/ui.store';
 import { TowerDefenseStore } from '../store/tower-defense.store';
-import { checkTowerPlacement, TowerPlacementContext, TowerPlacementResult } from '../utils/tower-placement-rules';
+import { checkTowerPlacement, TowerPlacementContext, TowerPlacementResult, type TowerPlacementRefusal } from '../utils/tower-placement-rules';
 import { ResearchStore } from '../store/research.store';
 import { BuildPreviewLos } from './build-preview-los';
 import { makeModelTransparent, tintPreviewModel } from './tower-preview-model';
@@ -203,7 +203,7 @@ export class TowerPlacementService {
         surfaceY: number;
         footprint: TowerFootprint;
         valid: boolean;
-        reason: string | null;
+        reason: TowerPlacementRefusal | null;
         partial: { columns: (FootprintColumn | null)[]; frame: number } | null;
       }
     | null = null;
@@ -685,7 +685,7 @@ export class TowerPlacementService {
     // scale. Cheaper than haversine and allocation-free.
     let footprint: TowerFootprint;
     let validValid: boolean;
-    let validReason: string | null;
+    let validReason: TowerPlacementRefusal | null;
 
     const reuseCache = this.lastValidation !== null
       && this.metersFromLastValidated(lat, lon) < TowerPlacementService.VALIDATION_MOVEMENT_THRESHOLD_M;
@@ -702,7 +702,7 @@ export class TowerPlacementService {
       footprint = probe.footprint;
       const validation = this.validateTowerPosition(lat, lon, footprint);
       validValid = validation.valid;
-      validReason = validation.valid ? null : (validation.reason ?? 'Invalid position');
+      validReason = validation.valid ? null : (validation.reason ?? 'invalid');
       const previousValid = this.lastValidation?.valid ?? null;
       this.lastValidation = {
         lat,
@@ -719,7 +719,7 @@ export class TowerPlacementService {
       }
     }
 
-    this.validationReason.set(validValid ? null : (validReason ?? 'Invalid position'));
+    this.validationReason.set(validValid ? null : (validReason ?? 'invalid'));
 
     // Store current position for placement: the foot on the highest point
     // of the footprint, the plinth below it
@@ -929,11 +929,11 @@ export class TowerPlacementService {
   placementChecker(): (lat: number, lon: number, footprint?: TowerFootprint) => TowerPlacementResult {
     const streets = this.streets;
     if (!this.streetNetwork || !streets || !this.baseCoords) {
-      return () => ({ valid: false, reason: 'Service not initialized' });
+      return () => ({ valid: false, reason: 'not-ready' });
     }
 
     if (this.streetNetwork.streets.length === 0) {
-      return () => ({ valid: false, reason: 'No streets loaded' });
+      return () => ({ valid: false, reason: 'no-streets' });
     }
 
     const ctx: TowerPlacementContext = {

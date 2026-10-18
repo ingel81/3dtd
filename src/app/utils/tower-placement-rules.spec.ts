@@ -53,35 +53,35 @@ describe('checkTowerPlacement', () => {
 
     it('outside the bounds', () => {
       expect(checkTowerPlacement(48.16, 11.57, context())).toEqual({
-        valid: false, reason: 'Outside play area',
+        valid: false, reason: 'outside',
       });
     });
 
     it('too close to the HQ (real distance, ~7 m)', () => {
       const result = checkTowerPlacement(48.14, 11.57, context({ base: { lat: 48.14, lon: 11.5701 } }));
-      expect(result).toEqual({ valid: false, reason: 'Too close to HQ' });
+      expect(result).toEqual({ valid: false, reason: 'hq' });
     });
 
     it('too close to a spawn (real distance, ~33 m)', () => {
       const result = checkTowerPlacement(48.14, 11.57, context({ spawns: [{ lat: 48.1403, lon: 11.57 }] }));
-      expect(result).toEqual({ valid: false, reason: 'Too close to spawn' });
+      expect(result).toEqual({ valid: false, reason: 'spawn' });
     });
 
     it('too close to another tower (real distance, ~4 m)', () => {
       const result = checkTowerPlacement(48.14, 11.57, context({
         towers: [{ position: { lat: 48.14, lon: 11.57005 } }],
       }));
-      expect(result).toEqual({ valid: false, reason: 'Too close to another tower' });
+      expect(result).toEqual({ valid: false, reason: 'tower' });
     });
 
     it('the ground under the footprint: in a wall, or over the edge beyond the outer ring (C10)', () => {
       const footprint = { footY: 20, plinthHeight: 0.5, overhang: [7] };
       expect(checkTowerPlacement(48.14, 11.57, context(), footprint)).toEqual({ valid: true });
       expect(checkTowerPlacement(48.14, 11.57, context(), { ...footprint, refusal: 'wall' })).toEqual({
-        valid: false, reason: 'Not enough room',
+        valid: false, reason: 'room',
       });
       expect(checkTowerPlacement(48.14, 11.57, context(), { ...footprint, refusal: 'edge' })).toEqual({
-        valid: false, reason: 'Too far over the edge',
+        valid: false, reason: 'edge',
       });
     });
   });
@@ -89,37 +89,37 @@ describe('checkTowerPlacement', () => {
   describe('order of checks', () => {
     it('bounds win over every distance rule', () => {
       const result = checkTowerPlacement(48.16, 11.57, { ...atDistances(0, 0, 0), routes: [ROUTE] });
-      expect(result.reason).toBe('Outside play area');
+      expect(result.reason).toBe('outside');
     });
 
     it('HQ before spawns, towers and routes', () => {
       const result = checkTowerPlacement(48.137, 11.575, { ...atDistances(0, 0, 0), routes: [ROUTE] });
-      expect(result.reason).toBe('Too close to HQ');
+      expect(result.reason).toBe('hq');
     });
 
     it('spawns before towers', () => {
       const result = checkTowerPlacement(48.137, 11.575, { ...atDistances(1000, 0, 0), routes: [ROUTE] });
-      expect(result.reason).toBe('Too close to spawn');
+      expect(result.reason).toBe('spawn');
     });
 
     it('towers before routes', () => {
       const result = checkTowerPlacement(48.137, 11.575, { ...atDistances(1000, 1000, 0), routes: [ROUTE] });
-      expect(result.reason).toBe('Too close to another tower');
+      expect(result.reason).toBe('tower');
     });
 
     it('objects of the world after the routes, before the ground under the footprint', () => {
       const footprint = { footY: 0, plinthHeight: 0, refusal: 'edge' as const };
-      const blocked = (): string | null => 'Something stands there';
+      const blocked = (): 'object' | null => 'object';
       const far = { ...atDistances(1000, 1000, 1000), blocked };
-      expect(checkTowerPlacement(48.137, 11.575, { ...far, routes: [ROUTE] }).reason).toBe('Too close to route');
-      expect(checkTowerPlacement(48.137, 11.575, far, footprint).reason).toBe('Something stands there');
-      expect(checkTowerPlacement(48.137, 11.575, { ...far, blocked: () => null }, footprint).reason).toBe('Too far over the edge');
+      expect(checkTowerPlacement(48.137, 11.575, { ...far, routes: [ROUTE] }).reason).toBe('route');
+      expect(checkTowerPlacement(48.137, 11.575, far, footprint).reason).toBe('object');
+      expect(checkTowerPlacement(48.137, 11.575, { ...far, blocked: () => null }, footprint).reason).toBe('edge');
     });
 
     it('routes before the ground under the footprint', () => {
       const footprint = { footY: 0, plinthHeight: 0, refusal: 'edge' as const };
       const result = checkTowerPlacement(48.137, 11.575, { ...atDistances(1000, 1000, 1000), routes: [ROUTE] }, footprint);
-      expect(result.reason).toBe('Too close to route');
+      expect(result.reason).toBe('route');
     });
   });
 
@@ -132,18 +132,18 @@ describe('checkTowerPlacement', () => {
     it('just under each minimum is invalid', () => {
       const under = (m: number) => m - 0.01;
       expect(checkTowerPlacement(48.14, 11.57,
-        atDistances(under(MIN_DISTANCE_TO_BASE), 1000, 1000)).reason).toBe('Too close to HQ');
+        atDistances(under(MIN_DISTANCE_TO_BASE), 1000, 1000)).reason).toBe('hq');
       expect(checkTowerPlacement(48.14, 11.57,
-        atDistances(1000, under(MIN_DISTANCE_TO_SPAWN), 1000)).reason).toBe('Too close to spawn');
+        atDistances(1000, under(MIN_DISTANCE_TO_SPAWN), 1000)).reason).toBe('spawn');
       expect(checkTowerPlacement(48.14, 11.57,
-        atDistances(1000, 1000, under(MIN_DISTANCE_TO_OTHER_TOWER))).reason).toBe('Too close to another tower');
+        atDistances(1000, 1000, under(MIN_DISTANCE_TO_OTHER_TOWER))).reason).toBe('tower');
     });
   });
 
   describe('routes', () => {
     it('position directly on route → invalid', () => {
       const result = checkTowerPlacement(48.1365, 11.575, context({ routes: [ROUTE] }));
-      expect(result).toEqual({ valid: false, reason: 'Too close to route' });
+      expect(result).toEqual({ valid: false, reason: 'route' });
     });
 
     it('position 5m from route → invalid (under MIN_DISTANCE_TO_ROUTE)', () => {

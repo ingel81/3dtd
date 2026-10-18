@@ -16,7 +16,7 @@
  */
 import { PLACEMENT_CONFIG } from '../../configs/placement.config';
 import { TOWER_TYPES } from '../../configs/tower-types.config';
-import { checkTowerPlacement, type TowerPlacementContext } from '../../utils/tower-placement-rules';
+import { checkTowerPlacement, type TowerPlacementContext, type TowerPlacementRefusal } from '../../utils/tower-placement-rules';
 import { footprintSampleOffsets, footprintSurroundingOffsets, resolveTowerFootprint } from '../../utils/tower-footprint';
 import { type BuildCatalogEntry, CustomMapFrame, CustomMapSurface } from '../../world/custom-map/custom-map-surface';
 import { passingObjectIds } from '../../world/custom-map/custom-map-destruction';
@@ -172,12 +172,12 @@ export function computeBuildAreas(input: BuildAreaInput): BuildAreas {
 }
 
 /** The cell a refusal of the placement rules makes */
-function reasonCell(reason: string | undefined): BuildCell {
+function reasonCell(reason: TowerPlacementRefusal | undefined): BuildCell {
   switch (reason) {
     case BUILD_BLOCKED_WATER: return BuildCell.Water;
     case BUILD_BLOCKED_OBJECT: return BuildCell.Object;
-    case 'Too close to HQ':
-    case 'Too close to spawn': return BuildCell.Marker;
+    case 'hq':
+    case 'spawn': return BuildCell.Marker;
     default: return BuildCell.Outside;
   }
 }

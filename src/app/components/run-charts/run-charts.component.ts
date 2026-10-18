@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, inject } from '@angular/core';
 import type { PlayerWaveNumbers, WaveSeriesPoint } from '../../run-log/wave-series';
 import { formatCompact } from '../../utils/format-compact';
+import { I18n } from '../../i18n/i18n.service';
 
 /** A player of the charts: their name and colour (the lane colour in coop) */
 export interface RunChartPlayer {
@@ -53,6 +54,7 @@ const DASHES: (string | null)[] = [null, '6 3', '2 2', '8 3 2 3'];
   `,
 })
 export class RunChartsComponent {
+  protected readonly t = inject(I18n).t;
   readonly points = input.required<readonly WaveSeriesPoint[]>();
   readonly players = input.required<readonly RunChartPlayer[]>();
 
@@ -68,11 +70,12 @@ export class RunChartsComponent {
     if (points.length < 2) return [];
     const legend = this.legend();
     const per = (key: keyof PlayerWaveNumbers) => (id: string) => points.map((p) => p.players[id]?.[key] ?? 0);
+    const says = this.t().hud.runCharts;
     return [
-      this.chart('Kills', points, legend, per('kills')),
-      this.chart('Towers', points, legend, per('towers')),
-      this.chart('Gold earned', points, legend, per('goldEarned')),
-      this.chart('HQ health', points, [{ id: 'hq', name: 'HQ', color: 'var(--td-text-secondary)', dash: null }],
+      this.chart(says.kills, points, legend, per('kills')),
+      this.chart(says.towers, points, legend, per('towers')),
+      this.chart(says.earned, points, legend, per('goldEarned')),
+      this.chart(says.hq, points, [{ id: 'hq', name: 'HQ', color: 'var(--td-text-secondary)', dash: null }],
         () => points.map((p) => p.hqHealth)),
     ];
   });
@@ -97,8 +100,8 @@ export class RunChartsComponent {
     const hovers = points.map((point, i) => ({
       x: Math.max(0, i * step - step / 2),
       width: step,
-      label: `Wave ${point.wave}: `
-        + players.map((p) => `${players.length > 1 ? `${p.name} ` : ''}${formatCompact(values.get(p.id)![i])}`).join(', '),
+      label: this.t().hud.runCharts.hover(point.wave,
+        players.map((p) => `${players.length > 1 ? `${p.name} ` : ''}${formatCompact(values.get(p.id)![i])}`).join(', ')),
     }));
     return { title, top, lines, hovers };
   }

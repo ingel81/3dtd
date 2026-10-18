@@ -172,7 +172,7 @@ describe('Towers at roof edges and walls (playtest 12 to 17, C10)', () => {
   it('14, 17: the axis next to the edge, the inner ring past it: red with the reason, a click places nothing', () => {
     hover(INNER_PAST_EDGE);
 
-    expect(service.validationReason()).toBe('Too far over the edge');
+    expect(service.validationReason()).toBe('edge');
     expect(red(previewTower())).toBe(true);
     expect(plinth()!.visible).toBe(true);
     expect(red(plinth()!)).toBe(true);
@@ -226,7 +226,7 @@ describe('Towers at roof edges and walls (playtest 12 to 17, C10)', () => {
   it('13: the inner ring in the wall of a higher building: red with the reason, a click places nothing', () => {
     hover(INNER_IN_WALL);
 
-    expect(service.validationReason()).toBe('Not enough room');
+    expect(service.validationReason()).toBe('room');
     expect(red(previewTower())).toBe(true);
     expect(service.handleBuildClick()).toBe(false);
     expect(emit).not.toHaveBeenCalled();
@@ -247,7 +247,7 @@ describe('Towers at roof edges and walls (playtest 12 to 17, C10)', () => {
       reasons.push(preview);
       expect(botSays(spot).result.reason ?? null).toBe(preview);
     }
-    expect(reasons).toEqual(['Too far over the edge', 'Not enough room', null]);
+    expect(reasons).toEqual(['edge', 'room', null]);
     const braced = botSays(OUTER_PAST_EDGE).footprint;
     expect(braced).toMatchObject({ plinthHeight: PLINTH_CONFIG.MIN_BRACED_HEIGHT, overhang: pastEdge(OUTER_PAST_EDGE) });
   });

@@ -206,7 +206,7 @@ describe('UIStore', () => {
     it('resets build mode and selection', () => {
       store.buildMode.set(true);
       store.selectedTowerType.set('archer');
-      store.buildValidationReason.set('Too close');
+      store.buildValidationReason.set('tower');
 
       store.resetBuildState();
 
@@ -242,7 +242,7 @@ describe('UIStore', () => {
       store.appendDebugLog('test log');
       store.buildMode.set(true);
       store.selectedTowerType.set('cannon');
-      store.buildValidationReason.set('blocked');
+      store.buildValidationReason.set('object');
 
       store.resetAll();
 

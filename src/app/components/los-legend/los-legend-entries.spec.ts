@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { buildLosLegendEntries, losSwatchCss } from './los-legend-entries';
 import { LOS_VIZ_CONFIG } from '../../configs/los-viz.config';
+import { en } from '../../i18n/messages/en';
 
 const labels = (f: 'both' | 'ground' | 'air', g: boolean, a: boolean) =>
-  buildLosLegendEntries(f, g, a).map((e) => e.label);
+  buildLosLegendEntries(en, f, g, a).map((e) => e.label);
 
 describe('buildLosLegendEntries', () => {
   it('lists ground, air and blocked for a mixed tower (archer)', () => {
@@ -11,7 +12,7 @@ describe('buildLosLegendEntries', () => {
   });
 
   it('gives ground, air and blocked three different swatches', () => {
-    const swatches = buildLosLegendEntries('both', true, true).map((e) => e.swatch);
+    const swatches = buildLosLegendEntries(en, 'both', true, true).map((e) => e.swatch);
     expect(new Set(swatches).size).toBe(3);
   });
 

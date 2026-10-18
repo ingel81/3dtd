@@ -201,7 +201,7 @@ function walkFiles(dir, out = []) {
   return out;
 }
 
-const SKIP_FILE = /(\.spec|\.perf|\.bench|\.scenario|\.stub|\.d|\.test)\.ts$|(^|\/)(test-|fixtures?\/)|\.worker-bundle|environment/;
+const SKIP_FILE = /^i18n\/|(\.spec|\.perf|\.bench|\.scenario|\.stub|\.d|\.test)\.ts$|(^|\/)(test-|fixtures?\/)|\.worker-bundle|environment/;
 
 /** Every text found, by file, relative to `root` (the repository) */
 export function scanSources(root) {

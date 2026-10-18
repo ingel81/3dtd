@@ -4,6 +4,7 @@ import { GameStore } from '../../store/game.store';
 import { GAME_SPEEDS } from '../../configs/game-speed.config';
 import { TdIconComponent } from '../icon/icon.component';
 import { COOP } from '../../services/coop.token';
+import { I18n } from '../../i18n/i18n.service';
 
 @Component({
   selector: 'app-game-speed',
@@ -11,13 +12,13 @@ import { COOP } from '../../services/coop.token';
   imports: [MatTooltipModule, TdIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="speed-group" role="group" aria-label="Game speed">
+    <div class="speed-group" role="group" [attr.aria-label]="t().hud.speed.group">
       <button
         class="td-icon-btn pause-btn"
         [attr.aria-disabled]="!mayPause()"
         (click)="togglePause()"
-        [matTooltip]="!mayPause() ? PAUSE_TIP : paused() ? 'Resume (P)' : 'Pause (P)'"
-        [attr.aria-label]="paused() ? 'Resume game' : 'Pause game'"
+        [matTooltip]="!mayPause() ? t().hud.speed.noPause : paused() ? 'Resume (P)' : 'Pause (P)'"
+        [attr.aria-label]="paused() ? t().hud.speed.resume : t().hud.speed.pause"
         [attr.aria-pressed]="paused()"
         aria-keyshortcuts="P"
         matTooltipPosition="below">
@@ -28,15 +29,15 @@ import { COOP } from '../../services/coop.token';
         [class.is-on]="currentSpeed() > 1"
         (click)="cycleSpeed()"
         [attr.aria-disabled]="guest()"
-        [matTooltip]="guest() ? GUEST_TIP : 'Game Speed: ' + currentSpeed() + 'x (+/-)'"
-        [attr.aria-label]="'Game speed ' + currentSpeed() + 'x'"
+        [matTooltip]="guest() ? t().hud.speed.guest : t().hud.speed.tip(currentSpeed())"
+        [attr.aria-label]="t().hud.speed.label(currentSpeed())"
         matTooltipPosition="below">
         <td-icon [name]="currentSpeed() === 1 ? 'play' : 'fastForward'" [size]="16"></td-icon>
         {{ currentSpeed() }}x
       </button>
     </div>
     @if (paused()) {
-      <div class="paused-chip td-overlay td-caps" role="status">Paused</div>
+      <div class="paused-chip td-overlay td-caps" role="status">{{ t().hud.speed.paused }}</div>
     }
   `,
   styles: `
@@ -63,14 +64,13 @@ import { COOP } from '../../services/coop.token';
   `
 })
 export class GameSpeedComponent {
+  protected readonly t = inject(I18n).t;
   private gameStore = inject(GameStore);
 
   /** Coop: the speed belongs to the host (D15), the pause to whom the room lets (D38) */
   private readonly coop = inject(COOP, { optional: true });
   readonly guest = computed(() => !!this.coop?.inGame() && !this.coop.isHost());
   readonly mayPause = computed(() => !this.coop?.inGame() || this.coop.mayPause());
-  readonly GUEST_TIP = 'The host sets the speed';
-  readonly PAUSE_TIP = 'The room does not let you pause';
 
   readonly currentSpeed = this.gameStore.gameSpeed;
   readonly paused = this.gameStore.paused;

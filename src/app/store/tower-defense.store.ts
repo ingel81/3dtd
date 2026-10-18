@@ -36,6 +36,7 @@ import { UIStore } from './ui.store';
 import { ResearchStore } from './research.store';
 import { CameraDebugInfo, SoundCounts, TileStats } from './tower-defense.store.types';
 import { EngineInitializationService } from '../services/infrastructure/engine-initialization.service';
+import type { TowerPlacementRefusal } from '../utils/tower-placement-rules';
 
 export * from './tower-defense.store.types';
 
@@ -297,7 +298,7 @@ export class TowerDefenseStore {
   readonly healthCritical: Signal<boolean> = this.gameStore.healthCritical;
 
   /** Build mode warning text */
-  readonly buildModeWarning: Signal<string | null> = computed(() => this.buildValidationReason());
+  readonly buildModeWarning: Signal<TowerPlacementRefusal | null> = computed(() => this.buildValidationReason());
 
   // ════════════════════════════════════════════════════════════
   // STATE MUTATION HELPERS (pure state changes, no side effects)

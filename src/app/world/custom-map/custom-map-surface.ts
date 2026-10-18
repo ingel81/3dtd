@@ -5,7 +5,7 @@ import type { StreetSurface } from '../../utils/carried-height';
 import type { StationProbe } from '../../utils/route-corridor';
 import type { FootprintColumn } from '../../utils/tower-footprint';
 import { PLINTH_CONFIG } from '../../configs/placement.config';
-import { BUILD_BLOCKED_OBJECT, BUILD_BLOCKED_WATER, WATER_DEPTH_M, type WorldSurface } from '../world-provider';
+import { BUILD_BLOCKED_OBJECT, BUILD_BLOCKED_WATER, WATER_DEPTH_M, type BuildBlock, type WorldSurface } from '../world-provider';
 import type { CustomMapDocument, MapObject } from './map-document';
 import { MAP_METERS_PER_DEGREE } from './map-document';
 import { HeightField } from './render/height-field';
@@ -468,7 +468,7 @@ export class CustomMapSurface implements WorldSurface {
    * the tiles' roofs (a facade, an edge, resolveTowerFootprint). On the
    * ground beside a house it blocks as before. Null where it may.
    */
-  buildBlocker(lat: number, lon: number, radius: number): string | null {
+  buildBlocker(lat: number, lon: number, radius: number): BuildBlock | null {
     const x = lon * MAP_METERS_PER_DEGREE;
     const y = lat * MAP_METERS_PER_DEGREE;
     if (this.inWater(x, y, radius)) return BUILD_BLOCKED_WATER;

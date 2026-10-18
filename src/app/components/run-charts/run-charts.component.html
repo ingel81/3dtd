@@ -1,5 +1,5 @@
 @if (charts().length > 0) {
-  <section class="td-stack run-charts" aria-label="The run wave by wave">
+  <section class="td-stack run-charts" [attr.aria-label]="t().hud.runCharts.group">
     @if (legend().length > 1) {
       <ul class="td-legend td-inline td-note run-charts-legend">
         @for (player of legend(); track player.id) {
@@ -21,7 +21,7 @@
             <span class="td-num">{{ compact(chart.top) }}</span>
           </figcaption>
           <svg [attr.viewBox]="'0 0 ' + width + ' ' + height" preserveAspectRatio="none" role="img"
-               [attr.aria-label]="chart.title + ' per wave'">
+               [attr.aria-label]="t().hud.runCharts.perWave(chart.title)">
             <line class="run-chart-base" x1="0" [attr.y1]="height - 0.5" [attr.x2]="width" [attr.y2]="height - 0.5" />
             @for (line of chart.lines; track line.id) {
               <polyline [attr.points]="line.points" [attr.stroke]="line.color" [attr.stroke-dasharray]="line.dash"
@@ -34,8 +34,8 @@
             }
           </svg>
           <div class="td-note td-num run-charts-axis" aria-hidden="true">
-            <span>W{{ points()[0].wave }}</span>
-            <span>W{{ points()[points().length - 1].wave }}</span>
+            <span>{{ t().hud.runCharts.waveShort(points()[0].wave) }}</span>
+            <span>{{ t().hud.runCharts.waveShort(points()[points().length - 1].wave) }}</span>
           </div>
         </figure>
       }

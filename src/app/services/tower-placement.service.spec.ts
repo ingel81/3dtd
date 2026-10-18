@@ -462,7 +462,7 @@ describe('TowerPlacementService', () => {
       await enterBuild();
       hover(NEAR_HQ);
 
-      expect(service.validationReason()).toBe('Too close to HQ');
+      expect(service.validationReason()).toBe('hq');
       const emissive = materialOf(preview()!).emissive;
       expect(emissive.r).toBeGreaterThan(emissive.g);
       // Shown anyway, so the player sees where the red tower would go.
@@ -474,7 +474,7 @@ describe('TowerPlacementService', () => {
       await enterBuild();
       hover(FREE);
 
-      expect(service.validationReason()).toBe('No streets loaded');
+      expect(service.validationReason()).toBe('no-streets');
     });
 
     it('follows a new street network from updateStreetNetwork', async () => {
@@ -482,7 +482,7 @@ describe('TowerPlacementService', () => {
       service.updateStreetNetwork({ streets: [], bounds } as never);
 
       expect(service.validateTowerPosition(FREE.lat, FREE.lon)).toEqual({
-        valid: false, reason: 'No streets loaded',
+        valid: false, reason: 'no-streets',
       });
     });
 
@@ -497,7 +497,7 @@ describe('TowerPlacementService', () => {
 
       hover(at(0, 10));
       expect(validate).toHaveBeenCalledTimes(2);
-      expect(service.validationReason()).toBe('Too close to HQ');
+      expect(service.validationReason()).toBe('hq');
     });
 
     it('turns the preview by the type base rotation plus the player rotation', async () => {
@@ -542,7 +542,7 @@ describe('TowerPlacementService', () => {
 
       // Also where the tower may not stand
       hover(at(0, 10));
-      expect(service.validationReason()).toBe('Too close to HQ');
+      expect(service.validationReason()).toBe('hq');
       expect(showPreviewRange).toHaveBeenCalledTimes(2);
 
       hidePreviewRange.mockClear();
@@ -924,7 +924,7 @@ describe('TowerPlacementService', () => {
         result: { valid: true },
       });
       expect(service.placementAt(NEAR_HQ.lat, NEAR_HQ.lon, 'archer')?.result).toEqual({
-        valid: false, reason: 'Too close to HQ',
+        valid: false, reason: 'hq',
       });
     });
 
@@ -950,7 +950,7 @@ describe('TowerPlacementService', () => {
         lat: FREE.lat,
         lon: FREE.lon,
         footprint: { footY: 3, plinthHeight: 0, refusal: 'wall' },
-        result: { valid: false, reason: 'Not enough room' },
+        result: { valid: false, reason: 'room' },
       });
     });
   });
@@ -1204,7 +1204,7 @@ describe('TowerPlacementService', () => {
       service.dispose();
 
       expect(service.validateTowerPosition(FREE.lat, FREE.lon)).toEqual({
-        valid: false, reason: 'Service not initialized',
+        valid: false, reason: 'not-ready',
       });
       await enterBuild();
       hover(FREE);

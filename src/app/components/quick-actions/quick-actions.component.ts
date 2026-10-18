@@ -8,6 +8,7 @@ import { CorridorSnapshotService } from '../../services/debug/corridor-snapshot.
 import { UIStore } from '../../store/ui.store';
 import { WorldContext } from '../../world/world-context.service';
 import { TdIconComponent } from '../icon/icon.component';
+import { I18n } from '../../i18n/i18n.service';
 
 @Component({
   selector: 'app-quick-actions',
@@ -18,6 +19,7 @@ import { TdIconComponent } from '../icon/icon.component';
   styleUrl: './quick-actions.component.scss',
 })
 export class QuickActionsComponent {
+  protected readonly t = inject(I18n).t;
   readonly debugWindows = inject(DebugWindowService);
   readonly uiStore = inject(UIStore);
   /** The DevWorld tile opens the regeneration panel: only a world that regenerates */
@@ -37,9 +39,9 @@ export class QuickActionsComponent {
   });
   readonly perTowerLosFilterTooltip = computed(() => {
     const mode = this.uiStore.perTowerLosFilter();
-    const current = mode === 'both' ? 'Both layers' : mode === 'ground' ? 'Ground only' : 'Air only';
-    const next = mode === 'both' ? 'Ground only' : mode === 'ground' ? 'Air only' : 'Both layers';
-    return `Per-tower LOS: ${current} (click: ${next})`;
+    const says = this.t().hud.losFilter;
+    const next = mode === 'both' ? 'ground' : mode === 'ground' ? 'air' : 'both';
+    return says.tooltip(says[mode], says[next]);
   });
 
   // Outputs for actions that need parent handling

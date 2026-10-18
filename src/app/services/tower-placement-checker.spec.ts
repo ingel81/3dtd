@@ -87,11 +87,11 @@ describe('TowerPlacementService placement checks', () => {
     const check = service.placementChecker();
     const cases: [string, { lat: number; lon: number }, string | undefined][] = [
       ['free spot', at(0, 300), undefined],
-      ['outside the play area', at(0, 3000), 'Outside play area'],
-      ['next to the HQ', at(0, 10), 'Too close to HQ'],
-      ['next to the spawn', at(60, 990), 'Too close to spawn'],
-      ['next to a tower', at(0, 505), 'Too close to another tower'],
-      ['next to the route', at(95, 300), 'Too close to route'],
+      ['outside the play area', at(0, 3000), 'outside'],
+      ['next to the HQ', at(0, 10), 'hq'],
+      ['next to the spawn', at(60, 990), 'spawn'],
+      ['next to a tower', at(0, 505), 'tower'],
+      ['next to the route', at(95, 300), 'route'],
     ];
     for (const [, p, reason] of cases) {
       const result = check(p.lat, p.lon);
@@ -120,17 +120,17 @@ describe('TowerPlacementService placement checks', () => {
 
     const spot = at(0, 303);
     expect(before(spot.lat, spot.lon).valid).toBe(true);
-    expect(service.placementChecker()(spot.lat, spot.lon).reason).toBe('Too close to another tower');
+    expect(service.placementChecker()(spot.lat, spot.lon).reason).toBe('tower');
   });
 
   it('rejects every position until the world is ready', () => {
     expect(service.placementChecker()(HQ.lat, HQ.lon)).toEqual({
-      valid: false, reason: 'Service not initialized',
+      valid: false, reason: 'not-ready',
     });
     init([]);
     const spot = at(0, 300);
     expect(service.validateTowerPosition(spot.lat, spot.lon)).toEqual({
-      valid: false, reason: 'No streets loaded',
+      valid: false, reason: 'no-streets',
     });
   });
 });

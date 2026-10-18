@@ -4,6 +4,7 @@ import type { AbilityId } from '../configs/abilities.config';
 import { readJson, writeJson } from '../utils/storage';
 import type { MainMenuState } from '../components/main-menu/menu-page';
 import { isLocalePreference, type LocalePreference } from '../i18n/locale';
+import type { TowerPlacementRefusal } from '../utils/tower-placement-rules';
 
 /** LocalStorage key for persisted UI state */
 const STORAGE_KEY = 'td-ui-state';
@@ -236,7 +237,7 @@ export class UIStore {
   readonly selectedTowerType = signal<TowerTypeId | null>(null);
 
   /** Build validation reason (why placement is invalid) */
-  readonly buildValidationReason = signal<string | null>(null);
+  readonly buildValidationReason = signal<TowerPlacementRefusal | null>(null);
 
   /** Map placement mode: 'hq' to place HQ, 'spawn' to place spawn, null when inactive */
   readonly mapPlacementMode = signal<'hq' | 'spawn' | null>(null);

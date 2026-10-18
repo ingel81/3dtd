@@ -154,7 +154,7 @@ describe('Build preview with a plinth on a spot too close to the route (playtest
     expect(100 - local.x).toBeLessThan(PLACEMENT_CONFIG.MIN_DISTANCE_TO_ROUTE);
     service.updatePreviewPosition(NEAR_ROUTE.lat, NEAR_ROUTE.lon, 5);
 
-    expect(service.validationReason()).toBe('Too close to route');
+    expect(service.validationReason()).toBe('route');
     expect(red(previewTower())).toBe(true);
     const r = TOWER_TYPES.cannon.footprintRadius;
     expect(plinth()!.visible).toBe(true);

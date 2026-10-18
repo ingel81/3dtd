@@ -1,6 +1,6 @@
 @if (view(); as v) {
-  <div class="ll td-overlay" role="group" aria-label="Lane lengths to the HQ">
-    <span class="td-section">Lanes to the HQ</span>
+  <div class="ll td-overlay" role="group" [attr.aria-label]="t().hud.laneLengths.group">
+    <span class="td-section">{{ t().hud.laneLengths.title }}</span>
     @for (row of v.rows; track $index) {
       <div class="ll-row td-note td-num" [class.edited]="row.edited">
         <span class="td-swatch" [style.--td-mark]="row.color"></span>
@@ -10,7 +10,7 @@
       </div>
     }
     @if (v.deltaPercent !== null) {
-      <span class="td-note td-num">{{ v.deltaPercent > 0 ? '+' : '' }}{{ v.deltaPercent }} % against the others on average</span>
+      <span class="td-note td-num">{{ t().hud.laneLengths.delta(v.deltaPercent) }}</span>
     }
   </div>
 }

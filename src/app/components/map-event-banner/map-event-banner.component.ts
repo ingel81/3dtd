@@ -5,6 +5,7 @@ import { GameStore } from '../../store/game.store';
 import { WorldContext } from '../../world/world-context.service';
 import { TdIconComponent } from '../icon/icon.component';
 import { waveEventLines } from './map-event-banner';
+import { I18n } from '../../i18n/i18n.service';
 
 /** In fast, a while on screen, out slower (as the blood moon banner) */
 const BANNER_FADE: Keyframe[] = [
@@ -37,7 +38,7 @@ const BANNER_MAX_MS = 12000;
     <div class="meb td-chip" #chip aria-hidden="true" data-test="map-event-banner">
       <td-icon class="meb-icon" name="flag" [size]="18"></td-icon>
       <div class="td-stack meb-text">
-        <span class="td-section">Before wave {{ wave() }}</span>
+        <span class="td-section">{{ t().hud.mapEvents.beforeWave(wave()) }}</span>
         @for (line of lines(); track $index) {
           <span class="meb-line">{{ line }}</span>
         }
@@ -53,6 +54,7 @@ const BANNER_MAX_MS = 12000;
   ],
 })
 export class MapEventBannerComponent {
+  protected readonly t = inject(I18n).t;
   private readonly chip = viewChild<ElementRef<HTMLElement>>('chip');
   private readonly announcer = inject(LiveAnnouncer);
   private run: Animation | null = null;
@@ -63,7 +65,7 @@ export class MapEventBannerComponent {
   constructor() {
     const bus = inject(SimClient).bus;
     const subs = [
-      bus.onLive('map:wave-events', ({ wave, messages, opened }) => this.show(wave, waveEventLines(messages, opened))),
+      bus.onLive('map:wave-events', ({ wave, messages, opened }) => this.show(wave, waveEventLines(this.t(), messages, opened))),
       bus.onLive('game:reset', () => this.run?.cancel()),
     ];
     inject(DestroyRef).onDestroy(() => {
@@ -74,7 +76,7 @@ export class MapEventBannerComponent {
     const game = inject(GameStore);
     afterNextRender(() => {
       const first = world.provider()?.waveMessages?.(1) ?? [];
-      if (game.waveNumber() === 0 && game.phase() === 'setup') this.show(1, waveEventLines(first, []));
+      if (game.waveNumber() === 0 && game.phase() === 'setup') this.show(1, waveEventLines(this.t(), first, []));
     });
   }
 
@@ -82,7 +84,7 @@ export class MapEventBannerComponent {
     if (!lines.length) return;
     this.wave.set(wave);
     this.lines.set(lines);
-    void this.announcer.announce(`Before wave ${wave}: ${lines.join(' ')}`);
+    void this.announcer.announce(this.t().hud.mapEvents.announce(wave, lines.join(' ')));
     const el = this.chip()?.nativeElement;
     if (!el || typeof el.animate !== 'function') return;
     this.run?.cancel();

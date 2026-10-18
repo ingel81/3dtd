@@ -126,7 +126,7 @@ describe('StrategicPlacementService candidate filter', () => {
   });
 
   it('returns no candidates when the rules reject everything', () => {
-    check.mockReturnValue({ valid: false, reason: 'No streets loaded' });
+    check.mockReturnValue({ valid: false, reason: 'no-streets' });
     expect(service.findStrategicPositions(spawnPoints, paths, 'archer')).toEqual([]);
     expect(service.findDistributedPositions(spawnPoints, paths, 'archer')).toEqual([]);
   });

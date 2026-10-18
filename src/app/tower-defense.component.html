@@ -9,9 +9,9 @@
          [class.is-warn]="notice.tone === 'warn'" [class.is-ok]="notice.tone === 'ok'">
       <span>{{ notice.text }}</span>
       @if (notice.reload) {
-        <button type="button" class="td-btn-secondary td-btn-sm" (click)="reloadPage()">Reload</button>
+        <button type="button" class="td-btn-secondary td-btn-sm" (click)="reloadPage()">{{ t().hud.page.reload }}</button>
       }
-      <button type="button" class="td-close" (click)="uiStore.notice.set(null)" aria-label="Close the message">
+      <button type="button" class="td-close" (click)="uiStore.notice.set(null)" [attr.aria-label]="t().hud.page.closeMessage">
         <td-icon name="close" [size]="12"></td-icon>
       </button>
     </div>
@@ -72,10 +72,10 @@
         } @error {
           <div class="td-error-overlay" role="alert">
             <div class="td-dlg td-error-plate">
-              <header class="td-dlg-head"><h3 class="td-dlg-title">The map key screen did not load</h3></header>
-              <p class="td-dlg-body td-text">Check the connection and reload the page.</p>
+              <header class="td-dlg-head"><h3 class="td-dlg-title">{{ t().hud.page.keyScreenFailed }}</h3></header>
+              <p class="td-dlg-body td-text">{{ t().hud.page.checkConnection }}</p>
               <div class="td-dlg-foot">
-                <button type="button" class="td-btn-primary" (click)="reloadPage()">Reload</button>
+                <button type="button" class="td-btn-primary" (click)="reloadPage()">{{ t().hud.page.reload }}</button>
               </div>
             </div>
           </div>
@@ -86,11 +86,11 @@
       @if (error() && !loading() && !uiStore.mainMenuOpen()) {
         <div class="td-error-overlay" role="alert">
           <div class="td-dlg td-error-plate">
-            <header class="td-dlg-head"><h3 class="td-dlg-title">The map did not load</h3></header>
+            <header class="td-dlg-head"><h3 class="td-dlg-title">{{ t().hud.page.mapFailed }}</h3></header>
             <p class="td-dlg-body td-text">{{ error() }}</p>
             <div class="td-dlg-foot">
-              <button type="button" class="td-btn-secondary" (click)="awaitingCredentials.set(true)">Map key</button>
-              <button type="button" class="td-btn-primary" (click)="reloadPage()">Reload</button>
+              <button type="button" class="td-btn-secondary" (click)="awaitingCredentials.set(true)">{{ t().hud.page.mapKey }}</button>
+              <button type="button" class="td-btn-primary" (click)="reloadPage()">{{ t().hud.page.reload }}</button>
             </div>
           </div>
         </div>
@@ -321,11 +321,11 @@
       @if (coop.lostInGame() && !store.showGameOverScreen()) {
         <div class="td-lost-overlay td-backdrop" role="alertdialog" aria-modal="true" aria-labelledby="td-lost-title" tabindex="-1" tdFocusOnShow cdkTrapFocus>
           <div class="td-dlg td-lost-content">
-            <header class="td-dlg-head"><h2 class="td-dlg-title" id="td-lost-title">Connection lost</h2></header>
-            <p class="td-dlg-body td-text">The connection to the coop server closed, the game stands still. Go on alone with this run, or start a new one alone.</p>
+            <header class="td-dlg-head"><h2 class="td-dlg-title" id="td-lost-title">{{ t().hud.page.connectionLost }}</h2></header>
+            <p class="td-dlg-body td-text">{{ t().hud.page.connectionLostText }}</p>
             <div class="td-dlg-foot">
-              <button type="button" class="td-btn-secondary" (click)="restartGame()">Start over alone</button>
-              <button type="button" class="td-btn-primary" (click)="coop.continueAlone()">Continue alone</button>
+              <button type="button" class="td-btn-secondary" (click)="restartGame()">{{ t().hud.page.startOverAlone }}</button>
+              <button type="button" class="td-btn-primary" (click)="coop.continueAlone()">{{ t().hud.page.continueAlone }}</button>
             </div>
           </div>
         </div>
@@ -335,8 +335,8 @@
       @if (store.showGameOverScreen()) {
         <div class="td-gameover-overlay td-gameover-veil" role="dialog" aria-modal="true" aria-labelledby="td-gameover-title" aria-describedby="td-gameover-sub" tabindex="-1" tdFocusOnShow cdkTrapFocus>
           <div class="td-gameover-title">
-            <h1 class="td-gameover-word" id="td-gameover-title">Game over</h1>
-            <p class="td-gameover-sub" id="td-gameover-sub">HQ lost | {{ currentLocationName() }} | wave <b>{{ store.waveNumber() }}</b></p>
+            <h1 class="td-gameover-word" id="td-gameover-title">{{ t().hud.page.gameOver }}</h1>
+            <p class="td-gameover-sub" id="td-gameover-sub">{{ t().hud.gameOver.hqLost }} | {{ currentLocationName() }} | {{ t().hud.gameOver.wave }} <b>{{ store.waveNumber() }}</b></p>
           </div>
           <div class="td-dlg td-gameover-content td-gameover-rise">
            <div class="td-dlg-body td-gameover-scroll">
@@ -345,14 +345,14 @@
             }
             <!-- Coop: each player's part of the run (docs/COOP_PLAN.md, R16) -->
             @if (coop.summary(); as rows) {
-              <table class="td-table td-coop-summary" aria-label="Players">
+              <table class="td-table td-coop-summary" [attr.aria-label]="t().hud.page.players">
                 <thead>
-                  <tr><th>Player</th><th class="num">Kills</th><th class="num">Leaks</th><th class="num">Towers</th><th class="num">Earned</th><th class="num">Gold given</th><th class="num">Gold</th></tr>
+                  <tr><th>{{ t().hud.gameOver.player }}</th><th class="num">{{ t().hud.gameOver.kills }}</th><th class="num">{{ t().hud.gameOver.leaks }}</th><th class="num">{{ t().hud.gameOver.towers }}</th><th class="num">{{ t().hud.gameOver.earned }}</th><th class="num">{{ t().hud.gameOver.given }}</th><th class="num">{{ t().hud.gameOver.credits }}</th></tr>
                 </thead>
                 <tbody>
                   @for (row of rows; track row.id) {
                     <tr [class.is-own]="row.me" [class.is-gone]="row.left">
-                      <td><span class="td-inline td-coop-player"><span class="td-swatch is-round" [style.--td-mark]="row.color"></span><span class="td-name">{{ row.name }}{{ row.me ? ' (you)' : '' }}</span></span></td>
+                      <td><span class="td-inline td-coop-player"><span class="td-swatch is-round" [style.--td-mark]="row.color"></span><span class="td-name">{{ row.name }}{{ row.me ? t().hud.gameOver.you : '' }}</span></span></td>
                       <td class="num">{{ row.kills }}</td>
                       <td class="num">{{ row.leaks }}</td>
                       <td class="num">{{ row.towers }}</td>
@@ -367,10 +367,10 @@
             <!-- Each player's run wave by wave (TODO E46) -->
             <app-run-charts [points]="waveSeries()" [players]="chartPlayers()" />
             @if (coop.lostInGame()) {
-              <p class="td-note td-gameover-wait">The connection to the coop server is lost: Restart plays alone.</p>
+              <p class="td-note td-gameover-wait">{{ t().hud.page.lostRestart }}</p>
             }
             @if (coop.inGame() && !coop.isHost()) {
-              <p class="td-note td-gameover-wait">The host starts the next run.</p>
+              <p class="td-note td-gameover-wait">{{ t().hud.page.hostStarts }}</p>
             }
             <!-- New record of this place: under Restart, fades in after a moment, Skip hides it.
                  on immediate like the other @defer blocks; a timer trigger would add core code to the initial bundle. -->
@@ -387,10 +387,10 @@
            <footer class="td-dlg-foot td-actions is-split">
             <span class="td-inline td-gameover-files">
               <!-- The run as a file: the analysis reads it, and it can be sent (docs/RUN_LOG.md) -->
-              <button type="button" class="td-btn-secondary" (click)="exportRunLog()">{{ runLogExported() ? 'Run log saved' : 'Save the run log' }}</button>
+              <button type="button" class="td-btn-secondary" (click)="exportRunLog()">{{ runLogExported() ? t().hud.gameOver.runLogSaved : t().hud.gameOver.saveRunLog }}</button>
               <!-- Coop: no replay to watch here, but the host saves the waves as a file -->
               @if (coopReplaySave()) {
-                <button type="button" class="td-btn-secondary" (click)="saveCoopReplay()">{{ coopReplaySaved() ? 'Replay saved' : 'Save the replay' }}</button>
+                <button type="button" class="td-btn-secondary" (click)="saveCoopReplay()">{{ coopReplaySaved() ? t().hud.gameOver.replaySaved : t().hud.gameOver.saveReplay }}</button>
               }
             </span>
             <span class="td-inline td-end-actions">
@@ -404,7 +404,7 @@
               }
               <!-- The wave that broke the HQ, once more, while the replay is offered -->
               @if (replay.offered()) {
-                <button type="button" class="td-btn-secondary" (click)="replay.enter()">Replay wave {{ replay.recordedWave() }}</button>
+                <button type="button" class="td-btn-secondary" (click)="replay.enter()">{{ t().hud.wave.replay(replay.recordedWave()!) }}</button>
               }
               @if (!coop.inGame() || coop.isHost()) {
                 <button type="button" class="td-btn-primary" (click)="restartGame()">{{ mainMenu.restartLabel }}</button>
@@ -417,16 +417,16 @@
 
       <!-- Photo mode: only the map, its attribution and this bar stay -->
       @if (photoMode.active()) {
-        <div class="td-photo-bar td-overlay td-inline" role="toolbar" aria-label="Photo mode">
+        <div class="td-photo-bar td-overlay td-inline" role="toolbar" [attr.aria-label]="t().hud.page.photoMode">
           <button type="button" class="td-btn-primary td-btn-sm" (click)="photoMode.saveScreenshot()" [disabled]="photoMode.saving()">
             <td-icon name="camera" [size]="16"></td-icon>
-            Save screenshot
+            {{ t().hud.page.saveScreenshot }}
           </button>
           <button type="button" class="td-btn-secondary td-btn-sm" (click)="photoMode.exit()">
-            Exit <kbd class="td-kbd">Esc</kbd>
+            {{ t().hud.photo.exit }} <kbd class="td-kbd">Esc</kbd>
           </button>
           @if (photoMode.savedAs(); as saved) {
-            <span class="td-note">Saved to Downloads: {{ saved }}</span>
+            <span class="td-note">{{ t().hud.photo.saved(saved) }}</span>
           }
         </div>
       }

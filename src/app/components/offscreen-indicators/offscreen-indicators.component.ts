@@ -14,6 +14,7 @@ import {
 } from '../../utils/offscreen-indicators';
 import { TdIconComponent } from '../icon/icon.component';
 import { ABILITY_BAR_EDGE_PX } from '../ability-bar/ability-button';
+import { I18n } from '../../i18n/i18n.service';
 
 /** Update interval; arrows need no more than 8 Hz */
 const TICK_MS = 125;
@@ -46,6 +47,7 @@ const EDGE_MARGIN_PX = 26;
   styleUrl: './offscreen-indicators.component.scss',
 })
 export class OffscreenIndicatorsComponent {
+  protected readonly t = inject(I18n).t;
   private readonly mirror = inject(SimMirror);
   private readonly engineInit = inject(EngineInitializationService);
   private readonly gameStore = inject(GameStore);

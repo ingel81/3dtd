@@ -1,6 +1,7 @@
 import { SRGBColorSpace } from 'three';
 import { LOS_VIZ_CONFIG, StateAppearance } from '../../configs/los-viz.config';
 import { visibleLosLayers } from '../../utils/tower-los-layer-builder';
+import type { Messages } from '../../i18n/messages/en';
 
 export interface LosLegendEntry {
   label: string;
@@ -33,6 +34,7 @@ export function losSwatchCss(state: StateAppearance): string {
  *  Pure-Air-Tower:             Air / Blocked (Filter egal)
  */
 export function buildLosLegendEntries(
+  t: Messages,
   filter: 'both' | 'ground' | 'air',
   canTargetGround: boolean,
   canTargetAir: boolean,
@@ -41,10 +43,10 @@ export function buildLosLegendEntries(
   const visible = visibleLosLayers(filter, canTargetGround, canTargetAir);
   const list: LosLegendEntry[] = [];
 
-  if (visible.ground) list.push({ label: 'Ground', swatch: losSwatchCss(states.ground) });
-  if (visible.air)    list.push({ label: 'Air',    swatch: losSwatchCss(states.air) });
+  if (visible.ground) list.push({ label: t.hud.los.ground, swatch: losSwatchCss(states.ground) });
+  if (visible.air)    list.push({ label: t.hud.los.air, swatch: losSwatchCss(states.air) });
   if (visible.ground || visible.air) {
-    list.push({ label: 'Blocked', swatch: losSwatchCss(states.blocked) });
+    list.push({ label: t.hud.los.blocked, swatch: losSwatchCss(states.blocked) });
   }
 
   return list;

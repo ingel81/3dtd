@@ -1,6 +1,7 @@
 import { Component, computed, inject, input, ChangeDetectionStrategy } from '@angular/core';
 import { UIStore } from '../../store/ui.store';
 import { buildLosLegendEntries, LosLegendEntry } from './los-legend-entries';
+import { I18n } from '../../i18n/i18n.service';
 
 /**
  * Legende für die GPU-LOS-Coverage-Visualisierung: ein Swatch pro Layer,
@@ -18,6 +19,7 @@ import { buildLosLegendEntries, LosLegendEntry } from './los-legend-entries';
   styleUrl: './los-legend.component.scss',
 })
 export class LosLegendComponent {
+  protected readonly t = inject(I18n).t;
   private readonly uiStore = inject(UIStore);
 
   /** Tower kann Ground-Einheiten treffen. */
@@ -28,6 +30,7 @@ export class LosLegendComponent {
   /** Einträge je Filter-Mode und Tower-Capabilities, siehe `buildLosLegendEntries`. */
   readonly entries = computed<LosLegendEntry[]>(() =>
     buildLosLegendEntries(
+      this.t(),
       this.uiStore.perTowerLosFilter(),
       this.canTargetGround(),
       this.canTargetAir(),

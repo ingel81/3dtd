@@ -26,7 +26,7 @@ import {
   MAX_SPAWN_STREET_DISTANCE,
 } from '../../configs/map-constants.config';
 import { uiSound } from '../ui-sound';
-import { OUTSIDE_COVERAGE_HINT, isInsideCoverage } from '../../world/world-coverage';
+import { isInsideCoverage } from '../../world/world-coverage';
 
 /**
  * Result of a successful placement click
@@ -114,6 +114,15 @@ const MAX_RING_COLOR = VALID_COLOR;
  * Manages preview marker (follows cursor), position validation,
  * and mode lifecycle. Follows the TowerPlacementService pattern.
  */
+/**
+ * Why the HQ or a spawn may not stand there: no position, too far from the
+ * streets, no street network, no HQ yet, too close to or too far from the
+ * HQ, streets not loaded there, no route to the HQ, outside the map area.
+ * A code; the placement hint words it.
+ */
+export type MapPlacementRefusal =
+  | 'invalid' | 'far-streets' | 'no-streets' | 'no-hq' | 'near-hq' | 'far-hq' | 'unloaded' | 'no-route' | 'outside';
+
 @Injectable({ providedIn: 'root' })
 export class MapPlacementService {
   private readonly uiStore = inject(UIStore);
@@ -121,7 +130,7 @@ export class MapPlacementService {
   private readonly worldContext = inject(WorldContext);
 
   /** Current validation reason (null when valid) — read by component for context hints */
-  readonly validationReason = signal<string | null>(null);
+  readonly validationReason = signal<MapPlacementRefusal | null>(null);
   /** The spawn being placed and the length of its route, null outside spawn placement (LaneLengthPanelComponent) */
   readonly spawnPreview = signal<SpawnPreview | null>(null);
 
@@ -267,7 +276,7 @@ export class MapPlacementService {
 
     const local = this.engine.sync.geoToLocalSimple(lat, lon, 0);
     const groundY = this.engine.getTerrainHeightAtGeo(lat, lon) ?? 0;
-    let validation: { valid: boolean; reason?: string };
+    let validation: { valid: boolean; reason?: MapPlacementRefusal };
     if (mode === 'hq') {
       // The HQ diamond floats above the cursor
       this.followPose({ x: local.x, y: groundY + HEIGHT_ABOVE_GROUND, z: local.z, heading: 0, scale: 1 });
@@ -285,7 +294,7 @@ export class MapPlacementService {
 
     // Colorize
     this.currentValid = validation.valid;
-    this.validationReason.set(validation.valid ? null : (validation.reason ?? 'Invalid position'));
+    this.validationReason.set(validation.valid ? null : (validation.reason ?? 'invalid'));
     this.colorizePreviewMarker(validation.valid);
   }
 
@@ -447,17 +456,17 @@ export class MapPlacementService {
    * loaded streets' box only the ways reaching out of it are known; there
    * the hint says the streets are not loaded rather than that there are none.
    */
-  validatePosition(mode: 'hq' | 'spawn', lat: number, lon: number): { valid: boolean; reason?: string } {
+  validatePosition(mode: 'hq' | 'spawn', lat: number, lon: number): { valid: boolean; reason?: MapPlacementRefusal } {
     // HQ can be placed anywhere — streets will be loaded afterwards via the slow path
     // in MapRelocationService.applyNewHqPosition()
     if (mode === 'hq') {
-      if (!this.insideCoverage(lat, lon)) return { valid: false, reason: OUTSIDE_COVERAGE_HINT };
+      if (!this.insideCoverage(lat, lon)) return { valid: false, reason: 'outside' };
       if (this.streetNetwork) {
         // If we have a street network, validate proximity only within loaded bounds
         if (this.isInsideStreets(lat, lon)) {
           const nearest = this.worldContext.streets.findNearestStreetPoint(this.streetNetwork, lat, lon);
           if (!nearest || nearest.distance > MAX_HQ_STREET_DISTANCE) {
-            return { valid: false, reason: 'Too far from streets' };
+            return { valid: false, reason: 'far-streets' };
           }
         }
         // Outside bounds → allow (streets will be loaded for new area)
@@ -479,34 +488,34 @@ export class MapPlacementService {
    * Whether a spawn may stand at (lat, lon), see validatePosition(), and
    * where it may, the route it would get.
    */
-  private checkSpawn(lat: number, lon: number): { valid: boolean; reason?: string; route?: PreviewRoute } {
+  private checkSpawn(lat: number, lon: number): { valid: boolean; reason?: MapPlacementRefusal; route?: PreviewRoute } {
     // Spawn mode: requires loaded street network
     if (!this.streetNetwork) {
-      return { valid: false, reason: 'No street network loaded' };
+      return { valid: false, reason: 'no-streets' };
     }
     if (!this.baseCoords) {
-      return { valid: false, reason: 'No HQ placed' };
+      return { valid: false, reason: 'no-hq' };
     }
-    if (!this.insideCoverage(lat, lon)) return { valid: false, reason: OUTSIDE_COVERAGE_HINT };
+    if (!this.insideCoverage(lat, lon)) return { valid: false, reason: 'outside' };
 
     const distToHq = this.worldContext.streets.haversineDistance(
       lat, lon,
       this.baseCoords.lat, this.baseCoords.lon,
     );
     if (distToHq < MIN_MANUAL_SPAWN_DISTANCE) {
-      return { valid: false, reason: 'Too close to HQ' };
+      return { valid: false, reason: 'near-hq' };
     }
     if (distToHq > MAX_MANUAL_SPAWN_DISTANCE) {
-      return { valid: false, reason: 'Too far from HQ' };
+      return { valid: false, reason: 'far-hq' };
     }
 
     const nearest = this.worldContext.streets.findNearestStreetPoint(this.streetNetwork, lat, lon);
     if (!nearest || nearest.distance > MAX_SPAWN_STREET_DISTANCE) {
-      return { valid: false, reason: this.isInsideStreets(lat, lon) ? 'Too far from streets' : 'Streets not loaded here' };
+      return { valid: false, reason: this.isInsideStreets(lat, lon) ? 'far-streets' : 'unloaded' };
     }
     const route = this.previewRouteAt(nearest, lat, lon);
     if (!route) {
-      return { valid: false, reason: 'No route to HQ' };
+      return { valid: false, reason: 'no-route' };
     }
 
     return { valid: true, route };

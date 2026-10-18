@@ -2,23 +2,23 @@
   <!-- Route Animation Button -->
   <button class="td-icon-btn"
           (click)="playRouteAnimation.emit()"
-          matTooltip="Play route animation"
+          [matTooltip]="t().hud.quick.routeAnimation"
           matTooltipPosition="above"
-          aria-label="Play route animation">
+          [attr.aria-label]="t().hud.quick.routeAnimation">
     <td-icon name="route" [size]="18"></td-icon>
   </button>
   <!-- Settings: the menu's Settings page (effects, audio, graphics) -->
   <button class="td-icon-btn"
           (click)="settingsRequested.emit()"
-          matTooltip="Settings" matTooltipPosition="above"
-          aria-label="Settings">
+          [matTooltip]="t().hud.quick.settings" matTooltipPosition="above"
+          [attr.aria-label]="t().hud.quick.settings">
     <td-icon name="sliders" [size]="18"></td-icon>
   </button>
   <button class="td-icon-btn"
           (click)="photoModeRequested.emit()"
-          matTooltip="Photo mode: hide the interface, keep the camera free, save screenshots (O)"
+          [matTooltip]="t().hud.quick.photoModeTip"
           matTooltipPosition="above"
-          aria-label="Photo mode" aria-keyshortcuts="O">
+          [attr.aria-label]="t().hud.quick.photoMode" aria-keyshortcuts="O">
     <td-icon name="camera" [size]="18"></td-icon>
   </button>
   <!-- Layer Menu (collapsible, expands upward) -->
@@ -27,49 +27,49 @@
       <button class="td-icon-btn"
               [class.is-on]="uiStore.spatialGridDebugVisible()"
               (click)="spatialGridDebugToggled.emit()"
-              matTooltip="Route Grid Overlay. Fill: grey no tower, green covered. Outline: white cell, blue bridge deck and the way carrying it on past its end, yellow tunnel or covered passage, pink no height sample (a tower's LOS view leaves it out). Brighter: centre line"
+              [matTooltip]="t().hud.quick.routeGridTip"
               matTooltipPosition="left"
-              aria-label="Route Grid Overlay" [attr.aria-pressed]="uiStore.spatialGridDebugVisible()">
+              [attr.aria-label]="t().hud.quick.routeGrid" [attr.aria-pressed]="uiStore.spatialGridDebugVisible()">
         <td-icon name="grid" [size]="18"></td-icon>
       </button>
       <button class="td-icon-btn"
               [class.is-on]="uiStore.buildingsVisible()"
               (click)="uiStore.toggleBuildings(); buildingsToggled.emit()"
-              matTooltip="Show buildings"
+              [matTooltip]="t().hud.quick.buildings"
               matTooltipPosition="left"
-              aria-label="Show buildings" [attr.aria-pressed]="uiStore.buildingsVisible()">
+              [attr.aria-label]="t().hud.quick.buildings" [attr.aria-pressed]="uiStore.buildingsVisible()">
         <td-icon name="tower" [size]="18"></td-icon>
       </button>
       <button class="td-icon-btn"
               [class.is-on]="uiStore.streetsVisible()"
               (click)="uiStore.toggleStreets(); streetsToggled.emit()"
-              matTooltip="Show streets"
+              [matTooltip]="t().hud.quick.streets"
               matTooltipPosition="left"
-              aria-label="Show streets" [attr.aria-pressed]="uiStore.streetsVisible()">
+              [attr.aria-label]="t().hud.quick.streets" [attr.aria-pressed]="uiStore.streetsVisible()">
         <td-icon name="route" [size]="18"></td-icon>
       </button>
       <button class="td-icon-btn"
               [class.is-on]="uiStore.routesVisible()"
               (click)="uiStore.toggleRoutes(); routesToggled.emit()"
-              matTooltip="Show routes"
+              [matTooltip]="t().hud.quick.routes"
               matTooltipPosition="left"
-              aria-label="Show routes" [attr.aria-pressed]="uiStore.routesVisible()">
+              [attr.aria-label]="t().hud.quick.routes" [attr.aria-pressed]="uiStore.routesVisible()">
         <td-icon name="chart" [size]="18"></td-icon>
       </button>
       <button class="td-icon-btn"
               [class.is-on]="uiStore.airRouteVisible()"
               (click)="airRouteToggled.emit()"
-              matTooltip="Air-route altitude"
+              [matTooltip]="t().hud.quick.airAltitude"
               matTooltipPosition="left"
-              aria-label="Air-route altitude" [attr.aria-pressed]="uiStore.airRouteVisible()">
+              [attr.aria-label]="t().hud.quick.airAltitude" [attr.aria-pressed]="uiStore.airRouteVisible()">
         <td-icon name="wind" [size]="18"></td-icon>
       </button>
       <button class="td-icon-btn"
               [class.is-on]="uiStore.airSpatialGridDebugVisible()"
               (click)="airSpatialGridDebugToggled.emit()"
-              matTooltip="Air Route Grid Overlay. Fill: grey no tower, blue covered. Outline as in the Route Grid Overlay"
+              [matTooltip]="t().hud.quick.airGridTip"
               matTooltipPosition="left"
-              aria-label="Air Route Grid Overlay" [attr.aria-pressed]="uiStore.airSpatialGridDebugVisible()">
+              [attr.aria-label]="t().hud.quick.airGrid" [attr.aria-pressed]="uiStore.airSpatialGridDebugVisible()">
         <td-icon name="gridAir" [size]="18"></td-icon>
       </button>
       <button class="td-icon-btn"
@@ -83,14 +83,14 @@
     <button class="td-icon-btn"
             [class.is-on]="uiStore.layerMenuExpanded()"
             (click)="uiStore.toggleMenu('layers')"
-            matTooltip="Layers"
+            [matTooltip]="t().hud.quick.layers"
             matTooltipPosition="above"
-            aria-label="Layers" [attr.aria-expanded]="uiStore.layerMenuExpanded()">
+            [attr.aria-label]="t().hud.quick.layers" [attr.aria-expanded]="uiStore.layerMenuExpanded()">
       <td-icon name="layers" [size]="18"></td-icon>
     </button>
   </div>
-  <button class="td-icon-btn" (click)="resetCamera.emit()" matTooltip="Reset camera" matTooltipPosition="above"
-          aria-label="Reset camera">
+  <button class="td-icon-btn" (click)="resetCamera.emit()" [matTooltip]="t().hud.quick.resetCamera" matTooltipPosition="above"
+          [attr.aria-label]="t().hud.quick.resetCamera">
     <td-icon name="target" [size]="18"></td-icon>
   </button>
   <!-- Dev Menu: tile grid in four groups, opens above the quick-actions bar -->
@@ -335,9 +335,9 @@
     <button class="td-icon-btn"
             [class.is-on]="uiStore.devMenuExpanded()"
             (click)="uiStore.toggleMenu('dev')"
-            matTooltip="Developer options"
+            [matTooltip]="t().hud.quick.developer"
             matTooltipPosition="above"
-            aria-label="Developer options" [attr.aria-expanded]="uiStore.devMenuExpanded()">
+            [attr.aria-label]="t().hud.quick.developer" [attr.aria-expanded]="uiStore.devMenuExpanded()">
       <td-icon name="text" [size]="18"></td-icon>
     </button>
   </div>

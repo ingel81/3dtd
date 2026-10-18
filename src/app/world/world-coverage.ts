@@ -57,5 +57,3 @@ export function outsideCoverageText(): string {
 /** What the player reads when a link's place lay outside the world's area and the game started in its middle */
 export const OUTSIDE_COVERAGE_LINK_TEXT = 'The place in the link lies outside the area this map covers. The game starts in its middle.';
 
-/** The hint where a HQ or portal would stand outside the world's area */
-export const OUTSIDE_COVERAGE_HINT = 'Outside the map area';

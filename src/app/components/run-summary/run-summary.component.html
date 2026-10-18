@@ -1,23 +1,23 @@
 <div class="td-stack run-summary">
   <dl class="run-figures td-tiles">
     <div class="td-tile is-label-under run-figure">
-      <dt class="td-caps">Wave</dt>
+      <dt class="td-caps">{{ t().hud.runSummaryText.wave }}</dt>
       <dd class="td-value">{{ summary().waveReached }}</dd>
     </div>
     <div class="td-tile is-label-under run-figure">
-      <dt class="td-caps">Kills</dt>
+      <dt class="td-caps">{{ t().hud.runSummaryText.kills }}</dt>
       <dd class="td-value">{{ compact(summary().kills) }}</dd>
     </div>
     <div class="td-tile is-label-under run-figure">
-      <dt class="td-caps">Time</dt>
+      <dt class="td-caps">{{ t().hud.runSummaryText.time }}</dt>
       <dd class="td-value">{{ runTime() }}</dd>
     </div>
     <div class="td-tile is-label-under run-figure">
-      <dt class="td-caps">Earned</dt>
+      <dt class="td-caps">{{ t().hud.runSummaryText.earned }}</dt>
       <dd class="td-value">{{ compact(summary().goldEarned) }}</dd>
     </div>
     <div class="td-tile is-label-under run-figure">
-      <dt class="td-caps">Spent</dt>
+      <dt class="td-caps">{{ t().hud.runSummaryText.spent }}</dt>
       <dd class="td-value">{{ compact(summary().goldSpent) }}</dd>
     </div>
   </dl>
@@ -25,18 +25,18 @@
   @if (leakBars().length > 0) {
     <section class="td-stack run-block">
       <h3 class="td-caps run-caption">
-        <span>Leaks per wave</span>
-        <span class="td-num run-caption-total">{{ totalLeaks() }} total</span>
+        <span>{{ t().hud.runSummaryText.leaksPerWave }}</span>
+        <span class="td-num run-caption-total">{{ t().hud.runSummary.total(totalLeaks()) }}</span>
       </h3>
       @if (totalLeaks() === 0) {
-        <p class="td-note is-ok">No leaks</p>
+        <p class="td-note is-ok">{{ t().hud.runSummaryText.noLeaks }}</p>
       } @else {
         <div class="run-leaks td-line-bottom" role="img"
-             [attr.aria-label]="'Leaks per wave: ' + summary().leaksPerWave.join(', ')">
+             [attr.aria-label]="t().hud.runSummary.leaksLabel(summary().leaksPerWave.join(', '))">
           @for (bar of leakBars(); track bar.wave) {
             <span class="run-leak-bar" [class.run-leak-none]="bar.leaks === 0"
                   [style.height.%]="bar.leaks === 0 ? null : bar.height * 100"
-                  [title]="'Wave ' + bar.wave + ': ' + bar.leaks + ' leaked, ' + bar.hqDamage + ' HQ damage'"></span>
+                  [title]="t().hud.runSummary.barTitle(bar.wave, bar.leaks, bar.hqDamage)"></span>
           }
         </div>
         <div class="td-note td-num run-axis">
@@ -51,10 +51,10 @@
 
   @if (summary().topTowers.length > 0) {
     <section class="td-stack run-block">
-      <h3 class="td-caps run-caption"><span>Top towers by damage</span></h3>
+      <h3 class="td-caps run-caption"><span>{{ t().hud.runSummaryText.topTowers }}</span></h3>
       <table class="td-table run-towers">
         <thead class="td-sr-only">
-          <tr><th>Rank</th><th>Tower</th><th>Damage</th><th>Kills</th></tr>
+          <tr><th>{{ t().hud.runSummary.rank }}</th><th>{{ t().hud.runSummary.tower }}</th><th>{{ t().hud.runSummary.damage }}</th><th>{{ t().hud.runSummary.kills }}</th></tr>
         </thead>
         <tbody>
           @for (tower of summary().topTowers; track tower.id; let i = $index) {
@@ -63,11 +63,11 @@
               <td class="run-tower-name">
                 {{ towerName(tower.type) }}
                 @if (tower.sold) {
-                  <span class="td-caps">sold</span>
+                  <span class="td-caps">{{ t().hud.runSummaryText.sold }}</span>
                 }
               </td>
-              <td class="num">{{ compact(tower.damageDealt) }} <span class="td-muted">dmg</span></td>
-              <td class="num">{{ tower.kills }} <span class="td-muted">kills</span></td>
+              <td class="num">{{ compact(tower.damageDealt) }} <span class="td-muted">{{ t().hud.runSummary.dmg }}</span></td>
+              <td class="num">{{ tower.kills }} <span class="td-muted">{{ t().hud.runSummary.killsUnit }}</span></td>
             </tr>
           }
         </tbody>

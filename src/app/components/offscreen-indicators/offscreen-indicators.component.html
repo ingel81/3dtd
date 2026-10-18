@@ -1,6 +1,6 @@
 @for (arrow of arrows(); track $index) {
   <button type="button" class="osi td-marker-btn" [class.osi-boss]="arrow.boss" [style.left.px]="arrow.x" [style.top.px]="arrow.y"
-          [attr.aria-label]="arrow.boss ? 'Camera to the boss' : 'Camera to the enemy closest to the HQ'"
+          [attr.aria-label]="arrow.boss ? t().hud.offscreen.boss : t().hud.offscreen.nearest"
           (click)="goTo($index)">
     <span class="td-overlay td-marker" [class.is-sm]="!arrow.boss">
       <td-icon name="caretR" [size]="14"

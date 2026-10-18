@@ -141,7 +141,7 @@ export interface WorldSurface {
    * its lakes and rivers); null where it may, and always where the ground
    * itself decides (tiles: towers stand on roofs)
    */
-  buildBlocker(lat: number, lon: number, radius: number): string | null;
+  buildBlocker(lat: number, lon: number, radius: number): BuildBlock | null;
   /** Ground and highest surface under a tower's footprint probe */
   footprintColumn(localX: number, localZ: number): FootprintColumn | null;
   /** The loaded ground changed (a settled tile load) */
@@ -449,10 +449,13 @@ export interface WorldProvider {
   dispose(): void;
 }
 
+/** Why a world forbids a tower at a point: an object stands there, or water (a code; the UI words it) */
+export type BuildBlock = 'object' | 'water';
+
 /** What the build hint says where an object of the world forbids building */
-export const BUILD_BLOCKED_OBJECT = 'Something stands there';
+export const BUILD_BLOCKED_OBJECT: BuildBlock = 'object';
 /** What the build hint says over water */
-export const BUILD_BLOCKED_WATER = 'Water there';
+export const BUILD_BLOCKED_WATER: BuildBlock = 'water';
 /** How far the ground lies under a body's level before a spot counts as water, m (shallow banks stay dry) */
 export const WATER_DEPTH_M = 0.3;
 
