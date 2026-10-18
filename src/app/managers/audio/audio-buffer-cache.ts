@@ -26,6 +26,9 @@ export class AudioBufferCache {
   /** Failed rounds (each with its retries) after which a URL stays failed. */
   private readonly MAX_LOAD_ROUNDS = 3;
 
+  /** While a world loads (hold): the loads asked for wait, by URL, for release() or want() */
+  private held: Map<string, () => void> | null = null;
+
   constructor(loader: AudioLoader) {
     this.loader = loader;
   }
@@ -47,7 +50,9 @@ export class AudioBufferCache {
     if (!cached) {
       if (this.isFailed(url)) return { buffer: null, loading: null };
       const entry: { buffer: AudioBuffer | null; loading: Promise<AudioBuffer | null> | null } = { buffer: null, loading: null };
-      entry.loading = this.loadBuffer(url).then(
+      const held = this.held;
+      const load = held ? new Promise<void>((resolve) => held.set(url, resolve)).then(() => this.loadBuffer(url)) : this.loadBuffer(url);
+      entry.loading = load.then(
         (buffer) => {
           entry.buffer = buffer;
           entry.loading = null;
@@ -78,6 +83,30 @@ export class AudioBufferCache {
   /** Number of cached buffers */
   get size(): number {
     return this.bufferCache.size;
+  }
+
+  /**
+   * Loads asked for from now on wait (the world loads: its models, map data
+   * and shaders come first, not some hundred sound files beside them), until
+   * release() or until a sound wants its file to play (want)
+   */
+  hold(): void {
+    this.held ??= new Map();
+  }
+
+  /** The loads held start, and those asked for later at once */
+  release(): void {
+    const held = this.held;
+    this.held = null;
+    for (const start of held?.values() ?? []) start();
+  }
+
+  /** A sound about to play: its file loads now, held or not */
+  want(url: string): void {
+    const start = this.held?.get(url);
+    if (!start) return;
+    this.held!.delete(url);
+    start();
   }
 
   /**

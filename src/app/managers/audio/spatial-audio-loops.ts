@@ -110,6 +110,7 @@ export class SpatialAudioLoops {
     await this.playback.resumeContext();
 
     if (sound.loading) {
+      sound.want?.();
       await sound.loading;
     }
     if (!sound.buffer) {

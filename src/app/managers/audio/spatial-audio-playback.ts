@@ -29,6 +29,8 @@ export interface RegisteredSound {
   config: Required<SpatialSoundConfig>;
   /** Pending load; resolves null when the file failed all retries. */
   loading: Promise<AudioBuffer | null> | null;
+  /** Starts a held load now (AudioBufferCache.want): the sound is about to play */
+  want?: () => void;
 }
 
 /**
@@ -233,6 +235,7 @@ export class SpatialAudioPlayback {
     await this.resumeContext();
 
     if (sound.loading) {
+      sound.want?.();
       await sound.loading;
     }
     if (!sound.buffer) {
@@ -428,6 +431,7 @@ export class SpatialAudioPlayback {
     await this.resumeContext();
 
     if (sound.loading) {
+      sound.want?.();
       await sound.loading;
     }
     if (!sound.buffer) {

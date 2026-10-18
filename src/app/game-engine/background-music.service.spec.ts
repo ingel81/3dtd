@@ -715,7 +715,8 @@ describe('BackgroundMusicService', () => {
     it('plays nothing when the track fails to load', async () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
       reg.failing.add('w1.mp3');
-      const { playing, waveStarted } = setup();
+      const { service, playing, waveStarted } = setup();
+      service.onLoadingComplete();
       await flush(); // the preload has failed by the time the wave starts
 
       await waveStarted();
@@ -729,7 +730,8 @@ describe('BackgroundMusicService', () => {
     it('plays nothing when the wave track fails to load, before and at the phase change', async () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
       reg.failing.add('w1.mp3');
-      const { playing, waveStarted } = setup();
+      const { service, playing, waveStarted } = setup();
+      service.onLoadingComplete();
 
       // The preload of w1 fails while the start signal plays; the wave music
       // then tries once more (a failed track is loaded again) and fails as well
@@ -751,9 +753,11 @@ describe('BackgroundMusicService', () => {
       expect(playing().map((c) => c.buffer?.url)).toEqual(['w1.mp3']);
     });
 
-    it('loads every track but the main theme once up front', () => {
+    it('loads the build music up front, every other track but the main theme once loading is complete', () => {
       reg.manual = true;
-      setup();
+      const { service } = setup();
+      expect(reg.pending.map((p) => p.url).sort()).toEqual(['b1.mp3', 'b2.mp3']);
+      service.onLoadingComplete();
       expect(reg.pending.map((p) => p.url).sort()).toEqual(['b1.mp3', 'b2.mp3', 'boss.mp3', 'moon.mp3', 'over.mp3', 'w1.mp3', 'w2.mp3', 'w3.mp3']);
     });
 

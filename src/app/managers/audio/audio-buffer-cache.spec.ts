@@ -36,6 +36,23 @@ describe('AudioBufferCache', () => {
     cache = new AudioBufferCache(loader as never);
   });
 
+  describe('held loads (a world loading)', () => {
+    it('start a file a sound wants at once, the rest on release, those asked later at once', async () => {
+      cache.hold();
+      const a = cache.getOrLoad('a.mp3');
+      cache.getOrLoad('b.mp3');
+      await Promise.resolve();
+      expect(loader.load).not.toHaveBeenCalled();
+      cache.want('a.mp3');
+      expect(await a.loading).not.toBeNull();
+      expect(loader.load.mock.calls.map(([url]) => url)).toEqual(['a.mp3']);
+      cache.release();
+      await cache.getOrLoad('b.mp3').loading;
+      cache.getOrLoad('c.mp3');
+      expect(loader.load.mock.calls.map(([url]) => url)).toEqual(['a.mp3', 'b.mp3', 'c.mp3']);
+    });
+  });
+
   describe('touchBuffer via getOrLoad', () => {
     it('should assign increasing timestamps on access', () => {
       cache.getOrLoad('a.mp3');

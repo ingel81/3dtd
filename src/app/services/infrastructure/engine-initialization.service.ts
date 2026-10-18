@@ -294,6 +294,8 @@ export class EngineInitializationService {
       });
       // Not yet the game's (the facade takes it when this returns): abandon() frees it until then
       this.building = this.engine;
+      // The game's sound files once the world stands (checkAllLoaded), or as a sound plays before
+      this.engine.spatialAudio.holdLoads();
       this.quality.attach(this.engine, this.world.ref);
       // Behind the menu globe the game draws nothing, not even its first frame
       if (this.globe?.coversGame()) this.engine.setDrawSuppressed(true);
@@ -463,6 +465,7 @@ export class EngineInitializationService {
     if (!this.tilesLoading() && !this.osmLoading() && !this.warmupLoading() && !heightsLoading()) {
       if (this.loading()) {
         loadMark('ready');
+        this.engine?.spatialAudio.releaseLoads();
         if (this.engine) this.quality.worldStood(this.engine);
         // The world stands: the context of the view before it (the editor, the world before) goes now
         settleContexts();

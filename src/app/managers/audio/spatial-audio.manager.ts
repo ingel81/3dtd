@@ -337,6 +337,7 @@ export class SpatialAudioManager {
     this.sounds.set(id, sound);
 
     const cached = this.bufferCache.getOrLoad(url);
+    sound.want = () => this.bufferCache.want(url);
 
     if (cached.buffer) {
       sound.buffer = cached.buffer;
@@ -351,10 +352,25 @@ export class SpatialAudioManager {
     }
   }
 
+  /**
+   * The sound files registered from now on load only once releaseLoads()
+   * says so (the world stands) or a sound plays: while a world loads they
+   * would share the line with its models and map data
+   */
+  holdLoads(): void {
+    this.bufferCache.hold();
+  }
+
+  /** The held sound files load, and those registered later at once */
+  releaseLoads(): void {
+    this.bufferCache.release();
+  }
+
   async getBuffer(soundId: string): Promise<AudioBuffer | null> {
     const sound = this.sounds.get(soundId);
     if (!sound) return null;
     if (sound.loading) {
+      sound.want?.();
       await sound.loading;
     }
     return sound.buffer;

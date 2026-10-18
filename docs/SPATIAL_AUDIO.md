@@ -264,6 +264,11 @@ private readonly MAX_CACHED_BUFFERS = 50;  // ~50 Sounds max in Memory
 - Bei jedem Zugriff: Timestamp wird aktualisiert
 - Bei Überschreitung: Ältester Eintrag (niedrigster Timestamp) wird evicted
 - Buffers die gerade laden werden nicht evicted
+- Während eine Welt lädt, hält der Cache seine Ladeaufträge zurück (`SpatialAudioManager.holdLoads`, von
+  `EngineInitializationService` gleich nach dem Anlegen der Engine): die rund 100 Dateien teilten sich sonst die
+  Leitung mit Modellen und Kartendaten. Mit `ready` startet `releaseLoads` alle; ein Sound, der vorher spielen soll,
+  lädt seine Datei sofort (`want`). Die Hintergrundmusik lädt beim Laden nur die Build-Tracks, den Rest, sobald der
+  Ladeschirm geht (`onLoadingComplete`)
 
 ## Hintergrundmusik (BackgroundMusicService)
 

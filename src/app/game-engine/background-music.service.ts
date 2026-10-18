@@ -205,6 +205,7 @@ export class BackgroundMusicService {
    * Transitions from the static main theme to build phase music.
    */
   onLoadingComplete(): void {
+    this.preloadRest();
     // A location change: the reset went back to build music, which plays on
     if (BackgroundMusicService.mainThemeAudio === null && this.currentPhase === 'build' && this.mixer.playing) return;
     this.transitionFromMainTheme();
@@ -229,13 +230,18 @@ export class BackgroundMusicService {
   // INITIALIZATION
   // =====================================================
 
-  /** Preload all music buffers in the background */
+  /**
+   * The build music in the background as the world loads (it plays once the
+   * loading screen goes); the rest after it went (preloadRest), not beside
+   * the world's models and map data
+   */
   private preloadAll(): void {
-    const { build, wave, boss, bloodMoon, gameOver } = BACKGROUND_MUSIC;
-    const allTracks = [...build, ...wave, ...boss, ...bloodMoon, ...gameOver];
-    for (const track of allTracks) {
-      this.buffers.load(track.url);
-    }
+    for (const track of BACKGROUND_MUSIC.build) this.buffers.load(track.url);
+  }
+
+  private preloadRest(): void {
+    const { wave, boss, bloodMoon, gameOver } = BACKGROUND_MUSIC;
+    for (const track of [...wave, ...boss, ...bloodMoon, ...gameOver]) this.buffers.load(track.url);
   }
 
   // =====================================================
