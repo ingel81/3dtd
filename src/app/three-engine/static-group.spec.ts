@@ -1,6 +1,6 @@
 import { Group, Matrix4, Mesh, Object3D, Scene, Vector3 } from 'three';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { StaticGroup } from './static-group';
+import { StaticGroup, drawnInWorldSpace } from './static-group';
 
 /** A scene at the origin as the game's and the editor's: its own matrix not composed every frame */
 function stage(): { scene: Scene; root: StaticGroup } {
@@ -157,5 +157,16 @@ describe('StaticGroup', () => {
     scene.updateMatrixWorld();
     expect(worldOf(leaves[2])).toEqual(new Vector3(7, 2, 0));
     expect(multiplications(() => scene.updateMatrixWorld())).toBe(0);
+  });
+
+  it('passes over objects drawn in world space in the frame update (drawnInWorldSpace)', () => {
+    const scene = new Scene();
+    scene.matrixAutoUpdate = false;
+    const pool = Array.from({ length: 500 }, () => drawnInWorldSpace(new Mesh()));
+    scene.add(...pool);
+    expect(multiplications(() => scene.updateMatrixWorld())).toBe(0);
+    pool[3].visible = true;
+    expect(multiplications(() => scene.updateMatrixWorld())).toBe(0);
+    expect(pool[3].matrixWorld.equals(new Matrix4())).toBe(true);
   });
 });

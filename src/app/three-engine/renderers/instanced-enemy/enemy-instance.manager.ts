@@ -19,6 +19,7 @@ import { EnemyTypeConfig } from '../../../configs/enemy-types.config';
 import { InstanceSlotAllocator, grownAttribute } from '../instance-slot-allocator';
 import { DrawGate } from '../draw-gate';
 import { clothSeed } from './vat-cloth';
+import { drawnInWorldSpace } from '../../static-group';
 
 /**
  * Instances a type's buffers hold at first; they double whenever an enemy
@@ -282,6 +283,8 @@ export class EnemyInstanceManager {
     );
     instancedMesh.count = 0;
     instancedMesh.frustumCulled = false;
+    // Instance matrices place the enemies: the mesh itself never moves
+    drawnInWorldSpace(instancedMesh);
 
     // Per-instance attributes
     // The frame, the next and the blend between them (vat-material.ts)

@@ -119,3 +119,20 @@ export class StaticGroup extends Group {
     for (const child of object.children) this.watch(child);
   }
 }
+
+/**
+ * For an object drawn where its geometry or its instances say (world-space
+ * vertices, instance matrices) and never moved itself, a direct child of a
+ * scene at the origin: its matrix and world matrix stay the identity and
+ * three's frame update passes over it without composing or multiplying.
+ * The game's pools (trails, enemies, decals, particles) are some 500 such
+ * objects, most of them hidden, which three updated every frame all the
+ * same. Returns the object.
+ */
+export function drawnInWorldSpace<T extends Object3D>(object: T): T {
+  object.matrix.identity();
+  object.matrixWorld.identity();
+  object.matrixAutoUpdate = false;
+  object.matrixWorldAutoUpdate = false;
+  return object;
+}

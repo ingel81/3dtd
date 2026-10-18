@@ -11,6 +11,7 @@ import {
 } from 'three';
 import { ProjectileVisualType } from '../../configs/projectile-types.config';
 import { DISPLAY_OUTPUT_GLSL } from './display-output';
+import { drawnInWorldSpace } from '../static-group';
 
 // ─── Trail Style Configs ────────────────────────────────────────────
 
@@ -290,7 +291,8 @@ class TrailStreak {
     // Material is shared across all trails of the same visual type (its only
     // variation, uEmissiveIntensity, is constant per type) — created once by
     // the renderer instead of per trail (was 60×6 = 360 ShaderMaterials).
-    this.mesh = new Mesh(geom, sharedMaterial);
+    // World-space vertices: the mesh itself never moves
+    this.mesh = drawnInWorldSpace(new Mesh(geom, sharedMaterial));
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = 998; // Just below particle effects
     this.mesh.visible = false;

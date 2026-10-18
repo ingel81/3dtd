@@ -12,6 +12,7 @@ import {
   type ShaderMaterial,
 } from 'three';
 import { DrawGate } from './draw-gate';
+import { drawnInWorldSpace } from '../static-group';
 
 /**
  * Building blocks of the effects that run in game time on buffers of their
@@ -95,7 +96,8 @@ export function particleBuffer(scene: Scene, capacity: number, material: ShaderM
   geometry.setAttribute('frameIndex', frame);
   geometry.setDrawRange(0, 0);
 
-  const points = unpickable(new Points(geometry, material));
+  // World-space positions: the points themselves never move
+  const points = drawnInWorldSpace(unpickable(new Points(geometry, material)));
   points.frustumCulled = false;
   points.renderOrder = renderOrder;
   scene.add(points);

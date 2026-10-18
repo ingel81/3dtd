@@ -11,6 +11,7 @@ import { FloatingTextAtlas, AtlasSlot } from './floating-text-atlas';
 import { createFloatingTextMaterial } from './floating-text-material';
 import { CoordinateSync } from '../index';
 import { DrawGate } from '../draw-gate';
+import { drawnInWorldSpace } from '../../static-group';
 
 const MAX_INSTANCES = 2048;
 const SWEEP_INTERVAL = 0.25; // seconds between expiration sweeps
@@ -99,7 +100,8 @@ export class FloatingTextInstanceManager {
     geometry.setAttribute('aLateralOffset', this.lateralOffsetAttr);
     geometry.setAttribute('aLateralDrift', this.lateralDriftAttr);
 
-    this.instancedMesh = new InstancedMesh(geometry, this.material, MAX_INSTANCES);
+    // Instance matrices place the texts: the mesh itself never moves
+    this.instancedMesh = drawnInWorldSpace(new InstancedMesh(geometry, this.material, MAX_INSTANCES));
     this.instancedMesh.count = 0;
     this.instancedMesh.frustumCulled = false;
     this.instancedMesh.renderOrder = 1001;

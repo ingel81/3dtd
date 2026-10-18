@@ -15,6 +15,7 @@ import { PARTICLE_LIMITS } from '../../configs/visual-effects.config';
 import { generateExplosionAtlas, generateSmokeAtlas } from './sprite-atlas-generator';
 import { createParticleShaderMaterials, type ParticleShaderMaterials } from './particle-shaders';
 import { DrawGate } from './draw-gate';
+import { drawnInWorldSpace } from '../static-group';
 
 // Pool size constants derived from config
 const TRAIL_ADDITIVE_POOL_SIZE = PARTICLE_LIMITS.maxTrailParticlesPerPool;
@@ -201,7 +202,7 @@ export class ParticlePoolManager {
     geometry.setAttribute('frameIndex', new BufferAttribute(frameIndices, 1));
 
     // Use additive shader material for fire glow
-    this.towerFireParticles = new Points(geometry, this.trailShaderMaterialAdditive!);
+    this.towerFireParticles = drawnInWorldSpace(new Points(geometry, this.trailShaderMaterialAdditive!));
     this.towerFireParticles.frustumCulled = false;
     this.towerFireParticles.renderOrder = 999;
     this.gateTowerFire = new DrawGate([this.towerFireParticles]);
@@ -260,7 +261,7 @@ export class ParticlePoolManager {
     const additiveMaterial = this.useShaderMaterial
       ? this.trailShaderMaterialAdditive!
       : this.trailMaterialAdditive!;
-    this.trailParticlesAdditive = new Points(trailGeometryAdditive, additiveMaterial);
+    this.trailParticlesAdditive = drawnInWorldSpace(new Points(trailGeometryAdditive, additiveMaterial));
     this.trailParticlesAdditive.frustumCulled = false;
     this.trailParticlesAdditive.renderOrder = 999; // Render after 3D tiles
     this.gateAdditive = new DrawGate([this.trailParticlesAdditive]);
@@ -306,7 +307,7 @@ export class ParticlePoolManager {
     const normalMaterial = this.useShaderMaterial
       ? this.trailShaderMaterialNormal!
       : this.trailMaterialNormal!;
-    this.trailParticlesNormal = new Points(trailGeometryNormal, normalMaterial);
+    this.trailParticlesNormal = drawnInWorldSpace(new Points(trailGeometryNormal, normalMaterial));
     this.trailParticlesNormal.frustumCulled = false;
     this.trailParticlesNormal.renderOrder = 999; // Render after 3D tiles
     this.gateNormal = new DrawGate([this.trailParticlesNormal]);

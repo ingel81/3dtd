@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { InstanceSlotAllocator } from './instance-slot-allocator';
 import { DrawGate } from './draw-gate';
+import { drawnInWorldSpace } from '../static-group';
 
 /**
  * Decal instance data
@@ -57,6 +58,8 @@ export class DecalInstanceManager {
   ) {
     this.instancedMesh = new THREE.InstancedMesh(geometry, material, maxCount);
     this.instancedMesh.count = 0;
+    // Instance matrices place the decals: the mesh itself never moves
+    drawnInWorldSpace(this.instancedMesh);
     this.instancedMesh.frustumCulled = false;
     this.instancedMesh.renderOrder = 999; // Render after 3D tiles
     this.slots = new InstanceSlotAllocator(maxCount);

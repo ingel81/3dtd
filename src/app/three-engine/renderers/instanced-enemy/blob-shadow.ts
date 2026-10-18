@@ -1,5 +1,6 @@
 import { InstancedMesh, Mesh, PlaneGeometry, ShaderMaterial, Vector2, Vector3, Vector4, type IUniform, type Object3D, type Texture } from 'three';
 import type { GroundHeights } from '../../../world/world-provider';
+import { drawnInWorldSpace } from '../../static-group';
 
 /**
  * Soft round shadows under enemies and the hero, on worlds that ask for
@@ -72,7 +73,8 @@ function material(stateLerp: IUniform<number>): ShaderMaterial {
  */
 export function attachBlobShadow(pool: InstancedMesh, radius: number, stateLerp: IUniform<number>): InstancedMesh {
   const quad = new PlaneGeometry(radius * 2, radius * 2, 4, 4).rotateX(-Math.PI / 2);
-  const blob = new InstancedMesh(quad, material(stateLerp), 1);
+  // The pool's instance matrices place the blobs: the mesh itself never moves
+  const blob = drawnInWorldSpace(new InstancedMesh(quad, material(stateLerp), 1));
   blob.name = `${pool.name || 'enemies'}-blob`;
   blob.frustumCulled = false;
   blob.renderOrder = 1;
