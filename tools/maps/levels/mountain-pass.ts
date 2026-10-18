@@ -173,10 +173,10 @@ export function buildMountainPass(): CustomMapDocument {
       const h = a.h + (b.h - a.h) * f;
       k.place('cable-span-40', m.x, m.y, { rotation: facing(a, b), pitch, scale: Math.hypot(run, b.h - a.h) / n / 40, z: h - k.h(m.x, m.y) });
     }
-    // A gondola on each span, hanging from the cable by its grip (4.4 m above its floor)
-    const g = { x: a.x + (b.x - a.x) * 0.4, y: a.y + (b.y - a.y) * 0.4 };
-    k.place('cablecar-gondola', g.x + (i % 2 ? 2.6 : -2.6) * Math.cos(facing(a, b)), g.y + (i % 2 ? 2.6 : -2.6) * Math.sin(facing(a, b)), { rotation: facing(a, b), z: a.h + (b.h - a.h) * 0.4 - 4.4 - k.h(g.x, g.y) });
   }
+  // The gondolas ride the ropes, up on one and down on the other, round the stations' wheels (a mover hanging from a
+  // line follows the cables under its route)
+  k.lifeRoute('movers', [top, valley], { asset: 'cablecar-gondola', height: 15, speed: 4, density: 2 });
   // Boulders and lone pines on the slopes, kept off the bends
   k.scatter(['rock-granite', 'boulder', 'rock-large', 'rock-granite-flat'], [{ x: -120, y: -80 }, { x: 120, y: -150 }, { x: 130, y: -10 }, { x: -130, y: 20 }, { x: -60, y: 60 }], { radius: 40, strength: 0.7 }, { density: 1.2, minDistance: 9, scaleMin: 0.8, scaleMax: 1.8 });
   k.scatter(['tree-pine', 'tree-fir', 'tree-fir-young'], [{ x: -140, y: -60 }, { x: -120, y: 40 }, { x: 130, y: -60 }, { x: 120, y: -170 }], { radius: 35, strength: 0.8 }, { density: 2.5, minDistance: 6, scaleMin: 0.8, scaleMax: 1.3 });
@@ -271,7 +271,6 @@ export function buildMountainPass(): CustomMapDocument {
   k.lifeArea('sound', [{ x: -256, y: -256 }, { x: 256, y: -256 }, { x: 256, y: -150 }, { x: -256, y: -150 }], { sound: 'birdsong', volume: 0.5 });
   // Cowbells on the high pastures round the huts, where the cows graze
   for (const [x, y] of [[-206, 34], [-140, 66], [200, 26], [140, 62]] as const) k.lifeArea('sound', ring({ x, y }, 22, 6), { sound: 'cowbells', volume: 0.5, reach: 50 });
-  // TODO(E190): the gondolas ride the cable (movers hang from one straight line; this cable sags over three pylons)
   // Sheep on the meadows at the valley's edge, off the roads
   for (const at of [{ x: -235, y: -170 }, { x: 230, y: -165 }]) herd(['sheep-grazing', 'sheep', 'sheep-grazing', 'sheep-lying'], at, 7, 12);
 
