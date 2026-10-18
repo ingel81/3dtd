@@ -117,6 +117,22 @@ describe('ShotLights', () => {
     expect(light(1)[0]).toBe(40);
   });
 
+  it('keeps a light that had a place over one just as strong, instead of flickering between them', () => {
+    lights.setMax(1);
+    lights.add(-20, 2, 0, TRACER);
+    lights.update(0.016, cam);
+    expect(light(0)[0]).toBe(-20);
+    // A rival a little stronger does not take the place; a much stronger one does
+    lights.add(-20, 2, 0, TRACER);
+    lights.add(20, 2, 0, { ...TRACER, intensity: 1.2 });
+    lights.update(0.016, cam);
+    expect(light(0)[0]).toBe(-20);
+    lights.add(-20, 2, 0, TRACER);
+    lights.add(20, 2, 0, { ...TRACER, intensity: 2 });
+    lights.update(0.016, cam);
+    expect(light(0)[0]).toBe(20);
+  });
+
   it('never hands over more than the shader holds', () => {
     lights.setMax(1000);
     expect(lights.places).toBe(SHOT_LIGHTS_MAX);

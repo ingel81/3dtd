@@ -50,6 +50,12 @@ const MERGE_SLOTS = 2048;
 const CORE = 0.5;
 /** No light is gathered further than this from the camera, m */
 const FAR_M = 900;
+/**
+ * A light in a cell that had a place in the last frame counts this much
+ * more when there are more lights than places: the places hold steady
+ * instead of flickering between lights of nearly the same strength
+ */
+const STICKY = 1.5;
 
 export interface ShotLightStats {
   /** Lights asked for in the last frame, after merging, and handed to the materials */
@@ -74,6 +80,10 @@ export class ShotLights {
   private readonly merged = new Float32Array(CANDIDATES * CANDIDATE_FLOATS);
   private mergedCount = 0;
   private readonly slotKey = new Int32Array(MERGE_SLOTS * 3);
+  /** The cell of each merged light, and those of the lights that had a place in the last frame */
+  private readonly mergedKey = new Int32Array(CANDIDATES * 3);
+  private readonly lastKey = new Int32Array(SHOT_LIGHTS_MAX * 3);
+  private lastCount = 0;
   private readonly slotLight = new Int32Array(MERGE_SLOTS);
   /** Picked lights by score, best first */
   private readonly picked = new Int32Array(SHOT_LIGHTS_MAX);
@@ -355,6 +365,9 @@ export class ShotLights {
         keys[s * 3] = ix;
         keys[s * 3 + 1] = iy;
         keys[s * 3 + 2] = iz;
+        this.mergedKey[count * 3] = ix;
+        this.mergedKey[count * 3 + 1] = iy;
+        this.mergedKey[count * 3 + 2] = iz;
         // The position summed by weight, divided once all are in
         const q = count * CANDIDATE_FLOATS;
         m[q] = c[o] * w;
@@ -388,7 +401,11 @@ export class ShotLights {
     this.mergedCount = count;
   }
 
-  /** The `max` merged lights in view with the most light over their distance, into `picked`; their count */
+  /**
+   * The `max` merged lights in view with the most light over their
+   * distance, into `picked`; their count. Their cells are kept for the next
+   * frame's choice (STICKY)
+   */
   private pick(camera: Camera): number {
     this.viewProjection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
     this.frustum.setFromProjectionMatrix(this.viewProjection);
@@ -397,6 +414,7 @@ export class ShotLights {
     const picked = this.picked;
     const scores = this.pickedScore;
     const max = this.max;
+    const crowded = this.mergedCount > max;
     let n = 0;
     for (let k = 0; k < this.mergedCount; k++) {
       const q = k * CANDIDATE_FLOATS;
@@ -411,7 +429,8 @@ export class ShotLights {
       if (!this.frustum.intersectsSphere(this.sphere)) continue;
       // Its light (luminance) times the ground it reaches, over its distance: a blast far off beats a tracer near by
       const light = m[q + 3] * 0.2126 + m[q + 4] * 0.7152 + m[q + 5] * 0.0722;
-      const score = (light * radius) / Math.max(d, radius);
+      let score = (light * radius) / Math.max(d, radius);
+      if (crowded && this.hadPlace(k)) score *= STICKY;
       if (n === max && score <= scores[n - 1]) continue;
       let at = n < max ? n++ : n - 1;
       while (at > 0 && scores[at - 1] < score) {
@@ -422,6 +441,23 @@ export class ShotLights {
       scores[at] = score;
       picked[at] = k;
     }
+    for (let i = 0; i < n; i++) {
+      const k = picked[i] * 3;
+      this.lastKey[i * 3] = this.mergedKey[k];
+      this.lastKey[i * 3 + 1] = this.mergedKey[k + 1];
+      this.lastKey[i * 3 + 2] = this.mergedKey[k + 2];
+    }
+    this.lastCount = n;
     return n;
+  }
+
+  /** Whether merged light `k` lies in a cell that had a place in the last frame */
+  private hadPlace(k: number): boolean {
+    const key = this.mergedKey;
+    const last = this.lastKey;
+    for (let i = 0; i < this.lastCount; i++) {
+      if (last[i * 3] === key[k * 3] && last[i * 3 + 1] === key[k * 3 + 1] && last[i * 3 + 2] === key[k * 3 + 2]) return true;
+    }
+    return false;
   }
 }
