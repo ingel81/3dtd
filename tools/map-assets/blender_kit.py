@@ -369,9 +369,14 @@ def chamfer(obj, width, segments=1, angle=40):
     bpy.ops.object.modifier_apply(modifier=mod.name)
 
 
-def bake_ao(name, objects, size=512, distance=2.0, samples=24):
+def bake_ao(name, objects, size=512, distance=2.0, samples=24, grime=False):
     """Bakes ambient occlusion of the whole model into one texture on a second UV map and wires it as the
     glTF occlusion texture (TEXCOORD_1): contact shadow in corners, under eaves, in window reveals.
+    `grime`: the weathering darkens the occlusion (_grime_socket: dirt rising from the ground, streaks
+    running down the walls, dirt in hollows, less on worn edges), and where the catalogue says `grime` the
+    game lets the occlusion darken the colour in direct light too (object-layer.ts addGrime): the tiled
+    surfaces stay sharp. Not in a channel of its own: the glTF export packs occlusion, roughness and metal
+    into one image where the sizes match, and only the red channel stays the occlusion's.
     Joins the objects (materials stay separate); returns the joined object"""
     bpy.ops.object.select_all(action='DESELECT')
     for o in objects:
@@ -389,6 +394,10 @@ def bake_ao(name, objects, size=512, distance=2.0, samples=24):
     bpy.ops.object.mode_set(mode='EDIT')
     bpy.ops.mesh.select_all(action='SELECT')
     bpy.ops.uv.smart_project(angle_limit=math.radians(60), island_margin=0.004)
+    if grime:
+        # The walls' share of the image by their size: the weathering runs over them, not over the trim
+        bpy.ops.uv.average_islands_scale()
+        bpy.ops.uv.pack_islands(rotate=True, margin=0.003)
     bpy.ops.object.mode_set(mode='OBJECT')
     base.active_render = True
     img = bpy.data.images.new(name + '-ao', size, size)
@@ -427,6 +436,8 @@ def bake_ao(name, objects, size=512, distance=2.0, samples=24):
     # Cycles bakes into the active UV map; the colour textures keep the first one
     mesh.uv_layers.active = mesh.uv_layers['AO']
     bpy.ops.object.bake(type='AO', margin=4, use_clear=True)
+    if grime:
+        _bake_grime(name, obj, img, size, samples)
     mesh.uv_layers.active = mesh.uv_layers[0]
     folder = os.path.join(OUT, 'ao')
     os.makedirs(folder, exist_ok=True)
@@ -436,10 +447,108 @@ def bake_ao(name, objects, size=512, distance=2.0, samples=24):
     return obj
 
 
-def finish(name, objects, ao_size=512):
-    """Bakes ambient occlusion over the whole model, then exports it; the faces of `spin-*` materials (a part
-    that turns, see split_spin) go into a node of their own"""
-    obj = bake_ao(name, objects, size=ao_size)
+# How far the weathering darkens the occlusion at its dirtiest
+GRIME_DEPTH = 0.6
+
+
+def _grime_socket(nt):
+    """A material's weathering, 0 clean to 1 dirty, from the geometry: dirt rising from the ground, streaks
+    running down (noise stretched upright), dirt in the hollows, the worn outer edges cleaner"""
+    def node(kind, **inputs):
+        n = nt.nodes.new(kind)
+        for key, value in inputs.items():
+            setattr(n, key, value)
+        return n
+
+    def math(op, a, b, clamp=True):
+        n = node('ShaderNodeMath', operation=op, use_clamp=clamp)
+        for k, v in enumerate((a, b)):
+            if isinstance(v, bpy.types.NodeSocket):
+                nt.links.new(v, n.inputs[k])
+            else:
+                n.inputs[k].default_value = v
+        return n.outputs[0]
+
+    def ramp(value, lo, hi):
+        n = node('ShaderNodeMapRange', interpolation_type='SMOOTHSTEP')
+        nt.links.new(value, n.inputs['Value'])
+        n.inputs['From Min'].default_value = lo
+        n.inputs['From Max'].default_value = hi
+        return n.outputs['Result']
+
+    def noise(scale, stretch, detail=4.0):
+        coords = node('ShaderNodeTexCoord').outputs['Object']
+        mul = node('ShaderNodeVectorMath', operation='MULTIPLY')
+        nt.links.new(coords, mul.inputs[0])
+        mul.inputs[1].default_value = tuple(scale * s for s in stretch)
+        n = node('ShaderNodeTexNoise', noise_dimensions='3D')
+        nt.links.new(mul.outputs[0], n.inputs['Vector'])
+        n.inputs['Scale'].default_value = 1.0
+        n.inputs['Detail'].default_value = detail
+        return n.outputs['Fac']
+
+    sep = node('ShaderNodeSeparateXYZ')
+    nt.links.new(node('ShaderNodeTexCoord').outputs['Object'], sep.inputs[0])
+    ground = math('MULTIPLY', ramp(sep.outputs['Z'], 1.5, 0.0), ramp(noise(2.0, (1, 1, 1)), 0.25, 0.7))
+    streak = math('MULTIPLY', ramp(noise(1.2, (1.0, 1.0, 0.08), 3.0), 0.5, 0.8), 0.6)
+    ao = node('ShaderNodeAmbientOcclusion', samples=16)
+    ao.inputs['Distance'].default_value = 0.3
+    hollow = math('MULTIPLY', math('SUBTRACT', 1.0, ao.outputs['AO']), 0.8)
+    bevel = node('ShaderNodeBevel', samples=8)
+    bevel.inputs['Radius'].default_value = 0.025
+    dot = node('ShaderNodeVectorMath', operation='DOT_PRODUCT')
+    nt.links.new(bevel.outputs['Normal'], dot.inputs[0])
+    nt.links.new(node('ShaderNodeNewGeometry').outputs['Normal'], dot.inputs[1])
+    worn = ramp(dot.outputs['Value'], 0.995, 0.9)
+    dirt = math('MAXIMUM', math('MAXIMUM', ground, streak), hollow)
+    return math('MULTIPLY', dirt, math('SUBTRACT', 1.0, math('MULTIPLY', worn, 0.7)))
+
+
+def _bake_grime(name, obj, ao_img, size, samples):
+    """Bakes _grime_socket of every material and darkens the occlusion image by it"""
+    import numpy as np
+    img = bpy.data.images.new(name + '-grime', size, size, float_buffer=True)
+    img.colorspace_settings.name = 'Non-Color'
+    undo = []
+    for slot in obj.material_slots:
+        m = slot.material
+        if m is None:
+            continue
+        nt = m.node_tree
+        before = set(nt.nodes)
+        out = next(n for n in nt.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output)
+        relink = out.inputs['Surface'].links[0].from_socket if out.inputs['Surface'].is_linked else None
+        emit = nt.nodes.new('ShaderNodeEmission')
+        nt.links.new(_grime_socket(nt), emit.inputs['Color'])
+        nt.links.new(emit.outputs['Emission'], out.inputs['Surface'])
+        target = nt.nodes.new('ShaderNodeTexImage')
+        target.image = img
+        nt.nodes.active = target
+        undo.append((nt, before, out, relink))
+    bpy.context.scene.cycles.samples = max(8, samples // 2)
+    bpy.ops.object.bake(type='EMIT', margin=4, use_clear=True)
+    for nt, before, out, relink in undo:
+        for n in [n for n in nt.nodes if n not in before]:
+            nt.nodes.remove(n)
+        if relink is not None:
+            nt.links.new(relink, out.inputs['Surface'])
+    n = size * size * 4
+    ao = np.empty(n, dtype=np.float32)
+    ao_img.pixels.foreach_get(ao)
+    g = np.empty(n, dtype=np.float32)
+    img.pixels.foreach_get(g)
+    px = ao.reshape(-1, 4)
+    dirt = np.clip(g.reshape(-1, 4)[:, 0], 0, 1)
+    for c in range(3):
+        px[:, c] *= 1.0 - GRIME_DEPTH * dirt
+    ao_img.pixels.foreach_set(px.ravel())
+    bpy.data.images.remove(img)
+
+
+def finish(name, objects, ao_size=512, grime=False):
+    """Bakes ambient occlusion (and with `grime` the weathering, bake_ao) over the whole model, then exports
+    it; the faces of `spin-*` materials (a part that turns, see split_spin) go into a node of their own"""
+    obj = bake_ao(name, objects, size=ao_size, grime=grime)
     export(name, [obj] + split_spin(obj, name))
     return obj
 

@@ -237,6 +237,12 @@ export interface CatalogObject {
    * a herd of one cow model shows several breeds
    */
   variants?: number;
+  /**
+   * Weathering baked into the model's occlusion texture (blender_kit.bake_ao
+   * grime): the object layer lets the occlusion darken the colour in direct
+   * light too (object-layer.ts addGrime)
+   */
+  grime?: boolean;
   /** Lower detail models by camera distance */
   lod?: { file: string; distance: number; triangles?: number }[];
   /** Where an object's `sign` is written on the model (render/objects/sign-text.ts) */

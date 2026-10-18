@@ -1305,7 +1305,7 @@ export class MapObjectLayer {
     const bob = !!entry.float && entry.category !== 'structure';
     // Several looks in one atlas (a herd of several breeds): only for objects that stay where they are
     const variants = !card && !bob && (entry.variants ?? 1) > 1 ? entry.variants! : 1;
-    const key = `${source.uuid}|${wind}|${wind > 0 ? entry.height : 0}|${card ? entry.drawDistance : 0}|${bob ? 1 : 0}|${cloth ? 1 : 0}|${spin || rotor ? period : 0}|${rotor ? 1 : 0}|${variants}`;
+    const key = `${source.uuid}|${entry.grime ? 1 : 0}|${wind}|${wind > 0 ? entry.height : 0}|${card ? entry.drawDistance : 0}|${bob ? 1 : 0}|${cloth ? 1 : 0}|${spin || rotor ? period : 0}|${rotor ? 1 : 0}|${variants}`;
     const cached = this.materials.get(key);
     if (cached) return cached;
     // Always an own copy: the library's material is shared (other views, the editor's thumbnails)
@@ -1319,6 +1319,7 @@ export class MapObjectLayer {
     }
     if (!card && wind <= 0 && !bob && !spin && !rotor) {
       if (m.userData['roughMetal']) addVertexRoughMetal(m);
+      if (entry.grime && m.aoMap) addGrime(m);
       if (variants > 1) addAtlasVariants(m, variants);
       addWindowGlow(m, source);
       addLodFade(m);
@@ -1518,6 +1519,29 @@ transformed.xz = spinTurn * transformed.xz;
     this.materials.set(key, m);
     return m;
   }
+}
+
+/**
+ * Weathering baked into a model's occlusion texture (catalogue `grime`,
+ * blender_kit.bake_ao): dirt from the ground, streaks under the sills, dirt
+ * in the hollows. The occlusion darkens the colour in direct light as well,
+ * part way, so the weathering shows in the sun; the tiled surfaces stay
+ * sharp, no texture or draw call more
+ */
+function addGrime(m: Material): void {
+  const prev = m.onBeforeCompile;
+  const prevKey = m.customProgramCacheKey;
+  m.onBeforeCompile = (shader, renderer) => {
+    prev.call(m, shader, renderer);
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <color_fragment>',
+      `#include <color_fragment>
+      #ifdef USE_AOMAP
+      diffuseColor.rgb *= mix(1.0, texture2D(aoMap, vAoMapUv).r, 0.55);
+      #endif`,
+    );
+  };
+  m.customProgramCacheKey = () => `${prevKey.call(m)}-grime`;
 }
 
 /** Window glass glows at night (night-windows.ts): a merged part per vertex, a glass material all over */
