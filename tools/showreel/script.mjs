@@ -47,12 +47,14 @@ import { FIXTURES as R4_K6_FIXTURES, SCENES as R4_K6 } from './scenes/r4-k6.mjs'
 import { FIXTURES as R4_K7_FIXTURES, SCENES as R4_K7 } from './scenes/r4-k7.mjs';
 // Round 5 (tmp/showreel/FEEDBACK_R4.md part B): more OSM places in quick succession
 import { SCENES as R5_OSM } from './scenes/r5-osm.mjs';
+// Recoil and reload as the towers fire (TODO E244)
+import { FIXTURES as R7_RECOIL_FIXTURES, SCENES as R7_RECOIL } from './scenes/r7-recoil.mjs';
 
 /** The programme in order; each part lives in scenes/ (common.mjs has the helpers) */
 export const SCENES = [...INTRO, ...EDITOR, ...EDITOR2, ...W3X, ...WORLDS, ...GAME, ...OUTRO];
 
 /** Scenes taken on their own only (run.mjs --scene), not part of the programme's run */
-export const TAKES = [...PROOF, ...R4_K0, ...R4_K1, ...R4_K2, ...R4_K3, ...R4_K4, ...R4_K5, ...R4_K6, ...R4_K7, ...R5_OSM];
+export const TAKES = [...PROOF, ...R4_K0, ...R4_K1, ...R4_K2, ...R4_K3, ...R4_K4, ...R4_K5, ...R4_K6, ...R4_K7, ...R5_OSM, ...R7_RECOIL];
 
 /** The generated start states of the takes, made in this order by fixtures.mjs (a later one may start from an earlier) */
-export const FIXTURES = [...PROOF_FIXTURES, ...R4_K3_FIXTURES, ...R4_K5_FIXTURES, ...R4_K6_FIXTURES, ...R4_K7_FIXTURES];
+export const FIXTURES = [...PROOF_FIXTURES, ...R4_K3_FIXTURES, ...R4_K5_FIXTURES, ...R4_K6_FIXTURES, ...R4_K7_FIXTURES, ...R7_RECOIL_FIXTURES];
