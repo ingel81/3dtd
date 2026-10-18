@@ -10,6 +10,7 @@ import { PresentationService } from '../presentation/presentation.service';
 import { ConfigService } from '../core/services/config.service';
 import { GameStore } from '../store/game.store';
 import { UIStore } from '../store/ui.store';
+import { I18n } from '../i18n/i18n.service';
 import { EngineInitializationService } from './infrastructure/engine-initialization.service';
 import { LocationManagementService } from './location/location-management.service';
 import { UrlLocationService } from './location/url-location.service';
@@ -32,7 +33,7 @@ import {
   worldPackageRefusalText,
   type WorldPackage,
 } from '../coop/world-package';
-import { MAX_MAP_BYTES, type CoopRoomInfo, type PlayerStatus, type PublicRoom, type RefusalReason, type RoomListing } from '../coop/protocol';
+import { MAX_MAP_BYTES, type CoopRoomInfo, type PlayerStatus, type PublicRoom, type RefusalReason, type RoomListing, type RunLogRefusal } from '../coop/protocol';
 import { clientInfoFrom, mixedEngines } from '../coop/client-info';
 import { laneStats, type LaneStat } from '../coop/lane-stats';
 import { InputHandlerService } from './input-handler.service';
@@ -142,6 +143,11 @@ const STATUS_LINE: Record<PlayerStatus, (name: string) => string> = {
 };
 
 /** What the coop panel says when the connection to the relay closed, by why */
+/** A relay's answer to a run log in words: its code's, or an older relay's own sentence */
+function runLogRefusal(texts: Readonly<Record<RunLogRefusal, string>>, reason: string | null): string {
+  return reason !== null && Object.hasOwn(texts, reason) ? texts[reason as RunLogRefusal] : reason ?? texts.failed;
+}
+
 const CLOSED_TEXT: Record<NonNullable<CoopCloseReason> | 'lost', string> = {
   restart: 'The coop server restarts. Try again in a moment.',
   'too-fast': 'The coop server closed the connection: this game sent too many messages. Reload to join again.',
@@ -251,6 +257,7 @@ export class CoopService {
   private readonly config = inject(ConfigService);
   private readonly gameStore = inject(GameStore);
   private readonly uiStore = inject(UIStore);
+  private readonly i18n = inject(I18n);
   private readonly engineInit = inject(EngineInitializationService);
   private readonly inputHandler = inject(InputHandlerService);
   private readonly runLog = inject(RunLogFacade);
@@ -1669,8 +1676,9 @@ export class CoopService {
     });
     session.onChat = inZone((from, text) => this.addChatLine(from, text));
     session.onRunLog = inZone((ok, reason) => {
-      if (ok) this.notify('Run log sent. Thanks!');
-      else this.notify(`The run log was not kept: ${reason ?? 'no reason given'}`, 'warn');
+      const t = this.i18n.t().coop;
+      if (ok) this.notify(t.runLogSent);
+      else this.notify(t.runLogRefused(runLogRefusal(t.runLogRefusals, reason)), 'warn');
     });
     session.onRefused = inZone((reason) => {
       // Taken out of the room: this player is out of it here too

@@ -1,7 +1,7 @@
 import { DOCUMENT, Injectable, computed, effect, inject, signal, type Signal } from '@angular/core';
 import { UIStore } from '../store/ui.store';
 import { DICTIONARIES } from './dictionaries';
-import { SOURCE_LOCALE, resolveLocale, type Locale } from './locale';
+import { SOURCE_LOCALE, resolveLocale, type Locale, type LocalePreference } from './locale';
 import { en, type Messages } from './messages/en';
 
 /**
@@ -16,7 +16,9 @@ import { en, type Messages } from './messages/en';
  */
 @Injectable({ providedIn: 'root' })
 export class I18n {
-  private readonly ui = inject(UIStore);
+  /** The player's choice; a stand-in UIStore in a test without it plays in the system's language */
+  private readonly preference: Signal<LocalePreference> =
+    inject(UIStore, { optional: true })?.localePreference ?? signal<LocalePreference>('system');
   private readonly document = inject(DOCUMENT, { optional: true });
   private readonly active = signal<{ locale: Locale; t: Messages }>({ locale: SOURCE_LOCALE, t: en });
   /** The latest language asked for; an older load that arrives late is dropped */
@@ -32,7 +34,7 @@ export class I18n {
 
   constructor() {
     effect(() => {
-      this.loading = this.use(resolveLocale(this.ui.localePreference(), this.languages()));
+      this.loading = this.use(resolveLocale(this.preference(), this.languages()));
     });
   }
 

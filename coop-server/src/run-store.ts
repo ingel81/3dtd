@@ -16,6 +16,7 @@ import { promisify } from 'node:util';
 import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync, existsSync } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
 import { RUN_LOG_FORMAT, reconcileWave, type ReconcilableWave } from '../../src/app/run-log/run-log-check.ts';
+import type { RunLogRefusal } from '../../src/app/coop/protocol.ts';
 
 /** Largest run log after unpacking; a long game is a few MB */
 const MAX_UNPACKED_BYTES = 32 * 1024 * 1024;
@@ -116,27 +117,27 @@ export class RunStore {
    * player and run (a room can play several games); the answer says why not
    * when it was refused.
    */
-  async accept(room: string, playerId: string, name: string, gzBase64: string): Promise<{ ok: true; path: string } | { ok: false; reason: string }> {
+  async accept(room: string, playerId: string, name: string, gzBase64: string): Promise<{ ok: true; path: string } | { ok: false; reason: RunLogRefusal; detail?: string }> {
     let packed: Buffer;
     let text: string;
     try {
       packed = Buffer.from(gzBase64, 'base64');
       text = (await gunzipAsync(packed, { maxOutputLength: MAX_UNPACKED_BYTES })).toString('utf8');
     } catch {
-      return { ok: false, reason: 'not gzip or too large' };
+      return { ok: false, reason: 'invalid', detail: 'not gzip or too large' };
     }
     const { problem, runId } = inspectRunLog(text);
-    if (problem) return { ok: false, reason: problem };
+    if (problem) return { ok: false, reason: 'invalid', detail: problem };
     const day = new Date(this.options.now()).toISOString().slice(0, 10);
     const folder = join(this.root, 'coop', `${day}_${segment(room)}`);
     const file = join(folder, `${segment(name)}_${segment(playerId)}_${segment(runId)}.jsonl.gz`);
-    if (existsSync(file)) return { ok: false, reason: 'already sent' };
+    if (existsSync(file)) return { ok: false, reason: 'already-sent' };
     mkdirSync(folder, { recursive: true });
     try {
       // 'wx': the same log twice at once, the second finds the first
       writeFileSync(file, packed, { flag: 'wx' });
     } catch {
-      return { ok: false, reason: 'already sent' };
+      return { ok: false, reason: 'already-sent' };
     }
     if (this.knownBytes === null) this.prune();
     else if ((this.knownBytes += packed.length) > this.options.maxBytes) this.prune();

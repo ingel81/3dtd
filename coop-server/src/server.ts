@@ -742,8 +742,8 @@ class Relay {
    */
   private runLog(id: string, connection: Connection, player: RoomPlayer, gz: string): void {
     const room = connection.room?.hasStarted ? connection.room.code : connection.playedRoom;
-    if (!this.runStore || !room) return this.send(id, { t: 'run-log', ok: false, reason: 'not collected here' });
-    if (connection.sentRuns >= MAX_RUN_LOGS) return this.send(id, { t: 'run-log', ok: false, reason: 'too many' });
+    if (!this.runStore || !room) return this.send(id, { t: 'run-log', ok: false, reason: 'not-collected' });
+    if (connection.sentRuns >= MAX_RUN_LOGS) return this.send(id, { t: 'run-log', ok: false, reason: 'too-many' });
     if (connection.runLogBusy || this.runLogsBusy >= MAX_RUN_LOGS_AT_ONCE) return this.send(id, { t: 'run-log', ok: false, reason: 'busy' });
     connection.sentRuns++;
     connection.runLogBusy = true;
@@ -755,7 +755,7 @@ class Relay {
         this.log(`[${room}] run log of ${name} (${id}) kept, ${Math.round(gz.length * 0.75 / 1024)} kB`);
         return this.send(id, { t: 'run-log', ok: true });
       }
-      this.log(`[${room}] run log of ${name} (${id}) refused: ${result.reason}`);
+      this.log(`[${room}] run log of ${name} (${id}) refused: ${result.detail ?? result.reason}`);
       this.send(id, { t: 'run-log', ok: false, reason: result.reason });
     }).catch((error: unknown) => {
       this.metrics.errors++;

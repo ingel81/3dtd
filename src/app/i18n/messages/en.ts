@@ -1,6 +1,16 @@
+import type { RunLogRefusal } from '../../coop/protocol';
 import { formatters } from '../format';
 
 const f = formatters('en');
+
+const runLogRefusals: Record<RunLogRefusal, string> = {
+  'not-collected': 'this coop server collects no run logs',
+  'too-many': 'too many sent from this game',
+  busy: 'the coop server is busy, try again later',
+  invalid: 'it is not a readable run log',
+  'already-sent': 'it was sent already',
+  failed: 'the coop server could not store it',
+};
 
 /**
  * The game's texts in English, the source language (TODO E245,
@@ -23,6 +33,12 @@ export const en = {
   settings: {
     language: 'Language',
     languageSystem: (name: string) => `System (${name})`,
+  },
+  coop: {
+    runLogSent: 'Run log sent. Thanks!',
+    /** `why` is a RunLogRefusal's text, or what an older relay said */
+    runLogRefused: (why: string) => `The run log was not kept: ${why}`,
+    runLogRefusals,
   },
   units: {
     waves: (n: number) => `${f.int(n)} ${f.plural(n, 'wave', 'waves')}`,

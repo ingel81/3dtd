@@ -56,7 +56,7 @@ describe('RunStore', () => {
     const store = new RunStore({ dir, maxBytes: 1e9, maxAgeMs: 1e12, now: () => Date.parse('2026-09-26T12:00:00Z') });
     const result = await store.accept('ABC123', 'p1', 'Ann', packed(jsonl(head, wave())));
     expect(result).toEqual({ ok: true, path: 'coop/2026-09-26_ABC123/Ann_p1_r1.jsonl.gz' });
-    expect(await store.accept('ABC123', 'p1', 'Ann', packed(jsonl(head, wave())))).toEqual({ ok: false, reason: 'already sent' });
+    expect(await store.accept('ABC123', 'p1', 'Ann', packed(jsonl(head, wave())))).toEqual({ ok: false, reason: 'already-sent' });
     expect(await store.accept('ABC123', 'p2', 'Bob', 'not base64 gzip')).toMatchObject({ ok: false });
     expect(store.list().map((r) => r.path)).toEqual(['coop/2026-09-26_ABC123/Ann_p1_r1.jsonl.gz']);
     expect(store.read('coop/2026-09-26_ABC123/Ann_p1_r1.jsonl.gz')?.length).toBeGreaterThan(0);
@@ -93,7 +93,7 @@ describe('RunStore', () => {
     const store = new RunStore({ dir, maxBytes: 1e9, maxAgeMs: 1e12, now: () => Date.now() });
     // Just past the 32 MB cap
     const bomb = gzipSync(Buffer.alloc(33 * 1024 * 1024, 32)).toString('base64');
-    expect(await store.accept('ROOM1', 'p1', 'Ann', bomb)).toEqual({ ok: false, reason: 'not gzip or too large' });
+    expect(await store.accept('ROOM1', 'p1', 'Ann', bomb)).toEqual({ ok: false, reason: 'invalid', detail: 'not gzip or too large' });
   });
 });
 
@@ -160,7 +160,7 @@ describe('a run log through the relay', () => {
     b.send({ t: 'run-log', gz: packed(jsonl(head, wave())) });
     expect(await b.until('run-log')).toEqual({ t: 'run-log', ok: true });
     b.send({ t: 'run-log', gz: packed(jsonl(head, wave())) });
-    expect(await b.until('run-log', (m) => !m.ok)).toMatchObject({ reason: 'already sent' });
+    expect(await b.until('run-log', (m) => !m.ok)).toMatchObject({ reason: 'already-sent' });
 
     const base = `http://localhost:${relay.port}`;
     expect((await fetch(`${base}/admin/runs`)).status).toBe(403);

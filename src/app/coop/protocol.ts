@@ -203,11 +203,19 @@ export type ClientMessage =
   /** Guest: the host's state is loaded at the boundary of `tick`, or why not (C5b) */
   | { t: 'resynced'; tick: number; ok: boolean };
 
+/**
+ * Why the relay did not keep a run log: it collects none, this player sent
+ * too many, it is busy, the log is not one (not gzip, too large, not a run
+ * log), it came already, or keeping it failed. Codes, never text: each
+ * player reads them in their own language (TODO E245).
+ */
+export type RunLogRefusal = 'not-collected' | 'too-many' | 'busy' | 'invalid' | 'already-sent' | 'failed';
+
 export type ServerMessage =
   /** `collectRuns`: this relay keeps run logs a player agrees to send (TODO E38) */
   | { t: 'welcome'; playerId: string; collectRuns?: boolean }
-  /** The answer to a run-log: kept, or why not */
-  | { t: 'run-log'; ok: boolean; reason?: string }
+  /** The answer to a run-log: kept, or why not (a code; an older relay sent a sentence) */
+  | { t: 'run-log'; ok: boolean; reason?: RunLogRefusal | (string & {}) }
   /** `hostVersion` with 'version': the game version the host runs (D60) */
   | { t: 'refused'; reason: RefusalReason; hostVersion?: string }
   | { t: 'room'; room: CoopRoomInfo }
