@@ -623,8 +623,8 @@ größer. Ein Weltmenü ist ein `td-panel` links mit Kopf (Titel, „Worlds“ m
 `td-rows`), der Wahl mit dem Hauptknopf Start oder Play und den Wegen Coop, Load, Settings, Extras als `td-btn-ghost`;
 rechts der große Globus, oben rechts die zwei anderen Welten als `td-btn-secondary` mit Mini-Globus. Overlays
 (Settings, Extras, Load, Coop, Map key) sind `td-dlg` über `td-backdrop`. Im Spiel deckt der Key-Schritt (`td-token-setup`) alles
-auf dem Grund der Realen Orte ab (`td-world-bg is-real`); der Kartenbrowser des Editors (`/editor`) steht wie ein Weltmenü: Kopfleiste mit Pfad, links die Liste im
-Panel mit New map als Hauptknopf, rechts mittig die gewählte Karte oder das New-map-Formular (`--td-dlg-page`), auf dem Grund der
+auf dem Grund der Realen Orte ab (`td-world-bg is-real`); die Kartenliste ist das Weltmenü von Built Worlds, der Editor ohne offene
+Karte zeigt nur sein Formular New map bzw. das Einlesen als Panel mittig (`--td-dlg-page`), Kopfleiste mit Pfad, auf dem Grund der
 Built Worlds (`is-maps`). Das Hauptmenü unten ist danach die Ladeanzeige eines
 Starts und die Pause.
 

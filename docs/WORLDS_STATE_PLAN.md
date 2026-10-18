@@ -315,10 +315,8 @@ Entschieden (User, 2026-10-16): alle zwölf Empfehlungen unten übernommen.
     Rückfrage, die Welt einer Karte nach der Liste).
   - Coop-Beitritt per Code ohne Map-Key fragt vorher („Join“, „Enter map key“, „Cancel“): die Welt des Hosts steht
     erst nach dem Beitritt fest, ein echter Ort braucht einen Key, eine Karte nicht.
-  - Pausemenü: Save game und Load game stehen immer, gesperrt mit Grund (Coop, noch kein Lauf, Lauf vorbei).
-    Probespiel-Pause nur Continue, Back to editor, „Again from wave N“, Settings.
-  - „Built Worlds“ im Pfad führt überall ins Weltmenü von Built Worlds (im Editor mit der Karte gewählt); die
-    Kartenliste des Editors ist sein Zurück-Knopf.
+  - Probespiel-Pause nur Continue, Back to editor, „Again from wave N“, Settings.
+  - „Built Worlds“ im Pfad führt überall ins Weltmenü von Built Worlds (im Editor mit der Karte gewählt).
   - Browser-Zurück geht eine Ebene hoch wie Esc (`world/browser-back.service.ts`): Ansichten melden ihren Schritt
     an (Globen: Esc-Kette; Spiel: Dialog, Menüseite, Menü öffnen, dann ins Weltmenü, das Spiel gehalten; Editor:
     Liste bzw. aus dem Editor), die zuletzt gezeigte zuerst; ein Verlaufseintrag steht über dem der Seite. Erst auf
@@ -326,6 +324,16 @@ Entschieden (User, 2026-10-16): alle zwölf Empfehlungen unten übernommen.
   - Begriffe: „All worlds“ ist überall der Weg zu den Globen (auch nach Game over), „World menu“ nur, wo die Seite
     eine Welt hat (nicht in Dev world); kein New game auf Karten; „Dev world“ im Pfad wie im Ortsnamen; je
     Weltmenü ein Erklärsatz (unten an der Wahl).
+  - Eine Kartenliste (User, 2026-10-19): das Weltmenü von Built Worlds hat New map, Import file, Map folder,
+    Download, Duplicate, Delete und den Papierkorb; der Editor zeigt ohne offene Karte nur noch das Formular oder das
+    Einlesen (`MapMakeComponent`), seine eigene Liste ist entfernt. „Map editor“ auf den Globen öffnet Built Worlds,
+    der Zurück-Knopf des Editors zeigt die Karte dort gewählt. Löschen, Wiederherstellen und endgültig Löschen gehen
+    über die `MapLibrary` des Editors (bei Bedarf geladen), damit die Versionen einer Karte mitziehen.
+  - Pausemenü: Continue, Saves (eine Seite, Reiter Save und Load, darunter Restart here), Settings, Extras | Coop,
+    Edit this map, World menu, All worlds. New game und Restart stehen nicht mehr in der Liste.
+  - Die Startlage hat keine Liste mehr: sie ist das Laden der Welt wie beim Start aus dem Weltmenü („Loading
+    <Ort>“, Balken, Cancel/Esc zurück ins Weltmenü); eine sofort geöffnete Welt (Link, Raum, anderer Ort) steht mit
+    Play. Die Weltmenüs haben unten keine Leiste mit Coop, Load game, Settings, Extras mehr.
   - Probespiel: der Pfad sagt „Trial“ statt „Play“. Editor-Liste: „Open“ auch bei mitgelieferten Karten (die
     Kopie entsteht erst mit der ersten Änderung).
 - **Specs:** `worlds/worlds-stage.scenario.spec.ts` (Continue, Discard, live, Start/Load mit Rückfrage, gehaltene

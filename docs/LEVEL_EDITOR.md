@@ -4,17 +4,18 @@
 
 Unter `/editor` baut man eigene Karten: Gelände, Bodentexturen, Wasser, Objekte, Straßen, Spawns und HQ. Eine Karte
 liegt im Browser (IndexedDB; in der Desktop-App zusätzlich als Datei in `Dokumente/3DTD/Maps`, [ELECTRON_DESKTOP_PLAN.md](ELECTRON_DESKTOP_PLAN.md) E26b), lässt sich als `.3dtdmap` herunterladen und wieder einlesen und mit „Test map“ im Spiel
-öffnen (`?world=map:<id>`). Der Einstieg im Hauptmenü ist „Map editor“ (Lage Start, unter der Linie; mit laufendem Lauf
-fragt das Menü vorher). Die Oberfläche ist englisch wie das übrige Spiel.
+öffnen (`?world=map:<id>`). Die Liste der Karten ist das Weltmenü von Built Worlds (seit 2026-10-19 die eine
+Kartenliste, [WORLDS_STATE_PLAN.md](WORLDS_STATE_PLAN.md)); „Map editor“ auf den Globen führt dorthin. Die Oberfläche ist
+englisch wie das übrige Spiel.
 
 Spiel und Editor stehen seit E195 Phase 4 im selben Fenster (`AppShellComponent`, `world/app-screen.service.ts`,
 [WORLDS_NAVIGATION_PLAN.md](WORLDS_NAVIGATION_PLAN.md)): „Map editor“, „Edit“ in der Kartenwahl und „Edit this map“
-öffnen ihn ohne Neuladen. Die Kartenliste trägt oben den Pfad `Worlds › Built Worlds › Map editor` mit den Chips und
-einen Rückweg (Knopf mit Esc, E219): mit wartendem Lauf „Back to the run“, sonst dorthin, woher der Editor kam
-(`WorldsStageService.editorExit`, `leaveEditor`): Globen oder Weltmenü, aus denen er geöffnet wurde; eine Welt, die für
-den Editor offen blieb (Spiel ohne Lauf, Probespiel), schließt ins Menü ihrer Welt mit ihrer Karte oder ihrem Ort
-gewählt, statt im Hintergrund neu zu starten. Esc geht vorher eine Ebene zurück (Rückfrage, Import, Formular New map,
-Rahmen eines echten Orts). In einem Coop-Raum (Lobby oder Spiel) bleibt der Weg in den Editor gesperrt, sichtbar
+öffnen ihn ohne Neuladen. Ohne offene Karte zeigt der Editor nur, was er macht (`editor/ui/make/map-make.component.ts`):
+das Formular einer neuen Karte oder das Einlesen von Dateien, oben der Pfad `Worlds › Built Worlds › New map` bzw.
+`Import file`; sonst geht er ins Weltmenü von Built Worlds. Der Zurück-Knopf des Editors schließt die Karte
+(gespeichert) und zeigt sie dort gewählt (`WorldsStageService.leaveEditorTo`); eine Welt, die für den Editor offen
+blieb (Probespiel), schließt dabei, statt im Hintergrund neu zu starten. Esc geht vorher eine Ebene zurück
+(Rückfrage, Import, Rahmen eines echten Orts). In einem Coop-Raum (Lobby oder Spiel) bleibt der Weg in den Editor gesperrt, sichtbar
 mit „Leave the coop room to edit“ (Pfad, Pausemenü, Startliste, Game over; `MainMenuService.editWhy`, `whyNot('edit')`):
 der Editor nähme das Spiel samt Raum mit. `/editor` (mit `?map=<id>`) bleibt Einstieg für
 Entwicklung und AI-Agenten; die Route nennt nur, was zuerst steht, danach ändert kein Wechsel die Adresse. Die
@@ -22,16 +23,19 @@ Entwicklung und AI-Agenten; die Route nennt nur, was zuerst steht, danach änder
 Editors, die offene Karte und ihr Verlauf bleiben (vorher gespeichert; scheitert das, bleibt der Editor).
 Ein laufender Lauf endet dabei nicht (Entscheidung 2 des Plans): zwischen den Wellen schreibt das Menü sofort den
 Autosave seiner Welt (`SaveGamePort.autosaveNow`), in einer Welle gilt der Autosave vom Anfang dieser Welle; ohne
-einen von beiden endet er, und die Rückfrage sagt das. „Back to the run“ in der Kartenliste öffnet seine Welt wieder
-und lädt den Autosave dort (`AppScreen.waitingRun`, `WorldSession.backToGame`).
+einen von beiden endet er, und die Rückfrage sagt das. Der Chip des Laufs (und Play im Pfad auf seiner Karte) öffnet
+seine Welt wieder und lädt den Autosave dort (`AppScreen.waitingRun`, `WorldSession.backToGame`).
 
 ## Kartenliste
 
-Die Startseite von `/editor` zeigt links die eigenen und die mitgelieferten Karten (Bild, Größe, Spawns, Objekte,
-zuletzt geändert), rechts die gewählte mit Beschreibung und den Knöpfen Open, Duplicate, Download, Delete (in den
-Papierkorb, siehe [Speichern](#speichern-und-dateien)). Mitgelieferte Karten (`public/maps/index.json`) und Karten eines Koop-Hosts sind schreibgeschützt: „Copy
-and edit“ legt eine eigene Kopie an und öffnet sie. Dasselbe gilt für jeden anderen Weg dorthin, etwa „Edit“ in der
-Kartenwahl des Spiels: `MapLifecycle.open` öffnet nie das Original, sondern speichert sofort eine eigene Kopie
+Die Liste ist das Weltmenü von Built Worlds (`worlds/world-maps.component.ts`): Recent, eigene Karten (mit „New map“
+und „Import file“ am Kopf, in der Desktop-App „Map folder“), von Koop-Hosts, mitgelieferte, am Ende der Papierkorb.
+Die gewählte Karte hat Play, „Edit in the editor“, Download, Duplicate (eigene) und Delete (eigene in den Papierkorb
+mit „Restore“, Karten eines Hosts nach Rückfrage endgültig; siehe [Speichern](#speichern-und-dateien)). „New map“
+öffnet den Editor direkt auf dem Formular, „Import file“ liest die Dateien im Editor ein (eine eingelesene Karte
+öffnet sich, mehrere stehen danach in der Liste). Mitgelieferte Karten (`public/maps/index.json`) und Karten eines
+Koop-Hosts sind schreibgeschützt: sie öffnen, wie sie sind, die erste Speicherung mit Änderung legt die eigene Kopie
+an. Dasselbe gilt für jeden anderen Weg dorthin: `MapLifecycle.open` öffnet nie das Original, sondern speichert sofort eine eigene Kopie
 („Name (copy)“) und sagt das in der Statuszeile. Die Kopie merkt sich ihr Original mit dessen Inhalts-Hash (`meta.copyOf`, nicht
 Teil des `contentHash`); ein weiteres „Edit“ desselben Originals öffnet die neueste eigene Kopie wieder. Hat sich das
 Original seither geändert (Spiel-Update, neue Version des Hosts, verglichen über `index.json` bzw. die Zusammenfassung,
