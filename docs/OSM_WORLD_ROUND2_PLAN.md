@@ -369,6 +369,56 @@ Szenenkosten an Würzburg, Marais und Kleinstadt am Main.
   liefert (95 Läden, 107 `amenity`-Punkte, 34 Tourismus, 30 `historic`, 18 Spielgeräte, 3 Plätze als Fläche …; Daten
   der eigenen Instanz vom 2026-10-13, `source.round2`); was vorher darin war, ist unverändert.
 
+## P5 Level-Daten, gebaut (2026-10-18)
+
+Code: `convert/anchors.ts` (Anker und Wahrzeichen), `convert/life.ts` (Leben und Intro), `convert/layout.ts` (Spawns an
+Ankern), `osm-frame-core.ts` und `components/osm-frame/` (Knopf „HQ an das Wahrzeichen“). Specs: `anchors.spec.ts`,
+`life.spec.ts`, `osm-frame.scenario.spec.ts`.
+
+### Beim Bau entschieden
+
+- **Anker:** Bahnhof und Haltepunkt (Stufe 0), Hafen (`seamark:type=harbour`, `leisure=marina`, `landuse=harbour`) und
+  Parkplätze ab 1500 m² auf der Fläche (Stufe 1), Bus- und Straßenbahnhalte (Stufe 2). Ein Anker gilt mit dem Fuß auf
+  der nächsten Fahrstraße in 120 m, im Abstand der Spawns (500 bis 1000 m) und 40 m vom Kartenrand. 75 % der
+  gewürfelten Spawns versuchen zuerst einen Anker (gewichtete Ziehung 4 : 2 : 1 nach Stufe), der Rest wird wie bisher
+  auf irgendeiner Straße gewürfelt: „Roll again“ findet so auch neue Straßen statt immer desselben Bahnhofs. Die Füße
+  werden einmal je Layout über ein Straßenraster gesucht.
+- **Namen:** ein Spawn bis 60 m von einem Anker heißt nach ihm („Engelplatz stop“, „Miltenberg station“, „Car park“;
+  bei Haltestellen ohne den Ort vor dem Komma), sonst wie bisher nach der Straße oder der Himmelsrichtung. Ortsteile
+  (`place=suburb`) als Rückfall sind nicht gebaut: die Abfrage holt diese Knoten nicht, und fast jeder Spawn hat eine
+  Straße mit Namen.
+- **Wahrzeichen:** Dom, Burg, Kirche, Rathaus, Stadttor, Turm, Denkmal, Museum, Sehenswürdigkeit mit `wikidata`;
+  Gewicht nach Art (Dom 6 bis Andachtsort 1), `wikidata` +2, `heritage` +1, Größe bis +2, geteilt durch
+  1 + Abstand / 600 m. Altar- und Kapellenpunkte im Haus zählen nicht, zwei Wahrzeichen unter 40 m sind eines.
+- **HQ an das Wahrzeichen:** der Rahmen zeigt bis zu drei Wahrzeichen in 800 m um die Adresse (im Quadrat mit Platz
+  für das HQ) als Knöpfe; das HQ geht auf die Straße nächst dem gewählten, stehende Spawns bleiben, wo sie noch
+  passen; „Back to the address“ nimmt es zurück. Kartenname und Adresse bleiben.
+- **Leben** (Lebensbereiche wie im Editor, `doc.life`): Grundgeräusch des Bioms (Lautstärke 0,5); Boote auf dem längsten
+  Stück einer Fluss- oder Kanallinie, das auf dem Wasser der Karte liegt (mindestens 250 m; Wege an Brücken über ihre
+  Knoten verbunden), Fischkutter, wo Schiffe fahren (ab 3 Schifffahrtszeichen, ein Schleusentor oder `CEMT`), sonst
+  Ruderboote; Möwen über derselben Linie; Ruderboote in den drei größten Yachthäfen; Krähen um die Kirche mit Glocken
+  nächst dem HQ (bis 900 m), deren Glocke zu jeder Welle läutet (`waveSound` mit diesem Bereich), sonst das
+  Schiffshorn auf dem Fluss. Ein Lastkahn als Modell fehlt (Vorschlag an P4).
+- **Intro:** wo ein Wahrzeichen bis 1200 m vom HQ steht, ein Flug in vier Ansichten (16 s): von jenseits des
+  Wahrzeichens heran, an ihm vorbei, hinüber und auf das HQ hinab, jede Ansicht über dem höheren Boden von Kamera und
+  Ziel. Sonst der Rundflug des Spiels wie bisher.
+
+### Messungen P5 (2026-10-18)
+
+Erzeugen in Node ohne Höhen und ohne Katalog mit den Antworten der Erhebung (Vorschlag-Abfrage), Rechner mit anderen
+Läufen belegt (Richtwerte):
+
+| | Würzburg | Frankfurt | Osthafen | Mönchberg | Marais | Amsterdam |
+|---|---|---|---|---|---|---|
+| Spawns (Namen) | Bahnhofplatz car park, Parkplatz Congresscentrum car park, Mainleitenweg stop, Car park | Börneplatz/Stoltzestraße stop, Südbahnhof stop, Untermainanlage, Affentorplatz stop | Buchrainplatz stop, Strahlenbergerstraße, Hafenmühlenweg stop, Wiener Straße stop | vier Straßen und Himmelsrichtungen (keine Anker im Abstand) | Hôtel-de-Ville station, Arts et Métiers station, Saint-Claude stop, Saint-Paul stop | Buiten Brouwersstraat stop, Muntplein stop, Centraal Station station, Nieuwmarkt station |
+| Intro über | Dom St. Kilian | Kaiserdom St. Bartholomäus | Erlöserkirche | St. Johannes der Täufer | Cathédrale Sainte-Croix des Arméniens | Koninklijk Paleis |
+| Glocke | Marienkapelle | Dreikönigskirche | Erlöserkirche | St. Johannes der Täufer | Notre-Dame-des-Blancs-Manteaux | eine Kirche ohne Namen |
+| Lebensbereiche, Boote | 3, Fischkutter | 3, Fischkutter | 4, Fischkutter | 1, keine | 6, Fischkutter | 6, Fischkutter |
+| Schritt „life“ | 35 ms | 22 ms | 6 ms | 8 ms | 65 ms | 33 ms |
+
+Das Layout dauert mit und ohne Anker gleich lang (Würzburg, Marais, Amsterdam je zwei Läufe: 90 bis 410 ms, im
+Rauschen).
+
 ## Entschieden (User, 2026-10-18)
 
 1. **Hydranten und Brunnen als Spielmechanik:** nicht in dieser Runde.
