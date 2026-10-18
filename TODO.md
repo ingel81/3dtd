@@ -55,6 +55,23 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       geändert, alle mitgelieferten Karten neu gebacken). Für das Feedback wieder eine Review-Fassung mit Szenenname
       (`tmp/showreel/edit/build.py <liste> --review`).
 
+### Jetzt: OSM-Runde 2 (User 2026-10-18: Lead lässt ausarbeiten und bauen, User macht optische Abnahme)
+
+Notizen und Erhebung Kleinwallstadt: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/plan/osm-notizen/`).
+
+- [ ] **E235 Gebäude-Fallback**: jeder Grundriss wird ein Gebäude, auch große, verwinkelte mit Innenhof
+      (Multipolygon mit inner-Ring); Höhe aus `height`/`building:levels`, sonst geschätzt; Fassade nach Art.
+- [ ] **E236 Hallendach fehlt aus der Ferne**: große Halle zeigt weiter weg kein Dach (Fern-LOD oder Culling).
+- [ ] **E237 Nutzungsflächen gestalten**: Spielplatz, Sportplatz je Sportart, Park, Schwimmbad, Friedhof,
+      Kleingärten, Streuobst, Weinberg u. a. mit eigener Bodentextur und Objekten.
+- [ ] **E238 Bahn und Straße**: Bahnübergänge ebenerdig (`railway=level_crossing`), Brücken/Unterführungen nach
+      `bridge`/`tunnel`/`layer`, Damm nur bei `embankment`.
+- [ ] **E239 POIs**: Abfrage um `shop`, `tourism`, `amenity`, `craft`, `office`, `historic` (Knoten und Ways)
+      erweitern, Punkt dem Gebäude zuordnen, Gestaltung je Nutzung (Schild mit Namen, Markise, Bestuhlung,
+      Zapfsäulen …).
+- [ ] **E240 Daten für Level nutzen**: weitere Orte erheben; Spawns an Bahnhof/Haltestellen/Parkplätzen,
+      Wahrzeichen als HQ, Engstellen an Schleusen/Brücken, Hydranten/Brunnen, Schiffe nach Schifffahrtszeichen.
+
 ### Danach: Karten ausbauen und freigeben
 
 - [ ] **E184 Mitgelieferte Karten imposanter** (User, 2026-10-15): die meisten Karten sind noch zu langweilig, es muss
@@ -89,6 +106,8 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       offen: Daten auf den Webserver, CORS, CSP der Desktop-App ([CUSTOM_MAP_WORLD.md](docs/CUSTOM_MAP_WORLD.md#laden)).
 
 ### Spiel und Balance
+
+- [ ] **E241 Kettensägen-Tower feiner abstimmen** (User, 2026-10-18): Details noch klären (Balance, Gefühl, Optik).
 
 - [ ] **E1 Balancing aufrollen**: Phase 1 und 2 gebaut, Baseline und sechs Tuning-Runden gelaufen. Offen: Zielbänder
       (3b) und Kampagnenende (3a), [docs/BALANCING_PLAN.md](docs/BALANCING_PLAN.md).
