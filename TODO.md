@@ -94,6 +94,11 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
       Vorschläge je Karte zusammen mit E184. Entschieden (User, 2026-10-15): allgemeine Mechanismen, auch im Editor
       setzbar und einstellbar (Katalog/Effekt-Objekte, Bereiche, Map-Kit- und MCP-Befehle); die mitgelieferten Karten
       bekommen ihr Leben nur über dieselben Editor-Funktionen, keine Sonderwege je Karte. Gilt ebenso für E184.
+- [ ] **E243 Gewitter als Wetter** (Lead, 2026-10-18): neuer Wert `storm` neben clear, rain, snow, fog, auch als
+      Wellen-Ereignis; Starkregen, Sturm, Blitz (verästelter Kanal, Himmels- und Szenenblitz, Lichthof am Einschlag)
+      und Donner nach Entfernung, nur Darstellung (eigener Zufall, nicht in der Simulation). Einstellung „Lightning
+      flashes“ (Soft) für Lichtblitz-Empfindliche. Nur eigene und OSM-Karten (Tiles haben kein Wetter). Gebaut auf
+      `wt/r7-storm`, wartet auf optische Abnahme; Fach-Doku CUSTOM_MAPS.md „Gewitter“.
 - [ ] **E195 Rest:** Menü und Weltwechsel sind gebaut (Abschnitt 2). Offen: Speichermessung über 10 Weltwechsel
       für die Phasen 3 bis 5 im Production-Build (braucht lokal `CUSTOM_MAPS_RELEASED = true`, die Freigabe-Sperre
       blockierte es; sonst im Dev-Build messen); OSM-Karten heißen im Pfad noch „Maps“ (`worldName` kennt nur den WorldRef).

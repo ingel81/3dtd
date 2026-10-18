@@ -8,7 +8,7 @@ Wasser, Objekten, Wegen und Himmel. Editor und Spiel benutzen dieselbe Ansicht. 
 `tools/map-assets/`. Rechnen auf dem Dokument (Raster, Wegenetz, Gelände, Objekte, Generator, Prüfung) liegt in
 `src/app/map-ops/`, das Editor, OSM-Import, Demo-Karte und Level-Skripte teilen; Welt und `map-ops` importieren
 nichts aus `src/app/editor/` (Lint-Regel). Vorschau: `/map-preview` (Demo-Tal, `?view=village|forest|trees|bridge|game|…`,
-`?sky=dusk|night|overcast`, `?skyImage=starry-night`, `?weather=rain|snow|fog`, `?post=bloom`, `?seed=3`).
+`?sky=dusk|night|overcast`, `?skyImage=starry-night`, `?weather=rain|storm|snow|fog`, `?post=bloom`, `?seed=3`).
 
 ## Koordinaten
 
@@ -739,6 +739,15 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
 - **Varianten**: `wind`, `stream` und `surf` haben je zwei Aufnahmen (`variants`, `wind-2.mp3` usw.). Sie spielen
   abwechselnd: jede bis zum Ende ihrer Schleife, die nächste setzt 2 s vorher ein (`CROSSFADE`, Equal-Power-Blende,
   eine Sekunde vorher eingeplant), so fällt die 20-s-Schleife beim langen Zuhören weniger auf
+- **Gewitter** (E243): eine Karte mit Gewitter spielt über alles Starkregen (`storm-rain`) und Wind (`STORM_BED`,
+  lauter je stärker, von oben mindestens 60 %; den Wind nicht doppelt, wenn das Bett ihn schon spielt) und nach jedem
+  Blitz Donner (`Soundscape.thunder`, aus `Lightning.onStrike`): verzögert um die Entfernung zum nächsten Punkt des
+  Kanals bei 343 m/s, unter 700 m ein Krachen (`crack`), bis 2 km ein rollender Schlag (`roll`), darüber fernes Grollen
+  (`rumble`, ein Wolkenblitz kracht nie, `thunderKind`), je zwei Aufnahmen, leiser und dumpfer mit der Entfernung
+  (Tiefpass 18 kHz · e^(-d/1200), mindestens 350 Hz), aus seiner Seite, bis 4 % höher oder tiefer, höchstens vier
+  zugleich. Starkregen und Donner mit ElevenLabs erzeugt, je drei Varianten, gewählt nach Hüllkurve und Spektrum
+  (2026-10-18; Auswahlseite tmp/sound-audition, Ids `amb_storm_rain`, `thunder_*`). Ein Wellen-Ereignis, das das
+  Wetter wechselt, wechselt den Ton mit
 - Kosten: je hörbarer Stimme eine Quelle (im Audio-Thread); Pegel und Panning rechnet die CPU zehnmal je Sekunde,
   eine Stimme, die drei Sekunden still ist, gibt ihre Quelle ab. Die Grafikstufe ändert nichts am Ton
 
@@ -831,6 +840,34 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   (40 und 70 %, `setShare`, RENDER_QUALITY.md). Staub bleibt bis gut 20 m über dem Boden (Deckkarte). Regen und Schnee schließen die Wolken, dämpfen die Sonne und
   verdichten den Dunst; Nebelwetter verdichtet bis zum Sechsfachen. Asche und Glut wachsen höchstens auf das
   1,8-Fache (sonst ein Feld heller Punkte aus der Spielkamera), Asche dunkelgrau, Glut orange statt gelb-weiß
+- **Gewitter** (`environment.weather: 'storm'`, E243; `lightning.ts`): Starkregen (Regenteilchen mit Stärke 0,5 + 0,5 k),
+  Wolken fast geschlossen und schiefergrau (Wolken, Zenit und Horizont zu festen Sturmfarben `STORM` gezogen), Sonne
+  um bis zu 80 % gedämpft, Himmels- und Umgebungslicht und Umgebungskarte schwächer, Dunst dreifach und blaugrau,
+  Grading entsättigt und kühler, nasser Boden, Pfützen; Wind mindestens 0,55 + 0,4 k mit Böen 0,6 + 0,35 k
+  (`stormWind`, ein stärkerer Wind der Karte bleibt, die Richtung auch). Dazu Blitze, **nur Darstellung**: eigener
+  Zufall (`mulberry32`, nie der des Laufs), nicht in der Simulation, Koop-Gäste und Replays sehen andere Blitze, die
+  Prüfsummen merken nichts. Ein Einschlag im Schnitt alle 18 - 12 k Sekunden (k = 0,6: 11 s), ein Viertel als Paar,
+  nie dichter als 1,6 s (`MIN_GAP_S`). 40 bis 65 % sind Erdblitze, der Rest Wolkenblitze; 70 % fallen in Blickrichtung,
+  ein Drittel der Erdblitze nah im sichtbaren Boden (bis 1,6-fache Kamerahöhe), der Rest 300 bis 2200 m weit.
+  - Der **Blitzkanal** wird je Einschlag auf der CPU in einen festen Puffer gebaut (`MAX_SEGMENTS` 512, keine
+    Allokation): ein langsames Mäandern des ganzen Kanals (zwei Sinus quer), darauf ein Zickzack aus Schritten von
+    etwa 9 m (gedämpfter Zufallsweg, unten auf den Einschlagpunkt gezogen), Äste im oberen Dreiviertel, die abwärts
+    und auswärts laufen und vor dem Boden verlöschen, selten ein Ast am Ast (nicht unter halber Partikelstufe). Erst
+    kriecht der Leitblitz schwach herab (0,05 s), dann leuchten zwei bis drei Hauptentladungen binnen einer drittel
+    Sekunde, die Äste nur bei der ersten; zwischen den Entladungen glimmt der Kanal. Am Boden ein Lichthof. Ein
+    instanzierter Draw: je Segment ein zur Kamera gedrehtes Band mit weißem Kern und violettem Hof, mindestens 1,3 px
+    breit (auch fern sichtbar), oben in die Wolkenbasis ausgeblendet, fern vom Dunst gedämpft, logdepthbuf, additiv,
+    keine Tiefe geschrieben; das Gelände verdeckt ihn, das Wasser spiegelt ihn
+  - Der **Lichtblitz** hebt Himmels-, Umgebungslicht und Umgebungskarte (`FLASH_HEMI` 3,5, `FLASH_AMBIENT` 1,2,
+    `FLASH_ENV` 0,8 bei Blitz 1) und zieht ihre Farbe zum kalten Weiß (`FLASH_COLOR`), hellt Dunst und Hintergrund auf
+    und leuchtet die Wolken von innen aus (`uFlash`, `uFlashDir` auf der Kuppel: dichte Wolken stärker, um die
+    Blitzrichtung am stärksten, das Wasser bekommt es über die Himmelstextur, die beim Blitz jedes Bild backt). Kein
+    Licht kommt dazu, kein Material kompiliert; nach dem Blitz stehen die Werte exakt wie vorher
+  - **Lichtblitz-Empfindliche:** Einstellung „Lightning flashes“ (Full, Soft; RENDER_QUALITY.md): Soft dimmt Blitz und
+    Lichtblitz auf 35 % und macht aus den Entladungen ein weiches An- und Abschwellen ohne Flackern. Auch in Full
+    höchstens drei Pulse je Einschlag und 1,6 s zwischen Einschlägen
+  - Auf Google-Tiles-Welten gibt es kein Wetter (die Umgebung gehört den eigenen Karten); Gewitter gibt es auf eigenen
+    und OSM-Karten
 - **Wind** (`wind.ts`, `environment.wind`: `strength` 0..1, `direction` in Grad, aus der er kommt, `gusts` 0..1;
   ohne Feld der Standard des Bioms, auf dem Mond kein Wind): geteilte Uniforms für Bäume, Pflanzen, Gras, Wolken,
   Rauch, Nebelbänke, Laub, Schnee, Regen, Asche, Staub und Glut, alle in dieselbe Richtung. Böen laufen als Fronten

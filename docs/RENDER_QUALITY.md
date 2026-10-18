@@ -95,6 +95,12 @@ an keiner Stufe; eine neu gewählte Stufe lässt sie stehen. Sie skaliert das Sc
 (`plantSway` 0, 0,4, 1 → Uniform `uPlantSway`, `wind.ts`). Die Karte behält ihre Windstärke: Wolken, Rauch, Wetter und
 die Umgebungspartikel ziehen weiter mit dem vollen Wind, schwimmende Objekte schaukeln weiter.
 
+**Lightning flashes** (Full, Soft; Standard Full, gespeichert als `lightningFlash`) gilt ebenso für alle eigenen Karten
+und hängt an keiner Stufe: für Spieler, die auf Lichtblitze empfindlich reagieren. Soft dimmt die Blitze eines Gewitters
+und ihren Lichtblitz auf 35 % (`LIGHTNING_FLASH_SHARE`, Knopf `lightningFlash`) und lässt sie weich an- und abschwellen
+statt zu flackern (`Lightning.setFlashShare`). Die Partikelstufe setzt die Äste eines Blitzes (unter 0,5 keine Äste an
+Ästen, `setDetail`); ein Blitz ist ein Draw mit bis zu 512 Segmenten.
+
 ## Kantenglättung und Kontext
 
 MSAA des Canvas wird beim Anlegen des WebGL-Kontexts festgelegt (`ThreeTilesEngine`, Option `antialias`): eine Seite,

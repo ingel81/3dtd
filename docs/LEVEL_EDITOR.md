@@ -417,7 +417,7 @@ den Himmel mit der Sonne, Height bewegt nur das Licht), Himmel (Day, Dusk, Night
 Himmel und Licht zusammenpassen, `skyPreset`; Night und Overcast lassen die Sonne stehen), Tageszeit (ein Sommertag: Aufgang 6 Uhr im Osten, 13 Uhr im
 Süden 60 Grad hoch, Untergang 20 Uhr im Westen; tiefe Sonne ist Dämmerung, eine Stunde nach Untergang Nacht),
 Sonnenrichtung und -höhe, bei Night das Mondlicht (`moonlight`, kühles Licht auf dem Land, Himmel bleibt dunkel), Nebel,
-Tönung, Wetter (Clear, Rain, Snow, Fog mit Stärke), Wind (Stärke, Richtung „From“, aus der er kommt, Böen; ohne eigenen
+Tönung, Wetter (Clear, Rain, Storm, Snow, Fog mit Stärke; Storm ist Starkregen, Sturm, Blitz und Donner, CUSTOM_MAPS.md „Gewitter“), Wind (Stärke, Richtung „From“, aus der er kommt, Böen; ohne eigenen
 Wind gilt der des Bioms, „Use the look's wind“ stellt das wieder her), Planet (nur prozeduraler Himmel: Größe als
 scheinbarer Durchmesser in Grad, 0 keiner, dazu Richtung und Höhe; ohne eigene Einstellung zeigt der Look Moon die Erde
 im Nordosten, 33 Grad hoch, 4 Grad groß, `DEFAULT_PLANET`; „Use the look's planet“ stellt das wieder her; Map-Kit und
