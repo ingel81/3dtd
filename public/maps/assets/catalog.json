@@ -18302,6 +18302,197 @@
         }
       ],
       "source": "procedural (tools/map-assets/build_poi.py)"
+    },
+    {
+      "id": "picnic-table",
+      "name": "Picnic table",
+      "category": "prop",
+      "file": "models/picnic-table.glb",
+      "triangles": 704,
+      "footprint": 0.9,
+      "height": 0.8,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 300,
+      "tags": [
+        "temperate",
+        "city",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/rough_wood"
+    },
+    {
+      "id": "recycling-containers",
+      "name": "Bottle banks (three)",
+      "category": "prop",
+      "file": "models/recycling-containers.glb",
+      "triangles": 1088,
+      "footprint": 2.4,
+      "height": 2.0,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 500,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "post-box",
+      "name": "Letter box",
+      "category": "prop",
+      "file": "models/post-box.glb",
+      "triangles": 186,
+      "footprint": 0.2,
+      "height": 1.5,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 250,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py)"
+    },
+    {
+      "id": "charging-station",
+      "name": "Car charging point",
+      "category": "prop",
+      "file": "models/charging-station.glb",
+      "triangles": 504,
+      "footprint": 0.6,
+      "height": 1.6,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 300,
+      "tags": [
+        "city"
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "playground-roundabout",
+      "name": "Playground roundabout",
+      "category": "prop",
+      "file": "models/playground-roundabout.glb",
+      "triangles": 556,
+      "footprint": 0.9,
+      "height": 1.0,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 400,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "lod": [
+        {
+          "file": "models/playground-roundabout-lod1.glb",
+          "distance": 160,
+          "triangles": 221
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py)"
+    },
+    {
+      "id": "fitness-station",
+      "name": "Outdoor fitness station",
+      "category": "prop",
+      "file": "models/fitness-station.glb",
+      "triangles": 240,
+      "footprint": 1.5,
+      "height": 2.3,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 400,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py)"
+    },
+    {
+      "id": "street-clock",
+      "name": "Street clock",
+      "category": "prop",
+      "file": "models/street-clock.glb",
+      "triangles": 418,
+      "footprint": 0.4,
+      "height": 4.3,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py)"
+    },
+    {
+      "id": "drinking-fountain",
+      "name": "Drinking fountain",
+      "category": "prop",
+      "file": "models/drinking-fountain.glb",
+      "triangles": 244,
+      "footprint": 0.3,
+      "height": 1.2,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 250,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py)"
     }
   ]
 }

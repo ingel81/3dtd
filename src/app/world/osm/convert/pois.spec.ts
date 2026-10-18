@@ -84,6 +84,11 @@ describe('OSM POIs: kinds and language', () => {
     expect(streetAsset({ advertising: 'column' })).toBe('advertising-column');
     expect(streetAsset({ historic: 'wayside_cross' })).toBe('wayside-cross');
     expect(streetAsset({ amenity: 'bicycle_parking' })).toBe('bike-rack');
+    expect(streetAsset({ amenity: 'recycling', recycling_type: 'container' })).toBe('recycling-containers');
+    expect(streetAsset({ amenity: 'recycling', recycling_type: 'centre' })).toBeNull();
+    expect(streetAsset({ amenity: 'clock', support: 'pole' })).toBe('street-clock');
+    expect(streetAsset({ amenity: 'clock', support: 'wall_mounted' })).toBeNull();
+    expect(streetAsset({ leisure: 'picnic_table' })).toBe('picnic-table');
     expect(streetAsset({ amenity: 'bench' })).toBeNull();
   });
 });

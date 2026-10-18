@@ -10,7 +10,9 @@
  *    on the wall line); only footprints that stand as a catalogue model.
  *    Points in no building get nothing, unless they are one of the few
  *    things standing on their own (a fuel station, a kiosk, an advertising
- *    column, a wayside cross, a bicycle rack, a picnic table).
+ *    column, a wayside cross, a bicycle rack, a picnic table, bottle banks,
+ *    a letter box, a charging point, a drinking fountain, a street clock, a
+ *    fitness station).
  * 3. Front: of the building's models the one nearest the point, of its
  *    fronts (facades.ts) the nearest, the street front by FRONT_BONUS_M
  *    first. Several shops of one front share it in slots, at most one per
@@ -61,8 +63,11 @@ const CELL = 32;
 /** The assets the POIs place, for the catalogue's costs */
 export const POI_ASSETS: readonly string[] = [
   'sign-facade', 'sign-bracket', 'shopfront-narrow', 'shopfront-wide', 'awning', 'cafe-set', 'beer-bench-set', 'parasol',
-  'fuel-pump', 'kiosk', 'advertising-column', 'wayside-cross', 'shrine', 'bike-rack',
+  'fuel-pump', 'kiosk', 'advertising-column', 'wayside-cross', 'shrine', 'bike-rack', 'recycling-containers', 'post-box',
+  'charging-station', 'drinking-fountain', 'street-clock', 'picnic-table', 'fitness-station',
 ];
+/** Ground a street thing needs clear of roads and footprints (radius, m), default 1 */
+const STREET_ROOM: Readonly<Record<string, number>> = { 'advertising-column': 0.8, 'post-box': 0.4, 'drinking-fountain': 0.5, 'street-clock': 0.5, 'recycling-containers': 2.6, 'fitness-station': 2.0 };
 
 /** Height of the awning model from its valance to the top of its cassette, m at scale 1 */
 const AWNING_HEIGHT = 0.94;
@@ -255,7 +260,7 @@ export function placePois(doc: CustomMapDocument, features: OsmFeatures, options
   let m = 0;
   for (const p of features.points) {
     const asset = streetAsset(p.tags);
-    if (!asset || !roomFor(p, asset === 'advertising-column' ? 0.8 : 1.0, roads, built, half)) continue;
+    if (!asset || !roomFor(p, STREET_ROOM[asset] ?? 1.0, roads, built, half)) continue;
     const add = options.costOf(asset);
     if (cost + add > budget) {
       report.dropped.budget++;
@@ -445,7 +450,14 @@ export function streetAsset(tags: Readonly<Record<string, string>>): string | nu
   if (tags['historic'] === 'wayside_cross') return 'wayside-cross';
   if (tags['historic'] === 'wayside_shrine') return 'shrine';
   if (tags['amenity'] === 'bicycle_parking') return 'bike-rack';
-  if (tags['leisure'] === 'picnic_table') return 'beer-bench-set';
+  if (tags['amenity'] === 'recycling' && tags['recycling_type'] !== 'centre') return 'recycling-containers';
+  if (tags['amenity'] === 'post_box') return 'post-box';
+  if (tags['amenity'] === 'charging_station') return 'charging-station';
+  if (tags['amenity'] === 'drinking_water') return 'drinking-fountain';
+  // A clock on a wall or a tower stands in its building; one on its own pole is the street's
+  if (tags['amenity'] === 'clock' && !/wall|building|tower/.test(tags['support'] ?? '')) return 'street-clock';
+  if (tags['leisure'] === 'picnic_table') return 'picnic-table';
+  if (tags['leisure'] === 'fitness_station') return 'fitness-station';
   return null;
 }
 

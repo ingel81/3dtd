@@ -1000,6 +1000,174 @@ def river_barge(name):
     blender_kit.export_lod(name, obj, ratio=0.25, textured=True)
 
 
+# ---------------------------------------------------------------- more of the street and the playground
+
+def picnic_table(name):
+    """Picnic table of a park or a rest area: one timber frame, the top and both benches on crossed legs"""
+    clear_scene()
+    wood = Part(pbr_material('picnic-wood', 'rough_wood', (0.8, 0.62, 0.42)), uv_metres=1.0, bevel=0.01)
+    L = 1.9
+    for k in range(4):
+        box(wood, 0, -0.27 + k * 0.18, 0.74, L, 0.16, 0.04)
+    for sy in (-1, 1):
+        for k in range(2):
+            box(wood, 0, sy * (0.6 + k * 0.13), 0.44, L, 0.12, 0.04)
+    for sx in (-0.7, 0.7):
+        for sy in (-1, 1):
+            plank(wood, Vector((sx, sy * 0.72, 0.0)), Vector((sx, sy * 0.05, 0.74)), 0.06, 0.1)
+        box(wood, sx, 0, 0.36, 0.08, 1.6, 0.08)
+        box(wood, sx, 0, 0.66, 0.08, 0.72, 0.08)
+    export(name, [wood.to_object(name)], lod=None)
+
+
+def recycling_containers(name):
+    """Bottle banks: three steel containers for white, brown and green glass in a row, each with a coloured
+    band and two round mouths in its sloping lid, on a concrete strip"""
+    clear_scene()
+    steel = Part(flat_material('bank-green', (0.07, 0.2, 0.12), 0.55, 0.35), bevel=0.04, uv_metres=1.0)
+    holes = Part(flat_material('bank-hole', (0.015, 0.015, 0.015), 0.9))
+    bands = [Part(flat_material('band-' + n, c, 0.5)) for n, c in (('white', (0.85, 0.85, 0.82)), ('brown', (0.33, 0.17, 0.07)),
+                                                                     ('green', (0.2, 0.5, 0.18)))]
+    strip = Part(pbr_material('kerb-concrete', 'brushed_concrete', (0.72, 0.72, 0.7)), uv_metres=1.5)
+    box(strip, 0, 0, -0.2, 5.4, 1.8, 0.28)
+    for k, band in enumerate(bands):
+        x = (k - 1) * 1.75
+        box(steel, x, 0, 0.08, 1.55, 1.45, 1.35)
+        # A hipped lid rising to a ridge across the container
+        for sy in (-1, 1):
+            plank(steel, Vector((x, sy * 0.73, 1.43)), Vector((x, sy * 0.05, 1.72)), 1.55, 0.05)
+        box(steel, x, 0, 1.68, 1.5, 0.14, 0.08)
+        box(band, x, -0.73, 0.95, 1.4, 0.02, 0.22)
+        for hx in (-0.35, 0.35):
+            tube(holes, [Vector((x + hx, -0.42, 1.62)), Vector((x + hx, -0.4, 1.64))], [0.11, 0.11], 12, cap=True)
+            tube(steel, [Vector((x + hx, -0.43, 1.6)), Vector((x + hx, -0.41, 1.63))], [0.15, 0.15], 12)
+        box(steel, x, 0, 1.78, 0.2, 0.2, 0.18)
+    objects = [steel.to_object(name), holes.to_object(name + '-holes'), strip.to_object(name + '-strip')]
+    objects += [b.to_object(name + '-band%d' % k) for k, b in enumerate(bands)]
+    export(name, objects, lod=None)
+
+
+def post_box(name):
+    """Letter box on its post: a yellow box with a rounded top and the slot under a lip, a grey post"""
+    clear_scene()
+    yellow = Part(flat_material('postbox-yellow', (0.88, 0.62, 0.03), 0.45), smooth=True, bevel=0.02, uv_metres=1.0)
+    dark = Part(flat_material('postbox-dark', (0.04, 0.04, 0.045), 0.6))
+    post = Part(flat_material('postbox-post', (0.4, 0.41, 0.42), 0.5, 0.6), smooth=True)
+    tube(post, [Vector((0, 0.05, -0.3)), Vector((0, 0.05, 0.85))], [0.04, 0.04], 8)
+    box(yellow, 0, 0, 0.85, 0.44, 0.3, 0.5)
+    tube(yellow, [Vector((-0.22, 0, 1.35)), Vector((0.22, 0, 1.35))], [0.15, 0.15], 12, cap=True)
+    box(dark, 0, -0.152, 1.22, 0.24, 0.01, 0.03)
+    box(yellow, 0, -0.17, 1.26, 0.3, 0.05, 0.02)
+    box(dark, 0, -0.152, 0.92, 0.12, 0.01, 0.08)
+    export(name, [yellow.to_object(name), dark.to_object(name + '-dark'), post.to_object(name + '-post')], lod=None)
+
+
+def charging_station(name):
+    """Charging point for cars: a white pillar on a concrete plinth, a dark face with a lit strip, two coiled
+    cables in their holders, a bollard in front"""
+    clear_scene()
+    white = Part(flat_material('charger-white', (0.86, 0.87, 0.86), 0.35), bevel=0.03, uv_metres=1.0)
+    face = Part(flat_material('charger-face', (0.05, 0.06, 0.07), 0.3, 0.3))
+    led = Part(flat_material('charger-led', (0.1, 0.5, 0.25), 0.3, emission=(0.2, 1.0, 0.45), strength=1.2))
+    cable = Part(flat_material('charger-cable', (0.03, 0.03, 0.03), 0.7), smooth=True)
+    concrete = Part(pbr_material('footing-concrete', 'brushed_concrete', (0.7, 0.7, 0.7)), uv_metres=1.0)
+    box(concrete, 0, 0, -0.2, 0.8, 0.6, 0.3)
+    box(white, 0, 0, 0.1, 0.5, 0.32, 1.55)
+    box(face, 0, -0.165, 0.7, 0.36, 0.01, 0.75)
+    box(led, 0, -0.17, 1.5, 0.3, 0.01, 0.05)
+    for sx in (-1, 1):
+        box(face, sx * 0.26, 0, 0.95, 0.04, 0.12, 0.16)
+        pts = []
+        for k in range(17):
+            a = k / 16 * math.tau * 1.25
+            pts.append(Vector((sx * (0.32 + 0.12 * (1 + math.cos(a)) / 2), 0.08 * math.sin(a), 0.98 - k / 16 * 0.55)))
+        tube(cable, pts, [0.018] * len(pts), 5)
+    tube(concrete, [Vector((0, -0.9, 0.0)), Vector((0, -0.9, 0.9))], [0.08, 0.08], 10, cap=True)
+    export(name, [white.to_object(name), face.to_object(name + '-face'), led.to_object(name + '-led'), cable.to_object(name + '-cable'),
+                  concrete.to_object(name + '-plinth')], lod=None)
+
+
+def playground_roundabout(name, r=1.0):
+    """Playground roundabout: a low disc of blue and yellow sectors on a hub, four bent handrails"""
+    clear_scene()
+    blue = Part(flat_material('round-blue', (0.08, 0.28, 0.6), 0.55))
+    yellow = Part(flat_material('round-yellow', (0.88, 0.62, 0.08), 0.55))
+    steel = Part(flat_material('handle-steel', (0.6, 0.62, 0.63), 0.3, 0.9), smooth=True)
+    sectors = 8
+    for k in range(sectors):
+        a0, a1 = k / sectors * math.tau, (k + 1) / sectors * math.tau
+        pts = [Vector((0, 0, 0.32))] + [Vector((math.cos(a) * r, math.sin(a) * r, 0.32)) for a in (a0, (a0 + a1) / 2, a1)]
+        prism(blue if k % 2 else yellow, pts, Vector((0, 0, -0.05)))
+    tube(steel, [Vector((0, 0, 0.0)), Vector((0, 0, 0.27))], [0.12, 0.12], 10, cap=True)
+    for k in range(4):
+        a = k / 4 * math.tau + math.pi / 8
+        c, s_ = math.cos(a), math.sin(a)
+        p0 = Vector((c * 0.2, s_ * 0.2, 0.32))
+        p1 = Vector((c * 0.2, s_ * 0.2, 0.95))
+        p2 = Vector((c * 0.85, s_ * 0.85, 0.95))
+        p3 = Vector((c * 0.85, s_ * 0.85, 0.32))
+        tube(steel, bent([p0, p1, p2, p3], 0.12), [0.022] * 10, 6)
+    export(name, [blue.to_object(name), yellow.to_object(name + '-yellow'), steel.to_object(name + '-steel')], lod=110)
+
+
+def fitness_station(name):
+    """Outdoor fitness station: a high pull-up bar, low parallel bars and a sloping sit-up bench, galvanised
+    steel with green padding"""
+    clear_scene()
+    steel = galvanised()
+    pad = Part(flat_material('fitness-green', (0.12, 0.38, 0.2), 0.7), bevel=0.02, uv_metres=1.0)
+    for x in (-1.6, -0.4):
+        tube(steel, [Vector((x, 0, -0.3)), Vector((x, 0, 2.3))], [0.045, 0.045], 8, cap=True)
+    tube(steel, [Vector((-1.65, 0, 2.2)), Vector((-0.35, 0, 2.2))], [0.022, 0.022], 6, cap=True)
+    for x in (0.4, 1.6):
+        for y in (-0.28, 0.28):
+            tube(steel, [Vector((x, y, -0.3)), Vector((x, y, 1.05))], [0.035, 0.035], 6, cap=True)
+    for y in (-0.28, 0.28):
+        tube(steel, [Vector((0.35, y, 1.05)), Vector((1.65, y, 1.05))], [0.025, 0.025], 6, cap=True)
+    bench0, bench1 = Vector((-1.4, 1.4, 0.25)), Vector((0.4, 1.4, 0.75))
+    plank(pad, bench0, bench1, 0.4, 0.07)
+    tube(steel, [Vector((-1.3, 1.4, -0.2)), Vector((-1.3, 1.4, 0.25))], [0.035, 0.035], 6)
+    tube(steel, [Vector((0.3, 1.4, -0.2)), Vector((0.3, 1.4, 0.72))], [0.035, 0.035], 6)
+    tube(steel, [Vector((0.35, 1.2, 0.95)), Vector((0.35, 1.6, 0.95))], [0.02, 0.02], 6, cap=True)
+    export(name, [steel.to_object(name), pad.to_object(name + '-pad')], lod=None)
+
+
+def street_clock(name):
+    """Street clock of a square: a fluted cast-iron column in dark green, a drum with a white face on both
+    sides and a finial"""
+    clear_scene()
+    iron = Part(flat_material('column-green', (0.06, 0.17, 0.12), 0.5, 0.5), smooth=True)
+    face = Part(flat_material('clock-face', (0.9, 0.88, 0.82), 0.4, emission=(1.0, 0.95, 0.8), strength=0.25))
+    hands = Part(flat_material('clock-hands', (0.03, 0.03, 0.03), 0.4, 0.5))
+    tube(iron, [Vector((0, 0, -0.2)), Vector((0, 0, 0.3)), Vector((0, 0, 0.4)), Vector((0, 0, 3.1))], [0.22, 0.2, 0.1, 0.08], 12)
+    tube(iron, [Vector((0, 0, 3.1)), Vector((0, 0, 3.2))], [0.1, 0.14], 12, cap=True)
+    c = Vector((0, 0, 3.6))
+    tube(iron, [c + Vector((0, -0.12, 0)), c + Vector((0, 0.12, 0))], [0.42, 0.42], 20, cap=True, smooth=False)
+    tube(iron, [c + Vector((0, 0.12, 0)), c + Vector((0, -0.12, 0))], [0.42, 0.42], 20, cap=True, smooth=False)
+    for sy in (-1, 1):
+        tube(face, [c + Vector((0, sy * 0.12, 0)), c + Vector((0, sy * 0.125, 0))], [0.36, 0.36], 20, cap=True)
+        # Hands at ten past ten
+        for ang, length, w in ((math.radians(-60), 0.24, 0.025), (math.radians(60), 0.31, 0.018)):
+            tip = c + Vector((math.sin(ang) * length, sy * 0.135, math.cos(ang) * length))
+            oriented_box(hands, c + Vector((0, sy * 0.135, 0)), tip, w)
+    tube(iron, [c + Vector((0, 0, 0.42)), c + Vector((0, 0, 0.62)), c + Vector((0, 0, 0.75))], [0.08, 0.05, 0.0], 8)
+    export(name, [iron.to_object(name), face.to_object(name + '-face'), hands.to_object(name + '-hands')], lod=None)
+
+
+def drinking_fountain(name):
+    """Drinking fountain: a short cast-iron column with a push button, a spout over a small round basin"""
+    clear_scene()
+    iron = Part(flat_material('fountain-iron', (0.05, 0.14, 0.1), 0.5, 0.5), smooth=True)
+    brass = Part(flat_material('fountain-brass', (0.7, 0.52, 0.22), 0.3, 0.9), smooth=True)
+    tube(iron, [Vector((0, 0, -0.1)), Vector((0, 0, 0.15)), Vector((0, 0, 0.25)), Vector((0, 0, 1.05))], [0.2, 0.18, 0.11, 0.1], 12)
+    tube(iron, [Vector((0, 0, 1.05)), Vector((0, 0, 1.15)), Vector((0, 0, 1.22))], [0.13, 0.12, 0.0], 12)
+    tube(iron, [Vector((0, -0.12, 0.62)), Vector((0, -0.35, 0.62))], [0.03, 0.03], 8)
+    tube(iron, [Vector((0, -0.42, 0.5)), Vector((0, -0.42, 0.62)), Vector((0, -0.42, 0.66))], [0.08, 0.14, 0.15], 12, cap=True)
+    tube(brass, [Vector((0, -0.08, 0.95)), Vector((0, -0.28, 0.95)), Vector((0, -0.36, 0.86))], [0.02, 0.018, 0.015], 6, cap=True)
+    tube(brass, [Vector((0, -0.1, 0.8)), Vector((0, -0.13, 0.8))], [0.03, 0.03], 8, cap=True)
+    export(name, [iron.to_object(name), brass.to_object(name + '-brass')], lod=None)
+
+
 def models():
     return {
         'basketball-hoop': lambda: basketball_hoop('basketball-hoop'),
@@ -1028,4 +1196,12 @@ def models():
         'sign-facade': lambda: sign_facade('sign-facade'),
         'sign-bracket': lambda: sign_bracket('sign-bracket'),
         'river-barge': lambda: river_barge('river-barge'),
+        'picnic-table': lambda: picnic_table('picnic-table'),
+        'recycling-containers': lambda: recycling_containers('recycling-containers'),
+        'post-box': lambda: post_box('post-box'),
+        'charging-station': lambda: charging_station('charging-station'),
+        'playground-roundabout': lambda: playground_roundabout('playground-roundabout'),
+        'fitness-station': lambda: fitness_station('fitness-station'),
+        'street-clock': lambda: street_clock('street-clock'),
+        'drinking-fountain': lambda: drinking_fountain('drinking-fountain'),
     }

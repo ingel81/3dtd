@@ -443,6 +443,10 @@ Burg, drei Boote auf 2,4 km Fluss. Bilder und Clips liegen lokal, nicht im Repo.
   ältere `football-goal`).
 - Fassadenobjekte haben den Ursprung auf der Wand am Fuß, Front -Y; Markise, Schirm, Schilder und Zapfsäule sind hell
   gebaut, damit `tint` sie färbt (die Markise Ton in Ton gestreift).
+- Nachgebaut, weil häufig: `picnic-table`, `recycling-containers` (Glascontainer), `post-box`, `charging-station`,
+  `playground-roundabout`, `fitness-station`, `street-clock`, `drinking-fountain`; dazu `river-barge` (Binnenfrachter
+  67 m für die Boote auf schiffbaren Flüssen) und das Netz des `football-goal` in der neuen Technik
+  (`blender_kit.net_material`). Bewusst ohne Modell: Musikpavillon, Toilettenhaus, Telefonzelle.
 - Die fünf Bodenmaterialien baut P1 (`bake_grounds.py`), Bahnübergang-Teile E238.
 
 ## P3 POIs, gebaut (2026-10-18)

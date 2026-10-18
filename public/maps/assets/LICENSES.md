@@ -645,6 +645,14 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | sign-facade | procedural (tools/map-assets/build_poi.py) |
 | sign-bracket | procedural (tools/map-assets/build_poi.py) |
 | river-barge | procedural (tools/map-assets/build_poi.py) |
+| picnic-table | procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/rough_wood |
+| recycling-containers | procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/brushed_concrete |
+| post-box | procedural (tools/map-assets/build_poi.py) |
+| charging-station | procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/brushed_concrete |
+| playground-roundabout | procedural (tools/map-assets/build_poi.py) |
+| fitness-station | procedural (tools/map-assets/build_poi.py) |
+| street-clock | procedural (tools/map-assets/build_poi.py) |
+| drinking-fountain | procedural (tools/map-assets/build_poi.py) |
 
 ## Himmelsbilder (`skies/<id>.webp`)
 
