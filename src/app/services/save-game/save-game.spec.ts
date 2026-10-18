@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { signal } from '@angular/core';
 import { SaveGame, type SaveGameHost } from './save-game';
-import { AUTOSAVE_BUILT_SLOT, AUTOSAVE_OSM_SLOT, AUTOSAVE_SLOT, manualSlotId } from './save-game.port';
+import { AUTOSAVE_BUILT_SLOT, AUTOSAVE_OSM_SLOT, AUTOSAVE_SLOT, FILE_SLOT, manualSlotId } from './save-game.port';
 import { UNREADABLE, type SaveSlotStore, type StoredSlotMeta } from './save-slot.store';
 import { buildWorldPackage } from '../../coop/world-package';
 import { emptySimSnapshot } from '../../../test/sim-snapshot-fixture';
@@ -205,6 +205,21 @@ describe('SaveGame (TODO E110)', () => {
     expect(applied.at(-1)?.place.name).toBe('Heilbronn');
     expect(await game.importFile(new File(['{"format":"x"}'], 'x.json'))).toEqual({ ok: false, reason: 'That file is no 3DTD save.' });
     expect(await game.exportFile(manualSlotId(4))).toEqual({ ok: false, reason: 'That slot is empty.' });
+  });
+
+  it('keeps a save file as a slot listed nowhere (the globes open its world with it), and refuses what is no save', async () => {
+    const { game, host, store, applied } = setup();
+    await game.save(manualSlotId(3));
+    await game.exportFile(manualSlotId(3));
+    const [blob, name] = vi.mocked(host.download).mock.calls[0];
+    const kept = await game.storeFile(new File([await blob.arrayBuffer()], name), FILE_SLOT, () => 'osm');
+    expect(kept).toMatchObject({ ok: true, slot: { id: FILE_SLOT, world: 'real', wave: 4, location: 'Heilbronn' } });
+    // Nothing loaded here, the lists stay as they were; the slot loads as any other
+    expect(applied).toHaveLength(0);
+    expect(game.slots().map((s) => s.id)).toEqual([manualSlotId(3)]);
+    expect(store.meta.has(FILE_SLOT)).toBe(true);
+    expect(await game.load(FILE_SLOT)).toEqual({ ok: true, note: null });
+    expect(await game.storeFile(new File(['{"format":"x"}'], 'x.json'), FILE_SLOT, () => 'maps')).toEqual({ ok: false, reason: 'That file is no 3DTD save.' });
   });
 
   it('deletes a slot', async () => {

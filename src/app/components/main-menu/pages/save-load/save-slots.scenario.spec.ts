@@ -42,8 +42,6 @@ interface Setup {
   started?: boolean;
   waveRunning?: boolean;
   loadResult?: LoadResult;
-  /** Why no file loads here at all (the globes' slots, StageSaves) */
-  cannotImport?: string;
   /** In the game: the menu, which says what a load ends (MainMenuService.loadAsk) */
   menu?: { loadAsk: (slotId: string) => { text: string; note: string } | null; loadSlot: (slotId: string) => Promise<LoadResult> };
 }
@@ -55,7 +53,7 @@ describe('Save and Load pages', () => {
 
   afterEach(() => TestBed.resetTestingModule());
 
-  async function setup({ mode, canSave = false, slots = SLOTS, started = false, waveRunning = false, loadResult = { ok: true, note: null }, menu, cannotImport }: Setup) {
+  async function setup({ mode, canSave = false, slots = SLOTS, started = false, waveRunning = false, loadResult = { ok: true, note: null }, menu }: Setup) {
     const saves = {
       canSave: signal(canSave),
       cannotSaveReason: signal(canSave ? null : 'Saving works only between waves.'),
@@ -69,7 +67,6 @@ describe('Save and Load pages', () => {
       exportFile: vi.fn(async () => ({ ok: true as const })),
       importFile: vi.fn(async () => loadResult),
       continueAutosave: vi.fn(async () => loadResult),
-      ...(cannotImport ? { cannotImportReason: signal(cannotImport) } : {}),
     };
     TestBed.configureTestingModule({
       providers: [{ provide: SAVE_GAME, useValue: saves }, ...(menu ? [{ provide: MainMenuService, useValue: menu }] : [])],
@@ -198,16 +195,6 @@ describe('Save and Load pages', () => {
       await click('Pick file');
       expect(el.textContent).not.toContain('Load a save from a file?');
       expect(picked).toHaveBeenCalledTimes(1);
-    });
-
-    it('on the globes says before any file is picked why none loads there, and picks none', async () => {
-      const { el, byText, click } = await setup({ mode: 'load', cannotImport: 'A save file needs a game to load into.' });
-      const input = el.querySelector<HTMLInputElement>('input.mp-file')!;
-      const picked = vi.spyOn(input, 'click').mockImplementation(() => undefined);
-      expect(byText('Load from a file')!.disabled).toBe(true);
-      expect(el.textContent).toContain('A save file needs a game to load into.');
-      await click('Load from a file');
-      expect(picked).not.toHaveBeenCalled();
     });
 
     it('shows the version note of a save from another version and stays', async () => {

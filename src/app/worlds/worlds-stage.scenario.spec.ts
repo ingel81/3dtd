@@ -23,7 +23,8 @@ import { GeocodingService } from '../services/location/geocoding.service';
 import { WorldDiceService } from '../services/location/world-dice.service';
 import { LocationManagementService } from '../services/location/location-management.service';
 import { BestWaveService } from '../services/location/best-wave.service';
-import { AUTOSAVE_SLOT } from '../services/save-game/save-game.port';
+import { AUTOSAVE_SLOT, FILE_SLOT, type SaveSlotInfo } from '../services/save-game/save-game.port';
+import { SaveGame } from '../services/save-game/save-game';
 import { SAVE_SLOT_STORE, type StoredSlotMeta } from '../services/save-game/save-slot.store';
 import { MemorySlotStore } from '../../test/memory-slot-store';
 import { StageContinueComponent } from './stage-continue.component';
@@ -595,6 +596,40 @@ describe('Worlds stage', () => {
     await settle(f);
     expect(text(el(f).querySelector('[data-stage-continue]'))).toBe('Continue Demo Valley | wave 3');
     expect([...el(f).querySelectorAll('.ws-chip')].map((c) => c.getAttribute('data-chip'))).toEqual(['continue-real']);
+  });
+
+  it('a save file on the globes: kept as the file slot, its world opens and loads it, the world of its map by the list', async () => {
+    const f = await open({ key: true });
+    const stage = TestBed.inject(WorldsStageService);
+    const slot: SaveSlotInfo = {
+      id: FILE_SLOT, world: 'maps', name: 'Demo Valley, wave 3', autosave: false, wave: 3, location: 'Demo Valley', hq: null,
+      map: { id: 'demo-valley', name: 'Demo Valley' }, savedAt: '', gameVersion: 'test', note: null,
+    };
+    const kept = vi.spyOn(SaveGame.prototype, 'storeFile').mockResolvedValue({ ok: true, slot });
+    expect(await stage.saves.importFile(new File(['x'], 'save.json.gz'))).toEqual({ ok: true, note: null });
+    expect(kept.mock.calls[0][1]).toBe(FILE_SLOT);
+    expect(kept.mock.calls[0][2]('demo-valley')).toBe('maps');
+    await settle(f);
+    expect(opened).toEqual([expect.objectContaining({ resume: FILE_SLOT, play: true, label: 'Demo Valley', world: expect.objectContaining({ mapId: 'demo-valley' }) })]);
+    kept.mockRestore();
+  });
+
+  it('a coop code without a map key asks first: Join goes on, Enter map key opens the key screen', async () => {
+    const f = await open();
+    const stage = TestBed.inject(WorldsStageService);
+    stage.joinRoom('ABC123');
+    await settle(f);
+    expect(text(el(f).querySelector('.ws-confirm'))).toContain('No map key in this browser.');
+    button(f, 'Enter map key').click();
+    await settle(f);
+    expect(stage.overlay()).toBe('key');
+    expect(opened).toEqual([]);
+    stage.closeOverlay();
+    stage.joinRoom('ABC123');
+    await settle(f);
+    button(f, 'Join').click();
+    await settle(f);
+    expect(opened).toEqual([expect.objectContaining({ room: { code: 'ABC123', lane: null } })]);
   });
 
   it('a double click on a map plays it: pick and Play in one', async () => {

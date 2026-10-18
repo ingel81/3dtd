@@ -27,6 +27,8 @@ export type SlotWorld = 'real' | 'osm' | 'maps';
 /** The slots the player saves to by hand: slot-1 to slot-N */
 export const MANUAL_SLOT_COUNT = 5;
 export const manualSlotId = (n: number): string => `slot-${n}`;
+/** A save file picked on the globes, kept until its world opens and loads it from here; listed nowhere */
+export const FILE_SLOT = 'file';
 
 /** One filled slot, for the menu's list */
 export interface SaveSlotInfo {
@@ -89,8 +91,6 @@ export interface SaveGamePort {
   exportFile(slotId: string): Promise<SaveResult>;
   /** Load a run from a file the player picked */
   importFile(file: File): Promise<LoadResult>;
-  /** Why no file can be loaded here at all (the globes: no world to load it into), shown before a file is picked */
-  readonly cannotImportReason?: Signal<string | null>;
   /** Load the autosave */
   continueAutosave(): Promise<LoadResult>;
   /** A new run starts here (Restart): its autosave goes to its world's slot again, not to the one it was loaded from */

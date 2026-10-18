@@ -309,8 +309,16 @@ Entschieden (User, 2026-10-16): alle zwölf Empfehlungen unten übernommen.
   - Ein Weltmenü zeigt sein eigenes Continue nur als erste Zeile, nicht noch als Chip; es nimmt beim Öffnen den
     Fokus auf den ersten Eintrag, Esc gibt ihn an seinen Globus zurück.
   - OSM-Rahmen auf den Globen mit einem Back (Kopf, Esc); aus dem Spiel („Make map“) führt Back zurück ins Spiel.
-    Fertig heißt die Karte „one of your Recent worlds“. Load from a file auf den Globen ist gesperrt und sagt
-    vorher warum (`SaveGamePort.cannotImportReason`).
+    Fertig heißt die Karte „one of your Recent worlds“.
+  - Load from a file auf den Globen: die Datei wird geprüft wie beim Laden und als eigener, nirgends gelisteter
+    Slot abgelegt (`FILE_SLOT`, `SaveGame.storeFile`), dann öffnet ihre Welt mit ihr wie bei einem Slot (dieselbe
+    Rückfrage, die Welt einer Karte nach der Liste).
+  - Coop-Beitritt per Code ohne Map-Key fragt vorher („Join“, „Enter map key“, „Cancel“): die Welt des Hosts steht
+    erst nach dem Beitritt fest, ein echter Ort braucht einen Key, eine Karte nicht.
+  - Pausemenü: Save game und Load game stehen immer, gesperrt mit Grund (Coop, noch kein Lauf, Lauf vorbei).
+    Probespiel-Pause nur Continue, Back to editor, „Again from wave N“, Settings.
+  - „Built Worlds“ im Pfad führt überall ins Weltmenü von Built Worlds (im Editor mit der Karte gewählt); die
+    Kartenliste des Editors ist sein Zurück-Knopf.
   - Browser-Zurück geht eine Ebene hoch wie Esc (`world/browser-back.service.ts`): Ansichten melden ihren Schritt
     an (Globen: Esc-Kette; Spiel: Dialog, Menüseite, Menü öffnen, dann ins Weltmenü, das Spiel gehalten; Editor:
     Liste bzw. aus dem Editor), die zuletzt gezeigte zuerst; ein Verlaufseintrag steht über dem der Seite. Erst auf

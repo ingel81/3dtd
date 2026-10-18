@@ -103,11 +103,8 @@
       </ul>
     }
     <div class="td-actions is-start">
-      <button class="td-btn-secondary" type="button" [disabled]="!canLoad() || busy() || !!importWhy()" (click)="askImport()">Load from a file</button>
+      <button class="td-btn-secondary" type="button" [disabled]="!canLoad() || busy()" (click)="askImport()">Load from a file</button>
     </div>
-    @if (importWhy(); as why) {
-      <p class="td-note">{{ why }}</p>
-    }
   </section>
 }
 

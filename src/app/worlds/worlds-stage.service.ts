@@ -165,7 +165,7 @@ export class WorldsStageService {
 
   /** The slots as the globes see them: Load opens a slot's world with it */
   private readonly slotStore = inject(SAVE_SLOT_STORE);
-  readonly saves = new StageSaves(this.slotStore, (slot) => this.continueSlot(slot));
+  readonly saves = new StageSaves(this.slotStore, (slot) => this.continueSlot(slot), (mapId) => this.mapWorld(mapId));
 
   /** What the ways of the globes hang on: the key and the release; no room, no run, no replay here */
   readonly rules = computed<WhyNotFacts & { hasKey: boolean }>(() => ({
@@ -561,11 +561,28 @@ export class WorldsStageService {
     this.leavingHeld(() => this.worlds.newMap());
   }
 
-  /** Join a coop room by its code: its world opens on the Coop page; a run held in a wave asks first */
+  /**
+   * Join a coop room by its code: its world opens on the Coop page; a run held in a wave asks first.
+   * Without a map key it asks before: the host's world is known only once joined, and a real place
+   * needs one (a map does not); the key comes first, or the join goes on and the key screen follows if needed
+   */
   joinRoom(code: string): void {
-    this.leavingHeld(() => {
+    const join = () => this.leavingHeld(() => {
       this.overlay.set(null);
       this.session.open({ ...PLAIN_START, room: { code, lane: null } });
+    });
+    if (this.rules().hasKey) {
+      join();
+      return;
+    }
+    this.confirm.set({
+      text: 'No map key in this browser.',
+      note: 'If the host plays a real place, you need one; maps play without. Enter it first, or join and see.',
+      answers: [
+        { label: 'Join', primary: true, run: join },
+        { label: 'Enter map key', run: () => this.openOverlay('key') },
+        { label: 'Cancel', run: () => undefined },
+      ],
     });
   }
 

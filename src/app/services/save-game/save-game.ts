@@ -140,12 +140,43 @@ export class SaveGame implements Omit<SaveGamePort, 'startPlace' | 'autosaveNow'
     });
   }
 
+  /**
+   * A save file kept in `slotId` instead of loaded here (the globes, where no game stands: the slot's world
+   * opens and loads it). Read and checked as a load would; the slot as the lists would show it, or why not.
+   * `worldOf` names the world of a map's save (OpenStreetMap or the Built Worlds), the real places else.
+   */
+  storeFile(file: File, slotId: string, worldOf: (mapId: string) => SlotWorld): Promise<{ ok: true; slot: SaveSlotInfo } | { ok: false; reason: string }> {
+    return this.queue(async () => {
+      if (file.size > MAX_SAVE_FILE_BYTES) return { ok: false, reason: saveFileRefusalText('too-big') };
+      const text = await replayFileText(file, MAX_SAVE_FILE_BYTES);
+      if (text === 'too-big') return { ok: false, reason: saveFileRefusalText('too-big') };
+      if (text === 'not-a-replay') return { ok: false, reason: saveFileRefusalText('not-a-save') };
+      const read = readSaveFile(text, this.here);
+      if (read.refusal !== null) return { ok: false, reason: saveFileRefusalText(read.refusal, read.detail) };
+      const meta = this.metaOf(read.file, slotId);
+      meta.world = meta.map ? worldOf(meta.map.id) : 'real';
+      if (!(await this.store.write(meta, text))) return { ok: false, reason: 'This browser did not keep the save (storage full or blocked).' };
+      await this.refresh();
+      return { ok: true, slot: this.info(meta) };
+    });
+  }
+
   private async write(slotId: string, name?: string): Promise<SaveResult> {
     const blocked = this.host.saveBlocked();
     if (blocked) return { ok: false, reason: blocked };
     const parts = await this.host.collect();
     if (!parts) return { ok: false, reason: 'Saving works only between waves.' };
     const file = buildSaveFile({ ...parts, name: name?.trim() || defaultSlotName(parts.place.name, parts.wave) });
+    const meta = this.metaOf(file, slotId);
+    const of = AUTOSAVE_WORLD[slotId] ?? this.host.world?.() ?? null;
+    if (of) meta.world = of;
+    const written = await this.store.write(meta, JSON.stringify(file));
+    await this.refresh();
+    return written ? { ok: true } : { ok: false, reason: 'This browser did not keep the save (storage full or blocked).' };
+  }
+
+  /** What a slot keeps beside the save itself: name, wave, place, versions, the map of a map's run */
+  private metaOf(file: SaveFile, slotId: string): StoredSlotMeta {
     const meta: StoredSlotMeta = {
       id: slotId,
       name: file.name,
@@ -158,11 +189,7 @@ export class SaveGame implements Omit<SaveGamePort, 'startPlace' | 'autosaveNow'
     };
     const world = file.world.world;
     if (world?.kind === 'custom-map') meta.map = { id: world.mapId, name: world.name ?? world.mapId };
-    const of = AUTOSAVE_WORLD[slotId] ?? this.host.world?.() ?? null;
-    if (of) meta.world = of;
-    const written = await this.store.write(meta, JSON.stringify(file));
-    await this.refresh();
-    return written ? { ok: true } : { ok: false, reason: 'This browser did not keep the save (storage full or blocked).' };
+    return meta;
   }
 
   private async loadText(text: string): Promise<LoadResult> {

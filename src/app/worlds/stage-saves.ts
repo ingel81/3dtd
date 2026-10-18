@@ -3,17 +3,15 @@ import { BUILD_VERSION } from '../configs/build-info.config';
 import { balanceConfigHash } from '../run-log/config-hash';
 import { downloadBlob } from '../utils/download';
 import { SaveGame } from '../services/save-game/save-game';
-import type { LoadResult, SaveGamePort, SaveResult, SaveSlotInfo, StartPlace } from '../services/save-game/save-game.port';
+import { FILE_SLOT, type LoadResult, type SaveGamePort, type SaveResult, type SaveSlotInfo, type SlotWorld, type StartPlace } from '../services/save-game/save-game.port';
 import type { SaveSlotStore } from '../services/save-game/save-slot.store';
-
-const NO_IMPORT = "A save file loads into a world's game: start one, then Load game in its menu (Esc).";
 
 /**
  * The save slots as the globes see them (docs/WORLDS_NAVIGATION_PLAN.md, 3.1):
  * no game is loaded, so nothing saves, and loading a slot opens its world
  * with the save to load (`open`, the stage's Continue). Listing, export and
- * delete work on the stored slots alone. A file to load needs a game: the
- * Load page of a world's menu takes it.
+ * delete work on the stored slots alone. A save file is kept as a slot of
+ * its own (FILE_SLOT, listed nowhere) and loads as a slot does.
  */
 export class StageSaves implements SaveGamePort {
   private readonly game: SaveGame;
@@ -26,6 +24,8 @@ export class StageSaves implements SaveGamePort {
   constructor(
     store: SaveSlotStore,
     private readonly open: (slot: SaveSlotInfo) => string | null,
+    /** The world of a map's save: OpenStreetMap for one made there and unchanged, else the Built Worlds */
+    private readonly worldOf: (mapId: string) => SlotWorld = () => 'maps',
   ) {
     this.game = new SaveGame(
       {
@@ -68,12 +68,13 @@ export class StageSaves implements SaveGamePort {
     return this.game.exportFile(slotId);
   }
 
-  importFile(): Promise<LoadResult> {
-    return Promise.resolve({ ok: false, reason: NO_IMPORT });
+  /** A save file: kept as the file slot, then its world opens with it as with a slot (the same question first) */
+  async importFile(file: File): Promise<LoadResult> {
+    const kept = await this.game.storeFile(file, FILE_SLOT, this.worldOf);
+    if (!kept.ok) return kept;
+    const why = this.open(kept.slot);
+    return why ? { ok: false, reason: why } : { ok: true, note: null };
   }
-
-  /** Said under Load from a file before a file is picked: the globes have no game to load it into */
-  readonly cannotImportReason: Signal<string | null> = signal(NO_IMPORT);
 
   continueAutosave(): Promise<LoadResult> {
     return this.load('autosave');
