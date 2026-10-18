@@ -1,13 +1,11 @@
-import { Box3, BufferAttribute, BufferGeometry, Color, Group, Mesh, MeshStandardMaterial, SRGBColorSpace, Sphere, Vector3, Vector4, type Texture } from 'three';
+import type { Texture } from 'three';
 import type { MapPaths } from '../../map-document';
 import type { RoadCover } from './path-mask';
 import type { MapAssetLibrary } from '../map-asset-library';
-import { loadMaterialArrays, type MaterialArrays } from '../terrain/terrain-textures';
-import { addHeightFog } from '../environment/height-fog';
 import type { HeightField } from '../height-field';
-import { SHADER_NOISE } from '../shader-noise';
-import { TERRAIN_HEIGHT_GLSL, type HeightTexture } from '../terrain/height-texture';
-import { RoadNetworkBuilder, ROAD_TILE, type RoadTile } from './road-network';
+import type { HeightTexture } from '../terrain/height-texture';
+import { DrapedMaterial, DrapedTextures, DrapedTiles, type DrapeLook } from '../drape/draped-layer';
+import { RoadNetworkBuilder, type RoadTile } from './road-network';
 import { MAX_ROAD_SURFACES } from './road-style';
 
 /**
@@ -20,60 +18,37 @@ import { MAX_ROAD_SURFACES } from './road-style';
  * array of the few the roads use; markings and wear are drawn by the shader
  * from the road's coordinates.
  *
- * One material for all roads, a mesh per tile (ROAD_TILE): a few draw calls,
- * none per road. The vertices take their height from the terrain's height
- * texture, so a brush moves the road with the ground without a rebuild, and
- * are drawn a little towards the camera (more with distance) instead of
- * lifted: the surface never fights the ground it lies on and does not float
- * over it seen from the side. The ground under a road keeps its paint (an
- * OSM world's: the road's material, a verge beyond), for where coarse far
- * terrain rises over the surface and so no grass grows through it.
+ * Laid over the ground as every draped surface is (drape/draped-layer.ts):
+ * one material for all roads, a mesh per tile, heights from the terrain's
+ * height texture, drawn a little towards the camera; a road comes before
+ * every surface of a square or pitch. The ground under a road keeps its
+ * paint (an OSM world's: the road's material, a verge beyond), for where
+ * coarse far terrain rises over the surface and so no grass grows through it.
  */
 
-/**
- * Metres a road is drawn towards the camera, and per metre of distance past
- * PULL_FROM: up close the terrain is drawn at full detail and the surface
- * lies on it within a centimetre or two (a model standing on the road loses
- * no more than that of its foot); farther out the terrain is coarser, rises
- * over the road by up to metres, and the pull grows with it
- */
-const PULL = 0.03;
-const PULL_FROM = 200;
-const PULL_PER_METRE = 0.004;
-/** Metres more per rank, and per metre of distance, where two roads overlap without meeting */
-const RANK_PULL = 0.004;
-const RANK_PULL_PER_METRE = 0.00004;
+/** How far a road is drawn towards the camera; more per rank, where two roads overlap without meeting */
+const ROAD_PULL = { base: 0.03, perMetre: 0.004, rank: 0.004, rankPerMetre: 0.00004 };
 
 export class RoadSurfaceLayer {
-  readonly group = new Group();
   readonly material: RoadSurfaceMaterial;
-  /** The meshes by tile key */
-  private readonly tiles = new Map<string, { mesh: Mesh; tile: RoadTile }>();
-  /** The surfaces the roads use, in the order their looks name them (new ones join at the end) */
-  private surfaces: string[] = [];
-  private assets: { library: MapAssetLibrary; anisotropy: number } | null = null;
-  /** The surfaces the textures hold, in layer order, and the arrays */
-  private loaded: { ids: string[]; arrays: MaterialArrays } | null = null;
-  private generation = 0;
-  /** What the last load asked for */
-  private requested: { library: MapAssetLibrary; anisotropy: number; ids: string } | null = null;
+  private readonly tiles: DrapedTiles;
+  private readonly textures: DrapedTextures;
   /** The network as laid, kept between changes (it lays again only what a change reaches) */
   private network = new RoadNetworkBuilder();
 
-  constructor(
-    private readonly field: HeightField,
-    heights: HeightTexture,
-    gridNormals: Texture,
-  ) {
-    this.group.name = 'custom-map-roads';
-    this.group.userData['losTransparent'] = true;
+  constructor(field: HeightField, heights: HeightTexture, gridNormals: Texture) {
     this.material = new RoadSurfaceMaterial(heights, gridNormals, field);
+    this.tiles = new DrapedTiles(field, this.material, 'custom-map-roads');
+    this.textures = new DrapedTextures(this.material, MAX_ROAD_SURFACES);
+  }
+
+  get group() {
+    return this.tiles.group;
   }
 
   /** Where the surfaces' textures come from; loads those the roads use (nothing when they are in or on the way) */
   setAssets(library: MapAssetLibrary, anisotropy: number): void {
-    this.assets = { library, anisotropy };
-    void this.loadTextures();
+    this.textures.setAssets(library, anisotropy);
   }
 
   /**
@@ -83,15 +58,11 @@ export class RoadSurfaceLayer {
    */
   set(paths: MapPaths): void {
     const net = this.network.update(paths);
-    for (const tile of net.tiles) {
-      if (tile.index.length) this.add(tile);
-      else this.remove(tile.key);
-    }
-    this.group.visible = this.tiles.size > 0;
+    for (const tile of net.tiles) this.tiles.set(drapedRoadTile(tile));
+    this.tiles.group.visible = this.tiles.size > 0;
     // The surfaces only ever grow at the end (RoadNetworkBuilder): the layers loaded keep their place, a new one
-    // draws its mean colour (layer >= uRoadLayers) until the textures with it are in
-    this.surfaces = net.surfaces;
-    void this.loadTextures();
+    // draws its mean colour (layer >= uDrapeLayers) until the textures with it are in
+    this.textures.setIds(net.surfaces);
   }
 
   /** Where the surface hides the ground, as laid now (the path mask's covers) */
@@ -101,147 +72,37 @@ export class RoadSurfaceLayer {
 
   /** Heights changed inside a map rectangle (all when omitted): the tiles there fit their bounds again */
   refreshBounds(rect?: { minX: number; minY: number; maxX: number; maxY: number }): void {
-    for (const { mesh, tile } of this.tiles.values()) {
-      if (rect && (tile.x > rect.maxX || tile.y > rect.maxY || tile.x + ROAD_TILE < rect.minX || tile.y + ROAD_TILE < rect.minY)) continue;
-      this.fitBounds(mesh, tile);
-    }
+    this.tiles.refreshBounds(rect);
   }
 
   dispose(): void {
-    this.generation++;
-    this.clear();
-    this.loaded?.arrays.dispose();
-    this.loaded = null;
-    this.requested = null;
+    this.textures.dispose();
+    this.tiles.clear();
     this.material.dispose();
   }
-
-  private add(tile: RoadTile): void {
-    this.remove(tile.key);
-    const g = new BufferGeometry();
-    // Scene space (x = -map x, z = map y); the height comes from the terrain in the shader
-    const pos = new Float32Array((tile.position.length / 2) * 3);
-    for (let k = 0; k < tile.position.length / 2; k++) {
-      pos[k * 3] = -tile.position[k * 2];
-      pos[k * 3 + 2] = tile.position[k * 2 + 1];
-    }
-    g.setAttribute('position', new BufferAttribute(pos, 3));
-    g.setAttribute('aRoad', new BufferAttribute(tile.road, 4));
-    g.setAttribute('aDir', new BufferAttribute(tile.dir, 2));
-    g.setAttribute('aArm', new BufferAttribute(tile.arm, 4));
-    g.setIndex(new BufferAttribute(tile.index, 1));
-    const mesh = new Mesh(g, this.material);
-    mesh.name = `custom-map-roads-${tile.key}`;
-    mesh.receiveShadow = true;
-    mesh.matrixAutoUpdate = false;
-    this.fitBounds(mesh, tile);
-    this.tiles.set(tile.key, { mesh, tile });
-    this.group.add(mesh);
-  }
-
-  private remove(key: string): void {
-    const t = this.tiles.get(key);
-    if (!t) return;
-    t.mesh.geometry.dispose();
-    t.mesh.removeFromParent();
-    this.tiles.delete(key);
-  }
-
-  /** The textures of the roads' surfaces as one array each (colour, data); until they are in, each look draws its mean colour */
-  private async loadTextures(): Promise<void> {
-    const assets = this.assets;
-    const ids = this.surfaces.slice(0, MAX_ROAD_SURFACES);
-    if (!assets || !ids.length) return;
-    // The same library and surfaces as the textures in or on the way: nothing to fetch, decode or upload
-    const wanted = { library: assets.library, anisotropy: assets.anisotropy, ids: ids.join('|') };
-    const r = this.requested;
-    if (r && r.library === wanted.library && r.anisotropy === wanted.anisotropy && r.ids === wanted.ids) return;
-    this.requested = wanted;
-    const generation = ++this.generation;
-    const [{ arrays, materials }, catalog] = await Promise.all([loadMaterialArrays(assets.library, ids, assets.anisotropy), assets.library.catalog()]);
-    if (generation !== this.generation) {
-      arrays.dispose();
-      return;
-    }
-    this.loaded?.arrays.dispose();
-    this.loaded = { ids, arrays };
-    this.material.setTextures(
-      arrays,
-      ids.map((id) => catalog.materials.find((m) => m.id === id)?.scale ?? 4),
-      materials.map((m) => m.average),
-    );
-  }
-
-  private fitBounds(mesh: Mesh, tile: RoadTile): void {
-    const box = new Box3();
-    const p = tile.position;
-    const q = new Vector3();
-    for (let k = 0; k < p.length; k += 2) box.expandByPoint(q.set(-p[k], this.field.heightAt(p[k], p[k + 1]), p[k + 1]));
-    box.expandByScalar(1);
-    mesh.geometry.boundingBox = box;
-    mesh.geometry.boundingSphere = box.getBoundingSphere(new Sphere());
-  }
-
-  private clear(): void {
-    for (const { mesh } of this.tiles.values()) mesh.geometry.dispose();
-    this.tiles.clear();
-    this.group.clear();
-  }
 }
 
-export class RoadSurfaceMaterial extends MeshStandardMaterial {
-  readonly roadUniforms = {
-    uRoadColor: { value: null as Texture | null },
-    uRoadData: { value: null as Texture | null },
-    uGridNormals: { value: null as Texture | null },
-    /** Map metres to the grid normals' uv (as TerrainMaterial's uGridUv) */
-    uRoadGridUv: { value: new Vector4() },
-    /** Per surface layer: 1 / the metres a texture tile covers, and the mean colour (linear); none until the textures are in */
-    uRoadInvScale: { value: new Float32Array(MAX_ROAD_SURFACES).fill(0.25) },
-    uRoadAverage: { value: Array.from({ length: MAX_ROAD_SURFACES }, () => new Color(0.09, 0.09, 0.085)) },
-    /** Layers the textures hold */
-    uRoadLayers: { value: 0 },
+/**
+ * A road tile as a draped one; per vertex: across, along, distance to the
+ * edge, look (encodeRoadStyle) (4), direction along (2), and in a junction
+ * the frame of the road it runs into (4)
+ */
+function drapedRoadTile(tile: RoadTile) {
+  return {
+    key: tile.key,
+    x: tile.x,
+    y: tile.y,
+    position: tile.position,
+    attributes: { aRoad: { array: tile.road, itemSize: 4 }, aDir: { array: tile.dir, itemSize: 2 }, aArm: { array: tile.arm, itemSize: 4 } },
+    index: tile.index,
   };
-
-  constructor(heights: HeightTexture, gridNormals: Texture, field: HeightField) {
-    super({ roughness: 0.9, metalness: 0 });
-    this.name = 'custom-map-roads';
-    this.roadUniforms.uGridNormals.value = gridNormals;
-    const sx = 1 / (field.cellSize * field.columns);
-    const sy = 1 / (field.cellSize * field.rows);
-    this.roadUniforms.uRoadGridUv.value.set(sx, sy, -field.originX * sx + 0.5 / field.columns, -field.originY * sy + 0.5 / field.rows);
-    this.onBeforeCompile = (shader) => {
-      Object.assign(shader.uniforms, this.roadUniforms, heights.uniforms);
-      shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', `#include <common>\n${ROAD_VERTEX_PARS}`)
-        .replace('#include <beginnormal_vertex>', ROAD_BEGIN_NORMAL)
-        .replace('#include <begin_vertex>', ROAD_BEGIN_VERTEX)
-        .replace('#include <project_vertex>', ROAD_PROJECT_VERTEX);
-      shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', `#include <common>\n${ROAD_FRAGMENT_PARS}`)
-        .replace('#include <map_fragment>', ROAD_SAMPLE)
-        .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = roadRough;\n// map-roughness-done')
-        .replace('#include <normal_fragment_maps>', 'normal = normalize((viewMatrix * vec4(roadNormal, 0.0)).xyz);')
-        .replace('#include <aomap_fragment>', '#include <aomap_fragment>\nreflectedLight.indirectDiffuse *= roadAO;\nreflectedLight.directDiffuse *= mix(1.0, roadAO, 0.5);');
-    };
-    addHeightFog(this);
-  }
-
-  /** The surfaces' texture arrays, their tile sizes (metres) and mean colours (sRGB), by layer */
-  setTextures(arrays: MaterialArrays, scales: readonly number[], averages: readonly (readonly [number, number, number])[]): void {
-    const u = this.roadUniforms;
-    u.uRoadColor.value = arrays.color;
-    u.uRoadData.value = arrays.data;
-    u.uRoadLayers.value = scales.length;
-    scales.forEach((s, k) => (u.uRoadInvScale.value[k] = 1 / s));
-    averages.forEach((a, k) => u.uRoadAverage.value[k].setRGB(a[0], a[1], a[2], SRGBColorSpace));
-  }
-
-  override customProgramCacheKey(): string {
-    return 'custom-map-roads-1';
-  }
 }
 
+export class RoadSurfaceMaterial extends DrapedMaterial {
+  constructor(heights: HeightTexture, gridNormals: Texture, field: HeightField) {
+    super('custom-map-roads', roadLook(), MAX_ROAD_SURFACES, heights, gridNormals, field);
+  }
+}
 
 const ROAD_VERTEX_PARS = /* glsl */ `
 attribute vec4 aRoad;
@@ -251,76 +112,25 @@ varying vec4 vRoadArm;
 varying vec3 vRoad;
 flat varying float vRoadLook;
 varying vec2 vRoadDir;
-varying vec2 vRoadMap;
-varying vec3 vRoadNormal;
-uniform sampler2D uGridNormals;
-uniform vec4 uRoadGridUv;
-${TERRAIN_HEIGHT_GLSL}
 `;
 
-const ROAD_BEGIN_NORMAL = /* glsl */ `
-vec2 roadMap = vec2(-position.x, position.z);
-vec3 objectNormal = normalize(texture2D(uGridNormals, roadMap * uRoadGridUv.xy + uRoadGridUv.zw).xyz);
-vRoadNormal = objectNormal;
+const ROAD_VERTEX = /* glsl */ `
 vRoad = aRoad.xyz;
 vRoadLook = aRoad.w;
 vRoadArm = aArm;
 vRoadDir = aDir;
-vRoadMap = roadMap;
-`;
-
-const ROAD_BEGIN_VERTEX = /* glsl */ `
-vec3 transformed = vec3(position.x, terrainHeightAt(roadMap), position.z);
-`;
-
-// Drawn towards the camera along the view ray: where it lands on screen stays, its depth comes before the ground's;
-// a higher road a little more than a lower one where two overlap without meeting (RoadStyle.rank, the code's top bits)
-const ROAD_PROJECT_VERTEX = /* glsl */ `
-vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.0);
-float roadDist = length(mvPosition.xyz);
-float roadRank = floor((aRoad.w + 0.5) / 131072.0);
-float roadPull = ${PULL.toFixed(4)} + max(0.0, roadDist - ${PULL_FROM.toFixed(1)}) * ${PULL_PER_METRE.toFixed(5)} + roadRank * (${RANK_PULL.toFixed(4)} + roadDist * ${RANK_PULL_PER_METRE.toFixed(6)});
-mvPosition.xyz *= 1.0 - min(0.5, roadPull / max(roadDist, 1e-3));
-gl_Position = projectionMatrix * mvPosition;
 `;
 
 const ROAD_FRAGMENT_PARS = /* glsl */ `
-precision highp sampler2DArray;
 varying vec3 vRoad;
 flat varying float vRoadLook;
 varying vec4 vRoadArm;
 varying vec2 vRoadDir;
-varying vec2 vRoadMap;
-varying vec3 vRoadNormal;
-uniform sampler2DArray uRoadColor;
-uniform sampler2DArray uRoadData;
-uniform float uRoadInvScale[${MAX_ROAD_SURFACES}];
-uniform vec3 uRoadAverage[${MAX_ROAD_SURFACES}];
-uniform float uRoadLayers;
-${SHADER_NOISE}
 
 // A dash pattern along: 1 on the paint, soft over a pixel
 float roadDash(float along, float paint, float gap, float aa) {
   float p = mod(along, paint + gap);
   return smoothstep(-aa, aa, p) * (1.0 - smoothstep(paint - aa, paint + aa, p));
-}
-
-// The surface's texture at (across, along): up close two lookups shifted by a slow noise so the tile never repeats
-void roadLookup(float across, float along, float layer, float invScale, float near, out vec4 rc, out vec4 rd) {
-  vec2 ruv = vec2(across, along) * invScale;
-  vec2 rdx = dFdx(ruv);
-  vec2 rdy = dFdy(ruv);
-  float l = valueNoise(vec2(along * 0.035, across * 0.05 + layer * 7.0)) * 6.0;
-  float ia = floor(l);
-  vec2 oa = sin(vec2(3.0, 7.0) * ia);
-  rc = textureGrad(uRoadColor, vec3(ruv + oa, layer), rdx, rdy);
-  rd = textureGrad(uRoadData, vec3(ruv + oa, layer), rdx, rdy);
-  float b = smoothstep(0.3, 0.7, fract(l)) * step(0.001, near);
-  if (b > 0.0) {
-    vec2 ob = sin(vec2(3.0, 7.0) * (ia + 1.0));
-    rc = mix(rc, textureGrad(uRoadColor, vec3(ruv + ob, layer), rdx, rdy), b);
-    rd = mix(rd, textureGrad(uRoadData, vec3(ruv + ob, layer), rdx, rdy), b);
-  }
 }
 
 // A line across at offset c with width w: 1 on it, soft over a pixel
@@ -361,13 +171,13 @@ float near = 1.0 - smoothstep(0.04, 0.12, aa);
 // The material along the road: u across, v along
 vec4 rc;
 vec4 rd;
-if (layer < uRoadLayers) {
-  roadLookup(across, along, layer, uRoadInvScale[li], near, rc, rd);
+if (layer < uDrapeLayers) {
+  drapeLookup(vec2(across, along), layer, uDrapeInvScale[li], near, rc, rd);
   if (armWeight > 0.001) {
     // The road's own frame, its normal turned into the junction's
     vec4 ac;
     vec4 ad;
-    roadLookup(vRoadArm.x, vRoadArm.y, layer, uRoadInvScale[li], near, ac, ad);
+    drapeLookup(vRoadArm.xy, layer, uDrapeInvScale[li], near, ac, ad);
     float c = cos(vRoadArm.z);
     float s = sin(vRoadArm.z);
     vec2 an = ad.xy * 2.0 - 1.0;
@@ -376,7 +186,7 @@ if (layer < uRoadLayers) {
     rd = mix(rd, ad, armWeight);
   }
 } else {
-  rc = vec4(uRoadAverage[li], 0.5);
+  rc = vec4(uDrapeAverage[li], 0.5);
   rd = vec4(0.5, 0.5, 0.8, 1.0);
 }
 vec3 roadAlbedo = rc.rgb;
@@ -385,7 +195,7 @@ float roadAO = mix(1.0, rd.a, 0.8);
 vec2 roadNxy = (rd.xy * 2.0 - 1.0) * vec2(1.2, -1.2);
 
 // Broad tone: wear pales and greys the surface, slow blots of older and newer patches of it
-float blot = valueNoise(vRoadMap * 0.045 + layer) * 0.6 + valueNoise(vRoadMap * 0.17) * 0.4;
+float blot = valueNoise(vDrapeMap * 0.045 + layer) * 0.6 + valueNoise(vDrapeMap * 0.17) * 0.4;
 roadAlbedo *= mix(0.9, 1.1, blot);
 // Asphalt carries the warm grey of its stone, not the texture's blue
 if (sealed) roadAlbedo *= vec3(1.04, 1.0, 0.93);
@@ -452,7 +262,7 @@ if (sealed) {
       }
     }
     float worn = valueNoise(vec2(along * 1.7, across * 2.3)) * 0.7 + 0.15;
-    if (near > 0.0) worn += (valueNoise(vRoadMap * 9.0) - 0.5) * 0.3 * near;
+    if (near > 0.0) worn += (valueNoise(vDrapeMap * 9.0) - 0.5) * 0.3 * near;
     paint *= smoothstep(0.25, 0.75, worn + 0.3 - wear * 0.6);
     roadAlbedo = mix(roadAlbedo, vec3(0.78, 0.77, 0.72), paint * 0.92);
     roadRough = mix(roadRough, 0.55, paint);
@@ -484,10 +294,26 @@ if (gutterOn) {
 
 diffuseColor.rgb *= roadAlbedo;
 // The road's frame: along and across in the scene (x = -map x), the normal from the terrain's grid
-vec3 roadUp = normalize(vRoadNormal);
+vec3 roadUp = normalize(vDrapeNormal);
 vec3 roadT = normalize(vec3(-vRoadDir.x, 0.0, vRoadDir.y));
 vec3 roadB = normalize(cross(roadUp, roadT));
 roadT = cross(roadB, roadUp);
 vec3 roadNormal = normalize(roadUp + roadB * roadNxy.x + roadT * roadNxy.y);
-roadRough = clamp(roadRough, 0.2, 1.0);
+float drapeRough = roadRough;
+float drapeAO = roadAO;
+vec3 drapeNormal = roadNormal;
 `;
+
+/** The roads' part of their draped material: attributes, rank from the look's top bits, the look */
+function roadLook(): DrapeLook {
+  return {
+    key: 'custom-map-roads-2',
+    vertexPars: ROAD_VERTEX_PARS,
+    vertex: ROAD_VERTEX,
+    // A higher road a little more than a lower one where two overlap without meeting (RoadStyle.rank, the code's top bits)
+    rank: 'floor((aRoad.w + 0.5) / 131072.0)',
+    pull: ROAD_PULL,
+    fragmentPars: ROAD_FRAGMENT_PARS,
+    fragment: ROAD_SAMPLE,
+  };
+}

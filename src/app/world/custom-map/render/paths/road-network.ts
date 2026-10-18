@@ -1,6 +1,7 @@
 import type { MapPathEdge, MapPaths, MapPoint } from '../../map-document';
 import { edgePolyline, type RoadCover } from './path-mask';
 import { encodeRoadStyle, PAVED_SURFACES, roadStyle, styleKey, type RoadStyle } from './road-style';
+import { DRAPE_TILE, drapeTileKey } from '../drape/draped-layer';
 
 /**
  * The paved roads of a map as one surface (RoadSurfaceLayer draws it): a
@@ -25,8 +26,8 @@ import { encodeRoadStyle, PAVED_SURFACES, roadStyle, styleKey, type RoadStyle } 
  * The vertices go into tiles of TILE metres, a mesh each, for culling.
  */
 
-/** Metres a side of a tile */
-export const ROAD_TILE = 512;
+/** Metres a side of a tile: the draped surfaces' (drape/draped-layer.ts) */
+export const ROAD_TILE = DRAPE_TILE;
 /** Longest step between cross sections along a road: the terrain's cell, so the surface lies on it */
 const STEP = 2;
 /** Longest ribbon piece in one tile, metres */
@@ -61,11 +62,6 @@ export interface RoadNetwork {
   styles: RoadStyle[];
   /** The surfaces in the order the looks name their layers (encodeRoadStyle): new ones join at the end */
   surfaces: string[];
-}
-
-/** The key of the tile holding a map point */
-export function tileKey(x: number, y: number): string {
-  return `${Math.floor(x / ROAD_TILE)},${Math.floor(y / ROAD_TILE)}`;
 }
 
 /** Whether an edge is drawn by the road surface */
@@ -165,7 +161,7 @@ class TileBuilder {
 
   /** The tile holding a map point */
   tileAt(p: MapPoint): TileData {
-    const key = tileKey(p.x, p.y);
+    const key = drapeTileKey(p.x, p.y);
     let t = this.tiles.get(key);
     if (!t) {
       t = new TileData();
