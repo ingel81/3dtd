@@ -12,7 +12,7 @@ import type { WorldMinimap } from '../../world/world-provider';
 import { MinimapFrame, ViewFootprint } from './minimap-frame';
 import { drawOsmPicture, osmArea, type OsmMinimapSource } from './osm-minimap';
 import type { ThreeTilesEngine } from '../../three-engine';
-import { I18n } from '../../i18n/i18n.service';
+import { injectT } from '../../i18n/i18n.service';
 
 /** Towers and enemies drawn again at most every this many ms (20 Hz); the view each frame */
 const DOTS_MS = 50;
@@ -71,7 +71,7 @@ const hex = (color: number): string => `#${color.toString(16).padStart(6, '0')}`
   styleUrl: './world-minimap.component.scss',
 })
 export class WorldMinimapComponent {
-  protected readonly t = inject(I18n).t;
+  protected readonly t = injectT();
   private readonly engineInit = inject(EngineInitializationService);
   private readonly mirror = inject(SimMirror);
   private readonly location = inject(LocationStore);

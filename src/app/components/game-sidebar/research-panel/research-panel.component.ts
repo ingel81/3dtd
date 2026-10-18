@@ -15,7 +15,7 @@ import { upgradeHintView } from '../tower-panel/tower-stats';
 import { UPGRADE_MANY, upgradeTimes, upgradeTrackRefusal } from '../../../utils/player-actions';
 import { openResearchDialog } from '../../research-dialog/open-research-dialog';
 import { researchProgress, researchRemaining, researchStatus } from './research-status';
-import { I18n } from '../../../i18n/i18n.service';
+import { injectT } from '../../../i18n/i18n.service';
 import { researchName } from '../../../i18n/lookups';
 import { upgradeTerms } from '../../../configs/tower-types.config';
 
@@ -41,7 +41,7 @@ export class SidebarResearchPanelComponent {
   readonly researchStore = inject(ResearchStore);
   private readonly sellConfirm = inject(SellConfirmService);
   private readonly upgradeHint = inject(UpgradeHintService);
-  protected readonly t = inject(I18n).t;
+  protected readonly t = injectT();
   private readonly dialog = inject(MatDialog);
   // Der Dialog braucht einen Injector aus dem Spielbaum, siehe openResearchDialog.
   private readonly injector = inject(Injector);

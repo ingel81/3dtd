@@ -50,11 +50,11 @@ import { DamageApplicationService } from '../services/combat/damage-application.
 import { GameObject } from '../core/game-object';
 import { createMainEventBus, type ViewEvent } from '../sim/client/view-events';
 import { AUTO_WAVE_DELAY_MS } from '../utils/auto-wave-countdown';
-import { NO_ROUTE_TEXT } from '../services/world/path-route.service';
 import type { GeoPosition } from '../models/game.types';
 import type { SpawnPoint } from '../managers/wave.manager';
 import type { UiNotice } from '../store/ui.store';
 import type { FacadeComponentBridge } from '../services/facade/tower-defense-facade.service';
+import { en } from '../i18n/messages/en';
 
 const BASE_POSITION: GeoPosition = TEST_PATH[TEST_PATH.length - 1];
 /** A spawn on a street the network does not connect to the HQ: no route */
@@ -151,7 +151,7 @@ describe('A spawn without a route to the HQ (TODO E232)', () => {
     expect(gsm.credits()).toBe(credits);
     expect(gsm.enemyManager.getAll()).toHaveLength(0);
     // Said in the banner, and no countdown armed by it: the press was the only start
-    expect(notice()?.text).toContain(NO_ROUTE_TEXT);
+    expect(notice()?.text).toContain(en.hud.world.noRoute);
     expect(startWave).toHaveBeenCalledTimes(1);
   });
 

@@ -10,7 +10,7 @@ import { StreetNetwork, STREET_RADIUS_M } from './osm-street.service';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import { HeightUpdateService } from '../world/height-update.service';
 import { MarkerVisualizationService, SpawnPoint } from '../world/marker-visualization.service';
-import { NO_ROUTE_TEXT, PathAndRouteService } from '../world/path-route.service';
+import { PathAndRouteService } from '../world/path-route.service';
 import { CameraControlService } from '../camera-control.service';
 import { CameraFramingService, GeoPoint } from '../camera-framing.service';
 import { IntroCameraFlightService } from '../world/intro-camera-flight.service';
@@ -24,6 +24,7 @@ import { LocationConfig, SavedSpawn } from '../../models/location.types';
 import { GeoPosition } from '../../models/game.types';
 import { corridorTrace } from '../../utils/corridor-trace';
 import { placeLabel } from './place-label';
+import { injectT } from '../../i18n/i18n.service';
 
 /**
  * Input data for location change
@@ -110,6 +111,7 @@ export class PlaceChangeSuperseded extends Error {
 @Injectable({ providedIn: 'root' })
 export class LocationChangeExecutorService {
   private readonly engineInit = inject(EngineInitializationService);
+  private readonly t = injectT();
   private readonly worldContext = inject(WorldContext);
   private readonly heightUpdate = inject(HeightUpdateService);
   private readonly markerViz = inject(MarkerVisualizationService);
@@ -394,7 +396,7 @@ export class LocationChangeExecutorService {
     // Validate that routes were found
     const paths = this.pathRoute.getCachedPaths();
     if (paths.size === 0) {
-      throw new Error(NO_ROUTE_TEXT);
+      throw new Error(this.t().hud.world.noRoute);
     }
     // Spawns without one beside those with: they stay and send nothing (TODO E232)
     this.pathRoute.warnUnroutedSpawns(callbacks.getSpawnPoints());

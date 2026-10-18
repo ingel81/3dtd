@@ -155,7 +155,7 @@ import { MainMenuService } from './components/main-menu/main-menu.service';
 import { pageSwitches } from './core/page-switches';
 import { WorldStartService } from './world/world-start';
 import { WorldSession } from './world/world-session.service';
-import { I18n } from './i18n/i18n.service';
+import { injectT } from './i18n/i18n.service';
 import { tipFor } from './services/onboarding/onboarding';
 
 @Component({
@@ -564,7 +564,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   // Hero selected: the next click on the route sends him
   private readonly heroControl = inject(HeroControlService);
-  protected readonly t = inject(I18n).t;
+  protected readonly t = injectT();
   readonly heroSelected = this.heroControl.selected;
   readonly heroHints = computed((): HintItem[] => {
     const says = this.t().hud.hints;

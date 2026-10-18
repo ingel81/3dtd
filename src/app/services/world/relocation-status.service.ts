@@ -13,7 +13,7 @@ export interface RelocationStatus {
 }
 
 /** A step and its share, as the corridor build reports them (CorridorBuild). */
-type StepProgress = Pick<RelocationStatus, 'step' | 'percent'>;
+export type StepProgress = Pick<RelocationStatus, 'step' | 'percent'>;
 
 /**
  * The hint over the map while HQ or spawn move (MapRelocationService). The

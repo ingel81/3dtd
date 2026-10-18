@@ -22,7 +22,7 @@ import { focusIsQuiet, focusedByKeyboard, trackFocusOrigin } from '../../utils/k
 import { tooltipText } from './tooltip-text';
 import { TdTooltipContentComponent } from './td-tooltip-content.component';
 import { TdTooltipData } from './tooltip-data.types';
-import { I18n } from '../../i18n/i18n.service';
+import { injectT } from '../../i18n/i18n.service';
 
 /**
  * Show-delay (ms) — matches MatTooltip default for muscle memory consistency.
@@ -68,7 +68,7 @@ const POSITION_PRESETS: Record<string, ConnectedPosition[]> = {
   standalone: true,
 })
 export class TdRichTooltipDirective implements OnDestroy {
-  private readonly t = inject(I18n).t;
+  private readonly t = injectT();
   private readonly overlay = inject(Overlay);
   private readonly positionBuilder = inject(OverlayPositionBuilder);
   private readonly scrollStrategies = inject(ScrollStrategyOptions);

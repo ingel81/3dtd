@@ -53,7 +53,7 @@ import { UIStore, type LoadProblem } from '../../store/ui.store';
 import { StartShowService } from '../world/start-show.service';
 import { CameraControlService, type CameraView } from '../camera-control.service';
 import { MarkerVisualizationService, SpawnPoint } from '../world/marker-visualization.service';
-import { NO_ROUTE_TEXT, PathAndRouteService } from '../world/path-route.service';
+import { PathAndRouteService } from '../world/path-route.service';
 import { InputHandlerService } from '../input-handler.service';
 import { TowerPlacementService } from '../tower-placement.service';
 import { AbilityTargetingService } from '../ability-targeting.service';
@@ -95,6 +95,7 @@ import {
 import { INTRO_GATE_SAMPLES_PER_FRAME, INTRO_GATE_TIMEOUT_MS } from '../../utils/flight-gate';
 import type { FacadeComponentBridge } from './tower-defense-facade.service';
 import type { CameraFrame } from '../camera-framing.service';
+import { en } from '../../i18n/messages/en';
 
 /**
  * The visualization sub-facade wires the world services to a loaded
@@ -827,7 +828,7 @@ describe('VisualizationFacadeService', () => {
       uiStore.loadProblem.set(null);
       facade.initializeGameState();
       expect(console.error).toHaveBeenCalledWith(expect.stringContaining('No routes found'));
-      expect(uiStore.loadProblem()).toEqual({ text: expect.stringContaining(NO_ROUTE_TEXT), blocksPlay: true });
+      expect(uiStore.loadProblem()).toEqual({ text: expect.stringContaining(en.hud.world.noRoute), blocksPlay: true });
       expect(pathRoute.warnUnroutedSpawns).not.toHaveBeenCalled();
       expect(world.buildCells).toHaveBeenCalledWith(true);
     });

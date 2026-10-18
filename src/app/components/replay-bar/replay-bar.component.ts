@@ -4,7 +4,7 @@ import { TdIconComponent, type TdIconName } from '../icon/icon.component';
 import { ReplayService } from '../../services/replay.service';
 import { formatReplaySpeed } from '../../replay/replay-bar-view';
 import { formatClock } from '../../utils/format-clock';
-import { I18n } from '../../i18n/i18n.service';
+import { injectT } from '../../i18n/i18n.service';
 
 /**
  * The bar of the wave replay (docs/REPLAY.md, DESIGN_SYSTEM.md "Replay"):
@@ -23,7 +23,7 @@ import { I18n } from '../../i18n/i18n.service';
   styleUrl: './replay-bar.component.scss',
 })
 export class ReplayBarComponent {
-  protected readonly t = inject(I18n).t;
+  protected readonly t = injectT();
   readonly replay = inject(ReplayService);
 
   /** Played to the end: the play button starts over */

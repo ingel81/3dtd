@@ -11,6 +11,7 @@ import type { ResearchBranch } from '../../configs/research/research.types';
 import type { ResearchCenterLevel } from '../../configs/research/research-center.config';
 import type { VeteranLevel } from '../../configs/veteran-ranks.config';
 import type { OnboardingStep } from '../../services/onboarding/onboarding';
+import type { CorridorStep } from '../../services/world/corridor-build';
 import type { TowerPlacementRefusal } from '../../utils/tower-placement-rules';
 import type { MapPlacementRefusal } from '../../services/world/map-placement.service';
 import type { TechTreeNodeState } from '../../components/tech-tree/tech-tree-view';
@@ -994,6 +995,51 @@ export const en = {
       'no-route': 'No route to HQ',
       outside: 'Outside the map area',
     } satisfies Record<MapPlacementRefusal, string> as Record<MapPlacementRefusal, string>,
+    world: {
+      noRoute: 'No route possible between HQ and spawn. The streets are not connected.',
+      unrouted: (names: readonly string[]) => {
+        const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+        return names.length === 1
+          ? `No street leads from ${list} to the HQ: it sends no enemies, the other spawns carry the waves.`
+          : `No street leads from ${list} to the HQ: they send no enemies, the other spawns carry the waves.`;
+      },
+      noWave: (why: string) => `No wave can start. ${why}`,
+      pickAnother: (why: string) => `${why} Pick another place.`,
+      firstStreetsFailed: 'The streets of this place did not load: the map server is busy or out of reach. The map shows, but no route. Retry in a minute.',
+      tilesUnreachable: 'The map server is busy or out of reach. The game tries again by itself, which can take a few minutes; check the connection if it stays.',
+      tilesBusy: 'The map server is limiting requests right now (too many in a short time). The game tries again by itself, which can take a few minutes.',
+      noGoogleKey: 'No Google Maps API key configured.',
+      noIonToken: 'No Cesium Ion token configured.',
+      loadError: 'Error loading 3D map',
+      hqStreetsFailed: 'The streets there did not load: the map server is busy or out of reach. The HQ stays where it is; try again in a minute.',
+      movingHq: 'Moving HQ',
+      movingSpawn: 'Moving spawn',
+      switchingLanes: 'Switching lanes',
+      addingSpawn: 'Adding spawn',
+      loadingStreets: 'Loading streets',
+      findingRoute: 'Finding the route',
+      buildingCorridor: 'Building the corridor',
+      corridorTiles: 'Loading the corridor tiles',
+      measuring: 'Measuring the corridor',
+      coarserTiles: 'Loading coarser tiles for the gaps',
+      rounding: 'Rounding the corners',
+      simStopped: (why: string) => `The simulation stopped with an error (${why}). Reload the page to play on.`,
+      waveError: 'Wave error: could not plan the next wave; it comes from the Wave Debug settings instead. See the console for details.',
+      cameraEmpty: (n: number) => `Camera view ${n} is empty. Shift+F${n} saves the view.`,
+      cameraSaved: (n: number) => `Camera view ${n} saved. F${n} flies back to it.`,
+      photoOn: 'Photo mode. Esc leaves it.',
+      photoOff: 'Photo mode left.',
+      screenshotSaved: (file: string) => `Screenshot saved: ${file}`,
+      heroNoRoute: (m: number) => `No route within ${m} m`,
+    },
+    corridor: {
+      tiles: 'Loading the corridor tiles',
+      measure: 'Measuring the corridor',
+      fallback: 'Loading coarser tiles for the gaps',
+      build: 'Building the corridor',
+      done: (stations: number, cells: number, timedOut: boolean) => `${f.int(stations)} stations, ${f.int(cells)} cells${timedOut ? ', tiles timed out' : ''}`,
+      percent: (step: string, percent: number) => `${step} ${percent} %`,
+    } satisfies Record<CorridorStep, string> & Record<string, unknown>,
     // hud:end
   },
   coop: {

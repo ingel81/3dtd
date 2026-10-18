@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { TowerControlService } from '../../services/tower-control.service';
-import { I18n } from '../../i18n/i18n.service';
+import { injectT } from '../../i18n/i18n.service';
 
 /**
  * What the player sees in a manned tower (TowerControlService,
@@ -137,7 +137,7 @@ import { I18n } from '../../i18n/i18n.service';
   `],
 })
 export class TowerControlHudComponent {
-  protected readonly t = inject(I18n).t;
+  protected readonly t = injectT();
   readonly control = inject(TowerControlService);
 
   /** Two classes that take turns per shot, so the kick animation starts again every time */

@@ -22,7 +22,8 @@ import { FacadeComponentBridge } from './tower-defense-facade.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { MapPlacementService } from '../world/map-placement.service';
 import { MapRelocationService, RelocationHost } from './map-relocation.service';
-import type { CorridorBuildResult, CorridorProgress } from '../world/corridor-build';
+import type { CorridorBuildResult } from '../world/corridor-build';
+import type { StepProgress } from '../world/relocation-status.service';
 import { SPAWN_COLORS, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE } from '../../configs/map-constants.config';
 import { bearingToPortalHeading } from '../../three-engine/renderers/marker/spawn-portal-pose';
 import { canonicalCoords } from '../../utils/geo-utils';
@@ -45,7 +46,7 @@ export interface VizCallbacks {
    * Build the corridor of the routes a move built (CorridorBuild.build):
    * `report` is told each step, the result is null when it stopped.
    */
-  buildCorridor: (reason: string, report: (progress: CorridorProgress) => void) => Promise<CorridorBuildResult | null>;
+  buildCorridor: (reason: string, report: (progress: StepProgress) => void) => Promise<CorridorBuildResult | null>;
 }
 
 /** The game component went away, or was never there, before a location was picked. */

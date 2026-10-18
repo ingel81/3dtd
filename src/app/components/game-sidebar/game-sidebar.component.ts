@@ -31,7 +31,7 @@ import { SidebarResearchPanelComponent } from './research-panel/research-panel.c
 import { SidebarHeroPanelComponent } from './hero-panel/hero-panel.component';
 import { SidebarBuildingPanelComponent } from './building-panel/building-panel.component';
 import { UIStore } from '../../store/ui.store';
-import { I18n } from '../../i18n/i18n.service';
+import { injectT } from '../../i18n/i18n.service';
 
 /**
  * Rechte Sidebar: Rahmen, Footer und die Wahl des Panels. Die Sektionen sind
@@ -61,7 +61,7 @@ import { I18n } from '../../i18n/i18n.service';
   `,
 })
 export class GameSidebarComponent implements OnDestroy {
-  protected readonly t = inject(I18n).t;
+  protected readonly t = injectT();
 
   private readonly modelPreview = inject(ModelPreviewService);
   private readonly whatsNew = inject(WhatsNewService);

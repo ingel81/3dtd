@@ -38,7 +38,7 @@ vi.mock('@angular/core', async () => {
   };
 });
 
-import { PathAndRouteService, unroutedSpawnsText } from './path-route.service';
+import { PathAndRouteService } from './path-route.service';
 import { UIStore } from '../../store/ui.store';
 import { inject } from '@angular/core';
 import { TILES_STREET_STYLE } from '../../world/tiles/tiles-world';
@@ -52,6 +52,7 @@ import { GlobalRouteGrid } from '../../utils/global-route-grid';
 import type { ColumnSample } from '../../three-engine/column-sample';
 import type { RouteWaypoint } from '../../models/game.types';
 import { corridorTrace } from '../../utils/corridor-trace';
+import { en } from '../../i18n/messages/en';
 
 const ORIGIN = { lat: 48.0, lon: 9.0 };
 const M_PER_DEG_LON = METERS_PER_DEGREE_LAT * Math.cos(ORIGIN.lat * DEG_TO_RAD);
@@ -1228,7 +1229,7 @@ describe('PathAndRouteService: spawns without a route (TODO E232)', () => {
     const service = new PathAndRouteService();
     service.adoptPaths(new Map([['s1', route(48.01)]]));
     service.warnUnroutedSpawns(spawns);
-    expect(banner().value).toEqual({ text: unroutedSpawnsText(['Harbour', 'Station']), tone: 'warn', lasting: true });
+    expect(banner().value).toEqual({ text: en.hud.world.unrouted(['Harbour', 'Station']), tone: 'warn', lasting: true });
     expect(banner().value!.text).toContain('Harbour and Station');
   });
 
@@ -1247,11 +1248,11 @@ describe('PathAndRouteService: spawns without a route (TODO E232)', () => {
     const service = new PathAndRouteService();
     service.adoptPaths(new Map([['s1', route(48.01)], ['s2', [{ lat: 48.02, lon: 9 }]]]));
     service.warnUnroutedSpawns(spawns.slice(0, 2));
-    expect(banner().value!.text).toBe(unroutedSpawnsText(['Harbour']));
+    expect(banner().value!.text).toBe(en.hud.world.unrouted(['Harbour']));
   });
 
   it('reads one spawn and several apart', () => {
-    expect(unroutedSpawnsText(['Harbour'])).toMatch(/^No street leads from Harbour to the HQ: it sends/);
-    expect(unroutedSpawnsText(['A', 'B', 'C'])).toMatch(/^No street leads from A, B and C to the HQ: they send/);
+    expect(en.hud.world.unrouted(['Harbour'])).toMatch(/^No street leads from Harbour to the HQ: it sends/);
+    expect(en.hud.world.unrouted(['A', 'B', 'C'])).toMatch(/^No street leads from A, B and C to the HQ: they send/);
   });
 });

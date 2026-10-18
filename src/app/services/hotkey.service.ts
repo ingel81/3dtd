@@ -30,6 +30,7 @@ import { TowerControlService } from './tower-control.service';
 import { TowerUpgradeService } from './tower-upgrade.service';
 import { DebugFacadeService } from './debug/debug-facade.service';
 import { refuseForCredits } from './credits-refusal';
+import { injectT } from '../i18n/i18n.service';
 
 /**
  * Runs the game hotkeys (see hotkey-map.ts). The component hands it every key
@@ -44,6 +45,7 @@ import { refuseForCredits } from './credits-refusal';
 @Injectable()
 export class HotkeyService {
   private readonly facade = inject(TowerDefenseFacadeService);
+  private readonly t = injectT();
   // The research dialog emits commands through the facade, which lives in this
   // injector rather than in root (openResearchDialog).
   private readonly injector = inject(Injector);
@@ -275,14 +277,14 @@ export class HotkeyService {
   private recallView(slot: number): boolean {
     if (this.introFlight.active()) return false;
     if (this.cameraSlots.recall(slot)) return true;
-    this.uiStore.notice.set({ text: `Camera view ${slot + 1} is empty. Shift+F${slot + 1} saves the view.`, tone: 'warn' });
+    this.uiStore.notice.set({ text: this.t().hud.world.cameraEmpty(slot + 1), tone: 'warn' });
     return false;
   }
 
   /** Shift+F1 to Shift+F5: save the view now */
   private storeView(slot: number): boolean {
     if (this.introFlight.active() || !this.cameraSlots.store(slot)) return false;
-    this.uiStore.notice.set({ text: `Camera view ${slot + 1} saved. F${slot + 1} flies back to it.`, tone: 'ok' });
+    this.uiStore.notice.set({ text: this.t().hud.world.cameraSaved(slot + 1), tone: 'ok' });
     return true;
   }
 

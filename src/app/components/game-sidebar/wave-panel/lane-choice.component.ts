@@ -7,7 +7,7 @@ import { TowerDefenseStore } from '../../../store/tower-defense.store';
 import { UIStore } from '../../../store/ui.store';
 import { WorldContext } from '../../../world/world-context.service';
 import { hasLaneChoice, laneLoadHint, toggledLanes } from '../../../world/custom-map/lane-choice';
-import { I18n } from '../../../i18n/i18n.service';
+import { injectT } from '../../../i18n/i18n.service';
 
 /** A lane as the list shows it */
 interface LaneRow {
@@ -58,7 +58,7 @@ export class LaneChoiceComponent {
   private readonly store = inject(TowerDefenseStore);
   private readonly ui = inject(UIStore);
   private readonly engineInit = inject(EngineInitializationService);
-  protected readonly t = inject(I18n).t;
+  protected readonly t = injectT();
 
   /** Counts up when the lanes changed here, so the list reads them again */
   private readonly rev = signal(0);

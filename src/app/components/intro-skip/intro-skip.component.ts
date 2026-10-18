@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { IntroCameraFlightService } from '../../services/world/intro-camera-flight.service';
-import { I18n } from '../../i18n/i18n.service';
+import { injectT } from '../../i18n/i18n.service';
 
 /**
  * Skip control for the intro camera flight.
@@ -34,7 +34,7 @@ import { I18n } from '../../i18n/i18n.service';
   `],
 })
 export class IntroSkipComponent {
-  protected readonly t = inject(I18n).t;
+  protected readonly t = injectT();
   private readonly introFlight = inject(IntroCameraFlightService);
 
   skip(): void {

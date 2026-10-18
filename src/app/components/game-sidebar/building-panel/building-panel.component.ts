@@ -4,7 +4,7 @@ import { TowerDefenseStore } from '../../../store/tower-defense.store';
 import { Tower } from '../../../entities/tower.entity';
 import { SellConfirmService } from '../../../services/sell-confirm.service';
 import { buildingAbilityRows } from './building-panel';
-import { I18n } from '../../../i18n/i18n.service';
+import { injectT } from '../../../i18n/i18n.service';
 
 /**
  * Panel eines gewählten passiven Gebäudes ohne eigenes Panel (das Research
@@ -23,7 +23,7 @@ import { I18n } from '../../../i18n/i18n.service';
 export class SidebarBuildingPanelComponent {
   private readonly store = inject(TowerDefenseStore);
   private readonly sellConfirm = inject(SellConfirmService);
-  protected readonly t = inject(I18n).t;
+  protected readonly t = injectT();
 
   readonly tower = input.required<Tower>();
 

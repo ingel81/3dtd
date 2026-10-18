@@ -53,6 +53,7 @@ import { AUTOSAVE_SLOT, SAVE_GAME } from '../save-game/save-game.port';
 import { startPlaceGuess, type StartPlaceGuess } from '../../components/main-menu/autosave-place';
 import { installPreviewSheetHook } from '../infrastructure/preview-sheets';
 import { VisualizationFacadeService } from './visualization-facade.service';
+import { injectT } from '../../i18n/i18n.service';
 
 /**
  * Minimal bridge for engine/canvas references that cannot live in the Store.
@@ -89,21 +90,6 @@ export interface FacadeComponentBridge {
   exitMapPlacement: () => void;
 }
 
-/** What the main menu says when the streets of the first place did not load */
-export const FIRST_STREETS_FAILED =
-  'The streets of this place did not load: the map server is busy or out of reach. The map shows, but no route. Retry in a minute.';
-
-/**
- * The map's tile server did not answer as it should (not a refused key): out
- * of reach, or busy in a way the libraries do not pass on (a 429 on the
- * tileset itself arrives as a failed read); the world tries again by itself
- */
-export const TILES_UNREACHABLE =
-  'The map server is busy or out of reach. The game tries again by itself, which can take a few minutes; check the connection if it stays.';
-
-/** The map's tile server limits the requests for now (HTTP 429); the world tries again by itself */
-export const TILES_BUSY =
-  'The map server is limiting requests right now (too many in a short time). The game tries again by itself, which can take a few minutes.';
 
 /**
  * Main facade service, orchestrates initialization, dispose, and delegates
@@ -117,6 +103,7 @@ export const TILES_BUSY =
 export class TowerDefenseFacadeService {
   // Store, single source of truth for UI state
   private readonly store = inject(TowerDefenseStore);
+  private readonly t = injectT();
   private readonly uiStore = inject(UIStore);
 
   // Sub-facades
@@ -437,8 +424,8 @@ export class TowerDefenseFacadeService {
       // Only a world that needs them asks (the tiles).
       if (this.worldContext.capabilities().credentials && this.configService.needsCredentials()) {
         this.engineInit.setError(this.configService.tileProvider() === 'google'
-          ? 'No Google Maps API key configured.'
-          : 'No Cesium Ion token configured.');
+          ? this.t().hud.world.noGoogleKey
+          : this.t().hud.world.noIonToken);
         this.engineInit.setLoading(false);
         return;
       }
@@ -496,7 +483,7 @@ export class TowerDefenseFacadeService {
           }
           // No ground, no game: Play waits, the plate says why and that the game keeps trying
           this.uiStore.tilesProblem.set({
-            text: failure === 'busy' ? TILES_BUSY : TILES_UNREACHABLE,
+            text: failure === 'busy' ? this.t().hud.world.tilesBusy : this.t().hud.world.tilesUnreachable,
             retry: () => engine.retryWorldLoad(),
             blocksPlay: true,
           });
@@ -547,7 +534,7 @@ export class TowerDefenseFacadeService {
       // The game went while it loaded (Esc on the loading): its failure is nobody's
       if (!this.initialized) return;
       console.error('[TD] Engine init error:', err);
-      this.engineInit.setError(err instanceof Error ? err.message : 'Error loading 3D map');
+      this.engineInit.setError(err instanceof Error ? err.message : this.t().hud.world.loadError);
       this.engineInit.setLoading(false);
     }
   }
@@ -562,7 +549,7 @@ export class TowerDefenseFacadeService {
     if (!this.initialized) return 0;
     // Said in the main menu; the map stands, without a route. A load ended for a place chosen in the
     // menu instead (cancelled) is nobody's failure: that place brings its own streets
-    if (result.failed) this.uiStore.loadProblem.set({ text: FIRST_STREETS_FAILED, blocksPlay: true });
+    if (result.failed) this.uiStore.loadProblem.set({ text: this.t().hud.world.firstStreetsFailed, blocksPlay: true });
     this.bridge.setStreetNetwork(result.network);
     this.store.streetCount.set(result.count);
     return result.count;

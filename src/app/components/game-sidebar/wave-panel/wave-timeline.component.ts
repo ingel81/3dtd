@@ -1,9 +1,9 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
 import { TdIconComponent, type TdIconName } from '../../icon/icon.component';
 import { TdRichTooltipDirective } from '../../tooltip/td-rich-tooltip.directive';
 import { damageTypeIcon } from '../../icon/damage-type-icon';
 import { markShape, shownPeek, type MarkShape, type WavePeek } from './upcoming-waves';
-import { I18n } from '../../../i18n/i18n.service';
+import { injectT } from '../../../i18n/i18n.service';
 
 /**
  * NEXT in the WAVE panel: the coming waves as marks on a thin line, the
@@ -24,7 +24,7 @@ import { I18n } from '../../../i18n/i18n.service';
 export class WaveTimelineComponent {
   /** The coming waves, the next one first */
   readonly peeks = input.required<WavePeek[]>();
-  protected readonly t = inject(I18n).t;
+  protected readonly t = injectT();
 
   readonly hovered = signal<number | null>(null);
   readonly picked = signal<number | null>(null);

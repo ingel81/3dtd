@@ -18,7 +18,7 @@ import { EngineInitializationService } from './infrastructure/engine-initializat
 import { UpgradeHintService } from './upgrade-hint.service';
 import { uiSound } from './ui-sound';
 import { refuseForCredits } from './credits-refusal';
-import { I18n } from '../i18n/i18n.service';
+import { injectT } from '../i18n/i18n.service';
 import type { Messages } from '../i18n/messages/en';
 
 /**
@@ -63,7 +63,7 @@ export class TowerUpgradeService {
   private readonly store = inject(TowerDefenseStore);
   private readonly researchStore = inject(ResearchStore);
   private readonly upgradeHint = inject(UpgradeHintService);
-  private readonly t = inject(I18n).t;
+  private readonly t = injectT();
 
   /**
    * A click on an upgrade tile: buys that track `times` in a row as far as

@@ -212,9 +212,9 @@ describe('CorridorBuild', () => {
       const steps: string[] = [];
       await corridor.build('location load', ({ step, percent }) => steps.push(percent === null ? step : `${step} ${percent}`));
       expect(steps).toEqual([
-        'Loading the corridor tiles',
-        'Measuring the corridor 25', 'Measuring the corridor 50', 'Measuring the corridor 75',
-        'Building the corridor',
+        'tiles',
+        'measure 25', 'measure 50', 'measure 75',
+        'build',
       ]);
     });
 

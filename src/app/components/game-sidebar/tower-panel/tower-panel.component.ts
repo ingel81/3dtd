@@ -45,7 +45,7 @@ import { releasedPathsOf } from '../../../configs/release';
 import { getResearch, pathUnlockedBy } from '../../../configs/research/research-tree.config';
 import { TowerUpgradeService } from '../../../services/tower-upgrade.service';
 import { UPGRADE_MANY, isUnderConstruction, upgradeTimes, upgradeTrackRefusal } from '../../../utils/player-actions';
-import { I18n } from '../../../i18n/i18n.service';
+import { injectT } from '../../../i18n/i18n.service';
 import { researchName } from '../../../i18n/lookups';
 
 /**
@@ -74,7 +74,7 @@ export class SidebarTowerPanelComponent implements OnInit, OnDestroy {
   private readonly upgradeHint = inject(UpgradeHintService);
   private readonly towerUpgrade = inject(TowerUpgradeService, { optional: true });
   readonly store = inject(TowerDefenseStore);
-  protected readonly t = inject(I18n).t;
+  protected readonly t = injectT();
 
   readonly tower = input.required<Tower>();
 

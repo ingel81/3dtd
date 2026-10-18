@@ -11,7 +11,7 @@ import { SimClient } from '../sim/client/sim-client.service';
 import { SimMirror } from '../sim/client/mirror/sim-mirror';
 import { RouteQueriesService } from './route-queries.service';
 import { RefusalHintService, abilityNoRouteText } from './refusal-hint.service';
-import { I18n } from '../i18n/i18n.service';
+import { injectT } from '../i18n/i18n.service';
 
 /**
  * Targeting mode of the player abilities: the ability's button in the
@@ -38,7 +38,7 @@ export class AbilityTargetingService {
   private readonly sim = inject(SimClient);
   private readonly mirror = inject(SimMirror);
   private readonly routes = inject(RouteQueriesService);
-  private readonly t = inject(I18n).t;
+  private readonly t = injectT();
 
   private engine: ThreeTilesEngine | null = null;
   private readonly scratch = new Vector3();

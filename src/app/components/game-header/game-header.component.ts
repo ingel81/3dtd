@@ -42,7 +42,7 @@ import {
   statReadout,
   waveProgressPercent,
 } from './header-stats';
-import { I18n } from '../../i18n/i18n.service';
+import { injectT } from '../../i18n/i18n.service';
 
 /** Flash of the HQ plate when the HQ loses health; the jolt only without reduced motion */
 const HQ_HIT_FLASH: Keyframe[] = [{ filter: 'brightness(1.8)' }, { filter: 'brightness(1)' }];
@@ -92,7 +92,7 @@ export interface GamePath {
   styleUrl: './game-header.component.scss',
 })
 export class GameHeaderComponent {
-  protected readonly t = inject(I18n).t;
+  protected readonly t = injectT();
   private readonly elementRef = inject(ElementRef);
   private readonly store = inject(TowerDefenseStore);
 

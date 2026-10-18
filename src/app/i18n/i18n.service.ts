@@ -80,3 +80,15 @@ export const I18n = new InjectionToken<I18nService>('I18n', {
 export function provideI18n(): Provider {
   return { provide: I18n, useFactory: () => new I18nService(signal<LocalePreference>('system')) };
 }
+
+const SOURCE_T: Signal<Messages> = signal(en).asReadonly();
+
+/**
+ * The dictionary for a component or a service: `inject(I18n).t`. In the
+ * game I18n is always there (providedIn root); an injector a spec builds by
+ * hand without it (or with a stand-in) gets the source language.
+ */
+export function injectT(): Signal<Messages> {
+  const i18n = inject(I18n, { optional: true });
+  return i18n instanceof I18nService ? i18n.t : SOURCE_T;
+}

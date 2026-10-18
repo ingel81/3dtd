@@ -32,7 +32,7 @@ import { TdRichTooltipDirective } from '../../tooltip/td-rich-tooltip.directive'
 import { TdTooltipData } from '../../tooltip/tooltip-data.types';
 import { towerCardTooltip } from '../sidebar-tooltips';
 import { towerPreviewConfig } from '../../../services/infrastructure/preview-sheets';
-import { I18n } from '../../../i18n/i18n.service';
+import { injectT } from '../../../i18n/i18n.service';
 import { researchName } from '../../../i18n/lookups';
 
 /**
@@ -55,7 +55,7 @@ export class SidebarBuildPanelComponent implements AfterViewInit {
   private readonly modelPreview = inject(ModelPreviewService);
   private readonly towerDebug = inject(TowerDebugService);
   private readonly researchStore = inject(ResearchStore);
-  protected readonly t = inject(I18n).t;
+  protected readonly t = injectT();
   private readonly destroyRef = inject(DestroyRef);
   // The dialog emits commands through the facade, which the game component
   // provides rather than root (openResearchDialog).

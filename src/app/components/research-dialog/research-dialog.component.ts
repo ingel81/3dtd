@@ -30,7 +30,7 @@ import {
   type ResearchTreeState,
 } from './research-tree-view';
 import { researchName } from '../../i18n/lookups';
-import { I18n } from '../../i18n/i18n.service';
+import { injectT } from '../../i18n/i18n.service';
 
 /** Tier numerals for the gutter. Deeper than this is not in the tree. */
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
@@ -68,7 +68,7 @@ export class ResearchDialogComponent {
   private readonly sim = inject(SimClient);
   private readonly mirror = inject(SimMirror);
   private readonly coop = inject(COOP, { optional: true });
-  protected readonly t = inject(I18n).t;
+  protected readonly t = injectT();
   private readonly data = inject<ResearchDialogData | null>(MAT_DIALOG_DATA, { optional: true });
 
   /** Coop: one tab a player, this one first as "You"; none alone */

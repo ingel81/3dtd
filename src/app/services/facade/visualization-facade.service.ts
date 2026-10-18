@@ -3,13 +3,13 @@ import { UIStore } from '../../store/ui.store';
 import type { ThreeTilesEngine } from '../../three-engine';
 import { CameraControlService } from '../camera-control.service';
 import { MarkerVisualizationService } from '../world/marker-visualization.service';
-import { NO_ROUTE_TEXT, PathAndRouteService } from '../world/path-route.service';
+import { PathAndRouteService } from '../world/path-route.service';
 import { InputHandlerService } from '../input-handler.service';
 import { TowerPlacementService } from '../tower-placement.service';
 import { AbilityTargetingService } from '../ability-targeting.service';
 import { HeroControlService } from '../hero-control.service';
 import { MapPlacementService } from '../world/map-placement.service';
-import { RelocationStatusService } from '../world/relocation-status.service';
+import { RelocationStatusService, type StepProgress } from '../world/relocation-status.service';
 import { HeightUpdateService } from '../world/height-update.service';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import { WorldContext } from '../../world/world-context.service';
@@ -58,6 +58,7 @@ import type { BuildingFootprint } from '../location/osm-street.service';
 import { cameraTimeline } from '../../utils/camera-timeline';
 import { corridorTrace } from '../../utils/corridor-trace';
 import { perfTrace } from '../../utils/perf-trace';
+import { injectT } from '../../i18n/i18n.service';
 
 /**
  * Sub-facade for visualization, camera, rendering, and height updates.
@@ -86,6 +87,7 @@ import { perfTrace } from '../../utils/perf-trace';
 @Injectable()
 export class VisualizationFacadeService {
   private readonly uiStore = inject(UIStore);
+  private readonly t = injectT();
   private readonly cameraControl = inject(CameraControlService);
   private readonly markerViz = inject(MarkerVisualizationService);
   private readonly pathRoute = inject(PathAndRouteService);
@@ -295,10 +297,10 @@ export class VisualizationFacadeService {
     }
     corridorTrace.log('build.revisit', { built: true, reason });
     console.log(`[Corridor] the corridor was built without tiles, building it again (${reason}).`);
-    this.relocationStatus.show('Building the corridor', 'Loading the corridor tiles');
+    this.relocationStatus.show(this.t().hud.world.buildingCorridor, this.t().hud.world.corridorTiles);
     const hint = this.relocationStatus.follow();
     try {
-      await this.corridor.build(reason, hint.report);
+      await this.corridor.build(reason, (progress) => hint.report(this.said(progress)));
     } finally {
       hint.end();
     }
@@ -561,7 +563,7 @@ export class VisualizationFacadeService {
     // others with one stay and send nothing; the banner says so
     if (this.pathRoute.getCachedPaths().size === 0) {
       console.error('[VisualizationFacade] No routes found - spawn and HQ may not be connected by streets');
-      this.uiStore.loadProblem.set({ text: `${NO_ROUTE_TEXT} Pick another place.`, blocksPlay: true });
+      this.uiStore.loadProblem.set({ text: this.t().hud.world.pickAnother(this.t().hud.world.noRoute), blocksPlay: true });
     } else {
       this.pathRoute.warnUnroutedSpawns(this.store.spawnPoints());
     }
@@ -716,11 +718,14 @@ export class VisualizationFacadeService {
     void this.engineInit.setStepCurrent('corridor');
     const result = await this.corridor.build(
       'location load',
-      ({ step, percent }) => this.engineInit.updateStepMeta('corridor', percent === null ? step : `${step} ${percent} %`),
+      (progress) => {
+        const { step, percent } = this.said(progress);
+        this.engineInit.updateStepMeta('corridor', percent === null ? step : this.t().hud.corridor.percent(step, percent));
+      },
       ticket,
     );
     if (!result) return;
-    void this.engineInit.setStepDone('corridor', `${result.stations} stations, ${result.cells} cells${result.timedOut ? ', tiles timed out' : ''}`);
+    void this.engineInit.setStepDone('corridor', this.t().hud.corridor.done(result.stations, result.cells, result.timedOut));
     // The overview so far stood on the cells from before the build, which the
     // build replaced. Frame it on the frozen cells and store it as the view
     // the intro lands in and Reset Camera returns to. The build is over, so
@@ -739,8 +744,13 @@ export class VisualizationFacadeService {
    * Build the corridor of routes built again without a location load (spawn
    * or HQ moved in place), under the hint of the move (CorridorBuild.build).
    */
-  buildCorridor(reason: string, report: (progress: CorridorProgress) => void): Promise<CorridorBuildResult | null> {
-    return this.corridor.build(reason, report);
+  buildCorridor(reason: string, report: (progress: StepProgress) => void): Promise<CorridorBuildResult | null> {
+    return this.corridor.build(reason, (progress) => report(this.said(progress)));
+  }
+
+  /** A build's step in the player's words */
+  private said({ step, percent }: CorridorProgress): StepProgress {
+    return { step: this.t().hud.corridor[step], percent };
   }
 
   /**

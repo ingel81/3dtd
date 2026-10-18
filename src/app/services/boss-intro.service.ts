@@ -37,7 +37,7 @@ import {
   type ShotProbe,
 } from '../utils/boss-intro';
 import { BOSS_INTRO_SOUNDS } from '../configs/game-sounds.config';
-import { I18n } from '../i18n/i18n.service';
+import { injectT } from '../i18n/i18n.service';
 import { enemyName } from '../i18n/lookups';
 import type { EnemyTypeId } from '../configs/enemy-types.config';
 
@@ -116,7 +116,7 @@ export class BossIntroService {
   private readonly introFlight = inject(IntroCameraFlightService);
   private readonly ngZone = inject(NgZone);
   private readonly announcer = inject(LiveAnnouncer);
-  private readonly t = inject(I18n).t;
+  private readonly t = injectT();
   private readonly dialog = inject(MatDialog);
 
   /** Stage of the running intro, null while none runs. */

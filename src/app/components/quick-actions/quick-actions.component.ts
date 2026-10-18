@@ -8,7 +8,7 @@ import { CorridorSnapshotService } from '../../services/debug/corridor-snapshot.
 import { UIStore } from '../../store/ui.store';
 import { WorldContext } from '../../world/world-context.service';
 import { TdIconComponent } from '../icon/icon.component';
-import { I18n } from '../../i18n/i18n.service';
+import { injectT } from '../../i18n/i18n.service';
 
 @Component({
   selector: 'app-quick-actions',
@@ -19,7 +19,7 @@ import { I18n } from '../../i18n/i18n.service';
   styleUrl: './quick-actions.component.scss',
 })
 export class QuickActionsComponent {
-  protected readonly t = inject(I18n).t;
+  protected readonly t = injectT();
   readonly debugWindows = inject(DebugWindowService);
   readonly uiStore = inject(UIStore);
   /** The DevWorld tile opens the regeneration panel: only a world that regenerates */

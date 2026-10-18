@@ -5,7 +5,7 @@ import { HeroControlService } from '../../../services/hero-control.service';
 import type { HeroAmmoId } from '../../../configs/hero.config';
 import { heroPanelView } from './hero-panel';
 import { RovingGroupDirective } from '../../roving-group.directive';
-import { I18n } from '../../../i18n/i18n.service';
+import { injectT } from '../../../i18n/i18n.service';
 
 /**
  * Sidebar-Panel des Helden, sichtbar solange er gewählt ist, an der Stelle
@@ -25,7 +25,7 @@ import { I18n } from '../../../i18n/i18n.service';
 export class SidebarHeroPanelComponent {
   private readonly store = inject(TowerDefenseStore);
   private readonly heroControl = inject(HeroControlService);
-  protected readonly t = inject(I18n).t;
+  protected readonly t = injectT();
 
   readonly view = computed(() => heroPanelView(this.t(), this.store.hero()));
 

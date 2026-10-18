@@ -13,7 +13,7 @@ import { panelRev } from './panel-shown';
 import { RangeRowComponent } from './range-row.component';
 import { WaveCurveChartComponent } from './wave-curve-chart.component';
 import { WaveEventsPanelComponent } from './wave-events-panel.component';
-import { I18n } from '../../../i18n/i18n.service';
+import { injectT } from '../../../i18n/i18n.service';
 import { enemyName } from '../../../i18n/lookups';
 
 /**
@@ -42,7 +42,7 @@ export class GameplayPanelComponent {
   /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
   private readonly rev = panelRev('gameplay');
   readonly defaults = { credits: GAME_BALANCE.player.startCredits, health: GAME_BALANCE.player.startHealth };
-  protected readonly t = inject(I18n).t;
+  protected readonly t = injectT();
   readonly towers = computed(() => Object.values(TOWER_TYPES).map((tower) => ({ id: tower.id, name: this.t().names.towers[tower.id] })));
   readonly enemies = computed(() => Object.keys(ENEMY_TYPES)
     .map((id) => ({ id, name: enemyName(this.t(), id) }))

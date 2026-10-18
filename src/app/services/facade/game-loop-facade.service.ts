@@ -10,7 +10,6 @@ import { KeyboardPanService } from '../keyboard-pan.service';
 import { MarkerVisualizationService } from '../world/marker-visualization.service';
 import { IntroCameraFlightService } from '../world/intro-camera-flight.service';
 import { RouteAnimationService } from '../world/route-animation.service';
-import { NO_ROUTE_TEXT } from '../world/path-route.service';
 import { WaveDebugService } from '../debug/wave-debug.service';
 import { SoundDebugService } from '../debug/sound-debug.service';
 import { DebugWindowService } from '../debug/debug-window.service';
@@ -42,6 +41,7 @@ import { TowerControlService } from '../tower-control.service';
 import { COOP } from '../coop.token';
 import { newRunSeed } from '../../utils/game-rng';
 import type { CommandEvent } from '../../game-engine/events/command-events';
+import { injectT } from '../../i18n/i18n.service';
 
 /** See GameLoopFacadeService.loadHandle */
 export type LoadHandle = ReturnType<GameLoopFacadeService['createLoadHandle']>;
@@ -60,6 +60,7 @@ export type LoadHandle = ReturnType<GameLoopFacadeService['createLoadHandle']>;
 @Injectable()
 export class GameLoopFacadeService {
   private readonly engineStore = inject(EngineStore);
+  private readonly t = injectT();
   private readonly cameraControl = inject(CameraControlService);
   private readonly towerPlacement = inject(TowerPlacementService);
   private readonly mapPlacement = inject(MapPlacementService);
@@ -224,7 +225,7 @@ export class GameLoopFacadeService {
     effect(() => {
       const failure = this.sim.failure();
       if (failure === null) return;
-      untracked(() => this.uiStore.notice.set({ text: `The simulation stopped with an error (${failure}). Reload the page to play on.`, reload: true }));
+      untracked(() => this.uiStore.notice.set({ text: this.t().hud.world.simStopped(String(failure)), reload: true }));
     }, { injector });
 
     // Effect: Sync wave debug state with store
@@ -532,8 +533,7 @@ export class GameLoopFacadeService {
       // here is a real bug: surface it rather than silently dropping to
       // manual waves.
       this.uiStore.notice.set({
-        text: 'Wave error: could not plan the next wave; it comes from the Wave Debug settings instead. '
-          + 'See the console for details.',
+        text: this.t().hud.world.waveError,
       });
       this.store.directorEnabled.set(false);
       this.pendingAIWaveRequest = false;
@@ -564,7 +564,7 @@ export class GameLoopFacadeService {
 
   /** No spawn point has a route to the HQ: no wave starts, the banner says why (TODO E232). */
   private refuseNoRoute(): void {
-    this.ngZone.run(() => this.uiStore.notice.set({ text: `No wave can start. ${NO_ROUTE_TEXT}`, tone: 'warn' }));
+    this.ngZone.run(() => this.uiStore.notice.set({ text: this.t().hud.world.noWave(this.t().hud.world.noRoute), tone: 'warn' }));
   }
 
   // ══════════════════════════════════════════════════════════════

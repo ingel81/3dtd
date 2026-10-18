@@ -4,7 +4,7 @@ import { PathAndRouteService } from '../../services/world/path-route.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { laneStats } from '../../coop/lane-stats';
 import { laneLengthRows } from './lane-length-rows';
-import { I18n } from '../../i18n/i18n.service';
+import { injectT } from '../../i18n/i18n.service';
 
 /**
  * While a spawn is added or moved, single player and coop: every lane's
@@ -20,7 +20,7 @@ import { I18n } from '../../i18n/i18n.service';
   styleUrl: './lane-length-panel.component.scss',
 })
 export class LaneLengthPanelComponent {
-  protected readonly t = inject(I18n).t;
+  protected readonly t = injectT();
   private readonly placement = inject(MapPlacementService);
   private readonly pathRoute = inject(PathAndRouteService);
   private readonly store = inject(TowerDefenseStore);

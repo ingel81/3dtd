@@ -937,6 +937,51 @@ export const de: Messages = {
       'no-route': 'Keine Route zum HQ',
       outside: 'Außerhalb des Kartengebiets',
     },
+    world: {
+      noRoute: 'Zwischen HQ und Spawn ist keine Route möglich. Die Straßen hängen nicht zusammen.',
+      unrouted: (names) => {
+        const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} und ${names[names.length - 1]}`;
+        return names.length === 1
+          ? `Von ${list} führt keine Straße zum HQ: Von dort kommen keine Gegner, die anderen Spawns tragen die Wellen.`
+          : `Von ${list} führt keine Straße zum HQ: Von dort kommen keine Gegner, die anderen Spawns tragen die Wellen.`;
+      },
+      noWave: (why) => `Keine Welle kann starten. ${why}`,
+      pickAnother: (why) => `${why} Wähl einen anderen Ort.`,
+      firstStreetsFailed: 'Die Straßen dieses Orts haben nicht geladen: Der Kartenserver ist ausgelastet oder nicht erreichbar. Die Karte steht, aber ohne Route. In einer Minute nochmal versuchen.',
+      tilesUnreachable: 'Der Kartenserver ist ausgelastet oder nicht erreichbar. Das Spiel versucht es selbst erneut, das kann ein paar Minuten dauern; bleibt es so, prüf die Verbindung.',
+      tilesBusy: 'Der Kartenserver bremst gerade die Anfragen (zu viele in kurzer Zeit). Das Spiel versucht es selbst erneut, das kann ein paar Minuten dauern.',
+      noGoogleKey: 'Kein Google-Maps-API-Schlüssel eingetragen.',
+      noIonToken: 'Kein Cesium-Ion-Token eingetragen.',
+      loadError: 'Fehler beim Laden der 3D-Karte',
+      hqStreetsFailed: 'Die Straßen dort haben nicht geladen: Der Kartenserver ist ausgelastet oder nicht erreichbar. Das HQ bleibt, wo es ist; versuch es in einer Minute nochmal.',
+      movingHq: 'HQ wird versetzt',
+      movingSpawn: 'Spawn wird versetzt',
+      switchingLanes: 'Wege werden umgestellt',
+      addingSpawn: 'Spawn wird hinzugefügt',
+      loadingStreets: 'Straßen laden',
+      findingRoute: 'Route suchen',
+      buildingCorridor: 'Korridor wird gebaut',
+      corridorTiles: 'Kacheln des Korridors laden',
+      measuring: 'Korridor vermessen',
+      coarserTiles: 'Gröbere Kacheln für die Lücken laden',
+      rounding: 'Ecken abrunden',
+      simStopped: (why) => `Die Simulation ist mit einem Fehler stehen geblieben (${why}). Lad die Seite neu, um weiterzuspielen.`,
+      waveError: 'Wellenfehler: Die nächste Welle ließ sich nicht planen; sie kommt stattdessen aus den Wave-Debug-Einstellungen. Details in der Konsole.',
+      cameraEmpty: (n) => `Kameraansicht ${n} ist leer. Umschalt+F${n} speichert die Ansicht.`,
+      cameraSaved: (n) => `Kameraansicht ${n} gespeichert. F${n} fliegt zurück.`,
+      photoOn: 'Fotomodus. Esc verlässt ihn.',
+      photoOff: 'Fotomodus verlassen.',
+      screenshotSaved: (file) => `Bild gespeichert: ${file}`,
+      heroNoRoute: (m) => `Keine Route im Umkreis von ${m} m`,
+    },
+    corridor: {
+      tiles: 'Kacheln des Korridors laden',
+      measure: 'Korridor vermessen',
+      fallback: 'Gröbere Kacheln für die Lücken laden',
+      build: 'Korridor bauen',
+      done: (stations, cells, timedOut) => `${f.int(stations)} Messpunkte, ${f.int(cells)} Zellen${timedOut ? ', Kacheln zu spät' : ''}`,
+      percent: (step, percent) => `${step} ${percent} %`,
+    },
     // hud:end
   },
   coop: {

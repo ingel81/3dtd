@@ -12,7 +12,7 @@ import {
   abilityTooltip,
   heroTooltip,
 } from './ability-button';
-import { I18n } from '../../i18n/i18n.service';
+import { injectT } from '../../i18n/i18n.service';
 
 /**
  * Bar at the left edge of the playfield: at the top the hero's button, when
@@ -46,7 +46,7 @@ import { I18n } from '../../i18n/i18n.service';
 export class AbilityBarComponent {
   private readonly store = inject(TowerDefenseStore);
   private readonly abilityTargeting = inject(AbilityTargetingService);
-  protected readonly t = inject(I18n).t;
+  protected readonly t = injectT();
 
   protected readonly px = ABILITY_BAR_PX;
 

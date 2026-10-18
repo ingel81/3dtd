@@ -16,9 +16,8 @@ import { TowerSelectionService } from './tower-selection.service';
 import { RouteQueriesService } from './route-queries.service';
 import { GlobalRouteGridService } from './world/global-route-grid.service';
 import { uiSound } from './ui-sound';
+import { injectT } from '../i18n/i18n.service';
 
-/** Warning while no route point is in reach of the cursor */
-const NO_ROUTE_WARNING = `No route within ${HERO.orderSnapM} m`;
 
 /**
  * Selecting and ordering the hero: a click on him or G selects him, his
@@ -36,6 +35,7 @@ const NO_ROUTE_WARNING = `No route within ${HERO.orderSnapM} m`;
 @Injectable({ providedIn: 'root' })
 export class HeroControlService {
   private readonly uiStore = inject(UIStore);
+  private readonly t = injectT();
   private readonly store = inject(TowerDefenseStore);
   private readonly towerPlacement = inject(TowerPlacementService);
   private readonly mapPlacement = inject(MapPlacementService);
@@ -151,7 +151,7 @@ export class HeroControlService {
       this.warning.set(null);
     } else {
       this.engine.hero.showMoveTarget(hitPoint, false);
-      this.warning.set(NO_ROUTE_WARNING);
+      this.warning.set(this.t().hud.world.heroNoRoute(HERO.orderSnapM));
     }
   }
 
@@ -159,7 +159,7 @@ export class HeroControlService {
   click(lat: number, lon: number, height: number): void {
     if (!this.selected() || !this.engine) return;
     if (!this.routes.resolveHeroMoveTarget({ lat, lon, height })) {
-      this.warning.set(NO_ROUTE_WARNING);
+      this.warning.set(this.t().hud.world.heroNoRoute(HERO.orderSnapM));
       uiSound.play('denied');
       return;
     }

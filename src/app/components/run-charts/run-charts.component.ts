@@ -1,7 +1,7 @@
-import { ChangeDetectionStrategy, Component, computed, input, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import type { PlayerWaveNumbers, WaveSeriesPoint } from '../../run-log/wave-series';
 import { formatCompact } from '../../utils/format-compact';
-import { I18n } from '../../i18n/i18n.service';
+import { injectT } from '../../i18n/i18n.service';
 
 /** A player of the charts: their name and colour (the lane colour in coop) */
 export interface RunChartPlayer {
@@ -54,7 +54,7 @@ const DASHES: (string | null)[] = [null, '6 3', '2 2', '8 3 2 3'];
   `,
 })
 export class RunChartsComponent {
-  protected readonly t = inject(I18n).t;
+  protected readonly t = injectT();
   readonly points = input.required<readonly WaveSeriesPoint[]>();
   readonly players = input.required<readonly RunChartPlayer[]>();
 

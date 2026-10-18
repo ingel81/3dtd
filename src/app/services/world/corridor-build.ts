@@ -37,9 +37,12 @@ export interface CorridorMeasurement {
   cancel(reason: string): void;
 }
 
+/** A build's steps: tiles, measuring, coarser tiles for the gaps, building (the UI words them) */
+export type CorridorStep = 'tiles' | 'measure' | 'fallback' | 'build';
+
 /** Where a build is, for the loading screen and the hint over the map while HQ or spawn move. */
 export interface CorridorProgress {
-  step: string;
+  step: CorridorStep;
   /** Share of the step done, whole percent; null where it cannot tell. */
   percent: number | null;
 }
@@ -94,10 +97,6 @@ export interface CorridorBuildDeps {
 type BuildEngine = NonNullable<ReturnType<EngineInitializationService['getEngine']>>;
 
 /** The steps of a build as the loading screen and the hint show them. */
-const TILES_STEP = 'Loading the corridor tiles';
-const MEASURE_STEP = 'Measuring the corridor';
-const FALLBACK_STEP = 'Loading coarser tiles for the gaps';
-const BUILD_STEP = 'Building the corridor';
 
 const percentOf = ({ done, total }: { done: number; total: number }) => (total > 0 ? Math.floor((100 * done) / total) : 100);
 
@@ -267,7 +266,7 @@ export class CorridorBuild {
       // 1. The tiles of the region at the finest level, whatever the camera shows.
       let timedOut = false;
       if (tiles) {
-        report({ step: TILES_STEP, percent: null });
+        report({ step: 'tiles', percent: null });
         // A region built before the root tileset placed the group stands beside the route
         if (engine?.refreshRouteCorridorFrame()) traced(() => corridorTrace.log('build.reframe', {}));
         this.mute(tiles);
@@ -301,7 +300,7 @@ export class CorridorBuild {
         const done = traced(() => run.step(CorridorBuild.SLICE_MS));
         ms.measure += this.now() - t;
         if (done) break;
-        report({ step: MEASURE_STEP, percent: percentOf(run.progress) });
+        report({ step: 'measure', percent: percentOf(run.progress) });
         await this.nextFrame();
         const why = stopped();
         if (why) {
@@ -337,7 +336,7 @@ export class CorridorBuild {
       const spawns = this.deps.store.spawnPoints();
       const grid = this.deps.grid;
       const before = corridorTrace.enabled ? this.snapshot() : null;
-      report({ step: BUILD_STEP, percent: null });
+      report({ step: 'build', percent: null });
       const t0 = this.now();
       const band = traced(() => corridorTrace.within('band', () => {
         // The band is looked for along the street's own line, so the routes stand there first.
@@ -511,7 +510,7 @@ export class CorridorBuild {
     work: () => void,
     back: boolean,
   ): Promise<boolean> {
-    report({ step: FALLBACK_STEP, percent: null });
+    report({ step: 'fallback', percent: null });
     const stop = () => stopped() !== null;
     tiles.setRegionErrorTarget(ROUTE_CORRIDOR_COARSE_ERROR_TARGET);
     // Only a stop owes the way back; on the way through it is set once, below.

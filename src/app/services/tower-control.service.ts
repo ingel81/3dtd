@@ -25,7 +25,7 @@ import { projectileSoundId } from '../managers/projectile.manager';
 import type { Tower } from '../entities/tower.entity';
 import type { ThreeTilesEngine } from '../three-engine';
 import type { CoordinateSync } from '../three-engine/renderers';
-import { I18n } from '../i18n/i18n.service';
+import { injectT } from '../i18n/i18n.service';
 import { towerName } from '../i18n/lookups';
 
 /** Where the camera was before the player got in */
@@ -88,7 +88,7 @@ export class TowerControlService {
   private readonly uiStore = inject(UIStore);
   private readonly store = inject(TowerDefenseStore);
   private readonly announcer = inject(LiveAnnouncer);
-  private readonly t = inject(I18n).t;
+  private readonly t = injectT();
 
   /** The player sits in a tower */
   readonly active = computed(() => this.store.mannedTowerId() !== null);

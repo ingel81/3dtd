@@ -21,6 +21,7 @@ import type { VizCallbacks } from './location-facade.service';
 import type { SavedSpawn } from '../../models/location.types';
 import { UIStore } from '../../store/ui.store';
 import { OverpassError, isOverpassCancelled } from '../../world/osm/overpass-client';
+import { injectT } from '../../i18n/i18n.service';
 
 /** What a relocation needs from the location facade, read at the moment it is needed. */
 export interface RelocationHost {
@@ -32,21 +33,6 @@ export interface RelocationHost {
   addSpawnPoint(id: string, name: string, lat: number, lon: number, color: number, portalBearing?: number): void;
 }
 
-/** Title of the hint over the map while the HQ moves */
-const MOVING_HQ = 'Moving HQ';
-
-/** What the player reads when the streets around a moved HQ did not load; the HQ stays */
-export const HQ_STREETS_FAILED =
-  'The streets there did not load: the map server is busy or out of reach. The HQ stays where it is; try again in a minute.';
-
-/** Title of the hint over the map while the spawn moves */
-const MOVING_SPAWN = 'Moving spawn';
-
-/** Title of the hint over the map while lanes open or close before wave 1 */
-const SWITCHING_LANES = 'Switching lanes';
-
-/** Title of the hint over the map while a spawn is added */
-const ADDING_SPAWN = 'Adding spawn';
 
 /** Random street points drawn for an added spawn; the one furthest round from the others wins */
 const RANDOM_SPAWN_CANDIDATES = 8;
@@ -61,6 +47,7 @@ const RANDOM_SPAWN_CANDIDATES = 8;
 @Injectable({ providedIn: 'root' })
 export class MapRelocationService {
   private readonly worldContext = inject(WorldContext);
+  private readonly t = injectT();
   private readonly markerViz = inject(MarkerVisualizationService);
   private readonly pathRoute = inject(PathAndRouteService);
   private readonly world = inject(MainWorldService);
@@ -165,7 +152,7 @@ export class MapRelocationService {
       // (as a random spawn of a place chosen in the menu). The Overpass
       // servers and their retries (up to 90 s) before the loading screen: say
       // so, and when they are asked again (RelocationStatusComponent).
-      this.relocationStatus.show(MOVING_HQ, 'Loading streets', true);
+      this.relocationStatus.show(this.t().hud.world.movingHq, this.t().hud.world.loadingStreets, true);
       try {
         const newNetwork = await this.worldContext.streets.loadStreets(lat, lon, STREET_RADIUS_M);
         times.lap('streets');
@@ -203,7 +190,7 @@ export class MapRelocationService {
         if (error instanceof OverpassError) {
           console.warn('[Relocation] the streets around the new HQ did not load:', error.message);
           this.relocationStatus.clear();
-          this.uiStore.notice.set({ text: HQ_STREETS_FAILED, tone: 'warn' });
+          this.uiStore.notice.set({ text: this.t().hud.world.hqStreetsFailed, tone: 'warn' });
           return;
         }
         // No streets there: the fallback spawn, the change says what is wrong
@@ -253,7 +240,7 @@ export class MapRelocationService {
     const clickedAt = performance.now();
     // Nothing paints while the work below runs: show the hint and let it
     // paint first. The component may go away meanwhile, so read it again.
-    this.relocationStatus.show(MOVING_HQ, 'Finding the route');
+    this.relocationStatus.show(this.t().hud.world.movingHq, this.t().hud.world.findingRoute);
     await this.relocationStatus.painted();
     const context = this.inPlaceContext(host);
     if (!context) {
@@ -475,7 +462,7 @@ export class MapRelocationService {
     const entries = spawns.map((spawn, i) => ({
       id: `spawn-${i + 1}`, name: 'Spawn', lat: spawn.lat, lon: spawn.lon, color: SPAWN_COLORS[i], portalBearing: spawn.portalBearing,
     }));
-    return this.rebuildSpawns(entries, spawns, host, MOVING_SPAWN);
+    return this.rebuildSpawns(entries, spawns, host, this.t().hud.world.movingSpawn);
   }
 
   /**
@@ -492,7 +479,7 @@ export class MapRelocationService {
       id: spawn.id, name: spawn.name, lat: spawn.lat, lon: spawn.lon,
       color: SPAWN_COLORS[(spawn.slot ?? i) % SPAWN_COLORS.length], portalBearing: undefined,
     }));
-    return this.rebuildSpawns(entries, entries.map(({ lat, lon }) => ({ lat, lon })), host, SWITCHING_LANES);
+    return this.rebuildSpawns(entries, entries.map(({ lat, lon }) => ({ lat, lon })), host, this.t().hud.world.switchingLanes);
   }
 
   /** Steps 2 to 8 of applySpawns: these spawns in place of the ones there, the run and the corridor anew */
@@ -539,7 +526,7 @@ export class MapRelocationService {
     // route animation starts on the routes it froze.
     const viz = host.vizCallbacks();
     if (!viz) return true;
-    this.relocationStatus.show(title, 'Finding the route');
+    this.relocationStatus.show(title, this.t().hud.world.findingRoute);
     const hint = this.relocationStatus.follow();
     const result = await viz.buildCorridor('spawn moved in place', hint.report);
     hint.end();
@@ -594,7 +581,7 @@ export class MapRelocationService {
 
     const viz = host.vizCallbacks();
     if (!viz) return true;
-    this.relocationStatus.show(ADDING_SPAWN, 'Finding the route');
+    this.relocationStatus.show(this.t().hud.world.addingSpawn, this.t().hud.world.findingRoute);
     const hint = this.relocationStatus.follow();
     const result = await viz.buildCorridor('spawn added', hint.report);
     hint.end();

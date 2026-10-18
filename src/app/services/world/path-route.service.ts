@@ -41,20 +41,8 @@ import { RouteWayRun, describeRouteWays, describeStreetTags } from './route-way-
 import { RouteLineLayer } from './route-line-layer';
 import { corridorTrace } from '../../utils/corridor-trace';
 import { ClearanceRun, type ClearanceSegment } from './clearance-run';
+import { injectT } from '../../i18n/i18n.service';
 
-/** No spawn point of the place has a route to the HQ: no enemy could come, so no wave starts (TODO E232) */
-export const NO_ROUTE_TEXT = 'No route possible between HQ and spawn. The streets are not connected.';
-
-/**
- * Some spawn points of the place have no route to the HQ: they stay, but send
- * no enemies (spawnsWithRoutes); the others carry the waves.
- */
-export function unroutedSpawnsText(names: readonly string[]): string {
-  const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
-  return names.length === 1
-    ? `No street leads from ${list} to the HQ: it sends no enemies, the other spawns carry the waves.`
-    : `No street leads from ${list} to the HQ: they send no enemies, the other spawns carry the waves.`;
-}
 
 /**
  * What the routes need of the world's streets (WorldStreetSource: OsmStreetService, DevStreetProvider)
@@ -254,6 +242,7 @@ export interface CorridorExplanation {
 @Injectable({ providedIn: 'root' })
 export class PathAndRouteService {
   private readonly uiStore = inject(UIStore);
+  private readonly t = injectT();
   private readonly globalRouteGrid = inject(GlobalRouteGridService);
 
   // ========================================
@@ -446,7 +435,7 @@ export class PathAndRouteService {
     const missing = spawns.filter((spawn) => !routed.has(spawn.id));
     if (missing.length === 0) return;
     console.warn(`[Routes] No route to the HQ from ${missing.map((spawn) => spawn.id).join(', ')}: no lane`);
-    this.uiStore.notice.set({ text: unroutedSpawnsText(missing.map((spawn) => spawn.name)), tone: 'warn', lasting: true });
+    this.uiStore.notice.set({ text: this.t().hud.world.unrouted(missing.map((spawn) => spawn.name)), tone: 'warn', lasting: true });
   }
 
   /** The street lookup for the current network, see {@link StreetEdgeIndex}. */

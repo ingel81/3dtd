@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { BossIntroService } from '../../services/boss-intro.service';
 import { BOSS_INTRO_TIMING } from '../../utils/boss-intro';
-import { I18n } from '../../i18n/i18n.service';
+import { injectT } from '../../i18n/i18n.service';
 
 /**
  * What the boss intro puts over the canvas (BossIntroService): a dark veil
@@ -156,7 +156,7 @@ import { I18n } from '../../i18n/i18n.service';
   `],
 })
 export class BossIntroComponent {
-  protected readonly t = inject(I18n).t;
+  protected readonly t = injectT();
   private readonly bossIntro = inject(BossIntroService);
 
   readonly card = this.bossIntro.card;

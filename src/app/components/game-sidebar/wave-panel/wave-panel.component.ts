@@ -47,7 +47,7 @@ import { WaveTimelineComponent } from './wave-timeline.component';
 import { ReplayService } from '../../../services/replay.service';
 import { COOP } from '../../../services/coop.token';
 import { enemyPreviewConfig } from '../../../services/infrastructure/preview-sheets';
-import { I18n } from '../../../i18n/i18n.service';
+import { injectT } from '../../../i18n/i18n.service';
 import type { WaveGroupDisplay } from '../../../services/debug/wave-debug.service';
 import type { TdTooltipData } from '../../tooltip/tooltip-data.types';
 
@@ -88,7 +88,7 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   /** Coop, where the game runs one: the button means ready (D15) */
   private readonly coop = inject(COOP, { optional: true });
   readonly replay = inject(ReplayService);
-  protected readonly t = inject(I18n).t;
+  protected readonly t = injectT();
 
   constructor() {
     // Update enemy group previews when wave groups change

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Injector, runInInjectionContext, signal } from '@angular/core';
 
-import { HQ_STREETS_FAILED, MapRelocationService, RelocationHost } from './map-relocation.service';
+import { MapRelocationService, RelocationHost } from './map-relocation.service';
 import { MarkerVisualizationService, SpawnPoint } from '../world/marker-visualization.service';
 import { PathAndRouteService } from '../world/path-route.service';
 import { LocationManagementService } from '../location/location-management.service';
@@ -19,6 +19,7 @@ import { WorldContext } from '../../world/world-context.service';
 import { fakeWorldContext } from '../../../test/world-context-fake';
 import { UIStore, type UiNotice } from '../../store/ui.store';
 import { OverpassError } from '../../world/osm/overpass-client';
+import { en } from '../../i18n/messages/en';
 
 /**
  * The relocation flows against a fake host. The location facade spec runs
@@ -276,7 +277,7 @@ describe('MapRelocationService', () => {
     expect(coordinator.applyNewLocation).not.toHaveBeenCalled();
     expect(world.resetRun).not.toHaveBeenCalled();
     expect(relocationStatus.clear).toHaveBeenCalled();
-    expect(uiStore.notice()).toEqual({ text: HQ_STREETS_FAILED, tone: 'warn' });
+    expect(uiStore.notice()).toEqual({ text: en.hud.world.hqStreetsFailed, tone: 'warn' });
   });
 
   it('does nothing more when its street load was cancelled (the world went, a place was chosen instead)', async () => {

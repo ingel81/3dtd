@@ -4,7 +4,7 @@ import { GameStore } from '../../store/game.store';
 import { GAME_SPEEDS } from '../../configs/game-speed.config';
 import { TdIconComponent } from '../icon/icon.component';
 import { COOP } from '../../services/coop.token';
-import { I18n } from '../../i18n/i18n.service';
+import { injectT } from '../../i18n/i18n.service';
 
 @Component({
   selector: 'app-game-speed',
@@ -64,7 +64,7 @@ import { I18n } from '../../i18n/i18n.service';
   `
 })
 export class GameSpeedComponent {
-  protected readonly t = inject(I18n).t;
+  protected readonly t = injectT();
   private gameStore = inject(GameStore);
 
   /** Coop: the speed belongs to the host (D15), the pause to whom the room lets (D38) */

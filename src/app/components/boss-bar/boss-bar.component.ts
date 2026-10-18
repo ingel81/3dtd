@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, DestroyRef, NgZone, inject, signal 
 import { SimClient } from '../../sim/client/sim-client.service';
 import type { EnemyView, WormGroupView } from '../../sim/client/views';
 import { BossBarView, BossSample, bossBarView, sameBossBar, wormBossSample } from './boss-bar';
-import { I18n } from '../../i18n/i18n.service';
+import { injectT } from '../../i18n/i18n.service';
 import { enemyName } from '../../i18n/lookups';
 
 /** Poll interval for the boss HP; 8 Hz reads as live */
@@ -32,7 +32,7 @@ const POLL_MS = 125;
 })
 export class BossBarComponent {
   private readonly sim = inject(SimClient);
-  private readonly t = inject(I18n).t;
+  private readonly t = injectT();
 
   readonly view = signal<BossBarView | null>(null);
 

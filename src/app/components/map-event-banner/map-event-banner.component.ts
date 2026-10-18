@@ -5,7 +5,7 @@ import { GameStore } from '../../store/game.store';
 import { WorldContext } from '../../world/world-context.service';
 import { TdIconComponent } from '../icon/icon.component';
 import { waveEventLines } from './map-event-banner';
-import { I18n } from '../../i18n/i18n.service';
+import { injectT } from '../../i18n/i18n.service';
 
 /** In fast, a while on screen, out slower (as the blood moon banner) */
 const BANNER_FADE: Keyframe[] = [
@@ -54,7 +54,7 @@ const BANNER_MAX_MS = 12000;
   ],
 })
 export class MapEventBannerComponent {
-  protected readonly t = inject(I18n).t;
+  protected readonly t = injectT();
   private readonly chip = viewChild<ElementRef<HTMLElement>>('chip');
   private readonly announcer = inject(LiveAnnouncer);
   private run: Animation | null = null;

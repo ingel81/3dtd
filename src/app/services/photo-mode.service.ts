@@ -11,6 +11,7 @@ import { TowerPlacementService } from './tower-placement.service';
 import { AbilityTargetingService } from './ability-targeting.service';
 import { SCREENSHOT_URL, downloadCanvasPng, loadImage, screenshotFileName, stampScreenshot } from '../utils/screenshot';
 import { cycleTab, focusedElement } from '../utils/focus-cycle';
+import { injectT } from '../i18n/i18n.service';
 
 /** The game's logo, the watermark of a saved picture */
 /** How long the photo bar names the saved file */
@@ -31,6 +32,7 @@ const BRAND_LOGO = 'assets/images/logo/logo.png';
 @Injectable()
 export class PhotoModeService {
   private readonly uiStore = inject(UIStore);
+  private readonly t = injectT();
   private readonly store = inject(TowerDefenseStore);
   private readonly selection = inject(TowerSelectionService);
   private readonly towerPlacement = inject(TowerPlacementService);
@@ -73,7 +75,7 @@ export class PhotoModeService {
     this.engineInit.getEngine()?.towerBadges.setVisible(false);
     this.uiStore.openMenu.set(null);
     this.active.set(true);
-    this.announcer.announce('Photo mode. Esc leaves it.');
+    this.announcer.announce(this.t().hud.world.photoOn);
     this.afterLayout(() => this.barControls()[0]?.focus());
   }
 
@@ -84,7 +86,7 @@ export class PhotoModeService {
     this.uiStore.openMenu.set(this.menuBefore);
     const focus = this.focusBefore;
     this.focusBefore = null;
-    this.announcer.announce('Photo mode left.');
+    this.announcer.announce(this.t().hud.world.photoOff);
     this.afterLayout(() => {
       if (focus?.isConnected) focus.focus();
     });
@@ -135,7 +137,7 @@ export class PhotoModeService {
   private showSaved(fileName: string): void {
     clearTimeout(this.savedTimer);
     this.savedAs.set(fileName);
-    this.announcer.announce(`Screenshot saved: ${fileName}`);
+    this.announcer.announce(this.t().hud.world.screenshotSaved(fileName));
     this.savedTimer = setTimeout(() => this.savedAs.set(null), SAVED_NOTE_MS);
   }
 

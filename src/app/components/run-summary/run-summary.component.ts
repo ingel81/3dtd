@@ -1,8 +1,8 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { RunSummary } from '../../run-log/run-summary';
 import { formatClock } from '../../utils/format-clock';
 import { formatCompact } from '../../utils/format-compact';
-import { I18n } from '../../i18n/i18n.service';
+import { injectT } from '../../i18n/i18n.service';
 import type { TowerTypeId } from '../../configs/tower-types.config';
 
 /** One bar of the leaks-per-wave row */
@@ -32,7 +32,7 @@ interface LeakBar {
 })
 export class RunSummaryComponent {
   readonly summary = input.required<RunSummary>();
-  protected readonly t = inject(I18n).t;
+  protected readonly t = injectT();
 
   /** A tower type's name; one this build does not know (an older log) by its id */
   protected towerName(type: string): string {

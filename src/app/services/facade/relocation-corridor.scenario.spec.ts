@@ -34,6 +34,7 @@ import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
 import { makeNetwork } from '../../../test/route-network-fixture';
 import type { ThreeTilesEngine } from '../../three-engine';
 import type { StationProbe } from '../../utils/route-corridor';
+import { en } from '../../i18n/messages/en';
 
 const ORIGIN = { lat: 48.0, lon: 9.0 };
 const M_PER_DEG_LON = METERS_PER_DEGREE_LAT * Math.cos(ORIGIN.lat * DEG_TO_RAD);
@@ -184,7 +185,7 @@ describe('Moving the HQ while the corridor is built (playtest 543)', () => {
       }) as never,
       vizCallbacks: () => ({
         initializeVisualizationServices: initRoutes,
-        buildCorridor: (reason, report) => corridor.build(reason, report),
+        buildCorridor: (reason, report) => corridor.build(reason, ({ step, percent }) => report({ step: en.hud.corridor[step], percent })),
         initializeTowerPlacement: vi.fn(),
         filterStreetNetworkToRoutes: vi.fn(),
         scheduleOverlayHeightUpdate: vi.fn(),

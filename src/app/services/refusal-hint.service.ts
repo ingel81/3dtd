@@ -8,7 +8,7 @@ import { UIStore } from '../store/ui.store';
 import { UPGRADE_HINT_MS } from './upgrade-hint.service';
 import { uiSound } from './ui-sound';
 import { refuseForCredits } from './credits-refusal';
-import { I18n } from '../i18n/i18n.service';
+import { injectT } from '../i18n/i18n.service';
 import type { Messages } from '../i18n/messages/en';
 
 /** A refused press on an ability or the hero: whose, and why. */
@@ -88,7 +88,7 @@ export function heroRefusalText(t: Messages, reason: HeroRejectReason, credits: 
 export class RefusalHintService {
   private readonly store = inject(TowerDefenseStore);
   private readonly uiStore = inject(UIStore);
-  private readonly t = inject(I18n).t;
+  private readonly t = injectT();
 
   /** The last refusal, null once UPGRADE_HINT_MS have passed or a pointer mode started */
   readonly refusal = signal<Refusal | null>(null);
