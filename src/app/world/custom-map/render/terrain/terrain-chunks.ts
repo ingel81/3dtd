@@ -137,7 +137,18 @@ export interface TerrainChunkOptions {
    * `heightAt`, which is the finest level.
    */
   lodDistance?: number;
+  /**
+   * Cells of geometry (at their level's step) built at most per update: a
+   * view starts every chunk at the coarsest level and refines the nearest
+   * first, a few chunks a frame, instead of building the finest level of all
+   * of them in the frame it opens (45 ms on a 2048 m map in a dev build).
+   * Levels built once are kept and switch freely.
+   */
+  buildCells?: number;
 }
+
+/** Cells built per update by default: about eight chunks of the finest level */
+const BUILD_CELLS = 8 * 64 * 64;
 
 /** One level of detail of a chunk: its geometry and the cells whose diagonal waits to be picked anew */
 interface Level {
@@ -207,6 +218,9 @@ export class TerrainChunks {
   private readonly chunkCells: number;
   private readonly maxLod: number;
   private readonly lodDistance: number;
+  private readonly buildCells: number;
+  /** Chunks whose wanted level waits to be built, with their distance (update's scratch, kept) */
+  private readonly waiting: { c: Chunk; lod: number; d: number }[] = [];
   private readonly tmp = new Vector3();
   private readonly ray = new Ray();
   private readonly inverse = new Matrix4();
@@ -221,6 +235,7 @@ export class TerrainChunks {
     this.chunkCells = options.chunkCells ?? 64;
     this.maxLod = options.maxLod ?? 3;
     this.lodDistance = options.lodDistance ?? 3.5;
+    this.buildCells = options.buildCells ?? BUILD_CELLS;
     if (this.chunkCells % (1 << this.maxLod)) throw new Error('Chunks must start on samples of every level');
     this.across = Math.ceil((field.columns - 1) / this.chunkCells);
     this.uniforms = { ...heights.uniforms, uMorphEye: this.morphEye, uMorphFocus: this.morphFocus };
@@ -263,8 +278,37 @@ export class TerrainChunks {
       // Coarser only when clearly past the threshold, so a chunk on the line does not flip every frame
       let lod = this.levelFor(d);
       if (lod > c.lod && this.levelFor(d * 0.9) <= c.lod) lod = c.lod;
-      if (lod !== c.lod) this.setLevel(c, lod);
+      if (lod === c.lod) continue;
+      if (c.levels[lod]) this.setLevel(c, lod);
+      else this.waiting.push({ c, lod, d });
     }
+    this.buildWaiting();
+  }
+
+  /** Whether every chunk shows the level it wants (none waits to be built) */
+  get settled(): boolean {
+    return this.unsettled === 0;
+  }
+
+  /** Chunks still waiting for their level after the last update; -1 before the first */
+  private unsettled = -1;
+
+  /** Builds the waiting levels nearest first, within the cells an update may build; the rest wait for the next */
+  private buildWaiting(): void {
+    const waiting = this.waiting;
+    this.unsettled = waiting.length;
+    if (!waiting.length) return;
+    waiting.sort((a, b) => a.d - b.d);
+    let budget = this.buildCells;
+    for (const w of waiting) {
+      const cells = ((w.c.i1 - w.c.i0) * (w.c.j1 - w.c.j0)) >> (2 * w.lod);
+      // The first always goes in, so a budget below a chunk still moves on
+      if (budget < cells && budget < this.buildCells) break;
+      budget -= cells;
+      this.setLevel(w.c, w.lod);
+      this.unsettled--;
+    }
+    waiting.length = 0;
   }
 
   /** Level for a distance in units of `lodDistance` chunk edges: 0 below 1, then one more per doubling */
@@ -343,7 +387,8 @@ export class TerrainChunks {
         c.mesh.raycast = noRaycast;
         c.mesh.userData['losVertex'] = this.losVertex;
         this.computeBox(c);
-        this.setLevel(c, 0);
+        // The coarsest level at first, cheap for all; update refines the near ones (buildCells a frame)
+        this.setLevel(c, this.maxLod);
         this.chunks.push(c);
         this.group.add(c.mesh);
       }

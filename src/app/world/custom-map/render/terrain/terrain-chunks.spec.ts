@@ -5,7 +5,36 @@ import { mapToScene } from '../map-coords';
 import { HeightTexture } from './height-texture';
 import { TerrainChunks } from './terrain-chunks';
 
+/** Updates until every chunk shows the level it wants (a few chunks are built each update) */
+function settle(chunks: TerrainChunks, eye: Vector3, focus?: Vector3): void {
+  for (let k = 0; k < 100 && !(k > 0 && chunks.settled); k++) chunks.update(eye, focus);
+}
+
 describe('TerrainChunks', () => {
+  /** A view's first frame built the finest level of every chunk of the map (45 ms on 2048 m in a dev build) */
+  it('starts at the coarsest level and refines the nearest chunks first, a few each update', () => {
+    const n = 513;
+    const field = new HeightField({ columns: n, rows: n, cellSize: 2, heights: new Float32Array(n * n) }, 1024, 1024);
+    const chunks = new TerrainChunks(field, new HeightTexture(field), new MeshBasicMaterial(), { buildCells: 2 * 64 * 64 });
+    chunks.group.updateMatrixWorld();
+    const cells = () => chunks.meshes.map((m) => (m as Mesh<BufferGeometry>).geometry.getIndex()!.count / 6);
+    // Every chunk at step 8: 8 x 8 cells and its skirts
+    expect(new Set(cells())).toEqual(new Set([cells()[0]]));
+    expect(cells()[0]).toBeLessThan(200);
+    expect(chunks.settled).toBe(false);
+    // Low over the map's corner (-512, -512): the chunk there first
+    const eye = mapToScene(-500, -500, 20, new Vector3());
+    chunks.update(eye, eye);
+    const first = cells();
+    expect(first[0]).toBeGreaterThan(64 * 64);
+    expect(first.filter((c) => c > 64 * 64).length).toBeLessThanOrEqual(2);
+    settle(chunks, eye, eye);
+    const ref = new TerrainChunks(field, new HeightTexture(field), new MeshBasicMaterial(), { buildCells: Infinity });
+    ref.group.updateMatrixWorld();
+    ref.update(eye, eye);
+    expect(cells()).toEqual(ref.meshes.map((m) => (m as Mesh<BufferGeometry>).geometry.getIndex()!.count / 6));
+  });
+
   it('keeps the finest, unmorphed level under a game camera, where units stand on heightAt', () => {
     // 1 km at 2 m cells, a game camera 200 m above the map's centre
     const n = 513;
@@ -14,7 +43,7 @@ describe('TerrainChunks', () => {
     chunks.group.updateMatrixWorld();
     const eye = mapToScene(0, -120, 200, new Vector3());
     const ground = mapToScene(0, 0, 0, new Vector3());
-    chunks.update(eye, ground);
+    settle(chunks, eye, ground);
     expect(chunks.morphEye.value.distanceTo(eye)).toBeCloseTo(0);
     expect(chunks.morphFocus.value.distanceTo(ground)).toBeCloseTo(0);
     for (const mesh of chunks.meshes as Mesh<BufferGeometry>[]) {
@@ -73,6 +102,8 @@ describe('TerrainChunks skirts', () => {
     const heights = new Float32Array(n * n).map((_, k) => Math.cos(k * 0.21) * 4);
     const field = new HeightField({ columns: n, rows: n, cellSize: 2, heights }, 128, 128);
     const chunks = new TerrainChunks(field, new HeightTexture(field), new MeshBasicMaterial());
+    chunks.group.updateMatrixWorld();
+    settle(chunks, mapToScene(0, 0, 5, new Vector3()));
     const g = (chunks.meshes[0] as Mesh<BufferGeometry>).geometry;
     const pos = g.getAttribute('position');
     const lift = g.getAttribute('aSkirt');

@@ -180,10 +180,17 @@ describe('one height model', () => {
   });
 });
 
+/** A camera low over the middle: every chunk at the finest level, updated until all are built */
+function finest(chunks: TerrainChunks): TerrainChunks {
+  const eye = new Vector3(0, 5, 0);
+  for (let k = 0; k < 100 && !(k > 0 && chunks.settled); k++) chunks.update(eye, eye);
+  return chunks;
+}
+
 describe('TerrainChunks', () => {
   it('draws the surface heightAt reports, at the finest level', () => {
     const f = field(33, 33, 4, (i, j) => Math.sin(i * 0.7) * 6 + Math.cos(j * 0.4) * 4);
-    const chunks = new TerrainChunks(f, new HeightTexture(f), new MeshBasicMaterial(), { chunkCells: 16 });
+    const chunks = finest(new TerrainChunks(f, new HeightTexture(f), new MeshBasicMaterial(), { chunkCells: 16 }));
     expect(chunks.meshes.length).toBe(4);
     for (const [mx, my] of [
       [3.3, -7.9],
@@ -199,7 +206,7 @@ describe('TerrainChunks', () => {
     const wall = (cx: number, raised: boolean) => (i: number, j: number) =>
       (Math.hypot(i - cx, j - 16) < 9) === raised ? 20 : 0;
     const f = field(33, 33, 2, wall(14, true));
-    const chunks = new TerrainChunks(f, new HeightTexture(f), new MeshBasicMaterial(), { chunkCells: 16 });
+    const chunks = finest(new TerrainChunks(f, new HeightTexture(f), new MeshBasicMaterial(), { chunkCells: 16 }));
     const check = (): void => {
       let n = 0;
       for (let y = -30; y <= 30; y += 0.73) {
@@ -222,8 +229,9 @@ describe('TerrainChunks', () => {
   it('switches far chunks to coarser levels and keeps fine ones near', () => {
     const f = field(129, 129, 2, () => 0);
     const chunks = new TerrainChunks(f, new HeightTexture(f), new MeshBasicMaterial(), { chunkCells: 32 });
-    const fine = chunks.meshes[0].geometry.index!.count;
-    chunks.update(new Vector3(120, 10, -120)); // above map corner (-120, -120)
+    const fine = finest(new TerrainChunks(f, new HeightTexture(f), new MeshBasicMaterial(), { chunkCells: 32 })).meshes[0].geometry.index!.count;
+    const corner = new Vector3(120, 10, -120); // above map corner (-120, -120)
+    for (let k = 0; k < 100 && !(k > 0 && chunks.settled); k++) chunks.update(corner);
     const counts = chunks.meshes.map((m) => m.geometry.index!.count);
     expect(counts[0]).toBe(fine);
     expect(Math.min(...counts)).toBeLessThan(fine);
