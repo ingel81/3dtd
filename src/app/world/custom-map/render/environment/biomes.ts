@@ -26,6 +26,8 @@ export interface SkyPreset {
   cloudShadow: number;
   /** Grade: contrast, saturation, tint */
   grade: [number, number, number];
+  /** 0..1 how much the night's light floor and moon rim show on the map's surfaces (height-fog.ts) */
+  nightLight: number;
 }
 
 export type AmbientParticles = 'embers' | 'ash' | 'dust' | 'snow' | null;
@@ -50,10 +52,11 @@ export interface BiomeLook extends SkyPreset {
    */
   glowColor?: number;
   /**
-   * How far land beyond the map's border sinks into the haze (default 0.97): without air (the moon) the haze is
-   * black and the backdrop range would vanish into it
+   * The ground haze's own colour (sRGB hex) and how far it replaces the sky's, 0..1: a swamp's pale mist, a
+   * ruined city's dust (height-fog.ts uFogMist)
    */
-  beyondHaze?: number;
+  mist?: number;
+  mistAmount?: number;
 }
 
 export const SKY_PRESETS: Record<MapEnvironment['sky'], SkyPreset> = {
@@ -73,6 +76,7 @@ export const SKY_PRESETS: Record<MapEnvironment['sky'], SkyPreset> = {
     cloudColor: 0xffffff,
     cloudShadow: 0x9aa6b4,
     grade: [1.1, 1.02, 0xfffaf4],
+    nightLight: 0,
   },
   dusk: {
     zenith: 0x2a3c6e,
@@ -90,6 +94,7 @@ export const SKY_PRESETS: Record<MapEnvironment['sky'], SkyPreset> = {
     cloudColor: 0xffd2b0,
     cloudShadow: 0x6a5a68,
     grade: [1.1, 1.0, 0xffe8d8],
+    nightLight: 0.3,
   },
   night: {
     zenith: 0x060b1c,
@@ -107,6 +112,7 @@ export const SKY_PRESETS: Record<MapEnvironment['sky'], SkyPreset> = {
     cloudColor: 0x3a4460,
     cloudShadow: 0x141a28,
     grade: [1.1, 0.8, 0xdfe6ff],
+    nightLight: 1,
   },
   overcast: {
     zenith: 0x8a96a2,
@@ -124,6 +130,7 @@ export const SKY_PRESETS: Record<MapEnvironment['sky'], SkyPreset> = {
     cloudColor: 0xd8dde2,
     cloudShadow: 0x7d858e,
     grade: [1.04, 0.85, 0xf4f6f8],
+    nightLight: 0,
   },
 };
 
@@ -161,7 +168,7 @@ function mixHex(a: number, b: number, t: number): number {
 }
 
 const LOOK_COLOURS = ['zenith', 'horizon', 'ground', 'sun', 'hemiSky', 'hemiGround', 'cloudColor', 'cloudShadow'] as const;
-const LOOK_NUMBERS = ['sunIntensity', 'hemiIntensity', 'ambient', 'envIntensity', 'glow', 'cover', 'fogScale', 'fogFalloff', 'stars', 'aurora', 'exposure', 'beyondHaze'] as const;
+const LOOK_NUMBERS = ['sunIntensity', 'hemiIntensity', 'ambient', 'envIntensity', 'glow', 'cover', 'fogScale', 'fogFalloff', 'stars', 'aurora', 'exposure', 'nightLight', 'mistAmount'] as const;
 
 /**
  * Two looks mixed by `t` (0 = `from`, 1 = `to`): colours per channel, numbers linear; what has no middle
@@ -180,6 +187,7 @@ export function mixLook(from: BiomeLook, to: BiomeLook, t: number): BiomeLook {
   look.grade = [from.grade[0] * (1 - k) + to.grade[0] * k, from.grade[1] * (1 - k) + to.grade[1] * k, mixHex(from.grade[2], to.grade[2], k)];
   look.split = [mixHex(from.split[0], to.split[0], k), mixHex(from.split[1], to.split[1], k)];
   if (from.glowColor !== undefined && to.glowColor !== undefined) look.glowColor = mixHex(from.glowColor, to.glowColor, k);
+  if (from.mist !== undefined && to.mist !== undefined) look.mist = mixHex(from.mist, to.mist, k);
   return look;
 }
 
@@ -242,7 +250,6 @@ function biomeLookUnclamped(biome: MapBiome | undefined, sky: MapEnvironment['sk
         grade: [1.15, 0.7, 0xffffff],
         fogScale: 0,
         stars: 1,
-        beyondHaze: 0.6,
       };
     case 'mars':
       // Mars as the rovers see it: a butterscotch sky by day, pale and greyish rather than red, and
@@ -291,7 +298,7 @@ function biomeLookUnclamped(biome: MapBiome | undefined, sky: MapEnvironment['sk
       return {
         ...p,
         ...PLAIN,
-        split: [0xe6e2ee, 0xfff2d6],
+        split: [0xd8dcf0, 0xfff0cc],
         zenith: night ? 0x0c0c0a : 0x6a6650,
         horizon: night ? 0x262420 : 0xaaa486,
         ground: 0x3a3830,
@@ -304,8 +311,12 @@ function biomeLookUnclamped(biome: MapBiome | undefined, sky: MapEnvironment['sk
         cover: 0.15,
         cloudColor: 0x8a8670,
         cloudShadow: 0x3a382e,
-        grade: [1.12, 0.55, 0xf4ecd8],
+        // Harder light and shade, the dust thick on the ground and thin above it: the ruins read from the game camera
+        grade: [1.2, 0.62, 0xf4ecd8],
         fogScale: 2.6,
+        fogFalloff: 1 / 30,
+        mist: night ? 0x2a2822 : 0x9c8e6c,
+        mistAmount: 0.7,
         particles: 'ash',
       };
     case 'swamp':
@@ -323,6 +334,9 @@ function biomeLookUnclamped(biome: MapBiome | undefined, sky: MapEnvironment['sk
         grade: [1.05, 0.85, 0xeef6e4],
         fogScale: 3.2,
         fogFalloff: 1 / 18,
+        // Pale mist on the water and in the reeds, moonlit at night: it reads as mist, not as darkness
+        mist: night ? 0x3c4e4a : dusk ? 0x8c8678 : 0xb4c0ac,
+        mistAmount: 0.85,
         stars: nightStars * 0.5,
       };
     case 'desert':

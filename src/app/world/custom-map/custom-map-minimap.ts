@@ -65,8 +65,8 @@ export function renderMinimapPicture(
   shown: ReadonlySet<Object3D>,
   area: MinimapArea,
   topHeight: number,
-  /** The map's own fog density uniform (HEIGHT_FOG_UNIFORMS.uFogDensity), cleared for the render */
-  mapFog: { value: number } | null = null,
+  /** The map's own fog density uniforms (HEIGHT_FOG_UNIFORMS: ground haze and thin air), cleared for the render */
+  mapFog: readonly { value: number }[] = [],
   /** The frames draw to the screen (no post-processing): sRGB out; else linear, converted here */
   screen = true,
 ): HTMLCanvasElement {
@@ -96,8 +96,8 @@ export function renderMinimapPicture(
   const fog = scene.fog;
   const density = fog instanceof FogExp2 ? fog.density : 0;
   const reach = fog instanceof Fog ? [fog.near, fog.far] : [0, 0];
-  const mapDensity = mapFog?.value ?? 0;
-  if (mapFog) mapFog.value = 0;
+  const mapDensity = mapFog.map((u) => u.value);
+  for (const u of mapFog) u.value = 0;
   if (fog instanceof FogExp2) fog.density = 0;
   if (fog instanceof Fog) {
     fog.near = 1e9;
@@ -116,7 +116,7 @@ export function renderMinimapPicture(
     renderer.readRenderTargetPixels(target, 0, 0, width, height, pixels);
   } finally {
     renderer.setRenderTarget(before);
-    if (mapFog) mapFog.value = mapDensity;
+    mapFog.forEach((u, i) => (u.value = mapDensity[i]));
     if (fog instanceof FogExp2) fog.density = density;
     if (fog instanceof Fog) [fog.near, fog.far] = reach;
     for (const child of hidden) child.visible = true;

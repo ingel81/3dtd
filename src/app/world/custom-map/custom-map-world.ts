@@ -212,7 +212,7 @@ export class CustomMapWorld implements WorldProvider {
   /** The map's own sky and weather, before its wave events change them */
   private readonly baseEnvironment: MapEnvironment;
   /** What the minimap picture renders: the scene and the children the map put into it */
-  private stage: { scene: Scene; renderer: WebGLRenderer; owned: Set<Object3D>; fog: { value: number }; drawsToTarget: () => boolean } | null = null;
+  private stage: { scene: Scene; renderer: WebGLRenderer; owned: Set<Object3D>; fog: readonly { value: number }[]; drawsToTarget: () => boolean } | null = null;
   private minimapPicture: HTMLCanvasElement | null = null;
   /** The map's lanes and their bounds (lane-choice.ts) */
   private readonly laneChoice: LaneChoice;
@@ -319,7 +319,7 @@ export class CustomMapWorld implements WorldProvider {
       scene: ctx.scene,
       renderer: ctx.renderer,
       owned: new Set(ctx.scene.children.filter((child) => !before.has(child))),
-      fog: HEIGHT_FOG_UNIFORMS.uFogDensity,
+      fog: [HEIGHT_FOG_UNIFORMS.uFogDensity, HEIGHT_FOG_UNIFORMS.uFogAirDensity],
       drawsToTarget: ctx.drawsToTarget,
     };
     // Over the HQ at the scene origin, controls that raycast the map's ground and roofs, analytically

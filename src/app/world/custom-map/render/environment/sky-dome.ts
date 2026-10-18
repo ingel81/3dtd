@@ -92,8 +92,6 @@ export class SkyDome {
         uSkyTime: { value: 0 },
         // How far the clouds have drifted with the wind (cloud plane units), integrated so a change of wind never jumps
         uCloudOffset: { value: new Vector2() },
-        // The haze colour (linear): the dome's foot fades into it, as the far land does
-        uSkyHaze: { value: new Color() },
         uStars: { value: 0 },
         // The planet's direction and its disc's radius (radians); 0 none
         uPlanetDir: { value: new Vector3(0, 1, 0) },
@@ -193,7 +191,6 @@ export class SkyDome {
     glow: number;
     cloudColor: Color;
     cloudShadow: Color;
-    haze: Color;
     stars?: number;
     /** A planet: its direction and the radius of its disc, radians */
     planet?: { dir: Vector3; radius: number } | null;
@@ -209,7 +206,6 @@ export class SkyDome {
     u['uGlow'].value = p.glow;
     u['uCloudColor'].value.copy(p.cloudColor);
     u['uCloudShadow'].value.copy(p.cloudShadow);
-    u['uSkyHaze'].value.copy(p.haze);
     u['uStars'].value = p.stars ?? 0;
     u['uPlanet'].value = p.planet ? p.planet.radius : 0;
     if (p.planet) u['uPlanetDir'].value.copy(p.planet.dir);
@@ -236,16 +232,15 @@ export class SkyDome {
 
   /**
    * A lightning flash lights the clouds from inside, most around `dir`
-   * (lightning.ts), and the haze at the dome's foot takes `haze` (the
-   * environment's, lifted by the flash). The water's sky texture bakes every
-   * frame while it lasts
+   * (lightning.ts); the haze at the dome's foot is the environment's ring,
+   * lifted by the flash there. The water's sky texture bakes every frame
+   * while it lasts
    */
-  setFlash(flash: number, dir: Vector3, haze: Color): void {
+  setFlash(flash: number, dir: Vector3): void {
     const u = this.mesh.material.uniforms;
     if (flash === 0 && u['uFlash'].value === 0) return;
     u['uFlash'].value = flash;
     u['uFlashDir'].value.copy(dir);
-    u['uSkyHaze'].value.copy(haze);
     this.bakeAge = SKY_BAKE_FRAMES;
   }
 
@@ -502,7 +497,6 @@ vec3 skyColor(vec3 dir, bool withSun) {
 const SKY_FRAGMENT = /* glsl */ `
 #include <common>
 varying vec3 vDir;
-uniform vec3 uSkyHaze;
 
 ${SHADER_NOISE}
 ${SKY_FUNCTIONS}
@@ -517,10 +511,9 @@ void main() {
   gl_FragColor = vec4(sky, 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
-  // The lowest few degrees fade into the haze the far land sinks into (height-fog.ts, same colour and
-  // the same pull towards the sun, in output space as there): no bright seam over the hills beyond
-  float sunward = pow(max(dot(dir, uFogSunDir), 0.0), 8.0);
-  vec3 haze = mix(linearToOutputTexel(vec4(uSkyHaze, 1.0)).rgb, linearToOutputTexel(vec4(uFogSunColor, 1.0)).rgb, sunward * 0.2);
+  // The lowest few degrees fade into the haze the far land sinks into (height-fog.ts hazeColor, the same colour
+  // in this direction, in output space as there): no seam over the hills beyond
+  vec3 haze = linearToOutputTexel(vec4(hazeColor(dir), 1.0)).rgb;
   gl_FragColor.rgb = mix(haze, gl_FragColor.rgb, smoothstep(-0.02, 0.1, dir.y));
   gl_FragColor.rgb = mapGrade(gl_FragColor.rgb);
 }
@@ -554,12 +547,14 @@ void main() {
 
 /**
  * Reads the baked sky (`uSkyTex`, linear) in a direction; below the
- * horizon the horizon's row. Without the sky dome's texture the haze.
+ * horizon the horizon's row. The lowest degrees fade into the haze as the
+ * dome's foot does (height-fog.ts hazeColor, needs HEIGHT_FOG_PARS): the
+ * clouds squeezed together there mirrored in a far sea as radial streaks.
  */
 export const SKY_TEXTURE_GLSL = /* glsl */ `
 uniform sampler2D uSkyTex;
 vec3 skyTex(vec3 dir) {
   vec2 uv = vec2(atan(dir.z, dir.x) / (2.0 * PI) + 0.5, asin(clamp(dir.y, 0.0, 1.0)) / (0.5 * PI));
-  return texture2D(uSkyTex, uv).rgb;
+  return mix(hazeColor(dir), texture2D(uSkyTex, uv).rgb, smoothstep(-0.02, 0.1, dir.y));
 }
 `;

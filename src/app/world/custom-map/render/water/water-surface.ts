@@ -456,8 +456,9 @@ export class WaterSurface {
     const positions: number[] = [];
     const depths: number[] = [];
     const indices: number[] = [];
-    // A river runs on a little way; a sea (most of the border wet) to the horizon
-    const rings = p.wetShare > 0.5 ? APRON_RINGS.length : APRON_RINGS.filter((d) => d <= RIVER_REACH).length;
+    // A river runs on a little way; a sea (a coast's stretch, or most of the border wet) to the horizon, over the
+    // floor the apron sinks there (ApronProfile.seaAt): ended at the river's reach, the sea floor showed past it
+    const riverRings = APRON_RINGS.filter((d) => d <= RIVER_REACH).length;
     const n = p.count;
     const wetBorder = (k: number): boolean => {
       const [x, y] = p.position(0, k);
@@ -480,6 +481,7 @@ export class WaterSurface {
     };
     for (let k = 0; k < n; k++) {
       if (p.wetShare <= 0.5 && (!wetBorder(k) || !wetBorder((k + 1) % n))) continue;
+      const rings = p.seaAt(k) && p.seaAt(k + 1) ? APRON_RINGS.length : riverRings;
       for (let r = 0; r < rings - 1; r++) {
         const a = apronVertex(r, k);
         const b = apronVertex(r, k + 1);

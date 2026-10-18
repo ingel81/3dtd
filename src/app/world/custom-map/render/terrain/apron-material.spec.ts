@@ -46,19 +46,14 @@ describe('ApronMaterial', () => {
     apron.onBeforeCompile(shader as never, {} as WebGLRenderer);
     const f = shader.fragmentShader;
     expect(f).toContain('float rangeShare');
-    // The range is painted after the terrain's albedo and before the fog reads the keep
-    expect(f.indexOf('apronHazeKeep = 1.0 - uApronClear')).toBeLessThan(f.indexOf('diffuseColor.rgb = albedo;'));
-    expect(f).toContain('#define FOG_BEYOND_KEEP apronHazeKeep');
-    expect(f).toContain('uFogBeyond * FOG_BEYOND_KEEP');
+    // The range is painted after the terrain's albedo
+    expect(f.indexOf('float rangeShare')).toBeLessThan(f.indexOf('diffuseColor.rgb = albedo;'));
     expect(shader.uniforms['uApronHeight' as keyof typeof shader.uniforms]).toEqual({ value: 420 });
   });
 
-  it('has no snow line where the look has no snow, and none clears the haze without a range', () => {
+  it('has no snow line where the look has no snow', () => {
     for (const look of Object.values(APRON_LOOK)) {
       if (!look.snow) expect(look.snowFrom).toBeGreaterThan(1.2);
     }
-    const apron = new ApronMaterial(params(), new TerrainMaterial(params()));
-    apron.setRange(0, 0, APRON_LOOK.temperate);
-    expect(apron.apronUniforms.uApronClear.value).toBe(0);
   });
 });

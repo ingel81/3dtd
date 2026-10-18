@@ -6,29 +6,67 @@ import { SHOT_LIGHT_PARS, SHOT_LIGHT_UNIFORMS, shotLightFragment } from '../../.
  * Height fog with aerial perspective for the custom map's materials.
  *
  * The scene keeps a FogExp2 (fog colour, density, and the USE_FOG define),
- * but the map's own materials replace its fragment: the fog thins with
- * height above the map's ground (falloff `uFogFalloff` per metre), so
- * valleys and the far plain sink into haze while hill tops and the sky
- * stay clear, and towards the sun the haze takes on the sun's colour.
- * The density integrates along the view ray in closed form, so a camera
- * high above sees the ground through thin air and the far land in thick.
+ * but the map's own materials replace its fragment. Two layers of air, each
+ * integrated along the view ray in closed form:
+ * - ground haze, thinning with height above the map's ground (falloff
+ *   `uFogFalloff` per metre): valleys and the plain sink into it, hill tops
+ *   stand out;
+ * - thin air with a scale height of 250 m (AIR_FALLOFF): the far land
+ *   blues out when looked at flat, a camera high above looks down through
+ *   little of it, so an overview stays clear.
+ * The haze takes the sky's colour at the horizon in the direction the ray
+ * runs (`uFogRing`, filled from the sky by CustomMapEnvironment): towards a
+ * low sun its glow, away from it the sky's blue; the sky dome's foot fades
+ * into the same colour, so the land runs into the sky without a band. No
+ * step at the map's border: the land beyond it is landscape, hazed by its
+ * distance like any other.
  *
  * Uniforms are shared by every patched material (one environment is
  * active at a time); CustomMapEnvironment sets them.
  */
+
+/** Entries of the haze ring: the horizon's colour all round, every 15 degrees of azimuth */
+export const FOG_RING = 24;
+/** Falloff per metre of the thin air (a scale height of 250 m) */
+export const AIR_FALLOFF = 1 / 250;
+/** The thin air's share of the map's fog density, and where it starts (times uFogStart) */
+export const AIR_SHARE = 0.8;
+export const AIR_FROM = 1;
+
 export const HEIGHT_FOG_UNIFORMS = {
   uFogFalloff: { value: 1 / 70 },
   uFogBase: { value: 0 },
-  uFogSunColor: { value: new Color(1, 0.9, 0.75) },
-  uFogSunDir: { value: new Vector3(0, 1, 0) },
+  /**
+   * The haze's colour (linear) towards FOG_RING azimuths, entry i at atan(z, x) = (i / FOG_RING - 0.5) * 2 pi
+   * as the sky texture's columns run: the sky a little above the horizon, with the sun's glow
+   */
+  uFogRing: { value: new Float32Array(FOG_RING * 3).fill(0.6) },
   /** The map's own fog density (the scene's FogExp2 carries a matched one for other materials) */
   uFogDensity: { value: 0.001 },
+  /**
+   * The thin air's density: the map's, with the look's fog scale only in its square root (a swamp's thick ground
+   * fog does not make its far air milk, clear mountain air still blues the range); none without air (the moon)
+   */
+  uFogAirDensity: { value: 0.001 },
   /** Metres of clear air before the haze starts: the game camera (150 to 300 m) looks through none */
   uFogStart: { value: 450 },
   /** The map's extent in the scene (centre x, z and half sizes): land beyond the border fades into the haze */
   uFogMap: { value: new Vector4(0, 0, 1e6, 1e6) },
-  /** How far land beyond the border sinks into the haze, 0..1 (the look's beyondHaze) */
-  uFogBeyond: { value: 0.97 },
+  /**
+   * The ground haze's own colour where the look has one (linear rgb, a how far it replaces the sky's): a swamp's
+   * pale mist, a ruined city's dust. The thin air keeps the sky's colour
+   */
+  uFogMist: { value: new Vector4(1, 1, 1, 0) },
+  /**
+   * Night light on the map's lit materials: a floor under the light every surface keeps (linear, times its
+   * colour), and a rim on the edges turned to the moon (`uNightDir`, scene space), so walls, roofs and trees
+   * read against the dark from the game camera
+   */
+  uNightFloor: { value: new Color(0, 0, 0) },
+  uNightRim: { value: new Color(0, 0, 0) },
+  uNightDir: { value: new Vector3(0, 1, 0) },
+  /** 0..1 dew on paved ways at night (materials with userData.nightSheen): smoother, so moon and lamps glint on them */
+  uNightSheen: { value: 0 },
   /** Colour grade of the map's look, after the fog: contrast, saturation, and a multiply tint */
   uGradeContrast: { value: 1 },
   uGradeSaturation: { value: 1 },
@@ -75,12 +113,16 @@ if (uLavaGlowOn > 0.5) {
 export const HEIGHT_FOG_PARS = /* glsl */ `
 uniform float uFogFalloff;
 uniform float uFogBase;
-uniform vec3 uFogSunColor;
-uniform vec3 uFogSunDir;
+uniform vec3 uFogRing[${FOG_RING}];
 uniform float uFogDensity;
+uniform float uFogAirDensity;
 uniform float uFogStart;
 uniform vec4 uFogMap;
-uniform float uFogBeyond;
+uniform vec4 uFogMist;
+uniform vec3 uNightFloor;
+uniform vec3 uNightRim;
+uniform vec3 uNightDir;
+uniform float uNightSheen;
 uniform float uGradeContrast;
 uniform float uGradeSaturation;
 uniform vec3 uGradeTint;
@@ -88,6 +130,22 @@ uniform vec3 uGradeShadow;
 uniform vec3 uGradeLight;
 uniform float uSnowCover;
 uniform float uWetness;
+
+// Mean density of a layer exp(-k * height) along a ray from height h0 to h1 (closed form of its integral):
+// stable for any heights, where exp(-k h0) times the integral over exp(-k dy) overflowed high above a swamp
+float fogLayer(float k, float h0, float h1) {
+  float dk = k * (h1 - h0);
+  return abs(dk) > 1e-4 ? (exp(-k * h0) - exp(-k * h1)) / dk : exp(-k * h0);
+}
+
+// The haze's colour (linear) towards a direction: the ring of horizon colours, between its two nearest entries
+vec3 hazeColor(vec3 dir) {
+  float ring = (atan(dir.z, dir.x) / (2.0 * PI) + 0.5) * ${FOG_RING.toFixed(1)} - 0.5;
+  float ringAt = floor(ring);
+  int i0 = int(mod(ringAt, ${FOG_RING.toFixed(1)}));
+  int i1 = int(mod(ringAt + 1.0, ${FOG_RING.toFixed(1)}));
+  return mix(uFogRing[i0], uFogRing[i1], ring - ringAt);
+}
 
 // The map's grade on a colour after colorspace_fragment: saturation, contrast around mid grey, tint.
 // Graded in sRGB either way: into the canvas the colour is sRGB already, into the game's
@@ -109,44 +167,70 @@ vec3 mapGrade(vec3 c) {
 }
 `;
 
-/** Fog for a fragment at world position `worldPos`, applied to gl_FragColor (needs fogColor, fogDensity) */
+/** Fog for a fragment at world position `worldPos`, applied to gl_FragColor (needs HEIGHT_FOG_PARS) */
 export function heightFogFragment(worldPos: string): string {
   return /* glsl */ `
 #ifdef USE_FOG
 {
   vec3 fogRay = ${worldPos} - cameraPosition;
   float fogDist = length(fogRay);
-  float k = uFogFalloff;
-  float kdy = k * fogRay.y;
-  float camHeight = cameraPosition.y - uFogBase;
-  // Integral of density * exp(-k * height) along the ray, closed form
-  float along = abs(kdy) > 1e-4 ? (1.0 - exp(-kdy)) / kdy : 1.0;
-  float fogBaseDensity = uFogDensity * 2.0;
-  // Height fog, plus thin air everywhere: far land turns hazy blue even seen from high above
-  // Clear air up to uFogStart, then height fog plus a little haze everywhere
-  float fogPath = max(fogDist - uFogStart, 0.0);
-  // Aerial perspective: past a kilometre and a half the land fades into the haze at any height
-  float farPath = max(fogDist - uFogStart * 3.0, 0.0);
-  float amount = fogBaseDensity * (fogPath * (exp(-k * max(camHeight, -50.0)) * along + 0.1) + farPath * 0.9);
-  float fogFactor = 1.0 - exp(-max(amount, 0.0));
-  // Land beyond the map's border is backdrop: it sinks into the haze within 160 m, so the map stands out as the place
-  // (the backdrop range's upper flanks keep less of it, apron-material.ts)
-  #ifndef FOG_BEYOND_KEEP
-  #define FOG_BEYOND_KEEP 1.0
-  #endif
-  vec2 beyond = abs(${worldPos}.xz - uFogMap.xy) - uFogMap.zw;
-  fogFactor = max(fogFactor, smoothstep(-20.0, 160.0, max(beyond.x, beyond.y)) * uFogBeyond * FOG_BEYOND_KEEP);
-  float sunward = pow(max(dot(fogRay / max(fogDist, 1e-3), uFogSunDir), 0.0), 8.0);
-  // Fog is applied in output space (as three does). three hands fogColor over in that space already
-  // (getUnlitUniformColorSpace: sRGB into the canvas, linear into a post target); only the sun's
-  // colour is ours and linear. Converting fogColor again lifted every haze into a pale band
-  vec3 haze = mix(fogColor, linearToOutputTexel(vec4(uFogSunColor, 1.0)).rgb, sunward * 0.2);
+  // Heights of the camera and the fragment above the map's low ground (a camera below it counts as at -50 m)
+  float fogFrom = max(cameraPosition.y - uFogBase, -50.0);
+  float fogTo = max(${worldPos}.y - uFogBase, -50.0);
+  // Clear air up to uFogStart (the game camera looks through none), then the ground haze and the thin air
+  float ground = uFogDensity * max(fogDist - uFogStart, 0.0) * fogLayer(uFogFalloff, fogFrom, fogTo);
+  float air = uFogAirDensity * max(fogDist - uFogStart * ${AIR_FROM.toFixed(1)}, 0.0) * ${AIR_SHARE.toFixed(3)} * fogLayer(${AIR_FALLOFF.toFixed(7)}, fogFrom, fogTo);
+  float fogFactor = 1.0 - exp(-max(2.0 * (ground + air), 0.0));
+  // Fog is applied in output space (as three does); the ring is linear. Converting fogColor again lifted every
+  // haze into a pale band, so the ring's colour is converted once here, untouched by the tone mapping like
+  // three's fog colour
+  vec3 hazeLinear = hazeColor(fogRay / max(fogDist, 1e-3));
+  // The ground haze in the look's mist colour, by its share of the haze here
+  hazeLinear = mix(hazeLinear, uFogMist.rgb, uFogMist.a * ground / max(ground + air, 1e-6));
+  vec3 haze = linearToOutputTexel(vec4(hazeLinear, 1.0)).rgb;
   gl_FragColor.rgb = mix(gl_FragColor.rgb, haze, fogFactor);
 }
 #endif
 gl_FragColor.rgb = mapGrade(gl_FragColor.rgb);
 `;
 }
+
+function layerMean(k: number, h0: number, h1: number): number {
+  const dk = k * (h1 - h0);
+  return Math.abs(dk) > 1e-4 ? (Math.exp(-k * h0) - Math.exp(-k * h1)) / dk : Math.exp(-k * h0);
+}
+
+/**
+ * The optical depth heightFogFragment gives a fragment at height `pointY`
+ * seen from `eyeY` over `dist` metres (scene heights): factor 1 - exp(-it)
+ */
+export function heightFogAmount(eyeY: number, pointY: number, dist: number): number {
+  const u = HEIGHT_FOG_UNIFORMS;
+  const from = Math.max(eyeY - u.uFogBase.value, -50);
+  const to = Math.max(pointY - u.uFogBase.value, -50);
+  const start = u.uFogStart.value;
+  const ground = u.uFogDensity.value * Math.max(dist - start, 0) * layerMean(u.uFogFalloff.value, from, to);
+  const air = u.uFogAirDensity.value * Math.max(dist - start * AIR_FROM, 0) * AIR_SHARE * layerMean(AIR_FALLOFF, from, to);
+  return 2 * (ground + air);
+}
+
+/**
+ * Night light on every lit map material (HEIGHT_FOG_UNIFORMS.uNightFloor,
+ * uNightRim): a cool floor of light, a little more on faces turned up, and
+ * a rim where a face turns away from the viewer towards the moon. Both 0 by
+ * day: a uniform branch skips it.
+ */
+const NIGHT_LIGHT_FRAGMENT = /* glsl */ `
+if (uNightFloor.b + uNightRim.b > 0.0) {
+  vec3 nightUp = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
+  float nightFacingUp = clamp(dot(normal, nightUp) * 0.5 + 0.5, 0.0, 1.0);
+  float nightEdge = 1.0 - clamp(dot(normal, normalize(vViewPosition)) * -1.0, 0.0, 1.0);
+  float nightToMoon = clamp(dot(normal, normalize((viewMatrix * vec4(uNightDir, 0.0)).xyz)) * 0.6 + 0.4, 0.0, 1.0);
+  totalEmissiveRadiance += diffuseColor.rgb * uNightFloor * (0.6 + 0.4 * nightFacingUp)
+    // the rim on walls, roofs and crowns, not on level ground seen flat (the far land would glow)
+    + (diffuseColor.rgb * 0.7 + 0.03) * uNightRim * pow(nightEdge, 3.0) * nightToMoon * (1.0 - smoothstep(0.55, 0.85, dot(normal, nightUp)));
+}
+`;
 
 /**
  * Snow and wetness on the map's materials (before lighting): snow settles on
@@ -172,6 +256,9 @@ diffuseColor.rgb *= 1.0 - uWetness * 0.3;
 
 const SURFACE_WEATHER_ROUGHNESS = /* glsl */ `
 roughnessFactor = mix(roughnessFactor, min(roughnessFactor, 0.35), uWetness * smoothstep(0.2, 0.8, surfaceUp));
+#ifdef NIGHT_SHEEN
+roughnessFactor = mix(roughnessFactor, min(roughnessFactor, 0.4), uNightSheen * smoothstep(0.2, 0.8, surfaceUp));
+#endif
 `;
 
 const patched = new WeakSet<Material>();
@@ -190,9 +277,9 @@ export function addHeightFog(material: Material): void {
     Object.assign(shader.uniforms, HEIGHT_FOG_UNIFORMS, LAVA_GLOW_UNIFORMS, LAMP_LIGHT_UNIFORMS, SHOT_LIGHT_UNIFORMS);
     const lit = shader.fragmentShader.includes('#include <emissivemap_fragment>');
     const lavaGlow = !material.userData['noLavaGlow'] && lit;
-    // Lamps, torches and fires light every lit surface near them (effects/lamp-light.ts), the terrain too, and so
-    // do the shots (three-engine/shot-lights)
-    const glow = `${lavaGlow ? LAVA_GLOW_FRAGMENT : ''}\n${lit ? `${LAMP_LIGHT_FRAGMENT}\n${shotLightFragment('vFogWorldPos')}` : ''}`;
+    // Lamps, torches and fires light every lit surface near them (effects/lamp-light.ts), the terrain too, so do the
+    // shots (three-engine/shot-lights), and the night's floor and moon rim (NIGHT_LIGHT_FRAGMENT)
+    const glow = `${lavaGlow ? LAVA_GLOW_FRAGMENT : ''}\n${lit ? `${LAMP_LIGHT_FRAGMENT}\n${shotLightFragment('vFogWorldPos')}\n${NIGHT_LIGHT_FRAGMENT}` : ''}`;
     shader.vertexShader = shader.vertexShader
       .replace('#include <fog_pars_vertex>', '#include <fog_pars_vertex>\nvarying vec3 vFogWorldPos;')
       .replace(
@@ -204,7 +291,7 @@ export function addHeightFog(material: Material): void {
         vFogWorldPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
         #endif`,
       );
-    shader.fragmentShader = shader.fragmentShader
+    shader.fragmentShader = `${material.userData['nightSheen'] ? '#define NIGHT_SHEEN\n' : ''}${shader.fragmentShader}`
       .replace('#include <fog_pars_fragment>', `#include <fog_pars_fragment>\nvarying vec3 vFogWorldPos;\n${HEIGHT_FOG_PARS}\n${LAVA_GLOW_PARS}\n${LAMP_LIGHT_PARS}\n${SHOT_LIGHT_PARS}`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>\n${glow}`)
       .replace('#include <color_fragment>', `#include <color_fragment>\n${SURFACE_WEATHER_COLOR}`)
@@ -213,5 +300,5 @@ export function addHeightFog(material: Material): void {
       .replace('// map-roughness-done', SURFACE_WEATHER_ROUGHNESS)
       .replace('#include <fog_fragment>', heightFogFragment('vFogWorldPos'));
   };
-  material.customProgramCacheKey = () => `${prevKey.call(material)}-hfog4`;
+  material.customProgramCacheKey = () => `${prevKey.call(material)}-hfog5${material.userData['nightSheen'] ? 's' : ''}`;
 }

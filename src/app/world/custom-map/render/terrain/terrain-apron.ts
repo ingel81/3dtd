@@ -85,6 +85,8 @@ export class ApronProfile {
   readonly wetShare: number;
   /** Border points under the main water, and its level (null: no water) */
   private readonly wet: Uint8Array;
+  /** Border points off which the sea goes on (a coast's stretches, every point round a mostly wet border) */
+  private readonly sea: Uint8Array;
   private readonly waterLevel: number | null;
 
   constructor(
@@ -139,6 +141,7 @@ export class ApronProfile {
     this.wetShare = n ? wet / n : 0;
     const sea = seaStretches(wetAt, Math.ceil(SEA_RUN / field.cellSize));
     this.wet = wetAt;
+    this.sea = this.wetShare > 0.5 ? new Uint8Array(n).fill(water ? 1 : 0) : sea;
     this.waterLevel = water ? water.level : null;
     this.heights = new Float32Array(APRON_RINGS.length * n);
     const shape = this.shape(backdrop);
@@ -187,6 +190,11 @@ export class ApronProfile {
     });
     shapeCache = { key, xy, hills, ridges };
     return shapeCache;
+  }
+
+  /** Whether the sea goes on off border point k: its floor falls away to the horizon (seaStretches) */
+  seaAt(k: number): boolean {
+    return this.sea[((k % this.along.length) + this.along.length) % this.along.length] === 1;
   }
 
   get count(): number {

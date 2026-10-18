@@ -76,6 +76,8 @@ export class MapTerrainLayer {
   private material: TerrainMaterial | null = null;
   /** The apron's: the terrain's with the backdrop range painted as distant mountains (apron-material.ts) */
   private apronMaterial: ApronMaterial | null = null;
+  /** The border's paint per sample (apronPaintWeights), for the apron's settled ground far out */
+  private apronWeights: Float32Array | null = null;
   private materialParams: TerrainMaterialParams | null = null;
   /** Materials of the shader's larger layer counts, by count, the ground's and the apron's (layerTwins) */
   private readonly twins = new Map<number, [TerrainMaterial, ApronMaterial]>();
@@ -273,6 +275,7 @@ export class MapTerrainLayer {
     material.setFarDistances(this.far[0], this.far[1], this.far[2]);
     material.setWaterLevel(t.water?.level ?? null, t.water?.kind);
     const apronMaterial = new ApronMaterial(params, material);
+    apronMaterial.setPaintMean(this.apronWeights);
     addHeightFog(apronMaterial);
     // A layer count of another program (a stroke's first new material): the old ground stays until the new
     // programs are built off the main thread, as linked in the frame they held it seconds (4 programs of 3 s
@@ -485,6 +488,8 @@ export class MapTerrainLayer {
     if (!this.natural) return;
     const natural = this.natural;
     const weights = apronPaintWeights(this.terrain, (k) => natural[k] ?? false);
+    this.apronWeights = weights;
+    this.apronMaterial?.setPaintMean(weights);
     this.apronPaint = apronPaintTexture(weights, this.apronPaint ?? undefined);
     if (this.material) this.material.terrainUniforms.uApronPaint.value = this.apronPaint;
   }

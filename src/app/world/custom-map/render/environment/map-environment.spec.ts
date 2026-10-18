@@ -1,7 +1,7 @@
 import { Color, LinearMipmapLinearFilter, PerspectiveCamera, SRGBColorSpace, Vector3, type Texture, type WebGLRenderer } from 'three';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CustomMapEnvironment, SKY_FADE_S } from './map-environment';
-import { HEIGHT_FOG_UNIFORMS } from './height-fog';
+import { FOG_RING, HEIGHT_FOG_UNIFORMS, heightFogAmount } from './height-fog';
 import { SHADOW_PARTS } from './shadow-parts';
 import { SkyDome } from './sky-dome';
 import { chooseSkyImage, SKY_IMAGES } from './sky-images';
@@ -322,8 +322,11 @@ describe('image skies (TODO E172)', () => {
   it('takes haze, light hue and sun colour from the picture, its preset for the rest, and hides the procedural sky', () => {
     const image = SKY_IMAGES.find((s) => s.id === 'sunset')!;
     const e = new CustomMapEnvironment({ ...env, ...chooseSkyImage(image.id) });
-    // Haze and fog: the picture's horizon, so the dome's foot fades into it
-    expect(e.fog.color.toArray()).toEqual(new Color().setRGB(...image.horizon).toArray());
+    // Haze and fog: the dome's gradient in the picture's colours a little above the horizon, which its foot fades into
+    const horizon = new Color().setRGB(...image.horizon);
+    const zenith = new Color().setRGB(...image.zenith);
+    expect(e.fog.color.r).toBeGreaterThan(Math.min(horizon.r, zenith.r));
+    expect(Math.abs(e.fog.color.r - horizon.r)).toBeLessThan(Math.abs(e.fog.color.r - zenith.r));
     expect(e.horizon.toArray()).toEqual(new Color().setRGB(...image.horizon).toArray());
     expect(e.sun.color.toArray()).toEqual(new Color().setRGB(...image.sunColor!).toArray());
     // The hemisphere light: the hue of the picture's sky at the dusk preset's brightness
@@ -416,14 +419,43 @@ describe('the moon', () => {
     });
   });
 
-  it('lets the map lights matter by day under the black sky, and the land beyond the border show', () => {
+  it('lets the map lights matter by day under the black sky', () => {
     const e = new CustomMapEnvironment({ ...env, biome: 'moon' });
     expect(e.darkness).toBe(0.5);
-    // No air: the backdrop range would sink into the black haze
-    expect(HEIGHT_FOG_UNIFORMS.uFogBeyond.value).toBeLessThan(0.97);
     e.set({ ...env, biome: 'temperate' });
     expect(e.darkness).toBe(0);
-    expect(HEIGHT_FOG_UNIFORMS.uFogBeyond.value).toBe(0.97);
+    e.dispose();
+  });
+
+  it('colours the haze by the sky towards each side: the glow towards a low sun, blue away from it', () => {
+    const e = new CustomMapEnvironment({ ...env, sky: 'dusk', sunAzimuth: 90, sunElevation: 4 });
+    const ring = HEIGHT_FOG_UNIFORMS.uFogRing.value;
+    // The ring's entry towards a scene direction (atan(z, x), as hazeColor reads it)
+    const at = (x: number, z: number): number[] => {
+      const i = Math.floor(((Math.atan2(z, x) / (2 * Math.PI) + 0.5) * FOG_RING) % FOG_RING);
+      return [ring[i * 3], ring[i * 3 + 1], ring[i * 3 + 2]];
+    };
+    // Map azimuth 90 (east) is scene -x
+    const sunward = at(-1, 0);
+    const away = at(1, 0);
+    expect(sunward[0]).toBeGreaterThan(away[0] * 1.3);
+    expect(away[2] / away[0]).toBeGreaterThan(sunward[2] / sunward[0]);
+    // The scene's fog (towers, enemies) and the clear behind the dome take the ring's mean
+    let r = 0;
+    for (let i = 0; i < FOG_RING; i++) r += ring[i * 3] / FOG_RING;
+    expect(e.fog.color.r).toBeCloseTo(r, 5);
+    e.dispose();
+  });
+
+  it('keeps an overview clear and the flat view to the far land hazy', () => {
+    const e = new CustomMapEnvironment({ ...env, fogDensity: 0.001 });
+    e.setFogBase(0);
+    const factor = (eyeY: number, pointY: number, dist: number): number => 1 - Math.exp(-heightFogAmount(eyeY, pointY, dist));
+    // Straight down from 2 km onto the ground, and flat from 40 m over 4 km of plain
+    expect(factor(2000, 0, 2000)).toBeLessThan(0.35);
+    expect(factor(40, 0, 4000)).toBeGreaterThan(0.85);
+    // The game camera's view stays clear
+    expect(factor(220, 0, 300)).toBeLessThan(0.02);
     e.dispose();
   });
 });

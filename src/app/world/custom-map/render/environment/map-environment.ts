@@ -32,7 +32,7 @@ import {
   type WebGLRenderer,
 } from 'three';
 import { planetOf, type MapEnvironment, type MapPlanet } from '../../map-document';
-import { HEIGHT_FOG_UNIFORMS } from './height-fog';
+import { FOG_RING, HEIGHT_FOG_UNIFORMS, heightFogAmount } from './height-fog';
 import { biomeLook, mixLook, type BiomeLook } from './biomes';
 import { ShadowParts } from './shadow-parts';
 import { EnvBlend } from './env-blend';
@@ -78,6 +78,15 @@ const SHRINK = 0.7;
 /** Seconds a change of the sky preset takes to fade (day to dusk to night) */
 export const SKY_FADE_S = 2.5;
 
+/** Sine of the elevation the haze takes the sky's colour at: where the dome's gradient holds a third of the zenith */
+const HAZE_ELEVATION = 0.07;
+/** Night light (linear): the floor every surface keeps at moonlight 0, the moon rim's light at moonlight 1 */
+const NIGHT_FLOOR = new Color(0.022, 0.026, 0.036);
+const NIGHT_RIM = new Color(0.32, 0.4, 0.6);
+/** Directions averaged per entry of the haze ring */
+const HAZE_SAMPLES = 4;
+const HAZE_DIR = new Vector3();
+
 const SKY_WIDTH = 512;
 const SKY_HEIGHT = 256;
 /** Frames a fade fills the sky it ends in over, before it prefilters it */
@@ -100,6 +109,8 @@ const SCRATCH = {
   cloud: new Color(),
   cloudShadow: new Color(),
   a: new Color(),
+  haze: new Color(),
+  hazeTint: new Color(),
 };
 
 /** Scene-space direction towards the sun (map: azimuth from north clockwise) */
@@ -124,7 +135,7 @@ export class CustomMapEnvironment {
   /** A storm's lightning (lightning.ts): its bolt, and the flash applyFlash puts on lights, haze and sky */
   readonly lightning = new Lightning();
   /** The lights and the haze as `show` set them, under a flash (applyFlash) */
-  private readonly flashBase = { hemi: 0, ambient: 0, env: 1, hemiColor: new Color(), ambientColor: new Color(), fog: new Color() };
+  private readonly flashBase = { hemi: 0, ambient: 0, env: 1, hemiColor: new Color(), ambientColor: new Color(), fog: new Color(), ring: new Float32Array(FOG_RING * 3) };
   private flashShown = false;
   sky: DataTexture;
   /** Sky colours (linear) and the direction towards the sun, for materials that fake reflections */
@@ -184,6 +195,12 @@ export class CustomMapEnvironment {
   private readonly envBlend = new EnvBlend();
   /** The scene's background: a plain clear in the haze's colour, the dome over it */
   private readonly backdrop = new Color();
+  /** The air colour of the weather (rain, snow, fog) and how far the haze leans to it */
+  private readonly hazeWeather = new Color();
+  private hazeWeatherMix = 0;
+  /** The sky's glow round the sun (colour, strength) as the dome shows it, for the haze towards the sun */
+  private readonly hazeGlow = new Color();
+  private hazeGlowAmount = 0;
   private previous: {
     background: Scene['background'];
     environment: Scene['environment'];
@@ -266,20 +283,13 @@ export class CustomMapEnvironment {
     if (image) withHueOf(this.ambient.color, image.sky);
     this.ambient.color.multiply(tint);
     this.ambient.intensity = p.ambient;
-    // Haze: the horizon lifted a little towards the zenith's blue, so distance reads blue, not green
     // The map's tint colours its light fully, its sky and air only a little: a green or orange
     // mood tint over the whole haze made the far land olive or brown
     const airTint = SCRATCH.air.setRGB(1, 1, 1).lerp(tint, 0.3);
-    // Haze: between horizon and zenith, a little desaturated, so distance reads blue-grey, not the horizon's hue
     if (image) {
-      // The picture's horizon as it is: the dome's foot fades into this haze, no seam above the land
-      this.fog.color.setRGB(...image.horizon).multiply(airTint);
       this.zenith.setRGB(...image.zenith).multiply(airTint);
       this.horizon.setRGB(...image.horizon).multiply(airTint);
     } else {
-      this.fog.color.set(p.horizon).lerp(SCRATCH.a.set(p.zenith), 0.3).multiply(airTint);
-      const fogGrey = (this.fog.color.r + this.fog.color.g + this.fog.color.b) / 3;
-      this.fog.color.lerp(SCRATCH.a.setRGB(fogGrey, fogGrey, fogGrey), 0.3);
       this.zenith.set(p.zenith).multiply(airTint);
       this.horizon.set(p.horizon).multiply(airTint);
     }
@@ -287,7 +297,6 @@ export class CustomMapEnvironment {
     const baseFog = Math.min(env.fogDensity, 0.004) * p.fogScale;
     this.fog.density = baseFog;
     HEIGHT_FOG_UNIFORMS.uFogFalloff.value = p.fogFalloff;
-    HEIGHT_FOG_UNIFORMS.uFogBeyond.value = p.beyondHaze ?? 0.97;
     // Weather: rain and snow close the sky, dim the sun and thicken the air; fog weather thickens it most
     const weather = env.weather ?? 'clear';
     const k = weather === 'clear' ? 0 : Math.min(1, Math.max(0, env.weatherStrength ?? 0.6));
@@ -296,12 +305,14 @@ export class CustomMapEnvironment {
     let cover = p.cover;
     // Rain, snow and fog grey the air towards their own colour, which at night is dark as well
     const airLight = 1 - this.darkness * 0.85;
+    this.hazeWeatherMix = 0;
     if (weather === 'rain' || weather === 'snow') {
       cover = Math.max(0.15, p.cover - 0.35 * k);
       this.sun.intensity *= 1 - 0.55 * k;
       this.hemi.intensity *= 1 + 0.3 * k;
       this.fog.density = baseFog * (1 + 2 * k);
-      this.fog.color.lerp(SCRATCH.a.set(weather === 'snow' ? 0xd8dde2 : 0x8e969c).multiplyScalar(airLight), 0.5 * k);
+      this.hazeWeather.set(weather === 'snow' ? 0xd8dde2 : 0x8e969c).multiplyScalar(airLight);
+      this.hazeWeatherMix = 0.5 * k;
     } else if (weather === 'storm') {
       cover = Math.max(0.02, p.cover - 0.6 * k);
       // The clouds take most of the day's light; a night is dark already and keeps what lets the map read
@@ -313,11 +324,13 @@ export class CustomMapEnvironment {
       this.zenith.lerp(SCRATCH.a.set(STORM.zenith).multiplyScalar(airLight), 0.85 * k);
       this.horizon.lerp(SCRATCH.a.set(STORM.horizon).multiplyScalar(airLight), 0.75 * k);
       this.fog.density = baseFog * (1 + 3 * k);
-      this.fog.color.lerp(SCRATCH.a.set(0x56606b).multiplyScalar(airLight), 0.65 * k);
+      this.hazeWeather.set(0x56606b).multiplyScalar(airLight);
+      this.hazeWeatherMix = 0.65 * k;
     } else if (weather === 'fog') {
       this.sun.intensity *= 1 - 0.4 * k;
       this.fog.density = Math.max(baseFog, 0.0008) * (1 + 5 * k);
-      this.fog.color.lerp(SCRATCH.a.set(0xc0c6ca).multiplyScalar(airLight), 0.4 * k);
+      this.hazeWeather.set(0xc0c6ca).multiplyScalar(airLight);
+      this.hazeWeatherMix = 0.4 * k;
     }
     // The weather's particles, or the biome's own ambient ones (embers, ash, dust, drifting snow)
     if (weather === 'rain' || weather === 'snow') this.weather.set(weather, k, 1 - this.darkness * 0.85);
@@ -325,8 +338,7 @@ export class CustomMapEnvironment {
     else if (p.particles) this.weather.set(p.particles, p.particles === 'snow' ? 0.25 : 0.5, 1 - this.darkness * 0.85);
     else this.weather.set('clear', 0, 1);
     HEIGHT_FOG_UNIFORMS.uFogDensity.value = this.fog.density;
-    // The clear behind the dome follows the haze (the scene holds this Color)
-    this.backdrop.copy(this.fog.color);
+    HEIGHT_FOG_UNIFORMS.uFogAirDensity.value = p.fogScale > 0 ? (this.fog.density / p.fogScale) * Math.sqrt(p.fogScale) : 0;
     // Clear air before the haze: shorter in fog weather and in a swamp
     this.fogStart = weather === 'fog' ? 450 * (1 - 0.85 * k) : env.biome === 'swamp' ? 120 : 450;
     HEIGHT_FOG_UNIFORMS.uFogStart.value = this.fogStartWithClearAir();
@@ -338,10 +350,23 @@ export class CustomMapEnvironment {
     setWind(stormWind(windOf(env), storm));
     this.lightning.setStorm(storm);
     if (sunMoved || !Number.isFinite(this.shadowCenter.x)) this.placeSun(this.sun.target.position, true);
-    // The haze towards the sun takes its light; the moon's is faint, or a night horizon glows in a pale band
+    // The glow round the sun in the sky and in the haze towards it; the moon's is faint, or a night horizon glows
+    // in a pale band
     const glowColor = p.glowColor === undefined ? this.sun.color : SCRATCH.glow.set(p.glowColor).multiply(tint);
-    HEIGHT_FOG_UNIFORMS.uFogSunColor.value.copy(glowColor).multiplyScalar(airLight).lerp(this.fog.color, 0.35);
-    HEIGHT_FOG_UNIFORMS.uFogSunDir.value.copy(this.sunDir);
+    const glow = p.glow * (1 - k * 0.7);
+    this.hazeGlow.copy(glowColor);
+    this.hazeGlowAmount = glow;
+    this.fillHaze();
+    // The look's mist on the ground (a swamp's, a ruined city's dust), greyed by the weather like the air
+    const mist = HEIGHT_FOG_UNIFORMS.uFogMist.value;
+    SCRATCH.a.set(p.mist ?? 0xffffff).multiply(airTint).lerp(this.hazeWeather, this.hazeWeatherMix);
+    mist.set(SCRATCH.a.r, SCRATCH.a.g, SCRATCH.a.b, p.mist === undefined ? 0 : (p.mistAmount ?? 0));
+    // Night: a cool floor of light on every surface and a rim towards the moon, brighter with the map's moonlight
+    const nightLight = p.nightLight * (1 - k * 0.5);
+    HEIGHT_FOG_UNIFORMS.uNightFloor.value.copy(NIGHT_FLOOR).multiply(tint).multiplyScalar(nightLight * (1 + 0.5 * moon));
+    HEIGHT_FOG_UNIFORMS.uNightRim.value.copy(NIGHT_RIM).multiply(tint).multiplyScalar(nightLight * (0.5 + 0.5 * moon));
+    HEIGHT_FOG_UNIFORMS.uNightDir.value.copy(this.sunDir);
+    HEIGHT_FOG_UNIFORMS.uNightSheen.value = nightLight * 0.8;
     HEIGHT_FOG_UNIFORMS.uGradeContrast.value = p.grade[0];
     // A storm drains the colours and cools them
     HEIGHT_FOG_UNIFORMS.uGradeSaturation.value = p.grade[1] * (1 - 0.3 * storm);
@@ -358,11 +383,10 @@ export class CustomMapEnvironment {
       glowColor,
       // A picture brings its own clouds and stars; until it has loaded the gradient shows bare
       cover: image ? 2 : cover,
-      glow: p.glow * (1 - k * 0.7),
+      glow,
       // Storm clouds hang dark and heavy
       cloudColor: SCRATCH.cloud.set(p.cloudColor).multiply(tint).lerp(SCRATCH.a.set(STORM.cloud).multiplyScalar(airLight), 0.85 * storm),
       cloudShadow: SCRATCH.cloudShadow.set(p.cloudShadow).multiply(tint).lerp(SCRATCH.a.set(STORM.cloudShadow).multiplyScalar(airLight), 0.85 * storm),
-      haze: this.fog.color,
       stars: image ? 0 : p.stars,
       planet,
       aurora: image ? 0 : p.aurora,
@@ -532,6 +556,64 @@ export class CustomMapEnvironment {
     return this.env.biome;
   }
 
+  /**
+   * The haze's colour all round (HEIGHT_FOG_UNIFORMS.uFogRing): the sky as
+   * the dome shows it a little above the horizon (gradient and the glow
+   * round the sun, or the picture's pixels there), FOG_RING azimuths each
+   * averaged over its sector so the sun's glow never falls between two,
+   * leaning to the weather's air. The scene's fog colour (towers, enemies)
+   * and the clear behind the dome take the ring's mean.
+   */
+  private fillHaze(): void {
+    const ring = HEIGHT_FOG_UNIFORMS.uFogRing.value;
+    const image = skyImageOf(this.env);
+    const pixels = image && this.imagePixels?.id === image.id ? this.imagePixels.data : null;
+    const turn = image ? skyImageYaw(image, this.env.sunAzimuth) / (2 * Math.PI) : 0;
+    const rows = SKY_HEIGHT / 2;
+    const imageRow = Math.min(rows - 1, Math.floor((1 - Math.asin(HAZE_ELEVATION) / (Math.PI / 2)) * rows));
+    const tint = SCRATCH.hazeTint.set(this.env.tint || '#ffffff').lerp(SCRATCH.haze.setRGB(1, 1, 1), 0.7);
+    const flat = Math.sqrt(1 - HAZE_ELEVATION * HAZE_ELEVATION);
+    const up = Math.pow(HAZE_ELEVATION, 0.45);
+    const c = SCRATCH.haze;
+    const dir = HAZE_DIR;
+    const mean = this.fog.color.setRGB(0, 0, 0);
+    for (let i = 0; i < FOG_RING; i++) {
+      let r = 0;
+      let g = 0;
+      let b = 0;
+      for (let s = 0; s < HAZE_SAMPLES; s++) {
+        const u = (i + (s + 0.5) / HAZE_SAMPLES) / FOG_RING;
+        const phi = (u - 0.5) * 2 * Math.PI;
+        if (pixels) {
+          const iu = (((u + turn) % 1) + 1) % 1;
+          const q = (imageRow * SKY_WIDTH + Math.min(SKY_WIDTH - 1, Math.floor(iu * SKY_WIDTH))) * 4;
+          c.setRGB(SRGB_TO_LINEAR[pixels[q]], SRGB_TO_LINEAR[pixels[q + 1]], SRGB_TO_LINEAR[pixels[q + 2]]).multiply(tint);
+        } else {
+          // The dome's gradient and glow (sky-dome.ts skyColor), clouds aside: they thin out to nothing down there
+          dir.set(Math.cos(phi) * flat, HAZE_ELEVATION, Math.sin(phi) * flat);
+          const cosSun = Math.max(0, dir.dot(this.sunDir));
+          const glow = (Math.pow(cosSun, 6) * 0.22 + Math.pow(cosSun, 64) * 0.5) * this.hazeGlowAmount * (1 - HAZE_ELEVATION * 0.5);
+          c.copy(this.horizon).lerp(this.zenith, up);
+          c.r += this.hazeGlow.r * glow;
+          c.g += this.hazeGlow.g * glow;
+          c.b += this.hazeGlow.b * glow;
+        }
+        r += c.r;
+        g += c.g;
+        b += c.b;
+      }
+      c.setRGB(r / HAZE_SAMPLES, g / HAZE_SAMPLES, b / HAZE_SAMPLES).lerp(this.hazeWeather, this.hazeWeatherMix);
+      ring[i * 3] = c.r;
+      ring[i * 3 + 1] = c.g;
+      ring[i * 3 + 2] = c.b;
+      mean.r += c.r / FOG_RING;
+      mean.g += c.g / FOG_RING;
+      mean.b += c.b / FOG_RING;
+    }
+    // The clear behind the dome follows the haze (the scene holds this Color)
+    this.backdrop.copy(mean);
+  }
+
   /** A planet's direction in the scene and its disc's radius for the sky dome; up to 85 degrees high */
   private planetDisc(planet: MapPlanet): { dir: Vector3; radius: number } | null {
     if (planet.size <= 0) return null;
@@ -575,15 +657,8 @@ export class CustomMapEnvironment {
    * both agree.
    */
   matchFog(eye: Vector3, point: Vector3): void {
-    const u = HEIGHT_FOG_UNIFORMS;
-    const k = u.uFogFalloff.value;
     const dist = eye.distanceTo(point);
-    const kdy = k * (point.y - eye.y);
-    const along = Math.abs(kdy) > 1e-4 ? (1 - Math.exp(-kdy)) / kdy : 1;
-    const camHeight = Math.max(eye.y - u.uFogBase.value, -50);
-    const start = u.uFogStart.value;
-    const amount =
-      u.uFogDensity.value * 2 * (Math.max(dist - start, 0) * (Math.exp(-k * camHeight) * along + 0.1) + Math.max(dist - start * 3, 0) * 0.9);
+    const amount = heightFogAmount(eye.y, point.y, dist);
     // FogExp2: factor = 1 - exp(-(density * d)^2); the height fog: 1 - exp(-amount)
     this.fog.density = dist > 1 ? Math.sqrt(Math.max(amount, 0)) / dist : 0;
   }
@@ -771,6 +846,7 @@ export class CustomMapEnvironment {
         this.imageTexture = texture;
         this.imagePixels = { id: image.id, data: pixels };
         this.skyDome.setImage(texture, skyImageYaw(image, this.env.sunAzimuth));
+        this.fillHaze();
         this.fillSky(this.sky.image.data as Uint8Array);
         this.sky.needsUpdate = true;
         if (this.scene) this.installSky();
@@ -864,6 +940,7 @@ export class CustomMapEnvironment {
     b.hemiColor.copy(this.hemi.color);
     b.ambientColor.copy(this.ambient.color);
     b.fog.copy(this.fog.color);
+    b.ring.set(HEIGHT_FOG_UNIFORMS.uFogRing.value);
     // A flash shown goes on the new values in the next update
     this.flashShown = this.flashShown || this.lightning.flash > 0;
   }
@@ -885,10 +962,18 @@ export class CustomMapEnvironment {
     this.hemi.color.copy(b.hemiColor).lerp(FLASH_COLOR, tone * 0.7);
     this.ambient.intensity = b.ambient + f * FLASH_AMBIENT;
     this.ambient.color.copy(b.ambientColor).lerp(FLASH_COLOR, tone * 0.7);
-    this.fog.color.copy(b.fog).lerp(SCRATCH.a.copy(FLASH_COLOR).multiplyScalar(0.7), tone * 0.2);
+    const lift = SCRATCH.a.copy(FLASH_COLOR).multiplyScalar(0.7);
+    this.fog.color.copy(b.fog).lerp(lift, tone * 0.2);
     this.backdrop.copy(this.fog.color);
+    // The haze all round lifted alike (its ring, which the map's materials and the dome's foot read)
+    const ring = HEIGHT_FOG_UNIFORMS.uFogRing.value;
+    for (let i = 0; i < ring.length; i += 3) {
+      ring[i] = b.ring[i] + (lift.r - b.ring[i]) * tone * 0.2;
+      ring[i + 1] = b.ring[i + 1] + (lift.g - b.ring[i + 1]) * tone * 0.2;
+      ring[i + 2] = b.ring[i + 2] + (lift.b - b.ring[i + 2]) * tone * 0.2;
+    }
     if (this.scene) this.scene.environmentIntensity = b.env + f * FLASH_ENV;
-    this.skyDome.setFlash(f, this.lightning.flashDir, this.fog.color);
+    this.skyDome.setFlash(f, this.lightning.flashDir);
   }
 
   private fillEnvironment(): void {

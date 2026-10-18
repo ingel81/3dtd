@@ -44,7 +44,7 @@ describe('custom map minimap picture', () => {
     expect(targets[0]).toMatchObject({ isXRRenderTarget: true });
     // Frames through the post-processing: a plain linear target
     targets.length = 0;
-    renderMinimapPicture(renderer, scene, new Set([map]), { left: 50, right: -50, top: 20, bottom: -20 }, 10, null, false);
+    renderMinimapPicture(renderer, scene, new Set([map]), { left: 50, right: -50, top: 20, bottom: -20 }, 10, [], false);
     expect(targets[0]).toMatchObject({ isXRRenderTarget: false });
   });
 });
