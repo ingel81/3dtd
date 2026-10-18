@@ -644,6 +644,7 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | awning | procedural (tools/map-assets/build_poi.py) |
 | sign-facade | procedural (tools/map-assets/build_poi.py) |
 | sign-bracket | procedural (tools/map-assets/build_poi.py) |
+| river-barge | procedural (tools/map-assets/build_poi.py) |
 
 ## Himmelsbilder (`skies/<id>.webp`)
 

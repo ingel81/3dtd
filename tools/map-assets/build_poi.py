@@ -899,6 +899,148 @@ def sign_bracket(name, reach=1.05):
     export(name, [iron.to_object(name), gilt.to_object(name + '-gilt'), shield.to_object(name + '-shield')], lod=120)
 
 
+# ---------------------------------------------------------------- the river (bow at -Y, waterline at z = 0, catalogue `float`)
+
+BARGE_L = 67.0
+BARGE_B = 8.2
+BARGE_DECK = 1.35
+BARGE_KEEL = -1.1
+
+
+def barge_half(t):
+    """Half beam of the barge at `t` (0 bow, 1 stern): a long parallel body, a spoon bow over its first
+    12 %, a rounded stern over its last 7 %"""
+    if t < 0.12:
+        return BARGE_B / 2 * max(0.1, math.sin(math.pi / 2 * t / 0.12) ** 0.6)
+    if t > 0.93:
+        return BARGE_B / 2 * max(0.35, math.cos(math.pi / 2 * (t - 0.93) / 0.07) ** 0.5)
+    return BARGE_B / 2
+
+
+def barge_deck(t):
+    """Deck edge height: flat, rising forward to the bow's sheer"""
+    return BARGE_DECK + 0.9 * max(0.0, 1 - t / 0.1) ** 2
+
+
+def river_barge(name):
+    """Inland motor barge of the Main and the Rhine (67 m): a black hull with a spoon bow and a red-white
+    gunwale stripe, a long hold under rows of arched hatch covers with a walkway either side, the anchor
+    winch and a flag mast at the bow; aft the crew's house with the wheelhouse on top, radar mast, exhaust
+    and the skipper's car on deck. Weathered paint baked into its own textures (build_boats.py recipes),
+    lit windows at night, a textured distance copy"""
+    from build_boats import painted_metal, simple
+    clear_scene()
+    hull = Part(painted_metal('barge-hull', (0.025, 0.027, 0.03), 0.5), smooth=True, bevel=0.0)
+    stripe_red = Part(simple('barge-stripe-red', (0.55, 0.06, 0.04), 0.5), bevel=0.0)
+    stripe_white = Part(simple('barge-stripe-white', (0.74, 0.73, 0.69), 0.5), bevel=0.0)
+    deck = Part(painted_metal('barge-deck', (0.22, 0.07, 0.05), 0.6), bevel=0.0)
+    hatch = Part(painted_metal('barge-hatch', (0.09, 0.2, 0.15), 0.35), bevel=0.02)
+    coaming = Part(painted_metal('barge-coaming', (0.03, 0.03, 0.035), 0.5), bevel=0.02)
+    house = Part(painted_metal('barge-house', (0.72, 0.72, 0.69), 0.25), bevel=0.03)
+    trim = Part(painted_metal('barge-trim', (0.04, 0.12, 0.28), 0.3), bevel=0.01)
+    steel = Part(painted_metal('barge-steel', (0.55, 0.55, 0.53), 0.4), smooth=True, bevel=0.0)
+    car = Part(simple('barge-car', (0.08, 0.16, 0.32), 0.3), bevel=0.04)
+    glass = Part(flat_material('window', (0.04, 0.05, 0.06), 0.15, 0.3))
+    n, girth = 40, 7
+    rings = []
+    for k in range(n + 1):
+        t = k / n
+        # More stations in the bow and stern
+        t = 0.5 - 0.5 * math.cos(math.pi * t)
+        hw, top = barge_half(t), barge_deck(t)
+        y = -BARGE_L / 2 + t * BARGE_L
+        ring = []
+        for g in range(girth + 1):
+            u = g / girth
+            # From the keel's middle round the bilge up the side to the deck edge
+            a = u * math.pi / 2
+            x = hw * (1 - (1 - math.sin(a)) ** 2.2) if u < 1 else hw
+            z = BARGE_KEEL + (top - BARGE_KEEL) * (1 - math.cos(a)) ** 1.4 if u < 1 else top
+            ring.append(Vector((x, y, z)))
+        rings.append(ring)
+    bm = hull.bm
+    for side in (1, -1):
+        verts = [[bm.verts.new(Vector((p.x * side, p.y, p.z))) for p in ring] for ring in rings]
+        for k in range(n):
+            for g in range(girth):
+                q = (verts[k][g], verts[k + 1][g], verts[k + 1][g + 1], verts[k][g + 1])
+                f = bm.faces.new(q if side > 0 else tuple(reversed(q)))
+                f.smooth = True
+                for loop in f.loops:
+                    loop[hull.uv].uv = (loop.vert.co.y / 3.0, loop.vert.co.z / 3.0)
+    # The deck over the hull, the gunwale stripe along its edge
+    for k in range(n):
+        a0, a1 = rings[k][-1], rings[k + 1][-1]
+        deck.quad([Vector((-a0.x, a0.y, a0.z)), Vector((a0.x, a0.y, a0.z)), Vector((a1.x, a1.y, a1.z)), Vector((-a1.x, a1.y, a1.z))],
+                  [(0, a0.y / 3), (1, a0.y / 3), (1, a1.y / 3), (0, a1.y / 3)])
+        for side in (1, -1):
+            for part, z0, z1 in ((stripe_white, -0.38, -0.2), (stripe_red, -0.2, -0.04)):
+                p0 = Vector((a0.x * side * 1.003, a0.y, a0.z + z0))
+                p1 = Vector((a1.x * side * 1.003, a1.y, a1.z + z0))
+                q = [p0, p1, p1 + Vector((0, 0, z1 - z0)), p0 + Vector((0, 0, z1 - z0))]
+                part.quad(q if side > 0 else list(reversed(q)), [(0, 0), (1, 0), (1, 1), (0, 1)])
+    # The hold: coaming and arched hatch covers, the walkways beside them
+    y0, y1 = -BARGE_L / 2 + 9.0, BARGE_L / 2 - 13.0
+    hw = BARGE_B / 2 - 0.85
+    box(coaming, 0, (y0 + y1) / 2, BARGE_DECK, hw * 2, y1 - y0, 0.95)
+    covers = int((y1 - y0) / 4.1)
+    step = (y1 - y0) / covers
+    for c in range(covers):
+        cy = y0 + (c + 0.5) * step
+        pts = []
+        for k in range(7):
+            a = -1 + 2 * k / 6
+            pts.append(Vector((a * (hw + 0.05), 0, BARGE_DECK + 0.95 + 0.38 * (1 - a * a))))
+        for k in range(6):
+            p, q = pts[k], pts[k + 1]
+            l0, l1 = cy - step / 2 + 0.05, cy + step / 2 - 0.05
+            hatch.quad([Vector((p.x, l0, p.z)), Vector((q.x, l0, q.z)), Vector((q.x, l1, q.z)), Vector((p.x, l1, p.z))],
+                       [(p.x, 0), (q.x, 0), (q.x, 1), (p.x, 1)])
+        # The cover's end plate, so the arch reads as a lid from the side
+        prism(hatch, [Vector((pt.x, cy - step / 2 + 0.05, pt.z)) for pt in pts], Vector((0, 0.04, 0)))
+    for side in (1, -1):
+        tube(steel, [Vector((side * (BARGE_B / 2 - 0.12), y0 - 6, BARGE_DECK + 0.9)), Vector((side * (BARGE_B / 2 - 0.12), y1 + 9, BARGE_DECK + 0.9))],
+             [0.03, 0.03], 5)
+        for k in range(14):
+            y = y0 - 6 + k * (y1 - y0 + 15) / 13
+            tube(steel, [Vector((side * (BARGE_B / 2 - 0.12), y, BARGE_DECK)), Vector((side * (BARGE_B / 2 - 0.12), y, BARGE_DECK + 0.9))],
+                 [0.025, 0.025], 4)
+    # The bow: winch, bollards, flag mast
+    box(steel, 0, -BARGE_L / 2 + 5.0, barge_deck(0.07), 2.2, 1.0, 0.8)
+    for side in (1, -1):
+        tube(steel, [Vector((side * 2.2, -BARGE_L / 2 + 7.0, barge_deck(0.1))), Vector((side * 2.2, -BARGE_L / 2 + 7.0, barge_deck(0.1) + 0.45))],
+             [0.18, 0.18], 10, cap=True)
+    tube(steel, [Vector((0, -BARGE_L / 2 + 2.6, barge_deck(0.03))), Vector((0, -BARGE_L / 2 + 2.6, barge_deck(0.03) + 3.5))], [0.06, 0.04], 6, cap=True)
+    # Aft: the crew's house, the wheelhouse on top of it, mast, exhaust, the car
+    hy0, hy1 = BARGE_L / 2 - 9.5, BARGE_L / 2 - 3.0
+    box(house, 0, (hy0 + hy1) / 2, BARGE_DECK, BARGE_B - 2.0, hy1 - hy0, 2.4)
+    box(trim, 0, (hy0 + hy1) / 2, BARGE_DECK + 2.4, BARGE_B - 1.8, hy1 - hy0 + 0.2, 0.18)
+    for side in (1, -1):
+        for k in range(3):
+            y = hy0 + 1.2 + k * 2.0
+            box(glass, side * (BARGE_B / 2 - 1.0 + 0.01), y, BARGE_DECK + 1.1, 0.05, 1.1, 0.8)
+    box(glass, 0, hy0 - 0.01, BARGE_DECK + 1.1, 4.0, 0.05, 0.8)
+    wz = BARGE_DECK + 2.58
+    box(house, 0, hy0 + 1.6, wz, 3.6, 3.0, 1.0)
+    box(glass, 0, hy0 + 1.6, wz + 1.0, 3.8, 3.2, 0.95)
+    box(trim, 0, hy0 + 1.6, wz + 1.95, 4.4, 3.8, 0.16)
+    tube(steel, [Vector((0, hy0 + 2.6, wz + 2.1)), Vector((0, hy0 + 2.6, wz + 4.6))], [0.07, 0.05], 6, cap=True)
+    box(steel, 0, hy0 + 2.6, wz + 3.6, 1.8, 0.12, 0.12)
+    tube(coaming, [Vector((1.6, hy1 - 0.8, BARGE_DECK + 2.4)), Vector((1.6, hy1 - 0.8, BARGE_DECK + 4.2))], [0.2, 0.18], 10, cap=True)
+    cx, cy = -1.4, hy1 + 1.2
+    box(car, cx, cy, BARGE_DECK + 0.25, 1.75, 4.1, 0.75)
+    box(car, cx, cy + 0.2, BARGE_DECK + 1.0, 1.55, 2.2, 0.55)
+    box(glass, cx, cy + 0.2, BARGE_DECK + 1.05, 1.6, 2.0, 0.42)
+    for wx in (-0.8, 0.8):
+        for wy in (-1.3, 1.3):
+            tube(coaming, [Vector((cx + wx - 0.1, cy + wy, BARGE_DECK + 0.32)), Vector((cx + wx + 0.1, cy + wy, BARGE_DECK + 0.32))], [0.32, 0.32], 10, cap=True)
+    baked = [o for o in (p.to_object(name + '-' + str(k)) for k, p in enumerate(
+        (hull, stripe_red, stripe_white, deck, hatch, coaming, house, trim, steel, car))) if o.data.polygons]
+    keep = [o for o in (glass.to_object(name + '-windows'),) if o.data.polygons]
+    obj = blender_kit.bake_surface(name, baked, keep, size=1024, samples=24)
+    blender_kit.export_lod(name, obj, ratio=0.25, textured=True)
+
+
 def models():
     return {
         'basketball-hoop': lambda: basketball_hoop('basketball-hoop'),
@@ -926,4 +1068,5 @@ def models():
         'awning': lambda: awning('awning'),
         'sign-facade': lambda: sign_facade('sign-facade'),
         'sign-bracket': lambda: sign_bracket('sign-bracket'),
+        'river-barge': lambda: river_barge('river-barge'),
     }

@@ -18271,6 +18271,37 @@
         }
       ],
       "source": "procedural (tools/map-assets/build_poi.py)"
+    },
+    {
+      "id": "river-barge",
+      "name": "River barge (67 m)",
+      "category": "prop",
+      "file": "models/river-barge.glb",
+      "triangles": 3252,
+      "footprint": 30.3,
+      "height": 8.5,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "float": true,
+      "tags": [
+        "coast",
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/river-barge-lod1.glb",
+          "distance": 350,
+          "triangles": 772
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py)"
     }
   ]
 }
