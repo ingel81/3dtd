@@ -37,6 +37,7 @@ import { biomeLook, mixLook, type BiomeLook } from './biomes';
 import { ShadowParts } from './shadow-parts';
 import { EnvBlend } from './env-blend';
 import { SkyDome } from './sky-dome';
+import { firstUseOf } from '../../../../three-engine/programs-ready';
 import { fetchPlanetImage, fetchSkyImage, skyImageOf, skyImageYaw, type SkyImage } from './sky-images';
 import { WeatherLayer } from './weather';
 import { setWind, stormWind, windOf, WIND_UNIFORMS } from './wind';
@@ -838,7 +839,8 @@ export class CustomMapEnvironment {
           this.envBlend.draw(this.renderer, this.envTarget, this.envTarget, 0, this.envFrom);
         }
       });
-      this.envReady = Promise.all([linked, this.imageReady]).then(() => undefined);
+      // The sky's bake too: its first bake otherwise linked it in a frame
+      this.envReady = Promise.all([linked, this.imageReady, this.skyDome.link(renderer)]).then(() => undefined);
     } else if (this.pmremReady) {
       this.fillEnvironment();
     }
@@ -1035,6 +1037,8 @@ async function linkPmrem(renderer: WebGLRenderer, pmrem: PMREMGenerator, target:
     const linked = renderer.compileAsync(scene, new OrthographicCamera());
     renderer.setRenderTarget(previous);
     await linked;
+    // Their first-use work each in a task of its own, not both in the frame of the first fill (95 + 90 ms)
+    await firstUseOf(renderer, [inside._equirectMaterial, inside._ggxMaterial]);
   } catch {
     // Without the internals PMREM links on first use as before
     renderer.setRenderTarget(previous);

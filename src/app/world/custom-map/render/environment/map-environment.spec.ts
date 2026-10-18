@@ -26,6 +26,9 @@ function fakeRenderer(): { shadowMap: { autoUpdate: boolean; needsUpdate: boolea
     // The sky texture's bake; the shadow parts draw after an empty scene's render
     getRenderTarget: () => null,
     setRenderTarget: () => undefined,
+    // The sky bake's program, built ahead (SkyDome.link)
+    compileAsync: () => Promise.resolve(),
+    properties: { get: () => ({}) },
     render: (scene?: { onAfterRender?: () => void }) => {
       r.renders++;
       scene?.onAfterRender?.();
@@ -233,10 +236,14 @@ describe('moonlight', () => {
 });
 
 describe('sky texture for reflections', () => {
-  it('bakes the sky every few frames and right after a new sky', () => {
+  it('bakes the sky every few frames and right after a new sky, once its program is built', async () => {
     const e = new CustomMapEnvironment(env);
     const r = fakeRenderer();
     attach(e, r);
+    // The first frame starts building the bake's program; nothing bakes before it is built
+    e.update(0.016, e.sun.shadow.camera);
+    expect(r.renders).toBe(0);
+    await e.skyDome.link(r as unknown as WebGLRenderer);
     for (let k = 0; k < 6; k++) e.update(0.016, e.sun.shadow.camera);
     expect(r.renders).toBe(2);
     e.set({ ...env, sky: 'dusk' });
@@ -256,6 +263,7 @@ describe('tone mapping (custom maps only)', () => {
       getRenderTarget: () => null,
       setRenderTarget: () => undefined,
       compileAsync: () => Promise.resolve(),
+      properties: { get: () => ({}) },
     };
     const e = new CustomMapEnvironment(env);
     e.apply(new Scene(), renderer as unknown as WebGLRenderer);

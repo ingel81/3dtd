@@ -24,6 +24,7 @@ import {
   type WebGLRenderer,
 } from 'three';
 import type { ObjectModel } from '../map-asset-library';
+import { firstUseOf } from '../../../../three-engine/programs-ready';
 
 /**
  * Impostors for far trees and big rocks: the model drawn from many
@@ -121,8 +122,10 @@ export function bakeImpostor(renderer: WebGLRenderer, model: ObjectModel): Impos
 }
 
 /**
- * The same bake with its programs built first, off the main thread where the driver allows: the model's
- * unlit materials and the copy linked in the bake's frame (40 to 80 ms for a biome's trees)
+ * The same bake with its programs built first, off the main thread where the driver allows, and their
+ * first-use work each in a task of its own: the model's unlit materials and the copy linked in the bake's
+ * frame (40 to 80 ms for a biome's trees). The copy compiled here is the one the bake draws: one made
+ * anew, its program freed with the compiled one, linked again in the bake
  */
 export async function bakeImpostorAsync(renderer: WebGLRenderer, model: ObjectModel): Promise<Impostor | null> {
   const bake = bakeScene(model);
@@ -146,15 +149,17 @@ export async function bakeImpostorAsync(renderer: WebGLRenderer, model: ObjectMo
   }
   try {
     await Promise.all(jobs);
+    await firstUseOf(renderer, [...bake.unlit, copy.material]);
+    return renderImpostor(renderer, bake, copy);
   } finally {
     copy.dispose();
     msaa.dispose();
     target.dispose();
   }
-  return renderImpostor(renderer, bake);
 }
 
-function renderImpostor(renderer: WebGLRenderer, bake: BakeScene): Impostor {
+/** Draws the views into the card's texture; `copy` the copy quad to use (compiled ahead), else one of its own */
+function renderImpostor(renderer: WebGLRenderer, bake: BakeScene, copy?: CopyQuad): Impostor {
   const { scene, unlit, center, radius, bounds } = bake;
   const side = CELL * IMPOSTOR_FRAMES;
   // Drawn with 4x MSAA, then copied into a plain target: kept, the MSAA buffer held three times the texture
@@ -193,7 +198,7 @@ function renderImpostor(renderer: WebGLRenderer, bake: BakeScene): Impostor {
       renderer.render(scene, camera);
     }
   }
-  copyTexture(renderer, msaa.texture, target);
+  copyTexture(renderer, msaa.texture, target, copy);
   msaa.dispose();
   renderer.setRenderTarget(prevTarget);
   renderer.setClearColor(prevClear, prevAlpha);
@@ -235,16 +240,27 @@ function renderImpostor(renderer: WebGLRenderer, bake: BakeScene): Impostor {
   };
 }
 
-/** `source` into `target` as it is, alpha too (a triangle over the target, no blending), its mipmaps made after */
-function copyTexture(renderer: WebGLRenderer, source: Texture, target: WebGLRenderTarget): void {
-  const copy = copyQuad(source);
+/**
+ * `source` into `target` as it is, alpha too (a triangle over the target, no blending), its mipmaps made
+ * after; with `copy` (its program built ahead) or a quad of its own
+ */
+function copyTexture(renderer: WebGLRenderer, source: Texture, target: WebGLRenderTarget, copy?: CopyQuad): void {
+  const quad = copy ?? copyQuad(source);
+  quad.material.map = source;
   renderer.setRenderTarget(target);
-  renderer.render(copy.scene, copy.camera);
-  copy.dispose();
+  renderer.render(quad.scene, quad.camera);
+  if (!copy) quad.dispose();
+}
+
+interface CopyQuad {
+  scene: Scene;
+  camera: OrthographicCamera;
+  material: MeshBasicMaterial;
+  dispose(): void;
 }
 
 /** A triangle over clip space with `source` on it as it is, and the identity camera it draws with */
-function copyQuad(source: Texture): { scene: Scene; camera: OrthographicCamera; dispose(): void } {
+function copyQuad(source: Texture): CopyQuad {
   const material = new MeshBasicMaterial({ map: source, blending: NoBlending, toneMapped: false, depthTest: false, depthWrite: false });
   const geometry = new BufferGeometry();
   geometry.setAttribute('position', new BufferAttribute(new Float32Array([-1, -1, 0, 3, -1, 0, -1, 3, 0]), 3));
@@ -258,6 +274,7 @@ function copyQuad(source: Texture): { scene: Scene; camera: OrthographicCamera; 
   return {
     scene,
     camera,
+    material,
     dispose: () => {
       geometry.dispose();
       material.dispose();

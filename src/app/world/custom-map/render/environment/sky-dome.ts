@@ -22,6 +22,7 @@ import { SHADER_NOISE } from '../shader-noise';
 import { HEIGHT_FOG_PARS, HEIGHT_FOG_UNIFORMS } from './height-fog';
 import { WIND_UNIFORMS } from './wind';
 import { FLASH_COLOR } from './lightning';
+import { firstUseOf } from '../../../../three-engine/programs-ready';
 
 /**
  * The visible sky: a dome around the camera with a gradient from horizon
@@ -66,6 +67,9 @@ export class SkyDome {
   private readonly bakeScene = new Scene();
   private readonly bakeCamera = new OrthographicCamera(-1, 1, 1, -1, 0, 1);
   private bakeAge = SKY_BAKE_FRAMES;
+  /** The renderer the bake's program is built for, and the one it is being built for (link) */
+  private bakeReady: WebGLRenderer | null = null;
+  private linking: { renderer: WebGLRenderer; done: Promise<void> } | null = null;
 
   /** The sky's uniforms; materials that reflect the sky share these objects (SKY_FUNCTIONS) */
   get uniforms(): ShaderMaterial['uniforms'] {
@@ -132,10 +136,45 @@ export class SkyDome {
   }
 
   /**
+   * Builds the bake's program for `renderer` off the main thread
+   * (compileAsync into its target) with its first-use work; settles when it
+   * is built. Linked in its first bake it cost the frame 287 to 570 ms on
+   * opening a map in the editor. The environment waits for it (envReady).
+   */
+  link(renderer: WebGLRenderer): Promise<void> {
+    if (this.bakeReady === renderer) return Promise.resolve();
+    if (this.linking?.renderer === renderer) return this.linking.done;
+    const previous = renderer.getRenderTarget();
+    let built: Promise<unknown>;
+    try {
+      // compileAsync builds the program before it returns its promise: the target only around the call
+      renderer.setRenderTarget(this.bakeTarget);
+      built = renderer.compileAsync(this.bakeScene, this.bakeCamera);
+    } finally {
+      renderer.setRenderTarget(previous);
+    }
+    const done = built
+      .then(() => firstUseOf(renderer, this.bakeScene.children.map((m) => (m as Mesh).material)))
+      .catch(() => undefined)
+      .then(() => {
+        if (this.linking?.renderer !== renderer) return;
+        this.linking = null;
+        this.bakeReady = renderer;
+      });
+    this.linking = { renderer, done };
+    return done;
+  }
+
+  /**
    * Renders the sky into its texture every few frames, or on the next call
-   * after `set` (a new sky). The renderer's target is put back.
+   * after `set` (a new sky), once its program is built (link, which a first
+   * call starts). The renderer's target is put back.
    */
   bake(renderer: WebGLRenderer): void {
+    if (this.bakeReady !== renderer) {
+      void this.link(renderer);
+      return;
+    }
     if (++this.bakeAge < SKY_BAKE_FRAMES) return;
     this.bakeAge = 0;
     const previous = renderer.getRenderTarget();

@@ -49,3 +49,23 @@ export async function firstUsePrograms(
     else if (ms > 2) await new Promise((resolve) => setTimeout(resolve));
   }
 }
+
+/**
+ * The first-use work (firstUsePrograms) of the programs `materials` were
+ * compiled with, now, one program per task: for parts that draw outside
+ * the frames (PMREM, the sky's bake, an impostor's bake), whose first draw
+ * otherwise did it in one long task. A material not compiled yet is
+ * skipped.
+ */
+export async function firstUseOf(
+  renderer: { properties: { get(object: object): unknown } },
+  materials: readonly (object | null | undefined)[],
+): Promise<void> {
+  for (const material of materials) {
+    if (!material) continue;
+    const program = (renderer.properties.get(material) as { currentProgram?: { getUniforms?: () => unknown } }).currentProgram;
+    if (!program?.getUniforms) continue;
+    program.getUniforms();
+    await new Promise((resolve) => setTimeout(resolve));
+  }
+}
