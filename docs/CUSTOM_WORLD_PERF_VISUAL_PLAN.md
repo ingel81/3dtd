@@ -34,7 +34,7 @@ nach dem genannten laufenden Worker, weil dieselben Dateien betroffen sind.
 
 | Paket | Inhalt | Ziel (strukturell) | Status |
 |---|---|---|---|
-| **V1 Statische Szene** | `matrixAutoUpdate` aus für statische Kartengruppen (bewegte Teile in eigener Gruppe); eigene Bodenwurzel der Kamera über Höhenfeld und Dächer mit Versionszähler; Punktlichter als festes Array mit Uniform-Schleife statt Programm-Varianten; `forceContextLoss` erst nach dem Wechsel; Himmel, PMREM und Impostor ins Vorab-Übersetzen | Multiplikationen pro Bild −70 %, kein Traversieren in der Bodenabfrage, Programme je Laden etwa halbiert | Worker r8-scene |
+| **V1 Statische Szene** | `matrixAutoUpdate` aus für statische Kartengruppen (bewegte Teile in eigener Gruppe); eigene Bodenwurzel der Kamera über Höhenfeld und Dächer mit Versionszähler; Punktlichter als festes Array mit Uniform-Schleife statt Programm-Varianten; `forceContextLoss` erst nach dem Wechsel; Himmel, PMREM und Impostor ins Vorab-Übersetzen | Multiplikationen pro Bild −70 %, kein Traversieren in der Bodenabfrage, Programme je Laden etwa halbiert | gebaut (siehe unten) |
 | **V2 Objekte: LOD und Draws** | LOD nach Bildgröße statt fester Distanz, LOD je Instanz auch in Zellen, Kastenstufe (LOD2) für Gebäude mit gebackener Fassade, fehlende LODs nachziehen; Zellen eines Assets bzw. Gebäude je Material als `BatchedMesh`; Sichtlinie und Schattencaster unverändert | Stuttgart High unter 300 Draws, unter 4 M Dreiecke; Low unter 50 % der GPU-Zeit von High | Worker r8-objlod (Abstimmung r6-bldg, r6-poi, r6-maps) |
 | **V3 Lecks und Laden** | Materialien auf Modulebene je Engine (tower-scaffold, blob-shadow, Rauschtexturen), Probe gegen abgehängte Canvases; Upload-Bereiche zusammenfassen; GroundOcclusion und Wasser-Backen im Worker auch im Spiel, Eckenprüfung des Korridors im Worker; Rauschtexturen gebacken; feste 50-ms-Pausen raus; Shader-Fortschritt auf dem Ladeschirm; Cache über Releases, `put` nicht abwarten, Ton nach `ready` | Renderer-Prozess über 10 Wechsel höchstens +5 %; kein Task über 200 ms beim Laden | Worker r8-load |
 | **V4 Atmosphäre und Licht** | Dunstfarbe richtungsabhängig aus dem Himmel, Luftperspektive höhenabhängig statt Rand-Stufe, Vorland sichtbar mit Fernbäumen; Sumpf- und Endzeit-Look lesbar; Strata nur auf Steilflanken; Laternenpools weich mit Ausläufer und Glanz; Wasser ohne Kachelmuster, Schaum weich und beleuchtet; Eisrand; Staub als Schlieren; Rauch am Kamin; Untergrenze fürs Umgebungslicht nachts | Vorher/Nachher je Karte (horizon, top, game); höchstens +0,5 ms GPU je Paket | Worker r8-atmo (Abstimmung r7-storm, r7-muzzle) |
@@ -45,6 +45,39 @@ nach dem genannten laufenden Worker, weil dieselben Dateien betroffen sind.
 | V9 Texturen und Modelle komprimiert | KTX2 (ETC1S/UASTC) und Meshopt für Karten- und Spielmodelle, geteilte Materialbibliothek, Laden nach Bedarf, VAT offline | Grafikspeicher der Modelltexturen −50 %, Spielmodelle 90 → ~25 MB | danach, mit Sichtabnahme |
 | V10 Fassaden und Stilsätze | Fassaden-Bausatz (Laibungen, Simse, Attika, Sockel), gebackene Verwitterung, Altstadt-Stilsatz mit Fachwerk, Endstücke für Reihen, Fassadenvarianten | Kontaktbögen Rothenburg, Miltenberg, Harbor | wartet: r6-bldg, r6-maps (E179) |
 | V11 Renderer behalten | ein Renderer und Kontext über Editor, Test und Weltwechsel | kein Neu-Linken beim Wechsel | nach V1 und V3 |
+
+## Gebaut
+
+### V1 Statische Szene (r8-scene, 2026-10-19)
+
+Belege strukturell, gezählt in Specs und Browser-Proben (Entwicklungs-Build, Rechner unter Last; Zeiten in der
+Messliste für später).
+
+- **Statische Matrizen:** `StaticGroup` (`three-engine/static-group.ts`) für `view.group` und `view.losBlockers`:
+  der Teilbaum rechnet nach einem Verschieben (`view.placeAt`), einem neuen Elternteil, `invalidate()` oder für ein
+  hinzugekommenes Objekt (`childadded`, nur dessen Teilbaum), Teile mit eigener Bewegung über `addMoving` jedes Bild.
+  Auf der Karte bewegt sich nichts über Knoten-Transformationen (Mover, Boote, Vögel, Rotoren, Stoff, Gondeln laufen
+  in Instanzpuffern und Shadern), die Gruppe für Bewegtes steht bereit. Die Szene des Editors setzt
+  `matrixAutoUpdate` aus wie die des Spiels. Multiplikationen in der Matrixaktualisierung je Bild: Stuttgart (OSM)
+  11 966 → 668 (−94 %; der Rest sind versteckte Pool-Meshes des Spiels, nicht die Karte), alle Multiplikationen je
+  Bild 12 809 → 1430; Demo-Tal Kartenanteil 523 → 0, Editor 349 → 0
+- **Bodenwurzel der Kamera:** `MapGroundPick` raycastet Höhenfeld und Dächer analytisch (`CustomMapSurface.pickRay`),
+  Version aus `surface.pickVersion` und den Verschiebungen statt `SceneGraphVersion` über 8400 Knoten zweimal je Bild
+- **Punktlichter:** die Lampen der Karte gehen als feste Lichter in den Lichtpuffer (`shot-lights`, gemeinsam mit
+  r7-muzzle), keine three-`PointLight`s mehr; alle Lichtzustände im Vorab-Übersetzen entfallen. Harbor Town, High:
+  Programme bis `ready` 397 bis 405 → 212 bis 215 (−47 %), nach dem Vorbereiten der Stufen 557 bis 642 → 277
+  (−50 bis −57 %), erste Nacht 60 bis 85 → 0; Editor 226 → 160. Stuttgart danach: 215 bis `ready`, 253 nach 15 s.
+  Optik nachts gleich bis auf weichere Fleck-Mitte unter den Laternen ([SHOT_LIGHTS.md](SHOT_LIGHTS.md))
+- **Kontextverlust:** `releaseContext`/`settleContexts` (`three-engine/context-release.ts`): der alte Kontext geht,
+  wenn die neue Ansicht steht (Spiel `load:ready`, Editor nach dem Vorab-Übersetzen), im nächsten Leerlauf. Editor →
+  Test → Editor (Demo-Tal): `loseContext` 16 + 21 ms und 22 + 63 ms; vorher 0,9 und 2,3 s (Messung r7-eperf) und
+  4 s für den Kontext der Paletten-Bilder (erste Probe, noch sofort verloren). Nicht entfernt: der Browser hält nur wenige Kontexte, und ein festgehaltener alter Kontext ließe beim
+  Limit den ältesten lebenden verlieren
+- **Vorab-Übersetzen:** Himmels-Bake (`SkyDome.link`, `envReady` wartet), Erstbenutzung der PMREM-Programme je Task,
+  Impostor-Bake zeichnet mit dem vorab kompilierten Kopier-Quad (vorher entsorgt und neu gelinkt)
+- Offen außerhalb V1: rund 500 versteckte, unbenannte Pool-Meshes des Spiels (ShaderMaterial) rechnen ihre Matrix
+  jedes Bild (Demo-Tal 801, Stuttgart 534 Multiplikationen je Bild); der Wechsel Editor → Test hat weiter ein langes
+  Bild beim Abbau des Editors und Aufbau des Spiels (2,4 bis 7 s unter Last), nicht der Kontextverlust
 
 ## Regeln für alle Pakete
 
