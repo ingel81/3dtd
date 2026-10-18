@@ -4,6 +4,7 @@ import {
   InstancedMesh,
   LatheGeometry,
   Matrix4,
+  type Mesh,
   MeshStandardMaterial,
   Quaternion,
   Vector2,
@@ -11,6 +12,7 @@ import {
   type Object3D,
 } from 'three';
 import type { TowerTypeConfig } from '../../configs/tower-types.config';
+import { ChainLoop, chainLinkGeometry, chainMaterial, chainlessGeometry } from './tower-saw-chain';
 
 /** Radius of an arm, model units: even all along, a robot arm, not a taper (the concept of 2026-10-02) */
 const RADIUS = 0.15;
@@ -46,6 +48,32 @@ const SAW_STANDOFF = 0.42;
 const SAMPLES = 24;
 /** Longest step the spring takes at once, s: a long frame is taken in several */
 const MAX_STEP = 1 / 60;
+/** At work a saw strokes across its enemy, sideways on the ground: this far each way, model units (about 0.7 m) */
+const STROKE = 0.18;
+/** Strokes there and back a second */
+const STROKE_RATE = 1.1;
+/** With each stroke it pushes in and draws back along the bar this much, twice a stroke, model units */
+const STROKE_PUSH = 0.05;
+/** The bar trails each stroke by this much at its fastest, rad: dragged through, not slid */
+const STROKE_YAW = (11 * Math.PI) / 180;
+/** Seconds the stroke takes to set in once a saw is at its enemy, and to stop */
+const STROKE_EASE = 0.35;
+/** The chain at full run, model units a second along its loop */
+const CHAIN_RUN = 2.6;
+/** Share of the full run docked and idling; out on the way to an enemy it runs at CHAIN_REACH */
+const CHAIN_IDLE = 0.12;
+const CHAIN_REACH = 0.6;
+/** Seconds the chain takes to run up to speed, and to run down (the motors run on, as in SAW_SOUND) */
+const CHAIN_SPIN_UP = 0.3;
+const CHAIN_SPIN_DOWN = 1.2;
+/**
+ * The most a link moves in one frame, a share of a link: faster it would
+ * strobe (seem to stand or run back); near that speed the links stretch
+ * along the run, by CHAIN_BLUR per share past CHAIN_BLUR_FROM, a blur
+ */
+const CHAIN_MAX_STEP = 0.45;
+const CHAIN_BLUR = 2.2;
+const CHAIN_BLUR_FROM = 0.15;
 
 const UP = new Vector3(0, 1, 0);
 const X = new Vector3(1, 0, 0);
@@ -77,6 +105,13 @@ interface Arm {
   c1: Vector3;
   c2: Vector3;
   bar: Vector3;
+  /** 0 to 1, how far the stroke has set in (STROKE_EASE), and where in its stroke the saw is, rad */
+  stroke: number;
+  strokePhase: number;
+  /** The chain round its bar (null without a `bar` or a saw), its run 0 to 1 and how far it has gone, model units */
+  chain: ChainLoop | null;
+  chainSpeed: number;
+  chainAt: number;
 }
 
 /** Ways to give up to three targets to three arms: each entry lists the target of arm 0, 1, 2 (-1: none) */
@@ -97,6 +132,10 @@ const ORDERS: readonly (readonly number[])[] = [
  * over the asphalt and its bar tilted into it; home it goes the same way
  * back. At work the saw follows its enemy on a critically damped spring, so
  * a moving enemy or a new one swings the arm over instead of jumping it.
+ * There it saws (E241): it strokes across the enemy, sideways on the
+ * ground to the way the arm comes in, pushing in twice a stroke, its bar
+ * trailing; its chain runs round the bar (tower-saw-chain.ts, all links in
+ * one InstancedMesh), idling docked, faster out and spinning up at work.
  * The simulation names the enemies; which arm takes which is drawn here:
  * the order with the least travel and the fewest enemies outside an arm's
  * quarter, so arms keep to their sides and do not cross, and two saws out
@@ -106,8 +145,12 @@ const ORDERS: readonly (readonly number[])[] = [
  */
 export class SawArms {
   readonly mesh: InstancedMesh;
+  /** The links of all the chains, one InstancedMesh */
+  readonly chain: InstancedMesh;
   private readonly arms: Arm[];
   private readonly matrix = new Matrix4();
+  private readonly sawMatrix = new Matrix4();
+  private readonly linkMatrix = new Matrix4();
   private readonly points: Vector3[] = Array.from({ length: SAMPLES + 1 }, () => new Vector3());
   private readonly lengths = new Float32Array(SAMPLES + 1);
   private readonly p0 = new Vector3();
@@ -124,8 +167,11 @@ export class SawArms {
 
   constructor(config: TowerTypeConfig, private readonly turret: Object3D) {
     const specs = config.sawArms ?? [];
-    this.arms = specs.map((spec) => {
+    this.arms = specs.map((spec, index) => {
       const saw = turret.getObjectByName(spec.node) ?? null;
+      // Its modelled teeth pressed into the bar: the running chain stands in for them
+      const sawMesh = saw as Mesh | null;
+      if (spec.bar && sawMesh?.isMesh) sawMesh.geometry = chainlessGeometry(sawMesh.geometry, spec.bar);
       const socket = new Vector3(...spec.socket);
       const out = new Vector3(...spec.out).normalize();
       const side = out.clone().setY(0);
@@ -151,6 +197,12 @@ export class SawArms {
         c1: new Vector3(),
         c2: new Vector3(),
         bar: new Vector3(),
+        stroke: 0,
+        // The arms stroke out of step with each other
+        strokePhase: index * 2.1,
+        chain: spec.bar && saw ? new ChainLoop(spec.bar) : null,
+        chainSpeed: CHAIN_IDLE,
+        chainAt: index * 0.37,
       };
     });
     this.mesh = new InstancedMesh(vertebraGeometry(), sawArmsMaterial(), Math.max(1, this.arms.length) * MAX_SEGMENTS);
@@ -158,6 +210,12 @@ export class SawArms {
     // The arms reach far past the model's bounds
     this.mesh.frustumCulled = false;
     turret.add(this.mesh);
+    const links = this.arms.reduce((sum, arm) => sum + (arm.chain?.links ?? 0), 0);
+    this.chain = new InstancedMesh(chainLinkGeometry(), chainMaterial(), Math.max(1, links));
+    this.chain.name = 'saw_chain';
+    this.chain.frustumCulled = false;
+    this.chain.count = 0;
+    turret.add(this.chain);
     this.update(0);
   }
 
@@ -196,6 +254,14 @@ export class SawArms {
     for (const arm of this.arms) {
       const step = deltaSeconds / EXTEND_SECONDS;
       arm.reach = arm.hasTarget ? Math.min(1, arm.reach + step) : Math.max(0, arm.reach - step);
+      const cutting = arm.hasTarget && arm.reach >= 1;
+      arm.stroke = cutting
+        ? Math.min(1, arm.stroke + deltaSeconds / STROKE_EASE)
+        : Math.max(0, arm.stroke - deltaSeconds / STROKE_EASE);
+      if (arm.stroke > 0) arm.strokePhase += deltaSeconds * STROKE_RATE * 2 * Math.PI;
+      const run = cutting ? 1 : arm.hasTarget ? CHAIN_REACH : CHAIN_IDLE;
+      const ease = run > arm.chainSpeed ? CHAIN_SPIN_UP : CHAIN_SPIN_DOWN;
+      arm.chainSpeed += (run - arm.chainSpeed) * (1 - Math.exp(-deltaSeconds / ease));
       if (arm.hasTarget) this.follow(arm, deltaSeconds);
       this.placeTip(arm);
     }
@@ -203,16 +269,26 @@ export class SawArms {
     for (const arm of this.arms) this.shapeArm(arm);
     this.separateBodies();
     let count = 0;
-    for (const arm of this.arms) count = this.drawArm(arm, count);
+    let links = 0;
+    for (const arm of this.arms) {
+      count = this.drawArm(arm, count);
+      links = this.drawChain(arm, links, deltaSeconds);
+    }
     this.mesh.count = count;
     this.mesh.instanceMatrix.needsUpdate = true;
+    this.chain.count = links;
+    this.chain.instanceMatrix.needsUpdate = true;
   }
 
   dispose(): void {
     this.mesh.removeFromParent();
+    this.chain.removeFromParent();
     this.mesh.geometry.dispose();
+    this.chain.geometry.dispose();
     (this.mesh.material as MeshStandardMaterial).dispose();
+    (this.chain.material as MeshStandardMaterial).dispose();
     this.mesh.dispose();
+    this.chain.dispose();
   }
 
   /**
@@ -271,11 +347,29 @@ export class SawArms {
     }
   }
 
-  /** The saw on its staged way: dock to deployed point (unfolding), deployed point to the bound point (reaching) */
+  /**
+   * The saw on its staged way: dock to deployed point (unfolding), deployed
+   * point to the bound point (reaching); at work it strokes across its enemy,
+   * sideways to the way the arm comes in, pushing in twice a stroke
+   */
   private placeTip(arm: Arm): void {
     const r = arm.reach;
     if (r <= UNFOLD_SHARE) arm.tip.lerpVectors(arm.restPosition, arm.deployed, smooth(r / UNFOLD_SHARE));
     else arm.tip.lerpVectors(arm.deployed, arm.aim, smooth((r - UNFOLD_SHARE) / (1 - UNFOLD_SHARE)));
+    if (arm.stroke <= 0) return;
+    const dir = this.inward(arm);
+    const set = smooth(arm.stroke);
+    const across = Math.sin(arm.strokePhase) * STROKE * set;
+    const push = Math.sin(2 * arm.strokePhase) * STROKE_PUSH * set;
+    arm.tip.x += -dir.z * across + dir.x * push;
+    arm.tip.z += dir.x * across + dir.z * push;
+  }
+
+  /** The way the arm comes in to its enemy on the ground, normalised, in `this.dir` */
+  private inward(arm: Arm): Vector3 {
+    const dir = this.dir.subVectors(arm.target, arm.socket).setY(0);
+    if (dir.lengthSq() < 1e-6) dir.copy(arm.side);
+    return dir.normalize();
   }
 
   /** Two saws out closer than SAW_CLEARANCE: each moves half the shortfall away from the other, as far as it is out */
@@ -301,16 +395,14 @@ export class SawArms {
   /** The arm's curve: its saw's bar and the control points (socket and saw are its ends) */
   private shapeArm(arm: Arm): void {
     const reach = smooth(arm.reach);
-    const { dir } = this;
-    // Small shake while it cuts
-    if (arm.hasTarget && arm.reach >= 1) {
-      arm.tip.x += Math.sin(this.time * 61 + arm.lift * 13) * 0.012;
-      arm.tip.y += Math.sin(this.time * 47 + arm.lift * 7) * 0.012;
-    }
-    // The bar along the curve's end: as docked, turning into the enemy (tilted down) as it reaches
-    dir.subVectors(arm.target, arm.socket).setY(0);
-    if (dir.lengthSq() < 1e-6) dir.copy(arm.side);
-    dir.normalize();
+    // The motor's buzz while it cuts
+    const buzz = 0.006 * smooth(arm.stroke);
+    arm.tip.x += Math.sin(this.time * 61 + arm.lift * 13) * buzz;
+    arm.tip.y += Math.sin(this.time * 47 + arm.lift * 7) * buzz;
+    // The bar along the curve's end: as docked, turning into the enemy (tilted down) as it reaches, trailing its stroke
+    const dir = this.inward(arm);
+    const yaw = Math.cos(arm.strokePhase) * STROKE_YAW * smooth(arm.stroke);
+    if (yaw !== 0) dir.applyAxisAngle(UP, yaw);
     arm.bar.set(dir.x, -Math.tan(SAW_TILT), dir.z).normalize();
     arm.bar.lerpVectors(arm.axis, arm.bar, reach).normalize();
     const span = arm.socket.distanceTo(arm.tip);
@@ -386,6 +478,28 @@ export class SawArms {
       this.q.setFromUnitVectors(X, dir.subVectors(b, a).normalize());
       this.matrix.compose(this.tmp, this.q, this.scale);
       this.mesh.setMatrixAt(n++, this.matrix);
+    }
+    return n;
+  }
+
+  /**
+   * The links of one arm's chain where they run this frame, in the turret's
+   * frame through the saw's (drawArm placed it); returns the links used so
+   * far. A link goes at most CHAIN_MAX_STEP of itself a frame and stretches
+   * past CHAIN_BLUR_FROM, so a fast chain blurs instead of strobing.
+   */
+  private drawChain(arm: Arm, first: number, deltaSeconds: number): number {
+    const loop = arm.chain;
+    if (!loop || !arm.saw) return first;
+    const step = Math.min(arm.chainSpeed * CHAIN_RUN * deltaSeconds, CHAIN_MAX_STEP * loop.pitch);
+    arm.chainAt = (arm.chainAt + step) % loop.perimeter;
+    const stretch = 1 + CHAIN_BLUR * Math.max(0, step / loop.pitch - CHAIN_BLUR_FROM);
+    const saw = arm.saw;
+    this.sawMatrix.compose(saw.position, saw.quaternion, saw.scale);
+    let n = first;
+    for (let k = 0; k < loop.links; k++) {
+      if (!loop.place(arm.chainAt + k * loop.pitch, (k & 1) === 1, stretch, this.linkMatrix)) continue;
+      this.chain.setMatrixAt(n++, this.linkMatrix.premultiply(this.sawMatrix));
     }
     return n;
   }

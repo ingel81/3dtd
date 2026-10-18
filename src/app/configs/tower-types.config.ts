@@ -312,7 +312,9 @@ export interface TowerTypeConfig {
    * the first), free arms join the farthest; so the arms keep apart, each in its band of the road. Per arm, in
    * the turret part's frame of the model (glTF units, y up): the saw node, where the arm leaves the torso
    * (`socket`), the way it leaves (`out`), the way the saw's mount faces docked (`axis`) and how high the arm
-   * arches (`lift`, a share of its span).
+   * arches (`lift`, a share of its span). `bar`, in the saw node's own frame: the bar's middle line from where it
+   * leaves the motor housing (`from`) to the middle of its nose (`to`) and its face (`normal`); the renderer runs a
+   * chain around it (tower-saw-chain.ts), without it the saw has none.
    */
   /**
    * Stream only (attackType 'stream'): a dense stream of pieces on a line from the muzzle to the target, `damage`
@@ -324,7 +326,8 @@ export interface TowerTypeConfig {
   stream?: { spinUpSeconds: number; spinDownSeconds: number; width: number; muzzle: [number, number, number] };
 
   sawArms?: readonly { node: string; socket: [number, number, number]; out: [number, number, number];
-    axis: [number, number, number]; lift: number }[];
+    axis: [number, number, number]; lift: number;
+    bar?: { from: [number, number, number]; to: [number, number, number]; normal: [number, number, number] } }[];
 
   // Chain attack settings (for lightning-type towers — hitscan chain)
   maxJumps?: number;      // Number of additional targets after the primary (e.g. 2 = 3 total hits)
@@ -773,10 +776,14 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     projectileType: 'arrow', // Fallback, unused (saw)
     // From the concept (2026-10-02): the lowest arm takes the nearest target, the side arm the middle, the top arm
     // the farthest, arching higher in turn so they do not cross
+    // The bars measured on the model: the middle between the teeth tips on both edges, the nose's hub on that line
     sawArms: [
-      { node: 'saw_down', socket: [-0.016, 0.19, 0.247], out: [0, -0.1, 1], axis: [0, -0.495, 0.869], lift: 0.3 },
-      { node: 'saw_side', socket: [0.254, 0.55, -0.013], out: [1, 0.2, 0], axis: [0.982, 0.188, 0.011], lift: 0.5 },
-      { node: 'saw_up', socket: [-0.016, 0.53, 0.267], out: [0, 0.35, 1], axis: [0, 0.671, 0.742], lift: 0.75 },
+      { node: 'saw_down', socket: [-0.016, 0.19, 0.247], out: [0, -0.1, 1], axis: [0, -0.495, 0.869], lift: 0.3,
+        bar: { from: [-0.012, -0.203, 0.359], to: [-0.012, -0.314, 0.699], normal: [1, 0, 0] } },
+      { node: 'saw_side', socket: [0.254, 0.55, -0.013], out: [1, 0.2, 0], axis: [0.982, 0.188, 0.011], lift: 0.5,
+        bar: { from: [0.3, 0.048, 0.001], to: [0.612, 0.093, 0.001], normal: [0, 0, 1] } },
+      { node: 'saw_up', socket: [-0.016, 0.53, 0.267], out: [0, 0.35, 1], axis: [0, 0.671, 0.742], lift: 0.75,
+        bar: { from: [0.002, 0.141, 0.305], to: [0.002, 0.251, 0.655], normal: [1, 0, 0] } },
     ],
     // Three bodies at once at the road's edge, flesh most of all (pierce 1.25 and 1.6), steel and stone hardly
     // (0.35, 0.25). Short arms for much damage: 0.80 unarmored DPS per gold against the gatling's 0.69 at 50 m

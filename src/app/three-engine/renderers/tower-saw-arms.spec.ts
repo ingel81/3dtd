@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Group, Object3D, Vector3 } from 'three';
+import { Group, Matrix4, Object3D, Vector3 } from 'three';
 import { TOWER_TYPES } from '../../configs/tower-types.config';
 import { SawArms } from './tower-saw-arms';
 
@@ -97,5 +97,68 @@ describe('SawArms', () => {
     for (let i = 0; i < 48; i++) arms.update(1 / 60);
     expect(arms.mesh.count).toBeGreaterThan(docked + 40);
     arms.dispose();
+  });
+
+  it('at work a saw strokes sideways across its enemy, not up and down (E241)', () => {
+    const part = turret();
+    const arms = new SawArms(TOWER_TYPES.chainsaw, part);
+    const saw = part.getObjectByName('saw_down')!;
+    // Straight out along +z: across is x
+    arms.setTargets([new Vector3(0, 0, 3), null, null]);
+    for (let i = 0; i < 90; i++) arms.update(1 / 60);
+    const lo = saw.position.clone();
+    const hi = saw.position.clone();
+    for (let i = 0; i < 60; i++) {
+      arms.update(1 / 60);
+      lo.min(saw.position);
+      hi.max(saw.position);
+    }
+    expect(hi.x - lo.x).toBeGreaterThan(0.25);
+    expect(hi.y - lo.y).toBeLessThan(0.05);
+    expect(hi.x - lo.x).toBeGreaterThan(2 * (hi.z - lo.z));
+    // Home again it stops stroking
+    arms.setTargets([]);
+    for (let i = 0; i < 60; i++) arms.update(1 / 60);
+    expect(saw.position.distanceTo(new Vector3(-0.016, 0.09, 0.347))).toBeLessThan(1e-6);
+    arms.dispose();
+  });
+
+  it('runs a chain round each bar, idling docked and spinning up at work, blurred past the strobe limit (E241)', () => {
+    const part = turret();
+    const arms = new SawArms(TOWER_TYPES.chainsaw, part);
+    const saw = part.getObjectByName('saw_down')!;
+    // Links of saw_down in its own frame, one frame apart: how far the nearest moved
+    const step = (): number => {
+      const linksIn = (): Vector3[] => {
+        saw.updateMatrix();
+        const toSaw = new Matrix4().copy(saw.matrix).invert();
+        const m = new Matrix4();
+        const out: Vector3[] = [];
+        for (let i = 0; i < arms.chain.count; i++) {
+          arms.chain.getMatrixAt(i, m);
+          const p = new Vector3().setFromMatrixPosition(m).applyMatrix4(toSaw);
+          // saw_down's bar lies along +z of its frame, the others' links are far off
+          if (p.length() < 1) out.push(p);
+        }
+        return out;
+      };
+      const before = linksIn();
+      arms.update(1 / 60);
+      const after = linksIn();
+      const moved = after.map((p) => Math.min(...before.map((q) => q.distanceTo(p))));
+      return moved.reduce((a, b) => a + b, 0) / moved.length;
+    };
+    arms.update(1 / 60);
+    expect(arms.chain.count).toBeGreaterThan(30);
+    const idle = step();
+    expect(idle).toBeGreaterThan(0.002);
+    arms.setTargets([new Vector3(0, 0, 3), null, null]);
+    for (let i = 0; i < 90; i++) arms.update(1 / 60);
+    const cutting = step();
+    expect(cutting).toBeGreaterThan(2.5 * idle);
+    // Never past 0.45 of a link a frame (0.042), so it cannot seem to stand or run back
+    expect(cutting).toBeLessThan(0.45 * 0.042 + 1e-3);
+    arms.dispose();
+    expect(part.getObjectByName('saw_chain')).toBeUndefined();
   });
 });

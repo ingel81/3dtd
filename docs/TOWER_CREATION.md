@@ -170,7 +170,7 @@ const NEW_MODEL_URL = 'assets/models/towers/new_tower.glb';
 | `chainFalloff` | number | - | **Chain-only:** Schaden-Multiplier pro Jump (Lightning: 0.7 → 100%/70%/49%) |
 | `jumpRange` | number | - | **Chain-only:** Max. Distanz zwischen zwei Chain-Links in Metern |
 | `laser` | { maxFactor, rampSeconds, muzzleM } | - | **Laser-only:** `damage` ist Schaden je Sekunde kalt; auf demselben Ziel steigt er linear auf `maxFactor` in `rampSeconds` (geteilt durch die Fire Rate, Track „Heat-up"), der Strahl beginnt `muzzleM` vor dem Kopf-Pivot |
-| `sawArms` | { node, socket, out, axis, lift }[] | - | **Saw-only:** je Arm der Sägen-Node, Ansatz und Richtung am Torso, Richtung der Halterung eingefahren und Bogenhöhe, im Frame des Turret-Teils (glTF-Einheiten); `damage` ist Schaden je Sekunde und Arm, mal `fireRate` (Chain Speed) |
+| `sawArms` | { node, socket, out, axis, lift, bar? }[] | - | **Saw-only:** je Arm der Sägen-Node, Ansatz und Richtung am Torso, Richtung der Halterung eingefahren und Bogenhöhe, im Frame des Turret-Teils (glTF-Einheiten); `bar` im Frame der Säge: Mittellinie des Schwerts vom Gehäuse bis zur Nase und seine Fläche, um die die Kette läuft; `damage` ist Schaden je Sekunde und Arm, mal `fireRate` (Chain Speed) |
 | `stream` | { spinUpSeconds, spinDownSeconds, width, muzzle } | - | **Stream-only:** `damage` je Sekunde bei vollem Antrieb, mal `fireRate` (Drive); Antrieb hoch und herunter in diesen Zeiten, Treffer auf der Linie bis `width` m daneben, `muzzle` im Frame des Turret-Teils |
 | `damageType` | DamageType | - | Pflichtfeld: physical/pierce/siege/magic/fire/ice/poison/lightning/chaos |
 
@@ -1052,6 +1052,17 @@ Treffer je Gegner): die Zuordnung mit dem kürzesten Weg und den wenigsten Gegne
 so bleibt jeder Arm auf seiner Seite und die Arme kreuzen nicht; einen Gegner zu behalten kostet keinen Weg, die
 Arme tauschen also nicht, nur weil die Simulation die Liste anders ordnet. Zwei Sägen halten 0,55 Modelleinheiten
 Abstand, die Mitten zweier Arme 0,45 (sie biegen sich auseinander).
+
+Das Sägen (E241, nur Bild): am Gegner fährt die Säge quer über ihn hin und her, waagerecht und quer zur Richtung,
+aus der der Arm kommt (0,18 Modelleinheiten je Seite, gut 0,7 m, 1,1 Mal je Sekunde), stößt zweimal je Zug ein
+wenig nach und das Schwert schleppt dem Zug bis 11° nach; der Zug setzt in 0,35 s ein und aus. Die Kette läuft um
+das Schwert: `tower-saw-chain.ts` drückt die modellierten Zähne einmal je Geometrie ins Schwert (nur die Positionen
+sind eigen, geteilt von allen Türmen) und zeichnet eigene Glieder auf einer Stadionbahn um `bar`, alle Glieder der
+drei Sägen in einem InstancedMesh (ein Draw-Call je Turm mehr), jedes zweite gedreht, so sitzen die Schneidzähne
+abwechselnd links und rechts. Eingefahren läuft sie im Leerlauf (12 %), ausgefahren schneller (60 %), bei der
+Arbeit voll (2,6 Modelleinheiten je Sekunde), an in 0,3 s, aus in 1,2 s (die Motoren laufen nach wie im Ton). Ein
+Glied rückt höchstens 0,45 seiner Länge je Bild vor, schneller wirkte die Kette stroboskopisch (stünde oder liefe rückwärts);
+nahe dieser Grenze streckt es sich längs des Laufs, eine Bewegungsunschärfe.
 
 ## Beispiel: Shawarma Slicer (Stream Attack)
 
