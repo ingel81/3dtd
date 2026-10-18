@@ -125,9 +125,8 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
 
 - [ ] **E233 Eigene Overpass-Instanz** (2026-10-18): läuft seit 2026-10-18 unter `3dtd-osm.sgeht.net` (Setup
       `overpass-host/`, Images auf GHCR, Klon vom 13.10., Stadt-Abfragen 1 bis 1,3 s, Proxy gedeckelt, Statusseite
-      im LAN). **Offen: Anbindung im Spiel mit 0.8**: als erster Eintrag in `overpass-servers.ts` (Abdeckung global),
-      CSP (`public/.htaccess`, `desktop/src/protocol.js`, `desktop/src/user-agent.js`), Rechtsseiten (eigener Server,
-      Cloudflare als Dienstleister, keine IPs gespeichert), Dev-Ports in `ALLOWED_ORIGINS`. Live seit 0.7.2 schon die
+      im LAN). Im Spiel auf `next` angebunden (erster globaler Server, CSP, Rechtsseiten, README, Startseite); geht
+      live mit 0.8. Dev-Ports außer 4200 brauchen einen Eintrag in `ALLOWED_ORIGINS` des Servers. Live seit 0.7.2 schon die
       Rotation über fünf öffentliche Server. Entscheide: echter Overpass statt Kachelserver (keine Datenfilter, keine
       Spieländerung), 16 GB RAM, Klon ohne Metadaten, Neu-Klon bei Bedarf statt Diffs, jede QL-Abfrage gedeckelt (5 km,
       90 s), ohne Origin erlaubt, kein XML, Tag `:next` bis main. Andere Datenquellen vom User verworfen.
