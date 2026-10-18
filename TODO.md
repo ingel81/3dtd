@@ -57,7 +57,7 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
 
 ### Jetzt: OSM-Runde 2 (User 2026-10-18: Lead lässt ausarbeiten und bauen, User macht optische Abnahme)
 
-Notizen und Erhebung Kleinwallstadt: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/plan/osm-notizen/`).
+Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/plan/osm-notizen/`).
 
 - [ ] **E235 Gebäude-Fallback**: jeder Grundriss wird ein Gebäude, auch große, verwinkelte mit Innenhof
       (Multipolygon mit inner-Ring); Höhe aus `height`/`building:levels`, sonst geschätzt; Fassade nach Art.
@@ -107,7 +107,8 @@ Notizen und Erhebung Kleinwallstadt: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (
 
 ### Spiel und Balance
 
-- [ ] **E241 Kettensägen-Tower feiner abstimmen** (User, 2026-10-18): Details noch klären (Balance, Gefühl, Optik).
+- [ ] **E241 Kettensägen-Tower feiner abstimmen** (User, 2026-10-18): die Sägen fahren am Gegner eher horizontal hin
+      und her, die Sägeblätter drehen sich.
 
 - [ ] **E1 Balancing aufrollen**: Phase 1 und 2 gebaut, Baseline und sechs Tuning-Runden gelaufen. Offen: Zielbänder
       (3b) und Kampagnenende (3a), [docs/BALANCING_PLAN.md](docs/BALANCING_PLAN.md).
