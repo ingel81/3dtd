@@ -19,7 +19,16 @@ export const PLACES = [
     ],
   },
   {
-    // Not Lindau: the Bodensee, cut by the square, came out as meadow (reported to the lead, 2026-10-17)
+    // The Bodensee round the island town (cut by the square: water since the OSM fix 03bbce888)
+    id: 'lindau',
+    address: 'Maximilianstraße 1, Lindau',
+    // Low over the lake from the south toward the island's harbour; then along the old town from the east
+    fly: [
+      { dur: 6, keys: [[m(90, -460, 22), m(10, -60, 8)], [m(50, -300, 18), m(0, 40, 8)]] },
+      { dur: 5, keys: [[m(480, -50, 40), m(100, 50, 10)], [m(400, 60, 35), m(0, 100, 10)]] },
+    ],
+  },
+  {
     id: 'rothenburg',
     address: 'Marktplatz 1, Rothenburg ob der Tauber',
     // Over the Tauber valley toward the walled old town on its plateau; then low over its roofs
