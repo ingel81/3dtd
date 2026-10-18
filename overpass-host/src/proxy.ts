@@ -14,6 +14,8 @@
 import { existsSync } from 'node:fs';
 import { Agent, createServer, request as httpRequest, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { ProxyConfig } from './config.ts';
+import { clientInfo, queryKind } from './classify.ts';
+import { cellOf } from './places.ts';
 import { analyzeQuery, anchorArea, anchorHull, capSettings, QlError, type Refusal } from './ql.ts';
 import { clientKey, Gate, RateLimiter } from './rate-limit.ts';
 import { inRanges, parseRanges } from './trusted.ts';
@@ -31,6 +33,10 @@ const UPSTREAM_GRACE_S = 30;
 export interface ProxyDeps {
   /** Takes one row per request; none: no statistics */
   record?: (row: RequestRow) => void;
+  /** Hears each client that asks, by its key (players.ts counts them per day) */
+  seeClient?: (clientKey: string) => void;
+  /** Hears the cell of each answered box and the box's middle, to name it some time (places.ts) */
+  answeredCell?: (cell: string, at: { lat: number; lon: number }) => void;
   now?: () => number;
   log?: (line: string) => void;
 }
@@ -120,17 +126,23 @@ export function startProxy(config: ProxyConfig, deps: ProxyDeps = {}): Promise<R
       }
     }
     const country = fromTunnel ? String(req.headers['cf-ipcountry'] ?? '').toUpperCase() : '';
+    const origin = typeof req.headers.origin === 'string' ? req.headers.origin : undefined;
+    // The class of the client only: the User-Agent itself is not kept
+    const client = clientInfo(origin, typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : undefined);
     const row: RequestRow = {
       t: start, status: 0, outcome: 'bad', ms: 0, msHead: null, bytes: 0,
       country: COUNTRY.test(country) ? country : null, box: null, areaKm2: null, reason: null,
+      kind: null, client: client.client, browser: client.browser, version: client.version, cell: null,
     };
     const finish = (status: number, outcome: Outcome): void => {
       row.status = status;
       row.outcome = outcome;
       row.ms = now() - start;
       deps.record?.(row);
+      if (outcome === 'ok' && row.cell && row.box) {
+        deps.answeredCell?.(row.cell, { lat: (row.box.s + row.box.n) / 2, lon: (row.box.w + row.box.e) / 2 });
+      }
     };
-    const origin = typeof req.headers.origin === 'string' ? req.headers.origin : undefined;
     const cors = corsHeaders(origin, config.origins);
     /** A short answer of the proxy itself */
     const answer = (status: number, outcome: Outcome, text: string, extra: Record<string, string> = {}): void => {
@@ -173,7 +185,9 @@ export function startProxy(config: ProxyConfig, deps: ProxyDeps = {}): Promise<R
 
     const address = (fromTunnel && typeof req.headers['cf-connecting-ip'] === 'string' && req.headers['cf-connecting-ip']) ||
       req.socket.remoteAddress || 'unknown';
-    const admission = limiter.admit(clientKey(address));
+    const key = clientKey(address);
+    deps.seeClient?.(key);
+    const admission = limiter.admit(key);
     if (!admission.ok) {
       const text = admission.reason === 'rate' ? 'too many queries, slow down' : 'too many queries at once';
       answer(429, admission.reason, text, { 'Retry-After': String(admission.retryAfterS) });
@@ -196,8 +210,10 @@ export function startProxy(config: ProxyConfig, deps: ProxyDeps = {}): Promise<R
         refuse({ code: 'syntax', message: `the query cannot be read: ${error.message}` });
         return;
       }
+      row.kind = queryKind(query);
       row.box = anchorHull(analysis.anchors);
       row.areaKm2 = row.box ? Math.round(anchorArea(analysis.anchors) * 100) / 100 : null;
+      row.cell = row.box ? cellOf((row.box.s + row.box.n) / 2, (row.box.w + row.box.e) / 2) : null;
       if (analysis.refusal) {
         refuse(analysis.refusal);
         return;

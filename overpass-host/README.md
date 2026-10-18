@@ -126,10 +126,17 @@ array.
 ## Status page
 
 `http://<STATUS_IP>:8090/` from the LAN (or `http://<STATUS_BIND>:<STATUS_PORT>/` on a port of the server); it loads nothing from outside and reloads every
-ten seconds. Requests over time by what became of them, answer times (median and 95 %), the boxes asked on a map of
-the world or around where they were asked, countries, outcomes, refusals, the last problems; Overpass's state, the
-time of its data and its running queries, the disk, the database's size, the memory of the Overpass container and of
-the machine, a clone under way with its progress.
+ten seconds. Requests over time by what became of them, answer times (median and 95 %), players per day and requests
+per player, the kinds of query (streets, buildings, OSM world, other) with their share, size and answer time, the
+clients (web or desktop, browser family, desktop versions), the boxes asked on a map of the world or around where they
+were asked (the pointer names the place), the places by name with the new ones marked, countries, outcomes, refusals,
+the last problems; Overpass's state, the time of its data and its running queries, the disk, the database's size, the
+memory of the Overpass container and of the machine, a clone under way with its progress.
+
+The place of an answered query is named in the background: its box's middle falls into a cell of 0.05°, and once per
+cell the proxy asks its own Overpass for the places around (city, town, village, part of town), while Overpass has a
+slot to spare, and takes the country from Natural Earth's borders (`src/countries.txt`). The kind of query follows the
+game's own queries (`src/classify.ts`).
 
 ## Update
 
@@ -185,7 +192,11 @@ All settings with their defaults: [.env.example](.env.example).
 The proxy holds a client's address only in memory while its rate bucket is not full again, and never writes it, nor
 does it pass it to Overpass. The statistics (`STATS_DIR/requests.sqlite`, `STATS_DAYS` days, 30 by default) keep per
 request: the time, the status and outcome, the durations, the bytes sent, the country Cloudflare names, the hull of
-the query's boxes and its area, and for a refusal its kind. Not the address, not the query.
+the query's boxes and its area, the cell of its middle (named by the places table), the kind of query, web or desktop
+with the browser family or the desktop version, and for a refusal its kind. Not the address, not the User-Agent, not
+the query. To count players per day (`src/players.ts`) the proxy hashes each address with a key drawn at random for
+the day, holds the hashes in memory for that day only and writes just their number; key and hashes go when the day
+changes, and a restart draws a new key (that day may count a player twice).
 
 ## A test with a region
 

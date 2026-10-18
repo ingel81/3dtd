@@ -121,6 +121,30 @@ describe('proxy', () => {
     expect(JSON.stringify(rows[0])).not.toContain('203.0.113');
   });
 
+  it('records the kind of query, the class of the client and the cell, and names the client and the answered cell', async () => {
+    const keys: string[] = [];
+    const cells: string[] = [];
+    await proxy.close();
+    rows = [];
+    proxy = await startProxy(config(fake.url), {
+      record: (row) => rows.push(row),
+      seeClient: (key) => keys.push(key),
+      answeredCell: (cell, at) => cells.push(`${cell} ${at.lat.toFixed(2)},${at.lon.toFixed(3)}`),
+      log: () => undefined,
+    });
+    base = `http://127.0.0.1:${(proxy.server.address() as AddressInfo).port}`;
+    const desktop = '3DTD/0.8.0 (+https://github.com/ingel81/3dtd)';
+    expect((await post(BOX, { Origin: 'app://app', 'User-Agent': desktop, 'CF-Connecting-IP': '198.51.100.20' })).status).toBe(200);
+    expect((await post('[out:json];way["highway"];out;', { 'CF-Connecting-IP': '198.51.100.21' })).status).toBe(400);
+    await settled();
+    expect(rows[0]).toMatchObject({ kind: 'other', client: 'desktop', browser: 'electron', version: '0.8.0', cell: '996,198' });
+    expect(rows[1]).toMatchObject({ kind: 'other', client: 'web', cell: null });
+    expect(keys).toEqual(['198.51.100.20', '198.51.100.21']);
+    expect(cells).toEqual(['996,198 49.80,9.945']);
+    // The User-Agent is classed, not kept
+    expect(JSON.stringify(rows)).not.toContain('github.com');
+  });
+
   it('takes GET with data= and a raw POST body as well', async () => {
     const get = await fetch(`${base}/api/interpreter?data=${encodeURIComponent(BOX)}`, { headers: { Origin: 'app://app' } });
     expect(get.status).toBe(200);

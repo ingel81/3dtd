@@ -33,6 +33,7 @@ const empty = (range: RangeName): Summary => {
     range, from: Date.now() - ms, to: Date.now(), bucketMs, buckets: [],
     totals: { requests: 0, ok: 0, bytes: 0, p50: null, p95: null },
     outcomes: [], countries: [], heat: [], problems: [], reasons: [],
+    kinds: [], clients: [], versions: [], places: [], placeCounts: { fresh: 0, returning: 0, unnamed: 0 }, days: [],
   };
 };
 

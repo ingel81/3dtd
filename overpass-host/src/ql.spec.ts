@@ -1,51 +1,11 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { osmQueryBox, osmWorldQuery } from '../../src/app/world/osm/osm-query.ts';
-import { OSM_QUERY_MARGIN, OSM_WORLD_SIDE } from '../../src/app/world/osm/import-osm.ts';
-import { boxAround } from '../../src/app/services/location/street-box.ts';
-
-/** STREET_RADIUS_M of osm-street.service.ts (an Angular service, not imported here) */
-const STREET_RADIUS_M = 2000;
+import { boxAround, buildingQuery, osmQueryBox, osmWorldQuery, OSM_QUERY_MARGIN, OSM_WORLD_SIDE, route, STREET_RADIUS_M, streetQuery } from './testing/game-queries.ts';
 import { analyzeQuery, anchorArea, anchorHull, capSettings, QlError, tokenize } from './ql.ts';
 import { boxEdgesKm } from './geo.ts';
 
 const LIMITS = { maxEdgeKm: 5, maxAreaKm2: 30 };
 const CAPS = { timeoutS: 90, maxsizeBytes: 256 * 1024 * 1024 };
-
-/** The street query of osm-street.service.ts (streetQuery), as the game sends it */
-function streetQuery(boxes: { minLat: number; minLon: number; maxLat: number; maxLon: number }[]): string {
-  const types = 'motorway|motorway_link|trunk|primary|residential|service|footway|path|steps';
-  const ways = boxes.map((b) => `way["highway"~"^(${types})$"](${b.minLat},${b.minLon},${b.maxLat},${b.maxLon});`).join('\n        ');
-  return `
-      [out:json][timeout:25][maxsize:4194304];
-      (
-        ${ways}
-      );
-      out body;
-      >;
-      out skel qt;
-    `;
-}
-
-/** The building query of osm-street.service.ts (loadBuildingsNearRoutes), `around` the routes */
-function buildingQuery(routes: { lat: number; lon: number }[][], radius: number): string {
-  const ways = routes
-    .map((line) => `way["building"](around:${radius},${line.map((p) => `${p.lat.toFixed(6)},${p.lon.toFixed(6)}`).join(',')});`)
-    .join('\n        ');
-  return `
-      [out:json][timeout:25][maxsize:4194304];
-      (
-        ${ways}
-      );
-      out body;
-      >;
-      out skel qt;
-    `;
-}
-
-/** A route of `n` points from the centre outwards over `km` */
-const route = (lat: number, lon: number, km: number, n: number, dLat: number, dLon: number) =>
-  Array.from({ length: n }, (_, k) => ({ lat: lat + (dLat * km * k) / n / 111.32, lon: lon + (dLon * km * k) / n / 111.32 / Math.cos((lat * Math.PI) / 180) }));
 
 describe('tokenize', () => {
   it('keeps strings whole and drops comments', () => {

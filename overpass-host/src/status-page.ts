@@ -3,8 +3,10 @@
  * without external files that reads /api/summary every ten seconds. Requests
  * over time by what became of them, answer times, the boxes asked on a map of
  * the world, countries, refusals, the last problems, and the host: the date of
- * the data, Overpass's slots, the disk, the memory, a clone under way. Every
- * value is set as text, never as HTML.
+ * the data, Overpass's slots, the disk, the memory, a clone under way; the
+ * players per day, the kinds of query, the clients, the places asked for by
+ * name (the map names them under the pointer). Every value is set as text,
+ * never as HTML.
  */
 import { WORLD_BORDERS, WORLD_LAND } from './world-land.ts';
 
@@ -57,6 +59,9 @@ const PAGE = `<!doctype html>
   button { background: var(--panel); color: var(--text-2); border: 1px solid var(--frame); box-shadow: var(--raised); padding: 2px 10px; font: inherit; cursor: pointer; }
   button[aria-pressed="true"] { color: var(--bg); background: var(--gold); border-color: var(--gold); }
   #map { width: 100%; background: var(--panel-2); }
+  .map-box { position: relative; }
+  #tip { position: absolute; pointer-events: none; background: var(--sunk); border: 1px solid var(--frame); padding: 3px 8px; white-space: nowrap; display: none; }
+  .tag { color: var(--bg); background: var(--ok); padding: 0 5px; margin-left: 6px; font-size: 11px; }
 </style>
 </head>
 <body>
@@ -81,10 +86,27 @@ const PAGE = `<!doctype html>
   <div class="legend"><span><i style="background:var(--ok)"></i>median</span><span><i style="background:var(--gold)"></i>95 %</span><span id="latency-top" class="dim"></span></div>
   <svg class="chart" id="latency" viewBox="0 0 1000 120" preserveAspectRatio="none"></svg>
 </div>
+<h2>Players per day (UTC, about)</h2>
+<div class="panel">
+  <div class="legend"><span><i style="background:var(--gold)"></i>players</span><span id="players-note" class="dim"></span></div>
+  <svg class="chart" id="players" viewBox="0 0 1000 120" preserveAspectRatio="none"></svg>
+  <div class="scroll"><table id="days"></table></div>
+</div>
+<h2>Kinds of query</h2>
+<div class="panel scroll"><table id="kinds"></table></div>
+<div class="cols">
+  <div><h2>Clients</h2><div class="panel scroll"><table id="clients"></table></div></div>
+  <div><h2>Desktop versions</h2><div class="panel scroll"><table id="versions"></table></div></div>
+</div>
 <h2>Boxes asked</h2>
 <div class="panel">
   <div class="legend"><span class="ranges" id="views"></span><span class="dim" id="map-note"></span></div>
-  <canvas id="map" width="1440" height="720"></canvas>
+  <div class="map-box"><canvas id="map" width="1440" height="720"></canvas><div id="tip"></div></div>
+</div>
+<h2>Places</h2>
+<div class="panel">
+  <div class="figures" id="place-figures" style="margin: 0 0 6px"></div>
+  <div class="scroll"><table id="places"></table></div>
 </div>
 <div class="cols">
   <div><h2>Countries</h2><div class="panel scroll"><table id="countries"></table></div></div>
@@ -243,6 +265,7 @@ function map(s) {
   const W = canvas.width, H = canvas.height;
   const f0 = frame(s.heat);
   const px = (lon) => (lon - f0.w) / f0.lonSpan * W, py = (lat) => (f0.n - lat) / f0.latSpan * H;
+  mapFrame = { px, py };
   $('map-note').textContent = s.heat.length ? s.heat.length + ' cells of half a degree' : 'nothing asked in this range';
   const css = getComputedStyle(document.documentElement);
   g.fillStyle = css.getPropertyValue('--panel-2');
@@ -289,6 +312,83 @@ function map(s) {
   g.globalCompositeOperation = 'source-over';
 }
 
+/** The map's frame and the places drawn, for the tooltip */
+let mapFrame = null;
+
+function placeLabel(p) {
+  return (p.name || 'unnamed') + (p.country ? ', ' + p.country : '');
+}
+
+/** The tooltip over the map: the asked place nearest the pointer, within a few pixels */
+function mapTip(event) {
+  const tip = $('tip');
+  if (!mapFrame || !last) { tip.style.display = 'none'; return; }
+  const canvas = $('map');
+  const rect = canvas.getBoundingClientRect();
+  const scale = canvas.width / rect.width;
+  const x = (event.clientX - rect.left) * scale, y = (event.clientY - rect.top) * scale;
+  let best = null, bestD = 30 * scale;
+  for (const p of last.places) {
+    const d = Math.hypot(mapFrame.px(p.lon) - x, mapFrame.py(p.lat) - y);
+    if (d < bestD) { best = p; bestD = d; }
+  }
+  if (!best) { tip.style.display = 'none'; return; }
+  tip.textContent = placeLabel(best) + ': ' + best.count + (best.count === 1 ? ' request' : ' requests');
+  tip.style.display = 'block';
+  tip.style.left = Math.min(rect.width - tip.offsetWidth, event.clientX - rect.left + 12) + 'px';
+  tip.style.top = (event.clientY - rect.top + 12) + 'px';
+}
+
+function playersChart(s) {
+  const svg = $('players');
+  const days = s.days;
+  const max = Math.max(1, ...days.map((d) => d.players || 0));
+  const w = 1000 / Math.max(7, days.length);
+  const bar = Math.min(w - 2, 40);
+  svg.replaceChildren(...days.map((d, k) => {
+    const h = 110 * (d.players || 0) / max;
+    const r = svgEl('rect', { x: k * w + (w - bar) / 2, y: 118 - h, width: Math.max(1, bar), height: h, fill: 'var(--gold)' });
+    r.append(svgEl('title', {}));
+    r.lastChild.textContent = d.day + ': ' + (d.players ?? '?') + ' players, ' + d.requests + ' requests';
+    return r;
+  }));
+  const counted = days.filter((d) => d.players);
+  const total = counted.reduce((a, d) => a + d.requests, 0), people = counted.reduce((a, d) => a + d.players, 0);
+  $('players-note').textContent = people ? (total / people).toFixed(1) + ' requests per player and day' : '';
+  table('days', [['day'], ['players', true], ['requests', true], ['per player', true]],
+    days.slice().reverse().map((d) => [[d.day], [d.players ?? '?'], [d.requests], [d.players ? (d.requests / d.players).toFixed(1) : '-']]));
+}
+
+function kindsTable(s) {
+  const all = s.kinds.reduce((a, k) => a + k.count, 0) || 1;
+  table('kinds', [['kind'], ['share', true], ['requests', true], ['answered', true], ['size each', true], ['median', true], ['95 %', true]],
+    s.kinds.map((k) => [[k.kind], [Math.round(100 * k.count / all) + ' %'], [k.count], [k.ok], [k.ok ? bytes(Math.round(k.bytes / k.ok)) : '-'], [ms(k.p50)], [ms(k.p95)]]));
+}
+
+function clientTables(s) {
+  const all = s.clients.reduce((a, c) => a + c.count, 0) || 1;
+  table('clients', [['client'], ['browser'], ['share', true], ['requests', true]],
+    s.clients.map((c) => [[c.client], [c.browser], [Math.round(100 * c.count / all) + ' %'], [c.count]]));
+  table('versions', [['version'], ['requests', true]], s.versions.map((v) => [[v.version], [v.count]]));
+}
+
+function placesTable(s) {
+  const c = s.placeCounts;
+  const fig = (v, label) => { const d = el('div', undefined, 'figure'); d.append(el('b', String(v)), el('span', label)); return d; };
+  $('place-figures').replaceChildren(fig(c.fresh, 'new in this range'), fig(c.returning, 'asked before'), fig(c.unnamed, 'not named yet'));
+  const t = $('places');
+  const tr = el('tr');
+  [['place'], ['country'], ['requests', true]].forEach(([h, num]) => tr.append(el('th', h, num ? 'num' : '')));
+  t.replaceChildren(tr, ...s.places.map((p) => {
+    const r = el('tr');
+    const name = el('td', p.name || 'unnamed', p.name ? '' : 'dim');
+    if (p.isNew) name.append(el('span', 'new', 'tag'));
+    r.append(name, el('td', p.country || '', 'dim'), el('td', String(p.count), 'num'));
+    return r;
+  }));
+  if (!s.places.length) { const r = el('tr'); const td = el('td', 'none', 'dim'); td.colSpan = 3; r.append(td); t.append(r); }
+}
+
 function table(id, head, rows) {
   const t = $(id);
   const tr = el('tr');
@@ -313,6 +413,10 @@ async function load() {
     requestsChart(s);
     latencyChart(s);
     map(s);
+    playersChart(s);
+    kindsTable(s);
+    clientTables(s);
+    placesTable(s);
     table('countries', [['country'], ['requests', true]], s.countries.map((c) => [[c.country], [c.count]]));
     table('outcomes', [['outcome'], ['status', true], ['requests', true]], s.outcomes.map((o) => [[o.outcome, o.outcome === 'ok' ? 'ok' : ''], [o.status], [o.count]]));
     table('reasons', [['reason'], ['requests', true]], s.reasons.map((o) => [[o.reason], [o.count]]));
@@ -324,6 +428,8 @@ async function load() {
 }
 rangeButtons();
 viewButtons();
+$('map').addEventListener('mousemove', mapTip);
+$('map').addEventListener('mouseleave', () => { $('tip').style.display = 'none'; });
 load();
 setInterval(load, 10000);
 </script>
