@@ -302,11 +302,17 @@ und Ansicht bleiben im UI-Store gespeichert.
 
 **Kartendaten nachladen (Vorbereitung E134, 2026-10-12):** `world/custom-map/map-data.ts`. `maps/index.json`, die
 mitgelieferten Karten und `maps/assets/` (rund 190 MB) kommen über `mapDataFetch`: aus der Cache Storage des Browsers
-(`3dtd-map-data-<Version>`), sonst vom Netz und dann dort abgelegt. Der Index fragt zuerst das Netz (offline der
-Cache), eine mitgelieferte Karte wird mit ihrem Inhalts-Hash angefragt (`?v=`), Modelle laufen über denselben Weg
-(`loadGlb` mit `parseAsync`). Woher: `mapData` in `runtime-config.json`, sonst neben der Seite (der Dev-Server liefert
-`public/maps`). Ein neuer Build beginnt mit leerem Cache, `dropOldMapData` räumt die alten (beim Lesen der
-runtime-config). Die Ladeplatte zeigt „Map data 12 of 48 files, 3.4 MB“, solange Dateien vom Netz kommen. Die
+(`3dtd-map-data`, eine für alle Builds), sonst vom Netz und dann dort abgelegt. Der Cache übersteht Releases:
+`maps/manifest.json` nennt jede Datei unter `public/maps` mit einem Hash ihres Inhalts (`tools/maps/map-manifest.ts`,
+`npm run maps:manifest`, `maps:bake` schreibt es mit, `npm test` prüft, dass es stimmt; Textdateien mit LF gehasht,
+wie git sie hält), und eine Datei liegt unter diesem Hash (`?h=`). Was sich nicht änderte, lädt kein neuer Build
+nochmal; 20 s nach dem Manifest räumt `tidyMapData` Einträge weg, die keine Datei mehr nennt. Index und Manifest
+fragen zuerst das Netz (offline der Cache), ebenso eine Datei ohne Hash; eine mitgelieferte Karte wird zusätzlich mit
+ihrem Inhalts-Hash angefragt (`?v=`), Modelle laufen über denselben Weg (`loadGlb` mit `parseAsync`). Die Antwort geht
+sofort an den Aufrufer, die Kopie für den Cache läuft nebenher und zählt dabei ihre Bytes (kein Warten auf `put`, keine
+Kopie nur zum Zählen). Woher: `mapData` in `runtime-config.json`, sonst neben der Seite (der Dev-Server liefert
+`public/maps`, dort fragt jede Datei das Netz). `dropOldMapData` räumt die Caches der Builds davor
+(`3dtd-map-data-<Version>`, beim Lesen der runtime-config). Die Ladeplatte zeigt „Map data 12 of 48 files, 3.4 MB“, solange Dateien vom Netz kommen. Die
 Desktop-App hält die Cache Storage im Profil auf der Platte (`app://` ist als sicheres Schema registriert).
 Jede Datei hinterlässt ein `performance.measure` `map-data <Quelle> <Pfad>` (Quelle `cache`, `network`, `stale` oder
 `failed`, Bytes im `detail`; vom Netz der ganze Download, aus dem Cache das Nachschlagen): ein langsamer Start nennt

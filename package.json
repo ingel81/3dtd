@@ -28,7 +28,8 @@
     "shader-check": "vitest run tools/shader-check/shader-check.spec.ts --reporter=verbose",
     "balance-calc": "vitest run tools/balance-calc/balance-calc.spec.ts",
     "w3x-import": "vitest run tools/w3x/import.spec.ts --mode w3x --silent=false",
-    "maps:bake": "vitest run tools/maps/shipped-maps.spec.ts --mode maps"
+    "maps:bake": "vitest run tools/maps/shipped-maps.spec.ts --mode maps && node tools/maps/map-manifest.ts",
+    "maps:manifest": "node tools/maps/map-manifest.ts"
   },
   "prettier": {
     "printWidth": 100,
