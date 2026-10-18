@@ -39,6 +39,15 @@ export function nextFrameOrTimeout(): Promise<void> {
   });
 }
 
+/**
+ * Resolves once the browser painted the frame after the call: the next
+ * animation frame (as nextFrameOrTimeout), then a task after it, so what
+ * follows runs after the paint, not before it in the frame's own task.
+ */
+export function afterNextPaint(): Promise<void> {
+  return nextFrameOrTimeout().then(() => new Promise((resolve) => setTimeout(resolve)));
+}
+
 /** How a wait for the tiles ended, see waitForQuietTiles. */
 export interface TilesWait {
   /** Until the tiles stopped loading, ms; the whole wait on a timeout or a stop. */

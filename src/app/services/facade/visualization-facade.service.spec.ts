@@ -299,6 +299,7 @@ describe('VisualizationFacadeService', () => {
     osmLoading: signal(false),
     checkAllLoaded: vi.fn(() => engineInit.loading.set(false)),
     getFirstTilesLoadedAt: vi.fn((): number | null => performance.now()),
+    compilingAhead: vi.fn(() => false),
   };
   const cameraFraming = {
     setEngine: vi.fn(),

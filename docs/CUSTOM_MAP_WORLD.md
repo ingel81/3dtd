@@ -344,6 +344,11 @@ dem Build fehlt, aus dem `public/maps` des Checkouts (`mapDataRoot` in `createAp
   ihre Weltmatrizen rechnen nach einem Verschieben (`view.placeAt` aus `setOrigin`) oder für Hinzugekommenes neu,
   nicht in jedem Bild. Demo-Tal im Spiel: 523 Multiplikationen je Bild in der Matrixaktualisierung für die Karte
   vorher, keine danach; im Editor 349 gegen keine (Browser-Probe)
+- Solange Programme vor dem ersten Bild übersetzen (die Karte nach ihren Assets, `WorldProvider.compiling`, und das
+  Aufwärmen der Engine-Modelle), zeigt der Ladeschirm den Schritt „Compiling Shaders“ mit der Zahl fertiger Programme
+  aller im Renderer (`ThreeTilesEngine.compileProgress`, alle 250 ms gelesen, `EngineInitializationService.compilingAhead`);
+  vorher stand dort sekundenlang „Preparing Intro Flight“. Zwischen den Ladeschritten wartet der Ablauf nur dann ein
+  gezeichnetes Bild ab, wenn sich ein Schritt geändert hat (`afterNextPaint`), statt fest 50 ms je Wechsel
 - Beim Verlassen gibt die Welt die geteilte `MapAssetLibrary` frei (etwa 88 MB Materialpixel); die nächste Karte
   legt eine neue an
 - Höhen für das Overlay: eine Runde sofort statt vier Runden zu 500 ms, weil der Boden nicht streamt

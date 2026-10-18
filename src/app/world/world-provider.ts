@@ -351,6 +351,8 @@ export interface WorldProvider {
   attach(ctx: WorldAttachContext): Promise<void>;
   /** The world draws frames (tiles: once the renderer stands) */
   ready(): boolean;
+  /** Its scene's programs compile ahead of its first frame (a custom map, after its assets); missing: never */
+  compiling?(): boolean;
   /**
    * Runs `run` with everything the world hides until it is needed shown (a
    * custom map: a cell of every asset, the weather, what shows by night), and

@@ -10,6 +10,7 @@ import { STREET_RADIUS_M, StreetNetwork } from '../location/osm-street.service';
 import { GLOBE_LINK } from '../world/globe-link';
 import type { WorldProvider } from '../../world/world-provider';
 import { isOverpassCancelled } from '../../world/osm/overpass-client';
+import { afterNextPaint } from '../../three-engine/tiles-lod-debug';
 import { BootStep } from '../../components/main-menu/loading/boot-step.model';
 
 /**
@@ -27,8 +28,12 @@ const BOOT_STEPS: readonly BootStep[] = [
   { id: 'grid', title: 'Generating Route Grid', status: 'pending' },
   { id: 'view', title: 'Finalizing 3D View', status: 'pending' },
   { id: 'corridor', title: 'Measuring the Corridor', status: 'pending' },
+  { id: 'shaders', title: 'Compiling Shaders', status: 'pending' },
   { id: 'flight', title: 'Preparing Intro Flight', status: 'pending' },
 ];
+
+/** How often the loading screen reads the count of programs compiled while it waits for them, ms */
+const COMPILE_POLL_MS = 250;
 
 /**
  * EngineInitializationService
@@ -71,6 +76,9 @@ export class EngineInitializationService {
 
   /** performance.now() of the first tiles-loaded callback of this load, for the intro boot gate. */
   private firstTilesLoadedAt: number | null = null;
+  /** The next read of the programs compiled ahead (compilingAhead), and who asks whether loading is done then */
+  private compilePoll: ReturnType<typeof setTimeout> | null = null;
+  private recheck: (() => void) | null = null;
 
   // ========================================
   // STATE
@@ -134,14 +142,12 @@ export class EngineInitializationService {
    * @param stepId Step identifier
    */
   async setStepCurrent(stepId: string): Promise<void> {
-    loadMark(`${stepId}:start`);
-    this.loadingSteps.update((steps) =>
-      steps.map((s) => ({
-        ...s,
-        status: s.id === stepId ? ('current' as const) : s.status === 'current' ? ('pending' as const) : s.status,
-      }))
-    );
-    await this.tick();
+    const changed = this.changeSteps((s) => ({
+      ...s,
+      status: s.id === stepId ? ('current' as const) : s.status === 'current' ? ('pending' as const) : s.status,
+    }));
+    if (changed) loadMark(`${stepId}:start`);
+    await this.tick(changed);
   }
 
   /**
@@ -150,9 +156,34 @@ export class EngineInitializationService {
    * @param meta Optional meta text (e.g., "5 Streets")
    */
   async setStepDone(stepId: string, meta?: string): Promise<void> {
-    loadMark(`${stepId}:done`);
-    this.loadingSteps.update((steps) => steps.map((s) => (s.id === stepId ? { ...s, status: 'done' as const, meta } : s)));
-    await this.tick();
+    const changed = this.changeSteps((s) => (s.id === stepId ? { ...s, status: 'done' as const, meta } : s));
+    if (changed) loadMark(`${stepId}:done`);
+    await this.tick(changed);
+  }
+
+  /**
+   * Whether programs compile ahead of the first frame (the engine's models,
+   * a custom map's scene): the loading screen shows it under its own step
+   * meanwhile, with the count of programs ready, read again every
+   * COMPILE_POLL_MS; once they are in the step is done and loading is asked
+   * about again (initEngine's onCheckAllLoaded).
+   */
+  compilingAhead(): boolean {
+    const progress = this.engine?.compileProgress() ?? null;
+    const step = this.loadingSteps().find((s) => s.id === 'shaders');
+    if (!progress) {
+      if (this.compilePoll !== null) clearTimeout(this.compilePoll);
+      this.compilePoll = null;
+      if (step && step.status !== 'done') void this.setStepDone('shaders');
+      return false;
+    }
+    if (step?.status !== 'current') void this.setStepCurrent('shaders');
+    this.updateStepMeta('shaders', `${progress.ready} / ${progress.total}`);
+    this.compilePoll ??= setTimeout(() => {
+      this.compilePoll = null;
+      if (!this.compilingAhead()) this.recheck?.();
+    }, COMPILE_POLL_MS);
+    return true;
   }
 
   /**
@@ -200,11 +231,18 @@ export class EngineInitializationService {
     return this.firstTilesLoadedAt;
   }
 
-  /**
-   * Allow Angular to update the UI between steps
-   */
-  private tick(): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, 50));
+  /** The steps changed by `change`; false when they stay as they were (nothing new to show) */
+  private changeSteps(change: (step: BootStep) => BootStep): boolean {
+    const before = this.loadingSteps();
+    const after = before.map(change);
+    if (after.every((s, k) => s.status === before[k].status && s.meta === before[k].meta)) return false;
+    this.loadingSteps.set(after);
+    return true;
+  }
+
+  /** A changed step shows before the load goes on: after the next painted frame, not after a fixed wait */
+  private tick(changed: boolean): Promise<void> {
+    return changed ? afterNextPaint() : Promise.resolve();
   }
 
   // ========================================
@@ -274,6 +312,7 @@ export class EngineInitializationService {
       await this.setStepDone('engine');
       if (gone()) return;
 
+      this.recheck = callbacks.onCheckAllLoaded;
       // Register callback for first tiles loaded
       this.engine.setOnFirstTilesLoadedCallback(() => {
         this.firstTilesLoadedAt = performance.now();
@@ -457,6 +496,9 @@ export class EngineInitializationService {
    */
   dispose(): void {
     this.run++;
+    if (this.compilePoll !== null) clearTimeout(this.compilePoll);
+    this.compilePoll = null;
+    this.recheck = null;
     if (this.engine) this.quality.detach(this.engine);
     this.engine = null;
     this.baseCoords = null;
@@ -468,6 +510,8 @@ export class EngineInitializationService {
    * Reset service state
    */
   reset(): void {
+    if (this.compilePoll !== null) clearTimeout(this.compilePoll);
+    this.compilePoll = null;
     this.loading.set(true);
     this.tilesLoading.set(true);
     this.osmLoading.set(true);

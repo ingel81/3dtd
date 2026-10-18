@@ -143,6 +143,8 @@ export class ThreeTilesEngine {
   private readonly sky: SkyBackground | null = null;
   // Set by dispose(); preloadModels() skips the shader warm-up then
   private disposed = false;
+  /** The models' warm-up compiles their programs (preloadModels) */
+  private warmingUp = false;
   /** Puts the context's delete calls back (skipLostContextDeletes). */
   private readonly restoreGLDeletes: () => void;
 
@@ -1433,6 +1435,19 @@ export class ThreeTilesEngine {
    * as well, then with all the world hides shown (drawHidden). Afterwards every program does its first-use work
    * (firstUsePrograms).
    */
+  /**
+   * How far the programs compiled ahead of the first frame have come (the
+   * models' warm-up, the world's scene): ready of all the renderer holds,
+   * null while nothing compiles ahead
+   */
+  compileProgress(): { ready: number; total: number } | null {
+    if (!this.warmingUp && !this.world.compiling?.()) return null;
+    const programs = this.renderer.info.programs ?? [];
+    // three's typings leave out WebGLProgram.isReady
+    const ready = programs.filter((p) => (p as { isReady?: () => boolean }).isReady?.() !== false).length;
+    return { ready, total: programs.length };
+  }
+
   async preloadModels(): Promise<void> {
     const [, , , , hero] = await Promise.all([
       this.enemies.preloadAllModels(),
@@ -1450,6 +1465,7 @@ export class ThreeTilesEngine {
     this.scene.add(standIns);
     const shadows = this.renderer.shadowMap;
     let warmup: SceneWarmupResult;
+    this.warmingUp = true;
     try {
       warmup = await this.compilingForFrames(() =>
         warmUpScene(
@@ -1466,6 +1482,7 @@ export class ThreeTilesEngine {
       // The shaders' ids held first: the states prepared below keep their keys when a layer builds its materials anew
       await this.pins.pinShaders(this.renderer, this.scene, this.camera, this.scene);
     } finally {
+      this.warmingUp = false;
       // Their materials stay undisposed: the programs stay for the towers that come
       this.scene.remove(standIns);
       this.world.invalidateShadows?.();

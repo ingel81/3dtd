@@ -25,6 +25,7 @@ describe('IntroLoadingGate', () => {
         setStepDone: vi.fn(async (_id: string, _meta?: string) => undefined),
         setStepCurrent: vi.fn(async (_id: string) => undefined),
         updateStepMeta: vi.fn(),
+        compilingAhead: vi.fn(() => false),
       },
       heightUpdate: { heightsLoading: signal(false) },
       pathRoute: { getCachedPaths: vi.fn(() => cachedPaths) },

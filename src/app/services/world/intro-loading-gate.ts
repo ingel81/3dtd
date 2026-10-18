@@ -14,7 +14,7 @@ import type { IntroCameraFlightService } from './intro-camera-flight.service';
 export interface IntroLoadingGateDeps {
   engineInit: Pick<
     EngineInitializationService,
-    'tilesLoading' | 'osmLoading' | 'getFirstTilesLoadedAt' | 'setStepDone' | 'setStepCurrent' | 'updateStepMeta'
+    'tilesLoading' | 'osmLoading' | 'getFirstTilesLoadedAt' | 'setStepDone' | 'setStepCurrent' | 'updateStepMeta' | 'compilingAhead'
   >;
   heightUpdate: Pick<HeightUpdateService, 'heightsLoading'>;
   pathRoute: Pick<PathAndRouteService, 'getCachedPaths'>;
@@ -46,6 +46,8 @@ export class IntroLoadingGate {
     const { engineInit, introFlight } = this.deps;
     if (this.introGateDone) return false;
     if (engineInit.osmLoading() || this.deps.heightUpdate.heightsLoading()) return false;
+    // Programs compiling ahead of the first frame: their own step shows them, and asks again once they are in
+    if (engineInit.compilingAhead()) return false;
     // Only the first tiles are still missing, past the corridor build that
     // waited for tiles of its own: the loading screen waits for them under
     // this step, the next in its list, rather than under none.

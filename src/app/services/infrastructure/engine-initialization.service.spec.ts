@@ -21,7 +21,7 @@ const create = () => runInInjectionContext(new StubInjector(), () => new EngineI
 describe('EngineInitializationService loading steps', () => {
   it('has no step of its own for the 3D tiles, and the same steps, all pending, after a reset', () => {
     const init = create();
-    const ids = ['location', 'engine', 'streets', 'hq', 'spawns', 'routes', 'grid', 'view', 'corridor', 'flight'];
+    const ids = ['location', 'engine', 'streets', 'hq', 'spawns', 'routes', 'grid', 'view', 'corridor', 'shaders', 'flight'];
     expect(init.loadingSteps().map((s) => s.id)).toEqual(ids);
 
     // One list for both: a step done on one load is pending again on the next
@@ -87,6 +87,46 @@ describe('EngineInitializationService loading steps', () => {
     expect(gate.hold()).toBe(false);
     expect(statuses().every((s) => s === 'done')).toBe(true);
     gate.dispose();
+  });
+});
+
+describe('EngineInitializationService shaders compiled ahead', () => {
+  it('shows them under their own step with the count, then marks it done and asks about loading again', () => {
+    vi.useFakeTimers();
+    const init = create();
+    let progress: { ready: number; total: number } | null = { ready: 3, total: 10 };
+    init.setEngine({ compileProgress: () => progress } as never);
+    const recheck = vi.fn();
+    (init as unknown as { recheck: () => void }).recheck = recheck;
+    const shaders = () => init.loadingSteps().find((s) => s.id === 'shaders')!;
+
+    expect(init.compilingAhead()).toBe(true);
+    expect(shaders()).toMatchObject({ status: 'current', meta: '3 / 10' });
+    progress = { ready: 8, total: 12 };
+    vi.advanceTimersByTime(250);
+    expect(shaders().meta).toBe('8 / 12');
+    expect(recheck).not.toHaveBeenCalled();
+    progress = null;
+    vi.advanceTimersByTime(250);
+    expect(shaders().status).toBe('done');
+    expect(recheck).toHaveBeenCalledTimes(1);
+    // Nothing left to read
+    vi.advanceTimersByTime(1000);
+    expect(recheck).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
+  it('waits for a painted frame only when a step changed', async () => {
+    const init = create();
+    const frame = vi.spyOn(globalThis, 'requestAnimationFrame').mockImplementation((cb) => {
+      cb(0);
+      return 0;
+    });
+    await init.setStepCurrent('engine');
+    expect(frame).toHaveBeenCalledTimes(1);
+    await init.setStepCurrent('engine');
+    expect(frame).toHaveBeenCalledTimes(1);
+    frame.mockRestore();
   });
 });
 

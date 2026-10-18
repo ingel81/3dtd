@@ -185,6 +185,8 @@ export class CustomMapWorld implements WorldProvider {
   private quality: CustomMapQuality | null = null;
   private lastUpdate = 0;
   private prepared = false;
+  /** The scene's programs compile ahead (prepare, after the assets) */
+  private compilingNow = false;
   private rig: CameraRig | null = null;
   private readonly focus = new Vector3();
   private readonly lookDirection = new Vector3();
@@ -343,6 +345,7 @@ export class CustomMapWorld implements WorldProvider {
     await view.ready.catch((err) => console.warn('[CustomMap] assets did not load', err));
     if (this.view !== view) return;
     performance.mark('load:map-assets:done');
+    this.compilingNow = true;
     // Every program the scene needs, the map's hidden levels, cells and effects and the sun's shadow pass
     // included, for the output the frames draw to: with bloom or grading on that is the composer's linear
     // target, and programs for the screen would all link again in the first frame
@@ -351,6 +354,7 @@ export class CustomMapWorld implements WorldProvider {
       .warmUp(ctx.renderer, ctx.scene, ctx.camera, target)
       .catch((err) => console.warn('[CustomMap] shaders did not compile ahead', err));
     target?.dispose();
+    this.compilingNow = false;
     if (this.view !== view) return;
     performance.mark('load:map-shaders:done');
     this.prepared = true;
@@ -360,6 +364,10 @@ export class CustomMapWorld implements WorldProvider {
   /** Frames draw once the map is prepared (prepare) */
   ready(): boolean {
     return this.prepared;
+  }
+
+  compiling(): boolean {
+    return this.compilingNow;
   }
 
   withAllShown<T>(run: () => T): T {
