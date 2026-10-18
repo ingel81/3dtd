@@ -492,3 +492,30 @@ describe('MapObjectLayer spinning parts', () => {
     layer.dispose();
   });
 });
+
+describe('MapObjectLayer uploads', () => {
+  it('keeps one upload range per attribute on levels that never draw, however often objects move', async () => {
+    const field = new HeightField({ columns: 2, rows: 2, cellSize: 1000, heights: new Float32Array(4) }, 1000, 1000);
+    const los = new Group();
+    const layer = new MapObjectLayer(field, library(), los, { packMax: 0 });
+    const objects: MapObject[] = Array.from({ length: 20 }, (_, k) => ({ id: `t${k}`, asset: 'tree', x: k * 5, y: 0, z: 0, rotation: 0, scale: 1 }));
+    await layer.setObjects(objects);
+    // A brush: every frame each object moves a little; nothing renders, so three never empties the ranges
+    for (let frame = 1; frame <= 50; frame++) {
+      expect(layer.updateObjects(objects.map((o) => ({ ...o, rotation: frame * 0.01 })))).toEqual([]);
+    }
+    const meshes: InstancedMesh[] = [];
+    // Trees block the sight lines: their cells hang in the LOS group
+    los.traverse((obj) => {
+      if ((obj as InstancedMesh).isInstancedMesh) meshes.push(obj as InstancedMesh);
+    });
+    expect(meshes.length).toBeGreaterThan(1);
+    for (const m of meshes) {
+      expect(m.instanceMatrix.updateRanges.length).toBeLessThanOrEqual(1);
+      // The one range covers every slot written
+      const range = m.instanceMatrix.updateRanges[0];
+      if (range) expect(range.start + range.count).toBeGreaterThanOrEqual(m.count * 16);
+    }
+    layer.dispose();
+  });
+});

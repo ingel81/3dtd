@@ -96,6 +96,22 @@ function uploadFirst(attribute: InstancedBufferAttribute, count: number): void {
   attribute.needsUpdate = true;
 }
 
+/**
+ * Marks `count` values at `start` of an instance attribute for upload, in one range per attribute that grows over
+ * them: three empties the ranges only when it uploads, that is when the mesh draws, so a level never shown (a far
+ * one while the brush works near) gathered one range per object and frame without end
+ */
+function markRange(attribute: InstancedBufferAttribute, start: number, count: number): void {
+  const range = attribute.updateRanges[0];
+  if (!range) attribute.addUpdateRange(start, count);
+  else {
+    const end = Math.max(range.start + range.count, start + count);
+    range.start = Math.min(range.start, start);
+    range.count = end - range.start;
+  }
+  attribute.needsUpdate = true;
+}
+
 /** Edge of an object cell in metres */
 export const CELL_SIZE = 192;
 /** Assets with at most this many objects draw without cells, sorted into levels per object */
@@ -837,13 +853,11 @@ export class MapObjectLayer {
   /** Object i's matrix and colour into slot `slot` of a cell mesh, uploaded as a range */
   private writeSlot(b: AssetBatch, m: InstancedMesh, slot: number, i: number): void {
     (m.instanceMatrix.array as Float32Array).set(b.matrices.subarray(i * 16, i * 16 + 16), slot * 16);
-    m.instanceMatrix.addUpdateRange(slot * 16, 16);
-    m.instanceMatrix.needsUpdate = true;
+    markRange(m.instanceMatrix, slot * 16, 16);
     const colors = m.instanceColor;
     if (b.colors && colors) {
       (colors.array as Float32Array).set(b.colors.subarray(i * 3, i * 3 + 3), slot * 3);
-      colors.addUpdateRange(slot * 3, 3);
-      colors.needsUpdate = true;
+      markRange(colors, slot * 3, 3);
     }
   }
 
@@ -1085,8 +1099,12 @@ export class MapObjectLayer {
       for (const meshes of cell.levels) {
         for (const m of meshes) {
           (m.instanceMatrix.array as Float32Array).set(b.matrices.subarray(i * 16, i * 16 + 16), slot * 16);
-          if (ranged) m.instanceMatrix.addUpdateRange(slot * 16, 16);
-          m.instanceMatrix.needsUpdate = true;
+          if (ranged) markRange(m.instanceMatrix, slot * 16, 16);
+          else {
+            // All of it: ranges marked before would cut the upload to them
+            m.instanceMatrix.clearUpdateRanges();
+            m.instanceMatrix.needsUpdate = true;
+          }
         }
       }
     }
