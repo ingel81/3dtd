@@ -29,11 +29,11 @@ export type PathAction = 'worlds' | 'world' | 'play' | 'edit' | { chip: string }
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <nav class="wp-path" aria-label="Where you are">
-      <button class="td-link wp-step" type="button" (click)="go.emit('worlds')" [matTooltip]="worldsHint()"
+      <button class="td-crumb" type="button" (click)="go.emit('worlds')" [matTooltip]="worldsHint()"
               [attr.aria-current]="world() === null ? 'page' : null" data-test="path-worlds">Worlds</button>
       @if (world(); as name) {
         <span class="wp-sep" aria-hidden="true">›</span>
-        <button class="td-link wp-step" type="button" (click)="go.emit('world')" [matTooltip]="worldHint()"
+        <button class="td-crumb" type="button" (click)="go.emit('world')" [matTooltip]="worldHint()"
                 [attr.aria-current]="worldHere() ? 'page' : null" data-test="path-world">{{ name }}</button>
         @if (!worldHere()) {
           <span class="wp-sep" aria-hidden="true">›</span>
@@ -56,8 +56,8 @@ export type PathAction = 'worlds' | 'world' | 'play' | 'edit' | { chip: string }
   `,
   styles: [`
     :host { display: flex; align-items: center; gap: var(--td-sp-2); min-width: 0; }
-    .wp-path { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
-    .wp-sep { opacity: .6; }
+    .wp-path { display: flex; align-items: center; gap: 0; white-space: nowrap; }
+    .wp-sep { color: var(--td-text-disabled); }
     .wp-chip { white-space: nowrap; }
   `],
 })

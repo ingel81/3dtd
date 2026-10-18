@@ -56,20 +56,6 @@
   color: var(--td-text-muted);
 }
 
-.ws-crumb {
-  padding: 4px 6px;
-  border: 0;
-  background: none;
-  color: var(--td-text-muted);
-  font-size: var(--td-fs-text);
-  font-weight: 600;
-  white-space: nowrap;
-  &.is-here {
-    color: var(--td-text-primary);
-    cursor: default;
-  }
-}
-
 .ws-bar-gap {
   flex: 1 1 auto;
 }

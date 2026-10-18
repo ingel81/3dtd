@@ -10,7 +10,7 @@
                     [modes]="view() === 'world' && !!pick()" [playLabel]="playLabel()" [editLabel]="editLabel()"
                     [playWhy]="playWhy()" [editWhy]="editWhy()" worldHint="This world's menu" (go)="onPath($event)">
       @if (view() === 'world' && pickName(); as name) {
-        <span class="ws-crumb is-here" aria-current="page">{{ name }}</span>
+        <span class="td-crumb" aria-current="page">{{ name }}</span>
       }
     </app-world-path>
     <span class="ws-bar-gap"></span>

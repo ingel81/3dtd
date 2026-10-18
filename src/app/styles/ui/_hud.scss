@@ -105,6 +105,38 @@
 }
 
 // A thin engraved gap between groups of tools
+// A step of the path in a top bar (Worlds > a world > the pick): engraved
+// text like the bar's tools, brass under the pointer; the step you are on
+// in full text and not a button to press
+@mixin crumb {
+  display: inline-flex;
+  align-items: center;
+  height: var(--td-tool-size);
+  padding: 0 6px 1px;
+  border: 0;
+  border-radius: var(--td-radius);
+  background: none;
+  font-family: var(--td-font);
+  font-size: var(--td-fs-text);
+  font-weight: 600;
+  color: var(--td-text-muted);
+  text-shadow: var(--td-engrave);
+  white-space: nowrap;
+  cursor: pointer;
+  @include base.motion(color);
+
+  &:hover#{base.$enabled} {
+    color: var(--td-brass-light);
+  }
+
+  &[aria-current='page'] {
+    color: var(--td-text-primary);
+    cursor: default;
+  }
+
+  @include base.disabled;
+}
+
 @mixin tool-gap {
   align-self: stretch;
   width: 0;

@@ -239,6 +239,7 @@
   .td-value { @include hud.value; }
   .td-value.is-sm { font-size: var(--td-fs-lead); }
   .td-sunk { @include hud.sunk-field; }
+  .td-crumb { @include hud.crumb; }
   .td-meter { @include hud.meter; }
   .td-progress { @include hud.progress; }
   .td-marker { @include hud.marker; }
