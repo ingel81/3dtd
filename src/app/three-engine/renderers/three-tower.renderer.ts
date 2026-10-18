@@ -31,6 +31,7 @@ import { SawArms } from './tower-saw-arms';
 import { DonerStream } from './tower-doner-stream';
 import type { TowerAim } from '../../entities/tower-aim';
 import { TowerMuzzleFlash } from './tower-muzzle-flash';
+import { TowerFiring } from './tower-firing-motion';
 import { setTowerGreyedOut } from './tower-hold-fire';
 import { TowerBuild, scaffoldWarmUp } from './tower-scaffold';
 import { TOWER_PATHS, getTowerPath, towerConfigOf } from '../../configs/tower-paths.config';
@@ -88,6 +89,8 @@ export interface TowerRenderData {
   sawArms?: SawArms;
   /** The Shawarma Slicer's spit, arm and stream (TowerTypeConfig.stream) */
   stream?: DonerStream;
+  /** Recoil and reload as it fires (TowerTypeConfig.firingMotion), see fire() */
+  firing?: TowerFiring;
   // GLTF animation support
   mixer: AnimationMixer | null;
   animations: Map<string, AnimationClip>;
@@ -136,6 +139,8 @@ export class ThreeTowerRenderer {
   private readonly pendingBuilds = new Map<string, { remainingMs: number; totalMs: number }>();
   /** The towers growing in their scaffold, or whose scaffold is coming down, see TowerBuild */
   private readonly builds = new Map<string, TowerBuild>();
+  /** Towers whose firing motion still moves, see fire() and updateFiring() */
+  private readonly firing: TowerFiring[] = [];
 
   /** Tower types whose configured turretNode the model lacks, warned about once. */
   private readonly missingTurretNodes = new Set<string>();
@@ -513,6 +518,7 @@ export class ThreeTowerRenderer {
     }
     if (config.sawArms && turretPart) renderData.sawArms = new SawArms(config, turretPart);
     if (config.stream && turretPart) renderData.stream = new DonerStream(config, turretPart, 1 / config.scale);
+    renderData.firing = TowerFiring.create(config, mesh, turretPart, renderData.pitch, aim) ?? undefined;
     // Where the aim points already: the model loads while the simulation turns it
     this.drawAim(renderData);
 
@@ -907,6 +913,10 @@ export class ThreeTowerRenderer {
   /** Take the model, rings and markers of `data` out of the scene; the tower's entry and maps are the caller's */
   private disposeRender(data: TowerRenderData): void {
     // Remove mesh
+    if (data.firing?.active) {
+      data.firing.active = false;
+      this.firing.splice(this.firing.indexOf(data.firing), 1);
+    }
     data.sawArms?.dispose();
     data.stream?.dispose();
     this.scene.remove(data.mesh);
@@ -1024,6 +1034,35 @@ export class ThreeTowerRenderer {
    */
   setStream(id: string, target: Vector3 | null, drive: number): void {
     this.towers.get(id)?.stream?.setStream(target, drive);
+  }
+
+  /**
+   * Tower `id` fired at `fireRate` shots per game second (its runtime rate, 0 when unknown): its firing motion
+   * (TowerTypeConfig.firingMotion) starts, drawn by updateFiring. Nothing for a tower without one or before its
+   * model stands. The muzzle flash event calls it (PresentationHost), the simulation knows nothing of it.
+   */
+  fire(id: string, fireRate: number): void {
+    const firing = this.towers.get(id)?.firing;
+    if (!firing) return;
+    firing.fire(fireRate);
+    if (!firing.active) {
+      firing.active = true;
+      this.firing.push(firing);
+    }
+  }
+
+  /**
+   * The firing motions of one render frame, `gameDeltaSeconds` of game time (0 while paused: they hold), drawn
+   * over the aim. After updateAnimations, which draws the aim they add to.
+   */
+  updateFiring(gameDeltaSeconds: number): void {
+    const firing = this.firing;
+    for (let i = firing.length - 1; i >= 0; i--) {
+      if (firing[i].update(gameDeltaSeconds)) continue;
+      firing[i].active = false;
+      firing[i] = firing[firing.length - 1];
+      firing.pop();
+    }
   }
 
   /** Turn and tilt the turret of `data` to its aim. */

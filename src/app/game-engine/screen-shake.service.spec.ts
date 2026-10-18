@@ -5,8 +5,12 @@ import { ScreenShakeService, shakeFalloff } from './screen-shake.service';
 import type { ThreeTilesEngine } from '../three-engine';
 import { ABILITY_IMPACT_SHAKE, ABILITY_LAUNCH_SHAKE, SCREEN_SHAKE_CONFIG } from '../configs/visual-effects.config';
 import { LEGACY_SCREEN_SHAKE_KEY, STORAGE_KEY } from '../utils/display-options.storage';
+import { TOWER_TYPES, type TowerTypeConfig } from '../configs/tower-types.config';
 
 const { nearDistance, farDistance, presets } = SCREEN_SHAKE_CONFIG;
+
+/** Towers the renderer stands, by id; `lat` is the distance to the camera as for the impacts */
+const towers = new Map<string, { lat: number; lon: number; height: number; typeConfig: TowerTypeConfig }>();
 
 function setup(stored?: object) {
   localStorage.clear();
@@ -17,6 +21,7 @@ function setup(stored?: object) {
     // The camera sits at the origin, `lat` stands for the impact's distance on X
     sync: { geoToLocalSimpleInto: (lat: number, _lon: number, _h: number, target: Vector3) => target.set(lat, 0, 0) },
     getCamera: () => ({ position: new Vector3() }),
+    towers: { get: (id: string) => towers.get(id) },
   };
   const service = new ScreenShakeService(eventBus, engine as unknown as ThreeTilesEngine);
   const impact = (projectileType: string, distance: number) =>
@@ -51,6 +56,21 @@ describe('ScreenShakeService', () => {
     const { engine, service, impact } = setup();
     impact(type, 0);
     expect(engine.triggerScreenShake).not.toHaveBeenCalled();
+    service.destroy();
+  });
+
+  it('shakes for a gun with a firing shake near the camera, faded with distance, and not for one without', () => {
+    const { eventBus, engine, service } = setup();
+    const shake = TOWER_TYPES.bastion.firingMotion!.shake!;
+    towers.set('t1', { lat: shake.near / 2, lon: 0, height: 0, typeConfig: TOWER_TYPES.bastion });
+    towers.set('t2', { lat: (shake.near + shake.far) / 2, lon: 0, height: 0, typeConfig: TOWER_TYPES.bastion });
+    towers.set('t3', { lat: 0, lon: 0, height: 0, typeConfig: TOWER_TYPES['dual-gatling'] });
+    for (const towerId of ['t1', 't2', 't3', 'gone']) eventBus.emit({ type: 'vfx:muzzle-flash', towerId, towerTypeId: 'bastion' });
+    expect(engine.triggerScreenShake.mock.calls).toEqual([
+      [shake.amplitude, shake.duration],
+      [expect.closeTo(shake.amplitude * 0.5), shake.duration],
+    ]);
+    towers.clear();
     service.destroy();
   });
 

@@ -198,6 +198,32 @@ describe('ThreeTowerRenderer draws the tower aim', () => {
     expect(angleBetween(turretHeading(data), Math.PI / 2)).toBeLessThan(1e-9);
   });
 
+  it('kicks the turret of a cannon as it fires, over its aim, and lets it rest again; a tower gone stops at once', async () => {
+    const aim = placedAim('cannon', 0, 0.8);
+    const data = (await renderer.create('t1', 'cannon', 0, 0, 0, 0, aim))!;
+    renderer.create('t2', 'archer', 0, 0, 0, 0, placedAim('archer', 0, 0)); // no firing motion: fire() is nothing
+    frames(aim, 3000);
+    const rest = data.turretPart!.position.clone();
+    const heading = turretHeading(data);
+    renderer.fire('t1', 0.5);
+    renderer.fire('t2', 1);
+    renderer.fire('nobody', 1);
+    renderer.updateAnimations(STEP_MS, camera);
+    renderer.updateFiring(0.04);
+    const kick = TOWER_TYPES.cannon.firingMotion!.kick![0];
+    expect(data.turretPart!.position.distanceTo(rest)).toBeCloseTo(kick.back, 6);
+    expect(turretHeading(data)).toBeCloseTo(heading, 3);
+    for (let i = 0; i < 60; i++) {
+      renderer.updateAnimations(STEP_MS, camera);
+      renderer.updateFiring(STEP_MS / 1000);
+    }
+    expect(data.turretPart!.position.distanceTo(rest)).toBeLessThan(1e-12);
+
+    renderer.fire('t1', 0.5);
+    renderer.remove('t1');
+    expect(() => renderer.updateFiring(0.01)).not.toThrow();
+  });
+
   it('turns the aim the same with and without a renderer drawing it', async () => {
     const drawn = placedAim('dual-gatling', 0.4, 1.0);
     const headless = placedAim('dual-gatling', 0.4, 1.0);

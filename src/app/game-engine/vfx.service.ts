@@ -107,6 +107,11 @@ export class VFXService {
       this.handleMuzzleFlash(event.towerId, event.towerTypeId);
     }));
 
+    // Dust round a heavy gun's foot as it fires (TowerTypeConfig.firingMotion.dust, the path's model included)
+    this.subs.add(this.eventBus.onShow('vfx:muzzle-flash', (event) => {
+      this.handleFiringDust(event.towerId);
+    }));
+
     // Chain-lightning bolts: spawn one bolt per segment (tip→primary→jump→…)
     this.subs.add(this.eventBus.onShow('vfx:chain-lightning', (event) => {
       this.handleChainLightning(event.points);
@@ -470,6 +475,16 @@ export class VFXService {
     if (profile.lightIntensity > 0) {
       this.tilesEngine.towers.triggerMuzzleFlash(towerId, profile.lightIntensity);
     }
+  }
+
+  /** Dust thrown out round the foot of a tower whose firing motion has some, on the ground it stands on */
+  private handleFiringDust(towerId: string): void {
+    const tower = this.tilesEngine.towers.get(towerId);
+    const dust = tower?.typeConfig.firingMotion?.dust;
+    if (!tower || !dust) return;
+    // The model stands heightOffset above its foot
+    const at = tower.mesh.position;
+    this.tilesEngine.effects.spawnGroundDust(at.x, at.y - tower.typeConfig.heightOffset, at.z, dust.puffs, dust.radius, dust.speed);
   }
 
   /**

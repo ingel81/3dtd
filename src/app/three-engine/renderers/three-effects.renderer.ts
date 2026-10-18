@@ -302,6 +302,11 @@ export class ThreeEffectsRenderer {
     this.particleEffects.spawnMuzzleFlash(localX, localY, localZ, profile);
   }
 
+  /** Dust thrown out round a firing gun's foot at a local position, see ParticleEffectsRenderer.spawnGroundDust */
+  spawnGroundDust(localX: number, localY: number, localZ: number, puffs: number, radius: number, speed: number): void {
+    this.particleEffects.spawnGroundDust(localX, localY, localZ, puffs, radius, speed);
+  }
+
   /** Spawn a brief fire flash that fades away (HQ damage indicator, HP > 50%). */
   spawnFireFlash(lat: number, lon: number, localY: number): void {
     this.environment.spawnFireFlash(lat, lon, localY);

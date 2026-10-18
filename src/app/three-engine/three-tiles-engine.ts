@@ -971,6 +971,8 @@ export class ThreeTilesEngine {
 
     // Tower visuals only (selection ring pulse, magic hover, GLTF mixer LOD)
     this.towers.updateAnimations(deltaTime, this.camera);
+    // Recoil and reload over the aim just drawn, in game time
+    this.towers.updateFiring(gameDeltaSeconds);
     // Scaffolds count the build down in game time (Tower.builtAtMs)
     this.towers.updateBuilds(gameDeltaSeconds * 1000);
 

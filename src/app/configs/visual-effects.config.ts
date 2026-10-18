@@ -319,6 +319,32 @@ export const FROST_BOMB_ICE_RINGS = [
 export const ABILITY_DEATH_BLOOD_CAP = 24;
 
 /**
+ * Look of the dust a heavy gun throws up round its foot as it fires (TowerTypeConfig.firingMotion.dust): smoke-atlas
+ * puffs in the normal pool, low and earthy, pushed out along the ground by the blast and fading as they billow.
+ * The tower's entry sets how many, how far out they start and how fast they leave.
+ */
+export const FIRING_DUST_LOOK = {
+  /** Lifetime, s */
+  lifeMin: 0.7,
+  lifeMax: 1.3,
+  /** Sprite size, m; the puffs start at a third and billow out */
+  sizeMin: 1.6,
+  sizeMax: 2.8,
+  sizeStart: 0.35,
+  sizeEnd: 1,
+  /** Share of the speed the puffs differ by, and how fast they rise, m/s */
+  speedSpread: 0.45,
+  riseMin: 0.15,
+  riseMax: 0.6,
+  /** Above the foot, m: on the ground, not in it */
+  lift: 0.3,
+  /** Earth over the light smoke atlas, darker and lighter per puff */
+  color: { r: 0.62, g: 0.55, b: 0.45 },
+  shadeMin: 0.7,
+  shadeMax: 1.0,
+} as const;
+
+/**
  * Look of the fire-atlas explosion (cannon, rocket and bullet impacts), in
  * two stages: a fireball of additive explosion-atlas sprites, then smoke
  * puffs from the smoke atlas in the normal pool that only show up once the

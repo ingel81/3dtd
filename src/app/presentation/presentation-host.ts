@@ -128,6 +128,10 @@ export class PresentationHost implements SimPresenterApi {
     this.subs.add(bus.on('sim:presented', (event) => this.resync(event.phase, event.wave, event.baseHealth)));
     // The world's own sound for a new wave (a custom map's bell or horn)
     this.subs.add(bus.onShow('wave:started', ({ wave }) => engine.world.waveStarted?.(wave)));
+    // A shot moves the model (TowerTypeConfig.firingMotion), timed to the shadow tower's fire rate
+    this.subs.add(bus.onShow('vfx:muzzle-flash', ({ towerId }) => {
+      engine.towers.fire(towerId, source.tower(towerId)?.combat.fireRate ?? 0);
+    }));
   }
 
   // ── SimPresenterApi ──

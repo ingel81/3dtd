@@ -1,6 +1,6 @@
 import type { Color, Vector3 } from 'three';
 import type { TrailParticleConfig } from '../../configs/projectile-types.config';
-import { EXPLOSION_LOOK, type BurstPalette, type MuzzleFlashProfile } from '../../configs/visual-effects.config';
+import { EXPLOSION_LOOK, FIRING_DUST_LOOK, type BurstPalette, type MuzzleFlashProfile } from '../../configs/visual-effects.config';
 import type { ParticlePoolManager } from './particle-pool-manager';
 
 /**
@@ -292,6 +292,45 @@ function emitExplosionSmoke(
 
     const grey = smoke.greyMin + Math.random() * (smoke.greyMax - smoke.greyMin);
     particle.color.setRGB(grey, grey, grey * 0.95);
+  }
+}
+
+/**
+ * Dust a heavy gun throws up round its foot (FIRING_DUST_LOOK): `puffs` smoke-atlas puffs on a ring `radius` m
+ * round the local point, each pushed straight out at about `speed` m/s, rising a little.
+ */
+export function emitGroundDust(
+  pools: ParticlePoolManager,
+  localX: number,
+  localY: number,
+  localZ: number,
+  puffs: number,
+  radius: number,
+  speed: number
+): void {
+  const look = FIRING_DUST_LOOK;
+  const totalAtlasFrames = pools.ATLAS_COLS * pools.ATLAS_ROWS;
+  const start = Math.random() * Math.PI * 2;
+  for (let i = 0; i < puffs; i++) {
+    const particle = pools.getInactiveParticle('trailNormal');
+    if (!particle) break;
+    // Evenly round the ring, a little uneven, so it reads as a wave and not as a pattern
+    const angle = start + ((i + Math.random() * 0.6) / puffs) * Math.PI * 2;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const r = radius * (0.85 + Math.random() * 0.3);
+    particle.position.set(localX + cos * r, localY + look.lift, localZ + sin * r);
+    const out = speed * (1 - look.speedSpread / 2 + Math.random() * look.speedSpread);
+    particle.velocity.set(cos * out, look.riseMin + Math.random() * (look.riseMax - look.riseMin), sin * out);
+    particle.life = 1;
+    particle.maxLife = look.lifeMin + Math.random() * (look.lifeMax - look.lifeMin);
+    particle.size = look.sizeMin + Math.random() * (look.sizeMax - look.sizeMin);
+    particle.sizeStart = look.sizeStart;
+    particle.sizeEnd = look.sizeEnd;
+    particle.frameIndex = 0;
+    particle.totalFrames = totalAtlasFrames;
+    const shade = look.shadeMin + Math.random() * (look.shadeMax - look.shadeMin);
+    particle.color.setRGB(look.color.r * shade, look.color.g * shade, look.color.b * shade);
   }
 }
 

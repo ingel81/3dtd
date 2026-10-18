@@ -18,6 +18,7 @@ import {
   emitConfigurableTrail,
   emitExplosion,
   emitFlameParticle,
+  emitGroundDust,
   emitMuzzleFlash,
   emitPortalSparks,
 } from './particle-emitters';
@@ -271,6 +272,15 @@ export class ParticleEffectsRenderer {
   spawnMuzzleFlash(localX: number, localY: number, localZ: number, profile: MuzzleFlashProfile): void {
     if (!this.muzzleFlashes) return;
     emitMuzzleFlash(this.pools, localX, localY, localZ, profile);
+  }
+
+  /**
+   * Dust a heavy gun throws up round its foot as it fires (FIRING_DUST_LOOK): `puffs` puffs on a ring `radius` m
+   * round the local point, moving out at about `speed` m/s. Nothing while impact effects are off (VFX settings).
+   */
+  spawnGroundDust(localX: number, localY: number, localZ: number, puffs: number, radius: number, speed: number): void {
+    if (!this.impacts) return;
+    emitGroundDust(this.pools, localX, localY, localZ, puffs, radius, speed);
   }
 
   /**

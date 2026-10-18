@@ -91,6 +91,16 @@ export class ScreenShakeService {
       }),
     );
 
+    // A heavy gun firing → its own shake near it (TowerTypeConfig.firingMotion.shake, the path's model included)
+    this.subs.add(
+      this.eventBus.onShow('vfx:muzzle-flash', ({ towerId }) => {
+        const tower = this.engine.towers.get(towerId);
+        const shake = tower?.typeConfig.firingMotion?.shake;
+        if (!tower || !shake) return;
+        this.shakeAt(shake, tower.lat, tower.lon, tower.height, shake.near, shake.far);
+      }),
+    );
+
     // HQ taking damage → shake scales with the damage, not with distance. At
     // most once per hqDamageMinIntervalMs, unless a hit costing more HP comes
     // in: compared by the HP, since the factor is 0.5 for 1 HP and 5 HP alike
