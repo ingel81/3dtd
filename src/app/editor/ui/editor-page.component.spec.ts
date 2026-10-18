@@ -28,7 +28,7 @@ describe('EditorPageComponent', () => {
     const meta = signal<Pick<MapMeta, 'id' | 'name'> | null>({ id: 'demo-valley', name: 'Demo Valley' });
     const openMap = signal<string | null>('demo-valley');
     const session = { editor: { doc: { meta: meta() } }, state: { meta }, saves: { dirty: signal(false) }, maps: { openMap } };
-    const screens = { draft: signal(null), guardEditor: () => () => undefined, takeEditorMap: () => null };
+    const screens = { draft: signal(null), guardEditor: () => () => undefined, takeEditorMap: () => null, newMapNext: signal(false) };
     TestBed.configureTestingModule({
       providers: [{ provide: EditorSession, useValue: session }, { provide: AppScreen, useValue: screens }],
     });

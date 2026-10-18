@@ -556,6 +556,11 @@ export class WorldsStageService {
     this.leavingHeld(() => this.worlds.editMap(mapId));
   }
 
+  /** The map editor on a new map's form, asked first as editMap */
+  newMap(): void {
+    this.leavingHeld(() => this.worlds.newMap());
+  }
+
   /** Join a coop room by its code: its world opens on the Coop page; a run held in a wave asks first */
   joinRoom(code: string): void {
     this.leavingHeld(() => {

@@ -81,6 +81,11 @@ export class EditorPageComponent implements OnInit {
   ngOnInit(): void {
     // Before the game shows: the map is saved, a job under way finishes first; the map stays open here
     this.destroyRef.onDestroy(this.screens.guardEditor(() => this.letGo()));
+    // New map: the list shows on its form (MapBrowserComponent takes the flag), no map of the tab reopens
+    if (this.screens.newMapNext()) {
+      if (this.session.editor) void this.close();
+      return;
+    }
     const wanted = this.screens.takeEditorMap() ?? (this.session.editor ? null : openMapOfTab());
     if (wanted) void this.open(wanted);
   }

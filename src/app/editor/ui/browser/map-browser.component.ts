@@ -119,6 +119,11 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
   private urls: string[] = [];
 
   async ngOnInit(): Promise<void> {
+    // Opened for a new map (New map in the Built Worlds' menu): its form at once, not the list's details
+    if (this.screens.newMapNext()) {
+      this.screens.newMapNext.set(false);
+      this.startNew();
+    }
     await this.reload();
   }
 

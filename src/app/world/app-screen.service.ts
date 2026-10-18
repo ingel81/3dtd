@@ -70,6 +70,16 @@ export class AppScreen {
     this.screen.set('editor');
   }
 
+  /** The editor's next showing starts a new map (New map in the Built Worlds' menu): its list on the form */
+  readonly newMapNext = signal(false);
+
+  /** The editor in this window on a new map's form, the map open in it closed (saved) first */
+  openNewMap(): void {
+    this.editorMap = null;
+    this.newMapNext.set(true);
+    this.screen.set('editor');
+  }
+
   /** The map the editor was opened on, once (the editor page asks when it comes) */
   takeEditorMap(): string | null {
     const id = this.editorMap;

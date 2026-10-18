@@ -166,6 +166,7 @@ describe('Worlds stage', () => {
             listMaps: async () => ({ own: [...own], shared: [], shipped: shipped() }),
             tilesets: signal([]),
             editMap: vi.fn(),
+            newMap: vi.fn(),
             trashMap: (id: string) => trashMap(id),
           },
         },
@@ -594,6 +595,27 @@ describe('Worlds stage', () => {
     await settle(f);
     expect(text(el(f).querySelector('[data-stage-continue]'))).toBe('Continue Demo Valley | wave 3');
     expect([...el(f).querySelectorAll('.ws-chip')].map((c) => c.getAttribute('data-chip'))).toEqual(['continue-real']);
+  });
+
+  it('a double click on a map plays it: pick and Play in one', async () => {
+    const f = await open({ key: true });
+    card(f, 'maps').click();
+    await settle(f);
+    const row = el(f).querySelector<HTMLElement>('[data-map="demo-valley"]')!;
+    row.click();
+    row.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    await settle(f);
+    expect(opened).toEqual([expect.objectContaining({ world: expect.objectContaining({ mapId: 'demo-valley' }), play: true })]);
+  });
+
+  it('New map in the menu of Built Worlds opens the editor on the form of a new map, not its list', async () => {
+    const f = await open({ key: true });
+    card(f, 'maps').click();
+    await settle(f);
+    button(f, 'New map').click();
+    await settle(f);
+    expect(TestBed.inject(WorldChoiceService).newMap).toHaveBeenCalledTimes(1);
+    expect(TestBed.inject(WorldChoiceService).editMap).not.toHaveBeenCalled();
   });
 
   it('the key screen\'s "Play the maps" over the globes opens the Built Worlds\' menu, a map picked, nothing loaded', async () => {

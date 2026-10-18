@@ -14,7 +14,7 @@ import type { NominatimAddress } from '../services/location/geocoding.service';
  * places) opens the frame with its HQ and spawns; the map made there is
  * played or opened in the editor. The maps made here and not changed since
  * are its Recent worlds (docs/WORLDS_STATE_PLAN.md, 3.6); one changed in the
- * editor is a Built World. No map key is needed.
+ * editor is a Built World. A double click on one plays it. No map key is needed.
  */
 @Component({
   selector: 'app-world-osm',
@@ -53,7 +53,7 @@ import type { NominatimAddress } from '../services/location/geocoding.service';
             <div class="td-rows">
               @for (map of mine(); track map.id) {
                 <div class="wm-line">
-                  <button type="button" class="td-row wm-row" [class.is-selected]="pickedId() === map.id" [attr.data-map]="map.id"
+                  <button type="button" class="td-row wm-row" (dblclick)="stage.start('osm')" [class.is-selected]="pickedId() === map.id" [attr.data-map]="map.id"
                           (click)="stage.pick('osm', { kind: 'map', id: map.id, name: map.name })">
                     <span class="wm-map">
                       @if (map.picture) {

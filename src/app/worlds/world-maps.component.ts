@@ -7,8 +7,9 @@ import { WorldsStageService } from './worlds-stage.service';
 /**
  * The maps' menu (docs/WORLDS_NAVIGATION_PLAN.md, 3.1): every map with
  * where it comes from (own, OpenStreetMap, from coop hosts, shipped). A
- * row picks, the globe turns to the map's tower; Play loads it, Edit opens
- * it in the editor (a shipped or a host's map as an own copy).
+ * row picks, the globe turns to the map's tower; Play (or a double click on
+ * the row) loads it, Edit opens it in the editor (a shipped or a host's map
+ * as an own copy).
  */
 @Component({
   selector: 'app-world-maps',
@@ -39,7 +40,7 @@ import { WorldsStageService } from './worlds-stage.service';
             <div class="td-rows">
               @for (map of group.maps; track map.id) {
                 <div class="wm-line">
-                  <button type="button" class="td-row wm-row" [class.is-selected]="pickedId() === map.id" [attr.data-map]="map.id"
+                  <button type="button" class="td-row wm-row" (dblclick)="stage.start('maps')" [class.is-selected]="pickedId() === map.id" [attr.data-map]="map.id"
                           (click)="stage.pick('maps', { kind: 'map', id: map.id, name: map.name })">
                     <span class="wm-map">
                       @if (map.picture) {
@@ -117,7 +118,7 @@ export class WorldMapsComponent {
     const recent = this.stage.recentMaps().map((id) => maps.find((m) => m.id === id)).filter((m): m is StageMap => !!m);
     return [
       { title: 'Recent', maps: recent, empty: null, recent: true, own: false },
-      { title: 'Your built worlds', maps: of(['own']), empty: 'None yet: New map opens the editor, or make one of a real place under OpenStreetMap and change it there.', recent: false, own: true },
+      { title: 'Your built worlds', maps: of(['own']), empty: 'None yet: New map starts one, or change a map made under OpenStreetMap.', recent: false, own: true },
       { title: 'From coop hosts', maps: of(['shared']), empty: 'Maps a coop host played with you land here.', recent: false, own: false },
       { title: 'Shipped', maps: of(['shipped']), empty: 'The shipped maps did not load.', recent: false, own: false },
     ];
@@ -142,9 +143,9 @@ export class WorldMapsComponent {
   /** Start's word: Continue of a run, Back to the place held, else Play */
   readonly playWord = computed(() => this.stage.playWord('maps', this.stage.picks().maps, 'Play'));
 
-  /** The editor with its list of maps, where a new map starts, in this window */
+  /** The editor on a new map's form, in this window: one click, not its list and then New map again */
   newMap(): void {
     if (this.stage.whyNot('edit', 'maps')) return;
-    this.stage.editMap(null);
+    this.stage.newMap();
   }
 }

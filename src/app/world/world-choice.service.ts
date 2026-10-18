@@ -136,11 +136,20 @@ export class WorldChoiceService {
 
   /** The map editor in this window on this map (a shipped one opens there as a copy to save); null: its list */
   editMap(mapId: string | null): void {
-    // A world held behind the globes goes first, its run kept as autosave (docs/WORLDS_STATE_PLAN.md, 3.5)
+    this.toEditor(() => this.screens.openEditor(mapId));
+  }
+
+  /** The map editor in this window on a new map's form */
+  newMap(): void {
+    this.toEditor(() => this.screens.openNewMap());
+  }
+
+  /** A world held behind the globes goes first, its run kept as autosave (docs/WORLDS_STATE_PLAN.md, 3.5) */
+  private toEditor(open: () => void): void {
     if (this.session.parked()) {
-      void this.session.leaveParked(true).then(() => this.screens.openEditor(mapId));
+      void this.session.leaveParked(true).then(open);
       return;
     }
-    this.screens.openEditor(mapId);
+    open();
   }
 }

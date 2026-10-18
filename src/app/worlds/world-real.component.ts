@@ -25,8 +25,9 @@ const LISTS: readonly { id: RealList; label: string }[] = [
  * The real places' menu (docs/WORLDS_NAVIGATION_PLAN.md, 3.1): the lists of
  * the place picker (recent, favorites, the showcase, a search with the dice,
  * the places defended with their best wave, own tilesets). A row picks, the
- * globe turns there; Start under the list loads it. Without a map key the
- * lists stay, Start is locked with the way to the key beside it.
+ * globe turns there; Start under the list loads it, as a double click on the
+ * row does. Without a map key the lists stay, Start is locked with the way
+ * to the key beside it.
  */
 @Component({
   selector: 'app-world-real',
@@ -60,7 +61,7 @@ const LISTS: readonly { id: RealList; label: string }[] = [
             <div class="td-rows" role="group" aria-label="Recent places">
               @for (recent of locations.recents(); track recent.visitedAt) {
                 <div class="wm-line">
-                  <button type="button" class="td-row wm-row" [class.is-selected]="isPicked(recent.hq)"
+                  <button type="button" class="td-row wm-row" (dblclick)="stage.start('real')" [class.is-selected]="isPicked(recent.hq)"
                           (click)="pickPlace(recent.hq, recent.spawns.slice(0, 1), recent.name)">
                     <span class="td-name">{{ recent.name }}</span>
                     <span class="td-note td-num wm-meta">{{ age(recent.visitedAt) }}</span>
@@ -80,7 +81,7 @@ const LISTS: readonly { id: RealList; label: string }[] = [
           @if (locations.favorites().length) {
             <div class="td-rows" role="group" aria-label="Favorites">
               @for (fav of locations.favorites(); track fav.id) {
-                <button type="button" class="td-row wm-row" [class.is-selected]="isPicked(fav.hq)"
+                <button type="button" class="td-row wm-row" (dblclick)="stage.start('real')" [class.is-selected]="isPicked(fav.hq)"
                         (click)="pickPlace(fav.hq, fav.spawns, fav.name ?? coordinates(fav.hq))">
                   <span class="td-name">{{ fav.name ?? coordinates(fav.hq) }}</span>
                   <span class="td-note td-num wm-meta">{{ fav.spawns.length }} {{ fav.spawns.length === 1 ? 'spawn' : 'spawns' }}</span>
@@ -94,7 +95,7 @@ const LISTS: readonly { id: RealList; label: string }[] = [
         @case ('showcase') {
           <div class="td-rows" role="group" aria-label="Showcase">
             @for (place of showcase; track place.id) {
-              <button type="button" class="td-row wm-row" [class.is-selected]="isPicked(place)"
+              <button type="button" class="td-row wm-row" (dblclick)="stage.start('real')" [class.is-selected]="isPicked(place)"
                       (click)="pickPlace(place, place.spawn ? [place.spawn] : [], place.name)">
                 <span class="wm-row-name">
                   <span class="td-name">{{ place.name }}</span>
@@ -119,7 +120,7 @@ const LISTS: readonly { id: RealList; label: string }[] = [
           @if (records().length) {
             <div class="td-rows" role="group" aria-label="Defended places">
               @for (record of records(); track record) {
-                <button type="button" class="td-row wm-row" [class.is-selected]="isPicked(record.hq)"
+                <button type="button" class="td-row wm-row" (dblclick)="stage.start('real')" [class.is-selected]="isPicked(record.hq)"
                         (click)="pickPlace(record.hq, record.spawns.slice(0, 1), record.detail)">
                   <span class="td-name">{{ record.name }}</span>
                   <span class="td-note td-num wm-meta">wave {{ record.bestWave }}</span>
@@ -134,7 +135,7 @@ const LISTS: readonly { id: RealList; label: string }[] = [
           @if (worlds.tilesets().length) {
             <div class="td-rows" role="group" aria-label="Own tilesets">
               @for (set of worlds.tilesets(); track set.id) {
-                <button type="button" class="td-row wm-row" [class.is-selected]="pick()?.kind === 'tileset' && pick()?.name === set.name"
+                <button type="button" class="td-row wm-row" (dblclick)="stage.start('real')" [class.is-selected]="pick()?.kind === 'tileset' && pick()?.name === set.name"
                         (click)="stage.pick('real', { kind: 'tileset', id: set.id, name: set.name })">
                   <span class="td-name">{{ set.name }}</span>
                 </button>
