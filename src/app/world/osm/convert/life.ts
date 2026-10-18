@@ -20,6 +20,8 @@ export interface LifeReport {
   areas: number;
   /** The boats' asset on the river, null without one */
   boats: string | null;
+  /** The river's width along the boats' route (twice the median distance to the shore), metres; null without one */
+  riverWidthM: number | null;
   /** The wave's sound and where it comes from */
   waveSound: string | null;
   /** The landmark the intro flies over (its name, else its kind), null for the game's default tour */
@@ -38,11 +40,11 @@ const MIN_BOAT_ROUTE_M = 250;
 const RIVER_M_PER_DENSITY = 800;
 /**
  * The boat a river carries by its width (twice the median distance from its
- * line to the shore) where ships go: a barge on a broad waterway (the Main,
- * the Rhine, a harbour's river), a smaller boat on a canal; rowing boats
- * where no ships go
+ * line to the shore) where ships go: the 67 m barge where the water is at
+ * least 60 m wide (narrower, it fills the river), the smaller boat on a
+ * narrower river or a canal; rowing boats where no ships go
  */
-const BARGE_MIN_WIDTH = 40;
+const BARGE_MIN_WIDTH = 60;
 const BOAT_MIN_WIDTH = 12;
 /** Seamarks on the map from which its river counts as a waterway with ships */
 const SHIPPING_SEAMARKS = 3;
@@ -61,7 +63,7 @@ const MAX_MARINAS = 3;
 export function growLife(doc: CustomMapDocument, features: OsmFeatures, water: WaterResult, landmarks: readonly Landmark[]): LifeReport {
   const areas: MapLifeArea[] = [];
   const life: MapLife = { ambience: { sound: 'biome', volume: AMBIENCE_VOLUME }, areas };
-  const report: LifeReport = { areas: 0, boats: null, waveSound: null, intro: null };
+  const report: LifeReport = { areas: 0, boats: null, riverWidthM: null, waveSound: null, intro: null };
   const id = (kind: string) => `osm-${kind}-${areas.length + 1}`;
 
   // The river: its line where it runs on the map's water
@@ -70,6 +72,7 @@ export function growLife(doc: CustomMapDocument, features: OsmFeatures, water: W
   let riverId: string | null = null;
   if (river) {
     riverId = id('boats');
+    report.riverWidthM = river.width;
     report.boats = !shipping || river.width < BOAT_MIN_WIDTH ? 'rowboat' : river.width >= BARGE_MIN_WIDTH ? 'river-barge' : 'fishing-boat';
     const density = Math.min(LIFE_AREA_DENSITY.max, Math.max(0.5, polylineLength(river.points) / RIVER_M_PER_DENSITY)) * (shipping ? 1 : 0.6);
     areas.push({ id: riverId, kind: 'boats', shape: 'route', points: river.points, asset: report.boats, density: Math.round(density * 10) / 10 });
