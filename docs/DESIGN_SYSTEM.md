@@ -138,7 +138,8 @@ lateinischen Untermenge (≥, →, ▼) kommen in UI-Texten nicht vor, sie fiele
 mit `TD_FONTS.ui`; `main.ts` lädt die drei Gewichte vor dem ersten Bild (`document.fonts.load`).
 
 Layout-Tokens: `--td-dlg-page` (720 px, eine Menüseite oder ein Overlay der Globen), `--td-dlg-ask` (480 px, eine Rückfrage,
-der Fehler beim Start, Run upload), `--td-sidebar-width` (300 px), `--td-sidebar-gutter` (14 px), `--td-dock-gutter` (18 px), `--td-z-marks`,
+der Fehler beim Start, Connection lost, der Key-Schritt, Run upload); Game Over steht auf `--td-dlg-page`, Damage vs armor
+behält 880 px für seine Tabelle, `--td-sidebar-width` (300 px), `--td-sidebar-gutter` (14 px), `--td-dock-gutter` (18 px), `--td-z-marks`,
 `--td-z-hud`, `--td-z-dock`.
 
 ---
@@ -606,7 +607,7 @@ kam, sagt `FocusOrigin` (`utils/keyboard-target.ts`). Stapelung über `--td-z-ma
 |------|-----|--------|
 | Raum-Chip | Kopfleiste, nach den Werkzeugen | Code (`td-code`), ein Quadrat je Spieler in seiner Lane-Farbe, `n/4`; öffnet das Dock |
 | Dock `app-coop-dock` | rechts neben der Fähigkeitenleiste, 440 px, im Raum 860 px | `td-panel` mit Dialogkopf und -fuß. Beim Beitritt die Schritte (`td-rows`, der laufende gewählt); im Raum Code, Einladung, Sperre und Listing (Schalter), Status als `td-banner` mit `td-meter`, eine Warnung (weitere hinter „+n“), Raumtabelle, Optionen, Chat als zweite Spalte (`td-line-left`); Fuß: Leave (Gefahr), mehr (`td-popup`), Start match oder Ready up |
-| Menüseite Coop `app-coop-ways` | Hauptmenü | Name, Lobby, dann Host online, Join online (Codefeld `td-input is-code`, Räume als `td-table`), Same network (nur App) |
+| Menüseite Coop `app-coop-ways` | Hauptmenü und Overlay der Globen (dieselbe Komponente; über den Globen ohne Spiel: Code öffnet das Spiel im Raum, Hosten nennt den Weg) | Name, Lobby, dann Host online, Join online (Codefeld `td-input is-code`, Räume als `td-table`), Same network (nur App) |
 | Raumtabelle | im Dock | eine `td-row` je Lane (48 px): Farbbalken, Lane mit Länge, Spieler (Name, `td-tag` Host und You, was sein Client tut), Ready, Ping, Werkzeuge (`td-tool`). Freie Lanes „Free, take it“ als `td-link` |
 | Squad `app-coop-squad` | unten über der Logo-Zeile | `td-overlay`: Kopf mit Code oder Problem, „Cheats on“ (`td-tag is-warn`), Einklappen; Zeilen 36 px, man selbst zuerst; Geschenk-Leiste; Fuß: auf wen die Welle wartet |
 | Chat `app-coop-chat` | unter der Squad-Box | `td-overlay`-Streifen: Verlauf, offenes Feld, Markier-Hinweis, Tastenzeile bis zur ersten eigenen Nachricht |
