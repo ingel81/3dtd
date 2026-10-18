@@ -25,6 +25,7 @@ import { validateWaveTable, type WaveTable } from '../../director/sources/table/
 import { createWaveSource, initialWaveSourceId } from '../../director/wave-source.registry';
 import { type BuildCatalogEntry, CustomMapFrame, CustomMapSurface } from './custom-map-surface';
 import { CustomMapStreets } from './custom-map-streets';
+import { MapGroundPick } from './custom-map-ground-pick';
 import { type CustomMapDocument, type MapEnvironment, type MapObject, difficultyFactor, geoToMap, mapToGeo } from './map-document';
 import { environmentAt, hiddenObjectsAt, messagesOf } from './wave-events';
 import { CustomMapDestruction, FALLEN_SCALE, passingObjectIds, type StructureEntry } from './custom-map-destruction';
@@ -213,6 +214,8 @@ export class CustomMapWorld implements WorldProvider {
   private readonly cameraRight = new Vector3();
   private readonly listenerScene = new Vector3();
   private readonly listenerAt = { x: 0, y: 0 };
+  /** The ground the camera controls raycast: terrain and roofs, without the scene's meshes */
+  private readonly groundPick: MapGroundPick;
 
   constructor(
     private readonly map: LoadedCustomMap,
@@ -240,6 +243,7 @@ export class CustomMapWorld implements WorldProvider {
     this.sync = new EllipsoidSync(origin.lat, origin.lon, origin.height);
     this.frame.setOrigin(origin.lat, origin.lon);
     this.surface = new CustomMapSurface(this.doc, this.frame);
+    this.groundPick = new MapGroundPick(this.surface);
     this.streets = new CustomMapStreets(this.doc);
     // The sky and objects of the first wave to play, before the simulation says so: nothing shows that it hides
     this.showWaveEvents(startWave);
@@ -283,8 +287,9 @@ export class CustomMapWorld implements WorldProvider {
       fog: HEIGHT_FOG_UNIFORMS.uFogDensity,
       drawsToTarget: ctx.drawsToTarget,
     };
-    // Over the HQ at the scene origin, controls that raycast the map's ground and objects
-    ctx.cameraRig.setupEnvironmentControls(ctx.scene, view.losBlockers);
+    // Over the HQ at the scene origin, controls that raycast the map's ground and roofs, analytically
+    ctx.scene.add(this.groundPick);
+    ctx.cameraRig.setupEnvironmentControls(ctx.scene, this.groundPick, this.groundPick.version);
     this.rig = ctx.cameraRig;
     ctx.cameraRig.setBounds(this.cameraBounds());
 
@@ -664,6 +669,7 @@ export class CustomMapWorld implements WorldProvider {
     if (this.view && !this.assets) this.view.assets.dispose();
     this.view?.dispose();
     this.view = null;
+    this.groundPick.removeFromParent();
     this.soundscape?.dispose();
     this.soundscape = null;
     this.stage = null;
@@ -751,5 +757,6 @@ export class CustomMapWorld implements WorldProvider {
   private placeView(): void {
     if (!this.view) return;
     this.view.placeAt(this.frame.sceneX(0), this.frame.sceneZ(0));
+    this.groundPick.moved();
   }
 }

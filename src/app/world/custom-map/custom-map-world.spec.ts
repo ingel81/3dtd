@@ -4,6 +4,8 @@ import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
 import { EllipsoidSync } from '../../three-engine/ellipsoid-sync';
 import { CustomMapFrame, CustomMapSurface } from './custom-map-surface';
 import { CustomMapStreets } from './custom-map-streets';
+import { MapGroundPick } from './custom-map-ground-pick';
+import { GroundPickRoot } from '../../three-engine/ground-pick-root';
 import { CUSTOM_MAP_ASSET_CREDIT, CustomMapWorld, customMapSpawnLimit, customMapStartWave, openCustomMap, openedCustomMap } from './custom-map-world';
 import { runStartAt } from '../../sim/protocol/run-start';
 import { RUN_PLAN_RULES } from '../../director/sources/budget/run-plan';
@@ -598,5 +600,40 @@ describe('CustomMapSurface bridge decks', () => {
     const river = testMap();
     river.terrain.rivers = [{ id: 'r', kind: 'water', points: [{ x: 40, y: -50, width: 6, height: 18 }, { x: 40, y: 50, width: 6, height: 18 }] }];
     expect(deckAt(river)).toBeGreaterThanOrEqual(19);
+  });
+});
+
+describe('MapGroundPick', () => {
+  /** V1: the controls' ground was the sight blockers, every frame walked for its version, every mesh raycast on a miss */
+  it('answers the camera controls from the height field and the roofs, cached by its version', () => {
+    const doc = testMap();
+    const origin = hqOrigin(doc);
+    const frame = new CustomMapFrame();
+    frame.setOrigin(origin.lat, origin.lon);
+    const surface = new CustomMapSurface(doc, frame);
+    const pick = new MapGroundPick(surface);
+    const scene = new Scene();
+    scene.add(pick);
+    const root = new GroundPickRoot(pick, pick.version);
+    const cast = vi.spyOn(surface, 'pickRay');
+    const raycaster = new Raycaster(new Vector3(frame.sceneX(-50), 100, frame.sceneZ(10)), new Vector3(0, -1, 0));
+    (raycaster as Raycaster & { firstHitOnly: boolean }).firstHitOnly = true;
+    const hits = raycaster.intersectObject(root);
+    expect(hits).toHaveLength(1);
+    expect(hits[0].point.y).toBeCloseTo(5, 2);
+    expect(hits[0].distance).toBeCloseTo(95, 2);
+    // The same ray at rest: from the cache
+    raycaster.intersectObject(root);
+    expect(cast).toHaveBeenCalledTimes(1);
+    // New roofs or a new origin: cast again
+    surface.setObjectCatalog([]);
+    raycaster.intersectObject(root);
+    expect(cast).toHaveBeenCalledTimes(2);
+    pick.moved();
+    raycaster.intersectObject(root);
+    expect(cast).toHaveBeenCalledTimes(3);
+    // Beyond the ray's reach: nothing
+    raycaster.far = 50;
+    expect(raycaster.intersectObject(root)).toHaveLength(0);
   });
 });

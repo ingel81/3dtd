@@ -14,8 +14,9 @@ import { GroundPickRoot, SceneGraphVersion, TileSetVersion } from './ground-pick
  *
  * - Tiles-Pfad: GlobeControls über dem Ellipsoid der TilesRenderer-Gruppe, ihre
  *   Raycasts treffen nur die Tiles ({@link GroundPickRoot})
- * - DevWorld: EnvironmentControls über der flachen devWorldGroup, ebenfalls über
- *   {@link GroundPickRoot} (Cache)
+ * - DevWorld und eigene Karten: EnvironmentControls über ihrem Boden, ebenfalls über
+ *   {@link GroundPickRoot} (Cache); eine eigene Karte gibt ein analytisches Boden-Objekt
+ *   mit eigener Version (MapGroundPick) statt einer Gruppe
  *
  * Vom Engine besessen: `update()` pro Frame vor dem Tiles-Update, `dispose()` aus dem
  * Engine-dispose().
@@ -95,7 +96,12 @@ export class CameraRig {
    * - Right mouse drag: Rotate (orbit around pivot point)
    * - Scroll wheel: Zoom in/out
    */
-  setupEnvironmentControls(scene: Scene, devWorldGroup: Object3D): void {
+  setupEnvironmentControls(
+    scene: Scene,
+    ground: Object3D,
+    /** When what the rays meet changes; by default a checksum over the objects under `ground` (SceneGraphVersion) */
+    version: { readonly value: number } = new SceneGraphVersion(ground),
+  ): void {
     // EnvironmentControls - works with flat local terrain
     const envControls = new EnvironmentControls(scene, this.camera, this.canvas);
 
@@ -108,11 +114,12 @@ export class CameraRig {
     envControls.minAltitude = 0.1;     // Min camera altitude (radians from ground)
     envControls.maxAltitude = Math.PI / 2 - 0.1; // Max altitude (near vertical)
 
-    // Raycasts against the DevWorld ground only, through the same cache as the
+    // Raycasts against the world's ground only, through the same cache as the
     // tiles: at rest the controls cast rays below the camera every frame, and
     // uncached against every building that was about 7 % of the main thread in
-    // the load scene (Chromium profile at 16 000 enemies, 2026-09-30)
-    const groundPick = new GroundPickRoot(devWorldGroup, new SceneGraphVersion(devWorldGroup));
+    // the load scene (Chromium profile at 16 000 enemies, 2026-09-30). A custom
+    // map hands an analytic ground of its own with its own version (MapGroundPick)
+    const groundPick = new GroundPickRoot(ground, version);
     scene.add(groundPick);
     this.groundPick = groundPick;
     envControls.setScene(groundPick);

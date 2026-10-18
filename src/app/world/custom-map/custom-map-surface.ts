@@ -126,6 +126,8 @@ export class CustomMapSurface implements WorldSurface {
   } | null = null;
   /** The roofs that carry towers (object-roof.ts), and per 16 m bucket of the blockers' grid the ones over it */
   private roofs: PlacedRoof[] = [];
+  /** Counts up whenever what pickRay can meet changes (the roofs, setObjectCatalog) */
+  pickVersion = 0;
   private roofBuckets: (PlacedRoof[] | undefined)[] = [];
   /** Height of the roof roofOver found last */
   private roofHeight = NaN;
@@ -586,6 +588,7 @@ export class CustomMapSurface implements WorldSurface {
     this.blockers = { cell, minX, minY, columns, rows, buckets, maxRadius };
     this.roofs = roofs;
     this.roofBuckets = roofBuckets;
+    this.pickVersion++;
   }
 
   /** Where the renderer stands an object's origin before its own z (seatHeight) */
