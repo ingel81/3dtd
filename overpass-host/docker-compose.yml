@@ -1,8 +1,9 @@
 # The own Overpass instance of 3DTD (README.md): Overpass with the planet's
 # current data, the proxy in front of it, the status page for the LAN, and the
 # Cloudflare tunnel that is its only way in from outside: by default a cloudflared that runs already and
-# reaches the proxy's port on the server's LAN address (PROXY_BIND), or on its Docker network
-# (docker-compose.shared-tunnel.yml), or one of its own (profile tunnel, below). Settings in .env
+# reaches the proxy at an address of its own in the LAN (docker-compose.lan.yml); else on a port of the server
+# (PROXY_BIND), on the cloudflared's Docker network (docker-compose.shared-tunnel.yml), or a tunnel of its own
+# (profile tunnel, below). Settings in .env
 # (.env.example). The images come ready from the GitHub Container Registry (workflow overpass-host-image.yml);
 # docker-compose.build.yml builds them from the sources instead.
 # First fill: docker compose pull, docker compose run --rm clone, then docker compose up -d.
@@ -82,8 +83,8 @@ services:
     volumes:
       - ${STATS_DIR:-./stats}:/stats
       - shared:/shared:ro
-    # For the tunnel's connector only: bind it to the server's LAN address in .env; never open it on the router.
-    # Without PROXY_BIND it is reachable from this machine alone
+    # On the server's address, where the proxy has none of its own in the LAN (docker-compose.lan.yml): for the
+    # tunnel's connector only, never open it on the router. Without PROXY_BIND this machine alone reaches it
     ports:
       - "${PROXY_BIND:-127.0.0.1}:${PROXY_PORT:-8088}:8080"
     mem_limit: 512m
@@ -115,9 +116,10 @@ services:
       - ${STATS_DIR:-./stats}:/stats
       - ${OVERPASS_DATA}:/overpass:ro
       - shared:/shared:ro
-    # For the LAN only: bind it to the server's LAN address in .env
+    # On the server's address, where the page has none of its own in the LAN (docker-compose.lan.yml): for the LAN
+    # only. Without STATUS_BIND this machine alone reaches it
     ports:
-      - "${STATUS_BIND:-0.0.0.0}:${STATUS_PORT:-8090}:8090"
+      - "${STATUS_BIND:-127.0.0.1}:${STATUS_PORT:-8090}:8090"
     mem_limit: 256m
     pids_limit: 100
     networks: [backend, lan]

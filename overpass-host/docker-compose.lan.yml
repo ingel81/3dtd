@@ -1,0 +1,28 @@
+# The proxy and the status page with addresses of their own in the LAN (README.md, "Tunnel"): an
+# external Docker network of the server (a macvlan or ipvlan network such as Unraid's br0 or a VLAN of it),
+# each at a fixed address from .env. The tunnel's connector then reaches the proxy at http://<PROXY_IP>:8080,
+# the LAN the status page at http://<STATUS_IP>:8090. Overpass and the clone stay on the internal network.
+# Used through COMPOSE_FILE in .env (.env.example).
+services:
+  proxy:
+    networks:
+      backend: {}
+      edge: {}
+      lan_proxy:
+        ipv4_address: ${PROXY_IP:?set PROXY_IP in .env}
+
+  status:
+    networks:
+      backend: {}
+      lan: {}
+      lan_status:
+        ipv4_address: ${STATUS_IP:?set STATUS_IP in .env}
+
+networks:
+  lan_proxy:
+    name: ${LAN_NETWORK:-br0}
+    external: true
+  # Another network than the proxy's where STATUS_NETWORK says so (the proxy in a DMZ, the status page at home)
+  lan_status:
+    name: ${STATUS_NETWORK:-${LAN_NETWORK:-br0}}
+    external: true
