@@ -19,6 +19,7 @@ function setup() {
     paths: log('paths'),
     environment: log('environment'),
     life: log('life'),
+    surfaces: log('surfaces'),
     soundChanged: log('sound'),
     groundMoved: log('ground'),
     redrape: log('redrape'),

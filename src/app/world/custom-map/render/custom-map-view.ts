@@ -253,6 +253,9 @@ export class CustomMapView {
     this.losBlockers.add(this.terrain.chunks.group);
     this.group.add(this.terrain.apron);
     this.group.add(this.terrain.roads.group);
+    // Before the ground loads: its path mask leaves the ground under the surfaces to them
+    this.terrain.surfaces.set(doc.surfaces ?? []);
+    this.group.add(this.terrain.surfaces.group);
     if (options.grass !== false) this.group.add(...this.terrain.grass.meshes);
 
     this.mapEffects = { ...NO_MAP_EFFECTS, ...options.effects };
@@ -500,7 +503,8 @@ export class CustomMapView {
    * Stand-ins for what a brush brings onto a map that has none yet, to
    * compile ahead: a water body and a river of every kind (lava with its heat
    * shimmer) with the map's switchable effects and sky, a particle field
-   * (every kind shares one program), the light halos and the light shafts. The first lava
+   * (every kind shares one program), the light halos, the light shafts and
+   * the surfaces' material (a first surface drawn). The first lava
    * pool of a hell stroke linked them in its frames (frames of 550 to 600
    * ms in a dev build). Built once and kept, so three keeps their programs;
    * the effects as they are now (a later switch recompiles anyway).
@@ -528,6 +532,10 @@ export class CustomMapView {
     }
     const particles = new ParticleField('smoke', [{ kind: 'smoke', origin: new Vector3(), radius: 1, height: 1, count: 1, color: undefined, scale: 1 }], { value: 0 }, { value: 1 });
     out.push(particles.mesh, glowStandIn(), shaftStandIn());
+    // The surfaces' material: the first surface drawn in the editor links no program in its frame
+    const surface = new Mesh(geometry, this.terrain.surfaces.material);
+    surface.receiveShadow = true;
+    out.push(surface);
     for (const m of out) m.frustumCulled = false;
     this.effectMeshes = out;
     return out;
@@ -1107,6 +1115,11 @@ export class CustomMapView {
   updatePaths(): void {
     this.terrain.refreshPaths(this.doc.paths);
     void this.refreshBridges();
+  }
+
+  /** The surfaces changed: they lay what changed (the path mask follows from the editor's worker, setPathMask) */
+  setSurfaces(): void {
+    this.terrain.surfaces.set(this.doc.surfaces ?? []);
   }
 
   /** Hears when the path mask was painted from the map as it is now (the editor's worker keeps it from there) */

@@ -8,16 +8,17 @@
  * axis stays as it is (its bed follows the copied heights only on the
  * source side). Life areas and routes follow the rivers' rule: wholly in
  * the source sector they are copied, wholly outside they go, across an
- * axis they stay. The HQ stays where it is. Like the level scripts'
+ * axis they stay; surfaces the same, by their outlines. The HQ stays where it is. Like the level scripts'
  * `kit.mirrorFrom`, but for everything the map holds.
  */
-import type { CustomMapDocument, MapLifeArea, MapPathEdge, MapPathNode, MapRiver, MapSpawn } from '../../world/custom-map/map-document';
+import type { CustomMapDocument, MapLifeArea, MapPathEdge, MapPathNode, MapRiver, MapSpawn, MapSurface } from '../../world/custom-map/map-document';
 import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
 import { spawnName } from './marker-commands';
 import { ObjectIds } from '../../map-ops/object-ops';
 import { newId } from '../../map-ops/path-graph';
 import { MAX_LIFE_AREAS, newLifeId } from '../../world/custom-map/map-life';
-import { lifeAreaImages, mirrorChange, sameSector, symmetryImages, type SymmetryMode } from './symmetry';
+import { MAX_SURFACES, newSurfaceId } from '../../world/custom-map/map-surfaces';
+import { lifeAreaImages, mirrorChange, sameSector, surfaceImages, symmetryImages, type SymmetryMode } from './symmetry';
 
 export interface MirrorResult {
   objects: number;
@@ -27,6 +28,8 @@ export interface MirrorResult {
   roads: number;
   /** Life areas and routes added as images */
   life?: number;
+  /** Surfaces added as images */
+  surfaces?: number;
 }
 
 const TAU = Math.PI * 2;
@@ -193,11 +196,32 @@ export function mirrorMap(doc: CustomMapDocument, mode: SymmetryMode, from: { x:
     const list = [...areas, ...copies];
     doc.life = { ...doc.life, areas: list };
   }
+  // Surfaces: like the life areas, by their outlines
+  let surfaceCount = 0;
+  if (doc.surfaces?.length) {
+    const own: MapSurface[] = [];
+    const whole: MapSurface[] = [];
+    for (const s of doc.surfaces) {
+      const ins = s.outer.filter(inSource).length;
+      if (ins === 0) continue;
+      own.push(s);
+      if (ins === s.outer.length) whole.push(s);
+    }
+    const taken = [...own];
+    const copies = surfaceImages(whole, images, () => {
+      const id = newSurfaceId(taken);
+      taken.push({ id, material: '', outer: [] });
+      return id;
+    }, t.width / 2, t.depth / 2).slice(0, Math.max(0, MAX_SURFACES - own.length));
+    surfaceCount = copies.length;
+    doc.surfaces = [...own, ...copies];
+  }
   return {
     objects: objects.length - kept.length,
     spawns: spawnCount,
     roads: roadCount,
     ...(spawnsLeftOut ? { spawnsLeftOut } : {}),
     ...(lifeCount > 0 ? { life: lifeCount } : {}),
+    ...(surfaceCount > 0 ? { surfaces: surfaceCount } : {}),
   };
 }

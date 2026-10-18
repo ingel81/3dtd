@@ -91,6 +91,7 @@ export const WHOLE_MAP_CHANGE: DocChange = {
   markers: true,
   environment: true,
   life: true,
+  surfaces: true,
   meta: true,
   gameplay: true,
   intro: true,

@@ -7,6 +7,7 @@ import { createDemoMap } from '../demo-map';
 import { createPerfMap } from '../perf-map';
 import type { MapBiome } from '../map-document';
 import { createAssetShowcase } from './asset-showcase';
+import { createSurfaceShowcase } from './surface-showcase';
 import { MapStore } from '../map-store';
 import { CustomMapView } from '../render/custom-map-view';
 import { chooseSkyImage } from '../render/environment/sky-images';
@@ -41,8 +42,8 @@ const VIEWS: Record<string, [number, number, number, number, number, number]> = 
  * `?weather=rain|storm|snow|fog` (`&strength=0.7`), `?moonlight=1`, `?effects=refraction,seaWaves` (map-effects.ts), `?quality=low|medium|high|ultra` (the level's custom map knobs, render-quality.ts), `?biome=hell|moon|mars|arctic|…`, `?post=bloom` through the game's
  * post-processing chain. `?showcase=winter` (a catalogue tag) or
  * `?assets=tree-*,rock-large&materials=snow,ice` lines up catalogue assets on a
- * flat map instead (asset-showcase.ts). `?map=<id>` shows a shipped map instead
- * of the demo valley, `?cam=x,y,h,tx,ty,th` puts the camera and its target at
+ * flat map instead (asset-showcase.ts), `?surfaces` a surface of each marking (surface-showcase.ts). `?map=<id>` shows a shipped map instead
+ * of the demo valley (`&own`: an own map of this browser, an OSM world or an import), `?cam=x,y,h,tx,ty,th` puts the camera and its target at
  * map points (heights over the ground there), `?clean` hides the numbers. E2E probes read
  * `window.__mapPreview` (view, renderer, stats).
  */
@@ -127,14 +128,16 @@ export class MapPreviewComponent implements OnDestroy {
     const showMaterials = params.get('materials')?.split(',');
     const mapId = this.mapId;
     const doc = mapId
-      ? (await new MapStore().load(mapId, 'shipped')).doc
+      ? (await new MapStore().load(mapId, params.has('own') ? 'own' : 'shipped')).doc
       : showcase || assets || showMaterials
         ? createAssetShowcase(await MapAssetLibrary.shared().catalog(), {
             tag: showcase,
             objects: assets,
             materials: showMaterials,
           })
-        : params.get('big')
+        : params.has('surfaces')
+          ? createSurfaceShowcase()
+          : params.get('big')
           ? createPerfMap(Number(params.get('big')), Number(params.get('objects') ?? 20000))
           : createDemoMap(Number(params.get('seed') ?? 7));
     // Left while the map loaded: ngOnDestroy took renderer and controls already, nothing more is built

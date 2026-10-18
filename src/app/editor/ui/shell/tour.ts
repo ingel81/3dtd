@@ -102,6 +102,16 @@ export const TOOL_TOUR: Partial<Record<ToolId, Omit<TourStep, 'id' | 'tool' | 't
       { key: 'Del', description: 'Remove' },
     ],
   },
+  surfaces: {
+    title: 'Surfaces',
+    message:
+      'Lay a square of setts, a playground, a pitch, a court or a car park over the ground: pick a material and lines, then click an outline or hold and paint it. Edit drags its corners and the corners of the lines.',
+    hints: [
+      { key: 'Click', description: 'Corner' },
+      { key: 'Enter', description: 'Close the outline' },
+      { key: 'Del', description: 'Remove' },
+    ],
+  },
   paths: {
     title: 'Lay the enemies a road',
     message:

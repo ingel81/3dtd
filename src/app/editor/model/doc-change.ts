@@ -24,6 +24,8 @@ export interface DocChange {
   environment?: boolean;
   /** Life areas and the map's life switches (map-life.ts) */
   life?: boolean;
+  /** Surfaces over the ground (map-surfaces.ts) */
+  surfaces?: boolean;
   /** Name, author, description */
   meta?: boolean;
   /** The map's rules and wave list */
@@ -39,9 +41,9 @@ export interface DocChange {
 }
 
 /** The parts of the map a panel can follow */
-export type DocPart = 'terrain' | 'water' | 'objects' | 'paths' | 'markers' | 'environment' | 'life' | 'meta' | 'gameplay' | 'intro' | 'prefabs';
+export type DocPart = 'terrain' | 'water' | 'objects' | 'paths' | 'markers' | 'environment' | 'life' | 'surfaces' | 'meta' | 'gameplay' | 'intro' | 'prefabs';
 
-export const DOC_PARTS: readonly DocPart[] = ['terrain', 'water', 'objects', 'paths', 'markers', 'environment', 'life', 'meta', 'gameplay', 'intro', 'prefabs'];
+export const DOC_PARTS: readonly DocPart[] = ['terrain', 'water', 'objects', 'paths', 'markers', 'environment', 'life', 'surfaces', 'meta', 'gameplay', 'intro', 'prefabs'];
 
 /** The parts a change touched */
 export function changedParts(c: DocChange): DocPart[] {
@@ -53,6 +55,7 @@ export function changedParts(c: DocChange): DocPart[] {
   if (c.markers) out.push('markers');
   if (c.environment) out.push('environment');
   if (c.life) out.push('life');
+  if (c.surfaces) out.push('surfaces');
   if (c.meta) out.push('meta');
   if (c.gameplay) out.push('gameplay');
   if (c.intro) out.push('intro');
@@ -78,6 +81,7 @@ export function mergeChanges(a: DocChange, b: DocChange): DocChange {
     markers: a.markers || b.markers || undefined,
     environment: a.environment || b.environment || undefined,
     life: a.life || b.life || undefined,
+    surfaces: a.surfaces || b.surfaces || undefined,
     meta: a.meta || b.meta || undefined,
     gameplay: a.gameplay || b.gameplay || undefined,
     intro: a.intro || b.intro || undefined,

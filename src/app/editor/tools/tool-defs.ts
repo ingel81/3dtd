@@ -15,6 +15,7 @@ import { ObjectTool } from './object-tool';
 import { PaintTool } from './paint-tool';
 import { PathTool } from './path-tool';
 import { StampTool } from './stamp-tool';
+import { SurfaceTool } from './surface-tool';
 import { TerrainTool } from './terrain-tool';
 import { WaterTool } from './water-tool';
 import { PanelTool, type EditorTool } from './tool';
@@ -47,6 +48,7 @@ export const TOOL_DEFS = [
   { id: 'water', label: 'Water', short: 'Water', key: '4', about: 'Fill hollows, paint water, lava or ice', icon: 'splash', group: 'Shape', brushRadius: 16, create: (): EditorTool => new WaterTool() },
   { id: 'objects', label: 'Objects', short: 'Objects', key: '5', about: 'Place, scatter, select, move, turn and scale', icon: 'build', group: 'Shape', brushRadius: 20, create: (): EditorTool => new ObjectTool() },
   { id: 'life', label: 'Life', short: 'Life', key: 'N', about: 'Birds, fireflies, fog, boats and sounds over areas and along routes, and what the map brings by itself', icon: 'wind', group: 'Shape', create: (): EditorTool => new LifeTool() },
+  { id: 'surfaces', label: 'Surfaces', short: 'Surfaces', key: 'U', about: 'Squares, playgrounds, pitches, courts and car parks laid over the ground, with their lines', icon: 'grid', group: 'Shape', create: (): EditorTool => new SurfaceTool() },
   { id: 'paths', label: 'Roads', short: 'Roads', key: '6', about: 'Draw and edit the roads enemies walk', icon: 'route', group: 'Play', create: (): EditorTool => new PathTool() },
   { id: 'markers', label: 'Spawns and HQ', short: 'Spawns', key: '7', about: 'Where enemies come from and what they attack', icon: 'portal', group: 'Play', create: (): EditorTool => new MarkerTool() },
   {

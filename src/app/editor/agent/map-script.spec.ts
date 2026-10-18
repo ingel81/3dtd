@@ -287,6 +287,31 @@ describe('map scripts', () => {
     expect(run(`map.removeLife(['nope'])`)).toMatchObject({ ok: false, error: expect.stringMatching(/no life areas nope/) });
   });
 
+  it('lays surfaces with their lines, reads and removes them, and plays them back as one change (TODO E237)', async () => {
+    const r = ok(
+      run(`
+        const pitch = map.surface('grass-lush', [{ x: -60, y: -40 }, { x: 60, y: -40 }, { x: 60, y: 40 }, { x: -60, y: 40 }], { marking: 'soccer' });
+        const square = map.surface('cobblestone', [{ x: 70, y: 70 }, { x: 110, y: 70 }, { x: 110, y: 110 }, { x: 70, y: 110 }], { holes: [[{ x: 85, y: 85 }, { x: 95, y: 85 }, { x: 95, y: 95 }]] });
+        map.surface('asphalt', [{ x: -110, y: 60 }, { x: -70, y: 60 }, { x: -70, y: 100 }], { marking: { kind: 'parking', x: -90, y: 80, angle: 0, length: 20, width: 12 } });
+        map.removeSurfaces([square]);
+        return { pitch, surfaces: map.surfaces() };
+      `),
+    );
+    const surfaces = (r.value as { surfaces: NonNullable<CustomMapDocument['surfaces']> }).surfaces;
+    expect(surfaces.map((s) => s.id)).toEqual(['surface-1', 'surface-3']);
+    expect(surfaces[0].marking).toMatchObject({ kind: 'soccer', length: 120, width: 80 });
+    expect(surfaces[1].marking).toEqual({ kind: 'parking', x: -90, y: 80, angle: 0, length: 20, width: 12 });
+    const editor = new EditorDocument(map());
+    const changes: { surfaces?: boolean }[] = [];
+    editor.onChange((c) => changes.push(c));
+    const played = await playCommands(editor, index, r.commands, 7, { wait: async () => undefined });
+    expect(played.fingerprint).toBe(r.fingerprint);
+    expect(changes.some((c) => c.surfaces)).toBe(true);
+    expect(run(`map.surface('moon-cheese', [{ x: 0, y: 0 }, { x: 9, y: 0 }, { x: 0, y: 9 }])`)).toMatchObject({ ok: false, error: expect.stringMatching(/no material moon-cheese/) });
+    expect(run(`map.surface('sand', [{ x: 0, y: 0 }, { x: 9, y: 0 }, { x: 0, y: 9 }], { marking: 'curling' })`).ok).toBe(false);
+    expect(run(`map.removeSurfaces(['nope'])`)).toMatchObject({ ok: false, error: expect.stringMatching(/no surfaces nope/) });
+  });
+
   it("sets the map's own intro flight, reads it, plays it back and takes it away again (TODO E170)", async () => {
     const r = ok(
       run(`

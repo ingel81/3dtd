@@ -214,6 +214,47 @@ export interface MapObject {
   group?: string;
 }
 
+/**
+ * What a surface's lines draw (render/surfaces/): the court or pitch of a
+ * sport, a running track, the stalls of a car park, the edge of a platform
+ */
+export type MapSurfaceMarkingKind = 'soccer' | 'handball' | 'basketball' | 'tennis' | 'volleyball' | 'multi' | 'track' | 'parking' | 'platform';
+
+/**
+ * Lines on a surface, in the frame of a turned rectangle: its middle, the
+ * direction of its long side (`angle`, radians counter-clockwise from east)
+ * and its sides, metres. A court is drawn in its real measures in the middle
+ * of the rectangle, smaller when the rectangle is (map-surfaces.ts)
+ */
+export interface MapSurfaceMarking {
+  kind: MapSurfaceMarkingKind;
+  x: number;
+  y: number;
+  angle: number;
+  length: number;
+  width: number;
+}
+
+/**
+ * A surface laid over the ground with a material of its own (TODO E237): a
+ * square of setts, a playground's rubber, a pitch with its lines, a car park
+ * with its stalls. Drawn only, like the ground's paint: routes, building and
+ * the simulation never see it
+ */
+export interface MapSurface {
+  id: string;
+  /** Ground material from the catalogue (a map draws at most MAX_SURFACE_MATERIALS, map-surfaces.ts) */
+  material: string;
+  /** The outline (closed by itself, at least three points) */
+  outer: MapPoint[];
+  /** Holes in it, each at least three points */
+  holes?: MapPoint[][];
+  /** Lines drawn on it; none when missing */
+  marking?: MapSurfaceMarking;
+  /** Moved with the objects of the same group in the editor (an OSM world's `osm-a<id>`) */
+  group?: string;
+}
+
 export type MapPathKind = 'road' | 'path' | 'bridge';
 
 /** What a bridge is built of (default wood) */
@@ -562,6 +603,8 @@ export interface CustomMapDocument {
   life?: MapLife;
   /** The map's own intro camera flight (map-intro.ts); optional, a game without it flies its default tour */
   intro?: MapIntro;
+  /** Surfaces over the ground (squares, pitches, car parks; map-surfaces.ts); optional, a game without them loses only the look */
+  surfaces?: MapSurface[];
   /**
    * Prefabs and stamps kept with this map (the editor's; the game ignores
    * them): they travel with its file. Not part of the content hash
@@ -659,6 +702,17 @@ export const MAP_WATER_KINDS = valuesOf<MapWaterKind>({ water: true, sea: true, 
 export const MAP_RIVER_KINDS = valuesOf<MapRiver['kind']>({ water: true, lava: true });
 export const MAP_PATH_KINDS = valuesOf<MapPathKind>({ road: true, path: true, bridge: true });
 export const MAP_BRIDGE_STYLES = valuesOf<MapBridgeStyle>({ wood: true, stone: true, concrete: true, lava: true });
+export const MAP_SURFACE_MARKINGS = valuesOf<MapSurfaceMarkingKind>({
+  soccer: true,
+  handball: true,
+  basketball: true,
+  tennis: true,
+  volleyball: true,
+  multi: true,
+  track: true,
+  parking: true,
+  platform: true,
+});
 export const MAP_WAVE_EVENT_KINDS = valuesOf<MapWaveEventKind>({ message: true, weather: true, time: true, portal: true, objects: true });
 
 /** Typed array check that holds across realms (structuredClone in a test DOM, workers) */

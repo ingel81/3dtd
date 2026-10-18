@@ -16,6 +16,7 @@ import { ObjectPanelComponent } from '../panels/object-panel.component';
 import { PaintPanelComponent } from '../panels/paint-panel.component';
 import { PathPanelComponent } from '../panels/path-panel.component';
 import { StampPanelComponent } from '../panels/stamp-panel.component';
+import { SurfacePanelComponent } from '../panels/surface-panel.component';
 import { TerrainPanelComponent } from '../panels/terrain-panel.component';
 import { WaterPanelComponent } from '../panels/water-panel.component';
 
@@ -27,6 +28,7 @@ export const TOOL_PANELS: Record<ToolId, Type<unknown>> = {
   water: WaterPanelComponent,
   objects: ObjectPanelComponent,
   life: LifePanelComponent,
+  surfaces: SurfacePanelComponent,
   paths: PathPanelComponent,
   markers: MarkerPanelComponent,
   gameplay: GameplayPanelComponent,

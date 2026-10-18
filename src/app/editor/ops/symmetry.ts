@@ -17,7 +17,7 @@
  * exactly a sample; the 90 degree turn needs a square map. Objects, roads,
  * spawns and life areas are copied as things.
  */
-import type { CustomMapDocument, MapLifeArea, MapObject, MapPoint } from '../../world/custom-map/map-document';
+import type { CustomMapDocument, MapLifeArea, MapObject, MapPoint, MapSurface } from '../../world/custom-map/map-document';
 import { mergeChanges, type DocChange } from '../model/doc-change';
 import type { PatchTarget } from '../model/commands/patch';
 import type { EditTransaction } from '../model/edit-transaction';
@@ -379,6 +379,41 @@ export function lifeAreaImages(areas: readonly MapLifeArea[], images: readonly S
       if (points.every((p) => a.points.some((q) => Math.hypot(p.x - q.x, p.y - q.y) < 0.5))) continue;
       if (img.flips) points.reverse();
       out.push({ ...structuredClone(a), id: take(a), points });
+    }
+  }
+  return out;
+}
+
+/**
+ * Copies of surfaces at the symmetry's images, with ids from `take`: the
+ * outline and holes mapped point by point (a mirror reverses them, so they
+ * keep their winding), the marking's middle mapped and its long side turned
+ * with the image; an image off the map or on its source drops out
+ */
+export function surfaceImages(surfaces: readonly MapSurface[], images: readonly SymmetryImage[], take: (surface: MapSurface) => string, halfWidth: number, halfDepth: number): MapSurface[] {
+  const out: MapSurface[] = [];
+  const at = (img: SymmetryImage, p: MapPoint): MapPoint => {
+    const q = img.point(p);
+    return { x: Math.round(q.x * 100) / 100, y: Math.round(q.y * 100) / 100 };
+  };
+  const ring = (img: SymmetryImage, r: readonly MapPoint[]) => {
+    const points = r.map((p) => at(img, p));
+    return img.flips ? points.reverse() : points;
+  };
+  for (const s of surfaces) {
+    for (const img of images.slice(1)) {
+      const outer = ring(img, s.outer);
+      if (outer.some((p) => Math.abs(p.x) > halfWidth || Math.abs(p.y) > halfDepth)) continue;
+      if (outer.every((p) => s.outer.some((q) => Math.hypot(p.x - q.x, p.y - q.y) < 0.5))) continue;
+      const copy: MapSurface = { ...structuredClone(s), id: take(s), outer };
+      if (s.holes) copy.holes = s.holes.map((h) => ring(img, h));
+      if (s.marking) {
+        const m = s.marking;
+        const c = img.point(m);
+        const tip = img.point({ x: m.x + Math.cos(m.angle), y: m.y + Math.sin(m.angle) });
+        copy.marking = { ...m, x: Math.round(c.x * 100) / 100, y: Math.round(c.y * 100) / 100, angle: Math.round(Math.atan2(tip.y - c.y, tip.x - c.x) * 1e4) / 1e4 };
+      }
+      out.push(copy);
     }
   }
   return out;

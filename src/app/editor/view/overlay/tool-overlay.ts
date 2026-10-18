@@ -1,14 +1,13 @@
 /**
  * The overlay's layers that tools draw on: a line being drawn, the hover
  * ring, preview dots, the measured line, the gizmo ring and handles, the
- * rivers' handles and the life areas. A tool reaches only these (through
+ * rivers' handles and the outlines of life areas and surfaces. A tool reaches only these (through
  * ToolContext.overlay); the view empties them all at every tool switch, so
  * no tool leaves its lines to the next.
  */
 import { BufferAttribute, BufferGeometry, Color, Group, InstancedMesh, Line, LineBasicMaterial, type LineLoop, Matrix4, MeshBasicMaterial } from 'three';
 import { TD_THEME } from '../../../styles/td-theme';
-import type { MapLifeArea, MapPoint, MapRiver } from '../../../world/custom-map/map-document';
-import { LIFE_KIND_INFO } from '../../../world/custom-map/map-life';
+import type { MapPoint, MapRiver } from '../../../world/custom-map/map-document';
 import { TransformGizmo } from '../transform-gizmo';
 import { clearGroup, drape, drapedLine, ring, type GroundHeight, type OverlayLayer } from './draping';
 
@@ -216,8 +215,16 @@ export class RiverHandleLayer implements OverlayLayer {
   }
 }
 
-/** The life areas (outlines closed, routes open) in their kind's colour, the chosen one's points as handles */
-export class LifeLayer implements OverlayLayer {
+/** An outline or line drawn over the ground (a life area, a surface, its marking) in its colour */
+export interface OverlayShape {
+  id: string;
+  points: readonly MapPoint[];
+  closed: boolean;
+  color: string;
+}
+
+/** Outlines and lines (life areas, surfaces) in their colours, the chosen one's points as handles */
+export class ShapeLayer implements OverlayLayer {
   readonly lines = new Group();
   readonly handles: InstancedMesh;
   private readonly materials = new Map<string, LineBasicMaterial>();
@@ -243,20 +250,24 @@ export class LifeLayer implements OverlayLayer {
     if (this.handleAt.length) this.placeHandles();
   }
 
-  /** The areas draped on the ground, the chosen one brighter with a handle on each point (the chosen point larger) */
-  set(areas: readonly MapLifeArea[] | null, chosen: string | null, point: number): void {
+  /**
+   * The shapes draped on the ground, the chosen one brighter with a handle
+   * on each point (the chosen point larger); shapes sharing the chosen id
+   * (a surface and its marking) number their handles one after the other
+   */
+  set(shapes: readonly OverlayShape[] | null, chosen: string | null, point: number): void {
     clearGroup(this.lines);
     this.handleAt = [];
     this.chosenPoint = point;
-    for (const a of areas ?? []) {
+    for (const a of shapes ?? []) {
       if (a.points.length < 2) continue;
-      const pts = a.shape === 'area' ? [...a.points, a.points[0]] : a.points;
-      const line = new Line(new BufferGeometry(), this.material(LIFE_KIND_INFO[a.kind]?.color ?? '#ffffff', a.id === chosen));
+      const pts = a.closed ? [...a.points, a.points[0]] : a.points;
+      const line = new Line(new BufferGeometry(), this.material(a.color, a.id === chosen));
       line.geometry.setAttribute('position', new BufferAttribute(drapedLine(pts, this.height, 1.2), 3));
       line.renderOrder = 11;
       line.frustumCulled = false;
       this.lines.add(line);
-      if (a.id === chosen) this.handleAt = a.points.slice(0, this.handles.instanceMatrix.count);
+      if (a.id === chosen) this.handleAt.push(...a.points.slice(0, this.handles.instanceMatrix.count - this.handleAt.length));
     }
     this.placeHandles();
   }
@@ -319,7 +330,7 @@ export class ToolOverlay implements OverlayLayer {
   readonly measure: MeasureLayer;
   readonly gizmo: GizmoLayer;
   readonly rivers: RiverHandleLayer;
-  readonly life: LifeLayer;
+  readonly shapes: ShapeLayer;
 
   /** @param sphere The handles' and dots' shape, shared with the rest of the overlay */
   constructor(height: GroundHeight, sphere: BufferGeometry) {
@@ -329,14 +340,14 @@ export class ToolOverlay implements OverlayLayer {
     this.measure = new MeasureLayer(height);
     this.gizmo = new GizmoLayer(height);
     this.rivers = new RiverHandleLayer(sphere);
-    this.life = new LifeLayer(height, sphere);
+    this.shapes = new ShapeLayer(height, sphere);
   }
 
   /** Handles and dots keep their size on screen at this scale */
   setScale(scale: number): void {
     this.preview.scale = scale;
     this.rivers.scale = scale;
-    this.life.scale = scale;
+    this.shapes.scale = scale;
   }
 
   /** Everything a tool drew goes (a tool switch) */
@@ -349,6 +360,6 @@ export class ToolOverlay implements OverlayLayer {
   }
 
   private layers(): OverlayLayer[] {
-    return [this.draft, this.hover, this.preview, this.measure, this.gizmo, this.rivers, this.life];
+    return [this.draft, this.hover, this.preview, this.measure, this.gizmo, this.rivers, this.shapes];
   }
 }

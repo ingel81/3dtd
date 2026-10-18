@@ -87,6 +87,8 @@ interface Marks {
   environment: string;
   gameplay: string;
   life: string;
+  surfaces: unknown;
+  surfaceCount: number;
   intro: string;
   layers: number;
   water: string;
@@ -102,6 +104,9 @@ function marks(doc: CustomMapDocument): Marks {
     environment: JSON.stringify(doc.environment),
     gameplay: JSON.stringify(doc.gameplay ?? null),
     life: JSON.stringify(doc.life ?? null),
+    // The list by identity and length, as the objects: an OSM city's surfaces are long to write out
+    surfaces: doc.surfaces,
+    surfaceCount: doc.surfaces?.length ?? 0,
     intro: JSON.stringify(doc.intro ?? null),
     layers: t.layers.length,
     water: JSON.stringify([t.water?.level, t.water?.kind, t.waterBodies?.map((b) => [b.level, b.kind]), t.rivers?.map((r) => [r.kind, r.points.length])]),
@@ -143,6 +148,7 @@ function stepChange(doc: CustomMapDocument, step: Step, before: Marks, symmetric
   if (after.gameplay !== before.gameplay) change = mergeChanges(change, { gameplay: true });
   if (after.intro !== before.intro) change = mergeChanges(change, { intro: true });
   if (after.life !== before.life) change = mergeChanges(change, { life: true });
+  if (after.surfaces !== before.surfaces || after.surfaceCount !== before.surfaceCount) change = mergeChanges(change, { surfaces: true });
   if (after.layers !== before.layers) change = mergeChanges(change, { layers: true, splat: wholeGround(doc).splat });
   if (after.water !== before.water) change = mergeChanges(change, { water: true });
   return change;

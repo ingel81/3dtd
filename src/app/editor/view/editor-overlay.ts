@@ -61,8 +61,8 @@ export class EditorOverlay {
       t.preview.dots,
       t.gizmo.handles.group,
       t.rivers.handles,
-      t.life.lines,
-      t.life.handles,
+      t.shapes.lines,
+      t.shapes.handles,
     );
   }
 

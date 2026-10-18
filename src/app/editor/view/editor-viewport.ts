@@ -184,6 +184,10 @@ export class EditorViewport {
       },
       environment: () => this.view.setEnvironment(),
       life: () => this.view.setLife(),
+      surfaces: () => {
+        this.view.setSurfaces();
+        this.callbacks.pathMaskChanged();
+      },
       soundChanged: () => this.extras.sound.mapChanged(),
       groundMoved: () => {
         this.guideMode = null;

@@ -17,11 +17,13 @@ import {
   type MapLife,
   type MapLifeArea,
   type MapPrefab,
+  type MapSurface,
   type MapWaveEvent,
 } from './map-document';
 import type { MapProblem } from './map-file';
 import { introProblems } from './map-intro';
 import { BIRD_SPECIES, lifeProblems, MAX_LIFE_AREAS } from './map-life';
+import { markingProblems, MAX_SURFACES, surfaceProblems } from './map-surfaces';
 
 /**
  * The content of a map file, checked softly: a file from outside (an
@@ -31,8 +33,8 @@ import { BIRD_SPECIES, lifeProblems, MAX_LIFE_AREAS } from './map-life';
  * what it changed (unpackMapFile; the banner in the editor and in the
  * game), the editor's check names them as warnings, saving writes them as
  * they are. The rule: a value of a list falls back to its default, a broken
- * thing (an object, a river, a life area, a wave event, a prefab, the intro
- * flight) is left out, a number is brought into its range. Nothing here
+ * thing (an object, a river, a life area, a surface, a wave event, a prefab,
+ * the intro flight) is left out, a number is brought into its range. Nothing here
  * refuses a map: validateMapDocument holds the hard rules of the structure
  * (grid, masks, roads, spawns, HQ, ids of the road graph), which would
  * (docs/CUSTOM_MAPS.md, "Format rules").
@@ -122,6 +124,7 @@ export function mapRepairs(doc: CustomMapDocument, fix = false): MapProblem[] {
   gameplayRepairs(doc, fix, out);
   prefabRepairs(doc, fix, out);
   lifeRepairs(doc, fix, out);
+  surfaceRepairs(doc, fix, out);
 
   const intro = introProblems(doc.intro);
   if (intro.length) {
@@ -435,4 +438,37 @@ function lifeRepairs(doc: CustomMapDocument, fix: boolean, out: MapProblem[]): v
     kept.length = MAX_LIFE_AREAS;
   }
   if (fix && kept.length !== areas.length) l.areas = kept;
+}
+
+/** A broken surface is left out, a marking this game does not know or a broken one loses its lines; the rest stays */
+function surfaceRepairs(doc: CustomMapDocument, fix: boolean, out: MapProblem[]): void {
+  const surfaces = doc.surfaces as unknown;
+  if (surfaces === undefined) return;
+  const say = (text: string) => out.push({ text, part: 'surfaces' });
+  if (!Array.isArray(surfaces)) {
+    say('surfaces is not a list; the map has no surfaces');
+    if (fix) delete doc.surfaces;
+    return;
+  }
+  const ids = new Set<string>();
+  const kept = (surfaces as MapSurface[]).filter((s) => {
+    const marking = isObject(s) ? markingProblems(s.marking)[0] : undefined;
+    if (isObject(s) && s.marking !== undefined && marking) {
+      say(`surface ${String(s.id)}: ${marking}; it is drawn without lines`);
+      if (fix) delete s.marking;
+    }
+    const check = isObject(s) ? { ...s, marking: undefined } : s;
+    const problem = surfaceProblems(check)[0] ?? (ids.has(s.id) ? `surface id "${s.id}" is twice` : undefined);
+    if (problem) {
+      say(`${problem}; it is left out`);
+      return false;
+    }
+    ids.add(s.id);
+    return true;
+  });
+  if (kept.length > MAX_SURFACES) {
+    say(`the map has ${kept.length} surfaces, more than ${MAX_SURFACES}; the rest is left out`);
+    kept.length = MAX_SURFACES;
+  }
+  if (fix && kept.length !== surfaces.length) doc.surfaces = kept;
 }

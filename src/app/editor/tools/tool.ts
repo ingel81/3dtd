@@ -8,7 +8,7 @@
  */
 import { signal, type WritableSignal } from '@angular/core';
 import type { GizmoHandle } from '../view/transform-gizmo';
-import type { MapLifeKind, MapObject, MapPathKind, MapPoint } from '../../world/custom-map/map-document';
+import type { MapLifeKind, MapObject, MapPathKind, MapPoint, MapSurfaceMarkingKind } from '../../world/custom-map/map-document';
 import type { MapProblemPart } from '../../world/custom-map/map-file';
 import type { CatalogIndex } from '../../map-ops/asset-catalog';
 import type { EditorDocument } from '../model/editor-document';
@@ -37,6 +37,7 @@ export const PART_TOOL: Record<MapProblemPart, ToolId> = {
   life: 'life',
   intro: 'settings',
   prefabs: 'stamp',
+  surfaces: 'surfaces',
 };
 
 export type WaterMode = 'fill' | 'pour' | 'lake' | 'paint' | 'erase' | 'river';
@@ -76,6 +77,8 @@ export const LANDSCAPE_MODES: readonly { id: LandscapeMode; label: string; hint:
 export type ObjectMode = 'select' | 'place' | 'scatter' | 'line' | 'erase';
 /** Life: draw an outline, draw a line, or pick and change what is there */
 export type LifeMode = 'area' | 'route' | 'edit';
+/** Surfaces: draw an outline, or pick and change what is there */
+export type SurfaceMode = 'draw' | 'edit';
 export type GizmoMode = 'move' | 'rotate' | 'scale';
 export type PathMode = 'draw' | 'edit';
 export type MarkerMode = 'spawn' | 'hq';
@@ -162,6 +165,15 @@ export interface SettingValues {
     /** Play the map's ambient sounds in the editor, heard from the middle of the view */
     hear: boolean;
   };
+  surfaces: {
+    mode: SurfaceMode;
+    /** The material and the lines of the next surface */
+    material: string;
+    marking: MapSurfaceMarkingKind | 'none';
+    /** The surface being changed (its id), and its chosen handle (-1 none): corners of its outline, then of its marking */
+    chosen: string | null;
+    point: number;
+  };
   markers: { mode: MarkerMode };
   /** Look: the ground point the last click found nothing on, which the panel describes */
   look: { at: MapPoint | null };
@@ -222,6 +234,7 @@ function defaultValues(): SettingValues {
     objects: { mode: 'select', gizmo: 'move', asset: null, scatter: { ...DEFAULT_SCATTER }, snap: 0, randomRotation: true, rotation: 0, turnStep: 15, faceRoad: true, space: 'global', alignToSlope: false, line: { ...DEFAULT_LINE, follow: 'free' } },
     paths: { mode: 'draw', width: 8, kind: 'road', snap: 10, showRoutes: true },
     life: { mode: 'area', kind: 'birds', chosen: null, point: -1, hear: false },
+    surfaces: { mode: 'draw', material: 'paving', marking: 'none', chosen: null, point: -1 },
     markers: { mode: 'spawn' },
     look: { at: null },
     stamp: { mode: 'select', parts: { ...ALL_PARTS }, rotation: 0, feather: 0.25, region: null, current: null, currentName: '' },

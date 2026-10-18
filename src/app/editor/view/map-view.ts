@@ -163,6 +163,10 @@ export class EditorMapView {
   }
 
   /** The map's life areas or switches changed */
+  setSurfaces(): void {
+    this.view.setSurfaces();
+  }
+
   setLife(): void {
     this.view.setLife();
   }

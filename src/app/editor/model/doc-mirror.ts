@@ -15,8 +15,8 @@
  *     object replaced is a new one) and by the ids the changes named (one
  *     changed in place); the road nodes and edges the same way, those
  *     changed in place found by their fields (a change of the roads names
- *     none; a node dragged moves in place); the prefabs whole when they
- *     changed.
+ *     none; a node dragged moves in place); the prefabs and the surfaces
+ *     whole when they changed.
  *
  * Every part has a version (DocPart, doc-change.ts) that rises with each
  * change of it; the mirror holds the versions of the state it was told, and
@@ -27,7 +27,7 @@
  * its own (an undo snapshot or a worker's structured clone of a document
  * array would otherwise alias a buffer two threads write).
  */
-import type { CustomMapDocument, MapObject, MapPaths, MapPrefab, MapWater } from '../../world/custom-map/map-document';
+import type { CustomMapDocument, MapObject, MapPaths, MapPrefab, MapSurface, MapWater } from '../../world/custom-map/map-document';
 import type { GridRect } from '../../map-ops/grid';
 import { DOC_PARTS, changedParts, type DocChange, type DocPart } from './doc-change';
 import type { EditorDocument } from './editor-document';
@@ -60,7 +60,7 @@ export interface MirrorSync {
   versions: PartVersions;
   /** A new map (or the first sync): the mirror starts over from this sync alone */
   full: boolean;
-  /** The document without its arrays, objects, roads and prefabs (their keys in place, see `shellOf`) */
+  /** The document without its arrays, objects, roads, prefabs and surfaces (their keys in place, see `shellOf`) */
   shell: CustomMapDocument;
   heights?: ArraySync<Float32Array>;
   /** By splat map; a missing entry is unchanged */
@@ -73,6 +73,8 @@ export interface MirrorSync {
   paths?: { whole?: MapPaths; nodes?: ListPatch<MapPaths['nodes'][number]>; edges?: ListPatch<MapPaths['edges'][number]> };
   /** The prefabs whole when they changed; null for none */
   prefabs?: MapPrefab[] | null;
+  /** The surfaces whole when they changed; null for none */
+  surfaces?: MapSurface[] | null;
 }
 
 /** What the mirror placed instead of what a sync brings apart from the shell */
@@ -81,7 +83,7 @@ const HOLE = 0;
 /**
  * The document with its large parts left out but their keys kept in their
  * places (a file packed from the mirror must write its keys in the same
- * order as one packed from the document): arrays, objects, roads, prefabs
+ * order as one packed from the document): arrays, objects, roads, prefabs, surfaces
  */
 export function shellOf(doc: CustomMapDocument): CustomMapDocument {
   const t = doc.terrain;
@@ -95,6 +97,7 @@ export function shellOf(doc: CustomMapDocument): CustomMapDocument {
   if (t.waterBodies) terrain.waterBodies = t.waterBodies.map(body);
   const shell = { ...doc, terrain, objects: HOLE as unknown as MapObject[], paths: HOLE as unknown as MapPaths };
   if ('prefabs' in doc) shell.prefabs = HOLE as unknown as MapPrefab[];
+  if ('surfaces' in doc) shell.surfaces = HOLE as unknown as MapSurface[];
   return shell;
 }
 
@@ -267,6 +270,7 @@ interface Sent {
   edges: MapPaths['edges'];
   pathsRef: MapPaths;
   prefabs: MapPrefab[] | undefined;
+  surfaces: MapSurface[] | undefined;
 }
 
 /**
@@ -286,6 +290,7 @@ export class MirrorTracker {
   private allObjects = false;
   private paths = false;
   private prefabs = false;
+  private surfaces = false;
   private nodeFields = new SentFields<MapPaths['nodes'][number]>();
   private edgeFields = new SentFields<MapPaths['edges'][number]>();
   private readonly unsubscribe: () => void;
@@ -339,6 +344,7 @@ export class MirrorTracker {
     else if (c.objects) for (const id of c.objects) this.objectIds.add(id);
     if (c.paths) this.paths = true;
     if (c.prefabs) this.prefabs = true;
+    if (c.surfaces) this.surfaces = true;
   }
 
   /** The sync from what was sent last to the document now, with the buffers it may transfer */
@@ -397,6 +403,7 @@ export class MirrorTracker {
       if (nodes || edges) sync.paths = { ...(nodes ? { nodes } : {}), ...(edges ? { edges } : {}) };
     }
     if (!sent || this.prefabs || sent.prefabs !== doc.prefabs) sync.prefabs = doc.prefabs ?? null;
+    if (!sent || this.surfaces || sent.surfaces !== doc.surfaces) sync.surfaces = doc.surfaces ?? null;
     this.sent = {
       doc,
       heights: g.heights,
@@ -409,6 +416,7 @@ export class MirrorTracker {
       edges: p.edges.slice(),
       pathsRef: p,
       prefabs: doc.prefabs,
+      surfaces: doc.surfaces,
     };
     this.clear(g.columns, g.rows, res);
     return { sync, transfer };
@@ -420,7 +428,7 @@ export class MirrorTracker {
     if (this.splat?.width !== res) this.splat = new DirtyTiles(res, res);
     else this.splat.clear();
     this.masks.clear();
-    this.allWater = this.allSplat = this.allObjects = this.paths = this.prefabs = false;
+    this.allWater = this.allSplat = this.allObjects = this.paths = this.prefabs = this.surfaces = false;
     this.objectIds.clear();
   }
 }
@@ -469,6 +477,7 @@ export class DocMirror {
       if (roads?.edges) doc.paths.edges = applyListPatch(doc.paths.edges, roads.edges);
     }
     if ('prefabs' in doc) doc.prefabs = (sync.prefabs !== undefined ? sync.prefabs : was?.prefabs) ?? undefined;
+    if ('surfaces' in doc) doc.surfaces = (sync.surfaces !== undefined ? sync.surfaces : was?.surfaces) ?? undefined;
     this.current = doc;
     this.state = sync.state;
     this.versions = sync.versions;

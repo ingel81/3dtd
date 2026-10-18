@@ -5,16 +5,16 @@ import { CatalogIndex } from '../../map-ops/asset-catalog';
 import { EditorDocument } from '../model/editor-document';
 import { heightAt } from '../../map-ops/grid';
 import { SphereGeometry } from 'three';
-import { ToolOverlay } from '../view/overlay/tool-overlay';
+import { ToolOverlay, type OverlayShape } from '../view/overlay/tool-overlay';
 import { LifeTool, pickArea } from './life-tool';
 import { patch, defaultSettings, type ToolContext, type ToolPointer } from './tool';
 
-function context(editor: EditorDocument): ToolContext & { messages: string[]; drawn: () => readonly MapLifeArea[] | null } {
+function context(editor: EditorDocument): ToolContext & { messages: string[]; drawn: () => readonly OverlayShape[] | null } {
   const messages: string[] = [];
-  let drawn: readonly MapLifeArea[] | null = null;
+  let drawn: readonly OverlayShape[] | null = null;
   const overlay = new ToolOverlay((x, y) => heightAt(editor.doc.terrain, x, y), new SphereGeometry());
-  const set = overlay.life.set.bind(overlay.life);
-  overlay.life.set = (areas, chosen, point) => set((drawn = areas), chosen, point);
+  const set = overlay.shapes.set.bind(overlay.shapes);
+  overlay.shapes.set = (shapes, chosen, point) => set((drawn = shapes), chosen, point);
   return {
     editor,
     settings: defaultSettings(),

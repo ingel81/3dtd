@@ -59,7 +59,8 @@ import { stampEntry } from '../model/stamp-store';
 import { MAX_LAYERS, autoPaint, defaultAutoRules, paintDab, readWeights, removeLayer, type AutoPaintRule } from '../../map-ops/paint-ops';
 import { addNode, connect, edgePolyline, nearestNode, nearestOnEdges, pointAt, polylineLength, spawnRoutes, splitEdge } from '../../map-ops/path-graph';
 import { flattenUnderPaths, paintUnderPaths } from '../../map-ops/path-terrain';
-import { lifeAreaImages, mirrorChange, objectImages, symmetryImages, type SymmetryMode } from './symmetry';
+import { lifeAreaImages, mirrorChange, objectImages, surfaceImages, symmetryImages, type SymmetryMode } from './symmetry';
+import { fitMarking, markingProblems, MAX_SURFACES, newSurfaceId, surfaceProblems } from '../../world/custom-map/map-surfaces';
 import { flattenDab, noiseDab, plateauDab, raiseDab, rampBetween, smoothDab, terraceDab, erodeDab } from '../../map-ops/terrain-ops';
 import { addPouredBodies, basinSpillHeight, BODY_COLORS, emptyWater, fillBasin, fillFromEdge, lakeDab, RIM_MARGIN, waterBody, waterMaskDab, wetSamples } from '../../map-ops/water-ops';
 import { MAX_WATER_BODIES } from '../../world/custom-map/map-file';
@@ -81,8 +82,19 @@ import {
   type MapObject,
   type MapPathKind,
   type MapPoint,
+  type MapSurface,
+  type MapSurfaceMarking,
+  type MapSurfaceMarkingKind,
   type MapWaterKind,
 } from '../../world/custom-map/map-document';
+
+/** What a surface may set beside its material and outline */
+export interface SurfaceOptions {
+  /** Its lines: a kind fitted to the outline, or the rectangle itself */
+  marking?: MapSurfaceMarkingKind | MapSurfaceMarking;
+  holes?: MapPoint[][];
+  group?: string;
+}
 
 /** What a life area may set beside its kind, shape and points */
 export type LifeOptions = Partial<Pick<MapLifeArea, 'density' | 'height' | 'color' | 'sound' | 'volume' | 'reach' | 'asset' | 'quality' | 'species' | 'speed'>>;
@@ -1280,6 +1292,57 @@ export class MapKit {
       this.freeCheck = null;
     }
     return area.id;
+  }
+
+  // ---- Surfaces -------------------------------------------------------------------------------------------------
+
+  /**
+   * A surface (the Surfaces tool): `material` laid over the ground on the
+   * outline, with the lines of `options.marking` (a kind fitted to the
+   * outline, or its rectangle { kind, x, y, angle, length, width }), with its
+   * images under `symmetry`; returns its id
+   */
+  surface(material: string, outline: readonly MapPoint[], options: SurfaceOptions = {}): string {
+    if (!this.catalog.materials.has(material)) throw new Error(`${this.name}: there is no material ${material}`);
+    const unknown = Object.keys(options).filter((k) => k !== 'marking' && k !== 'holes' && k !== 'group');
+    if (unknown.length) throw new Error(`${this.name}: surfaces know no ${unknown.join(', ')} (they take marking, holes, group)`);
+    const list = this.doc.surfaces ?? [];
+    if (list.length >= MAX_SURFACES) throw new Error(`${this.name}: a map holds at most ${MAX_SURFACES} surfaces`);
+    const at = (p: MapPoint) => ({ x: r2(p.x), y: r2(p.y) });
+    const s: MapSurface = { id: newSurfaceId(list), material, outer: outline.map(at) };
+    if (options.holes?.length) s.holes = options.holes.map((h) => h.map(at));
+    if (options.group) s.group = options.group;
+    const m = options.marking;
+    if (typeof m === 'string') {
+      const fitted = fitMarking(m, s.outer, s.holes ?? [], 0);
+      if (!fitted) throw new Error(`${this.name}: the outline is too thin for the lines of ${m}`);
+      s.marking = fitted;
+    } else if (m) {
+      const problem = markingProblems(m)[0];
+      if (problem) throw new Error(`${this.name}: ${problem}`);
+      s.marking = { kind: m.kind, x: m.x, y: m.y, angle: m.angle, length: m.length, width: m.width };
+    }
+    const problem = surfaceProblems(s)[0];
+    if (problem) throw new Error(`${this.name}: ${problem}`);
+    // With symmetry on, its images too (as the Surfaces tool draws them)
+    const t = this.doc.terrain;
+    const taken = [...list, s];
+    const images = surfaceImages([s], symmetryImages(this.symmetry, t.grid.columns === t.grid.rows), () => {
+      const id = newSurfaceId(taken);
+      taken.push({ ...s, id });
+      return id;
+    }, t.width / 2, t.depth / 2).slice(0, MAX_SURFACES - list.length - 1);
+    this.doc.surfaces = [...list, s, ...images];
+    return s.id;
+  }
+
+  /** Remove surfaces by id */
+  removeSurfaces(ids: readonly string[]): void {
+    const list = this.doc.surfaces ?? [];
+    const missing = ids.filter((id) => !list.some((s) => s.id === id));
+    if (missing.length) throw new Error(`${this.name}: there are no surfaces ${missing.join(', ')}; surfaces: ${list.map((s) => s.id).slice(0, 40).join(', ') || 'none'}`);
+    const kept = list.filter((s) => !ids.includes(s.id));
+    this.doc.surfaces = kept.length ? kept : undefined;
   }
 
   // ---- Done ----------------------------------------------------------------------------------------------------

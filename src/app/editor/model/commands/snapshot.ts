@@ -15,6 +15,7 @@ import type {
   MapPoint,
   MapPrefab,
   MapSpawn,
+  MapSurface,
   MapTerrain,
 } from '../../../world/custom-map/map-document';
 import { mergeChanges, type DocChange, type EditCommand } from '../doc-change';
@@ -28,6 +29,7 @@ export interface DocParts {
   hq: MapPoint;
   environment: MapEnvironment;
   life: MapLife | undefined;
+  surfaces: MapSurface[] | undefined;
   intro: MapIntro | undefined;
   meta: MapMeta;
   terrain: MapTerrain;
@@ -47,6 +49,7 @@ const CONTENT_PART: Record<ContentPart, true> = {
   environment: true,
   gameplay: true,
   life: true,
+  surfaces: true,
   intro: true,
   prefabs: true,
 };
@@ -66,6 +69,7 @@ const PART_CHANGE: Record<keyof DocParts, DocChange> = {
   hq: { markers: true },
   environment: { environment: true },
   life: { life: true },
+  surfaces: { surfaces: true },
   intro: { intro: true },
   meta: { meta: true },
   terrain: { terrain: true, layers: true, water: true },

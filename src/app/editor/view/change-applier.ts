@@ -31,6 +31,8 @@ export interface ChangeTarget {
   paths(): void;
   environment(): void;
   life(): void;
+  /** Surfaces added, removed or changed */
+  surfaces(): void;
   /** Life or environment changed: what follows at once (the sound) */
   soundChanged(): void;
   /** The heights changed: what is drawn from them alone (guides, height lines) draws again */
@@ -135,6 +137,7 @@ export class ChangeApplier {
       // A list goes in place where it can; new objects rebuild at most every few frames
       if (c.objects) t.objects(c.objects);
       if (c.paths) t.paths();
+      if (c.surfaces) t.surfaces();
       if (c.environment) this.env.request();
       if (c.life) this.life.request();
       // The sound areas and the bed (its biome's sounds) follow at once: setMap only changes gains

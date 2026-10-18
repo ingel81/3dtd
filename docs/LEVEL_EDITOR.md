@@ -87,7 +87,7 @@ ohne die Datei zu laden), bietet ein Banner „Fresh copy“ (neue Kopie, die al
 | P | Probewelle: die Gegner laufen die Routen ab (auch der Knopf „Trial wave“) |
 | + und - (auch =) | Probewelle schneller, langsamer: 1x, 2x, 4x, 8x, solange sie läuft (nicht umlegbar) |
 | Strg+K | Befehle: Werkzeuge, Pinsel, Biome, Ansichten, Symmetrie, Marker und die Objekte der Karte nach Namen |
-| 1 bis 9, 0, G, D, N | Werkzeug: Landscape, Terrain, Paint, Water, Objects, Roads, Spawns and HQ, Sky and weather, Map, Copy and stamps, Rules, Measure, Life |
+| 1 bis 9, 0, G, D, N, U | Werkzeug: Landscape, Terrain, Paint, Water, Objects, Roads, Spawns and HQ, Sky and weather, Map, Copy and stamps, Rules, Measure, Life, Surfaces |
 | M | Symmetrie reihum: aus, Mirror X, Mirror Y, Both, Turn 2, Turn 4 (auch oben in der Kopfleiste) |
 | Alt+1 bis 9 (Strg+Ziffer, wo der Browser sie lässt) | Kamera-Ansicht merken; Shift+Ziffer fliegt hin; die Knöpfe 1 bis 9 unter der Minikarte ebenso (Alt-Klick merkt) |
 | ? | Übersicht aller Tasten; unter „Your keys“ lassen sich die Einzeltasten (Werkzeuge, F, T, C, B, P, V, M) umlegen, gespeichert in `3dtd-editor-keys`. Die Übersicht liest die umlegbaren Tasten aus derselben Belegung, die die Tasten auswertet. Die festen Tasten der Werkzeuge (W E R L Q, Q H, S X J, R; `EditorTool.fixedKeys`) nimmt keine Aktion: die Statuszeile sagt, wem die Taste gehört; eine früher so gespeicherte Belegung fällt beim Laden weg. Ein Tausch mit einer anderen Aktion steht ebenfalls in der Statuszeile |
@@ -106,7 +106,7 @@ Kugel, Biome als kleines Stück Boden mit ihren Pflanzen. Ein kleiner eigener Re
 hebt sie in IndexedDB (`3dtd-editor-thumbs`) auf; bis ein Bild fertig ist, steht ein gezeichnetes Symbol.
 
 Die linke Leiste zeigt jedes Werkzeug mit Symbol und Namen: oben allein Look, darunter drei Gruppen: Shape (Landscape, Terrain, Paint, Water,
-Objects, Life), Play (Roads, Spawns, Rules) und Map (Sky, Map, Stamps, Measure). Rechts stehen zwei Reiter: die Optionen des
+Objects, Life, Surfaces), Play (Roads, Spawns, Rules) und Map (Sky, Map, Stamps, Measure). Rechts stehen zwei Reiter: die Optionen des
 Werkzeugs und die Gliederung; ein Werkzeug zu wählen zeigt seine Optionen. Die rechte Spalte lässt sich an ihrer
 Innenkante breiter und schmaler ziehen (320 bis 680 px, anfangs 340; Pfeiltasten auf der fokussierten Kante, Doppelklick
 setzt zurück, gemerkt in `localStorage` `3dtd-editor-side`), die Ansicht passt sich an. Lange Beschriftungen brechen
@@ -355,6 +355,21 @@ Tags des Katalogs und Suche (Name, Id oder Tag).
   Auswahl mit dem Boden, „Upright“ stellt sie gerade), die Schalter „Blocks sight“ und „Blocks building“
   (Default folgt dem Katalog) und die Tönung: Farbe für die Auswahl, „Random tint“ (jedes Objekt ein eigener Ton um
   die Farbe oder um Weiß), „No tint“. Streuen hat eine Tönung und „Random tint“ (0 bis 100 %) für jedes neue Objekt
+
+**Surfaces (U).** Flächen über dem Boden (TODO E237, CUSTOM_MAPS.md „Flächen“): ein Material auf einem Umriss, mit
+den Linien eines Platzes (`tools/surface-tool.ts`, `ui/panels/surface-panel.component.ts`, `ops/surfaces.ts`).
+- Outline: ein Klick je Ecke, Enter, Doppelklick oder Rechtsklick schließt; gehalten und gezogen malt er ihn frei (ein
+  Punkt alle 4 m). Material und Linien des nächsten nimmt das Panel (Liste und Vorschläge: Pflaster, Asphalt, Sand,
+  Hackschnitzel, Rasen, Asche und die Sportböden, sobald der Katalog sie hat); die Linien passen sich dem kleinsten
+  gedrehten Rechteck des Umrisses an, ein Platz behält darin seine echten Maße. Mit Symmetrie entstehen die Bilder im
+  selben Schritt (die Linien mitgedreht)
+- Edit: ein Klick wählt die kleinste Fläche unter dem Punkt; Griffe an den Ecken des Umrisses (Ziehen, die Linien passen
+  sich danach neu an) und an den Ecken des goldenen Linien-Rechtecks (Ziehen, die Gegenecke bleibt); Shift+Klick auf den
+  Rand setzt eine Ecke dazu, Entf nimmt die gewählte Ecke (drei bleiben) oder ohne gewählte Ecke die Fläche
+- Panel: für die gewählte Material, Linien, „Fit to outline“, „Turn“ (der Platz quer im Rechteck), Show, Remove; die
+  Liste der Flächen (die ersten 100). Höchstens 4096 Flächen, 15 Materialien je Karte
+- Map-Kit und KI-Agent: `map.surface(material, outline, { marking, holes, group })`, `map.removeSurfaces(ids)`,
+  `map.surfaces()`
 
 **Life (N).** Leben auf der Karte (TODO E190, CUSTOM_MAPS.md „Lebensbereiche“): Bereiche und Wege, die die Karte im
 Dokument trägt (`life.areas`), und die Schalter dessen, was die Karte von selbst mitbringt (`tools/life-tool.ts`,
@@ -699,7 +714,7 @@ Szenenkosten.
   „Lebensbereiche“); ohne Feld sieht und klingt die Karte wie vorher, ihr `contentHash` bleibt; ebenso `intro`, der eigene
   Kameraflug (`{ kind: 'orbit', seconds, radius, height, angle, sweep? }` oder `{ kind: 'path', seconds, views }`, je
   Ansicht `x`, `y`, `h` und `lookX`, `lookY`, `lookH` im Kartenraum, `world/custom-map/map-intro.ts`, geprüft von
-  `introProblems`)); Version-1-Dateien lesen sich
+  `introProblems`); ebenso `surfaces`, die Flächen über dem Boden (CUSTOM_MAPS.md „Flächen“)); Version-1-Dateien lesen sich
   unverändert über die Migration 1 nach 2
 - Prefabs und Stempel der Karte (`prefabs`, optional, höchstens 32, `MAX_MAP_PREFABS`): je Eintrag Id, Name, Zeit, Bild
   (PNG als Data-URL) und das Stück; dessen Arrays liegen im Zip unter `prefabs/<k>/heights.f32`, `paint.u8` und

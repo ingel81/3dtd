@@ -274,7 +274,9 @@ gröber wird), so kämpft die Fläche nicht mit dem Boden und schwebt von der Se
 erreicht: die Bänder mit einer geänderten Kante, die Bänder, die an deren Enden anschließen (ihre Kürzung kann sich
 ändern), und die Kreuzungen an deren Enden; eine neu gebaute Kachel setzt sich aus den behaltenen Stücken aller
 Bänder und Kreuzungen darin zusammen. Einen Knoten ziehen kostet so in Miltenberg rund 3 ms je Schritt. Ein Belag ohne Befestigung (Kies,
-Erde) ist in die Bodenfarbe gemalt und zeigt sich statt Kopfsteinen und Spurrillen. Unter der Mitte einer
+Erde) ist in die Bodenfarbe gemalt und zeigt sich statt Kopfsteinen und Spurrillen. Das Auflegen selbst (Kacheln,
+Höhe aus der Höhentextur, Zug zur Kamera, Material-Array, Nebel) teilen Straßen und Flächen in `drape/draped-layer.ts`
+(unten, „Flächen“). Unter der Mitte einer
 Straßenfläche (bis 25 cm vor ihren Rändern, nicht über die Enden hinaus) trägt die Wegmaske Blau 255 ohne Rot und Grün
 (eine Querlage erreicht höchstens 253): der Gelände-Shader liest die Maske dort ohnehin schon (die nassen Ufer,
 ohne Kanten-Rauschen) und lässt unter der Decke seine ganze Arbeit aus (keine Splat-, Schicht-, Klippen- oder
@@ -282,6 +284,50 @@ Formabfragen, kein Rauschen; die Fläche deckt den Boden), das Gras wächst dort
 echten Wegs) gibt im Spiel den Straßentyp, nach dem Routen gewichtet und Spawns gewählt werden
 (`custom-map-streets.ts`); ohne ihn entscheidet die Art. Beides fehlt auf allen bisherigen Karten
 ([OSM_WORLD_PLAN.md](OSM_WORLD_PLAN.md)).
+
+### Flächen (`surfaces/`)
+
+Flächen (`doc.surfaces`, `MapSurface`, `map-surfaces.ts`; TODO E237) legen ein Bodenmaterial auf einem Umriss mit
+Löchern über den Boden: Plätze, Spielplätze, Sport- und Parkplätze, Bahnsteige; im Editor das Werkzeug Surfaces
+(LEVEL_EDITOR.md), aus OSM die Nutzungsflächen ([OSM_WORLD_ROUND2_PLAN.md](OSM_WORLD_ROUND2_PLAN.md)). Rein
+darstellend wie die Bodendecals: Routen, Bauverbot und Simulation sehen sie nicht, Koop-Prüfsummen auch nicht.
+
+- **Gemeinsames Auflegen** (`drape/draped-layer.ts`): Straßen und Flächen sind dieselbe Art Oberfläche. `DrapedTiles`
+  hält ein Mesh je 512-m-Kachel (Grenzen aus den Höhen, bei Geländeänderung neu angepasst), `DrapedTextures` lädt das
+  Array der genutzten Materialien (bleibende Schichten, neue hinten an), `DrapedMaterial` nimmt Höhe und Normale aus dem
+  Gelände, zieht zur Kamera (`DrapePull`: Grundmaß, Wachstum mit der Entfernung, je Rang mehr) und gibt Nebel und
+  Schatten. Jede Art bringt ihre Attribute und ihren Look (`DrapeLook`). Jede Straße liegt vor jeder Fläche (Flächen
+  1 cm plus 2 mm je Rang bis Rang 6, Straßen ab 3 cm, Flächen wachsen mit der Entfernung etwas langsamer), von zwei
+  Flächen die kleinere oben (`surfaceRank` nach der Größe).
+- **Geometrie** (`surface-geometry.ts`): Umriss und Löcher per Earcut trianguliert, jedes Dreieck an einem 4-m-Raster
+  geschnitten (konvexe Stücke, Fächer), damit die Fläche zwischen den Ecken dem Boden folgt. Je Vertex: Lage im
+  gedrehten Rechteck der Markierung (`u` längs, `v` quer, ohne Markierung der Kartenpunkt) und die halbe Platzgröße
+  (`courtOf`), dazu das Aussehen (Schicht, Markierung, Rang), die Kantenliste der Rasterzelle und die Richtung des
+  Rechtecks. Die Kantenliste: je Zelle die bis zu 7 nächsten Kanten von Umriss und Löchern im Umkreis von 1 m, in
+  einer Float-Textur (`SurfaceEdgeStore`, 1024 Texel je Zeile, ein Block je Fläche, der bleibt, solange die Fläche
+  bleibt); der Shader misst daraus den Abstand zur Kante je Pixel genau (ein interpolierter Abstand je Vertex knickt an
+  jeder Ecke und machte die Bordsteine dort keilförmig). Nach dem ersten Bau legt die Schicht nur die Kacheln der
+  Flächen neu, die kamen, sich änderten oder gingen.
+- **Aussehen** (`surface-look.ts`): die Textur läuft längs der Markierung (Maserung, Normalen); Linien in echten Maßen,
+  dünner als ein Pixel mit ihrem Anteil statt flimmernd: Fußball (Seiten-, Tor-, Mittellinie, Mittelkreis, Straf- und
+  Torraum, Punkte, Eckbögen, mit kleinem Platz kleiner), Handball (6-m-Linie mit getöntem Torraum, gestrichelte 9-m-Linie,
+  7-m-Marke), Basketball (Dreierlinie, Zone getönt, Kreise), Tennis (Doppel, Einzel, Aufschlagfelder), Volleyball,
+  Mehrzweck (Handball weiß, Basketball gelb), Laufbahn (Stadionoval im Rechteck, Bahnen zu 1,22 m, Ziel, Rasen-Innenfeld,
+  wo keine eigene Fläche darüber liegt), Parkplatz (Stellplätze 2,5 × 5 m in Reihen Rücken an Rücken, `parkingRows`,
+  dieselben Reihen, auf die die OSM-Welt Autos stellt; Öl unter den Motoren, Reifenspuren in der Gasse), Bahnsteig
+  (Kantenstein, weiße Linie, gerippter Leitstreifen an beiden Langseiten). Rasenplätze bekommen Mähstreifen und
+  ausgetretene Torräume, lose Böden (Hackschnitzel, Sand) eine Holzeinfassung, Hartplätze und Parkplätze einen
+  Bordstein, alle einen weichen Kontaktschatten am Rand. Linien sind weiß, im Mehrzweck der zweite Satz gelb.
+- **Boden darunter**: die Wegmaske deckt jede Fläche (Blau 255 ohne Rot und Grün, 0,3 m innerhalb des Umrisses,
+  `paintSurfaceCovers`): kein Gras wächst durch, der Gelände-Shader lässt dort seine Arbeit aus. Im Editor malt der
+  Worker die Maske aus den Flächen seines Spiegels mit (`PathMaskRaster` merkt je Ring die Punkte).
+- **Format**: `surfaces?: MapSurface[]` (höchstens `MAX_SURFACES` 4096, je Umriss 3 bis 2048 Punkte, bis 64 Löcher);
+  `marking?: { kind, x, y, angle, length, width }`, `kind` aus `MAP_SURFACE_MARKINGS`. Weich geprüft
+  (`map-repair.ts`): eine kaputte Fläche fällt weg, eine unbekannte oder kaputte Markierung verliert nur die Linien.
+  Ohne Feld liest und hasht eine Karte wie vorher. Höchstens 15 Materialien je Karte (`MAX_SURFACE_MATERIALS`), darüber
+  die Mittelfarbe.
+- **Probe**: `/map-preview?surfaces` zeigt je Markierung eine Fläche (`preview/surface-showcase.ts`);
+  `/map-preview?map=<id>&own` eine eigene Karte des Browsers (eine OSM-Welt).
 
 ### Wasser (`water/`)
 

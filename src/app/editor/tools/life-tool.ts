@@ -253,7 +253,11 @@ export class LifeTool implements EditorTool {
     const life = ctx.editor.doc.life;
     if (this.shown && this.shown.life === life && this.shown.chosen === s.chosen && this.shown.point === s.point) return;
     this.shown = { life, chosen: s.chosen, point: s.point };
-    ctx.overlay.life.set(life?.areas ?? [], s.chosen, s.point);
+    ctx.overlay.shapes.set(
+      (life?.areas ?? []).map((a) => ({ id: a.id, points: a.points, closed: a.shape === 'area', color: LIFE_KIND_INFO[a.kind]?.color ?? '#ffffff' })),
+      s.chosen,
+      s.point,
+    );
   }
 }
 

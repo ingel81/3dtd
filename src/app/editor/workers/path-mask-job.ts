@@ -8,8 +8,9 @@
  * texture and uploads alone. A drag of a road node on a map as large as an
  * OSM city painted 30 ms a frame on the main thread before.
  *
- * The covers (where a paved surface hides the ground) are the main thread's:
- * its road surface lays them, and each job brings what changed of them.
+ * The road covers (where a paved road hides the ground) are the main
+ * thread's: its road surface lays them, and each job brings what changed of
+ * them. The surfaces' covers come from the mirror's map (doc.surfaces).
  * They and the generation are taken as the job comes, not when it runs, so
  * a job that a newer one took the place of loses nothing.
  */
@@ -70,7 +71,7 @@ export class PathMaskState {
     if (!raster || raster.width !== t.width || raster.depth !== t.depth) {
       raster = this.raster = new PathMaskRaster(t.width, t.depth, pathMaskResolution(t.width, t.depth));
     }
-    const rect = raster.update(doc.paths, t.rivers ?? [], [...this.covers.values()]);
+    const rect = raster.update(doc.paths, t.rivers ?? [], [...this.covers.values()], doc.surfaces ?? []);
     if (!rect || input.prime) return null;
     const res = raster.resolution;
     const row = (rect.i1 - rect.i0 + 1) * 4;

@@ -207,7 +207,7 @@ export function contentFingerprint(doc: CustomMapDocument): string {
   if (t.water) bytes(t.water.mask);
   for (const b of t.waterBodies ?? []) bytes(b.mask);
   text(JSON.stringify({ layers: t.layers, water: t.water?.level, bodies: t.waterBodies?.map((b) => b.level), rivers: t.rivers, cliff: [t.cliffMaterial, t.cliffAngle] }));
-  text(JSON.stringify([doc.objects, doc.paths, doc.spawns, doc.hq, doc.environment, doc.gameplay ?? null, doc.life ?? null, doc.intro ?? null]));
+  text(JSON.stringify([doc.objects, doc.paths, doc.spawns, doc.hq, doc.environment, doc.gameplay ?? null, doc.life ?? null, doc.intro ?? null, doc.surfaces ?? null]));
   return (h >>> 0).toString(16).padStart(8, '0');
 }
 

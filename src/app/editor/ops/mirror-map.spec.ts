@@ -83,4 +83,19 @@ describe('mirrorMap', () => {
     expect(doc.life.areas?.[2]).toMatchObject({ species: 'gulls', points: [{ x: 40, y: 30 }, { x: 40, y: 0 }, { x: 80, y: 0 }] });
     expect(result.life).toBe(1);
   });
+
+  it('copies surfaces of the source half with their lines turned, drops those of the other, keeps those across the axis', () => {
+    const doc = map();
+    const box = (x0: number, y0: number, x1: number, y1: number) => [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }];
+    doc.surfaces = [
+      { id: 'surface-1', material: 'red-earth', outer: box(-90, 0, -50, 20), marking: { kind: 'tennis', x: -70, y: 10, angle: 0.2, length: 40, width: 20 } },
+      { id: 'surface-2', material: 'sand', outer: box(40, 0, 80, 30) },
+      { id: 'surface-3', material: 'paving', outer: box(-20, -60, 20, -40) },
+    ];
+    const result = mirrorMap(doc, 'x', { x: -50, y: 0 });
+    expect(doc.surfaces.map((s) => s.id)).toEqual(['surface-1', 'surface-3', 'surface-2']);
+    expect(doc.surfaces[2]).toMatchObject({ material: 'red-earth', marking: { kind: 'tennis', x: 70, y: 10, length: 40, width: 20 } });
+    expect(Math.cos(doc.surfaces[2].marking!.angle - (Math.PI - 0.2))).toBeCloseTo(1, 3);
+    expect(result.surfaces).toBe(1);
+  });
 });

@@ -37,7 +37,7 @@ export function detailCommand(doc: CustomMapDocument, label = 'Increase detail')
 /** The whole map made symmetric from the part around `from` (ground, water, objects, spawns, roads, rivers, life) */
 export function mirrorCommand(doc: CustomMapDocument, mode: SymmetryMode, from: MapPoint, label = 'Mirror the map'): { command: EditCommand; result: MirrorResult } {
   let result: MirrorResult = { objects: 0, spawns: 0, roads: 0 };
-  const command = SnapshotCommand.record(doc, label, ['terrain', 'objects', 'paths', 'spawns', 'life'], (d) => (result = mirrorMap(d, mode, from)));
+  const command = SnapshotCommand.record(doc, label, ['terrain', 'objects', 'paths', 'spawns', 'life', 'surfaces'], (d) => (result = mirrorMap(d, mode, from)));
   return { command, result };
 }
 

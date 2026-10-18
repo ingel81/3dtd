@@ -32,6 +32,7 @@ import {
   MAP_BRIDGE_STYLES,
   MAP_PATH_KINDS,
   MAP_SKIES,
+  MAP_SURFACE_MARKINGS,
   MAP_WATER_KINDS,
   MAP_WEATHERS,
   type CustomMapDocument,
@@ -283,6 +284,12 @@ export const SCRIPT_OPS: Readonly<Record<string, OpSpec>> = {
   lifeRoute: { args: [a('kind', one(LIFE_KINDS)), a('points', LINE), a('options', OBJECT, true)], doc: 'A life route: a line birds fly along and back, particles follow, boats go up and down, movers drive (rocks, trees and plants on their way are cleared) or a sound follows (a stream); options as lifeArea; returns its id' },
   lifeSettings: { args: [a('patch', OBJECT)], doc: `The map's own life: { auto: { smoke, fireflies, birds (on unless false), sparks (over lava, off unless true) }, density 0..2 (a factor on all of it), flags (banners wave), ambience: { sound: biome (the look's own by day and night) or a sound, volume 0..1 }, waveSound: { sound: ${WAVE_SOUND_IDS}, volume 0..1, area (a life area's id it sounds from; everywhere alike without) }: once as each wave starts }` },
   removeLife: { args: [a('ids', STRINGS)], doc: 'Remove life areas by id (map.life() lists them)' },
+  // Surfaces tool
+  surface: {
+    args: [a('material', STRING), a('outline', LINE), a('options', OBJECT, true)],
+    doc: `A surface: a ground material laid over the ground on an outline (3 or more points; a square of setts, a playground, a pitch, a car park), drawn only (enemies and building do not see it); options { marking: ${MAP_SURFACE_MARKINGS.join('|')} (its lines, fitted to the outline) or { kind, x, y, angle (radians, its long side), length, width } (the lines' rectangle; a court keeps its real size in it), holes: [outlines], group }; returns its id`,
+  },
+  removeSurfaces: { args: [a('ids', STRINGS)], doc: 'Remove surfaces by id (map.surfaces() lists them)' },
   // Map panel: Intro flight
   intro: {
     args: [a('flight', OBJECT, true)],
@@ -309,7 +316,7 @@ export function scriptReference(): string {
     'Globals: map, rng(seed) -> () => 0..1, facing(from, to) -> radians, log(...) (or console.log). `return` a value to get it back.',
     'Reads (see the copy as the script left it): map.width, map.depth, map.cellSize, map.half, map.h(x, y) (metres), map.slope(x, y),',
     '  map.noise(x, y, wave, octaves?) -> -1..1, map.ridged(x, y, wave, octaves?), map.objects(rect?), map.markers(), map.roads() (edges with their nodes a, b),',
-    '  map.nodes(), map.rivers() (points with width and height), map.layers(), map.waterBodies(), map.lanes(), map.prefabs(), map.issues(), map.life(), map.introFlight().',
+    '  map.nodes(), map.rivers() (points with width and height), map.layers(), map.waterBodies(), map.lanes(), map.prefabs(), map.issues(), map.life(), map.surfaces(), map.introFlight().',
     'An optional argument may be left out or passed as undefined or null; later ones still count by position.',
     'Commands (each checked; the whole script lands as one undo step and plays back animated):',
     ...lines,
@@ -438,7 +445,7 @@ export function checkCommand(op: string, args: readonly unknown[]): ScriptComman
 }
 
 /** Commands that paint materials or place objects: they need the asset catalogue */
-export const ASSET_OPS: ReadonlySet<string> = new Set(['biome', 'biomeBand', 'layer', 'paint', 'autoPaint', 'cliffs', 'paintRoads', 'place', 'scatter', 'row', 'line', 'cliffRocks', 'chimney', 'shoulderWalls']);
+export const ASSET_OPS: ReadonlySet<string> = new Set(['biome', 'biomeBand', 'layer', 'paint', 'autoPaint', 'cliffs', 'paintRoads', 'place', 'scatter', 'row', 'line', 'cliffRocks', 'chimney', 'shoulderWalls', 'surface']);
 
 /** Whether a command may change the ground all over the map */
 export function changesWholeGround(op: string): boolean {
@@ -931,6 +938,7 @@ export function scriptMap(kit: MapKit, kept: ScriptCommand[], options: Required<
     prefabs: () => forScript((doc.prefabs ?? []).map((p) => ({ id: p.id, name: p.name, width: Math.round(p.stamp.width), depth: Math.round(p.stamp.depth), objects: p.stamp.objects.length, prefab: !!p.stamp.prefab }))),
     issues: () => kit.issues().map((i) => ({ severity: i.severity, message: i.message })),
     life: () => forScript(doc.life ?? {}),
+    surfaces: () => forScript(doc.surfaces ?? []),
     introFlight: () => forScript(doc.intro ?? null),
   };
   // A read named like a command would hide it (map.water once read the water instead of making it)

@@ -1,4 +1,4 @@
-import type { MapPathEdge, MapPaths, MapPoint, MapRiver, MapRiverPoint } from '../../map-document';
+import type { MapPathEdge, MapPaths, MapPoint, MapRiver, MapRiverPoint, MapSurface } from '../../map-document';
 import type { TexelRect } from '../terrain/texture-ranges';
 import { sampleRiver } from '../water/river-line';
 
@@ -16,9 +16,10 @@ import { sampleRiver } from '../water/river-line';
  * roads with a painted `surface` (OSM worlds): their ground shows.
  *
  * Where a road surface hides the ground (the middle of a paved road,
- * RoadCover), blue is 255 with no road or path: the terrain shader skips
- * its texture work there (only the road shows), the grass grows none. An
- * across position never reaches 255 (at most 253).
+ * RoadCover) or a surface does (MapSurface, render/surfaces/), blue is 255
+ * with no road or path: the terrain shader skips its texture work there
+ * (only the surface shows), the grass grows none. An across position never
+ * reaches 255 (at most 253).
  */
 
 /** The middle of a road surface, where it hides the ground: its centre line, how far either side (road-network.ts) */
@@ -27,6 +28,9 @@ export interface RoadCover {
   line: readonly MapPoint[];
   half: number;
 }
+
+/** Metres a surface's cover stays inside its outline: the ground's mask is read between texels */
+const SURFACE_INSET = 0.3;
 
 /** Texel size the mask aims for, in metres */
 export const PATH_MASK_TEXEL = 0.5;
@@ -57,9 +61,10 @@ export function rasterizePathMask(
   resolution: number,
   rivers: MapRiver[] = [],
   covers: readonly RoadCover[] = [],
+  surfaces: readonly MapSurface[] = [],
 ): Uint8Array {
   const out = new Uint8Array(resolution * resolution * 4);
-  paintPathMask(out, paths, width, depth, resolution, rivers, { i0: 0, j0: 0, i1: resolution - 1, j1: resolution - 1 }, covers);
+  paintPathMask(out, paths, width, depth, resolution, rivers, { i0: 0, j0: 0, i1: resolution - 1, j1: resolution - 1 }, covers, surfaces);
   return out;
 }
 
@@ -82,6 +87,7 @@ function paintPathMask(
   rivers: MapRiver[],
   rect: TexelRect,
   covers: readonly RoadCover[] = [],
+  surfaces: readonly MapSurface[] = [],
 ): void {
   rasterizeRiverBanks(out, rivers, width, depth, resolution, rect);
   const nodes = new Map<string, MapPoint>(paths.nodes.map((n) => [n.id, n]));
@@ -129,6 +135,49 @@ function paintPathMask(
     }
   }
   paintCovers(out, covers, width, depth, resolution, rect);
+  paintSurfaceCovers(out, surfaces, width, depth, resolution, rect);
+}
+
+/**
+ * Blue 255 inside every surface where no road or path is painted: rows of
+ * texels filled between the crossings of its outline and holes (even-odd),
+ * each run SURFACE_INSET short of the edge at either end
+ */
+function paintSurfaceCovers(out: Uint8Array, surfaces: readonly MapSurface[], width: number, depth: number, resolution: number, rect: TexelRect): void {
+  const sx = resolution / width;
+  const sy = resolution / depth;
+  const xs: number[] = [];
+  for (const s of surfaces) {
+    const rings = [s.outer, ...(s.holes ?? [])];
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (const p of s.outer) {
+      minY = Math.min(minY, p.y);
+      maxY = Math.max(maxY, p.y);
+    }
+    const j0 = Math.max(rect.j0, Math.floor((minY + SURFACE_INSET + depth / 2) * sy));
+    const j1 = Math.min(rect.j1, Math.ceil((maxY - SURFACE_INSET + depth / 2) * sy));
+    for (let ty = j0; ty <= j1; ty++) {
+      const y = (ty + 0.5) / sy - depth / 2;
+      xs.length = 0;
+      for (const ring of rings) {
+        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+          const a = ring[i];
+          const b = ring[j];
+          if (a.y > y !== b.y > y) xs.push(a.x + ((y - a.y) / (b.y - a.y)) * (b.x - a.x));
+        }
+      }
+      xs.sort((a, b) => a - b);
+      for (let k = 0; k + 1 < xs.length; k += 2) {
+        const i0 = Math.max(rect.i0, Math.ceil((xs[k] + SURFACE_INSET + width / 2) * sx - 0.5));
+        const i1 = Math.min(rect.i1, Math.floor((xs[k + 1] - SURFACE_INSET + width / 2) * sx - 0.5));
+        for (let tx = i0; tx <= i1; tx++) {
+          const q = (ty * resolution + tx) * 4;
+          if (out[q] === 0 && out[q + 1] === 0) out[q + 2] = 255;
+        }
+      }
+    }
+  }
 }
 
 /**
@@ -204,8 +253,8 @@ export class PathMaskRaster {
     this.data = new Uint8Array(resolution * resolution * 4);
   }
 
-  /** Paints the mask for these paths, rivers and road covers; the texel rectangle that changed, null when nothing did */
-  update(paths: MapPaths, rivers: MapRiver[] = [], covers: readonly RoadCover[] = []): TexelRect | null {
+  /** Paints the mask for these paths, rivers, road covers and surfaces; the texel rectangle that changed, null when nothing did */
+  update(paths: MapPaths, rivers: MapRiver[] = [], covers: readonly RoadCover[] = [], surfaces: readonly MapSurface[] = []): TexelRect | null {
     const res = this.resolution;
     const nodes = new Map<string, MapPoint>(paths.nodes.map((n) => [n.id, n]));
     const shapes = new Map<string, Float64Array>();
@@ -250,6 +299,8 @@ export class PathMaskRaster {
     }
     // A cover's size as a path's width (its box pads half of it)
     for (const cover of covers) visit(`c:${cover.id}`, 3, cover.half * 2, cover.line, 2);
+    // A surface ring by ring (the outline, then each hole): its box pads nothing
+    for (const s of surfaces) [s.outer, ...(s.holes ?? [])].forEach((ring, k) => visit(`s:${s.id}:${k}`, 4, 0, ring, 2));
     if (this.painted) for (const [key, old] of this.shapes) if (!shapes.has(key)) grow(key, old);
     const reordered = this.painted && !sameOrder(this.order, order, this.shapes, shapes);
     this.shapes = shapes;
@@ -275,7 +326,7 @@ export class PathMaskRaster {
     }
     this.painted = true;
     for (let j = rect.j0; j <= rect.j1; j++) this.data.fill(0, (j * res + rect.i0) * 4, (j * res + rect.i1 + 1) * 4);
-    paintPathMask(this.data, paths, this.width, this.depth, res, rivers, rect, covers);
+    paintPathMask(this.data, paths, this.width, this.depth, res, rivers, rect, covers, surfaces);
     return rect;
   }
 }

@@ -149,7 +149,7 @@ describe('ToolOverlay', () => {
     overlay.gizmo.ring.set({ x: 0, y: 0 }, 5);
     overlay.gizmo.handles.place(new Vector3(), 0, 1);
     overlay.rivers.set([{ id: 'r', kind: 'water', points: [{ x: 0, y: 0, height: 1, width: 6 }, { x: 20, y: 0, height: 1, width: 6 }] }], null);
-    overlay.life.set([{ id: 'a', kind: 'birds', shape: 'area', points: [{ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 0, y: 20 }] }], 'a', 0);
+    overlay.shapes.set([{ id: 'a', closed: true, color: '#ffffff', points: [{ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 0, y: 20 }] }], 'a', 0);
     const shown = () => [
       overlay.draft.line.visible,
       overlay.hover.loop.visible,
@@ -158,8 +158,8 @@ describe('ToolOverlay', () => {
       overlay.gizmo.ring.loop.visible,
       overlay.gizmo.handles.group.visible,
       overlay.rivers.handles.visible,
-      overlay.life.lines.children.length > 0,
-      overlay.life.handles.count > 0,
+      overlay.shapes.lines.children.length > 0,
+      overlay.shapes.handles.count > 0,
     ];
     expect(shown()).toEqual(Array(9).fill(true));
     overlay.clear();

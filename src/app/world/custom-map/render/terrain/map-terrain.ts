@@ -25,6 +25,7 @@ import { setGroundColors } from './ground-color';
 import { FarShadow } from './far-shadow';
 import { TerrainCuts } from './terrain-cuts';
 import { RoadSurfaceLayer } from '../paths/road-surface';
+import { SurfaceLayer } from '../surfaces/surface-layer';
 import { GridNormalTexture, MaterialArrays, SplatTextures, loadMaterialArrays, maskTexture } from './terrain-textures';
 import { uploadRect, type TexelRect } from './texture-ranges';
 
@@ -131,6 +132,8 @@ export class MapTerrainLayer {
   readonly cuts: TerrainCuts;
   /** The paved roads as a surface over the ground, on the terrain's textures and heights (road-surface.ts) */
   readonly roads: RoadSurfaceLayer;
+  /** The surfaces of squares, pitches and car parks over the ground, the same way (surfaces/surface-layer.ts) */
+  readonly surfaces: SurfaceLayer;
   private grassInputs: Omit<GrassInputs, 'splat' | 'pathMask'> | null = null;
   /** The border's natural ground for the apron, and which map layers count as natural */
   private apronPaint: DataTexture | null = null;
@@ -157,6 +160,7 @@ export class MapTerrainLayer {
     this.occlusion = new GroundOcclusion(field);
     this.cuts = new TerrainCuts(terrain.width, terrain.depth);
     this.roads = new RoadSurfaceLayer(field, this.heightTexture, this.normals.texture);
+    this.surfaces = new SurfaceLayer(field, this.heightTexture, this.normals.texture);
     this.grass = new GrassLayers(this.heightTexture);
     for (const m of this.grass.meshes) m.visible = false;
     this.normals.setWater(terrain.water?.mask ?? null);
@@ -269,6 +273,7 @@ export class MapTerrainLayer {
     this.material = material;
     this.chunks.setMaterial(material);
     this.roads.setAssets(assets, anisotropy);
+    this.surfaces.setAssets(assets, anisotropy);
     this.apronMaterial = apronMaterial;
     this.setApronRange();
     this.apron.material = apronMaterial;
@@ -345,9 +350,9 @@ export class MapTerrainLayer {
   rebuild(rect?: GridRect): boolean {
     this.chunks.rebuild(rect);
     const f = this.field;
-    this.roads.refreshBounds(
-      rect && { minX: f.originX + rect.i0 * f.cellSize, minY: f.originY + rect.j0 * f.cellSize, maxX: f.originX + rect.i1 * f.cellSize, maxY: f.originY + rect.j1 * f.cellSize },
-    );
+    const bounds = rect && { minX: f.originX + rect.i0 * f.cellSize, minY: f.originY + rect.j0 * f.cellSize, maxX: f.originX + rect.i1 * f.cellSize, maxY: f.originY + rect.j1 * f.cellSize };
+    this.roads.refreshBounds(bounds);
+    this.surfaces.refreshBounds(bounds);
     this.normals.update(rect);
     if (rect) this.occlusion.queueTerrain(rect);
     else this.occlusion.updateTerrain();
@@ -465,12 +470,13 @@ export class MapTerrainLayer {
     this.heightTexture.dispose();
     this.cuts.dispose();
     this.roads.dispose();
+    this.surfaces.dispose();
   }
 
   private buildPathMask(paths: MapPaths): DataTexture {
     const t = this.terrain;
     const resolution = pathMaskResolution(t.width, t.depth);
-    const texture = maskTexture(rasterizePathMask(paths, t.width, t.depth, resolution, t.rivers ?? [], this.roads.covers()), resolution);
+    const texture = maskTexture(rasterizePathMask(paths, t.width, t.depth, resolution, t.rivers ?? [], this.roads.covers(), this.surfaces.surfaces), resolution);
     uploadRect(texture, undefined);
     return texture;
   }
