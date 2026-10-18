@@ -20,6 +20,7 @@ import { RouteCell, getAirTargetY, getGroundTargetY } from '../../utils/route-ce
 import { TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
 import { LOS_VIZ_CONFIG } from '../../configs/los-viz.config';
 import { directionToFacePixel, FacePixel } from '../../utils/los-debug-pixel-math';
+import { shareGpu } from '../../three-engine/shared-gpu';
 
 /**
  * State der Hovered-Pixel-Koordinate auf einem Cubemap-Face. `layer`
@@ -45,7 +46,7 @@ interface CellPixelEntry {
   airPixel: FacePixel;
 }
 
-const HOVER_MARKER_GEOMETRY = new SphereGeometry(0.8, 12, 8);
+const HOVER_MARKER_GEOMETRY = shareGpu(new SphereGeometry(0.8, 12, 8));
 
 /**
  * Stateful service that orchestrates the LOS-debug-panel:

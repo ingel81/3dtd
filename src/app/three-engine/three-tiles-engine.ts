@@ -11,7 +11,6 @@ import {
   Matrix4,
   Vector4,
   WebGLRenderTarget,
-  Sprite,
 } from 'three';
 import { primePixelStore } from './pixel-store';
 import type { GlobeControls } from '3d-tiles-renderer';
@@ -40,6 +39,7 @@ import { InstancedEnemyRenderer } from './renderers/instanced-enemy/instanced-en
 import { LaserBeamRenderer } from './renderers/laser-beam.renderer';
 import { ShotLights } from './shot-lights/shot-lights';
 import { disposeBlobShadows, setBlobGround } from './renderers/instanced-enemy/blob-shadow';
+import { releaseSharedGpu } from './shared-gpu';
 import { plinthCrown } from './renderers/tower-plinth/plinth-braces';
 import { TowerPlinthRenderer } from './renderers/tower-plinth/tower-plinth.renderer';
 import { TowerBadgeRenderer } from './renderers/tower-badge/tower-badge.renderer';
@@ -1695,6 +1695,10 @@ export class ThreeTilesEngine {
     // Dispose spatial audio
     this.spatialAudio.dispose();
 
+    // What the page made once and every renderer draws (shared-gpu.ts): its
+    // listeners held this renderer and with it the game of every world before
+    releaseSharedGpu(this.renderer, this.scene);
+
     // The world: tiles renderer and load listeners, DevWorld's generation
     // worker and raycast-only meshes outside the scene graph (nothing else
     // disposes those; every engine teardown leaked one before)
@@ -1724,11 +1728,6 @@ export class ThreeTilesEngine {
     // The sky cube is the scene background, the traverse above does not reach it
     this.sky?.dispose();
 
-    // three's sprites share one geometry for the page; every renderer that drew
-    // it hangs a dispose listener on it, which held that renderer, its context
-    // and canvas, and with them the game of every world opened before. Its
-    // dispose drops them; the next renderer uploads it again
-    new Sprite().geometry.dispose();
 
     // Dispose renderer; its context goes once the next view stands, not when
     // the canvas is collected: the next world of the page makes a canvas of

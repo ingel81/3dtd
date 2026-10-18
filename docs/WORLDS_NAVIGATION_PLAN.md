@@ -394,6 +394,17 @@ Offen bleibt nur, was beim Bauen auffällt; die Reihenfolge der Phasen steht in 
   jedes alten Spiels), dazu die geteilten Blob-Schatten-Materialien und die eine Sprite-Geometrie von three: jeder
   `WebGLRenderer` hängt an alles, was er zeichnet, einen Dispose-Listener, der ihn samt Kontext und Canvas hält.
   Die Engine gibt beide beim Abbau frei (`disposeBlobShadows`, `new Sprite().geometry.dispose()`).
+- **Geteilte GPU-Objekte (2026-10-19):** Was die Seite einmal anlegt und jeder Renderer zeichnet, meldet sich bei
+  `three-engine/shared-gpu.ts` an (`shareGpu`): Gerüst-Materialien, Rauschtexturen (Variation, Schaum, Lava, Wellen),
+  der Portalrahmen, die Modelle des `AssetManagerService` und der geteilten `MapAssetLibrary`, die Marker-Kugel der
+  LOS-Anzeige. Jeder Renderer, der geht (Engine, Editor, Vorschau der Seitenleiste, Paletten-Bilder), ruft vor seinem
+  Abbau `releaseSharedGpu`: alle angemeldeten Objekte geben ihre GPU-Seite ab und damit die Listener aller Renderer,
+  die sie zeichneten; die Objekte bleiben samt CPU-Daten, der nächste Renderer lädt sie neu hoch. Dazu kommen die
+  beiden Objekte von three selbst, die Sprite-Geometrie und die DFG-LUT der physikalischen Materialien (three
+  exportiert sie nicht; sie wird an einem gezeichneten Material abgelesen). Jedes dieser Objekte hielt für sich jede
+  alte Engine samt Seitenleiste und Minikarte fest. Neues GPU-Objekt auf Modulebene, statisch oder in einem
+  Root-Dienst: mit `shareGpu` anmelden. Was je Engine gilt (die Blob-Schatten hängen an der Uniform ihres Gegner-Renderers), legt die
+  Engine neu an und gibt es selbst frei.
 - Abnahme: `world/world-teardown.spec.ts` startet eine Welt zweimal und baut sie ab, mit echten Facades
   (Spiel, Darstellung, Spielschleife), Eingabe, Höhenzyklus und `SimClient`; danach kein Listener auf `window` und
   `document`, kein Worker, kein Intervall, kein Seitengriff, kein Root-Dienst mehr an Canvas oder Engine.
@@ -421,6 +432,18 @@ Neuladen. Die ersten Wechsel steigen um rund 8 MB (übersetzter Code, Caches der
 0,25 MB je Wechsel bleibt; ein Heap-Vergleich zeigt noch abgelöstes DOM alter Spiele (Seitenleiste, Icons,
 Vorschau-Canvas), sein Halter ist nicht gefunden. Geometrien und Texturen des Renderers liest das Skript nur im
 Dev-Build (`ng`), im Produktions-Build stehen sie auf -1.
+
+**Nachtrag 2026-10-19 (E195 Rest, Messung im Produktions-Build mit Fenster und GPU):** Der Halter war doch da. Über
+zehn Wechsel (Demo Valley, Mountain Pass, Autumn Keep über Built Worlds) blieben vorher alle alten Renderer samt
+Canvas, Seitenleiste (13 Vorschau-Canvases je Wechsel) und Minikarte im Speicher: `measureUserAgentSpecificMemory`
+333 → 576 MB, Renderer-Prozess 1597 → 2023 MB. Ursache die Dispose-Listener an geteilten GPU-Objekten (oben, Risiko
+1): Gerüst-Materialien, DFG-LUT von three, Portalrahmen, gecachte Spielmodelle; jedes allein hielt alle. Mit `shared-gpu.ts`: 334 → 336 MB, JS-Heap 184
+→ 181 MB, Renderer-Prozess 1637 → 1726 MB (+5,4 %, schwankt je Karte um ±40 MB); nach dem Wechsel lebt außer dem
+Spiel nur noch der Vorschau-Renderer, kein abgehängtes Spiel-Canvas, keine alte Vorschau. `e2e/perf/world-switch.ts`
+zählt jetzt per WeakRef die Canvases, deren Kontext verloren ist und die in keiner Seite hängen (`retainedContexts`),
+und die abgehängten 2D-Canvases; es endet mit Code 1, wenn erstere von Wechsel zu Wechsel steigen. Vorher: 2, 3, 4
+nach drei Wechseln; jetzt bleibt es bei 1 (das Canvas des Weltmenüs, das der Browser hält, kein JS-Halter) und 8
+abgehängten 2D-Canvases der aktuellen Welt. Der Weg ins Menü heißt jetzt Built Worlds, Karte, Play.
 
 ### Phase 3: Coop und Desktop folgen (2026-10-16)
 

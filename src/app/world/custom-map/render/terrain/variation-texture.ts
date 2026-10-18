@@ -1,4 +1,5 @@
 import { DataTexture, LinearFilter, LinearMipmapLinearFilter, NoColorSpace, RepeatWrapping, RGBAFormat, UnsignedByteType } from 'three';
+import { shareGpu } from '../../../../three-engine/shared-gpu';
 import { tilingFbm } from '../tiling-noise';
 
 /**
@@ -36,7 +37,7 @@ export function variationTexture(): DataTexture {
   t.minFilter = LinearMipmapLinearFilter;
   t.generateMipmaps = true;
   t.needsUpdate = true;
-  texture = t;
+  texture = shareGpu(t);
   return t;
 }
 

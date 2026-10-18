@@ -34,6 +34,7 @@ import { pixelRatioFor, readStoredQuality, storedKnobsFor, type QualityKnobs } f
 import { releaseContext, settleContexts } from '../../three-engine/context-release';
 import type { Contours } from '../ops/contours';
 import type { GroundBaker } from '../../world/custom-map/render/terrain/ground-shape';
+import { releaseSharedGpu } from '../../three-engine/shared-gpu';
 
 export interface HoverInfo {
   x: number;
@@ -329,6 +330,7 @@ export class EditorViewport {
     this.resizeObserver.disconnect();
     for (const u of this.unsubscribe) u();
     this.input.dispose();
+    releaseSharedGpu(this.renderer, this.scene);
     this.view.dispose();
     this.overlay.dispose();
     this.renderer.dispose();

@@ -102,6 +102,31 @@ describe('MapAssetLibrary', () => {
     expect(disposed.every((spy) => spy.mock.calls.length === 1)).toBe(true);
   });
 
+  it('frees the GPU side of its models for a renderer that goes and keeps them loaded', async () => {
+    let loads = 0;
+    const lib = new MapAssetLibrary('base/', {
+      fetch: (() => Promise.resolve(jsonResponse(catalog))) as unknown as typeof fetch,
+      loadModel: () => {
+        loads++;
+        const root = new Group();
+        root.add(new Mesh(new BoxGeometry(1, 1, 1), new MeshStandardMaterial({ map: new Texture() })));
+        return Promise.resolve(root);
+      },
+    });
+    const model = await lib.model('pine');
+    const material = model.parts[0].material as MeshStandardMaterial;
+    const spies = [material, material.map!, model.parts[0].geometry].map((target) => {
+      const spy = vi.fn();
+      target.addEventListener('dispose', spy);
+      return spy;
+    });
+    lib.releaseGpu();
+    // At once, not a tick later: the renderer that goes is disposed right after
+    expect(spies.every((spy) => spy.mock.calls.length === 1)).toBe(true);
+    expect(await lib.model('pine')).toBe(model);
+    expect(loads).toBe(1);
+  });
+
   it('disposes after a detail model failed to load without an unhandled rejection', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const withLod = { ...catalog, objects: [{ ...catalog.objects[0], lod: [{ file: 'models/missing.glb', distance: 100 }] }] };

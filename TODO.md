@@ -99,9 +99,9 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
       und Donner nach Entfernung, nur Darstellung (eigener Zufall, nicht in der Simulation). Einstellung „Lightning
       flashes“ (Soft) für Lichtblitz-Empfindliche. Nur eigene und OSM-Karten (Tiles haben kein Wetter). Gebaut auf
       `wt/r7-storm`, wartet auf optische Abnahme; Fach-Doku CUSTOM_MAPS.md „Gewitter“.
-- [ ] **E195 Rest:** Menü und Weltwechsel sind gebaut (Abschnitt 2). Offen: Speichermessung über 10 Weltwechsel
-      für die Phasen 3 bis 5 im Production-Build (braucht lokal `CUSTOM_MAPS_RELEASED = true`, die Freigabe-Sperre
-      blockierte es; sonst im Dev-Build messen); OSM-Karten heißen im Pfad noch „Maps“ (`worldName` kennt nur den WorldRef).
+- [ ] **E195 Rest:** Menü und Weltwechsel sind gebaut (Abschnitt 2), das Leck beim Weltwechsel ist zu und gemessen
+      (`docs/WORLDS_NAVIGATION_PLAN.md`, Nachtrag 2026-10-19). Offen: OSM-Karten heißen im Pfad noch „Maps“
+      (`worldName` kennt nur den WorldRef).
 - [ ] **E134 Eigene Karten freigeben** (entschieden 2026-10-11): erst wenn alles Abgestimmte steht (E130 bis E133, auch
       Wellen-Editor und Zerstörung). Dann `CUSTOM_MAPS_RELEASED` an (`src/app/world/custom-maps-open.ts`) und
       `.3dtdmap`-Zuordnung im Installer. Die Karten-Daten (194 MB) kommen beim ersten Öffnen einer Karte vom Webserver
@@ -242,7 +242,7 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
       weich, Hölle-Biom Asche, kein grüner Boden beim Öffnen, Routenanimation folgt dem Schalter, Sprung zur Welle (PLAYTEST D).
 - [ ] **E195 Welten aus einem Guss** gebaut (alle 7 Phasen, Plan `docs/WORLDS_NAVIGATION_PLAN.md`) plus Zustandsmodell
       (`docs/WORLDS_STATE_PLAN.md`: Built Worlds, Continue und Recent je Welt, Back to ohne Abbau), Overpass-Retry, Editor
-      Drehen beim Setzen, glatte Ufer, Ruckler beim Speichern weg (PLAYTEST E).
+      Drehen beim Setzen, glatte Ufer, Ruckler beim Speichern weg (PLAYTEST E); Leck beim Weltwechsel zu (PLAYTEST J).
 - [ ] **Offen aus der Prüfung:** Mond-Basalt (`moon-basalt`) fast schwarz, Steilhänge der Mondkarten lesen sich als Löcher;
       Textur aufhellen braucht `ktx.exe` zum Packen.
 

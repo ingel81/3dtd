@@ -19,6 +19,7 @@ import {
 import { AssetManagerService } from './asset-manager.service';
 import { FramePacer } from '../../utils/frame-pacer';
 import { PREVIEW_MANIFEST, PREVIEW_SHEET_DIR, previewViewKey, type PreviewSheetEntry, type PreviewSheetManifest } from './preview-sheets';
+import { releaseSharedGpu } from '../../three-engine/shared-gpu';
 
 export interface PreviewConfig {
   modelUrl: string;
@@ -478,6 +479,7 @@ export class ModelPreviewService {
 
     // Dispose renderer; its context goes at once, the next world's game makes its own
     if (this.renderer) {
+      releaseSharedGpu(this.renderer);
       this.renderer.dispose();
       this.renderer.forceContextLoss();
       this.renderer = null;

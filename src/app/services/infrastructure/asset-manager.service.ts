@@ -2,6 +2,7 @@ import { Injectable, signal } from '@angular/core';
 import { Object3D, AnimationClip, Mesh, Material, MeshStandardMaterial } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { shareGpu } from '../../three-engine/shared-gpu';
 
 /**
  * Unified model data structure for cached models
@@ -53,6 +54,11 @@ export class AssetManagerService {
 
   // Loading promises to prevent duplicate loads
   private readonly loadingPromises = new Map<string, Promise<CachedModel>>();
+
+  constructor() {
+    // The cached models outlive every engine that draws them (shared-gpu.ts)
+    shareGpu({ dispose: () => this.releaseGpu() });
+  }
 
   /**
    * Models that did not load after every try, by URL, in the order they
@@ -207,6 +213,11 @@ export class AssetManagerService {
       this.disposeModel(cached);
     }
     this.modelCache.clear();
+  }
+
+  /** Frees the GPU side of every cached model; they stay cached, the next renderer uploads them again */
+  releaseGpu(): void {
+    for (const cached of this.modelCache.values()) this.disposeModel(cached);
   }
 
   /**

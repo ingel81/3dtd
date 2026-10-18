@@ -21,6 +21,7 @@ import {
 import type { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
 import { BASIS_PATH, FileWorkerKTX2Loader, TRANSCODER_WORKER } from '../../../globe/globe-textures';
 import { mapDataFetch, mapDataUrl } from '../map-data';
+import { shareGpu } from '../../../three-engine/shared-gpu';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -110,6 +111,9 @@ export class MapAssetLibrary {
     if (!lib) {
       lib = new MapAssetLibrary(baseUrl);
       MapAssetLibrary.instances.set(baseUrl, lib);
+      // Its models outlive every renderer that draws them (shared-gpu.ts)
+      const shared = lib;
+      shareGpu({ dispose: () => shared.releaseGpu() });
     }
     return lib;
   }
@@ -118,6 +122,8 @@ export class MapAssetLibrary {
   private catalogPromise: Promise<AssetCatalog> | null = null;
   private readonly materials = new Map<string, Promise<MaterialPixels>>();
   private readonly models = new Map<string, Promise<ObjectModel>>();
+  /** The models of `models` that have loaded, for releaseGpu (it frees them at once, not a tick later) */
+  private readonly loaded = new Set<ObjectModel>();
   private readonly fetchFn: typeof fetch;
   private readonly decodeImageFn: (url: string, size: number) => Promise<ImagePixels>;
   private readonly loadModelFn: (url: string) => Promise<Object3D>;
@@ -223,7 +229,7 @@ export class MapAssetLibrary {
   model(id: string): Promise<ObjectModel> {
     let p = this.models.get(id);
     if (!p) {
-      p = this.loadObject(id);
+      p = this.loadObject(id).then((m) => this.keep(m));
       this.models.set(id, p);
     }
     return p;
@@ -244,7 +250,7 @@ export class MapAssetLibrary {
         if (!p) {
           p = this.loadModelFn(this.url(lod.file)).then((root) => {
             const parts = collectParts(root);
-            return { id, entry, parts, height: partsHeight(parts), placeholder: false };
+            return this.keep({ id, entry, parts, height: partsHeight(parts), placeholder: false });
           });
           this.models.set(key, p);
         }
@@ -260,24 +266,32 @@ export class MapAssetLibrary {
     return loaded.filter((l): l is { model: ObjectModel; distance: number } => l !== null);
   }
 
-  /** Frees the GPU side of every loaded model, LOD models included: geometry, material and its textures */
+  /** Frees the GPU side of every loaded model and forgets them */
   dispose(): void {
-    for (const p of this.models.values()) {
-      // A detail model that failed to load stays a rejected promise: nothing to free
-      p.then(
-        (m) => {
-          for (const part of m.parts) {
-            part.geometry.dispose();
-            disposeTextures(part.material);
-            part.material.dispose();
-          }
-        },
-        () => undefined,
-      );
-    }
+    this.releaseGpu();
     this.models.clear();
+    this.loaded.clear();
     this.materials.clear();
     for (const [key, lib] of MapAssetLibrary.instances) if (lib === this) MapAssetLibrary.instances.delete(key);
+  }
+
+  /**
+   * Frees the GPU side of every loaded model, LOD models included: geometry, material and its textures. The
+   * models stay loaded; the next renderer to draw them uploads them again
+   */
+  releaseGpu(): void {
+    for (const m of this.loaded) {
+      for (const part of m.parts) {
+        part.geometry.dispose();
+        disposeTextures(part.material);
+        part.material.dispose();
+      }
+    }
+  }
+
+  private keep(model: ObjectModel): ObjectModel {
+    this.loaded.add(model);
+    return model;
   }
 
   private url(path: string): string {

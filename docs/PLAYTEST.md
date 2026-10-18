@@ -389,6 +389,17 @@ Nur Augen; Auswahl, Raster und Ausklingen sind per Test gedeckt ([SHOT_LIGHTS.md
 - **I4 Tag und echte Orte:** eine eigene Karte bei Tag und ein echter Ort. *Bei Tag dezent, nicht grell; auf dem echten
   Ort leuchten nur Tower, Held und Gegner auf, die Tiles nicht.*
 
+## J Laden und Speicher (Runde 8, 2026-10-19)
+
+Speicher und Haltepfade sind gemessen (`e2e/perf/world-switch.ts`); hier nur, ob nach einem Wechsel alles wieder so
+aussieht wie beim ersten Mal (die geteilten Texturen und Materialien laden je Welt neu hoch).
+
+- **J1 Weltwechsel:** Built Worlds › Demo Valley › Play, einen Tower bauen, eine Welle; dann fünfmal über Built Worlds
+  zwischen Ember Crater, Archipelago und Demo Valley wechseln. *Gerüst beim Bau, Portalrahmen, Schatten unter den
+  Gegnern, Schaum am Ufer, Lava und Wasserwellen wie beim ersten Mal; Vorschaubilder der Seitenleiste da; keine
+  schwarzen oder weißen Flächen.*
+- **J2 Editor und Test:** Demo Valley im Editor, Test, zurück, zweimal. *Paletten-Bilder, Wasser und Gelände wie vorher.*
+
 ## Eichtabelle
 
 Fingerprints aus `__corridor.fingerprint()` für K2.1 und K2.2. Alle Werte vor 748 (Rothenburg `d8050177`, Tokyo

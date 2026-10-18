@@ -40,6 +40,7 @@ import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library
 import type { CatalogIndex, GroundMaterialEntry, ObjectAssetEntry } from '../../map-ops/asset-catalog';
 import type { BiomeDef } from '../ops/landscape/biomes';
 import { hashCell } from '../../map-ops/landscape-noise';
+import { releaseSharedGpu } from '../../three-engine/shared-gpu';
 
 const SIZE = 128;
 const DB_NAME = '3dtd-editor-thumbs';
@@ -121,6 +122,7 @@ export class ThumbnailRenderer {
     const renderer = this.renderer;
     this.renderer = null;
     if (renderer) {
+      releaseSharedGpu(renderer, this.scene);
       renderer.dispose();
       // Browsers keep only a few contexts: this one goes now, not whenever the canvas is collected
       renderer.forceContextLoss();

@@ -1,4 +1,5 @@
 import { BufferGeometry, Mesh, MeshStandardMaterial, NoColorSpace, Object3D, Texture } from 'three';
+import { shareGpu } from '../../shared-gpu';
 
 /** The stone frame of the spawn portals, built and baked by tools/blender/spawn_portal.py. */
 export const SPAWN_PORTAL_FRAME_URL = 'assets/models/structures/spawn_portal.glb';
@@ -55,5 +56,7 @@ export function frameFromGltf(scene: Object3D): SpawnPortalFrame {
   // GLTFLoader reads the emissive texture as sRGB colour; it holds data
   emissiveMap.colorSpace = NoColorSpace;
   for (const texture of [map, normalMap, aoMap, emissiveMap]) texture.anisotropy = ANISOTROPY;
+  // Loaded once for the page (MarkerVisualizationService), drawn by every engine
+  for (const resource of [geometry, map, normalMap, aoMap, emissiveMap]) shareGpu(resource);
   return { geometry, baseColor: map, normal: normalMap, orm: aoMap, emissive: emissiveMap };
 }

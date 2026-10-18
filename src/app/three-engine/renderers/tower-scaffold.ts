@@ -14,6 +14,7 @@ import {
   Vector3,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { shareGpu } from '../shared-gpu';
 
 /** Height of one lift of the scaffold, m: a ledger ring and boards at each */
 const LIFT_M = 2;
@@ -131,8 +132,8 @@ export function scaffoldWarmUp(): { scaffold: Object3D[]; plane: Plane } {
 }
 
 function materials(): { tube: MeshStandardMaterial; board: MeshStandardMaterial } {
-  tubeMaterial ??= new MeshStandardMaterial({ color: 0x8c9196, metalness: 0.6, roughness: 0.45 });
-  boardMaterial ??= new MeshStandardMaterial({ color: 0x7a5d3e, metalness: 0, roughness: 0.9 });
+  tubeMaterial ??= shareGpu(new MeshStandardMaterial({ color: 0x8c9196, metalness: 0.6, roughness: 0.45 }));
+  boardMaterial ??= shareGpu(new MeshStandardMaterial({ color: 0x7a5d3e, metalness: 0, roughness: 0.9 }));
   return { tube: tubeMaterial, board: boardMaterial };
 }
 

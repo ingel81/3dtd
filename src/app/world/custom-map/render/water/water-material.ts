@@ -31,6 +31,7 @@ import { SCENE_COPY_GLSL, type SceneCopy } from './scene-copy';
 import { SHORE_CUT_DEPTH, SHORE_CUT_SCALE } from './shore-cut';
 import type { MapEffects } from '../map-effects';
 import type { WaterReflection } from './water-reflection';
+import { shareGpu } from '../../../../three-engine/shared-gpu';
 
 /**
  * The material of every water body (lake, sea, swamp, ice, lava; areas and
@@ -301,7 +302,7 @@ function waveTexture(): DataTexture {
   t.minFilter = LinearMipmapLinearFilter;
   t.generateMipmaps = true;
   t.needsUpdate = true;
-  waves = t;
+  waves = shareGpu(t);
   return t;
 }
 
