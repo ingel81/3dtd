@@ -69,11 +69,14 @@ import type { GridRect } from './terrain/terrain-chunks';
 import { programsReady } from '../../../three-engine/programs-ready';
 import { waterLevelAt } from '../water-level';
 import { massRadius } from '../object-mass';
+import { PacedRefresh } from './paced-refresh';
 
 /** Biomes with fireflies at night, and with birds by day */
 const FIREFLY_BIOMES: ReadonlySet<MapBiome> = new Set(['temperate', 'swamp', 'mountain']);
 const BIRD_BIOMES: ReadonlySet<MapBiome> = new Set(['temperate', 'mountain', 'swamp', 'desert', 'arctic', 'city', 'apocalypse']);
 /** Woods for fireflies and open land for birds are counted in squares of this size, metres; a wood has this many trees */
+/** Milliseconds at least between two rebuilds of contact shadows and effects while objects keep changing */
+const EDIT_REFRESH_MS = 120;
 const WOOD_CELL = 30;
 const WOOD_TREES = 6;
 /** Shore samples for fireflies every this many metres, and at most this many swarms */
@@ -1039,10 +1042,10 @@ export class CustomMapView {
   private async addObjects(objects: MapObject[]): Promise<void> {
     if (!objects.length) return;
     const shown = this.objects.addObjects(objects);
-    void this.refreshContact(objects);
+    this.contactPaced.request(objects);
     this.edgeTreesLater(objects);
-    if (await this.hasEffects(objects)) void this.refreshEffects();
-    if (hasSigns(objects)) void this.refreshSigns();
+    if (await this.hasEffects(objects)) this.effectsPaced.request();
+    if (hasSigns(objects)) this.signsPaced.request();
     await shown;
   }
 
@@ -1050,10 +1053,10 @@ export class CustomMapView {
   private removeObjects(objects: MapObject[]): void {
     if (!objects.length) return;
     this.objects.removeObjects(objects.map((o) => o.id));
-    void this.refreshContact(objects);
+    this.contactPaced.request(objects);
     this.edgeTreesLater(objects);
-    void this.hasEffects(objects).then((has) => (has ? this.refreshEffects() : undefined));
-    if (hasSigns(objects)) void this.refreshSigns();
+    void this.hasEffects(objects).then((has) => has && this.effectsPaced.request());
+    if (hasSigns(objects)) this.signsPaced.request();
   }
 
   /**
@@ -1071,9 +1074,9 @@ export class CustomMapView {
       void this.objects.addObjects(rest);
     }
     const all = [...before, ...objects];
-    void this.hasEffects(all).then((has) => (has ? this.refreshEffects() : undefined));
-    if (hasSigns(all)) void this.refreshSigns();
-    void this.refreshContact(all);
+    void this.hasEffects(all).then((has) => has && this.effectsPaced.request());
+    this.contactPaced.request(all);
+    if (hasSigns(all)) this.signsPaced.request();
     this.edgeTreesLater(all);
   }
 
@@ -1465,6 +1468,18 @@ export class CustomMapView {
 
   private entries: { catalog: AssetCatalog; map: Map<string, CatalogObject> } | null = null;
 
+  /**
+   * Contact shadows, effects and signs of objects added, moved or taken away: at once
+   * after a rest, then at most every EDIT_REFRESH_MS while the changes go on (a
+   * drag of thousands rebuilt every fire and lamp and the shadows round all of
+   * them each frame), and once after the last
+   */
+  private readonly contactPaced = new PacedRefresh<MapObject>(EDIT_REFRESH_MS, (changed) => {
+    if (!changed || changed.length) void this.refreshContact(changed ?? undefined);
+  });
+  private readonly effectsPaced = new PacedRefresh<never>(EDIT_REFRESH_MS, () => void this.refreshEffects());
+  private readonly signsPaced = new PacedRefresh<never>(EDIT_REFRESH_MS, () => void this.refreshSigns());
+
   /** The catalogue's objects by id, made once per catalogue */
   private catalogEntries(catalog: AssetCatalog): Map<string, CatalogObject> {
     if (this.entries?.catalog !== catalog) this.entries = { catalog, map: new Map(catalog.objects.map((o) => [o.id, o])) };
@@ -1555,6 +1570,9 @@ export class CustomMapView {
     const near = (o: MapObject) => Math.abs(o.x) > t.width / 2 - EDGE_TREE_BAND || Math.abs(o.y) > t.depth / 2 - EDGE_TREE_BAND;
     if (!objects.some(near)) return;
     if (this.edgeTreesDue) clearTimeout(this.edgeTreesDue);
+    this.contactPaced.cancel();
+    this.effectsPaced.cancel();
+    this.signsPaced.cancel();
     this.edgeTreesDue = setTimeout(() => {
       this.edgeTreesDue = null;
       void this.refreshEdgeTrees();
