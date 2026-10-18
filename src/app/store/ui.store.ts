@@ -3,6 +3,7 @@ import { TowerTypeId } from '../configs/tower-types.config';
 import type { AbilityId } from '../configs/abilities.config';
 import { readJson, writeJson } from '../utils/storage';
 import type { MainMenuState } from '../components/main-menu/menu-page';
+import { isLocalePreference, type LocalePreference } from '../i18n/locale';
 
 /** LocalStorage key for persisted UI state */
 const STORAGE_KEY = 'td-ui-state';
@@ -40,6 +41,7 @@ interface PersistedUIState {
   musicMuted?: boolean;
   sfxMuted?: boolean;
   autoStartWaves?: boolean;
+  locale?: LocalePreference;
 }
 
 /** Older states stored one flag per menu, and several could be open. */
@@ -159,6 +161,12 @@ export class UIStore {
    * Off by default, persisted. Ignored while a bot plays.
    */
   readonly autoStartWaves = signal<boolean>(false);
+
+  /**
+   * The game's language (TODO E245): one the player chose in Settings, or
+   * the system's. Persisted; I18n follows it and loads the texts.
+   */
+  readonly localePreference = signal<LocalePreference>('system');
 
   /** Street network layer visibility */
   readonly streetsVisible = signal<boolean>(false);
@@ -332,6 +340,7 @@ export class UIStore {
     flag(state.musicMuted, this.musicMuted);
     flag(state.sfxMuted, this.sfxMuted);
     flag(state.autoStartWaves, this.autoStartWaves);
+    if (isLocalePreference(state.locale)) this.localePreference.set(state.locale);
   }
 
   private persistTimer: ReturnType<typeof setTimeout> | null = null;
@@ -362,6 +371,7 @@ export class UIStore {
           musicMuted: this.musicMuted(),
           sfxMuted: this.sfxMuted(),
           autoStartWaves: this.autoStartWaves(),
+          locale: this.localePreference(),
         };
         if (this.persistTimer !== null) return;
         this.persistTimer = setTimeout(() => this.flushPersisted(), PERSIST_DEBOUNCE_MS);
