@@ -526,8 +526,15 @@ const B8 = stage('b8-sky', 7, [
   act('environment', { patch: { wind: { strength: 0.9, gusts: 0.8, direction: 240 } } }),
   wait(5),
   effect('gusts'),
-  // Clear again, and a time lapse into the night: lamps, windows and torches come on
-  act('environment', { patch: { ...timeOfDay(15), weather: 'clear', wind: { strength: 0.3, gusts: 0.3, direction: 240 } } }),
+  // Round 5: snow. Back over the lake, snowfall, and the snow cover grows over the whole map
+  path(1.6, ['current', SKY_VIEW], { ease: 'inOut' }),
+  act('environment', { patch: { sky: 'overcast', weather: 'snow', weatherStrength: 1, wind: { strength: 0.3, gusts: 0.3, direction: 240 } } }),
+  ...idle(1.5),
+  ...tween(7, (k) => ({ snowCover: k }), 'snow'),
+  wait(2.5),
+  effect('snow cover'),
+  // Clear again, the snow gone, and a time lapse into the night: lamps, windows and torches come on
+  act('environment', { patch: { ...timeOfDay(15), sky: 'day', weather: 'clear', snowCover: 0, wind: { strength: 0.3, gusts: 0.3, direction: 240 } } }),
   path(1.6, ['current', SKY_VIEW], { ease: 'inOut' }),
   ...idle(1.5),
   ...tween(12, (k) => timeOfDay(15 + 7 * k), 'night'),
@@ -538,9 +545,9 @@ const B8 = stage('b8-sky', 7, [
   // Before the picture counts: night, rain and fog once, so their shaders are warm; then the morning fog
   act('environment', { patch: { sky: 'night', weather: 'rain', weatherStrength: 1 } }),
   wait(1.5),
-  act('environment', { patch: { sky: 'overcast', weather: 'snow', weatherStrength: 1 } }),
+  act('environment', { patch: { sky: 'overcast', weather: 'snow', weatherStrength: 1, snowCover: 1 } }),
   wait(1.5),
-  act('environment', { patch: { ...timeOfDay(MORNING), weather: 'fog', weatherStrength: 1, moonlight: 0.6 } }),
+  act('environment', { patch: { ...timeOfDay(MORNING), sky: 'day', weather: 'fog', weatherStrength: 1, moonlight: 0.6, snowCover: 0 } }),
   wait(1),
 ]);
 
