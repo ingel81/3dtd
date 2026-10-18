@@ -188,26 +188,32 @@ Ergebnis landet an vier Stellen:
 
 ## Zerstörbarkeit (E131)
 
-Eine Karte sagt es selbst: `gameplay.destructible: true` (im Editor unter Rules, „World“). Der frühere Link-Schalter
-`?destructible` ist entfallen. Mitgeliefert zerstörbar: die Endzeit-Stadt (`ruined-city`).
+Eine Karte sagt es selbst: `gameplay.destructible: true` (im Editor unter Rules, „Destruction“), dazu `craters`
+(Standard wie `destructible`), `wear` (Verschleiß durch vorbeilaufende Gegner, Standard aus) und `structureHp`
+(50 bis 300 %); je Objekt `destructible: false` und der Vorschaden `damage` (1 bis 3). Der frühere Link-Schalter
+`?destructible` ist entfallen. Mitgeliefert zerstörbar: die Endzeit-Stadt (`ruined-city`); OSM-Welten sind es, wenn der
+Rahmen es nicht abschaltet. Plan, Modell und Entscheide: [DESTRUCTION_PLAN.md](DESTRUCTION_PLAN.md).
 
-- **Bauwerke:** die Objekte, deren Katalogeintrag `building`, `wall` oder `structure` ist (`CustomMapDestruction`);
-  HP nach dem Volumen als Zylinder aus Grundradius und Höhe, 60 bis 3000. Die Welt lädt den Katalog vor dem Senden an
-  die Simulation (`attach` wartet darauf).
-- **In der Simulation:** Die Bauwerke reisen in den Lauf-Regeln (`RunRules.structures`, `asRunStructures`) und damit
-  im Weltschlüssel (`runRulesKey`, ein Digest aus Id, Ort, Radius, HP); ein Koop-Gast baut dieselbe Liste aus derselben
-  Karte. `StructureLedger` (managers/game-state) hält die HP: jeder `vfx:projectile-impact` der Simulation nimmt jedem
-  stehenden Bauwerk in 4 m plus seinem Radius 20 HP, bei 0 fällt es. Snapshot (`SimSnapshot.structures`) und
-  Zustands-Hash (Teil `health`, `STATE_HASH_VERSION` 6) tragen die HP; ein neuer Lauf stellt alle auf.
-- **Zum Hauptthread:** Op `structures.setFallen(ids)` mit der ganzen Menge der gefallenen (auch nach Restore und
-  Replay-Sprung, `resyncPresentation`), dazu im Moment des Falls der flüchtige Op `main.structureFell` (Explosion in
-  der Größe, im stummen Replay-Sprung weggelassen). `WorldDamagePresenter` reicht die Menge an
-  `WorldDestruction.setFallen`: Neues fällt (schrumpft auf `FALLEN_SCALE`, blockiert das Bauen nicht mehr), was nicht
-  mehr in der Menge ist, steht wieder.
-- **Sichtlinien:** Tower, deren Reichweite plus Bauwerksradius den Fall erreicht, fragen ihre Sicht neu an
-  (`TowerLos.recompute`, Grund `world`; ein Tower, der noch auf seine erste wartet, bleibt bei `place`).
+- **Bauwerke:** die Objekte, deren Katalogeintrag `building`, `wall` oder `structure` ist, ohne die Objekte der
+  Wellen-Ereignisse (`CustomMapDestruction`); HP nach dem Volumen als Zylinder aus Grundradius und Höhe, 60 bis 3000,
+  mal `structureHp`. Die Welt lädt den Katalog vor dem Senden an die Simulation (`attach` wartet darauf).
+- **In der Simulation:** Die Bauwerke reisen in den Lauf-Regeln (`RunRules.structures` mit Grundriss, Dach und
+  Start-HP, `RunRules.destruction` mit Kratern und Verschleiß) und damit im Weltschlüssel; ein Koop-Gast baut dieselbe
+  Liste aus derselben Karte. `WorldDamage` (managers/game-state) hält die HP (`StructureLedger`, Stufen aus den HP), die
+  Krater (`CraterLedger`) und das Stempelraster, auf dem die Gegner stehen und auf Schutt langsamer laufen. Snapshot und
+  Zustands-Hash (Teil `health`) tragen HP und Krater; ein neuer Lauf stellt alles auf den Start der Karte.
+- **Zum Hauptthread:** Ops `structures.setStages` (ein Byte je Bauwerk, nach Laden, Neustart, Restore, Sprung),
+  `structures.stage` je Stufenwechsel, `craters.setAll` und `craters.dig`, dazu im Moment des Falls der flüchtige Op
+  `main.structureFell` (Explosion in der Größe). `WorldDamagePresenter` reicht die Stufen an
+  `WorldDestruction.setStages`/`setStage`: was fällt, schrumpft auf `FALLEN_SCALE` und blockiert das Bauen nicht mehr,
+  was wieder steht, kommt zurück. Dasselbe Stempelraster bekommt das Routenraster für die Sichtproben.
+- **Sichtlinien:** Tower, deren Reichweite plus Bauwerksradius einen Fall oder einen neuen Krater unter den Routen
+  erreicht, fragen ihre Sicht neu an (`TowerLos.recompute`, Grund `world`; ein Tower, der noch auf seine erste wartet,
+  bleibt bei `place`).
+- **Bauen auf Dächern:** auch zerstörbare Gebäude tragen Tower; solange einer oben steht, nimmt das Gebäude keinen
+  Schaden.
 - **Debug:** In der Entwicklung trifft `__worldDamage.hit(lat, lon, reach, amount)` über die Simulation
-  (`debug:hit-structures`, im Koop ein Cheat); `structures()` zeigt die HP (gefallen 0, stehend die volle).
+  (`debug:hit-structures`, im Koop ein Cheat); `structures()` zeigt die Stufen.
 
 ## Ereignisse je Welle (E170)
 
@@ -437,7 +443,7 @@ das gelbe Straßen-Overlay ist eine Debug-Ebene und standardmäßig aus, es ents
 ## Fähigkeiten
 
 Kein echter Ort (keine Ortssuche, kein Speichern über den Ort, kein Globus), keine Zugangsdaten, kein
-ECEF, kein Streaming, nicht neu würfelbar, zerstörbar nur mit `?destructible`, `controls: 'environment'`.
+ECEF, kein Streaming, nicht neu würfelbar, zerstörbar, wenn die Karte es sagt (`gameplay.destructible`), `controls: 'environment'`.
 Unter der Karte stehen ihr Name und Autor und „Assets: CC0, see licences“; der OSM-Hinweis erscheint nur
 auf echten Orten.
 
@@ -461,7 +467,7 @@ der eigenen Kopie, Öffnen einer gespeicherten, fehlenden und geänderten Karte;
 `world-choice.service.spec.ts`, `worlds/worlds-stage.scenario.spec.ts`.
 
 E2E ohne Kartensitzung (`e2e/tests/custom-map.e2e.ts`): Demo-Tal per Link mit Tower und Welle, Kartenprobe
-des Bots, „Test map“ aus dem Editor, Spielstand speichern und laden, Replay einer Welle, ein Bauwerk von
-`?destructible` fällt per Debug-Treffer und steht nach „Restart here“ wieder, Koop auf einer eigenen
+des Bots, „Test map“ aus dem Editor, Spielstand speichern und laden, Replay einer Welle, ein Bauwerk der
+Endzeit-Stadt fällt per Debug-Treffer und steht nach „Restart here“ wieder, Koop auf einer eigenen
 Kopie des Demo-Tals mit einem Gast ohne sie (Kartenversand, eine Welle, kein DESYNC). Im Browser (Dev-Server, die importierte Testkarte in IndexedDB): Karte lädt in 12 bis 18 s (Dev-Server),
 8 Portale, Wellen laufen die Wege zum HQ, gebaute Tower schießen.

@@ -1,6 +1,7 @@
 # Zerstörung in eigenen Welten (Plan)
 
-**Status:** Konzept, 2026-10-18. Nichts davon ist gebaut außer dem, was „Was es schon gibt“ nennt. Baut auf
+**Status:** Z1 (Unterbau Simulation) gebaut 2026-10-19 auf `wt/r8-destroy`, dazu aus Z5 die Regeln, der OSM-Schalter
+und der Vorschaden im Format; Z2 bis Z6 offen (Darstellung, Schutt- und Kraterbild, Editor-Werkzeuge). Baut auf
 [CUSTOM_MAP_WORLD.md](CUSTOM_MAP_WORLD.md) (Zerstörbarkeit E131), [OSM_WORLD_PLAN.md](OSM_WORLD_PLAN.md),
 [LEVEL_EDITOR.md](LEVEL_EDITOR.md), [SIM_WORKER.md](SIM_WORKER.md), [SIMULATOR_PLAN.md](SIMULATOR_PLAN.md) und
 [LOS_PIPELINE.md](LOS_PIPELINE.md) auf.
@@ -26,25 +27,26 @@ Leitlinien (Marschroute): extrem performant, architektonisch sauber und erweiter
   Höhenraster, Animation läuft im Shader.
 - Gespielt wird auf Wegen, die feststehen: Zerstörung ändert keine Route.
 
-## Was es schon gibt (E131)
+## Was gebaut ist (E131, Z1)
 
-- `gameplay.destructible` an der Karte (Editor: Rules, „World“); mitgeliefert zerstörbar: `ruined-city`.
-- Bauwerke sind Objekte der Katalogkategorien `building`, `wall`, `structure`
-  (`world/custom-map/custom-map-destruction.ts:6`), HP aus dem Zylindervolumen, 60 bis 3000.
-- Simulation: `StructureLedger` (`managers/game-state/structure-ledger.ts`), jede Projektil-Einschlagstelle nimmt jedem
-  stehenden Bauwerk in 4 m plus Radius 20 HP; HP in Snapshot und Zustands-Hash (`STATE_HASH_VERSION` 6), Bauwerke im
-  Weltschlüssel (`RunRules.structures`).
-- Ops: `structures.setFallen(ids)` (ganze Menge) und `main.structureFell` (Moment, Explosion).
-- Darstellung: ein gefallenes Objekt schrumpft auf `FALLEN_SCALE` (1e-3) und verschwindet
-  (`custom-map-world.ts:703` bis `:732`), dazu eine Explosion in seiner Größe (`presentation/world-damage-presenter.ts:50`).
-  Es bleibt nichts liegen.
-- Sichtlinien: Tower in Reichweite plus Radius fragen ihre Sicht neu an (`GameStateManager.seeAroundFall`).
-- Bauen: ein gefallenes Objekt sperrt nicht mehr; Dächer zerstörbarer Gebäude tragen nie Tower
-  (`passingObjectIds`, `custom-map-destruction.ts:21`).
+- **Karte:** `gameplay.destructible` (Editor: Rules, „Destruction“), dazu `craters` (Standard wie `destructible`),
+  `wear` (Standard aus) und `structureHp` (50 bis 300 %); je Objekt `destructible: false` (steht immer),
+  `damage: 1 | 2 | 3` (Vorschaden, Startstufe) und `damageSeed` (würfelt das Bild, erst ab Z2 gelesen). Mitgeliefert
+  zerstörbar: `ruined-city`. OSM-Welten sind zerstörbar, außer der Rahmen sagt nein („Buildings take damage and fall“).
+- **Bauwerke:** Objekte der Katalogkategorien `building`, `wall`, `structure` (`custom-map-destruction.ts`), ohne die
+  Objekte von Wellen-Ereignissen; HP aus dem Zylindervolumen (60 bis 3000) mal `structureHp`. In den Laufregeln
+  (`RunStructure`) mit Grundriss (`box`: Mitte, halbe Breite und Tiefe, Drehung, auf cm und 1e-4 rad gerundet), Dach
+  (`roof`) und Start-HP (`start`), alles im Weltschlüssel.
+- **Simulation:** `WorldDamage` (`managers/game-state/world-damage.ts`) hält `StructureLedger` v2, `CraterLedger` und
+  das Stempelraster (`utils/stamp-field.ts`), siehe „Modell“.
+- **Hauptthread:** `WorldDamagePresenter` reicht die Stufen an `WorldDestruction.setStages`/`setStage` (ein gefallenes
+  Objekt schrumpft noch auf `FALLEN_SCALE`, bis Z2 die Ruine zeigt), führt dasselbe Stempelraster und gibt es dem
+  Routenraster für die Sichtproben (`GlobalRouteGrid.setStampField`).
+- **Bauen:** ein gefallenes Objekt sperrt nicht mehr; Dächer zerstörbarer Gebäude tragen wieder Tower
+  (`passingObjectIds` nur noch für Wellen-Ereignisse), solange einer oben steht, nimmt das Gebäude keinen Schaden.
 
-Lücken: keine Schadensstufen, keine Ruine, kein Schutt, kein Gelände, Fähigkeiten beschädigen nichts, alle Projektile
-gleich (ein Pfeil wie eine Rakete), Tower ohne Projektil (Strahl, Kette, Laser, Säge, Strom) gar nicht, OSM-Welten
-sind nie zerstörbar (die Umwandlung setzt das Feld nicht).
+Offen: Darstellung der Stufen, Ruinen, Schutt und Krater (Z2 bis Z4), Tower ohne Projektil (Strahl, Kette, Laser,
+Säge, Strom) beschädigen nichts, Werkzeuge im Editor (Z5).
 
 ## Messungen (2026-10-18)
 
@@ -108,46 +110,71 @@ sind bekannt, nichts muss aus Pixeln gemessen werden.
 
 Drei Schichten, jede mit einer Aufgabe.
 
-### 1. Simulation (Worker): was zerstört ist
+### 1. Simulation (Worker): was zerstört ist (gebaut, Z1)
 
-**`StructureLedger` v2**
+Alles in `WorldDamage` (`managers/game-state/world-damage.ts`), das der `GameStateManager` als `worldDamage` hält.
+Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte stehen in
+`configs/destruction.config.ts` und an den Projektiltypen.
 
-- **Stufen aus HP, kein neuer Zustand:** Stufe 0 intakt (über 75 %), 1 angeschlagen (75 bis 40 %), 2 schwer (unter
-  40 %), 3 gefallen (0). Die Stufe ist eine Funktion der HP; Snapshot und Hash tragen wie heute nur die HP.
-- **Schadensquellen** (Vorschlag, Zahlen per Rechnung in `tools/balance-calc`, nicht per Bot):
-  - Projektil: neues Feld `structureDamage` am Projektiltyp (Pfeil, Bolzen, Kugel 0 oder 1; Kanonenkugel, Rakete
-    hoch), Reichweite `splashRadius` plus Bauwerksradius. Heute: jedes Projektil 20 HP in 4 m.
-  - Fähigkeiten: Atomschlag nimmt allem in `radiusM` (25 m) genug, dass es fällt; Orbitallaser je Sekunde auf dem Strahl;
-    Frost und EMP nichts.
-  - Verschleiß an den Routen (wie im Prototyp, aber in der Simulation): jeder Gegner in 6 m eines Bauwerks nimmt je
-    Sekunde Spielzeit `wearDps`, Bosse mehr. Vorab je Bauwerk die Routenzellen in Reichweite (beim Laden), je Durchgang
-    nur die Gegner auf diesen Zellen, alle 250 ms Spielzeit.
-- **Raster statt Liste:** `hit` läuft heute über alle Bauwerke (`structure-ledger.ts:81`). Bei 8 000 OSM-Gebäuden und
-  Hunderten Einschlägen je Sekunde ist das unnötig; ein Raster aus 16-m-Feldern (wie `buildBlocker`) macht es O(Treffer).
-- **Ops als Delta:** heute schickt jeder Fall die ganze Menge der Gefallenen als Strings (`structure-ledger.ts:115`), über
-  einen Lauf mit Tausenden Fällen wächst das quadratisch. Neu: `structures.setDamage(stufen)` als `Uint8Array` in der
-  Reihenfolge der Laufregeln, nur nach Restore, Sprung und Neustart; dazwischen `structures.stage(index, stufe)` je
-  Stufenwechsel.
-- **Schaden als Logik, nicht als VFX:** die Simulation hängt den Schaden heute an `vfx:projectile-impact`
-  (`game-state.manager.ts:876`), ein aufgeschobenes Darstellungsereignis. Neu: der `ProjectileManager` meldet den
-  Einschlag als Logikereignis (oder ruft den Ledger direkt); die Darstellung bleibt davon frei.
+**`StructureLedger` v2** (`managers/game-state/structure-ledger.ts`)
 
-**`CraterLedger`** (neu, `managers/game-state/crater-ledger.ts`)
+- **Stufen aus HP, kein neuer Zustand:** Stufe 0 intakt (über 75 %), 1 angeschlagen (bis 40 %), 2 schwer (unter
+  40 %), 3 gefallen (0), `structureStage` mit ganzen Zahlen. Snapshot und Hash tragen nur die HP.
+- **Typisierte Felder und Raster:** Ort, Radius, HP, Stufe je Bauwerk in Typed Arrays, dazu ein Raster aus 16-m-Feldern
+  (CSR, jedes Bauwerk in den Feldern, die sein Kreis deckt). Ein Treffer prüft die Bauwerke der Felder in seiner
+  Reichweite und wendet den Schaden in Reihenfolge der Laufregeln an (sortiert), damit Fälle und Sichtanfragen auf
+  jedem Client in derselben Reihenfolge kommen. Spec: 200 Abfragen auf 2 001 Bauwerken gleich dem vollen Durchlauf.
+- **Schadensquellen:**
+  - Projektil: `structureDamage` am Typ (Pfeil 0, Bolzen, Kugel, Gift, Heldenkugel 1, Eis 2, Magie 3, Rune 4,
+    Chaos 6, Flak 10, Heldengranate 25, Kanone 30, Rakete 45), Reichweite `splashRadius` plus 1 m plus Bauwerksradius.
+    Ein Treffer in der Luft (Ziel ist ein Luftgegner) beschädigt nichts und gräbt nichts.
+  - Fähigkeiten über `AbilityWorld.damageWorld(id, at, fromMs, toMs)`: der Atomschlag fällt alles in 25 m plus
+    Bauwerksradius und gräbt 25 m und 4 m tief; der Orbitallaser nimmt 150 HP je Sekunde in 5 m um seinen Fußpunkt, je
+    Teilschritt die ganzen HP zwischen den Zeiten (`floor(150 · bis) - floor(150 · von)`), über den Strahl genau so viel wie
+    am Stück; Frost und EMP nichts.
+  - Verschleiß (`gameplay.wear`): jede Sekunde Spielzeit nimmt jeder Gegner am Boden jedem Bauwerk in 6 m plus Radius
+    1 HP, ein Boss 10. Je Durchgang eine Rasterabfrage je Gegner.
+  - Debug: `debug:hit-structures` (im Koop ein Cheat).
+- **Dach mit Tower:** ein Bauwerk mit `roof` nimmt keinen Schaden, solange ein Tower in seinem Grundriss steht (ein
+  Tower am Boden kann dort nicht stehen, der Grundriss sperrt). Geprüft erst, wenn ein Treffer es erreicht.
+- **Ops:** `structures.setStages(Uint8Array)` nach Laden, Neustart, Restore und Sprung (ein Byte je Bauwerk);
+  `structures.stage(index, stufe)` je Stufenwechsel (höchstens drei je Bauwerk und Lauf); `main.structureFell` im
+  Moment des Falls (flüchtig).
+- **Schaden als Logik:** der `ProjectileManager` ruft beim Einschlag seinen Listener (`WorldDamage.impact`), im selben
+  Teilschritt; `vfx:projectile-impact` bleibt reine Darstellung.
+
+**`CraterLedger`** (`managers/game-state/crater-ledger.ts`)
 
 - Ein Krater ist vier ganze Zahlen: Mitte in Dezimetern (x, y der Karte), Radius in Dezimetern, Tiefe in Zentimetern.
-- Quellen: Projektile mit `craterRadius` am Typ (Kanonenkugel, Rakete, Flak: 1,5 bis 3 m), Atomschlag (25 m, 4 m),
-  Bossaufschlag später.
-- **Zusammenlegen:** ein Einschlag in 2 m eines Kraters vertieft ihn (bis zur Höchsttiefe seines Radius) statt einen
-  neuen anzulegen. So wächst die Liste mit den Orten, nicht mit den Treffern; Deckel 256 je Lauf, danach nur noch
-  Brandflecken (Decal, ohne Zustand).
-- **Tower schützen:** die Simulation kennt die Tower; liegt einer in Radius plus 3 m, wird die Tiefe gedämpft. Die
-  fertige Tiefe steht im Eintrag, der Hauptthread rechnet nichts nach.
-- Snapshot `craters?: number[]` (flach, vier je Krater), Hash-Teil nur, wenn die Liste Einträge hat.
-- Ops: `terrain.setCraters(liste)` (ganz, nach Restore und Sprung), `terrain.crater(eintrag)` je neuem oder vertieftem.
+- Quellen: Kanonenkugel und Heldengranate (1,5 m), Rakete (2,5 m), Atomschlag (25 m, 4 m); ein Treffer gräbt 14 cm je
+  Meter Radius, höchstens 40 cm je Meter.
+- **Zusammenlegen:** ein Einschlag in 2 m eines Kraters vertieft ihn und weitet ihn auf den größeren Radius, bis zur
+  Höchsttiefe; Deckel 256 je Lauf, danach nur noch Brandflecken ohne Zustand.
+- **Tower:** keine Dämpfung in der Simulation. Das Stempelraster der Simulation liegt nur über den Routenzellen, und
+  dort steht nie ein Tower; den Fuß eines Towers neben einem Krater hält das Geländebild (Z4) aus der Mulde heraus.
+- Snapshot `craters?: number[]` (nur mit Einträgen), Hash im Teil `health` nur mit Einträgen.
+- Ops: `craters.setAll(Int32Array)` (ganz, nach Laden, Neustart, Restore, Sprung), `craters.dig(index, x, y, r, t)`
+  je neuem oder vertieftem Krater.
 
-**Spielregeln** (siehe „Auswirkungen aufs Spiel“, Entscheid 1): Krater und Schutt ändern keine Route, aber die Höhe
-der Gegner und auf Schutt ihr Tempo. Die Simulation hält dafür ein Stempelraster über den Routenzellen (siehe
-„Stempelraster“); die Zellhöhen vom Korridor-Bau bleiben, der Stempel kommt darauf.
+**Stempelraster** (`utils/stamp-field.ts`, Form in `map-ops/impact-stamp.ts`, Entscheid 1)
+
+- Je Routenzelle (2 m, dieselben Indizes wie `GlobalRouteGrid`) die Summe aller Stempel in ganzen Zentimetern: Krater
+  (Mulde `(1 - s)² (1 + 2s)` über `s = d² / r²`, Wall von 16 % der Tiefe knapp hinter dem Rand) und Schutthaufen
+  gefallener Bauwerke (über dem Grundriss: 60 % davon in voller Höhe, auslaufend über 40 % der kürzeren halben Seite
+  plus 2 m; ohne Grundriss über dem Kreis mal 1,35; Höhe 30 % des Bauwerks, 40 bis 350 cm). Nur `+ - * /`, kein
+  `sqrt`: jede Engine stempelt dieselben Bits.
+- Summen statt Zustand: ein Stempel hinein und wieder heraus lässt die Zellen, wie sie waren, die Reihenfolge zählt
+  nicht. Restore und Sprung bauen das Raster aus Stufen und Kraterliste neu und kommen auf dieselben Zellen.
+- **Gegner:** die Höhe jedes Gegners (auch in der Luft) ist Zellhöhe plus Stempel, mit der vorhandenen Glättung (8 m/s);
+  ein Gegner am Boden auf Schutt ab 30 cm läuft mit 85 % seines Tempos, gelesen an seinem Ort vor dem Schritt (nach
+  einem Restore gleich wie im Lauf). Kosten je Gegner und Teilschritt: nichts, solange kein Stempel liegt (Raster
+  `null`), sonst ein Nachschlag für die Höhe und für Läufer ein zweiter für die Bremse.
+- **Sichtlinien:** der Hauptthread führt dasselbe Raster aus denselben Ops (`WorldDamagePresenter`) und gibt es dem
+  Routenraster: die Sichtproben der Tower stehen 1,5 m über Zellhöhe plus Stempel, wo die Gegner stehen. Ein neuer
+  Krater unter den Routen und ein Fall lassen die Tower in Reichweite ihre Sicht neu anfragen; ein vertiefter Krater
+  (wenige Zentimeter) nicht.
+- Speicher: drei `Int32Array` über dem Rechteck der Routenzellen, angelegt mit dem ersten Stempel; bei 512 m Kante
+  höchstens 256 x 256 Zellen, 786 KB.
 
 ### 2. Hauptthread: wie es aussieht
 
@@ -187,9 +214,10 @@ der Gegner und auf Schutt ihr Tempo. Die Simulation hält dafür ein Stempelrast
 
 **Gelände**
 
-- **Eine Stempelfunktion** (`map-ops/terrain/impact-stamp.ts`, ohne three und Angular): Mulde `(1 - q)^2` mit Wall bei
-  0,85 des Radius, Halt der Straßen wie beim Geländepinsel (die Straße bleibt, wo sie ist; auf ihr nur ein Brandfleck),
-  dazu ein Splat-Abdruck (verbrannte Erde, Gras weg). Editor und Spiel benutzen sie gleich.
+- **Eine Stempelfunktion** (`map-ops/impact-stamp.ts`, gebaut, ohne three und Angular): Mulde und Schutthaufen in ganzen
+  Zentimetern aus dem Abstandsquadrat (siehe „Stempelraster“), dazu ein Splat-Abdruck (verbrannte Erde, Gras weg). Krater
+  und Schutt liegen auch auf der Straße (Entscheid 1); das Bild muss dort dieselben Zentimeter zeigen wie das Raster der
+  Simulation, daneben darf es feiner sein (der Fuß eines Towers bleibt aus der Mulde). Editor und Spiel benutzen sie gleich.
 - **Grundraster behalten:** beim Laden eine Kopie der Höhen (264 KB bei 512 m und 2 m, 1 MB bei 1024 m). Ein Krater
   schreibt in das Raster; ein Wiederherstellen setzt die Kopie zurück und stempelt die Liste neu.
 - **Gebündelt aufbauen:** gemessen kostet `updateHeights(rect)` 1 bis 3 ms, ganz 118 bis 174 ms. Ein Kraterbuch auf dem
@@ -200,9 +228,10 @@ der Gegner und auf Schutt ihr Tempo. Die Simulation hält dafür ein Stempelrast
 
 ### 3. Editor
 
-- **Rules, „Destruction“:** `destructible` (gibt es), dazu `wear` (Verschleiß an den Routen), `craters`, `hpScale`
-  (50 bis 300 %).
-- **Je Objekt:** `destructible?: boolean` (ein Rathaus, das nie fällt), `damage?: 0..3` als Vorschaden mit Saat: eine
+- **Rules, „Destruction“** (gebaut): `destructible`, `craters` (Standard wie `destructible`), `wear` (Verschleiß an
+  den Routen), `structureHp` (50 bis 300 %); dazu im Kartenskript dieselben Schlüssel.
+- **Je Objekt** (im Format gebaut, im Editor offen): `destructible?: boolean` (ein Rathaus, das nie fällt), `damage?: 1..3`
+  als Vorschaden mit `damageSeed`: eine
   Endzeit-Stadt aus intakten Modellen, deren Ruinen dieselbe Optik haben wie im Spiel. Ruined City würde damit echte
   Ruinen statt Ruinen-Modellen tragen können.
 - **Werkzeug „Treffer“:** ein Klick im Viewport trifft mit wählbarer Stärke (Projektil, Rakete, Atomschlag) und zeigt
@@ -210,13 +239,14 @@ der Gegner und auf Schutt ihr Tempo. Die Simulation hält dafür ein Stempelrast
   das Dokument.
 - **Geländepinsel „Einschlag“:** setzt Krater mit derselben Stempelfunktion ins Dokument (bleibender Krater der Karte,
   kein Laufzustand).
-- **Prüfung:** warnt bei zerstörbaren Gebäuden, die eine Route verdecken würden, wenn ihr Schutt liegen bliebe
-  (Haufen reicht nie auf die Straße, siehe unten), und bei Karten mit mehr als 4 000 zerstörbaren Bauwerken.
+- **Prüfung:** warnt bei Karten mit mehr als 4 000 zerstörbaren Bauwerken. Schutt auf der Straße ist erlaubt
+  (Entscheid 1), er bremst nur.
 
 ### OSM-Welten
 
-- Die Umwandlung setzt `gameplay.destructible` nach einem Schalter im Rahmen (Vorschlag: an), Material aus
-  `building:material` und der Art (`brick`, `concrete`, `plaster`, Holz für Scheune und Schuppen).
+- Die Umwandlung setzt `gameplay.destructible` nach dem Schalter im Rahmen (gebaut, Standard an,
+  `OsmImportOptions.destructible`); offen: Material aus `building:material` und der Art (`brick`, `concrete`,
+  `plaster`, Holz für Scheune und Schuppen).
 - Bis 8 000 Gebäude: deshalb Raster, Delta-Ops und `Uint8Array` oben. Die Stufen machen OSM-Städte glaubwürdiger als
   Ruinen-Modelle, die es für moderne Häuser nicht gibt.
 
@@ -235,25 +265,30 @@ der Gegner und auf Schutt ihr Tempo. Die Simulation hält dafür ein Stempelrast
 
 ## Determinismus, Coop, Replay, Spielstand
 
-- **Zustand:** HP (gibt es) und Kraterliste, beide ganze Zahlen, beide im Snapshot und im Hash. Stufen, Ruinen, Schutt
-  und Effekte sind Funktionen davon.
-- **Prüfsummen:** `STATE_HASH_VERSION` 7 mit Teil `craters`, nur wenn die Liste Einträge hat; Karten ohne Zerstörung,
-  Tiles und DevWorld behalten Hash und Schlüssel (Regel wie bei den Wellen-Ereignissen). Neue Laufregeln (`wear`,
-  `craters`, `hpScale`, Schadenswerte) gehen in den Weltschlüssel.
-- **Rechnen:** die Simulation rechnet mit `+ - * /` und Ganzzahlen (Treffer: Abstandsquadrate gegen Radiusquadrate),
-  kein `Math.sin` oder `Math.exp`, die zwischen Browsern abweichen dürfen. Die Stempelform rechnet nur der Hauptthread,
-  dort ist eine Abweichung unsichtbar.
-- **Replay-Sprung und Restore:** ganze Menge an Stufen und Kratern, stumme Wiederherstellung ohne Effekte (wie
-  `main.structureFell`, das im Sprung wegfällt), Gelände aus Kopie plus Liste.
-- **Coop:** der Gast baut die Bauwerke aus derselben Karte (gibt es), die Krater kommen aus seiner eigenen Simulation im
+- **Zustand:** HP und Kraterliste, beide ganze Zahlen, beide im Snapshot und im Hash. Stufen, Stempelraster, Ruinen,
+  Schutt und Effekte sind Funktionen davon.
+- **Prüfsummen:** keine neue `STATE_HASH_VERSION`. Der Teil `health` liest die HP wie seit Version 6 und die Krater nur,
+  wenn es welche gibt: Karten ohne Zerstörung, Tiles und DevWorld behalten Hash und Weltschlüssel (geprüft: dieselbe
+  Folge von Prüfsummen über eine Welle vor und nach dem Umbau, mit und ohne eigene Laufregeln). Eine Welt mit Zerstörung
+  bekommt einen neuen Weltschlüssel (`d=` mit Kratern, Verschleiß und einem Digest aller Schadenswerte,
+  `destructionKeyParts`, dazu Start-HP, Grundriss und Dach je Bauwerk); ein Replay oder Spielstand von vorher dort wird
+  als andere Welt abgelehnt, statt falsch geprüft. Die Schadenswerte gehen nicht in den Balance-Hash.
+- **Rechnen:** `+ - * /` und Ganzzahlen, Drehungen über `DetMath`; die Stempelform ebenso, so rechnen Simulation und
+  Hauptthread dasselbe Raster. Spec: ein Koop-Gast mit absichtlich verfälschten `Math.sin`, `cos` und Co. bleibt über
+  eine Welle mit Kanonen, Raketen, Atomschlag, Verschleiß und Schutt Bit für Bit gleich.
+- **Replay-Sprung und Restore:** ganze Menge an Stufen und Kratern, Raster neu aus Stufen und Liste, stumm (ohne
+  `main.structureFell`). Spec: eine Welle auf einer zerstörbaren Welt läuft im Replay ohne Abweichung, ein Sprung in
+  ihre Mitte trifft die Prüfsumme des Laufs an dieser Stelle.
+- **Coop:** der Gast baut die Bauwerke aus derselben Karte, die Krater kommen aus seiner eigenen Simulation im
   Lockstep. Sichtlinien laufen über `command:los-mask` im Befehlslog, die GPU des Gasts entscheidet nichts.
-- **Spielstand:** Snapshot-Felder; ein alter Spielstand ohne `craters` lädt ohne Krater.
+- **Spielstand:** Snapshot-Felder; ein alter Spielstand ohne `craters` lädt ohne Krater. Spec: ein Spielstand als Text
+  in eine frische Simulation gibt dieselbe Prüfsumme, dieselben Krater und HP.
 
 ## Performance-Budget
 
 | Posten | Budget | Heute gemessen |
 |---|---|---|
-| Ledger je Tick (8 000 Bauwerke, 500 Einschläge je s) | unter 0,05 ms | Liste, O(Bauwerke) je Einschlag |
+| Ledger je Tick (8 000 Bauwerke, 500 Einschläge je s) | unter 0,05 ms | seit Z1 Raster aus 16-m-Feldern, Zeit noch nicht gemessen (vorher O(Bauwerke) je Einschlag) |
 | Fall auf dem Hauptthread, synchron | unter 1 ms, Rest über Bilder verteilt | 0,1 bis 4,5 ms (`objectsChanged`) |
 | Krater je Bild | höchstens ein Kachelaufbau, unter 1,5 ms | 1 bis 3 ms je `updateHeights(rect)` |
 | Wiederherstellen von 256 Kratern | unter 30 ms, verteilt | ganzer Neuaufbau 118 bis 174 ms |
@@ -265,16 +300,34 @@ der Gegner und auf Schutt ihr Tempo. Die Simulation hält dafür ein Stempelrast
 Messen mit einem `e2e/perf`-Läufer: Fall, Kraterserie, Atomschlag auf Ruined City und einer großen OSM-Stadt, Bildzeit
 samt GPU wie in `hitch-probe.ts`; Budgets in `npm run test:perf` für Ledger und Stempel.
 
+## Strukturkosten (Z1, gezählt, nicht gemessen)
+
+| Posten | Kosten |
+|---|---|
+| Treffer eines Projektils | eine Rasterabfrage über die 16-m-Felder in Reichweite (Rakete: Splash 5 m plus 1 m, 1 bis 4 Felder), Abstandsquadrat je Bauwerk darin; Dach-Prüfung nur für ein getroffenes Bauwerk mit `roof`, O(Tower) |
+| Ops je Treffer | keiner, solange keine Stufe wechselt; je Stufenwechsel `structures.stage` (2 Zahlen), höchstens 3 je Bauwerk und Lauf; je Krater-Treffer `craters.dig` (5 Zahlen), bis der Krater seine Höchsttiefe hat |
+| Ganze Menge | `structures.setStages` ein Byte je Bauwerk (7 928 Gebäude einer OSM-Stadt: 7,9 KB), nur nach Laden, Neustart, Restore, Sprung; vorher bei jedem Fall alle gefallenen Ids als Strings |
+| Gegner je Teilschritt | ohne Stempel nichts (Raster `null`); mit: ein Nachschlag für die Höhe, für Läufer am Boden ein Umrechnen nach lokal und ein zweiter für die Bremse |
+| Verschleiß | einmal je Sekunde Spielzeit eine Rasterabfrage je Gegner am Boden, nur mit `wear` |
+| Snapshot | die HP (wie bisher), `craters` vier Zahlen je Krater, höchstens 1 024 Zahlen |
+| Speicher | Raster drei `Int32Array` über dem Rechteck der Routenzellen, angelegt mit dem ersten Stempel (512 m: höchstens 786 KB) |
+
+Zeitmessungen stehen aus (Rechner unter Last), vorgemerkt in den Messnotizen.
+
+**Balance der Bremse** (`tools/balance-calc`, Szenario `rubble`, Abwehr des menschlichen Laufs vom 2026-10-01): mit
+85 % Tempo auf 0 bis 30 % der Meter unter Feuer (im Mittel 95 bis 100 % Tempo) liegt das HQ nach W60 zwischen 47 und
+65 (ohne Schutt 58), kein Tod vor W60; der Druck-Regler gleicht die längere Zeit unter Feuer aus. Kein Rückfall nötig.
+
 ## Phasen
 
 | Phase | Inhalt | Ergebnis |
 |---|---|---|
-| Z1 Unterbau | Ledger v2 (Raster, Stufen, Delta-Ops, Logikereignis statt VFX), Schadenswerte je Projektiltyp, Atomschlag, Hash 7 vorbereitet | Specs, gleiche Hashes ohne Zerstörung |
-| Z2 Gebäude | `aDamage`, Stufen 1 und 2 im Shader, Ruinen-Pool, Fall, Decken, Rissatlas, vorab übersetzen | Vorher/Nachher-Bilder Ruined City und OSM-Stadt |
-| Z3 Schutt und Effekte | Schutthaufen als Stempel, Brocken, fliegende Brocken, Staub, Glut, Ton | Clip eines Falls je Materialklasse |
-| Z4 Gelände | `CraterLedger`, Stempelfunktion, Kraterbuch mit Kachelaufbau, Brandflecken, Snapshot | Clip Raketenserie und Atomschlag, Sprung im Replay |
-| Z5 Editor und OSM | Rules „Destruction“, Vorschaden je Objekt, Treffer-Werkzeug, Einschlag-Pinsel, OSM-Schalter und Material | Ruined City mit Vorschaden, eine OSM-Stadt zerstörbar |
-| Z6 Verschleiß | Gegner an den Routen, Bosse | Rechnung in `tools/balance-calc`, Playtest |
+| Z1 Unterbau (gebaut) | Ledger v2 (Raster, Stufen, Delta-Ops, Logik statt VFX), Schadenswerte je Projektiltyp, Fähigkeiten, `CraterLedger`, Stempelfunktion und -raster mit Höhe und Bremse der Gegner, Verschleiß in der Simulation; aus Z5 Regeln, OSM-Schalter, Vorschaden im Format | Specs, gleiche Prüfsummen ohne Zerstörung, Koop, Replay, Sprung, Spielstand |
+| Z2 Gebäude | `aDamage`, Stufen 1 und 2 im Shader, Ruinen-Pool, Fall, Decken und Innenwände, Rissatlas, vorab übersetzen | Vorher/Nachher-Bilder Ruined City und OSM-Stadt |
+| Z3 Schutt und Effekte | Schutthaufen ins Höhenraster (dieselbe Stempelfunktion), Brocken, fliegende Brocken, Staub, Glut, Ton | Clip eines Falls je Materialklasse |
+| Z4 Gelände | Kraterbuch mit Kachelaufbau, Grundraster, Brandflecken, Tower-Fuß aus der Mulde | Clip Raketenserie und Atomschlag, Sprung im Replay |
+| Z5 Editor | Vorschaden je Objekt im Editor, Treffer-Werkzeug, Einschlag-Pinsel, Materialklassen | Ruined City mit Vorschaden |
+| Z6 Verschleiß | Werte nachstellen, Playtest (die Simulation ist gebaut) | Rechnung in `tools/balance-calc`, Playtest |
 
 ## Entschieden (2026-10-18)
 
