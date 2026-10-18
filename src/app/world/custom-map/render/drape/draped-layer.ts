@@ -11,9 +11,10 @@ import { TERRAIN_HEIGHT_GLSL, type HeightTexture } from '../terrain/height-textu
  * (paths/road-surface.ts) and the surfaces of squares, pitches and car
  * parks (surfaces/surface-layer.ts). Both are drawn the same way, here:
  *
- *   - one material for all, a mesh per tile of DRAPE_TILE metres (a few draw
- *     calls, none per road or surface), each tile fitted to the heights for
- *     culling and fitted again when the ground moves;
+ *   - one material for all, a mesh per tile (DRAPE_TILE metres for the
+ *     roads, wider for the surfaces: a few draw calls, none per road or
+ *     surface), each tile fitted to the heights for culling and fitted again
+ *     when the ground moves;
  *   - the vertices take their height from the terrain's height texture, so
  *     a brush moves the surface with the ground without a rebuild, and their
  *     normal from the terrain's grid;
@@ -73,10 +74,12 @@ export class DrapedTiles {
   readonly group = new Group();
   private readonly tiles = new Map<string, { mesh: Mesh; tile: DrapedTile }>();
 
+  /** @param tile Metres a side of a tile (DRAPE_TILE, the roads'; the surfaces take wider ones) */
   constructor(
     private readonly field: HeightField,
     private readonly material: DrapedMaterial,
     private readonly name: string,
+    private readonly tile = DRAPE_TILE,
   ) {
     this.group.name = name;
     this.group.userData['losTransparent'] = true;
@@ -129,7 +132,7 @@ export class DrapedTiles {
   /** Heights changed inside a map rectangle (all when omitted): the tiles there fit their bounds again */
   refreshBounds(rect?: { minX: number; minY: number; maxX: number; maxY: number }): void {
     for (const { mesh, tile } of this.tiles.values()) {
-      if (rect && (tile.x > rect.maxX || tile.y > rect.maxY || tile.x + DRAPE_TILE < rect.minX || tile.y + DRAPE_TILE < rect.minY)) continue;
+      if (rect && (tile.x > rect.maxX || tile.y > rect.maxY || tile.x + this.tile < rect.minX || tile.y + this.tile < rect.minY)) continue;
       this.fitBounds(mesh, tile);
     }
   }

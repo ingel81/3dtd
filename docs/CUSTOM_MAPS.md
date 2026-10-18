@@ -311,21 +311,30 @@ Löchern über den Boden: Plätze, Spielplätze, Sport- und Parkplätze, Bahnste
 darstellend wie die Bodendecals: Routen, Bauverbot und Simulation sehen sie nicht, Koop-Prüfsummen auch nicht.
 
 - **Gemeinsames Auflegen** (`drape/draped-layer.ts`): Straßen und Flächen sind dieselbe Art Oberfläche. `DrapedTiles`
-  hält ein Mesh je 512-m-Kachel (Grenzen aus den Höhen, bei Geländeänderung neu angepasst), `DrapedTextures` lädt das
+  hält ein Mesh je Kachel (Straßen 512 m, Flächen 1024 m; Grenzen aus den Höhen, bei Geländeänderung neu angepasst), `DrapedTextures` lädt das
   Array der genutzten Materialien (bleibende Schichten, neue hinten an), `DrapedMaterial` nimmt Höhe und Normale aus dem
   Gelände, zieht zur Kamera (`DrapePull`: Grundmaß, Wachstum mit der Entfernung, je Rang mehr) und gibt Nebel und
   Schatten. Jede Art bringt ihre Attribute und ihren Look (`DrapeLook`). Jede Straße liegt vor jeder Fläche (Flächen
-  1 cm plus 2 mm je Rang bis Rang 6, Straßen ab 3 cm, Flächen wachsen mit der Entfernung etwas langsamer), von zwei
-  Flächen die kleinere oben (`surfaceRank` nach der Größe).
-- **Geometrie** (`surface-geometry.ts`): Umriss und Löcher per Earcut trianguliert, jedes Dreieck an einem 4-m-Raster
-  geschnitten (konvexe Stücke, Fächer), damit die Fläche zwischen den Ecken dem Boden folgt. Je Vertex: Lage im
-  gedrehten Rechteck der Markierung (`u` längs, `v` quer, ohne Markierung der Kartenpunkt) und die halbe Platzgröße
-  (`courtOf`), dazu das Aussehen (Schicht, Markierung, Rang), die Kantenliste der Rasterzelle und die Richtung des
-  Rechtecks. Die Kantenliste: je Zelle die bis zu 7 nächsten Kanten von Umriss und Löchern im Umkreis von 1 m, in
+  1 cm plus 0,8 mm je Rang bis Rang 15, Straßen ab 3 cm, Flächen wachsen mit der Entfernung etwas langsamer). Von zwei
+  Flächen, deren Rechtecke sich überlappen, liegt die kleinere oben, und keine zwei sich überlappenden haben denselben
+  Rang (`surfaceRanks`: nach Größe absteigend, je Fläche ein Rang über der höchsten vor ihr, die sie überlappt): zwei
+  auf einer Tiefe würden flimmern.
+- **Geometrie** (`surface-geometry.ts`): Umriss und Löcher per Earcut trianguliert, jedes Dreieck an Zellen
+  geschnitten, die so groß sind, wie der Boden es zulässt (`cutCells`): Zellen von 64 m im Raster des Geländes,
+  geviertelt, wo der Boden darunter nicht in einer Ebene liegt (8 mm Abweichung) oder mehr als 15 Kanten nahe kommen,
+  bis hinab zur Zelle des Geländes; dort wird zusätzlich an der Diagonale geschnitten, an der das Gelände seine zwei
+  Dreiecke teilt (wie `TERRAIN_HEIGHT_GLSL`), so liegt die Fläche zwischen ihren Ecken genau auf dem Gelände und kein
+  Boden schaut durch (die erste Fassung mit festem 4-m-Raster zeigte auf dem Tunnelhügel unter der Place de la
+  République überall graue Rauten). Flacher Boden (Parkplätze, geebnete Plätze, die Stadt) braucht so kaum Dreiecke:
+  Würzburg 432 Flächen rund 15 000, Marais 487 rund 35 000 (das feste Raster: 157 000 und 210 000). Je Vertex: Lage
+  im gedrehten Rechteck der Markierung (`u` längs, `v` quer, ohne Markierung der Kartenpunkt) und die halbe
+  Platzgröße (`courtOf`), dazu das Aussehen (Schicht, Markierung, Rang), die Kantenliste der Zelle und die Richtung
+  des Rechtecks. Die Kantenliste: je Zelle die bis zu 15 nächsten Kanten von Umriss und Löchern im Umkreis von 1 m, in
   einer Float-Textur (`SurfaceEdgeStore`, 1024 Texel je Zeile, ein Block je Fläche, der bleibt, solange die Fläche
   bleibt); der Shader misst daraus den Abstand zur Kante je Pixel genau (ein interpolierter Abstand je Vertex knickt an
   jeder Ecke und machte die Bordsteine dort keilförmig). Nach dem ersten Bau legt die Schicht nur die Kacheln der
-  Flächen neu, die kamen, sich änderten oder gingen.
+  Flächen neu, die kamen, sich änderten oder gingen; ändert der Editor die Höhen unter einer Fläche, wird sie neu
+  geschnitten.
 - **Aussehen** (`surface-look.ts`): die Textur läuft längs der Markierung (Maserung, Normalen); Linien in echten Maßen,
   dünner als ein Pixel mit ihrem Anteil statt flimmernd: Fußball (Seiten-, Tor-, Mittellinie, Mittelkreis, Straf- und
   Torraum, Punkte, Eckbögen, mit kleinem Platz kleiner), Handball (6-m-Linie mit getöntem Torraum, gestrichelte 9-m-Linie,

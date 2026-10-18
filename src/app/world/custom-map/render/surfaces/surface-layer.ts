@@ -5,8 +5,8 @@ import type { MapAssetLibrary } from '../map-asset-library';
 import type { HeightField } from '../height-field';
 import type { HeightTexture } from '../terrain/height-texture';
 import { uploadRect } from '../terrain/texture-ranges';
-import { DrapedMaterial, DrapedTextures, DrapedTiles, DRAPE_TILE, type DrapedTile } from '../drape/draped-layer';
-import { surfacePieces, type SurfaceMesh, type SurfacePiece } from './surface-geometry';
+import { DrapedMaterial, DrapedTextures, DrapedTiles, type DrapedTile } from '../drape/draped-layer';
+import { EDGE_REF, SURFACE_TILE, surfacePieces, surfaceRanks, type SurfaceGround, type SurfaceMesh, type SurfacePiece } from './surface-geometry';
 import { SURFACE_EDGE_WIDTH, surfaceLook } from './surface-look';
 
 /**
@@ -20,7 +20,10 @@ import { SURFACE_EDGE_WIDTH, surfaceLook } from './surface-look';
  * Kept between changes: a surface whose content is as before keeps its
  * triangles and its edges' place in the edge texture (SurfaceEdgeStore);
  * only the tiles of surfaces that came, changed or went are laid anew, so a
- * corner dragged in the editor lays one or two tiles.
+ * corner dragged in the editor lays one or two tiles. The triangles follow
+ * the ground as it is when they are cut (surface-geometry.ts cutCells):
+ * where the ground moves under a surface (a brush in the editor), the
+ * surface is cut again.
  */
 export class SurfaceLayer {
   readonly material: SurfaceMaterial;
@@ -34,10 +37,12 @@ export class SurfaceLayer {
   /** The surfaces with pieces in each tile */
   private byTile = new Map<string, Set<string>>();
   private list: readonly MapSurface[] = [];
+  private readonly ground: SurfaceGround;
 
   constructor(field: HeightField, heights: HeightTexture, gridNormals: Texture) {
+    this.ground = { heightAt: (x, y) => field.heightAt(x, y), cell: field.cellSize, originX: field.originX, originY: field.originY };
     this.material = new SurfaceMaterial(heights, gridNormals, field, this.edges.uniform);
-    this.tiles = new DrapedTiles(field, this.material, 'custom-map-surfaces');
+    this.tiles = new DrapedTiles(field, this.material, 'custom-map-surfaces', SURFACE_TILE);
     this.textures = new DrapedTextures(this.material, MAX_SURFACE_MATERIALS);
     this.tiles.group.visible = false;
   }
@@ -67,14 +72,16 @@ export class SurfaceLayer {
     for (const s of surfaces) if (!this.materials.includes(s.material)) this.materials.push(s.material);
     const dirty = new Set<string>();
     const seen = new Set<string>();
+    const ranks = surfaceRanks(surfaces);
     for (const s of surfaces) {
       seen.add(s.id);
       const layer = this.materials.indexOf(s.material);
-      const content = JSON.stringify([layer, s.outer, s.holes, s.marking]);
+      const rank = ranks.get(s.id) ?? 0;
+      const content = JSON.stringify([layer, rank, s.outer, s.holes, s.marking]);
       const was = this.built.get(s.id);
       if (was?.content === content) continue;
       if (was) this.drop(s.id, was, dirty);
-      const mesh = surfacePieces(s, layer);
+      const mesh = surfacePieces(s, layer, rank, this.ground, SURFACE_TILE);
       this.built.set(s.id, { content, mesh, edgeAt: this.edges.add(mesh.edges) });
       for (const key of mesh.pieces.keys()) {
         dirty.add(key);
@@ -93,8 +100,21 @@ export class SurfaceLayer {
     this.textures.setIds(this.materials);
   }
 
-  /** Heights changed inside a map rectangle (all when omitted): the tiles there fit their bounds again */
+  /**
+   * Heights changed inside a map rectangle (all when omitted): the surfaces
+   * there are cut again on the new ground, the tiles fit their bounds again
+   */
   refreshBounds(rect?: { minX: number; minY: number; maxX: number; maxY: number }): void {
+    let moved = false;
+    for (const s of this.list) {
+      if (rect && !overlaps(s, rect)) continue;
+      const b = this.built.get(s.id);
+      if (b) {
+        b.content = '';
+        moved = true;
+      }
+    }
+    if (moved) this.set(this.list);
     this.tiles.refreshBounds(rect);
   }
 
@@ -143,7 +163,7 @@ export class SurfaceLayer {
       // The cells' edge lists from the surface's own to the texture's
       for (let k = 0; k < piece.position.length / 2; k++) {
         const ref = piece.look[k * 3 + 1];
-        if (ref % 8) look[(v + k) * 3 + 1] = ref + edgeAt * 8;
+        if (ref % EDGE_REF) look[(v + k) * 3 + 1] = ref + edgeAt * EDGE_REF;
       }
       for (const k of piece.index) index[i++] = k + v;
       v += piece.position.length / 2;
@@ -151,13 +171,28 @@ export class SurfaceLayer {
     const [tx, ty] = key.split(',').map(Number);
     return {
       key,
-      x: tx * DRAPE_TILE,
-      y: ty * DRAPE_TILE,
+      x: tx * SURFACE_TILE,
+      y: ty * SURFACE_TILE,
       position,
       attributes: { aSurfMark: { array: mark, itemSize: 4 }, aSurfLook: { array: look, itemSize: 3 } },
       index,
     };
   }
+}
+
+/** Whether a surface's box overlaps a rectangle */
+function overlaps(s: MapSurface, r: { minX: number; minY: number; maxX: number; maxY: number }): boolean {
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -Infinity;
+  let y1 = -Infinity;
+  for (const p of s.outer) {
+    x0 = Math.min(x0, p.x);
+    y0 = Math.min(y0, p.y);
+    x1 = Math.max(x1, p.x);
+    y1 = Math.max(y1, p.y);
+  }
+  return x0 <= r.maxX && x1 >= r.minX && y0 <= r.maxY && y1 >= r.minY;
 }
 
 /**

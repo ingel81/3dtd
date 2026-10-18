@@ -1,6 +1,6 @@
 import type { DataTexture } from 'three';
 import type { DrapeLook } from '../drape/draped-layer';
-import { EDGE_REACH, MAX_CELL_EDGES, MAX_SURFACE_RANK } from './surface-geometry';
+import { EDGE_REACH, EDGE_REF, MAX_CELL_EDGES, MAX_SURFACE_RANK } from './surface-geometry';
 
 /** Texels a row of the edge texture (surface-layer.ts SurfaceEdgeStore) */
 export const SURFACE_EDGE_WIDTH = 1024;
@@ -54,10 +54,10 @@ flat varying float vSurfAngle;
 flat varying float vSurfEdges;
 uniform highp sampler2D uSurfEdges;
 
-// Metres from map point m to the nearest of the edges listed for its cell (ref: start * 8 + count), at most the reach
+// Metres from map point m to the nearest of the edges listed for its cell (ref: start * EDGE_REF + count), at most the reach
 float surfEdge(vec2 m, float ref) {
-  float start = floor(ref / 8.0 + 0.01);
-  int count = int(ref - start * 8.0 + 0.5);
+  float start = floor(ref / ${EDGE_REF.toFixed(1)} + 0.01);
+  int count = int(ref - start * ${EDGE_REF.toFixed(1)} + 0.5);
   float best = ${EDGE_REACH.toFixed(1)};
   int at = int(start);
   for (int k = 0; k < ${MAX_CELL_EDGES}; k++) {
@@ -374,8 +374,11 @@ float drapeAO = ao;
 vec3 drapeNormal = normalize(surfUp + surfB * nxy.x + surfT * nxy.y);
 `;
 
-/** How far a surface is drawn towards the camera: under every road (ROAD_PULL), the smaller of two over the larger */
-const SURFACE_PULL = { base: 0.01, perMetre: 0.0039, rank: 0.002, rankPerMetre: 0.000006 };
+/**
+ * How far a surface is drawn towards the camera: under every road (ROAD_PULL: 3 cm up close, 4 mm a metre past
+ * 200 m), the one of higher rank over the other (surfaceRanks: up to 15 ranks of 0.8 mm plus 2.5 µm a metre)
+ */
+const SURFACE_PULL = { base: 0.01, perMetre: 0.0039, rank: 0.0008, rankPerMetre: 0.0000025 };
 
 /** The surfaces' part of their draped material; `edges` the edge texture's uniform */
 export function surfaceLook(maxLayers: number, edges: { value: DataTexture | null }): DrapeLook {
