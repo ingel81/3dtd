@@ -474,6 +474,8 @@ def crater_rim(name, seed, radius=10.0, asset='moon_01', tint=None):
 
 def models():
     grey = (0.62, 0.62, 0.62)
+    # Moon rocks as light as the regolith they lie on: at 0.62 they stood as black specks all over the plain
+    moon_grey = (1.0, 1.0, 1.0)
     rust = (0.95, 0.5, 0.3)
     return {
         'base-module': lambda: base_module('base-module'),
@@ -491,10 +493,10 @@ def models():
         'landing-pad': lambda: landing_pad('landing-pad'),
         'crater-rim': lambda: crater_rim('crater-rim', 70, tint=(0.75, 0.75, 0.75)),
         'mars-crater-rim': lambda: crater_rim('mars-crater-rim', 71, tint=(1.0, 0.55, 0.35)),
-        'moon-boulder': lambda: import_model('moon_rock_05', 2.6, 2000, 'moon-boulder', desaturate=1.0, tint=grey, ground=True),
-        'moon-rock': lambda: import_model('moon_rock_03', 1.3, 1500, 'moon-rock', desaturate=1.0, tint=grey, ground=True),
+        'moon-boulder': lambda: import_model('moon_rock_05', 2.6, 2000, 'moon-boulder', desaturate=1.0, tint=moon_grey, ground=True),
+        'moon-rock': lambda: import_model('moon_rock_03', 1.3, 1500, 'moon-rock', desaturate=1.0, tint=moon_grey, ground=True),
         'moon-rocks-small': lambda: import_model('moon_rock_01', 0.6, 1200, 'moon-rocks-small', objects=['moon_rock_01_LOD0'], desaturate=1.0,
-                                                 tint=grey, ground=True),
+                                                 tint=moon_grey, ground=True),
         'mars-boulder': lambda: import_model('moon_rock_05', 2.4, 2000, 'mars-boulder', desaturate=1.0, tint=rust, ground=True),
         'mars-stone': lambda: import_model('namaqualand_boulder_03', 1.6, 1500, 'mars-stone', desaturate=0.8, tint=rust, ground=True),
         'mars-rock-large': lambda: import_model('namaqualand_boulder_06', 3.2, 2000, 'mars-rock-large', desaturate=0.8, tint=rust, ground=True),
