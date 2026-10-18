@@ -41,6 +41,25 @@ describe('run rules (a world\'s own gameplay)', () => {
     expect(runRulesKey(runRulesOf({ hqHealth: 80 }))).toBe('r=100,80,*');
   });
 
+  it("carries what a map set for its structures and the craters and wear, checked, and keys every value of the damage (docs/DESTRUCTION_PLAN.md)", () => {
+    const barn = { id: 'barn', lat: 0.001, lon: 0.002, radius: 5, height: 6, hp: 120 };
+    const hall = { ...barn, id: 'hall', start: 60, box: [1, 2, 3, 4, 0.5] as const, roof: true };
+    const rules = runRulesOf({ structures: [barn, hall, { ...barn, id: 'over', start: 121 }, { ...barn, id: 'bent', box: [1, 2] }], destruction: { craters: true } });
+    expect(rules.structures).toEqual([barn, hall]);
+    expect(rules.destruction).toEqual({ craters: true, wear: false });
+    // Neither craters nor wear: none, and no key part where nothing can be damaged
+    expect(runRulesOf({ destruction: { craters: false } })).not.toHaveProperty('destruction');
+    expect(runRulesKey(runRulesOf({ hqHealth: 80, destruction: {} }))).toBe('r=100,80,*');
+    // Craters alone: a key part with the damage's values
+    expect(runRulesKey(runRulesOf({ destruction: { craters: true } }))).toMatch(/^r=100,500,\*,d=c:[0-9a-f]+$/);
+    expect(runRulesKey(runRulesOf({ destruction: { wear: true } }))).toMatch(/,d=w:/);
+    // The start, the ground plan and the roof are part of the structure's key
+    const key = (s: object) => runRulesKey(runRulesOf({ structures: [s] }));
+    expect(key(hall)).not.toBe(key({ ...hall, start: 61 }));
+    expect(key(hall)).not.toBe(key({ ...hall, box: [1, 2, 3, 4, 0.6] }));
+    expect(key(hall)).not.toBe(key({ ...hall, roof: false }));
+  });
+
   it('carries the wave events, checked, and puts them in the key; a world without keeps its key (TODO E170)', () => {
     const portal = { wave: 4, kind: 'portal', spawn: 's2' } as const;
     const rules = runRulesOf({ events: [portal, { wave: 0, kind: 'message', text: 'x' }, { wave: 2, kind: 'dance' }, { wave: 3, kind: 'objects', show: true, ids: ['g'], objects: [{ id: 'g' }] }] });

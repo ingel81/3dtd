@@ -4,6 +4,7 @@ import { getResearch } from '../../configs/research/research-tree.config';
 import type { ResearchId } from '../../configs/research/research.types';
 import { MAX_START_WAVE, type RunStart } from './run-start';
 import { MAP_WEATHERS, WAVE_EVENT_LIMITS, type MapWeather } from '../../world/custom-map/map-document';
+import { destructionKeyParts } from '../../configs/destruction.config';
 
 /**
  * The rules a world sets for the runs on it (a custom map's gameplay,
@@ -26,6 +27,12 @@ export interface RunRules {
    * simulation keeps their HP (StructureLedger)
    */
   structures: readonly RunStructure[] | null;
+  /**
+   * What the fight does to the world beyond the structures' HP
+   * (docs/DESTRUCTION_PLAN.md): craters, the wear of the enemies passing
+   * by. Null where it does neither; absent in rules from before
+   */
+  destruction?: RunDestruction | null;
   /** The run starts past wave 1 (run-start.ts), null at wave 1 */
   start: RunStart | null;
   /**
@@ -66,7 +73,29 @@ export interface RunStructure {
   height: number;
   /** HP when standing */
   hp: number;
+  /** HP a run starts it with where the map damaged it beforehand (MapObject.damage), 0 lies fallen; `hp` when absent */
+  start?: number;
+  /**
+   * Its ground plan in map metres: middle x and y, half the width and the
+   * depth, the turn (rad), rounded (RUN_STRUCTURE_ROUNDING); the circle of
+   * `radius` round its middle when absent. Its rubble lies over it, and a
+   * tower within it stands on its roof
+   */
+  box?: readonly [number, number, number, number, number];
+  /** Its roof carries towers; while one stands on it the structure takes no damage */
+  roof?: boolean;
 }
+
+/** What the fight does to the world beyond the structures' HP (RunRules.destruction) */
+export interface RunDestruction {
+  /** Impacts dig craters, which the enemies walk through */
+  craters: boolean;
+  /** The enemies passing a structure wear it down (WEAR) */
+  wear: boolean;
+}
+
+/** Steps a RunStructure's box is rounded to: centimetres, and the turn to 1e-4 rad */
+export const RUN_STRUCTURE_ROUNDING = { metres: 100, turn: 1e4 } as const;
 
 export const DEFAULT_RUN_RULES: RunRules = {
   startCredits: GAME_BALANCE.player.startCredits,
@@ -91,21 +120,32 @@ const clamp = (value: unknown, { min, max }: { min: number; max: number }, fallb
  * type), in the order TOWER_TYPES lists them.
  */
 export function runRulesOf(
-  asked: Partial<{ startCredits: unknown; hqHealth: unknown; towers: unknown; structures: unknown; start: unknown; events: unknown }> | null | undefined,
+  asked: Partial<{ startCredits: unknown; hqHealth: unknown; towers: unknown; structures: unknown; destruction: unknown; start: unknown; events: unknown }> | null | undefined,
 ): RunRules {
   if (!asked) return DEFAULT_RUN_RULES;
   const listed = Array.isArray(asked.towers) ? new Set(asked.towers.filter((t): t is string => typeof t === 'string')) : null;
   const towers = listed ? (Object.keys(TOWER_TYPES) as TowerTypeId[]).filter((id) => listed.has(id)) : [];
   const structures = Array.isArray(asked.structures) ? asked.structures.filter(isRunStructure) : [];
   const events = Array.isArray(asked.events) ? asked.events.filter(isRunWaveEvent).slice(0, WAVE_EVENT_LIMITS.events) : [];
+  const destruction = runDestructionOf(asked.destruction);
   return {
     startCredits: clamp(asked.startCredits, RUN_RULE_LIMITS.startCredits, DEFAULT_RUN_RULES.startCredits),
     hqHealth: clamp(asked.hqHealth, RUN_RULE_LIMITS.hqHealth, DEFAULT_RUN_RULES.hqHealth),
     towers: towers.length > 0 ? towers : null,
     structures: structures.length > 0 ? structures : null,
     start: isRunStart(asked.start) ? asked.start : null,
+    ...(destruction ? { destruction } : {}),
     ...(events.length ? { events } : {}),
   };
+}
+
+/** Craters and wear as asked, null where neither is on */
+function runDestructionOf(asked: unknown): RunDestruction | null {
+  if (!asked || typeof asked !== 'object') return null;
+  const r = asked as Record<string, unknown>;
+  const craters = r['craters'] === true;
+  const wear = r['wear'] === true;
+  return craters || wear ? { craters, wear } : null;
 }
 
 function isRunWaveEvent(e: unknown): e is RunWaveEvent {
@@ -147,7 +187,11 @@ function isRunStructure(s: unknown): s is RunStructure {
   if (!s || typeof s !== 'object') return false;
   const r = s as Record<string, unknown>;
   const finite = (k: string) => typeof r[k] === 'number' && Number.isFinite(r[k]);
-  return typeof r['id'] === 'string' && finite('lat') && finite('lon') && finite('radius') && finite('height') && finite('hp') && (r['hp'] as number) > 0;
+  const box = r['box'];
+  return typeof r['id'] === 'string' && finite('lat') && finite('lon') && finite('radius') && finite('height') && finite('hp') && (r['hp'] as number) > 0
+    && (r['start'] === undefined || (finite('start') && (r['start'] as number) >= 0 && (r['start'] as number) <= (r['hp'] as number)))
+    && (box === undefined || (Array.isArray(box) && box.length === 5 && box.every((v) => typeof v === 'number' && Number.isFinite(v))))
+    && (r['roof'] === undefined || typeof r['roof'] === 'boolean');
 }
 
 /** Whether the rules allow building `towerId` at all */
@@ -163,10 +207,23 @@ export function runRulesKey(rules: RunRules | undefined): string {
     + (start ? `,w=${start.wave}:${start.kill}:${start.complete}:${start.researchCost}:${start.research.join('+')}` : '');
   // The structures as one digest: which can fall, where, with what HP; the wave events as another
   const withStructures = rules.structures?.length
-    ? `${base},s=${rules.structures.length}:${digest(rules.structures.flatMap((s) => [s.id, s.lat.toFixed(7), s.lon.toFixed(7), s.radius.toFixed(2), String(s.hp)]))}`
+    ? `${base},s=${rules.structures.length}:${digest(rules.structures.flatMap(structureKeyParts))}`
     : base;
-  if (!rules.events?.length) return withStructures;
-  return `${withStructures},e=${rules.events.length}:${digest(rules.events.map((e) => JSON.stringify(e)))}`;
+  // Where anything can be damaged: craters and wear, and every value of the damage (destruction.config.ts)
+  const damaged = rules.structures?.length || rules.destruction
+    ? `${withStructures},d=${rules.destruction?.craters ? 'c' : ''}${rules.destruction?.wear ? 'w' : ''}:${digest(destructionKeyParts())}`
+    : withStructures;
+  if (!rules.events?.length) return damaged;
+  return `${damaged},e=${rules.events.length}:${digest(rules.events.map((e) => JSON.stringify(e)))}`;
+}
+
+/** A structure in the key: where, how big, its HP, and what a map set for it beforehand */
+function structureKeyParts(s: RunStructure): string[] {
+  const parts = [s.id, s.lat.toFixed(7), s.lon.toFixed(7), s.radius.toFixed(2), String(s.hp)];
+  if (s.start !== undefined) parts.push(`h${s.start}`);
+  if (s.box) parts.push(`b${s.box.map((v) => v.toFixed(4)).join('/')}`);
+  if (s.roof) parts.push('r');
+  return parts;
 }
 
 /** FNV-1a over the parts, hex */

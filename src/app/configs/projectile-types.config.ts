@@ -53,6 +53,15 @@ export interface ProjectileTypeConfig {
   visualType: ProjectileVisualType;
   scale: number;
 
+  /**
+   * HP an impact on the ground takes off every structure of a destructible
+   * world within `splashRadius` plus IMPACT_REACH_M plus the structure's
+   * radius (docs/DESTRUCTION_PLAN.md); a hit in the air takes none
+   */
+  structureDamage: number;
+  /** The crater an impact on the ground digs, m; none without */
+  craterRadius?: number;
+
   // Splash damage (optional)
   splashRadius?: number; // Radius in meters (0 or undefined = no splash)
   splashMaxTargets?: number; // Most splash victims per hit, nearest first (undefined = all)
@@ -73,6 +82,7 @@ export interface ProjectileTypeConfig {
 export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = {
   arrow: {
     id: 'arrow',
+    structureDamage: 0,
     speed: 80,
     visualType: 'arrow',
     scale: 8, // Model is tiny (~0.8m), scale up significantly
@@ -83,6 +93,7 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
   // tools/balance-calc has it.
   bolt: {
     id: 'bolt',
+    structureDamage: 1,
     speed: 80,
     visualType: 'bolt',
     scale: 1, // createBoltGeometry() is in metres
@@ -90,6 +101,8 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
   },
   cannonball: {
     id: 'cannonball',
+    structureDamage: 30,
+    craterRadius: 1.5,
     speed: 50,
     visualType: 'cannonball',
     scale: 0.5,
@@ -121,6 +134,7 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
   },
   'arcane-orb': {
     id: 'arcane-orb',
+    structureDamage: 3,
     speed: 100,
     visualType: 'magic',
     scale: 0.4,
@@ -151,6 +165,7 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
   },
   'ice-shard': {
     id: 'ice-shard',
+    structureDamage: 2,
     speed: 90,
     visualType: 'ice',
     scale: 0.4,
@@ -176,6 +191,7 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
   },
   bullet: {
     id: 'bullet',
+    structureDamage: 1,
     speed: 150,
     visualType: 'bullet',
     scale: 0.15,
@@ -201,6 +217,8 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
   },
   rocket: {
     id: 'rocket',
+    structureDamage: 45,
+    craterRadius: 2.5,
     speed: 120,
     visualType: 'rocket',
     scale: 1.0,
@@ -248,6 +266,7 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
   },
   'poison-glob': {
     id: 'poison-glob',
+    structureDamage: 1,
     speed: 70,
     visualType: 'poison',
     scale: 0.5,
@@ -271,6 +290,7 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
   },
   'chaos-orb': {
     id: 'chaos-orb',
+    structureDamage: 6,
     speed: 90,
     visualType: 'chaos',
     scale: 0.4,
@@ -300,6 +320,7 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
   // at most 6 victims: a packed swarm of bats or spiders, not a whole column.
   'flak-shell': {
     id: 'flak-shell',
+    structureDamage: 10,
     speed: 110,
     visualType: 'shell',
     scale: 0.32,
@@ -328,6 +349,7 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
   // the air.
   'hero-round': {
     id: 'hero-round',
+    structureDamage: 1,
     speed: 180,
     visualType: 'bullet',
     scale: 0.12,
@@ -352,6 +374,8 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
   // standard rounds, so the smoke stays thin.
   'hero-shell': {
     id: 'hero-shell',
+    structureDamage: 25,
+    craterRadius: 1.5,
     speed: 140,
     visualType: 'shell',
     scale: 0.15,
@@ -376,6 +400,7 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
   // violet and cyan, sparks without the magic tower's wide spiral.
   'hero-rune': {
     id: 'hero-rune',
+    structureDamage: 4,
     speed: 120,
     visualType: 'magic',
     scale: 0.16,
