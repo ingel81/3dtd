@@ -3,13 +3,20 @@
 // Played against a build without the firing motion it gives the clips before.
 import { act, orbit, wait } from './common.mjs';
 
-/** A close, slowly turning look at a standing tower while its targets pass; the walk to it at speed */
-const look = (tower, label, dur, from) => [
+/**
+ * A close, held look at a standing tower while its targets pass, slightly from the side: `real` s at play speed, then
+ * the same view for `slow` s at a quarter of the game's speed (the game slowed, not the video); the walk to it at
+ * speed. `from` (degrees, 0 = south of it) puts the camera beside its barrel, `radius` m out, looking at `h` m over
+ * the ground (the cannon stands on a high plinth).
+ */
+const look = (tower, label, from, radius, h = 3.5, real = 7, slow = 9) => [
   act('speed', { value: 4 }),
-  act('enemiesNear', { near: `tower:${tower}`, radius: 45, timeout: 120, optional: true }),
+  act('enemiesNear', { near: `tower:${tower}`, radius: 40, timeout: 120, optional: true }),
   act('speed', { value: 1 }),
-  // Round the gun at its own height, close: 13 m out, a little above it, turning slowly
-  orbit(dur, { at: `tower:${tower}`, h: 4 }, { from, turn: 18, radius: 13, height: 3, label }),
+  orbit(real, { at: `tower:${tower}`, h }, { from, turn: 0, radius, height: 1.2, label }),
+  act('speed', { value: 0.25 }),
+  orbit(slow, { at: `tower:${tower}`, h }, { from, turn: 0, radius, height: 1.2, label: `${label} slow` }),
+  act('speed', { value: 1 }),
 ];
 
 export const FIXTURES = [
@@ -53,10 +60,10 @@ export const SCENES = [
       { do: 'cursor', show: false },
       // A clean frame once the wave runs (the wave button is part of the UI)
       { do: 'ui', on: false },
-      ...look(3, 'ballista', 10, 240),
-      ...look(2, 'gatling', 6, 250),
-      ...look(1, 'cannon', 8, 250),
-      ...look(0, 'bastion', 9, 250),
+      ...look(3, 'ballista', 240, 9, 5),
+      ...look(2, 'gatling', 250, 8),
+      ...look(1, 'cannon', 30, 8, 5),
+      ...look(0, 'bastion', 250, 9),
       wait(0.5),
     ],
   },
