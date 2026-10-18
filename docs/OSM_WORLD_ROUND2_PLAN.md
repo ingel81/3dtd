@@ -397,11 +397,13 @@ Ankern), `osm-frame-core.ts` und `components/osm-frame/` (Knopf „HQ an das Wah
   passen; „Back to the address“ nimmt es zurück. Kartenname und Adresse bleiben.
 - **Leben** (Lebensbereiche wie im Editor, `doc.life`): Grundgeräusch des Bioms (Lautstärke 0,5); Boote auf dem längsten
   Stück einer Fluss- oder Kanallinie, das auf dem Wasser der Karte liegt (mindestens 250 m; Wege an Brücken über ihre
-  Knoten verbunden), Fischkutter, wo Schiffe fahren (ab 3 Schifffahrtszeichen, ein Schleusentor oder `CEMT`), sonst
+  Knoten verbunden); wo Schiffe fahren (ab 3 Schifffahrtszeichen, ein Schleusentor oder `CEMT`) nach der Breite des
+  Wassers entlang der Route (zweimal der Median des Abstands zum Ufer): ab 60 m der Lastkahn `river-barge`, ab 12 m
+  der Fischkutter, sonst
   Ruderboote, so viele, wie der Fluss lang ist (Dichte 1 je 800 m, eine Route trägt drei Boote je Dichte, höchstens
   Dichte 3); Möwen über derselben Linie; Ruderboote in den drei größten Yachthäfen; Krähen um die Kirche mit Glocken
   nächst dem HQ (bis 900 m), deren Glocke zu jeder Welle läutet (`waveSound` mit diesem Bereich), sonst das
-  Schiffshorn auf dem Fluss. Ein Lastkahn als Modell fehlt (Vorschlag an P4).
+  Schiffshorn auf dem Fluss.
 - **Intro:** wo ein Wahrzeichen bis 1200 m vom HQ steht, ein Flug in vier Ansichten (16 s): von jenseits des
   Wahrzeichens heran, an ihm vorbei, hinüber und auf das HQ hinab, jede Ansicht über dem höheren Boden von Kamera und
   Ziel. Sonst der Rundflug des Spiels wie bisher.
