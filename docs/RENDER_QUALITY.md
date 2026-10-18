@@ -38,7 +38,7 @@ Abschnitt mit dem, was dort wirklich wirkt, und zuletzt „Everywhere“:
 | Gras nah | eigene Karten | aus | 35 000 Halme bis 90 m | 70 000 bis 140 m | 100 000 bis 180 m |
 | Grasring fern | eigene Karten | aus | 30 000 Halme bis 200 m | 60 000 bis 300 m | 90 000 bis 400 m |
 | Partikel der Karte | eigene Karten | 40 % | 70 % | 100 % | 100 % |
-| Punktlichter nachts | eigene Karten | 2 | 4 | 6 | 6 |
+| Lampenlichter nachts (`pointLights`, feste Lichter im Lichtpuffer) | eigene Karten | 2 | 4 | 6 | 6 |
 | Leben der Karte (Lebensbereiche, treibende Boote, wehende Banner, Funken über Lava) | eigene Karten | aus | 70 %, ohne Bereiche „High“ | 100 % | 100 % |
 | Boden billiger ab (eine Schicht / nur Mittelwerte) | eigene Karten | 80 / 220 m | 110 / 300 m | 150 / 400 m | 220 / 600 m |
 | Brechung im Wasser (`refraction`) | eigene Karten | aus | aus | an | an |
@@ -54,13 +54,14 @@ Abschnitt mit dem, was dort wirklich wirkt, und zuletzt „Everywhere“:
   Umweg über den Composer). Auf eigenen Karten deckelt High die Auflösung bei DPR 1,5 (vorher 2): dort kostet jeder
   Pixel ein Vielfaches (Demo-Tal bei doppelter Dichte 2,64 statt 1,39 ms).
 - **Bloom:** der Effekt-Schalter (Settings, Effects) bleibt die Wahl des Spielers; Low hält Bloom zusätzlich aus.
-- **Partikel und Punktlichter** betreffen die Effekte der Karte (Feuer, Rauch, Funken, Gischt, Laternen); der
+- **Partikel und Lampenlichter** betreffen die Effekte der Karte (Feuer, Rauch, Funken, Gischt, Laternen); der
   Partikel-Anteil gilt auch für Wetter und Umgebungsteilchen (Regen, Schnee, Glut, Asche, Staub). Die Effekte
   des Spiels (Mündungsfeuer, Einschläge, Spuren) steuern weiter die Effekt-Voreinstellungen.
 - **Licht durch Munition** (`shotLights`): wie viele Lichter von Schüssen, Einschlägen und Strahlen die Materialien
   je Bild lesen (Boden und Objekte eigener Karten, Tower, Sockel, Held, Gegner). Die Größe des Puffers im Shader
   bleibt fest: eine andere Stufe schaltet kein Programm um. Low hat keins (auch kein Mündungslicht auf den Towern,
-  das früher ein PointLight gab). Messung und Begründung in [SHOT_LIGHTS.md](SHOT_LIGHTS.md).
+  das früher ein PointLight gab). Die Lampenlichter einer Karte belegen ihre Plätze zuerst, auch auf Low; die
+  Schüsse nehmen die übrigen (höchstens 32 zusammen). Messung und Begründung in [SHOT_LIGHTS.md](SHOT_LIGHTS.md).
 - **Sichtlinie:** Objekte, die die Sicht blockieren, behalten ihre Sichtweite; der LOD-Bias verkürzt nur die Sichtweite
   von Deko. Was die LOS sieht, hängt so nicht an der Stufe. `errorTarget` ändert nicht die Verfeinerung des
   Routenkorridors (eigener Zielwert in Metern, `route-corridor-region.ts`).
@@ -115,14 +116,14 @@ die in Low oder Medium startet, hat keinen MSAA-Canvas. FXAA läuft als letzter 
 zum Neuladen FXAA statt MSAA im Composer: MSAA auf dem Half-Float-Ziel des Composers kostete im Demo-Tal etwa das
 Dreifache (4,4 gegen 1,3 ms GPU, RTX 5080). Das Menü sagt das („Antialiasing changes fully after a reload“).
 
-Ein Stufenwechsel zur Laufzeit (Menü oder Auto nach seiner Messung) ändert, wofür viele Programme gebaut sind: die
-Zahl der Punktlichter, die jedes beleuchtete Material durchläuft, den Weg durch den Composer (FXAA in Low und Medium)
-und die Wasser-Effekte einer Karte. Bloom und Farbkorrektur (Effekt-Schalter) wechseln ebenfalls den Weg durch den
+Ein Stufenwechsel zur Laufzeit (Menü oder Auto nach seiner Messung) ändert, wofür viele Programme gebaut sind: den
+Weg durch den Composer (FXAA in Low und Medium) und die Wasser-Effekte einer Karte. Die Zahl der Lichter ändert keins
+mehr (Lichtpuffer, keine three-Punktlichter). Bloom und Farbkorrektur (Effekt-Schalter) wechseln ebenfalls den Weg durch den
 Composer, dazu kommen die Programme der Pässe selbst. In beiden Fällen läuft das Bild weiter:
 
 - Nach dem Laden, im Hintergrund, macht `ThreeTilesEngine.prepareSwitchStates` jeden Zustand bereit, den ein
-  Wechsel bringen kann: jede Stufe (der Teil der Welt über `WorldProvider.withQuality`, Custom Maps: Punktlichter und
-  Wasser-Effekte; Gras, Detail und Partikel ändern keine Programme) durch den Composer mit allen Pässen an, und wo die
+  Wechsel bringen kann: jede Stufe (der Teil der Welt über `WorldProvider.withQuality`, Custom Maps: die
+  Wasser-Effekte; Gras, Detail, Partikel und Lampenlichter ändern keine Programme) durch den Composer mit allen Pässen an, und wo die
   Stufe auf den Schirm zeichnet, ohne Pässe; die Nachbarstufen zuerst (die tiefere vor der höheren, Auto stuft eher
   ab), dann Bloom und Farbkorrektur auf der aktuellen Stufe, dann der Rest. Je Zustand zeichnet sie einen Frame nur
   zum Schein auf (`recordDraws` in `frame-compile-ahead.ts`: jeder Pass richtet sich ein wie im echten Frame,

@@ -46,6 +46,29 @@ alle Materialien (wie Nebel und Laternen), three lädt sie einmal je Material un
 der letzte Schuss gewann): auf eigenen Karten hätte es den Boden doppelt beleuchtet, und jedes beleuchtete Material
 rechnete es in jeder Welt mit. Tower, Sockel und Held nehmen das Licht über `addShotLight`, die Gegner im VAT-Shader.
 
+## Feste Lichter (Lampen eigener Karten)
+
+Seit V1 ([CUSTOM_WORLD_PERF_VISUAL_PLAN.md](CUSTOM_WORLD_PERF_VISUAL_PLAN.md)) gehen auch die echten Lichter der Lampen
+einer eigenen Karte durch diesen Puffer: der Pool von bis zu 6 Lichtern nächst dem Kamerafokus (`EffectLayer`, Stufe
+`customMaps.pointLights`: 2, 4, 6, 6), vorher sechs three-`PointLight`s. Deren sichtbare Zahl steckte im Programm jedes
+beleuchteten Materials: Tag und Nacht, jede Stufe und das Mündungslicht gaben Varianten, und das Vorab-Übersetzen lief
+für jeden Lichtzustand doppelt.
+
+- `SteadyLightSource.steadyLights(lights)`, je Bild vor den Schüssen gefragt: `steadyLight(x, y, z, r, g, b, radius,
+  core)` in Szenenmetern, Farbe mal Stärke, Kern frei (die Lampe: ihre Höhe über dem Boden). Feste Lichter belegen die
+  ersten Plätze, ohne Zusammenfassen und ohne Auswahl, auch auf Low (Schüsse aus); die Schüsse nehmen die übrigen
+  bis 32.
+- Wer eine Karte zeigt, hält einen Puffer: das Spiel `engine.shotLights` (über `WorldAttachContext.lights`), der
+  Editor und `/map-preview` je einen eigenen (`setMax(0)`, nur feste Lichter); die Ansicht meldet ihren Pool an
+  (`CustomMapViewOptions.lights`) und beim Abbau ab.
+- Wasser: Glanzpunkte aller Lichter des Puffers (`shotLightGlints`, Blinn 140), wie vorher die der Punktlichter.
+- Programme je Laden (Harbor Town, High, Browser-Probe, Zählung `linkProgram`): bis `ready` 397 bis 405 vorher,
+  212 bis 215 danach; nach dem Hintergrund-Vorbereiten der Stufen 557 bis 642 gegen 277; die erste Nacht 60 bis 85
+  gegen 0. Editor (Harbor Town, nach 23 s): 226 gegen 160.
+- Optik: im Vergleichsbild gleicher Kamera nachts (Harbor Town) mittlere Helligkeit 32,2 gegen 32,0, 1,2 % der Pixel
+  mehr als 16 Stufen anders, am Fuß der Laternen (dort weicher: Kern = Höhe, halbe Stärke direkt darunter) und an
+  bewegten Teilen (Wasser, Ringe am Boden); weiter weg von den Laternen gleich.
+
 ## Stufen
 
 | | Low | Medium | High | Ultra |

@@ -357,8 +357,8 @@ bis 70 ms auf einem 1025er-Raster mit Ufer überall; ein kleiner See nur sein Re
 (`shore-cut.worker.ts`, Kopien von Höhen und Maske), beim Laden ebenso (`WaterSurface.settled`, `ready` wartet), bis
 dahin zeigt die Textur den alten Schnitt (beim ersten Mal keinen); ein neuerer Auftrag verwirft den älteren. Sonst um das Pinsel-Rechteck auf dem Hauptthread
 (unter 2 ms); ein Pinsel, während der Worker rechnet, wird über dessen Ergebnis noch einmal gebacken. `losTransparent`. Wasser empfängt den Schatten der Sonne (Bäume, Brücken, Ufer dunkeln Körper, Glanz und
-etwas die Spiegelung) und die Punktlichter des Pools als Glanzpunkte mit schwachem Lichtfleck (Laternen, Fackeln,
-Lava spiegeln sich).
+etwas die Spiegelung) und die Lichter des Lichtpuffers (Pool der Laternen, Fackeln, Lava, dazu die Schüsse) als
+Glanzpunkte (`shotLightGlints`) mit schwachem Lichtfleck (`shotLightAt`).
 
 - `terrain.water`: der Hauptkörper; nur er läuft über den Kartenrand weiter und macht Ufer nass
 - `terrain.waterBodies`: weitere Körper mit eigenem Spiegel und eigener Maske (Datei: `terrain/water-<n>-mask.u8`)
@@ -712,9 +712,12 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   Kuhmodell zeigt Holstein, Fleckvieh, Braunvieh und Angus ohne Draw Call, Textur oder Instanzdaten mehr, auf jedem
   Client gleich. Nur für Objekte, die stehen bleiben (nicht für schwimmende)
 - **Lichter** (`light`: Farbe, Stärke, Reichweite, Höhe, `flicker`, `blink`): jedes bekommt einen additiven Schein (am Tag
-  schwach, nachts voll); dazu ein fester Pool von 6 `PointLight`s für die Lichter nächst dem Kamerafokus, nach
-  Dunkelheit eingeblendet (Nacht, Dämmerung, tiefe Sonne). Am Tag kosten sie nichts, die feste Poolgröße vermeidet
-  Shader-Neubau. Ein Poollicht blendet aus, je näher es dem Abstand des nächsten ausgelassenen Lichts kommt (ab 0,7
+  schwach, nachts voll); dazu ein Pool von bis zu 6 echten Lichtern (Stufe: 2, 4, 6, 6) für die Lichter nächst dem
+  Kamerafokus, nach Dunkelheit eingeblendet (Nacht, Dämmerung, tiefe Sonne). Sie gehen als feste Lichter in den
+  Lichtpuffer der Szene (`EffectLayer.steadyLights`, [SHOT_LIGHTS.md](SHOT_LIGHTS.md)), kein three-`PointLight`: am
+  Tag kosten sie nichts, und keine Zahl von Lichtern baut ein Programm neu. Abfall wie im Puffer: Kern so breit wie
+  die Höhe über dem Boden (darunter weich statt einer weißen Scheibe), weiter weg wie das Punktlicht vorher
+  (Candela durch Abstand²), Reichweite das 1,25-Fache des Katalogs. Ein Poollicht blendet aus, je näher es dem Abstand des nächsten ausgelassenen Lichts kommt (ab 0,7
   davon, `poolFade`), so wechselt das echte Licht beim Schwenken an einer Fackelreihe weich statt Fackel für Fackel
   umzuspringen (die Mauer neben einer Fackel sprang von hell auf dunkel). `blink` (Sekunden): ein kurzer Blitz je Periode (Schein und Punktlicht, auch am Tag gut sichtbar),
   backt kein Licht auf den Boden; Antennenmast und Positionslicht (`beacon-post`) blinken alle 1,5 s (der
@@ -1224,7 +1227,7 @@ die normale Tiefe zurück, zwei Spieler sähen dann verschiedene Tiefenpuffer. N
   sind das 2 m je Texel
 - Partikel und Wetter werfen keine Schatten; Regen, Schnee, Asche und Staub enden an Dächern und am Boden (CoverMap
   über Gelände und Fußabdrücke der Gebäude), andere Partikel kennen das Gelände nicht
-- Lichter: höchstens 6 echte Punktlichter gleichzeitig, ohne Schatten. Alle Lichter (Laternen, Fackeln, Feuer, die
+- Lichter: höchstens 6 echte Lichter gleichzeitig (feste Lichter im Lichtpuffer), ohne Schatten. Alle Lichter (Laternen, Fackeln, Feuer, die
   Lavapunkte) sind dazu ins Land gebacken (`effects/lamp-light.ts`): zwei Texturen über die Karte (ein Texel je Meter,
   höchstens 512 je Seite, Half Float), ruhige und flackernde Lichter getrennt, je Licht ein umgekehrtes Quadrat von
   seiner Höhe (Kern mindestens 0,3 der Reichweite breit, dazu ein Sockel von 0,3 des Lichts am Fuß, so trägt der Fleck

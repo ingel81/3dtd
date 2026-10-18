@@ -947,12 +947,11 @@ Der `VFXService` (`game-engine/vfx.service.ts`) lauscht auf Events:
 - `vfx:chain-lightning` → ein Blitz pro aufeinanderfolgendem Punktpaar
   (`lightningBolts.spawnBolt` mit `attachLight`, additiver Halo am Blitzende); der
   Bloom-Pass bleibt unberührt
-- `vfx:muzzle-flash` → Partikel + gepoolter `PointLight`, nur für Tower mit Eintrag in
+- `vfx:muzzle-flash` → Partikel + Lichtpuls im Lichtpuffer ([SHOT_LIGHTS.md](SHOT_LIGHTS.md)), nur für Tower mit Eintrag in
   `MUZZLE_FLASH_PROFILES` (`visual-effects.config.ts`): Archer (schwacher Glanz, kein Licht),
   Dual-Gatling (klein, kurz), Rocket (mittel), Cannon (groß, am längsten). Ice, Magic und
   Poison schießen zwar Projektile, blitzen aber nicht; Fire, Lightning und Tentacle spawnen
-  keine. Das eine PointLight bleibt dauerhaft in der Szene, nur die Intensität wechselt pro
-  Profil (sonst Programmwechsel für alle beleuchteten Materialien)
+  keine. Kein three-Licht: der Puffer hat eine feste Größe, kein Schuss baut ein Programm neu
 
 ---
 

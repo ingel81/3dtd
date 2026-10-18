@@ -322,12 +322,22 @@ dem Build fehlt, aus dem `public/maps` des Checkouts (`mapDataRoot` in `createAp
   durch die Nachbearbeitung (Bloom oder Grading an, `WorldAttachContext.drawsToTarget`), wird für ein lineares Ziel
   übersetzt, sonst linkt das erste Bild alles neu; die Engine bekommt die gespeicherten VFX-Einstellungen deshalb
   schon beim Anlegen. Kalt mit Bloom: 9,4 bis 17,6 s vorher, 5,6 bis 5,7 s danach (Demo-Tal)
-- Eine Karte mit Lichtern (Laternen, Fackeln, Feuer) übersetzt und zeichnet dabei beide Lichtzustände
-  (`view.withLightStates`: der Punktlicht-Pool an und aus), denn die Zahl sichtbarer Punktlichter steckt in jedem
-  Programm beleuchteter Materialien. Die Engine nutzt denselben Haken (`WorldProvider.withLightStates`) für Tower,
-  Sockel und Pools (`preloadModels`, Qualitätswechsel), wartet dafür auf den ersten Boden, und der Ladeschirm wartet
-  auf sie (`warmupLoading`). Die erste Nacht oder Dämmerung hielt das Bild sonst an (Autumn Keep: 6,6 bis 8,7 s,
-  danach 22 ms)
+- Die Lichter einer Karte (Laternen, Fackeln, Feuer) ändern kein Programm: die echten Lichter des Pools gehen als
+  feste Lichter in den Lichtpuffer der Szene (`WorldAttachContext.lights`, `three-engine/shot-lights`), nicht als
+  three-`PointLight`. Tag, Nacht und jede Stufe zeichnen mit denselben Programmen, nichts wird für einen zweiten
+  Lichtzustand übersetzt. Vorher übersetzte die Karte beide Zustände (Pool an und aus) und die Engine für Tower,
+  Sockel und Pools ebenso. Harbor Town, High (Browser-Probe 2026-10-19, Zählung `linkProgram`): bis `ready` 397 bis
+  405 Programme vorher, 212 bis 215 danach; nach den Stufen im Hintergrund 557 bis 642 gegen 277; die erste Nacht
+  linkte vorher trotzdem 60 bis 85 Programme, danach keins. Engine und Ladeschirm warten weiter auf den ersten Boden
+  (`warmupLoading`)
+- Die Kamerasteuerung raycastet die Karte analytisch (`MapGroundPick`: Höhenfeld und Dächer, die Tower tragen, über
+  `CustomMapSurface.pickRay`), mit dem Cache von `GroundPickRoot`; dessen Version zählt die Dächer
+  (`surface.pickVersion`) und die Verschiebungen der Karte, statt jeden Knoten der Sichtblocker zweimal je Bild zu
+  durchlaufen. Bäume halten den Zoom nicht mehr an, Gelände und Dächer schon
+- Die Karte steht still: `view.group` und `view.losBlockers` sind `StaticGroup`s (`three-engine/static-group.ts`),
+  ihre Weltmatrizen rechnen nach einem Verschieben (`view.placeAt` aus `setOrigin`) oder für Hinzugekommenes neu,
+  nicht in jedem Bild. Demo-Tal im Spiel: 523 Multiplikationen je Bild in der Matrixaktualisierung für die Karte
+  vorher, keine danach; im Editor 349 gegen keine (Browser-Probe)
 - Beim Verlassen gibt die Welt die geteilte `MapAssetLibrary` frei (etwa 88 MB Materialpixel); die nächste Karte
   legt eine neue an
 - Höhen für das Overlay: eine Runde sofort statt vier Runden zu 500 ms, weil der Boden nicht streamt

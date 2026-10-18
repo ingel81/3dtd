@@ -154,8 +154,8 @@ Straße. Die Simulation braucht deshalb keine Höhen des Kraterbilds; ihre Zellh
 
 - **Instanz-Attribut `aDamage`** (vec4: Stufe mit Übergang, Saat, Richtung des stärksten Treffers, Startzeit des
   Falls) neben den Matrizen. Der Objekt-Shader bekommt einen Zweig `DAMAGE` (wie Wind, Spin, Nachtfenster), nur für
-  zerstörbare Assets auf zerstörbaren Karten, vorab übersetzt mit `compileAsync` und beiden Lichtzuständen (Lehre E215:
-  kein Programm im Spiel).
+  zerstörbare Assets auf zerstörbaren Karten, vorab übersetzt mit `compileAsync` (Lehre E215: kein Programm im
+  Spiel; Lichtzustände gibt es seit V1 keine mehr, die Lampen gehen in den Lichtpuffer).
 - **Stufe 1, angeschlagen:** Risse und Ruß im Objektraum (triplanar über die `box`-Koordinaten, unabhängig von den UVs),
   dichter zur Trefferseite; Fenster brechen (Nachtfenster aus, Glas dunkel und gesprungen); Putz blättert an Kanten.
   Risse und Ruß aus einem kleinen handgemalten Atlas (vier Rissbilder, zwei Rußverläufe, Graustufen), nicht aus

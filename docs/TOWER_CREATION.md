@@ -481,7 +481,7 @@ und Brettern steht um das Modell, das Modell wächst schichtweise von unten (Cli
 Beim Laden (`ThreeTilesEngine.preloadModels`) lädt `preloadAllModels` jedes Modell, das ein Tower tragen kann (Typ,
 Pfad-Tausch, Pfad-Anbau), und `warmUpObjects` gibt Stellvertreter in die Szene: jedes Modell wie `create` es baut
 (Sägearme, Döner-Strom, Schatten), ein Zwilling mit Clip-Ebene wie im Bau (die Zahl der Ebenen steckt im Programm), das
-Gerüst, Ringe und Marker; dazu Sockel, Tentakel, Ooze-Band und Held. Sie werden in jedem Lichtzustand kompiliert und
+Gerüst, Ringe und Marker; dazu Sockel, Tentakel, Ooze-Band und Held. Sie werden für die Bilder kompiliert und
 einmal winzig gezeichnet, der Sichtlinien-Würfel rendert einmal (`TowerShadowMapper.warmUp`). Ein neuer Tower-Teil mit
 eigenem Material gehört dort hinein, sonst baut sein erster Einsatz die Programme im Bild (vorher Bogenschütze 250 ms,
 Tentakel 470 ms beim ersten Bau).
