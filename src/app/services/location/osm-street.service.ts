@@ -1,13 +1,13 @@
 import { inject, Injectable, isDevMode, signal } from '@angular/core';
 import { UNNAMED_STREET, type Street, type StreetNetwork, type StreetNode } from '../../interfaces/street-network-provider.interface';
 import { StreetCacheService } from './street-cache.service';
-import { GeoBox, boxAreaKm2, boxAround, boxMinus, boxesOverlap, mergeStreets } from './street-box';
+import { GeoBox, boxAreaKm2, boxAround, boxAroundBoxes, boxAroundPoints, boxMinus, boxesOverlap, mergeStreets } from './street-box';
 import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 import { StreetRouter } from './street-router';
 import { spawnLabel } from '../../utils/spawn-label';
 import type { WorldStreetSource } from '../../world/world-provider';
+import { OVERPASS_SERVERS } from '../../world/osm/overpass-servers';
 import {
-  OVERPASS_SERVERS,
   OverpassError,
   fetchOverpass,
   isOverpassCancelled,
@@ -39,6 +39,12 @@ export const STREETS_UNREACHABLE = 'The map servers for the streets are busy or 
 interface LoadedStreets {
   network: StreetNetwork;
   cacheKey: string | null;
+  /**
+   * False when the answer carried a `remark` (the server ran into a limit,
+   * the ways may be cut short): the streets are played but kept neither in
+   * the cache nor as the base of the next load
+   */
+  complete: boolean;
 }
 
 /** The arguments of a street load, for matching a prefetched load (OsmStreetService.prefetchStreets) */
@@ -143,7 +149,7 @@ export class OsmStreetService extends StreetRouter implements WorldStreetSource 
   // IndexedDB cache service (replaces localStorage)
   private readonly streetCache = inject(StreetCacheService);
 
-  // Overpass servers, asked in this order (overpass-client.ts)
+  // Overpass servers, asked by their region and health (overpass-servers.ts, overpass-client.ts)
   private readonly OVERPASS_SERVERS = [...OVERPASS_SERVERS];
 
   /**
@@ -246,7 +252,7 @@ export class OsmStreetService extends StreetRouter implements WorldStreetSource 
     const cached = await this.streetCache.load(cacheKey);
     if (cached) {
       if (isDevMode()) console.log('[OSM] Loaded from IndexedDB cache');
-      return { network: cached, cacheKey: null };
+      return { network: cached, cacheKey: null, complete: true };
     }
 
     const bounds = boxAround(centerLat, centerLon, radiusMeters);
@@ -263,6 +269,7 @@ export class OsmStreetService extends StreetRouter implements WorldStreetSource 
     const noStreets = () => new Error('No streets found in this area. Choose a different location.');
 
     let network: StreetNetwork;
+    let complete = true;
     if (loaded && missing.length === 0) {
       network = mergeStreets(loaded, null, bounds);
       if (network.streets.length === 0) throw noStreets();
@@ -270,10 +277,11 @@ export class OsmStreetService extends StreetRouter implements WorldStreetSource 
       const seq = ++this.loadSeq;
       try {
         // An answer without streets hands over to the next server as well.
-        network = await this.fetchOverpass('streets', streetQuery(missing), (data) => {
+        network = await this.fetchOverpass('streets', streetQuery(missing), boxAroundBoxes(missing), (data) => {
           const fetched = this.parseOverpassResponse(data, bounds);
           const streets = loaded ? mergeStreets(loaded, fetched, bounds) : fetched;
           if (streets.streets.length === 0) throw noStreets();
+          complete = !data.remark;
           return streets;
         }, (retry) => {
           this.retryOf = seq;
@@ -289,11 +297,20 @@ export class OsmStreetService extends StreetRouter implements WorldStreetSource 
       }
     }
 
-    return { network, cacheKey };
+    return { network, cacheKey, complete };
   }
 
-  /** Keep the streets a caller took: the next load starts from them, and the cache holds them */
-  private keepStreets({ network, cacheKey }: LoadedStreets): StreetNetwork {
+  /**
+   * Keep the streets a caller took: the next load starts from them, and the
+   * cache holds them. Streets an answer with a remark brought are kept by
+   * neither, so the next load of the place asks the servers again.
+   */
+  private keepStreets({ network, cacheKey, complete }: LoadedStreets): StreetNetwork {
+    if (!complete) {
+      console.warn('[OSM] streets: the answer had a remark, not kept in the cache');
+      this.lastLoaded = null;
+      return network;
+    }
     this.lastLoaded = network;
     if (cacheKey !== null) {
       // Cache the result to IndexedDB (async, fire-and-forget)
@@ -306,18 +323,28 @@ export class OsmStreetService extends StreetRouter implements WorldStreetSource 
 
   /**
    * The Overpass client (overpass-client.ts) on this service's servers, with
-   * the street loads' limits and retries; cancelLoads() ends it
+   * the street loads' limits and retries, for a query that reads `box`;
+   * cancelLoads() ends it
    */
   private async fetchOverpass<T>(
     what: string,
     query: string,
+    box: GeoBox | undefined,
     accept: (data: OverpassResponse) => T,
     onRetry?: (retry: OverpassRetry) => void,
   ): Promise<T> {
     const controller = new AbortController();
     this.loads.add(controller);
     try {
-      return await fetchOverpass({ what, query, accept: (data) => accept(data), servers: this.OVERPASS_SERVERS, signal: controller.signal, onRetry });
+      return await fetchOverpass({
+        what,
+        query,
+        box,
+        accept: (data) => accept(data),
+        servers: this.OVERPASS_SERVERS,
+        signal: controller.signal,
+        onRetry,
+      });
     } finally {
       this.loads.delete(controller);
     }
@@ -377,10 +404,10 @@ export class OsmStreetService extends StreetRouter implements WorldStreetSource 
     routes: readonly (readonly { lat: number; lon: number }[])[],
     radiusMeters: number
   ): Promise<BuildingData> {
-    const lines = routes
+    const thinned = routes
       .map((route) => thinRoute(route, ROUTE_QUERY_TOLERANCE_M))
-      .filter((line) => line.length > 0)
-      .map((line) => line.map((p) => `${p.lat.toFixed(6)},${p.lon.toFixed(6)}`).join(','));
+      .filter((line) => line.length > 0);
+    const lines = thinned.map((line) => line.map((p) => `${p.lat.toFixed(6)},${p.lon.toFixed(6)}`).join(','));
     if (lines.length === 0) return { buildings: [] };
 
     const ways = lines
@@ -398,7 +425,9 @@ export class OsmStreetService extends StreetRouter implements WorldStreetSource 
 
     let buildings: BuildingFootprint[];
     try {
-      buildings = await this.fetchOverpass('buildings', query, (data) => this.parseBuildingResponse(data));
+      buildings = await this.fetchOverpass('buildings', query, boxAroundPoints(thinned.flat(), radiusMeters), (data) =>
+        this.parseBuildingResponse(data),
+      );
     } catch (error) {
       if (isOverpassCancelled(error)) throw error;
       console.error('[OSM] All Overpass servers failed for buildings');

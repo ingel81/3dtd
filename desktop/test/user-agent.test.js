@@ -1,6 +1,8 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const { describe, it } = require('node:test');
 const { CONNECT_HOSTS, CONTENT_SECURITY_POLICY } = require('../src/protocol');
 const { IDENTIFIED_HOSTS, identifiedUrlPatterns, identifyingUserAgent } = require('../src/user-agent');
@@ -14,6 +16,16 @@ describe('identifyingUserAgent', () => {
 describe('identified hosts', () => {
   it('are hosts the CSP lets the page reach', () => {
     for (const host of IDENTIFIED_HOSTS) assert.ok(CONNECT_HOSTS.includes(host), host);
+  });
+
+  it('take in every Overpass server the game asks', () => {
+    const servers = fs.readFileSync(path.join(__dirname, '../../src/app/world/osm/overpass-servers.ts'), 'utf8');
+    const origins = [...servers.matchAll(/url: '(https:\/\/[^']+)'/g)].map(([, url]) => new URL(url).origin);
+    assert.ok(origins.length >= 6);
+    for (const origin of origins) {
+      assert.ok(IDENTIFIED_HOSTS.includes(origin), origin);
+      assert.ok(CONNECT_HOSTS.includes(origin), origin);
+    }
   });
 
   it('become webRequest patterns', () => {

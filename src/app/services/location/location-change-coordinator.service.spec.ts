@@ -33,6 +33,7 @@ import { WorldContext } from '../../world/world-context.service';
 import { fakeWorldContext } from '../../../test/world-context-fake';
 import { outsideCoverageText } from '../../world/world-coverage';
 import { OverpassError } from '../../world/osm/overpass-client';
+import { overpassHealth } from '../../world/osm/overpass-health';
 import { OsmStreetService } from './osm-street.service';
 import { StreetCacheService } from './street-cache.service';
 
@@ -717,6 +718,7 @@ describe('LocationChangeCoordinatorService', () => {
 
       beforeEach(() => {
         serversBack = false;
+        overpassHealth.clear();
         asked = 0;
         vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
         vi.stubGlobal('fetch', vi.fn(async () => {
@@ -748,13 +750,13 @@ describe('LocationChangeCoordinatorService', () => {
         coordinator.initializeFlow(delegate);
         const going = coordinator.choosePlace({ kind: 'place', hq: { ...HQ, name: 'Schlossplatz' }, spawn: null });
         await vi.advanceTimersByTimeAsync(0);
-        expect(streets.retrying()).toMatchObject({ attempt: 2, of: 5 });
+        expect(streets.retrying()).toMatchObject({ attempt: 2, of: 8 });
         expect(engineInit.loading()).toBe(true);
 
-        // Five rounds of both servers within the budget, then the problem with its Retry
-        await vi.advanceTimersByTimeAsync(90_000);
+        // Eight rounds of the three global servers within the budget, then the problem with its Retry
+        await vi.advanceTimersByTimeAsync(180_000);
         await going;
-        expect(asked).toBe(10);
+        expect(asked).toBe(24);
         expect(streets.retrying()).toBeNull();
         expect(uiStore.loadProblem()?.text).toBe(streetsFailedText('Schlossplatz'));
         expect(engineInit.setLoading).toHaveBeenLastCalledWith(false);
@@ -765,7 +767,7 @@ describe('LocationChangeCoordinatorService', () => {
         uiStore.loadProblem()!.retry!();
         await vi.advanceTimersByTimeAsync(0);
         await vi.advanceTimersByTimeAsync(20_000);
-        expect(asked).toBe(11);
+        expect(asked).toBe(25);
         expect(uiStore.loadProblem()).toBeNull();
         expect(engine.setOrigin).toHaveBeenCalledWith(HQ.lat, HQ.lon);
         expect(callbacks.addSpawnPoint).toHaveBeenCalled();
@@ -775,17 +777,17 @@ describe('LocationChangeCoordinatorService', () => {
         coordinator.initializeFlow(delegate);
         const going = coordinator.choosePlace({ kind: 'place', hq: { ...HQ, name: 'Schlossplatz' }, spawn: null });
         await vi.advanceTimersByTimeAsync(0);
-        expect(asked).toBe(2);
+        expect(asked).toBe(3);
 
         serversBack = true;
         const B = { lat: HQ.lat + 0.002, lon: HQ.lon };
         const toB = coordinator.choosePlace({ kind: 'place', hq: { ...B, name: 'B' }, spawn: null });
         await vi.advanceTimersByTimeAsync(20_000);
         await Promise.all([going, toB]);
-        await vi.advanceTimersByTimeAsync(90_000);
+        await vi.advanceTimersByTimeAsync(180_000);
 
-        // Two for A's first round, one for B: A's retries ended with the choice
-        expect(asked).toBe(3);
+        // Three for A's first round, one for B: A's retries ended with the choice
+        expect(asked).toBe(4);
         expect(uiStore.loadProblem()).toBeNull();
         expect(engine.setOrigin.mock.calls).toEqual([[B.lat, B.lon]]);
       });

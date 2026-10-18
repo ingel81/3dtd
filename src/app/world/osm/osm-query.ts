@@ -56,11 +56,12 @@ export const OSM_QUERY_LIMITS: OverpassLimits = {
 };
 
 /**
- * Retries of the world's query: four rounds within two minutes, waits of
- * about 3, 6 and 12 s. Fewer than the street loads' within a longer budget,
- * as a round of this query may take long by itself (a city centre's answer)
+ * Retries of the world's query: six rounds within 3.5 min, waits of about
+ * 3, 6, 12 and then 22 s. Fewer than the street loads' within a longer
+ * budget, as a round of this query may take long by itself (a city centre's
+ * answer)
  */
-export const OSM_QUERY_RETRY: OverpassRetryPolicy = { rounds: 4, budgetMs: 120_000, baseDelayMs: 4000, maxDelayMs: 30_000 };
+export const OSM_QUERY_RETRY: OverpassRetryPolicy = { rounds: 6, budgetMs: 210_000, baseDelayMs: 4000, maxDelayMs: 30_000 };
 
 const fixed = (v: number): string => v.toFixed(6);
 
@@ -160,13 +161,15 @@ export interface OsmDownload {
  * Asks the world's query for `box`; an answer cut short by the server's
  * limits is asked again in four quarters (once, not deeper). Busy servers
  * are asked again (OSM_QUERY_RETRY), `onRetry` hears each round about to be
- * asked again, `onBytes` the bytes received so far. Rejects when no server answers.
+ * asked again, `onBytes` the bytes received so far, `onAsk` each server as
+ * it is asked. Rejects when no server answers.
  */
 export async function downloadOsm(
   box: GeoBox,
   signal?: AbortSignal,
   onRetry?: (retry: OverpassRetry) => void,
   onBytes?: (bytes: number) => void,
+  onAsk?: (host: string) => void,
 ): Promise<OsmDownload> {
   const start = performance.now();
   let chars = 0;
@@ -174,11 +177,13 @@ export async function downloadOsm(
     fetchOverpass({
       what,
       query: osmWorldQuery(b),
+      box: b,
       limits: OSM_QUERY_LIMITS,
       retry: OSM_QUERY_RETRY,
       onRetry,
       // The bytes of all requests together (four quarters after a cut answer)
       onBytes: onBytes && ((bytes) => onBytes(chars + bytes)),
+      onAsk,
       signal,
       accept: (data, length) => {
         chars += length;

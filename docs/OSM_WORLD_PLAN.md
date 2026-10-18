@@ -586,12 +586,13 @@ Datei.
   die Höhen, fragt das nächste Öffnen sie neu.
 - Overpass-Fehler als Satz: „The OpenStreetMap servers did not answer (…). They are sometimes down for a while; try
   again in a few minutes.“, bei 429 der Hinweis auf zu viele Anfragen; der Rahmen bietet „Try again“ (ein neuer
-  Durchgang von vorn). Davor fragt die Abfrage busy Server erneut (`OSM_QUERY_RETRY` in `osm-query.ts`: höchstens 4
-  Runden, keine neue nach 120 s, Wartezeiten etwa 2 bis 4, 4 bis 8 und 8 bis 16 s; Arten der Fehler und Ablauf in
-  [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md), „Wiederholen“). Der Worker meldet jede Wiederholung (`kind: 'retry'`), der
-  Rahmen zeigt „The map server is busy, trying again (2 of 4)…“ statt der Ladezeile. Die Wache der Sitzung
-  (`OSM_CALL_TIMEOUT_MS`, 180 s) zählt ab der letzten Meldung des Workers (Schritt oder Wiederholung), nicht ab dem
-  Aufruf, damit die Wiederholungen sie nicht auslösen. Abbrechen oder Zurück beenden den Worker samt Wartezeit.
+  Durchgang von vorn). Davor fragt die Abfrage busy Server erneut (`OSM_QUERY_RETRY` in `osm-query.ts`: höchstens 6
+  Runden, keine neue nach 210 s, Wartezeiten etwa 2 bis 4, 4 bis 8, 8 bis 16 und dann 15 bis 30 s; die Server nach
+  Region und Gesundheit, Arten der Fehler und Ablauf in [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md), „Server“ und
+  „Wiederholen“). Der Worker meldet jede Wiederholung (`kind: 'retry'`), der Rahmen zeigt „The map server is busy,
+  trying again (2 of 6)…“ statt der Ladezeile. Die Wache der Sitzung (`OSM_CALL_TIMEOUT_MS`, 180 s) zählt ab der
+  letzten Meldung des Workers (Schritt, jeder gefragte Server als „asking <host>“, oder Wiederholung), nicht ab dem
+  Aufruf, damit die Wiederholungen und eine Runde mehrerer langsamer Server sie nicht auslösen. Abbrechen oder Zurück beenden den Worker samt Wartezeit.
 - Name der Karte: der erste Teil der Suche („Miltenberg“), Id `osm-<name>` (belegt: mit Zahl); vorher „Map of …“,
   das im Menüfuß als „Map Map of …“ las.
 - Namensnennung im Spiel: die Credit-Zeile einer OSM-Welt nennt `meta.source.attribution` (OSM-Daten, Höhenquelle)

@@ -12,16 +12,30 @@ import {
   type OverpassRequest,
   type OverpassRetry,
 } from './overpass-client';
+import { OverpassHealth } from './overpass-health';
+import type { OverpassServer } from './overpass-servers';
 
 /**
  * The Overpass client's failures and retries, on a fake fetch: each kind of
  * failure sorted into one that may pass or not, the waits between the
- * rounds with fake timers, Retry-After, the budget, the rotation of the
- * servers and a cancel in a round and in a wait.
+ * rounds with fake timers, Retry-After, the pause after a 429, the budget,
+ * the rotation of the servers, the servers chosen by the query's box and by
+ * their health, at most two requests at once, and a cancel in a round and in
+ * a wait.
  */
 
-const A = 'https://a.example/api/interpreter';
-const B = 'https://b.example/api/interpreter';
+const global = (name: string): OverpassServer => ({ url: `https://${name}.example/api/interpreter`, name, coverage: null });
+const A = global('a');
+const B = global('b');
+const C = global('c');
+/** A regional server holding the box 47..48 N, 8..9 E */
+const R: OverpassServer = {
+  url: 'https://r.example/api/interpreter',
+  name: 'r',
+  coverage: [{ minLat: 47, minLon: 8, maxLat: 48, maxLon: 9 }],
+};
+const INSIDE = { minLat: 47.3, minLon: 8.5, maxLat: 47.4, maxLon: 8.6 };
+const ACROSS = { minLat: 47.9, minLon: 8.5, maxLat: 48.1, maxLon: 8.6 };
 
 /** What a fake server does with one request */
 type Reply =
@@ -37,6 +51,7 @@ const ok = (elements: unknown[] = [{ type: 'node', id: 1, lat: 1, lon: 2 }], ext
 describe('overpass-client', () => {
   let replies: Reply[];
   let asked: string[];
+  let health: OverpassHealth;
   let warn: ReturnType<typeof vi.spyOn>;
   const logged = (): string[] => warn.mock.calls.map((call: unknown[]) => String(call[0]));
 
@@ -44,6 +59,7 @@ describe('overpass-client', () => {
     replies = [];
     asked = [];
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    health = new OverpassHealth(null);
     vi.stubGlobal('fetch', vi.fn((url: string, init: RequestInit) => {
       asked.push(new URL(url).host);
       const reply = replies.shift() ?? { hang: true };
@@ -71,7 +87,7 @@ describe('overpass-client', () => {
   });
 
   const load = (extra: Partial<OverpassRequest<unknown>> = {}) =>
-    fetchOverpass({ what: 'streets', query: 'q', servers: [A, B], accept: (data) => data, random: () => 0.5, ...extra });
+    fetchOverpass({ what: 'streets', query: 'q', servers: [A, B], health, accept: (data) => data, random: () => 0.5, ...extra });
 
   /** Run timers and promises until the load has nothing left to do before `ms` */
   const run = (ms: number) => vi.advanceTimersByTimeAsync(ms);
@@ -106,8 +122,6 @@ describe('overpass-client', () => {
     it.each<[string, Reply, string]>([
       ['a 502 at capacity', { status: 502, body: 'server is currently at capacity' }, 'busy, HTTP 502'],
       ['a 500', { status: 500 }, 'server, HTTP 500'],
-      ['a 406', { status: 406 }, 'busy, HTTP 406'],
-      ['a 429', { status: 429 }, 'busy, HTTP 429'],
       ['an error page without CORS header', { network: true }, 'network, Failed to fetch'],
       ['a body cut off', { status: 200, body: '{"elements":[{"type":"no' }, 'malformed, no JSON in the answer'],
       ['an HTML page with 200', { status: 200, body: '<html>busy</html>' }, 'malformed, no JSON in the answer'],
@@ -119,9 +133,9 @@ describe('overpass-client', () => {
       await run(0);
       // Round 1: both servers failed; the wait before round 2 is half to all of 3 s (0.5: 2.25 s)
       expect(asked).toEqual(['a.example', 'b.example']);
-      expect(logged()).toContainEqual(expect.stringMatching(new RegExp(`^\\[OSM\\] streets from a\\.example failed after \\d+ms \\(try 1 of 5\\): ${logs.replace(/[()]/g, '\\$&')}`)));
-      expect(logged()).toContainEqual('[OSM] streets: no server answered (' + logs.split(',')[0] + '), trying again in 2.3s (try 2 of 5)');
-      await run(2250);
+      expect(logged()).toContainEqual(expect.stringMatching(new RegExp(`^\\[OSM\\] streets from a\\.example failed after \\d+ms \\(try 1 of 8\\): ${logs.replace(/[()]/g, '\\$&')}`)));
+      expect(logged()).toContainEqual('[OSM] streets: no server answered (' + logs.split(',')[0] + '), trying again in 1.5s (try 2 of 8)');
+      await run(1500);
       await expect(loading).resolves.toMatchObject({ elements: [{ id: 1 }] });
       // Round 2 begins with the second server
       expect(asked).toEqual(['a.example', 'b.example', 'b.example']);
@@ -131,8 +145,8 @@ describe('overpass-client', () => {
       replies.push({ hang: true }, { hang: true }, ok());
       const loading = load({ limits: { headerTimeoutMs: 1000, bodyTimeoutMs: 1000, hedgeMs: 500 } });
       await run(1000);
-      expect(logged()).toContainEqual(expect.stringMatching(/a\.example failed after \d+ms \(try 1 of 5\): timeout, no answer within 1000ms$/));
-      await run(500 + 2250);
+      expect(logged()).toContainEqual(expect.stringMatching(/a\.example failed after \d+ms \(try 1 of 8\): timeout, no answer within 1000ms$/));
+      await run(500 + 1500);
       await expect(loading).resolves.toMatchObject({ elements: [{ id: 1 }] });
     });
 
@@ -167,7 +181,7 @@ describe('overpass-client', () => {
         },
       });
       await run(0);
-      await run(2250);
+      await run(1500);
       await expect(loading).resolves.toMatchObject({ elements: [{ id: 9 }] });
     });
   });
@@ -179,57 +193,66 @@ describe('overpass-client', () => {
       expect([1, 2, 3, 4, 5].map((r) => retryDelayMs(r, policy, 0.999999))).toEqual([3000, 6000, 12000, 24000, 24000]);
     });
 
-    it('asks five rounds when every server stays busy, tells each round, and names what each server said last', async () => {
-      for (let i = 0; i < 10; i++) replies.push(i % 2 ? { status: 500 } : { status: 502 });
+    it('asks eight rounds when every server stays busy, tells each round, and names what each server said last', async () => {
+      for (let i = 0; i < 16; i++) replies.push(i % 2 ? { status: 500 } : { status: 502 });
       const retries: OverpassRetry[] = [];
       const loading = load({ onRetry: (r) => retries.push(r) });
       const failed = expect(loading).rejects.toMatchObject({ kind: 'busy', transient: true });
 
       await run(0);
       expect(asked).toHaveLength(2);
-      // The waits at random 0.5: 2.25, 4.5, 9 and 18 s
-      for (const [wait, total] of [[2250, 4], [4500, 6], [9000, 8], [18000, 10]] as const) {
+      // The waits at random 0.5: 1.5, 3, 6, 12 and then 15 s
+      const waits = [1500, 3000, 6000, 12000, 15000, 15000, 15000];
+      for (const [k, wait] of waits.entries()) {
         await run(wait - 1);
-        expect(asked).toHaveLength(total - 2);
+        expect(asked).toHaveLength(2 * k + 2);
         await run(1);
-        expect(asked).toHaveLength(total);
+        expect(asked).toHaveLength(2 * k + 4);
       }
       await failed;
-      expect(retries).toEqual([
-        { attempt: 2, of: 5, waitMs: 2250, kind: 'busy' },
-        { attempt: 3, of: 5, waitMs: 4500, kind: 'busy' },
-        { attempt: 4, of: 5, waitMs: 9000, kind: 'busy' },
-        { attempt: 5, of: 5, waitMs: 18000, kind: 'busy' },
-      ]);
-      // The first failure of a round names it (the round's first server answered 502 each time); round 5 began
-      // with the first server again
-      expect(asked.slice(-2)).toEqual(['a.example', 'b.example']);
-      await expect(loading).rejects.toThrow('a.example: HTTP 502; b.example: HTTP 500; 5 tries');
-      expect(overpassRetryText(retries[0])).toBe('The map server is busy, trying again (2 of 5)');
-      expect(overpassRetryText({ ...retries[0], kind: 'timeout' }, 3.2)).toBe('The map server did not answer in time, trying again in 4 s (2 of 5)');
-      expect(overpassRetryText({ ...retries[0], kind: 'network' }, 0)).toBe('The map server cannot be reached, asking again (2 of 5)');
+      expect(retries).toEqual(waits.map((waitMs, k) => ({ attempt: k + 2, of: 8, waitMs, kind: 'busy' })));
+      // Each round begins with the other server: round 8 with the second; the first failure of a round answered 502
+      expect(asked.slice(-2)).toEqual(['b.example', 'a.example']);
+      await expect(loading).rejects.toThrow('b.example: HTTP 502; a.example: HTTP 500; 8 tries');
+      expect(overpassRetryText(retries[0])).toBe('The map server is busy, trying again (2 of 8)');
+      expect(overpassRetryText({ ...retries[0], kind: 'timeout' }, 3.2)).toBe('The map server did not answer in time, trying again in 4 s (2 of 8)');
+      expect(overpassRetryText({ ...retries[0], kind: 'network' }, 0)).toBe('The map server cannot be reached, asking again (2 of 8)');
     });
 
-    it('waits at least as long as the server asks', async () => {
-      replies.push({ status: 429, retryAfter: '10' }, { status: 429 }, ok());
+    it('leaves a server that answered 429 alone for 30 s and asks the others meanwhile', async () => {
+      replies.push({ status: 429 }, { status: 502 }, ok());
+      const loading = load();
+      await run(0);
+      expect(logged()).toContainEqual(expect.stringMatching(/a\.example failed after \d+ms \(try 1 of 8\): busy, HTTP 429$/));
+      expect(health.pausedUntil(A.url)).toBe(Date.now() + 30_000);
+      await run(1500);
+      await expect(loading).resolves.toBeTruthy();
+      // Round 2 asked only b
+      expect(asked).toEqual(['a.example', 'b.example', 'b.example']);
+    });
+
+    it('waits for the first pause to end when every server asked for one, at least as long as it asked', async () => {
+      replies.push({ status: 429, retryAfter: '40' }, { status: 503, retryAfter: '10' }, ok());
       const retries: OverpassRetry[] = [];
       const loading = load({ onRetry: (r) => retries.push(r) });
       await run(0);
+      // a: 40 s (its Retry-After over the 30 s after a 429), b: its Retry-After
       expect(retries[0].waitMs).toBe(10_000);
       await run(9999);
       expect(asked).toHaveLength(2);
       await run(1);
       await expect(loading).resolves.toBeTruthy();
+      expect(asked).toEqual(['a.example', 'b.example', 'b.example']);
     });
 
     it('starts no round past its budget', async () => {
-      replies.push({ status: 503 }, { status: 503 }, { status: 503, retryAfter: '60' }, { status: 503 });
+      replies.push({ status: 503 }, { status: 503 }, { status: 503, retryAfter: '60' }, { status: 503, retryAfter: '60' });
       const loading = load({ retry: { ...STREET_RETRY, budgetMs: 30_000 } });
       const failed = expect(loading).rejects.toMatchObject({ kind: 'busy' });
       await run(0);
-      await run(2250);
+      await run(1500);
       await failed;
-      // The third round would begin after 62 s
+      // Both servers asked for 60 s: the third round would begin past the budget
       expect(asked).toHaveLength(4);
       expect(logged()).toContainEqual(expect.stringMatching(/^\[OSM\] streets: no time left to ask again/));
     });
@@ -241,6 +264,89 @@ describe('overpass-client', () => {
       await run(0);
       await failed;
       expect(logged().some((line) => line.includes('trying again'))).toBe(false);
+    });
+  });
+
+  describe('choosing the servers', () => {
+    const names = (servers: OverpassServer[]) => servers.map((s) => s.name);
+
+    it('asks a regional server first for a box inside its region, and not for one across its border or without a box', async () => {
+      replies.push(ok());
+      await load({ servers: [A, R], box: INSIDE });
+      expect(asked).toEqual(['r.example']);
+
+      for (const box of [ACROSS, undefined]) {
+        asked = [];
+        health = new OverpassHealth(null);
+        replies.push({ status: 502 }, ok());
+        const loading = load({ servers: [A, R, B], box });
+        await run(0);
+        await loading;
+        expect(asked).toEqual(['a.example', 'b.example']);
+      }
+    });
+
+    it('takes no element from a regional server as no data, asks the others and leaves it out of the later rounds', async () => {
+      replies.push(ok([]), { status: 502 }, ok([{ type: 'node', id: 7, lat: 47.35, lon: 8.55 }]));
+      const loading = load({ servers: [A, R], box: INSIDE });
+      await run(0);
+      expect(logged()).toContainEqual(expect.stringMatching(/r\.example failed after \d+ms \(try 1 of 8\): rejected, no data for this area$/));
+      await run(1500);
+      await expect(loading).resolves.toMatchObject({ elements: [{ id: 7 }] });
+      expect(asked).toEqual(['r.example', 'a.example', 'a.example']);
+    });
+
+    it('names the others, not the regional server without data, when the load fails', async () => {
+      replies.push(ok([]), { status: 400 });
+      const loading = load({ servers: [A, R], box: INSIDE });
+      const failed = expect(loading).rejects.toMatchObject({ kind: 'refused', message: 'a.example: HTTP 400' });
+      await run(0);
+      await failed;
+    });
+
+    it('asks first the servers that answered lately, the fast before the slow, and puts one that just failed behind', async () => {
+      // c answered twice, b once and slower, a failed
+      health.record(C.url, true, 800);
+      health.record(C.url, true, 900);
+      health.record(B.url, true, 5000);
+      health.record(A.url, false, 15000);
+      replies.push(ok());
+      await load({ servers: [A, B, C] });
+      expect(asked).toEqual(['c.example']);
+      expect(names(health.order([A, B, C]))).toEqual(['c', 'b', 'a']);
+      // Three minutes later a's failure no longer puts it behind, b's fresh one does
+      vi.advanceTimersByTime(3 * 60_000);
+      health.record(B.url, false, 15000);
+      expect(names(health.order([A, B]))).toEqual(['a', 'b']);
+    });
+
+    it('counts each answer and each failure that may pass, not a refused query', async () => {
+      replies.push({ status: 400 }, ok());
+      await load();
+      // a's refusal did not put it behind c, of which nothing is known
+      expect(names(health.order([A, C]))).toEqual(['a', 'c']);
+      replies.push({ status: 502 }, ok());
+      const loading = load({ servers: [A, C] });
+      await run(0);
+      await loading;
+      expect(names(health.order([A, C]))).toEqual(['c', 'a']);
+    });
+
+    it('has at most two requests under way, also when both hang past the hedge time', async () => {
+      replies.push({ hang: true }, { hang: true }, ok());
+      const told: string[] = [];
+      const loading = load({
+        servers: [A, B, C],
+        limits: { headerTimeoutMs: 10_000, bodyTimeoutMs: 1000, hedgeMs: 500 },
+        onAsk: (host) => told.push(host),
+      });
+      await run(9999);
+      expect(asked).toEqual(['a.example', 'b.example']);
+      // a times out: c takes its place
+      await run(1);
+      expect(asked).toEqual(['a.example', 'b.example', 'c.example']);
+      expect(told).toEqual(asked);
+      await expect(loading).resolves.toBeTruthy();
     });
   });
 

@@ -335,7 +335,14 @@ export async function loadOsmInput(
   };
   const askOsm = () => {
     report({ step: 'overpass' });
-    return downloadOsm(box, options.signal, options.onRetry, (bytes) => report({ step: 'overpass', detail: `${sizeText(bytes)} received` })).then(
+    return downloadOsm(
+      box,
+      options.signal,
+      options.onRetry,
+      (bytes) => report({ step: 'overpass', detail: `${sizeText(bytes)} received` }),
+      // A sign of life for the session's watch while a round waits on slow servers, one after the other
+      (host) => report({ step: 'overpass', detail: `asking ${host}` }),
+    ).then(
       (got) => {
         report({ step: 'overpass', state: 'done', detail: sizeText(got.chars) });
         return got;

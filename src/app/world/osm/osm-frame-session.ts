@@ -16,7 +16,8 @@ import type { OverpassRetry } from './overpass-client';
 
 /**
  * A call that sends nothing for this long is ended (the Overpass limits are 105 s to the headers and 60 s for the
- * body); a step or a retry of the servers starts the time anew, so the retries (OSM_QUERY_RETRY) may take longer
+ * body); a step, a server asked or a retry of the servers starts the time anew, so a round of several slow servers
+ * and the retries (OSM_QUERY_RETRY) may take longer
  */
 export const OSM_CALL_TIMEOUT_MS = 180_000;
 
