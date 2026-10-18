@@ -53,8 +53,9 @@ describe('CustomMapDestruction', () => {
     expect(m1.radius).toBeCloseTo(Math.sqrt(200 / Math.PI));
     expect(m1.height).toBe(9);
     expect(m1.maxHp).toBe(structureHp(m1.radius, 9));
-    // Its rubble and its roof follow its own rectangle
+    // Its rubble and its roof follow its own rectangle, the roof its outline
     expect(destruction.asRunStructures()[0].box!.slice(2, 4)).toEqual([10, 5]);
+    expect(destruction.asRunStructures()[0].mass).toEqual({ x: 0, y: 0, turn: 0, scale: 1, rings: mass.rings });
   });
 
   it('shows the stages the simulation says, each fall once, and stands up what no longer lies fallen', () => {

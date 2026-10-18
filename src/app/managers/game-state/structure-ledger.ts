@@ -3,6 +3,7 @@ import type { RunStructure } from '../../sim/protocol/run-rules';
 import { MAP_METERS_PER_DEGREE } from '../../world/custom-map/map-document';
 import { structureStage, type StructureStage } from '../../configs/destruction.config';
 import { DetMath } from '../../utils/det-math';
+import { ringsContain } from '../../world/custom-map/object-mass';
 
 /** Edge of a cell of the ledger's lookup grid, m (as CustomMapSurface's build blocking) */
 export const STRUCTURE_CELL_M = 16;
@@ -19,6 +20,13 @@ export interface StructureEvents {
 const ROOF_STRIDE = 6;
 
 const ascending = (a: number, b: number) => a - b;
+
+/** How far from map metres (`x`, `y`) the corners of `box` reach at most (IEEE `sqrt`, the same on every engine) */
+function boxReach(box: readonly [number, number, number, number, number], x: number, y: number): number {
+  const dx = box[0] - x;
+  const dy = box[1] - y;
+  return Math.sqrt(dx * dx + dy * dy) + Math.sqrt(box[2] * box[2] + box[3] * box[3]);
+}
 
 /**
  * The HP of a destructible world's structures in the simulation
@@ -41,12 +49,16 @@ export class StructureLedger {
   private x = new Float64Array(0);
   private y = new Float64Array(0);
   private radius = new Float64Array(0);
+  /** How far from its middle its ground reaches, its box's corners included: the cells it is listed in */
+  private extent = new Float64Array(0);
   private maxHp = new Int32Array(0);
   private startHp = new Int32Array(0);
   private hp = new Int32Array(0);
   private stage = new Uint8Array(0);
   /** Per structure whose roof carries towers its box (ROOF_STRIDE numbers), NaN for one without */
   private roof = new Float64Array(0);
+  /** Per raised building its outline with the cos and sin of its turn (RunStructure.mass), null for one without */
+  private outline: ({ x: number; y: number; scale: number; cos: number; sin: number; rings: readonly (readonly number[])[] } | null)[] = [];
 
   // The lookup grid: per cell its structures, as offsets into `items` (cellStart has one more entry than cells)
   private minX = 0;
@@ -74,17 +86,22 @@ export class StructureLedger {
     this.x = new Float64Array(n);
     this.y = new Float64Array(n);
     this.radius = new Float64Array(n);
+    this.extent = new Float64Array(n);
     this.maxHp = new Int32Array(n);
     this.startHp = new Int32Array(n);
     this.hp = new Int32Array(n);
     this.stage = new Uint8Array(n);
     this.roof = new Float64Array(n * ROOF_STRIDE).fill(NaN);
+    this.outline = list.map((s) => s.mass
+      ? { x: s.mass.x, y: s.mass.y, scale: s.mass.scale, cos: DetMath.cos(s.mass.turn), sin: DetMath.sin(s.mass.turn), rings: s.mass.rings }
+      : null);
     this.seen = new Uint32Array(n);
     this.query = 0;
     list.forEach((s, i) => {
       this.x[i] = s.lon * MAP_METERS_PER_DEGREE;
       this.y[i] = s.lat * MAP_METERS_PER_DEGREE;
       this.radius[i] = s.radius;
+      this.extent[i] = s.box ? Math.max(s.radius, boxReach(s.box, this.x[i], this.y[i])) : s.radius;
       this.maxHp[i] = Math.max(1, Math.round(s.hp));
       this.startHp[i] = Math.min(this.maxHp[i], Math.max(0, Math.round(s.start ?? s.hp)));
       if (s.roof) this.setRoof(i, s);
@@ -114,7 +131,7 @@ export class StructureLedger {
     }
   }
 
-  /** Each structure in the cells its circle covers */
+  /** Each structure in the cells its ground covers (its circle, its box) */
   private buildGrid(): void {
     const n = this.structures.length;
     if (n === 0) {
@@ -125,10 +142,10 @@ export class StructureLedger {
     }
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (let i = 0; i < n; i++) {
-      minX = Math.min(minX, this.x[i] - this.radius[i]);
-      minY = Math.min(minY, this.y[i] - this.radius[i]);
-      maxX = Math.max(maxX, this.x[i] + this.radius[i]);
-      maxY = Math.max(maxY, this.y[i] + this.radius[i]);
+      minX = Math.min(minX, this.x[i] - this.extent[i]);
+      minY = Math.min(minY, this.y[i] - this.extent[i]);
+      maxX = Math.max(maxX, this.x[i] + this.extent[i]);
+      maxY = Math.max(maxY, this.y[i] + this.extent[i]);
     }
     this.minX = minX;
     this.minY = minY;
@@ -136,10 +153,10 @@ export class StructureLedger {
     this.rows = Math.floor((maxY - minY) / STRUCTURE_CELL_M) + 1;
     const counts = new Int32Array(this.columns * this.rows + 1);
     const visit = (i: number, each: (cell: number) => void) => {
-      const i0 = this.col(this.x[i] - this.radius[i]);
-      const i1 = this.col(this.x[i] + this.radius[i]);
-      const j0 = this.row(this.y[i] - this.radius[i]);
-      const j1 = this.row(this.y[i] + this.radius[i]);
+      const i0 = this.col(this.x[i] - this.extent[i]);
+      const i1 = this.col(this.x[i] + this.extent[i]);
+      const j0 = this.row(this.y[i] - this.extent[i]);
+      const j1 = this.row(this.y[i] + this.extent[i]);
       for (let j = j0; j <= j1; j++) for (let c = i0; c <= i1; c++) each(j * this.columns + c);
     };
     for (let i = 0; i < n; i++) visit(i, (cell) => counts[cell + 1]++);
@@ -255,7 +272,11 @@ export class StructureLedger {
     return true;
   }
 
-  /** Whether map metres (`x`, `y`) lie on the roof of structure `index` (RunStructure.roof, its box) */
+  /**
+   * Whether map metres (`x`, `y`) lie on the roof of structure `index`
+   * (RunStructure.roof): within its box, and for a raised building within
+   * its outline, not in a courtyard
+   */
   onRoof(index: number, x: number, y: number): boolean {
     const r = this.roof;
     const k = index * ROOF_STRIDE;
@@ -265,7 +286,28 @@ export class StructureLedger {
     const oy = y - r[k + 1];
     const cos = r[k + 4];
     const sin = r[k + 5];
-    return Math.abs(-ox * cos - oy * sin) <= r[k + 2] && Math.abs(-ox * sin + oy * cos) <= r[k + 3];
+    if (Math.abs(-ox * cos - oy * sin) > r[k + 2] || Math.abs(-ox * sin + oy * cos) > r[k + 3]) return false;
+    const m = this.outline[index];
+    if (!m) return true;
+    // Into the model's x and z at scale 1 (object-ground.ts toModel)
+    const dx = (x - m.x) / m.scale;
+    const dy = (y - m.y) / m.scale;
+    return ringsContain(m.rings, -dx * m.cos - dy * m.sin, -dx * m.sin + dy * m.cos);
+  }
+
+  /**
+   * Whether map metres (`x`, `y`) lie on the roof of a structure that has
+   * fallen: a tower ordered onto that roof finds none (the building fell in
+   * the tick the order acts in) and is not placed
+   */
+  fallenRoofAt(x: number, y: number): boolean {
+    if (this.columns === 0) return false;
+    const cell = this.row(y) * this.columns + this.col(x);
+    for (let k = this.cellStart[cell]; k < this.cellStart[cell + 1]; k++) {
+      const i = this.items[k];
+      if (this.hp[i] <= 0 && this.onRoof(i, x, y)) return true;
+    }
+    return false;
   }
 
   /** HP in the order of the run rules, for a snapshot */

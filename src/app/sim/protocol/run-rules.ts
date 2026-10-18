@@ -84,6 +84,21 @@ export interface RunStructure {
   box?: readonly [number, number, number, number, number];
   /** Its roof carries towers; while one stands on it the structure takes no damage */
   roof?: boolean;
+  /**
+   * A building raised from its own outline (MapObject.mass): the object's
+   * origin (map metres), turn (rad), scale and the outline's rings in the
+   * model's x and z. Its roof is the outline, a courtyard is none
+   */
+  mass?: RunMass;
+}
+
+/** The outline of a raised building in the run rules (RunStructure.mass) */
+export interface RunMass {
+  x: number;
+  y: number;
+  turn: number;
+  scale: number;
+  rings: readonly (readonly number[])[];
 }
 
 /** What the fight does to the world beyond the structures' HP (RunRules.destruction) */
@@ -191,7 +206,17 @@ function isRunStructure(s: unknown): s is RunStructure {
   return typeof r['id'] === 'string' && finite('lat') && finite('lon') && finite('radius') && finite('height') && finite('hp') && (r['hp'] as number) > 0
     && (r['start'] === undefined || (finite('start') && (r['start'] as number) >= 0 && (r['start'] as number) <= (r['hp'] as number)))
     && (box === undefined || (Array.isArray(box) && box.length === 5 && box.every((v) => typeof v === 'number' && Number.isFinite(v))))
-    && (r['roof'] === undefined || typeof r['roof'] === 'boolean');
+    && (r['roof'] === undefined || typeof r['roof'] === 'boolean')
+    && (r['mass'] === undefined || isRunMass(r['mass']));
+}
+
+function isRunMass(m: unknown): m is RunMass {
+  if (!m || typeof m !== 'object') return false;
+  const r = m as Record<string, unknown>;
+  const finite = (v: unknown) => typeof v === 'number' && Number.isFinite(v);
+  return finite(r['x']) && finite(r['y']) && finite(r['turn']) && finite(r['scale']) && (r['scale'] as number) > 0
+    && Array.isArray(r['rings']) && r['rings'].length > 0
+    && r['rings'].every((ring) => Array.isArray(ring) && ring.length >= 6 && ring.length % 2 === 0 && ring.every(finite));
 }
 
 /** Whether the rules allow building `towerId` at all */
@@ -223,6 +248,7 @@ function structureKeyParts(s: RunStructure): string[] {
   if (s.start !== undefined) parts.push(`h${s.start}`);
   if (s.box) parts.push(`b${s.box.map((v) => v.toFixed(4)).join('/')}`);
   if (s.roof) parts.push('r');
+  if (s.mass) parts.push(`m${s.mass.x}/${s.mass.y}/${s.mass.turn}/${s.mass.scale}:${s.mass.rings.map((ring) => ring.join(',')).join(';')}`);
   return parts;
 }
 

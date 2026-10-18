@@ -115,6 +115,8 @@ export class CustomMapDestruction implements WorldDestruction {
         ...(shape.box ? { box: groundPlan(shape.box, object) } : {}),
         // As the surface lays its roofs: an upright object whose entry (or own building) has one
         ...(shape.roof && !object.pitch && !object.roll ? { roof: true } : {}),
+        // Its own outline: a tower in a courtyard stands on no roof
+        ...(mass ? { mass: { x: object.x, y: object.y, turn: object.rotation, scale: object.scale || 1, rings: mass.rings } } : {}),
       };
       // Standing until the simulation says otherwise: a structure the map damaged beforehand comes with its first stages
       this.list.push({ id: object.id, object, run, lat: run.lat, lon: run.lon, radius, height, maxHp, stage: 0 });

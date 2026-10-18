@@ -65,6 +65,29 @@ describe('StructureLedger (docs/DESTRUCTION_PLAN.md)', () => {
     expect(ledger.onRoof(0, 100, 0)).toBe(false);
   });
 
+  it("takes a raised building's roof from its outline: a courtyard is no roof, and a fallen one is no roof any more", () => {
+    // A 20 x 20 m block turned a quarter, a 10 x 10 m courtyard in its middle, its origin at map (100, 50)
+    const rings = [[-10, -10, 10, -10, 10, 10, -10, 10], [-5, -5, 5, -5, 5, 5, -5, 5]];
+    const block: RunStructure = {
+      id: 'block', lat: 50 / K, lon: 100 / K, radius: 10, height: 12, hp: 100, roof: true,
+      box: [100, 50, 10, 10, Math.PI / 2], mass: { x: 100, y: 50, turn: Math.PI / 2, scale: 1, rings },
+    };
+    const { ledger } = setup([block]);
+    expect(ledger.onRoof(0, 100 + 7.5, 50)).toBe(true);
+    expect(ledger.onRoof(0, 100, 50 - 7.5)).toBe(true);
+    expect(ledger.onRoof(0, 100, 50)).toBe(false);
+    expect(ledger.onRoof(0, 100 + 2, 50 + 3)).toBe(false);
+    expect(ledger.onRoof(0, 100 + 11, 50)).toBe(false);
+    // Twice the scale: twice the outline
+    const big = setup([{ ...block, box: [100, 50, 20, 20, Math.PI / 2], mass: { ...block.mass!, scale: 2 } }]).ledger;
+    expect([big.onRoof(0, 100 + 15, 50), big.onRoof(0, 100 + 9, 50)]).toEqual([true, false]);
+    // Standing it has a roof; fallen there is none to stand on
+    expect(ledger.fallenRoofAt(107.5, 50)).toBe(false);
+    ledger.fell(100, 50, 0);
+    expect(ledger.fallenRoofAt(107.5, 50)).toBe(true);
+    expect(ledger.fallenRoofAt(100, 50)).toBe(false);
+  });
+
   it('starts a structure the map damaged beforehand at its stage, and goes back there on a new run and from a snapshot without HP', () => {
     const { sink, ledger } = setup([
       { id: 'ruin', lat: 0, lon: 0, radius: 4, height: 6, hp: 200, start: 0 },

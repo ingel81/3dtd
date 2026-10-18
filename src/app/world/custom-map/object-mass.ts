@@ -127,8 +127,17 @@ export function massRadius(m: MapMass): number {
 
 /** Even-odd over all rings: whether model point (x, z) at scale 1 lies on the building's ground */
 export function massContains(m: MapMass, x: number, z: number): boolean {
+  return ringsContain(m.rings, x, z);
+}
+
+/**
+ * Even-odd over `rings` (x, z pairs, the outline then its courtyards):
+ * whether point (x, z) lies inside. `+ - * /` only, so the simulation may
+ * ask it too (the roof a tower stands on, StructureLedger)
+ */
+export function ringsContain(rings: readonly (readonly number[])[], x: number, z: number): boolean {
   let inside = false;
-  for (const r of m.rings) {
+  for (const r of rings) {
     for (let i = 0, j = r.length - 2; i < r.length; j = i, i += 2) {
       const xi = r[i];
       const zi = r[i + 1];

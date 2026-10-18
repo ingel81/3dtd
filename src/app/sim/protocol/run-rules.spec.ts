@@ -58,6 +58,10 @@ describe('run rules (a world\'s own gameplay)', () => {
     expect(key(hall)).not.toBe(key({ ...hall, start: 61 }));
     expect(key(hall)).not.toBe(key({ ...hall, box: [1, 2, 3, 4, 0.6] }));
     expect(key(hall)).not.toBe(key({ ...hall, roof: false }));
+    // A raised building's outline, checked, in the key
+    const block = { ...hall, mass: { x: 1, y: 2, turn: 0.5, scale: 1, rings: [[0, 0, 4, 0, 4, 4]] } };
+    expect(runRulesOf({ structures: [block, { ...block, id: 'torn', mass: { ...block.mass, rings: [[0, 0, 1]] } }] }).structures).toEqual([block]);
+    expect(key(block)).not.toBe(key({ ...block, mass: { ...block.mass, rings: [[0, 0, 4, 0, 4, 5]] } }));
   });
 
   it('carries the wave events, checked, and puts them in the key; a world without keeps its key (TODO E170)', () => {
