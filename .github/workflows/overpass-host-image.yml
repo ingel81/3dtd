@@ -1,0 +1,68 @@
+name: Overpass host images
+
+# The images of the own Overpass instance (overpass-host/README.md) on the
+# GitHub Container Registry, so that a server needs only docker-compose.yml
+# and its .env:
+#   ghcr.io/<owner>/3dtd-osm-overpass  wiktorn/overpass-api with the host's start script
+#   ghcr.io/<owner>/3dtd-osm-proxy     the proxy and the status page (one image, two commands)
+#   ghcr.io/<owner>/3dtd-osm-clone     the clone's download
+# A push to main tags them :latest, a push to next :next, each also with the
+# commit (:sha-<8>); started by hand on any branch, tagged with the branch's name.
+# The host does not follow the game's releases, so the release workflow does
+# not call this one.
+
+on:
+  push:
+    branches: [next, main]
+    paths:
+      - 'overpass-host/**'
+      - '!overpass-host/**/*.md'
+      - '!overpass-host/**/*.spec.ts'
+      - '.github/workflows/overpass-host-image.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  images:
+    runs-on: ubuntu-latest
+    env:
+      REF: ${{ github.ref_name }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Log in to the GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push the images
+        shell: bash
+        run: |
+          set -euo pipefail
+          owner="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}"
+          sha="sha-${GITHUB_SHA::8}"
+          case "$REF" in
+            main) tag=latest ;;
+            *) tag="${REF//\//-}" ;;
+          esac
+          build() {
+            local name=$1 context=$2
+            docker build \
+              --build-arg "HOST_BUILD=${tag} (${GITHUB_SHA::8})" \
+              --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+              --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+              --label "org.opencontainers.image.description=3DTD Overpass host: ${name}" \
+              -t "$owner/$name:$tag" -t "$owner/$name:$sha" "$context"
+            docker push "$owner/$name:$tag"
+            docker push "$owner/$name:$sha"
+          }
+          build 3dtd-osm-overpass overpass-host/overpass
+          build 3dtd-osm-proxy overpass-host
+          build 3dtd-osm-clone overpass-host/clone

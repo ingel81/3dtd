@@ -7,7 +7,7 @@ joins as the first entry of `src/app/world/osm/overpass-servers.ts` later (docs/
 
 | Service | What it is |
 |---------|------------|
-| `overpass` | [wiktorn/overpass-api](https://github.com/wiktorn/Overpass-API) `v0.7.62.9`: the official Overpass sources (dispatcher, `osm3s_query`, nginx with FastCGI), no areas, no diffs |
+| `overpass` | [wiktorn/overpass-api](https://github.com/wiktorn/Overpass-API) `v0.7.62.9` with `overpass/start-overpass.sh` in front: the official Overpass sources (dispatcher, `osm3s_query`, nginx with FastCGI), no areas, no diffs |
 | `proxy` | `src/proxy.ts`, Node 24 without dependencies: CORS, limits per client, box check, caps, queue, statistics |
 | `status` | `src/status-main.ts`, the same image: the status page for the LAN |
 | tunnel | The only way in from outside: the cloudflared that runs already for the coop lobby (`docker-compose.shared-tunnel.yml`), or one of its own (`cloudflared`, compose profile `tunnel`) |
@@ -15,6 +15,11 @@ joins as the first entry of `src/app/world/osm/overpass-servers.ts` later (docs/
 
 Overpass and the status page sit on an internal network without a way out; the proxy is on it and on the tunnel's
 network. No port is open to the internet; only the status page publishes one, meant for the LAN.
+
+The images come ready from the GitHub Container Registry, built by the workflow `overpass-host-image.yml` with every
+change of `overpass-host/` on next (`:next`) and main (`:latest`), each also tagged with its commit (`:sha-<8 hex>`):
+`ghcr.io/ingel81/3dtd-osm-overpass`, `3dtd-osm-proxy` (proxy and status page) and `3dtd-osm-clone`. A server needs
+nothing of the repository but `docker-compose.yml`, `docker-compose.shared-tunnel.yml` and its `.env`.
 
 Why the wiktorn image: it builds the released Overpass sources unchanged and already starts dispatcher, nginx and
 FastCGI under supervision; what this host needs on top (no self-clone on an empty volume, FastCGI processes matched to
@@ -34,7 +39,12 @@ and covered by the repository's tests; the proxy only streams the answer through
 ## First start
 
 ```bash
-cp .env.example .env        # set OVERPASS_DATA, TUNNEL_NETWORK, STATUS_BIND
+mkdir 3dtd-osm && cd 3dtd-osm
+raw=https://raw.githubusercontent.com/ingel81/3dtd/next/overpass-host
+curl -fsSL -O "$raw/docker-compose.yml" -O "$raw/docker-compose.shared-tunnel.yml"
+curl -fsSL -o .env "$raw/.env.example"
+nano .env                   # OVERPASS_DATA, TUNNEL_NETWORK, STATUS_BIND
+docker compose --profile clone pull
 docker compose run --rm clone
 docker compose up -d
 ```
@@ -78,12 +88,16 @@ the machine, a clone under way with its progress.
 There are no running diffs: the data is as old as the clone. A new one when it is due:
 
 ```bash
-./reclone.sh
+docker compose stop overpass
+docker compose run --rm clone --fresh
+docker compose up -d overpass
 ```
 
-It stops Overpass, throws the database away, clones anew and starts Overpass again: 2 to 3 hours without the server.
-Meanwhile the proxy answers 503 with `Retry-After: 1800` (the clone's maintenance flag), so the game leaves this server
+(`reclone.sh` in the repository runs the same three lines.) Overpass is down for the 2 to 3 hours of the clone; the
+proxy answers 503 with `Retry-After: 1800` meanwhile (the clone's maintenance flag), so the game leaves this server
 alone and asks the public ones. Interrupted: `docker compose run --rm clone && docker compose up -d overpass`.
+
+New images: `docker compose --profile clone pull && docker compose up -d`.
 
 ## What the proxy lets through
 
@@ -133,6 +147,9 @@ The whole stack with a regional extract instead of the planet; Overpass builds i
 ```bash
 OVERPASS_DATA=/some/empty/dir docker compose -f docker-compose.yml -f docker-compose.extract.yml up -d
 ```
+
+To run the images built from the sources here instead of the published ones, add `-f docker-compose.build.yml` and
+`docker compose ... build` first; they take the published names, so nothing is pulled over them.
 
 `EXTRACT_URL` picks another Geofabrik extract. To ask the proxy from the machine, publish its port in a local override
 (`ports: ["127.0.0.1:18080:8080"]` under `proxy`), never on a server.

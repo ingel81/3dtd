@@ -67,7 +67,7 @@ const server = createServer((req, res) => {
     hostState(config.overpassApi, config.dbDir, config.sharedDir).then(
       (host) => {
         res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-        res.end(JSON.stringify({ summary, host }));
+        res.end(JSON.stringify({ summary, host, build: process.env.HOST_BUILD ?? 'dev' }));
       },
       (error: unknown) => {
         res.writeHead(500, { 'Content-Type': 'text/plain' }).end(String(error));
@@ -78,7 +78,7 @@ const server = createServer((req, res) => {
   res.writeHead(404, { 'Content-Type': 'text/plain' }).end('not here\n');
 });
 
-server.listen(config.port, () => console.log(`status page on :${config.port}`));
+server.listen(config.port, () => console.log(`status page ${process.env.HOST_BUILD ?? 'dev'} on :${config.port}`));
 const stop = (): void => {
   server.close(() => process.exit(0));
   server.closeAllConnections();

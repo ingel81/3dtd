@@ -2,7 +2,9 @@
 # current data, the proxy in front of it, the status page for the LAN, and the
 # Cloudflare tunnel that is its only way in from outside: by default a cloudflared that runs already
 # (docker-compose.shared-tunnel.yml), or one of its own (profile tunnel, below). Settings in .env
-# (.env.example). First fill: docker compose run --rm clone, then docker compose up -d.
+# (.env.example). The images come ready from the GitHub Container Registry (workflow overpass-host-image.yml);
+# docker-compose.build.yml builds them from the sources instead.
+# First fill: docker compose pull, docker compose run --rm clone, then docker compose up -d.
 name: 3dtd-osm
 
 x-hardened: &hardened
@@ -15,10 +17,10 @@ x-hardened: &hardened
 
 services:
   overpass:
-    image: wiktorn/overpass-api:v0.7.62.9
+    # wiktorn/overpass-api v0.7.62.9 with overpass/start-overpass.sh in front (overpass/Dockerfile)
+    image: ${OVERPASS_HOST_IMAGES:-ghcr.io/ingel81}/3dtd-osm-overpass:${OVERPASS_HOST_TAG:-latest}
     container_name: 3dtd-overpass
     restart: unless-stopped
-    entrypoint: ["/bin/bash", "/host/start-overpass.sh"]
     environment:
       OVERPASS_MODE: clone
       OVERPASS_META: "no"
@@ -36,7 +38,6 @@ services:
       OVERPASS_MAX_TIMEOUT: 300s
     volumes:
       - ${OVERPASS_DATA:?set OVERPASS_DATA in .env}:/db
-      - ./overpass/start-overpass.sh:/host/start-overpass.sh:ro
       - shared:/shared
     mem_limit: ${OVERPASS_MEMORY:-16g}
     memswap_limit: ${OVERPASS_MEMORY:-16g}
@@ -47,8 +48,7 @@ services:
 
   proxy:
     <<: *hardened
-    build: .
-    image: 3dtd-osm-proxy:local
+    image: ${OVERPASS_HOST_IMAGES:-ghcr.io/ingel81}/3dtd-osm-proxy:${OVERPASS_HOST_TAG:-latest}
     container_name: 3dtd-osm-proxy
     restart: unless-stopped
     command: ["src/proxy-main.ts"]
@@ -84,7 +84,7 @@ services:
 
   status:
     <<: *hardened
-    image: 3dtd-osm-proxy:local
+    image: ${OVERPASS_HOST_IMAGES:-ghcr.io/ingel81}/3dtd-osm-proxy:${OVERPASS_HOST_TAG:-latest}
     container_name: 3dtd-osm-status
     restart: unless-stopped
     depends_on: [proxy]
@@ -119,10 +119,9 @@ services:
     mem_limit: 256m
     networks: [edge]
 
-  # docker compose run --rm clone [--fresh]: fills OVERPASS_DATA (clone/clone.sh)
+  # docker compose run --rm clone [--fresh]: fills OVERPASS_DATA (clone/clone.sh); --fresh with Overpass stopped
   clone:
-    build: ./clone
-    image: 3dtd-osm-clone:local
+    image: ${OVERPASS_HOST_IMAGES:-ghcr.io/ingel81}/3dtd-osm-clone:${OVERPASS_HOST_TAG:-latest}
     profiles: [clone]
     environment:
       CLONE_JOBS: ${CLONE_JOBS:-2}

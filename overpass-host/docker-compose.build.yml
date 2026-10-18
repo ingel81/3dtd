@@ -1,0 +1,14 @@
+# The host's images built from the sources here instead of pulled, for work on them:
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml build
+# (add docker-compose.shared-tunnel.yml as in COMPOSE_FILE). They take the names
+# of the published images, so the stack runs them without a pull.
+services:
+  overpass:
+    build: ./overpass
+  proxy:
+    build:
+      context: .
+      args:
+        HOST_BUILD: local
+  clone:
+    build: ./clone

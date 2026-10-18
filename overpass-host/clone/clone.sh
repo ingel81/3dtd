@@ -4,7 +4,7 @@
 # download_clone.sh --meta=no), about 280 GB.
 #
 #   docker compose run --rm clone            # first fill, or go on after an interruption
-#   docker compose run --rm clone --fresh    # throw the database away and clone anew (reclone.sh)
+#   docker compose run --rm clone --fresh    # throw the database away and clone anew, Overpass stopped
 #
 # aria2 loads several files at once, each in several pieces, and keeps what it
 # has: a run that breaks off goes on where it stopped. The clone's address is
@@ -42,7 +42,7 @@ case "${1:-}" in
 esac
 
 if [[ -f $DB/init_done && $fresh == 0 ]]; then
-  log "The database is complete (init_done). To clone anew: reclone.sh, or docker compose run --rm clone --fresh"
+  log "The database is complete (init_done). To clone anew: docker compose stop overpass, docker compose run --rm clone --fresh, docker compose up -d overpass"
   exit 0
 fi
 

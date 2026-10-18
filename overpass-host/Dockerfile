@@ -5,8 +5,10 @@ FROM node:24.21-alpine
 WORKDIR /app
 COPY package.json ./
 COPY src/ src/
+# Which build this is, in the log and on the status page ("next (a1b2c3d4)")
+ARG HOST_BUILD=dev
+ENV HOST_BUILD=${HOST_BUILD} NODE_ENV=production
 USER node
-ENV NODE_ENV=production
 EXPOSE 8080 8090
 # node:sqlite still says it is experimental on every start
 ENTRYPOINT ["node", "--disable-warning=ExperimentalWarning"]

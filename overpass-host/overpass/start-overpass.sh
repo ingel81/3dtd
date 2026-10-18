@@ -1,5 +1,5 @@
 #!/bin/bash
-# Runs as root in front of the Overpass image's own entrypoint (docker-compose.yml):
+# The entrypoint of the host's Overpass image (overpass/Dockerfile), as root, in front of the wiktorn image's own:
 # - refuses to start on an empty database instead of letting the image clone it
 #   itself (in one go, not resumable): fill it with `docker compose run --rm clone`
 # - gives the data to the user Overpass runs as (the clone writes as root)

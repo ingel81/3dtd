@@ -306,8 +306,8 @@ const boxText = (b) => b ? [b.s, b.w, b.n, b.e].map((v) => v.toFixed(3)).join(',
 async function load() {
   try {
     const r = await fetch('api/summary?range=' + range, { cache: 'no-store' });
-    const { summary: s, host: h } = await r.json();
-    $('meta').textContent = time(s.from) + ' to ' + time(s.to) + ', read ' + new Date().toLocaleTimeString();
+    const { summary: s, host: h, build } = await r.json();
+    $('meta').textContent = time(s.from) + ' to ' + time(s.to) + ', read ' + new Date().toLocaleTimeString() + ', build ' + build;
     figures(s);
     host(h);
     requestsChart(s);
