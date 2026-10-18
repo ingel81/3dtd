@@ -385,10 +385,11 @@ Ankern), `osm-frame-core.ts` und `components/osm-frame/` (Knopf „HQ an das Wah
   auf irgendeiner Straße gewürfelt: „Roll again“ findet so auch neue Straßen statt immer desselben Bahnhofs. Die Füße
   werden einmal je Layout über ein Straßenraster gesucht.
 - **Namen:** ein Spawn bis 60 m von einem Anker heißt nach ihm („Engelplatz stop“, „Miltenberg station“, „Car park“;
-  bei Haltestellen ohne den Ort vor dem Komma), sonst wie bisher nach der Straße oder der Himmelsrichtung. Ortsteile
+  bei Haltestellen ohne den Ort vor dem Komma; ein Name, der schon „Bahnhof“, „Station“, „Parkplatz“, „Hafen“ o. ä.
+  sagt, steht allein: „Würzburg Hauptbahnhof“), sonst wie bisher nach der Straße oder der Himmelsrichtung. Ortsteile
   (`place=suburb`) als Rückfall sind nicht gebaut: die Abfrage holt diese Knoten nicht, und fast jeder Spawn hat eine
   Straße mit Namen.
-- **Wahrzeichen:** Dom, Burg, Kirche, Rathaus, Stadttor, Turm, Denkmal, Museum, Sehenswürdigkeit mit `wikidata`;
+- **Wahrzeichen:** Dom, Burg, Palast (`castle_type=palace`), Kirche, Rathaus, Stadttor, Turm, Denkmal, Museum, Sehenswürdigkeit mit `wikidata`;
   Gewicht nach Art (Dom 6 bis Andachtsort 1), `wikidata` +2, `heritage` +1, Größe bis +2, geteilt durch
   1 + Abstand / 600 m. Altar- und Kapellenpunkte im Haus zählen nicht, zwei Wahrzeichen unter 40 m sind eines.
 - **HQ an das Wahrzeichen:** der Rahmen zeigt bis zu drei Wahrzeichen in 800 m um die Adresse (im Quadrat mit Platz
@@ -397,7 +398,8 @@ Ankern), `osm-frame-core.ts` und `components/osm-frame/` (Knopf „HQ an das Wah
 - **Leben** (Lebensbereiche wie im Editor, `doc.life`): Grundgeräusch des Bioms (Lautstärke 0,5); Boote auf dem längsten
   Stück einer Fluss- oder Kanallinie, das auf dem Wasser der Karte liegt (mindestens 250 m; Wege an Brücken über ihre
   Knoten verbunden), Fischkutter, wo Schiffe fahren (ab 3 Schifffahrtszeichen, ein Schleusentor oder `CEMT`), sonst
-  Ruderboote; Möwen über derselben Linie; Ruderboote in den drei größten Yachthäfen; Krähen um die Kirche mit Glocken
+  Ruderboote, so viele, wie der Fluss lang ist (Dichte 1 je 800 m, eine Route trägt drei Boote je Dichte, höchstens
+  Dichte 3); Möwen über derselben Linie; Ruderboote in den drei größten Yachthäfen; Krähen um die Kirche mit Glocken
   nächst dem HQ (bis 900 m), deren Glocke zu jeder Welle läutet (`waveSound` mit diesem Bereich), sonst das
   Schiffshorn auf dem Fluss. Ein Lastkahn als Modell fehlt (Vorschlag an P4).
 - **Intro:** wo ein Wahrzeichen bis 1200 m vom HQ steht, ein Flug in vier Ansichten (16 s): von jenseits des
@@ -416,6 +418,15 @@ Liste der späteren Messungen.
 | Intro über | Dom St. Kilian | Kaiserdom St. Bartholomäus | Erlöserkirche | St. Johannes der Täufer | Cathédrale Sainte-Croix des Arméniens | Koninklijk Paleis |
 | Glocke | Marienkapelle | Dreikönigskirche | Erlöserkirche | St. Johannes der Täufer | Notre-Dame-des-Blancs-Manteaux | eine Kirche ohne Namen |
 | Lebensbereiche, Boote | 3, Fischkutter | 3, Fischkutter | 4, Fischkutter | 1, keine | 6, Fischkutter | 6, Fischkutter |
+
+### Browser-Probe P5 (2026-10-18)
+
+Würzburg (HQ auf der Adresse) und Amsterdam (HQ auf dem Koninklijk Paleis) im Dev-Server neu erzeugt und gespielt,
+Chromium headless auf der GPU, Ton über einen Abgriff der Audio-Kontexte. Rahmen mit drei Wahrzeichen-Knöpfen,
+„Back to the address“, Spawn-Namen an Haltestellen, Parkplätzen und Bahnhöfen, Intro über Dom bzw. Palast, Fischkutter
+auf Main und Grachten, Möwen, Krähen um die Kirche, die Glocke zum Start der ersten Welle (im Mitschnitt an der Stelle
+des Wellenstarts, Korrelation mit `bell.mp3`). Gefunden und behoben: doppelte Wörter in Spawn-Namen, ein Palast als
+Burg, drei Boote auf 2,4 km Fluss. Bilder und Clips liegen lokal, nicht im Repo.
 
 ## Entschieden (User, 2026-10-18)
 
