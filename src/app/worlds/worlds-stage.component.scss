@@ -260,8 +260,10 @@
   padding: 18px 20px 14px;
 }
 
+// The panel's own padding stands in for the dialog head's margin: title, list and notes share one edge
 .ws-panel-head {
   flex: 0 0 auto;
+  margin: 0;
 }
 
 .ws-back {
@@ -373,5 +375,23 @@
     grid-column: 2;
     flex-direction: row;
     width: auto;
+  }
+
+  // Three globes do not fit side by side: the smaller two go under the large one
+  .ws-cards {
+    flex-wrap: wrap;
+  }
+}
+
+// A phone: the path scrolls under the bar's tools instead of running beneath them
+@media (max-width: 700px) {
+  .ws-bar-logo {
+    display: none;
+  }
+
+  .ws-path {
+    flex: 0 1 auto;
+    overflow-x: auto;
+    scrollbar-width: none;
   }
 }
