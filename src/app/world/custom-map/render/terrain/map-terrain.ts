@@ -28,6 +28,7 @@ import { RoadSurfaceLayer } from '../paths/road-surface';
 import { SurfaceLayer } from '../surfaces/surface-layer';
 import { GridNormalTexture, MaterialArrays, SplatTextures, loadMaterialArrays, maskTexture } from './terrain-textures';
 import { uploadRect, type TexelRect } from './texture-ranges';
+import type { GroundBaker } from './ground-shape';
 
 /** Materials the path mask paints, by channel */
 export const ROAD_MATERIAL = 'cobblestone';
@@ -84,10 +85,15 @@ export class MapTerrainLayer {
   /** Where far ground gets cheaper and steep ground reads its sides (TerrainMaterial.setFarDistances), kept for a material built later */
   private far: [number, number, number] = [150, 400, 150];
 
-  /** Bakes the far cascade of the sun's shadow for the land as it is now (`sunDir` in scene space) */
-  bakeFarShadow(sunDir: Vector3): void {
+  /**
+   * Bakes the far cascade of the sun's shadow for the land as it is now (`sunDir` in scene space): by the baker
+   * where there is one, else here at once; resolves once it is in
+   */
+  bakeFarShadow(sunDir: Vector3): Promise<unknown> {
+    if (this.occlusion.baker) return this.bakeFarShadowSliced(sunDir);
     this.farShadowBake++;
     this.farShadow.bake(this.field, sunDir, this.terrain.width, this.terrain.depth);
+    return Promise.resolve();
   }
 
   /**
@@ -148,6 +154,8 @@ export class MapTerrainLayer {
     private readonly field: HeightField,
     /** The map's look: height (BACKDROP_HEIGHT) and paint (APRON_LOOK) of the mountains beyond the apron */
     private biome: MapBiome = 'temperate',
+    /** Works the ground's shape out off the page's thread from the start (GroundOcclusion.baker) */
+    baker: GroundBaker | null = null,
   ) {
     this.heightTexture = new HeightTexture(field);
     this.chunks = new TerrainChunks(field, this.heightTexture, this.placeholder);
@@ -157,7 +165,7 @@ export class MapTerrainLayer {
     this.apronProfile = new ApronProfile(field, terrain.water, BACKDROP_HEIGHT[biome]);
     this.apron = buildTerrainApron(this.apronProfile, this.apronPlaceholder);
     this.normals = new GridNormalTexture(field);
-    this.occlusion = new GroundOcclusion(field);
+    this.occlusion = new GroundOcclusion(field, baker);
     this.cuts = new TerrainCuts(terrain.width, terrain.depth);
     this.roads = new RoadSurfaceLayer(field, this.heightTexture, this.normals.texture);
     this.surfaces = new SurfaceLayer(field, this.heightTexture, this.normals.texture);

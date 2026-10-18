@@ -11,6 +11,7 @@ import type { CustomMapDocument, MapObject } from '../../world/custom-map/map-do
 import { CustomMapView, type MapRect } from '../../world/custom-map/render/custom-map-view';
 import type { RoadCover } from '../../world/custom-map/render/paths/path-mask';
 import type { TexelRect } from '../../world/custom-map/render/terrain/texture-ranges';
+import type { GroundBaker } from '../../world/custom-map/render/terrain/ground-shape';
 import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
 import { mapToScene as toScene } from '../../world/custom-map/render/map-coords';
 import type { GridRect } from '../../map-ops/grid';
@@ -27,8 +28,10 @@ export class EditorMapView {
     private readonly doc: CustomMapDocument,
     scene: Scene,
     renderer: WebGLRenderer,
+    /** The editor's worker works the ground's shape out, from the first bake on (EditorGround) */
+    groundBaker: GroundBaker,
   ) {
-    this.view = new CustomMapView(doc, MapAssetLibrary.shared(), { anisotropy: renderer.capabilities.getMaxAnisotropy(), renderer });
+    this.view = new CustomMapView(doc, MapAssetLibrary.shared(), { anisotropy: renderer.capabilities.getMaxAnisotropy(), renderer, groundBaker });
     this.view.attach(scene);
     this.view.environment.apply(scene, renderer);
   }

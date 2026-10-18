@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { CatalogObject } from '../asset-catalog';
 import { HeightField } from '../height-field';
 import { GroundOcclusion } from './ground-occlusion';
+import { farShadowData, lavaSamples } from './ground-shape';
+import { GroundWorker } from './ground-worker';
 
 function pit(): HeightField {
   // 41 x 41 samples, 2 m: flat at 10 with a pit of 0 in the middle
@@ -98,5 +100,39 @@ describe('GroundOcclusion', () => {
     expect(ao.shapeAt(23, 20).lava).toBeGreaterThan(0.3);
     expect(ao.shapeAt(30, 20).lava).toBe(0);
     ao.dispose();
+  });
+});
+
+describe('GroundOcclusion baked by a GroundWorker', () => {
+  it('comes out as the bake in place once settled: occlusion, curvature, drainage, lava, far shadow', async () => {
+    const field = pit();
+    const lavaMask = new Uint8Array(41 * 41);
+    for (let k = 0; k < lavaMask.length; k++) lavaMask[k] = field.grid.heights[k] < 5 ? 1 : 0;
+    const terrain = {
+      width: 80,
+      depth: 80,
+      grid: field.grid,
+      water: null,
+      waterBodies: [{ kind: 'lava' as const, level: 2, mask: lavaMask, color: '#ff4000' }],
+      rivers: [],
+    };
+    // No Worker under jsdom: the same jobs run here, still answered later as from a worker
+    const worker = new GroundWorker(terrain);
+    const baked = new GroundOcclusion(field, worker);
+    const inPlace = new GroundOcclusion(field);
+    // Open until the first bake is in
+    expect(baked.at(20, 20)).toBe(1);
+    await baked.settled;
+    const lava = await worker.lava();
+    baked.setLavaCloseness(lava!.closeness);
+    inPlace.setLava(lavaSamples(terrain, field));
+    const pixels = (ao: GroundOcclusion) => ao.texture.image.data as Uint8Array;
+    expect(pixels(baked)).toEqual(pixels(inPlace));
+    const sun = { x: 0.3, y: 0.5, z: 0.2 };
+    expect((await worker.farShadow(sun))!.data).toEqual(farShadowData(field, sun, 80, 80).data);
+    worker.dispose();
+    expect(await worker.shape(null)).toBeNull();
+    baked.dispose();
+    inPlace.dispose();
   });
 });

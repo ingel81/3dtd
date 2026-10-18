@@ -57,6 +57,7 @@ import { NIGHT_WINDOW_UNIFORMS } from './objects/night-windows';
 import type { HeightTexture } from './terrain/height-texture';
 import { RiverSurface } from './water/river-surface';
 import { lavaSamples, type GroundBaker } from './terrain/ground-shape';
+import { GroundWorker } from './terrain/ground-worker';
 import { WaterSurface } from './water/water-surface';
 import type { CustomMapQuality } from '../../../three-engine/render-quality';
 import { SceneCopy } from './water/scene-copy';
@@ -152,6 +153,12 @@ export interface CustomMapViewOptions {
   renderer?: WebGLRenderer;
   /** Effects that cost more than the base look (map-effects.ts); all off when missing */
   effects?: Partial<MapEffects>;
+  /**
+   * Who works the ground's shape out off the page's thread (occlusion, curvature and drainage, the closeness to
+   * lava, the far shadow), from the first bake on: the editor's worker, which follows its edits. Missing: a
+   * worker of the view's own on the map as it is made (GroundWorker; the game's map holds still); null: in place
+   */
+  groundBaker?: GroundBaker | null;
 }
 
 export class CustomMapView {
@@ -235,6 +242,11 @@ export class CustomMapView {
   private decalsFor = { objects: null as unknown, count: -1, paths: null as unknown, edges: -1 };
   private decalsDue: ReturnType<typeof setTimeout> | null = null;
   private lavaBaked = false;
+  /** The view's own baker (CustomMapViewOptions.groundBaker), ended with the view */
+  private ownBaker: GroundWorker | null = null;
+  /** The first bakes of the far shadow and of the closeness to lava, which `ready` waits for */
+  private farShadowFirst: Promise<unknown> = Promise.resolve();
+  private lavaFirst: Promise<unknown> = Promise.resolve();
   /** The far shadow cascade's next bake after an edit (shadowCascade); null when none is due */
   private farShadowDue: ReturnType<typeof setTimeout> | null = null;
   private readonly shadowArea = new Vector3();
@@ -260,7 +272,8 @@ export class CustomMapView {
     this.losBlockers.name = 'custom-map-los-blockers';
     this.group.add(this.losBlockers);
 
-    this.terrain = new MapTerrainLayer(t, this.heights, doc.environment.biome ?? 'temperate');
+    if (options.groundBaker === undefined) this.ownBaker = new GroundWorker(t);
+    this.terrain = new MapTerrainLayer(t, this.heights, doc.environment.biome ?? 'temperate', options.groundBaker ?? this.ownBaker);
     this.losBlockers.add(this.terrain.chunks.group);
     this.group.add(this.terrain.apron);
     this.group.add(this.terrain.roads.group);
@@ -798,7 +811,7 @@ export class CustomMapView {
       if (!this.disposed) void this.terrain.bakeFarShadowSliced(this.environment.sunDir);
     };
     if (edit) this.farShadowDue = setTimeout(bake, 400);
-    else if (!this.disposed) this.terrain.bakeFarShadow(this.environment.sunDir);
+    else if (!this.disposed) this.farShadowFirst = this.terrain.bakeFarShadow(this.environment.sunDir);
   }
 
   private async refreshBridges(): Promise<void> {
@@ -1092,14 +1105,6 @@ export class CustomMapView {
   }
 
   /**
-   * Who works the ground's shape out off the page's thread (the editor's worker): occlusion, curvature and
-   * drainage, the closeness to lava, the far shadow. Without one they are worked out in place
-   */
-  set groundBaker(baker: GroundBaker | null) {
-    this.terrain.occlusion.baker = baker;
-  }
-
-  /**
    * Builds the programs of new ground materials before they draw (MapTerrainLayer.prepare): the editor's, off
    * the main thread for each picture it draws. Without one a new layer count links them in the next frame
    */
@@ -1242,12 +1247,13 @@ export class CustomMapView {
     this.lavaBaked = true;
     const baker = this.terrain.occlusion.baker;
     if (baker) {
-      // The closeness (a chamfer distance over the whole grid) from the editor's worker
-      void baker.lava().then((done) => {
-        if (!done || this.disposed || this.terrain.occlusion.baker !== baker) return;
-        this.terrain.occlusion.setLavaCloseness(done.closeness);
-        this.lavaGlow(done.any);
+      // The closeness (a chamfer distance over the whole grid) from the worker
+      const done = baker.lava().then((lava) => {
+        if (!lava || this.disposed || this.terrain.occlusion.baker !== baker) return;
+        this.terrain.occlusion.setLavaCloseness(lava.closeness);
+        this.lavaGlow(lava.any);
       });
+      this.lavaFirst = done;
       return;
     }
     const lava = lavaSamples(this.doc.terrain, this.heights);
@@ -1706,6 +1712,8 @@ export class CustomMapView {
     this.sceneCopy.dispose();
     this.reflection.dispose();
     if (this.lavaDue) clearTimeout(this.lavaDue);
+    this.ownBaker?.dispose();
+    this.ownBaker = null;
     if (this.ambientDue) clearTimeout(this.ambientDue);
     if (this.farShadowDue) clearTimeout(this.farShadowDue);
     if (this.decalsDue) clearTimeout(this.decalsDue);
@@ -1740,6 +1748,11 @@ export class CustomMapView {
       // The shore foam's and the lava's textures, in workers: water poured later (the editor) finds them baked
       prepareFoamNoise(),
       prepareLavaNoise(),
+      // The ground's shape and the water's first bakes, off the page's thread where there is a baker
+      this.terrain.occlusion.settled,
+      this.farShadowFirst,
+      this.lavaFirst,
+      ...this.waters.map((w) => w?.settled),
     ]);
   }
 }

@@ -341,10 +341,9 @@ export class EditorViewport {
   // -------------------------------------------------------------------------
 
   private makeView(): EditorMapView {
-    const view = new EditorMapView(this.editor.doc, this.scene, this.renderer);
+    const view = new EditorMapView(this.editor.doc, this.scene, this.renderer, this.callbacks.groundBaker());
     view.view.applyQuality(this.quality.customMaps);
     view.onPathMaskBuilt(() => this.callbacks.pathMaskBuilt(view));
-    view.view.groundBaker = this.callbacks.groundBaker();
     // New ground materials and assets new to the map show once their programs are built, off the main thread
     view.view.terrainPrepare = (meshes) => this.warmup.prepare(meshes);
     view.view.objectsPrepare = (assetIds) => this.warmup.assetsReady(assetIds);

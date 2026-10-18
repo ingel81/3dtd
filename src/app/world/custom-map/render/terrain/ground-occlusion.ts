@@ -26,8 +26,10 @@ import { uploadRect } from './texture-ranges';
  * - A, lava: closeness to lava, 1 on it, 0 from 12 m (`setLava`)
  *
  * The numbers come from ground-shape.ts, worked out in place, or by a
- * `baker` off the page's thread (the editor's worker) whose results come
- * back as patches (`applyShape`, `setLavaCloseness`).
+ * `baker` off the page's thread (the editor's worker, the game's
+ * GroundWorker) whose results come back as patches (`applyShape`,
+ * `setLavaCloseness`). Given one from the start, the first bake runs there
+ * too; until it is in (`settled`) the ground draws open, without occlusion.
  */
 
 /** Queued occlusion waits until the heights rest this long … */
@@ -58,13 +60,20 @@ export class GroundOcclusion {
   private readonly curvature: Uint8Array;
   private drainage: Uint8Array;
   private readonly lava: Uint8Array;
-  /** Works the shape out off the page's thread; null: in place, a few milliseconds a frame */
-  baker: GroundBaker | null = null;
   /** A baker's job under way: what is asked meanwhile waits for it, gathered (null: all) */
   private baking = false;
   private waiting: SampleRect | null | undefined = undefined;
+  /** A whole shape (with the drainage) is in */
+  private shaped = false;
+  /** Resolves once no baker's job is under way or waiting (settled) */
+  private idle: Promise<void> = Promise.resolve();
+  private toIdle: (() => void) | null = null;
 
-  constructor(private readonly field: HeightField) {
+  constructor(
+    private readonly field: HeightField,
+    /** Works the shape out off the page's thread; null: in place, a few milliseconds a frame */
+    public baker: GroundBaker | null = null,
+  ) {
     const n = field.columns * field.rows;
     this.terrain = new Float32Array(n).fill(1);
     this.objects = new Float32Array(n).fill(1);
@@ -82,15 +91,22 @@ export class GroundOcclusion {
     this.updateTerrain();
   }
 
+  /** Every shape asked of the baker so far is in (at once without one) */
+  get settled(): Promise<void> {
+    return this.idle;
+  }
+
   /** Terrain occlusion of the samples in a rectangle (whole grid when omitted), plus the reach of the horizon search */
   updateTerrain(rect?: SampleRect): void {
-    if (this.baker) {
-      this.bake(rect ?? null);
-      return;
-    }
+    if (this.baker) this.bake(rect ?? null);
+    else this.inPlace(rect);
+  }
+
+  private inPlace(rect?: SampleRect): void {
     const r = shapeReach(this.field, rect);
     if (!rect) this.drainage = drainage(this.field);
     this.terrainRows(r.i0, r.i1, r.j0, r.j1);
+    if (!rect) this.shaped = true;
   }
 
   /**
@@ -155,18 +171,28 @@ export class GroundOcclusion {
     }
     const baker = this.baker!;
     this.baking = true;
+    if (!this.toIdle) this.idle = new Promise((resolve) => (this.toIdle = resolve));
     const next = (): void => {
       this.baking = false;
       const w = this.waiting;
       this.waiting = undefined;
       if (w !== undefined && this.baker === baker) this.bake(w, true);
+      if (this.baking) return;
+      this.toIdle?.();
+      this.toIdle = null;
+    };
+    const first = (): void => {
+      // The first whole shape did not come (no map open in the editor's worker yet): worked out here once
+      if (ask === null && !this.shaped && this.baker === baker) this.inPlace();
+      next();
     };
     void baker.shape(ask).then(
       (patch) => {
-        if (patch && this.baker === baker) this.applyShape(patch);
+        if (!patch) return first();
+        if (this.baker === baker) this.applyShape(patch);
         next();
       },
-      next,
+      first,
     );
   }
 
@@ -182,6 +208,7 @@ export class GroundOcclusion {
       this.curvature.set(p.curvature.subarray(from, from + w), j * f.columns + i0);
     }
     if (p.drainage) this.drainage = p.drainage;
+    if (p.drainage) this.shaped = true;
     if (p.drainage) this.upload(0, 0, f.columns - 1, f.rows - 1);
     else this.upload(i0, j0, i1, j1);
   }

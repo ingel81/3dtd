@@ -25,11 +25,13 @@ const maskData = (s: WaterSurface) => (s as unknown as { mask: { image: { data: 
 const triangles = (s: WaterSurface) => s.meshes().reduce((t, m) => t + (m.geometry.index?.count ?? 0) / 3, 0);
 
 describe('WaterSurface tiles', () => {
-  it('rebuilds only the tiles a mask change reaches, and ends up as a whole rebuild would', () => {
+  it('rebuilds only the tiles a mask change reaches, and ends up as a whole rebuild would', async () => {
     const { field, water, fill } = setup();
     const heights = new HeightTexture(field);
     const apron = new ApronProfile(field, water);
     const surface = new WaterSurface(field, heights, water, apron);
+    // The first bakes come from their workers
+    await surface.settled;
     const before = new Set(surface.meshes());
     expect(before.size).toBeGreaterThan(2);
     // A brush adds water in the north-east tile only
@@ -41,6 +43,7 @@ describe('WaterSurface tiles', () => {
     // The south-west lake's tile is the same mesh as before
     expect(after.filter((m) => before.has(m)).length).toBe(before.size);
     const whole = new WaterSurface(field, heights, water, apron);
+    await whole.settled;
     expect(triangles(surface)).toBe(triangles(whole));
     // Mask and cut agree wherever a surface can stand (outside the first bake's bounds the cut stays closed)
     const near = (s: WaterSurface) => Array.from({ length: 21 }, (_, j) => maskData(s).slice(((165 + j) * 201 + 165) * 2, ((165 + j) * 201 + 186) * 2));
@@ -53,14 +56,16 @@ describe('WaterSurface tiles', () => {
     whole.dispose();
   });
 
-  it('bakes the shore cut around a change of heights as a whole bake would', () => {
+  it('bakes the shore cut around a change of heights as a whole bake would', async () => {
     const { field, water } = setup();
     const heights = new HeightTexture(field);
     const surface = new WaterSurface(field, heights, water, null);
+    await surface.settled;
     // A wall rises in the south-west lake
     for (let j = 20; j <= 24; j++) for (let i = 20; i <= 24; i++) field.grid.heights[j * 201 + i] = 6;
     surface.set(water, null, { i0: 20, j0: 20, i1: 24, j1: 24 });
     const whole = new WaterSurface(field, heights, water, null);
+    await whole.settled;
     expect(maskData(surface)).toEqual(maskData(whole));
     surface.dispose();
     whole.dispose();
@@ -72,6 +77,7 @@ describe('WaterSurface tiles', () => {
     // A slope across the south-west lake, so the level moves its shore
     for (let j = 0; j < 201; j++) for (let i = 0; i < 201; i++) field.grid.heights[j * 201 + i] = i * 0.05;
     const surface = new WaterSurface(field, heights, water, null);
+    await surface.settled;
     const old = maskData(surface).slice();
     const raised = { ...water, level: 1.6 };
     surface.set(raised, null);
@@ -79,8 +85,9 @@ describe('WaterSurface tiles', () => {
     // A brush adds water while the bake runs (within the lakes' bounds: past them a whole bake also writes the dry cut)
     fill(60, 60, 70, 70);
     surface.set(raised, null, { i0: 60, j0: 60, i1: 70, j1: 70 });
-    await Promise.resolve();
+    await surface.settled;
     const whole = new WaterSurface(field, heights, raised, null);
+    await whole.settled;
     expect(maskData(whole)).not.toEqual(old);
     expect(maskData(surface)).toEqual(maskData(whole));
     surface.dispose();

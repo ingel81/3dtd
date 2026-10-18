@@ -182,8 +182,10 @@ Nebel der Szene wieder her.
   B Abfluss (D8-Flussakkumulation, logarithmisch; Rinnen und Talböden dunkler und grüner; beim vollen Backen, ein
   Pinsel lässt ihn bis zum nächsten stehen), A Lava-Nähe (1 auf Lava, 0 ab 12 m: der Boden wird zu erkaltetem Gestein
   und glüht von unten orange mit langsamem Puls). Die Rechnung steht ohne three in `ground-shape.ts` (samt Fernschatten):
-  das Spiel rechnet sie beim Laden an Ort und Stelle, der Editor danach im Editor-Worker (`EditorGround`, Aufträge
-  `groundShape`, `lava`, `farShadow`) und schreibt die Ergebnisse als Rechteck in die Textur. Auf 1025² (Node): ein
+  das Spiel und die Kartenvorschau rechnen sie in einem Worker der Ansicht (`GroundWorker`, `ground-jobs.ts`: eine Kopie
+  von Höhen und Lava beim Bau der Ansicht, die Karte steht dort still), der Editor im Editor-Worker (`EditorGround`,
+  Aufträge `groundShape`, `lava`, `farShadow`), beide von der ersten Rechnung an (`CustomMapViewOptions.groundBaker`);
+  bis sie da ist, zeichnet der Boden offen, `ready` wartet auf sie. Die Ergebnisse kommen als Rechteck in die Textur. Auf 1025² (Node): ein
   80-m-Strich vorher 64 ms Horizontsuche im Hauptthread (in Scheiben zu 2 ms je Bild), jetzt 0,4 ms Einschreiben; die
   Lava-Nähe vorher 60 ms, jetzt 2,6 ms (nur Kanal A); ein Vollaufbau (Generieren, Größe) vorher rund 2 s im Bild,
   jetzt 7 ms; der Fernschatten (114 ms in Scheiben) und die Höhenlinien des Editors (2 m: 112 ms je halbe Sekunde im
@@ -351,9 +353,9 @@ Kante tiefen Wassers. Das Material schneidet, wo der bilineare Wert unter 0 fäl
 Viertelzelle): an der Wand endet das Wasser auf einer glatten Linie knapp vor den Zähnen, ein schmaler Streifen Wand
 bleibt sichtbar; am glatten flachen Ufer schneidet weiter die Tiefe je Pixel. Kein zusätzlicher Texturzugriff (derselbe
 Maskenzugriff liest R und G). Gebacken über die Maskengrenzen bei neuem Spiegel, neuer Maske oder Ganzneubau (rund 40
-bis 70 ms auf einem 1025er-Raster mit Ufer überall; ein kleiner See nur sein Rechteck): beim Laden auf dem Hauptthread,
-danach (Level-Regler, Rückgängig) in einem Worker (`shore-cut.worker.ts`, Kopien von Höhen und Maske), bis dahin zeigt
-die Textur den alten Schnitt; ein neuerer Auftrag verwirft den älteren. Sonst um das Pinsel-Rechteck auf dem Hauptthread
+bis 70 ms auf einem 1025er-Raster mit Ufer überall; ein kleiner See nur sein Rechteck): immer in einem Worker
+(`shore-cut.worker.ts`, Kopien von Höhen und Maske), beim Laden ebenso (`WaterSurface.settled`, `ready` wartet), bis
+dahin zeigt die Textur den alten Schnitt (beim ersten Mal keinen); ein neuerer Auftrag verwirft den älteren. Sonst um das Pinsel-Rechteck auf dem Hauptthread
 (unter 2 ms); ein Pinsel, während der Worker rechnet, wird über dessen Ergebnis noch einmal gebacken. `losTransparent`. Wasser empfängt den Schatten der Sonne (Bäume, Brücken, Ufer dunkeln Körper, Glanz und
 etwas die Spiegelung) und die Punktlichter des Pools als Glanzpunkte mit schwachem Lichtfleck (Laternen, Fackeln,
 Lava spiegeln sich).
@@ -459,10 +461,10 @@ Lava spiegeln sich).
   Wasser, Meer und Sumpf kreisen entlang der Ufer
   (quer zum Gradienten des Uferabstands; am Ufer still, einige Meter draußen am schnellsten, Engstellen schneller,
   um Inseln herum), Lava wälzt sich in Konvektionszellen (quellenfreies Feld, etwa 30 m). Der Shader schiebt Wellen
-  bzw. Kruste in zwei Phasen, die sich überblenden (6 s Wasser, 18 s Lava); Eis steht still. Beim Laden am Stück,
-  nach Änderungen im Editor (0,25 s nach der letzten) in einem Worker (`flow-map.worker.ts`, Kopien von Höhen und
-  Maske; 15 bis 47 ms auf 513er bis 1025er-Raster blieben so vom Hauptthread), eine neuere Änderung ersetzt das
-  Ergebnis
+  bzw. Kruste in zwei Phasen, die sich überblenden (6 s Wasser, 18 s Lava); Eis steht still. Immer in einem Worker
+  (`flow-map.worker.ts`, Kopien von Höhen und Maske; 15 bis 47 ms auf 513er bis 1025er-Raster, auf großen OSM-Welten
+  mehr, bleiben so vom Hauptthread): beim Laden sofort (`ready` wartet), nach Änderungen im Editor 0,25 s nach der
+  letzten; eine neuere Änderung ersetzt das Ergebnis, bis zur ersten steht das Wasser still
 - **Uferschaum** (`foam-noise.ts`, Wasser, Meer, Sumpf; Flächen und Flüsse): Spitze mit Löchern statt einer Linie.
   Eine gebackene, kachelnde Textur (256², RGBA8, einmal auf der CPU): R die Blasen (Abstand zur Wand zweier
   verzerrter Zellraster, grob 9 und fein 22 je Seite, das feine nur fleckweise), G Flecken, B die Reichweite, A feines

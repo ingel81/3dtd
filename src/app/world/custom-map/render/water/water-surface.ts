@@ -69,6 +69,9 @@ export class WaterSurface {
   private flowBaked = false;
   /** The bake whose flow the surface waits for; a newer one (or the end) leaves an older one's unused */
   private flowJob = 0;
+  /** The last bakes of the current and of the shore cut started, in their workers (settled) */
+  private flowBaking: Promise<void> = Promise.resolve();
+  private shoreBaking: Promise<void> = Promise.resolve();
   /** What the surface shows now */
   kind: MapWater['kind'];
   private effects: { on: MapEffects; copy: SceneCopy; reflection: WaterReflection | null } | null = null;
@@ -95,7 +98,13 @@ export class WaterSurface {
     this.mask.wrapS = this.mask.wrapT = ClampToEdgeWrapping;
     this.mask.generateMipmaps = false;
     this.mask.unpackAlignment = 1;
-    this.flow = new DataTexture(new Uint8Array(field.columns * field.rows * 4), field.columns, field.rows, RGBAFormat, UnsignedByteType);
+    // Still water far from a shore until the first bake is in (bakeFlow): no current, no foam
+    const still = new Uint8Array(field.columns * field.rows * 4);
+    for (let k = 0; k < still.length; k += 4) {
+      still[k] = still[k + 1] = 128;
+      still[k + 2] = 255;
+    }
+    this.flow = new DataTexture(still, field.columns, field.rows, RGBAFormat, UnsignedByteType);
     this.flow.colorSpace = NoColorSpace;
     this.flow.magFilter = this.flow.minFilter = LinearFilter;
     this.flow.wrapS = this.flow.wrapT = ClampToEdgeWrapping;
@@ -138,27 +147,19 @@ export class WaterSurface {
       ? { i0: Math.max(0, rect.i0 - 3), j0: Math.max(0, rect.j0 - 3), i1: Math.min(f.columns - 2, rect.i1 + 2), j1: Math.min(f.rows - 2, rect.j1 + 2) }
       : { i0: 0, j0: 0, i1: f.columns - 2, j1: f.rows - 2 };
     this.bakeMask(water, rect);
-    // Ice stands still. The current runs over the whole body, before the tiles are built: the first bake
-    // right away, edits (a mask or height brush) once they pause for a quarter second
+    // Ice stands still. The current runs over the whole body, in a worker (tens of ms to a second on a big
+    // body): the first bake right away, edits (a mask or height brush) once they pause for a quarter second
     if (kind !== 'ice') {
       if (this.flowDue) clearTimeout(this.flowDue);
       this.flowDue = null;
-      // After an edit in a worker (tens of ms on a big body); a newer edit's bake takes its place
-      const later = (): void => {
-        this.flowDue = null;
-        const job = ++this.flowJob;
-        void bakeFlowOffThread(flowInput(this.field, water, true)).then((flow) => {
-          if (!flow || job !== this.flowJob) return;
-          this.flow.image.data = flow;
-          this.flow.needsUpdate = true;
-        });
-      };
-      if (this.flowBaked) this.flowDue = setTimeout(later, 250);
-      else {
-        this.flowJob++;
-        this.flow.image.data = bakeFlowMap(this.field, water, this.flow.image.data as Uint8Array);
-        this.flow.needsUpdate = true;
+      if (this.flowBaked) {
+        this.flowDue = setTimeout(() => {
+          this.flowDue = null;
+          this.bakeFlow(water);
+        }, 250);
+      } else {
         this.flowBaked = true;
+        this.bakeFlow(water);
       }
     }
     for (let tj = Math.floor(r.j0 / TILE); tj <= Math.floor(r.j1 / TILE); tj++) {
@@ -167,40 +168,49 @@ export class WaterSurface {
     if (apron || !rect) this.buildApron(water, apron);
   }
 
+  /** The first bakes of the current and of the shore cut are in (the view's `ready` waits for them) */
+  get settled(): Promise<void> {
+    return Promise.all([this.flowBaking, this.shoreBaking]).then(() => undefined);
+  }
+
+  /** The current of the whole body in a worker; a newer bake takes its place. A failed worker: baked here */
+  private bakeFlow(water: MapWater): void {
+    const job = ++this.flowJob;
+    this.flowBaking = bakeFlowOffThread(flowInput(this.field, water, true)).then((flow) => {
+      if (job !== this.flowJob) return;
+      this.flow.image.data = flow ?? bakeFlowMap(this.field, water, this.flow.image.data as Uint8Array);
+      this.flow.needsUpdate = true;
+    });
+  }
+
   /**
    * Mask and shore cut anew: over the whole grid for a new mask array, a new
-   * level or no rectangle; else around `rect` (the cut reaches a few
-   * samples past a change of heights). The first bake right here; a later
-   * whole one (the Level slider, an undo) in a worker, the texture keeps the
-   * last cut until it is back.
+   * level or no rectangle, in a worker (the first bake too; the texture
+   * keeps the last cut until it is back, the first time none); else around
+   * `rect` (the cut reaches a few samples past a change of heights), here.
    */
   private bakeMask(water: MapWater, rect?: GridRect): void {
     const f = this.field;
     const data = this.mask.image.data as Uint8Array;
-    const first = this.maskSource === null;
     const whole = !rect || water.mask !== this.maskSource || water.level !== this.maskLevel;
     const grow = SHORE_CUT_RADIUS;
     this.maskSource = water.mask;
     this.maskLevel = water.level;
-    if (whole && !first) {
+    if (whole) {
       this.bakeWholeOffThread(water);
       return;
     }
-    let r: GridRect | null;
-    if (whole) {
-      // Only around the mask: no surface stands farther out (a pool on a big map bakes its corner)
-      data.fill(0);
-      r = maskBounds(water.mask, f.columns, f.rows, grow);
-    } else {
-      r = { i0: Math.max(0, rect.i0 - grow), j0: Math.max(0, rect.j0 - grow), i1: Math.min(f.columns - 1, rect.i1 + grow), j1: Math.min(f.rows - 1, rect.j1 + grow) };
-    }
-    if (r) bakeShoreCut(f.grid.heights, f.columns, f.rows, f.cellSize, water.level, water.mask, data, r);
+    const r = { i0: Math.max(0, rect.i0 - grow), j0: Math.max(0, rect.j0 - grow), i1: Math.min(f.columns - 1, rect.i1 + grow), j1: Math.min(f.rows - 1, rect.j1 + grow) };
+    bakeShoreCut(f.grid.heights, f.columns, f.rows, f.cellSize, water.level, water.mask, data, r);
     // A brush while a whole bake runs: its result misses this, baked again over it when it is back
-    if (r && this.shorePending) this.shoreSince = this.shoreSince ? unionRect(this.shoreSince, r) : r;
-    uploadRect(this.mask, whole ? undefined : (r ?? undefined));
+    if (this.shorePending) this.shoreSince = this.shoreSince ? unionRect(this.shoreSince, r) : r;
+    uploadRect(this.mask, r);
   }
 
-  /** The whole bake of the body as it stands now, in a worker; a newer one takes its place */
+  /**
+   * The whole bake of the body as it stands now, in a worker, only around the mask (no surface stands farther
+   * out: a pool on a big map bakes its corner); a newer one takes its place
+   */
   private bakeWholeOffThread(water: MapWater): void {
     const f = this.field;
     const job = ++this.shoreJob;
@@ -215,7 +225,7 @@ export class WaterSurface {
       return;
     }
     const input = { heights: f.grid.heights.slice(), columns: f.columns, rows: f.rows, cellSize: f.cellSize, level: water.level, mask: water.mask.slice(), rect };
-    void bakeShoreCutOffThread(input).then((cut) => {
+    this.shoreBaking = bakeShoreCutOffThread(input).then((cut) => {
       if (job !== this.shoreJob) return;
       this.shorePending = false;
       // A failed worker: the bake here after all

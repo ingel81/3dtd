@@ -216,7 +216,7 @@ export function drainage(field: HeightField): Uint8Array {
 }
 
 /** The samples under lava (1) or not (0): lava bodies below their level, lava rivers along their width */
-export function lavaSamples(t: MapTerrain, field: HeightField): Uint8Array {
+export function lavaSamples(t: Pick<MapTerrain, 'water' | 'waterBodies' | 'rivers'>, field: HeightField): Uint8Array {
   const f = field;
   const lava = new Uint8Array(f.columns * f.rows);
   for (const body of [t.water, ...(t.waterBodies ?? [])]) {
