@@ -1,0 +1,45 @@
+/**
+ * What the director needs of a page: the map, the camera and the page's own
+ * actions. The game (`?world=map:<id>`), the editor (`/editor`) and the
+ * world menu (the globes) each have one.
+ */
+import type { CameraPose, MapPoint3 } from './camera-path';
+import type { ScreenPoint } from './pointer';
+
+export interface Stage {
+  readonly kind: 'game' | 'editor' | 'menu';
+  /** Whether the map shows and takes input */
+  ready(): boolean;
+  /** The open map's extent (m), null while none is open */
+  mapSize(): { width: number; depth: number } | null;
+  groundAt(x: number, y: number): number;
+  /** The water surface over the ground at a map point, null on dry ground */
+  waterAt(x: number, y: number): number | null;
+  /**
+   * What a camera height counts from: the water surface where water lies, else the ground (a script's `h`, a
+   * frame's centre, a chase camera); clicks and strokes stay on the ground
+   */
+  surfaceAt(x: number, y: number): number;
+  /** Metres the director's camera keeps above the ground (camera-floor.ts); a scene may set less */
+  cameraFloor: number;
+  /**
+   * What the renderer holds (shader programs, geometries, textures): the runner waits until it stops
+   * changing, so a take starts with grass, shadows and textures in place
+   */
+  rendererState(): string | null;
+  /** The renderer's WebGL context, null where the stage has none of its own (the menu's globes) */
+  gl(): WebGLRenderingContext | WebGL2RenderingContext | null;
+  /** A named spot of the map: `hq`, `center`, `spawn:<index>` */
+  /** A named spot; `h` an absolute height where the spot has one of its own (a gizmo handle) */
+  named(name: string): { x: number; y: number; h?: number } | null;
+  /** Take the camera to a pose every frame; null gives it back to the player's controls where it is */
+  setPose(pose: CameraPose | null): void;
+  /** The camera's pose now */
+  pose(): CameraPose | null;
+  /** Where a map point shows on the screen (client px), null behind the camera */
+  toScreen(p: MapPoint3): ScreenPoint | null;
+  /** The canvas the map draws to: what a map click must land on */
+  canvas(): HTMLCanvasElement | null;
+  /** An action of this page by name; throws for one it does not know */
+  act(name: string, args: Record<string, unknown>): Promise<void>;
+}
