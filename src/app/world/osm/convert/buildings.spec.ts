@@ -1,13 +1,28 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { heightAt } from '../../../map-ops/grid';
-import { objectsInAir } from '../../../map-ops/validation/map-validation';
+import { objectsInAir, objectsOnPaths, validateMap } from '../../../map-ops/validation/map-validation';
 import { createMapDocument } from '../../custom-map/map-create';
-import type { CustomMapDocument, MapPoint } from '../../custom-map/map-document';
+import { MASS_ASSET, type CustomMapDocument, type MapPoint } from '../../custom-map/map-document';
+import { massArea } from '../../custom-map/object-mass';
 import { seatHeight } from '../../custom-map/render/objects/object-seat';
 import { buildingKind, BUILDING_MODELS } from '../building-tags';
 import { OsmFrame, type OsmArea, type OsmFeatures } from '../osm-parse';
 import { fitModels, minAreaRect, placeBuildings, splitFootprint, type BuildingCatalogEntry } from './buildings';
+
+/** A nursing home's outline and courtyard as OSM maps such buildings (mirrored), metres east and north of its middle */
+const HOME_OUTER = [
+  [-24.5, 28.1], [-7, 27], [-6.8, 29.5], [5.5, 28.8], [5.6, 30.4], [15.6, 29.8], [15.5, 28.4], [27.3, 27.7], [27.2, 25.7], [34.5, 25.2],
+  [34.7, 28.5], [60.5, 33.9], [62.7, 23.5], [74.2, 22.2], [74, 13.6], [40.5, 15.4], [40, 9.7], [41.7, 9.7], [41, -8.2], [39.1, -8.1],
+  [38.9, -13.3], [61.9, -14.9], [61.2, -23.8], [51.2, -23.3], [50.7, -26], [31, -25.2], [31.1, -23.8], [-16.3, -21.1], [-16.3, -19.4],
+  [-23.6, -19.4], [-24.2, -14.7], [-28, -14.4], [-28.1, -17.8], [-35.4, -17.3], [-34.9, -5.3], [-38.9, -5.1], [-39.6, -15.1], [-41.5, -14.9],
+  [-41.9, -18], [-42.6, -19.6], [-43.8, -19.7], [-45.7, -19.7], [-47.6, -18.9], [-48.7, -17.6], [-49.8, -15.5], [-49.5, -4.4], [-58.6, -4.5],
+  [-58.9, -6.3], [-73, -5], [-72.2, 14.3], [-54.2, 13.4], [-54.4, 6.8], [-33, 5.5], [-26.9, 14.8], [-25.1, 14.8],
+];
+const HOME_YARD = [
+  [31.4, 14.1], [30.8, 1.8], [27.7, 2], [27.5, -2.2], [30, -2.3], [29.5, -13.2], [25.2, -13], [25.3, -10.5], [13.5, -9.9],
+  [13.6, -7.7], [3, -7.2], [2.9, -8.9], [-8.2, -8.3], [-8.3, -10], [-13.4, -9.8], [-12.1, 16.3],
+];
 
 const catalog: BuildingCatalogEntry[] = JSON.parse(readFileSync(join(__dirname, '../../../../../public/maps/assets/catalog.json'), 'utf8')).objects;
 const byId = new Map(catalog.map((e) => [e.id, e]));
@@ -100,6 +115,10 @@ describe('OSM buildings: shapes and models', () => {
     expect(buildingKind({ building: 'yes' }, 280, 1.4, 'residential')).toBe('apartments');
     expect(buildingKind({ building: 'yes' }, 280, 1.4, 'residential', 110)).toBe('house');
     expect(buildingKind({ building: 'yes' }, 280, 1.4, 'residential', 600)).toBe('apartments');
+    // A nursing home is no factory hall; a big footprint with wings or a courtyard is a block
+    expect(buildingKind({ building: 'yes', amenity: 'social_facility' }, 3900, 2.5, null)).toBe('civic');
+    expect(buildingKind({ building: 'yes' }, 3900, 2.5, null)).toBe('industrial');
+    expect(buildingKind({ building: 'yes' }, 3900, 2.5, null, null, true)).toBe('apartments');
   });
 
   it('lays a house as one house, not as a row of terraced modules; the narrow one as a lone module', () => {
@@ -173,6 +192,44 @@ describe('OSM buildings: placing', () => {
     const walls = objects.filter((o) => o.asset === 'retaining-wall');
     expect(walls.length).toBeGreaterThan(0);
     for (const w of walls) expect(w.y).toBeGreaterThan(house.y);
+  });
+
+  it('raises a footprint with wings round a courtyard from its outline: one building, all of it, nothing on the road', () => {
+    // A nursing home as in E235: wings round a courtyard, metres about its middle
+    const at = (xy: number[][]) => xy.map(([x, y]) => ({ x: x - 10, y: y + 45 }));
+    const outline = at(HOME_OUTER);
+    const yard = at(HOME_YARD);
+    const ringArea = (r: MapPoint[]) => Math.abs(r.reduce((s, p, i) => s + p.x * r[(i + 1) % r.length].y - r[(i + 1) % r.length].x * p.y, 0) / 2);
+    const home: OsmArea = { id: 5, from: 'relation', tags: { building: 'yes', amenity: 'social_facility' }, outer: [outline], inner: [yard], area: ringArea(outline) - ringArea(yard) };
+    const { doc, features } = world([home, area(6, box({ x: -60, y: -14 }, 10, 8.6, 0), { building: 'house' })]);
+    const { objects, report } = placeBuildings(doc, features, { catalog });
+    expect(report.masses).toBe(1);
+    expect(report.kinds.civic).toBe(1);
+    const raised = objects.filter((o) => o.asset === MASS_ASSET);
+    expect(raised.length).toBe(1);
+    const mass = raised[0].mass!;
+    expect(mass.rings.length).toBe(2);
+    // All of it, less what simplifying the outline takes
+    expect(massArea(mass) / home.area).toBeGreaterThan(0.97);
+    expect(mass.facade).toBe('plaster');
+    expect(raised[0].group).toBe('osm-b5');
+    // The house beside it keeps its model
+    expect(objects.some((o) => o.group === 'osm-b6' && o.asset !== MASS_ASSET)).toBe(true);
+    doc.objects = objects;
+    const footingOf = (a: string) => byId.get(a);
+    expect(validateMap(doc, { footingOf, blocksBuild: () => true }).filter((i) => i.code === 'object-on-path' || i.code === 'object-floating')).toEqual([]);
+    expect(objectsInAir(doc, footingOf)).toEqual([]);
+  });
+
+  it('cuts a raised building back from the road it reaches onto, and raises a footprint no model fits', () => {
+    // An L whose wing reaches 1 m onto the road's south half (the road along y = 0, 6 m wide)
+    const l: MapPoint[] = [{ x: -30, y: 2 }, { x: 0, y: 2 }, { x: 0, y: 12 }, { x: -20, y: 12 }, { x: -20, y: 30 }, { x: -30, y: 30 }];
+    const { doc, features } = world([area(7, l, { building: 'school' })]);
+    const { objects, report } = placeBuildings(doc, features, { catalog });
+    expect(report.masses).toBe(1);
+    doc.objects = objects;
+    expect(objectsOnPaths(doc, { footingOf: (a) => byId.get(a), blocksBuild: () => true })).toEqual([]);
+    expect(massArea(objects[0].mass!)).toBeGreaterThan(0.85 * 460);
   });
 
   it('with a cap, holds the buildings to it, the small far ones first; without one every footprint stands', () => {

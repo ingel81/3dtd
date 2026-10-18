@@ -180,6 +180,7 @@ const BUILDING_VALUES: Readonly<Record<string, BuildingKind>> = {
   kindergarten: 'school',
   public: 'school',
   hospital: 'school',
+  nursing_home: 'civic',
   museum: 'civic',
   townhall: 'civic',
   civic: 'civic',
@@ -218,6 +219,17 @@ const AMENITY_KINDS: Readonly<Record<string, BuildingKind>> = {
   fuel: 'canopy',
   toilets: 'kiosk',
   shelter: 'carport',
+  // Homes, care and the town's own: a nursing home with a courtyard is no factory hall
+  social_facility: 'civic',
+  nursing_home: 'civic',
+  clinic: 'civic',
+  doctors: 'civic',
+  community_centre: 'civic',
+  arts_centre: 'civic',
+  social_centre: 'civic',
+  public_building: 'civic',
+  prison: 'civic',
+  monastery: 'church',
 };
 
 /** Land use around a building of unknown kind (the use its middle lies in) */
@@ -277,8 +289,9 @@ const BLOCK_AREA_AMONG_HOUSES = 400;
 /**
  * The kind of a building: its `building` value, else its `amenity` or
  * `shop`, else a guess from the size (m² of its footprint), the storeys,
- * the shape (its longer side over the shorter), the land use around and
- * the median footprint of the buildings around (`around`, m², null unknown)
+ * the shape (its longer side over the shorter; `winged`: courtyards, or
+ * wings that fill little of its rectangle), the land use around and the
+ * median footprint of the buildings around (`around`, m², null unknown)
  */
 export function buildingKind(
   tags: Readonly<Record<string, string>>,
@@ -286,6 +299,7 @@ export function buildingKind(
   aspect: number,
   land: BuildingLand,
   around: number | null = null,
+  winged = false,
 ): BuildingKind {
   const tagged = BUILDING_VALUES[tags['building'] ?? ''];
   if (tagged) {
@@ -308,7 +322,8 @@ export function buildingKind(
   if (land === 'education') return area > 300 ? 'school' : 'house';
   if (land === 'religious') return area > 150 ? 'church' : 'chapel';
   if (land === 'commercial' || land === 'retail') return area > 600 && (levels ?? 1) <= 2 ? 'retail' : 'office';
-  if (area > 1500) return (levels ?? 1) <= 2 ? 'industrial' : 'apartments';
+  // A big footprint with wings or a courtyard is a block, a big plain one a hall
+  if (area > 1500) return (levels ?? 1) <= 2 && !winged ? 'industrial' : 'apartments';
   const block = around !== null && around < HOUSE_PLACE_AREA ? BLOCK_AREA_AMONG_HOUSES : BLOCK_AREA;
   if ((levels ?? 0) >= 3 || area > block) return 'apartments';
   return 'house';

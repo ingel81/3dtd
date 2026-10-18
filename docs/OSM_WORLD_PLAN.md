@@ -796,6 +796,66 @@ Der Abtrag liegt meist bei der Neigung über das Haus (Median 0,6 m, 90 % unter 
 rund 1 % (Häuser im Weinberg, lange Bauten am Hang). Die Datei liegt bei den O1-Werten (5,95, 5,59, 6,22 MB),
 nicht darüber.
 
+## Gebäude aus dem Grundriss, gebaut (2026-10-18, E235)
+
+Was der Katalog nicht deckt, steht jetzt als Bau aus dem echten Grundriss. Code: `convert/building-mass.ts` (Höhe,
+Dach, Fassade, Tönung, Vereinfachen, Zurückschneiden an Straßen), `convert/buildings.ts` (Deckung und Wahl),
+`custom-map/object-mass.ts` (was die Regeln von einem solchen Bau lesen), `custom-map/render/objects/mass-layer.ts`
+(Zeichnen). Specs: `building-mass.spec.ts`, `buildings.spec.ts` (das Altenheim aus E235 als Grundriss),
+`object-mass.spec.ts`, `mass-layer.spec.ts`, `object-roof.spec.ts` (Bauverbot und Dach), `map-repair.spec.ts`,
+`custom-map-destruction.spec.ts`.
+
+**Ursache (Kleinstadt am Main, eigene Instanz, 2026-10-18):** ein Altenheim (3 933 m² mit Innenhof,
+`building=yes`, `amenity=social_facility`) wurde als `industrial` geraten (unbekannte Art über 1 500 m²); in die 12 bis
+15 m schmalen Flügel passte keine Halle, am Ende deckten sechs Blockrand-Module 17 %. Innenhöfe beachtete das Teilen
+schon. Im ganzen Ort lagen 31 von 110 Grundrissen ab 300 m² unter 75 % Deckung, 31 Grundrisse hatten gar kein Modell,
+63 fielen wegen Straßenberührung ganz weg.
+
+### Beim Bau entschieden
+
+- **Wann:** nach dem Legen der Modelle (samt Freihalten) misst ein Raster von rund 300 Punkten, wie viel des
+  Grundrisses (außen weniger Höfe) die Wandkästen decken. Unter 60 %, ab 250 m² unter 75 % oder mit Innenhof unter
+  90 % wird der Grundriss statt der Modelle ein Bau aus dem Grundriss; ebenso ohne passendes Modell und wenn alle
+  Modelle wegen Straße weggefallen sind. Der Bau trägt `asset: building-mass` und `mass` am Objekt
+  (`group: osm-b<Id>` wie jedes Gebäude).
+- **Art:** `amenity` kennt jetzt Heime und Öffentliches (`social_facility`, `nursing_home`, `clinic`, `doctors`,
+  `community_centre`, `arts_centre`, `social_centre`, `public_building`, `prison` → `civic`, `monastery` → Kirche),
+  `building=nursing_home` → `civic`. Ein unbekannter Grundriss über 1 500 m² mit Innenhof oder Flügeln (Füllgrad unter
+  0,6) ist ein Block, kein Hallenbau.
+- **Form:** Außenring und Höfe, mit Douglas-Peucker vereinfacht (0,35 m, gröber, bis höchstens 2 048 Punkte), in den
+  Achsen des kleinsten gedrehten Rechtecks (Objektmitte, Drehung). Ein Grundriss, der sein Rechteck zu 90 % füllt und
+  keinen Hof hat, wird bei geneigtem Dach das Rechteck selbst.
+- **Höhe:** `height` (weniger `roof:height` bei geneigtem Dach), sonst `building:levels` mal Geschoss (Wohnen 2,9 m,
+  sonst 3,6 m) plus 0,4 m Sockel, sonst je Art: Haus 2, Wohnblock 3 (über 900 m² 4), Büro 4, Schule und öffentlich 3,
+  Bahnhof 2, Parkhaus 3 Geschosse; Hallen ein Geschoss eigener Höhe (Laden 6 m, Industrie 7,5 m und bis 4 m mehr bei
+  großer Fläche, Scheune 7 m, Kirche 13 m, Kapelle 7 m, Garage 2,8 m). Flache Dächer bekommen 0,9 m Attika obendrauf.
+- **Dach:** `roof:shape` (flach, Sattel, Walm; `roof:angle`), sonst nach Art: Häuser, Scheunen, Kirchen, Bahnhof,
+  Garagen und Schuppen geneigt (38°, 22°, 48°, 30°, 12 bis 15°), alles andere flach mit Attika. Geneigt nur über einem
+  Rechteck, sonst flach. Ein Drittel der Häuser ohne Tag bekommt ein Walmdach.
+- **Fassade:** `building:material` (Ziegel, Stein, Beton, Metall, Putz), sonst nach Art: Wohnen, Heime und Öffentliches
+  Putz, Büro, Schule, Parkhaus Beton, Bahnhof Ziegel, Industrie, Handel, Scheunen Blech, Kirchen Sandstein. Tönung aus
+  `building:colour` (Hex oder gängige Namen), sonst eine der Fassade nach der Id (Putz Creme bis Sand, Blech Oxidrot,
+  Graublau, Hellgrau, Grün).
+- **Freihalten:** ein Bau, dessen Wände in eine Straße ragen (Altstadt: das Haus steht an einer Straße, die die Karte
+  breiter zeichnet), wird an jeder solchen Straße entlang einer Linie neben ihr zurückgeschnitten (Höfe, die der
+  Schnitt trifft, fallen weg); bleibt weniger als die Hälfte, schrumpft er um die Mitte bis 0,8. Geprüft wird mit der
+  Editor-Prüfung `objectsOnPaths`, die für solche Bauten den Umriss exakt gegen die Mittellinie misst. Weg fällt er
+  nur, wenn eine Ecke im Wasser oder der Umriss näher als 14 m am HQ liegt. Stützmauern stehen nicht mehr im Wasser
+  und nicht jenseits des Kartenrands.
+
+### Messungen (Kleinstadt am Main, 2,4 km, ohne Höhen, 2026-10-18)
+
+| | vorher | nachher |
+|---|---|---|
+| Grundrisse, davon stehen | 3 502, 3 401 | 3 502, 3 494 (193 aus dem Grundriss) |
+| weggelassen: kein Modell, Straße, Wasser, HQ | 31, 63, 4, 1 | 0, 1, 4, 1 |
+| Grundrisse ab 40 m² unter 25 % Deckung | 90 | 5 (Wasser und HQ) |
+| Szenenkosten der Gebäude | 3,80 M | 3,65 M |
+| Datei | 1,74 MB | 1,74 MB |
+| Draw Calls am Altenheim (nah, fern, Straße) | 603, 732, 753 | 639, 729, 706 |
+
+Die Zeit des Gebäudeschritts ist noch nicht auf freiem Rechner gemessen.
+
 ## Tunnel, gebaut (2026-10-15)
 
 Entscheidung 8 umgesetzt (`convert/roads.ts` findTunnels, `convert/tunnels.ts`):

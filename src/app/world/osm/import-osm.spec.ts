@@ -15,6 +15,7 @@ import type { CatalogObject } from '../custom-map/render/asset-catalog';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { mapRepairs } from '../custom-map/map-repair';
+import { massTriangles } from '../custom-map/object-mass';
 
 const catalog = JSON.parse(readFileSync(join(__dirname, '../../../../public/maps/assets/catalog.json'), 'utf8'));
 
@@ -92,7 +93,8 @@ describe('OSM world (frozen probe Miltenberg)', () => {
     expect(issues.filter((i) => i.code === 'object-on-path' || i.code === 'object-floating' || i.severity === 'error')).toEqual([]);
     expect(objectsInAir({ ...doc, objects: built }, (a) => byId.get(a))).toEqual([]);
     const area = doc.terrain.width * doc.terrain.depth;
-    const cost = built.reduce((s, o) => s + objectCost(byId.get(o.asset), area), 0);
+    // A raised building adds its own triangles (scene-cost.ts sceneCost)
+    const cost = built.reduce((s, o) => s + objectCost(byId.get(o.asset), area) + (o.mass ? massTriangles(o.mass) : 0), 0);
     expect(cost).toBeCloseTo(b.cost, -2);
     // No cap for now: every footprint that fits stands, the cost is reported
     expect(b.dropped.budget).toBe(0);

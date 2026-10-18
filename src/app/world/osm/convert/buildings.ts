@@ -38,6 +38,10 @@ import { objectsOnPaths, PATH_WALL_SHARE } from '../../../map-ops/validation/map
 import { BUILDING_MODELS, buildingKind, buildingLandOf, buildingLevels, isGroundBuilding, KIND_MODELS, type BuildingKind, type BuildingModel } from '../building-tags';
 import type { OsmArea, OsmFeatures } from '../osm-parse';
 import { ringArea } from '../square-clip';
+import { MASS_ASSET, type MapMass } from '../../custom-map/map-document';
+import { massBox, massDistance, massRadius, massTriangles } from '../../custom-map/object-mass';
+import { toModel } from '../../custom-map/object-ground';
+import { clipOffRoads, raiseMass } from './building-mass';
 
 /** A catalogue entry as far as the buildings read it */
 export type BuildingCatalogEntry = CostEntry & { id: string; footprint: number; box?: GroundBox };
@@ -45,7 +49,7 @@ export type BuildingCatalogEntry = CostEntry & { id: string; footprint: number; 
 /** The catalogue entries the buildings read (their models and the retaining wall), slim for the worker's message */
 export function buildingCatalog(objects: readonly (BuildingCatalogEntry & { id: string })[]): BuildingCatalogEntry[] {
   return objects
-    .filter((o) => BUILDING_MODELS[o.id] || o.id === RETAINING_ASSET)
+    .filter((o) => BUILDING_MODELS[o.id] || o.id === RETAINING_ASSET || o.id === MASS_ASSET)
     .map(({ id, category, height, drawDistance, file, triangles, lod, effects, footprint, box }) => ({ id, category, height, drawDistance, file, triangles, lod, effects, footprint, box }));
 }
 
@@ -70,6 +74,8 @@ export interface BuildingReport {
   objects: number;
   /** Footprints cut into several rectangles, and laid as rows of more than one model */
   split: number;
+  /** Footprints raised from their own outline (no model covers them well enough, building-mass.ts) */
+  masses: number;
   rows: number;
   /** Footprints by kind */
   kinds: Partial<Record<BuildingKind, number>>;
@@ -153,6 +159,17 @@ const VARIETY = 0.08;
 /** What a module (blank sides) standing alone costs in a kind that does not stand in rows: a narrow house only */
 const LONE_MODULE = 0.1;
 /**
+ * A footprint whose models cover less of it than this is raised from its
+ * outline instead (building-mass.ts); a big one (MASS_BIG_AREA) already
+ * below MASS_COVER_BIG, one with courtyards below MASS_COVER_COURT
+ */
+const MASS_COVER = 0.6;
+const MASS_COVER_BIG = 0.75;
+const MASS_BIG_AREA = 250;
+const MASS_COVER_COURT = 0.9;
+/** A footprint filling less of its turned rectangle than this has wings (buildingKind's `winged`) */
+const WINGED_FILL = 0.6;
+/**
  * Tints of the small buildings, one per footprint by its id (white walls to
  * cream and sand, the red and anthracite roofs to brown and grey). Instance
  * colours: no draw call more
@@ -180,6 +197,8 @@ interface Placement {
   /** Turn of the model (front at local +z) */
   rotation: number;
   model: BuildingModel;
+  /** A building raised from the footprint (asset MASS_ASSET) instead of a model */
+  mass?: MapMass;
 }
 
 interface Footprint {
@@ -200,6 +219,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
     placed: 0,
     objects: 0,
     split: 0,
+    masses: 0,
     rows: 0,
     kinds: {},
     fallbacks: {},
@@ -225,7 +245,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
     if (!f) footings.set(asset, (f = buildingFooting(asset, catalog?.get(asset))));
     return f;
   };
-  const onRoad = (o: Pick<MapObject, 'asset' | 'x' | 'y' | 'rotation' | 'scale'>): boolean =>
+  const onRoad = (o: Pick<MapObject, 'asset' | 'x' | 'y' | 'rotation' | 'scale' | 'mass'>): boolean =>
     objectsOnPaths({ ...doc, objects: [{ id: 'probe', z: 0, ...o }] }, { blocksBuild: () => true, footingOf }, edges).length > 0;
   const lands = new AreaIndex(features.areas.filter((a) => buildingLandOf(a.tags) !== null));
   const waters = new AreaIndex(features.areas.filter((a) => isWaterTags(a.tags)));
@@ -253,9 +273,9 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
       const centre = rect.c;
       const land = (lands.at(centre)?.tags ?? null) as Record<string, string> | null;
       const aspect = Math.max(rect.a, rect.b) / Math.max(0.1, Math.min(rect.a, rect.b));
-      const kind = buildingKind(area.tags, ringA, aspect, land ? buildingLandOf(land) : null, around.median(centre, AROUND_REACH));
-      report.kinds[kind] = (report.kinds[kind] ?? 0) + 1;
       const fill = ringA / (rect.a * rect.b);
+      const kind = buildingKind(area.tags, ringA, aspect, land ? buildingLandOf(land) : null, around.median(centre, AROUND_REACH), holes.length > 0 || fill < WINGED_FILL);
+      report.kinds[kind] = (report.kinds[kind] ?? 0) + 1;
       const parts = fill < FILL_SPLIT ? splitFootprint(outer, holes, rect, ringA) : [rect];
       if (parts.length > 1) report.split++;
       const levels = buildingLevels(area.tags);
@@ -272,10 +292,6 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
         }
       }
       for (const k of took) if (k !== kind) report.fallbacks[`${kind}>${k ?? 'none'}`] = (report.fallbacks[`${kind}>${k ?? 'none'}`] ?? 0) + 1;
-      if (!placements.length) {
-        report.dropped.noModel++;
-        continue;
-      }
       // Clear of water, roads and the HQ
       const kept: Placement[] = [];
       let why: 'water' | 'roads' | 'hq' | null = null;
@@ -295,6 +311,37 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
         }
         if (clear === 'shrunk') report.shrunk++;
         kept.push(pl);
+      }
+      // What the models leave of the footprint: raised from its outline instead, where that stands
+      const cover = kept.length ? coverage(outer, holes, rect, kept) : 0;
+      if (cover < MASS_COVER || (ringA >= MASS_BIG_AREA && cover < MASS_COVER_BIG) || (holes.length > 0 && cover < MASS_COVER_COURT)) {
+        const raised = raiseMass(outer, holes, rect, kind, area.tags, ringA, hashId(area.id));
+        if (raised) {
+          const pl: Placement = {
+            asset: MASS_ASSET,
+            p: raised.centre,
+            front: raised.front,
+            hw: raised.hw,
+            hd: raised.hd,
+            scale: 1,
+            rotation: raised.rotation,
+            model: { asset: MASS_ASSET, box: [raised.hw * 2, raised.hd * 2], floors: raised.mass.floors },
+            mass: raised.mass,
+          };
+          const blocked = massBlocked(pl, raised.mass, outer, doc, waters, roads, onRoad);
+          if (!blocked) {
+            report.masses++;
+            if (pl.scale < 1) report.shrunk++;
+            const cost = costOf(MASS_ASSET, catalog, doc) + massTriangles(raised.mass);
+            footprints.push({ id: area.id, kind, area: ringA, centre, placements: [pl], cost, tint: raised.tint });
+            continue;
+          }
+          why ??= blocked;
+        }
+      }
+      if (!placements.length) {
+        report.dropped.noModel++;
+        continue;
       }
       if (!kept.length) {
         report.dropped[why ?? 'roads']++;
@@ -331,7 +378,9 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
     const group = `osm-b${f.id}`;
     for (const pl of f.placements) {
       const entry = catalog?.get(pl.asset);
-      const pad = levelPad(doc, pl, entry?.footprint ?? Math.max(pl.model.box[0], pl.model.box[1]) * 0.45, entry?.box, guard);
+      const pad = pl.mass
+        ? levelPad(doc, pl, massRadius(pl.mass), massBox(pl.mass), guard)
+        : levelPad(doc, pl, entry?.footprint ?? Math.max(pl.model.box[0], pl.model.box[1]) * 0.45, entry?.box, guard);
       if (pad.cut > 0.05) report.pads++;
       report.deepestCutM = Math.max(report.deepestCutM, round1(pad.cut));
       objects.push({
@@ -344,6 +393,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
         scale: round3(pl.scale),
         ...(f.tint ? { tint: f.tint } : {}),
         group,
+        ...(pl.mass ? { mass: pl.mass } : {}),
       });
       if (known(RETAINING_ASSET)) {
         for (const w of retainingWalls(doc, pl, pad.level, onRoad, boxes)) {
@@ -355,7 +405,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
     report.placed++;
   }
   report.objects = objects.length;
-  report.cost = Math.round(objects.reduce((s, o) => s + costOf(o.asset, catalog, doc), 0));
+  report.cost = Math.round(objects.reduce((s, o) => s + costOf(o.asset, catalog, doc) + (o.mass ? massTriangles(o.mass) : 0), 0));
   report.costShare = Math.round((report.cost / SCENE_BUDGET) * 1000) / 1000;
   report.missing = [...missing.entries()].sort((p, q) => q[1] - p[1]).map(([kind, count]) => ({ kind, count }));
   return { objects, report, warnings };
@@ -369,6 +419,66 @@ function costOf(asset: string, catalog: ReadonlyMap<string, BuildingCatalogEntry
 function isWaterTags(tags: Readonly<Record<string, string>>): boolean {
   return tags['natural'] === 'water' || tags['waterway'] === 'riverbank' || tags['landuse'] === 'basin' || tags['landuse'] === 'reservoir' || !!tags['water'];
 }
+
+// ---- Raised buildings ----
+
+/**
+ * Share of a footprint (outer less holes) the models' wall boxes cover:
+ * points on a raster of its rectangle, about 300 of them on the footprint
+ */
+function coverage(outer: readonly MapPoint[], holes: readonly MapPoint[][], rect: Rect, kept: readonly Placement[]): number {
+  const cell = Math.max(0.4, Math.sqrt((rect.a * rect.b) / 300));
+  const v = { x: -rect.u.y, y: rect.u.x };
+  let inside = 0;
+  let covered = 0;
+  for (let sv = -rect.b / 2 + cell / 2; sv < rect.b / 2; sv += cell) {
+    for (let su = -rect.a / 2 + cell / 2; su < rect.a / 2; su += cell) {
+      const q = { x: rect.c.x + su * rect.u.x + sv * v.x, y: rect.c.y + su * rect.u.y + sv * v.y };
+      if (!pointInRing(q, outer) || holes.some((h) => pointInRing(q, h))) continue;
+      inside++;
+      if (kept.some((pl) => { const b = toBox(pl, q); return Math.abs(b.s) <= pl.hw && Math.abs(b.t) <= pl.hd; })) covered++;
+    }
+  }
+  return inside ? covered / inside : 0;
+}
+
+/** Why a raised building cannot stand (its outline in water, at the HQ, on a road), null when it can */
+function massBlocked(
+  pl: Placement,
+  mass: MapMass,
+  outer: readonly MapPoint[],
+  doc: CustomMapDocument,
+  waters: AreaIndex,
+  roads: SegmentIndex,
+  onRoad: (o: Pick<MapObject, 'asset' | 'x' | 'y' | 'rotation' | 'scale' | 'mass'>) => boolean,
+): 'water' | 'hq' | 'roads' | null {
+  if (outer.some((q) => waters.at(q) !== null || waterLevelAt(doc.terrain, q.x, q.y, heightAt(doc.terrain, q.x, q.y)) !== null)) return 'water';
+  const hq = toModel(doc.hq.x - pl.p.x, doc.hq.y - pl.p.y, Math.cos(pl.rotation), Math.sin(pl.rotation));
+  if (massDistance(mass, hq.x, hq.z) < HQ_CLEAR) return 'hq';
+  // Over a road: its walls cut back from the roads, then shrunk about its middle as far as a model may (MASS_SHRINK)
+  const cos = Math.cos(pl.rotation);
+  const sin = Math.sin(pl.rotation);
+  clipOffRoads(
+    mass,
+    roads.near(pl.p, massRadius(mass) + 40).map((g) => {
+      const a = toModel(g.a.x - pl.p.x, g.a.y - pl.p.y, cos, sin);
+      const b = toModel(g.b.x - pl.p.x, g.b.y - pl.p.y, cos, sin);
+      return { ax: a.x, az: a.z, bx: b.x, bz: b.z, half: g.half + ROAD_GUARD };
+    }),
+  );
+  for (const scale of MASS_SHRINK) {
+    if (!onRoad({ asset: pl.asset, x: pl.p.x, y: pl.p.y, rotation: pl.rotation, scale, mass })) {
+      pl.scale = scale;
+      pl.hw *= scale;
+      pl.hd *= scale;
+      return null;
+    }
+  }
+  return 'roads';
+}
+
+/** Scales a raised building tries off a road */
+const MASS_SHRINK = [1, 0.95, 0.9, 0.85, 0.8];
 
 // ---- Shape ----
 
@@ -822,6 +932,18 @@ function lowestSample(t: CustomMapDocument['terrain'], x: number, y: number): nu
   return low;
 }
 
+/** Whether map (x, y) lies in a water body's mask (its nearest height sample) or a river */
+function inWater(t: CustomMapDocument['terrain'], x: number, y: number): boolean {
+  const g = t.grid;
+  const i = Math.round((x + t.width / 2) / g.cellSize);
+  const j = Math.round((y + t.depth / 2) / g.cellSize);
+  if (i >= 0 && j >= 0 && i < g.columns && j < g.rows) {
+    const k = j * g.columns + i;
+    for (const body of [t.water, ...(t.waterBodies ?? [])]) if (body?.mask[k]) return true;
+  }
+  return waterLevelAt(t, x, y, heightAt(t, x, y)) !== null;
+}
+
 /** Retaining walls along the sides of a pad where the hill beside it stands more than RETAINING_FROM over it */
 function retainingWalls(
   doc: CustomMapDocument,
@@ -855,9 +977,9 @@ function retainingWalls(
     for (let k = 0; k < count; k++) {
       const u = -side.len / 2 + (k + 0.5) * (side.len / count);
       const p = { x: pl.p.x + side.n.x * dist + side.along.x * u, y: pl.p.y + side.n.y * dist + side.along.y * u };
-      // Its face to the pad; not on a road (the editor's check), not in the next building
+      // Its face to the pad; not on a road (the editor's check), not in the water or off the map, not in the next building
       const wall = { asset: RETAINING_ASSET, x: round2(p.x), y: round2(p.y), rotation: round3(Math.atan2(side.n.x, -side.n.y)), scale: round3(scale) };
-      if (onRoad(wall)) continue;
+      if (onRoad(wall) || inWater(t, p.x, p.y) || Math.abs(p.x) > t.width / 2 - wl || Math.abs(p.y) > t.depth / 2 - wl) continue;
       if (boxes.near(p).some((q) => q !== pl && boxDistance(q, p) < wd)) continue;
       out.push({ ...wall, z: 0 });
     }
