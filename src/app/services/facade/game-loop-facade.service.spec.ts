@@ -72,7 +72,8 @@ function planned(waveNumber: number, config = wave(EXPLANATION)): PlannedWave {
 function makeStore() {
   return {
     phase: signal('setup'),
-    spawnPoints: signal([{}]),
+    hasRoutes: signal(true),
+    autoWaveSecondsLeft: signal<number | null>(null),
     waveNumber: signal(0),
     directorEnabled: signal(true),
     waveExplanation: signal<DecisionExplanation | null>(null),
@@ -330,6 +331,64 @@ describe('GameLoopFacadeService: one start until the simulation answers', () => 
     facade.startWave();
     expect(starts).toBe(1);
     vi.advanceTimersByTime(1500);
+    facade.startWave();
+    expect(starts).toBe(2);
+  });
+});
+
+describe('GameLoopFacadeService: no route, no wave (TODO E232)', () => {
+  let facade: GameLoopFacadeService;
+  let store: ReturnType<typeof makeStore>;
+  let bus: MainEventBus;
+  let starts: number;
+  const notice = signal<{ text: string } | null>(null);
+
+  beforeEach(() => {
+    store = makeStore();
+    store.directorEnabled.set(false);
+    notice.set(null);
+    bus = createMainEventBus();
+    starts = 0;
+    bus.on('command:start-wave', () => starts++);
+    const injector = Injector.create({
+      providers: [
+        ...UNUSED.map((token) => ({ provide: token, useValue: {} })),
+        // Later providers win: the banner and the zone the refusal is said through
+        { provide: UIStore, useValue: { notice, autoStartWaves: signal(true) } },
+        { provide: NgZone, useValue: { run: (fn: () => unknown) => fn() } },
+        { provide: SimClient, useValue: { bus, started: true, configure: () => undefined } },
+        { provide: SimMirror, useValue: { rng: new GameRng(1), scalars: { gameTimeMs: 0 } } },
+        { provide: MainWorldService, useValue: { corridorPending: () => false } },
+        { provide: RunLogFacade, useValue: { tick: () => undefined, collector: { noteDirectorDecision: () => undefined } } },
+        { provide: TowerDefenseStore, useValue: store },
+        { provide: WaveDirector, useValue: waveDirectorStub() },
+        { provide: BotClientService, useValue: { botEnabled: signal(false) } },
+        { provide: StateSnapshotService, useValue: {} },
+        { provide: WaveDebugService, useValue: { toAIWaveConfig: () => wave() } },
+      ],
+    });
+    facade = runInInjectionContext(injector, () => new GameLoopFacadeService());
+    facade.initialize({ getEngine: () => ({}) } as unknown as FacadeComponentBridge);
+    facade.subscribeToEventBus({ onGameOverExtra: () => undefined });
+  });
+
+  it('sends no start without a route and says why, for the planned and the custom wave', () => {
+    store.hasRoutes.set(false);
+    facade.startWave();
+    expect(starts).toBe(0);
+    expect(notice()?.text).toContain('No wave can start');
+    notice.set(null);
+    facade.startCustomWave();
+    expect(starts).toBe(0);
+    expect(notice()?.text).toContain('No wave can start');
+  });
+
+  it("takes the simulation's refusal as the answer: said, the next press goes out, no countdown", () => {
+    facade.startWave();
+    expect(starts).toBe(1);
+    bus.emit({ type: 'wave:refused', reason: 'no-route' });
+    expect(notice()?.text).toContain('No wave can start');
+    expect(store.autoWaveSecondsLeft()).toBeNull();
     facade.startWave();
     expect(starts).toBe(2);
   });

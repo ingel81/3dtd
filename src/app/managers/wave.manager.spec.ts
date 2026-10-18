@@ -263,6 +263,67 @@ describe('WaveManager', () => {
     });
   });
 
+  describe('spawn points without a route (TODO E232)', () => {
+    /** Three spawn points, the middle one without a route (an unconnected street, a torn network) */
+    const MIXED: SpawnPoint[] = [SPAWN_POINTS[0], { id: 'sp-lost', name: 'Lost', lat: 48.79, lon: 9.2, height: 0 }, SPAWN_POINTS[1]];
+    /** The route each spawn went out on, by the path handed to spawn() */
+    const spawnedFrom = (): string[] => vi.mocked(enemyManager.spawn).mock.calls.map(([path]) =>
+      [...CACHED_PATHS].find(([, route]) => route === path)?.[0] ?? 'none');
+    /** Routes of the shared map, the lost one with a single point (no route either) */
+    const mixedPaths = () => new Map([...CACHED_PATHS, ['sp-lost', [{ lat: 48.79, lon: 9.2 }]]]);
+
+    beforeEach(() => {
+      wm.initialize([...MIXED], mixedPaths());
+    });
+
+    it('takes only the spawn points with a route as lanes, in their order', () => {
+      expect(wm.spawnPoints.map((point) => point.id)).toEqual(['sp-1', 'sp-2']);
+      expect(wm.hasLanes()).toBe(true);
+    });
+
+    it("'each' goes round the spawns with a route and skips the one without", () => {
+      wm.startWave(makeWaveConfig({ count: 4, spawnDelay: 100, spawnMode: 'each' }));
+      for (let i = 0; i < 4; i++) wm.tickSpawn(1000);
+      expect(spawnedFrom()).toEqual(['sp-1', 'sp-2', 'sp-1', 'sp-2']);
+      expect(wm.checkWaveComplete()).toBe(true);
+    });
+
+    it("'random' draws among the spawns with a route only", () => {
+      wm.setRandom(() => 0.5);
+      wm.startWave(makeWaveConfig({ count: 3, spawnDelay: 100, spawnMode: 'random' }));
+      for (let i = 0; i < 3; i++) wm.tickSpawn(1000);
+      // Two lanes: 0.5 is the second; with the lost one counted it was the lost one
+      expect(spawnedFrom()).toEqual(['sp-2', 'sp-2', 'sp-2']);
+    });
+
+    it('spawns an entry named for the lost spawn on a lane by spawnMode, and counts no lane for it', () => {
+      const config = makeWaveConfig({ count: 2, spawnDelay: 100, spawnMode: 'each' });
+      config.schedule.entries[0].spawnPointId = 'sp-lost';
+      config.schedule.entries[1].spawnPointId = 'sp-2';
+      wm.startWave(config);
+      wm.tickSpawn(1000);
+      wm.tickSpawn(1000);
+      expect(spawnedFrom()).toEqual(['sp-1', 'sp-2']);
+      expect(wm.getWaveLaneCount()).toBe(1);
+    });
+
+    it('starts no wave without any route: the counter stays, nothing is emitted', () => {
+      wm.initialize([MIXED[1]], mixedPaths());
+      const started = vi.fn();
+      const completed = vi.fn();
+      bus.on('wave:started', started);
+      bus.on('wave:completed', completed);
+      expect(wm.hasLanes()).toBe(false);
+      wm.startWave(makeWaveConfig({ count: 3 }));
+      wm.tickSpawn(1000);
+      expect(wm.phase()).toBe('setup');
+      expect(wm.waveNumber()).toBe(0);
+      expect(started).not.toHaveBeenCalled();
+      expect(completed).not.toHaveBeenCalled();
+      expect(enemyManager.spawn).not.toHaveBeenCalled();
+    });
+  });
+
   describe('checkWaveComplete()', () => {
     it('returns false when not in wave phase', () => {
       expect(wm.checkWaveComplete()).toBe(false);

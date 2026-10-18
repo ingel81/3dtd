@@ -203,6 +203,15 @@ export type LifecycleEvent =
       enemyCount: number;
     }
   | {
+      /**
+       * A start the simulation turned down (GameStateManager.startWave): no
+       * spawn point of the world has a route to the HQ (TODO E232). No wave
+       * runs, the counter stays, nothing is paid.
+       */
+      type: 'wave:refused';
+      reason: 'no-route';
+    }
+  | {
       type: 'wave:completed';
       wave: number;
       /** The completion gold that was actually booked, bonuses included. */

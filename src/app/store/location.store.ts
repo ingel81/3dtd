@@ -16,6 +16,13 @@ export class LocationStore {
   /** Active spawn points */
   readonly spawnPoints = signal<StoreSpawnPoint[]>([]);
 
+  /**
+   * At least one spawn point has a route to the HQ: without one no wave can
+   * start (canStartWave, TODO E232). PathAndRouteService keeps it with its
+   * routes, so resetAll leaves it.
+   */
+  readonly hasRoutes = signal(false);
+
   /** Street count in loaded network */
   readonly streetCount = signal<number>(0);
 

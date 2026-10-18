@@ -3,7 +3,7 @@ import { UIStore } from '../../store/ui.store';
 import type { ThreeTilesEngine } from '../../three-engine';
 import { CameraControlService } from '../camera-control.service';
 import { MarkerVisualizationService } from '../world/marker-visualization.service';
-import { PathAndRouteService } from '../world/path-route.service';
+import { NO_ROUTE_TEXT, PathAndRouteService } from '../world/path-route.service';
 import { InputHandlerService } from '../input-handler.service';
 import { TowerPlacementService } from '../tower-placement.service';
 import { AbilityTargetingService } from '../ability-targeting.service';
@@ -553,10 +553,14 @@ export class VisualizationFacadeService {
     // Initialize enemy debug service
     this.enemyDebug.initialize(engine, this.store.spawnPoints);
 
-    // Validate routes
-    const paths = this.pathRoute.getCachedPaths();
-    if (paths.size === 0) {
+    // Without a route no enemy could come: the place cannot be played, as a
+    // location change without one (TODO E232). Spawns without one next to
+    // others with one stay and send nothing; the banner says so
+    if (this.pathRoute.getCachedPaths().size === 0) {
       console.error('[VisualizationFacade] No routes found - spawn and HQ may not be connected by streets');
+      this.uiStore.loadProblem.set({ text: `${NO_ROUTE_TEXT} Pick another place.`, blocksPlay: true });
+    } else {
+      this.pathRoute.warnUnroutedSpawns(this.store.spawnPoints());
     }
 
     // Initialize GlobalRouteGrid

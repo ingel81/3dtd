@@ -197,6 +197,9 @@ export class TowerDefenseStore {
   /** Active spawn points */
   readonly spawnPoints = this.locationStore.spawnPoints;
 
+  /** A spawn point at least has a route to the HQ (LocationStore.hasRoutes) */
+  readonly hasRoutes = this.locationStore.hasRoutes;
+
   // ════════════════════════════════════════════════════════════
   // ENGINE / PERFORMANCE
   // ════════════════════════════════════════════════════════════
@@ -272,12 +275,12 @@ export class TowerDefenseStore {
   /** Whether the game has started (at least one wave played) */
   readonly gameStarted: Signal<boolean> = this.gameStore.gameStarted;
 
-  /** Whether the player can start a wave */
+  /** Whether the player can start a wave: a spawn point without a route sends nothing (TODO E232) */
   readonly canStartWave: Signal<boolean> = computed(() =>
     !this.waveActive() &&
     !this.isGameOver() &&
     !this.loading() &&
-    this.spawnPoints().length > 0
+    this.hasRoutes()
   );
 
   /** Whether the player can place towers */
