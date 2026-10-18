@@ -561,16 +561,25 @@ Kosten: Demo-Tal 151 → 160 Calls in der Spielansicht, beim Schwenk 155 → 171
 Rauschen des geteilten Messrechners (Spielansicht 1,01 bis 1,06 ms).
 
 Impostor (`impostor.ts`, oktaedrisch): das Modell aus 8 x 8 Richtungen über der oberen Halbkugel (hemi-oktaedrisches
-Raster, Albedo, unbeleuchtet) in eine Textur von 512 x 512 gerendert (64 px je Ansicht, mit 4x MSAA gezeichnet und in
-ein Ziel ohne MSAA kopiert), gezeigt als eine Karte, die sich zur Kamera dreht. Sie nimmt die vier Ansichten um die
-Blickrichtung und mischt sie nach Nähe; von unten gelten die Ansichten am Horizont. Die Normale zeigt zur Kamera und
-nach oben. Im Schattenpass dreht sich die Karte zur Sonne (eigenes `customDepthMaterial`) und wirft den Umriss von
-dort. Die gesehene Karte liest ihren Schatten einen Radius näher zur Sonne (`IMPOSTOR_SUN`): beide Karten laufen durch
-die Modellmitte, die halbe gesehene Karte lag sonst hinter ihrem eigenen Werfer (ein dunkler Kasten in der Krone). Die Geometrie hält weiter zwei gekreuzte Karten in Modellgröße: was das Mesh mit eigenem Material zeichnet (der
-LOS-Würfel), sieht diese. Kosten (RTX 5080, Burg im Herbst, High): Backen auf dem Hauptthread 55 bis 60 ms je Karte
-statt 41 bis 43 (alle Bäume und Felsen zusammen); je Bild 0,23 bis 0,29 ms für alle Impostoren samt Schatten statt
-0,22 bis 0,26; Speicher je Impostor 1,4 MB statt etwa 4,7 MB (die alte Textur hielt ihre MSAA-Puffer). Braucht den
-Renderer (Ansichtsoption `renderer`).
+Raster) in zwei Atlanten gerendert (mit 4x MSAA gezeichnet, in ein Ziel ohne MSAA kopiert, leere Pixel aus den
+belegten derselben Ansicht aufgefüllt, damit Mipmaps zur Kronenfarbe mischen): Farbe mit Deckung und, in halber
+Größe, Normale im Modellrahmen mit der Tiefe vor der Kartenebene. Laubkarten backen mit ihrer gesetzten Normale und
+blenden von der Kante gesehen aus wie im Spiel. Gezeigt als eine Karte, die sich zur Kamera dreht; sie nimmt die vier
+Ansichten um die Blickrichtung und mischt sie nach Nähe, von unten gelten die Ansichten am Horizont. Beleuchtet wird
+je Pixel mit der gebackenen Normale; Schnee legt sich nach ihr (`SURFACE_VIEW_NORMAL` in `height-fog.ts`). Wo die
+Schattenkarte reicht, beschattet sich die Karte selbst: ein Punkt liegt in seiner Tiefe, und die Ansicht nächst der
+Sonne sagt, ob die Krone zwischen ihm und der Sonne steht. Pixel je Ansicht: 128 für Bäume und große Felsen ab 1400 px
+Zeichenhöhe, sonst 64 (`impostorCell`). Beim Backen zeichnet eine Probe Modell und Karte unter denselben Lichtern mit
+Schatten aus vier Richtungen: die Alpha-Schwelle der Karte ist die, unter der sie so viel deckt wie das Modell (vier
+gemischte Ansichten decken mehr als jede einzelne, eine lichte Krone wurde voll und reiner in Laubfarbe), der Ton
+(`uImpTone`) das Verhältnis der Mittelfarben je Kanal. Im Schattenpass dreht sich die Karte zur Sonne (eigenes
+`customDepthMaterial`) und wirft den Umriss von dort. Die gesehene Karte liest den Schatten anderer Werfer einen Radius
+näher zur Sonne (`IMPOSTOR_SUN`), den eigenen nimmt sie aus dem Atlas. Die Geometrie hält weiter zwei gekreuzte Karten
+in Modellgröße: was das Mesh mit eigenem Material zeichnet (der LOS-Würfel), sieht diese. Gebacken wird einmal je
+Asset für beide Objektschichten der Ansicht (`ImpostorCache`, Karte und Randbäume), Programme vorab abseits des
+Hauptthreads, die Probe ohne Stau gelesen. Speicher (Atlanten mit Mipmaps): 1,7 MB je Impostor bei 64 px, 6,7 MB bei
+128 px; die Karten mit 9 bis 12 Impostoren bei 900 px Zeichenhöhe 15 bis 20 MB statt 16 bis 24 MB vorher (dort backte
+jede Schicht ihre eigenen). Braucht den Renderer (Ansichtsoption `renderer`).
 
 Materialien (`objectMaterial`): Bäume und Pflanzen bewegen sich im Wind der Karte: Stamm und Krone als Ganzes (der
 Stamm biegt sich quadratisch mit der Höhe, steif), sie neigen sich mit dem Druck des Windes an ihrem Ort (Böenfronten

@@ -16,7 +16,6 @@ import {
   type Material,
   type Object3D,
   type MeshStandardMaterial,
-  type WebGLRenderer,
 } from 'three';
 import type { MapObject } from '../../map-document';
 import type { AssetCatalog, CatalogObject } from '../asset-catalog';
@@ -28,7 +27,7 @@ import { mapToScene } from '../map-coords';
 import { seatHeight } from './object-seat';
 import { addAtlasVariants } from './atlas-variants';
 import { instanceVariation } from './instance-variation';
-import { bakeImpostor, bakeImpostorAsync, type Impostor } from './impostor';
+import type { ImpostorCache } from './impostor-cache';
 import { addVertexRoughMetal, mergeParts } from './merge-parts';
 import { clothGeometry, isCloth } from './cloth';
 import { DEFAULT_SPIN, SPIN_GLSL } from './spin';
@@ -218,8 +217,8 @@ export interface ObjectHit {
 }
 
 export interface ObjectLayerOptions {
-  /** Renderer for baking tree impostors; without one far trees keep their model */
-  renderer?: WebGLRenderer;
+  /** The view's impostors (shared with its other object layers); without them far trees keep their model */
+  impostors?: ImpostorCache;
   /** Level of the water at a map point, null on dry ground (floating objects) */
   waterLevelAt?: (x: number, y: number) => number | null;
   /** Assets with at most this many objects draw packed (PACK_MAX by default; 0 puts every asset into cells) */
@@ -239,9 +238,6 @@ export class MapObjectLayer {
   private readonly materials = new Map<string, Material>();
   /** Shadow materials of rotor parts by seconds a turn (rotorShadow) */
   private readonly rotorShadows = new Map<number, Material>();
-  private readonly impostors = new Map<string, Impostor | null>();
-  /** Impostor bakes under way, by asset (prepareImpostor) */
-  private readonly impostorJobs = new Map<string, Promise<void>>();
   private disposed = false;
   private generation = 0;
   private readonly camPos = new Vector3();
@@ -647,8 +643,6 @@ export class MapObjectLayer {
     for (const m of this.rotorShadows.values()) m.dispose();
     this.materials.clear();
     this.fades.length = 0;
-    for (const imp of this.impostors.values()) imp?.dispose();
-    this.impostors.clear();
     this.group.removeFromParent();
   }
 
@@ -664,42 +658,9 @@ export class MapObjectLayer {
     return Math.floor(x / CELL_SIZE) * 4096 + Math.floor(y / CELL_SIZE);
   }
 
-  /** Whether an asset's far level is an impostor: trees and big rocks (buildings get hand-made far models through the catalogue's lod) */
-  private wantsImpostor(model: ObjectModel): boolean {
-    const entry = model.entry;
-    return (entry.category === 'tree' || (entry.category === 'rock' && entry.height >= 1.5)) && !!this.options.renderer && !model.placeholder;
-  }
-
-  /** The impostor's materials as the layer draws them */
-  private finishImpostor(imp: Impostor | null): Impostor | null {
-    if (imp) {
-      addLodFade(imp.material);
-      addHeightFog(imp.material);
-    }
-    return imp;
-  }
-
-  /**
-   * Bakes the impostor of an asset's far level ahead, its programs built
-   * first off the main thread (bakeImpostorAsync): levelsFor then finds it.
-   * Baked in levelsFor, its programs linked in the frame of the stroke that
-   * brought the asset
-   */
+  /** Bakes an asset's impostor ahead (ImpostorCache.prepare), when the layer draws impostors */
   private prepareImpostor(model: ObjectModel): Promise<void> {
-    const id = model.entry.id;
-    if (!this.wantsImpostor(model) || this.impostors.has(id)) return Promise.resolve();
-    let job = this.impostorJobs.get(id);
-    if (!job) {
-      job = bakeImpostorAsync(this.options.renderer!, model)
-        .then((imp) => {
-          if (this.disposed || this.impostors.has(id)) imp?.dispose();
-          else this.impostors.set(id, this.finishImpostor(imp));
-        })
-        .catch(() => undefined)
-        .finally(() => this.impostorJobs.delete(id));
-      this.impostorJobs.set(id, job);
-    }
-    return job;
+    return this.options.impostors?.prepare(model) ?? Promise.resolve();
   }
 
   /** Detail levels of an asset: its model, the catalogue's LOD models, an impostor for far trees */
@@ -709,17 +670,11 @@ export class MapObjectLayer {
       mergedParts(m).map((p) => ({ geometry: p.geometry, material: this.objectMaterial(p.material, entry), depthMaterial: isRotor(p.material) ? this.rotorShadow(entry) : undefined }));
     const levels: Level[] = [{ from: 0, parts: drawn(model) }];
     for (const lod of lods) levels.push({ from: lod.distance, parts: drawn(lod.model) });
-    if (this.wantsImpostor(model)) {
-      let imp = this.impostors.get(entry.id);
-      if (imp === undefined) {
-        imp = this.finishImpostor(bakeImpostor(this.options.renderer!, model));
-        this.impostors.set(entry.id, imp);
-      }
-      if (imp) {
-        // Beyond the game camera's usual distance (200 to 300 m, impostorFrom in High), where a tree is a few pixels wide
-        const from = Math.max(lods.length ? lods[lods.length - 1].distance * 1.5 : 0, entry.height * 25);
-        levels.push({ from, impostor: true, parts: [{ geometry: imp.geometry, material: imp.material, depthMaterial: imp.depthMaterial }] });
-      }
+    const imp = this.options.impostors?.get(model);
+    if (imp) {
+      // Beyond the game camera's usual distance (200 to 300 m, impostorFrom in High), where a tree is a few pixels wide
+      const from = Math.max(lods.length ? lods[lods.length - 1].distance * 1.5 : 0, entry.height * 25);
+      levels.push({ from, impostor: true, parts: [{ geometry: imp.geometry, material: imp.material, depthMaterial: imp.depthMaterial }] });
     }
     return levels;
   }

@@ -155,7 +155,10 @@ gl_FragColor.rgb = mapGrade(gl_FragColor.rgb);
  */
 const SURFACE_WEATHER_COLOR = /* glsl */ `
 float surfaceUp = 1.0;
-#ifndef FLAT_SHADED
+#if defined(SURFACE_VIEW_NORMAL)
+// A material that finds its normal per pixel names it (an impostor's baked one): its card's normal faced up
+surfaceUp = dot(SURFACE_VIEW_NORMAL, normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz));
+#elif !defined(FLAT_SHADED)
 surfaceUp = dot(normalize(vNormal), normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz));
 #endif
 if (uSnowCover > 0.0) {

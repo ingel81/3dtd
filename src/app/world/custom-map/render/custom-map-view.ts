@@ -47,7 +47,9 @@ import { IMPOSTOR_SUN } from './objects/impostor';
 import { BridgeLayer } from './paths/path-bridges';
 import type { RoadCover } from './paths/path-mask';
 import type { TexelRect } from './terrain/texture-ranges';
-import { LAVA_GLOW_UNIFORMS } from './environment/height-fog';
+import { addHeightFog, LAVA_GLOW_UNIFORMS } from './environment/height-fog';
+import { ImpostorCache } from './objects/impostor-cache';
+import { addLodFade } from './objects/lod-fade';
 import { groundCuts } from './terrain/terrain-cuts';
 import { MapTerrainLayer } from './terrain/map-terrain';
 import { ApronField, EDGE_TREE_BAND, edgeTreeObjects } from './objects/edge-trees';
@@ -176,6 +178,8 @@ export class CustomMapView {
   private readonly edgeTrees: MapObjectLayer;
   /** The writing on the objects' signs (MapObject.sign), one draw call */
   private readonly signs = new SignLayer();
+  /** Far trees' and rocks' impostors, baked once for both object layers */
+  private readonly impostors: ImpostorCache | undefined;
   private edgeTreesDue: ReturnType<typeof setTimeout> | null = null;
   private readonly bridges: BridgeLayer;
   private readonly effects: EffectLayer;
@@ -274,8 +278,15 @@ export class CustomMapView {
     this.terrain.grass.setCover(this.cover);
     this.environment.setFogBase(lowGround(t.grid.heights, t.water?.level));
     this.updateWater();
+    // One bake per asset for both object layers; their materials as the layers draw them (detail band, height fog)
+    this.impostors = options.renderer
+      ? new ImpostorCache(options.renderer, (imp) => {
+          addLodFade(imp.material);
+          addHeightFog(imp.material);
+        })
+      : undefined;
     this.objects = new MapObjectLayer(this.heights, assets, this.losBlockers, {
-      renderer: options.renderer,
+      impostors: this.impostors,
       waterLevelAt: (x, y) => this.waterLevelAt(x, y),
     });
     this.group.add(this.objects.group);
@@ -286,7 +297,7 @@ export class CustomMapView {
     edgeSight.name = 'custom-map-edge-trees';
     this.group.add(edgeSight);
     this.edgeTrees = new MapObjectLayer(new ApronField(this.heights, t.width, t.depth, () => this.terrain.apronProfile), assets, edgeSight, {
-      renderer: options.renderer,
+      impostors: this.impostors,
     });
     this.edgeTrees.group.name = 'custom-map-edge-trees';
     this.group.add(this.edgeTrees.group);
@@ -1679,6 +1690,7 @@ export class CustomMapView {
     this.cover.dispose();
     this.objects.dispose();
     this.edgeTrees.dispose();
+    this.impostors?.dispose();
     if (this.edgeTreesDue) clearTimeout(this.edgeTreesDue);
     this.bridges.dispose();
     this.environment.dispose();
