@@ -95,11 +95,33 @@ Check: `https://3dtd-osm.sgeht.net/api/interpreter?data=[out:json];node(1);out;`
 
 ## On Unraid
 
-With the Compose Manager plugin the stack has its buttons there (Compose Up, Compose Down, Update Stack, Autostart),
-and the containers show in the Docker tab with the 3DTD logo (`net.unraid.docker.icon`); the status page's container
-has the status page as its WebUI (`net.unraid.docker.webui`, Unraid fills in the address and port, the container's
-own on a custom network such as `br0`). Keep the database
-on a pool path (`/mnt/cache/...`) of a share without a secondary storage, so the mover never takes it to the array.
+For the Unraid plugin Compose Manager Plus (mstrhakr/compose_plugin) the folder `unraid/` holds a stack of its
+own: `docker-compose.yml` with the three services that run for good (Overpass, proxy, status page), the proxy and the
+page at fixed addresses of their own on an external network (`LAN_NETWORK`, `STATUS_NETWORK`), no port on the server,
+no profiles; `docker-compose.clone.yml` with the clone, run by hand; `env.example` for its `.env`. The plugin calls
+`docker compose` with the stack's compose file and its override, and adds every file a `COMPOSE_FILE` in `.env`
+names; with profiles in the file it asks which to start, and "all" would start the clone and the own tunnel too.
+That is why this stack is one file without profiles, and why its `.env` has no `COMPOSE_FILE`. The services are the
+same as in `docker-compose.yml`; `src/compose-files.spec.ts` holds the two alike.
+
+```bash
+mkdir -p /mnt/cache/appdata/3dtd-osm/data /mnt/cache/appdata/3dtd-osm/stats && cd /mnt/cache/appdata/3dtd-osm
+raw=https://raw.githubusercontent.com/ingel81/3dtd/next/overpass-host/unraid
+curl -fsSL -O "$raw/docker-compose.yml" -O "$raw/docker-compose.clone.yml"
+curl -fsSL -o .env "$raw/env.example"     # LAN_NETWORK, PROXY_IP, STATUS_IP, TRUSTED_PROXIES
+docker compose -f docker-compose.clone.yml run --rm clone
+```
+
+Then in the plugin: Add New Stack, Compose Source "External folder" `/mnt/cache/appdata/3dtd-osm/`, the ENV path left
+empty (the `.env` of that folder, also editable in the stack's editor), Create; Compose Up starts the three services
+(no profile dialog), Autostart keeps them up after a reboot, Update Stack pulls new images. A new clone by hand:
+`docker stop 3dtd-overpass`, `docker compose -f docker-compose.clone.yml run --rm clone --fresh`, Compose Up. Proxy
+and status page keep running meanwhile; the proxy answers 503 with `Retry-After: 1800` until the clone is complete.
+
+The containers show in the Docker tab with the 3DTD logo (`net.unraid.docker.icon`); the status page's container has
+the status page as its WebUI (`net.unraid.docker.webui`, Unraid fills in the container's own address). Keep the
+database on a pool path (`/mnt/cache/...`) of a share without a secondary storage, so the mover never takes it to the
+array.
 
 ## Status page
 

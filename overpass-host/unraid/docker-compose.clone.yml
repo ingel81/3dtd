@@ -1,0 +1,19 @@
+# The clone for the Unraid stack (README.md, "On Unraid"), run by hand next to docker-compose.yml:
+#   docker compose -f docker-compose.clone.yml run --rm clone            # first fill, or go on
+#   docker compose -f docker-compose.clone.yml run --rm clone --fresh    # anew, with Overpass stopped
+# Reads the same .env; shares the maintenance flag with the stack through the named volume.
+name: 3dtd-osm-clone
+
+services:
+  clone:
+    image: ${OVERPASS_HOST_IMAGES:-ghcr.io/ingel81}/3dtd-osm-clone:${OVERPASS_HOST_TAG:-latest}
+    environment:
+      CLONE_JOBS: ${CLONE_JOBS:-2}
+      CLONE_SPLIT: ${CLONE_SPLIT:-4}
+    volumes:
+      - ${OVERPASS_DATA:?set OVERPASS_DATA in .env}:/db
+      - shared:/shared
+
+volumes:
+  shared:
+    name: 3dtd-osm-shared
