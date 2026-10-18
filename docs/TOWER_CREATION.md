@@ -1110,8 +1110,18 @@ einer kritisch gedämpften Feder (9 rad/s): ein Gegner, der weiterläuft, oder e
 statt ihn springen zu lassen. Welcher Arm welchen Gegner nimmt, entscheidet das Bild (die Simulation zählt nur
 Treffer je Gegner): die Zuordnung mit dem kürzesten Weg und den wenigsten Gegnern außerhalb des Viertels eines Arms,
 so bleibt jeder Arm auf seiner Seite und die Arme kreuzen nicht; einen Gegner zu behalten kostet keinen Weg, die
-Arme tauschen also nicht, nur weil die Simulation die Liste anders ordnet. Zwei Sägen halten 0,55 Modelleinheiten
-Abstand, die Mitten zweier Arme 0,45 (sie biegen sich auseinander).
+Arme tauschen also nicht, nur weil die Simulation die Liste anders ordnet. Gibt es mindestens so viele erreichbare
+Gegner wie Arme, hat jeder Arm seinen eigenen; nur bei weniger teilen sich Arme einen (die freien gehen an den
+fernsten).
+
+Arme und Sägen berühren sich nie (`keepClear`): jeder Arm gilt als Kette aus 8 geraden Stücken mit seinem Radius
+(0,15), jede Säge als Kapsel vom Halter bis zur Nase (0,85 lang, 0,17 dick, mal ihre Größe). Kommen sich zwei näher
+als ihre Dicken und 0,05 Luft, werden sie entlang der Linie ihrer nächsten Punkte auseinandergeschoben, jeder so weit,
+wie er ausgefahren ist (eingefahren stehen sie wie modelliert): eine Säge an ihrem Halter, ein Arm nahe seiner Säge
+über die Säge, sonst durch Biegen (beide inneren Kontrollpunkte). Danach werden die Arme neu geformt und wieder
+geprüft, bis eine Runde nichts mehr schiebt, höchstens 10 Runden je Bild. Alle Sägen ziehen im Gleichtakt, so laufen
+Nachbarn beim Zug parallel statt aufeinander zu. Ein Szenario-Spec misst das über Straßen in drei Abständen und
+Winkeln, Gedränge, einen und zwei Gegner, Aus- und Einfahren.
 
 Das Sägen (E241, nur Bild): am Gegner fährt die Säge quer über ihn hin und her, waagerecht und quer zur Richtung,
 aus der der Arm kommt (0,18 Modelleinheiten je Seite, gut 0,7 m, 1,1 Mal je Sekunde), stößt zweimal je Zug ein

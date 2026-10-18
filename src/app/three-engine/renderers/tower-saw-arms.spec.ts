@@ -3,6 +3,13 @@ import { Group, Matrix4, Object3D, Vector3 } from 'three';
 import { TOWER_TYPES } from '../../configs/tower-types.config';
 import { SawArms } from './tower-saw-arms';
 
+/** Where the model docks the saws, in the turret part's frame (chainsaw.glb) */
+const DOCKS: Record<string, [number, number, number]> = {
+  saw_down: [-0.016, 0.185, 0.391],
+  saw_side: [0.485, 0.327, -0.014],
+  saw_up: [-0.016, 0.69, 0.392],
+};
+
 /** The Chainsaw's turret part with its three saws where the model docks them */
 function turret(): Object3D {
   const part = new Group();
@@ -10,7 +17,7 @@ function turret(): Object3D {
   for (const arm of TOWER_TYPES.chainsaw.sawArms!) {
     const saw = new Object3D();
     saw.name = arm.node;
-    saw.position.set(arm.socket[0], arm.socket[1] - 0.1, arm.socket[2] + 0.1);
+    saw.position.set(...DOCKS[arm.node]);
     part.add(saw);
   }
   part.updateMatrixWorld(true);
@@ -119,7 +126,7 @@ describe('SawArms', () => {
     // Home again it stops stroking
     arms.setTargets([]);
     for (let i = 0; i < 60; i++) arms.update(1 / 60);
-    expect(saw.position.distanceTo(new Vector3(-0.016, 0.09, 0.347))).toBeLessThan(1e-6);
+    expect(saw.position.distanceTo(new Vector3(...DOCKS['saw_down']))).toBeLessThan(1e-6);
     arms.dispose();
   });
 
@@ -160,5 +167,93 @@ describe('SawArms', () => {
     expect(cutting).toBeLessThan(0.45 * 0.042 + 1e-3);
     arms.dispose();
     expect(part.getObjectByName('saw_chain')).toBeUndefined();
+  });
+
+  it('never lets two arms or saws touch, at work, stroking, side by side or on one enemy (E241)', () => {
+    // An arm's radius and a saw's, as built (tower-saw-arms.ts), and where the bodies leave the torso side by side
+    const ARM = 0.15;
+    const SAW = 0.17;
+    const TORSO = 0.125;
+    const N = 32;
+    const curves = [0, 1, 2].map(() => Array.from({ length: N + 1 }, () => new Vector3()));
+    const saws = [0, 1, 2].map((): [Vector3, Vector3] => [new Vector3(), new Vector3()]);
+    const sizes = [0, 0, 0];
+    const at = (a: Vector3, b: Vector3, p: Vector3) => {
+      const ab = b.clone().sub(a);
+      const t = Math.min(1, Math.max(0, p.clone().sub(a).dot(ab) / Math.max(1e-12, ab.lengthSq())));
+      return a.clone().addScaledVector(ab, t).distanceTo(p);
+    };
+    // Segment to segment, by sampling one of them densely: plenty for a test
+    const segments = (a0: Vector3, a1: Vector3, b0: Vector3, b1: Vector3) => {
+      let d = Infinity;
+      for (let i = 0; i <= 20; i++) d = Math.min(d, at(b0, b1, a0.clone().lerp(a1, i / 20)));
+      return d;
+    };
+    const worst = { gap: Infinity, what: '' };
+    const measure = (arms: SawArms, label: string) => {
+      const part = arms.mesh.parent!;
+      for (let k = 0; k < 3; k++) {
+        arms.shape(k, curves[k], saws[k]);
+        sizes[k] = part.getObjectByName(TOWER_TYPES.chainsaw.sawArms![k].node)!.scale.x;
+      }
+      const note = (gap: number, what: string) => {
+        if (gap < worst.gap) {
+          worst.gap = gap;
+          worst.what = `${label}: ${what}`;
+        }
+      };
+      for (let a = 0; a < 3; a++) {
+        for (let b = a + 1; b < 3; b++) {
+          note(segments(saws[a][0], saws[a][1], saws[b][0], saws[b][1]) - SAW * (sizes[a] + sizes[b]), `saws ${a} ${b}`);
+          let bodies = Infinity;
+          for (let i = 0; i < N; i++) {
+            for (let j = 0; j < N; j++) {
+              if (i < TORSO * N && j < TORSO * N) continue;
+              bodies = Math.min(bodies, segments(curves[a][i], curves[a][i + 1], curves[b][j], curves[b][j + 1]));
+            }
+          }
+          note(bodies - 2 * ARM, `bodies ${a} ${b}`);
+          for (const [s, o] of [[a, b], [b, a]]) {
+            let d = Infinity;
+            for (let j = 0; j < N; j++) d = Math.min(d, segments(saws[s][0], saws[s][1], curves[o][j], curves[o][j + 1]));
+            note(d - SAW * sizes[s] - ARM, `saw ${s} body ${o}`);
+          }
+        }
+      }
+    };
+    // Enemies along a road at distance `d` across angle `angle`, `spacing` apart, walking at `speed`
+    const road = (d: number, angle: number, spacing: number, count: number, speed: number) => (t: number) => {
+      const along = new Vector3(Math.cos(angle), 0, -Math.sin(angle));
+      const mid = new Vector3(Math.sin(angle), 0, Math.cos(angle)).multiplyScalar(d);
+      return Array.from({ length: count }, (_, i) => mid.clone().addScaledVector(along, (i - (count - 1) / 2) * spacing + speed * t - 0.6));
+    };
+    const scenes: [string, (t: number) => Vector3[]][] = [
+      ['clump', (t) => [new Vector3(0.1, 0, 2.5 + 0.1 * t), new Vector3(-0.15, 0, 2.6), new Vector3(0.05, 0, 2.35)]],
+      ['one enemy', (t) => [new Vector3(0.3 * t - 0.6, 0, 2.4)]],
+      ['two enemies', (t) => [new Vector3(0.3 * t - 0.6, 0, 2.4), new Vector3(0.3 * t, 0, 2.5)]],
+      ...[1.6, 2.5, 3.4].flatMap((d) => [0, Math.PI / 4, -Math.PI / 4].map((angle): [string, (t: number) => Vector3[]] =>
+        [`road ${d} at ${Math.round((angle * 180) / Math.PI)} deg`, road(d, angle, 0.55, 3, 0.4)])),
+      ['crowd past the side', road(1.8, Math.PI / 2.5, 0.4, 3, 0.6)],
+    ];
+    for (const [label, enemies] of scenes) {
+      const part = turret();
+      const arms = new SawArms(TOWER_TYPES.chainsaw, part);
+      measure(arms, `${label} docked`);
+      for (let f = 0; f < 240; f++) {
+        // The simulation lists them nearest first, free arms on the farthest
+        const list = enemies(f / 60).sort((p, q) => p.length() - q.length());
+        arms.setTargets([0, 1, 2].map((k) => list[Math.min(k, list.length - 1)]));
+        arms.update(1 / 60);
+        measure(arms, `${label} at ${f}`);
+      }
+      // And home again
+      arms.setTargets([]);
+      for (let f = 0; f < 60; f++) {
+        arms.update(1 / 60);
+        measure(arms, `${label} home ${f}`);
+      }
+      arms.dispose();
+    }
+    expect(worst.gap, worst.what).toBeGreaterThanOrEqual(0);
   });
 });

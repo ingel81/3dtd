@@ -28,10 +28,19 @@ const UNFOLD_SHARE = 0.4;
 const DEPLOY_REACH = 0.9;
 /** How fast a saw out at work follows its enemy, rad/s of a critically damped spring: a swing, never a jump */
 const FOLLOW_RATE = 9;
-/** Least distance between two saws out, model units: two arms on enemies side by side do not run into each other */
-const SAW_CLEARANCE = 0.55;
-/** Least distance between the middles of two arms, model units (three arm radii): their bodies do not run through each other */
-const BODY_CLEARANCE = 0.45;
+/**
+ * A saw as the arms keep clear of it, model units at its built size: a
+ * capsule from its mount along its bar to the nose, as thick as its housing
+ * and its bar with the chain
+ */
+const SAW_LENGTH = 0.85;
+const SAW_RADIUS = 0.17;
+/** Room left between two arms or saws, model units: they never touch */
+const GAP = 0.05;
+/** Straight pieces an arm's curve is taken as when the arms keep clear of each other */
+const BODY_PIECES = 8;
+/** Rounds of pushing apart a frame at most; one without a push ends them */
+const SOLVE_PASSES = 10;
 /**
  * Weight of an enemy outside an arm's quarter (away from its `out`) against
  * the distance its saw would travel, model units at a right angle: each arm
@@ -105,9 +114,14 @@ interface Arm {
   c1: Vector3;
   c2: Vector3;
   bar: Vector3;
-  /** 0 to 1, how far the stroke has set in (STROKE_EASE), and where in its stroke the saw is, rad */
+  /** 0 to 1, how far the stroke has set in (STROKE_EASE) */
   stroke: number;
-  strokePhase: number;
+  /** This frame: how the arm bows to keep clear (added to both inner control points), its saw's turn, size and nose, its curve in BODY_PIECES */
+  bow: Vector3;
+  sawTurn: Quaternion;
+  sawScale: number;
+  nose: Vector3;
+  body: Vector3[];
   /** The chain round its bar (null without a `bar` or a saw), its run 0 to 1 and how far it has gone, model units */
   chain: ChainLoop | null;
   /** Its bar along its length and its face, in the saw's own frame (null without a `bar`): out it lies flat */
@@ -136,13 +150,14 @@ const ORDERS: readonly (readonly number[])[] = [
  * back. At work the saw follows its enemy on a critically damped spring, so
  * a moving enemy or a new one swings the arm over instead of jumping it.
  * There it saws (E241): it strokes across the enemy, sideways on the
- * ground to the way the arm comes in, pushing in twice a stroke, its bar
- * trailing and lying flat (rolled so as it unfolds, layFlat); its chain runs round the bar (tower-saw-chain.ts, all links in
+ * ground to the way the arm comes in, all saws in step, pushing in twice a
+ * stroke, its bar trailing and lying flat (rolled so as it unfolds,
+ * layFlat); its chain runs round the bar (tower-saw-chain.ts, all links in
  * one InstancedMesh), idling docked, faster out and spinning up at work.
  * The simulation names the enemies; which arm takes which is drawn here:
  * the order with the least travel and the fewest enemies outside an arm's
- * quarter, so arms keep to their sides and do not cross, and two saws out
- * keep SAW_CLEARANCE apart. Purely visual: the simulation deals the damage
+ * quarter, so arms keep to their sides and do not cross; arms and saws
+ * never touch (keepClear). Purely visual: the simulation deals the damage
  * (TowerCombatService.updateSawTowers) and sends the enemies once a frame
  * (`towers.setSawTargets`).
  */
@@ -168,7 +183,23 @@ export class SawArms {
   private readonly q = new Quaternion();
   private readonly scale = new Vector3(1, 1, 1);
   private readonly local: Vector3[] = [new Vector3(), new Vector3(), new Vector3()];
+  private readonly onA = new Vector3();
+  private readonly onB = new Vector3();
+  private readonly hitA = new Vector3();
+  private readonly hitB = new Vector3();
+  private readonly push = new Vector3();
+  private readonly u = new Vector3();
+  private readonly v = new Vector3();
+  private readonly w = new Vector3();
+  /** Where on the two segments the last `closest` found the nearest points, 0 to 1 */
+  private atA = 0;
+  private atB = 0;
   private time = 0;
+  /**
+   * Where in their stroke the saws are, rad: all in step, so saws side by
+   * side stroke the same way and keep their distance instead of meeting
+   */
+  private strokePhase = 0;
 
   constructor(config: TowerTypeConfig, private readonly turret: Object3D) {
     const specs = config.sawArms ?? [];
@@ -203,8 +234,11 @@ export class SawArms {
         c2: new Vector3(),
         bar: new Vector3(),
         stroke: 0,
-        // The arms stroke out of step with each other
-        strokePhase: index * 2.1,
+        bow: new Vector3(),
+        sawTurn: new Quaternion(),
+        sawScale: 1,
+        nose: new Vector3(),
+        body: Array.from({ length: BODY_PIECES + 1 }, () => new Vector3()),
         chain: spec.bar && saw ? new ChainLoop(spec.bar) : null,
         barLength: spec.bar ? new Vector3(...spec.bar.to).sub(new Vector3(...spec.bar.from)).normalize() : null,
         barFace: spec.bar ? new Vector3(...spec.bar.normal).normalize() : null,
@@ -258,6 +292,7 @@ export class SawArms {
   /** Once per render frame: the arms go out or home and are drawn where they are. */
   update(deltaSeconds: number): void {
     this.time += deltaSeconds;
+    this.strokePhase = (this.strokePhase + deltaSeconds * STROKE_RATE * 2 * Math.PI) % (2 * Math.PI);
     for (const arm of this.arms) {
       const step = deltaSeconds / EXTEND_SECONDS;
       arm.reach = arm.hasTarget ? Math.min(1, arm.reach + step) : Math.max(0, arm.reach - step);
@@ -265,16 +300,13 @@ export class SawArms {
       arm.stroke = cutting
         ? Math.min(1, arm.stroke + deltaSeconds / STROKE_EASE)
         : Math.max(0, arm.stroke - deltaSeconds / STROKE_EASE);
-      if (arm.stroke > 0) arm.strokePhase += deltaSeconds * STROKE_RATE * 2 * Math.PI;
       const run = cutting ? 1 : arm.hasTarget ? CHAIN_REACH : CHAIN_IDLE;
       const ease = run > arm.chainSpeed ? CHAIN_SPIN_UP : CHAIN_SPIN_DOWN;
       arm.chainSpeed += (run - arm.chainSpeed) * (1 - Math.exp(-deltaSeconds / ease));
       if (arm.hasTarget) this.follow(arm, deltaSeconds);
       this.placeTip(arm);
     }
-    this.keepApart();
-    for (const arm of this.arms) this.shapeArm(arm);
-    this.separateBodies();
+    this.keepClear();
     let count = 0;
     let links = 0;
     for (const arm of this.arms) {
@@ -366,10 +398,14 @@ export class SawArms {
     if (arm.stroke <= 0) return;
     const dir = this.inward(arm);
     const set = smooth(arm.stroke);
-    const across = Math.sin(arm.strokePhase) * STROKE * set;
-    const push = Math.sin(2 * arm.strokePhase) * STROKE_PUSH * set;
+    const across = Math.sin(this.strokePhase) * STROKE * set;
+    const push = Math.sin(2 * this.strokePhase) * STROKE_PUSH * set;
     arm.tip.x += -dir.z * across + dir.x * push;
     arm.tip.z += dir.x * across + dir.z * push;
+    // The motor's buzz while it cuts
+    const buzz = 0.006 * set;
+    arm.tip.x += Math.sin(this.time * 61 + arm.lift * 13) * buzz;
+    arm.tip.y += Math.sin(this.time * 47 + arm.lift * 7) * buzz;
   }
 
   /** The way the arm comes in to its enemy on the ground, normalised, in `this.dir` */
@@ -379,73 +415,194 @@ export class SawArms {
     return dir.normalize();
   }
 
-  /** Two saws out closer than SAW_CLEARANCE: each moves half the shortfall away from the other, as far as it is out */
-  private keepApart(): void {
+  /**
+   * The arms never touch (E241): each a chain of BODY_PIECES straight pieces
+   * RADIUS thick, each saw a capsule (SAW_LENGTH, SAW_RADIUS, at its size).
+   * Wherever two come closer than their thickness and GAP, they are pushed
+   * apart along the line between their nearest points, each as far as it is
+   * out (a docked arm stays as the model has it): a saw by its mount, a body
+   * near its saw by its saw, else by bowing (both inner control points, as
+   * much more as the curve there moves less). Again with the arms reshaped,
+   * until a round pushes nothing or SOLVE_PASSES are done.
+   */
+  private keepClear(): void {
+    for (const arm of this.arms) {
+      arm.bow.set(0, 0, 0);
+      this.shapeArm(arm);
+    }
     const arms = this.arms;
-    for (let i = 0; i < arms.length; i++) {
-      for (let j = i + 1; j < arms.length; j++) {
-        const a = arms[i];
-        const b = arms[j];
-        const d = this.tmp.subVectors(b.tip, a.tip);
-        const distance = d.length();
-        if (distance >= SAW_CLEARANCE) continue;
-        if (distance < 1e-6) d.copy(b.side).sub(a.side);
-        if (d.lengthSq() < 1e-9) d.set(1, 0, 0);
-        d.normalize();
-        const push = (SAW_CLEARANCE - distance) / 2;
-        a.tip.addScaledVector(d, -push * smooth(a.reach));
-        b.tip.addScaledVector(d, push * smooth(b.reach));
+    for (let pass = 0; pass < SOLVE_PASSES; pass++) {
+      let pushed = false;
+      for (let i = 0; i < arms.length; i++) {
+        for (let j = i + 1; j < arms.length; j++) pushed = this.pushApart(arms[i], arms[j]) || pushed;
       }
+      if (!pushed) return;
+      for (const arm of arms) this.shapeArm(arm);
     }
   }
 
-  /** The arm's curve: its saw's bar and the control points (socket and saw are its ends) */
+  /** One round between two arms: saw against saw, each saw against the other's body, body against body; true on a push */
+  private pushApart(a: Arm, b: Arm): boolean {
+    const wa = smooth(a.reach);
+    const wb = smooth(b.reach);
+    if (wa + wb <= 0) return false;
+    let pushed = false;
+    const sawA = SAW_RADIUS * a.sawScale;
+    const sawB = SAW_RADIUS * b.sawScale;
+    // Saw against saw
+    let d = this.closest(a.tip, a.nose, b.tip, b.nose);
+    if (d < sawA + sawB + GAP) {
+      this.separate(a, b, wa, wb, sawA + sawB + GAP - d, -1, -1);
+      pushed = true;
+    }
+    // Each saw against the other's body
+    pushed = this.sawAgainstBody(a, b, wa, wb, sawA) || pushed;
+    pushed = this.sawAgainstBody(b, a, wb, wa, sawB) || pushed;
+    // Body against body, past where they leave the torso side by side
+    let best = Infinity;
+    let atA = 0;
+    let atB = 0;
+    for (let i = 0; i < BODY_PIECES; i++) {
+      for (let k = 0; k < BODY_PIECES; k++) {
+        if (i === 0 && k === 0) continue;
+        d = this.closest(a.body[i], a.body[i + 1], b.body[k], b.body[k + 1]);
+        if (d < best) {
+          best = d;
+          atA = (i + this.atA) / BODY_PIECES;
+          atB = (k + this.atB) / BODY_PIECES;
+          this.hitA.copy(this.onA);
+          this.hitB.copy(this.onB);
+        }
+      }
+    }
+    if (best < 2 * RADIUS + GAP) {
+      this.onA.copy(this.hitA);
+      this.onB.copy(this.hitB);
+      this.separate(a, b, wa, wb, 2 * RADIUS + GAP - best, atA, atB);
+      pushed = true;
+    }
+    return pushed;
+  }
+
+  /** The saw of `saw` against the body of `other`; true on a push */
+  private sawAgainstBody(saw: Arm, other: Arm, ws: number, wo: number, radius: number): boolean {
+    let best = Infinity;
+    let at = 0;
+    for (let k = 0; k < BODY_PIECES; k++) {
+      const d = this.closest(saw.tip, saw.nose, other.body[k], other.body[k + 1]);
+      if (d < best) {
+        best = d;
+        at = (k + this.atB) / BODY_PIECES;
+        this.hitA.copy(this.onA);
+        this.hitB.copy(this.onB);
+      }
+    }
+    if (best >= radius + RADIUS + GAP) return false;
+    this.onA.copy(this.hitA);
+    this.onB.copy(this.hitB);
+    this.separate(saw, other, ws, wo, radius + RADIUS + GAP - best, -1, at);
+    return true;
+  }
+
+  /**
+   * Moves `a` and `b` apart by `short` along the line from onB to onA,
+   * shared as far as each is out; `atA`/`atB` where on its body (-1: its saw)
+   */
+  private separate(a: Arm, b: Arm, wa: number, wb: number, short: number, atA: number, atB: number): void {
+    const n = this.push.subVectors(this.onA, this.onB);
+    if (n.lengthSq() < 1e-12) n.subVectors(a.side, b.side).setY(0.1);
+    if (n.lengthSq() < 1e-12) n.set(0, 1, 0);
+    n.normalize();
+    const share = short / (wa + wb);
+    this.moveArm(a, atA, wa * share);
+    this.moveArm(b, atB, -wb * share);
+  }
+
+  /** Moves `arm` by `amount` along `this.push`, at `at` on its body (-1: its saw) */
+  private moveArm(arm: Arm, at: number, amount: number): void {
+    if (amount === 0) return;
+    if (at < 0 || at > 0.75) arm.tip.addScaledVector(this.push, amount);
+    else arm.bow.addScaledVector(this.push, amount / Math.max(0.4, 3 * at * (1 - at)));
+  }
+
+  /**
+   * Distance between the segments p1 q1 and p2 q2, their nearest points in
+   * onA and onB and where along each in atA and atB (Ericson, Real-Time
+   * Collision Detection 5.1.9)
+   */
+  private closest(p1: Vector3, q1: Vector3, p2: Vector3, q2: Vector3): number {
+    const d1 = this.u.subVectors(q1, p1);
+    const d2 = this.v.subVectors(q2, p2);
+    const r = this.w.subVectors(p1, p2);
+    const a = d1.lengthSq();
+    const e = d2.lengthSq();
+    const f = d2.dot(r);
+    let s = 0;
+    let t = 0;
+    if (a <= 1e-12 && e > 1e-12) {
+      t = clamp01(f / e);
+    } else if (a > 1e-12) {
+      const c = d1.dot(r);
+      if (e <= 1e-12) {
+        s = clamp01(-c / a);
+      } else {
+        const b = d1.dot(d2);
+        const denom = a * e - b * b;
+        s = denom > 1e-12 ? clamp01((b * f - c * e) / denom) : 0;
+        t = (b * s + f) / e;
+        if (t < 0) {
+          t = 0;
+          s = clamp01(-c / a);
+        } else if (t > 1) {
+          t = 1;
+          s = clamp01((b - c) / a);
+        }
+      }
+    }
+    this.atA = s;
+    this.atB = t;
+    this.onA.copy(p1).addScaledVector(d1, s);
+    this.onB.copy(p2).addScaledVector(d2, t);
+    return this.onA.distanceTo(this.onB);
+  }
+
+  /**
+   * The arm's shape this frame: its saw's bar and the curve's control points
+   * (socket and saw are its ends) with its bow, the saw's turn, size and
+   * nose, the curve in BODY_PIECES
+   */
   private shapeArm(arm: Arm): void {
     const reach = smooth(arm.reach);
-    // The motor's buzz while it cuts
-    const buzz = 0.006 * smooth(arm.stroke);
-    arm.tip.x += Math.sin(this.time * 61 + arm.lift * 13) * buzz;
-    arm.tip.y += Math.sin(this.time * 47 + arm.lift * 7) * buzz;
     // The bar along the curve's end: as docked, turning into the enemy (tilted down) as it reaches, trailing its stroke
     const dir = this.inward(arm);
-    const yaw = Math.cos(arm.strokePhase) * STROKE_YAW * smooth(arm.stroke);
+    const yaw = Math.cos(this.strokePhase) * STROKE_YAW * smooth(arm.stroke);
     if (yaw !== 0) dir.applyAxisAngle(UP, yaw);
     arm.bar.set(dir.x, -Math.tan(SAW_TILT), dir.z).normalize();
     arm.bar.lerpVectors(arm.axis, arm.bar, reach).normalize();
     const span = arm.socket.distanceTo(arm.tip);
     // Out of the socket along its own `out`, arching up by its lift: each arm on its own height
-    arm.c1.copy(arm.socket).addScaledVector(arm.out, span * 0.35).addScaledVector(UP, arm.lift * span * reach);
-    arm.c2.copy(arm.tip).addScaledVector(arm.bar, -span * 0.35);
+    arm.c1.copy(arm.socket).addScaledVector(arm.out, span * 0.35).addScaledVector(UP, arm.lift * span * reach).add(arm.bow);
+    arm.c2.copy(arm.tip).addScaledVector(arm.bar, -span * 0.35).add(arm.bow);
+    arm.sawTurn.setFromUnitVectors(arm.axis, arm.bar).multiply(arm.restQuaternion);
+    this.layFlat(arm, arm.sawTurn);
+    arm.sawScale = 1 + SAW_GROWTH * reach;
+    if (arm.barLength) arm.nose.copy(arm.barLength).applyQuaternion(arm.sawTurn);
+    else arm.nose.copy(arm.bar);
+    arm.nose.multiplyScalar(SAW_LENGTH * arm.sawScale).add(arm.tip);
+    for (let i = 0; i <= BODY_PIECES; i++) bezier(arm.socket, arm.c1, arm.c2, arm.tip, i / BODY_PIECES, arm.body[i]);
   }
 
   /**
-   * Two arms whose middles come closer than BODY_CLEARANCE bow apart: both
-   * control points of each move away from the other (a move of both shifts
-   * the middle by three quarters of it), as far as the arms are out
+   * Where arm `index` runs this frame: its curve at `curve.length` points
+   * from socket to saw, its saw from mount to nose into `saw` (the clearance
+   * spec measures them)
    */
-  private separateBodies(): void {
-    const arms = this.arms;
-    for (let i = 0; i < arms.length; i++) {
-      for (let j = i + 1; j < arms.length; j++) {
-        const a = arms[i];
-        const b = arms[j];
-        const share = Math.min(smooth(a.reach), smooth(b.reach));
-        if (share <= 0) continue;
-        bezier(a.socket, a.c1, a.c2, a.tip, 0.5, this.p1);
-        bezier(b.socket, b.c1, b.c2, b.tip, 0.5, this.p2);
-        const d = this.tmp.subVectors(this.p2, this.p1);
-        const distance = d.length();
-        if (distance >= BODY_CLEARANCE) continue;
-        if (distance < 1e-6) d.subVectors(b.socket, a.socket);
-        if (d.lengthSq() < 1e-9) d.set(0, 1, 0);
-        d.normalize();
-        const push = ((BODY_CLEARANCE - distance) / 2 / 0.75) * share;
-        a.c1.addScaledVector(d, -push);
-        a.c2.addScaledVector(d, -push);
-        b.c1.addScaledVector(d, push);
-        b.c2.addScaledVector(d, push);
-      }
-    }
+  shape(index: number, curve: Vector3[], saw: [Vector3, Vector3]): void {
+    const arm = this.arms[index];
+    const n = curve.length - 1;
+    for (let i = 0; i <= n; i++) bezier(arm.socket, arm.c1, arm.c2, arm.tip, i / n, curve[i]);
+    saw[0].copy(arm.tip);
+    saw[1].copy(arm.nose);
   }
 
   /**
@@ -473,7 +630,6 @@ export class SawArms {
 
   /** Saw and vertebrae of one arm along its curve; returns the instances used so far. */
   private drawArm(arm: Arm, first: number): number {
-    const reach = smooth(arm.reach);
     const { p0, p1, p2, p3, dir } = this;
     p0.copy(arm.socket);
     p1.copy(arm.c1);
@@ -482,9 +638,8 @@ export class SawArms {
 
     if (arm.saw) {
       arm.saw.position.copy(p3);
-      arm.saw.quaternion.setFromUnitVectors(arm.axis, arm.bar).multiply(arm.restQuaternion);
-      this.layFlat(arm, arm.saw.quaternion);
-      arm.saw.scale.setScalar(1 + SAW_GROWTH * reach);
+      arm.saw.quaternion.copy(arm.sawTurn);
+      arm.saw.scale.setScalar(arm.sawScale);
     }
 
     // Arc length along the curve, then a vertebra every SEGMENT
@@ -534,6 +689,10 @@ export class SawArms {
     }
     return n;
   }
+}
+
+function clamp01(x: number): number {
+  return x < 0 ? 0 : x > 1 ? 1 : x;
 }
 
 function smooth(x: number): number {
