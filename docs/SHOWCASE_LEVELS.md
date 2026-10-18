@@ -38,7 +38,12 @@ Wasser bis zur Kante, Steine in der Brandung davor. Danach `sea` erneut. `cliffR
 Cliff rocks des Editors (Felswände auf steilen Flanken). Vorher
 `environment` setzen (der Look wählt die Modelle), und vor dem Bewuchs: der Pinsel hält Abstand zu anderen Objekten.
 `contour(a, b, height)` liefert die Höhenlinie quer über einen Hang (für Reihen am Hang: Zäune, Verbauungen, Terrassen),
-in Stücken, wo der Boden die Höhe nicht erreicht. `glacier(line, { width, snow })` legt einen Gletscher oder ein
+in Stücken, wo der Boden die Höhe nicht erreicht. `contourRows(asset, region, { gap, length, maxSlope })` legt Reihen
+am Hang in einem Kreis oder Umriss: Stücke von `length` Metern Ende an Ende entlang der Höhenlinien, `gap` Meter
+auseinander, die x-Achse des Modells längs (`map-ops/contour-rows.ts`). Die Linien laufen über einer geglätteten Kopie
+des Bodens (Marching Squares), so folgen sie Terrassen an ihren Kanten und einem Hang um Sporne und Mulden; steiler als
+`maxSlope` Grad (Terrassenwand, Klippe), Straßen und Wasser bleiben frei. Weinberg auf Demo Valley mit `vine-row`.
+`glacier(line, { width, snow })` legt einen Gletscher oder ein
 Schneefeld vom Kopf zur Zunge: ein ebener Strang von Punkt zu Punkt, etwas eingesenkt, mit Schnee bemalt, Eisbrocken an
 der Zunge und Moränenschutt an den Rändern. Breite Modelle (Zäune, Mauern) sitzen am tiefsten Punkt ihrer Grundfläche:
 am Steilhang versinken sie, dort schmale Stücke nehmen.

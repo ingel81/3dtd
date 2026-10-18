@@ -19,6 +19,7 @@
 import { CatalogIndex } from '../../map-ops/asset-catalog';
 import { EditorDocument } from '../model/editor-document';
 import { heightAt, insideMap, nearestSample, slopeAt, type GridRect } from '../../map-ops/grid';
+import { contourRows } from '../../map-ops/contour-rows';
 import { BRUSH_LIMITS, type BrushSettings } from '../../map-ops/brush';
 import { finishGenerated, generateTerrain, type TerrainPreset } from '../../map-ops/generate';
 import { biomeBand, biomeDab, finishBiome } from './landscape/biome-brush';
@@ -909,6 +910,30 @@ export class MapKit {
     this.doc.objects.push(...placed, ...images);
     this.freeCheck = null;
     return placed;
+  }
+
+  /**
+   * Rows along the hillside in a region (a centre and radius, or an outline):
+   * `asset` pieces `length` metres long laid end to end along the contours,
+   * `gap` metres apart across the slope, turned so the model's x runs along
+   * the row (contour-rows.ts). A vineyard, a tea garden, a field on terraces.
+   * Pieces on ground steeper than `maxSlope` degrees, on a road or in water
+   * are left out
+   */
+  contourRows(
+    asset: string,
+    region: { center: MapPoint; radius: number } | readonly MapPoint[],
+    o: { gap: number; length: number; maxSlope?: number; smooth?: number } & Pick<PlaceOptions, 'scale' | 'tint' | 'align'>,
+  ): MapObject[] {
+    if (!this.catalog.objects.has(asset)) throw new Error(`${this.name}: ${this.catalog.unknown('asset', asset)}`);
+    const radius = this.catalog.object(asset).radius * (o.scale ?? 1);
+    const pieces = contourRows((x, y) => this.h(x, y), (x, y) => this.slope(x, y), region, { gap: o.gap, length: o.length, maxSlope: o.maxSlope, smooth: o.smooth });
+    const out: MapObject[] = [];
+    for (const p of pieces) {
+      if (!insideMap(this.doc.terrain, p, 2) || !this.free(p.x, p.y, radius * 0.5)) continue;
+      out.push(this.place(asset, p.x, p.y, { rotation: Math.atan2(-p.dy, -p.dx), scale: o.scale, tint: o.tint, align: o.align }));
+    }
+    return out;
   }
 
   /** Smoke from a house's chimney: a smoke effect just over its roof */
