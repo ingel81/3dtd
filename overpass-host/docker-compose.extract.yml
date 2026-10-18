@@ -1,0 +1,11 @@
+# A test with a regional extract instead of the planet (README.md, "A test with a region"):
+#   docker compose -f docker-compose.yml -f docker-compose.extract.yml up -d
+# Overpass builds its database from the extract on its first start (minutes for a region).
+services:
+  overpass:
+    environment:
+      OVERPASS_MODE: init
+      OVERPASS_PLANET_URL: ${EXTRACT_URL:-https://download.geofabrik.de/europe/germany/bayern/unterfranken-latest.osm.pbf}
+      OVERPASS_PLANET_PREPROCESS: mv /db/planet.osm.bz2 /db/planet.osm.pbf && osmium cat -o /db/planet.osm.bz2 /db/planet.osm.pbf && rm /db/planet.osm.pbf
+    # The extract comes from outside
+    networks: [backend, download]

@@ -1,0 +1,145 @@
+# The own Overpass instance of 3DTD (README.md): Overpass with the planet's
+# current data, the proxy in front of it, the status page for the LAN, and the
+# Cloudflare tunnel that is its only way in from outside. Settings in .env
+# (.env.example). First fill: docker compose run --rm clone, then docker compose up -d.
+name: 3dtd-osm
+
+x-hardened: &hardened
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  overpass:
+    image: wiktorn/overpass-api:v0.7.62.9
+    container_name: 3dtd-overpass
+    restart: unless-stopped
+    entrypoint: ["/bin/bash", "/host/start-overpass.sh"]
+    environment:
+      OVERPASS_MODE: clone
+      OVERPASS_META: "no"
+      OVERPASS_STOP_AFTER_INIT: "false"
+      # No areas (the clone has none, and building them for the planet takes days), no diffs: a new clone when due
+      OVERPASS_USE_AREAS: "false"
+      OVERPASS_DIFF_URL: ""
+      OVERPASS_SLOTS: ${OVERPASS_SLOTS:-8}
+      # Every query comes from the proxy's one address: the proxy limits per client, Overpass must not
+      OVERPASS_RATE_LIMIT: "1024"
+      OVERPASS_ALLOW_DUPLICATE_QUERIES: "yes"
+      # Memory (bytes) and time (s) all running queries may reserve together (dispatcher --space, --time)
+      OVERPASS_SPACE: ${OVERPASS_SPACE:-10737418240}
+      OVERPASS_TIME: ${OVERPASS_TIME:-3600}
+      OVERPASS_MAX_TIMEOUT: 300s
+    volumes:
+      - ${OVERPASS_DATA:?set OVERPASS_DATA in .env}:/db
+      - ./overpass/start-overpass.sh:/host/start-overpass.sh:ro
+      - shared:/shared
+    mem_limit: ${OVERPASS_MEMORY:-16g}
+    memswap_limit: ${OVERPASS_MEMORY:-16g}
+    networks: [backend]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  proxy:
+    <<: *hardened
+    build: .
+    image: 3dtd-osm-proxy:local
+    container_name: 3dtd-osm-proxy
+    restart: unless-stopped
+    command: ["src/proxy-main.ts"]
+    environment:
+      UPSTREAM: http://overpass/api/interpreter
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://3dtd.sgeht.net,app://app,http://localhost:4200}
+      ALLOW_NO_ORIGIN: ${ALLOW_NO_ORIGIN:-1}
+      TRUST_CLOUDFLARE: ${TRUST_CLOUDFLARE:-1}
+      MAX_EDGE_KM: ${MAX_EDGE_KM:-5}
+      MAX_AREA_KM2: ${MAX_AREA_KM2:-30}
+      MAX_TIMEOUT_S: ${MAX_TIMEOUT_S:-90}
+      MAX_MAXSIZE_MB: ${MAX_MAXSIZE_MB:-256}
+      RATE_BURST: ${RATE_BURST:-20}
+      RATE_PER_MINUTE: ${RATE_PER_MINUTE:-30}
+      RATE_CONCURRENT: ${RATE_CONCURRENT:-4}
+      OVERPASS_SLOTS: ${OVERPASS_SLOTS:-8}
+      QUEUE_MAX: ${QUEUE_MAX:-32}
+      QUEUE_WAIT_S: ${QUEUE_WAIT_S:-20}
+      STATS_DB: /stats/requests.sqlite
+      STATS_DAYS: ${STATS_DAYS:-30}
+      MAINTENANCE_FILE: /shared/maintenance
+    volumes:
+      - ${STATS_DIR:-./stats}:/stats
+      - shared:/shared:ro
+    mem_limit: 512m
+    pids_limit: 100
+    networks: [backend, edge]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  status:
+    <<: *hardened
+    image: 3dtd-osm-proxy:local
+    container_name: 3dtd-osm-status
+    restart: unless-stopped
+    depends_on: [proxy]
+    command: ["src/status-main.ts"]
+    environment:
+      STATS_DB: /stats/requests.sqlite
+      OVERPASS_API: http://overpass/api
+      OVERPASS_DATA: /overpass
+      SHARED_DIR: /shared
+    volumes:
+      - ${STATS_DIR:-./stats}:/stats
+      - ${OVERPASS_DATA}:/overpass:ro
+      - shared:/shared:ro
+    # For the LAN only: bind it to the server's LAN address in .env
+    ports:
+      - "${STATUS_BIND:-0.0.0.0}:${STATUS_PORT:-8090}:8090"
+    mem_limit: 256m
+    pids_limit: 100
+    networks: [backend, lan]
+
+  cloudflared:
+    <<: *hardened
+    image: cloudflare/cloudflared:2026.9.3
+    container_name: 3dtd-osm-tunnel
+    restart: unless-stopped
+    profiles: [tunnel]
+    depends_on: [proxy]
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    mem_limit: 256m
+    networks: [edge]
+
+  # docker compose run --rm clone [--fresh]: fills OVERPASS_DATA (clone/clone.sh)
+  clone:
+    build: ./clone
+    image: 3dtd-osm-clone:local
+    profiles: [clone]
+    environment:
+      CLONE_JOBS: ${CLONE_JOBS:-2}
+      CLONE_SPLIT: ${CLONE_SPLIT:-4}
+    volumes:
+      - ${OVERPASS_DATA}:/db
+      - shared:/shared
+    networks: [download]
+
+networks:
+  # Overpass, the proxy and the status page; no way out
+  backend:
+    internal: true
+  # The proxy and the tunnel; the tunnel reaches Cloudflare
+  edge: {}
+  # The status page's published port
+  lan: {}
+  download: {}
+
+volumes:
+  # The clone's maintenance flag, the memory of the Overpass container
+  shared: {}

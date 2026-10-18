@@ -1,0 +1,4 @@
+# Local settings with the tunnel's token, and what a local run leaves
+.env
+stats/
+data/
