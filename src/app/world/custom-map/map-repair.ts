@@ -10,6 +10,7 @@ import {
   MAP_WAVE_EVENT_KINDS,
   MAP_WEATHERS,
   MASS_ASSET,
+  MAP_OBJECT_DAMAGE,
   MAX_MAP_PREFABS,
   MAX_SIGN_TEXT,
   STRUCTURE_HP_SCALE,
@@ -46,9 +47,6 @@ import { markingProblems, MAX_SURFACES, surfaceProblems } from './map-surfaces';
  * Coop and replays: what this does depends on the file alone (no clock, no
  * chance), so every client of one build reads one file the same.
  */
-
-/** The stages a map may damage an object to beforehand (MapObject.damage) */
-const OBJECT_DAMAGE: readonly unknown[] = [1, 2, 3];
 
 /** Most objects a map keeps (an OSM city has some 30 000); the rest is dropped on reading */
 export const MAX_MAP_OBJECTS = 100_000;
@@ -274,7 +272,7 @@ function objectRepairs(doc: CustomMapDocument, fix: boolean, out: MapProblem[]):
       out.push({ text: `object ${o.id}: destructible ${JSON.stringify(o.destructible)} is not true or false; it takes damage as its kind does`, part: 'objects', at });
       if (fix) delete o.destructible;
     }
-    if (o.damage !== undefined && !OBJECT_DAMAGE.includes(o.damage)) {
+    if (o.damage !== undefined && !(MAP_OBJECT_DAMAGE as readonly unknown[]).includes(o.damage)) {
       out.push({ text: `object ${o.id}: damage ${JSON.stringify(o.damage)} is not 1, 2 or 3; it starts standing`, part: 'objects', at });
       if (fix) delete o.damage;
     }

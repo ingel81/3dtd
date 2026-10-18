@@ -224,7 +224,7 @@ export interface MapObject {
    * beforehand (1 battered, 2 heavily damaged, 3 a ruin with its rubble,
    * destruction.config.ts); standing when missing
    */
-  damage?: 1 | 2 | 3;
+  damage?: MapObjectDamage;
   /** Rolls how the damage beforehand looks (cracks, the bite, the ruin), a whole number; from the id when missing */
   damageSeed?: number;
   /** Objects with the same group are picked and moved together in the editor; the game ignores it */
@@ -769,6 +769,9 @@ export const MAP_BIOMES = valuesOf<MapBiome>({
   mountain: true,
   city: true,
 });
+/** The stages a map may damage an object to beforehand (MapObject.damage, destruction.config.ts) */
+export type MapObjectDamage = 1 | 2 | 3;
+export const MAP_OBJECT_DAMAGE: readonly MapObjectDamage[] = [1, 2, 3];
 export const MAP_WEATHERS = valuesOf<MapWeather>({ clear: true, rain: true, snow: true, fog: true, storm: true });
 export const MAP_WATER_KINDS = valuesOf<MapWaterKind>({ water: true, sea: true, swamp: true, ice: true, lava: true });
 export const MAP_RIVER_KINDS = valuesOf<MapRiver['kind']>({ water: true, lava: true });
