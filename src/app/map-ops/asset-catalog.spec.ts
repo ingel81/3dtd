@@ -9,6 +9,7 @@ describe('asset catalogue', () => {
           { id: 'tree-fir', name: 'Tanne', category: 'tree', footprint: 2.5, height: 14, file: 'models/fir.glb', blocksLos: true, blocksBuild: true },
           { id: 'lamp-post', category: 'prop' },
           { id: 'bridge-deck', category: 'prop' },
+          { id: 'sign-facade', category: 'prop', signPanel: { at: [0, 0.3, 0.05], width: 2.4, height: 0.5 } },
         ],
       },
       'http://x/game/maps/assets/',
@@ -18,6 +19,9 @@ describe('asset catalogue', () => {
     expect(c.objects[1]).toMatchObject({ name: 'lamp-post', category: 'Props', shape: 'crate', blocksBuild: true });
     expect(new CatalogIndex(c).categories()).toEqual(['Trees', 'Props']);
     expect(c.objects[2].internal).toBe(true);
+    // A model with a sign panel writes its objects' signs (the editor offers the field)
+    expect(c.objects[3].signs).toBe(true);
+    expect(c.objects[1].signs).toBeUndefined();
   });
 
   it('keeps the tags and offers the biomes in palette order', () => {

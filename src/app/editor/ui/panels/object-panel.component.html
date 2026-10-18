@@ -71,6 +71,21 @@
         <button class="td-btn-ghost td-btn-sm" type="button" (click)="setTint(null)">No tint</button>
       </div>
     </div>
+    @if (signs()) {
+      <div class="td-field">
+        <span class="td-label" matTooltip="What the sign writes on its panel: a word in the game's font and a pictogram">Sign</span>
+        <div class="td-inline">
+          <input class="td-input" type="text" [maxLength]="maxSignText" [value]="sign().text ?? ''" (change)="setSign({ text: value($event).trim() })"
+                 placeholder="Word" aria-label="Sign text" data-test="object-sign-text" />
+          <select class="td-select" [value]="sign().icon ?? ''" (change)="setSign({ icon: value($event) })" aria-label="Sign pictogram" data-test="object-sign-icon">
+            <option value="">No pictogram</option>
+            @for (id of signIcons; track id) {
+              <option [value]="id">{{ id }}</option>
+            }
+          </select>
+        </div>
+      </div>
+    }
     <div class="td-actions is-start">
       <button class="td-btn-secondary td-btn-sm" type="button" (click)="duplicate()">Duplicate <kbd class="td-kbd">Ctrl+D</kbd></button>
       <button class="td-btn-danger td-btn-sm" type="button" (click)="remove()">Delete <kbd class="td-kbd">Del</kbd></button>

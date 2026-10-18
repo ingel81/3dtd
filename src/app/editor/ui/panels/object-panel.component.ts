@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import type { MapObject } from '../../../world/custom-map/map-document';
+import { MAX_SIGN_TEXT, type MapObject, type MapSign } from '../../../world/custom-map/map-document';
+import { SIGN_ICONS } from '../../../world/custom-map/render/objects/sign-icons';
 import { tagName, type ObjectAssetEntry } from '../../../map-ops/asset-catalog';
 import { ObjectsCommand } from '../../model/commands/objects';
 import { setDown, rockShape, duplicateObjects, variedTint, wallKitOf } from '../../../map-ops/object-ops';
@@ -122,6 +123,36 @@ export class ObjectPanelComponent {
       const next = { ...o };
       if (tint) next.tint = tint;
       else delete next.tint;
+      return next;
+    });
+  }
+
+  readonly signIcons = Object.keys(SIGN_ICONS);
+  readonly maxSignText = MAX_SIGN_TEXT;
+
+  /** Whether every selected object has a sign panel */
+  signs(): boolean {
+    const list = this.selected();
+    const catalog = this.session.catalog();
+    return list.length > 0 && list.every((o) => !!catalog.object(o.asset).signs);
+  }
+
+  /** The selection's sign when all share one */
+  sign(): MapSign {
+    const list = this.selected();
+    const first = list[0]?.sign ?? {};
+    return list.every((o) => o.sign?.text === first.text && o.sign?.icon === first.icon) ? first : {};
+  }
+
+  /** Writes the selected signs' word or pictogram; an empty sign is taken away */
+  setSign(part: Partial<MapSign>): void {
+    this.change('Sign', (o) => {
+      const sign: MapSign = { ...o.sign, ...part };
+      if (!sign.text) delete sign.text;
+      if (!sign.icon) delete sign.icon;
+      const next = { ...o };
+      if (sign.text || sign.icon) next.sign = sign;
+      else delete next.sign;
       return next;
     });
   }

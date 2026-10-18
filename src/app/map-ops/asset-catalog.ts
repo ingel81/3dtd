@@ -53,6 +53,8 @@ export interface ObjectAssetEntry {
   footing?: ObjectFooting;
   /** The renderer's own part (bridge decks): not offered in the palette */
   internal?: boolean;
+  /** Has a sign panel (catalogue `signPanel`): an object of it writes its `sign` */
+  signs?: boolean;
   /** Biomes and brush roles from the catalogue (temperate, swamp, shore, scree …) */
   tags?: string[];
   /** What the renderer draws of it (triangles, detail levels, draw distance, effects), for the scene cost; none for an unknown asset */
@@ -109,7 +111,7 @@ export async function loadAssetCatalog(library = MapAssetLibrary.shared()): Prom
 interface RawCatalog {
   materials?: (Partial<GroundMaterialEntry> & { id: string; average?: string; files?: { color?: string } })[];
   objects?: (Partial<ObjectAssetEntry> &
-    Partial<Pick<CatalogObject, 'drawDistance' | 'triangles' | 'lod' | 'effects' | 'aloft' | 'stilts' | 'roadThrough' | 'spin'>> & { id: string; footprint?: number; file?: string; category?: string })[];
+    Partial<Pick<CatalogObject, 'drawDistance' | 'triangles' | 'lod' | 'effects' | 'aloft' | 'stilts' | 'roadThrough' | 'spin' | 'signPanel'>> & { id: string; footprint?: number; file?: string; category?: string })[];
 }
 
 const CATEGORY_NAMES: Record<string, string> = {
@@ -168,6 +170,7 @@ export function normalizeCatalog(json: RawCatalog, assetsUrl: string): MapAssetC
         roadThrough: o.roadThrough || undefined,
         footing: { category: (o.category ?? 'prop') as ObjectCategory, footprint: o.radius ?? o.footprint ?? 1, height: o.height ?? 2, base: o.base, box: o.box, float: o.float, aloft: o.aloft, stilts: o.stilts, turns: o.spin !== undefined || undefined },
         internal: INTERNAL_OBJECTS.has(o.id) || undefined,
+        signs: !!o.signPanel || undefined,
         tags: o.tags?.length ? [...o.tags] : undefined,
         drawing:
           o.drawDistance === undefined
