@@ -654,7 +654,10 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   Art (`species`, `BIRD_LOOK` in `bird-flocks.ts`, Farbe, Größe, Flügelschlag, Gleitanteil, Tempo je Vogel als
   Instanzattribut, weiter ein Draw Call): Singvögel (Standard), Möwen (hell, 1,5-fach, gleiten öfter), Krähen und
   Raben (schwarz, 1,3-fach), Greifvögel (braun, 2,6-fach, meist gleitend, 0,6-fach so schnell, ein Drittel der Zahl,
-  Standardhöhe 80 m, weiter gestreut).
+  Standardhöhe 80 m, weiter gestreut), Fledermäuse (`bats`, fast schwarz, 1,2-fach, schneller Flügelschlag, schlagen
+  Haken zur Seite und auf und ab, Standardhöhe 14 m, nur bei Nacht: sie kommen mit der Dunkelheit, die Vögel gehen;
+  gesetzte Fledermäuse lassen die Vögel der Karte am Tag fliegen). Witch Marsh: über den großen Inseln, um die
+  Riesenweide und über dem offenen Wasser.
   Partikel (`fireflies`, `fog`, `leaves`, `embers`, `sparks`): Emitter auf einem verwackelten Raster im Umriss oder
   entlang der Linie (Abstand je Art 8 bis 28 m, höchstens 160 je Bereich), auf dem Boden oder der Wasserfläche; sie
   gehen in das Feld ihrer Art (eine Art, die die Karte schon hat, kostet keinen Draw Call mehr); Glühwürmchen nur
@@ -722,7 +725,8 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
 - Gesamtpegel: Lautstärke des Spielers mal `AMBIENT_LEVEL` (0,35, seit E211). Die Spiel-Sounds hört man aus 100 bis
   400 m Kameraabstand und sie fallen mit der Entfernung, der Umgebungston nicht; vorher lag er über den Schüssen
 - Klänge (`AMBIENT_SOUNDS`): `wind`, `birdsong`, `night-insects`, `stream`, `surf`, `swamp`, `lava`, `fire`, `city`,
-  `gulls`, `crows`, `radio-hiss`, `harbor`, `cowbells`, `pine-wind`, `rain`, `cave-wind`, je mit eigenem Pegel. Mit
+  `gulls`, `crows`, `sirens-far` (die Sirene der Wellen als Ruf alle 50 bis 120 s, manchmal antwortet eine zweite
+  von anderswo; Ruined City über die ganze Karte), `radio-hiss`, `harbor`, `cowbells`, `pine-wind`, `rain`, `cave-wind`, je mit eigenem Pegel. Mit
   ElevenLabs erzeugt und ausgewählt (2026-10-15): `wind`, `stream`, `surf`, `swamp`, `lava`, `fire`, `city`, `radio-hiss`, `harbor`, `cowbells`, `pine-wind`, `rain`, `cave-wind`, `night-insects` (Grillen im
   Gebüsch). `tools/ambient/make_placeholders.py` erzeugt synthetische Platzhalter für neue Klänge, bis eine Aufnahme
   gewählt ist (Rauschen im Frequenzraum über die ganze Schleife gefiltert, daher ohne Naht). Die Datei trägt 0,1 s der Schleife davor

@@ -11,7 +11,7 @@
 import type { MapBirdSpecies, MapLife, MapLifeArea, MapLifeKind, MapPoint } from './map-document';
 
 export const LIFE_KINDS: readonly MapLifeKind[] = ['birds', 'fireflies', 'fog', 'leaves', 'embers', 'sparks', 'snow', 'dust', 'surf', 'haze', 'boats', 'movers', 'sound'];
-export const BIRD_SPECIES: readonly MapBirdSpecies[] = ['songbirds', 'gulls', 'crows', 'raptors'];
+export const BIRD_SPECIES: readonly MapBirdSpecies[] = ['songbirds', 'gulls', 'crows', 'raptors', 'bats'];
 
 /** What drifts in a boats area that names no asset */
 export const DEFAULT_BOAT = 'rowboat';
@@ -27,7 +27,7 @@ export const LIFE_SOUND_REACH = { min: 10, max: 300, default: 70 } as const;
 
 /** What each kind is, for the editor and the agent: name, a line on what it does, the outline's colour in the editor */
 export const LIFE_KIND_INFO: Readonly<Record<MapLifeKind, { label: string; about: string; color: string }>> = {
-  birds: { label: 'Birds', about: 'A flock circles over the area by day, or flies along the route and back', color: '#e8e8f0' },
+  birds: { label: 'Birds', about: 'A flock circles over the area by day (bats by night), or flies along the route and back', color: '#e8e8f0' },
   fireflies: { label: 'Fireflies', about: 'Glowing at night over the area or along the line', color: '#d8ff6a' },
   fog: { label: 'Fog', about: 'Soft banks of fog drifting low with the wind', color: '#c8d0d4' },
   leaves: { label: 'Leaves', about: 'Leaves falling and drifting with the wind', color: '#d0903a' },

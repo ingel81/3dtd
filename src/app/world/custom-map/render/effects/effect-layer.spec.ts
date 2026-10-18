@@ -116,6 +116,24 @@ describe('EffectLayer', () => {
     layer.dispose();
   });
 
+  it('lets bats fly by night only, beside the day birds of the map', () => {
+    const layer = new EffectLayer(flat());
+    const square = [{ x: -40, y: -40 }, { x: 40, y: -40 }, { x: 40, y: 40 }, { x: -40, y: 40 }];
+    layer.setLife({ areas: [{ id: 'b', kind: 'birds', shape: 'area', points: square, species: 'bats' }] });
+    layer.set([], catalog);
+    layer.setAmbient({ fireflies: [], flocks: [circleFlock(new Vector3(0, 50, 0), 40, 10, 0.3)] });
+    // The map's own ten birds fly on beside the bats
+    expect(layer.birds.mesh.geometry.instanceCount).toBe(20);
+    const night = layer.birds.mesh.geometry.getAttribute('aLook');
+    expect([night.getW(0), night.getW(19)].sort()).toEqual([0, 1]);
+    layer.setDarkness(1);
+    expect(layer.birds.mesh.visible).toBe(true);
+    layer.setAmbient({ fireflies: [], flocks: [] });
+    layer.setDarkness(0);
+    expect(layer.birds.mesh.visible).toBe(false);
+    layer.dispose();
+  });
+
   it('lets placed flocks and fireflies take the place of the automatic ones, sized by scale and coloured by tint', () => {
     const layer = new EffectLayer(flat());
     layer.setAmbient({ fireflies: [new Vector3(0, 4, 0)], flocks: [circleFlock(new Vector3(0, 50, 0), 40, 10, 0.3)] });

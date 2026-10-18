@@ -75,6 +75,12 @@ export const AMBIENT_SOUNDS: Readonly<Record<string, AmbientSound>> = {
     gain: 0,
     calls: { files: callFiles('crow-caw', 'crow-three', 'raven-croak'), gain: 0.45, gap: [7, 20], reply: 0.25, answer: [1, 3] },
   },
+  // A siren wailing far off now and then, sometimes another one answering from elsewhere: a city that is gone
+  'sirens-far': {
+    label: 'Sirens far off, now and then',
+    gain: 0,
+    calls: { files: ['assets/sounds/ambient/siren-distant.mp3'], gain: 0.3, gap: [50, 120], reply: 0.35, answer: [2, 8] },
+  },
   'radio-hiss': { label: 'Radio hiss', file: 'assets/sounds/ambient/radio-hiss.mp3', gain: 0.4 },
   harbor: { label: 'Harbour (water at the quay, ropes)', file: 'assets/sounds/ambient/harbor.mp3', gain: 0.55 },
   cowbells: { label: 'Cowbells', file: 'assets/sounds/ambient/cowbells.mp3', gain: 0.5 },

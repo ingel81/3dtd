@@ -18,7 +18,7 @@ import { WIND_UNIFORMS } from '../environment/wind';
 import type { MapBirdSpecies } from '../../map-document';
 
 /**
- * Flocks of birds by day (songbirds, gulls, crows, birds of prey: BIRD_LOOK): one instanced mesh for all of them (one draw
+ * Flocks of birds by day (songbirds, gulls, crows, birds of prey: BIRD_LOOK) and bats by night: one instanced mesh for all of them (one draw
  * call), every bird moved and flapping in the vertex shader on the wind's
  * clock, so they cost no work per frame and stand still with a still frame.
  * Each flock flies a closed loop: a circle (a flock placed as an object, the
@@ -27,20 +27,24 @@ import type { MapBirdSpecies } from '../../map-document';
  * PATH_SAMPLES points each, evenly along their length; birds stray to the
  * loop's sides and up and down, and the whole loop drifts a little. Seen only
  * from afar: a bird nearer than BIRD_NEAR metres folds away, so none passes
- * the camera as a flat shape. At night they are gone, with the player's
- * plant motion off as well (it stands for motion on the map).
+ * the camera as a flat shape. At night the birds are gone and the bats
+ * out (each the other way round by day), all of them gone with the
+ * player's plant motion off (it stands for motion on the map). Bats flutter:
+ * quick beats, jinking to the sides and up and down.
  */
 
 /**
  * How each kind of bird looks and flies: colour, size (wingspan factor),
  * wing beats per second (radians), how much of the time it glides (added to
- * the glide wave: 0 songbirds, near 1 mostly gliding), its speed as a share
+ * the glide wave: 0 songbirds, near 1 mostly gliding), its speed as a share,
+ * whether it flies by night instead of by day
  */
-export const BIRD_LOOK: Readonly<Record<MapBirdSpecies, { color: number; size: number; beat: number; glide: number; speed: number }>> = {
+export const BIRD_LOOK: Readonly<Record<MapBirdSpecies, { color: number; size: number; beat: number; glide: number; speed: number; night?: boolean }>> = {
   songbirds: { color: 0x1d1d20, size: 1, beat: 11, glide: 0, speed: 1 },
   gulls: { color: 0xd4d8dc, size: 1.5, beat: 6, glide: 0.35, speed: 0.9 },
   crows: { color: 0x0e0e10, size: 1.3, beat: 8, glide: 0.1, speed: 0.85 },
   raptors: { color: 0x3a2c22, size: 2.6, beat: 4, glide: 0.8, speed: 0.6 },
+  bats: { color: 0x2a2230, size: 1.2, beat: 17, glide: 0, speed: 0.75, night: true },
 };
 
 /** Birds nearer the camera than this fold away, metres */
@@ -77,6 +81,9 @@ export class BirdFlocks {
   readonly mesh: Mesh<InstancedBufferGeometry, ShaderMaterial>;
   private readonly material: ShaderMaterial;
   private paths = new DataTexture(new Float32Array(PATH_SAMPLES * 4), PATH_SAMPLES, 1, RGBAFormat, FloatType);
+  /** What the flocks hold: birds of the day, bats of the night (shown by darkness) */
+  private dayFliers = 0;
+  private nightFliers = 0;
 
   constructor() {
     // A bird: a body and two wings, six triangles; x across the wings (span 1), z along the body (nose at +z)
@@ -133,7 +140,7 @@ export class BirdFlocks {
         flock.set([(row + 0.5) / rows, length, f.spread, f.drift], k * 4);
         // Where on the loop it starts, speed in m/s (with direction), side and height offset
         bird.set([next(), (7 + next() * 4) * look.speed * (f.seed > 0.5 ? 1 : -1), next() * 2 - 1, (next() - 0.5) * 14], k * 4);
-        looks.set([look.size * (0.9 + next() * 0.2), look.beat, look.glide, 0], k * 4);
+        looks.set([look.size * (0.9 + next() * 0.2), look.beat, look.glide, look.night ? 1 : 0], k * 4);
         tints.set([c.r, c.g, c.b], k * 3);
       }
     });
@@ -149,14 +156,20 @@ export class BirdFlocks {
     g.setAttribute('aLook', new InstancedBufferAttribute(looks, 4));
     g.setAttribute('aTint', new InstancedBufferAttribute(tints, 3));
     g.instanceCount = total;
-    this.mesh.visible = total > 0 && this.material.uniforms['uDay'].value > 0;
+    this.nightFliers = flocks.filter((f) => BIRD_LOOK[f.species ?? 'songbirds'].night).reduce((n, f) => n + f.birds, 0);
+    this.dayFliers = total - this.nightFliers;
+    this.show();
   }
 
-  /** 0 by day, 1 at night: they fade out at dusk and are gone at night */
+  /** 0 by day, 1 at night: birds fade out at dusk and are gone at night, bats the other way round */
   setDarkness(darkness: number): void {
-    const day = 1 - Math.min(1, Math.max(0, (darkness - 0.3) / 0.4));
-    this.material.uniforms['uDay'].value = day;
-    this.mesh.visible = day > 0 && this.mesh.geometry.instanceCount > 0;
+    this.material.uniforms['uDay'].value = 1 - Math.min(1, Math.max(0, (darkness - 0.3) / 0.4));
+    this.show();
+  }
+
+  private show(): void {
+    const day = this.material.uniforms['uDay'].value as number;
+    this.mesh.visible = (day > 0 && this.dayFliers > 0) || (day < 1 && this.nightFliers > 0);
   }
 
   dispose(): void {
@@ -227,6 +240,9 @@ void main() {
   vec3 drift = vec3(sin(t * 0.031 + aFlock.x * 40.0), 0.0, cos(t * 0.027 + aFlock.x * 60.0)) * aFlock.w;
   float stray = aBird.z * aFlock.z * (1.0 + 0.5 * sin(t * 0.21 + aBird.x * 19.0));
   vec3 at = on + drift + side * stray + vec3(0.0, aBird.w + sin(t * 0.4 + aBird.x * 31.0) * 3.0, 0.0);
+  // A bat jinks: quick darts to the sides and up and down
+  at += (side * (sin(t * 2.3 + aBird.x * 57.0) + 0.5 * sin(t * 5.1 + aBird.x * 13.0)) * 2.2
+    + vec3(0.0, sin(t * 3.7 + aBird.x * 29.0) * 1.4, 0.0)) * aLook.w;
   // Wings beat, now and then a glide
   float glide = smoothstep(0.2, 0.6, sin(t * 0.35 + aBird.x * 44.0) + aLook.z);
   float beat = sin(t * aLook.y + aBird.x * 82.0) * (1.0 - glide * 0.85);
@@ -235,7 +251,9 @@ void main() {
   p.y += abs(p.x) * 1.4 * beat;
   float dist = length((modelMatrix * vec4(at, 1.0)).xyz - cameraPosition);
   // At least a few pixels from far away, folded away near the camera, by night and without motion
-  float span = max(1.6, dist * 0.006) * aLook.x * smoothstep(${BIRD_NEAR.toFixed(1)}, ${(BIRD_NEAR * 1.6).toFixed(1)}, dist) * step(0.001, uPlantSway) * uDay;
+  // Birds by day, bats (aLook.w) by night
+  float shown = mix(uDay, 1.0 - uDay, aLook.w);
+  float span = max(1.6, dist * 0.006) * aLook.x * smoothstep(${BIRD_NEAR.toFixed(1)}, ${(BIRD_NEAR * 1.6).toFixed(1)}, dist) * step(0.001, uPlantSway) * shown;
   vec3 world = at + (side * p.x + vec3(0.0, p.y, 0.0) + fwd * p.z) * span;
   vec4 mvPosition = modelViewMatrix * vec4(world, 1.0);
   gl_Position = projectionMatrix * mvPosition;

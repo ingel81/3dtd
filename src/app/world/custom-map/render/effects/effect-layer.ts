@@ -20,7 +20,7 @@ import { mapToScene } from '../map-coords';
 import { ParticleField, particleCount, type ParticleEmitter, type ParticleKind } from './particle-field';
 import { buildWaterfalls, fallFoot, fallLip, fallReach, type WaterfallSpec } from './waterfall';
 import { LAMP_LIGHT_UNIFORMS, LampLight, type LampSpot } from './lamp-light';
-import { BirdFlocks, circleFlock, type Flock } from './bird-flocks';
+import { BIRD_LOOK, BirdFlocks, circleFlock, type Flock } from './bird-flocks';
 import { isParticleLife, lifeEmitters, lifeFlock } from './life-areas';
 import { buildBeams, type Beam } from './light-beams';
 import { buildShafts, type Shaft } from './light-shafts';
@@ -446,7 +446,8 @@ export class EffectLayer {
     }
     const placed = [...this.placedFlocks, ...this.lifeFlocks];
     const own = life.birds ? ambient.flocks.map((f) => ({ ...f, birds: Math.round(f.birds * life.density) })) : [];
-    const flocks = placed.length ? placed : own;
+    // Birds set by hand take the place of the map's own; bats (by night) leave the day's birds be
+    const flocks = placed.some((f) => !BIRD_LOOK[f.species ?? 'songbirds'].night) ? placed : [...placed, ...own];
     this.birds.set(this.particleShare >= 0.7 ? flocks.filter((f) => f.birds > 0).map((f) => ({ ...f, birds: Math.max(Math.min(2, f.birds), Math.round(f.birds * this.particleShare)) })) : []);
     this.showAmbient();
   }

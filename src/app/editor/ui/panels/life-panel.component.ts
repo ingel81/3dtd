@@ -70,7 +70,7 @@ const TINTED: ReadonlySet<MapLifeKind> = new Set(['fireflies', 'fog', 'leaves', 
               }
             </select>
           </label>
-          <app-editor-range label="Flight height" unit="m" [min]="10" [max]="200" [value]="a.height ?? (a.species === 'raptors' ? 80 : 40)"
+          <app-editor-range label="Flight height" unit="m" [min]="10" [max]="200" [value]="a.height ?? (a.species === 'raptors' ? 80 : a.species === 'bats' ? 14 : 40)"
                             (changing)="liveArea(a.id, { height: $event })" (changed)="commitArea(a.id, { height: $event }, 'Flight height')" />
         }
         @if (tinted.has(a.kind)) {
@@ -290,6 +290,7 @@ export class LifePanelComponent {
     { id: 'gulls', label: 'Gulls' },
     { id: 'crows', label: 'Crows and ravens' },
     { id: 'raptors', label: 'Birds of prey (eagles, vultures)' },
+    { id: 'bats', label: 'Bats (by night)' },
   ];
   /** What may move over the ground: the catalogue's props that do not float (vehicles, carts, animals) */
   readonly moverAssets = computed(() => [...this.session.catalog().objects.values()].filter((o) => !o.float && o.footing?.category === 'prop').sort((a, b) => a.name.localeCompare(b.name)));

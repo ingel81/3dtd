@@ -461,8 +461,8 @@ export function difficultyFactor(gameplay: Pick<MapGameplay, 'difficulty'> | und
  */
 export type MapLifeKind = 'birds' | 'fireflies' | 'fog' | 'leaves' | 'embers' | 'sparks' | 'snow' | 'dust' | 'surf' | 'haze' | 'boats' | 'movers' | 'sound';
 
-/** What flies in a birds area: small songbirds, gulls, crows and ravens, big birds of prey (eagles, vultures) */
-export type MapBirdSpecies = 'songbirds' | 'gulls' | 'crows' | 'raptors';
+/** What flies in a birds area: small songbirds, gulls, crows and ravens, big birds of prey (eagles, vultures) by day; bats by night */
+export type MapBirdSpecies = 'songbirds' | 'gulls' | 'crows' | 'raptors' | 'bats';
 
 /**
  * A stretch of the map with life in it, drawn in the editor's Life tool:

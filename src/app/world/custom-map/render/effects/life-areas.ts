@@ -35,6 +35,7 @@ const MOST_SPOTS = 160;
 const AREA_BIRDS = 10;
 const ROUTE_BIRDS = 8;
 export const FLOCK_HEIGHT = 40;
+const BAT_HEIGHT = 14;
 
 /** Whether the kind is drawn as particles */
 export function isParticleLife(kind: MapLifeKind): kind is MapLifeKind & ParticleKind {
@@ -87,7 +88,8 @@ export function lifeFlock(area: MapLifeArea, ground: SurfaceAt, factor: number):
   const species = area.species ?? 'songbirds';
   // Birds of prey circle high and alone or in twos and threes, wide apart
   const raptors = species === 'raptors';
-  const height = area.height ?? (raptors ? 2 * FLOCK_HEIGHT : FLOCK_HEIGHT);
+  // Bats flit low over the water and between the trees
+  const height = area.height ?? (raptors ? 2 * FLOCK_HEIGHT : species === 'bats' ? BAT_HEIGHT : FLOCK_HEIGHT);
   if (raptors) spread *= 1.6;
   const tops = loop.map((p) => ground(p.x, p.y));
   const path = loop.map((p, k) => {
