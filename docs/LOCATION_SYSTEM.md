@@ -114,13 +114,16 @@ export class LocationStore {
   readonly baseCoords = signal<GeoCoord>({ lat: 0, lon: 0 });
   readonly centerCoords = signal<GeoCoordWithHeight>({ lat: 0, lon: 0, height: 400 });
   readonly spawnPoints = signal<StoreSpawnPoint[]>([]);
+  readonly hasRoutes = signal(false);
   readonly streetCount = signal<number>(0);
 
-  resetAll(): void { /* setzt alle Signals auf Defaults */ }
+  resetAll(): void { /* setzt alle Signals außer hasRoutes auf Defaults */ }
 }
 ```
 
-Geschrieben werden die Signals über `LocationFacadeService` und die Coordinator-Callbacks.
+Geschrieben werden die Signals über `LocationFacadeService` und die Coordinator-Callbacks;
+`hasRoutes` (mindestens ein Spawn hat eine Route, Bedingung für `canStartWave`) hält
+`PathAndRouteService` mit seinem Routen-Cache.
 Anzeigename, Favoriten und `isApplyingLocation` hält `LocationManagementService`, die
 Favoriten-Namen `LocationChangeCoordinatorService.favoriteNamesMap`.
 
@@ -468,7 +471,9 @@ STEP 5: Place Spawn Point
 
 STEP 6: Calculate Routes
   - gameState.initialize() mit Engine, HQ, Spawns und den gecachten Routen
-  - Validierung: Mindestens 1 Route muss existieren
+  - Validierung: Mindestens 1 Route muss existieren, sonst bricht der Wechsel
+    ab (siehe [Ohne Route](#ohne-route)); Spawns ohne Route neben solchen mit
+    nennt ein Banner
   - GlobalRouteGrid initialisieren (eigener Boot-Step "Generating Route Grid")
   - Eingeschaltete Overlays (Route Grid, Air Route Grid, Flughöhe der
     Air-Route) gleich auf die neuen Zellen zeichnen (`init…IfEnabled()` wie
@@ -496,6 +501,25 @@ STEP 7: Finalize
 Key: Spawn-ID). Jeder Waypoint trägt für das Segment ab ihm die Korridor-Halbbreite links
 und rechts (`corridorLeft`/`corridorRight`). Woher die Breite kommt:
 [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md). STEP 2 leert den Cache (`clearCache()`).
+
+### Ohne Route
+
+Ein Ort, an dem kein Spawn eine Route zum HQ hat, ist nicht spielbar (TODO E232):
+keine Welle könnte einen Gegner bringen. Das gilt für jeden Weg hinein gleich:
+
+- **Ortswechsel:** STEP 6 wirft `NO_ROUTE_TEXT`, das Menü zeigt "The place did not
+  load: …" mit Retry.
+- **Erstes Laden** (URL, Favorit, letzte Orte, Continue):
+  `VisualizationFacadeService.initializeGameState()` setzt `loadProblem` mit
+  `blocksPlay`; der Ort steht, Play bleibt gesperrt, das Menü bietet einen
+  anderen Ort an.
+
+Haben nur einige Spawns keine Route, bleibt der Ort spielbar: die Spawns bleiben
+(Save, URL und Marker unverändert; mit vollständigen Straßen kommt ihre Route
+zurück), die Wellen lassen sie aus (WAVE_SYSTEM.md, Spawn ohne Route), und ein
+Banner nennt sie (`PathAndRouteService.warnUnroutedSpawns`). Ein einzelner Spawn
+wird nicht entfernt: das schriebe den Ort um, obwohl die Ursache meist ein
+unvollständiges Netz ist.
 
 ### Ladescreen und Intro-Kamerafahrt
 

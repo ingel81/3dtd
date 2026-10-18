@@ -116,6 +116,7 @@ Werden in `processQueue()` am Frame-Ende verarbeitet.
 | `vfx:chain-lightning` | CombatEffectService (`emitChainLightningVfx()`, aufgerufen von TowerCombatService für den Lightning Tower) | VFXService → LightningBoltRenderer | Chain-Polyline rendern (`points` = Tip → primary → jumpN, `sourceTowerId`). Triggert pro Segment einen Bolt + lokalen Aufhell-Halo. |
 | `audio:play` | ProjectileManager, TowerManager (Bau, Verkauf), `OozeSounds` (Ooze) | AudioService | 3D Sound abspielen (`sound`, `lat`, `lon`, `height`, `volume?`) |
 | `wave:completed` | WaveManager (`endWave()`) | GameStateSyncService, GameStateManager (Tower in Wachrichtung drehen), AIDataCollector, BackgroundMusicService, BloodMoonService, TrainingSession, AbilityManager (Ladungen je Welle), GameLoopFacade (Auto-Wave-Countdown), OnboardingService, MarkerVisualizationService | Welle abgeschlossen (`wave`, `credits`, `perfect`, `closeCall`, `hpLost`). Den Wave-Bonus bucht der GameStateManager im Update-Loop, nicht über dieses Event. Siehe Warnung unten. |
+| `wave:refused` | GameStateManager (`startWave()`) | GameLoopFacade (Banner, Auto-Wave-Countdown aus, Start beantwortet) | Start verweigert: kein Spawn der Welt hat eine Route (`reason: 'no-route'`). Keine Welle, kein Zähler, kein Gold. Siehe [WAVE_SYSTEM.md](WAVE_SYSTEM.md#spawn-ohne-route) |
 
 > **`wave:completed` ist kein verlässlicher „jede Welle"-Hook.**
 >

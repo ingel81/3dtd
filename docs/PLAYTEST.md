@@ -344,6 +344,17 @@ Paket F7, Modelle:
   Mast und Deckzeug, verwittert; Kühe mit Fell statt einfarbig.* Im Editor, Objects, mehrere Kühe streuen: *Holstein,
   Fleckvieh, Braunvieh und Angus gemischt.*
 
+## G Einzelfixes (2026-10-18)
+
+Logik (keine Welle, kein Gold, kein Auto-Start, Spuren) ist per Szenario-Test gedeckt; hier nur, was man sieht.
+
+- **G1.1 Ohne Route:** einen Ort per Link kalt laden, dessen einziger Spawn auf einer Insel ohne Brücke liegt
+  (`?l=<HQ am Ufer>&s=<Punkt auf der Insel>`). *Menü: „No route possible between HQ and spawn. The streets are not
+  connected. Pick another place.“, Play gesperrt, ein anderer Ort lädt normal.*
+- **G1.2 Ein Spawn ohne Route:** derselbe Link mit einem zweiten Spawn auf dem Festland (`&s=<Insel>;<Festland>`).
+  *Banner „No street leads from … to the HQ: it sends no enemies …“, bleibt bis zum Schließen; Welle starten: alle
+  Gegner kommen vom Festland, der Wellenzähler steigt einmal je Welle.*
+
 ## Eichtabelle
 
 Fingerprints aus `__corridor.fingerprint()` für K2.1 und K2.2. Alle Werte vor 748 (Rothenburg `d8050177`, Tokyo

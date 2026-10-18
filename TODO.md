@@ -181,6 +181,12 @@ Editor-Workers und das Gelände auf der GPU laufen parallel dazu (Plan `tmp/plan
 
 ## 2. Gebaut, wartet auf Test
 
+### Einzelfixes 2026-10-18 (Nachtests in PLAYTEST.md G)
+
+- [ ] **E232 Wellen ohne Gegner**: ein Spawn ohne Route ist keine Spur (Wellen, Koop-Spuren, Start-Credits); ohne jede
+      Route sperrt das erste Laden wie der Ortswechsel, kein Wellenstart, kein Gold, kein Auto-Start-Loop; Spawns ohne
+      Route neben solchen mit nennt ein Banner (G1).
+
 ### Engine-Runde R4 (2026-10-17, Branch `eng/r4`, Nachtests in PLAYTEST.md F)
 
 - [ ] **G1 Ruckler** E215: alle Lichtzustände, Tower, Linien und versteckten Kartenteile beim Laden kompiliert und

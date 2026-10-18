@@ -410,25 +410,23 @@ Vorteile:
 
 Pro Tick spawnen höchstens `maxSpawnsPerFrame` (Default 3) Enemies; ein Delay
 von 0 spawnt ohne Warten bis zu diesem Limit. Die `spawnAndAdvance`-Closure
-nimmt den nächsten Entry, wählt den Spawn-Point nach `spawnMode`, holt den Pfad
-aus `cachedPaths` und ruft `enemyManager.spawn(path, type, speed, false, health)`.
-Fehlt ein gültiger Pfad (weniger als 2 Punkte), zählt sie Fehlversuche; nach
-`spawnPoints.length * 2` in Folge bricht die Welle mit den bis dahin
-gespawnten Enemies ab.
+nimmt den nächsten Entry, wählt die Spur nach `spawnPointId` oder `spawnMode`
+und ruft `enemyManager.spawn(path, type, speed, false, health)`. Jede Spur hat
+ihre Route (siehe [Spawn ohne Route](#spawn-ohne-route)), ein Spawn scheitert
+also nie am Pfad; eine Welle ohne Spur startet gar nicht erst.
 
 ### Spawn-Point-Auswahl
 
 ```typescript
-private selectSpawnPoint(mode: 'each' | 'random', index: number): SpawnPoint {
-  if (mode === 'each') {
-    // Round robin
-    return this.spawnPoints[index % this.spawnPoints.length];
-  } else {
-    // Random
-    return this.spawnPoints[Math.floor(Math.random() * this.spawnPoints.length)];
-  }
+private selectLane(mode: 'each' | 'random', index: number): { point: SpawnPoint; path: GeoPosition[] } {
+  const lanes = this.lanes;
+  return mode === 'each' ? lanes[index % lanes.length] : lanes[Math.floor(this.random() * lanes.length)];
 }
 ```
+
+Ein Entry mit `spawnPointId` (Koop-Spur) nimmt die Spur dieses Spawn-Points;
+hat der keine Route, wählt `selectLane` wie ohne Angabe, und die Welle zählt
+für ihn keine Spur (`waveLaneCount`).
 
 ### Debug Event Handler
 
@@ -1033,6 +1031,29 @@ Spawn-Points und Pfade an `waveManager.initialize(spawnPoints, cachedPaths)`.
 Nach einer DevWorld-Neugenerierung setzt `reseatWavePipeline()` beide neu, weil
 `WaveManager.reset()` die Spawn-Points absichtlich behält.
 
+### Spawn ohne Route
+
+Eine Spur ist ein Spawn-Point mit Route von mindestens zwei Punkten
+(`spawnsWithRoutes`, `utils/spawn-lanes.ts`, TODO E232). Ein Spawn ohne Route
+(Straße nicht ans HQ angebunden, ein Netz aus einer unvollständigen
+Overpass-Antwort) ist keine Spur: `buildSimWorld` schickt nur die Spuren in die
+Simulation (in ihrer Reihenfolge liest der Spiegel die Routen), und
+`WaveManager.initialize()` nimmt ebenso nur sie. `'each'`, `'random'`, die
+Koop-Spuren und die Start-Credits je Spur gehen damit nur über Spawns mit
+Route; in einer Welt, in der jeder Spawn eine hat, ändert sich nichts.
+
+- **Kein Spawn hat eine Route:** `GameStateManager.startWave()` verweigert den
+  Start mit `wave:refused` (`reason: 'no-route'`): keine Welle, der Zähler
+  bleibt, kein Gold, kein `wave:completed`, also auch kein Auto-Start. Auf dem
+  Hauptthread prüfen schon `canStartWave` und `GameLoopFacadeService` den
+  `LocationStore.hasRoutes` und sagen den Grund im Banner; ein verweigerter
+  Start der Simulation (Koop-Host, Bot) wird ebenso gesagt und hält die
+  Auto-Start-Zählung an. Beim Laden blockiert der Ort (siehe
+  [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md#ohne-route)).
+- **Einige Spawns haben keine:** sie bleiben stehen (Save, URL und Marker
+  unverändert, mit vollständigen Straßen kommt die Route zurück), schicken
+  aber nichts; ein Banner nennt sie (`PathAndRouteService.warnUnroutedSpawns`).
+
 ---
 
 ## Best Practices
@@ -1054,10 +1075,10 @@ die Gruppen einer `DirectorWave`; die Reihenfolge bestimmt das Spawn-Pattern.
 
 ### Wave startet nicht
 - Phase muss `setup` sein (die Facade ignoriert Starts in `wave` und `gameover`)
-- Engine bereit und `store.spawnPoints().length > 0`
+- Engine bereit und `store.hasRoutes()`: mindestens ein Spawn hat eine Route (sonst sagt es das Banner)
 - Director-Anfrage noch offen (`pendingAIWaveRequest`)? Dann wird ein weiterer Start ignoriert
 - Leerer Schedule (`entries.length === 0`): `WaveManager.startWave()` kehrt ohne Event zurück
-- Kein Pfad in `cachedPaths` für die Spawn-Points: die Welle bricht nach `spawnPoints.length * 2` Fehlversuchen ab
+- Kein Spawn mit Route in der Simulation: `startWave()` verweigert mit `wave:refused` (siehe [Spawn ohne Route](#spawn-ohne-route))
 
 ### Enemies spawnen an falscher Position
 - Check `cachedPaths` enthält richtigen Pfad
