@@ -44,6 +44,20 @@ describe('shipped asset catalogue', () => {
     }
   });
 
+  it('keeps every material of a building in its distance copies (a hall without its roof past 350 m)', () => {
+    // The material names of a GLB, flat LOD stand-ins (`<name>-lod`) under their full model's name
+    const materials = (file: string): string[] => {
+      const glb = readFileSync(ROOT + file);
+      const gltf = JSON.parse(glb.subarray(20, 20 + glb.readUInt32LE(12)).toString('utf8')) as { materials?: { name: string }[] };
+      return (gltf.materials ?? []).map((m) => m.name.replace(/-lod$/, ''));
+    };
+    for (const o of shipped.objects) {
+      if (o.category !== 'building' || !o.lod) continue;
+      const full = materials(o.file);
+      for (const l of o.lod) expect(full.filter((m) => !materials(l.file).includes(m)), l.file).toEqual([]);
+    }
+  });
+
   it('lists every file under the asset folder in LICENSES.md', () => {
     const licences = readFileSync(ROOT + 'LICENSES.md', 'utf8');
     for (const e of [...shipped.materials, ...shipped.objects]) expect(licences, e.id).toContain(`| ${e.id} |`);

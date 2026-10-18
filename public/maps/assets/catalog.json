@@ -15646,7 +15646,7 @@
         {
           "file": "models/garden-shed-lod1.glb",
           "distance": 350,
-          "triangles": 207
+          "triangles": 259
         }
       ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/wood_planks_grey; https://polyhaven.com/a/brown_planks_04; https://polyhaven.com/a/bitumen"
@@ -16175,7 +16175,7 @@
         {
           "file": "models/industrial-hall-lod1.glb",
           "distance": 350,
-          "triangles": 757
+          "triangles": 803
         }
       ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/box_profile_metal_sheet; https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/brushed_concrete"
@@ -16263,7 +16263,7 @@
         {
           "file": "models/town-hall-lod1.glb",
           "distance": 350,
-          "triangles": 1514
+          "triangles": 1585
         }
       ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
@@ -16352,7 +16352,7 @@
         {
           "file": "models/station-lod1.glb",
           "distance": 350,
-          "triangles": 817
+          "triangles": 938
         }
       ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
