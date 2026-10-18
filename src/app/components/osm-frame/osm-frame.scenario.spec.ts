@@ -39,6 +39,9 @@ Input({ alias: 'context', isSignal: true } as Input)(OsmFrameComponent.prototype
 Output('back')(OsmFrameComponent.prototype, 'back');
 Output('done')(OsmFrameComponent.prototype, 'done');
 
+/** Making the world runs the whole OSM conversion; under a loaded full run it outlasts waitFor's 1 s default */
+const CONVERT = { timeout: 20_000, interval: 50 };
+
 describe('OSM world frame', () => {
   beforeAll(() => {
     getTestBed().initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
@@ -109,7 +112,7 @@ describe('OSM world frame', () => {
     await vi.waitFor(async () => {
       await settle();
       expect(root.querySelector('[data-test=osm-made]')).not.toBeNull();
-    });
+    }, CONVERT);
     const own = await maps.listOwn();
     expect(own.map((m) => m.id)).toEqual(['osm-miltenberg']);
     const { doc } = await maps.load('osm-miltenberg');
@@ -138,7 +141,7 @@ describe('OSM world frame', () => {
     await vi.waitFor(async () => {
       await settle();
       expect(c.phase()).toBe('ready');
-    });
+    }, CONVERT);
     expect(root.querySelector('[data-test=osm-hq-at]')!.textContent).toContain(`On ${c.landmarkLabel(offered[0])}`);
     const hq = c.frame()!.hq!;
     expect(hq).not.toEqual(before);
@@ -153,7 +156,7 @@ describe('OSM world frame', () => {
     await vi.waitFor(async () => {
       await settle();
       expect(root.querySelector('[data-test=osm-made]')).not.toBeNull();
-    });
+    }, CONVERT);
     expect(c.made()!.report.layout.hqShiftM).toBeLessThan(260);
 
   });
@@ -168,13 +171,13 @@ describe('OSM world frame', () => {
       await settle();
       expect(c.phase()).toBe('ready');
       expect(c.hqAt()).not.toBeNull();
-    });
+    }, CONVERT);
     root.querySelector<HTMLButtonElement>('[data-test=osm-hq-address]')!.click();
     await vi.waitFor(async () => {
       await settle();
       expect(c.phase()).toBe('ready');
       expect(c.frame()!.hq).toEqual(home);
-    });
+    }, CONVERT);
     expect(root.querySelector('[data-test=osm-hq-at]')!.textContent).toContain('On the address');
   });
 
