@@ -38,7 +38,7 @@ describe('ResearchManager', () => {
       const cfg = getResearch(NO_PREREQ_ID)!;
       const result = rm.canStartResearch(NO_PREREQ_ID, cfg.cost * 10);
       expect(result.canStart).toBe(false);
-      expect(result.reason).toMatch(/Research Center/i);
+      expect(result.reason).toBe('no-center');
     });
 
     it('rejects already-completed research', () => {
@@ -51,7 +51,7 @@ describe('ResearchManager', () => {
 
       const result = rm.canStartResearch(NO_PREREQ_ID, 9999);
       expect(result.canStart).toBe(false);
-      expect(result.reason).toMatch(/completed/i);
+      expect(result.reason).toBe('completed');
     });
 
     it('rejects already-active research', () => {
@@ -60,7 +60,7 @@ describe('ResearchManager', () => {
 
       const result = rm.canStartResearch(NO_PREREQ_ID, 9999);
       expect(result.canStart).toBe(false);
-      expect(result.reason).toMatch(/progress/i);
+      expect(result.reason).toBe('running');
     });
 
     it('rejects when prerequisites are not met', () => {
@@ -68,14 +68,14 @@ describe('ResearchManager', () => {
       const cfg = getResearch(WITH_PREREQ_ID)!;
       const result = rm.canStartResearch(WITH_PREREQ_ID, cfg.cost * 10);
       expect(result.canStart).toBe(false);
-      expect(result.reason).toMatch(/prerequisite/i);
+      expect(result.reason).toBe('prerequisites');
     });
 
     it('rejects when credits are insufficient', () => {
       rm.onCenterPlaced();
       const result = rm.canStartResearch(NO_PREREQ_ID, 0);
       expect(result.canStart).toBe(false);
-      expect(result.reason).toMatch(/credits/i);
+      expect(result.reason).toBe('credits');
     });
 
     it('rejects when no research slots are free', () => {
@@ -87,7 +87,7 @@ describe('ResearchManager', () => {
       // Any other no-prereq research (ice-magic also has prereqs:[])
       const result = rm.canStartResearch('ice-magic', 9999);
       expect(result.canStart).toBe(false);
-      expect(result.reason).toMatch(/slot/i);
+      expect(result.reason).toBe('no-slot');
     });
 
     it('returns canStart:true when all conditions are satisfied', () => {
@@ -110,7 +110,7 @@ describe('ResearchManager', () => {
       three.onCenterPlaced();
       const cfg = getResearch(NO_PREREQ_ID)!;
       expect(three.costOf(cfg)).toBe(cfg.cost * 3);
-      expect(three.canStartResearch(NO_PREREQ_ID, cfg.cost * 3 - 1).reason).toBe('Not enough credits');
+      expect(three.canStartResearch(NO_PREREQ_ID, cfg.cost * 3 - 1).reason).toBe('credits');
       expect(three.canStartResearch(NO_PREREQ_ID, cfg.cost * 3).canStart).toBe(true);
 
       const started: number[] = [];
@@ -377,15 +377,15 @@ describe('ResearchManager', () => {
     });
 
     it('refuses what cannot go into the queue', () => {
-      expect(rm.canQueueResearch(WITH_PREREQ_ID).reason).toMatch(/prerequisite/i);
+      expect(rm.canQueueResearch(WITH_PREREQ_ID).reason).toBe('prerequisites');
       rm.startResearch(NO_PREREQ_ID);
-      expect(rm.canQueueResearch(NO_PREREQ_ID).reason).toMatch(/progress/i);
+      expect(rm.canQueueResearch(NO_PREREQ_ID).reason).toBe('running');
       rm.queueResearch(QUEUE_ID);
       expect(rm.queueResearch(QUEUE_ID)).toBe(false);
       expect(rm.getQueuedResearches()).toEqual([QUEUE_ID]);
 
       const { rm: noCenter } = makeManager();
-      expect(noCenter.canQueueResearch(QUEUE_ID).reason).toMatch(/Research Center/i);
+      expect(noCenter.canQueueResearch(QUEUE_ID).reason).toBe('no-center');
     });
 
     it('starts the head once a slot frees and charges it then', () => {
@@ -809,8 +809,8 @@ describe('ResearchManager', () => {
     it('neither starts nor queues before its wave, and says which', () => {
       const wave = { n: minWave - 1 };
       const manager = atWave(wave);
-      expect(manager.canStartResearch(TIER5, 1e9)).toEqual({ canStart: false, reason: `Opens at wave ${minWave}` });
-      expect(manager.canQueueResearch(TIER5)).toEqual({ canQueue: false, reason: `Opens at wave ${minWave}` });
+      expect(manager.canStartResearch(TIER5, 1e9)).toEqual({ canStart: false, reason: 'wave' });
+      expect(manager.canQueueResearch(TIER5)).toEqual({ canQueue: false, reason: 'wave' });
       expect(manager.queueResearch(TIER5)).toBe(false);
       expect(manager.isAvailable(TIER5)).toBe(false);
     });

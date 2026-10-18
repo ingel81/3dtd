@@ -61,6 +61,12 @@ type OwnerlessResearchEvent = ResearchEvent extends infer E ? E extends Research
  * and center. The GameStateManager keeps one per player; the single player
  * game has one.
  */
+/**
+ * Why a research cannot start or queue: no center, done, running, queued,
+ * unknown, prerequisites missing, its wave not reached, no free slot, too few credits.
+ */
+export type ResearchRefusal = 'no-center' | 'completed' | 'running' | 'queued' | 'unknown' | 'prerequisites' | 'wave' | 'no-slot' | 'credits';
+
 export class ResearchManager implements IGameManager {
   private completedResearches = new Set<ResearchId>();
   private _airTargetingUnlocked = false;
@@ -226,34 +232,34 @@ export class ResearchManager implements IGameManager {
 
   /**
    * Validate whether a research can be started.
-   * @returns Object with canStart flag and optional reason string.
+   * @returns Object with canStart flag and, when not, why (a code, never text: the UI words it).
    */
-  canStartResearch(id: ResearchId, availableCredits: number): { canStart: boolean; reason?: string } {
+  canStartResearch(id: ResearchId, availableCredits: number): { canStart: boolean; reason?: ResearchRefusal } {
     if (this._centerLevel === 0) {
-      return { canStart: false, reason: 'No Research Center placed' };
+      return { canStart: false, reason: 'no-center' };
     }
     if (this.isCompleted(id)) {
-      return { canStart: false, reason: 'Already completed' };
+      return { canStart: false, reason: 'completed' };
     }
     if (this.isActive(id)) {
-      return { canStart: false, reason: 'Already in progress' };
+      return { canStart: false, reason: 'running' };
     }
     const config = getResearch(id);
     if (!config) {
-      return { canStart: false, reason: 'Unknown research' };
+      return { canStart: false, reason: 'unknown' };
     }
     if (!config.prerequisites.every(p => this.completedResearches.has(p))) {
-      return { canStart: false, reason: 'Prerequisites not met' };
+      return { canStart: false, reason: 'prerequisites' };
     }
     const wave = this.waitsForWave(config);
     if (wave !== null) {
-      return { canStart: false, reason: `Opens at wave ${wave}` };
+      return { canStart: false, reason: 'wave' };
     }
     if (this.availableSlots <= 0) {
-      return { canStart: false, reason: 'No available research slots' };
+      return { canStart: false, reason: 'no-slot' };
     }
     if (availableCredits < this.costOf(config)) {
-      return { canStart: false, reason: 'Not enough credits' };
+      return { canStart: false, reason: 'credits' };
     }
     return { canStart: true };
   }
@@ -292,20 +298,20 @@ export class ResearchManager implements IGameManager {
    * prerequisites are done, and it is not done, running or queued already.
    * Slots and credits do not matter here, waiting for them is the point.
    */
-  canQueueResearch(id: ResearchId): { canQueue: boolean; reason?: string } {
-    if (this._centerLevel === 0) return { canQueue: false, reason: 'No Research Center placed' };
-    if (this.isCompleted(id)) return { canQueue: false, reason: 'Already completed' };
-    if (this.isActive(id)) return { canQueue: false, reason: 'Already in progress' };
-    if (this.isQueued(id)) return { canQueue: false, reason: 'Already queued' };
+  canQueueResearch(id: ResearchId): { canQueue: boolean; reason?: ResearchRefusal } {
+    if (this._centerLevel === 0) return { canQueue: false, reason: 'no-center' };
+    if (this.isCompleted(id)) return { canQueue: false, reason: 'completed' };
+    if (this.isActive(id)) return { canQueue: false, reason: 'running' };
+    if (this.isQueued(id)) return { canQueue: false, reason: 'queued' };
     const config = getResearch(id);
-    if (!config) return { canQueue: false, reason: 'Unknown research' };
+    if (!config) return { canQueue: false, reason: 'unknown' };
     if (!config.prerequisites.every(p => this.completedResearches.has(p))) {
-      return { canQueue: false, reason: 'Prerequisites not met' };
+      return { canQueue: false, reason: 'prerequisites' };
     }
     // Not into the queue before its wave: the head of the queue waits, and a
     // research many waves off would hold up everything behind it
     const wave = this.waitsForWave(config);
-    if (wave !== null) return { canQueue: false, reason: `Opens at wave ${wave}` };
+    if (wave !== null) return { canQueue: false, reason: 'wave' };
     return { canQueue: true };
   }
 
