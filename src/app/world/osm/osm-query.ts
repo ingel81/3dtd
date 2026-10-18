@@ -2,7 +2,7 @@
  * The one Overpass query of an OSM world: everything the map is made of in
  * the map's square plus a margin, ways and multipolygon relations with their
  * geometry cut at the box (`out body geom(<box>)`), and the tagged points
- * (trees, lamps, benches). When the server runs into its memory or time
+ * (trees, lamps, benches, shops, stations). When the server runs into its memory or time
  * limit (`remark`), the box is asked again in four quarters and the answers
  * are merged. docs/OSM_WORLD_PLAN.md
  */
@@ -16,22 +16,62 @@ import {
   type OverpassRetryPolicy,
 } from './overpass-client';
 
-/** Keys whose ways and multipolygons the world reads */
+/**
+ * Version of the query: part of a stored frame's key (osm-frame-store.ts),
+ * so a frame kept from an older query is downloaded again and has what the
+ * world reads now. Raise it whenever the query asks for more.
+ */
+export const OSM_QUERY_VERSION = 2;
+
+/**
+ * Ways and multipolygons the world reads, by key: the land, water, roads and
+ * buildings, and the places people go (shops, inns, offices, sights; round 2,
+ * docs/OSM_WORLD_ROUND2_PLAN.md), also where they are a building or an area
+ * without `building`, and paved squares drawn as areas (`area:highway`)
+ */
 const WAY_KEYS = [
   'highway', 'building', 'landuse', 'natural', 'leisure', 'waterway', 'water', 'railway', 'barrier', 'man_made',
-  'amenity', 'power',
+  'amenity', 'power', 'shop', 'tourism', 'historic', 'craft', 'office', 'area:highway',
 ] as const;
 
-/** Tagged points the world reads */
+/** Ways asked for by key and value */
+const WAY_FILTERS = ['["place"="square"]'] as const;
+
+/** `amenity` values of the points the world reads: the street's furniture and the places people go */
+const POINT_AMENITIES = [
+  'bench', 'waste_basket', 'fountain', 'drinking_water', 'bicycle_parking', 'restaurant', 'cafe', 'fast_food', 'pub',
+  'bar', 'biergarten', 'ice_cream', 'bank', 'pharmacy', 'fuel', 'place_of_worship', 'townhall', 'post_office',
+  'marketplace', 'clock', 'post_box', 'telephone', 'toilets', 'shelter', 'recycling', 'charging_station',
+  'bicycle_rental', 'cinema', 'theatre', 'library', 'police', 'fire_station', 'school', 'kindergarten', 'doctors',
+  'dentist',
+] as const;
+
+/**
+ * Tagged points the world reads. Not every `amenity` (parking spaces,
+ * vending machines and car park entrances are most of them in a city and
+ * show nothing), and no memorial stones set into the pavement
+ * (`memorial=stolperstein`): the world puts nothing there.
+ */
 const NODE_FILTERS = [
   '["natural"="tree"]',
-  '["highway"~"^(street_lamp|bus_stop)$"]',
+  '["highway"~"^(street_lamp|bus_stop|crossing|traffic_signals)$"]',
   '["barrier"]',
   '["man_made"]',
-  '["amenity"~"^(bench|waste_basket|fountain)$"]',
+  `["amenity"~"^(${POINT_AMENITIES.join('|')})$"]`,
   '["emergency"="fire_hydrant"]',
   '["power"~"^(tower|pole)$"]',
-  '["railway"="buffer_stop"]',
+  '["railway"~"^(buffer_stop|level_crossing|crossing|station|halt|tram_stop)$"]',
+  '["public_transport"="station"]',
+  '["shop"]',
+  '["tourism"]',
+  '["historic"]["memorial"!="stolperstein"]',
+  '["craft"]',
+  '["office"]',
+  '["leisure"~"^(picnic_table|outdoor_seating|fitness_station|playground|bandstand)$"]',
+  '["playground"]',
+  '["seamark:type"]',
+  '["waterway"~"^(lock_gate|weir|dam)$"]',
+  '["advertising"~"^(column|billboard)$"]',
 ] as const;
 
 /**
@@ -73,7 +113,7 @@ function boxText(box: GeoBox): string {
 /** The Overpass QL of the world's query for `box` */
 export function osmWorldQuery(box: GeoBox): string {
   const b = boxText(box);
-  const ways = WAY_KEYS.map((key) => `way["${key}"];`).join('\n  ');
+  const ways = [...WAY_KEYS.map((key) => `["${key}"]`), ...WAY_FILTERS].map((filter) => `way${filter};`).join('\n  ');
   const nodes = NODE_FILTERS.map((filter) => `node${filter};`).join('\n  ');
   return `[out:json][timeout:${OSM_QUERY_TIMEOUT_S}][maxsize:${OSM_QUERY_MAXSIZE}][bbox:${b}];
 (

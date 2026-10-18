@@ -358,6 +358,17 @@ parallel zu allem.
 Jedes Paket: Doku in diesem Plan (Abschnitt „gebaut“ je Paket wie in Runde 1), Bericht der Welt um seine Zahlen,
 Szenenkosten an Würzburg, Marais und Kleinstadt am Main.
 
+## P0 Abfrage, gebaut (2026-10-18)
+
+- `osm-query.ts`: die Abfrage wie im Abschnitt [Abfrage](#abfrage) (Ways nach Schlüssel samt `area:highway`, dazu
+  `place=square`; Knoten mit der `amenity`-Liste `POINT_AMENITIES`, ohne Stolpersteine). `OSM_QUERY_VERSION` 2 steht im
+  Schlüssel des Rahmenspeichers (`frameKey`, vorher fest `v1`): Rahmen der alten Abfrage werden neu abgerufen.
+- `isAreaTags`: `area:highway`, `place=square` und geschlossene Ways mit `shop`, `tourism`, `craft`, `office` sind
+  Flächen. Keine davon hat eine Landklasse, die Welt sieht bis P2 und P3 also gleich aus.
+- Die eingefrorene Probe Miltenberg hat die 410 Elemente angehängt, die die neue Abfrage im selben Quadrat mehr
+  liefert (95 Läden, 107 `amenity`-Punkte, 34 Tourismus, 30 `historic`, 18 Spielgeräte, 3 Plätze als Fläche …; Daten
+  der eigenen Instanz vom 2026-10-13, `source.round2`); was vorher darin war, ist unverändert.
+
 ## Entschieden (User, 2026-10-18)
 
 1. **Hydranten und Brunnen als Spielmechanik:** nicht in dieser Runde.

@@ -19,6 +19,9 @@ describe('OSM parse', () => {
     expect(isAreaTags({ building: 'yes' })).toBe(true);
     expect(isAreaTags({ highway: 'pedestrian' })).toBe(false);
     expect(isAreaTags({ highway: 'pedestrian', area: 'yes' })).toBe(true);
+    expect(isAreaTags({ 'area:highway': 'pedestrian' })).toBe(true);
+    expect(isAreaTags({ place: 'square', name: 'Marktplatz' })).toBe(true);
+    expect(isAreaTags({ place: 'suburb' })).toBe(false);
     expect(isAreaTags({ natural: 'tree_row' })).toBe(false);
     expect(isAreaTags({ barrier: 'hedge' })).toBe(false);
   });

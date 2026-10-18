@@ -7,8 +7,9 @@
  */
 import type { DemMosaic } from './dem-tiles';
 import type { OverpassResponse } from './overpass-client';
+import { OSM_QUERY_VERSION } from './osm-query';
 
-/** Frames kept; a city centre's answer is 15 to 20 MB */
+/** Frames kept; a city centre's answer is 15 to 40 MB (Paris Marais 41 MB, docs/OSM_WORLD_ROUND2_PLAN.md) */
 export const OSM_FRAMES_KEPT = 6;
 
 export interface StoredFrame {
@@ -37,9 +38,9 @@ export interface FrameBackend {
   delete(key: string): Promise<void>;
 }
 
-/** The key of a frame: its place to about a metre, and its side */
+/** The key of a frame: the query's version, its place to about a metre, and its side */
 export function frameKey(lat: number, lon: number, sideM: number): string {
-  return `v1_${lat.toFixed(5)}_${lon.toFixed(5)}_${sideM}`;
+  return `v${OSM_QUERY_VERSION}_${lat.toFixed(5)}_${lon.toFixed(5)}_${sideM}`;
 }
 
 export class OsmFrameStore {

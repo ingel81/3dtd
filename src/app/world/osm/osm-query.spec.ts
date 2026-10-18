@@ -14,6 +14,18 @@ describe('OSM world query', () => {
     expect(q).not.toContain('maxsize:4194304');
   });
 
+  it('asks for the places people go and the squares, not the memorial stones in the pavement (round 2)', () => {
+    const q = osmWorldQuery(osmQueryBox(49.7, 9.26, 2400, 100));
+    for (const key of ['shop', 'tourism', 'historic', 'craft', 'office', 'area:highway']) expect(q).toContain(`way["${key}"];`);
+    expect(q).toContain('way["place"="square"];');
+    for (const node of ['node["shop"];', 'node["playground"];', 'node["seamark:type"];', 'node["public_transport"="station"];']) expect(q).toContain(node);
+    expect(q).toContain('node["historic"]["memorial"!="stolperstein"];');
+    expect(q).toMatch(/node\["railway"~"\^\([^)]*level_crossing[^)]*\)\$"\];/);
+    expect(q).toMatch(/node\["amenity"~"\^\([^)]*\brestaurant\b[^)]*\)\$"\];/);
+    // Parking spaces and vending machines show nothing and are most of a city's amenities
+    expect(q).not.toMatch(/parking_space|vending_machine/);
+  });
+
   it('splits a box into four quarters that cover it', () => {
     const box = { minLat: 1, maxLat: 3, minLon: 10, maxLon: 14 };
     const q = quarters(box);

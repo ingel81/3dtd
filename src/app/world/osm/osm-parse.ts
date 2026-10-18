@@ -109,13 +109,16 @@ const MAN_MADE_NOT_AREA = new Set(['embankment', 'cutline', 'pipeline', 'dyke', 
 export function isAreaTags(tags: Record<string, string>): boolean {
   if (tags['area'] === 'no') return false;
   if (tags['area'] === 'yes') return true;
+  // A square or a street's paved width drawn as an area (round 2: their own surface)
+  if (tags['area:highway'] || tags['place'] === 'square') return true;
   if (tags['highway'] || tags['barrier']) return false;
   if (tags['building'] || tags['landuse'] || tags['leisure'] || tags['amenity'] || tags['water']) return true;
   if (tags['natural']) return !NATURAL_NOT_AREA.has(tags['natural']);
   if (tags['man_made']) return !MAN_MADE_NOT_AREA.has(tags['man_made']);
   if (tags['waterway']) return tags['waterway'] === 'riverbank' || tags['waterway'] === 'dock';
   if (tags['railway']) return tags['railway'] === 'platform';
-  return false;
+  // A shop, inn or office mapped as its plot (round 2: the place's own look)
+  return !!(tags['shop'] || tags['tourism'] || tags['craft'] || tags['office']);
 }
 
 /** The answer's elements as features around `frame`, areas cut to the square of half side `half` */

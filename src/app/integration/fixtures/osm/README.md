@@ -65,7 +65,7 @@ Frozen probes for the OSM world importer (`world/osm`, docs/OSM_WORLD_PLAN.md), 
 
 | File | What |
 |---|---|
-| `world-miltenberg.overpass.json.gz` | The answer of `osmWorldQuery` for a 1.2 km square (plus 100 m) around 49.7036, 9.2647 (Miltenberg, Marktplatz), fetched 2026-10-15 from overpass.openstreetmap.fr; `place`, `source` (server, date, `osm_base`, the query), `elements` as they came, each without its `bounds` |
+| `world-miltenberg.overpass.json.gz` | The answer of `osmWorldQuery` for a 1.2 km square (plus 100 m) around 49.7036, 9.2647 (Miltenberg, Marktplatz), fetched 2026-10-15 from overpass.openstreetmap.fr; `place`, `source` (server, date, `osm_base`, the query), `elements` as they came, each without its `bounds`; the elements the round-2 query adds (shops, inns, offices, sights, squares; docs/OSM_WORLD_ROUND2_PLAN.md) appended from the own Overpass instance on 2026-10-18 (`source.round2`, data of 2026-10-13) |
 | `world-lindau-lake.overpass.json.gz` | Cut from the answer of `osmWorldQuery` for the 2.4 km square (plus 100 m) around 47.5464, 9.6854 (Lindau, Maximilianstraße), fetched 2026-10-17 from overpass-api.de: the Bodensee (relation 1156846, its members with their points in the box, nodes outside as null) and the ways with `building` (tags `building` and `man_made` only), node ids renumbered; read by `world/osm/square-clip.spec.ts` (a lake larger than the map, its shore cut by the box) |
 | `world-miltenberg.dem.json.gz` | Mapterhorn heights at zoom 14 (512 px tiles) cut to the query's box plus 4 pixels: `left`, `top` (world pixels), `columns`, `rows`, `heights` as base64 Int16 little endian in decimetres (`unit` 0.1) |
 
