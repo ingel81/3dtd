@@ -149,10 +149,15 @@ export function startCapture(index, file, { cq = 18, fps = 60, chroma = '420' } 
 /** A test colour the page shows while the runner looks for its display */
 export const PROBE_COLOUR = [255, 0, 255];
 
-/** The display a run records on: `name` (DISPLAY2), else the primary */
+/**
+ * The display a recording goes to: `name` (DISPLAY2), `primary` (Windows' primary, whatever it is called now) or
+ * none (the primary). Windows renames a monitor that sleeps and wakes (DISPLAY2 came back as DISPLAY3 in round 5
+ * and stopped a session): asked for each take, so a session follows the primary under its new name
+ */
 export function chooseDisplay(name = '') {
   const all = displays();
-  const d = name ? all.find((x) => x.name === name) : all[0];
+  const primary = all.find((x) => x.primary) ?? all[0];
+  const d = !name || name === 'primary' ? primary : all.find((x) => x.name === name);
   if (!d) throw new Error(`no display ${name}; have ${all.map((x) => x.name).join(', ')}`);
   return d;
 }
