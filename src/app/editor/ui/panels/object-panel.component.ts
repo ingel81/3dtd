@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MAX_SIGN_TEXT, type MapObject, type MapSign } from '../../../world/custom-map/map-document';
 import { SIGN_ICONS } from '../../../world/custom-map/render/objects/sign-icons';
@@ -25,6 +25,8 @@ const MODES: { id: ObjectMode; label: string; key: string }[] = [
 const SNAPS = [0, 1, 2, 4, 8];
 /** Degrees one turn step of Place takes */
 const TURN_STEPS = [5, 15, 45, 90];
+/** Palette cards added a frame: a big catalogue fills over a few frames, not every card and its tooltip in one (50 ms) */
+const CARDS_PER_FRAME = 40;
 
 /**
  * Objects: mode, the palette (categories, search, pictures), scatter
@@ -72,6 +74,9 @@ export class ObjectPanelComponent {
           (!q || o.name.toLowerCase().includes(q) || o.id.includes(q) || !!o.tags?.some((t) => t.startsWith(q))),
       );
   });
+  /** Cards drawn so far of the assets matching */
+  private readonly drawn = signal(CARDS_PER_FRAME);
+  readonly shownAssets = computed(() => this.assets().slice(0, this.drawn()));
   readonly selected = computed<MapObject[]>(() => {
     this.rev();
     const sel = this.session.state.selection();
@@ -81,6 +86,22 @@ export class ObjectPanelComponent {
     return doc.objects.filter((o) => ids.has(o.id));
   });
   readonly single = computed(() => (this.selected().length === 1 ? this.selected()[0] : null));
+
+  constructor() {
+    // A new filter starts the palette anew and fills it a few cards a frame
+    effect((onCleanup) => {
+      const total = this.assets().length;
+      untracked(() => this.drawn.set(CARDS_PER_FRAME));
+      let frame = 0;
+      const grow = (): void => {
+        const n = untracked(this.drawn) + CARDS_PER_FRAME;
+        this.drawn.set(n);
+        if (n < total) frame = requestAnimationFrame(grow);
+      };
+      if (total > CARDS_PER_FRAME) frame = requestAnimationFrame(grow);
+      onCleanup(() => cancelAnimationFrame(frame));
+    });
+  }
 
   setMode(mode: ObjectMode): void {
     patch(this.session.tools.settings.objects, { mode });
