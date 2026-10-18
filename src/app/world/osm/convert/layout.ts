@@ -87,6 +87,8 @@ export class OsmLayout {
   private readonly network: StreetNetwork;
   private readonly lines: { edgeId: string; kind: string; line: MapPoint[] }[];
   private readonly half: number;
+  /** The anchors in reach of a spawn, each on the foot of its road, once */
+  private feet: { anchor: SpawnAnchor; foot: MapPoint; distance: number }[] | null = null;
 
   /**
    * `place`: where the HQ goes, map metres (the frame's square may stand off
@@ -160,19 +162,66 @@ export class OsmLayout {
    * likely first), so a roll again may find another
    */
   private anchorOrder(hq: MapPoint): { anchor: SpawnAnchor; foot: MapPoint; distance: number }[] {
+    this.feet ??= this.anchorFeet(hq);
+    return this.feet
+      .map((f) => ({ ...f, key: Math.pow(Math.random(), 1 / (ANCHOR_TIER_WEIGHT[f.anchor.tier] ?? 1)) }))
+      .sort((a, b) => b.key - a.key);
+  }
+
+  /**
+   * The anchors a spawn may stand at on the foot of their road: in the
+   * spawns' distance from the HQ and off the map's edge. The roads go into
+   * a grid first, so a city's hundreds of stops do not each read every road
+   */
+  private anchorFeet(hq: MapPoint): { anchor: SpawnAnchor; foot: MapPoint; distance: number }[] {
+    const near = this.anchors.filter((a) => {
+      const d = Math.hypot(a.x - hq.x, a.y - hq.y);
+      return d >= MIN_SPAWN_DISTANCE - ANCHOR_ROAD_REACH && d <= MAX_SPAWN_DISTANCE + ANCHOR_ROAD_REACH;
+    });
+    if (!near.length) return [];
+    const cell = ANCHOR_ROAD_REACH;
+    const grid = new Map<string, [MapPoint, MapPoint][]>();
+    for (const { kind, line } of this.lines) {
+      if (kind !== 'road') continue;
+      for (let s = 0; s + 1 < line.length; s++) {
+        const a = line[s];
+        const b = line[s + 1];
+        for (let i = Math.floor(Math.min(a.x, b.x) / cell); i <= Math.floor(Math.max(a.x, b.x) / cell); i++) {
+          for (let j = Math.floor(Math.min(a.y, b.y) / cell); j <= Math.floor(Math.max(a.y, b.y) / cell); j++) {
+            const key = `${i},${j}`;
+            const list = grid.get(key);
+            if (list) list.push([a, b]);
+            else grid.set(key, [[a, b]]);
+          }
+        }
+      }
+    }
     const lim = this.half - EDGE_ROOM;
-    const out: { anchor: SpawnAnchor; foot: MapPoint; distance: number; key: number }[] = [];
-    for (const anchor of this.anchors) {
-      const road = this.nearest(anchor, (k) => k === 'road');
-      if (!road || road.dist > ANCHOR_ROAD_REACH) continue;
-      const foot = { x: round2(road.point.x), y: round2(road.point.y) };
+    const out: { anchor: SpawnAnchor; foot: MapPoint; distance: number }[] = [];
+    for (const anchor of near) {
+      let best: MapPoint | null = null;
+      let bestD = ANCHOR_ROAD_REACH;
+      const ci = Math.floor(anchor.x / cell);
+      const cj = Math.floor(anchor.y / cell);
+      for (let i = ci - 1; i <= ci + 1; i++) {
+        for (let j = cj - 1; j <= cj + 1; j++) {
+          for (const [a, b] of grid.get(`${i},${j}`) ?? []) {
+            const q = closest(a, b, anchor);
+            const d = Math.hypot(q.x - anchor.x, q.y - anchor.y);
+            if (d <= bestD) {
+              best = q;
+              bestD = d;
+            }
+          }
+        }
+      }
+      if (!best) continue;
+      const foot = { x: round2(best.x), y: round2(best.y) };
       if (Math.abs(foot.x) > lim || Math.abs(foot.y) > lim) continue;
       const distance = Math.hypot(foot.x - hq.x, foot.y - hq.y);
-      if (distance < MIN_SPAWN_DISTANCE || distance > MAX_SPAWN_DISTANCE) continue;
-      const weight = ANCHOR_TIER_WEIGHT[anchor.tier] ?? 1;
-      out.push({ anchor, foot, distance, key: Math.pow(Math.random(), 1 / weight) });
+      if (distance >= MIN_SPAWN_DISTANCE && distance <= MAX_SPAWN_DISTANCE) out.push({ anchor, foot, distance });
     }
-    return out.sort((a, b) => b.key - a.key);
+    return out;
   }
 
   /**
