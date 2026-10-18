@@ -99,6 +99,16 @@ Editor-Workers und das Gelände auf der GPU laufen parallel dazu (Plan `tmp/plan
 
 ### Bugs, warten auf neuen Fall
 
+- [ ] **E232 Wellen zählen hoch, aber kein Gegner erscheint** (Fall aus 0.7.0, 2026-10-18; Ort, URL und Konsole
+      angefragt): Welle 28 ohne einen einzigen Gegner, jede Leertaste springt mehrere Wellen weiter. Vermutlich ein
+      Spawn ohne Route zum HQ: beim ersten Laden (URL, Favorit, letzte Orte) steht nur `console.error('No routes
+      found')` (`visualization-facade.service.ts`), nur der Ortswechsel bricht ab. Jede Welle bricht dann nach den
+      Fehlversuchen ab (`No valid paths, aborting wave`), zählt trotzdem als geschafft und zahlt Gold
+      (`wave.manager.ts`); mit Auto-Start reihen sich die leeren Wellen aneinander. Mögliche Quelle: eine
+      unvollständige Overpass-Antwort (`maxsize` 4 MB, `remark` wird nur geloggt) liegt dauerhaft im IndexedDB-Cache
+      und zerreißt das Netz. Fix: fehlende Route beim ersten Laden blockiert wie beim Ortswechsel; `canStartWave`
+      verlangt Routen statt nur Spawns; abgebrochene Welle zählt nicht und zahlt nichts; Antworten mit `remark` nicht
+      cachen.
 - [ ] **E188 Objekte poppen beim Zoomen und Bewegen auf** (User, 2026-10-15, eigene Karten): stellenweise erscheinen
       Objekte sichtbar spät. User sieht es sich genauer an und liefert Screenshots; erst dann untersuchen (LOD-Wechsel,
       Sichtweite je Objekt, Culling). Verwandt: Bäume poppen nach `viewReady` (E183, `wt/fx-engine`).
@@ -121,6 +131,25 @@ Editor-Workers und das Gelände auf der GPU laufen parallel dazu (Plan `tmp/plan
 
 ### Mit dem User klären
 
+- [ ] **E233 OSM-Daten unabhängig von Overpass** (2026-10-18, Overpass seit Tagen meist 502/500, etwa 1 von 15
+      Ladungen klappt): Sofortmaßnahme läuft (mehr Server inkl. Regionalserver und maps.mail.ru als letzter
+      Rückfall, Gesundheitsreihenfolge, längere Rotation, `remark` nicht cachen; Worker r5-overpass). **Zeitnah
+      angehen:** Entschieden 2026-10-18 (ersetzt den Kachel-Ansatz unten): eigene echte Overpass-Instanz als
+      Docker (16 GB RAM, volle Daten aus Klon ohne Metadaten, ~281 GB, Neu-Klon bei Bedarf statt Diffs), Schutz-Proxy
+      (jede Abfrage, gedeckelt: Rate-Limit, Boxgröße, Laufzeit, CORS), Cloudflare Tunnel, `3dtd-osm.sgeht.net`,
+      Statusseite nur im LAN ohne IPs; im Spiel nur erster Eintrag in `overpass-servers.ts` + CSP, Ziel 0.8. Setup in
+      Arbeit (Worker r5-ovhost). Früher erwogen: eigener Kachelserver nur für 3DTD als Docker-Container, unabhängig vom
+      Relay. Daten: Planet-File mit `osmium` auf das gefiltert, was das Spiel braucht (Straßen mit Klasse,
+      Brücken/Tunnel, Gebäude mit Höhe, Wasser, Flüsse, Bahn, Landnutzung), auf festes Raster geschnitten (Zoom 14,
+      je Kachel eine gepackte Datei; weltweit grob 30 bis 50 GB), etwa monatlich neu gebaut. Server liefert nur
+      Kacheln per Nummer aus (keine freien Abfragen), erreichbar über Tunnel/CDN, das die festen Kacheln cacht.
+      Absicherung: CORS/Origin auf Webseite und Desktop-App, Rate-Limit je IP; ganz dicht geht es nicht (Client ist
+      öffentlich). Spiel: eigene Quelle zuerst, Kacheln an den Nähten zusammensetzen, Overpass als Rückfall. Grober
+      Aufwand: Bau-Pipeline 1 Tag, Server ½ Tag, Spielquelle ½ bis 1 Tag. Daten lokal bauen, als eine Datei mit Index
+      plus `manifest.json` auf den Pfad des Containers kopieren, Umschalten per Manifest ohne Ausfall. Dazu interne
+      Statusseite (nur im LAN erreichbar): Heatmap der abgefragten Kacheln, Anfragen und Daten über die Zeit, Länder, Fehler,
+      Rate-Limit-Treffer, Datenversion; keine IPs speichern, nur Kachel, Zeit, Land, Größe (½ Tag). Andere Datenquellen (OpenFreeMap u. a.)
+      vom User verworfen. Verwandt: E232.
 - [ ] **Entschieden 2026-10-15 (Entscheidungsseite, Runde 1):** Push nach den Nachtests, auf `next` auch früher,
       sobald alles in einem Branch liegt; **kein Release auf main**. E184/E190: alle 13 Karten hohe Priorität, die
       angehakten Vorschläge plus Leben (Liste in der Entscheidungsseite, Notizen in `tmp/plan/IMPOSING_MAPS_2026-10-15.md`).
