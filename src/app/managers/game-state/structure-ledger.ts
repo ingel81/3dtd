@@ -18,6 +18,8 @@ export interface StructureEvents {
 /** Numbers per roof in StructureLedger.roof: middle x, y, half extents, cos, sin */
 const ROOF_STRIDE = 6;
 
+const ascending = (a: number, b: number) => a - b;
+
 /**
  * The HP of a destructible world's structures in the simulation
  * (docs/DESTRUCTION_PLAN.md, TODO E131): whole numbers, the stage of each a
@@ -235,7 +237,7 @@ export class StructureLedger {
         }
       }
     }
-    if (reached.length > 1) reached.sort((a, b) => a - b);
+    if (reached.length > 1) reached.sort(ascending);
     return reached;
   }
 
