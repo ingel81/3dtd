@@ -258,14 +258,14 @@ export class MapAssetLibrary {
 
   /**
    * The lower detail models of a catalogue object (`lod` entries), nearest
-   * first, with the distance each one starts at. Broken files are skipped.
+   * first, with the screen share each one takes over at. Broken files are skipped.
    */
-  async lodModels(id: string): Promise<{ model: ObjectModel; distance: number }[]> {
+  async lodModels(id: string): Promise<{ model: ObjectModel; screen: number }[]> {
     const entry = await this.objectEntry(id);
     if (!entry?.lod) return [];
-    // All of them at once, nearest first in the answer
+    // All of them at once, nearest (the largest screen share) first in the answer
     const loaded = await Promise.all(
-      [...entry.lod].sort((a, b) => a.distance - b.distance).map(async (lod) => {
+      [...entry.lod].sort((a, b) => b.screen - a.screen).map(async (lod) => {
         const key = `${id}#${lod.file}`;
         let p = this.models.get(key);
         if (!p) {
@@ -277,14 +277,14 @@ export class MapAssetLibrary {
         }
         try {
           const model = await p;
-          return model.parts.length ? { model, distance: lod.distance } : null;
+          return model.parts.length ? { model, screen: lod.screen } : null;
         } catch (error) {
           console.warn(`[MapAssetLibrary] LOD ${lod.file} of ${id} not loaded`, error);
           return null;
         }
       }),
     );
-    return loaded.filter((l): l is { model: ObjectModel; distance: number } => l !== null);
+    return loaded.filter((l): l is { model: ObjectModel; screen: number } => l !== null);
   }
 
   /** Frees the GPU side of every loaded model and forgets them */

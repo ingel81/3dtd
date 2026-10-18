@@ -2961,7 +2961,7 @@
       "lod": [
         {
           "file": "models/rock-large-lod1.glb",
-          "distance": 350,
+          "screen": 0.0089,
           "triangles": 300
         }
       ],
@@ -3868,7 +3868,7 @@
       "lod": [
         {
           "file": "models/tree-quiver-lod1.glb",
-          "distance": 350,
+          "screen": 0.0148,
           "triangles": 400
         }
       ],
@@ -3897,7 +3897,7 @@
       "lod": [
         {
           "file": "models/tree-quiver-small-lod1.glb",
-          "distance": 350,
+          "screen": 0.0089,
           "triangles": 400
         }
       ],
@@ -3926,7 +3926,7 @@
       "lod": [
         {
           "file": "models/tree-quiver-dead-lod1.glb",
-          "distance": 240,
+          "screen": 0.0095,
           "triangles": 400
         }
       ],
@@ -3977,7 +3977,7 @@
       "lod": [
         {
           "file": "models/desert-tree-lod1.glb",
-          "distance": 350,
+          "screen": 0.0101,
           "triangles": 399
         }
       ],
@@ -4006,7 +4006,7 @@
       "lod": [
         {
           "file": "models/succulent-lod1.glb",
-          "distance": 120,
+          "screen": 0.0043,
           "triangles": 400
         }
       ],
@@ -4036,7 +4036,7 @@
       "lod": [
         {
           "file": "models/iceplant-lod1.glb",
-          "distance": 120,
+          "screen": 0.0043,
           "triangles": 400
         }
       ],
@@ -4066,7 +4066,7 @@
       "lod": [
         {
           "file": "models/flower-gazania-lod1.glb",
-          "distance": 120,
+          "screen": 0.0035,
           "triangles": 399
         }
       ],
@@ -4095,7 +4095,7 @@
       "lod": [
         {
           "file": "models/flower-ursinia-lod1.glb",
-          "distance": 120,
+          "screen": 0.0043,
           "triangles": 400
         }
       ],
@@ -4280,7 +4280,7 @@
       "lod": [
         {
           "file": "models/nettles-lod1.glb",
-          "distance": 120,
+          "screen": 0.0061,
           "triangles": 400
         }
       ],
@@ -4311,7 +4311,7 @@
       "lod": [
         {
           "file": "models/periwinkle-lod1.glb",
-          "distance": 120,
+          "screen": 0.0035,
           "triangles": 400
         }
       ],
@@ -4739,7 +4739,7 @@
       "lod": [
         {
           "file": "models/stump-old-lod1.glb",
-          "distance": 200,
+          "screen": 0.0043,
           "triangles": 400
         }
       ],
@@ -4770,7 +4770,7 @@
       "lod": [
         {
           "file": "models/stump-mossy-lod1.glb",
-          "distance": 200,
+          "screen": 0.0043,
           "triangles": 400
         }
       ],
@@ -4801,7 +4801,7 @@
       "lod": [
         {
           "file": "models/log-fallen-lod1.glb",
-          "distance": 240,
+          "screen": 0.0087,
           "triangles": 400
         }
       ],
@@ -4832,7 +4832,7 @@
       "lod": [
         {
           "file": "models/roots-lod1.glb",
-          "distance": 100,
+          "screen": 0.0087,
           "triangles": 400
         }
       ],
@@ -4864,7 +4864,7 @@
       "lod": [
         {
           "file": "models/branches-lod1.glb",
-          "distance": 80,
+          "screen": 0.0087,
           "triangles": 400
         }
       ],
@@ -4901,7 +4901,7 @@
       "lod": [
         {
           "file": "models/boulder-lod1.glb",
-          "distance": 320,
+          "screen": 0.006,
           "triangles": 300
         }
       ],
@@ -4936,7 +4936,7 @@
       "lod": [
         {
           "file": "models/rock-granite-lod1.glb",
-          "distance": 320,
+          "screen": 0.0097,
           "triangles": 300
         }
       ],
@@ -4972,7 +4972,7 @@
       "lod": [
         {
           "file": "models/rock-granite-flat-lod1.glb",
-          "distance": 320,
+          "screen": 0.013,
           "triangles": 300
         }
       ],
@@ -5008,7 +5008,7 @@
       "lod": [
         {
           "file": "models/rock-round-lod1.glb",
-          "distance": 320,
+          "screen": 0.0043,
           "triangles": 300
         }
       ],
@@ -5042,7 +5042,7 @@
       "lod": [
         {
           "file": "models/rock-desert-lod1.glb",
-          "distance": 320,
+          "screen": 0.0092,
           "triangles": 300
         }
       ],
@@ -5076,7 +5076,7 @@
       "lod": [
         {
           "file": "models/rock-desert-large-lod1.glb",
-          "distance": 350,
+          "screen": 0.0134,
           "triangles": 300
         }
       ],
@@ -5111,7 +5111,7 @@
       "lod": [
         {
           "file": "models/rock-sandstone-lod1.glb",
-          "distance": 320,
+          "screen": 0.0141,
           "triangles": 299
         }
       ],
@@ -5145,7 +5145,7 @@
       "lod": [
         {
           "file": "models/rock-sandstone-large-lod1.glb",
-          "distance": 350,
+          "screen": 0.0223,
           "triangles": 300
         }
       ],
@@ -5181,7 +5181,7 @@
       "lod": [
         {
           "file": "models/rock-basalt-lod1.glb",
-          "distance": 320,
+          "screen": 0.0081,
           "triangles": 300
         }
       ],
@@ -5217,7 +5217,7 @@
       "lod": [
         {
           "file": "models/rock-basalt-large-lod1.glb",
-          "distance": 320,
+          "screen": 0.0135,
           "triangles": 300
         }
       ],
@@ -5253,7 +5253,7 @@
       "lod": [
         {
           "file": "models/rock-snow-lod1.glb",
-          "distance": 320,
+          "screen": 0.0124,
           "triangles": 299
         }
       ],
@@ -5288,7 +5288,7 @@
       "lod": [
         {
           "file": "models/rock-volcanic-lod1.glb",
-          "distance": 320,
+          "screen": 0.0054,
           "triangles": 299
         }
       ],
@@ -5323,7 +5323,7 @@
       "lod": [
         {
           "file": "models/rock-volcanic-large-lod1.glb",
-          "distance": 320,
+          "screen": 0.0078,
           "triangles": 300
         }
       ],
@@ -5358,7 +5358,7 @@
       "lod": [
         {
           "file": "models/rock-pumice-lod1.glb",
-          "distance": 320,
+          "screen": 0.0054,
           "triangles": 299
         }
       ],
@@ -5394,7 +5394,7 @@
       "lod": [
         {
           "file": "models/rock-mossy-a-lod1.glb",
-          "distance": 320,
+          "screen": 0.0081,
           "triangles": 300
         }
       ],
@@ -5430,7 +5430,7 @@
       "lod": [
         {
           "file": "models/rock-mossy-b-lod1.glb",
-          "distance": 320,
+          "screen": 0.0055,
           "triangles": 300
         }
       ],
@@ -5466,7 +5466,7 @@
       "lod": [
         {
           "file": "models/rock-mossy-c-lod1.glb",
-          "distance": 320,
+          "screen": 0.0076,
           "triangles": 300
         }
       ],
@@ -5501,7 +5501,7 @@
       "lod": [
         {
           "file": "models/rock-mossy-flat-lod1.glb",
-          "distance": 320,
+          "screen": 0.0054,
           "triangles": 300
         }
       ],
@@ -5539,7 +5539,7 @@
       "lod": [
         {
           "file": "models/stones-lod1.glb",
-          "distance": 100,
+          "screen": 0.0329,
           "triangles": 299
         }
       ],
@@ -5569,7 +5569,7 @@
       "lod": [
         {
           "file": "models/rock-coast-lod1.glb",
-          "distance": 320,
+          "screen": 0.1451,
           "triangles": 300
         }
       ],
@@ -5598,7 +5598,7 @@
       "lod": [
         {
           "file": "models/cliff-face-lod1.glb",
-          "distance": 350,
+          "screen": 0.0247,
           "triangles": 300
         }
       ],
@@ -5627,7 +5627,7 @@
       "lod": [
         {
           "file": "models/cliff-face-b-lod1.glb",
-          "distance": 350,
+          "screen": 0.0246,
           "triangles": 300
         }
       ],
@@ -5656,7 +5656,7 @@
       "lod": [
         {
           "file": "models/cliff-wall-lod1.glb",
-          "distance": 350,
+          "screen": 0.0371,
           "triangles": 300
         }
       ],
@@ -5685,7 +5685,7 @@
       "lod": [
         {
           "file": "models/cliff-wall-b-lod1.glb",
-          "distance": 350,
+          "screen": 0.0752,
           "triangles": 300
         }
       ],
@@ -5714,7 +5714,7 @@
       "lod": [
         {
           "file": "models/cliff-wall-sandstone-lod1.glb",
-          "distance": 350,
+          "screen": 0.0371,
           "triangles": 300
         }
       ],
@@ -5745,7 +5745,7 @@
       "lod": [
         {
           "file": "models/cliff-wall-basalt-lod1.glb",
-          "distance": 350,
+          "screen": 0.0752,
           "triangles": 300
         }
       ],
@@ -5774,7 +5774,7 @@
       "lod": [
         {
           "file": "models/cliff-coast-lod1.glb",
-          "distance": 350,
+          "screen": 0.0911,
           "triangles": 300
         }
       ],
@@ -5805,7 +5805,7 @@
       "lod": [
         {
           "file": "models/cliff-face-red-lod1.glb",
-          "distance": 350,
+          "screen": 0.0246,
           "triangles": 300
         }
       ],
@@ -5839,7 +5839,7 @@
       "lod": [
         {
           "file": "models/sandstone-pillar-lod1.glb",
-          "distance": 350,
+          "screen": 0.0309,
           "triangles": 1178
         }
       ],
@@ -5873,7 +5873,7 @@
       "lod": [
         {
           "file": "models/sandstone-pillar-tall-lod1.glb",
-          "distance": 350,
+          "screen": 0.0558,
           "triangles": 1178
         }
       ],
@@ -5902,7 +5902,7 @@
       "lod": [
         {
           "file": "models/mesa-lod1.glb",
-          "distance": 350,
+          "screen": 0.1094,
           "triangles": 676
         }
       ],
@@ -5933,7 +5933,7 @@
       "lod": [
         {
           "file": "models/rock-arch-lod1.glb",
-          "distance": 350,
+          "screen": 0.0465,
           "triangles": 894
         }
       ],
@@ -5963,7 +5963,7 @@
       "lod": [
         {
           "file": "models/rock-arch-large-lod1.glb",
-          "distance": 350,
+          "screen": 0.0861,
           "triangles": 834
         }
       ],
@@ -6199,7 +6199,7 @@
       "lod": [
         {
           "file": "models/lava-pool-lod1.glb",
-          "distance": 350,
+          "screen": 0.0228,
           "triangles": 399
         }
       ],
@@ -6282,7 +6282,7 @@
       "lod": [
         {
           "file": "models/castle-wall-half-lod1.glb",
-          "distance": 350,
+          "screen": 0.0249,
           "triangles": 120
         }
       ],
@@ -6327,7 +6327,7 @@
       "lod": [
         {
           "file": "models/castle-wall-short-lod1.glb",
-          "distance": 350,
+          "screen": 0.0249,
           "triangles": 120
         }
       ],
@@ -6372,7 +6372,7 @@
       "lod": [
         {
           "file": "models/castle-wall-corner-lod1.glb",
-          "distance": 350,
+          "screen": 0.0294,
           "triangles": 120
         }
       ],
@@ -6417,7 +6417,7 @@
       "lod": [
         {
           "file": "models/castle-wall-end-lod1.glb",
-          "distance": 350,
+          "screen": 0.0294,
           "triangles": 120
         }
       ],
@@ -8311,7 +8311,7 @@
       "lod": [
         {
           "file": "models/cow-lod1.glb",
-          "distance": 240,
+          "screen": 0.0079,
           "triangles": 331
         }
       ],
@@ -8343,7 +8343,7 @@
       "lod": [
         {
           "file": "models/cow-grazing-lod1.glb",
-          "distance": 240,
+          "screen": 0.0079,
           "triangles": 331
         }
       ],
@@ -8375,7 +8375,7 @@
       "lod": [
         {
           "file": "models/cow-lying-lod1.glb",
-          "distance": 240,
+          "screen": 0.0079,
           "triangles": 309
         }
       ],
@@ -9455,7 +9455,7 @@
       "lod": [
         {
           "file": "models/apartment-block-lod1.glb",
-          "distance": 350,
+          "screen": 0.0451,
           "triangles": 3735
         }
       ],
@@ -9499,7 +9499,7 @@
       "lod": [
         {
           "file": "models/apartment-block-tall-lod1.glb",
-          "distance": 350,
+          "screen": 0.0808,
           "triangles": 1926
         }
       ],
@@ -9543,7 +9543,7 @@
       "lod": [
         {
           "file": "models/apartment-block-ruined-lod1.glb",
-          "distance": 350,
+          "screen": 0.0463,
           "triangles": 2918
         }
       ],
@@ -9588,7 +9588,7 @@
       "lod": [
         {
           "file": "models/brick-block-lod1.glb",
-          "distance": 350,
+          "screen": 0.0481,
           "triangles": 2553
         }
       ],
@@ -9633,7 +9633,7 @@
       "lod": [
         {
           "file": "models/brick-house-lod1.glb",
-          "distance": 350,
+          "screen": 0.0383,
           "triangles": 1937
         }
       ],
@@ -9677,7 +9677,7 @@
       "lod": [
         {
           "file": "models/brick-block-ruined-lod1.glb",
-          "distance": 350,
+          "screen": 0.0321,
           "triangles": 1934
         }
       ],
@@ -9721,7 +9721,7 @@
       "lod": [
         {
           "file": "models/tower-stump-lod1.glb",
-          "distance": 350,
+          "screen": 0.0983,
           "triangles": 986
         }
       ],
@@ -9765,7 +9765,7 @@
       "lod": [
         {
           "file": "models/shop-lod1.glb",
-          "distance": 350,
+          "screen": 0.0285,
           "triangles": 827
         }
       ],
@@ -9809,7 +9809,7 @@
       "lod": [
         {
           "file": "models/warehouse-lod1.glb",
-          "distance": 350,
+          "screen": 0.0416,
           "triangles": 472
         }
       ],
@@ -9853,7 +9853,7 @@
       "lod": [
         {
           "file": "models/warehouse-rusty-lod1.glb",
-          "distance": 350,
+          "screen": 0.0416,
           "triangles": 479
         }
       ],
@@ -11508,7 +11508,7 @@
       "lod": [
         {
           "file": "models/crater-rim-lod1.glb",
-          "distance": 320,
+          "screen": 0.0622,
           "triangles": 400
         }
       ],
@@ -11537,7 +11537,7 @@
       "lod": [
         {
           "file": "models/mars-crater-rim-lod1.glb",
-          "distance": 320,
+          "screen": 0.0612,
           "triangles": 400
         }
       ],
@@ -11571,7 +11571,7 @@
       "lod": [
         {
           "file": "models/moon-boulder-lod1.glb",
-          "distance": 320,
+          "screen": 0.0084,
           "triangles": 300
         }
       ],
@@ -11605,7 +11605,7 @@
       "lod": [
         {
           "file": "models/moon-rock-lod1.glb",
-          "distance": 320,
+          "screen": 0.006,
           "triangles": 299
         }
       ],
@@ -11639,7 +11639,7 @@
       "lod": [
         {
           "file": "models/moon-rocks-small-lod1.glb",
-          "distance": 320,
+          "screen": 0.0043,
           "triangles": 299
         }
       ],
@@ -11673,7 +11673,7 @@
       "lod": [
         {
           "file": "models/mars-boulder-lod1.glb",
-          "distance": 320,
+          "screen": 0.0078,
           "triangles": 300
         }
       ],
@@ -11707,7 +11707,7 @@
       "lod": [
         {
           "file": "models/mars-stone-lod1.glb",
-          "distance": 320,
+          "screen": 0.0081,
           "triangles": 300
         }
       ],
@@ -11741,7 +11741,7 @@
       "lod": [
         {
           "file": "models/mars-rock-large-lod1.glb",
-          "distance": 350,
+          "screen": 0.0134,
           "triangles": 300
         }
       ],
@@ -11770,7 +11770,7 @@
       "lod": [
         {
           "file": "models/mars-cliff-lod1.glb",
-          "distance": 350,
+          "screen": 0.0752,
           "triangles": 300
         }
       ],
@@ -11909,7 +11909,7 @@
       "lod": [
         {
           "file": "models/ice-floe-lod1.glb",
-          "distance": 320,
+          "screen": 0.0211,
           "triangles": 400
         }
       ],
@@ -11965,7 +11965,7 @@
       "lod": [
         {
           "file": "models/iceberg-lod1.glb",
-          "distance": 350,
+          "screen": 0.0465,
           "triangles": 400
         }
       ],
@@ -12024,7 +12024,7 @@
       "lod": [
         {
           "file": "models/snow-drift-mound-lod1.glb",
-          "distance": 320,
+          "screen": 0.0206,
           "triangles": 400
         }
       ],
@@ -12138,7 +12138,7 @@
       "lod": [
         {
           "file": "models/thorns-lod1.glb",
-          "distance": 200,
+          "screen": 0.0094,
           "triangles": 400
         }
       ],
@@ -12317,7 +12317,7 @@
       "lod": [
         {
           "file": "models/lava-rock-lod1.glb",
-          "distance": 320,
+          "screen": 0.0087,
           "triangles": 400
         }
       ],
@@ -12359,7 +12359,7 @@
       "lod": [
         {
           "file": "models/lava-rock-large-lod1.glb",
-          "distance": 320,
+          "screen": 0.0173,
           "triangles": 400
         }
       ],
@@ -12575,7 +12575,7 @@
       "lod": [
         {
           "file": "models/rock-needle-lod1.glb",
-          "distance": 350,
+          "screen": 0.0591,
           "triangles": 570
         }
       ],
@@ -12610,7 +12610,7 @@
       "lod": [
         {
           "file": "models/cairn-lod1.glb",
-          "distance": 240,
+          "screen": 0.0082,
           "triangles": 399
         }
       ],
@@ -12661,7 +12661,7 @@
       "lod": [
         {
           "file": "models/oasis-pool-lod1.glb",
-          "distance": 350,
+          "screen": 0.0218,
           "triangles": 400
         }
       ],
@@ -13337,7 +13337,7 @@
       "lod": [
         {
           "file": "models/fishing-boat-lod1.glb",
-          "distance": 350,
+          "screen": 0.0198,
           "triangles": 1797
         }
       ],
@@ -14080,7 +14080,7 @@
       "lod": [
         {
           "file": "models/office-tower-lod1.glb",
-          "distance": 350,
+          "screen": 0.1164,
           "triangles": 2531
         }
       ],
@@ -14418,7 +14418,7 @@
       "lod": [
         {
           "file": "models/tunnel-portal-lod1.glb",
-          "distance": 350,
+          "screen": 0.1024,
           "triangles": 544
         }
       ],
@@ -14463,7 +14463,7 @@
       "lod": [
         {
           "file": "models/tunnel-portal-concrete-lod1.glb",
-          "distance": 350,
+          "screen": 0.0668,
           "triangles": 854
         }
       ],
@@ -14508,7 +14508,7 @@
       "lod": [
         {
           "file": "models/castle-ruin-lod1.glb",
-          "distance": 350,
+          "screen": 0.0851,
           "triangles": 1407
         }
       ],
@@ -14539,7 +14539,7 @@
       "lod": [
         {
           "file": "models/glacier-lod1.glb",
-          "distance": 350,
+          "screen": 0.2143,
           "triangles": 1237
         }
       ],
@@ -14683,7 +14683,7 @@
       "lod": [
         {
           "file": "models/shipwreck-lod1.glb",
-          "distance": 350,
+          "screen": 0.0609,
           "triangles": 1181
         }
       ],
@@ -14728,7 +14728,7 @@
       "lod": [
         {
           "file": "models/rocket-lod1.glb",
-          "distance": 350,
+          "screen": 0.1018,
           "triangles": 1038
         }
       ],
@@ -14865,7 +14865,7 @@
       "lod": [
         {
           "file": "models/bell-tower-lod1.glb",
-          "distance": 350,
+          "screen": 0.0787,
           "triangles": 712
         }
       ],
@@ -14911,7 +14911,7 @@
       "lod": [
         {
           "file": "models/bell-tower-snow-lod1.glb",
-          "distance": 350,
+          "screen": 0.0787,
           "triangles": 708
         }
       ],
@@ -14951,7 +14951,7 @@
       "lod": [
         {
           "file": "models/stone-circle-lod1.glb",
-          "distance": 350,
+          "screen": 0.0371,
           "triangles": 504
         }
       ],
@@ -14982,7 +14982,7 @@
       "lod": [
         {
           "file": "models/trebuchet-lod1.glb",
-          "distance": 350,
+          "screen": 0.0257,
           "triangles": 867
         }
       ],
@@ -15026,7 +15026,7 @@
       "lod": [
         {
           "file": "models/siege-tower-lod1.glb",
-          "distance": 350,
+          "screen": 0.0395,
           "triangles": 1176
         }
       ],
@@ -15065,7 +15065,7 @@
       "lod": [
         {
           "file": "models/highway-collapsed-lod1.glb",
-          "distance": 350,
+          "screen": 0.1133,
           "triangles": 1170
         }
       ],
@@ -15528,7 +15528,7 @@
       "lod": [
         {
           "file": "models/house-modern-lod1.glb",
-          "distance": 350,
+          "screen": 0.0285,
           "triangles": 773
         }
       ],
@@ -15573,7 +15573,7 @@
       "lod": [
         {
           "file": "models/house-modern-red-lod1.glb",
-          "distance": 350,
+          "screen": 0.0318,
           "triangles": 825
         }
       ],
@@ -15618,7 +15618,7 @@
       "lod": [
         {
           "file": "models/house-semi-lod1.glb",
-          "distance": 350,
+          "screen": 0.0346,
           "triangles": 790
         }
       ],
@@ -15663,7 +15663,7 @@
       "lod": [
         {
           "file": "models/house-terrace-lod1.glb",
-          "distance": 350,
+          "screen": 0.0297,
           "triangles": 666
         }
       ],
@@ -15708,7 +15708,7 @@
       "lod": [
         {
           "file": "models/house-terrace-end-w-lod1.glb",
-          "distance": 350,
+          "screen": 0.0297,
           "triangles": 605
         }
       ],
@@ -15753,7 +15753,7 @@
       "lod": [
         {
           "file": "models/house-terrace-end-e-lod1.glb",
-          "distance": 350,
+          "screen": 0.0297,
           "triangles": 603
         }
       ],
@@ -15798,7 +15798,7 @@
       "lod": [
         {
           "file": "models/house-terrace-ends-lod1.glb",
-          "distance": 350,
+          "screen": 0.0297,
           "triangles": 577
         }
       ],
@@ -15845,7 +15845,7 @@
       "lod": [
         {
           "file": "models/oldtown-gable-3-lod1.glb",
-          "distance": 350,
+          "screen": 0.0472,
           "triangles": 1338
         }
       ],
@@ -15891,7 +15891,7 @@
       "lod": [
         {
           "file": "models/oldtown-gable-4-lod1.glb",
-          "distance": 350,
+          "screen": 0.0588,
           "triangles": 1692
         }
       ],
@@ -15937,7 +15937,7 @@
       "lod": [
         {
           "file": "models/oldtown-gable-2-lod1.glb",
-          "distance": 350,
+          "screen": 0.0333,
           "triangles": 1396
         }
       ],
@@ -15983,7 +15983,7 @@
       "lod": [
         {
           "file": "models/oldtown-eave-3-lod1.glb",
-          "distance": 350,
+          "screen": 0.0529,
           "triangles": 1652
         }
       ],
@@ -16029,7 +16029,7 @@
       "lod": [
         {
           "file": "models/oldtown-eave-2-lod1.glb",
-          "distance": 350,
+          "screen": 0.0377,
           "triangles": 1536
         }
       ],
@@ -16073,7 +16073,7 @@
       "lod": [
         {
           "file": "models/house-terrace-row-lod1.glb",
-          "distance": 350,
+          "screen": 0.0569,
           "triangles": 1444
         }
       ],
@@ -16119,7 +16119,7 @@
       "lod": [
         {
           "file": "models/garage-lod1.glb",
-          "distance": 350,
+          "screen": 0.0139,
           "triangles": 184
         }
       ],
@@ -16164,7 +16164,7 @@
       "lod": [
         {
           "file": "models/garage-row-lod1.glb",
-          "distance": 350,
+          "screen": 0.0337,
           "triangles": 672
         }
       ],
@@ -16211,7 +16211,7 @@
       "lod": [
         {
           "file": "models/garden-shed-lod1.glb",
-          "distance": 350,
+          "screen": 0.0086,
           "triangles": 259
         }
       ],
@@ -16256,7 +16256,7 @@
       "lod": [
         {
           "file": "models/carport-lod1.glb",
-          "distance": 350,
+          "screen": 0.0124,
           "triangles": 144
         }
       ],
@@ -16300,7 +16300,7 @@
       "lod": [
         {
           "file": "models/carport-double-lod1.glb",
-          "distance": 350,
+          "screen": 0.0144,
           "triangles": 284
         }
       ],
@@ -16344,7 +16344,7 @@
       "lod": [
         {
           "file": "models/station-canopy-lod1.glb",
-          "distance": 350,
+          "screen": 0.049,
           "triangles": 700
         }
       ],
@@ -16388,7 +16388,7 @@
       "lod": [
         {
           "file": "models/block-row-4-lod1.glb",
-          "distance": 350,
+          "screen": 0.0591,
           "triangles": 1381
         }
       ],
@@ -16433,7 +16433,7 @@
       "lod": [
         {
           "file": "models/block-row-4-end-w-lod1.glb",
-          "distance": 350,
+          "screen": 0.0591,
           "triangles": 1333
         }
       ],
@@ -16478,7 +16478,7 @@
       "lod": [
         {
           "file": "models/block-row-4-end-e-lod1.glb",
-          "distance": 350,
+          "screen": 0.0591,
           "triangles": 1332
         }
       ],
@@ -16523,7 +16523,7 @@
       "lod": [
         {
           "file": "models/block-row-4-ends-lod1.glb",
-          "distance": 350,
+          "screen": 0.0591,
           "triangles": 1354
         }
       ],
@@ -16568,7 +16568,7 @@
       "lod": [
         {
           "file": "models/block-row-6-lod1.glb",
-          "distance": 350,
+          "screen": 0.0704,
           "triangles": 1614
         }
       ],
@@ -16613,7 +16613,7 @@
       "lod": [
         {
           "file": "models/block-row-6-end-w-lod1.glb",
-          "distance": 350,
+          "screen": 0.0704,
           "triangles": 1740
         }
       ],
@@ -16658,7 +16658,7 @@
       "lod": [
         {
           "file": "models/block-row-6-end-e-lod1.glb",
-          "distance": 350,
+          "screen": 0.0704,
           "triangles": 1733
         }
       ],
@@ -16703,7 +16703,7 @@
       "lod": [
         {
           "file": "models/block-row-6-ends-lod1.glb",
-          "distance": 350,
+          "screen": 0.0704,
           "triangles": 2147
         }
       ],
@@ -16748,7 +16748,7 @@
       "lod": [
         {
           "file": "models/block-corner-4-lod1.glb",
-          "distance": 350,
+          "screen": 0.0591,
           "triangles": 1394
         }
       ],
@@ -16793,7 +16793,7 @@
       "lod": [
         {
           "file": "models/block-corner-6-lod1.glb",
-          "distance": 350,
+          "screen": 0.0704,
           "triangles": 1724
         }
       ],
@@ -16838,7 +16838,7 @@
       "lod": [
         {
           "file": "models/office-mid-lod1.glb",
-          "distance": 350,
+          "screen": 0.0671,
           "triangles": 670
         }
       ],
@@ -16883,7 +16883,7 @@
       "lod": [
         {
           "file": "models/office-high-lod1.glb",
-          "distance": 350,
+          "screen": 0.0983,
           "triangles": 850
         }
       ],
@@ -16928,7 +16928,7 @@
       "lod": [
         {
           "file": "models/supermarket-lod1.glb",
-          "distance": 350,
+          "screen": 0.0896,
           "triangles": 586
         }
       ],
@@ -16973,7 +16973,7 @@
       "lod": [
         {
           "file": "models/hall-flat-lod1.glb",
-          "distance": 350,
+          "screen": 0.0673,
           "triangles": 504
         }
       ],
@@ -17019,7 +17019,7 @@
       "lod": [
         {
           "file": "models/industrial-hall-lod1.glb",
-          "distance": 350,
+          "screen": 0.1569,
           "triangles": 803
         }
       ],
@@ -17064,7 +17064,7 @@
       "lod": [
         {
           "file": "models/school-lod1.glb",
-          "distance": 350,
+          "screen": 0.1034,
           "triangles": 1789
         }
       ],
@@ -17109,7 +17109,7 @@
       "lod": [
         {
           "file": "models/town-hall-lod1.glb",
-          "distance": 350,
+          "screen": 0.0688,
           "triangles": 1585
         }
       ],
@@ -17155,7 +17155,7 @@
       "lod": [
         {
           "file": "models/town-church-lod1.glb",
-          "distance": 350,
+          "screen": 0.1485,
           "triangles": 1128
         }
       ],
@@ -17200,7 +17200,7 @@
       "lod": [
         {
           "file": "models/station-lod1.glb",
-          "distance": 350,
+          "screen": 0.0648,
           "triangles": 938
         }
       ],
@@ -17245,7 +17245,7 @@
       "lod": [
         {
           "file": "models/parking-garage-lod1.glb",
-          "distance": 350,
+          "screen": 0.1207,
           "triangles": 958
         }
       ],
@@ -17292,7 +17292,7 @@
       "lod": [
         {
           "file": "models/greenhouse-lod1.glb",
-          "distance": 350,
+          "screen": 0.0267,
           "triangles": 236
         }
       ],
@@ -17336,7 +17336,7 @@
       "lod": [
         {
           "file": "models/kiosk-lod1.glb",
-          "distance": 350,
+          "screen": 0.0104,
           "triangles": 232
         }
       ],
@@ -17382,7 +17382,7 @@
       "lod": [
         {
           "file": "models/transformer-station-lod1.glb",
-          "distance": 350,
+          "screen": 0.0084,
           "triangles": 89
         }
       ],
@@ -17438,7 +17438,7 @@
       "lod": [
         {
           "file": "models/shop-small-lod1.glb",
-          "distance": 350,
+          "screen": 0.0233,
           "triangles": 386
         }
       ],
@@ -17484,7 +17484,7 @@
       "lod": [
         {
           "file": "models/barn-modern-lod1.glb",
-          "distance": 350,
+          "screen": 0.048,
           "triangles": 577
         }
       ],
@@ -17531,7 +17531,7 @@
       "lod": [
         {
           "file": "models/shelter-lean-to-lod1.glb",
-          "distance": 350,
+          "screen": 0.0144,
           "triangles": 302
         }
       ],
@@ -17577,7 +17577,7 @@
       "lod": [
         {
           "file": "models/outbuilding-lod1.glb",
-          "distance": 350,
+          "screen": 0.0116,
           "triangles": 274
         }
       ],
@@ -17623,7 +17623,7 @@
       "lod": [
         {
           "file": "models/annex-lod1.glb",
-          "distance": 350,
+          "screen": 0.0168,
           "triangles": 366
         }
       ],
@@ -17668,7 +17668,7 @@
       "lod": [
         {
           "file": "models/office-ribbon-lod1.glb",
-          "distance": 350,
+          "screen": 0.1274,
           "triangles": 1583
         }
       ],
@@ -17723,7 +17723,7 @@
       "lod": [
         {
           "file": "models/shop-office-lod1.glb",
-          "distance": 350,
+          "screen": 0.054,
           "triangles": 904
         }
       ],
@@ -17782,7 +17782,7 @@
       "lod": [
         {
           "file": "models/rail-track-lod1.glb",
-          "distance": 350,
+          "screen": 0.0223,
           "triangles": 116
         }
       ],
@@ -17818,7 +17818,7 @@
       "lod": [
         {
           "file": "models/rail-track-short-lod1.glb",
-          "distance": 350,
+          "screen": 0.0119,
           "triangles": 44
         }
       ],
@@ -17854,7 +17854,7 @@
       "lod": [
         {
           "file": "models/rail-track-wood-lod1.glb",
-          "distance": 350,
+          "screen": 0.0223,
           "triangles": 116
         }
       ],
@@ -17890,7 +17890,7 @@
       "lod": [
         {
           "file": "models/rail-track-wood-short-lod1.glb",
-          "distance": 350,
+          "screen": 0.0119,
           "triangles": 44
         }
       ],
@@ -17921,7 +17921,7 @@
       "lod": [
         {
           "file": "models/rail-crossing-lod1.glb",
-          "distance": 350,
+          "screen": 0.0104,
           "triangles": 50
         }
       ],
@@ -17952,7 +17952,7 @@
       "lod": [
         {
           "file": "models/rail-street-lod1.glb",
-          "distance": 350,
+          "screen": 0.0079,
           "triangles": 42
         }
       ],
@@ -17982,7 +17982,7 @@
       "lod": [
         {
           "file": "models/crossing-saltire-lod1.glb",
-          "distance": 280,
+          "screen": 0.0104,
           "triangles": 91
         }
       ],
@@ -18012,7 +18012,7 @@
       "lod": [
         {
           "file": "models/crossing-signal-lod1.glb",
-          "distance": 280,
+          "screen": 0.0134,
           "triangles": 170
         }
       ],
@@ -18042,7 +18042,7 @@
       "lod": [
         {
           "file": "models/crossing-barrier-lod1.glb",
-          "distance": 280,
+          "screen": 0.02,
           "triangles": 117
         }
       ],
@@ -18073,7 +18073,7 @@
       "lod": [
         {
           "file": "models/rail-bridge-lod1.glb",
-          "distance": 350,
+          "screen": 0.0223,
           "triangles": 126
         }
       ],
@@ -18104,7 +18104,7 @@
       "lod": [
         {
           "file": "models/rail-bridge-short-lod1.glb",
-          "distance": 350,
+          "screen": 0.0134,
           "triangles": 68
         }
       ],
@@ -18135,7 +18135,7 @@
       "lod": [
         {
           "file": "models/bridge-abutment-lod1.glb",
-          "distance": 350,
+          "screen": 0.03,
           "triangles": 120
         }
       ],
@@ -18166,7 +18166,7 @@
       "lod": [
         {
           "file": "models/bridge-pier-lod1.glb",
-          "distance": 350,
+          "screen": 0.0356,
           "triangles": 160
         }
       ],
@@ -18248,7 +18248,7 @@
       "lod": [
         {
           "file": "models/buffer-stop-lod1.glb",
-          "distance": 320,
+          "screen": 0.0097,
           "triangles": 84
         }
       ],
@@ -18288,7 +18288,7 @@
       "lod": [
         {
           "file": "models/power-pylon-lod1.glb",
-          "distance": 350,
+          "screen": 0.1396,
           "triangles": 1004
         }
       ],
@@ -18387,7 +18387,7 @@
       "lod": [
         {
           "file": "models/playground-slide-lod1.glb",
-          "distance": 240,
+          "screen": 0.0188,
           "triangles": 159
         }
       ],
@@ -18472,7 +18472,7 @@
       "lod": [
         {
           "file": "models/basketball-hoop-lod1.glb",
-          "distance": 240,
+          "screen": 0.0173,
           "triangles": 197
         }
       ],
@@ -18526,7 +18526,7 @@
       "lod": [
         {
           "file": "models/volleyball-net-lod1.glb",
-          "distance": 240,
+          "screen": 0.0484,
           "triangles": 246
         }
       ],
@@ -18602,7 +18602,7 @@
       "lod": [
         {
           "file": "models/handball-goal-lod1.glb",
-          "distance": 200,
+          "screen": 0.0121,
           "triangles": 300
         }
       ],
@@ -18654,7 +18654,7 @@
       "lod": [
         {
           "file": "models/climbing-frame-lod1.glb",
-          "distance": 240,
+          "screen": 0.0165,
           "triangles": 229
         }
       ],
@@ -18684,7 +18684,7 @@
       "lod": [
         {
           "file": "models/seesaw-lod1.glb",
-          "distance": 160,
+          "screen": 0.0173,
           "triangles": 229
         }
       ],
@@ -18714,7 +18714,7 @@
       "lod": [
         {
           "file": "models/spring-rider-lod1.glb",
-          "distance": 120,
+          "screen": 0.0095,
           "triangles": 298
         }
       ],
@@ -18744,7 +18744,7 @@
       "lod": [
         {
           "file": "models/sandbox-lod1.glb",
-          "distance": 160,
+          "screen": 0.0152,
           "triangles": 144
         }
       ],
@@ -18773,7 +18773,7 @@
       "lod": [
         {
           "file": "models/bike-rack-lod1.glb",
-          "distance": 120,
+          "screen": 0.013,
           "triangles": 220
         }
       ],
@@ -18802,7 +18802,7 @@
       "lod": [
         {
           "file": "models/advertising-column-lod1.glb",
-          "distance": 280,
+          "screen": 0.0134,
           "triangles": 180
         }
       ],
@@ -18948,7 +18948,7 @@
       "lod": [
         {
           "file": "models/cafe-set-lod1.glb",
-          "distance": 120,
+          "screen": 0.0115,
           "triangles": 174
         }
       ],
@@ -19125,7 +19125,7 @@
       "lod": [
         {
           "file": "models/sign-bracket-lod1.glb",
-          "distance": 160,
+          "screen": 0.0071,
           "triangles": 252
         }
       ],
@@ -19156,7 +19156,7 @@
       "lod": [
         {
           "file": "models/river-barge-lod1.glb",
-          "distance": 350,
+          "screen": 0.1499,
           "triangles": 772
         }
       ],
@@ -19278,7 +19278,7 @@
       "lod": [
         {
           "file": "models/playground-roundabout-lod1.glb",
-          "distance": 160,
+          "screen": 0.0097,
           "triangles": 221
         }
       ],

@@ -26,10 +26,12 @@ describe('objectCost', () => {
     // Tree: model to max(380, 12 * 25 = 300) = 380 m, the impostor of 4 triangles beyond
     const near = Math.PI * 380 * 380;
     expect(objectCost(tree, LARGE)).toBeCloseTo(2 + (844 * near + 4 * (LARGE - near)) / LARGE, 3);
-    const withLod: CostEntry = { ...house, lod: [{ file: 'l.glb', distance: 300, triangles: 1000 }] };
+    // The house's radius is 4.8 m (its height 8 times 0.6): this screen share is 300 m out
+    const at300 = 4.8 / (300 * Math.tan(Math.PI / 6));
+    const withLod: CostEntry = { ...house, lod: [{ file: 'l.glb', screen: at300, triangles: 1000 }] };
     expect(objectCost(withLod, LARGE)).toBeCloseTo(2 + (3758 * r1 + 1000 * (LARGE - r1)) / LARGE, 3);
     // A LOD without its own count draws as many as the model
-    expect(objectCost({ ...house, lod: [{ file: 'l.glb', distance: 300 }] }, LARGE)).toBeCloseTo(objectCost(house, LARGE));
+    expect(objectCost({ ...house, lod: [{ file: 'l.glb', screen: at300 }] }, LARGE)).toBeCloseTo(objectCost(house, LARGE));
   });
 
   it('adds the particles of effects, also for an entry without a model', () => {

@@ -1,4 +1,4 @@
-import type { CatalogObject } from '../asset-catalog';
+import { objectRadius, screenDistance, type CatalogObject } from '../asset-catalog';
 import type { MapMass } from '../../map-document';
 import { massTriangles } from '../../object-mass';
 
@@ -42,7 +42,7 @@ const UNKNOWN_TRIANGLES = 500;
 const UNKNOWN: CostEntry = { category: 'prop', height: 2, drawDistance: 500, file: '?' };
 
 /** The catalogue fields the cost reads */
-export type CostEntry = Pick<CatalogObject, 'category' | 'height' | 'drawDistance' | 'file' | 'triangles' | 'lod' | 'effects'>;
+export type CostEntry = Pick<CatalogObject, 'category' | 'height' | 'drawDistance' | 'file' | 'triangles' | 'lod' | 'effects'> & { footprint?: number };
 
 /** Share of a map of `area` m² between two distances from the camera (a ring, at most the whole map) */
 function ring(from: number, to: number, area: number): number {
@@ -56,10 +56,12 @@ export function objectCost(entry: CostEntry | undefined, area: number): number {
   for (const e of entry.effects ?? []) cost += (e.rate ?? 1) * PARTICLE_COST;
   if (!entry.file) return cost;
   const levels = [{ from: 0, triangles: entry.triangles ?? UNKNOWN_TRIANGLES }];
-  for (const lod of entry.lod ?? []) levels.push({ from: lod.distance, triangles: lod.triangles ?? entry.triangles ?? UNKNOWN_TRIANGLES });
+  // Where an object of the asset's size takes each LOD model (object-layer.ts levelsFor)
+  const radius = objectRadius({ footprint: entry.footprint ?? 0, height: entry.height });
+  for (const lod of entry.lod ?? []) levels.push({ from: screenDistance(radius, lod.screen), triangles: lod.triangles ?? entry.triangles ?? UNKNOWN_TRIANGLES });
   // As object-layer.ts levelsFor: trees and big rocks turn into impostors far out
   if (entry.category === 'tree' || (entry.category === 'rock' && entry.height >= 1.5)) {
-    const last = entry.lod?.length ? entry.lod[entry.lod.length - 1].distance * 1.5 : 0;
+    const last = levels.length > 1 ? Math.max(...levels.slice(1).map((l) => l.from)) * 1.5 : 0;
     levels.push({ from: Math.max(last, entry.height * 25, IMPOSTOR_FROM), triangles: IMPOSTOR_TRIANGLES });
   }
   levels.sort((a, b) => a.from - b.from);

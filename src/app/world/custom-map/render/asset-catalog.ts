@@ -243,8 +243,13 @@ export interface CatalogObject {
    * light too (object-layer.ts addGrime)
    */
   grime?: boolean;
-  /** Lower detail models by camera distance */
-  lod?: { file: string; distance: number; triangles?: number }[];
+  /**
+   * Lower detail models, each taking over where the object fills less than
+   * `screen` of the view's height (its bounding radius over the half height
+   * of the view at its distance, LOD_TAN_HALF_FOV): a small object switches
+   * nearer than a big one (object-layer.ts)
+   */
+  lod?: { file: string; screen: number; triangles?: number }[];
   /** Where an object's `sign` is written on the model (render/objects/sign-text.ts) */
   signPanel?: CatalogSignPanel;
 }
@@ -264,6 +269,19 @@ export interface CatalogSignPanel {
   sides?: 1 | 2;
   /** #rrggbb of the writing; default dark on a light board, light on a dark one (from the object's tint) */
   ink?: string;
+}
+
+/** Half the vertical field of view the catalogue's `lod` screen shares are measured with: the game camera's 60 degrees */
+export const LOD_TAN_HALF_FOV = Math.tan(Math.PI / 6);
+
+/** Bounding radius of an object of this entry at scale 1, metres: what its level switches are measured against */
+export function objectRadius(entry: Pick<CatalogObject, 'footprint' | 'height'>): number {
+  return Math.max(entry.footprint, entry.height * 0.6);
+}
+
+/** The camera distance at which an object of radius `radius` fills `screen` of the view's height */
+export function screenDistance(radius: number, screen: number): number {
+  return radius / (screen * LOD_TAN_HALF_FOV);
 }
 
 export interface AssetCatalog {

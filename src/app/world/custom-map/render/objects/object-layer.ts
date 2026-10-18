@@ -18,7 +18,7 @@ import {
   type MeshStandardMaterial,
 } from 'three';
 import type { MapObject } from '../../map-document';
-import type { AssetCatalog, CatalogObject } from '../asset-catalog';
+import { objectRadius, screenDistance, type AssetCatalog, type CatalogObject } from '../asset-catalog';
 import type { HeightField } from '../height-field';
 import type { MapAssetLibrary, ModelPart, ObjectModel } from '../map-asset-library';
 import { addHeightFog } from '../environment/height-fog';
@@ -665,22 +665,24 @@ export class MapObjectLayer {
   }
 
   /** Detail levels of an asset: its model, the catalogue's LOD models, an impostor for far trees */
-  private levelsFor(model: ObjectModel, lods: { model: ObjectModel; distance: number }[]): Level[] {
+  private levelsFor(model: ObjectModel, lods: { model: ObjectModel; screen: number }[]): Level[] {
     const entry = model.entry;
     const drawn = (m: ObjectModel) =>
       mergedParts(m).map((p) => ({ geometry: p.geometry, material: this.objectMaterial(p.material, entry), depthMaterial: isRotor(p.material) ? this.rotorShadow(entry) : undefined }));
     const levels: Level[] = [{ from: 0, parts: drawn(model) }];
-    for (const lod of lods) levels.push({ from: lod.distance, parts: drawn(lod.model) });
+    // Where an object of the asset's size at scale 1 fills the level's screen share
+    const radius = objectRadius(entry);
+    for (const lod of lods) levels.push({ from: screenDistance(radius, lod.screen), parts: drawn(lod.model) });
     const imp = this.options.impostors?.get(model);
     if (imp) {
       // Beyond the game camera's usual distance (200 to 300 m, impostorFrom in High), where a tree is a few pixels wide
-      const from = Math.max(lods.length ? lods[lods.length - 1].distance * 1.5 : 0, entry.height * 25);
+      const from = Math.max(lods.length ? levels[levels.length - 1].from * 1.5 : 0, entry.height * 25);
       levels.push({ from, impostor: true, parts: [{ geometry: imp.geometry, material: imp.material, depthMaterial: imp.depthMaterial }] });
     }
     return levels;
   }
 
-  private buildBatch(model: ObjectModel, lods: { model: ObjectModel; distance: number }[], blocksLos: boolean, objects: MapObject[]): AssetBatch {
+  private buildBatch(model: ObjectModel, lods: { model: ObjectModel; screen: number }[], blocksLos: boolean, objects: MapObject[]): AssetBatch {
     const entry = model.entry;
     const n = objects.length;
     const vegetation = entry.category === 'tree' || entry.category === 'plant';

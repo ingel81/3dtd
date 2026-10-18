@@ -76,7 +76,7 @@ describe('MapAssetLibrary', () => {
   });
 
   it('frees the textures of its models and their detail levels on dispose', async () => {
-    const withLod = { ...catalog, objects: [{ ...catalog.objects[0], lod: [{ file: 'models/pine-lod1.glb', distance: 100 }] }] };
+    const withLod = { ...catalog, objects: [{ ...catalog.objects[0], lod: [{ file: 'models/pine-lod1.glb', screen: 0.1 }] }] };
     const textures: Texture[] = [];
     const lib = new MapAssetLibrary('base/', {
       fetch: (() => Promise.resolve(jsonResponse(withLod))) as unknown as typeof fetch,
@@ -129,7 +129,7 @@ describe('MapAssetLibrary', () => {
 
   it('disposes after a detail model failed to load without an unhandled rejection', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const withLod = { ...catalog, objects: [{ ...catalog.objects[0], lod: [{ file: 'models/missing.glb', distance: 100 }] }] };
+    const withLod = { ...catalog, objects: [{ ...catalog.objects[0], lod: [{ file: 'models/missing.glb', screen: 0.1 }] }] };
     const lib = new MapAssetLibrary('base/', {
       fetch: (() => Promise.resolve(jsonResponse(withLod))) as unknown as typeof fetch,
       loadModel: () => Promise.reject(new Error('404')),

@@ -1187,8 +1187,9 @@ Bestand baut der Asset-Worker aus; Stand beim Schreiben:
   `castle`, `crystal`, `arena`, `city`, `wasteland`, `moon`, `mars`, `arctic`, `hell`; Rollen für Pinsel `conifer`,
   `shore`, `water`, `undergrowth`, `scree`. `category` bleibt die Art. Material- und Objekt-Ids teilen sich einen
   Namensraum
-- 89 Objekte haben eine Fernstufe (`lod`, `-lod1.glb` ohne Texturen, ab 350 m bzw. 40 % der Sichtweite), 34 ein
-  Licht (`light`), 40 Effekte (`effects`); 10 schwimmen (`float`: Boote, Schiff, Bojen, Seerosen, Eisscholle,
+- 89 Objekte haben eine Fernstufe (`lod`, `-lod1.glb` ohne Texturen); `screen` ist der Anteil an der Bildhöhe, unter
+  dem sie übernimmt (Radius durch halbe Bildhöhe im Abstand, Sichtfeld 60°), gebaut aus 350 m bzw. 40 % der Sichtweite
+  für ein Objekt in Asset-Größe; 34 ein Licht (`light`), 40 Effekte (`effects`); 10 schwimmen (`float`: Boote, Schiff, Bojen, Seerosen, Eisscholle,
   Steg, Pier; Ursprung des Modells ist die Wasserlinie, ihr z zählt ab dem Spiegel unter ihnen, auf trockenem Boden ab
   dem Boden; eine Wassertiefe in z hebt sie in die Luft, das meldet die Prüfung `object-floating`). 9 stehen absichtlich
   in der Luft (`aloft`: Objekt-Brücken, Seilbahn-Spannen, Gondel); die Prüfung lässt sie aus. Die zwei Tunnelportale

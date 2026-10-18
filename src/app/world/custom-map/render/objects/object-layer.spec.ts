@@ -23,7 +23,8 @@ const catalog: AssetCatalog = {
       randomRotation: false,
       wind: 0,
       drawDistance: 5000,
-      lod: [{ file: 'tree-far.glb', distance: 100 }],
+      // An object of radius 6 m (its height 10 times 0.6) takes the far model 100 m out
+      lod: [{ file: 'tree-far.glb', screen: 6 / (100 * Math.tan(Math.PI / 6)) }],
     },
   ],
 };
