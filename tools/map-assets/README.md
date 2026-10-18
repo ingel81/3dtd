@@ -69,7 +69,8 @@ Carports, Tankstellendach, Blockrand-Module, Bürohäuser, Supermarkt, Hallen, S
 Stadtkirche, Bahnhof, Parkhaus, Gewächshaus, Kiosk, Trafostation; Gleis, Bahnsteig, Oberleitungsmast, Prellbock,
 Hochspannungsmast, Rebzeile, Obstbaum, Spielgeräte, Fußballtor, Brunnen),
 `build_modern2.py` (weitere Arten für OSM-Welten: Laden, Geschäftshaus, Bürohochhaus mit Bandfenstern, Scheune
-heutiger Art, Nebengebäude 4 × 4 m, offener Unterstand, Anbau),
+heutiger Art, Nebengebäude 4 × 4 m, offener Unterstand, Anbau; `building-mass`: kein Gebäude, je Oberfläche der
+Bauten aus dem Grundriss ein Quadrat so breit wie eine Wiederholung ihrer Textur, render/objects/mass-layer.ts),
 `build_poi.py` (Sport- und Spielgeräte, Straßenmöbel, Ladenfronten, Markise, Schilder mit leerer Schildfläche für
 OSM-Flächen und POIs; Fassadenobjekte haben den Ursprung auf der Wand am Fuß, Front -Y), `build_boats.py` (Fischkutter), `build_cattle.py` (Kühe in drei Posen, vier Fellarten im Atlas), gemeinsame Helfer in `blender_kit.py`.
 
@@ -77,7 +78,9 @@ Gebackene Oberflächen (`blender_kit.bake_surface`, Materialien mit `Nodes`): st
 prozedurale Materialien Farbe über Planken, Kantenabrieb (Bevel-Knoten), Schmutz in Ecken (AO-Knoten), Rostläufe,
 Algen an der Wasserlinie usw. aus der Geometrie; Cycles backt sie in eigene Texturen des Modells (Farbe, Normale,
 AO/Rauheit/Metall in einer ORM-Textur, eine UV-Karte, ein Material). Fensterglas, Lampen und Alpha-Karten bleiben
-eigene Materialien (`keep`). `export_lod(..., textured=True)` behält im LOD die gebackene Textur.
+eigene Materialien (`keep`). `export_lod(..., textured=True)` behält im LOD die gebackene Textur. Die Fernstufen
+dezimiert `decimate_keeping`: Materialien mit höchstens 24 Flächen bleiben ganz (ein Dach aus vier großen Flächen
+verschwand sonst, E236), und der Bau bricht ab, wenn ein Material in der Fernstufe keine Fläche mehr hat.
 `variants=(n, set_look)` backt n Ansichten desselben Netzes in ein Raster-Atlas (Katalog `variants`).
 Texturierte LODs packt `pack_models.py` mit der halben Texturgröße ihres Modells (mindestens 256 px). Klippen-Scans sind nur Wand und Krone: `import_model(..., close=True)`
 schließt Rückseite und Unterseite (`close_shell`), sonst sieht man von oben oder hinten in den Fels hinein. Ein flacher

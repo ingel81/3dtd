@@ -13,7 +13,7 @@ import random
 
 from mathutils import Vector
 
-from blender_kit import Part, box, clear_scene, flat_material, pbr_material, tilt, tube
+from blender_kit import Part, box, clear_scene, export as export_glb, flat_material, pbr_material, tilt, tube
 from build_city import Face
 from build_modern import (FOUNDATION, PALE_GREY, PLINTH, SAND, WHITE, Kit, base, door, export, gable_wall, gabled_roof, plank, prism,
                           punched_wall, roof_plant, window)
@@ -431,6 +431,39 @@ def office_ribbon(name, w=16.0, d=16.0, floors=10, fh=3.4, ground=4.8, bay=3.2, 
     export(name, kit.objects(name), lod=lod)
 
 
+# ---------------------------------------------------------------- raised buildings
+
+# The surfaces of the buildings the map raises from OSM footprints (render/objects/mass-layer.ts): material name,
+# texture set, tint, metres one repeat of the texture covers
+MASS_SURFACES = [
+    ('mass-plaster', 'painted_plaster_wall', WHITE, 3.0),
+    ('mass-concrete', 'concrete_slab_wall', (1.05, 1.05, 1.02), 4.0),
+    ('mass-metal', 'box_profile_metal_sheet', (0.9, 0.95, 1.0), 4.0),
+    ('mass-brick', 'brick_wall_07', None, 2.0),
+    ('mass-stone', 'white_sandstone_bricks', (1.05, 1.0, 0.92), 3.0),
+    ('mass-plinth', 'brushed_concrete', (0.62, 0.62, 0.62), 2.0),
+    ('mass-roof-flat', 'bitumen', (0.8, 0.8, 0.8), 3.0),
+    ('mass-roof-red', 'clay_roof_tiles_03', (0.85, 0.82, 0.8), 2.5),
+    ('mass-roof-grey', 'grey_roof_tiles_02', (0.34, 0.36, 0.39), 2.5),
+    ('mass-roof-metal', 'corrugated_iron_02', (0.75, 0.76, 0.78), 2.0),
+]
+
+
+def mass_kit(name):
+    """No building: one square per surface of the raised buildings, as wide as one repeat of its texture
+    (the mass layer reads the repeat from the square's size), side by side along X, facing +Y"""
+    clear_scene()
+    objects = []
+    x = 0.0
+    for material, asset, tint, metres in MASS_SURFACES:
+        part = Part(pbr_material(material, asset, tint), uv_metres=None, bevel=0.0)
+        part.quad([Vector((x, 0, 0)), Vector((x + metres, 0, 0)), Vector((x + metres, 0, metres)), Vector((x, 0, metres))],
+                  [(0, 0), (1, 0), (1, 1), (0, 1)])
+        objects.append(part.to_object(material))
+        x += metres + 1.0
+    export_glb(name, objects)
+
+
 def models():
     return {
         'shop-small': lambda: shop_small('shop-small', seed=51),
@@ -439,5 +472,6 @@ def models():
         'outbuilding': lambda: outbuilding('outbuilding'),
         'annex': lambda: annex('annex'),
         'office-ribbon': lambda: office_ribbon('office-ribbon', seed=52),
+        'building-mass': lambda: mass_kit('building-mass'),
         'shop-office': lambda: office_ribbon('shop-office', 12.0, 10.0, 4, fh=3.3, ground=4.2, bay=3.0, shop=True, seed=53, lod=500),
     }

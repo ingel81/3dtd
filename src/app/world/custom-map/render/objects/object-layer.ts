@@ -35,6 +35,7 @@ import { DEFAULT_SPIN, SPIN_GLSL } from './spin';
 import { addRotorTurn, DEFAULT_ROTOR, isRotor, rotorDepthMaterial, rotorGeometry, rotorHub } from './rotor';
 import { addNightWindows, isWindowGlass } from './night-windows';
 import { addLodFade, blendAt, disposeFadeGeometry, fadeGeometry, REST_S, SETTLE_S, settleBlend, type LodBlend } from './lod-fade';
+import { MassLayer } from './mass-layer';
 
 /**
  * The placed objects of a map, drawn instanced. An asset with many objects
@@ -68,6 +69,10 @@ import { addLodFade, blendAt, disposeFadeGeometry, fadeGeometry, REST_S, SETTLE_
  * hue and size per instance, trees also a lean, autumn foliage a wider
  * turn of colour (instance-variation.ts), so a forest of one model does
  * not look cloned.
+ *
+ * Buildings raised from their own footprint (MapObject.mass) have no model
+ * of their own: the mass layer draws them (mass-layer.ts), every object
+ * call here hands them over.
  */
 
 /** Distance from the point at `at` in `xyz` to `p`; not Math.hypot, a builtin call whose result V8 boxes, per object and frame */
@@ -273,6 +278,8 @@ export class MapObjectLayer {
   private readonly fades: { range: Vector2; drawDistance: number }[] = [];
   /** Counts every change the sun's shadow map shows: instances moved, levels or casters switched */
   version = 0;
+  /** The buildings raised from their footprint */
+  private readonly masses: MassLayer;
 
   constructor(
     private readonly field: HeightField,
@@ -282,11 +289,16 @@ export class MapObjectLayer {
   ) {
     this.group.name = 'custom-map-objects';
     this.group.userData['losTransparent'] = true;
+    this.masses = new MassLayer(field, assets, losGroup, options.waterLevelAt, () => this.version++);
+    this.group.add(this.masses.group);
   }
 
   /** Replaces every object; resolves when the models are in */
   async setObjects(objects: MapObject[]): Promise<void> {
     const generation = ++this.generation;
+    const masses = objects.filter(MassLayer.owns);
+    const shown = this.masses.setObjects(masses);
+    if (masses.length) objects = objects.filter((o) => !MassLayer.owns(o));
     const groups = new Map<string, MapObject[]>();
     const catalog = await this.assets.catalog();
     for (const o of objects) {
@@ -314,6 +326,7 @@ export class MapObjectLayer {
     this.batches = built;
     for (const b of built) b.objects.forEach((o, index) => this.byId.set(o.id, { batch: b, index }));
     this.applyLevels(true);
+    await shown;
   }
 
   /**
@@ -327,7 +340,8 @@ export class MapObjectLayer {
     for (const o of objects) {
       const slot = this.byId.get(o.id);
       const b = slot?.batch;
-      if (!slot || !b) {
+      // A raised building goes out and in again (mass-layer.ts writes all of them anew)
+      if (!slot || !b || MassLayer.owns(o)) {
         rest.push(o);
         continue;
       }
@@ -354,6 +368,12 @@ export class MapObjectLayer {
    */
   async addObjects(objects: MapObject[]): Promise<void> {
     if (!objects.length) return;
+    const masses = objects.filter(MassLayer.owns);
+    if (masses.length) {
+      objects = objects.filter((o) => !MassLayer.owns(o));
+      await Promise.all([this.masses.change(masses, []), this.addObjects(objects)]);
+      return;
+    }
     const generation = this.generation;
     const catalog = await this.assets.catalog();
     const groups = new Map<string, MapObject[]>();
@@ -420,6 +440,8 @@ export class MapObjectLayer {
    * is built anew
    */
   removeObjects(ids: string[]): void {
+    const masses = ids.filter((id) => this.masses.has(id));
+    if (masses.length) void this.masses.change([], masses);
     // Packed assets are built anew once their objects are out
     const repack = new Set<AssetBatch>();
     for (const id of ids) {
@@ -457,6 +479,7 @@ export class MapObjectLayer {
    * changed rectangle in map metres to touch only the objects on it
    */
   refreshHeights(rect?: { minX: number; minY: number; maxX: number; maxY: number }, floatingOnly = false): void {
+    if (!floatingOnly) this.masses.refreshHeights(rect);
     for (const b of this.batches) {
       if (floatingOnly && !b.entry.float) continue;
       const reach = b.entry.footprint * 3 + 2;
@@ -574,6 +597,7 @@ export class MapObjectLayer {
     for (const b of this.batches) for (const c of b.cells.values()) for (const m of c.packed ? c.packed.pick : c.levels[0]) meshes.push(m);
     const hits = this.raycaster.intersectObjects(meshes, false);
     meshes.length = 0;
+    let found: ObjectHit | null = null;
     for (const hit of hits) {
       const mesh = hit.object as InstancedMesh;
       const batch = mesh.userData['batch'] as AssetBatch | undefined;
@@ -581,9 +605,11 @@ export class MapObjectLayer {
       if (!batch || !cell || hit.instanceId === undefined) continue;
       // A packed asset's pick meshes hold the objects in their own order
       const index = cell.packed ? hit.instanceId : cell.indices[hit.instanceId];
-      return { object: batch.objects[index], point: hit.point, distance: hit.distance };
+      found = { object: batch.objects[index], point: hit.point, distance: hit.distance };
+      break;
     }
-    return null;
+    const mass = this.masses.raycast(this.raycaster, ray);
+    return mass && (!found || mass.distance < found.distance) ? mass : found;
   }
 
   /** Meshes of objects that block no sight (scatter, props, small plants): what a water reflection leaves out */
@@ -600,6 +626,7 @@ export class MapObjectLayer {
     this.disposed = true;
     this.generation++;
     this.clear();
+    this.masses.dispose();
     for (const m of this.materials.values()) m.dispose();
     for (const m of this.rotorShadows.values()) m.dispose();
     this.materials.clear();

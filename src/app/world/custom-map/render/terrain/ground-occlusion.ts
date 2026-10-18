@@ -1,5 +1,7 @@
 import { ClampToEdgeWrapping, DataTexture, LinearFilter, NoColorSpace, RGBAFormat, UnsignedByteType } from 'three';
-import type { MapObject } from '../../map-document';
+import type { MapMass, MapObject } from '../../map-document';
+import { massDistance, massOf, massRadius } from '../../object-mass';
+import { toModel } from '../../object-ground';
 import type { CatalogObject } from '../asset-catalog';
 import type { HeightField } from '../height-field';
 import { drainage, lavaCloseness, shapeReach, shapeRows, type GroundBaker, type SampleRect, type ShapePatch } from './ground-shape';
@@ -42,6 +44,8 @@ const OBJECT_DARKNESS: Partial<Record<CatalogObject['category'], number>> = {
   plant: 0.15,
   prop: 0.2,
 };
+/** Metres off its walls a raised building darkens the ground (a model darkens its footprint's disc and half again) */
+const WALL_SHADE = 4;
 
 export class GroundOcclusion {
   readonly texture: DataTexture;
@@ -229,13 +233,18 @@ export class GroundOcclusion {
     const minY = f.originY + j0 * f.cellSize;
     const maxY = f.originY + j1 * f.cellSize;
     for (const o of objects) {
+      const mass = massOf(o);
       if (rect) {
-        const r = reach * (o.scale || 1);
+        const r = (mass ? massRadius(mass) + WALL_SHADE : reach) * (o.scale || 1);
         if (o.x + r < minX || o.x - r > maxX || o.y + r < minY || o.y - r > maxY) continue;
       }
       const e = entries.get(o.asset);
       const dark = e ? OBJECT_DARKNESS[e.category] : undefined;
       if (!e || !dark || e.footprint <= 0) continue;
+      if (mass) {
+        this.shadeMass(o, mass, dark, i0, j0, i1, j1);
+        continue;
+      }
       const r = e.footprint * (o.scale || 1) * 1.5;
       const ci = (o.x - f.originX) / f.cellSize;
       const cj = (o.y - f.originY) / f.cellSize;
@@ -251,6 +260,28 @@ export class GroundOcclusion {
       }
     }
     this.upload(i0, j0, i1, j1);
+  }
+
+  /** The ground round a raised building (object-mass.ts) darkens within WALL_SHADE of its walls, as round a model */
+  private shadeMass(o: MapObject, mass: MapMass, dark: number, i0: number, j0: number, i1: number, j1: number): void {
+    const f = this.field;
+    const s = o.scale || 1;
+    const r = massRadius(mass) * s + WALL_SHADE;
+    const cos = Math.cos(o.rotation);
+    const sin = Math.sin(o.rotation);
+    const ci = (o.x - f.originX) / f.cellSize;
+    const cj = (o.y - f.originY) / f.cellSize;
+    const rc = r / f.cellSize;
+    for (let j = Math.max(j0, Math.floor(cj - rc)); j <= Math.min(j1, Math.ceil(cj + rc)); j++) {
+      for (let i = Math.max(i0, Math.floor(ci - rc)); i <= Math.min(i1, Math.ceil(ci + rc)); i++) {
+        const m = toModel(f.originX + i * f.cellSize - o.x, f.originY + j * f.cellSize - o.y, cos, sin);
+        const d = (massDistance(mass, m.x / s, m.z / s) * s) / WALL_SHADE;
+        if (d >= 1) continue;
+        const t = 1 - d;
+        const k = j * f.columns + i;
+        this.objects[k] *= 1 - dark * t * t * (3 - 2 * t);
+      }
+    }
   }
 
   /** Occlusion at sample (i, j), 0 dark to 1 open */

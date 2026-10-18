@@ -1,6 +1,8 @@
 import { ClampToEdgeWrapping, DataTexture, FloatType, NearestFilter, NoColorSpace, RedFormat, Vector2, Vector4 } from 'three';
 import type { MapObject, MapTerrain } from '../../map-document';
 import type { CatalogObject } from '../asset-catalog';
+import { massContains, massOf, massRadius, massTop } from '../../object-mass';
+import { toModel } from '../../object-ground';
 import type { HeightField } from '../height-field';
 
 /**
@@ -47,14 +49,22 @@ export class CoverMap {
       const e = entries.get(o.asset);
       if (!e || (e.category !== 'building' && e.category !== 'structure' && e.category !== 'rock')) continue;
       const s = o.scale || 1;
-      const r = e.footprint * s;
-      const top = f.heightAt(o.x, o.y) + o.z + e.height * s;
+      // A raised building (object-mass.ts): its own height over its outline, not its entry's disc
+      const mass = massOf(o);
+      const r = (mass ? massRadius(mass) : e.footprint) * s;
+      const top = f.heightAt(o.x, o.y) + o.z + (mass ? massTop(mass) : e.height) * s;
       const ci = (o.x - f.originX) / f.cellSize;
       const cj = (o.y - f.originY) / f.cellSize;
       const rc = r / f.cellSize;
+      const cos = Math.cos(o.rotation);
+      const sin = Math.sin(o.rotation);
       for (let j = Math.max(0, Math.floor(cj - rc)); j <= Math.min(f.rows - 1, Math.ceil(cj + rc)); j++) {
         for (let i = Math.max(0, Math.floor(ci - rc)); i <= Math.min(f.columns - 1, Math.ceil(ci + rc)); i++) {
           if (Math.hypot(i - ci, j - cj) > rc) continue;
+          if (mass) {
+            const m = toModel(f.originX + i * f.cellSize - o.x, f.originY + j * f.cellSize - o.y, cos, sin);
+            if (!massContains(mass, m.x / s, m.z / s)) continue;
+          }
           const k = j * f.columns + i;
           if (top > this.tops[k]) this.tops[k] = top;
         }

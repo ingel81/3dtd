@@ -67,6 +67,7 @@ import { NO_MAP_EFFECTS, type MapEffects } from './map-effects';
 import type { GridRect } from './terrain/terrain-chunks';
 import { programsReady } from '../../../three-engine/programs-ready';
 import { waterLevelAt } from '../water-level';
+import { massRadius } from '../object-mass';
 
 /** Biomes with fireflies at night, and with birds by day */
 const FIREFLY_BIOMES: ReadonlySet<MapBiome> = new Set(['temperate', 'swamp', 'mountain']);
@@ -1431,7 +1432,7 @@ export class CustomMapView {
     let rect: MapRect | undefined;
     if (changed) {
       for (const o of changed) {
-        const r = (entries.get(o.asset)?.footprint ?? 1) * (o.scale || 1) * 1.5 + 1;
+        const r = (o.mass ? massRadius(o.mass) + 4 : (entries.get(o.asset)?.footprint ?? 1) * 1.5) * (o.scale || 1) + 1;
         rect = rect
           ? { minX: Math.min(rect.minX, o.x - r), minY: Math.min(rect.minY, o.y - r), maxX: Math.max(rect.maxX, o.x + r), maxY: Math.max(rect.maxY, o.y + r) }
           : { minX: o.x - r, minY: o.y - r, maxX: o.x + r, maxY: o.y + r };

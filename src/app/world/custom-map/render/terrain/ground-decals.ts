@@ -171,7 +171,7 @@ export function planDecals(doc: DecalSource, entries: Map<string, CatalogObject>
     if (e.category === 'tree' && !e.tags?.includes('conifer') && !e.tags?.includes('hell') && !e.tags?.includes('wasteland')) {
       // One tree in two drops a carpet of leaves around its trunk
       if (h < 0.5) out.push({ x: o.x, y: o.y, size: Math.max(4, e.footprint * s * 3), rotation: h * 6.28, kind: DecalKind.Leaves });
-    } else if (e.category === 'building' && !e.tags?.includes('moon') && !e.tags?.includes('mars')) {
+    } else if (e.category === 'building' && !o.mass && !e.tags?.includes('moon') && !e.tags?.includes('mars')) {
       // Trodden soil before the door (the model's front, +z, is map north at rotation 0)
       const reach = e.footprint * s * 0.9;
       const a = o.rotation;

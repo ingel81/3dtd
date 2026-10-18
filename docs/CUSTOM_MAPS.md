@@ -600,6 +600,28 @@ leuchtet mit der Dunkelheit warm, etwa jedes zweite Fenster nach einem Hash sein
 3 m hoch), auch an Teilen, die schaukeln oder sich drehen (ein Schiff auf dem Wasser): wenige Shaderzeilen, kein Licht, kein Draw Call. Gebäude stehen auf dem tiefsten von acht Punkten ihres Fußabdrucks (Ecken und Seitenmitten ihres gedrehten Rechtecks `box`, in die Scheibe gezogen, `object-ground.ts`; ohne `box` acht Punkte der Scheibe), ihre
 Fundamente reichen bis 1,5 m in den Boden.
 
+**Gebäude aus dem Grundriss (E235, `mass-layer.ts`):** ein Objekt kann seinen Bau selbst tragen (`mass`, Asset
+`building-mass`): Außenring und Höfe in den Achsen des Objekts, Wandhöhe, Geschosse, Dach (flach mit Attika, Sattel
+oder Walm über einem Rechteck), Fassade (Putz, Beton, Blech, Ziegel, Sandstein). Was die Regeln brauchen, rechnet
+`object-mass.ts` aus den Ringen wie der Katalog für Modelle: Grundrechteck, Radius, Höhe und das Dachraster für Tower
+auf dem Dach (Hof ohne Dach). Bauverbot (`CustomMapSurface`) und Editor-Prüfung (`objectsOnPaths`) nehmen den Umriss,
+nicht das Rechteck: ein Tower darf in den Hof. Zerstörung als Zylinder gleicher Fläche und Höhe, Verdeckung am Boden
+und Wetterschutz nach dem Umriss, Szenenkosten mit den eigenen Dreiecken. Gezeichnet werden alle Bauten einer Karte
+als wenige instanzierte Grundformen: jede Wand eine Instanz eines Einheitsquads (die Instanzmatrix streckt es entlang
+der Wand und bis zur Traufe, ihre dritte Spalte ist die Außennormale), jedes Dachdreieck eine Instanz eines
+Einheitsdreiecks (affine Matrix, zweite Spalte die Dachnormale), Attika als nach innen gewandte Wand mit
+Betonabdeckung; ein Giebel ist ein Wandquad, dessen obere Ecken der Vertex-Shader zur Mitte zieht (auch im
+Schattenpass). Je Fassade, Abdeckung und Dachdeckung ein Mesh: eine Karte mit 2 000 solchen Bauten zeichnet in rund zehn
+Calls (dazu der Schatten). Keine Detailstufen: Wand und Dach sind wenige Dreiecke, die Fenster kommen aus dem Shader
+(Geschosse und Achsen in Metern je Wand, mittig mit Rand an den Ecken; Rahmen, Fensterkreuz, Bank, Laibung, Jalousie,
+Sockel, Gesims, Ecklisenen, Schmutz über dem Sockel und unter den Bänken, Eingang mit Vordachschatten an langen
+Wänden; Hallen eine hohe Fensterreihe, Sandstein hohe Rundbogenfenster; nachts Fensterlicht wie `night-windows.ts`)
+und gehen in die Mittelfarbe über, wo ein Fenster nur ein paar Pixel misst. Die Oberflächen sind die Texturen des
+Katalogeintrags `building-mass` (je Oberfläche ein Quadrat so breit wie eine Wiederholung ihrer Textur,
+`build_modern2.py`), Blech nimmt seine Tönung als Lack (eigene Farbe heraus, Licht und Schatten bleiben). Im Spiegel
+der Objektebene (`MapObjectLayer`) laufen sie über dieselben Aufrufe (Setzen, Ändern, Picken, Höhen); eine Änderung
+baut alle Bauten neu (wenige ms), eine Höhenänderung verschiebt nur die betroffenen Instanzen.
+
 ### Effekte und Lichter (`effects/`)
 
 Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `file: ''`, Kategorie `fx`):
