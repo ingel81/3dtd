@@ -337,12 +337,12 @@
 }
 
 .ws-dlg {
-  width: min(720px, 100%);
+  width: min(var(--td-dlg-page), 100%);
   max-height: calc(100vh - var(--td-h-topbar) - 64px);
 }
 
 .ws-confirm {
-  width: min(480px, 100%);
+  width: min(var(--td-dlg-ask), 100%);
 }
 
 // Smaller windows: the globes in a column under the menu, the world's switcher under its globe

@@ -137,7 +137,8 @@ Codes in Mono stehen immer in 600 (`forms.input-code`), weil Mono nur in 400 und
 lateinischen Untermenge (≥, →, ▼) kommen in UI-Texten nicht vor, sie fielen in eine Ersatzschrift. Canvas-Texte zeichnen
 mit `TD_FONTS.ui`; `main.ts` lädt die drei Gewichte vor dem ersten Bild (`document.fonts.load`).
 
-Layout-Tokens: `--td-sidebar-width` (300 px), `--td-sidebar-gutter` (14 px), `--td-dock-gutter` (18 px), `--td-z-marks`,
+Layout-Tokens: `--td-dlg-page` (720 px, eine Menüseite oder ein Overlay der Globen), `--td-dlg-ask` (480 px, eine Rückfrage,
+der Fehler beim Start, Run upload), `--td-sidebar-width` (300 px), `--td-sidebar-gutter` (14 px), `--td-dock-gutter` (18 px), `--td-z-marks`,
 `--td-z-hud`, `--td-z-dock`.
 
 ---

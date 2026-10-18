@@ -247,6 +247,9 @@ export const TD_SIZE = {
   tool: '32px',
   menuItem: '48px',
   menuWidth: '320px',
+  /** The two widths of a menu dialog: a page (Settings, Load, Coop, Extras), a question */
+  dlgPage: '720px',
+  dlgAsk: '480px',
   topbar: '48px',
 } as const;
 
@@ -494,6 +497,8 @@ export const TD_CSS_VARS = `
   --td-tool-size: ${TD_SIZE.tool};
   --td-h-menu-item: ${TD_SIZE.menuItem};
   --td-menu-width: ${TD_SIZE.menuWidth};
+  --td-dlg-page: ${TD_SIZE.dlgPage};
+  --td-dlg-ask: ${TD_SIZE.dlgAsk};
   --td-h-topbar: ${TD_SIZE.topbar};
 
   --td-dense-text: ${TD_DENSE.text};

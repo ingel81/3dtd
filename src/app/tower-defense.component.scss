@@ -154,7 +154,7 @@
 }
 
 .td-error-plate {
-  width: 480px;
+  width: var(--td-dlg-ask);
 }
 
 /* === Game over and connection lost ===

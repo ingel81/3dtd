@@ -62,7 +62,7 @@
 }
 
 .mm-page {
-  flex: 0 1 720px;
+  flex: 0 1 var(--td-dlg-page);
   width: auto;
   /* Ends above the window's foot; only the page body scrolls */
   max-height: calc(100vh - 56px - 32px);
