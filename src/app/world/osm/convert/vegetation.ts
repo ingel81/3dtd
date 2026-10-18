@@ -28,6 +28,7 @@ import { distanceField, fillRings, sampleGrid, stampLine, type RasterGrid } from
 import type { WaterResult } from './water';
 import { FURNITURE_ASSETS } from './furniture';
 import { POI_ASSETS } from './pois';
+import { AREA_ASSETS } from './areas';
 
 /** Share of the scene budget the plants may take; buildings and furniture get the rest */
 export const PLANT_BUDGET_SHARE = 0.5;
@@ -140,6 +141,10 @@ export interface VegetationOptions {
   limit?: number;
   /** Hears the share of the land classes sown, one after the other (the frame's progress, osm-progress.ts) */
   onShare?: (share: number) => void;
+  /** Per height sample: 1 under a surface or an object of the areas (convert/areas.ts); sown plants keep off, mapped trees stand */
+  keepOff?: Uint8Array;
+  /** The routes from the spawns to the HQ (spawnRoutes), worked out once for the import; found here when missing */
+  routes?: readonly (readonly MapPoint[])[];
 }
 
 export interface VegetationReport {
@@ -191,21 +196,19 @@ export function growVegetation(doc: CustomMapDocument, features: OsmFeatures, la
     fillRings([...a.outer, ...a.inner], grid, (i, j) => (blocked[j * n + i] = 1));
   }
   const clearings = [{ ...doc.hq, r: HQ_CLEAR }, ...doc.spawns.map((s) => ({ x: s.x, y: s.y, r: SPAWN_CLEAR }))];
-  const free = (x: number, y: number, clear: number) => {
+  const keepOff = options.keepOff;
+  const free = (x: number, y: number, clear: number, sown = true) => {
     const k = cell({ x, y });
-    if (k < 0 || blocked[k] || roadDist[k] < clear) return false;
+    if (k < 0 || blocked[k] || roadDist[k] < clear || (sown && keepOff?.[k])) return false;
     return !clearings.some((c) => Math.hypot(c.x - x, c.y - y) < c.r);
   };
 
   // Nearness to the routes: full within ROUTE_NEAR, FAR_SHARE past ROUTE_FAR (on a coarse grid)
   const coarse: RasterGrid = { n: Math.ceil(t.width / 8) + 1, origin: -t.width / 2, step: 8 };
   const onRoute = new Uint8Array(coarse.n * coarse.n);
-  let routes = 0;
-  for (const route of spawnRoutes(doc).values()) {
-    if (!route) continue;
-    routes++;
-    stampLine(route.points, coarse, coarse.step, (i, j) => (onRoute[j * coarse.n + i] = 1));
-  }
+  const lines = options.routes ?? [...spawnRoutes(doc).values()].filter((r) => !!r).map((r) => r!.points);
+  const routes = lines.length;
+  for (const line of lines) stampLine(line, coarse, coarse.step, (i, j) => (onRoute[j * coarse.n + i] = 1));
   const routeDist = routes ? distanceField(onRoute, coarse.n, coarse.step, ROUTE_FAR, false) : null;
   const nearRoute = (x: number, y: number) => {
     if (!routeDist) return 0;
@@ -339,10 +342,10 @@ export function growVegetation(doc: CustomMapDocument, features: OsmFeatures, la
   const built = (p: MapPoint) => {
     const k = cell(p);
     const c = k < 0 ? 0 : land[k];
-    return c === 0 || LAND_CLASSES[c - 1] === 'paved' || LAND_CLASSES[c - 1] === 'parking';
+    return c === 0 || LAND_CLASSES[c - 1] === 'parking';
   };
   const tree = (p: MapPoint, tags: Record<string, string>, source: string, u: number) => {
-    if (!free(p.x, p.y, 1)) return;
+    if (!free(p.x, p.y, 1, false)) return;
     candidates.push({ asset: treeAsset(tags, built(p), u), x: p.x, y: p.y, rotation: u * Math.PI * 2, scale: 0.85 + 0.3 * hashCell(Math.round(p.x * 10), Math.round(p.y * 10), seed + 3), priority: 0, source });
   };
   for (const p of features.points) {
@@ -380,10 +383,10 @@ export function growVegetation(doc: CustomMapDocument, features: OsmFeatures, la
   return { placed, objects: count, cost: Math.round(cost), budget: Math.round(budget), candidates: candidates.length };
 }
 
-/** Scene cost per plant, furniture and POI asset on an OSM world of side `side` from the catalogue's objects, for the import's options */
+/** Scene cost per plant, furniture, POI and area asset on an OSM world of side `side` from the catalogue's objects, for the import's options */
 export function assetCosts(objects: readonly (CostEntry & { id: string })[], side: number): Record<string, number> {
   const out: Record<string, number> = {};
-  const furniture = new Set([...FURNITURE_ASSETS, ...POI_ASSETS]);
+  const furniture = new Set([...FURNITURE_ASSETS, ...POI_ASSETS, ...AREA_ASSETS]);
   for (const o of objects) {
     if (o.category === 'tree' || o.category === 'plant' || furniture.has(o.id)) out[o.id] = Math.round(objectCost(o, side * side) * 100) / 100;
   }

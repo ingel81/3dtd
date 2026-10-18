@@ -33,6 +33,8 @@ import { placeFurniture, type FurnitureReport } from './convert/furniture';
 import { levelRails, paintRails, planRails, railPaintMaterials, type RailGroundReport, type RailStats } from './convert/rails';
 import { placePois, type PoiReport } from './convert/pois';
 import { placeBuildings, type BuildingCatalogEntry, type BuildingReport } from './convert/buildings';
+import { layAreas, type AreaReport } from './convert/areas';
+import { spawnRoutes } from '../../map-ops/path-graph';
 
 /**
  * Side of an OSM world, metres: 2.4 km by default and at most (decision 2 of the plan, the size the format and the
@@ -78,6 +80,8 @@ export interface OsmImportOptions {
   now?: Date;
   /** The asset catalogue's objects: the buildings take their models and scene cost from it (convert/buildings.ts) */
   catalog?: readonly BuildingCatalogEntry[];
+  /** The ground materials of the catalogue: the surfaces of the areas take the first of each material's chain it has (area-tags.ts) */
+  materials?: readonly string[];
   /**
    * Scene cost per plant and furniture asset on this map (vegetation.ts assetCosts, from
    * the catalogue): the plants and the furniture are held to their budgets
@@ -90,7 +94,7 @@ export interface OsmImportOptions {
 }
 
 /** One step of the conversion, for the progress list */
-export type OsmConvertStep = 'parse' | 'terrain' | 'roads' | 'water' | 'level' | 'ground' | 'shores' | 'paint' | 'layout' | 'buildings' | 'furniture' | 'pois' | 'plants' | 'life';
+export type OsmConvertStep = 'parse' | 'terrain' | 'roads' | 'water' | 'level' | 'ground' | 'shores' | 'paint' | 'layout' | 'areas' | 'buildings' | 'furniture' | 'pois' | 'plants' | 'life';
 
 export interface OsmImportReport {
   place: { lat: number; lon: number; address: string };
@@ -105,6 +109,7 @@ export interface OsmImportReport {
   ground: GroundReport;
   water: WaterReport;
   plants: VegetationReport;
+  areas: AreaReport;
   layers: string[];
   layout: LayoutReport;
   buildings: BuildingReport;
@@ -130,7 +135,7 @@ export function convertOsm(
 ): OsmImportResult {
   const ms: Record<string, number> = {};
   let t = performance.now();
-  const order: OsmConvertStep[] = ['parse', 'terrain', 'roads', 'water', 'level', 'ground', 'shores', 'paint', 'layout', 'buildings', 'furniture', 'pois', 'plants', 'life'];
+  const order: OsmConvertStep[] = ['parse', 'terrain', 'roads', 'water', 'level', 'ground', 'shores', 'paint', 'layout', 'areas', 'buildings', 'furniture', 'pois', 'plants', 'life'];
   const step = (name: string) => {
     const now = performance.now();
     ms[name] = Math.round(now - t);
@@ -205,7 +210,18 @@ export function convertOsm(
       ? `spawns: ${layout.wanted - layout.spawns.length} of ${layout.wanted} chosen have no street with a route to the HQ and were left out`
       : `spawns: ${layout.spawns.length} of ${layout.wanted} found on streets 500 to 1000 m from the HQ with a route to it`);
   }
+  // The routes from the spawns, once for the areas and the plants (devices and plants grow fuller near them)
+  const routes = [...spawnRoutes(doc).values()].filter((r) => !!r).map((r) => r!.points);
   step('layout');
+
+  // Squares, pitches, playgrounds, car parks: surfaces with their lines, level ground, their objects in their own share
+  const unknownCost = objectCost(undefined, side * side);
+  const costOf = (asset: string) => options.costs?.[asset] ?? unknownCost;
+  const materials = options.materials && new Set(options.materials);
+  // The costs know every asset of the catalogue the areas may place: one missing is left out
+  const costs = options.costs;
+  const areas = layAreas(doc, features, water, { costOf, routes, hasMaterial: materials ? (m) => materials.has(m) : null, hasAsset: costs ? (a) => a in costs : null });
+  step('areas');
 
   // After the HQ (they keep clear of it) and the water; their pads cut the ground the roads levelled, never the roads
   const buildings = placeBuildings(doc, features, { catalog: options.catalog, onShare: onShare && ((share) => onShare('buildings', share)) });
@@ -214,8 +230,6 @@ export function convertOsm(
   step('buildings');
 
   // Fences, walls, tracks, lamps and the points of the street, in their own share of the scene budget
-  const unknownCost = objectCost(undefined, side * side);
-  const costOf = (asset: string) => options.costs?.[asset] ?? unknownCost;
   const furniture = placeFurniture(doc, features, water, { costOf, rails });
   step('furniture');
 
@@ -224,7 +238,7 @@ export function convertOsm(
   step('pois');
 
   // The plants keep off the footprints and hold their own share of the scene budget (the buildings have no cap for now)
-  const plants = growVegetation(doc, features, ground.land, water, { costOf, onShare: onShare && ((share) => onShare('plants', share)) });
+  const plants = growVegetation(doc, features, ground.land, water, { costOf, routes, keepOff: areas.keepOff, onShare: onShare && ((share) => onShare('plants', share)) });
   step('plants');
 
   // Boats, birds, the bell and the intro flight from the place's data, as life areas and an intro of any map
@@ -262,6 +276,7 @@ export function convertOsm(
       ground: ground.report,
       water: water.report,
       plants,
+      areas: areas.report,
       layers: t0.layers.map((l) => l.material),
       layout,
       buildings: buildings.report,

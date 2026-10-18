@@ -416,12 +416,13 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
     try {
       const names = osmMapNames(this.place());
       const id = await this.store.freeId(names.id);
-      const catalog = await catalogObjects();
+      const { objects: catalog, materials } = await catalogEntries();
       const made = await this.session.make(
         this.spawns(),
         {
           id, name: names.name, costs: catalog && assetCosts(catalog, this.area()?.sideM ?? OSM_WORLD_SIDE), catalog: catalog && buildingCatalog(catalog),
           destructible: this.destructible(),
+          materials,
         },
         (p) => this.hear(p),
         signal,
@@ -478,11 +479,11 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
  * buildings' models; none where it cannot be read (the import then counts
  * plants dear and places every building model without a budget)
  */
-async function catalogObjects(): Promise<readonly CatalogObject[] | undefined> {
+async function catalogEntries(): Promise<{ objects?: readonly CatalogObject[]; materials?: string[] }> {
   try {
-    const objects = (await MapAssetLibrary.shared().catalog()).objects;
-    return objects.length ? objects : undefined;
+    const catalog = await MapAssetLibrary.shared().catalog();
+    return { objects: catalog.objects.length ? catalog.objects : undefined, materials: catalog.materials.length ? catalog.materials.map((m) => m.id) : undefined };
   } catch {
-    return undefined;
+    return {};
   }
 }

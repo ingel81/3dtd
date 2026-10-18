@@ -137,6 +137,8 @@ export function buildRoads(features: OsmFeatures): RoadBuild {
           if (tags.tunnel) edge.tunnel = true;
           else if (kind === 'bridge') edge.style = bridgeStyle(way.tags, tags.kind);
           else edge.surface = tags.surface;
+          // The outline of a square: walked, not drawn (its surface shows it, convert/areas.ts)
+          if (way.tags['area'] === 'yes' && kind !== 'bridge' && !tags.tunnel) edge.area = true;
           edges.push(edge);
           names.set(edge.id, way.tags['name'] ?? '');
           stats.km[kind] += length / 1000;
@@ -380,7 +382,7 @@ const PAINT_SOFT_EDGE = 0.75;
 /** The ground materials paintRoads paints for `paths`: the surfaces, and the verges of the paved roads */
 export function roadPaintMaterials(paths: MapPaths): Set<string> {
   const out = new Set<string>();
-  for (const edge of paths.edges) for (const band of roadPaintBands(edge, PAINT_SOFT_EDGE)) out.add(band.materials[0]);
+  for (const edge of paths.edges) if (!edge.area) for (const band of roadPaintBands(edge, PAINT_SOFT_EDGE)) out.add(band.materials[0]);
   return out;
 }
 
@@ -389,7 +391,7 @@ export function roadPaintMaterials(paths: MapPaths): Set<string> {
  * texel takes the material of the road that covers it most, full inside the
  * half width and fading over PAINT_SOFT_EDGE; under a paved road (drawn as
  * a road surface) its own material and a verge round it (roadPaintBands,
- * the editor's too). Adds the materials to the layer list as needed;
+ * the editor's too); a square's outline (`area`) not at all. Adds the materials to the layer list as needed;
  * returns them.
  */
 export function paintRoads(terrain: MapTerrain, paths: MapPaths): RoadSurface[] {
@@ -398,7 +400,7 @@ export function paintRoads(terrain: MapTerrain, paths: MapPaths): RoadSurface[] 
   const cores: PaintBand[] = [];
   const rims: PaintBand[] = [];
   for (const edge of paths.edges) {
-    if (!edge.surface || edge.kind === 'bridge') continue;
+    if (!edge.surface || edge.kind === 'bridge' || edge.area) continue;
     const a = nodes.get(edge.a);
     const b = nodes.get(edge.b);
     if (!a || !b) continue;

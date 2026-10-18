@@ -68,9 +68,9 @@ export function rasterizePathMask(
   return out;
 }
 
-/** Whether an edge is painted into the mask (bridges, painted surfaces and tunnels are not) */
+/** Whether an edge is painted into the mask (bridges, painted surfaces, tunnels and squares' outlines are not) */
 function painted(edge: MapPathEdge): boolean {
-  return edge.kind !== 'bridge' && !edge.surface && !edge.tunnel;
+  return edge.kind !== 'bridge' && !edge.surface && !edge.tunnel && !edge.area;
 }
 
 /**

@@ -44,6 +44,7 @@ export const OSM_STEPS: Readonly<Record<OsmStep, OsmStepInfo>> = {
   shores: { text: 'Painting the shores', stage: 'ground', weight: 60 },
   paint: { text: 'Painting the road surfaces', stage: 'ground', weight: 300 },
   layout: { text: 'HQ and spawns', stage: 'layout', weight: 150 },
+  areas: { text: 'Squares, pitches, playgrounds and car parks', stage: 'ground', weight: 120 },
   buildings: { text: 'Buildings', stage: 'buildings', weight: 400 },
   furniture: { text: 'Fences, walls, tracks and lamps', stage: 'trees', weight: 200 },
   pois: { text: 'Shops, inns and their signs', stage: 'trees', weight: 60 },
@@ -54,7 +55,7 @@ export const OSM_STEPS: Readonly<Record<OsmStep, OsmStepInfo>> = {
 };
 
 /** The making's steps in their order */
-export const OSM_MAKE_STEPS: readonly OsmStep[] = ['parse', 'terrain', 'roads', 'water', 'level', 'ground', 'shores', 'paint', 'layout', 'buildings', 'furniture', 'pois', 'plants', 'life', 'pack', 'save'];
+export const OSM_MAKE_STEPS: readonly OsmStep[] = ['parse', 'terrain', 'roads', 'water', 'level', 'ground', 'shores', 'paint', 'layout', 'areas', 'buildings', 'furniture', 'pois', 'plants', 'life', 'pack', 'save'];
 /** The loading's steps as listed (the downloads run side by side) */
 export const OSM_LOAD_STEPS: readonly OsmLoadStep[] = ['stored', 'overpass', 'heights', 'streets'];
 

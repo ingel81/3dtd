@@ -20,7 +20,6 @@ export type LandClass =
   | 'orchard'
   | 'allotments'
   | 'cemetery'
-  | 'paved'
   | 'industrial'
   | 'railway'
   | 'construction'
@@ -53,7 +52,6 @@ export const LAND_GROUND: Readonly<Record<LandClass, readonly string[]>> = {
   orchard: ['meadow-earthy', 'meadow', 'grass-lush'],
   allotments: ['grass-lush'],
   cemetery: ['grass-lush'],
-  paved: ['paving', 'sidewalk', 'concrete'],
   industrial: ['concrete', 'concrete-damaged', 'asphalt', 'gravel'],
   railway: ['gravel', 'gravel-light', 'dirt'],
   construction: ['dirt', 'rubble', 'gravel'],
@@ -84,8 +82,6 @@ const LANDUSE: Readonly<Record<string, LandClass>> = {
   orchard: 'orchard',
   allotments: 'allotments',
   cemetery: 'cemetery',
-  commercial: 'paved',
-  retail: 'paved',
   industrial: 'industrial',
   railway: 'railway',
   construction: 'construction',
@@ -119,9 +115,17 @@ const LEISURE: Readonly<Record<string, LandClass>> = {
 };
 
 /**
+ * Classes whose ground their surface shows (convert/areas.ts): they fill the
+ * land grid (no forest grows on a pitch) but paint no layer
+ */
+export const SURFACE_CLASSES: ReadonlySet<LandClass> = new Set(['pitch', 'playground', 'parking']);
+
+/**
  * The land class of an area's tags, null for one that paints no ground
- * (residential land keeps the base grass of its gardens; buildings, water
- * and named regions such as a mountain range are not land cover)
+ * (residential, retail and commercial land keep the base grass of their
+ * gardens: paving lies where OSM says paving, on squares, car parks and
+ * pedestrian streets; buildings, water and named regions such as a mountain
+ * range are not land cover)
  */
 export function landClassOf(tags: Readonly<Record<string, string>>): LandClass | null {
   if (tags['building'] || tags['area:highway']) return null;

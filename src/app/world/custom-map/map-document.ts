@@ -303,7 +303,7 @@ export interface MapSurface {
   holes?: MapPoint[][];
   /** Lines drawn on it; none when missing */
   marking?: MapSurfaceMarking;
-  /** Moved with the objects of the same group in the editor (an OSM world's `osm-a<id>`) */
+  /** The group of the objects that belong to it (an OSM world's `osm-a<id>`: the goals of a pitch, the cars of a car park) */
   group?: string;
 }
 
@@ -352,6 +352,12 @@ export interface MapPathEdge {
    * the ground painted under the road
    */
   surface?: string;
+  /**
+   * The outline of a square (an OSM world's pedestrian area, `area=yes`):
+   * routes walk it as any road, but it is neither drawn nor painted, the
+   * square's surface (MapSurface) shows the ground
+   */
+  area?: boolean;
   /**
    * Runs in a tunnel (an OSM world's `tunnel=*`): not drawn, levelled or
    * painted, a portal model stands at each mouth; routes run through it as

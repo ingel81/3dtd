@@ -13,7 +13,7 @@
  */
 import { MAX_LAYERS } from '../../../map-ops/paint-ops';
 import { fitSplatMaps, type MapEnvironment, type MapTerrain } from '../../custom-map/map-document';
-import { LAND_GROUND, landClassOf, type LandClass } from '../land-tags';
+import { LAND_GROUND, landClassOf, SURFACE_CLASSES, type LandClass } from '../land-tags';
 import type { OsmFeatures } from '../osm-parse';
 import { fillRings, sampleGrid, texelGrid } from './raster';
 
@@ -55,7 +55,8 @@ export function paintGround(terrain: MapTerrain, features: OsmFeatures, reserved
     const index = LAND_CLASSES.indexOf(c) + 1;
     report.areas[c] = (report.areas[c] ?? 0) + 1;
     const rings = [...a.outer, ...a.inner];
-    fillRings(rings, texels, (i, j) => (cls[j * res + i] = index));
+    // A pitch, a playground, a car park: its surface shows it, the ground under it stays what is round it
+    if (!SURFACE_CLASSES.has(c)) fillRings(rings, texels, (i, j) => (cls[j * res + i] = index));
     fillRings(rings, samples, (i, j) => (land[j * samples.n + i] = index));
   }
 

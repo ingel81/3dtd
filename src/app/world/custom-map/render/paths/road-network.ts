@@ -66,7 +66,7 @@ export interface RoadNetwork {
 
 /** Whether an edge is drawn by the road surface */
 export function pavedEdge(edge: MapPathEdge): boolean {
-  return edge.kind !== 'bridge' && !edge.tunnel && !!edge.surface && PAVED_SURFACES.has(edge.surface);
+  return edge.kind !== 'bridge' && !edge.tunnel && !edge.area && !!edge.surface && PAVED_SURFACES.has(edge.surface);
 }
 
 interface Chain {

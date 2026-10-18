@@ -489,6 +489,79 @@ Gebäude bekommen eine Kaimauer: das Bett fällt sofort (2 m je Meter), das Land
 Wasser, ohne Uferfarbe. Der Renderer zeichnet an solchen Wänden nur eine schmale Linie. Natürliche Ufer ohne
 Bebauung behalten Schelf, Rand und Schaum. Im Shader ist nichts geändert.
 
+## P1 Flächenoberfläche, gebaut (2026-10-19)
+
+Code: `world/custom-map/map-surfaces.ts` (Format, Prüfung, Rechteck, Platzmaße, Stellplatzreihen),
+`render/drape/draped-layer.ts` (das gemeinsame Auflegen, Straßen und Flächen), `render/surfaces/` (Geometrie, Schicht,
+Look), `editor/tools/surface-tool.ts`, `editor/ui/panels/surface-panel.component.ts`, `editor/ops/surfaces.ts`, Map-Kit
+und Agent (`map.surface`, `map.removeSurfaces`, `map.surfaces()`). Beschreibung in CUSTOM_MAPS.md „Flächen“ und
+LEVEL_EDITOR.md „Surfaces (U)“. Probe aller Markierungen: `/map-preview?surfaces`.
+
+### Beim Bau entschieden
+
+- **Format** wie oben, ohne `MAP_VERSION`-Sprung (ein optionales Feld, Formatregel 2). `group` ist die Gruppe der
+  Objekte der Fläche (Tore, Autos); dass der Editor eine Fläche mit ihrer Objektgruppe verschiebt, ist nicht gebaut.
+  Weich geprüft: eine kaputte Fläche fällt weg, eine unbekannte Markierung verliert nur die Linien.
+- **Kein festes 4-m-Raster:** Zellen bis 64 m, geviertelt, wo der Boden nicht eben ist oder mehr als 15 Kanten nahe
+  kommen, bis zur Zelle des Geländes, dort an dessen Diagonale geschnitten. Das feste Raster ließ auf unebenem Boden
+  das Gelände zwischen den Ecken durchscheinen und kostete das Vier- bis Sechsfache an Dreiecken.
+- **Kantenabstand je Pixel** aus den Kanten, die jede Zelle auflistet (Float-Textur), statt interpoliert je Vertex:
+  sonst werden Bordstein und Holzeinfassung an jeder Ecke keilförmig.
+- **Tiefe:** jede Straße vor jeder Fläche; von zwei überlappenden Flächen die kleinere oben, nie zwei überlappende auf
+  einem Rang (16 Ränge zu 0,8 mm).
+- **Kacheln der Flächen 1024 m** (die Straßen behalten 512 m): auf einer OSM-Welt höchstens 16, gemessen 9 bis 15.
+- **Wegmaske:** jede Fläche deckt den Boden (kein Gras durch, der Gelände-Shader spart sich die Arbeit). Der Editor-Worker
+  malt die Abdeckung aus den Flächen seines Spiegels mit.
+- **Materialien** Tartan, Fallschutz (EPDM), Kunstrasen, Hartplatz grün und blau, Beckenfliesen: aus Geometrie gebacken
+  wie die anderen Böden (`ground_recipes.py`; `bake_grounds.py` kann dafür Körner, Fremdfarben-Körner und Fliesen mit
+  Fugen). Fehlt einer einem Katalog, fällt die Art über ihre Kette zurück (`area-tags.ts` `MATERIAL_FALLBACK`).
+- **Editor:** Panel mit Liste, Material, Linien, „Fit to outline“ und „Turn“; Griffe für das Linien-Rechteck. Flächen
+  laufen in Spiegeln (Symmetrie, „Mirror the map now“), Map-Kit und Agent mit; in Stempeln und Prefabs noch nicht.
+
+## P2 Flächen der OSM-Welt, gebaut (2026-10-19)
+
+Code: `world/osm/area-tags.ts` (Tabelle, Materialketten), `world/osm/convert/areas.ts` (Flächen, Linien, Ebnen,
+Objekte, Budget), `land-tags.ts` (`SURFACE_CLASSES`, ohne `paved`), `convert/ground.ts`, `convert/roads.ts`
+(`MapPathEdge.area`), `convert/vegetation.ts` (`keepOff`, Routen einmal), `import-osm.ts` (Schritt `areas` nach dem
+Layout). Specs: `areas.spec.ts`, `import-osm.spec.ts`.
+
+### Beim Bau entschieden
+
+- **Zuordnung** wie in der Tabelle oben; dazu Eintrag nur, was der Katalog hat (die Kosten nennen jedes Modell). Ein
+  Platz ohne `surface` nimmt Kopfstein, wenn die Straßen um ihn mehrheitlich Kopfstein sind (Altstadt), und ein
+  Platz ohne `surface` in einem größeren Platz dessen Material (die Fußweg-Flächen über der Place de la République).
+- **Linien** ab Füllgrad 0,85, Parkplätze ab 0,6 (die Stellplätze zeichnet der Shader nur auf der Fläche, Autos stehen
+  nur in Stellplätzen ganz auf ihr), eine Laufbahn erst ab 60 m Länge (Weitsprunggruben sind kein Oval).
+- **Ebnen** für Plätze mit Linien und alle Parkplätze: auf den Median der Höhen darin, 5 m Böschung, Straßen und
+  Wasser bleiben. Auf den flachen Messkarten ohne Höhen ist das nicht zu sehen.
+- **Objekte** je Art: Tore an den Torlinien (Kleinfeldtore unter 60 m Länge), Flutlicht an den Ecken großer Plätze im
+  Sportzentrum, Körbe 1,2 m hinter den Grundlinien, Netze quer in der Mitte, Zaun um Tennisplätze, Ballfangzaun am
+  Mehrzweckplatz, Tischtennisplatte, Rampen, Geräte des Spielplatzes (gemappte `playground=*`, sonst ein Satz nach
+  Größe) und Bänke am Rand, Autos auf 40 bis 70 % der Stellplätze mit der Schnauze voran, Marktstände auf Marktplätzen,
+  Liegen am Freibad, Gräber in Reihen längs zweier Kieswege (eigene Flächen) mit Hecke, Parzellen 15 × 25 m mit
+  Staketenzaun, Beet und Gartenhaus (wo OSM keine Hütte hat), Tische und Schirme auf Außenbestuhlung. Alle tragen die
+  Gruppe der Fläche. Budget 10 % der Szene, Reihenfolge beim Kürzen: zuerst Autos, dann Tische und Liegen, dann
+  Marktstände, dann Geräte fern der Routen.
+- **Boden:** Sportplatz, Spielplatz und Parkplatz malen keine Schicht mehr, `retail` und `commercial` gar nichts;
+  die frei gewordenen Schichten nehmen natürliche Klassen (Würzburg `concrete` der Industrie statt `paving`, Marais
+  `rubble`, Kleinstadt `meadow-earthy`).
+- **Plätze:** der Ring eines Platzes (`area=yes`) bleibt im Straßengraph (`MapPathEdge.area`), wird aber weder als
+  Band gezeichnet noch gemalt.
+
+### Messungen P1 und P2 (2026-10-19)
+
+Dieselben Antworten der Erhebung (Vorschlag-Abfrage, ohne Höhen), Erzeugen in Node mit Katalog. Nur strukturelle
+Zahlen: der Rechner war mit anderen Läufen belegt, Zeiten (Bau der Flächenschicht, Schritt „areas“, Bildzeit)
+misst der Lead nach (tmp/plan/r6/MESSUNGEN_SPAETER.md).
+
+| | Würzburg | Marais | Kleinstadt am Main |
+|---|---|---|---|
+| Flächen (davon mit Linien) | 430 (229) | 487 (20) | 75 (52) |
+| häufigste Arten | 218 Parkplätze, 97 Plätze, 43 Bahnsteige, 24 Spielplätze, 14 Laufbahnen | 426 Plätze, 22 Spielplätze, 12 Parkplätze | 45 Parkplätze, 8 Fußball, 8 Spielplätze, 5 Tennis |
+| Dreiecke der Flächen, Draw Calls | 14 536, 15 | 35 397, 14 | 857, 9 |
+| Objekte der Flächen, Szenenkosten | 2 653, 1,20 M (Budget voll: 1 539 Autos ausgelassen) | 377, 0,16 M | 2 315, 0,72 M |
+| Datei vorher → nachher | 3,46 → 3,45 MB | 4,38 → 4,25 MB | 1,72 → 1,74 MB |
+DRAWCALLS_ROW
 ## Entschieden (User, 2026-10-18)
 
 1. **Hydranten und Brunnen als Spielmechanik:** nicht in dieser Runde.

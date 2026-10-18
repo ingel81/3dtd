@@ -138,6 +138,25 @@ describe('OSM world (frozen probe Miltenberg)', () => {
     expect(validateMap(doc).map((i) => i.code)).not.toContain('object-on-path');
   });
 
+  it('lays the areas of use as surfaces with their lines and objects, in materials the catalogue has, off the roads (E237)', () => {
+    const objects: CatalogObject[] = catalog.objects;
+    const materials: string[] = catalog.materials.map((m: { id: string }) => m.id);
+    const { doc, report } = convertOsm(probe(), { ...options, catalog: buildingCatalog(objects), costs: assetCosts(objects, 1200), materials });
+    const a = report.areas;
+    const surfaces = doc.surfaces ?? [];
+    expect(surfaces.length).toBeGreaterThan(10);
+    expect(a.surfaces.parking).toBeGreaterThan(0);
+    expect(a.marked).toBeGreaterThan(0);
+    for (const s of surfaces) expect(materials).toContain(s.material);
+    expect(new Set(surfaces.map((s) => s.id)).size).toBe(surfaces.length);
+    expect(a.cost).toBeLessThanOrEqual(a.budget);
+    expect(a.objects).toBeGreaterThan(0);
+    expect(mapRepairs(doc)).toEqual([]);
+    expect(validateMap(doc).map((i) => i.code)).not.toContain('object-on-path');
+    // A pitch, a playground or a car park paints no layer of its own any more: its surface shows it
+    expect(doc.terrain.layers.map((l) => l.material)).not.toContain('wood-chips');
+  });
+
   it('paints the land into the layers the roads leave, the smaller area over the larger', () => {
     const { doc, report } = convertOsm(probe(), options);
     const t = doc.terrain;

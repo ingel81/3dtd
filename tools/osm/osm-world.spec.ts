@@ -44,7 +44,7 @@ function readMosaic(name: string): DemMosaic | null {
   return { source: meta.source, zoom: meta.zoom, tileSize: meta.tileSize, left: meta.x0 * meta.tileSize, top: meta.y0 * meta.tileSize, columns: meta.columns, rows: meta.rows, heights };
 }
 
-const catalog = JSON.parse(readFileSync(resolve(__dirname, '../../public/maps/assets/catalog.json'), 'utf8')) as { objects: CatalogObject[] };
+const catalog = JSON.parse(readFileSync(resolve(__dirname, '../../public/maps/assets/catalog.json'), 'utf8')) as { objects: CatalogObject[]; materials: { id: string }[] };
 
 describe.skipIf(mode !== 'osm')('OSM world dump', () => {
   for (const place of places) {
@@ -53,7 +53,7 @@ describe.skipIf(mode !== 'osm')('OSM world dump', () => {
       const t0 = performance.now();
       const { doc, report } = convertOsm(
         { lat: place.lat, lon: place.lon, address: place.name, overpass, dem: readMosaic(place.name), fetchedAt: new Date().toISOString() },
-        { id: `osm-${place.name}`, name: `OSM ${place.name}`, costs: assetCosts(catalog.objects, 2400), catalog: buildingCatalog(catalog.objects) },
+        { id: `osm-${place.name}`, name: `OSM ${place.name}`, costs: assetCosts(catalog.objects, 2400), catalog: buildingCatalog(catalog.objects), materials: catalog.materials.map((m) => m.id) },
       );
       const area = doc.terrain.width * doc.terrain.depth;
       const scene = Math.round(sceneCost(doc.objects, (asset) => objectCost(catalog.objects.find((o) => o.id === asset), area)));
@@ -70,7 +70,7 @@ describe.skipIf(mode !== 'osm')('OSM world dump', () => {
       writeFileSync(join(outDir, `${doc.meta.id}.png`), renderTopDown(doc, 0.5).png);
       const out = { convertMs, packMs, checkMs, fileBytes: file.length, objects: doc.objects.length, scene, issues: issues.map((i) => `${i.severity} ${i.code}: ${i.message}`), ...report };
       writeFileSync(join(outDir, `${doc.meta.id}.json`), JSON.stringify(out, null, 1));
-      console.log(JSON.stringify({ place: place.name, convertMs, packMs, checkMs, fileMB: +(file.length / 1e6).toFixed(2), objects: doc.objects.length, scene, ms: report.ms, roads: report.roads, layout: report.layout, buildings: report.buildings, furniture: report.furniture, plants: report.plants, issues: out.issues, warnings: report.warnings }, null, 1));
+      console.log(JSON.stringify({ place: place.name, convertMs, packMs, checkMs, fileMB: +(file.length / 1e6).toFixed(2), objects: doc.objects.length, scene, ms: report.ms, roads: report.roads, layout: report.layout, buildings: report.buildings, furniture: report.furniture, plants: report.plants, areas: report.areas, issues: out.issues, warnings: report.warnings }, null, 1));
     }, 600_000);
   }
 });
