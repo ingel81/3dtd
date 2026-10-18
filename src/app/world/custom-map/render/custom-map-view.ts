@@ -624,7 +624,7 @@ export class CustomMapView {
 
   /**
    * Runs `run` with everything the map hides until it is needed shown, and
-   * hides it again: a cell of every asset at each level
+   * hides it again: an instance of every asset at each level
    * (objects.showAllForWarmUp), the terrain's other levels and what waits for
    * its moment (weather particles, beams and glows by night, fireflies). A
    * warm-up frame drawn inside gives each its first draw, which the GPU
@@ -636,7 +636,7 @@ export class CustomMapView {
     const shown: Object3D[] = [];
     const reveal = (root: Object3D) =>
       root.traverse((o) => {
-        // The object layer's cells as showAllForWarmUp chose them; nothing that holds a light (the shadow build's stage)
+        // The object layer's meshes as showAllForWarmUp chose them; nothing that holds a light (the shadow build's stage)
         if (o.visible || o.userData['batch'] || o.getObjectByProperty('isLight', true)) return;
         o.visible = true;
         shown.push(o);

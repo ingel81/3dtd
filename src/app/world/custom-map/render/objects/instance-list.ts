@@ -64,6 +64,7 @@ export class InstanceList {
    * The caller made sure it is not in yet and that there is room.
    */
   insert(table: Int32Array, index: number, source: InstanceSource, casting: boolean, fade: number): void {
+    if (this.count >= this.capacity) throw new Error(`InstanceList: no room past ${this.capacity} instances`);
     let slot = this.count++;
     if (casting) {
       // The first non-caster moves to the end, the new one takes its slot at the casters' end

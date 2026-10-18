@@ -575,6 +575,20 @@ Wechsel unter Werfern, die Schattenkarte rendert nur dann neu. Jedes Mesh wird n
 Assets verworfen. Stuttgart (OSM, 29 500 Objekte), map-preview High: 9271 Meshes → 808, Spielansicht 922 → 547 Draws
 (die 192-m-Zellen zeichneten jedes Asset, jede Stufe und jedes Teil einmal je Zelle und schalteten ganze Zellen auf
 einmal). Der Editor pickt über die Grenzkugeln aller Objekte und testet die getroffenen mit ihrem vollen Modell.
+
+**Fernstufe der Gebäude (`far-boxes.ts`, Katalog `far`):** ab dem Bildanteil `far.screen` (4,5 %) zeichnet jedes
+Katalog-Gebäude einen Kasten aus 24 Dreiecken: oben ein Raster aus 3 × 3 Höhen (Flachdach, Giebel in beide
+Richtungen, Walm, Pult), vier Wände bis zum Fundament, jede mit dem Modell von dieser Seite, oben von oben gesehen,
+fünf Kacheln von 64 px je Gebäude in einem Atlas (`models/far-boxes.webp`). Alle Kästen aller Assets sind EIN
+instanzierter Draw (je einer für Sichtblocker und die übrigen); die Form entsteht im Vertex-Shader aus der Vorlage,
+der Zeile des Assets in einer kleinen Datentextur und der Instanzmatrix, gleich im Material, im Schatten
+(`customDepthMaterial`) und im LOS-Würfel (`userData.losVertex`). Fensterglas (halbes Alpha im Atlas) leuchtet nachts
+nach derselben Zellregel wie am Modell. Gebaut von `tools/map-assets/bake_far_boxes.mjs` (Playwright-Chromium, three
+lädt die Modelle wie das Spiel, unbeleuchtet): das Raster ist die Kleinste-Quadrate-Fläche über der Oberseite, offene
+Randzeilen (Balkone, Vordächer) fallen weg; ein Modell, das der Kasten nicht trägt (L-Form, Turm, Kuppel, Ruine),
+bekommt keinen und behält sein LOD-Modell. 76 von 104 Gebäuden haben einen. Gebäude nehmen ihr LOD-Modell dafür
+näher (bei 140 m statt 350 m für ein Objekt in Asset-Größe). Stuttgart, map-preview High, Spielansicht: 547 → 339
+Draws, 19,4 → 6,6 M Dreiecke; fern 11,6 → 3,4 M.
 Dazu werden die Teile eines Modells ohne
 Farbtextur mit gleichen übrigen Texturen (oft nur die gebackene Verdeckung des Modells), gleichem Glühen, gleicher
 Transparenz und Seitenwahl zu einem Teil zusammengeführt (`merge-parts.ts`): die Farbe als Vertex-Farbe, Rauheit

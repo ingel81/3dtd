@@ -120,7 +120,12 @@ export interface AssetLibraryOptions {
   decodeImage?: (url: string, size: number) => Promise<ImagePixels>;
   /** Loads a GLB into a scene graph */
   loadModel?: (url: string) => Promise<Object3D>;
+  /** Loads an image into a texture (the far boxes' atlas) */
+  loadTexture?: (url: string) => Promise<Texture>;
 }
+
+/** The atlas of the buildings' far stage (objects/far-boxes.ts, tools/map-assets/bake_far_boxes.mjs) */
+export const FAR_ATLAS_FILE = 'models/far-boxes.webp';
 
 export class MapAssetLibrary {
   private static readonly instances = new Map<string, MapAssetLibrary>();
@@ -148,6 +153,8 @@ export class MapAssetLibrary {
   private readonly fetchFn: typeof fetch;
   private readonly decodeImageFn: (url: string, size: number) => Promise<ImagePixels>;
   private readonly loadModelFn: (url: string) => Promise<Object3D>;
+  private readonly loadTextureFn: (url: string) => Promise<Texture>;
+  private farAtlasPromise: Promise<Texture | null> | null = null;
 
   constructor(
     readonly baseUrl = DEFAULT_ASSET_BASE,
@@ -157,6 +164,16 @@ export class MapAssetLibrary {
     this.fetchFn = options.fetch ?? ((input, init) => mapDataFetch(input, init));
     this.decodeImageFn = options.decodeImage ?? ((url, size) => decodeImage(this.fetchFn, url, size));
     this.loadModelFn = options.loadModel ?? ((url) => loadGlb(url, this.fetchFn));
+    this.loadTextureFn = options.loadTexture ?? ((url) => loadTexture(url, this.fetchFn));
+  }
+
+  /** The far boxes' atlas, once; null (with a warning) when it does not load: the buildings keep their LOD models */
+  farAtlas(): Promise<Texture | null> {
+    this.farAtlasPromise ??= this.loadTextureFn(this.url(FAR_ATLAS_FILE)).catch((error) => {
+      console.warn('[MapAssetLibrary] far box atlas not loaded', error);
+      return null;
+    });
+    return this.farAtlasPromise;
   }
 
   /** The catalogue; an unreachable catalogue gives an empty one (with a warning) */
@@ -294,6 +311,8 @@ export class MapAssetLibrary {
     this.models.clear();
     this.loaded.clear();
     this.materials.clear();
+    void this.farAtlasPromise?.then((t) => t?.dispose());
+    this.farAtlasPromise = null;
     for (const [key, lib] of MapAssetLibrary.instances) if (lib === this) MapAssetLibrary.instances.delete(key);
   }
 
@@ -417,6 +436,20 @@ async function decodeImage(fetchFn: typeof fetch, url: string, size: number): Pr
   bitmap.close();
   const image = ctx.getImageData(0, 0, size, size);
   return { width: size, height: size, data: image.data };
+}
+
+/** An image file through `fetchFn` (the map data's cache) into an sRGB texture with mipmaps */
+async function loadTexture(url: string, fetchFn: typeof fetch): Promise<Texture> {
+  const response = await fetchFn(url);
+  if (!response.ok) throw new Error(`HTTP ${response.status} for ${url}`);
+  const bitmap = await createImageBitmap(await response.blob(), { premultiplyAlpha: 'none', colorSpaceConversion: 'none' });
+  const texture = new Texture(bitmap);
+  // An ImageBitmap uploads as decoded, top row first
+  texture.flipY = false;
+  texture.colorSpace = SRGBColorSpace;
+  texture.anisotropy = 4;
+  texture.needsUpdate = true;
+  return texture;
 }
 
 let gltfLoader: GLTFLoader | null = null;

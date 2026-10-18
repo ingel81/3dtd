@@ -9,7 +9,7 @@ footprint and height come from the measured bounds in <glb-raw-dir>/report.json
 (pack_models.py) unless objects.json sets them; the underside of rocks (`base`)
 from bases.json (measure_bases.mjs), the ground rectangle of buildings and walls
 (`box`) from boxes.json (measure_boxes.mjs), the top surface of what carries a tower (`roof`) from roofs.json
-(measure_roofs.mjs); the triangle counts from the packed models
+(measure_roofs.mjs), the far stage of buildings (`far`) from farboxes.json (bake_far_boxes.mjs); the triangle counts from the packed models
 (count_triangles.py). Objects <glb-raw-dir> has not measured (a build of a few
 models) keep their measured fields from the current catalog.json.
 Also rewrites LICENSES.md.
@@ -38,10 +38,14 @@ FOOTPRINT_SHARE = {'tree': 0.3, 'plant': 0.6}
 # object of the asset's size at scale 1. The catalogue keeps it as the share of the screen's height the object
 # fills there (`screen`): a smaller object switches nearer, a bigger one farther (object-layer.ts)
 LOD_DISTANCE = 350
+# Buildings take their LOD model nearer: from afar their box stands for them (FAR_SCREEN)
+BUILDING_LOD_DISTANCE = 140
 # Half the vertical field of view of the game camera (60 degrees), as object-layer.ts LOD_TAN_HALF_FOV
 TAN_HALF_FOV = math.tan(math.radians(30))
+# A building's box (objects/far-boxes.ts) takes over where it fills less than this share of the screen's height
+FAR_SCREEN = 0.045
 ORDER = ['id', 'name', 'category', 'file', 'footprint', 'height', 'base', 'box', 'roof', 'blocksLos', 'blocksBuild', 'scaleRange',
-         'randomRotation', 'wind', 'drawDistance', 'float', 'aloft', 'stilts', 'roadThrough', 'groundCut', 'spin', 'rotor', 'cable', 'grip', 'variants', 'signPanel', 'grime', 'tags', 'effects', 'light', 'lod', 'source']
+         'randomRotation', 'wind', 'drawDistance', 'float', 'aloft', 'stilts', 'roadThrough', 'groundCut', 'spin', 'rotor', 'cable', 'grip', 'variants', 'signPanel', 'grime', 'tags', 'effects', 'light', 'lod', 'far', 'source']
 
 
 def lod_screen(e, distance):
@@ -58,6 +62,7 @@ def main():
     bases = json.load(open(os.path.join(HERE, 'bases.json'), encoding='utf8'))
     boxes = json.load(open(os.path.join(HERE, 'boxes.json'), encoding='utf8'))
     roofs = json.load(open(os.path.join(HERE, 'roofs.json'), encoding='utf8'))
+    farboxes = json.load(open(os.path.join(HERE, 'farboxes.json'), encoding='utf8'))
     path = os.path.join(out, 'catalog.json')
     catalog = json.load(open(path, encoding='utf8'))
     current = {o['id']: o for o in catalog['objects']}
@@ -94,9 +99,12 @@ def main():
             e['drawDistance'] = 2500
         if o['id'] + '-lod1' in report and 'lod' not in o:
             # Decimated copy from the builders (export_lod); small plants vanish at their draw distance: switch well before that
-            e['lod'] = [{'file': f'models/{o["id"]}-lod1.glb', 'screen': lod_screen(e, min(LOD_DISTANCE, round(e['drawDistance'] * 0.4)))}]
+            distance = BUILDING_LOD_DISTANCE if e['category'] == 'building' else LOD_DISTANCE
+            e['lod'] = [{'file': f'models/{o["id"]}-lod1.glb', 'screen': lod_screen(e, min(distance, round(e['drawDistance'] * 0.4)))}]
         elif kept and 'lod' in kept and 'lod' not in o:
             e['lod'] = kept['lod']
+        if o['id'] in farboxes:
+            e['far'] = {'screen': FAR_SCREEN, **farboxes[o['id']]}
         objects.append({k: e[k] for k in ORDER if k in e})
     taken = {m['id'] for m in catalog['materials']}
     for o in objects:

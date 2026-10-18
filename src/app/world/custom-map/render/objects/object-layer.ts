@@ -17,6 +17,7 @@ import {
   type Intersection,
   type Material,
   type Object3D,
+  type Texture,
   type MeshStandardMaterial,
 } from 'three';
 import type { MapObject } from '../../map-document';
@@ -38,6 +39,7 @@ import { addNightWindows, isWindowGlass } from './night-windows';
 import { addLodFade, blendAt, disposeFadeGeometry, fadeGeometry, REST_S, SETTLE_S, settleBlend, type LodBlend } from './lod-fade';
 import { InstanceList, type InstanceSource } from './instance-list';
 import { MassLayer } from './mass-layer';
+import { FarBoxes } from './far-boxes';
 
 /**
  * The placed objects of a map, drawn instanced: per asset, detail level and
@@ -100,6 +102,8 @@ interface Level {
   parts: { geometry: BufferGeometry; material: Material; depthMaterial?: Material }[];
   /** A far impostor: starts at the larger of `from` and the quality level's impostor distance */
   impostor?: boolean;
+  /** The far box of a building (far-boxes.ts): drawn with every other building's in one mesh, no parts of its own */
+  far?: boolean;
 }
 
 /** What draws one level of an asset: its instances and the meshes of its parts */
@@ -108,6 +112,10 @@ interface LevelDraw {
   /** Slot of each object in the list, -1 for none */
   slots: Int32Array;
   meshes: InstancedMesh[];
+  /** Where its instances come from: the asset's matrices and colours, a far box's row too */
+  source: InstanceSource;
+  /** The far boxes' list, which every building asset shares (far-boxes.ts) */
+  shared: boolean;
 }
 
 interface AssetBatch {
@@ -164,6 +172,11 @@ export class MapObjectLayer {
   private readonly materials = new Map<string, Material>();
   /** Shadow materials of rotor parts by seconds a turn (rotorShadow) */
   private readonly rotorShadows = new Map<number, Material>();
+  /** The buildings' far stage, once its atlas is in (ensureFarBoxes) */
+  private farBoxes: FarBoxes | null = null;
+  private farAtlas: Promise<Texture | null> | null = null;
+  /** A building's bounds changed: the far boxes' bounds follow */
+  private farBoundsStale = false;
   private disposed = false;
   private generation = 0;
   private readonly camPos = new Vector3();
@@ -241,6 +254,7 @@ export class MapObjectLayer {
     if (masses.length) objects = objects.filter((o) => !MassLayer.owns(o));
     const catalog = await this.assets.catalog();
     const groups = groupByAsset(catalog, objects);
+    const far = this.ensureFarBoxes(catalog, objects);
     // Every asset's model and detail models at once: one after the other, a town waited for 49 loads in a row
     const loaded = await Promise.all(
       [...groups].map(async ([key, list]) => ({
@@ -252,10 +266,15 @@ export class MapObjectLayer {
         }),
       })),
     );
+    await far;
     if (generation !== this.generation) return;
     this.clear();
-    this.batches = loaded.map(({ key, list, parts: [model, lods] }) => this.buildBatch(model, lods, key.endsWith('|1'), list));
-    for (const b of this.batches) b.objects.forEach((o, index) => this.byId.set(o.id, { batch: b, index }));
+    // One after the other into the layer: a building's far boxes make room for those before it (farDraw)
+    for (const { key, list, parts: [model, lods] } of loaded) {
+      const b = this.buildBatch(model, lods, key.endsWith('|1'), list);
+      this.batches.push(b);
+      b.objects.forEach((o, index) => this.byId.set(o.id, { batch: b, index }));
+    }
     this.applyLevels(true);
     await shown;
   }
@@ -304,6 +323,7 @@ export class MapObjectLayer {
     }
     const generation = this.generation;
     const catalog = await this.assets.catalog();
+    await this.ensureFarBoxes(catalog, objects);
     for (const [key, list] of groupByAsset(catalog, objects)) {
       const blocks = key.endsWith('|1');
       const find = (): AssetBatch | undefined => this.batches.find((x) => x.model.id === list[0].asset && x.blocksLos === blocks);
@@ -443,6 +463,7 @@ export class MapObjectLayer {
         }
       }
     }
+    this.farBoxes?.sync(on);
   }
 
   /**
@@ -523,6 +544,7 @@ export class MapObjectLayer {
   decorMeshes(): Object3D[] {
     const out: Object3D[] = [];
     for (const b of this.batches) if (!b.blocksLos) for (const d of b.draws) out.push(...d.meshes);
+    if (this.farBoxes) out.push(...this.farBoxes.openMeshes());
     return out;
   }
 
@@ -535,6 +557,8 @@ export class MapObjectLayer {
     for (const m of this.rotorShadows.values()) m.dispose();
     this.materials.clear();
     this.fades.length = 0;
+    this.farBoxes?.dispose();
+    this.farBoxes = null;
     this.group.removeFromParent();
   }
 
@@ -554,6 +578,8 @@ export class MapObjectLayer {
 
   private disposeBatch(b: AssetBatch): void {
     for (const d of b.draws) {
+      // Its objects leave the far boxes' list, which stays for the other buildings
+      if (d.shared) for (let i = 0; i < b.objects.length; i++) if (d.slots[i] >= 0) d.list.remove(d.slots, i);
       for (const m of d.meshes) {
         m.removeFromParent();
         m.dispose();
@@ -586,6 +612,8 @@ export class MapObjectLayer {
       const from = Math.max(lods.length ? levels[levels.length - 1].from * 1.5 : 0, (entry.height * 25) / radius);
       levels.push({ from, impostor: true, parts: [{ geometry: imp.geometry, material: imp.material, depthMaterial: imp.depthMaterial }] });
     }
+    // A building's box, drawn with every other's in one mesh, where the object fills its screen share
+    if (entry.far && this.farBoxes && !model.placeholder) levels.push({ from: screenDistance(1, entry.far.screen), far: true, parts: [] });
     return levels;
   }
 
@@ -621,6 +649,7 @@ export class MapObjectLayer {
 
   /** The list and part meshes of one level, empty: the next pass fills them */
   private buildDraw(b: AssetBatch, level: Level, li: number): LevelDraw {
+    if (level.far) return this.farDraw(b);
     const list = new InstanceList(b.capacity, !!b.source.colors);
     const parent = b.blocksLos ? this.losGroup : this.group;
     const meshes = level.parts.map((part) => {
@@ -651,7 +680,59 @@ export class MapObjectLayer {
       parent.add(mesh);
       return mesh;
     });
-    return { list, slots: new Int32Array(b.capacity).fill(-1), meshes };
+    return { list, slots: new Int32Array(b.capacity).fill(-1), meshes, source: b.source, shared: false };
+  }
+
+  /**
+   * The far boxes' list for a building asset, its row with its matrices and
+   * colours. A list too small for every building that may stand in it is
+   * made anew, and every box of the other assets moves over
+   */
+  private farDraw(b: AssetBatch): LevelDraw {
+    const boxes = this.farBoxes!;
+    let need = b.capacity;
+    for (const other of this.batches) if (other !== b && other.blocksLos === b.blocksLos && other.draws.some((d) => d.shared)) need += other.capacity;
+    const { list, renewed } = boxes.list(b.blocksLos, need);
+    if (renewed) {
+      for (const other of this.batches) {
+        if (other === b || other.blocksLos !== b.blocksLos) continue;
+        const li = other.draws.findIndex((d) => d.shared);
+        if (li < 0) continue;
+        const d = other.draws[li];
+        d.list = list;
+        d.slots.fill(-1);
+        for (let i = 0; i < other.objects.length; i++) {
+          const level = other.levelOf[i];
+          const next = other.nextOf[i];
+          if (level !== li && next !== li) continue;
+          const fade = next === NO_NEXT ? 0 : level === li ? other.fadeOf[i] : other.fadeOf[i] - 1;
+          list.insert(d.slots, i, d.source, other.shadowOf[i] === li, fade);
+        }
+      }
+    }
+    const row = [boxes.row(b.entry)];
+    // The asset's arrays as they are when an object comes (resize replaces them)
+    const source: InstanceSource = {
+      get matrices() {
+        return b.source.matrices;
+      },
+      get colors() {
+        return b.source.colors;
+      },
+      extras: [row],
+    };
+    this.farBoundsStale = true;
+    return { list, slots: new Int32Array(b.capacity).fill(-1), meshes: [], source, shared: true };
+  }
+
+  /** The far boxes, made once a building with a far stage comes and its atlas is in */
+  private async ensureFarBoxes(catalog: AssetCatalog, objects: readonly MapObject[]): Promise<void> {
+    if (this.farBoxes) return;
+    const entries = entriesOf(catalog);
+    if (!objects.some((o) => entries.get(o.asset)?.far)) return;
+    this.farAtlas ??= this.assets.farAtlas();
+    const atlas = await this.farAtlas;
+    if (atlas && !this.farBoxes && !this.disposed) this.farBoxes = new FarBoxes(atlas, { blocking: this.losGroup, open: this.group });
   }
 
   /** Room for `capacity` objects: the asset's arrays and lists anew, every object back into its levels */
@@ -689,7 +770,7 @@ export class MapObjectLayer {
 
   /** Object i's instance anew in the lists it is in, and looked at again in the next pass */
   private rewrite(b: AssetBatch, i: number): void {
-    for (const d of b.draws) if (d.slots[i] >= 0) d.list.rewrite(d.slots, i, b.source);
+    for (const d of b.draws) if (d.slots[i] >= 0) d.list.rewrite(d.slots, i, d.source);
     b.dueAt[i] = -Infinity;
     b.boundsStale = true;
   }
@@ -721,8 +802,12 @@ export class MapObjectLayer {
         b.dueAt[i] = travel + Math.min(blend.slack, Math.abs(toFocus - this.shadowRadius));
         this.place(b, i, blend.level, next, blend.t, caster);
       }
-      if (b.boundsStale) this.updateBounds(b);
+      if (b.boundsStale) {
+        this.updateBounds(b);
+        if (b.draws.some((d) => d.shared)) this.farBoundsStale = true;
+      }
       for (const d of b.draws) {
+        if (d.shared) continue;
         d.list.flush();
         const count = d.list.count;
         for (const m of d.meshes) {
@@ -733,6 +818,23 @@ export class MapObjectLayer {
         }
       }
     }
+    if (this.farBoxes) {
+      if (this.farBoundsStale) this.updateFarBounds(this.farBoxes);
+      this.farBoxes.sync();
+    }
+  }
+
+  /** The far boxes' bounds: those of every building asset that has them, per draw */
+  private updateFarBounds(boxes: FarBoxes): void {
+    for (const [k, blocks] of [[0, true], [1, false]] as const) {
+      const bounds = boxes.bounds[k].makeEmpty();
+      for (const b of this.batches) {
+        if (b.blocksLos !== blocks || b.bounds.isEmpty() || !b.draws.some((d) => d.shared)) continue;
+        if (bounds.isEmpty()) bounds.copy(b.bounds);
+        else bounds.union(b.bounds);
+      }
+    }
+    this.farBoundsStale = false;
   }
 
   /** Object i into the lists of `level` and `next` (in a band, dissolving by t), casting with `caster` */
@@ -765,7 +867,7 @@ export class MapObjectLayer {
     if (!isIn) {
       if (slot >= 0) d.list.remove(d.slots, i);
     } else if (slot < 0) {
-      d.list.insert(d.slots, i, b.source, l === caster, fade);
+      d.list.insert(d.slots, i, d.source, l === caster, fade);
     } else {
       d.list.setCasting(d.slots, i, l === caster);
       d.list.setFade(d.slots, i, fade);

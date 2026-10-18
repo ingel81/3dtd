@@ -250,6 +250,16 @@ export interface CatalogObject {
    * nearer than a big one (object-layer.ts)
    */
   lod?: { file: string; screen: number; triangles?: number }[];
+  /**
+   * Buildings: the far stage, a box of 24 triangles textured from the
+   * model (objects/far-boxes.ts, tools/map-assets/bake_far_boxes.mjs),
+   * taking over where the object fills less than `screen` of the view's
+   * height. `tile`: its five tiles in the atlas from tile * 5; `box`: middle
+   * x and z, half width and depth, the foundation's bottom and the views'
+   * top at scale 1; `top`: the heights of its top's 3 x 3 grid, rows from
+   * -z to +z, each from -x to +x
+   */
+  far?: { screen: number; tile: number; box: [number, number, number, number, number, number]; top: number[] };
   /** Where an object's `sign` is written on the model (render/objects/sign-text.ts) */
   signPanel?: CatalogSignPanel;
 }

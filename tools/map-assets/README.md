@@ -54,6 +54,10 @@ node tools/map-assets/measure_bases.mjs public/maps/assets
 node tools/map-assets/measure_boxes.mjs public/maps/assets
 node tools/map-assets/measure_roofs.mjs public/maps/assets
 
+# Fernstufe der Gebäude: Kasten mit 3 x 3 Dachhöhen und gebackenem Atlas (farboxes.json, models/far-boxes.webp);
+# danach update_catalog.py (Feld `far`). Playwright aus e2e/node_modules
+node tools/map-assets/bake_far_boxes.mjs public/maps/assets
+
 # Objekte in catalog.json schreiben (objects.json + Messwerte + bases.json), Dreiecke je Modell und LOD
 # (count_triangles.py, auch allein nach einem pack_models.py), LICENSES.md neu. Nicht gebaute Modelle (ein Bau
 # einzelner Ids) behalten Fußabdruck, Höhe und LOD aus dem bisherigen catalog.json. Neue LODs: match_lods.py
