@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { TdIconComponent } from '../components/icon/icon.component';
 import { StageContinueComponent } from './stage-continue.component';
-import { WorldChoiceService } from '../world/world-choice.service';
 import type { StageMap } from './worlds-stage.service';
 import { WorldsStageService } from './worlds-stage.service';
 
@@ -106,7 +105,6 @@ import { WorldsStageService } from './worlds-stage.service';
 })
 export class WorldMapsComponent {
   readonly stage = inject(WorldsStageService);
-  private readonly worlds = inject(WorldChoiceService);
 
   readonly lock = computed(() => this.stage.lock('maps'));
   /**
@@ -148,6 +146,6 @@ export class WorldMapsComponent {
   /** The editor with its list of maps, where a new map starts, in this window */
   newMap(): void {
     if (this.stage.whyNot('edit', 'maps')) return;
-    this.worlds.editMap(null);
+    this.stage.editMap(null);
   }
 }

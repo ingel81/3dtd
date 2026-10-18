@@ -25,7 +25,7 @@ import type { NominatimAddress } from '../services/location/geocoding.service';
   template: `
     <div class="wm-body">
       @if (stage.frame(); as frame) {
-        <app-osm-frame [place]="frame.place" [spawnsAt]="frame.spawnsAt" (back)="stage.frameBack()"
+        <app-osm-frame [place]="frame.place" [spawnsAt]="frame.spawnsAt" [backLink]="false" (back)="stage.frameBack()"
                        (done)="stage.frameDone($event.summary, $event.then)" />
       } @else {
         <p class="td-note">Maps made from OpenStreetMap streets. No map key needed.</p>

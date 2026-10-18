@@ -60,6 +60,7 @@ for (const name of ['name', 'size']) Input({ alias: name, isSignal: true } as In
 class TokenStub {
   readonly fromWorlds = input(false);
   readonly tokenSaved = output<void>();
+  readonly toMaps = output<void>();
 }
 for (const name of ['fromWorlds']) Input({ alias: name, isSignal: true } as Input)(TokenStub.prototype, name);
 
@@ -69,10 +70,11 @@ class SearchStub {}
 class FrameStub {
   readonly place = input<unknown>(null);
   readonly spawnsAt = input<unknown>([]);
+  readonly backLink = input(true);
   readonly back = output<void>();
   readonly done = output<unknown>();
 }
-for (const name of ['place', 'spawnsAt']) Input({ alias: name, isSignal: true } as Input)(FrameStub.prototype, name);
+for (const name of ['place', 'spawnsAt', 'backLink']) Input({ alias: name, isSignal: true } as Input)(FrameStub.prototype, name);
 @Component({ selector: 'app-settings-sections', standalone: true, template: '' })
 class SettingsStub {}
 @Component({ selector: 'app-extras-list', standalone: true, template: '' })
@@ -501,6 +503,111 @@ describe('Worlds stage', () => {
     await settle(f);
     expect(session.leaveParked).toHaveBeenCalledWith(false);
     expect(store.ids()).toEqual([]);
+  });
+
+  it('a run held in a wave asks before anything else starts (editor, a world, a coop room): Go on, Back to it, Cancel', async () => {
+    const f = await open({ key: true });
+    const stage = TestBed.inject(WorldsStageService);
+    const editMap = TestBed.inject(WorldChoiceService).editMap as ReturnType<typeof vi.fn>;
+    session.park({ ...held(true), keeps: 'wave-start' });
+    await settle(f);
+
+    // The map editor: asked, Cancel leaves everything as it was
+    el(f).querySelector<HTMLElement>('[data-entry="editor"]')!.click();
+    await settle(f);
+    expect(text(el(f).querySelector('.ws-confirm'))).toBe(
+      'Heilbronn | wave 4 is in the middle of its wave. Going on keeps it as it stood at the start of wave 4. Go on Back to Heilbronn Cancel');
+    button(f, 'Cancel').click();
+    await settle(f);
+    expect(editMap).not.toHaveBeenCalled();
+    expect(session.parked()).not.toBeNull();
+    // Go on: the editor opens (WorldChoiceService.editMap lets the held world go)
+    stage.editMap(null);
+    await settle(f);
+    button(f, 'Go on').click();
+    await settle(f);
+    expect(editMap).toHaveBeenCalledWith(null);
+
+    // Another world: a map of Built Worlds, a run with no autosave yet ends; Back to shows the held game
+    session.park({ ...held(true), keeps: 'nothing' });
+    stage.pick('maps', { kind: 'map', id: 'demo-valley', name: 'Demo Valley' });
+    stage.start('maps');
+    await settle(f);
+    expect(text(el(f).querySelector('.ws-confirm'))).toContain('It has no autosave yet: going on ends it.');
+    button(f, 'Back to Heilbronn').click();
+    await settle(f);
+    expect(session.parked()).toBeNull();
+    expect(opened).toEqual([]);
+
+    // A coop room by its code, the same question
+    session.park({ ...held(true), keeps: 'wave-start' });
+    stage.joinRoom('ABC123');
+    await settle(f);
+    button(f, 'Go on').click();
+    await settle(f);
+    expect(opened).toEqual([expect.objectContaining({ room: { code: 'ABC123', lane: null } })]);
+
+    // Between the waves the run stays as autosave: nothing to ask
+    opened.length = 0;
+    session.park({ ...held(true), keeps: 'all' });
+    stage.start('maps');
+    await settle(f);
+    expect(el(f).querySelector('.ws-confirm')).toBeNull();
+    expect(opened).toHaveLength(1);
+  });
+
+  it('a world held after its game over says so; Make map from the game goes back into it', async () => {
+    const f = await open({ key: true });
+    const stage = TestBed.inject(WorldsStageService);
+    session.park({ ...held(false), over: true });
+    await settle(f);
+    expect(text(el(f).querySelector('.ws-menu [role="menuitem"]'))).toBe('Back to Heilbronn Still loaded, the run is over');
+
+    // The frame of a map of the place, opened from the game (Make map): Back, Esc too, shows the game again
+    session.park(held(true));
+    stage.makeMapOf({ kind: 'place', hq: { lat: 49.14, lon: 9.22 }, spawns: [], name: 'Heilbronn' }, 'game');
+    await settle(f);
+    expect(stage.world()).toBe('osm');
+    esc();
+    await settle(f);
+    expect(stage.frame()).toBeNull();
+    expect(session.parked()).toBeNull();
+    expect(opened).toEqual([]);
+  });
+
+  it('keyboard: a world menu takes the focus on its first entry, Esc gives it back to that world\'s globe', async () => {
+    const f = await open({ key: true });
+    card(f, 'maps').focus();
+    card(f, 'maps').click();
+    await settle(f);
+    expect(el(f).querySelector('.ws-panel .wm-body')!.contains(document.activeElement)).toBe(true);
+    esc();
+    await settle(f);
+    expect(document.activeElement).toBe(card(f, 'maps'));
+  });
+
+  it('a world menu has its own Continue as first row, not again as a chip; the other worlds\' stay', async () => {
+    const f = await open({ key: true, slots: [heilbronn()] });
+    session.park({ world: 'maps', pick: { kind: 'map', id: 'demo-valley', name: 'Demo Valley' }, label: 'Demo Valley', wave: 3, run: true });
+    await settle(f);
+    card(f, 'maps').click();
+    await settle(f);
+    expect(text(el(f).querySelector('[data-stage-continue]'))).toBe('Continue Demo Valley | wave 3');
+    expect([...el(f).querySelectorAll('.ws-chip')].map((c) => c.getAttribute('data-chip'))).toEqual(['continue-real']);
+  });
+
+  it('the key screen\'s "Play the maps" over the globes opens the Built Worlds\' menu, a map picked, nothing loaded', async () => {
+    const f = await open();
+    const stage = TestBed.inject(WorldsStageService);
+    stage.openOverlay('key');
+    await settle(f);
+    stage.openMaps();
+    await settle(f);
+    expect(stage.overlay()).toBeNull();
+    expect(stage.view()).toBe('world');
+    expect(stage.world()).toBe('maps');
+    expect(stage.picks().maps).toMatchObject({ kind: 'map', id: 'mountain-pass' });
+    expect(opened).toEqual([]);
   });
 
   it('out of the map editor list (E219): to the menu it came from; a world left open for it closes into its menu', async () => {

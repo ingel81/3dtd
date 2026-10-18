@@ -116,7 +116,7 @@ describe('OSM world frame', () => {
     expect(doc.spawns.map((s) => s.name)).toEqual(names);
     expect(doc.meta.source).toMatchObject({ kind: 'osm', address: 'Miltenberg, Bayern' });
     expect(doc.meta.name).toBe('Miltenberg');
-    expect(root.textContent).toContain('is among your maps');
+    expect(root.textContent).toContain('is one of your Recent worlds');
 
     root.querySelector<HTMLButtonElement>('[data-test=osm-play]')!.click();
     expect(done).toEqual([{ summary: expect.objectContaining({ id: 'osm-miltenberg' }), then: 'play' }]);

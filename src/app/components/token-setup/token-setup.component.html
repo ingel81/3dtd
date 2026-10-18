@@ -110,10 +110,10 @@
   </p>
   </div>
 
-  @if (dismissible() && !fromWorlds()) {
+  @if (!fromWorlds()) {
     <footer class="td-dlg-foot">
       <button class="td-btn-secondary token-back" type="button" (click)="dismiss()">
-        {{ fromWorlds() ? 'Back to the worlds' : 'Back to the game' }}
+        {{ dismissible() ? 'Back to the game' : 'Back to the worlds' }}
         <kbd class="td-kbd">Esc</kbd>
       </button>
     </footer>

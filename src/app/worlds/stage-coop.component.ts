@@ -3,8 +3,7 @@ import { CoopAppHintComponent } from '../components/main-menu/pages/coop/coop-ap
 import { CoopWaysComponent } from '../components/main-menu/pages/coop/coop-ways.component';
 import { coopAccess } from '../coop/coop-access';
 import { readDesktopBridge } from '../core/desktop-bridge';
-import { WorldSession } from '../world/world-session.service';
-import { PLAIN_START } from '../world/world-start';
+import { WorldsStageService } from './worlds-stage.service';
 
 /**
  * Coop on the globes (docs/WORLDS_NAVIGATION_PLAN.md, 3.1): the same page as
@@ -27,11 +26,11 @@ import { PLAIN_START } from '../world/world-start';
   `,
 })
 export class StageCoopComponent {
-  private readonly session = inject(WorldSession);
+  private readonly stage = inject(WorldsStageService);
   readonly access = coopAccess(readDesktopBridge() !== null, typeof location === 'undefined' ? '' : location.hostname, isDevMode());
 
-  /** A code opens the game on the room, as an invite link does (the room's map follows the host) */
+  /** A code opens the game on the room, as an invite link does (the room's map follows the host); a run held in a wave asks first */
   join(code: string): void {
-    this.session.open({ ...PLAIN_START, room: { code, lane: null } });
+    this.stage.joinRoom(code);
   }
 }

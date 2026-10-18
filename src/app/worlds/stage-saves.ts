@@ -6,6 +6,8 @@ import { SaveGame } from '../services/save-game/save-game';
 import type { LoadResult, SaveGamePort, SaveResult, SaveSlotInfo, StartPlace } from '../services/save-game/save-game.port';
 import type { SaveSlotStore } from '../services/save-game/save-slot.store';
 
+const NO_IMPORT = "A save file loads into a world's game: start one, then Load game in its menu (Esc).";
+
 /**
  * The save slots as the globes see them (docs/WORLDS_NAVIGATION_PLAN.md, 3.1):
  * no game is loaded, so nothing saves, and loading a slot opens its world
@@ -67,8 +69,11 @@ export class StageSaves implements SaveGamePort {
   }
 
   importFile(): Promise<LoadResult> {
-    return Promise.resolve({ ok: false, reason: "A save file loads into a world's game: start one, then Load game in its menu (Esc)." });
+    return Promise.resolve({ ok: false, reason: NO_IMPORT });
   }
+
+  /** Said under Load from a file before a file is picked: the globes have no game to load it into */
+  readonly cannotImportReason: Signal<string | null> = signal(NO_IMPORT);
 
   continueAutosave(): Promise<LoadResult> {
     return this.load('autosave');

@@ -8,7 +8,7 @@ import { shortPlaceName } from '../services/save-game/slot-name';
 import { readJson, writeJson } from '../utils/storage';
 import { CUSTOM_MAPS_OPEN } from '../world/custom-maps-open';
 import type { MapSummary } from '../world/custom-map/map-store';
-import { WorldChoiceService, type MapChoice } from '../world/world-choice.service';
+import { FIRST_MAP_ID, WorldChoiceService, type MapChoice } from '../world/world-choice.service';
 import type { WorldRef } from '../world/world-ref';
 import { WorldSession, type ParkedWorld } from '../world/world-session.service';
 import { AppScreen } from '../world/app-screen.service';
@@ -146,7 +146,7 @@ export class WorldsStageService {
   readonly confirm = signal<StageConfirm | null>(null);
   /** The OpenStreetMap frame open in that world's menu, and the world it came from */
   readonly frame = signal<OsmFrameRequest | null>(null);
-  private readonly frameFrom = signal<WorldId>('osm');
+  private readonly frameFrom = signal<WorldId | 'game'>('osm');
   /** Own, received and shipped maps, filled when a world of maps shows */
   readonly maps = signal<readonly StageMap[]>([]);
   /** The Built Worlds' Recent: the maps played lately, newest first (recent-maps.ts) */
@@ -270,7 +270,7 @@ export class WorldsStageService {
       const own = run && held.pick && run.pick && samePick(run.pick, held.pick) ? run : null;
       return held.run
         ? { world, kind: 'ready', label: 'Continue', line: `${held.label} | wave ${held.wave}`, run: own ?? this.heldRun(held) }
-        : { world, kind: 'back', label: `Back to ${held.label}`, line: 'Still loaded, no run yet', run: null };
+        : { world, kind: 'back', label: `Back to ${held.label}`, line: held.over ? 'Still loaded, the run is over' : 'Still loaded, no run yet', run: null };
     }
     return run ? { world, kind: 'saved', label: 'Continue', line: `${run.name} | wave ${run.wave}`, run } : null;
   }
@@ -311,7 +311,7 @@ export class WorldsStageService {
   /** A chip of pathChips was clicked: its Continue, or the editor on the map open in it */
   goChip(id: string): void {
     if (id === 'editor') {
-      this.worlds.editMap(null);
+      this.editMap(null);
       return;
     }
     const go = this.continues().find((c) => `continue-${c.world}` === id);
@@ -321,12 +321,17 @@ export class WorldsStageService {
   /** Go on with it: the world held shows at once, a saved run loads */
   resume(item: StageContinue): void {
     if (item.kind !== 'saved') {
-      this.confirm.set(null);
-      this.overlay.set(null);
-      this.session.unpark();
+      this.showHeld();
       return;
     }
     if (item.run) this.continueRun(item.run);
+  }
+
+  /** The world held behind the globes in front again, at once */
+  private showHeld(): void {
+    this.confirm.set(null);
+    this.overlay.set(null);
+    this.session.unpark();
   }
 
   /** Discard its run, asked first */
@@ -342,6 +347,13 @@ export class WorldsStageService {
     this.notice.set(null);
     this.recentMaps.set(loadRecentMaps());
     if (world !== 'real') void this.refreshMaps();
+  }
+
+  /** The Built Worlds' menu from the key screen ("No key? The maps"), the first map picked unless one is: Play loads it */
+  openMaps(): void {
+    this.closeOverlay();
+    if (this.picks().maps) this.openWorld('maps');
+    else this.pickMap({ kind: 'map', id: FIRST_MAP_ID, name: FIRST_MAP_ID });
   }
 
   toGlobes(): void {
@@ -535,12 +547,28 @@ export class WorldsStageService {
       this.notice.set(why);
       return;
     }
-    if (pick.kind === 'map') this.worlds.editMap(pick.id);
+    if (pick.kind === 'map') this.editMap(pick.id);
     else if (pick.kind === 'place') this.makeMapOf(pick, world);
   }
 
-  /** The OpenStreetMap frame on a real place, with its spawns */
-  makeMapOf(pick: Extract<WorldPick, { kind: 'place' }>, from: WorldId = this.world()): void {
+  /** The map editor on this map (null: its list); a run held in a wave asks first what of it stays */
+  editMap(mapId: string | null): void {
+    this.leavingHeld(() => this.worlds.editMap(mapId));
+  }
+
+  /** Join a coop room by its code: its world opens on the Coop page; a run held in a wave asks first */
+  joinRoom(code: string): void {
+    this.leavingHeld(() => {
+      this.overlay.set(null);
+      this.session.open({ ...PLAIN_START, room: { code, lane: null } });
+    });
+  }
+
+  /**
+   * The OpenStreetMap frame on a real place, with its spawns; `from` is where
+   * Back goes: a world's menu, or the game held behind the globes (Make map)
+   */
+  makeMapOf(pick: Extract<WorldPick, { kind: 'place' }>, from: WorldId | 'game' = this.world()): void {
     this.frameFrom.set(from);
     this.frame.set({
       place: { lat: pick.hq.lat, lon: pick.hq.lon, name: placeLabel(pick.name), address: pick.name },
@@ -556,7 +584,7 @@ export class WorldsStageService {
     this.pick('osm', pick);
     void this.refreshMaps().then(() => this.pruneWorlds());
     if (then === 'play') this.go('osm', pick);
-    else this.worlds.editMap(summary.id);
+    else this.editMap(summary.id);
   }
 
   /** Recent worlds keep ten: the oldest beyond go to the editor's trash, but none a run plays on (decision 3, 4) */
@@ -599,10 +627,13 @@ export class WorldsStageService {
     this.recentMaps.set(forgetRecentMap(id));
   }
 
-  /** Out of the frame, back to where it was opened */
+  /** Out of the frame, back to where it was opened: a world's menu, or the game it was made from (plan 3.3) */
   frameBack(): void {
     this.frame.set(null);
-    this.openWorld(this.frameFrom());
+    const from = this.frameFrom();
+    // Under the game the real places' menu stands, as All worlds would leave it
+    this.openWorld(from === 'game' ? 'real' : from);
+    if (from === 'game') this.session.unpark();
   }
 
   /** The world dice: a random city with 3D tiles is picked (Start loads it) */
@@ -717,9 +748,38 @@ export class WorldsStageService {
   private open(world: WorldId, order: WorldStart): void {
     this.confirm.set(null);
     this.notice.set(null);
-    this.lastPlayed.set(world);
-    writeJson(LAST_WORLD_KEY, world);
-    this.session.open(order);
+    this.leavingHeld(() => {
+      this.lastPlayed.set(world);
+      writeJson(LAST_WORLD_KEY, world);
+      this.session.open(order);
+    });
+  }
+
+  /**
+   * Something else starts (a world, the editor, a coop room) and the world
+   * held behind the globes goes with it (WorldSession.leaveParked): between
+   * the waves its run stays as autosave, nothing to ask. A run held in a
+   * wave keeps only the autosave of that wave's start, or nothing without
+   * one: asked first, with the way back to it.
+   */
+  private leavingHeld(go: () => void): void {
+    const held = this.session.parked();
+    const keeps = held?.run ? (held.keeps ?? 'all') : 'all';
+    if (!held || keeps === 'all') {
+      go();
+      return;
+    }
+    this.confirm.set({
+      text: `${held.label} | wave ${held.wave} is in the middle of its wave.`,
+      note: keeps === 'wave-start'
+        ? `Going on keeps it as it stood at the start of wave ${held.wave}.`
+        : 'It has no autosave yet: going on ends it.',
+      answers: [
+        { label: 'Go on', primary: true, run: go },
+        { label: `Back to ${held.label}`, run: () => this.showHeld() },
+        { label: 'Cancel', run: () => undefined },
+      ],
+    });
   }
 
   private runOf(slot: SaveSlotInfo): AutosaveRun | null {

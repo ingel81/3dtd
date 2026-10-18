@@ -77,7 +77,7 @@ const PAGE_OF: Partial<Record<HomeEntryId, MenuPage>> = {
 /**
  * The menu's list (docs/MAIN_MENU_UI_PLAN.md, Menü 4). In the start layer:
  * Continue (an autosave, or a run loaded), Play (the place behind the menu),
- * New game, Coop, Save (with a run), Load, Settings, Extras, Quit in the app.
+ * New game, Coop, Save (with a run), Load, Settings, Extras, World menu and All worlds, Quit in the app.
  * In the pause layer: Continue back to the game, Save, Load, Settings,
  * Extras, and below the line New game, Coop, Edit this map (a custom map), Restart here, Quit. Not in a
  * coop game: Save, Load, Restart, New game (the map is the room's).
@@ -138,10 +138,10 @@ export class MenuHomeComponent {
     });
   }
 
-  /** What the run loaded here is: "Heilbronn | wave 12" */
+  /** What the run loaded here is: "Heilbronn | wave 12", the wave as its Continue and its saves name it */
   readonly runLine = computed(() => {
     const place = this.menu.placeName();
-    const wave = Math.max(1, this.store.waveNumber());
+    const wave = this.menu.runWave();
     return place ? `${place} | wave ${wave}` : `wave ${wave}`;
   });
 
@@ -152,18 +152,24 @@ export class MenuHomeComponent {
       ({ id, label, sub, below, loads });
     const list: HomeEntry[] = [];
 
+    // Back to the worlds: the game is held behind them (docs/WORLDS_STATE_PLAN.md, 3.7); in a coop room locked with why
+    const leaveWhy = menu.leaveWhy();
+    const leave = [
+      { ...entry('world-menu', 'World menu', leaveWhy ?? menu.worldMenuLabel(), true), why: leaveWhy },
+      { ...entry('worlds', 'All worlds', leaveWhy, true), why: leaveWhy },
+    ];
+
     if (this.layer() === 'pause') {
       list.push(entry('continue', 'Continue'));
-      if (solo && menu.underWay()) list.push(entry('save', 'Save game'));
+      // A run lost keeps Save in its place, locked with why: nothing of it goes on
+      const saveWhy = this.store.isGameOver() ? 'The run is over' : null;
+      if (solo && menu.underWay()) list.push({ ...entry('save', 'Save game', saveWhy), why: saveWhy });
       if (solo) list.push(entry('load', 'Load game'));
       list.push(entry('settings', 'Settings'), entry('extras', 'Extras'));
       if (menu.canChangePlace()) list.push(entry('new-game', 'New game', null, true));
       list.push(entry('coop', 'Coop', null, true));
       if (menu.editableMapId() !== null) list.push({ ...entry('edit-map', menu.editMapLabel, menu.editWhy(), true), why: menu.editWhy() });
-      // Back to the worlds: the run waits in its autosave (docs/WORLDS_NAVIGATION_PLAN.md, 3.5)
-      const why = menu.leaveWhy();
-      list.push({ ...entry('world-menu', 'World menu', why ?? menu.worldMenuLabel(), true), why });
-      list.push({ ...entry('worlds', 'All worlds', why, true), why });
+      list.push(...leave);
       if (menu.canRestart()) list.push(entry('restart', 'Restart here', null, true));
       if (menu.canQuit) list.push(entry('quit', 'Quit 3DTD', null, true));
       return list;
@@ -193,12 +199,14 @@ export class MenuHomeComponent {
     list.push(entry('settings', 'Settings'), entry('extras', 'Extras'));
     const editWhy = this.mapsOpen ? menu.editWhy() : null;
     list.push({ ...entry('editor', 'Map editor', this.mapsOpen ? editWhy : 'Coming soon', true), off: !this.mapsOpen, why: editWhy });
+    // The way back to the globes from a world opened at once, which may never stand (a room that does not answer)
+    list.push(...leave);
     if (menu.canQuit) list.push(entry('quit', 'Quit 3DTD', null, true));
     return list;
   });
 
-  /** The head of the pause list: "Paused" left, the run's line right; in coop the game goes on */
-  readonly pauseWord = computed(() => (this.menu.inCoop() ? 'Coop' : 'Paused'));
+  /** The head of the pause list: "Paused" left, the run's line right; in coop the game goes on; a run lost is over */
+  readonly pauseWord = computed(() => (this.store.isGameOver() ? 'Game over' : this.menu.inCoop() ? 'Coop' : 'Paused'));
 
   /** The one entry that shows the loading: the one chosen, else the first that loads */
   private readonly loadingEntry = computed<HomeEntryId | null>(() => {

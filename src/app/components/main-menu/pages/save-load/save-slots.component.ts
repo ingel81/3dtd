@@ -57,6 +57,8 @@ export class SaveSlotsComponent {
   /** Loading replaces the run: between waves only, like saving */
   readonly canLoad = computed(() => !this.store.waveActive());
   readonly cannotLoadReason = computed(() => (this.canLoad() ? null : 'Loads between waves.'));
+  /** Why no file loads here at all, said before one is picked (the globes); null where one can */
+  readonly importWhy = computed(() => this.saves.cannotImportReason?.() ?? null);
 
   readonly saveRows = computed(() => saveSlotRows(this.saves.slots()));
   readonly loadRows = computed(() => loadSlotRows(this.saves.slots()));
@@ -100,7 +102,7 @@ export class SaveSlotsComponent {
 
   /** Load from a file: ask about the run under way, then pick the file */
   askImport(): void {
-    if (!this.canLoad()) return;
+    if (!this.canLoad() || this.importWhy()) return;
     if (this.underWay() && this.confirm()?.kind !== 'import') {
       this.ask({ kind: 'import' });
       return;

@@ -1,7 +1,8 @@
 /**
  * Playtest 161 of night 1 (docs/archive/REVIEW_SPRINT_2026-09-13.md) replayed:
  * "Map Key" opens the token screen, Esc closes it; with the key deleted and
- * the page reloaded, the token screen is back and Esc does not leave it.
+ * the page reloaded, the token screen is back and Esc does not go on into
+ * the game without tiles: it leaves the world for the globes.
  *
  * The real ConfigService with a production build's environment (no
  * credentials, mocked below) and jsdom's localStorage; the real
@@ -97,7 +98,7 @@ describe('Map Key and the token screen, playtest 161 (night 1) replayed', () => 
     expect(config.cesiumIonToken()).toBe('stored-token');
   });
 
-  it('with the key deleted and the page reloaded the screen is back, and Esc does not leave it', async () => {
+  it('with the key deleted and the page reloaded the screen is back, and Esc leaves for the globes, not into the game', async () => {
     config.setCredentials('cesium', 'stored-token');
     config.setupRequested.set(true);
     render();
@@ -106,10 +107,12 @@ describe('Map Key and the token screen, playtest 161 (night 1) replayed', () => 
     fixture.componentInstance.clear();
     fixture.detectChanges();
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
-    // Nothing to go back to any more: no way out, Esc included
-    expect(backButton()).toBeNull();
+    // No game to go back to any more: the way out is the globes, the world goes (never a game without tiles)
+    expect(backButton()?.textContent).toContain('Back to the worlds');
+    TestBed.inject(WorldSession).isOpen.set(true);
     pressEsc();
-    expect(config.setupRequested()).toBe(true);
+    expect(TestBed.inject(WorldSession).isOpen()).toBe(false);
+    expect(config.needsCredentials()).toBe(true);
 
     // Reload: a fresh ConfigService finds no key in the build, the file or the browser
     const reloaded = new ConfigService();
@@ -161,14 +164,17 @@ describe('Map Key and the token screen, playtest 161 (night 1) replayed', () => 
     }
   });
 
-  it('a first start without any key shows the screen, and Esc does not leave it', () => {
+  it('a game opened without any key (a room code, a link) shows the screen; Esc goes back to the worlds, not into the game', () => {
     expect(config.needsCredentials()).toBe(true);
     expect(screenShown(config, config.needsCredentials())).toBe(true);
+    const session = TestBed.inject(WorldSession);
+    session.isOpen.set(true);
     render();
-    expect(backButton()).toBeNull();
+    expect(fixture.componentInstance.dismissible()).toBe(false);
+    expect(backButton()?.textContent).toContain('Back to the worlds');
     pressEsc();
     expect(config.needsCredentials()).toBe(true);
-    expect(fixture.componentInstance.dismissible()).toBe(false);
+    expect(session.isOpen()).toBe(false);
   });
 
   it('is a modal dialog that holds the focus, named by its heading (review E92)', () => {

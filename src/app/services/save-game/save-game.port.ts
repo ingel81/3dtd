@@ -89,6 +89,8 @@ export interface SaveGamePort {
   exportFile(slotId: string): Promise<SaveResult>;
   /** Load a run from a file the player picked */
   importFile(file: File): Promise<LoadResult>;
+  /** Why no file can be loaded here at all (the globes: no world to load it into), shown before a file is picked */
+  readonly cannotImportReason?: Signal<string | null>;
   /** Load the autosave */
   continueAutosave(): Promise<LoadResult>;
   /** A new run starts here (Restart): its autosave goes to its world's slot again, not to the one it was loaded from */

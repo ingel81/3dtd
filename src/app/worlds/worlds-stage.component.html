@@ -136,7 +136,7 @@
   @if (stage.overlay(); as overlay) {
     @if (overlay === 'key') {
       <div class="ws-overlay td-backdrop">
-        <td-token-setup [fromWorlds]="true" (tokenSaved)="closeOverlay()" />
+        <td-token-setup [fromWorlds]="true" (tokenSaved)="closeOverlay()" (toMaps)="stage.openMaps()" />
       </div>
     } @else {
       <div class="ws-overlay td-backdrop">

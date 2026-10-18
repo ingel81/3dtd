@@ -23,6 +23,13 @@ export interface ParkedWorld {
   wave: number;
   /** A run is under way (a wave or a tower): Continue; else only Back to the place */
   run: boolean;
+  /**
+   * What of the run stays when the held world goes for something else (leaveParked): all of it between the
+   * waves (saved then), its autosave of the wave's start in a wave, nothing in a wave without one. Absent: all
+   */
+  keeps?: 'all' | 'wave-start' | 'nothing';
+  /** Its run was lost (game over): Back to shows the end, nothing goes on */
+  over?: boolean;
 }
 
 /**

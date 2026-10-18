@@ -1,7 +1,9 @@
 <section class="td-group of-head">
-  <button type="button" class="td-link td-inline" (click)="back.emit()" [disabled]="phase() === 'making'">
-    <td-icon name="caretL" [size]="12"></td-icon>Back
-  </button>
+  @if (backLink()) {
+    <button type="button" class="td-link td-inline" (click)="back.emit()" [disabled]="phase() === 'making'">
+      <td-icon name="caretL" [size]="12"></td-icon>Back
+    </button>
+  }
   <h3 class="td-section">A map of {{ place().name }}</h3>
   <p class="td-note">
     A {{ sideKm() }} km square with the HQ, made from OpenStreetMap and free height data. Enemies walk its streets as on
@@ -142,7 +144,7 @@
   @if (phase() === 'made') {
     @if (made(); as m) {
       <section class="td-group" role="status" data-test="osm-made">
-        <p class="td-text"><b>{{ m.summary.name }}</b> is among your maps: {{ reportLine(m.report) }}.</p>
+        <p class="td-text"><b>{{ m.summary.name }}</b> {{ context() === 'menu' ? 'is one of your Recent worlds' : 'is among your maps' }}: {{ reportLine(m.report) }}.</p>
         @if (m.report.warnings.length) {
           <ul class="td-stack of-warnings">
             @for (w of m.report.warnings; track w) {

@@ -60,6 +60,8 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
   /** Where the frame stands: the menu offers Play and Edit, the editor opens the map */
   readonly context = input<'menu' | 'editor'>('menu');
 
+  /** Its own Back above the frame; off where the panel around it has one (the globes' world menu, Esc) */
+  readonly backLink = input(true);
   readonly back = output<void>();
   /** The map made and stored, and what the player wants with it */
   readonly done = output<{ summary: MapSummary; then: 'play' | 'edit' }>();

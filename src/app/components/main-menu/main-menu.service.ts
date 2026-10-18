@@ -25,7 +25,7 @@ import { PLAIN_START } from '../../world/world-start';
 import { WorldsStageService } from '../../worlds/worlds-stage.service';
 import { worldOfPage } from '../../world/world-of-page';
 import { recordRecentMap } from '../../worlds/recent-maps';
-import { autosaveSlotOf, type WorldId, type WorldPick } from '../../worlds/world-rules';
+import { autosaveSlotOf, samePick, type WorldId, type WorldPick } from '../../worlds/world-rules';
 import { whyNot } from '../../world/why-not';
 import { BackgroundMusicService } from '../../game-engine/background-music.service';
 
@@ -175,11 +175,16 @@ export class MainMenuService {
   }
 
   /**
-   * Off to another world's Continue (a chip of the path): the run here is kept as autosave first when it
-   * stands between the waves, then `go`; in a wave the autosave of its start stays its Continue
+   * Off to another world's Continue (a chip of the path): this game is held behind the globes first, as by
+   * All worlds, then `go`. Leaving the held game keeps its run as autosave between the waves; in a wave the
+   * globes ask first what of it stays (WorldsStageService). In a coop room the menu says why not.
    */
-  async goElsewhere(go: () => void): Promise<void> {
-    if (this.underWay() && !this.inCoop() && !this.store.isGameOver() && this.saves.canSave()) await this.saves.autosaveNow();
+  goElsewhere(go: () => void): void {
+    if (this.leaveWhy()) {
+      this.open();
+      return;
+    }
+    this.leaveTo('globes');
     go();
   }
 
@@ -485,7 +490,11 @@ export class MainMenuService {
    */
   loadAsk(slotId: string): { text: string; note: string } | null {
     const slot = this.saves.slots().find((s) => s.id === slotId);
-    return slot ? this.stage.loadAsk(slot) : null;
+    const ask = slot ? this.stage.loadAsk(slot) : null;
+    // The run that ends is the one on screen (its autosave is this world's): the Load page's own question says so
+    const here = this.pickOfPage();
+    if (ask?.run.world === this.worldOfPage() && ask.run.pick && here && samePick(ask.run.pick, here)) return null;
+    return ask;
   }
 
   /** The save plays on another world than this page's */
@@ -583,25 +592,37 @@ export class MainMenuService {
       : pick?.kind === 'place' ? pick : null;
     if (!place) return;
     this.stage.leaveGame(null, this.hold());
-    this.stage.makeMapOf(place, 'real');
+    this.stage.makeMapOf(place, 'game');
   }
 
   /**
    * What the globes hold of this game when it leaves for them (WorldSession.park); null for the editor's
-   * test, which is no run to hold and ends. The pause menu opens, so the game stays paused behind them.
+   * test, which is no run to hold and ends, and for a world still in front of its start list (a link, a
+   * room, a load that did not come): nothing to come back to, its place or map stays picked in its menu.
+   * The pause menu opens, so the game stays paused behind them.
    */
   private hold(): ParkedWorld | null {
-    if (this.fromEditor) return null;
+    if (this.fromEditor || (this.isOpen() && this.layer() === 'start')) return null;
     if (!this.isOpen()) this.open('home', 'pause');
     const pick = this.pickOfPage();
+    const when = this.runWhenEditing();
     return {
       world: this.worldOfPage(),
       pick,
       label: pick ? (pick.kind === 'place' ? shortPlaceName(pick.name) : pick.name) : (this.placeName() ?? 'this place'),
-      wave: Math.max(1, this.store.waveNumber() + (this.store.phase() === 'setup' ? 1 : 0)),
+      wave: this.runWave(),
       run: this.underWay() && !this.store.isGameOver(),
+      // Held, the game stands still: what a later leave keeps of the run is known now (the editor's rule)
+      keeps: when === 'wave-start' ? 'wave-start' : when === 'ends' ? 'nothing' : 'all',
+      over: this.store.isGameOver(),
     };
   }
+
+  /**
+   * The wave the run stands at, as every Continue, chip and save names it: the one under way, between the
+   * waves the next (a save holds the wave it goes on with), at game over the one lost
+   */
+  readonly runWave = computed(() => Math.max(1, this.store.waveNumber() + (this.store.phase() === 'setup' ? 1 : 0)));
 
   /**
    * The held game goes for good (another start, the editor, a coop room):

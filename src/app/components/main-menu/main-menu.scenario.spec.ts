@@ -256,7 +256,7 @@ describe('The main menu', () => {
       await setup();
 
       expect(el().querySelector('[role="tablist"]')).toBeNull();
-      expect(entries()).toEqual(['Continue', 'Play', 'New game', 'Coop', 'Load game', 'Settings', 'Extras', 'Map editor']);
+      expect(entries()).toEqual(['Continue', 'Play', 'New game', 'Coop', 'Load game', 'Settings', 'Extras', 'Map editor', 'World menu', 'All worlds']);
       expect(entry('continue')?.querySelector('.mh-sub')?.textContent).toBe('Ember Crater (copy) | wave 4');
       expect(text()).not.toContain('Binswangen');
     });
@@ -270,7 +270,7 @@ describe('The main menu', () => {
       await setup();
 
       expect(el().querySelector('[role="tablist"]')).toBeNull();
-      expect(entries()).toEqual(['Continue', 'Play', 'New game', 'Coop', 'Load game', 'Settings', 'Extras', 'Map editor']);
+      expect(entries()).toEqual(['Continue', 'Play', 'New game', 'Coop', 'Load game', 'Settings', 'Extras', 'Map editor', 'World menu', 'All worlds']);
       expect(entry('continue')?.querySelector('.mh-sub')?.textContent).toBe('Heilbronn | wave 12');
       expect(text()).not.toContain('Ember Crater');
     });
@@ -281,7 +281,7 @@ describe('The main menu', () => {
       await setup();
 
       expect(el().querySelector('[role="tablist"]')).toBeNull();
-      expect(entries()).toEqual(['Play', 'New game', 'Coop', 'Load game', 'Settings', 'Extras', 'Map editor']);
+      expect(entries()).toEqual(['Play', 'New game', 'Coop', 'Load game', 'Settings', 'Extras', 'Map editor', 'World menu', 'All worlds']);
     });
   });
 
@@ -290,10 +290,19 @@ describe('The main menu', () => {
       coordinator.awaitingStartChoice.set(true);
       await setup();
 
-      expect(entries()).toEqual(['New game', 'Coop', 'Load game', 'Settings', 'Extras', 'Map editor']);
+      expect(entries()).toEqual(['New game', 'Coop', 'Load game', 'Settings', 'Extras', 'Map editor', 'World menu', 'All worlds']);
       expect(el().querySelector('app-menu-loading')).toBeNull();
       // The map editor shows, not yet open
       expect(entry('editor')!.getAttribute('aria-disabled')).toBe('true');
+    });
+
+    it('leads back to the globes from a world that may never stand (a room that does not answer): nothing held', async () => {
+      coordinator.awaitingStartChoice.set(true);
+      await setup();
+      await click(entry('worlds'));
+      expect(stage.leaveGame).toHaveBeenCalledWith(null, null);
+      await click(entry('world-menu'));
+      expect(stage.leaveGame).toHaveBeenLastCalledWith({ world: 'real', pick: null }, null);
     });
 
     it('pages through the tips with the dots under the card, and leads its foot with Legal and Privacy (TODO E147, E148)', async () => {
@@ -732,7 +741,10 @@ describe('The main menu', () => {
       expect(document.activeElement).toBe(entry('coop'));
       await press('ArrowUp');
       await press('ArrowUp');
-      // Wraps to the last entry; the map editor, not yet open, is skipped
+      // Wraps to the last entry, the way back to the globes; the map editor, not yet open, is skipped
+      expect(document.activeElement).toBe(entry('worlds'));
+      await press('ArrowUp');
+      await press('ArrowUp');
       expect(document.activeElement).toBe(entry('extras'));
       expect(menu.page()).toBe('home');
     });
@@ -845,8 +857,73 @@ describe('The main menu', () => {
       await settle();
       menu.makeMapOf();
       expect(stage.leaveGame).toHaveBeenCalledWith(null, expect.objectContaining({ world: 'real', run: false }));
-      expect(stage.makeMapOf).toHaveBeenCalledWith(expect.objectContaining({ kind: 'place', hq: HEILBRONN }), 'real');
+      expect(stage.makeMapOf).toHaveBeenCalledWith(expect.objectContaining({ kind: 'place', hq: HEILBRONN }), 'game');
       // Held behind the globes, the pause menu keeps it paused
+      expect(ui.mainMenuOpen()).toBe(true);
+    });
+
+    it('names the run\'s wave as its Continue and its saves do: the next one between the waves, the one under way in a wave', async () => {
+      await setup('pause');
+      game.towerCount.set(2);
+      game.waveNumber.set(3);
+      await settle();
+      expect(el().querySelector('.mh-pause-place')?.textContent).toBe('Heilbronn | wave 4');
+      await click(entry('worlds'));
+      expect(stage.leaveGame).toHaveBeenLastCalledWith(null, expect.objectContaining({ wave: 4, run: true }));
+
+      // In a wave without an autosave of its start: what a later leave keeps is said with the hold
+      game.phase.set('wave');
+      await settle();
+      expect(el().querySelector('.mh-pause-place')?.textContent).toBe('Heilbronn | wave 3');
+      menu.leaveTo('globes');
+      expect(stage.leaveGame).toHaveBeenLastCalledWith(null, expect.objectContaining({ wave: 3, run: true, keeps: 'nothing' }));
+    });
+
+    it('a run lost: the head says Game over, Save stays in its place locked with why, the hold says it is over', async () => {
+      await setup('pause');
+      game.towerCount.set(2);
+      game.phase.set('gameover');
+      await settle();
+      expect(el().querySelector('.mh-pause-word')?.textContent).toBe('Game over');
+      expect(entry('save')!.getAttribute('aria-disabled')).toBe('true');
+      expect(entry('save')!.querySelector('.mh-sub')?.textContent).toBe('The run is over');
+      await click(entry('save'));
+      expect(menu.page()).toBe('home');
+      await click(entry('worlds'));
+      expect(stage.leaveGame).toHaveBeenCalledWith(null, expect.objectContaining({ run: false, over: true }));
+    });
+
+    it('Load of a save on this very map: the run on screen ends, asked as that, not as a run waiting elsewhere', async () => {
+      world.useCustomMap('demo-valley', 'Demo Valley');
+      await setup('pause');
+      const save: SaveSlotInfo = { ...autosaveAt(null, 'Demo Valley', 2), id: 'slot-1', autosave: false, world: 'maps', map: { id: 'demo-valley', name: 'Demo Valley' } };
+      saves.slots.set([save]);
+      const run = { slotId: AUTOSAVE_BUILT_SLOT, world: 'maps', pick: { kind: 'map', id: 'demo-valley', name: 'Demo Valley' }, name: 'Demo Valley', wave: 2, savedAt: '' };
+      stage.loadAsk.mockReturnValueOnce({ text: 'Demo Valley | wave 2 waits in Built Worlds.', note: '', run });
+      expect(menu.loadAsk('slot-1')).toBeNull();
+      // Another map's run in this world is one that waits: said so
+      stage.loadAsk.mockReturnValueOnce({ text: 'Bay | wave 5 waits in Built Worlds.', note: '', run: { ...run, pick: { kind: 'map', id: 'bay', name: 'Bay' } } });
+      expect(menu.loadAsk('slot-1')?.text).toBe('Bay | wave 5 waits in Built Worlds.');
+    });
+
+    it('a chip to another world\'s Continue holds this game first, the globes go on from there; in a coop room the menu says why', async () => {
+      await setup('pause');
+      game.towerCount.set(2);
+      menu.close();
+      await settle();
+      const go = vi.fn();
+      menu.goElsewhere(go);
+      expect(stage.leaveGame).toHaveBeenCalledWith(null, expect.objectContaining({ world: 'real', run: true }));
+      expect(stage.leaveGame.mock.invocationCallOrder[0]).toBeLessThan(go.mock.invocationCallOrder[0]);
+
+      stage.leaveGame.mockClear();
+      go.mockClear();
+      menu.close();
+      coop.room.set({ code: 'ABC123' });
+      await settle();
+      menu.goElsewhere(go);
+      expect(go).not.toHaveBeenCalled();
+      expect(stage.leaveGame).not.toHaveBeenCalled();
       expect(ui.mainMenuOpen()).toBe(true);
     });
 
@@ -997,7 +1074,7 @@ describe('The main menu', () => {
       delete (window as unknown as { desktop?: unknown }).desktop;
     });
 
-    it('game over, Main menu: New game and Restart here are there, New game opens its page', async () => {
+    it('game over, Menu: New game and Restart here are there, New game opens its page', async () => {
       await setup('pause');
       game.towerCount.set(4);
       game.phase.set('gameover');

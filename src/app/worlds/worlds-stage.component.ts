@@ -131,8 +131,11 @@ export class WorldsStageComponent {
     return pick ? (pick.kind === 'place' ? placeLabel(pick.name) : pick.name) : null;
   });
 
-  /** The path's chips: every world's Continue, the editor's map (WorldsStageService.pathChips) */
-  readonly chips = computed(() => this.stage.pathChips(null, true));
+  /**
+   * The path's chips: every world's Continue, the editor's map (WorldsStageService.pathChips); in a world's
+   * menu not its own, which is the menu's first row
+   */
+  readonly chips = computed(() => this.stage.pathChips(this.view() === 'world' ? this.world() : null, true));
 
   /** The other two worlds beside the big globe */
   readonly otherWorlds = computed(() => WORLD_IDS.filter((w) => w !== this.world()));
@@ -209,11 +212,14 @@ export class WorldsStageComponent {
     });
     inject(DestroyRef).onDestroy(() => this.stopGlobes());
 
-    // The focus as in the start menu: the first entry of the list, the first of a world's menu
+    // The focus as in the start menu: the first entry of the list, the first of a world's menu; back from a
+    // world's menu on its globe, where the keyboard left for it
+    let before: { view: 'globes' | 'world'; world: WorldId } | null = null;
     effect(() => {
-      this.view();
-      this.world();
-      untracked(() => afterNextRender(() => this.focusFirst(), { injector: this.injector }));
+      const now = { view: this.view(), world: this.world() };
+      const back = before?.view === 'world' && now.view === 'globes' ? before.world : null;
+      before = now;
+      untracked(() => afterNextRender(() => this.focusFirst(back), { injector: this.injector }));
     });
   }
 
@@ -261,7 +267,7 @@ export class WorldsStageComponent {
   /** The map editor in this window */
   openEditor(): void {
     if (this.stage.whyNot('edit', null)) return;
-    this.worlds.editMap(null);
+    this.stage.editMap(null);
   }
 
   closeOverlay(): void {
@@ -309,13 +315,14 @@ export class WorldsStageComponent {
     this.globes = null;
   }
 
-  private focusFirst(): void {
+  /** The first entry of the view; on the globes `card`'s globe instead, when one is named */
+  private focusFirst(card: WorldId | null = null): void {
     const active = document.activeElement;
     // A field or an overlay that holds the focus keeps it
     if (active instanceof HTMLElement && active !== document.body && this.host.contains(active) && active.matches('input, textarea')) return;
     const first = this.view() === 'globes'
-      ? this.host.querySelector<HTMLElement>('.ws-menu [role="menuitem"]')
-      : this.host.querySelector<HTMLElement>('.ws-panel .ws-body button, .ws-panel .ws-body input, .ws-panel .ws-body [tabindex="0"]');
+      ? this.host.querySelector<HTMLElement>(card ? `.ws-card[data-world="${card}"]` : '.ws-menu [role="menuitem"]')
+      : this.host.querySelector<HTMLElement>('.ws-panel .wm-body button:not([tabindex="-1"]):not([disabled]), .ws-panel .wm-body input:not([disabled]), .ws-panel .wm-body [tabindex="0"]');
     if (first) focusQuietly(first, () => first.focus({ preventScroll: true }));
   }
 }

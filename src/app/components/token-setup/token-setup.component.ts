@@ -8,6 +8,7 @@ import { readDesktopBridge } from '../../core/desktop-bridge';
 import { FIRST_MAP_ID, WorldChoiceService } from '../../world/world-choice.service';
 import { CUSTOM_MAPS_OPEN } from '../../world/custom-maps-open';
 import { WorldStartService } from '../../world/world-start';
+import { WorldSession } from '../../world/world-session.service';
 
 /**
  * First-run screen that asks the player for their own tile credentials.
@@ -43,6 +44,7 @@ import { WorldStartService } from '../../world/world-start';
 export class TokenSetupComponent {
   readonly config = inject(ConfigService);
   private readonly worlds = inject(WorldChoiceService);
+  private readonly session = inject(WorldSession);
   /** The maps open; until their release "Play the maps" shows disabled */
   readonly mapsOpen = inject(CUSTOM_MAPS_OPEN);
   /** The coop room of the start order (an invite link's ?room=), to say why a key is asked for (review R8) */
@@ -53,6 +55,8 @@ export class TokenSetupComponent {
 
   /** Emitted once credentials are stored, so the caller can start the engine. */
   readonly tokenSaved = output<void>();
+  /** "Play the maps" over the globes: the Built Worlds' menu opens there, nothing loads yet */
+  readonly toMaps = output<void>();
 
   readonly provider = signal<'cesium' | 'google'>(this.config.tileProvider());
   readonly value = signal('');
@@ -64,10 +68,15 @@ export class TokenSetupComponent {
    */
   readonly fromWorlds = input(false);
 
-  /** A voluntary visit can be left again; a missing key cannot, unless the globes stand behind it. */
+  /** A voluntary visit can be left again, back to the game; so can the overlay of the globes. */
   readonly dismissible = computed(
     () => this.fromWorlds() || (this.config.setupRequested() && !this.config.needsCredentials())
   );
+  /**
+   * A game without a usable key (a room's code, a link, the key deleted) cannot go on: its way out is back to
+   * the globes, the world goes (WorldSession.close), never on into a game without tiles
+   */
+  readonly leavesWorld = computed(() => !this.dismissible());
 
   readonly testing = signal(false);
   readonly testResult = signal<{ ok: boolean; message: string } | null>(null);
@@ -111,13 +120,15 @@ export class TokenSetupComponent {
   playMaps(): void {
     if (!this.mapsOpen) return;
     this.config.setupRequested.set(false);
-    this.worlds.playMap(FIRST_MAP_ID);
+    // Over the globes nothing loads before Start: the Built Worlds' menu, whose Play asks what it must
+    if (this.fromWorlds()) this.toMaps.emit();
+    else this.worlds.playMap(FIRST_MAP_ID);
   }
 
   dismiss(): void {
-    // Ignored while credentials are missing, there is no game to go back to.
-    if (!this.dismissible()) return;
     this.config.setupRequested.set(false);
+    // No game to go back to without a key: the globes, where another world needs none
+    if (this.leavesWorld()) this.session.close();
   }
 
   clear(): void {
