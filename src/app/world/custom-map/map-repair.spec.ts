@@ -65,6 +65,16 @@ describe('soft map values (warn and set right)', () => {
     expect(repaired?.length).toBe(2);
   });
 
+  it('keeps a good sign and drops one that is no text and pictogram name', () => {
+    const doc = createMapDocument({ id: 'm', name: 'M', width: 64, depth: 64, starter: true, now: new Date(0) });
+    doc.objects.push({ id: 'a', asset: 'sign-facade', x: 0, y: 0, z: 3, rotation: 0, scale: 1, sign: { text: 'Bäckerei', icon: 'pretzel' } });
+    doc.objects.push({ id: 'b', asset: 'sign-facade', x: 2, y: 0, z: 3, rotation: 0, scale: 1, sign: { text: 7 } as never });
+    doc.objects.push({ id: 'c', asset: 'sign-facade', x: 4, y: 0, z: 3, rotation: 0, scale: 1, sign: { text: 'x'.repeat(40) } });
+    const { doc: read, repaired } = unpackMapFile(packMapFile(doc));
+    expect(repaired?.filter((r) => r.includes('sign'))).toHaveLength(2);
+    expect(read.objects.map((o) => o.sign)).toEqual([{ text: 'Bäckerei', icon: 'pretzel' }, undefined, undefined]);
+  });
+
   it('gives the corrected map its own content hash on loading, so a coop guest can confirm it', async () => {
     const backend = new MemoryMapBackend();
     const store = new MapStore({ backend, fetch: async () => new Response('', { status: 404 }), baseUrl: 'http://x/' });

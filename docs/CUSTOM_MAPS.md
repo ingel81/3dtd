@@ -622,6 +622,16 @@ Katalogeintrags `building-mass` (je Oberfläche ein Quadrat so breit wie eine Wi
 der Objektebene (`MapObjectLayer`) laufen sie über dieselben Aufrufe (Setzen, Ändern, Picken, Höhen); eine Änderung
 baut alle Bauten neu (wenige ms), eine Höhenänderung verschiebt nur die betroffenen Instanzen.
 
+**Schilder** (`sign-text.ts`, `sign-icons.ts`): ein Objekt mit `sign: { text?, icon? }` schreibt auf die Schildfläche
+seines Modells (Katalog `signPanel`: Mitte, Breite, Höhe im Modellrahmen, Blickrichtung, `sides: 2` für ein hängendes
+Schild, `ink`). Wort in der Spielschrift (Barlow Semi Condensed 700, höchstens 24 Zeichen) und Piktogramm (rund 40,
+von Hand mit wenigen Strichen gezeichnet, keine Marken) liegen als Masken in einem Atlas (R8, 1024 breit, höchstens
+2048 hoch, eine Zelle je Beschriftung und Flächenform), gezeichnet als instanzierte Quads 6 mm vor der Fläche: ein
+Draw Call für alle Schilder einer Karte; die Tafeln sind die Objekte selbst. Tinte aus `ink`, sonst dunkel auf hellem
+und hell auf dunklem Brett (die Farbe des Bretts ist das `tint` des Objekts). Die Schrift nimmt Licht, Schatten und
+Nebel wie das Brett und blendet zwischen 160 und 220 m aus. Flächen tragen `sign-facade`, `sign-bracket`,
+`shop-small` und `shop-office`; die Asset-Vorschau schreibt auf sie (`?sign=Wort,piktogramm`).
+
 ### Effekte und Lichter (`effects/`)
 
 Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `file: ''`, Kategorie `fx`):

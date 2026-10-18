@@ -16568,6 +16568,16 @@
       "randomRotation": false,
       "wind": 0,
       "drawDistance": 3000,
+      "signPanel": {
+        "at": [
+          -1.2,
+          3.6,
+          4.185
+        ],
+        "width": 5.0,
+        "height": 0.46,
+        "ink": "#1c1d1f"
+      },
       "tags": [
         "city",
         "village"
@@ -16839,6 +16849,16 @@
       "randomRotation": false,
       "wind": 0,
       "drawDistance": 3000,
+      "signPanel": {
+        "at": [
+          -1.8,
+          4.3,
+          5.055
+        ],
+        "width": 4.6,
+        "height": 0.46,
+        "ink": "#1c1d1f"
+      },
       "tags": [
         "city"
       ],
@@ -18189,6 +18209,15 @@
       "wind": 0,
       "drawDistance": 500,
       "aloft": true,
+      "signPanel": {
+        "at": [
+          0,
+          0.3,
+          0.05
+        ],
+        "width": 2.46,
+        "height": 0.48
+      },
       "tags": [
         "city",
         "village"
@@ -18213,6 +18242,22 @@
       "wind": 0,
       "drawDistance": 400,
       "aloft": true,
+      "signPanel": {
+        "at": [
+          0.015,
+          0.6,
+          0.67
+        ],
+        "width": 0.42,
+        "height": 0.42,
+        "normal": [
+          1,
+          0,
+          0
+        ],
+        "sides": 2,
+        "ink": "#d8b45e"
+      },
       "tags": [
         "city",
         "village",

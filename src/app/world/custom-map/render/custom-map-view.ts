@@ -42,6 +42,7 @@ import { setPlantSway, WIND_UNIFORMS } from './environment/wind';
 import { prepareFoamNoise } from './water/foam-noise';
 import { prepareLavaNoise } from './water/lava-noise';
 import { MapObjectLayer, type ObjectHit } from './objects/object-layer';
+import { fontsReady, SignLayer } from './objects/sign-text';
 import { IMPOSTOR_SUN } from './objects/impostor';
 import { BridgeLayer } from './paths/path-bridges';
 import type { RoadCover } from './paths/path-mask';
@@ -170,6 +171,8 @@ export class CustomMapView {
   private readonly objects: MapObjectLayer;
   /** The border's trees mirrored onto the apron (edge-trees.ts) */
   private readonly edgeTrees: MapObjectLayer;
+  /** The writing on the objects' signs (MapObject.sign), one draw call */
+  private readonly signs = new SignLayer();
   private edgeTreesDue: ReturnType<typeof setTimeout> | null = null;
   private readonly bridges: BridgeLayer;
   private readonly effects: EffectLayer;
@@ -273,6 +276,7 @@ export class CustomMapView {
       waterLevelAt: (x, y) => this.waterLevelAt(x, y),
     });
     this.group.add(this.objects.group);
+    this.group.add(this.signs.group);
     // The border's trees mirrored onto the apron: drawn only, their sight blockers in a group of the view's own,
     // not among the LOS blockers
     const edgeSight = new Group();
@@ -748,6 +752,7 @@ export class CustomMapView {
   updateHeights(rect?: MapRect): void {
     const apron = this.terrain.rebuild(rect ? this.gridRect(rect) : undefined);
     this.objects.refreshHeights(rect);
+    if (this.signs.count) void this.refreshSigns();
     // The openings sit where their objects sit
     if (this.cutObjects.length) this.refreshCuts();
     this.coverDirty = true;
@@ -959,7 +964,7 @@ export class CustomMapView {
    */
   setObjects(): Promise<void> {
     this.refreshHangingMovers();
-    return Promise.all([this.objects.setObjects(this.takeShown()), this.refreshEffects(), this.refreshContact(), this.refreshEdgeTrees()]).then(
+    return Promise.all([this.objects.setObjects(this.takeShown()), this.refreshEffects(), this.refreshSigns(), this.refreshContact(), this.refreshEdgeTrees()]).then(
       () => undefined,
     );
   }
@@ -1037,6 +1042,7 @@ export class CustomMapView {
     void this.refreshContact(objects);
     this.edgeTreesLater(objects);
     if (await this.hasEffects(objects)) void this.refreshEffects();
+    if (hasSigns(objects)) void this.refreshSigns();
     await shown;
   }
 
@@ -1047,6 +1053,7 @@ export class CustomMapView {
     void this.refreshContact(objects);
     this.edgeTreesLater(objects);
     void this.hasEffects(objects).then((has) => (has ? this.refreshEffects() : undefined));
+    if (hasSigns(objects)) void this.refreshSigns();
   }
 
   /**
@@ -1065,6 +1072,7 @@ export class CustomMapView {
     }
     const all = [...before, ...objects];
     void this.hasEffects(all).then((has) => (has ? this.refreshEffects() : undefined));
+    if (hasSigns(all)) void this.refreshSigns();
     void this.refreshContact(all);
     this.edgeTreesLater(all);
   }
@@ -1464,6 +1472,13 @@ export class CustomMapView {
   }
 
   /** Whether any of the objects has effects or a light */
+  /** Writes the shown objects' signs anew, once the catalogue and the game's font are in */
+  private async refreshSigns(): Promise<void> {
+    const [catalog] = await Promise.all([this.assets.catalog(), fontsReady()]);
+    if (this.disposed) return;
+    this.signs.set(this.shownObjects(), catalog, (x, y) => this.heights.heightAt(x, y), (x, y) => this.waterLevelAt(x, y));
+  }
+
   private async hasEffects(objects: MapObject[]): Promise<boolean> {
     const catalog = await this.assets.catalog();
     const assets = new Set(objects.map((o) => o.asset));
@@ -1639,6 +1654,7 @@ export class CustomMapView {
     for (const w of this.waters) w?.dispose();
     for (const r of this.rivers) r.dispose();
     this.effects.dispose();
+    this.signs.dispose();
     this.movers.dispose();
     this.haze.dispose();
     WIND_UNIFORMS.uClothWave.value = 0;
@@ -1686,6 +1702,7 @@ export class CustomMapView {
       this.objects.setObjects(this.takeShown()),
       this.refreshEdgeTrees(),
       this.refreshEffects(),
+      this.refreshSigns(),
       this.refreshMovers(),
       this.refreshContact(),
       this.bridges.set(this.doc.paths, this.doc.terrain),
@@ -1712,4 +1729,9 @@ function effectsOfQuality(q: CustomMapQuality): Partial<MapEffects> {
 /** A mover hanging from a line (a gondola), which rides the cables placed under its route */
 function hangs(a: MapLifeArea): boolean {
   return a.kind === 'movers' && a.height !== undefined;
+}
+
+/** Whether any of `objects` writes a sign */
+function hasSigns(objects: readonly MapObject[]): boolean {
+  return objects.some((o) => !!o.sign);
 }

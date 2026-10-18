@@ -11,6 +11,7 @@ import {
   MAP_WEATHERS,
   MASS_ASSET,
   MAX_MAP_PREFABS,
+  MAX_SIGN_TEXT,
   WAVE_EVENT_LIMITS,
   isTypedArray,
   type CustomMapDocument,
@@ -269,6 +270,10 @@ function objectRepairs(doc: CustomMapDocument, fix: boolean, out: MapProblem[]):
       out.push({ text: `object ${o.id}: tint ${String(o.tint)} is no #rrggbb colour; it shows untinted`, part: 'objects', at });
       if (fix) delete o.tint;
     }
+    if (o.sign !== undefined && !goodSign(o.sign)) {
+      out.push({ text: `object ${o.id}: its sign is not a text of at most ${MAX_SIGN_TEXT} characters and a pictogram name; it shows none`, part: 'objects', at });
+      if (fix) delete o.sign;
+    }
     return true;
   });
   if (kept.length > MAX_MAP_OBJECTS) {
@@ -276,6 +281,13 @@ function objectRepairs(doc: CustomMapDocument, fix: boolean, out: MapProblem[]):
     kept.length = MAX_MAP_OBJECTS;
   }
   if (fix && kept.length !== doc.objects.length) doc.objects = kept;
+}
+
+/** A sign of text and pictogram name, both optional strings, the text not longer than MAX_SIGN_TEXT */
+function goodSign(sign: unknown): boolean {
+  if (!isObject(sign)) return false;
+  const { text, icon } = sign;
+  return (text === undefined || (typeof text === 'string' && text.length <= MAX_SIGN_TEXT)) && (icon === undefined || (typeof icon === 'string' && icon.length <= 32));
 }
 
 /** Why object `o` cannot stand in a map, in words; null when it can. `ids`: the ids of the objects kept before it */

@@ -210,6 +210,13 @@ export interface MapObject {
   blocksLos?: boolean;
   blocksBuild?: boolean;
   tint?: string;
+  /**
+   * What a sign shows on the model's sign panel (catalogue `signPanel`): a
+   * word in the game's font and a pictogram (render/objects/sign-icons.ts),
+   * drawn by render/objects/sign-text.ts. A model without a panel shows
+   * nothing; only drawn, the game ignores it
+   */
+  sign?: MapSign;
   /** Objects with the same group are picked and moved together in the editor; the game ignores it */
   group?: string;
   /**
@@ -289,6 +296,17 @@ export interface MapSurface {
   /** Moved with the objects of the same group in the editor (an OSM world's `osm-a<id>`) */
   group?: string;
 }
+
+/** The writing of a sign: either or both */
+export interface MapSign {
+  /** At most MAX_SIGN_TEXT characters */
+  text?: string;
+  /** A pictogram's id (SIGN_ICONS) */
+  icon?: string;
+}
+
+/** Characters a sign shows at most */
+export const MAX_SIGN_TEXT = 24;
 
 export type MapPathKind = 'road' | 'path' | 'bridge';
 

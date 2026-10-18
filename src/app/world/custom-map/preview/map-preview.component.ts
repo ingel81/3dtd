@@ -134,6 +134,7 @@ export class MapPreviewComponent implements OnDestroy {
             tag: showcase,
             objects: assets,
             materials: showMaterials,
+            sign: params.has('sign') ? { text: params.get('sign')!.split(',')[0], icon: params.get('sign')!.split(',')[1] } : undefined,
           })
         : params.has('surfaces')
           ? createSurfaceShowcase()

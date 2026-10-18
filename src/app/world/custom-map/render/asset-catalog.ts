@@ -232,6 +232,25 @@ export interface CatalogObject {
   variants?: number;
   /** Lower detail models by camera distance */
   lod?: { file: string; distance: number; triangles?: number }[];
+  /** Where an object's `sign` is written on the model (render/objects/sign-text.ts) */
+  signPanel?: CatalogSignPanel;
+}
+
+/**
+ * The face of a model a sign is written on: a rectangle in the model's own
+ * frame (as the glTF holds it: metres at scale 1, +y up, front +z)
+ */
+export interface CatalogSignPanel {
+  /** Middle of the face, its width and height */
+  at: readonly [number, number, number];
+  width: number;
+  height: number;
+  /** The way it faces, a unit vector across the face (default front, [0, 0, 1]); its up is +y */
+  normal?: readonly [number, number, number];
+  /** Written on both faces (a hanging sign) */
+  sides?: 1 | 2;
+  /** #rrggbb of the writing; default dark on a light board, light on a dark one (from the object's tint) */
+  ink?: string;
 }
 
 export interface AssetCatalog {

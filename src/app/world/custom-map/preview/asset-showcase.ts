@@ -1,6 +1,6 @@
 import type { AssetCatalog, CatalogObject } from '../render/asset-catalog';
 import { createMapDocument } from '../map-create';
-import { MAX_GROUND_LAYERS, fitSplatMaps, type CustomMapDocument, type MapObject } from '../map-document';
+import { MAX_GROUND_LAYERS, fitSplatMaps, type CustomMapDocument, type MapObject, type MapSign } from '../map-document';
 
 export interface ShowcaseOptions {
   /** Ground materials as bands from west to east (at most 8, the splat limit) */
@@ -9,7 +9,17 @@ export interface ShowcaseOptions {
   objects?: string[];
   /** Instead of lists: every material and object carrying this tag */
   tag?: string;
+  /** What models with a sign panel write (`?sign=Bäckerei,pretzel`); default a few kinds of shop in turn */
+  sign?: MapSign;
 }
+
+/** Signs the showcase writes on models with a sign panel, in turn */
+const SHOWCASE_SIGNS: readonly MapSign[] = [
+  { text: 'Bäckerei', icon: 'pretzel' },
+  { text: 'Apotheke', icon: 'cross' },
+  { text: 'Gasthaus', icon: 'beer' },
+  { text: 'Boulangerie', icon: 'pretzel' },
+];
 
 const SIZE = 240;
 const ROW_WIDTH = 100;
@@ -49,6 +59,10 @@ export function createAssetShowcase(catalog: AssetCatalog, options: ShowcaseOpti
     }
   }
   doc.objects = layout(objectIds, catalog.objects);
+  let k = 0;
+  for (const o of doc.objects) {
+    if (catalog.objects.find((e) => e.id === o.asset)?.signPanel) o.sign = options.sign ?? SHOWCASE_SIGNS[k++ % SHOWCASE_SIGNS.length];
+  }
   return doc;
 }
 
