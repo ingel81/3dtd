@@ -130,6 +130,7 @@ function placeTowerProblem(c: Command): string | null {
     && !(Array.isArray(overhang) && overhang.length <= MAX_OVERHANG_PROBES && overhang.every((p) => integerIn(p, 0, 1000)))) {
     return 'plinth overhang';
   }
+  if (c['roof'] !== undefined && !bool(c['roof'])) return 'roof';
   return null;
 }
 

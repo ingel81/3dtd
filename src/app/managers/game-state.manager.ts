@@ -1805,7 +1805,10 @@ export class GameStateManager {
     customRotation = 0,
     plinthHeight = 0,
     plinthOverhang: readonly number[] = [],
+    /** It goes onto a roof: none where that building fell meanwhile (WorldDamage.roofFallen) */
+    roof = false,
   ): Tower | null {
+    if (roof && this.worldDamage.roofFallen(position)) return null;
     return this.towerLifecycle.place(position, typeId, customRotation, plinthHeight, plinthOverhang);
   }
 

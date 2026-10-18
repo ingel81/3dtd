@@ -313,6 +313,7 @@ export class BotSession {
             typeId: action.towerType,
             plinthHeight: footprint.plinthHeight,
             plinthOverhang: footprint.overhang,
+            ...(this.towerPlacement.onRoof(placement.lat, placement.lon) ? { roof: true } : {}),
           });
           this.signals.botStats.update(stats => ({
             towersPlaced: stats.towersPlaced + 1,

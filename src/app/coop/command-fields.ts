@@ -14,7 +14,7 @@
  * entry here fails the spec's type check.
  */
 export const COMMAND_FIELDS = {
-  'command:place-tower': ['position', 'typeId', 'rotation', 'plinthHeight', 'plinthOverhang'],
+  'command:place-tower': ['position', 'typeId', 'rotation', 'plinthHeight', 'plinthOverhang', 'roof'],
   'command:sell-tower': ['towerId'],
   'command:upgrade-tower': ['towerId', 'upgradeId'],
   'command:choose-path': ['towerId', 'pathId'],

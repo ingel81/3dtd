@@ -387,6 +387,17 @@ export class TowerPlacementService {
   // PREVIEW POSITION UPDATE
   // ========================================
 
+  /**
+   * The spot lies on the roof of a building that can fall (a destructible
+   * world's WorldSurface.roofAt, which there answers roofs only): the place
+   * command says so, and the simulation places nothing where it fell
+   */
+  onRoof(lat: number, lon: number): boolean {
+    if (!this.engine?.world?.capabilities.destructible) return false;
+    const local = this.engine.sync.geoToLocalSimple(lat, lon, 0);
+    return this.engine.terrain.roofAt(local.x, local.z) !== null;
+  }
+
   private resolvePlacementHeight(lat: number, lon: number, fallbackHeight: number): number {
     if (!this.engine) {
       return fallbackHeight;
@@ -878,6 +889,7 @@ export class TowerPlacementService {
       rotation: this.currentRotation(),
       plinthHeight: footprint.plinthHeight,
       plinthOverhang: footprint.overhang ?? [],
+      ...(this.onRoof(position.lat, position.lon) ? { roof: true } : {}),
     });
 
     // Exit build mode (the simulation places it)

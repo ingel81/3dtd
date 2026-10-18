@@ -135,8 +135,14 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   - Verschleiß (`gameplay.wear`): jede Sekunde Spielzeit nimmt jeder Gegner am Boden jedem Bauwerk in 6 m plus Radius
     1 HP, ein Boss 10. Je Durchgang eine Rasterabfrage je Gegner.
   - Debug: `debug:hit-structures` (im Koop ein Cheat).
-- **Dach mit Tower:** ein Bauwerk mit `roof` nimmt keinen Schaden, solange ein Tower in seinem Grundriss steht (ein
-  Tower am Boden kann dort nicht stehen, der Grundriss sperrt). Geprüft erst, wenn ein Treffer es erreicht.
+- **Dach mit Tower:** ein Bauwerk mit `roof` nimmt keinen Schaden, solange ein Tower auf seinem Dach steht: in seinem
+  Grundriss-Rechteck und bei einem Bau aus dem Grundriss (`MapObject.mass`, `RunStructure.mass`) in dessen Umriss, ein
+  Innenhof zählt nicht (`ringsContain`, nur `+ - * /`). Ein Tower am Boden kann dort nicht stehen, der Grundriss
+  sperrt. Geprüft erst, wenn ein Treffer es erreicht.
+- **Fall und Dachbefehl im selben Tick:** der Platzierbefehl sagt `roof: true`, wenn er auf ein Dach einer zerstörbaren
+  Welt zielt (`TowerPlacementService.onRoof`, auch der Bot). Ist das Gebäude unter diesem Dach gefallen, wenn der Befehl
+  wirkt, setzt die Simulation keinen Tower (`WorldDamage.roofFallen`); in der Reihenfolge der Befehle des Ticks, auf
+  jedem Client gleich. Ein Tower, der zuerst steht, hält sein Gebäude.
 - **Ops:** `structures.setStages(Uint8Array)` nach Laden, Neustart, Restore und Sprung (ein Byte je Bauwerk);
   `structures.stage(index, stufe)` je Stufenwechsel (höchstens drei je Bauwerk und Lauf); `main.structureFell` im
   Moment des Falls (flüchtig).

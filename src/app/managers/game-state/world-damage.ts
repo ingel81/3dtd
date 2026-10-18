@@ -238,6 +238,15 @@ export class WorldDamage {
     this.host.seeAround(this.structures.xOf(index), this.structures.yOf(index), s.radius);
   }
 
+  /**
+   * The roof at `at` belongs to a structure that has fallen: a tower
+   * ordered onto it (place-tower with `roof`) finds none, on every client
+   * in the same tick
+   */
+  roofFallen(at: GeoPosition): boolean {
+    return this.structures.fallenRoofAt(at.lon * MAP_METERS_PER_DEGREE, at.lat * MAP_METERS_PER_DEGREE);
+  }
+
   /** A tower stands on the roof of structure `index` */
   private carried(index: number): boolean {
     for (const tower of this.host.towers()) {

@@ -17,6 +17,11 @@ export type CommandEvent =
       plinthHeight?: number;
       /** Footprint probes the plinth hangs over a drop at (TowerFootprint.overhang), braced there; missing = none */
       plinthOverhang?: readonly number[];
+      /**
+       * It goes onto a roof (WorldSurface.roofAt): where that roof's building
+       * has fallen by the tick the command acts in, it is not placed
+       */
+      roof?: boolean;
     }
   | {
       type: 'command:sell-tower';

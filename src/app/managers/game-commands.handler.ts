@@ -208,6 +208,7 @@ export class GameCommandsHandler {
         event.rotation ?? 0,
         event.plinthHeight ?? 0,
         event.plinthOverhang ?? [],
+        event.roof === true,
       );
     });
 

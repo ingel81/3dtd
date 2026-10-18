@@ -1129,6 +1129,16 @@ describe('TowerPlacementService', () => {
       expect(overlay.children).toHaveLength(0);
     });
 
+    it("says in the command that the tower goes onto a roof, on a world whose buildings fall", async () => {
+      devTerrain = devWorld(() => 42);
+      init();
+      (engine as unknown as { world: unknown }).world = { capabilities: { destructible: true } };
+      await enterBuild('cannon');
+      hover(FREE, 5);
+      expect(service.handleBuildClick()).toBe(true);
+      expect(emit).toHaveBeenCalledWith(expect.objectContaining({ type: 'command:place-tower', roof: true }));
+    });
+
     it('refuses an invalid spot and stays in build mode', async () => {
       init();
       await enterBuild();

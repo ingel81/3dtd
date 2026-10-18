@@ -291,6 +291,38 @@ describe('SimCore in the same thread', () => {
     expect(drive.tick().ops.filter((op) => op[0] === 'structures.setStages')).toEqual([['structures.setStages', new Uint8Array([0])]]);
   });
 
+  it('places no tower on a roof whose building falls in the tick the order acts in, and keeps one placed first standing', () => {
+    const main = mainWorld();
+    const house = (id: string, east: number): RunStructure =>
+      ({ id, lat: 140 / M, lon: east / M, radius: 6, height: 9, hp: 200, roof: true, box: [east, 140, 5, 5, 0] });
+    const rules = { startCredits: 100, hqHealth: 500, towers: null, structures: [house('a', 30), house('b', -30)], start: null };
+    const world: SimWorld = {
+      ...main.world,
+      rules,
+      worldKey: worldKeyOf(main.grid.snapshotHeights(), main.world.paths.map(([, p]) => p), main.sync.getOrigin(), rules),
+    };
+    const run = () => {
+      const core = newCore(world);
+      const drive = new Driver(core);
+      drive.send({ type: 'debug:add-credits', amount: 5000 });
+      drive.tick();
+      const onRoof = (east: number) => ({ type: 'command:place-tower', typeId: 'archer', position: { lat: 141 / M, lon: (east + 1) / M, height: 9 }, roof: true });
+      // House a falls first, then the order for its roof acts: no tower; house b gets its tower first, then the hit
+      drive.send({ type: 'debug:hit-structures', lat: 140 / M, lon: 30 / M, reach: 0, amount: 1000 });
+      drive.send(onRoof(30));
+      drive.send(onRoof(-30));
+      drive.send({ type: 'debug:hit-structures', lat: 140 / M, lon: -30 / M, reach: 0, amount: 1000 });
+      drive.tick();
+      return core;
+    };
+    const core = run();
+    const towers = core.gsm.towerManager.getAll();
+    expect(towers.map((t) => Math.round(t.position.lon * M))).toEqual([-29]);
+    expect(core.gsm.worldDamage.structures.hpList()).toEqual([0, 200]);
+    // The same on another client
+    expect(run().gsm.stateHash()).toBe(core.gsm.stateHash());
+  });
+
   it('wrecks a destructible world in a wave and comes to the same in a replay, after a seek and from a save (docs/DESTRUCTION_PLAN.md)', () => {
     const mathRandom = Math.random;
     Math.random = mulberry32(SEED + 4);
