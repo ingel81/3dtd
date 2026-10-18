@@ -10,7 +10,7 @@ joins as the first entry of `src/app/world/osm/overpass-servers.ts` later (docs/
 | `overpass` | [wiktorn/overpass-api](https://github.com/wiktorn/Overpass-API) `v0.7.62.9`: the official Overpass sources (dispatcher, `osm3s_query`, nginx with FastCGI), no areas, no diffs |
 | `proxy` | `src/proxy.ts`, Node 24 without dependencies: CORS, limits per client, box check, caps, queue, statistics |
 | `status` | `src/status-main.ts`, the same image: the status page for the LAN |
-| `cloudflared` | The tunnel, the only way in from outside (compose profile `tunnel`) |
+| tunnel | The only way in from outside: the cloudflared that runs already for the coop lobby (`docker-compose.shared-tunnel.yml`), or one of its own (`cloudflared`, compose profile `tunnel`) |
 | `clone` | `clone/clone.sh`, run by hand: fills the database with a clone of dev.overpass-api.de |
 
 Overpass and the status page sit on an internal network without a way out; the proxy is on it and on the tunnel's
@@ -34,7 +34,7 @@ and covered by the repository's tests; the proxy only streams the answer through
 ## First start
 
 ```bash
-cp .env.example .env        # set OVERPASS_DATA, CLOUDFLARE_TUNNEL_TOKEN, STATUS_BIND
+cp .env.example .env        # set OVERPASS_DATA, TUNNEL_NETWORK, STATUS_BIND
 docker compose run --rm clone
 docker compose up -d
 ```
@@ -48,10 +48,16 @@ clone's minute diff) and marks the database complete (`init_done`). Overpass ref
 
 ## Tunnel
 
-In Cloudflare Zero Trust, Networks, Tunnels: create a tunnel (cloudflared, Docker), put its token into `.env` as
-`CLOUDFLARE_TUNNEL_TOKEN`, and add a public hostname: `3dtd-osm.sgeht.net`, service `HTTP`, URL `proxy:8080`. A name
-one level under the domain, so Cloudflare's free certificate covers it. With a cloudflared you run already, leave
-`tunnel` out of `COMPOSE_PROFILES` and put the proxy on that cloudflared's network in a `docker-compose.override.yml`.
+The tunnel that runs already for the coop lobby (coop-server/README.md) takes this host as well:
+
+1. `.env` as in `.env.example`: `COMPOSE_FILE=docker-compose.yml:docker-compose.shared-tunnel.yml` puts the proxy on
+   that cloudflared's network as well, named in `TUNNEL_NETWORK` (`tunnel` by default, as in the relay's example).
+2. In Cloudflare Zero Trust, Networks, Tunnels, the lobby's tunnel, Public Hostname, add: `3dtd-osm.sgeht.net`,
+   service `HTTP`, URL `3dtd-osm-proxy:8080` (the container's name). A name one level under the domain, so
+   Cloudflare's free certificate covers it.
+
+A tunnel of its own instead: `COMPOSE_FILE=docker-compose.yml`, `COMPOSE_PROFILES=tunnel`, the connector's token as
+`CLOUDFLARE_TUNNEL_TOKEN`, and the public hostname on that tunnel with the URL `proxy:8080`.
 
 The proxy takes the client's address from `CF-Connecting-IP` and its country from `CF-IPCountry` (`TRUST_CLOUDFLARE`).
 That is right only while nothing but the tunnel reaches the proxy: do not publish its port.

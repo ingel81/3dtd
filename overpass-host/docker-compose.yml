@@ -1,6 +1,7 @@
 # The own Overpass instance of 3DTD (README.md): Overpass with the planet's
 # current data, the proxy in front of it, the status page for the LAN, and the
-# Cloudflare tunnel that is its only way in from outside. Settings in .env
+# Cloudflare tunnel that is its only way in from outside: by default a cloudflared that runs already
+# (docker-compose.shared-tunnel.yml), or one of its own (profile tunnel, below). Settings in .env
 # (.env.example). First fill: docker compose run --rm clone, then docker compose up -d.
 name: 3dtd-osm
 
@@ -104,6 +105,7 @@ services:
     pids_limit: 100
     networks: [backend, lan]
 
+  # A tunnel of its own, instead of the shared one (COMPOSE_PROFILES=tunnel)
   cloudflared:
     <<: *hardened
     image: cloudflare/cloudflared:2026.9.3

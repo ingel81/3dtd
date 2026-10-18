@@ -1,0 +1,11 @@
+# The proxy on the network of a cloudflared container that runs already (the coop lobby's tunnel, README.md,
+# "Tunnel"). That tunnel gets a second public hostname, 3dtd-osm.sgeht.net -> http://3dtd-osm-proxy:8080.
+# Used through COMPOSE_FILE in .env (.env.example).
+services:
+  proxy:
+    networks: [backend, edge, tunnel]
+
+networks:
+  tunnel:
+    name: ${TUNNEL_NETWORK:-tunnel}
+    external: true
