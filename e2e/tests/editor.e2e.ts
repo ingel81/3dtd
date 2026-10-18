@@ -122,22 +122,22 @@ test('builds, checks, saves and reloads a map in the editor', async ({ page }, t
   await expect(page.locator('[data-test=roads]')).toHaveText(roadsSaved!);
   await shot(testInfo, page, 'reloaded');
 
-  // Back in the browser the map is listed with its picture; delete it
+  // Back in the Built Worlds' menu, the one list of maps, the map is listed with its picture; delete it
   await page.locator('[data-test=back]').click();
-  const row = page.locator('.mb-row', { hasText: name });
+  const row = page.locator('app-world-maps .wm-row', { hasText: name });
   await expect(row).toBeVisible();
   await expect(row.locator('img')).toBeVisible();
   await row.click();
   // Own maps go to the trash at once; from there they come back, or go for good
-  await page.getByRole('button', { name: 'Delete', exact: true }).first().click();
-  await expect(page.locator('.mb-row', { hasText: name })).toHaveCount(0);
-  const trashed = page.locator('.mb-trash', { hasText: name });
+  await page.locator('[data-test=delete-map]').click();
+  await expect(page.locator('app-world-maps .wm-row', { hasText: name })).toHaveCount(0);
+  const trashed = page.locator('[data-test=trash] [data-trash]', { hasText: name });
   await trashed.getByRole('button', { name: 'Restore' }).click();
-  await expect(page.locator('.mb-row', { hasText: name })).toHaveCount(1);
-  await page.locator('.mb-row', { hasText: name }).click();
-  await page.getByRole('button', { name: 'Delete', exact: true }).first().click();
+  await expect(page.locator('app-world-maps .wm-row', { hasText: name })).toHaveCount(1);
+  await page.locator('app-world-maps .wm-row', { hasText: name }).click();
+  await page.locator('[data-test=delete-map]').click();
   await trashed.getByRole('button', { name: 'Delete for good' }).click();
-  await trashed.getByRole('button', { name: 'Delete for good' }).click();
+  await page.locator('.ws-confirm').getByRole('button', { name: 'Delete for good' }).click();
   await expect(trashed).toHaveCount(0);
 });
 
@@ -201,11 +201,11 @@ test('makes a map from a template and uses the pro tools on it', async ({ page }
   await expect.poll(() => page.locator('[data-test=versions] .mp-version').count(), { timeout: 10_000 }).toBeGreaterThan(1);
 
   await page.locator('[data-test=back]').click();
-  const row = page.locator('.mb-row', { hasText: name });
+  const row = page.locator('app-world-maps .wm-row', { hasText: name });
   await row.click();
   // Own maps go to the trash at once
-  await page.getByRole('button', { name: 'Delete', exact: true }).first().click();
-  await expect(page.locator('.mb-row', { hasText: name })).toHaveCount(0);
+  await page.locator('[data-test=delete-map]').click();
+  await expect(page.locator('app-world-maps .wm-row', { hasText: name })).toHaveCount(0);
 });
 
 test("the check's bot test plays a fresh map in the same window and reports back", async ({ page }) => {
@@ -233,9 +233,9 @@ test("the check's bot test plays a fresh map in the same window and reports back
   await expect(page.locator('[data-test=bot-result]')).toContainText(/passed/i);
   expect(page.context().pages()).toHaveLength(1);
   await page.locator('[data-test=back]').click();
-  await page.locator('.mb-row', { hasText: name }).click();
+  await page.locator('app-world-maps .wm-row', { hasText: name }).click();
   // Own maps go to the trash at once
-  await page.getByRole('button', { name: 'Delete', exact: true }).first().click();
+  await page.locator('[data-test=delete-map]').click();
 });
 
 test('the first-run tour leads through the editor and comes back from the help', async ({ page }) => {
@@ -293,7 +293,7 @@ test('the first-run tour leads through the editor and comes back from the help',
   await expect(tour).toHaveAttribute('data-step', 'view');
   await tour.getByRole('button', { name: 'Skip the tour' }).click();
   await page.locator('[data-test=back]').click();
-  await page.locator('.mb-row', { hasText: name }).click();
+  await page.locator('app-world-maps .wm-row', { hasText: name }).click();
   // Own maps go to the trash at once
-  await page.getByRole('button', { name: 'Delete', exact: true }).first().click();
+  await page.locator('[data-test=delete-map]').click();
 });

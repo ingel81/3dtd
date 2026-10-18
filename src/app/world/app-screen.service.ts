@@ -39,6 +39,9 @@ export interface EditorTrial {
   result: MapTrialResult | null;
 }
 
+/** What the editor makes when it opens without a map: a new one's form, or files read in (the Built Worlds' menu) */
+export type EditorMake = { kind: 'new' } | { kind: 'import'; files: readonly File[] };
+
 /**
  * The game and the map editor in one window (docs/WORLDS_NAVIGATION_PLAN.md,
  * phase 4): which of the two shows (AppShellComponent), and what the editor
@@ -70,14 +73,21 @@ export class AppScreen {
     this.screen.set('editor');
   }
 
-  /** The editor's next showing starts a new map (New map in the Built Worlds' menu): its list on the form */
-  readonly newMapNext = signal(false);
+  /** What the editor's next showing makes (New map, Import file in the Built Worlds' menu), taken once */
+  private makeNext: EditorMake | null = null;
 
-  /** The editor in this window on a new map's form, the map open in it closed (saved) first */
-  openNewMap(): void {
+  /** The editor in this window making a map: a new one's form, or files read in; the map open in it closed (saved) first */
+  openMake(make: EditorMake): void {
     this.editorMap = null;
-    this.newMapNext.set(true);
+    this.makeNext = make;
     this.screen.set('editor');
+  }
+
+  /** What the editor was opened to make, once (the editor page asks when it comes) */
+  takeMake(): EditorMake | null {
+    const make = this.makeNext;
+    this.makeNext = null;
+    return make;
   }
 
   /** The map the editor was opened on, once (the editor page asks when it comes) */

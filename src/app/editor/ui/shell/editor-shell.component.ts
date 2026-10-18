@@ -663,7 +663,7 @@ export class EditorShellComponent implements OnDestroy, ActionHost {
     } else if (typeof action === 'object') {
       this.stage.goChip(action.chip);
     } else if (action === 'world') {
-      // The Built Worlds' menu, as the step means everywhere (the map list is the back button's), this map picked there
+      // The Built Worlds' menu, as the step means everywhere (the back button closes the map first), this map picked there
       const id = this.session.doc?.meta.id;
       const pick = id ? { kind: 'map' as const, id, name: this.title() } : null;
       void this.screens.showGame().then((shown) => shown && this.stage.leaveGame({ world: 'maps', pick }));

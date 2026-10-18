@@ -2,6 +2,8 @@ import { Injectable, InjectionToken, computed, inject } from '@angular/core';
 import { ConfigService } from '../core/services/config.service';
 import { readDesktopBridge } from '../core/desktop-bridge';
 import { MapStore, type MapSummary } from './custom-map/map-store';
+import { MAP_FILE_EXTENSION, packMapFile } from './custom-map/map-file';
+import { downloadBlob } from '../utils/download';
 import type { OwnTileset } from './tileset/own-tileset';
 import type { WorldRef } from './world-ref';
 import { PLAIN_START } from './world-start';
@@ -124,6 +126,27 @@ export class WorldChoiceService {
     this.session.open({ ...PLAIN_START, world, resume: slot.id, play: true, label: slot.map?.name ?? null });
   }
 
+  /** The trash: own maps deleted, waiting TRASH_DAYS (the Built Worlds' menu lists it) */
+  listTrash(): Promise<MapSummary[]> {
+    return this.store.listTrash().catch(() => []);
+  }
+
+  /** A copy of a map as an own one beside it; returns the copy's id */
+  async duplicateMap(id: string, origin: MapSummary['origin']): Promise<string> {
+    return (await this.store.duplicate(id, undefined, origin)).doc.meta.id;
+  }
+
+  /** A coop host's map gone for good (the host sends it again on joining the room) */
+  deleteShared(id: string): Promise<void> {
+    return this.store.delete(id);
+  }
+
+  /** A map as a .3dtdmap file to save */
+  async downloadMap(id: string, origin: MapSummary['origin']): Promise<void> {
+    const loaded = await this.store.load(id, origin);
+    downloadBlob(new Blob([packMapFile(loaded.doc, { preview: loaded.preview ?? undefined }) as Uint8Array<ArrayBuffer>], { type: 'application/zip' }), `${id}${MAP_FILE_EXTENSION}`);
+  }
+
   /** An own map to the editor's trash (an OpenStreetMap map off the Recent worlds); false when it did not go */
   async trashMap(id: string): Promise<boolean> {
     try {
@@ -141,7 +164,12 @@ export class WorldChoiceService {
 
   /** The map editor in this window on a new map's form */
   newMap(): void {
-    this.toEditor(() => this.screens.openNewMap());
+    this.toEditor(() => this.screens.openMake({ kind: 'new' }));
+  }
+
+  /** The map editor in this window reading files in (.3dtdmap, Warcraft maps): its import, then the map */
+  importMaps(files: readonly File[]): void {
+    this.toEditor(() => this.screens.openMake({ kind: 'import', files }));
   }
 
   /** A world held behind the globes goes first, its run kept as autosave (docs/WORLDS_STATE_PLAN.md, 3.5) */

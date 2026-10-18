@@ -8,6 +8,7 @@ import { shortPlaceName } from '../services/save-game/slot-name';
 import { readJson, writeJson } from '../utils/storage';
 import { CUSTOM_MAPS_OPEN } from '../world/custom-maps-open';
 import type { MapSummary } from '../world/custom-map/map-store';
+import type { MapLibrary } from '../editor/services/map-library';
 import { FIRST_MAP_ID, WorldChoiceService, type MapChoice } from '../world/world-choice.service';
 import type { WorldRef } from '../world/world-ref';
 import { WorldSession, type ParkedWorld } from '../world/world-session.service';
@@ -189,34 +190,14 @@ export class WorldsStageService {
   });
 
   /**
-   * Where the map editor goes back to when no run waits for it (E219), as its button names it: the world
-   * whose game left for the editor (with nothing under way, or the editor's test) to that world's menu;
-   * else the globes or the world menu the editor was opened from, which stand as they were
+   * Out of the map editor, once it let go (AppScreen.showGame): to the Built Worlds' menu with `to.pick`
+   * picked there (the map closed, or nothing), or to the globes (null). A world left open behind the
+   * editor (its test) closes, so it does not start again behind the player's back.
    */
-  readonly editorExit = computed(() => {
-    if (this.session.isOpen()) return `Back to ${WORLD_NAMES[this.worldOfOrder(this.startOrder.current())]}`;
-    return this.view() === 'world' ? `Back to ${WORLD_NAMES[this.world()]}` : 'Back to the worlds';
-  });
-
-  /**
-   * Out of the map editor to editorExit, once the game screen shows again (AppScreen.showGame): a world
-   * left open for the editor closes, its map or place picked in its world's menu, so the editor's test
-   * does not start again and the game of the world before is not made anew behind the player's back
-   */
-  leaveEditor(): void {
-    this.confirm.set(null);
-    this.overlay.set(null);
-    if (!this.session.isOpen()) return;
-    const order = this.startOrder.current();
-    this.frame.set(null);
-    this.session.close();
-    this.pickFromOrder(order);
-    if (!order.world && !order.place) this.openWorld('real');
-  }
-
-  /** The world of the globes a start order plays in: a map's by the list, else the real places */
-  private worldOfOrder(order: WorldStart): WorldId {
-    return order.world?.kind === 'custom-map' ? this.mapWorld(order.world.mapId) : 'real';
+  leaveEditorTo(to: { pick: WorldPick | null } | null): void {
+    void this.screens.showGame().then((shown) => {
+      if (shown) this.leaveGame(to ? { world: 'maps', pick: to.pick } : null);
+    });
   }
 
   /** The world that stands large on the globes */
@@ -561,6 +542,108 @@ export class WorldsStageService {
     this.leavingHeld(() => this.worlds.newMap());
   }
 
+  /** Files read in (.3dtdmap, Warcraft maps): the editor's import shows, then the map; asked first as editMap */
+  importMaps(files: readonly File[]): void {
+    if (files.length === 0) return;
+    this.leavingHeld(() => this.worlds.importMaps(files));
+  }
+
+  // ---- The Built Worlds' list: the one list of maps (docs/WORLDS_STATE_PLAN.md) ----
+
+  /** Own maps deleted, waiting TRASH_DAYS: the end of the Built Worlds' list */
+  readonly trash = signal<readonly MapSummary[]>([]);
+
+  /** The desktop app's map folder (its button at the own maps), null in a browser */
+  get mapFolder(): unknown {
+    return this.worlds.mapFolder;
+  }
+
+  revealMapFolder(): void {
+    this.worlds.revealMapFolder();
+  }
+
+  /** An own map deleted just now, for the line that can bring it back */
+  readonly trashed = signal<{ key: string; name: string } | null>(null);
+
+  /**
+   * The editor's map library, loaded the first time a map is deleted, restored or deleted for good: a
+   * map's kept versions go with it, and a map open in another tab is not deleted under it (MapLibrary)
+   */
+  private library: Promise<{ library: MapLibrary; error: () => string | null }> | null = null;
+  private lib(): Promise<{ library: MapLibrary; error: () => string | null }> {
+    this.library ??= Promise.all([import('../editor/services/map-library'), import('../editor/services/editor-notices')])
+      .then(([{ MapLibrary: Library }, { EditorNotices }]) => {
+        const notices = new EditorNotices();
+        return { library: new Library(notices), error: () => notices.error() };
+      });
+    return this.library;
+  }
+
+  /** A copy of a map as an own one, picked */
+  async duplicateMap(map: StageMap): Promise<void> {
+    const id = await this.worlds.duplicateMap(map.id, map.origin);
+    await this.refreshMaps();
+    this.pick('maps', { kind: 'map', id, name: this.maps().find((m) => m.id === id)?.name ?? map.name });
+  }
+
+  downloadMap(map: StageMap): void {
+    void this.worlds.downloadMap(map.id, map.origin);
+  }
+
+  /**
+   * Delete a map: an own one goes to the trash at once (Restore brings it back, the trash keeps it
+   * TRASH_DAYS); a coop host's goes for good after asking (the host sends it again); a shipped one stays
+   */
+  async deleteMap(map: StageMap): Promise<void> {
+    if (map.origin === 'shipped') return;
+    if (map.origin === 'shared') {
+      this.confirm.set({
+        text: `Delete ${map.name}?`,
+        note: 'The host sends it again when you join their room.',
+        answers: [
+          { label: 'Delete', primary: true, run: () => void this.worlds.deleteShared(map.id).then(() => this.afterDelete(map)) },
+          { label: 'Cancel', run: () => undefined },
+        ],
+      });
+      return;
+    }
+    const { library, error } = await this.lib();
+    const key = await library.deleteMap(map.id, map.name);
+    if (!key) {
+      this.notice.set(error() ?? `${map.name} was not deleted.`);
+      return;
+    }
+    this.trashed.set({ key, name: map.name });
+    await this.afterDelete(map);
+  }
+
+  private async afterDelete(map: StageMap): Promise<void> {
+    const pick = this.picks().maps;
+    if (pick?.kind === 'map' && pick.id === map.id) this.pick('maps', null);
+    await this.refreshMaps();
+  }
+
+  /** A map back from the trash, picked */
+  async restoreMap(key: string): Promise<void> {
+    const id = await (await this.lib()).library.restoreMap(key);
+    this.trashed.set(null);
+    await this.refreshMaps();
+    const map = this.maps().find((m) => m.id === id);
+    if (map) this.pick(worldOfMap(map), { kind: 'map', id, name: map.name });
+  }
+
+  /** A map out of the trash for good, asked first */
+  purgeMap(map: MapSummary): void {
+    this.confirm.set({
+      text: `Delete ${map.name} for good?`,
+      note: 'It cannot come back.',
+      answers: [
+        { label: 'Delete for good', primary: true, run: () => void this.lib().then(({ library }) => library.deleteForGood(map)).then(() => this.refreshMaps()) },
+        { label: 'Cancel', run: () => undefined },
+      ],
+    });
+  }
+
   /**
    * Join a coop room by its code: its world opens on the Coop page; a run held in a wave asks first.
    * Without a map key it asks before: the host's world is known only once joined, and a real place
@@ -703,9 +786,10 @@ export class WorldsStageService {
     return worldOfMap(this.maps().find((m) => m.id === id));
   }
 
-  /** Read the maps again (own ones change in the editor), and put an OpenStreetMap map's pick in its world */
+  /** Read the maps again (own ones change in the editor) and the trash, and put an OpenStreetMap map's pick in its world */
   async refreshMaps(): Promise<void> {
-    const choices = await this.worlds.listMaps().catch(() => null);
+    const [choices, trash] = await Promise.all([this.worlds.listMaps().catch(() => null), this.worlds.listTrash()]);
+    this.trash.set(trash);
     if (!choices) return;
     const of = (choice: MapChoice): StageMap => ({
       id: choice.summary.id,

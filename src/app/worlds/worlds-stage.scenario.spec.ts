@@ -168,6 +168,13 @@ describe('Worlds stage', () => {
             tilesets: signal([]),
             editMap: vi.fn(),
             newMap: vi.fn(),
+            importMaps: vi.fn(),
+            listTrash: async () => [],
+            downloadMap: vi.fn(async () => undefined),
+            duplicateMap: vi.fn(async () => 'bay-2'),
+            deleteShared: vi.fn(async () => undefined),
+            mapFolder: null,
+            revealMapFolder: vi.fn(),
             trashMap: (id: string) => trashMap(id),
           },
         },
@@ -515,7 +522,7 @@ describe('Worlds stage', () => {
     await settle(f);
 
     // The map editor: asked, Cancel leaves everything as it was
-    el(f).querySelector<HTMLElement>('[data-entry="editor"]')!.click();
+    stage.editMap('demo-valley');
     await settle(f);
     expect(text(el(f).querySelector('.ws-confirm'))).toBe(
       'Heilbronn | wave 4 is in the middle of its wave. Going on keeps it as it stood at the start of wave 4. Go on Back to Heilbronn Cancel');
@@ -524,11 +531,11 @@ describe('Worlds stage', () => {
     expect(editMap).not.toHaveBeenCalled();
     expect(session.parked()).not.toBeNull();
     // Go on: the editor opens (WorldChoiceService.editMap lets the held world go)
-    stage.editMap(null);
+    stage.editMap('demo-valley');
     await settle(f);
     button(f, 'Go on').click();
     await settle(f);
-    expect(editMap).toHaveBeenCalledWith(null);
+    expect(editMap).toHaveBeenCalledWith('demo-valley');
 
     // Another world: a map of Built Worlds, a run with no autosave yet ends; Back to shows the held game
     session.park({ ...held(true), keeps: 'nothing' });
@@ -667,55 +674,64 @@ describe('Worlds stage', () => {
     expect(opened).toEqual([]);
   });
 
-  it('out of the map editor list (E219): to the menu it came from; a world left open for it closes into its menu', async () => {
-    const order = signal<WorldStart>(PLAIN_START);
-    TestBed.overrideProvider(WorldStartService, { useValue: { current: order } });
+  it('out of the editor: the Built Worlds\u2019 menu with the map closed picked there, a world left open behind it closes', async () => {
     const f = await open({ key: true });
     const stage = TestBed.inject(WorldsStageService);
-    // Opened from the globes or a world menu: back there, as it stood
-    expect(stage.editorExit()).toBe('Back to the worlds');
-    stage.openWorld('maps');
-    expect(stage.editorExit()).toBe('Back to Built Worlds');
-    stage.leaveEditor();
-    expect(session.close).not.toHaveBeenCalled();
-    expect(stage.view()).toBe('world');
-    // The editor's test of a map stands open behind the editor: it closes, the map picked in its world's menu
-    stage.toGlobes();
-    order.set({ ...PLAIN_START, world: { kind: 'custom-map', mapId: 'demo-valley', contentHash: '' }, trial: { bot: null } });
     session.isOpen.set(true);
-    expect(stage.editorExit()).toBe('Back to Built Worlds');
-    stage.leaveEditor();
+    stage.leaveEditorTo({ pick: { kind: 'map', id: 'demo-valley', name: 'Demo Valley' } });
+    await settle(f);
     expect(session.close).toHaveBeenCalledTimes(1);
     expect(stage.view()).toBe('world');
     expect(stage.world()).toBe('maps');
     expect(stage.picks().maps).toMatchObject({ kind: 'map', id: 'demo-valley' });
-    // A real place left for the editor keeps the name it was picked by
-    const hq = { lat: 49.14, lon: 9.22 };
-    stage.pick('real', { kind: 'place', hq, spawns: [], name: 'Heilbronn' });
-    order.set({ ...PLAIN_START, place: { hq, spawns: [] } });
-    stage.toGlobes();
-    expect(stage.editorExit()).toBe('Back to Real places');
-    stage.leaveEditor();
-    expect(stage.world()).toBe('real');
-    expect(stage.picks().real).toMatchObject({ name: 'Heilbronn' });
-    await settle(f);
     expect(opened).toEqual([]);
+    // To all worlds: the globes
+    stage.leaveEditorTo(null);
+    await settle(f);
+    expect(stage.view()).toBe('globes');
   });
 
-  it('out of the map editor with a world joined by a coop link: the room is not joined again, the world closes into its menu', async () => {
-    // The editor is locked inside a coop room (MainMenuService.editWhy); a world whose start order names a room
-    // can still stand behind the editor once the room is left. The way back opens nothing, so no room is joined
-    const order = signal<WorldStart>({ ...PLAIN_START, world: { kind: 'custom-map', mapId: 'demo-valley', contentHash: '' }, room: { code: 'ABC123', lane: null } });
-    TestBed.overrideProvider(WorldStartService, { useValue: { current: order } });
-    await open({ key: true });
+  it('Map editor on the globes opens the Built Worlds\u2019 menu, the one list of maps; Import file hands its files to the editor', async () => {
+    const f = await open({ key: true });
+    const worlds = TestBed.inject(WorldChoiceService) as unknown as Record<string, ReturnType<typeof vi.fn>>;
+    el(f).querySelector<HTMLElement>('[data-entry="editor"]')!.click();
+    await settle(f);
+    expect(TestBed.inject(WorldsStageService).world()).toBe('maps');
+    expect(worlds['editMap']).not.toHaveBeenCalled();
+    const input = el(f).querySelector<HTMLInputElement>('[data-test="import-input"]')!;
+    const file = new File(['x'], 'bay.3dtdmap');
+    Object.defineProperty(input, 'files', { value: [file] });
+    input.dispatchEvent(new Event('change'));
+    await settle(f);
+    expect(worlds['importMaps']).toHaveBeenCalledWith([file]);
+  });
+
+  it('the picked map: Download, Duplicate (picked after), Delete to the trash with Restore; the trash lists it at the end', async () => {
+    own = [{ summary: summary({ id: 'bay', name: 'Bay', origin: 'own', updatedAt: '2026-10-16T08:00:00Z' }), picture: null }];
+    const f = await open({ key: true });
     const stage = TestBed.inject(WorldsStageService);
-    session.isOpen.set(true);
-    expect(stage.editorExit()).toBe('Back to Built Worlds');
-    stage.leaveEditor();
-    expect(session.close).toHaveBeenCalledTimes(1);
-    expect(opened).toEqual([]);
-    expect(stage.view()).toBe('world');
-    expect(stage.picks().maps).toMatchObject({ kind: 'map', id: 'demo-valley' });
+    const worlds = TestBed.inject(WorldChoiceService) as unknown as Record<string, ReturnType<typeof vi.fn>>;
+    const library = { deleteMap: vi.fn(async () => 'bay~1'), restoreMap: vi.fn(async () => 'bay'), deleteForGood: vi.fn(async () => undefined) };
+    (stage as unknown as { library: Promise<unknown> }).library = Promise.resolve({ library, error: () => null });
+    card(f, 'maps').click();
+    await settle(f);
+    el(f).querySelector<HTMLElement>('[data-map="bay"]')!.click();
+    await settle(f);
+    button(f, 'Download').click();
+    expect(worlds['downloadMap']).toHaveBeenCalledWith('bay', 'own');
+    button(f, 'Duplicate').click();
+    await settle(f);
+    expect(worlds['duplicateMap']).toHaveBeenCalledWith('bay', 'own');
+    expect(stage.picks().maps).toMatchObject({ id: 'bay-2' });
+    el(f).querySelector<HTMLElement>('[data-map="bay"]')!.click();
+    await settle(f);
+    el(f).querySelector<HTMLElement>('[data-test="delete-map"]')!.click();
+    await vi.waitFor(() => expect(library.deleteMap).toHaveBeenCalledWith('bay', 'Bay'));
+    await settle(f);
+    expect(text(el(f).querySelector('[data-test="trashed"]'))).toBe('Bay is in the trash. Restore');
+    expect(stage.picks().maps).toBeNull();
+    button(f, 'Restore').click();
+    await vi.waitFor(() => expect(library.restoreMap).toHaveBeenCalledWith('bay~1'));
   });
 
   it('one source of chips for the globes, the game and the editor: the other worlds, the map in the editor', async () => {

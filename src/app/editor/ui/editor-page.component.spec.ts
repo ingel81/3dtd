@@ -1,12 +1,13 @@
 // The component is partially compiled and needs the JIT compiler
 import '@angular/compiler';
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { signal } from '@angular/core';
 import { getTestBed, TestBed } from '@angular/core/testing';
 import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
 import { EditorPageComponent } from './editor-page.component';
 import { EditorSession } from './editor-session.service';
 import { AppScreen } from '../../world/app-screen.service';
+import { WorldsStageService } from '../../worlds/worlds-stage.service';
 import type { MapMeta } from '../../world/custom-map/map-document';
 
 /**
@@ -28,9 +29,10 @@ describe('EditorPageComponent', () => {
     const meta = signal<Pick<MapMeta, 'id' | 'name'> | null>({ id: 'demo-valley', name: 'Demo Valley' });
     const openMap = signal<string | null>('demo-valley');
     const session = { editor: { doc: { meta: meta() } }, state: { meta }, saves: { dirty: signal(false) }, maps: { openMap } };
-    const screens = { draft: signal(null), guardEditor: () => () => undefined, takeEditorMap: () => null, newMapNext: signal(false) };
+    const stage = { leaveEditorTo: vi.fn(), notice: signal(null) };
+    const screens = { draft: signal(null), guardEditor: () => () => undefined, takeEditorMap: () => null, takeMake: () => null };
     TestBed.configureTestingModule({
-      providers: [{ provide: EditorSession, useValue: session }, { provide: AppScreen, useValue: screens }],
+      providers: [{ provide: EditorSession, useValue: session }, { provide: AppScreen, useValue: screens }, { provide: WorldsStageService, useValue: stage }],
     });
     TestBed.overrideComponent(EditorPageComponent, { set: { template: '', imports: [] } });
     const fixture = TestBed.createComponent(EditorPageComponent);
@@ -44,5 +46,28 @@ describe('EditorPageComponent', () => {
     expect(sessionStorage.getItem('3dtd-editor-map')).toBe('demo-valley-copy');
     expect(screens.draft()).toMatchObject({ mapId: 'demo-valley-copy' });
     fixture.destroy();
+  });
+
+  it('with no map open and nothing to make it goes to the Built Worlds’ menu, the one list; New map makes one there', () => {
+    const run = (make: unknown) => {
+      const session = { editor: null, state: { meta: signal(null) }, saves: { dirty: signal(false) }, maps: { openMap: signal(null), close: vi.fn() } };
+      const stage = { leaveEditorTo: vi.fn(), notice: signal(null) };
+      const screens = { draft: signal(null), guardEditor: () => () => undefined, takeEditorMap: () => null, takeMake: () => make };
+      TestBed.configureTestingModule({
+        providers: [{ provide: EditorSession, useValue: session }, { provide: AppScreen, useValue: screens }, { provide: WorldsStageService, useValue: stage }],
+      });
+      TestBed.overrideComponent(EditorPageComponent, { set: { template: '', imports: [] } });
+      const fixture = TestBed.createComponent(EditorPageComponent);
+      fixture.detectChanges();
+      const page = fixture.componentInstance;
+      fixture.destroy();
+      TestBed.resetTestingModule();
+      return { page, stage };
+    };
+    const nothing = run(null);
+    expect(nothing.stage.leaveEditorTo).toHaveBeenCalledWith({ pick: null });
+    const making = run({ kind: 'new' });
+    expect(making.stage.leaveEditorTo).not.toHaveBeenCalled();
+    expect(making.page.make()).toEqual({ kind: 'new' });
   });
 });

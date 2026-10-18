@@ -161,7 +161,7 @@ export class WorldsStageComponent {
       item('coop', 'Coop', 'users', () => this.stage.openOverlay('coop'), { rule: items.length > 0 }),
       item('load', 'Load game', 'filing', () => this.stage.openOverlay('load')),
       item('editor', 'Map editor', 'terrain', () => this.openEditor(), {
-        sub: 'All your maps, any world',
+        sub: 'New map, import, edit: Built Worlds',
         why: this.stage.whyNot('edit', null),
       }),
       item('settings', 'Settings', 'cog', () => this.stage.openOverlay('settings')),
@@ -267,10 +267,10 @@ export class WorldsStageComponent {
     else if (action === 'edit') this.stage.edit();
   }
 
-  /** The map editor in this window */
+  /** The map editor's way in: the Built Worlds' menu, the one list of maps (New map, Import file, Edit there) */
   openEditor(): void {
     if (this.stage.whyNot('edit', null)) return;
-    this.stage.editMap(null);
+    this.stage.openWorld('maps');
   }
 
   closeOverlay(): void {

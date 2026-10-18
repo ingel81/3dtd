@@ -53,6 +53,13 @@
   gap: var(--td-sp-3);
 }
 
+// A map in the trash: its name and when it goes, Restore and Delete for good beside it
+.wm-trash {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: var(--td-sp-1) var(--td-sp-2);
+}
+
 // A row with a tool in it: Remove from a Recent list stands at the row's end,
 // inside its line, the row keeps room for it
 .wm-line {

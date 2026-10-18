@@ -2,11 +2,15 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { TdIconComponent } from '../components/icon/icon.component';
 import { StageContinueComponent } from './stage-continue.component';
 import type { StageMap } from './worlds-stage.service';
+import { TRASH_DAYS, type MapSummary } from '../world/custom-map/map-store';
 import { WorldsStageService } from './worlds-stage.service';
 
 /**
- * The maps' menu (docs/WORLDS_NAVIGATION_PLAN.md, 3.1): every map with
- * where it comes from (own, OpenStreetMap, from coop hosts, shipped). A
+ * The maps' menu (docs/WORLDS_NAVIGATION_PLAN.md, 3.1), the one list of
+ * maps (docs/WORLDS_STATE_PLAN.md): every map with where it comes from
+ * (own, OpenStreetMap, from coop hosts, shipped), New map and Import file at
+ * the own maps, Download, Duplicate and Delete at the pick, the trash at the
+ * end. A
  * row picks, the globe turns to the map's tower; Play (or a double click on
  * the row) loads it, Edit opens it in the editor (a shipped or a host's map
  * as an own copy).
@@ -27,11 +31,22 @@ import { WorldsStageService } from './worlds-stage.service';
         @if (group.maps.length || group.empty) {
         <section class="td-group" [attr.aria-labelledby]="'wm-maps-' + $index">
           @if (group.own) {
-            <!-- New map beside the own maps' head: the way to a new map stands where the own maps are -->
+            <!-- New map and Import file beside the own maps' head: the ways to a new map stand where the own maps are -->
             <div class="wm-group-head">
               <h3 class="td-section" [id]="'wm-maps-' + $index">{{ group.title }}</h3>
-              <button type="button" class="td-btn-secondary td-btn-sm" data-new-map [attr.aria-disabled]="stage.whyNot('edit', 'maps') ? true : null"
-                      [attr.title]="stage.whyNot('edit', 'maps')" (click)="newMap()">New map</button>
+              <span class="td-inline">
+                <button type="button" class="td-btn-secondary td-btn-sm" data-new-map data-test="new-map" [attr.aria-disabled]="editWhy() ? true : null"
+                        [attr.title]="editWhy()" (click)="newMap()">New map</button>
+                <label class="td-btn-secondary td-btn-sm" [attr.aria-disabled]="editWhy() ? true : null"
+                       [attr.title]="editWhy() ?? 'A 3DTD map (.3dtdmap) or a Warcraft 3 map (.w3x, beta)'">
+                  Import file
+                  <input class="td-sr-only" type="file" accept=".3dtdmap,.w3x,.w3m" multiple [disabled]="!!editWhy()" (change)="importFiles($event)" data-test="import-input" />
+                </label>
+                @if (stage.mapFolder) {
+                  <button type="button" class="td-btn-ghost td-btn-sm" (click)="stage.revealMapFolder()"
+                          title="Your maps as .3dtdmap files in Documents/3DTD/Maps; put files there to add them" data-test="map-folder">Map folder</button>
+                }
+              </span>
             </div>
           } @else {
             <h3 class="td-section" [id]="'wm-maps-' + $index">{{ group.title }}</h3>
@@ -72,6 +87,29 @@ import { WorldsStageService } from './worlds-stage.service';
         </section>
         }
       }
+      @if (stage.trashed(); as t) {
+        <p class="td-banner is-row" role="status" data-test="trashed">
+          <span>{{ t.name }} is in the trash.</span>
+          <button class="td-btn-secondary td-btn-sm" type="button" (click)="stage.restoreMap(t.key)">Restore</button>
+        </p>
+      }
+      @if (stage.trash().length) {
+        <section class="td-group" aria-labelledby="wm-maps-trash" data-test="trash">
+          <h3 class="td-section" id="wm-maps-trash">Trash <span class="td-note">deleted maps wait {{ trashDays }} days</span></h3>
+          <div class="td-rows">
+            @for (m of stage.trash(); track m.id) {
+              <div class="td-inline" [attr.data-trash]="m.trash?.from">
+                <span class="wm-row-name wm-trash">
+                  <span class="td-name">{{ m.name }}</span>
+                  <small class="td-note">{{ deletedLine(m) }}</small>
+                </span>
+                <button class="td-btn-secondary td-btn-sm" type="button" (click)="stage.restoreMap(m.id)" data-test="trash-restore">Restore</button>
+                <button class="td-btn-ghost td-btn-sm" type="button" (click)="stage.purgeMap(m)">Delete for good</button>
+              </div>
+            }
+          </div>
+        </section>
+      }
     </div>
 
     <div class="wm-detail td-line-top">
@@ -85,13 +123,24 @@ import { WorldsStageService } from './worlds-stage.service';
             <td-icon name="play" [size]="14" /><span>{{ playWord() }}</span>
           </button>
           <span>
-            <button type="button" class="td-btn-secondary" [attr.aria-disabled]="stage.whyNot('edit', 'maps') ? true : null"
-                    [attr.title]="stage.whyNot('edit', 'maps')" (click)="stage.edit('maps')">Edit in the editor</button>
+            <button type="button" class="td-btn-secondary" data-test="open-map" [attr.aria-disabled]="editWhy() ? true : null"
+                    [attr.title]="editWhy()" (click)="stage.edit('maps')">Edit in the editor</button>
             @if (map.origin === 'shipped' || map.origin === 'shared') {
               <small class="td-note wm-sub">Your copy comes with the first change</small>
             }
           </span>
         </div>
+        @if (listed(); as m) {
+          <div class="td-actions is-start">
+            <button type="button" class="td-btn-ghost td-btn-sm" (click)="stage.downloadMap(m)">Download</button>
+            @if (m.origin === 'own') {
+              <button type="button" class="td-btn-ghost td-btn-sm" (click)="stage.duplicateMap(m)">Duplicate</button>
+            }
+            @if (m.origin !== 'shipped') {
+              <button type="button" class="td-btn-ghost td-btn-sm" data-test="delete-map" (click)="stage.deleteMap(m)">Delete</button>
+            }
+          </div>
+        }
         @if (playWhy(); as why) {
           <p class="td-note is-warn">{{ why }}.</p>
         } @else if (stage.notice(); as notice) {
@@ -143,9 +192,34 @@ export class WorldMapsComponent {
   /** Start's word: Continue of a run, Back to the place held, else Play */
   readonly playWord = computed(() => this.stage.playWord('maps', this.stage.picks().maps, 'Play'));
 
+  /** Why New map, Import file and Edit are locked; null when open */
+  readonly editWhy = computed(() => this.stage.whyNot('edit', 'maps'));
+  /** The picked map as the list has it (Download, Duplicate, Delete need it listed) */
+  readonly listed = computed(() => {
+    const id = this.pickedId();
+    return id ? (this.stage.maps().find((m) => m.id === id) ?? null) : null;
+  });
+  readonly trashDays = TRASH_DAYS;
+
   /** The editor on a new map's form, in this window: one click, not its list and then New map again */
   newMap(): void {
-    if (this.stage.whyNot('edit', 'maps')) return;
+    if (this.editWhy()) return;
     this.stage.newMap();
+  }
+
+  /** Files picked: the editor reads them in (its import), then opens the map */
+  importFiles(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const files = Array.from(input.files ?? []);
+    input.value = '';
+    if (!this.editWhy()) this.stage.importMaps(files);
+  }
+
+  /** "Deleted today | goes for good in 30 days" */
+  deletedLine(m: MapSummary): string {
+    const days = Math.floor((Date.now() - Date.parse(m.trash?.at ?? '')) / 86_400_000);
+    const left = Math.max(0, TRASH_DAYS - days);
+    const when = days <= 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`;
+    return `Deleted ${when} | goes for good in ${left} ${left === 1 ? 'day' : 'days'}`;
   }
 }
