@@ -18,6 +18,7 @@ const SPOTS: { asset: string; label: string }[] = [
   { asset: 'fx-fireflies', label: 'Fireflies' },
   { asset: 'fx-embers', label: 'Embers' },
   { asset: 'fx-beacon', label: 'Blinking light' },
+  { asset: 'fx-light-shaft', label: 'Shaft of light' },
 ];
 
 /** Kinds whose particles take a colour, and whose height is the flight height */

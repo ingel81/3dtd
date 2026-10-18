@@ -29,6 +29,7 @@ import { mapToScene, sceneToMap } from './map-coords';
 import { CustomMapEnvironment } from './environment/map-environment';
 import { fitShadowBox } from './environment/shadow-fit';
 import { EffectLayer, glowStandIn } from './effects/effect-layer';
+import { shaftStandIn } from './effects/light-shafts';
 import { circleFlock, type Flock } from './effects/bird-flocks';
 import { LifeMovers } from './effects/life-movers';
 import { LifeHaze } from './effects/life-haze';
@@ -476,7 +477,7 @@ export class CustomMapView {
    * Stand-ins for what a brush brings onto a map that has none yet, to
    * compile ahead: a water body and a river of every kind (lava with its heat
    * shimmer) with the map's switchable effects and sky, a particle field
-   * (every kind shares one program) and the light halos. The first lava
+   * (every kind shares one program), the light halos and the light shafts. The first lava
    * pool of a hell stroke linked them in its frames (frames of 550 to 600
    * ms in a dev build). Built once and kept, so three keeps their programs;
    * the effects as they are now (a later switch recompiles anyway).
@@ -503,7 +504,7 @@ export class CustomMapView {
       out.push(mesh);
     }
     const particles = new ParticleField('smoke', [{ kind: 'smoke', origin: new Vector3(), radius: 1, height: 1, count: 1, color: undefined, scale: 1 }], { value: 0 }, { value: 1 });
-    out.push(particles.mesh, glowStandIn());
+    out.push(particles.mesh, glowStandIn(), shaftStandIn());
     for (const m of out) m.frustumCulled = false;
     this.effectMeshes = out;
     return out;

@@ -15204,6 +15204,45 @@
       "source": "Effekt des Renderers, kein Modell"
     },
     {
+      "id": "fx-light-shaft",
+      "name": "Shaft of light",
+      "category": "fx",
+      "file": "",
+      "footprint": 1.5,
+      "height": 40,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.5
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "hell",
+        "volcanic",
+        "crystal",
+        "arena",
+        "swamp"
+      ],
+      "effects": [
+        {
+          "kind": "shaft",
+          "radius": 1.5,
+          "height": 40
+        }
+      ],
+      "light": {
+        "color": "#ff8a3c",
+        "intensity": 1,
+        "distance": 14,
+        "height": 1.5,
+        "flicker": true
+      },
+      "source": "Effekt des Renderers, kein Modell"
+    },
+    {
       "id": "house-modern",
       "name": "Modern house (2 floors, 10 x 8.6 m)",
       "category": "building",

@@ -285,7 +285,7 @@ Tags des Katalogs und Suche (Name, Id oder Tag).
   Kopieren, Symmetrie und `map.place` in Skripten und über MCP. Vogelschwarm (`fx-birds`, Effekt `birds`: kreist mit
   10 Vögeln 45 m weit in 50 m Höhe über dem Punkt, mit der Skalierung größer, höher und mehr Vögel), Glühwürmchen
   (`fx-fireflies`), Rauch (`fx-smoke`), hohe Rauchsäule (`fx-smoke-column`, 40 m, zieht mit dem Wind), Glut
-  (`fx-embers`), Bodennebel, Laub, Schneegestöber, Funkeln. Bei Effekt-Objekten macht die Skalierung die Fläche
+  (`fx-embers`), Lichtsäule (`fx-light-shaft`, 40 m, tönbar samt Licht), Bodennebel, Laub, Schneegestöber, Funkeln. Bei Effekt-Objekten macht die Skalierung die Fläche
   größer und dichter (Teilchen mal Skalierung zum Quadrat; die Rauchsäule höher, breiter, Puffs nur linear mehr), die
   Tönung (Tint im Auswahl-Panel) färbt die Teilchen. Ohne gesetzte Schwärme oder Glühwürmchen bringt die Karte eigene
   mit (CUSTOM_MAPS.md, „Leben aus dem Karteninhalt“): sobald einer gesetzt ist, gelten nur die gesetzten. Häuser mit
@@ -373,7 +373,7 @@ Dokument trägt (`life.areas`), und die Schalter dessen, was die Karte von selbs
   (Partikel), Vogelart (Singvögel, Möwen, Krähen und Raben, Greifvögel), Boot (die schwimmenden Requisiten des
   Katalogs) oder Klang, Lautstärke und Reichweite (10 bis 300 m, wie weit er um den Bereich ausklingt, Standard 70), „Shows from“ Medium oder nur
   High, Show, Remove; die Liste der Bereiche; „One spot“ setzt ein
-  Effekt-Objekt (Rauchsäule, kreisender Schwarm, Glühwürmchen, Glut) mit dem Objektwerkzeug; „What the map brings by
+  Effekt-Objekt (Rauchsäule, kreisender Schwarm, Glühwürmchen, Glut, Blinklicht, Lichtsäule) mit dem Objektwerkzeug; „What the map brings by
   itself“: Schornsteinrauch, Glühwürmchen an Ufern und in Wäldern, Vögel über offenem Land, Funken über Lava, wehende
   Banner, Dichte (0 bis 200 % auf alles); „Sound“: „Over the whole map“ (keiner, der des Looks bei Tag und Nacht oder
   ein Klang) mit Lautstärke, „At each wave“ (Glocke, ferne Sirene, Schiffshorn einmal je Wellenstart) mit Lautstärke,

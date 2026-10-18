@@ -41,6 +41,15 @@ const catalog: AssetCatalog = {
     { ...base, id: 'beacon', name: 'Beacon', light: { color: '#ff2010', intensity: 0.6, distance: 6, height: 14, blink: 1.5 } },
     { ...base, id: 'fx-fireflies', name: 'Fireflies', effects: [{ kind: 'fireflies', radius: 8, height: 1.5, rate: 6, color: '#e6ff8c' }] },
     { ...base, id: 'fx-smoke-column', name: 'Tall smoke column', footprint: 3, height: 40, effects: [{ kind: 'column', radius: 2.5, rate: 6 }] },
+    {
+      ...base,
+      id: 'fx-light-shaft',
+      name: 'Shaft of light',
+      footprint: 1.5,
+      height: 40,
+      effects: [{ kind: 'shaft', radius: 1.5, height: 40 }],
+      light: { color: '#ff8a3c', intensity: 1, distance: 14, height: 1.5, flicker: true },
+    },
   ],
 };
 
@@ -291,6 +300,26 @@ describe('EffectLayer', () => {
     const glows = layer.group.children.find((c): c is Mesh<InstancedBufferGeometry> => c instanceof Mesh && c.name === 'custom-map-glows')!;
     expect(glows.geometry.getAttribute('aBlink').getX(0)).toBe(1.5);
     expect(LAMP_LIGHT_UNIFORMS.uLampOn.value).toBe(0);
+    layer.dispose();
+  });
+
+  it('raises a shaft of light from an effect object, its tint on the shaft and on its light', () => {
+    const layer = new EffectLayer(flat());
+    layer.set([{ ...place('s', 'fx-light-shaft', 0), scale: 2, z: 1, tint: '#00ff00' }, place('t', 'fx-light-shaft', 30)], catalog);
+    const shafts = layer.group.children.find((c): c is Mesh<InstancedBufferGeometry> => c instanceof Mesh && c.name === 'custom-map-shafts')!;
+    expect(shafts.geometry.instanceCount).toBe(2);
+    const at = shafts.geometry.getAttribute('aShaft');
+    // From the object's foot (ground 4 m, lifted 1 m), its height and width with its scale
+    expect([at.getY(0), at.getW(0)]).toEqual([5, 80]);
+    expect(shafts.geometry.getAttribute('aSize').getX(0)).toBe(3);
+    const color = shafts.geometry.getAttribute('aColor');
+    expect([color.getX(0), color.getY(0), color.getZ(0)]).toEqual([0, 1, 0]);
+    // Untinted: the colour of its light
+    expect(color.getY(1)).toBeGreaterThan(0.2);
+    expect(color.getX(1)).toBe(1);
+    const glows = layer.group.children.find((c): c is Mesh<InstancedBufferGeometry> => c instanceof Mesh && c.name === 'custom-map-glows')!;
+    const glow = glows.geometry.getAttribute('aCol');
+    expect([glow.getX(0), glow.getY(0), glow.getZ(0)]).toEqual([0, 1, 0]);
     layer.dispose();
   });
 

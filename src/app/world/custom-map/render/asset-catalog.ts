@@ -79,7 +79,8 @@ export type EffectKind =
   | 'column'
   | 'waterfall'
   | 'birds'
-  | 'beam';
+  | 'beam'
+  | 'shaft';
 
 /**
  * A particle or sheet effect an object carries. Sizes are at scale 1 and
@@ -88,7 +89,9 @@ export type EffectKind =
  * its foot; `birds` is a flock of `rate` birds circling `radius` wide at
  * `height` over the object (effects/bird-flocks.ts); `beam` two light beams
  * `radius` long from `height`, turning with the object's `spin` (a
- * lighthouse), shown in the dark; `column` a tall plume of smoke rising
+ * lighthouse), shown in the dark; `shaft` a shaft of light `radius` wide
+ * standing `height` up from the object's foot (a hell gate's glow), faint
+ * by day, its colour the object's light's unless it names one; `column` a tall plume of smoke rising
  * `height` from a foot `radius` wide, leaning with the wind and lit from
  * below over lava or by the object's own light; the others emit particles
  * from a disc of `radius` at `height`.

@@ -599,6 +599,12 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
 - **Lichtkegel** (`beam`, `effects/light-beams.ts`): zwei Kegel gegenüber aus der Lichthöhe (`height`), `radius` lang,
   drehen sich mit den drehenden Teilen des Objekts (unten), additiv, mittig heller, nur bei Dunkelheit; ein Mesh für
   alle. Der Leuchtturm hat einen (Höhe 20 m, 70 m lang, eine Umdrehung in 10 s)
+- **Lichtsäule** (`shaft`, `effects/light-shafts.ts`, Objekt `fx-light-shaft`: 1,5 m breit, 40 m hoch bei Skalierung
+  1, mit flackerndem Licht am Fuß): eine offene, nach oben leicht weitere Röhre aus Licht vom Fuß des Objekts, additiv,
+  quer durch die Mitte gesehen am hellsten (so liest sich beleuchtete Luft), nach oben ausklingend; Lichtbänder steigen
+  langsam, die Säule atmet. Am Tag schwächer, nachts voll, nah an der Kamera ausgeblendet. Farbe: die Tönung eines
+  Effekt-Objekts, sonst die des Effekts oder des Objektlichts; ein Mesh für alle. Die Tönung eines Effekt-Objekts färbt
+  auch sein Licht (Schein und Punktlicht). Ember Crater: die Säule aus dem Höllentor
 - **Drehende Teile** (`objects/spin.ts`): Teile eines Modells mit Material `spin-…` drehen sich im Vertex-Shader um
   die senkrechte Achse durch den Ursprung des Modells, eine Umdrehung in `spin` Sekunden (Katalog, Standard 8), jedes
   Objekt mit eigenem Startwinkel aus seiner Lage, auf der Uhr des Winds (das Standbild hält sie an); sie werden nicht

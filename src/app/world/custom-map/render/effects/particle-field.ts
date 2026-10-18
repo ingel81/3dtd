@@ -35,7 +35,7 @@ import { WIND_UNIFORMS } from '../environment/wind';
  * column's foot from below (lava, a fire), strongest at night.
  */
 
-export type ParticleKind = Exclude<EffectKind, 'waterfall' | 'birds' | 'beam'> | 'spray' | 'dust';
+export type ParticleKind = Exclude<EffectKind, 'waterfall' | 'birds' | 'beam' | 'shaft'> | 'spray' | 'dust';
 
 const KIND_ID: Record<ParticleKind, number> = {
   fire: 0,

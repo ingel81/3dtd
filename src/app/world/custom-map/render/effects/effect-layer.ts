@@ -23,6 +23,7 @@ import { LAMP_LIGHT_UNIFORMS, LampLight, type LampSpot } from './lamp-light';
 import { BirdFlocks, circleFlock, type Flock } from './bird-flocks';
 import { isParticleLife, lifeEmitters, lifeFlock } from './life-areas';
 import { buildBeams, type Beam } from './light-beams';
+import { buildShafts, type Shaft } from './light-shafts';
 import { DEFAULT_SPIN } from '../objects/spin';
 
 /**
@@ -122,6 +123,8 @@ export class EffectLayer {
   /** Sweeping light beams (a lighthouse), shown by darkness */
   private beams: Mesh | null = null;
   private readonly beamDarkness = { value: 0 };
+  /** Shafts of light standing up (a hell gate's glow), faint by day */
+  private shafts: Mesh | null = null;
   private glows: Mesh<InstancedBufferGeometry, ShaderMaterial> | null = null;
   private spots: LightSpot[] = [];
   /** Lights that do not come from objects: glowing lava */
@@ -175,6 +178,7 @@ export class EffectLayer {
     const falls: WaterfallSpec[] = [];
     const feet: FallFoot[] = [];
     const beams: Beam[] = [];
+    const shafts: Shaft[] = [];
     const up = new Vector3(0, 1, 0);
     const q = new Quaternion();
     this.placedFlocks = [];
@@ -219,6 +223,16 @@ export class EffectLayer {
           });
           continue;
         }
+        if (fx.kind === 'shaft') {
+          // A shaft of light from the object's foot (its height in z lifts it), the map maker's tint on an effect object
+          shafts.push({
+            origin: fx.at ? new Vector3(fx.at[0] * s, 0, fx.at[1] * s).applyQuaternion(q.setFromAxisAngle(up, o.rotation)).add(origin) : origin,
+            radius: (fx.radius ?? e.footprint) * s,
+            height: (fx.height ?? e.height) * s,
+            color: (e.category === 'fx' && o.tint) || fx.color || e.light?.color || '#ffd9a0',
+          });
+          continue;
+        }
         if (fx.kind === 'birds') {
           // A flock the map maker placed: its size and number with the object's scale
           this.placedFlocks.push(
@@ -260,7 +274,8 @@ export class EffectLayer {
       if (e.light) {
         this.spots.push({
           position: origin.clone().setY(origin.y + e.light.height * s),
-          color: new Color(e.light.color),
+          // An effect object's light takes the map maker's tint, as its particles do
+          color: new Color((e.category === 'fx' && o.tint) || e.light.color),
           intensity: e.light.intensity,
           distance: e.light.distance * s,
           cap: lightCap(e.light.height * s),
@@ -284,6 +299,10 @@ export class EffectLayer {
     if (beams.length) {
       this.beams = buildBeams(beams, this.beamDarkness);
       this.group.add(this.beams);
+    }
+    if (shafts.length) {
+      this.shafts = buildShafts(shafts, this.time, this.beamDarkness);
+      this.group.add(this.shafts);
     }
     if (this.spots.length) {
       this.glows = buildGlows(this.spots, this.time);
@@ -693,6 +712,15 @@ export class EffectLayer {
         (beams.material as ShaderMaterial).dispose();
       });
       this.beams = null;
+    }
+    const shafts = this.shafts;
+    if (shafts) {
+      shafts.removeFromParent();
+      this.retired.push(() => {
+        shafts.geometry.dispose();
+        (shafts.material as ShaderMaterial).dispose();
+      });
+      this.shafts = null;
     }
     const glows = this.glows;
     if (glows) {
