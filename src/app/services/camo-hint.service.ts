@@ -6,9 +6,9 @@ import { CameraControlService } from './camera-control.service';
 import { TowerControlService } from './tower-control.service';
 import { BossIntroService } from './boss-intro.service';
 import type { EnemyView } from '../sim/client/views';
+import { I18n } from '../i18n/i18n.service';
 
 /** What the player reads when the first camouflaged enemy of a run comes out of its portal */
-export const CAMO_HINT = 'Camouflaged enemies! Towers only see them near an Archer with the Scout path.';
 
 /** What keeps the camera where it is for the hint: the player looks through something else */
 export interface CamoLookGates {
@@ -34,6 +34,7 @@ export function camoLookAllowed(gates: CamoLookGates): boolean {
 @Injectable()
 export class CamoHintService {
   private readonly ui = inject(UIStore);
+  private readonly t = inject(I18n).t;
   private readonly bot = inject(BotClientService);
   private readonly camera = inject(CameraControlService);
   private readonly towerControl = inject(TowerControlService);
@@ -53,7 +54,7 @@ export class CamoHintService {
   private onSpawned(enemy: EnemyView, viaPortal: boolean): void {
     if (this.said || !viaPortal || !enemy.camo) return;
     this.said = true;
-    this.ui.notice.set({ text: CAMO_HINT, tone: 'warn' });
+    this.ui.notice.set({ text: this.t().onboarding.camo, tone: 'warn' });
     const look = camoLookAllowed({
       botEnabled: this.bot.botEnabled(),
       viewOnly: this.ui.viewOnly(),

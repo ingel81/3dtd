@@ -156,6 +156,7 @@ import { pageSwitches } from './core/page-switches';
 import { WorldStartService } from './world/world-start';
 import { WorldSession } from './world/world-session.service';
 import { I18n } from './i18n/i18n.service';
+import { tipFor } from './services/onboarding/onboarding';
 
 @Component({
   selector: 'app-tower-defense',
@@ -580,15 +581,16 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   // First-run tips share the context hint box; build, placement and targeting hints come first
   private readonly onboarding = inject(OnboardingService);
-  readonly onboardingActions: HintAction[] = [
-    { id: 'skip', label: 'Skip' },
-    { id: 'hide', label: 'Hide tips' },
-  ];
+  readonly onboardingActions = computed((): HintAction[] => [
+    { id: 'skip', label: this.t().onboarding.skip },
+    { id: 'hide', label: this.t().onboarding.hide },
+  ]);
   /** Tip on screen: only over the running game, not over the intro flight, game over, photo mode or the replay */
   readonly onboardingTip = computed(() => {
     if (this.loading() || this.error() || this.awaitingCredentials() || this.uiStore.mainMenuOpen()) return null;
     if (this.introFlightActive() || this.isGameOver() || this.uiStore.viewOnly()) return null;
-    return this.onboarding.tip();
+    const tip = this.onboarding.tip();
+    return tip ? { ...tipFor(this.t(), tip.step, tip.progress), index: tip.index, total: tip.total } : null;
   });
 
   onOnboardingAction(id: string): void {
@@ -608,7 +610,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   // Controls hint auto-hide
   readonly controlsHintVisible = signal(true);
   /** With "M: Sound is off" while M from the last session holds (review 2026-10-01) */
-  readonly controlsHints = computed(() => controlsHints(this.uiStore.masterMuted()));
+  readonly controlsHints = computed(() => controlsHints(this.t(), this.uiStore.masterMuted()));
   readonly controlsHintActions: HintAction[] = [{ id: 'hide', label: 'Got it' }];
   private controlsHintTimer: ReturnType<typeof setTimeout> | null = null;
   /** Set once the game started; the hint's 15 s count only after the intro flight. */

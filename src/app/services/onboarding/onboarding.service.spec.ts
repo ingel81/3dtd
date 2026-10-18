@@ -30,12 +30,12 @@ describe('OnboardingService', () => {
   });
 
   it('shows the first tip with its place in the sequence', () => {
-    expect(service.tip()).toMatchObject({ title: 'Build a tower', index: 1, total: 7 });
+    expect(service.tip()).toMatchObject({ step: 'build-tower', index: 1, total: 7 });
   });
 
   it('moves on when the game reports the action, and stores it', () => {
     bus.emit({ type: 'tower:placed', tower: tower('archer'), position: { lat: 0, lon: 0 }, cost: 0 });
-    expect(service.tip()).toMatchObject({ title: 'Start the first wave', index: 2 });
+    expect(service.tip()).toMatchObject({ step: 'start-wave', index: 2 });
     expect(JSON.parse(localStorage.getItem(ONBOARDING_KEY)!)).toEqual({ done: false, completed: ['build-tower'] });
   });
 
@@ -44,7 +44,7 @@ describe('OnboardingService', () => {
     start();
     expect(service.tip()).toBeNull();
     bus.emit(waveCompleted(1));
-    expect(service.tip()).toMatchObject({ title: 'Upgrade a tower', index: 3 });
+    expect(service.tip()).toMatchObject({ step: 'upgrade-tower', index: 3 });
   });
 
   it('shows the research center tip after wave 3, the research tip once it stands', () => {
@@ -54,7 +54,7 @@ describe('OnboardingService', () => {
     bus.emit(waveCompleted(2));
     expect(service.tip()).toBeNull();
     bus.emit(waveCompleted(3));
-    expect(service.tip()?.title).toBe('Build a research center');
+    expect(service.tip()?.step).toBe('research-center');
 
     bus.emit({ type: 'tower:placed', tower: tower('research-center'), position: { lat: 0, lon: 0 }, cost: 0 });
     expect(service.tip()).toBeNull();
@@ -62,7 +62,7 @@ describe('OnboardingService', () => {
       type: 'research:state-changed', playerId: 'local', local: true, activeResearches: [], completedResearches: new Set(),
       queuedResearches: [], centerLevel: 1, maxSlots: 1, lanes: 1,
     });
-    expect(service.tip()?.title).toBe('Start a research');
+    expect(service.tip()?.step).toBe('start-research');
   });
 
   it('shows the ability tip with its key once it has a button, gone when used', () => {
@@ -77,7 +77,7 @@ describe('OnboardingService', () => {
       type: 'ability:state-changed', playerId: 'local', local: true,
       abilities: [{ ...nuke, launchSite: true }, lockedAbilityStatus('emp')],
     });
-    expect(service.tip()).toMatchObject({ title: 'Use an ability', keys: [{ key: 'K', description: 'Nuclear Strike' }] });
+    expect(service.tip()).toMatchObject({ step: 'use-ability', progress: { abilities: ['nuclear-strike'] } });
     bus.emit({ type: 'ability:used', playerId: 'local', local: true, abilityId: 'nuclear-strike', strikeId: 1, target: { lat: 0, lon: 0 }, radiusM: 25, warningMs: 1500 });
     expect(service.tip()).toBeNull();
   });
@@ -86,7 +86,7 @@ describe('OnboardingService', () => {
     storeCompleted('build-tower', 'start-wave', 'upgrade-tower', 'research-center', 'start-research', 'use-ability');
     start();
     bus.emit({ type: 'hero:state-changed', playerId: 'local', local: true, hero: heroStatus(true, false, 0, 'standard', 'hold') });
-    expect(service.tip()).toMatchObject({ title: 'Hire the Mercenary', index: 7 });
+    expect(service.tip()).toMatchObject({ step: 'hire-hero', index: 7 });
     bus.emit({ type: 'hero:state-changed', playerId: 'local', local: true, hero: heroStatus(true, true, 0, 'standard', 'hold') });
     expect(service.tip()).toBeNull();
     expect(service.state().done).toBe(true);
@@ -124,7 +124,7 @@ describe('OnboardingService', () => {
     bus.emit(waveCompleted(3));
     service.hide();
     service.restart();
-    expect(service.tip()).toMatchObject({ title: 'Build a research center', index: 4 });
+    expect(service.tip()).toMatchObject({ step: 'research-center', index: 4 });
     expect(JSON.parse(localStorage.getItem(ONBOARDING_KEY)!)).toEqual({
       done: false, completed: ['build-tower', 'start-wave', 'upgrade-tower'],
     });
@@ -134,19 +134,19 @@ describe('OnboardingService', () => {
     service.skip();
     service.skip();
     service.restart();
-    expect(service.tip()).toMatchObject({ title: 'Build a tower', index: 1 });
+    expect(service.tip()).toMatchObject({ step: 'build-tower', index: 1 });
   });
 
   it('restart in a new game starts at the first tip', () => {
     bus.emit({ type: 'tower:placed', tower: tower('archer'), position: { lat: 0, lon: 0 }, cost: 0 });
     bus.emit({ type: 'game:reset' });
     service.restart();
-    expect(service.tip()).toMatchObject({ title: 'Build a tower', index: 1 });
+    expect(service.tip()).toMatchObject({ step: 'build-tower', index: 1 });
   });
 
   it('a new service picks up the stored state', () => {
     service.skip();
-    expect(new OnboardingService().tip()?.title).toBe('Start the first wave');
+    expect(new OnboardingService().tip()?.step).toBe('start-wave');
   });
 
   it('stops listening after disconnect', () => {

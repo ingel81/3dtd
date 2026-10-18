@@ -277,6 +277,41 @@ export const de: Messages = {
     language: 'Sprache',
     languageSystem: (name) => `System (${name})`,
   },
+  onboarding: {
+    caps: { lmb: 'LMT', rmb: 'RMT', wheel: 'Rad', space: 'Leertaste', del: 'Entf' },
+    does: {
+      pan: 'Schieben',
+      rotate: 'Drehen',
+      zoom: 'Zoomen',
+      move: 'Bewegen',
+      shortcuts: 'Tastenkürzel',
+      nextWave: 'Nächste Welle',
+      pause: 'Pause',
+      speed: 'Tempo',
+      upgrade: 'Aufrüsten',
+      sellTwice: 'Verkaufen, zweimal drücken',
+      select: 'Auswählen',
+      ammo: 'Munition',
+      soundOff: 'Ton ist aus',
+    },
+    skip: 'Überspringen',
+    hide: 'Tipps ausblenden',
+    skipIntro: 'Intro überspringen',
+    camo: 'Getarnte Gegner! Türme sehen sie nur in der Nähe eines Bogenturms mit Späher-Pfad.',
+    tips: {
+      'build-tower': { title: 'Bau einen Turm', text: 'Wähl den Bogenturm unter BAUEN oder drück 1 und setz ihn dorthin, wo er die Route sieht.' },
+      'start-wave': { title: 'Starte die erste Welle', text: 'Drück den Wellen-Knopf in der Seitenleiste oder die Leertaste. Die Gegner laufen die Route entlang zu deinem HQ, jeder Abschuss bringt Credits.' },
+      'upgrade-tower': { title: 'Rüste einen Turm auf', text: 'Klick einen Turm an, um ihn in der Seitenleiste zu öffnen, und steck deine Credits in einen Ausbau.' },
+      'research-center': { title: 'Bau ein Forschungszentrum', text: 'Neue Türme, Fähigkeiten und höhere Ausbaustufen kommen aus der Forschung. Wähl das Forschungszentrum unter BAUEN und setz es.' },
+      'start-research': { title: 'Starte eine Forschung', text: 'Klick das Forschungszentrum an und wähl in der Seitenleiste eine Forschung. Die Türme, die sie freischaltet, erscheinen unter BAUEN.' },
+      'use-ability': { title: 'Setz eine Fähigkeit ein', text: 'Deine Forschung hat eine Fähigkeit an den linken Rand gebracht. Während einer Welle ihren Knopf oder ihre Taste drücken, dann auf die Route klicken. Esc bricht ab.' },
+      'hire-hero': {
+        title: 'Heuer den Söldner an',
+        text: `Heuer ihn mit dem obersten Knopf der Fähigkeitenleiste an, für ${f.int(HERO.cost)} Credits. `
+          + 'Dann wählt G ihn aus, und ein Klick auf die Route schickt ihn hin.',
+      },
+    },
+  },
   hud: {
     ability: {
       group: 'Fähigkeiten',

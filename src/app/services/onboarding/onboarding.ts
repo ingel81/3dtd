@@ -1,8 +1,7 @@
 import type { HintItem } from '../../components/context-hint/context-hint.component';
 import { ABILITIES, AbilityId } from '../../configs/abilities.config';
-import { HERO } from '../../configs/hero.config';
 import { readJson, writeJson } from '../../utils/storage';
-import { en } from '../../i18n/messages/en';
+import type { Messages } from '../../i18n/messages/en';
 
 /** localStorage key of the first-run tips; v2 since they follow the course of a game */
 export const ONBOARDING_KEY = 'td_onboarding_v2';
@@ -42,63 +41,31 @@ export interface OnboardingTip {
   keys: HintItem[];
 }
 
-export const ONBOARDING_TIPS: Record<OnboardingStep, OnboardingTip> = {
-  'build-tower': {
-    title: 'Build a tower',
-    text: 'Pick Archer Tower in BUILD, or press 1, and place it where it can see the route.',
-    // First tip of a first run: it carries the camera controls, the
-    // separate controls hint stays away while a tip shows
-    keys: [
-      { key: 'LMB', description: 'Pan' },
-      { key: 'RMB', description: 'Rotate' },
-      { key: 'Wheel', description: 'Zoom' },
-      { key: 'WASD', description: 'Move' },
-      { key: 'H', description: 'Shortcuts' },
-    ],
-  },
-  'start-wave': {
-    title: 'Start the first wave',
-    text: 'Press the wave button in the sidebar, or Space. Enemies follow the route to your HQ, each kill pays credits.',
-    keys: [
-      { key: 'Space', description: 'Next wave' },
-      { key: 'P', description: 'Pause' },
-      { key: '+/-', description: 'Speed' },
-    ],
-  },
-  'upgrade-tower': {
-    title: 'Upgrade a tower',
-    text: 'Click a tower to open it in the sidebar and spend your credits on an upgrade.',
-    keys: [
-      { key: 'U', description: 'Upgrade' },
-      { key: 'Del', description: 'Sell, press twice' },
-    ],
-  },
-  'research-center': {
-    title: 'Build a research center',
-    text: 'New towers, abilities and higher upgrade levels come from research. Pick Research Center in BUILD and place it.',
-    keys: [],
-  },
-  'start-research': {
-    title: 'Start a research',
-    text: 'Click the research center and pick a research in the sidebar. The towers it unlocks show up in BUILD.',
-    keys: [],
-  },
-  'use-ability': {
-    title: 'Use an ability',
-    text: 'Your research put an ability on the left edge. While a wave runs, press its button or key, then click the route. Esc cancels.',
-    // Filled in by tipFor() with the abilities researched so far
-    keys: [],
-  },
-  'hire-hero': {
-    title: `Hire the ${en.hero.name}`,
-    text: `Hire him with the top button of the ability bar for ${HERO.cost} credits. `
-      + 'Then G selects him and a click on the route sends him there.',
-    keys: [
-      { key: 'G', description: 'Select' },
-      { key: 'V', description: 'Ammo' },
-    ],
-  },
+/** A key cap: a named one (the dictionary's onboarding.caps) or a letter as it is */
+export type KeyCap = keyof Messages['onboarding']['caps'] | (string & {});
+type KeyDoes = keyof Messages['onboarding']['does'];
+
+/** What each tip shows under its text: a key and what it does */
+const TIP_KEYS: Record<OnboardingStep, readonly (readonly [KeyCap, KeyDoes])[]> = {
+  'build-tower': [['lmb', 'pan'], ['rmb', 'rotate'], ['wheel', 'zoom'], ['WASD', 'move'], ['H', 'shortcuts']],
+  'start-wave': [['space', 'nextWave'], ['P', 'pause'], ['+/-', 'speed']],
+  'upgrade-tower': [['U', 'upgrade'], ['del', 'sellTwice']],
+  'research-center': [],
+  'start-research': [],
+  // Filled in by tipFor() with the abilities researched so far
+  'use-ability': [],
+  'hire-hero': [['G', 'select'], ['V', 'ammo']],
 };
+
+/** A key cap in the player's language */
+export function keyCap(t: Messages, cap: KeyCap): string {
+  return Object.hasOwn(t.onboarding.caps, cap) ? t.onboarding.caps[cap as keyof Messages['onboarding']['caps']] : cap;
+}
+
+/** A key and what it does, as the context hint shows it */
+export function keyHint(t: Messages, cap: KeyCap, does: KeyDoes): HintItem {
+  return { key: keyCap(t, cap), description: t.onboarding.does[does] };
+}
 
 /**
  * How far the running game is, taken from its events and not stored: the
@@ -148,13 +115,12 @@ export function isReady(step: OnboardingStep, progress: OnboardingProgress): boo
 }
 
 /** The tip of a step, the ability tip with the keys of the abilities researched. */
-export function tipFor(step: OnboardingStep, progress: OnboardingProgress): OnboardingTip {
-  const tip = ONBOARDING_TIPS[step];
-  if (step !== 'use-ability') return tip;
-  return {
-    ...tip,
-    keys: progress.abilities.map((id) => ({ key: ABILITIES[id].hotkey, description: en.abilities[id].name })),
-  };
+export function tipFor(t: Messages, step: OnboardingStep, progress: OnboardingProgress): OnboardingTip {
+  const { title, text } = t.onboarding.tips[step];
+  const keys = step === 'use-ability'
+    ? progress.abilities.map((id) => ({ key: ABILITIES[id].hotkey, description: t.abilities[id].name }))
+    : TIP_KEYS[step].map(([cap, does]) => keyHint(t, cap, does));
+  return { title, text, keys };
 }
 
 export interface OnboardingState {

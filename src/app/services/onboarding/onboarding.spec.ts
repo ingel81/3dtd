@@ -15,6 +15,7 @@ import {
   saveOnboarding,
   tipFor,
 } from './onboarding';
+import { en } from '../../i18n/messages/en';
 
 const run = (...actions: OnboardingAction[]): OnboardingState =>
   actions.reduce(advanceOnboarding, INITIAL_ONBOARDING);
@@ -139,14 +140,14 @@ describe('onboarding state machine', () => {
 
 describe('onboarding tips', () => {
   it('the ability tip names the keys of the abilities researched', () => {
-    expect(tipFor('use-ability', progress({ abilities: ['frost-bomb', 'nuclear-strike'] })).keys).toEqual([
+    expect(tipFor(en, 'use-ability', progress({ abilities: ['frost-bomb', 'nuclear-strike'] })).keys).toEqual([
       { key: 'F', description: 'Frost Bomb' },
       { key: 'K', description: 'Nuclear Strike' },
     ]);
   });
 
   it('the first tip carries the camera keys', () => {
-    expect(tipFor('build-tower', INITIAL_PROGRESS).keys.map((k) => k.key)).toEqual(['LMB', 'RMB', 'Wheel', 'WASD', 'H']);
+    expect(tipFor(en, 'build-tower', INITIAL_PROGRESS).keys.map((k) => k.key)).toEqual(['LMB', 'RMB', 'Wheel', 'WASD', 'H']);
   });
 
   it('progress equality looks at the values', () => {

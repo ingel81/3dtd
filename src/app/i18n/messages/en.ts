@@ -10,6 +10,7 @@ import type { ResearchTreeId } from '../../configs/research/research-tree.config
 import type { ResearchBranch } from '../../configs/research/research.types';
 import type { ResearchCenterLevel } from '../../configs/research/research-center.config';
 import type { VeteranLevel } from '../../configs/veteran-ranks.config';
+import type { OnboardingStep } from '../../services/onboarding/onboarding';
 import type { TechTreeNodeState } from '../../components/tech-tree/tech-tree-view';
 import { formatters } from '../format';
 
@@ -327,6 +328,42 @@ export const en = {
   settings: {
     language: 'Language',
     languageSystem: (name: string) => `System (${name})`,
+  },
+  onboarding: {
+    /** Key caps with a name; a letter key shows as it is */
+    caps: { lmb: 'LMB', rmb: 'RMB', wheel: 'Wheel', space: 'Space', del: 'Del' },
+    does: {
+      pan: 'Pan',
+      rotate: 'Rotate',
+      zoom: 'Zoom',
+      move: 'Move',
+      shortcuts: 'Shortcuts',
+      nextWave: 'Next wave',
+      pause: 'Pause',
+      speed: 'Speed',
+      upgrade: 'Upgrade',
+      sellTwice: 'Sell, press twice',
+      select: 'Select',
+      ammo: 'Ammo',
+      soundOff: 'Sound is off',
+    },
+    skip: 'Skip',
+    hide: 'Hide tips',
+    skipIntro: 'Skip intro',
+    camo: 'Camouflaged enemies! Towers only see them near an Archer with the Scout path.',
+    tips: {
+      'build-tower': { title: 'Build a tower', text: 'Pick Archer Tower in BUILD, or press 1, and place it where it can see the route.' },
+      'start-wave': { title: 'Start the first wave', text: 'Press the wave button in the sidebar, or Space. Enemies follow the route to your HQ, each kill pays credits.' },
+      'upgrade-tower': { title: 'Upgrade a tower', text: 'Click a tower to open it in the sidebar and spend your credits on an upgrade.' },
+      'research-center': { title: 'Build a research center', text: 'New towers, abilities and higher upgrade levels come from research. Pick Research Center in BUILD and place it.' },
+      'start-research': { title: 'Start a research', text: 'Click the research center and pick a research in the sidebar. The towers it unlocks show up in BUILD.' },
+      'use-ability': { title: 'Use an ability', text: 'Your research put an ability on the left edge. While a wave runs, press its button or key, then click the route. Esc cancels.' },
+      'hire-hero': {
+        title: `Hire the ${hero.name}`,
+        text: `Hire him with the top button of the ability bar for ${f.int(HERO.cost)} credits. `
+          + 'Then G selects him and a click on the route sends him there.',
+      },
+    } satisfies Record<OnboardingStep, { title: string; text: string }> as Record<OnboardingStep, { title: string; text: string }>,
   },
   hud: {
     ability: {

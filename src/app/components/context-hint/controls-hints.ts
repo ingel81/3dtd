@@ -1,13 +1,17 @@
 import type { HintItem } from './context-hint.component';
+import type { Messages } from '../../i18n/messages/en';
+import { keyHint } from '../../services/onboarding/onboarding';
 
 /** The camera controls the hint box shows at the start of a game */
-const CAMERA_HINTS: readonly HintItem[] = [
-  { key: 'LMB', description: 'Pan' },
-  { key: 'RMB', description: 'Rotate' },
-  { key: 'Wheel', description: 'Zoom' },
-  { key: 'WASD', description: 'Move' },
-  { key: 'H', description: 'Shortcuts' },
-];
+function cameraHints(t: Messages): HintItem[] {
+  return [
+    keyHint(t, 'lmb', 'pan'),
+    keyHint(t, 'rmb', 'rotate'),
+    keyHint(t, 'wheel', 'zoom'),
+    keyHint(t, 'WASD', 'move'),
+    keyHint(t, 'H', 'shortcuts'),
+  ];
+}
 
 /**
  * The start's hint box: the camera controls, and while M from a former
@@ -15,6 +19,7 @@ const CAMERA_HINTS: readonly HintItem[] = [
  * on. Muted, the game starts silent with only the audio button's icon to
  * say why.
  */
-export function controlsHints(muted: boolean): HintItem[] {
-  return muted ? [...CAMERA_HINTS, { key: 'M', description: 'Sound is off' }] : [...CAMERA_HINTS];
+export function controlsHints(t: Messages, muted: boolean): HintItem[] {
+  const hints = cameraHints(t);
+  return muted ? [...hints, keyHint(t, 'M', 'soundOff')] : hints;
 }

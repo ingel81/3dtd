@@ -18,6 +18,8 @@ import { RESEARCH_TREE } from '../../configs/research/research-tree.config';
 import { heroStatus } from '../../configs/hero.config';
 import { OnboardingService } from './onboarding.service';
 import { ONBOARDING_KEY } from './onboarding';
+import { en } from '../../i18n/messages/en';
+import { tipFor } from './onboarding';
 
 const AT = { lat: 0, lon: 0 };
 const tower = (id: string) => ({ id: `t-${id}`, typeConfig: { id } }) as never;
@@ -104,7 +106,7 @@ describe('first-run tips, playtest 502 to 507', () => {
   /** The tip on screen as the box shows it, e.g. "Upgrade a tower 3/7" */
   const label = (): string | null => {
     const tip = service.tip();
-    return tip && `${tip.title} ${tip.index}/${tip.total}`;
+    return tip && `${tipFor(en, tip.step, tip.progress).title} ${tip.index}/${tip.total}`;
   };
 
   const connectNew = (): void => {
@@ -152,7 +154,7 @@ describe('first-run tips, playtest 502 to 507', () => {
 
     game.researchCheat();
     expect(label()).toBe('Use an ability 6/7');
-    expect(service.tip()!.keys).toEqual([
+    expect(tipFor(en, service.tip()!.step, service.tip()!.progress).keys).toEqual([
       { key: 'K', description: 'Nuclear Strike' },
       { key: 'F', description: 'Frost Bomb' },
       { key: 'E', description: 'EMP' },
@@ -162,7 +164,7 @@ describe('first-run tips, playtest 502 to 507', () => {
     game.startWave(4);
     game.useAbility();
     expect(label()).toBe('Hire the Mercenary 7/7');
-    expect(service.tip()!.keys.map((k) => k.key)).toEqual(['G', 'V']);
+    expect(tipFor(en, service.tip()!.step, service.tip()!.progress).keys.map((k) => k.key)).toEqual(['G', 'V']);
 
     game.hireHero();
     expect(label()).toBeNull();

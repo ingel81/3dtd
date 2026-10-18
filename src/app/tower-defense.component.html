@@ -303,7 +303,7 @@
             [counter]="tip.index + '/' + tip.total"
             [message]="tip.text"
             [hints]="tip.keys"
-            [actions]="onboardingActions"
+            [actions]="onboardingActions()"
             (actionClicked)="onOnboardingAction($event)"
           />
         } @else if (controlsHintVisible() && !introFlightActive() && hudShown() && !uiStore.mainMenuOpen()) {

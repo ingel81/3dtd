@@ -9,7 +9,8 @@ vi.mock('./boss-intro.service', () => ({ BossIntroService: class BossIntroServic
 vi.mock('../store/ui.store', () => ({ UIStore: class UIStore {} }));
 
 import { DestroyRef, Injector, runInInjectionContext, signal } from '@angular/core';
-import { CAMO_HINT, CamoHintService, camoLookAllowed } from './camo-hint.service';
+import { CamoHintService, camoLookAllowed } from './camo-hint.service';
+import { en } from '../i18n/messages/en';
 import { SimClient } from '../sim/client/sim-client.service';
 import { BotClientService } from '../bots/bot-client.service';
 import { CameraControlService } from './camera-control.service';
@@ -19,6 +20,7 @@ import { UIStore } from '../store/ui.store';
 import { GameEventBus } from '../game-engine/game-event-bus';
 import type { UiNotice } from '../store/ui.store';
 import type { EnemyView } from '../sim/client/views';
+import { provideI18n } from '../i18n/i18n.service';
 
 function setup(opts: { bot?: boolean; manned?: boolean } = {}) {
   const bus = new GameEventBus();
@@ -26,7 +28,7 @@ function setup(opts: { bot?: boolean; manned?: boolean } = {}) {
   const camera = { focusGeo: vi.fn(() => true) };
   const destroy: (() => void)[] = [];
   const injector = Injector.create({
-    providers: [
+    providers: [provideI18n(), 
       { provide: SimClient, useValue: { bus } },
       { provide: UIStore, useValue: { notice, viewOnly: () => false, mainMenuOpen: () => false } },
       { provide: BotClientService, useValue: { botEnabled: () => opts.bot === true } },
@@ -48,7 +50,7 @@ describe('CamoHintService (TODO E145)', () => {
     spawn(false);
     expect(notice()).toBeNull();
     spawn(true, true, 48.1);
-    expect(notice()).toEqual({ text: CAMO_HINT, tone: 'warn' });
+    expect(notice()).toEqual({ text: en.onboarding.camo, tone: 'warn' });
     expect(camera.focusGeo).toHaveBeenCalledWith(48.1, 9.2);
     notice.set(null);
     spawn(true, true, 48.2);
@@ -61,12 +63,12 @@ describe('CamoHintService (TODO E145)', () => {
     spawn(true, false);
     expect(notice()).toBeNull();
     spawn(true);
-    expect(notice()?.text).toBe(CAMO_HINT);
+    expect(notice()?.text).toBe(en.onboarding.camo);
     expect(camera.focusGeo).not.toHaveBeenCalled();
     notice.set(null);
     bus.emit({ type: 'game:reset' } as never);
     spawn(true);
-    expect(notice()?.text).toBe(CAMO_HINT);
+    expect(notice()?.text).toBe(en.onboarding.camo);
   });
 
   it('turns the camera only while nobody else holds it', () => {

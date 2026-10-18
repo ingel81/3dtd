@@ -55,7 +55,8 @@ import { ResearchStore } from './store/research.store';
 import { IntroCameraFlightService } from './services/world/intro-camera-flight.service';
 import { RefusalHintService } from './services/refusal-hint.service';
 import { HeroControlService } from './services/hero-control.service';
-import { OnboardingService } from './services/onboarding/onboarding.service';
+import { OnboardingService, type ActiveOnboardingTip } from './services/onboarding/onboarding.service';
+import { INITIAL_PROGRESS } from './services/onboarding/onboarding';
 import { CamoHintService } from './services/camo-hint.service';
 import { AssetManagerService } from './services/infrastructure/asset-manager.service';
 import { WhatsNewService } from './services/onboarding/whats-new.service';
@@ -136,7 +137,7 @@ function stubs() {
     photo: { trapTab: key('photo') },
     replay: { trapTab: key('replay'), recordedWave: signal(null), saveFile: vi.fn() },
     coop: { inGame: signal(false), isHost: signal(false), summary: signal(null), room: signal<object | null>(null), status: signal('idle'), intent: signal(null) },
-    onboarding: { tip: signal<string | null>('Build a tower'), skip: vi.fn(), hide: vi.fn() },
+    onboarding: { tip: signal<ActiveOnboardingTip | null>({ step: 'build-tower', progress: INITIAL_PROGRESS, index: 1, total: 7 }), skip: vi.fn(), hide: vi.fn() },
     bot: { botEnabled: signal(false), botSkillLevel: signal('normal'), botStats: signal(null), enableBot: vi.fn(), disableBot: vi.fn() },
     whatsNew: { showAfterUpdate: vi.fn() },
     benchmark: { requested: false, runIfRequested: vi.fn() },
@@ -385,7 +386,7 @@ describe('TowerDefenseComponent', () => {
     it('shows the onboarding tip only in the running game, not under the intro flight', () => {
       expect(component.onboardingTip()).toBeNull();
       s.store.loading.set(false);
-      expect(component.onboardingTip()).toBe('Build a tower');
+      expect(component.onboardingTip()?.title).toBe('Build a tower');
       s.intro.active.set(true);
       expect(component.onboardingTip()).toBeNull();
       s.intro.active.set(false);

@@ -8,17 +8,19 @@ import {
   OnboardingAction,
   OnboardingProgress,
   OnboardingState,
-  OnboardingTip,
+  OnboardingStep,
   advanceOnboarding,
   currentStep,
   loadOnboarding,
   sameProgress,
   saveOnboarding,
-  tipFor,
 } from './onboarding';
 
 /** The tip on screen with its place in the sequence */
-export interface ActiveOnboardingTip extends OnboardingTip {
+/** The tip due: its step and where it stands in the row; the game words it (tipFor) */
+export interface ActiveOnboardingTip {
+  step: OnboardingStep;
+  progress: OnboardingProgress;
   index: number;
   total: number;
 }
@@ -43,7 +45,7 @@ export class OnboardingService {
     const progress = this.progress();
     const step = currentStep(this.state(), progress);
     if (!step) return null;
-    return { ...tipFor(step, progress), index: ONBOARDING_STEPS.indexOf(step) + 1, total: ONBOARDING_STEPS.length };
+    return { step, progress, index: ONBOARDING_STEPS.indexOf(step) + 1, total: ONBOARDING_STEPS.length };
   });
 
   /**

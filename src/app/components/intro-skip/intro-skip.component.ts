@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { IntroCameraFlightService } from '../../services/world/intro-camera-flight.service';
+import { I18n } from '../../i18n/i18n.service';
 
 /**
  * Skip control for the intro camera flight.
@@ -15,7 +16,7 @@ import { IntroCameraFlightService } from '../../services/world/intro-camera-flig
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <button class="td-btn-secondary" type="button" (click)="skip()">
-      Skip intro <kbd class="td-kbd">Esc</kbd>
+      {{ t().onboarding.skipIntro }} <kbd class="td-kbd">Esc</kbd>
     </button>
   `,
   styles: [`
@@ -33,6 +34,7 @@ import { IntroCameraFlightService } from '../../services/world/intro-camera-flig
   `],
 })
 export class IntroSkipComponent {
+  protected readonly t = inject(I18n).t;
   private readonly introFlight = inject(IntroCameraFlightService);
 
   skip(): void {
